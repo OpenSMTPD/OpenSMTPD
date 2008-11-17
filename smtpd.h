@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.8 2008/11/10 23:18:47 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.9 2008/11/11 01:08:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -618,11 +618,6 @@ struct smtpd {
 
 /* aliases.c */
 int		is_alias(struct path *);
-
-/* atomic.c */
-ssize_t		atomic_read(int, void *, size_t);
-ssize_t		atomic_write(int, const void *, size_t);
-ssize_t		atomic_printfd(int, const char *, ...);
 
 /* log.c */
 void		log_init(int);
