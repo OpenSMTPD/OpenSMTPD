@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.5 2008/11/13 23:24:19 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.6 2008/11/17 21:56:18 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -506,8 +506,7 @@ smtp_setup_events(struct smtpd *env)
 		log_debug("smtp_setup_events: configuring listener: %p%s.",
 		    l, (l->flags & F_SSL)?" (with ssl)":"");
 
-		if (fcntl(l->fd, F_SETFL, O_NONBLOCK) == -1)
-			fatal("fcntl");
+		session_socket_blockmode(l->fd, BM_NONBLOCK);
 		if (listen(l->fd, l->backlog) == -1)
 			fatal("listen");
 		l->env = env;

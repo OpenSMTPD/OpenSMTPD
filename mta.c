@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.4 2008/11/10 22:35:23 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.5 2008/11/11 02:14:58 tedu Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -355,9 +355,7 @@ mta_connect(struct batch *batchp)
 		goto bad;
 	}
 
-	if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
-		goto bad;
-	}
+	session_socket_blockmode(s, BM_NONBLOCK);
 
 	if (batchp->ss[batchp->ss_off].ss_family == PF_INET) {
 		ssin = *(struct sockaddr_in *)&batchp->ss[batchp->ss_off];
