@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.2 2008/11/05 12:14:45 sobrado Exp $	*/
+/*	$OpenBSD: dns.c,v 1.3 2008/11/10 03:54:08 tedu Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -44,8 +44,6 @@ struct mxrecord {
 };
 
 static void mxsort(struct mxrecord *, size_t);
-size_t getmxbyname(char *, char ***);
-
 
 static void
 mxsort(struct mxrecord *array, size_t len)
