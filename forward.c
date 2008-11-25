@@ -1,4 +1,4 @@
-/*	$OpenBSD: forward.c,v 1.2 2008/11/05 12:14:45 sobrado Exp $	*/
+/*	$OpenBSD: forward.c,v 1.3 2008/11/17 21:32:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -41,8 +41,7 @@
 
 #include "smtpd.h"
 
-int	alias_parse(struct alias *, char *);
-int	forwards_get(struct aliaseslist *, char *);
+int alias_parse(struct alias *, char *);
 
 int
 forwards_get(struct aliaseslist *aliases, char *username)
