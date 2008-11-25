@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.12 2008/11/25 15:55:13 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.13 2008/11/25 20:26:40 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -626,7 +626,11 @@ struct smtpd {
 };
 
 /* aliases.c */
-int		is_alias(struct path *);
+int aliases_exist(struct smtpd *, char *);
+int aliases_get(struct smtpd *, struct aliaseslist *, char *);
+int aliases_virtual_exist(struct smtpd *, struct path *);
+int aliases_virtual_get(struct smtpd *, struct aliaseslist *, struct path *);
+
 
 /* log.c */
 void		log_init(int);
