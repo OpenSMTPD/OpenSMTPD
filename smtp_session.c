@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.16 2008/12/04 02:04:50 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.17 2008/12/04 04:09:55 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -738,6 +738,7 @@ read:
 			bufferevent_disable(s->s_bev, EV_READ);
 
 			if (s->s_msg.status & S_MESSAGE_PERMFAILURE) {
+				bufferevent_disable(s->s_bev, EV_WRITE);
 				evbuffer_add_printf(s->s_bev->output,
 				    "554 Transaction failed\r\n");
 
