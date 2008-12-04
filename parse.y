@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.10 2008/11/22 20:26:08 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.11 2008/11/25 20:26:40 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -238,7 +238,7 @@ main		: QUEUE INTERVAL interval	{
 
 			flags = 0;
 			if (ssl_load_certfile(conf, cert) < 0) {
-				log_warnx("warning: could not load cert: %s,"
+				log_warnx("warning: could not load cert: %s, "
 				    "no SSL/TLS support", cert);
 				if ($1 || $6 != NULL) {
 					yyerror("cannot load certificate: %s",
