@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.21 2008/12/06 04:49:52 jacekm Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.22 2008/12/06 14:30:51 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -819,7 +819,7 @@ session_destroy(struct session *s)
 		s->s_msg.datafp = NULL;
 	}
 
-	if (s->s_state > S_MAIL) {
+	if (s->s_state >= S_MAIL) {
 		imsg_compose(s->s_env->sc_ibufs[PROC_QUEUE], IMSG_QUEUE_REMOVE_MESSAGE,
 		    0, 0, -1, &s->s_msg, sizeof(s->s_msg));
 	}
