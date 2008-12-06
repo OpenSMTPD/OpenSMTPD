@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.20 2008/12/06 02:43:58 jacekm Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.21 2008/12/06 04:49:52 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -27,7 +27,6 @@
 #include <arpa/inet.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <pwd.h>

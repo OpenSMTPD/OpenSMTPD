@@ -1,4 +1,4 @@
-/*	$OpenBSD: forward.c,v 1.3 2008/11/17 21:32:23 gilles Exp $	*/
+/*	$OpenBSD: forward.c,v 1.4 2008/11/25 23:06:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -25,7 +25,6 @@
 
 #include <ctype.h>
 #include <db.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>

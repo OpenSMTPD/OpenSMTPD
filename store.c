@@ -1,4 +1,4 @@
-/*	$OpenBSD: store.c,v 1.6 2008/11/17 21:56:18 chl Exp $	*/
+/*	$OpenBSD: store.c,v 1.7 2008/12/06 14:24:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -28,7 +28,6 @@
 #include <arpa/inet.h>
 
 #include <dirent.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>

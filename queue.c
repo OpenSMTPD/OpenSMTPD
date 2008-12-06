@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.18 2008/12/03 20:08:08 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.19 2008/12/05 02:51:32 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -29,7 +29,6 @@
 #include <arpa/inet.h>
 
 #include <dirent.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
