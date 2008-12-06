@@ -1,4 +1,4 @@
-/*	$OpenBSD: parser.h,v 1.9 2007/12/20 20:15:43 reyk Exp $	*/
+/*	$OpenBSD: parser.h,v 1.1 2008/12/05 03:28:37 gilles Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -20,7 +20,9 @@ enum actions {
 	NONE,
 	SHUTDOWN,
 	RELOAD,
-	MONITOR
+	MONITOR,
+	SHOWQUEUE,
+	SHOWRUNQUEUE
 };
 
 struct parse_result {
