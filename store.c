@@ -1,4 +1,4 @@
-/*	$OpenBSD: store.c,v 1.5 2008/11/11 20:59:11 gilles Exp $	*/
+/*	$OpenBSD: store.c,v 1.6 2008/11/17 21:56:18 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -169,12 +169,12 @@ store_write_daemon(struct batch *batchp, struct message *messagep)
 
 	if (fprintf(mboxfp, "Hi !\n\n"
 		"This is the MAILER-DAEMON, please DO NOT REPLY to this e-mail it is\n"
-		"just a notification to let you know that an error has occured.\n\n") == -1)
+		"just a notification to let you know that an error has occurred.\n\n") == -1)
 		goto bad;
 
 	if ((batchp->status & S_BATCH_PERMFAILURE) && fprintf(mboxfp,
 		"You ran into a PERMANENT FAILURE, which means that the e-mail can't\n"
-		"be delivered to the remote host no matter how much I'll try.\n\n"
+		"be delivered to the remote host no matter how much I try.\n\n"
 		"Diagnostic:\n"
 		"%s\n\n", batchp->errorline) == -1)
 		goto bad;
