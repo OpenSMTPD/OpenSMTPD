@@ -1,4 +1,4 @@
-#	$OpenBSD$
+#	$OpenBSD: Makefile,v 1.1 2008/12/03 21:13:18 gilles Exp $
 
 .PATH:		${.CURDIR}/..
 
@@ -10,6 +10,6 @@ BINMODE?=555
 BINDIR=	/usr/bin
 MAN=	newaliases.8
 
-SRCS=	newaliases.c aliases.c map.c log.c
+SRCS=	newaliases.c aliases.c map.c log.c util.c
 LDFLAGS=	-lutil
 .include <bsd.prog.mk>
