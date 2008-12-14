@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.26 2008/12/14 19:16:06 jacekm Exp $	*/
+/*	$OpenBSD: queue.c,v 1.27 2008/12/14 19:20:59 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -997,7 +997,7 @@ queue_record_envelope(struct message *messagep)
 	char evpname[MAXPATHLEN];
 	char message_uid[MAXPATHLEN];
 	int fd;
-	int mode = O_CREAT|O_TRUNC|O_WRONLY|O_EXCL|O_SYNC;
+	int mode = O_CREAT|O_WRONLY|O_EXCL|O_SYNC;
 	FILE *fp;
 	int ret;
 	u_int16_t hval;
