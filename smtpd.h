@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.26 2008/12/13 13:15:38 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.27 2008/12/13 23:19:34 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -49,6 +49,8 @@
 
 #define PATH_INCOMING		"/incoming"
 #define PATH_QUEUE		"/queue"
+#define PATH_PURGE		"/purge"
+
 #define PATH_MESSAGE		"/message"
 #define PATH_ENVELOPES		"/envelopes"
 
