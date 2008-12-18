@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.29 2008/12/18 23:38:12 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.30 2008/12/18 23:49:56 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -766,3 +766,4 @@ struct map	*map_findbyname(struct smtpd *, const char *);
 /* util.c */
 int		bsnprintf(char *, size_t, const char *, ...)
     __attribute__ ((format (printf, 3, 4)));
+int		safe_fclose(FILE *);
