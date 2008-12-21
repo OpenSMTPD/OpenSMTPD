@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.8 2008/12/03 17:58:00 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.9 2008/12/13 23:19:34 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -178,7 +178,7 @@ smtp_dispatch_parent(int sig, short event, void *p)
 			if (reply->value)
 				s->s_flags |= F_AUTHENTICATED;
 
-			session_pickup(s, NULL);
+			session_auth_pickup(s, NULL);
 
 			break;
 		}

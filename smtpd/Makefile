@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.2 2008/12/05 02:51:32 gilles Exp $
+#	$OpenBSD: Makefile,v 1.3 2008/12/11 22:17:11 gilles Exp $
 
 PROG=		smtpd
 SRCS=		parse.y log.c config.c buffer.c imsg.c			\
@@ -9,7 +9,7 @@ SRCS=		parse.y log.c config.c buffer.c imsg.c			\
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
 
-LDADD=		-levent -lutil -lssl -lcrypto
+LDADD=		-levent -lutil -lssl -lcrypto -lkeynote -lm
 DPADD=		${LIBEVENT} ${LIBSSL} ${LIBCRYPTO}
 CFLAGS=		-g3 -ggdb -I${.CURDIR}/..
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
