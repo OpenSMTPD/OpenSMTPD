@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.19 2008/12/05 02:51:32 gilles Exp $	*/
+/*	$OpenBSD: showqueue.c,v 1.1 2008/12/06 02:44:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -153,8 +153,6 @@ show_runqueue(int flags)
 {
 	DIR *dirp;
 	struct dirent *dp;
-	u_int16_t bucket;
-	const char *errstr;
 	char pathname[MAXPATHLEN];
 	FILE *fp;
 	struct message envelope;
@@ -212,7 +210,7 @@ display_envelope(struct message *envelope, int flags)
 		printf("UNKNOWN");
 	}
 
-	printf("|%s|%s@%s|%s@%s|%llu|%u\n",
+	printf("|%s|%s@%s|%s@%s|%d|%u\n",
 	    envelope->message_uid,
 	    envelope->sender.user, envelope->sender.domain,
 	    envelope->recipient.user, envelope->recipient.domain,
