@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.34 2008/12/21 02:18:46 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.35 2008/12/26 10:28:31 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -702,6 +702,7 @@ int		 batch_cmp(struct batch *, struct batch *);
 struct batch    *batch_by_id(struct smtpd *, u_int64_t);
 struct message	*message_by_id(struct smtpd *, struct batch *, u_int64_t);
 int		 queue_remove_batch_message(struct smtpd *, struct batch *, struct message *);
+u_int16_t	 queue_hash(char *);
 
 /* mda.c */
 pid_t		 mda(struct smtpd *);
