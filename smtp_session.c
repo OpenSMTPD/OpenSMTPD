@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.36 2008/12/22 00:44:32 jacekm Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.37 2008/12/22 13:21:39 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -31,11 +31,9 @@
 #include <event.h>
 #include <pwd.h>
 #include <regex.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <keynote.h>
