@@ -1,4 +1,4 @@
-/*	$OpenBSD: forward.c,v 1.6 2008/12/13 13:15:38 jacekm Exp $	*/
+/*	$OpenBSD: forward.c,v 1.7 2009/01/01 16:15:47 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 
@@ -40,10 +41,10 @@ forwards_get(struct aliaseslist *aliases, char *username)
 	struct alias alias;
 	struct alias *aliasp;
 	char	pathname[MAXPATHLEN];
-	struct passwd *pw;
 	char *buf, *lbuf;
 	size_t len;
 	struct stat sb;
+	struct passwd *pw;
 
 	pw = getpwnam(username);
 	if (pw == NULL)
