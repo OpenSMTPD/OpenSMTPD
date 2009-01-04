@@ -1,4 +1,4 @@
-/*	$OpenBSD: parser.h,v 1.3 2008/12/27 16:45:01 jacekm Exp $	*/
+/*	$OpenBSD: parser.h,v 1.4 2009/01/04 19:37:41 gilles Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -25,8 +25,10 @@ enum actions {
 	SHOW_RUNQUEUE,
 	PAUSE_MDA,
 	PAUSE_MTA,
+	PAUSE_SMTP,
 	RESUME_MDA,
 	RESUME_MTA,
+	RESUME_SMTP,
 };
 
 struct parse_result {
