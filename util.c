@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.4 2009/01/01 16:15:47 jacekm Exp $	*/
+/*	$OpenBSD: util.c,v 1.5 2009/01/04 17:45:58 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -25,6 +25,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -64,6 +65,17 @@ safe_fclose(FILE *fp)
 		fatal("safe_fclose: fclose");
 
 	return 1;
+}
+
+struct passwd *
+safe_getpwnam(const char *name)
+{
+	struct passwd *ret;
+
+	ret = getpwnam(name);
+	endpwent();
+
+	return ret;
 }
 
 int

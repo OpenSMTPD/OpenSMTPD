@@ -1,4 +1,4 @@
-/*	$OpenBSD: forward.c,v 1.8 2009/01/04 00:58:59 gilles Exp $	*/
+/*	$OpenBSD: forward.c,v 1.9 2009/01/07 00:26:30 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -47,7 +47,7 @@ forwards_get(struct aliaseslist *aliases, char *username)
 	struct passwd *pw;
 	size_t nbaliases = 0;
 
-	pw = getpwnam(username);
+	pw = safe_getpwnam(username);
 	if (pw == NULL)
 		return 0;
 
