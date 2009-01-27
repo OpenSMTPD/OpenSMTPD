@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.21 2009/01/06 23:02:07 jacekm Exp $	*/
+/*	$OpenBSD: runner.c,v 1.22 2009/01/08 19:15:23 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -347,7 +347,6 @@ runner_shutdown(void)
 void
 runner_setup_events(struct smtpd *env)
 {
-
 	struct timeval	 tv;
 
 	evtimer_set(&env->sc_ev, runner_timeout, env);
