@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.21 2009/01/04 16:40:58 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.22 2009/01/14 23:36:52 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -688,7 +688,7 @@ action		: DELIVER TO MAILDIR STRING	{
 				fatal("hostname too long");
 
 			if ($5 == 0)
-				rule->r_value.relayhost.port = 25;
+				rule->r_value.relayhost.port = 0;
 			else
 				rule->r_value.relayhost.port = $5;
 
