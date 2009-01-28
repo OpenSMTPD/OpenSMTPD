@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.39 2009/01/04 00:58:59 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.40 2009/01/12 19:56:27 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -456,6 +456,8 @@ session_rfc5321_rcpt_handler(struct session *s, char *args)
 		session_respond(s, "553 Recipient address syntax error");
 		return 1;
 	}
+
+	s->s_msg.session_rcpt = mr.path;
 
 	mr.id = s->s_msg.id;
 	s->s_state = S_RCPTREQUEST;
