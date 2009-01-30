@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.64 2009/01/30 17:34:58 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.65 2009/01/30 20:11:13 form Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -655,7 +655,9 @@ struct s_runner {
 };
 
 struct s_smtp {
-	size_t		clients;
+	size_t		sessions;
+	size_t		ssmtp;
+	size_t		starttls;
 };
 
 struct stats {
