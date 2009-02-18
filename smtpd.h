@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.71 2009/02/15 13:12:19 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.72 2009/02/17 23:43:57 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -897,3 +897,5 @@ struct passwd 	*safe_getpwnam(const char *);
 struct passwd 	*safe_getpwuid(uid_t);
 int		 hostname_match(char *, char *);
 int		 recipient_to_path(struct path *, char *);
+int		 valid_localpart(char *);
+int		 valid_domainpart(char *);
