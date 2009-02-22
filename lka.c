@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.24 2009/02/18 12:06:01 jacekm Exp $	*/
+/*	$OpenBSD: lka.c,v 1.25 2009/02/22 11:44:29 form Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -30,6 +30,7 @@
 #include <event.h>
 #include <netdb.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

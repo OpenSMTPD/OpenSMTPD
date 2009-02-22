@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.26 2009/02/18 00:29:52 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.27 2009/02/22 11:44:29 form Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <event.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
