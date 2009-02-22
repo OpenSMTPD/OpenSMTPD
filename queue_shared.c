@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_shared.c,v 1.10 2009/02/22 11:44:29 form Exp $	*/
+/*	$OpenBSD: queue_shared.c,v 1.11 2009/02/22 11:55:17 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -624,6 +624,8 @@ walk_queue(struct qwalk *q, char *fname)
 
 	switch (q->level) {
 	case 0:
+		if (strcmp(fname, "envelope.tmp") == 0)
+			return (QWALK_AGAIN);
 		q->bucket = strtonum(fname, 0, DIRHASH_BUCKETS - 1, &errstr);
 		if (errstr) {
 			log_warnx("walk_queue: invalid bucket: %s", fname);
