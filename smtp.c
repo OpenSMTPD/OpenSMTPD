@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.27 2009/02/22 11:44:29 form Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.28 2009/02/22 19:07:33 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.30 2009/02/15 10:32:23 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.31 2009/02/22 11:44:29 form Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <keynote.h>
