@@ -189,6 +189,7 @@ enum imsg_type {
 
 	IMSG_RUNNER_UPDATE_ENVELOPE,
 	IMSG_RUNNER_STATS,
+	IMSG_RUNNER_SCHEDULE,
 
 	IMSG_BATCH_CREATE,
 	IMSG_BATCH_APPEND,
@@ -415,7 +416,8 @@ enum message_flags {
 	F_MESSAGE_SCHEDULED	= 0x2,
 	F_MESSAGE_PROCESSING	= 0x4,
 	F_MESSAGE_AUTHENTICATED	= 0x8,
-	F_MESSAGE_ENQUEUED	= 0x10
+	F_MESSAGE_ENQUEUED	= 0x10,
+	F_MESSAGE_FORCESCHEDULE	= 0x20
 };
 
 struct message {
@@ -679,6 +681,12 @@ struct stats {
 		struct s_runner	runner;
 		struct s_smtp	smtp;
 	}			u;
+};
+
+struct sched {
+	int			fd;
+	char			mid[MAX_ID_SIZE];
+	int			ret;
 };
 
 struct submit_status {
