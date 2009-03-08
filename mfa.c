@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.15 2009/02/22 19:07:33 chl Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.16 2009/03/08 17:54:20 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -587,5 +587,3 @@ strip_source_route(char *buf, size_t len)
 
 	return 0;
 }
-
-SPLAY_GENERATE(msgtree, message, nodes, msg_cmp);
