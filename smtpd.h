@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.90 2009/03/10 22:33:26 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.91 2009/03/12 11:08:26 pea Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -458,7 +458,6 @@ struct message {
 	enum message_flags		 flags;
 	enum message_status		 status;
 
-	FILE				*datafp;
 	int				 mboxfd;
 	int				 messagefd;
 };
@@ -616,6 +615,8 @@ struct session {
 
 	struct batch			*batch;
 	TAILQ_HEAD(mxhostlist, mxhost) mxhosts;
+
+	FILE				*datafp;
 };
 
 struct smtpd {
