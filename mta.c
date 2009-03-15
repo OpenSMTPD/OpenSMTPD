@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.33 2009/03/10 22:33:26 jacekm Exp $	*/
+/*	$OpenBSD: mta.c,v 1.34 2009/03/12 11:08:26 pea Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -367,7 +367,6 @@ mta_dispatch_runner(int sig, short event, void *p)
 			    sizeof(batchp->session_helo));
 
  			TAILQ_INSERT_TAIL(&batchp->messages, messagep, entry);
-
 			break;
 		}
 		case IMSG_BATCH_CLOSE: {
@@ -1081,4 +1080,5 @@ mta_batch_update_queue(struct batch *batchp)
 		fclose(batchp->messagefp);
 
 	free(batchp);
+
 }
