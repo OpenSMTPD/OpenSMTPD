@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.93 2009/03/15 19:15:25 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.94 2009/03/15 19:32:11 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -336,6 +336,7 @@ struct opt {
 };
 
 enum action_type {
+	A_INVALID,
 	A_RELAY,
 	A_RELAYVIA,
 	A_MAILDIR,
