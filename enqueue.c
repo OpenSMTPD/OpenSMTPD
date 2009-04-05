@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.9 2009/02/22 11:44:29 form Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.10 2009/03/01 12:10:24 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -80,7 +80,8 @@ enqueue(int argc, char *argv[])
 			    >= sizeof(sender))
 				errx(1, "sender address too long.");
 			break;
-		case 'i':
+		case 'i': /* ignore, interface compatibility */
+		case 'o':
 			break;
 		default:
 			usage();
