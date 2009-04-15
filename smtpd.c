@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.51 2009/03/29 14:18:20 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.52 2009/04/03 05:20:17 oga Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -747,7 +747,6 @@ main(int argc, char *argv[])
 	control_pid = control(&env);
 	runner_pid = runner(&env);
 
-	setproctitle("parent");
 	SPLAY_INIT(&env.mdaproc_queue);
 
 	s_parent.start = time(NULL);
