@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: enqueue.c,v 1.12 2009/04/16 15:35:06 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -691,7 +691,8 @@ send_message(int noheader)
 	if (noheader)
 		femail_write("\r\n", 2);
 
-	femail_write(msg.data, msg.len);
+	if (msg.data != NULL)
+		femail_write(msg.data, msg.len);
 }
 
 void
