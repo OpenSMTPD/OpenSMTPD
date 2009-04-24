@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.18 2009/03/10 01:25:42 jacekm Exp $	*/
+/*	$OpenBSD: util.c,v 1.19 2009/03/12 11:08:26 pea Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -370,4 +370,19 @@ addargs(arglist *args, char *fmt, ...)
 	args->nalloc = nalloc;
 	args->list[args->num++] = cp;
 	args->list[args->num] = NULL;
+}
+
+void
+lowercase(char *buf, char *s, size_t len)
+{
+	if (len == 0)
+		fatalx("lowercase: len == 0");
+
+	if (strlcpy(buf, s, len) >= len)
+		fatalx("lowercase: truncation");
+
+	while (*buf != '\0') {
+		*buf = tolower(*buf);
+		buf++;
+	}
 }
