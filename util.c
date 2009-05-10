@@ -1,8 +1,9 @@
-/*	$OpenBSD: util.c,v 1.19 2009/03/12 11:08:26 pea Exp $	*/
+/*	$OpenBSD: util.c,v 1.20 2009/04/24 10:02:35 jacekm Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
+ * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
