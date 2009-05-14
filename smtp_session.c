@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.85 2009/05/10 13:06:23 jacekm Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.86 2009/05/10 14:24:19 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -543,7 +543,7 @@ void
 session_auth_pickup(struct session *s, char *arg, size_t nr)
 {
 	if (s == NULL)
-		fatal("session_pickup: desynchronized");
+		fatal("session_auth_pickup: desynchronized");
 
 	bufferevent_enable(s->s_bev, EV_READ);
 
