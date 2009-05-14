@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.23 2009/04/28 21:27:25 jacekm Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.24 2009/04/28 23:11:25 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -347,8 +347,8 @@ mfa(struct smtpd *env)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(env, peers, 4);
-	config_peers(env, peers, 4);
+	config_pipes(env, peers, nitems(peers));
+	config_peers(env, peers, nitems(peers));
 
 	mfa_setup_events(env);
 	event_dispatch();
