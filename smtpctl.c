@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.24 2009/04/23 08:28:45 jacekm Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.25 2009/05/18 20:23:35 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -169,7 +169,7 @@ connected:
 		imsg_compose(ibuf, IMSG_MDA_RESUME, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MTA:
-		imsg_compose(ibuf, IMSG_MDA_RESUME, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_MTA_RESUME, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_SMTP:
 		imsg_compose(ibuf, IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
