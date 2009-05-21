@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.28 2009/05/20 14:36:55 gilles Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.29 2009/05/20 16:07:26 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -635,7 +635,7 @@ mfa_check_source(struct map *map, struct sockaddr_storage *ss)
 		if (ss->ss_family != me->me_key.med_addr.ss.ss_family)
 			continue;
 
-		if (ss->ss_len == me->me_key.med_addr.ss.ss_len)
+		if (ss->ss_len != me->me_key.med_addr.ss.ss_len)
 			continue;
 
 		if (mfa_match_mask(ss, &me->me_key.med_addr))
