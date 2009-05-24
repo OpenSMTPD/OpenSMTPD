@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.28 2009/05/20 16:07:26 gilles Exp $	*/
+/*	$OpenBSD: control.c,v 1.29 2009/05/24 14:22:23 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -144,8 +144,8 @@ control(struct smtpd *env)
 #warning disabling privilege revocation and chroot in DEBUG MODE
 #endif
 
-	setproctitle("control process");
 	smtpd_process = PROC_CONTROL;
+	setproctitle("%s", env->sc_title[smtpd_process]);
 
 #ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||

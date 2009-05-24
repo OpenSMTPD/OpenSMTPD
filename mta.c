@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.47 2009/05/14 15:05:12 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.48 2009/05/19 11:24:24 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -500,8 +500,8 @@ mta(struct smtpd *env)
 #warning disabling privilege revocation and chroot in DEBUG MODE
 #endif
 
-	setproctitle("mail transfer agent");
 	smtpd_process = PROC_MTA;
+	setproctitle("%s", env->sc_title[smtpd_process]);
 
 #ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
