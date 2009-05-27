@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.116 2009/05/25 14:00:36 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.117 2009/05/27 13:09:07 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -89,7 +89,8 @@
 	((s)->s_l->flags & F_STARTTLS && !((s)->s_flags & F_SECURE))
 
 #define ADVERTISE_AUTH(s) \
-	((s)->s_l->flags & F_AUTH && ((s)->s_flags & F_SECURE))
+	((s)->s_l->flags & F_AUTH && (s)->s_flags & F_SECURE && \
+	 !((s)->s_flags & F_AUTHENTICATED))
 
 struct netaddr {
 	struct sockaddr_storage ss;
