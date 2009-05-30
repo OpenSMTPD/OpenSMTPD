@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.27 2009/05/24 14:22:24 jacekm Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.28 2009/05/27 13:09:07 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -269,6 +269,9 @@ show_stats_output(struct imsg *imsg)
 		errx(1, "show_stats_output: bad data size");
 
 	stats = imsg->data;
+
+	printf("mta.sessions=%zd\n", stats->smtp.sessions);
+	printf("mta.sessions.active=%zd\n", stats->mta.sessions_active);
 
 	printf("parent.uptime=%d\n", time(NULL) - stats->parent.start);
 
