@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.16 2009/04/24 10:02:35 jacekm Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.17 2009/05/10 11:29:40 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -75,7 +75,7 @@ purge_config(struct smtpd *env, u_int8_t what)
 }
 
 int
-ssl_load_certfile(struct smtpd *env, const char *name)
+ssl_load_certfile(struct smtpd *env, const char *name, u_int8_t flags)
 {
 	return (0);
 }
