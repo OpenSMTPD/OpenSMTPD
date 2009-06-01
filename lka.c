@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.52 2009/06/01 13:20:56 jacekm Exp $	*/
+/*	$OpenBSD: lka.c,v 1.53 2009/06/01 18:24:01 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -278,7 +278,9 @@ lka_dispatch_parent(int sig, short event, void *p)
 					alias_parse(alias, fwreq->pw_name);
 
 					message = lkasession->message;
-					bzero(&message.recipient, sizeof(struct path));			
+					bzero(&message.recipient, sizeof(struct path));
+					strlcpy(message.recipient.domain, lkasession->path.domain,
+					    sizeof(message.recipient.domain));
 					lka_resolve_alias(env, &message.recipient, alias);
 					lka_rcpt_action(env, &message.recipient);
 
