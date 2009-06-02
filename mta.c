@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.54 2009/05/31 18:34:48 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.55 2009/06/01 13:20:56 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -129,7 +129,7 @@ mta_dispatch_parent(int sig, short event, void *p)
 			    (sizeof(*s) + s->ssl_cert_len))) == NULL)
 				fatal(NULL);
 
-			SPLAY_INSERT(ssltree, &env->sc_ssl, s);
+			SPLAY_INSERT(ssltree, env->sc_ssl, s);
 			break;
 		}
 		case IMSG_CONF_END:
