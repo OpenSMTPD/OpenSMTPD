@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.28 2009/05/27 13:09:07 jacekm Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.29 2009/05/30 16:30:33 gilles Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -102,7 +102,7 @@ main(int argc, char *argv[])
 	/* parse options */
 	if (strcmp(__progname, "sendmail") == 0 || strcmp(__progname, "send-mail") == 0)
 		sendmail = 1;
-	else {
+	else if (strcmp(__progname, "smtpctl") == 0) {
 		/* check for root privileges */
 		if (geteuid())
 			errx(1, "need root privileges");
@@ -122,7 +122,8 @@ main(int argc, char *argv[])
 			goto connected;
 		}
 		return 0;
-	}
+	} else
+		errx(1, "unsupported mode");
 
 connected:
 	/* connect to relayd control socket */
