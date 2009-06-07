@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.58 2009/06/05 20:43:57 pyr Exp $	*/
+/*	$OpenBSD: lka.c,v 1.59 2009/06/06 04:14:21 pyr Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -228,7 +228,7 @@ lka_dispatch_parent(int sig, short event, void *p)
 			lkasession = SPLAY_FIND(lkatree, &env->lka_sessions, &key);
 			if (lkasession == NULL)
 				fatal("lka_dispatch_parent: lka session is gone");
-			fd = imsg_get_fd(ibuf);
+			fd = imsg.fd;
 			--lkasession->pending;
 
 			if (fd == -1) {

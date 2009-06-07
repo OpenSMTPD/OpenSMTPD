@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.33 2009/06/05 20:43:57 pyr Exp $	*/
+/*	$OpenBSD: control.c,v 1.34 2009/06/06 04:14:21 pyr Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -794,7 +794,7 @@ control_dispatch_smtp(int sig, short event, void *p)
 			}
 
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0,
-			    imsg_get_fd(ibuf), NULL, 0);
+			    imsg.fd, NULL, 0);
 			break;
 		}
 		default:
