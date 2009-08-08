@@ -1,4 +1,4 @@
-/*	$OpenBSD: parser.c,v 1.6 2009/01/29 21:59:15 jacekm Exp $	*/
+/*	$OpenBSD: parser.c,v 1.7 2009/02/24 12:07:47 gilles Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
+#include <sys/param.h>
 
 #include <net/if.h>
 #include <netinet/in.h>

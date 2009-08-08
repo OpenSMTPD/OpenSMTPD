@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.30 2009/06/06 03:22:21 jacekm Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.31 2009/06/06 04:14:21 pyr Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -24,6 +24,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/un.h>
+#include <sys/param.h>
 
 #include <net/if.h>
 #include <net/if_media.h>
