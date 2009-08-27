@@ -1,3 +1,5 @@
+/*	$OpenBSD$	*/
+
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  * Copyright (c) 2002, 2003 Niels Provos <provos@citi.umich.edu>
