@@ -1,4 +1,4 @@
-/*	$OpenBSD: store.c,v 1.25 2009/08/08 00:02:22 gilles Exp $	*/
+/*	$OpenBSD: store.c,v 1.26 2009/08/18 18:38:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -149,12 +149,7 @@ store_message(struct batch *batchp, struct message *messagep)
 	if (fstat(batchp->sessionp->mboxfd, &sb) == -1)
 		return 0;
 
-	if (! store_write_message(batchp, messagep)) {
-		if (S_ISREG(sb.st_mode)) {
-			ftruncate(batchp->sessionp->mboxfd, sb.st_size);
-			return 0;
-		}
+	if (! store_write_message(batchp, messagep))
 		return 0;
-	}
 	return 1;
 }
