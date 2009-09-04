@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.5 2009/08/06 16:26:39 gilles Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.6 2009/08/27 11:37:30 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -138,7 +138,11 @@ bounce_event(int fd, short event, void *p)
 		break;
 	case CLIENT_ERROR:
 		message_set_errormsg(&cc->m, "SMTP error: %s", ep);
-		message_reset_flags(&cc->m);
+		if (*ep == '5')
+			cc->m.status = S_MESSAGE_PERMFAILURE;
+		else
+			cc->m.status = S_MESSAGE_TEMPFAILURE;
+		queue_message_update(&cc->m);
 		break;
 	}
 	client_close(cc->sp);
