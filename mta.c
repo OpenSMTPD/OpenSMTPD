@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.69 2009/08/26 16:40:19 jacekm Exp $	*/
+/*	$OpenBSD: mta.c,v 1.70 2009/09/03 08:19:13 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -807,6 +807,7 @@ mta_reply_handler(struct bufferevent *bev, void *arg)
 	case 421:
 	case 450:
 	case 451:
+	case 452:
 		strlcpy(batchp->errorline, line, sizeof(batchp->errorline));
 		mta_batch_update_queue(batchp);
 		session_destroy(sessionp);
