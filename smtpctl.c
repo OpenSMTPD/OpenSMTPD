@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.34 2009/08/27 11:38:50 jacekm Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.35 2009/09/02 12:47:06 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -282,7 +282,8 @@ show_stats_output(struct imsg *imsg)
 	printf("runner.active=%zd\n", stats->runner.active);
 
 	printf("smtp.errors.delays=%zd\n", stats->smtp.delays);
-	printf("smtp.errors.linetoolong=%zd\n", stats->smtp.linetoolong);
+	printf("smtp.errors.cmdlinetoolong=%zd\n", stats->smtp.cmdlinetoolong);
+	printf("smtp.errors.datalinetoolong=%zd\n", stats->smtp.datalinetoolong);
 	printf("smtp.errors.read_eof=%zd\n", stats->smtp.read_eof);
 	printf("smtp.errors.read_system=%zd\n", stats->smtp.read_error);
 	printf("smtp.errors.read_timeout=%zd\n", stats->smtp.read_timeout);
