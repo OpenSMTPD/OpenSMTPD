@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.7 2009/09/04 18:50:43 jacekm Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.8 2009/09/15 16:50:06 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -126,7 +126,10 @@ bounce_event(int fd, short event, void *p)
 
 	if (event & EV_TIMEOUT) {
 		message_set_errormsg(&cc->m, "150 timeout");
+		cc->m.status = S_MESSAGE_TEMPFAILURE;
 		queue_message_update(&cc->m);
+		client_close(cc->sp);
+		free(cc);
 		return;
 	}
 
