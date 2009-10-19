@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.c,v 1.6 2009/09/22 15:44:31 jacekm Exp $	*/
+/*	$OpenBSD: client.c,v 1.7 2009/10/03 10:02:43 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -315,7 +315,7 @@ client_data_fd(struct smtp_client *sp, int fd)
 
 	if (fstat(fd, &sb) == -1)
 		goto done;
-	if (sb.st_size > SIZE_T_MAX)
+	if ((size_t)sb.st_size > SIZE_T_MAX)
 		goto done;
 	if (!S_ISREG(sb.st_mode))
 		goto done;
