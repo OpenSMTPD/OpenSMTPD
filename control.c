@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.37 2009/09/15 16:50:06 jacekm Exp $	*/
+/*	$OpenBSD: control.c,v 1.38 2009/09/18 00:04:26 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -348,6 +348,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			imsg_compose_event(env->sc_ievs[PROC_RUNNER], IMSG_RUNNER_SCHEDULE, 0, 0, -1, s, sizeof(*s));
 			break;
 		}
+/*
 		case IMSG_CONF_RELOAD: {
 			struct reload r;
 
@@ -367,6 +368,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			imsg_compose_event(env->sc_ievs[PROC_PARENT], IMSG_CONF_RELOAD, 0, 0, -1, &r, sizeof(r));
 			break;
 		}
+*/
 		case IMSG_CTL_SHUTDOWN:
 			/* NEEDS_FIX */
 			log_debug("received shutdown request");
