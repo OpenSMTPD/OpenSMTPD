@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.c,v 1.7 2009/10/03 10:02:43 jacekm Exp $	*/
+/*	$OpenBSD: client.c,v 1.8 2009/10/19 19:53:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -91,7 +91,7 @@ client_init(int fd, char *ehlo)
 
 	rv = 0;
 done:
-	if (rv) {
+	if (rv && sp != NULL) {
 		free(sp->ehlo);
 		free(sp->sender);
 		if (sp->data)
