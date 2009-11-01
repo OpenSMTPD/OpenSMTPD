@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.67 2009/09/04 19:11:32 jacekm Exp $	*/
+/*	$OpenBSD: runner.c,v 1.68 2009/10/12 22:34:37 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -465,7 +465,7 @@ runner_dispatch_smtp(int sig, short event, void *p)
 void
 runner_shutdown(void)
 {
-	log_info("runner handler");
+	log_info("runner handler exiting");
 	_exit(0);
 }
 

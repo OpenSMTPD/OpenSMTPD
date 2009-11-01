@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.70 2009/09/15 16:50:06 jacekm Exp $	*/
+/*	$OpenBSD: queue.c,v 1.71 2009/10/12 22:34:37 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -506,7 +506,7 @@ queue_dispatch_runner(int sig, short event, void *p)
 void
 queue_shutdown(void)
 {
-	log_info("queue handler");
+	log_info("queue handler exiting");
 	_exit(0);
 }
 
