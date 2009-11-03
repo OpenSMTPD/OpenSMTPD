@@ -1,4 +1,4 @@
-/*	$OpenBSD: map.c,v 1.5 2009/03/06 23:38:18 gilles Exp $	*/
+/*	$OpenBSD: map.c,v 1.6 2009/05/13 21:20:55 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -57,7 +57,7 @@ map_find(struct smtpd *env, objid_t id)
 }
 
 char *
-map_dblookup(struct smtpd *env, char *mapname, char *keyname)
+map_dblookup(struct smtpd *env, objid_t mapid, char *keyname)
 {
 	int ret;
 	DBT key;
@@ -66,12 +66,12 @@ map_dblookup(struct smtpd *env, char *mapname, char *keyname)
 	struct map *map;
 	char *result = NULL;
 
-	map = map_findbyname(env, mapname);
+	map = map_find(env, mapid);
 	if (map == NULL)
 		return NULL;
 
 	if (map->m_src != S_DB) {
-		log_warn("invalid map type for map \"%s\"", mapname);
+		log_warn("invalid map type for map %d", map->m_id);
 		return NULL;
 	}
 
@@ -85,7 +85,7 @@ map_dblookup(struct smtpd *env, char *mapname, char *keyname)
 	key.size = strlen(key.data) + 1;
 
 	if ((ret = db->get(db, &key, &val, 0)) == -1) {
-		log_warn("map_dblookup: map '%s'", mapname);
+		log_warn("map_dblookup: map '%d'", map->m_id);
 		db->close(db);
 		return NULL;
 	}
@@ -100,4 +100,16 @@ map_dblookup(struct smtpd *env, char *mapname, char *keyname)
 	db->close(db);
 
 	return ret == 0 ? result : NULL;
+}
+
+char *
+map_dblookupbyname(struct smtpd *env, char *mapname, char *keyname)
+{
+	struct map *map;
+
+	map = map_findbyname(env, mapname);
+	if (map == NULL)
+		return NULL;
+
+	return map_dblookup(env, map->m_id, keyname);
 }

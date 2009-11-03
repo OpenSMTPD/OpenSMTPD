@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.43 2009/10/19 21:09:55 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.44 2009/11/03 20:55:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -505,6 +505,7 @@ mapref		: STRING			{
 				fatal("snprintf");
 			m->m_flags |= F_DYNAMIC|F_USED;
 			m->m_type = T_SINGLE;
+			m->m_src = S_NONE;
 
 			TAILQ_INIT(&m->m_contents);
 
