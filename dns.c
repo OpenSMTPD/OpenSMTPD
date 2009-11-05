@@ -367,9 +367,10 @@ again:
 		switch (h_errno) {
 		case TRY_AGAIN:
 			return (EAI_AGAIN);
+		case HOST_NOT_FOUND:
+			return (EAI_NONAME);
 		case NO_RECOVERY:
 			return (EAI_FAIL);
-		case HOST_NOT_FOUND:
 		case NO_DATA:
 			*res = NULL;
 			return (0);
