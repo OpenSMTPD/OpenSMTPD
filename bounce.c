@@ -55,6 +55,7 @@ bounce_session(struct smtpd *env, int fd, struct message *messagep)
 {
 	struct client_ctx	*cc = NULL;
 	int			 msgfd = -1;
+	char			*reason;
 
 	/* init smtp session */
 	if ((cc = calloc(1, sizeof(*cc))) == NULL)
@@ -71,6 +72,11 @@ bounce_session(struct smtpd *env, int fd, struct message *messagep)
 	    messagep->sender.domain) < 0)
 		goto fail;
 
+	/* Construct an appropriate reason line. */
+	reason = messagep->session_errorline;
+	if (strlen(reason) > 4 && (*reason == '1' || *reason == '6'))
+		reason += 4;
+	
 	/* create message header */
 	if (client_data_printf(cc->sp,
 	    "Subject: Delivery status notification\n"
@@ -91,7 +97,7 @@ bounce_session(struct smtpd *env, int fd, struct message *messagep)
 	    env->sc_hostname,
 	    messagep->sender.user, messagep->sender.domain,
 	    messagep->recipient.user, messagep->recipient.domain,
-	    messagep->session_errorline) < 0)
+	    reason) < 0)
 		goto fail;
 
 	/* append original message */
