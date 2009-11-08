@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.71 2009/10/12 22:34:37 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.72 2009/11/01 22:15:27 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -410,7 +410,7 @@ queue_dispatch_lka(int sig, short event, void *p)
 
 			IMSG_SIZE_CHECK(messagep);
 
-			messagep->id = queue_generate_id();
+			messagep->id = generate_uid();
 			ss.id = messagep->session_id;
 
 			if (IS_MAILBOX(messagep->recipient) ||
