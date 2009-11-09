@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: expand.c,v 1.1 2009/11/08 23:15:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -46,7 +46,8 @@ void
 expandtree_insert(struct expandtree *expandtree, struct expand_node *node)
 {
 	node->id = generate_uid();
-	RB_INSERT(expandtree, expandtree, node);
+	if (RB_INSERT(expandtree, expandtree, node))
+		fatalx("expandtree_insert: node already exists");
 }
 
 void
