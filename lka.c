@@ -961,15 +961,6 @@ lka_resolve_path(struct smtpd *env, struct lkasession *lkasession, struct path *
 		return 1;
 	}
 
-	/*
-			else if (path->flags & F_PATH_VIRTUAL) {
-				if (! aliases_virtual_get(env, ss->u.path.cond->c_map,
-					&lkasession->expandtree, &ss->u.path))
-					err = 1;
-			}
-	 */
-
-
 	switch (path->cond->c_type) {
 	case C_ALL:
 	case C_NET:
