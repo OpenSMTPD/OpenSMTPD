@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.29 2009/09/04 16:28:42 jacekm Exp $	*/
+/*	$OpenBSD: mda.c,v 1.30 2009/09/23 09:40:39 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"

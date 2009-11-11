@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.8 2009/09/15 16:50:06 jacekm Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.11 2009/11/05 12:08:41 jsing Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"
