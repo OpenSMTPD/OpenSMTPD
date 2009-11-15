@@ -1,0 +1,43 @@
+D/src////
+/ARCHITECTURE/1.2/Sat Nov  8 15:59:27 2008//
+/buffer.c/1.1/Sat Nov  8 15:59:27 2008//
+/ssl_privsep.c/1.2/Tue Nov 11 00:56:16 2008//
+/imsg.c/1.2/Result of merge//
+/log.c/1.3/Result of merge//
+D/makemap////
+D/newaliases////
+D/smtpctl////
+D/smtpd////
+/smtpd.8/1.4/Sat Dec 13 14:59:26 2008//
+/Makefile/1.8/Result of merge+Thu Dec 18 21:38:52 2008//
+/aliases.c/1.16/Result of merge+Sun Feb 22 12:33:48 2009//
+/config.c/1.5/Result of merge//
+/makemap.8/1.5/Sun Feb 22 12:33:48 2009//
+/map.c/1.4/Result of merge//
+/mda.c/1.8/Result of merge//
+/mfa.c/1.14/Result of merge//
+/newaliases.8/1.4/Tue Feb 17 23:46:03 2009//
+/parser.c/1.6/Sun Feb 22 12:33:49 2009//
+/parser.h/1.6/Sun Feb 22 12:33:49 2009//
+/queue.c/1.55/Result of merge//
+/smtpctl.8/1.6/Sun Feb 22 12:33:49 2009//
+/smtpctl.c/1.14/Result of merge//
+/smtpd.conf/1.4/Sun Feb 22 12:33:49 2009//
+/smtpd.conf.5/1.6/Sun Feb 22 12:33:49 2009//
+/ssl.c/1.10/Result of merge//
+/store.c/1.13/Result of merge+Sun Feb 22 12:33:50 2009//
+/control.c/1.14/Result of merge//
+/dns.c/1.10/Result of merge//
+/enqueue.c/1.9/Sun Feb 22 18:06:10 2009//
+/forward.c/1.12/Result of merge//
+/lka.c/1.25/Result of merge//
+/makemap.c/1.11/Result of merge//
+/mta.c/1.30/Result of merge//
+/parse.y/1.25/Result of merge//
+/queue_shared.c/1.11/Result of merge//
+/runner.c/1.31/Result of merge//
+/smtp.c/1.27/Result of merge//
+/smtp_session.c/1.58/Result of merge//
+/smtpd.c/1.31/Result of merge//
+/smtpd.h/1.75/Result of merge//
+/util.c/1.13/Result of merge//
