@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.14 2009/02/18 22:39:12 jacekm Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.42 2009/10/18 20:41:21 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -26,11 +26,9 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include <ctype.h>
 #include <event.h>
+#include <grp.h> /* needed for setgroups */
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -48,15 +46,14 @@ void		mfa_dispatch_lka(int, short, void *);
 void		mfa_dispatch_control(int, short, void *);
 void		mfa_setup_events(struct smtpd *);
 void		mfa_disable_events(struct smtpd *);
-void		mfa_timeout(int, short, void *);
 
-void		mfa_test_mail(struct smtpd *, struct message *, int);
-void		mfa_test_rcpt(struct smtpd *, struct message_recipient *, int);
-int		mfa_ruletest_rcpt(struct smtpd *, struct path *, struct sockaddr_storage *);
-int		mfa_check_source(struct map *, struct sockaddr_storage *);
-int		mfa_match_mask(struct sockaddr_storage *, struct netaddr *);
+void		mfa_test_mail(struct smtpd *, struct message *);
+void		mfa_test_rcpt(struct smtpd *, struct message *);
+void		mfa_test_rcpt_resume(struct smtpd *, struct submit_status *);
 
 int		strip_source_route(char *, size_t);
+
+struct rule    *ruleset_match(struct smtpd *, struct path *, struct sockaddr_storage *);
 
 void
 mfa_sig_handler(int sig, short event, void *p)
@@ -75,215 +72,224 @@ void
 mfa_dispatch_parent(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_PARENT];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_PARENT];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("parent_dispatch_mfa: imsg_read error");
+			fatal("mfa_dispatch_parent: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 		default:
-			log_debug("parent_dispatch_mfa: unexpected imsg %d",
+			log_warnx("mfa_dispatch_parent: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mfa_dispatch_parent: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 mfa_dispatch_smtp(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_SMTP];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_SMTP];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_smtp: imsg_read error");
+			fatal("mfa_dispatch_smtp: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_MFA_MAIL:
-			mfa_test_mail(env, imsg.data, PROC_SMTP);
+		case IMSG_MFA_MAIL: {
+			struct message	*m = imsg.data;
+
+			IMSG_SIZE_CHECK(m);
+
+			mfa_test_mail(env, m);
 			break;
-		case IMSG_MFA_RCPT:
-			mfa_test_rcpt(env, imsg.data, PROC_SMTP);
+		}
+
+		case IMSG_MFA_RCPT: {
+			struct message	*m = imsg.data;
+
+			IMSG_SIZE_CHECK(m);
+
+			mfa_test_rcpt(env, m);
 			break;
+		}
+
 		default:
-			log_debug("mfa_dispatch_smtp: unexpected imsg %d",
+			log_warnx("mfa_dispatch_smtp: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mfa_dispatch_smtp: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 mfa_dispatch_lka(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_LKA];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_LKA];
+	ibuf = &iev->ibuf; 
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_lka: imsg_read error");
+			fatal("mfa_dispatch_lka: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 		case IMSG_LKA_MAIL: {
-			struct submit_status	 *ss;
+			struct submit_status	 *ss = imsg.data;
 
-			ss = imsg.data;
-			imsg_compose(env->sc_ibufs[PROC_SMTP], IMSG_MFA_MAIL,
+			IMSG_SIZE_CHECK(ss);
+
+			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL,
 			    0, 0, -1, ss, sizeof(*ss));
 			break;
 		}
 		case IMSG_LKA_RCPT: {
-			struct submit_status	 *ss;
+			struct submit_status	 *ss = imsg.data;
 
-			ss = imsg.data;
-			if (ss->msg.flags & F_MESSAGE_ENQUEUED) {
-				imsg_compose(env->sc_ibufs[PROC_CONTROL], IMSG_MFA_RCPT,
-				    0, 0, -1, ss, sizeof(*ss));
-			}
-			else {
-				imsg_compose(env->sc_ibufs[PROC_SMTP], IMSG_MFA_RCPT,
-				    0, 0, -1, ss, sizeof(*ss));
-			}
+			IMSG_SIZE_CHECK(ss);
+
+			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT,
+			    0, 0, -1, ss, sizeof(*ss));
+			break;
+		}
+		case IMSG_LKA_RULEMATCH: {
+			struct submit_status	 *ss = imsg.data;
+
+			IMSG_SIZE_CHECK(ss);
+
+			mfa_test_rcpt_resume(env, ss);
 			break;
 		}
 		default:
-			log_debug("mfa_dispatch_lka: unexpected imsg %d",
+			log_warnx("mfa_dispatch_lka: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mfa_dispatch_lka: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 mfa_dispatch_control(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_CONTROL];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_CONTROL];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_smtp: imsg_read error");
+			fatal("mfa_dispatch_control: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_MFA_RCPT:
-			mfa_test_rcpt(env, imsg.data, PROC_CONTROL);
-			break;
 		default:
-			log_debug("mfa_dispatch_smtp: unexpected imsg %d",
+			log_warnx("mfa_dispatch_control: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mfa_dispatch_control: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
@@ -296,29 +302,11 @@ mfa_shutdown(void)
 void
 mfa_setup_events(struct smtpd *env)
 {
-	struct timeval	 tv;
-
-	evtimer_set(&env->sc_ev, mfa_timeout, env);
-	tv.tv_sec = 3;
-	tv.tv_usec = 0;
-	evtimer_add(&env->sc_ev, &tv);
 }
 
 void
 mfa_disable_events(struct smtpd *env)
 {
-	evtimer_del(&env->sc_ev);
-}
-
-void
-mfa_timeout(int fd, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct timeval		 tv;
-
-	tv.tv_sec = 3;
-	tv.tv_usec = 0;
-	evtimer_add(&env->sc_ev, &tv);
 }
 
 pid_t
@@ -346,7 +334,7 @@ mfa(struct smtpd *env)
 		return (pid);
 	}
 
-//	purge_config(env, PURGE_EVERYTHING);
+	purge_config(env, PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
 
@@ -359,8 +347,8 @@ mfa(struct smtpd *env)
 #warning disabling privilege revocation and chroot in DEBUG MODE
 #endif
 
-	setproctitle("mail filter agent");
 	smtpd_process = PROC_MFA;
+	setproctitle("%s", env->sc_title[smtpd_process]);
 
 #ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
@@ -378,8 +366,8 @@ mfa(struct smtpd *env)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(env, peers, 4);
-	config_peers(env, peers, 4);
+	config_pipes(env, peers, nitems(peers));
+	config_peers(env, peers, nitems(peers));
 
 	mfa_setup_events(env);
 	event_dispatch();
@@ -403,7 +391,7 @@ msg_cmp(struct message *m1, struct message *m2)
 }
 
 void
-mfa_test_mail(struct smtpd *env, struct message *m, int sender)
+mfa_test_mail(struct smtpd *env, struct message *m)
 {
 	struct submit_status	 ss;
 
@@ -427,28 +415,31 @@ mfa_test_mail(struct smtpd *env, struct message *m, int sender)
 	goto accept;
 
 refuse:
-	imsg_compose(env->sc_ibufs[sender], IMSG_MFA_MAIL, 0, 0, -1, &ss,
+	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL, 0, 0, -1, &ss,
 	    sizeof(ss));
 	return;
 
 accept:
 	ss.code = 250;
-	imsg_compose(env->sc_ibufs[PROC_LKA], IMSG_LKA_MAIL, 0,
+	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_MAIL, 0,
 	    0, -1, &ss, sizeof(ss));
 }
 
 void
-mfa_test_rcpt(struct smtpd *env, struct message_recipient *mr, int sender)
+mfa_test_rcpt(struct smtpd *env, struct message *m)
 {
 	struct submit_status	 ss;
 
-	ss.id = mr->id;
-	ss.code = 530;
-	ss.u.path = mr->path;
-	ss.ss = mr->ss;
-	ss.msg = mr->msg;
+	if (! valid_message_id(m->message_id))
+		fatalx("mfa_test_rcpt: received corrupted message_id");
 
-	ss.flags = mr->flags;
+	ss.id = m->session_id;
+	ss.code = 530;
+	ss.u.path = m->session_rcpt;
+	ss.ss = m->session_ss;
+	ss.msg = *m;
+	ss.msg.recipient = m->session_rcpt;
+	ss.flags = m->flags;
 
 	strip_source_route(ss.u.path.user, sizeof(ss.u.path.user));
 
@@ -456,128 +447,29 @@ mfa_test_rcpt(struct smtpd *env, struct message_recipient *mr, int sender)
 	    ! valid_domainpart(ss.u.path.domain))
 		goto refuse;
 
-	if (sender == PROC_SMTP && (ss.flags & F_MESSAGE_AUTHENTICATED))
-		goto accept;
+	if (ss.flags & F_MESSAGE_AUTHENTICATED)
+		ss.u.path.flags |= F_PATH_AUTHENTICATED;
 
-	if (mfa_ruletest_rcpt(env, &ss.u.path, &ss.ss))
-		goto accept;
-		
-refuse:
-	imsg_compose(env->sc_ibufs[sender], IMSG_MFA_RCPT, 0, 0, -1, &ss,
-	    sizeof(ss));
-	return;
-
-accept:
-	ss.code = 250;
-	imsg_compose(env->sc_ibufs[PROC_LKA], IMSG_LKA_RCPT, 0, 0, -1,
+	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RULEMATCH, 0, 0, -1,
 	    &ss, sizeof(ss));
+
+	return;
+refuse:
+	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1, &ss,
+	    sizeof(ss));
 }
 
-int
-mfa_ruletest_rcpt(struct smtpd *env, struct path *path, struct sockaddr_storage *ss)
-{
-	struct rule *r;
-	struct cond *cond;
-	struct map *map;
-	struct mapel *me;
-
-	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
-		if (! mfa_check_source(r->r_sources, ss))
-			continue;
-
-		TAILQ_FOREACH(cond, &r->r_conditions, c_entry) {
-			if (cond->c_type == C_ALL) {
-				path->rule = *r;
-				return 1;
-			}
-
-			if (cond->c_type == C_DOM) {
-				cond->c_match = map_find(env, cond->c_map);
-				if (cond->c_match == NULL)
-					fatal("mfa failed to lookup map.");
-
-				map = cond->c_match;
-				TAILQ_FOREACH(me, &map->m_contents, me_entry) {
-					log_debug("matching: %s to %s",
-					    path->domain, me->me_key.med_string);
-					if (hostname_match(path->domain, me->me_key.med_string)) {
-						path->rule = *r;
-						return 1;
-					}
-				}
-			}
-		}
-	}
-	return 0;
-}
-
-int
-mfa_check_source(struct map *map, struct sockaddr_storage *ss)
-{
-	struct mapel *me;
-
-	if (ss == NULL) {
-		/* This happens when caller is part of an internal
-		 * lookup (ie: alias resolved to a remote address)
-		 */
-		return 1;
+void
+mfa_test_rcpt_resume(struct smtpd *env, struct submit_status *ss) {
+	if (ss->code != 250) {
+		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1, ss,
+		    sizeof(*ss));
+		return;
 	}
 
-	TAILQ_FOREACH(me, &map->m_contents, me_entry) {
-
-		if (ss->ss_family != me->me_key.med_addr.ss.ss_family)
-			continue;
-
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
-		if (ss->ss_len == me->me_key.med_addr.ss.ss_len)
-			continue;
-#endif
-
-		if (mfa_match_mask(ss, &me->me_key.med_addr))
-			return 1;
-	}
-
-	return 0;
-}
-
-int
-mfa_match_mask(struct sockaddr_storage *ss, struct netaddr *ssmask)
-{
-	if (ss->ss_family == AF_INET) {
-		struct sockaddr_in *ssin = (struct sockaddr_in *)ss;
-		struct sockaddr_in *ssinmask = (struct sockaddr_in *)&ssmask->ss;
-
-		if ((ssin->sin_addr.s_addr & ssinmask->sin_addr.s_addr) ==
-		    ssinmask->sin_addr.s_addr)
-			return (1);
-		return (0);
-	}
-
-	if (ss->ss_family == AF_INET6) {
-		struct in6_addr	*in;
-		struct in6_addr	*inmask;
-		struct in6_addr	 mask;
-		int		 i;
-
-		bzero(&mask, sizeof(mask));
-		for (i = 0; i < (128 - ssmask->bits) / 8; i++)
-			mask.s6_addr[i] = 0xff;
-		i = ssmask->bits % 8;
-		if (i)
-			mask.s6_addr[ssmask->bits / 8] = 0xff00 >> i;
-
-		in = &((struct sockaddr_in6 *)ss)->sin6_addr;
-		inmask = &((struct sockaddr_in6 *)&ssmask->ss)->sin6_addr;
-
-		for (i = 0; i < 16; i++) {
-			if ((in->s6_addr[i] & mask.s6_addr[i]) !=
-			    inmask->s6_addr[i])
-				return (0);
-		}
-		return (1);
-	}
-
-	return (0);
+	ss->msg.recipient = ss->u.path;
+	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RCPT, 0, 0, -1,
+	    ss, sizeof(*ss));
 }
 
 int
@@ -594,5 +486,3 @@ strip_source_route(char *buf, size_t len)
 
 	return 0;
 }
-
-SPLAY_GENERATE(msgtree, message, nodes, msg_cmp);

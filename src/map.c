@@ -1,4 +1,4 @@
-/*	$OpenBSD: map.c,v 1.4 2009/01/01 16:15:47 jacekm Exp $	*/
+/*	$OpenBSD: map.c,v 1.7 2009/11/03 22:57:41 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -22,8 +22,10 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <db1/db.h>
 #include <errno.h>
 #include <event.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,4 +54,62 @@ map_find(struct smtpd *env, objid_t id)
 			break;
 	}
 	return (m);
+}
+
+char *
+map_dblookup(struct smtpd *env, objid_t mapid, char *keyname)
+{
+	int ret;
+	DBT key;
+	DBT val;
+	DB *db;
+	struct map *map;
+	char *result = NULL;
+
+	map = map_find(env, mapid);
+	if (map == NULL)
+		return NULL;
+
+	if (map->m_src != S_DB) {
+		log_warn("invalid map type for map %d", map->m_id);
+		return NULL;
+	}
+
+	db = dbopen(map->m_config, O_RDONLY, 0600, DB_HASH, NULL);
+	if (db == NULL) {
+		log_warn("map_dblookup: can't open %s", map->m_config);
+		return NULL;
+	}
+
+	key.data = keyname;
+	key.size = strlen(key.data) + 1;
+
+	if ((ret = db->get(db, &key, &val, 0)) == -1) {
+		log_warn("map_dblookup: map '%d'", map->m_id);
+		db->close(db);
+		return NULL;
+	}
+
+	if (ret == 0) {
+		result = calloc(val.size, 1);
+		if (result == NULL)
+			fatal("calloc");
+		(void)strlcpy(result, val.data, val.size);
+	}
+
+	db->close(db);
+
+	return ret == 0 ? result : NULL;
+}
+
+char *
+map_dblookupbyname(struct smtpd *env, char *mapname, char *keyname)
+{
+	struct map *map;
+
+	map = map_findbyname(env, mapname);
+	if (map == NULL)
+		return NULL;
+
+	return map_dblookup(env, map->m_id, keyname);
 }

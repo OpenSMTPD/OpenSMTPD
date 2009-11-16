@@ -1,8 +1,9 @@
-/*	$OpenBSD: mda.c,v 1.8 2009/02/15 10:32:23 jacekm Exp $	*/
+/*	$OpenBSD: mda.c,v 1.32 2009/11/13 12:01:54 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
+ * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -27,10 +28,13 @@
 #include <sys/socket.h>
 
 #include <event.h>
+#include <grp.h> /* needed for setgroups */
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"
@@ -42,8 +46,8 @@ void		mda_dispatch_queue(int, short, void *);
 void		mda_dispatch_runner(int, short, void *);
 void		mda_setup_events(struct smtpd *);
 void		mda_disable_events(struct smtpd *);
-void		mda_timeout(int, short, void *);
-void		mda_remove_message(struct smtpd *, struct batch *, struct message *x);
+int		mda_store(struct batch *);
+void		mda_done(struct smtpd *, struct batch *);
 
 void
 mda_sig_handler(int sig, short event, void *p)
@@ -62,268 +66,276 @@ void
 mda_dispatch_parent(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_PARENT];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_PARENT];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mda_dispatch_parent: imsg_read error");
+			fatal("mda_dispatch_parent: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_MDA_MAILBOX_FILE: {
-			struct batch	*batchp;
-			struct message	*messagep;
-			enum message_status status;
+		case IMSG_PARENT_MAILBOX_OPEN: {
+			struct batch		*b = imsg.data;
 
-			batchp = (struct batch *)imsg.data;
-			messagep = &batchp->message;
-			status = messagep->status;
+			IMSG_SIZE_CHECK(b);
 
-			batchp = batch_by_id(env, batchp->id);
-			if (batchp == NULL)
-				fatalx("mda_dispatch_parent: internal inconsistency.");
+			if ((b = batch_by_id(env, b->id)) == NULL)
+				fatalx("mda: internal inconsistency");
 
-			messagep = message_by_id(env, batchp, messagep->id);
-			if (messagep == NULL)
-				fatalx("mda_dispatch_parent: internal inconsistency.");
-			messagep->status = status;
+			/* parent ensures mboxfd is valid */
+			if (imsg.fd == -1)
+				fatalx("mda: mboxfd pass failure");
 
-			messagep->mboxfd = imsg_get_fd(ibuf, &imsg);
-			if (messagep->mboxfd == -1) {
-				mda_remove_message(env, batchp, messagep);
+			/* got user's mbox fd */
+			if ((b->mboxfp = fdopen(imsg.fd, "w")) == NULL) {
+				log_warn("mda: fdopen");
+				mda_done(env, b);
 				break;
 			}
 
-			batchp->message = *messagep;
-			imsg_compose(env->sc_ibufs[PROC_PARENT],
-			    IMSG_PARENT_MESSAGE_OPEN, 0, 0, -1, batchp,
-			    sizeof(struct batch));
+			/* 
+			 * From now on, delivery session must be deinited in
+			 * the parent process as well as in mda.
+			 */
+			b->cleanup_parent = 1;
+
+			/* get message content fd */
+			imsg_compose_event(env->sc_ievs[PROC_PARENT],
+			    IMSG_PARENT_MESSAGE_OPEN, 0, 0, -1, b,
+			    sizeof(*b));
 			break;
 		}
 
-		case IMSG_MDA_MESSAGE_FILE: {
-			struct batch	*batchp;
-			struct message	*messagep;
-			enum message_status status;
-			int (*store)(struct batch *, struct message *) = store_write_message;
+		case IMSG_PARENT_MESSAGE_OPEN: {
+			struct batch	*b = imsg.data;
 
-			batchp = (struct batch *)imsg.data;
-			messagep = &batchp->message;
-			status = messagep->status;
+			IMSG_SIZE_CHECK(b);
 
-			batchp = batch_by_id(env, batchp->id);
-			if (batchp == NULL)
-				fatalx("mda_dispatch_parent: internal inconsistency.");
+			if ((b = batch_by_id(env, b->id)) == NULL)
+				fatalx("mda: internal inconsistency");
 
-			messagep = message_by_id(env, batchp, messagep->id);
-			if (messagep == NULL)
-				fatalx("mda_dispatch_parent: internal inconsistency.");
-			messagep->status = status;
-
-			messagep->messagefd = imsg_get_fd(ibuf, &imsg);
-			if (messagep->messagefd == -1) {
-				if (messagep->mboxfd != -1)
-					close(messagep->mboxfd);
-				mda_remove_message(env, batchp, messagep);
+			if (imsg.fd == -1) {
+				mda_done(env, b);
 				break;
 			}
 
-			/* If batch is a daemon message, override the default store function */
-			if (batchp->type & T_DAEMON_BATCH) {
-				store = store_write_daemon;
+			if ((b->datafp = fdopen(imsg.fd, "r")) == NULL) {
+				log_warn("mda: fdopen");
+				mda_done(env, b);
+				break;
 			}
 
-			if (store_message(batchp, messagep, store)) {
-				if (batchp->message.recipient.rule.r_action == A_MAILDIR)
-					imsg_compose(env->sc_ibufs[PROC_PARENT],
-					    IMSG_PARENT_MAILBOX_RENAME, 0, 0, -1, batchp,
-					    sizeof(struct batch));
+			/* got message content, copy it to mbox */
+			if (! mda_store(b)) {
+				env->stats->mda.write_error++;
+				mda_done(env, b);
+				break;
 			}
-			else
-			if (messagep->mboxfd != -1)
-				close(messagep->mboxfd);
-			if (messagep->messagefd != -1)
-				close(messagep->messagefd);
+			fclose(b->datafp);
+			b->datafp = NULL;
 
-			mda_remove_message(env, batchp, messagep);
+			/* closing mboxfd will trigger EOF in forked mda */
+			fsync(fileno(b->mboxfp));
+			fclose(b->mboxfp);
+			b->mboxfp = NULL;
+
+			/* ... unless it is maildir, in which case we need to
+			 * "trigger EOF" differently */
+			if (b->message.recipient.rule.r_action == A_MAILDIR)
+				imsg_compose_event(env->sc_ievs[PROC_PARENT],
+				    IMSG_PARENT_MAILDIR_RENAME, 0, 0, -1, b,
+				    sizeof(*b));
+			
+			/* Waiting for IMSG_MDA_FINALIZE... */
+			b->cleanup_parent = 0;
 			break;
 		}
+
+		case IMSG_MDA_FINALIZE: {
+			struct batch		*b = imsg.data;
+			enum message_status	 status;
+
+			IMSG_SIZE_CHECK(b);
+
+			status = b->message.status;
+			if ((b = batch_by_id(env, b->id)) == NULL)
+				fatalx("mda: internal inconsistency");
+			b->message.status = status;
+
+			mda_done(env, b);
+			break;
+		}
+
 		default:
-			log_debug("mda_dispatch_parent: unexpected imsg %d",
+			log_warnx("mda_dispatch_parent: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mda_dispatch_parent: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 mda_dispatch_queue(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_QUEUE];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_QUEUE];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("parent_dispatch_queue: imsg_read error");
+			fatal("mda_dispatch_queue: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 		default:
-			log_debug("parent_dispatch_queue: unexpected imsg %d",
+			log_warnx("mda_dispatch_queue: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mda_dispatch_queue: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 mda_dispatch_runner(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_RUNNER];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_RUNNER];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("parent_dispatch_runner: imsg_read error");
+			fatal("mda_dispatch_runner: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 		case IMSG_BATCH_CREATE: {
-			struct batch	*batchp;
+			struct batch	*req = imsg.data;
+			struct batch	*b;
 
-			batchp = calloc(1, sizeof (struct batch));
-			if (batchp == NULL)
-				fatal("calloc");
-			*batchp = *(struct batch *)imsg.data;
-			batchp->env = env;
-			batchp->flags = 0;
+			IMSG_SIZE_CHECK(req);
 
-			TAILQ_INIT(&batchp->messages);
-			SPLAY_INSERT(batchtree, &env->batch_queue, batchp);
+			/* runner opens delivery session */
+			if ((b = malloc(sizeof(*b))) == NULL)
+				fatal(NULL);
+			*b = *req;
+			b->env = env;
+			b->mboxfp = NULL;
+			b->datafp = NULL;
+			SPLAY_INSERT(batchtree, &env->batch_queue, b);
 			break;
 		}
 
 		case IMSG_BATCH_APPEND: {
-			struct batch	*batchp;
-			struct message	*messagep;
+			struct message	*append = imsg.data;
+			struct batch	*b;
 
-			messagep = calloc(1, sizeof (struct message));
-			if (messagep == NULL)
-				fatal("calloc");
+			IMSG_SIZE_CHECK(append);
 
-			*messagep = *(struct message *)imsg.data;
-			batchp = batch_by_id(env, messagep->batch_id);
-			if (batchp == NULL)
-				fatalx("mda_dispatch_runner: internal inconsistency.");
+			/* runner submits the message to deliver */
+			if ((b = batch_by_id(env, append->batch_id)) == NULL)
+				fatalx("mda: internal inconsistency");
+			if (b->message.message_id[0])
+				fatal("mda: runner submitted extra msg");
+			b->message = *append;
 
-			TAILQ_INSERT_TAIL(&batchp->messages, messagep, entry);
+			/* safe default */
+			b->message.status = S_MESSAGE_TEMPFAILURE;
 			break;
 		}
 
 		case IMSG_BATCH_CLOSE: {
-			struct batch	lookup;
-			struct batch	*batchp;
-			struct message	*messagep;
+			struct batch	*b = imsg.data;
 
-			lookup = *(struct batch *)imsg.data;
-			batchp = batch_by_id(env, lookup.id);
-			if (batchp == NULL)
-				fatalx("mda_dispatch_runner: internal inconsistency.");
+			IMSG_SIZE_CHECK(b);
 
-			lookup = *batchp;
-			TAILQ_FOREACH(messagep, &batchp->messages, entry) {
-				lookup.message = *messagep;
-				imsg_compose(env->sc_ibufs[PROC_PARENT],
-				    IMSG_PARENT_MAILBOX_OPEN, 0, 0, -1, &lookup,
-				    sizeof(struct batch));
-			}
-
+			/* runner finished opening delivery session;
+			 * request user's mbox fd */
+			if ((b = batch_by_id(env, b->id)) == NULL)
+				fatalx("mda: internal inconsistency");
+			imsg_compose_event(env->sc_ievs[PROC_PARENT],
+			    IMSG_PARENT_MAILBOX_OPEN, 0, 0, -1, b,
+			    sizeof(*b));
 			break;
 		}
 		default:
-			log_debug("parent_dispatch_runner: unexpected imsg %d",
+			log_warnx("mda_dispatch_runner: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("mda_dispatch_runner: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 
@@ -337,29 +349,11 @@ mda_shutdown(void)
 void
 mda_setup_events(struct smtpd *env)
 {
-	struct timeval	 tv;
-
-	evtimer_set(&env->sc_ev, mda_timeout, env);
-	tv.tv_sec = 3;
-	tv.tv_usec = 0;
-	evtimer_add(&env->sc_ev, &tv);
 }
 
 void
 mda_disable_events(struct smtpd *env)
 {
-	evtimer_del(&env->sc_ev);
-}
-
-void
-mda_timeout(int fd, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct timeval		 tv;
-
-	tv.tv_sec = 3;
-	tv.tv_usec = 0;
-	evtimer_add(&env->sc_ev, &tv);
 }
 
 pid_t
@@ -399,8 +393,8 @@ mda(struct smtpd *env)
 #warning disabling privilege revocation and chroot in DEBUG MODE
 #endif
 
-	setproctitle("mail delivery agent");
 	smtpd_process = PROC_MDA;
+	setproctitle("%s", env->sc_title[smtpd_process]);
 
 #ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
@@ -420,8 +414,8 @@ mda(struct smtpd *env)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(env, peers, 3);
-	config_peers(env, peers, 3);
+	config_pipes(env, peers, nitems(peers));
+	config_peers(env, peers, nitems(peers));
 
 	mda_setup_events(env);
 	event_dispatch();
@@ -430,11 +424,99 @@ mda(struct smtpd *env)
 	return (0);
 }
 
-void
-mda_remove_message(struct smtpd *env, struct batch *batchp, struct message *messagep)
+int
+mda_store(struct batch *b)
 {
-	imsg_compose(env->sc_ibufs[PROC_QUEUE], IMSG_QUEUE_MESSAGE_UPDATE, 0, 0,
-	    -1, messagep, sizeof (struct message));
+	FILE	 *src = b->datafp;
+	FILE	 *dst = b->mboxfp;
+	int	  ch;
+ 
+	/* add Return-Path to preserve envelope sender */
+	/* XXX: remove user provided Return-Path, if any */
+	if (b->message.sender.user[0] &&
+	    b->message.sender.domain[0]) {
+		fprintf(dst, "Return-Path: %s@%s\n",
+		    b->message.sender.user,
+		    b->message.sender.domain);
+	}
+	 
+	/* add Delivered-To to help loop detection */
+	fprintf(dst, "Delivered-To: %s@%s\n",
+	    b->message.session_rcpt.user,
+	    b->message.session_rcpt.domain);
 
-	queue_remove_batch_message(env, batchp, messagep);
+	/* write message data */
+	/* XXX: it blocks in !mdir case */
+	while ((ch = fgetc(src)) != EOF)
+		if (fputc(ch, dst) == EOF)
+			break;
+	if (ferror(src) || fflush(dst) || ferror(dst))
+		return 0;
+	
+	return 1;
+}
+
+void
+mda_done(struct smtpd *env, struct batch *b)
+{
+	if (b->cleanup_parent) {
+		/*
+		 * Error has occured while both parent and mda maintain some
+		 * state for this delivery session.  Need to deinit both.
+		 * Deinit parent first.
+		 */
+
+		if (b->message.recipient.rule.r_action == A_MAILDIR) {
+			/*
+			 * In case of maildir, deiniting parent's state consists
+			 * of removing the file in tmp.
+			 */
+			imsg_compose_event(env->sc_ievs[PROC_PARENT],
+			    IMSG_PARENT_MAILDIR_FAIL, 0, 0, -1, b,
+			    sizeof(*b));
+		} else {
+			/*
+			 * In all other cases, ie. mbox and external, deiniting
+			 * parent's state consists of killing its child, and
+			 * freeing associated struct child.
+			 *
+			 * Requesting that parent does this cleanup involves
+			 * racing issues.  The race-free way is to simply wait.
+			 * Eventually, child timeout in parent will be hit.
+			 */
+		}
+
+		/*
+		 * Either way, parent will eventually send IMSG_MDA_FINALIZE.
+		 * Then, the mda deinit will happen.
+		 */
+		b->cleanup_parent = 0;
+	} else {
+		/*
+		 * Deinit mda.
+		 */
+
+		/* update runner (currently: via queue) */
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_QUEUE_MESSAGE_UPDATE, 0, 0, -1,
+		    &b->message, sizeof(b->message));
+
+		/* log status */
+		log_info("%s: to=<%s@%s>, delay=%d, stat=%s",
+		    b->message.message_id,
+		    b->message.recipient.user,
+		    b->message.recipient.domain,
+		    (int) (time(NULL) - b->message.creation),
+		    b->message.status & S_MESSAGE_PERMFAILURE ? "MdaPermError" :
+		    b->message.status & S_MESSAGE_TEMPFAILURE ? "MdaTempError" :
+		    "Sent");
+
+		/* deallocate resources */
+		SPLAY_REMOVE(batchtree, &env->batch_queue, b);
+		if (b->mboxfp)
+			fclose(b->mboxfp);
+		if (b->datafp)
+			fclose(b->datafp);
+		free(b);
+	}
 }

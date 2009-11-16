@@ -1,14 +1,16 @@
 bin_PROGRAMS = makemap smtpd smtpctl
 
-makemap_SOURCES = 	parse.y makemap.c aliases.c map.c log.c util.c
+makemap_SOURCES = 	parse.y makemap.c aliases.c expand.c map.c log.c util.c
 
-smtpd_SOURCES =		parse.y log.c config.c buffer.c imsg.c			\
-			smtpd.c lka.c mfa.c queue.c mta.c mda.c control.c	\
-			smtp.c  smtp_session.c store.c 				\
-			ssl.c ssl_privsep.c dns.c aliases.c forward.c		\
-			map.c runner.c util.c queue_shared.c
+smtpd_SOURCES=		aliases.c authenticate.c bounce.c buffer.c client.c	\
+			config.c control.c dns.c expand.c forward.c imsg.c	\
+			lka.c log.c map.c mda.c mfa.c mta.c parse.y queue.c	\
+			queue_shared.c ruleset.c runner.c smtp.c smtp_session.c	\
+			smtpd.c ssl.c ssl_privsep.c util.c
 
-smtpctl_SOURCES = 	smtpctl.c parser.c buffer.c imsg.c log.c enqueue.c queue_shared.c util.c
+smtpctl_SOURCES = 	smtpctl.c parser.c buffer.c imsg.c log.c enqueue.c      \
+			queue_shared.c util.c client.c
+smtpctl_CFLAGS=		-DCLIENT_NO_SSL
 
 YACC = byacc
 

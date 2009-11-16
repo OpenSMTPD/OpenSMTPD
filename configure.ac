@@ -1,4 +1,4 @@
-AC_INIT([OpenSMTPD],[4.4.0],[Charles Longeau <chl@openbsd.org>])
+AC_INIT([OpenSMTPD-portable],[4.6.0],[Charles Longeau <chl@openbsd.org>])
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
@@ -61,18 +61,43 @@ AC_ARG_WITH(Werror,
 #l184
 
 AC_CHECK_HEADERS( \
-                  sys/un.h \
-                  util.h \
-                  )
+		dirent.h \
+		fcntl.h \
+		ndir.h \
+		pam/pam_appl.h \
+		security/pam_appl.h \
+		sys/dir.h \
+		sys/file.h \
+		sys/ndir.h \
+		sys/un.h \
+		ucred.h \
+		util.h \
+                )
 
 AC_CHECK_FUNCS( \
                 arc4random \
+                arc4random_uniform \
+		closefrom \
+		dirfd \
+		dirname \
                 fgetln \
                 fparseln \
+		getopt \
+		getpeereid \
                 strlcat \
                 strlcpy \
+                strsep \
                 strtonum \
+                strmode \
+                sysconf \
                 )
+
+#l265
+# login_cap.h requires sys/types.h on NetBSD
+AC_CHECK_HEADERS(login_cap.h, [], [], [
+#include <sys/types.h>
+])
+#l268
 
 #l831
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
@@ -126,6 +151,34 @@ AC_SEARCH_LIBS(fparseln, util bsd, [AC_DEFINE(HAVE_FPARSELN, 1,
 	[Define if your libraries define fparseln()])])
 AC_CHECK_FUNCS(logout updwtmp logwtmp)
 #l985
+
+#l1047
+AC_MSG_CHECKING([for /proc/pid/fd directory])
+if test -d "/proc/$$/fd" ; then
+	AC_DEFINE(HAVE_PROC_PID, 1, [Define if you have /proc/$pid/fd])
+	AC_MSG_RESULT(yes)
+else
+	AC_MSG_RESULT(no)
+fi
+#l1053
+
+#l1516
+# Check for missing getpeereid (or equiv) support
+NO_PEERCHECK=""
+if test "x$ac_cv_func_getpeereid" != "xyes" -a "x$ac_cv_func_getpeerucred" != "xyes"; then
+	AC_MSG_CHECKING([whether system supports SO_PEERCRED getsockopt])
+	AC_TRY_COMPILE(
+		[#include <sys/types.h>
+		 #include <sys/socket.h>],
+		[int i = SO_PEERCRED;],
+		[ AC_MSG_RESULT(yes)
+		  AC_DEFINE(HAVE_SO_PEERCRED, 1, [Have PEERCRED socket option])
+		],
+		[AC_MSG_RESULT(no)
+		NO_PEERCHECK=1]
+        )
+fi
+#l1530
 
 #l1763
 # Search for OpenSSL
@@ -381,9 +434,70 @@ int main(void) { exit(RAND_status() == 1 ? 0 : 1); }
 		OPENSSL_SEEDS_ITSELF=yes
 	]
 )
-#l2042
 
-#l2107
+# Check for PAM libs
+PAM_MSG="no"
+AC_ARG_WITH(pam,
+	[  --with-pam              Enable PAM support ],
+	[
+		if test "x$withval" != "xno" ; then
+			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
+			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
+				AC_MSG_ERROR([PAM headers not found])
+			fi
+
+			saved_LIBS="$LIBS"
+			AC_CHECK_LIB(dl, dlopen, , )
+			AC_CHECK_LIB(pam, pam_set_item, , AC_MSG_ERROR([*** libpam missing]))
+			AC_CHECK_FUNCS(pam_getenvlist)
+			AC_CHECK_FUNCS(pam_putenv)
+			LIBS="$saved_LIBS"
+
+			PAM_MSG="yes"
+
+			SSHDLIBS="$SSHDLIBS -lpam"
+			AC_DEFINE(USE_PAM, 1,
+				[Define if you want to enable PAM support])
+
+			if test $ac_cv_lib_dl_dlopen = yes; then
+				case "$LIBS" in
+				*-ldl*)
+					# libdl already in LIBS
+					;;
+				*)
+					SSHDLIBS="$SSHDLIBS -ldl"
+					;;
+				esac
+			fi
+		fi
+	]
+)
+
+# Check for older PAM
+if test "x$PAM_MSG" = "xyes" ; then
+	# Check PAM strerror arguments (old PAM)
+	AC_MSG_CHECKING([whether pam_strerror takes only one argument])
+	AC_TRY_COMPILE(
+		[
+#include <stdlib.h>
+#if defined(HAVE_SECURITY_PAM_APPL_H)
+#include <security/pam_appl.h>
+#elif defined (HAVE_PAM_PAM_APPL_H)
+#include <pam/pam_appl.h>
+#endif
+		],
+		[(void)pam_strerror((pam_handle_t *)NULL, -1);],
+		[AC_MSG_RESULT(no)],
+		[
+			AC_DEFINE(HAVE_OLD_PAM, 1,
+				[Define if you have an old version of PAM
+				which takes only one argument to pam_strerror])
+			AC_MSG_RESULT(yes)
+			PAM_MSG="yes (old library)"
+		]
+	)
+fi
+
 # Do we want to force the use of the rand helper?
 AC_ARG_WITH(rand-helper,
 	[  --with-rand-helper      Use subprocess to gather strong randomness ],
@@ -851,6 +965,39 @@ fi
 #l2695
 
 
+#chl part
+AC_CACHE_CHECK([for in_port_t], ac_cv_have_in_port_t, [
+	AC_TRY_COMPILE(
+		[
+#include <sys/types.h>
+		],
+		[ in_port_t foo; foo = 1235; ],
+		[ ac_cv_have_in_port_t="yes" ],
+		[ ac_cv_have_in_port_t="no" ]
+	)
+])
+if test "x$ac_cv_have_in_port_t" = "xyes" ; then
+	AC_DEFINE(HAVE_IN_PORT_T, 1, [define if you have in_port_t data type])
+fi
+#chl part
+
+# From OpenNTPD portable
+AC_CHECK_MEMBER(struct sockaddr.sa_len,
+	AC_DEFINE(HAVE_SOCKADDR_SA_LEN, [], [Have sockaddr.sa_len]), ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+AC_CHECK_MEMBER(struct sockaddr.ss_len,
+	AC_DEFINE(HAVE_SOCKADDR_SS_LEN, [], [Have sockaddr_storage.ss_len]), ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+
+
 #l3049
 AC_CACHE_CHECK([whether getopt has optreset support],
 		ac_cv_have_getopt_optreset, [
@@ -908,9 +1055,42 @@ int main()
 	])
 #l3184
 
-AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
+#l3515
+# Looking for programs, paths and files
+
+PRIVSEP_PATH=/var/empty
+AC_ARG_WITH(privsep-path,
+	[  --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			PRIVSEP_PATH=$withval
+		fi
+	]
+)
+AC_SUBST(PRIVSEP_PATH)
+#l3528
+
+#l3678
+# Whether to enable BSD auth support
+BSD_AUTH_MSG=no
+AC_ARG_WITH(bsd-auth,
+	[  --with-bsd-auth         Enable BSD auth support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE(BSD_AUTH, 1,
+				[Define if you have BSD auth support])
+			BSD_AUTH_MSG=yes
+		fi
+	]
+)
+#l3689
 
 
+dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
+
+
+#l3986
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.
 CFLAGS="$CFLAGS $werror_flags"
@@ -930,9 +1110,9 @@ A=`eval echo ${prefix}` ; A=`eval echo ${A}`
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
 C=`eval echo ${sbindir}` ; C=`eval echo ${C}`
 D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
-E=`eval echo ${libexecdir}/ssh-askpass` ; E=`eval echo ${E}`
+#E=`eval echo ${libexecdir}/ssh-askpass` ; E=`eval echo ${E}`
 F=`eval echo ${mandir}/${mansubdir}X` ; F=`eval echo ${F}`
-G=`eval echo ${piddir}` ; G=`eval echo ${G}`
+#G=`eval echo ${piddir}` ; G=`eval echo ${G}`
 H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
 I=`eval echo ${user_path}` ; I=`eval echo ${I}`
 J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
@@ -942,9 +1122,9 @@ echo "OpenSMTPD has been configured with the following options:"
 echo "                     User binaries: $B"
 echo "                   System binaries: $C"
 echo "               Configuration files: $D"
-echo "                   Askpass program: $E"
+#echo "                   Askpass program: $E"
 echo "                      Manual pages: $F"
-echo "                          PID file: $G"
+#echo "                          PID file: $G"
 echo "  Privilege separation chroot path: $H"
 if test "x$external_path_file" = "x/etc/login.conf" ; then
 echo "   At runtime, sshd will use the path defined in $external_path_file"
@@ -960,7 +1140,7 @@ if test ! -z "$superuser_path" ; then
 echo "          sshd superuser user PATH: $J"
 fi
 echo "                    Manpage format: $MANTYPE"
-#echo "                       PAM support: $PAM_MSG"
+echo "                       PAM support: $PAM_MSG"
 #echo "                   OSF SIA support: $SIA_MSG"
 #echo "                 KerberosV support: $KRB5_MSG"
 #echo "                   SELinux support: $SELINUX_MSG"
@@ -972,8 +1152,8 @@ echo "                    Manpage format: $MANTYPE"
 #echo "  Solaris process contract support: $SPC_MSG"
 #echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
 #echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
-#echo "                  BSD Auth support: $BSD_AUTH_MSG"
-#echo "              Random number source: $RAND_MSG"
+echo "                  BSD Auth support: $BSD_AUTH_MSG"
+echo "              Random number source: $RAND_MSG"
 if test ! -z "$USE_RAND_HELPER" ; then
 echo "     ssh-rand-helper collects from: $RAND_HELPER_MSG"
 fi
@@ -991,3 +1171,40 @@ echo "         +for sshd: ${SSHDLIBS}"
 fi
 
 echo ""
+
+if test "x$MAKE_PACKAGE_SUPPORTED" = "xyes" ; then
+	echo "SVR4 style packages are supported with \"make package\""
+	echo ""
+fi
+
+if test "x$PAM_MSG" = "xyes" ; then
+	echo "PAM is enabled. You may need to install a PAM control file "
+	echo "for sshd, otherwise password authentication may fail. "
+	echo "Example PAM control files can be found in the contrib/ "
+	echo "subdirectory"
+	echo ""
+fi
+
+if test ! -z "$RAND_HELPER_CMDHASH" ; then
+	echo "WARNING: you are using the builtin random number collection "
+	echo "service. Please read WARNING.RNG and request that your OS "
+	echo "vendor includes kernel-based random number collection in "
+	echo "future versions of your OS."
+	echo ""
+fi
+
+if test ! -z "$NO_PEERCHECK" ; then
+	echo "WARNING: the operating system that you are using does not"
+	echo "appear to support getpeereid(), getpeerucred() or the"
+	echo "SO_PEERCRED getsockopt() option. These facilities are used to"
+	echo "enforce security checks to prevent unauthorised connections to"
+	echo "ssh-agent. Their absence increases the risk that a malicious"
+	echo "user can connect to your agent."
+	echo ""
+fi
+
+if test "$AUDIT_MODULE" = "bsm" ; then
+	echo "WARNING: BSM audit support is currently considered EXPERIMENTAL."
+	echo "See the Solaris section in README.platform for details."
+fi
+#l4100

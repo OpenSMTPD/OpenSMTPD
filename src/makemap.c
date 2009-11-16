@@ -1,7 +1,8 @@
-/*	$OpenBSD: makemap.c,v 1.11 2009/02/22 11:44:29 form Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.24 2009/11/08 23:08:56 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008-2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,12 +17,19 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/* define _GNU_SOURCE for asprintf */
+#define _GNU_SOURCE
+
+#include <sys/file.h> /* Needed for flock */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "sys-tree.h"
 #include "sys-queue.h"
 #include <sys/param.h>
 #include <sys/socket.h>
+#ifndef HAVE_SYS_FILE_H
+#include <sys/file.h>
+#endif
 
 #include <ctype.h>
 #include <db1/db.h>
@@ -36,6 +44,9 @@
 #ifdef HAVE_UTIL_H
 #include <util.h>
 #endif
+#ifdef HAVE_LIBUTIL_H
+#include <libutil.h>
+#endif
 
 #include "smtpd.h"
 
@@ -46,6 +57,8 @@ extern char *__progname;
 __dead void	usage(void);
 int		parse_map(char *);
 int		parse_entry(char *, size_t, size_t);
+int		parse_mapentry(char *, size_t, size_t);
+int		parse_setentry(char *, size_t, size_t);
 int		make_plain(DBT *, char *);
 int		make_aliases(DBT *, char *);
 
@@ -63,7 +76,8 @@ enum program {
 
 enum output_type {
 	T_PLAIN,
-	T_ALIASES
+	T_ALIASES,
+	T_SET
 } type;
 
 /*
@@ -76,7 +90,7 @@ purge_config(struct smtpd *env, u_int8_t what)
 }
 
 int
-ssl_load_certfile(struct smtpd *env, const char *name)
+ssl_load_certfile(struct smtpd *env, const char *name, u_int8_t flags)
 {
 	return (0);
 }
@@ -84,10 +98,11 @@ ssl_load_certfile(struct smtpd *env, const char *name)
 int
 main(int argc, char *argv[])
 {
-	char	 dbname[MAXPATHLEN];
-	char	*opts;
-	char	*conf;
-	int	 ch;
+	struct stat	 sb;
+	char		 dbname[MAXPATHLEN];
+	char		*opts;
+	char		*conf;
+	int		 ch;
 
 	log_init(1);
 
@@ -109,6 +124,8 @@ main(int argc, char *argv[])
 		case 't':
 			if (strcmp(optarg, "aliases") == 0)
 				type = T_ALIASES;
+			else if (strcmp(optarg, "set") == 0)
+				type = T_SET;
 			else
 				errx(1, "unsupported type '%s'", optarg);
 			break;
@@ -135,6 +152,9 @@ main(int argc, char *argv[])
 	if (oflag == NULL && asprintf(&oflag, "%s.db", source) == -1)
 		err(1, "asprintf");
 
+	if (stat(source, &sb) == -1)
+		err(1, "stat: %s", source);
+
 	if (! bsnprintf(dbname, sizeof(dbname), "%s.XXXXXXXXXXX", oflag))
 		errx(1, "path too long");
 	if (mkstemp(dbname) == -1)
@@ -146,16 +166,17 @@ main(int argc, char *argv[])
 		goto bad;
 	}
 
+	if (fchmod(db->fd(db), sb.st_mode) == -1 ||
+	    fchown(db->fd(db), sb.st_uid, sb.st_gid) == -1) {
+		warn("couldn't carry ownership and perms to %s", dbname);
+		goto bad;
+	}
+
 	if (! parse_map(source))
 		goto bad;
 
 	if (db->close(db) == -1) {
 		warn("dbclose: %s", dbname);
-		goto bad;
-	}
-
-	if (chmod(dbname, 0644) == -1) {
-		warn("chmod: %s", dbname);
 		goto bad;
 	}
 
@@ -182,7 +203,7 @@ parse_map(char *filename)
 	char	*line;
 	size_t	 len;
 	size_t	 lineno = 0;
-	char	 delim[] = { '\\', '\\', '#' };
+	char	 delim[] = { '\\', 0, 0 };
 
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
@@ -215,15 +236,31 @@ parse_map(char *filename)
 int
 parse_entry(char *line, size_t len, size_t lineno)
 {
+	switch (type) {
+	case T_PLAIN:
+	case T_ALIASES:
+		return parse_mapentry(line, len, lineno);
+	case T_SET:
+		return parse_setentry(line, len, lineno);
+	}
+	return 0;
+}
+
+int
+parse_mapentry(char *line, size_t len, size_t lineno)
+{
 	DBT	 key;
 	DBT	 val;
+	DBT	 domkey;
+	DBT	 domval;
 	char	*keyp;
 	char	*valp;
+	char	*domp;
 
 	keyp = line;
-	while (isspace(*keyp))
+	while (isspace((int)*keyp))
 		keyp++;
-	if (*keyp == '\0')
+	if (*keyp == '\0' || *keyp == '#')
 		return 1;
 
 	valp = keyp;
@@ -239,21 +276,36 @@ parse_entry(char *line, size_t len, size_t lineno)
 		return 0;
 	}
 
-	switch (type) {
-	case T_PLAIN:
+	if (type == T_PLAIN) {
 		if (! make_plain(&val, valp))
 			goto bad;
-		break;
-	case T_ALIASES:
+	}
+	else if (type == T_ALIASES) {
+		lowercase(key.data, key.data, strlen(key.data) + 1);
 		if (! make_aliases(&val, valp))
 			goto bad;
-		break;
 	}
 
 	if (db->put(db, &key, &val, 0) == -1) {
 		warn("dbput");
 		return 0;
 	}
+
+	/* add key for domain */
+	if ((domp = strrchr(key.data, '@')) != NULL) {
+		domkey.data = domp + 1;
+		domkey.size = strlen(domkey.data) + 1;
+
+		domval.data  = "<empty>";
+		domval.size = strlen(domval.data) + 1;
+
+		if (db->put(db, &domkey, &domval, 0) == -1) {
+			warn("dbput");
+			return 0;
+		}
+	}
+	
+
 	dbputs++;
 
 	free(val.data);
@@ -266,22 +318,47 @@ bad:
 }
 
 int
-make_plain(DBT *val, char *text)
+parse_setentry(char *line, size_t len, size_t lineno)
 {
-	struct alias	*a;
+	DBT	 key;
+	DBT	 val;
+	char	*keyp;
 
-	a = calloc(1, sizeof(struct alias));
-	if (a == NULL)
-		err(1, "calloc");
+	keyp = line;
+	while (isspace((int)*keyp))
+		keyp++;
+	if (*keyp == '\0' || *keyp == '#')
+		return 1;
 
-	a->type = ALIAS_TEXT;
-	val->data = a;
-	val->size = strlcpy(a->u.text, text, sizeof(a->u.text));
+	val.data  = "<set>";
+	val.size = strlen(val.data) + 1;
 
-	if (val->size >= sizeof(a->u.text)) {
-		free(a);
+	/* Check for dups. */
+	key.data = keyp;
+	key.size = strlen(keyp) + 1;
+	if (db->get(db, &key, &val, 0) == 0) {
+		warnx("%s:%zd: duplicate entry for %s", source, lineno, keyp);
 		return 0;
 	}
+
+	if (db->put(db, &key, &val, 0) == -1) {
+		warn("dbput");
+		return 0;
+	}	
+
+	dbputs++;
+
+	return 1;
+}
+
+int
+make_plain(DBT *val, char *text)
+{
+	val->data = strdup(text);
+	if (val->data == NULL)
+		err(1, "malloc");
+
+	val->size = strlen(text) + 1;
 
 	return (val->size);
 }
@@ -289,23 +366,23 @@ make_plain(DBT *val, char *text)
 int
 make_aliases(DBT *val, char *text)
 {
-	struct alias	 a;
-	char		*subrcpt;
-	char		*endp;
+	struct alias	a;
+	char	       	*subrcpt;
+	char	       	*endp;
 
 	val->data = NULL;
 	val->size = 0;
 
 	while ((subrcpt = strsep(&text, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
-		while (isspace(*subrcpt))
+		while (isspace((int)*subrcpt))
 			++subrcpt;
 		if (*subrcpt == '\0')
 			goto error;
 
 		/* subrcpt: strip trailing whitespace. */
 		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace(*endp))
+		while (subrcpt < endp && isspace((int)*endp))
 			*endp-- = '\0';
 
 		if (! alias_parse(&a, subrcpt))
@@ -358,7 +435,7 @@ usage(void)
 	if (mode == P_NEWALIASES)
 		fprintf(stderr, "usage: %s [-f file]\n", __progname);
 	else
-		fprintf(stderr, "usage: %s [-t type] [-o dbfile] file\n",
+		fprintf(stderr, "usage: %s [-o dbfile] [-t type] file\n",
 		    __progname);
 	exit(1);
 }

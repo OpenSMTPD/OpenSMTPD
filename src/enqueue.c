@@ -1,7 +1,8 @@
-/*	$OpenBSD: enqueue.c,v 1.9 2009/02/22 11:44:29 form Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.26 2009/11/13 20:34:51 chl Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
+ * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -11,77 +12,159 @@
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
+ * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
+/* define _GNU_SOURCE for asprintf */
+#define _GNU_SOURCE
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sys/param.h>
+#include "sys-queue.h"
+#include <sys/socket.h>
+#include "sys-tree.h"
+#include <sys/types.h>
 
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <netdb.h>
 #include <pwd.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "client.h"
 
 extern struct imsgbuf	*ibuf;
 
-__dead void	usage(void);
-int		enqueue(int, char **);
-int		enqueue_init(struct message *);
-int		enqueue_add_recipient(struct message *, char *);
-int		enqueue_messagefd(struct message *);
-int		enqueue_write_message(FILE *, FILE *);
-int		enqueue_commit(struct message *);
+void	 usage(void);
+void	 sighdlr(int);
+int	 main(int, char *[]);
+void	 build_from(char *, struct passwd *);
+int	 parse_message(FILE *, int, int, struct buf *);
+void	 parse_addr(char *, size_t, int);
+void	 parse_addr_terminal(int);
+char	*qualify_addr(char *);
+void	 rcpt_add(char *);
+int	 open_connection(void);
+
+enum headerfields {
+	HDR_NONE,
+	HDR_FROM,
+	HDR_TO,
+	HDR_CC,
+	HDR_BCC,
+	HDR_SUBJECT,
+	HDR_DATE,
+	HDR_MSGID
+};
+
+struct {
+	char			*word;
+	enum headerfields	 type;
+} keywords[] = {
+	{ "From:",		HDR_FROM },
+	{ "To:",		HDR_TO },
+	{ "Cc:",		HDR_CC },
+	{ "Bcc:",		HDR_BCC },
+	{ "Subject:",		HDR_SUBJECT },
+	{ "Date:",		HDR_DATE },
+	{ "Message-Id:",	HDR_MSGID }
+};
+
+#define	SMTP_LINELEN		1000
+#define	SMTP_TIMEOUT		120
+#define	TIMEOUTMSG		"Timeout\n"
+
+#define WSP(c)			(c == ' ' || c == '\t')
+
+int	  verbose = 0;
+char	  host[MAXHOSTNAMELEN];
+char	 *user = NULL;
+time_t	  timestamp;
+
+struct {
+	int	  fd;
+	char	 *from;
+	char	 *fromname;
+	char	**rcpts;
+	int	  rcpt_cnt;
+	char	 *data;
+	size_t	  len;
+	int	  saw_date;
+	int	  saw_msgid;
+	int	  saw_from;
+} msg;
+
+struct {
+	u_int		quote;
+	u_int		comment;
+	u_int		esc;
+	u_int		brackets;
+	size_t		wpos;
+	char		buf[SMTP_LINELEN];
+} pstate;
+
+void
+sighdlr(int sig)
+{
+	if (sig == SIGALRM) {
+		write(STDERR_FILENO, TIMEOUTMSG, sizeof(TIMEOUTMSG));
+		_exit (2);
+	}
+}
 
 int
 enqueue(int argc, char *argv[])
 {
-	int		ch;
-	int		fd;
-	FILE		*fpout;
-	struct message	message;
-	char		sender[MAX_PATH_SIZE];
+	int			 i, ch, tflag = 0, noheader, ret;
+	char			*fake_from = NULL;
+	struct passwd		*pw;
+	struct smtp_client	*sp;
+	struct buf		*body;
 
-	uid_t uid;
-	char *username;
-	char hostname[MAXHOSTNAMELEN];
-	struct passwd *pw;
+	bzero(&msg, sizeof(msg));
+	time(&timestamp);
 
-	uid = getuid();
-	pw = safe_getpwuid(uid);
-	if (pw == NULL)
-		errx(1, "you don't exist, go away.");
-
-	username = pw->pw_name;
-	gethostname(hostname, sizeof(hostname));
-
-	if (! bsnprintf(sender, sizeof(sender), "%s@%s", username, hostname))
-		errx(1, "sender address too long.");
-
-	while ((ch = getopt(argc, argv, "f:i")) != -1) {
+	while ((ch = getopt(argc, argv,
+	    "A:B:b:E::e:F:f:iJ::L:mo:p:qtvx")) != -1) {
 		switch (ch) {
 		case 'f':
-			if (strlcpy(sender, optarg, sizeof(sender))
-			    >= sizeof(sender))
-				errx(1, "sender address too long.");
+			fake_from = optarg;
 			break;
+		case 'F':
+			msg.fromname = optarg;
+			break;
+		case 't':
+			tflag = 1;
+			break;
+		case 'v':
+			verbose = 1;
+			break;
+		/* all remaining: ignored, sendmail compat */
+		case 'A':
+		case 'B':
+		case 'b':
+		case 'E':
+		case 'e':
 		case 'i':
+		case 'L':
+		case 'm':
+		case 'o':
+		case 'p':
+		case 'x':
 			break;
+		case 'q':
+			/* XXX: implement "process all now" */
+			return (0);
 		default:
 			usage();
 		}
@@ -90,169 +173,350 @@ enqueue(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	bzero(&message, sizeof(struct message));
+	if (gethostname(host, sizeof(host)) == -1)
+		err(1, "gethostname");
+	if ((pw = getpwuid(getuid())) == NULL)
+		user = "anonymous";
+	if (pw != NULL && (user = strdup(pw->pw_name)) == NULL)
+		err(1, "strdup");
 
-	strlcpy(message.session_helo, "localhost",
-	    sizeof(message.session_helo));
-	strlcpy(message.session_hostname, hostname,
-	    sizeof(message.session_hostname));
-	
-	/* build sender */
-	if (! recipient_to_path(&message.sender, sender))
-		errx(1, "invalid sender address.");
-	
-	if (! enqueue_init(&message))
-		errx(1, "failed to initialize enqueue message.");
-	
-	if (argc == 0)
-		errx(1, "no recipient.");
+	build_from(fake_from, pw);
 
-	while (argc--) {
-		if (! enqueue_add_recipient(&message, *argv))
-			errx(1, "invalid recipient.");
-		++argv;
+	while(argc > 0) {
+		rcpt_add(argv[0]);
+		argv++;
+		argc--;
 	}
 
-	fd = enqueue_messagefd(&message);
-	if (fd == -1 || (fpout = fdopen(fd, "w")) == NULL)
-		errx(1, "failed to open message file for writing.");
+	signal(SIGALRM, sighdlr);
+	alarm(SMTP_TIMEOUT);
 
-	if (! enqueue_write_message(stdin, fpout))
-		errx(1, "failed to write message to message file.");
+	msg.fd = open_connection();
 
-	if (! safe_fclose(fpout))
-		errx(1, "error while writing to message file.");
+	/* init session */
+	if ((sp = client_init(msg.fd, "localhost")) == NULL)
+		err(1, "client_init failed");
+	if (verbose)
+		client_verbose(sp, stdout);
 
-	if (! enqueue_commit(&message))
-		errx(1, "failed to commit message to queue.");
+	/* parse message */
+	if ((body = buf_dynamic(0, SIZE_T_MAX)) < 0)
+		err(1, "buf_dynamic failed");
+	noheader = parse_message(stdin, fake_from == NULL, tflag, body);
 
-	return 0;
+	/* set envelope from */
+	if (client_sender(sp, "%s", msg.from) < 0)
+		err(1, "client_sender failed");
+
+	/* add recipients */
+	if (msg.rcpt_cnt == 0)
+		errx(1, "no recipients");
+	for (i = 0; i < msg.rcpt_cnt; i++)
+		if (client_rcpt(sp, "%s", msg.rcpts[i]) < 0)
+			err(1, "client_rcpt failed");
+
+	/* add From */
+	if (!msg.saw_from) {
+		if (msg.fromname != NULL) {
+			if (client_data_printf(sp,
+			    "From: %s <%s>\n", msg.fromname, msg.from) < 0)
+				err(1, "client_data_printf failed");
+		} else
+			if (client_data_printf(sp,
+			    "From: %s\n", msg.from) < 0)
+				err(1, "client_data_printf failed");
+	}
+
+	/* add Date */
+	if (!msg.saw_date)
+		if (client_data_printf(sp,
+		    "Date: %s\n", time_to_text(timestamp)) < 0)
+			err(1, "client_data_printf failed");
+
+	/* add Message-Id */
+	if (!msg.saw_msgid)
+		if (client_data_printf(sp,
+		    "Message-Id: <%llu.enqueue@%s>\n",
+			generate_uid(), host) < 0)
+			err(1, "client_data_printf failed");
+
+	/* add separating newline */
+	if (noheader)
+		if (client_data_printf(sp, "\n") < 0)
+			err(1, "client_data_printf failed");
+
+	if (client_data_printf(sp, "%.*s", buf_size(body), body->buf) < 0)
+		err(1, "client_data_printf failed");
+	buf_free(body);
+
+	/* run the protocol engine */
+	for (;;) {
+		while ((ret = client_read(sp)) == CLIENT_WANT_READ)
+			;
+		if (ret == CLIENT_ERROR)
+			errx(1, "read error: %s", client_strerror(sp));
+		if (ret == CLIENT_RCPT_FAIL)
+			errx(1, "recipient refused: %s", client_reply(sp));
+		if (ret == CLIENT_DONE)
+			break;
+		while ((ret = client_write(sp)) == CLIENT_WANT_WRITE)
+			;
+		if (ret == CLIENT_ERROR)
+			errx(1, "write error: %s", client_strerror(sp));
+	}
+
+	client_close(sp);
+
+	close(msg.fd);
+	exit (0);
 }
 
-int
-enqueue_add_recipient(struct message *messagep, char *recipient)
+void
+build_from(char *fake_from, struct passwd *pw)
 {
-	char buffer[MAX_PATH_SIZE];
-	struct message_recipient mr;
-	struct sockaddr_in6 *ssin6;
-	struct sockaddr_in *ssin;
-	struct message message;
-	int done = 0;
-	int n;
-	struct imsg imsg;
+	char	*p;
 
-	bzero(&mr, sizeof(mr));
+	if (fake_from == NULL)
+		msg.from = qualify_addr(user);
+	else {
+		if (fake_from[0] == '<') {
+			if (fake_from[strlen(fake_from) - 1] != '>')
+				errx(1, "leading < but no trailing >");
+			fake_from[strlen(fake_from) - 1] = 0;
+			if ((p = malloc(strlen(fake_from))) == NULL)
+				err(1, "malloc");
+			strlcpy(p, fake_from + 1, strlen(fake_from));
 
-	message = *messagep;
-
-	if (strlcpy(buffer, recipient, sizeof(buffer)) >= sizeof(buffer))
-		errx(1, "recipient address too long.");
-
-	if (strchr(buffer, '@') == NULL) {
-		if (! bsnprintf(buffer, sizeof(buffer), "%s@%s",
-			buffer, messagep->sender.domain))
-			errx(1, "recipient address too long.");
-	}
-	
-	if (! recipient_to_path(&message.recipient, buffer))
-		errx(1, "invalid recipient address.");
-
-	message.session_rcpt = message.recipient;
-
-	mr.ss.ss_family = AF_INET6;
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
-	mr.ss.ss_len = sizeof(ssin6);
-#endif
-	ssin6 = (struct sockaddr_in6 *)&mr.ss;
-	if (inet_pton(AF_INET6, "::1", &ssin6->sin6_addr) != 1) {
-		mr.ss.ss_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
-		mr.ss.ss_len = sizeof(ssin);
-#endif
-		ssin = (struct sockaddr_in *)&mr.ss;
-		if (inet_pton(AF_INET, "127.0.0.1", &ssin->sin_addr) != 1)
-			return 0;
-	}
-	message.session_ss = mr.ss;
-
-	mr.path = message.recipient;
-	mr.id = message.session_id;
-	mr.msg = message;
-	mr.msg.flags |= F_MESSAGE_ENQUEUED;
-
-	imsg_compose(ibuf, IMSG_MFA_RCPT, 0, 0, -1, &mr, sizeof (mr));
-	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0)
-			err(1, "write error");	
-
-	while (!done) {
-		if ((n = imsg_read(ibuf)) == -1)
-			errx(1, "imsg_read error");
-		if (n == 0)
-			errx(1, "pipe closed");
-
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			errx(1, "imsg_get error");
-
-		if (n == 0)
-			continue;
-
-		done = 1;
-		switch (imsg.hdr.type) {
-		case IMSG_CTL_OK: {
-			return 1;
-		}
-		case IMSG_CTL_FAIL:
-			return 0;
-		default:
-			errx(1, "unexpected reply (%d)", imsg.hdr.type);
-		}
-		imsg_free(&imsg);
+			msg.from = qualify_addr(p);
+			free(p);
+		} else
+			msg.from = qualify_addr(fake_from);
 	}
 
-	return 1;
-}
+	if (msg.fromname == NULL && fake_from == NULL && pw != NULL) {
+		int	 len, apos;
 
-int
-enqueue_write_message(FILE *fpin, FILE *fpout)
-{
-	char *buf, *lbuf;
-	size_t len;
-	
-	lbuf = NULL;
-	while ((buf = fgetln(fpin, &len))) {
-		if (buf[len - 1] == '\n') {
-			buf[len - 1] = '\0';
-			len--;
-		}
-		else {
-			/* EOF without EOL, copy and add the NUL */
-			if ((lbuf = malloc(len + 1)) == NULL)
+		len = strcspn(pw->pw_gecos, ",");
+		if ((p = memchr(pw->pw_gecos, '&', len))) {
+			apos = p - pw->pw_gecos;
+			if (asprintf(&msg.fromname, "%.*s%s%.*s",
+			    apos, pw->pw_gecos,
+			    pw->pw_name,
+			    len - apos - 1, p + 1) == -1)
 				err(1, NULL);
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
+			msg.fromname[apos] = toupper(msg.fromname[apos]);
+		} else {
+			if (asprintf(&msg.fromname, "%.*s", len,
+			    pw->pw_gecos) == -1)
+				err(1, NULL);
 		}
-		if (fprintf(fpout, "%s\n", buf) != (int)len + 1)
-			return 0;
 	}
-	free(lbuf);
-	return 1;
 }
 
 int
-enqueue_init(struct message *messagep)
+parse_message(FILE *fin, int get_from, int tflag, struct buf *body)
 {
-	int done = 0;
-	int n;
-	struct imsg imsg;
+	char	*buf;
+	size_t	 len;
+	u_int	 i, cur = HDR_NONE;
+	u_int	 header_seen = 0, header_done = 0;
 
-	imsg_compose(ibuf, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1, messagep, sizeof(*messagep));
+	bzero(&pstate, sizeof(pstate));
+	for (;;) {
+		buf = fgetln(fin, &len);
+		if (buf == NULL && ferror(fin))
+			err(1, "fgetln");
+		if (buf == NULL && feof(fin))
+			break;
+
+		/* account for \r\n linebreaks */
+		if (len >= 2 && buf[len - 2] == '\r' && buf[len - 1] == '\n')
+			buf[--len - 1] = '\n';
+
+		if (len == 1 && buf[0] == '\n')		/* end of header */
+			header_done = 1;
+
+		if (buf == NULL || len < 1)
+			err(1, "fgetln weird");
+
+		if (!WSP(buf[0])) {	/* whitespace -> continuation */
+			if (cur == HDR_FROM)
+				parse_addr_terminal(1);
+			if (cur == HDR_TO || cur == HDR_CC || cur == HDR_BCC)
+				parse_addr_terminal(0);
+			cur = HDR_NONE;
+		}
+
+		for (i = 0; !header_done && cur == HDR_NONE &&
+		    i < nitems(keywords); i++)
+			if (len > strlen(keywords[i].word) &&
+			    !strncasecmp(buf, keywords[i].word,
+			    strlen(keywords[i].word)))
+				cur = keywords[i].type;
+
+		if (cur != HDR_NONE)
+			header_seen = 1;
+
+		if (cur != HDR_BCC) {
+			if (buf_add(body, buf, len) < 0)
+				err(1, "buf_add failed");
+			if (buf[len - 1] != '\n' && buf_add(body, "\n", 1) < 0)
+				err(1, "buf_add failed");
+		}
+
+		/*
+		 * using From: as envelope sender is not sendmail compatible,
+		 * but I really want it that way - maybe needs a knob
+		 */
+		if (cur == HDR_FROM) {
+			msg.saw_from++;
+			if (get_from)
+				parse_addr(buf, len, 1);
+		}
+
+		if (tflag && (cur == HDR_TO || cur == HDR_CC || cur == HDR_BCC))
+			parse_addr(buf, len, 0);
+
+		if (cur == HDR_DATE)
+			msg.saw_date++;
+		if (cur == HDR_MSGID)
+			msg.saw_msgid++;
+	}
+
+	return (!header_seen);
+}
+
+void
+parse_addr(char *s, size_t len, int is_from)
+{
+	size_t	 pos = 0;
+	int	 terminal = 0;
+
+	/* unless this is a continuation... */
+	if (!WSP(s[pos]) && s[pos] != ',' && s[pos] != ';') {
+		/* ... skip over everything before the ':' */
+		for (; pos < len && s[pos] != ':'; pos++)
+			;	/* nothing */
+		/* ... and check & reset parser state */
+		parse_addr_terminal(is_from);
+	}
+
+	/* skip over ':' ',' ';' and whitespace */
+	for (; pos < len && !pstate.quote && (WSP(s[pos]) || s[pos] == ':' ||
+	    s[pos] == ',' || s[pos] == ';'); pos++)
+		;	/* nothing */
+
+	for (; pos < len; pos++) {
+		if (!pstate.esc && !pstate.quote && s[pos] == '(')
+			pstate.comment++;
+		if (!pstate.comment && !pstate.esc && s[pos] == '"')
+			pstate.quote = !pstate.quote;
+
+		if (!pstate.comment && !pstate.quote && !pstate.esc) {
+			if (s[pos] == ':') {	/* group */
+				for(pos++; pos < len && WSP(s[pos]); pos++)
+					;	/* nothing */
+				pstate.wpos = 0;
+			}
+			if (s[pos] == '\n' || s[pos] == '\r')
+				break;
+			if (s[pos] == ',' || s[pos] == ';') {
+				terminal = 1;
+				break;
+			}
+			if (s[pos] == '<') {
+				pstate.brackets = 1;
+				pstate.wpos = 0;
+			}
+			if (pstate.brackets && s[pos] == '>')
+				terminal = 1;
+		}
+
+		if (!pstate.comment && !terminal && (!(!(pstate.quote ||
+		    pstate.esc) && (s[pos] == '<' || WSP(s[pos]))))) {
+			if (pstate.wpos >= sizeof(pstate.buf))
+				errx(1, "address exceeds buffer size");
+			pstate.buf[pstate.wpos++] = s[pos];
+		}
+
+		if (!pstate.quote && pstate.comment && s[pos] == ')')
+			pstate.comment--;
+
+		if (!pstate.esc && !pstate.comment && !pstate.quote &&
+		    s[pos] == '\\')
+			pstate.esc = 1;
+		else
+			pstate.esc = 0;
+	}
+
+	if (terminal)
+		parse_addr_terminal(is_from);
+
+	for (; pos < len && (s[pos] == '\r' || s[pos] == '\n'); pos++)
+		;	/* nothing */
+
+	if (pos < len)
+		parse_addr(s + pos, len - pos, is_from);
+}
+
+void
+parse_addr_terminal(int is_from)
+{
+	if (pstate.comment || pstate.quote || pstate.esc)
+		errx(1, "syntax error in address");
+	if (pstate.wpos) {
+		if (pstate.wpos >= sizeof(pstate.buf))
+			errx(1, "address exceeds buffer size");
+		pstate.buf[pstate.wpos] = '\0';
+		if (is_from)
+			msg.from = qualify_addr(pstate.buf);
+		else
+			rcpt_add(pstate.buf);
+		pstate.wpos = 0;
+	}	
+}
+
+char *
+qualify_addr(char *in)
+{
+	char	*out;
+
+	if (strchr(in, '@') == NULL) {
+		if (asprintf(&out, "%s@%s", in, host) == -1)
+			err(1, "qualify asprintf");
+	} else
+		if ((out = strdup(in)) == NULL)
+			err(1, "qualify strdup");
+
+	return (out);
+}
+
+void
+rcpt_add(char *addr)
+{
+	void	*nrcpts;
+
+	if ((nrcpts = realloc(msg.rcpts,
+	    sizeof(char *) * (msg.rcpt_cnt + 1))) == NULL)
+		err(1, "rcpt_add realloc");
+	msg.rcpts = nrcpts;
+	msg.rcpts[msg.rcpt_cnt++] = qualify_addr(addr);
+}
+
+int
+open_connection(void)
+{
+	struct imsg	imsg;
+	int		fd;
+	int		n;
+
+	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE, 0, 0, -1, NULL, 0);
+
 	while (ibuf->w.queued)
 		if (msgbuf_write(&ibuf->w) < 0)
-			err(1, "write error");	
+			err(1, "write error");
 
-	while (!done) {
+	while (1) {
 		if ((n = imsg_read(ibuf)) == -1)
 			errx(1, "imsg_read error");
 		if (n == 0)
@@ -260,110 +524,70 @@ enqueue_init(struct message *messagep)
 
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
 			errx(1, "imsg_get error");
-
 		if (n == 0)
 			continue;
 
-		done = 1;
-		switch (imsg.hdr.type) {
-		case IMSG_CTL_OK: {
-			struct message *mp;
-			
-			mp = imsg.data;
-			messagep->session_id = mp->session_id;
-			strlcpy(messagep->message_id, mp->message_id,
-			    sizeof(messagep->message_id));
-
-			return 1;
-		}
-		case IMSG_CTL_FAIL:
-			return 0;
-		default:
-			err(1, "unexpected reply (%d)", imsg.hdr.type);
-		}
-		imsg_free(&imsg);
-	}
-
-	return 0;
-}
-
-int
-enqueue_messagefd(struct message *messagep)
-{
-	int done = 0;
-	int n;
-	struct imsg imsg;
-
-	imsg_compose(ibuf, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, messagep, sizeof(*messagep));
-	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0)
-			err(1, "write error");	
-
-	while (!done) {
-		if ((n = imsg_read(ibuf)) == -1)
-			errx(1, "imsg_read error");
-		if (n == 0)
-			errx(1, "pipe closed");
-
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			errx(1, "imsg_get error");
-
-		if (n == 0)
-			continue;
-
-		done = 1;
 		switch (imsg.hdr.type) {
 		case IMSG_CTL_OK:
-			return imsg_get_fd(ibuf, &imsg);
+			break;
 		case IMSG_CTL_FAIL:
-			return -1;
+			errx(1, "server disallowed submission request");
 		default:
-			err(1, "unexpected reply (%d)", imsg.hdr.type);
+			errx(1, "unexpected imsg reply type");
 		}
+
+		fd = imsg.fd;
 		imsg_free(&imsg);
+
+		break;
 	}
 
-	return -1;
+	return fd;
 }
 
-
 int
-enqueue_commit(struct message *messagep)
+enqueue_offline(int argc, char *argv[])
 {
-	int done = 0;
-	int n;
-	struct imsg imsg;
+	char	 path[MAXPATHLEN];
+	FILE	*fp;
+	int	 i, fd, ch;
 
-	imsg_compose(ibuf, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, messagep, sizeof(*messagep));
-	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0)
-			err(1, "write error");	
+	if (! bsnprintf(path, sizeof(path), "%s%s/%d.XXXXXXXXXX", PATH_SPOOL,
+		PATH_OFFLINE, (int) time(NULL)))
+		err(1, "snprintf");
 
-	while (!done) {
-		if ((n = imsg_read(ibuf)) == -1)
-			errx(1, "imsg_read error");
-		if (n == 0)
-			errx(1, "pipe closed");
-
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			errx(1, "imsg_get error");
-
-		if (n == 0)
-			continue;
-
-		done = 1;
-		switch (imsg.hdr.type) {
-		case IMSG_CTL_OK: {
-			return 1;
-		}
-		case IMSG_CTL_FAIL: {
-			return 0;
-		}
-		default:
-			err(1, "unexpected reply (%d)", imsg.hdr.type);
-		}
-		imsg_free(&imsg);
+	if ((fd = mkstemp(path)) == -1 || (fp = fdopen(fd, "w+")) == NULL) {
+		warn("cannot create temporary file %s", path);
+		if (fd != -1)
+			unlink(path);
+		exit(1);
 	}
 
-	return 0;
+	for (i = 1; i < argc; i++) {
+		if (strchr(argv[i], '|') != NULL) {
+			warnx("%s contains illegal character", argv[i]);
+			unlink(path);
+			exit(1);
+		}
+		fprintf(fp, "%s%s", i == 1 ? "" : "|", argv[i]);
+	}
+
+	fprintf(fp, "\n");
+
+	while ((ch = fgetc(stdin)) != EOF)
+		if (fputc(ch, fp) == EOF) {
+			warn("write error");
+			unlink(path);
+			exit(1);
+		}
+
+	if (ferror(stdin)) {
+		warn("read error");
+		unlink(path);
+		exit(1);
+	}
+
+	fclose(fp);
+
+	return (0);
 }

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.10 2009/02/05 21:25:19 gilles Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.23 2009/11/11 15:36:10 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -40,7 +40,7 @@
 
 #include "smtpd.h"
 
-#define SSL_CIPHERS	"HIGH:!ADH"
+#define SSL_CIPHERS	"HIGH"
 
 void	 ssl_error(const char *);
 char	*ssl_load_file(const char *, off_t *);
@@ -50,12 +50,42 @@ void	 ssl_read(int, short, void *);
 void	 ssl_write(int, short, void *);
 int	 ssl_bufferevent_add(struct event *, int);
 void	 ssl_connect(int, short, void *);
-void	 ssl_client_init(struct session *);
+
+SSL	*ssl_client_init(int, char *, size_t, char *, size_t);
+
+int	 ssl_buf_read(SSL *, struct buf_read *);
+int	 ssl_buf_write(SSL *, struct msgbuf *);
+
+DH	*get_dh512(void);
+void	 ssl_set_ephemeral_key_exchange(SSL_CTX *);
 
 extern void	bufferevent_read_pressure_cb(struct evbuffer *, size_t,
 		    size_t, void *);
 
-extern struct s_smtp	s_smtp;
+/* From OpenSSL's documentation:
+ *
+ * If "strong" primes were used to generate the DH parameters, it is
+ * not strictly necessary to generate a new key for each handshake
+ * but it does improve forward secrecy.
+ *
+ * These are the parameters used by both sendmail and openssl's
+ * s_server.
+ *
+ * -- gilles@
+ */
+
+unsigned char dh512_p[] = {
+        0xDA,0x58,0x3C,0x16,0xD9,0x85,0x22,0x89,0xD0,0xE4,0xAF,0x75,
+        0x6F,0x4C,0xCA,0x92,0xDD,0x4B,0xE5,0x33,0xB8,0x04,0xFB,0x0F,
+        0xED,0x94,0xEF,0x9C,0x8A,0x44,0x03,0xED,0x57,0x46,0x50,0xD3,
+        0x69,0x99,0xDB,0x29,0xD7,0x76,0x27,0x6B,0xA2,0xD3,0xD4,0x12,
+        0xE2,0x18,0xF4,0xDD,0x1E,0x08,0x4C,0xF6,0xD8,0x00,0x3E,0x7C,
+        0x47,0x74,0xE8,0x33,    
+};
+
+unsigned char dh512_g[] = {
+        0x02,
+};
 
 void
 ssl_connect(int fd, short event, void *p)
@@ -66,7 +96,7 @@ ssl_connect(int fd, short event, void *p)
 	int		 ssl_err;
 
 	if (event == EV_TIMEOUT) {
-		log_debug("ssl_session_accept: session timed out");
+		log_debug("ssl_connect: session timed out");
 		session_destroy(s);
 		return;
 	}
@@ -339,7 +369,7 @@ ssl_ctx_create(void)
 }
 
 int
-ssl_load_certfile(struct smtpd *env, const char *name)
+ssl_load_certfile(struct smtpd *env, const char *name, u_int8_t flags)
 {
 	struct ssl	*s;
 	struct ssl	 key;
@@ -351,13 +381,16 @@ ssl_load_certfile(struct smtpd *env, const char *name)
 		return -1;
 	}
 
-	s = SPLAY_FIND(ssltree, &env->sc_ssl, &key);
-	if (s != NULL)
+	s = SPLAY_FIND(ssltree, env->sc_ssl, &key);
+	if (s != NULL) {
+		s->flags |= flags;
 		return 0;
+	}
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
 		fatal(NULL);
 
+	s->flags = flags;
 	(void)strlcpy(s->ssl_name, key.ssl_name, sizeof(s->ssl_name));
 
 	if (! bsnprintf(certfile, sizeof(certfile),
@@ -384,10 +417,7 @@ ssl_load_certfile(struct smtpd *env, const char *name)
 		return (-1);
 	}
 
-	if (s->ssl_cert == NULL || s->ssl_key == NULL)
-		fatal("invalid certificates");
-
-	SPLAY_INSERT(ssltree, &env->sc_ssl, s);
+	SPLAY_INSERT(ssltree, env->sc_ssl, s);
 
 	return (0);
 }
@@ -417,7 +447,7 @@ ssl_setup(struct smtpd *env, struct listener *l)
 	    >= sizeof(key.ssl_name))
 		fatal("ssl_setup: certificate name truncated");
 
-	if ((l->ssl = SPLAY_FIND(ssltree, &env->sc_ssl, &key)) == NULL)
+	if ((l->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &key)) == NULL)
 		fatal("ssl_setup: certificate tree corrupted");
 
 	l->ssl_ctx = ssl_ctx_create();
@@ -434,6 +464,8 @@ ssl_setup(struct smtpd *env, struct listener *l)
 	if (!SSL_CTX_set_session_id_context(l->ssl_ctx,
 		(const unsigned char *)l->ssl_cert_name, strlen(l->ssl_cert_name) + 1))
 		goto err;
+
+	ssl_set_ephemeral_key_exchange(l->ssl_ctx);
 
 	log_debug("ssl_setup: ssl setup finished for listener: %p", l);
 	return;
@@ -503,22 +535,24 @@ ssl_session_accept(int fd, short event, void *p)
 		}
 	}
 
-	event_set(&s->s_bev->ev_read, s->s_fd, EV_READ, ssl_read, s->s_bev);
-	event_set(&s->s_bev->ev_write, s->s_fd, EV_WRITE, ssl_write, s->s_bev);
 
 	log_info("ssl_session_accept: accepted ssl client");
 	s->s_flags |= F_SECURE;
 
-	if (s->s_l->flags & F_SSMTP) {
-		s_smtp.ssmtp++;
-		s_smtp.ssmtp_active++;
+	if (s->s_l->flags & F_SMTPS) {
+		s->s_env->stats->smtp.smtps++;
+		s->s_env->stats->smtp.smtps_active++;
 	}
 	if (s->s_l->flags & F_STARTTLS) {
-		s_smtp.starttls++;
-		s_smtp.starttls_active++;
+		s->s_env->stats->smtp.starttls++;
+		s->s_env->stats->smtp.starttls_active++;
 	}
 
+	session_bufferevent_new(s);
+	event_set(&s->s_bev->ev_read, s->s_fd, EV_READ, ssl_read, s->s_bev);
+	event_set(&s->s_bev->ev_write, s->s_fd, EV_WRITE, ssl_write, s->s_bev);
 	session_pickup(s, NULL);
+
 	return;
 retry:
 	event_add(&s->s_ev, &s->s_tv);
@@ -560,35 +594,43 @@ ssl_session_init(struct session *s)
 	ssl_error("ssl_session_init");
 }
 
-void
-ssl_client_init(struct session *s)
+SSL *
+ssl_client_init(int fd, char *cert, size_t certsz, char *key, size_t keysz)
 {
 	SSL_CTX		*ctx;
+	SSL		*ssl = NULL;
+	int		 rv = -1;
 
-	log_debug("ssl_client_init: preparing SSL");
 	ctx = ssl_ctx_create();
 
-	s->s_ssl = SSL_new(ctx);
-	if (s->s_ssl == NULL)
-		goto err;
+	if (cert && key) {
+		if (!ssl_ctx_use_certificate_chain(ctx, cert, certsz))
+			goto done;
+		else if (!ssl_ctx_use_private_key(ctx, key, keysz))
+			goto done;
+		else if (!SSL_CTX_check_private_key(ctx))
+			goto done;
+	}
 
-	if (!SSL_set_ssl_method(s->s_ssl, SSLv23_client_method()))
-		goto err;
-	if (!SSL_set_fd(s->s_ssl, s->s_fd))
-		goto err;
-	SSL_set_connect_state(s->s_ssl);
+	if ((ssl = SSL_new(ctx)) == NULL)
+		goto done;
 
-	s->s_tv.tv_sec = SMTPD_SESSION_TIMEOUT;
-	s->s_tv.tv_usec = 0;
+	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
+		goto done;
+	if (!SSL_set_fd(ssl, fd))
+		goto done;
+	SSL_set_connect_state(ssl);
 
-	event_set(&s->s_ev, s->s_fd, EV_WRITE|EV_TIMEOUT, ssl_connect, s);
-	event_add(&s->s_ev, &s->s_tv);
-	return;
-
- err:
-	if (s->s_ssl != NULL)
-		SSL_free(s->s_ssl);
-	ssl_error("ssl_client_init");
+	rv = 0;
+done:
+	if (rv) {
+		if (ssl)
+			SSL_free(ssl);
+		else if (ctx)
+			SSL_CTX_free(ctx);
+		ssl = NULL;
+	}
+	return (ssl);
 }
 
 void
@@ -601,12 +643,75 @@ ssl_session_destroy(struct session *s)
 		return;
 	}
 
-	if (s->s_l->flags & F_SSMTP) {
+	if (s->s_l->flags & F_SMTPS) {
 		if (s->s_flags & F_SECURE)
-			s_smtp.ssmtp_active--;
+			s->s_env->stats->smtp.smtps_active--;
 	}
 	if (s->s_l->flags & F_STARTTLS) {
 		if (s->s_flags & F_SECURE)
-			s_smtp.starttls_active--;
+			s->s_env->stats->smtp.starttls_active--;
 	}
+}
+
+int
+ssl_buf_read(SSL *s, struct buf_read *r)
+{
+	char	*buf = r->buf + r->wpos;
+	ssize_t	 bufsz = sizeof(r->buf) - r->wpos;
+	int	 ret;
+
+	if (bufsz == 0) {
+		errno = EMSGSIZE;
+		return (SSL_ERROR_SYSCALL);
+	}
+
+	if ((ret = SSL_read(s, buf, bufsz)) > 0)
+		r->wpos += ret;
+
+	return SSL_get_error(s, ret);
+}
+
+int
+ssl_buf_write(SSL *s, struct msgbuf *msgbuf)
+{
+	struct buf	*buf;
+	int		 ret;
+	
+	buf = TAILQ_FIRST(&msgbuf->bufs);
+	if (buf == NULL)
+		return (SSL_ERROR_NONE);
+
+	ret = SSL_write(s, buf->buf + buf->rpos, buf->wpos - buf->rpos);
+
+	if (ret > 0)
+		msgbuf_drain(msgbuf, ret);
+
+	return SSL_get_error(s, ret);
+}
+
+DH *
+get_dh512(void)
+{
+        DH *dh;
+	
+        if ((dh = DH_new()) == NULL)
+		return NULL;
+
+        dh->p = BN_bin2bn(dh512_p, sizeof(dh512_p), NULL);
+        dh->g = BN_bin2bn(dh512_g, sizeof(dh512_g), NULL);
+        if (dh->p == NULL || dh->g == NULL)
+                return NULL;
+
+        return dh;
+}
+
+
+void
+ssl_set_ephemeral_key_exchange(SSL_CTX *ctx)
+{
+	DH *dh;
+
+	dh = get_dh512();
+	if (dh != NULL)
+		SSL_CTX_set_tmp_dh(ctx, dh);
 }

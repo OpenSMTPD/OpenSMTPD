@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.55 2009/02/20 18:47:53 jacekm Exp $	*/
+/*	$OpenBSD: queue.c,v 1.73 2009/11/08 21:40:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -17,6 +17,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/* define _GNU_SOURCE for setresgid and setresuid */
+#define _GNU_SOURCE
+
 #include <sys/types.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
@@ -27,7 +30,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
-#include <grp.h>
+#include <grp.h> /* needed for setgroups */
 #include <libgen.h>
 #include <pwd.h>
 #include <signal.h>
@@ -57,7 +60,8 @@ int		queue_remove_layout_envelope(char *, struct message *);
 int		queue_commit_layout_message(char *, struct message *);
 int		queue_open_layout_messagefile(char *, struct message *);
 
-struct s_queue	s_queue;
+void		queue_submit_envelope(struct smtpd *, struct message *);
+void	        queue_commit_envelopes(struct smtpd *, struct message*);
 
 void
 queue_sig_handler(int sig, short event, void *p)
@@ -76,481 +80,437 @@ void
 queue_dispatch_control(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_CONTROL];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_CONTROL];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("queue_dispatch_control: imsg_read error");
+			fatal("queue_dispatch_control: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_QUEUE_CREATE_MESSAGE: {
-			struct message		*messagep;
-			struct submit_status	 ss;
-
-			log_debug("mfa_dispatch_control: creating message file");
-			messagep = imsg.data;
-
-			ss.id = messagep->session_id;
-			ss.code = 250;
-			bzero(ss.u.msgid, MAX_ID_SIZE);
-
-			if (! enqueue_create_layout(ss.u.msgid))
-				ss.code = 421;
-
-			imsg_compose(ibuf, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-			    &ss, sizeof(ss));
-
-			break;
-		}
-		case IMSG_QUEUE_MESSAGE_FILE: {
-			int fd;
-			struct submit_status ss;
-			struct message *messagep;
-
-			messagep = imsg.data;
-			ss.msg = *messagep;
-			ss.id = messagep->session_id;
-			ss.code = 250;
-			fd = enqueue_open_messagefile(messagep);
-			if (fd == -1) 
-				ss.code = 421;
-
-			imsg_compose(ibuf, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd, &ss,
-			    sizeof(ss));
-
-			break;
-		}
-		case IMSG_QUEUE_COMMIT_MESSAGE: {
-			struct message		*messagep;
-			struct submit_status	 ss;
-
-			messagep = imsg.data;
-			ss.id = messagep->session_id;
-
-			ss.code = 250;
-			if (! enqueue_commit_message(messagep))
-				ss.code = 421;
-
-			imsg_compose(ibuf, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
-			    &ss, sizeof(ss));
-
-			break;
-		}
-		case IMSG_STATS: {
-			struct stats *s;
-
-			s = imsg.data;
-			s->u.queue = s_queue;
-			imsg_compose(ibuf, IMSG_STATS, 0, 0, -1, s, sizeof(*s));
-			break;
-		}
 		default:
-			log_debug("queue_dispatch_control: unexpected imsg %d",
+			log_warnx("queue_dispatch_control: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("queue_dispatch_control: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 queue_dispatch_smtp(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_SMTP];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_SMTP];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("queue_dispatch_smtp: imsg_read error");
+			fatal("queue_dispatch_smtp: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE: {
-			struct message		*messagep;
+			struct message		*messagep = imsg.data;
 			struct submit_status	 ss;
+			int			(*f)(char *);
 
-			log_debug("mfa_dispatch_smtp: creating message file");
-			messagep = imsg.data;
+			log_debug("queue_dispatch_smtp: creating message file");
+
+			IMSG_SIZE_CHECK(messagep);
+
 			ss.id = messagep->session_id;
 			ss.code = 250;
 			bzero(ss.u.msgid, MAX_ID_SIZE);
 
-			if (! queue_create_incoming_layout(ss.u.msgid))
+			if (messagep->flags & F_MESSAGE_ENQUEUED)
+				f = enqueue_create_layout;
+			else
+				f = queue_create_incoming_layout;
+
+			if (! f(ss.u.msgid))
 				ss.code = 421;
 
-			imsg_compose(ibuf, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
+			imsg_compose_event(iev, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
 			    &ss, sizeof(ss));
 			break;
 		}
 		case IMSG_QUEUE_REMOVE_MESSAGE: {
-			struct message		*messagep;
+			struct message		*messagep = imsg.data;
+			void			(*f)(char *);
 
-			messagep = imsg.data;
-			queue_delete_incoming_message(messagep->message_id);
+			IMSG_SIZE_CHECK(messagep);
+
+			if (messagep->flags & F_MESSAGE_ENQUEUED)
+				f = enqueue_delete_message;
+			else
+				f = queue_delete_incoming_message;
+
+			f(messagep->message_id);
+
 			break;
 		}
 		case IMSG_QUEUE_COMMIT_MESSAGE: {
-			struct message		*messagep;
+			struct message		*messagep = imsg.data;
 			struct submit_status	 ss;
+			size_t			*counter;
+			int			(*f)(struct message *);
 
-			messagep = imsg.data;
+			IMSG_SIZE_CHECK(messagep);
+
 			ss.id = messagep->session_id;
 
-			s_queue.inserts++;
+			if (messagep->flags & F_MESSAGE_ENQUEUED) {
+				f = enqueue_commit_message;
+				counter = &env->stats->queue.inserts_local;
+			} else {
+				f = queue_commit_incoming_message;
+				counter = &env->stats->queue.inserts_remote;
+			}
 
-			if (! queue_commit_incoming_message(messagep))
+			if (f(messagep))
+				(*counter)++;
+			else
 				ss.code = 421;
 
-			imsg_compose(ibuf, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
+			imsg_compose_event(iev, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
 			    &ss, sizeof(ss));
 
 			break;
 		}
 		case IMSG_QUEUE_MESSAGE_FILE: {
-			struct message		*messagep;
+			struct message		*messagep = imsg.data;
 			struct submit_status	 ss;
 			int fd;
+			int			(*f)(struct message *);
 
-			messagep = imsg.data;
+			IMSG_SIZE_CHECK(messagep);
+
 			ss.id = messagep->session_id;
 
-			fd = queue_open_incoming_message_file(messagep);
+			if (messagep->flags & F_MESSAGE_ENQUEUED)
+				f = enqueue_open_messagefile;
+			else
+				f = queue_open_incoming_message_file;
+
+			fd = f(messagep);
 			if (fd == -1)
 				ss.code = 421;
 
-			imsg_compose(ibuf, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd,
+			imsg_compose_event(iev, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd,
 			    &ss, sizeof(ss));
 			break;
 		}
 		default:
-			log_debug("queue_dispatch_smtp: unexpected imsg %d",
+			log_warnx("queue_dispatch_smtp: got imsg %d",
 			    imsg.hdr.type);
-			break;
+			fatalx("queue_dispatch_smtp: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 queue_dispatch_mda(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_MDA];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_MDA];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("queue_dispatch_mda: imsg_read error");
+			fatal("queue_dispatch_mda: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 
 		case IMSG_QUEUE_MESSAGE_UPDATE: {
-			imsg_compose(env->sc_ibufs[PROC_RUNNER], IMSG_RUNNER_UPDATE_ENVELOPE,
+			imsg_compose_event(env->sc_ievs[PROC_RUNNER], IMSG_RUNNER_UPDATE_ENVELOPE,
 			    0, 0, -1, imsg.data, sizeof(struct message));
 			break;
 		}
 
 		default:
-			log_debug("queue_dispatch_mda: unexpected imsg %d",
-			    imsg.hdr.type);
-			break;
+			log_warnx("got imsg %d", imsg.hdr.type);
+			fatalx("queue_dispatch_mda: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 queue_dispatch_mta(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_MTA];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_MTA];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("queue_dispatch_mda: imsg_read error");
+			fatal("queue_dispatch_mta: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 
 		case IMSG_QUEUE_MESSAGE_FD: {
+			struct batch *batchp = imsg.data;
 			int fd;
-			struct batch *batchp;
 
-			batchp = imsg.data;
+			IMSG_SIZE_CHECK(batchp);
+
 			fd = queue_open_message_file(batchp->message_id);
-			imsg_compose(ibuf,  IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, batchp,
+			imsg_compose_event(iev,  IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, batchp,
 			    sizeof(*batchp));
 			break;
 		}
 
 		case IMSG_QUEUE_MESSAGE_UPDATE: {
-			imsg_compose(env->sc_ibufs[PROC_RUNNER], IMSG_RUNNER_UPDATE_ENVELOPE,
+			imsg_compose_event(env->sc_ievs[PROC_RUNNER], IMSG_RUNNER_UPDATE_ENVELOPE,
 			    0, 0, -1, imsg.data, sizeof(struct message));
 			break;
 		}
 
 		default:
-			log_debug("queue_dispatch_mda: unexpected imsg %d",
-			    imsg.hdr.type);
-			break;
+			log_warnx("got imsg %d", imsg.hdr.type);
+			fatalx("queue_dispatch_mda: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 queue_dispatch_lka(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_LKA];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_LKA];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
- 	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("queue_dispatch_lka: imsg_read error");
+			fatal("queue_dispatch_lka: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 
 		case IMSG_QUEUE_SUBMIT_ENVELOPE: {
-			struct message		*messagep;
+			struct message		*messagep = imsg.data;
 			struct submit_status	 ss;
 			int (*f)(struct message *);
-			enum smtp_proc_type peer;
 
-			messagep = imsg.data;
-			messagep->id = queue_generate_id();
+			IMSG_SIZE_CHECK(messagep);
+
+			messagep->id = generate_uid();
 			ss.id = messagep->session_id;
 
-			if (IS_MAILBOX(messagep->recipient.rule.r_action) ||
-			    IS_EXT(messagep->recipient.rule.r_action))
+			if (IS_MAILBOX(messagep->recipient) ||
+			    IS_EXT(messagep->recipient))
 				messagep->type = T_MDA_MESSAGE;
 			else
 				messagep->type = T_MTA_MESSAGE;
 
 			/* Write to disk */
-			if (messagep->flags & F_MESSAGE_ENQUEUED) {
+			if (messagep->flags & F_MESSAGE_ENQUEUED)
 				f = enqueue_record_envelope;
-				peer = PROC_CONTROL;
-			}
-			else {
+			else
 				f = queue_record_incoming_envelope;
-				peer = PROC_SMTP;
-			}
 
 			if (! f(messagep)) {
 				ss.code = 421;
-				imsg_compose(env->sc_ibufs[peer], IMSG_QUEUE_TEMPFAIL,
-				    0, 0, -1, &ss, sizeof(ss));
+				imsg_compose_event(env->sc_ievs[PROC_SMTP],
+				    IMSG_QUEUE_TEMPFAIL, 0, 0, -1, &ss,
+				    sizeof(ss));
 			}
 
 			break;
 		}
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES: {
-			struct message		*messagep;
+			struct message		*messagep = imsg.data;
 			struct submit_status	 ss;
-			enum smtp_proc_type	 peer;
 
-			messagep = imsg.data;
+			IMSG_SIZE_CHECK(messagep);
+
 			ss.id = messagep->session_id;
 			ss.code = 250;
 
-			if (messagep->flags & F_MESSAGE_ENQUEUED)
-				peer = PROC_CONTROL;
-			else
-				peer = PROC_SMTP;
-
-			imsg_compose(env->sc_ibufs[peer], IMSG_QUEUE_COMMIT_ENVELOPES,
+			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_QUEUE_COMMIT_ENVELOPES,
 			    0, 0, -1, &ss, sizeof(ss));
 
 			break;
 		}
 
 		default:
-			log_debug("queue_dispatch_lka: unexpected imsg %d",
-			    imsg.hdr.type);
-			break;
+			log_warnx("got imsg %d", imsg.hdr.type);
+			fatalx("queue_dispatch_lka: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 queue_dispatch_runner(int sig, short event, void *p)
 {
 	struct smtpd		*env = p;
+	struct imsgev		*iev;
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
 
-	ibuf = env->sc_ibufs[PROC_RUNNER];
-	switch (event) {
-	case EV_READ:
+	iev = env->sc_ievs[PROC_RUNNER];
+	ibuf = &iev->ibuf;
+
+	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1)
 			fatal("imsg_read_error");
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			event_del(&ibuf->ev);
+			event_del(&iev->ev);
 			event_loopexit(NULL);
 			return;
 		}
-		break;
-	case EV_WRITE:
+	}
+
+	if (event & EV_WRITE) {
 		if (msgbuf_write(&ibuf->w) == -1)
 			fatal("msgbuf_write");
-		imsg_event_add(ibuf);
-		return;
-	default:
-		fatalx("unknown event");
 	}
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("queue_dispatch_runner: imsg_read error");
+			fatal("queue_dispatch_runner: imsg_get error");
 		if (n == 0)
 			break;
 
 		switch (imsg.hdr.type) {
 		default:
-			log_debug("queue_dispatch_runner: unexpected imsg %d",
-			    imsg.hdr.type);
-			break;
+			log_warnx("got imsg %d", imsg.hdr.type);
+			fatalx("queue_dispatch_runner: unexpected imsg");
 		}
 		imsg_free(&imsg);
 	}
-	imsg_event_add(ibuf);
+	imsg_event_add(iev);
 }
 
 void
 queue_shutdown(void)
 {
-	log_info("queue handler");
+	log_info("queue handler exiting");
 	_exit(0);
 }
 
@@ -604,8 +564,8 @@ queue(struct smtpd *env)
 #warning disabling privilege revocation and chroot in DEBUG MODE
 #endif
 
-	setproctitle("queue handler");
 	smtpd_process = PROC_QUEUE;
+	setproctitle("%s", env->sc_title[smtpd_process]);
 
 #ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
@@ -623,8 +583,8 @@ queue(struct smtpd *env)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(env, peers, 6);
-	config_peers(env, peers, 6);
+	config_pipes(env, peers, nitems(peers));
+	config_peers(env, peers, nitems(peers));
 
 	queue_purge(PATH_INCOMING);
 	queue_purge(PATH_ENQUEUE);
@@ -636,22 +596,6 @@ queue(struct smtpd *env)
 	return (0);
 }
 
-int
-queue_remove_batch_message(struct smtpd *env, struct batch *batchp, struct message *messagep)
-{
-	TAILQ_REMOVE(&batchp->messages, messagep, entry);
-	bzero(messagep, sizeof(struct message));
-	free(messagep);
-
-	if (TAILQ_FIRST(&batchp->messages) == NULL) {
-		SPLAY_REMOVE(batchtree, &env->batch_queue, batchp);
-		bzero(batchp, sizeof(struct batch));
-		free(batchp);
-		return 1;
-	}
-	return 0;
-}
-
 struct batch *
 batch_by_id(struct smtpd *env, u_int64_t id)
 {
@@ -661,28 +605,6 @@ batch_by_id(struct smtpd *env, u_int64_t id)
 	return SPLAY_FIND(batchtree, &env->batch_queue, &lookup);
 }
 
-
-struct message *
-message_by_id(struct smtpd *env, struct batch *batchp, u_int64_t id)
-{
-	struct message *messagep;
-
-	if (batchp != NULL) {
-		TAILQ_FOREACH(messagep, &batchp->messages, entry) {
-			if (messagep->id == id)
-				break;
-		}
-		return messagep;
-	}
-
-	SPLAY_FOREACH(batchp, batchtree, &env->batch_queue) {
-		TAILQ_FOREACH(messagep, &batchp->messages, entry) {
-			if (messagep->id == id)
-				return messagep;
-		}
-	}
-	return NULL;
-}
 
 void
 queue_purge(char *queuepath)
@@ -696,4 +618,20 @@ queue_purge(char *queuepath)
 		queue_delete_layout_message(queuepath, basename(path));
 
 	qwalk_close(q);
+}
+
+void
+queue_submit_envelope(struct smtpd *env, struct message *message)
+{
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+	    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+	    message, sizeof(struct message));
+}
+
+void
+queue_commit_envelopes(struct smtpd *env, struct message *message)
+{
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+	    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
+	    message, sizeof(struct message));
 }

@@ -315,6 +315,10 @@ struct	sockaddr_un {
 typedef u_int32_t	in_addr_t;
 #endif
 
+#ifndef HAVE_IN_PORT_T
+typedef u_int16_t	in_port_t;
+#endif
+
 #if defined(BROKEN_SYS_TERMIO_H) && !defined(_STRUCT_WINSIZE)
 #define _STRUCT_WINSIZE
 struct winsize {

@@ -1,4 +1,4 @@
-/*	$OpenBSD: parser.c,v 1.6 2009/01/29 21:59:15 jacekm Exp $	*/
+/*	$OpenBSD: parser.c,v 1.9 2009/10/25 19:46:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
+#include <sys/param.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -45,14 +46,16 @@ static const struct token t_main[];
 static const struct token t_show[];
 static const struct token t_pause[];
 static const struct token t_resume[];
+static const struct token t_schedule[];
 
 static const struct token t_main[] = {
 	{KEYWORD,	"show",		NONE,		t_show},
 	{KEYWORD,	"monitor",	MONITOR,	NULL},
 	{KEYWORD,	"pause",	NONE,      	t_pause},
-	{KEYWORD,	"reload",	RELOAD,		NULL},
+/*	{KEYWORD,	"reload",	RELOAD,		NULL},*/
 	{KEYWORD,	"resume",	NONE,      	t_resume},
 	{KEYWORD,	"stop",		SHUTDOWN,      	NULL},
+	{KEYWORD,	"schedule",    	SCHEDULE,      	t_schedule},
 	{ENDTOKEN,	"",		NONE,		NULL}
 };
 
@@ -74,6 +77,11 @@ static const struct token t_resume[] = {
 	{KEYWORD,	"local",		RESUME_MDA,	NULL},
 	{KEYWORD,	"outgoing",	        RESUME_MTA,	NULL},
 	{KEYWORD,	"incoming",	        RESUME_SMTP,	NULL},
+	{ENDTOKEN,	"",			NONE,      	NULL}
+};
+
+static const struct token t_schedule[] = {
+	{VARIABLE,	"message id/uid",      	SCHEDULE,	NULL},
 	{ENDTOKEN,	"",			NONE,      	NULL}
 };
 
@@ -136,6 +144,16 @@ match_token(const char *word, const struct token table[])
 					res.action = t->value;
 			}
 			break;
+		case VARIABLE:
+			if (word != NULL && strlen(word) != 0) {
+				match++;
+				t = &table[i];
+				if (t->value) {
+					res.action = t->value;
+					res.data = word;
+				}
+			}
+			break;
 		case ENDTOKEN:
 			break;
 		}
@@ -165,6 +183,9 @@ show_valid_args(const struct token table[])
 			fprintf(stderr, "  <cr>\n");
 			break;
 		case KEYWORD:
+			fprintf(stderr, "  %s\n", table[i].keyword);
+			break;
+		case VARIABLE:
 			fprintf(stderr, "  %s\n", table[i].keyword);
 			break;
 		case ENDTOKEN:
