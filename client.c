@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.c,v 1.15 2009/11/11 11:41:05 jacekm Exp $	*/
+/*	$OpenBSD: client.c,v 1.16 2009/11/11 15:36:10 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -460,6 +460,7 @@ client_read(struct smtp_client *sp)
 	 * the caller from dropping mail for trifle reason.
 	 */ 
 	if (*sp->reply == '5' &&
+	    sp->state != CLIENT_EHLO &&
 	    sp->state != CLIENT_AUTH &&
 	    sp->state != CLIENT_MAILFROM &&
 	    sp->state != CLIENT_RCPTTO &&
