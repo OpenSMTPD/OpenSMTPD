@@ -115,12 +115,13 @@ ruleset_check_source(struct map *map, struct sockaddr_storage *ss)
 	}
 
 	TAILQ_FOREACH(me, &map->m_contents, me_entry) {
+		struct sockaddr_storage mmmss = me->me_key.med_addr.ss;
 
 		if (ss->ss_family != me->me_key.med_addr.ss.ss_family)
 			continue;
 
-		/* if (SS_LEN(ss) != SS_LEN(&me->me_key.med_addr.ss)) */
-		/* 	continue; */
+		if (SS_LEN(ss) != SS_LEN(mmmss))
+			continue;
 
 		if (ruleset_match_mask(ss, &me->me_key.med_addr))
 			return 1;

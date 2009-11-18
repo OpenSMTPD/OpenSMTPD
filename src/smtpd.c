@@ -1453,6 +1453,7 @@ parent_enqueue_offline(struct smtpd *env, char *runner_path)
 		fatal("parent_enqueue_offline: lstat");
 	}
 
+#ifdef HAVE_CHFLAGS
 	if (chflags(path, 0) == -1) {
 		if (errno == ENOENT) {
 			log_warn("parent_enqueue_offline: %s", path);
@@ -1460,6 +1461,7 @@ parent_enqueue_offline(struct smtpd *env, char *runner_path)
 		}
 		fatal("parent_enqueue_offline: chflags");
 	}
+#endif
 
 	errno = 0;
 	if ((pw = getpwuid(sb.st_uid)) == NULL) {

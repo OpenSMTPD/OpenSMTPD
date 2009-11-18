@@ -160,7 +160,11 @@ main(int argc, char *argv[])
 	if (mkstemp(dbname) == -1)
 		err(1, "mkstemp");
 
-	db = dbopen(dbname, O_RDWR|O_SYNC, 0644, DB_HASH, NULL);
+/* XXX */
+#ifndef O_EXLOCK
+#define O_EXLOCK 0
+#endif
+	db = dbopen(dbname, O_EXLOCK|O_RDWR|O_SYNC, 0644, DB_HASH, NULL);
 	if (db == NULL) {
 		warn("dbopen: %s", dbname);
 		goto bad;

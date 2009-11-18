@@ -1,15 +1,29 @@
 List of files and where they come from
 
-basename.c    portable openssh
-compat.h      hand made
-dirname.c     portable openssh
-fgetln.c      part of /usr/src/usr.bin/make/util.c
-Makefile.am   
-md5.c         /usr/src/lib/libc/hash/md5.c
-md5_helper.c  build of /usr/src/lib/libc/hash/helper.c
-strlcat.c     portable openssh
-strlcpy.c     portable openssh
-strtonum.c    portable openssh
-sys-queue.h   portable openssh
-utimes.c      http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/utimes.c?rev=1.9
-utime.h       http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/emul/utime.h?rev=1.25
+basename.c		portable openssh
+bsd-arc4random.c	portable openssh
+bsd-closefrom.c		portable openssh
+bsd-getpeereid.c	portable openssh
+defines.h		portable openssh
+dirname.c		portable openssh
+entropy.c		portable openssh
+entropy.h		portable openssh
+fgetln.c		part of /usr/src/usr.bin/make/util.c
+fparseln.c		part of
+getopt.c	  
+log.h
+Makefile.am		
+openbsd-compat.h	
+setproctitle.c		
+strmode.c
+strlcat.c		portable openssh
+strlcpy.c		portable openssh
+strtonum.c		portable openssh
+strsep.c
+strtonum.c
+sys-queue.h		portable openssh
+sys-tree.h		portable openssh
+utimes.c		http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/utimes.c?rev=1.9
+utime.h			http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/emul/utime.h?rev=1.25
+xmalloc.c
+xmalloc.h

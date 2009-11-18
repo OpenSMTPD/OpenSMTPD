@@ -77,6 +77,7 @@ AC_CHECK_HEADERS( \
 AC_CHECK_FUNCS( \
                 arc4random \
                 arc4random_uniform \
+		chflags \
 		closefrom \
 		dirfd \
 		dirname \
