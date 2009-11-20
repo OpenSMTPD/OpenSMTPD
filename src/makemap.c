@@ -20,6 +20,8 @@
 /* define _GNU_SOURCE for asprintf */
 #define _GNU_SOURCE
 
+#include "config.h"
+
 #include <sys/file.h> /* Needed for flock */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -32,7 +34,13 @@
 #endif
 
 #include <ctype.h>
+#ifdef HAVE_DB_H
+#include <db.h>
+#elif defined(HAVE_DB1_DB_H)
 #include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
 #include <err.h>
 #include <errno.h>
 #include <event.h>

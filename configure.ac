@@ -3,10 +3,10 @@ AM_INIT_AUTOMAKE
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_YACC
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PROG_LN_S
+AC_PATH_PROG(BYACC, byacc)
 
 #from here everything comes from portable openssh configure.ac script
 
@@ -69,29 +69,40 @@ AC_CHECK_HEADERS( \
 		sys/dir.h \
 		sys/file.h \
 		sys/ndir.h \
+		sys/pstat.h \
 		sys/un.h \
 		ucred.h \
 		util.h \
                 )
 
 AC_CHECK_FUNCS( \
-                arc4random \
-                arc4random_uniform \
+		arc4random \
+		arc4random_uniform \
 		chflags \
 		closefrom \
 		dirfd \
 		dirname \
-                fgetln \
-                fparseln \
+		fgetln \
+		fparseln \
 		getopt \
 		getpeereid \
-                strlcat \
-                strlcpy \
-                strsep \
-                strtonum \
-                strmode \
-                sysconf \
-                )
+		setproctitle \
+		strlcat \
+		strlcpy \
+		strsep \
+		strtonum \
+		strmode \
+		sysconf \
+		)
+
+#chl
+
+AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
+AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb1"] , [
+AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
+				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
+])])])
+
 
 #l265
 # login_cap.h requires sys/types.h on NetBSD
@@ -100,7 +111,54 @@ AC_CHECK_HEADERS(login_cap.h, [], [], [
 ])
 #l268
 
-#l831
+#l337
+# Check for some target-specific stuff
+case "$host" in
+*-*-darwin*)
+	AC_MSG_CHECKING(if we have working getaddrinfo)
+	AC_TRY_RUN([#include <mach-o/dyld.h>
+main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
+		exit(0);
+	else
+		exit(1);
+}], [AC_MSG_RESULT(working)],
+	[AC_MSG_RESULT(buggy)
+	AC_DEFINE(BROKEN_GETADDRINFO, 1, [getaddrinfo is broken (if present)])],
+	[AC_MSG_RESULT(assume it is working)])
+	;;
+*-*-dragonfly*)
+	SSHDLIBS="$SSHDLIBS -lcrypt"
+	;;
+*-*-hpux*)
+	# first we define all of the options common to all HP-UX releases
+	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"
+	;;
+*-*-linux*)
+	case `uname -r` in
+	1.*|2.0.*)
+		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
+			[Define if cmsg_type is not passed correctly])
+		;;
+	esac
+	;;
+*-*-netbsd*)
+	check_for_libcrypt_before=1
+	;;
+*-*-freebsd*)
+	check_for_libcrypt_later=1
+	;;
+*-*-openbsd*)
+	echo "You are drunk"
+	;;
+*-*-solaris*)
+	;;
+*-*-sunos4*)
+	CPPFLAGS="$CPPFLAGS -DSUNOS4"
+	;;
+esac
+#l896
+
+#l917
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
 AC_CHECK_FUNCS(dirname, [AC_CHECK_HEADERS(libgen.h)] ,[
 	AC_CHECK_LIB(gen, dirname,[
@@ -138,22 +196,22 @@ int main(int argc, char **argv) {
 		fi
 	])
 ])
-#l867
+#l953
 
-#l871
+#l957
 AC_SEARCH_LIBS(basename, gen, AC_DEFINE(HAVE_BASENAME, 1,
 	[Define if you have the basename function.]))
-#l872
+#l958
 
-#l981
+#l1067
 dnl    Checks for libutil functions
 AC_CHECK_HEADERS(libutil.h)
 AC_SEARCH_LIBS(fparseln, util bsd, [AC_DEFINE(HAVE_FPARSELN, 1,
 	[Define if your libraries define fparseln()])])
-AC_CHECK_FUNCS(logout updwtmp logwtmp)
-#l985
+AC_CHECK_FUNCS(fmt_scaled logout updwtmp logwtmp)
+#l1071
 
-#l1047
+#l1133
 AC_MSG_CHECKING([for /proc/pid/fd directory])
 if test -d "/proc/$$/fd" ; then
 	AC_DEFINE(HAVE_PROC_PID, 1, [Define if you have /proc/$pid/fd])
@@ -161,9 +219,112 @@ if test -d "/proc/$$/fd" ; then
 else
 	AC_MSG_RESULT(no)
 fi
-#l1053
+#l1139
 
-#l1516
+#l1484
+AC_CHECK_FUNCS(setresuid, [
+	dnl Some platorms have setresuid that isn't implemented, test for this
+	AC_MSG_CHECKING(if setresuid seems to work)
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <stdlib.h>
+#include <errno.h>
+int main(){errno=0; setresuid(0,0,0); if (errno==ENOSYS) exit(1); else exit(0);}
+		]])],
+		[AC_MSG_RESULT(yes)],
+		[AC_DEFINE(BROKEN_SETRESUID, 1,
+			[Define if your setresuid() is broken])
+		 AC_MSG_RESULT(not implemented)],
+		[AC_MSG_WARN([cross compiling: not checking setresuid])]
+	)
+])
+
+AC_CHECK_FUNCS(setresgid, [
+	dnl Some platorms have setresgid that isn't implemented, test for this
+	AC_MSG_CHECKING(if setresgid seems to work)
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <stdlib.h>
+#include <errno.h>
+int main(){errno=0; setresgid(0,0,0); if (errno==ENOSYS) exit(1); else exit(0);}
+		]])],
+		[AC_MSG_RESULT(yes)],
+		[AC_DEFINE(BROKEN_SETRESGID, 1,
+			[Define if your setresgid() is broken])
+		 AC_MSG_RESULT(not implemented)],
+		[AC_MSG_WARN([cross compiling: not checking setresuid])]
+	)
+])
+#l1517
+
+#l1542
+# Check for broken snprintf
+if test "x$ac_cv_func_snprintf" = "xyes" ; then
+	AC_MSG_CHECKING([whether snprintf correctly terminates long strings])
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <stdio.h>
+int main(void){char b[5];snprintf(b,5,"123456789");exit(b[4]!='\0');}
+		]])],
+		[AC_MSG_RESULT(yes)],
+		[
+			AC_MSG_RESULT(no)
+			AC_DEFINE(BROKEN_SNPRINTF, 1,
+				[Define if your snprintf is busted])
+			AC_MSG_WARN([****** Your snprintf() function is broken, complain to your vendor])
+		],
+		[ AC_MSG_WARN([cross compiling: Assuming working snprintf()]) ]
+	)
+fi
+
+# If we don't have a working asprintf, then we strongly depend on vsnprintf
+# returning the right thing on overflow: the number of characters it tried to
+# create (as per SUSv3)
+if test "x$ac_cv_func_asprintf" != "xyes" && \
+   test "x$ac_cv_func_vsnprintf" = "xyes" ; then
+	AC_MSG_CHECKING([whether vsnprintf returns correct values on overflow])
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdarg.h>
+
+int x_snprintf(char *str,size_t count,const char *fmt,...)
+{
+	size_t ret; va_list ap;
+	va_start(ap, fmt); ret = vsnprintf(str, count, fmt, ap); va_end(ap);
+	return ret;
+}
+int main(void)
+{
+	char x[1];
+	exit(x_snprintf(x, 1, "%s %d", "hello", 12345) == 11 ? 0 : 1);
+} ]])],
+		[AC_MSG_RESULT(yes)],
+		[
+			AC_MSG_RESULT(no)
+			AC_DEFINE(BROKEN_SNPRINTF, 1,
+				[Define if your snprintf is busted])
+			AC_MSG_WARN([****** Your vsnprintf() function is broken, complain to your vendor])
+		],
+		[ AC_MSG_WARN([cross compiling: Assuming working vsnprintf()]) ]
+	)
+fi
+
+# On systems where [v]snprintf is broken, but is declared in stdio,
+# check that the fmt argument is const char * or just char *.
+# This is only useful for when BROKEN_SNPRINTF
+AC_MSG_CHECKING([whether snprintf can declare const char *fmt])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[#include <stdio.h>
+	   int snprintf(char *a, size_t b, const char *c, ...) { return 0; }
+	   int main(void) { snprintf(0, 0, 0); } 
+    ]])],
+   [AC_MSG_RESULT(yes)
+    AC_DEFINE(SNPRINTF_CONST, [const],
+              [Define as const if snprintf() can declare const char *fmt])],
+   [AC_MSG_RESULT(no)
+    AC_DEFINE(SNPRINTF_CONST, [/* not const */])])
+
 # Check for missing getpeereid (or equiv) support
 NO_PEERCHECK=""
 if test "x$ac_cv_func_getpeereid" != "xyes" -a "x$ac_cv_func_getpeerucred" != "xyes"; then
@@ -179,9 +340,173 @@ if test "x$ac_cv_func_getpeereid" != "xyes" -a "x$ac_cv_func_getpeerucred" != "x
 		NO_PEERCHECK=1]
         )
 fi
-#l1530
 
-#l1763
+
+dnl see whether mkstemp() requires XXXXXX
+if test "x$ac_cv_func_mkdtemp" = "xyes" ; then
+AC_MSG_CHECKING([for (overly) strict mkstemp])
+AC_RUN_IFELSE(
+	[AC_LANG_SOURCE([[
+#include <stdlib.h>
+main() { char template[]="conftest.mkstemp-test";
+if (mkstemp(template) == -1)
+	exit(1);
+unlink(template); exit(0);
+}
+	]])],
+	[
+		AC_MSG_RESULT(no)
+	],
+	[
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(HAVE_STRICT_MKSTEMP, 1, [Silly mkstemp()])
+	],
+	[
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(HAVE_STRICT_MKSTEMP)
+	]
+)
+fi
+#l1649
+
+#l1701
+if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
+    test "x$check_for_hpux_broken_getaddrinfo" = "x1"; then
+	AC_MSG_CHECKING(if getaddrinfo seems to work)
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <errno.h>
+#include <netinet/in.h>
+
+#define TEST_PORT "2222"
+
+int
+main(void)
+{
+	int err, sock;
+	struct addrinfo *gai_ai, *ai, hints;
+	char ntop[NI_MAXHOST], strport[NI_MAXSERV], *name = NULL;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	err = getaddrinfo(name, TEST_PORT, &hints, &gai_ai);
+	if (err != 0) {
+		fprintf(stderr, "getaddrinfo failed (%s)", gai_strerror(err));
+		exit(1);
+	}
+
+	for (ai = gai_ai; ai != NULL; ai = ai->ai_next) {
+		if (ai->ai_family != AF_INET6)
+			continue;
+
+		err = getnameinfo(ai->ai_addr, ai->ai_addrlen, ntop,
+		    sizeof(ntop), strport, sizeof(strport),
+		    NI_NUMERICHOST|NI_NUMERICSERV);
+
+		if (err != 0) {
+			if (err == EAI_SYSTEM)
+				perror("getnameinfo EAI_SYSTEM");
+			else
+				fprintf(stderr, "getnameinfo failed: %s\n",
+				    gai_strerror(err));
+			exit(2);
+		}
+
+		sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+		if (sock < 0)
+			perror("socket");
+		if (bind(sock, ai->ai_addr, ai->ai_addrlen) < 0) {
+			if (errno == EBADF)
+				exit(3);
+		}
+	}
+	exit(0);
+}
+		]])],
+		[
+			AC_MSG_RESULT(yes)
+		],
+		[
+			AC_MSG_RESULT(no)
+			AC_DEFINE(BROKEN_GETADDRINFO)
+		],
+		[
+			AC_MSG_RESULT(cross-compiling, assuming yes)
+		]
+	)
+fi
+
+if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
+    test "x$check_for_aix_broken_getaddrinfo" = "x1"; then
+	AC_MSG_CHECKING(if getaddrinfo seems to work)
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <errno.h>
+#include <netinet/in.h>
+
+#define TEST_PORT "2222"
+
+int
+main(void)
+{
+	int err, sock;
+	struct addrinfo *gai_ai, *ai, hints;
+	char ntop[NI_MAXHOST], strport[NI_MAXSERV], *name = NULL;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	err = getaddrinfo(name, TEST_PORT, &hints, &gai_ai);
+	if (err != 0) {
+		fprintf(stderr, "getaddrinfo failed (%s)", gai_strerror(err));
+		exit(1);
+	}
+
+	for (ai = gai_ai; ai != NULL; ai = ai->ai_next) {
+		if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6)
+			continue;
+
+		err = getnameinfo(ai->ai_addr, ai->ai_addrlen, ntop,
+		    sizeof(ntop), strport, sizeof(strport),
+		    NI_NUMERICHOST|NI_NUMERICSERV);
+
+		if (ai->ai_family == AF_INET && err != 0) {
+			perror("getnameinfo");
+			exit(2);
+		}
+	}
+	exit(0);
+}
+		]])],
+		[
+			AC_MSG_RESULT(yes)
+			AC_DEFINE(AIX_GETNAMEINFO_HACK, 1,
+				[Define if you have a getaddrinfo that fails
+				for the all-zeros IPv6 address])
+		],
+		[
+			AC_MSG_RESULT(no)
+			AC_DEFINE(BROKEN_GETADDRINFO)
+		],
+		[
+			AC_MSG_RESULT(cross-compiling, assuming no)
+		]
+	)
+fi
+#l1834
+
+#l1856
 # Search for OpenSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"

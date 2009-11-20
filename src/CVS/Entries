@@ -10,7 +10,6 @@ D/smtpd////
 /control.c/1.39/Result of merge//
 /imsg.c/1.11/Result of merge+Sun Oct 25 20:44:24 2009//
 /imsg.h/1.6/Tue Sep 15 10:54:59 2009//
-/mfa.c/1.42/Result of merge+Sun Oct 25 20:44:24 2009//
 /parser.c/1.9/Result of merge+Sun Oct 25 20:44:24 2009//
 /parser.h/1.8/Result of merge//
 /smtpctl.8/1.10/Sun Oct 25 20:44:25 2009//
@@ -45,3 +44,4 @@ D/src////
 /client.c/1.17/Result of merge//
 /mta.c/1.77/Result of merge//
 /smtp_session.c/1.126/Result of merge//
+/mfa.c/1.42/Thu Nov 19 21:54:07 2009//

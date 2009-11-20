@@ -29,7 +29,7 @@
 #if defined(USE_PAM)
 #include <security/pam_appl.h>
 #endif
-/* from gilles@ */
+/* openpam stuff is from gilles@ */
 #if defined(USE_OPENPAM)
 #include <security/openpam.h>
 #endif

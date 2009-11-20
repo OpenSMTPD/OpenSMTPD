@@ -18,7 +18,7 @@ INCLUDES = -I$(top_srcdir)/openbsd-compat/
 
 LIBCOMPAT=$(top_srcdir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD = $(LIBCOMPAT) -levent -lssl -ldb1 -lcrypt -lutil
+LDADD = $(LIBCOMPAT) -levent -lssl -lcrypt -lutil
 
 #makemap newaliases
 install-exec-hook:
