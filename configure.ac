@@ -97,9 +97,9 @@ AC_CHECK_FUNCS( \
 
 #chl
 
+AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
 AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
 AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb1"] , [
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
 				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
 ])])])
 
