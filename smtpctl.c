@@ -273,6 +273,9 @@ show_stats_output(struct imsg *imsg)
 
 	stats = imsg->data;
 
+	printf("control.sessions=%zd\n", stats->control.sessions);
+	printf("control.sessions_active=%zd\n", stats->control.sessions_active);
+
 	printf("mda.errors.write_system=%zd\n", stats->mda.write_error);
 	printf("mta.sessions=%zd\n", stats->mta.sessions);
 	printf("mta.sessions.active=%zd\n", stats->mta.sessions_active);

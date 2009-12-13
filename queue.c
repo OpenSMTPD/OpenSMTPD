@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.72 2009/11/01 22:15:27 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.73 2009/11/08 21:40:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -578,6 +578,13 @@ queue(struct smtpd *env)
 	signal_add(&ev_sigterm, NULL);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
+
+	/*
+	 * queue opens fds for four purposes: smtp, mta, mda, and bounces.
+	 * Therefore, double the fdlimit the second time to achieve a 4x
+	 * increase relative to default.
+	 */
+	fdlimit(getdtablesize() * 2);
 
 	config_pipes(env, peers, nitems(peers));
 	config_peers(env, peers, nitems(peers));
