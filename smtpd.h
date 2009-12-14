@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.162 2009/12/14 13:17:51 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.163 2009/12/14 16:44:14 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -649,6 +649,8 @@ struct s_queue {
 
 struct s_runner {
 	size_t		active;
+	size_t		bounces_active;
+	size_t		bounces;
 };
 
 struct s_session {
