@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.64 2009/11/08 21:40:05 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.65 2009/12/13 22:02:55 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -645,6 +645,10 @@ smtp(struct smtpd *env)
 	signal_add(&ev_sigterm, NULL);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
+
+	/* Initial limit for use by IMSG_SMTP_ENQUEUE, will be tuned later once
+	 * the listening sockets arrive. */
+	env->sc_maxconn = availdesc() / 2;
 
 	config_pipes(env, peers, nitems(peers));
 	config_peers(env, peers, nitems(peers));
