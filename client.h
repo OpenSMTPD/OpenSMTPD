@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.h,v 1.7 2009/12/15 11:45:51 jacekm Exp $	*/
+/*	$OpenBSD: client.h,v 1.8 2009/12/23 17:16:03 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -85,7 +85,6 @@ struct smtp_client {
 	struct msgbuf		 w;
 	short			 ssl_handshake;
 	void			*ssl;
-	int			 iomode;
 	int			 sndlowat;
 	struct timeval		 timeout;
 	FILE			*verbose;
