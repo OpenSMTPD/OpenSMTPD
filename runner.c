@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.75 2009/12/14 18:21:53 jacekm Exp $	*/
+/*	$OpenBSD: runner.c,v 1.76 2009/12/14 19:56:55 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -134,6 +134,15 @@ runner_dispatch_parent(int sig, short event, void *p)
 		case IMSG_PARENT_ENQUEUE_OFFLINE:
 			runner_process_offline(env);
 			break;
+		case IMSG_CTL_VERBOSE: {
+			int verbose;
+
+			IMSG_SIZE_CHECK(&verbose);
+
+			memcpy(&verbose, imsg.data, sizeof(verbose));
+			log_verbose(verbose);
+			break;
+		}
 		default:
 			log_warnx("runner_dispatch_parent: got imsg %d",
 			    imsg.hdr.type);
