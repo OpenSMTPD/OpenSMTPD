@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.37 2010/03/03 10:52:31 jacekm Exp $	*/
+/*	$OpenBSD: mda.c,v 1.38 2010/04/19 08:14:07 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -113,7 +113,7 @@ mda_dispatch_parent(int sig, short event, void *p)
 		}
 
 		case IMSG_MDA_DONE: {
-			char			 output[64];
+			char			 output[128];
 			struct mda_session	*s;
 			struct path		*path;
 			char			*error, *parent_error;
