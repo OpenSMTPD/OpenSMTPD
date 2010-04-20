@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.98 2010/04/19 20:09:58 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.99 2010/04/20 00:57:22 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -938,6 +938,8 @@ fork_peers(struct smtpd *env)
 	child_add(env, queue(env), CHILD_DAEMON, PROC_QUEUE);
 	child_add(env, runner(env), CHILD_DAEMON, PROC_RUNNER);
 	child_add(env, smtp(env), CHILD_DAEMON, PROC_SMTP);
+
+	setproctitle("[priv]");
 }
 
 struct child *
