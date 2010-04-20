@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.97 2010/04/19 08:14:07 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.98 2010/04/19 20:09:58 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -795,6 +795,7 @@ main(int argc, char *argv[])
 		switch (c) {
 		case 'd':
 			debug = 2;
+			verbose = 1;
 			break;
 		case 'D':
 			if (cmdline_symset(optarg) < 0)
