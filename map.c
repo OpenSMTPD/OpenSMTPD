@@ -69,7 +69,8 @@ struct map_parser {
 } map_parsers[] = {
 	{ K_NONE, NULL },
 	{ K_ALIASES, NULL },
-	{ K_CREDENTIALS, NULL }
+	{ K_VIRTUAL, NULL },
+	{ K_SECRETS, NULL }
 };
 
 struct map *
@@ -97,7 +98,7 @@ map_find(struct smtpd *env, objid_t id)
 }
 
 char *
-map_lookup(struct smtpd *env, objid_t mapid, char *key)
+map_lookup(struct smtpd *env, objid_t mapid, char *key, enum map_kind kind)
 {
 	void *hdl = NULL;
 	char *result = NULL;
