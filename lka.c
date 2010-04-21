@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.101 2010/02/17 17:27:47 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.102 2010/04/20 15:34:56 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -335,12 +335,10 @@ lka(struct smtpd *env)
 	smtpd_process = PROC_LKA;
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
-#ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("lka: cannot drop privileges");
-#endif
 
 	imsg_callback = lka_imsg;
 	event_init();

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.67 2010/01/03 14:37:37 chl Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.68 2010/04/20 15:34:56 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -333,24 +333,18 @@ smtp(struct smtpd *env)
 
 	pw = env->sc_pw;
 
-#ifndef DEBUG
 	if (chroot(pw->pw_dir) == -1)
 		fatal("smtp: chroot");
 	if (chdir("/") == -1)
 		fatal("smtp: chdir(\"/\")");
-#else
-#warning disabling privilege revocation and chroot in DEBUG MODE
-#endif
 
 	smtpd_process = PROC_SMTP;
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
-#ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("smtp: cannot drop privileges");
-#endif
 
 	imsg_callback = smtp_imsg;
 	event_init();
