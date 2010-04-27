@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.180 2010/04/22 12:56:33 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.181 2010/04/27 09:49:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -244,7 +244,7 @@ enum map_src {
 	S_NONE,
 	S_DYN,
 	S_DNS,
-	S_FILE,
+	S_PLAIN,
 	S_DB,
 	S_EXT
 };

@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: map_backend.c,v 1.1 2010/04/21 21:04:29 gilles Exp $	*/
 
 /*
  * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
@@ -53,7 +53,7 @@ int map_stdio_put(void *, char *, char *);
 struct map_backend map_backends[] = {
 	{ S_DB,
 	  map_db_open, map_db_close, map_db_get, map_db_put },
-	{ S_FILE,
+	{ S_PLAIN,
 	  map_stdio_open, map_stdio_close, map_stdio_get, map_stdio_put },
 };
 
