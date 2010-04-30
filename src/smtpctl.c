@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.40 2009/11/13 20:34:51 chl Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.47 2010/04/21 18:54:43 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -43,26 +43,10 @@
 
 #include "smtpd.h"
 #include "parser.h"
+
 __dead void	usage(void);
 int		show_command_output(struct imsg*);
 int		show_stats_output(struct imsg *);
-
-/*
-struct imsgname {
-	int type;
-	char *name;
-	void (*func)(struct imsg *);
-};
-
-struct imsgname imsgs[] = {
-	{ IMSG_CTL_SHUTDOWN,		"stop",			NULL },
-	{ IMSG_CONF_RELOAD,		"reload",		NULL },
-	{ 0,				NULL,			NULL }
-};
-struct imsgname imsgunknown = {
-	-1,				"<unknown>",		NULL
-};
-*/
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -91,7 +75,7 @@ main(int argc, char *argv[])
 	struct imsg		imsg;
 	int			ctl_sock;
 	int			done = 0;
-	int			n;
+	int			n, verbose = 0;
 
 	/* parse options */
 	if (strcmp(__progname, "sendmail") == 0 || strcmp(__progname, "send-mail") == 0)
@@ -159,19 +143,19 @@ connected:
 		break;
  */
 	case PAUSE_MDA:
-		imsg_compose(ibuf, IMSG_MDA_PAUSE, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_PAUSE_LOCAL, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_MTA:
-		imsg_compose(ibuf, IMSG_MTA_PAUSE, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_PAUSE_OUTGOING, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_SMTP:
 		imsg_compose(ibuf, IMSG_SMTP_PAUSE, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MDA:
-		imsg_compose(ibuf, IMSG_MDA_RESUME, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_RESUME_LOCAL, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MTA:
-		imsg_compose(ibuf, IMSG_MTA_RESUME, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_RESUME_OUTGOING, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_SMTP:
 		imsg_compose(ibuf, IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
@@ -185,11 +169,29 @@ connected:
 		s.fd = -1;
 		bzero(s.mid, sizeof (s.mid));
 		strlcpy(s.mid, res->data, sizeof (s.mid));
-		imsg_compose(ibuf, IMSG_RUNNER_SCHEDULE, 0, 0, -1, &s, sizeof (s));
+		imsg_compose(ibuf, IMSG_QUEUE_SCHEDULE, 0, 0, -1, &s, sizeof (s));
+		break;
+	}
+	case REMOVE: {
+		struct remove s;
+
+		s.fd = -1;
+		bzero(s.mid, sizeof (s.mid));
+		strlcpy(s.mid, res->data, sizeof (s.mid));
+		imsg_compose(ibuf, IMSG_QUEUE_REMOVE, 0, 0, -1, &s, sizeof (s));
 		break;
 	}
 	case MONITOR:
 		/* XXX */
+		break;
+	case LOG_VERBOSE:
+		verbose = 1;
+		/* FALLTHROUGH */
+	case LOG_BRIEF:
+		imsg_compose(ibuf, IMSG_CTL_VERBOSE, 0, 0, -1, &verbose,
+		    sizeof(verbose));
+		printf("logging request sent.\n");
+		done = 1;
 		break;
 	default:
 		err(1, "unknown request (%d)", res->action);
@@ -214,12 +216,15 @@ connected:
 /*			case RELOAD:*/
 			case SHUTDOWN:
 			case SCHEDULE:
+			case REMOVE:
 			case PAUSE_MDA:
 			case PAUSE_MTA:
 			case PAUSE_SMTP:
 			case RESUME_MDA:
 			case RESUME_MTA:
 			case RESUME_SMTP:
+			case LOG_VERBOSE:
+			case LOG_BRIEF:
 				done = show_command_output(&imsg);
 				break;
 			case SHOW_STATS:
@@ -272,8 +277,13 @@ show_stats_output(struct imsg *imsg)
 
 	stats = imsg->data;
 
-	printf("mda.errors.write_system=%zd\n", stats->mda.write_error);
-	printf("mta.sessions=%zd\n", stats->smtp.sessions);
+	printf("control.sessions=%zd\n", stats->control.sessions);
+	printf("control.sessions_active=%zd\n", stats->control.sessions_active);
+
+	printf("mda.sessions=%zd\n", stats->mda.sessions);
+	printf("mda.sessions.active=%zd\n", stats->mda.sessions_active);
+
+	printf("mta.sessions=%zd\n", stats->mta.sessions);
 	printf("mta.sessions.active=%zd\n", stats->mta.sessions_active);
 
 	printf("parent.uptime=%d\n", (int) (time(NULL) - stats->parent.start));
@@ -282,6 +292,8 @@ show_stats_output(struct imsg *imsg)
 	printf("queue.inserts.remote=%zd\n", stats->queue.inserts_remote);
 
 	printf("runner.active=%zd\n", stats->runner.active);
+	printf("runner.bounces=%zd\n", stats->runner.bounces);
+	printf("runner.bounces.active=%zd\n", stats->runner.bounces_active);
 
 	printf("smtp.errors.delays=%zd\n", stats->smtp.delays);
 	printf("smtp.errors.linetoolong=%zd\n", stats->smtp.linetoolong);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: map.c,v 1.7 2009/11/03 22:57:41 gilles Exp $	*/
+/*	$OpenBSD: map.c,v 1.16 2010/04/27 09:49:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -22,6 +22,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <ctype.h>
 #ifdef HAVE_DB_H
 #include <db.h>
 #elif defined(HAVE_DB1_DB_H)
@@ -29,6 +30,7 @@
 #elif defined(HAVE_DB_185_H)
 #include <db_185.h>
 #endif
+#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -37,6 +39,9 @@
 #include <string.h>
 
 #include "smtpd.h"
+
+struct map_backend *map_backend_lookup(enum map_src);
+struct map_parser *map_parser_lookup(enum map_kind);
 
 struct map *
 map_findbyname(struct smtpd *env, const char *name)
@@ -62,60 +67,40 @@ map_find(struct smtpd *env, objid_t id)
 	return (m);
 }
 
-char *
-map_dblookup(struct smtpd *env, objid_t mapid, char *keyname)
+void *
+map_lookup(struct smtpd *env, objid_t mapid, char *key, enum map_kind kind)
 {
-	int ret;
-	DBT key;
-	DBT val;
-	DB *db;
-	struct map *map;
+	void *hdl = NULL;
 	char *result = NULL;
+	char *ret = NULL;
+	size_t len;
+	struct map *map;
+	struct map_backend *backend = NULL;
+	struct map_parser *parser = NULL;
 
 	map = map_find(env, mapid);
 	if (map == NULL)
 		return NULL;
 
-	if (map->m_src != S_DB) {
-		log_warn("invalid map type for map %d", map->m_id);
+	backend = map_backend_lookup(map->m_src);
+	parser  = map_parser_lookup(kind);
+
+	hdl = backend->open(map->m_config);
+	if (hdl == NULL) {
+		log_warn("map_lookup: can't open %s", map->m_config);
 		return NULL;
 	}
 
-	db = dbopen(map->m_config, O_RDONLY, 0600, DB_HASH, NULL);
-	if (db == NULL) {
-		log_warn("map_dblookup: can't open %s", map->m_config);
-		return NULL;
+	ret = result = backend->get(hdl, key, &len);
+	if (ret == NULL)
+		goto end;
+
+	if (parser->extract != NULL) {
+		ret = parser->extract(key, result, len);
+		free(result);
 	}
 
-	key.data = keyname;
-	key.size = strlen(key.data) + 1;
-
-	if ((ret = db->get(db, &key, &val, 0)) == -1) {
-		log_warn("map_dblookup: map '%d'", map->m_id);
-		db->close(db);
-		return NULL;
-	}
-
-	if (ret == 0) {
-		result = calloc(val.size, 1);
-		if (result == NULL)
-			fatal("calloc");
-		(void)strlcpy(result, val.data, val.size);
-	}
-
-	db->close(db);
-
-	return ret == 0 ? result : NULL;
-}
-
-char *
-map_dblookupbyname(struct smtpd *env, char *mapname, char *keyname)
-{
-	struct map *map;
-
-	map = map_findbyname(env, mapname);
-	if (map == NULL)
-		return NULL;
-
-	return map_dblookup(env, map->m_id, keyname);
+end:
+	backend->close(hdl);
+	return ret;
 }

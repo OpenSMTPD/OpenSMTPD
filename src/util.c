@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.29 2009/11/08 21:40:05 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.32 2009/12/23 17:16:03 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -26,11 +26,13 @@
 #include "sys-tree.h"
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
-#include <err.h>
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <fcntl.h>
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -450,4 +452,70 @@ generate_uid(void)
 	usleep(1);
 
 	return (id);
+}
+
+void
+fdlimit(double percent)
+{
+	struct rlimit rl;
+
+	if (percent < 0 || percent > 1)
+		fatalx("fdlimit: parameter out of range");
+	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: getrlimit");
+	rl.rlim_cur = percent * rl.rlim_max;
+	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: setrlimit");
+}
+
+int
+availdesc(void)
+{
+	int avail;
+
+	avail = getdtablesize();
+	avail -= 3;		/* stdin, stdout, stderr */
+	avail -= PROC_COUNT;	/* imsg channels */
+	avail -= 5;		/* safety buffer */
+
+	return (avail);
+}
+
+void
+session_socket_blockmode(int fd, enum blockmodes bm)
+{
+	int	flags;
+
+	if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
+		fatal("fcntl F_GETFL");
+
+	if (bm == BM_NONBLOCK)
+		flags |= O_NONBLOCK;
+	else
+		flags &= ~O_NONBLOCK;
+
+	if ((flags = fcntl(fd, F_SETFL, flags)) == -1)
+		fatal("fcntl F_SETFL");
+}
+
+void
+session_socket_no_linger(int fd)
+{
+	struct linger	 lng;
+
+	bzero(&lng, sizeof(lng));
+	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1)
+		fatal("session_socket_no_linger");
+}
+
+int
+session_socket_error(int fd)
+{
+	int	 error, len;
+
+	len = sizeof(error);
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1)
+		fatal("session_socket_error: getsockopt");
+
+	return (error);
 }

@@ -121,3 +121,8 @@ long long strtonum(const char *nptr, long long minval, long long maxval, const c
 void strmode(int mode, char *p);
 #endif
 
+#ifndef HAVE_FMT_SCALED
+#define	FMT_SCALED_STRSIZE	7
+int scan_scaled(char *scaled, long long *result);
+int fmt_scaled(long long number, char *result);
+#endif

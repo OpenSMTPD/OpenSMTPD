@@ -1,4 +1,4 @@
-AC_INIT([OpenSMTPD-portable],[4.6.0],[Charles Longeau <chl@openbsd.org>])
+AC_INIT([OpenSMTPD-portable],[4.7.0],[Charles Longeau <chl@openbsd.org>])
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
@@ -89,6 +89,7 @@ AC_CHECK_FUNCS( \
 		setproctitle \
 		strlcat \
 		strlcpy \
+		strnvis \
 		strsep \
 		strtonum \
 		strmode \
@@ -1305,6 +1306,11 @@ AC_CACHE_CHECK([for in_port_t], ac_cv_have_in_port_t, [
 if test "x$ac_cv_have_in_port_t" = "xyes" ; then
 	AC_DEFINE(HAVE_IN_PORT_T, 1, [define if you have in_port_t data type])
 fi
+
+AC_CHECK_MEMBER(struct stat.st_flags,
+	AC_DEFINE(HAVE_STAT_ST_FLAGS, [], [Have stat.st_flags]), ,
+	[]
+)
 #chl part
 
 # From OpenNTPD portable

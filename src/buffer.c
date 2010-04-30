@@ -19,7 +19,6 @@
 #include <sys/param.h>
 #include "sys-queue.h"
 #include <sys/param.h>
-#include "sys-queue.h"
 #include <sys/socket.h>
 #include <sys/uio.h>
 

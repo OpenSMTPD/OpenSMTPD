@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.24 2009/11/08 23:08:56 gilles Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.26 2010/04/27 09:49:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -263,11 +263,8 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 {
 	DBT	 key;
 	DBT	 val;
-	DBT	 domkey;
-	DBT	 domval;
 	char	*keyp;
 	char	*valp;
-	char	*domp;
 
 	keyp = line;
 	while (isspace((int)*keyp))
@@ -278,6 +275,10 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 	valp = keyp;
 	strsep(&valp, " \t:");
 	if (valp == NULL || valp == keyp)
+		goto bad;
+	while (*valp == ':' || isspace((int)*valp))
+		valp++;
+	if (*valp == '\0' || *valp == '#')
 		goto bad;
 
 	/* Check for dups. */
@@ -302,21 +303,6 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 		warn("dbput");
 		return 0;
 	}
-
-	/* add key for domain */
-	if ((domp = strrchr(key.data, '@')) != NULL) {
-		domkey.data = domp + 1;
-		domkey.size = strlen(domkey.data) + 1;
-
-		domval.data  = "<empty>";
-		domval.size = strlen(domval.data) + 1;
-
-		if (db->put(db, &domkey, &domval, 0) == -1) {
-			warn("dbput");
-			return 0;
-		}
-	}
-	
 
 	dbputs++;
 
@@ -378,12 +364,17 @@ make_plain(DBT *val, char *text)
 int
 make_aliases(DBT *val, char *text)
 {
-	struct alias	a;
+	struct expandnode	expnode;
 	char	       	*subrcpt;
 	char	       	*endp;
+	char		*origtext;
 
 	val->data = NULL;
 	val->size = 0;
+
+	origtext = strdup(text);
+	if (origtext == NULL)
+		fatal("strdup");
 
 	while ((subrcpt = strsep(&text, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -397,16 +388,13 @@ make_aliases(DBT *val, char *text)
 		while (subrcpt < endp && isspace((int)*endp))
 			*endp-- = '\0';
 
-		if (! alias_parse(&a, subrcpt))
+		bzero(&expnode, sizeof(struct expandnode));
+		if (! alias_parse(&expnode, subrcpt))
 			goto error;
-
-		val->data = realloc(val->data, val->size + sizeof(a));
-		if (val->data == NULL)
-			err(1, "get_targets: realloc");
-		memcpy((u_int8_t *)val->data + val->size, &a, sizeof(a));
-		val->size += sizeof(a);
 	}
 
+	val->data = origtext;
+	val->size = strlen(origtext) + 1;
 	return (val->size);
 
 error:

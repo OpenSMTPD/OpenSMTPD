@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.42 2009/10/18 20:41:21 gilles Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.45 2010/04/21 08:29:01 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -38,12 +38,9 @@
 
 #include "smtpd.h"
 
+void		mfa_imsg(struct smtpd *, struct imsgev *, struct imsg *);
 __dead void	mfa_shutdown(void);
 void		mfa_sig_handler(int, short, void *);
-void		mfa_dispatch_parent(int, short, void *);
-void		mfa_dispatch_smtp(int, short, void *);
-void		mfa_dispatch_lka(int, short, void *);
-void		mfa_dispatch_control(int, short, void *);
 void		mfa_setup_events(struct smtpd *);
 void		mfa_disable_events(struct smtpd *);
 
@@ -56,6 +53,47 @@ int		strip_source_route(char *, size_t);
 struct rule    *ruleset_match(struct smtpd *, struct path *, struct sockaddr_storage *);
 
 void
+mfa_imsg(struct smtpd *env, struct imsgev *iev, struct imsg *imsg)
+{
+	if (iev->proc == PROC_SMTP) {
+		switch (imsg->hdr.type) {
+		case IMSG_MFA_MAIL:
+			mfa_test_mail(env, imsg->data);
+			return;
+
+		case IMSG_MFA_RCPT:
+			mfa_test_rcpt(env, imsg->data);
+			return;
+		}
+	}
+
+	if (iev->proc == PROC_LKA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_MAIL:
+		case IMSG_LKA_RCPT:
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_MFA_MAIL, 0, 0, -1, imsg->data,
+			    sizeof(struct submit_status));
+			return;
+
+		case IMSG_LKA_RULEMATCH:
+			mfa_test_rcpt_resume(env, imsg->data);
+			return;
+		}
+	}
+
+	if (iev->proc == PROC_PARENT) {
+		switch (imsg->hdr.type) {
+		case IMSG_CTL_VERBOSE:
+			log_verbose(*(int *)imsg->data);
+			return;
+		}
+	}
+
+	fatalx("mfa_imsg: unexpected imsg");
+}
+
+void
 mfa_sig_handler(int sig, short event, void *p)
 {
 	switch (sig) {
@@ -66,230 +104,6 @@ mfa_sig_handler(int sig, short event, void *p)
 	default:
 		fatalx("mfa_sig_handler: unexpected signal");
 	}
-}
-
-void
-mfa_dispatch_parent(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_PARENT];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_parent: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		default:
-			log_warnx("mfa_dispatch_parent: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mfa_dispatch_parent: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-mfa_dispatch_smtp(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_SMTP];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_smtp: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_MFA_MAIL: {
-			struct message	*m = imsg.data;
-
-			IMSG_SIZE_CHECK(m);
-
-			mfa_test_mail(env, m);
-			break;
-		}
-
-		case IMSG_MFA_RCPT: {
-			struct message	*m = imsg.data;
-
-			IMSG_SIZE_CHECK(m);
-
-			mfa_test_rcpt(env, m);
-			break;
-		}
-
-		default:
-			log_warnx("mfa_dispatch_smtp: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mfa_dispatch_smtp: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-mfa_dispatch_lka(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_LKA];
-	ibuf = &iev->ibuf; 
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_lka: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_LKA_MAIL: {
-			struct submit_status	 *ss = imsg.data;
-
-			IMSG_SIZE_CHECK(ss);
-
-			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL,
-			    0, 0, -1, ss, sizeof(*ss));
-			break;
-		}
-		case IMSG_LKA_RCPT: {
-			struct submit_status	 *ss = imsg.data;
-
-			IMSG_SIZE_CHECK(ss);
-
-			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT,
-			    0, 0, -1, ss, sizeof(*ss));
-			break;
-		}
-		case IMSG_LKA_RULEMATCH: {
-			struct submit_status	 *ss = imsg.data;
-
-			IMSG_SIZE_CHECK(ss);
-
-			mfa_test_rcpt_resume(env, ss);
-			break;
-		}
-		default:
-			log_warnx("mfa_dispatch_lka: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mfa_dispatch_lka: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-mfa_dispatch_control(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_CONTROL];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mfa_dispatch_control: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		default:
-			log_warnx("mfa_dispatch_control: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mfa_dispatch_control: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
 }
 
 void
@@ -319,10 +133,10 @@ mfa(struct smtpd *env)
 	struct event	 ev_sigterm;
 
 	struct peer peers[] = {
-		{ PROC_PARENT,	mfa_dispatch_parent },
-		{ PROC_SMTP,	mfa_dispatch_smtp },
-		{ PROC_LKA,	mfa_dispatch_lka },
-		{ PROC_CONTROL,	mfa_dispatch_control},
+		{ PROC_PARENT,	imsg_dispatch },
+		{ PROC_SMTP,	imsg_dispatch },
+		{ PROC_LKA,	imsg_dispatch },
+		{ PROC_CONTROL,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
@@ -338,25 +152,20 @@ mfa(struct smtpd *env)
 
 	pw = env->sc_pw;
 
-#ifndef DEBUG
 	if (chroot(pw->pw_dir) == -1)
 		fatal("mfa: chroot");
 	if (chdir("/") == -1)
 		fatal("mfa: chdir(\"/\")");
-#else
-#warning disabling privilege revocation and chroot in DEBUG MODE
-#endif
 
 	smtpd_process = PROC_MFA;
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
-#ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mfa: cannot drop privileges");
-#endif
 
+	imsg_callback = mfa_imsg;
 	event_init();
 
 	signal_set(&ev_sigint, SIGINT, mfa_sig_handler, env);
