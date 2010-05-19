@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.3 2009/11/09 23:49:34 gilles Exp $	*/
+/*	$OpenBSD: expand.c,v 1.4 2010/04/27 09:49:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
 
 #include "smtpd.h"
 

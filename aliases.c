@@ -1,4 +1,4 @@
-/*	$OpenBSD: aliases.c,v 1.31 2009/11/09 23:54:08 gilles Exp $	*/
+/*	$OpenBSD: aliases.c,v 1.32 2010/04/27 09:49:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -23,7 +23,6 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
-#include <db.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
