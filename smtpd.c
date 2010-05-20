@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.102 2010/04/21 18:54:43 jacekm Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.103 2010/05/09 15:24:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -962,7 +962,7 @@ forkmda(struct smtpd *env, struct imsgev *iev, u_int32_t id,
 			error("open");
 		if (fstat(fd, &sb) < 0)
 			error("fstat");
-		if (S_ISREG(sb.st_flags) && flock(fd, LOCK_EX) < 0)
+		if (S_ISREG(sb.st_mode) && flock(fd, LOCK_EX) < 0)
 			error("flock");
 		fp = fdopen(fd, "a");
 		if (fp == NULL)
