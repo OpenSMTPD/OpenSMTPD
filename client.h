@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.h,v 1.10 2010/01/02 13:42:42 jacekm Exp $	*/
+/*	$OpenBSD: client.h,v 1.11 2010/01/02 16:41:19 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -86,15 +86,15 @@ struct smtp_client {
 	void			*rcptfail;
 	char			*ehlo;
 	char			 reply[1024];
-	struct buf_read		 r;
+	struct ibuf_read	 r;
 	struct msgbuf		 w;
 	void			*ssl;
 	int			 sndlowat;
 	struct timeval		 timeout;
 	FILE			*verbose;
 
-	struct buf		*content;	/* current chunk of content */
-	struct buf		*head;		/* headers + part of body */
+	struct ibuf		*content;	/* current chunk of content */
+	struct ibuf		*head;		/* headers + part of body */
 	FILE			*body;		/* rest of body */
 
 	struct client_ext	 exts[3];
