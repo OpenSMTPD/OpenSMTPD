@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.182 2010/04/27 10:17:53 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.183 2010/05/27 11:17:29 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -309,16 +309,6 @@ struct cond {
 	TAILQ_ENTRY(cond)		 c_entry;
 	objid_t				 c_map;
 	enum cond_type			 c_type;
-};
-
-enum opt_type {
-	O_RWUSER,			/* rewrite user */
-	O_RWDOMAIN,			/* rewrite domain */
-};
-
-struct opt {
-	TAILQ_ENTRY(opt)		 o_entry;
-	enum opt_type			 o_type;
 };
 
 enum action_type {
