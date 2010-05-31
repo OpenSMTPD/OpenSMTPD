@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.32 2010/01/11 21:43:37 jacekm Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.33 2010/04/21 17:50:28 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -163,7 +163,6 @@ enqueue(int argc, char *argv[])
 		case 'x':
 			break;
 		case 'q':
-			/* XXX: implement "process all now" */
 			return (0);
 		default:
 			usage();
