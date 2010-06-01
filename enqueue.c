@@ -163,6 +163,7 @@ enqueue(int argc, char *argv[])
 		case 'x':
 			break;
 		case 'q':
+			/* XXX: implement "process all now" */
 			return (0);
 		default:
 			usage();

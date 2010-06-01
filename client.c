@@ -955,7 +955,5 @@ buf_read(int fd, struct ibuf_read *r)
 
 	r->wpos += n;
 
-	//log_debug("%s: '%.*s'", __func__, sizeof(r->buf) - r->wpos, r->buf);
-
 	return (0);
 }

@@ -17,7 +17,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DCLIENT_NO_SSL
 
-SRCS=	smtpctl.c parser.c log.c enqueue.c queue_backend.c util.c client.c
+SRCS=	smtpctl.c parser.c log.c enqueue.c queue_shared.c util.c client.c
 LDADD+=	-lutil -levent
 DPADD+=	${LIBUTIL} ${LIBEVENT}
 .include <bsd.prog.mk>

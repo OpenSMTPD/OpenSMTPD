@@ -550,7 +550,7 @@ ssl_session_accept(int fd, short event, void *p)
 	session_bufferevent_new(s);
 	event_set(&s->s_bev->ev_read, s->s_fd, EV_READ, ssl_read, s->s_bev);
 	event_set(&s->s_bev->ev_write, s->s_fd, EV_WRITE, ssl_write, s->s_bev);
-	session_pickup(s);
+	session_pickup(s, NULL);
 
 	return;
 retry:
