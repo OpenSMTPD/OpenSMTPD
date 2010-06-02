@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.50 2010/05/31 23:38:56 jacekm Exp $	*/
+/*	$OpenBSD: control.c,v 1.52 2010/06/01 23:06:23 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -217,7 +217,8 @@ control(struct smtpd *env)
 	config_pipes(env, peers, nitems(peers));
 	config_peers(env, peers, nitems(peers));
 	control_listen(env);
-	event_dispatch();
+	if (event_dispatch() < 0)
+		fatal("event_dispatch");
 	control_shutdown();
 
 	return (0);

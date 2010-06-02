@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.111 2010/06/01 02:19:56 jacekm Exp $	*/
+/*	$OpenBSD: lka.c,v 1.113 2010/06/01 23:06:23 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -358,7 +358,8 @@ lka(struct smtpd *env)
 	config_peers(env, peers, nitems(peers));
 
 	lka_setup_events(env);
-	event_dispatch();
+	if (event_dispatch() < 0)
+		fatal("event_dispatch");
 	lka_shutdown();
 
 	return (0);

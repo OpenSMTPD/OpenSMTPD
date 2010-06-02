@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.34 2010/05/31 23:38:56 jacekm Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.36 2010/06/01 23:06:23 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -237,7 +237,8 @@ enqueue(int argc, char *argv[])
 	event_set(&msg.ev, msg.fd, EV_READ|EV_WRITE, enqueue_event, NULL);
 	event_add(&msg.ev, &msg.pcb->timeout);
 
-	event_dispatch();
+	if (event_dispatch() < 0)
+		err(1, "event_dispatch");
 
 	client_close(msg.pcb);
 	exit(0);

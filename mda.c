@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.45 2010/05/31 23:38:56 jacekm Exp $	*/
+/*	$OpenBSD: mda.c,v 1.47 2010/06/01 23:06:23 jacekm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -312,7 +312,7 @@ mda(struct smtpd *env)
 
 	mda_setup_events(env);
 	if (event_dispatch() < 0)
-		log_warn("event_dispatch");
+		fatal("event_dispatch");
 	mda_shutdown();
 
 	return (0);
