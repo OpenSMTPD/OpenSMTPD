@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.36 2010/06/01 23:06:23 jacekm Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.37 2010/06/02 19:16:53 chl Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -188,6 +188,7 @@ enqueue(int argc, char *argv[])
 	}
 
 	signal(SIGALRM, sighdlr);
+	signal(SIGPIPE, SIG_IGN);
 	alarm(300);
 
 	fp = tmpfile();
