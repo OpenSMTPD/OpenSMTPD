@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.185 2010/05/27 15:36:04 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.195 2010/10/09 22:05:35 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -340,6 +340,7 @@ struct rule {
 
 	char				*r_user;
 	objid_t				 r_amap;
+	time_t				 r_qexpire;
 };
 
 enum path_flags {
@@ -452,6 +453,7 @@ struct message {
 
 	time_t				 creation;
 	time_t				 lasttry;
+	time_t				 expire;
 	u_int8_t			 retry;
 	enum message_flags		 flags;
 	enum message_status		 status;
