@@ -560,7 +560,7 @@ queue_load_envelope(struct message *messagep, char *evpid)
 
 	fp = fopen(pathname, "r");
 	if (fp == NULL) {
-		if (errno == ENOSPC || errno == ENFILE)
+		if (errno == ENOENT || errno == ENFILE)
 			return 0;
 		fatal("queue_load_envelope: fopen");
 	}
