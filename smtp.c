@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.71 2010/05/19 20:57:10 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.76 2010/10/09 22:05:35 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -545,6 +545,9 @@ smtp_new(struct listener *l)
 
 	env->stats->smtp.sessions++;
 	env->stats->smtp.sessions_active++;
+	SET_IF_GREATER(env->stats->smtp.sessions_active,
+		env->stats->smtp.sessions_maxactive);
+
 
 	return (s);
 }
