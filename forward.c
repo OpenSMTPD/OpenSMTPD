@@ -1,4 +1,4 @@
-/*	$OpenBSD: forward.c,v 1.20 2009/11/09 23:54:08 gilles Exp $	*/
+/*	$OpenBSD: forward.c,v 1.21 2010/04/27 09:49:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
+#include <imsg.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
 
 int
 forwards_get(int fd, struct expandtree *expandtree)

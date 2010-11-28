@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.107 2010/05/27 15:36:04 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.113 2010/10/09 22:05:35 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <imsg.h>
 #include <login_cap.h>
 #include <paths.h>
 #include <pwd.h>
@@ -45,6 +46,7 @@
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
 
 void		 parent_imsg(struct smtpd *, struct imsgev *, struct imsg *);
 __dead void	 usage(void);

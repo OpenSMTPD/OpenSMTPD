@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.32 2009/12/23 17:16:03 jacekm Exp $	*/
+/*	$OpenBSD: util.c,v 1.36 2010/10/09 22:05:35 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <imsg.h>
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -42,6 +43,7 @@
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
 
 int
 bsnprintf(char *str, size_t size, const char *format, ...)
