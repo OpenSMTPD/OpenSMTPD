@@ -1,4 +1,4 @@
-/*	$OpenBSD: ruleset.c,v 1.13 2010/05/27 15:36:04 gilles Exp $ */
+/*	$OpenBSD: ruleset.c,v 1.14 2010/11/28 13:56:43 gilles Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -23,15 +23,10 @@
 #include <sys/socket.h>
 
 #include <netinet/in.h>
-#include <arpa/inet.h>
 
-#include <db.h>
-#include <errno.h>
 #include <event.h>
 #include <imsg.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "smtpd.h"

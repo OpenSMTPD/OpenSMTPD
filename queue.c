@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.91 2010/10/09 22:05:35 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.92 2010/11/28 13:56:43 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -24,13 +24,10 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-#include <errno.h>
 #include <event.h>
 #include <imsg.h>
-#include <fcntl.h>
 #include <libgen.h>
 #include <pwd.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
