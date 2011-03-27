@@ -1,5 +1,6 @@
+/*	$OpenBSD$	*/
 /*
- * Copyright (c) 2010 Eric Faurot <eric@openbsd.org>
+ * Copyright (c) 2010,2011 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above

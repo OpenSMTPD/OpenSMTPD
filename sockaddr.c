@@ -1,3 +1,4 @@
+/*	$OpenBSD$	*/
 /*
  * Copyright (c) 2010		Eric Faurot	<eric@faurot.net>
  *
