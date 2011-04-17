@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.122 2010/11/28 14:35:58 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.123 2010/11/29 15:25:55 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -614,7 +614,7 @@ lka_expand_resume(struct smtpd *env, struct lkasession *lkasession)
 void
 lka_expansion_done(struct smtpd *env, struct lkasession *lkasession)
 {
-	struct message message;
+	struct envelope message;
 	struct path *path;
 
 	/* delivery list is empty OR expansion led to an error, reject */
