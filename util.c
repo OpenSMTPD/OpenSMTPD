@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.43 2011/04/17 11:39:23 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.44 2011/04/17 13:36:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -483,7 +483,8 @@ session_socket_no_linger(int fd)
 int
 session_socket_error(int fd)
 {
-	int	 error, len;
+	int		error;
+	socklen_t	len;
 
 	len = sizeof(error);
 	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1)
