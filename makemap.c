@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.30 2011/05/01 12:57:11 eric Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.31 2011/05/09 09:36:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -380,7 +380,7 @@ make_aliases(DBT *val, char *text)
 	return (val->size);
 
 error:
-	free(val->data);
+	free(origtext);
 
 	return 0;
 }
