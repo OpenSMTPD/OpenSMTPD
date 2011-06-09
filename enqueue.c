@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.42 2011/03/26 10:59:59 gilles Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.43 2011/04/17 13:36:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -113,7 +113,7 @@ sighdlr(int sig)
 {
 	if (sig == SIGALRM) {
 		write(STDERR_FILENO, TIMEOUTMSG, sizeof(TIMEOUTMSG));
-		_exit (2);
+		_exit(2);
 	}
 }
 
