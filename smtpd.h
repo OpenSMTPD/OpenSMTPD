@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.225 2011/05/21 18:43:08 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.226 2011/05/21 19:57:34 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -324,6 +324,7 @@ struct rule {
 	}				 r_value;
 
 	char				*r_user;
+	struct mailaddr			*r_as;
 	objid_t				 r_amap;
 	time_t				 r_qexpire;
 };
@@ -376,6 +377,7 @@ struct delivery_mda {
 
 struct delivery_mta {
 	struct relayhost relay;
+	struct mailaddr	relay_as;
 };
 
 struct delivery {
