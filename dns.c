@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.41 2011/05/01 12:57:11 eric Exp $	*/
+/*	$OpenBSD: dns.c,v 1.42 2011/05/06 19:21:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -21,6 +21,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
+#include <sys/queue.h>
+#include <sys/uio.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
