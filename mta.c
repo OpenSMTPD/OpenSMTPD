@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.106 2011/05/16 21:05:52 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.107 2011/05/21 18:39:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -511,8 +511,7 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 			free(relay);
 		}
 
-		if (s->datafp)
-			fclose(s->datafp);
+		fclose(s->datafp);
 
 		free(s->secret);
 		free(s->host);
