@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.7 2011/05/01 12:57:11 eric Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.8 2011/05/16 21:05:52 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -246,7 +246,7 @@ ramqueue_next_schedule(struct envelope *envelope, time_t curtm)
 			delay = (envelope->delivery.retry * 60) + arc4random_uniform(60);
 	}
 
-	if (envelope->delivery.type == D_MDA) {
+	if (envelope->delivery.type == D_MTA) {
 		if (envelope->delivery.retry < 3)
 			delay = SMTPD_QUEUE_INTERVAL;
 		else if (envelope->delivery.retry <= 7) {
