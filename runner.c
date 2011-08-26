@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.111 2011/08/17 20:35:11 gilles Exp $	*/
+/*	$OpenBSD: runner.c,v 1.112 2011/08/17 20:54:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"

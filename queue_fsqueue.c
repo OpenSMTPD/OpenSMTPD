@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.11 2011/05/01 12:57:11 eric Exp $	*/
+/*	$OpenBSD: queue_fsqueue.c,v 1.12 2011/05/16 21:05:52 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"

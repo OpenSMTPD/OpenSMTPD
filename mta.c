@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.109 2011/07/19 13:15:54 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.110 2011/07/20 10:22:54 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"
