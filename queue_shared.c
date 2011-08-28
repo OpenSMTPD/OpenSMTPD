@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_shared.c,v 1.48 2011/05/10 17:04:43 gilles Exp $	*/
+/*	$OpenBSD: queue_shared.c,v 1.49 2011/05/16 21:05:52 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -62,6 +62,8 @@ int
 bounce_record_message(struct envelope *e, struct envelope *bounce)
 {
 	u_int32_t msgid;
+
+	bzero(bounce, sizeof(*bounce));
 
 	if (e->delivery.type == D_BOUNCE) {
 		log_debug("mailer daemons loop detected !");
