@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.112 2011/08/17 20:54:16 gilles Exp $	*/
+/*	$OpenBSD: runner.c,v 1.113 2011/08/26 14:39:47 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -33,6 +33,7 @@
 #include <imsg.h>
 #include <libgen.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
