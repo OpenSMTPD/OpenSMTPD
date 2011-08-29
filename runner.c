@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.113 2011/08/26 14:39:47 chl Exp $	*/
+/*	$OpenBSD: runner.c,v 1.114 2011/08/29 18:49:29 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -348,8 +348,8 @@ runner_timeout(int fd, short event, void *p)
 			nsched = 0;
 	}
 
-	log_debug("runner: nothing to do for the next %d seconds, zZzZzZ",
-	    nsched);
+	log_debug("runner: nothing to do for the next %lld seconds, zZzZzZ",
+	    (long long int) nsched);
 
 	tv.tv_sec = nsched;
 	tv.tv_usec = 0;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.127 2011/08/26 14:39:47 chl Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.128 2011/08/27 22:32:41 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -793,7 +793,8 @@ forkmda(struct imsgev *iev, u_int32_t id,
 			error("mkdir tmp failed");
 		if (mkdir("new", 0700) < 0 && errno != EEXIST)
 			error("mkdir new failed");
-		snprintf(tmp, sizeof tmp, "tmp/%d.%d.%s", time(NULL),
+		snprintf(tmp, sizeof tmp, "tmp/%lld.%d.%s",
+		    (long long int) time(NULL),
 		    getpid(), env->sc_hostname);
 		fd = open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0600);
 		if (fd < 0)
