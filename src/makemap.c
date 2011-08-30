@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.24 2009/11/08 23:08:56 gilles Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.32 2011/05/16 21:27:38 jasper Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -22,16 +22,15 @@
 
 #include "config.h"
 
+#ifdef HAVE_SYS_FILE_H
 #include <sys/file.h> /* Needed for flock */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "sys-tree.h"
 #include "sys-queue.h"
 #include <sys/param.h>
 #include <sys/socket.h>
-#ifndef HAVE_SYS_FILE_H
-#include <sys/file.h>
-#endif
 
 #include <ctype.h>
 #ifdef HAVE_DB_H
@@ -45,6 +44,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,25 +57,27 @@
 #endif
 
 #include "smtpd.h"
+#include "log.h"
 
 #define	PATH_ALIASES	"/etc/mail/aliases"
 
 extern char *__progname;
 
 __dead void	usage(void);
-int		parse_map(char *);
-int		parse_entry(char *, size_t, size_t);
-int		parse_mapentry(char *, size_t, size_t);
-int		parse_setentry(char *, size_t, size_t);
-int		make_plain(DBT *, char *);
-int		make_aliases(DBT *, char *);
-
-char		*conf_aliases(char *);
+static int parse_map(char *);
+static int parse_entry(char *, size_t, size_t);
+static int parse_mapentry(char *, size_t, size_t);
+static int parse_setentry(char *, size_t, size_t);
+static int make_plain(DBT *, char *);
+static int make_aliases(DBT *, char *);
+static char *conf_aliases(char *);
 
 DB	*db;
 char	*source;
 char	*oflag;
 int	 dbputs;
+
+struct smtpd	*env = NULL;
 
 enum program {
 	P_MAKEMAP,
@@ -92,13 +94,13 @@ enum output_type {
  * Stub functions so that makemap compiles using minimum object files.
  */
 void
-purge_config(struct smtpd *env, u_int8_t what)
+purge_config(u_int8_t what)
 {
 	bzero(env, sizeof(struct smtpd));
 }
 
 int
-ssl_load_certfile(struct smtpd *env, const char *name, u_int8_t flags)
+ssl_load_certfile(const char *name, u_int8_t flags)
 {
 	return (0);
 }
@@ -111,6 +113,9 @@ main(int argc, char *argv[])
 	char		*opts;
 	char		*conf;
 	int		 ch;
+	struct smtpd	 smtpd;
+
+	env = &smtpd;
 
 	log_init(1);
 
@@ -263,11 +268,8 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 {
 	DBT	 key;
 	DBT	 val;
-	DBT	 domkey;
-	DBT	 domval;
 	char	*keyp;
 	char	*valp;
-	char	*domp;
 
 	keyp = line;
 	while (isspace((int)*keyp))
@@ -278,6 +280,10 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 	valp = keyp;
 	strsep(&valp, " \t:");
 	if (valp == NULL || valp == keyp)
+		goto bad;
+	while (*valp == ':' || isspace((int)*valp))
+		valp++;
+	if (*valp == '\0' || *valp == '#')
 		goto bad;
 
 	/* Check for dups. */
@@ -302,21 +308,6 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 		warn("dbput");
 		return 0;
 	}
-
-	/* add key for domain */
-	if ((domp = strrchr(key.data, '@')) != NULL) {
-		domkey.data = domp + 1;
-		domkey.size = strlen(domkey.data) + 1;
-
-		domval.data  = "<empty>";
-		domval.size = strlen(domval.data) + 1;
-
-		if (db->put(db, &domkey, &domval, 0) == -1) {
-			warn("dbput");
-			return 0;
-		}
-	}
-	
 
 	dbputs++;
 
@@ -378,12 +369,17 @@ make_plain(DBT *val, char *text)
 int
 make_aliases(DBT *val, char *text)
 {
-	struct alias	a;
+	struct expandnode	expnode;
 	char	       	*subrcpt;
 	char	       	*endp;
+	char		*origtext;
 
 	val->data = NULL;
 	val->size = 0;
+
+	origtext = strdup(text);
+	if (origtext == NULL)
+		fatal("strdup");
 
 	while ((subrcpt = strsep(&text, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -397,20 +393,17 @@ make_aliases(DBT *val, char *text)
 		while (subrcpt < endp && isspace((int)*endp))
 			*endp-- = '\0';
 
-		if (! alias_parse(&a, subrcpt))
+		bzero(&expnode, sizeof(struct expandnode));
+		if (! alias_parse(&expnode, subrcpt))
 			goto error;
-
-		val->data = realloc(val->data, val->size + sizeof(a));
-		if (val->data == NULL)
-			err(1, "get_targets: realloc");
-		memcpy((u_int8_t *)val->data + val->size, &a, sizeof(a));
-		val->size += sizeof(a);
 	}
 
+	val->data = origtext;
+	val->size = strlen(origtext) + 1;
 	return (val->size);
 
 error:
-	free(val->data);
+	free(origtext);
 
 	return 0;
 }
@@ -418,15 +411,14 @@ error:
 char *
 conf_aliases(char *cfgpath)
 {
-	struct smtpd	 env;
 	struct map	*map;
 	char		*path;
 	char		*p;
 
-	if (parse_config(&env, cfgpath, 0))
+	if (parse_config(env, cfgpath, 0))
 		exit(1);
 
-	map = map_findbyname(&env, "aliases");
+	map = map_findbyname("aliases");
 	if (map == NULL)
 		return (PATH_ALIASES);
 

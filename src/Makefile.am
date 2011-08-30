@@ -1,15 +1,25 @@
+if !HAVE_MAIL_LOCAL
+SUBDIRS=libexec
+endif
+
 bin_PROGRAMS = makemap smtpd smtpctl
 
-makemap_SOURCES = 	parse.y makemap.c aliases.c expand.c map.c log.c util.c
+makemap_SOURCES = 	parse.y makemap.c aliases.c expand.c map.c map_backend.c\
+			map_backend_db.c map_backend_stdio.c log.c util.c
 
-smtpd_SOURCES=		aliases.c authenticate.c bounce.c buffer.c client.c	\
-			config.c control.c dns.c expand.c forward.c imsg.c	\
-			lka.c log.c map.c mda.c mfa.c mta.c parse.y queue.c	\
-			queue_shared.c ruleset.c runner.c smtp.c smtp_session.c	\
-			smtpd.c ssl.c ssl_privsep.c util.c
+smtpd_SOURCES=		aliases.c auth_backend.c bounce.c client.c		\
+			config.c control.c dns.c expand.c forward.c		\
+			lka.c lka_session.c log.c map.c map_backend.c		\
+			map_backend_db.c map_backend_stdio.c			\
+			mda.c mfa.c mfa_session.c mta.c parse.y 		\
+			queue.c queue_shared.c ruleset.c runner.c smtp.c 	\
+			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
+			print.c pack.c dname.c res_random.c sockaddr.c 		\
+			ramqueue.c queue_backend.c queue_fsqueue.c		\
+			user_backend.c
 
-smtpctl_SOURCES = 	smtpctl.c parser.c buffer.c imsg.c log.c enqueue.c      \
-			queue_shared.c util.c client.c
+smtpctl_SOURCES = 	smtpctl.c parser.c log.c enqueue.c queue_shared.c util.c\
+		       	client.c queue_backend.c queue_fsqueue.c
 smtpctl_CFLAGS=		-DCLIENT_NO_SSL
 
 YACC = byacc

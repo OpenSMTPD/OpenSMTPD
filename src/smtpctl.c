@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.40 2009/11/13 20:34:51 chl Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.66 2011/08/30 07:06:06 chl Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -34,41 +34,29 @@
 
 #include <err.h>
 #include <errno.h>
+#include <event.h>
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <event.h>
 
 #include "smtpd.h"
 #include "parser.h"
-__dead void	usage(void);
-int		show_command_output(struct imsg*);
-int		show_stats_output(struct imsg *);
 
-/*
-struct imsgname {
-	int type;
-	char *name;
-	void (*func)(struct imsg *);
-};
-
-struct imsgname imsgs[] = {
-	{ IMSG_CTL_SHUTDOWN,		"stop",			NULL },
-	{ IMSG_CONF_RELOAD,		"reload",		NULL },
-	{ 0,				NULL,			NULL }
-};
-struct imsgname imsgunknown = {
-	-1,				"<unknown>",		NULL
-};
-*/
+void usage(void);
+static void show_sizes(void);
+static int show_command_output(struct imsg *);
+static int show_stats_output(struct imsg *);
 
 int proctype;
 struct imsgbuf	*ibuf;
 
 int sendmail = 0;
 extern char *__progname;
+
+struct smtpd	*env = NULL;
 
 __dead void
 usage(void)
@@ -91,7 +79,7 @@ main(int argc, char *argv[])
 	struct imsg		imsg;
 	int			ctl_sock;
 	int			done = 0;
-	int			n;
+	int			n, verbose = 0;
 
 	/* parse options */
 	if (strcmp(__progname, "sendmail") == 0 || strcmp(__progname, "send-mail") == 0)
@@ -115,7 +103,9 @@ main(int argc, char *argv[])
 			show_queue(PATH_QUEUE, 0);
 			break;
 		case SHOW_RUNQUEUE:
-			show_queue(PATH_RUNQUEUE, 0);
+			break;
+		case SHOW_SIZES:
+			show_sizes();
 			break;
 		default:
 			goto connected;
@@ -150,28 +140,45 @@ connected:
 	case NONE:
 		usage();
 		/* not reached */
+
+	case SCHEDULE:
+	case REMOVE: {
+		u_int64_t ulval;
+		char *ep;
+
+		errno = 0;
+		ulval = strtoul(res->data, &ep, 16);
+		if (res->data[0] == '\0' || *ep != '\0')
+			errx(1, "invalid msgid/evpid");
+		if (errno == ERANGE && ulval == ULLONG_MAX)
+			errx(1, "invalid msgid/evpid");
+
+		if (res->action == SCHEDULE)
+			imsg_compose(ibuf, IMSG_RUNNER_SCHEDULE, 0, 0, -1, &ulval,
+			    sizeof(ulval));
+		if (res->action == REMOVE)
+			imsg_compose(ibuf, IMSG_RUNNER_REMOVE, 0, 0, -1, &ulval,
+			    sizeof(ulval));
+		break;
+	}
+
 	case SHUTDOWN:
 		imsg_compose(ibuf, IMSG_CTL_SHUTDOWN, 0, 0, -1, NULL, 0);
 		break;
-/*
-	case RELOAD:
-		imsg_compose(ibuf, IMSG_CONF_RELOAD, 0, 0, -1, NULL, 0);
-		break;
- */
 	case PAUSE_MDA:
-		imsg_compose(ibuf, IMSG_MDA_PAUSE, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_PAUSE_LOCAL, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_MTA:
-		imsg_compose(ibuf, IMSG_MTA_PAUSE, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_PAUSE_OUTGOING, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_SMTP:
 		imsg_compose(ibuf, IMSG_SMTP_PAUSE, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MDA:
-		imsg_compose(ibuf, IMSG_MDA_RESUME, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_RESUME_LOCAL, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MTA:
-		imsg_compose(ibuf, IMSG_MTA_RESUME, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_QUEUE_RESUME_OUTGOING, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_SMTP:
 		imsg_compose(ibuf, IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
@@ -179,17 +186,17 @@ connected:
 	case SHOW_STATS:
 		imsg_compose(ibuf, IMSG_STATS, 0, 0, -1, NULL, 0);
 		break;
-	case SCHEDULE: {
-		struct sched s;
-
-		s.fd = -1;
-		bzero(s.mid, sizeof (s.mid));
-		strlcpy(s.mid, res->data, sizeof (s.mid));
-		imsg_compose(ibuf, IMSG_RUNNER_SCHEDULE, 0, 0, -1, &s, sizeof (s));
-		break;
-	}
 	case MONITOR:
 		/* XXX */
+		break;
+	case LOG_VERBOSE:
+		verbose = 1;
+		/* FALLTHROUGH */
+	case LOG_BRIEF:
+		imsg_compose(ibuf, IMSG_CTL_VERBOSE, 0, 0, -1, &verbose,
+		    sizeof(verbose));
+		printf("logging request sent.\n");
+		done = 1;
 		break;
 	default:
 		err(1, "unknown request (%d)", res->action);
@@ -211,15 +218,18 @@ connected:
 			if (n == 0)
 				break;
 			switch(res->action) {
-/*			case RELOAD:*/
-			case SHUTDOWN:
+			/* case RELOAD: */
+			case REMOVE:
 			case SCHEDULE:
+			case SHUTDOWN:
 			case PAUSE_MDA:
 			case PAUSE_MTA:
 			case PAUSE_SMTP:
 			case RESUME_MDA:
 			case RESUME_MTA:
 			case RESUME_SMTP:
+			case LOG_VERBOSE:
+			case LOG_BRIEF:
 				done = show_command_output(&imsg);
 				break;
 			case SHOW_STATS:
@@ -243,7 +253,7 @@ connected:
 	return (0);
 }
 
-int
+static int
 show_command_output(struct imsg *imsg)
 {
 	switch (imsg->hdr.type) {
@@ -259,7 +269,37 @@ show_command_output(struct imsg *imsg)
 	return (1);
 }
 
-int
+void
+show_sizes(void)
+{
+	/*
+	 * size _does_ matter.
+	 *
+	 * small changes to ramqueue and diskqueue structures may cause
+	 * large changes to memory and disk usage on busy/large hosts.
+	 *
+	 * this will help developers optimize memory/disk use, and help
+	 * admins understand how the ramqueue.size / ramqueue.size.max
+	 * stats are computed (smtpctl show stats).
+	 *
+	 * -- gilles@
+	 *
+	 */
+	printf("struct ramqueue: %zu\n", sizeof (struct ramqueue));
+	printf("struct ramqueue_host: %zu\n", sizeof (struct ramqueue_host));
+	printf("struct ramqueue_message: %zu\n", sizeof (struct ramqueue_message));
+	printf("struct ramqueue_envelope: %zu\n", sizeof (struct ramqueue_envelope));
+
+	printf("struct envelope: %zu\n", sizeof (struct envelope));
+	printf("struct delivery: %zu\n", sizeof (struct delivery));
+
+	printf("struct rule = %zu\n", sizeof(struct rule));
+	printf("struct cond = %zu\n", sizeof(struct cond));
+	printf("struct map = %zu\n", sizeof(struct map));
+	printf("struct filter = %zu\n", sizeof(struct filter));
+}
+
+static int
 show_stats_output(struct imsg *imsg)
 {
 	struct stats	*stats;
@@ -272,16 +312,59 @@ show_stats_output(struct imsg *imsg)
 
 	stats = imsg->data;
 
-	printf("mda.errors.write_system=%zd\n", stats->mda.write_error);
-	printf("mta.sessions=%zd\n", stats->smtp.sessions);
-	printf("mta.sessions.active=%zd\n", stats->mta.sessions_active);
+	printf("control.sessions=%zd\n", stats->control.sessions);
+	printf("control.sessions_active=%zd\n",
+	    stats->control.sessions_active);
+	printf("control.sessions_maxactive=%zd\n",
+	    stats->control.sessions_maxactive);
 
-	printf("parent.uptime=%d\n", (int) (time(NULL) - stats->parent.start));
+	printf("mda.sessions=%zd\n", stats->mda.sessions);
+	printf("mda.sessions.active=%zd\n", stats->mda.sessions_active);
+	printf("mda.sessions.maxactive=%zd\n", stats->mda.sessions_maxactive);
+
+	printf("mta.sessions=%zd\n", stats->mta.sessions);
+	printf("mta.sessions.active=%zd\n", stats->mta.sessions_active);
+	printf("mta.sessions.maxactive=%zd\n", stats->mta.sessions_maxactive);
+
+	printf("lka.queries=%zd\n", stats->lka.queries);
+	printf("lka.queries.active=%zd\n", stats->lka.queries_active);
+	printf("lka.queries.maxactive=%zd\n", stats->lka.queries_maxactive);
+	printf("lka.queries.mx=%zd\n", stats->lka.queries_mx);
+	printf("lka.queries.host=%zd\n", stats->lka.queries_host);
+	printf("lka.queries.cname=%zd\n", stats->lka.queries_cname);
+	printf("lka.queries.failure=%zd\n", stats->lka.queries_failure);
+
+	printf("parent.uptime=%lld\n",
+	    (long long int) (time(NULL) - stats->parent.start));
 
 	printf("queue.inserts.local=%zd\n", stats->queue.inserts_local);
 	printf("queue.inserts.remote=%zd\n", stats->queue.inserts_remote);
 
 	printf("runner.active=%zd\n", stats->runner.active);
+	printf("runner.maxactive=%zd\n", stats->runner.maxactive);
+	printf("runner.bounces=%zd\n", stats->runner.bounces);
+	printf("runner.bounces.active=%zd\n", stats->runner.bounces_active);
+	printf("runner.bounces.maxactive=%zd\n",
+	    stats->runner.bounces_maxactive);
+
+	printf("ramqueue.hosts=%zd\n", stats->ramqueue.hosts);
+	printf("ramqueue.batches=%zd\n", stats->ramqueue.batches);
+	printf("ramqueue.messages=%zd\n", stats->ramqueue.messages);
+	printf("ramqueue.envelopes=%zd\n", stats->ramqueue.envelopes);
+	printf("ramqueue.hosts.max=%zd\n", stats->ramqueue.hosts_max);
+	printf("ramqueue.batches.max=%zd\n", stats->ramqueue.batches_max);
+	printf("ramqueue.messages.max=%zd\n", stats->ramqueue.messages_max);
+	printf("ramqueue.envelopes.max=%zd\n", stats->ramqueue.envelopes_max);
+	printf("ramqueue.size=%zd\n",
+	    stats->ramqueue.hosts * sizeof(struct ramqueue_host) +
+	    stats->ramqueue.batches * sizeof(struct ramqueue_batch) +
+	    stats->ramqueue.messages * sizeof(struct ramqueue_message) +
+	    stats->ramqueue.envelopes * sizeof(struct ramqueue_envelope));
+	printf("ramqueue.size.max=%zd\n",
+	    stats->ramqueue.hosts_max * sizeof(struct ramqueue_host) +
+	    stats->ramqueue.batches_max * sizeof(struct ramqueue_batch) +
+	    stats->ramqueue.messages_max * sizeof(struct ramqueue_message) +
+	    stats->ramqueue.envelopes_max * sizeof(struct ramqueue_envelope));
 
 	printf("smtp.errors.delays=%zd\n", stats->smtp.delays);
 	printf("smtp.errors.linetoolong=%zd\n", stats->smtp.linetoolong);
@@ -294,18 +377,27 @@ show_stats_output(struct imsg *imsg)
 	printf("smtp.errors.write_system=%zd\n", stats->smtp.write_error);
 	printf("smtp.errors.write_timeout=%zd\n", stats->smtp.write_timeout);
 
+	printf("smtp.sessions.inet4=%zd\n", stats->smtp.sessions_inet4);
+	printf("smtp.sessions.inet6=%zd\n", stats->smtp.sessions_inet6);
+
 	printf("smtp.sessions=%zd\n", stats->smtp.sessions);
 	printf("smtp.sessions.aborted=%zd\n", stats->smtp.read_eof +
 	    stats->smtp.read_error + stats->smtp.write_eof +
 	    stats->smtp.write_error);
 	printf("smtp.sessions.active=%zd\n", stats->smtp.sessions_active);
+	printf("smtp.sessions.maxactive=%zd\n",
+	    stats->smtp.sessions_maxactive);
 	printf("smtp.sessions.timeout=%zd\n", stats->smtp.read_timeout +
 	    stats->smtp.write_timeout);
 	printf("smtp.sessions.smtps=%zd\n", stats->smtp.smtps);
 	printf("smtp.sessions.smtps.active=%zd\n", stats->smtp.smtps_active);
+	printf("smtp.sessions.smtps.maxactive=%zd\n",
+	    stats->smtp.smtps_maxactive);
 	printf("smtp.sessions.starttls=%zd\n", stats->smtp.starttls);
 	printf("smtp.sessions.starttls.active=%zd\n",
 	    stats->smtp.starttls_active);
+	printf("smtp.sessions.starttls.maxactive=%zd\n",
+	    stats->smtp.starttls_maxactive);
 
 	return (1);
 }

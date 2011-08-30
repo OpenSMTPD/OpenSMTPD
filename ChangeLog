@@ -1,0 +1,5 @@
+2011-08-28  chl  <chl@tuxfamily.org>
+
+	- OpenSMTPD portable is now working on Linux!
+	- import mail.local(8)
+	- Add some #ifdef VALGRIND to track memory leaks

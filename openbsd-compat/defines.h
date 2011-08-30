@@ -58,24 +58,30 @@ enum
 # define LOGIN_NAME_MAX 9
 #endif
 
-#ifndef MAXPATHLEN
-# ifdef PATH_MAX
-#  define MAXPATHLEN PATH_MAX
-# else /* PATH_MAX */
-#  define MAXPATHLEN 64
-/* realpath uses a fixed buffer of size MAXPATHLEN, so force use of ours */
-#  ifndef BROKEN_REALPATH
-#   define BROKEN_REALPATH 1
-#  endif /* BROKEN_REALPATH */
-# endif /* PATH_MAX */
-#endif /* MAXPATHLEN */
-
 #ifndef PATH_MAX
 # ifdef _POSIX_PATH_MAX
 # define PATH_MAX _POSIX_PATH_MAX
 # else
 # define PATH_MAX 64
 # endif
+#endif
+
+/*
+ * Looks like ugly, but MAX_IMSGSIZE equals 16384,
+ * and if we don't care it will overflow for some struct
+ */
+#if PATH_MAX > 1024
+#  undef    PATH_MAX
+#  define PATH_MAX 1024
+#endif
+
+#ifndef MAXPATHLEN
+#  define MAXPATHLEN PATH_MAX
+#endif
+
+#if MAXPATHLEN > 1024
+#  undef  MAXPATHLEN
+#  define MAXPATHLEN 1024
 #endif
 
 #if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0

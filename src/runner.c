@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.72 2009/11/08 23:08:56 gilles Exp $	*/
+/*	$OpenBSD: runner.c,v 1.116 2011/08/30 17:06:01 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -18,28 +18,23 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/* define _GNU_SOURCE for setresgid and setresuid */
+#define _GNU_SOURCE
+
 #include <sys/types.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <ctype.h>
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <fcntl.h>
+#include <imsg.h>
 #include <libgen.h>
-/* need to define __USE_GNU to get EAI_ADDRFAMILY, EAI_BADHINTS and EAI_NODATA defined */
-#define __USE_GNU
-#include <netdb.h>
-#undef __USE_GNU
 #include <grp.h> /* needed for setgroups */
 #include <pwd.h>
 #include <signal.h>
@@ -50,42 +45,137 @@
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
 
-__dead void	runner_shutdown(void);
-void		runner_sig_handler(int, short, void *);
-void		runner_dispatch_parent(int, short, void *);
-void	        runner_dispatch_control(int, short, void *);
-void	        runner_dispatch_queue(int, short, void *);
-void	        runner_dispatch_mda(int, short, void *);
-void		runner_dispatch_mta(int, short, void *);
-void		runner_dispatch_lka(int, short, void *);
-void		runner_dispatch_smtp(int, short, void *);
-void		runner_setup_events(struct smtpd *);
-void		runner_disable_events(struct smtpd *);
 
-void		runner_reset_flags(void);
-void		runner_process_offline(struct smtpd *);
+static void runner_imsg(struct imsgev *, struct imsg *);
+static void runner_shutdown(void);
+static void runner_sig_handler(int, short, void *);
+static void runner_setup_events(void);
+static void runner_reset_events(void);
+static void runner_disable_events(void);
+static void runner_timeout(int, short, void *);
+static int runner_process_envelope(struct ramqueue_envelope *, time_t);
+static void runner_process_batch(struct ramqueue_envelope *, time_t);
+static void runner_purge_run(void);
+static void runner_purge_message(u_int32_t);
+static int runner_check_loop(struct envelope *);
+static int runner_force_message_to_ramqueue(struct ramqueue *, u_int32_t);
 
-void		runner_timeout(int, short, void *);
 
-void		runner_process_queue(struct smtpd *);
-void		runner_process_runqueue(struct smtpd *);
-void		runner_process_batchqueue(struct smtpd *);
+/*temporary*/
+u_int16_t	fsqueue_hash(u_int32_t);
+u_int64_t	filename_to_evpid(char *);
+u_int32_t	filename_to_msgid(char *);
 
-void		runner_batch_dispatch(struct smtpd *, struct batch *, time_t);
 
-int		runner_message_schedule(struct message *, time_t);
+void
+runner_imsg(struct imsgev *iev, struct imsg *imsg)
+{
+	struct envelope	*e;
 
-void		runner_purge_run(void);
-void		runner_purge_message(char *);
+	switch (imsg->hdr.type) {
+	case IMSG_QUEUE_COMMIT_MESSAGE:
+		e = imsg->data;
+		runner_force_message_to_ramqueue(&env->sc_rqueue, e->delivery.id>>32);
+		runner_reset_events();
+		return;
 
-int		runner_check_loop(struct message *);
+	case IMSG_QUEUE_MESSAGE_UPDATE:
+		e = imsg->data;
+		e->delivery.retry++;
+		env->stats->runner.active--;
 
-struct batch	*batch_record(struct smtpd *, struct message *);
-struct batch	*batch_lookup(struct smtpd *, struct message *);
+		/* temporary failure, message remains in queue,
+		 * gets reinserted in ramqueue
+		 */
+		if (e->delivery.status & DS_TEMPFAILURE) {
+			e->delivery.status &= ~DS_TEMPFAILURE;
+			queue_envelope_update(Q_QUEUE, e);
+			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
+			runner_reset_events();
+			return;
+		}
 
-int		runner_force_envelope_schedule(char *);
-int		runner_force_message_schedule(char *);
+		/* permanent failure, eventually generate a
+		 * bounce (and insert bounce in ramqueue).
+		 */
+		if (e->delivery.status & DS_PERMFAILURE) {
+			struct envelope bounce;
+
+			if (e->delivery.type != D_BOUNCE &&
+			    e->delivery.from.user[0] != '\0') {
+				bounce_record_message(e, &bounce);
+				ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
+				runner_reset_events();
+			}
+		}
+
+		/* successful delivery or permanent failure,
+		 * remove envelope from queue.
+		 */
+		queue_envelope_delete(Q_QUEUE, e);
+		return;
+
+	case IMSG_MDA_SESS_NEW:
+		env->stats->mda.sessions_active--;
+		return;
+
+	case IMSG_BATCH_DONE:
+		env->stats->mta.sessions_active--;
+		return;
+
+	case IMSG_PARENT_ENQUEUE_OFFLINE:
+		/*		runner_process_offline();*/
+		return;
+
+	case IMSG_SMTP_ENQUEUE:
+		e = imsg->data;
+		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
+			e->delivery.status = 0;
+			queue_envelope_update(Q_QUEUE, e);
+			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
+			runner_reset_events();
+			return;
+		}
+		return;
+
+	case IMSG_QUEUE_PAUSE_LOCAL:
+		env->sc_opts |= SMTPD_MDA_PAUSED;
+		return;
+
+	case IMSG_QUEUE_RESUME_LOCAL:
+		env->sc_opts &= ~SMTPD_MDA_PAUSED;
+		return;
+
+	case IMSG_QUEUE_PAUSE_OUTGOING:
+		env->sc_opts |= SMTPD_MTA_PAUSED;
+		return;
+
+	case IMSG_QUEUE_RESUME_OUTGOING:
+		env->sc_opts &= ~SMTPD_MTA_PAUSED;
+		return;
+
+	case IMSG_CTL_VERBOSE:
+		log_verbose(*(int *)imsg->data);
+		return;
+
+	case IMSG_RUNNER_SCHEDULE:
+		runner_schedule(&env->sc_rqueue,
+		    *(u_int64_t *)imsg->data);
+		runner_reset_events();		
+		return;
+
+	case IMSG_RUNNER_REMOVE: {
+		runner_remove(&env->sc_rqueue,
+		    *(u_int64_t *)imsg->data);
+		runner_reset_events();
+		return;
+	}
+	}
+
+	fatalx("runner_imsg: unexpected imsg");
+}
 
 void
 runner_sig_handler(int sig, short event, void *p)
@@ -101,397 +191,47 @@ runner_sig_handler(int sig, short event, void *p)
 }
 
 void
-runner_dispatch_parent(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_PARENT];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_parent: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_PARENT_ENQUEUE_OFFLINE:
-			runner_process_offline(env);
-			break;
-		default:
-			log_warnx("runner_dispatch_parent: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_parent: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-runner_dispatch_control(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_CONTROL];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_control: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_MDA_PAUSE:
-			env->sc_opts |= SMTPD_MDA_PAUSED;
-			break;
-		case IMSG_MTA_PAUSE:
-			env->sc_opts |= SMTPD_MTA_PAUSED;
-			break;
-		case IMSG_MDA_RESUME:
-			env->sc_opts &= ~SMTPD_MDA_PAUSED;
-			break;
-		case IMSG_MTA_RESUME:
-			env->sc_opts &= ~SMTPD_MTA_PAUSED;
-			break;
-		case IMSG_RUNNER_SCHEDULE: {
-			struct sched *s = imsg.data;
-
-			IMSG_SIZE_CHECK(s);
-
-			s->ret = 0;
-			if (valid_message_uid(s->mid))
-				s->ret = runner_force_envelope_schedule(s->mid);
-			else if (valid_message_id(s->mid))
-				s->ret = runner_force_message_schedule(s->mid);
-
-			imsg_compose_event(iev, IMSG_RUNNER_SCHEDULE, 0, 0, -1, s, sizeof(*s));
-			break;
-		}
-		default:
-			log_warnx("runner_dispatch_control: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_control: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-runner_dispatch_queue(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_QUEUE];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_queue: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_RUNNER_UPDATE_ENVELOPE: {
-			struct message	*m = imsg.data;
-
-			IMSG_SIZE_CHECK(m);
-
-			env->stats->runner.active--;
-			queue_message_update(m);
-			break;
-		}
-		default:
-			log_warnx("runner_dispatch_queue: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_queue: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-runner_dispatch_mda(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_MDA];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_mda: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		default:
-			log_warnx("runner_dispatch_mda: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_mda: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-runner_dispatch_mta(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_MTA];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_mta: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-
-		default:
-			log_warnx("runner_dispatch_mta: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_mta: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-runner_dispatch_lka(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_LKA];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_lka: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		default:
-			log_warnx("runner_dispatch_lka: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_lka: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-runner_dispatch_smtp(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_SMTP];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("runner_dispatch_smtp: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_SMTP_ENQUEUE: {
-			struct message	*m = imsg.data;
-
-			IMSG_SIZE_CHECK(m);
-
-			if (imsg.fd < 0 || ! bounce_session(env, imsg.fd, m)) {
-				m->status = S_MESSAGE_TEMPFAILURE;
-				queue_message_update(m);
-			}
-			break;
-		}
-
-		default:
-			log_warnx("runner_dispatch_smtp: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("runner_dispatch_smtp: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
 runner_shutdown(void)
 {
+#ifdef VALGRIND
+	child_free();
+	free_peers();
+	clean_setproctitle();
+#endif
+
 	log_info("runner handler exiting");
 	_exit(0);
 }
 
 void
-runner_setup_events(struct smtpd *env)
+runner_setup_events(void)
 {
 	struct timeval	 tv;
 
-	evtimer_set(&env->sc_ev, runner_timeout, env);
+	evtimer_set(&env->sc_ev, runner_timeout, NULL);
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
 	evtimer_add(&env->sc_ev, &tv);
 }
 
 void
-runner_disable_events(struct smtpd *env)
+runner_reset_events(void)
+{
+	struct timeval	 tv;
+
+	tv.tv_sec = 0;
+	tv.tv_usec = 10;
+	evtimer_add(&env->sc_ev, &tv);
+}
+
+void
+runner_disable_events(void)
 {
 	evtimer_del(&env->sc_ev);
 }
 
 pid_t
-runner(struct smtpd *env)
+runner(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
@@ -500,13 +240,8 @@ runner(struct smtpd *env)
 	struct event	 ev_sigterm;
 
 	struct peer peers[] = {
-		{ PROC_PARENT,	runner_dispatch_parent },
-		{ PROC_CONTROL,	runner_dispatch_control },
-		{ PROC_MDA,	runner_dispatch_mda },
-		{ PROC_MTA,	runner_dispatch_mta },
-		{ PROC_QUEUE,	runner_dispatch_queue },
-		{ PROC_LKA,	runner_dispatch_lka },
-		{ PROC_SMTP,	runner_dispatch_smtp }
+		{ PROC_CONTROL,	imsg_dispatch },
+		{ PROC_QUEUE,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
@@ -518,363 +253,302 @@ runner(struct smtpd *env)
 		return (pid);
 	}
 
-	purge_config(env, PURGE_EVERYTHING);
+	purge_config(PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
 
-#ifndef DEBUG
 	if (chroot(PATH_SPOOL) == -1)
 		fatal("runner: chroot");
 	if (chdir("/") == -1)
 		fatal("runner: chdir(\"/\")");
-#else
-#warning disabling privilege revocation and chroot in DEBUG MODE
-#endif
 
 	smtpd_process = PROC_RUNNER;
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
-#ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("runner: cannot drop privileges");
-#endif
 
-	SPLAY_INIT(&env->batch_queue);
+	ramqueue_init(&env->sc_rqueue);
 
+	imsg_callback = runner_imsg;
 	event_init();
 
-	signal_set(&ev_sigint, SIGINT, runner_sig_handler, env);
-	signal_set(&ev_sigterm, SIGTERM, runner_sig_handler, env);
+	signal_set(&ev_sigint, SIGINT, runner_sig_handler, NULL);
+	signal_set(&ev_sigterm, SIGTERM, runner_sig_handler, NULL);
 	signal_add(&ev_sigint, NULL);
 	signal_add(&ev_sigterm, NULL);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(env, peers, nitems(peers));
-	config_peers(env, peers, nitems(peers));
+	/* see fdlimit()-related comment in queue.c */
+	fdlimit(1.0);
+	if ((env->sc_maxconn = availdesc() / 4) < 1)
+		fatalx("runner: fd starvation");
+
+	config_pipes(peers, nitems(peers));
+	config_peers(peers, nitems(peers));
 
 	unlink(PATH_QUEUE "/envelope.tmp");
-	runner_reset_flags();
-	runner_process_offline(env);
 
-	runner_setup_events(env);
+	runner_setup_events();
 	event_dispatch();
+	runner_disable_events();
 	runner_shutdown();
 
 	return (0);
 }
 
 void
-runner_process_offline(struct smtpd *env)
-{
-	char		 path[MAXPATHLEN];
-	struct qwalk	*q;
-
-	q = qwalk_new(PATH_OFFLINE);
-
-	if (qwalk(q, path))
-		imsg_compose_event(env->sc_ievs[PROC_PARENT],
-		    IMSG_PARENT_ENQUEUE_OFFLINE, 0, 0, -1, path,
-		    strlen(path) + 1);
-
-	qwalk_close(q);
-}
-
-void
-runner_reset_flags(void)
-{
-	char		 path[MAXPATHLEN];
-	struct message	 message;
-	struct qwalk	*q;
-
-	q = qwalk_new(PATH_QUEUE);
-
-	while (qwalk(q, path)) {
-		while (! queue_load_envelope(&message, basename(path)))
-			sleep(1);
-		message_reset_flags(&message);
-	}
-
-	qwalk_close(q);
-}
-
-void
 runner_timeout(int fd, short event, void *p)
 {
-	struct smtpd		*env = p;
+	struct ramqueue		 *rqueue = &env->sc_rqueue;
+	struct ramqueue_envelope *rq_evp;
 	struct timeval		 tv;
+	static int		 rq_done = 0;
+	static int		 rq_off_done = 0;
+	time_t			 nsched;
+	time_t			 curtm;
 
 	runner_purge_run();
 
-	runner_process_queue(env);
-	runner_process_runqueue(env);
-	runner_process_batchqueue(env);
+	nsched = 0;
+	rq_evp = ramqueue_first_envelope(rqueue);
+	if (rq_evp)
+		nsched = rq_evp->sched;
 
-	tv.tv_sec = 1;
+
+	/* fetch one offline message at a time to prevent a huge
+	 * offline queue from hogging the deliveries of incoming
+	 * messages.
+	 */
+	if (! rq_off_done)
+		rq_off_done = ramqueue_load_offline(rqueue);
+
+
+	/* load as many envelopes as possible from disk-queue to
+	 * ram-queue until a schedulable envelope is found.
+	 */
+	if (! rq_done)
+		rq_done = ramqueue_load(rqueue, &nsched);
+
+
+	/* let's do the schedule dance baby ! */
+	curtm = time(NULL);
+	rq_evp = ramqueue_next_envelope(rqueue);
+	while (rq_evp) {
+		if (rq_evp->sched > curtm)
+			break;
+		runner_process_envelope(rq_evp, curtm);
+		rq_evp = ramqueue_next_envelope(rqueue);
+	}
+
+	if (rq_done && rq_off_done && ramqueue_is_empty(rqueue)) {
+		log_debug("runner: ramqueue is empty, wake me up. zZzZzZ");
+		return;
+	}
+
+	/* disk-queues not fully loaded, no time for sleeping */
+	if (!rq_done || !rq_off_done) {
+		log_debug("disk-queues not fully loaded, no time for sleeping");
+		nsched = 0;
+	} else {
+		nsched = nsched - curtm;
+		if (nsched < 0) {
+			log_debug("curtm > nshed = %d", (int) nsched);
+			nsched = 0;
+		}
+	}
+
+	log_debug("runner: nothing to do for the next %lld seconds, zZzZzZ",
+	    (long long int) nsched);
+
+	tv.tv_sec = nsched;
 	tv.tv_usec = 0;
 	evtimer_add(&env->sc_ev, &tv);
 }
 
-void
-runner_process_queue(struct smtpd *env)
+int
+runner_process_envelope(struct ramqueue_envelope *rq_evp, time_t curtm)
 {
-	char		 path[MAXPATHLEN];
-	char		 rqpath[MAXPATHLEN];
-	struct message	 message;
-	time_t		 now;
-	struct qwalk	*q;
+	size_t		 mta_av, mda_av, bnc_av;
+	struct envelope	 envelope;
 
-	now = time(NULL);
-	q = qwalk_new(PATH_QUEUE);
-
-	while (qwalk(q, path)) {
-		if (! queue_load_envelope(&message, basename(path)))
-			continue;
-
-		if (message.type & T_MDA_MESSAGE)
-			if (env->sc_opts & SMTPD_MDA_PAUSED)
-				continue;
-
-		if (message.type & T_MTA_MESSAGE)
-			if (env->sc_opts & SMTPD_MTA_PAUSED)
-				continue;
-
-		if (! runner_message_schedule(&message, now))
-			continue;
-
-		if (runner_check_loop(&message)) {
-			message_set_errormsg(&message, "loop has been detected");
-			bounce_record_message(&message);
-			queue_remove_envelope(&message);
-			continue;
-		}
-
-		message.flags |= F_MESSAGE_SCHEDULED;
-		message.flags &= ~F_MESSAGE_FORCESCHEDULE;
-		queue_update_envelope(&message);
-
-		if (! bsnprintf(rqpath, sizeof(rqpath), "%s/%s", PATH_RUNQUEUE,
-			basename(path)))
-			fatalx("runner_process_queue: snprintf");
-
-		if (symlink(path, rqpath) == -1) {
-			if (errno == EEXIST)
-				continue;
-			if (errno == ENOSPC)
-				break;
-			fatal("runner_process_queue: symlink");
-		}
-	}
+	mta_av = env->sc_maxconn - env->stats->mta.sessions_active;
+	mda_av = env->sc_maxconn - env->stats->mda.sessions_active;
+	bnc_av = env->sc_maxconn - env->stats->runner.bounces_active;
 	
-	qwalk_close(q);
-}
-
-void
-runner_process_runqueue(struct smtpd *env)
-{
-	char		 path[MAXPATHLEN];
-	struct message	 message;
-	time_t		 tm;
-	struct batch	*batchp;
-	struct message	*messagep;
-	struct qwalk	*q;
-
-	tm = time(NULL);
-
-	q = qwalk_new(PATH_RUNQUEUE);
-
-	while (qwalk(q, path)) {
-		unlink(path);
-
-		if (! queue_load_envelope(&message, basename(path)))
-			continue;
-
-		if (message.flags & F_MESSAGE_PROCESSING)
-			continue;
-
-		message.lasttry = tm;
-		message.flags &= ~F_MESSAGE_SCHEDULED;
-		message.flags |= F_MESSAGE_PROCESSING;
-
-		if (! queue_update_envelope(&message))
-			continue;
-
-		messagep = calloc(1, sizeof (struct message));
-		if (messagep == NULL)
-			fatal("runner_process_runqueue: calloc");
-		*messagep = message;
-
-		messagep->batch_id = 0;
-		batchp = batch_lookup(env, messagep);
-		if (batchp != NULL)
-			messagep->batch_id = batchp->id;
-
-		batchp = batch_record(env, messagep);
-		if (messagep->batch_id == 0)
-			messagep->batch_id = batchp->id;
-	}
-
-	qwalk_close(q);
-}
-
-void
-runner_process_batchqueue(struct smtpd *env)
-{
-	time_t curtime;
-	struct batch *batchp, *nxt;
-
-	curtime = time(NULL);
-	for (batchp = SPLAY_MIN(batchtree, &env->batch_queue);
-	     batchp != NULL;
-	     batchp = nxt) {
-		nxt = SPLAY_NEXT(batchtree, &env->batch_queue, batchp);
-
-		runner_batch_dispatch(env, batchp, curtime);
-
-		SPLAY_REMOVE(batchtree, &env->batch_queue, batchp);
-		bzero(batchp, sizeof(struct batch));
-		free(batchp);
-	}
-}
-
-void
-runner_batch_dispatch(struct smtpd *env, struct batch *batchp, time_t curtime)
-{
-	u_int8_t proctype;
-	struct message *messagep;
-
-	if ((batchp->type & (T_BOUNCE_BATCH|T_MDA_BATCH|T_MTA_BATCH)) == 0)
-		fatal("runner_batch_dispatch: unknown batch type");
-
-	log_debug("in batch dispatch");
-	if (batchp->type == T_BOUNCE_BATCH) {
-		while ((messagep = TAILQ_FIRST(&batchp->messages))) {
-			bounce_process(env, messagep);
-			TAILQ_REMOVE(&batchp->messages, messagep, entry);
-			bzero(messagep, sizeof(*messagep));
-			free(messagep);
-		}
-		return;
-	}
-
-	if (batchp->type & T_MDA_BATCH)
-		proctype = PROC_MDA;
-	else if (batchp->type & T_MTA_BATCH)
-		proctype = PROC_MTA;
-
-	imsg_compose_event(env->sc_ievs[proctype], IMSG_BATCH_CREATE, 0, 0, -1,
-	    batchp, sizeof (struct batch));
-
-	while ((messagep = TAILQ_FIRST(&batchp->messages))) {
-		imsg_compose_event(env->sc_ievs[proctype], IMSG_BATCH_APPEND, 0, 0,
-		    -1, messagep, sizeof (struct message));
-		TAILQ_REMOVE(&batchp->messages, messagep, entry);
-		bzero(messagep, sizeof(struct message));
-		free(messagep);
-	}
-
-	imsg_compose_event(env->sc_ievs[proctype], IMSG_BATCH_CLOSE, 0, 0, -1,
-	    batchp, sizeof(struct batch));
-}
-
-int
-runner_message_schedule(struct message *messagep, time_t tm)
-{
-	time_t delay;
-
-	if (messagep->flags & (F_MESSAGE_SCHEDULED|F_MESSAGE_PROCESSING))
+	if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid, &envelope))
 		return 0;
 
-	if (messagep->flags & F_MESSAGE_FORCESCHEDULE)
-		return 1;
+	if (envelope.delivery.type & D_MDA) {
+		if (env->sc_opts & SMTPD_MDA_PAUSED)
+			return 0;
+		if (mda_av == 0)
+			return 0;
+	}
 
-	/* Batch has been in the queue for too long and expired */
-	if (tm - messagep->creation >= SMTPD_QUEUE_EXPIRY) {
-		message_set_errormsg(messagep, "message expired after sitting in queue for %d days",
-			SMTPD_QUEUE_EXPIRY / 60 / 60 / 24);
-		bounce_record_message(messagep);
-		queue_remove_envelope(messagep);
+	if (envelope.delivery.type & D_MTA) {
+		if (env->sc_opts & SMTPD_MTA_PAUSED)
+			return 0;
+		if (mta_av == 0)
+			return 0;
+	}
+
+	if (envelope.delivery.type & D_BOUNCE) {
+		if (env->sc_opts & (SMTPD_MDA_PAUSED|SMTPD_MTA_PAUSED))
+			return 0;
+		if (bnc_av == 0)
+			return 0;
+	}
+
+	if (runner_check_loop(&envelope)) {
+		struct envelope bounce;
+
+		envelope_set_errormsg(&envelope, "loop has been detected");
+		bounce_record_message(&envelope, &bounce);
+		ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
+		runner_setup_events();
+		queue_envelope_delete(Q_QUEUE, &envelope);
 		return 0;
 	}
 
-	if (messagep->lasttry == 0)
-		return 1;
-
-	delay = SMTPD_QUEUE_MAXINTERVAL;
-
-	// recompute path
-
-	if (messagep->type == T_MDA_MESSAGE ||
-		messagep->type == T_BOUNCE_MESSAGE) {
-		if (messagep->status & S_MESSAGE_LOCKFAILURE) {
-			if (messagep->retry < 128)
-				return 1;
-			delay = (messagep->retry * 60) + arc4random_uniform(60);
-		}
-		else {
-			if (messagep->retry < 5)
-				return 1;
-			
-			if (messagep->retry < 15)
-				delay = (messagep->retry * 60) + arc4random_uniform(60);
-		}
-	}
-
-	if (messagep->type == T_MTA_MESSAGE) {
-		if (messagep->retry < 3)
-			delay = SMTPD_QUEUE_INTERVAL;
-		else if (messagep->retry <= 7) {
-			delay = SMTPD_QUEUE_INTERVAL * (1 << (messagep->retry - 3));
-			if (delay > SMTPD_QUEUE_MAXINTERVAL)
-				delay = SMTPD_QUEUE_MAXINTERVAL;
-		}
-	}
-
-	if (tm >= messagep->lasttry + delay)
-		return 1;
-
-	return 0;
-}
-
-int
-runner_force_envelope_schedule(char *mid)
-{
-	struct message message;
-
-	if (! queue_load_envelope(&message, mid))
-		return 0;
-
-	if (! message.flags & (F_MESSAGE_PROCESSING|F_MESSAGE_SCHEDULED))
-		return 1;
-
-	message.flags |= F_MESSAGE_FORCESCHEDULE;
-
-	if (! queue_update_envelope(&message))
-		return 0;
+	runner_process_batch(rq_evp, curtm);
 
 	return 1;
 }
 
+
+void
+runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
+{
+	struct ramqueue_batch	 *rq_batch;
+	struct ramqueue_message	 *rq_msg;
+	struct ramqueue_host	 *rq_host;
+	struct envelope evp;
+	int fd;
+
+	rq_msg = rq_evp->rq_msg;
+	rq_batch = rq_evp->rq_batch;
+	rq_host = rq_msg->rq_host;
+
+	switch (rq_batch->type) {
+	case D_BOUNCE:
+		while ((rq_evp = ramqueue_batch_first_envelope(rq_batch))) {
+			if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid,
+				&evp))
+				return;
+			evp.delivery.lasttry = curtm;
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+			    IMSG_SMTP_ENQUEUE, PROC_SMTP, 0, -1, &evp,
+			    sizeof evp);
+			ramqueue_remove_envelope(&env->sc_rqueue, rq_evp);
+		}
+		env->stats->runner.bounces_active++;
+		env->stats->runner.bounces++;
+		SET_IF_GREATER(env->stats->runner.bounces_active,
+		    env->stats->runner.bounces_maxactive);
+		env->stats->runner.active++;
+		SET_IF_GREATER(env->stats->runner.active,
+		    env->stats->runner.maxactive);
+		break;
+		
+	case D_MDA:
+		rq_evp = ramqueue_batch_first_envelope(rq_batch);
+		if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid, &evp))
+			return;
+		evp.delivery.lasttry = curtm;
+		fd = queue_message_fd_r(Q_QUEUE, rq_evp->evpid>>32);
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_MDA_SESS_NEW, PROC_MDA, 0, fd, &evp,
+		    sizeof evp);
+		ramqueue_remove_envelope(&env->sc_rqueue, rq_evp);
+
+		env->stats->mda.sessions_active++;
+		env->stats->mda.sessions++;
+		SET_IF_GREATER(env->stats->mda.sessions_active,
+		    env->stats->mda.sessions_maxactive);
+		env->stats->runner.active++;
+		SET_IF_GREATER(env->stats->runner.active,
+		    env->stats->runner.maxactive);
+		break;
+		
+	case D_MTA:
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_BATCH_CREATE, PROC_MTA, 0, -1, rq_batch,
+		    sizeof *rq_batch);
+		while ((rq_evp = ramqueue_batch_first_envelope(rq_batch))) {
+			if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid,
+				&evp))
+				return;
+			evp.delivery.lasttry = curtm;
+			evp.batch_id = rq_batch->b_id;
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+			    IMSG_BATCH_APPEND, PROC_MTA, 0, -1, &evp,
+			    sizeof evp);
+			ramqueue_remove_envelope(&env->sc_rqueue, rq_evp);
+			env->stats->runner.active++;
+			SET_IF_GREATER(env->stats->runner.active,
+			    env->stats->runner.maxactive);
+		}
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_BATCH_CLOSE, PROC_MTA, 0, -1, rq_batch,
+		    sizeof *rq_batch);
+		env->stats->mta.sessions_active++;
+		env->stats->mta.sessions++;
+		SET_IF_GREATER(env->stats->mta.sessions_active,
+		    env->stats->mta.sessions_maxactive);
+		break;
+		
+	default:
+		fatalx("runner_process_batchqueue: unknown type");
+	}
+
+	if (ramqueue_message_is_empty(rq_msg))
+		ramqueue_remove_message(&env->sc_rqueue, rq_msg);
+
+	if (ramqueue_batch_is_empty(rq_batch))
+		ramqueue_remove_batch(rq_host, rq_batch);
+
+	if (ramqueue_host_is_empty(rq_host))
+		ramqueue_remove_host(&env->sc_rqueue, rq_host);
+}
+
+/* XXX - temporary solution */
 int
-runner_force_message_schedule(char *mid)
+runner_force_message_to_ramqueue(struct ramqueue *rqueue, u_int32_t msgid)
 {
 	char path[MAXPATHLEN];
 	DIR *dirp;
 	struct dirent *dp;
+	struct envelope envelope;
+	time_t curtm;
 
-	if (! bsnprintf(path, MAXPATHLEN, "%s/%d/%s/envelopes",
-		PATH_QUEUE, queue_hash(mid), mid))
+	if (! bsnprintf(path, MAXPATHLEN, "%s/%04x/%08x/envelopes",
+		PATH_QUEUE, fsqueue_hash(msgid), msgid))
 		return 0;
 
 	dirp = opendir(path);
 	if (dirp == NULL)
 		return 0;
 
+	curtm = time(NULL);
 	while ((dp = readdir(dirp)) != NULL) {
-		if (valid_message_uid(dp->d_name))
-			runner_force_envelope_schedule(dp->d_name);
+		u_int64_t evpid;
+
+		if (dp->d_name[0] == '.')
+			continue;
+
+		if ((evpid = filename_to_evpid(dp->d_name)) == 0) {
+			log_warnx("runner_force_message_to_ramqueue: invalid evpid: %016llx", evpid);
+			continue;
+		}
+
+		if (! queue_envelope_load(Q_QUEUE, evpid,
+			&envelope))
+			continue;
+		ramqueue_insert(rqueue, &envelope, curtm);
 	}
 	closedir(dirp);
 
@@ -889,14 +563,26 @@ runner_purge_run(void)
 
 	q = qwalk_new(PATH_PURGE);
 
-	while (qwalk(q, path))
-		runner_purge_message(basename(path));
+	while (qwalk(q, path)) {
+		u_int32_t msgid;
+		char *bpath;
+		
+		bpath = basename(path);
+		if (bpath[0] == '.')
+			continue;
+
+		if ((msgid = filename_to_msgid(bpath)) == 0) {
+			log_warnx("runner_purge_run: invalid msgid: %08x", msgid);
+			continue;
+		}
+		runner_purge_message(msgid);
+	}
 
 	qwalk_close(q);
 }
 
 void
-runner_purge_message(char *msgid)
+runner_purge_message(u_int32_t msgid)
 {
 	char rootdir[MAXPATHLEN];
 	char evpdir[MAXPATHLEN];
@@ -905,7 +591,7 @@ runner_purge_message(char *msgid)
 	DIR *dirp;
 	struct dirent *dp;
 	
-	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%s", PATH_PURGE, msgid))
+	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%08x", PATH_PURGE, msgid))
 		fatal("runner_purge_message: snprintf");
 
 	if (! bsnprintf(evpdir, sizeof(evpdir), "%s%s", rootdir,
@@ -949,124 +635,18 @@ delroot:
 			fatal("runner_purge_message: rmdir");
 }
 
-struct batch *
-batch_record(struct smtpd *env, struct message *messagep)
-{
-	struct batch *batchp;
-	struct path *path;
-
-	batchp = NULL;
-	if (messagep->batch_id != 0) {
-		batchp = batch_by_id(env, messagep->batch_id);
-		if (batchp == NULL)
-			fatalx("batch_record: internal inconsistency.");
-	}
-	if (batchp == NULL) {
-		batchp = calloc(1, sizeof(struct batch));
-		if (batchp == NULL)
-			fatal("batch_record: calloc");
-
-		batchp->id = generate_uid();
-
-		(void)strlcpy(batchp->message_id, messagep->message_id,
-		    sizeof(batchp->message_id));
-		TAILQ_INIT(&batchp->messages);
-		SPLAY_INSERT(batchtree, &env->batch_queue, batchp);
-
-		if (messagep->type & T_BOUNCE_MESSAGE) {
-			batchp->type = T_BOUNCE_BATCH;
-			path = &messagep->sender;
-		}
-		else {
-			path = &messagep->recipient;
-		}
-		batchp->rule = path->rule;
-
-		(void)strlcpy(batchp->hostname, path->domain,
-		    sizeof(batchp->hostname));
-
-		if (batchp->type != T_BOUNCE_BATCH) {
-			if (IS_MAILBOX(*path) || IS_EXT(*path)) {
-				batchp->type = T_MDA_BATCH;
-			}
-			else {
-				batchp->type = T_MTA_BATCH;
-			}
-		}
-	}
-
-	TAILQ_INSERT_TAIL(&batchp->messages, messagep, entry);
-	env->stats->runner.active++;
-	return batchp;
-}
-
-struct batch *
-batch_lookup(struct smtpd *env, struct message *message)
-{
-	struct batch *batchp;
-	struct batch lookup;
-
-	/* We only support delivery of one message at a time, in MDA
-	 * and bounces messages.
-	 */
-	if (message->type == T_BOUNCE_MESSAGE || message->type == T_MDA_MESSAGE)
-		return NULL;
-
-	/* If message->batch_id != 0, we can retrieve batch by id */
-	if (message->batch_id != 0) {
-		lookup.id = message->batch_id;
-		return SPLAY_FIND(batchtree, &env->batch_queue, &lookup);
-	}
-
-	/* We do not know the batch_id yet, maybe it was created but we could not
-	 * be notified, or it just does not exist. Let's scan to see if we can do
-	 * a match based on our message_id and flags.
-	 */
-	SPLAY_FOREACH(batchp, batchtree, &env->batch_queue) {
-
-		if (batchp->type != message->type)
-			continue;
-
-		if (strcasecmp(batchp->message_id, message->message_id) != 0)
-			continue;
-
-		if (batchp->type & T_MTA_BATCH)
-			if (strcasecmp(batchp->hostname, message->recipient.domain) != 0)
-				continue;
-
-		break;
-	}
-
-	return batchp;
-}
-
 int
-batch_cmp(struct batch *s1, struct batch *s2)
-{
-	/*
-	 * do not return u_int64_t's
-	 */
-	if (s1->id < s2->id)
-		return (-1);
-
-	if (s1->id > s2->id)
-		return (1);
-
-	return (0);
-}
-
-int
-runner_check_loop(struct message *messagep)
+runner_check_loop(struct envelope *ep)
 {
 	int fd;
 	FILE *fp;
 	char *buf, *lbuf;
 	size_t len;
-	struct path chkpath;
+	struct mailaddr maddr;
 	int ret = 0;
 	int rcvcount = 0;
 
-	fd = queue_open_message_file(messagep->message_id);
+	fd = queue_message_fd_r(Q_QUEUE, ep->delivery.id>>32);
 	if ((fp = fdopen(fd, "r")) == NULL)
 		fatal("fdopen");
 
@@ -1095,18 +675,18 @@ runner_check_loop(struct message *messagep)
 		}
 
 		else if (strncasecmp("Delivered-To: ", buf, 14) == 0) {
-			struct path rcpt;
+			struct mailaddr rcpt;
 
-			bzero(&chkpath, sizeof (struct path));
-			if (! recipient_to_path(&chkpath, buf + 14))
+			bzero(&maddr, sizeof (struct mailaddr));
+			if (! email_to_mailaddr(&maddr, buf + 14))
 				continue;
 
-			rcpt = messagep->recipient;
-			if (messagep->type == T_BOUNCE_MESSAGE)
-				rcpt = messagep->sender;
+			rcpt = ep->delivery.rcpt;
+			if (ep->delivery.type == D_BOUNCE)
+				rcpt = ep->delivery.from;
 
-			if (strcasecmp(chkpath.user, rcpt.user) == 0 &&
-			    strcasecmp(chkpath.domain, rcpt.domain) == 0) {
+			if (strcasecmp(maddr.user, rcpt.user) == 0 &&
+			    strcasecmp(maddr.domain, rcpt.domain) == 0) {
 				ret = 1;
 				break;
 			}
@@ -1119,13 +699,44 @@ runner_check_loop(struct message *messagep)
 }
 
 void
-message_reset_flags(struct message *m)
+runner_schedule(struct ramqueue *rq, u_int64_t id)
 {
-	m->flags &= ~F_MESSAGE_SCHEDULED;
-	m->flags &= ~F_MESSAGE_PROCESSING;
-
-	while (! queue_update_envelope(m))
-		sleep(1);
+	ramqueue_schedule(rq, id);
 }
 
-SPLAY_GENERATE(batchtree, batch, b_nodes, batch_cmp);
+
+void
+runner_remove(struct ramqueue *rq, u_int64_t id)
+{
+	struct ramqueue_message *rq_msg;
+	struct ramqueue_envelope *rq_evp;
+
+	/* removing by evpid */
+	if (id > 0xffffffffL) {
+		rq_evp = ramqueue_lookup_envelope(rq, id);
+		if (rq_evp == NULL)
+			return;
+		runner_remove_envelope(rq, rq_evp);
+		return;
+	}
+
+	rq_msg = ramqueue_lookup_message(rq, id);
+	if (rq_msg == NULL)
+		return;
+
+	/* scheduling by msgid */
+	RB_FOREACH(rq_evp, evptree, &rq_msg->evptree) {
+		runner_remove_envelope(rq, rq_evp);
+	}
+}
+
+void
+runner_remove_envelope(struct ramqueue *rq, struct ramqueue_envelope *rq_evp)
+{
+	struct envelope evp;
+
+	if (queue_envelope_load(Q_QUEUE, rq_evp->evpid, &evp))
+		queue_envelope_delete(Q_QUEUE, &evp);
+
+	ramqueue_remove_envelope(rq, rq_evp);
+}

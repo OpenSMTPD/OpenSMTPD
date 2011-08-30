@@ -9,7 +9,11 @@ libopenbsd_compat_a_SOURCES = \
 		  entropy.c \
 		  fgetln.c \
 		  getopt.c \
+		  fmt_scaled.c \
 		  fparseln.c \
+		  imsg.c \
+		  imsg-buffer.c \
+		  mktemp.c \
 		  setproctitle.c \
 		  strlcat.c \
 		  strlcpy.c \
@@ -17,6 +21,7 @@ libopenbsd_compat_a_SOURCES = \
 		  strtonum.c \
 		  strsep.c \
 		  utimes.c \
+		  vis.c \
 		  xmalloc.c
 
 INCLUDES = -I$(top_srcdir)/src/

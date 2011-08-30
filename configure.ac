@@ -1,4 +1,5 @@
-AC_INIT([OpenSMTPD-portable],[4.6.0],[Charles Longeau <chl@openbsd.org>])
+dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
+AC_INIT([OpenSMTPD-portable],[m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.0-\1/' | tr -d '\n')],[Charles Longeau <chl@openbsd.org>])
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
@@ -7,6 +8,9 @@ AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PROG_LN_S
 AC_PATH_PROG(BYACC, byacc)
+AC_PATH_PROG(MAIL_LOCAL, mail.local)
+
+AM_CONDITIONAL(HAVE_MAIL_LOCAL, [test -n "$MAIL_LOCAL"])
 
 #from here everything comes from portable openssh configure.ac script
 
@@ -89,6 +93,7 @@ AC_CHECK_FUNCS( \
 		setproctitle \
 		strlcat \
 		strlcpy \
+		strnvis \
 		strsep \
 		strtonum \
 		strmode \
@@ -114,6 +119,11 @@ AC_CHECK_HEADERS(login_cap.h, [], [], [
 #l337
 # Check for some target-specific stuff
 case "$host" in
+*-*-aix*)
+	AC_DEFINE(SPT_TYPE,SPT_REUSEARGV,
+		[Define to a Set Process Title type if your system is
+		supported by bsd-setproctitle.c])
+	;;
 *-*-darwin*)
 	AC_MSG_CHECKING(if we have working getaddrinfo)
 	AC_TRY_RUN([#include <mach-o/dyld.h>
@@ -132,8 +142,10 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-hpux*)
 	# first we define all of the options common to all HP-UX releases
 	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"
+	AC_DEFINE(SPT_TYPE,SPT_PSTAT)
 	;;
 *-*-linux*)
+	AC_DEFINE(SPT_TYPE,SPT_REUSEARGV)
 	case `uname -r` in
 	1.*|2.0.*)
 		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
@@ -1305,6 +1317,11 @@ AC_CACHE_CHECK([for in_port_t], ac_cv_have_in_port_t, [
 if test "x$ac_cv_have_in_port_t" = "xyes" ; then
 	AC_DEFINE(HAVE_IN_PORT_T, 1, [define if you have in_port_t data type])
 fi
+
+AC_CHECK_MEMBER(struct stat.st_flags,
+	AC_DEFINE(HAVE_STAT_ST_FLAGS, [], [Have stat.st_flags]), ,
+	[]
+)
 #chl part
 
 # From OpenNTPD portable
@@ -1425,6 +1442,8 @@ AC_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		src/Makefile
+		src/libexec/Makefile
+		src/libexec/mail.local/Makefile
 		])
 
 AC_OUTPUT 

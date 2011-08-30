@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.29 2009/11/08 21:40:05 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.47 2011/05/17 18:54:32 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -26,11 +26,16 @@
 #include "sys-tree.h"
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
-#include <err.h>
+#include <netinet/in.h>
+
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <fcntl.h>
+#include <imsg.h>
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -42,6 +47,10 @@
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
+
+const char *log_in6addr(const struct in6_addr *);
+const char *log_sockaddr(struct sockaddr *);
 
 int
 bsnprintf(char *str, size_t size, const char *format, ...)
@@ -103,40 +112,6 @@ hostname_match(char *hostname, char *pattern)
 }
 
 int
-recipient_to_path(struct path *path, char *recipient)
-{
-	char *username;
-	char *hostname;
-
-	username = recipient;
-	hostname = strrchr(username, '@');
-
-	if (username[0] == '\0') {
-		*path->user = '\0';
-		*path->domain = '\0';
-		return 1;
-	}
-
-	if (hostname == NULL) {
-		if (strcasecmp(username, "postmaster") != 0)
-			return 0;
-		hostname = "localhost";
-	} else {
-		*hostname++ = '\0';
-	}
-
-	if (strlcpy(path->user, username, sizeof(path->user))
-	    >= sizeof(path->user))
-		return 0;
-
-	if (strlcpy(path->domain, hostname, sizeof(path->domain))
-	    >= sizeof(path->domain))
-		return 0;
-
-	return 1;
-}
-
-int
 valid_localpart(char *s)
 {
 #define IS_ATEXT(c)     (isalnum((int)(c)) || strchr("!#$%&'*+-/=?^_`{|}~", (c)))
@@ -179,6 +154,40 @@ nextsub:
         return 1;
 }
 
+int
+email_to_mailaddr(struct mailaddr *maddr, char *email)
+{
+	char *username;
+	char *hostname;
+
+	username = email;
+	hostname = strrchr(username, '@');
+
+	if (username[0] == '\0') {
+		*maddr->user = '\0';
+		*maddr->domain = '\0';
+		return 1;
+	}
+
+	if (hostname == NULL) {
+		if (strcasecmp(username, "postmaster") != 0)
+			return 0;
+		hostname = "localhost";
+	} else {
+		*hostname++ = '\0';
+	}
+
+	if (strlcpy(maddr->user, username, sizeof(maddr->user))
+	    >= sizeof(maddr->user))
+		return 0;
+
+	if (strlcpy(maddr->domain, hostname, sizeof(maddr->domain))
+	    >= sizeof(maddr->domain))
+		return 0;
+
+	return 1;
+}
+
 char *
 ss_to_text(struct sockaddr_storage *ss)
 {
@@ -188,63 +197,30 @@ ss_to_text(struct sockaddr_storage *ss)
 	buf[0] = '\0';
 	p = buf;
 
-	if (ss->ss_family == PF_INET6) {
-		strlcpy(buf, "IPv6:", sizeof(buf));
-		p = buf + 5;
+	if (ss->ss_family == PF_INET) {
+		in_addr_t addr;
+		
+		addr = ((struct sockaddr_in *)ss)->sin_addr.s_addr;
+                addr = ntohl(addr);
+                bsnprintf(p, NI_MAXHOST,
+                    "%d.%d.%d.%d",
+                    (addr >> 24) & 0xff,
+                    (addr >> 16) & 0xff,
+                    (addr >> 8) & 0xff,
+                    addr & 0xff);
 	}
 
-	if (getnameinfo((struct sockaddr *)ss, SS_LEN(ss), p,
-	    NI_MAXHOST, NULL, 0, NI_NUMERICHOST))
-		fatalx("ss_to_text: getnameinfo");
+	if (ss->ss_family == PF_INET6) {
+		struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)ss;
+		struct in6_addr	*in6_addr;
+
+		strlcpy(buf, "IPv6:", sizeof(buf));
+		p = buf + 5;
+		in6_addr = &in6->sin6_addr;
+		bsnprintf(p, NI_MAXHOST, "%s", log_in6addr(in6_addr));
+	}
 
 	return (buf);
-}
-
-int
-valid_message_id(char *mid)
-{
-	u_int8_t cnt;
-
-	/* [0-9]{10}\.[a-zA-Z0-9]{16} */
-	for (cnt = 0; cnt < 10; ++cnt, ++mid)
-		if (! isdigit((int)*mid))
-			return 0;
-
-	if (*mid++ != '.')
-		return 0;
-
-	for (cnt = 0; cnt < 16; ++cnt, ++mid)
-		if (! isalnum((int)*mid))
-			return 0;
-
-	return (*mid == '\0');
-}
-
-int
-valid_message_uid(char *muid)
-{
-	u_int8_t cnt;
-
-	/* [0-9]{10}\.[a-zA-Z0-9]{16}\.[0-9]{0,} */
-	for (cnt = 0; cnt < 10; ++cnt, ++muid)
-		if (! isdigit((int)*muid))
-			return 0;
-
-	if (*muid++ != '.')
-		return 0;
-
-	for (cnt = 0; cnt < 16; ++cnt, ++muid)
-		if (! isalnum((int)*muid))
-			return 0;
-
-	if (*muid++ != '.')
-		return 0;
-
-	for (cnt = 0; *muid != '\0'; ++cnt, ++muid)
-		if (! isdigit((int)*muid))
-			return 0;
-
-	return (cnt != 0);
 }
 
 char *
@@ -278,7 +254,7 @@ time_to_text(time_t when)
  * Check file for security. Based on usr.bin/ssh/auth.c.
  */
 int
-secure_file(int fd, char *path, struct passwd *pw, int mayread)
+secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 {
 	char		 buf[MAXPATHLEN];
 	char		 homedir[MAXPATHLEN];
@@ -288,13 +264,13 @@ secure_file(int fd, char *path, struct passwd *pw, int mayread)
 	if (realpath(path, buf) == NULL)
 		return 0;
 
-	if (realpath(pw->pw_dir, homedir) == NULL)
+	if (realpath(userdir, homedir) == NULL)
 		homedir[0] = '\0';
 
 	/* Check the open file to avoid races. */
 	if (fstat(fd, &st) < 0 ||
 	    !S_ISREG(st.st_mode) ||
-	    (st.st_uid != 0 && st.st_uid != pw->pw_uid) ||
+	    (st.st_uid != 0 && st.st_uid != uid) ||
 	    (st.st_mode & (mayread ? 022 : 066)) != 0)
 		return 0;
 
@@ -305,7 +281,7 @@ secure_file(int fd, char *path, struct passwd *pw, int mayread)
 		strlcpy(buf, cp, sizeof(buf));
 
 		if (stat(buf, &st) < 0 ||
-		    (st.st_uid != 0 && st.st_uid != pw->pw_uid) ||
+		    (st.st_uid != 0 && st.st_uid != uid) ||
 		    (st.st_mode & 022) != 0)
 			return 0;
 
@@ -371,16 +347,16 @@ lowercase(char *buf, char *s, size_t len)
 }
 
 void
-message_set_errormsg(struct message *messagep, char *fmt, ...)
+envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 {
 	int ret;
 	va_list ap;
 
 	va_start(ap, fmt);
 
-	ret = vsnprintf(messagep->session_errorline, MAX_LINE_SIZE, fmt, ap);
+	ret = vsnprintf(e->delivery.errorline, MAX_LINE_SIZE, fmt, ap);
 	if (ret >= MAX_LINE_SIZE)
-		strlcpy(messagep->session_errorline + (MAX_LINE_SIZE - 4), "...", 4);
+		strlcpy(e->delivery.errorline + (MAX_LINE_SIZE - 4), "...", 4);
 
 	/* this should not happen */
 	if (ret == -1)
@@ -390,9 +366,9 @@ message_set_errormsg(struct message *messagep, char *fmt, ...)
 }
 
 char *
-message_get_errormsg(struct message *messagep)
+envelope_get_errormsg(struct envelope *e)
 {
-	return messagep->session_errorline;
+	return e->delivery.errorline;
 }
 
 void
@@ -421,20 +397,6 @@ sa_set_port(struct sockaddr *sa, int port)
 	freeaddrinfo(res);
 }
 
-struct path *
-path_dup(struct path *path)
-{
-	struct path *pathp;
-
-	pathp = calloc(sizeof(struct path), 1);
-	if (pathp == NULL)
-		fatal("calloc");
-
-	*pathp = *path;
-
-	return pathp;
-}
-
 u_int64_t
 generate_uid(void)
 {
@@ -450,4 +412,152 @@ generate_uid(void)
 	usleep(1);
 
 	return (id);
+}
+
+void
+fdlimit(double percent)
+{
+	struct rlimit rl;
+
+	if (percent < 0 || percent > 1)
+		fatalx("fdlimit: parameter out of range");
+	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: getrlimit");
+	rl.rlim_cur = percent * rl.rlim_max;
+	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: setrlimit");
+}
+
+int
+availdesc(void)
+{
+	int avail;
+
+	avail = getdtablesize();
+	avail -= 3;		/* stdin, stdout, stderr */
+	avail -= PROC_COUNT;	/* imsg channels */
+	avail -= 5;		/* safety buffer */
+
+	return (avail);
+}
+
+void
+session_socket_blockmode(int fd, enum blockmodes bm)
+{
+	int	flags;
+
+	if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
+		fatal("fcntl F_GETFL");
+
+	if (bm == BM_NONBLOCK)
+		flags |= O_NONBLOCK;
+	else
+		flags &= ~O_NONBLOCK;
+
+	if ((flags = fcntl(fd, F_SETFL, flags)) == -1)
+		fatal("fcntl F_SETFL");
+}
+
+void
+session_socket_no_linger(int fd)
+{
+	struct linger	 lng;
+
+	bzero(&lng, sizeof(lng));
+	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1)
+		fatal("session_socket_no_linger");
+}
+
+int
+session_socket_error(int fd)
+{
+	int		error;
+	socklen_t	len;
+
+	len = sizeof(error);
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1)
+		fatal("session_socket_error: getsockopt");
+
+	return (error);
+}
+
+const char *
+log_in6addr(const struct in6_addr *addr)
+{
+	struct sockaddr_in6	sa_in6;
+	u_int16_t		tmp16;
+
+	bzero(&sa_in6, sizeof(sa_in6));
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+	sa_in6.sin6_len = sizeof(sa_in6);
+#endif
+	sa_in6.sin6_family = AF_INET6;
+	memcpy(&sa_in6.sin6_addr, addr, sizeof(sa_in6.sin6_addr));
+
+	/* XXX thanks, KAME, for this ugliness... adopted from route/show.c */
+	if (IN6_IS_ADDR_LINKLOCAL(&sa_in6.sin6_addr) ||
+	    IN6_IS_ADDR_MC_LINKLOCAL(&sa_in6.sin6_addr)) {
+		memcpy(&tmp16, &sa_in6.sin6_addr.s6_addr[2], sizeof(tmp16));
+		sa_in6.sin6_scope_id = ntohs(tmp16);
+		sa_in6.sin6_addr.s6_addr[2] = 0;
+		sa_in6.sin6_addr.s6_addr[3] = 0;
+	}
+
+	return (log_sockaddr((struct sockaddr *)&sa_in6));
+}
+
+const char *
+log_sockaddr(struct sockaddr *sa)
+{
+	static char	buf[NI_MAXHOST];
+
+	if (getnameinfo(sa, SA_LEN(sa), buf, sizeof(buf), NULL, 0,
+	    NI_NUMERICHOST))
+		return ("(unknown)");
+	else
+		return (buf);
+}
+
+u_int32_t
+filename_to_msgid(char *filename)
+{
+	u_int32_t ulval;
+	char *ep;
+
+	errno = 0;
+	ulval = strtoul(filename, &ep, 16);
+	if (filename[0] == '\0' || *ep != '\0')
+		return 0;
+	if (errno == ERANGE && ulval == 0xffffffff)
+		return 0;
+
+	return ulval;
+}
+
+u_int64_t
+filename_to_evpid(char *filename)
+{
+	u_int64_t ullval;
+	char *ep;
+
+	errno = 0;
+	ullval = strtoull(filename, &ep, 16);
+	if (filename[0] == '\0' || *ep != '\0')
+		return 0;
+	if (errno == ERANGE && ullval == ULLONG_MAX)
+		return 0;
+
+	return ullval;
+}
+
+u_int32_t
+evpid_to_msgid(u_int64_t evpid)
+{
+	return (evpid >> 32);
+}
+
+u_int64_t
+msgid_to_evpid(u_int32_t msgid)
+{
+	return ((u_int64_t)msgid << 32);
 }

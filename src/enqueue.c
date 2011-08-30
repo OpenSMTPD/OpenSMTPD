@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.26 2009/11/13 20:34:51 chl Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.47 2011/08/29 21:43:08 chl Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -28,12 +28,10 @@
 
 #include <ctype.h>
 #include <err.h>
-#include <errno.h>
 #include <event.h>
-#include <netdb.h>
+#include <imsg.h>
 #include <pwd.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,16 +43,16 @@
 
 extern struct imsgbuf	*ibuf;
 
-void	 usage(void);
-void	 sighdlr(int);
-int	 main(int, char *[]);
-void	 build_from(char *, struct passwd *);
-int	 parse_message(FILE *, int, int, struct buf *);
-void	 parse_addr(char *, size_t, int);
-void	 parse_addr_terminal(int);
-char	*qualify_addr(char *);
-void	 rcpt_add(char *);
-int	 open_connection(void);
+void usage(void);
+static void sighdlr(int);
+static void build_from(char *, struct passwd *);
+static int parse_message(FILE *, int, int, FILE *);
+static void parse_addr(char *, size_t, int);
+static void parse_addr_terminal(int);
+static char *qualify_addr(char *);
+static void rcpt_add(char *);
+static int open_connection(void);
+static void enqueue_event(int, short, void *);
 
 enum headerfields {
 	HDR_NONE,
@@ -81,7 +79,6 @@ struct {
 };
 
 #define	SMTP_LINELEN		1000
-#define	SMTP_TIMEOUT		120
 #define	TIMEOUTMSG		"Timeout\n"
 
 #define WSP(c)			(c == ' ' || c == '\t')
@@ -102,6 +99,9 @@ struct {
 	int	  saw_date;
 	int	  saw_msgid;
 	int	  saw_from;
+
+	struct smtp_client	*pcb;
+	struct event		 ev;
 } msg;
 
 struct {
@@ -113,23 +113,22 @@ struct {
 	char		buf[SMTP_LINELEN];
 } pstate;
 
-void
+static void
 sighdlr(int sig)
 {
 	if (sig == SIGALRM) {
 		write(STDERR_FILENO, TIMEOUTMSG, sizeof(TIMEOUTMSG));
-		_exit (2);
+		_exit(2);
 	}
 }
 
 int
 enqueue(int argc, char *argv[])
 {
-	int			 i, ch, tflag = 0, noheader, ret;
+	int			 i, ch, tflag = 0, noheader;
 	char			*fake_from = NULL;
 	struct passwd		*pw;
-	struct smtp_client	*sp;
-	struct buf		*body;
+	FILE			*fp;
 
 	bzero(&msg, sizeof(msg));
 	time(&timestamp);
@@ -189,89 +188,99 @@ enqueue(int argc, char *argv[])
 	}
 
 	signal(SIGALRM, sighdlr);
-	alarm(SMTP_TIMEOUT);
+	alarm(300);
 
-	msg.fd = open_connection();
+	fp = tmpfile();
+	if (fp == NULL)
+		err(1, "tmpfile");
+	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
+
+	if ((msg.fd = open_connection()) == -1)
+		errx(1, "server too busy");
 
 	/* init session */
-	if ((sp = client_init(msg.fd, "localhost")) == NULL)
-		err(1, "client_init failed");
-	if (verbose)
-		client_verbose(sp, stdout);
-
-	/* parse message */
-	if ((body = buf_dynamic(0, SIZE_T_MAX)) < 0)
-		err(1, "buf_dynamic failed");
-	noheader = parse_message(stdin, fake_from == NULL, tflag, body);
+	rewind(fp);
+	msg.pcb = client_init(msg.fd, fp, "localhost", verbose);
 
 	/* set envelope from */
-	if (client_sender(sp, "%s", msg.from) < 0)
-		err(1, "client_sender failed");
+	client_sender(msg.pcb, "%s", msg.from);
 
 	/* add recipients */
 	if (msg.rcpt_cnt == 0)
 		errx(1, "no recipients");
 	for (i = 0; i < msg.rcpt_cnt; i++)
-		if (client_rcpt(sp, "%s", msg.rcpts[i]) < 0)
-			err(1, "client_rcpt failed");
+		client_rcpt(msg.pcb, "%s", msg.rcpts[i]);
 
 	/* add From */
-	if (!msg.saw_from) {
-		if (msg.fromname != NULL) {
-			if (client_data_printf(sp,
-			    "From: %s <%s>\n", msg.fromname, msg.from) < 0)
-				err(1, "client_data_printf failed");
-		} else
-			if (client_data_printf(sp,
-			    "From: %s\n", msg.from) < 0)
-				err(1, "client_data_printf failed");
-	}
+	if (!msg.saw_from)
+		client_printf(msg.pcb, "From: %s%s<%s>\n",
+		    msg.fromname ? msg.fromname : "",
+		    msg.fromname ? " " : "", 
+		    msg.from);
 
 	/* add Date */
 	if (!msg.saw_date)
-		if (client_data_printf(sp,
-		    "Date: %s\n", time_to_text(timestamp)) < 0)
-			err(1, "client_data_printf failed");
+		client_printf(msg.pcb, "Date: %s\n", time_to_text(timestamp));
 
 	/* add Message-Id */
 	if (!msg.saw_msgid)
-		if (client_data_printf(sp,
-		    "Message-Id: <%llu.enqueue@%s>\n",
-			generate_uid(), host) < 0)
-			err(1, "client_data_printf failed");
+		client_printf(msg.pcb, "Message-Id: <%llu.enqueue@%s>\n",
+		    generate_uid(), host);
 
 	/* add separating newline */
 	if (noheader)
-		if (client_data_printf(sp, "\n") < 0)
-			err(1, "client_data_printf failed");
+		client_printf(msg.pcb, "\n");
 
-	if (client_data_printf(sp, "%.*s", buf_size(body), body->buf) < 0)
-		err(1, "client_data_printf failed");
-	buf_free(body);
+	alarm(0);
+	event_init();
+	session_socket_blockmode(msg.fd, BM_NONBLOCK);
+	event_set(&msg.ev, msg.fd, EV_READ|EV_WRITE, enqueue_event, NULL);
+	event_add(&msg.ev, &msg.pcb->timeout);
 
-	/* run the protocol engine */
-	for (;;) {
-		while ((ret = client_read(sp)) == CLIENT_WANT_READ)
-			;
-		if (ret == CLIENT_ERROR)
-			errx(1, "read error: %s", client_strerror(sp));
-		if (ret == CLIENT_RCPT_FAIL)
-			errx(1, "recipient refused: %s", client_reply(sp));
-		if (ret == CLIENT_DONE)
-			break;
-		while ((ret = client_write(sp)) == CLIENT_WANT_WRITE)
-			;
-		if (ret == CLIENT_ERROR)
-			errx(1, "write error: %s", client_strerror(sp));
-	}
+	if (event_dispatch() < 0)
+		err(1, "event_dispatch");
 
-	client_close(sp);
-
-	close(msg.fd);
-	exit (0);
+	client_close(msg.pcb);
+	fclose(fp);
+	exit(0);
 }
 
-void
+static void
+enqueue_event(int fd, short event, void *p)
+{
+	if (event & EV_TIMEOUT)
+		errx(1, "timeout");
+
+	switch (client_talk(msg.pcb, event & EV_WRITE)) {
+	case CLIENT_WANT_WRITE:
+		goto rw;
+	case CLIENT_STOP_WRITE:
+		goto ro;
+	case CLIENT_RCPT_FAIL:
+		errx(1, "%s", msg.pcb->reply);
+	case CLIENT_DONE:
+		break;
+	default:
+		errx(1, "enqueue_event: unexpected code");
+	}
+
+	if (msg.pcb->status[0] != '2')
+		errx(1, "%s", msg.pcb->status);
+
+	event_loopexit(NULL);
+	return;
+
+ro:
+	event_set(&msg.ev, msg.fd, EV_READ, enqueue_event, NULL);
+	event_add(&msg.ev, &msg.pcb->timeout);
+	return;
+
+rw:
+	event_set(&msg.ev, msg.fd, EV_READ|EV_WRITE, enqueue_event, NULL);
+	event_add(&msg.ev, &msg.pcb->timeout);
+}
+
+static void
 build_from(char *fake_from, struct passwd *pw)
 {
 	char	*p;
@@ -313,8 +322,8 @@ build_from(char *fake_from, struct passwd *pw)
 	}
 }
 
-int
-parse_message(FILE *fin, int get_from, int tflag, struct buf *body)
+static int
+parse_message(FILE *fin, int get_from, int tflag, FILE *fout)
 {
 	char	*buf;
 	size_t	 len;
@@ -328,6 +337,8 @@ parse_message(FILE *fin, int get_from, int tflag, struct buf *body)
 			err(1, "fgetln");
 		if (buf == NULL && feof(fin))
 			break;
+		if (buf == NULL || len < 1)
+			err(1, "fgetln weird");
 
 		/* account for \r\n linebreaks */
 		if (len >= 2 && buf[len - 2] == '\r' && buf[len - 1] == '\n')
@@ -335,9 +346,6 @@ parse_message(FILE *fin, int get_from, int tflag, struct buf *body)
 
 		if (len == 1 && buf[0] == '\n')		/* end of header */
 			header_done = 1;
-
-		if (buf == NULL || len < 1)
-			err(1, "fgetln weird");
 
 		if (!WSP(buf[0])) {	/* whitespace -> continuation */
 			if (cur == HDR_FROM)
@@ -358,10 +366,11 @@ parse_message(FILE *fin, int get_from, int tflag, struct buf *body)
 			header_seen = 1;
 
 		if (cur != HDR_BCC) {
-			if (buf_add(body, buf, len) < 0)
-				err(1, "buf_add failed");
-			if (buf[len - 1] != '\n' && buf_add(body, "\n", 1) < 0)
-				err(1, "buf_add failed");
+			fprintf(fout, "%.*s", (int)len, buf);
+			if (buf[len - 1] != '\n')
+				fputc('\n', fout);
+			if (ferror(fout))
+				err(1, "write error");
 		}
 
 		/*
@@ -386,7 +395,7 @@ parse_message(FILE *fin, int get_from, int tflag, struct buf *body)
 	return (!header_seen);
 }
 
-void
+static void
 parse_addr(char *s, size_t len, int is_from)
 {
 	size_t	 pos = 0;
@@ -459,7 +468,7 @@ parse_addr(char *s, size_t len, int is_from)
 		parse_addr(s + pos, len - pos, is_from);
 }
 
-void
+static void
 parse_addr_terminal(int is_from)
 {
 	if (pstate.comment || pstate.quote || pstate.esc)
@@ -476,12 +485,12 @@ parse_addr_terminal(int is_from)
 	}	
 }
 
-char *
+static char *
 qualify_addr(char *in)
 {
 	char	*out;
 
-	if (strchr(in, '@') == NULL) {
+	if (strlen(in) > 0 && strchr(in, '@') == NULL) {
 		if (asprintf(&out, "%s@%s", in, host) == -1)
 			err(1, "qualify asprintf");
 	} else
@@ -491,7 +500,7 @@ qualify_addr(char *in)
 	return (out);
 }
 
-void
+static void
 rcpt_add(char *addr)
 {
 	void	*nrcpts;
@@ -503,7 +512,7 @@ rcpt_add(char *addr)
 	msg.rcpts[msg.rcpt_cnt++] = qualify_addr(addr);
 }
 
-int
+static int
 open_connection(void)
 {
 	struct imsg	imsg;
@@ -552,8 +561,8 @@ enqueue_offline(int argc, char *argv[])
 	FILE	*fp;
 	int	 i, fd, ch;
 
-	if (! bsnprintf(path, sizeof(path), "%s%s/%d.XXXXXXXXXX", PATH_SPOOL,
-		PATH_OFFLINE, (int) time(NULL)))
+	if (! bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
+		PATH_OFFLINE, (long long int) time(NULL)))
 		err(1, "snprintf");
 
 	if ((fd = mkstemp(path)) == -1 || (fp = fdopen(fd, "w+")) == NULL) {

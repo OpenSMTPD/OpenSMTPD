@@ -1,4 +1,4 @@
-.\" $OpenBSD: smtpctl.8,v 1.10 2009/10/22 15:02:12 sobrado Exp $
+.\" $OpenBSD: smtpctl.8,v 1.21 2011/08/17 20:04:43 gilles Exp $
 .\"
 .\" Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
 .\"
@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: October 22 2009 $
+.Dd $Mdocdate: August 17 2011 $
 .Dt SMTPCTL 8
 .Os
 .Sh NAME
@@ -29,9 +29,17 @@ The
 .Nm
 program controls
 .Xr smtpd 8 .
+Commands may be abbreviated to the minimum unambiguous prefix; for example,
+.Cm sh s
+for
+.Cm show stats .
 .Pp
 The following commands are available:
 .Bl -tag -width Ds
+.It Cm log brief
+Disable verbose debug logging.
+.It Cm log verbose
+Enable verbose debug logging.
 .It Cm pause incoming
 Temporarily stop accepting incoming sessions.
 .It Cm pause local
@@ -39,17 +47,17 @@ Temporarily stop deliveries to local users.
 .It Cm pause outgoing
 Temporarily stop relaying and deliveries to
 remote users.
+.It Cm remove Ar envelope-id | message-id
+Removes a single envelope, or all envelopes with the same message ID.
 .It Cm resume incoming
 Resume accepting incoming sessions.
 .It Cm resume local
 Resume deliveries to local users.
 .It Cm resume outgoing
 Resume relaying and deliveries to remote users.
-.It Cm schedule message-id
-Marks all messages with same message ID as ready
-for immediate delivery.
-.It Cm schedule message-uid
-Marks a message as ready for immediate delivery.
+.It Cm schedule Ar envelope-id | message-id
+Marks a single envelope, or all envelopes with the same message ID,
+as ready for immediate delivery.
 .It Cm show queue
 Displays information concerning envelopes
 that are currently in a queue.
@@ -60,6 +68,31 @@ that are scheduled for delivery.
 Displays runtime statistics concerning
 .Xr smtpd 8 .
 .El
+.Pp
+When
+.Nm smtpd
+receives a message, it generates a
+.Ar message-id
+for the message, and one
+.Ar envelope-id
+per recipient.
+The
+.Ar message-id
+is a 32-bit random identifier that is guaranteed to be
+unique on the host system.
+The
+.Ar envelope-id
+is a 64-bit unique identifier that encodes the
+.Ar message-id
+in the 32 upper bits and a random envelope identifier
+in the 32 lower bits.
+.Pp
+A command which specifies a
+.Ar message-id
+applies to all recipients of a message;
+a command which specifies a
+.Ar envelope-uid
+applies to a specific recipient of a message.
 .Sh FILES
 .Bl -tag -width "/var/run/smtpd.sockXX" -compact
 .It /var/run/smtpd.sock

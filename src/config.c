@@ -1,4 +1,4 @@
-/*	$OpenBSD: config.c,v 1.9 2009/11/12 12:35:03 jacekm Exp $	*/
+/*	$OpenBSD: config.c,v 1.15 2011/05/01 12:57:11 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -23,15 +23,17 @@
 #include <sys/socket.h>
 
 #include <event.h>
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
 
-int	is_peer(struct peer *, enum smtp_proc_type, u_int);
+static int is_peer(struct peer *, enum smtp_proc_type, u_int);
 
-int
+static int
 is_peer(struct peer *p, enum smtp_proc_type peer, u_int peercount)
 {
 	u_int	i;
@@ -43,23 +45,21 @@ is_peer(struct peer *p, enum smtp_proc_type peer, u_int peercount)
 }
 
 void
-unconfigure(struct smtpd *env)
+unconfigure(void)
 {
 }
 
 void
-configure(struct smtpd *env)
+configure(void)
 {
 }
 
 void
-purge_config(struct smtpd *env, u_int8_t what)
+purge_config(u_int8_t what)
 {
 	struct listener	*l;
 	struct map	*m;
 	struct rule	*r;
-	struct cond	*c;
-	struct opt	*o;
 	struct ssl	*s;
 	struct mapel	*me;
 
@@ -86,14 +86,6 @@ purge_config(struct smtpd *env, u_int8_t what)
 	if (what & PURGE_RULES) {
 		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {
 			TAILQ_REMOVE(env->sc_rules, r, r_entry);
-			while ((c = TAILQ_FIRST(&r->r_conditions)) != NULL) {
-				TAILQ_REMOVE(&r->r_conditions, c, c_entry);
-				free(c);
-			}
-			while ((o = TAILQ_FIRST(&r->r_options)) != NULL) {
-				TAILQ_REMOVE(&r->r_options, o, o_entry);
-				free(o);
-			}
 			free(r);
 		}
 		free(env->sc_rules);
@@ -112,7 +104,7 @@ purge_config(struct smtpd *env, u_int8_t what)
 }
 
 void
-init_pipes(struct smtpd *env)
+init_pipes(void)
 {
 	int	 i;
 	int	 j;
@@ -157,7 +149,7 @@ init_pipes(struct smtpd *env)
 }
 
 void
-config_pipes(struct smtpd *env, struct peer *p, u_int peercount)
+config_pipes(struct peer *p, u_int peercount)
 {
 	u_int	i;
 	u_int	j;
@@ -192,7 +184,7 @@ config_pipes(struct smtpd *env, struct peer *p, u_int peercount)
 }
 
 void
-config_peers(struct smtpd *env, struct peer *p, u_int peercount)
+config_peers(struct peer *p, u_int peercount)
 {
 	int	count;
 	u_int	src;
@@ -218,7 +210,8 @@ config_peers(struct smtpd *env, struct peer *p, u_int peercount)
 			    env->sc_pipes[src][dst][count]);
 			env->sc_ievs[dst][count].handler =  p[i].cb;
 			env->sc_ievs[dst][count].events = EV_READ;
-			env->sc_ievs[dst][count].data = env;
+			env->sc_ievs[dst][count].proc = dst;
+			env->sc_ievs[dst][count].data = &env->sc_ievs[dst][count];
 
 			event_set(&(env->sc_ievs[dst][count].ev),
 			    env->sc_ievs[dst][count].ibuf.fd,
@@ -229,3 +222,32 @@ config_peers(struct smtpd *env, struct peer *p, u_int peercount)
 		}
 	}
 }
+
+#ifdef VALGRIND
+void free_peers(void)
+{
+	u_int	i;
+
+	for (i = 0; i < PROC_COUNT; i++)
+		if (env->sc_ievs[i])
+			free(env->sc_ievs[i]);
+}
+
+void free_pipes(void)
+{
+	u_int	i;
+	u_int	j;
+
+	for (i = 0; i < PROC_COUNT; i++)
+		for (j = 0; j < PROC_COUNT; j++) {
+
+			if (i >= j || env->sc_instances[i] == 0 ||
+			   env->sc_instances[j] == 0)
+				continue;
+
+			free(env->sc_pipes[i][j]);
+			free(env->sc_pipes[j][i]);
+
+		}
+}
+#endif

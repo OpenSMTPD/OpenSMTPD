@@ -30,6 +30,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* OPENBSD ORIGINAL: lib/libutil/fparseln.c */
+
 #include "config.h"
 #include "openbsd-compat.h"
 

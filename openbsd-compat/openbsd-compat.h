@@ -8,6 +8,7 @@
 #include "defines.h"
 #include "sys-queue.h"
 #include "sys-tree.h"
+#include "xmalloc.h"
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -58,10 +59,6 @@
 int closefrom(int);
 #endif
 
-#if !defined(HAVE_REALPATH) || defined(BROKEN_REALPATH)
-char *realpath(const char *path, char *resolved);
-#endif 
-
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size);
 #endif
@@ -101,6 +98,10 @@ unsigned int arc4random(void);
 void arc4random_stir(void);
 #endif /* !HAVE_ARC4RANDOM */
 
+#ifndef ARC4RANDOM_BUF
+void arc4random_buf(void *, size_t);
+#endif
+
 #ifndef HAVE_ARC4RANDOM_UNIFORM
 u_int32_t arc4random_uniform(u_int32_t);
 #endif
@@ -121,3 +122,8 @@ long long strtonum(const char *nptr, long long minval, long long maxval, const c
 void strmode(int mode, char *p);
 #endif
 
+#ifndef HAVE_FMT_SCALED
+#define	FMT_SCALED_STRSIZE	7
+int scan_scaled(char *scaled, long long *result);
+int fmt_scaled(long long number, char *result);
+#endif

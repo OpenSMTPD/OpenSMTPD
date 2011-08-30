@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.77 2009/11/16 09:40:43 jacekm Exp $	*/
+/*	$OpenBSD: mta.c,v 1.113 2011/08/29 21:43:09 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -27,11 +27,9 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include <errno.h>
 #include <event.h>
+#include <imsg.h>
 #include <netdb.h>
 #include <grp.h> /* needed for setgroups */
 #include <pwd.h>
@@ -44,183 +42,59 @@
 
 #include "smtpd.h"
 #include "client.h"
+#include "log.h"
 
-__dead void		 mta_shutdown(void);
-void			 mta_sig_handler(int, short, void *);
+static void mta_imsg(struct imsgev *, struct imsg *);
+static void mta_shutdown(void);
+static void mta_sig_handler(int, short, void *);
+static struct mta_session *mta_lookup(u_int64_t);
+static void mta_enter_state(struct mta_session *, int, void *);
+static void mta_pickup(struct mta_session *, void *);
+static void mta_event(int, short, void *);
+static void mta_status(struct mta_session *, const char *, ...);
+static void mta_message_status(struct envelope *, char *);
+static void mta_message_log(struct mta_session *, struct envelope *);
+static void mta_message_done(struct mta_session *, struct envelope *);
+static void mta_connect_done(int, short, void *);
+static void mta_request_datafd(struct mta_session *);
 
-void			 mta_dispatch_parent(int, short, void *);
-void			 mta_dispatch_runner(int, short, void *);
-void			 mta_dispatch_queue(int, short, void *);
-void			 mta_dispatch_lka(int, short, void *);
-
-struct mta_session	*mta_lookup(struct smtpd *, u_int64_t);
-void			 mta_enter_state(struct mta_session *, int, void *);
-void			 mta_pickup(struct mta_session *, void *);
-void			 mta_event(int, short, void *);
-
-void			 mta_status(struct mta_session *, const char *, ...);
-void			 mta_message_status(struct message *, char *);
-void			 mta_message_done(struct mta_session *, struct message *);
-void			 mta_connect_done(int, short, void *);
-void			 mta_request_datafd(struct mta_session *);
-size_t			 mta_todo(struct mta_session *);
-
-void
-mta_sig_handler(int sig, short event, void *p)
+static void
+mta_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		mta_shutdown();
-		break;
-	default:
-		fatalx("mta_sig_handler: unexpected signal");
-	}
-}
+	struct ramqueue_batch  	*rq_batch;
+	struct mta_session	*s;
+	struct mta_relay	*relay;
+	struct envelope		*e;
+	struct secret		*secret;
+	struct dns		*dns;
+	struct ssl		*ssl;
 
-void
-mta_dispatch_parent(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
+	if (iev->proc == PROC_QUEUE) {
+		switch (imsg->hdr.type) {
+		case IMSG_BATCH_CREATE:
+			log_debug("mta_imsg: PROC_QUEUE->IMSG_BATCH_CREATE");
+			rq_batch = imsg->data;
 
-	iev = env->sc_ievs[PROC_PARENT];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mta_dispatch_parent: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_CONF_START:
-			if (env->sc_flags & SMTPD_CONFIGURING)
-				break;
-			env->sc_flags |= SMTPD_CONFIGURING;
-
-			if ((env->sc_ssl = calloc(1, sizeof(*env->sc_ssl))) == NULL)
-				fatal("mta_dispatch_parent: calloc");
-			break;
-		case IMSG_CONF_SSL: {
-			struct ssl	*s;
-			struct ssl	*x_ssl;
-
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				break;
-
-			if ((s = calloc(1, sizeof(*s))) == NULL)
+			s = calloc(1, sizeof *s);
+			if (s == NULL)
 				fatal(NULL);
-			x_ssl = imsg.data;
-			(void)strlcpy(s->ssl_name, x_ssl->ssl_name,
-			    sizeof(s->ssl_name));
-			s->ssl_cert_len = x_ssl->ssl_cert_len;
-			if ((s->ssl_cert =
-			    strdup((char *)imsg.data + sizeof(*s))) == NULL)
-				fatal(NULL);
-			s->ssl_key_len = x_ssl->ssl_key_len;
-			if ((s->ssl_key = strdup((char *)imsg.data +
-			    (sizeof(*s) + s->ssl_cert_len))) == NULL)
-				fatal(NULL);
-
-			SPLAY_INSERT(ssltree, env->sc_ssl, s);
-			break;
-		}
-		case IMSG_CONF_END:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				break;
-			env->sc_flags &= ~SMTPD_CONFIGURING;
-			break;
-		default:
-			log_warnx("mta_dispatch_parent: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mta_dispatch_parent: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-mta_dispatch_runner(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_RUNNER];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mta_dispatch_runner: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_BATCH_CREATE: {
-			struct batch		*b = imsg.data;
-			struct mta_session	*s;
-
-			IMSG_SIZE_CHECK(b);
-
-			if ((s = calloc(1, sizeof(*s))) == NULL)
-				fatal(NULL);
-			s->id = b->id;
+			s->id = rq_batch->b_id;
 			s->state = MTA_INIT;
-			s->env = env;
-			s->datafd = -1;
+			s->batch = rq_batch;
 
 			/* establish host name */
-			if (b->rule.r_action == A_RELAYVIA)
-				s->host = strdup(b->rule.r_value.relayhost.hostname);
+			if (rq_batch->rule.r_action == A_RELAYVIA) {
+				s->host = strdup(rq_batch->rule.r_value.relayhost.hostname);
+				s->flags |= MTA_FORCE_MX;
+			}
 			else
-				s->host = strdup(b->hostname);
-			if (s->host == NULL)
-				fatal(NULL);
+				s->host = NULL;
 
 			/* establish port */
-			s->port = ntohs(b->rule.r_value.relayhost.port); /* XXX */
+			s->port = ntohs(rq_batch->rule.r_value.relayhost.port); /* XXX */
 
 			/* have cert? */
-			s->cert = strdup(b->rule.r_value.relayhost.cert);
+			s->cert = strdup(rq_batch->rule.r_value.relayhost.cert);
 			if (s->cert == NULL)
 				fatal(NULL);
 			else if (s->cert[0] == '\0') {
@@ -229,12 +103,14 @@ mta_dispatch_runner(int sig, short event, void *p)
 			}
 
 			/* use auth? */
-			if ((b->rule.r_value.relayhost.flags & F_SSL) &&
-			    (b->rule.r_value.relayhost.flags & F_AUTH))
+			if ((rq_batch->rule.r_value.relayhost.flags & F_SSL) &&
+			    (rq_batch->rule.r_value.relayhost.flags & F_AUTH)) {
 				s->flags |= MTA_USE_AUTH;
+				s->secmapid = rq_batch->rule.r_value.relayhost.secmapid;
+			}
 
 			/* force a particular SSL mode? */
-			switch (b->rule.r_value.relayhost.flags & F_SSL) {
+			switch (rq_batch->rule.r_value.relayhost.flags & F_SSL) {
 			case F_SSL:
 				s->flags |= MTA_FORCE_ANYSSL;
 				break;
@@ -253,204 +129,159 @@ mta_dispatch_runner(int sig, short event, void *p)
 			TAILQ_INIT(&s->recipients);
 			TAILQ_INIT(&s->relays);
 			SPLAY_INSERT(mtatree, &env->mta_sessions, s);
+			return;
 
-			env->stats->mta.sessions++;
-			env->stats->mta.sessions_active++;
-			break;
-		}
 
-		case IMSG_BATCH_APPEND: {
-			struct message		*append = imsg.data, *m;
-			struct mta_session	*s;
-
-			IMSG_SIZE_CHECK(append);
-
-			s = mta_lookup(env, append->batch_id);
-			if ((m = malloc(sizeof(*m))) == NULL)
+		case IMSG_BATCH_APPEND:
+			log_debug("mta_imsg: PROC_QUEUE->IMSG_BATCH_APPEND");
+			e = imsg->data;
+			s = mta_lookup(e->batch_id);
+			e = malloc(sizeof *e);
+			if (e == NULL)
 				fatal(NULL);
-			*m = *append;
-			strlcpy(m->session_errorline, "000 init",
-			    sizeof(m->session_errorline));
- 			TAILQ_INSERT_TAIL(&s->recipients, m, entry);
-			break;
-		}
+			*e = *(struct envelope *)imsg->data;
+			strlcpy(e->delivery.errorline, "000 init",
+			    sizeof(e->delivery.errorline));
 
-		case IMSG_BATCH_CLOSE: {
-			struct batch		*b = imsg.data;
+			if (s->host == NULL) {
+				s->host = strdup(e->delivery.rcpt.domain);
+				if (s->host == NULL)
+					fatal("strdup");
+			}
+ 			TAILQ_INSERT_TAIL(&s->recipients, e, entry);
+			return;
 
-			IMSG_SIZE_CHECK(b);
-			mta_pickup(mta_lookup(env, b->id), NULL);
-			break;
-		}
+		case IMSG_BATCH_CLOSE:
+			log_debug("mta_imsg: PROC_QUEUE->IMSG_BATCH_CLOSE");
+			rq_batch = imsg->data;
+			mta_pickup(mta_lookup(rq_batch->b_id), NULL);
+			return;
 
-		default:
-			log_warnx("mta_dispatch_runner: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mta_dispatch_runner: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-mta_dispatch_lka(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_LKA];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
+		case IMSG_QUEUE_MESSAGE_FD:
+			log_debug("mta_imsg: PROC_QUEUE->IMSG_QUEUE_MESSAGE_FD");
+			rq_batch = imsg->data;
+			mta_pickup(mta_lookup(rq_batch->b_id), &imsg->fd);
+			log_debug("mta_imsg: PROC_QUEUE->IMSG_QUEUE_MESSAGE_FD, imsg->fd = %d", imsg->fd);
 			return;
 		}
 	}
 
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
-	}
+	if (iev->proc == PROC_LKA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_SECRET:
+			log_debug("mta_imsg: PROC_LKA->IMSG_LKA_SECRET");
+			secret = imsg->data;
+			mta_pickup(mta_lookup(secret->id), secret->secret);
+			return;
 
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mta_dispatch_lka: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_LKA_SECRET: {
-			struct secret		*reply = imsg.data;
-
-			IMSG_SIZE_CHECK(reply);
-
-			mta_pickup(mta_lookup(env, reply->id), reply->secret);
-			break;
-		}
-
-		case IMSG_DNS_A: {
-			struct dns		*reply = imsg.data;
-			struct mta_relay	*relay;
-			struct mta_session	*s;
-
-			IMSG_SIZE_CHECK(reply);
-
-			s = mta_lookup(env, reply->id);
-			if ((relay = calloc(1, sizeof(*relay))) == NULL)
+		case IMSG_DNS_HOST:
+			log_debug("mta_imsg: PROC_LKA->IMSG_DNS_HOST");
+			dns = imsg->data;
+			s = mta_lookup(dns->id);
+			relay = calloc(1, sizeof *relay);
+			if (relay == NULL)
 				fatal(NULL);
-			relay->sa = reply->ss;
+			relay->sa = dns->ss;
  			TAILQ_INSERT_TAIL(&s->relays, relay, entry);
-			break;
-		}
+			return;
 
-		case IMSG_DNS_A_END: {
-			struct dns		*reply = imsg.data;
+		case IMSG_DNS_HOST_END:
+			log_debug("mta_imsg: PROC_LKA->IMSG_DNS_HOST_END");
+			dns = imsg->data;
+			mta_pickup(mta_lookup(dns->id), &dns->error);
+			return;
 
-			IMSG_SIZE_CHECK(reply);
-
-			mta_pickup(mta_lookup(env, reply->id), &reply->error);
-			break;
-		}
-
-		case IMSG_DNS_PTR: {
-			struct dns		*reply = imsg.data;
-			struct mta_session	*s;
-			struct mta_relay	*r;
-
-			IMSG_SIZE_CHECK(reply);
-
-			s = mta_lookup(env, reply->id);
-			r = TAILQ_FIRST(&s->relays);
-			if (reply->error)
-				strlcpy(r->fqdn, "<unknown>", sizeof(r->fqdn));
+		case IMSG_DNS_PTR:
+			log_debug("mta_imsg: PROC_LKA->IMSG_DNS_PTR");
+			dns = imsg->data;
+			s = mta_lookup(dns->id);
+			relay = TAILQ_FIRST(&s->relays);
+			if (dns->error)
+				strlcpy(relay->fqdn, "<unknown>",
+				    sizeof relay->fqdn);
 			else
-				strlcpy(r->fqdn, reply->host, sizeof(r->fqdn));
+				strlcpy(relay->fqdn, dns->host,
+				    sizeof relay->fqdn);
 			mta_pickup(s, NULL);
-			break;
-		}
-
-		default:
-			log_warnx("mta_dispatch_parent: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mta_dispatch_lka: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-mta_dispatch_queue(int sig, short event, void *p)
-{
-	struct smtpd		*env = p;
-	struct imsgev		*iev;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	iev = env->sc_ievs[PROC_QUEUE];
-	ibuf = &iev->ibuf;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1)
-			fatal("imsg_read_error");
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			event_loopexit(NULL);
 			return;
 		}
 	}
 
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&ibuf->w) == -1)
-			fatal("msgbuf_write");
+	if (iev->proc == PROC_PARENT) {
+		switch (imsg->hdr.type) {
+		case IMSG_CONF_START:
+			log_debug("mta_imsg: PROC_PARENT->IMSG_CONF_START");
+			if (env->sc_flags & SMTPD_CONFIGURING)
+				return;
+			env->sc_flags |= SMTPD_CONFIGURING;
+			env->sc_ssl = calloc(1, sizeof *env->sc_ssl);
+			if (env->sc_ssl == NULL)
+				fatal(NULL);
+			return;
+
+		case IMSG_CONF_SSL:
+			log_debug("mta_imsg: PROC_PARENT->IMSG_CONF_SSL");
+			if (!(env->sc_flags & SMTPD_CONFIGURING))
+				return;
+			ssl = calloc(1, sizeof *ssl);
+			if (ssl == NULL)
+				fatal(NULL);
+			*ssl = *(struct ssl *)imsg->data;
+			ssl->ssl_cert = strdup((char *)imsg->data +
+			     sizeof *ssl);
+			if (ssl->ssl_cert == NULL)
+				fatal(NULL);
+			ssl->ssl_key = strdup((char *)imsg->data +
+			    sizeof *ssl + ssl->ssl_cert_len);
+			if (ssl->ssl_key == NULL)
+				fatal(NULL);
+			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
+			return;
+
+		case IMSG_CONF_END:
+			log_debug("mta_imsg: PROC_PARENT->IMSG_CONF_END");
+			if (!(env->sc_flags & SMTPD_CONFIGURING))
+				return;
+			env->sc_flags &= ~SMTPD_CONFIGURING;
+			return;
+
+		case IMSG_CTL_VERBOSE:
+			log_verbose(*(int *)imsg->data);
+			return;
+		}
 	}
 
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("mta_dispatch_queue: imsg_get error");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_QUEUE_MESSAGE_FD: {
-			struct batch	*b = imsg.data;
-
-			IMSG_SIZE_CHECK(b);
-
-			mta_pickup(mta_lookup(env, b->id), &imsg.fd);
-			break;
-		}
-
-		default:
-			log_warnx("mta_dispatch_queue: got imsg %d",
-			    imsg.hdr.type);
-			fatalx("mta_dispatch_queue: unexpected imsg");
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
+	fatalx("mta_imsg: unexpected imsg");
 }
 
-void
+static void
+mta_sig_handler(int sig, short event, void *p)
+{
+	switch (sig) {
+	case SIGINT:
+	case SIGTERM:
+		mta_shutdown();
+		break;
+	default:
+		fatalx("mta_sig_handler: unexpected signal");
+	}
+}
+
+static void
 mta_shutdown(void)
 {
+#ifdef VALGRIND
+	child_free();
+	free_peers();
+	clean_setproctitle();
+#endif
+
 	log_info("mail transfer agent exiting");
 	_exit(0);
 }
 
 pid_t
-mta(struct smtpd *env)
+mta(void)
 {
 	pid_t		 pid;
 
@@ -459,10 +290,9 @@ mta(struct smtpd *env)
 	struct event	 ev_sigterm;
 
 	struct peer peers[] = {
-		{ PROC_PARENT,	mta_dispatch_parent },
-		{ PROC_QUEUE,	mta_dispatch_queue },
-		{ PROC_RUNNER,	mta_dispatch_runner },
-		{ PROC_LKA,	mta_dispatch_lka }
+		{ PROC_PARENT,	imsg_dispatch },
+		{ PROC_QUEUE,	imsg_dispatch },
+		{ PROC_LKA,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
@@ -475,56 +305,48 @@ mta(struct smtpd *env)
 	}
 
 	ssl_init();
-	purge_config(env, PURGE_EVERYTHING);
+	purge_config(PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
-#ifndef DEBUG
 	if (chroot(pw->pw_dir) == -1)
 		fatal("mta: chroot");
 	if (chdir("/") == -1)
 		fatal("mta: chdir(\"/\")");
-#else
-#warning disabling privilege revocation and chroot in DEBUG MODE
-#endif
 
 	smtpd_process = PROC_MTA;
+	log_debug("start %s",env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
-#ifndef DEBUG
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mta: cannot drop privileges");
-#endif
 
+	imsg_callback = mta_imsg;
 	event_init();
 
-	signal_set(&ev_sigint, SIGINT, mta_sig_handler, env);
-	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, env);
+	signal_set(&ev_sigint, SIGINT, mta_sig_handler, NULL);
+	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, NULL);
 	signal_add(&ev_sigint, NULL);
 	signal_add(&ev_sigterm, NULL);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(env, peers, nitems(peers));
-	config_peers(env, peers, nitems(peers));
+	config_pipes(peers, nitems(peers));
+	config_peers(peers, nitems(peers));
 
+	ramqueue_init(&env->sc_rqueue);
 	SPLAY_INIT(&env->mta_sessions);
 
-	event_dispatch();
+	if (event_dispatch() < 0)
+		fatal("event_dispatch");
 	mta_shutdown();
 
 	return (0);
 }
 
-int
-mta_session_cmp(struct mta_session *a, struct mta_session *b)
-{
-	return (a->id < b->id ? -1 : a->id > b->id);
-}
-
-struct mta_session *
-mta_lookup(struct smtpd *env, u_int64_t id)
+static struct mta_session *
+mta_lookup(u_int64_t id)
 {
 	struct mta_session	 key, *res;
 
@@ -534,13 +356,14 @@ mta_lookup(struct smtpd *env, u_int64_t id)
 	return (res);
 }
 
-void
+static void
 mta_enter_state(struct mta_session *s, int newstate, void *p)
 {
 	struct secret		 secret;
 	struct mta_relay	*relay;
 	struct sockaddr		*sa;
-	struct message		*m;
+	struct envelope		*e;
+	struct smtp_client	*pcb;
 	int			 max_reuse;
 
 	s->state = newstate;
@@ -552,8 +375,9 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		 */
 		bzero(&secret, sizeof(secret));
 		secret.id = s->id;
+		secret.secmapid = s->secmapid;
 		strlcpy(secret.host, s->host, sizeof(secret.host));
-		imsg_compose_event(s->env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
+		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
 		    0, 0, -1, &secret, sizeof(secret));  
 		break;
 
@@ -561,7 +385,10 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		/*
 		 * Lookup MX record.
 		 */
-		dns_query_mx(s->env, s->host, 0, s->id);
+		if (s->flags & MTA_FORCE_MX)
+			dns_query_host(s->host, s->port, s->id);
+		else
+			dns_query_mx(s->host, 0, s->id);
 		break;
 
 	case MTA_DATA:
@@ -610,7 +437,8 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 
 			if (connect(s->fd, sa, SA_LEN(sa)) == -1) {
 				if (errno != EINPROGRESS) {
-					mta_status(s, "110 connect error: %s", strerror(errno));
+					mta_status(s, "110 connect error: %s",
+					    strerror(errno));
 					close(s->fd);
 					continue;
 				}
@@ -629,7 +457,7 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		 * Lookup PTR record of the connected host.
 		 */
 		relay = TAILQ_FIRST(&s->relays);
-		dns_query_ptr(s->env, &relay->sa, s->id);
+		dns_query_ptr(&relay->sa, s->id);
 		break;
 
 	case MTA_PROTOCOL:
@@ -638,69 +466,55 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		 */
 		log_debug("mta: entering smtp phase");
 
-		s->smtp_state = client_init(s->fd, s->env->sc_hostname);
-		if (s->smtp_state == NULL)
-			fatal("mta: client_init failed");
-		client_verbose(s->smtp_state, stderr);
+		pcb = client_init(s->fd, s->datafp, env->sc_hostname, 1);
 
 		/* lookup SSL certificate */
 		if (s->cert) {
 			struct ssl	 key, *res;
 
 			strlcpy(key.ssl_name, s->cert, sizeof(key.ssl_name));
-			res = SPLAY_FIND(ssltree, s->env->sc_ssl, &key);
+			res = SPLAY_FIND(ssltree, env->sc_ssl, &key);
 			if (res == NULL) {
-				client_close(s->smtp_state);
-				s->smtp_state = NULL;
+				client_close(pcb);
+				s->pcb = NULL;
 				mta_status(s, "190 certificate not found");
 				mta_enter_state(s, MTA_DONE, NULL);
 				break;
 			}
-			if (client_certificate(s->smtp_state,
+			client_certificate(pcb,
 			    res->ssl_cert, res->ssl_cert_len,
-			    res->ssl_key, res->ssl_key_len) < 0)
-				fatal("mta: client_certificate failed");
+			    res->ssl_key, res->ssl_key_len);
 		}
 
 		/* choose SMTPS vs. STARTTLS */
 		relay = TAILQ_FIRST(&s->relays);
-		if ((s->flags & MTA_FORCE_ANYSSL) && relay->used == 1) {
-			if (client_ssl_smtps(s->smtp_state) < 0)
-				fatal("mta: client_ssl_smtps failed");
-		} else if (s->flags & MTA_FORCE_SMTPS) {
-			if (client_ssl_smtps(s->smtp_state) < 0)
-				fatal("mta: client_ssl_smtps failed");
-		} else if (s->flags & MTA_ALLOW_PLAIN) {
-			if (client_ssl_optional(s->smtp_state) < 0)
-				fatal("mta: client_ssl_optional failed");
-		}
+		if ((s->flags & MTA_FORCE_ANYSSL) && relay->used == 1)
+			client_ssl_smtps(pcb);
+		else if (s->flags & MTA_FORCE_SMTPS)
+			client_ssl_smtps(pcb);
+		else if (s->flags & MTA_ALLOW_PLAIN)
+			client_ssl_optional(pcb);
 
 		/* enable AUTH */
 		if (s->secret)
-			if (client_auth(s->smtp_state, s->secret) < 0)
-				fatal("mta: client_auth failed");
+			client_auth(pcb, s->secret);
 
 		/* set envelope sender */
-		m = TAILQ_FIRST(&s->recipients);
-		if (m->sender.user[0] && m->sender.domain[0])
-			if (client_sender(s->smtp_state, "%s@%s",
-			    m->sender.user, m->sender.domain) < 0)
-				fatal("mta: client_sender failed");
+		e = TAILQ_FIRST(&s->recipients);
+		if (e->delivery.from.user[0] && e->delivery.from.domain[0])
+			client_sender(pcb, "%s@%s", e->delivery.from.user,
+			    e->delivery.from.domain);
+		else
+			client_sender(pcb, "");
 			
 		/* set envelope recipients */
-		TAILQ_FOREACH(m, &s->recipients, entry) {
-			if (client_rcpt(s->smtp_state, "%s@%s", m->recipient.user,
-			    m->recipient.domain) < 0)
-				fatal("mta: client_rcpt failed");
-			client_udata_set(s->smtp_state, m);
-		}
+		TAILQ_FOREACH(e, &s->recipients, entry)
+			client_rcpt(pcb, e, "%s@%s", e->delivery.rcpt.user,
+			    e->delivery.rcpt.domain);
 
-		/* load message body */
-		if (client_data_fd(s->smtp_state, s->datafd) < 0)
-			fatal("mta: client_data_fd failed");
-
-		event_set(&s->ev, s->fd, EV_WRITE, mta_event, s);
-		event_add(&s->ev, client_timeout(s->smtp_state));
+		s->pcb = pcb;
+		event_set(&s->ev, s->fd, EV_READ|EV_WRITE, mta_event, s);
+		event_add(&s->ev, &pcb->timeout);
 		break;
 
 	case MTA_DONE:
@@ -709,17 +523,25 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		 */
 
 		/* update queue status */
-		while ((m = TAILQ_FIRST(&s->recipients)))
-			mta_message_done(s, m);
+		while ((e = TAILQ_FIRST(&s->recipients)))
+			mta_message_done(s, e);
+
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_BATCH_DONE, 0, 0, -1, NULL, 0);
 
 		/* deallocate resources */
-		SPLAY_REMOVE(mtatree, &s->env->mta_sessions, s);
-		s->env->stats->mta.sessions_active--;
+		SPLAY_REMOVE(mtatree, &env->mta_sessions, s);
 		while ((relay = TAILQ_FIRST(&s->relays))) {
 			TAILQ_REMOVE(&s->relays, relay, entry);
 			free(relay);
 		}
-		close(s->datafd);
+
+		log_debug("mta_enter_state: MTA_DONE: s->datafp = %p", s->datafp);
+		/* chl: no need to fclose s->datafp,
+		 * it was already done in client_close() */
+		if (s->datafp)
+			fclose(s->datafp);
+
 		free(s->secret);
 		free(s->host);
 		free(s->cert);
@@ -731,7 +553,7 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 	}
 }
 
-void
+static void
 mta_pickup(struct mta_session *s, void *p)
 {
 	int	 error;
@@ -758,15 +580,15 @@ mta_pickup(struct mta_session *s, void *p)
 
 	case MTA_MX:
 		/* LKA responded to DNS lookup. */
-		error = *(int *)p;
-		if (error == EAI_AGAIN) {
-			mta_status(s, "100 MX lookup failed temporarily");
-			mta_enter_state(s, MTA_DONE, NULL);
-		} else if (error == EAI_NONAME) {
-			mta_status(s, "600 Domain does not exist");
-			mta_enter_state(s, MTA_DONE, NULL);
-		} else if (error) {
-			mta_status(s, "600 Unable to resolve DNS for domain");
+		if ((error = *(int *)p)) {
+			if (error == DNS_RETRY)
+				mta_status(s, "100 MX lookup failed temporarily");
+			else if (error == DNS_EINVAL)
+				mta_status(s, "600 Invalid domain name");
+			else if (error == DNS_ENONAME)
+				mta_status(s, "600 Domain does not exist");
+			else if (error == DNS_ENOTFOUND)
+				mta_status(s, "600 No MX address found for domain");
 			mta_enter_state(s, MTA_DONE, NULL);
 		} else
 			mta_enter_state(s, MTA_DATA, NULL);
@@ -774,18 +596,20 @@ mta_pickup(struct mta_session *s, void *p)
 
 	case MTA_DATA:
 		/* QUEUE replied to body fd request. */
-		s->datafd = *(int *)p;
-		if (s->datafd == -1)
+		if (*(int *)p == -1)
 			fatalx("mta cannot obtain msgfd");
-		else
-			mta_enter_state(s, MTA_CONNECT, NULL);
+		s->datafp = fdopen(*(int *)p, "r");
+		if (s->datafp == NULL)
+			fatal("fdopen");
+		log_debug("mta_pickup: state = MTA_DATA, p=%d, datafp=%p", *(int *)p, s->datafp);
+		mta_enter_state(s, MTA_CONNECT, NULL);
 		break;
 
 	case MTA_CONNECT:
 		/* Remote accepted/rejected connection. */
 		error = session_socket_error(s->fd);
 		if (error) {
-			mta_status(s, "110 connect error");
+			mta_status(s, "110 connect error: %s", strerror(error));
 			close(s->fd);
 			mta_enter_state(s, MTA_CONNECT, NULL);
 		} else
@@ -801,69 +625,59 @@ mta_pickup(struct mta_session *s, void *p)
 	}
 }
 
-void
+static void
 mta_event(int fd, short event, void *p)
 {
 	struct mta_session	*s = p;
-	int			 error = 0;
-	int			(*iofunc)(struct smtp_client *);
+	struct smtp_client	*pcb = s->pcb;
 
 	if (event & EV_TIMEOUT) {
-		log_debug("mta: leaving smtp phase due to timeout");
 		mta_status(s, "150 timeout");
-
-		client_close(s->smtp_state);
-		s->smtp_state = NULL;
-
-		mta_enter_state(s, MTA_CONNECT, NULL);
-		return;
+		goto out;
 	}
 
-	if (event & EV_READ)
-		iofunc = client_read;
-	else
-		iofunc = client_write;
-
-	switch (iofunc(s->smtp_state)) {
-	case CLIENT_RCPT_FAIL:
-		mta_message_status(client_udata_get(s->smtp_state),
-		    client_reply(s->smtp_state));
+	switch (client_talk(pcb, event & EV_WRITE)) {
 	case CLIENT_WANT_WRITE:
-		event_set(&s->ev, fd, EV_WRITE, mta_event, s);
-		event_add(&s->ev, client_timeout(s->smtp_state));
-		return;
-	case CLIENT_WANT_READ:
-		event_set(&s->ev, fd, EV_READ, mta_event, s);
-		event_add(&s->ev, client_timeout(s->smtp_state));
-		return;
-	case CLIENT_ERROR:
-		error = 1;
+		goto rw;
+	case CLIENT_STOP_WRITE:
+		goto ro;
+	case CLIENT_RCPT_FAIL:
+		mta_message_status(pcb->rcptfail, pcb->reply);
+		mta_message_log(s, pcb->rcptfail);
+		mta_message_done(s, pcb->rcptfail);
+		goto rw;
 	case CLIENT_DONE:
+		mta_status(s, "%s", pcb->status);
 		break;
+	default:
+		fatalx("mta_event: unexpected code");
 	}
 
-	log_debug("mta: leaving smtp phase");
+out:
+	client_close(pcb);
+	s->pcb = NULL;
 
-	if (error)
-		mta_status(s, "%s", client_strerror(s->smtp_state));
-	else
-		mta_status(s, "%s", client_reply(s->smtp_state));
-
-	client_close(s->smtp_state);
-	s->smtp_state = NULL;
-
-	if (mta_todo(s) == 0)
+	if (TAILQ_EMPTY(&s->recipients))
 		mta_enter_state(s, MTA_DONE, NULL);
 	else
 		mta_enter_state(s, MTA_CONNECT, NULL);
+	return;
+
+rw:
+	event_set(&s->ev, fd, EV_READ|EV_WRITE, mta_event, s);
+	event_add(&s->ev, &pcb->timeout);
+	return;
+
+ro:
+	event_set(&s->ev, fd, EV_READ, mta_event, s);
+	event_add(&s->ev, &pcb->timeout);
 }
 
-void
+static void
 mta_status(struct mta_session *s, const char *fmt, ...)
 {
 	char			*status;
-	struct message		*m, *next;
-	struct mta_relay	*relay;
+	struct envelope		*e, *next;
 	va_list			 ap;
 
 	va_start(ap, fmt);
@@ -871,96 +685,106 @@ mta_status(struct mta_session *s, const char *fmt, ...)
 		fatal("vasprintf");
 	va_end(ap);
 
-	for (m = TAILQ_FIRST(&s->recipients); m; m = next) {
-		next = TAILQ_NEXT(m, entry);
+	for (e = TAILQ_FIRST(&s->recipients); e; e = next) {
+		next = TAILQ_NEXT(e, entry);
 
 		/* save new status */
-		mta_message_status(m, status);
-
-		relay = TAILQ_FIRST(&s->relays);
+		mta_message_status(e, status);
 
 		/* remove queue entry */
 		if (*status == '2' || *status == '5' || *status == '6') {
-			log_info("%s: to=<%s@%s>, delay=%d, relay=%s [%s], stat=%s (%s)",
-			    m->message_id, m->recipient.user,
-			    m->recipient.domain, (int) (time(NULL) - m->creation),
-			    relay->fqdn, ss_to_text(&relay->sa),
-			    *status == '2' ? "Sent" :
-			    *status == '5' ?  "RemoteError" : "LocalError",
-			    m->session_errorline + 4);
-			mta_message_done(s, m);
+			mta_message_log(s, e);
+			mta_message_done(s, e);
 		}
 	}
 
 	free(status);
 }
 
-void
-mta_message_status(struct message *m, char *status)
+static void
+mta_message_status(struct envelope *e, char *status)
 {
 	/*
 	 * Previous delivery attempts might have assigned an errorline of
 	 * higher status (eg. 5yz is of higher status than 4yz), so check
 	 * this before deciding to overwrite existing status with a new one.
 	 */
-	if (strncmp(m->session_errorline, status, 3) > 0)
+	if (*status != '2' && strncmp(e->delivery.errorline, status, 3) > 0)
 		return;
 
 	/* change status */
-	log_debug("mta: new status for %s@%s: %s", m->recipient.user,
-	    m->recipient.domain, status);
-	strlcpy(m->session_errorline, status, sizeof(m->session_errorline));
+	log_debug("mta: new status for %s@%s: %s", e->delivery.rcpt.user,
+	    e->delivery.rcpt.domain, status);
+	strlcpy(e->delivery.errorline, status, sizeof(e->delivery.errorline));
 }
 
-void
-mta_message_done(struct mta_session *s, struct message *m)
+static void
+mta_message_log(struct mta_session *s, struct envelope *e)
 {
-	switch (m->session_errorline[0]) {
+	struct mta_relay	*relay = TAILQ_FIRST(&s->relays);
+	char			*status = e->delivery.errorline;
+
+	log_info("%016llx: to=<%s@%s>, delay=%lld, relay=%s [%s], stat=%s (%s)",
+	    e->delivery.id, e->delivery.rcpt.user,
+	    e->delivery.rcpt.domain,
+	    (long long int) (time(NULL) - e->delivery.creation),
+	    relay ? relay->fqdn : "(none)",
+	    relay ? ss_to_text(&relay->sa) : "",
+	    *status == '2' ? "Sent" :
+	    *status == '5' ? "RemoteError" :
+	    *status == '4' ? "RemoteError" : "LocalError",
+	    status + 4);
+}
+
+static void
+mta_message_done(struct mta_session *s, struct envelope *e)
+{
+	switch (e->delivery.errorline[0]) {
 	case '6':
 	case '5':
-		m->status = S_MESSAGE_PERMFAILURE;
+		e->delivery.status = DS_PERMFAILURE;
 		break;
 	case '2':
-		m->status = S_MESSAGE_ACCEPTED;
+		e->delivery.status = DS_ACCEPTED;
 		break;
 	default:
-		m->status = S_MESSAGE_TEMPFAILURE;
+		e->delivery.status = DS_TEMPFAILURE;
 		break;
 	}
-	imsg_compose_event(s->env->sc_ievs[PROC_QUEUE],
-	    IMSG_QUEUE_MESSAGE_UPDATE, 0, 0, -1, m, sizeof(*m));
-	TAILQ_REMOVE(&s->recipients, m, entry);
-	free(m);
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+	    IMSG_QUEUE_MESSAGE_UPDATE, 0, 0, -1, e, sizeof(*e));
+	TAILQ_REMOVE(&s->recipients, e, entry);
+	free(e);
 }
 
-void
+static void
 mta_connect_done(int fd, short event, void *p)
 {
 	mta_pickup(p, NULL);
 }
 
-void
+static void
 mta_request_datafd(struct mta_session *s)
 {
-	struct batch	 b;
-	struct message	*m;
+	struct ramqueue_batch	rq_batch;
+	struct envelope	*e;
 
-	b.id = s->id;
-	m = TAILQ_FIRST(&s->recipients);
-	strlcpy(b.message_id, m->message_id, sizeof(b.message_id));
-	imsg_compose_event(s->env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_MESSAGE_FD,
-	    0, 0, -1, &b, sizeof(b));
+#ifdef VALGRIND
+	bzero(&rq_batch, sizeof(rq_batch));
+#endif
+
+	e = TAILQ_FIRST(&s->recipients);
+
+	rq_batch.b_id = s->id;
+	rq_batch.msgid = evpid_to_msgid(e->delivery.id);
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_MESSAGE_FD,
+	    0, 0, -1, &rq_batch, sizeof(rq_batch));
 }
 
-size_t
-mta_todo(struct mta_session *s)
+int
+mta_session_cmp(struct mta_session *a, struct mta_session *b)
 {
-	struct message	*m;
-	size_t		 n = 0;
-
-	TAILQ_FOREACH(m, &s->recipients, entry)
-		n++;
-	return (n);
+	return (a->id < b->id ? -1 : a->id > b->id);
 }
 
 SPLAY_GENERATE(mtatree, mta_session, entry, mta_session_cmp);
