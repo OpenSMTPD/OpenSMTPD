@@ -1,4 +1,4 @@
-/*	$OpenBSD: map_backend.c,v 1.5 2011/04/17 13:36:07 gilles Exp $	*/
+/*	$OpenBSD: map_backend.c,v 1.6 2011/05/21 18:43:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
@@ -22,7 +22,6 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <db.h>
 #include <ctype.h>
 #include <err.h>
 #include <event.h>
