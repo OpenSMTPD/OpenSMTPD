@@ -3,3 +3,19 @@
 	- OpenSMTPD portable is now working on Linux!
 	- import mail.local(8)
 	- Add some #ifdef VALGRIND to track memory leaks
+
+2010-04-30  chl  <chl@tuxfamily.org>
+
+	* openbsd-compat:
+	- import/update from portable OpenSSH:
+	  - fmt_scaled.c
+	  - mktemp.c (updated from OpenBSD upstream)
+	  - setproctitle.c
+	  - vis.c
+	- limit PATH_MAX and MAXPATHLEN to 1024
+
+	* src:
+	- update to latest OpenSMTPD
+
+	I managed to send a mail with Portable OpenSMTPD, but there's
+	still some bugs to fix!

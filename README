@@ -1,0 +1,6 @@
+How to use
+
+create a /etc/mail/smtpd.conf
+
+add _smtpd user
+useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
