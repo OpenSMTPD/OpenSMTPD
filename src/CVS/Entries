@@ -25,7 +25,6 @@ D/src////
 /auth_backend.c/1.1/Tue May 17 16:42:06 2011//
 /user_backend.c/1.1/Tue May 17 18:54:32 2011//
 /util.c/1.47/Result of merge//
-/Makefile/1.9/Wed May 18 09:03:32 2011//
 D/libexec////
 /client.h/1.14/Mon May 23 16:08:25 2011//
 /map.c/1.24/Result of merge//
@@ -61,7 +60,8 @@ D/libexec////
 /filter.h/1.2/Thu Sep  1 10:56:37 2011//
 /mfa.c/1.61/Result of merge//
 /mfa_session.c/1.4/Result of merge//
-/parse.y/1.79/Result of merge//
 /smtp.c/1.89/Result of merge//
 /smtp_session.c/1.145/Result of merge//
 /smtpd.h/1.236/Result of merge//
+/Makefile/1.9/Thu Sep  1 16:44:22 2011//
+/parse.y/1.80/Result of merge//
