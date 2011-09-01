@@ -1,8 +1,22 @@
+2011-09-02  chl  <chl@tuxfamily.org>
+
+	* configure.ac:
+	- update from openssh's upstream repository
+
+	* openbsd-compat/Makefile.am:
+	* openbsd-compat/daemon.c:
+	- add daemon()
+
+	* src/libexec/mail.local/mail.local.c:
+	- add missing header
+
+
 2011-08-28  chl  <chl@tuxfamily.org>
 
 	- OpenSMTPD portable is now working on Linux!
 	- import mail.local(8)
 	- Add some #ifdef VALGRIND to track memory leaks
+
 
 2010-04-30  chl  <chl@tuxfamily.org>
 

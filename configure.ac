@@ -79,26 +79,6 @@ AC_CHECK_HEADERS( \
 		util.h \
                 )
 
-AC_CHECK_FUNCS( \
-		arc4random \
-		arc4random_uniform \
-		chflags \
-		closefrom \
-		dirfd \
-		dirname \
-		fgetln \
-		fparseln \
-		getopt \
-		getpeereid \
-		setproctitle \
-		strlcat \
-		strlcpy \
-		strnvis \
-		strsep \
-		strtonum \
-		strmode \
-		sysconf \
-		)
 
 #chl
 
@@ -109,32 +89,39 @@ AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db.h
 ])])])
 
 
-#l265
+#l357
 # login_cap.h requires sys/types.h on NetBSD
-AC_CHECK_HEADERS(login_cap.h, [], [], [
+AC_CHECK_HEADERS([login_cap.h], [], [], [
 #include <sys/types.h>
 ])
-#l268
+#l360
 
-#l337
+#l372
 # Check for some target-specific stuff
 case "$host" in
 *-*-aix*)
-	AC_DEFINE(SPT_TYPE,SPT_REUSEARGV,
+	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
 		supported by bsd-setproctitle.c])
 	;;
 *-*-darwin*)
-	AC_MSG_CHECKING(if we have working getaddrinfo)
-	AC_TRY_RUN([#include <mach-o/dyld.h>
+	AC_MSG_CHECKING([if we have working getaddrinfo])
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[ #include <mach-o/dyld.h>
 main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		exit(0);
 	else
 		exit(1);
-}], [AC_MSG_RESULT(working)],
-	[AC_MSG_RESULT(buggy)
-	AC_DEFINE(BROKEN_GETADDRINFO, 1, [getaddrinfo is broken (if present)])],
-	[AC_MSG_RESULT(assume it is working)])
+}
+			]])],
+	[AC_MSG_RESULT([working])],
+	[AC_MSG_RESULT([buggy])
+	AC_DEFINE([BROKEN_GETADDRINFO], [1],
+		[getaddrinfo is broken (if present)])
+	],
+	[AC_MSG_RESULT([assume it is working])])
+	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
+		[Define to a Set Process Title type if your system is
+		supported by bsd-setproctitle.c])
 	;;
 *-*-dragonfly*)
 	SSHDLIBS="$SSHDLIBS -lcrypt"
@@ -142,10 +129,11 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-hpux*)
 	# first we define all of the options common to all HP-UX releases
 	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"
-	AC_DEFINE(SPT_TYPE,SPT_PSTAT)
+	AC_DEFINE([SPT_TYPE], [SPT_PSTAT])
 	;;
 *-*-linux*)
-	AC_DEFINE(SPT_TYPE,SPT_REUSEARGV)
+	check_for_libcrypt_later=1
+	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	case `uname -r` in
 	1.*|2.0.*)
 		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
@@ -155,6 +143,9 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	;;
 *-*-netbsd*)
 	check_for_libcrypt_before=1
+	if test "x$withval" != "xno" ; then
+		need_dash_r=1
+	fi
 	;;
 *-*-freebsd*)
 	check_for_libcrypt_later=1
@@ -163,17 +154,20 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	echo "You are drunk"
 	;;
 *-*-solaris*)
+	if test "x$withval" != "xno" ; then
+		need_dash_r=1
+	fi
 	;;
 *-*-sunos4*)
 	CPPFLAGS="$CPPFLAGS -DSUNOS4"
 	;;
 esac
-#l896
+#l959
 
-#l917
+#l976
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
-AC_CHECK_FUNCS(dirname, [AC_CHECK_HEADERS(libgen.h)] ,[
-	AC_CHECK_LIB(gen, dirname,[
+AC_CHECK_FUNCS([dirname], [AC_CHECK_HEADERS([libgen.h])] , [
+	AC_CHECK_LIB([gen], [dirname], [
 		AC_CACHE_CHECK([for broken dirname],
 			ac_cv_have_broken_dirname, [
 			save_LIBS="$LIBS"
@@ -203,27 +197,27 @@ int main(int argc, char **argv) {
 		])
 		if test "x$ac_cv_have_broken_dirname" = "xno" ; then
 			LIBS="$LIBS -lgen"
-			AC_DEFINE(HAVE_DIRNAME)
-			AC_CHECK_HEADERS(libgen.h)
+			AC_DEFINE([HAVE_DIRNAME])
+			AC_CHECK_HEADERS([libgen.h])
 		fi
 	])
 ])
-#l953
+#l1012
 
-#l957
-AC_SEARCH_LIBS(basename, gen, AC_DEFINE(HAVE_BASENAME, 1,
-	[Define if you have the basename function.]))
-#l958
+#l1016
+AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
+	[Define if you have the basename function.])])
+#l1017
 
-#l1067
+#l1125
 dnl    Checks for libutil functions
-AC_CHECK_HEADERS(libutil.h)
-AC_SEARCH_LIBS(fparseln, util bsd, [AC_DEFINE(HAVE_FPARSELN, 1,
-	[Define if your libraries define fparseln()])])
-AC_CHECK_FUNCS(fmt_scaled logout updwtmp logwtmp)
-#l1071
+AC_CHECK_HEADERS([libutil.h])
+AC_SEARCH_LIBS([login], [util bsd], [AC_DEFINE([HAVE_LOGIN], [1],
+	[Define if your libraries define login()])])
+AC_CHECK_FUNCS([fmt_scaled logout updwtmp logwtmp])
+#l1129
 
-#l1133
+#l1209
 AC_MSG_CHECKING([for /proc/pid/fd directory])
 if test -d "/proc/$$/fd" ; then
 	AC_DEFINE(HAVE_PROC_PID, 1, [Define if you have /proc/$pid/fd])
@@ -231,57 +225,137 @@ if test -d "/proc/$$/fd" ; then
 else
 	AC_MSG_RESULT(no)
 fi
-#l1139
+#l1215
 
-#l1484
-AC_CHECK_FUNCS(setresuid, [
+AC_CHECK_FUNCS( \
+	arc4random \
+	arc4random_buf \
+	arc4random_uniform \
+	asprintf \
+	__b64_ntop \
+	__b64_pton \
+	bcopy \
+	chflags \
+	closefrom \
+	dirfd \
+	dirname \
+	fgetln \
+	fparseln \
+	getopt \
+	getpeereid \
+	setproctitle \
+	strlcat \
+	strlcpy \
+	strnvis \
+	strtonum \
+	strmode \
+	sysconf \
+	)
+
+#l1556
+AC_CHECK_DECL([strsep],
+	[AC_CHECK_FUNCS([strsep])],
+	[],
+	[
+#ifdef HAVE_STRING_H
+# include <string.h>
+#endif
+	])
+#l1563
+
+#l1580
+AC_CHECK_DECLS([O_NONBLOCK], , ,
+	[
+#include <sys/types.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
+	])
+
+AC_CHECK_DECLS([writev], , , [
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+	])
+#l1585
+
+#l1605
+AC_CHECK_FUNCS([setresuid], [
 	dnl Some platorms have setresuid that isn't implemented, test for this
-	AC_MSG_CHECKING(if setresuid seems to work)
+	AC_MSG_CHECKING([if setresuid seems to work])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
+		[AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #include <errno.h>
-int main(){errno=0; setresuid(0,0,0); if (errno==ENOSYS) exit(1); else exit(0);}
+		]], [[
+	errno=0;
+	setresuid(0,0,0);
+	if (errno==ENOSYS)
+		exit(1);
+	else
+		exit(0);
 		]])],
-		[AC_MSG_RESULT(yes)],
-		[AC_DEFINE(BROKEN_SETRESUID, 1,
+		[AC_MSG_RESULT([yes])],
+		[AC_DEFINE([BROKEN_SETRESUID], [1],
 			[Define if your setresuid() is broken])
-		 AC_MSG_RESULT(not implemented)],
+		 AC_MSG_RESULT([not implemented])],
 		[AC_MSG_WARN([cross compiling: not checking setresuid])]
 	)
 ])
 
-AC_CHECK_FUNCS(setresgid, [
+AC_CHECK_FUNCS([setresgid], [
 	dnl Some platorms have setresgid that isn't implemented, test for this
-	AC_MSG_CHECKING(if setresgid seems to work)
+	AC_MSG_CHECKING([if setresgid seems to work])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
+		[AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #include <errno.h>
-int main(){errno=0; setresgid(0,0,0); if (errno==ENOSYS) exit(1); else exit(0);}
+		]], [[
+	errno=0;
+	setresgid(0,0,0);
+	if (errno==ENOSYS)
+		exit(1);
+	else
+		exit(0);
 		]])],
-		[AC_MSG_RESULT(yes)],
-		[AC_DEFINE(BROKEN_SETRESGID, 1,
+		[AC_MSG_RESULT([yes])],
+		[AC_DEFINE([BROKEN_SETRESGID], [1],
 			[Define if your setresgid() is broken])
-		 AC_MSG_RESULT(not implemented)],
+		 AC_MSG_RESULT([not implemented])],
 		[AC_MSG_WARN([cross compiling: not checking setresuid])]
 	)
 ])
-#l1517
 
-#l1542
+dnl    Checks for time functions
+AC_CHECK_FUNCS([gettimeofday time])
+#l1652
+
+#l1662
+AC_CHECK_FUNC([daemon],
+	[AC_DEFINE([HAVE_DAEMON], [1], [Define if your libraries define daemon()])],
+	[AC_CHECK_LIB([bsd], [daemon],
+		[LIBS="$LIBS -lbsd"; AC_DEFINE([HAVE_DAEMON])])]
+)
+#l1666
+
+#l1675
 # Check for broken snprintf
 if test "x$ac_cv_func_snprintf" = "xyes" ; then
 	AC_MSG_CHECKING([whether snprintf correctly terminates long strings])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
-#include <stdio.h>
-int main(void){char b[5];snprintf(b,5,"123456789");exit(b[4]!='\0');}
+		[AC_LANG_PROGRAM([[ #include <stdio.h> ]],
+		[[
+	char b[5];
+	snprintf(b,5,"123456789");
+	exit(b[4]!='\0'); 
 		]])],
-		[AC_MSG_RESULT(yes)],
+		[AC_MSG_RESULT([yes])],
 		[
-			AC_MSG_RESULT(no)
-			AC_DEFINE(BROKEN_SNPRINTF, 1,
+			AC_MSG_RESULT([no])
+			AC_DEFINE([BROKEN_SNPRINTF], [1],
 				[Define if your snprintf is busted])
 			AC_MSG_WARN([****** Your snprintf() function is broken, complain to your vendor])
 		],
@@ -296,7 +370,7 @@ if test "x$ac_cv_func_asprintf" != "xyes" && \
    test "x$ac_cv_func_vsnprintf" = "xyes" ; then
 	AC_MSG_CHECKING([whether vsnprintf returns correct values on overflow])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
+		[AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -307,15 +381,14 @@ int x_snprintf(char *str,size_t count,const char *fmt,...)
 	va_start(ap, fmt); ret = vsnprintf(str, count, fmt, ap); va_end(ap);
 	return ret;
 }
-int main(void)
-{
+		]], [[
 	char x[1];
 	exit(x_snprintf(x, 1, "%s %d", "hello", 12345) == 11 ? 0 : 1);
-} ]])],
-		[AC_MSG_RESULT(yes)],
+		]])],
+		[AC_MSG_RESULT([yes])],
 		[
-			AC_MSG_RESULT(no)
-			AC_DEFINE(BROKEN_SNPRINTF, 1,
+			AC_MSG_RESULT([no])
+			AC_DEFINE([BROKEN_SNPRINTF], [1],
 				[Define if your snprintf is busted])
 			AC_MSG_WARN([****** Your vsnprintf() function is broken, complain to your vendor])
 		],
@@ -327,66 +400,66 @@ fi
 # check that the fmt argument is const char * or just char *.
 # This is only useful for when BROKEN_SNPRINTF
 AC_MSG_CHECKING([whether snprintf can declare const char *fmt])
-AC_COMPILE_IFELSE([AC_LANG_SOURCE([[#include <stdio.h>
-	   int snprintf(char *a, size_t b, const char *c, ...) { return 0; }
-	   int main(void) { snprintf(0, 0, 0); } 
-    ]])],
-   [AC_MSG_RESULT(yes)
-    AC_DEFINE(SNPRINTF_CONST, [const],
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+int snprintf(char *a, size_t b, const char *c, ...) { return 0; }
+		]], [[
+	snprintf(0, 0, 0);
+		]])],
+   [AC_MSG_RESULT([yes])
+    AC_DEFINE([SNPRINTF_CONST], [const],
               [Define as const if snprintf() can declare const char *fmt])],
-   [AC_MSG_RESULT(no)
-    AC_DEFINE(SNPRINTF_CONST, [/* not const */])])
+   [AC_MSG_RESULT([no])
+    AC_DEFINE([SNPRINTF_CONST], [/* not const */])])
 
 # Check for missing getpeereid (or equiv) support
 NO_PEERCHECK=""
 if test "x$ac_cv_func_getpeereid" != "xyes" -a "x$ac_cv_func_getpeerucred" != "xyes"; then
 	AC_MSG_CHECKING([whether system supports SO_PEERCRED getsockopt])
-	AC_TRY_COMPILE(
-		[#include <sys/types.h>
-		 #include <sys/socket.h>],
-		[int i = SO_PEERCRED;],
-		[ AC_MSG_RESULT(yes)
-		  AC_DEFINE(HAVE_SO_PEERCRED, 1, [Have PEERCRED socket option])
-		],
-		[AC_MSG_RESULT(no)
-		NO_PEERCHECK=1]
-        )
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>]], [[int i = SO_PEERCRED;]])],
+		[ AC_MSG_RESULT([yes])
+		  AC_DEFINE([HAVE_SO_PEERCRED], [1], [Have PEERCRED socket option])
+		], [AC_MSG_RESULT([no])
+		NO_PEERCHECK=1
+        ])
 fi
-
 
 dnl see whether mkstemp() requires XXXXXX
 if test "x$ac_cv_func_mkdtemp" = "xyes" ; then
 AC_MSG_CHECKING([for (overly) strict mkstemp])
 AC_RUN_IFELSE(
-	[AC_LANG_SOURCE([[
+	[AC_LANG_PROGRAM([[
 #include <stdlib.h>
-main() { char template[]="conftest.mkstemp-test";
-if (mkstemp(template) == -1)
-	exit(1);
-unlink(template); exit(0);
-}
+	]], [[
+	char template[]="conftest.mkstemp-test";
+	if (mkstemp(template) == -1)
+		exit(1);
+	unlink(template);
+	exit(0);
 	]])],
 	[
-		AC_MSG_RESULT(no)
+		AC_MSG_RESULT([no])
 	],
 	[
-		AC_MSG_RESULT(yes)
-		AC_DEFINE(HAVE_STRICT_MKSTEMP, 1, [Silly mkstemp()])
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_STRICT_MKSTEMP], [1], [Silly mkstemp()])
 	],
 	[
-		AC_MSG_RESULT(yes)
-		AC_DEFINE(HAVE_STRICT_MKSTEMP)
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_STRICT_MKSTEMP])
 	]
 )
 fi
-#l1649
+#l1784
 
-#l1701
+#l1832
 if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
     test "x$check_for_hpux_broken_getaddrinfo" = "x1"; then
-	AC_MSG_CHECKING(if getaddrinfo seems to work)
+	AC_MSG_CHECKING([if getaddrinfo seems to work])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
+		[AC_LANG_PROGRAM([[
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -394,10 +467,7 @@ if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
 #include <netinet/in.h>
 
 #define TEST_PORT "2222"
-
-int
-main(void)
-{
+		]], [[
 	int err, sock;
 	struct addrinfo *gai_ai, *ai, hints;
 	char ntop[NI_MAXHOST], strport[NI_MAXSERV], *name = NULL;
@@ -439,26 +509,25 @@ main(void)
 		}
 	}
 	exit(0);
-}
 		]])],
 		[
-			AC_MSG_RESULT(yes)
+			AC_MSG_RESULT([yes])
 		],
 		[
-			AC_MSG_RESULT(no)
-			AC_DEFINE(BROKEN_GETADDRINFO)
+			AC_MSG_RESULT([no])
+			AC_DEFINE([BROKEN_GETADDRINFO])
 		],
 		[
-			AC_MSG_RESULT(cross-compiling, assuming yes)
+			AC_MSG_RESULT([cross-compiling, assuming yes])
 		]
 	)
 fi
 
 if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
     test "x$check_for_aix_broken_getaddrinfo" = "x1"; then
-	AC_MSG_CHECKING(if getaddrinfo seems to work)
+	AC_MSG_CHECKING([if getaddrinfo seems to work])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
+		[AC_LANG_PROGRAM([[
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -466,10 +535,7 @@ if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
 #include <netinet/in.h>
 
 #define TEST_PORT "2222"
-
-int
-main(void)
-{
+		]], [[
 	int err, sock;
 	struct addrinfo *gai_ai, *ai, hints;
 	char ntop[NI_MAXHOST], strport[NI_MAXSERV], *name = NULL;
@@ -499,30 +565,29 @@ main(void)
 		}
 	}
 	exit(0);
-}
 		]])],
 		[
-			AC_MSG_RESULT(yes)
-			AC_DEFINE(AIX_GETNAMEINFO_HACK, 1,
+			AC_MSG_RESULT([yes])
+			AC_DEFINE([AIX_GETNAMEINFO_HACK], [1],
 				[Define if you have a getaddrinfo that fails
 				for the all-zeros IPv6 address])
 		],
 		[
-			AC_MSG_RESULT(no)
-			AC_DEFINE(BROKEN_GETADDRINFO)
+			AC_MSG_RESULT([no])
+			AC_DEFINE([BROKEN_GETADDRINFO])
 		],
 		[
-			AC_MSG_RESULT(cross-compiling, assuming no)
+			AC_MSG_RESULT([cross-compiling, assuming no])
 		]
 	)
 fi
-#l1834
+#l1957
 
-#l1856
+#l1976
 # Search for OpenSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH(ssl-dir,
+AC_ARG_WITH([ssl-dir],
 	[  --with-ssl-dir=PATH     Specify path to OpenSSL installation ],
 	[
 		if test "x$withval" != "xno" ; then
@@ -535,6 +600,12 @@ AC_ARG_WITH(ssl-dir,
 					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
 				else
 					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+				fi
+			elif test -d "$withval/lib64"; then
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
 				fi
 			else
 				if test -n "${need_dash_r}"; then
@@ -552,9 +623,9 @@ AC_ARG_WITH(ssl-dir,
 	]
 )
 LIBS="-lcrypto $LIBS"
-AC_TRY_LINK_FUNC(RAND_add, AC_DEFINE(HAVE_OPENSSL, 1,
+AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
 	[Define if your ssl headers are included
-	with #include <openssl/header.h>]),
+	with #include <openssl/header.h>])],
 	[
 		dnl Check default openssl install dir
 		if test -n "${need_dash_r}"; then
@@ -563,7 +634,9 @@ AC_TRY_LINK_FUNC(RAND_add, AC_DEFINE(HAVE_OPENSSL, 1,
 			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
 		fi
 		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
-		AC_TRY_LINK_FUNC(RAND_add, AC_DEFINE(HAVE_OPENSSL),
+		AC_CHECK_HEADER([openssl/opensslv.h], ,
+		    [AC_MSG_ERROR([*** OpenSSL headers missing - please install first or check config.log ***])])
+		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
 			[
 				AC_MSG_ERROR([*** Can't find recent OpenSSL libcrypto (see config.log for details) ***])
 			]
@@ -574,12 +647,12 @@ AC_TRY_LINK_FUNC(RAND_add, AC_DEFINE(HAVE_OPENSSL, 1,
 # Determine OpenSSL header version
 AC_MSG_CHECKING([OpenSSL header version])
 AC_RUN_IFELSE(
-	[AC_LANG_SOURCE([[
+	[AC_LANG_PROGRAM([[
 #include <stdio.h>
 #include <string.h>
 #include <openssl/opensslv.h>
 #define DATA "conftest.sslincver"
-int main(void) {
+	]], [[
 	FILE *fd;
 	int rc;
 
@@ -591,15 +664,14 @@ int main(void) {
 		exit(1);
 
 	exit(0);
-}
 	]])],
 	[
 		ssl_header_ver=`cat conftest.sslincver`
-		AC_MSG_RESULT($ssl_header_ver)
+		AC_MSG_RESULT([$ssl_header_ver])
 	],
 	[
-		AC_MSG_RESULT(not found)
-		AC_MSG_ERROR(OpenSSL version header not found.)
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([OpenSSL version header not found.])
 	],
 	[
 		AC_MSG_WARN([cross compiling: not checking])
@@ -609,13 +681,13 @@ int main(void) {
 # Determine OpenSSL library version
 AC_MSG_CHECKING([OpenSSL library version])
 AC_RUN_IFELSE(
-	[AC_LANG_SOURCE([[
+	[AC_LANG_PROGRAM([[
 #include <stdio.h>
 #include <string.h>
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
 #define DATA "conftest.ssllibver"
-int main(void) {
+	]], [[
 	FILE *fd;
 	int rc;
 
@@ -627,22 +699,21 @@ int main(void) {
 		exit(1);
 
 	exit(0);
-}
 	]])],
 	[
 		ssl_library_ver=`cat conftest.ssllibver`
-		AC_MSG_RESULT($ssl_library_ver)
+		AC_MSG_RESULT([$ssl_library_ver])
 	],
 	[
-		AC_MSG_RESULT(not found)
-		AC_MSG_ERROR(OpenSSL library not found.)
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([OpenSSL library not found.])
 	],
 	[
 		AC_MSG_WARN([cross compiling: not checking])
 	]
 )
 
-AC_ARG_WITH(openssl-header-check,
+AC_ARG_WITH([openssl-header-check],
 	[  --without-openssl-header-check Disable OpenSSL version consistency check],
 	[  if test "x$withval" = "xno" ; then
 		openssl_check_nonfatal=1
@@ -653,16 +724,17 @@ AC_ARG_WITH(openssl-header-check,
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether OpenSSL's headers match the library])
 AC_RUN_IFELSE(
-	[AC_LANG_SOURCE([[
+	[AC_LANG_PROGRAM([[
 #include <string.h>
 #include <openssl/opensslv.h>
-int main(void) { exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1); }
+	]], [[
+	exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1);
 	]])],
 	[
-		AC_MSG_RESULT(yes)
+		AC_MSG_RESULT([yes])
 	],
 	[
-		AC_MSG_RESULT(no)
+		AC_MSG_RESULT([no])
 		if test "x$openssl_check_nonfatal" = "x"; then
 			AC_MSG_ERROR([Your OpenSSL headers do not match your
 library. Check config.log for details.
@@ -683,66 +755,44 @@ Also see contrib/findssl.sh for help identifying header/library mismatches.])
 
 AC_MSG_CHECKING([if programs using OpenSSL functions will link])
 AC_LINK_IFELSE(
-	[AC_LANG_SOURCE([[
-#include <openssl/evp.h>
-int main(void) { SSLeay_add_all_algorithms(); }
-	]])],
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ SSLeay_add_all_algorithms(); ]])],
 	[
-		AC_MSG_RESULT(yes)
+		AC_MSG_RESULT([yes])
 	],
 	[
-		AC_MSG_RESULT(no)
+		AC_MSG_RESULT([no])
 		saved_LIBS="$LIBS"
 		LIBS="$LIBS -ldl"
 		AC_MSG_CHECKING([if programs using OpenSSL need -ldl])
 		AC_LINK_IFELSE(
-			[AC_LANG_SOURCE([[
-#include <openssl/evp.h>
-int main(void) { SSLeay_add_all_algorithms(); }
-			]])],
+			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+			[[ SSLeay_add_all_algorithms(); ]])],
 			[
-				AC_MSG_RESULT(yes)
+				AC_MSG_RESULT([yes])
 			],
 			[
-				AC_MSG_RESULT(no)
+				AC_MSG_RESULT([no])
 				LIBS="$saved_LIBS"
 			]
 		)
 	]
 )
+#l2169
 
-AC_ARG_WITH(ssl-engine,
-	[  --with-ssl-engine       Enable OpenSSL (hardware) ENGINE support ],
-	[ if test "x$withval" != "xno" ; then
-		AC_MSG_CHECKING(for OpenSSL ENGINE support)
-		AC_TRY_COMPILE(
-			[ #include <openssl/engine.h>],
-			[
-ENGINE_load_builtin_engines();ENGINE_register_all_complete();
-			],
-			[ AC_MSG_RESULT(yes)
-			  AC_DEFINE(USE_OPENSSL_ENGINE, 1,
-			     [Enable OpenSSL engine support])
-			],
-			[ AC_MSG_ERROR(OpenSSL ENGINE support not found)]
-		)
-	  fi ]
-)
-#l1971
-
-#l1991
+#l1229
 # Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
 # because the system crypt() is more featureful.
 if test "x$check_for_libcrypt_before" = "x1"; then
-	AC_CHECK_LIB(crypt, crypt)
+	AC_CHECK_LIB([crypt], [crypt])
 fi
 
 # Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
 # version in OpenSSL.
 if test "x$check_for_libcrypt_later" = "x1"; then
-	AC_CHECK_LIB(crypt, crypt, LIBS="$LIBS -lcrypt")
+	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
 fi
-#l2001
+#l2239
 
 #l2016
 ### Configure cryptographic random number support
@@ -750,32 +800,116 @@ fi
 # Check wheter OpenSSL seeds itself
 AC_MSG_CHECKING([whether OpenSSL's PRNG is internally seeded])
 AC_RUN_IFELSE(
-	[AC_LANG_SOURCE([[
+	[AC_LANG_PROGRAM([[
 #include <string.h>
 #include <openssl/rand.h>
-int main(void) { exit(RAND_status() == 1 ? 0 : 1); }
+	]], [[
+	exit(RAND_status() == 1 ? 0 : 1);
 	]])],
 	[
 		OPENSSL_SEEDS_ITSELF=yes
-		AC_MSG_RESULT(yes)
+		AC_MSG_RESULT([yes])
 	],
 	[
-		AC_MSG_RESULT(no)
-		# Default to use of the rand helper if OpenSSL doesn't
-		# seed itself
-		USE_RAND_HELPER=yes
+		AC_MSG_RESULT([no])
 	],
 	[
 		AC_MSG_WARN([cross compiling: assuming yes])
-		# This is safe, since all recent OpenSSL versions will
-		# complain at runtime if not seeded correctly.
+		# This is safe, since we will fatal() at runtime if
+		# OpenSSL is not seeded correctly.
 		OPENSSL_SEEDS_ITSELF=yes
 	]
 )
 
+# PRNGD TCP socket
+AC_ARG_WITH([prngd-port],
+	[  --with-prngd-port=PORT  read entropy from PRNGD/EGD TCP localhost:PORT],
+	[
+		case "$withval" in
+		no)
+			withval=""
+			;;
+		[[0-9]]*)
+			;;
+		*)
+			AC_MSG_ERROR([You must specify a numeric port number for --with-prngd-port])
+			;;
+		esac
+		if test ! -z "$withval" ; then
+			PRNGD_PORT="$withval"
+			AC_DEFINE_UNQUOTED([PRNGD_PORT], [$PRNGD_PORT],
+				[Port number of PRNGD/EGD random number socket])
+		fi
+	]
+)
+
+# PRNGD Unix domain socket
+AC_ARG_WITH([prngd-socket],
+	[  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)],
+	[
+		case "$withval" in
+		yes)
+			withval="/var/run/egd-pool"
+			;;
+		no)
+			withval=""
+			;;
+		/*)
+			;;
+		*)
+			AC_MSG_ERROR([You must specify an absolute path to the entropy socket])
+			;;
+		esac
+
+		if test ! -z "$withval" ; then
+			if test ! -z "$PRNGD_PORT" ; then
+				AC_MSG_ERROR([You may not specify both a PRNGD/EGD port and socket])
+			fi
+			if test ! -r "$withval" ; then
+				AC_MSG_WARN([Entropy socket is not readable])
+			fi
+			PRNGD_SOCKET="$withval"
+			AC_DEFINE_UNQUOTED([PRNGD_SOCKET], ["$PRNGD_SOCKET"],
+				[Location of PRNGD/EGD random number socket])
+		fi
+	],
+	[
+		# Check for existing socket only if we don't have a random device already
+		if test "x$OPENSSL_SEEDS_ITSELF" != "xyes" ; then
+			AC_MSG_CHECKING([for PRNGD/EGD socket])
+			# Insert other locations here
+			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
+				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
+					PRNGD_SOCKET="$sock"
+					AC_DEFINE_UNQUOTED([PRNGD_SOCKET], ["$PRNGD_SOCKET"])
+					break;
+				fi
+			done
+			if test ! -z "$PRNGD_SOCKET" ; then
+				AC_MSG_RESULT([$PRNGD_SOCKET])
+			else
+				AC_MSG_RESULT([not found])
+			fi
+		fi
+	]
+)
+
+# Which randomness source do we use?
+if test ! -z "$PRNGD_PORT" ; then
+	RAND_MSG="PRNGd port $PRNGD_PORT"
+elif test ! -z "$PRNGD_SOCKET" ; then
+	RAND_MSG="PRNGd socket $PRNGD_SOCKET"
+elif test ! -z "$OPENSSL_SEEDS_ITSELF" ; then
+	AC_DEFINE([OPENSSL_PRNG_ONLY], [1],
+		[Define if you want OpenSSL's internally seeded PRNG only])
+	RAND_MSG="OpenSSL internal ONLY"
+else
+	AC_MSG_ERROR([OpenSSH has no source of random numbers. Please configure OpenSSL with an entropy source or re-run configure using one of the --with-prngd-port or --with-prngd-socket options])
+fi
+
 # Check for PAM libs
 PAM_MSG="no"
-AC_ARG_WITH(pam,
+AC_ARG_WITH([pam],
 	[  --with-pam              Enable PAM support ],
 	[
 		if test "x$withval" != "xno" ; then
@@ -785,16 +919,16 @@ AC_ARG_WITH(pam,
 			fi
 
 			saved_LIBS="$LIBS"
-			AC_CHECK_LIB(dl, dlopen, , )
-			AC_CHECK_LIB(pam, pam_set_item, , AC_MSG_ERROR([*** libpam missing]))
-			AC_CHECK_FUNCS(pam_getenvlist)
-			AC_CHECK_FUNCS(pam_putenv)
+			AC_CHECK_LIB([dl], [dlopen], , )
+			AC_CHECK_LIB([pam], [pam_set_item], , [AC_MSG_ERROR([*** libpam missing])])
+			AC_CHECK_FUNCS([pam_getenvlist])
+			AC_CHECK_FUNCS([pam_putenv])
 			LIBS="$saved_LIBS"
 
 			PAM_MSG="yes"
 
 			SSHDLIBS="$SSHDLIBS -lpam"
-			AC_DEFINE(USE_PAM, 1,
+			AC_DEFINE([USE_PAM], [1],
 				[Define if you want to enable PAM support])
 
 			if test $ac_cv_lib_dl_dlopen = yes; then
@@ -815,141 +949,47 @@ AC_ARG_WITH(pam,
 if test "x$PAM_MSG" = "xyes" ; then
 	# Check PAM strerror arguments (old PAM)
 	AC_MSG_CHECKING([whether pam_strerror takes only one argument])
-	AC_TRY_COMPILE(
-		[
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #if defined(HAVE_SECURITY_PAM_APPL_H)
 #include <security/pam_appl.h>
 #elif defined (HAVE_PAM_PAM_APPL_H)
 #include <pam/pam_appl.h>
 #endif
-		],
-		[(void)pam_strerror((pam_handle_t *)NULL, -1);],
-		[AC_MSG_RESULT(no)],
-		[
-			AC_DEFINE(HAVE_OLD_PAM, 1,
+		]], [[
+(void)pam_strerror((pam_handle_t *)NULL, -1);
+		]])], [AC_MSG_RESULT([no])], [
+			AC_DEFINE([HAVE_OLD_PAM], [1],
 				[Define if you have an old version of PAM
 				which takes only one argument to pam_strerror])
-			AC_MSG_RESULT(yes)
+			AC_MSG_RESULT([yes])
 			PAM_MSG="yes (old library)"
-		]
-	)
+		
+	])
 fi
-
-# Do we want to force the use of the rand helper?
-AC_ARG_WITH(rand-helper,
-	[  --with-rand-helper      Use subprocess to gather strong randomness ],
-	[
-		if test "x$withval" = "xno" ; then
-			# Force use of OpenSSL's internal RNG, even if
-			# the previous test showed it to be unseeded.
-			if test -z "$OPENSSL_SEEDS_ITSELF" ; then
-				AC_MSG_WARN([*** Forcing use of OpenSSL's non-self-seeding PRNG])
-				OPENSSL_SEEDS_ITSELF=yes
-				USE_RAND_HELPER=""
-			fi
-		else
-			USE_RAND_HELPER=yes
-		fi
-	],
-)
-
-# Which randomness source do we use?
-if test ! -z "$OPENSSL_SEEDS_ITSELF" && test -z "$USE_RAND_HELPER" ; then
-	# OpenSSL only
-	AC_DEFINE(OPENSSL_PRNG_ONLY, 1,
-		[Define if you want OpenSSL's internally seeded PRNG only])
-	RAND_MSG="OpenSSL internal ONLY"
-	INSTALL_SSH_RAND_HELPER=""
-elif test ! -z "$USE_RAND_HELPER" ; then
-	# install rand helper
-	RAND_MSG="ssh-rand-helper"
-	INSTALL_SSH_RAND_HELPER="yes"
-fi
-AC_SUBST(INSTALL_SSH_RAND_HELPER)
-
-### Configuration of ssh-rand-helper
-
-# PRNGD TCP socket
-AC_ARG_WITH(prngd-port,
-	[  --with-prngd-port=PORT  read entropy from PRNGD/EGD TCP localhost:PORT],
-	[
-		case "$withval" in
-		no)
-			withval=""
-			;;
-		[[0-9]]*)
-			;;
-		*)
-			AC_MSG_ERROR(You must specify a numeric port number for --with-prngd-port)
-			;;
-		esac
-		if test ! -z "$withval" ; then
-			PRNGD_PORT="$withval"
-			AC_DEFINE_UNQUOTED(PRNGD_PORT, $PRNGD_PORT,
-				[Port number of PRNGD/EGD random number socket])
-		fi
-	]
-)
-
-# PRNGD Unix domain socket
-AC_ARG_WITH(prngd-socket,
-	[  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)],
-	[
-		case "$withval" in
-		yes)
-			withval="/var/run/egd-pool"
-			;;
-		no)
-			withval=""
-			;;
-		/*)
-			;;
-		*)
-			AC_MSG_ERROR(You must specify an absolute path to the entropy socket)
-			;;
-		esac
-
-		if test ! -z "$withval" ; then
-			if test ! -z "$PRNGD_PORT" ; then
-				AC_MSG_ERROR(You may not specify both a PRNGD/EGD port and socket)
-			fi
-			if test ! -r "$withval" ; then
-				AC_MSG_WARN(Entropy socket is not readable)
-			fi
-			PRNGD_SOCKET="$withval"
-			AC_DEFINE_UNQUOTED(PRNGD_SOCKET, "$PRNGD_SOCKET",
-				[Location of PRNGD/EGD random number socket])
-		fi
-	],
-	[
-		# Check for existing socket only if we don't have a random device already
-		if test "$USE_RAND_HELPER" = yes ; then
-			AC_MSG_CHECKING(for PRNGD/EGD socket)
-			# Insert other locations here
-			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
-				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
-					PRNGD_SOCKET="$sock"
-					AC_DEFINE_UNQUOTED(PRNGD_SOCKET, "$PRNGD_SOCKET")
-					break;
-				fi
-			done
-			if test ! -z "$PRNGD_SOCKET" ; then
-				AC_MSG_RESULT($PRNGD_SOCKET)
-			else
-				AC_MSG_RESULT(not found)
-			fi
-		fi
-	]
-)
-#l2212
+#l2460
 
 #l2312
+# Check for  long long datatypes
+AC_CHECK_TYPES([long long, unsigned long long, long double])
+
+# Check datatype sizes
+AC_CHECK_SIZEOF([char], [1])
+AC_CHECK_SIZEOF([short int], [2])
+AC_CHECK_SIZEOF([int], [4])
+AC_CHECK_SIZEOF([long int], [4])
+AC_CHECK_SIZEOF([long long int], [8])
+
+# Sanity check long long for some platforms (AIX)
+if test "x$ac_cv_sizeof_long_long_int" = "x4" ; then
+	ac_cv_sizeof_long_long_int=0
+fi
+
 # compute LLONG_MIN and LLONG_MAX if we don't know them.
 if test -z "$have_llong_max"; then
 	AC_MSG_CHECKING([for max value of long long])
 	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
+		[AC_LANG_PROGRAM([[
 #include <stdio.h>
 /* Why is this so damn hard? */
 #ifdef __GNUC__
@@ -985,8 +1025,7 @@ fprint_ll(FILE *f, long long n)
 		return -1;
 	return 0;
 }
-
-int main(void) {
+		]], [[
 	FILE *f;
 	long long i, llmin, llmax = 0;
 
@@ -1020,22 +1059,21 @@ int main(void) {
 	if (fclose(f) < 0)
 		exit(5);
 	exit(0);
-}
 		]])],
 		[
 			llong_min=`$AWK '{print $1}' conftest.llminmax`
 			llong_max=`$AWK '{print $2}' conftest.llminmax`
 
-			AC_MSG_RESULT($llong_max)
-			AC_DEFINE_UNQUOTED(LLONG_MAX, [${llong_max}LL],
+			AC_MSG_RESULT([$llong_max])
+			AC_DEFINE_UNQUOTED([LLONG_MAX], [${llong_max}LL],
 			    [max value of long long calculated by configure])
 			AC_MSG_CHECKING([for min value of long long])
-			AC_MSG_RESULT($llong_min)
-			AC_DEFINE_UNQUOTED(LLONG_MIN, [${llong_min}LL],
+			AC_MSG_RESULT([$llong_min])
+			AC_DEFINE_UNQUOTED([LLONG_MIN], [${llong_min}LL],
 			    [min value of long long calculated by configure])
 		],
 		[
-			AC_MSG_RESULT(not found)
+			AC_MSG_RESULT([not found])
 		],
 		[
 			AC_MSG_WARN([cross compiling: not checking])
@@ -1046,28 +1084,24 @@ fi
 
 # More checks for data types
 AC_CACHE_CHECK([for u_int type], ac_cv_have_u_int, [
-	AC_TRY_COMPILE(
-		[ #include <sys/types.h> ],
-		[ u_int a; a = 1;],
-		[ ac_cv_have_u_int="yes" ],
-		[ ac_cv_have_u_int="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ u_int a; a = 1;]])],
+	[ ac_cv_have_u_int="yes" ], [ ac_cv_have_u_int="no" 
+	])
 ])
 if test "x$ac_cv_have_u_int" = "xyes" ; then
-	AC_DEFINE(HAVE_U_INT, 1, [define if you have u_int data type])
+	AC_DEFINE([HAVE_U_INT], [1], [define if you have u_int data type])
 	have_u_int=1
 fi
 
 AC_CACHE_CHECK([for intXX_t types], ac_cv_have_intxx_t, [
-	AC_TRY_COMPILE(
-		[ #include <sys/types.h> ],
-		[ int8_t a; int16_t b; int32_t c; a = b = c = 1;],
-		[ ac_cv_have_intxx_t="yes" ],
-		[ ac_cv_have_intxx_t="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ int8_t a; int16_t b; int32_t c; a = b = c = 1;]])],
+	[ ac_cv_have_intxx_t="yes" ], [ ac_cv_have_intxx_t="no" 
+	])
 ])
 if test "x$ac_cv_have_intxx_t" = "xyes" ; then
-	AC_DEFINE(HAVE_INTXX_T, 1, [define if you have intxx_t data type])
+	AC_DEFINE([HAVE_INTXX_T], [1], [define if you have intxx_t data type])
 	have_intxx_t=1
 fi
 
@@ -1075,20 +1109,17 @@ if (test -z "$have_intxx_t" && \
 	   test "x$ac_cv_header_stdint_h" = "xyes")
 then
     AC_MSG_CHECKING([for intXX_t types in stdint.h])
-	AC_TRY_COMPILE(
-		[ #include <stdint.h> ],
-		[ int8_t a; int16_t b; int32_t c; a = b = c = 1;],
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <stdint.h> ]],
+	[[ int8_t a; int16_t b; int32_t c; a = b = c = 1;]])],
 		[
-			AC_DEFINE(HAVE_INTXX_T)
-			AC_MSG_RESULT(yes)
-		],
-		[ AC_MSG_RESULT(no) ]
-	)
+			AC_DEFINE([HAVE_INTXX_T])
+			AC_MSG_RESULT([yes])
+		], [ AC_MSG_RESULT([no]) 
+	])
 fi
 
 AC_CACHE_CHECK([for int64_t type], ac_cv_have_int64_t, [
-	AC_TRY_COMPILE(
-		[
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #ifdef HAVE_STDINT_H
 # include <stdint.h>
@@ -1097,227 +1128,334 @@ AC_CACHE_CHECK([for int64_t type], ac_cv_have_int64_t, [
 #ifdef HAVE_SYS_BITYPES_H
 # include <sys/bitypes.h>
 #endif
-		],
-		[ int64_t a; a = 1;],
-		[ ac_cv_have_int64_t="yes" ],
-		[ ac_cv_have_int64_t="no" ]
-	)
+		]], [[
+int64_t a; a = 1;
+		]])],
+	[ ac_cv_have_int64_t="yes" ], [ ac_cv_have_int64_t="no" 
+	])
 ])
 if test "x$ac_cv_have_int64_t" = "xyes" ; then
-	AC_DEFINE(HAVE_INT64_T, 1, [define if you have int64_t data type])
+	AC_DEFINE([HAVE_INT64_T], [1], [define if you have int64_t data type])
 fi
 
 AC_CACHE_CHECK([for u_intXX_t types], ac_cv_have_u_intxx_t, [
-	AC_TRY_COMPILE(
-		[ #include <sys/types.h> ],
-		[ u_int8_t a; u_int16_t b; u_int32_t c; a = b = c = 1;],
-		[ ac_cv_have_u_intxx_t="yes" ],
-		[ ac_cv_have_u_intxx_t="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ u_int8_t a; u_int16_t b; u_int32_t c; a = b = c = 1;]])],
+	[ ac_cv_have_u_intxx_t="yes" ], [ ac_cv_have_u_intxx_t="no" 
+	])
 ])
 if test "x$ac_cv_have_u_intxx_t" = "xyes" ; then
-	AC_DEFINE(HAVE_U_INTXX_T, 1, [define if you have u_intxx_t data type])
+	AC_DEFINE([HAVE_U_INTXX_T], [1], [define if you have u_intxx_t data type])
 	have_u_intxx_t=1
 fi
 
 if test -z "$have_u_intxx_t" ; then
     AC_MSG_CHECKING([for u_intXX_t types in sys/socket.h])
-	AC_TRY_COMPILE(
-		[ #include <sys/socket.h> ],
-		[ u_int8_t a; u_int16_t b; u_int32_t c; a = b = c = 1;],
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/socket.h> ]],
+	[[ u_int8_t a; u_int16_t b; u_int32_t c; a = b = c = 1;]])],
 		[
-			AC_DEFINE(HAVE_U_INTXX_T)
-			AC_MSG_RESULT(yes)
-		],
-		[ AC_MSG_RESULT(no) ]
-	)
+			AC_DEFINE([HAVE_U_INTXX_T])
+			AC_MSG_RESULT([yes])
+		], [ AC_MSG_RESULT([no]) 
+	])
 fi
 
 AC_CACHE_CHECK([for u_int64_t types], ac_cv_have_u_int64_t, [
-	AC_TRY_COMPILE(
-		[ #include <sys/types.h> ],
-		[ u_int64_t a; a = 1;],
-		[ ac_cv_have_u_int64_t="yes" ],
-		[ ac_cv_have_u_int64_t="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ u_int64_t a; a = 1;]])],
+	[ ac_cv_have_u_int64_t="yes" ], [ ac_cv_have_u_int64_t="no" 
+	])
 ])
 if test "x$ac_cv_have_u_int64_t" = "xyes" ; then
-	AC_DEFINE(HAVE_U_INT64_T, 1, [define if you have u_int64_t data type])
+	AC_DEFINE([HAVE_U_INT64_T], [1], [define if you have u_int64_t data type])
 	have_u_int64_t=1
 fi
 
 if test -z "$have_u_int64_t" ; then
     AC_MSG_CHECKING([for u_int64_t type in sys/bitypes.h])
-	AC_TRY_COMPILE(
-		[ #include <sys/bitypes.h> ],
-		[ u_int64_t a; a = 1],
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/bitypes.h> ]],
+	[[ u_int64_t a; a = 1]])],
 		[
-			AC_DEFINE(HAVE_U_INT64_T)
-			AC_MSG_RESULT(yes)
-		],
-		[ AC_MSG_RESULT(no) ]
-	)
+			AC_DEFINE([HAVE_U_INT64_T])
+			AC_MSG_RESULT([yes])
+		], [ AC_MSG_RESULT([no]) 
+	])
 fi
 
 if test -z "$have_u_intxx_t" ; then
 	AC_CACHE_CHECK([for uintXX_t types], ac_cv_have_uintxx_t, [
-		AC_TRY_COMPILE(
-			[
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
-			],
-			[ uint8_t a; uint16_t b; uint32_t c; a = b = c = 1; ],
-			[ ac_cv_have_uintxx_t="yes" ],
-			[ ac_cv_have_uintxx_t="no" ]
-		)
+			]], [[
+	uint8_t a;
+	uint16_t b;
+	uint32_t c;
+	a = b = c = 1;
+			]])],
+		[ ac_cv_have_uintxx_t="yes" ], [ ac_cv_have_uintxx_t="no" 
+		])
 	])
 	if test "x$ac_cv_have_uintxx_t" = "xyes" ; then
-		AC_DEFINE(HAVE_UINTXX_T, 1,
+		AC_DEFINE([HAVE_UINTXX_T], [1],
 			[define if you have uintxx_t data type])
 	fi
 fi
 
 if test -z "$have_uintxx_t" ; then
     AC_MSG_CHECKING([for uintXX_t types in stdint.h])
-	AC_TRY_COMPILE(
-		[ #include <stdint.h> ],
-		[ uint8_t a; uint16_t b; uint32_t c; a = b = c = 1;],
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <stdint.h> ]],
+	[[ uint8_t a; uint16_t b; uint32_t c; a = b = c = 1;]])],
 		[
-			AC_DEFINE(HAVE_UINTXX_T)
-			AC_MSG_RESULT(yes)
-		],
-		[ AC_MSG_RESULT(no) ]
-	)
+			AC_DEFINE([HAVE_UINTXX_T])
+			AC_MSG_RESULT([yes])
+		], [ AC_MSG_RESULT([no]) 
+	])
 fi
 
 if (test -z "$have_u_intxx_t" || test -z "$have_intxx_t" && \
 	   test "x$ac_cv_header_sys_bitypes_h" = "xyes")
 then
 	AC_MSG_CHECKING([for intXX_t and u_intXX_t types in sys/bitypes.h])
-	AC_TRY_COMPILE(
-		[
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/bitypes.h>
-		],
-		[
+		]], [[
 			int8_t a; int16_t b; int32_t c;
 			u_int8_t e; u_int16_t f; u_int32_t g;
 			a = b = c = e = f = g = 1;
-		],
+		]])],
 		[
-			AC_DEFINE(HAVE_U_INTXX_T)
-			AC_DEFINE(HAVE_INTXX_T)
-			AC_MSG_RESULT(yes)
-		],
-		[AC_MSG_RESULT(no)]
-	)
+			AC_DEFINE([HAVE_U_INTXX_T])
+			AC_DEFINE([HAVE_INTXX_T])
+			AC_MSG_RESULT([yes])
+		], [AC_MSG_RESULT([no])
+	])
 fi
 
 
 AC_CACHE_CHECK([for u_char], ac_cv_have_u_char, [
-	AC_TRY_COMPILE(
-		[
-#include <sys/types.h>
-		],
-		[ u_char foo; foo = 125; ],
-		[ ac_cv_have_u_char="yes" ],
-		[ ac_cv_have_u_char="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ u_char foo; foo = 125; ]])],
+	[ ac_cv_have_u_char="yes" ], [ ac_cv_have_u_char="no" 
+	])
 ])
 if test "x$ac_cv_have_u_char" = "xyes" ; then
-	AC_DEFINE(HAVE_U_CHAR, 1, [define if you have u_char data type])
+	AC_DEFINE([HAVE_U_CHAR], [1], [define if you have u_char data type])
 fi
-#l2591
 
+TYPE_SOCKLEN_T
 
-#l2601
-AC_CACHE_CHECK([for size_t], ac_cv_have_size_t, [
-	AC_TRY_COMPILE(
-		[
+AC_CHECK_TYPES([sig_atomic_t], , , [#include <signal.h>])
+AC_CHECK_TYPES([fsblkcnt_t, fsfilcnt_t], , , [
 #include <sys/types.h>
-		],
-		[ size_t foo; foo = 1235; ],
-		[ ac_cv_have_size_t="yes" ],
-		[ ac_cv_have_size_t="no" ]
-	)
+#ifdef HAVE_SYS_BITYPES_H
+#include <sys/bitypes.h>
+#endif
+#ifdef HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
+#ifdef HAVE_SYS_STATVFS_H
+#include <sys/statvfs.h>
+#endif
+])
+
+AC_CHECK_TYPES([in_addr_t, in_port_t], , ,
+[#include <sys/types.h>
+#include <netinet/in.h>])
+
+AC_CACHE_CHECK([for size_t], ac_cv_have_size_t, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ size_t foo; foo = 1235; ]])],
+	[ ac_cv_have_size_t="yes" ], [ ac_cv_have_size_t="no" 
+	])
 ])
 if test "x$ac_cv_have_size_t" = "xyes" ; then
-	AC_DEFINE(HAVE_SIZE_T, 1, [define if you have size_t data type])
+	AC_DEFINE([HAVE_SIZE_T], [1], [define if you have size_t data type])
 fi
 
 AC_CACHE_CHECK([for ssize_t], ac_cv_have_ssize_t, [
-	AC_TRY_COMPILE(
-		[
-#include <sys/types.h>
-		],
-		[ ssize_t foo; foo = 1235; ],
-		[ ac_cv_have_ssize_t="yes" ],
-		[ ac_cv_have_ssize_t="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ ssize_t foo; foo = 1235; ]])],
+	[ ac_cv_have_ssize_t="yes" ], [ ac_cv_have_ssize_t="no" 
+	])
 ])
 if test "x$ac_cv_have_ssize_t" = "xyes" ; then
-	AC_DEFINE(HAVE_SSIZE_T, 1, [define if you have ssize_t data type])
+	AC_DEFINE([HAVE_SSIZE_T], [1], [define if you have ssize_t data type])
 fi
-#l2627
 
-#l2643
+AC_CACHE_CHECK([for clock_t], ac_cv_have_clock_t, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <time.h> ]],
+	[[ clock_t foo; foo = 1235; ]])],
+	[ ac_cv_have_clock_t="yes" ], [ ac_cv_have_clock_t="no" 
+	])
+])
+if test "x$ac_cv_have_clock_t" = "xyes" ; then
+	AC_DEFINE([HAVE_CLOCK_T], [1], [define if you have clock_t data type])
+fi
+
 AC_CACHE_CHECK([for sa_family_t], ac_cv_have_sa_family_t, [
-	AC_TRY_COMPILE(
-		[
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <sys/socket.h>
-		],
-		[ sa_family_t foo; foo = 1235; ],
-		[ ac_cv_have_sa_family_t="yes" ],
-		[ AC_TRY_COMPILE(
-		  [
+		]], [[ sa_family_t foo; foo = 1235; ]])],
+	[ ac_cv_have_sa_family_t="yes" ],
+	[ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-		],
-		[ sa_family_t foo; foo = 1235; ],
+		]], [[ sa_family_t foo; foo = 1235; ]])],
 		[ ac_cv_have_sa_family_t="yes" ],
-
 		[ ac_cv_have_sa_family_t="no" ]
-	)]
 	)
+	])
 ])
 if test "x$ac_cv_have_sa_family_t" = "xyes" ; then
-	AC_DEFINE(HAVE_SA_FAMILY_T, 1,
+	AC_DEFINE([HAVE_SA_FAMILY_T], [1],
 		[define if you have sa_family_t data type])
 fi
-#l2667
 
-#l2683
+AC_CACHE_CHECK([for pid_t], ac_cv_have_pid_t, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ pid_t foo; foo = 1235; ]])],
+	[ ac_cv_have_pid_t="yes" ], [ ac_cv_have_pid_t="no" 
+	])
+])
+if test "x$ac_cv_have_pid_t" = "xyes" ; then
+	AC_DEFINE([HAVE_PID_T], [1], [define if you have pid_t data type])
+fi
+
 AC_CACHE_CHECK([for mode_t], ac_cv_have_mode_t, [
-	AC_TRY_COMPILE(
-		[
-#include <sys/types.h>
-		],
-		[ mode_t foo; foo = 1235; ],
-		[ ac_cv_have_mode_t="yes" ],
-		[ ac_cv_have_mode_t="no" ]
-	)
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
+	[[ mode_t foo; foo = 1235; ]])],
+	[ ac_cv_have_mode_t="yes" ], [ ac_cv_have_mode_t="no" 
+	])
 ])
 if test "x$ac_cv_have_mode_t" = "xyes" ; then
-	AC_DEFINE(HAVE_MODE_T, 1, [define if you have mode_t data type])
+	AC_DEFINE([HAVE_MODE_T], [1], [define if you have mode_t data type])
 fi
-#l2695
+
+
+AC_CACHE_CHECK([for struct sockaddr_storage], ac_cv_have_struct_sockaddr_storage, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+		]], [[ struct sockaddr_storage s; ]])],
+	[ ac_cv_have_struct_sockaddr_storage="yes" ],
+	[ ac_cv_have_struct_sockaddr_storage="no" 
+	])
+])
+if test "x$ac_cv_have_struct_sockaddr_storage" = "xyes" ; then
+	AC_DEFINE([HAVE_STRUCT_SOCKADDR_STORAGE], [1],
+		[define if you have struct sockaddr_storage data type])
+fi
+
+AC_CACHE_CHECK([for struct sockaddr_in6], ac_cv_have_struct_sockaddr_in6, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <netinet/in.h>
+		]], [[ struct sockaddr_in6 s; s.sin6_family = 0; ]])],
+	[ ac_cv_have_struct_sockaddr_in6="yes" ],
+	[ ac_cv_have_struct_sockaddr_in6="no" 
+	])
+])
+if test "x$ac_cv_have_struct_sockaddr_in6" = "xyes" ; then
+	AC_DEFINE([HAVE_STRUCT_SOCKADDR_IN6], [1],
+		[define if you have struct sockaddr_in6 data type])
+fi
+
+AC_CACHE_CHECK([for struct in6_addr], ac_cv_have_struct_in6_addr, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <netinet/in.h>
+		]], [[ struct in6_addr s; s.s6_addr[0] = 0; ]])],
+	[ ac_cv_have_struct_in6_addr="yes" ],
+	[ ac_cv_have_struct_in6_addr="no" 
+	])
+])
+if test "x$ac_cv_have_struct_in6_addr" = "xyes" ; then
+	AC_DEFINE([HAVE_STRUCT_IN6_ADDR], [1],
+		[define if you have struct in6_addr data type])
+
+dnl Now check for sin6_scope_id
+	AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_scope_id], , ,
+		[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#include <netinet/in.h>
+		])
+fi
+
+AC_CACHE_CHECK([for struct addrinfo], ac_cv_have_struct_addrinfo, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+		]], [[ struct addrinfo s; s.ai_flags = AI_PASSIVE; ]])],
+	[ ac_cv_have_struct_addrinfo="yes" ],
+	[ ac_cv_have_struct_addrinfo="no" 
+	])
+])
+if test "x$ac_cv_have_struct_addrinfo" = "xyes" ; then
+	AC_DEFINE([HAVE_STRUCT_ADDRINFO], [1],
+		[define if you have struct addrinfo data type])
+fi
+
+AC_CACHE_CHECK([for struct timeval], ac_cv_have_struct_timeval, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/time.h> ]],
+	[[ struct timeval tv; tv.tv_sec = 1;]])],
+	[ ac_cv_have_struct_timeval="yes" ],
+	[ ac_cv_have_struct_timeval="no" 
+	])
+])
+if test "x$ac_cv_have_struct_timeval" = "xyes" ; then
+	AC_DEFINE([HAVE_STRUCT_TIMEVAL], [1], [define if you have struct timeval])
+	have_struct_timeval=1
+fi
+
+AC_CHECK_TYPES([struct timespec])
+
+# We need int64_t or else certian parts of the compile will fail.
+if test "x$ac_cv_have_int64_t" = "xno" && \
+	test "x$ac_cv_sizeof_long_int" != "x8" && \
+	test "x$ac_cv_sizeof_long_long_int" = "x0" ; then
+	echo "OpenSSH requires int64_t support.  Contact your vendor or install"
+	echo "an alternative compiler (I.E., GCC) before continuing."
+	echo ""
+	exit 1;
+else
+dnl test snprintf (broken on SCO w/gcc)
+	AC_RUN_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <stdio.h>
+#include <string.h>
+#ifdef HAVE_SNPRINTF
+main()
+{
+	char buf[50];
+	char expected_out[50];
+	int mazsize = 50 ;
+#if (SIZEOF_LONG_INT == 8)
+	long int num = 0x7fffffffffffffff;
+#else
+	long long num = 0x7fffffffffffffffll;
+#endif
+	strcpy(expected_out, "9223372036854775807");
+	snprintf(buf, mazsize, "%lld", num);
+	if(strcmp(buf, expected_out) != 0)
+		exit(1);
+	exit(0);
+}
+#else
+main() { exit(0); }
+#endif
+		]])], [ true ], [ AC_DEFINE([BROKEN_SNPRINTF]) ],
+		AC_MSG_WARN([cross compiling: Assuming working snprintf()])
+	)
+fi
+#l3002
 
 
 #chl part
-AC_CACHE_CHECK([for in_port_t], ac_cv_have_in_port_t, [
-	AC_TRY_COMPILE(
-		[
-#include <sys/types.h>
-		],
-		[ in_port_t foo; foo = 1235; ],
-		[ ac_cv_have_in_port_t="yes" ],
-		[ ac_cv_have_in_port_t="no" ]
-	)
-])
-if test "x$ac_cv_have_in_port_t" = "xyes" ; then
-	AC_DEFINE(HAVE_IN_PORT_T, 1, [define if you have in_port_t data type])
-fi
-
 AC_CHECK_MEMBER(struct stat.st_flags,
 	AC_DEFINE(HAVE_STAT_ST_FLAGS, [], [Have stat.st_flags]), ,
 	[]
@@ -1338,71 +1476,29 @@ AC_CHECK_MEMBER(struct sockaddr.ss_len,
 	  #include <netinet/in.h>
 	  #include <sys/socket.h> ]
 )
+#OpenNTPD portable
 
 
-
-#l3049
+#l3249
 AC_CACHE_CHECK([whether getopt has optreset support],
 		ac_cv_have_getopt_optreset, [
-	AC_TRY_LINK(
-		[
-#include <getopt.h>
-		],
-		[ extern int optreset; optreset = 0; ],
-		[ ac_cv_have_getopt_optreset="yes" ],
-		[ ac_cv_have_getopt_optreset="no" ]
-	)
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <getopt.h> ]],
+		[[ extern int optreset; optreset = 0; ]])],
+	[ ac_cv_have_getopt_optreset="yes" ],
+	[ ac_cv_have_getopt_optreset="no" 
+	])
 ])
 if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
-	AC_DEFINE(HAVE_GETOPT_OPTRESET, 1,
+	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
 		[Define if your getopt(3) defines and uses optreset])
 fi
-#l3063
+#l3260
 
-#l3149
-# Check libraries needed by DNS fingerprint support
-AC_SEARCH_LIBS(getrrsetbyname, resolv,
-	[AC_DEFINE(HAVE_GETRRSETBYNAME, 1,
-		[Define if getrrsetbyname() exists])],
-	[
-		# Needed by our getrrsetbyname()
-		AC_SEARCH_LIBS(res_query, resolv)
-		AC_SEARCH_LIBS(dn_expand, resolv)
-		AC_MSG_CHECKING(if res_query will link)
-		AC_TRY_LINK_FUNC(res_query, AC_MSG_RESULT(yes),
-		   [AC_MSG_RESULT(no)
-		    saved_LIBS="$LIBS"
-		    LIBS="$LIBS -lresolv"
-		    AC_MSG_CHECKING(for res_query in -lresolv)
-		    AC_LINK_IFELSE([
-#include <resolv.h>
-int main()
-{
-	res_query (0, 0, 0, 0, 0);
-	return 0;
-}
-			],
-			[LIBS="$LIBS -lresolv"
-			 AC_MSG_RESULT(yes)],
-			[LIBS="$saved_LIBS"
-			 AC_MSG_RESULT(no)])
-		    ])
-		AC_CHECK_FUNCS(_getshort _getlong)
-		AC_CHECK_DECLS([_getshort, _getlong], , ,
-		    [#include <sys/types.h>
-		    #include <arpa/nameser.h>])
-		AC_CHECK_MEMBER(HEADER.ad,
-			[AC_DEFINE(HAVE_HEADER_AD, 1,
-			    [Define if HEADER.ad exists in arpa/nameser.h])],,
-			[#include <arpa/nameser.h>])
-	])
-#l3184
-
-#l3515
+#l3482
 # Looking for programs, paths and files
 
 PRIVSEP_PATH=/var/empty
-AC_ARG_WITH(privsep-path,
+AC_ARG_WITH([privsep-path],
 	[  --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
@@ -1411,32 +1507,43 @@ AC_ARG_WITH(privsep-path,
 		fi
 	]
 )
-AC_SUBST(PRIVSEP_PATH)
-#l3528
+AC_SUBST([PRIVSEP_PATH])
+#l3494
 
-#l3678
+#l3901
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
-AC_ARG_WITH(bsd-auth,
+AC_ARG_WITH([bsd-auth],
 	[  --with-bsd-auth         Enable BSD auth support],
 	[
 		if test "x$withval" != "xno" ; then
-			AC_DEFINE(BSD_AUTH, 1,
+			AC_DEFINE([BSD_AUTH], [1],
 				[Define if you have BSD auth support])
 			BSD_AUTH_MSG=yes
 		fi
 	]
 )
-#l3689
+#l3912
 
 
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
 
 
-#l3986
+#l4176
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.
 CFLAGS="$CFLAGS $werror_flags"
+
+if test "x$ac_cv_func_getaddrinfo" != "xyes" ; then
+	TEST_SSH_IPV6=no
+else
+	TEST_SSH_IPV6=yes
+fi
+AC_CHECK_DECL([BROKEN_GETADDRINFO],  [TEST_SSH_IPV6=no])
+AC_SUBST([TEST_SSH_IPV6], [$TEST_SSH_IPV6])
+
+AC_EXEEXT
+#l4188
 
 AC_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([Makefile
@@ -1446,7 +1553,8 @@ AC_CONFIG_FILES([Makefile
 		src/libexec/mail.local/Makefile
 		])
 
-AC_OUTPUT 
+#l4192
+AC_OUTPUT
 
 # Print summary of options
 
