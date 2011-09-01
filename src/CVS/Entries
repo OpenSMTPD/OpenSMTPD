@@ -44,16 +44,9 @@ D/libexec////
 /smtpctl.8/1.21/Wed Aug 24 17:59:47 2011//
 /smtpd.conf.5/1.44/Wed Aug 24 17:59:47 2011//
 /lka_session.c/1.9/Result of merge//
-/mfa.c/1.60/Result of merge+Sun Aug 28 20:42:04 2011//
-/parse.y/1.77/Result of merge//
 /queue_fsqueue.c/1.13/Result of merge//
-/smtp_session.c/1.143/Result of merge//
-/smtpd.h/1.235/Result of merge//
-/filter.h/1.1/Sat Aug 27 22:32:41 2011//
-/mfa_session.c/1.2/Sun Aug 28 00:03:24 2011//
 /smtpfilter.c/1.1/Sat Aug 27 22:32:41 2011//
 /queue.c/1.105/Result of merge//
-/smtp.c/1.88/Result of merge//
 /enqueue.c/1.47/Result of merge//
 /mda.c/1.59/Result of merge+Mon Aug 29 23:06:14 2011//
 /mta.c/1.113/Result of merge//
@@ -64,3 +57,11 @@ D/libexec////
 /map_backend_stdio.c/1.2/Result of merge//
 /ramqueue.c/1.17/Result of merge+Tue Aug 30 21:14:40 2011//
 /runner.c/1.116/Result of merge+Tue Aug 30 21:14:40 2011//
+/filter.c/1.2/Wed Aug 31 18:56:30 2011//
+/filter.h/1.2/Thu Sep  1 10:56:37 2011//
+/mfa.c/1.61/Result of merge//
+/mfa_session.c/1.4/Result of merge//
+/parse.y/1.79/Result of merge//
+/smtp.c/1.89/Result of merge//
+/smtp_session.c/1.145/Result of merge//
+/smtpd.h/1.236/Result of merge//

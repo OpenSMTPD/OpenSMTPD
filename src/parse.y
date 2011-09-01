@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.77 2011/08/27 22:32:41 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.79 2011/09/01 09:42:15 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -419,7 +419,7 @@ main		: QUEUE INTERVAL interval	{
 			free($2);
 			free($3);
 		}
-		 */
+		*/
 		;
 
 maptype		: SINGLE			{ map->m_type = T_SINGLE; }
