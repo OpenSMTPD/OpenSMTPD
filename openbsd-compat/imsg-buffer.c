@@ -146,7 +146,7 @@ ibuf_write(struct msgbuf *msgbuf)
 {
 	struct iovec	 iov[IOV_MAX];
 	struct ibuf	*buf;
-	unsigned int	 i = 0, j;
+	unsigned int	 i = 0;
 	ssize_t	n;
 
 	bzero(&iov, sizeof(iov));
