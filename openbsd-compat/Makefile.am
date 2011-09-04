@@ -1,6 +1,7 @@
 noinst_LIBRARIES = libopenbsd-compat.a
 
 libopenbsd_compat_a_SOURCES = \
+		  base64.c \
 		  basename.c \
 		  bsd-arc4random.c \
 		  bsd-closefrom.c \

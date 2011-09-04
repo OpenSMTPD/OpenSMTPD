@@ -6,8 +6,12 @@
 
 #include "../config.h"
 #include "defines.h"
+
+/* OpenBSD function replacements */
+#include "base64.h"
 #include "sys-queue.h"
 #include "sys-tree.h"
+#include "vis.h"
 #include "xmalloc.h"
 
 #ifdef HAVE_SYS_TIME_H
