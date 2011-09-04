@@ -77,6 +77,7 @@ AC_CHECK_HEADERS( \
 		sys/un.h \
 		ucred.h \
 		util.h \
+		vis.h
                 )
 
 

@@ -37,7 +37,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
 #include <vis.h>
+#endif
 
 #include "smtpd.h"
 #include "log.h"
