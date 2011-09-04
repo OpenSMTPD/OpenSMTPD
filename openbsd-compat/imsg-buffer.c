@@ -158,12 +158,6 @@ ibuf_write(struct msgbuf *msgbuf)
 		i++;
 	}
 
-	/* chl XXX */
-	for (j=i; j<IOV_MAX;j++) {
-		iov[j].iov_base = NULL;
-		iov[j].iov_len = 0;
-	}
-
 	if ((n = writev(msgbuf->fd, iov, i)) == -1) {
 		if (errno == EAGAIN || errno == ENOBUFS ||
 		    errno == EINTR)	/* try later */
