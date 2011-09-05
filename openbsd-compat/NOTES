@@ -5,6 +5,7 @@ basename.c		portable openssh
 bsd-arc4random.c	portable openssh
 bsd-closefrom.c		portable openssh
 bsd-getpeereid.c	portable openssh
+bsd-waitpid.{c,h}	portable openssh
 daemon.c		portable openssh
 defines.h		portable openssh
 dirname.c		portable openssh

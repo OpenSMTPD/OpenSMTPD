@@ -6,6 +6,7 @@ libopenbsd_compat_a_SOURCES = \
 		  bsd-arc4random.c \
 		  bsd-closefrom.c \
 		  bsd-getpeereid.c \
+		  bsd-waitpid.c \
 		  daemon.c \
 		  dirname.c \
 		  entropy.c \

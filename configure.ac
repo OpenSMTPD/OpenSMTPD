@@ -254,6 +254,7 @@ AC_CHECK_FUNCS( \
 	strtonum \
 	strmode \
 	sysconf \
+	waitpid \
 	)
 
 #l1556
