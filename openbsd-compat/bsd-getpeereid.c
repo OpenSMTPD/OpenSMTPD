@@ -18,10 +18,9 @@
 
 #if !defined(HAVE_GETPEEREID)
 
-#include <sys/types.h> 
-#define __USE_GNU /* for struct ucred */
+#include <sys/types.h>
 #include <sys/socket.h>
-#undef __USE_GNU
+
 #include <unistd.h>
 
 #if defined(SO_PEERCRED)
