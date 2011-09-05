@@ -1,3 +1,6 @@
+#ifndef _OPENBSD_COMPAT_H
+#define _OPENBSD_COMPAT_H
+
 #include <sys/types.h>
 
 #include <stdio.h>
@@ -85,6 +88,7 @@ char *strsep(char **stringp, const char *delim);
 
 #ifndef HAVE_SETPROCTITLE
 void setproctitle(const char *fmt, ...);
+void compat_init_setproctitle(int argc, char *argv[]);
 #endif
 
 #if !defined(HAVE_GETOPT) || !defined(HAVE_GETOPT_OPTRESET)
@@ -102,7 +106,7 @@ unsigned int arc4random(void);
 void arc4random_stir(void);
 #endif /* !HAVE_ARC4RANDOM */
 
-#ifndef ARC4RANDOM_BUF
+#ifndef HAVE_ARC4RANDOM_BUF
 void arc4random_buf(void *, size_t);
 #endif
 
@@ -131,3 +135,5 @@ void strmode(int mode, char *p);
 int scan_scaled(char *scaled, long long *result);
 int fmt_scaled(long long number, char *result);
 #endif
+
+#endif /* _OPENBSD_COMPAT_H */

@@ -34,8 +34,7 @@
 
 /* OPENBSD ORIGINAL: include/vis.h */
 
-#include "config.h"
-//#include "includes.h"
+#include "includes.h"
 #if !defined(HAVE_STRNVIS)
 
 #ifndef _VIS_H_

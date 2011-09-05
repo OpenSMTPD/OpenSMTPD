@@ -30,8 +30,7 @@
 
 /* OPENBSD ORIGINAL: lib/libc/gen/vis.c */
 
-#include "config.h"
-//#include "includes.h"
+#include "includes.h"
 #if !defined(HAVE_STRNVIS)
 
 #include <ctype.h>

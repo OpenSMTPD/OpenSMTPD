@@ -45,7 +45,7 @@
 #ifndef _BSD_BASE64_H
 #define _BSD_BASE64_H
 
-#include "config.h"
+#include "includes.h"
 
 #ifndef HAVE___B64_NTOP
 # ifndef HAVE_B64_NTOP

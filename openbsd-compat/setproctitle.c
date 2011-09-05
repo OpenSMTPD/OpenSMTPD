@@ -31,8 +31,7 @@
  * SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "openbsd-compat.h"
+#include "includes.h"
 
 #ifndef HAVE_SETPROCTITLE
 

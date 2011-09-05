@@ -18,8 +18,7 @@
 
 /* OPENBSD ORIGINAL: lib/libc/gen/dirname.c */
 
-#include "config.h"
-
+#include "includes.h"
 #ifndef HAVE_DIRNAME
 
 #include <errno.h>

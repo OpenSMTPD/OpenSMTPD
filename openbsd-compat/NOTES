@@ -1,31 +1,33 @@
 List of files and where they come from
 
+base64.{c,h}  	  	portable openssh
 basename.c		portable openssh
 bsd-arc4random.c	portable openssh
 bsd-closefrom.c		portable openssh
 bsd-getpeereid.c	portable openssh
+daemon.c		portable openssh
 defines.h		portable openssh
 dirname.c		portable openssh
-entropy.c		portable openssh
-entropy.h		portable openssh
+entropy.{c,h}		portable openssh
 fgetln.c		part of /usr/src/usr.bin/make/util.c
 fmt_scaled.c		portable openssh
 fparseln.c		part of /usr/src/libutil/fparseln.c
-getopt.c	  
+getopt.c	  	portable openssh
+imsg-buffer.c		part of /usr/src/libutil/imsg-buffer.c
+imsg.{c,h}		part of /usr/src/libutil/imsg.c
+includes.h		portable openssh
 log.h
+mktemp.c		portable openssh
 openbsd-compat.h	
 setproctitle.c		portable openssh
-strmode.c		portable openssh
 strlcat.c		portable openssh
 strlcpy.c		portable openssh
-strtonum.c		portable openssh
+strmode.c		portable openssh
 strsep.c		portable openssh
 strtonum.c		portable openssh
 sys-queue.h		portable openssh
 sys-tree.h		portable openssh
-utimes.c		http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/utimes.c?rev=1.9
 utime.h			http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/emul/utime.h?rev=1.25
-vis.c			portable openssh
-vis.h			portable openssh
-xmalloc.c
-xmalloc.h
+utimes.c		http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/utimes.c?rev=1.9
+vis.{c,h}		portable openssh
+xmalloc.{c,h}		portable openssh

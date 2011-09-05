@@ -30,7 +30,7 @@
 
 /* OPENBSD ORIGINAL: lib/libc/gen/daemon.c */
 
-#include "config.h"
+#include "includes.h"
 
 #ifndef HAVE_DAEMON
 

@@ -18,8 +18,7 @@
 
 /* OPENBSD ORIGINAL: lib/libc/string/strlcpy.c */
 
-#include "config.h"
-
+#include "includes.h"
 #ifndef HAVE_STRLCPY
 
 #include <sys/types.h>

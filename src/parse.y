@@ -55,7 +55,6 @@
 #include <util.h>
 #endif
 
-#include "defines.h"
 #include "smtpd.h"
 #include "log.h"
 

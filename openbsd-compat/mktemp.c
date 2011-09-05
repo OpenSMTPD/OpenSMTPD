@@ -21,9 +21,7 @@
 
 /* OPENBSD ORIGINAL: lib/libc/stdio/mktemp.c */
 
-#include "config.h"
-
-#if !defined(HAVE_MKDTEMP) || defined(HAVE_STRICT_MKSTEMP)
+#include "includes.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -35,6 +33,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+
+#if !defined(HAVE_MKDTEMP) || defined(HAVE_STRICT_MKSTEMP)
 
 #define MKTEMP_NAME	0
 #define MKTEMP_FILE	1
@@ -95,27 +95,6 @@ mktemp_internal(char *path, int slen, int mode)
 	errno = EEXIST;
 	return(-1);
 }
-
-#if 0
-char *_mktemp(char *);
-
-char *
-_mktemp(char *path)
-{
-	if (mktemp_internal(path, 0, MKTEMP_NAME) == -1)
-		return(NULL);
-	return(path);
-}
-
-__warn_references(mktemp,
-    "warning: mktemp() possibly used unsafely; consider using mkstemp()");
-
-char *
-mktemp(char *path)
-{
-	return(_mktemp(path));
-}
-#endif
 
 int
 mkstemp(char *path)

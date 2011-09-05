@@ -246,6 +246,7 @@ AC_CHECK_FUNCS( \
 	fparseln \
 	getopt \
 	getpeereid \
+	memmove \
 	setproctitle \
 	strlcat \
 	strlcpy \
