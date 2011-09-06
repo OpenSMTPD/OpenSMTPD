@@ -83,12 +83,12 @@ AC_CHECK_HEADERS( \
 
 #chl
 
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb" ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db.h> header file]) LIBS="$LIBS -ldb1"] , [
+AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
+AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file]) ] , [
+AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
 				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
 ])])])
-
+AC_SEARCH_LIBS([db_open], [db db1 db2], [])
 
 #l357
 # login_cap.h requires sys/types.h on NetBSD
