@@ -90,7 +90,7 @@ getlock(char *name, struct passwd *pw)
 				}
 				goto again;
 			}
-#ifndef HAVE_O_EXLOCK
+#ifndef O_EXLOCK
 #define O_EXLOCK 0
 #endif
 			if ((lfd = open(lpath, O_CREAT|O_WRONLY|O_EXCL|O_EXLOCK,
