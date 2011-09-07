@@ -96,7 +96,7 @@ getlock(char *name, struct passwd *pw)
 			if ((lfd = open(lpath, O_CREAT|O_WRONLY|O_EXCL|O_EXLOCK,
 			    S_IRUSR|S_IWUSR)) != -1)
 				break;
-#ifndef HAVE_O_EXLOCK
+#ifndef O_EXLOCK
 			/* XXX : do something! */
 #endif
 again:
