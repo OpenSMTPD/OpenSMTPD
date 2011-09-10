@@ -202,7 +202,7 @@ retry:
 			merr(NOTFATAL, "%s: %s", path, strerror(errno));
 			goto bad;
 		}
-#ifndef havE_O_EXLOCK
+#ifndef O_EXLOCK
 #define O_EXLOCK 0
 #endif
 		if ((mbfd = open(path, O_APPEND|O_CREAT|O_EXCL|O_WRONLY|O_EXLOCK,
