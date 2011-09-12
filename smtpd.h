@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.236 2011/08/31 18:56:30 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.237 2011/09/01 19:56:49 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -648,6 +648,7 @@ struct smtpd {
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
 
 	struct stats				*stats;
+	u_int64_t				 filtermask;
 };
 
 enum {
