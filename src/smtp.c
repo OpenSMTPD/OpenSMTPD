@@ -317,6 +317,7 @@ smtp_shutdown(void)
 //	child_free();
 	free_peers();
 	clean_setproctitle();
+	event_base_free(NULL);
 #endif
 
 	log_info("smtp server exiting");

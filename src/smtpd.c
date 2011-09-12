@@ -215,6 +215,7 @@ parent_shutdown(void)
 	free_pipes();
 	free_peers();
 	clean_setproctitle();
+	event_base_free(NULL);
 #endif
 
 	log_warnx("parent terminating");

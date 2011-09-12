@@ -274,6 +274,7 @@ mta_shutdown(void)
 	child_free();
 	free_peers();
 	clean_setproctitle();
+	event_base_free(NULL);
 #endif
 
 	log_info("mail transfer agent exiting");
