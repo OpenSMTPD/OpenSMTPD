@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.116 2011/08/30 17:06:01 chl Exp $	*/
+/*	$OpenBSD: runner.c,v 1.117 2011/09/01 19:56:49 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -418,7 +418,7 @@ runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
 
 	rq_msg = rq_evp->rq_msg;
 	rq_batch = rq_evp->rq_batch;
-	rq_host = rq_msg->rq_host;
+	rq_host = rq_evp->rq_host;
 
 	switch (rq_batch->type) {
 	case D_BOUNCE:
