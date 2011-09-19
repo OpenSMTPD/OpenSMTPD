@@ -17,6 +17,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
@@ -25,7 +27,12 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
+#if LIBEVENT_MAJOR_VERSION < 2
 #include <event.h>
+#else
+#include <event2/event.h>
+#include <event2/bufferevent_ssl.h>
+#endif
 #include <fcntl.h>
 #include <imsg.h>
 #include <pwd.h>
@@ -49,11 +56,7 @@ SSL_CTX	*ssl_ctx_create(void);
 void	 ssl_session_accept(int, short, void *);
 void	 ssl_read(int, short, void *);
 void	 ssl_write(int, short, void *);
-#ifndef LIBEVENT2
 int	 ssl_bufferevent_add(struct event *, int);
-#else
-int	 ssl_bufferevent_add(struct event *, struct timeval);
-#endif
 void	 ssl_connect(int, short, void *);
 
 SSL	*ssl_client_init(int, char *, size_t, char *, size_t);
@@ -65,31 +68,9 @@ DH	*get_dh1024(void);
 DH	*get_dh_from_memory(char *, size_t);
 void	 ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
 
-#ifdef HAVE_BUFFEREVENT_READ_PRESSURE_CB
+#if LIBEVENT_MAJOR_VERSION < 2
 extern void	bufferevent_read_pressure_cb(struct evbuffer *, size_t,
 		    size_t, void *);
-#else
-/*
- * This callback is executed when the size of the input buffer changes.
- * We use it to apply back pressure on the reading side.
- */
-
-void
-bufferevent_read_pressure_cb(struct evbuffer *buf, size_t old, size_t now,
-    void *arg) {
-        struct bufferevent *bufev = arg;
-        /*
-	 * If we are below the watermark then reschedule reading if it's
-	 * still enabled.
-	 *                            */
-        if (bufev->wm_read.high == 0 || now < bufev->wm_read.high) {
-		evbuffer_setcb(buf, NULL, NULL);
-
-		if (bufev->enabled & EV_READ)
-			ssl_bufferevent_add(&bufev->ev_read, bufev->timeout_read);
-        }
-}
-#endif
 
 void
 ssl_connect(int fd, short event, void *p)
@@ -299,7 +280,6 @@ err:
 	(*bufev->errorcb)(bufev, what, bufev->cbarg);
 }
 
-#ifndef LIBEVENT2
 int
 ssl_bufferevent_add(struct event *ev, int timeout)
 {
@@ -313,12 +293,6 @@ ssl_bufferevent_add(struct event *ev, int timeout)
 	}
 
 	return (event_add(ev, ptv));
-}
-#else
-int
-ssl_bufferevent_add(struct event *ev, struct timeval tv)
-{
-	return (event_add(ev, &tv));
 }
 #endif
 
@@ -527,6 +501,7 @@ ssl_error(const char *where)
 	}
 }
 
+#if LIBEVENT_MAJOR_VERSION < 2
 void
 ssl_session_accept(int fd, short event, void *p)
 {
@@ -588,6 +563,7 @@ ssl_session_accept(int fd, short event, void *p)
 retry:
 	event_add(&s->s_ev, &s->s_tv);
 }
+#endif
 
 void
 ssl_session_init(struct session *s)
@@ -615,8 +591,22 @@ ssl_session_init(struct session *s)
 
 	s->s_tv.tv_sec = SMTPD_SESSION_TIMEOUT;
 	s->s_tv.tv_usec = 0;
+
+
+#if LIBEVENT_MAJOR_VERSION < 2
 	event_set(&s->s_ev, s->s_fd, EV_READ|EV_TIMEOUT, ssl_session_accept, s);
 	event_add(&s->s_ev, &s->s_tv);
+#else
+	s->s_bev =
+		bufferevent_openssl_socket_new(bufferevent_get_base(s->s_bev),
+					       s->s_fd,
+					       s->s_ssl,
+					       BUFFEREVENT_SSL_ACCEPTING,
+					       BEV_OPT_CLOSE_ON_FREE);
+	if (s->s_bev == NULL)
+		fatal("bufferevent_openssl_socket_new");
+	bufferevent_enable(s->s_bev, EV_READ);
+#endif
 	return;
 
  err:
