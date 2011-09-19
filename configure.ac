@@ -1550,6 +1550,39 @@ AC_SUBST([TEST_SSH_IPV6], [$TEST_SSH_IPV6])
 AC_EXEEXT
 #l4188
 
+##chl (still based on portable OpenSSH's configure.ac)
+AC_MSG_CHECKING([if inet_net_pton will link])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <netdb.h>
+#include <resolv.h>
+				]], [[
+	inet_net_pton (0, 0, 0, 0, 0);
+				]])],
+		    AC_MSG_RESULT([yes]),
+		   [AC_MSG_RESULT([no])
+		    saved_LIBS="$LIBS"
+		    LIBS="$LIBS -lresolv"
+		    AC_MSG_CHECKING([for inet_net_pton in -lresolv])
+		    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <netdb.h>
+#include <resolv.h>
+				]], [[
+	inet_net_pton (0, 0, 0, 0, 0);
+				]])],
+			[AC_MSG_RESULT([yes])],
+			[LIBS="$saved_LIBS"
+			 AC_MSG_RESULT([no])])
+		    ])
+
+##end of chl
+
+
 AC_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
