@@ -18,9 +18,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* define _GNU_SOURCE for asprintf */
-#define _GNU_SOURCE
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "sys-tree.h"
@@ -31,10 +28,7 @@
 #include <arpa/inet.h>
 
 #include <event.h>
-/* need to define __USE_GNU to get EAI_NODATA defined */
-/* #define __USE_GNU */
 #include <netdb.h>
-/* #undef __USE_GNU */
 #include <resolv.h>
 #include "imsg.h"
 #include <stdio.h>

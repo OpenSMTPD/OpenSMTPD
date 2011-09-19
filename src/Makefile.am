@@ -30,7 +30,13 @@ LIBCOMPAT=$(top_srcdir)/openbsd-compat/libopenbsd-compat.a
 
 LDADD = $(LIBCOMPAT) -levent -lssl -lcrypt -lutil
 
-#makemap newaliases
+# need to define _GNU_SOURCE to get:
+# EAI_NODATA defined
+# {v,}asprintf
+# setres{g,u}id
+CFLAGS=-D_GNU_SOURCE
+
+# makemap newaliases
 install-exec-hook:
 	rm -rf	$(DESTDIR)$(bindir)/newaliases$(EXEEXT)
 

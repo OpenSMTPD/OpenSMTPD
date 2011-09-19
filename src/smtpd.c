@@ -18,9 +18,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* define _GNU_SOURCE for asprintf */
-#define _GNU_SOURCE
-
 #include <sys/file.h> /* Needed for flock */
 #include <sys/types.h>
 #include "sys-queue.h"

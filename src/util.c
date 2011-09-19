@@ -18,8 +18,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define _GNU_SOURCE
-
 #include <sys/types.h>
 #include <sys/param.h>
 #include "sys-queue.h"

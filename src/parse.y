@@ -43,10 +43,7 @@
 #include "imsg.h"
 #include <paths.h>
 #include <pwd.h>
-/* need to define __USE_GNU to get EAI_NODATA defined */
-#define __USE_GNU
 #include <netdb.h>
-#undef __USE_GNU
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

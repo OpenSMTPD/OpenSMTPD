@@ -17,9 +17,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* define _GNU_SOURCE for asprintf */
-#define _GNU_SOURCE
-
 #include "config.h"
 
 #ifdef HAVE_SYS_FILE_H

@@ -17,9 +17,6 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* define _GNU_SOURCE for asprintf */
-#define _GNU_SOURCE
-
 #include <sys/param.h>
 #include "sys-queue.h"
 #include <sys/socket.h>

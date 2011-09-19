@@ -27,10 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h> /* for USHRT_MAX */
-/* need to define __USE_GNU to get EAI_NODATA defined */
-#define __USE_GNU
 #include <netdb.h>
-#undef __USE_GNU
 #include <netdb.h>
 #include <poll.h>
 #include <stdio.h>

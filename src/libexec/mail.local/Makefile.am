@@ -7,3 +7,9 @@ INCLUDES = -I$(top_srcdir)/openbsd-compat/
 LIBCOMPAT=$(top_srcdir)/openbsd-compat/libopenbsd-compat.a
 
 LDADD = $(LIBCOMPAT) -levent -lssl -lcrypt -lutil
+
+# need to define _GNU_SOURCE to get:
+# EAI_NODATA defined
+# {v,}asprintf
+# setres{g,u}id
+CFLAGS=-D_GNU_SOURCE
