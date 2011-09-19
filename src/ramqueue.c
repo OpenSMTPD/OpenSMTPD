@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.17 2011/08/30 17:06:01 chl Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.19 2011/09/18 21:37:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -185,25 +185,22 @@ ramqueue_insert(struct ramqueue *rqueue, struct envelope *envelope, time_t curtm
 	msgkey.msgid = evpid_to_msgid(envelope->delivery.id);
 	rq_msg = RB_FIND(msgtree, &rqueue->msgtree, &msgkey);
 	if (rq_msg == NULL) {
-		log_debug("inserting new message node in msgtree: %d", msgkey.msgid);
 		rq_msg = calloc(1, sizeof (*rq_msg));
 		if (rq_msg == NULL)
 			fatal("calloc");
 		rq_msg->msgid = msgkey.msgid;
 		RB_INSERT(msgtree, &rqueue->msgtree, rq_msg);
 		RB_INIT(&rq_msg->evptree);
-		env->stats->ramqueue.messages++;
-		SET_IF_GREATER(env->stats->ramqueue.messages,
-		    env->stats->ramqueue.messages_max);
+		stat_increment(STATS_RAMQUEUE_MESSAGE);
 	}
-	rq_msg->rq_host = ramqueue_get_host(rqueue, envelope->delivery.rcpt.domain);
 
 	rq_evp = calloc(1, sizeof (*rq_evp));
 	if (rq_evp == NULL)
 		fatal("calloc");
 	rq_evp->evpid = envelope->delivery.id;
 	rq_evp->sched = ramqueue_next_schedule(envelope, curtm);
-	rq_evp->rq_batch = ramqueue_get_batch(rqueue, rq_msg->rq_host, envelope);
+	rq_evp->rq_host = ramqueue_get_host(rqueue, envelope->delivery.rcpt.domain);
+	rq_evp->rq_batch = ramqueue_get_batch(rqueue, rq_evp->rq_host, envelope);
 	RB_INSERT(evptree, &rq_msg->evptree, rq_evp);
 	rq_evp->rq_msg = rq_msg;
 
@@ -220,9 +217,7 @@ ramqueue_insert(struct ramqueue *rqueue, struct envelope *envelope, time_t curtm
 	if (evp == NULL)
 		TAILQ_INSERT_TAIL(&rqueue->queue, rq_evp, queue_entry);
 
- 	env->stats->ramqueue.envelopes++;
-	SET_IF_GREATER(env->stats->ramqueue.envelopes,
-	    env->stats->ramqueue.envelopes_max);
+	stat_increment(STATS_RAMQUEUE_ENVELOPE);
 }
 
 static int
@@ -294,9 +289,7 @@ ramqueue_get_host(struct ramqueue *rqueue, char *hostname)
 		strlcpy(rq_host->hostname, hostname, sizeof(rq_host->hostname));
 		TAILQ_INIT(&rq_host->batch_queue);
 		RB_INSERT(hosttree, &rqueue->hosttree, rq_host);
-		env->stats->ramqueue.hosts++;
-		SET_IF_GREATER(env->stats->ramqueue.hosts,
-		    env->stats->ramqueue.hosts_max);
+		stat_increment(STATS_RAMQUEUE_HOST);
 	}
 
 	return rq_host;
@@ -331,9 +324,8 @@ ramqueue_get_batch(struct ramqueue *rqueue, struct ramqueue_host *host,
 	TAILQ_INIT(&rq_batch->envelope_queue);
 	TAILQ_INSERT_TAIL(&host->batch_queue, rq_batch, batch_entry);
 
-	env->stats->ramqueue.batches++;
-	SET_IF_GREATER(env->stats->ramqueue.batches,
-	    env->stats->ramqueue.batches_max);
+	stat_increment(STATS_RAMQUEUE_BATCH);
+
 	return rq_batch;
 }
 
@@ -357,7 +349,7 @@ ramqueue_remove_batch(struct ramqueue_host *rq_host, struct ramqueue_batch *rq_b
 {
 	TAILQ_REMOVE(&rq_host->batch_queue, rq_batch, batch_entry);
 	free(rq_batch);
-	env->stats->ramqueue.batches--;
+	stat_decrement(STATS_RAMQUEUE_BATCH);
 }
 
 void
@@ -365,7 +357,7 @@ ramqueue_remove_host(struct ramqueue *rqueue, struct ramqueue_host *rq_host)
 {
 	RB_REMOVE(hosttree, &rqueue->hosttree, rq_host);
 	free(rq_host);
-	env->stats->ramqueue.hosts--;
+	stat_decrement(STATS_RAMQUEUE_HOST);
 }
 
 void
@@ -373,7 +365,7 @@ ramqueue_remove_message(struct ramqueue *rqueue, struct ramqueue_message *rq_msg
 {
 	RB_REMOVE(msgtree, &rqueue->msgtree, rq_msg);
 	free(rq_msg);
-	env->stats->ramqueue.messages--;
+	stat_decrement(STATS_RAMQUEUE_MESSAGE);
 }
 
 void
@@ -491,7 +483,7 @@ ramqueue_remove_envelope(struct ramqueue *rq, struct ramqueue_envelope *rq_evp)
 	RB_REMOVE(evptree, &rq_msg->evptree, rq_evp);
 	TAILQ_REMOVE(&rq_batch->envelope_queue, rq_evp, batchqueue_entry);
 	TAILQ_REMOVE(&rq->queue, rq_evp, queue_entry);
-	env->stats->ramqueue.envelopes--;
+	stat_decrement(STATS_RAMQUEUE_ENVELOPE);
 	free(rq_evp);
 }
 

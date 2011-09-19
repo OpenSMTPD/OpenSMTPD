@@ -16,10 +16,10 @@ smtpd_SOURCES=		aliases.c auth_backend.c bounce.c client.c		\
 			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
 			print.c pack.c dname.c res_random.c sockaddr.c 		\
 			ramqueue.c queue_backend.c queue_fsqueue.c		\
-			user_backend.c
+			user_backend.c stats.c
 
 smtpctl_SOURCES = 	smtpctl.c parser.c log.c enqueue.c queue_shared.c util.c\
-		       	client.c queue_backend.c queue_fsqueue.c
+		       	client.c queue_backend.c queue_fsqueue.c stats.c
 smtpctl_CFLAGS=		-DCLIENT_NO_SSL
 
 YACC = byacc

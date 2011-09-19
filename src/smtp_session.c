@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.145 2011/09/01 09:42:15 chl Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.147 2011/09/12 20:47:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -864,12 +864,16 @@ session_read(struct bufferevent *bev, void *p)
 			if (strlcpy(ss.u.dataline, line,
 				sizeof(ss.u.dataline)) >= sizeof(ss.u.dataline))
 				fatal("session_read: data truncation");
-
-			session_imsg(s, PROC_MFA, IMSG_MFA_DATALINE,
-			    0, 0, -1, &ss, sizeof(ss));
-
 			free(line);
 
+			if (env->filtermask & FILTER_DATALINE)
+				session_imsg(s, PROC_MFA, IMSG_MFA_DATALINE,
+				    0, 0, -1, &ss, sizeof(ss));
+			else {
+				log_debug("no filter");
+				ss.code = 250;
+				session_pickup(s, &ss);
+			}
 			return;
 		}
 
@@ -1066,11 +1070,9 @@ session_destroy(struct session *s)
 	if (s->s_fd != -1 && close(s->s_fd) == -1)
 		fatal("session_destroy: close");
 
-	env->stats->smtp.sessions_active--;
-
 	/* resume when session count decreases to 95% */
 	resume = env->sc_maxconn * 95 / 100;
-	if (env->stats->smtp.sessions_active == resume) {
+	if (stat_decrement(STATS_SMTP_SESSION) == resume) {
 		log_warnx("re-enabling incoming connections");
 		smtp_resume();
 	}
