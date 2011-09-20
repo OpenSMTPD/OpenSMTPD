@@ -22,8 +22,6 @@ smtpctl_SOURCES = 	smtpctl.c parser.c log.c enqueue.c queue_shared.c util.c\
 		       	client.c queue_backend.c queue_fsqueue.c stats.c
 smtpctl_CFLAGS=		-DCLIENT_NO_SSL
 
-YACC = byacc
-
 INCLUDES = -I$(top_srcdir)/openbsd-compat/
 
 LIBCOMPAT=$(top_srcdir)/openbsd-compat/libopenbsd-compat.a
