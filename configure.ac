@@ -1246,9 +1246,11 @@ AC_CACHE_CHECK([for u_char], ac_cv_have_u_char, [
 if test "x$ac_cv_have_u_char" = "xyes" ; then
 	AC_DEFINE([HAVE_U_CHAR], [1], [define if you have u_char data type])
 fi
+##
 
-TYPE_SOCKLEN_T
+#TYPE_SOCKLEN_T
 
+##
 AC_CHECK_TYPES([sig_atomic_t], , , [#include <signal.h>])
 AC_CHECK_TYPES([fsblkcnt_t, fsfilcnt_t], , , [
 #include <sys/types.h>
@@ -1459,6 +1461,233 @@ main() { exit(0); }
 fi
 #l3002
 
+#l3036
+AC_CACHE_CHECK([for ss_family field in struct sockaddr_storage],
+		ac_cv_have_ss_family_in_struct_ss, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+		]], [[ struct sockaddr_storage s; s.ss_family = 1; ]])],
+	[ ac_cv_have_ss_family_in_struct_ss="yes" ],
+	[ ac_cv_have_ss_family_in_struct_ss="no" ])
+])
+if test "x$ac_cv_have_ss_family_in_struct_ss" = "xyes" ; then
+	AC_DEFINE([HAVE_SS_FAMILY_IN_SS], [1], [Fields in struct sockaddr_storage])
+fi
+
+AC_CACHE_CHECK([for __ss_family field in struct sockaddr_storage],
+		ac_cv_have___ss_family_in_struct_ss, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+		]], [[ struct sockaddr_storage s; s.__ss_family = 1; ]])],
+	[ ac_cv_have___ss_family_in_struct_ss="yes" ],
+	[ ac_cv_have___ss_family_in_struct_ss="no" 
+	])
+])
+if test "x$ac_cv_have___ss_family_in_struct_ss" = "xyes" ; then
+	AC_DEFINE([HAVE___SS_FAMILY_IN_SS], [1],
+		[Fields in struct sockaddr_storage])
+fi
+
+AC_CACHE_CHECK([for pw_class field in struct passwd],
+		ac_cv_have_pw_class_in_struct_passwd, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pwd.h> ]],
+	[[ struct passwd p; p.pw_class = 0; ]])],
+	[ ac_cv_have_pw_class_in_struct_passwd="yes" ],
+	[ ac_cv_have_pw_class_in_struct_passwd="no" 
+	])
+])
+if test "x$ac_cv_have_pw_class_in_struct_passwd" = "xyes" ; then
+	AC_DEFINE([HAVE_PW_CLASS_IN_PASSWD], [1],
+		[Define if your password has a pw_class field])
+fi
+
+AC_CACHE_CHECK([for pw_expire field in struct passwd],
+		ac_cv_have_pw_expire_in_struct_passwd, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pwd.h> ]],
+	[[ struct passwd p; p.pw_expire = 0; ]])],
+	[ ac_cv_have_pw_expire_in_struct_passwd="yes" ],
+	[ ac_cv_have_pw_expire_in_struct_passwd="no" 
+	])
+])
+if test "x$ac_cv_have_pw_expire_in_struct_passwd" = "xyes" ; then
+	AC_DEFINE([HAVE_PW_EXPIRE_IN_PASSWD], [1],
+		[Define if your password has a pw_expire field])
+fi
+
+AC_CACHE_CHECK([for pw_change field in struct passwd],
+		ac_cv_have_pw_change_in_struct_passwd, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pwd.h> ]],
+	[[ struct passwd p; p.pw_change = 0; ]])],
+	[ ac_cv_have_pw_change_in_struct_passwd="yes" ],
+	[ ac_cv_have_pw_change_in_struct_passwd="no" 
+	])
+])
+if test "x$ac_cv_have_pw_change_in_struct_passwd" = "xyes" ; then
+	AC_DEFINE([HAVE_PW_CHANGE_IN_PASSWD], [1],
+		[Define if your password has a pw_change field])
+fi
+
+dnl make sure we're using the real structure members and not defines
+AC_CACHE_CHECK([for msg_accrights field in struct msghdr],
+		ac_cv_have_accrights_in_msghdr, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+		]], [[
+#ifdef msg_accrights
+#error "msg_accrights is a macro"
+exit(1);
+#endif
+struct msghdr m;
+m.msg_accrights = 0;
+exit(0);
+		]])],
+		[ ac_cv_have_accrights_in_msghdr="yes" ],
+		[ ac_cv_have_accrights_in_msghdr="no" ]
+	)
+])
+if test "x$ac_cv_have_accrights_in_msghdr" = "xyes" ; then
+	AC_DEFINE([HAVE_ACCRIGHTS_IN_MSGHDR], [1],
+		[Define if your system uses access rights style
+		file descriptor passing])
+fi
+
+AC_MSG_CHECKING([if struct statvfs.f_fsid is integral type])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/stat.h>
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
+#ifdef HAVE_SYS_STATVFS_H
+#include <sys/statvfs.h>
+#endif
+	]], [[ struct statvfs s; s.f_fsid = 0; ]])],
+	[ AC_MSG_RESULT([yes]) ],
+	[ AC_MSG_RESULT([no])
+
+	AC_MSG_CHECKING([if fsid_t has member val])
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/statvfs.h>
+	]], [[ fsid_t t; t.val[0] = 0; ]])],
+	[ AC_MSG_RESULT([yes])
+	  AC_DEFINE([FSID_HAS_VAL], [1], [fsid_t has member val]) ],
+	[ AC_MSG_RESULT([no]) ])
+
+	AC_MSG_CHECKING([if f_fsid has member __val])
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/statvfs.h>
+	]], [[ fsid_t t; t.__val[0] = 0; ]])],
+	[ AC_MSG_RESULT([yes])
+	  AC_DEFINE([FSID_HAS___VAL], [1], [fsid_t has member __val]) ],
+	[ AC_MSG_RESULT([no]) ])
+])
+
+AC_CACHE_CHECK([for msg_control field in struct msghdr],
+		ac_cv_have_control_in_msghdr, [
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+		]], [[
+#ifdef msg_control
+#error "msg_control is a macro"
+exit(1);
+#endif
+struct msghdr m;
+m.msg_control = 0;
+exit(0);
+		]])],
+		[ ac_cv_have_control_in_msghdr="yes" ],
+		[ ac_cv_have_control_in_msghdr="no" ]
+	)
+])
+if test "x$ac_cv_have_control_in_msghdr" = "xyes" ; then
+	AC_DEFINE([HAVE_CONTROL_IN_MSGHDR], [1],
+		[Define if your system uses ancillary data style
+		file descriptor passing])
+fi
+
+AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],
+		[[ extern char *__progname; printf("%s", __progname); ]])],
+	[ ac_cv_libc_defines___progname="yes" ],
+	[ ac_cv_libc_defines___progname="no" 
+	])
+])
+if test "x$ac_cv_libc_defines___progname" = "xyes" ; then
+	AC_DEFINE([HAVE___PROGNAME], [1], [Define if libc defines __progname])
+fi
+
+AC_CACHE_CHECK([whether $CC implements __FUNCTION__], ac_cv_cc_implements___FUNCTION__, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]],
+		[[ printf("%s", __FUNCTION__); ]])],
+	[ ac_cv_cc_implements___FUNCTION__="yes" ],
+	[ ac_cv_cc_implements___FUNCTION__="no" 
+	])
+])
+if test "x$ac_cv_cc_implements___FUNCTION__" = "xyes" ; then
+	AC_DEFINE([HAVE___FUNCTION__], [1],
+		[Define if compiler implements __FUNCTION__])
+fi
+
+AC_CACHE_CHECK([whether $CC implements __func__], ac_cv_cc_implements___func__, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]],
+		[[ printf("%s", __func__); ]])],
+	[ ac_cv_cc_implements___func__="yes" ],
+	[ ac_cv_cc_implements___func__="no" 
+	])
+])
+if test "x$ac_cv_cc_implements___func__" = "xyes" ; then
+	AC_DEFINE([HAVE___func__], [1], [Define if compiler implements __func__])
+fi
+
+AC_CACHE_CHECK([whether va_copy exists], ac_cv_have_va_copy, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdarg.h>
+va_list x,y;
+		]], [[ va_copy(x,y); ]])],
+	[ ac_cv_have_va_copy="yes" ],
+	[ ac_cv_have_va_copy="no" 
+	])
+])
+if test "x$ac_cv_have_va_copy" = "xyes" ; then
+	AC_DEFINE([HAVE_VA_COPY], [1], [Define if va_copy exists])
+fi
+
+AC_CACHE_CHECK([whether __va_copy exists], ac_cv_have___va_copy, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdarg.h>
+va_list x,y;
+		]], [[ __va_copy(x,y); ]])],
+	[ ac_cv_have___va_copy="yes" ], [ ac_cv_have___va_copy="no" 
+	])
+])
+if test "x$ac_cv_have___va_copy" = "xyes" ; then
+	AC_DEFINE([HAVE___VA_COPY], [1], [Define if __va_copy exists])
+fi
+
+AC_CACHE_CHECK([whether getopt has optreset support],
+		ac_cv_have_getopt_optreset, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <getopt.h> ]],
+		[[ extern int optreset; optreset = 0; ]])],
+	[ ac_cv_have_getopt_optreset="yes" ],
+	[ ac_cv_have_getopt_optreset="no" 
+	])
+])
+if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
+	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
+		[Define if your getopt(3) defines and uses optreset])
+fi
+#l3261
 
 #chl part
 AC_CHECK_MEMBER(struct stat.st_flags,
