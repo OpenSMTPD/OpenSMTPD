@@ -89,7 +89,7 @@
 
 
 #ifndef HAVE_CLOSEFROM
-int closefrom(int);
+void closefrom(int);
 #endif
 
 #ifndef HAVE_STRLCPY

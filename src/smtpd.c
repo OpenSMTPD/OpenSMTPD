@@ -816,8 +816,7 @@ forkmda(struct imsgev *iev, u_int32_t id,
 	    dup2(allout, STDOUT_FILENO) < 0 ||
 	    dup2(allout, STDERR_FILENO) < 0)
 		error("forkmda: dup2");
-	if (closefrom(STDERR_FILENO + 1) < 0)
-		error("closefrom");
+	closefrom(STDERR_FILENO + 1);
 	if (setgroups(1, &u.gid) ||
 	    setresgid(u.gid, u.gid, u.gid) ||
 	    setresuid(u.uid, u.uid, u.uid))
@@ -1007,10 +1006,11 @@ parent_enqueue_offline(char *runner_path)
 
 		bzero(&args, sizeof(args));
 
+		closefrom(STDERR_FILENO + 1);
+
 		if (setgroups(1, &u.gid) ||
 		    setresgid(u.gid, u.gid, u.gid) ||
-		    setresuid(u.uid, u.uid, u.uid) ||
-		    closefrom(STDERR_FILENO + 1) == -1) {
+		    setresuid(u.uid, u.uid, u.uid)) {
 			unlink(path);
 			_exit(1);
 		}
