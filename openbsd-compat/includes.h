@@ -64,6 +64,12 @@
 #endif
 #include <errno.h>
 
+/* chl */
+#ifdef HAVE_NETDB_H
+# include <netdb.h>
+#endif
+/* end of chl*/
+
 #include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
 
 #include "defines.h"
