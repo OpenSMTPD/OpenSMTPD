@@ -128,7 +128,6 @@ void
 dns_async(struct imsgev *asker, int type, struct dns *query)
 {
 	struct dnssession *dnssession;
-	struct sockaddr_storage qss;
 
 	if (asr == NULL && (asr = asr_resolver(NULL)) == NULL) {
 		log_warnx("dns_async: cannot create resolver");
@@ -146,10 +145,8 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 		dns_asr_dispatch_host(dnssession);
 		return;
 	case IMSG_DNS_PTR:
-		qss = query->ss;
-
 		dnssession->aq = asr_query_cname(asr,
-		    (struct sockaddr*)&query->ss, SS_LEN(qss));
+		    (struct sockaddr*)&query->ss, SS_LEN(&query->ss));
 		stat_increment(STATS_LKA_SESSION_CNAME);
 		if (dnssession->aq == NULL) {
 			log_debug("dns_async: asr_query_cname error");

@@ -1689,28 +1689,36 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
 fi
 #l3261
 
-#chl part
-AC_CHECK_MEMBER(struct stat.st_flags,
-	AC_DEFINE(HAVE_STAT_ST_FLAGS, [], [Have stat.st_flags]), ,
-	[]
+##chl part
+AC_CHECK_MEMBERS([struct stat.st_flags], , ,
+	[ #include <sys/types.h>
+	  #include <sys/stat.h> ]
 )
-#chl part
 
-# From OpenNTPD portable
-AC_CHECK_MEMBER(struct sockaddr.sa_len,
-	AC_DEFINE(HAVE_SOCKADDR_SA_LEN, [], [Have sockaddr.sa_len]), ,
+AC_CHECK_MEMBERS([struct sockaddr.sa_len], , ,
 	[ #include <netdb.h>
 	  #include <netinet/in.h>
 	  #include <sys/socket.h> ]
 )
 
-AC_CHECK_MEMBER(struct sockaddr.ss_len,
-	AC_DEFINE(HAVE_SOCKADDR_SS_LEN, [], [Have sockaddr_storage.ss_len]), ,
+AC_CHECK_MEMBERS([struct sockaddr_storage.ss_len], , ,
 	[ #include <netdb.h>
 	  #include <netinet/in.h>
 	  #include <sys/socket.h> ]
 )
-#OpenNTPD portable
+
+AC_CHECK_MEMBERS([struct sockaddr_in.sin_len], , ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+##chl part
 
 
 #l3249

@@ -259,8 +259,6 @@ parent_send_config_listeners(void)
 	}
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		struct sockaddr_storage lss = l->ss;
-
 		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1)
 			fatal("socket");
 		opt = 1;
@@ -271,7 +269,7 @@ parent_send_config_listeners(void)
 		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
 			fatal("setsockopt");
 #endif
-		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(lss)) == -1)
+		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
 			fatal("bind");
 		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_CONF_LISTENER,
 		    0, 0, l->fd, l, sizeof(*l));

@@ -542,7 +542,7 @@ stringel	: STRING			{
 					ssin.sin_family = AF_INET;
 					me->me_key.med_addr.bits = bits;
 					memcpy(&me->me_key.med_addr.ss, &ssin, sizeof(ssin));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in);
 #endif
 				}
@@ -554,7 +554,7 @@ stringel	: STRING			{
 					ssin6.sin6_family = AF_INET6;
 					me->me_key.med_addr.bits = bits;
 					memcpy(&me->me_key.med_addr.ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in6);
 #endif
 				}
@@ -565,7 +565,7 @@ stringel	: STRING			{
 					ssin.sin_family = AF_INET;
 					me->me_key.med_addr.bits = 32;
 					memcpy(&me->me_key.med_addr.ss, &ssin, sizeof(ssin));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in);
 #endif
 				}
@@ -573,7 +573,7 @@ stringel	: STRING			{
 					ssin6.sin6_family = AF_INET6;
 					me->me_key.med_addr.bits = 128;
 					memcpy(&me->me_key.med_addr.ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in6);
 #endif
 				}
@@ -634,7 +634,7 @@ mapref		: STRING			{
 					ssin.sin_family = AF_INET;
 					me->me_key.med_addr.bits = bits;
 					memcpy(&me->me_key.med_addr.ss, &ssin, sizeof(ssin));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in);
 #endif
 				}
@@ -646,7 +646,7 @@ mapref		: STRING			{
 					ssin6.sin6_family = AF_INET6;
 					me->me_key.med_addr.bits = bits;
 					memcpy(&me->me_key.med_addr.ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in6);
 #endif
 				}
@@ -657,7 +657,7 @@ mapref		: STRING			{
 					ssin.sin_family = AF_INET;
 					me->me_key.med_addr.bits = 32;
 					memcpy(&me->me_key.med_addr.ss, &ssin, sizeof(ssin));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in);
 #endif
 				}
@@ -665,7 +665,7 @@ mapref		: STRING			{
 					ssin6.sin6_family = AF_INET6;
 					me->me_key.med_addr.bits = 128;
 					memcpy(&me->me_key.med_addr.ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 					me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in6);
 #endif
 				}
@@ -1092,7 +1092,7 @@ from		: FROM mapref			{
 			if ((me = calloc(1, sizeof(*me))) == NULL)
 				fatal("out of memory");
 			me->me_key.med_addr.bits = 0;
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in);
 #endif
 			ssin = (struct sockaddr_in *)&me->me_key.med_addr.ss;
@@ -1107,7 +1107,7 @@ from		: FROM mapref			{
 			if ((me = calloc(1, sizeof(*me))) == NULL)
 				fatal("out of memory");
 			me->me_key.med_addr.bits = 0;
-#ifdef HAVE_STRUCT_SOCKADDR_SS_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			me->me_key.med_addr.ss.ss_len = sizeof(struct sockaddr_in6);
 #endif
 			ssin6 = (struct sockaddr_in6 *)&me->me_key.med_addr.ss;

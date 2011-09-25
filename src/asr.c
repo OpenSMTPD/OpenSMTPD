@@ -909,10 +909,10 @@ asr_db_add_nameserver(struct asr_db *ad, const char *nameserver)
 	if (asr_parse_nameserver((struct sockaddr*)&ss, nameserver))
 		return (-1);
 
-	if ((ad->ad_sa[ad->ad_count] = calloc(1, SS_LEN(ss))) == NULL)
+	if ((ad->ad_sa[ad->ad_count] = calloc(1, SS_LEN(&ss))) == NULL)
 		return (0);
 
-	memmove(ad->ad_sa[ad->ad_count], &ss, SS_LEN(ss));
+	memmove(ad->ad_sa[ad->ad_count], &ss, SS_LEN(&ss));
 	ad->ad_count += 1;
 
 	return (1);

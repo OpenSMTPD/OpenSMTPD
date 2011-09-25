@@ -69,10 +69,10 @@
 
 /* From OpenBGPD portable */
 #if !defined(SS_LEN)
-# if defined(HAVE_STRUCT_SOCKADDR_SS_LEN)
+# if defined(HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN)
 #  define SS_LEN(x)  ((x)->ss_len)
 # else
-#  define SS_LEN(x)  SA_LEN((struct sockaddr *)&(x))
+#  define SS_LEN(x)  SA_LEN((struct sockaddr *)(x))
 # endif
 #endif
 

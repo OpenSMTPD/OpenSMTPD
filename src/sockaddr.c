@@ -44,7 +44,7 @@ sockaddr_from_rr(struct sockaddr *sa, struct rr *rr)
 	case T_A:
 		sin = (struct sockaddr_in*)sa;
 		memset(sin, 0, sizeof *sin);
-#ifdef HAVE_STRUCT_SOCKADDR_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sin->sin_len = sizeof *sin;
 #endif
 		sin->sin_family = PF_INET;
@@ -54,7 +54,7 @@ sockaddr_from_rr(struct sockaddr *sa, struct rr *rr)
 	case T_AAAA:
 		sin6 = (struct sockaddr_in6*)sa;
 		memset(sin6, 0, sizeof *sin6);
-#ifdef HAVE_STRUCT_SOCKADDR_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 		sin6->sin6_len = sizeof *sin6;
 #endif
 		sin6->sin6_family = PF_INET6;
@@ -89,7 +89,7 @@ sockaddr_from_str(struct sockaddr *sa, int family, const char *str)
 
 		sin = (struct sockaddr_in *)sa;
 		memset(sin, 0, sizeof *sin);
-#ifdef HAVE_STRUCT_SOCKADDR__IN_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sin->sin_len = sizeof(struct sockaddr_in);
 #endif
 		sin->sin_family = PF_INET;
@@ -102,7 +102,7 @@ sockaddr_from_str(struct sockaddr *sa, int family, const char *str)
 
 		sin6 = (struct sockaddr_in6 *)sa;
 		memset(sin6, 0, sizeof *sin6);
-#ifdef HAVE_STRUCT_SOCKADDR_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 		sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
 		sin6->sin6_family = PF_INET6;
