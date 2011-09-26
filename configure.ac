@@ -250,6 +250,8 @@ AC_CHECK_FUNCS( \
 	getpeereid \
 	memmove \
 	setproctitle \
+	setregid \
+	setreuid \
 	strlcat \
 	strlcpy \
 	strnvis \

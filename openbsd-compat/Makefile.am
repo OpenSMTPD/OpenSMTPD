@@ -17,6 +17,7 @@ libopenbsd_compat_a_SOURCES = \
 		  imsg.c \
 		  imsg-buffer.c \
 		  mktemp.c \
+		  setresguid.c \
 		  setproctitle.c \
 		  strlcat.c \
 		  strlcpy.c \

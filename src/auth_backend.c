@@ -26,7 +26,9 @@
 #ifdef BSD_AUTH
 #include <bsd_auth.h>
 #endif
+#ifdef HAVE_CRYPT_H
 #include <crypt.h> /* needed for crypt() */
+#endif
 #include <event.h>
 #include "imsg.h"
 #include <libgen.h>
