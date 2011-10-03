@@ -1835,7 +1835,7 @@ host_v6(const char *s, in_port_t port)
 	if ((h = calloc(1, sizeof(*h))) == NULL)
 		fatal(NULL);
 	sin6 = (struct sockaddr_in6 *)&h->ss;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
 	sin6->sin6_family = AF_INET6;
@@ -1894,7 +1894,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 			sain->sin_port = port;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
 			memcpy(&sin6->sin6_addr, &((struct sockaddr_in6 *)
@@ -1976,7 +1976,7 @@ interface(const char *s, const char *tag, const char *cert,
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
 			sin6->sin6_port = port;
@@ -2045,7 +2045,7 @@ set_localaddrs(void)
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
 

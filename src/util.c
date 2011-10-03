@@ -486,7 +486,7 @@ log_in6addr(const struct in6_addr *addr)
 	u_int16_t		tmp16;
 
 	bzero(&sa_in6, sizeof(sa_in6));
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sa_in6.sin6_len = sizeof(sa_in6);
 #endif
 	sa_in6.sin6_family = AF_INET6;

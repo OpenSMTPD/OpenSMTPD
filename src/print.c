@@ -150,7 +150,7 @@ inet6_ntoa(struct in6_addr a)
 	static char buf[256];
 	struct sockaddr_in6	si;
 
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN6_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	si.sin6_len = sizeof(si);
 #endif
 	si.sin6_family = PF_INET6;
