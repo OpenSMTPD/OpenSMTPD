@@ -89,6 +89,8 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct auth_backend	*auth_backend;
 	int			 fd;
 
+	log_imsg(PROC_PARENT, iev->proc, imsg);
+
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_SEND_CONFIG:

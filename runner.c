@@ -70,6 +70,8 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct envelope	*e;
 
+	log_imsg(PROC_RUNNER, iev->proc, imsg);
+
 	switch (imsg->hdr.type) {
 	case IMSG_QUEUE_COMMIT_MESSAGE:
 		e = imsg->data;

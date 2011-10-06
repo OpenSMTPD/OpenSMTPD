@@ -66,6 +66,8 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct ctl_conn	*c;
 	struct reload	*reload;
 
+	log_imsg(PROC_CONTROL, iev->proc, imsg);
+
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_ENQUEUE:

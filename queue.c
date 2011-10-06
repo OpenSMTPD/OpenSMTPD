@@ -51,6 +51,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct ramqueue_batch	*rq_batch;
 	int			 fd, ret;
 
+	log_imsg(PROC_QUEUE, iev->proc, imsg);
+
 	if (iev->proc == PROC_SMTP) {
 		e = imsg->data;
 

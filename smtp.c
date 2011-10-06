@@ -61,6 +61,8 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct ssl		*ssl;
 	struct dns		*dns;
 
+	log_imsg(PROC_SMTP, iev->proc, imsg);
+
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:

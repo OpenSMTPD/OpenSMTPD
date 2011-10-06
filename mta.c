@@ -65,6 +65,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct dns		*dns;
 	struct ssl		*ssl;
 
+	log_imsg(PROC_MTA, iev->proc, imsg);
+
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_BATCH_CREATE:

@@ -57,6 +57,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct delivery_mda	*d_mda;
 	struct mailaddr		*maddr;
 
+	log_imsg(PROC_MDA, iev->proc, imsg);
+
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_MDA_SESS_NEW:

@@ -61,6 +61,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct map		*map;
 	void			*tmp;
 
+	log_imsg(PROC_LKA, iev->proc, imsg);
+
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_PTR) {
 		dns_async(iev, imsg->hdr.type, imsg->data);

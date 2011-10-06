@@ -1225,3 +1225,4 @@ u_int32_t evpid_to_msgid(u_int64_t);
 u_int64_t msgid_to_evpid(u_int32_t);
 u_int32_t filename_to_msgid(char *);
 u_int64_t filename_to_evpid(char *);
+void log_imsg(int, int, struct imsg*);

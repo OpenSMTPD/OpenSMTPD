@@ -54,6 +54,8 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct filter *filter;
 
+	log_imsg(PROC_MFA, iev->proc, imsg);
+
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_HELO:
