@@ -564,7 +564,7 @@ const char * imsg_to_str(int);
 void
 log_imsg(int to, int from, struct imsg *imsg)
 {
-	log_debug("IMSG: %s <- %s : %s (len=%zu)",
+	log_debug("imsg: %s <- %s: %s (len=%zu)",
 		proc_to_str(to),
 		proc_to_str(from),
 		imsg_to_str(imsg->hdr.type),
