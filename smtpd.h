@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.239 2011/09/18 21:37:53 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.240 2011/09/19 13:10:47 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -1225,3 +1225,4 @@ u_int32_t evpid_to_msgid(u_int64_t);
 u_int64_t msgid_to_evpid(u_int32_t);
 u_int32_t filename_to_msgid(char *);
 u_int64_t filename_to_evpid(char *);
+void log_imsg(int, int, struct imsg*);
