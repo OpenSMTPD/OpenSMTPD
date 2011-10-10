@@ -1,6 +1,85 @@
-How to use
+Preliminary note:
 
-create a /etc/mail/smtpd.conf
+smtpd (http://www.openbsd.org/cgi-bin/cvsweb/src/usr.sbin/smtpd/ ) also known as
+OpenSMTPD is a smtp server implementation for OpenBSD. It is still a work in
+progress which still lacks many features.
 
-add _smtpd user
-useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
+Then, on top of that, all OpenSMTPD's features are not ported yet. For instance,
+authentification still doesn't work.
+
+People interested about portable OpenSMTPD, or about OpenSMTPD in general, are
+encouraged to join the IRC channel #poolp @ FreeNode.net.
+
+
+How to use Portable OpenSMTPD
+
+0. Get the source
+
+$ git clone git://github.com/clongeau/opensmtpd.git
+
+or
+
+$ wget http://chl.be/opensmtpd/opensmtpd-latest.tar.gz
+$ tar xzvf opensmtpd-latest.tar.gz
+
+
+1. Build
+
+$ cd opensmtpd
+$ ./bootstrap
+$ ./configure
+$ make
+$ sudo make install
+
+1.1. Special notes for FreeBSD/DragonFlyBSD:
+
+Please lauch configure with special directive about libevent directory:
+
+FreeBSD:
+
+$ ./configure --with-libevent-dir=/usr/local
+
+DragonFlyBSD:
+
+$ ./configure --with-libevent-dir=/usr/pkg
+
+
+2. Create a /etc/mail/smtpd.conf
+
+# mkdir /etc/mail
+# cat > /etc/mail/smtpd.conf
+listen on localhost
+accept for all relay
+^D
+#
+
+You can find a complete format description of smtpd.conf configuration file on:
+http://www.openbsd.org/cgi-bin/man.cgi?query=smtpd.conf&sektion=5&manpath=OpenBSD+Current&format=html
+
+
+3. Add _smtpd user
+
+3.1. NetBSD, Linux (Debian, ArchLinux, ...)
+
+# mkdir /var/empty
+# useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
+
+3.2. DragonFlyBSD, FreeBSD
+
+# pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
+
+
+3. Launch smtpd
+
+First, kill any running sendmail/exim/qmail/postfix or other.
+
+Then:
+
+# smtpd &
+
+or in debug and verbose mode
+
+# smtpd -dv
+
+You can find a complete smtpd(8) man page at:
+http://www.openbsd.org/cgi-bin/man.cgi?query=smtpd&sektion=8&arch=&apropos=0&manpath=OpenBSD+Current
