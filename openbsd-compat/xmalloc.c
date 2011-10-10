@@ -13,9 +13,6 @@
  * called by a name other than "ssh" or "Secure Shell".
  */
 
-/* define _GNU_SOURCE for asprintf */
-#define _GNU_SOURCE
-
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>

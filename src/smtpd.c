@@ -65,6 +65,7 @@ static int path_starts_with(char *, char *);
 static void fork_peers(void);
 static struct child *child_lookup(pid_t);
 static struct child *child_add(pid_t, int, int);
+void child_free(void);
 static void child_del(pid_t);
 
 static int	queueing_add(char *);
@@ -89,6 +90,26 @@ int __b64_pton(char const *, unsigned char *, size_t);
 /* Saved arguments to main(). */
 char **saved_argv;
 int saved_argc;
+
+#ifdef VALGRIND
+void clean_setproctitle(void)
+{
+	int i;
+
+	log_debug("clean_setproctitle");
+
+	for (i = 0; i < saved_argc; i++)
+		free(saved_argv[i]);
+
+	free(saved_argv);
+
+#if defined(SPT_TYPE) && SPT_TYPE == SPT_REUSEARGV
+	for (i = 0; environ[i] != NULL; i++)
+		free(environ[i]);
+	free(environ);
+#endif
+}
+#endif /* VALGRIND */
 
 static void
 parent_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -684,7 +705,8 @@ child_lookup(pid_t pid)
 	return SPLAY_FIND(childtree, &env->children, &key);
 }
 
-void child_free(void)
+void
+child_free(void)
 {
 	struct child	*child;
 
@@ -1181,26 +1203,6 @@ imsg_dispatch(int fd, short event, void *p)
 }
 
 SPLAY_GENERATE(childtree, child, entry, child_cmp);
-
-#ifdef VALGRIND
-void clean_setproctitle(void)
-{
-	int i;
-
-	log_debug("clean_setproctitle");
-
-	for (i = 0; i < saved_argc; i++)
-		free(saved_argv[i]);
-
-	free(saved_argv);
-
-#if defined(SPT_TYPE) && SPT_TYPE == SPT_REUSEARGV
-	for (i = 0; environ[i] != NULL; i++)
-		free(environ[i]);
-	free(environ);
-#endif
-}
-#endif /* VALGRIND */
 
 const char * proc_to_str(int);
 const char * imsg_to_str(int);

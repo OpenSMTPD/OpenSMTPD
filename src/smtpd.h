@@ -1007,6 +1007,10 @@ void configure(void);
 void init_pipes(void);
 void config_pipes(struct peer *, u_int);
 void config_peers(struct peer *, u_int);
+#ifdef VALGRIND
+void free_pipes(void);
+void free_peers(void);
+#endif
 
 
 /* control.c */
