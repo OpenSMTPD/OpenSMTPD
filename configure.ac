@@ -66,6 +66,7 @@ AC_ARG_WITH(Werror,
 #l184
 
 AC_CHECK_HEADERS( \
+		crypt.h \
 		dirent.h \
 		fcntl.h \
 		ndir.h \
