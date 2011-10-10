@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.62 2011/09/27 18:53:24 chl Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.63 2011/10/09 18:39:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -55,17 +55,17 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct filter *filter;
 
+	log_imsg(PROC_MFA, iev->proc, imsg);
+
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_HELO:
 			mfa_test_helo(imsg->data);
 			return;
 		case IMSG_MFA_MAIL:
-			log_debug("mfa_imsg: PROC_SMTP->IMSG_MFA_MAIL");
 			mfa_test_mail(imsg->data);
 			return;
 		case IMSG_MFA_RCPT:
-			log_debug("mfa_imsg: PROC_SMTP->IMSG_MFA_RCPT");
 			mfa_test_rcpt(imsg->data);
 			return;
 		case IMSG_MFA_DATALINE:
@@ -78,14 +78,12 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_MAIL:
 		case IMSG_LKA_RCPT:
-			log_debug("mfa_imsg: PROC_LKA->IMSG_LKA_MAIL/IMSG_MFA_RCPT");
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_MFA_MAIL, 0, 0, -1, imsg->data,
 			    sizeof(struct submit_status));
 			return;
 
 		case IMSG_LKA_RULEMATCH:
-			log_debug("mfa_imsg: PROC_LKA->IMSG_LKA_RULEMATCH");
 			mfa_test_rcpt_resume(imsg->data);
 			return;
 		}

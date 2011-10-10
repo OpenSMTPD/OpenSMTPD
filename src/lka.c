@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.127 2011/05/16 21:05:51 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.128 2011/10/09 18:39:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -63,7 +63,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct map		*map;
 	void			*tmp;
 
-	log_debug("lka_imsg");
+	log_imsg(PROC_LKA, iev->proc, imsg);
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_PTR) {
@@ -74,7 +74,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_MAIL:
-			log_debug("lka_imsg: PROC_MFA->IMSG_LKA_MAIL");
 			ss = imsg->data;
 			ss->code = 530;
 			if (ss->u.maddr.user[0] == '\0' &&
@@ -83,13 +82,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			else
 				if (lka_verify_mail(&ss->u.maddr))
 					ss->code = 250;
-			log_debug("lka_imsg: IMSG_LKA_MAIL: imsg_compose_event");
 			imsg_compose_event(iev, IMSG_LKA_MAIL, 0, 0, -1, ss,
 			    sizeof *ss);
 			return;
 
 		case IMSG_LKA_RULEMATCH:
-			log_debug("lka_imsg: PROC_MFA->IMSG_LKA_RULEMATCH");
 			ss = imsg->data;
 			ss->code = 530;
 			rule = ruleset_match(&ss->envelope);
@@ -106,14 +103,12 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_RCPT:
-			log_debug("lka_imsg: PROC_MFA->IMSG_LKA_RCPT");
 			lka_session(imsg->data);
 			return;
 		}
 	}
 
 	if (iev->proc == PROC_MTA) {
-		log_debug("lka_imsg: PROC_MTA");
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
 			struct map_secret *map_secret;
@@ -142,7 +137,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_CONF_START");
 			env->sc_rules_reload = calloc(1, sizeof *env->sc_rules);
 			if (env->sc_rules_reload == NULL)
 				fatal(NULL);
@@ -154,7 +148,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_RULE:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_CONF_RULE");
 			rule = calloc(1, sizeof *rule);
 			if (rule == NULL)
 				fatal(NULL);
@@ -163,7 +156,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_MAP:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_CONF_MAP");
 			map = calloc(1, sizeof *map);
 			if (map == NULL)
 				fatal(NULL);
@@ -173,7 +165,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_RULE_SOURCE:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_CONF_RULE_SOURCE");
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_maps;
 			env->sc_maps = env->sc_maps_reload;
@@ -184,7 +175,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_MAP_CONTENT:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_CONF_MAP_CONTENT");
 			map = TAILQ_LAST(env->sc_maps_reload, maplist);
 			mapel = calloc(1, sizeof *mapel);
 			if (mapel == NULL)
@@ -194,7 +184,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_END:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_CONF_END");
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
 			if (env->sc_maps)
@@ -208,7 +197,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_PARENT_FORWARD_OPEN:
-			log_debug("lka_imsg: PROC_PARENT->IMSG_PARENT_FORWARD_OPEN");
 			lka_session_forward_reply(imsg->data, imsg->fd);
 			return;
 

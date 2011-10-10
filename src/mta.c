@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.113 2011/08/29 21:43:09 chl Exp $	*/
+/*	$OpenBSD: mta.c,v 1.114 2011/10/09 18:39:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -66,10 +66,11 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct dns		*dns;
 	struct ssl		*ssl;
 
+	log_imsg(PROC_MTA, iev->proc, imsg);
+
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_BATCH_CREATE:
-			log_debug("mta_imsg: PROC_QUEUE->IMSG_BATCH_CREATE");
 			rq_batch = imsg->data;
 
 			s = calloc(1, sizeof *s);
@@ -130,7 +131,6 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 
 
 		case IMSG_BATCH_APPEND:
-			log_debug("mta_imsg: PROC_QUEUE->IMSG_BATCH_APPEND");
 			e = imsg->data;
 			s = mta_lookup(e->batch_id);
 			e = malloc(sizeof *e);
@@ -149,13 +149,11 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_BATCH_CLOSE:
-			log_debug("mta_imsg: PROC_QUEUE->IMSG_BATCH_CLOSE");
 			rq_batch = imsg->data;
 			mta_pickup(mta_lookup(rq_batch->b_id), NULL);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FD:
-			log_debug("mta_imsg: PROC_QUEUE->IMSG_QUEUE_MESSAGE_FD");
 			rq_batch = imsg->data;
 			mta_pickup(mta_lookup(rq_batch->b_id), &imsg->fd);
 			log_debug("mta_imsg: PROC_QUEUE->IMSG_QUEUE_MESSAGE_FD, imsg->fd = %d", imsg->fd);
@@ -166,13 +164,11 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET:
-			log_debug("mta_imsg: PROC_LKA->IMSG_LKA_SECRET");
 			secret = imsg->data;
 			mta_pickup(mta_lookup(secret->id), secret->secret);
 			return;
 
 		case IMSG_DNS_HOST:
-			log_debug("mta_imsg: PROC_LKA->IMSG_DNS_HOST");
 			dns = imsg->data;
 			s = mta_lookup(dns->id);
 			relay = calloc(1, sizeof *relay);
@@ -183,13 +179,11 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_HOST_END:
-			log_debug("mta_imsg: PROC_LKA->IMSG_DNS_HOST_END");
 			dns = imsg->data;
 			mta_pickup(mta_lookup(dns->id), &dns->error);
 			return;
 
 		case IMSG_DNS_PTR:
-			log_debug("mta_imsg: PROC_LKA->IMSG_DNS_PTR");
 			dns = imsg->data;
 			s = mta_lookup(dns->id);
 			relay = TAILQ_FIRST(&s->relays);
@@ -207,7 +201,6 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			log_debug("mta_imsg: PROC_PARENT->IMSG_CONF_START");
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
@@ -217,7 +210,6 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_SSL:
-			log_debug("mta_imsg: PROC_PARENT->IMSG_CONF_SSL");
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
 			ssl = calloc(1, sizeof *ssl);
@@ -236,7 +228,6 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_END:
-			log_debug("mta_imsg: PROC_PARENT->IMSG_CONF_END");
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
 			env->sc_flags &= ~SMTPD_CONFIGURING;

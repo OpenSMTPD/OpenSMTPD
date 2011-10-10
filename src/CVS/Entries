@@ -8,7 +8,6 @@ D/src////
 /dnsdefs.h/1.2/Sun Mar 27 17:39:17 2011//
 /expand.c/1.11/Result of merge+Tue May 17 13:31:40 2011//
 /forward.c/1.24/Result of merge//
-/lka.c/1.127/Result of merge+Tue May 17 13:31:40 2011//
 /log.h/1.1/Sun Nov 28 13:56:43 2010//
 /makemap.c/1.32/Result of merge+Tue May 17 13:31:40 2011//
 /queue_backend.c/1.11/Mon May 16 21:05:52 2011//
@@ -29,8 +28,6 @@ D/libexec////
 /lka_session.c/1.9/Result of merge//
 /queue_fsqueue.c/1.13/Result of merge//
 /enqueue.c/1.47/Result of merge//
-/mda.c/1.59/Result of merge+Mon Aug 29 23:06:14 2011//
-/mta.c/1.113/Result of merge//
 /queue_shared.c/1.51/Result of merge+Mon Aug 29 23:06:14 2011//
 /map_backend.c/1.7/Result of merge//
 /map_backend_stdio.c/1.2/Result of merge//
@@ -38,16 +35,10 @@ D/libexec////
 /Makefile/1.9/Thu Sep  1 16:44:22 2011//
 /parse.y/1.80/Result of merge//
 /bounce.c/1.33/Result of merge//
-/control.c/1.60/Result of merge//
 /dns.c/1.45/Result of merge+Mon Sep 19 21:55:45 2011//
 /log.c/1.11/Result of merge//
-/queue.c/1.106/Result of merge//
 /ramqueue.c/1.19/Result of merge//
-/runner.c/1.118/Result of merge//
-/smtp.c/1.91/Result of merge//
 /smtpctl.c/1.67/Result of merge//
-/smtpd.c/1.130/Result of merge//
-/smtpd.h/1.240/Result of merge//
 /ssl.c/1.37/Result of merge//
 /stats.c/1.1/Thu Sep  1 19:56:49 2011//
 /asr.h/1.5/Tue Sep 27 10:59:02 2011//
@@ -57,7 +48,6 @@ D/libexec////
 /filter.c/1.2/Tue Sep 27 10:59:02 2011//
 /filter.h/1.3/Tue Sep 27 10:59:02 2011//
 /makemap.8/1.14/Tue Sep 27 10:59:02 2011//
-/mfa.c/1.62/Result of merge//
 /newaliases.8/1.8/Tue Sep 27 10:59:02 2011//
 /pack.c/1.3/Tue Sep 27 10:59:02 2011//
 /smtp_session.c/1.149/Result of merge//
@@ -66,3 +56,13 @@ D/libexec////
 /smtpd.conf.5/1.45/Mon Oct  3 20:19:57 2011//
 /smtpfilter.c/1.1/Tue Sep 27 10:59:02 2011//
 /ssl_privsep.c/1.3/Tue Sep 27 10:59:02 2011//
+/control.c/1.61/Result of merge//
+/lka.c/1.128/Result of merge+Sun Oct  9 23:07:06 2011//
+/mda.c/1.60/Result of merge+Sun Oct  9 23:07:06 2011//
+/mfa.c/1.63/Result of merge//
+/mta.c/1.114/Result of merge//
+/queue.c/1.107/Result of merge+Sun Oct  9 23:07:06 2011//
+/runner.c/1.119/Result of merge//
+/smtp.c/1.92/Result of merge//
+/smtpd.h/1.241/Result of merge//
+/smtpd.c/1.131/Result of merge+Mon Oct 10 21:13:25 2011//

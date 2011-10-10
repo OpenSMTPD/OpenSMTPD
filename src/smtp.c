@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.91 2011/09/01 20:17:47 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.92 2011/10/09 18:39:54 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -62,10 +62,11 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct ssl		*ssl;
 	struct dns		*dns;
 
+	log_imsg(PROC_SMTP, iev->proc, imsg);
+
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
-			log_debug("smtp_imsg: PROC_LKA->IMSG_DNS_PTR");
 			dns = imsg->data;
 			s = session_lookup(dns->id);
 			if (s == NULL)
@@ -85,7 +86,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_HELO:
 		case IMSG_MFA_MAIL:
 		case IMSG_MFA_RCPT:
-			log_debug("smtp: got imsg_mfa_helo/mail/rcpt");
 		case IMSG_MFA_DATALINE:
 			ss = imsg->data;
 			s = session_lookup(ss->id);
@@ -101,7 +101,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			log_debug("smtp: imsg_queue_create_message returned");
 			s = session_lookup(ss->id);
 			if (s == NULL)
 				return;
@@ -110,7 +109,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			log_debug("smtp: imsg_queue_message_file returned");
 			s = session_lookup(ss->id);
 			if (s == NULL) {
 				close(imsg->fd);
@@ -127,7 +125,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_TEMPFAIL:
-			log_debug("smtp: got imsg_queue_tempfail");
 			skey.s_id = ss->id;
 			s = SPLAY_FIND(sessiontree, &env->sc_sessions, &skey);
 			if (s == NULL)
@@ -140,7 +137,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			log_debug("smtp: got imsg_queue_commit_envelopes");
 			s = session_lookup(ss->id);
 			if (s == NULL)
 				return;
@@ -148,7 +144,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			log_debug("smtp: got imsg_queue_commit_message");
 			s = session_lookup(ss->id);
 			if (s == NULL)
 				return;
@@ -166,7 +161,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_RELOAD:
-			log_debug("smtp_imsg: PROC_PARENT->IMSG_CONF_RELOAD");
 			/*
 			 * Reloading may invalidate various pointers our
 			 * sessions rely upon, we better tell clients we
@@ -183,7 +177,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_START:
-			log_debug("smtp_imsg: PROC_PARENT->IMSG_CONF_START");
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
@@ -195,7 +188,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_SSL:
-			log_debug("smtp_imsg: PROC_PARENT->IMSG_CONF_SSL");
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
 			ssl = calloc(1, sizeof *ssl);
@@ -221,7 +213,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_LISTENER:
-			log_debug("smtp_imsg: PROC_PARENT->IMSG_CONF_LISTENER");
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
 			l = calloc(1, sizeof *l);
@@ -244,7 +235,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_END:
-			log_debug("smtp_imsg: PROC_PARENT->IMSG_CONF_END");
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
 			smtp_setup_events();
@@ -252,7 +242,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_PARENT_AUTHENTICATE:
-			log_debug("smtp_imsg: PROC_PARENT->IMSG_PARENT_AUTHENTICATE");
 			auth = imsg->data;
 			s = session_lookup(auth->id);
 			if (s == NULL)

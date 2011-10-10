@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.59 2011/08/29 21:43:08 chl Exp $	*/
+/*	$OpenBSD: mda.c,v 1.60 2011/10/09 18:39:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -63,6 +63,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 #ifdef VALGRIND
 	bzero(&deliver, sizeof(deliver));
 #endif
+
+	log_imsg(PROC_MDA, iev->proc, imsg);
 
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -134,7 +136,6 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORK_MDA:
-			log_debug("mda_imsg: PROC_PARENT->IMSG_PARENT_FORK_MDA");
 			s = mda_lookup(imsg->hdr.peerid);
 
 			if (imsg->fd < 0)
@@ -145,7 +146,6 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_MDA_DONE:
-			log_debug("mda_imsg: PROC_PARENT->IMSG_MDA_DONE");
 			s = mda_lookup(imsg->hdr.peerid);
 
 			/*

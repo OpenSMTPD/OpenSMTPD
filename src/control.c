@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.60 2011/09/01 19:56:49 eric Exp $	*/
+/*	$OpenBSD: control.c,v 1.61 2011/10/09 18:39:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -67,10 +67,11 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct ctl_conn	*c;
 	struct reload	*reload;
 
+	log_imsg(PROC_CONTROL, iev->proc, imsg);
+
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_ENQUEUE:
-			log_debug("control_imsg: PROC_SMTP->IMSG_SMTP_ENQUEUE");
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -83,7 +84,6 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_RELOAD:
-			log_debug("control_imsg: PROC_PARENT->IMSG_CONF_RELOAD");
 			env->sc_flags &= ~SMTPD_CONFIGURING;
 			reload = imsg->data;
 			c = control_connbyfd(reload->fd);
