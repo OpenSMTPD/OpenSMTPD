@@ -1,6 +1,7 @@
-Preliminary note:
+Preliminary note
+================
 
-smtpd (http://www.openbsd.org/cgi-bin/cvsweb/src/usr.sbin/smtpd/ ) also known as
+smtpd (<http://www.openbsd.org/cgi-bin/cvsweb/src/usr.sbin/smtpd/>) also known as
 OpenSMTPD is a smtp server implementation for OpenBSD. It is still a work in
 progress which still lacks many features.
 
@@ -12,74 +13,81 @@ encouraged to join the IRC channel #poolp @ FreeNode.net.
 
 
 How to use Portable OpenSMTPD
+=============================
 
-0. Get the source
+Get the source
+--------------
 
-$ git clone git://github.com/clongeau/opensmtpd.git
+    git clone git://github.com/clongeau/opensmtpd.git
 
 or
 
-$ wget http://chl.be/opensmtpd/opensmtpd-latest.tar.gz
-$ tar xzvf opensmtpd-latest.tar.gz
+    wget http://chl.be/opensmtpd/opensmtpd-latest.tar.gz
+    tar xzvf opensmtpd-latest.tar.gz
 
 
-1. Build
+Build
+-----
 
-$ cd opensmtpd
-$ ./bootstrap
-$ ./configure
-$ make
-$ sudo make install
+    cd opensmtpd  
+    ./bootstrap  
+    ./configure  
+    make  
+    sudo make install  
 
-1.1. Special notes for FreeBSD/DragonFlyBSD:
+### Special notes for FreeBSD/DragonFlyBSD:
 
 Please lauch configure with special directive about libevent directory:
 
-FreeBSD:
+#### FreeBSD:
 
-$ ./configure --with-libevent-dir=/usr/local
+    ./configure --with-libevent-dir=/usr/local
 
-DragonFlyBSD:
+#### DragonFlyBSD:
 
-$ ./configure --with-libevent-dir=/usr/pkg
+    ./configure --with-libevent-dir=/usr/pkg
 
 
-2. Create a /etc/mail/smtpd.conf
+Create a /etc/mail/smtpd.conf
+-----------------------------
 
-# mkdir /etc/mail
-# cat > /etc/mail/smtpd.conf
-listen on localhost
-accept for all relay
-^D
-#
+    mkdir /etc/mail  
+    cat > /etc/mail/smtpd.conf  
+    listen on localhost  
+    accept for all relay  
+    ^D  
+    
 
 You can find a complete format description of smtpd.conf configuration file on:
-http://www.openbsd.org/cgi-bin/man.cgi?query=smtpd.conf&sektion=5&manpath=OpenBSD+Current&format=html
+<http://www.openbsd.org/cgi-bin/man.cgi?query=smtpd.conf&amp;sektion=5&amp;manpath=OpenBSD+Current&amp;format=html>
 
 
-3. Add _smtpd user
+Add _smtpd user
+---------------
 
-3.1. NetBSD, Linux (Debian, ArchLinux, ...)
+### NetBSD, Linux (Debian, ArchLinux, ...)
 
-# mkdir /var/empty
-# useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
+    mkdir /var/empty  
+    useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
 
-3.2. DragonFlyBSD, FreeBSD
+### DragonFlyBSD, FreeBSD
 
-# pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
+    pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
 
 
-3. Launch smtpd
+Launch smtpd
+------------
 
 First, kill any running sendmail/exim/qmail/postfix or other.
 
 Then:
 
-# smtpd &
+    smtpd &
 
 or in debug and verbose mode
 
-# smtpd -dv
+    smtpd -dv
 
 You can find a complete smtpd(8) man page at:
-http://www.openbsd.org/cgi-bin/man.cgi?query=smtpd&sektion=8&arch=&apropos=0&manpath=OpenBSD+Current
+<http://www.openbsd.org/cgi-bin/man.cgi?query=smtpd&amp;sektion=8&amp;arch=&amp;apropos=0&amp;manpath=OpenBSD+Current>
+
