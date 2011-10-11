@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.241 2011/10/09 18:39:54 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.240 2011/09/19 13:10:47 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -390,6 +390,7 @@ struct delivery_mta {
 };
 
 struct delivery {
+	u_int32_t			version;
 	u_int64_t			id;
 	enum delivery_type		type;
 
@@ -440,7 +441,7 @@ struct expandnode {
 
 RB_HEAD(expandtree, expandnode);
 
-
+#define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
