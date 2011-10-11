@@ -390,7 +390,6 @@ struct delivery_mta {
 };
 
 struct delivery {
-	u_int32_t			version;
 	u_int64_t			id;
 	enum delivery_type		type;
 
@@ -441,7 +440,7 @@ struct expandnode {
 
 RB_HEAD(expandtree, expandnode);
 
-#define	SMTPD_ENVELOPE_VERSION		1
+
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 

@@ -92,267 +92,6 @@ fsqueue_hash(u_int32_t h)
 }
 
 static int
-fsqueue_dump_envelope_ascii(FILE *fp, struct envelope *ep)
-{
-	fprintf(fp, "version: %d\n", SMTPD_ENVELOPE_VERSION);
-	fprintf(fp, "evpid: %016llx\n", ep->delivery.id);
-
-	switch (ep->delivery.type) {
-	case D_MDA:
-		fprintf(fp, "type: mda\n");
-		if (ep->delivery.agent.mda.method == A_MAILDIR)
-			fprintf(fp, "mda_method: maildir\n");
-		else if (ep->delivery.agent.mda.method == A_MBOX)
-			fprintf(fp, "mda_method: mbox\n");
-		else if (ep->delivery.agent.mda.method == A_FILENAME)
-			fprintf(fp, "mda_method: filename\n");
-		else if (ep->delivery.agent.mda.method == A_EXT)
-			fprintf(fp, "mda_method: external\n");
-		fprintf(fp, "mda_buffer: %s\n", ep->delivery.agent.mda.to.buffer);
-		fprintf(fp, "mda_as_user: %s\n", ep->delivery.agent.mda.as_user);
-		break;
-	case D_MTA:
-		fprintf(fp, "type: mta\n");
-		if (ep->delivery.agent.mta.relay.hostname[0])
-			fprintf(fp, "mta_relay_hostname: %s\n",
-			    ep->delivery.agent.mta.relay.hostname);
-
-		if (ep->delivery.agent.mta.relay.port)
-			fprintf(fp, "mta_relay_port: %d\n",
-			    ep->delivery.agent.mta.relay.port);
-
-		if (ep->delivery.agent.mta.relay.cert[0])
-			fprintf(fp, "mta_relay_cert: %s\n",
-			    ep->delivery.agent.mta.relay.cert);
-
-		if (ep->delivery.agent.mta.relay.flags)
-			fprintf(fp, "mta_relay_flags: %d\n",
-			    ep->delivery.agent.mta.relay.flags);
-
-		if (ep->delivery.agent.mta.relay_as.user[0] ||
-		    ep->delivery.agent.mta.relay_as.domain[0])
-			fprintf(fp, "mta_relay_as: %s@%s\n",
-			    ep->delivery.agent.mta.relay_as.user,
-			    ep->delivery.agent.mta.relay_as.domain);
-
-		break;
-	case D_BOUNCE:
-		fprintf(fp, "type: bounce\n");
-		break;
-	default:
-		return 0;
-	}
-
-	fprintf(fp, "helo: %s\n", ep->delivery.helo);
-	fprintf(fp, "hostname: %s\n", ep->delivery.hostname);
-	if (ep->delivery.errorline[0])
-		fprintf(fp, "error: %s\n", ep->delivery.errorline);
-
-	fprintf(fp, "sockaddr: %s\n", ss_to_text(&ep->delivery.ss));
-	fprintf(fp, "mail_from: %s@%s\n", ep->delivery.from.user, ep->delivery.from.domain);
-
-	fprintf(fp, "rcpt_to: %s@%s\n", ep->delivery.rcpt.user, ep->delivery.rcpt.domain);
-	if (strcmp(ep->delivery.rcpt.user, ep->delivery.rcpt_orig.user) != 0 ||
-	    strcmp(ep->delivery.rcpt.domain, ep->delivery.rcpt_orig.domain) != 0)
-		fprintf(fp, "rcpt_to_orig: %s@%s\n", ep->delivery.rcpt_orig.user,
-		    ep->delivery.rcpt_orig.domain);
-
-	if (ep->delivery.creation)
-		fprintf(fp, "ctime: %qd\n", (u_int64_t)ep->delivery.creation);
-	if (ep->delivery.lasttry)
-		fprintf(fp, "last_try: %qd\n", (u_int64_t)ep->delivery.lasttry);
-	if (ep->delivery.expire)
-		fprintf(fp, "expire: %qd\n", (u_int64_t)ep->delivery.expire);
-	if (ep->delivery.retry)
-		fprintf(fp, "retry: %d\n", ep->delivery.retry);
-	if (ep->delivery.flags)
-		fprintf(fp, "flags: %d\n", ep->delivery.flags);
-	if (ep->delivery.status)
-		fprintf(fp, "status: %d\n", ep->delivery.status);
-
-
-	if (fflush(fp) != 0)
-		return 0;
-
-	return 1;
-}
-
-static int
-fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
-{
-	char *buf, *lbuf;
-	size_t len;
-
-	lbuf = NULL;
-	while ((buf = fgetln(fp, &len))) {
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-		else {
-			if ((lbuf = malloc(len + 1)) == NULL)
-				err(1, NULL);
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
-
-		if (strncasecmp("version: ", buf, 9) == 0) {
-			const char *errstr;
-
-			buf += 9;
-			ep->delivery.version = strtonum(buf, 0, 0xffffffff, &errstr);
-			if (errstr)
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("evpid: ", buf, 7) == 0) {
-			char *endptr;
-
-			buf += 7;
-			ep->delivery.id = strtoull(buf, &endptr, 16);
-			if (buf[0] == '\0' || *endptr != '\0')
-				return 0;
-			if (errno == ERANGE && ep->delivery.id == ULLONG_MAX)
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("type: ", buf, 6) == 0) {
-			buf += 6;
-			if (strcasecmp(buf, "mda") == 0)
-				ep->delivery.type = D_MDA;
-			else if (strcasecmp(buf, "mta") == 0)
-				ep->delivery.type = D_MTA;
-			else if (strcasecmp(buf, "bounce") == 0)
-				ep->delivery.type = D_BOUNCE;
-			else
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("mda_method: ", buf, 12) == 0) {
-			buf += 12;
-			if (strcasecmp(buf, "mbox") == 0)
-				ep->delivery.agent.mda.method = A_MBOX;
-			else if (strcasecmp(buf, "maildir") == 0)
-				ep->delivery.agent.mda.method = A_MAILDIR;
-			else if (strcasecmp(buf, "filename") == 0)
-				ep->delivery.agent.mda.method = A_FILENAME;
-			else if (strcasecmp(buf, "external") == 0)
-				ep->delivery.agent.mda.method = A_EXT;
-			else
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("mda_buffer: ", buf, 12) == 0) {
-			buf += 12;
-			if (strlcpy(ep->delivery.agent.mda.to.buffer, buf,
-				sizeof (ep->delivery.agent.mda.to.buffer))
-			    >= sizeof (ep->delivery.agent.mda.to.buffer))
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("mda_as_user: ", buf, 13) == 0) {
-			buf += 13;
-			if (strlcpy(ep->delivery.agent.mda.as_user, buf,
-				sizeof (ep->delivery.agent.mda.as_user))
-			    >= sizeof (ep->delivery.agent.mda.as_user))
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("helo: ", buf, 6) == 0) {
-			buf += 6;
-			if (strlcpy(ep->delivery.helo, buf,
-				sizeof (ep->delivery.helo))
-			    >= sizeof (ep->delivery.helo))
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("hostname: ", buf, 10) == 0) {
-			buf += 10;
-			if (strlcpy(ep->delivery.hostname, buf,
-				sizeof (ep->delivery.hostname))
-			    >= sizeof (ep->delivery.hostname))
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("sockaddr: ", buf, 10) == 0) {
-			buf += 10;
-			continue;
-		}
-
-		if (strncasecmp("mail_from: ", buf, 11) == 0) {
-			buf += 11;
-			if (! email_to_mailaddr(&ep->delivery.from, buf))
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("rcpt_to: ", buf, 9) == 0) {
-			buf += 9;
-			if (! email_to_mailaddr(&ep->delivery.rcpt, buf))
-				return 0;
-
-			if (ep->delivery.rcpt_orig.user[0])
-				if (! email_to_mailaddr(&ep->delivery.rcpt_orig, buf))
-					return 0;
-			continue;
-		}
-
-		if (strncasecmp("rcpt_to_orig: ", buf, 14) == 0) {
-			buf += 14;
-			if (! email_to_mailaddr(&ep->delivery.rcpt_orig, buf))
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("mta_relay_hostname: ", buf, 20) == 0) {
-			buf += 20;
-
-			if (strlcpy(ep->delivery.agent.mta.relay.hostname, buf,
-				sizeof(ep->delivery.agent.mta.relay.hostname))
-			    >= sizeof(ep->delivery.agent.mta.relay.hostname))
-				return 0;
-
-			continue;
-		}
-
-		if (strncasecmp("mta_relay_flags: ", buf, 17) == 0) {
-			char *endptr;
-
-			buf += 17;
-			buf += 7;
-			ep->delivery.agent.mta.relay.flags = strtol(buf, &endptr, 10);
-			if (buf[0] == '\0' || *endptr != '\0')
-				return 0;
-			if (errno == ERANGE &&
-			    ep->delivery.agent.mta.relay.flags == UINT_MAX)
-				return 0;
-			continue;
-		}
-
-		if (strncasecmp("ctime: ", buf, 7) == 0) {
-			buf += 7;
-			continue;
-		}
-
-		if (strncasecmp("expire: ", buf, 8) == 0) {
-			buf += 8;
-			continue;
-		}
-	}
-	free(lbuf);
-
-	return 1;
-}
-
-
-static int
 fsqueue_envelope_create(enum queue_kind qkind, struct envelope *ep)
 {
 	char evpname[MAXPATHLEN];
@@ -397,10 +136,10 @@ again:
 		ep->delivery.retry = 0;
 	}
 
-	if (! fsqueue_dump_envelope_ascii(fp, ep)) {
+	if (fwrite(ep, sizeof (*ep), 1, fp) != 1) {
 		if (errno == ENOSPC)
 			goto tempfail;
-		fatal("fsqueue_dump_envelope_ascii: write");
+		fatal("fsqueue_envelope_create: write");
 	}
 
 	if (! safe_fclose(fp)) {
@@ -442,8 +181,8 @@ fsqueue_envelope_load(enum queue_kind qkind, struct envelope *ep)
 			return 0;
 		fatal("fsqueue_envelope_load: fopen");
 	}
-	if (! fsqueue_load_envelope_ascii(fp, ep))
-		fatal("fsqueue_load_envelope_ascii: fread");
+	if (fread(ep, sizeof (*ep), 1, fp) != 1)
+		fatal("fsqueue_envelope_load: fread");
 	fclose(fp);
 	return 1;
 }
@@ -475,10 +214,10 @@ fsqueue_envelope_update(enum queue_kind qkind, struct envelope *ep)
 			goto tempfail;
 		fatal("fsqueue_envelope_update: open");
 	}
-	if (! fsqueue_dump_envelope_ascii(fp, ep)) {
+	if (fwrite(ep, sizeof (*ep), 1, fp) != 1) {
 		if (errno == ENOSPC)
 			goto tempfail;
-		fatal("fsqueue_dump_envelope_ascii: fwrite");
+		fatal("fsqueue_envelope_update: fwrite");
 	}
 	if (! safe_fclose(fp))
 		goto tempfail;
