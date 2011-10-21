@@ -1,5 +1,5 @@
 dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
-AC_INIT([OpenSMTPD-portable],[m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.0-\1/' | tr -d '\n')],[Charles Longeau <chl@openbsd.org>])
+AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.0-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
