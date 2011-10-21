@@ -1,5 +1,6 @@
 # In OpenBSD, smptd's files are installed this way:
 #
+# /etc/mail/smtpd.conf
 # /usr/bin/newaliases --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
 # /usr/libexec/mail.local
 # /usr/sbin/makemap   --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
@@ -10,6 +11,7 @@
 # For OpenSMTPD portable, here's where files are installed:
 # (assuming PREFIX=/usr/local)
 #
+# /usr/local/etc/mail/smtpd.conf
 # /usr/local/bin/newaliases --> /usr/local/libexec/opensmtpd-portable/makemap
 # /usr/local/libexec/mail.local
 # /usr/local/libexec/opensmtpd-portable/makemap
@@ -51,24 +53,80 @@ LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
 LDADD = 		$(LIBCOMPAT)
 
-dist_man_MANS =		makemap.8 newaliases.8 smtpctl.8 smtpd.8 smtpd.conf.5
-
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
 CFLAGS =		-D_GNU_SOURCE
+CPPFLAGS =		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+
+PATHS =			-DSMTPD_CONFDIR=\"$(sysconfdir)/mail\" \
+			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\" \
+			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"
+
+MANPAGES =		makemap.8.out newaliases.8.out smtpctl.8.out smtpd.8.out smtpd.conf.5.out
+MANPAGES_IN =		makemap.8 newaliases.8 smtpctl.8 smtpd.8 smtpd.conf.5
+
+CONFIGFILES =		smtpd.conf.out
+CONFIGFILES_IN =	smtpd.conf
+
+PATHSUBS =		-e 's|/etc/mail/|$(sysconfdir)/mail/|g'			\
+			-e 's|/usr/libexec|$(libexecdir)|g'			\
+			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
+
+FIXPATHSCMD =		$(SED) $(PATHSUBS)
+
+$(MANPAGES): $(MANPAGES_IN)
+	if test "$(MANTYPE)" = "cat"; then \
+		manpage=$(srcdir)/`echo $@ | sed 's/\.[1-9]\.out$$/\.0/'`; \
+	else \
+		manpage=$(srcdir)/`echo $@ | sed 's/\.out$$//'`; \
+	fi; \
+	if test "$(MANTYPE)" = "man"; then \
+		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/mdoc2man.awk > $@; \
+	else \
+		$(FIXPATHSCMD) $${manpage} > $@; \
+	fi
+
+$(CONFIGFILES): $(CONFIGFILES_IN)
+	conffile=`echo $@ | sed 's/.out$$//'`; \
+	$(FIXPATHSCMD) $(srcdir)/$${conffile} > $@
 
 
+# smtpd.conf
 # newaliases makemap
-install-exec-hook:
+install-exec-hook: $(CONFIGFILES) $(MANPAGES)
+	$(MKDIR_P) $(DESTDIR)$(sysconfdir)/mail
 	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)5
+	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 
-	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT) \
-		$(DESTDIR)$(bindir)/newaliases$(EXEEXT)
+	@if [ ! -f $(DESTDIR)$(sysconfdir)/mail/smtpd.conf ]; then		\
+		$(INSTALL) -m 644 smtpd.conf.out $(DESTDIR)$(sysconfdir)/mail/smtpd.conf; \
+	else									\
+		echo "$(DESTDIR)$(sysconfdir)/mail/smtpd.conf already exists, install will not overwrite"; \
+	fi
 
-	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT) \
-		$(DESTDIR)$(sbindir)/makemap$(EXEEXT)
+	@if [ ! -f $(DESTDIR)$(bindir)/newaliases$(EXEEXT) ]; then		\
+		ln $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+			$(DESTDIR)$(bindir)/newaliases$(EXEEXT);		\
+	else 									\
+		echo "$(DESTDIR)$(bindir)/newaliases$(EXEEXT) already exists, install will not overwrite"; \
+	fi
+
+	@if [ ! -f $(DESTDIR)$(sbindir)/makemap$(EXEEXT) ]; then		\
+		ln $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+			$(DESTDIR)$(sbindir)/makemap$(EXEEXT);			\
+	else 									\
+		echo "$(DESTDIR)$(sbindir)/makemap$(EXEEXT) already exists, install will not overwrite"; \
+	fi
+
+	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
+	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
+	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
+	$(INSTALL) -m 644 smtpd.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
+	$(INSTALL) -m 644 smtpd.conf.5.out	$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5
+
 
 uninstall-hook:
 	rm 	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \

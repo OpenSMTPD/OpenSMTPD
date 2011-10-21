@@ -383,21 +383,21 @@ ssl_load_certfile(const char *name, u_int8_t flags)
 	(void)strlcpy(s->ssl_name, key.ssl_name, sizeof(s->ssl_name));
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.crt", name))
+		SMTPD_CONFDIR "/certs/%s.crt", name))
 		goto err;
 
 	if ((s->ssl_cert = ssl_load_file(certfile, &s->ssl_cert_len)) == NULL)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.key", name))
+		SMTPD_CONFDIR "/certs/%s.key", name))
 		goto err;
 
 	if ((s->ssl_key = ssl_load_file(certfile, &s->ssl_key_len)) == NULL)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.dh", name))
+		SMTPD_CONFDIR "/certs/%s.dh", name))
 		goto err;
 
 	if ((s->ssl_dhparams = ssl_load_file(certfile,

@@ -40,7 +40,10 @@
 #define IMSG_DATA_SIZE(imsg)	((imsg)->hdr.len - IMSG_HEADER_SIZE)
 
 
-#define CONF_FILE		 "/etc/mail/smtpd.conf"
+#ifndef SMTPD_CONFDIR
+#define SMTPD_CONFDIR		 "/etc/mail"
+#endif
+#define CONF_FILE		 SMTPD_CONFDIR "/smtpd.conf"
 #define MAX_LISTEN		 16
 #define PROC_COUNT		 9
 #define MAX_NAME_SIZE		 64
@@ -61,15 +64,24 @@
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
+#ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
-#define SMTPD_FILTER_USER      	 "_smtpmfa"
-#define SMTPD_SOCKET		 "/var/run/smtpd.sock"
+#endif
+#define SMTPD_FILTER_USER      	 SMTPD_USER "mfa"
+#ifndef SMTPD_SOCKDIR
+#define SMTPD_SOCKDIR		 "/var/run"
+#endif
+#define SMTPD_SOCKET		 SMTPD_SOCKDIR "/smtpd.sock"
 #define SMTPD_BANNER		 "220 %s ESMTP OpenSMTPD"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
+#ifndef PATH_MAILLOCAL
 #define	PATH_MAILLOCAL		"/usr/libexec/mail.local"
+#endif
+#ifndef PATH_SMTPCTL
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
+#endif
 
 #define	DIRHASH_BUCKETS		 4096
 

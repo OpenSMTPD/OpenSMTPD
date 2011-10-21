@@ -56,7 +56,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PATH_ALIASES	"/etc/mail/aliases"
+#define	PATH_ALIASES	SMTPD_CONFDIR "/aliases"
 
 extern char *__progname;
 

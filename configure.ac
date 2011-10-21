@@ -27,20 +27,40 @@ AM_PROG_CC_C_O
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
+AC_PATH_PROG([AR], [ar])
+AC_PATH_PROG([CAT], [cat])
+AC_PATH_PROG([SED], [sed])
 AC_PATH_PROG([TEST_MINUS_S_SH], [bash])
 AC_PATH_PROG([TEST_MINUS_S_SH], [ksh])
 AC_PATH_PROG([TEST_MINUS_S_SH], [sh])
 AC_PATH_PROG([SH], [sh])
+AC_PATH_PROG([GROFF], [groff])
+AC_PATH_PROG([NROFF], [nroff])
+AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 #AC_PATH_PROG(BYACC, byacc)
 AC_PATH_PROG(MAIL_LOCAL, mail.local)
 
 AM_CONDITIONAL(HAVE_MAIL_LOCAL, [test -n "$MAIL_LOCAL"])
 
-#libtoolize: `AC_PROG_RANLIB' is rendered obsolete by `LT_INIT'
 LT_INIT
 
 #from here everything comes from portable openssh configure.ac script
+
+#l50
+dnl select manpage formatter
+if test "x$MANDOC" != "x" ; then
+	MANFMT="$MANDOC"
+elif test "x$NROFF" != "x" ; then
+	MANFMT="$NROFF -mandoc"
+elif test "x$GROFF" != "x" ; then
+	MANFMT="$GROFF -mandoc -Tascii"
+else
+	AC_MSG_WARN([no manpage formatted found])
+	MANFMT="false"
+fi
+AC_SUBST([MANFMT])
+#l61
 
 #l91
 AC_CHECK_DECL(LLONG_MAX, have_llong_max=1, , [#include <limits.h>])
@@ -1052,9 +1072,23 @@ if test "x$PAM_MSG" = "xyes" ; then
 		
 	])
 fi
-#l2460
 
-#l2312
+SMTPD_USER=_smtpd
+AC_ARG_WITH([privsep-user],
+	[  --with-privsep-user=user Specify non-privileged user for privilege separation],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_USER=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
+	[non-privileged user for privilege separation])
+AC_SUBST([SMTPD_USER])
+#l2475
+
+#l2522
 # Check for  long long datatypes
 AC_CHECK_TYPES([long long, unsigned long long, long double])
 
@@ -1915,6 +1949,41 @@ AC_ARG_WITH([maildir],
 ) # maildir
 #l3618
 
+#l3648
+# Options from here on. Some of these are preset by platform above
+AC_ARG_WITH([mantype],
+	[  --with-mantype=man|cat|doc  Set man page type],
+	[
+		case "$withval" in
+		man|cat|doc)
+			MANTYPE=$withval
+			;;
+		*)
+			AC_MSG_ERROR([invalid man type: $withval])
+			;;
+		esac
+	]
+)
+if test -z "$MANTYPE"; then
+	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
+	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
+	if ${NROFF} -mdoc ${srcdir}/ssh.1 >/dev/null 2>&1; then
+		MANTYPE=doc
+	elif ${NROFF} -man ${srcdir}/ssh.1 >/dev/null 2>&1; then
+		MANTYPE=man
+	else
+		MANTYPE=cat
+	fi
+fi
+AC_SUBST([MANTYPE])
+if test "$MANTYPE" = "doc"; then
+	mansubdir=man;
+else
+	mansubdir=$MANTYPE;
+fi
+AC_SUBST([mansubdir])
+#l3679
+
 #l3901
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
@@ -1928,7 +1997,34 @@ AC_ARG_WITH([bsd-auth],
 		fi
 	]
 )
-#l3912
+
+# Where to place smtpd.sock
+sockdir=/var/run
+# make sure the directory exists
+if test ! -d $sockdir ; then
+	sockdir=`eval echo ${sysconfdir}`
+	case $sockdir in
+		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
+	esac
+fi
+
+AC_ARG_WITH([sock-dir],
+	[  --with-sock-dir=PATH     Specify location of smtpd.sock file],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			sockdir=$withval
+			if test ! -d $sockdir ; then
+			AC_MSG_WARN([** no $sockdir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
+	[Specify location of smtpd.sock])
+AC_SUBST([sockdir])
+#l3939
 
 
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
@@ -2180,9 +2276,9 @@ A=`eval echo ${prefix}` ; A=`eval echo ${A}`
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
 C=`eval echo ${sbindir}` ; C=`eval echo ${C}`
 D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
-#E=`eval echo ${libexecdir}/ssh-askpass` ; E=`eval echo ${E}`
+E=`eval echo ${libexecdir}/mail.local` ; E=`eval echo ${E}`
 F=`eval echo ${mandir}/${mansubdir}X` ; F=`eval echo ${F}`
-#G=`eval echo ${piddir}` ; G=`eval echo ${G}`
+G=`eval echo ${sockdir}` ; G=`eval echo ${G}`
 H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
 I=`eval echo ${user_path}` ; I=`eval echo ${I}`
 J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
@@ -2192,9 +2288,9 @@ echo "OpenSMTPD has been configured with the following options:"
 echo "                     User binaries: $B"
 echo "                   System binaries: $C"
 echo "               Configuration files: $D"
-#echo "                   Askpass program: $E"
+echo "                mail.local program: $E"
 echo "                      Manual pages: $F"
-#echo "                          PID file: $G"
+echo "                    smtpd.sock dir: $G"
 echo "  Privilege separation chroot path: $H"
 if test "x$external_path_file" = "x/etc/login.conf" ; then
 echo "   At runtime, sshd will use the path defined in $external_path_file"
