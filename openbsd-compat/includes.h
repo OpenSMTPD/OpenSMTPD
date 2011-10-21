@@ -74,7 +74,7 @@
 
 #include "defines.h"
 
-#include "openbsd-compat/openbsd-compat.h"
+#include "openbsd-compat.h"
 
 #include "entropy.h"
 

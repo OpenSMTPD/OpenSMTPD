@@ -1,1 +1,1 @@
-SUBDIRS=mail.local
+SUBDIRS =		mail.local

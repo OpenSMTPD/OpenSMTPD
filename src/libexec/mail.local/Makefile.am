@@ -1,15 +1,17 @@
-bin_PROGRAMS = mail.local
+libexec_PROGRAMS =	mail.local
 
-mail_local_SOURCES = 	mail.local.c locking.c ../../log.c
+mail_local_SOURCES =	mail.local.c locking.c ../../log.c
 
-INCLUDES = -I$(top_srcdir)/openbsd-compat/
+EXTRA_DIST =		mail.local.h pathnames.h
 
-LIBCOMPAT=$(top_srcdir)/openbsd-compat/libopenbsd-compat.a
+INCLUDES = 		-I$(top_srcdir)/openbsd-compat
 
-LDADD = $(LIBCOMPAT) -levent -lssl -lcrypt -lutil
+LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
+
+LDADD = 		$(LIBCOMPAT)
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS=-D_GNU_SOURCE
+CFLAGS =		-D_GNU_SOURCE
