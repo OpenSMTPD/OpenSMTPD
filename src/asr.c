@@ -28,7 +28,6 @@
 #include <fcntl.h>
 #include <limits.h> /* for USHRT_MAX */
 #include <netdb.h>
-#include <netdb.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
