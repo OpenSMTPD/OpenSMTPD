@@ -183,6 +183,7 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 	char *buf, *lbuf;
 	size_t len;
 
+	bzero(ep, sizeof (*ep));
 	lbuf = NULL;
 	while ((buf = fgetln(fp, &len))) {
 		if (buf[len - 1] == '\n')
@@ -194,6 +195,9 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 			lbuf[len] = '\0';
 			buf = lbuf;
 		}
+
+
+		log_debug("choking on: %s", buf);
 
 		if (strncasecmp("version: ", buf, 9) == 0) {
 			const char *errstr;
@@ -295,12 +299,13 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 
 		if (strncasecmp("rcpt_to: ", buf, 9) == 0) {
 			buf += 9;
-			if (! email_to_mailaddr(&ep->delivery.rcpt, buf))
-				return 0;
 
-			if (ep->delivery.rcpt_orig.user[0])
-				if (! email_to_mailaddr(&ep->delivery.rcpt_orig, buf))
-					return 0;
+			if (! email_to_mailaddr(&ep->delivery.rcpt, buf))
+				return 0;	
+			/*
+			if (! email_to_mailaddr(&ep->delivery.rcpt_orig, buf))
+				return 0;
+			*/
 			continue;
 		}
 
