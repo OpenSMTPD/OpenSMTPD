@@ -53,7 +53,6 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	char			 output[128], *error, *parent_error;
 	struct deliver		 deliver;
 	struct mda_session	*s;
-	struct delivery		*d;
 	struct delivery_mda	*d_mda;
 	struct mailaddr		*maddr;
 	struct envelope		*ep;

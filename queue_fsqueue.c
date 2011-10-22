@@ -56,6 +56,9 @@ int	fsqueue_init(void);
 int	fsqueue_message(enum queue_kind, enum queue_op, u_int32_t *);
 int	fsqueue_envelope(enum queue_kind, enum queue_op , struct envelope *);
 
+int	fsqueue_load_envelope_ascii(FILE *, struct envelope *);
+int	fsqueue_dump_envelope_ascii(FILE *, struct envelope *);
+
 static char *
 fsqueue_getpath(enum queue_kind kind)
 {

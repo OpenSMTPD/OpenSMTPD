@@ -26,6 +26,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -70,6 +71,8 @@
 #define	KW_MTA_RELAY_CERT	"mta_relay_cert"
 #define	KW_MTA_RELAY_AS		"mta_relay_as"
 
+int	fsqueue_load_envelope_ascii(FILE *, struct envelope *);
+int	fsqueue_dump_envelope_ascii(FILE *, struct envelope *);
 
 static int
 ascii_load_version(struct envelope *ep, char *buf)
@@ -405,24 +408,13 @@ ascii_dump_mta_relay_cert(struct envelope *ep, FILE *fp)
 static int
 ascii_load_mta_relay_flags(struct envelope *ep, char *buf)
 {
-	char *endptr;
-
-	ep->agent.mta.relay.flags = strtoul(buf, &endptr, 10);
-	if (buf[0] == '\0' || *endptr != '\0')
-		return 0;
-	if (errno == ERANGE &&
-	    ep->agent.mta.relay.flags == ULONG_MAX)
-		return 0;
-	return 1;
+	return 0;
 }
 
 static int
 ascii_dump_mta_relay_flags(struct envelope *ep, FILE *fp)
 {
-	if (ep->agent.mta.relay.flags)
-		fprintf(fp, "%s: %d\n", KW_MTA_RELAY_FLAGS,
-		    ep->agent.mta.relay.flags);
-	return 1;
+	return 0;
 }
 
 static int
@@ -574,9 +566,13 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 		{ KW_EXPIRE,		ascii_load_expire },
 		{ KW_FLAGS,		ascii_load_flags },
 		{ KW_ERRORLINE,		ascii_load_errorline },
+
 		{ KW_MDA_METHOD,       	ascii_load_mda_method },
 		{ KW_MDA_BUFFER,       	ascii_load_mda_buffer },
 		{ KW_MDA_USER,		ascii_load_mda_user },
+
+		{ KW_MTA_RELAY_HOST,   	ascii_load_mta_relay_host },
+		{ KW_MTA_RELAY_FLAGS,  	ascii_load_mta_relay_flags },
 	};
 	int	i;
 	int	n;

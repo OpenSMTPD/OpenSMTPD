@@ -555,7 +555,7 @@ msgid_generate(void)
 		ret = arc4random();
 	} while (ret == 0);
 
-	log_debug("msgid_generate: %qd", ret);
+	log_debug("msgid_generate: %08x", ret);
 
 	return ret;
 }
