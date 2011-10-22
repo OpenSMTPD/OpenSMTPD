@@ -420,7 +420,21 @@ ascii_load_mta_relay_flags(struct envelope *ep, char *buf)
 static int
 ascii_dump_mta_relay_flags(struct envelope *ep, FILE *fp)
 {
-	return 0;
+	if (ep->agent.mta.relay.flags) {
+		fprintf(fp, "%s:", KW_MTA_RELAY_FLAGS);
+		if (ep->agent.mta.relay.flags & MTA_FORCE_ANYSSL)
+			fprintf(fp, "force_anyssl");
+		if (ep->agent.mta.relay.flags & MTA_FORCE_SMTPS)
+			fprintf(fp, "force_smtps");
+		if (ep->agent.mta.relay.flags & MTA_ALLOW_PLAIN)
+			fprintf(fp, "allow_plain");
+		if (ep->agent.mta.relay.flags & MTA_USE_AUTH)
+			fprintf(fp, "use_auth");
+		if (ep->agent.mta.relay.flags & MTA_FORCE_MX)
+			fprintf(fp, "force_mx");
+		fprintf(fp, "\n");
+	}
+	return 1;
 }
 
 static int
