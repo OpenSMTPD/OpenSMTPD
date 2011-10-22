@@ -382,10 +382,6 @@ struct delivery_mta {
 	struct mailaddr	relay_as;
 };
 
-struct delivery {
-
-};
-
 enum expand_type {
 	EXPAND_INVALID,
 	EXPAND_USERNAME,
