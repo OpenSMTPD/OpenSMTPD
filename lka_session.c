@@ -91,7 +91,7 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 	case C_NET:
 	case C_DOM: {
 		if (ep->agent.mda.to.user[0] == '\0')
-			user = ep->rcpt.user;
+			user = ep->dest.user;
 		else
 			user = ep->agent.mda.to.user;
 		lowercase(username, user, sizeof(username));
@@ -142,9 +142,9 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 	}
 
 	case C_VDOM: {
-		if (aliases_virtual_exist(ep->rule.r_condition.c_map, &ep->rcpt)) {
+		if (aliases_virtual_exist(ep->rule.r_condition.c_map, &ep->dest)) {
 			if (! aliases_virtual_get(ep->rule.r_condition.c_map,
-				&lks->expandtree, &ep->rcpt))
+				&lks->expandtree, &ep->dest))
 				return 0;
 			return 1;
 		}
@@ -394,7 +394,7 @@ lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 	}
 	else if (new_ep->type == D_MTA) {
 		if (ep->rule.r_as)
-			new_ep->from = *ep->rule.r_as;
+			new_ep->sender = *ep->rule.r_as;
 	}
 	TAILQ_INSERT_TAIL(&lks->deliverylist, new_ep, entry);
 }
@@ -418,7 +418,7 @@ lka_session_resolve_node(struct envelope *ep, struct expandnode *xn)
         case EXPAND_ADDRESS:
                 log_debug("lka_resolve_node: node is address: %s@%s",
 		    xn->u.mailaddr.user, xn->u.mailaddr.domain);
-		ep->rcpt = xn->u.mailaddr;
+		ep->dest = xn->u.mailaddr;
 
 		/* evaluation of ruleset assumes local source
 		 * since we're expanding on already accepted
@@ -548,19 +548,19 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 			}
 			switch (*tmp) {
 			case 'U':
-				string = ep->from.user;
+				string = ep->sender.user;
 				break;
 			case 'D':
-				string = ep->from.domain;
+				string = ep->sender.domain;
 				break;
 			case 'a':
 				string = ep->agent.mda.as_user;
 				break;
 			case 'u':
-				string = ep->rcpt.user;
+				string = ep->dest.user;
 				break;
 			case 'd':
-				string = ep->rcpt.domain;
+				string = ep->dest.domain;
 				break;
 			default:
 				goto copy;

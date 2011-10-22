@@ -428,9 +428,9 @@ struct envelope {
 	char				errorline[MAX_LINE_SIZE + 1];
 	struct sockaddr_storage		ss;
 
-	struct mailaddr			from;
+	struct mailaddr			sender;
 	struct mailaddr			rcpt;
-	struct mailaddr			rcpt_orig;
+	struct mailaddr			dest;
 
 	union delivery_method {
 		struct delivery_mda	mda;

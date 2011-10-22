@@ -47,7 +47,7 @@ ruleset_match(struct envelope *evp)
 	struct rule *r;
 	struct map *map;
 	struct mapel *me;
-	struct mailaddr *maddr = &evp->rcpt;
+	struct mailaddr *maddr = &evp->dest;
 	struct sockaddr_storage *ss = &evp->ss;
 
 	if (evp->flags & DF_INTERNAL)

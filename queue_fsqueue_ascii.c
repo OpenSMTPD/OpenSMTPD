@@ -51,25 +51,25 @@
 #define	KW_HOSTNAME    		"hostname"
 #define	KW_ERRORLINE   		"errorline"
 #define	KW_SOCKADDR   		"sockaddr"
-#define	KW_SENDER		"mail_from"
+#define	KW_SENDER		"sender"
 #define	KW_RCPT			"rcpt"
-#define	KW_RCPT_ORIG   		"rcpt_orig"
+#define	KW_DEST   		"dest"
 #define	KW_CTIME		"ctime"
 #define	KW_EXPIRE		"expire"
 #define	KW_RETRY		"retry"
-#define	KW_LAST_TRY		"last_try"
+#define	KW_LAST_TRY		"last-try"
 #define	KW_FLAGS		"flags"
 #define	KW_STATUS		"status"
 
-#define	KW_MDA_METHOD		"mda_method"
-#define	KW_MDA_BUFFER		"mda_buffer"
-#define	KW_MDA_USER		"mda_user"
+#define	KW_MDA_METHOD		"mda-method"
+#define	KW_MDA_BUFFER		"mda-buffer"
+#define	KW_MDA_USER		"mda-user"
 
-#define	KW_MTA_RELAY_HOST	"mta_relay_hostname"
-#define	KW_MTA_RELAY_PORT	"mta_relay_port"
-#define	KW_MTA_RELAY_FLAGS	"mta_relay_flags"
-#define	KW_MTA_RELAY_CERT	"mta_relay_cert"
-#define	KW_MTA_RELAY_AS		"mta_relay_as"
+#define	KW_MTA_RELAY_HOST	"mta-relay-hostname"
+#define	KW_MTA_RELAY_PORT	"mta-relay-port"
+#define	KW_MTA_RELAY_FLAGS	"mta-relay-flags"
+#define	KW_MTA_RELAY_CERT	"mta-relay-cert"
+#define	KW_MTA_RELAY_AS		"mta-relay-as"
 
 int	fsqueue_load_envelope_ascii(FILE *, struct envelope *);
 int	fsqueue_dump_envelope_ascii(FILE *, struct envelope *);
@@ -316,7 +316,7 @@ ascii_dump_sockaddr(struct envelope *ep, FILE *fp)
 static int
 ascii_load_sender(struct envelope *ep, char *buf)
 {
-	if (! email_to_mailaddr(&ep->from, buf))
+	if (! email_to_mailaddr(&ep->sender, buf))
 		return 0;
 	return 1;
 }
@@ -325,7 +325,7 @@ static int
 ascii_dump_sender(struct envelope *ep, FILE *fp)
 {
 	fprintf(fp, "%s: %s@%s\n", KW_SENDER,
-	    ep->from.user, ep->from.domain);
+	    ep->sender.user, ep->sender.domain);
 	return 1;
 }
 
@@ -333,9 +333,9 @@ ascii_dump_sender(struct envelope *ep, FILE *fp)
 static int
 ascii_load_rcpt(struct envelope *ep, char *buf)
 {
-	if (! email_to_mailaddr(&ep->rcpt, buf))
+	if (! email_to_mailaddr(&ep->dest, buf))
 		return 0;
-	ep->rcpt_orig = ep->rcpt;
+	ep->dest = ep->dest;
 	return 1;
 }
 
@@ -343,27 +343,27 @@ static int
 ascii_dump_rcpt(struct envelope *ep, FILE *fp)
 {
 	fprintf(fp, "%s: %s@%s\n", KW_RCPT,
-	    ep->rcpt.user, ep->rcpt.domain);
+	    ep->dest.user, ep->dest.domain);
 	return 1;
 }
 
 
 static int
-ascii_load_rcpt_orig(struct envelope *ep, char *buf)
+ascii_load_dest(struct envelope *ep, char *buf)
 {
-	if (! email_to_mailaddr(&ep->rcpt_orig, buf))
+	if (! email_to_mailaddr(&ep->dest, buf))
 		return 0;
 	return 1;
 }
 
 static int
-ascii_dump_rcpt_orig(struct envelope *ep, FILE *fp)
+ascii_dump_dest(struct envelope *ep, FILE *fp)
 {
-	if (strcmp(ep->rcpt.user, ep->rcpt_orig.user) != 0 ||
-	    strcmp(ep->rcpt.domain, ep->rcpt_orig.domain) != 0)
-		fprintf(fp, "%s: %s@%s\n", KW_RCPT_ORIG,
-		    ep->rcpt_orig.user,
-		    ep->rcpt_orig.domain);
+	if (strcmp(ep->dest.user, ep->dest.user) != 0 ||
+	    strcmp(ep->dest.domain, ep->dest.domain) != 0)
+		fprintf(fp, "%s: %s@%s\n", KW_DEST,
+		    ep->dest.user,
+		    ep->dest.domain);
 	return 1;
 }
 
@@ -388,11 +388,32 @@ ascii_dump_mta_relay_host(struct envelope *ep, FILE *fp)
 }
 
 static int
+ascii_load_mta_relay_port(struct envelope *ep, char *buf)
+{
+	const char *errstr;
+
+	ep->agent.mta.relay.port = strtonum(buf, 0, 0xffff, &errstr);
+	if (errstr)
+		return 0;
+	return 1;
+}
+
+static int
 ascii_dump_mta_relay_port(struct envelope *ep, FILE *fp)
 {
 	if (ep->agent.mta.relay.port)
 		fprintf(fp, "%s: %d\n", KW_MTA_RELAY_PORT,
 		    ep->agent.mta.relay.port);
+	return 1;
+}
+
+static int
+ascii_load_mta_relay_cert(struct envelope *ep, char *buf)
+{
+	if (strlcpy(ep->agent.mta.relay.cert, buf,
+		sizeof(ep->agent.mta.relay.cert))
+	    >= sizeof(ep->agent.mta.relay.cert))
+		return 0;
 	return 1;
 }
 
@@ -491,11 +512,33 @@ ascii_dump_expire(struct envelope *ep, FILE *fp)
 }
 
 static int
+ascii_load_retry(struct envelope *ep, char *buf)
+{
+	const char *errstr;
+
+	ep->retry = strtonum(buf, 0, 0xffffffff, &errstr);
+	if (errstr)
+		return 0;
+	return 1;
+}
+
+static int
 ascii_dump_retry(struct envelope *ep, FILE *fp)
 {
 	if (ep->retry)
 		fprintf(fp, "%s: %d\n", KW_RETRY,
 		    ep->retry);
+	return 1;
+}
+
+static int
+ascii_load_lasttry(struct envelope *ep, char *buf)
+{
+	const char *errstr;
+
+	ep->lasttry = strtonum(buf, 0, 0xffffffff, &errstr);
+	if (errstr)
+		return 0;
 	return 1;
 }
 
@@ -623,7 +666,7 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 		{ KW_CTIME,		ascii_load_ctime },
 		{ KW_EXPIRE,		ascii_load_expire },
 		{ KW_RETRY,		ascii_load_retry },
-		{ KW_LAST_TRY,		ascii_load_last_try },
+		{ KW_LAST_TRY,		ascii_load_lasttry },
 
 		{ KW_FLAGS,		ascii_load_flags },
 
@@ -715,7 +758,7 @@ fsqueue_dump_envelope_ascii(FILE *fp, struct envelope *ep)
 	    ! ascii_dump_sockaddr(ep, fp)  ||
 	    ! ascii_dump_sender(ep, fp)	   ||
 	    ! ascii_dump_rcpt(ep, fp)	   ||
-	    ! ascii_dump_rcpt_orig(ep, fp) ||
+	    ! ascii_dump_dest(ep, fp)	   ||
 	    ! ascii_dump_ctime(ep, fp)	   ||
 	    ! ascii_dump_lasttry(ep, fp)   ||
 	    ! ascii_dump_expire(ep, fp)	   ||

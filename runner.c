@@ -102,7 +102,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 			struct envelope bounce;
 
 			if (e->type != D_BOUNCE &&
-			    e->from.user[0] != '\0') {
+			    e->sender.user[0] != '\0') {
 				bounce_record_message(e, &bounce);
 				ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
 				runner_reset_events();
@@ -655,18 +655,18 @@ runner_check_loop(struct envelope *ep)
 		}
 
 		else if (strncasecmp("Delivered-To: ", buf, 14) == 0) {
-			struct mailaddr rcpt;
+			struct mailaddr dest;
 
 			bzero(&maddr, sizeof (struct mailaddr));
 			if (! email_to_mailaddr(&maddr, buf + 14))
 				continue;
-
-			rcpt = ep->rcpt;
+			
+			dest = ep->dest;
 			if (ep->type == D_BOUNCE)
-				rcpt = ep->from;
+				dest = ep->sender;
 
-			if (strcasecmp(maddr.user, rcpt.user) == 0 &&
-			    strcasecmp(maddr.domain, rcpt.domain) == 0) {
+			if (strcasecmp(maddr.user, dest.user) == 0 &&
+			    strcasecmp(maddr.domain, dest.domain) == 0) {
 				ret = 1;
 				break;
 			}

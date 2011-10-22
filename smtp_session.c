@@ -393,7 +393,7 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 		return 1;
 	}
 
-	if (! session_set_mailaddr(&s->s_msg.from, args)) {
+	if (! session_set_mailaddr(&s->s_msg.sender, args)) {
 		/* No need to even transmit to MFA, path is invalid */
 		session_respond(s, "553 5.1.7 Sender address syntax error");
 		return 1;
@@ -424,7 +424,7 @@ session_rfc5321_rcpt_handler(struct session *s, char *args)
 		return 1;
 	}
 
-	if (! session_set_mailaddr(&s->s_msg.rcpt_orig, args)) {
+	if (! session_set_mailaddr(&s->s_msg.rcpt, args)) {
 		/* No need to even transmit to MFA, path is invalid */
 		session_respond(s, "553 5.1.3 Recipient address syntax error");
 		return 1;
@@ -651,7 +651,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		}
 
 		s->s_state = S_MAIL_QUEUE;
-		s->s_msg.from = ss->u.maddr;
+		s->s_msg.sender = ss->u.maddr;
 
 		session_imsg(s, PROC_QUEUE, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
 		    &s->s_msg, sizeof(s->s_msg));
@@ -675,14 +675,14 @@ session_pickup(struct session *s, struct submit_status *ss)
 			else
 				s->s_state = S_RCPT;
 			session_respond(s, "%d 5.0.0 Recipient rejected: %s@%s", ss->code,
-			    s->s_msg.rcpt_orig.user,
-			    s->s_msg.rcpt_orig.domain);
+			    s->s_msg.rcpt.user,
+			    s->s_msg.rcpt.domain);
 			return;
 		}
 
 		s->s_state = S_RCPT;
 		s->rcptcount++;
-		s->s_msg.rcpt = ss->u.maddr;
+		s->s_msg.dest = ss->u.maddr;
 
 		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
 		break;
@@ -706,8 +706,8 @@ session_pickup(struct session *s, struct submit_status *ss)
 		}
 		if (s->rcptcount == 1)
 			fprintf(s->datafp, "\n\tfor <%s@%s>; ",
-			    s->s_msg.rcpt_orig.user,
-			    s->s_msg.rcpt_orig.domain);
+			    s->s_msg.rcpt.user,
+			    s->s_msg.rcpt.domain);
 		else
 			fprintf(s->datafp, ";\n\t");
 
@@ -726,9 +726,9 @@ session_pickup(struct session *s, struct submit_status *ss)
 		log_info("%08x: from=<%s%s%s>, size=%ld, nrcpts=%zd, proto=%s, "
 		    "relay=%s [%s]",
 		    evpid_to_msgid(s->s_msg.id),
-		    s->s_msg.from.user,
-		    s->s_msg.from.user[0] == '\0' ? "" : "@",
-		    s->s_msg.from.domain,
+		    s->s_msg.sender.user,
+		    s->s_msg.sender.user[0] == '\0' ? "" : "@",
+		    s->s_msg.sender.domain,
 		    s->s_datalen,
 		    s->rcptcount,
 		    s->s_flags & F_EHLO ? "ESMTP" : "SMTP",
@@ -1136,7 +1136,7 @@ session_respond(struct session *s, char *fmt, ...)
 	case '4':
 		log_info("%08x: from=<%s@%s>, relay=%s [%s], stat=LocalError (%.*s)",
 		    evpid_to_msgid(s->s_msg.id),
-		    s->s_msg.from.user, s->s_msg.from.domain,
+		    s->s_msg.sender.user, s->s_msg.sender.domain,
 		    s->s_hostname, ss_to_text(&s->s_ss),
 		    (int)EVBUFFER_LENGTH(EVBUFFER_OUTPUT(s->s_bev)) - n - 2,
 		    EVBUFFER_DATA(EVBUFFER_OUTPUT(s->s_bev)));

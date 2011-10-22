@@ -93,8 +93,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				    sizeof (deliver.user));
 				snprintf(deliver.to, sizeof (deliver.to),
 				    "%s -f %s@%s %s", PATH_MAILLOCAL,
-				    ep->from.user,
-				    ep->from.domain,
+				    ep->sender.user,
+				    ep->sender.domain,
 				    d_mda->to.user);
 				break;
 
@@ -213,9 +213,9 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			 */
 			if (s->msg.rule.r_action == A_MAILDIR ||
 			    s->msg.rule.r_action == A_MBOX)
-				maddr = &s->msg.rcpt;
+				maddr = &s->msg.dest;
 			else
-				maddr = &s->msg.rcpt_orig;
+				maddr = &s->msg.rcpt;
 
 			/* log status */
 			if (error && asprintf(&error, "Error (%s)", error) < 0)
@@ -339,16 +339,16 @@ mda_store(struct mda_session *s)
 	struct ibuf	*buf;
 	int		 len;
 
-	if (s->msg.from.user[0] && s->msg.from.domain[0])
+	if (s->msg.sender.user[0] && s->msg.sender.domain[0])
 		/* XXX: remove user provided Return-Path, if any */
 		len = asprintf(&p, "Return-Path: %s@%s\nDelivered-To: %s@%s\n",
-		    s->msg.from.user, s->msg.from.domain,
-		    s->msg.rcpt_orig.user,
-		    s->msg.rcpt_orig.domain);
+		    s->msg.sender.user, s->msg.sender.domain,
+		    s->msg.rcpt.user,
+		    s->msg.rcpt.domain);
 	else
 		len = asprintf(&p, "Delivered-To: %s@%s\n",
-		    s->msg.rcpt_orig.user,
-		    s->msg.rcpt_orig.domain);
+		    s->msg.rcpt.user,
+		    s->msg.rcpt.domain);
 
 	if (len == -1)
 		fatal("mda_store: asprintf");

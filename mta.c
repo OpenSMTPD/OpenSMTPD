@@ -140,7 +140,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			    sizeof(e->errorline));
 
 			if (s->host == NULL) {
-				s->host = strdup(e->rcpt.domain);
+				s->host = strdup(e->dest.domain);
 				if (s->host == NULL)
 					fatal("strdup");
 			}
@@ -480,16 +480,16 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 
 		/* set envelope sender */
 		e = TAILQ_FIRST(&s->recipients);
-		if (e->from.user[0] && e->from.domain[0])
-			client_sender(pcb, "%s@%s", e->from.user,
-			    e->from.domain);
+		if (e->sender.user[0] && e->sender.domain[0])
+			client_sender(pcb, "%s@%s", e->sender.user,
+			    e->sender.domain);
 		else
 			client_sender(pcb, "");
 			
 		/* set envelope recipients */
 		TAILQ_FOREACH(e, &s->recipients, entry)
-			client_rcpt(pcb, e, "%s@%s", e->rcpt.user,
-			    e->rcpt.domain);
+			client_rcpt(pcb, e, "%s@%s", e->dest.user,
+			    e->dest.domain);
 
 		s->pcb = pcb;
 		event_set(&s->ev, s->fd, EV_READ|EV_WRITE, mta_event, s);
@@ -688,8 +688,8 @@ mta_message_status(struct envelope *e, char *status)
 		return;
 
 	/* change status */
-	log_debug("mta: new status for %s@%s: %s", e->rcpt.user,
-	    e->rcpt.domain, status);
+	log_debug("mta: new status for %s@%s: %s", e->dest.user,
+	    e->dest.domain, status);
 	strlcpy(e->errorline, status, sizeof(e->errorline));
 }
 
@@ -700,8 +700,8 @@ mta_message_log(struct mta_session *s, struct envelope *e)
 	char			*status = e->errorline;
 
 	log_info("%016llx: to=<%s@%s>, delay=%lld, relay=%s [%s], stat=%s (%s)",
-	    e->id, e->rcpt.user,
-	    e->rcpt.domain,
+	    e->id, e->dest.user,
+	    e->dest.domain,
 	    (long long int) (time(NULL) - e->creation),
 	    relay ? relay->fqdn : "(none)",
 	    relay ? ss_to_text(&relay->sa) : "",

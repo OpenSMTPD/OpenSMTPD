@@ -245,7 +245,7 @@ mfa_test_mail(struct envelope *e)
 
 	ss.id = e->session_id;
 	ss.code = 530;
-	ss.u.maddr = e->from;
+	ss.u.maddr = e->sender;
 
 	if (mfa_strip_source_route(ss.u.maddr.user, sizeof(ss.u.maddr.user)))
 		goto refuse;
@@ -275,10 +275,10 @@ mfa_test_rcpt(struct envelope *e)
 
 	ss.id = e->session_id;
 	ss.code = 530;
-	ss.u.maddr = e->rcpt_orig;
+	ss.u.maddr = e->rcpt;
 	ss.ss = e->ss;
 	ss.envelope = *e;
-	ss.envelope.rcpt = e->rcpt_orig;
+	ss.envelope.dest = e->rcpt;
 	ss.flags = e->flags;
 
 	mfa_strip_source_route(ss.u.maddr.user, sizeof(ss.u.maddr.user));
@@ -303,7 +303,7 @@ mfa_test_rcpt_resume(struct submit_status *ss) {
 		return;
 	}
 
-	ss->envelope.rcpt = ss->u.maddr;
+	ss->envelope.dest = ss->u.maddr;
 	ss->envelope.expire = ss->envelope.rule.r_qexpire;
 	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RCPT, 0, 0, -1,
 	    ss, sizeof(*ss));

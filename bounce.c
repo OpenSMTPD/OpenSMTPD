@@ -72,8 +72,8 @@ bounce_session(int fd, struct envelope *m)
 
 	client_ssl_optional(cc->pcb);
 	client_sender(cc->pcb, "");
-	client_rcpt(cc->pcb, NULL, "%s@%s", m->from.user,
-	    m->from.domain);
+	client_rcpt(cc->pcb, NULL, "%s@%s", m->sender.user,
+	    m->sender.domain);
 
 	/* Construct an appropriate reason line. */
 	reason = m->errorline;
@@ -100,9 +100,9 @@ bounce_session(int fd, struct envelope *m)
 	    "Below is a copy of the original message:\n"
 	    "\n",
 	    env->sc_hostname,
-	    m->from.user, m->from.domain,
+	    m->sender.user, m->sender.domain,
 	    time_to_text(time(NULL)),
-	    m->rcpt.user, m->rcpt.domain,
+	    m->dest.user, m->dest.domain,
 	    reason);
 
 	/* setup event */

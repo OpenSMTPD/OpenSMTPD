@@ -95,7 +95,7 @@ queue_message_update(struct envelope *e)
 
 	if (e->status & DS_PERMFAILURE) {
 		if (e->type != D_BOUNCE &&
-		    e->from.user[0] != '\0') {
+		    e->sender.user[0] != '\0') {
 			struct envelope bounce;
 
 			bounce_record_message(e, &bounce);
@@ -328,8 +328,8 @@ display_envelope(struct envelope *e, int flags)
 	printf("|%016llx|%s|%s@%s|%s@%s|%lld|%lld|%u",
 	    e->id,
 	    status,
-	    e->from.user, e->from.domain,
-	    e->rcpt.user, e->rcpt.domain,
+	    e->sender.user, e->sender.domain,
+	    e->dest.user, e->dest.domain,
 	    (long long int) e->lasttry,
 	    (long long int) e->expire,
 	    e->retry);

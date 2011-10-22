@@ -198,7 +198,7 @@ ramqueue_insert(struct ramqueue *rqueue, struct envelope *envelope, time_t curtm
 		fatal("calloc");
 	rq_evp->evpid = envelope->id;
 	rq_evp->sched = ramqueue_next_schedule(envelope, curtm);
-	rq_evp->rq_host = ramqueue_get_host(rqueue, envelope->rcpt.domain);
+	rq_evp->rq_host = ramqueue_get_host(rqueue, envelope->dest.domain);
 	rq_evp->rq_batch = ramqueue_get_batch(rqueue, rq_evp->rq_host, envelope);
 	RB_INSERT(evptree, &rq_msg->evptree, rq_evp);
 	rq_evp->rq_msg = rq_msg;
