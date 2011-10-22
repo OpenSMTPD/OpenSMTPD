@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.240 2011/09/19 13:10:47 chl Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.242 2011/10/22 00:16:34 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -643,6 +643,9 @@ struct smtpd {
 	struct stats				*stats;
 	u_int64_t				 filtermask;
 };
+
+#define	TRACE_VERBOSE	0x01
+#define	TRACE_IMSG	0x02
 
 enum {
 	STATS_SMTP_SESSION = 0,
