@@ -432,15 +432,15 @@ ascii_load_mta_relay_flags(struct envelope *ep, char *buf)
 	char *flag;
 
 	while ((flag = strsep(&buf, " ,|")) != NULL) {
-		if (strcasecmp(flag, "force_anyssl") == 0)
+		if (strcasecmp(flag, "force-anyssl") == 0)
 			ep->agent.mta.relay.flags |= MTA_FORCE_ANYSSL;
-		else if (strcasecmp(flag, "force_smtps") == 0)
+		else if (strcasecmp(flag, "force-smtps") == 0)
 			ep->agent.mta.relay.flags |= MTA_FORCE_SMTPS;
-		else if (strcasecmp(flag, "force_plain") == 0)
+		else if (strcasecmp(flag, "allow-plain") == 0)
 			ep->agent.mta.relay.flags |= MTA_ALLOW_PLAIN;
-		else if (strcasecmp(flag, "use_auth") == 0)
+		else if (strcasecmp(flag, "use-auth") == 0)
 			ep->agent.mta.relay.flags |= MTA_USE_AUTH;
-		else if (strcasecmp(flag, "force_mx") == 0)
+		else if (strcasecmp(flag, "force-mx") == 0)
 			ep->agent.mta.relay.flags |= MTA_FORCE_MX;
 		else
 			return 0;
@@ -455,15 +455,15 @@ ascii_dump_mta_relay_flags(struct envelope *ep, FILE *fp)
 	if (ep->agent.mta.relay.flags) {
 		fprintf(fp, "%s:", KW_MTA_RELAY_FLAGS);
 		if (ep->agent.mta.relay.flags & MTA_FORCE_ANYSSL)
-			fprintf(fp, " force_anyssl");
+			fprintf(fp, " force-anyssl");
 		if (ep->agent.mta.relay.flags & MTA_FORCE_SMTPS)
-			fprintf(fp, " force_smtps");
+			fprintf(fp, " force-smtps");
 		if (ep->agent.mta.relay.flags & MTA_ALLOW_PLAIN)
-			fprintf(fp, " allow_plain");
+			fprintf(fp, " allow-plain");
 		if (ep->agent.mta.relay.flags & MTA_USE_AUTH)
-			fprintf(fp, " use_auth");
+			fprintf(fp, " use-auth");
 		if (ep->agent.mta.relay.flags & MTA_FORCE_MX)
-			fprintf(fp, " force_mx");
+			fprintf(fp, " force-mx");
 		fprintf(fp, "\n");
 	}
 	return 1;
