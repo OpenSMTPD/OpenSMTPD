@@ -408,6 +408,12 @@ ascii_dump_mta_relay_cert(struct envelope *ep, FILE *fp)
 static int
 ascii_load_mta_relay_flags(struct envelope *ep, char *buf)
 {
+	char *flag;
+
+	while ((flag = strsep(&buf, " ,|")) != NULL) {
+		log_debug("RELAY FLAG: /%s/", flag);
+	}
+
 	return 0;
 }
 
