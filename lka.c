@@ -89,12 +89,16 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			ss->code = 530;
 			rule = ruleset_match(&ss->envelope);
 			if (rule) {
+
+				log_debug("matched rule of kind: %d",
+				    rule->r_action);
+
 				ss->code = 250;
 				ss->envelope.rule = *rule;
 				if (IS_RELAY(*rule))
-					ss->envelope.delivery.type = D_MTA;
+					ss->envelope.type = D_MTA;
 				else
-					ss->envelope.delivery.type = D_MDA;
+					ss->envelope.type = D_MDA;
 			}
 			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
 			    ss, sizeof *ss);

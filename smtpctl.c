@@ -285,7 +285,6 @@ show_sizes(void)
 	printf("struct ramqueue_envelope: %zu\n", sizeof (struct ramqueue_envelope));
 
 	printf("struct envelope: %zu\n", sizeof (struct envelope));
-	printf("struct delivery: %zu\n", sizeof (struct delivery));
 }
 
 static void
