@@ -1,19 +1,44 @@
+# $Id: configure.ac,v 1.483 2011/10/02 07:49:24 dtucker Exp $
+#
+# Copyright (c) 1999-2004 Damien Miller
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
 AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.0-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AM_INIT_AUTOMAKE
+AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
+
+AM_INIT_AUTOMAKE
 
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
+AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
-AC_PROG_LN_S
+AC_PATH_PROG([TEST_MINUS_S_SH], [bash])
+AC_PATH_PROG([TEST_MINUS_S_SH], [ksh])
+AC_PATH_PROG([TEST_MINUS_S_SH], [sh])
+AC_PATH_PROG([SH], [sh])
 AC_PROG_YACC
 #AC_PATH_PROG(BYACC, byacc)
 AC_PATH_PROG(MAIL_LOCAL, mail.local)
 
 AM_CONDITIONAL(HAVE_MAIL_LOCAL, [test -n "$MAIL_LOCAL"])
+
+#libtoolize: `AC_PROG_RANLIB' is rendered obsolete by `LT_INIT'
+LT_INIT
 
 #from here everything comes from portable openssh configure.ac script
 
@@ -183,6 +208,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	# first we define all of the options common to all HP-UX releases
 	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"
 	AC_DEFINE([SPT_TYPE], [SPT_PSTAT])
+	maildir="/var/mail"
 	;;
 *-*-linux*)
 	check_for_libcrypt_later=1
@@ -1033,7 +1059,6 @@ fi
 AC_CHECK_TYPES([long long, unsigned long long, long double])
 
 # Check datatype sizes
-AC_CHECK_SIZEOF([char], [1])
 AC_CHECK_SIZEOF([short int], [2])
 AC_CHECK_SIZEOF([int], [4])
 AC_CHECK_SIZEOF([long int], [4])
@@ -1806,6 +1831,90 @@ AC_ARG_WITH([privsep-path],
 AC_SUBST([PRIVSEP_PATH])
 #l3494
 
+#l3538
+dnl # --with-maildir=/path/to/mail gets top priority.
+dnl # if maildir is set in the platform case statement above we use that.
+dnl # Otherwise we run a program to get the dir from system headers.
+dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
+dnl # If we find _PATH_MAILDIR we do nothing because that is what
+dnl # session.c expects anyway. Otherwise we set to the value found
+dnl # stripping any trailing slash. If for some strage reason our program
+dnl # does not find what it needs, we default to /var/spool/mail.
+# Check for mail directory
+AC_ARG_WITH([maildir],
+    [  --with-maildir=/path/to/mail    Specify your system mail directory],
+    [
+	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
+	    test "x${withval}" != xyes; then
+		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
+            [Set this to your mail directory if you do not have _PATH_MAILDIR])
+	    fi
+     ],[
+	if test "X$maildir" != "X"; then
+	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+	else
+	    AC_MSG_CHECKING([Discovering system mail directory])
+	    AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <string.h>
+#ifdef HAVE_PATHS_H
+#include <paths.h>
+#endif
+#ifdef HAVE_MAILLOCK_H
+#include <maillock.h>
+#endif
+#define DATA "conftest.maildir"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+#if defined (_PATH_MAILDIR)
+	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
+		exit(1);
+#elif defined (MAILDIR)
+	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
+		exit(1);
+#elif defined (_PATH_MAIL)
+	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
+		exit(1);
+#else
+	exit (2);
+#endif
+
+	exit(0);
+		]])],
+		[
+	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
+		    maildir=`awk -F: '{print $2}' conftest.maildir \
+			| sed 's|/$||'`
+		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
+		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+		    fi
+		],
+		[
+		    if test "X$ac_status" = "X2";then
+# our test program didn't find it. Default to /var/spool/mail
+			AC_MSG_RESULT([Using: default value of /var/spool/mail])
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
+		     else
+			AC_MSG_RESULT([*** not found ***])
+		     fi
+		],
+		[
+			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
+		]
+	    )
+	fi
+    ]
+) # maildir
+#l3618
+
 #l3901
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
@@ -2115,9 +2224,6 @@ echo "                       PAM support: $PAM_MSG"
 #echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
 echo "              Random number source: $RAND_MSG"
-if test ! -z "$USE_RAND_HELPER" ; then
-echo "     ssh-rand-helper collects from: $RAND_HELPER_MSG"
-fi
 
 echo ""
 
@@ -2143,14 +2249,6 @@ if test "x$PAM_MSG" = "xyes" ; then
 	echo "for sshd, otherwise password authentication may fail. "
 	echo "Example PAM control files can be found in the contrib/ "
 	echo "subdirectory"
-	echo ""
-fi
-
-if test ! -z "$RAND_HELPER_CMDHASH" ; then
-	echo "WARNING: you are using the builtin random number collection "
-	echo "service. Please read WARNING.RNG and request that your OS "
-	echo "vendor includes kernel-based random number collection in "
-	echo "future versions of your OS."
 	echo ""
 fi
 
