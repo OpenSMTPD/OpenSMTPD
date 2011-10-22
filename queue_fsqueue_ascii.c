@@ -333,9 +333,9 @@ ascii_dump_sender(struct envelope *ep, FILE *fp)
 static int
 ascii_load_rcpt(struct envelope *ep, char *buf)
 {
-	if (! email_to_mailaddr(&ep->dest, buf))
+	if (! email_to_mailaddr(&ep->rcpt, buf))
 		return 0;
-	ep->dest = ep->dest;
+	ep->dest = ep->rcpt;
 	return 1;
 }
 
@@ -432,10 +432,21 @@ ascii_load_mta_relay_flags(struct envelope *ep, char *buf)
 	char *flag;
 
 	while ((flag = strsep(&buf, " ,|")) != NULL) {
-		log_debug("RELAY FLAG: /%s/", flag);
+		if (strcasecmp(flag, "force_anyssl") == 0)
+			ep->agent.mta.relay.flags |= MTA_FORCE_ANYSSL;
+		else if (strcasecmp(flag, "force_smtps") == 0)
+			ep->agent.mta.relay.flags |= MTA_FORCE_SMTPS;
+		else if (strcasecmp(flag, "force_plain") == 0)
+			ep->agent.mta.relay.flags |= MTA_ALLOW_PLAIN;
+		else if (strcasecmp(flag, "use_auth") == 0)
+			ep->agent.mta.relay.flags |= MTA_USE_AUTH;
+		else if (strcasecmp(flag, "force_mx") == 0)
+			ep->agent.mta.relay.flags |= MTA_FORCE_MX;
+		else
+			return 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 static int
@@ -444,15 +455,15 @@ ascii_dump_mta_relay_flags(struct envelope *ep, FILE *fp)
 	if (ep->agent.mta.relay.flags) {
 		fprintf(fp, "%s:", KW_MTA_RELAY_FLAGS);
 		if (ep->agent.mta.relay.flags & MTA_FORCE_ANYSSL)
-			fprintf(fp, "force_anyssl");
+			fprintf(fp, " force_anyssl");
 		if (ep->agent.mta.relay.flags & MTA_FORCE_SMTPS)
-			fprintf(fp, "force_smtps");
+			fprintf(fp, " force_smtps");
 		if (ep->agent.mta.relay.flags & MTA_ALLOW_PLAIN)
-			fprintf(fp, "allow_plain");
+			fprintf(fp, " allow_plain");
 		if (ep->agent.mta.relay.flags & MTA_USE_AUTH)
-			fprintf(fp, "use_auth");
+			fprintf(fp, " use_auth");
 		if (ep->agent.mta.relay.flags & MTA_FORCE_MX)
-			fprintf(fp, "force_mx");
+			fprintf(fp, " force_mx");
 		fprintf(fp, "\n");
 	}
 	return 1;
@@ -685,7 +696,6 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 	int	n;
 	int	ret;
 
-	log_debug("########### LOADING ENVELOPE");
 	n = sizeof(ascii_load_handlers) / sizeof(struct ascii_load_handler);
 
 	bzero(ep, sizeof (*ep));
@@ -720,7 +730,7 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 
 				ret = ascii_load_handlers[i].hdl(ep, buf);
 				if (ret == 0) {
-					log_debug("### FUCK, CHOKED ON: %s", buf);
+					log_debug("### CHOKED ON: %s", buf);
 					goto err;
 				}
 				break;
@@ -729,17 +739,15 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 
 		/* unknown keyword */
 		if (i == n) {
-			log_debug("### FUCK, CHOKED ON: %s", buf);
+			log_debug("### CHOKED ON: %s", buf);
 			goto err;
 		}
 	}
 	free(lbuf);
 
-	log_debug("########### LOADING ENVELOPE END");
 	return 1;
 
 err:
-	log_debug("########### LOADING ENVELOPE FAILED");
 	free(lbuf);
 	return 0;
 }
@@ -747,8 +755,6 @@ err:
 int
 fsqueue_dump_envelope_ascii(FILE *fp, struct envelope *ep)
 {
-	log_debug("########### DUMPING ENVELOPE");
-
 	if (! ascii_dump_version(ep, fp)   ||
 	    ! ascii_dump_evpid(ep, fp)	   ||
 	    ! ascii_dump_agent(ep, fp)	   ||
@@ -770,10 +776,8 @@ fsqueue_dump_envelope_ascii(FILE *fp, struct envelope *ep)
 	if (fflush(fp) != 0)
 		goto err;
 
-	log_debug("########### DUMPING ENVELOPE END");
 	return 1;
 
 err:
-	log_debug("########### DUMPING ENVELOPE FAILED");
 	return 0;
 }

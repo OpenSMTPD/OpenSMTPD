@@ -249,8 +249,10 @@ fsqueue_envelope_delete(enum queue_kind qkind, struct envelope *ep)
 		ep->id))
 		fatal("fsqueue_envelope_delete: snprintf");
 
-	if (unlink(pathname) == -1)
+	if (unlink(pathname) == -1) {
+		log_debug("######: %s [errno: %d]", pathname, errno);
 		fatal("fsqueue_envelope_delete: unlink");
+	}
 
 	if (! bsnprintf(pathname, sizeof(pathname), "%s/%03x/%08x%s", PATH_QUEUE,
 		evpid_to_msgid(ep->id) & 0xfff,

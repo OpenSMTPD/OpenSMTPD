@@ -43,6 +43,8 @@
 #define	QWALK_RECURSE	0x2
 #define	QWALK_RETURN	0x3
 
+int	fsqueue_load_envelope_ascii(FILE *, struct envelope *);
+
 struct qwalk {
 	char	  path[MAXPATHLEN];
 	DIR	 *dirs[3];
@@ -269,7 +271,7 @@ show_queue(char *queuepath, int flags)
 		}
 
 		errno = 0;
-		if (fread(&message, sizeof(message), 1, fp) != 1)
+		if (! fsqueue_load_envelope_ascii(fp, &message))
 			err(1, "%s", path);
 		fclose(fp);
 

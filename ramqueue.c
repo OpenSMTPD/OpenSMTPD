@@ -230,6 +230,8 @@ ramqueue_expire(struct envelope *envelope, time_t curtm)
 		    envelope->expire / 60 / 60 / 24);
 		bounce_record_message(envelope, &bounce);
 		ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
+		log_debug("#### %s: queue_envelope_delete: %016llx",
+		    __func__, envelope->id);
 		queue_envelope_delete(Q_QUEUE, envelope);
 		return 1;
 	}

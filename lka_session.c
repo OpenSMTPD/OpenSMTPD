@@ -393,6 +393,9 @@ lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 		}
 	}
 	else if (new_ep->type == D_MTA) {
+		if (ep->rule.r_action == A_RELAYVIA)
+			new_ep->agent.mta.relay = ep->rule.r_value.relayhost;
+
 		if (ep->rule.r_as)
 			new_ep->sender = *ep->rule.r_as;
 	}

@@ -147,8 +147,11 @@ bounce_event(int fd, short event, void *p)
 	}
 
 out:
-	if (*ep == '2')
+	if (*ep == '2') {
+		log_debug("#### %s: queue_envelope_delete: %016llx",
+		    __func__, cc->m.id);
 		queue_envelope_delete(Q_QUEUE, &cc->m);
+	}
 	else {
 		if (*ep == '5' || *ep == '6')
 			cc->m.status = DS_PERMFAILURE;

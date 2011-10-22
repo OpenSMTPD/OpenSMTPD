@@ -89,6 +89,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			ss->code = 530;
 			rule = ruleset_match(&ss->envelope);
 			if (rule) {
+
+				log_debug("matched rule of kind: %d",
+				    rule->r_action);
+
 				ss->code = 250;
 				ss->envelope.rule = *rule;
 				if (IS_RELAY(*rule))
