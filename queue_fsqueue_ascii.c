@@ -564,6 +564,40 @@ ascii_dump_status(struct envelope *ep, FILE *fp)
 	return 1;
 }
 
+static int
+ascii_dump_agent(struct envelope *ep, FILE *fp)
+{
+	if (! ascii_dump_type(ep, fp))
+		return 0;
+
+	switch (ep->type) {
+	case D_MDA:
+		if (! ascii_dump_mda_method(ep, fp) ||
+		    ! ascii_dump_mda_buffer(ep, fp) ||
+		    ! ascii_dump_mda_user(ep, fp))
+			return 0;
+		break;
+
+	case D_MTA:
+		if (! ascii_dump_mta_relay_host(ep, fp)  ||
+		    ! ascii_dump_mta_relay_port(ep, fp)  ||
+		    ! ascii_dump_mta_relay_cert(ep, fp)  ||
+		    ! ascii_dump_mta_relay_flags(ep, fp) ||
+		    ! ascii_dump_mta_relay_as(ep, fp))
+			return 0;
+		break;
+
+	case D_BOUNCE:
+		/* nothing ! */
+		break;
+
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
 int
 fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 {
@@ -575,16 +609,24 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 	} ascii_load_handlers[] = {
 		{ KW_VERSION,		ascii_load_version },
 		{ KW_EVPID,		ascii_load_evpid },
-		{ KW_TYPE,		ascii_load_type },
-		{ KW_HELO,		ascii_load_helo },
+
 		{ KW_HOSTNAME,		ascii_load_hostname },
 		{ KW_SOCKADDR,		ascii_load_sockaddr },
+
+		{ KW_HELO,		ascii_load_helo },
 		{ KW_SENDER,		ascii_load_sender },
 		{ KW_RCPT,		ascii_load_rcpt },
-		{ KW_RCPT_ORIG,		ascii_load_rcpt_orig },
+
+		{ KW_TYPE,		ascii_load_type },
+		{ KW_DEST,		ascii_load_dest },
+
 		{ KW_CTIME,		ascii_load_ctime },
 		{ KW_EXPIRE,		ascii_load_expire },
+		{ KW_RETRY,		ascii_load_retry },
+		{ KW_LAST_TRY,		ascii_load_last_try },
+
 		{ KW_FLAGS,		ascii_load_flags },
+
 		{ KW_ERRORLINE,		ascii_load_errorline },
 
 		{ KW_MDA_METHOD,       	ascii_load_mda_method },
@@ -592,7 +634,9 @@ fsqueue_load_envelope_ascii(FILE *fp, struct envelope *ep)
 		{ KW_MDA_USER,		ascii_load_mda_user },
 
 		{ KW_MTA_RELAY_HOST,   	ascii_load_mta_relay_host },
+		{ KW_MTA_RELAY_PORT,   	ascii_load_mta_relay_port },
 		{ KW_MTA_RELAY_FLAGS,  	ascii_load_mta_relay_flags },
+		{ KW_MTA_RELAY_CERT,  	ascii_load_mta_relay_cert },
 	};
 	int	i;
 	int	n;
@@ -662,37 +706,10 @@ fsqueue_dump_envelope_ascii(FILE *fp, struct envelope *ep)
 {
 	log_debug("########### DUMPING ENVELOPE");
 
-	if (! ascii_dump_version(ep, fp) ||
-	    ! ascii_dump_evpid(ep, fp)	 ||
-	    ! ascii_dump_type(ep, fp))
-		goto err;
-
-	switch (ep->type) {
-	case D_MDA:
-		if (! ascii_dump_mda_method(ep, fp) ||
-		    ! ascii_dump_mda_buffer(ep, fp) ||
-		    ! ascii_dump_mda_user(ep, fp))
-			goto err;
-		break;
-
-	case D_MTA:
-		if (! ascii_dump_mta_relay_host(ep, fp)  ||
-		    ! ascii_dump_mta_relay_port(ep, fp)  ||
-		    ! ascii_dump_mta_relay_cert(ep, fp)  ||
-		    ! ascii_dump_mta_relay_flags(ep, fp) ||
-		    ! ascii_dump_mta_relay_as(ep, fp))
-			goto err;
-		break;
-
-	case D_BOUNCE:
-		/* nothing ! */
-		break;
-
-	default:
-		goto err;
-	}
-
-	if (! ascii_dump_helo(ep, fp)	   ||
+	if (! ascii_dump_version(ep, fp)   ||
+	    ! ascii_dump_evpid(ep, fp)	   ||
+	    ! ascii_dump_agent(ep, fp)	   ||
+	    ! ascii_dump_helo(ep, fp)	   ||
 	    ! ascii_dump_hostname(ep, fp)  ||
 	    ! ascii_dump_errorline(ep, fp) ||
 	    ! ascii_dump_sockaddr(ep, fp)  ||
