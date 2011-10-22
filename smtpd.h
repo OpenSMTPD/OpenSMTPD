@@ -383,30 +383,7 @@ struct delivery_mta {
 };
 
 struct delivery {
-	u_int32_t			version;
-	u_int64_t			id;
-	enum delivery_type		type;
 
-	char				helo[MAXHOSTNAMELEN];
-	char				hostname[MAXHOSTNAMELEN];
-	char				errorline[MAX_LINE_SIZE + 1];
-	struct sockaddr_storage		ss;
-
-	struct mailaddr			from;
-	struct mailaddr			rcpt;
-	struct mailaddr			rcpt_orig;
-
-	union delivery_method {
-		struct delivery_mda	mda;
-		struct delivery_mta	mta;
-	} agent;
-
-	time_t				 creation;
-	time_t				 lasttry;
-	time_t				 expire;
-	u_int8_t			 retry;
-	enum delivery_flags		 flags;
-	enum delivery_status		 status;
 };
 
 enum expand_type {
@@ -444,7 +421,33 @@ struct envelope {
 	u_int64_t			session_id;
 	u_int64_t			batch_id;
 
-	struct delivery			delivery;
+//	struct delivery			delivery;
+
+	u_int32_t			version;
+	u_int64_t			id;
+	enum delivery_type		type;
+
+	char				helo[MAXHOSTNAMELEN];
+	char				hostname[MAXHOSTNAMELEN];
+	char				errorline[MAX_LINE_SIZE + 1];
+	struct sockaddr_storage		ss;
+
+	struct mailaddr			from;
+	struct mailaddr			rcpt;
+	struct mailaddr			rcpt_orig;
+
+	union delivery_method {
+		struct delivery_mda	mda;
+		struct delivery_mta	mta;
+	} agent;
+
+	time_t				 creation;
+	time_t				 lasttry;
+	time_t				 expire;
+	u_int8_t			 retry;
+	enum delivery_flags		 flags;
+	enum delivery_status		 status;
+
 };
 TAILQ_HEAD(deliverylist, envelope);
 

@@ -114,7 +114,7 @@ queue_envelope_delete(enum queue_kind qkind, struct envelope *ep)
 int
 queue_envelope_load(enum queue_kind qkind, u_int64_t evpid, struct envelope *ep)
 {
-	ep->delivery.id = evpid;
+	ep->id = evpid;
 	return env->sc_queue->envelope(qkind, QOP_LOAD, ep);
 }
 

@@ -75,20 +75,20 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_QUEUE_COMMIT_MESSAGE:
 		e = imsg->data;
 		runner_force_message_to_ramqueue(&env->sc_rqueue,
-		    evpid_to_msgid(e->delivery.id));
+		    evpid_to_msgid(e->id));
 		runner_reset_events();
 		return;
 
 	case IMSG_QUEUE_MESSAGE_UPDATE:
 		e = imsg->data;
-		e->delivery.retry++;
+		e->retry++;
 		stat_decrement(STATS_RUNNER);
 
 		/* temporary failure, message remains in queue,
 		 * gets reinserted in ramqueue
 		 */
-		if (e->delivery.status & DS_TEMPFAILURE) {
-			e->delivery.status &= ~DS_TEMPFAILURE;
+		if (e->status & DS_TEMPFAILURE) {
+			e->status &= ~DS_TEMPFAILURE;
 			queue_envelope_update(Q_QUEUE, e);
 			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
 			runner_reset_events();
@@ -98,11 +98,11 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		/* permanent failure, eventually generate a
 		 * bounce (and insert bounce in ramqueue).
 		 */
-		if (e->delivery.status & DS_PERMFAILURE) {
+		if (e->status & DS_PERMFAILURE) {
 			struct envelope bounce;
 
-			if (e->delivery.type != D_BOUNCE &&
-			    e->delivery.from.user[0] != '\0') {
+			if (e->type != D_BOUNCE &&
+			    e->from.user[0] != '\0') {
 				bounce_record_message(e, &bounce);
 				ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
 				runner_reset_events();
@@ -130,7 +130,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_SMTP_ENQUEUE:
 		e = imsg->data;
 		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
-			e->delivery.status = 0;
+			e->status = 0;
 			queue_envelope_update(Q_QUEUE, e);
 			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
 			runner_reset_events();
@@ -371,21 +371,21 @@ runner_process_envelope(struct ramqueue_envelope *rq_evp, time_t curtm)
 	if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid, &envelope))
 		return 0;
 
-	if (envelope.delivery.type & D_MDA) {
+	if (envelope.type & D_MDA) {
 		if (env->sc_opts & SMTPD_MDA_PAUSED)
 			return 0;
 		if (mda_av == 0)
 			return 0;
 	}
 
-	if (envelope.delivery.type & D_MTA) {
+	if (envelope.type & D_MTA) {
 		if (env->sc_opts & SMTPD_MTA_PAUSED)
 			return 0;
 		if (mta_av == 0)
 			return 0;
 	}
 
-	if (envelope.delivery.type & D_BOUNCE) {
+	if (envelope.type & D_BOUNCE) {
 		if (env->sc_opts & (SMTPD_MDA_PAUSED|SMTPD_MTA_PAUSED))
 			return 0;
 		if (bnc_av == 0)
@@ -428,7 +428,7 @@ runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
 			if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid,
 				&evp))
 				return;
-			evp.delivery.lasttry = curtm;
+			evp.lasttry = curtm;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_SMTP_ENQUEUE, PROC_SMTP, 0, -1, &evp,
 			    sizeof evp);
@@ -444,7 +444,7 @@ runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
 		rq_evp = ramqueue_batch_first_envelope(rq_batch);
 		if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid, &evp))
 			return;
-		evp.delivery.lasttry = curtm;
+		evp.lasttry = curtm;
 		fd = queue_message_fd_r(Q_QUEUE,
 		    evpid_to_msgid(rq_evp->evpid));
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
@@ -465,7 +465,7 @@ runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
 			if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid,
 				&evp))
 				return;
-			evp.delivery.lasttry = curtm;
+			evp.lasttry = curtm;
 			evp.batch_id = rq_batch->b_id;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_BATCH_APPEND, PROC_MTA, 0, -1, &evp,
@@ -626,7 +626,7 @@ runner_check_loop(struct envelope *ep)
 	int rcvcount = 0;
 
 	fd = queue_message_fd_r(Q_QUEUE,
-	    evpid_to_msgid(ep->delivery.id));
+	    evpid_to_msgid(ep->id));
 	if ((fp = fdopen(fd, "r")) == NULL)
 		fatal("fdopen");
 
@@ -661,9 +661,9 @@ runner_check_loop(struct envelope *ep)
 			if (! email_to_mailaddr(&maddr, buf + 14))
 				continue;
 
-			rcpt = ep->delivery.rcpt;
-			if (ep->delivery.type == D_BOUNCE)
-				rcpt = ep->delivery.from;
+			rcpt = ep->rcpt;
+			if (ep->type == D_BOUNCE)
+				rcpt = ep->from;
 
 			if (strcasecmp(maddr.user, rcpt.user) == 0 &&
 			    strcasecmp(maddr.domain, rcpt.domain) == 0) {

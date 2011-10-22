@@ -98,7 +98,7 @@ mfa_session_proceed(struct mfa_session *ms)
 	switch (ms->state) {
 	case S_HELO:
 		fm.type = FILTER_HELO;
-		if (strlcpy(fm.u.helo.buffer, ms->ss.envelope.delivery.helo,
+		if (strlcpy(fm.u.helo.buffer, ms->ss.envelope.helo,
 			sizeof(fm.u.helo.buffer)) >= sizeof(fm.u.helo.buffer))
 			fatalx("mfa_session_proceed: HELO: truncation");
 		break;

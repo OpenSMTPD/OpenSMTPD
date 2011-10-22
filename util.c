@@ -352,9 +352,9 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 
 	va_start(ap, fmt);
 
-	ret = vsnprintf(e->delivery.errorline, MAX_LINE_SIZE, fmt, ap);
+	ret = vsnprintf(e->errorline, MAX_LINE_SIZE, fmt, ap);
 	if (ret >= MAX_LINE_SIZE)
-		strlcpy(e->delivery.errorline + (MAX_LINE_SIZE - 4), "...", 4);
+		strlcpy(e->errorline + (MAX_LINE_SIZE - 4), "...", 4);
 
 	/* this should not happen */
 	if (ret == -1)
@@ -366,7 +366,7 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 char *
 envelope_get_errormsg(struct envelope *e)
 {
-	return e->delivery.errorline;
+	return e->errorline;
 }
 
 void
