@@ -547,6 +547,38 @@ filename_to_evpid(char *filename)
 }
 
 u_int32_t
+msgid_generate(void)
+{
+	u_int32_t ret;
+
+	do {
+		ret = arc4random();
+	} while (ret == 0);
+
+	log_debug("msgid_generate: %qd", ret);
+
+	return ret;
+}
+
+u_int64_t
+evpid_generate(u_int32_t msgid)
+{
+	u_int64_t ret;
+
+	ret = msgid;
+	log_debug("evpid_generate: %016llx", ret);
+	ret <<= 32;
+	log_debug("evpid_generate: %016llx", ret);
+	do {
+		ret |= arc4random();
+	} while ((ret & 0xffffffff) == 0);
+
+	log_debug("evpid_generate: %016llx", ret);
+
+	return ret;
+}
+
+u_int32_t
 evpid_to_msgid(u_int64_t evpid)
 {
 	return (evpid >> 32);

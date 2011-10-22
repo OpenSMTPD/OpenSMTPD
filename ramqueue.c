@@ -306,7 +306,7 @@ ramqueue_get_batch(struct ramqueue *rqueue, struct ramqueue_host *host,
 	struct ramqueue_batch *rq_batch;
 
 	TAILQ_FOREACH(rq_batch, &host->batch_queue, batch_entry) {
-		if (rq_batch->msgid == (u_int32_t)(envelope->delivery.id >> 32))
+		if (rq_batch->msgid == evpid_to_msgid(envelope->delivery.id))
 			return rq_batch;
 	}
 
@@ -316,7 +316,7 @@ ramqueue_get_batch(struct ramqueue *rqueue, struct ramqueue_host *host,
 	rq_batch->b_id = generate_uid();
 	rq_batch->rule = envelope->rule;
 	rq_batch->type = envelope->delivery.type;
-	rq_batch->msgid = envelope->delivery.id >> 32;
+	rq_batch->msgid = evpid_to_msgid(envelope->delivery.id);
 
 	TAILQ_INIT(&rq_batch->envelope_queue);
 	TAILQ_INSERT_TAIL(&host->batch_queue, rq_batch, batch_entry);

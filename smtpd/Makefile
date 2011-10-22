@@ -10,7 +10,7 @@ SRCS=		aliases.c auth_backend.c bounce.c client.c		\
 		smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
 		print.c pack.c dname.c res_random.c sockaddr.c 		\
 		ramqueue.c queue_backend.c queue_fsqueue.c		\
-		user_backend.c stats.c
+		queue_fsqueue_ascii.c user_backend.c stats.c
 
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin

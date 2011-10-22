@@ -60,7 +60,6 @@ static int runner_force_message_to_ramqueue(struct ramqueue *, u_int32_t);
 
 
 /*temporary*/
-u_int16_t	fsqueue_hash(u_int32_t);
 u_int64_t	filename_to_evpid(char *);
 u_int32_t	filename_to_msgid(char *);
 
@@ -75,7 +74,8 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	switch (imsg->hdr.type) {
 	case IMSG_QUEUE_COMMIT_MESSAGE:
 		e = imsg->data;
-		runner_force_message_to_ramqueue(&env->sc_rqueue, e->delivery.id>>32);
+		runner_force_message_to_ramqueue(&env->sc_rqueue,
+		    evpid_to_msgid(e->delivery.id));
 		runner_reset_events();
 		return;
 
@@ -445,7 +445,8 @@ runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
 		if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid, &evp))
 			return;
 		evp.delivery.lasttry = curtm;
-		fd = queue_message_fd_r(Q_QUEUE, rq_evp->evpid>>32);
+		fd = queue_message_fd_r(Q_QUEUE,
+		    evpid_to_msgid(rq_evp->evpid));
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_MDA_SESS_NEW, PROC_MDA, 0, fd, &evp,
 		    sizeof evp);
@@ -503,8 +504,8 @@ runner_force_message_to_ramqueue(struct ramqueue *rqueue, u_int32_t msgid)
 	struct envelope envelope;
 	time_t curtm;
 
-	if (! bsnprintf(path, MAXPATHLEN, "%s/%04x/%08x/envelopes",
-		PATH_QUEUE, fsqueue_hash(msgid), msgid))
+	if (! bsnprintf(path, MAXPATHLEN, "%s/%03x/%08x/envelopes",
+		PATH_QUEUE, msgid & 0xfff, msgid))
 		return 0;
 
 	dirp = opendir(path);
@@ -624,7 +625,8 @@ runner_check_loop(struct envelope *ep)
 	int ret = 0;
 	int rcvcount = 0;
 
-	fd = queue_message_fd_r(Q_QUEUE, ep->delivery.id>>32);
+	fd = queue_message_fd_r(Q_QUEUE,
+	    evpid_to_msgid(ep->delivery.id));
 	if ((fp = fdopen(fd, "r")) == NULL)
 		fatal("fdopen");
 

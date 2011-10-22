@@ -696,7 +696,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		    s->s_msg.delivery.helo, s->s_hostname, ss_to_text(&s->s_ss));
 		fprintf(s->datafp, "\tby %s (OpenSMTPD) with %sSMTP id %08x",
 		    env->sc_hostname, s->s_flags & F_EHLO ? "E" : "",
-		    (u_int32_t)(s->s_msg.delivery.id >> 32));
+		    evpid_to_msgid(s->s_msg.delivery.id));
 
 		if (s->s_flags & F_SECURE) {
 			fprintf(s->datafp, "\n\t(version=%s cipher=%s bits=%d)",
@@ -722,10 +722,10 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	case S_DONE:
 		session_respond(s, "250 2.0.0 %08x Message accepted for delivery",
-		    (u_int32_t)(s->s_msg.delivery.id >> 32));
+		    evpid_to_msgid(s->s_msg.delivery.id));
 		log_info("%08x: from=<%s%s%s>, size=%ld, nrcpts=%zd, proto=%s, "
 		    "relay=%s [%s]",
-		    (u_int32_t)(s->s_msg.delivery.id >> 32),
+		    evpid_to_msgid(s->s_msg.delivery.id),
 		    s->s_msg.delivery.from.user,
 		    s->s_msg.delivery.from.user[0] == '\0' ? "" : "@",
 		    s->s_msg.delivery.from.domain,
@@ -1135,7 +1135,7 @@ session_respond(struct session *s, char *fmt, ...)
 	case '5':
 	case '4':
 		log_info("%08x: from=<%s@%s>, relay=%s [%s], stat=LocalError (%.*s)",
-		    (u_int32_t)(s->s_msg.delivery.id >> 32),
+		    evpid_to_msgid(s->s_msg.delivery.id),
 		    s->s_msg.delivery.from.user, s->s_msg.delivery.from.domain,
 		    s->s_hostname, ss_to_text(&s->s_ss),
 		    (int)EVBUFFER_LENGTH(EVBUFFER_OUTPUT(s->s_bev)) - n - 2,

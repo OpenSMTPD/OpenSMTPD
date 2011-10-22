@@ -89,7 +89,6 @@ void
 queue_message_update(struct envelope *e)
 {
 	e->batch_id = 0;
-	e->delivery.flags &= ~DF_PROCESSING;
 	e->delivery.status &= ~(DS_ACCEPTED|DS_REJECTED);
 	e->delivery.retry++;
 
@@ -230,13 +229,13 @@ walk_queue(struct qwalk *q, char *fname)
 			log_warnx("walk_queue: invalid bucket: %s", fname);
 			return (QWALK_AGAIN);
 		}
-		if (! bsnprintf(q->path, sizeof(q->path), "%s/%04x", PATH_QUEUE,
-			q->bucket))
+		if (! bsnprintf(q->path, sizeof(q->path), "%s/%03x", PATH_QUEUE,
+			q->bucket & 0xfff))
 			fatalx("walk_queue: snprintf");
 		return (QWALK_RECURSE);
 	case 1:
-		if (! bsnprintf(q->path, sizeof(q->path), "%s/%04x/%s%s",
-			PATH_QUEUE, q->bucket, fname, PATH_ENVELOPES))
+		if (! bsnprintf(q->path, sizeof(q->path), "%s/%03x/%s%s",
+			PATH_QUEUE, q->bucket & 0xfff, fname, PATH_ENVELOPES))
 			fatalx("walk_queue: snprintf");
 		return (QWALK_RECURSE);
 	case 2:
@@ -298,13 +297,9 @@ display_envelope(struct envelope *e, int flags)
 	    status, sizeof(status));
 	getflag(&e->delivery.flags, DF_AUTHENTICATED, "AUTH",
 	    status, sizeof(status));
-	getflag(&e->delivery.flags, DF_PROCESSING, "PROCESSING",
-	    status, sizeof(status));
-	getflag(&e->delivery.flags, DF_SCHEDULED, "SCHEDULED",
-	    status, sizeof(status));
 	getflag(&e->delivery.flags, DF_ENQUEUED, "ENQUEUED",
 	    status, sizeof(status));
-	getflag(&e->delivery.flags, DF_FORCESCHEDULE, "SCHEDULED_MANUAL",
+	getflag(&e->delivery.flags, DF_INTERNAL, "INTERNAL",
 	    status, sizeof(status));
 
 	if (e->delivery.flags)

@@ -103,7 +103,7 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s = session_lookup(ss->id);
 			if (s == NULL)
 				return;
-			s->s_msg.delivery.id = (u_int64_t)ss->u.msgid << 32;
+			s->s_msg.delivery.id = ((u_int64_t)ss->u.msgid) << 32;
 			session_pickup(s, ss);
 			return;
 
