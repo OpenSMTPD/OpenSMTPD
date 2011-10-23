@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.10 2011/10/22 18:03:27 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.11 2011/10/23 09:30:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -391,7 +391,8 @@ lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 		default:
 			break;
 		}
-	} else if (new_ep->type == D_MTA) {
+	}
+	else if (new_ep->type == D_MTA) {
 		if (ep->rule.r_action == A_RELAYVIA)
 			new_ep->agent.mta.relay = ep->rule.r_value.relayhost;
 		if (ep->rule.r_as)

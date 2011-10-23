@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.47 2011/05/17 18:54:32 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.48 2011/10/23 09:30:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.

@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.119 2011/10/09 18:39:53 eric Exp $	*/
+/*	$OpenBSD: runner.c,v 1.120 2011/10/23 09:30:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
