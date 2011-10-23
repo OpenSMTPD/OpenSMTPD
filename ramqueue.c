@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.20 2011/10/23 09:30:07 gilles Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.21 2011/10/23 13:03:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -319,7 +319,7 @@ ramqueue_get_batch(struct ramqueue *rqueue, struct ramqueue_host *host,
 	if (rq_batch == NULL)
 		fatal("calloc");
 	rq_batch->b_id = generate_uid();
-	rq_batch->rule = envelope->rule;
+	rq_batch->relay = envelope->agent.mta.relay;
 	rq_batch->type = envelope->type;
 	rq_batch->msgid = evpid_to_msgid(envelope->id);
 
