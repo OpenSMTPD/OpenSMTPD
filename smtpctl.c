@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.66 2011/08/30 07:06:06 chl Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.67 2011/09/01 19:56:49 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -285,7 +285,6 @@ show_sizes(void)
 	printf("struct ramqueue_envelope: %zu\n", sizeof (struct ramqueue_envelope));
 
 	printf("struct envelope: %zu\n", sizeof (struct envelope));
-	printf("struct delivery: %zu\n", sizeof (struct delivery));
 }
 
 static void
