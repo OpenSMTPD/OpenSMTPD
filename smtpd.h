@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.243 2011/10/23 09:30:07 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.244 2011/10/23 13:03:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -380,7 +380,6 @@ struct delivery_mda {
 
 struct delivery_mta {
 	struct relayhost relay;
-	struct mailaddr	relay_as;
 };
 
 enum expand_type {
