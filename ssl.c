@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.37 2011/09/01 19:56:49 eric Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.38 2011/10/13 10:54:40 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -463,6 +463,7 @@ ssl_setup(struct listener *l)
 		dh = get_dh_from_memory(l->ssl->ssl_dhparams,
 		    l->ssl->ssl_dhparams_len);
 	ssl_set_ephemeral_key_exchange(l->ssl_ctx, dh);
+	DH_free(dh);
 
 	log_debug("ssl_setup: ssl setup finished for listener: %p", l);
 	return;
