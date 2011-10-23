@@ -1,4 +1,4 @@
-/*	$OpenBSD: print.c,v 1.3 2011/07/13 15:08:24 eric Exp $	*/
+/*	$OpenBSD: print.c,v 1.4 2011/10/23 10:54:52 chl Exp $	*/
 /*
  * Copyright (c) 2009,2010	Eric Faurot	<eric@faurot.net>
  *
@@ -219,7 +219,7 @@ print_rr(struct rr *rr, char *buf, size_t max)
 	case T_AAAA:
 		if (rr->rr_class != C_IN)
 			goto other;
-		snprintf(buf, max, inet6_ntoa(rr->rr.in_aaaa.addr6));
+		snprintf(buf, max, "%s", inet6_ntoa(rr->rr.in_aaaa.addr6));
 		break;
 	default:
 	other:
@@ -290,7 +290,7 @@ print_rrdynamic(struct rr_dynamic *rd, char *buf, size_t max)
 	case T_AAAA:
 		if (rd->rd_class != C_IN)
 			goto other;
-		snprintf(buf, max, inet6_ntoa(rd->rd.in_aaaa.addr6));
+		snprintf(buf, max, "%s", inet6_ntoa(rd->rd.in_aaaa.addr6));
 		break;
 	default:
 	other:

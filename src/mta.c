@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.114 2011/10/09 18:39:53 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.117 2011/10/23 17:09:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -81,18 +81,18 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			s->batch = rq_batch;
 
 			/* establish host name */
-			if (rq_batch->rule.r_action == A_RELAYVIA) {
-				s->host = strdup(rq_batch->rule.r_value.relayhost.hostname);
+			if (rq_batch->relay.hostname[0]) {
+				s->host = strdup(rq_batch->relay.hostname);
 				s->flags |= MTA_FORCE_MX;
 			}
 			else
 				s->host = NULL;
 
 			/* establish port */
-			s->port = ntohs(rq_batch->rule.r_value.relayhost.port); /* XXX */
+			s->port = ntohs(rq_batch->relay.port); /* XXX */
 
 			/* have cert? */
-			s->cert = strdup(rq_batch->rule.r_value.relayhost.cert);
+			s->cert = strdup(rq_batch->relay.cert);
 			if (s->cert == NULL)
 				fatal(NULL);
 			else if (s->cert[0] == '\0') {
@@ -101,14 +101,16 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			/* use auth? */
-			if ((rq_batch->rule.r_value.relayhost.flags & F_SSL) &&
-			    (rq_batch->rule.r_value.relayhost.flags & F_AUTH)) {
+			if ((rq_batch->relay.flags & F_SSL) &&
+			    (rq_batch->relay.flags & F_AUTH)) {
 				s->flags |= MTA_USE_AUTH;
-				s->secmapid = rq_batch->rule.r_value.relayhost.secmapid;
+				s->authmap = strdup(rq_batch->relay.authmap);
+				if (s->authmap == NULL)
+					fatalx("mta: strdup authmap");
 			}
 
 			/* force a particular SSL mode? */
-			switch (rq_batch->rule.r_value.relayhost.flags & F_SSL) {
+			switch (rq_batch->relay.flags & F_SSL) {
 			case F_SSL:
 				s->flags |= MTA_FORCE_ANYSSL;
 				break;
@@ -137,11 +139,11 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (e == NULL)
 				fatal(NULL);
 			*e = *(struct envelope *)imsg->data;
-			strlcpy(e->delivery.errorline, "000 init",
-			    sizeof(e->delivery.errorline));
+			strlcpy(e->errorline, "000 init",
+			    sizeof(e->errorline));
 
 			if (s->host == NULL) {
-				s->host = strdup(e->delivery.rcpt.domain);
+				s->host = strdup(e->dest.domain);
 				if (s->host == NULL)
 					fatal("strdup");
 			}
@@ -364,7 +366,7 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		 */
 		bzero(&secret, sizeof(secret));
 		secret.id = s->id;
-		secret.secmapid = s->secmapid;
+		strlcpy(secret.mapname, s->authmap, sizeof(secret.mapname));
 		strlcpy(secret.host, s->host, sizeof(secret.host));
 		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
 		    0, 0, -1, &secret, sizeof(secret));  
@@ -490,16 +492,16 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 
 		/* set envelope sender */
 		e = TAILQ_FIRST(&s->recipients);
-		if (e->delivery.from.user[0] && e->delivery.from.domain[0])
-			client_sender(pcb, "%s@%s", e->delivery.from.user,
-			    e->delivery.from.domain);
+		if (e->sender.user[0] && e->sender.domain[0])
+			client_sender(pcb, "%s@%s", e->sender.user,
+			    e->sender.domain);
 		else
 			client_sender(pcb, "");
 			
 		/* set envelope recipients */
 		TAILQ_FOREACH(e, &s->recipients, entry)
-			client_rcpt(pcb, e, "%s@%s", e->delivery.rcpt.user,
-			    e->delivery.rcpt.domain);
+			client_rcpt(pcb, e, "%s@%s", e->dest.user,
+			    e->dest.domain);
 
 		s->pcb = pcb;
 		event_set(&s->ev, s->fd, EV_READ|EV_WRITE, mta_event, s);
@@ -531,6 +533,7 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		if (s->datafp)
 			fclose(s->datafp);
 
+		free(s->authmap);
 		free(s->secret);
 		free(s->host);
 		free(s->cert);
@@ -698,25 +701,25 @@ mta_message_status(struct envelope *e, char *status)
 	 * higher status (eg. 5yz is of higher status than 4yz), so check
 	 * this before deciding to overwrite existing status with a new one.
 	 */
-	if (*status != '2' && strncmp(e->delivery.errorline, status, 3) > 0)
+	if (*status != '2' && strncmp(e->errorline, status, 3) > 0)
 		return;
 
 	/* change status */
-	log_debug("mta: new status for %s@%s: %s", e->delivery.rcpt.user,
-	    e->delivery.rcpt.domain, status);
-	strlcpy(e->delivery.errorline, status, sizeof(e->delivery.errorline));
+	log_debug("mta: new status for %s@%s: %s", e->dest.user,
+	    e->dest.domain, status);
+	strlcpy(e->errorline, status, sizeof(e->errorline));
 }
 
 static void
 mta_message_log(struct mta_session *s, struct envelope *e)
 {
 	struct mta_relay	*relay = TAILQ_FIRST(&s->relays);
-	char			*status = e->delivery.errorline;
+	char			*status = e->errorline;
 
 	log_info("%016llx: to=<%s@%s>, delay=%lld, relay=%s [%s], stat=%s (%s)",
-	    e->delivery.id, e->delivery.rcpt.user,
-	    e->delivery.rcpt.domain,
-	    (long long int) (time(NULL) - e->delivery.creation),
+	    e->id, e->dest.user,
+	    e->dest.domain,
+	    (long long int) (time(NULL) - e->creation),
 	    relay ? relay->fqdn : "(none)",
 	    relay ? ss_to_text(&relay->sa) : "",
 	    *status == '2' ? "Sent" :
@@ -728,16 +731,16 @@ mta_message_log(struct mta_session *s, struct envelope *e)
 static void
 mta_message_done(struct mta_session *s, struct envelope *e)
 {
-	switch (e->delivery.errorline[0]) {
+	switch (e->errorline[0]) {
 	case '6':
 	case '5':
-		e->delivery.status = DS_PERMFAILURE;
+		e->status = DS_PERMFAILURE;
 		break;
 	case '2':
-		e->delivery.status = DS_ACCEPTED;
+		e->status = DS_ACCEPTED;
 		break;
 	default:
-		e->delivery.status = DS_TEMPFAILURE;
+		e->status = DS_TEMPFAILURE;
 		break;
 	}
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
@@ -765,7 +768,7 @@ mta_request_datafd(struct mta_session *s)
 	e = TAILQ_FIRST(&s->recipients);
 
 	rq_batch.b_id = s->id;
-	rq_batch.msgid = evpid_to_msgid(e->delivery.id);
+	rq_batch.msgid = evpid_to_msgid(e->id);
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_MESSAGE_FD,
 	    0, 0, -1, &rq_batch, sizeof(rq_batch));
 }

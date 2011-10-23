@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.241 2011/10/09 18:39:54 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.246 2011/10/23 15:36:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -91,6 +91,7 @@
 #define PATH_INCOMING		"/incoming"
 #define PATH_QUEUE		"/queue"
 #define PATH_PURGE		"/purge"
+#define PATH_CORRUPT		"/corrupt"
 
 #define PATH_MESSAGE		"/message"
 #define PATH_ENVELOPES		"/envelopes"
@@ -139,7 +140,7 @@ struct relayhost {
 	char hostname[MAXHOSTNAMELEN];
 	u_int16_t port;
 	char cert[PATH_MAX];
-	objid_t secmapid;
+	char authmap[MAX_PATH_SIZE];
 };
 
 enum imsg_type {
@@ -377,21 +378,14 @@ enum delivery_status {
 	DS_PERMFAILURE	= 0x2,
 	DS_TEMPFAILURE	= 0x4,
 	DS_REJECTED	= 0x8,
-	DS_ACCEPTED	= 0x10,
-	DS_RETRY       	= 0x20,
-	DS_EDNS		= 0x40,
-	DS_ECONNECT	= 0x80
+	DS_ACCEPTED	= 0x10
 };
 
 enum delivery_flags {
-	DF_RESOLVED		= 0x1,
-	DF_SCHEDULED		= 0x2,
-	DF_PROCESSING		= 0x4,
-	DF_AUTHENTICATED	= 0x8,
-	DF_ENQUEUED		= 0x10,
-	DF_FORCESCHEDULE	= 0x20,
-	DF_BOUNCE		= 0x40,
-	DF_INTERNAL		= 0x80 /* internal expansion forward */
+	DF_AUTHENTICATED	= 0x1,
+	DF_ENQUEUED		= 0x2,
+	DF_BOUNCE		= 0x4,
+	DF_INTERNAL		= 0x8 /* internal expansion forward */
 };
 
 union delivery_data {
@@ -408,33 +402,6 @@ struct delivery_mda {
 
 struct delivery_mta {
 	struct relayhost relay;
-	struct mailaddr	relay_as;
-};
-
-struct delivery {
-	u_int64_t			id;
-	enum delivery_type		type;
-
-	char				helo[MAXHOSTNAMELEN];
-	char				hostname[MAXHOSTNAMELEN];
-	char				errorline[MAX_LINE_SIZE + 1];
-	struct sockaddr_storage		ss;
-
-	struct mailaddr			from;
-	struct mailaddr			rcpt;
-	struct mailaddr			rcpt_orig;
-
-	union delivery_method {
-		struct delivery_mda	mda;
-		struct delivery_mta	mta;
-	} agent;
-
-	time_t				 creation;
-	time_t				 lasttry;
-	time_t				 expire;
-	u_int8_t			 retry;
-	enum delivery_flags		 flags;
-	enum delivery_status		 status;
 };
 
 enum expand_type {
@@ -462,7 +429,7 @@ struct expandnode {
 
 RB_HEAD(expandtree, expandnode);
 
-
+#define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
@@ -472,7 +439,33 @@ struct envelope {
 	u_int64_t			session_id;
 	u_int64_t			batch_id;
 
-	struct delivery			delivery;
+//	struct delivery			delivery;
+
+	u_int32_t			version;
+	u_int64_t			id;
+	enum delivery_type		type;
+
+	char				helo[MAXHOSTNAMELEN];
+	char				hostname[MAXHOSTNAMELEN];
+	char				errorline[MAX_LINE_SIZE + 1];
+	struct sockaddr_storage		ss;
+
+	struct mailaddr			sender;
+	struct mailaddr			rcpt;
+	struct mailaddr			dest;
+
+	union delivery_method {
+		struct delivery_mda	mda;
+		struct delivery_mta	mta;
+	} agent;
+
+	time_t				 creation;
+	time_t				 lasttry;
+	time_t				 expire;
+	u_int8_t			 retry;
+	enum delivery_flags		 flags;
+	enum delivery_status		 status;
+
 };
 TAILQ_HEAD(deliverylist, envelope);
 
@@ -603,7 +596,7 @@ struct ramqueue_batch {
 	u_int64_t			h_id;
 	u_int64_t			b_id;
 	u_int32_t      			msgid;
-	struct rule			rule;
+	struct relayhost		relay;
 };
 struct ramqueue_envelope {
 	TAILQ_ENTRY(ramqueue_envelope)	 queue_entry;
@@ -672,6 +665,9 @@ struct smtpd {
 	struct stats				*stats;
 	u_int64_t				 filtermask;
 };
+
+#define	TRACE_VERBOSE	0x01
+#define	TRACE_IMSG	0x02
 
 enum {
 	STATS_SMTP_SESSION = 0,
@@ -789,7 +785,7 @@ struct dns {
 
 struct secret {
 	u_int64_t		 id;
-	objid_t			 secmapid;
+	char			 mapname[MAX_PATH_SIZE];
 	char			 host[MAXHOSTNAMELEN];
 	char			 secret[MAX_LINE_SIZE];
 };
@@ -885,7 +881,7 @@ struct mta_session {
 	int			 flags;
 	TAILQ_HEAD(,envelope)	 recipients;
 	TAILQ_HEAD(,mta_relay)	 relays;
-	objid_t			 secmapid;
+	char			*authmap;
 	char			*secret;
 	int			 fd;
 	FILE			*datafp;
@@ -926,7 +922,8 @@ enum queue_kind {
 	Q_QUEUE,
 	Q_PURGE,
 	Q_OFFLINE,
-	Q_BOUNCE
+	Q_BOUNCE,
+	Q_CORRUPT
 };
 
 enum queue_op {
@@ -938,7 +935,8 @@ enum queue_op {
 	QOP_LOAD,
 	QOP_FD_R,
 	QOP_FD_RW,
-	QOP_PURGE
+	QOP_PURGE,
+	QOP_CORRUPT,
 };
 
 struct queue_backend {
@@ -1109,6 +1107,7 @@ int queue_message_commit(enum queue_kind, u_int32_t);
 int queue_message_fd_r(enum queue_kind, u_int32_t);
 int queue_message_fd_rw(enum queue_kind, u_int32_t);
 int queue_message_purge(enum queue_kind, u_int32_t);
+int queue_message_corrupt(enum queue_kind, u_int32_t);
 int queue_envelope_create(enum queue_kind, struct envelope *);
 int queue_envelope_delete(enum queue_kind, struct envelope *);
 int queue_envelope_load(enum queue_kind, u_int64_t, struct envelope *);
@@ -1247,6 +1246,8 @@ void sa_set_port(struct sockaddr *, int);
 u_int64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);
+u_int32_t msgid_generate(void);
+u_int64_t evpid_generate(u_int32_t);
 u_int32_t evpid_to_msgid(u_int64_t);
 u_int64_t msgid_to_evpid(u_int32_t);
 u_int32_t filename_to_msgid(char *);
