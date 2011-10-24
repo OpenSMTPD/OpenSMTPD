@@ -1967,9 +1967,9 @@ AC_ARG_WITH([mantype],
 if test -z "$MANTYPE"; then
 	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
 	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
-	if ${NROFF} -mdoc ${srcdir}/ssh.1 >/dev/null 2>&1; then
+	if ${NROFF} -mdoc ${srcdir}/src/smtpd.8 >/dev/null 2>&1; then
 		MANTYPE=doc
-	elif ${NROFF} -man ${srcdir}/ssh.1 >/dev/null 2>&1; then
+	elif ${NROFF} -man ${srcdir}/src/smtpd.8 >/dev/null 2>&1; then
 		MANTYPE=man
 	else
 		MANTYPE=cat
