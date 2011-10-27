@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.61 2011/10/09 18:39:53 eric Exp $	*/
+/*	$OpenBSD: control.c,v 1.62 2011/10/26 20:47:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -406,7 +406,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 			break;
 		}
-		case IMSG_QUEUE_PAUSE_LOCAL:
+		case IMSG_QUEUE_PAUSE_MDA:
 			if (euid)
 				goto badcred;
 
@@ -417,10 +417,10 @@ control_dispatch_ext(int fd, short event, void *arg)
 			}
 			env->sc_flags |= SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_PAUSE_LOCAL, 0, 0, -1, NULL, 0);
+			    IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 			break;
-		case IMSG_QUEUE_PAUSE_OUTGOING:
+		case IMSG_QUEUE_PAUSE_MTA:
 			if (euid)
 				goto badcred;
 
@@ -431,7 +431,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			}
 			env->sc_flags |= SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_PAUSE_OUTGOING, 0, 0, -1, NULL, 0);
+			    IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 			break;
 		case IMSG_SMTP_PAUSE:
@@ -448,7 +448,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			    0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 			break;
-		case IMSG_QUEUE_RESUME_LOCAL:
+		case IMSG_QUEUE_RESUME_MDA:
 			if (euid)
 				goto badcred;
 
@@ -459,10 +459,10 @@ control_dispatch_ext(int fd, short event, void *arg)
 			}
 			env->sc_flags &= ~SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_RESUME_LOCAL, 0, 0, -1, NULL, 0);
+			    IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 			break;
-		case IMSG_QUEUE_RESUME_OUTGOING:
+		case IMSG_QUEUE_RESUME_MTA:
 			if (euid)
 				goto badcred;
 
@@ -473,7 +473,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			}
 			env->sc_flags &= ~SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_RESUME_OUTGOING, 0, 0, -1, NULL, 0);
+			    IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 			break;
 
