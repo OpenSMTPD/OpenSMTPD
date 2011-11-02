@@ -196,10 +196,6 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
-		case IMSG_PARENT_ENQUEUE_OFFLINE:
-			queue_pass_to_runner(iev, imsg);
-			return;
-
 		case IMSG_CTL_VERBOSE:
 			log_verbose(*(int *)imsg->data);
 			queue_pass_to_runner(iev, imsg);
