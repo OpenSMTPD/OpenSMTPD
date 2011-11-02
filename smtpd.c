@@ -72,7 +72,8 @@ struct offline {
 	char			*path;
 };
 
-#define OFFLINE_MAX 5
+#define OFFLINE_READMAX		20
+#define OFFLINE_QUEUEMAX	5
 static size_t			offline_running = 0;
 TAILQ_HEAD(, offline)		offline_q;
 
@@ -84,8 +85,6 @@ extern char	**environ;
 void		(*imsg_callback)(struct imsgev *, struct imsg *);
 
 struct smtpd	*env = NULL;
-
-int __b64_pton(char const *, unsigned char *, size_t);
 
 static void
 parent_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -883,6 +882,7 @@ offline_scan(int fd, short ev, void *arg)
 {
 	DIR		*dir = arg;
 	struct dirent	*d;
+	int		 n = 0;
 
 	if (dir == NULL) {
 		log_debug("smtpd: scanning offline queue...");
@@ -893,14 +893,17 @@ offline_scan(int fd, short ev, void *arg)
 	while((d = readdir(dir)) != NULL) {
 		if (d->d_type != DT_REG)
 			continue;
+
 		log_debug("smtpd: adding offline message %s", d->d_name);
 		offline_add(d->d_name);
 
-		evtimer_set(&offline_ev, offline_scan, dir);
-		offline_timeout.tv_sec = 0;
-		offline_timeout.tv_usec = 100000;
-		evtimer_add(&offline_ev, &offline_timeout);
-		return;
+		if ((n++) == OFFLINE_READMAX) {
+			evtimer_set(&offline_ev, offline_scan, dir);
+			offline_timeout.tv_sec = 0;
+			offline_timeout.tv_usec = 100000;
+			evtimer_add(&offline_ev, &offline_timeout);
+			return;
+		}
 	}
 
 	log_debug("smtpd: offline scanning done");
@@ -1027,7 +1030,7 @@ offline_add(char *path)
 {
 	struct offline	*q;
 
-	if (offline_running < OFFLINE_MAX)
+	if (offline_running < OFFLINE_QUEUEMAX)
 		/* skip queue */
 		return offline_enqueue(path);
 
@@ -1048,7 +1051,7 @@ offline_done(void)
 
 	offline_running--;
 
-	while(offline_running < OFFLINE_MAX) {
+	while(offline_running < OFFLINE_QUEUEMAX) {
 		if ((q = TAILQ_FIRST(&offline_q)) == NULL)
 			break; /* all done */
 		TAILQ_REMOVE(&offline_q, q, entry);
