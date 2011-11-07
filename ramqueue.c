@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.24 2011/10/27 14:32:57 chl Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.25 2011/11/07 11:14:10 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.134 2011/10/26 20:47:31 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.135 2011/11/07 11:14:10 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -379,8 +379,6 @@ parent_sig_handler(int sig, short event, void *p)
 				if (fail)
 					log_warnx("smtpd: couldn't enqueue offline "
 					    "message; smtpctl %s", cause);
-				else
-					log_debug("smtpd: offline message enqueued");
 				offline_done();
 				break;
 
@@ -893,8 +891,6 @@ offline_scan(int fd, short ev, void *arg)
 	while((d = readdir(dir)) != NULL) {
 		if (d->d_type != DT_REG)
 			continue;
-
-		log_debug("smtpd: adding offline message %s", d->d_name);
 		offline_add(d->d_name);
 
 		if ((n++) == OFFLINE_READMAX) {
