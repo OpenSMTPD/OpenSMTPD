@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.246 2011/10/23 15:36:53 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.247 2011/10/26 20:47:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -174,7 +174,6 @@ enum imsg_type {
 	IMSG_BATCH_CLOSE,
 	IMSG_BATCH_DONE,
 
-	IMSG_PARENT_ENQUEUE_OFFLINE,
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 
