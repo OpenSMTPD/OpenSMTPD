@@ -896,6 +896,7 @@ offline_scan(int fd, short ev, void *arg)
 	while((d = readdir(dir)) != NULL) {
 		if (d->d_type != DT_REG)
 			continue;
+
 		offline_add(d->d_name);
 
 		if ((n++) == OFFLINE_READMAX) {
