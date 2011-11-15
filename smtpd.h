@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.247 2011/10/26 20:47:31 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.250 2011/11/14 19:23:41 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -174,7 +174,6 @@ enum imsg_type {
 	IMSG_BATCH_CLOSE,
 	IMSG_BATCH_DONE,
 
-	IMSG_PARENT_ENQUEUE_OFFLINE,
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 
@@ -1163,6 +1162,8 @@ void imsg_event_add(struct imsgev *);
 void imsg_compose_event(struct imsgev *, u_int16_t, u_int32_t, pid_t,
     int, void *, u_int16_t);
 void imsg_dispatch(int, short, void *);
+const char * proc_to_str(int);
+const char * imsg_to_str(int);
 SPLAY_PROTOTYPE(childtree, child, entry, child_cmp);
 
 
@@ -1227,3 +1228,4 @@ u_int64_t msgid_to_evpid(u_int32_t);
 u_int32_t filename_to_msgid(char *);
 u_int64_t filename_to_evpid(char *);
 void log_imsg(int, int, struct imsg*);
+int ckdir(const char *, mode_t, uid_t, gid_t, int);

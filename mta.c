@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.117 2011/10/23 17:09:56 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.119 2011/11/14 19:23:41 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -24,9 +24,11 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <signal.h>
@@ -239,7 +241,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	fatalx("mta_imsg: unexpected imsg");
+	errx(1, "mta_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
 static void
@@ -702,10 +704,10 @@ mta_message_log(struct mta_session *s, struct envelope *e)
 	struct mta_relay	*relay = TAILQ_FIRST(&s->relays);
 	char			*status = e->errorline;
 
-	log_info("%016llx: to=<%s@%s>, delay=%lld, relay=%s [%s], stat=%s (%s)",
+	log_info("%016" PRIx64 ": to=<%s@%s>, delay=%" PRId64 ", relay=%s [%s], stat=%s (%s)",
 	    e->id, e->dest.user,
 	    e->dest.domain,
-	    (long long int) (time(NULL) - e->creation),
+	    (int64_t) (time(NULL) - e->creation),
 	    relay ? relay->fqdn : "(none)",
 	    relay ? ss_to_text(&relay->sa) : "",
 	    *status == '2' ? "Sent" :

@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue_ascii.c,v 1.4 2011/10/23 15:36:53 eric Exp $	*/
+/*	$OpenBSD: queue_fsqueue_ascii.c,v 1.6 2011/11/06 16:55:32 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -32,6 +32,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -59,7 +60,6 @@
 #define	KW_RETRY		"retry"
 #define	KW_LAST_TRY		"last-try"
 #define	KW_FLAGS		"flags"
-#define	KW_STATUS		"status"
 
 #define	KW_MDA_METHOD		"mda-method"
 #define	KW_MDA_BUFFER		"mda-buffer"
@@ -109,7 +109,7 @@ ascii_load_evpid(struct envelope *ep, char *buf)
 static int
 ascii_dump_evpid(struct envelope *ep, FILE *fp)
 {
-	fprintf(fp, "%s: %016llx\n", KW_EVPID, ep->id);
+	fprintf(fp, "%s: %016" PRIx64 "\n", KW_EVPID, ep->id);
 	return 1;
 }
 
@@ -495,8 +495,8 @@ static int
 ascii_dump_ctime(struct envelope *ep, FILE *fp)
 {
 	if (ep->creation)
-		fprintf(fp, "%s: %qd\n", KW_CTIME,
-		    (u_int64_t)ep->creation);
+		fprintf(fp, "%s: %" PRId64 "\n", KW_CTIME,
+		    (int64_t) ep->creation);
 	return 1;
 }
 
@@ -516,8 +516,8 @@ static int
 ascii_dump_expire(struct envelope *ep, FILE *fp)
 {
 	if (ep->expire)
-		fprintf(fp, "%s: %qd\n", KW_EXPIRE,
-		    (u_int64_t)ep->expire);
+		fprintf(fp, "%s: %" PRId64 "\n", KW_EXPIRE,
+		    (int64_t) ep->expire);
 	return 1;
 }
 
@@ -556,8 +556,8 @@ static int
 ascii_dump_lasttry(struct envelope *ep, FILE *fp)
 {
 	if (ep->lasttry)
-		fprintf(fp, "%s: %qd\n", KW_LAST_TRY,
-		    (u_int64_t)ep->lasttry);
+		fprintf(fp, "%s: %" PRId64 "\n", KW_LAST_TRY,
+		    (int64_t) ep->lasttry);
 	return 1;
 }
 
@@ -595,24 +595,6 @@ ascii_load_flags(struct envelope *ep, char *buf)
 			ep->flags |= DF_INTERNAL;
 		else
 			return 0;
-	}
-	return 1;
-}
-
-static int
-ascii_dump_status(struct envelope *ep, FILE *fp)
-{
-	if (ep->status) {
-		fprintf(fp, "%s ", KW_STATUS);
-		if (ep->status & DS_PERMFAILURE)
-			fprintf(fp, " permfail");
-		if (ep->status & DS_TEMPFAILURE)
-			fprintf(fp, " tempfail");
-		if (ep->status & DS_REJECTED)
-			fprintf(fp, " rejected");
-		if (ep->status & DS_ACCEPTED)
-			fprintf(fp, " accepted");
-		fprintf(fp, "\n");
 	}
 	return 1;
 }
@@ -765,8 +747,7 @@ fsqueue_dump_envelope_ascii(FILE *fp, struct envelope *ep)
 	    ! ascii_dump_lasttry(ep, fp)   ||
 	    ! ascii_dump_expire(ep, fp)	   ||
 	    ! ascii_dump_retry(ep, fp)	   ||
-	    ! ascii_dump_flags(ep, fp)	   ||
-	    ! ascii_dump_status(ep, fp))
+	    ! ascii_dump_flags(ep, fp))
 		goto err;
 
 	if (fflush(fp) != 0)
