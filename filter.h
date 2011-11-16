@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.h,v 1.3 2011/09/12 20:47:15 gilles Exp $	*/
+/*	$OpenBSD: filter.h,v 1.4 2011/11/15 23:22:47 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -73,7 +73,7 @@ union filter_union {
 struct filter_msg {
 	u_int64_t		id;	 /* set by smtpd(8) */
 	u_int64_t		cl_id;	 /* set by smtpd(8) */
-	u_int8_t       		code;
+	int8_t       		code;
 	u_int8_t		version;
 	enum filter_type	type;
 	union filter_union	u;
