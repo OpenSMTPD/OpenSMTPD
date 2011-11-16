@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.250 2011/11/14 19:23:41 chl Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.251 2011/11/15 23:06:39 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -450,6 +450,7 @@ struct child {
 	enum smtp_proc_type	 title;
 	int			 mda_out;
 	u_int32_t		 mda_id;
+	char			*path;
 };
 
 enum session_state {
