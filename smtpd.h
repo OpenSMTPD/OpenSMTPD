@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.253 2011/11/16 19:38:56 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.254 2011/11/21 18:57:54 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -474,7 +474,7 @@ enum session_state {
 	S_DONE,
 	S_QUIT
 };
-#define STATE_COUNT	18
+#define STATE_COUNT	19
 
 struct ssl {
 	SPLAY_ENTRY(ssl)	 ssl_nodes;
