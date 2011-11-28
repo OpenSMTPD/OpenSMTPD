@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa_session.c,v 1.4 2011/09/01 09:42:15 chl Exp $	*/
+/*	$OpenBSD: mfa_session.c,v 1.5 2011/10/23 09:30:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -144,7 +144,7 @@ mfa_session_proceed(struct mfa_session *ms)
 void
 mfa_session_pickup(struct mfa_session *ms)
 {
-	if (ms->fm.code == -1) {
+	if (ms->fm.code == STATUS_REJECT) {
 		mfa_session_fail(ms);
 		return;
 	}
@@ -288,7 +288,7 @@ mfa_session_imsg(int fd, short event, void *p)
 			ms->fm.code = fm.code;
 
 			/* success, overwrite */
-			if (fm.code == 1)
+			if (fm.code == STATUS_ACCEPT)
 				ms->fm = fm;
 
 			mfa_session_pickup(ms);
