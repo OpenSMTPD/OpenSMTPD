@@ -1,6 +1,7 @@
 # In OpenBSD, smptd's files are installed this way:
 #
 # /etc/mail/smtpd.conf
+# /usr/bin/mailq      --> /usr/sbin/mailwrapper --> /usr/sbin/smtpctl
 # /usr/bin/newaliases --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
 # /usr/libexec/mail.local
 # /usr/sbin/makemap   --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
@@ -12,9 +13,10 @@
 # (assuming PREFIX=/usr/local)
 #
 # /usr/local/etc/mail/smtpd.conf
+# /usr/local/bin/mailq      --> /usr/sbin/smtpctl
 # /usr/local/bin/newaliases --> /usr/local/libexec/opensmtpd-portable/makemap
 # /usr/local/libexec/mail.local
-# /usr/local/libexec/opensmtpd-portable/makemap
+# /usr/local/sbin/makemap   --> /usr/local/libexec/opensmtpd-portable/makemap
 # /usr/local/sbin/smtpctl
 # /usr/local/sbin/smtpd
 
@@ -41,7 +43,7 @@ smtpd_SOURCES =		aliases.c auth_backend.c bounce.c client.c		\
 			queue_fsqueue_ascii.c user_backend.c stats.c
 
 smtpctl_SOURCES =	enqueue.c parser.c log.c queue_backend.c queue_fsqueue.c\
-			queue_fsqueue_ascii.c queue_shared.c smtpctl.c stats.c  \
+			queue_fsqueue_ascii.c queue_shared.c smtpctl.c stats.c	\
 			util.c
 
 EXTRA_DIST = 		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
@@ -105,6 +107,13 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 		$(INSTALL) -m 644 smtpd.conf.out $(DESTDIR)$(sysconfdir)/mail/smtpd.conf; \
 	else									\
 		echo "$(DESTDIR)$(sysconfdir)/mail/smtpd.conf already exists, install will not overwrite"; \
+	fi
+
+	@if [ ! -f $(DESTDIR)$(bindir)/mailq$(EXEEXT) ]; then			\
+		ln $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)			\
+			$(DESTDIR)$(bindir)/mailq$(EXEEXT);			\
+	else 									\
+		echo "$(DESTDIR)$(bindir)/mailq$(EXEEXT) already exists, install will not overwrite"; \
 	fi
 
 	@if [ ! -f $(DESTDIR)$(bindir)/newaliases$(EXEEXT) ]; then		\
