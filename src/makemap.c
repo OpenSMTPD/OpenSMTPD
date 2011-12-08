@@ -174,7 +174,12 @@ main(int argc, char *argv[])
 #ifndef O_EXLOCK
 #define O_EXLOCK 0
 #endif
-	db = dbopen(dbname, O_EXLOCK|O_RDWR|O_SYNC, 0644, DB_HASH, NULL);
+	/* Depending on the Linux distrib, sometimes dbopen() flags 
+	 * O_SYNC must be avoid, and O_TRUNC have to be used
+	 * XXX: it should be properly checked and handled in configure script */
+
+	/* db = dbopen(dbname, O_EXLOCK|O_RDWR|O_SYNC, 0644, DB_HASH, NULL); */
+	db = dbopen(dbname, O_EXLOCK|O_RDWR|O_TRUNC, 0644, DB_HASH, NULL);
 	if (db == NULL) {
 		warn("dbopen: %s", dbname);
 		goto bad;
