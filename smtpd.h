@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.254 2011/11/21 18:57:54 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.255 2011/11/28 20:29:27 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -937,7 +937,7 @@ enum user_type {
 };
 
 #define	MAXPASSWORDLEN	128
-struct user {
+struct mta_user {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
 	char password[MAXPASSWORDLEN];
@@ -947,8 +947,8 @@ struct user {
 
 struct user_backend {
 	enum user_type	type;
-	int (*getbyname)(struct user *, char *);
-	int (*getbyuid)(struct user *, uid_t);
+	int (*getbyname)(struct mta_user *, char *);
+	int (*getbyuid)(struct mta_user *, uid_t);
 };
 
 
