@@ -1,4 +1,4 @@
-/*	$OpenBSD: client.c,v 1.37 2011/07/06 20:56:16 gilles Exp $	*/
+/*	$OpenBSD: client.c,v 1.38 2011/11/03 14:34:13 chl Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -42,12 +42,10 @@
 
 #include "openbsd-compat.h"
 
-#ifndef CLIENT_NO_SSL
 int		 client_ssl_connect(struct smtp_client *);
 SSL		*ssl_client_init(int, char *, size_t, char *, size_t);
 int		 ssl_buf_read(SSL *, struct ibuf_read *);
 int		 ssl_buf_write(SSL *, struct msgbuf *);
-#endif
 
 /*
  * Initialize SMTP session.
@@ -90,10 +88,6 @@ client_init(int fd, FILE *body, char *ehlo, int verbose)
 
 	sp->exts[CLIENT_EXT_STARTTLS].want = 1;
 	sp->exts[CLIENT_EXT_STARTTLS].must = 1;
-#ifdef CLIENT_NO_SSL
-	sp->exts[CLIENT_EXT_STARTTLS].want = 0;
-	sp->exts[CLIENT_EXT_STARTTLS].must = 0;
-#endif
 	sp->exts[CLIENT_EXT_STARTTLS].name = "STARTTLS";
 
 	sp->exts[CLIENT_EXT_AUTH].want = 0;
@@ -298,7 +292,6 @@ client_talk(struct smtp_client *sp, int writable)
 		writable = 0;
 	}
 
-#ifndef CLIENT_NO_SSL
 	if (sp->flags & CLIENT_FLAG_HANDSHAKING) {
 		if (sp->ssl == NULL) {
 			log_debug("client: ssl handshake started");
@@ -313,7 +306,6 @@ client_talk(struct smtp_client *sp, int writable)
 		} else
 			return client_ssl_connect(sp);
 	}
-#endif
 
 	/* regular handlers */
 	return (writable ? client_write(sp) : client_read(sp));
@@ -496,7 +488,6 @@ client_write(struct smtp_client *sp)
 	return client_poll(sp);
 }
 
-#ifndef CLIENT_NO_SSL
 /*
  * Progress SSL handshake.
  */
@@ -545,7 +536,6 @@ client_ssl_connect(struct smtp_client *sp)
 		}
 	}
 }
-#endif
 
 /*
  * Deinitialization routine.
@@ -572,10 +562,8 @@ client_close(struct smtp_client *sp)
 		TAILQ_REMOVE(&sp->cmdrecvq, cmd, entry);
 		cmd_free(cmd);
 	}
-#ifndef CLIENT_NO_SSL
 	if (sp->ssl)
 		SSL_free(sp->ssl);
-#endif
 	close(sp->w.fd);
 #if 0
 	log_debug("client_close: sp->body=%p", sp->body);
@@ -825,7 +813,6 @@ client_quit(struct smtp_client *sp)
 int
 client_socket_read(struct smtp_client *sp)
 {
-#ifndef CLIENT_NO_SSL
 	if (sp->ssl) {
 		switch (ssl_buf_read(sp->ssl, &sp->r)) {
 		case SSL_ERROR_NONE:
@@ -839,7 +826,6 @@ client_socket_read(struct smtp_client *sp)
 			return (CLIENT_DONE);
 		}
 	}
-#endif
 	if (sp->ssl == NULL) {
 		errno = 0;
 		if (buf_read(sp->w.fd, &sp->r) == -1) {
@@ -861,7 +847,6 @@ client_socket_read(struct smtp_client *sp)
 int
 client_socket_write(struct smtp_client *sp)
 {
-#ifndef CLIENT_NO_SSL
 	if (sp->ssl) {
 		switch (ssl_buf_write(sp->ssl, &sp->w)) {
 		case SSL_ERROR_NONE:
@@ -875,7 +860,6 @@ client_socket_write(struct smtp_client *sp)
 			return (CLIENT_DONE);
 		}
 	}
-#endif
 	if (sp->ssl == NULL) {
 		if (ibuf_write(&sp->w) < 0) {
 			client_status(sp, "130 buf_write error");

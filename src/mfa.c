@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.64 2011/10/23 09:30:07 gilles Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.66 2011/11/14 19:23:41 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -24,6 +24,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <grp.h> /* needed for setgroups */
@@ -120,7 +121,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	fatalx("mfa_imsg: unexpected imsg");
+	errx(1, "mfa_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
 static void
@@ -376,7 +377,7 @@ mfa_fork_filter(struct filter *filter)
 
 	if (pid == 0) {
 		/* filter */
-		dup2(sockpair[0], 0);
+		dup2(sockpair[0], STDIN_FILENO);
 		
 		closefrom(STDERR_FILENO + 1);
 

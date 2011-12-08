@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.24 2011/10/27 14:32:57 chl Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.26 2011/11/15 23:06:39 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -46,7 +46,6 @@ void ramqueue_insert(struct ramqueue *, struct envelope *, time_t);
 int ramqueue_host_cmp(struct ramqueue_host *, struct ramqueue_host *);
 void ramqueue_put_host(struct ramqueue *, struct ramqueue_host *);
 void ramqueue_put_batch(struct ramqueue *, struct ramqueue_batch *);
-int ramqueue_load_offline(struct ramqueue *);
 
 static int ramqueue_expire(struct envelope *, time_t);
 static time_t ramqueue_next_schedule(struct envelope *, time_t);
@@ -112,50 +111,23 @@ ramqueue_batch_first_envelope(struct ramqueue_batch *rq_batch)
 }
 
 int
-ramqueue_load_offline(struct ramqueue *rqueue)
-{
-	char		 path[MAXPATHLEN];
-	static struct qwalk    *q = NULL;
-
-	log_debug("ramqueue: offline queue loading in progress");
-	if (q == NULL)
-		q = qwalk_new(PATH_OFFLINE);
-	while (qwalk(q, path)) {
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_PARENT_ENQUEUE_OFFLINE, PROC_PARENT, 0, -1, path,
-		    strlen(path) + 1);
-		log_debug("ramqueue: offline queue loading interrupted");
-		return 0;
-	}
-	qwalk_close(q);
-	q = NULL;
-	log_debug("ramqueue: offline queue loading over");
-	return 1;
-}
-
-int
 ramqueue_load(struct ramqueue *rqueue, time_t *nsched)
 {
-	char			path[MAXPATHLEN];
+//	char			path[MAXPATHLEN];
 	time_t			curtm;
 	struct envelope		envelope;
 	static struct qwalk    *q = NULL;
 	struct ramqueue_envelope *rq_evp;
-
-
+//	u_int32_t	msgid;
+	u_int64_t	evpid;
 
 	log_debug("ramqueue: queue loading in progress");
 
 	if (q == NULL)
-		q = qwalk_new(PATH_QUEUE);
-	while (qwalk(q, path)) {
-		u_int64_t evpid;
+		q = qwalk_new(Q_QUEUE, 0);
 
+	while (qwalk(q, &evpid)) {
 		curtm = time(NULL);
-
-		if ((evpid = filename_to_evpid(basename(path))) == 0)
-			continue;
-
 		if (! queue_envelope_load(Q_QUEUE, evpid, &envelope)) {
 			log_debug("failed to load envelope");
 			queue_message_corrupt(Q_QUEUE, evpid_to_msgid(evpid));

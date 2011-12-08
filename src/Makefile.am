@@ -40,10 +40,9 @@ smtpd_SOURCES =		aliases.c auth_backend.c bounce.c client.c		\
 			ramqueue.c queue_backend.c queue_fsqueue.c		\
 			queue_fsqueue_ascii.c user_backend.c stats.c
 
-smtpctl_SOURCES =	smtpctl.c parser.c log.c enqueue.c queue_shared.c util.c\
-		       	client.c queue_backend.c queue_fsqueue.c		\
-			queue_fsqueue_ascii.c stats.c
-smtpctl_CFLAGS =	-DCLIENT_NO_SSL
+smtpctl_SOURCES =	enqueue.c parser.c log.c queue_backend.c queue_fsqueue.c\
+			queue_fsqueue_ascii.c queue_shared.c smtpctl.c stats.c  \
+			util.c
 
 EXTRA_DIST = 		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
 			parser.h smtpd.h

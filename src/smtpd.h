@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.247 2011/10/26 20:47:31 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.256 2011/12/08 17:00:28 todd Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -86,18 +86,7 @@
 #define	DIRHASH_BUCKETS		 4096
 
 #define PATH_SPOOL		"/var/spool/smtpd"
-
-#define PATH_ENQUEUE		"/enqueue"
-#define PATH_INCOMING		"/incoming"
-#define PATH_QUEUE		"/queue"
-#define PATH_PURGE		"/purge"
-#define PATH_CORRUPT		"/corrupt"
-
-#define PATH_MESSAGE		"/message"
-#define PATH_ENVELOPES		"/envelopes"
-
 #define PATH_OFFLINE		"/offline"
-#define PATH_BOUNCE		"/bounce"
 
 /* number of MX records to lookup */
 #define MAX_MX_COUNT		10
@@ -196,7 +185,6 @@ enum imsg_type {
 	IMSG_BATCH_CLOSE,
 	IMSG_BATCH_DONE,
 
-	IMSG_PARENT_ENQUEUE_OFFLINE,
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 
@@ -484,6 +472,7 @@ struct child {
 	enum smtp_proc_type	 title;
 	int			 mda_out;
 	u_int32_t		 mda_id;
+	char			*path;
 };
 
 enum session_state {
@@ -507,7 +496,7 @@ enum session_state {
 	S_DONE,
 	S_QUIT
 };
-#define STATE_COUNT	18
+#define STATE_COUNT	19
 
 struct ssl {
 	SPLAY_ENTRY(ssl)	 ssl_nodes;
@@ -917,11 +906,9 @@ enum queue_type {
 
 enum queue_kind {
 	Q_INVALID=0,
-	Q_ENQUEUE,
 	Q_INCOMING,
 	Q_QUEUE,
 	Q_PURGE,
-	Q_OFFLINE,
 	Q_BOUNCE,
 	Q_CORRUPT
 };
@@ -941,9 +928,14 @@ enum queue_op {
 
 struct queue_backend {
 	enum queue_type	type;
+
 	int (*init)(void);
 	int (*message)(enum queue_kind, enum queue_op, u_int32_t *);
 	int (*envelope)(enum queue_kind, enum queue_op, struct envelope *);
+
+	void *(*qwalk_new)(enum queue_kind, u_int32_t);
+	int   (*qwalk)(void *, u_int64_t *);
+	void  (*qwalk_close)(void *);
 };
 
 
@@ -967,7 +959,7 @@ enum user_type {
 };
 
 #define	MAXPASSWORDLEN	128
-struct user {
+struct mta_user {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
 	char password[MAXPASSWORDLEN];
@@ -977,8 +969,8 @@ struct user {
 
 struct user_backend {
 	enum user_type	type;
-	int (*getbyname)(struct user *, char *);
-	int (*getbyuid)(struct user *, uid_t);
+	int (*getbyname)(struct mta_user *, char *);
+	int (*getbyuid)(struct mta_user *, uid_t);
 };
 
 
@@ -1100,6 +1092,8 @@ void queue_commit_envelopes(struct envelope *);
 
 
 /* queue_backend.c */
+u_int32_t queue_generate_msgid(void);
+u_int64_t queue_generate_evpid(u_int32_t msgid);
 struct queue_backend *queue_backend_lookup(enum queue_type);
 int queue_message_create(enum queue_kind, u_int32_t *);
 int queue_message_delete(enum queue_kind, u_int32_t);
@@ -1112,15 +1106,15 @@ int queue_envelope_create(enum queue_kind, struct envelope *);
 int queue_envelope_delete(enum queue_kind, struct envelope *);
 int queue_envelope_load(enum queue_kind, u_int64_t, struct envelope *);
 int queue_envelope_update(enum queue_kind, struct envelope *);
+void *qwalk_new(enum queue_kind, u_int32_t);
+int   qwalk(void *, u_int64_t *);
+void  qwalk_close(void *);
 
 
 /* queue_shared.c */
 void queue_message_update(struct envelope *);
-struct qwalk	*qwalk_new(char *);
-int qwalk(struct qwalk *, char *);
-void qwalk_close(struct qwalk *);
 int bounce_record_message(struct envelope *, struct envelope *);
-void show_queue(char *, int);
+void show_queue(enum queue_kind, int);
 
 
 /* ramqueue.c */
@@ -1189,6 +1183,8 @@ void imsg_event_add(struct imsgev *);
 void imsg_compose_event(struct imsgev *, u_int16_t, u_int32_t, pid_t,
     int, void *, u_int16_t);
 void imsg_dispatch(int, short, void *);
+const char * proc_to_str(int);
+const char * imsg_to_str(int);
 SPLAY_PROTOTYPE(childtree, child, entry, child_cmp);
 
 
@@ -1246,10 +1242,7 @@ void sa_set_port(struct sockaddr *, int);
 u_int64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);
-u_int32_t msgid_generate(void);
-u_int64_t evpid_generate(u_int32_t);
 u_int32_t evpid_to_msgid(u_int64_t);
 u_int64_t msgid_to_evpid(u_int32_t);
-u_int32_t filename_to_msgid(char *);
-u_int64_t filename_to_evpid(char *);
 void log_imsg(int, int, struct imsg*);
+int ckdir(const char *, mode_t, uid_t, gid_t, int);

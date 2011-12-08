@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.49 2011/10/27 14:32:57 chl Exp $	*/
+/*	$OpenBSD: util.c,v 1.51 2011/11/16 19:38:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -65,6 +65,71 @@ bsnprintf(char *str, size_t size, const char *format, ...)
 
 	return 1;
 }
+
+int
+ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
+{
+	char		mode_str[12];
+	int		ret;
+	struct stat	sb;
+
+	if (stat(path, &sb) == -1) {
+		if (errno != ENOENT || create == 0) {
+			warn("stat: %s", path);
+			return (0);
+		}
+
+		/* chmod is deferred to avoid umask effect */
+		if (mkdir(path, 0) == -1) {
+			warn("mkdir: %s", path);
+			return (0);
+		}
+
+		if (chown(path, owner, group) == -1) {
+			warn("chown: %s", path);
+			return (0);
+		}
+
+		if (chmod(path, mode) == -1) {
+			warn("chmod: %s", path);
+			return (0);
+		}
+
+		if (stat(path, &sb) == -1) {
+			warn("stat: %s", path);
+			return (0);
+		}
+	}
+
+	ret = 1;
+
+	/* check if it's a directory */
+	if (!S_ISDIR(sb.st_mode)) {
+		ret = 0;
+		warnx("%s is not a directory", path);
+	}
+
+	/* check that it is owned by owner/group */
+	if (sb.st_uid != owner) {
+		ret = 0;
+		warnx("%s is not owned by uid %d", path, owner);
+	}
+	if (sb.st_gid != group) {
+		ret = 0;
+		warnx("%s is not owned by gid %d", path, group);
+	}
+
+	/* check permission */
+	if ((sb.st_mode & 07777) != mode) {
+		ret = 0;
+		strmode(mode, mode_str);
+		mode_str[10] = '\0';
+		warnx("%s must be %s (%o)", path, mode_str + 1, mode);
+	}
+
+	return ret;
+}
+
 
 /* Close file, signifying temporary error condition (if any) to the caller. */
 int
@@ -515,70 +580,6 @@ log_sockaddr(struct sockaddr *sa)
 		return ("(unknown)");
 	else
 		return (buf);
-}
-
-u_int32_t
-filename_to_msgid(char *filename)
-{
-	u_int32_t ulval;
-	char *ep;
-
-	errno = 0;
-	ulval = strtoul(filename, &ep, 16);
-	if (filename[0] == '\0' || *ep != '\0')
-		return 0;
-	if (errno == ERANGE && ulval == 0xffffffff)
-		return 0;
-
-	return ulval;
-}
-
-u_int64_t
-filename_to_evpid(char *filename)
-{
-	u_int64_t ullval;
-	char *ep;
-
-	errno = 0;
-	ullval = strtoull(filename, &ep, 16);
-	if (filename[0] == '\0' || *ep != '\0')
-		return 0;
-	if (errno == ERANGE && ullval == ULLONG_MAX)
-		return 0;
-
-	return ullval;
-}
-
-u_int32_t
-msgid_generate(void)
-{
-	u_int32_t ret;
-
-	do {
-		ret = arc4random();
-	} while (ret == 0);
-
-	log_debug("msgid_generate: %08x", ret);
-
-	return ret;
-}
-
-u_int64_t
-evpid_generate(u_int32_t msgid)
-{
-	u_int64_t ret;
-
-	ret = msgid;
-	log_debug("evpid_generate: %016" PRIx64, ret);
-	ret <<= 32;
-	log_debug("evpid_generate: %016" PRIx64, ret);
-	do {
-		ret |= arc4random();
-	} while ((ret & 0xffffffff) == 0);
-
-	log_debug("evpid_generate: %016" PRIx64, ret);
-
-	return ret;
 }
 
 u_int32_t

@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.122 2011/10/27 14:32:57 chl Exp $	*/
+/*	$OpenBSD: runner.c,v 1.126 2011/11/16 19:38:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -56,14 +56,8 @@ static void runner_timeout(int, short, void *);
 static int runner_process_envelope(struct ramqueue_envelope *, time_t);
 static void runner_process_batch(struct ramqueue_envelope *, time_t);
 static void runner_purge_run(void);
-static void runner_purge_message(u_int32_t);
 static int runner_check_loop(struct envelope *);
 static int runner_force_message_to_ramqueue(struct ramqueue *, u_int32_t);
-
-
-/*temporary*/
-u_int64_t	filename_to_evpid(char *);
-u_int32_t	filename_to_msgid(char *);
 
 
 void
@@ -129,10 +123,6 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		stat_decrement(STATS_MTA_SESSION);
 		return;
 
-	case IMSG_PARENT_ENQUEUE_OFFLINE:
-		/*		runner_process_offline();*/
-		return;
-
 	case IMSG_SMTP_ENQUEUE:
 		e = imsg->data;
 		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
@@ -180,7 +170,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 	}
 
-	fatalx("runner_imsg: unexpected imsg");
+	errx(1, "runner_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
 void
@@ -297,8 +287,6 @@ runner(void)
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 
-	unlink(PATH_QUEUE "/envelope.tmp");
-
 	runner_setup_events();
 	event_dispatch();
 	runner_disable_events();
@@ -314,7 +302,6 @@ runner_timeout(int fd, short event, void *p)
 	struct ramqueue_envelope *rq_evp;
 	struct timeval		 tv;
 	static int		 rq_done = 0;
-	static int		 rq_off_done = 0;
 	time_t			 nsched;
 	time_t			 curtm;
 
@@ -324,15 +311,6 @@ runner_timeout(int fd, short event, void *p)
 	rq_evp = ramqueue_first_envelope(rqueue);
 	if (rq_evp)
 		nsched = rq_evp->sched;
-
-
-	/* fetch one offline message at a time to prevent a huge
-	 * offline queue from hogging the deliveries of incoming
-	 * messages.
-	 */
-	if (! rq_off_done)
-		rq_off_done = ramqueue_load_offline(rqueue);
-
 
 	/* load as many envelopes as possible from disk-queue to
 	 * ram-queue until a schedulable envelope is found.
@@ -354,14 +332,13 @@ runner_timeout(int fd, short event, void *p)
 	}
 
 	if (rq_evp == NULL ||
-	    (rq_done && rq_off_done && ramqueue_is_empty(rqueue))) {
+	    (rq_done && ramqueue_is_empty(rqueue))) {
 		log_debug("runner: nothing to schedule, wake me up. zZzZzZ");
 		return;
 	}
 
 	/* disk-queues not fully loaded, no time for sleeping */
-	if (!rq_done || !rq_off_done) {
-		log_debug("disk-queues not fully loaded, no time for sleeping");
+	if (!rq_done) {
 		nsched = 0;
 	} else {
 		nsched = nsched - curtm;
@@ -517,43 +494,23 @@ runner_process_batch(struct ramqueue_envelope *rq_evp, time_t curtm)
 		ramqueue_remove_host(&env->sc_rqueue, rq_host);
 }
 
-/* XXX - temporary solution */
 int
 runner_force_message_to_ramqueue(struct ramqueue *rqueue, u_int32_t msgid)
 {
-	char path[MAXPATHLEN];
-	DIR *dirp;
-	struct dirent *dp;
-	struct envelope envelope;
-	time_t curtm;
-
-	if (! bsnprintf(path, MAXPATHLEN, "%s/%03x/%08x/envelopes",
-		PATH_QUEUE, msgid & 0xfff, msgid))
-		return 0;
-
-	dirp = opendir(path);
-	if (dirp == NULL)
-		return 0;
+	struct qwalk	*q;
+	u_int64_t	 evpid;
+	time_t		 curtm;
+	struct envelope	 envelope;
 
 	curtm = time(NULL);
-	while ((dp = readdir(dirp)) != NULL) {
-		u_int64_t evpid;
-
-		if (dp->d_name[0] == '.')
-			continue;
-
-		if ((evpid = filename_to_evpid(dp->d_name)) == 0) {
-			log_warnx("runner_force_message_to_ramqueue: "
-				  "invalid evpid: %016" PRIx64, evpid);
-			continue;
-		}
-
+	q = qwalk_new(Q_QUEUE, msgid);
+	while (qwalk(q, &evpid)) {
 		if (! queue_envelope_load(Q_QUEUE, evpid,
 			&envelope))
 			continue;
 		ramqueue_insert(rqueue, &envelope, curtm);
 	}
-	closedir(dirp);
+ 	qwalk_close(q);
 
 	return 1;
 }
@@ -561,81 +518,16 @@ runner_force_message_to_ramqueue(struct ramqueue *rqueue, u_int32_t msgid)
 void
 runner_purge_run(void)
 {
-	char		 path[MAXPATHLEN];
 	struct qwalk	*q;
+	u_int32_t	 msgid;
+	u_int64_t	 evpid;
 
-	q = qwalk_new(PATH_PURGE);
-
-	while (qwalk(q, path)) {
-		u_int32_t msgid;
-		char *bpath;
-		
-		bpath = basename(path);
-		if (bpath[0] == '.')
-			continue;
-
-		if ((msgid = filename_to_msgid(bpath)) == 0) {
-			log_warnx("runner_purge_run: invalid msgid: %08x", msgid);
-			continue;
-		}
-		runner_purge_message(msgid);
+	q = qwalk_new(Q_PURGE, 0);
+	while (qwalk(q, &evpid)) {
+		msgid = evpid_to_msgid(evpid);
+		queue_message_delete(Q_PURGE, msgid);
 	}
-
 	qwalk_close(q);
-}
-
-void
-runner_purge_message(u_int32_t msgid)
-{
-	char rootdir[MAXPATHLEN];
-	char evpdir[MAXPATHLEN];
-	char evppath[MAXPATHLEN];
-	char msgpath[MAXPATHLEN];
-	DIR *dirp;
-	struct dirent *dp;
-	
-	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%08x", PATH_PURGE, msgid))
-		fatal("runner_purge_message: snprintf");
-
-	if (! bsnprintf(evpdir, sizeof(evpdir), "%s%s", rootdir,
-		PATH_ENVELOPES))
-		fatal("runner_purge_message: snprintf");
-	
-	if (! bsnprintf(msgpath, sizeof(msgpath), "%s/message", rootdir))
-		fatal("runner_purge_message: snprintf");
-
-	if (unlink(msgpath) == -1)
-		if (errno != ENOENT)
-			fatal("runner_purge_message: unlink");
-
-	dirp = opendir(evpdir);
-	if (dirp == NULL) {
-		if (errno == ENOENT)
-			goto delroot;
-		fatal("runner_purge_message: opendir");
-	}
-	while ((dp = readdir(dirp)) != NULL) {
-		if (strcmp(dp->d_name, ".") == 0 ||
-		    strcmp(dp->d_name, "..") == 0)
-			continue;
-		if (! bsnprintf(evppath, sizeof(evppath), "%s/%s", evpdir,
-			dp->d_name))
-			fatal("runner_purge_message: snprintf");
-
-		if (unlink(evppath) == -1)
-			if (errno != ENOENT)
-				fatal("runner_purge_message: unlink");
-	}
-	closedir(dirp);
-
-	if (rmdir(evpdir) == -1)
-		if (errno != ENOENT)
-			fatal("runner_purge_message: rmdir");
-
-delroot:
-	if (rmdir(rootdir) == -1)
-		if (errno != ENOENT)
-			fatal("runner_purge_message: rmdir");
 }
 
 int
