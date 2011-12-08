@@ -727,7 +727,7 @@ AC_ARG_WITH([ssl-dir],
 		fi
 	]
 )
-LIBS="-lcrypto $LIBS"
+LIBS="-lcrypto -lssl $LIBS"
 AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
 	[Define if your ssl headers are included
 	with #include <openssl/header.h>])],
