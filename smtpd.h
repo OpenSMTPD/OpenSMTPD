@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.256 2011/12/08 17:00:28 todd Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.258 2011/12/11 19:58:09 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -831,6 +831,7 @@ enum mta_state {
 #define	MTA_ALLOW_PLAIN		0x04
 #define	MTA_USE_AUTH		0x08
 #define	MTA_FORCE_MX		0x10
+#define	MTA_USE_CERT		0x20
 
 struct mta_relay {
 	TAILQ_ENTRY(mta_relay)	 entry;
@@ -853,9 +854,8 @@ struct mta_session {
 	int			 fd;
 	FILE			*datafp;
 	struct event		 ev;
-	char			*cert;
 	void			*pcb;
-	struct ramqueue_batch	*batch;
+	struct ssl		*ssl;
 };
 
 
@@ -1220,3 +1220,4 @@ u_int32_t evpid_to_msgid(u_int64_t);
 u_int64_t msgid_to_evpid(u_int32_t);
 void log_imsg(int, int, struct imsg*);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
+const char *parse_smtp_response(char *, size_t, char **, int *);
