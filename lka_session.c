@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.14 2011/12/12 16:45:16 chl Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.16 2011/12/13 22:04:35 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -109,7 +109,7 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 		}
 
 		bzero(&u, sizeof (u));
-		ub = user_backend_lookup(USER_GETPWNAM);
+		ub = user_backend_lookup(USER_PWD);
 		if (! ub->getbyname(&u, username))
 			return 0;
 
@@ -126,7 +126,7 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 			break;
 		case A_MAILDIR:
 		case A_FILENAME:
-		case A_EXT:
+		case A_MDA:
 			ep->agent.mda.method = ep->rule.r_action;
 			(void)strlcpy(ep->agent.mda.to.buffer,
 			    ep->rule.r_value.buffer,
@@ -381,7 +381,7 @@ lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 		switch (d_mda->method) {
 		case A_MAILDIR:
 		case A_FILENAME:
-		case A_EXT: {
+		case A_MDA: {
 			char *buf = d_mda->to.buffer;
 			size_t bufsz = sizeof(d_mda->to.buffer);
 			if (! lka_session_expand_format(buf, bufsz, new_ep))
@@ -483,7 +483,7 @@ lka_session_resolve_node(struct envelope *ep, struct expandnode *xn)
 		    xn->u.buffer);
 		ep->type  = D_MDA;
 		ep->agent.mda.to = xn->u;
-		ep->agent.mda.method = A_EXT;
+		ep->agent.mda.method = A_MDA;
 		(void)strlcpy(ep->agent.mda.as_user, xn->as_user,
 		    sizeof (ep->agent.mda.as_user));
                 break;
@@ -511,7 +511,7 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 			if (*(p + 1) == '/' || *(p + 1) == '\0') {
 
 				bzero(&u, sizeof (u));
-				ub = user_backend_lookup(USER_GETPWNAM);
+				ub = user_backend_lookup(USER_PWD);
 				if (! ub->getbyname(&u, ep->agent.mda.as_user))
 					return 0;
 				
@@ -536,7 +536,7 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 				*delim = '\0';
 
 				bzero(&u, sizeof (u));
-				ub = user_backend_lookup(USER_GETPWNAM);
+				ub = user_backend_lookup(USER_PWD);
 				if (! ub->getbyname(&u, username))
 					return 0;
 
@@ -621,7 +621,7 @@ lka_session_rcpt_action(struct envelope *ep)
 	case A_MBOX:
 	case A_MAILDIR:
 	case A_FILENAME:
-	case A_EXT:
+	case A_MDA:
 		ep->type = D_MDA;
 		break;
 	default:

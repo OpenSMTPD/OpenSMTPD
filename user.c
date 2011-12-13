@@ -1,7 +1,7 @@
-/*	$OpenBSD: map_backend.c,v 1.7 2011/08/30 11:19:51 chl Exp $	*/
+/*	$OpenBSD: user.c,v 1.1 2011/12/13 22:04:35 eric Exp $	*/
 
 /*
- * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,36 +22,25 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <ctype.h>
-#include <err.h>
 #include <event.h>
-#include <fcntl.h>
 #include <imsg.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "smtpd.h"
 #include "log.h"
 
-struct map_backend *map_backend_lookup(enum map_src);
+extern struct user_backend	user_backend_pwd;
 
-extern struct map_backend map_backend_db;
-extern struct map_backend map_backend_stdio;
-
-struct map_backend *
-map_backend_lookup(enum map_src source)
+struct user_backend *
+user_backend_lookup(enum user_type type)
 {
-	switch (source) {
-	case S_DB:
-		return &map_backend_db;
-
-	case S_PLAIN:
-		return &map_backend_stdio;
+	switch (type) {
+	case USER_PWD:
+		return &user_backend_pwd;
 
 	default:
-		fatalx("invalid map type");
+		fatalx("invalid user backend");
 	}
 
-	return NULL;
+	return (NULL);
 }
