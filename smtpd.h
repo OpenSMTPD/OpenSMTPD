@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.260 2011/12/12 17:20:36 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.262 2011/12/13 22:04:35 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -303,7 +303,7 @@ enum action_type {
 	A_MAILDIR,
 	A_MBOX,
 	A_FILENAME,
-	A_EXT
+	A_MDA
 };
 
 #define IS_MAILBOX(x)	((x).r_action == A_MAILDIR || (x).r_action == A_MBOX || (x).r_action == A_FILENAME)
@@ -584,7 +584,6 @@ struct ramqueue {
 	RB_HEAD(msgtree, ramqueue_message)	msgtree;
 	TAILQ_HEAD(,ramqueue_envelope)		queue;
 };
-
 
 struct smtpd {
 	char					 sc_conffile[MAXPATHLEN];
@@ -934,8 +933,7 @@ struct auth_backend {
 
 /* user structures */
 enum user_type {
-	USER_INVALID=0,
-	USER_GETPWNAM,
+	USER_PWD,
 };
 
 #define	MAXPASSWORDLEN	128
@@ -948,10 +946,17 @@ struct mta_user {
 };
 
 struct user_backend {
-	enum user_type	type;
 	int (*getbyname)(struct mta_user *, char *);
 	int (*getbyuid)(struct mta_user *, uid_t);
 };
+
+
+/* delivery_backend */
+struct delivery_backend {
+	void	(*open)(struct deliver *);
+};
+
+
 
 
 extern struct smtpd	*env;
@@ -996,6 +1001,10 @@ pid_t control(void);
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
+
+
+/* delivery_backend.c */
+struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
 /* dns.c */
