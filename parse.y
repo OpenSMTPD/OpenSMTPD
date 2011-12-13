@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.82 2011/10/27 14:32:57 chl Exp $	*/
+/*	$OpenBSD: parse.y,v 1.83 2011/12/08 17:04:19 todd Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -990,7 +990,7 @@ action		: DELIVER TO MAILDIR user		{
 		}
 		| DELIVER TO MDA STRING user		{
 			rule->r_user = $5;
-			rule->r_action = A_EXT;
+			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
