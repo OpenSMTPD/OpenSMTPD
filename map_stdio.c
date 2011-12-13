@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: map_backend_stdio.c,v 1.2 2011/08/30 11:19:51 chl Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -22,7 +22,6 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <db.h>
 #include <ctype.h>
 #include <err.h>
 #include <event.h>
@@ -36,61 +35,61 @@
 #include "log.h"
 
 
-/* db(3) backend */
-static void *map_db_open(char *);
-static void *map_db_lookup(void *, char *, enum map_kind);
-static void  map_db_close(void *);
+/* stdio(3) backend */
+static void *map_stdio_open(char *);
+static void *map_stdio_lookup(void *, char *, enum map_kind);
+static void  map_stdio_close(void *);
 
-static char *map_db_get_entry(void *, char *, size_t *);
-static void *map_db_secret(char *, char *, size_t);
-static void *map_db_alias(char *, char *, size_t);
-static void *map_db_virtual(char *, char *, size_t);
+static char *map_stdio_get_entry(void *, char *, size_t *);
+static void *map_stdio_secret(char *, char *, size_t);
+static void *map_stdio_alias(char *, char *, size_t);
+static void *map_stdio_virtual(char *, char *, size_t);
 
 
-struct map_backend map_backend_db = {
-	map_db_open,
-	map_db_close,
-	map_db_lookup
+struct map_backend map_backend_stdio = {
+	map_stdio_open,
+	map_stdio_close,
+	map_stdio_lookup
 };
 
 
 static void *
-map_db_open(char *src)
+map_stdio_open(char *src)
 {
-	return dbopen(src, O_RDONLY, 0600, DB_HASH, NULL);
+	return fopen(src, "r");
 }
 
 static void
-map_db_close(void *hdl)
+map_stdio_close(void *hdl)
 {
-	DB *db = hdl;
+	FILE *fp = hdl;
 
-	db->close(db);
+	fclose(fp);
 }
 
 static void *
-map_db_lookup(void *hdl, char *key, enum map_kind kind)
+map_stdio_lookup(void *hdl, char *key, enum map_kind kind)
 {
 	char *line;
 	size_t len;
-	void *ret;
+	struct map_alias *ma;
 
-	line = map_db_get_entry(hdl, key, &len);
+	line = map_stdio_get_entry(hdl, key, &len);
 	if (line == NULL)
 		return NULL;
 
-	ret = 0;
+	ma = NULL;
 	switch (kind) {
 	case K_ALIAS:
-		ret = map_db_alias(key, line, len);
+		ma = map_stdio_alias(key, line, len);
 		break;
 
 	case K_SECRET:
-		ret = map_db_secret(key, line, len);
+		ma = map_stdio_secret(key, line, len);
 		break;
 
 	case K_VIRTUAL:
-		ret = map_db_virtual(key, line, len);
+		ma = map_stdio_virtual(key, line, len);
 		break;
 
 	default:
@@ -99,37 +98,60 @@ map_db_lookup(void *hdl, char *key, enum map_kind kind)
 
 	free(line);
 
-	return ret;
+	return ma;
 }
 
-
 static char *
-map_db_get_entry(void *hdl, char *key, size_t *len)
+map_stdio_get_entry(void *hdl, char *key, size_t *len)
 {
-	int ret;
-	DBT dbk;
-	DBT dbv;
-	DB *db = hdl;
+	char *buf, *lbuf;
+	size_t flen;
+	char *keyp;
+	char *valp;
+	FILE *fp = hdl;
 	char *result = NULL;
 
-	dbk.data = key;
-	dbk.size = strlen(dbk.data) + 1;
+	lbuf = NULL;
+	while ((buf = fgetln(fp, &flen))) {
+		if (buf[flen - 1] == '\n')
+			buf[flen - 1] = '\0';
+		else {
+			if ((lbuf = malloc(flen + 1)) == NULL)
+				err(1, NULL);
+			memcpy(lbuf, buf, flen);
+			lbuf[flen] = '\0';
+			buf = lbuf;
+		}
 
-	if ((ret = db->get(db, &dbk, &dbv, 0)) != 0)
-		return NULL;
+		keyp = buf;
+		while (isspace((int)*keyp))
+			++keyp;
+		if (*keyp == '\0' || *keyp == '#')
+			continue;
 
-	result = calloc(dbv.size, 1);
-	if (result == NULL)
-		fatal("calloc");
-	(void)strlcpy(result, dbv.data, dbv.size);
+		valp = keyp;
+		strsep(&valp, " \t:");
+		if (valp == NULL || valp == keyp)
+			continue;
 
-	*len = dbv.size;
+		if (strcmp(keyp, key) != 0)
+			continue;
+
+		result = strdup(valp);
+		if (result == NULL)
+			err(1, NULL);
+		*len = strlen(result);
+
+		break;
+	}
+	free(lbuf);
 
 	return result;
 }
 
+
 static void *
-map_db_secret(char *key, char *line, size_t len)
+map_stdio_secret(char *key, char *line, size_t len)
 {
 	struct map_secret *map_secret = NULL;
 	char *p;
@@ -172,7 +194,7 @@ err:
 }
 
 static void *
-map_db_alias(char *key, char *line, size_t len)
+map_stdio_alias(char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
@@ -213,7 +235,7 @@ error:
 }
 
 static void *
-map_db_virtual(char *key, char *line, size_t len)
+map_stdio_virtual(char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
