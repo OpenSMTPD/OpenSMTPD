@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.94 2011/11/14 19:23:41 chl Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.95 2011/12/12 17:17:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -209,6 +209,14 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 				if (ssl->ssl_dhparams == NULL)
 					fatal(NULL);
 			}
+			if (ssl->ssl_ca_len) {
+				ssl->ssl_ca = strdup((char *)imsg->data
+				    + sizeof *ssl + ssl->ssl_cert_len +
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len);
+				if (ssl->ssl_ca == NULL)
+					fatal(NULL);
+			}
+
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
 			return;
 
