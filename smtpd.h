@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.265 2011/12/14 18:42:27 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.267 2011/12/14 23:08:40 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -920,13 +920,11 @@ struct queue_backend {
 
 /* auth structures */
 enum auth_type {
-	AUTH_INVALID=0,
 	AUTH_BSD,
-	AUTH_GETPWNAM,
+	AUTH_PWD,
 };
 
 struct auth_backend {
-	enum auth_type	type;
 	int (*authenticate)(char *, char *);
 };
 
@@ -980,7 +978,7 @@ struct auth_backend *auth_backend_lookup(enum auth_type);
 int bounce_session(int, struct envelope *);
 int bounce_session_switch(FILE *, enum session_state *, char *, struct envelope *);
 void bounce_event(int, short, void *);
-
+int bounce_record_message(struct envelope *, struct envelope *);
 
 /* config.c */
 #define PURGE_LISTENERS		0x01
@@ -1094,11 +1092,6 @@ int queue_envelope_update(enum queue_kind, struct envelope *);
 void *qwalk_new(enum queue_kind, u_int32_t);
 int   qwalk(void *, u_int64_t *);
 void  qwalk_close(void *);
-
-
-/* queue_shared.c */
-void queue_message_update(struct envelope *);
-int bounce_record_message(struct envelope *, struct envelope *);
 
 
 /* ramqueue.c */
