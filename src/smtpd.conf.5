@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.45 2011/10/03 17:57:43 gilles Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.47 2011/12/13 23:55:00 gilles Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -16,7 +16,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: October 3 2011 $
+.Dd $Mdocdate: December 13 2011 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -126,7 +126,9 @@ is specified,
 a certificate
 .Ao Ar name Ac Ns .crt ,
 a key
-.Ao Ar name Ac Ns .key
+.Ao Ar name Ac Ns .key ,
+a certificate authority
+.Ao Ar name Ac Ns .ca
 and Diffie-Hellman parameters
 .Ao Ar name Ac Ns .dh
 are searched for.
@@ -137,6 +139,7 @@ the default interface name is instead used,
 for example
 .Pa fxp0.crt ,
 .Pa fxp0.key ,
+.Pa fxp0.ca ,
 and
 .Pa fxp0.dh .
 If no DH parameters are provided, smtpd will use
@@ -417,7 +420,7 @@ a certificate valid for one year was created.
 The configuration file would look like this:
 .Bd -literal -offset indent
 listen on lo0
-listen on bnx0 tls certificate "mail.example.com.crt" enable auth
+listen on bnx0 tls certificate "mail.example.com" enable auth
 map aliases { source db "/etc/mail/aliases.db" }
 accept for local deliver to mda "/path/to/mda -f -"
 accept from all for domain example.org deliver to mda "/path/to/mda -f -"

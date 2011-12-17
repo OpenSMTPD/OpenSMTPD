@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.139 2011/12/08 17:00:28 todd Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.147 2012/01/13 14:01:58 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -72,6 +72,9 @@ static int	offline_add(char *);
 static void	offline_done(void);
 static int	offline_enqueue(char *);
 
+static void	purge_task(int, short, void *);
+
+
 struct offline {
 	TAILQ_ENTRY(offline)	 entry;
 	char			*path;
@@ -85,6 +88,9 @@ TAILQ_HEAD(, offline)		offline_q;
 static struct event		offline_ev;
 static struct timeval		offline_timeout;
 
+static pid_t			purge_pid;
+static struct timeval		purge_timeout;
+static struct event		purge_ev;
 
 extern char	**environ;
 void		(*imsg_callback)(struct imsgev *, struct imsg *);
@@ -244,7 +250,7 @@ parent_send_config_listeners(void)
 {
 	struct listener		*l;
 	struct ssl		*s;
-	struct iovec		 iov[4];
+	struct iovec		 iov[5];
 	int			 opt;
 
 	log_debug("parent_send_config: configuring smtp");
@@ -263,6 +269,8 @@ parent_send_config_listeners(void)
 		iov[2].iov_len = s->ssl_key_len;
 		iov[3].iov_base = s->ssl_dhparams;
 		iov[3].iov_len = s->ssl_dhparams_len;
+		iov[4].iov_base = s->ssl_ca;
+		iov[4].iov_len = s->ssl_ca_len;
 
 		imsg_composev(&env->sc_ievs[PROC_SMTP]->ibuf,
 		    IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
@@ -294,7 +302,7 @@ static void
 parent_send_config_client_certs(void)
 {
 	struct ssl		*s;
-	struct iovec		 iov[4];
+	struct iovec		 iov[3];
 
 	log_debug("parent_send_config_client_certs: configuring smtp");
 	imsg_compose_event(env->sc_ievs[PROC_MTA], IMSG_CONF_START,
@@ -310,8 +318,6 @@ parent_send_config_client_certs(void)
 		iov[1].iov_len = s->ssl_cert_len;
 		iov[2].iov_base = s->ssl_key;
 		iov[2].iov_len = s->ssl_key_len;
-		iov[3].iov_base = s->ssl_dhparams;
-		iov[3].iov_len = s->ssl_dhparams_len;
 
 		imsg_composev(&env->sc_ievs[PROC_MTA]->ibuf, IMSG_CONF_SSL,
 		    0, 0, -1, iov, nitems(iov));
@@ -382,10 +388,6 @@ parent_sig_handler(int sig, short event, void *p)
 			if (pid <= 0)
 				continue;
 
-			child = child_lookup(pid);
-			if (child == NULL)
-				fatalx("unexpected SIGCHLD");
-
 			fail = 0;
 			if (WIFSIGNALED(status)) {
 				fail = 1;
@@ -399,6 +401,13 @@ parent_sig_handler(int sig, short event, void *p)
 					asprintf(&cause, "exited okay");
 			} else
 				fatalx("unexpected cause of SIGCHLD");
+
+			if (pid == purge_pid)
+				purge_pid = -1;
+
+			child = child_lookup(pid);
+			if (child == NULL)
+				goto skip;
 
 			switch (child->type) {
 			case CHILD_DAEMON:
@@ -434,6 +443,7 @@ parent_sig_handler(int sig, short event, void *p)
 			}
 
 			child_del(child->pid);
+    skip:
 			free(cause);
 		} while (pid > 0 || (pid == -1 && errno == EINTR));
 
@@ -514,6 +524,16 @@ main(int argc, char *argv[])
 		case 'T':
 			if (!strcmp(optarg, "imsg"))
 				verbose |= TRACE_IMSG;
+			else if (!strcmp(optarg, "io"))
+				verbose |= TRACE_IO;
+			else if (!strcmp(optarg, "smtp"))
+				verbose |= TRACE_SMTP;
+			else if (!strcmp(optarg, "mta"))
+				verbose |= TRACE_MTA;
+			else if (!strcmp(optarg, "bounce"))
+				verbose |= TRACE_BOUNCE;
+			else if (!strcmp(optarg, "all"))
+				verbose |= ~TRACE_VERBOSE;
 			else
 				log_warnx("unknown trace flag \"%s\"", optarg);
 			break;
@@ -556,6 +576,8 @@ main(int argc, char *argv[])
 		errx(1, "error in spool directory setup");
 	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 1) == 0)
 		errx(1, "error in offline directory setup");
+	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, env->sc_pw->pw_uid, 0, 1) == 0)
+		errx(1, "error in purge directory setup");
 
 	env->sc_queue = queue_backend_lookup(QT_FS);
 	if (env->sc_queue == NULL)
@@ -612,6 +634,12 @@ main(int argc, char *argv[])
 	offline_timeout.tv_sec = 1;
 	offline_timeout.tv_usec = 0;
 	evtimer_add(&offline_ev, &offline_timeout);
+
+	purge_pid = -1;
+	evtimer_set(&purge_ev, purge_task, NULL);
+	purge_timeout.tv_sec = 10;
+	purge_timeout.tv_usec = 0;
+	evtimer_add(&purge_ev, &purge_timeout);
 
 	log_debug("libevent %s (%s)", event_get_version(), event_get_method());
 	log_debug("parent: event_dispatch");
@@ -763,12 +791,62 @@ imsg_compose_event(struct imsgev *iev, u_int16_t type, u_int32_t peerid,
 	}
 }
 
+
+static void
+purge_task(int fd, short ev, void *arg)
+{
+	DIR		*d;
+	struct dirent	*de;
+	int		 n;
+	uid_t		 uid;
+	gid_t		 gid;
+
+	if (purge_pid == -1) {
+
+		n = 0;
+		if ((d = opendir(PATH_SPOOL PATH_PURGE))) {
+			while ((de = readdir(d)) != NULL)
+				n++;
+			closedir(d);
+		} else
+			log_warn("purge_task: opendir");
+
+		if (n > 2) {
+			log_debug("smtpd: forking purge process");
+			switch(purge_pid = fork()) {
+			case -1:
+				log_warn("purge_task: fork");
+				break;
+			case 0:
+				if (chroot(PATH_SPOOL PATH_PURGE) == -1)
+					fatal("smtpd: chroot");
+				if (chdir("/") == -1)
+					fatal("smtpd: chdir");
+				uid = env->sc_pw->pw_uid;
+				gid = env->sc_pw->pw_gid;
+				if (setgroups(1, &gid) ||
+				    setresgid(gid, gid, gid) ||
+				    setresuid(uid, uid, uid))
+					fatal("smtpd: cannot drop privileges");
+				rmtree("/", 1);
+				_exit(0);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	evtimer_add(&purge_ev, &purge_timeout);
+}
+
 static void
 forkmda(struct imsgev *iev, u_int32_t id,
     struct deliver *deliver)
 {
 	char		 ebuf[128], sfn[32];
-	struct user_backend *ub;
+	struct user_backend	*ub;
+	struct delivery_backend	*db;
 	struct mta_user u;
 	struct child	*child;
 	pid_t		 pid;
@@ -777,7 +855,7 @@ forkmda(struct imsgev *iev, u_int32_t id,
 	log_debug("forkmda: to %s as %s", deliver->to, deliver->user);
 
 	bzero(&u, sizeof (u));
-	ub = user_backend_lookup(USER_GETPWNAM);
+	ub = user_backend_lookup(USER_PWD);
 	errno = 0;
 	if (! ub->getbyname(&u, deliver->user)) {
 		n = snprintf(ebuf, sizeof ebuf, "getpwnam: %s",
@@ -785,6 +863,10 @@ forkmda(struct imsgev *iev, u_int32_t id,
 		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
 		return;
 	}
+
+	db = delivery_backend_lookup(deliver->mode);
+	if (db == NULL)
+		return;
 
 	/* lower privs early to allow fork fail due to ulimit */
 	if (seteuid(u.uid) < 0)
@@ -863,113 +945,11 @@ forkmda(struct imsgev *iev, u_int32_t id,
 	/* avoid hangs by setting 5m timeout */
 	alarm(300);
 
-	if (deliver->mode == A_EXT) {
-		char	*environ_new[2];
-
-		environ_new[0] = "PATH=" _PATH_DEFPATH;
-		environ_new[1] = (char *)NULL;
-		environ = environ_new;
-		execle("/bin/sh", "/bin/sh", "-c", deliver->to, (char *)NULL,
-		    environ_new);
-		error("execle");
-	}
-
-	if (deliver->mode == A_MAILDIR) {
-		char	 tmp[PATH_MAX], new[PATH_MAX];
-		int	 ch, fd;
-		FILE	*fp;
-
-#define error2(m) { n = errno; unlink(tmp); errno = n; error(m); }
-		setproctitle("maildir delivery");
-		if (mkdir(deliver->to, 0700) < 0 && errno != EEXIST)
-			error("cannot mkdir maildir");
-		if (chdir(deliver->to) < 0)
-			error("cannot cd to maildir");
-		if (mkdir("cur", 0700) < 0 && errno != EEXIST)
-			error("mkdir cur failed");
-		if (mkdir("tmp", 0700) < 0 && errno != EEXIST)
-			error("mkdir tmp failed");
-		if (mkdir("new", 0700) < 0 && errno != EEXIST)
-			error("mkdir new failed");
-		snprintf(tmp, sizeof tmp, "tmp/%lld.%d.%s",
-		    (long long int) time(NULL),
-		    getpid(), env->sc_hostname);
-		fd = open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0600);
-		if (fd < 0)
-			error("cannot open tmp file");
-		fp = fdopen(fd, "w");
-		if (fp == NULL)
-			error2("fdopen");
-		while ((ch = getc(stdin)) != EOF)
-			if (putc(ch, fp) == EOF)
-				break;
-		if (ferror(stdin))
-			error2("read error");
-		if (fflush(fp) == EOF || ferror(fp))
-			error2("write error");
-		if (fsync(fd) < 0)
-			error2("fsync");
-		if (fclose(fp) == EOF)
-			error2("fclose");
-		snprintf(new, sizeof new, "new/%s", tmp + 4);
-		if (rename(tmp, new) < 0)
-			error2("cannot rename tmp->new");
-		_exit(0);
-	}
-#undef error2
-
-	if (deliver->mode == A_FILENAME) {
-		struct stat 	 sb;
-		time_t		 now;
-		size_t		 len;
-		int		 fd;
-		FILE		*fp;
-		char		*ln;
-
-#define error2(m) { n = errno; ftruncate(fd, sb.st_size); errno = n; error(m); }
-		setproctitle("file delivery");
-		fd = open(deliver->to, O_CREAT | O_APPEND | O_WRONLY, 0600);
-		if (fd < 0)
-			error("open");
-		if (fstat(fd, &sb) < 0)
-			error("fstat");
-#ifndef HAVE_STAT_ST_FLAGS
-		if (S_ISREG(sb.st_mode) && flock(fd, LOCK_EX) < 0)
-#else
-		if (S_ISREG(sb.st_flags) && flock(fd, LOCK_EX) < 0)
-#endif
-			error("flock");
-		fp = fdopen(fd, "a");
-		if (fp == NULL)
-			error("fdopen");
-		time(&now);
-		fprintf(fp, "From %s@%s %s", SMTPD_USER, env->sc_hostname,
-		    ctime(&now));
-		while ((ln = fgetln(stdin, &len)) != NULL) {
-			if (ln[len - 1] == '\n')
-				len--;
-			if (len >= 5 && memcmp(ln, "From ", 5) == 0)
-				putc('>', fp);
-			fprintf(fp, "%.*s\n", (int)len, ln);
-			if (ferror(fp))
-				break;
-		}
-		if (ferror(stdin))
-			error2("read error");
-		putc('\n', fp);
-		if (fflush(fp) == EOF || ferror(fp))
-			error2("write error");
-		if (fsync(fd) < 0)
-			error2("fsync");
-		if (fclose(fp) == EOF)
-			error2("fclose");
-		_exit(0);
-	}
+	db->open(deliver);
 
 	error("forkmda: unknown mode");
 }
 #undef error
-#undef error2
 
 static void
 offline_scan(int fd, short ev, void *arg)
@@ -1054,7 +1034,7 @@ offline_enqueue(char *name)
 		}
 #endif
 
-		ub = user_backend_lookup(USER_GETPWNAM);
+		ub = user_backend_lookup(USER_PWD);
 		bzero(&u, sizeof (u));
 		errno = 0;
 		if (! ub->getbyuid(&u, sb.st_uid)) {
@@ -1162,7 +1142,7 @@ parent_forward_open(char *username)
 	int fd;
 
 	bzero(&u, sizeof (u));
-	ub = user_backend_lookup(USER_GETPWNAM);
+	ub = user_backend_lookup(USER_PWD);
 	if (! ub->getbyname(&u, username))
 		return -1;
 
@@ -1283,7 +1263,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_RULE_SOURCE);
 	CASE(IMSG_CONF_FILTER);
 	CASE(IMSG_CONF_END);
-	CASE(IMSG_CONF_RELOAD);
+
 	CASE(IMSG_LKA_MAIL);
 	CASE(IMSG_LKA_RCPT);
 	CASE(IMSG_LKA_SECRET);
@@ -1307,7 +1287,10 @@ imsg_to_str(int type)
 	CASE(IMSG_QUEUE_RESUME_MDA);
 	CASE(IMSG_QUEUE_RESUME_MTA);
 
-	CASE(IMSG_QUEUE_MESSAGE_UPDATE);
+	CASE(IMSG_QUEUE_DELIVERY_OK);
+	CASE(IMSG_QUEUE_DELIVERY_TEMPFAIL);
+	CASE(IMSG_QUEUE_DELIVERY_PERMFAIL);
+
 	CASE(IMSG_QUEUE_MESSAGE_FD);
 	CASE(IMSG_QUEUE_MESSAGE_FILE);
 	CASE(IMSG_QUEUE_SCHEDULE);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.35 2011/10/27 14:32:57 chl Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.39 2012/01/12 22:59:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -148,18 +148,14 @@ bounce_event(int fd, short event, void *p)
 	}
 
 out:
-	if (*ep == '2') {
+	if (*ep == '2' || *ep == '5' || *ep == '6') {
 		log_debug("#### %s: queue_envelope_delete: %016" PRIx64,
 		    __func__, cc->m.id);
 		queue_envelope_delete(Q_QUEUE, &cc->m);
-	}
-	else {
-		if (*ep == '5' || *ep == '6')
-			cc->m.status = DS_PERMFAILURE;
-		else
-			cc->m.status = DS_TEMPFAILURE;
+	} else {
+		cc->m.retry++;
 		envelope_set_errormsg(&cc->m, "%s", ep);
-		queue_message_update(&cc->m);
+		queue_envelope_update(Q_QUEUE, &cc->m);
 	}
 
 	stat_decrement(STATS_RUNNER);
@@ -178,4 +174,19 @@ ro:
 rw:
 	event_set(&cc->ev, fd, EV_READ|EV_WRITE, bounce_event, cc);
 	event_add(&cc->ev, &cc->pcb->timeout);
+}
+
+int
+bounce_record_message(struct envelope *e, struct envelope *bounce)
+{
+	if (e->type == D_BOUNCE) {
+		log_debug("mailer daemons loop detected !");
+		return 0;
+	}
+
+	*bounce = *e;
+	bounce->type = D_BOUNCE;
+	bounce->retry = 0;
+	bounce->lasttry = 0;
+	return (queue_envelope_create(Q_QUEUE, bounce));
 }

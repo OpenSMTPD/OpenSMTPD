@@ -10,61 +10,67 @@ D/src////
 /makemap.c/1.32/Result of merge+Tue May 17 13:31:40 2011//
 /res_random.c/1.1/Mon Nov 29 15:25:56 2010//
 /sockaddr.c/1.4/Mon May 16 10:57:41 2011//
-/auth_backend.c/1.1/Tue May 17 16:42:06 2011//
 D/libexec////
-/map.c/1.24/Result of merge//
-/map_backend_db.c/1.1/Sat May 21 18:43:08 2011//
-/asr.c/1.10/Result of merge//
-/map_backend.c/1.7/Result of merge//
-/map_backend_stdio.c/1.2/Result of merge//
-/dns.c/1.45/Result of merge+Mon Sep 19 21:55:45 2011//
 /stats.c/1.1/Thu Sep  1 19:56:49 2011//
 /aliases.c/1.44/Result of merge//
 /log.c/1.12/Result of merge//
 /log.h/1.2/Result of merge//
 /ruleset.c/1.20/Result of merge//
-/smtp_session.c/1.150/Result of merge//
 /print.c/1.4/Result of merge//
-/parser.h/1.19/Result of merge//
-/bounce.c/1.35/Result of merge//
-/parser.c/1.23/Result of merge//
-/ssl.c/1.40/Result of merge//
-/Makefile/1.9/Thu Dec  8 20:52:19 2011//
-/asr.h/1.5/Thu Dec  8 20:51:58 2011//
-/client.c/1.38/Result of merge+Thu Dec  8 20:52:19 2011//
-/client.h/1.14/Thu Dec  8 20:51:58 2011//
-/control.c/1.63/Result of merge//
-/dname.c/1.4/Thu Dec  8 20:51:58 2011//
-/dnsutil.h/1.3/Thu Dec  8 20:51:58 2011//
-/enqueue.c/1.49/Result of merge//
-/filter.c/1.5/Thu Dec  8 20:52:19 2011//
-/filter.h/1.6/Thu Dec  8 20:52:19 2011//
-/filter_api.c/1.1/Tue Nov 15 23:22:47 2011//
 /lka.c/1.131/Result of merge//
-/lka_session.c/1.13/Result of merge//
-/makemap.8/1.15/Thu Dec  8 20:51:58 2011//
-/mda.c/1.63/Result of merge//
 /mfa.c/1.66/Result of merge//
 /mfa_session.c/1.6/Result of merge//
-/mta.c/1.119/Result of merge//
-/newaliases.8/1.8/Thu Dec  8 20:51:58 2011//
-/pack.c/1.3/Thu Dec  8 20:51:58 2011//
-/parse.y/1.83/Result of merge//
-/queue.c/1.113/Result of merge+Thu Dec  8 20:52:19 2011//
-/queue_backend.c/1.14/Result of merge//
-/queue_fsqueue.c/1.21/Result of merge//
-/queue_fsqueue_ascii.c/1.6/Result of merge//
-/queue_shared.c/1.54/Result of merge//
-/ramqueue.c/1.26/Result of merge//
-/runner.c/1.126/Result of merge+Thu Dec  8 20:52:19 2011//
-/smtp.c/1.94/Result of merge//
-/smtpctl.8/1.25/Thu Dec  8 20:51:58 2011//
-/smtpctl.c/1.72/Result of merge//
-/smtpd.8/1.14/Thu Dec  8 20:51:58 2011//
-/smtpd.c/1.139/Result of merge+Thu Dec  8 20:52:19 2011//
-/smtpd.conf.5/1.45/Thu Dec  8 20:51:58 2011//
-/smtpd.h/1.256/Result of merge//
-/smtpfilter.c/1.1/Thu Dec  8 20:51:58 2011//
-/ssl_privsep.c/1.3/Thu Dec  8 20:51:58 2011//
-/user_backend.c/1.2/Result of merge//
-/util.c/1.51/Result of merge//
+/Makefile/1.9/Fri Dec 16 19:33:06 2011//
+/asr.c/1.11/Result of merge//
+/asr.h/1.5/Fri Dec 16 19:30:20 2011//
+/auth.c/1.1/Wed Dec 14 22:28:02 2011//
+/auth_bsd.c/1.1/Wed Dec 14 22:28:02 2011//
+/auth_pwd.c/1.1/Wed Dec 14 22:28:02 2011//
+/client.c/1.39/Result of merge//
+/client.h/1.14/Fri Dec 16 19:30:20 2011//
+/delivery_filename.c/1.1/Tue Dec 13 21:44:47 2011//
+/delivery_mda.c/1.1/Tue Dec 13 21:44:47 2011//
+/dname.c/1.4/Fri Dec 16 19:30:20 2011//
+/dnsutil.h/1.3/Fri Dec 16 19:30:20 2011//
+/enqueue.c/1.50/Result of merge//
+/filter.c/1.5/Fri Dec 16 19:30:20 2011//
+/filter.h/1.6/Fri Dec 16 19:30:20 2011//
+/filter_api.c/1.1/Fri Dec 16 19:33:06 2011//
+/lka_session.c/1.16/Result of merge//
+/makemap.8/1.15/Fri Dec 16 19:30:20 2011//
+/map.c/1.25/Result of merge//
+/map_db.c/1.1/Tue Dec 13 23:00:52 2011//
+/map_stdio.c/1.1/Tue Dec 13 23:00:52 2011//
+/newaliases.8/1.8/Fri Dec 16 19:30:20 2011//
+/pack.c/1.3/Fri Dec 16 19:30:20 2011//
+/parse.y/1.84/Result of merge//
+/smtpctl.8/1.25/Fri Dec 16 19:30:20 2011//
+/smtpd.8/1.14/Fri Dec 16 19:30:20 2011//
+/smtpd.conf.5/1.47/Fri Dec 16 19:33:07 2011//
+/smtpfilter.c/1.1/Fri Dec 16 19:30:20 2011//
+/ssl_privsep.c/1.3/Fri Dec 16 19:30:20 2011//
+/user.c/1.1/Tue Dec 13 22:04:35 2011//
+/user_pwd.c/1.1/Tue Dec 13 22:04:35 2011//
+/bounce.c/1.39/Result of merge//
+/control.c/1.64/Result of merge//
+/delivery.c/1.2/Result of merge//
+/delivery_maildir.c/1.2/Result of merge//
+/delivery_mbox.c/1.2/Result of merge//
+/dns.c/1.47/Result of merge+Sat Jan 14 11:07:11 2012//
+/envelope.c/1.3/Thu Jan 12 15:01:33 2012//
+/mda.c/1.67/Result of merge//
+/mta.c/1.123/Result of merge//
+/parser.c/1.24/Result of merge//
+/parser.h/1.20/Result of merge//
+/queue.c/1.116/Result of merge//
+/ramqueue.c/1.31/Result of merge//
+/runner.c/1.132/Result of merge//
+/smtp.c/1.98/Result of merge//
+/smtp_session.c/1.153/Result of merge//
+/smtpctl.c/1.76/Result of merge//
+/smtpd.c/1.147/Result of merge+Sat Jan 14 11:07:12 2012//
+/smtpd.h/1.279/Result of merge+Sat Jan 14 11:07:12 2012//
+/ssl.c/1.44/Result of merge//
+/util.c/1.56/Result of merge//
+/queue_fsqueue.c/1.33/Result of merge+Sat Jan 14 15:59:35 2012//
+/queue_backend.c/1.20/Result of merge//

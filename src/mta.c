@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.119 2011/11/14 19:23:41 chl Exp $	*/
+/*	$OpenBSD: mta.c,v 1.123 2012/01/13 14:01:57 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -66,7 +66,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct envelope		*e;
 	struct secret		*secret;
 	struct dns		*dns;
-	struct ssl		*ssl;
+	struct ssl		 key, *ssl;
+	char			*cert;
 
 	log_imsg(PROC_MTA, iev->proc, imsg);
 
@@ -80,27 +81,15 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 				fatal(NULL);
 			s->id = rq_batch->b_id;
 			s->state = MTA_INIT;
-			s->batch = rq_batch;
 
 			/* establish host name */
 			if (rq_batch->relay.hostname[0]) {
 				s->host = strdup(rq_batch->relay.hostname);
 				s->flags |= MTA_FORCE_MX;
 			}
-			else
-				s->host = NULL;
 
 			/* establish port */
 			s->port = ntohs(rq_batch->relay.port); /* XXX */
-
-			/* have cert? */
-			s->cert = strdup(rq_batch->relay.cert);
-			if (s->cert == NULL)
-				fatal(NULL);
-			else if (s->cert[0] == '\0') {
-				free(s->cert);
-				s->cert = NULL;
-			}
 
 			/* use auth? */
 			if ((rq_batch->relay.flags & F_SSL) &&
@@ -116,23 +105,31 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			case F_SSL:
 				s->flags |= MTA_FORCE_ANYSSL;
 				break;
-
 			case F_SMTPS:
 				s->flags |= MTA_FORCE_SMTPS;
-
-			case F_STARTTLS:
-				/* client_* API by default requires STARTTLS */
 				break;
-
+			case F_STARTTLS:
+				/* STARTTLS is tried by default */
+				break;
 			default:
 				s->flags |= MTA_ALLOW_PLAIN;
+			}
+
+			/* have cert? */
+			cert = rq_batch->relay.cert;
+			if (cert[0] != '\0') {
+				s->flags |= MTA_USE_CERT;
+				strlcpy(key.ssl_name, cert, sizeof(key.ssl_name));
+				s->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &key);
 			}
 
 			TAILQ_INIT(&s->recipients);
 			TAILQ_INIT(&s->relays);
 			SPLAY_INSERT(mtatree, &env->mta_sessions, s);
-			return;
 
+			log_debug("mta: %p: new session for batch %llu", s, s->id);
+
+			return;
 
 		case IMSG_BATCH_APPEND:
 			e = imsg->data;
@@ -141,26 +138,37 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (e == NULL)
 				fatal(NULL);
 			*e = *(struct envelope *)imsg->data;
-			strlcpy(e->errorline, "000 init",
-			    sizeof(e->errorline));
+			envelope_set_errormsg(e, "000 init");
 
 			if (s->host == NULL) {
 				s->host = strdup(e->dest.domain);
 				if (s->host == NULL)
 					fatal("strdup");
 			}
- 			TAILQ_INSERT_TAIL(&s->recipients, e, entry);
+			log_debug("mta: %p: adding <%s@%s> from envelope %016" PRIx64,
+			    s, e->dest.user, e->dest.domain, e->id);
+			TAILQ_INSERT_TAIL(&s->recipients, e, entry);
 			return;
 
 		case IMSG_BATCH_CLOSE:
 			rq_batch = imsg->data;
-			mta_pickup(mta_lookup(rq_batch->b_id), NULL);
+			s = mta_lookup(rq_batch->b_id);
+			if (s->flags & MTA_USE_CERT && s->ssl == NULL) {
+				mta_status(s, "190 certificate not found");
+				mta_enter_state(s, MTA_DONE, NULL);
+			} else
+				mta_pickup(s, NULL);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FD:
 			rq_batch = imsg->data;
-			mta_pickup(mta_lookup(rq_batch->b_id), &imsg->fd);
-			log_debug("mta_imsg: PROC_QUEUE->IMSG_QUEUE_MESSAGE_FD, imsg->fd = %d", imsg->fd);
+			if (imsg->fd == -1)
+				fatalx("mta: cannot obtain msgfd");
+			s = mta_lookup(rq_batch->b_id);
+			s->datafp = fdopen(imsg->fd, "r");
+			if (s->datafp == NULL)
+				fatal("mta: fdopen");
+			mta_enter_state(s, MTA_CONNECT, NULL);
 			return;
 		}
 	}
@@ -328,7 +336,6 @@ mta(void)
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 
-	ramqueue_init(&env->sc_rqueue);
 	SPLAY_INIT(&env->mta_sessions);
 
 	if (event_dispatch() < 0)
@@ -461,22 +468,10 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 
 		pcb = client_init(s->fd, s->datafp, env->sc_hostname, 1);
 
-		/* lookup SSL certificate */
-		if (s->cert) {
-			struct ssl	 key, *res;
-
-			strlcpy(key.ssl_name, s->cert, sizeof(key.ssl_name));
-			res = SPLAY_FIND(ssltree, env->sc_ssl, &key);
-			if (res == NULL) {
-				client_close(pcb);
-				s->pcb = NULL;
-				mta_status(s, "190 certificate not found");
-				mta_enter_state(s, MTA_DONE, NULL);
-				break;
-			}
+		if (s->ssl) {
 			client_certificate(pcb,
-			    res->ssl_cert, res->ssl_cert_len,
-			    res->ssl_key, res->ssl_key_len);
+			    s->ssl->ssl_cert, s->ssl->ssl_cert_len,
+			    s->ssl->ssl_key, s->ssl->ssl_key_len);
 		}
 
 		/* choose SMTPS vs. STARTTLS */
@@ -538,7 +533,6 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		free(s->authmap);
 		free(s->secret);
 		free(s->host);
-		free(s->cert);
 		free(s);
 		break;
 
@@ -586,17 +580,6 @@ mta_pickup(struct mta_session *s, void *p)
 			mta_enter_state(s, MTA_DONE, NULL);
 		} else
 			mta_enter_state(s, MTA_DATA, NULL);
-		break;
-
-	case MTA_DATA:
-		/* QUEUE replied to body fd request. */
-		if (*(int *)p == -1)
-			fatalx("mta cannot obtain msgfd");
-		s->datafp = fdopen(*(int *)p, "r");
-		if (s->datafp == NULL)
-			fatal("fdopen");
-		log_debug("mta_pickup: state = MTA_DATA, p=%d, datafp=%p", *(int *)p, s->datafp);
-		mta_enter_state(s, MTA_CONNECT, NULL);
 		break;
 
 	case MTA_CONNECT:
@@ -709,7 +692,7 @@ mta_message_status(struct envelope *e, char *status)
 	/* change status */
 	log_debug("mta: new status for %s@%s: %s", e->dest.user,
 	    e->dest.domain, status);
-	strlcpy(e->errorline, status, sizeof(e->errorline));
+	envelope_set_errormsg(e, "%s", status);
 }
 
 static void
@@ -733,20 +716,22 @@ mta_message_log(struct mta_session *s, struct envelope *e)
 static void
 mta_message_done(struct mta_session *s, struct envelope *e)
 {
+	u_int16_t	msg;
+
 	switch (e->errorline[0]) {
-	case '6':
-	case '5':
-		e->status = DS_PERMFAILURE;
-		break;
 	case '2':
-		e->status = DS_ACCEPTED;
+		msg = IMSG_QUEUE_DELIVERY_OK;
+		break;
+	case '5':
+	case '6':
+		msg = IMSG_QUEUE_DELIVERY_PERMFAIL;
 		break;
 	default:
-		e->status = DS_TEMPFAILURE;
+		msg = IMSG_QUEUE_DELIVERY_TEMPFAIL;
 		break;
 	}
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-	    IMSG_QUEUE_MESSAGE_UPDATE, 0, 0, -1, e, sizeof(*e));
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], msg,
+	    0, 0, -1, e, sizeof(*e));
 	TAILQ_REMOVE(&s->recipients, e, entry);
 	free(e);
 }

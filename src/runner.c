@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.126 2011/11/16 19:38:56 eric Exp $	*/
+/*	$OpenBSD: runner.c,v 1.132 2012/01/13 14:01:58 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -55,7 +55,6 @@ static void runner_disable_events(void);
 static void runner_timeout(int, short, void *);
 static int runner_process_envelope(struct ramqueue_envelope *, time_t);
 static void runner_process_batch(struct ramqueue_envelope *, time_t);
-static void runner_purge_run(void);
 static int runner_check_loop(struct envelope *);
 static int runner_force_message_to_ramqueue(struct ramqueue *, u_int32_t);
 
@@ -63,7 +62,7 @@ static int runner_force_message_to_ramqueue(struct ramqueue *, u_int32_t);
 void
 runner_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct envelope	*e;
+	struct envelope	*e, bounce;
 
 	log_imsg(PROC_RUNNER, iev->proc, imsg);
 
@@ -75,43 +74,30 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		runner_reset_events();
 		return;
 
-	case IMSG_QUEUE_MESSAGE_UPDATE:
+	case IMSG_QUEUE_DELIVERY_OK:
+		stat_decrement(STATS_RUNNER);
+		e = imsg->data;
+		queue_envelope_delete(Q_QUEUE, e);
+		return;
+
+	case IMSG_QUEUE_DELIVERY_TEMPFAIL:
+		stat_decrement(STATS_RUNNER);
 		e = imsg->data;
 		e->retry++;
+		queue_envelope_update(Q_QUEUE, e);
+		ramqueue_insert(&env->sc_rqueue, e, time(NULL));
+		runner_reset_events();
+		return;
+
+	case IMSG_QUEUE_DELIVERY_PERMFAIL:
 		stat_decrement(STATS_RUNNER);
-
-		/* temporary failure, message remains in queue,
-		 * gets reinserted in ramqueue
-		 */
-		if (e->status & DS_TEMPFAILURE) {
-			log_debug("TEMPFAIL: %016" PRIx64, e->id);
-			e->status &= ~DS_TEMPFAILURE;
-			queue_envelope_update(Q_QUEUE, e);
-			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
+		e = imsg->data;
+		if (e->type != D_BOUNCE && e->sender.user[0] != '\0') {
+			log_debug("PERMFAIL #2: %016" PRIx64, e->id);
+			bounce_record_message(e, &bounce);
+			ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
 			runner_reset_events();
-			return;
 		}
-
-		/* permanent failure, eventually generate a
-		 * bounce (and insert bounce in ramqueue).
-		 */
-		if (e->status & DS_PERMFAILURE) {
-			struct envelope bounce;
-			log_debug("PERMFAIL: %016" PRIx64, e->id);
-			if (e->type != D_BOUNCE &&
-			    e->sender.user[0] != '\0') {
-				log_debug("PERMFAIL #2: %016" PRIx64, e->id);
-				bounce_record_message(e, &bounce);
-				ramqueue_insert(&env->sc_rqueue, &bounce, time(NULL));
-				runner_reset_events();
-			}
-		}
-
-		/* successful delivery or permanent failure,
-		 * remove envelope from queue.
-		 */
-		log_debug("#### %s: queue_envelope_delete: %016" PRIx64,
-		    __func__, e->id);
 		queue_envelope_delete(Q_QUEUE, e);
 		return;
 
@@ -126,7 +112,6 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_SMTP_ENQUEUE:
 		e = imsg->data;
 		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
-			e->status = 0;
 			queue_envelope_update(Q_QUEUE, e);
 			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
 			runner_reset_events();
@@ -305,10 +290,10 @@ runner_timeout(int fd, short event, void *p)
 	time_t			 nsched;
 	time_t			 curtm;
 
-	runner_purge_run();
-
 	nsched = 0;
-	rq_evp = ramqueue_first_envelope(rqueue);
+
+again:
+	rq_evp = ramqueue_next_envelope(rqueue);
 	if (rq_evp)
 		nsched = rq_evp->sched;
 
@@ -317,7 +302,6 @@ runner_timeout(int fd, short event, void *p)
 	 */
 	if (! rq_done)
 		rq_done = ramqueue_load(rqueue, &nsched);
-
 
 	/* let's do the schedule dance baby ! */
 	curtm = time(NULL);
@@ -331,8 +315,7 @@ runner_timeout(int fd, short event, void *p)
 		rq_evp = ramqueue_next_envelope(rqueue);
 	}
 
-	if (rq_evp == NULL ||
-	    (rq_done && ramqueue_is_empty(rqueue))) {
+	if (rq_evp == NULL && rq_done) {
 		log_debug("runner: nothing to schedule, wake me up. zZzZzZ");
 		return;
 	}
@@ -347,6 +330,9 @@ runner_timeout(int fd, short event, void *p)
 			nsched = 0;
 		}
 	}
+
+	if (nsched == 0)
+		goto again;
 
 	log_debug("runner: nothing to do for the next %lld seconds, zZzZzZ",
 	    (long long int) nsched);
@@ -366,26 +352,17 @@ runner_process_envelope(struct ramqueue_envelope *rq_evp, time_t curtm)
 	mda_av = env->sc_maxconn - stat_get(STATS_MDA_SESSION, STAT_ACTIVE);
 	bnc_av = env->sc_maxconn - stat_get(STATS_RUNNER_BOUNCES, STAT_ACTIVE);
 	
-	if (rq_evp->rq_batch->type == D_MDA) {
-		if (env->sc_opts & SMTPD_MDA_PAUSED)
-			return 0;
+	if (rq_evp->rq_batch->type == D_MDA)
 		if (mda_av == 0)
 			return 0;
-	}
 
-	if (rq_evp->rq_batch->type == D_MTA) {
-		if (env->sc_opts & SMTPD_MTA_PAUSED)
-			return 0;
+	if (rq_evp->rq_batch->type == D_MTA)
 		if (mta_av == 0)
 			return 0;
-	}
 
-	if (rq_evp->rq_batch->type == D_BOUNCE) {
-		if (env->sc_opts & (SMTPD_MDA_PAUSED|SMTPD_MTA_PAUSED))
-			return 0;
+	if (rq_evp->rq_batch->type == D_BOUNCE)
 		if (bnc_av == 0)
 			return 0;
-	}
 
 	if (! queue_envelope_load(Q_QUEUE, rq_evp->evpid, &envelope))
 		return 0;
@@ -513,21 +490,6 @@ runner_force_message_to_ramqueue(struct ramqueue *rqueue, u_int32_t msgid)
  	qwalk_close(q);
 
 	return 1;
-}
-
-void
-runner_purge_run(void)
-{
-	struct qwalk	*q;
-	u_int32_t	 msgid;
-	u_int64_t	 evpid;
-
-	q = qwalk_new(Q_PURGE, 0);
-	while (qwalk(q, &evpid)) {
-		msgid = evpid_to_msgid(evpid);
-		queue_message_delete(Q_PURGE, msgid);
-	}
-	qwalk_close(q);
 }
 
 int

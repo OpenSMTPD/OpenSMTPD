@@ -1,7 +1,7 @@
-/*	$OpenBSD: map_backend.c,v 1.7 2011/08/30 11:19:51 chl Exp $	*/
+/*	$OpenBSD: auth_bsd.c,v 1.1 2011/12/14 22:28:02 eric Exp $	*/
 
 /*
- * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,42 +16,36 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
-#include <ctype.h>
-#include <err.h>
+#ifdef BSD_AUTH
+#include <bsd_auth.h>
+#endif
 #include <event.h>
-#include <fcntl.h>
 #include <imsg.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "smtpd.h"
-#include "log.h"
 
-struct map_backend *map_backend_lookup(enum map_src);
+int auth_bsd(char *, char *);
 
-extern struct map_backend map_backend_db;
-extern struct map_backend map_backend_stdio;
+struct auth_backend	auth_backend_bsd = {
+	auth_bsd,
+};
 
-struct map_backend *
-map_backend_lookup(enum map_src source)
+int
+auth_bsd(char *username, char *password)
 {
-	switch (source) {
-	case S_DB:
-		return &map_backend_db;
-
-	case S_PLAIN:
-		return &map_backend_stdio;
-
-	default:
-		fatalx("invalid map type");
-	}
-
-	return NULL;
+#ifdef BSD_AUTH
+	return auth_userokay(username, NULL, "auth-smtp", password);
+#else
+	return 0;
+#endif
 }

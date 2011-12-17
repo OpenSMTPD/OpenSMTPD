@@ -1,7 +1,7 @@
-/*	$OpenBSD: map_parser.c,v 1.3 2010/04/27 09:49:23 gilles Exp $	*/
+/*	$OpenBSD: map_stdio.c,v 1.1 2011/12/13 23:00:52 eric Exp $	*/
 
 /*
- * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,53 +23,135 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
 #include <err.h>
-#include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "smtpd.h"
+#include "log.h"
 
-struct map_parser *map_parser_lookup(enum map_kind);
 
-void *map_parse_secret(char *, char *, size_t);
-void *map_parse_alias(char *, char *, size_t);
-void *map_parse_virtual(char *, char *, size_t);
+/* stdio(3) backend */
+static void *map_stdio_open(char *);
+static void *map_stdio_lookup(void *, char *, enum map_kind);
+static void  map_stdio_close(void *);
 
-struct map_parser map_parsers[] = {
-	{ K_NONE,	NULL },
-	{ K_ALIAS,	map_parse_alias },
-	{ K_VIRTUAL,	map_parse_virtual },
-	{ K_SECRET,	map_parse_secret }
+static char *map_stdio_get_entry(void *, char *, size_t *);
+static void *map_stdio_secret(char *, char *, size_t);
+static void *map_stdio_alias(char *, char *, size_t);
+static void *map_stdio_virtual(char *, char *, size_t);
+
+
+struct map_backend map_backend_stdio = {
+	map_stdio_open,
+	map_stdio_close,
+	map_stdio_lookup
 };
 
-struct map_parser *
-map_parser_lookup(enum map_kind kind)
+
+static void *
+map_stdio_open(char *src)
 {
-	u_int8_t i;
-
-	for (i = 0; i < nitems(map_parsers); ++i)
-		if (map_parsers[i].kind == kind)
-			break;
-
-	if (i == nitems(map_parsers))
-		fatalx("invalid map kind");
-
-	return &map_parsers[i];
+	return fopen(src, "r");
 }
 
-void *
-map_parse_secret(char *key, char *line, size_t len)
+static void
+map_stdio_close(void *hdl)
+{
+	FILE *fp = hdl;
+
+	fclose(fp);
+}
+
+static void *
+map_stdio_lookup(void *hdl, char *key, enum map_kind kind)
+{
+	char *line;
+	size_t len;
+	struct map_alias *ma;
+
+	line = map_stdio_get_entry(hdl, key, &len);
+	if (line == NULL)
+		return NULL;
+
+	ma = NULL;
+	switch (kind) {
+	case K_ALIAS:
+		ma = map_stdio_alias(key, line, len);
+		break;
+
+	case K_SECRET:
+		ma = map_stdio_secret(key, line, len);
+		break;
+
+	case K_VIRTUAL:
+		ma = map_stdio_virtual(key, line, len);
+		break;
+
+	default:
+		break;
+	}
+
+	free(line);
+
+	return ma;
+}
+
+static char *
+map_stdio_get_entry(void *hdl, char *key, size_t *len)
+{
+	char *buf, *lbuf;
+	size_t flen;
+	char *keyp;
+	char *valp;
+	FILE *fp = hdl;
+	char *result = NULL;
+
+	lbuf = NULL;
+	while ((buf = fgetln(fp, &flen))) {
+		if (buf[flen - 1] == '\n')
+			buf[flen - 1] = '\0';
+		else {
+			if ((lbuf = malloc(flen + 1)) == NULL)
+				err(1, NULL);
+			memcpy(lbuf, buf, flen);
+			lbuf[flen] = '\0';
+			buf = lbuf;
+		}
+
+		keyp = buf;
+		while (isspace((int)*keyp))
+			++keyp;
+		if (*keyp == '\0' || *keyp == '#')
+			continue;
+
+		valp = keyp;
+		strsep(&valp, " \t:");
+		if (valp == NULL || valp == keyp)
+			continue;
+
+		if (strcmp(keyp, key) != 0)
+			continue;
+
+		result = strdup(valp);
+		if (result == NULL)
+			err(1, NULL);
+		*len = strlen(result);
+
+		break;
+	}
+	free(lbuf);
+
+	return result;
+}
+
+
+static void *
+map_stdio_secret(char *key, char *line, size_t len)
 {
 	struct map_secret *map_secret = NULL;
 	char *p;
@@ -111,8 +193,8 @@ err:
 	return NULL;
 }
 
-void *
-map_parse_alias(char *key, char *line, size_t len)
+static void *
+map_stdio_alias(char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
@@ -152,8 +234,8 @@ error:
 	return NULL;
 }
 
-void *
-map_parse_virtual(char *key, char *line, size_t len)
+static void *
+map_stdio_virtual(char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;

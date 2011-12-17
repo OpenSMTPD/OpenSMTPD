@@ -28,23 +28,24 @@ endif
 sbin_PROGRAMS =		smtpd smtpctl
 pkglibexec_PROGRAMS =	makemap
 
-makemap_SOURCES =	parse.y makemap.c aliases.c expand.c map.c map_backend.c\
-			map_backend_db.c map_backend_stdio.c log.c util.c
+makemap_SOURCES =	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
+			map_db.c map_stdio.c
 
-smtpd_SOURCES =		aliases.c auth_backend.c bounce.c client.c		\
-			config.c control.c dns.c expand.c forward.c		\
-			lka.c lka_session.c log.c map.c map_backend.c		\
-			map_backend_db.c map_backend_stdio.c			\
+smtpd_SOURCES =		aliases.c auth.c auth_bsd.c auth_pwd.c bounce.c		\
+			client.c delivery.c delivery_filename.c			\
+			delivery_maildir.c delivery_mbox.c delivery_mda.c	\
+			config.c control.c dns.c expand.c envelope.c forward.c	\
+			lka.c lka_session.c log.c map.c map_db.c map_stdio.c	\
 			mda.c mfa.c mfa_session.c mta.c parse.y 		\
-			queue.c queue_shared.c ruleset.c runner.c smtp.c 	\
+			queue.c ruleset.c runner.c smtp.c			\
 			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
 			print.c pack.c dname.c res_random.c sockaddr.c 		\
 			ramqueue.c queue_backend.c queue_fsqueue.c		\
-			queue_fsqueue_ascii.c user_backend.c stats.c
+			user.c user_pwd.c stats.c
 
-smtpctl_SOURCES =	enqueue.c parser.c log.c queue_backend.c queue_fsqueue.c\
-			queue_fsqueue_ascii.c queue_shared.c smtpctl.c stats.c	\
-			util.c
+smtpctl_SOURCES =	enqueue.c parser.c log.c envelope.c			\
+			queue_backend.c queue_fsqueue.c				\
+			smtpctl.c stats.c util.c
 
 EXTRA_DIST = 		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
 			parser.h smtpd.h

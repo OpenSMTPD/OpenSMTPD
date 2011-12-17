@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.63 2011/11/14 19:23:41 chl Exp $	*/
+/*	$OpenBSD: mda.c,v 1.67 2012/01/13 14:01:57 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -61,6 +61,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct delivery_mda	*d_mda;
 	struct mailaddr		*maddr;
 	struct envelope		*ep;
+	u_int16_t		 msg;
 
 #ifdef VALGRIND
 	bzero(&deliver, sizeof(deliver));
@@ -77,7 +78,6 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				fatal(NULL);
 			msgbuf_init(&s->w);
 			s->msg = *(struct envelope *)imsg->data;
-			s->msg.status = DS_TEMPFAILURE;
 			s->id = mda_id++;
 			s->datafp = fdopen(imsg->fd, "r");
 			if (s->datafp == NULL)
@@ -88,8 +88,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			ep    = &s->msg;
 			d_mda = &s->msg.agent.mda;
 			switch (d_mda->method) {
-			case A_EXT:
-				deliver.mode = A_EXT;
+			case A_MDA:
+				deliver.mode = A_MDA;
 				strlcpy(deliver.user, d_mda->as_user,
 				    sizeof (deliver.user));
 				strlcpy(deliver.to, d_mda->to.buffer,
@@ -97,14 +97,14 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				break;
 				
 			case A_MBOX:
-				deliver.mode = A_EXT;
+				deliver.mode = A_MBOX;
 				strlcpy(deliver.user, "root",
 				    sizeof (deliver.user));
-				snprintf(deliver.to, sizeof (deliver.to),
-				    "%s -f %s@%s %s", PATH_MAILLOCAL,
-				    ep->sender.user,
-				    ep->sender.domain,
-				    d_mda->to.user);
+				strlcpy(deliver.to, d_mda->to.user,
+				    sizeof (deliver.to));
+				snprintf(deliver.from, sizeof(deliver.from),
+				    "%s@%s", ep->sender.user,
+				    ep->sender.domain);
 				break;
 
 			case A_MAILDIR:
@@ -205,14 +205,13 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			/* update queue entry */
-			if (error == NULL)
-				s->msg.status = DS_ACCEPTED;
-			else
-				strlcpy(s->msg.errorline, error,
-				    sizeof s->msg.errorline);
-			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_MESSAGE_UPDATE, 0, 0, -1, &s->msg,
-			    sizeof s->msg);
+			msg = IMSG_QUEUE_DELIVERY_OK;
+			if (error) {
+				msg = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				envelope_set_errormsg(&s->msg, "%s", error);
+			}
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE], msg,
+			    0, 0, -1, &s->msg, sizeof s->msg);
 
 			/*
 			 * XXX: which struct path gets used for logging depends

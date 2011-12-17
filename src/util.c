@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.51 2011/11/16 19:38:56 eric Exp $	*/
+/*	$OpenBSD: util.c,v 1.56 2012/01/12 15:01:33 eric Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -33,8 +33,8 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <fts.h>
 #include <imsg.h>
-#include <inttypes.h>
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -128,6 +128,87 @@ ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
 	}
 
 	return ret;
+}
+
+int
+rmtree(char *path, int keepdir)
+{
+	char		*path_argv[2];
+	FTS		*fts;
+	FTSENT		*e;
+	int		 ret, depth;
+
+	path_argv[0] = path;
+	path_argv[1] = NULL;
+	ret = 0;
+	depth = 1;
+
+	if ((fts = fts_open(path_argv, FTS_PHYSICAL, NULL)) == NULL) {
+		warn("fts_open: %s", path);
+		return (-1);
+	}
+
+	while ((e = fts_read(fts)) != NULL) {
+		if (e->fts_number) {
+			depth--;
+			if (keepdir && e->fts_number == 1)
+				continue;
+			log_debug("rmdir %s", e->fts_path);
+			if (rmdir(e->fts_path) == -1) {
+				warn("rmdir: %s", e->fts_path);
+				ret = -1;
+			}
+			continue;
+		}
+
+		if (S_ISDIR(e->fts_statp->st_mode)) {
+			e->fts_number = depth++;
+			continue;
+		}
+
+		log_debug("unlink %s", e->fts_path);
+		if (unlink(e->fts_path) == -1) {
+			warn("unlink: %s", e->fts_path);
+			ret = -1;
+		}
+	}
+
+	fts_close(fts);
+
+	return (ret);
+}
+
+int
+mvpurge(char *from, char *to)
+{
+	size_t		 n;
+	int		 retry;
+	const char	*sep;
+	char		 buf[MAXPATHLEN];
+
+	if ((n = strlen(to)) == 0)
+		fatalx("to is empty");
+
+	sep = (to[n - 1] == '/') ? "" : "/";
+	retry = 0;
+
+    again:
+	snprintf(buf, sizeof buf, "%s%s%u", to, sep, arc4random());
+	log_debug("rename %s -> %s", from, buf);
+	if (rename(from, buf) == -1) {
+		/* ENOTDIR has actually 2 meanings, and incorrect input
+		 * could lead to an infinite loop. Consider that after
+		 * 20 tries something is hopelessly wrong.
+		 */
+		if (errno == ENOTEMPTY || errno == EISDIR || errno == ENOTDIR) {
+			if ((retry++) >= 20)
+				return (-1);
+			goto again;
+		}
+		return -1;
+	}
+
+	return 0;
 }
 
 
@@ -411,31 +492,6 @@ lowercase(char *buf, char *s, size_t len)
 }
 
 void
-envelope_set_errormsg(struct envelope *e, char *fmt, ...)
-{
-	int ret;
-	va_list ap;
-
-	va_start(ap, fmt);
-
-	ret = vsnprintf(e->errorline, MAX_LINE_SIZE, fmt, ap);
-	if (ret >= MAX_LINE_SIZE)
-		strlcpy(e->errorline + (MAX_LINE_SIZE - 4), "...", 4);
-
-	/* this should not happen */
-	if (ret == -1)
-		err(1, "vsnprintf");
-
-	va_end(ap);
-}
-
-char *
-envelope_get_errormsg(struct envelope *e)
-{
-	return e->errorline;
-}
-
-void
 sa_set_port(struct sockaddr *sa, int port)
 {
 	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
@@ -592,4 +648,38 @@ u_int64_t
 msgid_to_evpid(u_int32_t msgid)
 {
 	return ((u_int64_t)msgid << 32);
+}
+
+const char *
+parse_smtp_response(char *line, size_t len, char **msg, int *cont)
+{
+	size_t	 i;
+
+	if (len >= SMTP_LINE_MAX)
+		return "line too long";
+
+	if (len > 3) {
+		if (msg)
+			*msg = line + 4;
+		if (cont)
+			*cont = (line[3] == '-');
+	} else if (len == 3) {
+		if (msg)
+			*msg = line + 3;
+		if (cont)
+			*cont = 0;
+	} else
+		return "line too short";
+
+	/* validate reply code */
+	if (line[0] < '2' || line[0] > '5' || !isdigit(line[1]) ||
+	    !isdigit(line[2]))
+		return "reply code out of range";
+
+	/* validate reply message */
+	for (i = 0; i < len; i++)
+		if (!isprint(line[i]))
+			return "non-printable character in reply";
+
+	return NULL;
 }

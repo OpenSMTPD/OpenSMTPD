@@ -1,7 +1,7 @@
-/*	$OpenBSD: parser.h,v 1.20 2012/01/12 18:06:18 eric Exp $	*/
+/*	$OpenBSD: filter_api.c,v 1.1 2011/11/15 23:22:47 gilles Exp $	*/
 
 /*
- * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,45 +16,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-enum actions {
-	NONE,
-	SHUTDOWN,
-	MONITOR,
-	LOG_VERBOSE,
-	LOG_BRIEF,
-	SCHEDULE,
-	SCHEDULE_ALL,
-	SHOW_QUEUE,
-	SHOW_RUNQUEUE,
-	SHOW_STATS,
-	SHOW_SIZES,
-	PAUSE_MDA,
-	PAUSE_MTA,
-	PAUSE_SMTP,
-	REMOVE,
-	RESUME_MDA,
-	RESUME_MTA,
-	RESUME_SMTP,
-};
+#include <sys/types.h>
 
-struct parse_result {
-	struct ctl_id	id;
-	enum actions	action;
-	const char     *data;
-};
-
-enum token_type {
-	NOTOKEN,
-	ENDTOKEN,
-	KEYWORD,
-	VARIABLE
-};
-
-struct token {
-	enum token_type		 type;
-	const char		*keyword;
-	int			 value;
-	const struct token	*next;
-};
-
-struct parse_result	*parse(int, char *[]);
+#include "filter.h"

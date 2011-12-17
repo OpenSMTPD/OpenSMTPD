@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.45 2011/09/01 19:56:49 eric Exp $	*/
+/*	$OpenBSD: dns.c,v 1.47 2012/01/11 21:22:26 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -71,6 +71,7 @@ static void dnssession_destroy(struct dnssession *);
 static void dnssession_mx_insert(struct dnssession *, const char *, int);
 static void dns_asr_event_set(struct dnssession *, struct asr_result *);
 static void dns_asr_handler(int, short, void *);
+static int  dns_asr_error(int);
 static void dns_asr_dispatch_host(struct dnssession *);
 static void dns_asr_dispatch_mx(struct dnssession *);
 static void dns_asr_dispatch_cname(struct dnssession *);
@@ -140,6 +141,16 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 
 	switch (type) {
 	case IMSG_DNS_HOST:
+		log_debug("dns: lookup host \"%s\"", query->host);
+		if (sockaddr_from_str((struct sockaddr*)&query->ss, PF_UNSPEC,
+		    query->host) == 0) {
+			log_debug("dns:  \"%s\" is an IP address", query->host);
+			query->error = DNS_OK;
+			dns_reply(query, IMSG_DNS_HOST);
+			dns_reply(query, IMSG_DNS_HOST_END);
+			dnssession_destroy(dnssession);
+			return;
+		}
 		dnssession_mx_insert(dnssession, query->host, 0);
 		stat_increment(STATS_LKA_SESSION_HOST);
 		dns_asr_dispatch_host(dnssession);
@@ -155,6 +166,7 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 		dns_asr_dispatch_cname(dnssession);
 		return;
 	case IMSG_DNS_MX:
+		log_debug("dns: lookup mx \"%s\"", query->host);
 		dnssession->aq = asr_query_dns(asr, T_MX, C_IN, query->host, 0);
 		stat_increment(STATS_LKA_SESSION_MX);
 		if (dnssession->aq == NULL) {
@@ -213,6 +225,21 @@ dns_asr_handler(int fd, short event, void *arg)
 	}
 }
 
+static int
+dns_asr_error(int ar_err)
+{
+	switch (ar_err) {
+	case ASR_OK:
+		return DNS_OK;
+	case EASR_FAMILY:
+	case EASR_NAME:
+		stat_increment(STATS_LKA_FAILURE);
+		return DNS_EINVAL;
+	default:
+		return DNS_RETRY;
+	}
+}
+
 static void
 dns_asr_dispatch_mx(struct dnssession *dnssession)
 {
@@ -230,8 +257,7 @@ dns_asr_dispatch_mx(struct dnssession *dnssession)
 	}
 
 	if (ar.ar_err) {
-		/* temporary internal error, except for invalid name */
-		query->error = (ar.ar_err == EASR_NAME) ? DNS_EINVAL : DNS_RETRY;
+		query->error = dns_asr_error(ar.ar_err);
 		dns_reply(query, IMSG_DNS_HOST_END);
 		dnssession_destroy(dnssession);
 		return;
@@ -280,14 +306,16 @@ dns_asr_dispatch_host(struct dnssession *dnssession)
 	struct asr_result	 ar;
 	int			 ret;
 
+	/* default to notfound, override with retry or ok later */
+	if (dnssession->mxcurrent == 0)
+		query->error = DNS_ENOTFOUND;
+
 next:
 	/* query all listed hosts in turn */
 	while (dnssession->aq == NULL) {
 		if (dnssession->mxcurrent == dnssession->mxarraysz) {
-			/* XXX although not likely, this can still be temporary */
-			query->error = (dnssession->mxfound) ? DNS_OK : DNS_ENOTFOUND;
-			if (query->error)
-				stat_increment(STATS_LKA_FAILURE);
+			if (dnssession->mxfound)
+				query->error = DNS_OK;
 			dns_reply(query, IMSG_DNS_HOST_END);
 			dnssession_destroy(dnssession);
 			return;
@@ -299,7 +327,6 @@ next:
 	while ((ret = asr_run(dnssession->aq, &ar)) == ASR_YIELD) {
 		free(ar.ar_cname);
 		memcpy(&query->ss, &ar.ar_sa.sa, SA_LEN(&(ar.ar_sa.sa)));
-		query->error = 0;
 		dns_reply(query, IMSG_DNS_HOST);
 		dnssession->mxfound++;
 	}
@@ -308,6 +335,9 @@ next:
 		dns_asr_event_set(dnssession, &ar);
 		return;
 	}
+
+	if (dns_asr_error(ar.ar_err) == DNS_RETRY)
+		query->error = DNS_RETRY;
 
 	dnssession->aq  = NULL;
 	goto next;
@@ -325,15 +355,13 @@ dns_asr_dispatch_cname(struct dnssession *dnssession)
 		return;
 	case ASR_YIELD:
 		/* Only return the first answer */
-		query->error = 0;
+		query->error = DNS_OK;
 		strlcpy(query->host, ar.ar_cname, sizeof (query->host));
 		asr_abort(dnssession->aq);
 		free(ar.ar_cname);
 		break;
 	case ASR_DONE:
-		/* This is necessarily an error */
-		stat_increment(STATS_LKA_FAILURE);
-		query->error = ar.ar_err;
+		query->error = dns_asr_error(ar.ar_err);
 		break;
 	}
 	dns_reply(query, IMSG_DNS_PTR);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.26 2011/11/15 23:06:39 gilles Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.31 2012/01/12 23:17:02 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -61,7 +61,6 @@ ramqueue_init(struct ramqueue *rqueue)
 	TAILQ_INIT(&rqueue->queue);
 	RB_INIT(&rqueue->hosttree);
 	RB_INIT(&rqueue->msgtree);
-	rqueue->current_evp = NULL;
 }
 
 int
@@ -89,19 +88,21 @@ ramqueue_host_is_empty(struct ramqueue_host *rq_host)
 }
 
 struct ramqueue_envelope *
-ramqueue_first_envelope(struct ramqueue *rqueue)
-{
-	return TAILQ_FIRST(&rqueue->queue);
-}
-
-struct ramqueue_envelope *
 ramqueue_next_envelope(struct ramqueue *rqueue)
 {
-	if (rqueue->current_evp == NULL)
-		rqueue->current_evp = TAILQ_FIRST(&rqueue->queue);
-	else
-		rqueue->current_evp = TAILQ_NEXT(rqueue->current_evp, queue_entry);
-	return rqueue->current_evp;
+	struct ramqueue_envelope *rq_evp = NULL;
+
+	TAILQ_FOREACH(rq_evp, &rqueue->queue, queue_entry) {
+		if (rq_evp->rq_batch->type == D_MDA)
+			if (env->sc_opts & SMTPD_MDA_PAUSED)
+				continue;
+		if (rq_evp->rq_batch->type == D_MTA)
+			if (env->sc_opts & SMTPD_MTA_PAUSED)
+				continue;
+		break;
+	}
+
+	return rq_evp;
 }
 
 struct ramqueue_envelope *
@@ -113,12 +114,10 @@ ramqueue_batch_first_envelope(struct ramqueue_batch *rq_batch)
 int
 ramqueue_load(struct ramqueue *rqueue, time_t *nsched)
 {
-//	char			path[MAXPATHLEN];
 	time_t			curtm;
 	struct envelope		envelope;
 	static struct qwalk    *q = NULL;
 	struct ramqueue_envelope *rq_evp;
-//	u_int32_t	msgid;
 	u_int64_t	evpid;
 
 	log_debug("ramqueue: queue loading in progress");
@@ -129,7 +128,7 @@ ramqueue_load(struct ramqueue *rqueue, time_t *nsched)
 	while (qwalk(q, &evpid)) {
 		curtm = time(NULL);
 		if (! queue_envelope_load(Q_QUEUE, evpid, &envelope)) {
-			log_debug("failed to load envelope");
+			log_debug("ramqueue: moved envelope to /corrupt");
 			queue_message_corrupt(Q_QUEUE, evpid_to_msgid(evpid));
 			continue;
 		}
@@ -137,10 +136,14 @@ ramqueue_load(struct ramqueue *rqueue, time_t *nsched)
 			continue;
 		ramqueue_insert(rqueue, &envelope, curtm);
 
-		rq_evp = TAILQ_FIRST(&rqueue->queue);
-		*nsched = rq_evp->sched;
+		rq_evp = ramqueue_next_envelope(rqueue);
+		if (rq_evp == NULL)
+			continue;
 
-		if (rq_evp->sched <= *nsched) {
+		if (rq_evp->sched <= *nsched)
+			*nsched = rq_evp->sched;
+
+		if (*nsched <= curtm) {
 			log_debug("ramqueue: loading interrupted");
 			return (0);
 		}
@@ -355,7 +358,7 @@ ramqueue_schedule(struct ramqueue *rq, u_int64_t id)
 	/* schedule *all* */
 	if (id == 0) {
 		TAILQ_FOREACH(rq_evp, &rq->queue, queue_entry) {
-			ramqueue_schedule_envelope(rq, rq_evp);
+			rq_evp->sched = 0;
 		}
 	}
 
@@ -458,9 +461,6 @@ ramqueue_remove_envelope(struct ramqueue *rq, struct ramqueue_envelope *rq_evp)
 {
 	struct ramqueue_batch *rq_batch;
 	struct ramqueue_message *rq_msg;
-
-	if (rq_evp == rq->current_evp)
-		rq->current_evp = TAILQ_NEXT(rq->current_evp, queue_entry);
 
 	rq_msg = rq_evp->rq_msg;
 	rq_batch = rq_evp->rq_batch;

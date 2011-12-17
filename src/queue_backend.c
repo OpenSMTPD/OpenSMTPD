@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.14 2011/11/15 23:06:39 gilles Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.20 2012/01/14 15:13:14 chl Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -38,40 +39,24 @@
 
 #include "openbsd-compat.h"
 
-static int envelope_validate(struct envelope *);
+static const char* envelope_validate(struct envelope *, uint64_t);
 
 /* fsqueue backend */
-int	fsqueue_init(void);
-int	fsqueue_message(enum queue_kind, enum queue_op, u_int32_t *);
-int	fsqueue_envelope(enum queue_kind, enum queue_op , struct envelope *);
-void   *fsqueue_qwalk_new(enum queue_kind, u_int32_t);
-int	fsqueue_qwalk(void *, u_int64_t *);
-void	fsqueue_qwalk_close(void *);
+extern struct queue_backend	queue_backend_fs;
 
-
-struct queue_backend queue_backends[] = {
-	{ QT_FS,
-	  fsqueue_init,
-	  fsqueue_message,
-	  fsqueue_envelope,
-	  fsqueue_qwalk_new,
-	  fsqueue_qwalk,
-	  fsqueue_qwalk_close }
-};
 
 struct queue_backend *
 queue_backend_lookup(enum queue_type type)
 {
-	u_int8_t i;
+	switch (type) {
+	case QT_FS:
+		return &queue_backend_fs;
 
-	for (i = 0; i < nitems(queue_backends); ++i)
-		if (queue_backends[i].type == type)
-			break;
-
-	if (i == nitems(queue_backends))
+	default:
 		fatalx("invalid queue type");
+	}
 
-	return &queue_backends[i];
+	return (NULL);
 }
 
 int
@@ -90,12 +75,6 @@ int
 queue_message_commit(enum queue_kind qkind, u_int32_t msgid)
 {
 	return env->sc_queue->message(qkind, QOP_COMMIT, &msgid);
-}
-
-int
-queue_message_purge(enum queue_kind qkind, u_int32_t msgid)
-{
-	return env->sc_queue->message(qkind, QOP_PURGE, &msgid);
 }
 
 int
@@ -119,7 +98,6 @@ queue_message_fd_rw(enum queue_kind qkind, u_int32_t msgid)
 int
 queue_envelope_create(enum queue_kind qkind, struct envelope *ep)
 {
-	ep->id >>= 32;
 	return env->sc_queue->envelope(qkind, QOP_CREATE, ep);
 }
 
@@ -132,9 +110,14 @@ queue_envelope_delete(enum queue_kind qkind, struct envelope *ep)
 int
 queue_envelope_load(enum queue_kind qkind, u_int64_t evpid, struct envelope *ep)
 {
+	const char	*e;
+
 	ep->id = evpid;
-	if (env->sc_queue->envelope(qkind, QOP_LOAD, ep))
-		return envelope_validate(ep);
+	if (env->sc_queue->envelope(qkind, QOP_LOAD, ep)) {
+		if ((e = envelope_validate(ep, evpid)) == NULL)
+			return 1;
+		log_debug("invalid envelope %016" PRIx64 ": %s", ep->id, e);
+	}
 	return 0;
 }
 
@@ -167,10 +150,8 @@ queue_generate_msgid(void)
 {
 	u_int32_t msgid;
 
-again:
-	msgid = arc4random_uniform(0xffffffff);
-	if (msgid == 0)
-		goto again;
+	while((msgid = arc4random_uniform(0xffffffff)) == 0)
+		;
 
 	return msgid;
 }
@@ -181,10 +162,8 @@ queue_generate_evpid(u_int32_t msgid)
 	u_int32_t rnd;
 	u_int64_t evpid;
 
-again:
-	rnd = arc4random_uniform(0xffffffff);
-	if (rnd == 0)
-		goto again;
+	while((rnd = arc4random_uniform(0xffffffff)) == 0)
+		;
 
 	evpid = msgid;
 	evpid <<= 32;
@@ -195,29 +174,30 @@ again:
 
 
 /**/
-static int
-envelope_validate(struct envelope *ep)
+static const char*
+envelope_validate(struct envelope *ep, uint64_t id)
 {
 	if (ep->version != SMTPD_ENVELOPE_VERSION)
-		return 0;
+		return "version mismatch";
 
-	if ((ep->id & 0xffffffff) == 0 ||
-	    ((ep->id >> 32) & 0xffffffff) == 0)
-		return 0;
+	if ((ep->id & 0xffffffff) == 0 || ((ep->id >> 32) & 0xffffffff) == 0)
+		return "invalid id";
 
+	if (ep->id != id)
+		return "id mismatch";
+
+	if (memchr(ep->helo, '\0', sizeof(ep->helo)) == NULL)
+		return "invalid helo";
 	if (ep->helo[0] == '\0')
-		return 0;
+		return "empty helo";
 
+	if (memchr(ep->hostname, '\0', sizeof(ep->hostname)) == NULL)
+		return "invalid hostname";
 	if (ep->hostname[0] == '\0')
-		return 0;
+		return "empty hostname";
 
-	if (ep->errorline[0] != '\0') {
-		if (! isdigit(ep->errorline[0]) ||
-		    ! isdigit(ep->errorline[1]) ||
-		    ! isdigit(ep->errorline[2]) ||
-		    ep->errorline[3] != ' ')
-			return 0;
-	}
+	if (memchr(ep->errorline, '\0', sizeof(ep->errorline)) == NULL)
+		return "invalid error line";
 
-	return 1;
+	return NULL;
 }

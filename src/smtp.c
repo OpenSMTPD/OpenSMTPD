@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.94 2011/11/14 19:23:41 chl Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.98 2012/01/13 14:27:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -44,7 +44,6 @@ static void smtp_imsg(struct imsgev *, struct imsg *);
 static void smtp_shutdown(void);
 static void smtp_sig_handler(int, short, void *);
 static void smtp_setup_events(void);
-static void smtp_disable_events(void);
 static void smtp_pause(void);
 static int smtp_enqueue(uid_t *);
 static void smtp_accept(int, short, void *);
@@ -132,7 +131,7 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 				fatalx("smtp: session is gone");
 			if (s->s_flags & F_WRITEONLY)
 				/* session is write-only, must not destroy it. */
-				s->s_msg.status |= DS_TEMPFAILURE;
+				s->s_dstatus |= DS_TEMPFAILURE;
 			else
 				fatalx("smtp: corrupt session");
 			return;
@@ -161,21 +160,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
-		case IMSG_CONF_RELOAD:
-			/*
-			 * Reloading may invalidate various pointers our
-			 * sessions rely upon, we better tell clients we
-			 * want them to retry.
-			 */
-			SPLAY_FOREACH(s, sessiontree, &env->sc_sessions) {
-				s->s_l = NULL;
-				s->s_msg.status |= DS_TEMPFAILURE;
-			}
-			if (env->sc_listeners)
-				smtp_disable_events();
-			imsg_compose_event(iev, IMSG_PARENT_SEND_CONFIG, 0, 0, -1,
-			    NULL, 0);
-			return;
 
 		case IMSG_CONF_START:
 			if (env->sc_flags & SMTPD_CONFIGURING)
@@ -210,6 +194,14 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 				if (ssl->ssl_dhparams == NULL)
 					fatal(NULL);
 			}
+			if (ssl->ssl_ca_len) {
+				ssl->ssl_ca = strdup((char *)imsg->data
+				    + sizeof *ssl + ssl->ssl_cert_len +
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len);
+				if (ssl->ssl_ca == NULL)
+					fatal(NULL);
+			}
+
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
 			return;
 
@@ -387,7 +379,7 @@ smtp_setup_events(void)
 	int avail = availdesc();
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		log_debug("smtp_setup_events: listen on %s port %d flags 0x%01x"
+		log_debug("smtp: listen on %s port %d flags 0x%01x"
 		    " cert \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->ssl_cert_name);
 
@@ -408,28 +400,11 @@ smtp_setup_events(void)
 }
 
 static void
-smtp_disable_events(void)
-{
-	struct listener	*l;
-
-	log_debug("smtp_disable_events: closing listening sockets");
-	while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
-		TAILQ_REMOVE(env->sc_listeners, l, entry);
-		event_del(&l->ev);
-		close(l->fd);
-		free(l);
-	}
-	free(env->sc_listeners);
-	env->sc_listeners = NULL;
-	env->sc_maxconn = 0;
-}
-
-static void
 smtp_pause(void)
 {
 	struct listener *l;
 
-	log_debug("smtp_pause: pausing listening sockets");
+	log_debug("smtp: pausing listening sockets");
 	env->sc_opts |= SMTPD_SMTP_PAUSED;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry)
@@ -441,7 +416,7 @@ smtp_resume(void)
 {
 	struct listener *l;
 
-	log_debug("smtp_resume: resuming listening sockets");
+	log_debug("smtp: resuming listening sockets");
 	env->sc_opts &= ~SMTPD_SMTP_PAUSED;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry)
@@ -535,7 +510,7 @@ smtp_new(struct listener *l)
 {
 	struct session	*s;
 
-	log_debug("smtp_new: incoming client on listener: %p", l);
+	log_debug("smtp: new client on listener: %p", l);
 
 	if (env->sc_opts & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_new: unexpected client");
