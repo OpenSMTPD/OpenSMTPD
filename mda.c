@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.63 2011/11/14 19:23:41 chl Exp $	*/
+/*	$OpenBSD: mda.c,v 1.64 2011/12/13 21:44:47 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -201,8 +201,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (error == NULL)
 				s->msg.status = DS_ACCEPTED;
 			else
-				strlcpy(s->msg.errorline, error,
-				    sizeof s->msg.errorline);
+				envelope_set_errormsg(&s->msg, "%s", error);
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_MESSAGE_UPDATE, 0, 0, -1, &s->msg,
 			    sizeof s->msg);
