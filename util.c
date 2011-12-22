@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.52 2011/12/11 19:58:09 eric Exp $	*/
+/*	$OpenBSD: util.c,v 1.54 2011/12/18 22:51:29 chl Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -34,7 +34,6 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
-#include <inttypes.h>
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -417,16 +416,15 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-
-	ret = vsnprintf(e->errorline, MAX_LINE_SIZE, fmt, ap);
-	if (ret >= MAX_LINE_SIZE)
-		strlcpy(e->errorline + (MAX_LINE_SIZE - 4), "...", 4);
+	ret = vsnprintf(e->errorline, sizeof(e->errorline), fmt, ap);
+	va_end(ap);
 
 	/* this should not happen */
 	if (ret == -1)
 		err(1, "vsnprintf");
 
-	va_end(ap);
+	if ((size_t)ret >= sizeof(e->errorline))
+		strlcpy(e->errorline + (sizeof(e->errorline) - 4), "...", 4);
 }
 
 char *
