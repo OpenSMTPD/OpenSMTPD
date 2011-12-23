@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.22 2011/12/14 17:55:55 eric Exp $	*/
+/*	$OpenBSD: queue_fsqueue.c,v 1.23 2011/12/22 18:41:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -145,7 +145,7 @@ fsqueue_envelope_create(enum queue_kind qkind, struct envelope *ep)
 	fp = NULL;
 
 again:
-	evpid = queue_generate_evpid(ep->id);
+	evpid = queue_generate_evpid(evpid_to_msgid(ep->id));
 
 	fsqueue_envelope_path(qkind, evpid, evpname, sizeof(evpname));
 
