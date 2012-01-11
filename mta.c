@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.120 2011/12/11 17:02:10 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.121 2011/12/18 18:43:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -327,7 +327,6 @@ mta(void)
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 
-	ramqueue_init(&env->sc_rqueue);
 	SPLAY_INIT(&env->mta_sessions);
 
 	if (event_dispatch() < 0)
