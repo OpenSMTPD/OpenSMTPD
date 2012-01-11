@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.43 2011/12/21 21:10:15 chl Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.44 2012/01/11 20:00:37 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
