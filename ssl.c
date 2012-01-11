@@ -454,14 +454,11 @@ ssl_setup(struct listener *l)
 
 	l->ssl_ctx = ssl_ctx_create();
 
-/*
 	if (l->ssl->ssl_ca != NULL) {
 		if (! ssl_ctx_load_verify_memory(l->ssl_ctx,
 			l->ssl->ssl_ca, l->ssl->ssl_ca_len))
 			goto err;
-		SSL_CTX_set_verify(l->ssl_ctx, SSL_VERIFY_PEER, NULL);
 	}
-*/
 
 	if (!ssl_ctx_use_certificate_chain(l->ssl_ctx,
 	    l->ssl->ssl_cert, l->ssl->ssl_cert_len))
