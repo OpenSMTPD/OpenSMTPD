@@ -1,4 +1,4 @@
-/*	$OpenBSD: ramqueue.c,v 1.26 2011/11/15 23:06:39 gilles Exp $	*/
+/*	$OpenBSD: ramqueue.c,v 1.28 2012/01/11 22:55:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -60,7 +60,6 @@ ramqueue_init(struct ramqueue *rqueue)
 	TAILQ_INIT(&rqueue->queue);
 	RB_INIT(&rqueue->hosttree);
 	RB_INIT(&rqueue->msgtree);
-	rqueue->current_evp = NULL;
 }
 
 int
@@ -96,11 +95,7 @@ ramqueue_first_envelope(struct ramqueue *rqueue)
 struct ramqueue_envelope *
 ramqueue_next_envelope(struct ramqueue *rqueue)
 {
-	if (rqueue->current_evp == NULL)
-		rqueue->current_evp = TAILQ_FIRST(&rqueue->queue);
-	else
-		rqueue->current_evp = TAILQ_NEXT(rqueue->current_evp, queue_entry);
-	return rqueue->current_evp;
+	return TAILQ_FIRST(&rqueue->queue);
 }
 
 struct ramqueue_envelope *
@@ -352,7 +347,7 @@ ramqueue_schedule(struct ramqueue *rq, u_int64_t id)
 	/* schedule *all* */
 	if (id == 0) {
 		TAILQ_FOREACH(rq_evp, &rq->queue, queue_entry) {
-			ramqueue_schedule_envelope(rq, rq_evp);
+			rq_evp->sched = 0;
 		}
 	}
 
@@ -455,9 +450,6 @@ ramqueue_remove_envelope(struct ramqueue *rq, struct ramqueue_envelope *rq_evp)
 {
 	struct ramqueue_batch *rq_batch;
 	struct ramqueue_message *rq_msg;
-
-	if (rq_evp == rq->current_evp)
-		rq->current_evp = TAILQ_NEXT(rq->current_evp, queue_entry);
 
 	rq_msg = rq_evp->rq_msg;
 	rq_batch = rq_evp->rq_batch;
