@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.129 2012/01/12 22:40:16 gilles Exp $	*/
+/*	$OpenBSD: runner.c,v 1.130 2012/01/12 22:59:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -297,7 +297,7 @@ runner_timeout(int fd, short event, void *p)
 	nsched = 0;
 
 again:
-	rq_evp = ramqueue_first_envelope(rqueue);
+	rq_evp = ramqueue_next_envelope(rqueue);
 	if (rq_evp)
 		nsched = rq_evp->sched;
 
