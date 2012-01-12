@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.143 2011/12/13 23:55:00 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.144 2012/01/11 17:46:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -742,7 +742,7 @@ purge_task(int fd, short ev, void *arg)
 				    setresgid(gid, gid, gid) ||
 				    setresuid(uid, uid, uid))
 					fatal("smtpd: cannot drop privileges");
-				rmtree(".", 1);
+				rmtree("/", 1);
 				_exit(0);
 				break;
 			default:
