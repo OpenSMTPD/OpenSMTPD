@@ -1,4 +1,8 @@
-/*	$OpenBSD: runner.c,v 1.129 2012/01/12 22:40:16 gilles Exp $	*/
+<<<<<<< runner.c
+/*	$OpenBSD: runner.c,v 1.130 2012/01/12 22:59:55 eric Exp $	*/
+=======
+/*	$OpenBSD: runner.c,v 1.131 2012/01/12 23:17:02 gilles Exp $	*/
+>>>>>>> 1.131
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -83,7 +87,6 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		 */
 		if (e->status & DS_TEMPFAILURE) {
 			log_debug("TEMPFAIL: %016" PRIx64, e->id);
-			e->status &= ~DS_TEMPFAILURE;
 			queue_envelope_update(Q_QUEUE, e);
 			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
 			runner_reset_events();
@@ -124,7 +127,6 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_SMTP_ENQUEUE:
 		e = imsg->data;
 		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
-			e->status = 0;
 			queue_envelope_update(Q_QUEUE, e);
 			ramqueue_insert(&env->sc_rqueue, e, time(NULL));
 			runner_reset_events();
@@ -299,7 +301,7 @@ runner_timeout(int fd, short event, void *p)
 	nsched = 0;
 
 again:
-	rq_evp = ramqueue_first_envelope(rqueue);
+	rq_evp = ramqueue_next_envelope(rqueue);
 	if (rq_evp)
 		nsched = rq_evp->sched;
 
