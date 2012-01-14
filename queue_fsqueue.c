@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.28 2012/01/12 17:00:56 eric Exp $	*/
+/*	$OpenBSD: queue_fsqueue.c,v 1.33 2012/01/14 12:56:49 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -42,7 +42,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-static char		*fsqueue_getpath(enum queue_kind);
+static char	*fsqueue_getpath(enum queue_kind);
 
 static int	fsqueue_envelope_load(enum queue_kind, struct envelope *);
 static int	fsqueue_envelope_update(enum queue_kind, struct envelope *);
@@ -53,10 +53,10 @@ static int	fsqueue_message_commit(enum queue_kind, u_int32_t);
 static int	fsqueue_message_fd_r(enum queue_kind, u_int32_t);
 static int	fsqueue_message_fd_rw(enum queue_kind, u_int32_t);
 static int	fsqueue_message_delete(enum queue_kind, u_int32_t);
-static int	fsqueue_message_purge(enum queue_kind, u_int32_t);
 static int	fsqueue_message_corrupt(enum queue_kind, u_int32_t);
 
-static void	fsqueue_envelope_path(enum queue_kind, u_int64_t, char *, size_t);
+static int	fsqueue_message_path(enum queue_kind, uint32_t, char *, size_t);
+static int	fsqueue_envelope_path(enum queue_kind, u_int64_t, char *, size_t);
 static int	fsqueue_envelope_dump_atomic(char *, struct envelope *);
 
 int	fsqueue_init(void);
@@ -106,27 +106,34 @@ fsqueue_getpath(enum queue_kind kind)
 	return NULL;
 }
 
-static void
+static int
+fsqueue_message_path(enum queue_kind qkind, uint32_t msgid, char *buf, size_t len)
+{
+	if (qkind == Q_QUEUE)
+		return bsnprintf(buf, len, "%s/%03x/%08x",
+		    fsqueue_getpath(qkind),
+		    msgid & 0xfff,
+		    msgid);
+	else
+		return bsnprintf(buf, len, "%s/%08x",
+		    fsqueue_getpath(qkind),
+		    msgid);
+}
+
+static int
 fsqueue_envelope_path(enum queue_kind qkind, uint64_t evpid, char *buf, size_t len)
 {
-	int r;
-
 	if (qkind == Q_QUEUE)
-		r = bsnprintf(buf, len, "%s/%03x/%08x%s/%016" PRIx64,
+		return bsnprintf(buf, len, "%s/%03x/%08x%s/%016" PRIx64,
 		    fsqueue_getpath(qkind),
 		    evpid_to_msgid(evpid) & 0xfff,
 		    evpid_to_msgid(evpid),
 		    PATH_ENVELOPES, evpid);
 	else
-		r = bsnprintf(buf, len, "%s/%08x%s/%016" PRIx64,
+		return bsnprintf(buf, len, "%s/%08x%s/%016" PRIx64,
 		    fsqueue_getpath(qkind),
 		    evpid_to_msgid(evpid),
 		    PATH_ENVELOPES, evpid);
-
-	if (!r)
-		fatalx("fsqueue_envelope_path: snprintf");
-
-	log_debug("envelope path: %s", buf);
 }
 
 static int
@@ -235,10 +242,7 @@ fsqueue_envelope_delete(enum queue_kind qkind, struct envelope *ep)
 		fatal("fsqueue_envelope_delete: unlink");
 	}
 
-	if (! bsnprintf(pathname, sizeof(pathname), "%s/%03x/%08x%s", PATH_QUEUE,
-		evpid_to_msgid(ep->id) & 0xfff,
-		evpid_to_msgid(ep->id), PATH_ENVELOPES))
-		fatal("fsqueue_envelope_delete: snprintf");
+	*strrchr(pathname, '/') = '\0';
 
 	if (rmdir(pathname) != -1)
 		fsqueue_message_delete(qkind, evpid_to_msgid(ep->id));
@@ -251,13 +255,17 @@ fsqueue_message_create(enum queue_kind qkind, u_int32_t *msgid)
 {
 	char rootdir[MAXPATHLEN];
 	char evpdir[MAXPATHLEN];
+	struct stat sb;
 
 again:
 	*msgid = queue_generate_msgid();
-	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%08x",
-		fsqueue_getpath(qkind), *msgid))
-		fatalx("fsqueue_message_create: snprintf");
+	
+	/* prevent possible collision later when moving to Q_QUEUE */
+	fsqueue_message_path(Q_QUEUE, *msgid, rootdir, sizeof(rootdir));
+	if (stat(rootdir, &sb) != -1 || errno != ENOENT)
+		goto again;
 
+	fsqueue_message_path(qkind, *msgid, rootdir, sizeof(rootdir));
 	if (mkdir(rootdir, 0700) == -1) {
 		if (errno == EEXIST)
 			goto again;
@@ -269,9 +277,8 @@ again:
 		fatal("fsqueue_message_create: mkdir");
 	}
 
-	if (! bsnprintf(evpdir, sizeof(evpdir), "%s%s", rootdir,
-		PATH_ENVELOPES))
-		fatalx("fsqueue_message_create: snprintf");
+	strlcpy(evpdir, rootdir, sizeof(evpdir));
+	strlcat(evpdir, PATH_ENVELOPES, sizeof(evpdir));
 
 	if (mkdir(evpdir, 0700) == -1) {
 		if (errno == ENOSPC) {
@@ -291,14 +298,11 @@ fsqueue_message_commit(enum queue_kind qkind, u_int32_t msgid)
 	char rootdir[MAXPATHLEN];
 	char queuedir[MAXPATHLEN];
 	char msgdir[MAXPATHLEN];
-	
-	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%08x",
-		fsqueue_getpath(qkind), msgid))
-		fatal("fsqueue_message_commit: snprintf");
 
-	if (! bsnprintf(queuedir, sizeof(queuedir), "%s/%03x",
-		fsqueue_getpath(Q_QUEUE), msgid & 0xfff))
-		fatal("fsqueue_message_commit: snprintf");
+	fsqueue_message_path(qkind, msgid, rootdir, sizeof(rootdir));
+	fsqueue_message_path(Q_QUEUE, msgid, msgdir, sizeof(msgdir));
+	strlcpy(queuedir, msgdir, sizeof(queuedir));
+	*strrchr(queuedir, '/') = '\0';
 
 	if (mkdir(queuedir, 0700) == -1) {
 		if (errno == ENOSPC)
@@ -306,10 +310,6 @@ fsqueue_message_commit(enum queue_kind qkind, u_int32_t msgid)
 		if (errno != EEXIST)
 			fatal("fsqueue_message_commit: mkdir");
 	}
-
-	if (! bsnprintf(msgdir, sizeof(msgdir),"%s/%08x",
-		queuedir, msgid))
-		fatal("fsqueue_message_commit: snprintf");
 
 	if (rename(rootdir, msgdir) == -1) {
 		if (errno == ENOSPC)
@@ -324,20 +324,12 @@ static int
 fsqueue_message_fd_r(enum queue_kind qkind, u_int32_t msgid)
 {
 	int fd;
-	char pathname[MAXPATHLEN];
+	char path[MAXPATHLEN];
 
-	if (qkind == Q_INCOMING) {
-		if (! bsnprintf(pathname, sizeof(pathname), "%s/%08x/message",
-			fsqueue_getpath(qkind), msgid))
-			fatal("fsqueue_message_fd_r: snprintf");
-	}
-	else {
-		if (! bsnprintf(pathname, sizeof(pathname), "%s/%03x/%08x/message",
-			fsqueue_getpath(qkind), msgid & 0xfff, msgid))
-			fatal("fsqueue_message_fd_r: snprintf");
-	}
+	fsqueue_message_path(qkind, msgid, path, sizeof(path));
+	strlcat(path, PATH_MESSAGE, sizeof(path));
 
-	if ((fd = open(pathname, O_RDONLY)) == -1)
+	if ((fd = open(path, O_RDONLY)) == -1)
 		fatal("fsqueue_message_fd_r: open");
 
 	return fd;
@@ -346,89 +338,23 @@ fsqueue_message_fd_r(enum queue_kind qkind, u_int32_t msgid)
 static int
 fsqueue_message_fd_rw(enum queue_kind qkind, u_int32_t msgid)
 {
-	char pathname[MAXPATHLEN];
-	
-	if (! bsnprintf(pathname, sizeof(pathname), "%s/%08x/message",
-		fsqueue_getpath(qkind),
-		msgid))
-		fatal("fsqueue_message_fd_rw: snprintf");
+	char path[MAXPATHLEN];
 
-	return open(pathname, O_CREAT|O_EXCL|O_RDWR, 0600);
+	fsqueue_message_path(qkind, msgid, path, sizeof(path));
+	strlcat(path, PATH_MESSAGE, sizeof(path));
+
+	return open(path, O_CREAT|O_EXCL|O_RDWR, 0600);
 }
 
 static int
 fsqueue_message_delete(enum queue_kind qkind, u_int32_t msgid)
 {
 	char rootdir[MAXPATHLEN];
-	char evpdir[MAXPATHLEN];
-	char msgpath[MAXPATHLEN];
-	DIR *dirp;
-	struct dirent *dp;
 
-	if (qkind == Q_QUEUE) {
-		if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%03x/%08x", PATH_QUEUE,
-			msgid & 0xfff, msgid))
-			fatal("fsqueue_message_delete: snprintf");
-	}
-
-	if (! bsnprintf(evpdir, sizeof(evpdir), "%s%s", rootdir,
-		PATH_ENVELOPES))
-		fatal("fsqueue_message_delete: snprintf");
-
-	dirp = opendir(evpdir);
-	if (dirp) {
-		char envelope[MAXPATHLEN];
-
-		while ((dp = readdir(dirp)) != NULL) {
-			if (! bsnprintf(envelope, MAXPATHLEN, "%s/%s",
-				evpdir, dp->d_name))
-				fatal("fsqueue_message_delete: truncated evp");
-			unlink(envelope);
-		}
-		closedir(dirp);
-	}
-
-	if (! bsnprintf(msgpath, sizeof(msgpath), "%s/message", rootdir))
-		fatal("fsqueue_message_delete: snprintf");
-
-	if (unlink(msgpath) == -1) {
-		if (errno != ENOENT)
-			fatal("fsqueue_message_delete: unlink");
-	}
-
-	if (rmdir(evpdir) == -1) {
-		/* It is ok to fail rmdir with ENOENT here
-		 * because upon successful delivery of the
-		 * last envelope, we remove the directory.
-		 */
-		if (errno != ENOENT)
-			fatal("fsqueue_message_delete: rmdir");
-	}
-
-	if (rmdir(rootdir) == -1)
-		fatal("#2 fsqueue_message_delete: rmdir");
-
-
-	if (qkind == Q_QUEUE) {
-		if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%03x", PATH_QUEUE, msgid & 0xffff))
-			fatal("fsqueue_message_delete: snprintf");
-		rmdir(rootdir);
-	}
-
-	return 1;
-}
-
-static int
-fsqueue_message_purge(enum queue_kind qkind, u_int32_t msgid)
-{
-	char rootdir[MAXPATHLEN];
-
-	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%08x",
-		fsqueue_getpath(qkind), msgid))
-		fatalx("fsqueue_message_purge: snprintf");
+	fsqueue_message_path(qkind, msgid, rootdir, sizeof(rootdir));
 
 	if (mvpurge(rootdir, PATH_PURGE) == -1)
-		fatal("fsqueue_message_purge: mvpurge");
+		fatal("fsqueue_message_delete: mvpurge");
 
 	return 1;
 }
@@ -439,20 +365,14 @@ fsqueue_message_corrupt(enum queue_kind qkind, u_int32_t msgid)
 	char rootdir[MAXPATHLEN];
 	char corruptdir[MAXPATHLEN];
 
-	if (! bsnprintf(rootdir, sizeof(rootdir), "%s/%03x/%08x",
-		fsqueue_getpath(qkind), msgid & 0xfff, msgid))
-		fatalx("fsqueue_message_corrupt: snprintf");
-
-	if (! bsnprintf(corruptdir, sizeof(corruptdir), "%s/%08x",
-		fsqueue_getpath(Q_CORRUPT), msgid))
-		fatalx("fsqueue_message_corrupt: snprintf");
+	fsqueue_message_path(qkind, msgid, rootdir, sizeof(rootdir));
+	fsqueue_message_path(Q_CORRUPT, msgid, corruptdir, sizeof(corruptdir));
 
 	if (rename(rootdir, corruptdir) == -1)
 		fatalx("fsqueue_message_corrupt: rename");
 
 	return 1;
 }
-
 
 int
 fsqueue_init(void)
@@ -461,6 +381,11 @@ fsqueue_init(void)
 	char		*paths[] = { PATH_INCOMING, PATH_QUEUE, PATH_CORRUPT };
 	char		 path[MAXPATHLEN];
 	int		 ret;
+
+	if (!fsqueue_envelope_path(Q_QUEUE, 0, path, sizeof(path)))
+		errx(1, "cannot store envelope path in %s", PATH_QUEUE);
+	if (!fsqueue_envelope_path(Q_INCOMING, 0, path, sizeof(path)))
+		errx(1, "cannot store envelope path in %s", PATH_INCOMING);
 
 	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
@@ -495,9 +420,6 @@ fsqueue_message(enum queue_kind qkind, enum queue_op qop, u_int32_t *msgid)
 
         case QOP_FD_RW:
                 return fsqueue_message_fd_rw(qkind, *msgid);
-
-	case QOP_PURGE:
-		return fsqueue_message_purge(qkind, *msgid);
 
 	case QOP_CORRUPT:
 		return fsqueue_message_corrupt(qkind, *msgid);
