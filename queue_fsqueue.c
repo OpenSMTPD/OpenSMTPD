@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.30 2012/01/13 22:01:23 eric Exp $	*/
+/*	$OpenBSD: queue_fsqueue.c,v 1.31 2012/01/14 08:37:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -268,11 +268,17 @@ fsqueue_message_create(enum queue_kind qkind, u_int32_t *msgid)
 {
 	char rootdir[MAXPATHLEN];
 	char evpdir[MAXPATHLEN];
+	struct stat sb;
 
 again:
 	*msgid = queue_generate_msgid();
-	fsqueue_message_path(qkind, *msgid, rootdir, sizeof(rootdir));
+	
+	/* prevent possible collision later when moving to Q_QUEUE */
+	fsqueue_message_path(Q_QUEUE, *msgid, rootdir, sizeof(rootdir));
+	if (stat(rootdir, &sb) != -1 || errno != ENOENT)
+		goto again;
 
+	fsqueue_message_path(qkind, *msgid, rootdir, sizeof(rootdir));
 	if (mkdir(rootdir, 0700) == -1) {
 		if (errno == EEXIST)
 			goto again;
