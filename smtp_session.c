@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.153 2012/01/13 14:27:55 eric Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.154 2012/01/18 13:41:54 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -1012,7 +1012,10 @@ session_error(struct bufferevent *bev, short event, void *p)
 			env->stats->smtp.read_error++;
 		}
 
-		session_destroy(s);
+		if (s->s_flags & F_WRITEONLY)
+			s->s_flags |= F_QUIT;
+		else
+			session_destroy(s);
 		return;
 	}
 
