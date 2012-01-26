@@ -457,6 +457,7 @@ mta_enter_state(struct mta_session *s, int newstate, void *p)
 		 */
 		log_debug("mta: entering smtp phase");
 
+		fseek(s->datafp, 0, SEEK_SET);
 		pcb = client_init(s->fd, s->datafp, env->sc_hostname, 1);
 
 		if (s->ssl) {
