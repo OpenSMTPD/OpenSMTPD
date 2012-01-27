@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.156 2012/01/26 23:18:08 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.158 2012/01/27 00:01:04 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -914,12 +914,12 @@ session_read_data(struct session *s, char *line)
 			    0, 0, -1, &s->s_msg, sizeof(s->s_msg));
 			session_enter_state(s, S_DONE);
 		}
-		goto end;
+		return;
 	}
 
 	/* Don't waste resources on message if it's going to bin anyway. */
 	if (s->s_dstatus & (DS_PERMFAILURE|DS_TEMPFAILURE))
-		goto end;
+		return;
 
 	/* "If the first character is a period and there are other characters
 	 *  on the line, the first character is deleted." [4.5.2]
@@ -936,7 +936,7 @@ session_read_data(struct session *s, char *line)
 	if (SIZE_MAX - datalen < len + 1 ||
 	    datalen + len + 1 > env->sc_maxsize) {
 		s->s_dstatus |= DS_PERMFAILURE;
-		goto end;
+		return;
 	}
 
 	if (! (s->s_flags & F_8BITMIME)) {
@@ -945,13 +945,8 @@ session_read_data(struct session *s, char *line)
 				line[i] = line[i] & 0x7f;
 	}
 
-	if (fprintf(s->datafp, "%s\n", line) != (int)len + 1) {
+	if (fprintf(s->datafp, "%s\n", line) != (int)len + 1)
 		s->s_dstatus |= DS_TEMPFAILURE;
-		goto end;
-	}
-
-end:
-	bufferevent_enable(s->s_bev, EV_READ);
 }
 
 static void
