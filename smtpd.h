@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.281 2012/01/24 12:20:18 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.282 2012/01/28 11:33:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -806,7 +806,6 @@ struct mfa_session {
 };
 
 enum mta_state {
-	MTA_INVALID_STATE,
 	MTA_INIT,
 	MTA_SECRET,
 	MTA_DATA,
