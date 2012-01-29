@@ -397,7 +397,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_SMTP_ENQUEUE, PROC_SMTP, 0, -1, &evp,
 			    sizeof evp);
-			scheduler->remove(evpid);
+			scheduler->remove(batch, evpid);
 		}
 		stat_increment(STATS_RUNNER);
 		stat_increment(STATS_RUNNER_BOUNCES);
@@ -413,7 +413,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_MDA_SESS_NEW, PROC_MDA, 0, fd, &evp,
 		    sizeof evp);
-		scheduler->remove(evpid);
+		scheduler->remove(batch, evpid);
 
 		stat_increment(STATS_RUNNER);
 		stat_increment(STATS_MDA_SESSION);
@@ -448,7 +448,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 			    IMSG_BATCH_APPEND, PROC_MTA, 0, -1, &evp,
 			    sizeof evp);
 
-			scheduler->remove(evpid);
+			scheduler->remove(batch, evpid);
 			stat_increment(STATS_RUNNER);
 		}
 
@@ -579,5 +579,5 @@ runner_remove_envelope(u_int64_t evpid)
 
 	evp.id = evpid;
 	queue_envelope_delete(Q_QUEUE, &evp);
-	scheduler->remove(evpid);
+	scheduler->remove(NULL, evpid);
 }

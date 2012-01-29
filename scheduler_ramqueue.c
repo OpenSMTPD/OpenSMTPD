@@ -117,7 +117,7 @@ static void  scheduler_ramqueue_init(void);
 static int   scheduler_ramqueue_setup(time_t, time_t);
 static int   scheduler_ramqueue_next(u_int64_t *, time_t *);
 static void  scheduler_ramqueue_insert(struct envelope *);
-static void  scheduler_ramqueue_remove(u_int64_t);
+static void  scheduler_ramqueue_remove(void *, u_int64_t);
 static void *scheduler_ramqueue_host(char *);
 static void *scheduler_ramqueue_message(u_int32_t);
 static void *scheduler_ramqueue_batch(u_int64_t);
@@ -330,8 +330,9 @@ scheduler_ramqueue_insert(struct envelope *envelope)
 }
 
 static void
-scheduler_ramqueue_remove(u_int64_t evpid)
+scheduler_ramqueue_remove(void *hdl, u_int64_t evpid)
 {
+	struct ramqueue_iter *iter = hdl;
 	struct ramqueue_batch *rq_batch;
 	struct ramqueue_message *rq_msg;
 	struct ramqueue_envelope *rq_evp;
@@ -348,17 +349,33 @@ scheduler_ramqueue_remove(u_int64_t evpid)
 	TAILQ_REMOVE(&ramqueue.queue, rq_evp, queue_entry);
 	stat_decrement(STATS_RAMQUEUE_ENVELOPE);
 
+
 	/* check if we are the last of a batch */
-	if (TAILQ_FIRST(&rq_batch->envelope_queue) == NULL)
+	if (TAILQ_FIRST(&rq_batch->envelope_queue) == NULL) {
 		ramqueue_remove_batch(rq_host, rq_batch);
+		if (iter != NULL && iter->type == RAMQUEUE_ITER_BATCH) {
+			log_debug("scheduler_ramqueue_remove: batch removed");
+			iter->u.batch = NULL;
+		}
+	}
 
 	/* check if we are the last of a message */
-	if (RB_ROOT(&rq_msg->evptree) == NULL)
+	if (RB_ROOT(&rq_msg->evptree) == NULL) {
 		ramqueue_remove_message(rq_msg);
+		if (iter != NULL && iter->type == RAMQUEUE_ITER_MESSAGE) {
+			log_debug("scheduler_ramqueue_remove: message removed");
+			iter->u.message = NULL;
+		}
+	}
 
 	/* check if we are the last of a host */
-	if (TAILQ_FIRST(&rq_host->batch_queue) == NULL)
+	if (TAILQ_FIRST(&rq_host->batch_queue) == NULL) {
 		ramqueue_remove_host(rq_host);
+		if (iter != NULL && iter->type == RAMQUEUE_ITER_HOST) {
+			log_debug("scheduler_ramqueue_remove: host removed");
+			iter->u.host = NULL;
+		}
+	}
 
 	free(rq_evp);
 }
@@ -452,6 +469,8 @@ scheduler_ramqueue_fetch(void *hdl, u_int64_t *evpid)
 
 	switch (iter->type) {
 	case RAMQUEUE_ITER_HOST: {
+		if (iter->u.host == NULL)
+			return 0;
 		rq_batch = TAILQ_FIRST(&iter->u.host->batch_queue);
 		if (rq_batch == NULL)
 			break;
@@ -463,6 +482,8 @@ scheduler_ramqueue_fetch(void *hdl, u_int64_t *evpid)
 	}
 
 	case RAMQUEUE_ITER_BATCH:
+		if (iter->u.batch == NULL)
+			return 0;
 		rq_evp = TAILQ_FIRST(&iter->u.batch->envelope_queue);
 		if (rq_evp == NULL)
 			break;
@@ -470,6 +491,8 @@ scheduler_ramqueue_fetch(void *hdl, u_int64_t *evpid)
 		return 1;
 
 	case RAMQUEUE_ITER_MESSAGE:
+		if (iter->u.message == NULL)
+			return 0;
 		rq_evp = RB_ROOT(&iter->u.message->evptree);
 		if (rq_evp == NULL)
 			break;
