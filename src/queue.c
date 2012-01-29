@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.116 2012/01/13 21:58:35 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.117 2012/01/28 11:33:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -50,7 +50,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct submit_status	 ss;
 	struct envelope		*e;
-	struct ramqueue_batch	*rq_batch;
+	struct mta_batch	*mta_batch;
 	int			 fd, ret;
 
 #ifdef VALGRIND
@@ -146,11 +146,11 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_MESSAGE_FD:
-			rq_batch = imsg->data;
-			fd = queue_message_fd_r(Q_QUEUE, rq_batch->msgid);
+			mta_batch = imsg->data;
+			fd = queue_message_fd_r(Q_QUEUE, mta_batch->msgid);
 			log_debug("queue_imsg: QUEUE is passing fd = %d to mta", fd);
 			imsg_compose_event(iev,  IMSG_QUEUE_MESSAGE_FD, 0, 0,
-			    fd, rq_batch, sizeof *rq_batch);
+			    fd, mta_batch, sizeof *mta_batch);
 			return;
 
 		case IMSG_QUEUE_DELIVERY_OK:

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.147 2012/01/13 14:01:58 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.150 2012/01/28 16:52:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -583,7 +583,7 @@ main(int argc, char *argv[])
 	if (env->sc_queue == NULL)
 		errx(1, "could not find queue backend");
 
-	if (!env->sc_queue->init())
+	if (!env->sc_queue->init(1))
 		errx(1, "could not initialize queue backend");
 
 	log_init(debug);
@@ -812,7 +812,6 @@ purge_task(int fd, short ev, void *arg)
 			log_warn("purge_task: opendir");
 
 		if (n > 2) {
-			log_debug("smtpd: forking purge process");
 			switch(purge_pid = fork()) {
 			case -1:
 				log_warn("purge_task: fork");
@@ -1271,10 +1270,14 @@ imsg_to_str(int type)
 	CASE(IMSG_MDA_SESS_NEW);
 	CASE(IMSG_MDA_DONE);
 
+	CASE(IMSG_MFA_CONNECT);
 	CASE(IMSG_MFA_HELO);
 	CASE(IMSG_MFA_MAIL);
 	CASE(IMSG_MFA_RCPT);
 	CASE(IMSG_MFA_DATALINE);
+	CASE(IMSG_MFA_QUIT);
+	CASE(IMSG_MFA_CLOSE);
+	CASE(IMSG_MFA_RSET);
 
 	CASE(IMSG_QUEUE_CREATE_MESSAGE);
 	CASE(IMSG_QUEUE_SUBMIT_ENVELOPE);
