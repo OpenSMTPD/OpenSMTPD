@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.160 2012/01/29 15:33:08 eric Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.161 2012/01/29 16:51:00 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
