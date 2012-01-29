@@ -243,6 +243,8 @@ fsqueue_envelope_delete(enum queue_kind qkind, struct envelope *ep)
 {
 	char pathname[MAXPATHLEN];
 
+	log_debug("#### %s: queue_envelope_delete: %016" PRIx64,
+	    __func__, ep->id);
 	fsqueue_envelope_path(qkind, ep->id, pathname, sizeof(pathname));
 
 	if (unlink(pathname) == -1) {

@@ -77,6 +77,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_QUEUE_DELIVERY_OK:
 		stat_decrement(STATS_RUNNER);
 		e = imsg->data;
+		log_debug("e->id: %016"PRIx64, e->id);
 		queue_envelope_delete(Q_QUEUE, e);
 		return;
 
@@ -375,6 +376,7 @@ runner_process_envelope(u_int64_t evpid)
 		runner_setup_events();
 		return 0;
 	}
+
 
 	return runner_process_batch(envelope.type, evpid);
 }

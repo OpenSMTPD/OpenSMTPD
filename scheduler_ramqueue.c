@@ -438,6 +438,7 @@ scheduler_ramqueue_message(u_int32_t msgid)
 	iter->u.message = rq_msg;
 
 	return iter;
+
 }
 
 static void *
