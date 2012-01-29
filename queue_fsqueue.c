@@ -361,8 +361,8 @@ fsqueue_message_delete(enum queue_kind qkind, u_int32_t msgid)
 
 	fsqueue_message_path(qkind, msgid, rootdir, sizeof(rootdir));
 
-	if (mvpurge(rootdir, PATH_PURGE) == -1)
-		fatal("fsqueue_message_delete: mvpurge");
+	if (rmtree(rootdir, 0) == -1)
+		fatal("fsqueue_message_delete: rmtree");
 
 	return 1;
 }
