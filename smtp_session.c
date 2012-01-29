@@ -706,9 +706,10 @@ session_pickup(struct session *s, struct submit_status *ss)
 			io_start_tls(&s->s_io, s->s_ssl);
 			return;
 		}
-#if 0
 		s->s_msg.session_id = s->s_id;
 		s->s_msg.ss = s->s_ss;
+#if 0
+
 		session_imsg(s, PROC_MFA, IMSG_MFA_CONNECT, 0, 0, -1,
 			     &s->s_msg, sizeof(s->s_msg));
 		break;
