@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.51 2012/01/28 18:13:53 gilles Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.52 2012/01/28 21:15:01 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -143,12 +143,12 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 				p++;
 			}
 			if (*p == '\n')
-				fprintf(fp, "=%0.2X", *buf & 0xff);
+				fprintf(fp, "=%2X", *buf & 0xff);
 			else
 				fprintf(fp, "%c", *buf & 0xff);
 		}
 		else if (! isprint(*buf) && *buf != '\n')
-			fprintf(fp, "=%0.2X", *buf & 0xff);
+			fprintf(fp, "=%2X", *buf & 0xff);
 		else
 			fprintf(fp, "%c", *buf);
 		buf++;
