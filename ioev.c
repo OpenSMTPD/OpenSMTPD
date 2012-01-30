@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.h,v 1.5 2011/07/13 14:52:21 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.1 2012/01/29 00:32:51 eric Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -22,6 +22,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
