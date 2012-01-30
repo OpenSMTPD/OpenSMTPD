@@ -293,7 +293,7 @@ enqueue(int argc, char *argv[])
 	if (!msg.saw_content_transfer_encoding)
 		fprintf(fout, "Content-Transfer-Encoding: quoted-printable\n");
 	if (!msg.saw_user_agent)
-		fprintf(fout, "User-Agent: OpenSMTPD enqueuer\n");
+		fprintf(fout, "User-Agent: OpenSMTPD enqueuer (Demoosh)\n");
 
 	/* add separating newline */
 	if (noheader)
