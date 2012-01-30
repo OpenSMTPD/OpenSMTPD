@@ -166,6 +166,7 @@ enqueue(int argc, char *argv[])
 	size_t			 len;
 	char			*line;
 	int			 dotted;
+	int			 inheaders = 0;
 
 	bzero(&msg, sizeof(msg));
 	time(&timestamp);
@@ -298,6 +299,8 @@ enqueue(int argc, char *argv[])
 	/* add separating newline */
 	if (noheader)
 		fprintf(fout, "\n");
+	else
+		inheaders = 1;
 
 	for (;;) {
 		buf = fgetln(fp, &len);
@@ -317,8 +320,10 @@ enqueue(int argc, char *argv[])
 
 		line = buf;
 
-		if (msg.saw_content_transfer_encoding) {
+		if (msg.saw_content_transfer_encoding || noheader || inheaders) {
 			fprintf(fout, "%.*s", (int)len, line);
+			if (inheaders && buf[0] == '\n')
+				inheaders = 0;
 			continue;
 		}
 
