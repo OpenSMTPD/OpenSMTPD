@@ -17,7 +17,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+#include "includes.h"
 
 #ifdef HAVE_SYS_FILE_H
 #include <sys/file.h> /* Needed for flock */
