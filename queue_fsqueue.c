@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.37 2012/01/29 16:54:13 eric Exp $	*/
+/*	$OpenBSD: queue_fsqueue.c,v 1.38 2012/01/31 21:05:26 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

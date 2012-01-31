@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler_ramqueue.c,v 1.2 2012/01/28 16:50:02 gilles Exp $	*/
+/*	$OpenBSD: scheduler_ramqueue.c,v 1.4 2012/01/31 21:05:26 gilles Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
@@ -27,6 +27,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -262,10 +263,10 @@ scheduler_ramqueue_next(u_int64_t *evpid, time_t *sched)
 	log_debug("scheduler_ramqueue: next");
 	TAILQ_FOREACH(rq_evp, &ramqueue.queue, queue_entry) {
 		if (rq_evp->rq_batch->type == D_MDA)
-			if (env->sc_opts & SMTPD_MDA_PAUSED)
+			if (env->sc_flags & (SMTPD_MDA_PAUSED|SMTPD_MDA_BUSY))
 				continue;
 		if (rq_evp->rq_batch->type == D_MTA)
-			if (env->sc_opts & SMTPD_MTA_PAUSED)
+			if (env->sc_flags & (SMTPD_MTA_PAUSED|SMTPD_MTA_BUSY))
 				continue;
 		if (evpid)
 			*evpid = rq_evp->evpid;
