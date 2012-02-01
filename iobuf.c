@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.h,v 1.5 2011/07/13 14:52:21 eric Exp $	*/
+/*	$OpenBSD: iobuf.c,v 1.1 2012/01/29 00:32:51 eric Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -84,8 +84,8 @@ iobuf_drain(struct iobuf *io, size_t n)
 
 	while((q = io->outq) && left) {
 		if ((q->wpos - q->rpos) > left) {
-			left = 0;
 			q->rpos += left;
+			left = 0;
 		} else {
 			left -= q->wpos - q->rpos;
 			io->outq = q->next;
