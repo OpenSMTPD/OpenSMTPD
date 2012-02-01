@@ -69,6 +69,7 @@ struct ramqueue {
 	RB_HEAD(hosttree, ramqueue_host)	hosttree;
 	RB_HEAD(msgtree, ramqueue_message)	msgtree;
 	TAILQ_HEAD(,ramqueue_envelope)		queue;
+	u_int64_t			       *offloaded;
 };
 
 RB_PROTOTYPE(hosttree, ramqueue_host, hosttree_entry, ramqueue_host_cmp);
@@ -118,6 +119,7 @@ static void  scheduler_ramqueue_init(void);
 static int   scheduler_ramqueue_setup(time_t, time_t);
 static int   scheduler_ramqueue_next(u_int64_t *, time_t *);
 static void  scheduler_ramqueue_insert(struct envelope *);
+static void  scheduler_ramqueue_offload(u_int64_t);
 static void  scheduler_ramqueue_remove(void *, u_int64_t);
 static void *scheduler_ramqueue_host(char *);
 static void *scheduler_ramqueue_message(u_int32_t);
@@ -133,6 +135,7 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 	scheduler_ramqueue_setup,
 	scheduler_ramqueue_next,
 	scheduler_ramqueue_insert,
+	scheduler_ramqueue_offload,
 	scheduler_ramqueue_remove,
 	scheduler_ramqueue_host,
 	scheduler_ramqueue_message,
@@ -212,6 +215,9 @@ scheduler_ramqueue_init(void)
 	TAILQ_INIT(&ramqueue.queue);
 	RB_INIT(&ramqueue.hosttree);
 	RB_INIT(&ramqueue.msgtree);
+	ramqueue.offloaded = calloc(env->sc_maxconn, sizeof (u_int64_t));
+	if (ramqueue.offloaded == NULL)
+		err(1, "calloc");
 }
 
 static int
@@ -221,6 +227,7 @@ scheduler_ramqueue_setup(time_t curtm, time_t nsched)
 	static struct qwalk    *q = NULL;
 	u_int64_t	evpid;
 	time_t		sched;
+	size_t		i;
 
 	log_debug("scheduler_ramqueue: load");
 
@@ -229,6 +236,16 @@ scheduler_ramqueue_setup(time_t curtm, time_t nsched)
 		q = qwalk_new(Q_QUEUE, 0);
 
 	while (qwalk(q, &evpid)) {
+		/* scan the offload list */
+		for (i = 0; i < env->sc_maxconn; ++i) {
+			if (ramqueue.offloaded[i] == evpid) {
+				log_debug("skipping offloaded envelope");
+				break;
+			}
+		}
+		if (i < env->sc_maxconn)
+			continue;
+
 		if (! queue_envelope_load(Q_QUEUE, evpid, &envelope)) {
 			log_debug("scheduler_ramqueue: evp -> /corrupt");
 			queue_message_corrupt(Q_QUEUE, evpid_to_msgid(evpid));
@@ -288,7 +305,16 @@ scheduler_ramqueue_insert(struct envelope *envelope)
 	struct ramqueue_batch *rq_batch;
 	struct ramqueue_envelope *rq_evp, *evp;
 	u_int32_t msgid;
+	size_t	i;
 	time_t curtm = time(NULL);
+
+	/* scan the offload list */
+	for (i = 0; i < env->sc_maxconn; ++i)
+		if (ramqueue.offloaded[i] == envelope->id) {
+			ramqueue.offloaded[i] = 0;
+			break;
+		}
+
 
 	log_debug("scheduler_ramqueue: insert");
 	msgid = evpid_to_msgid(envelope->id);
@@ -331,6 +357,19 @@ scheduler_ramqueue_insert(struct envelope *envelope)
 }
 
 static void
+scheduler_ramqueue_offload(u_int64_t evpid)
+{
+	size_t	i;
+
+	for (i = 0; i < env->sc_maxconn; ++i)
+		if (ramqueue.offloaded[i] == 0) {
+			ramqueue.offloaded[i] = evpid;
+			return;
+		}
+	fatalx("scheduler_ramqueue_offload");
+}
+
+static void
 scheduler_ramqueue_remove(void *hdl, u_int64_t evpid)
 {
 	struct ramqueue_iter *iter = hdl;
@@ -350,6 +389,14 @@ scheduler_ramqueue_remove(void *hdl, u_int64_t evpid)
 	TAILQ_REMOVE(&ramqueue.queue, rq_evp, queue_entry);
 	stat_decrement(STATS_RAMQUEUE_ENVELOPE);
 
+	/* check if we are the last of a message */
+	if (RB_ROOT(&rq_msg->evptree) == NULL) {
+		ramqueue_remove_message(rq_msg);
+		if (iter != NULL && iter->type == RAMQUEUE_ITER_MESSAGE) {
+			log_debug("scheduler_ramqueue_remove: message removed");
+			iter->u.message = NULL;
+		}
+	}
 
 	/* check if we are the last of a batch */
 	if (TAILQ_FIRST(&rq_batch->envelope_queue) == NULL) {
@@ -357,15 +404,6 @@ scheduler_ramqueue_remove(void *hdl, u_int64_t evpid)
 		if (iter != NULL && iter->type == RAMQUEUE_ITER_BATCH) {
 			log_debug("scheduler_ramqueue_remove: batch removed");
 			iter->u.batch = NULL;
-		}
-	}
-
-	/* check if we are the last of a message */
-	if (RB_ROOT(&rq_msg->evptree) == NULL) {
-		ramqueue_remove_message(rq_msg);
-		if (iter != NULL && iter->type == RAMQUEUE_ITER_MESSAGE) {
-			log_debug("scheduler_ramqueue_remove: message removed");
-			iter->u.message = NULL;
 		}
 	}
 
