@@ -84,8 +84,8 @@ iobuf_drain(struct iobuf *io, size_t n)
 
 	while((q = io->outq) && left) {
 		if ((q->wpos - q->rpos) > left) {
-			left = 0;
 			q->rpos += left;
+			left = 0;
 		} else {
 			left -= q->wpos - q->rpos;
 			io->outq = q->next;
