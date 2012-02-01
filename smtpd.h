@@ -979,6 +979,7 @@ struct scheduler_backend {
 
 	void	(*insert)(struct envelope *);
 	void	(*offload)(u_int64_t);
+	void	(*clear)(u_int64_t);
 	void	(*remove)(void *, u_int64_t);
 
 	void	*(*host)(char *);

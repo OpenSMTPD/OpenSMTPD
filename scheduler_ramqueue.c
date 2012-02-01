@@ -120,6 +120,7 @@ static int   scheduler_ramqueue_setup(time_t, time_t);
 static int   scheduler_ramqueue_next(u_int64_t *, time_t *);
 static void  scheduler_ramqueue_insert(struct envelope *);
 static void  scheduler_ramqueue_offload(u_int64_t);
+static void  scheduler_ramqueue_clear(u_int64_t);
 static void  scheduler_ramqueue_remove(void *, u_int64_t);
 static void *scheduler_ramqueue_host(char *);
 static void *scheduler_ramqueue_message(u_int32_t);
@@ -136,6 +137,7 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 	scheduler_ramqueue_next,
 	scheduler_ramqueue_insert,
 	scheduler_ramqueue_offload,
+	scheduler_ramqueue_clear,
 	scheduler_ramqueue_remove,
 	scheduler_ramqueue_host,
 	scheduler_ramqueue_message,
@@ -367,6 +369,19 @@ scheduler_ramqueue_offload(u_int64_t evpid)
 			return;
 		}
 	fatalx("scheduler_ramqueue_offload");
+}
+
+static void
+scheduler_ramqueue_clear(u_int64_t evpid)
+{
+	size_t	i;
+
+	for (i = 0; i < env->sc_maxconn; ++i)
+		if (ramqueue.offloaded[i] == evpid) {
+			ramqueue.offloaded[i] = 0;
+			return;
+		}
+	fatalx("scheduler_ramqueue_clear");
 }
 
 static void

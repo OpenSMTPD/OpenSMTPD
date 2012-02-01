@@ -78,6 +78,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		stat_decrement(STATS_RUNNER);
 		e = imsg->data;
 		log_debug("queue_delivery_ok: %016"PRIx64, e->id);
+		scheduler->clear(e->id);
 		queue_envelope_delete(Q_QUEUE, e);
 		return;
 
@@ -101,6 +102,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 			scheduler->insert(&bounce);
 			runner_reset_events();
 		}
+		scheduler->clear(e->id);
 		queue_envelope_delete(Q_QUEUE, e);
 		return;
 
