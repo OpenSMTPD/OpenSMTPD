@@ -78,7 +78,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		stat_decrement(STATS_RUNNER);
 		e = imsg->data;
 		log_debug("queue_delivery_ok: %016"PRIx64, e->id);
-		scheduler->clear(e->id);
+		scheduler->remove(e->id);
 		queue_envelope_delete(Q_QUEUE, e);
 		return;
 
@@ -102,7 +102,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 			scheduler->insert(&bounce);
 			runner_reset_events();
 		}
-		scheduler->clear(e->id);
+		scheduler->remove(e->id);
 		queue_envelope_delete(Q_QUEUE, e);
 		return;
 
@@ -154,7 +154,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_RUNNER_SCHEDULE:
-		scheduler->schedule(*(u_int64_t *)imsg->data);
+		scheduler->force(*(u_int64_t *)imsg->data);
 		runner_reset_events();		
 		return;
 
@@ -387,7 +387,7 @@ runner_process_envelope(u_int64_t evpid)
 		envelope_set_errormsg(&envelope, "loop has been detected");
 		bounce_record_message(&envelope, &bounce);
 		scheduler->insert(&bounce);
-		scheduler->remove(NULL, evpid);
+		scheduler->remove(evpid);
 		queue_envelope_delete(Q_QUEUE, &envelope);
 
 		runner_setup_events();
@@ -416,8 +416,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_SMTP_ENQUEUE, PROC_SMTP, 0, -1, &evp,
 			    sizeof evp);
-			scheduler->offload(evpid);
-			scheduler->remove(batch, evpid);
+			scheduler->schedule(evpid);
 		}
 		stat_increment(STATS_RUNNER);
 		stat_increment(STATS_RUNNER_BOUNCES);
@@ -433,8 +432,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_MDA_SESS_NEW, PROC_MDA, 0, fd, &evp,
 		    sizeof evp);
-		scheduler->offload(evpid);
-		scheduler->remove(batch, evpid);
+		scheduler->schedule(evpid);
 
 		stat_increment(STATS_RUNNER);
 		stat_increment(STATS_MDA_SESSION);
@@ -469,8 +467,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 			    IMSG_BATCH_APPEND, PROC_MTA, 0, -1, &evp,
 			    sizeof evp);
 
-			scheduler->offload(evpid);
-			scheduler->remove(batch, evpid);
+			scheduler->schedule(evpid);
 			stat_increment(STATS_RUNNER);
 		}
 
@@ -601,5 +598,5 @@ runner_remove_envelope(u_int64_t evpid)
 
 	evp.id = evpid;
 	queue_envelope_delete(Q_QUEUE, &evp);
-	scheduler->remove(NULL, evpid);
+	scheduler->remove(evpid);
 }
