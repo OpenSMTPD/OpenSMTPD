@@ -314,31 +314,40 @@ scheduler_ramqueue_insert(struct envelope *envelope)
 	time_t curtm = time(NULL);
 
 	log_debug("scheduler_ramqueue: insert");
-	msgid = evpid_to_msgid(envelope->id);
-	rq_msg = ramqueue_lookup_message(msgid);
-	if (rq_msg == NULL)
-		rq_msg = ramqueue_insert_message(msgid);
+	rq_evp = ramqueue_lookup_offload(envelope->id);
+	if (rq_evp) {
+		rq_msg = rq_evp->rq_msg;
+		rq_batch = rq_evp->rq_batch;
+		rq_host = rq_evp->rq_host;
+		RB_REMOVE(evptree, &rq_msg->evptree, rq_evp);
+	}
+	else {
+		msgid = evpid_to_msgid(envelope->id);
+		rq_msg = ramqueue_lookup_message(msgid);
+		if (rq_msg == NULL)
+			rq_msg = ramqueue_insert_message(msgid);
 
-	rq_host = ramqueue_lookup_host(envelope->dest.domain);
-	if (rq_host == NULL)
-		rq_host = ramqueue_insert_host(envelope->dest.domain);
+		rq_host = ramqueue_lookup_host(envelope->dest.domain);
+		if (rq_host == NULL)
+			rq_host = ramqueue_insert_host(envelope->dest.domain);
 
-	rq_batch = ramqueue_lookup_batch(rq_host, msgid);
-	if (rq_batch == NULL)
-		rq_batch = ramqueue_insert_batch(rq_host, msgid);
+		rq_batch = ramqueue_lookup_batch(rq_host, msgid);
+		if (rq_batch == NULL)
+			rq_batch = ramqueue_insert_batch(rq_host, msgid);
 		
-	rq_evp = calloc(1, sizeof (*rq_evp));
-	if (rq_evp == NULL)
-		fatal("calloc");
-	rq_evp->evpid = envelope->id;
+		rq_evp = calloc(1, sizeof (*rq_evp));
+		if (rq_evp == NULL)
+			fatal("calloc");
+		rq_evp->evpid = envelope->id;
+	}
+
 	rq_evp->sched = ramqueue_next_schedule(envelope, curtm);
 	rq_evp->rq_host = rq_host;
 	rq_evp->rq_batch = rq_batch;
 	rq_evp->rq_msg = rq_msg;
-
 	RB_INSERT(evptree, &rq_msg->evptree, rq_evp);
 	TAILQ_INSERT_TAIL(&rq_batch->envelope_queue, rq_evp,
-	    batchqueue_entry);
+		    batchqueue_entry);
 
 	/* sorted insert */
 	TAILQ_FOREACH(evp, &ramqueue.queue, queue_entry) {
