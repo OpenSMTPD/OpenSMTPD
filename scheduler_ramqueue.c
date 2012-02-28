@@ -48,6 +48,7 @@ struct ramqueue_batch {
 	struct ramqueue_host	       *rq_host;
 	u_int64_t			b_id;
 	u_int32_t      			msgid;
+	u_int32_t			evpcnt;
 };
 struct ramqueue_envelope {
 	TAILQ_ENTRY(ramqueue_envelope)	 queue_entry;
@@ -63,6 +64,7 @@ struct ramqueue_message {
 	RB_ENTRY(ramqueue_message)		msgtree_entry;
 	RB_HEAD(evptree, ramqueue_envelope)	evptree;
 	u_int32_t				msgid;
+	u_int32_t				evpcnt;
 };
 struct ramqueue {
 	RB_HEAD(hosttree, ramqueue_host)	hosttree;
@@ -339,6 +341,8 @@ scheduler_ramqueue_insert(struct envelope *envelope)
 		if (rq_evp == NULL)
 			fatal("calloc");
 		rq_evp->evpid = envelope->id;
+		rq_batch->evpcnt++;
+		rq_msg->evpcnt++;
 	}
 
 	rq_evp->sched = ramqueue_next_schedule(envelope, curtm);
@@ -415,16 +419,18 @@ scheduler_ramqueue_remove(u_int64_t evpid)
 		RB_REMOVE(evptree, &rq_msg->evptree, rq_evp);
 		TAILQ_REMOVE(&rq_batch->envelope_queue, rq_evp, batchqueue_entry);
 		TAILQ_REMOVE(&ramqueue.queue, rq_evp, queue_entry);
+		rq_batch->evpcnt--;
+		rq_msg->evpcnt--;
 		stat_decrement(STATS_RAMQUEUE_ENVELOPE);
 	}
 
 	/* check if we are the last of a message */
-	if (RB_ROOT(&rq_msg->evptree) == NULL) {
+	if (rq_msg->evpcnt == 0) {
 		ramqueue_remove_message(rq_msg);
 	}
 
 	/* check if we are the last of a batch */
-	if (TAILQ_FIRST(&rq_batch->envelope_queue) == NULL) {
+	if (rq_batch->evpcnt == 0) {
 		ramqueue_remove_batch(rq_host, rq_batch);
 	}
 
