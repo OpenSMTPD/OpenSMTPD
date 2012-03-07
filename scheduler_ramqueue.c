@@ -419,10 +419,11 @@ scheduler_ramqueue_remove(u_int64_t evpid)
 		RB_REMOVE(evptree, &rq_msg->evptree, rq_evp);
 		TAILQ_REMOVE(&rq_batch->envelope_queue, rq_evp, batchqueue_entry);
 		TAILQ_REMOVE(&ramqueue.queue, rq_evp, queue_entry);
-		rq_batch->evpcnt--;
-		rq_msg->evpcnt--;
 		stat_decrement(STATS_RAMQUEUE_ENVELOPE);
 	}
+
+	rq_batch->evpcnt--;
+	rq_msg->evpcnt--;
 
 	/* check if we are the last of a message */
 	if (rq_msg->evpcnt == 0) {
