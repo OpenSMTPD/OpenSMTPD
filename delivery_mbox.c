@@ -22,6 +22,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <db.h>
 #include <ctype.h>
 #include <err.h>
 #include <event.h>
