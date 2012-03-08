@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_maildir.c,v 1.2 2011/12/18 22:53:41 chl Exp $	*/
+/*	$OpenBSD: delivery_maildir.c,v 1.5 2012/03/07 23:04:00 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

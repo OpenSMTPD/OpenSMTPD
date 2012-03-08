@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_filename.c,v 1.1 2011/12/13 21:44:47 gilles Exp $	*/
+/*	$OpenBSD: delivery_filename.c,v 1.4 2012/03/07 23:04:00 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
