@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_mda.c,v 1.2 2012/02/04 17:11:45 chl Exp $	*/
+/*	$OpenBSD: delivery_mda.c,v 1.4 2012/03/07 23:04:00 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

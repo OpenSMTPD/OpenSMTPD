@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.55 2012/02/02 16:52:59 eric Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.56 2012/03/17 13:10:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -29,6 +29,7 @@
 #include <err.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -285,7 +286,7 @@ enqueue(int argc, char *argv[])
 
 	/* add Message-Id */
 	if (!msg.saw_msgid)
-		fprintf(fout, "Message-Id: <%llu.enqueue@%s>\n",
+		fprintf(fout, "Message-Id: <%"PRIu64".enqueue@%s>\n",
 		    generate_uid(), host);
 
 	if (msg.need_linesplit) {
