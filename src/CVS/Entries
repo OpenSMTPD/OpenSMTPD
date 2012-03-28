@@ -51,7 +51,6 @@ D/libexec////
 /util.c/1.57/Result of merge//
 /ioev.c/1.2/Result of merge//
 /iobuf.c/1.2/Result of merge//
-/mta.c/1.127/Result of merge//
 /smtp.c/1.101/Result of merge//
 /Makefile/1.9/Tue Mar 20 19:39:44 2012//
 /aliases.c/1.45/Result of merge//
@@ -77,3 +76,4 @@ D/libexec////
 /smtpd.conf.5/1.47/Tue Mar 20 19:39:31 2012//
 /smtpd.h/1.287/Result of merge//
 /smtpfilter.c/1.1/Tue Mar 20 19:39:31 2012//
+/mta.c/1.129/Result of merge//
