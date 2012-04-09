@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.127 2012/02/01 20:30:40 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.130 2012/03/30 16:48:30 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -491,8 +491,19 @@ mta_enter_state(struct mta_session *s, int newstate)
 			iobuf_init(&s->iobuf, 0, 0);
 			io_init(&s->io, -1, s, mta_io, &s->iobuf);
 			io_set_timeout(&s->io, 10000);
-			if (io_connect(&s->io, sa) == -1)
-				fatal("mta cannot create socket");
+			if (io_connect(&s->io, sa) == -1) {
+				log_debug("mta: %p: connection failed: %s", s,
+				    strerror(errno));
+				iobuf_clear(&s->iobuf);
+				/*
+				 * This error is most likely a "no route",
+				 * so there is no need to try the same
+				 * relay again.
+				 */
+				TAILQ_REMOVE(&s->relays, relay, entry);
+				free(relay);
+				continue;
+			}
 			return;
 		}
 		/* tried them all? */
@@ -549,14 +560,21 @@ mta_enter_state(struct mta_session *s, int newstate)
 	case MTA_SMTP_STARTTLS:
 		if (s->flags & MTA_TLS) /* already started */
 			mta_enter_state(s, MTA_SMTP_AUTH);
+		else if ((s->ext & MTA_EXT_STARTTLS) == 0)
+			/* server doesn't support starttls, do not use it */
+			mta_enter_state(s, MTA_SMTP_AUTH);
 		else
 			mta_send(s, "STARTTLS");
 		break;
 
 	case MTA_SMTP_AUTH:
-		if (s->secret)
+		if (s->secret && s->flags & MTA_TLS)
 			mta_send(s, "AUTH PLAIN %s", s->secret);
-		else
+		else if (s->secret) {
+			log_debug("mta: %p: not using AUTH on non-TLS session",
+			    s);
+			mta_enter_state(s, MTA_CONNECT);
+		} else
 			mta_enter_state(s, MTA_SMTP_READY);
 		break;
 
@@ -741,7 +759,7 @@ mta_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_CONNECTED:
-		io_set_timeout(io, 30000);
+		io_set_timeout(io, 300000);
 		io_set_write(io);
 		relay = TAILQ_FIRST(&s->relays);
 		dns_query_ptr(&relay->sa, s->id);
