@@ -2262,6 +2262,8 @@ AC_LINK_IFELSE(
 
 AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
 
+
+LIBS="$LIBS ${SSHDLIBS}"
 ##end of chl
 
 
@@ -2336,10 +2338,6 @@ echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
 echo "         Libraries: ${LIBS}"
-if test ! -z "${SSHDLIBS}"; then
-echo "         +for sshd: ${SSHDLIBS}"
-fi
-
 echo ""
 
 if test "x$MAKE_PACKAGE_SUPPORTED" = "xyes" ; then
