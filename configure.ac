@@ -341,7 +341,6 @@ AC_CHECK_FUNCS( \
 	dirfd \
 	dirname \
 	fgetln \
-	fparseln \
 	getopt \
 	getpeereid \
 	memmove \
@@ -445,6 +444,14 @@ AC_CHECK_FUNC([daemon],
 		[LIBS="$LIBS -lbsd"; AC_DEFINE([HAVE_DAEMON])])]
 )
 #l1666
+
+##chl
+AC_CHECK_FUNC([fparseln],
+	[AC_DEFINE([HAVE_FPARSELN], [1], [Define if your libraries define fparseln()])],
+	[AC_CHECK_LIB([util], [fparseln],
+		[LIBS="$LIBS -lutil"; AC_DEFINE([HAVE_FPARSELN])])]
+)
+##chl
 
 #l1675
 # Check for broken snprintf
