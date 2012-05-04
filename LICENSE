@@ -1,0 +1,320 @@
+This file is part of the OpenSMTPD software.
+
+The licences which components of this software fall under are as
+follows.  First, we will summarize and say that all components
+are under a BSD licence, or a licence more free than that.
+
+OpenSMTPD contains no GPL code.
+
+Portable OpenSMTPD is divided in 3 parts:
+- Original OpenSMTPD
+- mail.local
+- openbsd-compat
+
+
+
+OpenSMTPD
+=========
+
+
+1) Almost all code is licensed under an ISC-style license, to the following
+   copyright holders:
+
+    Some code is licensed under an ISC-style license, to the following
+    copyright holders:
+	Gilles Chehade
+	Eric Faurot
+	Jacek Masiulaniec
+	Pierre-Yves Ritschard
+	Henning Brauer
+	Esben Norby
+	Markus Friedl
+	Daniel Hartmeier
+	Theo de Raadt
+	Claudio Jeker
+	Reyk Floeter
+	Janne Johansson
+
+
+2) ssl_privsep.c
+
+     * Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+     * All rights reserved.
+     *
+     * This package is an SSL implementation written
+     * by Eric Young (eay@cryptsoft.com).
+     * The implementation was written so as to conform with Netscapes SSL.
+     *
+     * This library is free for commercial and non-commercial use as long as
+     * the following conditions are aheared to.  The following conditions
+     * apply to all code found in this distribution, be it the RC4, RSA,
+     * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
+     * included with this distribution is covered by the same copyright terms
+     * except that the holder is Tim Hudson (tjh@cryptsoft.com).
+     *
+     * Copyright remains Eric Young's, and as such any Copyright notices in
+     * the code are not to be removed.
+     * If this package is used in a product, Eric Young should be given attribution
+     * as the author of the parts of the library used.
+     * This can be in the form of a textual message at program startup or
+     * in documentation (online or textual) provided with the package.
+     *
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the copyright
+     *    notice, this list of conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright
+     *    notice, this list of conditions and the following disclaimer in the
+     *    documentation and/or other materials provided with the distribution.
+     * 3. All advertising materials mentioning features or use of this software
+     *    must display the following acknowledgement:
+     *    "This product includes cryptographic software written by
+     *     Eric Young (eay@cryptsoft.com)"
+     *    The word 'cryptographic' can be left out if the rouines from the library
+     *    being used are not cryptographic related :-).
+     * 4. If you include any Windows specific code (or a derivative thereof) from
+     *    the apps directory (application code) you must include an acknowledgement:
+     *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
+     *
+     * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
+     * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+     * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+     * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+     * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+     * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+     * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+     * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+     * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+     * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+     * SUCH DAMAGE.
+     *
+     * The licence and distribution terms for any publically available version or
+     * derivative of this code cannot be changed.  i.e. this code cannot simply be
+     * copied and put under another distribution licence
+     * [including the GNU Public Licence.]
+
+
+3) res_random.c
+
+    Remaining components of the software are provided under a standard
+    2-clause BSD licence with the following names as copyright holders:
+
+	Niels Provos
+	Damien Miller
+
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the above copyright
+     *    notice, this list of conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright
+     *    notice, this list of conditions and the following disclaimer in the
+     *    documentation and/or other materials provided with the distribution.
+     *
+     * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+     * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+     * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+     * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+     * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+     * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+     * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+
+mail.local
+==========
+
+
+1) mail.local is covered by a 3-clause BSD license, to the following
+   copyright holders:
+
+	The Regents of the University of California.
+	David Mazieres
+	Theo de Raadt
+
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the above copyright
+     *    notice, this list of conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright
+     *    notice, this list of conditions and the following disclaimer in the
+     *    documentation and/or other materials provided with the distribution.
+     * 3. Neither the name of the University nor the names of its contributors
+     *    may be used to endorse or promote products derived from this software
+     *    without specific prior written permission.
+     *
+     * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+     * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+     * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+     * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+     * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+     * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+     * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+     * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+     * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+     * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+     * SUCH DAMAGE.
+
+
+
+openbsd-compat
+==============
+
+
+1) Almost all code is licensed under an ISC-style license, to the following
+   copyright holders:
+
+	Internet Software Consortium.
+	Todd C. Miller
+	Damien Miller
+	Henning Brauer
+	Theo de Raadt
+	Ted Unangst
+
+     * Permission to use, copy, modify, and distribute this software for any
+     * purpose with or without fee is hereby granted, provided that the above
+     * copyright notice and this permission notice appear in all copies.
+     *
+     * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+     * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+     * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+     * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+     * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+     * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+     * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+2) base64.c in addition to beeing covered by an ISC-style licence, is also
+   covered by this one:
+
+     * Portions Copyright (c) 1995 by International Business Machines, Inc.
+     *
+     * International Business Machines, Inc. (hereinafter called IBM) grants
+     * permission under its copyrights to use, copy, modify, and distribute this
+     * Software with or without fee, provided that the above copyright notice and
+     * all paragraphs of this notice appear in all copies, and that the name of IBM
+     * not be used in connection with the marketing of any product incorporating
+     * the Software or modifications thereof, without specific, written prior
+     * permission.
+     *
+     * To the extent it has a right to do so, IBM grants an immunity from suit
+     * under its patents, if any, for the use, sale or manufacture of products to
+     * the extent that such products are used for performing Domain Name System
+     * dynamic updates in TCP/IP networks by means of the Software.  No immunity is
+     * granted for any product per se or for any other function of any product.
+     *
+     * THE SOFTWARE IS PROVIDED "AS IS", AND IBM DISCLAIMS ALL WARRANTIES,
+     * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+     * PARTICULAR PURPOSE.  IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
+     * DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER ARISING
+     * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE, EVEN
+     * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+
+2)  Portable OpenSMTPD includes code under the 2-clause BSD license, from the
+    following copyright holders:
+
+	Ben Lindstrom
+	Damien Miller
+	Marc Espie
+	Niels Provos
+
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the above copyright
+     *    notice, this list of conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright
+     *    notice, this list of conditions and the following disclaimer in the
+     *    documentation and/or other materials provided with the distribution.
+     *
+     * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+     * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+     * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+     * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+     * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+     * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+     * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+3)  Some code is under a 3-clause BSD license, from the
+    following copyright holders:
+
+        The Regents of the University of California.
+        Ian F. Darwin
+	Eric P. Allman
+
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the above copyright
+     *    notice, this list of conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright
+     *    notice, this list of conditions and the following disclaimer in the
+     *    documentation and/or other materials provided with the distribution.
+     * 3. Neither the name of the University nor the names of its contributors
+     *    may be used to endorse or promote products derived from this software
+     *    without specific prior written permission.
+     *
+     * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+     * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+     * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+     * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+     * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+     * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+     * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+     * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+     * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+     * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+     * SUCH DAMAGE.
+
+
+4)  Some code is under a 4-clause BSD license, from the
+    following copyright holders:
+
+	Christos Zoulas
+
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the above copyright
+     *    notice, this list of conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright
+     *    notice, this list of conditions and the following disclaimer in the
+     *    documentation and/or other materials provided with the distribution.
+     * 3. All advertising materials mentioning features or use of this software
+     *    must display the following acknowledgement:
+     *      This product includes software developed by Christos Zoulas.
+     * 4. The name of the author may not be used to endorse or promote products
+     *    derived from this software without specific prior written permission.
+     *
+     * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+     * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+     * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+     * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+     * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+     * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+     * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+5) setresguid, xmalloc
+
+     * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
+     *                    All rights reserved
+     *
+     * As far as I am concerned, the code I have written for this software
+     * can be used freely for any purpose.  Any derived versions of this
+     * software must be clearly marked as such, and if the derived work is
+     * incompatible with the protocol description in the RFC file, it must be
+     * called by a name other than "ssh" or "Secure Shell".
