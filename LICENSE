@@ -216,7 +216,7 @@ openbsd-compat
      * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
 
-2)  Portable OpenSMTPD includes code under the 2-clause BSD license, from the
+3)  Portable OpenSMTPD includes code under the 2-clause BSD license, from the
     following copyright holders:
 
 	Ben Lindstrom
@@ -245,7 +245,7 @@ openbsd-compat
      * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-3)  Some code is under a 3-clause BSD license, from the
+4)  Some code is under a 3-clause BSD license, from the
     following copyright holders:
 
         The Regents of the University of California.
@@ -277,7 +277,7 @@ openbsd-compat
      * SUCH DAMAGE.
 
 
-4)  Some code is under a 4-clause BSD license, from the
+5)  Some code is under a 4-clause BSD license, from the
     following copyright holders:
 
 	Christos Zoulas
@@ -308,7 +308,7 @@ openbsd-compat
      * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-5) setresguid, xmalloc
+6) setresguid, xmalloc
 
      * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
      *                    All rights reserved
