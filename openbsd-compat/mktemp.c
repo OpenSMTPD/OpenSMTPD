@@ -54,7 +54,7 @@ mktemp_internal(char *path, int slen, int mode)
 	int fd;
 
 	len = strlen(path);
-	if (len == 0 || slen >= len) {
+	if (len == 0 || slen < 0 || (size_t)slen >= len) {
 		errno = EINVAL;
 		return(-1);
 	}
@@ -95,6 +95,27 @@ mktemp_internal(char *path, int slen, int mode)
 	errno = EEXIST;
 	return(-1);
 }
+
+#if 0
+char *_mktemp(char *);
+
+char *
+_mktemp(char *path)
+{
+	if (mktemp_internal(path, 0, MKTEMP_NAME) == -1)
+		return(NULL);
+	return(path);
+}
+
+__warn_references(mktemp,
+    "warning: mktemp() possibly used unsafely; consider using mkstemp()");
+
+char *
+mktemp(char *path)
+{
+	return(_mktemp(path));
+}
+#endif
 
 int
 mkstemp(char *path)
