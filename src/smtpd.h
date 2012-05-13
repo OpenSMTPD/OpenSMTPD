@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.287 2012/03/07 22:54:49 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.293 2012/05/13 00:10:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -251,26 +251,18 @@ struct peer {
 	void			(*cb)(int, short, void *);
 };
 
-enum map_type {
-	T_SINGLE,
-	T_LIST,
-	T_HASH
-};
-
 enum map_src {
 	S_NONE,
-	S_DYN,
-	S_DNS,
 	S_PLAIN,
-	S_DB,
-	S_EXT
+	S_DB
 };
 
 enum map_kind {
 	K_NONE,
 	K_ALIAS,
 	K_VIRTUAL,
-	K_SECRET
+	K_CREDENTIALS,
+	K_NETADDR
 };	
 
 enum mapel_type {
@@ -283,19 +275,14 @@ struct mapel {
 	TAILQ_ENTRY(mapel)		 me_entry;
 	union mapel_data {
 		char			 med_string[MAX_LINE_SIZE];
-		struct netaddr		 med_addr;
 	}				 me_key;
 	union mapel_data		 me_val;
 };
 
 struct map {
 	TAILQ_ENTRY(map)		 m_entry;
-#define F_USED				 0x01
-#define F_DYNAMIC			 0x02
-	u_int8_t			 m_flags;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
-	enum map_type			 m_type;
 	enum mapel_type			 m_eltype;
 	enum map_src			 m_src;
 	char				 m_config[MAXPATHLEN];
@@ -307,6 +294,7 @@ struct map_backend {
 	void *(*open)(char *);
 	void (*close)(void *);
 	void *(*lookup)(void *, char *, enum map_kind);
+	int  (*compare)(void *, char *, enum map_kind, int (*)(char *, char *));
 };
 
 
@@ -846,6 +834,7 @@ enum mta_state {
 	MTA_SMTP_QUIT,
 	MTA_SMTP_BODY,
 	MTA_SMTP_DONE,
+	MTA_SMTP_RSET,
 };
 
 /* mta session flags */
@@ -877,11 +866,12 @@ struct mta_session {
 	char			*host;
 	int			 port;
 	int			 flags;
-	TAILQ_HEAD(,envelope)	 recipients;
 	TAILQ_HEAD(,mta_relay)	 relays;
 	char			*authmap;
 	char			*secret;
 	FILE			*datafp;
+
+	TAILQ_HEAD(,mta_task)	 tasks;
 
 	struct envelope		*currevp;
 	struct iobuf		 iobuf;
@@ -898,7 +888,7 @@ struct mta_batch {
 };
 
 /* maps return structures */
-struct map_secret {
+struct map_credentials {
 	char username[MAX_LINE_SIZE];
 	char password[MAX_LINE_SIZE];
 };
@@ -913,6 +903,9 @@ struct map_virtual {
 	struct expandtree	expandtree;
 };
 
+struct map_netaddr {
+	struct netaddr		netaddr;
+};
 
 /* queue structures */
 enum queue_type {
@@ -1114,6 +1107,7 @@ void lka_session_destroy(struct lka_session *);
 
 /* map.c */
 void *map_lookup(objid_t, char *, enum map_kind);
+int map_compare(objid_t, char *, enum map_kind, int (*)(char *, char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
 
@@ -1129,9 +1123,9 @@ SPLAY_PROTOTYPE(mfatree, mfa_session, nodes, mfa_session_cmp);
 
 /* mta.c */
 pid_t mta(void);
-int mta_session_cmp(struct mta_session *, struct mta_session *);
-SPLAY_PROTOTYPE(mtatree, mta_session, entry, mta_session_cmp);
 
+/* mta_session.c */
+void mta_session_imsg(struct imsgev *, struct imsg *);
 
 /* parse.y */
 int parse_config(struct smtpd *, const char *, int);
@@ -1260,3 +1254,4 @@ int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
 const char *parse_smtp_response(char *, size_t, char **, int *);
+int text_to_netaddr(struct netaddr *, char *);

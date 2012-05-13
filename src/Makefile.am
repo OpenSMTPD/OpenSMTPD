@@ -34,10 +34,10 @@ makemap_SOURCES =	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
 smtpd_SOURCES =		aliases.c auth.c auth_bsd.c auth_pwd.c bounce.c		\
 			iobuf.c ioev.c						\
 			delivery.c delivery_filename.c delivery_maildir.c	\
-			delivery_mbox.c delivery_mda.c	\
+			delivery_mbox.c delivery_mda.c				\
 			config.c control.c dns.c expand.c envelope.c forward.c	\
 			lka.c lka_session.c log.c map.c map_db.c map_stdio.c	\
-			mda.c mfa.c mfa_session.c mta.c parse.y 		\
+			mda.c mfa.c mfa_session.c mta.c mta_session.c parse.y	\
 			queue.c ruleset.c runner.c smtp.c			\
 			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
 			print.c pack.c dname.c res_random.c sockaddr.c 		\
