@@ -1,9 +1,8 @@
 #! /bin/sh
-# $Id: bootstrap 1974 2008-04-04 11:32:24Z sam $
 
 # bootstrap: generic bootstrap/autogen.sh script for autotools projects
 #
-# Copyright (c) 2002-2008 Sam Hocevar <sam@zoy.org>
+# Copyright (c) 2002-2011 Sam Hocevar <sam@hocevar.net>
 #
 #    This program is free software. It comes without any warranty, to
 #    the extent permitted by applicable law. You can redistribute it
@@ -12,7 +11,7 @@
 #    http://sam.zoy.org/wtfpl/COPYING for more details.
 #
 # The latest version of this script can be found at the following place:
-#   http://sam.zoy.org/autotools/
+#    http://caca.zoy.org/wiki/build
 
 # Die if an error occurs
 set -e
@@ -29,14 +28,15 @@ fi
 
 # Check for needed features
 auxdir="`sed -ne 's/^[ \t]*A._CONFIG_AUX_DIR *([[ ]*\([^] )]*\).*/\1/p' $conffile`"
-libtool="`grep '^[ \t]*A._PROG_LIBTOOL' $conffile > /dev/null 2>&1 && echo yes || echo no`"
-header="`grep '^[ \t]*A._CONFIG_HEADER' $conffile > /dev/null 2>&1 && echo yes || echo no`"
+pkgconfig="`grep '^[ \t]*PKG_PROG_PKG_CONFIG' $conffile >/dev/null 2>&1 && echo yes || echo no`"
+libtool="`grep '^[ \t]*A._PROG_LIBTOOL' $conffile >/dev/null 2>&1 && echo yes || echo no`"
+header="`grep '^[ \t]*A._CONFIG_HEADER' $conffile >/dev/null 2>&1 && echo yes || echo no`"
 makefile="`[ -f Makefile.am ] && echo yes || echo no`"
 aclocalflags="`sed -ne 's/^[ \t]*ACLOCAL_AMFLAGS[ \t]*=//p' Makefile.am 2>/dev/null || :`"
 
 # Check for automake
 amvers="no"
-for v in 11 10 9 8 7 6 5; do
+for v in 12 11 10 9 8 7 6 5; do
   if automake-1.${v} --version >/dev/null 2>&1; then
     amvers="-1.${v}"
     break
@@ -62,7 +62,7 @@ fi
 
 # Check for autoconf
 acvers="no"
-for v in "259" "-2.59" "253" "-2.53" ""; do
+for v in "" "269" "-2.69" "259" "-2.59" "253" "-2.53"; do
   if autoconf${v} --version >/dev/null 2>&1; then
     acvers="${v}"
     break
@@ -94,6 +94,14 @@ if test "$libtool" = "yes"; then
   fi
 fi
 
+# Check for pkg-config
+if test "$pkgconfig" = "yes"; then
+  if ! pkg-config --version >/dev/null 2>&1; then
+    echo "$0: you need pkg-config"
+    exit 1
+  fi
+fi
+
 # Remove old cruft
 for x in aclocal.m4 configure config.guess config.log config.sub config.cache config.h.in config.h compile libtool.m4 ltoptions.m4 ltsugar.m4 ltversion.m4 ltmain.sh libtool ltconfig missing mkinstalldirs depcomp install-sh; do rm -f $x autotools/$x; if test -n "$auxdir"; then rm -f "$auxdir/$x"; fi; done
 rm -Rf autom4te.cache
@@ -103,6 +111,17 @@ if test -n "$auxdir"; then
   fi
   aclocalflags="${aclocalflags} -I $auxdir -I ."
 fi
+
+# Honour M4PATH because sometimes M4 doesn't
+save_IFS=$IFS
+IFS=:
+tmp="$M4PATH"
+for x in $tmp; do
+  if test -n "$x"; then
+    aclocalflags="${aclocalflags} -I $x"
+  fi
+done
+IFS=$save_IFS
 
 # Explain what we are doing from now
 set -x
