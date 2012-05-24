@@ -14,4 +14,4 @@ LDADD = 		$(LIBCOMPAT)
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS =		-D_GNU_SOURCE
+CFLAGS +=		-D_GNU_SOURCE

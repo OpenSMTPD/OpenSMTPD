@@ -63,7 +63,7 @@ LDADD = 		$(LIBCOMPAT)
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS =		-D_GNU_SOURCE
+CFLAGS +=		-D_GNU_SOURCE
 CPPFLAGS =		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 PATHS =			-DSMTPD_CONFDIR=\"$(sysconfdir)/mail\" \
