@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.1 2012/01/29 00:32:51 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.2 2012/01/30 10:02:55 chl Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -511,13 +511,10 @@ void
 io_dispatch(int fd, short ev, void *humppa)
 {
 	struct io	*io = humppa;
-	char		 buf[64];
 	size_t		 w;
 	ssize_t		 n;
 
 	io_frame_enter("io_dispatch", io, ev);
-
-	buf[0] = 0;
 
 	if (ev == EV_TIMEOUT) {
 		io_callback(io, IO_TIMEOUT);
