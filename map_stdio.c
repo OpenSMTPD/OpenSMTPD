@@ -1,4 +1,4 @@
-/*	$OpenBSD: map_stdio.c,v 1.2 2012/05/12 15:29:16 gilles Exp $	*/
+/*	$OpenBSD: map_stdio.c,v 1.3 2012/05/13 00:10:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -36,7 +36,7 @@
 
 
 /* stdio(3) backend */
-static void *map_stdio_open(char *);
+static void *map_stdio_open(struct map *);
 static void *map_stdio_lookup(void *, char *, enum map_kind);
 static int   map_stdio_compare(void *, char *, enum map_kind,
     int (*)(char *, char *));
@@ -58,9 +58,9 @@ struct map_backend map_backend_stdio = {
 
 
 static void *
-map_stdio_open(char *src)
+map_stdio_open(struct map *map)
 {
-	return fopen(src, "r");
+	return fopen(map->m_config, "r");
 }
 
 static void
