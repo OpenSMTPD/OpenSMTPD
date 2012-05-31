@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.293 2012/05/13 00:10:49 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.295 2012/05/29 19:53:10 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -271,7 +271,7 @@ struct map {
 
 
 struct map_backend {
-	void *(*open)(char *);
+	void *(*open)(struct map *);
 	void (*close)(void *);
 	void *(*lookup)(void *, char *, enum map_kind);
 	int  (*compare)(void *, char *, enum map_kind, int (*)(char *, char *));
@@ -1231,3 +1231,4 @@ int rmtree(char *, int);
 int mvpurge(char *, char *);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 int text_to_netaddr(struct netaddr *, char *);
+int text_to_relayhost(struct relayhost *, char *);
