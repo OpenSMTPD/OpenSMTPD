@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.20 2012/01/14 15:13:14 chl Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.22 2012/06/03 19:52:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -100,7 +100,15 @@ queue_message_fd_rw(enum queue_kind qkind, u_int32_t msgid)
 int
 queue_envelope_create(enum queue_kind qkind, struct envelope *ep)
 {
-	return env->sc_queue->envelope(qkind, QOP_CREATE, ep);
+	int r;
+
+	ep->creation = time(NULL);
+	r = env->sc_queue->envelope(qkind, QOP_CREATE, ep);
+	if (!r) {
+		ep->creation = 0;
+		ep->id = 0;
+	}
+	return (r);
 }
 
 int
@@ -116,11 +124,13 @@ queue_envelope_load(enum queue_kind qkind, u_int64_t evpid, struct envelope *ep)
 
 	ep->id = evpid;
 	if (env->sc_queue->envelope(qkind, QOP_LOAD, ep)) {
-		if ((e = envelope_validate(ep, evpid)) == NULL)
-			return 1;
+		if ((e = envelope_validate(ep, evpid)) == NULL) {
+			ep->id = evpid;
+			return (1);
+		}
 		log_debug("invalid envelope %016" PRIx64 ": %s", ep->id, e);
 	}
-	return 0;
+	return (0);
 }
 
 int
@@ -182,11 +192,8 @@ envelope_validate(struct envelope *ep, uint64_t id)
 	if (ep->version != SMTPD_ENVELOPE_VERSION)
 		return "version mismatch";
 
-	if ((ep->id & 0xffffffff) == 0 || ((ep->id >> 32) & 0xffffffff) == 0)
-		return "invalid id";
-
-	if (ep->id != id)
-		return "id mismatch";
+	if (evpid_to_msgid(ep->id) != (evpid_to_msgid(id)))
+		return "msgid mismatch";
 
 	if (memchr(ep->helo, '\0', sizeof(ep->helo)) == NULL)
 		return "invalid helo";

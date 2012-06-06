@@ -29,7 +29,7 @@ sbin_PROGRAMS =		smtpd smtpctl
 pkglibexec_PROGRAMS =	makemap
 
 makemap_SOURCES =	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
-			map_db.c map_stdio.c
+			map_static.c map_db.c map_stdio.c
 
 smtpd_SOURCES =		aliases.c auth.c auth_bsd.c auth_pwd.c bounce.c		\
 			iobuf.c ioev.c						\
@@ -42,7 +42,8 @@ smtpd_SOURCES =		aliases.c auth.c auth_bsd.c auth_pwd.c bounce.c		\
 			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
 			print.c pack.c dname.c res_random.c sockaddr.c 		\
 			queue_backend.c queue_fsqueue.c				\
-			user.c user_pwd.c stats.c scheduler.c scheduler_ramqueue.c
+			user.c user_pwd.c stats.c scheduler.c scheduler_ramqueue.c \
+			map_static.c
 
 smtpd_CFLAGS =		-DIO_SSL
 

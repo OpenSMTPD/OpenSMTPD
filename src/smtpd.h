@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.293 2012/05/13 00:10:49 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.298 2012/06/03 19:52:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -291,7 +291,7 @@ struct map {
 
 
 struct map_backend {
-	void *(*open)(char *);
+	void *(*open)(struct map *);
 	void (*close)(void *);
 	void *(*lookup)(void *, char *, enum map_kind);
 	int  (*compare)(void *, char *, enum map_kind, int (*)(char *, char *));
@@ -447,6 +447,7 @@ TAILQ_HEAD(deliverylist, envelope);
 enum envelope_field {
 	EVP_VERSION,
 	EVP_ID,
+	EVP_MSGID,
 	EVP_TYPE,
 	EVP_HELO,
 	EVP_HOSTNAME,
@@ -582,8 +583,6 @@ struct session {
 	int				 s_dstatus;
 
 	FILE				*datafp;
-	int				 mboxfd;
-	int				 messagefd;
 };
 
 
@@ -1076,9 +1075,9 @@ int		 enqueue_offline(int, char **);
 void envelope_set_errormsg(struct envelope *, char *, ...);
 char *envelope_ascii_field_name(enum envelope_field);
 int envelope_ascii_load(enum envelope_field, struct envelope *, char *);
-int envelope_ascii_dump(enum envelope_field, struct envelope *, char *,
-    size_t);
-
+int envelope_ascii_dump(enum envelope_field, struct envelope *, char *, size_t);
+int envelope_load_file(struct envelope *, FILE *);
+int envelope_dump_file(struct envelope *, FILE *);
 
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
@@ -1255,3 +1254,4 @@ int rmtree(char *, int);
 int mvpurge(char *, char *);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 int text_to_netaddr(struct netaddr *, char *);
+int text_to_relayhost(struct relayhost *, char *);

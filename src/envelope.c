@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.4 2012/01/15 16:47:49 chl Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.6 2012/06/03 19:52:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -50,6 +50,7 @@ static int ascii_load_uint8(u_int8_t *, char *);
 static int ascii_load_uint16(u_int16_t *, char *);
 static int ascii_load_uint32(u_int32_t *, char *);
 static int ascii_load_time(time_t *, char *);
+static int ascii_load_uint32_hex(u_int32_t *, char *);
 static int ascii_load_uint64_hex(u_int64_t *, char *);
 static int ascii_load_type(enum delivery_type *, char *);
 static int ascii_load_string(char *, char *, size_t);
@@ -62,6 +63,7 @@ static int ascii_load_mta_relay_flags(u_int8_t *, char *);
 static int ascii_dump_uint8(u_int8_t, char *, size_t);
 static int ascii_dump_uint32(u_int32_t, char *, size_t);
 static int ascii_dump_time(time_t, char *, size_t);
+static int ascii_dump_uint32_hex(u_int32_t, char *, size_t);
 static int ascii_dump_uint64_hex(u_int64_t, char *, size_t);
 static int ascii_dump_string(char *, char *, size_t);
 static int ascii_dump_type(enum delivery_type, char *, size_t);
@@ -89,6 +91,180 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 		strlcpy(e->errorline + (sizeof(e->errorline) - 4), "...", 4);
 }
 
+int
+envelope_load_file(struct envelope *ep, FILE *fp)
+{
+	char *buf, *lbuf;
+	char *field;
+	size_t	len;
+	enum envelope_field fields[] = {
+		EVP_VERSION,
+		EVP_ID,
+		EVP_MSGID,
+		EVP_HOSTNAME,
+		EVP_SOCKADDR,
+		EVP_HELO,
+		EVP_SENDER,
+		EVP_RCPT,
+		EVP_DEST,
+		EVP_TYPE,
+		EVP_CTIME,
+		EVP_EXPIRE,
+		EVP_RETRY,
+		EVP_LASTTRY,
+		EVP_FLAGS,
+		EVP_ERRORLINE,
+		EVP_MDA_METHOD,
+		EVP_MDA_BUFFER,
+		EVP_MDA_USER,
+		EVP_MTA_RELAY_HOST,
+		EVP_MTA_RELAY_PORT,
+		EVP_MTA_RELAY_CERT,
+		EVP_MTA_RELAY_FLAGS,
+		EVP_MTA_RELAY_AUTHMAP
+	};
+	int	i;
+	int	n;
+	int	ret;
+
+	n = sizeof(fields) / sizeof(enum envelope_field);
+	bzero(ep, sizeof (*ep));
+	lbuf = NULL;
+	while ((buf = fgetln(fp, &len))) {
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
+		else {
+			if ((lbuf = malloc(len + 1)) == NULL)
+				err(1, NULL);
+			memcpy(lbuf, buf, len);
+			lbuf[len] = '\0';
+			buf = lbuf;
+		}
+
+		for (i = 0; i < n; ++i) {
+			field = envelope_ascii_field_name(fields[i]);
+			len = strlen(field);
+			if (! strncasecmp(field, buf, len)) {
+				/* skip kw and tailing whitespaces */
+				buf += len;
+				while (*buf && isspace(*buf))
+					buf++;
+
+				/* we *want* ':' */
+				if (*buf != ':')
+					continue;
+				buf++;
+
+				/* skip whitespaces after separator */
+				while (*buf && isspace(*buf))
+				    buf++;
+
+				ret = envelope_ascii_load(fields[i], ep, buf);
+				if (ret == 0)
+					goto err;
+				break;
+			}
+		}
+
+		/* unknown keyword */
+		if (i == n)
+			goto err;
+	}
+	free(lbuf);
+	return 1;
+
+err:
+	free(lbuf);
+	return 0;
+}
+
+int
+envelope_dump_file(struct envelope *ep, FILE *fp)
+{
+	char	buf[8192];
+
+	enum envelope_field fields[] = {
+		EVP_VERSION,
+		EVP_MSGID,
+		EVP_TYPE,
+		EVP_HELO,
+		EVP_HOSTNAME,
+		EVP_ERRORLINE,
+		EVP_SOCKADDR,
+		EVP_SENDER,
+		EVP_RCPT,
+		EVP_DEST,
+		EVP_CTIME,
+		EVP_LASTTRY,
+		EVP_EXPIRE,
+		EVP_RETRY,
+		EVP_FLAGS
+	};
+	enum envelope_field mda_fields[] = {
+		EVP_MDA_METHOD,
+		EVP_MDA_BUFFER,
+		EVP_MDA_USER
+	};
+	enum envelope_field mta_fields[] = {
+		EVP_MTA_RELAY_HOST,
+		EVP_MTA_RELAY_PORT,
+		EVP_MTA_RELAY_CERT,
+		EVP_MTA_RELAY_AUTHMAP,
+		EVP_MTA_RELAY_FLAGS
+	};
+	enum envelope_field *pfields = NULL;
+	int	i;
+	int	n;
+
+	n = sizeof(fields) / sizeof(enum envelope_field);
+	for (i = 0; i < n; ++i) {
+		bzero(buf, sizeof buf);
+		if (! envelope_ascii_dump(fields[i], ep, buf, sizeof buf))
+			goto err;
+		if (buf[0] == '\0')
+			continue;
+		fprintf(fp, "%s: %s\n",
+		    envelope_ascii_field_name(fields[i]), buf);
+	}
+
+	switch (ep->type) {
+	case D_MDA:
+		pfields = mda_fields;
+		n = sizeof(mda_fields) / sizeof(enum envelope_field);
+		break;
+	case D_MTA:
+		pfields = mta_fields;
+		n = sizeof(mta_fields) / sizeof(enum envelope_field);
+		break;
+	case D_BOUNCE:
+		/* nothing ! */
+		break;
+	default:
+		goto err;
+	}
+
+	if (pfields) {
+		for (i = 0; i < n; ++i) {
+			bzero(buf, sizeof buf);
+			if (! envelope_ascii_dump(pfields[i], ep, buf,
+				sizeof buf))
+				goto err;
+			if (buf[0] == '\0')
+				continue;
+			fprintf(fp, "%s: %s\n",
+			    envelope_ascii_field_name(pfields[i]), buf);
+		}
+	}
+
+	if (fflush(fp) != 0)
+		goto err;
+
+	return 1;
+
+err:
+	return 0;
+}
+
 char *
 envelope_ascii_field_name(enum envelope_field field)
 {
@@ -97,6 +273,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "version";
 	case EVP_ID:
 		return "id";
+	case EVP_MSGID:
+		return "msgid";
 	case EVP_TYPE:
 		return "type";
 	case EVP_HELO:
@@ -147,11 +325,18 @@ envelope_ascii_field_name(enum envelope_field field)
 int
 envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 {
+	uint32_t	msgid;
+	int		r;
+
 	switch (field) {
 	case EVP_VERSION:
 		return ascii_load_uint32(&ep->version, buf);
 	case EVP_ID:
 		return ascii_load_uint64_hex(&ep->id, buf);
+	case EVP_MSGID:
+		if ((r = ascii_load_uint32_hex(&msgid, buf)))
+			ep->id = msgid_to_evpid(msgid);
+		return (r);
 	case EVP_TYPE:
 		return ascii_load_type(&ep->type, buf);
 	case EVP_HELO:
@@ -221,6 +406,8 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_uint32(SMTPD_ENVELOPE_VERSION, buf, len);
 	case EVP_ID:
 		return ascii_dump_uint64_hex(ep->id, buf, len);
+	case EVP_MSGID:
+		return ascii_dump_uint32_hex(evpid_to_msgid(ep->id), buf, len);
 	case EVP_TYPE:
 		return ascii_dump_type(ep->type, buf, len);
 	case EVP_HELO:
@@ -314,6 +501,19 @@ ascii_load_time(time_t *dest, char *buf)
 	if (errstr)
 		return 0;
 	return 1;
+}
+
+static int
+ascii_load_uint32_hex(u_int32_t *dest, char *buf)
+{
+	uint64_t	u;
+	
+	if (ascii_load_uint64_hex(&u, buf) == 0)
+		return (0);
+	if (u > (uint64_t)0xffffffff)
+		return (0);
+	*dest = (uint32_t)u;
+	return (1);
 }
 
 static int
@@ -456,6 +656,12 @@ static int
 ascii_dump_time(time_t src, char *dest, size_t len)
 {
 	return bsnprintf(dest, len, "%" PRId64, (int64_t) src);
+}
+
+static int
+ascii_dump_uint32_hex(u_int32_t src, char *dest, size_t len)
+{
+	return bsnprintf(dest, len, "%08" PRIx32, src);
 }
 
 static int
