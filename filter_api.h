@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.h,v 1.6 2011/11/28 22:13:27 chl Exp $	*/
+/*	$OpenBSD: filter.h,v 1.7 2012/01/18 13:41:54 chl Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

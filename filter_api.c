@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: filter_api.c,v 1.1 2011/11/15 23:22:47 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -18,4 +18,4 @@
 
 #include <sys/types.h>
 
-#include "filter.h"
+#include "filter_api.h"
