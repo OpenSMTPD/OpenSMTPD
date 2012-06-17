@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.58 2012/05/13 00:10:49 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.60 2012/05/29 19:29:44 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -51,6 +51,8 @@
 
 const char *log_in6addr(const struct in6_addr *);
 const char *log_sockaddr(struct sockaddr *);
+
+static int temp_inet_net_pton_ipv6(const char *, void *, size_t);
 
 int
 bsnprintf(char *str, size_t size, const char *format, ...)
@@ -421,6 +423,17 @@ text_to_netaddr(struct netaddr *netaddr, char *s)
 			bits = inet_net_pton(AF_INET6, s, &ssin6.sin6_addr,
 			    sizeof(struct in6_addr));
 			if (bits == -1) {
+
+				/* XXX - until AF_INET6 support gets in base */
+				if (errno != EAFNOSUPPORT) {
+					log_warn("inet_net_pton");
+					return 0;
+				}
+				bits = temp_inet_net_pton_ipv6(s,
+				    &ssin6.sin6_addr,
+				    sizeof(struct in6_addr));
+			}
+			if (bits == -1) {
 				log_warn("inet_net_pton");
 				return 0;
 			}
@@ -448,6 +461,63 @@ text_to_netaddr(struct netaddr *netaddr, char *s)
 
 	netaddr->ss   = ss;
 	netaddr->bits = bits;
+	return 1;
+}
+
+int
+text_to_relayhost(struct relayhost *relay, char *s)
+{
+	u_int32_t		 i;
+	struct schema {
+		char		*name;
+		u_int8_t	 flags;
+	} schemas [] = {
+		{ "smtp://",		0				},
+		{ "smtps://",		F_SMTPS				},
+		{ "starttls://",	F_STARTTLS			},
+		{ "smtps+auth://",     	F_SMTPS|F_AUTH			},
+		{ "starttls+auth://",	F_STARTTLS|F_AUTH		},
+		{ "ssl://",		F_SMTPS|F_STARTTLS		},
+		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
+	};
+	const char	*errstr = NULL;
+	char	*p;
+	char	*sep;
+	int	 len;
+
+	for (i = 0; i < nitems(schemas); ++i)
+		if (strncasecmp(schemas[i].name, s, strlen(schemas[i].name)) == 0)
+			break;
+
+	if (i == nitems(schemas)) {
+		/* there is a schema, but it's not recognized */
+		if (strstr(s, "://"))
+			return 0;
+
+		/* no schema, default to smtp:// */
+		i = 0;
+		p = s;
+	}
+	else
+		p = s + strlen(schemas[i].name);
+
+	relay->flags = schemas[i].flags;
+
+	if ((sep = strrchr(p, ':')) != NULL) {
+		relay->port = strtonum(sep+1, 1, 0xffff, &errstr);
+		if (errstr)
+			return 0;
+		len = sep - p;
+	}
+	else 
+		len = strlen(p);
+
+	if (strlcpy(relay->hostname, p, sizeof (relay->hostname))
+	    >= sizeof (relay->hostname))
+		return 0;
+
+	relay->hostname[len] = 0;
+
 	return 1;
 }
 
@@ -736,4 +806,36 @@ parse_smtp_response(char *line, size_t len, char **msg, int *cont)
 			return "non-printable character in reply";
 
 	return NULL;
+}
+
+static int
+temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
+{
+	int	ret;
+	int	bits;
+	char	buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255:255:255:255/128")];
+	char		*sep;
+	const char	*errstr;
+
+	if (strlcpy(buf, src, sizeof buf) >= sizeof buf) {
+		errno = EMSGSIZE;
+		return (-1);
+	}
+
+	sep = strchr(buf, '/');
+	if (sep != NULL)
+		*sep++ = '\0';
+
+	ret = inet_pton(AF_INET6, buf, dst);
+	if (ret != 1)
+		return (-1);
+
+	if (sep == NULL)
+		return 128;
+
+	bits = strtonum(sep, 0, 128, &errstr);
+	if (errstr)
+		return (-1);
+
+	return bits;
 }
