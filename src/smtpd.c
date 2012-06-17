@@ -368,7 +368,6 @@ parent_send_config_ruleset(int proc)
 	
 	imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_END,
 	    0, 0, -1, NULL, 0);
-	log_debug("parent_send_config_ruleset: reloading rules and maps: end");
 }
 
 static void
@@ -655,7 +654,6 @@ main(int argc, char *argv[])
 	evtimer_add(&purge_ev, &purge_timeout);
 
 	log_debug("libevent %s (%s)", event_get_version(), event_get_method());
-	log_debug("parent: event_dispatch");
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");

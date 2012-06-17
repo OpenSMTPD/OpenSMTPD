@@ -150,7 +150,6 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_QUEUE_MESSAGE_FD:
 			mta_batch = imsg->data;
 			fd = queue_message_fd_r(Q_QUEUE, mta_batch->msgid);
-			log_debug("queue_imsg: QUEUE is passing fd = %d to mta", fd);
 			imsg_compose_event(iev,  IMSG_QUEUE_MESSAGE_FD, 0, 0,
 			    fd, mta_batch, sizeof *mta_batch);
 			return;

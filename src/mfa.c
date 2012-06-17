@@ -310,7 +310,6 @@ mfa_test_mail(struct envelope *e)
 	return;
 
 refuse:
-	log_debug("mfa_test_mail:refuse");
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL, 0, 0, -1, &ss,
 	    sizeof(ss));
 	return;

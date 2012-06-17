@@ -343,10 +343,8 @@ mda(void)
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 
-	log_debug("mda event_dispatch");
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
-	log_debug("end mda");
 	mda_shutdown();
 
 	return (0);

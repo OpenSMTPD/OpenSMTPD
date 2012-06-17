@@ -323,8 +323,6 @@ session_rfc1652_mail_handler(struct session *s, char *args)
 {
 	char *body;
 
-	log_debug("session_rfc1652_mail_handler");
-
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -426,7 +424,6 @@ session_rfc5321_noop_handler(struct session *s, char *args)
 static int
 session_rfc5321_mail_handler(struct session *s, char *args)
 {
-	log_debug("session_rfc5321_mail_handler");
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -449,8 +446,6 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 	session_enter_state(s, S_MAIL_MFA);
 	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &s->s_msg,
 	    sizeof(s->s_msg));
-
-	log_debug("session_rfc5321_mail_handler: notification to mfa sent");
 
 	return 1;
 }
