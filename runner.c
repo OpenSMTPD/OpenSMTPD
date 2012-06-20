@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.138 2012/04/15 12:12:35 chl Exp $	*/
+/*	$OpenBSD: runner.c,v 1.139 2012/06/17 15:17:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -397,7 +397,7 @@ runner_process_envelope(u_int64_t evpid)
 		scheduler->remove(evpid);
 		queue_envelope_delete(Q_QUEUE, &envelope);
 
-		runner_setup_events();
+		runner_reset_events();
 		return 0;
 	}
 
