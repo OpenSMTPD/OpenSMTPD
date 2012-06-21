@@ -24,7 +24,6 @@ D/libexec////
 /delivery.c/1.2/Result of merge//
 /mda.c/1.67/Result of merge//
 /parser.h/1.20/Result of merge//
-/bounce.c/1.40/Result of merge+Sun Jan 29 19:33:06 2012//
 /dname.c/1.4/Sun Jan 29 19:32:49 2012//
 /mfa.c/1.67/Result of merge//
 /mfa_session.c/1.7/Result of merge//
@@ -51,7 +50,6 @@ D/libexec////
 /parse.y/1.88/Result of merge+Sun May 13 13:20:01 2012//
 /parser.c/1.25/Result of merge//
 /ruleset.c/1.21/Result of merge+Sun May 13 13:20:01 2012//
-/smtpctl.c/1.80/Result of merge//
 /makemap.8/1.17/Sun May 13 16:48:09 2012//
 /smtpd.conf.5/1.52/Sun May 13 16:48:09 2012//
 /delivery_filename.c/1.5/Result of merge//
@@ -63,17 +61,19 @@ D/libexec////
 /map_static.c/1.1/Tue May 29 19:53:10 2012//
 /map_stdio.c/1.4/Result of merge//
 /mta_session.c/1.3/Result of merge//
-/queue_fsqueue.c/1.41/Result of merge//
 /smtp.c/1.102/Result of merge//
 /smtpd.c/1.151/Result of merge//
 /util.c/1.60/Result of merge//
 /filter_api.h/1.1/Thu Jun 14 21:56:13 2012//
-/queue_backend.c/1.23/Result of merge//
 /smtpfilter.c/1.2/Sat Jun 16 14:39:58 2012//
 /sockaddr.c/1.5/Result of merge//
 /filter_api.c/1.3/Sat Jun 16 16:41:51 2012//
-/queue.c/1.118/Result of merge+Tue Jun 19 19:28:04 2012//
-/runner.c/1.139/Result of merge//
 /scheduler.c/1.2/Result of merge//
-/scheduler_ramqueue.c/1.9/Result of merge//
-/smtpd.h/1.300/Result of merge//
+/bounce.c/1.41/Result of merge//
+/queue.c/1.119/Result of merge//
+/queue_backend.c/1.24/Result of merge//
+/queue_fsqueue.c/1.42/Result of merge+Thu Jun 21 20:10:46 2012//
+/runner.c/1.141/Result of merge//
+/scheduler_ramqueue.c/1.10/Result of merge//
+/smtpctl.c/1.81/Result of merge//
+/smtpd.h/1.301/Result of merge//

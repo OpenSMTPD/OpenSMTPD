@@ -1,4 +1,4 @@
-/*	$OpenBSD: runner.c,v 1.139 2012/06/17 15:17:08 gilles Exp $	*/
+/*	$OpenBSD: runner.c,v 1.141 2012/06/20 20:45:23 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -83,14 +83,14 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 		e = imsg->data;
 		log_debug("queue_delivery_ok: %016"PRIx64, e->id);
 		scheduler->remove(e->id);
-		queue_envelope_delete(Q_QUEUE, e);
+		queue_envelope_delete(e);
 		return;
 
 	case IMSG_QUEUE_DELIVERY_TEMPFAIL:
 		stat_decrement(STATS_RUNNER);
 		e = imsg->data;
 		e->retry++;
-		queue_envelope_update(Q_QUEUE, e);
+		queue_envelope_update(e);
 		log_debug("queue_delivery_tempfail: %016"PRIx64, e->id);
 		scheduler_info(&si, e);
 		scheduler->insert(&si);
@@ -109,7 +109,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 			runner_reset_events();
 		}
 		scheduler->remove(e->id);
-		queue_envelope_delete(Q_QUEUE, e);
+		queue_envelope_delete(e);
 		return;
 
 	case IMSG_MDA_SESS_NEW:
@@ -129,7 +129,7 @@ runner_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_SMTP_ENQUEUE:
 		e = imsg->data;
 		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
-			queue_envelope_update(Q_QUEUE, e);
+			queue_envelope_update(e);
 			log_debug("smtp_enqueue: %016"PRIx64, e->id);
 			scheduler_info(&si, e);
 			scheduler->insert(&si);
@@ -375,7 +375,7 @@ runner_process_envelope(u_int64_t evpid)
 	mda_av = env->sc_maxconn - stat_get(STATS_MDA_SESSION, STAT_ACTIVE);
 	bnc_av = env->sc_maxconn - stat_get(STATS_RUNNER_BOUNCES, STAT_ACTIVE);
 
-	if (! queue_envelope_load(Q_QUEUE, evpid, &envelope))
+	if (! queue_envelope_load(evpid, &envelope))
 		return 0;
 
 	if (envelope.type == D_MDA)
@@ -405,9 +405,10 @@ runner_process_envelope(u_int64_t evpid)
 			scheduler->insert(&si);
 		}
 		scheduler->remove(evpid);
-		queue_envelope_delete(Q_QUEUE, &envelope);
+		queue_envelope_delete(&envelope);
 
-		runner_setup_events();
+		runner_reset_events();
+
 		return 0;
 	}
 
@@ -426,7 +427,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 	switch (type) {
 	case D_BOUNCE:
 		while (scheduler->fetch(batch, &evpid)) {
-			if (! queue_envelope_load(Q_QUEUE, evpid, &evp))
+			if (! queue_envelope_load(evpid, &evp))
 				goto end;
 
 			evp.lasttry = time(NULL);
@@ -441,11 +442,11 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 		
 	case D_MDA:
 		scheduler->fetch(batch, &evpid);
-		if (! queue_envelope_load(Q_QUEUE, evpid, &evp))
+		if (! queue_envelope_load(evpid, &evp))
 			goto end;
 		
 		evp.lasttry = time(NULL);
-		fd = queue_message_fd_r(Q_QUEUE, evpid_to_msgid(evpid));
+		fd = queue_message_fd_r(evpid_to_msgid(evpid));
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_MDA_SESS_NEW, PROC_MDA, 0, fd, &evp,
 		    sizeof evp);
@@ -461,7 +462,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 		/* FIXME */
 		if (! scheduler->fetch(batch, &evpid))
 			goto end;
-		if (! queue_envelope_load(Q_QUEUE, evpid,
+		if (! queue_envelope_load(evpid,
 				&evp))
 			goto end;
 
@@ -474,7 +475,7 @@ runner_process_batch(enum delivery_type type, u_int64_t evpid)
 		    sizeof mta_batch);
 
 		while (scheduler->fetch(batch, &evpid)) {
-			if (! queue_envelope_load(Q_QUEUE, evpid,
+			if (! queue_envelope_load(evpid,
 				&evp))
 				goto end;
 			evp.lasttry = time(NULL); /* FIXME */
@@ -513,10 +514,9 @@ runner_message_to_scheduler(u_int32_t msgid)
 	struct envelope	 envelope;
 	struct scheduler_info	si;
 
-	q = qwalk_new(Q_QUEUE, msgid);
+	q = qwalk_new(msgid);
 	while (qwalk(q, &evpid)) {
-		if (! queue_envelope_load(Q_QUEUE, evpid,
-			&envelope))
+		if (! queue_envelope_load(evpid, &envelope))
 			continue;
 		scheduler_info(&si, &envelope);
 		scheduler->insert(&si);
@@ -537,8 +537,7 @@ runner_check_loop(struct envelope *ep)
 	int ret = 0;
 	int rcvcount = 0;
 
-	fd = queue_message_fd_r(Q_QUEUE,
-	    evpid_to_msgid(ep->id));
+	fd = queue_message_fd_r(evpid_to_msgid(ep->id));
 	if ((fp = fdopen(fd, "r")) == NULL)
 		fatal("fdopen");
 
@@ -614,6 +613,6 @@ runner_remove_envelope(u_int64_t evpid)
 	struct envelope evp;
 
 	evp.id = evpid;
-	queue_envelope_delete(Q_QUEUE, &evp);
+	queue_envelope_delete(&evp);
 	scheduler->remove(evpid);
 }
