@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.118 2012/06/18 10:21:16 chl Exp $	*/
+/*	$OpenBSD: queue.c,v 1.119 2012/06/20 20:45:23 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -69,7 +69,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
-			queue_message_delete(evpid_to_msgid(e->id));
+			queue_message_incoming_delete(evpid_to_msgid(e->id));
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
