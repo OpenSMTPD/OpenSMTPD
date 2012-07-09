@@ -2271,8 +2271,9 @@ AC_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		src/Makefile
-		src/libexec/Makefile
-		src/libexec/mail.local/Makefile
+		contrib/Makefile
+		contrib/libexec/Makefile
+		contrib/libexec/mail.local/Makefile
 		])
 
 #l4192

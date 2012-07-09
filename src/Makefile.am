@@ -20,11 +20,6 @@
 # /usr/local/sbin/smtpctl
 # /usr/local/sbin/smtpd
 
-
-if !HAVE_MAIL_LOCAL
-SUBDIRS =		libexec
-endif
-
 sbin_PROGRAMS =		smtpd smtpctl
 pkglibexec_PROGRAMS =	makemap
 
