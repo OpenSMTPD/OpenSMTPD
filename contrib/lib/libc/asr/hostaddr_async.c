@@ -15,6 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -320,7 +322,9 @@ sockaddr_from_rr(struct sockaddr *sa, struct rr *rr)
 	case T_A:
 		sin = (struct sockaddr_in*)sa;
 		memset(sin, 0, sizeof *sin);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sin->sin_len = sizeof *sin;
+#endif
 		sin->sin_family = PF_INET;
 		sin->sin_addr = rr->rr.in_a.addr;
 		sin->sin_port = 0;
@@ -328,7 +332,9 @@ sockaddr_from_rr(struct sockaddr *sa, struct rr *rr)
 	case T_AAAA:
 		sin6 = (struct sockaddr_in6*)sa;
 		memset(sin6, 0, sizeof *sin6);
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 		sin6->sin6_len = sizeof *sin6;
+#endif
 		sin6->sin6_family = PF_INET6;
 		sin6->sin6_addr = rr->rr.in_aaaa.addr6;
 		sin6->sin6_port = 0;

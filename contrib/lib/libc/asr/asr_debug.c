@@ -14,6 +14,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -145,7 +148,9 @@ inet6_ntoa(struct in6_addr a)
 	static char buf[256];
 	struct sockaddr_in6	si;
 
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	si.sin6_len = sizeof(si);
+#endif
 	si.sin6_family = PF_INET6;
 	si.sin6_addr = a;
 

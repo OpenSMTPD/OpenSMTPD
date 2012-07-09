@@ -14,6 +14,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -30,11 +33,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "asr.h"
 #include "asr_private.h"
-#include "thread_private.h"
+#define __THREAD_NAME(x) __ ## x
+#define _THREAD_PRIVATE(a, b, c) (c)
 
 #define DEFAULT_CONFFILE	"/etc/resolv.conf"
 #define DEFAULT_HOSTFILE	"/etc/hosts"
@@ -60,6 +65,8 @@ static int pass0(char **, int, struct asr_ctx *);
 
 static void *__THREAD_NAME(_asr);
 static struct asr *_asr = NULL;
+
+#define issetugid() ((getuid() != geteuid()))
 
 /* Allocate and configure an async "resolver". */
 struct asr *
@@ -568,9 +575,9 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 			return (0);
 		if (asr_parse_nameserver((struct sockaddr*)&ss, tok[1]))
 			return (0);
-		if ((ac->ac_ns[ac->ac_nscount] = calloc(1, ss.ss_len)) == NULL)
+		if ((ac->ac_ns[ac->ac_nscount] = calloc(1, SS_LEN(&ss))) == NULL)
 			return (0);
-		memmove(ac->ac_ns[ac->ac_nscount], &ss, ss.ss_len);
+		memmove(ac->ac_ns[ac->ac_nscount], &ss, SS_LEN(&ss));
 		ac->ac_nscount += 1;
 
 	} else if (!strcmp(tok[0], "domain")) {

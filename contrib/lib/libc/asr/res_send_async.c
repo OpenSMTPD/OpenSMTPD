@@ -15,6 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -280,7 +282,7 @@ res_send_async_run(struct async *as, struct async_res *ar)
 
 	case ASR_STATE_PACKET:
 
-		memmove(&ar->ar_sa.sa, AS_NS_SA(as), AS_NS_SA(as)->sa_len);
+		memmove(&ar->ar_sa.sa, AS_NS_SA(as), SA_LEN(AS_NS_SA(as)));
 		ar->ar_datalen = as->as.dns.ibuflen;
 		ar->ar_data = as->as.dns.ibuf;
 		as->as.dns.ibuf = NULL;
@@ -343,7 +345,7 @@ sockaddr_connect(const struct sockaddr *sa, int socktype)
 	if ((flags = fcntl(sock, F_SETFL, flags)) == -1)
 		goto fail;
 
-	if (connect(sock, sa, sa->sa_len) == -1) {
+	if (connect(sock, sa, SA_LEN(sa)) == -1) {
 		if (errno == EINPROGRESS)
 			return (sock);
 		goto fail;

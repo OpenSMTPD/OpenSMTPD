@@ -38,6 +38,20 @@
 
 /* OpenBSD function replacements */
 #include "base64.h"
+
+#ifndef AI_MASK
+/* valid flags for addrinfo */
+#define AI_MASK \
+	    (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV)
+#ifdef AI_FQDN
+#define AI_MASK (AI_MASK | AI_FQDN)
+#endif
+#endif
+
+#ifndef AI_FQDN
+#define AI_FQDN AI_CANONNAME
+#endif
+
 #include "sys-queue.h"
 #include "sys-tree.h"
 #include "vis.h"

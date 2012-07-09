@@ -14,6 +14,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -124,6 +127,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 
 		ai = &as->as.ai.hints;
 
+#ifdef EAI_BADHINTS
 		if (ai->ai_addrlen ||
 		    ai->ai_canonname ||
 		    ai->ai_addr ||
@@ -132,6 +136,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 			ar->ar_gai_errno = EAI_BADHINTS;
 			break;
 		}
+#endif
 
 		if (ai->ai_flags & ~AI_MASK ||
 		    (ai->ai_flags & AI_CANONNAME && ai->ai_flags & AI_FQDN)) {
@@ -157,6 +162,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 			break;
 		}
 
+#ifdef EAI_PROTOCOL
 		if (ai->ai_protocol &&
 		    ai->ai_protocol != IPPROTO_UDP  &&
 		    ai->ai_protocol != IPPROTO_TCP) {
@@ -164,6 +170,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 			ar->ar_gai_errno = EAI_PROTOCOL;
 			break;
 		}
+#endif
 
 		if (ai->ai_socktype == SOCK_RAW &&
 		    as->as.ai.servname != NULL) {
@@ -180,7 +187,11 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 				break;
 		if (matches[i].family == -1) {
 			ar->ar_h_errno = NO_RECOVERY;
+#ifdef EAI_BADHINTS
 			ar->ar_gai_errno = EAI_BADHINTS;
+#else
+			ar->ar_gai_errno = EAI_FAIL;
+#endif
 			break;
 		}
 
@@ -392,7 +403,9 @@ static int
 get_port(const char *servname, const char *proto, int numonly)
 {
 	struct servent		se;
-	struct servent_data	sed;
+#ifdef HAVE_STRUCT_SERVENT_DATA
+	struct servent_data     sed;
+#endif
 	int			port, r;
 	const char*		e;
 
@@ -408,10 +421,18 @@ get_port(const char *servname, const char *proto, int numonly)
 	if (numonly)
 		return (-2);
 
+#ifdef HAVE_STRUCT_SERVENT_DATA
 	memset(&sed, 0, sizeof(sed));
+#endif
+#ifdef HAVE_GETSERVBYNAME_R_4_ARGS
 	r = getservbyname_r(servname, proto, &se, &sed);
+#else
+	r = -1;
+#endif
 	port = ntohs(se.s_port);
+#ifdef HAVE_ENDSERVENT_R
 	endservent_r(&sed);
+#endif
 
 	if (r == -1)
 		return (-1); /* not found */
@@ -465,13 +486,13 @@ add_sockaddr(struct async *as, struct sockaddr *sa, const char *cname)
 		else
 			port = 0;
 
-		ai = calloc(1, sizeof(*ai) + sa->sa_len);
+		ai = calloc(1, sizeof(*ai) + SA_LEN(sa));
 		if (ai == NULL)
 			return (EAI_MEMORY);
 		ai->ai_family = sa->sa_family;
 		ai->ai_socktype = matches[i].socktype;
 		ai->ai_protocol = matches[i].protocol;
-		ai->ai_addrlen = sa->sa_len;
+		ai->ai_addrlen = SA_LEN(sa);
 		ai->ai_addr = (void*)(ai + 1);
 		if (cname &&
 		    as->as.ai.hints.ai_flags & (AI_CANONNAME | AI_FQDN)) {
@@ -480,7 +501,7 @@ add_sockaddr(struct async *as, struct sockaddr *sa, const char *cname)
 				return (EAI_MEMORY);
 			}
 		}
-		memmove(ai->ai_addr, sa, sa->sa_len);
+		memmove(ai->ai_addr, sa, SA_LEN(sa));
 		if (sa->sa_family == PF_INET)
 			((struct sockaddr_in *)ai->ai_addr)->sin_port =
 			    htons(port);

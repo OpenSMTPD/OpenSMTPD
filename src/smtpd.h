@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.302 2012/07/02 17:00:05 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.305 2012/07/09 09:57:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -87,6 +87,8 @@
 #define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
+#define PATH_INCOMING		"/incoming"
+#define PATH_MESSAGE		"/message"
 
 /* number of MX records to lookup */
 #define MAX_MX_COUNT		10
@@ -182,8 +184,8 @@ enum imsg_type {
 	IMSG_QUEUE_SCHEDULE,
 	IMSG_QUEUE_REMOVE,
 
-	IMSG_RUNNER_REMOVE,
-	IMSG_RUNNER_SCHEDULE,
+	IMSG_SCHEDULER_REMOVE,
+	IMSG_SCHEDULER_SCHEDULE,
 
 	IMSG_BATCH_CREATE,
 	IMSG_BATCH_APPEND,
@@ -243,7 +245,7 @@ enum smtp_proc_type {
 	PROC_MDA,
 	PROC_MTA,
 	PROC_CONTROL,
-	PROC_RUNNER,
+	PROC_SCHEDULER,
 } smtpd_process;
 
 struct peer {
@@ -660,8 +662,8 @@ enum {
 	STATS_LKA_SESSION_CNAME,
 	STATS_LKA_FAILURE,
 
-	STATS_RUNNER,
-	STATS_RUNNER_BOUNCES,
+	STATS_SCHEDULER,
+	STATS_SCHEDULER_BOUNCES,
 
 	STATS_QUEUE_LOCAL,
 	STATS_QUEUE_REMOTE,
@@ -914,7 +916,6 @@ enum queue_op {
 	QOP_COMMIT,
 	QOP_LOAD,
 	QOP_FD_R,
-	QOP_FD_RW,
 	QOP_CORRUPT,
 };
 
@@ -1134,6 +1135,9 @@ void queue_commit_envelopes(struct envelope *);
 u_int32_t queue_generate_msgid(void);
 u_int64_t queue_generate_evpid(u_int32_t msgid);
 struct queue_backend *queue_backend_lookup(const char *);
+int queue_message_incoming_path(u_int32_t, char *, size_t);
+int queue_envelope_incoming_path(u_int64_t, char *, size_t);
+int queue_message_incoming_delete(u_int32_t);
 int queue_message_create(u_int32_t *);
 int queue_message_delete(u_int32_t);
 int queue_message_commit(u_int32_t);
@@ -1149,8 +1153,8 @@ int   qwalk(void *, u_int64_t *);
 void  qwalk_close(void *);
 
 
-/* runner.c */
-pid_t runner(void);
+/* scheduler.c */
+pid_t scheduler(void);
 void message_reset_flags(struct envelope *);
 
 

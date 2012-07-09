@@ -1,4 +1,4 @@
-/*	$OpenBSD: auth_bsd.c,v 1.1 2011/12/14 22:28:02 eric Exp $	*/
+/*	$OpenBSD: auth_bsd.c,v 1.2 2012/07/08 13:42:09 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -34,13 +34,13 @@
 
 #include "smtpd.h"
 
-int auth_bsd(char *, char *);
+static int auth_bsd(char *, char *);
 
 struct auth_backend	auth_backend_bsd = {
 	auth_bsd,
 };
 
-int
+static int
 auth_bsd(char *username, char *password)
 {
 #ifdef BSD_AUTH

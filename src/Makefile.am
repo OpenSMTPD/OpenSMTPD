@@ -33,12 +33,21 @@ smtpd_SOURCES =		aliases.c auth.c auth_bsd.c auth_pwd.c bounce.c		\
 			config.c control.c dns.c expand.c envelope.c forward.c	\
 			lka.c lka_session.c log.c map.c map_db.c map_stdio.c	\
 			mda.c mfa.c mfa_session.c mta.c mta_session.c parse.y	\
-			queue.c ruleset.c runner.c smtp.c			\
-			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c asr.c \
-			print.c pack.c dname.c res_random.c sockaddr.c 		\
+			queue.c ruleset.c scheduler.c scheduler_backend.c	\
+			smtp.c							\
+			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c	\
 			queue_backend.c queue_fsqueue.c				\
-			user.c user_pwd.c stats.c scheduler.c scheduler_ramqueue.c \
+			user.c user_pwd.c stats.c scheduler_ramqueue.c		\
 			map_static.c
+
+smtpd_SOURCES +=	../contrib/lib/libc/asr/asr.c			\
+			../contrib/lib/libc/asr/asr_debug.c			\
+			../contrib/lib/libc/asr/asr_utils.c			\
+			../contrib/lib/libc/asr/res_send_async.c		\
+			../contrib/lib/libc/asr/hostaddr_async.c		\
+			../contrib/lib/libc/asr/getaddrinfo_async.c		\
+			../contrib/lib/libc/asr/getnameinfo_async.c		\
+			../contrib/lib/libc/asr/gethostnamadr_async.c
 
 smtpd_CFLAGS =		-DIO_SSL
 
@@ -49,7 +58,8 @@ smtpctl_SOURCES =	enqueue.c parser.c log.c envelope.c			\
 EXTRA_DIST = 		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
 			parser.h smtpd.h
 
-INCLUDES = 		-I$(top_srcdir)/openbsd-compat
+INCLUDES = 		-I$(top_srcdir)/openbsd-compat				\
+			-I$(top_srcdir)/contrib/lib/libc/asr
 
 LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 

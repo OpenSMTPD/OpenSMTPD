@@ -14,6 +14,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -50,7 +53,9 @@ getnameinfo_async(const struct sockaddr *sa, socklen_t slen, char *host,
 	else if (sa->sa_family == AF_INET6)
 		memmove(&as->as.ni.sa.sa, sa, sizeof (as->as.ni.sa.sain6));
 
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	as->as.ni.sa.sa.sa_len = slen;
+#endif
 	as->as.ni.hostname = host;
 	as->as.ni.hostnamelen = hostlen;
 	as->as.ni.servname = serv;
@@ -89,9 +94,9 @@ getnameinfo_async_run(struct async *as, struct async_res *ar)
 		}
 
 		if ((as->as.ni.sa.sa.sa_family == AF_INET &&
-		    (as->as.ni.sa.sa.sa_len != sizeof (as->as.ni.sa.sain))) ||
+		    (SA_LEN(&as->as.ni.sa.sa) != sizeof (as->as.ni.sa.sain))) ||
 		    (as->as.ni.sa.sa.sa_family == AF_INET6 &&
-		    (as->as.ni.sa.sa.sa_len != sizeof (as->as.ni.sa.sain6)))) {
+		    (SA_LEN(&as->as.ni.sa.sa) != sizeof (as->as.ni.sa.sain6)))) {
 			ar->ar_gai_errno = EAI_FAIL;
 			async_set_state(as, ASR_STATE_HALT);
 			break;
@@ -207,7 +212,9 @@ static int
 _servname(struct async *as)
 {
 	struct servent		 s;
+#ifdef HAVE_STRUCT_SERVENT_DATA
 	struct servent_data	 sd;
+#endif
 	int			 port, r;
 	char			*buf = as->as.ni.servname;
 	size_t			 buflen = as->as.ni.servnamelen;
@@ -221,12 +228,21 @@ _servname(struct async *as)
 		port = as->as.ni.sa.sain6.sin6_port;
 
 	if (!(as->as.ni.flags & NI_NUMERICSERV)) {
+#ifdef HAVE_STRUCT_SERVENT_DATA
 		memset(&sd, 0, sizeof (sd));
-		if (getservbyport_r(port,
+#endif
+#ifdef HAVE_GETSERVBYPORT_R_4_ARGS
+		r = getservbyport_r(port,
 		    (as->as.ni.flags & NI_DGRAM) ? "udp" : "tcp",
-		    &s, &sd) != -1) {
+		    &s, &sd);
+#else
+		r = -1;
+#endif
+		if (r != -1) {
 			r = strlcpy(buf, s.s_name, buflen) >= buflen;
+#ifdef HAVE_ENDSERVENT_R
 			endservent_r(&sd);
+#endif
 			return (r ? -1 : 0);
 		}
 	}

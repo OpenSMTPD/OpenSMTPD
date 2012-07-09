@@ -14,6 +14,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -425,7 +428,7 @@ hostent_from_packet(struct hostent *h, int action, char *pkt, size_t pktlen)
 		}
 	}
 
-	return (0);
+	return (r);
 }
 
 static struct hostent *
