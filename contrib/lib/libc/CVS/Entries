@@ -1,0 +1,30 @@
+D/arch////
+D/asr////
+D/citrus////
+D/compat-43////
+D/crypt////
+D/db////
+D/dlfcn////
+D/gdtoa////
+D/gen////
+D/gmon////
+D/hash////
+D/iconv////
+D/include////
+D/locale////
+D/md////
+D/net////
+D/nls////
+D/ohash////
+D/posix1e////
+D/quad////
+D/regex////
+D/rpc////
+D/softfloat////
+D/stdio////
+D/stdlib////
+D/string////
+D/sys////
+/Makefile/-1.29/dummy timestamp//
+/Makefile.inc/-1.17/dummy timestamp//
+/shlib_version/-1.144/dummy timestamp//
