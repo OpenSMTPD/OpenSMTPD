@@ -9,7 +9,7 @@ Then, on top of that, all OpenSMTPD's features are not ported yet. For instance,
 authentification still doesn't work.
 
 People interested about portable OpenSMTPD, or about OpenSMTPD in general, are
-encouraged to join the IRC channel #poolp @ FreeNode.net.
+encouraged to join the IRC channel #opensmtpd @ FreeNode.net.
 
 
 How to use Portable OpenSMTPD
