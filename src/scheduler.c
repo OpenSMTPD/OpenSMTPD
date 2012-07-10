@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.4 2012/07/09 09:57:53 gilles Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.6 2012/07/10 11:13:40 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -58,7 +58,7 @@ static void scheduler_remove_envelope(u_int64_t);
 static int scheduler_process_envelope(u_int64_t);
 static int scheduler_process_batch(enum delivery_type, u_int64_t);
 static int scheduler_check_loop(struct envelope *);
-static int scheduler_message_to_scheduler(u_int32_t);
+static int scheduler_load_message(u_int32_t);
 
 static struct scheduler_backend *backend = NULL;
 
@@ -75,14 +75,17 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 	switch (imsg->hdr.type) {
 	case IMSG_QUEUE_COMMIT_MESSAGE:
 		e = imsg->data;
-		scheduler_message_to_scheduler(evpid_to_msgid(e->id));
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_QUEUE_COMMIT_MESSAGE: %016"PRIx64, e->id);
+		scheduler_load_message(evpid_to_msgid(e->id));
 		scheduler_reset_events();
 		return;
 
 	case IMSG_QUEUE_DELIVERY_OK:
 		stat_decrement(STATS_SCHEDULER);
 		e = imsg->data;
-		log_debug("queue_delivery_ok: %016"PRIx64, e->id);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_QUEUE_DELIVERY_OK: %016"PRIx64, e->id);
 		backend->remove(e->id);
 		queue_envelope_delete(e);
 		return;
@@ -90,9 +93,10 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_QUEUE_DELIVERY_TEMPFAIL:
 		stat_decrement(STATS_SCHEDULER);
 		e = imsg->data;
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_QUEUE_DELIVERY_TEMPFAIL: %016"PRIx64, e->id);
 		e->retry++;
 		queue_envelope_update(e);
-		log_debug("queue_delivery_tempfail: %016"PRIx64, e->id);
 		scheduler_info(&si, e);
 		backend->insert(&si);
 		scheduler_reset_events();
@@ -101,10 +105,10 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_QUEUE_DELIVERY_PERMFAIL:
 		stat_decrement(STATS_SCHEDULER);
 		e = imsg->data;
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_QUEUE_DELIVERY_PERMFAIL: %016"PRIx64, e->id);
 		if (e->type != D_BOUNCE && e->sender.user[0] != '\0') {
 			bounce_record_message(e, &bounce);
-			log_debug("queue_delivery_permfail: %016"PRIx64,
-			    bounce.id);
 			scheduler_info(&si, &bounce);
 			backend->insert(&si);
 			scheduler_reset_events();
@@ -114,6 +118,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_MDA_SESS_NEW:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_MDA_SESS_NEW");
 		stat_decrement(STATS_MDA_SESSION);
 		if (env->sc_maxconn - stat_get(STATS_MDA_SESSION, STAT_ACTIVE))
 			env->sc_flags &= ~SMTPD_MDA_BUSY;
@@ -121,6 +126,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_BATCH_DONE:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_BATCH_DONE");
 		stat_decrement(STATS_MTA_SESSION);
 		if (env->sc_maxconn - stat_get(STATS_MTA_SESSION, STAT_ACTIVE))
 			env->sc_flags &= ~SMTPD_MTA_BUSY;
@@ -129,9 +135,10 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_SMTP_ENQUEUE:
 		e = imsg->data;
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_SMTP_ENQUEUE: %016"PRIx64, e->id);
 		if (imsg->fd < 0 || !bounce_session(imsg->fd, e)) {
 			queue_envelope_update(e);
-			log_debug("smtp_enqueue: %016"PRIx64, e->id);
 			scheduler_info(&si, e);
 			backend->insert(&si);
 			scheduler_reset_events();
@@ -140,37 +147,48 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_PAUSE_MDA:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_QUEUE_PAUSE_MDA");
 		env->sc_flags |= SMTPD_MDA_PAUSED;
 		return;
 
 	case IMSG_QUEUE_RESUME_MDA:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_QUEUE_RESUME_MDA");
 		env->sc_flags &= ~SMTPD_MDA_PAUSED;
 		scheduler_reset_events();
 		return;
 
 	case IMSG_QUEUE_PAUSE_MTA:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_QUEUE_PAUSE_MTA");
 		env->sc_flags |= SMTPD_MTA_PAUSED;
 		return;
 
 	case IMSG_QUEUE_RESUME_MTA:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_QUEUE_RESUME_MTA");
 		env->sc_flags &= ~SMTPD_MTA_PAUSED;
 		scheduler_reset_events();
 		return;
 
 	case IMSG_CTL_VERBOSE:
+		log_trace(TRACE_SCHEDULER, "scheduler: IMSG_CTL_VERBOSE");
 		log_verbose(*(int *)imsg->data);
 		return;
 
 	case IMSG_SCHEDULER_SCHEDULE:
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_SCHEDULER_SCHEDULE: %016"PRIx64,
+		    *(u_int64_t *)imsg->data);
 		backend->force(*(u_int64_t *)imsg->data);
 		scheduler_reset_events();		
 		return;
 
-	case IMSG_SCHEDULER_REMOVE: {
+	case IMSG_SCHEDULER_REMOVE:
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: IMSG_SCHEDULER_REMOVE: %016"PRIx64,
+		    *(u_int64_t *)imsg->data);
 		scheduler_remove(*(u_int64_t *)imsg->data);
 		scheduler_reset_events();
 		return;
-	}
+
 	}
 
 	errx(1, "scheduler_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
@@ -299,66 +317,47 @@ scheduler(void)
 void
 scheduler_timeout(int fd, short event, void *p)
 {
-	struct timeval		 tv;
-	static int		 rq_done = 0;
-	time_t			 nsched;
-	time_t			 curtm;
-	u_int64_t		 evpid;
+	time_t		nsched;
+	time_t		curtm;
+	u_int64_t	evpid;
+	static int	setup = 0;
+	int		delay = 0;
+	struct timeval	tv;
 
-	nsched = 0;
+	log_trace(TRACE_SCHEDULER, "scheduler: entering scheduler_timeout");
 
-again:
-/*
-	if (scheduler->display)
-		scheduler->display();
-*/
+	/* if we're not done setting up the scheduler, do it some more */
+	if (! setup)
+		setup = backend->setup();
 
-	curtm = time(NULL);
-
-	/* set nsched to the time() of next schedulable envelope */
-	backend->next(NULL, &nsched);
-
-	/* load as many envelopes as possible from disk-queue to
-	 * ram-queue until a schedulable envelope is found.
-	 */
-	if (! rq_done)
-		rq_done = backend->setup(curtm, nsched);
-
-	if (rq_done) {
-		if (! backend->next(NULL, &nsched))
-			goto scheduler_sleep;
-		if (curtm < nsched)
-			goto scheduler_pause;
-	}
-
-	/* let's do the schedule dance baby ! */
-	while (backend->next(&evpid, &nsched)) {
-		if (curtm < nsched)
-			goto scheduler_pause;
-
-		scheduler_process_envelope(evpid);
-	}
-
-	if (rq_done)
+	/* we don't have a schedulable envelope ... sleep */
+	if (! backend->next(&evpid, &nsched))
 		goto scheduler_sleep;
 
-	goto again;
+	/* is the envelope schedulable right away ? */
+	curtm = time(NULL);
+	if (nsched <= curtm) {
+		/* yup */
+		scheduler_process_envelope(evpid);
+	}
+	else {
+		/* nope, so we can either keep the timeout delay to 0 if we
+		 * are not done setting up the scheduler, or sleep until it
+		 * is time to schedule that envelope otherwise.
+		 */
+		if (setup)
+			delay = nsched - curtm;
+	}
 
-
-scheduler_pause:
-	nsched = nsched - curtm;
-
-	log_debug("scheduler: nothing to do for the next %lld seconds, zZzZzZ",
-	    (long long int) nsched);
-
-	tv.tv_sec = nsched;
+	if (delay)
+		log_info("scheduler: pausing for %d seconds", delay);
+	tv.tv_sec = delay;
 	tv.tv_usec = 0;
 	evtimer_add(&env->sc_ev, &tv);
 	return;
 
-
 scheduler_sleep:
-	log_debug("scheduler: nothing to schedule, wake me up. zZzZzZ");
+	log_info("scheduler: sleeping");
 	return;
 }
 
@@ -503,7 +502,7 @@ end:
 }
 
 static int
-scheduler_message_to_scheduler(u_int32_t msgid)
+scheduler_load_message(u_int32_t msgid)
 {
 	struct qwalk	*q;
 	u_int64_t	 evpid;

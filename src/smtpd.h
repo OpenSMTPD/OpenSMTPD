@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.305 2012/07/09 09:57:53 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.308 2012/07/10 16:11:43 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -642,6 +642,7 @@ struct smtpd {
 #define	TRACE_SMTP	0x0008
 #define	TRACE_MTA	0x0010
 #define	TRACE_BOUNCE	0x0020
+#define	TRACE_SCHEDULER	0x0040
 
 enum {
 	STATS_SMTP_SESSION = 0,
@@ -979,7 +980,7 @@ struct scheduler_info {
 
 struct scheduler_backend {
 	void	(*init)(void);
-	int	(*setup)(time_t, time_t);
+	int	(*setup)(void);
 
 	int	(*next)(u_int64_t *, time_t *);
 
@@ -1232,8 +1233,8 @@ int bsnprintf(char *, size_t, const char *, ...)
 int safe_fclose(FILE *);
 int hostname_match(char *, char *);
 int email_to_mailaddr(struct mailaddr *, char *);
-int valid_localpart(char *);
-int valid_domainpart(char *);
+int valid_localpart(const char *);
+int valid_domainpart(const char *);
 char *ss_to_text(struct sockaddr_storage *);
 int valid_message_id(char *);
 int valid_message_uid(char *);
