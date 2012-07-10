@@ -1,4 +1,4 @@
-# In OpenBSD, smptd's files are installed this way:
+# In OpenBSD, smtpd's files are installed this way:
 #
 # /etc/mail/smtpd.conf
 # /usr/bin/mailq      --> /usr/sbin/mailwrapper --> /usr/sbin/smtpctl
