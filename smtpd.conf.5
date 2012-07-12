@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 .\"	$OpenBSD: smtpd.conf.5,v 1.54 2012/07/08 17:17:48 jmc Exp $
+=======
+.\"	$OpenBSD: smtpd.conf.5,v 1.52 2012/05/13 13:58:31 jmc Exp $
+>>>>>>> 1a9e42eafef92346a6b8ef2767f66dcc0938cc8e
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -16,7 +20,11 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
+<<<<<<< HEAD
 .Dd $Mdocdate: July 8 2012 $
+=======
+.Dd $Mdocdate: May 13 2012 $
+>>>>>>> 1a9e42eafef92346a6b8ef2767f66dcc0938cc8e
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -320,12 +328,18 @@ respectively.
 .It Xo
 .Ic relay via
 .Ar host
+<<<<<<< HEAD
+=======
+.Op Ic port Ar port
+.Op Ic tls | smtps | ssl
+>>>>>>> 1a9e42eafef92346a6b8ef2767f66dcc0938cc8e
 .Op Ic certificate Ar name
 .Op Ic auth Ar map
 .Op Ic as Ar address
 .Xc
 Mail is relayed through the specified
 .Ar host
+<<<<<<< HEAD
 expressed as a URL.
 For example:
 .Bd -literal -offset indent
@@ -354,6 +368,20 @@ ssl+auth://mx1.example.org	# AUTH over either \e
 				# SMTPS or TLS
 .Ed
 .Pp
+=======
+and
+.Ar port .
+.Pp
+The communication channel may be secured using the
+.Ic tls
+or
+.Ic smtps
+options.
+The special keyword
+.Ic ssl
+means that any of the two is acceptable:
+SMTPS is tried first, STARTTLS second.
+>>>>>>> 1a9e42eafef92346a6b8ef2767f66dcc0938cc8e
 If a certificate
 .Ar name
 is specified and exists in the
@@ -365,9 +393,15 @@ Creation of certificates is documented in
 .Pp
 If an SMTPAUTH session with
 .Ar host
+<<<<<<< HEAD
 is desired, the
 .Ic auth
 parameter is used to specify the
+=======
+is desired, use the
+.Ic auth
+parameter to specify the
+>>>>>>> 1a9e42eafef92346a6b8ef2767f66dcc0938cc8e
 .Ar map
 that holds the credentials.
 .Pp
@@ -449,8 +483,12 @@ listen on lo0
 listen on bnx0 tls certificate "mail.example.com" enable auth
 map aliases source db "/etc/mail/aliases.db"
 accept for local deliver to mda "/path/to/mda -f -"
+<<<<<<< HEAD
 accept from all for domain example.org \e
 	deliver to mda "/path/to/mda -f -"
+=======
+accept from all for domain example.org deliver to mda "/path/to/mda -f -"
+>>>>>>> 1a9e42eafef92346a6b8ef2767f66dcc0938cc8e
 accept for all relay
 .Ed
 .Sh SEE ALSO
