@@ -1,0 +1,463 @@
+.\"	$OpenBSD: smtpd.conf.5,v 1.54 2012/07/08 17:17:48 jmc Exp $
+.\"
+.\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
+.\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.\"
+.Dd $Mdocdate: July 8 2012 $
+.Dt SMTPD.CONF 5
+.Os
+.Sh NAME
+.Nm smtpd.conf
+.Nd Simple Mail Transfer Protocol daemon configuration file
+.Sh DESCRIPTION
+.Nm
+is the configuration file for the mail daemon
+.Xr smtpd 8 .
+.Pp
+The current line can be extended over multiple lines using a backslash
+.Pq Sq \e .
+Comments can be put anywhere in the file using a hash mark
+.Pq Sq # ,
+and extend to the end of the current line.
+Care should be taken when commenting out multi-line text:
+the comment is effective until the end of the entire block.
+.Pp
+Argument names not beginning with a letter, digit, or underscore
+must be quoted.
+Arguments containing whitespace should be surrounded by double quotes
+.Pq \&" .
+.Pp
+Macros can be defined that will later be expanded in context.
+Macro names must start with a letter, digit, or underscore,
+and may contain any of those characters.
+Macro names may not be reserved words (for example
+.Ar listen ,
+.Ar accept ,
+.Ar port ) .
+Macros are not expanded inside quotes.
+.Pp
+For example:
+.Bd -literal -offset indent
+wan_if = "fxp0"
+listen on $wan_if
+listen on $wan_if tls enable auth
+.Ed
+.Pp
+Some configuration directives expect expansion of their parameters at runtime.
+Such directives (for example
+.Ar deliver to maildir ,
+.Ar deliver to mda ,
+.Ar relay via )
+may use format specifiers which will be expanded before delivery or
+relaying.
+The following formats are currently supported:
+%a expands to the user part of the email address prior to the
+resolution of aliases;
+%u expands to the user part after aliases
+resolution and will typically be the system account;
+%d expands to the domain part of the email address;
+%U expands to the user part of the sender email address;
+%D expands to the domain part of the sender email address.
+.Pp
+Additional configuration files can be included with the
+.Ic include
+keyword, for example:
+.Bd -literal -offset indent
+include "/etc/mail/smtpd.conf.local"
+.Ed
+.Pp
+The syntax of
+.Nm
+is described below.
+.Bl -tag -width Ds
+.It Ic expire Ar n {s|m|h|d}
+Specify how long a message can stay in the queue.
+The default value is 4 days.
+For example:
+.Bd -literal -offset indent
+expire 4d	# expire after 4 days
+expire 10h	# expire after 10 hours
+.Ed
+.It Ic hostname Ar name
+Specify the fully qualified domain name (FQDN) of the server.
+By default the current host name is used,
+as returned by
+.Xr hostname 1 .
+.It Xo
+.Ic listen on Ar interface
+.Op Ic port Ar port
+.Op Ic tls | smtps
+.Op Ic certificate Ar name
+.Op Ic enable auth
+.Xc
+Specify an
+.Ar interface
+and
+.Ar port
+to listen on.
+An interface group, an IP address or a domain name may
+be used in place of
+.Ar interface .
+.Pp
+Secured connections are provided either using STARTTLS
+.Pq Ic tls ,
+by default on port 25,
+or SMTPS
+.Pq Ic smtps ,
+by default on port 465.
+Host certificates may be used for these connections,
+and are searched for in the
+.Pa /etc/mail/certs
+directory.
+If
+.Ic certificate
+is specified,
+a certificate
+.Ao Ar name Ac Ns .crt ,
+a key
+.Ao Ar name Ac Ns .key ,
+a certificate authority
+.Ao Ar name Ac Ns .ca
+and Diffie-Hellman parameters
+.Ao Ar name Ac Ns .dh
+are searched for.
+If no
+.Ic certificate
+is specified,
+the default interface name is instead used,
+for example
+.Pa fxp0.crt ,
+.Pa fxp0.key ,
+.Pa fxp0.ca ,
+and
+.Pa fxp0.dh .
+If no DH parameters are provided, smtpd will use
+built-in parameters.
+Creation of certificates is documented in
+.Xr starttls 8 .
+.Pp
+If the
+.Ic enable auth
+parameter is used,
+any remote sender that passed SMTPAUTH is treated as if
+it was the server's local user that was sending the mail.
+This means that filter rules using "from local" will be matched.
+.It Xo
+.Ic map Ar map
+.Ic source Ar type Ar source
+.Xc
+Maps are used to provide additional configuration information for
+.Xr smtpd 8 .
+.Pp
+.Ar map
+may be named freely.
+.Pp
+.Ar type
+may be one of the following:
+.Pp
+.Bl -tag -width "fileXXX" -compact
+.It db
+Mappings are stored in a file created using
+.Xr makemap 8 .
+This is the default type if none is specified.
+.It plain
+Mappings are stored in a plain text file using the
+same format as used to generate
+.Xr makemap 8
+mappings.
+.El
+.Pp
+.Ar source
+specifies the source of the map data.
+It must be an absolute path to a file for the
+.Dq plain
+and
+.Dq db
+map types.
+.It Ic size Ar n
+Specify a maximum message size of
+.Ar n
+bytes.
+The argument may contain a multiplier, as documented in
+.Xr scan_scaled 3 .
+.It Ic accept | reject
+.Xr smtpd 8
+accepts and rejects messages
+based on information gathered during the SMTP session.
+.Pp
+For each message processed by the daemon,
+the filter rules are evaluated in sequential order,
+from first to last.
+The first matching rule decides what action is taken.
+If no rule matches the message,
+the default action is to reject the message.
+.Pp
+Following the accept/reject
+decision comes the client's IP address filter:
+.Bl -tag -width Ds
+.It Ic from all
+Make the rule match regardless of the IP of connecting client.
+.It Ic from local
+The rule matches only locally originating connections.
+This is the default,
+and may be omitted.
+.It Ic from Ar network
+The rule matches if the connection is made from the specified
+.Ar network ,
+specified in CIDR notation.
+.El
+.Pp
+Next comes the selection based on the domain the message is sent to:
+.Bl -tag -width Ds
+.It Xo
+.Ic for all
+.Op Ic alias Ar aliases
+.Xc
+Make the rule match regardless of the domain it is sent to.
+If specified,
+.Ar aliases
+is used for looking up alternative destinations for all addresses.
+.It Xo
+.Ic for domain Ar domain
+.Op Ic alias Ar aliases
+.Xc
+This rule applies to mail destined for the specified
+.Ar domain .
+This parameter supports the
+.Sq *
+wildcard,
+so that a single rule for all sub-domains can be used, for example:
+.Bd -literal -offset indent
+accept for domain "*.example.com" deliver to mbox
+.Ed
+.Pp
+If specified,
+.Ar aliases
+is used for looking up alternative destinations for addresses in this
+.Ar domain .
+.It Xo
+.Ic for domain map Ar domains
+.Op Ic alias Ar aliases
+.Xc
+This rule applies to mail destined to domains which are part of the map
+.Ar domains .
+.Pp
+If specified,
+.Ar aliases
+is used for looking up alternative destinations for addresses in these
+.Ar domains .
+.It Xo
+.Ic for local
+.Op Ic alias Ar map
+.Xc
+This rule applies to mail destined to
+.Dq localhost
+and to the server's fully qualified domain name,
+as returned by
+.Xr hostname 1 .
+.It Ic for virtual map Ar vmap
+This rule applies to mail destined for the virtual domains specified
+in the map
+.Ar vmap .
+For an example of how to configure a virtual map, see
+.Xr makemap 8 .
+.El
+.Pp
+Finally, the method of delivery is specified:
+.Bl -tag -width Ds
+.It Ic deliver to maildir Ar path
+Mail is added to a maildir.
+Its location,
+.Ar path ,
+may contain format specifiers that are expanded before use
+(see above).
+If
+.Ar path
+is not provided, then
+.Pa ~/Maildir
+is assumed.
+.It Ic deliver to mbox
+Mail is delivered to the local user's system mailbox in
+.Pa /var/mail .
+.It Ic deliver to mda Ar program
+Mail is piped to the specified
+.Ar program ,
+which is run with the privileges of the user the message is destined to.
+This parameter may use conversion specifiers that are expanded before use
+(see above).
+.It Xo
+.Ic relay
+.Op Ic as Ar address
+.Xc
+Mail is relayed.
+The routing decision is based on the DNS system.
+.Pp
+If the
+.Ic as
+parameter is specified,
+.Xr smtpd 8
+will rewrite the sender advertised
+in the SMTP session.
+.Ar address
+may be a user, a domain prefixed with
+.Sq @ ,
+or an email address, causing
+smtpd to rewrite the user-part, the domain-part, or the entire address,
+respectively.
+.It Xo
+.Ic relay via
+.Ar host
+.Op Ic certificate Ar name
+.Op Ic auth Ar map
+.Op Ic as Ar address
+.Xc
+Mail is relayed through the specified
+.Ar host
+expressed as a URL.
+For example:
+.Bd -literal -offset indent
+smtp://mx1.example.org		# use SMTP
+smtp://mx1.example.org:4321	# use SMTP \e
+				# with port 4321
+.Ed
+.Pp
+The communication channel may be secured using one of the secure
+schemas.
+For example:
+.Bd -literal -offset indent
+tls://mx1.example.org		# use TLS
+smtps://mx1.example.org		# use SMTPS
+ssl://mx1.example.org		# try SMTPS and \e
+				# fallback to TLS
+.Ed
+.Pp
+In addition, credentials for authenticated relaying may be provided
+when using a secure schema.
+For example:
+.Bd -literal -offset indent
+tls+auth://mx1.example.org	# AUTH over TLS
+smtps+auth://mx1.example.org	# AUTH over SMTPS
+ssl+auth://mx1.example.org	# AUTH over either \e
+				# SMTPS or TLS
+.Ed
+.Pp
+If a certificate
+.Ar name
+is specified and exists in the
+.Pa /etc/mail/certs
+directory with a .crt extension, it will be used if the remote server
+requests a client certificate.
+Creation of certificates is documented in
+.Xr starttls 8 .
+.Pp
+If an SMTPAUTH session with
+.Ar host
+is desired, the
+.Ic auth
+parameter is used to specify the
+.Ar map
+that holds the credentials.
+.Pp
+If the
+.Ic as
+parameter is specified,
+.Xr smtpd 8
+will rewrite the sender advertised
+in the SMTP session.
+.Ar address
+may be a user, a domain prefixed with
+.Sq @ ,
+or an email address, causing
+smtpd to rewrite the user-part, the domain-part, or the entire address,
+respectively.
+.It Ic expire Ar n {s|m|h|d}
+Specify how long a message that matched this rule can stay in the queue.
+.El
+.El
+.Sh FILES
+.Bl -tag -width "/etc/mail/smtpd.confXXX" -compact
+.It Pa /etc/mail/smtpd.conf
+Default
+.Xr smtpd 8
+configuration file.
+.It Pa /var/spool/smtpd/
+Spool directories for mail during processing.
+.El
+.Sh EXAMPLES
+The default
+.Nm
+file which ships with
+.Ox
+listens on the loopback network interface (lo0),
+and allows for mail from users and daemons on the local machine,
+as well as permitting email to remote servers.
+Some more complex configurations are given below.
+.Pp
+This first example is the same as the default configuration,
+but all outgoing mail is forwarded to a remote SMTP server.
+A secrets file is needed to specify a username and password:
+.Bd -literal -offset indent
+# touch /etc/mail/secrets
+# chmod 640 /etc/mail/secrets
+# chown root:_smtpd /etc/mail/secrets
+# echo "smtp.example.com  username:password" \*(Gt /etc/mail/secrets
+# makemap /etc/mail/secrets
+.Ed
+.Pp
+.Nm
+would look like this:
+.Bd -literal -offset indent
+listen on lo0
+map aliases source db "/etc/mail/aliases.db"
+map secrets source db "/etc/mail/secrets.db"
+accept for local deliver to mbox
+accept for all relay via smtp.example.com tls auth "secrets"
+.Ed
+.Pp
+In this second example,
+the aim is to permit mail relaying for any user that can authenticate
+using their normal login credentials.
+An RSA certificate must be provided to prove the server's identity.
+The mail server has an external interface bnx0.
+Mail with a local destination should be sent to an external mda.
+First, the RSA certificate is created:
+.Bd -literal -offset indent
+# openssl genrsa -out /etc/mail/certs/mail.example.com.key 4096
+# openssl req -new -x509 -key /etc/mail/certs/mail.example.com.key \e
+	-out /etc/mail/certs/mail.example.com.crt -days 365
+# chmod 600 /etc/mail/certs/mail.example.com.*
+.Ed
+.Pp
+In the example above,
+a certificate valid for one year was created.
+The configuration file would look like this:
+.Bd -literal -offset indent
+listen on lo0
+listen on bnx0 tls certificate "mail.example.com" enable auth
+map aliases source db "/etc/mail/aliases.db"
+accept for local deliver to mda "/path/to/mda -f -"
+accept from all for domain example.org \e
+	deliver to mda "/path/to/mda -f -"
+accept for all relay
+.Ed
+.Sh SEE ALSO
+.Xr mailer.conf 5 ,
+.Xr makemap 8 ,
+.Xr smtpd 8
+.Sh HISTORY
+.Xr smtpd 8
+first appeared in
+.Ox 4.6 .
