@@ -38,7 +38,7 @@ Build
 
 ### Special notes for FreeBSD/DragonFlyBSD:
 
-Please lauch configure with special directive about libevent directory:
+Please launch configure with special directive about libevent directory:
 
 #### FreeBSD:
 
