@@ -20,27 +20,36 @@
 # /usr/local/sbin/smtpctl
 # /usr/local/sbin/smtpd
 
-sbin_PROGRAMS =		smtpd smtpctl
-pkglibexec_PROGRAMS =	makemap
+sbin_PROGRAMS=		smtpd smtpctl
+pkglibexec_PROGRAMS=	makemap
 
-makemap_SOURCES =	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
+makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
 			map_static.c map_db.c map_stdio.c
 
-smtpd_SOURCES =		aliases.c auth.c auth_bsd.c auth_pwd.c bounce.c		\
-			iobuf.c ioev.c						\
-			delivery.c delivery_filename.c delivery_maildir.c	\
-			delivery_mbox.c delivery_mda.c				\
-			config.c control.c dns.c expand.c envelope.c forward.c	\
-			lka.c lka_session.c log.c map.c map_db.c map_stdio.c	\
-			mda.c mfa.c mfa_session.c mta.c mta_session.c parse.y	\
-			queue.c ruleset.c scheduler.c scheduler_backend.c	\
-			smtp.c							\
-			smtp_session.c smtpd.c ssl.c ssl_privsep.c util.c	\
-			queue_backend.c queue_fsqueue.c				\
-			user.c user_pwd.c stats.c scheduler_ramqueue.c		\
-			map_static.c
+smtpd_SOURCES=		aliases.c auth.c bounce.c config.c control.c		\
+			delivery.c dns.c expand.c envelope.c forward.c		\
+			iobuf.c ioev.c lka.c lka_session.c log.c map.c mda.c	\
+			mfa.c mfa_session.c mta.c mta_session.c parse.y		\
+			queue.c queue_backend.c ruleset.c			\
+			scheduler.c scheduler_backend.c	smtp.c smtp_session.c	\
+			smtpd.c ssl.c ssl_privsep.c stats.c user.c util.c
 
-smtpd_SOURCES +=	../contrib/lib/libc/asr/asr.c			\
+# backends
+smtpd_SOURCES+=		auth_bsd.c
+smtpd_SOURCES+=		auth_pwd.c 
+smtpd_SOURCES+=		delivery_filename.c
+smtpd_SOURCES+=		delivery_maildir.c
+smtpd_SOURCES+=		delivery_mbox.c
+smtpd_SOURCES+=		delivery_mda.c
+smtpd_SOURCES+=		map_db.c
+smtpd_SOURCES+=		map_static.c
+smtpd_SOURCES+=		map_stdio.c
+smtpd_SOURCES+=		queue_fsqueue.c
+smtpd_SOURCES+=		scheduler_ramqueue.c
+smtpd_SOURCES+=		user_pwd.c
+
+# resolver
+smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/asr_debug.c			\
 			../contrib/lib/libc/asr/asr_utils.c			\
 			../contrib/lib/libc/asr/res_send_async.c		\
@@ -49,44 +58,44 @@ smtpd_SOURCES +=	../contrib/lib/libc/asr/asr.c			\
 			../contrib/lib/libc/asr/getnameinfo_async.c		\
 			../contrib/lib/libc/asr/gethostnamadr_async.c
 
-smtpd_CFLAGS =		-DIO_SSL
+smtpd_CFLAGS=		-DIO_SSL
 
-smtpctl_SOURCES =	enqueue.c parser.c log.c envelope.c			\
+smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c stats.c util.c
 
-EXTRA_DIST = 		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
+EXTRA_DIST=		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
 			parser.h smtpd.h
 
-INCLUDES = 		-I$(top_srcdir)/openbsd-compat				\
+INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr
 
-LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
+LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD = 		$(LIBCOMPAT)
+LDADD=			$(LIBCOMPAT)
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS +=		-D_GNU_SOURCE
-CPPFLAGS =		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+CFLAGS+=		-D_GNU_SOURCE
+CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-PATHS =			-DSMTPD_CONFDIR=\"$(sysconfdir)/mail\" \
+PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)/mail\" \
 			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\" \
 			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"
 
-MANPAGES =		makemap.8.out newaliases.8.out smtpctl.8.out smtpd.8.out smtpd.conf.5.out
-MANPAGES_IN =		makemap.8 newaliases.8 smtpctl.8 smtpd.8 smtpd.conf.5
+MANPAGES=		makemap.8.out newaliases.8.out smtpctl.8.out smtpd.8.out smtpd.conf.5.out
+MANPAGES_IN=		makemap.8 newaliases.8 smtpctl.8 smtpd.8 smtpd.conf.5
 
-CONFIGFILES =		smtpd.conf.out
-CONFIGFILES_IN =	smtpd.conf
+CONFIGFILES=		smtpd.conf.out
+CONFIGFILES_IN=		smtpd.conf
 
-PATHSUBS =		-e 's|/etc/mail/|$(sysconfdir)/mail/|g'			\
+PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/mail/|g'			\
 			-e 's|/usr/libexec|$(libexecdir)|g'			\
 			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
 
-FIXPATHSCMD =		$(SED) $(PATHSUBS)
+FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 $(MANPAGES): $(MANPAGES_IN)
 	if test "$(MANTYPE)" = "cat"; then \

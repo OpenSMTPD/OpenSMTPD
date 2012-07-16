@@ -10,8 +10,8 @@
 /hostaddr_async.c/1.1/Sat Apr 14 09:24:18 2012//
 /res_search_async.c/1.1/Sat Apr 14 09:24:18 2012//
 /res_send_async.c/1.2/Sat Jul  7 20:41:52 2012//
-/getaddrinfo_async.c/1.3/Result of merge+Tue Jul 10 17:49:51 2012//
 /asr_resolver.c/1.4/Thu Jul 12 17:14:49 2012//
 /gethostnamadr_async.c/1.5/Result of merge//
 /getnetnamadr_async.c/1.2/Thu Jul 12 17:14:52 2012//
+/getaddrinfo_async.c/1.4/Result of merge//
 D
