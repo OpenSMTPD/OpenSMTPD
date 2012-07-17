@@ -92,8 +92,8 @@ or in debug and verbose mode
 Manual pages
 ------------
 
-    [smtpd](http://opensmtpd.org/smtpd.8.html) - Simple Mail Transfer Protocol daemon
-    [smtpd.conf](http://opensmtpd.org/smtpd.conf.5.html) - Simple Mail Transfer Protocol daemon configuration file
-    [smtpctl](http://opensmtpd.org/smtpctl.8.html) - control the Simple Mail Transfer Protocol daemon
-    [newaliases](http://opensmtpd.org/newaliases.8.html) - generate aliases mappings for the Simple Mail Transfer Protocol daemon
-    [makemap](http://opensmtpd.org/makemap.8.html) - generate mappings for the Simple Mail Transfer Protocol daemon
+* [smtpd](http://opensmtpd.org/smtpd.8.html) - Simple Mail Transfer Protocol daemon
+* [smtpd.conf](http://opensmtpd.org/smtpd.conf.5.html) - Simple Mail Transfer Protocol daemon configuration file
+* [smtpctl](http://opensmtpd.org/smtpctl.8.html) - control the Simple Mail Transfer Protocol daemon
+* [newaliases](http://opensmtpd.org/newaliases.8.html) - generate aliases mappings for the Simple Mail Transfer Protocol daemon
+* [makemap](http://opensmtpd.org/makemap.8.html) - generate mappings for the Simple Mail Transfer Protocol daemon
