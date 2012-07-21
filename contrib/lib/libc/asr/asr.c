@@ -413,7 +413,7 @@ asr_check_reload(struct asr *asr)
 #ifdef HAVE_CLOCK_GETTIME
 	if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
 		return;
-#elif
+#else
 	struct timeval tv;
 
 	if (gettimeofday(&tv, NULL) == 0)
