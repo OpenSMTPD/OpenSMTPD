@@ -198,6 +198,12 @@ AC_CHECK_HEADERS([login_cap.h], [], [], [
 # Check for some target-specific stuff
 case "$host" in
 *-*-aix*)
+	check_for_aix_broken_getaddrinfo=1
+	AC_DEFINE([BROKEN_REALPATH], [1], [Define if you have a broken realpath.])
+	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
+	    [Define if your platform breaks doing a seteuid before a setuid])
+	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
+	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
 		supported by bsd-setproctitle.c])
@@ -217,6 +223,12 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		[getaddrinfo is broken (if present)])
 	],
 	[AC_MSG_RESULT([assume it is working])])
+	AC_DEFINE([SETEUID_BREAKS_SETUID])
+	AC_DEFINE([BROKEN_SETREUID])
+	AC_DEFINE([BROKEN_SETREGID])
+	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
+	AC_DEFINE_UNQUOTED([BIND_8_COMPAT], [1],
+		[Define if your resolver libs need this for getrrsetbyname])
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
 		supported by bsd-setproctitle.c])
@@ -356,7 +368,25 @@ AC_CHECK_FUNCS( \
 	waitpid \
 	)
 
-#l1556
+#l1627
+# IRIX has a const char return value for gai_strerror()
+AC_CHECK_FUNCS([gai_strerror], [
+	AC_DEFINE([HAVE_GAI_STRERROR])
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+const char *gai_strerror(int);
+			]], [[
+	char *str;
+	str = gai_strerror(0);
+			]])], [
+		AC_DEFINE([HAVE_CONST_GAI_STRERROR_PROTO], [1],
+		[Define if gai_strerror() returns const char *])], [])])
+#l1641
+
+#l1648
 AC_CHECK_DECL([strsep],
 	[AC_CHECK_FUNCS([strsep])],
 	[],
@@ -365,9 +395,9 @@ AC_CHECK_DECL([strsep],
 # include <string.h>
 #endif
 	])
-#l1563
+#l1655
 
-#l1580
+#l1672
 AC_CHECK_DECLS([O_NONBLOCK], , ,
 	[
 #include <sys/types.h>
@@ -384,9 +414,9 @@ AC_CHECK_DECLS([writev], , , [
 #include <sys/uio.h>
 #include <unistd.h>
 	])
-#l1585
+#l1687
 
-#l1605
+#l1697
 AC_CHECK_FUNCS([setresuid], [
 	dnl Some platorms have setresuid that isn't implemented, test for this
 	AC_MSG_CHECKING([if setresuid seems to work])
@@ -435,15 +465,15 @@ AC_CHECK_FUNCS([setresgid], [
 
 dnl    Checks for time functions
 AC_CHECK_FUNCS([gettimeofday time])
-#l1652
+#l1744
 
-#l1662
+#l1754
 AC_CHECK_FUNC([daemon],
 	[AC_DEFINE([HAVE_DAEMON], [1], [Define if your libraries define daemon()])],
 	[AC_CHECK_LIB([bsd], [daemon],
 		[LIBS="$LIBS -lbsd"; AC_DEFINE([HAVE_DAEMON])])]
 )
-#l1666
+#l1758
 
 ##chl
 AC_CHECK_FUNC([fparseln],
@@ -465,7 +495,7 @@ AC_CHECK_FUNC([res_randomid],
 )
 ##chl
 
-#l1675
+#l1767
 # Check for broken snprintf
 if test "x$ac_cv_func_snprintf" = "xyes" ; then
 	AC_MSG_CHECKING([whether snprintf correctly terminates long strings])
@@ -576,9 +606,9 @@ AC_RUN_IFELSE(
 	]
 )
 fi
-#l1784
+#l1876
 
-#l1832
+#l1924
 if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
     test "x$check_for_hpux_broken_getaddrinfo" = "x1"; then
 	AC_MSG_CHECKING([if getaddrinfo seems to work])
@@ -705,9 +735,9 @@ if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
 		]
 	)
 fi
-#l1957
+#l2049
 
-#l1976
+#l2068
 # Search for OpenSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
@@ -902,9 +932,9 @@ AC_LINK_IFELSE(
 		)
 	]
 )
-#l2169
+#l2261
 
-#l1229
+#l2321
 # Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
 # because the system crypt() is more featureful.
 if test "x$check_for_libcrypt_before" = "x1"; then
@@ -916,9 +946,9 @@ fi
 if test "x$check_for_libcrypt_later" = "x1"; then
 	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
 fi
-#l2239
+#l2331
 
-#l2016
+#l2381
 ### Configure cryptographic random number support
 
 # Check wheter OpenSSL seeds itself
@@ -1105,9 +1135,9 @@ AC_ARG_WITH([privsep-user],
 AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 	[non-privileged user for privilege separation])
 AC_SUBST([SMTPD_USER])
-#l2475
+#l2566
 
-#l2522
+#l2691
 # Check for  long long datatypes
 AC_CHECK_TYPES([long long, unsigned long long, long double])
 
@@ -1591,9 +1621,9 @@ main() { exit(0); }
 		AC_MSG_WARN([cross compiling: Assuming working snprintf()])
 	)
 fi
-#l3002
+#l3171
 
-#l3036
+#l3205
 AC_CACHE_CHECK([for ss_family field in struct sockaddr_storage],
 		ac_cv_have_ss_family_in_struct_ss, [
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -1819,7 +1849,7 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
 	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
 		[Define if your getopt(3) defines and uses optreset])
 fi
-#l3261
+#l3429
 
 ##chl part
 AC_CHECK_MEMBERS([struct stat.st_flags], , ,
@@ -1853,22 +1883,7 @@ AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
 ##chl part
 
 
-#l3249
-AC_CACHE_CHECK([whether getopt has optreset support],
-		ac_cv_have_getopt_optreset, [
-	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <getopt.h> ]],
-		[[ extern int optreset; optreset = 0; ]])],
-	[ ac_cv_have_getopt_optreset="yes" ],
-	[ ac_cv_have_getopt_optreset="no" 
-	])
-])
-if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
-	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
-		[Define if your getopt(3) defines and uses optreset])
-fi
-#l3260
-
-#l3482
+#l3651
 # Looking for programs, paths and files
 
 PRIVSEP_PATH=/var/empty
@@ -1882,9 +1897,9 @@ AC_ARG_WITH([privsep-path],
 	]
 )
 AC_SUBST([PRIVSEP_PATH])
-#l3494
+#l3663
 
-#l3538
+#l3707
 dnl # --with-maildir=/path/to/mail gets top priority.
 dnl # if maildir is set in the platform case statement above we use that.
 dnl # Otherwise we run a program to get the dir from system headers.
@@ -1966,9 +1981,9 @@ AC_ARG_WITH([maildir],
 	fi
     ]
 ) # maildir
-#l3618
+#l3787
 
-#l3648
+#l3817
 # Options from here on. Some of these are preset by platform above
 AC_ARG_WITH([mantype],
 	[  --with-mantype=man|cat|doc  Set man page type],
@@ -2001,9 +2016,9 @@ else
 	mansubdir=$MANTYPE;
 fi
 AC_SUBST([mansubdir])
-#l3679
+#l3848
 
-#l3901
+#l4073
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
 AC_ARG_WITH([bsd-auth],
@@ -2043,13 +2058,13 @@ AC_ARG_WITH([sock-dir],
 AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
 	[Specify location of smtpd.sock])
 AC_SUBST([sockdir])
-#l3939
+#l4111
 
 
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
 
 
-#l4176
+#l4348
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.
 CFLAGS="$CFLAGS $werror_flags"
@@ -2063,7 +2078,7 @@ AC_CHECK_DECL([BROKEN_GETADDRINFO],  [TEST_SSH_IPV6=no])
 AC_SUBST([TEST_SSH_IPV6], [$TEST_SSH_IPV6])
 
 AC_EXEEXT
-#l4188
+#l4360
 
 ##chl (still based on portable OpenSSH's configure.ac)
 AC_MSG_CHECKING([if inet_net_pton will link])
@@ -2288,7 +2303,7 @@ AC_CONFIG_FILES([Makefile
 		contrib/libexec/mail.local/Makefile
 		])
 
-#l4192
+#l4364
 AC_OUTPUT
 
 # Print summary of options
@@ -2380,4 +2395,4 @@ if test "$AUDIT_MODULE" = "bsm" ; then
 	echo "WARNING: BSM audit support is currently considered EXPERIMENTAL."
 	echo "See the Solaris section in README.platform for details."
 fi
-#l4100
+#l4463

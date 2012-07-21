@@ -10,6 +10,7 @@ daemon.c		portable openssh
 defines.h		portable openssh
 dirname.c		portable openssh
 entropy.{c,h}		portable openssh
+fake-rfc2553.{c,h}	portable openssh
 fgetln.c		part of /usr/src/usr.bin/make/util.c
 fmt_scaled.c		portable openssh
 fparseln.c		part of /usr/src/libutil/fparseln.c
