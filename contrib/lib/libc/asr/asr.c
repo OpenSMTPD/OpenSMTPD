@@ -410,8 +410,16 @@ asr_check_reload(struct asr *asr)
 	if (asr->a_path == NULL)
 		return;
 
+#ifdef HAVE_CLOCK_GETTIME
 	if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
 		return;
+#elif
+	struct timeval tv;
+
+	if (gettimeofday(&tv, NULL) == 0)
+		return;
+	tp.tv_sec = tv.tv_sec;
+#endif
 
 	if ((tp.tv_sec - asr->a_rtime) < RELOAD_DELAY)
 		return;
