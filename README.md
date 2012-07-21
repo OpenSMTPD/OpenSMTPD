@@ -15,6 +15,17 @@ encouraged to join the IRC channel #opensmtpd @ FreeNode.net.
 How to use Portable OpenSMTPD
 =============================
 
+Dependencies
+------------
+
+OpenSMTPD relies on:
+* autoconf
+* automake
+* bison (or yacc/byacc)
+* libevent
+* openssl
+
+
 Get the source
 --------------
 
@@ -36,7 +47,7 @@ Build
     make  
     sudo make install  
 
-### Special notes for FreeBSD/DragonFlyBSD:
+### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
 
 Please launch configure with special directive about libevent directory:
 
@@ -47,6 +58,10 @@ Please launch configure with special directive about libevent directory:
 #### DragonFlyBSD:
 
     ./configure --with-libevent-dir=/usr/pkg
+
+#### Mac OS X:
+
+    ./configure --with-libevent-dir=/opt/local
 
 
 Create a /etc/mail/smtpd.conf
