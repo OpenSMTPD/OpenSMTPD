@@ -451,6 +451,12 @@ AC_CHECK_FUNC([fparseln],
 	[AC_CHECK_LIB([util], [fparseln],
 		[LIBS="$LIBS -lutil"; AC_DEFINE([HAVE_FPARSELN])])]
 )
+
+AC_CHECK_FUNC([clock_gettime],
+	[AC_DEFINE([HAVE_CLOCK_GETTIME], [1], [Define if your libraries define clock_gettime()])],
+	[AC_CHECK_LIB([rt], [clock_gettime],
+		[LIBS="$LIBS -lrt"; AC_DEFINE([HAVE_CLOCK_GETTIME])])]
+)
 ##chl
 
 #l1675
