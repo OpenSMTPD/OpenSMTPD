@@ -353,6 +353,9 @@ AC_CHECK_FUNCS( \
 	dirfd \
 	dirname \
 	fgetln \
+	freeaddrinfo \
+	getaddrinfo \
+	getnameinfo \
 	getopt \
 	getpeereid \
 	memmove \
