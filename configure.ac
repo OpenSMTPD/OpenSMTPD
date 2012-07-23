@@ -66,9 +66,18 @@ fi
 AC_SUBST([MANFMT])
 #l61
 
-#l91
-AC_CHECK_DECL(LLONG_MAX, have_llong_max=1, , [#include <limits.h>])
+#l101
+if test -z "$LD" ; then
+	LD=$CC
+fi
+AC_SUBST([LD])
 
+AC_C_INLINE
+
+AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
+#l108
+
+#l157
 if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	CFLAGS="$CFLAGS -Wall -Wpointer-arith -Wuninitialized"
 	GCC_VER=`$CC -v 2>&1 | $AWK '/gcc version /{print $3}'`
@@ -100,9 +109,9 @@ fi
 if test "x$no_attrib_nonnull" != "x1" ; then
 	AC_DEFINE(HAVE_ATTRIBUTE__NONNULL__, 1, [Have attribute nonnull])
 fi
-#l124
+#l244
 
-#l174
+#l295
 AC_ARG_WITH(Werror,
 	[  --with-Werror           Build main code with -Werror],
 	[
@@ -114,7 +123,7 @@ AC_ARG_WITH(Werror,
 		fi
 	]
 )
-#l184
+#l305
 
 AC_CHECK_HEADERS( \
 		crypt.h \
