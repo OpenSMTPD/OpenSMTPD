@@ -779,6 +779,8 @@ fdlimit(double percent)
 		fatalx("fdlimit: parameter out of range");
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
 		fatal("fdlimit: getrlimit");
+	if (rl.rlim_max == RLIM_INFINITY)
+		rl.rlim_max = OPEN_MAX;
 	rl.rlim_cur = percent * rl.rlim_max;
 	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
 		fatal("fdlimit: setrlimit");
