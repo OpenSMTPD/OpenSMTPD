@@ -19,6 +19,10 @@ AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
+AC_CONFIG_HEADER([config.h])
+AC_CANONICAL_HOST
+AC_C_BIGENDIAN
+
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
@@ -2296,8 +2300,6 @@ AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
 LIBS="$LIBS ${SSHDLIBS}"
 ##end of chl
 
-
-AC_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		src/Makefile
