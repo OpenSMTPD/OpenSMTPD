@@ -609,10 +609,12 @@ struct winsize {
 #endif
 
 /* Maximum number of file descriptors available */
-#ifdef HAVE_SYSCONF
-# define SSH_SYSFDMAX sysconf(_SC_OPEN_MAX)
-#else
-# define SSH_SYSFDMAX 10000
+#ifndef OPEN_MAX
+# ifdef HAVE_SYSCONF
+#  define OPEN_MAX	sysconf(_SC_OPEN_MAX)
+# else
+#  define OPEN_MAX	256
+# endif
 #endif
 
 #if defined(__Lynx__)
