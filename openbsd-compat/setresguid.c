@@ -33,6 +33,7 @@ int setresgid(uid_t rgid, uid_t egid, uid_t sgid)
 	if (setgid(rgid) < 0)
 		fatal("setgid %u: %.100s", (u_int)rgid, strerror(errno));
 #endif
+	return (0);
 }
 #endif /* HAVE_SETRESGID */
 
@@ -56,5 +57,6 @@ int setresuid(uid_t ruid, uid_t euid, uid_t suid)
 	if (setuid(ruid) < 0)
 		fatal("setuid %u: %.100s", (u_int)ruid, strerror(errno));
 #endif
+	return (0);
 }
 #endif /* HAVE_SETRESUID */
