@@ -504,11 +504,7 @@ AC_CHECK_FUNC([clock_gettime],
 		[LIBS="$LIBS -lrt"; AC_DEFINE([HAVE_CLOCK_GETTIME])])]
 )
 
-AC_CHECK_FUNC([res_randomid],
-	[AC_DEFINE([HAVE_RES_RANDOMID], [1], [Define if your libraries define res_randomid()])],
-	[AC_CHECK_LIB([resolv], [res_randomid],
-		[LIBS="$LIBS -lresolv"; AC_DEFINE([HAVE_RES_RANDOMID])])]
-)
+AC_SEARCH_LIBS(res_9_b64_ntop, resolv)
 ##chl
 
 #l1767
