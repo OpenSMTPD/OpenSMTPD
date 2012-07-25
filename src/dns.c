@@ -231,6 +231,7 @@ dns_asr_error(int ar_err)
 		stat_increment(STATS_LKA_FAILURE);
 		return DNS_EINVAL;
 	default:
+		log_debug("dns_asr_error: ar_err=%i", ar_err);
 		return DNS_RETRY;
 	}
 }
@@ -252,6 +253,8 @@ dns_asr_dispatch_mx(struct dnssession *s)
 	}
 
 	if (ar.ar_errno || ar.ar_h_errno || ar.ar_rcode == NXDOMAIN) {
+		log_debug("ar.ar_errno=%i, ar.ar_h_errno=%i, ar.ar_rcode=%i",
+			  ar.ar_errno, ar.ar_h_errno, ar.ar_rcode);
 		query->error = ar.ar_rcode == NXDOMAIN ? \
 			DNS_ENONAME : dns_asr_error(ar.ar_h_errno);
 		dns_reply(query, IMSG_DNS_HOST_END);

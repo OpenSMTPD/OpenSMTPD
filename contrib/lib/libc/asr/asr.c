@@ -407,6 +407,8 @@ asr_check_reload(struct asr *asr)
 	struct asr_ctx	*ac;
 	struct timespec	 tp;
 
+	log_debug("asr_check_reload");
+
 	if (asr->a_path == NULL)
 		return;
 
@@ -421,6 +423,9 @@ asr_check_reload(struct asr *asr)
 	tp.tv_sec = tv.tv_sec;
 #endif
 
+	log_debug("asr_check_reload: need reload? tp.tv_sec=%i asr->a_rtime=%i "
+		  "tp.tv_sec - asr->a_rtime = %i",
+		  tp.tv_sec, asr->a_rtime, tp.tv_sec - asr->a_rtime);
 	if ((tp.tv_sec - asr->a_rtime) < RELOAD_DELAY)
 		return;
 	asr->a_rtime = tp.tv_sec;
@@ -576,13 +581,16 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 	const char	*e;
 	struct sockaddr_storage	ss;
 
+	log_debug("pass0 tok[0]=%s, n=%i", tok[0], n);
 	if (!strcmp(tok[0], "nameserver")) {
 		if (ac->ac_nscount == ASR_MAXNS)
 			return (0);
 		if (n != 2)
 			return (0);
+		log_debug("pass0 tok[1]=%s", tok[1]);
 		if (asr_parse_nameserver((struct sockaddr*)&ss, tok[1]))
 			return (0);
+		log_debug("asr_parse_nameserver --> OK");
 		if ((ac->ac_ns[ac->ac_nscount] = calloc(1, SS_LEN(&ss))) == NULL)
 			return (0);
 		memmove(ac->ac_ns[ac->ac_nscount], &ss, SS_LEN(&ss));
