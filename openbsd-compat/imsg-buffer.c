@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
@@ -27,7 +29,6 @@
 #include <unistd.h>
 
 #include "imsg.h"
-#include "openbsd-compat.h"
 
 int	ibuf_realloc(struct ibuf *, size_t);
 void	ibuf_enqueue(struct msgbuf *, struct ibuf *);

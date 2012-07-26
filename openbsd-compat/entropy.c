@@ -22,8 +22,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "openbsd-compat.h"
+#include "includes.h"
 
 #include <sys/types.h>
 

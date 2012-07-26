@@ -31,6 +31,8 @@
  * SUCH DAMAGE.
  */
 
+#include "includes.h"
+
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -47,8 +49,6 @@
 #include <string.h>
 #include "pathnames.h"
 #include "mail.local.h"
-
-#include "openbsd-compat.h"
 
 int
 main(int argc, char *argv[])

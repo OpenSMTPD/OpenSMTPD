@@ -29,11 +29,10 @@
 
 /* OPENBSD ORIGINAL: usr.bin/make/util.c */
 
-#include "config.h"
+#include "includes.h"
 
 #ifndef HAVE_FGETLN
 
-#include "openbsd-compat.h"
 #include "xmalloc.h"
 
 char *

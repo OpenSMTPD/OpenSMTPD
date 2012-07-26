@@ -44,8 +44,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-#include "openbsd-compat.h"
-
 static int	fsqueue_envelope_load(struct envelope *);
 static int	fsqueue_envelope_update(struct envelope *);
 static int	fsqueue_envelope_delete(struct envelope *);

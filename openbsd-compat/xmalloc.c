@@ -13,13 +13,14 @@
  * called by a name other than "ssh" or "Secure Shell".
  */
 
+#include "includes.h"
+
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "openbsd-compat.h"
 #include "log.h"
 #include "xmalloc.h"
 

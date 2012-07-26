@@ -32,8 +32,7 @@
 
 /* OPENBSD ORIGINAL: lib/libutil/fparseln.c */
 
-#include "config.h"
-#include "openbsd-compat.h"
+#include "includes.h"
 
 #include <sys/cdefs.h>
 

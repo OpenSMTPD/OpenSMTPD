@@ -41,8 +41,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-#include "openbsd-compat.h"
-
 static const char* envelope_validate(struct envelope *, uint64_t);
 
 extern struct queue_backend	queue_backend_fs;

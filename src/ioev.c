@@ -37,8 +37,6 @@
 #	include <openssl/ssl.h>
 #endif
 
-#include "openbsd-compat.h"
-
 enum {
 	IO_STATE_NONE,
 	IO_STATE_CONNECT,
