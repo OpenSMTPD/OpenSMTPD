@@ -23,6 +23,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#include <sys/time.h>
 
 #include <err.h>
 #include <errno.h>
@@ -418,7 +419,7 @@ asr_check_reload(struct asr *asr)
 #else
 	struct timeval tv;
 
-	if (gettimeofday(&tv, NULL) == 0)
+	if (gettimeofday(&tv, NULL) < 0)
 		return;
 	tp.tv_sec = tv.tv_sec;
 #endif
