@@ -419,7 +419,7 @@ asr_check_reload(struct asr *asr)
 #else
 	struct timeval tv;
 
-	if (gettimeofday(&tv, NULL) < 0)
+	if (gettimeofday(&tv, NULL) == -1)
 		return;
 	tp.tv_sec = tv.tv_sec;
 #endif
