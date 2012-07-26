@@ -581,6 +581,8 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 	int		 i, j, d;
 	const char	*e;
 	struct sockaddr_storage	ss;
+	char		 buf[256];
+	struct sockaddr *sa;
 
 	log_debug("pass0 tok[0]=%s, n=%i", tok[0], n);
 	if (!strcmp(tok[0], "nameserver")) {
@@ -594,6 +596,18 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 		log_debug("asr_parse_nameserver --> OK");
 		if ((ac->ac_ns[ac->ac_nscount] = calloc(1, SS_LEN(&ss))) == NULL)
 			return (0);
+		log_debug("SS_LEN(&ss)=%zu", SS_LEN(&ss));
+		sa = (struct sockaddr *)&ss;
+		switch (sa->sa_family) {
+		case AF_INET:
+			log_debug("AF_INET");
+			break;
+		case AF_INET6:
+			log_debug("AF_INET6");
+			break;
+		}
+		asr_printf("	%s\n", asr_print_addr(sa, buf, sizeof buf));
+		log_debug("ss = %s", buf);
 		memmove(ac->ac_ns[ac->ac_nscount], &ss, SS_LEN(&ss));
 		ac->ac_nscount += 1;
 
