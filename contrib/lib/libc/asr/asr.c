@@ -388,13 +388,28 @@ asr_ctx_free(struct asr_ctx *ac)
 {
 	int i;
 
+#ifdef DEBUG
+	asr_printf("asr: asr_ctx_free(ctx=%p) refcount=%i\n",
+	    ac, ac->ac_refcount);
+	asr_printf("asr: ac=%p, ac->ac_domain=%p, ac->ac_nscount=%i, "
+		   "ac->ac_domcount=%i",
+		   ac, ac->ac_domain, ac->ac_nscount, ac->ac_domcount);
+#endif
+
 	if (ac->ac_domain)
 		free(ac->ac_domain);
-	for(i = 0; i < ac->ac_nscount; i++)
+	for(i = 0; i < ac->ac_nscount; i++) {
+#ifdef DEBUG
+		asr_printf("ac->ac_ns[%i]=%p", i, ac->ac_ns[i]);
+#endif
 		free(ac->ac_ns[i]);
-	for(i = 0; i < ac->ac_domcount; i++)
+	}
+	for(i = 0; i < ac->ac_domcount; i++) {
+#ifdef DEBUG
+		asr_printf("ac->ac_dom[%i]=%p", i, ac->ac_dom[i]);
+#endif
 		free(ac->ac_dom[i]);
-
+	}
 	free(ac);
 }
 
