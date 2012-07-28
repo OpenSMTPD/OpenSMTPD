@@ -62,6 +62,7 @@ Please launch configure with special directive about libevent directory:
 #### Mac OS X:
 
     ./configure --with-libevent-dir=/opt/local
+    make CFLAGS="-DBIND_8_COMPAT=1"
 
 
 Create a /etc/mail/smtpd.conf
@@ -88,6 +89,34 @@ Add _smtpd user
 ### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
+
+### Mac OS X
+
+First we need a group with an unused GID below 500, list the current ones used:
+
+	/usr/bin/dscl . -list /Groups PrimaryGroupID | sort -n -k2,2
+
+Add a group - here we have picked 444:
+
+	/usr/bin/sudo /usr/bin/dscl . -create /Groups/_smtpd PrimaryGroupID 444
+
+Then the user. Again we need an unused UID below 500, list the current ones used:
+
+	/usr/bin/dscl . -list /Users UniqueID | sort -n -k2,2
+
+Add a user - here we have picked 444:
+
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UniqueID 444
+	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd AuthenticationAuthority
+	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd PasswordPolicyOptions
+	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd dsAttrTypeNative:KerberosKeys
+	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd dsAttrTypeNative:ShadowHashData
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd RealName "SMTP Daemon"
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_stmpd Password "*"
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd PrimaryGroupID 444
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory \
+		/var/empty
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
 
 Launch smtpd
