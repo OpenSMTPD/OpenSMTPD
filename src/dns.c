@@ -329,6 +329,7 @@ next:
 			dns_reply(query, IMSG_DNS_HOST);
 			s->mxfound++;
 		}
+		log_debug("freeaddrinfo(ar.ar_addrinfo=%p)", ar.ar_addrinfo);
 		freeaddrinfo(ar.ar_addrinfo);
 	}
 
@@ -375,7 +376,9 @@ dnssession_destroy(struct dnssession *s)
 {
 	stat_decrement(STATS_LKA_SESSION);
 	SPLAY_REMOVE(dnstree, &dns_sessions, s);
+	log_debug("dnssession_destroy: event_del(&s->ev=%p)", &s->ev);
 	event_del(&s->ev);
+	log_debug("dnssession_destroy: free(s=%p)", s);
 	free(s);
 }
 
