@@ -295,6 +295,11 @@ async_free(struct async *as)
 		break;
 
 	case ASR_GETADDRINFO:
+#ifdef DEBUG
+		asr_printf("asr: async_free(%p) ASR_GETADDRINFO\n"
+			   "as->as.ai.subq=%p as->as.ai.aifirst=%p as->as.ai.hostname=%p as->as.ai.servname=%p\n",
+			   as, as->as.ai.subq, as->as.ai.aifirst, as->as.ai.hostname, as->as.ai.servname);
+#endif
 		if (as->as.ai.subq)
 			async_free(as->as.ai.subq);
 		if (as->as.ai.aifirst)
@@ -392,7 +397,7 @@ asr_ctx_free(struct asr_ctx *ac)
 	asr_printf("asr: asr_ctx_free(ctx=%p) refcount=%i\n",
 	    ac, ac->ac_refcount);
 	asr_printf("asr: ac=%p, ac->ac_domain=%p, ac->ac_nscount=%i, "
-		   "ac->ac_domcount=%i",
+		   "ac->ac_domcount=%i\n",
 		   ac, ac->ac_domain, ac->ac_nscount, ac->ac_domcount);
 #endif
 
@@ -400,13 +405,13 @@ asr_ctx_free(struct asr_ctx *ac)
 		free(ac->ac_domain);
 	for(i = 0; i < ac->ac_nscount; i++) {
 #ifdef DEBUG
-		asr_printf("ac->ac_ns[%i]=%p", i, ac->ac_ns[i]);
+		asr_printf("ac->ac_ns[%i]=%p\n", i, ac->ac_ns[i]);
 #endif
 		free(ac->ac_ns[i]);
 	}
 	for(i = 0; i < ac->ac_domcount; i++) {
 #ifdef DEBUG
-		asr_printf("ac->ac_dom[%i]=%p", i, ac->ac_dom[i]);
+		asr_printf("ac->ac_dom[%i]=%p\n", i, ac->ac_dom[i]);
 #endif
 		free(ac->ac_dom[i]);
 	}
