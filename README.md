@@ -33,9 +33,8 @@ Get the source
 
 or
 
-    visit http://www.opensmtpd.org/portable.html
-    wget the latest snapshot
-    tar xzvf opensmtpd-XXXXXXXXXXXX.tar.gz
+    wget http://www.opensmtpd.org/archives/opensmtpd-latest.tar.gz
+    tar xzvf opensmtpd-latest.tar.gz
 
 
 Build
