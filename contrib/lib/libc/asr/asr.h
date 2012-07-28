@@ -104,3 +104,4 @@ struct async *getaddrinfo_async(const char *, const char *,
     const struct addrinfo *, struct asr *);
 struct async *getnameinfo_async(const struct sockaddr *, socklen_t, char *,
     size_t, char *, size_t, int, struct asr *);
+void asr_freeaddrinfo(struct addrinfo *);

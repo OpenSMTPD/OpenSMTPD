@@ -526,3 +526,17 @@ add_sockaddr(struct async *as, struct sockaddr *sa, const char *cname)
 
 	return (0);
 }
+
+void
+asr_freeaddrinfo(struct addrinfo *ai)
+{
+	struct addrinfo	*ai_cur;
+
+	while (ai) {
+		ai_cur = ai;
+		ai = ai->ai_next;
+		if (ai_cur->ai_canonname)
+			free(ai_cur->ai_canonname);
+		free(ai_cur);
+	}
+}

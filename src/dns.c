@@ -332,7 +332,7 @@ next:
 			s->mxfound++;
 		}
 		log_debug("dns_asr_dispatch_host: freeaddrinfo(ar.ar_addrinfo=%p)", ar.ar_addrinfo);
-		freeaddrinfo(ar.ar_addrinfo);
+		asr_freeaddrinfo(ar.ar_addrinfo);
 		log_debug("dns_asr_dispatch_host: freeaddrinfo --> OK");
 	}
 
