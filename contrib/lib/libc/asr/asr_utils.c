@@ -416,8 +416,6 @@ sockaddr_from_str(struct sockaddr *sa, int family, const char *str)
 	struct sockaddr_in	*sin;
 	struct sockaddr_in6	*sin6;
 
-	log_debug("sockaddr_from_str '%s'", str);
-
 	switch (family) {
 	case PF_UNSPEC:
 		if (sockaddr_from_str(sa, PF_INET, str) == 0)
@@ -427,7 +425,6 @@ sockaddr_from_str(struct sockaddr *sa, int family, const char *str)
 	case PF_INET:
 		if (inet_pton(PF_INET, str, &ina) != 1)
 			return (-1);
-		log_debug("inet_pton(PF_INET, %s) OK", str);
 
 		sin = (struct sockaddr_in *)sa;
 		memset(sin, 0, sizeof *sin);
@@ -442,7 +439,6 @@ sockaddr_from_str(struct sockaddr *sa, int family, const char *str)
 		if (inet_pton(PF_INET6, str, &in6a) != 1)
 			return (-1);
 
-		log_debug("inet_pton(PF_INET6, %s) OK", str);
 		sin6 = (struct sockaddr_in6 *)sa;
 		memset(sin6, 0, sizeof *sin6);
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN

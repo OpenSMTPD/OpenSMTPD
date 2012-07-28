@@ -231,7 +231,6 @@ dns_asr_error(int ar_err)
 		stat_increment(STATS_LKA_FAILURE);
 		return DNS_EINVAL;
 	default:
-		log_debug("dns_asr_error: ar_err=%i", ar_err);
 		return DNS_RETRY;
 	}
 }
@@ -253,8 +252,6 @@ dns_asr_dispatch_mx(struct dnssession *s)
 	}
 
 	if (ar.ar_errno || ar.ar_h_errno || ar.ar_rcode == NXDOMAIN) {
-		log_debug("ar.ar_errno=%i, ar.ar_h_errno=%i, ar.ar_rcode=%i",
-			  ar.ar_errno, ar.ar_h_errno, ar.ar_rcode);
 		query->error = ar.ar_rcode == NXDOMAIN ? \
 			DNS_ENONAME : dns_asr_error(ar.ar_h_errno);
 		dns_reply(query, IMSG_DNS_HOST_END);
@@ -325,15 +322,11 @@ next:
 
 	if (ar.ar_gai_errno == 0) {
 		for (ai = ar.ar_addrinfo; ai; ai = ai->ai_next) {
-			log_debug("dns_asr_dispatch_host: ai=%p, ai->ai_addr=%p, ai->ai_addrlen=%i, ai->ai_next=%p",
-				  ai, ai->ai_addr, ai->ai_addrlen, ai->ai_next);
 			memcpy(&query->ss, ai->ai_addr, ai->ai_addrlen);
 			dns_reply(query, IMSG_DNS_HOST);
 			s->mxfound++;
 		}
-		log_debug("dns_asr_dispatch_host: freeaddrinfo(ar.ar_addrinfo=%p)", ar.ar_addrinfo);
 		asr_freeaddrinfo(ar.ar_addrinfo);
-		log_debug("dns_asr_dispatch_host: freeaddrinfo --> OK");
 	}
 
 	s->as = NULL;
@@ -379,11 +372,8 @@ dnssession_destroy(struct dnssession *s)
 {
 	stat_decrement(STATS_LKA_SESSION);
 	SPLAY_REMOVE(dnstree, &dns_sessions, s);
-	log_debug("dnssession_destroy: event_del(&s->ev=%p)", &s->ev);
 	event_del(&s->ev);
-	log_debug("dnssession_destroy: free(s=%p)", s);
 	free(s);
-	log_debug("dnssession_destroy: OK");
 }
 
 static void

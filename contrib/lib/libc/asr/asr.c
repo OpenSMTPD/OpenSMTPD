@@ -295,11 +295,6 @@ async_free(struct async *as)
 		break;
 
 	case ASR_GETADDRINFO:
-#ifdef DEBUG
-		asr_printf("asr: async_free(%p) ASR_GETADDRINFO\n"
-			   "as->as.ai.subq=%p as->as.ai.aifirst=%p as->as.ai.hostname=%p as->as.ai.servname=%p\n",
-			   as, as->as.ai.subq, as->as.ai.aifirst, as->as.ai.hostname, as->as.ai.servname);
-#endif
 		if (as->as.ai.subq)
 			async_free(as->as.ai.subq);
 		if (as->as.ai.aifirst)
@@ -393,28 +388,13 @@ asr_ctx_free(struct asr_ctx *ac)
 {
 	int i;
 
-#ifdef DEBUG
-	asr_printf("asr: asr_ctx_free(ctx=%p) refcount=%i\n",
-	    ac, ac->ac_refcount);
-	asr_printf("asr: ac=%p, ac->ac_domain=%p, ac->ac_nscount=%i, "
-		   "ac->ac_domcount=%i\n",
-		   ac, ac->ac_domain, ac->ac_nscount, ac->ac_domcount);
-#endif
-
 	if (ac->ac_domain)
 		free(ac->ac_domain);
-	for(i = 0; i < ac->ac_nscount; i++) {
-#ifdef DEBUG
-		asr_printf("ac->ac_ns[%i]=%p\n", i, ac->ac_ns[i]);
-#endif
+	for(i = 0; i < ac->ac_nscount; i++)
 		free(ac->ac_ns[i]);
-	}
-	for(i = 0; i < ac->ac_domcount; i++) {
-#ifdef DEBUG
-		asr_printf("ac->ac_dom[%i]=%p\n", i, ac->ac_dom[i]);
-#endif
+	for(i = 0; i < ac->ac_domcount; i++)
 		free(ac->ac_dom[i]);
-	}
+
 	free(ac);
 }
 
@@ -427,8 +407,6 @@ asr_check_reload(struct asr *asr)
         struct stat	 st;
 	struct asr_ctx	*ac;
 	struct timespec	 tp;
-
-	log_debug("asr_check_reload");
 
 	if (asr->a_path == NULL)
 		return;
@@ -444,9 +422,6 @@ asr_check_reload(struct asr *asr)
 	tp.tv_sec = tv.tv_sec;
 #endif
 
-	log_debug("asr_check_reload: need reload? tp.tv_sec=%i asr->a_rtime=%i "
-		  "tp.tv_sec - asr->a_rtime = %i",
-		  tp.tv_sec, asr->a_rtime, tp.tv_sec - asr->a_rtime);
 	if ((tp.tv_sec - asr->a_rtime) < RELOAD_DELAY)
 		return;
 	asr->a_rtime = tp.tv_sec;
@@ -601,33 +576,16 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 	int		 i, j, d;
 	const char	*e;
 	struct sockaddr_storage	ss;
-	char		 buf[256];
-	struct sockaddr *sa;
 
-	log_debug("pass0 tok[0]=%s, n=%i", tok[0], n);
 	if (!strcmp(tok[0], "nameserver")) {
 		if (ac->ac_nscount == ASR_MAXNS)
 			return (0);
 		if (n != 2)
 			return (0);
-		log_debug("pass0 tok[1]=%s", tok[1]);
 		if (asr_parse_nameserver((struct sockaddr*)&ss, tok[1]))
 			return (0);
-		log_debug("asr_parse_nameserver --> OK");
 		if ((ac->ac_ns[ac->ac_nscount] = calloc(1, SS_LEN(&ss))) == NULL)
 			return (0);
-		log_debug("SS_LEN(&ss)=%zu", SS_LEN(&ss));
-		sa = (struct sockaddr *)&ss;
-		switch (sa->sa_family) {
-		case AF_INET:
-			log_debug("AF_INET");
-			break;
-		case AF_INET6:
-			log_debug("AF_INET6");
-			break;
-		}
-		asr_printf("	%s\n", asr_print_addr(sa, buf, sizeof buf));
-		log_debug("ss = %s", buf);
 		memmove(ac->ac_ns[ac->ac_nscount], &ss, SS_LEN(&ss));
 		ac->ac_nscount += 1;
 
