@@ -325,6 +325,8 @@ next:
 
 	if (ar.ar_gai_errno == 0) {
 		for (ai = ar.ar_addrinfo; ai; ai = ai->ai_next) {
+			log_debug("dns_asr_dispatch_host: ai=%p, ai->ai_addr=%p, ai->ai_addrlen=%i, ai->ai_next=%p",
+				  ai, ai->ai_addr, ai->ai_addrlen, ai->ai_next);
 			memcpy(&query->ss, ai->ai_addr, ai->ai_addrlen);
 			dns_reply(query, IMSG_DNS_HOST);
 			s->mxfound++;
