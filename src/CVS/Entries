@@ -50,11 +50,9 @@ D/smtpd////
 /newaliases.8/1.8/Mon Jul  9 11:36:35 2012//
 /parse.y/1.89/Result of merge//
 /queue.c/1.121/Result of merge//
-/scheduler_backend.c/1.1/Mon Jul  9 09:57:53 2012//
 /smtpctl.8/1.27/Mon Jul  9 11:36:35 2012//
 /smtpctl.c/1.83/Result of merge//
 /smtpfilter.c/1.2/Mon Jul  9 11:36:35 2012//
-/scheduler.c/1.6/Result of merge//
 /scheduler_ramqueue.c/1.11/Result of merge//
 /smtpd.c/1.155/Result of merge//
 /thread_private.h/1.1/Tue Jul 10 17:47:40 2012//
@@ -68,3 +66,5 @@ D/smtpd////
 /mta_session.c/1.4/Result of merge//
 /smtpd.8/1.15/Mon Jul 16 09:48:27 2012//
 /smtpd.conf.5/1.57/Mon Jul 16 09:48:27 2012//
+/scheduler.c/1.7/Result of merge//
+/scheduler_backend.c/1.2/Result of merge//
