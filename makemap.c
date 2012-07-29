@@ -276,7 +276,7 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 			goto bad;
 	}
 	else if (type == T_ALIASES) {
-		lowercase(key.data, key.data, strlen(key.data) + 1);
+		xlowercase(key.data, key.data, strlen(key.data) + 1);
 		if (! make_aliases(&val, valp))
 			goto bad;
 	}

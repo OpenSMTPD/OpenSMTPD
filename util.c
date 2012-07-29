@@ -711,19 +711,31 @@ addargs(arglist *args, char *fmt, ...)
 	args->list[args->num] = NULL;
 }
 
-void
+int
 lowercase(char *buf, char *s, size_t len)
 {
 	if (len == 0)
-		fatalx("lowercase: len == 0");
+		return 0;
 
 	if (strlcpy(buf, s, len) >= len)
-		fatalx("lowercase: truncation");
+		return 0;
 
 	while (*buf != '\0') {
 		*buf = tolower((int)*buf);
 		buf++;
 	}
+
+	return 1;
+}
+
+void
+xlowercase(char *buf, char *s, size_t len)
+{
+	if (len == 0)
+		fatalx("lowercase: len == 0");
+
+	if (! lowercase(buf, s, len))
+		fatalx("lowercase: truncation");
 }
 
 void

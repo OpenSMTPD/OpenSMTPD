@@ -94,7 +94,7 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 			user = ep->dest.user;
 		else
 			user = ep->agent.mda.to.user;
-		lowercase(username, user, sizeof(username));
+		xlowercase(username, user, sizeof(username));
 
 		/* gilles+hackers@ -> gilles@ */
 		if ((tag = strchr(username, '+')) != NULL) {
@@ -512,6 +512,7 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 	struct user_backend *ub;
 	struct mta_user u;
 	char lbuffer[MAX_RULEBUFFER_LEN];
+	char tmpbuf[MAX_RULEBUFFER_LEN];
 	
 	bzero(lbuffer, sizeof (lbuffer));
 	pbuf = lbuffer;
@@ -587,6 +588,10 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 				goto copy;
 			}
 
+			if (! lowercase(tmpbuf, string, sizeof tmpbuf))
+				return 0;
+			string = tmpbuf;
+			
 			if (digit == 1) {
 				size_t idx = *(tmp - 1) - '0';
 
