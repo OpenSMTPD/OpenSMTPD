@@ -258,6 +258,10 @@ mfa_test_connect(struct envelope *e)
 {
 	struct submit_status	 ss;
 
+#ifdef VALGRIND
+	bzero(&ss, sizeof(ss));
+#endif
+
 	ss.id = e->session_id;
 	ss.code = 530;
 	ss.envelope = *e;

@@ -285,6 +285,10 @@ mta_enter_state(struct mta_session *s, int newstate)
 	ssize_t			 q;
 	struct mta_batch	 batch;
 
+#ifdef VALGRIND
+	bzero(&batch, sizeof(batch));
+#endif
+
     again:
 	task = TAILQ_FIRST(&s->tasks);
 	oldstate = s->state;
