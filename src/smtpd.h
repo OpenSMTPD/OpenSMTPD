@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.310 2012/07/12 08:51:43 chl Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.313 2012/07/29 17:21:43 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -315,7 +315,6 @@ struct cond {
 };
 
 enum action_type {
-	A_INVALID,
 	A_RELAY,
 	A_RELAYVIA,
 	A_MAILDIR,
@@ -326,7 +325,6 @@ enum action_type {
 
 #define IS_MAILBOX(x)	((x).r_action == A_MAILDIR || (x).r_action == A_MBOX || (x).r_action == A_FILENAME)
 #define IS_RELAY(x)	((x).r_action == A_RELAY || (x).r_action == A_RELAYVIA)
-#define IS_EXT(x)	((x).r_action == A_EXT)
 
 struct rule {
 	TAILQ_ENTRY(rule)		 r_entry;
@@ -630,7 +628,6 @@ struct smtpd {
 	SPLAY_HEAD(childtree, child)		 children;
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
 	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
-	SPLAY_HEAD(mtatree, mta_session)	 mta_sessions;
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
 
 	struct stats				*stats;
@@ -849,39 +846,9 @@ enum mta_state {
 #define	MTA_USE_CERT		0x20
 #define	MTA_TLS			0x40
 
-struct mta_relay {
-	TAILQ_ENTRY(mta_relay)	 entry;
-	struct sockaddr_storage	 sa;
-	char			 fqdn[MAXHOSTNAMELEN];
-	int			 used;
-};
-
-struct mta_task;
-
 #define MTA_EXT_STARTTLS     0x01
 #define MTA_EXT_AUTH         0x02
 #define MTA_EXT_PIPELINING   0x04
-
-struct mta_session {
-	SPLAY_ENTRY(mta_session) entry;
-	u_int64_t		 id;
-	enum mta_state		 state;
-	char			*host;
-	int			 port;
-	int			 flags;
-	TAILQ_HEAD(,mta_relay)	 relays;
-	char			*authmap;
-	char			*secret;
-	FILE			*datafp;
-
-	TAILQ_HEAD(,mta_task)	 tasks;
-
-	struct envelope		*currevp;
-	struct iobuf		 iobuf;
-	struct io		 io;
-	int			 ext; /* extension */
-	struct ssl		*ssl;
-};
 
 struct mta_batch {
 	u_int64_t		id;
@@ -1240,7 +1207,8 @@ int valid_domainpart(const char *);
 char *ss_to_text(struct sockaddr_storage *);
 char *time_to_text(time_t);
 int secure_file(int, char *, char *, uid_t, int);
-void lowercase(char *, char *, size_t);
+int  lowercase(char *, char *, size_t);
+void xlowercase(char *, char *, size_t);
 void sa_set_port(struct sockaddr *, int);
 u_int64_t generate_uid(void);
 void fdlimit(double);

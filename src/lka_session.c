@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.17 2012/07/12 08:51:43 chl Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.19 2012/07/29 17:21:43 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -96,7 +96,7 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 			user = ep->dest.user;
 		else
 			user = ep->agent.mda.to.user;
-		lowercase(username, user, sizeof(username));
+		xlowercase(username, user, sizeof(username));
 
 		/* gilles+hackers@ -> gilles@ */
 		if ((tag = strchr(username, '+')) != NULL) {
@@ -381,27 +381,20 @@ void
 lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 {
 	struct envelope *new_ep;
-	struct delivery_mda *d_mda;
 
 	new_ep = calloc(1, sizeof (*ep));
 	if (new_ep == NULL)
 		fatal("lka_session_deliver: calloc");
 	*new_ep = *ep;
 	if (new_ep->type == D_MDA) {
-		d_mda = &new_ep->agent.mda;
-		if (d_mda->method == A_INVALID)
-			fatalx("lka_session_deliver: mda method == A_INVALID");
-
-		switch (d_mda->method) {
+		switch (new_ep->agent.mda.method) {
 		case A_MAILDIR:
 		case A_FILENAME:
-		case A_MDA: {
-			char *buf = d_mda->to.buffer;
-			size_t bufsz = sizeof(d_mda->to.buffer);
-			if (! lka_session_expand_format(buf, bufsz, new_ep))
+		case A_MDA:
+			if (! lka_session_expand_format(
+			    new_ep->agent.mda.to.buffer,
+			    sizeof(new_ep->agent.mda.to.buffer), new_ep))
 				lks->flags |= F_ERROR;
-			break;
-		}
 		default:
 			break;
 		}
@@ -514,6 +507,7 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 	struct user_backend *ub;
 	struct mta_user u;
 	char lbuffer[MAX_RULEBUFFER_LEN];
+	char tmpbuf[MAX_RULEBUFFER_LEN];
 	
 	bzero(lbuffer, sizeof (lbuffer));
 	pbuf = lbuffer;
@@ -589,6 +583,10 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 				goto copy;
 			}
 
+			if (! lowercase(tmpbuf, string, sizeof tmpbuf))
+				return 0;
+			string = tmpbuf;
+			
 			if (digit == 1) {
 				size_t idx = *(tmp - 1) - '0';
 

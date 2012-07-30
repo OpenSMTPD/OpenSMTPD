@@ -5,7 +5,6 @@ D/smtpd////
 /config.c/1.15/Result of merge//
 /expand.c/1.11/Result of merge+Tue May 17 13:31:40 2011//
 /forward.c/1.24/Result of merge//
-/makemap.c/1.32/Result of merge+Tue May 17 13:31:40 2011//
 /stats.c/1.1/Thu Sep  1 19:56:49 2011//
 /log.c/1.12/Result of merge//
 /log.h/1.2/Result of merge//
@@ -25,9 +24,7 @@ D/smtpd////
 /delivery_mda.c/1.4/Result of merge//
 /enqueue.c/1.56/Result of merge//
 /Makefile/1.9/Mon Apr 30 15:19:22 2012//
-/aliases.c/1.47/Result of merge//
 /lka.c/1.133/Result of merge//
-/mta.c/1.132/Result of merge+Sat May 12 19:35:04 2012//
 /smtp_session.c/1.162/Result of merge//
 /parser.c/1.25/Result of merge//
 /ruleset.c/1.21/Result of merge+Sun May 13 13:20:01 2012//
@@ -43,7 +40,6 @@ D/smtpd////
 /auth_bsd.c/1.2/Result of merge//
 /bounce.c/1.42/Result of merge//
 /control.c/1.65/Result of merge//
-/dns.c/1.49/Result of merge+Mon Jul  9 12:12:56 2012//
 /iobuf.h/1.1/Mon Jul  9 11:36:35 2012//
 /ioev.h/1.1/Mon Jul  9 11:36:35 2012//
 /makemap.8/1.17/Mon Jul  9 11:36:35 2012//
@@ -59,12 +55,16 @@ D/smtpd////
 /queue_backend.c/1.28/Result of merge//
 /queue_fsqueue.c/1.46/Result of merge//
 /delivery_maildir.c/1.7/Result of merge//
-/lka_session.c/1.17/Result of merge//
-/smtpd.h/1.310/Result of merge//
-/util.c/1.66/Result of merge+Thu Jul 12 17:08:15 2012//
-/filter_api.h/1.2/Mon Jul 16 09:47:56 2012//
-/mta_session.c/1.4/Result of merge//
-/smtpd.8/1.15/Mon Jul 16 09:48:27 2012//
-/smtpd.conf.5/1.57/Mon Jul 16 09:48:27 2012//
 /scheduler.c/1.7/Result of merge//
 /scheduler_backend.c/1.2/Result of merge//
+/aliases.c/1.48/Result of merge//
+/dns.c/1.50/Result of merge//
+/filter_api.h/1.2/Mon Jul 30 09:56:42 2012//
+/lka_session.c/1.19/Result of merge//
+/makemap.c/1.33/Result of merge//
+/mta.c/1.133/Result of merge//
+/mta_session.c/1.6/Result of merge//
+/smtpd.8/1.15/Sun Jul 29 15:28:43 2012//
+/smtpd.conf.5/1.57/Sun Jul 29 15:28:43 2012//
+/smtpd.h/1.313/Result of merge//
+/util.c/1.67/Result of merge//
