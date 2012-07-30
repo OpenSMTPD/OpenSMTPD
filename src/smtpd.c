@@ -1227,7 +1227,7 @@ imsg_dispatch(int fd, short event, void *p)
 		}
 	}
 	if (event & EV_WRITE) {
-		if (msgbuf_write(&iev->ibuf.w) != 0)
+		if (msgbuf_write(&iev->ibuf.w) == -1)
 			fatal("msgbuf_write");
 	}
 
