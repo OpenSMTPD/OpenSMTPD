@@ -65,11 +65,6 @@
 #include <stdint.h>
 #endif
 
-/* XXX */
-#ifndef MAXBSIZE
-#define MAXBSIZE 4096
-#endif
-
 /* From OpenNTPD portable */
 #if !defined(SA_LEN)
 # if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
