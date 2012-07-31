@@ -482,8 +482,6 @@ main(int argc, char *argv[])
 		{ PROC_QUEUE,	imsg_dispatch }
 	};
 
-	init_rng();
-
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;
 	saved_argv = xcalloc(argc + 1, sizeof(*saved_argv));
