@@ -15,6 +15,7 @@
 
 #include "includes.h"
 
+#include <err.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
