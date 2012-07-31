@@ -19,7 +19,7 @@ imsg.{c,h}		part of /usr/src/libutil/imsg.c
 includes.h		portable openssh
 log.h
 mktemp.c		portable openssh
-openbsd-compat.h	
+openbsd-compat.h	portable openssh
 setproctitle.c		portable openssh
 strlcat.c		portable openssh
 strlcpy.c		portable openssh
@@ -28,7 +28,5 @@ strsep.c		portable openssh
 strtonum.c		portable openssh
 sys-queue.h		portable openssh
 sys-tree.h		portable openssh
-utime.h			http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/emul/utime.h?rev=1.25
-utimes.c		http://www.sudo.ws/cgi-bin/cvsweb/~checkout~/sudo/utimes.c?rev=1.9
 vis.{c,h}		portable openssh
 xmalloc.{c,h}		portable openssh
