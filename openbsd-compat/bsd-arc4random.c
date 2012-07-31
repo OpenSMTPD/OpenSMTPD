@@ -18,6 +18,7 @@
 
 #include <sys/types.h>
 
+#include <err.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -70,7 +71,7 @@ arc4random_stir(void)
 	memset(rand_buf, 0, sizeof(rand_buf));
 #endif
 	if (RAND_bytes(rand_buf, sizeof(rand_buf)) <= 0)
-		fatal("Couldn't obtain random bytes (error %ld)",
+		err(255, "fatal: Couldn't obtain random bytes (error %ld)",
 		    ERR_get_error());
 	RC4_set_key(&rc4, sizeof(rand_buf), rand_buf);
 
