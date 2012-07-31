@@ -64,9 +64,6 @@ smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c stats.c util.c
 
-EXTRA_DIST=		asr.h client.h dnsdefs.h dnsutil.h filter.h log.h	\
-			parser.h smtpd.h
-
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr
 
@@ -90,6 +87,11 @@ MANPAGES_IN=		makemap.8 newaliases.8 smtpctl.8 smtpd.8 smtpd.conf.5
 
 CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		smtpd.conf
+
+EXTRA_DIST=		filter_api.h iobuf.h ioev.h log.h parser.h smtpd.h	\
+			../contrib/lib/libc/asr/asr.h				\
+			../contrib/lib/libc/asr/asr_private.h			\
+			$(CONFIGFILES_IN) $(MANPAGES_IN)
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/mail/|g'			\
 			-e 's|/usr/libexec|$(libexecdir)|g'			\
