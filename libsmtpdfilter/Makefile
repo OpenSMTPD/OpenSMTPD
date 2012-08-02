@@ -1,9 +1,8 @@
-#	$OpenBSD: Makefile,v 1.1 2011/11/15 23:22:47 gilles Exp $
+#	$OpenBSD: Makefile,v 1.2 2012/06/16 16:16:09 chl Exp $
 
 .PATH:		${.CURDIR}/..
 
 LIB=	smtpdfilter
-WANTLINT=no
 SRCS=	filter_api.c
 DEBUGLIBS= no
 NOPROFILE= yes
