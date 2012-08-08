@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.154 2012/07/09 09:57:53 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.155 2012/07/09 17:57:54 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -1159,11 +1159,19 @@ SPLAY_GENERATE(childtree, child, entry, child_cmp);
 void
 log_imsg(int to, int from, struct imsg *imsg)
 {
-	log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
-	    proc_to_str(to),
-	    proc_to_str(from),
-	    imsg_to_str(imsg->hdr.type),
-	    imsg->hdr.len - IMSG_HEADER_SIZE);
+	if (imsg->fd != -1)
+		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%i)",
+		    proc_to_str(to),
+		    proc_to_str(from),
+		    imsg_to_str(imsg->hdr.type),
+		    imsg->hdr.len - IMSG_HEADER_SIZE,
+		    imsg->fd);
+	else
+		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
+		    proc_to_str(to),
+		    proc_to_str(from),
+		    imsg_to_str(imsg->hdr.type),
+		    imsg->hdr.len - IMSG_HEADER_SIZE);
 }
 
 #define CASE(x) case x : return #x
