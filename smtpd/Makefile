@@ -1,10 +1,6 @@
 #	$OpenBSD: Makefile,v 1.46 2012/08/07 21:47:58 eric Exp $
 
-<<<<<<< Makefile
 .PATH:		 ${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr /usr/src/lib/libc/asr
-=======
-.PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
->>>>>>> 1.45
 
 PROG=		smtpd
 
