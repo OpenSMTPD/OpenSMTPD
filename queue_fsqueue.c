@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.45 2012/07/09 08:08:29 gilles Exp $	*/
+/*	$OpenBSD: queue_fsqueue.c,v 1.46 2012/07/10 23:21:34 chl Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -208,14 +208,10 @@ fsqueue_envelope_delete(struct envelope *ep)
 {
 	char pathname[MAXPATHLEN];
 
-	log_debug("#### %s: queue_envelope_delete: %016" PRIx64,
-	    __func__, ep->id);
 	fsqueue_envelope_path(ep->id, pathname, sizeof(pathname));
 
-	if (unlink(pathname) == -1) {
-		log_debug("######: %s [errno: %d]", pathname, errno);
+	if (unlink(pathname) == -1)
 		fatal("fsqueue_envelope_delete: unlink");
-	}
 
 	*strrchr(pathname, '/') = '\0';
 
