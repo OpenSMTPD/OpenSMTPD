@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.83 2012/07/09 09:57:53 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.84 2012/08/07 20:36:10 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -351,7 +351,7 @@ show_stats_output(struct imsg *imsg)
 	if (imsg->hdr.type != IMSG_STATS)
 		errx(1, "show_stats_output: bad hdr type (%d)", imsg->hdr.type);
 	
-	if (IMSG_DATA_SIZE(imsg) != sizeof(*stats))
+	if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(*stats))
 		errx(1, "show_stats_output: bad data size");
 
 	stats = imsg->data;

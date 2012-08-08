@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.314 2012/08/07 21:47:57 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.315 2012/08/08 08:50:42 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -25,13 +25,6 @@
 #include "filter_api.h"
 #include "ioev.h"
 #include "iobuf.h"
-
-#define IMSG_SIZE_CHECK(p) do {					\
-		if (IMSG_DATA_SIZE(&imsg) != sizeof(*p))	\
-			fatalx("bad length imsg received");	\
-	} while (0)
-#define IMSG_DATA_SIZE(imsg)	((imsg)->hdr.len - IMSG_HEADER_SIZE)
-
 
 #define CONF_FILE		 "/etc/mail/smtpd.conf"
 #define MAX_LISTEN		 16
