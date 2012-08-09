@@ -484,9 +484,9 @@ main(int argc, char *argv[])
 
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;
-	saved_argv = xcalloc(argc + 1, sizeof(*saved_argv));
+	saved_argv = __xcalloc(argc + 1, sizeof(*saved_argv));
 	for (i = 0; i < argc; i++)
-		saved_argv[i] = xstrdup(argv[i]);
+		saved_argv[i] = __xstrdup(argv[i]);
 	saved_argv[i] = NULL;
 
 #ifndef HAVE_SETPROCTITLE

@@ -26,7 +26,7 @@
 #include "xmalloc.h"
 
 void *
-xmalloc(size_t size)
+__xmalloc(size_t size)
 {
 	void *ptr;
 
@@ -39,7 +39,7 @@ xmalloc(size_t size)
 }
 
 void *
-xcalloc(size_t nmemb, size_t size)
+__xcalloc(size_t nmemb, size_t size)
 {
 	void *ptr;
 
@@ -55,7 +55,7 @@ xcalloc(size_t nmemb, size_t size)
 }
 
 void *
-xrealloc(void *ptr, size_t nmemb, size_t size)
+__xrealloc(void *ptr, size_t nmemb, size_t size)
 {
 	void *new_ptr;
 	size_t new_size = nmemb * size;
@@ -75,7 +75,7 @@ xrealloc(void *ptr, size_t nmemb, size_t size)
 }
 
 void
-xfree(void *ptr)
+__xfree(void *ptr)
 {
 	if (ptr == NULL)
 		fatal("xfree: NULL pointer given as argument");
@@ -83,13 +83,13 @@ xfree(void *ptr)
 }
 
 char *
-xstrdup(const char *str)
+__xstrdup(const char *str)
 {
 	size_t len;
 	char *cp;
 
 	len = strlen(str) + 1;
-	cp = xmalloc(len);
+	cp = __xmalloc(len);
 	strlcpy(cp, str, len);
 	return cp;
 }

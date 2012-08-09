@@ -45,7 +45,7 @@
 
 //#include "ssh.h"
 //#include "misc.h"
-#include "xmalloc.h"
+//#include "xmalloc.h"
 //#include "atomicio.h"
 //#include "pathnames.h"
 //#include "log.h"

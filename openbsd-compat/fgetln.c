@@ -45,13 +45,13 @@ fgetln(stream, len)
 
     if (buflen == 0) {
 	buflen = 512;
-	buffer = xmalloc(buflen+1);
+	buffer = __xmalloc(buflen+1);
     }
     if (fgets(buffer, buflen+1, stream) == NULL)
 	return NULL;
     *len = strlen(buffer);
     while (*len == buflen && buffer[*len-1] != '\n') {
-	buffer = xrealloc(buffer, 1, 2*buflen + 1);
+	buffer = __xrealloc(buffer, 1, 2*buflen + 1);
 	if (fgets(buffer + buflen, buflen + 1, stream) == NULL)
 	    return NULL;
 	*len += strlen(buffer + buflen);

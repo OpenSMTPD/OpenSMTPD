@@ -19,11 +19,11 @@
 #ifndef XMALLOC_H
 #define XMALLOC_H
 
-void	*xmalloc(size_t);
-void	*xcalloc(size_t, size_t);
-void	*xrealloc(void *, size_t, size_t);
-void     xfree(void *);
-char	*xstrdup(const char *);
+void	*__xmalloc(size_t);
+void	*__xcalloc(size_t, size_t);
+void	*__xrealloc(void *, size_t, size_t);
+void     __xfree(void *);
+char	*__xstrdup(const char *);
 int	 xasprintf(char **, const char *, ...)
                 __attribute__((__format__ (printf, 2, 3)))
                 __attribute__((__nonnull__ (2)));
