@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.155 2012/07/09 17:57:54 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.157 2012/08/09 09:48:02 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -1245,11 +1245,19 @@ SPLAY_GENERATE(childtree, child, entry, child_cmp);
 void
 log_imsg(int to, int from, struct imsg *imsg)
 {
-	log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
-	    proc_to_str(to),
-	    proc_to_str(from),
-	    imsg_to_str(imsg->hdr.type),
-	    imsg->hdr.len - IMSG_HEADER_SIZE);
+	if (imsg->fd != -1)
+		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%i)",
+		    proc_to_str(to),
+		    proc_to_str(from),
+		    imsg_to_str(imsg->hdr.type),
+		    imsg->hdr.len - IMSG_HEADER_SIZE,
+		    imsg->fd);
+	else
+		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
+		    proc_to_str(to),
+		    proc_to_str(from),
+		    imsg_to_str(imsg->hdr.type),
+		    imsg->hdr.len - IMSG_HEADER_SIZE);
 }
 
 #define CASE(x) case x : return #x
@@ -1326,8 +1334,8 @@ imsg_to_str(int type)
 
 	CASE(IMSG_QUEUE_MESSAGE_FD);
 	CASE(IMSG_QUEUE_MESSAGE_FILE);
-	CASE(IMSG_QUEUE_SCHEDULE);
 	CASE(IMSG_QUEUE_REMOVE);
+	CASE(IMSG_QUEUE_EXPIRE);
 
 	CASE(IMSG_SCHEDULER_REMOVE);
 	CASE(IMSG_SCHEDULER_SCHEDULE);
@@ -1335,7 +1343,6 @@ imsg_to_str(int type)
 	CASE(IMSG_BATCH_CREATE);
 	CASE(IMSG_BATCH_APPEND);
 	CASE(IMSG_BATCH_CLOSE);
-	CASE(IMSG_BATCH_DONE);
 
 	CASE(IMSG_PARENT_FORWARD_OPEN);
 	CASE(IMSG_PARENT_FORK_MDA);

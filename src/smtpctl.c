@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.83 2012/07/09 09:57:53 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.85 2012/08/08 17:33:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -174,7 +174,7 @@ connected:
 		char *ep;
 
 		errno = 0;
-		ulval = strtoul(res->data, &ep, 16);
+		ulval = strtoull(res->data, &ep, 16);
 		if (res->data[0] == '\0' || *ep != '\0')
 			errx(1, "invalid msgid/evpid");
 		if (errno == ERANGE && ulval == ULLONG_MAX)
@@ -359,7 +359,7 @@ show_stats_output(struct imsg *imsg)
 	if (imsg->hdr.type != IMSG_STATS)
 		errx(1, "show_stats_output: bad hdr type (%d)", imsg->hdr.type);
 	
-	if (IMSG_DATA_SIZE(imsg) != sizeof(*stats))
+	if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(*stats))
 		errx(1, "show_stats_output: bad data size");
 
 	stats = imsg->data;

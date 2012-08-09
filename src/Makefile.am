@@ -32,8 +32,7 @@ smtpd_SOURCES=		aliases.c auth.c bounce.c config.c control.c		\
 			mfa.c mfa_session.c mta.c mta_session.c parse.y		\
 			queue.c queue_backend.c ruleset.c			\
 			scheduler.c scheduler_backend.c	smtp.c smtp_session.c	\
-			smtpd.c ssl.c ssl_privsep.c stats.c user.c util.c
-
+			smtpd.c ssl.c ssl_privsep.c stats.c tree.c user.c util.c
 # backends
 smtpd_SOURCES+=		auth_bsd.c
 smtpd_SOURCES+=		auth_pwd.c 
