@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.315 2012/08/08 08:50:42 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.317 2012/08/09 09:48:02 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -25,13 +25,6 @@
 #include "filter_api.h"
 #include "ioev.h"
 #include "iobuf.h"
-
-#define IMSG_SIZE_CHECK(p) do {					\
-		if (IMSG_DATA_SIZE(&imsg) != sizeof(*p))	\
-			fatalx("bad length imsg received");	\
-	} while (0)
-#define IMSG_DATA_SIZE(imsg)	((imsg)->hdr.len - IMSG_HEADER_SIZE)
-
 
 #define CONF_FILE		 "/etc/mail/smtpd.conf"
 #define MAX_LISTEN		 16
@@ -163,8 +156,8 @@ enum imsg_type {
 	IMSG_QUEUE_DELIVERY_PERMFAIL,
 	IMSG_QUEUE_MESSAGE_FD,
 	IMSG_QUEUE_MESSAGE_FILE,
-	IMSG_QUEUE_SCHEDULE,
 	IMSG_QUEUE_REMOVE,
+	IMSG_QUEUE_EXPIRE,
 
 	IMSG_SCHEDULER_REMOVE,
 	IMSG_SCHEDULER_SCHEDULE,
@@ -172,7 +165,6 @@ enum imsg_type {
 	IMSG_BATCH_CREATE,
 	IMSG_BATCH_APPEND,
 	IMSG_BATCH_CLOSE,
-	IMSG_BATCH_DONE,
 
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
@@ -331,7 +323,6 @@ struct mailaddr {
 };
 
 enum delivery_type {
-	D_INVALID = 0,
 	D_MDA,
 	D_MTA,
 	D_BOUNCE
@@ -1084,8 +1075,6 @@ int cmdline_symset(char *);
 
 /* queue.c */
 pid_t queue(void);
-void queue_submit_envelope(struct envelope *);
-void queue_commit_envelopes(struct envelope *);
 
 
 /* queue_backend.c */
