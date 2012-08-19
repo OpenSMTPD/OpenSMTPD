@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.3 2012/05/25 13:52:33 chl Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.4 2012/08/19 10:28:28 eric Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "ioev.h"
 #include "iobuf.h"
 
@@ -525,8 +526,10 @@ io_dispatch(int fd, short ev, void *humppa)
 
 	if (ev & EV_WRITE && (w = io_queued(io))) {
 		if ((n = iobuf_write(io->iobuf, io->sock)) < 0) {
+			if (n == IO_ERROR)
+				log_warn("io_dispatch: iobuf_write");
 			io_callback(io, n == IOBUF_CLOSED ?
-				IO_DISCONNECTED : IO_ERROR);
+			    IO_DISCONNECTED : IO_ERROR);
 			goto leave;
 		}
 		if (w > io->lowat && w - n <= io->lowat)
@@ -535,6 +538,8 @@ io_dispatch(int fd, short ev, void *humppa)
 
 	if (ev & EV_READ) {
 		if ((n = iobuf_read(io->iobuf, io->sock)) < 0) {
+			if (n == IO_ERROR)
+				log_warn("io_dispatch: iobuf_read");
 			io_callback(io, n == IOBUF_CLOSED ?
 			    IO_DISCONNECTED : IO_ERROR);
 			goto leave;
@@ -697,6 +702,7 @@ io_dispatch_connect_ssl(int fd, short event, void *humppa)
 		io_reset(io, EV_WRITE, io_dispatch_connect_ssl);
 		break;
 	default:
+		ssl_error("io_dispatch_connect_ssl:SSL_connect");
 		io_callback(io, IO_ERROR);
 		break;
 	}
@@ -729,6 +735,7 @@ io_dispatch_read_ssl(int fd, short event, void *humppa)
 		io_callback(io, IO_DISCONNECTED);
 		break;
 	case IOBUF_ERROR:
+		ssl_error("io_dispatch_read_ssl:SSL_read");
 		io_callback(io, IO_ERROR);
 		break;
 	default:
@@ -766,6 +773,7 @@ io_dispatch_write_ssl(int fd, short event, void *humppa)
 		io_callback(io, IO_DISCONNECTED);
 		break;
 	case IOBUF_ERROR:
+		ssl_error("io_dispatch_write_ssl:SSL_write");
 		io_callback(io, IO_ERROR);
 		break;
 	default:

@@ -1,4 +1,4 @@
-/*	$OpenBSD: getaddrinfo_async.c,v 1.4 2012/07/13 14:05:12 eric Exp $	*/
+/*	$OpenBSD: getaddrinfo_async.c,v 1.5 2012/08/18 11:19:51 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -113,15 +113,11 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		 */
 
 		as->as_count = 0;
-		async_set_state(as, ASR_STATE_HALT);
-		ar->ar_errno = 0;
-		ar->ar_h_errno = NETDB_SUCCESS;
-		ar->ar_gai_errno = 0;
 
 		if (as->as.ai.hostname == NULL &&
 		    as->as.ai.servname == NULL) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_NONAME;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
@@ -132,24 +128,24 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		    ai->ai_canonname ||
 		    ai->ai_addr ||
 		    ai->ai_next) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_BADHINTS;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 #endif
 
 		if (ai->ai_flags & ~AI_MASK ||
 		    (ai->ai_flags & AI_CANONNAME && ai->ai_flags & AI_FQDN)) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_BADFLAGS;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
 		if (ai->ai_family != PF_UNSPEC &&
 		    ai->ai_family != PF_INET &&
 		    ai->ai_family != PF_INET6) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_FAMILY;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
@@ -157,8 +153,8 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		    ai->ai_socktype != SOCK_DGRAM  &&
 		    ai->ai_socktype != SOCK_STREAM &&
 		    ai->ai_socktype != SOCK_RAW) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_SOCKTYPE;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
@@ -166,16 +162,16 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		if (ai->ai_protocol &&
 		    ai->ai_protocol != IPPROTO_UDP  &&
 		    ai->ai_protocol != IPPROTO_TCP) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_PROTOCOL;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 #endif
 
 		if (ai->ai_socktype == SOCK_RAW &&
 		    as->as.ai.servname != NULL) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_SERVICE;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
@@ -186,12 +182,12 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 			    MATCH_PROTO(ai->ai_protocol, i))
 				break;
 		if (matches[i].family == -1) {
-			ar->ar_h_errno = NO_RECOVERY;
 #ifdef EAI_BADHINTS
 			ar->ar_gai_errno = EAI_BADHINTS;
 #else
 			ar->ar_gai_errno = EAI_FAIL;
 #endif
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
@@ -205,10 +201,12 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		    (as->as.ai.port_tcp == -1 && as->as.ai.port_udp == -1) ||
 		    (ai->ai_protocol && (as->as.ai.port_udp == -1 ||
 					 as->as.ai.port_tcp == -1))) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_SERVICE;
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
+
+		ar->ar_gai_errno = 0;
 
 		/* If hostname is NULL, use local address */
 		if (as->as.ai.hostname == NULL) {
@@ -228,17 +226,14 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 				 /* This can't fail */
 				sockaddr_from_str(&sa.sa, family, str);
 				if ((r = add_sockaddr(as, &sa.sa, NULL))) {
-					ar->ar_errno = errno;
-					ar->ar_h_errno = NETDB_INTERNAL;
 					ar->ar_gai_errno = r;
-					async_set_state(as, ASR_STATE_HALT);
 					break;
 				}
 			}
 			if (ar->ar_gai_errno == 0 && as->as_count == 0) {
-				ar->ar_h_errno = NO_DATA;
 				ar->ar_gai_errno = EAI_NODATA;
 			}
+			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
 
@@ -252,21 +247,16 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 				continue;
 
 			if ((r = add_sockaddr(as, &sa.sa, NULL))) {
-				ar->ar_errno = errno;
-				ar->ar_h_errno = NETDB_INTERNAL;
 				ar->ar_gai_errno = r;
-				async_set_state(as, ASR_STATE_HALT);
-				break;
 			}
-
+			break;
+		}
+		if (ar->ar_gai_errno || as->as_count) {
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
-		if (ar->ar_gai_errno || as->as_count)
-			break;
 
 		if (ai->ai_flags & AI_NUMERICHOST) {
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_FAIL;
 			async_set_state(as, ASR_STATE_HALT);
 			break;
@@ -284,8 +274,6 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 			break;
 		}
 		if (r > (int)sizeof(fqdn)) {
-			ar->ar_errno = EINVAL;
-			ar->ar_h_errno = NO_RECOVERY;
 			ar->ar_gai_errno = EAI_OVERFLOW;
 			async_set_state(as, ASR_STATE_HALT);
 			break;
@@ -304,12 +292,9 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		    as->as.ai.hints.ai_family, as->as.ai.hints.ai_flags,
 		    as->as_ctx);
 		if (as->as.ai.subq == NULL) {
-			ar->ar_errno = errno;
 			if (errno == EINVAL) {
-				ar->ar_h_errno = NO_RECOVERY;
 				ar->ar_gai_errno = EAI_FAIL;
 			} else {
-				ar->ar_h_errno = NETDB_INTERNAL;
 				ar->ar_gai_errno = EAI_MEMORY;
 			}
 			async_set_state(as, ASR_STATE_HALT);
@@ -328,8 +313,6 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		if (r == ASYNC_YIELD) {
 			if ((r = add_sockaddr(as, &ar->ar_sa.sa,
 			    ar->ar_cname))) {
-				ar->ar_errno = errno;
-				ar->ar_h_errno = NETDB_INTERNAL;
 				ar->ar_gai_errno = r;
 				async_set_state(as, ASR_STATE_HALT);
 			}
@@ -363,12 +346,9 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		/*
 		 * No result found. Maybe we can try again.
 		 */
-		ar->ar_errno = 0;
 		if (as->as.ai.flags & ASYNC_AGAIN) {
-			ar->ar_h_errno = TRY_AGAIN;
 			ar->ar_gai_errno = EAI_AGAIN;
 		} else {
-			ar->ar_h_errno = NO_DATA;
 			ar->ar_gai_errno = EAI_NODATA;
 		}
 		async_set_state(as, ASR_STATE_HALT);
@@ -390,7 +370,6 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 
 	default:
 		ar->ar_errno = EOPNOTSUPP;
-		ar->ar_h_errno = NETDB_INTERNAL;
 		ar->ar_gai_errno = EAI_SYSTEM;
 		async_set_state(as, ASR_STATE_HALT);
                 break;

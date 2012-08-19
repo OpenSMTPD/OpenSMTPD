@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.51 2012/08/08 17:31:55 eric Exp $	*/
+/*	$OpenBSD: dns.c,v 1.53 2012/08/19 14:16:58 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -51,7 +51,7 @@ struct mx {
 
 struct dnssession {
 	SPLAY_ENTRY(dnssession)		 nodes;
-	u_int64_t			 id;
+	uint64_t			 id;
 	struct dns			 query;
 	struct event			 ev;
 	struct async			*as;
@@ -86,7 +86,7 @@ static void dns_reply(struct dns *, int);
  */
 
 void
-dns_query_host(char *host, int port, u_int64_t id)
+dns_query_host(char *host, int port, uint64_t id)
 {
 	struct dns	 query;
 
@@ -100,7 +100,7 @@ dns_query_host(char *host, int port, u_int64_t id)
 }
 
 void
-dns_query_mx(char *host, int port, u_int64_t id)
+dns_query_mx(char *host, int port, uint64_t id)
 {
 	struct dns	 query;
 
@@ -114,7 +114,7 @@ dns_query_mx(char *host, int port, u_int64_t id)
 }
 
 void
-dns_query_ptr(struct sockaddr_storage *ss, u_int64_t id)
+dns_query_ptr(struct sockaddr_storage *ss, uint64_t id)
 {
 	struct dns	 query;
 
@@ -149,14 +149,14 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 			return;
 		}
 		dnssession_mx_insert(s, query->host, 0);
-		stat_increment(STATS_LKA_SESSION_HOST);
+		stat_increment("lka.session.host");
 		dns_asr_dispatch_host(s);
 		return;
 	case IMSG_DNS_PTR:
 		s->as = getnameinfo_async((struct sockaddr*)&query->ss,
 		    SS_LEN(&query->ss),
 		    s->query.host, sizeof(s->query.host), NULL, 0, 0, NULL);
-		stat_increment(STATS_LKA_SESSION_CNAME);
+		stat_increment("lka.session.cname");
 		if (s->as == NULL) {
 			log_debug("dns_async: asr_query_cname error");
 			break;
@@ -166,7 +166,7 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 	case IMSG_DNS_MX:
 		log_debug("dns: lookup mx \"%s\"", query->host);
 		s->as = res_query_async(query->host, C_IN, T_MX, NULL, 0, NULL);
-		stat_increment(STATS_LKA_SESSION_MX);
+		stat_increment("lka.session.mx");
 		if (s->as == NULL) {
 			log_debug("dns_async: asr_query_dns error");
 			break;
@@ -178,7 +178,7 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 		break;
 	}
 
-	stat_increment(STATS_LKA_FAILURE);
+	stat_increment("lka.failure");
 	dnssession_destroy(s);
 }
 
@@ -227,7 +227,7 @@ dns_asr_error(int ar_err)
 		return DNS_OK;
 	case NO_DATA:
 	case NO_RECOVERY:
-		stat_increment(STATS_LKA_FAILURE);
+		stat_increment("lka.failure");
 		return DNS_EINVAL;
 	default:
 		return DNS_RETRY;
@@ -358,7 +358,7 @@ dnssession_init(struct dns *query)
 	if (s == NULL)
 		fatal("dnssession_init: calloc");
 
-	stat_increment(STATS_LKA_SESSION);
+	stat_increment("lka.session");
 
 	s->id = query->id;
 	s->query = *query;
@@ -369,7 +369,7 @@ dnssession_init(struct dns *query)
 static void
 dnssession_destroy(struct dnssession *s)
 {
-	stat_decrement(STATS_LKA_SESSION);
+	stat_decrement("lka.session");
 	SPLAY_REMOVE(dnstree, &dns_sessions, s);
 	event_del(&s->ev);
 	free(s);
@@ -402,7 +402,7 @@ static int
 dnssession_cmp(struct dnssession *s1, struct dnssession *s2)
 {
 	/*
-	 * do not return u_int64_t's
+	 * do not return uint64_t's
 	 */
 	if (s1->id < s2->id)
 		return (-1);

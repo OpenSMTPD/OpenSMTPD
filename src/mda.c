@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.68 2012/08/09 09:48:02 eric Exp $	*/
+/*	$OpenBSD: mda.c,v 1.69 2012/08/19 14:16:58 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -50,9 +50,9 @@ static void mda_shutdown(void);
 static void mda_sig_handler(int, short, void *);
 static void mda_store(struct mda_session *);
 static void mda_store_event(int, short, void *);
-static struct mda_session *mda_lookup(u_int32_t);
+static struct mda_session *mda_lookup(uint32_t);
 
-u_int32_t mda_id;
+uint32_t mda_id;
 
 static void
 mda_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -63,7 +63,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct delivery_mda	*d_mda;
 	struct mailaddr		*maddr;
 	struct envelope		*ep;
-	u_int16_t		 msg;
+	uint16_t		 msg;
 
 #ifdef VALGRIND
 	bzero(&deliver, sizeof(deliver));
@@ -413,7 +413,7 @@ mda_store_event(int fd, short event, void *p)
 }
 
 static struct mda_session *
-mda_lookup(u_int32_t id)
+mda_lookup(uint32_t id)
 {
 	struct mda_session *s;
 

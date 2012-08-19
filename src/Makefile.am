@@ -32,7 +32,8 @@ smtpd_SOURCES=		aliases.c auth.c bounce.c config.c control.c		\
 			mfa.c mfa_session.c mta.c mta_session.c parse.y		\
 			queue.c queue_backend.c ruleset.c			\
 			scheduler.c scheduler_backend.c	smtp.c smtp_session.c	\
-			smtpd.c ssl.c ssl_privsep.c stats.c tree.c user.c util.c
+			smtpd.c ssl.c ssl_privsep.c stat_backend.c tree.c	\
+			user.c util.c
 # backends
 smtpd_SOURCES+=		auth_bsd.c
 smtpd_SOURCES+=		auth_pwd.c 
@@ -45,6 +46,8 @@ smtpd_SOURCES+=		map_static.c
 smtpd_SOURCES+=		map_stdio.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
+smtpd_SOURCES+=		stat_ramstat.c
+#smtpd_SOURCES+=	stat_sqlite.c
 smtpd_SOURCES+=		user_pwd.c
 
 # resolver
@@ -61,7 +64,7 @@ smtpd_CFLAGS=		-DIO_SSL
 
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
-			smtpctl.c stats.c util.c
+			smtpctl.c util.c
 
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.163 2012/08/10 11:05:55 eric Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.166 2012/08/19 14:16:58 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -78,7 +78,7 @@ static void session_command(struct session *, char *);
 static void session_respond_delayed(int, short, void *);
 static int session_set_mailaddr(struct mailaddr *, char *);
 static void session_imsg(struct session *, enum smtp_proc_type,
-    enum imsg_type, u_int32_t, pid_t, int, void *, u_int16_t);
+    enum imsg_type, uint32_t, pid_t, int, void *, uint16_t);
 
 static void session_enter_state(struct session *, int);
 
@@ -365,7 +365,7 @@ session_rfc1652_mail_handler(struct session *s, char *args)
 static int
 session_rfc5321_helo_handler(struct session *s, char *args)
 {
-	if (args == NULL) {
+	if (args == NULL || !valid_domainpart(args)) {
 		session_respond(s, "501 HELO requires domain address");
 		return 1;
 	}
@@ -388,7 +388,7 @@ session_rfc5321_helo_handler(struct session *s, char *args)
 static int
 session_rfc5321_ehlo_handler(struct session *s, char *args)
 {
-	if (args == NULL) {
+	if (args == NULL || !valid_domainpart(args)) {
 		session_respond(s, "501 EHLO requires domain address");
 		return 1;
 	}
@@ -647,9 +647,9 @@ session_io(struct io *io, int evt)
 	case IO_TLSREADY:
 		s->s_flags |= F_SECURE;
 		if (s->s_l->flags & F_SMTPS)
-			stat_increment(STATS_SMTP_SMTPS);
+			stat_increment("smtp.smtps");
 		if (s->s_l->flags & F_STARTTLS)
-			stat_increment(STATS_SMTP_STARTTLS);
+			stat_increment("smtp.tls");
 		if (s->s_state == S_INIT) {
 			io_set_write(&s->s_io);
 			session_respond(s, SMTPD_BANNER, env->sc_hostname);
@@ -731,7 +731,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	if ((ss != NULL && ss->code == 421) ||
 	    (s->s_dstatus & DS_TEMPFAILURE)) {
-		env->stats->smtp.tempfail++;
+		stat_increment("smtp.tempfail");
 		session_respond(s, "421 Service temporarily unavailable");
 		session_enter_state(s, S_QUIT);
 		io_reload(&s->s_io);
@@ -961,7 +961,7 @@ session_line(struct session *s, char *line, size_t len)
 
 tempfail:
 	session_respond(s, "421 4.0.0 Service temporarily unavailable");
-	env->stats->smtp.tempfail++;
+	stat_increment("smtp.tempfail");
 	session_enter_state(s, S_QUIT);
 }
 
@@ -984,7 +984,7 @@ session_read_data(struct session *s, char *line)
 		} else if (s->s_dstatus & DS_TEMPFAILURE) {
 			session_respond(s, "421 4.0.0 Temporary failure");
 			session_enter_state(s, S_QUIT);
-			env->stats->smtp.tempfail++;
+			stat_increment("smtp.tempfail");
 		} else {
 			session_imsg(s, PROC_QUEUE, IMSG_QUEUE_COMMIT_MESSAGE,
 			    0, 0, -1, &s->s_msg, sizeof(s->s_msg));
@@ -1028,8 +1028,6 @@ session_read_data(struct session *s, char *line)
 void
 session_destroy(struct session *s, const char * reason)
 {
-	size_t	resume;
-
 	log_debug("smtp: %p: deleting session: %s", s, reason);
 
 	if (s->s_flags & F_ZOMBIE)
@@ -1047,10 +1045,10 @@ session_destroy(struct session *s, const char * reason)
 	if (s->s_ssl) {
 		if (s->s_l->flags & F_SMTPS)
 			if (s->s_flags & F_SECURE)
-				stat_decrement(STATS_SMTP_SMTPS);
+				stat_decrement("smtp.smtps");
 		if (s->s_l->flags & F_STARTTLS)
 			if (s->s_flags & F_SECURE)
-				stat_decrement(STATS_SMTP_STARTTLS);
+				stat_decrement("smtp.tls");
 	}
 
 	event_del(&s->s_ev); /* in case something was scheduled */
@@ -1058,11 +1056,7 @@ session_destroy(struct session *s, const char * reason)
 	iobuf_clear(&s->s_iobuf);
 
 	/* resume when session count decreases to 95% */
-	resume = env->sc_maxconn * 95 / 100;
-	if (stat_decrement(STATS_SMTP_SESSION) == resume) {
-		log_warnx("re-enabling incoming connections");
-		smtp_resume();
-	}
+	stat_decrement("smtp.session");
 
 	/* If the session is waiting for an imsg, do not kill it now, since
 	 * the id must still be valid.
@@ -1073,6 +1067,9 @@ session_destroy(struct session *s, const char * reason)
 	}
 
     finalize:
+
+	smtp_destroy(s);
+
 	SPLAY_REMOVE(sessiontree, &env->sc_sessions, s);
 	bzero(s, sizeof(*s));
 	free(s);
@@ -1082,7 +1079,7 @@ int
 session_cmp(struct session *s1, struct session *s2)
 {
 	/*
-	 * do not return u_int64_t's
+	 * do not return uint64_t's
 	 */
 	if (s1->s_id < s2->s_id)
 		return (-1);
@@ -1168,7 +1165,7 @@ session_respond(struct session *s, char *fmt, ...)
 		struct timeval tv = { delay, 0 };
 
 		io_pause(&s->s_io, IO_PAUSE_OUT);
-		env->stats->smtp.delays++;
+		stat_increment("smtp.delays");
 
 		/* in case session_respond is called multiple times */
 		evtimer_del(&s->s_ev);
@@ -1190,7 +1187,7 @@ session_respond_delayed(int fd, short event, void *p)
  */
 static void
 session_imsg(struct session *s, enum smtp_proc_type proc, enum imsg_type type,
-    u_int32_t peerid, pid_t pid, int fd, void *data, u_int16_t datalen)
+    uint32_t peerid, pid_t pid, int fd, void *data, uint16_t datalen)
 {
 	/*
 	 * Each outgoing IMSG has a response IMSG associated that must be

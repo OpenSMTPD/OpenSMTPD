@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_resolver.c,v 1.5 2012/07/29 20:33:21 eric Exp $	*/
+/*	$OpenBSD: asr_resolver.c,v 1.9 2012/08/19 16:17:40 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -228,17 +228,19 @@ getrrsetbyname(const char *name, unsigned int class, unsigned int type,
 {
 	struct async	*as;
 	struct async_res ar;
+	int		 r, saved_errno = errno;
 
 	as = getrrsetbyname_async(name, class, type, flags, NULL);
-	if (as == NULL)
-		return (errno == ENOMEM) ? ERRSET_NOMEMORY : ERRSET_FAIL;
+	if (as == NULL) {
+		r = (errno == ENOMEM) ? ERRSET_NOMEMORY : ERRSET_FAIL;
+		errno = saved_errno;
+		return (r);
+	}
 
 	async_run_sync(as, &ar);
 
-	if (ar.ar_errno)
-		errno = ar.ar_errno;
-
 	*res = ar.ar_rrsetinfo;
+
 	return (ar.ar_rrset_errno);
 }
 
@@ -319,7 +321,7 @@ _gethostbyname(const char *name, int af)
 		return (NULL);
 
 	h = _mkstatichostent(ar.ar_hostent);
-	freehostent(ar.ar_hostent);
+	free(ar.ar_hostent);
 
 	return (h);
 }
@@ -357,7 +359,7 @@ gethostbyaddr(const void *addr, socklen_t len, int af)
 		return (NULL);
 
 	h = _mkstatichostent(ar.ar_hostent);
-	freehostent(ar.ar_hostent);
+	free(ar.ar_hostent);
 
 	return (h);
 }
@@ -438,7 +440,7 @@ getnetbyname(const char *name)
 		return (NULL);
 
 	n = _mkstaticnetent(ar.ar_netent);
-	freenetent(ar.ar_netent);
+	free(ar.ar_netent);
 
 	return (n);
 }
@@ -464,7 +466,7 @@ getnetbyaddr(in_addr_t net, int type)
 		return (NULL);
 
 	n = _mkstaticnetent(ar.ar_netent);
-	freenetent(ar.ar_netent);
+	free(ar.ar_netent);
 
 	return (n);
 }
@@ -475,16 +477,22 @@ getaddrinfo(const char *hostname, const char *servname,
 {
 	struct async	*as;
 	struct async_res ar;
+	int		 saved_errno = errno;
 
 	as = getaddrinfo_async(hostname, servname, hints, NULL);
-	if (as == NULL)
-		return ((errno == ENOMEM) ? EAI_MEMORY : EAI_SYSTEM);
+	if (as == NULL) {
+		if (errno == ENOMEM) {
+			errno = saved_errno;
+			return (EAI_MEMORY);
+		}
+		return (EAI_SYSTEM);
+	}
 
 	async_run_sync(as, &ar);
 
-	errno = ar.ar_errno;
-	h_errno = ar.ar_h_errno;
 	*res = ar.ar_addrinfo;
+	if (ar.ar_gai_errno == EAI_SYSTEM)
+		errno = ar.ar_errno;
 
 	return (ar.ar_gai_errno);
 }
@@ -495,16 +503,21 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host,
 {
 	struct async	*as;
 	struct async_res ar;
+	int		 saved_errno = errno;
 
 	as = getnameinfo_async(sa, salen, host, hostlen, serv, servlen, flags,
 	    NULL);
-	if (as == NULL)
-		return ((errno == ENOMEM) ? EAI_MEMORY : EAI_SYSTEM);
+	if (as == NULL) {
+		if (errno == ENOMEM) {
+			errno = saved_errno;
+			return (EAI_MEMORY);
+		}
+		return (EAI_SYSTEM);
+	}
 
 	async_run_sync(as, &ar);
-
-	errno = ar.ar_errno;
-	h_errno = ar.ar_h_errno;
+	if (ar.ar_gai_errno == EAI_SYSTEM)
+		errno = ar.ar_errno;
 
 	return (ar.ar_gai_errno);
 }

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.157 2012/08/09 09:48:02 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.160 2012/08/19 14:16:58 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -61,7 +61,7 @@ static void parent_send_config_listeners(void);
 static void parent_send_config_client_certs(void);
 static void parent_send_config_ruleset(int);
 static void parent_sig_handler(int, short, void *);
-static void forkmda(struct imsgev *, u_int32_t, struct deliver *);
+static void forkmda(struct imsgev *, uint32_t, struct deliver *);
 static int parent_forward_open(char *);
 static void fork_peers(void);
 static struct child *child_lookup(pid_t);
@@ -101,6 +101,7 @@ struct smtpd	*env = NULL;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
+const char	*backend_stat = "ram";
 
 /* Saved arguments to main(). */
 char **saved_argv;
@@ -513,6 +514,8 @@ main(int argc, char *argv[])
 				backend_queue = strchr(optarg, '=') + 1;
 			else if (strstr(optarg, "scheduler=") == optarg)
 				backend_scheduler = strchr(optarg, '=') + 1;
+			else if (strstr(optarg, "stat=") == optarg)
+				backend_stat = strchr(optarg, '=') + 1;
 			else
 				log_warnx("invalid backend specifier %s", optarg);
 			break;
@@ -545,6 +548,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_BOUNCE;
 			else if (!strcmp(optarg, "scheduler"))
 				verbose |= TRACE_SCHEDULER;
+			else if (!strcmp(optarg, "stat"))
+				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else
@@ -609,6 +614,7 @@ main(int argc, char *argv[])
 
 	log_debug("using \"%s\" queue backend", backend_queue);
 	log_debug("using \"%s\" scheduler backend", backend_scheduler);
+	log_debug("using \"%s\" stat backend", backend_stat);
 
 	env->sc_queue = queue_backend_lookup(backend_queue);
 	if (env->sc_queue == NULL)
@@ -616,6 +622,10 @@ main(int argc, char *argv[])
 
 	if (!env->sc_queue->init(1))
 		errx(1, "could not initialize queue backend");
+
+	env->sc_stat = stat_backend_lookup(backend_stat);
+	if (env->sc_stat == NULL)
+		errx(1, "could not find stat backend \"%s\"", backend_stat);
 
 	log_init(debug);
 	log_verbose(verbose);
@@ -628,15 +638,7 @@ main(int argc, char *argv[])
 
 	if (env->sc_hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");
-
-	env->stats = mmap(NULL, sizeof(struct stats), PROT_WRITE|PROT_READ,
-	    MAP_ANON|MAP_SHARED, -1, (off_t)0);
-	if (env->stats == MAP_FAILED)
-		fatal("mmap");
-	bzero(env->stats, sizeof(struct stats));
-	stat_init(env->stats->counters, STATS_MAX);
-
-	env->stats->parent.start = time(NULL);
+	env->sc_uptime = time(NULL);
 
 	fork_peers();
 
@@ -806,8 +808,8 @@ imsg_event_add(struct imsgev *iev)
 }
 
 void
-imsg_compose_event(struct imsgev *iev, u_int16_t type, u_int32_t peerid,
-    pid_t pid, int fd, void *data, u_int16_t datalen)
+imsg_compose_event(struct imsgev *iev, uint16_t type, uint32_t peerid,
+    pid_t pid, int fd, void *data, uint16_t datalen)
 {
 	int	ret;
 
@@ -870,7 +872,7 @@ purge_task(int fd, short ev, void *arg)
 }
 
 static void
-forkmda(struct imsgev *iev, u_int32_t id,
+forkmda(struct imsgev *iev, uint32_t id,
     struct deliver *deliver)
 {
 	char		 ebuf[128], sfn[32];
@@ -1350,7 +1352,6 @@ imsg_to_str(int type)
 	CASE(IMSG_PARENT_AUTHENTICATE);
 	CASE(IMSG_PARENT_SEND_CONFIG);
 
-	CASE(IMSG_STATS);
 	CASE(IMSG_SMTP_ENQUEUE);
 	CASE(IMSG_SMTP_PAUSE);
 	CASE(IMSG_SMTP_RESUME);
@@ -1359,6 +1360,13 @@ imsg_to_str(int type)
 	CASE(IMSG_DNS_HOST_END);
 	CASE(IMSG_DNS_MX);
 	CASE(IMSG_DNS_PTR);
+
+	CASE(IMSG_STAT_INCREMENT);
+	CASE(IMSG_STAT_DECREMENT);
+	CASE(IMSG_STAT_SET);
+
+	CASE(IMSG_STATS);
+  	CASE(IMSG_STATS_GET);
 	default:
 		snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 
