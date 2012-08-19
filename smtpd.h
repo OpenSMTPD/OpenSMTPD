@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.322 2012/08/18 18:18:23 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.324 2012/08/19 08:45:44 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -35,7 +35,7 @@
 
 #define MAX_TAG_SIZE		 32
 /* SYNC WITH filter.h		  */
-//#define MAX_LINE_SIZE		 1024
+//#define MAX_LINE_SIZE		 1000
 //#define MAX_LOCALPART_SIZE	 128
 //#define MAX_DOMAINPART_SIZE	 MAXHOSTNAMELEN
 
@@ -75,7 +75,7 @@
 #define FAST_RESPONSES		2
 
 /* max len of any smtp line */
-#define	SMTP_LINE_MAX		1024
+#define	SMTP_LINE_MAX		1000
 
 #define F_STARTTLS		 0x01
 #define F_SMTPS			 0x02
@@ -763,13 +763,6 @@ struct mta_task {
 	TAILQ_HEAD(, envelope)	 envelopes;
 	struct mailaddr		 sender;
 	struct mta_session	*session;
-};
-
-struct mta_batch {
-	u_int64_t		id;
-	struct relayhost	relay;
-
-	u_int32_t		msgid;
 };
 
 /* maps return structures */
