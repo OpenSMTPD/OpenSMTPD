@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.12 2012/08/18 18:18:23 gilles Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.14 2012/08/20 09:34:53 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -149,7 +149,12 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_SCHEDULER_SCHEDULE:
 		id = *(uint64_t *)(imsg->data);
-		log_debug("scheduler: scheduling evp:%016" PRIx64, id);
+		if (id == 0)
+			log_debug("scheduler: scheduling all envelopes");
+		else if (id <= 0xffffffffL)
+			log_debug("scheduler: scheduling msg:%08" PRIx64, id);
+		else
+			log_debug("scheduler: scheduling evp:%016" PRIx64, id);
 		backend->schedule(id);
 		scheduler_reset_events();
 		return;
@@ -224,8 +229,7 @@ scheduler(void)
 	purge_config(PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
-
-	if (chroot(PATH_SPOOL) == -1)
+	if (chroot(pw->pw_dir) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");
