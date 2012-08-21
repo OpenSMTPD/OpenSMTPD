@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.126 2012/08/18 18:18:23 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.127 2012/08/18 20:52:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -224,6 +224,15 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
+			    sizeof e->id);
+			return;
+
+		case IMSG_QUEUE_DELIVERY_LOOP:
+			e = imsg->data;
+			queue_bounce(e);
+			queue_envelope_delete(e);
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+			    IMSG_QUEUE_DELIVERY_LOOP, 0, 0, -1, &e->id,
 			    sizeof e->id);
 			return;
 		}
