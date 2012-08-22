@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.135 2012/08/21 13:13:17 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.136 2012/08/21 20:19:46 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -559,6 +559,9 @@ mta_route_cmp(struct mta_route *a, struct mta_route *b)
 	if (a->cert && b->cert == NULL)
 		return (1);
 	if (a->cert && ((r = strcmp(a->cert, b->cert))))
+		return (r);
+
+	if (a->backupname && ((r = strcmp(a->backupname, b->backupname))))
 		return (r);
 
 	if ((r = strcmp(a->hostname, b->hostname)))
