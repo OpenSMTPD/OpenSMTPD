@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.10 2012/08/18 20:52:36 eric Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.13 2012/08/21 20:19:46 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -93,8 +93,8 @@ struct mta_session {
 	struct mta_route	*route;
 
 	char			*secret;
-
 	int			 flags;
+	int			 ready;
 
 	int			 msgcount;
 	enum mta_state		 state;
@@ -104,6 +104,7 @@ struct mta_session {
 	struct envelope		*currevp;
 	struct iobuf		 iobuf;
 	struct io		 io;
+	int			 is_reading; /* XXX remove this later */
 	int			 ext;
 	struct ssl		*ssl;
 };
@@ -116,6 +117,7 @@ static void mta_send(struct mta_session *, char *, ...);
 static ssize_t mta_queue_data(struct mta_session *);
 static void mta_response(struct mta_session *, char *);
 static const char * mta_strstate(int);
+static int mta_check_loop(FILE *);
 
 static struct tree sessions = SPLAY_INITIALIZER(&sessions);
 
@@ -159,7 +161,7 @@ mta_session(struct mta_route *route)
 void
 mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	uint64_t		 batch_id;
+	uint64_t		 id;
 	struct mta_session	*s;
 	struct mta_host		*host;
 	struct secret		*secret;
@@ -170,14 +172,23 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 	switch(imsg->hdr.type) {
 
 	case IMSG_QUEUE_MESSAGE_FD:
-		batch_id = *(uint64_t*)(imsg->data);
+		id = *(uint64_t*)(imsg->data);
 		if (imsg->fd == -1)
 			fatalx("mta: cannot obtain msgfd");
-		s = tree_xget(&sessions, batch_id);
+		s = tree_xget(&sessions, id);
 		s->datafp = fdopen(imsg->fd, "r");
 		if (s->datafp == NULL)
 			fatal("mta: fdopen");
-		mta_enter_state(s, MTA_SMTP_MAIL);
+
+		if (mta_check_loop(s->datafp)) {
+			log_debug("mta: loop detected");
+			fclose(s->datafp);
+			s->datafp = NULL;
+			mta_status(s, 0, "646 Loop detected");
+			mta_enter_state(s, MTA_SMTP_READY);
+		} else {
+			mta_enter_state(s, MTA_SMTP_MAIL);
+		}
 		return;
 
 	case IMSG_LKA_SECRET:
@@ -312,18 +323,17 @@ mta_enter_state(struct mta_session *s, int newstate)
 		if (s->flags & MTA_FORCE_MX) /* XXX */
 			dns_query_host(s->route->hostname, s->route->port, s->id);
 		else
-			dns_query_mx(s->route->hostname, 0, s->id);
+			dns_query_mx(s->route->hostname, s->route->backupname, 0, s->id);
 		break;
 
 	case MTA_CONNECT:
 		/*
 		 * Connect to the MX.
 		 */
-		if (oldstate == MTA_CONNECT) {
-			/* previous connection failed. clean it up */
-			iobuf_clear(&s->iobuf);
-			io_clear(&s->io);
-		}
+	
+		/* cleanup previous connection if any */
+		iobuf_clear(&s->iobuf);
+		io_clear(&s->io);
 
 		if (s->flags & MTA_FORCE_ANYSSL)
 			max_reuse = 2;
@@ -398,6 +408,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_SMTP_BANNER:
 		/* just wait for banner */
+		s->is_reading = 1;
 		io_set_read(&s->io);
 		break;
 
@@ -429,13 +440,16 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    s);
 			mta_enter_state(s, MTA_CONNECT);
 		} else {
-			mta_route_ok(s->route);
 			mta_enter_state(s, MTA_SMTP_READY);
 		}
 		break;
 
 	case MTA_SMTP_READY:
 		/* ready to send a new mail */
+		if (s->ready == 0) {
+			s->ready = 1;
+			mta_route_ok(s->route);
+		}
 		if (s->msgcount >= s->route->maxmail) {
 			log_debug("mta: %p: cannot send more message to %s", s,
 			    mta_route_to_text(s->route));
@@ -461,7 +475,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    s->task->sender.user, s->task->sender.domain);
 		else
 			mta_send(s, "MAIL FROM: <>");
-		io_set_write(&s->io);
 		break;
 
 	case MTA_SMTP_RCPT:
@@ -545,7 +558,6 @@ mta_response(struct mta_session *s, char *line)
 			mta_enter_state(s, MTA_DONE);
 			return;
 		}
-		mta_route_ok(s->route);
 		mta_enter_state(s, MTA_SMTP_READY);
 		break;
 
@@ -563,6 +575,7 @@ mta_response(struct mta_session *s, char *line)
 		ssl = ssl_mta_init(s->ssl);
 		if (ssl == NULL)
 			fatal("mta: ssl_mta_init");
+		s->is_reading = 0;
 		io_set_write(&s->io);
 		io_start_tls(&s->io, ssl);
 		break;
@@ -573,7 +586,6 @@ mta_response(struct mta_session *s, char *line)
 			mta_enter_state(s, MTA_DONE);
 			return;
 		}
-		mta_route_ok(s->route);
 		mta_enter_state(s, MTA_SMTP_READY);
 		break;
 
@@ -642,6 +654,7 @@ mta_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_CONNECTED:
+		s->is_reading = 0;
 		io_set_timeout(io, 300000);
 		io_set_write(io);
 		host = TAILQ_FIRST(&s->hosts);
@@ -698,22 +711,21 @@ mta_io(struct io *io, int evt)
 		mta_response(s, line);
 
 		iobuf_normalize(&s->iobuf);
-		if (iobuf_queued(&s->iobuf))
-			io_set_write(io);
 		break;
 
 	case IO_LOWAT:
 		if (s->state == MTA_SMTP_BODY)
 			mta_enter_state(s, MTA_SMTP_BODY);
 
-		if (iobuf_queued(&s->iobuf) == 0)
+		if (iobuf_queued(&s->iobuf) == 0) {
+			s->is_reading = 1;
 			io_set_read(io);
+		}
 		break;
 
 	case IO_TIMEOUT:
 		log_debug("mta: %p: connection timeout", s);
-		if (s->state == MTA_CONNECT) {
-			/* try the next MX */
+		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
 		}
@@ -723,7 +735,7 @@ mta_io(struct io *io, int evt)
 
 	case IO_ERROR:
 		log_debug("mta: %p: IO error: %s", s, strerror(errno));
-		if (s->state == MTA_CONNECT) {
+		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
 		}
@@ -733,7 +745,7 @@ mta_io(struct io *io, int evt)
 
 	case IO_DISCONNECTED:
 		log_debug("mta: %p: disconnected in state %s", s, mta_strstate(s->state));
-		if (s->state == MTA_CONNECT) {
+		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
 		}
@@ -763,6 +775,11 @@ mta_send(struct mta_session *s, char *fmt, ...)
 	iobuf_fqueue(&s->iobuf, "%s\r\n", p);
 
 	free(p);
+
+	if (s->is_reading) {
+		s->is_reading = 0;
+		io_set_write(&s->io);
+	}
 }
 
 /*
@@ -795,6 +812,11 @@ mta_queue_data(struct mta_session *s)
 	if (feof(s->datafp)) {
 		fclose(s->datafp);
 		s->datafp = NULL;
+	}
+
+	if (s->is_reading) {
+		s->is_reading = 0;
+		io_set_write(&s->io);
 	}
 
 	return (iobuf_queued(&s->iobuf) - q);
@@ -877,4 +899,47 @@ mta_strstate(int state)
 	default:
 		return "MTA_???";
 	}
+}
+
+static int
+mta_check_loop(FILE *fp)
+{
+	char	*buf, *lbuf;
+	size_t	 len;
+	uint32_t rcvcount = 0;
+	int	 ret = 0;
+
+	lbuf = NULL;
+	while ((buf = fgetln(fp, &len))) {
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
+		else {
+			/* EOF without EOL, copy and add the NUL */
+			if ((lbuf = malloc(len + 1)) == NULL)
+				err(1, NULL);
+			memcpy(lbuf, buf, len);
+			lbuf[len] = '\0';
+			buf = lbuf;
+		}
+
+		if (strchr(buf, ':') == NULL && !isspace((int)*buf))
+			break;
+
+		if (strncasecmp("Received: ", buf, 10) == 0) {
+			rcvcount++;
+			if (rcvcount == MAX_HOPS_COUNT) {
+				ret = 1;
+				break;
+			}
+		}
+		if (lbuf) {
+			free(lbuf);
+			lbuf  = NULL;
+		}
+	}
+	if (lbuf)
+		free(lbuf);
+
+	fseek(fp, SEEK_SET, 0);
+	return ret;
 }

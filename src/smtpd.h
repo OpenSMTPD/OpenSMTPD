@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.326 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.329 2012/08/21 20:19:46 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -48,10 +48,7 @@
 #define MAX_HOPS_COUNT		 100
 
 #define MAX_TAG_SIZE		 32
-/* SYNC WITH filter.h		  */
-//#define MAX_LINE_SIZE		 1000
-//#define MAX_LOCALPART_SIZE	 128
-//#define MAX_DOMAINPART_SIZE	 MAXHOSTNAMELEN
+
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
@@ -96,12 +93,14 @@
 #define FAST_RESPONSES		2
 
 /* max len of any smtp line */
-#define	SMTP_LINE_MAX		1000
+#define	SMTP_LINE_MAX		MAX_LINE_SIZE
 
 #define F_STARTTLS		 0x01
 #define F_SMTPS			 0x02
 #define F_AUTH			 0x04
 #define F_SSL			(F_SMTPS|F_STARTTLS)
+
+#define	F_BACKUP		0x10	/* XXX */
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -112,6 +111,7 @@
 #define ROUTE_SSL		(ROUTE_STARTTLS | ROUTE_SMTPS)
 #define ROUTE_AUTH		0x04
 #define ROUTE_MX		0x08
+#define ROUTE_BACKUP		0x10	/* XXX */
 
 typedef uint32_t	objid_t;
 
@@ -173,6 +173,7 @@ enum imsg_type {
 	IMSG_QUEUE_DELIVERY_OK,
 	IMSG_QUEUE_DELIVERY_TEMPFAIL,
 	IMSG_QUEUE_DELIVERY_PERMFAIL,
+	IMSG_QUEUE_DELIVERY_LOOP,
 	IMSG_QUEUE_MESSAGE_FD,
 	IMSG_QUEUE_MESSAGE_FILE,
 	IMSG_QUEUE_REMOVE,
@@ -676,12 +677,12 @@ enum dns_status {
 struct dns {
 	uint64_t		 id;
 	char			 host[MAXHOSTNAMELEN];
+	char			 backup[MAXHOSTNAMELEN];
 	int			 port;
 	int			 error;
 	int			 type;
 	struct imsgev		*asker;
 	struct sockaddr_storage	 ss;
-	struct dns		*next;
 };
 
 struct secret {
@@ -756,6 +757,7 @@ struct mta_route {
 
 	uint8_t			 flags;
 	char			*hostname;
+	char			*backupname;
 	uint16_t		 port;
 	char			*cert;
 	char			*auth;
@@ -981,7 +983,7 @@ struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 /* dns.c */
 void dns_query_host(char *, int, uint64_t);
-void dns_query_mx(char *, int, uint64_t);
+void dns_query_mx(char *, char *, int, uint64_t);
 void dns_query_ptr(struct sockaddr_storage *, uint64_t);
 void dns_async(struct imsgev *, int, struct dns *);
 

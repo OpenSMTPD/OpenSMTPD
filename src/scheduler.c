@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.13 2012/08/19 15:06:36 chl Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.15 2012/08/21 13:13:17 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -123,6 +123,14 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
+	case IMSG_QUEUE_DELIVERY_LOOP:
+		id = *(uint64_t *)(imsg->data);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: deleting evp:%016" PRIx64 " (loop)", id);
+		backend->delete(id);
+		scheduler_reset_events();
+		return;
+
 	case IMSG_QUEUE_PAUSE_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mda");
 		env->sc_flags |= SMTPD_MDA_PAUSED;
@@ -231,8 +239,7 @@ scheduler(void)
 	purge_config(PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
-
-	if (chroot(PATH_SPOOL) == -1)
+	if (chroot(pw->pw_dir) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");

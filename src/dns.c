@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.53 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD: dns.c,v 1.56 2012/08/21 20:19:46 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -45,28 +45,20 @@
 
 
 struct mx {
-	char	host[MAXHOSTNAMELEN];
-	int	prio;
+	TAILQ_ENTRY(mx)	 entry;
+	char		*host;
+	int		 preference;
 };
 
 struct dnssession {
-	SPLAY_ENTRY(dnssession)		 nodes;
 	uint64_t			 id;
 	struct dns			 query;
 	struct event			 ev;
 	struct async			*as;
-	struct mx			 mxarray[MAX_MX_COUNT];
-	size_t				 mxarraysz;
-	size_t				 mxcurrent;
+	int				 preference;
 	size_t				 mxfound;
+	TAILQ_HEAD(, mx)		 mx;
 };
-
-static int  dnssession_cmp(struct dnssession *, struct dnssession *);
-
-SPLAY_HEAD(dnstree, dnssession) dns_sessions = SPLAY_INITIALIZER(&dns_sessions);
-
-SPLAY_PROTOTYPE(dnstree, dnssession, nodes, dnssession_cmp);
-
 
 static struct dnssession *dnssession_init(struct dns *);
 static void dnssession_destroy(struct dnssession *);
@@ -100,12 +92,14 @@ dns_query_host(char *host, int port, uint64_t id)
 }
 
 void
-dns_query_mx(char *host, int port, uint64_t id)
+dns_query_mx(char *host, char *backup, int port, uint64_t id)
 {
 	struct dns	 query;
 
 	bzero(&query, sizeof(query));
 	strlcpy(query.host, host, sizeof(query.host));
+	if (backup)
+		strlcpy(query.backup, backup, sizeof(query.backup));
 	query.port = port;
 	query.id = id;
 
@@ -150,6 +144,7 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 		}
 		dnssession_mx_insert(s, query->host, 0);
 		stat_increment("lka.session.host");
+		query->error = DNS_ENOTFOUND; /* override later */
 		dns_asr_dispatch_host(s);
 		return;
 	case IMSG_DNS_PTR:
@@ -281,6 +276,7 @@ dns_asr_dispatch_mx(struct dnssession *s)
 	 */
 	s->as = NULL;
 	s->query.type = IMSG_DNS_HOST;
+	s->query.error = DNS_ENOTFOUND; /* override later */
 	dns_asr_dispatch_host(s);
 }
 
@@ -292,14 +288,15 @@ dns_asr_dispatch_host(struct dnssession *s)
 	struct async_res	 ar;
 	struct addrinfo		 hints, *ai;
 
-	/* default to notfound, override with retry or ok later */
-	if (s->mxcurrent == 0)
-		query->error = DNS_ENOTFOUND;
-
 next:
 	/* query all listed hosts in turn */
 	while (s->as == NULL) {
-		if (s->mxcurrent == s->mxarraysz) {
+
+		mx = TAILQ_FIRST(&s->mx);
+		if (mx == NULL || (s->preference != -1
+		    && s->preference <= mx->preference)) {
+			if (mx)
+				log_debug("dns: ignoring mx with lower preference");
 			if (s->mxfound)
 				query->error = DNS_OK;
 			dns_reply(query, IMSG_DNS_HOST_END);
@@ -307,11 +304,15 @@ next:
 			return;
 		}
 
-		mx = s->mxarray + s->mxcurrent++;
+		log_debug("dns: resolving address for \"%s\"", mx->host);
+
 		memset(&hints, 0, sizeof(hints));
-           	hints.ai_family = PF_UNSPEC;
-           	hints.ai_socktype = SOCK_STREAM;
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
 		s->as = getaddrinfo_async(mx->host, NULL, &hints, NULL);
+		TAILQ_REMOVE(&s->mx, mx, entry);
+		free(mx->host);
+		free(mx);
 	}
 
 	if (async_run(s->as, &ar) == ASYNC_COND) {
@@ -322,6 +323,7 @@ next:
 	if (ar.ar_gai_errno == 0) {
 		for (ai = ar.ar_addrinfo; ai; ai = ai->ai_next) {
 			memcpy(&query->ss, ai->ai_addr, ai->ai_addrlen);
+			log_debug("dns: got address %s", ss_to_text(&query->ss));
 			dns_reply(query, IMSG_DNS_HOST);
 			s->mxfound++;
 		}
@@ -362,55 +364,53 @@ dnssession_init(struct dns *query)
 
 	s->id = query->id;
 	s->query = *query;
-	SPLAY_INSERT(dnstree, &dns_sessions, s);
+	s->preference = -1;
+
+	TAILQ_INIT(&s->mx);
+
 	return (s);
 }
 
 static void
 dnssession_destroy(struct dnssession *s)
 {
+	struct mx	*mx;
+
 	stat_decrement("lka.session");
-	SPLAY_REMOVE(dnstree, &dns_sessions, s);
 	event_del(&s->ev);
+
+	while((mx = TAILQ_FIRST(&s->mx))) {
+		TAILQ_REMOVE(&s->mx, mx, entry);
+		free(mx->host);
+		free(mx);
+	}
+
 	free(s);
 }
 
 static void
-dnssession_mx_insert(struct dnssession *s, const char *host, int prio)
+dnssession_mx_insert(struct dnssession *s, const char *host, int preference)
 {
-	size_t i, j;
+	struct mx	*mx, *e;
 
-	for (i = 0; i < s->mxarraysz; i++)
-		if (prio < s->mxarray[i].prio)
-			break;
+	mx = xcalloc(1, sizeof *mx, "dnssession_mx_insert");
+	mx->host = xstrdup(host, "dnssession_mx_insert");
+	mx->preference = preference;
 
-	if (i == MAX_MX_COUNT)
-		return;
+	log_debug("dns: found mx \"%s\" with preference %i", host, preference);
 
-	if (s->mxarraysz < MAX_MX_COUNT)
-		s->mxarraysz++;
+	TAILQ_FOREACH(e, &s->mx, entry) {
+		if (mx->preference <= e->preference) {
+			TAILQ_INSERT_BEFORE(e, mx, entry);
+			return;
+		}
+	}
 
-	for (j = s->mxarraysz - 1; j > i; j--)
-		s->mxarray[j] = s->mxarray[j - 1];
+	TAILQ_INSERT_TAIL(&s->mx, mx, entry);
 
-        s->mxarray[i].prio = prio;
-	strlcpy(s->mxarray[i].host, host,
-	    sizeof (s->mxarray[i].host));
+	if (s->preference == -1 && s->query.backup[0]
+	    && !strcasecmp(host, s->query.backup)) {
+		log_debug("dns: found our backup preference");
+		s->preference = preference;
+	}
 }
-
-static int
-dnssession_cmp(struct dnssession *s1, struct dnssession *s2)
-{
-	/*
-	 * do not return uint64_t's
-	 */
-	if (s1->id < s2->id)
-		return (-1);
-
-	if (s1->id > s2->id)
-		return (1);
-
-	return (0);
-}
-
-SPLAY_GENERATE(dnstree, dnssession, nodes, dnssession_cmp);
