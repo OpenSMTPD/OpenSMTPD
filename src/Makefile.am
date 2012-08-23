@@ -132,26 +132,14 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 		echo "$(DESTDIR)$(sysconfdir)/mail/smtpd.conf already exists, install will not overwrite"; \
 	fi
 
-	@if [ ! -f $(DESTDIR)$(bindir)/mailq$(EXEEXT) ]; then			\
-		ln $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)			\
-			$(DESTDIR)$(bindir)/mailq$(EXEEXT);			\
-	else 									\
-		echo "$(DESTDIR)$(bindir)/mailq$(EXEEXT) already exists, install will not overwrite"; \
-	fi
+	ln -f $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
+		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
 
-	@if [ ! -f $(DESTDIR)$(bindir)/newaliases$(EXEEXT) ]; then		\
-		ln $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
-			$(DESTDIR)$(bindir)/newaliases$(EXEEXT);		\
-	else 									\
-		echo "$(DESTDIR)$(bindir)/newaliases$(EXEEXT) already exists, install will not overwrite"; \
-	fi
+	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
 
-	@if [ ! -f $(DESTDIR)$(sbindir)/makemap$(EXEEXT) ]; then		\
-		ln $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
-			$(DESTDIR)$(sbindir)/makemap$(EXEEXT);			\
-	else 									\
-		echo "$(DESTDIR)$(sbindir)/makemap$(EXEEXT) already exists, install will not overwrite"; \
-	fi
+	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+		$(DESTDIR)$(sbindir)/makemap$(EXEEXT);
 
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
 	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
