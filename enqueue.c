@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.56 2012/03/17 13:10:03 gilles Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.57 2012/08/19 14:16:58 chl Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -175,7 +175,7 @@ enqueue(int argc, char *argv[])
 	time(&timestamp);
 
 	while ((ch = getopt(argc, argv,
-	    "A:B:b:E::e:F:f:iJ::L:mo:p:qtvx")) != -1) {
+	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qtvx")) != -1) {
 		switch (ch) {
 		case 'f':
 			fake_from = optarg;
@@ -198,6 +198,7 @@ enqueue(int argc, char *argv[])
 		case 'i':
 		case 'L':
 		case 'm':
+		case 'N': /* XXX: DSN */
 		case 'o':
 		case 'p':
 		case 'x':
