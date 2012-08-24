@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.330 2012/08/24 12:29:50 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.331 2012/08/24 13:13:13 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -424,7 +424,6 @@ TAILQ_HEAD(deliverylist, envelope);
 
 enum envelope_field {
 	EVP_VERSION,
-	EVP_ID,
 	EVP_MSGID,
 	EVP_TYPE,
 	EVP_HELO,
