@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.328 2012/08/21 13:13:17 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.329 2012/08/21 20:19:46 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -847,8 +847,6 @@ struct delivery_backend {
 
 struct scheduler_info {
 	uint64_t		evpid;
-	char			destination[MAXHOSTNAMELEN];
-
 	enum delivery_type	type;
 	time_t			creation;
 	time_t			lasttry;
