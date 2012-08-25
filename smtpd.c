@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.162 2012/08/25 11:38:18 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.163 2012/08/25 15:39:11 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -574,6 +574,14 @@ main(int argc, char *argv[])
 	env->sc_stat = stat_backend_lookup(backend_stat);
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
+
+	if (env->sc_queue_compress_algo) {
+		env->sc_compress = 
+			compress_backend_lookup(env->sc_queue_compress_algo);
+		if (env->sc_queue == NULL)
+			errx(1, "could not find queue compress backend \"%s\"",
+			     env->sc_queue_compress_algo);
+	}
 
 	log_init(debug);
 	log_verbose(verbose);
