@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler_backend.c,v 1.3 2012/08/08 08:50:42 eric Exp $	*/
+/*	$OpenBSD: scheduler_backend.c,v 1.5 2012/08/24 12:29:50 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
@@ -50,8 +50,6 @@ scheduler_backend_lookup(const char *name)
 void
 scheduler_info(struct scheduler_info *sched, struct envelope *evp)
 {
-	strlcpy(sched->destination, evp->dest.domain, sizeof sched->destination);
-
 	sched->evpid    = evp->id;
 	sched->type     = evp->type;
 	sched->creation = evp->creation;
@@ -69,7 +67,7 @@ scheduler_compute_schedule(struct scheduler_info *sched)
 		delay = 0;
 #if 0
 		/* for testing scheduler sleep */
-		delay == arc4random() % 30;
+		delay = arc4random() % 30;
 #endif
 	else if (sched->retry < 4)
 		delay = (sched->retry * 15 * 60);

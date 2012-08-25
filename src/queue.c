@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.128 2012/08/21 13:13:17 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.131 2012/08/24 21:24:25 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -84,7 +84,11 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
-			queue_message_incoming_delete(evpid_to_msgid(e->id));
+			msgid = *(uint32_t*)(imsg->data);
+			queue_message_incoming_delete(msgid);
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+			    &msgid, sizeof msgid);
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
@@ -151,21 +155,36 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_REMOVE:
-			evp.id = *(uint64_t*)(imsg->data);
+			id = *(uint64_t*)(imsg->data);
+			if (queue_envelope_load(id, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, id);
+			envelope_set_errormsg(&evp, "Removed by administrator");
+			log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, stat=%s",
+			    evp.id, evp.dest.user,
+			    evp.dest.domain,
+			    duration_to_text(time(NULL) - evp.creation),
+			    evp.errorline);
 			queue_envelope_delete(&evp);
 			return;
 
 		case IMSG_QUEUE_EXPIRE:
 			id = *(uint64_t*)(imsg->data);
-			queue_envelope_load(id, &evp);
-			envelope_set_errormsg(&evp, "envelope expired");
+			if (queue_envelope_load(id, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, id),
+			envelope_set_errormsg(&evp, "Envelope expired");
+			log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, stat=%s",
+			    evp.id, evp.dest.user,
+			    evp.dest.domain,
+			    duration_to_text(time(NULL) - evp.creation),
+			    evp.errorline);
 			queue_bounce(&evp);
 			queue_envelope_delete(&evp);
 			return;
 
 		case IMSG_MDA_SESS_NEW:
 			id = *(uint64_t*)(imsg->data);
-			queue_envelope_load(id, &evp);
+			if (queue_envelope_load(id, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, id),
 			evp.lasttry = time(NULL);
 			fd = queue_message_fd_r(evpid_to_msgid(id));
 			imsg_compose_event(env->sc_ievs[PROC_MDA],
@@ -186,7 +205,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_BATCH_APPEND:
 			id = *(uint64_t*)(imsg->data);
-			queue_envelope_load(id, &evp);
+			if (queue_envelope_load(id, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, id),
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
@@ -427,7 +447,7 @@ queue_timeout(int fd, short event, void *p)
 	uint64_t		 evpid;
 
 	if (q == NULL) {
-		log_info("queue: loading queue into scheduler");
+		log_debug("queue: loading queue into scheduler");
 		q = qwalk_new(0);
 	}
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.329 2012/08/21 20:19:46 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.332 2012/08/24 13:21:56 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -445,7 +445,6 @@ TAILQ_HEAD(deliverylist, envelope);
 
 enum envelope_field {
 	EVP_VERSION,
-	EVP_ID,
 	EVP_MSGID,
 	EVP_TYPE,
 	EVP_HELO,
@@ -822,7 +821,7 @@ enum queue_op {
 struct queue_backend {
 	int (*init)(int);
 	int (*message)(enum queue_op, uint32_t *);
-	int (*envelope)(enum queue_op, struct envelope *);
+	int (*envelope)(enum queue_op, uint64_t *, char *, size_t);
 
 	void *(*qwalk_new)(uint32_t);
 	int   (*qwalk)(void *, uint64_t *);
@@ -868,8 +867,6 @@ struct delivery_backend {
 
 struct scheduler_info {
 	uint64_t		evpid;
-	char			destination[MAXHOSTNAMELEN];
-
 	enum delivery_type	type;
 	time_t			creation;
 	time_t			lasttry;
@@ -1060,10 +1057,8 @@ void mta_session_imsg(struct imsgev *, struct imsg *);
 int parse_config(struct smtpd *, const char *, int);
 int cmdline_symset(char *);
 
-
 /* queue.c */
 pid_t queue(void);
-
 
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);
@@ -1085,7 +1080,6 @@ int queue_envelope_update(struct envelope *);
 void *qwalk_new(uint32_t);
 int   qwalk(void *, uint64_t *);
 void  qwalk_close(void *);
-
 
 /* scheduler.c */
 pid_t scheduler(void);
