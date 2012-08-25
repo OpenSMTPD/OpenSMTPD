@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.136 2012/08/21 20:19:46 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.137 2012/08/22 11:44:34 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -232,7 +232,8 @@ mta(void)
 	struct peer peers[] = {
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
-		{ PROC_LKA,	imsg_dispatch }
+		{ PROC_LKA,	imsg_dispatch },
+		{ PROC_CONTROL,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
