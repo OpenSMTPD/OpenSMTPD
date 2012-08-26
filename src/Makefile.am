@@ -26,17 +26,18 @@ pkglibexec_PROGRAMS=	makemap
 makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
 			map_static.c map_db.c map_stdio.c
 
-smtpd_SOURCES=		aliases.c auth.c bounce.c config.c control.c		\
-			delivery.c dns.c expand.c envelope.c forward.c		\
-			iobuf.c ioev.c lka.c lka_session.c log.c map.c mda.c	\
-			mfa.c mfa_session.c mta.c mta_session.c parse.y		\
+smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
+			control.c delivery.c dns.c encrypt.c envelope.c expand.c\
+			forward.c iobuf.c ioev.c lka.c lka_session.c log.c map.c\
+			mda.c mfa.c mfa_session.c mta.c mta_session.c parse.y	\
 			queue.c queue_backend.c ruleset.c			\
 			scheduler.c scheduler_backend.c	smtp.c smtp_session.c	\
 			smtpd.c ssl.c ssl_privsep.c stat_backend.c tree.c	\
 			user.c util.c
 # backends
 smtpd_SOURCES+=		auth_bsd.c
-smtpd_SOURCES+=		auth_pwd.c 
+smtpd_SOURCES+=		auth_pwd.c
+smtpd_SOURCES+=		compress_zlib.c
 smtpd_SOURCES+=		delivery_filename.c
 smtpd_SOURCES+=		delivery_maildir.c
 smtpd_SOURCES+=		delivery_mbox.c
@@ -64,7 +65,8 @@ smtpd_CFLAGS=		-DIO_SSL
 
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
-			smtpctl.c util.c
+			smtpctl.c util.c					\
+			compress_backend.c compress_zlib.c encrypt.c
 
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr

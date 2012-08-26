@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.71 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD: util.c,v 1.73 2012/08/25 23:35:09 chl Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -340,6 +340,28 @@ mvpurge(char *from, char *to)
 	}
 
 	return 0;
+}
+
+
+int
+mktmpfile(void)
+{
+	char		path[MAXPATHLEN];
+	int		fd;
+
+#define PATH_TMP	"/tmp"
+
+	if (ckdir(PATH_TMP, 0700, env->sc_pw->pw_uid, 0, 0) == 0)
+		errx(1, "error in /tmp directory setup");
+
+	if (! bsnprintf(path, sizeof(path), "%s/zlib.XXXXXXXXXX", PATH_TMP))
+		err(1, "snprintf");
+
+	if ((fd = mkstemp(path)) == -1)
+		err(1, "cannot create temporary file %s", path);
+
+	unlink(path);
+	return (fd);
 }
 
 
@@ -890,19 +912,6 @@ fdlimit(double percent)
 	rl.rlim_cur = percent * rl.rlim_max;
 	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
 		fatal("fdlimit: setrlimit");
-}
-
-int
-availdesc(void)
-{
-	int avail;
-
-	avail = getdtablesize();
-	avail -= 3;		/* stdin, stdout, stderr */
-	avail -= PROC_COUNT;	/* imsg channels */
-	avail -= 5;		/* safety buffer */
-
-	return (avail);
 }
 
 void

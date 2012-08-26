@@ -1,6 +1,7 @@
-/*	$OpenBSD: control.c,v 1.69 2012/08/20 18:18:16 eric Exp $	*/
+/*	$OpenBSD: control.c,v 1.72 2012/08/25 22:03:26 gilles Exp $	*/
 
 /*
+ * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
  *
@@ -67,14 +68,14 @@ struct ctl_connlist	ctl_conns;
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
 
-static size_t sessions;
+#define	CONTROL_FD_RESERVE	5
 
 void
 control_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct ctl_conn	*c;
-	char		*key;
-	size_t		 val;
+	struct ctl_conn	       *c;
+	char		       *key;
+	struct stat_value	val;
 
 	log_imsg(PROC_CONTROL, iev->proc, imsg);
 
@@ -92,20 +93,22 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_STAT_INCREMENT:
-		key = imsg->data;
+		memmove(&val, imsg->data, sizeof (val));
+		key = (char*)imsg->data + sizeof (val);
 		if (stat_backend)
-			stat_backend->increment(key);
+			stat_backend->increment(key, val.u.counter);
 		return;
 	case IMSG_STAT_DECREMENT:
-		key = imsg->data;
+		memmove(&val, imsg->data, sizeof (val));
+		key = (char*)imsg->data + sizeof (val);
 		if (stat_backend)
-			stat_backend->decrement(key);
+			stat_backend->decrement(key, val.u.counter);
 		return;
 	case IMSG_STAT_SET:
 		memmove(&val, imsg->data, sizeof (val));
 		key = (char*)imsg->data + sizeof (val);
 		if (stat_backend)
-			stat_backend->set(key, val);
+			stat_backend->set(key, &val);
 		return;
 	}
 
@@ -143,7 +146,9 @@ control(void)
 		{ PROC_SMTP,		imsg_dispatch },
 		{ PROC_MFA,		imsg_dispatch },
 		{ PROC_PARENT,		imsg_dispatch },
-		{ PROC_LKA,		imsg_dispatch }
+		{ PROC_LKA,		imsg_dispatch },
+		{ PROC_MDA,		imsg_dispatch },
+		{ PROC_MTA,		imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
@@ -246,19 +251,12 @@ control_shutdown(void)
 void
 control_listen(void)
 {
-	int avail = availdesc();
-
 	if (listen(control_state.fd, CONTROL_BACKLOG) == -1)
 		fatal("control_listen");
-	avail--;
 
 	event_set(&control_state.ev, control_state.fd, EV_READ|EV_PERSIST,
 	    control_accept, NULL);
 	event_add(&control_state.ev, NULL);
-
-	/* guarantee 2 fds to each accepted client */
-	if ((env->sc_maxconn = avail / 2) < 1)
-		fatalx("control_listen: fd starvation");
 }
 
 void
@@ -276,8 +274,13 @@ control_accept(int listenfd, short event, void *arg)
 	struct sockaddr_un	 sun;
 	struct ctl_conn		*c;
 
+	if (available_fds(CONTROL_FD_RESERVE))
+		goto pause;
+
 	len = sizeof(sun);
 	if ((connfd = accept(listenfd, (struct sockaddr *)&sun, &len)) == -1) {
+		if (errno == ENFILE || errno == EMFILE)
+			goto pause;
 		if (errno == EINTR || errno == ECONNABORTED)
 			return;
 		fatal("control_accept: accept");
@@ -295,12 +298,12 @@ control_accept(int listenfd, short event, void *arg)
 	event_add(&c->iev.ev, NULL);
 	TAILQ_INSERT_TAIL(&ctl_conns, c, entry);
 
-	stat_backend->increment("control.session");
+	stat_backend->increment("control.session", 1);
+	return;
 
-	if (++sessions >= env->sc_maxconn) {
-		log_warnx("ctl client limit hit, disabling new connections");
-		event_del(&control_state.ev);
-	}
+pause:
+	log_warnx("ctl client limit hit, disabling new connections");
+	event_del(&control_state.ev);
 }
 
 struct ctl_conn *
@@ -330,10 +333,12 @@ control_close(int fd)
 	close(fd);
 	free(c);
 
-	stat_backend->decrement("control.session");
+	stat_backend->decrement("control.session", 1);
 
-	if (--sessions < env->sc_maxconn &&
-	    !event_pending(&control_state.ev, EV_READ, NULL)) {
+	if (available_fds(CONTROL_FD_RESERVE))
+		return;
+
+	if (!event_pending(&control_state.ev, EV_READ, NULL)) {
 		log_warnx("re-enabling ctl connections");
 		event_add(&control_state.ev, NULL);
 	}
@@ -351,7 +356,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 	uint64_t		 id;
 	struct stat_kv		*kvp;
 	char			*key;
-	size_t			 val;
+	struct stat_value      	 val;
 
 
 	if (getpeereid(fd, &euid, &egid) == -1)
@@ -456,6 +461,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
+			log_info("mda paused");
 			env->sc_flags |= SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
@@ -471,6 +477,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
+			log_info("mta paused");
 			env->sc_flags |= SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
@@ -486,6 +493,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
+			log_info("smtp paused");
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_PAUSE,			
 			    0, 0, -1, NULL, 0);
@@ -501,6 +509,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
+			log_info("mda resumed");
 			env->sc_flags &= ~SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
@@ -516,6 +525,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
+			log_info("mta resumed");
 			env->sc_flags &= ~SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
@@ -531,6 +541,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
+			log_info("smtp resumed");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_RESUME,
 			    0, 0, -1, NULL, 0);

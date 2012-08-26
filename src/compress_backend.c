@@ -1,7 +1,5 @@
-/*	$OpenBSD: user_pwd.c,v 1.2 2012/08/25 15:39:11 gilles Exp $	*/
-
 /*
- * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -25,54 +23,51 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-#include <event.h>
 #include <imsg.h>
-#include <libgen.h>
-#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "smtpd.h"
-#include "log.h"
 
-int user_getpw_ret(struct mta_user *, struct passwd *); /* helper */
-int user_getpwnam(struct mta_user *, char *);
+extern struct compress_backend compress_zlib;
 
-struct user_backend user_backend_pwd = {
-	user_getpwnam
-};
-
-int
-user_getpw_ret(struct mta_user *u, struct passwd *pw)
+struct compress_backend *
+compress_backend_lookup(const char *name)
 {
-	if (strlcpy(u->username, pw->pw_name, sizeof (u->username))
-	    >= sizeof (u->username))
-		return 0;
+	if (!strcmp(name, "zlib"))
+		return &compress_zlib;
 
-	if (strlcpy(u->password, pw->pw_passwd, sizeof (u->password))
-	    >= sizeof (u->password))
-		return 0;
+	/* if (!strcmp(name, "bzip")) */
+	/* 	return &compress_bzip; */
 
-	if (strlcpy(u->directory, pw->pw_dir, sizeof (u->directory))
-	    >= sizeof (u->directory))
-		return 0;
+	/* if (!strcmp(name, "7zip")) */
+	/* 	return &compress_7zip; */
 
-	u->uid = pw->pw_uid;
-	u->gid = pw->pw_gid;
-
-	return 1;
+	return (NULL);
 }
 
 int
-user_getpwnam(struct mta_user *u, char *username)
+compress_file(int fdin, int fdout)
 {
-	struct passwd *pw;
+	return env->sc_compress->compress_file(fdin, fdout);
+}
 
-	pw = getpwnam(username);
-	if (pw == NULL)
-		return 0;
+int
+uncompress_file(int fdin, int fdout)
+{
+	return env->sc_compress->uncompress_file(fdin, fdout);
+}
 
-	return user_getpw_ret(u, pw);
+size_t
+compress_buffer(const char *ib, size_t iblen, char *ob, size_t oblen)
+{
+	return env->sc_compress->compress_buffer(ib, iblen, ob, oblen);
+}
+
+size_t
+uncompress_buffer(const char *ib, size_t iblen, char *ob, size_t oblen)
+{
+	return env->sc_compress->uncompress_buffer(ib, iblen, ob, oblen);
 }

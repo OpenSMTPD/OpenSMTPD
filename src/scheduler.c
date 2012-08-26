@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.17 2012/08/24 18:46:46 eric Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.19 2012/08/25 22:03:26 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -103,7 +103,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (ok)", id);
 		backend->delete(id);
-		stat_decrement("scheduler.inflight");
+		stat_decrement("scheduler.inflight", 1);
 		scheduler_reset_events();
 		return;
 
@@ -113,7 +113,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		    "scheduler: updating evp:%016" PRIx64, e->id);
 		scheduler_info(&si, e);
 		backend->update(&si);
-		stat_decrement("scheduler.inflight");
+		stat_decrement("scheduler.inflight", 1);
 		scheduler_reset_events();
 		return;
 
@@ -122,7 +122,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (fail)", id);
 		backend->delete(id);
-		stat_decrement("scheduler.inflight");
+		stat_decrement("scheduler.inflight", 1);
 		scheduler_reset_events();
 		return;
 
@@ -131,7 +131,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (loop)", id);
 		backend->delete(id);
-		stat_decrement("scheduler.inflight");
+		stat_decrement("scheduler.inflight", 1);
 		scheduler_reset_events();
 		return;
 
@@ -256,10 +256,7 @@ scheduler(void)
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("scheduler: cannot drop privileges");
 
-	/* see fdlimit()-related comment in queue.c */
 	fdlimit(1.0);
-	if ((env->sc_maxconn = availdesc() / 4) < 1)
-		fatalx("scheduler: fd starvation");
 
 	env->sc_scheduler = scheduler_backend_lookup(backend_scheduler);
 	if (env->sc_scheduler == NULL)
@@ -357,7 +354,7 @@ scheduler_process_remove(struct scheduler_batch *batch)
 		    e->id);
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_REMOVE,
 		    0, 0, -1, &e->id, sizeof e->id);
-		stat_increment("scheduler.removed");
+		stat_increment("scheduler.removed", 1);
 		free(e);
 	}
 }
@@ -374,7 +371,7 @@ scheduler_process_expire(struct scheduler_batch *batch)
 		backend->delete(e->id);
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_EXPIRE,
 		    0, 0, -1, &e->id, sizeof e->id);
-		stat_increment("scheduler.expired");
+		stat_increment("scheduler.expired", 1);
 		free(e);
 	}
 }
@@ -390,7 +387,7 @@ scheduler_process_bounce(struct scheduler_batch *batch)
 		    e->id);
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_SMTP_ENQUEUE,
 		    0, 0, -1, &e->id, sizeof e->id);
-		stat_increment("scheduler.inflight");
+		stat_increment("scheduler.inflight", 1);
 		free(e);
 	}
 }
@@ -406,7 +403,7 @@ scheduler_process_mda(struct scheduler_batch *batch)
 		    e->id);
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MDA_SESS_NEW,
 		    0, 0, -1, &e->id, sizeof e->id);
-		stat_increment("scheduler.inflight");
+		stat_increment("scheduler.inflight", 1);
 		free(e);
 	}
 }
@@ -425,7 +422,7 @@ scheduler_process_mta(struct scheduler_batch *batch)
 		    e->id);
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BATCH_APPEND,
 		    0, 0, -1, &e->id, sizeof e->id);
-		stat_increment("scheduler.inflight");
+		stat_increment("scheduler.inflight", 1);
 		free(e);
 	}
 
