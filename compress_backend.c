@@ -1,3 +1,5 @@
+/*	$OpenBSD: compress_backend.c,v 1.3 2012/08/26 13:38:43 gilles Exp $	*/
+
 /*
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
  *
@@ -29,13 +31,13 @@
 
 #include "smtpd.h"
 
-extern struct compress_backend compress_zlib;
+extern struct compress_backend compress_gzip;
 
 struct compress_backend *
 compress_backend_lookup(const char *name)
 {
-	if (!strcmp(name, "zlib"))
-		return &compress_zlib;
+	if (!strcmp(name, "gzip"))
+		return &compress_gzip;
 
 	/* if (!strcmp(name, "bzip")) */
 	/* 	return &compress_bzip; */
