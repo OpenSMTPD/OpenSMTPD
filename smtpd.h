@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.332 2012/08/24 13:21:56 chl Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.338 2012/08/25 23:35:09 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -578,10 +578,16 @@ struct smtpd {
 #define SMTPD_MDA_BUSY			       	 0x00000020
 #define SMTPD_MTA_BUSY			       	 0x00000040
 #define SMTPD_BOUNCE_BUSY      		       	 0x00000080
+#define SMTPD_SMTP_DISABLED			 0x00000100
 	uint32_t				 sc_flags;
+	uint32_t				 sc_queue_flags;
+#define QUEUE_COMPRESS				 0x00000001
+#define QUEUE_ENCRYPT				 0x00000002
+	char					*sc_queue_compress_algo;
+	char					*sc_queue_encrypt_cipher;
+	char					*sc_queue_encrypt_key;
 	struct timeval				 sc_qintval;
 	int					 sc_qexpire;
-	uint32_t				 sc_maxconn;
 	struct event				 sc_ev;
 	int					 *sc_pipes[PROC_COUNT]
 							[PROC_COUNT];
@@ -592,6 +598,7 @@ struct smtpd {
 	struct passwd				*sc_pw;
 	char					 sc_hostname[MAXHOSTNAMELEN];
 	struct queue_backend			*sc_queue;
+	struct compress_backend			*sc_compress;
 	struct scheduler_backend		*sc_scheduler;
 	struct stat_backend			*sc_stat;
 
@@ -620,6 +627,7 @@ struct smtpd {
 #define	TRACE_BOUNCE	0x0020
 #define	TRACE_SCHEDULER	0x0040
 #define	TRACE_STAT	0x0080
+#define	TRACE_PROFILING	0x0100
 
 
 struct submit_status {
@@ -807,6 +815,12 @@ struct queue_backend {
 	void  (*qwalk_close)(void *);
 };
 
+struct compress_backend {
+	int	(*compress_file)(int, int);
+	int	(*uncompress_file)(int, int);
+	size_t	(*compress_buffer)(const char *, size_t, char *, size_t);
+	size_t	(*uncompress_buffer)(const char *, size_t, char *, size_t);
+};
 
 /* auth structures */
 enum auth_type {
@@ -835,7 +849,6 @@ struct mta_user {
 
 struct user_backend {
 	int (*getbyname)(struct mta_user *, char *);
-	int (*getbyuid)(struct mta_user *, uid_t);
 };
 
 
@@ -889,20 +902,37 @@ struct scheduler_backend {
 };
 
 
+enum stat_type {
+	STAT_COUNTER,
+	STAT_TIMESTAMP,
+	STAT_TIMEVAL,
+	STAT_TIMESPEC,
+};
+
+struct stat_value {
+	enum stat_type	type;
+	union stat_v {
+		size_t		counter;
+		time_t		timestamp;
+		struct timeval	tv;
+		struct timespec	ts;
+	} u;
+};
+
 #define	STAT_KEY_SIZE	1024
 struct stat_kv {
 	void	*iter;
 	char	key[STAT_KEY_SIZE];
-	size_t	val;
+	struct stat_value	val;
 };
 
 struct stat_backend {
 	void	(*init)(void);
 	void	(*close)(void);
-	void	(*increment)(const char *);
-	void	(*decrement)(const char *);
-	void	(*set)(const char *, size_t);
-	int	(*iter)(void **, char **, size_t *);
+	void	(*increment)(const char *, size_t);
+	void	(*decrement)(const char *, size_t);
+	void	(*set)(const char *, const struct stat_value *);
+	int	(*iter)(void **, char **, struct stat_value *);
 };
 
 
@@ -1056,6 +1086,19 @@ void *qwalk_new(uint32_t);
 int   qwalk(void *, uint64_t *);
 void  qwalk_close(void *);
 
+/* compress_backend.c */
+struct compress_backend *compress_backend_lookup(const char *);
+int compress_file(int, int);
+int uncompress_file(int, int);
+size_t compress_buffer(const char *, size_t, char *, size_t);
+size_t uncompress_buffer(const char *, size_t, char *, size_t);
+
+/* encrypt.c */
+int encrypt_file(int, int);
+int decrypt_file(int, int);
+size_t encrypt_buffer(const char *, size_t, char *, size_t);
+size_t decrypt_buffer(const char *, size_t, char *, size_t);
+
 /* scheduler.c */
 pid_t scheduler(void);
 
@@ -1111,9 +1154,14 @@ int	 ssl_ctx_use_certificate_chain(void *, char *, off_t);
 
 /* stat_backend.c */
 struct stat_backend	*stat_backend_lookup(const char *);
-void	stat_increment(const char *);
-void	stat_decrement(const char *);
-void	stat_set(const char *, size_t);
+void	stat_increment(const char *, size_t);
+void	stat_decrement(const char *, size_t);
+void	stat_set(const char *, const struct stat_value *);
+
+struct stat_value *stat_counter(size_t);
+struct stat_value *stat_timestamp(time_t);
+struct stat_value *stat_timeval(struct timeval *);
+struct stat_value *stat_timespec(struct timespec *);
 
 
 /* tree.c */
@@ -1170,6 +1218,7 @@ void log_imsg(int, int, struct imsg*);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
+int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 int text_to_netaddr(struct netaddr *, char *);
 int text_to_relayhost(struct relayhost *, char *);

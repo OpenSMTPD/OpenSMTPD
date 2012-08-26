@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.161 2012/08/21 13:13:17 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.164 2012/08/25 23:35:09 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -94,6 +94,9 @@ struct smtpd	*env = NULL;
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
 const char	*backend_stat = "ram";
+
+static int	 profiling;
+static int	 profstat;
 
 static void
 parent_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -491,6 +494,12 @@ main(int argc, char *argv[])
 				verbose |= TRACE_SCHEDULER;
 			else if (!strcmp(optarg, "stat"))
 				verbose |= TRACE_STAT;
+			else if (!strcmp(optarg, "profiling")) {
+				verbose |= TRACE_PROFILING;
+				profiling = 1;
+			}
+			else if (!strcmp(optarg, "profstat"))
+				profstat = 1;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else
@@ -565,6 +574,14 @@ main(int argc, char *argv[])
 	env->sc_stat = stat_backend_lookup(backend_stat);
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
+
+	if (env->sc_queue_compress_algo) {
+		env->sc_compress = 
+			compress_backend_lookup(env->sc_queue_compress_algo);
+		if (env->sc_queue == NULL)
+			errx(1, "could not find queue compress backend \"%s\"",
+			     env->sc_queue_compress_algo);
+	}
 
 	log_init(debug);
 	log_verbose(verbose);
@@ -938,11 +955,10 @@ static int
 offline_enqueue(char *name)
 {
 	char		 t[MAXPATHLEN], *path;
-	struct user_backend *ub;
-	struct mta_user	 u;
 	struct stat	 sb;
 	pid_t		 pid;
 	struct child	*child;
+	struct passwd	*pw;
 
 	if (!bsnprintf(t, sizeof t, "%s/%s", PATH_SPOOL PATH_OFFLINE, name)) {
 		log_warnx("smtpd: path name too long");
@@ -980,14 +996,13 @@ offline_enqueue(char *name)
 			_exit(1);
 		}
 
-		ub = user_backend_lookup(USER_PWD);
-		bzero(&u, sizeof (u));
-		errno = 0;
-		if (! ub->getbyuid(&u, sb.st_uid)) {
+		pw = getpwuid(sb.st_uid);
+		if (pw == NULL) {
 			log_warnx("smtpd: getpwuid for uid %d failed",
 			    sb.st_uid);
 			_exit(1);
 		}
+		
 
 		if (! S_ISREG(sb.st_mode)) {
 			log_warnx("smtpd: file %s (uid %d) not regular",
@@ -995,16 +1010,16 @@ offline_enqueue(char *name)
 			_exit(1);
 		}
 
-		if (setgroups(1, &u.gid) ||
-		    setresgid(u.gid, u.gid, u.gid) ||
-		    setresuid(u.uid, u.uid, u.uid) ||
+		if (setgroups(1, &pw->pw_gid) ||
+		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
+		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) ||
 		    closefrom(STDERR_FILENO + 1) == -1)
 			_exit(1);
 
 		if ((fp = fopen(path, "r")) == NULL)
 			_exit(1);
 
-		if (chdir(u.directory) == -1 && chdir("/") == -1)
+		if (chdir(pw->pw_dir) == -1 && chdir("/") == -1)
 			_exit(1);
 
 		if (setsid() == -1 ||
@@ -1128,6 +1143,7 @@ imsg_dispatch(int fd, short event, void *p)
 	struct imsgev		*iev = p;
 	struct imsg		 imsg;
 	ssize_t			 n;
+	struct timespec		 t0, t1, dt;
 
 	if (event & EV_READ) {
 		if ((n = imsg_read(&iev->ibuf)) == -1)
@@ -1150,7 +1166,40 @@ imsg_dispatch(int fd, short event, void *p)
 			fatal("imsg_get");
 		if (n == 0)
 			break;
+
+		if (profiling || profstat)
+			clock_gettime(CLOCK_MONOTONIC, &t0);
+
 		imsg_callback(iev, &imsg);
+
+		if (profiling || profstat) {
+			clock_gettime(CLOCK_MONOTONIC, &t1);
+			timespecsub(&t1, &t0, &dt);
+
+			log_trace(TRACE_PROFILING, "PROFILE %s %s %s %li.%06li",
+			    proc_to_str(smtpd_process),
+			    proc_to_str(iev->proc),
+			    imsg_to_str(imsg.hdr.type),
+			    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
+			    dt.tv_nsec % 1000000);
+
+			if (profstat) {
+				char	key[STAT_KEY_SIZE];
+
+				/* can't profstat control process yet */
+				if (smtpd_process == PROC_CONTROL)
+					return;
+
+				if (! bsnprintf(key, sizeof key,
+					"profiling.imsg.%s.%s.%s",
+					imsg_to_str(imsg.hdr.type),
+					proc_to_str(iev->proc),
+					proc_to_str(smtpd_process)))
+					return;
+				stat_set(key, stat_timespec(&dt));
+			}
+		}
+
 		imsg_free(&imsg);
 	}
 	imsg_event_add(iev);
