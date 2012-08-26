@@ -1,3 +1,5 @@
+/*	$OpenBSD$	*/
+
 /*
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
  *
