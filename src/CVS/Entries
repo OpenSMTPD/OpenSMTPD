@@ -46,10 +46,8 @@ D/smtpd////
 /filter_api.h/1.4/Thu Aug 23 19:53:08 2012//
 /lka_session.c/1.22/Result of merge//
 /mta_session.c/1.13/Result of merge//
-/smtpd.conf.5/1.59/Thu Aug 23 19:53:09 2012//
 /smtpfilter.c/1.4/Result of merge//
 /envelope.c/1.10/Result of merge//
-/queue_fsqueue.c/1.51/Result of merge//
 /scheduler_backend.c/1.5/Result of merge//
 /control.c/1.72/Result of merge//
 /dns.c/1.57/Result of merge//
@@ -64,12 +62,15 @@ D/smtpd////
 /stat_backend.c/1.3/Result of merge//
 /stat_ramstat.c/1.4/Result of merge//
 /user_pwd.c/1.2/Result of merge//
-/compress_backend.c/1.1/Sat Aug 25 23:35:09 2012//
 /compress_zlib.c/1.1/Sat Aug 25 23:35:09 2012//
-/encrypt.c/1.1/Sat Aug 25 23:35:09 2012//
 /lka.c/1.135/Result of merge//
-/parse.y/1.92/Result of merge//
-/queue_backend.c/1.33/Result of merge//
-/smtpd.c/1.164/Result of merge//
-/smtpd.h/1.338/Result of merge//
-/util.c/1.73/Result of merge//
+/compress_backend.c/1.3/Result of merge//
+/compress_gzip.c/1.1/Sun Aug 26 13:38:43 2012//
+/encrypt.c/1.2/Result of merge//
+/parse.y/1.93/Result of merge//
+/queue_backend.c/1.34/Result of merge//
+/queue_fsqueue.c/1.52/Result of merge//
+/smtpd.c/1.166/Result of merge//
+/smtpd.conf.5/1.60/Sun Aug 26 21:40:43 2012//
+/smtpd.h/1.339/Result of merge//
+/util.c/1.74/Result of merge//

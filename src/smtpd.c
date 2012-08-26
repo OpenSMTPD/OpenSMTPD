@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.164 2012/08/25 23:35:09 chl Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.166 2012/08/26 16:35:17 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -615,6 +615,8 @@ main(int argc, char *argv[])
 		errx(1, "error in offline directory setup");
 	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, env->sc_pw->pw_uid, 0, 1) == 0)
 		errx(1, "error in purge directory setup");
+	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, env->sc_pw->pw_uid, 0, 1) == 0)
+		errx(1, "error in purge directory setup");
 
 	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
@@ -639,9 +641,9 @@ main(int argc, char *argv[])
 	if (env->sc_queue_compress_algo) {
 		env->sc_compress = 
 			compress_backend_lookup(env->sc_queue_compress_algo);
-		if (env->sc_queue == NULL)
+		if (env->sc_compress == NULL)
 			errx(1, "could not find queue compress backend \"%s\"",
-			     env->sc_queue_compress_algo);
+			    env->sc_queue_compress_algo);
 	}
 
 	log_init(debug);
