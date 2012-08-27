@@ -1254,13 +1254,28 @@ imsg_dispatch(int fd, short event, void *p)
 		if (n == 0)
 			break;
 
-		if (profiling || profstat)
+		if (profiling || profstat) {
+#ifdef HAVE_CLOCK_GETTIME
 			clock_gettime(CLOCK_MONOTONIC, &t0);
+#else
+		        struct timeval tv;
+			gettimeofday(&tv, NULL);
+			t0.tv_sec = tv.tv_sec;
+			t0.tv_usec = tv.tv_nsec / 1000;
+#endif
+		}
 
 		imsg_callback(iev, &imsg);
 
 		if (profiling || profstat) {
+#ifdef HAVE_CLOCK_GETTIME
 			clock_gettime(CLOCK_MONOTONIC, &t1);
+#else
+		        struct timeval tv;
+			gettimeofday(&tv, NULL);
+			t1.tv_sec = tv.tv_sec;
+			t1.tv_usec = tv.tv_nsec / 1000;
+#endif
 			timespecsub(&t1, &t0, &dt);
 
 			log_trace(TRACE_PROFILING, "PROFILE %s %s %s %li.%06li",
