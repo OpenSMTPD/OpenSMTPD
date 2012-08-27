@@ -328,18 +328,119 @@ int main(int argc, char **argv) {
 ])
 #l1012
 
-#l1016
+#l1063
 AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
-#l1017
 
-#l1125
+dnl zlib is required
+AC_ARG_WITH([zlib],
+	[  --with-zlib=PATH        Use zlib in PATH],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** zlib is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
+AC_CHECK_LIB([z], [deflate], ,
+	[
+		saved_CPPFLAGS="$CPPFLAGS"
+		saved_LDFLAGS="$LDFLAGS"
+		save_LIBS="$LIBS"
+		dnl Check default zlib install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+		LIBS="$LIBS -lz"
+		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
+			[
+				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
+			]
+		)
+	]
+)
+
+AC_ARG_WITH([zlib-version-check],
+	[  --without-zlib-version-check Disable zlib version check],
+	[  if test "x$withval" = "xno" ; then
+		zlib_check_nonfatal=1
+	   fi
+	]
+)
+
+AC_MSG_CHECKING([for possibly buggy zlib])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <zlib.h>
+	]],
+	[[
+	int a=0, b=0, c=0, d=0, n, v;
+	n = sscanf(ZLIB_VERSION, "%d.%d.%d.%d", &a, &b, &c, &d);
+	if (n != 3 && n != 4)
+		exit(1);
+	v = a*1000000 + b*10000 + c*100 + d;
+	fprintf(stderr, "found zlib version %s (%d)\n", ZLIB_VERSION, v);
+
+	/* 1.1.4 is OK */
+	if (a == 1 && b == 1 && c >= 4)
+		exit(0);
+
+	/* 1.2.3 and up are OK */
+	if (v >= 1020300)
+		exit(0);
+
+	exit(2);
+	]])],
+	AC_MSG_RESULT([no]),
+	[ AC_MSG_RESULT([yes])
+	  if test -z "$zlib_check_nonfatal" ; then
+		AC_MSG_ERROR([*** zlib too old - check config.log ***
+Your reported zlib version has known security problems.  It's possible your
+vendor has fixed these problems without changing the version number.  If you
+are sure this is the case, you can disable the check by running
+"./configure --without-zlib-version-check".
+If you are in doubt, upgrade zlib to version 1.2.3 or greater.
+See http://www.gzip.org/zlib/ for details.])
+	  else
+		AC_MSG_WARN([zlib version may have security problems])
+	  fi
+	],
+	[	AC_MSG_WARN([cross compiling: not checking zlib version]) ]
+)
+#l1161
+
+#l1172
 dnl    Checks for libutil functions
 AC_CHECK_HEADERS([libutil.h])
-AC_SEARCH_LIBS([login], [util bsd], [AC_DEFINE([HAVE_LOGIN], [1],
-	[Define if your libraries define login()])])
-AC_CHECK_FUNCS([fmt_scaled logout updwtmp logwtmp])
-#l1129
+AC_SEARCH_LIBS([fmt_scaled], [util bsd])
+AC_SEARCH_LIBS([login], [util bsd])
+AC_SEARCH_LIBS([logout], [util bsd])
+AC_SEARCH_LIBS([logwtmp], [util bsd])
+AC_SEARCH_LIBS([openpty], [util bsd])
+AC_SEARCH_LIBS([updwtmp], [util bsd])
+AC_CHECK_FUNCS([fmt_scaled login logout openpty updwtmp logwtmp])
+#l1180
 
 #l1209
 AC_MSG_CHECKING([for /proc/pid/fd directory])
