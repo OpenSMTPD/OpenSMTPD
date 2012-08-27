@@ -425,7 +425,7 @@ asr_check_reload(struct asr *asr)
 
 	if (gettimeofday(&tv, NULL) == -1)
 		return;
-	tp.tv_sec = tv.tv_sec;
+	TIMEVAL_TO_TIMESPEC(&tv, &tp);
 #endif
 
 	if ((tp.tv_sec - asr->a_rtime) < RELOAD_DELAY)

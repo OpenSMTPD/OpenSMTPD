@@ -1259,9 +1259,9 @@ imsg_dispatch(int fd, short event, void *p)
 			clock_gettime(CLOCK_MONOTONIC, &t0);
 #else
 		        struct timeval tv;
+
 			gettimeofday(&tv, NULL);
-			t0.tv_sec = tv.tv_sec;
-			t0.tv_usec = tv.tv_nsec / 1000;
+			TIMEVAL_TO_TIMESPEC(&tv, &t0);
 #endif
 		}
 
@@ -1272,9 +1272,9 @@ imsg_dispatch(int fd, short event, void *p)
 			clock_gettime(CLOCK_MONOTONIC, &t1);
 #else
 		        struct timeval tv;
+
 			gettimeofday(&tv, NULL);
-			t1.tv_sec = tv.tv_sec;
-			t1.tv_usec = tv.tv_nsec / 1000;
+			TIMEVAL_TO_TIMESPEC(&tv, &t1);
 #endif
 			timespecsub(&t1, &t0, &dt);
 
