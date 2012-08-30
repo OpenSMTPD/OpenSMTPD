@@ -1,4 +1,4 @@
-/*	$OpenBSD: map.c,v 1.26 2012/05/13 00:10:49 gilles Exp $	*/
+/*	$OpenBSD: map.c,v 1.27 2012/05/29 19:53:10 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -37,6 +37,7 @@ extern struct map_backend map_backend_static;
 
 extern struct map_backend map_backend_db;
 extern struct map_backend map_backend_stdio;
+/* extern struct map_backend map_backend_ldap; */
 
 struct map_backend *
 map_backend_lookup(enum map_src source)
@@ -50,7 +51,10 @@ map_backend_lookup(enum map_src source)
 
 	case S_PLAIN:
 		return &map_backend_stdio;
-
+/*
+	case S_LDAP:
+		return &map_backend_ldap;
+*/
 	default:
 		fatalx("invalid map type");
 	}
