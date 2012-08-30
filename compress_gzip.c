@@ -1,4 +1,4 @@
-/*	$OpenBSD: compress_gzip.c,v 1.1 2012/08/26 13:38:43 gilles Exp $	*/
+/*	$OpenBSD: compress_gzip.c,v 1.2 2012/08/30 19:33:25 chl Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
@@ -39,7 +39,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	GZIP_BUFFER_SIZE	8192
+#define	GZIP_BUFFER_SIZE	16384
 
 static int compress_file_gzip(FILE *, FILE *);
 static int uncompress_file_gzip(FILE *, FILE *);

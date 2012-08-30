@@ -1,4 +1,4 @@
-/*	$OpenBSD: crypto_backend.c,v 1.1 2012/08/29 16:26:17 gilles Exp $	*/
+/*	$OpenBSD: crypto_backend.c,v 1.2 2012/08/30 21:59:46 chl Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
@@ -35,7 +35,7 @@
 #include "log.h"
 
 
-#define	CRYPTO_BUFFER_SIZE	8192
+#define	CRYPTO_BUFFER_SIZE	16384
 
 
 static struct crypto_params {
