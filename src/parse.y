@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.93 2012/08/26 13:38:43 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.97 2012/09/01 16:09:14 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -55,6 +55,8 @@
 #ifdef HAVE_UTIL_H
 #include <util.h>
 #endif
+
+#include <openssl/evp.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -127,12 +129,12 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESS INTERVAL SIZE LISTEN ON ALL PORT EXPIRE
-%token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE
-%token	DB PLAIN DOMAIN SOURCE
+%token	AS QUEUE COMPRESSION CIPHER INTERVAL SIZE LISTEN ON ALL PORT EXPIRE
+%token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE ENCRYPTION
+%token	DB LDAP PLAIN DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
-%token	ARROW ENABLE AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER
+%token	ARROW ENABLE AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
@@ -141,8 +143,7 @@ typedef struct {
 %type	<v.tv>		interval
 %type	<v.object>	mapref
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname user tag on alias credentials compress
-
+%type	<v.string>	certname user tag on alias credentials compression
 %%
 
 grammar		: /* empty */
@@ -312,10 +313,10 @@ credentials	: AUTH STRING	{
 		| /* empty */	{ $$ = 0; }
 		;
 
-compress	: COMPRESS STRING {
+compression	: COMPRESSION STRING {
 			$$ = $2;
 		}
-		| COMPRESS {
+		| COMPRESSION {
 			$$ = "gzip";
 		}
 		| /* empty */	{ $$ = NULL; }
@@ -324,11 +325,12 @@ compress	: COMPRESS STRING {
 main		: QUEUE INTERVAL interval	{
 			conf->sc_qintval = $3;
 		}
-		| QUEUE compress {
+		| QUEUE compression {
 			if ($2) {
 				conf->sc_queue_flags |= QUEUE_COMPRESS;
 				conf->sc_queue_compress_algo = strdup($2);
-				log_debug("queue compress using %s", conf->sc_queue_compress_algo);
+				log_debug("queue compress using %s",
+				    conf->sc_queue_compress_algo);
 			}
 			if ($2 == NULL) {
 				yyerror("invalid queue compress <algo>");
@@ -462,6 +464,14 @@ mapsource	: PLAIN STRING			{
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
+/*
+		| LDAP STRING			{
+			map->m_src = S_LDAP;
+			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			    >= sizeof(map->m_config))
+				err(1, "pathname too long");
+		}
+*/
 		;
 
 mapopt		: SOURCE mapsource		{ }
@@ -1129,11 +1139,14 @@ lookup(char *s)
 		{ "auth",		AUTH },
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
-		{ "compress",		COMPRESS },
+		{ "cipher",		CIPHER },
+		{ "compression",       	COMPRESSION },
 		{ "db",			DB },
 		{ "deliver",		DELIVER },
+		{ "digest",		DIGEST },
 		{ "domain",		DOMAIN },
 		{ "enable",		ENABLE },
+		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
@@ -1142,6 +1155,8 @@ lookup(char *s)
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
 		{ "interval",		INTERVAL },
+		{ "key",		KEY },
+		{ "ldap",		LDAP },
 		{ "list",		LIST },
 		{ "listen",		LISTEN },
 		{ "local",		LOCAL },

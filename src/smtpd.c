@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.166 2012/08/26 16:35:17 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.168 2012/09/01 16:09:14 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -586,6 +586,8 @@ main(int argc, char *argv[])
 	argv += optind;
 	argc -= optind;
 
+	ssl_init();
+
 	if (parse_config(&smtpd, conffile, opts))
 		exit(1);
 
@@ -593,7 +595,6 @@ main(int argc, char *argv[])
 
 	if (strlcpy(env->sc_conffile, conffile, MAXPATHLEN) >= MAXPATHLEN)
 		errx(1, "config file exceeds MAXPATHLEN");
-
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
 		fprintf(stderr, "configuration OK\n");
