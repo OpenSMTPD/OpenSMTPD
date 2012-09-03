@@ -428,6 +428,13 @@ struct winsize {
    } while (0)
 #endif
 
+#ifndef timespeccmp
+#define timespeccmp(a, b, cmp)			       		\
+	(((a)->tv_sec == (b)->tv_sec) ?			       	\
+	 ((a)->tv_nsec cmp (b)->tv_nsec) :	       		\
+	 ((a)->tv_sec cmp (b)->tv_sec))
+#endif
+
 #ifndef timespecsub
 #define timespecsub(a, b, result)				\
    do {								\
