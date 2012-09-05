@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.51 2012/08/29 16:26:17 gilles Exp $
+#	$OpenBSD: Makefile,v 1.52 2012/09/01 16:09:15 gilles Exp $
 
 .PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
 
@@ -32,8 +32,7 @@ SRCS+=		user_pwd.c
 
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
-		hostaddr_async.c res_send_async.c getaddrinfo_async.c	\
-		getnameinfo_async.c
+		res_send_async.c getaddrinfo_async.c getnameinfo_async.c
 
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
