@@ -1,11 +1,11 @@
-#	$OpenBSD: Makefile,v 1.51 2012/08/29 16:26:17 gilles Exp $
+#	$OpenBSD: Makefile,v 1.53 2012/09/05 21:52:03 eric Exp $
 
 .PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
 
 PROG=		smtpd
 
 SRCS=		aliases.c auth.c bounce.c compress_backend.c config.c	\
-		control.c crypto_backend.c delivery.c dns.c envelope.c	\
+		control.c delivery.c dns.c envelope.c			\
 		expand.c forward.c iobuf.c ioev.c lka.c lka_session.c	\
 		log.c map.c mda.c mfa.c mfa_session.c mta.c		\
 		mta_session.c parse.y queue.c queue_backend.c ruleset.c \
@@ -32,8 +32,7 @@ SRCS+=		user_pwd.c
 
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
-		hostaddr_async.c res_send_async.c getaddrinfo_async.c	\
-		getnameinfo_async.c
+		res_send_async.c getaddrinfo_async.c getnameinfo_async.c
 
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
