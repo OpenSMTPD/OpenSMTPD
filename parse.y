@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.96 2012/08/30 18:25:44 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.97 2012/09/01 16:09:14 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -49,8 +49,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <util.h>
-
-#include <openssl/evp.h>
 
 #include "smtpd.h"
 #include "log.h"
