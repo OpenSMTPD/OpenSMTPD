@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_private.h,v 1.3 2012/07/07 20:41:52 eric Exp $	*/
+/*	$OpenBSD: asr_private.h,v 1.6 2012/09/06 13:57:51 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -16,7 +16,9 @@
  */
 #include <stdio.h>
 
+#ifndef ASRNODEBUG
 #define DEBUG
+#endif
 
 #define QR_MASK		(0x1 << 15)
 #define OPCODE_MASK	(0xf << 11)
@@ -109,7 +111,6 @@ enum async_type {
 	ASR_GETNETBYADDR,
 	ASR_GETADDRINFO,
 	ASR_GETNAMEINFO,
-	ASR_HOSTADDR,
 };
 
 enum asr_db_type {
@@ -249,6 +250,7 @@ struct async {
 			}		 sa;
 
 			struct addrinfo	 hints;
+			char		*fqdn;
 			struct addrinfo	*aifirst;
 			struct addrinfo	*ailast;
 			struct async	*subq;
@@ -268,30 +270,7 @@ struct async {
 			int		 flags;
 			struct async	*subq;
 		} ni;
-
-		struct {
-			char		*name;
-			int		 family;
-			int		 aiflags;
-			union {
-				struct sockaddr		sa;
-				struct sockaddr_in	sain;
-				struct sockaddr_in6	sain6;
-			}		 sa;
-
-			struct async	*subq;
-			int		 class;
-			int		 type;
-			int		 ancount;
-			unsigned char	*pkt;
-			size_t		 pktlen;
-			size_t		 pktpos;
-			FILE		*file;
 #define MAXTOKEN 10
-			char		*tokens[MAXTOKEN];
-			int		 token_count;
-			int		 token_idx;
-		} host;
 	} as;
 
 };
@@ -301,16 +280,11 @@ struct async {
  
 enum asr_state {
 	ASR_STATE_INIT,
-	ASR_STATE_SEARCH_DOMAIN,
-	ASR_STATE_LOOKUP_DOMAIN,
 	ASR_STATE_NEXT_DOMAIN,
 	ASR_STATE_NEXT_DB,
 	ASR_STATE_SAME_DB,
 	ASR_STATE_NEXT_FAMILY,
-	ASR_STATE_LOOKUP_FAMILY,
 	ASR_STATE_NEXT_NS,
-	ASR_STATE_READ_RR,
-	ASR_STATE_READ_FILE,
 	ASR_STATE_UDP_SEND,
 	ASR_STATE_UDP_RECV,
 	ASR_STATE_TCP_WRITE,
@@ -352,7 +326,6 @@ struct async *res_search_async_ctx(const char *, int, int, unsigned char *, int,
     struct asr_ctx *);
 struct async *gethostbyaddr_async_ctx(const void *, socklen_t, int,
     struct asr_ctx *);
-struct async *hostaddr_async_ctx(const char *, int, int, struct asr_ctx *);
 
 #ifdef DEBUG
 

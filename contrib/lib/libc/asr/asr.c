@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.c,v 1.4 2012/08/18 16:48:17 eric Exp $	*/
+/*	$OpenBSD: asr.c,v 1.9 2012/09/07 13:49:43 eric Exp $	*/
 /*
  * Copyright (c) 2010-2012 Eric Faurot <eric@openbsd.org>
  *
@@ -56,13 +56,13 @@ static void asr_ctx_free(struct asr_ctx *);
 static int asr_ctx_add_searchdomain(struct asr_ctx *, const char *);
 static int asr_ctx_from_file(struct asr_ctx *, const char *);
 static int asr_ctx_from_string(struct asr_ctx *, const char *);
-static int asr_ctx_parse(const char*, int(*)(char**, int, struct asr_ctx*),
-    struct asr_ctx *);
+static int asr_ctx_parse(struct asr_ctx *, const char *);
 static int asr_parse_nameserver(struct sockaddr *, const char *);
 static char *asr_hostalias(const char *, char *, size_t);
 static int asr_ndots(const char *);
 static void asr_ctx_envopts(struct asr_ctx *);
-static int pass0(char **, int, struct asr_ctx *);
+static void pass0(char **, int, struct asr_ctx *);
+static int strsplit(char *, char **, int);
 
 static void *__THREAD_NAME(_asr);
 static struct asr *_asr = NULL;
@@ -309,22 +309,13 @@ async_free(struct async *as)
 			free(as->as.ai.hostname);
 		if (as->as.ai.servname)
 			free(as->as.ai.servname);
+		if (as->as.ai.fqdn)
+			free(as->as.ai.fqdn);
 		break;
 
 	case ASR_GETNAMEINFO:
 		if (as->as.ni.subq)
 			async_free(as->as.ni.subq);
-		break;
-
-	case ASR_HOSTADDR:
-		if (as->as.host.name)
-			free(as->as.host.name);
-		if (as->as.host.subq)
-			async_free(as->as.host.subq);
-		if (as->as.host.pkt)
-			free(as->as.host.pkt);
-		if (as->as.host.file)
-			fclose(as->as.host.file);
 		break;
 	}
 
@@ -573,10 +564,26 @@ asr_ctx_add_searchdomain(struct asr_ctx *ac, const char *domain)
 	return (1);
 }
 
+static int
+strsplit(char *line, char **tokens, int ntokens)
+{
+	int	ntok;
+	char	*cp, **tp;
+
+	for(cp = line, tp = tokens, ntok = 0;
+	    ntok < ntokens && (*tp = strsep(&cp, " \t")) != NULL; )
+		if (**tp != '\0') {
+			tp++;
+			ntok++;
+		}
+
+	return (ntok);
+}
+
 /*
  * Pass on a split config line.
  */
-static int
+static void
 pass0(char **tok, int n, struct asr_ctx *ac)
 {
 	int		 i, j, d;
@@ -585,34 +592,34 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 
 	if (!strcmp(tok[0], "nameserver")) {
 		if (ac->ac_nscount == ASR_MAXNS)
-			return (0);
+			return;
 		if (n != 2)
-			return (0);
+			return;
 		if (asr_parse_nameserver((struct sockaddr*)&ss, tok[1]))
-			return (0);
+			return;
 		if ((ac->ac_ns[ac->ac_nscount] = calloc(1, SS_LEN(&ss))) == NULL)
-			return (0);
+			return;
 		memmove(ac->ac_ns[ac->ac_nscount], &ss, SS_LEN(&ss));
 		ac->ac_nscount += 1;
 
 	} else if (!strcmp(tok[0], "domain")) {
 		if (n != 2)
-			return (0);
+			return;
 		if (ac->ac_domain)
-			return (0);
+			return;
 		ac->ac_domain = strdup(tok[1]);
 
 	} else if (!strcmp(tok[0], "lookup")) {
 		/* ignore the line if we already set lookup */
 		if (ac->ac_dbcount != 0)
-			return (0);
+			return;
 		if (n - 1 > ASR_MAXDB)
-			return (0);
+			return;
 		/* ensure that each lookup is only given once */
 		for(i = 1; i < n; i++)
 			for(j = i + 1; j < n; j++)
 				if (!strcmp(tok[i], tok[j]))
-					return (0);
+					return;
 		for(i = 1; i < n; i++, ac->ac_dbcount++) {
 			if (!strcmp(tok[i], "yp")) {
 				ac->ac_db[i-1] = ASR_DB_YP;
@@ -623,7 +630,7 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 			} else {
 				/* ignore the line */
 				ac->ac_dbcount = 0;
-				return (0);
+				return;
 			}
 		}
 	} else if (!strcmp(tok[0], "search")) {
@@ -636,10 +643,10 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 
 	} else if (!strcmp(tok[0], "family")) {
 		if (n == 1 || n > 3)
-			return (0);
+			return;
 		for (i = 1; i < n; i++)
 			if (strcmp(tok[i], "inet4") && strcmp(tok[i], "inet6"))
-				return (0);
+				return;
 		for (i = 1; i < n; i++)
 			ac->ac_family[i - 1] = strcmp(tok[i], "inet4") ? \
 			    AF_INET6 : AF_INET;
@@ -657,8 +664,6 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 			}
 		}
 	}
-
-	return (0);
 }
 
 /*
@@ -669,15 +674,15 @@ asr_ctx_from_string(struct asr_ctx *ac, const char *str)
 {
 	char		 buf[512], *ch;
 
-	asr_ctx_parse(str, pass0, ac);
+	asr_ctx_parse(ac, str);
 
 	if (ac->ac_dbcount == 0) {
 		/* No lookup directive */
-		asr_ctx_parse(DEFAULT_LOOKUP, pass0, ac);
+		asr_ctx_parse(ac, DEFAULT_LOOKUP);
 	}
 
 	if (ac->ac_nscount == 0)
-		asr_ctx_parse("nameserver 127.0.0.1", pass0, ac);
+		asr_ctx_parse(ac, "nameserver 127.0.0.1");
 
 	if (ac->ac_domain == NULL)
 		if (gethostname(buf, sizeof buf) == 0) {
@@ -730,19 +735,16 @@ asr_ctx_from_file(struct asr_ctx *ac, const char *path)
 }
 
 /*
- * Parse a configuration string.  Lines are read one by one, comments are
- * stripped and the remaining line is split into tokens which are passed
- * to the "cb" callback function.  Parsing stops if the callback returns
- * non-zero.
+ * Parse lines in the configuration string. For each one, split it into
+ * tokens and pass them to "pass0" for processing.
  */
 static int
-asr_ctx_parse(const char *str, int (*cb)(char**, int, struct asr_ctx*),
-    struct asr_ctx *ac)
+asr_ctx_parse(struct asr_ctx *ac, const char *str)
 {
 	size_t		 len;
 	const char	*line;
 	char		 buf[1024];
-	char		*tok[10], **tp, *cp;
+	char		*tok[10];
 	int		 ntok;
 
 	line = str;
@@ -757,19 +759,10 @@ asr_ctx_parse(const char *str, int (*cb)(char**, int, struct asr_ctx*),
 		if (*line == '\n')
 			line++;
 		buf[strcspn(buf, ";#")] = '\0';
-		for(cp = buf, tp = tok, ntok = 0;
-		    tp < &tok[10] && (*tp = strsep(&cp, " \t")) != NULL; )
-			if (**tp != '\0') {
-				tp++;
-				ntok++;
-			}
-		*tp = NULL;
-
-		if (tok[0] == NULL)
+		if ((ntok = strsplit(buf, tok, 10)) == 0)
 			continue;
 
-		if (cb(tok, ntok, ac))
-			break;
+		pass0(tok, ntok, ac);
 	}
 
 	return (0);
@@ -797,7 +790,7 @@ asr_ctx_envopts(struct asr_ctx *ac)
 		s = strlcat(buf, "\n", sizeof buf);
 		s = strlcat(buf, "\n", sizeof buf);
 		if (s < sizeof buf)
-			asr_ctx_parse(buf, pass0, ac);
+			asr_ctx_parse(ac, buf);
 	}
 
 	if ((e = getenv("LOCALDOMAIN")) != NULL) {
@@ -805,7 +798,7 @@ asr_ctx_envopts(struct asr_ctx *ac)
 		strlcat(buf, e, sizeof buf);
 		s = strlcat(buf, "\n", sizeof buf);
 		if (s < sizeof buf)
-			asr_ctx_parse(buf, pass0, ac);
+			asr_ctx_parse(ac, buf);
 	}
 }
 
@@ -893,7 +886,7 @@ int
 asr_parse_namedb_line(FILE *file, char **tokens, int ntoken)
 {
 	size_t	  len;
-	char	 *buf, *cp, **tp;
+	char	 *buf;
 	int	  ntok;
 
   again:
@@ -905,14 +898,7 @@ asr_parse_namedb_line(FILE *file, char **tokens, int ntoken)
 
 	buf[len] = '\0';
 	buf[strcspn(buf, "#")] = '\0';
-	for(cp = buf, tp = tokens, ntok = 0;
-	    ntok < ntoken && (*tp = strsep(&cp, " \t")) != NULL;)
-		if (**tp != '\0') {
-			tp++;
-			ntok++;
-		}
-	*tp = NULL;
-	if (tokens[0] == NULL)
+	if ((ntok = strsplit(buf, tokens, ntoken)) == 0)
 		goto again;
 
 	return (ntok);
@@ -1095,7 +1081,7 @@ asr_hostalias(const char *name, char *abuf, size_t abufsz)
 {
 	FILE	 *fp;
 	size_t	  len;
-	char	 *file, *buf, *cp, **tp, *tokens[2];
+	char	 *file, *buf, *tokens[2];
 	int	  ntok;
 
 	file = getenv("HOSTALIASES");
@@ -1110,13 +1096,7 @@ asr_hostalias(const char *name, char *abuf, size_t abufsz)
 		if (buf[len - 1] == '\n')
 			len--;
 		buf[len] = '\0';
-		for(cp = buf, tp = tokens, ntok = 0;
-		    ntok < 2 && (*tp = strsep(&cp, " \t")) != NULL; )
-			if (**tp != '\0') {
-				tp++;
-				ntok++;
-			}
-		if (ntok != 2)
+		if ((ntok = strsplit(buf, tokens, 2)) != 2)
 			continue;
 		if (!strcasecmp(tokens[0], name)) {
 			if (strlcpy(abuf, tokens[1], abufsz) > abufsz)

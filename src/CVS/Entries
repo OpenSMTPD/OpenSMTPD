@@ -34,7 +34,6 @@ D/smtpd////
 /ssl.c/1.46/Result of merge//
 /enqueue.c/1.61/Result of merge//
 /lka_session.c/1.22/Result of merge//
-/smtpfilter.c/1.4/Result of merge//
 /scheduler_backend.c/1.5/Result of merge//
 /control.c/1.72/Result of merge//
 /dns.c/1.57/Result of merge//
@@ -79,3 +78,4 @@ D/smtpd////
 /smtpd.conf.5/1.65/Mon Sep  3 21:37:30 2012//
 /smtpd.h/1.346/Result of merge//
 /thread_private.h/1.1/Tue Jul 10 17:47:40 2012//
+/smtpfilter.c/1.5/Result of merge//

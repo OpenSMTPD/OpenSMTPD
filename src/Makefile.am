@@ -55,11 +55,10 @@ smtpd_SOURCES+=		user_pwd.c
 smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/asr_debug.c			\
 			../contrib/lib/libc/asr/asr_utils.c			\
+			../contrib/lib/libc/asr/gethostnamadr_async.c		\
 			../contrib/lib/libc/asr/res_send_async.c		\
-			../contrib/lib/libc/asr/hostaddr_async.c		\
 			../contrib/lib/libc/asr/getaddrinfo_async.c		\
-			../contrib/lib/libc/asr/getnameinfo_async.c		\
-			../contrib/lib/libc/asr/gethostnamadr_async.c
+			../contrib/lib/libc/asr/getnameinfo_async.c
 
 smtpd_CFLAGS=		-DIO_SSL
 
