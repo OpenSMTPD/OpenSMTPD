@@ -1970,6 +1970,16 @@ AC_CHECK_MEMBERS([struct stat.st_flags], , ,
 	  #include <sys/stat.h> ]
 )
 
+AC_CHECK_MEMBERS([struct stat.st_mtim], , ,
+	[ #include <sys/types.h>
+	  #include <sys/stat.h> ]
+)
+
+AC_CHECK_MEMBERS([struct stat.st_mtimespec], , ,
+	[ #include <sys/types.h>
+	  #include <sys/stat.h> ]
+)
+
 AC_CHECK_MEMBERS([struct sockaddr.sa_len], , ,
 	[ #include <netdb.h>
 	  #include <netinet/in.h>
