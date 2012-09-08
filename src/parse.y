@@ -56,8 +56,6 @@
 #include <util.h>
 #endif
 
-#include <openssl/evp.h>
-
 #include "smtpd.h"
 #include "log.h"
 
