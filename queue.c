@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.132 2012/08/25 10:23:12 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.133 2012/08/25 22:03:26 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -162,7 +162,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_QUEUE_EXPIRE:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id),
+				errx(1, "cannot load evp:%016" PRIx64, id);
 			envelope_set_errormsg(&evp, "Envelope expired");
 			log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, stat=%s",
 			    evp.id, evp.dest.user,
