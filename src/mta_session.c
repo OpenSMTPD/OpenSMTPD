@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.14 2012/08/30 18:16:25 eric Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.16 2012/09/11 16:24:28 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -130,6 +130,7 @@ mta_session(struct mta_route *route)
 	session->id = generate_uid();
 	session->route = route;
 	session->state = MTA_INIT;
+	session->io.sock = -1;
 	tree_xset(&sessions, session->id, session);
 	TAILQ_INIT(&session->hosts);
 
@@ -402,6 +403,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			free(host);
 		}
 		route = s->route;
+		tree_xpop(&sessions, s->id);
 		free(s);
 		stat_decrement("mta.session", 1);
 		mta_route_collect(route);

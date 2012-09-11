@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.c,v 1.9 2012/09/07 13:49:43 eric Exp $	*/
+/*	$OpenBSD: asr.c,v 1.13 2012/09/09 16:45:14 eric Exp $	*/
 /*
  * Copyright (c) 2010-2012 Eric Faurot <eric@openbsd.org>
  *
@@ -42,6 +42,26 @@
 #define __THREAD_NAME(x) __ ## x
 #define _THREAD_PRIVATE(a, b, c) (c)
 
+#ifndef ASR_OPT_THREADSAFE
+#define ASR_OPT_THREADSAFE 1
+#endif
+#ifndef ASR_OPT_HOSTALIASES
+#define ASR_OPT_HOSTALIASES 1
+#endif
+#ifndef ASR_OPT_ENVOPTS
+#define ASR_OPT_ENVOPTS 1
+#endif
+#ifndef ASR_OPT_RELOADCONF
+#define ASR_OPT_RELOADCONF 1
+#endif
+#ifndef ASR_OPT_ALTCONF
+#define ASR_OPT_ALTCONF 1
+#endif
+
+#if ASR_OPT_THREADSAFE
+#include "thread_private.h"
+#endif
+
 #define DEFAULT_CONFFILE	"/etc/resolv.conf"
 #define DEFAULT_HOSTFILE	"/etc/hosts"
 #define DEFAULT_CONF		"lookup bind file\nnameserver 127.0.0.1\n"
@@ -58,13 +78,21 @@ static int asr_ctx_from_file(struct asr_ctx *, const char *);
 static int asr_ctx_from_string(struct asr_ctx *, const char *);
 static int asr_ctx_parse(struct asr_ctx *, const char *);
 static int asr_parse_nameserver(struct sockaddr *, const char *);
-static char *asr_hostalias(const char *, char *, size_t);
 static int asr_ndots(const char *);
-static void asr_ctx_envopts(struct asr_ctx *);
 static void pass0(char **, int, struct asr_ctx *);
 static int strsplit(char *, char **, int);
-
+#if ASR_OPT_HOSTALIASES
+static char *asr_hostalias(const char *, char *, size_t);
+#endif
+#if ASR_OPT_ENVOPTS
+static void asr_ctx_envopts(struct asr_ctx *);
+#endif
+#if ASR_OPT_THREADSAFE
 static void *__THREAD_NAME(_asr);
+#else
+#	define _THREAD_PRIVATE(a, b, c)  (c)
+#endif
+
 static struct asr *_asr = NULL;
 
 #define issetugid() ((getuid() != geteuid()))
@@ -76,19 +104,22 @@ async_resolver(const char *conf)
 	static int	 init = 0;
 	struct asr	*asr;
 
-#ifdef DEBUG
 	if (init == 0) {
+#ifdef DEBUG
 		if (getenv("ASR_DEBUG"))
-			asr_debug = 1;
+			asr_debug = stderr;
+#endif
 		init = 1;
 	}
-#endif
+
 	if ((asr = calloc(1, sizeof(*asr))) == NULL)
 		goto fail;
 
+#if ASR_OPT_ALTCONF
 	/* If not setuid/setgid, allow to use an alternate config. */
 	if (conf == NULL && !issetugid())
 		conf = getenv("ASR_CONFIG");
+#endif
 
 	if (conf == NULL)
 		conf = DEFAULT_CONFFILE;
@@ -108,12 +139,14 @@ async_resolver(const char *conf)
 				goto fail;
 			if (asr_ctx_from_string(asr->a_ctx, DEFAULT_CONF) == -1)
 				goto fail;
+#if ASR_OPT_ENVOPTS
 			asr_ctx_envopts(asr->a_ctx);
+#endif
 		}
 	}
 
 #ifdef DEBUG
-	asr_dump(asr);
+	asr_dump_config(asr_debug, asr);
 #endif
 	return (asr);
 
@@ -169,24 +202,16 @@ async_run(struct async *as, struct async_res *ar)
 {
 	int	r, saved_errno = errno;
 
-#ifdef DEBUG
-	asr_printf("asr: async_run(%p, %p) %s ctx=[%p]\n",
-		as, ar, asr_querystr(as->as_type), as->as_ctx);
-#endif
+	DPRINT("asr: async_run(%p, %p) %s ctx=[%p]\n", as, ar,
+	    asr_querystr(as->as_type), as->as_ctx);
 	r = as->as_run(as, ar);
 
+	DPRINT("asr: async_run(%p, %p) -> %s", as, ar, asr_transitionstr(r));
 #ifdef DEBUG
-	if (asr_debug) {
-		asr_printf("asr: async_run(%p, %p) -> %s", as, ar,
-		    asr_transitionstr(r));
-		if (r == ASYNC_COND)
-			asr_printf(" fd=%i timeout=%i\n",
-			    ar->ar_fd, ar->ar_timeout);
-		else
-			asr_printf("\n");
-		fflush(stderr);
-	}
+	if (r == ASYNC_COND)
 #endif
+		DPRINT(" fd=%i timeout=%i", ar->ar_fd, ar->ar_timeout);
+	DPRINT("\n");
 	if (r == ASYNC_DONE)
 		async_free(as);
 
@@ -231,10 +256,9 @@ struct async *
 async_new(struct asr_ctx *ac, int type)
 {
 	struct async	*as;
-#ifdef DEBUG
-	asr_printf("asr: async_new(ctx=%p) type=%i refcount=%i\n",
-	    ac, type, ac->ac_refcount);
-#endif
+
+	DPRINT("asr: async_new(ctx=%p) type=%i refcount=%i\n", ac, type,
+	    ac->ac_refcount);
 	if ((as = calloc(1, sizeof(*as))) == NULL)
 		return (NULL);
 
@@ -253,9 +277,7 @@ async_new(struct asr_ctx *ac, int type)
 void
 async_free(struct async *as)
 {
-#ifdef DEBUG
-	asr_printf("asr: async_free(%p)\n", as);
-#endif
+	DPRINT("asr: async_free(%p)\n", as);
 	switch(as->as_type) {
 	case ASR_SEND:
 		if (as->as_fd != -1)
@@ -334,15 +356,10 @@ asr_use_resolver(struct asr *asr)
 	struct asr **priv;
 
 	if (asr == NULL) {
-		/* Use the thread-local resolver. */
-#ifdef DEBUG
-		asr_printf("using thread-local resolver\n");
-#endif
+		DPRINT("using thread-local resolver\n");
 		priv = _THREAD_PRIVATE(_asr, asr, &_asr);
 		if (*priv == NULL) {
-#ifdef DEBUG
-			asr_printf("setting up thread-local resolver\n");
-#endif
+			DPRINT("setting up thread-local resolver\n");
 			*priv = async_resolver(NULL);
 		}
 		asr = *priv;
@@ -356,10 +373,7 @@ asr_use_resolver(struct asr *asr)
 static void
 asr_ctx_ref(struct asr_ctx *ac)
 {
-#ifdef DEBUG
-	asr_printf("asr: asr_ctx_ref(ctx=%p) refcount=%i\n",
-	    ac, ac->ac_refcount);
-#endif
+	DPRINT("asr: asr_ctx_ref(ctx=%p) refcount=%i\n", ac, ac->ac_refcount);
 	ac->ac_refcount += 1;
 }
 
@@ -370,10 +384,7 @@ asr_ctx_ref(struct asr_ctx *ac)
 void
 asr_ctx_unref(struct asr_ctx *ac)
 {
-#ifdef DEBUG
-	asr_printf("asr: asr_ctx_unref(ctx=%p) refcount=%i\n",
-	    ac, ac->ac_refcount);
-#endif
+	DPRINT("asr: asr_ctx_unref(ctx=%p) refcount=%i\n", ac, ac->ac_refcount);
 	if (--ac->ac_refcount)
 		return;
 	
@@ -401,13 +412,16 @@ asr_ctx_free(struct asr_ctx *ac)
 static void
 asr_check_reload(struct asr *asr)
 {
-        struct stat	 st;
 	struct asr_ctx	*ac;
+#if ASR_OPT_RELOADCONF
+        struct stat	 st;
 	struct timespec	 tp;
+#endif
 
 	if (asr->a_path == NULL)
 		return;
 
+#if ASR_OPT_RELOADCONF
 #ifdef HAVE_CLOCK_GETTIME
 	if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
 		return;
@@ -423,26 +437,26 @@ asr_check_reload(struct asr *asr)
 		return;
 	asr->a_rtime = tp.tv_sec;
 
-#ifdef DEBUG
-	asr_printf("asr: checking for update of \"%s\"\n", asr->a_path);
-#endif
-
+	DPRINT("asr: checking for update of \"%s\"\n", asr->a_path);
 	if (stat(asr->a_path, &st) == -1 ||
 	    asr->a_mtime == st.st_mtime ||
 	    (ac = asr_ctx_create()) == NULL)
 		return;
 	asr->a_mtime = st.st_mtime;
-
-#ifdef DEBUG
-	asr_printf("asr: reloading config file\n");
+#else
+	if ((ac = asr_ctx_create()) == NULL)
+		return;
 #endif
 
+	DPRINT("asr: reloading config file\n");
 	if (asr_ctx_from_file(ac, asr->a_path) == -1) {
 		asr_ctx_free(ac);
 		return;
 	}
 
+#if ASR_OPT_ENVOPTS
 	asr_ctx_envopts(ac);
+#endif
 	if (asr->a_ctx)
 		asr_ctx_unref(asr->a_ctx);
 	asr->a_ctx = ac;
@@ -721,9 +735,7 @@ asr_ctx_from_file(struct asr_ctx *ac, const char *path)
 
 	r = fread(buf, 1, sizeof buf - 1, cf);
 	if (feof(cf) == 0) {
-#ifdef DEBUG
-		asr_printf("asr: config file too long: \"%s\"\n", path);
-#endif
+		DPRINT("asr: config file too long: \"%s\"\n", path);
 		r = -1;
 	}
 	fclose(cf);
@@ -768,6 +780,7 @@ asr_ctx_parse(struct asr_ctx *ac, const char *str)
 	return (0);
 }
 
+#if ASR_OPT_ENVOPTS
 /*
  * Check for environment variables altering the configuration as described
  * in resolv.conf(5).  Altough not documented there, this feature is disabled
@@ -801,6 +814,7 @@ asr_ctx_envopts(struct asr_ctx *ac)
 			asr_ctx_parse(ac, buf);
 	}
 }
+#endif
 
 /*
  * Parse a resolv.conf(5) nameserver string into a sockaddr.
@@ -912,17 +926,14 @@ int
 asr_iter_db(struct async *as)
 {
 	if (as->as_db_idx >= as->as_ctx->ac_dbcount) {
-#ifdef DEBUG
-		asr_printf("asr_iter_db: done\n");
-#endif
+		DPRINT("asr_iter_db: done\n");
 		return (-1);
 	}
 
 	as->as_db_idx += 1;
 	as->as_ns_idx = 0;
-#ifdef DEBUG
-	asr_printf("asr_iter_db: %i\n", as->as_db_idx);
-#endif
+	DPRINT("asr_iter_db: %i\n", as->as_db_idx);
+
 	return (0);
 }
 
@@ -944,9 +955,7 @@ asr_iter_ns(struct async *as)
 			break;
 		as->as_ns_idx = 0;
 		as->as_ns_cycles++;
-#ifdef DEBUG
-		asr_printf("asr: asr_iter_ns(): cycle %i\n", as->as_ns_cycles);
-#endif
+		DPRINT("asr: asr_iter_ns(): cycle %i\n", as->as_ns_cycles);
 	}
 
 	return (0);
@@ -973,7 +982,9 @@ enum {
 int
 asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 {
+#if ASR_OPT_HOSTALIASES
 	char	*alias;
+#endif
 
 	switch(as->as_dom_step) {
 
@@ -985,14 +996,13 @@ asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 		 * don't try anything else.
 		 */
 		if (strlen(name) && name[strlen(name) - 1] ==  '.') {
-#ifdef DEBUG
-			asr_printf("asr: asr_iter_domain(\"%s\") fqdn\n", name);
-#endif
+			DPRINT("asr: asr_iter_domain(\"%s\") fqdn\n", name);
 			as->as_dom_flags |= ASYNC_DOM_FQDN;
 			as->as_dom_step = DOM_DONE;
 			return (asr_domcat(name, NULL, buf, len));
 		}
 
+#if ASR_OPT_HOSTALIASES
 		/*
 		 * If "name" has no dots, it might be an alias. If so,
 		 * That's also the only result.
@@ -1000,14 +1010,13 @@ asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 		if ((as->as_ctx->ac_options & RES_NOALIASES) == 0 &&
 		    asr_ndots(name) == 0 &&
 		    (alias = asr_hostalias(name, buf, len)) != NULL) {
-#ifdef DEBUG
-			asr_printf("asr: asr_iter_domain(\"%s\") is alias "
-			    "\"%s\"\n", name, alias);
-#endif
+			DPRINT("asr: asr_iter_domain(\"%s\") is alias \"%s\"\n",
+			    name, alias);
 			as->as_dom_flags |= ASYNC_DOM_HOSTALIAS;
 			as->as_dom_step = DOM_DONE;
 			return (asr_domcat(alias, NULL, buf, len));
 		}
+#endif
 
 		/*
 		 * Otherwise, we iterate through the specified search domains.
@@ -1020,10 +1029,7 @@ asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 		 * in resolv.conf(5).
 		 */
 		if ((asr_ndots(name)) >= as->as_ctx->ac_ndots) {
-#ifdef DEBUG
-			asr_printf("asr: asr_iter_domain(\"%s\") ndots\n",
-			    name);
-#endif
+			DPRINT("asr: asr_iter_domain(\"%s\") ndots\n", name);
 			as->as_dom_flags |= ASYNC_DOM_NDOTS;
 			strlcpy(buf, name, len);
 			return (0);
@@ -1033,11 +1039,8 @@ asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 
 	case DOM_DOMAIN:
 		if (as->as_dom_idx < as->as_ctx->ac_domcount) {
-#ifdef DEBUG
-			asr_printf("asr: asr_iter_domain(\"%s\") "
-			    "domain \"%s\"\n", name,
-			    as->as_ctx->ac_dom[as->as_dom_idx]);
-#endif
+			DPRINT("asr: asr_iter_domain(\"%s\") domain \"%s\"\n",
+			    name, as->as_ctx->ac_dom[as->as_dom_idx]);
 			as->as_dom_flags |= ASYNC_DOM_DOMAIN;
 			return (asr_domcat(name,
 			    as->as_ctx->ac_dom[as->as_dom_idx++], buf, len));
@@ -1052,10 +1055,7 @@ asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 		 * do it now.
 		 */
 		if (!(as->as_dom_flags & ASYNC_DOM_NDOTS)) {
-#ifdef DEBUG
-			asr_printf("asr: asr_iter_domain(\"%s\") as is\n",
-			    name);
-#endif
+			DPRINT("asr: asr_iter_domain(\"%s\") as is\n", name);
 			as->as_dom_flags |= ASYNC_DOM_ASIS;
 			strlcpy(buf, name, len);
 			return (0);
@@ -1064,13 +1064,12 @@ asr_iter_domain(struct async *as, const char *name, char * buf, size_t len)
 
 	case DOM_DONE:
 	default:
-#ifdef DEBUG
-		asr_printf("asr: asr_iter_domain(\"%s\") done\n", name);
-#endif
+		DPRINT("asr: asr_iter_domain(\"%s\") done\n", name);
 		return (-1);
 	}	
 }
 
+#if ASR_OPT_HOSTALIASES
 /*
  * Check if the hostname "name" is a user-defined alias as per hostname(7).
  * If so, copies the result in the buffer "abuf" of size "abufsz" and
@@ -1088,9 +1087,7 @@ asr_hostalias(const char *name, char *abuf, size_t abufsz)
 	if (file == NULL || issetugid() != 0 || (fp = fopen(file, "r")) == NULL)
 		return (NULL);
 
-#ifdef DEBUG
-	asr_printf("asr: looking up aliases in \"%s\"\n", file);
-#endif
+	DPRINT("asr: looking up aliases in \"%s\"\n", file);
 
 	while ((buf = fgetln(fp, &len)) != NULL) {
 		if (buf[len - 1] == '\n')
@@ -1101,9 +1098,7 @@ asr_hostalias(const char *name, char *abuf, size_t abufsz)
 		if (!strcasecmp(tokens[0], name)) {
 			if (strlcpy(abuf, tokens[1], abufsz) > abufsz)
 				continue;
-#ifdef DEBUG
-			asr_printf("asr: found alias \"%s\"\n", abuf);
-#endif
+			DPRINT("asr: found alias \"%s\"\n", abuf);
 			fclose(fp);
 			return (abuf);
 		}
@@ -1112,3 +1107,4 @@ asr_hostalias(const char *name, char *abuf, size_t abufsz)
 	fclose(fp);
 	return (NULL);
 }
+#endif

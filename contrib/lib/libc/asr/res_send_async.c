@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send_async.c,v 1.2 2012/07/07 20:41:52 eric Exp $	*/
+/*	$OpenBSD: res_send_async.c,v 1.4 2012/09/09 12:15:32 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -60,12 +60,8 @@ res_send_async(const unsigned char *buf, int buflen, unsigned char *ans,
 	struct header	 h;
 	struct query	 q;
 
-#ifdef DEBUG
-	if (asr_debug) {
-		asr_printf("asr: res_send_async()\n");
-		asr_dump_packet(stderr, buf, buflen, 0);
-	}
-#endif
+	DPRINT_PACKET("asr: res_send_async()", buf, buflen);
+
 	ac = asr_use_resolver(asr);
 	if ((as = async_new(ac, ASR_SEND)) == NULL) {
 		asr_ctx_unref(ac);
@@ -124,9 +120,9 @@ res_query_async(const char *name, int class, int type, unsigned char *ans,
 {
 	struct asr_ctx	*ac;
 	struct async	*as;
-#ifdef DEBUG
-	asr_printf("asr: res_query_async(\"%s\", %i, %i)\n", name, class, type);
-#endif
+
+	DPRINT("asr: res_query_async(\"%s\", %i, %i)\n", name, class, type);
+
 	ac = asr_use_resolver(asr);
 	as = res_query_async_ctx(name, class, type, ans, anslen, ac);
 	asr_ctx_unref(ac);
@@ -140,10 +136,8 @@ res_query_async_ctx(const char *name, int class, int type, unsigned char *ans,
 {
 	struct async	*as;
 
-#ifdef DEBUG
-	asr_printf("asr: res_query_async_ctx(\"%s\", %i, %i)\n", name, class,
-	    type);
-#endif
+	DPRINT("asr: res_query_async_ctx(\"%s\", %i, %i)\n", name, class, type);
+
 	if ((as = async_new(a_ctx, ASR_SEND)) == NULL)
 		return (NULL); /* errno set */
 	as->as_run = res_send_async_run;
@@ -380,25 +374,19 @@ setup_query(struct async *as, const char *name, const char *dom,
 
 	if (as->as.dns.flags & ASYNC_EXTOBUF) {
 		errno = EINVAL;
-#ifdef DEBUG
-		asr_printf("attempting to write in user packet");
-#endif
+		DPRINT("attempting to write in user packet");
 		return (-1);
 	}
 
 	if (asr_make_fqdn(name, dom, fqdn, sizeof(fqdn)) > sizeof(fqdn)) {
 		errno = EINVAL;
-#ifdef DEBUG
-		asr_printf("asr_make_fqdn: name too long\n");
-#endif
+		DPRINT("asr_make_fqdn: name too long\n");
 		return (-1);
 	}
 
 	if (dname_from_fqdn(fqdn, dname, sizeof(dname)) == -1) {
 		errno = EINVAL;
-#ifdef DEBUG
-		asr_printf("dname_from_fqdn: invalid\n");
-#endif
+		DPRINT("dname_from_fqdn: invalid\n");
 		return (-1);
 	}
 
@@ -420,9 +408,7 @@ setup_query(struct async *as, const char *name, const char *dom,
 	pack_header(&p, &h);
 	pack_query(&p, type, class, dname);
 	if (p.err) {
-#ifdef DEBUG
-		asr_printf("error packing query");
-#endif
+		DPRINT("error packing query");
 		errno = EINVAL;
 		return (-1);
 	}
@@ -435,20 +421,12 @@ setup_query(struct async *as, const char *name, const char *dom,
 		free(as->as.dns.dname);
 	as->as.dns.dname = strdup(dname);
 	if (as->as.dns.dname == NULL) {
-#ifdef DEBUG
-		asr_printf("strdup");
-#endif
+		DPRINT("strdup");
 		return (-1); /* errno set */
 	}
 	as->as.dns.obuflen = p.offset;
 
-#ifdef DEBUG
-	if (asr_debug) {
-		asr_printf("------- asr_setup_query(): packet -------\n");
-		asr_dump_packet(stderr, as->as.dns.obuf, as->as.dns.obuflen, 0);
-		asr_printf("-----------------------------------------\n");
-	}
-#endif
+	DPRINT_PACKET("asr_setup_query", as->as.dns.obuf, as->as.dns.obuflen);
 
 	return (0);
 }
@@ -465,11 +443,11 @@ udp_send(struct async *as)
 	int	save_errno;
 #ifdef DEBUG
 	char		buf[256];
-
-	if (asr_debug)
-		asr_printf("asr: [%p] connecting to %s UDP\n", as,
-		    asr_print_addr(AS_NS_SA(as), buf, sizeof buf));
 #endif
+
+	DPRINT("asr: [%p] connecting to %s UDP\n", as,
+	    print_sockaddr(AS_NS_SA(as), buf, sizeof buf));
+
 	as->as_fd = sockaddr_connect(AS_NS_SA(as), SOCK_DGRAM);
 	if (as->as_fd == -1)
 		return (-1); /* errno set */
@@ -520,13 +498,7 @@ udp_recv(struct async *as)
 
 	as->as.dns.ibuflen = n;
 
-#ifdef DEBUG
-	if (asr_debug) {
-		asr_printf("------- asr_udp_recv() packet -------\n");
-		asr_dump_packet(stderr, as->as.dns.ibuf, as->as.dns.ibuflen, 0);
-		asr_printf("-------------------------------------\n");
-	}
-#endif
+	DPRINT_PACKET("asr_udp_recv()", as->as.dns.ibuf, as->as.dns.ibuflen);
 
 	if (validate_packet(as) == -1)
 		return (-1); /* errno set */
@@ -554,11 +526,8 @@ tcp_write(struct async *as)
 
 	/* First try to connect if not already */
 	if (as->as_fd == -1) {
-#ifdef DEBUG
-		if (asr_debug)
-			asr_printf("asr: [%p] connecting to %s TCP\n", as,
-			    asr_print_addr(AS_NS_SA(as), buf, sizeof buf));
-#endif
+		DPRINT("asr: [%p] connecting to %s TCP\n", as,
+		    print_sockaddr(AS_NS_SA(as), buf, sizeof buf));
 		as->as_fd = sockaddr_connect(AS_NS_SA(as), SOCK_STREAM);
 		if (as->as_fd == -1)
 			return (-1); /* errno set */
@@ -677,13 +646,8 @@ tcp_read(struct async *as)
 	if (as->as.dns.ibuflen != as->as.dns.datalen)
 		return (1);
 
-#ifdef DEBUG
-	if (asr_debug) {
-		asr_printf("------- asr_tcp_read() packet -------\n");
-		asr_dump_packet(stderr, as->as.dns.ibuf, as->as.dns.ibuflen, 0);
-		asr_printf("-------------------------------------\n");
-	}
-#endif
+	DPRINT_PACKET("asr_tcp_read()", as->as.dns.ibuf, as->as.dns.ibuflen);
+
 	if (validate_packet(as) == -1)
 		goto close; /* errno set */
 
@@ -753,9 +717,7 @@ validate_packet(struct async *as)
 		goto inval;
 
 	if (h.id != as->as.dns.reqid) {
-#ifdef DEBUG
-		asr_printf("incorrect reqid\n");
-#endif
+		DPRINT("incorrect reqid\n");
 		goto inval;
 	}
 	if (h.qdcount != 1)
@@ -780,10 +742,8 @@ validate_packet(struct async *as)
 	if (q.q_type != as->as.dns.type ||
 	    q.q_class != as->as.dns.class ||
 	    strcasecmp(q.q_dname, as->as.dns.dname)) {
-#ifdef DEBUG
-		asr_printf("incorrect type/class/dname '%s' != '%s'\n",
+		DPRINT("incorrect type/class/dname '%s' != '%s'\n",
 		    q.q_dname, as->as.dns.dname);
-#endif
 		goto inval;
 	}
 
