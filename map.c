@@ -37,7 +37,7 @@ extern struct map_backend map_backend_static;
 
 extern struct map_backend map_backend_db;
 extern struct map_backend map_backend_stdio;
-/* extern struct map_backend map_backend_ldap; */
+extern struct map_backend map_backend_ldap;
 
 struct map_backend *
 map_backend_lookup(enum map_src source)
@@ -51,10 +51,10 @@ map_backend_lookup(enum map_src source)
 
 	case S_PLAIN:
 		return &map_backend_stdio;
-/*
+
 	case S_LDAP:
 		return &map_backend_ldap;
-*/
+
 	default:
 		fatalx("invalid map type");
 	}

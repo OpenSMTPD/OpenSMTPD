@@ -456,14 +456,12 @@ mapsource	: PLAIN STRING			{
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-/*
 		| LDAP STRING			{
 			map->m_src = S_LDAP;
 			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-*/
 		;
 
 mapopt		: SOURCE mapsource		{ }

@@ -1,6 +1,7 @@
 #	$OpenBSD: Makefile,v 1.53 2012/09/05 21:52:03 eric Exp $
 
-.PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
+#.PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
+.PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
 
 PROG=		smtpd
 
@@ -22,6 +23,7 @@ SRCS+=		delivery_maildir.c
 SRCS+=		delivery_mbox.c
 SRCS+=		delivery_mda.c
 SRCS+=		map_db.c
+SRCS+=		map_ldap.c
 SRCS+=		map_static.c
 SRCS+=		map_stdio.c
 SRCS+=		queue_fsqueue.c
@@ -34,12 +36,15 @@ SRCS+=		user_pwd.c
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
 		res_send_async.c getaddrinfo_async.c getnameinfo_async.c
 
+# ldap backend
+SRCS+=		ber.c aldap.c
+
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
 DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
-CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I${.CURDIR}/../../../lib/libc/asr
+CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I/usr/src/lib/libc/asr #-I${.CURDIR}/../../../lib/libc/asr
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual

@@ -236,8 +236,8 @@ struct peer {
 enum map_src {
 	S_NONE,
 	S_PLAIN,
-	S_DB /*,
-	S_LDAP*/
+	S_DB,
+	S_LDAP
 };
 
 enum map_kind {

@@ -17,7 +17,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 
 SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c map.c \
-	map_static.c map_db.c map_stdio.c
+	map_static.c map_db.c map_stdio.c map_ldap.c ber.c aldap.c
 
 DPADD+= ${LIBUTIL} ${LIBCRYPTO}
 LDADD+= -lutil -lcrypto
