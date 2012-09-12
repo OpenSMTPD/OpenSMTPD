@@ -153,6 +153,7 @@ ldap_parse_configuration(const char *path)
 	if (strlcpy(ldapconf->identifier, path, sizeof(ldapconf->identifier))
 			>= sizeof(ldapconf->identifier)) {
 		free(ldapconf);
+		fclose(fp);
 		err(1, "path name too long");
 	}
 
@@ -196,6 +197,8 @@ ldap_parse_configuration(const char *path)
 		if (! setoptvalue(ldapconf, cf_keywords[i].opt_flag, p))
 			goto err;
 	}
+
+	fclose(fp);
 	free(lbuf);
 
 	TAILQ_INSERT_TAIL(&ldap_confs, ldapconf, entry);
@@ -203,6 +206,7 @@ ldap_parse_configuration(const char *path)
 	return ldapconf;
 
 err:
+	fclose(fp);
 	free(ldapconf);
 	free(lbuf);
 	return NULL;
