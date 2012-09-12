@@ -1,7 +1,6 @@
-/*	$OpenBSD: encrypt.c,v 1.2 2012/08/26 10:17:13 chl Exp $	*/
-
+/*	$OpenBSD: getnameinfo.c,v 1.1 2012/09/08 11:08:21 eric Exp $	*/
 /*
- * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
+ * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,45 +15,35 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
+#include <netinet/in.h>
 
-#include <imsg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include <errno.h>
+#include <resolv.h>
 
-#include "smtpd.h"
-#include "log.h"
-
+#include "asr.h"
 
 int
-encrypt_file(int fdin, int fdout)
+getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host,
+    size_t hostlen, char *serv, size_t servlen, int flags)
 {
-	return (1);
-}
+	struct async	*as;
+	struct async_res ar;
+	int		 saved_errno = errno;
 
-int
-decrypt_file(int fdin, int fdout)
-{
-	return (1);
-}
+	as = getnameinfo_async(sa, salen, host, hostlen, serv, servlen, flags,
+	    NULL);
+	if (as == NULL) {
+		if (errno == ENOMEM) {
+			errno = saved_errno;
+			return (EAI_MEMORY);
+		}
+		return (EAI_SYSTEM);
+	}
 
-size_t
-encrypt_buffer(const char *ib, size_t iblen, char *ob, size_t oblen)
-{
-	return (1);
-}
+	async_run_sync(as, &ar);
+	if (ar.ar_gai_errno == EAI_SYSTEM)
+		errno = ar.ar_errno;
 
-size_t
-decrypt_buffer(const char *ib, size_t iblen, char *ob, size_t oblen)
-{
-	return (1);
+	return (ar.ar_gai_errno);
 }

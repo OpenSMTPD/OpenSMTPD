@@ -65,7 +65,7 @@ smtpd_CFLAGS=		-DIO_SSL
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c util.c					\
-			compress_backend.c compress_gzip.c encrypt.c
+			compress_backend.c compress_gzip.c
 
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr

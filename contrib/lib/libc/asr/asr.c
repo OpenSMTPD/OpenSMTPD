@@ -39,8 +39,6 @@
 
 #include "asr.h"
 #include "asr_private.h"
-#define __THREAD_NAME(x) __ ## x
-#define _THREAD_PRIVATE(a, b, c) (c)
 
 #ifndef ASR_OPT_THREADSAFE
 #define ASR_OPT_THREADSAFE 1
