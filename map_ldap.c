@@ -261,6 +261,7 @@ map_ldap_open(struct map *map)
 		warnx("map_ldap_open: failed to bind, result #%d", aldap_get_resultcode(message));
 		goto err;
 	}
+
 	warnx("map_ldap_open: aldap: %p", ldaphandle->aldap);
 	return ldaphandle;
 
@@ -309,12 +310,12 @@ map_ldap_alias(void *hdl, char *key)
 {
 	struct ldaphandle *ldaphandle = hdl;
 	struct aldap *aldap = ldaphandle->aldap;
+	struct aldap_page_control *pg = NULL;
 	struct aldap_message *m = NULL;
 	struct map_alias	 *map_alias = NULL;
 	struct expandnode	  expnode;
 	char *attributes[2];
-	char *ldap_attrs[2];
-	char **ldapattrsp = ldap_attrs;
+	char **ldapattrsp = NULL;
 	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
 	int ret;
 	int i;
@@ -340,38 +341,66 @@ map_ldap_alias(void *hdl, char *key)
 	attributes[0] = ldaphandle->conf->m_ldapattr;
 	attributes[1] = NULL;
 
-	ret = aldap_search(aldap, ldaphandle->conf->m_ldapbasedn, LDAP_SCOPE_SUBTREE,
-	    expandedfilter, attributes, 0, 0, 0);
-	if (ret == -1)
-		return NULL;
-
-	m = aldap_parse(aldap);
-	if (m == NULL)
-		return NULL;
-
 	if ((map_alias = calloc(1, sizeof(struct map_alias))) == NULL)
 			err(1, NULL);
 
-	if (aldap_match_entry(m, attributes[0], &ldapattrsp) != 1)
-		goto error;
+	do {
+		ret = aldap_search(aldap, ldaphandle->conf->m_ldapbasedn, LDAP_SCOPE_SUBTREE,
+				expandedfilter, attributes, 0, 0, 0, pg);
 
-	for (i = 0; ldapattrsp[i]; ++i) {
-		bzero(&expnode, sizeof(struct expandnode));
-		if (!alias_parse(&expnode, ldapattrsp[i]))
-			goto error;
+		if (ret == -1) {
+			free(map_alias);
+			return NULL;
+		}
 
-		expandtree_increment_node(&map_alias->expandtree, &expnode);
-		map_alias->nbnodes++;
-	}
+		if (pg != NULL) {
+			aldap_freepage(pg);
+			pg = NULL;
+		}
 
-	aldap_free_entry(ldapattrsp);
-	aldap_freemsg(m);
+		while ((m = aldap_parse(aldap)) != NULL) {
+			if (aldap->msgid != m->msgid)
+				goto error;
+
+			if (m->message_type == LDAP_RES_SEARCH_RESULT) {
+				if (m->page != NULL && m->page->cookie_len != 0)
+					pg = m->page;
+				else
+					pg = NULL;
+
+				aldap_freemsg(m);
+				break;
+			}
+
+			if (m->message_type != LDAP_RES_SEARCH_ENTRY)
+				goto error;
+
+			if (aldap_match_attr(m, attributes[0], &ldapattrsp) != 1)
+				goto error;
+
+			for (i = 0; ldapattrsp[i]; ++i) {
+				bzero(&expnode, sizeof(struct expandnode));
+				if (!alias_parse(&expnode, ldapattrsp[i]))
+					goto error;
+
+				expandtree_increment_node(&map_alias->expandtree, &expnode);
+				map_alias->nbnodes++;
+			}
+
+			aldap_freemsg(m);
+		}
+	} while (pg != NULL);
+
+	aldap_free_attr(ldapattrsp);
 	return map_alias;
 
 error:
 	expandtree_free_nodes(&map_alias->expandtree);
 	free(map_alias);
 	aldap_freemsg(m);
+	if (pg != NULL)
+		aldap_freepage(pg);
+
 	return NULL;
 }
 
@@ -380,12 +409,12 @@ map_ldap_virtual(void *hdl, char *key)
 {
 	struct ldaphandle *ldaphandle = hdl;
 	struct aldap *aldap = ldaphandle->aldap;
+	struct aldap_page_control *pg = NULL;
 	struct aldap_message *m = NULL;
 	struct map_virtual	 *map_virtual = NULL;
 	struct expandnode	  expnode;
 	char *attributes[2];
-	char *ldap_attrs[2];
-	char **ldapattrsp = ldap_attrs;
+	char **ldapattrsp = NULL;
 	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
 	int ret;
 	int i;
@@ -411,15 +440,6 @@ map_ldap_virtual(void *hdl, char *key)
 	attributes[0] = ldaphandle->conf->m_ldapattr;
 	attributes[1] = NULL;
 
-	ret = aldap_search(aldap, ldaphandle->conf->m_ldapbasedn, LDAP_SCOPE_SUBTREE,
-	    expandedfilter, attributes, 0, 0, 0);
-	if (ret == -1)
-		return NULL;
-
-	m = aldap_parse(aldap);
-	if (m == NULL)
-		return NULL;
-
 	if ((map_virtual = calloc(1, sizeof(struct map_virtual))) == NULL)
 			err(1, NULL);
 
@@ -427,26 +447,64 @@ map_ldap_virtual(void *hdl, char *key)
 	if (strchr(key, '@') == NULL)
 		return map_virtual;
 
-	if (aldap_match_entry(m, attributes[0], &ldapattrsp) != 1)
-		goto error;
+	do {
+		ret = aldap_search(aldap, ldaphandle->conf->m_ldapbasedn, LDAP_SCOPE_SUBTREE,
+				expandedfilter, attributes, 0, 0, 0, pg);
 
-	for (i = 0; ldapattrsp[i]; ++i) {
-		bzero(&expnode, sizeof(struct expandnode));
-		if (!alias_parse(&expnode, ldapattrsp[i]))
-			goto error;
+		if (ret == -1) {
+			free(map_virtual);
+			return NULL;
+		}
 
-		expandtree_increment_node(&map_virtual->expandtree, &expnode);
-		map_virtual->nbnodes++;
-	}
+		if (pg != NULL) {
+			aldap_freepage(pg);
+			pg = NULL;
+		}
 
-	aldap_free_entry(ldapattrsp);
-	aldap_freemsg(m);
+		while ((m = aldap_parse(aldap)) != NULL) {
+			if (aldap->msgid != m->msgid)
+				goto error;
+
+			if (m->message_type == LDAP_RES_SEARCH_RESULT) {
+				if (m->page != NULL && m->page->cookie_len != 0)
+					pg = m->page;
+				else
+					pg = NULL;
+
+				aldap_freemsg(m);
+				break;
+			}
+
+			if (m->message_type != LDAP_RES_SEARCH_ENTRY)
+				goto error;
+
+			if (aldap_match_attr(m, attributes[0], &ldapattrsp) != 1)
+				goto error;
+
+			for (i = 0; ldapattrsp[i]; ++i) {
+				bzero(&expnode, sizeof(struct expandnode));
+				if (!alias_parse(&expnode, ldapattrsp[i]))
+					goto error;
+
+				expandtree_increment_node(&map_virtual->expandtree, &expnode);
+				map_virtual->nbnodes++;
+			}
+
+			aldap_freemsg(m);
+		}
+	} while (pg != NULL);
+
+
+	aldap_free_attr(ldapattrsp);
 	return map_virtual;
 
 error:
 	expandtree_free_nodes(&map_virtual->expandtree);
 	free(map_virtual);
 	aldap_freemsg(m);
+	if (pg != NULL)
+		aldap_freepage(pg);
+
 	return NULL;
 }
 

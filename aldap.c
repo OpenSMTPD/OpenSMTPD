@@ -555,7 +555,6 @@ aldap_free_attr(char **values)
 	return (1);
 }
 
-#if 0
 void
 aldap_free_url(struct aldap_url *lu)
 {
@@ -592,6 +591,8 @@ aldap_parse_url(char *url, struct aldap_url *lu)
 			if (errstr)
 				goto fail;
 		}
+	} else {
+		lu->port = LDAP_PORT;
 	}
 	/* fail if no host is given */
 	if (strlen(p) == 0)
@@ -665,6 +666,7 @@ fail:
 	return (-1);
 }
 
+#if 0
 int
 aldap_search_url(struct aldap *ldap, char *url, int typesonly, int sizelimit,
     int timelimit)
@@ -687,7 +689,7 @@ fail:
 	aldap_free_url(lu);
 	return (-1);
 }
-#endif /* 0 */
+#endif
 
 /*
  * internal functions

@@ -171,7 +171,7 @@ enum result_code {
 	LDAP_OTHER				= 80,
 };
 
-enum filter {
+enum ldap_filter {
 	LDAP_FILT_AND		= 0,
 	LDAP_FILT_OR		= 1,
 	LDAP_FILT_NOT		= 2,
@@ -183,7 +183,7 @@ enum filter {
 	LDAP_FILT_APPR		= 8,
 };
 
-enum subfilter {
+enum ldap_subfilter {
 	LDAP_FILT_SUBS_INIT	= 0,
 	LDAP_FILT_SUBS_ANY	= 1,
 	LDAP_FILT_SUBS_FIN	= 2,
@@ -204,9 +204,9 @@ char	*aldap_get_dn(struct aldap_message *);
 char	*aldap_get_diagmsg(struct aldap_message *);
 char	**aldap_get_references(struct aldap_message *);
 void	 aldap_free_references(char **values);
-#if 0
 int	 aldap_parse_url(char *, struct aldap_url *);
 void	 aldap_free_url(struct aldap_url *);
+#if 0
 int	 aldap_search_url(struct aldap *, char *, int, int, int);
 #endif
 
