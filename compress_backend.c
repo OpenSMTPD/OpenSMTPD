@@ -1,4 +1,4 @@
-/*	$OpenBSD: compress_backend.c,v 1.4 2012/08/29 16:26:17 gilles Exp $	*/
+/*	$OpenBSD: compress_backend.c,v 1.5 2012/08/30 19:33:25 chl Exp $	*/
 
 /*
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
@@ -55,13 +55,13 @@ uncompress_file(FILE *in, FILE *out)
 }
 
 size_t
-compress_buffer(const char *ib, size_t iblen, char *ob, size_t oblen)
+compress_buffer(char *ib, size_t iblen, char *ob, size_t oblen)
 {
 	return env->sc_compress->compress_buffer(ib, iblen, ob, oblen);
 }
 
 size_t
-uncompress_buffer(const char *ib, size_t iblen, char *ob, size_t oblen)
+uncompress_buffer(char *ib, size_t iblen, char *ob, size_t oblen)
 {
 	return env->sc_compress->uncompress_buffer(ib, iblen, ob, oblen);
 }
