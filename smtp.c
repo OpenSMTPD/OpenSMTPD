@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.109 2012/08/29 16:26:17 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.111 2012/09/15 15:12:11 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -419,25 +419,14 @@ smtp_resume(void)
 static int
 smtp_enqueue(uid_t *euid)
 {
-	static struct listener		 local, *l;
-	static struct sockaddr_storage	 sa;
+	static struct listener		 local, *l = NULL;
 	struct session			*s;
 	int				 fd[2];
 
 	if (l == NULL) {
-		struct addrinfo hints, *res;
-
 		l = &local;
 		strlcpy(l->tag, "local", sizeof(l->tag));
-
-		bzero(&hints, sizeof(hints));
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_flags = AI_NUMERICHOST;
-
-		if (getaddrinfo("::1", NULL, &hints, &res))
-			fatal("getaddrinfo");
-		memcpy(&sa, res->ai_addr, res->ai_addrlen);
-		freeaddrinfo(res);
+		l->ss.ss_family = AF_LOCAL;
 	}
 
 	/*
@@ -455,7 +444,7 @@ smtp_enqueue(uid_t *euid)
 		fatal("socketpair");
 
 	s->s_io.sock = fd[0];
-	s->s_ss = sa;
+	s->s_ss = l->ss;
 	s->s_msg.flags |= DF_ENQUEUED;
 
 	if (euid)
@@ -519,19 +508,19 @@ smtp_new(struct listener *l)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_new: unexpected client");
 
-	if ((s = calloc(1, sizeof(*s))) == NULL)
-		fatal(NULL);
+	if (getdtablesize() - getdtablecount() < SMTP_FD_RESERVE)
+		return (NULL);
+
+	s = xcalloc(1, sizeof(*s), "smtp_new");
 	s->s_id = generate_uid();
 	s->s_l = l;
 	strlcpy(s->s_msg.tag, l->tag, sizeof(s->s_msg.tag));
 	SPLAY_INSERT(sessiontree, &env->sc_sessions, s);
 
 	stat_increment("smtp.session", 1);
-	
-	if (getdtablesize() - getdtablecount() < SMTP_FD_RESERVE) {
-		return NULL;
-	}
 
+	if (s->s_l->ss.ss_family == AF_LOCAL)
+		stat_increment("smtp.session.local", 1);
 	if (s->s_l->ss.ss_family == AF_INET)
 		stat_increment("smtp.session.inet4", 1);
 	if (s->s_l->ss.ss_family == AF_INET6)
@@ -553,8 +542,8 @@ smtp_destroy(struct session *session)
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
 		log_warnx("smtp: fd exaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
+		smtp_resume();
 	}
-	smtp_resume();
 }
 
 
