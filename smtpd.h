@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.348 2012/09/14 19:22:04 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.352 2012/09/17 20:19:18 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -816,8 +816,8 @@ struct queue_backend {
 struct compress_backend {
 	int	(*compress_file)(FILE *, FILE *);
 	int	(*uncompress_file)(FILE *, FILE *);
-	size_t	(*compress_buffer)(const char *, size_t, char *, size_t);
-	size_t	(*uncompress_buffer)(const char *, size_t, char *, size_t);
+	size_t	(*compress_buffer)(char *, size_t, char *, size_t);
+	size_t	(*uncompress_buffer)(char *, size_t, char *, size_t);
 };
 
 /* auth structures */
@@ -1031,6 +1031,8 @@ void *map_lookup(objid_t, char *, enum map_kind);
 int map_compare(objid_t, char *, enum map_kind, int (*)(char *, char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
+struct map *map_create(enum map_kind, const char *);
+void map_add(struct map *, const char *, const char *);
 
 
 /* mda.c */
@@ -1088,8 +1090,8 @@ void  qwalk_close(void *);
 struct compress_backend *compress_backend_lookup(const char *);
 int compress_file(FILE *, FILE *);
 int uncompress_file(FILE *, FILE *);
-size_t compress_buffer(const char *, size_t, char *, size_t);
-size_t uncompress_buffer(const char *, size_t, char *, size_t);
+size_t compress_buffer(char *, size_t, char *, size_t);
+size_t uncompress_buffer(char *, size_t, char *, size_t);
 
 /* scheduler.c */
 pid_t scheduler(void);
@@ -1186,7 +1188,7 @@ void addargs(arglist *, char *, ...)
 	__attribute__((format(printf, 2, 3)));
 int bsnprintf(char *, size_t, const char *, ...)
 	__attribute__ ((format (printf, 3, 4)));
-int mkdir_p(char *, mode_t);
+int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(char *, char *);
 int email_to_mailaddr(struct mailaddr *, char *);
@@ -1204,7 +1206,6 @@ void fdlimit(double);
 int availdesc(void);
 uint32_t evpid_to_msgid(uint64_t);
 uint64_t msgid_to_evpid(uint32_t);
-void log_imsg(int, int, struct imsg*);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
