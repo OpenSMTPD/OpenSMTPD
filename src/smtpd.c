@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.169 2012/09/11 12:47:36 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.171 2012/09/16 16:54:55 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -75,6 +75,7 @@ static void	offline_done(void);
 static int	offline_enqueue(char *);
 
 static void	purge_task(int, short, void *);
+static void	log_imsg(int, int, struct imsg *);
 
 
 struct offline {
@@ -137,8 +138,6 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct auth		*auth;
 	struct auth_backend	*auth_backend;
 	int			 fd;
-
-	log_imsg(PROC_PARENT, iev->proc, imsg);
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -662,6 +661,9 @@ main(int argc, char *argv[])
 
 	fork_peers();
 
+	smtpd_process = PROC_PARENT;
+	setproctitle("%s", env->sc_title[smtpd_process]);
+
 	imsg_callback = parent_imsg;
 	event_init();
 
@@ -739,6 +741,7 @@ fork_peers(void)
 	env->sc_title[PROC_MDA] = "mail delivery agent";
 	env->sc_title[PROC_MFA] = "mail filter agent";
 	env->sc_title[PROC_MTA] = "mail transfer agent";
+	env->sc_title[PROC_PARENT] = "[priv]";
 	env->sc_title[PROC_QUEUE] = "queue";
 	env->sc_title[PROC_SCHEDULER] = "scheduler";
 	env->sc_title[PROC_SMTP] = "smtp server";
@@ -751,8 +754,6 @@ fork_peers(void)
 	child_add(queue(), CHILD_DAEMON, PROC_QUEUE);
 	child_add(scheduler(), CHILD_DAEMON, PROC_SCHEDULER);
 	child_add(smtp(), CHILD_DAEMON, PROC_SMTP);
-
-	setproctitle("[priv]");
 }
 
 struct child *
@@ -1250,6 +1251,8 @@ imsg_dispatch(int fd, short event, void *p)
 		if (n == 0)
 			break;
 
+		log_imsg(smtpd_process, iev->proc, &imsg);
+
 		if (profiling || profstat) {
 #ifdef HAVE_CLOCK_GETTIME
 			clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -1305,7 +1308,7 @@ imsg_dispatch(int fd, short event, void *p)
 
 SPLAY_GENERATE(childtree, child, entry, child_cmp);
 
-void
+static void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 	if (imsg->fd != -1)

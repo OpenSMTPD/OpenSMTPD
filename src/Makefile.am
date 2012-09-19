@@ -60,7 +60,7 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/getaddrinfo_async.c		\
 			../contrib/lib/libc/asr/getnameinfo_async.c
 
-smtpd_CFLAGS=		-DIO_SSL
+smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
@@ -85,8 +85,12 @@ PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)/mail\" \
 			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\" \
 			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"
 
-MANPAGES=		makemap.8.out newaliases.8.out smtpctl.8.out smtpd.8.out smtpd.conf.5.out
-MANPAGES_IN=		makemap.8 newaliases.8 smtpctl.8 smtpd.8 smtpd.conf.5
+MANPAGES=		aliases.5.out forward.5.out makemap.8.out		\
+			newaliases.8.out smtpctl.8.out smtpd.8.out		\
+			smtpd.conf.5.out
+MANPAGES_IN=		aliases.5     forward.5     makemap.8			\
+			newaliases.8     smtpctl.8     smtpd.8			\
+			smtpd.conf.5
 
 CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		smtpd.conf

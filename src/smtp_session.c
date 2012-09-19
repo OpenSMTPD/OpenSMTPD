@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.168 2012/08/25 10:23:12 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.169 2012/09/14 19:22:04 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -637,6 +637,7 @@ void
 session_io(struct io *io, int evt)
 {
 	struct session	*s = io->arg;
+	void		*ssl;
 	char		*line;
 	ssize_t		 len;
 
@@ -702,8 +703,8 @@ session_io(struct io *io, int evt)
 
 		/* wait for the client to start tls */
 		if (s->s_state == S_TLS) {
-			ssl_session_init(s);
-			io_start_tls(io, s->s_ssl);
+			ssl = ssl_smtp_init(s->s_l->ssl_ctx);
+			io_start_tls(io, ssl);
 		}
 		break;
 
@@ -727,6 +728,8 @@ session_io(struct io *io, int evt)
 void
 session_pickup(struct session *s, struct submit_status *ss)
 {
+	void	*ssl;
+
 	s->s_flags &= ~F_WAITIMSG;
 
 	if ((ss != NULL && ss->code == 421) ||
@@ -755,9 +758,9 @@ session_pickup(struct session *s, struct submit_status *ss)
 		}
 
 		if (s->s_l->flags & F_SMTPS) {
-			ssl_session_init(s);
+			ssl = ssl_smtp_init(s->s_l->ssl_ctx);
 			io_set_read(&s->s_io);
-			io_start_tls(&s->s_io, s->s_ssl);
+			io_start_tls(&s->s_io, ssl);
 			return;
 		}
 
@@ -858,9 +861,9 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 		if (s->s_flags & F_SECURE) {
 			fprintf(s->datafp, "\n\t(version=%s cipher=%s bits=%d)",
-			    SSL_get_cipher_version(s->s_ssl),
-			    SSL_get_cipher_name(s->s_ssl),
-			    SSL_get_cipher_bits(s->s_ssl, NULL));
+			    SSL_get_cipher_version(s->s_io.ssl),
+			    SSL_get_cipher_name(s->s_io.ssl),
+			    SSL_get_cipher_bits(s->s_io.ssl, NULL));
 		}
 		if (s->rcptcount == 1)
 			fprintf(s->datafp, "\n\tfor <%s@%s>; ",
@@ -1045,7 +1048,7 @@ session_destroy(struct session *s, const char * reason)
 		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, &msgid, sizeof(msgid));
 	}
 
-	if (s->s_ssl) {
+	if (s->s_io.ssl) {
 		if (s->s_l->flags & F_SMTPS)
 			if (s->s_flags & F_SECURE)
 				stat_decrement("smtp.smtps", 1);

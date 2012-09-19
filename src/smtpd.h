@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.347 2012/09/11 08:37:52 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.356 2012/09/18 14:23:01 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -304,7 +304,6 @@ struct map_backend {
 
 enum cond_type {
 	C_ALL,
-	C_NET,
 	C_DOM,
 	C_VDOM
 };
@@ -443,7 +442,6 @@ struct envelope {
 	uint8_t				 retry;
 	enum delivery_flags		 flags;
 };
-TAILQ_HEAD(deliverylist, envelope);
 
 enum envelope_field {
 	EVP_VERSION,
@@ -572,7 +570,6 @@ struct session {
 	char				 s_hostname[MAXHOSTNAMELEN];
 	struct event			 s_ev;
 	struct listener			*s_l;
-	void				*s_ssl;
 	struct timeval			 s_tv;
 	struct envelope			 s_msg;
 	short				 s_nresp[STATE_COUNT];
@@ -727,7 +724,7 @@ struct lka_session {
 	SPLAY_ENTRY(lka_session)	 nodes;
 	uint64_t			 id;
 
-	struct deliverylist		 deliverylist;
+	TAILQ_HEAD(, envelope)		 deliverylist;
 	struct expandtree		 expandtree;
 
 	uint8_t				 iterations;
@@ -838,8 +835,8 @@ struct queue_backend {
 struct compress_backend {
 	int	(*compress_file)(FILE *, FILE *);
 	int	(*uncompress_file)(FILE *, FILE *);
-	size_t	(*compress_buffer)(const char *, size_t, char *, size_t);
-	size_t	(*uncompress_buffer)(const char *, size_t, char *, size_t);
+	size_t	(*compress_buffer)(char *, size_t, char *, size_t);
+	size_t	(*uncompress_buffer)(char *, size_t, char *, size_t);
 };
 
 /* auth structures */
@@ -1043,20 +1040,18 @@ int forwards_get(int, struct expandtree *, char *);
 
 /* lka.c */
 pid_t lka(void);
-int lka_session_cmp(struct lka_session *, struct lka_session *);
-SPLAY_PROTOTYPE(lkatree, lka_session, nodes, lka_session_cmp);
 
 /* lka_session.c */
-struct lka_session *lka_session_init(struct submit_status *);
-void lka_session_fail(struct lka_session *);
-void lka_session_destroy(struct lka_session *);
-
+void lka_session(struct submit_status *);
+void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
 void *map_lookup(objid_t, char *, enum map_kind);
 int map_compare(objid_t, char *, enum map_kind, int (*)(char *, char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
+struct map *map_create(enum map_kind, const char *);
+void map_add(struct map *, const char *, const char *);
 
 
 /* mda.c */
@@ -1114,8 +1109,8 @@ void  qwalk_close(void *);
 struct compress_backend *compress_backend_lookup(const char *);
 int compress_file(FILE *, FILE *);
 int uncompress_file(FILE *, FILE *);
-size_t compress_buffer(const char *, size_t, char *, size_t);
-size_t uncompress_buffer(const char *, size_t, char *, size_t);
+size_t compress_buffer(char *, size_t, char *, size_t);
+size_t uncompress_buffer(char *, size_t, char *, size_t);
 
 /* scheduler.c */
 pid_t scheduler(void);
@@ -1155,13 +1150,11 @@ SPLAY_PROTOTYPE(childtree, child, entry, child_cmp);
 
 /* ssl.c */
 void ssl_init(void);
-void ssl_transaction(struct session *);
-void ssl_session_init(struct session *);
-void ssl_session_destroy(struct session *);
 int ssl_load_certfile(const char *, uint8_t);
 void ssl_setup(struct listener *);
-int ssl_cmp(struct ssl *, struct ssl *);
+void *ssl_smtp_init(void *);
 void *ssl_mta_init(struct ssl *);
+int ssl_cmp(struct ssl *, struct ssl *);
 SPLAY_PROTOTYPE(ssltree, ssl, ssl_nodes, ssl_cmp);
 
 
@@ -1214,7 +1207,7 @@ void addargs(arglist *, char *, ...)
 	__attribute__((format(printf, 2, 3)));
 int bsnprintf(char *, size_t, const char *, ...)
 	__attribute__ ((format (printf, 3, 4)));
-int mkdir_p(char *, mode_t);
+int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(char *, char *);
 int email_to_mailaddr(struct mailaddr *, char *);
@@ -1232,7 +1225,6 @@ void fdlimit(double);
 int availdesc(void);
 uint32_t evpid_to_msgid(uint64_t);
 uint64_t msgid_to_evpid(uint32_t);
-void log_imsg(int, int, struct imsg*);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
@@ -1244,3 +1236,4 @@ void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 void *xrealloc(void *, size_t, const char *);
 char *xstrdup(const char *, const char *);
+void *xmemdup(const void *, size_t, const char *);
