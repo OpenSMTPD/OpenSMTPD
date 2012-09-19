@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.352 2012/09/17 20:19:18 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.360 2012/09/19 18:20:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -283,7 +283,6 @@ struct map_backend {
 
 enum cond_type {
 	C_ALL,
-	C_NET,
 	C_DOM,
 	C_VDOM
 };
@@ -302,9 +301,6 @@ enum action_type {
 	A_FILENAME,
 	A_MDA
 };
-
-#define IS_MAILBOX(x)	((x).r_action == A_MAILDIR || (x).r_action == A_MBOX || (x).r_action == A_FILENAME)
-#define IS_RELAY(x)	((x).r_action == A_RELAY || (x).r_action == A_RELAYVIA)
 
 struct rule {
 	TAILQ_ENTRY(rule)		 r_entry;
@@ -342,7 +338,6 @@ enum delivery_status {
 
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
-	DF_ENQUEUED		= 0x2,
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8 /* internal expansion forward */
 };
@@ -372,15 +367,9 @@ enum expand_type {
 	EXPAND_ADDRESS
 };
 
-enum expand_flags {
-	F_EXPAND_NONE,
-	F_EXPAND_DONE
-};
-
 struct expandnode {
 	RB_ENTRY(expandnode)	entry;
-	size_t			refcnt;
-	enum expand_flags      	flags;
+	int			done;
 	enum expand_type       	type;
 	char			as_user[MAXLOGNAME];
 	union delivery_data    	u;
@@ -422,7 +411,6 @@ struct envelope {
 	uint8_t				 retry;
 	enum delivery_flags		 flags;
 };
-TAILQ_HEAD(deliverylist, envelope);
 
 enum envelope_field {
 	EVP_VERSION,
@@ -705,7 +693,7 @@ struct lka_session {
 	SPLAY_ENTRY(lka_session)	 nodes;
 	uint64_t			 id;
 
-	struct deliverylist		 deliverylist;
+	TAILQ_HEAD(, envelope)		 deliverylist;
 	struct expandtree		 expandtree;
 
 	uint8_t				 iterations;
@@ -939,11 +927,9 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
 
 /* aliases.c */
-int aliases_exist(objid_t, char *);
 int aliases_get(objid_t, struct expandtree *, char *);
-int aliases_vdomain_exists(objid_t, char *);
-int aliases_virtual_exist(objid_t, struct mailaddr *);
 int aliases_virtual_get(objid_t, struct expandtree *, struct mailaddr *);
+int aliases_vdomain_exists(objid_t, char *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -1003,13 +989,10 @@ int envelope_dump_buffer(struct envelope *, char *, size_t);
 
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
-void expandtree_increment_node(struct expandtree *, struct expandnode *);
-void expandtree_decrement_node(struct expandtree *, struct expandnode *);
-void expandtree_remove_node(struct expandtree *, struct expandnode *);
-struct expandnode *expandtree_lookup(struct expandtree *, struct expandnode *);
-void expandtree_free_nodes(struct expandtree *);
+void expand_insert(struct expandtree *, struct expandnode *);
+struct expandnode *expand_lookup(struct expandtree *, struct expandnode *);
+void expand_free(struct expandtree *);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
-
 
 /* forward.c */
 int forwards_get(int, struct expandtree *, char *);
@@ -1017,14 +1000,10 @@ int forwards_get(int, struct expandtree *, char *);
 
 /* lka.c */
 pid_t lka(void);
-int lka_session_cmp(struct lka_session *, struct lka_session *);
-SPLAY_PROTOTYPE(lkatree, lka_session, nodes, lka_session_cmp);
 
 /* lka_session.c */
-struct lka_session *lka_session_init(struct submit_status *);
-void lka_session_fail(struct lka_session *);
-void lka_session_destroy(struct lka_session *);
-
+void lka_session(struct submit_status *);
+void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
 void *map_lookup(objid_t, char *, enum map_kind);
@@ -1216,3 +1195,4 @@ int text_to_relayhost(struct relayhost *, char *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
+void *xmemdup(const void *, size_t, const char *);
