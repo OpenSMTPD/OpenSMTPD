@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.358 2012/09/19 10:10:30 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.359 2012/09/19 11:57:35 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -338,7 +338,6 @@ enum delivery_status {
 
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
-	DF_ENQUEUED		= 0x2,
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8 /* internal expansion forward */
 };
