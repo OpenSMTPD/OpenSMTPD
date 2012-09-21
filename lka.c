@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.138 2012/09/19 11:57:35 eric Exp $	*/
+/*	$OpenBSD: lka.c,v 1.139 2012/09/19 19:40:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -42,7 +42,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct rule *ruleset_match(struct envelope *);
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
