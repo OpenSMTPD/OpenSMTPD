@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.136 2012/09/16 16:43:28 chl Exp $	*/
+/*	$OpenBSD: lka.c,v 1.140 2012/09/21 10:22:29 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -42,15 +42,12 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct rule *ruleset_match(struct envelope *);
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_verify_mail(struct mailaddr *);
 static int lka_encode_credentials(char *, size_t, struct map_credentials *);
 
-void lka_session(struct submit_status *);
-void lka_session_forward_reply(struct forward_req *, int);
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -90,7 +87,9 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (rule) {
 				ss->code = 250;
 				ss->envelope.rule = *rule;
-				if (IS_RELAY(*rule))
+				ss->envelope.expire = rule->r_qexpire;
+				if (rule->r_action == A_RELAY ||
+				    rule->r_action == A_RELAYVIA)
 					ss->envelope.type = D_MTA;
 				else
 					ss->envelope.type = D_MDA;
@@ -318,7 +317,7 @@ lka(void)
 	return (0);
 }
 
-int
+static int
 lka_verify_mail(struct mailaddr *maddr)
 {
 	return 1;

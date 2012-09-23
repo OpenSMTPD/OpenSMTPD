@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.23 2012/09/17 18:44:57 gilles Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.33 2012/09/21 19:37:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -39,39 +39,58 @@
 #include "smtpd.h"
 #include "log.h"
 
-void lka_session(struct submit_status *);
-void lka_session_forward_reply(struct forward_req *, int);
+enum lka_session_flags {
+	F_ERROR		= 0x1
+};
 
-struct lka_session *lka_session_init(struct submit_status *);
-struct lka_session *lka_session_find(uint64_t);
-struct lka_session *lka_session_xfind(uint64_t);
-void lka_session_fail(struct lka_session *);
-void lka_session_destroy(struct lka_session *);
-void lka_session_pickup(struct lka_session *, struct envelope *);
-int lka_session_envelope_expand(struct lka_session *, struct envelope *);
-int lka_session_resume(struct lka_session *, struct envelope *);
-void lka_session_done(struct lka_session *);
-size_t lka_session_expand_format(char *, size_t, struct envelope *);
-void lka_session_request_forwardfile(struct lka_session *,
+struct lka_session {
+	SPLAY_ENTRY(lka_session)	 nodes;
+	uint64_t			 id;
+
+	TAILQ_HEAD(, envelope)		 deliverylist;
+	struct expand			 expand;
+
+	uint8_t				 iterations;
+	uint32_t			 pending;
+	enum lka_session_flags		 flags;
+	struct submit_status		 ss;
+};
+
+static void lka_session_fail(struct lka_session *);
+static void lka_session_destroy(struct lka_session *);
+static void lka_session_pickup(struct lka_session *, struct envelope *);
+static int lka_session_envelope_expand(struct lka_session *, struct envelope *);
+static int lka_session_resume(struct lka_session *, struct envelope *);
+static void lka_session_done(struct lka_session *);
+static size_t lka_session_expand_format(char *, size_t, struct envelope *);
+static void lka_session_request_forwardfile(struct lka_session *,
     struct envelope *, char *);
-void lka_session_deliver(struct lka_session *, struct envelope *);
-int lka_session_resolve_node(struct envelope *, struct expandnode *);
-int lka_session_rcpt_action(struct envelope *);
-struct rule *ruleset_match(struct envelope *);
+static void lka_session_deliver(struct lka_session *, struct envelope *);
+static int lka_session_resolve_node(struct envelope *, struct expandnode *);
+static int lka_session_rcpt_action(struct envelope *);
+
+static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
 
 void
 lka_session(struct submit_status *ss)
 {
 	struct lka_session *lks;
 
-	lks = lka_session_init(ss);
+	lks = xcalloc(1, sizeof(*lks), "lka_session");
+	lks->id = generate_uid();
+	lks->ss = *ss;
+	lks->ss.code = 250;
+	RB_INIT(&lks->expand.tree);
+	TAILQ_INIT(&lks->deliverylist);
+	tree_xset(&sessions, lks->id, lks);
+
 	if (! lka_session_envelope_expand(lks, &ss->envelope))
 		lka_session_fail(lks);
 	else
 		lka_session_pickup(lks, &ss->envelope);
 }
 
-int
+static int
 lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 {
 	char *user;
@@ -88,8 +107,7 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 
 	switch (ep->rule.r_condition.c_type) {
 	case C_ALL:
-	case C_NET:
-	case C_DOM: {
+	case C_DOM:
 		if (ep->agent.mda.to.user[0] == '\0')
 			user = ep->dest.user;
 		else
@@ -105,13 +123,8 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 				tag++;
 		}
 
-		if (aliases_exist(ep->rule.r_amap, username)) {
-			if (! aliases_get(ep->rule.r_amap,
-				&lks->expandtree, username)) {
-				return 0;
-			}
+		if (aliases_get(ep->rule.r_amap, &lks->expand, username))
 			return 1;
-		}
 
 		bzero(&u, sizeof (u));
 		ub = user_backend_lookup(USER_PWD);
@@ -151,17 +164,13 @@ lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
 
 		lka_session_request_forwardfile(lks, ep, u.username);
 		return 1;
-	}
 
-	case C_VDOM: {
-		if (aliases_virtual_exist(ep->rule.r_condition.c_map, &ep->dest)) {
-			if (! aliases_virtual_get(ep->rule.r_condition.c_map,
-				&lks->expandtree, &ep->dest))
-				return 0;
+	case C_VDOM:
+		if (aliases_virtual_get(ep->rule.r_condition.c_map,
+		    &lks->expand, &ep->dest))
 			return 1;
-		}
+
 		return 0;
-	}
 
 	default:
 		fatalx("lka_session_envelope_expand: unexpected type");
@@ -177,14 +186,16 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	struct lka_session *lks;
 	struct envelope *ep;
 
-	lks = lka_session_xfind(fwreq->id);
+	lks = tree_xget(&sessions, fwreq->id);
 	lks->pending--;
 	
 	ep = &fwreq->envelope;
 
 	if (fd != -1) {
 		/* opened .forward okay */
-		if (! forwards_get(fd, &lks->expandtree, fwreq->as_user)) {
+		strlcpy(lks->expand.user, fwreq->as_user,
+		    sizeof lks->expand.user);
+		if (! forwards_get(fd, &lks->expand)) {
 			lks->ss.code = 530;
 			lks->flags |= F_ERROR;
 		}
@@ -206,27 +217,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	lka_session_pickup(lks, ep);
 }
 
-struct lka_session *
-lka_session_init(struct submit_status *ss)
-{
-	struct lka_session *lks;
-
-	lks = calloc(1, sizeof(*lks));
-	if (lks == NULL)
-		fatal("lka_session_init: calloc");
-
-	lks->id = generate_uid();
-	lks->ss = *ss;
-	lks->ss.code = 250;
-
-	RB_INIT(&lks->expandtree);
-	TAILQ_INIT(&lks->deliverylist);
-	SPLAY_INSERT(lkatree, &env->lka_sessions, lks);
-
-	return lks;
-}
-
-void
+static void
 lka_session_pickup(struct lka_session *lks, struct envelope *ep)
 {
 	int ret;
@@ -254,16 +245,16 @@ lka_session_pickup(struct lka_session *lks, struct envelope *ep)
 	lka_session_done(lks);
 }
 
-int
+static int
 lka_session_resume(struct lka_session *lks, struct envelope *ep)
 {
 	struct expandnode *xn;
         uint8_t done = 1;
 
-	RB_FOREACH(xn, expandtree, &lks->expandtree) {
+	RB_FOREACH(xn, expandtree, &lks->expand.tree) {
 
 		/* this node has already been expanded, skip */
-                if (xn->flags & F_EXPAND_DONE)
+                if (xn->done)
                         continue;
                 done = 0;
 
@@ -279,9 +270,7 @@ lka_session_resume(struct lka_session *lks, struct envelope *ep)
 			return -1;
 		}
 
-                /* decrement refcount on this node and flag it as processed */
-                expandtree_decrement_node(&lks->expandtree, xn);
-                xn->flags |= F_EXPAND_DONE;
+		xn->done = 1;
 	}
 
         /* still not done after 5 iterations ? loop detected ... reject */
@@ -289,13 +278,13 @@ lka_session_resume(struct lka_session *lks, struct envelope *ep)
                 return -1;
 
         /* we're done expanding, no need for another iteration */
-	if (RB_ROOT(&lks->expandtree) == NULL || done)
+	if (RB_ROOT(&lks->expand.tree) == NULL || done)
 		return 0;
 
 	return 1;
 }
 
-void
+static void
 lka_session_done(struct lka_session *lks)
 {
 	struct envelope *ep;
@@ -328,28 +317,7 @@ done:
 	lka_session_destroy(lks);
 }
 
-struct lka_session *
-lka_session_find(uint64_t id)
-{
-	struct lka_session key;
-
-	key.id = id;
-	return SPLAY_FIND(lkatree, &env->lka_sessions, &key);
-}
-
-struct lka_session *
-lka_session_xfind(uint64_t id)
-{
-	struct lka_session *lks;
-
-	lks = lka_session_find(id);
-	if (lks == NULL)
-		fatalx("lka_session_xfind: lka session missing");
-
-	return lks;
-}
-
-void
+static void
 lka_session_fail(struct lka_session *lks)
 {
 	lks->ss.code = 530;
@@ -358,35 +326,27 @@ lka_session_fail(struct lka_session *lks)
         lka_session_destroy(lks);
 }
 
-void
+static void
 lka_session_destroy(struct lka_session *lks)
 {
 	struct envelope *ep;
-	struct expandnode *xn;
 
 	while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 		TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 		free(ep);
 	}
 
-	while ((xn = RB_ROOT(&lks->expandtree)) != NULL) {
-		RB_REMOVE(expandtree, &lks->expandtree, xn);
-		free(xn);
-	}
-
-	SPLAY_REMOVE(lkatree, &env->lka_sessions, lks);
+	expand_free(&lks->expand);
+	tree_xpop(&sessions, lks->id);
 	free(lks);
 }
 
-void
+static void
 lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 {
 	struct envelope *new_ep;
 
-	new_ep = calloc(1, sizeof (*ep));
-	if (new_ep == NULL)
-		fatal("lka_session_deliver: calloc");
-	*new_ep = *ep;
+	new_ep = xmemdup(ep, sizeof *ep, "lka_session_deliver");
 	if (new_ep->type == D_MDA) {
 		switch (new_ep->agent.mda.method) {
 		case A_MAILDIR:
@@ -418,7 +378,7 @@ lka_session_deliver(struct lka_session *lks, struct envelope *ep)
 	TAILQ_INSERT_TAIL(&lks->deliverylist, new_ep, entry);
 }
 
-int
+static int
 lka_session_resolve_node(struct envelope *ep, struct expandnode *xn)
 {
 	struct envelope	oldep;
@@ -499,7 +459,7 @@ lka_session_resolve_node(struct envelope *ep, struct expandnode *xn)
 	return 1;
 }
 
-size_t
+static size_t
 lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 {
 	char *p, *pbuf;
@@ -617,7 +577,7 @@ copy:
 	return ret;
 }
 
-int
+static int
 lka_session_rcpt_action(struct envelope *ep)
 {
         struct rule *r;
@@ -643,7 +603,7 @@ lka_session_rcpt_action(struct envelope *ep)
 	return 1;
 }
 
-void
+static void
 lka_session_request_forwardfile(struct lka_session *lks,
     struct envelope *ep, char *as_user)
 {
@@ -656,20 +616,3 @@ lka_session_request_forwardfile(struct lka_session *lks,
 	    IMSG_PARENT_FORWARD_OPEN, 0, 0, -1, &fwreq, sizeof(fwreq));
 	++lks->pending;
 }
-
-int
-lka_session_cmp(struct lka_session *s1, struct lka_session *s2)
-{
-	/*
-	 * do not return uint64_t's
-	 */
-	if (s1->id < s2->id)
-		return -1;
-
-	if (s1->id > s2->id)
-		return 1;
-
-	return 0;
-}
-
-SPLAY_GENERATE(lkatree, lka_session, nodes, lka_session_cmp);

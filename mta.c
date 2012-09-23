@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.141 2012/09/16 16:43:28 chl Exp $	*/
+/*	$OpenBSD: mta.c,v 1.143 2012/09/21 12:33:32 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -93,9 +93,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_BATCH_APPEND:
-			e = xmalloc(sizeof *e, "mta:envelope");
-			memmove(e, imsg->data, sizeof *e);
-
+			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
 			route = mta_route_for(e);
 			batch = tree_xget(&batches, e->batch_id);
 
@@ -518,15 +516,12 @@ mta_route_drain(struct mta_route *route)
 static void
 mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 {
+	char	relay[MAX_LINE_SIZE];
+
 	envelope_set_errormsg(e, "%s", status);
 
-	log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, relay=%s, stat=%s (%s)",
-	    e->id, e->dest.user,
-	    e->dest.domain,
-	    duration_to_text(time(NULL) - e->creation),
-	    task->route->hostname,
-	    mta_response_status(e->errorline),
-	    mta_response_text(e->errorline));
+	snprintf(relay, sizeof relay, "relay=%s, ", task->route->hostname);
+	log_envelope(e, relay, e->errorline);
 
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));

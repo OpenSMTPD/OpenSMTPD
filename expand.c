@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.11 2010/11/28 14:35:58 gilles Exp $	*/
+/*	$OpenBSD: expand.c,v 1.16 2012/09/21 19:37:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -32,65 +32,35 @@
 #include "log.h"
 
 struct expandnode *
-expandtree_lookup(struct expandtree *expandtree, struct expandnode *node)
+expand_lookup(struct expand *expand, struct expandnode *key)
 {
-	struct expandnode key;
-
-	key = *node;
-	return RB_FIND(expandtree, expandtree, &key);
+	return RB_FIND(expandtree, &expand->tree, key);
 }
 
 void
-expandtree_increment_node(struct expandtree *expandtree, struct expandnode *node)
+expand_insert(struct expand *expand, struct expandnode *node)
 {
-	struct expandnode *p;
+	struct expandnode *xn;
 
-	p = expandtree_lookup(expandtree, node);
-	if (p == NULL) {
-		p = calloc(1, sizeof(struct expandnode));
-		if (p == NULL)
-			fatal("calloc");
-		*p = *node;
-		if (RB_INSERT(expandtree, expandtree, p))
-			fatalx("expandtree_increment_node: node already exists");
-	}
-	p->refcnt++;
+	if (expand_lookup(expand, node))
+		return;
+
+	xn = xmemdup(node, sizeof *xn, "expand_insert");
+
+	/* copy expansion context on node */
+	strlcpy(xn->as_user, expand->user, sizeof xn->as_user);
+
+	RB_INSERT(expandtree, &expand->tree, xn);
 }
 
 void
-expandtree_decrement_node(struct expandtree *expandtree, struct expandnode *node)
+expand_free(struct expand *expand)
 {
-	struct expandnode *p;
+	struct expandnode *xn;
 
-	p = expandtree_lookup(expandtree, node);
-	if (p == NULL)
-		fatalx("expandtree_decrement_node: node doesn't exist.");
-
-	p->refcnt--;
-}
-
-void
-expandtree_remove_node(struct expandtree *expandtree, struct expandnode *node)
-{
-	struct expandnode *p;
-
-	p = expandtree_lookup(expandtree, node);
-	if (p == NULL)
-		fatalx("expandtree_remove: node doesn't exist.");
-
-	RB_REMOVE(expandtree, expandtree, p);
-}
-
-void
-expandtree_free_nodes(struct expandtree *expandtree)
-{
-	struct expandnode *p;
-	struct expandnode *nxt;
-
-	for (p = RB_MIN(expandtree, expandtree); p != NULL; p = nxt) {
-		nxt = RB_NEXT(expandtree, expandtree, p);
-		RB_REMOVE(expandtree, expandtree, p);
-		free(p);
+	while ((xn = RB_ROOT(&expand->tree)) != NULL) {
+		RB_REMOVE(expandtree, &expand->tree, xn);
+		free(xn);
 	}
 }
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.77 2012/09/16 11:53:57 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.81 2012/09/21 12:33:32 eric Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -84,6 +84,18 @@ xstrdup(const char *str, const char *where)
 
 	if ((r = strdup(str)) == NULL)
 		errx(1, "%s: strdup(%p)", where, str);
+
+	return (r);
+}
+
+void *
+xmemdup(const void *ptr, size_t size, const char *where)
+{
+	void	*r;
+
+	if ((r = malloc(size)) == NULL)
+		errx(1, "%s: malloc(%zu)", where, size);
+	memmove(r, ptr, size);
 
 	return (r);
 }
@@ -347,7 +359,7 @@ safe_fclose(FILE *fp)
 }
 
 int
-hostname_match(char *hostname, char *pattern)
+hostname_match(const char *hostname, const char *pattern)
 {
 	while (*pattern != '\0' && *hostname != '\0') {
 		if (*pattern == '*') {
@@ -471,7 +483,7 @@ email_to_mailaddr(struct mailaddr *maddr, char *email)
 }
 
 char *
-ss_to_text(struct sockaddr_storage *ss)
+ss_to_text(const struct sockaddr_storage *ss)
 {
 	static char	 buf[NI_MAXHOST + 5];
 	char		*p;
@@ -485,7 +497,7 @@ ss_to_text(struct sockaddr_storage *ss)
 	else if (ss->ss_family == AF_INET) {
 		in_addr_t addr;
 		
-		addr = ((struct sockaddr_in *)ss)->sin_addr.s_addr;
+		addr = ((const struct sockaddr_in *)ss)->sin_addr.s_addr;
                 addr = ntohl(addr);
                 bsnprintf(p, NI_MAXHOST,
                     "%d.%d.%d.%d",
@@ -495,8 +507,8 @@ ss_to_text(struct sockaddr_storage *ss)
                     addr & 0xff);
 	}
 	else if (ss->ss_family == AF_INET6) {
-		struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)ss;
-		struct in6_addr	*in6_addr;
+		const struct sockaddr_in6 *in6 = (const struct sockaddr_in6 *)ss;
+		const struct in6_addr	*in6_addr;
 
 		strlcpy(buf, "IPv6:", sizeof(buf));
 		p = buf + 5;
@@ -580,7 +592,7 @@ duration_to_text(time_t t)
 }
 
 int
-text_to_netaddr(struct netaddr *netaddr, char *s)
+text_to_netaddr(struct netaddr *netaddr, const char *s)
 {
 	struct sockaddr_storage	ss;
 	struct sockaddr_in	ssin;
@@ -649,11 +661,10 @@ text_to_netaddr(struct netaddr *netaddr, char *s)
 }
 
 int
-text_to_relayhost(struct relayhost *relay, char *s)
+text_to_relayhost(struct relayhost *relay, const char *s)
 {
-	uint32_t		 i;
-	struct schema {
-		char		*name;
+	static const struct schema {
+		const char	*name;
 		uint8_t		 flags;
 	} schemas [] = {
 		{ "smtp://",		0				},
@@ -665,9 +676,10 @@ text_to_relayhost(struct relayhost *relay, char *s)
 		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
 	};
 	const char	*errstr = NULL;
-	char	*p;
-	char	*sep;
-	int	 len;
+	const char	*p;
+	char		*sep;
+	size_t		 i;
+	int		 len;
 
 	for (i = 0; i < nitems(schemas); ++i)
 		if (strncasecmp(schemas[i].name, s, strlen(schemas[i].name)) == 0)
@@ -787,7 +799,7 @@ addargs(arglist *args, char *fmt, ...)
 }
 
 int
-lowercase(char *buf, char *s, size_t len)
+lowercase(char *buf, const char *s, size_t len)
 {
 	if (len == 0)
 		return 0;
@@ -804,7 +816,7 @@ lowercase(char *buf, char *s, size_t len)
 }
 
 void
-xlowercase(char *buf, char *s, size_t len)
+xlowercase(char *buf, const char *s, size_t len)
 {
 	if (len == 0)
 		fatalx("lowercase: len == 0");
@@ -1016,4 +1028,26 @@ temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 		return (-1);
 
 	return bits;
+}
+
+void
+log_envelope(const struct envelope *evp, const char *extra, const char *status)
+{
+	char rcpt[MAX_LINE_SIZE];
+
+	rcpt[0] = '\0';
+	if (strcmp(evp->rcpt.user, evp->dest.user) ||
+	    strcmp(evp->rcpt.domain, evp->dest.domain))
+		snprintf(rcpt, sizeof rcpt, "rcpt=<%s@%s>, ",
+		    evp->rcpt.user, evp->rcpt.domain);
+
+	if (extra == NULL)
+		extra = "";
+
+	log_info("%016" PRIx64 ": to=<%s@%s>, %sdelay=%s, %sstat=%s",
+	    evp->id, evp->dest.user, evp->dest.domain,
+	    rcpt,
+	    duration_to_text(time(NULL) - evp->creation),
+	    extra,
+	    status);
 }
