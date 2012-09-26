@@ -1,4 +1,4 @@
-/*	$OpenBSD: aliases.c,v 1.53 2012/09/19 12:59:59 eric Exp $	*/
+/*	$OpenBSD: aliases.c,v 1.56 2012/09/21 19:37:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -33,7 +33,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int aliases_expand_include(struct expandtree *, const char *);
+static int aliases_expand_include(struct expand *, const char *);
 static int alias_is_filter(struct expandnode *, const char *, size_t);
 static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
@@ -41,7 +41,7 @@ static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
 
 int
-aliases_get(objid_t mapid, struct expandtree *expandtree, char *username)
+aliases_get(objid_t mapid, struct expand *expand, const char *username)
 {
 	struct map_alias *map_alias;
 	struct expandnode *xn;
@@ -55,17 +55,16 @@ aliases_get(objid_t mapid, struct expandtree *expandtree, char *username)
 
 	/* foreach node in map_alias expandtree, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &map_alias->expandtree) {
-		strlcpy(xn->as_user, SMTPD_USER, sizeof (xn->as_user));
+	RB_FOREACH(xn, expandtree, &map_alias->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expandtree, xn->u.buffer);
+			nbaliases += aliases_expand_include(expand, xn->u.buffer);
 		else {
-			expand_insert(expandtree, xn);
+			expand_insert(expand, xn);
 			nbaliases++;
 		}
 	}
 
-	expand_free(&map_alias->expandtree);
+	expand_free(&map_alias->expand);
 	free(map_alias);
 
 	log_debug("aliases_get: returned %zd aliases", nbaliases);
@@ -73,8 +72,8 @@ aliases_get(objid_t mapid, struct expandtree *expandtree, char *username)
 }
 
 int
-aliases_virtual_get(objid_t mapid, struct expandtree *expandtree,
-    struct mailaddr *maddr)
+aliases_virtual_get(objid_t mapid, struct expand *expand,
+    const struct mailaddr *maddr)
 {
 	struct map_virtual *map_virtual;
 	struct expandnode *xn;
@@ -95,19 +94,18 @@ aliases_virtual_get(objid_t mapid, struct expandtree *expandtree,
 	if (map_virtual == NULL)
 		return 0;
 
-	/* foreach node in map_virtual expandtree, we merge */
+	/* foreach node in map_virtual expand, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &map_virtual->expandtree) {
-		strlcpy(xn->as_user, SMTPD_USER, sizeof (xn->as_user));
+	RB_FOREACH(xn, expandtree, &map_virtual->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expandtree, xn->u.buffer);
+			nbaliases += aliases_expand_include(expand, xn->u.buffer);
 		else {
-			expand_insert(expandtree, xn);
+			expand_insert(expand, xn);
 			nbaliases++;
 		}
 	}
 
-	expand_free(&map_virtual->expandtree);
+	expand_free(&map_virtual->expand);
 	free(map_virtual);
 	log_debug("aliases_virtual_get: '%s' resolved to %d nodes", pbuf, nbaliases);
 
@@ -115,7 +113,7 @@ aliases_virtual_get(objid_t mapid, struct expandtree *expandtree,
 }
 
 int
-aliases_vdomain_exists(objid_t mapid, char *hostname)
+aliases_vdomain_exists(objid_t mapid, const char *hostname)
 {
 	struct map_virtual *map_virtual;
 	char buf[MAXHOSTNAMELEN];
@@ -127,14 +125,14 @@ aliases_vdomain_exists(objid_t mapid, char *hostname)
 
 	/* XXX - for now the map API always allocate */
 	log_debug("aliases_vdomain_exist: '%s' exists", hostname);
-	expand_free(&map_virtual->expandtree);
+	expand_free(&map_virtual->expand);
 	free(map_virtual);
 
 	return 1;
 }
 
 static int
-aliases_expand_include(struct expandtree *expandtree, const char *filename)
+aliases_expand_include(struct expand *expand, const char *filename)
 {
 	FILE *fp;
 	char *line;
@@ -162,7 +160,7 @@ aliases_expand_include(struct expandtree *expandtree, const char *filename)
 		if (xn.type == EXPAND_INCLUDE)
 			log_warnx("nested inclusion is not supported.");
 		else
-			expand_insert(expandtree, &xn);
+			expand_insert(expand, &xn);
 
 		free(line);
 	}

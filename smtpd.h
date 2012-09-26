@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.360 2012/09/19 18:20:36 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.367 2012/09/25 17:38:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -276,8 +276,9 @@ struct map {
 struct map_backend {
 	void *(*open)(struct map *);
 	void (*close)(void *);
-	void *(*lookup)(void *, char *, enum map_kind);
-	int  (*compare)(void *, char *, enum map_kind, int (*)(char *, char *));
+	void *(*lookup)(void *, const char *, enum map_kind);
+	int  (*compare)(void *, const char *, enum map_kind,
+	    int (*)(const char *, const char *));
 };
 
 
@@ -375,7 +376,10 @@ struct expandnode {
 	union delivery_data    	u;
 };
 
-RB_HEAD(expandtree, expandnode);
+struct expand {
+	RB_HEAD(expandtree, expandnode)	tree;
+	char				user[MAXLOGNAME];
+};
 
 #define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
@@ -685,23 +689,6 @@ struct rulematch {
 	struct submit_status	 ss;
 };
 
-enum lka_session_flags {
-	F_ERROR		= 0x1
-};
-
-struct lka_session {
-	SPLAY_ENTRY(lka_session)	 nodes;
-	uint64_t			 id;
-
-	TAILQ_HEAD(, envelope)		 deliverylist;
-	struct expandtree		 expandtree;
-
-	uint8_t				 iterations;
-	uint32_t			 pending;
-	enum lka_session_flags		 flags;
-	struct submit_status		 ss;
-};
-
 struct filter {
 	TAILQ_ENTRY(filter)     f_entry;
 	pid_t			pid;
@@ -768,12 +755,12 @@ struct map_credentials {
 
 struct map_alias {
 	size_t			nbnodes;
-	struct expandtree	expandtree;
+	struct expand		expand;
 };
 
 struct map_virtual {
 	size_t			nbnodes;
-	struct expandtree	expandtree;
+	struct expand		expand;
 };
 
 struct map_netaddr {
@@ -834,7 +821,7 @@ struct mta_user {
 };
 
 struct user_backend {
-	int (*getbyname)(struct mta_user *, char *);
+	int (*getbyname)(struct mta_user *, const char *);
 };
 
 
@@ -927,9 +914,9 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
 
 /* aliases.c */
-int aliases_get(objid_t, struct expandtree *, char *);
-int aliases_virtual_get(objid_t, struct expandtree *, struct mailaddr *);
-int aliases_vdomain_exists(objid_t, char *);
+int aliases_get(objid_t, struct expand *, const char *);
+int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
+int aliases_vdomain_exists(objid_t, const char *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -989,13 +976,13 @@ int envelope_dump_buffer(struct envelope *, char *, size_t);
 
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
-void expand_insert(struct expandtree *, struct expandnode *);
-struct expandnode *expand_lookup(struct expandtree *, struct expandnode *);
-void expand_free(struct expandtree *);
+void expand_insert(struct expand *, struct expandnode *);
+struct expandnode *expand_lookup(struct expand *, struct expandnode *);
+void expand_free(struct expand *);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 /* forward.c */
-int forwards_get(int, struct expandtree *, char *);
+int forwards_get(int, struct expand *);
 
 
 /* lka.c */
@@ -1006,8 +993,9 @@ void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
-void *map_lookup(objid_t, char *, enum map_kind);
-int map_compare(objid_t, char *, enum map_kind, int (*)(char *, char *));
+void *map_lookup(objid_t, const char *, enum map_kind);
+int map_compare(objid_t, const char *, enum map_kind,
+    int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
 struct map *map_create(enum map_kind, const char *);
@@ -1071,6 +1059,11 @@ int compress_file(FILE *, FILE *);
 int uncompress_file(FILE *, FILE *);
 size_t compress_buffer(char *, size_t, char *, size_t);
 size_t uncompress_buffer(char *, size_t, char *, size_t);
+
+
+/* ruleset.c */
+struct rule *ruleset_match(const struct envelope *);
+
 
 /* scheduler.c */
 pid_t scheduler(void);
@@ -1169,16 +1162,16 @@ int bsnprintf(char *, size_t, const char *, ...)
 	__attribute__ ((format (printf, 3, 4)));
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
-int hostname_match(char *, char *);
+int hostname_match(const char *, const char *);
 int email_to_mailaddr(struct mailaddr *, char *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
-char *ss_to_text(struct sockaddr_storage *);
+char *ss_to_text(const struct sockaddr_storage *);
 char *time_to_text(time_t);
 char *duration_to_text(time_t);
 int secure_file(int, char *, char *, uid_t, int);
-int  lowercase(char *, char *, size_t);
-void xlowercase(char *, char *, size_t);
+int  lowercase(char *, const char *, size_t);
+void xlowercase(char *, const char *, size_t);
 void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
@@ -1190,9 +1183,10 @@ int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
-int text_to_netaddr(struct netaddr *, char *);
-int text_to_relayhost(struct relayhost *, char *);
+int text_to_netaddr(struct netaddr *, const char *);
+int text_to_relayhost(struct relayhost *, const char *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
+void log_envelope(const struct envelope *, const char *, const char *);
