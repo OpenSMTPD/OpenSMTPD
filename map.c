@@ -150,11 +150,7 @@ map_create(enum map_kind kind, const char *name)
 
 	m = xcalloc(1, sizeof(*m), "map_create");
 	m->m_src = kind;
-<<<<<<< HEAD
 	m->m_id = ++last_map_id;
-=======
-	m->m_id = last_map_id++;
->>>>>>> 0a9cd3227e51f1f95a6b4ec040ee3a801b599f75
 	if (m->m_id == INT_MAX)
 		errx(1, "map_create: too many maps defined");
 
