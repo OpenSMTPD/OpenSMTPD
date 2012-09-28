@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.367 2012/09/25 17:38:55 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.369 2012/09/27 18:57:25 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -343,20 +343,14 @@ enum delivery_flags {
 	DF_INTERNAL		= 0x8 /* internal expansion forward */
 };
 
-union delivery_data {
-	char user[MAXLOGNAME];
-	char buffer[MAX_RULEBUFFER_LEN];
-	struct mailaddr mailaddr;
-};
-
 struct delivery_mda {
 	enum action_type	method;
-	union delivery_data	to;
-	char			as_user[MAXLOGNAME];
+	char			user[MAXLOGNAME];
+	char			buffer[MAX_RULEBUFFER_LEN];
 };
 
 struct delivery_mta {
-	struct relayhost relay;
+	struct relayhost	relay;
 };
 
 enum expand_type {
@@ -369,16 +363,25 @@ enum expand_type {
 };
 
 struct expandnode {
-	RB_ENTRY(expandnode)	entry;
-	int			done;
-	enum expand_type       	type;
-	char			as_user[MAXLOGNAME];
-	union delivery_data    	u;
+	RB_ENTRY(expandnode)	 entry;
+	TAILQ_ENTRY(expandnode)	 tq_entry;
+	enum expand_type       	 type;
+	int			 sameuser;
+	struct rule		*rule;
+	struct expandnode	*parent;
+	unsigned int		 depth;
+	union {
+		char		 user[MAXLOGNAME];
+		char		 buffer[MAX_RULEBUFFER_LEN];
+		struct mailaddr	 mailaddr;
+	} 			 u;
 };
 
 struct expand {
-	RB_HEAD(expandtree, expandnode)	tree;
-	char				user[MAXLOGNAME];
+	RB_HEAD(expandtree, expandnode)	 tree;
+	TAILQ_HEAD(xnodes, expandnode)	*queue;
+	struct rule			*rule;
+	struct expandnode		*parent;
 };
 
 #define	SMTPD_ENVELOPE_VERSION		1
@@ -639,7 +642,6 @@ struct forward_req {
 	uint64_t			 id;
 	uint8_t				 status;
 	char				 as_user[MAXLOGNAME];
-	struct envelope			 envelope;
 };
 
 enum dns_status {

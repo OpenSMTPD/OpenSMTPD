@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.75 2012/09/21 12:33:32 eric Exp $	*/
+/*	$OpenBSD: mda.c,v 1.77 2012/09/27 17:47:49 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -82,9 +82,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			/* make new session based on provided args */
-			s = calloc(1, sizeof *s);
-			if (s == NULL)
-				fatal(NULL);
+			s = xcalloc(1, sizeof *s, "mda_imsg");
 			msgbuf_init(&s->w);
 			s->msg = *ep;
 			s->id = mda_id++;
@@ -97,9 +95,9 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			switch (d_mda->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;
-				strlcpy(deliver.user, d_mda->as_user,
+				strlcpy(deliver.user, d_mda->user,
 				    sizeof (deliver.user));
-				strlcpy(deliver.to, d_mda->to.buffer,
+				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
 				break;
 				
@@ -107,7 +105,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				deliver.mode = A_MBOX;
 				strlcpy(deliver.user, "root",
 				    sizeof (deliver.user));
-				strlcpy(deliver.to, d_mda->to.user,
+				strlcpy(deliver.to, d_mda->user,
 				    sizeof (deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
 				    "%s@%s", ep->sender.user,
@@ -116,17 +114,17 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				strlcpy(deliver.user, d_mda->as_user,
+				strlcpy(deliver.user, d_mda->user,
 				    sizeof deliver.user);
-				strlcpy(deliver.to, d_mda->to.buffer,
+				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
 				break;
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				strlcpy(deliver.user, d_mda->as_user,
+				strlcpy(deliver.user, d_mda->user,
 				    sizeof deliver.user);
-				strlcpy(deliver.to, d_mda->to.buffer,
+				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
 				break;
 
@@ -175,9 +173,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 					if (ln[len - 1] == '\n')
 						ln[len - 1] = '\0';
 					else {
-						buf = malloc(len + 1);
-						if (buf == NULL)
-							fatal(NULL);
+						buf = xmalloc(len + 1, "mda_imsg");
 						memcpy(buf, ln, len);
 						buf[len] = '\0';
 						ln = buf;
@@ -420,8 +416,7 @@ mda_check_loop(FILE *fp, struct envelope *ep)
 			buf[len - 1] = '\0';
 		else {
 			/* EOF without EOL, copy and add the NUL */
-			if ((lbuf = malloc(len + 1)) == NULL)
-				err(1, NULL);
+			lbuf = xmalloc(len + 1, "mda_check_loop");
 			memcpy(lbuf, buf, len);
 			lbuf[len] = '\0';
 			buf = lbuf;
