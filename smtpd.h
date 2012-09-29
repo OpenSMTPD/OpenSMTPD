@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.372 2012/09/28 17:28:30 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.373 2012/09/29 10:32:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -380,7 +380,6 @@ struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
 	char				tag[MAX_TAG_SIZE];
-	struct rule			rule;
 
 	uint64_t			session_id;
 	uint64_t			batch_id;
