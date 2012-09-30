@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.142 2012/09/18 14:23:01 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.144 2012/09/28 14:03:00 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -167,22 +167,17 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_ssl = calloc(1, sizeof *env->sc_ssl);
-			if (env->sc_ssl == NULL)
-				fatal(NULL);
+			env->sc_ssl = xcalloc(1, sizeof *env->sc_ssl, "mta:sc_ssl");
 			return;
 
 		case IMSG_CONF_SSL:
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
-			ssl = calloc(1, sizeof *ssl);
-			if (ssl == NULL)
-				fatal(NULL);
-			*ssl = *(struct ssl *)imsg->data;
+			ssl = xmemdup(imsg->data, sizeof *ssl, "mta:ssl");
 			ssl->ssl_cert = xstrdup((char*)imsg->data + sizeof *ssl,
-			  "mta:ssl_cert");
+			    "mta:ssl_cert");
 			ssl->ssl_key = xstrdup((char*)imsg->data +
-			    sizeof *ssl + ssl->ssl_cert_len, "mta_ssl_key");
+			    sizeof *ssl + ssl->ssl_cert_len, "mta:ssl_key");
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
 			return;
 
@@ -527,15 +522,12 @@ mta_route_drain(struct mta_route *route)
 static void
 mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 {
+	char	relay[MAX_LINE_SIZE];
+
 	envelope_set_errormsg(e, "%s", status);
 
-	log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, relay=%s, stat=%s (%s)",
-	    e->id, e->dest.user,
-	    e->dest.domain,
-	    duration_to_text(time(NULL) - e->creation),
-	    task->route->hostname,
-	    mta_response_status(e->errorline),
-	    mta_response_text(e->errorline));
+	snprintf(relay, sizeof relay, "relay=%s, ", task->route->hostname);
+	log_envelope(e, relay, e->errorline);
 
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));

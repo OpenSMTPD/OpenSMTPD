@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.12 2012/09/15 15:12:11 eric Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.14 2012/09/26 19:52:20 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -343,11 +343,11 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MDA_METHOD:
 		return ascii_load_mda_method(&ep->agent.mda.method, buf);
 	case EVP_MDA_BUFFER:
-		return ascii_load_string(ep->agent.mda.to.buffer, buf,
-		    sizeof ep->agent.mda.to.buffer);
+		return ascii_load_string(ep->agent.mda.buffer, buf,
+		    sizeof ep->agent.mda.buffer);
 	case EVP_MDA_USER:
-		return ascii_load_string(ep->agent.mda.as_user, buf,
-		    sizeof ep->agent.mda.as_user);
+		return ascii_load_string(ep->agent.mda.user, buf,
+		    sizeof ep->agent.mda.user);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_load_string(ep->agent.mta.relay.hostname, buf,
 		    sizeof ep->agent.mta.relay.hostname);
@@ -410,9 +410,9 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_MDA_METHOD:
 		return ascii_dump_mda_method(ep->agent.mda.method, buf, len);
 	case EVP_MDA_BUFFER:
-		return ascii_dump_string(ep->agent.mda.to.buffer, buf, len);
+		return ascii_dump_string(ep->agent.mda.buffer, buf, len);
 	case EVP_MDA_USER:
-		return ascii_dump_string(ep->agent.mda.as_user, buf, len);
+		return ascii_dump_string(ep->agent.mda.user, buf, len);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_dump_string(ep->agent.mta.relay.hostname,
 		    buf, len);
@@ -571,7 +571,7 @@ ascii_load_flags(enum delivery_flags *dest, char *buf)
 		if (strcasecmp(flag, "authenticated") == 0)
 			*dest |= DF_AUTHENTICATED;
 		else if (strcasecmp(flag, "enqueued") == 0)
-			*dest |= DF_ENQUEUED;
+			;
 		else if (strcasecmp(flag, "bounce") == 0)
 			*dest |= DF_BOUNCE;
 		else if (strcasecmp(flag, "internal") == 0)
@@ -723,11 +723,6 @@ ascii_dump_flags(enum delivery_flags flags, char *buf, size_t len)
 	if (flags) {
 		if (flags & DF_AUTHENTICATED)
 			cpylen = strlcat(buf, "authenticated", len);
-		if (flags & DF_ENQUEUED) {
-			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
-			cpylen = strlcat(buf, "enqueued", len);
-		}
 		if (flags & DF_BOUNCE) {
 			if (buf[0] != '\0')
 				cpylen = strlcat(buf, " ", len);

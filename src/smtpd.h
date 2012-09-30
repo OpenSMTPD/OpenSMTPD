@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.356 2012/09/18 14:23:01 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.375 2012/09/29 11:02:41 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -224,14 +224,6 @@ struct imsgev {
 	short			 events;
 };
 
-struct ctl_conn {
-	TAILQ_ENTRY(ctl_conn)	 entry;
-	uint8_t			 flags;
-#define CTL_CONN_NOTIFY		 0x01
-	struct imsgev		 iev;
-};
-TAILQ_HEAD(ctl_connlist, ctl_conn);
-
 struct ctl_id {
 	objid_t		 id;
 	char		 name[MAX_NAME_SIZE];
@@ -297,8 +289,9 @@ struct map {
 struct map_backend {
 	void *(*open)(struct map *);
 	void (*close)(void *);
-	void *(*lookup)(void *, char *, enum map_kind);
-	int  (*compare)(void *, char *, enum map_kind, int (*)(char *, char *));
+	void *(*lookup)(void *, const char *, enum map_kind);
+	int  (*compare)(void *, const char *, enum map_kind,
+	    int (*)(const char *, const char *));
 };
 
 
@@ -323,9 +316,6 @@ enum action_type {
 	A_MDA
 };
 
-#define IS_MAILBOX(x)	((x).r_action == A_MAILDIR || (x).r_action == A_MBOX || (x).r_action == A_FILENAME)
-#define IS_RELAY(x)	((x).r_action == A_RELAY || (x).r_action == A_RELAYVIA)
-
 struct rule {
 	TAILQ_ENTRY(rule)		 r_entry;
 	char				 r_tag[MAX_TAG_SIZE];
@@ -338,7 +328,6 @@ struct rule {
 		struct relayhost       	 relayhost;
 	}				 r_value;
 
-	char				*r_user;
 	struct mailaddr			*r_as;
 	objid_t				 r_amap;
 	time_t				 r_qexpire;
@@ -362,25 +351,18 @@ enum delivery_status {
 
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
-	DF_ENQUEUED		= 0x2,
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8 /* internal expansion forward */
 };
 
-union delivery_data {
-	char user[MAXLOGNAME];
-	char buffer[MAX_RULEBUFFER_LEN];
-	struct mailaddr mailaddr;
-};
-
 struct delivery_mda {
 	enum action_type	method;
-	union delivery_data	to;
-	char			as_user[MAXLOGNAME];
+	char			user[MAXLOGNAME];
+	char			buffer[MAX_RULEBUFFER_LEN];
 };
 
 struct delivery_mta {
-	struct relayhost relay;
+	struct relayhost	relay;
 };
 
 enum expand_type {
@@ -392,28 +374,33 @@ enum expand_type {
 	EXPAND_ADDRESS
 };
 
-enum expand_flags {
-	F_EXPAND_NONE,
-	F_EXPAND_DONE
-};
-
 struct expandnode {
-	RB_ENTRY(expandnode)	entry;
-	size_t			refcnt;
-	enum expand_flags      	flags;
-	enum expand_type       	type;
-	char			as_user[MAXLOGNAME];
-	union delivery_data    	u;
+	RB_ENTRY(expandnode)	 entry;
+	TAILQ_ENTRY(expandnode)	 tq_entry;
+	enum expand_type       	 type;
+	int			 sameuser;
+	struct rule		*rule;
+	struct expandnode	*parent;
+	unsigned int		 depth;
+	union {
+		char		 user[MAXLOGNAME];
+		char		 buffer[MAX_RULEBUFFER_LEN];
+		struct mailaddr	 mailaddr;
+	} 			 u;
 };
 
-RB_HEAD(expandtree, expandnode);
+struct expand {
+	RB_HEAD(expandtree, expandnode)	 tree;
+	TAILQ_HEAD(xnodes, expandnode)	*queue;
+	struct rule			*rule;
+	struct expandnode		*parent;
+};
 
 #define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
 	char				tag[MAX_TAG_SIZE];
-	struct rule			rule;
 
 	uint64_t			session_id;
 	uint64_t			batch_id;
@@ -469,23 +456,6 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTHMAP
 };
 
-
-enum child_type {
-	CHILD_INVALID,
-	CHILD_DAEMON,
-	CHILD_MDA,
-	CHILD_ENQUEUE_OFFLINE,
-};
-
-struct child {
-	SPLAY_ENTRY(child)	 entry;
-	pid_t			 pid;
-	enum child_type		 type;
-	enum smtp_proc_type	 title;
-	int			 mda_out;
-	uint32_t		 mda_id;
-	char			*path;
-};
 
 enum session_state {
 	S_NEW = 0,
@@ -666,7 +636,6 @@ struct forward_req {
 	uint64_t			 id;
 	uint8_t				 status;
 	char				 as_user[MAXLOGNAME];
-	struct envelope			 envelope;
 };
 
 enum dns_status {
@@ -695,15 +664,6 @@ struct secret {
 	char			 secret[MAX_LINE_SIZE];
 };
 
-struct mda_session {
-	LIST_ENTRY(mda_session)	 entry;
-	struct envelope		 msg;
-	struct msgbuf		 w;
-	struct event		 ev;
-	uint32_t		 id;
-	FILE			*datafp;
-};
-
 struct deliver {
 	char			to[PATH_MAX];
 	char			from[PATH_MAX];
@@ -714,23 +674,6 @@ struct deliver {
 struct rulematch {
 	uint64_t		 id;
 	struct submit_status	 ss;
-};
-
-enum lka_session_flags {
-	F_ERROR		= 0x1
-};
-
-struct lka_session {
-	SPLAY_ENTRY(lka_session)	 nodes;
-	uint64_t			 id;
-
-	TAILQ_HEAD(, envelope)		 deliverylist;
-	struct expandtree		 expandtree;
-
-	uint8_t				 iterations;
-	uint32_t			 pending;
-	enum lka_session_flags		 flags;
-	struct submit_status		 ss;
 };
 
 struct filter {
@@ -799,12 +742,12 @@ struct map_credentials {
 
 struct map_alias {
 	size_t			nbnodes;
-	struct expandtree	expandtree;
+	struct expand		expand;
 };
 
 struct map_virtual {
 	size_t			nbnodes;
-	struct expandtree	expandtree;
+	struct expand		expand;
 };
 
 struct map_netaddr {
@@ -865,7 +808,7 @@ struct mta_user {
 };
 
 struct user_backend {
-	int (*getbyname)(struct mta_user *, char *);
+	int (*getbyname)(struct mta_user *, const char *);
 };
 
 
@@ -958,11 +901,9 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
 
 /* aliases.c */
-int aliases_exist(objid_t, char *);
-int aliases_get(objid_t, struct expandtree *, char *);
-int aliases_vdomain_exists(objid_t, char *);
-int aliases_virtual_exist(objid_t, struct mailaddr *);
-int aliases_virtual_get(objid_t, struct expandtree *, struct mailaddr *);
+int aliases_get(objid_t, struct expand *, const char *);
+int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
+int aliases_vdomain_exists(objid_t, const char *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -995,9 +936,6 @@ void free_peers(void);
 
 /* control.c */
 pid_t control(void);
-void session_socket_blockmode(int, enum blockmodes);
-void session_socket_no_linger(int);
-int session_socket_error(int);
 
 
 /* delivery.c */
@@ -1026,16 +964,13 @@ int envelope_dump_buffer(struct envelope *, char *, size_t);
 
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
-void expandtree_increment_node(struct expandtree *, struct expandnode *);
-void expandtree_decrement_node(struct expandtree *, struct expandnode *);
-void expandtree_remove_node(struct expandtree *, struct expandnode *);
-struct expandnode *expandtree_lookup(struct expandtree *, struct expandnode *);
-void expandtree_free_nodes(struct expandtree *);
+void expand_insert(struct expand *, struct expandnode *);
+struct expandnode *expand_lookup(struct expand *, struct expandnode *);
+void expand_free(struct expand *);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
-
 /* forward.c */
-int forwards_get(int, struct expandtree *, char *);
+int forwards_get(int, struct expand *);
 
 
 /* lka.c */
@@ -1046,8 +981,9 @@ void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
-void *map_lookup(objid_t, char *, enum map_kind);
-int map_compare(objid_t, char *, enum map_kind, int (*)(char *, char *));
+void *map_lookup(objid_t, const char *, enum map_kind);
+int map_compare(objid_t, const char *, enum map_kind,
+    int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
 struct map *map_create(enum map_kind, const char *);
@@ -1060,8 +996,11 @@ pid_t mda(void);
 
 /* mfa.c */
 pid_t mfa(void);
-int mfa_session_cmp(struct mfa_session *, struct mfa_session *);
-SPLAY_PROTOTYPE(mfatree, mfa_session, nodes, mfa_session_cmp);
+
+
+/* mfa_session.c */
+void mfa_session(struct submit_status *, enum session_state);
+
 
 /* mta.c */
 pid_t mta(void);
@@ -1112,6 +1051,11 @@ int uncompress_file(FILE *, FILE *);
 size_t compress_buffer(char *, size_t, char *, size_t);
 size_t uncompress_buffer(char *, size_t, char *, size_t);
 
+
+/* ruleset.c */
+struct rule *ruleset_match(const struct envelope *);
+
+
 /* scheduler.c */
 pid_t scheduler(void);
 
@@ -1138,14 +1082,12 @@ SPLAY_PROTOTYPE(sessiontree, session, s_nodes, session_cmp);
 
 
 /* smtpd.c */
-int	 child_cmp(struct child *, struct child *);
 void imsg_event_add(struct imsgev *);
 void imsg_compose_event(struct imsgev *, uint16_t, uint32_t, pid_t,
     int, void *, uint16_t);
 void imsg_dispatch(int, short, void *);
 const char * proc_to_str(int);
 const char * imsg_to_str(int);
-SPLAY_PROTOTYPE(childtree, child, entry, child_cmp);
 
 
 /* ssl.c */
@@ -1209,16 +1151,16 @@ int bsnprintf(char *, size_t, const char *, ...)
 	__attribute__ ((format (printf, 3, 4)));
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
-int hostname_match(char *, char *);
+int hostname_match(const char *, const char *);
 int email_to_mailaddr(struct mailaddr *, char *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
-char *ss_to_text(struct sockaddr_storage *);
+char *ss_to_text(const struct sockaddr_storage *);
 char *time_to_text(time_t);
 char *duration_to_text(time_t);
 int secure_file(int, char *, char *, uid_t, int);
-int  lowercase(char *, char *, size_t);
-void xlowercase(char *, char *, size_t);
+int  lowercase(char *, const char *, size_t);
+void xlowercase(char *, const char *, size_t);
 void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
@@ -1230,10 +1172,14 @@ int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
-int text_to_netaddr(struct netaddr *, char *);
-int text_to_relayhost(struct relayhost *, char *);
+int text_to_netaddr(struct netaddr *, const char *);
+int text_to_relayhost(struct relayhost *, const char *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 void *xrealloc(void *, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
+void log_envelope(const struct envelope *, const char *, const char *);
+void session_socket_blockmode(int, enum blockmodes);
+void session_socket_no_linger(int);
+int session_socket_error(int);

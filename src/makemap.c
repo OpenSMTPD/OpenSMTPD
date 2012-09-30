@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.34 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.37 2012/09/27 20:34:15 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -359,10 +359,7 @@ parse_setentry(char *line, size_t len, size_t lineno)
 int
 make_plain(DBT *val, char *text)
 {
-	val->data = strdup(text);
-	if (val->data == NULL)
-		err(1, "malloc");
-
+	val->data = xstrdup(text, "make_plain");
 	val->size = strlen(text) + 1;
 
 	return (val->size);
@@ -371,7 +368,7 @@ make_plain(DBT *val, char *text)
 int
 make_aliases(DBT *val, char *text)
 {
-	struct expandnode	expnode;
+	struct expandnode	xn;
 	char	       	*subrcpt;
 	char	       	*endp;
 	char		*origtext;
@@ -379,9 +376,7 @@ make_aliases(DBT *val, char *text)
 	val->data = NULL;
 	val->size = 0;
 
-	origtext = strdup(text);
-	if (origtext == NULL)
-		fatal("strdup");
+	origtext = xstrdup(text, "make_aliases");
 
 	while ((subrcpt = strsep(&text, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -395,8 +390,7 @@ make_aliases(DBT *val, char *text)
 		while (subrcpt < endp && isspace((int)*endp))
 			*endp-- = '\0';
 
-		bzero(&expnode, sizeof(struct expandnode));
-		if (! alias_parse(&expnode, subrcpt))
+		if (! alias_parse(&xn, subrcpt))
 			goto error;
 	}
 
@@ -424,9 +418,7 @@ conf_aliases(char *cfgpath)
 	if (map == NULL)
 		return (PATH_ALIASES);
 
-	path = strdup(map->m_config);
-	if (path == NULL)
-		err(1, NULL);
+	path = xstrdup(map->m_config, "conf_aliases");
 	p = strstr(path, ".db");
 	if (p == NULL || p[3] != '\0')
 		errx(1, "%s: %s: no .db suffix present", cfgpath, path);

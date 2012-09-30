@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.115 2012/09/17 18:36:14 eric Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.117 2012/09/29 22:16:46 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -184,27 +184,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (ssl == NULL)
 				fatal(NULL);
 			*ssl = *(struct ssl *)imsg->data;
-			ssl->ssl_cert = strdup((char *)imsg->data +
-			    sizeof *ssl);
-			if (ssl->ssl_cert == NULL)
-				fatal(NULL);
-			ssl->ssl_key = strdup((char *)imsg->data + sizeof *ssl +
-			    ssl->ssl_cert_len);
-			if (ssl->ssl_key == NULL)
-				fatal(NULL);
+			ssl->ssl_cert = xstrdup((char *)imsg->data +
+			    sizeof *ssl, "smtp:ssl_cert");
+			ssl->ssl_key = xstrdup((char *)imsg->data + sizeof *ssl +
+			    ssl->ssl_cert_len, "smtp:ssl_key");
 			if (ssl->ssl_dhparams_len) {
-				ssl->ssl_dhparams = strdup((char *)imsg->data
+				ssl->ssl_dhparams = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len);
-				if (ssl->ssl_dhparams == NULL)
-					fatal(NULL);
+				    ssl->ssl_key_len, "smtp:ssl_dhparams");
 			}
 			if (ssl->ssl_ca_len) {
-				ssl->ssl_ca = strdup((char *)imsg->data
+				ssl->ssl_ca = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len + ssl->ssl_dhparams_len);
-				if (ssl->ssl_ca == NULL)
-					fatal(NULL);
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
+				    "smtp:ssl_ca");
 			}
 
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
@@ -458,7 +451,6 @@ smtp_enqueue(uid_t *euid)
 
 	s->s_io.sock = fd[0];
 	s->s_ss = l->ss;
-	s->s_msg.flags |= DF_ENQUEUED;
 
 	if (euid)
 		bsnprintf(s->s_hostname, sizeof(s->s_hostname), "%d@localhost",

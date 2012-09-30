@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.61 2012/08/23 16:10:19 todd Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.63 2012/09/27 20:34:15 chl Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -223,8 +223,8 @@ enqueue(int argc, char *argv[])
 		err(1, "gethostname");
 	if ((pw = getpwuid(getuid())) == NULL)
 		user = "anonymous";
-	if (pw != NULL && (user = strdup(pw->pw_name)) == NULL)
-		err(1, "strdup");
+	if (pw != NULL)
+		user = xstrdup(pw->pw_name, "enqueue");
 
 	build_from(fake_from, pw);
 
@@ -430,9 +430,7 @@ build_from(char *fake_from, struct passwd *pw)
 			if (fake_from[strlen(fake_from) - 1] != '>')
 				errx(1, "leading < but no trailing >");
 			fake_from[strlen(fake_from) - 1] = 0;
-			if ((p = malloc(strlen(fake_from))) == NULL)
-				err(1, "malloc");
-			strlcpy(p, fake_from + 1, strlen(fake_from));
+			p = xstrdup(fake_from + 1, "build_from");
 
 			msg.from = qualify_addr(p);
 			free(p);
@@ -646,8 +644,7 @@ qualify_addr(char *in)
 		if (asprintf(&out, "%s@%s", in, host) == -1)
 			err(1, "qualify asprintf");
 	} else
-		if ((out = strdup(in)) == NULL)
-			err(1, "qualify strdup");
+		out = xstrdup(in, "qualify_addr");
 
 	return (out);
 }

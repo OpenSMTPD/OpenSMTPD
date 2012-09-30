@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.89 2012/08/30 22:06:00 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.91 2012/09/19 20:08:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -406,17 +406,16 @@ show_queue(int flags)
 static void
 show_queue_envelope(struct envelope *e, int flags)
 {
+	const char *src = "?";
 	char	 status[128];
 
 	status[0] = '\0';
 
-	getflag(&e->flags, DF_BOUNCE, "BOUNCE",
+	getflag(&e->flags, DF_BOUNCE, "bounce",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_AUTHENTICATED, "AUTH",
+	getflag(&e->flags, DF_AUTHENTICATED, "auth",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_ENQUEUED, "ENQUEUED",
-	    status, sizeof(status));
-	getflag(&e->flags, DF_INTERNAL, "INTERNAL",
+	getflag(&e->flags, DF_INTERNAL, "internal",
 	    status, sizeof(status));
 
 	if (e->flags)
@@ -430,20 +429,28 @@ show_queue_envelope(struct envelope *e, int flags)
 
 	switch (e->type) {
 	case D_MDA:
-		printf("MDA");
+		printf("mda");
 		break;
 	case D_MTA:
-		printf("MTA");
+		printf("mta");
 		break;
 	case D_BOUNCE:
-		printf("BOUNCE");
+		printf("bounce");
 		break;
 	default:
-		printf("UNKNOWN");
+		printf("unknown");
 	}
-	
-	printf("|%016" PRIx64 "|%s|%s@%s|%s@%s|%" PRId64 "|%" PRId64 "|%u",
+
+	if (e->ss.ss_family == AF_LOCAL)
+		src = "local";
+	else if (e->ss.ss_family == AF_INET)
+		src = "inet4";
+	else if (e->ss.ss_family == AF_INET6)
+		src = "inet6";
+
+	printf("|%016" PRIx64 "|%s|%s|%s@%s|%s@%s|%" PRId64 "|%" PRId64 "|%u",
 	    e->id,
+	    src,
 	    status,
 	    e->sender.user, e->sender.domain,
 	    e->dest.user, e->dest.domain,

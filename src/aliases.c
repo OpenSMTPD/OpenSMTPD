@@ -1,4 +1,4 @@
-/*	$OpenBSD: aliases.c,v 1.49 2012/09/18 12:54:56 eric Exp $	*/
+/*	$OpenBSD: aliases.c,v 1.56 2012/09/21 19:37:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -40,7 +40,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int aliases_expand_include(struct expandtree *, const char *);
+static int aliases_expand_include(struct expand *, const char *);
 static int alias_is_filter(struct expandnode *, const char *, size_t);
 static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
@@ -48,31 +48,10 @@ static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
 
 int
-aliases_exist(objid_t mapid, char *username)
+aliases_get(objid_t mapid, struct expand *expand, const char *username)
 {
 	struct map_alias *map_alias;
-	char buf[MAX_LOCALPART_SIZE];
-
-	xlowercase(buf, username, sizeof(buf));
-	map_alias = map_lookup(mapid, buf, K_ALIAS);
-	if (map_alias == NULL)
-		return 0;
-
-	/* XXX - for now the map API always allocate */
-	log_debug("aliases_exist: '%s' exists with %zd expansion nodes",
-	    username, map_alias->nbnodes);
-
-	expandtree_free_nodes(&map_alias->expandtree);
-	free(map_alias);
-
-	return 1;
-}
-
-int
-aliases_get(objid_t mapid, struct expandtree *expandtree, char *username)
-{
-	struct map_alias *map_alias;
-	struct expandnode *expnode;
+	struct expandnode *xn;
 	char buf[MAX_LOCALPART_SIZE];
 	size_t nbaliases;
 
@@ -83,17 +62,16 @@ aliases_get(objid_t mapid, struct expandtree *expandtree, char *username)
 
 	/* foreach node in map_alias expandtree, we merge */
 	nbaliases = 0;
-	RB_FOREACH(expnode, expandtree, &map_alias->expandtree) {
-		strlcpy(expnode->as_user, SMTPD_USER, sizeof (expnode->as_user));
-		if (expnode->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expandtree, expnode->u.buffer);
+	RB_FOREACH(xn, expandtree, &map_alias->expand.tree) {
+		if (xn->type == EXPAND_INCLUDE)
+			nbaliases += aliases_expand_include(expand, xn->u.buffer);
 		else {
-			expandtree_increment_node(expandtree, expnode);
+			expand_insert(expand, xn);
 			nbaliases++;
 		}
 	}
 
-	expandtree_free_nodes(&map_alias->expandtree);
+	expand_free(&map_alias->expand);
 	free(map_alias);
 
 	log_debug("aliases_get: returned %zd aliases", nbaliases);
@@ -101,57 +79,11 @@ aliases_get(objid_t mapid, struct expandtree *expandtree, char *username)
 }
 
 int
-aliases_vdomain_exists(objid_t mapid, char *hostname)
+aliases_virtual_get(objid_t mapid, struct expand *expand,
+    const struct mailaddr *maddr)
 {
 	struct map_virtual *map_virtual;
-	char buf[MAXHOSTNAMELEN];
-
-	xlowercase(buf, hostname, sizeof(buf));
-	map_virtual = map_lookup(mapid, buf, K_VIRTUAL);
-	if (map_virtual == NULL)
-		return 0;
-
-	/* XXX - for now the map API always allocate */
-	log_debug("aliases_vdomain_exist: '%s' exists", hostname);
-	expandtree_free_nodes(&map_virtual->expandtree);
-	free(map_virtual);
-
-	return 1;
-}
-
-int
-aliases_virtual_exist(objid_t mapid, struct mailaddr *maddr)
-{
-	struct map_virtual *map_virtual;
-	char buf[MAX_LINE_SIZE];
-	char *pbuf = buf;
-
-	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
-		maddr->domain))
-		return 0;
-	xlowercase(buf, buf, sizeof(buf));
-
-	map_virtual = map_lookup(mapid, buf, K_VIRTUAL);
-	if (map_virtual == NULL) {
-		pbuf = strchr(buf, '@');
-		map_virtual = map_lookup(mapid, pbuf, K_VIRTUAL);
-	}
-	if (map_virtual == NULL)
-		return 0;
-
-	log_debug("aliases_virtual_exist: '%s' exists", pbuf);
-	expandtree_free_nodes(&map_virtual->expandtree);
-	free(map_virtual);
-
-	return 1;
-}
-
-int
-aliases_virtual_get(objid_t mapid, struct expandtree *expandtree,
-    struct mailaddr *maddr)
-{
-	struct map_virtual *map_virtual;
-	struct expandnode *expnode;
+	struct expandnode *xn;
 	char buf[MAX_LINE_SIZE];
 	char *pbuf = buf;
 	int nbaliases;
@@ -169,34 +101,52 @@ aliases_virtual_get(objid_t mapid, struct expandtree *expandtree,
 	if (map_virtual == NULL)
 		return 0;
 
-	/* foreach node in map_virtual expandtree, we merge */
+	/* foreach node in map_virtual expand, we merge */
 	nbaliases = 0;
-	RB_FOREACH(expnode, expandtree, &map_virtual->expandtree) {
-		strlcpy(expnode->as_user, SMTPD_USER, sizeof (expnode->as_user));
-		if (expnode->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expandtree, expnode->u.buffer);
+	RB_FOREACH(xn, expandtree, &map_virtual->expand.tree) {
+		if (xn->type == EXPAND_INCLUDE)
+			nbaliases += aliases_expand_include(expand, xn->u.buffer);
 		else {
-			expandtree_increment_node(expandtree, expnode);
+			expand_insert(expand, xn);
 			nbaliases++;
 		}
 	}
 
-	expandtree_free_nodes(&map_virtual->expandtree);
+	expand_free(&map_virtual->expand);
 	free(map_virtual);
 	log_debug("aliases_virtual_get: '%s' resolved to %d nodes", pbuf, nbaliases);
 
 	return nbaliases;
 }
 
+int
+aliases_vdomain_exists(objid_t mapid, const char *hostname)
+{
+	struct map_virtual *map_virtual;
+	char buf[MAXHOSTNAMELEN];
+
+	xlowercase(buf, hostname, sizeof(buf));
+	map_virtual = map_lookup(mapid, buf, K_VIRTUAL);
+	if (map_virtual == NULL)
+		return 0;
+
+	/* XXX - for now the map API always allocate */
+	log_debug("aliases_vdomain_exist: '%s' exists", hostname);
+	expand_free(&map_virtual->expand);
+	free(map_virtual);
+
+	return 1;
+}
+
 static int
-aliases_expand_include(struct expandtree *expandtree, const char *filename)
+aliases_expand_include(struct expand *expand, const char *filename)
 {
 	FILE *fp;
 	char *line;
 	size_t len;
 	size_t lineno = 0;
 	char delim[] = { '\\', '#' };
-	struct expandnode expnode;
+	struct expandnode xn;
 
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
@@ -210,15 +160,14 @@ aliases_expand_include(struct expandtree *expandtree, const char *filename)
 			continue;
 		}
 
-		bzero(&expnode, sizeof(struct expandnode));
-		if (! alias_parse(&expnode, line)) {
+		if (! alias_parse(&xn, line)) {
 			log_warnx("could not parse include entry \"%s\".", line);
 		}
 
-		if (expnode.type == EXPAND_INCLUDE)
+		if (xn.type == EXPAND_INCLUDE)
 			log_warnx("nested inclusion is not supported.");
 		else
-			expandtree_increment_node(expandtree, &expnode);
+			expand_insert(expand, &xn);
 
 		free(line);
 	}
@@ -269,6 +218,8 @@ alias_is_filter(struct expandnode *alias, const char *line, size_t len)
 static int
 alias_is_username(struct expandnode *alias, const char *line, size_t len)
 {
+	bzero(alias, sizeof *alias);
+
 	if (strlcpy(alias->u.user, line,
 	    sizeof(alias->u.user)) >= sizeof(alias->u.user))
 		return 0;
@@ -288,6 +239,8 @@ static int
 alias_is_address(struct expandnode *alias, const char *line, size_t len)
 {
 	char *domain;
+
+	bzero(alias, sizeof *alias);
 
 	if (len < 3)	/* x@y */
 		return 0;
@@ -328,6 +281,8 @@ alias_is_address(struct expandnode *alias, const char *line, size_t len)
 static int
 alias_is_filename(struct expandnode *alias, const char *line, size_t len)
 {
+	bzero(alias, sizeof *alias);
+
 	if (*line != '/')
 		return 0;
 
@@ -342,7 +297,9 @@ static int
 alias_is_include(struct expandnode *alias, const char *line, size_t len)
 {
 	size_t skip;
-	
+
+	bzero(alias, sizeof *alias);
+
 	if (strncasecmp(":include:", line, 9) == 0)
 		skip = 9;
 	else if (strncasecmp("include:", line, 8) == 0)

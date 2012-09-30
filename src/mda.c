@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.73 2012/09/16 16:43:28 chl Exp $	*/
+/*	$OpenBSD: mda.c,v 1.78 2012/09/28 13:40:21 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -46,27 +46,35 @@
 #include "smtpd.h"
 #include "log.h"
 
+struct mda_session {
+	struct envelope		 msg;
+	struct msgbuf		 w;
+	struct event		 ev;
+	FILE			*datafp;
+};
+
 static void mda_imsg(struct imsgev *, struct imsg *);
 static void mda_shutdown(void);
 static void mda_sig_handler(int, short, void *);
 static void mda_store(struct mda_session *);
 static void mda_store_event(int, short, void *);
 static int mda_check_loop(FILE *, struct envelope *);
-static struct mda_session *mda_lookup(uint32_t);
 
-uint32_t mda_id;
+static struct tree	sessions;
+static uint32_t		mda_id = 0;
 
 static void
 mda_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	char			 output[128], *error, *parent_error;
+	char			 stat[MAX_LINE_SIZE];
 	struct deliver		 deliver;
 	struct mda_session	*s;
 	struct delivery_mda	*d_mda;
-	struct mailaddr		*maddr;
 	struct envelope		*ep;
 	FILE			*fp;
 	uint16_t		 msg;
+	uint32_t		 id;
 
 #ifdef VALGRIND
 	bzero(&deliver, sizeof(deliver));
@@ -91,14 +99,12 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			/* make new session based on provided args */
-			s = calloc(1, sizeof *s);
-			if (s == NULL)
-				fatal(NULL);
+			s = xcalloc(1, sizeof *s, "mda_imsg");
 			msgbuf_init(&s->w);
 			s->msg = *ep;
-			s->id = mda_id++;
 			s->datafp = fp;
-			LIST_INSERT_HEAD(&env->mda_sessions, s, entry);
+			id = mda_id++;
+			tree_xset(&sessions, id, s);
 
 			/* request parent to fork a helper process */
 			ep    = &s->msg;
@@ -106,9 +112,9 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			switch (d_mda->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;
-				strlcpy(deliver.user, d_mda->as_user,
+				strlcpy(deliver.user, d_mda->user,
 				    sizeof (deliver.user));
-				strlcpy(deliver.to, d_mda->to.buffer,
+				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
 				break;
 				
@@ -116,7 +122,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				deliver.mode = A_MBOX;
 				strlcpy(deliver.user, "root",
 				    sizeof (deliver.user));
-				strlcpy(deliver.to, d_mda->to.user,
+				strlcpy(deliver.to, d_mda->user,
 				    sizeof (deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
 				    "%s@%s", ep->sender.user,
@@ -125,27 +131,27 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				strlcpy(deliver.user, d_mda->as_user,
+				strlcpy(deliver.user, d_mda->user,
 				    sizeof deliver.user);
-				strlcpy(deliver.to, d_mda->to.buffer,
+				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
 				break;
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				strlcpy(deliver.user, d_mda->as_user,
+				strlcpy(deliver.user, d_mda->user,
 				    sizeof deliver.user);
-				strlcpy(deliver.to, d_mda->to.buffer,
+				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
 				break;
 
 			default:
-				log_debug("mda: unknown rule action: %d", d_mda->method);
-				fatalx("mda: unknown rule action");
+				errx(1, "mda: unknown delivery method: %d",
+				    d_mda->method);
 			}
 
 			imsg_compose_event(env->sc_ievs[PROC_PARENT],
-			    IMSG_PARENT_FORK_MDA, s->id, 0, -1, &deliver,
+			    IMSG_PARENT_FORK_MDA, id, 0, -1, &deliver,
 			    sizeof deliver);
 			return;
 		}
@@ -154,18 +160,15 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORK_MDA:
-			s = mda_lookup(imsg->hdr.peerid);
-
+			s = tree_xget(&sessions, imsg->hdr.peerid);
 			if (imsg->fd < 0)
 				fatalx("mda: fd pass fail");
 			s->w.fd = imsg->fd;
-
 			mda_store(s);
 			return;
 
 		case IMSG_MDA_DONE:
-			s = mda_lookup(imsg->hdr.peerid);
-
+			s = tree_xpop(&sessions, imsg->hdr.peerid);
 			/*
 			 * Grab last line of mda stdout/stderr if available.
 			 */
@@ -184,9 +187,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 					if (ln[len - 1] == '\n')
 						ln[len - 1] = '\0';
 					else {
-						buf = malloc(len + 1);
-						if (buf == NULL)
-							fatal(NULL);
+						buf = xmalloc(len + 1,
+						    "mda_imsg");
 						memcpy(buf, ln, len);
 						buf[len] = '\0';
 						ln = buf;
@@ -224,33 +226,14 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (error) {
 				msg = IMSG_QUEUE_DELIVERY_TEMPFAIL;
 				envelope_set_errormsg(&s->msg, "%s", error);
+				snprintf(stat, sizeof stat, "Error (%s)", error);
 			}
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE], msg,
 			    0, 0, -1, &s->msg, sizeof s->msg);
 
-			/*
-			 * XXX: which struct path gets used for logging depends
-			 * on whether lka did aliases or .forward processing;
-			 * lka may need to be changed to present data in more
-			 * unified way.
-			 */
-			if (s->msg.rule.r_action == A_MAILDIR ||
-			    s->msg.rule.r_action == A_MBOX)
-				maddr = &s->msg.dest;
-			else
-				maddr = &s->msg.rcpt;
-
-			/* log status */
-			if (error && asprintf(&error, "Error (%s)", error) < 0)
-				fatal("mda: asprintf");
-			log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, stat=%s",
-			    s->msg.id, maddr->user, maddr->domain,
-			    duration_to_text(time(NULL) - s->msg.creation),
-			    error ? error : "Sent");
-			free(error);
+			log_envelope(&s->msg, NULL, error ? stat : "Delivered");
 
 			/* destroy session */
-			LIST_REMOVE(s, entry);
 			if (s->w.fd != -1)
 				close(s->w.fd);
 			if (s->datafp)
@@ -338,7 +321,7 @@ mda(void)
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mda: cannot drop privileges");
 
-	LIST_INIT(&env->mda_sessions);
+	tree_init(&sessions);
 
 	imsg_callback = mda_imsg;
 	event_init();
@@ -426,27 +409,12 @@ mda_store_event(int fd, short event, void *p)
 	event_add(&s->ev, NULL);
 }
 
-static struct mda_session *
-mda_lookup(uint32_t id)
-{
-	struct mda_session *s;
-
-	LIST_FOREACH(s, &env->mda_sessions, entry)
-		if (s->id == id)
-			break;
-
-	if (s == NULL)
-		fatalx("mda: bogus session id");
-
-	return s;
-}
-
 static int
 mda_check_loop(FILE *fp, struct envelope *ep)
 {
 	char		*buf, *lbuf;
 	size_t		 len;
-	struct mailaddr	 maddr, dest;
+	struct mailaddr	 maddr;
 	int		 ret = 0;
 
 	lbuf = NULL;
@@ -455,8 +423,7 @@ mda_check_loop(FILE *fp, struct envelope *ep)
 			buf[len - 1] = '\0';
 		else {
 			/* EOF without EOL, copy and add the NUL */
-			if ((lbuf = malloc(len + 1)) == NULL)
-				err(1, NULL);
+			lbuf = xmalloc(len + 1, "mda_check_loop");
 			memcpy(lbuf, buf, len);
 			lbuf[len] = '\0';
 			buf = lbuf;
@@ -470,11 +437,8 @@ mda_check_loop(FILE *fp, struct envelope *ep)
 			bzero(&maddr, sizeof maddr);
 			if (! email_to_mailaddr(&maddr, buf + 14))
 				continue;
-
-			dest = (ep->type == D_BOUNCE) ? ep->sender : ep->dest;
-
-			if (strcasecmp(maddr.user, dest.user) == 0 &&
-			    strcasecmp(maddr.domain, dest.domain) == 0) {
+			if (strcasecmp(maddr.user, ep->dest.user) == 0 &&
+			    strcasecmp(maddr.domain, ep->dest.domain) == 0) {
 				ret = 1;
 				break;
 			}

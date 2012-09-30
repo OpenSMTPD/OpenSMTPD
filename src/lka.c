@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.137 2012/09/18 13:42:39 eric Exp $	*/
+/*	$OpenBSD: lka.c,v 1.142 2012/09/29 10:35:00 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -46,7 +46,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct rule *ruleset_match(struct envelope *);
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
@@ -89,14 +88,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			ss = imsg->data;
 			ss->code = 530;
 			rule = ruleset_match(&ss->envelope);
-			if (rule) {
+			if (rule)
 				ss->code = 250;
-				ss->envelope.rule = *rule;
-				if (IS_RELAY(*rule))
-					ss->envelope.type = D_MTA;
-				else
-					ss->envelope.type = D_MDA;
-			}
 			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
 			    ss, sizeof *ss);
 			return;
@@ -144,29 +137,21 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			env->sc_rules_reload = calloc(1, sizeof *env->sc_rules);
-			if (env->sc_rules_reload == NULL)
-				fatal(NULL);
-			env->sc_maps_reload = calloc(1, sizeof *env->sc_maps);
-			if (env->sc_maps_reload == NULL)
-				fatal(NULL);
+			env->sc_rules_reload = xcalloc(1, sizeof *env->sc_rules,
+			    "lka:sc_rules_reload");
+			env->sc_maps_reload = xcalloc(1, sizeof *env->sc_maps,
+			    "lka:sc_maps_reload");
 			TAILQ_INIT(env->sc_rules_reload);
 			TAILQ_INIT(env->sc_maps_reload);
 			return;
 
 		case IMSG_CONF_RULE:
-			rule = calloc(1, sizeof *rule);
-			if (rule == NULL)
-				fatal(NULL);
-			*rule = *(struct rule *)imsg->data;
+			rule = xmemdup(imsg->data, sizeof *rule, "lka:rule");
 			TAILQ_INSERT_TAIL(env->sc_rules_reload, rule, r_entry);
 			return;
 
 		case IMSG_CONF_MAP:
-			map = calloc(1, sizeof *map);
-			if (map == NULL)
-				fatal(NULL);
-			*map = *(struct map *)imsg->data;
+			map = xmemdup(imsg->data, sizeof *map, "lka:map");
 			TAILQ_INIT(&map->m_contents);
 			TAILQ_INSERT_TAIL(env->sc_maps_reload, map, m_entry);
 			return;
@@ -183,10 +168,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_MAP_CONTENT:
 			map = TAILQ_LAST(env->sc_maps_reload, maplist);
-			mapel = calloc(1, sizeof *mapel);
-			if (mapel == NULL)
-				fatal(NULL);
-			*mapel = *(struct mapel *)imsg->data;
+			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
 			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
 			return;
 
