@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.375 2012/09/29 11:02:41 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.378 2012/10/03 19:42:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -316,8 +316,14 @@ enum action_type {
 	A_MDA
 };
 
+enum decision {
+	R_REJECT,
+	R_ACCEPT
+};
+
 struct rule {
 	TAILQ_ENTRY(rule)		 r_entry;
+	enum decision			 r_decision;
 	char				 r_tag[MAX_TAG_SIZE];
 	int				 r_accept;
 	struct map			*r_sources;
@@ -383,7 +389,11 @@ struct expandnode {
 	struct expandnode	*parent;
 	unsigned int		 depth;
 	union {
-		char		 user[MAXLOGNAME];
+		/*
+		 * user field handles both expansion user and system user
+		 * so we MUST make it large enough to fit a mailaddr user
+		 */
+		char		 user[MAX_LOCALPART_SIZE];
 		char		 buffer[MAX_RULEBUFFER_LEN];
 		struct mailaddr	 mailaddr;
 	} 			 u;
@@ -814,7 +824,8 @@ struct user_backend {
 
 /* delivery_backend */
 struct delivery_backend {
-	void	(*open)(struct deliver *);
+	int			allow_root;
+	void (*open)(struct deliver *);
 };
 
 struct scheduler_info {

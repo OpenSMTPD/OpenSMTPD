@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.117 2012/09/29 22:16:46 chl Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.119 2012/10/03 16:43:19 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -515,12 +515,19 @@ smtp_new(struct listener *l)
 
 	if (! smtp_can_accept())
 		return (NULL);
-	sessions++;
 
 	s = xcalloc(1, sizeof(*s), "smtp_new");
 	s->s_id = generate_uid();
 	s->s_l = l;
 	strlcpy(s->s_msg.tag, l->tag, sizeof(s->s_msg.tag));
+
+	if (iobuf_init(&s->s_iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE) == -1)
+		fatal("iobuf_init");
+	io_init(&s->s_io, -1, s, session_io, &s->s_iobuf);
+	s->s_state = S_CONNECTED;
+
+	sessions++;
+
 	SPLAY_INSERT(sessiontree, &env->sc_sessions, s);
 
 	stat_increment("smtp.session", 1);
@@ -531,10 +538,6 @@ smtp_new(struct listener *l)
 		stat_increment("smtp.session.inet4", 1);
 	if (s->s_l->ss.ss_family == AF_INET6)
 		stat_increment("smtp.session.inet6", 1);
-
-	iobuf_init(&s->s_iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE);
-	io_init(&s->s_io, -1, s, session_io, &s->s_iobuf);
-	s->s_state = S_CONNECTED;
 
 	return (s);
 }
