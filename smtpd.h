@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.376 2012/09/30 14:28:16 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.378 2012/10/03 19:42:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -368,7 +368,11 @@ struct expandnode {
 	struct expandnode	*parent;
 	unsigned int		 depth;
 	union {
-		char		 user[MAXLOGNAME];
+		/*
+		 * user field handles both expansion user and system user
+		 * so we MUST make it large enough to fit a mailaddr user
+		 */
+		char		 user[MAX_LOCALPART_SIZE];
 		char		 buffer[MAX_RULEBUFFER_LEN];
 		struct mailaddr	 mailaddr;
 	} 			 u;
@@ -799,7 +803,8 @@ struct user_backend {
 
 /* delivery_backend */
 struct delivery_backend {
-	void	(*open)(struct deliver *);
+	int			allow_root;
+	void (*open)(struct deliver *);
 };
 
 struct scheduler_info {
