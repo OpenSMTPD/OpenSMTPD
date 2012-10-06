@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.36 2012/09/27 18:57:25 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.40 2012/10/03 19:42:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -39,6 +39,8 @@
 
 #include "smtpd.h"
 #include "log.h"
+
+#define	EXPAND_DEPTH	10
 
 #define	F_ERROR		0x01
 #define	F_WAITING	0x02
@@ -194,7 +196,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		ep;
 	struct expandnode	node;
 
-	if (xn->depth >= 5) {
+	if (xn->depth >= EXPAND_DEPTH) {
 		log_debug("lka_expand: node too deep.");
 		lks->flags |= F_ERROR;
 		lks->ss.code = 530;
@@ -208,8 +210,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_ADDRESS:
-		log_debug("lka_expand: expanding address: %s@%s",
-		    xn->u.mailaddr.user, xn->u.mailaddr.domain);
+		log_debug("lka_expand: expanding address: %s@%s [depth=%d]",
+		    xn->u.mailaddr.user, xn->u.mailaddr.domain, xn->depth);
 
 		/* Pass the node through the ruleset */
 		ep = lks->envelope;
@@ -217,10 +219,10 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		if (xn->parent) /* nodes with parent are forward addresses */
 			ep.flags |= DF_INTERNAL;
 		rule = ruleset_match(&ep);
-		if (rule == NULL) {
+		if (rule == NULL || rule->r_decision == R_REJECT) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
-			break; /* no rule for address */
+			break; /* no rule for address or REJECT match */
 		}
 		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 			lka_submit(lks, rule, xn);
@@ -247,7 +249,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_USERNAME:
-		log_debug("lka_expand: expanding username: %s", xn->u.user);
+		log_debug("lka_expand: expanding username: %s [depth=%d]", xn->u.user, xn->depth);
 
 		if (xn->sameuser) {
 			log_debug("lka_expand: same user, submitting");
@@ -256,12 +258,19 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 
 		/* expand aliases with the given rule */
-
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
 		if (rule->r_amap &&
 		    aliases_get(rule->r_amap, &lks->expand, xn->u.user))
 			break;
+
+		/* a username should not exceed the size of a system user */
+		if (strlen(xn->u.user) >= sizeof fwreq.as_user) {
+			log_debug("lka_expand: user-part too long to be a system user");
+			lks->flags |= F_ERROR;
+			lks->ss.code = 530;
+			break;
+		}
 
 		/* no aliases found, query forward file */
 		lks->rule = rule;
@@ -274,12 +283,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILENAME:
-		log_debug("lka_expand: expanding filename: %s", xn->u.buffer);
+		log_debug("lka_expand: expanding filename: %s [depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 
 	case EXPAND_FILTER:
-		log_debug("lka_expand: expanding filter: %s", xn->u.buffer);
+		log_debug("lka_expand: expanding filter: %s [depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 	}
@@ -293,6 +302,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	const char		*tag;
 
 	ep = xmemdup(&lks->envelope, sizeof *ep, "lka_submit");
+	ep->expire = rule->r_qexpire;
 
 	switch (rule->r_action) {
 	case A_RELAY:

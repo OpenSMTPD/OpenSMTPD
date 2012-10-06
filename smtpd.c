@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.172 2012/09/28 17:28:30 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.174 2012/10/04 18:25:39 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -577,10 +577,6 @@ main(int argc, char *argv[])
 	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, env->sc_pw->pw_uid, 0, 1) == 0)
 		errx(1, "error in incoming directory setup");
 
-	log_debug("using \"%s\" queue backend", backend_queue);
-	log_debug("using \"%s\" scheduler backend", backend_scheduler);
-	log_debug("using \"%s\" stat backend", backend_stat);
-
 	env->sc_queue = queue_backend_lookup(backend_queue);
 	if (env->sc_queue == NULL)
 		errx(1, "could not find queue backend \"%s\"", backend_queue);
@@ -607,6 +603,9 @@ main(int argc, char *argv[])
 		if (daemon(0, 0) == -1)
 			err(1, "failed to daemonize");
 
+	log_debug("using \"%s\" queue backend", backend_queue);
+	log_debug("using \"%s\" scheduler backend", backend_scheduler);
+	log_debug("using \"%s\" stat backend", backend_stat);
 	log_info("startup%s", (debug > 1)?" [debug mode]":"");
 
 	if (env->sc_hostname[0] == '\0')
@@ -828,6 +827,13 @@ forkmda(struct imsgev *iev, uint32_t id,
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL)
 		return;
+
+	if (u.uid == 0 && ! db->allow_root) {
+		n = snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
+		    deliver->user);
+		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
+		return;
+	}
 
 	/* lower privs early to allow fork fail due to ulimit */
 	if (seteuid(u.uid) < 0)

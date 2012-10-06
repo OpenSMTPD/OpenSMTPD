@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.101 2012/09/26 09:49:43 halex Exp $	*/
+/*	$OpenBSD: parse.y,v 1.105 2012/10/04 19:49:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -128,12 +128,12 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
-%type	<v.number>	quantifier decision port from auth ssl size expire
+%type	<v.number>	quantifier port from auth ssl size expire
 %type	<v.cond>	condition
 %type	<v.tv>		interval
 %type	<v.object>	mapref
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname user tag on alias credentials compression
+%type	<v.string>	certname tag on alias credentials compression
 %%
 
 grammar		: /* empty */
@@ -440,29 +440,35 @@ main		: QUEUE INTERVAL interval	{
 		*/
 		;
 
-mapsource	: PLAIN STRING			{
+mapsource	: SOURCE PLAIN STRING			{
 			map->m_src = S_PLAIN;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-		| DB STRING			{
+		| STRING {
+			map->m_src = S_PLAIN;
+			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
+			    >= sizeof(map->m_config))
+				err(1, "pathname too long");
+		}
+		| SOURCE DB STRING			{
 			map->m_src = S_DB;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 /*
-		| LDAP STRING			{
+		| SOURCE LDAP STRING			{
 			map->m_src = S_LDAP;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 */
 		;
 
-mapopt		: SOURCE mapsource		{ }
+mapopt		: mapsource		{ }
 
 map		: MAP STRING			{
 			map = map_create(S_NONE, $2);
@@ -529,10 +535,6 @@ mapref		: STRING			{
 		}
 		;
 
-decision	: ACCEPT			{ $$ = 1; }
-		| REJECT			{ $$ = 0; }
-		;
-
 alias		: ALIAS STRING			{ $$ = $2; }
 		| /* empty */			{ $$ = NULL; }
 		;
@@ -550,8 +552,7 @@ condition	: DOMAIN mapref	alias		{
 				rule->r_amap = m->m_id;
 			}
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
+			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = C_DOM;
 			c->c_map = $2;
 			$$ = c;
@@ -566,8 +567,7 @@ condition	: DOMAIN mapref	alias		{
 				YYERROR;
 			}
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
+			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = C_VDOM;
 			c->c_map = $2;
 			$$ = c;
@@ -595,8 +595,7 @@ condition	: DOMAIN mapref	alias		{
 			map_add(m, "localhost", NULL);
 			map_add(m, hostname, NULL);
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
+			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = C_DOM;
 			c->c_map = m->m_id;
 
@@ -606,8 +605,7 @@ condition	: DOMAIN mapref	alias		{
 			struct cond	*c;
 			struct map	*m;
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
+			c = xcalloc(1, sizeof *c, "parse condition: ALL");
 			c->c_type = C_ALL;
 
 			if ($2) {
@@ -634,20 +632,6 @@ conditions	: condition				{
 			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
 		}
 		| '{' condition_list '}'
-		;
-
-user		: AS STRING		{
-			struct passwd *pw;
-
-			pw = getpwnam($2);
-			if (pw == NULL) {
-				yyerror("user '%s' does not exist.", $2);
-				free($2);
-				YYERROR;
-			}
-			$$ = $2;
-		}
-		| /* empty */		{ $$ = NULL; }
 		;
 
 relay_as     	: AS STRING		{
@@ -709,10 +693,7 @@ relay_as     	: AS STRING		{
 				}
 			}
 			
-			maddrp = calloc(1, sizeof (*maddrp));
-			if (maddrp == NULL)
-				fatal("calloc");
-			*maddrp = maddr;
+			maddrp = xmemdup(&maddr, sizeof (*maddrp), "parse relay_as: AS");
 			free($2);
 
 			$$ = maddrp;
@@ -720,16 +701,14 @@ relay_as     	: AS STRING		{
 		| /* empty */		{ $$ = NULL; }
 		;
 
-action		: DELIVER TO MAILDIR user		{
-			rule->r_user = $4;
+action		: DELIVER TO MAILDIR			{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| DELIVER TO MAILDIR STRING user	{
-			rule->r_user = $5;
+		| DELIVER TO MAILDIR STRING		{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer)) >=
@@ -744,8 +723,7 @@ action		: DELIVER TO MAILDIR user		{
 			    >= sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| DELIVER TO MDA STRING user		{
-			rule->r_user = $5;
+		| DELIVER TO MDA STRING			{
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
@@ -837,20 +815,18 @@ on		: ON STRING	{
 		| /* empty */	{ $$ = NULL; }
 		;
 
-rule		: decision on from			{
+rule		: ACCEPT on from			{
 
-			if ((rule = calloc(1, sizeof(*rule))) == NULL)
-				fatal("out of memory");
+			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
+			rule->r_decision = R_ACCEPT;
 			rule->r_sources = map_find($3);
 
-
-			if ((conditions = calloc(1, sizeof(*conditions))) == NULL)
-				fatal("out of memory");
+			conditions = xcalloc(1, sizeof(*conditions),
+			    "parse rule: ACCEPT");
 
 			if ($2)
 				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
 			free($2);
-
 
 			TAILQ_INIT(conditions);
 
@@ -866,10 +842,7 @@ rule		: decision on from			{
 
 			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
 
-				if ((subr = calloc(1, sizeof(*subr))) == NULL)
-					fatal("out of memory");
-
-				*subr = *rule;
+				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
 
 				subr->r_condition = *cond;
 				
@@ -889,6 +862,41 @@ rule		: decision on from			{
 				}
 			}
 
+			free(conditions);
+			free(rule);
+			conditions = NULL;
+			rule = NULL;
+		}
+		| REJECT on from			{
+
+			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
+			rule->r_decision = R_REJECT;
+			rule->r_sources = map_find($3);
+
+			conditions = xcalloc(1, sizeof(*conditions),
+			    "parse rule: REJECT");
+
+			if ($2)
+				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
+			free($2);
+
+			TAILQ_INIT(conditions);
+
+		} FOR conditions {
+			struct rule	*subr;
+			struct cond	*cond;
+
+			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
+
+				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
+
+				subr->r_condition = *cond;
+				
+				TAILQ_REMOVE(conditions, cond, c_entry);
+				TAILQ_INSERT_TAIL(conf->sc_rules, subr, r_entry);
+
+				free(cond);
+			}
 			free(conditions);
 			free(rule);
 			conditions = NULL;
@@ -1486,8 +1494,7 @@ host_v4(const char *s, in_port_t port)
 	if (inet_pton(AF_INET, s, &ina) != 1)
 		return (NULL);
 
-	if ((h = calloc(1, sizeof(*h))) == NULL)
-		fatal(NULL);
+	h = xcalloc(1, sizeof(*h), "host_v4");
 	sain = (struct sockaddr_in *)&h->ss;
 	sain->sin_len = sizeof(struct sockaddr_in);
 	sain->sin_family = AF_INET;
@@ -1508,8 +1515,7 @@ host_v6(const char *s, in_port_t port)
 	if (inet_pton(AF_INET6, s, &ina6) != 1)
 		return (NULL);
 
-	if ((h = calloc(1, sizeof(*h))) == NULL)
-		fatal(NULL);
+	h = xcalloc(1, sizeof(*h), "host_v6");
 	sin6 = (struct sockaddr_in6 *)&h->ss;
 	sin6->sin6_len = sizeof(struct sockaddr_in6);
 	sin6->sin6_family = AF_INET6;
@@ -1545,8 +1551,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 		if (res->ai_family != AF_INET &&
 		    res->ai_family != AF_INET6)
 			continue;
-		if ((h = calloc(1, sizeof(*h))) == NULL)
-			fatal(NULL);
+		h = xcalloc(1, sizeof(*h), "host_dns");
 
 		h->port = port;
 		h->flags = flags;
@@ -1632,8 +1637,7 @@ interface(const char *s, const char *tag, const char *cert,
 		    ! is_if_in_group(p->ifa_name, s))
 			continue;
 
-		if ((h = calloc(1, sizeof(*h))) == NULL)
-			fatal(NULL);
+		h = xcalloc(1, sizeof(*h), "interface");
 
 		switch (p->ifa_addr->sa_family) {
 		case AF_INET:
@@ -1785,10 +1789,8 @@ is_if_in_group(const char *ifname, const char *groupname)
 
         len = ifgr.ifgr_len;
         ifgr.ifgr_groups =
-            (struct ifg_req *)calloc(len/sizeof(struct ifg_req),
-		sizeof(struct ifg_req));
-        if (ifgr.ifgr_groups == NULL)
-                err(1, "getifgroups");
+            (struct ifg_req *)xcalloc(len/sizeof(struct ifg_req),
+		sizeof(struct ifg_req), "is_if_in_group");
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1)
                 err(1, "SIOCGIFGROUP");
 	

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.116 2012/09/19 18:20:36 eric Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.119 2012/10/03 16:43:19 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -181,27 +181,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (ssl == NULL)
 				fatal(NULL);
 			*ssl = *(struct ssl *)imsg->data;
-			ssl->ssl_cert = strdup((char *)imsg->data +
-			    sizeof *ssl);
-			if (ssl->ssl_cert == NULL)
-				fatal(NULL);
-			ssl->ssl_key = strdup((char *)imsg->data + sizeof *ssl +
-			    ssl->ssl_cert_len);
-			if (ssl->ssl_key == NULL)
-				fatal(NULL);
+			ssl->ssl_cert = xstrdup((char *)imsg->data +
+			    sizeof *ssl, "smtp:ssl_cert");
+			ssl->ssl_key = xstrdup((char *)imsg->data + sizeof *ssl +
+			    ssl->ssl_cert_len, "smtp:ssl_key");
 			if (ssl->ssl_dhparams_len) {
-				ssl->ssl_dhparams = strdup((char *)imsg->data
+				ssl->ssl_dhparams = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len);
-				if (ssl->ssl_dhparams == NULL)
-					fatal(NULL);
+				    ssl->ssl_key_len, "smtp:ssl_dhparams");
 			}
 			if (ssl->ssl_ca_len) {
-				ssl->ssl_ca = strdup((char *)imsg->data
+				ssl->ssl_ca = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len + ssl->ssl_dhparams_len);
-				if (ssl->ssl_ca == NULL)
-					fatal(NULL);
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
+				    "smtp:ssl_ca");
 			}
 
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
@@ -509,12 +502,19 @@ smtp_new(struct listener *l)
 
 	if (! smtp_can_accept())
 		return (NULL);
-	sessions++;
 
 	s = xcalloc(1, sizeof(*s), "smtp_new");
 	s->s_id = generate_uid();
 	s->s_l = l;
 	strlcpy(s->s_msg.tag, l->tag, sizeof(s->s_msg.tag));
+
+	if (iobuf_init(&s->s_iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE) == -1)
+		fatal("iobuf_init");
+	io_init(&s->s_io, -1, s, session_io, &s->s_iobuf);
+	s->s_state = S_CONNECTED;
+
+	sessions++;
+
 	SPLAY_INSERT(sessiontree, &env->sc_sessions, s);
 
 	stat_increment("smtp.session", 1);
@@ -525,10 +525,6 @@ smtp_new(struct listener *l)
 		stat_increment("smtp.session.inet4", 1);
 	if (s->s_l->ss.ss_family == AF_INET6)
 		stat_increment("smtp.session.inet6", 1);
-
-	iobuf_init(&s->s_iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE);
-	io_init(&s->s_io, -1, s, session_io, &s->s_iobuf);
-	s->s_state = S_CONNECTED;
 
 	return (s);
 }

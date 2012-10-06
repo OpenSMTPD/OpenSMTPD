@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.372 2012/09/28 17:28:30 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.378 2012/10/03 19:42:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -295,8 +295,14 @@ enum action_type {
 	A_MDA
 };
 
+enum decision {
+	R_REJECT,
+	R_ACCEPT
+};
+
 struct rule {
 	TAILQ_ENTRY(rule)		 r_entry;
+	enum decision			 r_decision;
 	char				 r_tag[MAX_TAG_SIZE];
 	int				 r_accept;
 	struct map			*r_sources;
@@ -307,7 +313,6 @@ struct rule {
 		struct relayhost       	 relayhost;
 	}				 r_value;
 
-	char				*r_user;
 	struct mailaddr			*r_as;
 	objid_t				 r_amap;
 	time_t				 r_qexpire;
@@ -363,7 +368,11 @@ struct expandnode {
 	struct expandnode	*parent;
 	unsigned int		 depth;
 	union {
-		char		 user[MAXLOGNAME];
+		/*
+		 * user field handles both expansion user and system user
+		 * so we MUST make it large enough to fit a mailaddr user
+		 */
+		char		 user[MAX_LOCALPART_SIZE];
 		char		 buffer[MAX_RULEBUFFER_LEN];
 		struct mailaddr	 mailaddr;
 	} 			 u;
@@ -381,7 +390,6 @@ struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
 	char				tag[MAX_TAG_SIZE];
-	struct rule			rule;
 
 	uint64_t			session_id;
 	uint64_t			batch_id;
@@ -795,7 +803,8 @@ struct user_backend {
 
 /* delivery_backend */
 struct delivery_backend {
-	void	(*open)(struct deliver *);
+	int			allow_root;
+	void (*open)(struct deliver *);
 };
 
 struct scheduler_info {
@@ -973,8 +982,11 @@ pid_t mda(void);
 
 /* mfa.c */
 pid_t mfa(void);
-int mfa_session_cmp(struct mfa_session *, struct mfa_session *);
-SPLAY_PROTOTYPE(mfatree, mfa_session, nodes, mfa_session_cmp);
+
+
+/* mfa_session.c */
+void mfa_session(struct submit_status *, enum session_state);
+
 
 /* mta.c */
 pid_t mta(void);
