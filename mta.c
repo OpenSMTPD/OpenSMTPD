@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.143 2012/09/21 12:33:32 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.144 2012/09/28 14:03:00 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -43,7 +43,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define MTA_MAXCONN	5	/* connections per route */
+#define MTA_MAXCONN	10	/* connections per route */
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
 
