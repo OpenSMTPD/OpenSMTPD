@@ -26,6 +26,8 @@ pkglibexec_PROGRAMS=	makemap
 makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
 			map_static.c map_db.c map_stdio.c
 
+makemap_CFLAGS=		-DNO_IO
+
 smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
 			control.c delivery.c dns.c envelope.c expand.c		\
 			forward.c iobuf.c ioev.c lka.c lka_session.c log.c map.c\
@@ -66,6 +68,8 @@ smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c util.c					\
 			compress_backend.c compress_gzip.c
+
+smtpctl_CFLAGS=		-DNO_IO
 
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr

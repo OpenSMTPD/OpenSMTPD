@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.84 2012/09/26 19:52:20 eric Exp $	*/
+/*	$OpenBSD: util.c,v 1.86 2012/10/07 15:46:38 chl Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -113,6 +113,29 @@ xmemdup(const void *ptr, size_t size, const char *where)
 
 	return (r);
 }
+
+#if !defined(NO_IO)
+void
+iobuf_xinit(struct iobuf *io, size_t size, size_t max, const char *where)
+{
+	if (iobuf_init(io, size, max) == -1)
+		errx(1, "%s: iobuf_init(%p, %zu, %zu)", where, io, size, max);
+}
+
+void
+iobuf_xfqueue(struct iobuf *io, const char *where, const char *fmt, ...)
+{
+	va_list	ap;
+	int	len;
+
+	va_start(ap, fmt);
+	len = iobuf_vfqueue(io, fmt, ap);
+	va_end(ap);
+
+	if (len == -1)
+		errx(1, "%s: iobuf_xfqueue(%p, %s, ...)", where, io, fmt);
+}
+#endif
 
 int
 bsnprintf(char *str, size_t size, const char *format, ...)
@@ -1088,8 +1111,9 @@ log_envelope(const struct envelope *evp, const char *extra, const char *status)
 	if (extra == NULL)
 		extra = "";
 
-	log_info("%016" PRIx64 ": to=<%s@%s>, %s%sdelay=%s, %sstat=%s",
-	    evp->id, evp->dest.user, evp->dest.domain,
+	log_info("%016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, %s%sdelay=%s, %sstat=%s",
+	    evp->id, evp->sender.user, evp->sender.domain,
+	    evp->dest.user, evp->dest.domain,
 	    rcpt,
 	    tmp,
 	    duration_to_text(time(NULL) - evp->creation),

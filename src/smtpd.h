@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.378 2012/10/03 19:42:16 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.381 2012/10/08 20:35:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -46,6 +46,7 @@
 #define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
+#define	DEFAULT_MAX_BODY_SIZE  	(35*1024*1024)
 
 #define MAX_TAG_SIZE		 32
 
@@ -1190,7 +1191,13 @@ void *xcalloc(size_t, size_t, const char *);
 void *xrealloc(void *, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
+void iobuf_xinit(struct iobuf *, size_t, size_t, const char *);
+void iobuf_xfqueue(struct iobuf *, const char *, const char *, ...);
 void log_envelope(const struct envelope *, const char *, const char *);
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
+
+/* waitq.c */
+int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
+void waitq_run(void *, void *);
