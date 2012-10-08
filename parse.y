@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.104 2012/09/30 17:25:09 chl Exp $	*/
+/*	$OpenBSD: parse.y,v 1.106 2012/10/08 20:35:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -440,29 +440,35 @@ main		: QUEUE INTERVAL interval	{
 		*/
 		;
 
-mapsource	: PLAIN STRING			{
+mapsource	: SOURCE PLAIN STRING			{
 			map->m_src = S_PLAIN;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-		| DB STRING			{
+		| STRING {
+			map->m_src = S_PLAIN;
+			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
+			    >= sizeof(map->m_config))
+				err(1, "pathname too long");
+		}
+		| SOURCE DB STRING			{
 			map->m_src = S_DB;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 /*
-		| LDAP STRING			{
+		| SOURCE LDAP STRING			{
 			map->m_src = S_LDAP;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 */
 		;
 
-mapopt		: SOURCE mapsource		{ }
+mapopt		: mapsource		{ }
 
 map		: MAP STRING			{
 			map = map_create(S_NONE, $2);
@@ -1309,7 +1315,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf = x_conf;
 	bzero(conf, sizeof(*conf));
 
-	conf->sc_maxsize = SIZE_MAX;
+	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
 	conf->sc_maps = calloc(1, sizeof(*conf->sc_maps));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
