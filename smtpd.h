@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.379 2012/10/07 15:46:38 chl Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.380 2012/10/07 17:21:37 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -32,6 +32,7 @@
 #define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
+#define	DEFAULT_MAX_BODY_SIZE  	(35*1024*1024)
 
 #define MAX_TAG_SIZE		 32
 
