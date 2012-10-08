@@ -18,6 +18,9 @@
 
 #include "includes.h"
 
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h> /* Needed for flock */
+#endif
 #include <sys/types.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
