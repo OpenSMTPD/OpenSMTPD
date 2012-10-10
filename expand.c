@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.16 2012/09/21 19:37:08 eric Exp $	*/
+/*	$OpenBSD: expand.c,v 1.17 2012/09/27 18:57:25 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -55,6 +55,7 @@ expand_insert(struct expand *expand, struct expandnode *node)
 	xn = xmemdup(node, sizeof *xn, "expand_insert");
 	xn->rule = expand->rule;
 	xn->parent = expand->parent;
+	xn->alias = expand->alias;
 	if (xn->parent)
 		xn->depth = xn->parent->depth + 1;
 	else
