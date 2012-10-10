@@ -34,17 +34,6 @@ int	 imsg_fd_overhead = 0;
 
 int	 imsg_get_fd(struct imsgbuf *);
 
-void
-imsg_init(struct imsgbuf *ibuf, int fd)
-{
-	msgbuf_init(&ibuf->w);
-	bzero(&ibuf->r, sizeof(ibuf->r));
-	ibuf->fd = fd;
-	ibuf->w.fd = fd;
-	ibuf->pid = getpid();
-	TAILQ_INIT(&ibuf->fds);
-}
-
 int
 available_fds(int n)
 {
@@ -66,6 +55,17 @@ available_fds(int n)
 		close(fds[i]);
 
 	return (ret);
+}
+
+void
+imsg_init(struct imsgbuf *ibuf, int fd)
+{
+	msgbuf_init(&ibuf->w);
+	bzero(&ibuf->r, sizeof(ibuf->r));
+	ibuf->fd = fd;
+	ibuf->w.fd = fd;
+	ibuf->pid = getpid();
+	TAILQ_INIT(&ibuf->fds);
 }
 
 ssize_t

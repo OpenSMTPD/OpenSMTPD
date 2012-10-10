@@ -94,6 +94,7 @@ int		 msgbuf_write(struct msgbuf *);
 void		 msgbuf_drain(struct msgbuf *, size_t);
 
 /* imsg.c */
+int	 available_fds(int);
 void	 imsg_init(struct imsgbuf *, int);
 ssize_t	 imsg_read(struct imsgbuf *);
 ssize_t	 imsg_get(struct imsgbuf *, struct imsg *);
