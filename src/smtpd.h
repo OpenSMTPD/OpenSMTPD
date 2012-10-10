@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.381 2012/10/08 20:35:16 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.385 2012/10/10 20:29:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -101,8 +101,10 @@
 #define F_SMTPS			 0x02
 #define F_AUTH			 0x04
 #define F_SSL			(F_SMTPS|F_STARTTLS)
+#define	F_STARTTLS_REQUIRE     	 0x08
+#define	F_AUTH_REQUIRE		 0x10
 
-#define	F_BACKUP		0x10	/* XXX */
+#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH ROUTE_BACKUP */
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -113,7 +115,7 @@
 #define ROUTE_SSL		(ROUTE_STARTTLS | ROUTE_SMTPS)
 #define ROUTE_AUTH		0x04
 #define ROUTE_MX		0x08
-#define ROUTE_BACKUP		0x10	/* XXX */
+#define ROUTE_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 
 typedef uint32_t	objid_t;
 
@@ -386,6 +388,7 @@ struct expandnode {
 	TAILQ_ENTRY(expandnode)	 tq_entry;
 	enum expand_type       	 type;
 	int			 sameuser;
+	int			 alias;
 	struct rule		*rule;
 	struct expandnode	*parent;
 	unsigned int		 depth;
@@ -403,6 +406,7 @@ struct expandnode {
 struct expand {
 	RB_HEAD(expandtree, expandnode)	 tree;
 	TAILQ_HEAD(xnodes, expandnode)	*queue;
+	int				 alias;
 	struct rule			*rule;
 	struct expandnode		*parent;
 };
@@ -1197,6 +1201,7 @@ void log_envelope(const struct envelope *, const char *, const char *);
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
+uint64_t strtoevpid(const char *);
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

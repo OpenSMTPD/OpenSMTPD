@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.40 2012/10/03 19:42:16 gilles Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.42 2012/10/10 18:02:37 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -128,6 +128,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 		/* expand for the current user and rule */
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
+		lks->expand.alias = 0;
 		if (forwards_get(fd, &lks->expand) == 0) {
 			/* no aliases */
 			lks->ss.code = 530;
@@ -233,6 +234,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			/* expand */
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
+			lks->expand.alias = 1;
 			if (aliases_virtual_get(rule->r_condition.c_map,
 			    &lks->expand, &xn->u.mailaddr) == 0) {
 				log_debug("lka_expand: no aliases for virtual");
@@ -243,6 +245,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		else {
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
+			lks->expand.alias = 1;
 			node.type = EXPAND_USERNAME;
 			mailaddr_to_username(&xn->u.mailaddr, node.u.user,
 				sizeof node.u.user);
@@ -262,6 +265,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		/* expand aliases with the given rule */
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
+		lks->expand.alias = 1;
 		if (rule->r_amap &&
 		    aliases_get(rule->r_amap, &lks->expand, xn->u.user))
 			break;
@@ -301,6 +305,18 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	}
 }
 
+static struct expandnode *
+lka_find_ancestor(struct expandnode *xn, enum expand_type type)
+{
+	while(xn && (xn->type != type))
+		xn = xn->parent;
+	if (xn == NULL) {
+		log_warnx("lka_find_ancestor: no ancestors of type %i", type);
+		fatalx(NULL);
+	}
+	return (xn);
+}
+
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
@@ -314,34 +330,36 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	switch (rule->r_action) {
 	case A_RELAY:
 	case A_RELAYVIA:
-		ep->type = D_MTA;
-		ep->agent.mta.relay = rule->r_value.relayhost;
 		if (xn->type != EXPAND_ADDRESS)
 			fatalx("lka_deliver: expect address");
+		ep->type = D_MTA;
 		ep->dest = xn->u.mailaddr;
+		ep->agent.mta.relay = rule->r_value.relayhost;
+		if (rule->r_as && rule->r_as->user[0])
+			strlcpy(ep->sender.user, rule->r_as->user,
+			    sizeof ep->sender.user);
+		if (rule->r_as && rule->r_as->domain[0])
+			strlcpy(ep->sender.domain, rule->r_as->domain,
+			    sizeof ep->sender.domain);
 		break;
 	case A_MBOX:
 	case A_MAILDIR:
 	case A_FILENAME:
 	case A_MDA:
 		ep->type = D_MDA;
+		ep->dest = lka_find_ancestor(xn, EXPAND_ADDRESS)->u.mailaddr;
 
 		/* set username */
-		xn2 = xn;
-		while(xn2 && (xn2->type != EXPAND_USERNAME))
-			xn2 = xn2->parent;
-		if (xn2 == NULL)
-			fatalx("no user in node ancestry");
-		(void)strlcpy(ep->agent.mda.user, xn2->u.user,
-		    sizeof (ep->agent.mda.user));
-
-		/* set dest */
-		xn2 = xn;
-		while(xn2 && (xn2->type != EXPAND_ADDRESS))
-			xn2 = xn2->parent;
-		if (xn2 == NULL)
-			fatalx("no address in node ancestry");
-		ep->dest = xn2->u.mailaddr;
+		if ((xn->type == EXPAND_FILTER || xn->type == EXPAND_FILENAME)
+		    && xn->alias) {
+			strlcpy(ep->agent.mda.user, SMTPD_USER,
+			    sizeof (ep->agent.mda.user));
+		}
+		else {
+			xn2 = lka_find_ancestor(xn, EXPAND_USERNAME);
+			strlcpy(ep->agent.mda.user, xn2->u.user,
+			    sizeof (ep->agent.mda.user));
+		}
 
 		if (xn->type == EXPAND_FILENAME) {
 			ep->agent.mda.method = A_FILENAME;
@@ -364,7 +382,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 				strlcat(ep->agent.mda.buffer, tag,
 				    sizeof (ep->agent.mda.buffer));
 			}
-		} else
+		}
+		else
 			fatalx("lka_deliver: bad node type");
 
 		lka_expand_format(ep->agent.mda.buffer,

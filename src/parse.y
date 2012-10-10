@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.106 2012/10/08 20:35:16 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.107 2012/10/09 20:33:02 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -130,7 +130,8 @@ typedef struct {
 %token	DB LDAP PLAIN DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
-%token	ARROW ENABLE AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
+%token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
@@ -266,10 +267,12 @@ certname	: CERTIFICATE STRING	{
 ssl		: SMTPS				{ $$ = F_SMTPS; }
 		| TLS				{ $$ = F_STARTTLS; }
 		| SSL				{ $$ = F_SSL; }
-		| /* empty */			{ $$ = 0; }
+		| TLS_REQUIRE			{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE; }
+		| /* Empty */			{ $$ = 0; }
 		;
 
-auth		: ENABLE AUTH  			{ $$ = 1; }
+auth		: AUTH  			{ $$ = F_AUTH|F_AUTH_REQUIRE; }
+		| AUTH_OPTIONAL			{ $$ = F_AUTH; }
 		| /* empty */			{ $$ = 0; }
 		;
 
@@ -370,10 +373,7 @@ main		: QUEUE INTERVAL interval	{
 			}
 
 			cert = ($6 != NULL) ? $6 : $3;
-			flags = $5;
-
-			if ($7)
-				flags |= F_AUTH;
+			flags = $5 | $7; /* ssl | auth */
 
 			if ($5 && ssl_load_certfile(cert, F_SCERT) < 0) {
 				yyerror("cannot load certificate: %s", cert);
@@ -946,6 +946,7 @@ lookup(char *s)
 		{ "all",		ALL },
 		{ "as",			AS },
 		{ "auth",		AUTH },
+		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
 		{ "cipher",		CIPHER },
@@ -954,7 +955,6 @@ lookup(char *s)
 		{ "deliver",		DELIVER },
 		{ "digest",		DIGEST },
 		{ "domain",		DOMAIN },
-		{ "enable",		ENABLE },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
@@ -986,6 +986,7 @@ lookup(char *s)
 		{ "ssl",		SSL },
 		{ "tag",		TAG },
 		{ "tls",		TLS },
+		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },

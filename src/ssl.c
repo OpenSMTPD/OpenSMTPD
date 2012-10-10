@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.47 2012/09/14 19:22:04 eric Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.48 2012/10/09 20:32:25 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -76,12 +76,23 @@ ssl_load_file(const char *name, off_t *len)
 	struct stat	 st;
 	off_t		 size;
 	char		*buf = NULL;
-	int		 fd;
+	int		 fd, saved_errno;
 
 	if ((fd = open(name, O_RDONLY)) == -1)
 		return (NULL);
 	if (fstat(fd, &st) != 0)
 		goto fail;
+	if (st.st_uid != 0) {
+		log_info("%s: not owned by uid 0", name);
+		errno = EACCES;
+		goto fail;
+	}
+	if (st.st_mode & (S_IRWXG | S_IRWXO)) {
+		log_info("%s: incorrect group/world permissions: must be 0",
+		    name);
+		errno = EACCES;
+		goto fail;
+	}
 	size = st.st_size;
 	if ((buf = calloc(1, size + 1)) == NULL)
 		goto fail;
@@ -95,7 +106,9 @@ ssl_load_file(const char *name, off_t *len)
 fail:
 	if (buf != NULL)
 		free(buf);
+	saved_errno = errno;
 	close(fd);
+	errno = saved_errno;
 	return (NULL);
 }
 
@@ -168,8 +181,9 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		SMTPD_CONFDIR "/certs/%s.ca", name))
 		goto err;
 
-	if ((s->ssl_ca = ssl_load_file(certfile,
-		    &s->ssl_ca_len)) == NULL) {
+	if ((s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len)) == NULL) {
+		if (errno == EACCES)
+			goto err;
 		log_info("no CA found in %s", certfile);
 	}
 
@@ -177,8 +191,10 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		SMTPD_CONFDIR "/certs/%s.dh", name))
 		goto err;
 
-	if ((s->ssl_dhparams = ssl_load_file(certfile,
-		    &s->ssl_dhparams_len)) == NULL) {
+	if ((s->ssl_dhparams = ssl_load_file(certfile, &s->ssl_dhparams_len))
+	    == NULL) {
+		if (errno == EACCES)
+			goto err;
 		log_info("no DH parameters found in %s", certfile);
 		log_info("using built-in DH parameters");
 	}
