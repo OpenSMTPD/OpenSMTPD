@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.173 2012/10/03 17:58:03 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.174 2012/10/04 18:25:39 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -540,6 +540,9 @@ main(int argc, char *argv[])
 
 	argv += optind;
 	argc -= optind;
+
+	if (argc || *argv)
+		usage();
 
 	ssl_init();
 
