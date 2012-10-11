@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.383 2012/10/10 18:02:37 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.385 2012/10/10 20:29:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -83,7 +83,7 @@
 #define	F_STARTTLS_REQUIRE     	 0x08
 #define	F_AUTH_REQUIRE		 0x10
 
-#define	F_BACKUP		0x20	/* XXX */
+#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH ROUTE_BACKUP */
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -94,7 +94,7 @@
 #define ROUTE_SSL		(ROUTE_STARTTLS | ROUTE_SMTPS)
 #define ROUTE_AUTH		0x04
 #define ROUTE_MX		0x08
-#define ROUTE_BACKUP		0x10	/* XXX */
+#define ROUTE_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 
 typedef uint32_t	objid_t;
 
@@ -1175,6 +1175,7 @@ void log_envelope(const struct envelope *, const char *, const char *);
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
+uint64_t strtoevpid(const char *);
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
