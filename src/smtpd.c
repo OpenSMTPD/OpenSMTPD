@@ -1228,28 +1228,13 @@ imsg_dispatch(int fd, short event, void *p)
 
 		log_imsg(smtpd_process, iev->proc, &imsg);
 
-		if (profiling || profstat) {
-#ifdef HAVE_CLOCK_GETTIME
+		if (profiling || profstat)
 			clock_gettime(CLOCK_MONOTONIC, &t0);
-#else
-		        struct timeval tv;
-
-			gettimeofday(&tv, NULL);
-			TIMEVAL_TO_TIMESPEC(&tv, &t0);
-#endif
-		}
 
 		imsg_callback(iev, &imsg);
 
 		if (profiling || profstat) {
-#ifdef HAVE_CLOCK_GETTIME
 			clock_gettime(CLOCK_MONOTONIC, &t1);
-#else
-		        struct timeval tv;
-
-			gettimeofday(&tv, NULL);
-			TIMEVAL_TO_TIMESPEC(&tv, &t1);
-#endif
 			timespecsub(&t1, &t0, &dt);
 
 			log_trace(TRACE_PROFILING, "PROFILE %s %s %s %li.%06li",

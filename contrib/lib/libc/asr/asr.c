@@ -420,16 +420,8 @@ asr_check_reload(struct asr *asr)
 		return;
 
 #if ASR_OPT_RELOADCONF
-#ifdef HAVE_CLOCK_GETTIME
 	if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
 		return;
-#else
-	struct timeval tv;
-
-	if (gettimeofday(&tv, NULL) == -1)
-		return;
-	TIMEVAL_TO_TIMESPEC(&tv, &tp);
-#endif
 
 	if ((tp.tv_sec - asr->a_rtime) < RELOAD_DELAY)
 		return;
