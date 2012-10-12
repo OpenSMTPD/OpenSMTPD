@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.385 2012/10/10 20:29:46 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.388 2012/10/12 08:51:02 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -278,9 +278,9 @@ struct map_backend {
 
 
 enum cond_type {
-	C_ALL,
-	C_DOM,
-	C_VDOM
+	COND_ANY,
+	COND_DOM,
+	COND_VDOM
 };
 
 struct cond {
@@ -420,7 +420,7 @@ struct envelope {
 	time_t				 creation;
 	time_t				 lasttry;
 	time_t				 expire;
-	uint8_t				 retry;
+	uint16_t			 retry;
 	enum delivery_flags		 flags;
 };
 
@@ -818,7 +818,7 @@ struct scheduler_info {
 	time_t			creation;
 	time_t			lasttry;
 	time_t			expire;
-	uint8_t			retry;
+	uint16_t		retry;
 };
 
 struct id_list {
@@ -977,7 +977,7 @@ int map_compare(objid_t, const char *, enum map_kind,
     int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
-struct map *map_create(enum map_kind, const char *);
+struct map *map_create(enum map_src, const char *);
 void map_add(struct map *, const char *, const char *);
 
 
