@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.44 2012/10/13 08:01:47 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.45 2012/10/13 21:33:33 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -31,6 +31,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <resolv.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
