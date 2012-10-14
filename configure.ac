@@ -130,6 +130,7 @@ AC_CHECK_HEADERS( \
 		dirent.h \
 		fcntl.h \
 		ndir.h \
+		mach/mach_time.h \
 		netdb.h \
 		pam/pam_appl.h \
 		security/pam_appl.h \
