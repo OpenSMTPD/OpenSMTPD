@@ -21,7 +21,7 @@
 
 #if !defined(HAVE_CLOCK_GETTIME)
 int
-clock_gettime(clockid_t clock_id, struct timespec *tp)
+clock_gettime(int clock_id, struct timespec *tp)
 {
 	int		ret;
 	struct timeval	tv;
