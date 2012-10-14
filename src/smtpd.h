@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.385 2012/10/10 20:29:46 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.389 2012/10/14 11:58:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -147,10 +147,14 @@ enum imsg_type {
 	IMSG_CONF_RULE_SOURCE,
 	IMSG_CONF_FILTER,
 	IMSG_CONF_END,
+
+	IMSG_LKA_UPDATE_MAP,
+
 	IMSG_LKA_MAIL,
 	IMSG_LKA_RCPT,
 	IMSG_LKA_SECRET,
 	IMSG_LKA_RULEMATCH,
+
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
 
@@ -251,7 +255,7 @@ struct peer {
 
 enum map_src {
 	S_NONE,
-	S_PLAIN,
+	S_FILE,
 	S_DB /*,
 	S_LDAP*/
 };
@@ -286,11 +290,13 @@ struct map {
 	enum map_src			 m_src;
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
+	void				*m_handle;
 };
 
 
 struct map_backend {
 	void *(*open)(struct map *);
+	void (*update)(struct map *);
 	void (*close)(void *);
 	void *(*lookup)(void *, const char *, enum map_kind);
 	int  (*compare)(void *, const char *, enum map_kind,
@@ -299,9 +305,9 @@ struct map_backend {
 
 
 enum cond_type {
-	C_ALL,
-	C_DOM,
-	C_VDOM
+	COND_ANY,
+	COND_DOM,
+	COND_VDOM
 };
 
 struct cond {
@@ -441,7 +447,7 @@ struct envelope {
 	time_t				 creation;
 	time_t				 lasttry;
 	time_t				 expire;
-	uint8_t				 retry;
+	uint16_t			 retry;
 	enum delivery_flags		 flags;
 };
 
@@ -839,7 +845,7 @@ struct scheduler_info {
 	time_t			creation;
 	time_t			lasttry;
 	time_t			expire;
-	uint8_t			retry;
+	uint16_t		retry;
 };
 
 struct id_list {
@@ -997,13 +1003,20 @@ void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
+void *map_open(struct map *);
+void  map_update(struct map *);
+void  map_close(struct map *, void *);
+
 void *map_lookup(objid_t, const char *, enum map_kind);
 int map_compare(objid_t, const char *, enum map_kind,
     int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
-struct map *map_create(enum map_kind, const char *);
+struct map *map_create(enum map_src, const char *);
+void map_destroy(struct map *);
 void map_add(struct map *, const char *, const char *);
+void map_delete(struct map *, const char *);
+void map_delete_all(struct map *);
 
 
 /* mda.c */

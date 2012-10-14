@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.174 2012/10/04 18:25:39 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.176 2012/10/14 11:58:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -598,6 +598,9 @@ main(int argc, char *argv[])
 
 	argv += optind;
 	argc -= optind;
+
+	if (argc || *argv)
+		usage();
 
 	ssl_init();
 
@@ -1325,6 +1328,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_FILTER);
 	CASE(IMSG_CONF_END);
 
+	CASE(IMSG_LKA_UPDATE_MAP);
 	CASE(IMSG_LKA_MAIL);
 	CASE(IMSG_LKA_RCPT);
 	CASE(IMSG_LKA_SECRET);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.137 2012/09/21 12:33:32 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.139 2012/10/14 18:45:34 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -52,9 +52,12 @@ static void queue_pass_to_scheduler(struct imsgev *, struct imsg *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
+#define MDA_RUNMAX	50
+
 static void
 queue_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	static size_t		 mda_running;
 	static uint64_t		 batch_id;
 	struct submit_status	 ss;
 	struct envelope		*e, evp;
@@ -171,11 +174,18 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MDA_SESS_NEW:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id),
+				errx(1, "cannot load evp:%016" PRIx64, id);
+			if (mda_running >= MDA_RUNMAX) {
+				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+				    IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1,
+				    &evp, sizeof evp);
+				return;
+			}
 			evp.lasttry = time(NULL);
 			fd = queue_message_fd_r(evpid_to_msgid(id));
 			imsg_compose_event(env->sc_ievs[PROC_MDA],
 			    IMSG_MDA_SESS_NEW, 0, 0, fd, &evp, sizeof evp);
+			mda_running += 1;
 			return;
 
 		case IMSG_SMTP_ENQUEUE:
@@ -193,7 +203,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_BATCH_APPEND:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id),
+				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
@@ -222,6 +232,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_DELIVERY_OK, 0, 0, -1, &e->id,
 			    sizeof e->id);
+			if (iev->proc == PROC_MDA)
+				mda_running--;
 			return;
 
 		case IMSG_QUEUE_DELIVERY_TEMPFAIL:
@@ -231,6 +243,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1, e,
 			    sizeof *e);
+			if (iev->proc == PROC_MDA)
+				mda_running--;
 			return;
 
 		case IMSG_QUEUE_DELIVERY_PERMFAIL:
@@ -240,6 +254,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
 			    sizeof e->id);
+			if (iev->proc == PROC_MDA)
+				mda_running--;
 			return;
 
 		case IMSG_QUEUE_DELIVERY_LOOP:
@@ -249,6 +265,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_DELIVERY_LOOP, 0, 0, -1, &e->id,
 			    sizeof e->id);
+			if (iev->proc == PROC_MDA)
+				mda_running--;
 			return;
 		}
 	}

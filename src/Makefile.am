@@ -24,7 +24,7 @@ sbin_PROGRAMS=		smtpd smtpctl
 pkglibexec_PROGRAMS=	makemap
 
 makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c map.c	\
-			map_static.c map_db.c map_stdio.c
+			map_static.c map_db.c map_file.c tree.c
 
 makemap_CFLAGS=		-DNO_IO
 
@@ -45,8 +45,8 @@ smtpd_SOURCES+=		delivery_maildir.c
 smtpd_SOURCES+=		delivery_mbox.c
 smtpd_SOURCES+=		delivery_mda.c
 smtpd_SOURCES+=		map_db.c
+smtpd_SOURCES+=		map_file.c
 smtpd_SOURCES+=		map_static.c
-smtpd_SOURCES+=		map_stdio.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
 smtpd_SOURCES+=		stat_ramstat.c

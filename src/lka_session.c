@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.42 2012/10/10 18:02:37 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.47 2012/10/14 13:31:46 chl Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -33,6 +33,7 @@
 #include <event.h>
 #include "imsg.h"
 #include <resolv.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,12 +116,12 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	if (fd == -1 && fwreq->status) {
 		/* no .forward, just deliver to local user */
 		log_debug("lka: no .forward for user %s, just deliver",
-		    fwreq->as_user),
+		    fwreq->as_user);
 		lka_submit(lks, rule, xn);
 	}
 	else if (fd == -1) {
 		log_debug("lka: opening .forward failed for user %s",
-		    fwreq->as_user),
+		    fwreq->as_user);
 		lks->ss.code = 530;
 		lks->flags |= F_ERROR;
 	}
@@ -165,7 +166,6 @@ lka_resume(struct lka_session *lks)
 	}
     error:
 	if (lks->flags & F_ERROR) {
-		lks->ss.code = 530;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_RCPT, 0, 0,
 		    -1, &lks->ss, sizeof(struct submit_status));
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
@@ -198,6 +198,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
+	struct passwd	       *pw;
+	int			r;
 
 	if (xn->depth >= EXPAND_DEPTH) {
 		log_debug("lka_expand: node too deep.");
@@ -224,22 +226,29 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		rule = ruleset_match(&ep);
 		if (rule == NULL || rule->r_decision == R_REJECT) {
 			lks->flags |= F_ERROR;
-			lks->ss.code = 530;
+			lks->ss.code = (errno == EAGAIN ? 451 : 530);
 			break; /* no rule for address or REJECT match */
 		}
 		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 			lka_submit(lks, rule, xn);
 		}
-		else if (rule->r_condition.c_type == C_VDOM) {
+		else if (rule->r_condition.c_type == COND_VDOM) {
 			/* expand */
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			if (aliases_virtual_get(rule->r_condition.c_map,
-			    &lks->expand, &xn->u.mailaddr) == 0) {
-				log_debug("lka_expand: no aliases for virtual");
+			r = aliases_virtual_get(rule->r_condition.c_map,
+			    &lks->expand, &xn->u.mailaddr);
+			if (r == -1) {
+				lks->flags |= F_ERROR;
+				lks->ss.code = 451;
+				log_debug(
+				    "lka_expand: error in virtual alias lookup");
+			}
+			else if (r == 0) {
 				lks->flags |= F_ERROR;
 				lks->ss.code = 530;
+				log_debug("lka_expand: no aliases for virtual");
 			}
 		}
 		else {
@@ -266,13 +275,28 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
 		lks->expand.alias = 1;
-		if (rule->r_amap &&
-		    aliases_get(rule->r_amap, &lks->expand, xn->u.user))
-			break;
+		if (rule->r_amap) {
+			r = aliases_get(rule->r_amap, &lks->expand, xn->u.user);
+			if (r == -1) {
+				log_debug("lka_expand: error in alias lookup");
+				lks->flags |= F_ERROR;
+				lks->ss.code = 451;
+			}
+			if (r)
+				break;
+		}
 
 		/* a username should not exceed the size of a system user */
 		if (strlen(xn->u.user) >= sizeof fwreq.as_user) {
 			log_debug("lka_expand: user-part too long to be a system user");
+			lks->flags |= F_ERROR;
+			lks->ss.code = 530;
+			break;
+		}
+
+		pw = getpwnam(xn->u.user);
+		if (pw == NULL) {
+			log_debug("lka_expand: user-part does not match system user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
 			break;
