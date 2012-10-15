@@ -1799,7 +1799,9 @@ int
 is_if_in_group(const char *ifname, const char *groupname)
 {
 #ifndef OpenBSD
-	return 0;
+	if (strcmp(groupname, "all") == 0)
+		return (1);
+	return (0);
 #else
         unsigned int		 len;
         struct ifgroupreq        ifgr;
