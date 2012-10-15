@@ -49,7 +49,6 @@ D/smtpd////
 /util.c/1.87/Result of merge//
 /aliases.c/1.57/Result of merge//
 /compress_gzip.c/1.5/Result of merge//
-/control.c/1.76/Result of merge//
 /envelope.c/1.17/Result of merge//
 /lka.c/1.145/Result of merge//
 /makemap.c/1.40/Result of merge//
@@ -65,12 +64,13 @@ D/smtpd////
 /parser.h/1.23/Result of merge//
 /ruleset.c/1.25/Result of merge//
 /smtp_session.c/1.172/Result of merge//
-/smtpctl.8/1.31/Sun Oct 14 15:13:04 2012//
 /smtpctl.c/1.93/Result of merge//
-/smtpd.c/1.176/Result of merge//
 /smtpd.conf.5/1.75/Sun Oct 14 15:13:05 2012//
 /smtpd.h/1.389/Result of merge//
 /lka_session.c/1.47/Result of merge//
 /ssl.c/1.49/Result of merge//
 /queue.c/1.139/Result of merge//
 /mda.c/1.80/Result of merge//
+/control.c/1.77/Result of merge//
+/smtpctl.8/1.32/Mon Oct 15 19:38:25 2012//
+/smtpd.c/1.178/Result of merge//
