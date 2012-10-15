@@ -150,6 +150,8 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
 		$(DESTDIR)$(sbindir)/makemap$(EXEEXT);
 
+	$(INSTALL) -m 644 aliases.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5
+	$(INSTALL) -m 644 forward.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
 	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
