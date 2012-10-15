@@ -127,7 +127,7 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION CIPHER INTERVAL SIZE LISTEN ON ANY PORT EXPIRE
 %token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE ENCRYPTION
-%token	DB LDAP FILE DOMAIN SOURCE
+%token	DB LDAP FILE_ DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
@@ -446,7 +446,7 @@ main		: QUEUE INTERVAL interval	{
 		*/
 		;
 
-mapsource	: SOURCE FILE STRING			{
+mapsource	: SOURCE FILE_ STRING			{
 			map->m_src = S_FILE;
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
@@ -957,7 +957,7 @@ lookup(char *s)
 		{ "domain",		DOMAIN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
-		{ "file",		FILE },
+		{ "file",		FILE_ },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
@@ -975,7 +975,7 @@ lookup(char *s)
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
-		{ "plain",		FILE },
+		{ "plain",		FILE_ },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
