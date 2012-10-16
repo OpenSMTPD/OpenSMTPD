@@ -436,12 +436,9 @@ See http://www.gzip.org/zlib/ for details.])
 dnl    Checks for libutil functions
 AC_CHECK_HEADERS([libutil.h])
 AC_SEARCH_LIBS([fmt_scaled], [util bsd])
-AC_SEARCH_LIBS([login], [util bsd])
-AC_SEARCH_LIBS([logout], [util bsd])
-AC_SEARCH_LIBS([logwtmp], [util bsd])
-AC_SEARCH_LIBS([openpty], [util bsd])
-AC_SEARCH_LIBS([updwtmp], [util bsd])
-AC_CHECK_FUNCS([fmt_scaled login logout openpty updwtmp logwtmp])
+AC_CHECK_FUNCS([fmt_scaled])
+AC_CHECK_HEADERS([libutil.h])
+AC_SEARCH_LIBS([fmt_scaled], [util bsd])
 #l1180
 
 #l1209
