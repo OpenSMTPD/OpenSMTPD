@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.388 2012/10/12 08:51:02 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.389 2012/10/14 11:58:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -40,7 +40,7 @@
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 #define MAX_PATH_SIZE		 256
-#define MAX_RULEBUFFER_LEN	 256
+#define MAX_RULEBUFFER_LEN	 512
 
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
