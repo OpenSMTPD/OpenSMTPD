@@ -62,15 +62,15 @@ D/smtpd////
 /control.c/1.77/Result of merge//
 /smtpd.c/1.178/Result of merge//
 /Makefile/1.9/Tue Oct 16 12:29:33 2012//
-/aliases.5/1.4/Tue Oct 16 12:28:40 2012//
-/filter_api.h/1.4/Tue Oct 16 12:28:40 2012//
-/forward.5/1.6/Tue Oct 16 12:28:40 2012//
-/iobuf.h/1.1/Tue Oct 16 12:28:40 2012//
-/ioev.h/1.2/Tue Oct 16 12:28:40 2012//
 /lka_session.c/1.48/Result of merge//
-/makemap.8/1.17/Tue Oct 16 12:28:40 2012//
-/newaliases.8/1.8/Tue Oct 16 12:28:40 2012//
-/smtpctl.8/1.33/Tue Oct 16 12:29:33 2012//
-/smtpd.8/1.16/Tue Oct 16 12:28:40 2012//
-/smtpd.conf.5/1.75/Tue Oct 16 12:28:40 2012//
 /smtpd.h/1.390/Result of merge//
+/aliases.5/1.4/Fri Sep 14 17:35:27 2012//
+/filter_api.h/1.4/Mon Sep  3 21:36:55 2012//
+/forward.5/1.6/Mon Sep 17 19:55:53 2012//
+/iobuf.h/1.1/Mon Jul  9 11:36:35 2012//
+/ioev.h/1.2/Wed Oct 10 23:02:04 2012//
+/makemap.8/1.17/Mon Jul  9 11:36:35 2012//
+/newaliases.8/1.8/Mon Jul  9 11:36:35 2012//
+/smtpctl.8/1.33/Tue Oct 16 19:42:19 2012//
+/smtpd.8/1.16/Sat Sep 29 11:00:25 2012//
+/smtpd.conf.5/1.76/Tue Oct 16 20:50:51 2012//
