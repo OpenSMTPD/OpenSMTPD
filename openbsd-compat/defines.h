@@ -783,6 +783,10 @@ struct winsize {
 #  error "Neither EAI_NODATA and EAI_NONAME are defined! :("
 # endif
 #endif
+
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC -1
+#endif
 /* end of chl */
 
 #endif /* _DEFINES_H */
