@@ -19,11 +19,11 @@ Dependencies
 ------------
 
 OpenSMTPD relies on:
-* autoconf
-* automake
-* bison (or yacc/byacc)
-* libevent
-* openssl
+* [autoconf](http://www.gnu.org/software/autoconf/)
+* [automake](http://www.gnu.org/software/automake/)
+* [bison](http://www.gnu.org/software/bison/) (or [byacc](http://invisible-island.net/byacc/byacc.html))
+* [libevent](http://libevent.org/)
+* [openssl](http://www.openssl.org/)
 
 
 Get the source
@@ -70,7 +70,7 @@ Create a /etc/mail/smtpd.conf
     mkdir /etc/mail  
     cat > /etc/mail/smtpd.conf  
     listen on localhost  
-    accept for all relay  
+    accept for any relay  
     ^D  
     
 
@@ -135,6 +135,8 @@ or in debug and verbose mode
 Manual pages
 ------------
 
+* [aliases](http://opensmtpd.org/aliases.5.html) - 
+* [forward](http://opensmtpd.org/forward.5.html) - 
 * [smtpd](http://opensmtpd.org/smtpd.8.html) - Simple Mail Transfer Protocol daemon
 * [smtpd.conf](http://opensmtpd.org/smtpd.conf.5.html) - Simple Mail Transfer Protocol daemon configuration file
 * [smtpctl](http://opensmtpd.org/smtpctl.8.html) - control the Simple Mail Transfer Protocol daemon
