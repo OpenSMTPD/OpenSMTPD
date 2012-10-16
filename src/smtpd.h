@@ -38,7 +38,7 @@
 
 
 #ifndef SMTPD_CONFDIR
-#define SMTPD_CONFDIR		 "/etc/mail"
+#define SMTPD_CONFDIR		 "/etc"
 #endif
 #define CONF_FILE		 SMTPD_CONFDIR "/smtpd.conf"
 #define MAX_LISTEN		 16

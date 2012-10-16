@@ -12,7 +12,7 @@
 # For OpenSMTPD portable, here's where files are installed:
 # (assuming PREFIX=/usr/local)
 #
-# /usr/local/etc/mail/smtpd.conf
+# /usr/local/etc/smtpd.conf
 # /usr/local/bin/mailq      --> /usr/sbin/smtpctl
 # /usr/local/bin/newaliases --> /usr/local/libexec/opensmtpd-portable/makemap
 # /usr/local/libexec/mail.local
@@ -85,7 +85,7 @@ LDADD=			$(LIBCOMPAT)
 CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)/mail\" \
+PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\" \
 			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\" \
 			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"
 
@@ -104,7 +104,7 @@ EXTRA_DIST=		filter_api.h iobuf.h ioev.h log.h parser.h smtpd.h	\
 			../contrib/lib/libc/asr/asr_private.h			\
 			$(CONFIGFILES_IN) $(MANPAGES_IN)
 
-PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/mail/|g'			\
+PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
 			-e 's|/usr/libexec|$(libexecdir)|g'			\
 			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
 
@@ -130,15 +130,15 @@ $(CONFIGFILES): $(CONFIGFILES_IN)
 # smtpd.conf
 # newaliases makemap
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
-	$(MKDIR_P) $(DESTDIR)$(sysconfdir)/mail
+	$(MKDIR_P) $(DESTDIR)$(sysconfdir)
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)5
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 
-	@if [ ! -f $(DESTDIR)$(sysconfdir)/mail/smtpd.conf ]; then		\
-		$(INSTALL) -m 644 smtpd.conf.out $(DESTDIR)$(sysconfdir)/mail/smtpd.conf; \
+	@if [ ! -f $(DESTDIR)$(sysconfdir)/smtpd.conf ]; then			\
+		$(INSTALL) -m 644 smtpd.conf.out $(DESTDIR)$(sysconfdir)/smtpd.conf; \
 	else									\
-		echo "$(DESTDIR)$(sysconfdir)/mail/smtpd.conf already exists, install will not overwrite"; \
+		echo "$(DESTDIR)$(sysconfdir)/smtpd.conf already exists, install will not overwrite"; \
 	fi
 
 	ln -f $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
