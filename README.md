@@ -64,18 +64,16 @@ Please launch configure with special directive about libevent directory:
     make CFLAGS="-DBIND_8_COMPAT=1"
 
 
-Create a /etc/mail/smtpd.conf
------------------------------
+Install
+-------
 
-    mkdir /etc/mail  
-    cat > /etc/mail/smtpd.conf  
-    listen on localhost  
-    accept for any relay  
-    ^D  
-    
+    sudo make install    
 
-You can find a complete format description of [smtpd.conf configuration file](http://opensmtpd.org/smtpd.conf.5.html)
 
+Configure /etc/smtpd.conf
+-------------------------
+
+Please have a look at the complete format description of [smtpd.conf configuration file](http://opensmtpd.org/smtpd.conf.5.html)
 
 Add _smtpd user
 ---------------
