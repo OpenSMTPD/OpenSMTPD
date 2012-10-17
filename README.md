@@ -21,9 +21,11 @@ Dependencies
 OpenSMTPD relies on:
 * [autoconf](http://www.gnu.org/software/autoconf/)
 * [automake](http://www.gnu.org/software/automake/)
+* [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html)
 * [bison](http://www.gnu.org/software/bison/) (or [byacc](http://invisible-island.net/byacc/byacc.html))
 * [libevent](http://libevent.org/)
 * [openssl](http://www.openssl.org/)
+* [zlib](http://www.zlib.net/)
 
 
 Get the source
