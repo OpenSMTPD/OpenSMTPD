@@ -277,7 +277,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	check_for_libcrypt_later=1
 	;;
 *-*-openbsd*)
-	echo "You are drunk"
+	echo "Please use -current"
 	;;
 *-*-solaris*)
 	if test "x$withval" != "xno" ; then
