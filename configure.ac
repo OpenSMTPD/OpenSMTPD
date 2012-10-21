@@ -2343,8 +2343,7 @@ AC_RUN_IFELSE(
 	]
 )
 
-
-libevent_major_version=`cat conftest.libeventlibver|head -c1`
+libevent_major_version=`cat conftest.libeventlibver|head -c1 || echo 1`
 
 AC_DEFINE_UNQUOTED([LIBEVENT_MAJOR_VERSION], [$libevent_major_version], [Define libevent major version])
 
