@@ -24,6 +24,7 @@ OpenSMTPD relies on:
 * [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html)
 * [bison](http://www.gnu.org/software/bison/) (or [byacc](http://invisible-island.net/byacc/byacc.html))
 * [libevent](http://libevent.org/)
+* [libtool](http://www.gnu.org/software/libtool/)
 * [openssl](http://www.openssl.org/)
 * [zlib](http://www.zlib.net/)
 
