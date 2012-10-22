@@ -83,17 +83,8 @@ processes.
 Produce more verbose output.
 .El
 .Pp
-.Nm
-is not enabled by default.
-In order to use it as the system mailer,
-ensure the mail queue is empty,
-then stop
-.Xr sendmail 8 :
-.Bd -literal -offset indent
-# /etc/rc.d/sendmail stop
-.Ed
-.Pp
-Modify the current
+If you are running a BSD Operating System,
+you should use and modify 
 .Xr mailwrapper 8
 settings by editing
 .Pa /etc/mailer.conf :
@@ -109,8 +100,6 @@ Rebuild the aliases database,
 and enable the daemon:
 .Bd -literal -offset indent
 # newaliases
-# echo "sendmail_flags=NO" \*(Gt\*(Gt /etc/rc.conf.local
-# echo "smtpd_flags=" \*(Gt\*(Gt /etc/rc.conf.local
 # /etc/rc.d/smtpd start
 .Ed
 .Sh FILES
