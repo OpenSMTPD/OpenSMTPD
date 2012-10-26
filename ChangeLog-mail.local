@@ -1,0 +1,306 @@
+2011-01-10 22:00  millert
+
+	* locking.c: Back out rev 1.2 and use mkstemp(), not mktemp().	OK
+	  deraadt@
+
+2010-09-03 13:35  jmc
+
+	* mail.local.8: add EXIT STATUS for /usr/libexec;
+
+2009-10-28 00:59  deraadt
+
+	* locking.c, mail.local.c: rcsid[] and sccsid[] and copyright[] are
+	  essentially unmaintained (and unmaintainable).  these days,
+	  people use source.  these id's do not provide any benefit, and do
+	  hurt the small install media (the 33,000 line diff is essentially
+	  mechanical) ok with the idea millert, ok dms
+
+2009-01-19 10:46  sobrado
+
+	* mail.local.8: replace standardized text concerning the exit
+	  values of applications with the right mdoc macros.
+
+2008-05-26 11:22  sobrado
+
+	* mail.local.8, mail.local.c: sort flags on both the synopsis and
+	  usage.
+
+	  ok jmc@
+
+2007-05-31 21:19  jmc
+
+	* mail.local.8: convert to new .Dd format;
+
+2006-05-13 06:17  deraadt
+
+	* mail.local.c: delete case for ?; cdp_xe@gmx.net
+
+2006-04-02 00:48  deraadt
+
+	* locking.c, mail.local.c, mail.local.h: minor lint cleaning; ok
+	  millert
+
+2006-01-02 17:22  millert
+
+	* mail.local.c: #include <sys/signal.h> not needed
+
+2005-05-29 04:11  millert
+
+	* mail.local.c: Fix case where input file lacks newline before EOF;
+	  Andrey Matveev
+
+2004-08-08 21:32  deraadt
+
+	* mail.local.c: spacing
+
+2004-05-20 10:46  tom
+
+	* mail.local.8: Grammar nit.
+
+	  ok david@
+
+2003-07-10 02:04  david
+
+	* locking.c: add missing includes ok deraadt@ tedu@
+
+2003-06-02 21:38  millert
+
+	* mail.local.8, mail.local.c, mail.local.h, pathnames.h: Remove the
+	  advertising clause in the UCB license which Berkeley rescinded 22
+	  July 1999.  Proofed by myself and Theo.
+
+2002-07-04 01:39  deraadt
+
+	* locking.c, mail.local.c: KNF
+
+2002-06-02 03:27  deraadt
+
+	* mail.local.c: minor KNF
+
+2002-03-27 16:45  mpech
+
+	* mail.local.8: 'S' required in OpenBSD (LOCAL_MAILER_FLAGS). From
+	  lazy form@.
+
+	  millert@ ok
+
+2002-02-19 20:39  millert
+
+	* locking.c: We live in an ANSI C world.  Remove lots of gratuitous
+	  #ifdef __STDC__ cruft.
+
+2002-02-18 00:16  millert
+
+	* locking.c: Call S_ISLNK with correct variable; Peter Philipp
+
+2002-02-16 22:27  millert
+
+	* mail.local.h: Part one of userland __P removal.  Done with a
+	  simple regexp with some minor hand editing to make comments line
+	  up correctly.  Another pass is forthcoming that handles the cases
+	  that could not be done automatically.
+
+2001-08-18 23:37  deraadt
+
+	* locking.c, mail.local.c, mail.local.h: err() -> merr(), and
+	  reorder some bugs noted by giannici@neomedia.it; millert helped
+
+2001-07-09 09:04  deraadt
+
+	* mail.local.c: correct type on last arg to execl();
+	  nordin@cse.ogi.edu
+
+2001-01-28 20:34  niklas
+
+	* mail.local.8, pathnames.h: $OpenBSD$
+
+2000-11-09 18:53  aaron
+
+	* mail.local.8: Change all option list specifications to ".Bl -tag
+	  -width Ds". Most man pages just needed their -width parameter
+	  tweaked to "Ds", which provides a nice width of 6 constant
+	  characters. For consistency more than anything.
+
+2000-10-30 18:46  aaron
+
+	* mail.local.8: libexec man page fleshing. again, bored on the
+	  plane home.
+
+2000-08-16 19:14  brad
+
+	* mail.local.8: /etc/sendmail.cf -> /etc/mail/sendmail.cf -- PR#
+	  1364, From: sigh@kuzirabekon.econ.nagasaki-u.ac.jp
+
+2000-04-21 23:50  millert
+
+	* mail.local.c: Use fgetln(3) instead of fgets(3) when reading in
+	  the message.	This way the From line escaping gets done correctly
+	  even for really long lines.
+
+2000-03-29 03:28  deraadt
+
+	* mail.local.8: Xr repair
+
+1999-07-09 15:35  aaron
+
+	* mail.local.8: - remove all trailing whitespace      * except when
+	  it is escaped with a `\' at the end of the line - fix remaining
+	  .Nm usage as well - this is from a patch I received from
+	  kwesterback@home.com, who has been   working on some scripts for
+	  fixing formatting errors in mdoc'd man pages
+
+	  Ok, so there could be a cost/benefit debate with this commit, but
+	  since I have the patch we might as well commit it...
+
+1999-07-04 21:25  aaron
+
+	* mail.local.8: more macro conversion
+
+1999-03-11 02:35  pjanzen
+
+	* mail.local.8: fix more comma splices that involve misuse of
+	  conjunctive adverbs
+
+1999-01-11 09:54  csapuntz
+
+	* mail.local.8:
+
+	  Correct documentation on how mail.local does its locking.
+
+1998-08-17 16:32  millert
+
+	* Makefile: As prommised, mail.local is no longer setuid.
+
+1998-08-16 01:11  millert
+
+	* locking.c: go back to using mktemp, not mkstemp in baditem();
+	  theo
+
+1998-08-15 23:04  millert
+
+	* Makefile, locking.c, mail.local.8, mail.local.c, mail.local.h,
+	  pathnames.h: Break out locking code into its own file so it can
+	  be shared with lockspool.  Call lockspool when invoked with -H
+	  flag for backward compatibility.
+
+1998-05-18 11:58  deraadt
+
+	* mail.local.c: readlink(path, buf, sizeof buf-1).  Never forget
+	  that -1.
+
+1998-02-24 06:00  millert
+
+	* mail.local.8: Xr biff 1
+
+1998-02-24 05:52  millert
+
+	* pathnames.h, mail.local.8: 1) Mode X's for mkstemp 2) Document
+	  problems with using quotas on /var/mail and tell how	  to make
+	  sendmail do the right thing.
+
+1998-02-06 16:48  gene
+
+	* mail.local.8: Grammar and clarifications.
+
+1997-08-27 20:01  deraadt
+
+	* mail.local.8: fix ' use
+
+1997-08-13 23:09  dm
+
+	* mail.local.c: a little extra paranoia
+
+1997-07-25 21:41  mickey
+
+	* mail.local.c: #if __STDC__ --> #ifdef __STDC__
+
+1997-04-04 20:41  deraadt
+
+	* mail.local.c: when mktemp() is hard to fix, use 10 X
+
+1997-03-29 03:59  millert
+
+	* mail.local.8, mail.local.c: Make ``mail.local -H'' explicately
+	  indicate when the lock fails or succeeds.
+
+1997-03-28 03:16  millert
+
+	* mail.local.c: "mail.local -H" is valid usage.
+
+1997-02-12 16:12  deraadt
+
+	* mail.local.c: fix option argument parsing, nirva@ishiboo.com
+
+1997-01-17 08:12  millert
+
+	* mail.local.c: r?index -> strr?chr
+
+1997-01-16 00:41  millert
+
+	* mail.local.c: getopt(3) returns -1 when out of args, not EOF,
+	  whee!
+
+1996-12-24 20:42  deraadt
+
+	* mail.local.c: comment on why this mktemp use is safe
+
+1996-12-05 16:00  deraadt
+
+	* mail.local.8: typo
+
+1996-10-16 08:30  millert
+
+	* mail.local.c: check malloc ret val
+
+1996-08-30 14:04  deraadt
+
+	* mail.local.c: use S_IWOTH
+
+1996-08-29 09:24  deraadt
+
+	* mail.local.8: more signals please
+
+1996-08-29 09:21  deraadt
+
+	* mail.local.8, mail.local.c: first cut at -H; to be used mailers
+	  to grab locks in 755 spool direectories
+
+1996-08-29 06:24  deraadt
+
+	* mail.local.8: talk about quotas on spool filesystems (untested
+	  idea)
+
+1996-08-29 06:19  deraadt
+
+	* mail.local.c: buf oflows, deal with 1777 spool, general DOS
+	  attack protection; help from david mazieres
+
+1996-08-29 06:19  deraadt
+
+	* mail.local.8: buf oflows, deal with 1777 spool, general DOS
+	  attack protection
+
+1996-08-27 22:33  dm
+
+	* mail.local.c: Fix race condition.
+
+1996-08-27 05:17  dm
+
+	* mail.local.8, mail.local.c: Use lockfiles by default, rather than
+	  fcntl.
+
+1996-07-19 09:35  deraadt
+
+	* mail.local.c: race thee no more; fix from travis@evtech.com with
+	  some additional stuff from me
+
+1995-10-18 09:43  deraadt
+
+	* Makefile, mail.local.8, mail.local.c, pathnames.h: Initial
+	  revision
+
+1995-10-18 09:43  deraadt
+
+	* Makefile, mail.local.8, mail.local.c, pathnames.h: initial import
+	  of NetBSD tree
+
