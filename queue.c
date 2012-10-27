@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.134 2012/09/10 14:22:11 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.140 2012/10/25 09:51:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -58,8 +58,6 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint64_t		 id;
 	uint32_t		 msgid;
 
-	log_imsg(PROC_QUEUE, iev->proc, imsg);
-
 	if (iev->proc == PROC_SMTP) {
 		e = imsg->data;
 
@@ -88,8 +86,6 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			ss.code = 250;
 			msgid = evpid_to_msgid(e->id);
 			if (queue_message_commit(msgid)) {
-				stat_increment(e->flags & DF_ENQUEUED ?
-				    "queue.local" : "queue.remote", 1);
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 				    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
 				    &msgid, sizeof msgid);
@@ -150,12 +146,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
-			envelope_set_errormsg(&evp, "Removed by administrator");
-			log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, stat=%s",
-			    evp.id, evp.dest.user,
-			    evp.dest.domain,
-			    duration_to_text(time(NULL) - evp.creation),
-			    evp.errorline);
+			log_envelope(&evp, NULL, "Removed by administrator");
 			queue_envelope_delete(&evp);
 			return;
 
@@ -164,23 +155,18 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			envelope_set_errormsg(&evp, "Envelope expired");
-			log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, stat=%s",
-			    evp.id, evp.dest.user,
-			    evp.dest.domain,
-			    duration_to_text(time(NULL) - evp.creation),
-			    evp.errorline);
 			queue_bounce(&evp);
+			log_envelope(&evp, NULL, evp.errorline);
 			queue_envelope_delete(&evp);
 			return;
 
 		case IMSG_MDA_SESS_NEW:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id),
+				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
-			fd = queue_message_fd_r(evpid_to_msgid(id));
 			imsg_compose_event(env->sc_ievs[PROC_MDA],
-			    IMSG_MDA_SESS_NEW, 0, 0, fd, &evp, sizeof evp);
+			    IMSG_MDA_SESS_NEW, 0, 0, -1, &evp, sizeof evp);
 			return;
 
 		case IMSG_SMTP_ENQUEUE:
@@ -198,7 +184,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_BATCH_APPEND:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id),
+				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
 			imsg_compose_event(env->sc_ievs[PROC_MTA],

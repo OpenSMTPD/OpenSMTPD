@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.98 2012/09/08 13:58:29 chl Exp $	*/
+/*	$OpenBSD: parse.y,v 1.109 2012/10/14 11:58:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -88,11 +88,9 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-objid_t			 last_map_id = 1;
 struct map		*map = NULL;
 struct rule		*rule = NULL;
 TAILQ_HEAD(condlist, cond) *conditions = NULL;
-struct mapel_list	*contents = NULL;
 
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
@@ -121,21 +119,22 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION CIPHER INTERVAL SIZE LISTEN ON ALL PORT EXPIRE
+%token	AS QUEUE COMPRESSION CIPHER INTERVAL SIZE LISTEN ON ANY PORT EXPIRE
 %token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE ENCRYPTION
-%token	DB LDAP PLAIN DOMAIN SOURCE
+%token	DB LDAP FILE DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
-%token	ARROW ENABLE AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
+%token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
-%type	<v.number>	quantifier decision port from auth ssl size expire
+%type	<v.number>	quantifier port from auth ssl size expire
 %type	<v.cond>	condition
 %type	<v.tv>		interval
 %type	<v.object>	mapref
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname user tag on alias credentials compression
+%type	<v.string>	certname tag on alias credentials compression
 %%
 
 grammar		: /* empty */
@@ -262,10 +261,12 @@ certname	: CERTIFICATE STRING	{
 ssl		: SMTPS				{ $$ = F_SMTPS; }
 		| TLS				{ $$ = F_STARTTLS; }
 		| SSL				{ $$ = F_SSL; }
-		| /* empty */			{ $$ = 0; }
+		| TLS_REQUIRE			{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE; }
+		| /* Empty */			{ $$ = 0; }
 		;
 
-auth		: ENABLE AUTH  			{ $$ = 1; }
+auth		: AUTH  			{ $$ = F_AUTH|F_AUTH_REQUIRE; }
+		| AUTH_OPTIONAL			{ $$ = F_AUTH; }
 		| /* empty */			{ $$ = 0; }
 		;
 
@@ -293,9 +294,7 @@ expire		: EXPIRE STRING {
 		;
 
 credentials	: AUTH STRING	{
-			struct map *m;
-
-			if ((m = map_findbyname($2)) == NULL) {
+			if ((map_findbyname($2)) == NULL) {
 				yyerror("no such map: %s", $2);
 				free($2);
 				YYERROR;
@@ -368,10 +367,7 @@ main		: QUEUE INTERVAL interval	{
 			}
 
 			cert = ($6 != NULL) ? $6 : $3;
-			flags = $5;
-
-			if ($7)
-				flags |= F_AUTH;
+			flags = $5 | $7; /* ssl | auth */
 
 			if ($5 && ssl_load_certfile(cert, F_SCERT) < 0) {
 				yyerror("cannot load certificate: %s", cert);
@@ -444,59 +440,37 @@ main		: QUEUE INTERVAL interval	{
 		*/
 		;
 
-mapsource	: PLAIN STRING			{
-			map->m_src = S_PLAIN;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+mapsource	: SOURCE FILE STRING			{
+			map->m_src = S_FILE;
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-		| DB STRING			{
+		| STRING {
+			map->m_src = S_FILE;
+			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
+			    >= sizeof(map->m_config))
+				err(1, "pathname too long");
+		}
+		| SOURCE DB STRING			{
 			map->m_src = S_DB;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-		| LDAP STRING			{
+		| SOURCE LDAP STRING			{
 			map->m_src = S_LDAP;
-			if (strlcpy(map->m_config, $2, sizeof(map->m_config))
+			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		;
 
-mapopt		: SOURCE mapsource		{ }
+mapopt		: mapsource		{ }
 
 map		: MAP STRING			{
-			struct map	*m;
-
-			TAILQ_FOREACH(m, conf->sc_maps, m_entry)
-				if (strcmp(m->m_name, $2) == 0)
-					break;
-
-			if (m != NULL) {
-				yyerror("map %s defined twice", $2);
-				free($2);
-				YYERROR;
-			}
-			if ((m = calloc(1, sizeof(*m))) == NULL)
-				fatal("out of memory");
-			if (strlcpy(m->m_name, $2, sizeof(m->m_name)) >=
-			    sizeof(m->m_name)) {
-				yyerror("map name truncated");
-				free(m);
-				free($2);
-				YYERROR;
-			}
-
-			m->m_id = last_map_id++;
-
-			if (m->m_id == INT_MAX) {
-				yyerror("too many maps defined");
-				free($2);
-				free(m);
-				YYERROR;
-			}
-			map = m;
+			map = map_create(S_NONE, $2);
+			free($2);
 		} optlbracket mapopt optrbracket	{
 			if (map->m_src == S_NONE) {
 				yyerror("map %s has no source defined", $2);
@@ -504,34 +478,14 @@ map		: MAP STRING			{
 				map = NULL;
 				YYERROR;
 			}
-			TAILQ_INSERT_TAIL(conf->sc_maps, map, m_entry);
 			map = NULL;
 		}
 		;
 
 keyval		: STRING ARROW STRING		{
-			struct mapel	*me;
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-
-			if (strlcpy(me->me_key.med_string, $1,
-			    sizeof(me->me_key.med_string)) >=
-			    sizeof(me->me_key.med_string) ||
-			    strlcpy(me->me_val.med_string, $3,
-			    sizeof(me->me_val.med_string)) >=
-			    sizeof(me->me_val.med_string)) {
-				yyerror("map elements too long: %s, %s",
-				    $1, $3);
-				free(me);
-				free($1);
-				free($3);
-				YYERROR;
-			}
+			map_add(map, $1, $3);
 			free($1);
 			free($3);
-
-			TAILQ_INSERT_TAIL(contents, me, me_entry);
 		}
 		;
 
@@ -540,21 +494,8 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
-			struct mapel	*me;
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-
-			if (strlcpy(me->me_key.med_string, $1,
-				sizeof(me->me_key.med_string)) >=
-			    sizeof(me->me_key.med_string)) {
-				yyerror("map element too long: %s", $1);
-				free(me);
-				free($1);
-				YYERROR;
-			}
+			map_add(map, $1, NULL);
 			free($1);
-			TAILQ_INSERT_TAIL(contents, me, me_entry);
 		}
 		;
 
@@ -564,86 +505,19 @@ string_list	: stringel
 
 mapref		: STRING			{
 			struct map	*m;
-			struct mapel	*me;
 
-			if ((m = calloc(1, sizeof(*m))) == NULL)
-				fatal("out of memory");
-			m->m_id = last_map_id++;
-			if (m->m_id == INT_MAX) {
-				yyerror("too many maps defined");
-				free(m);
-				YYERROR;
-			}
-			if (! bsnprintf(m->m_name, sizeof(m->m_name),
-				"<dynamic(%u)>", m->m_id))
-				fatal("snprintf");
-			m->m_src = S_NONE;
-
-			TAILQ_INIT(&m->m_contents);
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-
-			if (strlcpy(me->me_key.med_string, $1,
-				sizeof(me->me_key.med_string)) >=
-			    sizeof(me->me_key.med_string)) {
-				yyerror("map element too long: %s", $1);
-				free(me);
-				free($1);
-				YYERROR;
-			}
-			free($1);
-
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
-			TAILQ_INSERT_TAIL(conf->sc_maps, m, m_entry);
+			m = map_create(S_NONE, NULL);
+			map_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
 		| '('				{
-			struct map	*m;
-
-			if ((m = calloc(1, sizeof(*m))) == NULL)
-				fatal("out of memory");
-
-			m->m_id = last_map_id++;
-			if (m->m_id == INT_MAX) {
-				yyerror("too many maps defined");
-				free(m);
-				YYERROR;
-			}
-			if (! bsnprintf(m->m_name, sizeof(m->m_name),
-				"<dynamic(%u)>", m->m_id))
-				fatal("snprintf");
-
-			TAILQ_INIT(&m->m_contents);
-			contents = &m->m_contents;
-			map = m;
-
+			map = map_create(S_NONE, NULL);
 		} string_list ')'		{
-			TAILQ_INSERT_TAIL(conf->sc_maps, map, m_entry);
 			$$ = map->m_id;
 		}
 		| '{'				{
-			struct map	*m;
-
-			if ((m = calloc(1, sizeof(*m))) == NULL)
-				fatal("out of memory");
-
-			m->m_id = last_map_id++;
-			if (m->m_id == INT_MAX) {
-				yyerror("too many maps defined");
-				free(m);
-				YYERROR;
-			}
-			if (! bsnprintf(m->m_name, sizeof(m->m_name),
-				"<dynamic(%u)>", m->m_id))
-				fatal("snprintf");
-
-			TAILQ_INIT(&m->m_contents);
-			contents = &m->m_contents;
-			map = m;
-
+			map = map_create(S_NONE, NULL);
 		} keyval_list '}'		{
-			TAILQ_INSERT_TAIL(conf->sc_maps, map, m_entry);
 			$$ = map->m_id;
 		}
 		| MAP STRING			{
@@ -657,10 +531,6 @@ mapref		: STRING			{
 			free($2);
 			$$ = m->m_id;
 		}
-		;
-
-decision	: ACCEPT			{ $$ = 1; }
-		| REJECT			{ $$ = 0; }
 		;
 
 alias		: ALIAS STRING			{ $$ = $2; }
@@ -680,9 +550,8 @@ condition	: DOMAIN mapref	alias		{
 				rule->r_amap = m->m_id;
 			}
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
-			c->c_type = C_DOM;
+			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
+			c->c_type = COND_DOM;
 			c->c_map = $2;
 			$$ = c;
 		}
@@ -696,16 +565,20 @@ condition	: DOMAIN mapref	alias		{
 				YYERROR;
 			}
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
-			c->c_type = C_VDOM;
+			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
+			c->c_type = COND_VDOM;
 			c->c_map = $2;
 			$$ = c;
 		}
 		| LOCAL alias {
 			struct cond	*c;
 			struct map	*m;
-			struct mapel	*me;
+			char		 hostname[MAXHOSTNAMELEN];
+
+			if (gethostname(hostname, sizeof hostname) == -1) {
+				yyerror("gethostname() failed");
+				YYERROR;
+			}
 
 			if ($2) {
 				if ((m = map_findbyname($2)) == NULL) {
@@ -716,55 +589,22 @@ condition	: DOMAIN mapref	alias		{
 				rule->r_amap = m->m_id;
 			}
 
-			if ((m = calloc(1, sizeof(*m))) == NULL)
-				fatal("out of memory");
-			m->m_id = last_map_id++;
-			if (m->m_id == INT_MAX) {
-				yyerror("too many maps defined");
-				free(m);
-				YYERROR;
-			}
-			if (! bsnprintf(m->m_name, sizeof(m->m_name),
-				"<dynamic(%u)>", m->m_id))
-				fatal("snprintf");
+			m = map_create(S_NONE, NULL);
+			map_add(m, "localhost", NULL);
+			map_add(m, hostname, NULL);
 
-			TAILQ_INIT(&m->m_contents);
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-
-			(void)strlcpy(me->me_key.med_string, "localhost",
-			    sizeof(me->me_key.med_string));
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-
-			if (gethostname(me->me_key.med_string,
-				sizeof(me->me_key.med_string)) == -1) {
-				yyerror("gethostname() failed");
-				free(me);
-				free(m);
-				YYERROR;
-			}
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
-
-			TAILQ_INSERT_TAIL(conf->sc_maps, m, m_entry);
-
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
-			c->c_type = C_DOM;
+			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
+			c->c_type = COND_DOM;
 			c->c_map = m->m_id;
 
 			$$ = c;
 		}
-		| ALL alias			{
+		| ANY alias			{
 			struct cond	*c;
 			struct map	*m;
 
-			if ((c = calloc(1, sizeof *c)) == NULL)
-				fatal("out of memory");
-			c->c_type = C_ALL;
+			c = xcalloc(1, sizeof *c, "parse condition: ANY");
+			c->c_type = COND_ANY;
 
 			if ($2) {
 				if ((m = map_findbyname($2)) == NULL) {
@@ -790,20 +630,6 @@ conditions	: condition				{
 			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
 		}
 		| '{' condition_list '}'
-		;
-
-user		: AS STRING		{
-			struct passwd *pw;
-
-			pw = getpwnam($2);
-			if (pw == NULL) {
-				yyerror("user '%s' does not exist.", $2);
-				free($2);
-				YYERROR;
-			}
-			$$ = $2;
-		}
-		| /* empty */		{ $$ = NULL; }
 		;
 
 relay_as     	: AS STRING		{
@@ -865,10 +691,7 @@ relay_as     	: AS STRING		{
 				}
 			}
 			
-			maddrp = calloc(1, sizeof (*maddrp));
-			if (maddrp == NULL)
-				fatal("calloc");
-			*maddrp = maddr;
+			maddrp = xmemdup(&maddr, sizeof (*maddrp), "parse relay_as: AS");
 			free($2);
 
 			$$ = maddrp;
@@ -876,16 +699,14 @@ relay_as     	: AS STRING		{
 		| /* empty */		{ $$ = NULL; }
 		;
 
-action		: DELIVER TO MAILDIR user		{
-			rule->r_user = $4;
+action		: DELIVER TO MAILDIR			{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| DELIVER TO MAILDIR STRING user	{
-			rule->r_user = $5;
+		| DELIVER TO MAILDIR STRING		{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer)) >=
@@ -900,8 +721,7 @@ action		: DELIVER TO MAILDIR user		{
 			    >= sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| DELIVER TO MDA STRING user		{
-			rule->r_user = $5;
+		| DELIVER TO MDA STRING			{
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
@@ -939,7 +759,6 @@ action		: DELIVER TO MAILDIR user		{
 			if (rule->r_value.relayhost.flags & F_AUTH) {
 				if ($5 == NULL) {
 					yyerror("error: auth without authmap");
-					free($3);
 					free($4);
 					free($5);
 					free($6);
@@ -955,9 +774,7 @@ action		: DELIVER TO MAILDIR user		{
 				if (ssl_load_certfile($4, F_CCERT) < 0) {
 					yyerror("cannot load certificate: %s",
 					    $4);
-					free($3);
 					free($4);
-					free($5);
 					free($6);
 					YYERROR;
 				}
@@ -973,50 +790,14 @@ action		: DELIVER TO MAILDIR user		{
 from		: FROM mapref			{
 			$$ = $2;
 		}
-		| FROM ALL			{
-			struct map	*m;
-			struct mapel	*me;
-
-			if ((m = calloc(1, sizeof(*m))) == NULL)
-				fatal("out of memory");
-			m->m_id = last_map_id++;
-			if (m->m_id == INT_MAX) {
-				yyerror("too many maps defined");
-				free(m);
-				YYERROR;
-			}
-			if (! bsnprintf(m->m_name, sizeof(m->m_name),
-				"<dynamic(%u)>", m->m_id))
-				fatal("snprintf");
-
-			TAILQ_INIT(&m->m_contents);
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-			(void)strlcpy(me->me_key.med_string, "0.0.0.0/0",
-			    sizeof(me->me_key.med_string));
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
-
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-			(void)strlcpy(me->me_key.med_string, "::/0",
-			    sizeof(me->me_key.med_string));
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
-
-			TAILQ_INSERT_TAIL(conf->sc_maps, m, m_entry);
-			$$ = m->m_id;
+		| FROM ANY			{
+			$$ = map_findbyname("<anyhost>")->m_id;
 		}
 		| FROM LOCAL			{
-			struct map	*m;
-
-			m = map_findbyname("localhost");
-			$$ = m->m_id;
+			$$ = map_findbyname("<localhost>")->m_id;
 		}
 		| /* empty */			{
-			struct map	*m;
-
-			m = map_findbyname("localhost");
-			$$ = m->m_id;
+			$$ = map_findbyname("<localhost>")->m_id;
 		}
 		;
 
@@ -1032,20 +813,18 @@ on		: ON STRING	{
 		| /* empty */	{ $$ = NULL; }
 		;
 
-rule		: decision on from			{
+rule		: ACCEPT on from			{
 
-			if ((rule = calloc(1, sizeof(*rule))) == NULL)
-				fatal("out of memory");
+			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
+			rule->r_decision = R_ACCEPT;
 			rule->r_sources = map_find($3);
 
-
-			if ((conditions = calloc(1, sizeof(*conditions))) == NULL)
-				fatal("out of memory");
+			conditions = xcalloc(1, sizeof(*conditions),
+			    "parse rule: ACCEPT");
 
 			if ($2)
 				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
 			free($2);
-
 
 			TAILQ_INIT(conditions);
 
@@ -1061,10 +840,7 @@ rule		: decision on from			{
 
 			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
 
-				if ((subr = calloc(1, sizeof(*subr))) == NULL)
-					fatal("out of memory");
-
-				*subr = *rule;
+				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
 
 				subr->r_condition = *cond;
 				
@@ -1084,6 +860,41 @@ rule		: decision on from			{
 				}
 			}
 
+			free(conditions);
+			free(rule);
+			conditions = NULL;
+			rule = NULL;
+		}
+		| REJECT on from			{
+
+			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
+			rule->r_decision = R_REJECT;
+			rule->r_sources = map_find($3);
+
+			conditions = xcalloc(1, sizeof(*conditions),
+			    "parse rule: REJECT");
+
+			if ($2)
+				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
+			free($2);
+
+			TAILQ_INIT(conditions);
+
+		} FOR conditions {
+			struct rule	*subr;
+			struct cond	*cond;
+
+			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
+
+				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
+
+				subr->r_condition = *cond;
+				
+				TAILQ_REMOVE(conditions, cond, c_entry);
+				TAILQ_INSERT_TAIL(conf->sc_rules, subr, r_entry);
+
+				free(cond);
+			}
 			free(conditions);
 			free(rule);
 			conditions = NULL;
@@ -1124,9 +935,10 @@ lookup(char *s)
 	static const struct keywords keywords[] = {
 		{ "accept",		ACCEPT },
 		{ "alias",		ALIAS },
-		{ "all",		ALL },
+		{ "any",		ANY },
 		{ "as",			AS },
 		{ "auth",		AUTH },
+		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
 		{ "cipher",		CIPHER },
@@ -1135,9 +947,9 @@ lookup(char *s)
 		{ "deliver",		DELIVER },
 		{ "digest",		DIGEST },
 		{ "domain",		DOMAIN },
-		{ "enable",		ENABLE },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
+		{ "file",		FILE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
@@ -1155,7 +967,7 @@ lookup(char *s)
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
-		{ "plain",		PLAIN },
+		{ "plain",		FILE },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
@@ -1167,6 +979,7 @@ lookup(char *s)
 		{ "ssl",		SSL },
 		{ "tag",		TAG },
 		{ "tls",		TLS },
+		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
@@ -1498,38 +1311,33 @@ int
 parse_config(struct smtpd *x_conf, const char *filename, int opts)
 {
 	struct sym	*sym, *next;
-	struct map	*m;
 
 	conf = x_conf;
 	bzero(conf, sizeof(*conf));
 
-	conf->sc_maxsize = SIZE_MAX;
+	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
 	conf->sc_maps = calloc(1, sizeof(*conf->sc_maps));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
 	conf->sc_filters = calloc(1, sizeof(*conf->sc_filters));
-	m = calloc(1, sizeof(*m));
 
 	if (conf->sc_maps == NULL	||
 	    conf->sc_rules == NULL	||
 	    conf->sc_listeners == NULL	||
 	    conf->sc_ssl == NULL	||
-	    conf->sc_filters == NULL	||
-	    m == NULL) {
+	    conf->sc_filters == NULL) {
 		log_warn("cannot allocate memory");
 		free(conf->sc_maps);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_ssl);
 		free(conf->sc_filters);
-		free(m);
 		return (-1);
 	}
 
 	errors = 0;
-	last_map_id = 1;
 
 	map = NULL;
 	rule = NULL;
@@ -1548,20 +1356,13 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);
-		free(m);
 		return (-1);
 	}
 	topfile = file;
 
 	/*
-	 * declare special "local" map
+	 * declare special "localhost" and "anyhost" maps
 	 */
-	m->m_id = last_map_id++;
-	if (strlcpy(m->m_name, "localhost", sizeof(m->m_name))
-	    >= sizeof(m->m_name))
-		fatal("strlcpy");
-	TAILQ_INIT(&m->m_contents);
-	TAILQ_INSERT_TAIL(conf->sc_maps, m, m_entry);
 	set_localaddrs();
 
 	/*
@@ -1693,8 +1494,7 @@ host_v4(const char *s, in_port_t port)
 	if (inet_pton(AF_INET, s, &ina) != 1)
 		return (NULL);
 
-	if ((h = calloc(1, sizeof(*h))) == NULL)
-		fatal(NULL);
+	h = xcalloc(1, sizeof(*h), "host_v4");
 	sain = (struct sockaddr_in *)&h->ss;
 	sain->sin_len = sizeof(struct sockaddr_in);
 	sain->sin_family = AF_INET;
@@ -1715,8 +1515,7 @@ host_v6(const char *s, in_port_t port)
 	if (inet_pton(AF_INET6, s, &ina6) != 1)
 		return (NULL);
 
-	if ((h = calloc(1, sizeof(*h))) == NULL)
-		fatal(NULL);
+	h = xcalloc(1, sizeof(*h), "host_v6");
 	sin6 = (struct sockaddr_in6 *)&h->ss;
 	sin6->sin6_len = sizeof(struct sockaddr_in6);
 	sin6->sin6_family = AF_INET6;
@@ -1752,8 +1551,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 		if (res->ai_family != AF_INET &&
 		    res->ai_family != AF_INET6)
 			continue;
-		if ((h = calloc(1, sizeof(*h))) == NULL)
-			fatal(NULL);
+		h = xcalloc(1, sizeof(*h), "host_dns");
 
 		h->port = port;
 		h->flags = flags;
@@ -1839,8 +1637,7 @@ interface(const char *s, const char *tag, const char *cert,
 		    ! is_if_in_group(p->ifa_name, s))
 			continue;
 
-		if ((h = calloc(1, sizeof(*h))) == NULL)
-			fatal(NULL);
+		h = xcalloc(1, sizeof(*h), "interface");
 
 		switch (p->ifa_addr->sa_family) {
 		case AF_INET:
@@ -1889,12 +1686,17 @@ set_localaddrs(void)
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
 	struct map		*m;
-	struct mapel		*me;
+
+	m = map_create(S_NONE, "<anyhost>");
+	map_add(m, "local", NULL);
+	map_add(m, "0.0.0.0/0", NULL);
+	map_add(m, "::/0", NULL);
 
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = map_findbyname("localhost");
+	m = map_create(S_NONE, "<localhost>");
+	map_add(m, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {
 		if (p->ifa_addr == NULL)
@@ -1904,24 +1706,14 @@ set_localaddrs(void)
 			sain = (struct sockaddr_in *)&ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-			(void)strlcpy(me->me_key.med_string,
-			    ss_to_text(&ss),
-			    sizeof(me->me_key.med_string));
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
+			map_add(m, ss_to_text(&ss), NULL);
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-			if ((me = calloc(1, sizeof(*me))) == NULL)
-				fatal("out of memory");
-			(void)strlcpy(me->me_key.med_string,
-			    ss_to_text(&ss),
-			    sizeof(me->me_key.med_string));
-			TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
+			map_add(m, ss_to_text(&ss), NULL);
 			break;
 		}
 	}
@@ -1997,10 +1789,8 @@ is_if_in_group(const char *ifname, const char *groupname)
 
         len = ifgr.ifgr_len;
         ifgr.ifgr_groups =
-            (struct ifg_req *)calloc(len/sizeof(struct ifg_req),
-		sizeof(struct ifg_req));
-        if (ifgr.ifgr_groups == NULL)
-                err(1, "getifgroups");
+            (struct ifg_req *)xcalloc(len/sizeof(struct ifg_req),
+		sizeof(struct ifg_req), "is_if_in_group");
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1)
                 err(1, "SIOCGIFGROUP");
 	

@@ -1,7 +1,6 @@
-#	$OpenBSD: Makefile,v 1.53 2012/09/05 21:52:03 eric Exp $
+#	$OpenBSD: Makefile,v 1.57 2012/10/14 11:58:23 gilles Exp $
 
-#.PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
-.PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
+.PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr /usr/src/lib/libc/asr
 
 PROG=		smtpd
 
@@ -24,8 +23,8 @@ SRCS+=		delivery_mbox.c
 SRCS+=		delivery_mda.c
 SRCS+=		map_db.c
 SRCS+=		map_ldap.c
+SRCS+=		map_file.c
 SRCS+=		map_static.c
-SRCS+=		map_stdio.c
 SRCS+=		queue_fsqueue.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		stat_ramstat.c
@@ -44,13 +43,14 @@ BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
 DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
-CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I/usr/src/lib/libc/asr #-I${.CURDIR}/../../../lib/libc/asr
+CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I${.CURDIR}/../../../lib/libc/asr -I/usr/src/lib/libc/asr
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
+CFLAGS+=	-DASR_OPT_THREADSAFE=0
 YFLAGS=
 
 .include <bsd.prog.mk>

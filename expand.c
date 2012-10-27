@@ -1,7 +1,8 @@
-/*	$OpenBSD: expand.c,v 1.11 2010/11/28 14:35:58 gilles Exp $	*/
+/*	$OpenBSD: expand.c,v 1.18 2012/10/10 18:02:37 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,65 +33,50 @@
 #include "log.h"
 
 struct expandnode *
-expandtree_lookup(struct expandtree *expandtree, struct expandnode *node)
+expand_lookup(struct expand *expand, struct expandnode *key)
 {
-	struct expandnode key;
-
-	key = *node;
-	return RB_FIND(expandtree, expandtree, &key);
+	return RB_FIND(expandtree, &expand->tree, key);
 }
 
 void
-expandtree_increment_node(struct expandtree *expandtree, struct expandnode *node)
+expand_insert(struct expand *expand, struct expandnode *node)
 {
-	struct expandnode *p;
+	struct expandnode *xn;
 
-	p = expandtree_lookup(expandtree, node);
-	if (p == NULL) {
-		p = calloc(1, sizeof(struct expandnode));
-		if (p == NULL)
-			fatal("calloc");
-		*p = *node;
-		if (RB_INSERT(expandtree, expandtree, p))
-			fatalx("expandtree_increment_node: node already exists");
-	}
-	p->refcnt++;
+	if (node->type == EXPAND_USERNAME &&
+	    expand->parent &&
+	    expand->parent->type == EXPAND_USERNAME &&
+	    !strcmp(expand->parent->u.user, node->u.user))
+		node->sameuser = 1;
+
+	if (expand_lookup(expand, node))
+		return;
+
+	xn = xmemdup(node, sizeof *xn, "expand_insert");
+	xn->rule = expand->rule;
+	xn->parent = expand->parent;
+	xn->alias = expand->alias;
+	if (xn->parent)
+		xn->depth = xn->parent->depth + 1;
+	else
+		xn->depth = 0;
+	RB_INSERT(expandtree, &expand->tree, xn);
+	if (expand->queue)
+		TAILQ_INSERT_TAIL(expand->queue, xn, tq_entry);
 }
 
 void
-expandtree_decrement_node(struct expandtree *expandtree, struct expandnode *node)
+expand_free(struct expand *expand)
 {
-	struct expandnode *p;
+	struct expandnode *xn;
 
-	p = expandtree_lookup(expandtree, node);
-	if (p == NULL)
-		fatalx("expandtree_decrement_node: node doesn't exist.");
+	if (expand->queue)
+		while ((xn = TAILQ_FIRST(expand->queue)))
+			TAILQ_REMOVE(expand->queue, xn, tq_entry);
 
-	p->refcnt--;
-}
-
-void
-expandtree_remove_node(struct expandtree *expandtree, struct expandnode *node)
-{
-	struct expandnode *p;
-
-	p = expandtree_lookup(expandtree, node);
-	if (p == NULL)
-		fatalx("expandtree_remove: node doesn't exist.");
-
-	RB_REMOVE(expandtree, expandtree, p);
-}
-
-void
-expandtree_free_nodes(struct expandtree *expandtree)
-{
-	struct expandnode *p;
-	struct expandnode *nxt;
-
-	for (p = RB_MIN(expandtree, expandtree); p != NULL; p = nxt) {
-		nxt = RB_NEXT(expandtree, expandtree, p);
-		RB_REMOVE(expandtree, expandtree, p);
-		free(p);
+	while ((xn = RB_ROOT(&expand->tree)) != NULL) {
+		RB_REMOVE(expandtree, &expand->tree, xn);
+		free(xn);
 	}
 }
 
@@ -99,8 +85,11 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 {
 	if (e1->type < e2->type)
 		return -1;
-
 	if (e1->type > e2->type)
+		return 1;
+	if (e1->sameuser < e2->sameuser)
+		return -1;
+	if (e1->sameuser > e2->sameuser)
 		return 1;
 
 	return memcmp(&e1->u, &e2->u, sizeof(e1->u));

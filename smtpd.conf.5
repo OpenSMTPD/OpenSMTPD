@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.65 2012/09/01 16:09:14 gilles Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.76 2012/10/16 16:47:40 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -16,7 +16,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: September 1 2012 $
+.Dd $Mdocdate: October 16 2012 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -51,9 +51,9 @@ Macros are not expanded inside quotes.
 .Pp
 For example:
 .Bd -literal -offset indent
-wan_if = "fxp0"
-listen on $wan_if
-listen on $wan_if tls enable auth
+lan_addr = "192.168.0.1"
+listen on $lan_addr
+listen on $lan_addr tls auth
 .Ed
 .Pp
 Some configuration directives expect expansion of their parameters at runtime.
@@ -69,7 +69,7 @@ resolution of aliases;
 %u expands to the user part after aliases
 resolution and will typically be the system account;
 %d expands to the domain part of the email address;
-%U expands to the user part of the sender email address;
+%A expands to the user part of the sender email address;
 %D expands to the domain part of the sender email address.
 .Pp
 Additional configuration files can be included with the
@@ -99,9 +99,9 @@ as returned by
 .It Xo
 .Ic listen on Ar interface
 .Op Ic port Ar port
-.Op Ic tls | smtps
+.Op Ic tls | tls-require | smtps
 .Op Ic certificate Ar name
-.Op Ic enable auth
+.Op Ic auth | auth-optional
 .Xc
 Specify an
 .Ar interface
@@ -118,6 +118,9 @@ by default on port 25,
 or SMTPS
 .Pq Ic smtps ,
 by default on port 465.
+.Ic tls-require
+may be used to force clients to establish a secure connection
+before being allowed to start an SMTP transaction.
 Host certificates may be used for these connections,
 and are searched for in the
 .Pa /etc/mail/certs
@@ -150,11 +153,21 @@ Creation of certificates is documented in
 .Xr starttls 8 .
 .Pp
 If the
-.Ic enable auth
+.Ic auth
 parameter is used,
-any remote sender that passed SMTPAUTH is treated as if
+then a client may only start an SMTP transaction after a
+successful authentication.
+Any remote sender that passed SMTPAUTH is treated as if
 it was the server's local user that was sending the mail.
 This means that filter rules using "from local" will be matched.
+If
+.Ic auth-optional
+is specified, then SMTPAUTH is not required to establish an
+SMTP transaction.
+This is only useful to let a listener accept incoming mail from
+untrusted senders and outgoing mail from authenticated users in
+situations where it is not possible to listen on the submission
+port.
 .It Xo
 .Ic map Ar map
 .Ic source Ar type Ar source
@@ -162,11 +175,13 @@ This means that filter rules using "from local" will be matched.
 Maps are used to provide additional configuration information for
 .Xr smtpd 8 .
 .Pp
-.Ar map
-may be named freely.
+The map is identified using map name
+.Ar map ;
+the name itself is arbitrarily chosen.
 .Pp
 .Ar type
-may be one of the following:
+specifies the file format,
+and should be one of the following:
 .Pp
 .Bl -tag -width "fileXXX" -compact
 .It db
@@ -178,12 +193,13 @@ Mappings are stored in a plain text file using the
 same format as used to generate
 .Xr makemap 8
 mappings.
+This is the default.
 .El
 .Pp
 .Ar source
 specifies the source of the map data.
 It must be an absolute path to a file for the
-.Dq plain
+.Dq file
 and
 .Dq db
 map types.
@@ -193,6 +209,7 @@ Specify a maximum message size of
 bytes.
 The argument may contain a multiplier, as documented in
 .Xr scan_scaled 3 .
+The default maximum message size is 35MB if none is specified.
 .It Xo
 .Ic queue
 .Ic compression Op Ar gzip
@@ -217,7 +234,7 @@ the default action is to reject the message.
 Following the accept/reject
 decision comes the client's IP address filter:
 .Bl -tag -width Ds
-.It Ic from all
+.It Ic from any
 Make the rule match regardless of the IP of connecting client.
 .It Ic from local
 The rule matches only locally originating connections.
@@ -232,7 +249,7 @@ specified in CIDR notation.
 Next comes the selection based on the domain the message is sent to:
 .Bl -tag -width Ds
 .It Xo
-.Ic for all
+.Ic for any
 .Op Ic alias Ar aliases
 .Xc
 Make the rule match regardless of the domain it is sent to.
@@ -442,7 +459,7 @@ listen on lo0
 map aliases source db "/etc/mail/aliases.db"
 map secrets source db "/etc/mail/secrets.db"
 accept for local alias aliases deliver to mbox
-accept for all relay via tls+auth://smtp.example.com auth secrets
+accept for any relay via tls+auth://smtp.example.com auth secrets
 .Ed
 .Pp
 In this second example,
@@ -464,12 +481,12 @@ a certificate valid for one year was created.
 The configuration file would look like this:
 .Bd -literal -offset indent
 listen on lo0
-listen on bnx0 tls certificate mail.example.com enable auth
+listen on egress tls certificate mail.example.com auth
 map aliases source db "/etc/mail/aliases.db"
 accept for local deliver to mda "/path/to/mda -f -"
-accept from all for domain example.org \e
+accept from any for domain example.org \e
 	deliver to mda "/path/to/mda -f -"
-accept for all relay
+accept for any relay
 .Ed
 .Sh SEE ALSO
 .Xr mailer.conf 5 ,

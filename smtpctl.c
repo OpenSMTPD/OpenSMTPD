@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.89 2012/08/30 22:06:00 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.93 2012/10/14 11:58:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -42,6 +42,10 @@
 #include "parser.h"
 #include "log.h"
 
+#define PATH_CAT	"/bin/cat"
+#define PATH_GZCAT	"/bin/gzcat"
+#define PATH_QUEUE	"/queue"
+
 void usage(void);
 static void setup_env(struct smtpd *);
 static int show_command_output(struct imsg *);
@@ -49,6 +53,9 @@ static void show_stats_output(void);
 static void show_queue(int);
 static void show_queue_envelope(struct envelope *, int);
 static void getflag(uint *, int, char *, char *, size_t);
+static void display(const char *);
+static void show_envelope(const char *);
+static void show_message(const char *);
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -124,6 +131,12 @@ main(int argc, char *argv[])
 		case SHOW_QUEUE:
 			show_queue(0);
 			break;
+		case SHOW_ENVELOPE:
+			show_envelope(res->data);
+			break;
+		case SHOW_MESSAGE:
+			show_message(res->data);
+			break;
 		default:
 			goto connected;
 		}
@@ -161,17 +174,8 @@ connected:
 	case SCHEDULE:
 	case REMOVE: {
 		uint64_t ulval;
-		char *ep;
 
-		errno = 0;
-		ulval = strtoull(res->data, &ep, 16);
-		if (res->data[0] == '\0' || *ep != '\0')
-			errx(1, "invalid msgid/evpid");
-		if (errno == ERANGE && ulval == ULLONG_MAX)
-			errx(1, "invalid msgid/evpid");
-		if (ulval == 0)
-			errx(1, "invalid msgid/evpid");
-
+		ulval = strtoevpid(res->data);
 		if (res->action == SCHEDULE)
 			imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &ulval,
 			    sizeof(ulval));
@@ -213,6 +217,16 @@ connected:
 	case SHOW_STATS:
 		imsg_compose(ibuf, IMSG_STATS, 0, 0, -1, NULL, 0);
 		break;
+	case UPDATE_MAP: {
+		char	name[MAX_LINE_SIZE];
+
+		if (strlcpy(name, res->data, sizeof name) >= sizeof name)
+			errx(1, "map name too long.");
+		imsg_compose(ibuf, IMSG_LKA_UPDATE_MAP, 0, 0, -1,
+		    name, strlen(name) + 1);
+		done = 1;
+		break;
+	}
 	case MONITOR:
 		/* XXX */
 		break;
@@ -265,6 +279,7 @@ connected:
 				break;
 			case NONE:
 				break;
+			case UPDATE_MAP:
 			case MONITOR:
 				break;
 			default:
@@ -398,17 +413,16 @@ show_queue(int flags)
 static void
 show_queue_envelope(struct envelope *e, int flags)
 {
+	const char *src = "?";
 	char	 status[128];
 
 	status[0] = '\0';
 
-	getflag(&e->flags, DF_BOUNCE, "BOUNCE",
+	getflag(&e->flags, DF_BOUNCE, "bounce",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_AUTHENTICATED, "AUTH",
+	getflag(&e->flags, DF_AUTHENTICATED, "auth",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_ENQUEUED, "ENQUEUED",
-	    status, sizeof(status));
-	getflag(&e->flags, DF_INTERNAL, "INTERNAL",
+	getflag(&e->flags, DF_INTERNAL, "internal",
 	    status, sizeof(status));
 
 	if (e->flags)
@@ -422,20 +436,28 @@ show_queue_envelope(struct envelope *e, int flags)
 
 	switch (e->type) {
 	case D_MDA:
-		printf("MDA");
+		printf("mda");
 		break;
 	case D_MTA:
-		printf("MTA");
+		printf("mta");
 		break;
 	case D_BOUNCE:
-		printf("BOUNCE");
+		printf("bounce");
 		break;
 	default:
-		printf("UNKNOWN");
+		printf("unknown");
 	}
-	
-	printf("|%016" PRIx64 "|%s|%s@%s|%s@%s|%" PRId64 "|%" PRId64 "|%u",
+
+	if (e->ss.ss_family == AF_LOCAL)
+		src = "local";
+	else if (e->ss.ss_family == AF_INET)
+		src = "inet4";
+	else if (e->ss.ss_family == AF_INET6)
+		src = "inet6";
+
+	printf("|%016" PRIx64 "|%s|%s|%s@%s|%s@%s|%" PRId64 "|%" PRId64 "|%u",
 	    e->id,
+	    src,
 	    status,
 	    e->sender.user, e->sender.domain,
 	    e->dest.user, e->dest.domain,
@@ -457,4 +479,57 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 		strlcat(buf, bitstr, len);
 		strlcat(buf, ",", len);
 	}
+}
+
+static void
+display(const char *s)
+{
+	arglist args;
+	char	*cmd;
+
+	if (env->sc_queue_flags & QUEUE_COMPRESS)
+		cmd = PATH_GZCAT;
+	else
+		cmd = PATH_CAT;
+
+	bzero(&args, sizeof(args));
+	addargs(&args, "%s", cmd);
+	addargs(&args, "%s", s);
+	execvp(cmd, args.list);
+	errx(1, "execvp");
+}
+
+static void
+show_envelope(const char *s)
+{
+	char	 buf[MAXPATHLEN];
+	uint64_t evpid;
+
+	evpid = strtoevpid(s);
+	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x%s/%016" PRIx64,
+	    PATH_SPOOL,
+	    PATH_QUEUE,
+	    evpid_to_msgid(evpid) & 0xff,
+	    evpid_to_msgid(evpid),
+	    PATH_ENVELOPES, evpid))
+		errx(1, "unable to retrieve envelope");
+
+	display(buf);
+}
+
+static void
+show_message(const char *s)
+{
+	char	 buf[MAXPATHLEN];
+	uint32_t msgid;
+
+	msgid = evpid_to_msgid(strtoevpid(s));
+	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
+	    PATH_SPOOL,
+	    PATH_QUEUE,
+	    msgid & 0xff,
+	    msgid))
+		errx(1, "unable to retrieve message");
+
+	display(buf);
 }

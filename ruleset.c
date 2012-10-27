@@ -1,4 +1,4 @@
-/*	$OpenBSD: ruleset.c,v 1.21 2012/05/13 00:10:49 gilles Exp $ */
+/*	$OpenBSD: ruleset.c,v 1.25 2012/10/13 08:01:47 eric Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -24,6 +24,7 @@
 
 #include <netinet/in.h>
 
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
@@ -33,22 +34,21 @@
 #include "log.h"
 
 
-struct rule *ruleset_match(struct envelope *);
-
-static int ruleset_check_source(struct map *, struct sockaddr_storage *);
+static int ruleset_check_source(struct map *, const struct sockaddr_storage *);
 static int ruleset_match_mask(struct sockaddr_storage *, struct netaddr *);
 static int ruleset_inet4_match(struct sockaddr_in *, struct netaddr *);
 static int ruleset_inet6_match(struct sockaddr_in6 *, struct netaddr *);
 
 
 struct rule *
-ruleset_match(struct envelope *evp)
+ruleset_match(const struct envelope *evp)
 {
-	struct rule *r;
-	struct map *map;
-	struct mapel *me;
-	struct mailaddr *maddr = &evp->dest;
-	struct sockaddr_storage *ss = &evp->ss;
+	const struct mailaddr *maddr = &evp->dest;
+	const struct sockaddr_storage *ss = &evp->ss;
+	struct rule	*r;
+	struct map	*map;
+	struct mapel	*me;
+	int		 v;
 
 	if (evp->flags & DF_INTERNAL)
 		ss = NULL;
@@ -58,15 +58,20 @@ ruleset_match(struct envelope *evp)
 		if (r->r_tag[0] != '\0' && strcmp(r->r_tag, evp->tag) != 0)
 			continue;
 
-		if (ss != NULL &&
-		    (!(evp->flags & DF_AUTHENTICATED) &&
-			! ruleset_check_source(r->r_sources, ss)))
-			continue;
+		if (ss != NULL && !(evp->flags & DF_AUTHENTICATED)) {
+			v = ruleset_check_source(r->r_sources, ss);
+			if (v == -1) {
+				errno = EAGAIN;
+				return (NULL);
+			}
+			if (v == 0)
+				continue;
+		}
 
-		if (r->r_condition.c_type == C_ALL)
+		if (r->r_condition.c_type == COND_ANY)
 			return r;
 
-		if (r->r_condition.c_type == C_DOM) {
+		if (r->r_condition.c_type == COND_DOM) {
 			map = map_find(r->r_condition.c_map);
 			if (map == NULL)
 				fatal("failed to lookup map.");
@@ -74,28 +79,37 @@ ruleset_match(struct envelope *evp)
 			if (map->m_src == S_NONE) {
 				TAILQ_FOREACH(me, &map->m_contents, me_entry) {
 					if (hostname_match(maddr->domain,
-						me->me_key.med_string))
+					    me->me_key.med_string))
 						return r;
 				}
 			}
 			else if (map_lookup(map->m_id, maddr->domain,
-				K_VIRTUAL) != NULL) {
-				return r;
+			    K_VIRTUAL) != NULL) {
+				return (r);
+			} else if (errno) {
+				errno = EAGAIN;
+				return (NULL);
 			}
 		}
 
-		if (r->r_condition.c_type == C_VDOM) {
-			if (aliases_vdomain_exists(r->r_condition.c_map,
-				maddr->domain))
-				return r;
+		if (r->r_condition.c_type == COND_VDOM) {
+			v = aliases_vdomain_exists(r->r_condition.c_map,
+			    maddr->domain);
+			if (v == -1) {
+				errno = EAGAIN;
+				return (NULL);
+			}
+			if (v)
+				return (r);
 		}
 	}
 
-	return NULL;
+	errno = 0;
+	return (NULL);
 }
 
 static int
-ruleset_cmp_source(char *s1, char *s2)
+ruleset_cmp_source(const char *s1, const char *s2)
 {
 	struct netaddr n1;
 	struct netaddr n2;
@@ -115,7 +129,7 @@ ruleset_cmp_source(char *s1, char *s2)
 }
 
 static int
-ruleset_check_source(struct map *map, struct sockaddr_storage *ss)
+ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
 {
 	struct mapel *me;
 
@@ -128,6 +142,11 @@ ruleset_check_source(struct map *map, struct sockaddr_storage *ss)
 
 	if (map->m_src == S_NONE) {
 		TAILQ_FOREACH(me, &map->m_contents, me_entry) {
+			if (ss->ss_family == AF_LOCAL) {
+				if (!strcmp(me->me_key.med_string, "local"))
+					return 1;
+				continue;
+			}
 			if (ruleset_cmp_source(ss_to_text(ss),
 				me->me_key.med_string))
 				return 1;
@@ -135,8 +154,10 @@ ruleset_check_source(struct map *map, struct sockaddr_storage *ss)
 	}
 	else {
 		if (map_compare(map->m_id, ss_to_text(ss), K_NETADDR,
-			    ruleset_cmp_source))
-			return 1;
+		    ruleset_cmp_source))
+			return (1);
+		if (errno)
+			return (-1);
 	}
 
 	return 0;

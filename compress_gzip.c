@@ -1,4 +1,4 @@
-/*	$OpenBSD: compress_gzip.c,v 1.3 2012/08/30 22:38:22 chl Exp $	*/
+/*	$OpenBSD: compress_gzip.c,v 1.5 2012/10/11 21:34:19 gilles Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
@@ -43,8 +43,8 @@
 
 static int compress_file_gzip(FILE *, FILE *);
 static int uncompress_file_gzip(FILE *, FILE *);
-static size_t compress_buffer_gzip(const char *, size_t, char *, size_t);
-static size_t uncompress_buffer_gzip(const char *, size_t, char *, size_t);
+static size_t compress_buffer_gzip(char *, size_t, char *, size_t);
+static size_t uncompress_buffer_gzip(char *, size_t, char *, size_t);
 
 struct compress_backend	compress_gzip = {
 	compress_file_gzip,
@@ -112,7 +112,7 @@ end:
 }
 
 static size_t
-compress_buffer_gzip(const char *in, size_t inlen, char *out, size_t outlen)
+compress_buffer_gzip(char *in, size_t inlen, char *out, size_t outlen)
 {
 	z_stream	strm;
 	size_t		ret = 0;
@@ -127,9 +127,9 @@ compress_buffer_gzip(const char *in, size_t inlen, char *out, size_t outlen)
 		return 0;
 
 	strm.avail_in = inlen;
-	strm.next_in = in;
+	strm.next_in = (unsigned char *)in;
 	strm.avail_out = outlen;
-	strm.next_out = out;
+	strm.next_out = (unsigned char *)out;
 
 	ret = deflate(&strm, Z_FINISH);
 	if (ret != Z_STREAM_END)
@@ -143,7 +143,7 @@ end:
 }
 
 static size_t
-uncompress_buffer_gzip(const char *in, size_t inlen, char *out, size_t outlen)
+uncompress_buffer_gzip(char *in, size_t inlen, char *out, size_t outlen)
 {
 	z_stream	strm;
 	size_t		ret = 0;
@@ -159,9 +159,9 @@ uncompress_buffer_gzip(const char *in, size_t inlen, char *out, size_t outlen)
 		return ret;
 
 	strm.avail_in = inlen;
-	strm.next_in = in;
+	strm.next_in = (unsigned char *)in;
 	strm.avail_out = outlen;
-	strm.next_out = out;
+	strm.next_out = (unsigned char *)out;
 
 	ret = inflate(&strm, Z_FINISH);
 	if (ret != Z_STREAM_END)

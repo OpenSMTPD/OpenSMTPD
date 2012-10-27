@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.4 2012/08/19 10:28:28 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.7 2012/10/25 18:14:24 eric Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -82,10 +82,28 @@ const char*
 io_strio(struct io *io)
 {
 	static char	buf[128];
+	char		ssl[128];
 
-	snprintf(buf, sizeof buf, "<io:%p fd=%i to=%i fl=%s ib=%zu ob=%zu>",
-			io, io->sock, io->timeout, io_strflags(io->flags),
-			io_pending(io), io_queued(io));
+	ssl[0] = '\0';
+#ifdef IO_SSL
+	if (io->ssl) {
+		snprintf(ssl, sizeof ssl, " ssl=%s:%s:%i",
+		    SSL_get_cipher_version(io->ssl),
+		    SSL_get_cipher_name(io->ssl),
+		    SSL_get_cipher_bits(io->ssl, NULL));
+	}
+#endif
+
+	if (io->iobuf == NULL)
+		snprintf(buf, sizeof buf,
+		    "<io:%p fd=%i to=%i fl=%s%s>",
+		    io, io->sock, io->timeout, io_strflags(io->flags), ssl);
+	else
+		snprintf(buf, sizeof buf,
+		    "<io:%p fd=%i to=%i fl=%s%s ib=%zu ob=%zu>",
+		    io, io->sock, io->timeout, io_strflags(io->flags), ssl,
+		    io_pending(io), io_queued(io));
+
 	return (buf);
 }
 
@@ -524,8 +542,10 @@ io_dispatch(int fd, short ev, void *humppa)
 
 	if (ev & EV_WRITE && (w = io_queued(io))) {
 		if ((n = iobuf_write(io->iobuf, io->sock)) < 0) {
-			if (n == IO_ERROR)
+			if (n == IOBUF_ERROR || n == IOBUF_WANT_WRITE)
 				log_warn("io_dispatch: iobuf_write");
+			if (n == IOBUF_WANT_WRITE)  /* kqueue bug? */
+				goto read;
 			io_callback(io, n == IOBUF_CLOSED ?
 			    IO_DISCONNECTED : IO_ERROR);
 			goto leave;
@@ -533,6 +553,7 @@ io_dispatch(int fd, short ev, void *humppa)
 		if (w > io->lowat && w - n <= io->lowat)
 			io_callback(io, IO_LOWAT);
 	}
+    read:
 
 	if (ev & EV_READ) {
 		if ((n = iobuf_read(io->iobuf, io->sock)) < 0) {
@@ -557,7 +578,7 @@ io_callback(struct io *io, int evt)
 }
 
 int
-io_connect(struct io *io, const struct sockaddr *sa)
+io_connect(struct io *io, const struct sockaddr *sa, const struct sockaddr *bsa)
 {
 	int	sock, errno_save;
 
@@ -566,6 +587,9 @@ io_connect(struct io *io, const struct sockaddr *sa)
 
 	io_set_blocking(sock, 0);
 	io_set_linger(sock, 0);
+
+	if (bsa && bind(sock, bsa, bsa->sa_len) == -1)
+		goto fail;
 
 	if (connect(sock, sa, sa->sa_len) == -1)
 		if (errno != EINPROGRESS)

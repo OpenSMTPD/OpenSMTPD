@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.169 2012/09/11 12:47:36 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.179 2012/10/17 16:39:49 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -57,9 +57,7 @@ static void parent_sig_handler(int, short, void *);
 static void forkmda(struct imsgev *, uint32_t, struct deliver *);
 static int parent_forward_open(char *);
 static void fork_peers(void);
-static struct child *child_lookup(pid_t);
-static struct child *child_add(pid_t, int, int);
-static void child_del(pid_t);
+static struct child *child_add(pid_t, int, const char *);
 
 static void	offline_scan(int, short, void *);
 static int	offline_add(char *);
@@ -67,7 +65,22 @@ static void	offline_done(void);
 static int	offline_enqueue(char *);
 
 static void	purge_task(int, short, void *);
+static void	log_imsg(int, int, struct imsg *);
 
+enum child_type {
+	CHILD_DAEMON,
+	CHILD_MDA,
+	CHILD_ENQUEUE_OFFLINE,
+};
+
+struct child {
+	pid_t			 pid;
+	enum child_type		 type;
+	const char		*title;
+	int			 mda_out;
+	uint32_t		 mda_id;
+	char			*path;
+};
 
 struct offline {
 	TAILQ_ENTRY(offline)	 entry;
@@ -98,6 +111,8 @@ const char	*backend_stat = "ram";
 static int	 profiling;
 static int	 profstat;
 
+struct tree	 children;
+
 static void
 parent_imsg(struct imsgev *iev, struct imsg *imsg)
 {
@@ -105,8 +120,6 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct auth		*auth;
 	struct auth_backend	*auth_backend;
 	int			 fd;
-
-	log_imsg(PROC_PARENT, iev->proc, imsg);
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -170,6 +183,10 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_CTL_VERBOSE,
 	    		    0, 0, -1, imsg->data, sizeof(int));
 			return;
+
+		case IMSG_CTL_SHUTDOWN:
+			parent_shutdown();
+			return;
 		}
 	}
 
@@ -182,17 +199,19 @@ usage(void)
 	extern char	*__progname;
 
 	fprintf(stderr, "usage: %s [-dnv] [-D macro=value] "
-	    "[-f file] [-T trace]\n", __progname);
+	    "[-f file] [-P system]\n", __progname);
 	exit(1);
 }
 
 static void
 parent_shutdown(void)
 {
+	void		*iter;
 	struct child	*child;
 	pid_t		 pid;
 
-	SPLAY_FOREACH(child, childtree, &env->children)
+	iter = NULL;
+	while (tree_iter(&children, &iter, NULL, (void**)&child))
 		if (child->type == CHILD_DAEMON)
 			kill(child->pid, SIGTERM);
 
@@ -367,7 +386,7 @@ parent_sig_handler(int sig, short event, void *p)
 			if (pid == purge_pid)
 				purge_pid = -1;
 
-			child = child_lookup(pid);
+			child = tree_pop(&children, pid);
 			if (child == NULL)
 				goto skip;
 
@@ -376,7 +395,7 @@ parent_sig_handler(int sig, short event, void *p)
 				die = 1;
 				if (fail)
 					log_warnx("lost child: %s %s",
-					    env->sc_title[child->title], cause);
+					    child->title, cause);
 				break;
 
 			case CHILD_MDA:
@@ -403,8 +422,7 @@ parent_sig_handler(int sig, short event, void *p)
 			default:
 				fatalx("smtpd: unexpected child type");
 			}
-
-			child_del(child->pid);
+			free(child);
     skip:
 			free(cause);
 		} while (pid > 0 || (pid == -1 && errno == EINTR));
@@ -527,6 +545,9 @@ main(int argc, char *argv[])
 	argv += optind;
 	argc -= optind;
 
+	if (argc || *argv)
+		usage();
+
 	ssl_init();
 
 	if (parse_config(&smtpd, conffile, opts))
@@ -563,10 +584,6 @@ main(int argc, char *argv[])
 	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, env->sc_pw->pw_uid, 0, 1) == 0)
 		errx(1, "error in incoming directory setup");
 
-	log_debug("using \"%s\" queue backend", backend_queue);
-	log_debug("using \"%s\" scheduler backend", backend_scheduler);
-	log_debug("using \"%s\" stat backend", backend_stat);
-
 	env->sc_queue = queue_backend_lookup(backend_queue);
 	if (env->sc_queue == NULL)
 		errx(1, "could not find queue backend \"%s\"", backend_queue);
@@ -593,6 +610,9 @@ main(int argc, char *argv[])
 		if (daemon(0, 0) == -1)
 			err(1, "failed to daemonize");
 
+	log_debug("using \"%s\" queue backend", backend_queue);
+	log_debug("using \"%s\" scheduler backend", backend_scheduler);
+	log_debug("using \"%s\" stat backend", backend_stat);
 	log_info("startup%s", (debug > 1)?" [debug mode]":"");
 
 	if (env->sc_hostname[0] == '\0')
@@ -600,6 +620,9 @@ main(int argc, char *argv[])
 	env->sc_uptime = time(NULL);
 
 	fork_peers();
+
+	smtpd_process = PROC_PARENT;
+	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	imsg_callback = parent_imsg;
 	event_init();
@@ -642,7 +665,7 @@ main(int argc, char *argv[])
 static void
 fork_peers(void)
 {
-	SPLAY_INIT(&env->children);
+	tree_init(&children);
 
 	/*
 	 * Pick descriptor limit that will guarantee impossibility of fd
@@ -672,28 +695,27 @@ fork_peers(void)
 	init_pipes();
 
 	env->sc_title[PROC_CONTROL] = "control";
-	env->sc_title[PROC_LKA] = "lookup agent";
-	env->sc_title[PROC_MDA] = "mail delivery agent";
-	env->sc_title[PROC_MFA] = "mail filter agent";
-	env->sc_title[PROC_MTA] = "mail transfer agent";
+	env->sc_title[PROC_LKA] = "lookup";
+	env->sc_title[PROC_MDA] = "delivery";
+	env->sc_title[PROC_MFA] = "filter";
+	env->sc_title[PROC_MTA] = "transfer";
+	env->sc_title[PROC_PARENT] = "[priv]";
 	env->sc_title[PROC_QUEUE] = "queue";
 	env->sc_title[PROC_SCHEDULER] = "scheduler";
-	env->sc_title[PROC_SMTP] = "smtp server";
+	env->sc_title[PROC_SMTP] = "smtp";
 
-	child_add(control(), CHILD_DAEMON, PROC_CONTROL);
-	child_add(lka(), CHILD_DAEMON, PROC_LKA);
-	child_add(mda(), CHILD_DAEMON, PROC_MDA);
-	child_add(mfa(), CHILD_DAEMON, PROC_MFA);
-	child_add(mta(), CHILD_DAEMON, PROC_MTA);
-	child_add(queue(), CHILD_DAEMON, PROC_QUEUE);
-	child_add(scheduler(), CHILD_DAEMON, PROC_SCHEDULER);
-	child_add(smtp(), CHILD_DAEMON, PROC_SMTP);
-
-	setproctitle("[priv]");
+	child_add(control(), CHILD_DAEMON, env->sc_title[PROC_CONTROL]);
+	child_add(lka(), CHILD_DAEMON, env->sc_title[PROC_LKA]);
+	child_add(mda(), CHILD_DAEMON, env->sc_title[PROC_MDA]);
+	child_add(mfa(), CHILD_DAEMON, env->sc_title[PROC_MFA]);
+	child_add(mta(), CHILD_DAEMON, env->sc_title[PROC_MTA]);
+	child_add(queue(), CHILD_DAEMON, env->sc_title[PROC_QUEUE]);
+	child_add(scheduler(), CHILD_DAEMON, env->sc_title[PROC_SCHEDULER]);
+	child_add(smtp(), CHILD_DAEMON, env->sc_title[PROC_SMTP]);
 }
 
 struct child *
-child_add(pid_t pid, int type, int title)
+child_add(pid_t pid, int type, const char *title)
 {
 	struct child	*child;
 
@@ -704,33 +726,9 @@ child_add(pid_t pid, int type, int title)
 	child->type = type;
 	child->title = title;
 
-	if (SPLAY_INSERT(childtree, &env->children, child) != NULL)
-		fatalx("child_add: double insert");
+	tree_xset(&children, pid, child);
 
 	return (child);
-}
-
-static void
-child_del(pid_t pid)
-{
-	struct child	*p;
-
-	p = child_lookup(pid);
-	if (p == NULL)
-		fatalx("smtpd: child_del: unknown child");
-
-	if (SPLAY_REMOVE(childtree, &env->children, p) == NULL)
-		fatalx("smtpd: child_del: tree remove failed");
-	free(p);
-}
-
-static struct child *
-child_lookup(pid_t pid)
-{
-	struct child	 key;
-
-	key.pid = pid;
-	return SPLAY_FIND(childtree, &env->children, &key);
 }
 
 void
@@ -837,6 +835,13 @@ forkmda(struct imsgev *iev, uint32_t id,
 	if (db == NULL)
 		return;
 
+	if (u.uid == 0 && ! db->allow_root) {
+		n = snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
+		    deliver->user);
+		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
+		return;
+	}
+
 	/* lower privs early to allow fork fail due to ulimit */
 	if (seteuid(u.uid) < 0)
 		fatal("smtpd: forkmda: cannot lower privileges");
@@ -879,7 +884,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	if (pid > 0) {
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		child = child_add(pid, CHILD_MDA, -1);
+		child = child_add(pid, CHILD_MDA, NULL);
 		child->mda_out = allout;
 		child->mda_id = id;
 		close(pipefd[0]);
@@ -1056,7 +1061,7 @@ offline_enqueue(char *name)
 	}
 
 	offline_running++;
-	child = child_add(pid, CHILD_ENQUEUE_OFFLINE, -1);
+	child = child_add(pid, CHILD_ENQUEUE_OFFLINE, NULL);
 	child->path = path;
 
 	return (0);
@@ -1130,18 +1135,6 @@ parent_forward_open(char *username)
 	return fd;
 }
 
-int
-child_cmp(struct child *c1, struct child *c2)
-{
-	if (c1->pid < c2->pid)
-		return (-1);
-
-	if (c1->pid > c2->pid)
-		return (1);
-
-	return (0);
-}
-
 void
 imsg_dispatch(int fd, short event, void *p)
 {
@@ -1171,6 +1164,8 @@ imsg_dispatch(int fd, short event, void *p)
 			err(1, "%s: imsg_get", proc_to_str(smtpd_process));
 		if (n == 0)
 			break;
+
+		log_imsg(smtpd_process, iev->proc, &imsg);
 
 		if (profiling || profstat)
 			clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -1210,9 +1205,7 @@ imsg_dispatch(int fd, short event, void *p)
 	imsg_event_add(iev);
 }
 
-SPLAY_GENERATE(childtree, child, entry, child_cmp);
-
-void
+static void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 	if (imsg->fd != -1)
@@ -1271,6 +1264,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_FILTER);
 	CASE(IMSG_CONF_END);
 
+	CASE(IMSG_LKA_UPDATE_MAP);
 	CASE(IMSG_LKA_MAIL);
 	CASE(IMSG_LKA_RCPT);
 	CASE(IMSG_LKA_SECRET);

@@ -1,7 +1,8 @@
-/*	$OpenBSD: lka_session.c,v 1.22 2012/08/21 20:19:46 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.48 2012/10/16 11:10:38 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -30,6 +31,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <resolv.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,468 +41,387 @@
 #include "smtpd.h"
 #include "log.h"
 
-void lka_session(struct submit_status *);
-void lka_session_forward_reply(struct forward_req *, int);
+#define	EXPAND_DEPTH	10
 
-struct lka_session *lka_session_init(struct submit_status *);
-struct lka_session *lka_session_find(uint64_t);
-struct lka_session *lka_session_xfind(uint64_t);
-void lka_session_fail(struct lka_session *);
-void lka_session_destroy(struct lka_session *);
-void lka_session_pickup(struct lka_session *, struct envelope *);
-int lka_session_envelope_expand(struct lka_session *, struct envelope *);
-int lka_session_resume(struct lka_session *, struct envelope *);
-void lka_session_done(struct lka_session *);
-size_t lka_session_expand_format(char *, size_t, struct envelope *);
-void lka_session_request_forwardfile(struct lka_session *,
-    struct envelope *, char *);
-void lka_session_deliver(struct lka_session *, struct envelope *);
-int lka_session_resolve_node(struct envelope *, struct expandnode *);
-int lka_session_rcpt_action(struct envelope *);
-struct rule *ruleset_match(struct envelope *);
+#define	F_ERROR		0x01
+#define	F_WAITING	0x02
+
+struct lka_session {
+	uint64_t		 id;
+
+	TAILQ_HEAD(, envelope)	 deliverylist;
+	struct expand		 expand;
+
+	int			 flags;
+	struct submit_status	 ss;
+
+	struct envelope		 envelope;
+
+	struct xnodes		 nodes;
+	/* waiting for fwdrq */
+	struct rule		*rule;
+	struct expandnode	*node;
+};
+
+static void lka_expand(struct lka_session *, struct rule *, struct expandnode *);
+static void lka_submit(struct lka_session *, struct rule *, struct expandnode *);
+static void lka_resume(struct lka_session *);
+static size_t lka_expand_format(char *, size_t, const struct envelope *);
+static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
+static const char * mailaddr_tag(const struct mailaddr *);
+
+static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
 
 void
 lka_session(struct submit_status *ss)
 {
-	struct lka_session *lks;
+	struct lka_session	*lks;
+	struct expandnode	 xn;
 
-	lks = lka_session_init(ss);
-	if (! lka_session_envelope_expand(lks, &ss->envelope))
-		lka_session_fail(lks);
-	else
-		lka_session_pickup(lks, &ss->envelope);
-}
+	lks = xcalloc(1, sizeof(*lks), "lka_session");
+	lks->id = generate_uid();
+	lks->ss = *ss;
+	lks->ss.code = 250;
+	RB_INIT(&lks->expand.tree);
+	TAILQ_INIT(&lks->deliverylist);
+	tree_xset(&sessions, lks->id, lks);
 
-int
-lka_session_envelope_expand(struct lka_session *lks, struct envelope *ep)
-{
-	char *user;
-	char *tag;
-	struct user_backend *ub;
-	struct mta_user u;
-	char username[MAX_LOCALPART_SIZE];
+	lks->envelope = ss->envelope;
 
-	/* remote delivery, no need to process further */
-	if (ep->type == D_MTA) {
-		lka_session_deliver(lks, ep);
-		return 1;
-	}
-
-	switch (ep->rule.r_condition.c_type) {
-	case C_ALL:
-	case C_NET:
-	case C_DOM: {
-		if (ep->agent.mda.to.user[0] == '\0')
-			user = ep->dest.user;
-		else
-			user = ep->agent.mda.to.user;
-		xlowercase(username, user, sizeof(username));
-
-		/* gilles+hackers@ -> gilles@ */
-		if ((tag = strchr(username, '+')) != NULL) {
-			*tag++ = '\0';
-
-			/* skip dots after the '+' */
-			while (*tag == '.')
-				tag++;
-		}
-
-		if (aliases_exist(ep->rule.r_amap, username)) {
-			if (! aliases_get(ep->rule.r_amap,
-				&lks->expandtree, username)) {
-				return 0;
-			}
-			return 1;
-		}
-
-		bzero(&u, sizeof (u));
-		ub = user_backend_lookup(USER_PWD);
-		if (! ub->getbyname(&u, username))
-			return 0;
-
-		(void)strlcpy(ep->agent.mda.as_user, u.username,
-		    sizeof (ep->agent.mda.as_user));
-
-		ep->type = D_MDA;
-		switch (ep->rule.r_action) {
-		case A_MBOX:
-			ep->agent.mda.method = A_MBOX;
-			(void)strlcpy(ep->agent.mda.to.user,
-			    u.username,
-			    sizeof (ep->agent.mda.to.user));
-			break;
-		case A_MAILDIR:
-		case A_FILENAME:
-		case A_MDA:
-			ep->agent.mda.method = ep->rule.r_action;
-			(void)strlcpy(ep->agent.mda.to.buffer,
-			    ep->rule.r_value.buffer,
-			    sizeof (ep->agent.mda.to.buffer));
-			
-			if (tag && *tag) {
-				(void)strlcat(ep->agent.mda.to.buffer, "/.",
-				    sizeof (ep->agent.mda.to.buffer));
-				(void)strlcat(ep->agent.mda.to.buffer, tag,
-				    sizeof (ep->agent.mda.to.buffer));
-			}
-			break;
-		default:
-			fatalx("lka_session_envelope_expand: unexpected rule action");
-			return 0;
-		}
-
-		lka_session_request_forwardfile(lks, ep, u.username);
-		return 1;
-	}
-
-	case C_VDOM: {
-		if (aliases_virtual_exist(ep->rule.r_condition.c_map, &ep->dest)) {
-			if (! aliases_virtual_get(ep->rule.r_condition.c_map,
-				&lks->expandtree, &ep->dest))
-				return 0;
-			return 1;
-		}
-		return 0;
-	}
-
-	default:
-		fatalx("lka_session_envelope_expand: unexpected type");
-		return 0;
-	}
-
-	return 0;
+	TAILQ_INIT(&lks->nodes);
+	bzero(&xn, sizeof xn);
+	xn.type = EXPAND_ADDRESS;
+	xn.u.mailaddr = lks->envelope.dest; /* XXX we should only have rcpt */
+	lks->expand.rule = NULL;
+	lks->expand.queue = &lks->nodes;
+	expand_insert(&lks->expand, &xn);
+	lka_resume(lks);
 }
 
 void
 lka_session_forward_reply(struct forward_req *fwreq, int fd)
 {
-	struct lka_session *lks;
-	struct envelope *ep;
+	struct lka_session	*lks;
+	struct rule		*rule;
+	struct expandnode	*xn;
 
-	lks = lka_session_xfind(fwreq->id);
-	lks->pending--;
-	
-	ep = &fwreq->envelope;
+	lks = tree_xget(&sessions, fwreq->id);
+	xn = lks->node;
+	rule = lks->rule;
 
-	if (fd != -1) {
-		/* opened .forward okay */
-		if (! forwards_get(fd, &lks->expandtree, fwreq->as_user)) {
+	lks->flags &= ~F_WAITING;
+
+	if (fd == -1 && fwreq->status) {
+		/* no .forward, just deliver to local user */
+		log_debug("lka: no .forward for user %s, just deliver",
+		    fwreq->as_user);
+		lka_submit(lks, rule, xn);
+	}
+	else if (fd == -1) {
+		log_debug("lka: opening .forward failed for user %s",
+		    fwreq->as_user);
+		lks->ss.code = 530;
+		lks->flags |= F_ERROR;
+	}
+	else {
+		/* expand for the current user and rule */
+		lks->expand.rule = rule;
+		lks->expand.parent = xn;
+		lks->expand.alias = 0;
+		if (forwards_get(fd, &lks->expand) == 0) {
+			/* no aliases */
 			lks->ss.code = 530;
 			lks->flags |= F_ERROR;
 		}
 		close(fd);
-		lka_session_pickup(lks, ep);
-		return;
 	}
-
-	if (fwreq->status) {
-		/* .forward not present */
-		lka_session_deliver(lks, ep);
-		lka_session_pickup(lks, ep);
-		return;
-	}
-
-	/* opening .forward failed */
-	lks->ss.code = 530;
-	lks->flags |= F_ERROR;
-	lka_session_pickup(lks, ep);
+	lka_resume(lks);
 }
 
-struct lka_session *
-lka_session_init(struct submit_status *ss)
+static void
+lka_resume(struct lka_session *lks)
 {
-	struct lka_session *lks;
+	struct envelope		*ep;
+	struct expandnode	*xn;
 
-	lks = calloc(1, sizeof(*lks));
-	if (lks == NULL)
-		fatal("lka_session_init: calloc");
+	if (lks->flags & F_ERROR)
+		goto error;
 
-	lks->id = generate_uid();
-	lks->ss = *ss;
-	lks->ss.code = 250;
-
-	RB_INIT(&lks->expandtree);
-	TAILQ_INIT(&lks->deliverylist);
-	SPLAY_INSERT(lkatree, &env->lka_sessions, lks);
-
-	return lks;
-}
-
-void
-lka_session_pickup(struct lka_session *lks, struct envelope *ep)
-{
-	int ret;
-
-	/* we want to do five iterations of lka_session_resume() but
-         * we need to be interruptible in case lka_session_resume()
-         * has sent an imsg and expects an answer.
-         */
-	while (! (lks->flags & F_ERROR) &&
-	    ! lks->pending && lks->iterations < 5) {
-		++lks->iterations;
-		ret = lka_session_resume(lks, ep);
-		if (ret == -1) {
-			lks->ss.code = 530;
-			lks->flags |= F_ERROR;
-		}
-
-		if (lks->pending || ret <= 0)
-			break;
+	/* pop next node and expand it */
+	while((xn = TAILQ_FIRST(&lks->nodes))) {
+		TAILQ_REMOVE(&lks->nodes, xn, tq_entry);
+		lka_expand(lks, xn->rule, xn);
+		if (lks->flags & F_WAITING)
+			return;
+		if (lks->flags & F_ERROR)
+			goto error;
 	}
 
-	if (lks->pending)
-		return;
-
-	lka_session_done(lks);
-}
-
-int
-lka_session_resume(struct lka_session *lks, struct envelope *ep)
-{
-	struct expandnode *xn;
-        uint8_t done = 1;
-
-	RB_FOREACH(xn, expandtree, &lks->expandtree) {
-
-		/* this node has already been expanded, skip */
-                if (xn->flags & F_EXPAND_DONE)
-                        continue;
-                done = 0;
-
-		switch (lka_session_resolve_node(ep, xn)) {
-		case 0:
-			if (! lka_session_envelope_expand(lks, ep))
-				return -1;
-			break;
-		case 1:
-			lka_session_deliver(lks, ep);
-			break;
-		default:
-			return -1;
-		}
-
-                /* decrement refcount on this node and flag it as processed */
-                expandtree_decrement_node(&lks->expandtree, xn);
-                xn->flags |= F_EXPAND_DONE;
-	}
-
-        /* still not done after 5 iterations ? loop detected ... reject */
-        if (!done && lks->iterations == 5)
-                return -1;
-
-        /* we're done expanding, no need for another iteration */
-	if (RB_ROOT(&lks->expandtree) == NULL || done)
-		return 0;
-
-	return 1;
-}
-
-void
-lka_session_done(struct lka_session *lks)
-{
-	struct envelope *ep;
-
-	/* delivery list is empty OR expansion led to an error, reject */
+	/* delivery list is empty, reject */
 	if (TAILQ_FIRST(&lks->deliverylist) == NULL) {
-		log_info("lka_session_done: expansion led to empty delivery list");
+		log_info("lka_done: expansion led to empty delivery list");
 		lks->flags |= F_ERROR;
 	}
-	if (lks->flags & F_ERROR)
-		goto done;
-
-	/* process the delivery list and submit envelopes to queue */
-	while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, ep, sizeof *ep);
-		TAILQ_REMOVE(&lks->deliverylist, ep, entry);
-		free(ep);
-	}
-	ep = &lks->ss.envelope;
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-	    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, ep, sizeof *ep);
-
-done:
+    error:
 	if (lks->flags & F_ERROR) {
-		lks->ss.code = 530;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_RCPT, 0, 0,
 		    -1, &lks->ss, sizeof(struct submit_status));
+		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
+			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
+			free(ep);
+		}
 	}
-	lka_session_destroy(lks);
-}
-
-struct lka_session *
-lka_session_find(uint64_t id)
-{
-	struct lka_session key;
-
-	key.id = id;
-	return SPLAY_FIND(lkatree, &env->lka_sessions, &key);
-}
-
-struct lka_session *
-lka_session_xfind(uint64_t id)
-{
-	struct lka_session *lks;
-
-	lks = lka_session_find(id);
-	if (lks == NULL)
-		fatalx("lka_session_xfind: lka session missing");
-
-	return lks;
-}
-
-void
-lka_session_fail(struct lka_session *lks)
-{
-	lks->ss.code = 530;
-	imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_RCPT, 0, 0, -1,
-            &lks->ss, sizeof(lks->ss));
-        lka_session_destroy(lks);
-}
-
-void
-lka_session_destroy(struct lka_session *lks)
-{
-	struct envelope *ep;
-	struct expandnode *xn;
-
-	while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
-		TAILQ_REMOVE(&lks->deliverylist, ep, entry);
-		free(ep);
+	else {
+		/* process the delivery list and submit envelopes to queue */
+		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
+			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+			    ep, sizeof *ep);
+			free(ep);
+		}
+		ep = &lks->ss.envelope;
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, ep, sizeof *ep);
 	}
 
-	while ((xn = RB_ROOT(&lks->expandtree)) != NULL) {
-		RB_REMOVE(expandtree, &lks->expandtree, xn);
-		free(xn);
-	}
-
-	SPLAY_REMOVE(lkatree, &env->lka_sessions, lks);
+	expand_free(&lks->expand);
+	tree_xpop(&sessions, lks->id);
 	free(lks);
 }
 
-void
-lka_session_deliver(struct lka_session *lks, struct envelope *ep)
+static void
+lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
-	struct envelope *new_ep;
+	struct forward_req	fwreq;
+	struct envelope		ep;
+	struct expandnode	node;
+	struct passwd	       *pw;
+	int			r;
 
-	new_ep = calloc(1, sizeof (*ep));
-	if (new_ep == NULL)
-		fatal("lka_session_deliver: calloc");
-	*new_ep = *ep;
-	if (new_ep->type == D_MDA) {
-		switch (new_ep->agent.mda.method) {
-		case A_MAILDIR:
-		case A_FILENAME:
-		case A_MDA:
-			if (! lka_session_expand_format(
-			    new_ep->agent.mda.to.buffer,
-			    sizeof(new_ep->agent.mda.to.buffer), new_ep))
-				lks->flags |= F_ERROR;
-		default:
-			break;
-		}
+	if (xn->depth >= EXPAND_DEPTH) {
+		log_debug("lka_expand: node too deep.");
+		lks->flags |= F_ERROR;
+		lks->ss.code = 530;
+		return;
 	}
-	else if (new_ep->type == D_MTA) {
-		new_ep->agent.mta.relay = ep->rule.r_value.relayhost;
-		if (ep->rule.r_as) {
-			if (ep->rule.r_as->user[0]) {
-				strlcpy(new_ep->sender.user,
-				    ep->rule.r_as->user,
-				    sizeof new_ep->sender.user);
-			}
-			if (ep->rule.r_as->domain[0]) {
-				strlcpy(new_ep->sender.domain,
-				    ep->rule.r_as->domain,
-				    sizeof new_ep->sender.domain);
-			}
-		}
-	}
-	TAILQ_INSERT_TAIL(&lks->deliverylist, new_ep, entry);
-}
-
-int
-lka_session_resolve_node(struct envelope *ep, struct expandnode *xn)
-{
-	struct envelope	oldep;
-
-	memcpy(&oldep, ep, sizeof (*ep));
-        bzero(&ep->agent, sizeof (ep->agent));
 
 	switch (xn->type) {
-        case EXPAND_INVALID:
-        case EXPAND_INCLUDE:
-                fatalx("lka_session_resolve_node: unexpected type");
-                break;
+	case EXPAND_INVALID:
+	case EXPAND_INCLUDE:
+		fatalx("lka_expand: unexpected type");
+		break;
 
-        case EXPAND_ADDRESS:
-                log_debug("lka_resolve_node: node is address: %s@%s",
-		    xn->u.mailaddr.user, xn->u.mailaddr.domain);
-		ep->dest = xn->u.mailaddr;
+	case EXPAND_ADDRESS:
+		log_debug("lka_expand: expanding address: %s@%s [depth=%d]",
+		    xn->u.mailaddr.user, xn->u.mailaddr.domain, xn->depth);
 
-		/* evaluation of ruleset assumes local source
-		 * since we're expanding on already accepted
-		 * source.
-		 */
-		ep->flags |= DF_INTERNAL;
-                if (! lka_session_rcpt_action(ep))
-			return -1;
-		return 0;
+		/* Pass the node through the ruleset */
+		ep = lks->envelope;
+		ep.dest = xn->u.mailaddr;
+		if (xn->parent) /* nodes with parent are forward addresses */
+			ep.flags |= DF_INTERNAL;
+		rule = ruleset_match(&ep);
+		if (rule == NULL || rule->r_decision == R_REJECT) {
+			lks->flags |= F_ERROR;
+			lks->ss.code = (errno == EAGAIN ? 451 : 530);
+			break; /* no rule for address or REJECT match */
+		}
+		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
+			lka_submit(lks, rule, xn);
+		}
+		else if (rule->r_condition.c_type == COND_VDOM) {
+			/* expand */
+			lks->expand.rule = rule;
+			lks->expand.parent = xn;
+			lks->expand.alias = 1;
+			r = aliases_virtual_get(rule->r_condition.c_map,
+			    &lks->expand, &xn->u.mailaddr);
+			if (r == -1) {
+				lks->flags |= F_ERROR;
+				lks->ss.code = 451;
+				log_debug(
+				    "lka_expand: error in virtual alias lookup");
+			}
+			else if (r == 0) {
+				lks->flags |= F_ERROR;
+				lks->ss.code = 530;
+				log_debug("lka_expand: no aliases for virtual");
+			}
+		}
+		else {
+			lks->expand.rule = rule;
+			lks->expand.parent = xn;
+			lks->expand.alias = 1;
+			node.type = EXPAND_USERNAME;
+			mailaddr_to_username(&xn->u.mailaddr, node.u.user,
+				sizeof node.u.user);
+			expand_insert(&lks->expand, &node);
+		}
+		break;
 
-        case EXPAND_USERNAME:
-                log_debug("lka_resolve_node: node is local username: %s",
-		    xn->u.user);
-		ep->type  = D_MDA;
-		ep->agent.mda.to = xn->u;
+	case EXPAND_USERNAME:
+		log_debug("lka_expand: expanding username: %s [depth=%d]", xn->u.user, xn->depth);
 
-		/* overwrite the initial condition before we expand the
-		 * envelope again. if we came from a C_VDOM, not doing
-		 * so would lead to a VDOM loop causing recipient to be
-		 * rejected.
-		 *
-		 * i'll find a more elegant solution later, for now it
-		 * fixes an annoying bug.
-		 */
-		ep->rule.r_condition.c_type = C_DOM;
-
-		/* if expansion of a user results in same user ... deliver */
-		if (strcmp(xn->u.user, xn->as_user) == 0) {
-			ep->agent.mda.method = oldep.agent.mda.method;
+		if (xn->sameuser) {
+			log_debug("lka_expand: same user, submitting");
+			lka_submit(lks, rule, xn);
 			break;
 		}
 
-		/* otherwise rewrite delivery user with expansion result */
-		(void)strlcpy(ep->agent.mda.to.user, xn->u.user,
-		    sizeof (ep->agent.mda.to.user));
-		(void)strlcpy(ep->agent.mda.as_user, xn->u.user,
-		    sizeof (ep->agent.mda.as_user));
-		return 0;
+		/* expand aliases with the given rule */
+		lks->expand.rule = rule;
+		lks->expand.parent = xn;
+		lks->expand.alias = 1;
+		if (rule->r_amap) {
+			r = aliases_get(rule->r_amap, &lks->expand, xn->u.user);
+			if (r == -1) {
+				log_debug("lka_expand: error in alias lookup");
+				lks->flags |= F_ERROR;
+				lks->ss.code = 451;
+			}
+			if (r)
+				break;
+		}
 
-        case EXPAND_FILENAME:
-                log_debug("lka_resolve_node: node is filename: %s",
-		    xn->u.buffer);
-		ep->type  = D_MDA;
-		ep->agent.mda.to = xn->u;
-		ep->agent.mda.method = A_FILENAME;
-		(void)strlcpy(ep->agent.mda.as_user, xn->as_user,
-		    sizeof (ep->agent.mda.as_user));
-                break;
+		/* a username should not exceed the size of a system user */
+		if (strlen(xn->u.user) >= sizeof fwreq.as_user) {
+			log_debug("lka_expand: user-part too long to be a system user");
+			lks->flags |= F_ERROR;
+			lks->ss.code = 530;
+			break;
+		}
 
-        case EXPAND_FILTER:
-                log_debug("lka_resolve_node: node is filter: %s",
-		    xn->u.buffer);
-		ep->type  = D_MDA;
-		ep->agent.mda.to = xn->u;
-		ep->agent.mda.method = A_MDA;
-		(void)strlcpy(ep->agent.mda.as_user, xn->as_user,
-		    sizeof (ep->agent.mda.as_user));
-                break;
+		pw = getpwnam(xn->u.user);
+		if (pw == NULL) {
+			log_debug("lka_expand: user-part does not match system user");
+			lks->flags |= F_ERROR;
+			lks->ss.code = 530;
+			break;
+		}
+
+		/* no aliases found, query forward file */
+		lks->rule = rule;
+		lks->node = xn;
+		fwreq.id = lks->id;
+		(void)strlcpy(fwreq.as_user, xn->u.user, sizeof(fwreq.as_user));
+		imsg_compose_event(env->sc_ievs[PROC_PARENT],
+		    IMSG_PARENT_FORWARD_OPEN, 0, 0, -1, &fwreq, sizeof(fwreq));
+		lks->flags |= F_WAITING;
+		break;
+
+	case EXPAND_FILENAME:
+		log_debug("lka_expand: expanding filename: %s [depth=%d]", xn->u.buffer, xn->depth);
+		lka_submit(lks, rule, xn);
+		break;
+
+	case EXPAND_FILTER:
+		log_debug("lka_expand: expanding filter: %s [depth=%d]", xn->u.buffer, xn->depth);
+		lka_submit(lks, rule, xn);
+		break;
 	}
-
-	return 1;
 }
 
-size_t
-lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
+static struct expandnode *
+lka_find_ancestor(struct expandnode *xn, enum expand_type type)
+{
+	while(xn && (xn->type != type))
+		xn = xn->parent;
+	if (xn == NULL) {
+		log_warnx("lka_find_ancestor: no ancestors of type %i", type);
+		fatalx(NULL);
+	}
+	return (xn);
+}
+
+static void
+lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
+{
+	struct envelope		*ep;
+	struct expandnode	*xn2;
+	const char		*tag;
+
+	ep = xmemdup(&lks->envelope, sizeof *ep, "lka_submit");
+	ep->expire = rule->r_qexpire;
+
+	switch (rule->r_action) {
+	case A_RELAY:
+	case A_RELAYVIA:
+		if (xn->type != EXPAND_ADDRESS)
+			fatalx("lka_deliver: expect address");
+		ep->type = D_MTA;
+		ep->dest = xn->u.mailaddr;
+		ep->agent.mta.relay = rule->r_value.relayhost;
+		if (rule->r_as && rule->r_as->user[0])
+			strlcpy(ep->sender.user, rule->r_as->user,
+			    sizeof ep->sender.user);
+		if (rule->r_as && rule->r_as->domain[0])
+			strlcpy(ep->sender.domain, rule->r_as->domain,
+			    sizeof ep->sender.domain);
+		break;
+	case A_MBOX:
+	case A_MAILDIR:
+	case A_FILENAME:
+	case A_MDA:
+		ep->type = D_MDA;
+		ep->dest = lka_find_ancestor(xn, EXPAND_ADDRESS)->u.mailaddr;
+
+		/* set username */
+		if ((xn->type == EXPAND_FILTER || xn->type == EXPAND_FILENAME)
+		    && xn->alias) {
+			strlcpy(ep->agent.mda.user, SMTPD_USER,
+			    sizeof (ep->agent.mda.user));
+		}
+		else {
+			xn2 = lka_find_ancestor(xn, EXPAND_USERNAME);
+			strlcpy(ep->agent.mda.user, xn2->u.user,
+			    sizeof (ep->agent.mda.user));
+		}
+
+		if (xn->type == EXPAND_FILENAME) {
+			ep->agent.mda.method = A_FILENAME;
+			strlcpy(ep->agent.mda.buffer, xn->u.buffer,
+			    sizeof ep->agent.mda.buffer);
+		}
+		else if (xn->type == EXPAND_FILTER) {
+			ep->agent.mda.method = A_MDA;
+			strlcpy(ep->agent.mda.buffer, xn->u.buffer,
+			    sizeof ep->agent.mda.buffer);
+		}
+		else if (xn->type == EXPAND_USERNAME) {
+			ep->agent.mda.method = rule->r_action;
+			strlcpy(ep->agent.mda.buffer, rule->r_value.buffer,
+			    sizeof ep->agent.mda.buffer);
+			tag = mailaddr_tag(&ep->dest);
+			if (rule->r_action == A_MAILDIR && tag && tag[0]) {
+				strlcat(ep->agent.mda.buffer, "/.",
+				    sizeof (ep->agent.mda.buffer));
+				strlcat(ep->agent.mda.buffer, tag,
+				    sizeof (ep->agent.mda.buffer));
+			}
+		}
+		else
+			fatalx("lka_deliver: bad node type");
+
+		if (! lka_expand_format(ep->agent.mda.buffer,
+					sizeof(ep->agent.mda.buffer), ep)) {
+			lks->flags |= F_ERROR;
+			lks->ss.code = 451;
+			log_warnx("format string result too long while "
+			    " expanding for user %s", ep->agent.mda.user);
+			free(ep);
+			return;
+		}
+		break;
+	default:
+		fatalx("lka_submit: bad rule action");
+	}
+
+	TAILQ_INSERT_TAIL(&lks->deliverylist, ep, entry);
+}
+
+static size_t
+lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 {
 	char *p, *pbuf;
 	size_t ret, lret = 0;
@@ -508,19 +429,22 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 	struct mta_user u;
 	char lbuffer[MAX_RULEBUFFER_LEN];
 	char tmpbuf[MAX_RULEBUFFER_LEN];
-	
+
+	if (len < sizeof lbuffer)
+		return 0;
+
 	bzero(lbuffer, sizeof (lbuffer));
 	pbuf = lbuffer;
 
 	ret = 0;
-	for (p = buf; *p != '\0';
+	for (p = buf; *p != '\0' && ret < sizeof (lbuffer);
 	     ++p, len -= lret, pbuf += lret, ret += lret) {
 		if (p == buf && *p == '~') {
 			if (*(p + 1) == '/' || *(p + 1) == '\0') {
 
 				bzero(&u, sizeof (u));
 				ub = user_backend_lookup(USER_PWD);
-				if (! ub->getbyname(&u, ep->agent.mda.as_user))
+				if (! ub->getbyname(&u, ep->agent.mda.user))
 					return 0;
 				
 				lret = strlcat(pbuf, u.directory, len);
@@ -556,7 +480,7 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 			}
 		}
 		if (*p == '%') {
-			char	*string, *tmp = p + 1;
+			const char	*string, *tmp = p + 1;
 			int	 digit = 0;
 
 			if (isdigit((int)*tmp)) {
@@ -564,16 +488,16 @@ lka_session_expand_format(char *buf, size_t len, struct envelope *ep)
 			    tmp++;
 			}
 			switch (*tmp) {
-			case 'U':
+			case 'A':
 				string = ep->sender.user;
 				break;
 			case 'D':
 				string = ep->sender.domain;
 				break;
-			case 'a':
-				string = ep->agent.mda.as_user;
-				break;
 			case 'u':
+				string = ep->agent.mda.user;
+				break;
+			case 'a':
 				string = ep->dest.user;
 				break;
 			case 'd':
@@ -610,66 +534,40 @@ copy:
 		lret = 1;
 		*pbuf = *p;
 	}
-	
-	/* + 1 to include the NUL byte. */
-	memcpy(buf, lbuffer, ret + 1);
+
+	/* we aborted loop because we reached max buffer size, fail. */
+	if (ret == sizeof (lbuffer))
+		return 0;
+
+	/* shouldn't happen but better be safe ... */
+	if (strlcpy(buf, lbuffer, len) >= len)
+		return 0;
 
 	return ret;
 }
 
-int
-lka_session_rcpt_action(struct envelope *ep)
+static void
+mailaddr_to_username(const struct mailaddr *maddr, char *dst, size_t len)
 {
-        struct rule *r;
+	char	*tag;
 
-	r = ruleset_match(ep);
-	if (r == NULL) {
-		ep->type = D_MTA;
-		return 0;
+	xlowercase(dst, maddr->user, len);
+
+	/* gilles+hackers@ -> gilles@ */
+	if ((tag = strchr(dst, '+')) != NULL)
+		*tag++ = '\0';
+}
+
+static const char *
+mailaddr_tag(const struct mailaddr *maddr)
+{
+	const char *tag;
+
+	if ((tag = strchr(maddr->user, '+'))) {
+		tag++;
+		while (*tag == '.')
+			tag++;
 	}
 
-        ep->rule = *r;
-	switch (ep->rule.r_action) {
-	case A_MBOX:
-	case A_MAILDIR:
-	case A_FILENAME:
-	case A_MDA:
-		ep->type = D_MDA;
-		break;
-	default:
-		ep->type = D_MTA;
-	}
-
-	return 1;
+	return (tag);
 }
-
-void
-lka_session_request_forwardfile(struct lka_session *lks,
-    struct envelope *ep, char *as_user)
-{
-	struct forward_req fwreq;
-
-	fwreq.id = lks->id;
-	fwreq.envelope = *ep;
-	(void)strlcpy(fwreq.as_user, as_user, sizeof(fwreq.as_user));
-	imsg_compose_event(env->sc_ievs[PROC_PARENT],
-	    IMSG_PARENT_FORWARD_OPEN, 0, 0, -1, &fwreq, sizeof(fwreq));
-	++lks->pending;
-}
-
-int
-lka_session_cmp(struct lka_session *s1, struct lka_session *s2)
-{
-	/*
-	 * do not return uint64_t's
-	 */
-	if (s1->id < s2->id)
-		return -1;
-
-	if (s1->id > s2->id)
-		return 1;
-
-	return 0;
-}
-
-SPLAY_GENERATE(lkatree, lka_session, nodes, lka_session_cmp);

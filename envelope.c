@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.11 2012/09/02 12:21:22 chl Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.17 2012/10/12 08:51:02 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -44,7 +44,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int ascii_load_uint8(uint8_t *, char *);
 static int ascii_load_uint16(uint16_t *, char *);
 static int ascii_load_uint32(uint32_t *, char *);
 static int ascii_load_time(time_t *, char *);
@@ -56,7 +55,7 @@ static int ascii_load_mailaddr(struct mailaddr *, char *);
 static int ascii_load_flags(enum delivery_flags *, char *);
 static int ascii_load_mta_relay_flags(uint8_t *, char *);
 
-static int ascii_dump_uint8(uint8_t, char *, size_t);
+static int ascii_dump_uint16(uint16_t, char *, size_t);
 static int ascii_dump_uint32(uint32_t, char *, size_t);
 static int ascii_dump_time(time_t, char *, size_t);
 static int ascii_dump_string(char *, char *, size_t);
@@ -341,11 +340,11 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MDA_METHOD:
 		return ascii_load_mda_method(&ep->agent.mda.method, buf);
 	case EVP_MDA_BUFFER:
-		return ascii_load_string(ep->agent.mda.to.buffer, buf,
-		    sizeof ep->agent.mda.to.buffer);
+		return ascii_load_string(ep->agent.mda.buffer, buf,
+		    sizeof ep->agent.mda.buffer);
 	case EVP_MDA_USER:
-		return ascii_load_string(ep->agent.mda.as_user, buf,
-		    sizeof ep->agent.mda.as_user);
+		return ascii_load_string(ep->agent.mda.user, buf,
+		    sizeof ep->agent.mda.user);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_load_string(ep->agent.mta.relay.hostname, buf,
 		    sizeof ep->agent.mta.relay.hostname);
@@ -371,7 +370,7 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_EXPIRE:
 		return ascii_load_time(&ep->expire, buf);
 	case EVP_RETRY:
-		return ascii_load_uint8(&ep->retry, buf);
+		return ascii_load_uint16(&ep->retry, buf);
 	case EVP_LASTTRY:
 		return ascii_load_time(&ep->lasttry, buf);
 	case EVP_FLAGS:
@@ -408,9 +407,9 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_MDA_METHOD:
 		return ascii_dump_mda_method(ep->agent.mda.method, buf, len);
 	case EVP_MDA_BUFFER:
-		return ascii_dump_string(ep->agent.mda.to.buffer, buf, len);
+		return ascii_dump_string(ep->agent.mda.buffer, buf, len);
 	case EVP_MDA_USER:
-		return ascii_dump_string(ep->agent.mda.as_user, buf, len);
+		return ascii_dump_string(ep->agent.mda.user, buf, len);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_dump_string(ep->agent.mta.relay.hostname,
 		    buf, len);
@@ -431,24 +430,13 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_EXPIRE:
 		return ascii_dump_time(ep->expire, buf, len);
 	case EVP_RETRY:
-		return ascii_dump_uint8(ep->retry, buf, len);
+		return ascii_dump_uint16(ep->retry, buf, len);
 	case EVP_LASTTRY:
 		return ascii_dump_time(ep->lasttry, buf, len);
 	case EVP_FLAGS:
 		return ascii_dump_flags(ep->flags, buf, len);
 	}
 	return 0;
-}
-
-static int
-ascii_load_uint8(uint8_t *dest, char *buf)
-{
-	const char *errstr;
-
-	*dest = strtonum(buf, 0, 0xff, &errstr);
-	if (errstr)
-		return 0;
-	return 1;
 }
 
 static int
@@ -512,7 +500,10 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 	struct sockaddr_in6 ssin6;
 	struct sockaddr_in  ssin;
 
-	if (strncasecmp("IPv6:", buf, 5) == 0) {
+	if (!strcmp("local", buf)) {
+		ss->ss_family = AF_LOCAL;
+	}
+	else if (strncasecmp("IPv6:", buf, 5) == 0) {
 		if (inet_pton(AF_INET6, buf + 5, &ssin6.sin6_addr) != 1)
 			return 0;
 		ssin6.sin6_family = AF_INET6;
@@ -562,7 +553,7 @@ ascii_load_flags(enum delivery_flags *dest, char *buf)
 		if (strcasecmp(flag, "authenticated") == 0)
 			*dest |= DF_AUTHENTICATED;
 		else if (strcasecmp(flag, "enqueued") == 0)
-			*dest |= DF_ENQUEUED;
+			;
 		else if (strcasecmp(flag, "bounce") == 0)
 			*dest |= DF_BOUNCE;
 		else if (strcasecmp(flag, "internal") == 0)
@@ -594,7 +585,7 @@ ascii_load_mta_relay_flags(uint8_t *dest, char *buf)
 }
 
 static int
-ascii_dump_uint8(uint8_t src, char *dest, size_t len)
+ascii_dump_uint16(uint16_t src, char *dest, size_t len)
 {
 	return bsnprintf(dest, len, "%d", src);
 }
@@ -687,17 +678,17 @@ ascii_dump_mta_relay_flags(uint8_t flags, char *buf, size_t len)
 			cpylen = strlcat(buf, "smtps", len);
 		if (flags & F_STARTTLS) {
 			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
+				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "tls", len);
 		}
 		if (flags & F_AUTH) {
 			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
+				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "auth", len);
 		}
 		if (flags & F_BACKUP) {
 			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
+				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "backup", len);
 		}
 	}
@@ -714,19 +705,14 @@ ascii_dump_flags(enum delivery_flags flags, char *buf, size_t len)
 	if (flags) {
 		if (flags & DF_AUTHENTICATED)
 			cpylen = strlcat(buf, "authenticated", len);
-		if (flags & DF_ENQUEUED) {
-			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
-			cpylen = strlcat(buf, "enqueued", len);
-		}
 		if (flags & DF_BOUNCE) {
 			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
+				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "bounce", len);
 		}
 		if (flags & DF_INTERNAL) {
 			if (buf[0] != '\0')
-				cpylen = strlcat(buf, " ", len);
+				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "internal", len);
 		}
 	}

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.46 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.49 2012/10/14 14:26:31 halex Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -44,7 +44,7 @@
 #define SSL_CIPHERS	"HIGH"
 
 void	 ssl_error(const char *);
-char	*ssl_load_file(const char *, off_t *);
+char	*ssl_load_file(const char *, off_t *, mode_t);
 SSL_CTX	*ssl_ctx_create(void);
 
 SSL	*ssl_client_init(int, char *, size_t, char *, size_t);
@@ -64,17 +64,30 @@ ssl_cmp(struct ssl *s1, struct ssl *s2)
 SPLAY_GENERATE(ssltree, ssl, ssl_nodes, ssl_cmp);
 
 char *
-ssl_load_file(const char *name, off_t *len)
+ssl_load_file(const char *name, off_t *len, mode_t perm)
 {
 	struct stat	 st;
 	off_t		 size;
 	char		*buf = NULL;
-	int		 fd;
+	int		 fd, saved_errno;
+	char		 mode[12];
 
 	if ((fd = open(name, O_RDONLY)) == -1)
 		return (NULL);
 	if (fstat(fd, &st) != 0)
 		goto fail;
+	if (st.st_uid != 0) {
+		log_info("%s: not owned by uid 0", name);
+		errno = EACCES;
+		goto fail;
+	}
+	if (st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & ~perm) {
+		strmode(perm, mode);
+		log_info("%s: insecure permissions: must be at most %s",
+		    name, &mode[1]);
+		errno = EACCES;
+		goto fail;
+	}
 	size = st.st_size;
 	if ((buf = calloc(1, size + 1)) == NULL)
 		goto fail;
@@ -88,7 +101,9 @@ ssl_load_file(const char *name, off_t *len)
 fail:
 	if (buf != NULL)
 		free(buf);
+	saved_errno = errno;
 	close(fd);
+	errno = saved_errno;
 	return (NULL);
 }
 
@@ -147,22 +162,26 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		"/etc/mail/certs/%s.crt", name))
 		goto err;
 
-	if ((s->ssl_cert = ssl_load_file(certfile, &s->ssl_cert_len)) == NULL)
+	s->ssl_cert = ssl_load_file(certfile, &s->ssl_cert_len, 0755);
+	if (s->ssl_cert == NULL)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
 		"/etc/mail/certs/%s.key", name))
 		goto err;
 
-	if ((s->ssl_key = ssl_load_file(certfile, &s->ssl_key_len)) == NULL)
+	s->ssl_key = ssl_load_file(certfile, &s->ssl_key_len, 0700);
+	if (s->ssl_key == NULL)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
 		"/etc/mail/certs/%s.ca", name))
 		goto err;
 
-	if ((s->ssl_ca = ssl_load_file(certfile,
-		    &s->ssl_ca_len)) == NULL) {
+	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
+	if (s->ssl_ca == NULL) {
+		if (errno == EACCES)
+			goto err;
 		log_info("no CA found in %s", certfile);
 	}
 
@@ -170,8 +189,10 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		"/etc/mail/certs/%s.dh", name))
 		goto err;
 
-	if ((s->ssl_dhparams = ssl_load_file(certfile,
-		    &s->ssl_dhparams_len)) == NULL) {
+	s->ssl_dhparams = ssl_load_file(certfile, &s->ssl_dhparams_len, 0755);
+	if (s->ssl_dhparams == NULL) {
+		if (errno == EACCES)
+			goto err;
 		log_info("no DH parameters found in %s", certfile);
 		log_info("using built-in DH parameters");
 	}
@@ -355,30 +376,25 @@ done:
 	return (void*)(ssl);
 }
 
-void
-ssl_session_init(struct session *s)
+void *
+ssl_smtp_init(void *ssl_ctx)
 {
-	struct listener	*l;
-	SSL            	*ssl;
+	SSL *ssl;
 
-	l = s->s_l;
+	log_debug("session_start_ssl: switching to SSL");
 
-        log_debug("session_start_ssl: switching to SSL");
-
-        ssl = SSL_new(l->ssl_ctx);
-        if (ssl == NULL)
+	if ((ssl = SSL_new(ssl_ctx)) == NULL)
                 goto err;
-
         if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
                 goto err;
 
-        s->s_ssl = ssl;
-        return;
+        return (void*)(ssl);
 
     err:
 	if (ssl != NULL)
 		SSL_free(ssl);
 	ssl_error("ssl_session_init");
+	return (NULL);
 }
 
 

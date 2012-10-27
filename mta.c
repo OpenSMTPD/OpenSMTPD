@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.140 2012/08/30 18:16:25 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.147 2012/10/11 21:52:59 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -43,7 +43,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define MTA_MAXCONN	5	/* connections per route */
+#define MTA_MAXCONN	10	/* connections per route */
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
 
@@ -79,8 +79,6 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct ssl		*ssl;
 	uint64_t		 id;
 
-	log_imsg(PROC_MTA, iev->proc, imsg);
-
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
@@ -95,9 +93,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_BATCH_APPEND:
-			e = xmalloc(sizeof *e, "mta:envelope");
-			memmove(e, imsg->data, sizeof *e);
-
+			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
 			route = mta_route_for(e);
 			batch = tree_xget(&batches, e->batch_id);
 
@@ -168,22 +164,17 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_ssl = calloc(1, sizeof *env->sc_ssl);
-			if (env->sc_ssl == NULL)
-				fatal(NULL);
+			env->sc_ssl = xcalloc(1, sizeof *env->sc_ssl, "mta:sc_ssl");
 			return;
 
 		case IMSG_CONF_SSL:
 			if (!(env->sc_flags & SMTPD_CONFIGURING))
 				return;
-			ssl = calloc(1, sizeof *ssl);
-			if (ssl == NULL)
-				fatal(NULL);
-			*ssl = *(struct ssl *)imsg->data;
+			ssl = xmemdup(imsg->data, sizeof *ssl, "mta:ssl");
 			ssl->ssl_cert = xstrdup((char*)imsg->data + sizeof *ssl,
-			  "mta:ssl_cert");
+			    "mta:ssl_cert");
 			ssl->ssl_key = xstrdup((char*)imsg->data +
-			    sizeof *ssl + ssl->ssl_cert_len, "mta_ssl_key");
+			    sizeof *ssl + ssl->ssl_cert_len, "mta:ssl_key");
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
 			return;
 
@@ -346,13 +337,19 @@ const char *
 mta_route_to_text(struct mta_route *route)
 {
 	static char	 buf[1024];
+	char		 tmp[32];
 	const char	*sep = "";
-
-	buf[0] = '\0';
 
 	snprintf(buf, sizeof buf, "route:%s[", route->hostname);
 
+	if (route->port) {
+		snprintf(tmp, sizeof tmp, "port=%i", (int)route->port);
+		strlcat(buf, tmp, sizeof buf);
+		sep = ",";
+	}
+
 	if (route->flags & ROUTE_STARTTLS) {
+		strlcat(buf, sep, sizeof buf);
 		sep = ",";
 		strlcat(buf, "starttls", sizeof buf);
 	}
@@ -385,7 +382,6 @@ mta_route_to_text(struct mta_route *route)
 
 	if (route->flags & ROUTE_BACKUP) {
 		strlcat(buf, sep, sizeof buf);
-		sep = ",";
 		strlcat(buf, "backup=", sizeof buf);
 		strlcat(buf, route->backupname, sizeof buf);
 	}
@@ -520,15 +516,12 @@ mta_route_drain(struct mta_route *route)
 static void
 mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 {
+	char	relay[MAX_LINE_SIZE];
+
 	envelope_set_errormsg(e, "%s", status);
 
-	log_info("%016" PRIx64 ": to=<%s@%s>, delay=%s, relay=%s, stat=%s (%s)",
-	    e->id, e->dest.user,
-	    e->dest.domain,
-	    duration_to_text(time(NULL) - e->creation),
-	    task->route->hostname,
-	    mta_response_status(e->errorline),
-	    mta_response_text(e->errorline));
+	snprintf(relay, sizeof relay, "relay=%s, ", task->route->hostname);
+	log_envelope(e, relay, e->errorline);
 
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));

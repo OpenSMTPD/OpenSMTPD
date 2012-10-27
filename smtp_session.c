@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.168 2012/08/25 10:23:12 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.172 2012/10/11 21:24:51 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -400,6 +400,21 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 		return 1;
 	}
 
+
+	if (s->s_l->flags & F_STARTTLS_REQUIRE)
+		if (!(s->s_flags & F_SECURE)) {
+			session_respond(s,
+			    "530 5.7.0 Must issue a STARTTLS command first");
+			return 1;
+		}
+
+	if (s->s_l->flags & F_AUTH_REQUIRE)
+		if (!(s->s_flags & F_AUTHENTICATED)) {
+			session_respond(s,
+			    "530 5.7.0 Must issue an AUTH command first");
+			return 1;
+		}
+
 	if (s->s_state != S_HELO) {
 		session_respond(s, "503 5.5.1 Sender already specified");
 		return 1;
@@ -600,8 +615,9 @@ void
 session_io(struct io *io, int evt)
 {
 	struct session	*s = io->arg;
+	void		*ssl;
 	char		*line;
-	ssize_t		 len;
+	size_t		 len;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt), io_strio(io));
 
@@ -665,8 +681,8 @@ session_io(struct io *io, int evt)
 
 		/* wait for the client to start tls */
 		if (s->s_state == S_TLS) {
-			ssl_session_init(s);
-			io_start_tls(io, s->s_ssl);
+			ssl = ssl_smtp_init(s->s_l->ssl_ctx);
+			io_start_tls(io, ssl);
 		}
 		break;
 
@@ -690,6 +706,8 @@ session_io(struct io *io, int evt)
 void
 session_pickup(struct session *s, struct submit_status *ss)
 {
+	void	*ssl;
+
 	s->s_flags &= ~F_WAITIMSG;
 
 	if ((ss != NULL && ss->code == 421) ||
@@ -718,9 +736,9 @@ session_pickup(struct session *s, struct submit_status *ss)
 		}
 
 		if (s->s_l->flags & F_SMTPS) {
-			ssl_session_init(s);
+			ssl = ssl_smtp_init(s->s_l->ssl_ctx);
 			io_set_read(&s->s_io);
-			io_start_tls(&s->s_io, s->s_ssl);
+			io_start_tls(&s->s_io, ssl);
 			return;
 		}
 
@@ -821,9 +839,9 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 		if (s->s_flags & F_SECURE) {
 			fprintf(s->datafp, "\n\t(version=%s cipher=%s bits=%d)",
-			    SSL_get_cipher_version(s->s_ssl),
-			    SSL_get_cipher_name(s->s_ssl),
-			    SSL_get_cipher_bits(s->s_ssl, NULL));
+			    SSL_get_cipher_version(s->s_io.ssl),
+			    SSL_get_cipher_name(s->s_io.ssl),
+			    SSL_get_cipher_bits(s->s_io.ssl, NULL));
 		}
 		if (s->rcptcount == 1)
 			fprintf(s->datafp, "\n\tfor <%s@%s>; ",
@@ -1007,7 +1025,7 @@ session_destroy(struct session *s, const char * reason)
 		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, &msgid, sizeof(msgid));
 	}
 
-	if (s->s_ssl) {
+	if (s->s_io.ssl) {
 		if (s->s_l->flags & F_SMTPS)
 			if (s->s_flags & F_SECURE)
 				stat_decrement("smtp.smtps", 1);
@@ -1085,8 +1103,7 @@ session_respond(struct session *s, char *fmt, ...)
 
 	log_trace(TRACE_SMTP, "smtp: %p: >>> %s", s, buf);
 
-	iobuf_queue(&s->s_iobuf, buf, n);
-	iobuf_queue(&s->s_iobuf, "\r\n", 2);
+	iobuf_xfqueue(&s->s_iobuf, "session_respond", "%s\r\n", buf);
 
 	/*
 	 * Log failures.  Might be annoying in the long term, but it is a good

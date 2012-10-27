@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.57 2012/08/25 10:23:11 gilles Exp $	*/
+/*	$OpenBSD: dns.c,v 1.60 2012/10/08 08:46:24 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -254,18 +254,20 @@ dns_asr_dispatch_mx(struct dnssession *s)
 	unpack_header(&pack, &h);
 	unpack_query(&pack, &q);
 
-	if (h.ancount == 0)
-		/* fallback to host if no MX is found. */
-		dnssession_mx_insert(s, query->host, 0);
-
 	for (; h.ancount; h.ancount--) {
 		unpack_rr(&pack, &rr);
+		if (rr.rr_type != T_MX)
+			continue;
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
 		buf[strlen(buf) - 1] = '\0';
 		dnssession_mx_insert(s, buf, rr.rr.mx.preference);
 	}
 
 	free(ar.ar_data);
+
+	/* fallback to host if no MX is found. */
+	if (TAILQ_EMPTY(&s->mx))
+		dnssession_mx_insert(s, query->host, 0);
 
 	/* Now we have a sorted list of MX to resolve. Simply "turn" this
 	 * MX session into a regular host session.
@@ -352,9 +354,7 @@ dnssession_init(struct dns *query)
 {
 	struct dnssession *s;
 
-	s = calloc(1, sizeof(struct dnssession));
-	if (s == NULL)
-		fatal("dnssession_init: calloc");
+	s = xcalloc(1, sizeof(struct dnssession), "dnssession_init");
 
 	stat_increment("lka.session", 1);
 
@@ -398,12 +398,13 @@ dnssession_mx_insert(struct dnssession *s, const char *host, int preference)
 	TAILQ_FOREACH(e, &s->mx, entry) {
 		if (mx->preference <= e->preference) {
 			TAILQ_INSERT_BEFORE(e, mx, entry);
-			return;
+			goto end;
 		}
 	}
 
 	TAILQ_INSERT_TAIL(&s->mx, mx, entry);
 
+end:
 	if (s->preference == -1 && s->query.backup[0]
 	    && !strcasecmp(host, s->query.backup)) {
 		log_debug("dns: found our backup preference");

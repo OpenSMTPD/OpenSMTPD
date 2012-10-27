@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.109 2012/08/29 16:26:17 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.120 2012/10/07 15:46:38 chl Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -48,8 +48,10 @@ static int smtp_enqueue(uid_t *);
 static void smtp_accept(int, short, void *);
 static struct session *smtp_new(struct listener *);
 static struct session *session_lookup(uint64_t);
+static int smtp_can_accept(void);
 
 #define	SMTP_FD_RESERVE	5
+static uint32_t	sessions;
 
 static void
 smtp_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -61,8 +63,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct auth		*auth;
 	struct ssl		*ssl;
 	struct dns		*dns;
-
-	log_imsg(PROC_SMTP, iev->proc, imsg);
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
@@ -181,27 +181,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (ssl == NULL)
 				fatal(NULL);
 			*ssl = *(struct ssl *)imsg->data;
-			ssl->ssl_cert = strdup((char *)imsg->data +
-			    sizeof *ssl);
-			if (ssl->ssl_cert == NULL)
-				fatal(NULL);
-			ssl->ssl_key = strdup((char *)imsg->data + sizeof *ssl +
-			    ssl->ssl_cert_len);
-			if (ssl->ssl_key == NULL)
-				fatal(NULL);
+			ssl->ssl_cert = xstrdup((char *)imsg->data +
+			    sizeof *ssl, "smtp:ssl_cert");
+			ssl->ssl_key = xstrdup((char *)imsg->data + sizeof *ssl +
+			    ssl->ssl_cert_len, "smtp:ssl_key");
 			if (ssl->ssl_dhparams_len) {
-				ssl->ssl_dhparams = strdup((char *)imsg->data
+				ssl->ssl_dhparams = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len);
-				if (ssl->ssl_dhparams == NULL)
-					fatal(NULL);
+				    ssl->ssl_key_len, "smtp:ssl_dhparams");
 			}
 			if (ssl->ssl_ca_len) {
-				ssl->ssl_ca = strdup((char *)imsg->data
+				ssl->ssl_ca = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len + ssl->ssl_dhparams_len);
-				if (ssl->ssl_ca == NULL)
-					fatal(NULL);
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
+				    "smtp:ssl_ca");
 			}
 
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
@@ -389,7 +382,7 @@ smtp_setup_events(void)
 	}
 
 	log_debug("smtp: will accept at most %d clients",
-	    getdtablesize() - getdtablecount() - SMTP_FD_RESERVE + 1);
+	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
 }
 
 static void
@@ -419,25 +412,14 @@ smtp_resume(void)
 static int
 smtp_enqueue(uid_t *euid)
 {
-	static struct listener		 local, *l;
-	static struct sockaddr_storage	 sa;
+	static struct listener		 local, *l = NULL;
 	struct session			*s;
 	int				 fd[2];
 
 	if (l == NULL) {
-		struct addrinfo hints, *res;
-
 		l = &local;
 		strlcpy(l->tag, "local", sizeof(l->tag));
-
-		bzero(&hints, sizeof(hints));
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_flags = AI_NUMERICHOST;
-
-		if (getaddrinfo("::1", NULL, &hints, &res))
-			fatal("getaddrinfo");
-		memcpy(&sa, res->ai_addr, res->ai_addrlen);
-		freeaddrinfo(res);
+		l->ss.ss_family = AF_LOCAL;
 	}
 
 	/*
@@ -455,8 +437,7 @@ smtp_enqueue(uid_t *euid)
 		fatal("socketpair");
 
 	s->s_io.sock = fd[0];
-	s->s_ss = sa;
-	s->s_msg.flags |= DF_ENQUEUED;
+	s->s_ss = l->ss;
 
 	if (euid)
 		bsnprintf(s->s_hostname, sizeof(s->s_hostname), "%d@localhost",
@@ -496,7 +477,7 @@ smtp_accept(int fd, short event, void *p)
 			return;
 		fatal("smtp_accept");
 	}
-
+	
 	io_set_timeout(&s->s_io, SMTPD_SESSION_TIMEOUT * 1000);
 	io_set_write(&s->s_io);
 	dns_query_ptr(&s->s_ss, s->s_id);
@@ -519,27 +500,30 @@ smtp_new(struct listener *l)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_new: unexpected client");
 
-	if ((s = calloc(1, sizeof(*s))) == NULL)
-		fatal(NULL);
+	if (! smtp_can_accept())
+		return (NULL);
+
+	s = xcalloc(1, sizeof(*s), "smtp_new");
 	s->s_id = generate_uid();
 	s->s_l = l;
 	strlcpy(s->s_msg.tag, l->tag, sizeof(s->s_msg.tag));
+
+	iobuf_xinit(&s->s_iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE, "smtp_new");
+	io_init(&s->s_io, -1, s, session_io, &s->s_iobuf);
+	s->s_state = S_CONNECTED;
+
+	sessions++;
+
 	SPLAY_INSERT(sessiontree, &env->sc_sessions, s);
 
 	stat_increment("smtp.session", 1);
-	
-	if (getdtablesize() - getdtablecount() < SMTP_FD_RESERVE) {
-		return NULL;
-	}
 
+	if (s->s_l->ss.ss_family == AF_LOCAL)
+		stat_increment("smtp.session.local", 1);
 	if (s->s_l->ss.ss_family == AF_INET)
 		stat_increment("smtp.session.inet4", 1);
 	if (s->s_l->ss.ss_family == AF_INET6)
 		stat_increment("smtp.session.inet6", 1);
-
-	iobuf_init(&s->s_iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE);
-	io_init(&s->s_io, -1, s, session_io, &s->s_iobuf);
-	s->s_state = S_CONNECTED;
 
 	return (s);
 }
@@ -547,16 +531,28 @@ smtp_new(struct listener *l)
 void
 smtp_destroy(struct session *session)
 {
-	if (getdtablesize() - getdtablecount() < SMTP_FD_RESERVE)
+	sessions--;
+
+	if (! smtp_can_accept())
 		return;
 
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
 		log_warnx("smtp: fd exaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
+		smtp_resume();
 	}
-	smtp_resume();
 }
 
+static int
+smtp_can_accept(void)
+{
+	uint32_t max;
+
+	max = (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE;
+	if (sessions < max)
+		return 1;
+	return 0;
+}
 
 /*
  * Helper function for handling IMSG replies.
@@ -579,3 +575,4 @@ session_lookup(uint64_t id)
 
 	return (s);
 }
+

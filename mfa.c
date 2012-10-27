@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.67 2012/01/18 13:41:54 chl Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.72 2012/10/25 14:06:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -52,14 +52,11 @@ static void mfa_test_close(struct envelope *);
 static void mfa_test_rset(struct envelope *);
 static int mfa_strip_source_route(char *, size_t);
 static int mfa_fork_filter(struct filter *);
-void mfa_session(struct submit_status *, enum session_state);
 
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct filter *filter;
-
-	log_imsg(PROC_MFA, iev->proc, imsg);
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -93,9 +90,13 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_MAIL:
-		case IMSG_LKA_RCPT:
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_MFA_MAIL, 0, 0, -1, imsg->data,
+			    sizeof(struct submit_status));
+			return;
+		case IMSG_LKA_RCPT:
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_MFA_RCPT, 0, 0, -1, imsg->data,
 			    sizeof(struct submit_status));
 			return;
 
@@ -108,17 +109,13 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			env->sc_filters = calloc(1, sizeof *env->sc_filters);
-			if (env->sc_filters == NULL)
-				fatal(NULL);
+			env->sc_filters = xcalloc(1, sizeof *env->sc_filters,
+			    "mfa_imsg");
 			TAILQ_INIT(env->sc_filters);
 			return;
 
 		case IMSG_CONF_FILTER:
-			filter = calloc(1, sizeof *filter);
-			if (filter == NULL)
-				fatal(NULL);
-			memcpy(filter, (struct filter *)imsg->data, sizeof (*filter));
+			filter = xmemdup(imsg->data, sizeof *filter, "mfa_imsg");
 			TAILQ_INSERT_TAIL(env->sc_filters, filter, f_entry);
 			return;
 
@@ -333,7 +330,6 @@ mfa_test_rcpt_resume(struct submit_status *ss)
 	}
 
 	ss->envelope.dest = ss->u.maddr;
-	ss->envelope.expire = ss->envelope.rule.r_qexpire;
 	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RCPT, 0, 0, -1,
 	    ss, sizeof(*ss));
 }

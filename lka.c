@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.135 2012/08/25 22:52:19 eric Exp $	*/
+/*	$OpenBSD: lka.c,v 1.145 2012/10/14 11:58:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -42,15 +42,12 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct rule *ruleset_match(struct envelope *);
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_verify_mail(struct mailaddr *);
 static int lka_encode_credentials(char *, size_t, struct map_credentials *);
 
-void lka_session(struct submit_status *);
-void lka_session_forward_reply(struct forward_req *, int);
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -60,9 +57,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct mapel		*mapel;
 	struct rule		*rule;
 	struct map		*map;
+	struct map		*mp;
 	void			*tmp;
-
-	log_imsg(PROC_LKA, iev->proc, imsg);
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_PTR) {
@@ -87,16 +83,12 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_LKA_RULEMATCH:
 			ss = imsg->data;
-			ss->code = 530;
 			rule = ruleset_match(&ss->envelope);
-			if (rule) {
-				ss->code = 250;
-				ss->envelope.rule = *rule;
-				if (IS_RELAY(*rule))
-					ss->envelope.type = D_MTA;
-				else
-					ss->envelope.type = D_MDA;
-			}
+			if (rule == NULL)
+				ss->code = (errno == EAGAIN) ? 451 : 530;
+			else
+				ss->code = (rule->r_decision == R_ACCEPT) ?
+				    250 : 530;
 			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
 			    ss, sizeof *ss);
 			return;
@@ -144,31 +136,33 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			env->sc_rules_reload = calloc(1, sizeof *env->sc_rules);
-			if (env->sc_rules_reload == NULL)
-				fatal(NULL);
-			env->sc_maps_reload = calloc(1, sizeof *env->sc_maps);
-			if (env->sc_maps_reload == NULL)
-				fatal(NULL);
+			env->sc_rules_reload = xcalloc(1, sizeof *env->sc_rules,
+			    "lka:sc_rules_reload");
+			env->sc_maps_reload = xcalloc(1, sizeof *env->sc_maps,
+			    "lka:sc_maps_reload");
 			TAILQ_INIT(env->sc_rules_reload);
 			TAILQ_INIT(env->sc_maps_reload);
 			return;
 
 		case IMSG_CONF_RULE:
-			rule = calloc(1, sizeof *rule);
-			if (rule == NULL)
-				fatal(NULL);
-			*rule = *(struct rule *)imsg->data;
+			rule = xmemdup(imsg->data, sizeof *rule, "lka:rule");
 			TAILQ_INSERT_TAIL(env->sc_rules_reload, rule, r_entry);
 			return;
 
 		case IMSG_CONF_MAP:
-			map = calloc(1, sizeof *map);
-			if (map == NULL)
-				fatal(NULL);
-			*map = *(struct map *)imsg->data;
+			map = xmemdup(imsg->data, sizeof *map, "lka:map");
 			TAILQ_INIT(&map->m_contents);
 			TAILQ_INSERT_TAIL(env->sc_maps_reload, map, m_entry);
+
+			tmp = env->sc_maps;
+			env->sc_maps = env->sc_maps_reload;
+
+			mp = map_open(map);
+			if (mp == NULL)
+				errx(1, "lka: could not open map \"%s\"", map->m_name);
+			map_close(map, mp);
+
+			env->sc_maps = tmp;
 			return;
 
 		case IMSG_CONF_RULE_SOURCE:
@@ -183,10 +177,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_MAP_CONTENT:
 			map = TAILQ_LAST(env->sc_maps_reload, maplist);
-			mapel = calloc(1, sizeof *mapel);
-			if (mapel == NULL)
-				fatal(NULL);
-			*mapel = *(struct mapel *)imsg->data;
+			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
 			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
 			return;
 
@@ -212,6 +203,20 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			lka_session_forward_reply(imsg->data, imsg->fd);
 			return;
 
+		}
+	}
+
+	if (iev->proc == PROC_CONTROL) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_UPDATE_MAP:
+			map = map_findbyname(imsg->data);
+			if (map == NULL) {
+				log_warnx("lka: no such map \"%s\"",
+				    (char *)imsg->data);
+				return;
+			}
+			map_update(map);
+			return;
 		}
 	}
 
@@ -320,7 +325,7 @@ lka(void)
 	return (0);
 }
 
-int
+static int
 lka_verify_mail(struct mailaddr *maddr)
 {
 	return 1;

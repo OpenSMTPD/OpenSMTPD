@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.14 2012/08/29 16:26:17 gilles Exp $
+#	$OpenBSD: Makefile,v 1.16 2012/10/14 11:58:23 gilles Exp $
 
 .PATH:		${.CURDIR}/..
 
@@ -15,9 +15,10 @@ CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
+CFLAGS+=	-DNO_IO
 
 SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c map.c \
-	map_static.c map_db.c map_stdio.c map_ldap.c ber.c aldap.c
+	map_static.c map_db.c map_file.c tree.c map_ldap.c ber.c aldap.c
 
 DPADD+= ${LIBUTIL} ${LIBCRYPTO}
 LDADD+= -lutil -lcrypto
