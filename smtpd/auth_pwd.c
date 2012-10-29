@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: auth_backend.c,v 1.1 2011/05/17 16:42:06 gilles Exp $	*/
-=======
 /*	$OpenBSD: auth_pwd.c,v 1.1 2011/12/14 22:28:02 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

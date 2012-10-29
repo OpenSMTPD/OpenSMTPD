@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: config.c,v 1.16 2012/08/19 14:16:57 chl Exp $	*/
-=======
 /*	$OpenBSD: config.c,v 1.17 2012/09/27 17:47:49 chl Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

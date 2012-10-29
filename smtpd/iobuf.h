@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: asr.h,v 1.5 2011/07/13 14:52:21 eric Exp $	*/
-=======
 /*	$OpenBSD: iobuf.h,v 1.1 2012/01/29 00:32:51 eric Exp $	*/
->>>>>>> master
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

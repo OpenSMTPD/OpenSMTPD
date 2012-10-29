@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: map.c,v 1.33 2012/10/13 08:01:47 eric Exp $	*/
-=======
 /*	$OpenBSD: map.c,v 1.34 2012/10/14 11:58:23 gilles Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

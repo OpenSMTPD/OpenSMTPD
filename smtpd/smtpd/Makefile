@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-#	$OpenBSD: Makefile,v 1.56 2012/09/17 06:27:34 jmc Exp $
-
-.PATH:		${.CURDIR}/.. ${.CURDIR}/../../../lib/libc/asr
-=======
 #	$OpenBSD: Makefile,v 1.57 2012/10/14 11:58:23 gilles Exp $
 
 .PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
->>>>>>> master
 
 PROG=		smtpd
 
@@ -45,11 +39,7 @@ BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
 DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
-<<<<<<< HEAD
-CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I${.CURDIR}/../../../lib/libc/asr
-=======
 CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I/usr/src/lib/libc/asr
->>>>>>> master
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual

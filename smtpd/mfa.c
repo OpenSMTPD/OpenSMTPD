@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: mfa.c,v 1.71 2012/09/29 11:02:41 eric Exp $	*/
-=======
 /*	$OpenBSD: mfa.c,v 1.72 2012/10/25 14:06:08 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

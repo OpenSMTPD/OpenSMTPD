@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: map_db.c,v 1.10 2012/09/27 17:58:56 chl Exp $	*/
-=======
 /*	$OpenBSD: map_db.c,v 1.11 2012/10/14 11:58:23 gilles Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

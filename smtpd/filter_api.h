@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: filter_api.h,v 1.3 2012/08/19 14:16:58 chl Exp $	*/
-=======
 /*	$OpenBSD: filter_api.h,v 1.4 2012/08/20 21:14:17 gilles Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

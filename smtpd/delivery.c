@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: delivery.c,v 1.1 2011/12/13 21:44:47 gilles Exp $	*/
-=======
 /*	$OpenBSD: delivery.c,v 1.2 2012/01/13 10:53:12 chl Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

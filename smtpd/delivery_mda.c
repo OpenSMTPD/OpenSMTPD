@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: delivery_mda.c,v 1.4 2012/03/07 23:04:00 gilles Exp $	*/
-=======
 /*	$OpenBSD: delivery_mda.c,v 1.5 2012/10/03 17:58:03 gilles Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

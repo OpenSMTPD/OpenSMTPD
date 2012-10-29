@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: mta_session.c,v 1.23 2012/10/10 19:38:04 eric Exp $	*/
-=======
 /*	$OpenBSD: mta_session.c,v 1.24 2012/10/11 21:24:51 gilles Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

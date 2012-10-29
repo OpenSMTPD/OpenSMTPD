@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: user_backend.c,v 1.2 2011/12/08 17:00:28 todd Exp $	*/
-=======
 /*	$OpenBSD: user.c,v 1.1 2011/12/13 22:04:35 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

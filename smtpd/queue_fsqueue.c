@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: queue_fsqueue.c,v 1.53 2012/08/30 18:19:50 eric Exp $	*/
-=======
 /*	$OpenBSD: queue_fsqueue.c,v 1.54 2012/10/22 21:58:14 chl Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

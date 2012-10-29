@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: control.c,v 1.76 2012/10/14 11:58:23 gilles Exp $	*/
-=======
 /*	$OpenBSD: control.c,v 1.77 2012/10/15 18:32:25 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>

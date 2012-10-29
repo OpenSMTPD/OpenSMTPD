@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: queue_backend.c,v 1.38 2012/09/01 16:09:14 gilles Exp $	*/
-=======
 /*	$OpenBSD: queue_backend.c,v 1.39 2012/10/09 13:39:00 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

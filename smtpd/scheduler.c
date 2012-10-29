@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: scheduler.c,v 1.20 2012/09/11 08:37:52 eric Exp $	*/
-=======
 /*	$OpenBSD: scheduler.c,v 1.21 2012/09/16 16:43:29 chl Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

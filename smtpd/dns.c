@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: dns.c,v 1.59 2012/10/03 21:44:35 gilles Exp $	*/
-=======
 /*	$OpenBSD: dns.c,v 1.60 2012/10/08 08:46:24 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

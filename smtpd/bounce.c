@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: bounce.c,v 1.50 2012/10/03 16:43:19 chl Exp $	*/
-=======
 /*	$OpenBSD: bounce.c,v 1.51 2012/10/07 15:46:38 chl Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>

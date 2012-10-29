@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: scheduler_ramqueue.c,v 1.21 2012/09/11 08:37:52 eric Exp $	*/
-=======
 /*	$OpenBSD: scheduler_ramqueue.c,v 1.22 2012/09/27 19:50:07 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>

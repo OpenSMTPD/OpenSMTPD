@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: compress_gzip.c,v 1.4 2012/09/16 15:55:55 chl Exp $	*/
-=======
 /*	$OpenBSD: compress_gzip.c,v 1.5 2012/10/11 21:34:19 gilles Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>

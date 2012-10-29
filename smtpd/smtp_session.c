@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: smtp_session.c,v 1.172 2012/10/11 21:24:51 gilles Exp $	*/
-=======
 /*	$OpenBSD: smtp_session.c,v 1.173 2012/10/28 08:46:26 eric Exp $	*/
->>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
