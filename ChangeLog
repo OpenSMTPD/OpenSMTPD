@@ -7,7 +7,7 @@
 	* openbsd-compat/daemon.c:
 	- add daemon()
 
-	* src/libexec/mail.local/mail.local.c:
+	* smtpd/libexec/mail.local/mail.local.c:
 	- add missing header
 
 
@@ -28,7 +28,7 @@
 	  - vis.c
 	- limit PATH_MAX and MAXPATHLEN to 1024
 
-	* src:
+	* smtpd:
 	- update to latest OpenSMTPD
 
 	I managed to send a mail with Portable OpenSMTPD, but there's

@@ -1,6 +1,6 @@
 libexec_PROGRAMS =	mail.local
 
-mail_local_SOURCES =	mail.local.c locking.c $(top_srcdir)/src/log.c
+mail_local_SOURCES =	mail.local.c locking.c $(top_srcdir)/smtpd/log.c
 
 EXTRA_DIST =		mail.local.h pathnames.h
 
