@@ -19,11 +19,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -33,7 +31,6 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>

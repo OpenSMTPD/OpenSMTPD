@@ -16,11 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -222,32 +220,3 @@ config_peers(struct peer *p, uint peercount)
 		}
 	}
 }
-
-#ifdef VALGRIND
-void free_peers(void)
-{
-	u_int	i;
-
-	for (i = 0; i < PROC_COUNT; i++)
-		if (env->sc_ievs[i])
-			free(env->sc_ievs[i]);
-}
-
-void free_pipes(void)
-{
-	u_int	i;
-	u_int	j;
-
-	for (i = 0; i < PROC_COUNT; i++)
-		for (j = 0; j < PROC_COUNT; j++) {
-
-			if (i >= j || env->sc_instances[i] == 0 ||
-			   env->sc_instances[j] == 0)
-				continue;
-
-			free(env->sc_pipes[i][j]);
-			free(env->sc_pipes[j][i]);
-
-		}
-}
-#endif

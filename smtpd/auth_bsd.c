@@ -16,18 +16,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-#ifdef BSD_AUTH
 #include <bsd_auth.h>
-#endif
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
@@ -43,9 +39,5 @@ struct auth_backend	auth_backend_bsd = {
 static int
 auth_bsd(char *username, char *password)
 {
-#ifdef BSD_AUTH
 	return auth_userokay(username, NULL, "auth-smtp", password);
-#else
-	return 0;
-#endif
 }

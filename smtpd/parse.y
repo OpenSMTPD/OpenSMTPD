@@ -22,12 +22,9 @@
  */
 
 %{
-#include "includes.h"
-
 #include <sys/types.h>
-#include <sys/time.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -42,19 +39,16 @@
 #include <errno.h>
 #include <event.h>
 #include <ifaddrs.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
 #include <paths.h>
 #include <pwd.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef HAVE_UTIL_H
 #include <util.h>
-#endif
 
 #include "smtpd.h"
 #include "log.h"
@@ -127,7 +121,7 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION CIPHER INTERVAL SIZE LISTEN ON ANY PORT EXPIRE
 %token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE ENCRYPTION
-%token	DB LDAP FILE_ DOMAIN SOURCE
+%token	DB LDAP FILE DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
@@ -446,7 +440,7 @@ main		: QUEUE INTERVAL interval	{
 		*/
 		;
 
-mapsource	: SOURCE FILE_ STRING			{
+mapsource	: SOURCE FILE STRING			{
 			map->m_src = S_FILE;
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
@@ -957,7 +951,7 @@ lookup(char *s)
 		{ "domain",		DOMAIN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
-		{ "file",		FILE_ },
+		{ "file",		FILE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
@@ -975,7 +969,7 @@ lookup(char *s)
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
-		{ "plain",		FILE_ },
+		{ "plain",		FILE },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
@@ -1504,9 +1498,7 @@ host_v4(const char *s, in_port_t port)
 
 	h = xcalloc(1, sizeof(*h), "host_v4");
 	sain = (struct sockaddr_in *)&h->ss;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sain->sin_len = sizeof(struct sockaddr_in);
-#endif
 	sain->sin_family = AF_INET;
 	sain->sin_addr.s_addr = ina.s_addr;
 	sain->sin_port = port;
@@ -1527,9 +1519,7 @@ host_v6(const char *s, in_port_t port)
 
 	h = xcalloc(1, sizeof(*h), "host_v6");
 	sin6 = (struct sockaddr_in6 *)&h->ss;
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sin6->sin6_len = sizeof(struct sockaddr_in6);
-#endif
 	sin6->sin6_family = AF_INET6;
 	sin6->sin6_port = port;
 	memcpy(&sin6->sin6_addr, &ina6, sizeof(ina6));
@@ -1577,17 +1567,13 @@ host_dns(const char *s, const char *tag, const char *cert,
 
 		if (res->ai_family == AF_INET) {
 			sain = (struct sockaddr_in *)&h->ss;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 			sain->sin_len = sizeof(struct sockaddr_in);
-#endif
 			sain->sin_addr.s_addr = ((struct sockaddr_in *)
 			    res->ai_addr)->sin_addr.s_addr;
 			sain->sin_port = port;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-#endif
 			memcpy(&sin6->sin6_addr, &((struct sockaddr_in6 *)
 			    res->ai_addr)->sin6_addr, sizeof(struct in6_addr));
 			sin6->sin6_port = port;
@@ -1659,18 +1645,14 @@ interface(const char *s, const char *tag, const char *cert,
 		case AF_INET:
 			sain = (struct sockaddr_in *)&h->ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 			sain->sin_len = sizeof(struct sockaddr_in);
-#endif
 			sain->sin_port = port;
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-#endif
 			sin6->sin6_port = port;
 			break;
 
@@ -1712,10 +1694,6 @@ set_localaddrs(void)
 	map_add(m, "0.0.0.0/0", NULL);
 	map_add(m, "::/0", NULL);
 
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
-
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
@@ -1729,18 +1707,14 @@ set_localaddrs(void)
 		case AF_INET:
 			sain = (struct sockaddr_in *)&ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 			sain->sin_len = sizeof(struct sockaddr_in);
-#endif
 			map_add(m, ss_to_text(&ss), NULL);
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-#endif
 			map_add(m, ss_to_text(&ss), NULL);
 			break;
 		}
@@ -1798,11 +1772,6 @@ bad:
 int
 is_if_in_group(const char *ifname, const char *groupname)
 {
-#ifndef OpenBSD
-	if (strcmp(groupname, "all") == 0)
-		return (1);
-	return (0);
-#else
         unsigned int		 len;
         struct ifgroupreq        ifgr;
         struct ifg_req          *ifg;
@@ -1840,5 +1809,4 @@ is_if_in_group(const char *ifname, const char *groupname)
 end:
 	close(s);
 	return ret;
-#endif
 }

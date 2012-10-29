@@ -19,11 +19,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -271,10 +269,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 	struct sockaddr		*sa;
 	int			 max_reuse;
 	ssize_t			 q;
-
-#ifdef VALGRIND
-	bzero(&batch, sizeof(batch));
-#endif
 
     again:
 	oldstate = s->state;

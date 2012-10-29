@@ -45,18 +45,4 @@ struct parse_result {
 	const char     *data;
 };
 
-enum token_type {
-	NOTOKEN,
-	ENDTOKEN,
-	KEYWORD,
-	VARIABLE
-};
-
-struct token {
-	enum token_type		 type;
-	const char		*keyword;
-	int			 value;
-	const struct token	*next;
-};
-
 struct parse_result	*parse(int, char *[]);

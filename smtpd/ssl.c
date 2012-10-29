@@ -17,22 +17,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
-#if LIBEVENT_MAJOR_VERSION < 2
 #include <event.h>
-#else
-#include <event2/event.h>
-#include <event2/bufferevent_ssl.h>
-#endif
 #include <fcntl.h>
 #include <imsg.h>
 #include <pwd.h>
@@ -166,7 +159,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	(void)strlcpy(s->ssl_name, key.ssl_name, sizeof(s->ssl_name));
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		SMTPD_CONFDIR "/certs/%s.crt", name))
+		"/etc/mail/certs/%s.crt", name))
 		goto err;
 
 	s->ssl_cert = ssl_load_file(certfile, &s->ssl_cert_len, 0755);
@@ -174,7 +167,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		SMTPD_CONFDIR "/certs/%s.key", name))
+		"/etc/mail/certs/%s.key", name))
 		goto err;
 
 	s->ssl_key = ssl_load_file(certfile, &s->ssl_key_len, 0700);
@@ -182,7 +175,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		SMTPD_CONFDIR "/certs/%s.ca", name))
+		"/etc/mail/certs/%s.ca", name))
 		goto err;
 
 	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
@@ -193,7 +186,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	}
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		SMTPD_CONFDIR "/certs/%s.dh", name))
+		"/etc/mail/certs/%s.dh", name))
 		goto err;
 
 	s->ssl_dhparams = ssl_load_file(certfile, &s->ssl_dhparams_len, 0755);

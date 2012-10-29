@@ -18,12 +18,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "sys-tree.h"
-#include "sys-queue.h"
+#include <sys/tree.h>
+#include <sys/queue.h>
 #include <sys/uio.h>
 
 #include <netinet/in.h>
@@ -31,9 +29,7 @@
 #include <arpa/nameser.h>
 
 #include <event.h>
-#include <netdb.h>
-#include <resolv.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -149,7 +145,7 @@ dns_async(struct imsgev *asker, int type, struct dns *query)
 		return;
 	case IMSG_DNS_PTR:
 		s->as = getnameinfo_async((struct sockaddr*)&query->ss,
-		    SS_LEN(&query->ss),
+		    query->ss.ss_len,
 		    s->query.host, sizeof(s->query.host), NULL, 0, 0, NULL);
 		stat_increment("lka.session.cname", 1);
 		if (s->as == NULL) {
@@ -329,7 +325,7 @@ next:
 			dns_reply(query, IMSG_DNS_HOST);
 			s->mxfound++;
 		}
-		asr_freeaddrinfo(ar.ar_addrinfo);
+		freeaddrinfo(ar.ar_addrinfo);
 	}
 
 	s->as = NULL;

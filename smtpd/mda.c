@@ -18,19 +18,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
 #include <ctype.h>
 #include <err.h>
 #include <event.h>
-#include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
 #include <signal.h>
@@ -39,9 +36,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
 #include <vis.h>
-#endif
 
 #include "smtpd.h"
 #include "log.h"
@@ -100,10 +95,6 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	FILE			*fp;
 	uint16_t		 msg;
 	uint32_t		 id;
-
-#ifdef VALGRIND
-	bzero(&deliver, sizeof(deliver));
-#endif
 
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -322,13 +313,6 @@ mda_sig_handler(int sig, short event, void *p)
 static void
 mda_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("mail delivery agent exiting");
 	_exit(0);
 }
@@ -367,7 +351,6 @@ mda(void)
 		fatal("mda: chdir(\"/\")");
 
 	smtpd_process = PROC_MDA;
-	log_debug("start %s", env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||

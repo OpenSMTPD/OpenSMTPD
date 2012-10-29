@@ -17,20 +17,17 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -171,13 +168,6 @@ mfa_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("mail filter exiting");
 	_exit(0);
 }
@@ -217,7 +207,6 @@ mfa(void)
 	pw = env->sc_pw;
 
 	smtpd_process = PROC_MFA;
-	log_debug("start %s",env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||
@@ -255,10 +244,6 @@ mfa_test_connect(struct envelope *e)
 {
 	struct submit_status	 ss;
 
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
-
 	ss.id = e->session_id;
 	ss.code = 530;
 	ss.envelope = *e;
@@ -271,10 +256,6 @@ mfa_test_helo(struct envelope *e)
 {
 	struct submit_status	 ss;
 
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
-
 	ss.id = e->session_id;
 	ss.code = 530;
 	ss.envelope = *e;
@@ -286,10 +267,6 @@ static void
 mfa_test_mail(struct envelope *e)
 {
 	struct submit_status	 ss;
-
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
 
 	ss.id = e->session_id;
 	ss.code = 530;
@@ -320,10 +297,6 @@ static void
 mfa_test_rcpt(struct envelope *e)
 {
 	struct submit_status	 ss;
-
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
 
 	ss.id = e->session_id;
 	ss.code = 530;
@@ -444,7 +417,8 @@ mfa_fork_filter(struct filter *filter)
 		/* filter */
 		dup2(sockpair[0], STDIN_FILENO);
 		
-		closefrom(STDERR_FILENO + 1);
+		if (closefrom(STDERR_FILENO + 1) < 0)
+			exit(1);
 
 		execl(filter->path, filter->name, NULL);
 		exit(1);

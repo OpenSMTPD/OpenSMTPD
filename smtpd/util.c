@@ -19,12 +19,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
 #include <sys/param.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
@@ -76,17 +74,6 @@ xcalloc(size_t nmemb, size_t size, const char *where)
 
 	if ((r = calloc(nmemb, size)) == NULL)
 		errx(1, "%s: calloc(%zu, %zu)", where, nmemb, size);
-
-	return (r);
-}
-
-void *
-xrealloc(void *p, size_t size, const char *where)
-{
-	void	*r;
-
-	if ((r = realloc(p, size)) == NULL)
-		errx(1, "%s: realloc(%p, %zu)", where, p, size);
 
 	return (r);
 }
@@ -649,9 +636,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 		if (bits != -1) {
 			ssin.sin_family = AF_INET;
 			memcpy(&ss, &ssin, sizeof(ssin));
-#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in);
-#endif
 		}
 		else {
 			bzero(&ssin6, sizeof(struct sockaddr_in6));
@@ -674,9 +659,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 			}
 			ssin6.sin6_family = AF_INET6;
 			memcpy(&ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in6);
-#endif
 		}
 	}
 	else {
@@ -685,17 +668,13 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 			ssin.sin_family = AF_INET;
 			bits = 32;
 			memcpy(&ss, &ssin, sizeof(ssin));
-#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in);
-#endif
 		}
 		else if (inet_pton(AF_INET6, s, &ssin6.sin6_addr) == 1) {
 			ssin6.sin6_family = AF_INET6;
 			bits = 128;
 			memcpy(&ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in6);
-#endif
 		}
 		else return 0;
 	}
@@ -877,7 +856,7 @@ sa_set_port(struct sockaddr *sa, int port)
 	struct addrinfo hints, *res;
 	int error;
 
-	error = getnameinfo(sa, SA_LEN(sa), hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST);
+	error = getnameinfo(sa, sa->sa_len, hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST);
 	if (error)
 		fatalx("sa_set_port: getnameinfo failed");
 
@@ -917,8 +896,6 @@ fdlimit(double percent)
 		fatalx("fdlimit: parameter out of range");
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
 		fatal("fdlimit: getrlimit");
-	if (rl.rlim_max == RLIM_INFINITY)
-		rl.rlim_max = OPEN_MAX;
 	rl.rlim_cur = percent * rl.rlim_max;
 	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
 		fatal("fdlimit: setrlimit");
@@ -971,9 +948,7 @@ log_in6addr(const struct in6_addr *addr)
 	uint16_t		tmp16;
 
 	bzero(&sa_in6, sizeof(sa_in6));
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sa_in6.sin6_len = sizeof(sa_in6);
-#endif
 	sa_in6.sin6_family = AF_INET6;
 	memcpy(&sa_in6.sin6_addr, addr, sizeof(sa_in6.sin6_addr));
 
@@ -994,7 +969,7 @@ log_sockaddr(struct sockaddr *sa)
 {
 	static char	buf[NI_MAXHOST];
 
-	if (getnameinfo(sa, SA_LEN(sa), buf, sizeof(buf), NULL, 0,
+	if (getnameinfo(sa, sa->sa_len, buf, sizeof(buf), NULL, 0,
 	    NI_NUMERICHOST))
 		return ("(unknown)");
 	else

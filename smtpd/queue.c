@@ -18,20 +18,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
 #include <err.h>
 #include <event.h>
-#include <fcntl.h>
-#include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
@@ -61,10 +57,6 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	int			 fd, ret;
 	uint64_t		 id;
 	uint32_t		 msgid;
-
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
 
 	if (iev->proc == PROC_SMTP) {
 		e = imsg->data;
@@ -330,13 +322,6 @@ queue_sig_handler(int sig, short event, void *p)
 static void
 queue_shutdown(void)
 {
-#ifdef VALGRIND
-//	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("queue handler exiting");
 	_exit(0);
 }

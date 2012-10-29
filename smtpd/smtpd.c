@@ -18,12 +18,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
-#include <sys/file.h> /* Needed for flock */
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -34,13 +31,9 @@
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
-#include <event.h>
 #include <fcntl.h>
-#include <grp.h> /* needed for setgroups */
-#ifdef HAVE_LOGIN_CAP_H
-#include <login_cap.h>
-#endif
-#include "imsg.h"
+#include <event.h>
+#include <imsg.h>
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
@@ -119,30 +112,6 @@ static int	 profiling;
 static int	 profstat;
 
 struct tree	 children;
-
-/* Saved arguments to main(). */
-char **saved_argv;
-int saved_argc;
-
-#ifdef VALGRIND
-void clean_setproctitle(void)
-{
-	int i;
-
-	log_debug("clean_setproctitle");
-
-	for (i = 0; i < saved_argc; i++)
-		free(saved_argv[i]);
-
-	free(saved_argv);
-
-#if defined(SPT_TYPE) && SPT_TYPE == SPT_REUSEARGV
-	for (i = 0; environ[i] != NULL; i++)
-		free(environ[i]);
-	free(environ);
-#endif
-}
-#endif /* VALGRIND */
 
 static void
 parent_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -250,15 +219,6 @@ parent_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-#ifdef VALGRIND
-	child_free();
-	purge_config(PURGE_EVERYTHING);
-	free_pipes();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_warnx("parent terminating");
 	exit(0);
 }
@@ -308,14 +268,9 @@ parent_send_config_listeners(void)
 		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1)
 			fatal("smtpd: socket");
 		opt = 1;
-#ifdef SO_REUSEADDR
 		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
 			fatal("smtpd: setsockopt");
-#else
-		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
-			fatal("smtpd: setsockopt");
-#endif
-		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
+		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
 			fatal("smtpd: bind");
 		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_CONF_LISTENER,
 		    0, 0, l->fd, l, sizeof(*l));
@@ -483,7 +438,7 @@ parent_sig_handler(int sig, short event, void *p)
 int
 main(int argc, char *argv[])
 {
-	int		 c, i;
+	int		 c;
 	int		 debug, verbose;
 	int		 opts, flags;
 	const char	*conffile = CONF_FILE;
@@ -502,19 +457,6 @@ main(int argc, char *argv[])
 		{ PROC_SMTP,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch }
 	};
-
-	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
-	saved_argc = argc;
-	saved_argv = __xcalloc(argc + 1, sizeof(*saved_argv));
-	for (i = 0; i < argc; i++)
-		saved_argv[i] = __xstrdup(argv[i]);
-	saved_argv[i] = NULL;
-
-#ifndef HAVE_SETPROCTITLE
-	/* Prepare for later setproctitle emulation */
-	compat_init_setproctitle(argc, argv);
-	argv = saved_argv;
-#endif
 
 	env = &smtpd;
 
@@ -610,8 +552,6 @@ main(int argc, char *argv[])
 
 	if (parse_config(&smtpd, conffile, opts))
 		exit(1);
-
-	seed_rng();
 
 	if (strlcpy(env->sc_conffile, conffile, MAXPATHLEN) >= MAXPATHLEN)
 		errx(1, "config file exceeds MAXPATHLEN");
@@ -716,8 +656,6 @@ main(int argc, char *argv[])
 	purge_timeout.tv_usec = 0;
 	evtimer_add(&purge_ev, &purge_timeout);
 
-	log_debug("libevent %s (%s)", event_get_version(), event_get_method());
-
 	if (event_dispatch() < 0)
 		fatal("smtpd: event_dispatch");
 
@@ -796,10 +734,7 @@ child_add(pid_t pid, int type, const char *title)
 void
 imsg_event_add(struct imsgev *iev)
 {
-	int err;
-
 	if (iev->handler == NULL) {
-		log_debug("imsg_event_add: iev->handler=NULL");
 		imsg_flush(&iev->ibuf);
 		return;
 	}
@@ -808,11 +743,9 @@ imsg_event_add(struct imsgev *iev)
 	if (iev->ibuf.w.queued)
 		iev->events |= EV_WRITE;
 
-	if ((err = event_del(&iev->ev)) != 0)
-		fatal("imsg_event_add: event_del");
+	event_del(&iev->ev);
 	event_set(&iev->ev, iev->ibuf.fd, iev->events, iev->handler, iev->data);
-	if ((err = event_add(&iev->ev, NULL)) != 0)
-		fatal("imsg_event_add: event_add");
+	event_add(&iev->ev, NULL);
 }
 
 void
@@ -969,7 +902,8 @@ forkmda(struct imsgev *iev, uint32_t id,
 	    dup2(allout, STDOUT_FILENO) < 0 ||
 	    dup2(allout, STDERR_FILENO) < 0)
 		error("forkmda: dup2");
-	closefrom(STDERR_FILENO + 1);
+	if (closefrom(STDERR_FILENO + 1) < 0)
+		error("closefrom");
 	if (setgroups(1, &u.gid) ||
 	    setresgid(u.gid, u.gid, u.gid) ||
 	    setresuid(u.uid, u.uid, u.uid))
@@ -1067,12 +1001,10 @@ offline_enqueue(char *name)
 			_exit(1);
 		}
 
-#ifdef HAVE_CHFLAGS
 		if (chflags(path, 0) == -1) {
 			log_warn("smtpd: chflags: %s", path);
 			_exit(1);
 		}
-#endif
 
 		pw = getpwuid(sb.st_uid);
 		if (pw == NULL) {
@@ -1090,10 +1022,9 @@ offline_enqueue(char *name)
 
 		if (setgroups(1, &pw->pw_gid) ||
 		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
+		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) ||
+		    closefrom(STDERR_FILENO + 1) == -1)
 			_exit(1);
-
-		closefrom(STDERR_FILENO + 1);
 
 		if ((fp = fopen(path, "r")) == NULL)
 			_exit(1);
@@ -1222,6 +1153,7 @@ imsg_dispatch(int fd, short event, void *p)
 			return;
 		}
 	}
+
 	if (event & EV_WRITE) {
 		if (msgbuf_write(&iev->ibuf.w) == -1)
 			err(1, "%s: msgbuf_write", proc_to_str(smtpd_process));

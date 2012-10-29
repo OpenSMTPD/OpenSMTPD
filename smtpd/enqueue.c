@@ -17,12 +17,10 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/param.h>
-#include "sys-queue.h"
+#include <sys/queue.h>
 #include <sys/socket.h>
-#include "sys-tree.h"
+#include <sys/tree.h>
 #include <sys/types.h>
 
 #include <ctype.h>

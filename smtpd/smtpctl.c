@@ -19,20 +19,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/un.h>
 #include <sys/param.h>
-
-#include <net/if.h>
-/* #include <net/if_media.h> */
-/* #include <net/if_types.h> */
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <err.h>
 #include <errno.h>
@@ -359,7 +351,7 @@ again:
 
 			if (strcmp(kvp->key, "uptime") == 0) {
 				duration = time(NULL) - kvp->val.u.counter;
-				printf("uptime=%zd\n", (size_t) duration); 
+				printf("uptime=%zd\n", duration); 
 				printf("uptime.human=%s\n",
 				    duration_to_text(duration));
 			} else {
@@ -374,8 +366,8 @@ again:
 					break;
 				case STAT_TIMEVAL:
 					printf("%s=%zd.%zd\n",
-					    kvp->key, (size_t) kvp->val.u.tv.tv_sec,
-					    (size_t) kvp->val.u.tv.tv_usec);
+					    kvp->key, kvp->val.u.tv.tv_sec,
+					    kvp->val.u.tv.tv_usec);
 					break;
 				case STAT_TIMESPEC:
 					printf("%s=%li.%06li\n",

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.172 2012/10/11 21:24:51 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.173 2012/10/28 08:46:26 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -19,11 +19,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -41,6 +39,9 @@
 
 #include "smtpd.h"
 #include "log.h"
+
+#define SMTP_MAXMAIL	100
+#define SMTP_MAXRCPT	1000
 
 #define ADVERTISE_TLS(s) \
 	((s)->s_l->flags & F_STARTTLS && !((s)->s_flags & F_SECURE))
@@ -115,40 +116,6 @@ struct session_cmd rfc3207_cmdtab[] = {
 struct session_cmd rfc4954_cmdtab[] = {
 	{ "auth",	session_rfc4954_auth_handler }
 };
-
-#ifndef EVBUFFER_EOL_CRLF
-char *
-evbuffer_readln_crlf(struct evbuffer *buffer)
-{
-        u_char *data = EVBUFFER_DATA(buffer);
-        size_t len = EVBUFFER_LENGTH(buffer);
-        char *line;
-        unsigned int i, j;
-
-        for (i = 0; i < len; ++i) {
-                if (data[i] == '\n')
-                        break;
-        }
-
-        if (i == len)
-                return NULL;
-
-        j = i;
-        if (i != 0 && data[i - 1] == '\r')
-                --j;
-
-        line = calloc(j + 1, 1);
-        if (line == NULL)
-                fatal("calloc");
-
-        if (j != 0)
-                memcpy(line, data, j);
-
-        evbuffer_drain(buffer, i + 1);
-
-        return (line);
-}
-#endif
 
 static int
 session_rfc3207_stls_handler(struct session *s, char *args)
@@ -456,6 +423,11 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 		return 1;
 	}
 
+	if (s->mailcount >= SMTP_MAXMAIL) {
+		session_respond(s, "452 Too many messages sent");
+		return 1;
+	}
+
 	if (! session_set_mailaddr(&s->s_msg.sender, args)) {
 		/* No need to even transmit to MFA, path is invalid */
 		session_respond(s, "553 5.1.7 Sender address syntax error");
@@ -468,7 +440,6 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 	session_enter_state(s, S_MAIL_MFA);
 	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &s->s_msg,
 	    sizeof(s->s_msg));
-
 	return 1;
 }
 
@@ -482,6 +453,11 @@ session_rfc5321_rcpt_handler(struct session *s, char *args)
 
 	if (s->s_state == S_HELO) {
 		session_respond(s, "503 5.5.1 Need MAIL before RCPT");
+		return 1;
+	}
+
+	if (s->rcptcount >= SMTP_MAXRCPT) {
+		session_respond(s, "452 Too many recipients");
 		return 1;
 	}
 
@@ -913,6 +889,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 		session_enter_state(s, S_HELO);
 		s->s_msg.id = 0;
+		s->mailcount++;
 		bzero(&s->s_nresp, sizeof(s->s_nresp));
 		break;
 
@@ -1053,7 +1030,6 @@ session_destroy(struct session *s, const char * reason)
 	if (s->s_flags & F_ZOMBIE)
 		goto finalize;
 
-	log_debug("session_destroy: s->datafp = %p", s->datafp);
 	if (s->datafp != NULL)
 		fclose(s->datafp);
 

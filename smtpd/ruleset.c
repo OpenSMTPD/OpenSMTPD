@@ -16,11 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -124,7 +122,7 @@ ruleset_cmp_source(const char *s1, const char *s2)
 
 	if (n1.ss.ss_family != n2.ss.ss_family)
 		return 0;
-	if (SS_LEN(&n1.ss) != SS_LEN(&n2.ss))
+	if (n1.ss.ss_len != n2.ss.ss_len)
 		return 0;
 
 	return ruleset_match_mask(&n1.ss, &n2);

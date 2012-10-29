@@ -17,11 +17,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -32,9 +30,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <netdb.h>
-#include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <pwd.h>
 #include <resolv.h>
 #include <signal.h>
@@ -251,12 +247,6 @@ lka_sig_handler(int sig, short event, void *p)
 void
 lka_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
 	log_info("lookup agent exiting");
 	_exit(0);
 }
@@ -294,7 +284,6 @@ lka(void)
 	pw = env->sc_pw;
 
 	smtpd_process = PROC_LKA;
-	log_debug("start %s",env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||

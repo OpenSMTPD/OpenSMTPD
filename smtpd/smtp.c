@@ -18,19 +18,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <signal.h>
@@ -294,13 +291,6 @@ smtp_sig_handler(int sig, short event, void *p)
 static void
 smtp_shutdown(void)
 {
-#ifdef VALGRIND
-//	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("smtp server exiting");
 	_exit(0);
 }
@@ -341,7 +331,6 @@ smtp(void)
 		fatal("smtp: chdir(\"/\")");
 
 	smtpd_process = PROC_SMTP;
-	log_debug("start %s",env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||
@@ -392,10 +381,8 @@ smtp_setup_events(void)
 		ssl_setup(l);
 	}
 
-	/* XXX chl */
 	log_debug("smtp: will accept at most %d clients",
-	    /* (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE); */
-	    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE);
+	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
 }
 
 static void
@@ -559,7 +546,12 @@ smtp_destroy(struct session *session)
 static int
 smtp_can_accept(void)
 {
-	return (!available_fds(SMTP_FD_RESERVE + 2));
+	uint32_t max;
+
+	max = (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE;
+	if (sessions < max)
+		return 1;
+	return 0;
 }
 
 /*
