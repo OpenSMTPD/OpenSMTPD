@@ -47,6 +47,7 @@ static void			 map_ldap_close(void *);
 
 static void			*map_ldap_alias(void *, const char *);
 static void			*map_ldap_virtual(void *, const char *);
+static char			*map_ldap_expandfilter(struct ldaphandle *, const char*);
 static struct ldap_conf		*ldapconf_findbyname(const char *);
 static struct aldap		*ldap_client_connect(struct ldap_conf *);
 static struct ldap_conf		*ldap_parse_configuration(const char *);
@@ -319,29 +320,14 @@ map_ldap_alias(void *hdl, const char *key)
 	struct aldap_message *m = NULL;
 	struct map_alias	 *map_alias = NULL;
 	struct expandnode	  expnode;
+	char *expandedfilter = NULL;
 	char *attributes[2];
 	char **ldapattrsp = NULL;
-	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
-	int ret;
-	int i;
+	int i, ret;
 
 
-	bzero(expandedfilter, sizeof(expandedfilter));
-	for (i = 0; ldaphandle->conf->m_ldapfilter[i] != '\0'; ++i) {
-		if (ldaphandle->conf->m_ldapfilter[i] == '%') {
-			if (ldaphandle->conf->m_ldapfilter[i + 1] == 'k') {
-				ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%s", expandedfilter, key);
-				if (ret == -1 || ret >= (int)sizeof(expandedfilter))
-					return NULL;
-
-				++i;
-			}
-			continue;
-		}
-		ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%c", expandedfilter, ldaphandle->conf->m_ldapfilter[i]);
-		if (ret == -1 || ret >= (int)sizeof(expandedfilter))
-			return NULL;
-	}
+	if ((expandedfilter = map_ldap_expandfilter(ldaphandle, key)) == NULL)
+		return NULL;
 
 	attributes[0] = ldaphandle->conf->m_ldapattr;
 	attributes[1] = NULL;
@@ -397,9 +383,11 @@ map_ldap_alias(void *hdl, const char *key)
 	} while (pg != NULL);
 
 	aldap_free_attr(ldapattrsp);
+	free(expandedfilter);
 	return map_alias;
 
 error:
+	free(expandedfilter);
 	expand_free(&map_alias->expand);
 	free(map_alias);
 	aldap_freemsg(m);
@@ -418,29 +406,14 @@ map_ldap_virtual(void *hdl, const char *key)
 	struct aldap_message *m = NULL;
 	struct map_virtual	 *map_virtual = NULL;
 	struct expandnode	  expnode;
+	char *expandedfilter = NULL;
 	char *attributes[2];
 	char **ldapattrsp = NULL;
-	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
-	int ret;
-	int i;
+	int i, ret;
 
 
-	bzero(expandedfilter, sizeof(expandedfilter));
-	for (i = 0; ldaphandle->conf->m_ldapfilter[i] != '\0'; ++i) {
-		if (ldaphandle->conf->m_ldapfilter[i] == '%') {
-			if (ldaphandle->conf->m_ldapfilter[i + 1] == 'k') {
-				ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%s", expandedfilter, key);
-				if (ret == -1 || ret >= (int)sizeof(expandedfilter))
-					return NULL;
-
-				++i;
-			}
-			continue;
-		}
-		ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%c", expandedfilter, ldaphandle->conf->m_ldapfilter[i]);
-		if (ret == -1 || ret >= (int)sizeof(expandedfilter))
-			return NULL;
-	}
+	if ((expandedfilter = map_ldap_expandfilter(ldaphandle, key)) == NULL)
+		return NULL;
 
 	attributes[0] = ldaphandle->conf->m_ldapattr;
 	attributes[1] = NULL;
@@ -501,16 +474,44 @@ map_ldap_virtual(void *hdl, const char *key)
 
 
 	aldap_free_attr(ldapattrsp);
+	free(expandedfilter);
 	return map_virtual;
 
 error:
 	expand_free(&map_virtual->expand);
+	free(expandedfilter);
 	free(map_virtual);
 	aldap_freemsg(m);
 	if (pg != NULL)
 		aldap_freepage(pg);
 
 	return NULL;
+}
+
+static char	*
+map_ldap_expandfilter(struct ldaphandle * hdl, const char *key)
+{
+	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
+	int i, ret;
+
+	bzero(expandedfilter, sizeof(expandedfilter));
+	for (i = 0; hdl->conf->m_ldapfilter[i] != '\0'; ++i) {
+		if (hdl->conf->m_ldapfilter[i] == '%') {
+			if (hdl->conf->m_ldapfilter[i + 1] == 'k') {
+				ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%s", expandedfilter, key);
+				if (ret == -1 || ret >= (int)sizeof(expandedfilter))
+					return NULL;
+
+				++i;
+			}
+			continue;
+		}
+		ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%c", expandedfilter, hdl->conf->m_ldapfilter[i]);
+		if (ret == -1 || ret >= (int)sizeof(expandedfilter))
+			return NULL;
+	}
+
+	return xstrdup(expandedfilter, "map_ldap_expandfilter");
 }
 
 static struct ldap_conf *
