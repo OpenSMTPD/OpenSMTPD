@@ -1,3 +1,3 @@
-SUBDIRS =		openbsd-compat src contrib
+SUBDIRS =		openbsd-compat smtpd contrib
 
 ACLOCAL_AMFLAGS =	-I m4
