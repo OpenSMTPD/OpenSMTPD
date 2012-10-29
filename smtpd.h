@@ -234,7 +234,7 @@ struct peer {
 
 enum map_src {
 	S_NONE,
-	S_PLAIN,
+	S_FILE,
 	S_DB,
 	S_LDAP
 };

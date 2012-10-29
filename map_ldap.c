@@ -42,11 +42,11 @@
 
 /* ldap backend */
 static void			*map_ldap_open(struct map *);
-static void			*map_ldap_lookup(void *, char *, enum map_kind);
+static void			*map_ldap_lookup(void *, const  char *, enum map_kind);
 static void			 map_ldap_close(void *);
 
-static void			*map_ldap_alias(void *, char *);
-static void			*map_ldap_virtual(void *, char *);
+static void			*map_ldap_alias(void *, const char *);
+static void			*map_ldap_virtual(void *, const char *);
 static struct ldap_conf		*ldapconf_findbyname(const char *);
 static struct aldap		*ldap_client_connect(struct ldap_conf *);
 static struct ldap_conf		*ldap_parse_configuration(const char *);
@@ -55,6 +55,7 @@ struct ldap_confs ldap_confs = TAILQ_HEAD_INITIALIZER(ldap_confs);
 
 struct map_backend map_backend_ldap = {
 	map_ldap_open,
+	NULL,
 	map_ldap_close,
 	map_ldap_lookup,
 	NULL
@@ -288,7 +289,7 @@ map_ldap_close(void *hdl)
 }
 
 static void *
-map_ldap_lookup(void *hdl, char *key, enum map_kind kind)
+map_ldap_lookup(void *hdl, const char *key, enum map_kind kind)
 {
 	void *ret;
 
@@ -310,7 +311,7 @@ map_ldap_lookup(void *hdl, char *key, enum map_kind kind)
 
 /* XXX: this should probably be factorized in a map_ldap_getentries function */
 static void *
-map_ldap_alias(void *hdl, char *key)
+map_ldap_alias(void *hdl, const char *key)
 {
 	struct ldaphandle *ldaphandle = hdl;
 	struct aldap *aldap = ldaphandle->aldap;
@@ -387,7 +388,7 @@ map_ldap_alias(void *hdl, char *key)
 				if (!alias_parse(&expnode, ldapattrsp[i]))
 					goto error;
 
-				expandtree_increment_node(&map_alias->expandtree, &expnode);
+				expand_insert(&map_alias->expand, &expnode);
 				map_alias->nbnodes++;
 			}
 
@@ -399,7 +400,7 @@ map_ldap_alias(void *hdl, char *key)
 	return map_alias;
 
 error:
-	expandtree_free_nodes(&map_alias->expandtree);
+	expand_free(&map_alias->expand);
 	free(map_alias);
 	aldap_freemsg(m);
 	if (pg != NULL)
@@ -409,7 +410,7 @@ error:
 }
 
 static void *
-map_ldap_virtual(void *hdl, char *key)
+map_ldap_virtual(void *hdl, const char *key)
 {
 	struct ldaphandle *ldaphandle = hdl;
 	struct aldap *aldap = ldaphandle->aldap;
@@ -490,7 +491,7 @@ map_ldap_virtual(void *hdl, char *key)
 				if (!alias_parse(&expnode, ldapattrsp[i]))
 					goto error;
 
-				expandtree_increment_node(&map_virtual->expandtree, &expnode);
+				expand_insert(&map_virtual->expand, &expnode);
 				map_virtual->nbnodes++;
 			}
 
@@ -503,7 +504,7 @@ map_ldap_virtual(void *hdl, char *key)
 	return map_virtual;
 
 error:
-	expandtree_free_nodes(&map_virtual->expandtree);
+	expand_free(&map_virtual->expand);
 	free(map_virtual);
 	aldap_freemsg(m);
 	if (pg != NULL)
