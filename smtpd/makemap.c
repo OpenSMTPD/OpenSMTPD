@@ -17,15 +17,26 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h> /* Needed for flock */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/tree.h>
-#include <sys/queue.h>
+#include "sys-tree.h"
+#include "sys-queue.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <db.h>
 #include <ctype.h>
+#ifdef HAVE_DB_H
+#include <db.h>
+#elif defined(HAVE_DB1_DB_H)
+#include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -34,13 +45,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
 #include <unistd.h>
+#ifdef HAVE_UTIL_H
+#include <util.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#include <libutil.h>
+#endif
 
 #include "smtpd.h"
 #include "log.h"
 
-#define	PATH_ALIASES	"/etc/mail/aliases"
+#define	PATH_ALIASES	SMTPD_CONFDIR "/aliases"
 
 extern char *__progname;
 
@@ -188,7 +204,16 @@ main(int argc, char *argv[])
 	if (mkstemp(dbname) == -1)
 		err(1, "mkstemp");
 
-	db = dbopen(dbname, O_EXLOCK|O_RDWR|O_SYNC, 0644, dbtype, NULL);
+/* XXX */
+#ifndef O_EXLOCK
+#define O_EXLOCK 0
+#endif
+	/* Depending on the Linux distrib, sometimes dbopen() flags 
+	 * O_SYNC must be avoid, and O_TRUNC have to be used
+	 * XXX: it should be properly checked and handled in configure script */
+
+	/* db = dbopen(dbname, O_EXLOCK|O_RDWR|O_SYNC, 0644, dbtype, NULL); */
+	db = dbopen(dbname, O_EXLOCK|O_RDWR|O_TRUNC, 0644, dbtype, NULL);
 	if (db == NULL) {
 		warn("dbopen: %s", dbname);
 		goto bad;

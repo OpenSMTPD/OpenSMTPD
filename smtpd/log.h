@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "openbsd-compat.h"
+
 void		log_init(int);
 void		log_verbose(int);
 void		log_warn(const char *, ...)

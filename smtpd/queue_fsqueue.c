@@ -16,9 +16,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "sys-queue.h"
+#include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -523,7 +525,12 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 				break;
 			if (e->fts_namelen != 16)
 				break;
+#if HAVE_STRUCT_STAT_ST_MTIM
 			if (timespeccmp(&e->fts_statp->st_mtim, &startup, >))
+#endif
+#if HAVE_STRUCT_STAT_ST_MTIMSPEC
+			if (timespeccmp(&e->fts_statp->st_mtimspec, &startup, >))
+#endif
 				break;
 			tmp = NULL;
 			*evpid = strtoull(e->fts_name, &tmp, 16);

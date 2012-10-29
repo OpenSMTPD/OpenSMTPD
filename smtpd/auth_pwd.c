@@ -16,13 +16,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "sys-queue.h"
+#include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_CRYPT_H
+#include <crypt.h> /* needed for crypt() */
+#endif
 #include <event.h>
 #include <imsg.h>
 #include <pwd.h>

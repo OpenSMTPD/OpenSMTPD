@@ -19,9 +19,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "sys-queue.h"
+#include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -32,6 +34,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
+#include <grp.h> /* needed for setgroups */
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -209,6 +212,13 @@ mta_sig_handler(int sig, short event, void *p)
 static void
 mta_shutdown(void)
 {
+#ifdef VALGRIND
+	child_free();
+	free_peers();
+	clean_setproctitle();
+	event_base_free(NULL);
+#endif
+
 	log_info("mail transfer agent exiting");
 	_exit(0);
 }
@@ -247,6 +257,7 @@ mta(void)
 		fatal("mta: chdir(\"/\")");
 
 	smtpd_process = PROC_MTA;
+	log_debug("start %s",env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||

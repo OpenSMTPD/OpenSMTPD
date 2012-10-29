@@ -15,8 +15,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/param.h>
-#include <sys/queue.h>
+#include "sys-queue.h"
 #include <sys/socket.h>
 
 #include <err.h>
@@ -588,10 +590,10 @@ io_connect(struct io *io, const struct sockaddr *sa, const struct sockaddr *bsa)
 	io_set_blocking(sock, 0);
 	io_set_linger(sock, 0);
 
-	if (bsa && bind(sock, bsa, bsa->sa_len) == -1)
+	if (bsa && bind(sock, bsa, SA_LEN(bsa)) == -1)
 		goto fail;
 
-	if (connect(sock, sa, sa->sa_len) == -1)
+	if (connect(sock, sa, SA_LEN(sa)) == -1)
 		if (errno != EINPROGRESS)
 			goto fail;
 
