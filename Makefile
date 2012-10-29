@@ -33,3 +33,15 @@ portable:
 	rm -f ${T}/opensmtpd-${V}${P}/Makefile \
 	      ${T}/opensmtpd-${V}${P}/smtpd/Makefile
 	(cd ${T} && tar cfz ${.CURDIR}/files/opensmtpd-${V}${P}.tar.gz opensmtpd-${V}${P})
+
+snapshot:	tarball
+	git checkout master
+	SNAPSHOTNAME=SNAPSHOT_`date +%Y%m%d%H%M%S`; \
+	git tag $${SNAPSHOTNAME}; \
+	git log `git tag | grep 'SNAPSHOT_[0-9]*' | grep -v '[0-9]p' | tail -2 | tr '\n' ' ' | sed 's/ \(.*\)/\.\.\1/g'` > /tmp/$${SNAPSHOTNAME}.changelog
+
+psnapshot:	portable
+	git checkout portable
+	SNAPSHOTNAME=SNAPSHOT_`date +%Y%m%d%H%M%S`p; \
+	git tag $${SNAPSHOTNAME}; \
+	git log `git tag | grep 'SNAPSHOT_[0-9]*' | grep -v '[0-9]p' | tail -2 | tr '\n' ' ' | sed 's/ \(.*\)/\.\.\1/g'` > /tmp/$${SNAPSHOTNAME}.changelog
