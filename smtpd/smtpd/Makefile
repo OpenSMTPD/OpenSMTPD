@@ -22,6 +22,7 @@ SRCS+=		delivery_maildir.c
 SRCS+=		delivery_mbox.c
 SRCS+=		delivery_mda.c
 SRCS+=		map_db.c
+SRCS+=		map_ldap.c
 SRCS+=		map_file.c
 SRCS+=		map_static.c
 SRCS+=		queue_fsqueue.c
@@ -33,6 +34,9 @@ SRCS+=		user_pwd.c
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
 		res_send_async.c getaddrinfo_async.c getnameinfo_async.c
+
+# ldap backend
+SRCS+=		ber.c aldap.c
 
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
@@ -50,3 +54,4 @@ CFLAGS+=	-DASR_OPT_THREADSAFE=0
 YFLAGS=
 
 .include <bsd.prog.mk>
+
