@@ -38,7 +38,7 @@ snapshot:	tarball
 	git checkout master
 	SNAPSHOTNAME=SNAPSHOT_`date +%Y%m%d%H%M%S`; \
 	git log `git tag | grep 'SNAPSHOT_[0-9]*' | grep -v '[0-9]p' | tail -2 | tr '\n' ' ' | sed 's/ \(.*\)/\.\.\1/g'` > /tmp/$${SNAPSHOTNAME}.changelog; \
-	cat /tmp/$${SNAPSHOTNAME}.changelog | mail gilles
+	cat /tmp/$${SNAPSHOTNAME}.changelog | mail '[OpenSMTPD] new OpenBSD  snapshot available' gilles
 
 
 psnapshot:	portable
@@ -46,4 +46,4 @@ psnapshot:	portable
 	SNAPSHOTNAME=SNAPSHOT_`date +%Y%m%d%H%M%S`p; \
 	git tag $${SNAPSHOTNAME}; \
 	git log `git tag | grep 'SNAPSHOT_[0-9]*' | grep -v '[0-9]p' | tail -2 | tr '\n' ' ' | sed 's/ \(.*\)/\.\.\1/g'` > /tmp/$${SNAPSHOTNAME}.changelog; \
-	cat /tmp/$${SNAPSHOTNAME}.changelog | mail gilles
+	cat /tmp/$${SNAPSHOTNAME}.changelog | mail '[OpenSMTPD] new portable snapshot available' gilles
