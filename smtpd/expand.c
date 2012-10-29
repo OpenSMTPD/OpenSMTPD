@@ -17,9 +17,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "sys-queue.h"
+#include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -28,6 +30,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_UTIL_H
+#include <util.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#include <libutil.h>
+#endif
 
 #include "smtpd.h"
 #include "log.h"

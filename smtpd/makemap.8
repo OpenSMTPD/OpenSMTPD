@@ -85,8 +85,8 @@ In addition to adding an entry to the primary domain map,
 one must add a filter rule that accepts mail for the domain
 map, for example:
 .Bd -literal -offset indent
-map primary "/etc/mail/primary"
-accept for domain map primary deliver to mbox
+map "primary" { source db "/etc/mail/primary.db" }
+accept for domain map "primary" deliver to mbox
 .Ed
 .Sh VIRTUAL DOMAINS
 Virtual domains are kept in maps.

@@ -17,9 +17,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "sys-queue.h"
+#include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -29,7 +31,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
-#include <imsg.h>
+#include "imsg.h"
 #include <resolv.h>
 #include <pwd.h>
 #include <signal.h>
@@ -303,6 +305,11 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		/* no aliases found, query forward file */
 		lks->rule = rule;
 		lks->node = xn;
+
+#ifdef VALGRIND
+		bzero(&fwreq, sizeof(fwreq));
+#endif
+
 		fwreq.id = lks->id;
 		(void)strlcpy(fwreq.as_user, xn->u.user, sizeof(fwreq.as_user));
 		imsg_compose_event(env->sc_ievs[PROC_PARENT],

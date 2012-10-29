@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.391 2012/10/28 08:46:26 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.390 2012/10/16 12:02:23 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -18,6 +18,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#if LIBEVENT_MAJOR_VERSION < 2
+#include <event.h>
+#else
+#include <event2/event_struct.h>
+#endif
+
+#include			 "imsg.h"
+
+#include			 "openbsd-compat.h"
+
 #ifndef nitems
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
@@ -26,7 +36,11 @@
 #include "ioev.h"
 #include "iobuf.h"
 
-#define CONF_FILE		 "/etc/mail/smtpd.conf"
+
+#ifndef SMTPD_CONFDIR
+#define SMTPD_CONFDIR		 "/etc"
+#endif
+#define CONF_FILE		 SMTPD_CONFDIR "/smtpd.conf"
 #define MAX_LISTEN		 16
 #define PROC_COUNT		 9
 #define MAX_NAME_SIZE		 64
@@ -45,14 +59,21 @@
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
+#ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
-#define SMTPD_FILTER_USER      	 "_smtpmfa"
-#define SMTPD_SOCKET		 "/var/run/smtpd.sock"
-#define SMTPD_BANNER		 "220 %s ESMTP OpenSMTPD"
+#endif
+#define SMTPD_FILTER_USER      	 SMTPD_USER "mfa"
+#ifndef SMTPD_SOCKDIR
+#define SMTPD_SOCKDIR		 "/var/run"
+#endif
+#define SMTPD_SOCKET		 SMTPD_SOCKDIR "/smtpd.sock"
+#define SMTPD_BANNER		 "220 %s ESMTP OpenSMTPD-portable"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
+#ifndef PATH_SMTPCTL
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
+#endif
 
 #define	DIRHASH_BUCKETS		 4096
 
@@ -543,7 +564,6 @@ struct session {
 	struct timeval			 s_tv;
 	struct envelope			 s_msg;
 	short				 s_nresp[STATE_COUNT];
-	size_t				 mailcount;
 	size_t				 rcptcount;
 	long				 s_datalen;
 
@@ -930,6 +950,10 @@ void configure(void);
 void init_pipes(void);
 void config_pipes(struct peer *, uint);
 void config_peers(struct peer *, uint);
+#ifdef VALGRIND
+void free_pipes(void);
+void free_peers(void);
+#endif
 
 
 /* control.c */
@@ -1181,6 +1205,7 @@ int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
+void *xrealloc(void *, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
 void iobuf_xinit(struct iobuf *, size_t, size_t, const char *);
