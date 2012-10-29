@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: enqueue.c,v 1.62 2012/09/27 12:26:35 chl Exp $	*/
+=======
+/*	$OpenBSD: enqueue.c,v 1.63 2012/09/27 20:34:15 chl Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>

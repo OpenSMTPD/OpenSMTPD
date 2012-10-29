@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #	$OpenBSD: Makefile,v 1.28 2012/09/01 16:09:15 gilles Exp $
+=======
+#	$OpenBSD: Makefile,v 1.29 2012/10/07 15:46:38 chl Exp $
+>>>>>>> master
 
 .PATH:		${.CURDIR}/..
 

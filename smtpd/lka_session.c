@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: lka_session.c,v 1.47 2012/10/14 13:31:46 chl Exp $	*/
+=======
+/*	$OpenBSD: lka_session.c,v 1.48 2012/10/16 11:10:38 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

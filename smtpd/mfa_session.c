@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: mfa_session.c,v 1.10 2012/09/29 11:02:41 eric Exp $	*/
+=======
+/*	$OpenBSD: mfa_session.c,v 1.11 2012/10/11 21:51:37 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

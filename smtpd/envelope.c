@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: envelope.c,v 1.16 2012/10/11 21:49:11 gilles Exp $	*/
+=======
+/*	$OpenBSD: envelope.c,v 1.17 2012/10/12 08:51:02 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

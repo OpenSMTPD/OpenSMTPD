@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: user_pwd.c,v 1.2 2012/08/25 15:39:11 gilles Exp $	*/
+=======
+/*	$OpenBSD: user_pwd.c,v 1.3 2012/09/25 17:38:55 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

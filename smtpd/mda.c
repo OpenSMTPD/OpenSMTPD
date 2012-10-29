@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: mda.c,v 1.81 2012/10/17 17:14:11 eric Exp $	*/
+=======
+/*	$OpenBSD: mda.c,v 1.82 2012/10/25 09:51:08 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

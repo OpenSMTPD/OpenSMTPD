@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: scheduler_backend.c,v 1.5 2012/08/24 12:29:50 eric Exp $	*/
+=======
+/*	$OpenBSD: scheduler_backend.c,v 1.6 2012/09/11 19:19:13 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>

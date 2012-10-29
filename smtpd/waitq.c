@@ -1,4 +1,4 @@
-/*	$OpenBSD: tree.c,v 1.1 2012/08/07 21:47:58 eric Exp $	*/
+/*	$OpenBSD: waitq.c,v 1.1 2012/10/07 17:21:37 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>

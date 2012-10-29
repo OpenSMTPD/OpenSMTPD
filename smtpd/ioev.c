@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: ioev.c,v 1.6 2012/10/10 19:38:04 eric Exp $	*/
+=======
+/*	$OpenBSD: ioev.c,v 1.7 2012/10/25 18:14:24 eric Exp $	*/
+>>>>>>> master
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

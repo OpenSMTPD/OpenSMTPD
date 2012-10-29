@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: smtp.c,v 1.119 2012/10/03 16:43:19 chl Exp $	*/
+=======
+/*	$OpenBSD: smtp.c,v 1.120 2012/10/07 15:46:38 chl Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

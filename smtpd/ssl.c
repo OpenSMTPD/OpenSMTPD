@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: ssl.c,v 1.48 2012/10/09 20:32:25 eric Exp $	*/
+=======
+/*	$OpenBSD: ssl.c,v 1.49 2012/10/14 14:26:31 halex Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

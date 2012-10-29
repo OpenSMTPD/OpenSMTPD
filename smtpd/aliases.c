@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: aliases.c,v 1.56 2012/09/21 19:37:08 eric Exp $	*/
+=======
+/*	$OpenBSD: aliases.c,v 1.57 2012/10/13 08:01:47 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: smtpd.h,v 1.313 2012/07/29 17:21:43 gilles Exp $	*/
+=======
+/*	$OpenBSD: tree.c,v 1.1 2012/08/07 21:47:58 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>

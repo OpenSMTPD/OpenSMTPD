@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: log.h,v 1.1 2010/11/28 13:56:43 gilles Exp $	*/
+=======
+/*	$OpenBSD: log.h,v 1.2 2011/10/22 00:16:33 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>

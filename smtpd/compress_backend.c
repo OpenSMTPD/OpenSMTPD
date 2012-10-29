@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: compress_backend.c,v 1.5 2012/08/30 19:33:25 chl Exp $	*/
+=======
+/*	$OpenBSD: compress_backend.c,v 1.6 2012/09/16 15:55:55 chl Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>

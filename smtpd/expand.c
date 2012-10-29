@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: expand.c,v 1.17 2012/09/27 18:57:25 eric Exp $	*/
+=======
+/*	$OpenBSD: expand.c,v 1.18 2012/10/10 18:02:37 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>

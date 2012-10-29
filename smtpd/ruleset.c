@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: ruleset.c,v 1.24 2012/10/11 21:14:32 gilles Exp $ */
+=======
+/*	$OpenBSD: ruleset.c,v 1.25 2012/10/13 08:01:47 eric Exp $ */
+>>>>>>> master
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>

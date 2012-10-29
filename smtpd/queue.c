@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: queue.c,v 1.139 2012/10/14 18:45:34 eric Exp $	*/
+=======
+/*	$OpenBSD: queue.c,v 1.140 2012/10/25 09:51:08 eric Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

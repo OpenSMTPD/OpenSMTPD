@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*      $OpenBSD: ssl_privsep.c,v 1.2 2008/11/10 17:24:24 deraadt Exp $    */
+=======
+/*      $OpenBSD: ssl_privsep.c,v 1.3 2009/04/26 19:55:39 gilles Exp $    */
+>>>>>>> master
 
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: makemap.c,v 1.39 2012/10/08 19:45:11 gilles Exp $	*/
+=======
+/*	$OpenBSD: makemap.c,v 1.40 2012/10/13 09:44:25 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

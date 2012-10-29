@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: smtpctl.c,v 1.93 2012/10/14 11:58:23 gilles Exp $	*/
+=======
+/*	$OpenBSD: smtpctl.c,v 1.94 2012/10/26 19:16:42 chl Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>

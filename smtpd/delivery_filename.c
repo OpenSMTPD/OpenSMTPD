@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: delivery_filename.c,v 1.5 2012/05/25 13:51:41 chl Exp $	*/
+=======
+/*	$OpenBSD: delivery_filename.c,v 1.6 2012/10/03 17:58:03 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

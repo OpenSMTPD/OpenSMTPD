@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: parse.y,v 1.108 2012/10/11 21:14:32 gilles Exp $	*/
+=======
+/*	$OpenBSD: parse.y,v 1.109 2012/10/14 11:58:23 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

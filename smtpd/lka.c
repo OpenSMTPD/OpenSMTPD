@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: lka.c,v 1.144 2012/10/13 08:01:47 eric Exp $	*/
+=======
+/*	$OpenBSD: lka.c,v 1.145 2012/10/14 11:58:23 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

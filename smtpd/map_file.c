@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD$	*/
+=======
+/*	$OpenBSD: map_file.c,v 1.1 2012/10/14 11:58:23 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>

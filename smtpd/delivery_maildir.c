@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /*	$OpenBSD: delivery_maildir.c,v 1.8 2012/09/16 11:53:57 gilles Exp $	*/
+=======
+/*	$OpenBSD: delivery_maildir.c,v 1.9 2012/10/03 17:58:03 gilles Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
