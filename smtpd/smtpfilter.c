@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+/*	$OpenBSD: smtpfilter.c,v 1.4 2012/08/20 18:15:37 gilles Exp $	*/
+=======
 /*	$OpenBSD: smtpfilter.c,v 1.5 2012/09/03 21:28:21 chl Exp $	*/
+>>>>>>> master
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
