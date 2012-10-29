@@ -1,0 +1,34 @@
+Preliminary note
+================
+
+OpenSMTPD is a FREE implementation of the server-side SMTP protocol as defined
+by RFC 5321, with some additional standart extensions.
+
+It allows ordinary machines to exchange e-mails with other systems speaking
+the SMTP protocol.
+
+OpenSMTPD runs on top of the OpenBSD operating system but also has a portable
+version that can build and run on several systems, including:
+
+	- Linux
+	- FreeBSD
+	- NetBSD
+	- DragonFly
+	- MacOSX
+
+For more information:
+
+    http://www.opensmtpd.org/portable.html
+
+
+People interested about OpenSMTPD are encouraged to subscribe to our mailing
+list:
+
+	http://www.opensmtpd.org/mailing.html
+
+
+and to join the IRC channel:
+
+       #OpenSMTPD @ irc.freenode.net
+
+Cheers !
