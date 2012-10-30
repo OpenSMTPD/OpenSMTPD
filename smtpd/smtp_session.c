@@ -650,7 +650,7 @@ session_io(struct io *io, int evt)
 			io_set_write(&s->s_io);
 			session_respond(s, SMTPD_BANNER, env->sc_hostname);
 		}
-		log_info("Started TLS session for client %s [%s]: %s",
+		log_info("Started TLS for client %s [%s]: %s",
 		    s->s_hostname,
 		    ss_to_text(&s->s_ss),
 		    ssl_to_text(s->s_io.ssl));
@@ -703,7 +703,7 @@ session_io(struct io *io, int evt)
 
 	case IO_LOWAT:
 		if (s->s_state == S_QUIT) {
-			log_info("Closing session for client %s [%s]",
+			log_info("Closing session for %s [%s]",
 			    s->s_hostname,
 			    ss_to_text(&s->s_ss));
 			session_destroy(s, "done");
@@ -767,7 +767,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	case S_CONNECTED:
 		session_enter_state(s, S_INIT);
-		log_info("New connection from client %s [%s]",
+		log_info("New connection from %s [%s]",
 		    s->s_hostname,
 		    ss_to_text(&s->s_ss));
 		s->s_msg.session_id = s->s_id;
@@ -802,14 +802,14 @@ session_pickup(struct session *s, struct submit_status *ss)
 		if (s->s_flags & F_AUTHENTICATED) {
 			session_respond(s, "235 Authentication succeeded");
 			log_info("Accepted authentication for user %s "
-			    "from client %s [%s]",
+			    "from %s [%s]",
 			    user,
 			    s->s_hostname,
 			    ss_to_text(&s->s_ss));
 			s->kickcount = 0;
 		} else {
 			log_info("Failed authentication for user %s "
-			    "from client %s [%s]",
+			    "from %s [%s]",
 			    user,
 			    s->s_hostname,
 			    ss_to_text(&s->s_ss));
@@ -928,7 +928,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 	case S_DONE:
 		session_respond(s, "250 2.0.0 %08x Message accepted for delivery",
 		    evpid_to_msgid(s->s_msg.id));
-		log_info("Queued message %08x from client %s [%s]: "
+		log_info("Accepted message %08x from %s [%s]: "
 		    "from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s",
 		    evpid_to_msgid(s->s_msg.id),
 		    s->s_hostname,
@@ -1189,11 +1189,8 @@ session_respond(struct session *s, char *fmt, ...)
 	switch (buf[0]) {
 	case '5':
 	case '4':
-		log_info("%08x: from=<%s@%s>, relay=%s [%s], stat=LocalError (%.*s)",
-		    evpid_to_msgid(s->s_msg.id),
-		    s->s_msg.sender.user, s->s_msg.sender.domain,
-		    s->s_hostname, ss_to_text(&s->s_ss),
-		    n, buf);
+		log_info("Failed command from %s [%s]: %.*s",
+		    s->s_hostname, ss_to_text(&s->s_ss), n, buf);
 		break;
 	}
 

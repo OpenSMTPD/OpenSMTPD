@@ -144,7 +144,7 @@ EOF
     if test "${DEBUG}" = "1"; then
 	mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" `whoami` < ${TMP}
     else
-	mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" misc@opensmtpd.org < ${TMP}
+	ssh ssh.poolp.org "mail -s '[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available' misc@opensmtpd.org" < ${TMP}
     fi
 
     if test $? != 0; then
