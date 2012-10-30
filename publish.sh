@@ -1,6 +1,7 @@
 #! /bin/sh
 #
 
+DEBUG=0
 CURDIR=`pwd`
 FILES=$CURDIR/files
 
@@ -140,7 +141,12 @@ EOF
 	exit 1
     fi
 
-    mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" misc@opensmtpd.org < ${TMP}
+    if test "${DEBUG}" = "1"; then
+	mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" `whoami` < ${TMP}
+    else
+	mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" misc@opensmtpd.org < ${TMP}
+    fi
+
     if test $? != 0; then
 	rm ${TMP}
 	echo "Error: failed to send mail." >&2
