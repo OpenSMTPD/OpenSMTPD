@@ -79,11 +79,16 @@ enum mta_state {
 #define MTA_EXT_AUTH		0x02
 #define MTA_EXT_PIPELINING	0x04
 
-struct mta_host {
-	TAILQ_ENTRY(mta_host)	 entry;
+struct mta_mx {
+	TAILQ_ENTRY(mta_mx)	 entry;
 	struct sockaddr_storage	 sa;
-	char			 fqdn[MAXHOSTNAMELEN];
-	int			 used;
+	char			*hostname;
+};
+
+struct mta_mxlist {
+	int			 refcount;
+	const char		*error;
+	TAILQ_HEAD(, mta_mx)	 mxs;
 };
 
 struct mta_session {
@@ -96,7 +101,11 @@ struct mta_session {
 
 	int			 msgcount;
 	enum mta_state		 state;
-	TAILQ_HEAD(, mta_host)	 hosts;
+
+	struct mta_mxlist	*mxlist;
+	struct mta_mx		*mx;
+	int			 mxtried;
+
 	struct mta_task		*task;
 	FILE			*datafp;
 	struct envelope		*currevp;
@@ -130,7 +139,6 @@ mta_session(struct mta_route *route)
 	session->state = MTA_INIT;
 	session->io.sock = -1;
 	tree_xset(&sessions, session->id, session);
-	TAILQ_INIT(&session->hosts);
 
 	if (route->flags & ROUTE_MX)
 		session->flags |= MTA_FORCE_MX;
@@ -162,11 +170,9 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	uint64_t		 id;
 	struct mta_session	*s;
-	struct mta_host		*host;
+	struct mta_mx		*mx;
 	struct secret		*secret;
 	struct dns		*dns;
-	const char		*error;
-	void			*ptr;
 
 	switch(imsg->hdr.type) {
 
@@ -205,58 +211,85 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_DNS_HOST:
 		dns = imsg->data;
 		s = tree_xget(&sessions, dns->id);
-		host = xcalloc(1, sizeof *host, "mta: host");
-		host->sa = dns->ss;
-		TAILQ_INSERT_TAIL(&s->hosts, host, entry);
+		mx = xcalloc(1, sizeof *mx, "mta: mx");
+		mx->sa = dns->ss;
+		TAILQ_INSERT_TAIL(&s->mxlist->mxs, mx, entry);
 		return;
 
 	case IMSG_DNS_HOST_END:
 		/* LKA responded to DNS lookup. */
 		dns = imsg->data;
 		s = tree_xget(&sessions, dns->id);
-		if (!dns->error) {
-			mta_enter_state(s, MTA_CONNECT);
-			return;
-		}
-		if (dns->error == DNS_RETRY)
-			error = "100 MX lookup failed temporarily";
+		if (!dns->error)
+			;
+		else if (dns->error == DNS_RETRY)
+			s->mxlist->error = "100 MX lookup failed temporarily";
 		else if (dns->error == DNS_EINVAL)
-			error = "600 Invalid domain name";
+			s->mxlist->error = "600 Invalid domain name";
 		else if (dns->error == DNS_ENONAME)
-			error = "600 Domain does not exist";
+			s->mxlist->error = "600 Domain does not exist";
 		else if (dns->error == DNS_ENOTFOUND)
-			error = "600 No MX address found for domain";
+			s->mxlist->error = "600 No MX address found for domain";
 		else
-			error = "100 Weird error";
-		mta_route_error(s->route, error);
-		mta_enter_state(s, MTA_CONNECT);
+			s->mxlist->error = "100 Weird error";
+		s->route->mxlist = s->mxlist;
+		waitq_run(&s->route->mxlist, s->mxlist);
 		return;
 
 	case IMSG_DNS_PTR:
 		dns = imsg->data;
 		s = tree_xget(&sessions, dns->id);
-		host = TAILQ_FIRST(&s->hosts);
 		if (dns->error)
-			strlcpy(host->fqdn, "<unknown>", sizeof host->fqdn);
+			s->mx->hostname = xstrdup("<unknown>", "mta: ptr");
 		else
-			strlcpy(host->fqdn, dns->host, sizeof host->fqdn);
-		log_debug("mta: %p: connected to %s", s, host->fqdn);
-
-		/* check if we need to start tls now... */
-		if (((s->flags & MTA_FORCE_ANYSSL) && host->used == 1) ||
-		    (s->flags & MTA_FORCE_SMTPS)) {
-			log_debug("mta: %p: trying smtps (ssl=%p)...", s, s->ssl);
-			if ((ptr = ssl_mta_init(s->ssl)) == NULL)
-				fatalx("mta: ssl_mta_init");
-			io_start_tls(&s->io, ptr);
-		} else {
-			mta_enter_state(s, MTA_SMTP_BANNER);
-		}
+			s->mx->hostname = xstrdup(dns->host, "mta: ptr");
+		waitq_run(&s->mx->hostname, s->mx->hostname);
 		break;
+
 	default:
 		errx(1, "mta_session_imsg: unexpected %s imsg",
 		    imsg_to_str(imsg->hdr.type));
 	}
+}
+
+static void
+mta_on_ptr(void *tag, void *arg, void *data)
+{
+	struct mta_session	*s = arg;
+	char			*hostname = data;
+	void			*ssl;
+
+	log_debug("mta: %p: connected to %s", s, hostname);
+
+	/* check if we need to start tls now... */
+	if (((s->flags & MTA_FORCE_ANYSSL) && s->mxtried == 1) ||
+	    (s->flags & MTA_FORCE_SMTPS)) {
+		log_debug("mta: %p: trying smtps (ssl=%p)...", s, s->ssl);
+		if ((ssl = ssl_mta_init(s->ssl)) == NULL)
+			fatalx("mta: ssl_mta_init");
+		io_start_tls(&s->io, ssl);
+	} else {
+		mta_enter_state(s, MTA_SMTP_BANNER);
+	}
+}
+
+static void
+mta_on_mxlist(void *tag, void *arg, void *data)
+{
+	struct mta_session	*s = arg;
+	struct mta_mxlist	*mxlist = data;
+
+	s->mxlist = mxlist;
+	s->mxlist->refcount += 1;
+
+	if (mxlist->error) {
+		mta_route_error(s->route, mxlist->error);
+		mta_enter_state(s, MTA_DONE);
+		return;
+	}
+
+	s->mx = TAILQ_FIRST(&s->mxlist->mxs);
+	mta_enter_state(s, MTA_CONNECT);
 }
 
 static void
@@ -265,7 +298,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 	int			 oldstate;
 	struct secret		 secret;
 	struct mta_route	*route;
-	struct mta_host		*host;
+	struct mta_mx		*mx;
+	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
 	int			 max_reuse;
 	ssize_t			 q;
@@ -315,10 +349,22 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/*
 		 * Lookup MX record.
 		 */
-		if (s->flags & MTA_FORCE_MX) /* XXX */
-			dns_query_host(s->route->hostname, s->route->port, s->id);
+		if (s->route->mxlist) {
+			mta_on_mxlist(NULL, s, s->route->mxlist);
+			break;
+		}
+
+		if (waitq_wait(&s->route->mxlist, mta_on_mxlist, s) == 0)
+			break;
+
+		s->mxlist = xcalloc(1, sizeof *s->mxlist, "mta: mxlist");
+		TAILQ_INIT(&s->mxlist->mxs);
+		if (s->route->flags & ROUTE_MX)
+			dns_query_host(s->route->hostname, s->route->port,
+			    s->id);
 		else
-			dns_query_mx(s->route->hostname, s->route->backupname, 0, s->id);
+			dns_query_mx(s->route->hostname, s->route->backupname, 0,
+			    s->id);
 		break;
 
 	case MTA_CONNECT:
@@ -336,26 +382,27 @@ mta_enter_state(struct mta_session *s, int newstate)
 			max_reuse = 1;
 
 		/* pick next mx */
-		while ((host = TAILQ_FIRST(&s->hosts))) {
-			if (host->used == max_reuse) {
-				TAILQ_REMOVE(&s->hosts, host, entry);
-				free(host);
+
+		while (s->mx) {
+			log_debug("trying mx=%p mxtried=%i", s->mx, s->mxtried);
+			if (s->mxtried == max_reuse) {
+				s->mx = TAILQ_NEXT(s->mx, entry);
+				s->mxtried = 0;
 				continue;
 			}
-			host->used++;
-
-			log_debug("mta: %p: connecting to %s...", s,
-				ss_to_text(&host->sa));
-			sa = (struct sockaddr *)&host->sa;
-
+			s->mxtried++;
+			ss = s->mx->sa;
+			sa = (struct sockaddr *)&ss;
 			if (s->route->port)
 				sa_set_port(sa, s->route->port);
-			else if ((s->flags & MTA_FORCE_ANYSSL) && host->used == 1)
+			else if ((s->flags & MTA_FORCE_ANYSSL) && s->mxtried == 1)
 				sa_set_port(sa, 465);
 			else if (s->flags & MTA_FORCE_SMTPS)
 				sa_set_port(sa, 465);
 			else
 				sa_set_port(sa, 25);
+			log_debug("mta: %p: connecting to %s...", s,
+			    ss_to_text(&ss));
 
 			iobuf_xinit(&s->iobuf, 0, 0, "mta_enter_state");
 			io_init(&s->io, -1, s, mta_io, &s->iobuf);
@@ -369,8 +416,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 				 * so there is no need to try the same
 				 * relay again.
 				 */
-				TAILQ_REMOVE(&s->hosts, host, entry);
-				free(host);
+				s->mxtried = max_reuse;
 				continue;
 			}
 			return;
@@ -392,12 +438,19 @@ mta_enter_state(struct mta_session *s, int newstate)
 		if (s->datafp)
 			fclose(s->datafp);
 		s->datafp = NULL;
-		while ((host = TAILQ_FIRST(&s->hosts))) {
-			TAILQ_REMOVE(&s->hosts, host, entry);
-			free(host);
-		}
 		route = s->route;
 		tree_xpop(&sessions, s->id);
+
+		if (s->mxlist && --s->mxlist->refcount == 0) {
+			log_debug("mta: %p: freeing mxlist at %p",s, s->mxlist);
+			while((mx = TAILQ_FIRST(&s->mxlist->mxs))) {
+				TAILQ_REMOVE(&s->mxlist->mxs, mx, entry);
+				free(mx->hostname);
+				free(mx);
+			}
+			route->mxlist = NULL;
+		}
+
 		free(s);
 		stat_decrement("mta.session", 1);
 		mta_route_collect(route);
@@ -647,7 +700,6 @@ mta_io(struct io *io, int evt)
 	struct mta_session	*s = io->arg;
 	char			*line, *msg;
 	size_t			 len;
-	struct mta_host		*host;
 	const char		*error;
 	int			 cont;
 
@@ -659,8 +711,10 @@ mta_io(struct io *io, int evt)
 		s->is_reading = 0;
 		io_set_timeout(io, 300000);
 		io_set_write(io);
-		host = TAILQ_FIRST(&s->hosts);
-		dns_query_ptr(&host->sa, s->id);
+		if (s->mx->hostname)
+			mta_on_ptr(NULL, s, s->mx->hostname);
+		else if (waitq_wait(&s->mx->hostname, mta_on_ptr, s))
+			dns_query_ptr(&s->mx->sa, s->id);
 		break;
 
 	case IO_TLSREADY:
@@ -851,13 +905,12 @@ mta_status(struct mta_session *s, int connerr, const char *fmt, ...)
 static void
 mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 {
-	struct	mta_host *host = TAILQ_FIRST(&task->session->hosts);
 	char		  relay[MAX_LINE_SIZE], stat[MAX_LINE_SIZE];
 
 	envelope_set_errormsg(e, "%s", status);
 
 	snprintf(relay, sizeof relay, "relay=%s [%s], ",
-	    host->fqdn, ss_to_text(&host->sa));
+	    task->session->mx->hostname, ss_to_text(&task->session->mx->sa));
 	snprintf(stat, sizeof stat, "%s (%s)",
 	    mta_response_status(e->errorline),
 	    mta_response_text(e->errorline));
