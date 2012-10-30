@@ -40,6 +40,8 @@
 #include "smtpd.h"
 #include "log.h"
 
+#define SMTP_KICKTHRESHOLD	50
+
 #define SMTP_MAXMAIL	100
 #define SMTP_MAXRCPT	1000
 
@@ -646,6 +648,7 @@ session_io(struct io *io, int evt)
 			io_set_write(&s->s_io);
 			session_respond(s, SMTPD_BANNER, env->sc_hostname);
 		}
+		s->kickcount = 0;
 		session_enter_state(s, S_GREETED);
 		break;
 
@@ -668,6 +671,11 @@ session_io(struct io *io, int evt)
 		if (s->s_state == S_DATACONTENT && strcmp(line, ".")) {
 			/* more data to come */
 			session_line(s, line, len);
+			if (s->s_flags & F_KICK) {
+				stat_increment("smtp.kick", 1);
+				session_destroy(s, "kick");
+				return;
+			}
 			goto nextline;
 		}
 
@@ -680,6 +688,11 @@ session_io(struct io *io, int evt)
 		}
 
 		session_line(s, line, len);
+		if (s->s_flags & F_KICK) {
+			stat_increment("smtp.kick", 1);
+			session_destroy(s, "kick");
+			return;
+		}
 		iobuf_normalize(&s->s_iobuf);
 		io_set_write(io);
 		break;
@@ -760,9 +773,10 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_AUTH_FINALIZE:
-		if (s->s_flags & F_AUTHENTICATED)
+		if (s->s_flags & F_AUTHENTICATED) {
 			session_respond(s, "235 Authentication succeeded");
-		else
+			s->kickcount = 0;
+		} else
 			session_respond(s, "535 Authentication failed");
 		session_enter_state(s, S_HELO);
 		break;
@@ -798,6 +812,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 				session_respond(s, "250-AUTH PLAIN LOGIN");
 			session_respond(s, "250 HELP");
 		}
+		s->kickcount = 0;
 		break;
 
 	case S_MAIL_MFA:
@@ -835,6 +850,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 		session_enter_state(s, S_RCPT);
 		s->rcptcount++;
+		s->kickcount--;
 		s->s_msg.dest = ss->u.maddr;
 		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
 		break;
@@ -890,6 +906,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		session_enter_state(s, S_HELO);
 		s->s_msg.id = 0;
 		s->mailcount++;
+		s->kickcount = 0;
 		bzero(&s->s_nresp, sizeof(s->s_nresp));
 		break;
 
@@ -905,8 +922,13 @@ session_line(struct session *s, char *line, size_t len)
 {
 	struct submit_status ss;
 
-	if (s->s_state != S_DATACONTENT)
+	if (s->s_state != S_DATACONTENT) {
 		log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
+		if (++s->kickcount >= SMTP_KICKTHRESHOLD) {
+			s->s_flags |= F_KICK;
+			return;
+		}
+	}
 
 	switch (s->s_state) {
 	case S_AUTH_INIT:

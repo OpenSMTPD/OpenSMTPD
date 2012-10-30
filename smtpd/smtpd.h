@@ -525,6 +525,7 @@ enum session_flags {
 	F_AUTHENTICATED	= 0x08,
 	F_WAITIMSG	= 0x10,
 	F_ZOMBIE	= 0x20,
+	F_KICK		= 0x40,
 };
 
 struct session {
@@ -543,6 +544,7 @@ struct session {
 	struct timeval			 s_tv;
 	struct envelope			 s_msg;
 	short				 s_nresp[STATE_COUNT];
+	size_t				 kickcount;
 	size_t				 mailcount;
 	size_t				 rcptcount;
 	long				 s_datalen;
