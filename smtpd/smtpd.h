@@ -1103,6 +1103,7 @@ int ssl_load_certfile(const char *, uint8_t);
 void ssl_setup(struct listener *);
 void *ssl_smtp_init(void *);
 void *ssl_mta_init(struct ssl *);
+const char *ssl_to_text(void *);
 int ssl_cmp(struct ssl *, struct ssl *);
 SPLAY_PROTOTYPE(ssltree, ssl, ssl_nodes, ssl_cmp);
 

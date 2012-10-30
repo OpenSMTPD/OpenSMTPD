@@ -282,6 +282,18 @@ err:
 	return;
 }
 
+const char *
+ssl_to_text(void *ssl) {
+	static char buf[256];
+
+	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%i",
+	    SSL_get_cipher_version(ssl),
+	    SSL_get_cipher_name(ssl),
+	    SSL_get_cipher_bits(ssl, NULL));
+
+	return (buf);
+}
+
 void
 ssl_error(const char *where)
 {
