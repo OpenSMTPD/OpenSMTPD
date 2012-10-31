@@ -847,6 +847,7 @@ struct id_list {
 struct scheduler_batch {
 	int		 type;
 	time_t		 delay;
+	size_t		 evpcount;
 	struct id_list	*evpids;
 };
 
@@ -854,8 +855,8 @@ struct scheduler_backend {
 	void	(*init)(void);
 
 	void	(*insert)(struct scheduler_info *);
-	void	(*commit)(uint32_t);
-	void	(*rollback)(uint32_t);
+	size_t	(*commit)(uint32_t);
+	size_t	(*rollback)(uint32_t);
 
 	void	(*update)(struct scheduler_info *);
 	void	(*delete)(uint64_t);
