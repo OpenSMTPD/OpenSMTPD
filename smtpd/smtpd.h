@@ -175,6 +175,7 @@ enum imsg_type {
 
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
+	IMSG_PARENT_KILL_MDA,
 
 	IMSG_PARENT_AUTHENTICATE,
 	IMSG_PARENT_SEND_CONFIG,
@@ -525,6 +526,7 @@ enum session_flags {
 	F_AUTHENTICATED	= 0x08,
 	F_WAITIMSG	= 0x10,
 	F_ZOMBIE	= 0x20,
+	F_KICK		= 0x40,
 };
 
 struct session {
@@ -543,6 +545,7 @@ struct session {
 	struct timeval			 s_tv;
 	struct envelope			 s_msg;
 	short				 s_nresp[STATE_COUNT];
+	size_t				 kickcount;
 	size_t				 mailcount;
 	size_t				 rcptcount;
 	long				 s_datalen;
@@ -844,6 +847,7 @@ struct id_list {
 struct scheduler_batch {
 	int		 type;
 	time_t		 delay;
+	size_t		 evpcount;
 	struct id_list	*evpids;
 };
 
@@ -851,8 +855,8 @@ struct scheduler_backend {
 	void	(*init)(void);
 
 	void	(*insert)(struct scheduler_info *);
-	void	(*commit)(uint32_t);
-	void	(*rollback)(uint32_t);
+	size_t	(*commit)(uint32_t);
+	size_t	(*rollback)(uint32_t);
 
 	void	(*update)(struct scheduler_info *);
 	void	(*delete)(uint64_t);
@@ -1101,6 +1105,7 @@ int ssl_load_certfile(const char *, uint8_t);
 void ssl_setup(struct listener *);
 void *ssl_smtp_init(void *);
 void *ssl_mta_init(struct ssl *);
+const char *ssl_to_text(void *);
 int ssl_cmp(struct ssl *, struct ssl *);
 SPLAY_PROTOTYPE(ssltree, ssl, ssl_nodes, ssl_cmp);
 
