@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <resolv.h>
 #include <stdio.h>
 #include <stdlib.h>
