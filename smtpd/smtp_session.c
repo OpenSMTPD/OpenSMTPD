@@ -28,17 +28,22 @@
 #include <netinet/in.h>
 
 #include <ctype.h>
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <resolv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <vis.h>
 
 #include <openssl/ssl.h>
 
 #include "smtpd.h"
 #include "log.h"
+
+#define SMTP_KICKTHRESHOLD	50
 
 #define SMTP_MAXMAIL	100
 #define SMTP_MAXRCPT	1000
@@ -646,6 +651,9 @@ session_io(struct io *io, int evt)
 			io_set_write(&s->s_io);
 			session_respond(s, SMTPD_BANNER, env->sc_hostname);
 		}
+		log_info("Started TLS on session %016" PRIx64 ": %s",
+		    s->s_id, ssl_to_text(s->s_io.ssl));
+		s->kickcount = 0;
 		session_enter_state(s, S_GREETED);
 		break;
 
@@ -668,6 +676,10 @@ session_io(struct io *io, int evt)
 		if (s->s_state == S_DATACONTENT && strcmp(line, ".")) {
 			/* more data to come */
 			session_line(s, line, len);
+			if (s->s_flags & F_KICK) {
+				session_destroy(s, "kick");
+				return;
+			}
 			goto nextline;
 		}
 
@@ -680,12 +692,17 @@ session_io(struct io *io, int evt)
 		}
 
 		session_line(s, line, len);
+		if (s->s_flags & F_KICK) {
+			session_destroy(s, "kick");
+			return;
+		}
 		iobuf_normalize(&s->s_iobuf);
 		io_set_write(io);
 		break;
 
 	case IO_LOWAT:
 		if (s->s_state == S_QUIT) {
+			log_info("Closing session %016" PRIx64, s->s_id);
 			session_destroy(s, "done");
 			break;
 		}
@@ -700,14 +717,20 @@ session_io(struct io *io, int evt)
 		break;
 
 	case IO_TIMEOUT:
+		log_info("Disconnecting session %016" PRIx64 ": session timeout",
+		    s->s_id);
 		session_destroy(s, "timeout");
 		break;
 
 	case IO_DISCONNECTED:
+		log_info("Received disconnect from session %016" PRIx64,
+		    s->s_id);
 		session_destroy(s, "disconnected");
 		break;
 
 	case IO_ERROR:
+		log_info("Disconnecting session %016" PRIx64 ": IO error: %s",
+		    s->s_id, strerror(errno));
 		session_destroy(s, "error");
 		break;
 
@@ -719,6 +742,7 @@ session_io(struct io *io, int evt)
 void
 session_pickup(struct session *s, struct submit_status *ss)
 {
+	char	 user[MAXLOGNAME];
 	void	*ssl;
 
 	s->s_flags &= ~F_WAITIMSG;
@@ -736,14 +760,21 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	case S_CONNECTED:
 		session_enter_state(s, S_INIT);
+		log_info("New session %016" PRIx64 " from host %s [%s]",
+		   s->s_id,
+		   s->s_hostname,
+		   ss_to_text(&s->s_ss));
 		s->s_msg.session_id = s->s_id;
 		s->s_msg.ss = s->s_ss;
 		session_imsg(s, PROC_MFA, IMSG_MFA_CONNECT, 0, 0, -1,
-			     &s->s_msg, sizeof(s->s_msg));
+		    &s->s_msg, sizeof(s->s_msg));
 		break;
 
 	case S_INIT:
 		if (ss->code != 250) {
+			log_info("Disconnecting session %016" PRIx64 ": "
+			    "rejected by filter",
+			    s->s_id);
 			session_destroy(s, "rejected by filter");
 			return;
 		}
@@ -760,10 +791,17 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_AUTH_FINALIZE:
-		if (s->s_flags & F_AUTHENTICATED)
+		strnvis(user, s->s_auth.user, sizeof user, VIS_WHITE | VIS_SAFE);
+		if (s->s_flags & F_AUTHENTICATED) {
 			session_respond(s, "235 Authentication succeeded");
-		else
+			log_info("Accepted authentication for user %s "
+			    "on session %016" PRIx64, user, s->s_id);
+			s->kickcount = 0;
+		} else {
+			log_info("Failed authentication for user %s "
+			    "on session %016" PRIx64, user, s->s_id);
 			session_respond(s, "535 Authentication failed");
+		}
 		session_enter_state(s, S_HELO);
 		break;
 
@@ -798,6 +836,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 				session_respond(s, "250-AUTH PLAIN LOGIN");
 			session_respond(s, "250 HELP");
 		}
+		s->kickcount = 0;
 		break;
 
 	case S_MAIL_MFA:
@@ -835,6 +874,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 		session_enter_state(s, S_RCPT);
 		s->rcptcount++;
+		s->kickcount--;
 		s->s_msg.dest = ss->u.maddr;
 		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
 		break;
@@ -875,21 +915,20 @@ session_pickup(struct session *s, struct submit_status *ss)
 	case S_DONE:
 		session_respond(s, "250 2.0.0 %08x Message accepted for delivery",
 		    evpid_to_msgid(s->s_msg.id));
-		log_info("%08x: from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s, "
-		    "relay=%s [%s]",
+		log_info("Accepted message %08x on session %016" PRIx64 ": "
+		    "from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s",
 		    evpid_to_msgid(s->s_msg.id),
+		    s->s_id,
 		    s->s_msg.sender.user,
 		    s->s_msg.sender.user[0] == '\0' ? "" : "@",
 		    s->s_msg.sender.domain,
 		    s->s_datalen,
 		    s->rcptcount,
-		    s->s_flags & F_EHLO ? "ESMTP" : "SMTP",
-		    s->s_hostname,
-		    ss_to_text(&s->s_ss));
-
+		    s->s_flags & F_EHLO ? "ESMTP" : "SMTP");
 		session_enter_state(s, S_HELO);
 		s->s_msg.id = 0;
 		s->mailcount++;
+		s->kickcount = 0;
 		bzero(&s->s_nresp, sizeof(s->s_nresp));
 		break;
 
@@ -905,8 +944,16 @@ session_line(struct session *s, char *line, size_t len)
 {
 	struct submit_status ss;
 
-	if (s->s_state != S_DATACONTENT)
+	if (s->s_state != S_DATACONTENT) {
 		log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
+		if (++s->kickcount >= SMTP_KICKTHRESHOLD) {
+			log_info("Disconnecting session %016" PRIx64 ": "
+			    "session not moving forward", s->s_id);
+			s->s_flags |= F_KICK;
+			stat_increment("smtp.kick", 1);
+			return;
+		}
+	}
 
 	switch (s->s_state) {
 	case S_AUTH_INIT:
@@ -1126,11 +1173,8 @@ session_respond(struct session *s, char *fmt, ...)
 	switch (buf[0]) {
 	case '5':
 	case '4':
-		log_info("%08x: from=<%s@%s>, relay=%s [%s], stat=LocalError (%.*s)",
-		    evpid_to_msgid(s->s_msg.id),
-		    s->s_msg.sender.user, s->s_msg.sender.domain,
-		    s->s_hostname, ss_to_text(&s->s_ss),
-		    n, buf);
+		log_info("Failed command on session %016" PRIx64 ": %.*s",
+		    s->s_id, n, buf);
 		break;
 	}
 
