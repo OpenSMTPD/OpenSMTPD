@@ -296,7 +296,7 @@ queue_bounce(struct envelope *e)
 	} else if (!queue_envelope_create(&b)) {
 		log_warnx("queue: cannot bounce!");
 	} else {
-		log_debug("queue: bouncing evp:%016" PRIx64
+		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &b, sizeof b);
@@ -322,7 +322,7 @@ queue_sig_handler(int sig, short event, void *p)
 static void
 queue_shutdown(void)
 {
-	log_info("queue handler exiting");
+	log_info("info: queue handler exiting");
 	_exit(0);
 }
 
@@ -411,7 +411,7 @@ queue_timeout(int fd, short event, void *p)
 	uint64_t		 evpid;
 
 	if (q == NULL) {
-		log_debug("queue: loading queue into scheduler");
+		log_debug("debug: queue: loading queue into scheduler");
 		q = qwalk_new(0);
 	}
 
@@ -439,6 +439,6 @@ queue_timeout(int fd, short event, void *p)
 		    sizeof last_msgid);
 	}
 
-	log_debug("queue: done loading queue into scheduler");
+	log_debug("debug: queue: done loading queue into scheduler");
 	qwalk_close(q);
 }

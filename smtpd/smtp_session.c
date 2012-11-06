@@ -312,12 +312,12 @@ session_rfc1652_mail_handler(struct session *s, char *args)
 		*body++ = '\0';
 
 		if (strncasecmp(body, "AUTH=", 5) == 0) {
-			log_debug("smtp: AUTH in MAIL FROM command, skipping");
+			log_debug("debug: smtp: AUTH in MAIL FROM command, skipping");
 			continue;		
 		}
 
 		if (strncasecmp(body, "BODY=", 5) == 0) {
-			log_debug("smtp: BODY in MAIL FROM command");
+			log_debug("debug: smtp: BODY in MAIL FROM command");
 
 			if (strncasecmp("body=7bit", body, 9) == 0) {
 				s->s_flags &= ~F_8BITMIME;
@@ -651,7 +651,7 @@ session_io(struct io *io, int evt)
 			io_set_write(&s->s_io);
 			session_respond(s, SMTPD_BANNER, env->sc_hostname);
 		}
-		log_info("Started TLS on session %016" PRIx64 ": %s",
+		log_info("smtp-session: Started TLS on session %016" PRIx64 ": %s",
 		    s->s_id, ssl_to_text(s->s_io.ssl));
 		s->kickcount = 0;
 		session_enter_state(s, S_GREETED);
@@ -703,7 +703,7 @@ session_io(struct io *io, int evt)
 
 	case IO_LOWAT:
 		if (s->s_state == S_QUIT) {
-			log_info("Closing session %016" PRIx64, s->s_id);
+			log_info("smtp-session: Closing session %016" PRIx64, s->s_id);
 			session_destroy(s, "done");
 			break;
 		}
@@ -718,19 +718,19 @@ session_io(struct io *io, int evt)
 		break;
 
 	case IO_TIMEOUT:
-		log_info("Disconnecting session %016" PRIx64 ": session timeout",
+		log_info("smtp-session: Disconnecting session %016" PRIx64 ": session timeout",
 		    s->s_id);
 		session_destroy(s, "timeout");
 		break;
 
 	case IO_DISCONNECTED:
-		log_info("Received disconnect from session %016" PRIx64,
+		log_info("smtp-session: Received disconnect from session %016" PRIx64,
 		    s->s_id);
 		session_destroy(s, "disconnected");
 		break;
 
 	case IO_ERROR:
-		log_info("Disconnecting session %016" PRIx64 ": IO error: %s",
+		log_info("smtp-session: Disconnecting session %016" PRIx64 ": IO error: %s",
 		    s->s_id, strerror(errno));
 		session_destroy(s, "error");
 		break;
@@ -761,7 +761,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	case S_CONNECTED:
 		session_enter_state(s, S_INIT);
-		log_info("New session %016" PRIx64 " from host %s [%s]",
+		log_info("smtp-session: New session %016" PRIx64 " from host %s [%s]",
 		   s->s_id,
 		   s->s_hostname,
 		   ss_to_text(&s->s_ss));
@@ -773,7 +773,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	case S_INIT:
 		if (ss->code != 250) {
-			log_info("Disconnecting session %016" PRIx64 ": "
+			log_info("smtp-session: Disconnecting session %016" PRIx64 ": "
 			    "rejected by filter",
 			    s->s_id);
 			session_destroy(s, "rejected by filter");
@@ -795,11 +795,11 @@ session_pickup(struct session *s, struct submit_status *ss)
 		strnvis(user, s->s_auth.user, sizeof user, VIS_WHITE | VIS_SAFE);
 		if (s->s_flags & F_AUTHENTICATED) {
 			session_respond(s, "235 Authentication succeeded");
-			log_info("Accepted authentication for user %s "
+			log_info("smtp-session: Accepted authentication for user %s "
 			    "on session %016" PRIx64, user, s->s_id);
 			s->kickcount = 0;
 		} else {
-			log_info("Failed authentication for user %s "
+			log_info("smtp-session: Failed authentication for user %s "
 			    "on session %016" PRIx64, user, s->s_id);
 			session_respond(s, "535 Authentication failed");
 		}
@@ -916,7 +916,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 	case S_DONE:
 		session_respond(s, "250 2.0.0 %08x Message accepted for delivery",
 		    evpid_to_msgid(s->s_msg.id));
-		log_info("Accepted message %08x on session %016" PRIx64 ": "
+		log_info("smtp-session: Accepted message %08x on session %016" PRIx64 ": "
 		    "from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s",
 		    evpid_to_msgid(s->s_msg.id),
 		    s->s_id,
@@ -948,7 +948,7 @@ session_line(struct session *s, char *line, size_t len)
 	if (s->s_state != S_DATACONTENT) {
 		log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
 		if (++s->kickcount >= SMTP_KICKTHRESHOLD) {
-			log_info("Disconnecting session %016" PRIx64 ": "
+			log_info("smtp-session: Disconnecting session %016" PRIx64 ": "
 			    "session not moving forward", s->s_id);
 			s->s_flags |= F_KICK;
 			stat_increment("smtp.kick", 1);
@@ -996,7 +996,7 @@ session_line(struct session *s, char *line, size_t len)
 		break;
 
 	default:
-		log_debug("session_read: %i", s->s_state);
+		log_debug("debug: session_read: %i", s->s_state);
 		fatalx("session_read: unexpected state");
 	}
 
@@ -1073,7 +1073,7 @@ session_destroy(struct session *s, const char * reason)
 {
 	uint32_t msgid;
 
-	log_debug("smtp: %p: deleting session: %s", s, reason);
+	log_debug("debug: smtp: %p: deleting session: %s", s, reason);
 
 	if (s->s_flags & F_ZOMBIE)
 		goto finalize;
@@ -1175,7 +1175,7 @@ session_respond(struct session *s, char *fmt, ...)
 	case '5':
 	case '4':
 		strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
-		log_info("Failed command on session %016" PRIx64
+		log_info("smtp-session: Failed command on session %016" PRIx64
 		    ": \"%s\" => %.*s", s->s_id, tmp, n, buf);
 		break;
 	}

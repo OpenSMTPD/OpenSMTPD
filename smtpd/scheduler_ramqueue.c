@@ -612,16 +612,16 @@ rq_queue_dump(struct rq_queue *rq, const char * name)
 	void			*i, *j;
 	uint64_t		 id;
 
-	log_debug("/--- ramqueue: %s", name);
+	log_debug("debug: /--- ramqueue: %s", name);
 
 	i = NULL;
 	while((tree_iter(&rq->messages, &i, &id, (void*)&message))) {
-		log_debug("| msg:%08" PRIx32, message->msgid);
+		log_debug("debug: | msg:%08" PRIx32, message->msgid);
 		j = NULL;
 		while((tree_iter(&message->envelopes, &j, &id,
 		    (void*)&envelope)))
-			log_debug("|   %s",
+			log_debug("debug: |   %s",
 			    rq_envelope_to_text(envelope));
 	}
-	log_debug("\\---");
+	log_debug("debug: \\---");
 }

@@ -102,7 +102,7 @@ map_lookup(objid_t mapid, const char *key, enum map_kind kind)
 	backend = map_backend_lookup(map->m_src);
 	hdl = backend->open(map);
 	if (hdl == NULL) {
-		log_warn("map_lookup: can't open %s", map->m_config);
+		log_warn("warn: map_lookup: can't open %s", map->m_config);
 		if (errno == 0)
 			errno = ENOTSUP;
 		return NULL;
@@ -133,7 +133,7 @@ map_compare(objid_t mapid, const char *key, enum map_kind kind,
 	backend = map_backend_lookup(map->m_src);
 	hdl = backend->open(map);
 	if (hdl == NULL) {
-		log_warn("map_compare: can't open %s", map->m_config);
+		log_warn("warn: map_compare: can't open %s", map->m_config);
 		if (errno == 0)
 			errno = ENOTSUP;
 		return 0;

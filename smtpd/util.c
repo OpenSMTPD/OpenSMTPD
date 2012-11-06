@@ -646,7 +646,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 
 				/* XXX - until AF_INET6 support gets in base */
 				if (errno != EAFNOSUPPORT) {
-					log_warn("inet_net_pton");
+					log_warn("warn: inet_net_pton");
 					return 0;
 				}
 				bits = temp_inet_net_pton_ipv6(s,
@@ -654,7 +654,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 				    sizeof(struct in6_addr));
 			}
 			if (bits == -1) {
-				log_warn("inet_net_pton");
+				log_warn("warn: inet_net_pton");
 				return 0;
 			}
 			ssin6.sin6_family = AF_INET6;
@@ -1086,7 +1086,7 @@ log_envelope(const struct envelope *evp, const char *extra, const char *status)
 	if (extra == NULL)
 		extra = "";
 
-	log_info("%016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, %s%sdelay=%s, %sstat=%s",
+	log_info("delivery: %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, %s%sdelay=%s, %sstat=%s",
 	    evp->id, evp->sender.user, evp->sender.domain,
 	    evp->dest.user, evp->dest.domain,
 	    rcpt,

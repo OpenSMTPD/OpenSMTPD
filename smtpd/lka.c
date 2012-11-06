@@ -107,7 +107,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			secret = imsg->data;
 			map = map_findbyname(secret->mapname);
 			if (map == NULL) {
-				log_warn("lka: credentials map %s is missing",
+				log_warn("warn: lka: credentials map %s is missing",
 				    secret->mapname);
 				imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0,
 				    -1, secret, sizeof *secret);
@@ -115,7 +115,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 			map_credentials = map_lookup(map->m_id, secret->host,
 			    K_CREDENTIALS);
-			log_debug("lka: %s credentials lookup (%d)", secret->host,
+			log_debug("debug: lka: %s credentials lookup (%d)", secret->host,
 			    map_credentials != NULL);
 			secret->secret[0] = '\0';
 			if (map_credentials == NULL)
@@ -247,7 +247,7 @@ lka_sig_handler(int sig, short event, void *p)
 void
 lka_shutdown(void)
 {
-	log_info("lookup agent exiting");
+	log_info("info: lookup agent exiting");
 	_exit(0);
 }
 

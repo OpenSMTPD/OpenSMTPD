@@ -235,7 +235,7 @@ control(void)
 static void
 control_shutdown(void)
 {
-	log_info("control process exiting");
+	log_info("info: control process exiting");
 	unlink(SMTPD_SOCKET);
 	_exit(0);
 }
@@ -342,7 +342,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 		fatal("getpeereid");
 
 	if ((c = control_connbyfd(fd)) == NULL) {
-		log_warn("control_dispatch_ext: fd %d: not found", fd);
+		log_warn("warn: control_dispatch_ext: fd %d: not found", fd);
 		return;
 	}
 
@@ -403,7 +403,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 
 		case IMSG_CTL_SHUTDOWN:
 			/* NEEDS_FIX */
-			log_debug("received shutdown request");
+			log_debug("debug: received shutdown request");
 
 			if (euid)
 				goto badcred;
@@ -443,7 +443,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
-			log_info("mda paused");
+			log_info("info: mda paused");
 			env->sc_flags |= SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
@@ -459,7 +459,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
-			log_info("mta paused");
+			log_info("info: mta paused");
 			env->sc_flags |= SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
@@ -475,7 +475,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
-			log_info("smtp paused");
+			log_info("info: smtp paused");
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_PAUSE,			
 			    0, 0, -1, NULL, 0);
@@ -491,7 +491,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
-			log_info("mda resumed");
+			log_info("info: mda resumed");
 			env->sc_flags &= ~SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
@@ -507,7 +507,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
-			log_info("mta resumed");
+			log_info("info: mta resumed");
 			env->sc_flags &= ~SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
@@ -523,7 +523,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 					NULL, 0);
 				break;
 			}
-			log_info("smtp resumed");
+			log_info("info: smtp resumed");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_RESUME,
 			    0, 0, -1, NULL, 0);
@@ -566,7 +566,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			break;
 
 		default:
-			log_debug("control_dispatch_ext: "
+			log_debug("debug: control_dispatch_ext: "
 			    "error handling %s imsg",
 			    imsg_to_str(imsg.hdr.type));
 			break;

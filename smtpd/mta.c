@@ -119,7 +119,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			/* XXX honour route->maxrcpt */
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
 			stat_increment("mta.envelope", 1);
-			log_debug("mta: received evp:%016" PRIx64 " for <%s@%s>",
+			log_debug("debug: mta: received evp:%016" PRIx64 " for <%s@%s>",
 			    e->id, e->dest.user, e->dest.domain);
 			return;
 
@@ -209,7 +209,7 @@ mta_sig_handler(int sig, short event, void *p)
 static void
 mta_shutdown(void)
 {
-	log_info("mail transfer agent exiting");
+	log_info("info: mail transfer agent exiting");
 	_exit(0);
 }
 
@@ -321,7 +321,7 @@ mta_route_error(struct mta_route *route, const char *error)
 void
 mta_route_ok(struct mta_route *route)
 {
-	log_debug("mta: %s ready", mta_route_to_text(route));
+	log_debug("debug: mta: %s ready", mta_route_to_text(route));
 	route->nfail = 0;
 }
 
@@ -465,7 +465,7 @@ mta_route_drain(struct mta_route *route)
 	struct mta_task		*task;
 	struct envelope		*e;
 
-	log_debug("mta: draining %s (tasks=%i, refs=%i, sessions=%i)",
+	log_debug("debug: mta: draining %s (tasks=%i, refs=%i, sessions=%i)",
 	    mta_route_to_text(route),
 	    route->ntask, route->refcount, route->nsession);
 
@@ -476,7 +476,7 @@ mta_route_drain(struct mta_route *route)
 	}
 
 	if (route->ntask == 0) {
-		log_debug("mta: no task for %s", mta_route_to_text(route));
+		log_debug("debug: mta: no task for %s", mta_route_to_text(route));
 		return;
 	}
 
@@ -484,7 +484,7 @@ mta_route_drain(struct mta_route *route)
 		/* Three connection errors in a row: consider that the route
 		 * has a problem.
 		 */
-		log_debug("mta: too many failures on %s",
+		log_debug("debug: mta: too many failures on %s",
 		    mta_route_to_text(route));
 
 		while ((task = TAILQ_FIRST(&route->tasks))) {
@@ -504,7 +504,7 @@ mta_route_drain(struct mta_route *route)
 	while (route->nsession < route->ntask) {
 		/* if we have reached the max number of session, wait */
 		if (route->nsession >= route->maxconn) {
-			log_debug("mta: max conn reached for %s",
+			log_debug("debug: mta: max conn reached for %s",
 			    mta_route_to_text(route));
 			return;
 		}

@@ -121,7 +121,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_END:
 			TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
-				log_info("forking filter: %s", filter->name);
+				log_info("info: forking filter: %s", filter->name);
 				if (! mfa_fork_filter(filter))
 					fatalx("could not fork filter");
 			}
@@ -168,7 +168,7 @@ mfa_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-	log_info("mail filter exiting");
+	log_info("info: mail filter exiting");
 	_exit(0);
 }
 
