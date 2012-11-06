@@ -691,6 +691,7 @@ session_io(struct io *io, int evt)
 			return;
 		}
 
+		strlcpy(s->cmd, line, sizeof s->cmd);
 		session_line(s, line, len);
 		if (s->s_flags & F_KICK) {
 			session_destroy(s, "kick");
@@ -1152,7 +1153,7 @@ session_respond(struct session *s, char *fmt, ...)
 {
 	va_list	 ap;
 	int	 n, delay;
-	char	 buf[SMTP_LINE_MAX];
+	char	 buf[SMTP_LINE_MAX], tmp[SMTP_LINE_MAX];
 
 	va_start(ap, fmt);
 	n = vsnprintf(buf, sizeof buf, fmt, ap);
@@ -1173,8 +1174,9 @@ session_respond(struct session *s, char *fmt, ...)
 	switch (buf[0]) {
 	case '5':
 	case '4':
-		log_info("Failed command on session %016" PRIx64 ": %.*s",
-		    s->s_id, n, buf);
+		strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
+		log_info("Failed command on session %016" PRIx64
+		    ": \"%s\" => %.*s", s->s_id, tmp, n, buf);
 		break;
 	}
 
