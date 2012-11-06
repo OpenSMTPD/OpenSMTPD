@@ -545,6 +545,8 @@ struct session {
 	struct timeval			 s_tv;
 	struct envelope			 s_msg;
 	short				 s_nresp[STATE_COUNT];
+
+	char				 cmd[SMTP_LINE_MAX];
 	size_t				 kickcount;
 	size_t				 mailcount;
 	size_t				 rcptcount;
