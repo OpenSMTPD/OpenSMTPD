@@ -75,6 +75,9 @@ tarball()
 #
 snapshot()
 {
+    REMOTEHOST=ssh.poolp.org
+    REMOTEDIR=/var/www/virtual/org.opensmtpd/archives/
+
     TARBALL=`build_tarball ${1}`
     SNAPSHOT=opensmtpd-`date +%Y%m%d%H%M%S`
     if test "${1}" = "portable"; then
@@ -96,11 +99,18 @@ snapshot()
 	exit 1
     fi
 
-    scp -pr ${FILES}/${SNAPSHOT}.tar.gz ssh.poolp.org:/var/nginx/virtual/org.opensmtpd/archives/
+    
+    scp -pr ${FILES}/${SNAPSHOT}.tar.gz ${REMOTEHOST}:${REMOTEDIR}
     if test $? != 0; then
 	echo "Error: could not publish snapshot !" >&2
 	git tag -d ${SNAPSHOT}
 	exit 1
+    fi
+
+    if test "${1}" = "master"; then
+	ssh ${REMOTEHOST} "cd ${REMOTEDIR}; rm -f opensmtpd-latest.tar.gz; ln -s ${SNAPSHOT} opensmtpd-latest.tar.gz"
+    else
+	ssh ${REMOTEHOST} "cd ${REMOTEDIR}; rm -f opensmtpd-portable-latest.tar.gz; ln -s ${SNAPSHOT} opensmtpd-portable-latest.tar.gz"
     fi
 
     TMP=`mktemp /tmp/publish.XXXXXXXX` || {
@@ -144,7 +154,7 @@ EOF
     if test "${DEBUG}" = "1"; then
 	mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" `whoami` < ${TMP}
     else
-	ssh ssh.poolp.org "mail -s '[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available' misc@opensmtpd.org" < ${TMP}
+	ssh ${REMOTEHOST} "mail -s '[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available' misc@opensmtpd.org" < ${TMP}
     fi
 
     if test $? != 0; then
