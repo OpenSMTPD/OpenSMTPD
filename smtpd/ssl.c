@@ -193,8 +193,8 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	if (s->ssl_dhparams == NULL) {
 		if (errno == EACCES)
 			goto err;
-		log_info("info: no DH parameters found in %s", certfile);
-		log_info("info: using built-in DH parameters");
+		log_info("info: no DH parameters found in %s: "
+		    "using built-in parameters", certfile);
 	}
 
 	SPLAY_INSERT(ssltree, env->sc_ssl, s);
