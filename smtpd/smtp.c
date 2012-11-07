@@ -392,15 +392,10 @@ smtp_setup_events(void)
 		ssl_setup(l);
 	}
 
-<<<<<<< HEAD
 	/* XXX chl */
-	log_debug("smtp: will accept at most %d clients",
+	log_debug("debug: smtp: will accept at most %d clients",
 	    /* (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE); */
 	    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE);
-=======
-	log_debug("debug: smtp: will accept at most %d clients",
-	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
->>>>>>> master
 }
 
 static void
