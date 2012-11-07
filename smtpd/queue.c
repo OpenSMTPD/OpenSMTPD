@@ -304,6 +304,7 @@ queue_bounce(struct envelope *e)
 		msgid = evpid_to_msgid(b.id);
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid, sizeof msgid);
+		stat_increment("queue.bounce", 1);
 	}
 }
 
