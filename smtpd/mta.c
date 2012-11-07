@@ -305,6 +305,22 @@ mta_response_delivery(const char *r)
 }
 
 const char *
+mta_response_prefix(const char *r)
+{
+	switch (r[0]) {
+	case '2':
+		return "ok";
+	case '5':
+	case '6':
+		if (r[1] == '4' && r[2] == '6')
+			return "loop";
+		return "permfail";
+	default:
+		return "tempfail";
+	}
+}
+
+const char *
 mta_response_text(const char *r)
 {
 	return (r + 4);
@@ -516,13 +532,13 @@ mta_route_drain(struct mta_route *route)
 static void
 mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 {
-	char	relay[MAX_LINE_SIZE];
+	char	 relay[MAX_LINE_SIZE];
 
 	envelope_set_errormsg(e, "%s", status);
 
 	snprintf(relay, sizeof relay, "relay=%s, ", task->route->hostname);
-	log_envelope(e, relay, e->errorline);
 
+	log_envelope(e, relay, mta_response_prefix(e->errorline), e->errorline);
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));
 	TAILQ_REMOVE(&task->envelopes, e, entry);

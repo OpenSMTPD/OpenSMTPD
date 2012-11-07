@@ -851,7 +851,8 @@ mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 	snprintf(stat, sizeof stat, "%s (%s)",
 	    mta_response_status(e->errorline),
 	    mta_response_text(e->errorline));
-	log_envelope(e, relay, stat);
+
+	log_envelope(e, relay, mta_response_prefix(e->errorline), stat);
 
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));

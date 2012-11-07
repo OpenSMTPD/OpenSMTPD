@@ -297,7 +297,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				envelope_set_errormsg(s->evp, "%s", error);
 				snprintf(stat, sizeof stat, "Error (%s)", error);
 			}
-			log_envelope(s->evp, NULL, error ? stat : "Delivered");
+			log_envelope(s->evp, NULL, error ? "tempfail" : "ok",
+				     error ? stat : "Delivered");
 			mda_done(s, msg);
 			return;
 
