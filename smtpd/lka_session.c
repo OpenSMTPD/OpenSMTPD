@@ -115,12 +115,12 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 
 	if (fd == -1 && fwreq->status) {
 		/* no .forward, just deliver to local user */
-		log_debug("lka: no .forward for user %s, just deliver",
+		log_debug("debug: lka: no .forward for user %s, just deliver",
 		    fwreq->as_user);
 		lka_submit(lks, rule, xn);
 	}
 	else if (fd == -1) {
-		log_debug("lka: opening .forward failed for user %s",
+		log_debug("debug: lka: opening .forward failed for user %s",
 		    fwreq->as_user);
 		lks->ss.code = 530;
 		lks->flags |= F_ERROR;
@@ -161,7 +161,7 @@ lka_resume(struct lka_session *lks)
 
 	/* delivery list is empty, reject */
 	if (TAILQ_FIRST(&lks->deliverylist) == NULL) {
-		log_info("lka_done: expansion led to empty delivery list");
+		log_info("info: lka_done: expansion led to empty delivery list");
 		lks->flags |= F_ERROR;
 	}
     error:
@@ -202,7 +202,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	int			r;
 
 	if (xn->depth >= EXPAND_DEPTH) {
-		log_debug("lka_expand: node too deep.");
+		log_debug("debug: lka_expand: node too deep.");
 		lks->flags |= F_ERROR;
 		lks->ss.code = 530;
 		return;
@@ -215,7 +215,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_ADDRESS:
-		log_debug("lka_expand: expanding address: %s@%s [depth=%d]",
+		log_debug("debug: lka_expand: expanding address: %s@%s [depth=%d]",
 		    xn->u.mailaddr.user, xn->u.mailaddr.domain, xn->depth);
 
 		/* Pass the node through the ruleset */
@@ -248,7 +248,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			else if (r == 0) {
 				lks->flags |= F_ERROR;
 				lks->ss.code = 530;
-				log_debug("lka_expand: no aliases for virtual");
+				log_debug("debug: lka_expand: no aliases for virtual");
 			}
 		}
 		else {
@@ -263,10 +263,10 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_USERNAME:
-		log_debug("lka_expand: expanding username: %s [depth=%d]", xn->u.user, xn->depth);
+		log_debug("debug: lka_expand: expanding username: %s [depth=%d]", xn->u.user, xn->depth);
 
 		if (xn->sameuser) {
-			log_debug("lka_expand: same user, submitting");
+			log_debug("debug: lka_expand: same user, submitting");
 			lka_submit(lks, rule, xn);
 			break;
 		}
@@ -278,7 +278,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		if (rule->r_amap) {
 			r = aliases_get(rule->r_amap, &lks->expand, xn->u.user);
 			if (r == -1) {
-				log_debug("lka_expand: error in alias lookup");
+				log_debug("debug: lka_expand: error in alias lookup");
 				lks->flags |= F_ERROR;
 				lks->ss.code = 451;
 			}
@@ -288,7 +288,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		/* a username should not exceed the size of a system user */
 		if (strlen(xn->u.user) >= sizeof fwreq.as_user) {
-			log_debug("lka_expand: user-part too long to be a system user");
+			log_debug("debug: lka_expand: user-part too long to be a system user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
 			break;
@@ -296,7 +296,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		pw = getpwnam(xn->u.user);
 		if (pw == NULL) {
-			log_debug("lka_expand: user-part does not match system user");
+			log_debug("debug: lka_expand: user-part does not match system user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
 			break;
@@ -318,12 +318,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILENAME:
-		log_debug("lka_expand: expanding filename: %s [depth=%d]", xn->u.buffer, xn->depth);
+		log_debug("debug: lka_expand: expanding filename: %s [depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 
 	case EXPAND_FILTER:
-		log_debug("lka_expand: expanding filter: %s [depth=%d]", xn->u.buffer, xn->depth);
+		log_debug("debug: lka_expand: expanding filter: %s [depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 	}
@@ -335,7 +335,7 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 	while(xn && (xn->type != type))
 		xn = xn->parent;
 	if (xn == NULL) {
-		log_warnx("lka_find_ancestor: no ancestors of type %i", type);
+		log_warnx("warn: lka_find_ancestor: no ancestors of type %i", type);
 		fatalx(NULL);
 	}
 	return (xn);
@@ -414,7 +414,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 					sizeof(ep->agent.mda.buffer), ep)) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
-			log_warnx("format string result too long while "
+			log_warnx("warn: format string result too long while "
 			    " expanding for user %s", ep->agent.mda.user);
 			free(ep);
 			return;

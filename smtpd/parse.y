@@ -326,7 +326,7 @@ main		: QUEUE INTERVAL interval	{
 			if ($2) {
 				conf->sc_queue_flags |= QUEUE_COMPRESS;
 				conf->sc_queue_compress_algo = strdup($2);
-				log_debug("queue compress using %s",
+				log_debug("debug: queue compress using %s",
 				    conf->sc_queue_compress_algo);
 			}
 			if ($2 == NULL) {
@@ -1254,15 +1254,15 @@ check_file_secrecy(int fd, const char *fname)
 	struct stat	st;
 
 	if (fstat(fd, &st)) {
-		log_warn("cannot stat %s", fname);
+		log_warn("warn: cannot stat %s", fname);
 		return (-1);
 	}
 	if (st.st_uid != 0 && st.st_uid != getuid()) {
-		log_warnx("%s: owner not root or current user", fname);
+		log_warnx("warn: %s: owner not root or current user", fname);
 		return (-1);
 	}
 	if (st.st_mode & (S_IRWXG | S_IRWXO)) {
-		log_warnx("%s: group/world readable/writeable", fname);
+		log_warnx("warn: %s: group/world readable/writeable", fname);
 		return (-1);
 	}
 	return (0);
@@ -1274,16 +1274,16 @@ pushfile(const char *name, int secret)
 	struct file	*nfile;
 
 	if ((nfile = calloc(1, sizeof(struct file))) == NULL) {
-		log_warn("malloc");
+		log_warn("warn: malloc");
 		return (NULL);
 	}
 	if ((nfile->name = strdup(name)) == NULL) {
-		log_warn("malloc");
+		log_warn("warn: malloc");
 		free(nfile);
 		return (NULL);
 	}
 	if ((nfile->stream = fopen(nfile->name, "r")) == NULL) {
-		log_warn("%s", nfile->name);
+		log_warn("warn: %s", nfile->name);
 		free(nfile->name);
 		free(nfile);
 		return (NULL);
@@ -1336,7 +1336,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	    conf->sc_listeners == NULL	||
 	    conf->sc_ssl == NULL	||
 	    conf->sc_filters == NULL) {
-		log_warn("cannot allocate memory");
+		log_warn("warn: cannot allocate memory");
 		free(conf->sc_maps);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
@@ -1397,14 +1397,14 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	}
 
 	if (TAILQ_EMPTY(conf->sc_rules)) {
-		log_warnx("no rules, nothing to do");
+		log_warnx("warn: no rules, nothing to do");
 		errors++;
 	}
 
 	if (strlen(conf->sc_hostname) == 0)
 		if (gethostname(conf->sc_hostname,
 		    sizeof(conf->sc_hostname)) == -1) {
-			log_warn("could not determine host name");
+			log_warn("warn: could not determine host name");
 			bzero(conf->sc_hostname, sizeof(conf->sc_hostname));
 			errors++;
 		}
@@ -1554,7 +1554,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 	if (error == EAI_AGAIN || error == EAI_NODATA || error == EAI_NONAME)
 		return (0);
 	if (error) {
-		log_warnx("host_dns: could not parse \"%s\": %s", s,
+		log_warnx("warn: host_dns: could not parse \"%s\": %s", s,
 		    gai_strerror(error));
 		return (-1);
 	}
@@ -1597,7 +1597,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 		cnt++;
 	}
 	if (cnt == max && res) {
-		log_warnx("host_dns: %s resolves to more than %d hosts",
+		log_warnx("warn: host_dns: %s resolves to more than %d hosts",
 		    s, max);
 	}
 	freeaddrinfo(res0);

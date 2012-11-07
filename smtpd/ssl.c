@@ -84,13 +84,13 @@ ssl_load_file(const char *name, off_t *len, mode_t perm)
 	if (fstat(fd, &st) != 0)
 		goto fail;
 	if (st.st_uid != 0) {
-		log_info("%s: not owned by uid 0", name);
+		log_warnx("warn:  %s: not owned by uid 0", name);
 		errno = EACCES;
 		goto fail;
 	}
 	if (st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & ~perm) {
 		strmode(perm, mode);
-		log_info("%s: insecure permissions: must be at most %s",
+		log_warnx("warn:  %s: insecure permissions: must be at most %s",
 		    name, &mode[1]);
 		errno = EACCES;
 		goto fail;
@@ -149,7 +149,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 
 	if (strlcpy(key.ssl_name, name, sizeof(key.ssl_name))
 	    >= sizeof(key.ssl_name)) {
-		log_warn("ssl_load_certfile: certificate name truncated");
+		log_warnx("warn:  ssl_load_certfile: certificate name truncated");
 		return -1;
 	}
 
@@ -189,7 +189,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	if (s->ssl_ca == NULL) {
 		if (errno == EACCES)
 			goto err;
-		log_info("no CA found in %s", certfile);
+		log_warnx("warn:  no CA found in %s", certfile);
 	}
 
 	if (! bsnprintf(certfile, sizeof(certfile),
@@ -200,8 +200,8 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	if (s->ssl_dhparams == NULL) {
 		if (errno == EACCES)
 			goto err;
-		log_info("no DH parameters found in %s", certfile);
-		log_info("using built-in DH parameters");
+		log_info("info: No DH parameters found in %s: "
+		    "using built-in parameters", certfile);
 	}
 
 	SPLAY_INSERT(ssltree, env->sc_ssl, s);
@@ -278,7 +278,7 @@ ssl_setup(struct listener *l)
 	ssl_set_ephemeral_key_exchange(l->ssl_ctx, dh);
 	DH_free(dh);
 
-	log_debug("ssl_setup: ssl setup finished for listener: %p", l);
+	log_debug("debug: ssl_setup: ssl setup finished for listener: %p", l);
 	return;
 
 err:
@@ -312,7 +312,7 @@ ssl_error(const char *where)
 		return;
 	for (; (code = ERR_get_error()) != 0 ;) {
 		ERR_error_string_n(code, errbuf, sizeof(errbuf));
-		log_debug("SSL library error: %s: %s", where, errbuf);
+		log_debug("debug: SSL library error: %s: %s", where, errbuf);
 	}
 }
 
@@ -400,7 +400,7 @@ ssl_smtp_init(void *ssl_ctx)
 {
 	SSL *ssl;
 
-	log_debug("session_start_ssl: switching to SSL");
+	log_debug("debug: session_start_ssl: switching to SSL");
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
                 goto err;

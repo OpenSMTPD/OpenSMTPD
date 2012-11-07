@@ -57,7 +57,7 @@ stat_increment(const char *name, size_t count)
 	s = buf + sizeof *value;
 	if ((len = strlcpy(s, name, STAT_KEY_SIZE)) >= STAT_KEY_SIZE) {
 		len = STAT_KEY_SIZE - 1;
-		log_warn("stat_increment: truncated key '%s', ignored", name);
+		log_warn("warn: stat_increment: truncated key '%s', ignored", name);
 	}
 
 	imsg_compose_event(env->sc_ievs[PROC_CONTROL],
@@ -76,7 +76,7 @@ stat_decrement(const char *name, size_t count)
 	s = buf + sizeof *value;
 	if ((len = strlcpy(s, name, STAT_KEY_SIZE)) >= STAT_KEY_SIZE) {
 		len = STAT_KEY_SIZE - 1;
-		log_warn("stat_increment: truncated key '%s', ignored", name);
+		log_warn("warn: stat_increment: truncated key '%s', ignored", name);
 	}
 
 	imsg_compose_event(env->sc_ievs[PROC_CONTROL],
@@ -93,7 +93,7 @@ stat_set(const char *name, const struct stat_value *value)
 	s = buf + sizeof *value;
 	if ((len = strlcpy(s, name, STAT_KEY_SIZE)) >= STAT_KEY_SIZE) {
 		len = STAT_KEY_SIZE - 1;
-		log_warn("stat_increment: truncated key '%s', ignored", name);
+		log_warn("warn: stat_increment: truncated key '%s', ignored", name);
 	}
 
 	imsg_compose_event(env->sc_ievs[PROC_CONTROL],

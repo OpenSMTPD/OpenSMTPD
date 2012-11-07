@@ -361,8 +361,8 @@ enum delivery_type {
 };
 
 enum delivery_status {
-	DS_PERMFAILURE	= 0x1,
-	DS_TEMPFAILURE	= 0x2,
+	DS_PERMFAILURE	= 1,
+	DS_TEMPFAILURE	= 2,
 };
 
 enum delivery_flags {
@@ -566,6 +566,8 @@ struct session {
 	struct timeval			 s_tv;
 	struct envelope			 s_msg;
 	short				 s_nresp[STATE_COUNT];
+
+	char				 cmd[SMTP_LINE_MAX];
 	size_t				 kickcount;
 	size_t				 mailcount;
 	size_t				 rcptcount;
@@ -1039,6 +1041,7 @@ void mfa_session(struct submit_status *, enum session_state);
 /* mta.c */
 pid_t mta(void);
 int mta_response_delivery(const char *);
+const char *mta_response_prefix(const char *);
 const char *mta_response_status(const char *);
 const char *mta_response_text(const char *);
 void mta_route_ok(struct mta_route *);
@@ -1216,7 +1219,8 @@ char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
 void iobuf_xinit(struct iobuf *, size_t, size_t, const char *);
 void iobuf_xfqueue(struct iobuf *, const char *, const char *, ...);
-void log_envelope(const struct envelope *, const char *, const char *);
+void log_envelope(const struct envelope *, const char *, const char *,
+    const char *);
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);

@@ -262,13 +262,13 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_SMTP_PAUSE:
-			log_debug("smtp: pausing listening sockets");
+			log_debug("debug: smtp: pausing listening sockets");
 			smtp_pause();
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			return;
 
 		case IMSG_SMTP_RESUME:
-			log_debug("smtp: resuming listening sockets");
+			log_debug("debug: smtp: resuming listening sockets");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			smtp_resume();
 			return;
@@ -301,7 +301,7 @@ smtp_shutdown(void)
 	event_base_free(NULL);
 #endif
 
-	log_info("smtp server exiting");
+	log_info("info: smtp server exiting");
 	_exit(0);
 }
 
@@ -377,7 +377,7 @@ smtp_setup_events(void)
 	struct listener *l;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		log_debug("smtp: listen on %s port %d flags 0x%01x"
+		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
 		    " cert \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->ssl_cert_name);
 
@@ -392,10 +392,15 @@ smtp_setup_events(void)
 		ssl_setup(l);
 	}
 
+<<<<<<< HEAD
 	/* XXX chl */
 	log_debug("smtp: will accept at most %d clients",
 	    /* (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE); */
 	    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE);
+=======
+	log_debug("debug: smtp: will accept at most %d clients",
+	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
+>>>>>>> master
 }
 
 static void
@@ -476,14 +481,14 @@ smtp_accept(int fd, short event, void *p)
 	socklen_t		 len;
 
 	if ((s = smtp_new(l)) == NULL) {
-		log_warnx("smtp: client limit hit, disabling incoming connections");
+		log_warnx("warn: smtp: client limit hit, disabling incoming connections");
 		goto pause;
 	}
 
 	len = sizeof(s->s_ss);
 	if ((s->s_io.sock = accept(fd, (struct sockaddr *)&s->s_ss, &len)) == -1) {
 		if (errno == ENFILE || errno == EMFILE) {
-			log_warnx("smtp: fd exhaustion, disabling incoming connections");
+			log_warnx("warn: smtp: fd exhaustion, disabling incoming connections");
 			goto pause;
 		}
 		if (errno == EINTR || errno == ECONNABORTED)
@@ -508,7 +513,7 @@ smtp_new(struct listener *l)
 {
 	struct session	*s;
 
-	log_debug("smtp: new client on listener: %p", l);
+	log_debug("debug: smtp: new client on listener: %p", l);
 
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_new: unexpected client");
@@ -550,7 +555,7 @@ smtp_destroy(struct session *session)
 		return;
 
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
-		log_warnx("smtp: fd exaustion over, re-enabling incoming connections");
+		log_warnx("warn: smtp: fd exaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}

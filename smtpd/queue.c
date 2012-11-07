@@ -154,7 +154,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
-			log_envelope(&evp, NULL, "Removed by administrator");
+			log_envelope(&evp, NULL, "Remove",
+			    "Removed by administrator");
 			queue_envelope_delete(&evp);
 			return;
 
@@ -164,7 +165,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			envelope_set_errormsg(&evp, "Envelope expired");
 			queue_bounce(&evp);
-			log_envelope(&evp, NULL, evp.errorline);
+			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(&evp);
 			return;
 
@@ -298,13 +299,13 @@ queue_bounce(struct envelope *e)
 	b.expire = 3600 * 24 * 7;
 
 	if (e->type == D_BOUNCE) {
-		log_warnx("queue: double bounce!");
+		log_warnx("warn: queue: double bounce!");
 	} else if (e->sender.user[0] == '\0') {
-		log_warnx("queue: no return path!");
+		log_warnx("warn: queue: no return path!");
 	} else if (!queue_envelope_create(&b)) {
-		log_warnx("queue: cannot bounce!");
+		log_warnx("warn: queue: cannot bounce!");
 	} else {
-		log_debug("queue: bouncing evp:%016" PRIx64
+		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &b, sizeof b);
@@ -337,7 +338,7 @@ queue_shutdown(void)
 	event_base_free(NULL);
 #endif
 
-	log_info("queue handler exiting");
+	log_info("info: queue handler exiting");
 	_exit(0);
 }
 
@@ -426,7 +427,7 @@ queue_timeout(int fd, short event, void *p)
 	uint64_t		 evpid;
 
 	if (q == NULL) {
-		log_debug("queue: loading queue into scheduler");
+		log_debug("debug: queue: loading queue into scheduler");
 		q = qwalk_new(0);
 	}
 
@@ -454,6 +455,6 @@ queue_timeout(int fd, short event, void *p)
 		    sizeof last_msgid);
 	}
 
-	log_debug("queue: done loading queue into scheduler");
+	log_debug("debug: queue: done loading queue into scheduler");
 	qwalk_close(q);
 }

@@ -114,7 +114,7 @@ map_file_open(struct map *map)
 
 	map->m_handle = mp;
 
-	log_info("map_file_open: initialized map \"%s\" from %s",
+	log_info("info: map_file_open: initialized map \"%s\" from %s",
 	    map->m_name, map->m_config);
 
 	return mp;
@@ -137,7 +137,7 @@ map_file_update(struct map *map)
 
 	fp = fopen(map->m_config, "r");
 	if (fp == NULL) {
-		log_info("map_file_update: could not update map \"%s\" from %s: %s",
+		log_info("info: map_file_update: could not update map \"%s\" from %s: %s",
 		    map->m_name, map->m_config, strerror(errno));
 		return;
 	}
@@ -152,7 +152,7 @@ map_file_update(struct map *map)
 	}
 
 	map->m_handle = mp;
-	log_info("map_file_update: updated map \"%s\" from %s",
+	log_info("info: map_file_update: updated map \"%s\" from %s",
 	    map->m_name, map->m_config);
 }
 

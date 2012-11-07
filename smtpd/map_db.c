@@ -133,7 +133,7 @@ map_db_compare(void *hdl, const char *key, enum map_kind kind,
 	for (r = db->seq(db, &dbk, &dbd, R_FIRST); !r;
 	     r = db->seq(db, &dbk, &dbd, R_NEXT)) {
 		buf = xmemdup(dbk.data, dbk.size + 1, "map_db_compare");
-		log_debug("key: %s, buf: %s", key, buf);
+		log_debug("debug: key: %s, buf: %s", key, buf);
 		if (func(key, buf))
 			ret = 1;
 		free(buf);
