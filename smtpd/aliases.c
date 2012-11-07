@@ -157,11 +157,11 @@ aliases_expand_include(struct expand *expand, const char *filename)
 		}
 
 		if (! alias_parse(&xn, line)) {
-			log_warnx("could not parse include entry \"%s\".", line);
+			log_warnx("warn: could not parse include entry \"%s\".", line);
 		}
 
 		if (xn.type == EXPAND_INCLUDE)
-			log_warnx("nested inclusion is not supported.");
+			log_warnx("warn: nested inclusion is not supported.");
 		else
 			expand_insert(expand, &xn);
 

@@ -331,7 +331,7 @@ mta_route_error(struct mta_route *route, const char *error)
 {
 	route->nfail += 1;
 	strlcpy(route->errorline, error, sizeof route->errorline);
-	log_warnx("mta: %s error: %s", mta_route_to_text(route), error);
+	log_warnx("warn: mta: %s error: %s", mta_route_to_text(route), error);
 }
 
 void

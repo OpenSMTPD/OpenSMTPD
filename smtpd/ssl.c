@@ -77,13 +77,13 @@ ssl_load_file(const char *name, off_t *len, mode_t perm)
 	if (fstat(fd, &st) != 0)
 		goto fail;
 	if (st.st_uid != 0) {
-		log_warnx("warn: %s: not owned by uid 0", name);
+		log_warnx("warn:  %s: not owned by uid 0", name);
 		errno = EACCES;
 		goto fail;
 	}
 	if (st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & ~perm) {
 		strmode(perm, mode);
-		log_warnx("warn: %s: insecure permissions: must be at most %s",
+		log_warnx("warn:  %s: insecure permissions: must be at most %s",
 		    name, &mode[1]);
 		errno = EACCES;
 		goto fail;
@@ -142,7 +142,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 
 	if (strlcpy(key.ssl_name, name, sizeof(key.ssl_name))
 	    >= sizeof(key.ssl_name)) {
-		log_warnx("warn: ssl_load_certfile: certificate name truncated");
+		log_warnx("warn:  ssl_load_certfile: certificate name truncated");
 		return -1;
 	}
 
@@ -182,7 +182,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	if (s->ssl_ca == NULL) {
 		if (errno == EACCES)
 			goto err;
-		log_warnx("warn: no CA found in %s", certfile);
+		log_warnx("warn:  no CA found in %s", certfile);
 	}
 
 	if (! bsnprintf(certfile, sizeof(certfile),

@@ -463,14 +463,14 @@ smtp_accept(int fd, short event, void *p)
 	socklen_t		 len;
 
 	if ((s = smtp_new(l)) == NULL) {
-		log_warnx("smtp: client limit hit, disabling incoming connections");
+		log_warnx("warn: smtp: client limit hit, disabling incoming connections");
 		goto pause;
 	}
 
 	len = sizeof(s->s_ss);
 	if ((s->s_io.sock = accept(fd, (struct sockaddr *)&s->s_ss, &len)) == -1) {
 		if (errno == ENFILE || errno == EMFILE) {
-			log_warnx("smtp: fd exhaustion, disabling incoming connections");
+			log_warnx("warn: smtp: fd exhaustion, disabling incoming connections");
 			goto pause;
 		}
 		if (errno == EINTR || errno == ECONNABORTED)
@@ -537,7 +537,7 @@ smtp_destroy(struct session *session)
 		return;
 
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
-		log_warnx("smtp: fd exaustion over, re-enabling incoming connections");
+		log_warnx("warn: smtp: fd exaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}

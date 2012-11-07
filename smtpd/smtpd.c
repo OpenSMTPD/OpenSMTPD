@@ -247,7 +247,7 @@ parent_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-	log_warnx("parent terminating");
+	log_warnx("warn: parent terminating");
 	exit(0);
 }
 
@@ -422,7 +422,7 @@ parent_sig_handler(int sig, short event, void *p)
 			case CHILD_DAEMON:
 				die = 1;
 				if (fail)
-					log_warnx("lost child: %s %s",
+					log_warnx("warn: lost child: %s %s",
 					    child->title, cause);
 				break;
 
@@ -448,7 +448,7 @@ parent_sig_handler(int sig, short event, void *p)
 
 			case CHILD_ENQUEUE_OFFLINE:
 				if (fail)
-					log_warnx("smtpd: couldn't enqueue offline "
+					log_warnx("warn: smtpd: couldn't enqueue offline "
 					    "message %s; smtpctl %s", child->path, cause);
 				else
 					unlink(child->path);
@@ -516,7 +516,7 @@ main(int argc, char *argv[])
 			else if (strstr(optarg, "stat=") == optarg)
 				backend_stat = strchr(optarg, '=') + 1;
 			else
-				log_warnx("invalid backend specifier %s", optarg);
+				log_warnx("warn: invalid backend specifier %s", optarg);
 			break;
 		case 'd':
 			debug = 2;
@@ -524,7 +524,7 @@ main(int argc, char *argv[])
 			break;
 		case 'D':
 			if (cmdline_symset(optarg) < 0)
-				log_warnx("could not parse macro definition %s",
+				log_warnx("warn: could not parse macro definition %s",
 				    optarg);
 			break;
 		case 'n':
@@ -558,7 +558,7 @@ main(int argc, char *argv[])
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else
-				log_warnx("unknown trace flag \"%s\"", optarg);
+				log_warnx("warn: unknown trace flag \"%s\"", optarg);
 			break;
 		case 'P':
 			if (!strcmp(optarg, "smtp"))
@@ -981,7 +981,7 @@ offline_scan(int fd, short ev, void *arg)
 			continue;
 
 		if (offline_add(d->d_name)) {
-			log_warnx("smtpd: could not add offline message %s", d->d_name);
+			log_warnx("warn: smtpd: could not add offline message %s", d->d_name);
 			continue;
 		}
 
@@ -1008,7 +1008,7 @@ offline_enqueue(char *name)
 	struct passwd	*pw;
 
 	if (!bsnprintf(t, sizeof t, "%s/%s", PATH_SPOOL PATH_OFFLINE, name)) {
-		log_warnx("smtpd: path name too long");
+		log_warnx("warn: smtpd: path name too long");
 		return (-1);
 	}
 
@@ -1045,14 +1045,14 @@ offline_enqueue(char *name)
 
 		pw = getpwuid(sb.st_uid);
 		if (pw == NULL) {
-			log_warnx("smtpd: getpwuid for uid %d failed",
+			log_warnx("warn: smtpd: getpwuid for uid %d failed",
 			    sb.st_uid);
 			_exit(1);
 		}
 		
 
 		if (! S_ISREG(sb.st_mode)) {
-			log_warnx("smtpd: file %s (uid %d) not regular",
+			log_warnx("warn: smtpd: file %s (uid %d) not regular",
 			    path, sb.st_uid);
 			_exit(1);
 		}
@@ -1164,7 +1164,7 @@ parent_forward_open(char *username)
 	}
 
 	if (! secure_file(fd, pathname, u.directory, u.uid, 1)) {
-		log_warnx("smtpd: %s: unsecure file", pathname);
+		log_warnx("warn: smtpd: %s: unsecure file", pathname);
 		close(fd);
 		return -1;
 	}

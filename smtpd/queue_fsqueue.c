@@ -136,7 +136,7 @@ fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
 	}
 
 	if ((size_t) w != evplen) {
-		log_warnx("fsqueue_envelope_dump_atomic: partial write");
+		log_warnx("warn: fsqueue_envelope_dump_atomic: partial write");
 		goto tempfail;
 	}
 

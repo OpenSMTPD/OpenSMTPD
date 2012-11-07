@@ -287,7 +287,7 @@ control_accept(int listenfd, short event, void *arg)
 	return;
 
 pause:
-	log_warnx("ctl client limit hit, disabling new connections");
+	log_warnx("warn: ctl client limit hit, disabling new connections");
 	event_del(&control_state.ev);
 }
 
@@ -318,7 +318,7 @@ control_close(struct ctl_conn *c)
 		return;
 
 	if (!event_pending(&control_state.ev, EV_READ, NULL)) {
-		log_warnx("re-enabling ctl connections");
+		log_warnx("warn: re-enabling ctl connections");
 		event_add(&control_state.ev, NULL);
 	}
 }

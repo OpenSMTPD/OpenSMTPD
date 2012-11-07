@@ -328,7 +328,7 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 	while(xn && (xn->type != type))
 		xn = xn->parent;
 	if (xn == NULL) {
-		log_warnx("lka_find_ancestor: no ancestors of type %i", type);
+		log_warnx("warn: lka_find_ancestor: no ancestors of type %i", type);
 		fatalx(NULL);
 	}
 	return (xn);
@@ -407,7 +407,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 					sizeof(ep->agent.mda.buffer), ep)) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
-			log_warnx("format string result too long while "
+			log_warnx("warn: format string result too long while "
 			    " expanding for user %s", ep->agent.mda.user);
 			free(ep);
 			return;

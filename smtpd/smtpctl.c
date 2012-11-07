@@ -351,7 +351,7 @@ again:
 
 			if (strcmp(kvp->key, "uptime") == 0) {
 				duration = time(NULL) - kvp->val.u.counter;
-				printf("uptime=%zd\n", duration); 
+				printf("uptime=%zd\n", (size_t)duration); 
 				printf("uptime.human=%s\n",
 				    duration_to_text(duration));
 			} else {

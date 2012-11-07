@@ -1252,11 +1252,11 @@ check_file_secrecy(int fd, const char *fname)
 		return (-1);
 	}
 	if (st.st_uid != 0 && st.st_uid != getuid()) {
-		log_warnx("%s: owner not root or current user", fname);
+		log_warnx("warn: %s: owner not root or current user", fname);
 		return (-1);
 	}
 	if (st.st_mode & (S_IRWXG | S_IRWXO)) {
-		log_warnx("%s: group/world readable/writeable", fname);
+		log_warnx("warn: %s: group/world readable/writeable", fname);
 		return (-1);
 	}
 	return (0);
@@ -1391,7 +1391,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	}
 
 	if (TAILQ_EMPTY(conf->sc_rules)) {
-		log_warnx("no rules, nothing to do");
+		log_warnx("warn: no rules, nothing to do");
 		errors++;
 	}
 
@@ -1544,7 +1544,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 	if (error == EAI_AGAIN || error == EAI_NODATA || error == EAI_NONAME)
 		return (0);
 	if (error) {
-		log_warnx("host_dns: could not parse \"%s\": %s", s,
+		log_warnx("warn: host_dns: could not parse \"%s\": %s", s,
 		    gai_strerror(error));
 		return (-1);
 	}
@@ -1583,7 +1583,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 		cnt++;
 	}
 	if (cnt == max && res) {
-		log_warnx("host_dns: %s resolves to more than %d hosts",
+		log_warnx("warn: host_dns: %s resolves to more than %d hosts",
 		    s, max);
 	}
 	freeaddrinfo(res0);

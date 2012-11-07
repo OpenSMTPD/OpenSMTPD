@@ -291,11 +291,11 @@ queue_bounce(struct envelope *e)
 	b.expire = 3600 * 24 * 7;
 
 	if (e->type == D_BOUNCE) {
-		log_warnx("queue: double bounce!");
+		log_warnx("warn: queue: double bounce!");
 	} else if (e->sender.user[0] == '\0') {
-		log_warnx("queue: no return path!");
+		log_warnx("warn: queue: no return path!");
 	} else if (!queue_envelope_create(&b)) {
-		log_warnx("queue: cannot bounce!");
+		log_warnx("warn: queue: cannot bounce!");
 	} else {
 		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
