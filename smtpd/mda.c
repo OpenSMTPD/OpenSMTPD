@@ -381,7 +381,6 @@ mda(void)
 		fatal("mda: chdir(\"/\")");
 
 	smtpd_process = PROC_MDA;
-	log_debug("start %s", env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||

@@ -341,7 +341,6 @@ smtp(void)
 		fatal("smtp: chdir(\"/\")");
 
 	smtpd_process = PROC_SMTP;
-	log_debug("start %s",env->sc_title[smtpd_process]); 
 	setproctitle("%s", env->sc_title[smtpd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||
