@@ -214,6 +214,7 @@ enum imsg_type {
 	IMSG_STAT_DECREMENT,
 	IMSG_STAT_SET,
 
+	IMSG_DIGEST,
 	IMSG_STATS,
 	IMSG_STATS_GET,
 };
@@ -924,6 +925,25 @@ struct stat_backend {
 	int	(*iter)(void **, char **, struct stat_value *);
 };
 
+struct stat_digest {
+	time_t			 startup;
+	time_t			 timestamp;
+
+	size_t			 clt_connect;
+	size_t			 clt_disconnect;
+
+	size_t			 evp_enqueued;
+	size_t			 evp_dequeued;
+
+	size_t			 evp_expired;
+	size_t			 evp_removed;
+	size_t			 evp_bounce;
+
+	size_t			 dlv_ok;
+	size_t			 dlv_permfail;
+	size_t			 dlv_tempfail;
+	size_t			 dlv_loop;
+};
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct imsgev *, struct imsg *);

@@ -67,10 +67,14 @@ static void control_close(struct ctl_conn *);
 static void control_sig_handler(int, short, void *);
 static void control_dispatch_ext(int, short, void *);
 
+static void control_digest_update(const char *, size_t, int);
+
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
 
 static TAILQ_HEAD(, ctl_conn)	ctl_conns;
+
+static struct stat_digest	digest;
 
 #define	CONTROL_FD_RESERVE	5
 
@@ -99,12 +103,14 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 		key = (char*)imsg->data + sizeof (val);
 		if (stat_backend)
 			stat_backend->increment(key, val.u.counter);
+		control_digest_update(key, val.u.counter, 1);
 		return;
 	case IMSG_STAT_DECREMENT:
 		memmove(&val, imsg->data, sizeof (val));
 		key = (char*)imsg->data + sizeof (val);
 		if (stat_backend)
 			stat_backend->decrement(key, val.u.counter);
+		control_digest_update(key, val.u.counter, 0);
 		return;
 	case IMSG_STAT_SET:
 		memmove(&val, imsg->data, sizeof (val));
@@ -224,6 +230,9 @@ control(void)
 
 	TAILQ_INIT(&ctl_conns);
 
+	bzero(&digest, sizeof digest);
+	digest.startup = time(NULL);
+
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 	control_listen();
@@ -333,6 +342,49 @@ control_close(struct ctl_conn *c)
 	}
 }
 
+static void
+control_digest_update(const char *key, size_t value, int incr)
+{
+	size_t	*p;
+
+	p = NULL;
+
+	if (!strcmp(key, "smtp.session")) {
+		if (incr)
+			p = &digest.clt_connect;
+		else
+			digest.clt_disconnect += value;
+	}
+	else if (!strcmp(key, "scheduler.envelope")) {
+		if (incr)
+			p = &digest.evp_enqueued;
+		else
+			digest.evp_dequeued += value;
+	}
+	else if  (!strcmp(key, "scheduler.envelope.expired"))
+		p = &digest.evp_expired;
+	else if  (!strcmp(key, "scheduler.envelope.removed"))
+		p = &digest.evp_removed;
+	else if  (!strcmp(key, "scheduler.delivery.ok"))
+		p = &digest.dlv_ok;
+	else if  (!strcmp(key, "scheduler.delivery.permfail"))
+		p = &digest.dlv_permfail;
+	else if  (!strcmp(key, "scheduler.delivery.tempfail"))
+		p = &digest.dlv_tempfail;
+	else if  (!strcmp(key, "scheduler.delivery.loop"))
+		p = &digest.dlv_loop;
+
+	else if  (!strcmp(key, "queue.bounce"))
+		p = &digest.evp_bounce;
+
+	if (p) {
+		if (incr)
+			*p = *p + value;
+		else
+			*p = *p - value;
+	}
+}
+
 /* ARGSUSED */
 static void
 control_dispatch_ext(int fd, short event, void *arg)
@@ -395,6 +447,14 @@ control_dispatch_ext(int fd, short event, void *arg)
 			if (euid)
 				goto badcred;
 			imsg_compose_event(&c->iev, IMSG_STATS, 0, 0, -1, NULL, 0);
+			break;
+
+		case IMSG_DIGEST:
+			if (euid)
+				goto badcred;
+			digest.timestamp = time(NULL);
+			imsg_compose_event(&c->iev, IMSG_DIGEST, 0, 0, -1,
+			    &digest, sizeof digest);
 			break;
 
 		case IMSG_STATS_GET:
