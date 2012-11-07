@@ -309,14 +309,14 @@ mta_response_prefix(const char *r)
 {
 	switch (r[0]) {
 	case '2':
-		return "ok";
+		return "Ok";
 	case '5':
 	case '6':
 		if (r[1] == '4' && r[2] == '6')
-			return "loop";
-		return "permfail";
+			return "Loop";
+		return "PermFail";
 	default:
-		return "tempfail";
+		return "TempFail";
 	}
 }
 

@@ -146,7 +146,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
-			log_envelope(&evp, NULL, "remove",
+			log_envelope(&evp, NULL, "Remove",
 			    "Removed by administrator");
 			queue_envelope_delete(&evp);
 			return;
@@ -157,7 +157,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			envelope_set_errormsg(&evp, "Envelope expired");
 			queue_bounce(&evp);
-			log_envelope(&evp, NULL, "expire", evp.errorline);
+			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(&evp);
 			return;
 
