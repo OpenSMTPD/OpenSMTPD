@@ -503,6 +503,12 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 			case 'd':
 				string = ep->dest.domain;
 				break;
+			case 'r':
+				string = ep->rcpt.user;
+				break;
+			case 'R':
+				string = ep->rcpt.domain;
+				break;
 			default:
 				goto copy;
 			}
