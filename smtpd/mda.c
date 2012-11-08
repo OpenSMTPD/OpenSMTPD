@@ -47,8 +47,12 @@
 
 #define MDA_MAXEVP		5000
 #define MDA_MAXEVPUSER		500
+#ifndef MDA_MAXSESS
 #define MDA_MAXSESS		50
+#endif
+#ifndef MDA_MAXSESSUSER
 #define MDA_MAXSESSUSER		7
+#endif
 
 struct mda_user {
 	TAILQ_ENTRY(mda_user)	entry;
