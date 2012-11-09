@@ -54,8 +54,6 @@
 
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 
-#define	DIRHASH_BUCKETS		 4096
-
 #define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
