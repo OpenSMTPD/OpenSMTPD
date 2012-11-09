@@ -580,7 +580,6 @@ struct smtpd {
 	uint32_t				 sc_queue_flags;
 #define QUEUE_COMPRESS				 0x00000001
 	char					*sc_queue_compress_algo;
-	struct timeval				 sc_qintval;
 	int					 sc_qexpire;
 	struct event				 sc_ev;
 	int					 *sc_pipes[PROC_COUNT]
