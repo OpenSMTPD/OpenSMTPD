@@ -247,25 +247,16 @@ enum map_kind {
 	K_NETADDR
 };	
 
-enum mapel_type {
-	ME_STRING,
-	ME_NET,
-	ME_NETMASK
-};
-
 struct mapel {
 	TAILQ_ENTRY(mapel)		 me_entry;
-	union mapel_data {
-		char			 med_string[MAX_LINE_SIZE];
-	}				 me_key;
-	union mapel_data		 me_val;
+	char				 me_key[MAX_LINE_SIZE];
+	char				 me_val[MAX_LINE_SIZE];
 };
 
 struct map {
 	TAILQ_ENTRY(map)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
-	enum mapel_type			 m_eltype;
 	enum map_src			 m_src;
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
