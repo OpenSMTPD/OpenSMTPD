@@ -80,8 +80,7 @@ ruleset_match(const struct envelope *evp)
 
 			if (map->m_src == S_NONE) {
 				TAILQ_FOREACH(me, &map->m_contents, me_entry) {
-					if (hostname_match(maddr->domain,
-					    me->me_key.med_string))
+					if (hostname_match(maddr->domain, me->me_key))
 						return r;
 				}
 			}
@@ -145,12 +144,11 @@ ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
 	if (map->m_src == S_NONE) {
 		TAILQ_FOREACH(me, &map->m_contents, me_entry) {
 			if (ss->ss_family == AF_LOCAL) {
-				if (!strcmp(me->me_key.med_string, "local"))
+				if (!strcmp(me->me_key, "local"))
 					return 1;
 				continue;
 			}
-			if (ruleset_cmp_source(ss_to_text(ss),
-				me->me_key.med_string))
+			if (ruleset_cmp_source(ss_to_text(ss), me->me_key))
 				return 1;
 		}
 	}

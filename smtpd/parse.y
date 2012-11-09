@@ -125,12 +125,12 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION CIPHER INTERVAL SIZE LISTEN ON ANY PORT EXPIRE
-%token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE ENCRYPTION
+%token	AS QUEUE COMPRESSION SIZE LISTEN ON ANY PORT EXPIRE
+%token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE
 %token	DB LDAP FILE_ DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
-%token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY DIGEST
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
@@ -319,10 +319,7 @@ compression	: COMPRESSION STRING {
 		| /* empty */	{ $$ = NULL; }
 		;
 
-main		: QUEUE INTERVAL interval	{
-			conf->sc_qintval = $3;
-		}
-		| QUEUE compression {
+main		: QUEUE compression {
 			if ($2) {
 				conf->sc_queue_flags |= QUEUE_COMPRESS;
 				conf->sc_queue_compress_algo = strdup($2);
@@ -949,13 +946,10 @@ lookup(char *s)
 		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
-		{ "cipher",		CIPHER },
 		{ "compression",       	COMPRESSION },
 		{ "db",			DB },
 		{ "deliver",		DELIVER },
-		{ "digest",		DIGEST },
 		{ "domain",		DOMAIN },
-		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "file",		FILE_ },
 		{ "filter",		FILTER },
@@ -964,7 +958,6 @@ lookup(char *s)
 		{ "hash",		HASH },
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
-		{ "interval",		INTERVAL },
 		{ "key",		KEY },
 		{ "ldap",		LDAP },
 		{ "list",		LIST },
@@ -1358,8 +1351,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	SPLAY_INIT(&conf->sc_sessions);
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
-	conf->sc_qintval.tv_sec = SMTPD_QUEUE_INTERVAL;
-	conf->sc_qintval.tv_usec = 0;
 	conf->sc_opts = opts;
 
 	if ((file = pushfile(filename, 0)) == NULL) {

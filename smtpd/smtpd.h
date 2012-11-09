@@ -75,8 +75,6 @@
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 #endif
 
-#define	DIRHASH_BUCKETS		 4096
-
 #define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
@@ -270,25 +268,16 @@ enum map_kind {
 	K_NETADDR
 };	
 
-enum mapel_type {
-	ME_STRING,
-	ME_NET,
-	ME_NETMASK
-};
-
 struct mapel {
 	TAILQ_ENTRY(mapel)		 me_entry;
-	union mapel_data {
-		char			 med_string[MAX_LINE_SIZE];
-	}				 me_key;
-	union mapel_data		 me_val;
+	char				 me_key[MAX_LINE_SIZE];
+	char				 me_val[MAX_LINE_SIZE];
 };
 
 struct map {
 	TAILQ_ENTRY(map)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
-	enum mapel_type			 m_eltype;
 	enum map_src			 m_src;
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
@@ -601,7 +590,6 @@ struct smtpd {
 	uint32_t				 sc_queue_flags;
 #define QUEUE_COMPRESS				 0x00000001
 	char					*sc_queue_compress_algo;
-	struct timeval				 sc_qintval;
 	int					 sc_qexpire;
 	struct event				 sc_ev;
 	int					 *sc_pipes[PROC_COUNT]
