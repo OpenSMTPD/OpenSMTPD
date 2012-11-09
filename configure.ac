@@ -2420,6 +2420,8 @@ AC_CONFIG_FILES([Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
+		regress/Makefile
+		regress/bin/Makefile
 		])
 
 #l4364

@@ -23,9 +23,11 @@
  */
 
 %{
+#include "includes.h"
+
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "sys-queue.h"
+#include "sys-tree.h"
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -43,7 +45,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef HAVE_UTIL_H
 #include <util.h>
+#endif
 
 #include "smtpscript.h"
 
