@@ -407,7 +407,7 @@ queue_timeout(int fd, short event, void *p)
 {
 	static struct qwalk	*q = NULL;
 	static uint32_t		 last_msgid = 0;
-	static size_t		 last_evpcount = 0;
+	static size_t		 evpcount = 0;
 	struct event		*ev = p;
 	struct envelope		 envelope;
 	struct timeval		 tv;
@@ -420,19 +420,20 @@ queue_timeout(int fd, short event, void *p)
 
 	while (qwalk(q, &evpid)) {
 		if (! queue_envelope_load(evpid, &envelope))
-			log_warnx("warn: Failed to load envelope %016"PRIx64, evpid);
+			log_warnx("warn: Failed to load envelope %016"PRIx64,
+			    evpid);
 		else {
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &envelope,
 			    sizeof envelope);
-			last_evpcount++;
+			evpcount++;
 		}
 
-		if (last_msgid && evpid_to_msgid(evpid) != last_msgid && last_evpcount) {
+		if (last_msgid && evpid_to_msgid(evpid) != last_msgid && evpcount) {
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &last_msgid,
 			    sizeof last_msgid);
-			last_evpcount = 0;
+			evpcount = 0;
 		}
 
 		last_msgid = evpid_to_msgid(evpid);
@@ -442,11 +443,11 @@ queue_timeout(int fd, short event, void *p)
 		return;
 	}
 
-	if (last_msgid && last_evpcount) {
+	if (last_msgid && evpcount) {
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &last_msgid,
 		    sizeof last_msgid);
-		last_evpcount = 0;
+		evpcount = 0;
 	}
 
 	log_debug("debug: queue: done loading queue into scheduler");
