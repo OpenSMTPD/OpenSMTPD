@@ -160,7 +160,7 @@ main(int argc, char *argv[])
 	struct smtpd		smtpd;
 	uint64_t		ulval;
 	char			name[MAX_LINE_SIZE];
-	int			connected, done = 0;
+	int			done = 0;
 	int			verbose = 0;
 	int			action = -1;
 
@@ -168,7 +168,9 @@ main(int argc, char *argv[])
 	if (strcmp(__progname, "sendmail") == 0 ||
 	    strcmp(__progname, "send-mail") == 0) {
 		sendmail = 1;
-		goto connect;
+		if (try_connect())
+			return (enqueue(argc, argv));
+		return (enqueue_offline(argc, argv));
 	}
 
 	if (geteuid())
@@ -199,16 +201,7 @@ main(int argc, char *argv[])
 		break;
 	}
 
-    connect:
-	connected = try_connect();
-
-	if (sendmail) {
-		if (connected)
-			return (enqueue(argc, argv));
-		return (enqueue_offline(argc, argv));
-	}
-
-	if (!connected)
+	if (!try_connect())
 		errx(1, "smtpd doesn't seem to be running");
 
 	/* process user request */
