@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.94 2012/10/26 19:16:42 chl Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.95 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -560,7 +560,7 @@ show_monitor(struct stat_digest *d)
 			printf("\n");
 		printf("--- client ---  "
 		    "-- envelope --   "
-		    "------- delivery ------ "
+		    "---- relay/delivery --- "
 		    "------- misc -------\n"
 		    "curr conn disc  "
 		    "curr  enq  deq   "

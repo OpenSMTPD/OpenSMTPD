@@ -1,4 +1,4 @@
-/*	$OpenBSD: aliases.c,v 1.57 2012/10/13 08:01:47 eric Exp $	*/
+/*	$OpenBSD: aliases.c,v 1.58 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
