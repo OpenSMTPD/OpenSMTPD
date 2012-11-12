@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.21 2012/09/16 16:43:29 chl Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.23 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

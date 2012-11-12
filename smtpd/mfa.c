@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.72 2012/10/25 14:06:08 eric Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.73 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>

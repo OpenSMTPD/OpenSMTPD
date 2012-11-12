@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.140 2012/10/25 09:51:08 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.141 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -406,7 +406,7 @@ static void
 queue_timeout(int fd, short event, void *p)
 {
 	static struct qwalk	*q = NULL;
-	static uint32_t		 last_msgid = 0;
+	static uint32_t		 msgid = 0;
 	static size_t		 evpcount = 0;
 	struct event		*ev = p;
 	struct envelope		 envelope;
@@ -429,24 +429,23 @@ queue_timeout(int fd, short event, void *p)
 			evpcount++;
 		}
 
-		if (last_msgid && evpid_to_msgid(evpid) != last_msgid && evpcount) {
+		if (msgid && evpid_to_msgid(evpid) != msgid && evpcount) {
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &last_msgid,
-			    sizeof last_msgid);
+			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
+			    sizeof msgid);
 			evpcount = 0;
 		}
 
-		last_msgid = evpid_to_msgid(evpid);
+		msgid = evpid_to_msgid(evpid);
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
 		evtimer_add(ev, &tv);	
 		return;
 	}
 
-	if (last_msgid && evpcount) {
+	if (msgid && evpcount) {
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &last_msgid,
-		    sizeof last_msgid);
+		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid, sizeof msgid);
 		evpcount = 0;
 	}
 
