@@ -159,7 +159,7 @@ lka_resume(struct lka_session *lks)
 
 	/* delivery list is empty, reject */
 	if (TAILQ_FIRST(&lks->deliverylist) == NULL) {
-		log_info("info: lka_done: expansion led to empty delivery list");
+		log_debug("debug: lka_done: expansion led to empty delivery list");
 		lks->flags |= F_ERROR;
 	}
     error:

@@ -121,7 +121,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_END:
 			TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
-				log_info("info: forking filter: %s", filter->name);
+				log_info("info: Forking filter: %s", filter->name);
 				if (! mfa_fork_filter(filter))
 					fatalx("could not fork filter");
 			}
