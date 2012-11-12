@@ -82,7 +82,7 @@ forwards_get(int fd, struct expand *expand)
 			cp = p;
 
 			if (! alias_parse(&xn, buf)) {
-				log_debug("bad entry in ~/.forward");
+				log_debug("debug: bad entry in ~/.forward");
 				continue;
 			}
 

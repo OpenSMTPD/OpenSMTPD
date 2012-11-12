@@ -1,0 +1,55 @@
+#
+# This file is simply used to test the grammar and the behaviour of
+# the scripting engine. Not SMTP related.
+#
+
+test-case no-autoconnect {
+}
+
+test-case no-autoconnect expect fail {
+	fail "on purpose"
+}
+
+test-case no-autoconnect {
+	fail "ahaha! I failed"
+}
+
+test-case no-autoconnect skip {
+	fail "should be skipped!"
+}
+
+test-case no-autoconnect {
+	sleep 500
+}
+
+test-case no-autoconnect {
+	connect "localhost" port 25
+}
+
+proc proc0 %foo %bar {
+	sleep 1
+	sleep 2
+	sleep 3
+}
+
+proc proc1 {
+	noop
+}
+
+test-case no-autoconnect {
+
+	repeat 2 repeat 3 repeat 4 sleep 7
+	sleep 8
+	{
+		call proc0
+		sleep 10
+	}
+
+	repeat 5 random {
+		call proc1
+		{ sleep 1 }
+		{ sleep 2 }
+	}
+
+	random {}
+}
