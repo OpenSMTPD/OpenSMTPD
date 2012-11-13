@@ -419,7 +419,16 @@ queue_timeout(int fd, short event, void *p)
 	}
 
 	while (qwalk(q, &evpid)) {
-		if (! queue_envelope_load(evpid, &envelope))
+
+		if (msgid && evpid_to_msgid(evpid) != msgid && evpcount) {
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
+			    sizeof msgid);
+			evpcount = 0;
+		}
+		msgid = evpid_to_msgid(evpid);
+
+		if (!queue_envelope_load(evpid, &envelope))
 			log_warnx("warn: Failed to load envelope %016"PRIx64,
 			    evpid);
 		else {
@@ -429,14 +438,6 @@ queue_timeout(int fd, short event, void *p)
 			evpcount++;
 		}
 
-		if (msgid && evpid_to_msgid(evpid) != msgid && evpcount) {
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
-			    sizeof msgid);
-			evpcount = 0;
-		}
-
-		msgid = evpid_to_msgid(evpid);
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
 		evtimer_add(ev, &tv);	
