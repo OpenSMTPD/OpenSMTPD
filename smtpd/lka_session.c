@@ -196,7 +196,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
-	struct passwd	       *pw;
+	struct user_backend    *ub;
+	struct user		u;
 	int			r;
 
 	if (xn->depth >= EXPAND_DEPTH) {
@@ -292,8 +293,9 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		pw = getpwnam(xn->u.user);
-		if (pw == NULL) {
+		bzero(&u, sizeof (u));
+		ub = user_backend_lookup(USER_PWD);
+		if (! ub->getbyname(&u, xn->u.user)) {
 			log_debug("debug: lka_expand: user-part does not match system user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
