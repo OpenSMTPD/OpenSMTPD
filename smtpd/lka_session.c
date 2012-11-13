@@ -426,7 +426,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 	char *p, *pbuf;
 	size_t ret, lret = 0;
 	struct user_backend *ub;
-	struct mta_user u;
+	struct user u;
 	char lbuffer[MAX_RULEBUFFER_LEN];
 	char tmpbuf[MAX_RULEBUFFER_LEN];
 

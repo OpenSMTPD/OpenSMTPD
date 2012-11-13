@@ -851,7 +851,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	char		 ebuf[128], sfn[32];
 	struct user_backend	*ub;
 	struct delivery_backend	*db;
-	struct mta_user u;
+	struct user u;
 	struct child	*child;
 	pid_t		 pid;
 	int		 n, allout, pipefd[2];
@@ -1143,7 +1143,7 @@ static int
 parent_forward_open(char *username)
 {
 	struct user_backend *ub;
-	struct mta_user u;
+	struct user u;
 	char pathname[MAXPATHLEN];
 	int fd;
 

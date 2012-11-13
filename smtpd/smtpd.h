@@ -794,7 +794,7 @@ enum user_type {
 };
 
 #define	MAXPASSWORDLEN	128
-struct mta_user {
+struct user {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
 	char password[MAXPASSWORDLEN];
@@ -803,7 +803,7 @@ struct mta_user {
 };
 
 struct user_backend {
-	int (*getbyname)(struct mta_user *, const char *);
+	int (*getbyname)(struct user *, const char *);
 };
 
 
