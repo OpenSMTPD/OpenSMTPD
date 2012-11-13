@@ -33,7 +33,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct map_backend *map_backend_lookup(enum map_src);
+struct map_backend *map_backend_lookup(const char *);
 
 extern struct map_backend map_backend_static;
 
@@ -43,21 +43,14 @@ extern struct map_backend map_backend_file;
 static objid_t	last_map_id = 0;
 
 struct map_backend *
-map_backend_lookup(enum map_src source)
+map_backend_lookup(const char *source)
 {
-	switch (source) {
-	case S_NONE:
+	if (!strcmp(source, "static"))
 		return &map_backend_static;
-
-	case S_DB:
+	if (!strcmp(source, "db"))
 		return &map_backend_db;
-
-	case S_FILE:
+	if (!strcmp(source, "file"))
 		return &map_backend_file;
-
-	default:
-		fatalx("invalid map type");
-	}
 	return NULL;
 }
 
@@ -147,7 +140,7 @@ map_compare(objid_t mapid, const char *key, enum map_kind kind,
 }
 
 struct map *
-map_create(enum map_src src, const char *name)
+map_create(const char *source, const char *name)
 {
 	struct map	*m;
 	size_t		 n;
@@ -156,7 +149,9 @@ map_create(enum map_src src, const char *name)
 		errx(1, "map_create: map \"%s\" already defined", name);
 
 	m = xcalloc(1, sizeof(*m), "map_create");
-	m->m_src = src;
+	if (strlcpy(m->m_src, source, sizeof m->m_src) >= sizeof m->m_src)
+		errx(1, "map_create: map source \"%s\" too large", m->m_src);
+
 	m->m_id = ++last_map_id;
 	if (m->m_id == INT_MAX)
 		errx(1, "map_create: too many maps defined");
@@ -181,7 +176,7 @@ map_destroy(struct map *m)
 {
 	struct mapel	*me;
 
-	if (m->m_src != S_NONE)
+	if (strcmp(m->m_src, "static") != 0)
 		errx(1, "map_add: cannot delete all from map");
 
 	while ((me = TAILQ_FIRST(&m->m_contents))) {
@@ -199,7 +194,7 @@ map_add(struct map *m, const char *key, const char * val)
 	struct mapel	*me;
 	size_t		 n;
 
-	if (m->m_src != S_NONE)
+	if (strcmp(m->m_src, "static") != 0)
 		errx(1, "map_add: cannot add to map");
 
 	me = xcalloc(1, sizeof(*me), "map_add");
@@ -222,7 +217,7 @@ map_delete(struct map *m, const char *key)
 {
 	struct mapel	*me;
 	
-	if (m->m_src != S_NONE)
+	if (strcmp(m->m_src, "static") != 0)
 		errx(1, "map_add: cannot delete from map");
 
 	TAILQ_FOREACH(me, &m->m_contents, me_entry) {
