@@ -74,14 +74,14 @@ static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
 
 #define	MAXTOKENLEN	128
 static char *tokens[] = {
-		"sender.user",
-		"sender.domain",
-		"user.username",
-		"user.directory",
-		"dest.user",
-		"dest.domain",
-		"rcpt.user",
-		"rcpt.domain"	
+	"sender.user",
+	"sender.domain",
+	"user.username",
+	"user.directory",
+	"dest.user",
+	"dest.domain",
+	"rcpt.user",
+	"rcpt.domain"	
 };
 
 void
@@ -563,6 +563,13 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 
 	/* expansion loop */
 	for (; *pbuf && ret < sizeof tmpbuf; ret += tmpret) {
+		if (*pbuf == '%' && *(pbuf + 1) == '%') {
+			*ptmp++ = *pbuf++;
+			pbuf  += 1;
+			tmpret = 1;
+			continue;
+		}
+
 		if (*pbuf != '%' || *(pbuf + 1) != '{') {
 			*ptmp++ = *pbuf++;
 			tmpret = 1;
