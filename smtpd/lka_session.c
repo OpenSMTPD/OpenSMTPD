@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.48 2012/10/16 11:10:38 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.49 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -161,7 +161,7 @@ lka_resume(struct lka_session *lks)
 
 	/* delivery list is empty, reject */
 	if (TAILQ_FIRST(&lks->deliverylist) == NULL) {
-		log_info("info: lka_done: expansion led to empty delivery list");
+		log_debug("debug: lka_done: expansion led to empty delivery list");
 		lks->flags |= F_ERROR;
 	}
     error:

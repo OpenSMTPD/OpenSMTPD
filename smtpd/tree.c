@@ -195,6 +195,38 @@ tree_iter(struct tree *t, void **hdl, uint64_t *id, void **data)
 	return (0);
 }
 
+int
+tree_iterfrom(struct tree *t, void **hdl, uint64_t k, uint64_t *id, void **data)
+{
+	struct treeentry *curr = *hdl, key;
+
+	if (curr == NULL) {
+		if (k == 0)
+			curr = SPLAY_MIN(tree, t);
+		else {
+			key.id = k;
+			curr = SPLAY_FIND(tree, t, &key);
+			if (curr == NULL) {
+				SPLAY_INSERT(tree, t, &key);
+				curr = SPLAY_NEXT(tree, t, &key);
+				SPLAY_REMOVE(tree, t, &key);
+			}
+		}
+	} else
+		curr = SPLAY_NEXT(tree, t, curr);
+
+	if (curr) {
+		*hdl = curr;
+		if (id)
+			*id = curr->id;
+		if (data)
+			*data = curr->data;
+		return (1);
+	}
+
+	return (0);
+}
+
 void
 tree_merge(struct tree *dst, struct tree *src)
 {

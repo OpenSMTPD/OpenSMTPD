@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.72 2012/10/25 14:06:08 eric Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.73 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -124,7 +124,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_END:
 			TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
-				log_info("info: forking filter: %s", filter->name);
+				log_info("info: Forking filter: %s", filter->name);
 				if (! mfa_fork_filter(filter))
 					fatalx("could not fork filter");
 			}

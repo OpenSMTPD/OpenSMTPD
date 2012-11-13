@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.39 2012/10/09 13:39:00 eric Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.40 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

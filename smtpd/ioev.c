@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.7 2012/10/25 18:14:24 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.8 2012/11/12 14:58:53 eric Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

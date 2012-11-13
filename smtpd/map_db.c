@@ -1,4 +1,4 @@
-/*	$OpenBSD: map_db.c,v 1.11 2012/10/14 11:58:23 gilles Exp $	*/
+/*	$OpenBSD: map_db.c,v 1.12 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>

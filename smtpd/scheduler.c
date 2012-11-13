@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.21 2012/09/16 16:43:29 chl Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.23 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -63,14 +63,18 @@ static struct scheduler_backend *backend = NULL;
 
 extern const char *backend_scheduler;
 
+#define	MSGBATCHSIZE	1024
+#define	EVPBATCHSIZE	256
+
 void
 scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct evpstate		 state[EVPBATCHSIZE];
 	struct envelope		*e;
 	struct scheduler_info	 si;
 	uint64_t		 id;
-	uint32_t		 msgid;
-	size_t			 n;
+	uint32_t		 msgid, msgids[MSGBATCHSIZE];
+	size_t			 n, i;
 
 	switch (imsg->hdr.type) {
 
@@ -172,11 +176,28 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		log_verbose(*(int *)imsg->data);
 		return;
 
+	case IMSG_SCHEDULER_MESSAGES:
+		msgid = *(uint32_t *)(imsg->data);
+		n = backend->messages(msgid, msgids, MSGBATCHSIZE);
+		imsg_compose_event(iev, IMSG_SCHEDULER_MESSAGES,
+		    imsg->hdr.peerid, 0, -1, msgids, n * sizeof (*msgids));
+		return;
+
+	case IMSG_SCHEDULER_ENVELOPES:
+		id = *(uint64_t *)(imsg->data);
+		n = backend->envelopes(id, state, EVPBATCHSIZE);
+		for (i = 0; i < n; i++) {
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    &state[i], sizeof state[i]);
+		}
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1, NULL, 0);
+		return;
+
 	case IMSG_SCHEDULER_SCHEDULE:
 		id = *(uint64_t *)(imsg->data);
-		if (id == 0)
-			log_debug("debug: scheduler: scheduling all envelopes");
-		else if (id <= 0xffffffffL)
+		if (id <= 0xffffffffL)
 			log_debug("debug: scheduler: scheduling msg:%08" PRIx64, id);
 		else
 			log_debug("debug: scheduler: scheduling evp:%016" PRIx64, id);
@@ -428,7 +449,7 @@ scheduler_process_mda(struct scheduler_batch *batch)
 static void
 scheduler_process_mta(struct scheduler_batch *batch)
 {
-	struct id_list		*e;
+	struct id_list	*e;
 
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BATCH_CREATE,
 	    0, 0, -1, NULL, 0);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.82 2012/10/25 09:51:08 eric Exp $	*/
+/*	$OpenBSD: mda.c,v 1.84 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
