@@ -56,21 +56,26 @@ listen on $lan_addr
 listen on $lan_addr tls auth
 .Ed
 .Pp
-Some configuration directives expect expansion of their parameters at runtime.
+Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example
 .Ar deliver to maildir ,
-.Ar deliver to mda ,
-.Ar relay via )
+.Ar deliver to mda )
 may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
-%a expands to the user part of the email address prior to the
-resolution of aliases;
-%u expands to the user part after aliases
-resolution and will typically be the system account;
-%d expands to the domain part of the email address;
-%A expands to the user part of the sender email address;
-%D expands to the domain part of the sender email address.
+%{sender.user} expands to the user part of the sender email address;
+%{sender.domain} expands to the domain part of the sender email address;
+%{rcpt.user} expands to the user part of the recipient address at SMTP session time;
+%{rcpt.domain} expands to the domain part of the recipient address at SMTP session time;
+%{dest.user} expands to the user part of the recipient address after expansion;
+%{dest.domain} expands to the domain part of the recipient address after expansion;
+%{user.username} expands to the local user that will receive the email;
+%{user.directory} expands to the home directory of the local user that will receive the email;
+.Pp
+Expansion formats also support partial expansion using the optional bracket notations.
+With recipient domain "example.org", the following:
+%{rcpt.domain[8]} will expand to "org";
+%{rcpt.domain[0:8]} will expand to "example";
 .Pp
 Additional configuration files can be included with the
 .Ic include

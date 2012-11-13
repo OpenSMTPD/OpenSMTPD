@@ -72,6 +72,18 @@ static const char * mailaddr_tag(const struct mailaddr *);
 
 static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
 
+#define	MAXTOKENLEN	128
+static char *tokens[] = {
+		"sender.user",
+		"sender.domain",
+		"user.username",
+		"user.directory",
+		"dest.user",
+		"dest.domain",
+		"rcpt.user",
+		"rcpt.domain"	
+};
+
 void
 lka_session(struct submit_status *ss)
 {
@@ -431,93 +443,149 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	TAILQ_INSERT_TAIL(&lks->deliverylist, ep, entry);
 }
 
+
+static size_t
+lka_expand_token(char *dest, size_t len, const char *token, const struct envelope *ep)
+{
+	char		rtoken[MAXTOKENLEN];
+	const char     *string;
+	char	       *lbracket, *rbracket, *content, *sep;
+	size_t		i;
+	size_t		begoff, endoff;
+	const char     *errstr;
+
+	begoff = endoff = 0;
+
+	if (strlcpy(rtoken, token, sizeof rtoken) >= sizeof rtoken)
+		return 0;
+
+	/* token[x[:y]] -> extracts optional x and y, converts into offsets */
+	if ((lbracket = strchr(rtoken, '[')) && (rbracket = strchr(rtoken, ']'))) {
+		/* ] before [ ... or empty */
+		if (rbracket < lbracket || rbracket - lbracket <= 1)
+			return 0;
+		*lbracket = *rbracket = '\0';
+		 content  = lbracket + 1;
+
+		 if ((sep = strchr(content, ':')) == NULL)
+			 begoff = strtonum(content, 0, EXPAND_BUFFER, &errstr);
+		 else {
+
+			 *sep = '\0';
+			 begoff = strtonum(content, 0, EXPAND_BUFFER, &errstr);
+			 if (errstr == NULL)
+				 endoff = strtonum(sep+1, begoff, EXPAND_BUFFER, &errstr);
+			 if (errstr == NULL)
+				 if (begoff >= endoff)
+					 return 0;
+		 }
+		 if (errstr)
+			 return 0;
+	}
+
+	/* token -> searches token in table and maps to expand string */
+	for (i = 0; i < (int)nitems(tokens); ++i)
+		if (strcasecmp(rtoken, tokens[i]) == 0)
+			break;
+	if (i == (int)nitems(tokens))
+		return 0;
+
+	if (! strcasecmp("sender.user", tokens[i]))
+		string = ep->sender.user;
+	else if (! strcasecmp("sender.domain", tokens[i]))
+		string = ep->sender.domain;
+	else if (! strcasecmp("user.username", tokens[i]))
+		string = ep->agent.mda.user.username;
+	else if (! strcasecmp("user.directory", tokens[i]))
+		string = ep->agent.mda.user.directory;
+	else if (! strcasecmp("dest.user", tokens[i]))
+		string = ep->dest.user;
+	else if (! strcasecmp("dest.domain", tokens[i]))
+		string = ep->dest.domain;
+	else if (! strcasecmp("rcpt.user", tokens[i]))
+		string = ep->rcpt.user;
+	else if (! strcasecmp("rcpt.domain", tokens[i]))
+		string = ep->rcpt.domain;
+	else
+		fatalx("lka_expand_token: missing token handler");
+
+	i = strlen(string);
+	if (endoff == 0 || endoff > i)
+		endoff = i;
+
+	if (endoff - begoff + 1 >= len)
+		return 0;
+
+	return strlcpy(dest, string + begoff, endoff - begoff + 1);
+}
+
+
 static size_t
 lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 {
-	char *p, *pbuf;
-	size_t ret, lret = 0;
-	char lbuffer[MAX_RULEBUFFER_LEN];
-	char tmpbuf[MAX_RULEBUFFER_LEN];
+	char		tmpbuf[EXPAND_BUFFER], *ptmp, *pbuf, *ebuf;
+	char		exptok[EXPAND_BUFFER];
+	size_t		exptoklen;
+	char		token[MAXTOKENLEN];
+	size_t		ret, tmpret;
 
-	if (len < sizeof lbuffer)
-		return 0;
+	if (len < sizeof tmpbuf)
+		fatalx("lka_expand_format: tmp buffer smaller than rule buffer");
 
-	bzero(lbuffer, sizeof (lbuffer));
-	pbuf = lbuffer;
+	bzero(tmpbuf, sizeof tmpbuf);
+	pbuf = buf;
+	ptmp = tmpbuf;
+	ret = tmpret = 0;
 
-	ret = 0;
-	for (p = buf; *p != '\0' && ret < sizeof (lbuffer);
-	     ++p, len -= lret, pbuf += lret, ret += lret) {
-		if (p == buf && *p == '~') {
-			if (*(p + 1) == '/' || *(p + 1) == '\0') {
-				lret = strlcat(pbuf, ep->agent.mda.user.directory, len);
-				if (lret >= len)
-					return 0;
-				continue;
-			}
+	/* special case: ~/ only allowed expanded at the beginning */
+	if (strncmp(pbuf, "~/", 2) == 0) {
+		tmpret = snprintf(ptmp, sizeof tmpbuf, "%s/", ep->agent.mda.user.directory);
+		if (tmpret >= sizeof tmpbuf) {
+			log_warnx("warn: user directory for %s too large",
+			    ep->agent.mda.user.directory);
+			return 0;
 		}
-		if (*p == '%') {
-			const char	*string, *tmp = p + 1;
-			int	 digit = 0;
-
-			if (isdigit((int)*tmp)) {
-			    digit = 1;
-			    tmp++;
-			}
-			switch (*tmp) {
-			case 'A':
-				string = ep->sender.user;
-				break;
-			case 'D':
-				string = ep->sender.domain;
-				break;
-			case 'u':
-				string = ep->agent.mda.user.username;
-				break;
-			case 'a':
-				string = ep->dest.user;
-				break;
-			case 'd':
-				string = ep->dest.domain;
-				break;
-			default:
-				goto copy;
-			}
-
-			if (! lowercase(tmpbuf, string, sizeof tmpbuf))
-				return 0;
-			string = tmpbuf;
-			
-			if (digit == 1) {
-				size_t idx = *(tmp - 1) - '0';
-
-				lret = 1;
-				if (idx < strlen(string))
-					*pbuf++ = string[idx];
-				else { /* fail */
-					return 0;
-				}
-
-				p += 2; /* loop only does ++ */
-				continue;
-			}
-			lret = strlcat(pbuf, string, len);
-			if (lret >= len)
-				return 0;
-			p++;
-			continue;
-		}
-copy:
-		lret = 1;
-		*pbuf = *p;
+		ret  += tmpret;
+		ptmp += tmpret;
+		pbuf += 2;
 	}
 
-	/* we aborted loop because we reached max buffer size, fail. */
-	if (ret == sizeof (lbuffer))
+
+	/* expansion loop */
+	for (; *pbuf && ret < sizeof tmpbuf; ret += tmpret) {
+		if (*pbuf != '%') {
+			*ptmp++ = *pbuf++;
+			tmpret = 1;
+			continue;
+		}
+
+		/* %{...} otherwise fail */
+		if (*(pbuf+1) != '{' || (ebuf = strchr(pbuf+1, '}')) == NULL)
+			return 0;
+
+		/* extract token from %{token} */
+		if ((size_t)(ebuf - pbuf) - 1 >= sizeof token)
+			return 0;
+		*strchr(memcpy(token, pbuf+2, ebuf-pbuf-1), '}') = '\0';
+
+		if ((exptoklen = lka_expand_token(exptok, sizeof exptok, token, ep)) == 0)
+			return 0;
+
+		/*
+		  if (! lowercase(tmpbuf, string, sizeof tmpbuf))
+			return 0;
+		  string = tmpbuf;
+		*/
+
+		memcpy(ptmp, exptok, exptoklen);
+		pbuf   = ebuf + 1;
+		ptmp  += exptoklen;
+		tmpret = exptoklen;
+	}
+	if (ret >= sizeof tmpbuf)
 		return 0;
 
-	/* shouldn't happen but better be safe ... */
-	if (strlcpy(buf, lbuffer, len) >= len)
+	if ((ret = strlcpy(buf, tmpbuf, len)) >= len)
 		return 0;
 
 	return ret;

@@ -40,7 +40,8 @@
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 #define MAX_PATH_SIZE		 256
-#define MAX_RULEBUFFER_LEN	 512
+/*#define MAX_RULEBUFFER_LEN	 512*/
+#define	EXPAND_BUFFER		 1024
 
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
@@ -329,7 +330,7 @@ struct rule {
 	struct cond			 r_condition;
 	enum action_type		 r_action;
 	union rule_dest {
-		char			 buffer[MAX_RULEBUFFER_LEN];
+		char			 buffer[EXPAND_BUFFER];
 		struct relayhost       	 relayhost;
 	}				 r_value;
 
@@ -363,7 +364,7 @@ enum delivery_flags {
 struct delivery_mda {
 	enum action_type	method;
 	struct userinfo		user;
-	char			buffer[MAX_RULEBUFFER_LEN];
+	char			buffer[EXPAND_BUFFER];
 };
 
 struct delivery_mta {
@@ -394,7 +395,7 @@ struct expandnode {
 		 * so we MUST make it large enough to fit a mailaddr user
 		 */
 		char		 user[MAX_LOCALPART_SIZE];
-		char		 buffer[MAX_RULEBUFFER_LEN];
+		char		 buffer[EXPAND_BUFFER];
 		struct mailaddr	 mailaddr;
 	} 			 u;
 };
