@@ -430,7 +430,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 					sizeof(ep->agent.mda.buffer), ep)) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
-			log_warnx("warn: format string result too long while "
+			log_warnx("warn: format string error while"
 			    " expanding for user %s", ep->agent.mda.user.username);
 			free(ep);
 			return;
@@ -451,7 +451,7 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 	const char     *string;
 	char	       *lbracket, *rbracket, *content, *sep;
 	size_t		i;
-	size_t		begoff, endoff;
+	ssize_t		begoff, endoff;
 	const char     *errstr;
 
 	begoff = endoff = 0;
@@ -468,16 +468,15 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 		 content  = lbracket + 1;
 
 		 if ((sep = strchr(content, ':')) == NULL)
-			 begoff = strtonum(content, 0, EXPAND_BUFFER, &errstr);
+			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
 		 else {
 
 			 *sep = '\0';
-			 begoff = strtonum(content, 0, EXPAND_BUFFER, &errstr);
+			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
 			 if (errstr == NULL)
-				 endoff = strtonum(sep+1, begoff, EXPAND_BUFFER, &errstr);
-			 if (errstr == NULL)
-				 if (begoff >= endoff)
-					 return 0;
+				 endoff = strtonum(sep+1, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
+			 if (endoff == 0)
+				 return 0;
 		 }
 		 if (errstr)
 			 return 0;
@@ -510,8 +509,19 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 		fatalx("lka_expand_token: missing token handler");
 
 	i = strlen(string);
-	if (endoff == 0 || endoff > i)
-		endoff = i;
+
+	if (begoff < 0)
+		begoff += i;
+	else if (begoff > i)
+		begoff  = i;
+
+	if (endoff < 0)
+		endoff += i;
+	else if (endoff == 0 || endoff > i)
+		endoff  = i;
+
+	if (begoff < 0 || endoff <= 0)
+		return 0;
 
 	if (endoff - begoff + 1 >= len)
 		return 0;
