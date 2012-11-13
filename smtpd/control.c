@@ -607,7 +607,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_SCHEDULER_MESSAGES, fd, 0, -1, imsg.data,
-				imsg.hdr.len - sizeof(imsg.hdr));
+			    imsg.hdr.len - sizeof(imsg.hdr));
 			break;
 
 		case IMSG_SCHEDULER_SCHEDULE:
