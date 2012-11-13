@@ -63,7 +63,6 @@ static void flush(void);
 static void next_message(struct imsg *);
 static int action_schedule_all(void);
 
-const char *show_field(int, struct envelope *);
 static int action_show_queue(void);
 static int action_show_queue_message(uint32_t);
 
