@@ -60,16 +60,18 @@ static struct scheduler_backend *backend = NULL;
 
 extern const char *backend_scheduler;
 
-#define	MSGBATCHSIZE	256
+#define	MSGBATCHSIZE	1024
+#define	EVPBATCHSIZE	256
 
 void
 scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct evpstate		 state[EVPBATCHSIZE];
 	struct envelope		*e;
 	struct scheduler_info	 si;
 	uint64_t		 id;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
-	size_t			 n;
+	size_t			 n, i;
 
 	switch (imsg->hdr.type) {
 
@@ -176,6 +178,18 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		n = backend->messages(msgid, msgids, MSGBATCHSIZE);
 		imsg_compose_event(iev, IMSG_SCHEDULER_MESSAGES,
 		    imsg->hdr.peerid, 0, -1, msgids, n * sizeof (*msgids));
+		return;
+
+	case IMSG_SCHEDULER_ENVELOPES:
+		id = *(uint64_t *)(imsg->data);
+		n = backend->envelopes(id, state, EVPBATCHSIZE);
+		for (i = 0; i < n; i++) {
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    &state[i], sizeof state[i]);
+		}
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_SCHEDULER_SCHEDULE:

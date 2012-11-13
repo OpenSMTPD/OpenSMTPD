@@ -91,6 +91,7 @@ static void scheduler_ramqueue_update(struct scheduler_info *);
 static void scheduler_ramqueue_delete(uint64_t);
 static void scheduler_ramqueue_batch(int, struct scheduler_batch *);
 static size_t scheduler_ramqueue_messages(uint32_t, uint32_t *, size_t);
+static size_t scheduler_ramqueue_envelopes(uint64_t, struct evpstate *, size_t);
 static void scheduler_ramqueue_schedule(uint64_t);
 static void scheduler_ramqueue_remove(uint64_t);
 
@@ -119,6 +120,7 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 	scheduler_ramqueue_batch,
 
 	scheduler_ramqueue_messages,
+	scheduler_ramqueue_envelopes,
 	scheduler_ramqueue_schedule,
 	scheduler_ramqueue_remove,
 };
@@ -415,6 +417,46 @@ scheduler_ramqueue_messages(uint32_t from, uint32_t *dst, size_t size)
 		if (tree_iterfrom(&ramqueue.messages, &i, from, &id, NULL) == 0)
 			break;
 		dst[n] = id;
+	}
+
+	return (n);
+}
+
+static size_t
+scheduler_ramqueue_envelopes(uint64_t from, struct evpstate *dst, size_t size)
+{
+	struct rq_message	*msg;
+	struct rq_envelope	*evp;
+	void			*i;
+	size_t			 n;
+
+	if ((msg = tree_get(&ramqueue.messages, evpid_to_msgid(from))) == NULL)
+		return (0);
+	
+	for(n = 0, i = NULL; n < size; ) {
+
+		if (tree_iterfrom(&msg->envelopes, &i, from, NULL,
+		    (void**)&evp) == 0)
+			break;
+
+		if (evp->flags & (RQ_ENVELOPE_REMOVED | RQ_ENVELOPE_EXPIRED))
+			continue;
+
+		dst[n].retry = 0;
+		dst[n].evpid = evp->evpid;
+		if (evp->flags & RQ_ENVELOPE_PENDING) {
+			dst[n].time = evp->sched;
+			dst[n].flags = DF_PENDING;
+		}
+		else if (evp->flags & RQ_ENVELOPE_SCHEDULED) {
+			dst[n].time = evp->t_scheduled;
+			dst[n].flags = DF_PENDING;
+		}
+		else if (evp->flags & RQ_ENVELOPE_INFLIGHT) {
+			dst[n].time = evp->t_inflight;
+			dst[n].flags = DF_INFLIGHT;
+		}
+		n++;
 	}
 
 	return (n);

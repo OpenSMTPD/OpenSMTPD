@@ -105,6 +105,17 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		}
 	}
+	if (iev->proc == PROC_QUEUE) {
+		switch (imsg->hdr.type) {
+		case IMSG_SCHEDULER_ENVELOPES:
+			c = control_connbyfd(imsg->hdr.peerid);
+			if (c == NULL)
+				return;
+			imsg_compose_event(&c->iev, IMSG_SCHEDULER_ENVELOPES, 0,
+			    0, -1, imsg->data, imsg->hdr.len - sizeof imsg->hdr);
+			return;
+		}
+	}
 
 	switch (imsg->hdr.type) {
 	case IMSG_STAT_INCREMENT:
@@ -607,6 +618,14 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_SCHEDULER_MESSAGES, fd, 0, -1, imsg.data,
+			    imsg.hdr.len - sizeof(imsg.hdr));
+			break;
+
+		case IMSG_SCHEDULER_ENVELOPES:
+			if (euid)
+				goto badcred;
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+			    IMSG_SCHEDULER_ENVELOPES, fd, 0, -1, imsg.data,
 			    imsg.hdr.len - sizeof(imsg.hdr));
 			break;
 

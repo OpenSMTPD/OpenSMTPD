@@ -63,6 +63,10 @@ static void flush(void);
 static void next_message(struct imsg *);
 static int action_schedule_all(void);
 
+const char *show_field(int, struct envelope *);
+static int action_show_queue(void);
+static int action_show_queue_message(uint32_t);
+
 int proctype;
 struct imsgbuf	*ibuf;
 
@@ -70,6 +74,8 @@ int sendmail = 0;
 extern char *__progname;
 
 struct smtpd	*env = NULL;
+
+time_t now;
 
 __dead void
 usage(void)
@@ -187,23 +193,22 @@ main(int argc, char *argv[])
 	} else
 		errx(1, "unsupported mode");
 
-	/* test for not connected actions */
-	switch (action) {
-	case SHOW_QUEUE:
-		show_queue(0);
+	if (!try_connect()) {
+		switch (action) {
+		case SHOW_QUEUE:
+			show_queue(0);
+			break;
+		case SHOW_ENVELOPE:
+			show_envelope(res->data);
+			break;
+		case SHOW_MESSAGE:
+			show_message(res->data);
+			break;
+		default:
+			errx(1, "smtpd doesn't seem to be running");
+		}
 		return (0);
-	case SHOW_ENVELOPE:
-		show_envelope(res->data);
-		return (0);
-	case SHOW_MESSAGE:
-		show_message(res->data);
-		return (0);
-	default:
-		break;
 	}
-
-	if (!try_connect())
-		errx(1, "smtpd doesn't seem to be running");
 
 	/* process user request */
 	switch (action) {
@@ -221,6 +226,8 @@ main(int argc, char *argv[])
 		imsg_compose(ibuf, IMSG_SCHEDULER_REMOVE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
+	case SHOW_QUEUE:
+		return action_show_queue();
 	case SCHEDULE_ALL:
 		return action_schedule_all();
 	case SHUTDOWN:
@@ -318,8 +325,80 @@ main(int argc, char *argv[])
 	return (0);
 }
 
+
 static int
-action_schedule_all()
+action_show_queue_message(uint32_t msgid)
+{
+	struct imsg	 imsg;
+	struct envelope	*evp;
+	uint64_t	 evpid;
+	size_t		 found;
+
+	evpid = msgid_to_evpid(msgid);
+
+    nextbatch:
+
+	found = 0;
+	imsg_compose(ibuf, IMSG_SCHEDULER_ENVELOPES, 0, 0, -1,
+	   &evpid, sizeof evpid);
+	flush();
+
+	while(1) {
+		next_message(&imsg);
+		if (imsg.hdr.type != IMSG_SCHEDULER_ENVELOPES)
+			errx(1, "unexpected message %i", imsg.hdr.type);
+		
+		if (imsg.hdr.len == sizeof imsg.hdr) {
+			imsg_free(&imsg);
+			if (!found || evpid_to_msgid(++evpid) != msgid)
+				return (0);
+			goto nextbatch;
+		}
+		found++;
+		evp = imsg.data;
+		evpid = evp->id;
+		show_queue_envelope(evp, 1);
+		imsg_free(&imsg);
+	}
+
+}
+
+static int
+action_show_queue(void)
+{
+	struct imsg	 imsg;
+	uint32_t	*msgids, msgid;
+	size_t		 i, n;
+
+	msgid = 0;
+	now = time(NULL);
+
+  	do {
+		imsg_compose(ibuf, IMSG_SCHEDULER_MESSAGES, 0, 0, -1,
+		    &msgid, sizeof msgid);
+		flush();
+		next_message(&imsg);
+		if (imsg.hdr.type != IMSG_SCHEDULER_MESSAGES)
+			errx(1, "unexpected message type %i", imsg.hdr.type);
+		msgids = imsg.data;
+		n = (imsg.hdr.len - sizeof imsg.hdr) / sizeof (*msgids);
+		if (n == 0) {
+			imsg_free(&imsg);
+			break;
+		}
+		for (i = 0; i < n; i++) {
+			msgid = msgids[i];
+			action_show_queue_message(msgid);
+		}
+		imsg_free(&imsg);
+
+	} while (++msgid);
+
+	return (0);
+}
+
+static int
+action_schedule_all(void)
 {
 	struct imsg	 imsg;
 	uint32_t	*msgids, from;
@@ -438,7 +517,7 @@ show_stats_output(void)
 }
 
 static void
-show_queue(int flags)
+show_queue(flags)
 {
 	struct qwalk	*q;
 	struct envelope	 envelope;
@@ -461,10 +540,11 @@ show_queue(int flags)
 }
 
 static void
-show_queue_envelope(struct envelope *e, int flags)
+show_queue_envelope(struct envelope *e, int online)
 {
 	const char *src = "?";
 	char	 status[128];
+	char	 runstate[128];
 
 	status[0] = '\0';
 
@@ -474,6 +554,23 @@ show_queue_envelope(struct envelope *e, int flags)
 	    status, sizeof(status));
 	getflag(&e->flags, DF_INTERNAL, "internal",
 	    status, sizeof(status));
+
+	if (online) {
+		if (e->flags & DF_PENDING) {
+			snprintf(runstate, sizeof runstate, "pending|%zi",
+			    (ssize_t)(e->nexttry - now));
+		}
+		else if (e->flags & DF_INFLIGHT) {
+			snprintf(runstate, sizeof runstate, "inflight|%zi",
+			    (ssize_t)(now - e->lasttry));
+		}
+		else {
+			snprintf(runstate, sizeof runstate, "invalid|");
+		}
+		e->flags &= ~(DF_PENDING|DF_INFLIGHT);
+	}
+	else
+		strlcpy(runstate, "offline|", sizeof runstate);
 
 	if (e->flags)
 		errx(1, "%016" PRIx64 ": unexpected flags 0x%04x", e->id,
@@ -505,7 +602,7 @@ show_queue_envelope(struct envelope *e, int flags)
 	else if (e->ss.ss_family == AF_INET6)
 		src = "inet6";
 
-	printf("|%016" PRIx64 "|%s|%s|%s@%s|%s@%s|%" PRId64 "|%" PRId64 "|%u",
+	printf("|%016"PRIx64"|%s|%s|%s@%s|%s@%s|%"PRId64"|%"PRId64"|%u|%s|%s\n",
 	    e->id,
 	    src,
 	    status,
@@ -513,12 +610,9 @@ show_queue_envelope(struct envelope *e, int flags)
 	    e->dest.user, e->dest.domain,
 	    (int64_t) e->lasttry,
 	    (int64_t) e->expire,
-	    e->retry);
-	
-	if (e->errorline[0] != '\0')
-		printf("|%s", e->errorline);
-
-	printf("\n");
+	    e->retry,
+	    runstate,
+	    e->errorline);
 }
 
 static void
