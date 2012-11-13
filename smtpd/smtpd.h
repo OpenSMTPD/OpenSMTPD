@@ -103,7 +103,7 @@ enum user_type {
 };
 
 #define	MAXPASSWORDLEN	128
-struct user {
+struct userinfo {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
 	char password[MAXPASSWORDLEN];
@@ -112,7 +112,7 @@ struct user {
 };
 
 struct user_backend {
-	int (*getbyname)(struct user *, const char *);
+	int (*getbyname)(struct userinfo *, const char *);
 };
 
 
@@ -362,7 +362,7 @@ enum delivery_flags {
 
 struct delivery_mda {
 	enum action_type	method;
-	struct user		user;
+	struct userinfo		user;
 	char			buffer[MAX_RULEBUFFER_LEN];
 };
 

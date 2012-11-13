@@ -197,7 +197,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		ep;
 	struct expandnode	node;
 	struct user_backend    *ub;
-	struct user		u;
+	struct userinfo		u;
 	int			r;
 
 	if (xn->depth >= EXPAND_DEPTH) {

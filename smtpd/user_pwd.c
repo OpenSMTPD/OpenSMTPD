@@ -35,15 +35,15 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int user_getpw_ret(struct user *, struct passwd *); /* helper */
-static int user_getpwnam(struct user *, const char *);
+static int user_getpw_ret(struct userinfo *, struct passwd *); /* helper */
+static int user_getpwnam(struct userinfo *, const char *);
 
 struct user_backend user_backend_pwd = {
 	user_getpwnam
 };
 
 static int
-user_getpw_ret(struct user *u, struct passwd *pw)
+user_getpw_ret(struct userinfo *u, struct passwd *pw)
 {
 	if (strlcpy(u->username, pw->pw_name, sizeof (u->username))
 	    >= sizeof (u->username))
@@ -64,7 +64,7 @@ user_getpw_ret(struct user *u, struct passwd *pw)
 }
 
 static int
-user_getpwnam(struct user *u, const char *username)
+user_getpwnam(struct userinfo *u, const char *username)
 {
 	struct passwd *pw;
 
