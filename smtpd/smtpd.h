@@ -164,6 +164,7 @@ enum imsg_type {
 	IMSG_QUEUE_REMOVE,
 	IMSG_QUEUE_EXPIRE,
 
+	IMSG_SCHEDULER_MESSAGES,
 	IMSG_SCHEDULER_REMOVE,
 	IMSG_SCHEDULER_SCHEDULE,
 
@@ -854,6 +855,7 @@ struct scheduler_backend {
 
 	void	(*batch)(int, struct scheduler_batch *);
 
+	size_t	(*messages)(uint32_t, uint32_t *, size_t);
 	void	(*schedule)(uint64_t);
 	void	(*remove)(uint64_t);
 };
@@ -1152,6 +1154,7 @@ void *tree_xpop(struct tree *, uint64_t);
 int tree_poproot(struct tree *, uint64_t *, void **);
 int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
+int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
 
 

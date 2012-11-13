@@ -61,6 +61,7 @@ static void show_monitor(struct stat_digest *);
 static int try_connect(void);
 static void flush(void);
 static void next_message(struct imsg *);
+static int action_schedule_all(void);
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -221,9 +222,7 @@ main(int argc, char *argv[])
 		    sizeof(ulval));
 		break;
 	case SCHEDULE_ALL:
-		ulval = 0;
-		imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &ulval,
-		    sizeof(ulval));
+		return action_schedule_all();
 		break;
 	case SHUTDOWN:
 		imsg_compose(ibuf, IMSG_CTL_SHUTDOWN, 0, 0, -1, NULL, 0);
@@ -317,6 +316,51 @@ main(int argc, char *argv[])
 		imsg_free(&imsg);
 	}
 	free(ibuf);
+
+	return (0);
+}
+
+static int
+action_schedule_all()
+{
+	struct imsg	 imsg;
+	uint32_t	*msgids, from;
+	uint64_t	 evpid;
+	size_t		 i, n;
+
+	from = 0;
+	while (1) {
+		imsg_compose(ibuf, IMSG_SCHEDULER_MESSAGES, 0, 0, -1,
+		    &from, sizeof from);
+		flush();
+		next_message(&imsg);
+		if (imsg.hdr.type != IMSG_SCHEDULER_MESSAGES)
+			errx(1, "unexpected message type %i", imsg.hdr.type);
+		msgids = imsg.data;
+		n = (imsg.hdr.len - sizeof imsg.hdr) / sizeof (*msgids);
+		if (n == 0)
+			break;
+
+		for (i = 0; i < n; i++) {
+			evpid = msgids[i];
+			imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0,
+			    0, -1, &evpid, sizeof(evpid));
+		}
+		from = msgids[n - 1] + 1;
+
+		imsg_free(&imsg);
+		flush();
+
+		for (i = 0; i < n; i++) {
+			next_message(&imsg);
+			if (imsg.hdr.type != IMSG_CTL_OK)
+				errx(1, "unexpected message type %i",
+				    imsg.hdr.type);
+		}
+
+		if (from == 0)
+			break;
+	}
 
 	return (0);
 }

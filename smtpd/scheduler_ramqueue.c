@@ -90,6 +90,7 @@ static size_t scheduler_ramqueue_rollback(uint32_t);
 static void scheduler_ramqueue_update(struct scheduler_info *);
 static void scheduler_ramqueue_delete(uint64_t);
 static void scheduler_ramqueue_batch(int, struct scheduler_batch *);
+static size_t scheduler_ramqueue_messages(uint32_t, uint32_t *, size_t);
 static void scheduler_ramqueue_schedule(uint64_t);
 static void scheduler_ramqueue_remove(uint64_t);
 
@@ -117,6 +118,7 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 
 	scheduler_ramqueue_batch,
 
+	scheduler_ramqueue_messages,
 	scheduler_ramqueue_schedule,
 	scheduler_ramqueue_remove,
 };
@@ -352,20 +354,11 @@ scheduler_ramqueue_schedule(uint64_t evpid)
 	struct rq_message	*msg;
 	struct rq_envelope	*evp;
 	uint32_t		 msgid;
-	void			*i, *j;
+	void			*i;
 
 	currtime = time(NULL);
 
-	if (evpid == 0) {
-		j = NULL;
-		while (tree_iter(&ramqueue.messages, &j, NULL, (void*)(&msg))) {
-			i = NULL;
-			while (tree_iter(&msg->envelopes, &i, NULL,
-			    (void*)(&evp)))
-				rq_envelope_schedule(&ramqueue, evp);
-		}
-	}
-	else if (evpid > 0xffffffff) {
+	if (evpid > 0xffffffff) {
 		msgid = evpid_to_msgid(evpid);
 		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
 			return;
@@ -409,6 +402,22 @@ scheduler_ramqueue_remove(uint64_t evpid)
 		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp)))
 			rq_envelope_remove(&ramqueue, evp);
 	}
+}
+
+static size_t
+scheduler_ramqueue_messages(uint32_t from, uint32_t *dst, size_t size)
+{
+	uint64_t id;
+	size_t	 n;
+	void	*i;
+
+	for(n = 0, i = NULL; n < size; n++) {
+		if (tree_iterfrom(&ramqueue.messages, &i, from, &id, NULL) == 0)
+			break;
+		dst[n] = id;
+	}
+
+	return (n);
 }
 
 static void
@@ -472,6 +481,7 @@ rq_queue_merge(struct rq_queue *rq, struct rq_queue *update)
 	}
 
 	sorted_merge(&rq->pending, &update->pending);
+	rq->evpcount += update->evpcount;
 }
 
 static void
@@ -558,6 +568,7 @@ rq_envelope_delete(struct rq_queue *rq, struct rq_envelope *evp)
 	}
 
 	free(evp);
+	rq->evpcount--;
 	stat_decrement("scheduler.ramqueue.envelope", 1);
 }
 
