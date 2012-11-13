@@ -542,9 +542,8 @@ show_queue(flags)
 static void
 show_queue_envelope(struct envelope *e, int online)
 {
-	const char *src = "?";
-	char	 status[128];
-	char	 runstate[128];
+	const char	*src = "?", *agent = "?";
+	char		 status[128], runstate[128];
 
 	status[0] = '\0';
 
@@ -556,17 +555,14 @@ show_queue_envelope(struct envelope *e, int online)
 	    status, sizeof(status));
 
 	if (online) {
-		if (e->flags & DF_PENDING) {
+		if (e->flags & DF_PENDING)
 			snprintf(runstate, sizeof runstate, "pending|%zi",
 			    (ssize_t)(e->nexttry - now));
-		}
-		else if (e->flags & DF_INFLIGHT) {
+		else if (e->flags & DF_INFLIGHT)
 			snprintf(runstate, sizeof runstate, "inflight|%zi",
 			    (ssize_t)(now - e->lasttry));
-		}
-		else {
+		else
 			snprintf(runstate, sizeof runstate, "invalid|");
-		}
 		e->flags &= ~(DF_PENDING|DF_INFLIGHT);
 	}
 	else
@@ -578,22 +574,13 @@ show_queue_envelope(struct envelope *e, int online)
 	
 	if (status[0])
 		status[strlen(status) - 1] = '\0';
-	else
-		strlcpy(status, "-", sizeof(status));
 
-	switch (e->type) {
-	case D_MDA:
-		printf("mda");
-		break;
-	case D_MTA:
-		printf("mta");
-		break;
-	case D_BOUNCE:
-		printf("bounce");
-		break;
-	default:
-		printf("unknown");
-	}
+	if (e->type == D_MDA)
+		agent = "mda";
+	else if (e->type == D_MTA)
+		agent = "mta";
+	else if (e->type == D_BOUNCE)
+		agent = "bounce";
 
 	if (e->ss.ss_family == AF_LOCAL)
 		src = "local";
@@ -602,15 +589,23 @@ show_queue_envelope(struct envelope *e, int online)
 	else if (e->ss.ss_family == AF_INET6)
 		src = "inet6";
 
-	printf("|%016"PRIx64"|%s|%s|%s@%s|%s@%s|%"PRId64"|%"PRId64"|%u|%s|%s\n",
+	printf("%016"PRIx64
+	    "|%s|%s|%s|%s@%s|%s@%s|%s@%s"
+	    "|%zu|%zu|%zu|%zu|%s|%s\n",
+
 	    e->id,
+
 	    src,
+	    agent,
 	    status,
 	    e->sender.user, e->sender.domain,
+	    e->rcpt.user, e->rcpt.domain,
 	    e->dest.user, e->dest.domain,
-	    (int64_t) e->lasttry,
-	    (int64_t) e->expire,
-	    e->retry,
+
+	    (size_t) e->creation,
+	    (size_t) (e->creation + e->expire),
+	    (size_t) e->lasttry,
+	    (size_t) e->retry,
 	    runstate,
 	    e->errorline);
 }
