@@ -208,8 +208,7 @@ tree_iterfrom(struct tree *t, void **hdl, uint64_t k, uint64_t *id, void **data)
 				SPLAY_INSERT(tree, t, &key);
 				curr = SPLAY_NEXT(tree, t, &key);
 				SPLAY_REMOVE(tree, t, &key);
-			} else
-				curr = SPLAY_NEXT(tree, t, curr);
+			}
 		}
 	} else
 		curr = SPLAY_NEXT(tree, t, curr);
