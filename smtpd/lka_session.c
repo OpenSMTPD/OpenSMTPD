@@ -563,7 +563,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 
 	/* expansion loop */
 	for (; *pbuf && ret < sizeof tmpbuf; ret += tmpret) {
-		if (*pbuf != '%') {
+		if (*pbuf != '%' || *(pbuf + 1) != '{') {
 			*ptmp++ = *pbuf++;
 			tmpret = 1;
 			continue;
