@@ -96,6 +96,26 @@
 
 typedef uint32_t	objid_t;
 
+
+/* user structures */
+enum user_type {
+	USER_PWD,
+};
+
+#define	MAXPASSWORDLEN	128
+struct user {
+	char username[MAXLOGNAME];
+	char directory[MAXPATHLEN];
+	char password[MAXPASSWORDLEN];
+	uid_t uid;
+	gid_t gid;
+};
+
+struct user_backend {
+	int (*getbyname)(struct user *, const char *);
+};
+
+
 struct netaddr {
 	struct sockaddr_storage ss;
 	int bits;
@@ -342,7 +362,7 @@ enum delivery_flags {
 
 struct delivery_mda {
 	enum action_type	method;
-	char			user[MAXLOGNAME];
+	struct user		user;
 	char			buffer[MAX_RULEBUFFER_LEN];
 };
 
@@ -785,25 +805,6 @@ enum auth_type {
 
 struct auth_backend {
 	int (*authenticate)(char *, char *);
-};
-
-
-/* user structures */
-enum user_type {
-	USER_PWD,
-};
-
-#define	MAXPASSWORDLEN	128
-struct user {
-	char username[MAXLOGNAME];
-	char directory[MAXPATHLEN];
-	char password[MAXPASSWORDLEN];
-	uid_t uid;
-	gid_t gid;
-};
-
-struct user_backend {
-	int (*getbyname)(struct user *, const char *);
 };
 
 

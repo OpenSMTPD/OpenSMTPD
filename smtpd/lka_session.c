@@ -339,6 +339,7 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
+	struct user_backend	*ub;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
 	const char		*tag;
@@ -371,13 +372,21 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		/* set username */
 		if ((xn->type == EXPAND_FILTER || xn->type == EXPAND_FILENAME)
 		    && xn->alias) {
-			strlcpy(ep->agent.mda.user, SMTPD_USER,
-			    sizeof (ep->agent.mda.user));
+			strlcpy(ep->agent.mda.user.username, SMTPD_USER,
+			    sizeof (ep->agent.mda.user.username));
 		}
 		else {
 			xn2 = lka_find_ancestor(xn, EXPAND_USERNAME);
-			strlcpy(ep->agent.mda.user, xn2->u.user,
-			    sizeof (ep->agent.mda.user));
+			strlcpy(ep->agent.mda.user.username, xn2->u.user,
+			    sizeof (ep->agent.mda.user.username));
+		}
+
+		ub = user_backend_lookup(USER_PWD);
+		if (! ub->getbyname(&ep->agent.mda.user, ep->agent.mda.user.username)) {
+			lks->flags |= F_ERROR;
+			lks->ss.code = 451;
+			free(ep);
+			return;
 		}
 
 		if (xn->type == EXPAND_FILENAME) {
@@ -410,7 +419,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
 			log_warnx("warn: format string result too long while "
-			    " expanding for user %s", ep->agent.mda.user);
+			    " expanding for user %s", ep->agent.mda.user.username);
 			free(ep);
 			return;
 		}
@@ -427,8 +436,6 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 {
 	char *p, *pbuf;
 	size_t ret, lret = 0;
-	struct user_backend *ub;
-	struct user u;
 	char lbuffer[MAX_RULEBUFFER_LEN];
 	char tmpbuf[MAX_RULEBUFFER_LEN];
 
@@ -443,41 +450,9 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 	     ++p, len -= lret, pbuf += lret, ret += lret) {
 		if (p == buf && *p == '~') {
 			if (*(p + 1) == '/' || *(p + 1) == '\0') {
-
-				bzero(&u, sizeof (u));
-				ub = user_backend_lookup(USER_PWD);
-				if (! ub->getbyname(&u, ep->agent.mda.user))
-					return 0;
-				
-				lret = strlcat(pbuf, u.directory, len);
+				lret = strlcat(pbuf, ep->agent.mda.user.directory, len);
 				if (lret >= len)
 					return 0;
-				continue;
-			}
-			
-			if (*(p + 1) != '/') {
-				char username[MAXLOGNAME];
-				char *delim;
-				
-				lret = strlcpy(username, p + 1,
-				    sizeof(username));
-				if (lret >= sizeof(username))
-					return 0;
-
-				delim = strchr(username, '/');
-				if (delim == NULL)
-					goto copy;
-				*delim = '\0';
-
-				bzero(&u, sizeof (u));
-				ub = user_backend_lookup(USER_PWD);
-				if (! ub->getbyname(&u, username))
-					return 0;
-
-				lret = strlcat(pbuf, u.directory, len);
-				if (lret >= len)
-					return 0;
-				p += strlen(username);
 				continue;
 			}
 		}
@@ -497,7 +472,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 				string = ep->sender.domain;
 				break;
 			case 'u':
-				string = ep->agent.mda.user;
+				string = ep->agent.mda.user.username;
 				break;
 			case 'a':
 				string = ep->dest.user;
