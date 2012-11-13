@@ -223,7 +223,6 @@ main(int argc, char *argv[])
 		break;
 	case SCHEDULE_ALL:
 		return action_schedule_all();
-		break;
 	case SHUTDOWN:
 		imsg_compose(ibuf, IMSG_CTL_SHUTDOWN, 0, 0, -1, NULL, 0);
 		break;
@@ -287,7 +286,6 @@ main(int argc, char *argv[])
 		switch(action) {
 		case REMOVE:
 		case SCHEDULE:
-		case SCHEDULE_ALL:
 		case SHUTDOWN:
 		case PAUSE_MDA:
 		case PAUSE_MTA:
