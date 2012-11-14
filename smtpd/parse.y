@@ -108,7 +108,6 @@ typedef struct {
 	union {
 		int64_t		 number;
 		objid_t		 object;
-		struct timeval	 tv;
 		struct cond	*cond;
 		char		*string;
 		struct host	*host;
@@ -421,37 +420,32 @@ main		: QUEUE compression {
 		;
 
 mapsource	: SOURCE FILE STRING			{
-			map->m_src = S_FILE;
+			strlcpy(map->m_src, "file", sizeof map->m_src);
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		| STRING {
-			map->m_src = S_FILE;
+			strlcpy(map->m_src, "file", sizeof map->m_src);
 			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		| SOURCE DB STRING			{
-			map->m_src = S_DB;
+			strlcpy(map->m_src, "db", sizeof map->m_src);
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
+		| '{' mapval_list '}'			{ }
 		;
 
 mapopt		: mapsource		{ }
 
 map		: TABLE STRING			{
-			map = map_create(S_NONE, $2);
+			map = map_create("static", $2);
 			free($2);
-		} optlbracket mapopt optrbracket	{
-			if (map->m_src == S_NONE) {
-				yyerror("map %s has no source defined", $2);
-				free(map);
-				map = NULL;
-				YYERROR;
-			}
+		} mapopt	{
 			map = NULL;
 		}
 		;
@@ -477,21 +471,20 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
+mapval_list	: string_list			{ }
+		| keyval_list			{ }
+		;
+
 mapnew		: STRING			{
 			struct map	*m;
 
-			m = map_create(S_NONE, NULL);
+			m = map_create("static", NULL);
 			map_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
-		| '('				{
-			map = map_create(S_NONE, NULL);
-		} string_list ')'		{
-			$$ = map->m_id;
-		}
 		| '{'				{
-			map = map_create(S_NONE, NULL);
-		} keyval_list '}'		{
+			map = map_create("static", NULL);
+		} mapval_list '}'		{
 			$$ = map->m_id;
 		}
 		;
@@ -532,7 +525,7 @@ condition	: DOMAIN maps alias		{
 			struct map	*m;
 
 			m = map_find($2);
-			if (m->m_src == S_NONE) {
+			if (!strcmp(m->m_src, "static")) {
 				yyerror("virtual parameter MUST be a map");
 				YYERROR;
 			}
@@ -554,7 +547,7 @@ condition	: DOMAIN maps alias		{
 
 			rule->r_amap = $2;
 
-			m = map_create(S_NONE, NULL);
+			m = map_create("static", NULL);
 			map_add(m, "localhost", NULL);
 			map_add(m, hostname, NULL);
 
@@ -1637,7 +1630,7 @@ set_localaddrs(void)
 	struct sockaddr_in6	*sin6;
 	struct map		*m;
 
-	m = map_create(S_NONE, "<anyhost>");
+	m = map_create("static", "<anyhost>");
 	map_add(m, "local", NULL);
 	map_add(m, "0.0.0.0/0", NULL);
 	map_add(m, "::/0", NULL);
@@ -1645,7 +1638,7 @@ set_localaddrs(void)
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = map_create(S_NONE, "<localhost>");
+	m = map_create("static", "<localhost>");
 	map_add(m, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {

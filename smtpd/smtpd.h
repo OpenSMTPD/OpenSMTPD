@@ -36,6 +36,7 @@
 
 #define MAX_TAG_SIZE		 32
 
+#define	MAX_MAPSOURCE_SIZE	 32
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
@@ -234,12 +235,13 @@ struct peer {
 	void			(*cb)(int, short, void *);
 };
 
+/*
 enum map_src {
 	S_NONE,
 	S_FILE,
-	S_DB /*,
-	S_LDAP*/
+	S_DB
 };
+*/
 
 enum map_kind {
 	K_NONE,
@@ -259,7 +261,7 @@ struct map {
 	TAILQ_ENTRY(map)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
-	enum map_src			 m_src;
+	char				 m_src[MAX_MAPSOURCE_SIZE];
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
 	void				*m_handle;
@@ -1019,7 +1021,7 @@ int map_compare(objid_t, const char *, enum map_kind,
     int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
-struct map *map_create(enum map_src, const char *);
+struct map *map_create(const char *, const char *);
 void map_destroy(struct map *);
 void map_add(struct map *, const char *, const char *);
 void map_delete(struct map *, const char *);
