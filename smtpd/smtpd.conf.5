@@ -181,8 +181,7 @@ situations where it is not possible to listen on the submission
 port.
 .It Xo
 .Ic table Ar name
-.Ic Op backend Ar type
-.Ar config
+.Ar [type:]config
 .Xc
 Tables are used to provide additional configuration information for
 .Xr smtpd 8
@@ -200,7 +199,7 @@ and should be one of the following:
 .It db
 Information is stored in a file created using
 .Xr makemap 8 .
-.It plain
+.It file
 Information is stored in a plain text file using the
 same format as used to generate
 .Xr makemap 8
@@ -503,8 +502,8 @@ A secrets file is needed to specify a username and password:
 would look like this:
 .Bd -literal -offset indent
 listen on lo0
-table aliases backend db "/etc/mail/aliases.db"
-table secrets backend db "/etc/mail/secrets.db"
+table aliases db:/etc/mail/aliases.db
+table secrets db:/etc/mail/secrets.db"
 accept for local alias <aliases> deliver to mbox
 accept for any relay via tls+auth://smtp.example.com auth <secrets>
 .Ed
@@ -529,7 +528,7 @@ The configuration file would look like this:
 .Bd -literal -offset indent
 listen on lo0
 listen on egress tls certificate mail.example.com auth
-table aliases backend db "/etc/mail/aliases.db"
+table aliases db:/etc/mail/aliases.db
 accept for local alias <aliases> deliver to mda "/path/to/mda -f -"
 accept from any for domain example.org \e
 	deliver to mda "/path/to/mda -f -"
