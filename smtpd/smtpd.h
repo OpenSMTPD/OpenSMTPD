@@ -41,7 +41,8 @@
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 #define MAX_PATH_SIZE		 256
-#define MAX_RULEBUFFER_LEN	 512
+/*#define MAX_RULEBUFFER_LEN	 512*/
+#define	EXPAND_BUFFER		 1024
 
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
@@ -96,6 +97,26 @@
 #define ROUTE_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 
 typedef uint32_t	objid_t;
+
+
+/* user structures */
+enum user_type {
+	USER_PWD,
+};
+
+#define	MAXPASSWORDLEN	128
+struct userinfo {
+	char username[MAXLOGNAME];
+	char directory[MAXPATHLEN];
+	char password[MAXPASSWORDLEN];
+	uid_t uid;
+	gid_t gid;
+};
+
+struct user_backend {
+	int (*getbyname)(struct userinfo *, const char *);
+};
+
 
 struct netaddr {
 	struct sockaddr_storage ss;
@@ -313,7 +334,7 @@ struct rule {
 	struct cond			 r_condition;
 	enum action_type		 r_action;
 	union rule_dest {
-		char			 buffer[MAX_RULEBUFFER_LEN];
+		char			 buffer[EXPAND_BUFFER];
 		struct relayhost       	 relayhost;
 	}				 r_value;
 
@@ -351,8 +372,8 @@ enum delivery_flags {
 
 struct delivery_mda {
 	enum action_type	method;
-	char			user[MAXLOGNAME];
-	char			buffer[MAX_RULEBUFFER_LEN];
+	struct userinfo		user;
+	char			buffer[EXPAND_BUFFER];
 };
 
 struct delivery_mta {
@@ -383,7 +404,7 @@ struct expandnode {
 		 * so we MUST make it large enough to fit a mailaddr user
 		 */
 		char		 user[MAX_LOCALPART_SIZE];
-		char		 buffer[MAX_RULEBUFFER_LEN];
+		char		 buffer[EXPAND_BUFFER];
 		struct mailaddr	 mailaddr;
 	} 			 u;
 };
@@ -795,25 +816,6 @@ enum auth_type {
 
 struct auth_backend {
 	int (*authenticate)(char *, char *);
-};
-
-
-/* user structures */
-enum user_type {
-	USER_PWD,
-};
-
-#define	MAXPASSWORDLEN	128
-struct mta_user {
-	char username[MAXLOGNAME];
-	char directory[MAXPATHLEN];
-	char password[MAXPASSWORDLEN];
-	uid_t uid;
-	gid_t gid;
-};
-
-struct user_backend {
-	int (*getbyname)(struct mta_user *, const char *);
 };
 
 

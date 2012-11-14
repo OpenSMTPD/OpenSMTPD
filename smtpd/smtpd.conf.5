@@ -56,21 +56,32 @@ listen on $lan_addr
 listen on $lan_addr tls auth
 .Ed
 .Pp
-Some configuration directives expect expansion of their parameters at runtime.
+Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example
 .Ar deliver to maildir ,
-.Ar deliver to mda ,
-.Ar relay via )
+.Ar deliver to mda )
 may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
-%a expands to the user part of the email address prior to the
-resolution of aliases;
-%u expands to the user part after aliases
-resolution and will typically be the system account;
-%d expands to the domain part of the email address;
-%A expands to the user part of the sender email address;
-%D expands to the domain part of the sender email address.
+.Bd -literal -offset indent
+%{sender.user}	     user part of the sender email address
+%{sender.domain}     domain part of the sender email address
+%{rcpt.user}	     user part of the recipient email address
+%{rcpt.domain}	     domain part of the recipient email address
+%{dest.user}	     user part after expansion
+%{dest.domain}	     domain part after expansion
+%{user.username}     local user
+%{user.directory}    home directory of the local user
+.Ed
+.Pp
+Expansion formats also support partial expansion using the optional bracket notations
+with substring offset. For example, with recipient domain "example.org":
+.Bd -literal -offset indent
+%{rcpt.domain[8]}	expands to "org"
+%{rcpt.domain[-3]}	expands to "org"
+%{rcpt.domain[0:6]}	expands to "example"
+%{rcpt.domain[0:-4]} 	expands to "example"
+.Ed
 .Pp
 Additional configuration files can be included with the
 .Ic include

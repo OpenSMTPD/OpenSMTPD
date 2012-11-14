@@ -219,7 +219,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		return (evp->len);
 
         case QOP_UPDATE:
-		evp = tree_pop(&msg->envelopes, *evpid);
+		evp = tree_get(&msg->envelopes, *evpid);
 		if (evp == NULL)
 			return (0);
 		stat_decrement("queue.ram.envelope.size", evp->len);
