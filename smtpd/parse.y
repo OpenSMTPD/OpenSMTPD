@@ -119,8 +119,7 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION SIZE LISTEN ON ANY PORT EXPIRE
-%token	TABLE HASH LIST SINGLE SSL SMTPS CERTIFICATE
-%token	DB FILE DOMAIN SOURCE
+%token	TABLE SSL SMTPS CERTIFICATE DOMAIN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
@@ -174,14 +173,6 @@ comma		: ','
 		;
 
 optnl		: '\n' optnl
-		|
-		;
-
-optlbracket    	: '{'
-		|
-		;
-
-optrbracket    	: '}'
 		|
 		;
 
@@ -428,36 +419,42 @@ main		: QUEUE compression {
 		*/
 		;
 
-mapsource	: SOURCE FILE STRING			{
-			map->m_type = T_DYNAMIC;
-			strlcpy(map->m_src, "file", sizeof map->m_src);
-			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-		| STRING {
-			map->m_type = T_DYNAMIC;
-			strlcpy(map->m_src, "file", sizeof map->m_src);
-			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-		| SOURCE DB STRING			{
-			map->m_type = T_DYNAMIC;
-			strlcpy(map->m_src, "db", sizeof map->m_src);
-			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-		| '{' mapval_list '}'			{ }
-		;
+map		: TABLE STRING STRING	{
+			char *p, *backend, *config;
 
-mapopt		: mapsource		{ }
+			p = $3;
+			if (*p == '/') {
+				backend = "file";
+				config  = $3;
+			}
+			else {
+				p = backend = config = NULL;
+				for (p = $3; *p && *p != ':'; p++)
+					;
+				if (*p == ':') {
+					*p = '\0';
+					backend = $3;
+					config  = p+1;
+				}
+			}
+			if (config == NULL || *config != '/') {
+				yyerror("map parameter must be absolute path");
+				free($2);
+				free($3);
+				YYERROR;
+			}
 
-map		: TABLE STRING			{
+			map = map_create(backend, $2);
+			if (strlcpy(map->m_config, config, sizeof(map->m_config))
+			    >= sizeof(map->m_config))
+				err(1, "pathname too long");
+			free($2);
+			free($3);
+		}
+		| TABLE STRING {
 			map = map_create("static", $2);
 			free($2);
-		} mapopt	{
+		} '{' mapval_list '}' {
 			map = NULL;
 		}
 		;
@@ -939,34 +936,27 @@ lookup(char *s)
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",       	COMPRESSION },
-		{ "db",			DB },
 		{ "deliver",		DELIVER },
 		{ "domain",		DOMAIN },
 		{ "expire",		EXPIRE },
-		{ "file",		FILE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
-		{ "hash",		HASH },
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
 		{ "key",		KEY },
-		{ "list",		LIST },
 		{ "listen",		LISTEN },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
-		{ "plain",		FILE },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
-		{ "single",		SINGLE },
 		{ "size",		SIZE },
 		{ "smtps",		SMTPS },
-		{ "source",		SOURCE },
 		{ "ssl",		SSL },
 		{ "table",		TABLE },
 		{ "tag",		TAG },

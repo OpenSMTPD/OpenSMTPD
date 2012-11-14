@@ -148,9 +148,15 @@ map_create(const char *source, const char *name)
 	if (name && map_findbyname(name))
 		errx(1, "map_create: map \"%s\" already defined", name);
 
+	if (map_backend_lookup(source) == NULL)
+		errx(1, "map_create: backend \"%s\" does not exist", source);
+
 	m = xcalloc(1, sizeof(*m), "map_create");
 	if (strlcpy(m->m_src, source, sizeof m->m_src) >= sizeof m->m_src)
 		errx(1, "map_create: map source \"%s\" too large", m->m_src);
+
+	if (strcmp(m->m_src, "static") != 0)
+		m->m_type = T_DYNAMIC;
 
 	m->m_id = ++last_map_id;
 	if (m->m_id == INT_MAX)
@@ -236,6 +242,8 @@ map_open(struct map *m)
 	struct map_backend *backend = NULL;
 
 	backend = map_backend_lookup(m->m_src);
+	if (backend == NULL)
+		return NULL;
 	return backend->open(m);
 }
 
