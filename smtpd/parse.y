@@ -129,9 +129,9 @@ typedef struct {
 %type	<v.map>		table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.object>	tables tablenew tableref alias
+%type	<v.object>	tables tablenew tableref alias credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname tag on credentials compression
+%type	<v.string>	certname tag on compression
 %%
 
 grammar		: /* empty */
@@ -266,18 +266,13 @@ expire		: EXPIRE STRING {
 		| /* empty */	{ $$ = conf->sc_qexpire; }
 		;
 
-credentials	: AUTH STRING	{
+credentials	: AUTH tables	{
 			struct map	*m;
 
-			if ((m = map_findbyname($2)) == NULL) {
-				yyerror("no such map: %s", $2);
-				free($2);
-				YYERROR;
-			}
-
 			/* AUTH only accepts T_DYNAMIC and T_HASH */
+			m = map_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("map \"%s\" can't be used as AUTH parameter",
+				yyerror("table \"%s\" can't be used as AUTH parameter",
 					m->m_name);
 				YYERROR;
 			}
@@ -438,7 +433,7 @@ table		: TABLE STRING STRING	{
 				}
 			}
 			if (config == NULL || *config != '/') {
-				yyerror("map parameter must be absolute path");
+				yyerror("table parameter must be absolute path");
 				free($2);
 				free($3);
 				YYERROR;
@@ -505,7 +500,7 @@ tableref       	: '<' STRING '>'       		{
 			struct map	*m;
 
 			if ((m = map_findbyname($2)) == NULL) {
-				yyerror("no such map: %s", $2);
+				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
 			}
@@ -524,11 +519,11 @@ alias		: ALIAS tables			{
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
 			m = map_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("map \"%s\" can't be used as ALIAS parameter",
+				yyerror("table \"%s\" can't be used as ALIAS parameter",
 					m->m_name);
 				YYERROR;
 			}
-			$$ = $2;
+			$$ = m->m_id;
 		}
 		| /* empty */			{ $$ =  0; }
 		;
@@ -540,7 +535,7 @@ condition	: DOMAIN tables alias		{
 			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
-				yyerror("map \"%s\" can't be used as DOMAIN parameter",
+				yyerror("table \"%s\" can't be used as DOMAIN parameter",
 					m->m_name);
 				YYERROR;
 			}
@@ -559,7 +554,7 @@ condition	: DOMAIN tables alias		{
 			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("map \"%s\" can't be used as VIRTUAL parameter",
+				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
 					m->m_name);
 				YYERROR;
 			}
@@ -726,6 +721,8 @@ action		: DELIVER TO MAILDIR			{
 			free($3);
 		}
 		| RELAY VIA STRING certname credentials relay_as {
+			struct map	*m;
+
 			rule->r_action = A_RELAYVIA;
 			rule->r_as = $6;
 
@@ -733,7 +730,6 @@ action		: DELIVER TO MAILDIR			{
 				yyerror("error: invalid url: %s", $3);
 				free($3);
 				free($4);
-				free($5);
 				free($6);
 				YYERROR;
 			}
@@ -741,18 +737,16 @@ action		: DELIVER TO MAILDIR			{
 
 			/* no worries, F_AUTH cant be set without SSL */
 			if (rule->r_value.relayhost.flags & F_AUTH) {
-				if ($5 == NULL) {
-					yyerror("error: auth without authmap");
+				if (! $5) {
+					yyerror("error: auth without auth table");
 					free($4);
-					free($5);
 					free($6);
 					YYERROR;
 				}
-				strlcpy(rule->r_value.relayhost.authmap, $5,
+				m = map_find($5);
+				strlcpy(rule->r_value.relayhost.authmap, m->m_name,
 				    sizeof(rule->r_value.relayhost.authmap));
 			}
-			free($5);
-
 
 			if ($4 != NULL) {
 				if (ssl_load_certfile($4, F_CCERT) < 0) {
@@ -777,7 +771,7 @@ from		: FROM tables			{
 			/* FROM only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
-				yyerror("map \"%s\" can't be used as FROM parameter",
+				yyerror("table \"%s\" can't be used as FROM parameter",
 					m->m_name);
 				YYERROR;
 			}
