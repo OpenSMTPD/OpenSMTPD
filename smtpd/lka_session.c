@@ -450,7 +450,7 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 	char		rtoken[MAXTOKENLEN];
 	const char     *string;
 	char	       *lbracket, *rbracket, *content, *sep;
-	size_t		i;
+	ssize_t		i;
 	ssize_t		begoff, endoff;
 	const char     *errstr;
 
@@ -470,13 +470,15 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 		 if ((sep = strchr(content, ':')) == NULL)
 			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
 		 else {
-
-			 *sep = '\0';
+			 *sep++ = '\0';
 			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
-			 if (errstr == NULL)
-				 endoff = strtonum(sep+1, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
-			 if (endoff == 0)
-				 return 0;
+			 if (*sep) {
+				 if (errstr == NULL)
+					 endoff = strtonum(sep, -EXPAND_BUFFER, EXPAND_BUFFER,
+					     &errstr);
+				 if (endoff == 0)
+					 return 0;
+			 }
 		 }
 		 if (errstr)
 			 return 0;
@@ -488,7 +490,6 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 			break;
 	if (i == (int)nitems(tokens))
 		return 0;
-
 	if (! strcasecmp("sender.user", tokens[i]))
 		string = ep->sender.user;
 	else if (! strcasecmp("sender.domain", tokens[i]))
@@ -508,25 +509,36 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 	else
 		fatalx("lka_expand_token: missing token handler");
 
+	/* expanded string is empty */
 	i = strlen(string);
+	if (i == 0)
+		return 0;
 
+	/* begin offset beyond end of string */
+	if (begoff >= i)
+		return 0;
+
+	/* end offset beyond end of string or unspecified, make it end of string */
+	if (endoff >= i || endoff == 0)
+		endoff = i;
+
+	/* negative begin offset, make it relative to end of string */
 	if (begoff < 0)
 		begoff += i;
-	else if (begoff > i)
-		begoff  = i;
-
+	/* negative end offset, make it relative to end of string */
 	if (endoff < 0)
-		endoff += i;
-	else if (endoff == 0 || endoff > i)
-		endoff  = i;
+		endoff += i - 1;
 
-	if (begoff < 0 || endoff <= 0)
+	/* check that final offsets are valid */
+	if (begoff < 0 || endoff <= 0 || endoff <= begoff)
 		return 0;
 
-	if (endoff - begoff + 1 >= len)
+	/* check that substring does not exceed destination buffer length */
+	i = endoff - begoff + 1;
+	if (i + 1 >= len)
 		return 0;
 
-	return strlcpy(dest, string + begoff, endoff - begoff + 1);
+	return strlcpy(dest, string + begoff, i + 1);
 }
 
 

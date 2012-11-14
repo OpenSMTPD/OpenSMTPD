@@ -63,19 +63,25 @@ Such directives (for example
 may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
-%{sender.user} expands to the user part of the sender email address;
-%{sender.domain} expands to the domain part of the sender email address;
-%{rcpt.user} expands to the user part of the recipient address at SMTP session time;
-%{rcpt.domain} expands to the domain part of the recipient address at SMTP session time;
-%{dest.user} expands to the user part of the recipient address after expansion;
-%{dest.domain} expands to the domain part of the recipient address after expansion;
-%{user.username} expands to the local user that will receive the email;
-%{user.directory} expands to the home directory of the local user that will receive the email;
+.Bd -literal -offset indent
+%{sender.user}	     user part of the sender email address
+%{sender.domain}     domain part of the sender email address
+%{rcpt.user}	     user part of the recipient email address
+%{rcpt.domain}	     domain part of the recipient email address
+%{dest.user}	     user part after expansion
+%{dest.domain}	     domain part after expansion
+%{user.username}     local user
+%{user.directory}    home directory of the local user
+.Ed
 .Pp
-Expansion formats also support partial expansion using the optional bracket notations.
-With recipient domain "example.org", the following:
-%{rcpt.domain[8]} will expand to "org";
-%{rcpt.domain[0:8]} will expand to "example";
+Expansion formats also support partial expansion using the optional bracket notations
+with substring offset. For example, with recipient domain "example.org":
+.Bd -literal -offset indent
+%{rcpt.domain[8]}	expands to "org"
+%{rcpt.domain[-3]}	expands to "org"
+%{rcpt.domain[0:6]}	expands to "example"
+%{rcpt.domain[0:-4]} 	expands to "example"
+.Ed
 .Pp
 Additional configuration files can be included with the
 .Ic include
