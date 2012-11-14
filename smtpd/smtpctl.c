@@ -84,6 +84,8 @@ struct smtpd	*env = NULL;
 
 time_t now;
 
+struct queue_backend queue_backend_ram;
+
 __dead void
 usage(void)
 {
@@ -189,7 +191,6 @@ main(int argc, char *argv[])
 
 	if (geteuid())
 		errx(1, "need root privileges");
-	setup_env(&smtpd);
 
 	if (strcmp(__progname, "mailq") == 0)
 		action = SHOW_QUEUE;
@@ -201,6 +202,7 @@ main(int argc, char *argv[])
 		errx(1, "unsupported mode");
 
 	if (!try_connect()) {
+		setup_env(&smtpd);
 		switch (action) {
 		case SHOW_QUEUE:
 			show_queue(0);

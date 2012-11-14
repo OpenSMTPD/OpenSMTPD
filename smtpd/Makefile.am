@@ -48,6 +48,7 @@ smtpd_SOURCES+=		map_db.c
 smtpd_SOURCES+=		map_file.c
 smtpd_SOURCES+=		map_static.c
 smtpd_SOURCES+=		queue_fsqueue.c
+smtpd_SOURCES+=		queue_ram.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
 smtpd_SOURCES+=		stat_ramstat.c
 #smtpd_SOURCES+=	stat_sqlite.c
