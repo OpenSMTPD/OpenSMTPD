@@ -44,17 +44,11 @@
 static int queue_ram_init(int);
 static int queue_ram_message(enum queue_op, uint32_t *);
 static int queue_ram_envelope(enum queue_op , uint64_t *, char *, size_t);
-static void *queue_ram_qwalk_new(uint32_t);
-static int queue_ram_qwalk(void *, uint64_t *);
-static void queue_ram_qwalk_close(void *);
 
 struct queue_backend	queue_backend_ram = {
 	  queue_ram_init,
 	  queue_ram_message,
 	  queue_ram_envelope,
-	  queue_ram_qwalk_new,
-	  queue_ram_qwalk,
-	  queue_ram_qwalk_close
 };
 
 struct qr_envelope {
@@ -229,26 +223,12 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		evp->buf = xmemdup(buf, len, "queue_ram_envelope: update");
 		return (1);
 
+	case QOP_LEARN:
+		return (-1);
+
         default:
 		fatalx("queue_queue_ram_envelope: unsupported operation.");
         }
 
 	return (0);
-}
-
-static void *
-queue_ram_qwalk_new(uint32_t msgid)
-{
-	return (NULL);
-}
-
-static void
-queue_ram_qwalk_close(void *hdl)
-{
-}
-
-static int
-queue_ram_qwalk(void *hdl, uint64_t *evpid)
-{
-        return (0); 
 }

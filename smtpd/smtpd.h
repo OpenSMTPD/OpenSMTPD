@@ -781,10 +781,10 @@ struct map_netaddr {
 };
 
 enum queue_op {
-	QOP_INVALID=0,
 	QOP_CREATE,
 	QOP_DELETE,
 	QOP_UPDATE,
+	QOP_LEARN,
 	QOP_COMMIT,
 	QOP_LOAD,
 	QOP_FD_R,
@@ -795,10 +795,6 @@ struct queue_backend {
 	int (*init)(int);
 	int (*message)(enum queue_op, uint32_t *);
 	int (*envelope)(enum queue_op, uint64_t *, char *, size_t);
-
-	void *(*qwalk_new)(uint32_t);
-	int   (*qwalk)(void *, uint64_t *);
-	void  (*qwalk_close)(void *);
 };
 
 struct compress_backend {
@@ -1081,9 +1077,7 @@ int queue_envelope_create(struct envelope *);
 int queue_envelope_delete(struct envelope *);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
-void *qwalk_new(uint32_t);
-int   qwalk(void *, uint64_t *);
-void  qwalk_close(void *);
+int queue_envelope_learn(struct envelope *);
 
 /* compress_backend.c */
 struct compress_backend *compress_backend_lookup(const char *);

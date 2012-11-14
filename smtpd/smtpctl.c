@@ -520,24 +520,17 @@ show_stats_output(void)
 static void
 show_queue(flags)
 {
-	struct qwalk	*q;
 	struct envelope	 envelope;
-	uint64_t	 evpid;
+	int		 r;
 
 	log_init(1);
 
 	if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
 		err(1, "%s", PATH_SPOOL);
 
-	q = qwalk_new(0);
-
-	while (qwalk(q, &evpid)) {
-		if (! queue_envelope_load(evpid, &envelope))
-			continue;
-		show_queue_envelope(&envelope, flags);
-	}
-
-	qwalk_close(q);
+	while((r = queue_envelope_learn(&envelope)) != -1)
+		if (r)
+			show_queue_envelope(&envelope, flags);
 }
 
 static void
