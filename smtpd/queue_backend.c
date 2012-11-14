@@ -43,6 +43,7 @@
 static const char* envelope_validate(struct envelope *);
 
 extern struct queue_backend	queue_backend_fs;
+extern struct queue_backend	queue_backend_ram;
 
 int
 queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
@@ -81,6 +82,8 @@ queue_backend_lookup(const char *name)
 {
 	if (!strcmp(name, "fs"))
 		return &queue_backend_fs;
+	if (!strcmp(name, "ram"))
+		return &queue_backend_ram;
 
 	return (NULL);
 }

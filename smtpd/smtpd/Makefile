@@ -25,6 +25,7 @@ SRCS+=		map_db.c
 SRCS+=		map_file.c
 SRCS+=		map_static.c
 SRCS+=		queue_fsqueue.c
+SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		stat_ramstat.c
 #SRCS+=		stat_sqlite.c
