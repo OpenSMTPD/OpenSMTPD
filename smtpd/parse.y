@@ -126,10 +126,10 @@ typedef struct {
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.map>		map
+%type	<v.map>		table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.object>	maps mapnew mapref alias
+%type	<v.object>	tables tablenew tableref alias
 %type	<v.maddr>	relay_as
 %type	<v.string>	certname tag on credentials compression
 %%
@@ -139,7 +139,7 @@ grammar		: /* empty */
 		| grammar include '\n'
 		| grammar varset '\n'
 		| grammar main '\n'
-		| grammar map '\n'
+		| grammar table '\n'
 		| grammar rule '\n'
 		| grammar error '\n'		{ file->errors++; }
 		;
@@ -419,7 +419,7 @@ main		: QUEUE compression {
 		*/
 		;
 
-map		: TABLE STRING STRING	{
+table		: TABLE STRING STRING	{
 			char *p, *backend, *config;
 
 			p = $3;
@@ -454,7 +454,7 @@ map		: TABLE STRING STRING	{
 		| TABLE STRING {
 			map = map_create("static", $2);
 			free($2);
-		} '{' mapval_list '}' {
+		} '{' tableval_list '}' {
 			map = NULL;
 		}
 		;
@@ -482,11 +482,11 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
-mapval_list	: string_list			{ }
+tableval_list	: string_list			{ }
 		| keyval_list			{ }
 		;
 
-mapnew		: STRING			{
+tablenew		: STRING			{
 			struct map	*m;
 
 			m = map_create("static", NULL);
@@ -496,12 +496,12 @@ mapnew		: STRING			{
 		}
 		| '{'				{
 			map = map_create("static", NULL);
-		} mapval_list '}'		{
+		} tableval_list '}'		{
 			$$ = map->m_id;
 		}
 		;
 
-mapref		: '<' STRING '>'       		{
+tableref       	: '<' STRING '>'       		{
 			struct map	*m;
 
 			if ((m = map_findbyname($2)) == NULL) {
@@ -514,11 +514,11 @@ mapref		: '<' STRING '>'       		{
 		}
 		;
 
-maps		: mapnew			{ $$ = $1; }
-		| mapref			{ $$ = $1; }
+tables		: tablenew			{ $$ = $1; }
+		| tableref			{ $$ = $1; }
 		;
 
-alias		: ALIAS maps			{
+alias		: ALIAS tables			{
 			struct map	*m;
 
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
@@ -533,7 +533,7 @@ alias		: ALIAS maps			{
 		| /* empty */			{ $$ =  0; }
 		;
 
-condition	: DOMAIN maps alias		{
+condition	: DOMAIN tables alias		{
 			struct cond	*c;
 			struct map	*m;
 
@@ -552,7 +552,7 @@ condition	: DOMAIN maps alias		{
 			c->c_map = $2;
 			$$ = c;
 		}
-		| VIRTUAL maps			{
+		| VIRTUAL tables       		{
 			struct cond	*c;
 			struct map	*m;
 
@@ -771,7 +771,7 @@ action		: DELIVER TO MAILDIR			{
 		}
 		;
 
-from		: FROM maps			{
+from		: FROM tables			{
 			struct map	*m;
 
 			/* FROM only accepts T_DYNAMIC and T_LIST */
