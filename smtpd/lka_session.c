@@ -537,7 +537,7 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 
 	/* check that substring does not exceed destination buffer length */
 	i = endoff - begoff + 1;
-	if (i + 1 >= len)
+	if ((size_t)i + 1 >= len)
 		return 0;
 
 	return strlcpy(dest, string + begoff, i + 1);
