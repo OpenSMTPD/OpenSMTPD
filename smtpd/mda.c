@@ -126,7 +126,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 			}
 
-			name = ep->agent.mda.user;
+			name = ep->agent.mda.user.username;
 			TAILQ_FOREACH(u, &users, entry)
 				if (!strcmp(name, u->name))
 					break;
@@ -215,7 +215,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			switch (d_mda->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;
-				strlcpy(deliver.user, d_mda->user,
+				strlcpy(deliver.user, d_mda->user.username,
 				    sizeof (deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
@@ -225,7 +225,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				deliver.mode = A_MBOX;
 				strlcpy(deliver.user, "root",
 				    sizeof (deliver.user));
-				strlcpy(deliver.to, d_mda->user,
+				strlcpy(deliver.to, d_mda->user.username,
 				    sizeof (deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
 				    "%s@%s", ep->sender.user,
@@ -234,7 +234,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				strlcpy(deliver.user, d_mda->user,
+				strlcpy(deliver.user, d_mda->user.username,
 				    sizeof deliver.user);
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
@@ -242,7 +242,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				strlcpy(deliver.user, d_mda->user,
+				strlcpy(deliver.user, d_mda->user.username,
 				    sizeof deliver.user);
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);

@@ -78,7 +78,7 @@ ruleset_match(const struct envelope *evp)
 			if (map == NULL)
 				fatal("failed to lookup map.");
 
-			if (map->m_src == S_NONE) {
+			if (! strcmp(map->m_src, "static")) {
 				TAILQ_FOREACH(me, &map->m_contents, me_entry) {
 					if (hostname_match(maddr->domain, me->me_key))
 						return r;
@@ -141,7 +141,7 @@ ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
 		return 1;
 	}
 
-	if (map->m_src == S_NONE) {
+	if (! strcmp(map->m_src, "static")) {
 		TAILQ_FOREACH(me, &map->m_contents, me_entry) {
 			if (ss->ss_family == AF_LOCAL) {
 				if (!strcmp(me->me_key, "local"))
