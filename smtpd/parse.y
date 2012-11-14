@@ -120,8 +120,8 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION SIZE LISTEN ON ANY PORT EXPIRE
-%token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE
-%token	DB LDAP FILE DOMAIN SOURCE
+%token	TABLE HASH LIST SINGLE SSL SMTPS CERTIFICATE
+%token	DB FILE DOMAIN SOURCE
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
@@ -129,12 +129,11 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
-%type	<v.number>	quantifier port from auth ssl size expire
+%type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.tv>		interval
-%type	<v.object>	mapref
+%type	<v.object>	maps mapnew mapref alias
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname tag on alias credentials compression
+%type	<v.string>	certname tag on credentials compression
 %%
 
 grammar		: /* empty */
@@ -188,22 +187,6 @@ optrbracket    	: '}'
 		;
 
 nl		: '\n' optnl
-		;
-
-quantifier      : /* empty */                   { $$ = 1; }  	 
-		| 'm'                           { $$ = 60; } 	 
-		| 'h'                           { $$ = 3600; } 	 
-		| 'd'                           { $$ = 86400; } 	 
-		;
-
-interval	: NUMBER quantifier		{
-			if ($1 < 0) {
-				yyerror("invalid interval: %" PRId64, $1);
-				YYERROR;
-			}
-			$$.tv_usec = 0;
-			$$.tv_sec = $1 * $2;
-		}
 		;
 
 size		: NUMBER		{
@@ -455,19 +438,11 @@ mapsource	: SOURCE FILE STRING			{
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-/*
-		| SOURCE LDAP STRING			{
-			map->m_src = S_LDAP;
-			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-*/
 		;
 
 mapopt		: mapsource		{ }
 
-map		: MAP STRING			{
+map		: TABLE STRING			{
 			map = map_create(S_NONE, $2);
 			free($2);
 		} optlbracket mapopt optrbracket	{
@@ -502,7 +477,7 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
-mapref		: STRING			{
+mapnew		: STRING			{
 			struct map	*m;
 
 			m = map_create(S_NONE, NULL);
@@ -519,7 +494,9 @@ mapref		: STRING			{
 		} keyval_list '}'		{
 			$$ = map->m_id;
 		}
-		| MAP STRING			{
+		;
+
+mapref		: '<' STRING '>'       		{
 			struct map	*m;
 
 			if ((m = map_findbyname($2)) == NULL) {
@@ -532,29 +509,25 @@ mapref		: STRING			{
 		}
 		;
 
-alias		: ALIAS STRING			{ $$ = $2; }
-		| /* empty */			{ $$ = NULL; }
+maps		: mapnew			{ $$ = $1; }
+		| mapref			{ $$ = $1; }
 		;
 
-condition	: DOMAIN mapref	alias		{
-			struct cond	*c;
-			struct map	*m;
+alias		: ALIAS mapref			{ $$ = $2; }
+		| /* empty */			{ $$ =  0; }
+		;
 
-			if ($3) {
-				if ((m = map_findbyname($3)) == NULL) {
-					yyerror("no such map: %s", $3);
-					free($3);
-					YYERROR;
-				}
-				rule->r_amap = m->m_id;
-			}
+condition	: DOMAIN maps alias		{
+			struct cond	*c;
+
+			rule->r_amap = $3;
 
 			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = COND_DOM;
 			c->c_map = $2;
 			$$ = c;
 		}
-		| VIRTUAL mapref		{
+		| VIRTUAL maps			{
 			struct cond	*c;
 			struct map	*m;
 
@@ -579,14 +552,7 @@ condition	: DOMAIN mapref	alias		{
 				YYERROR;
 			}
 
-			if ($2) {
-				if ((m = map_findbyname($2)) == NULL) {
-					yyerror("no such map: %s", $2);
-					free($2);
-					YYERROR;
-				}
-				rule->r_amap = m->m_id;
-			}
+			rule->r_amap = $2;
 
 			m = map_create(S_NONE, NULL);
 			map_add(m, "localhost", NULL);
@@ -600,19 +566,11 @@ condition	: DOMAIN mapref	alias		{
 		}
 		| ANY alias			{
 			struct cond	*c;
-			struct map	*m;
 
 			c = xcalloc(1, sizeof *c, "parse condition: ANY");
 			c->c_type = COND_ANY;
 
-			if ($2) {
-				if ((m = map_findbyname($2)) == NULL) {
-					yyerror("no such map: %s", $2);
-					free($2);
-					YYERROR;
-				}
-				rule->r_amap = m->m_id;
-			}
+			rule->r_amap = $2;
 			$$ = c;
 		}
 		;
@@ -786,7 +744,7 @@ action		: DELIVER TO MAILDIR			{
 		}
 		;
 
-from		: FROM mapref			{
+from		: FROM maps			{
 			$$ = $2;
 		}
 		| FROM ANY			{
@@ -953,12 +911,10 @@ lookup(char *s)
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
 		{ "key",		KEY },
-		{ "ldap",		LDAP },
 		{ "list",		LIST },
 		{ "listen",		LISTEN },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
-		{ "map",		MAP },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
@@ -972,6 +928,7 @@ lookup(char *s)
 		{ "smtps",		SMTPS },
 		{ "source",		SOURCE },
 		{ "ssl",		SSL },
+		{ "table",		TABLE },
 		{ "tag",		TAG },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
