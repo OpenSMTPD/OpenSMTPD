@@ -164,6 +164,8 @@ enum imsg_type {
 	IMSG_QUEUE_REMOVE,
 	IMSG_QUEUE_EXPIRE,
 
+	IMSG_SCHEDULER_MESSAGES,
+	IMSG_SCHEDULER_ENVELOPES,
 	IMSG_SCHEDULER_REMOVE,
 	IMSG_SCHEDULER_SCHEDULE,
 
@@ -337,7 +339,12 @@ enum delivery_status {
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
 	DF_BOUNCE		= 0x4,
-	DF_INTERNAL		= 0x8 /* internal expansion forward */
+	DF_INTERNAL		= 0x8, /* internal expansion forward */
+
+	/* the remaining flags are not saved on disk */
+
+	DF_PENDING		= 0x10,
+	DF_INFLIGHT		= 0x20,
 };
 
 struct delivery_mda {
@@ -419,6 +426,7 @@ struct envelope {
 	time_t				 expire;
 	uint16_t			 retry;
 	enum delivery_flags		 flags;
+	time_t				 nexttry;
 };
 
 enum envelope_field {
@@ -816,6 +824,13 @@ struct delivery_backend {
 	void (*open)(struct deliver *);
 };
 
+struct evpstate {
+	uint64_t		evpid;
+	uint16_t		flags;
+	uint16_t		retry;
+	time_t			time;
+};
+
 struct scheduler_info {
 	uint64_t		evpid;
 	enum delivery_type	type;
@@ -857,6 +872,8 @@ struct scheduler_backend {
 
 	void	(*batch)(int, struct scheduler_batch *);
 
+	size_t	(*messages)(uint32_t, uint32_t *, size_t);
+	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);
 	void	(*schedule)(uint64_t);
 	void	(*remove)(uint64_t);
 };
@@ -1155,6 +1172,7 @@ void *tree_xpop(struct tree *, uint64_t);
 int tree_poproot(struct tree *, uint64_t *, void **);
 int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
+int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
 
 

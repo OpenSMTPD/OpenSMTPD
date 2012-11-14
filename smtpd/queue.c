@@ -51,6 +51,7 @@ static void queue_sig_handler(int, short, void *);
 static void
 queue_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct submit_status	 ss;
 	struct envelope		*e, evp;
@@ -196,6 +197,37 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
 			    IMSG_BATCH_CLOSE, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
+			return;
+
+		case IMSG_SCHEDULER_ENVELOPES:
+			if (imsg->hdr.len == sizeof imsg->hdr) {
+				imsg_compose_event(env->sc_ievs[PROC_CONTROL],
+				    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid,
+				    0, -1, NULL, 0);
+				return;
+			}
+			state = imsg->data;
+			if (queue_envelope_load(state->evpid, &evp) == 0)
+				return; /* Envelope is gone, drop it */
+			/*
+			 * XXX consistency: The envelope might already be on
+			 * its way back to the scheduler.  We need to detect
+			 * this properly and report that state.
+			 */
+			evp.flags |= state->flags;
+			/* In the past if running or runnable */
+			evp.nexttry = state->time;
+			if (state->flags == DF_INFLIGHT) {
+				/*
+				 * Not exactly correct but pretty close: The
+				 * value is not recorded on the envelope unless
+				 * a tempfail occurs.
+				 */
+				evp.lasttry = state->time;
+			}
+			imsg_compose_event(env->sc_ievs[PROC_CONTROL],
+			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    &evp, sizeof evp);
 			return;
  		}
 	}
@@ -419,7 +451,16 @@ queue_timeout(int fd, short event, void *p)
 	}
 
 	while (qwalk(q, &evpid)) {
-		if (! queue_envelope_load(evpid, &envelope))
+
+		if (msgid && evpid_to_msgid(evpid) != msgid && evpcount) {
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
+			    sizeof msgid);
+			evpcount = 0;
+		}
+		msgid = evpid_to_msgid(evpid);
+
+		if (!queue_envelope_load(evpid, &envelope))
 			log_warnx("warn: Failed to load envelope %016"PRIx64,
 			    evpid);
 		else {
@@ -429,14 +470,6 @@ queue_timeout(int fd, short event, void *p)
 			evpcount++;
 		}
 
-		if (msgid && evpid_to_msgid(evpid) != msgid && evpcount) {
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
-			    sizeof msgid);
-			evpcount = 0;
-		}
-
-		msgid = evpid_to_msgid(evpid);
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
 		evtimer_add(ev, &tv);	
