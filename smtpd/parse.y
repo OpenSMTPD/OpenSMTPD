@@ -125,20 +125,19 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION SIZE LISTEN ON ANY PORT EXPIRE
-%token	MAP HASH LIST SINGLE SSL SMTPS CERTIFICATE
-%token	DB LDAP FILE_ DOMAIN SOURCE
+%token	TABLE SSL SMTPS CERTIFICATE DOMAIN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.map>		map
+%type	<v.map>		table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.object>	mapref
+%type	<v.object>	tables tablenew tableref alias credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname tag on alias credentials compression
+%type	<v.string>	certname tag on compression
 %%
 
 grammar		: /* empty */
@@ -146,7 +145,7 @@ grammar		: /* empty */
 		| grammar include '\n'
 		| grammar varset '\n'
 		| grammar main '\n'
-		| grammar map '\n'
+		| grammar table '\n'
 		| grammar rule '\n'
 		| grammar error '\n'		{ file->errors++; }
 		;
@@ -180,14 +179,6 @@ comma		: ','
 		;
 
 optnl		: '\n' optnl
-		|
-		;
-
-optlbracket    	: '{'
-		|
-		;
-
-optrbracket    	: '}'
 		|
 		;
 
@@ -281,10 +272,14 @@ expire		: EXPIRE STRING {
 		| /* empty */	{ $$ = conf->sc_qexpire; }
 		;
 
-credentials	: AUTH STRING	{
-			if ((map_findbyname($2)) == NULL) {
-				yyerror("no such map: %s", $2);
-				free($2);
+credentials	: AUTH tables	{
+			struct map	*m;
+
+			/* AUTH only accepts T_DYNAMIC and T_HASH */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("table \"%s\" can't be used as AUTH parameter",
+					m->m_name);
 				YYERROR;
 			}
 			$$ = $2;
@@ -425,43 +420,48 @@ main		: QUEUE compression {
 		*/
 		;
 
-mapsource	: SOURCE FILE_ STRING			{
-			strlcpy(map->m_src, "file", sizeof map->m_src);
-			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-		| STRING {
-			strlcpy(map->m_src, "file", sizeof map->m_src);
-			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-		| SOURCE DB STRING			{
-			strlcpy(map->m_src, "db", sizeof map->m_src);
-			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-		;
+table		: TABLE STRING STRING	{
+			char *p, *backend, *config;
 
-mapopt		: mapsource		{ }
-
-map		: MAP STRING			{
-			map = map_create("static", $2);
-			free($2);
-		} optlbracket mapopt optrbracket	{
-			if (!strcmp(map->m_src, "static")) {
-				yyerror("map %s has no source defined", $2);
-				free(map);
-				map = NULL;
+			p = $3;
+			if (*p == '/') {
+				backend = "file";
+				config  = $3;
+			}
+			else {
+				p = backend = config = NULL;
+				for (p = $3; *p && *p != ':'; p++)
+					;
+				if (*p == ':') {
+					*p = '\0';
+					backend = $3;
+					config  = p+1;
+				}
+			}
+			if (config == NULL || *config != '/') {
+				yyerror("table parameter must be absolute path");
+				free($2);
+				free($3);
 				YYERROR;
 			}
+
+			map = map_create(backend, $2);
+			if (strlcpy(map->m_config, config, sizeof(map->m_config))
+			    >= sizeof(map->m_config))
+				err(1, "pathname too long");
+			free($2);
+			free($3);
+		}
+		| TABLE STRING {
+			map = map_create("static", $2);
+			free($2);
+		} '{' tableval_list '}' {
 			map = NULL;
 		}
 		;
 
 keyval		: STRING ARROW STRING		{
+			map->m_type = T_HASH;
 			map_add(map, $1, $3);
 			free($1);
 			free($3);
@@ -473,6 +473,7 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
+			map->m_type = T_LIST;
 			map_add(map, $1, NULL);
 			free($1);
 		}
@@ -482,28 +483,30 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
-mapref		: STRING			{
+tableval_list	: string_list			{ }
+		| keyval_list			{ }
+		;
+
+tablenew		: STRING			{
 			struct map	*m;
 
 			m = map_create("static", NULL);
+			m->m_type = T_LIST;
 			map_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
-		| '('				{
-			map = map_create("static", NULL);
-		} string_list ')'		{
-			$$ = map->m_id;
-		}
 		| '{'				{
 			map = map_create("static", NULL);
-		} keyval_list '}'		{
+		} tableval_list '}'		{
 			$$ = map->m_id;
 		}
-		| MAP STRING			{
+		;
+
+tableref       	: '<' STRING '>'       		{
 			struct map	*m;
 
 			if ((m = map_findbyname($2)) == NULL) {
-				yyerror("no such map: %s", $2);
+				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
 			}
@@ -512,35 +515,53 @@ mapref		: STRING			{
 		}
 		;
 
-alias		: ALIAS STRING			{ $$ = $2; }
-		| /* empty */			{ $$ = NULL; }
+tables		: tablenew			{ $$ = $1; }
+		| tableref			{ $$ = $1; }
 		;
 
-condition	: DOMAIN mapref	alias		{
+alias		: ALIAS tables			{
+			struct map	*m;
+
+			/* ALIAS only accepts T_DYNAMIC and T_HASH */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("table \"%s\" can't be used as ALIAS parameter",
+					m->m_name);
+				YYERROR;
+			}
+			$$ = m->m_id;
+		}
+		| /* empty */			{ $$ =  0; }
+		;
+
+condition	: DOMAIN tables alias		{
 			struct cond	*c;
 			struct map	*m;
 
-			if ($3) {
-				if ((m = map_findbyname($3)) == NULL) {
-					yyerror("no such map: %s", $3);
-					free($3);
-					YYERROR;
-				}
-				rule->r_amap = m->m_id;
+			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("table \"%s\" can't be used as DOMAIN parameter",
+					m->m_name);
+				YYERROR;
 			}
+
+			rule->r_amap = $3;
 
 			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = COND_DOM;
 			c->c_map = $2;
 			$$ = c;
 		}
-		| VIRTUAL mapref		{
+		| VIRTUAL tables       		{
 			struct cond	*c;
 			struct map	*m;
 
+			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
-			if (!strcmp(m->m_src, "static")) {
-				yyerror("virtual parameter MUST be a map");
+			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
+					m->m_name);
 				YYERROR;
 			}
 
@@ -559,14 +580,7 @@ condition	: DOMAIN mapref	alias		{
 				YYERROR;
 			}
 
-			if ($2) {
-				if ((m = map_findbyname($2)) == NULL) {
-					yyerror("no such map: %s", $2);
-					free($2);
-					YYERROR;
-				}
-				rule->r_amap = m->m_id;
-			}
+			rule->r_amap = $2;
 
 			m = map_create("static", NULL);
 			map_add(m, "localhost", NULL);
@@ -580,19 +594,11 @@ condition	: DOMAIN mapref	alias		{
 		}
 		| ANY alias			{
 			struct cond	*c;
-			struct map	*m;
 
 			c = xcalloc(1, sizeof *c, "parse condition: ANY");
 			c->c_type = COND_ANY;
 
-			if ($2) {
-				if ((m = map_findbyname($2)) == NULL) {
-					yyerror("no such map: %s", $2);
-					free($2);
-					YYERROR;
-				}
-				rule->r_amap = m->m_id;
-			}
+			rule->r_amap = $2;
 			$$ = c;
 		}
 		;
@@ -721,6 +727,8 @@ action		: DELIVER TO MAILDIR			{
 			free($3);
 		}
 		| RELAY VIA STRING certname credentials relay_as {
+			struct map	*m;
+
 			rule->r_action = A_RELAYVIA;
 			rule->r_as = $6;
 
@@ -728,7 +736,6 @@ action		: DELIVER TO MAILDIR			{
 				yyerror("error: invalid url: %s", $3);
 				free($3);
 				free($4);
-				free($5);
 				free($6);
 				YYERROR;
 			}
@@ -736,18 +743,16 @@ action		: DELIVER TO MAILDIR			{
 
 			/* no worries, F_AUTH cant be set without SSL */
 			if (rule->r_value.relayhost.flags & F_AUTH) {
-				if ($5 == NULL) {
-					yyerror("error: auth without authmap");
+				if (! $5) {
+					yyerror("error: auth without auth table");
 					free($4);
-					free($5);
 					free($6);
 					YYERROR;
 				}
-				strlcpy(rule->r_value.relayhost.authmap, $5,
+				m = map_find($5);
+				strlcpy(rule->r_value.relayhost.authmap, m->m_name,
 				    sizeof(rule->r_value.relayhost.authmap));
 			}
-			free($5);
-
 
 			if ($4 != NULL) {
 				if (ssl_load_certfile($4, F_CCERT) < 0) {
@@ -766,7 +771,17 @@ action		: DELIVER TO MAILDIR			{
 		}
 		;
 
-from		: FROM mapref			{
+from		: FROM tables			{
+			struct map	*m;
+
+			/* FROM only accepts T_DYNAMIC and T_LIST */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("table \"%s\" can't be used as FROM parameter",
+					m->m_name);
+				YYERROR;
+			}
+
 			$$ = $2;
 		}
 		| FROM ANY			{
@@ -921,37 +936,29 @@ lookup(char *s)
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",       	COMPRESSION },
-		{ "db",			DB },
 		{ "deliver",		DELIVER },
 		{ "domain",		DOMAIN },
 		{ "expire",		EXPIRE },
-		{ "file",		FILE_ },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
-		{ "hash",		HASH },
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
 		{ "key",		KEY },
-		{ "ldap",		LDAP },
-		{ "list",		LIST },
 		{ "listen",		LISTEN },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
-		{ "map",		MAP },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
-		{ "plain",		FILE_ },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
-		{ "single",		SINGLE },
 		{ "size",		SIZE },
 		{ "smtps",		SMTPS },
-		{ "source",		SOURCE },
 		{ "ssl",		SSL },
+		{ "table",		TABLE },
 		{ "tag",		TAG },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
