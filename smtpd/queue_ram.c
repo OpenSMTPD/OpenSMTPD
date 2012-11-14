@@ -166,6 +166,9 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 	struct qr_message	*msg;
 	uint32_t		 msgid;
 
+	if (qop == QOP_LEARN)
+		return (-1);
+
 	msgid = evpid_to_msgid(*evpid);
 	msg = tree_get(&messages, msgid);
 	if (msg == NULL) {
@@ -224,9 +227,6 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		evp->len = len;
 		evp->buf = xmemdup(buf, len, "queue_ram_envelope: update");
 		return (1);
-
-	case QOP_LEARN:
-		return (-1);
 
         default:
 		fatalx("queue_queue_ram_envelope: unsupported operation.");
