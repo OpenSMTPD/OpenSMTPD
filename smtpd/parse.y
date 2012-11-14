@@ -108,7 +108,6 @@ typedef struct {
 	union {
 		int64_t		 number;
 		objid_t		 object;
-		struct timeval	 tv;
 		struct cond	*cond;
 		char		*string;
 		struct host	*host;
@@ -129,9 +128,8 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
-%type	<v.number>	quantifier port from auth ssl size expire
+%type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.tv>		interval
 %type	<v.object>	mapref
 %type	<v.maddr>	relay_as
 %type	<v.string>	certname tag on alias credentials compression
@@ -188,22 +186,6 @@ optrbracket    	: '}'
 		;
 
 nl		: '\n' optnl
-		;
-
-quantifier      : /* empty */                   { $$ = 1; }  	 
-		| 'm'                           { $$ = 60; } 	 
-		| 'h'                           { $$ = 3600; } 	 
-		| 'd'                           { $$ = 86400; } 	 
-		;
-
-interval	: NUMBER quantifier		{
-			if ($1 < 0) {
-				yyerror("invalid interval: %" PRId64, $1);
-				YYERROR;
-			}
-			$$.tv_usec = 0;
-			$$.tv_sec = $1 * $2;
-		}
 		;
 
 size		: NUMBER		{
