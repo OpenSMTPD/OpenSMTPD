@@ -470,8 +470,10 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 		 if ((sep = strchr(content, ':')) == NULL)
 			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
 		 else {
-			 *sep++ = '\0';
-			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
+			 *sep = '\0';
+			 if (content != sep)
+				 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
+			 sep++;
 			 if (*sep) {
 				 if (errstr == NULL)
 					 endoff = strtonum(sep, -EXPAND_BUFFER, EXPAND_BUFFER,
