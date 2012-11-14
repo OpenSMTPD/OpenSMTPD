@@ -308,22 +308,26 @@ queue_envelope_update(struct envelope *ep)
 	return env->sc_queue->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
 }
 
-void *
-qwalk_new(uint32_t msgid)
-{
-	return env->sc_queue->qwalk_new(msgid);
-}
-
 int
-qwalk(void *hdl, uint64_t *evpid)
+queue_envelope_learn(struct envelope *ep)
 {
-	return env->sc_queue->qwalk(hdl, evpid);
-}
+	const char	*e;
+	uint64_t	 evpid;
+	char		 evpbuf[sizeof(struct envelope)];
+	int		 r;
 
-void
-qwalk_close(void *hdl)
-{
-	return env->sc_queue->qwalk_close(hdl);
+	r = env->sc_queue->envelope(QOP_LEARN, &evpid, evpbuf, sizeof evpbuf);
+	if (r == -1 || r == 0)
+		return (r);
+
+	if (queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
+		if ((e = envelope_validate(ep)) == NULL) {
+			ep->id = evpid;
+			return (1);
+		}
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s", ep->id, e);
+	}
+	return (0);
 }
 
 uint32_t
@@ -353,8 +357,6 @@ queue_generate_evpid(uint32_t msgid)
 	return evpid;
 }
 
-
-/**/
 static const char*
 envelope_validate(struct envelope *ep)
 {
