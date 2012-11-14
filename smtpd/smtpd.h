@@ -256,13 +256,12 @@ struct peer {
 	void			(*cb)(int, short, void *);
 };
 
-/*
-enum map_src {
-	S_NONE,
-	S_FILE,
-	S_DB
+
+enum map_type {
+	T_DYNAMIC	= 0x01,	/* map with external source	*/
+	T_LIST		= 0x02,	/* map holding a list		*/
+	T_HASH		= 0x04,	/* map holding a hash table	*/
 };
-*/
 
 enum map_kind {
 	K_NONE,
@@ -282,6 +281,7 @@ struct map {
 	TAILQ_ENTRY(map)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
+	enum map_type			 m_type;
 	char				 m_src[MAX_MAPSOURCE_SIZE];
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
