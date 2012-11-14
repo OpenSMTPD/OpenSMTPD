@@ -602,11 +602,8 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 		if ((exptoklen = lka_expand_token(exptok, sizeof exptok, token, ep)) == 0)
 			return 0;
 
-		/*
-		  if (! lowercase(tmpbuf, string, sizeof tmpbuf))
+		if (! lowercase(exptok, exptok, sizeof exptok))
 			return 0;
-		  string = tmpbuf;
-		*/
 
 		memcpy(ptmp, exptok, exptoklen);
 		pbuf   = ebuf + 1;
