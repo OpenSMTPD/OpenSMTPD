@@ -276,9 +276,18 @@ expire		: EXPIRE STRING {
 		;
 
 credentials	: AUTH STRING	{
-			if ((map_findbyname($2)) == NULL) {
+			struct map	*m;
+
+			if ((m = map_findbyname($2)) == NULL) {
 				yyerror("no such map: %s", $2);
 				free($2);
+				YYERROR;
+			}
+
+			/* AUTH only accepts T_DYNAMIC and T_HASH */
+			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("map \"%s\" can't be used as AUTH parameter",
+					m->m_name);
 				YYERROR;
 			}
 			$$ = $2;
@@ -420,18 +429,21 @@ main		: QUEUE compression {
 		;
 
 mapsource	: SOURCE FILE STRING			{
+			map->m_type = T_DYNAMIC;
 			strlcpy(map->m_src, "file", sizeof map->m_src);
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		| STRING {
+			map->m_type = T_DYNAMIC;
 			strlcpy(map->m_src, "file", sizeof map->m_src);
 			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		| SOURCE DB STRING			{
+			map->m_type = T_DYNAMIC;
 			strlcpy(map->m_src, "db", sizeof map->m_src);
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
@@ -451,6 +463,7 @@ map		: TABLE STRING			{
 		;
 
 keyval		: STRING ARROW STRING		{
+			map->m_type = T_HASH;
 			map_add(map, $1, $3);
 			free($1);
 			free($3);
@@ -462,6 +475,7 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
+			map->m_type = T_LIST;
 			map_add(map, $1, NULL);
 			free($1);
 		}
@@ -479,6 +493,7 @@ mapnew		: STRING			{
 			struct map	*m;
 
 			m = map_create("static", NULL);
+			m->m_type = T_LIST;
 			map_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
@@ -506,12 +521,32 @@ maps		: mapnew			{ $$ = $1; }
 		| mapref			{ $$ = $1; }
 		;
 
-alias		: ALIAS mapref			{ $$ = $2; }
+alias		: ALIAS maps			{
+			struct map	*m;
+
+			/* ALIAS only accepts T_DYNAMIC and T_HASH */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("map \"%s\" can't be used as ALIAS parameter",
+					m->m_name);
+				YYERROR;
+			}
+			$$ = $2;
+		}
 		| /* empty */			{ $$ =  0; }
 		;
 
 condition	: DOMAIN maps alias		{
 			struct cond	*c;
+			struct map	*m;
+
+			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("map \"%s\" can't be used as DOMAIN parameter",
+					m->m_name);
+				YYERROR;
+			}
 
 			rule->r_amap = $3;
 
@@ -524,9 +559,11 @@ condition	: DOMAIN maps alias		{
 			struct cond	*c;
 			struct map	*m;
 
+			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
-			if (!strcmp(m->m_src, "static")) {
-				yyerror("virtual parameter MUST be a map");
+			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("map \"%s\" can't be used as VIRTUAL parameter",
+					m->m_name);
 				YYERROR;
 			}
 
@@ -738,6 +775,16 @@ action		: DELIVER TO MAILDIR			{
 		;
 
 from		: FROM maps			{
+			struct map	*m;
+
+			/* FROM only accepts T_DYNAMIC and T_LIST */
+			m = map_find($2);
+			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("map \"%s\" can't be used as FROM parameter",
+					m->m_name);
+				YYERROR;
+			}
+
 			$$ = $2;
 		}
 		| FROM ANY			{
