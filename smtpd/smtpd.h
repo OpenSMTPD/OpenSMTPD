@@ -36,6 +36,7 @@
 
 #define MAX_TAG_SIZE		 32
 
+#define	MAX_MAPSOURCE_SIZE	 32
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
@@ -185,6 +186,8 @@ enum imsg_type {
 	IMSG_QUEUE_REMOVE,
 	IMSG_QUEUE_EXPIRE,
 
+	IMSG_SCHEDULER_MESSAGES,
+	IMSG_SCHEDULER_ENVELOPES,
 	IMSG_SCHEDULER_REMOVE,
 	IMSG_SCHEDULER_SCHEDULE,
 
@@ -253,12 +256,13 @@ struct peer {
 	void			(*cb)(int, short, void *);
 };
 
+/*
 enum map_src {
 	S_NONE,
 	S_FILE,
-	S_DB /*,
-	S_LDAP*/
+	S_DB
 };
+*/
 
 enum map_kind {
 	K_NONE,
@@ -278,7 +282,7 @@ struct map {
 	TAILQ_ENTRY(map)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
-	enum map_src			 m_src;
+	char				 m_src[MAX_MAPSOURCE_SIZE];
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
 	void				*m_handle;
@@ -358,7 +362,12 @@ enum delivery_status {
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
 	DF_BOUNCE		= 0x4,
-	DF_INTERNAL		= 0x8 /* internal expansion forward */
+	DF_INTERNAL		= 0x8, /* internal expansion forward */
+
+	/* the remaining flags are not saved on disk */
+
+	DF_PENDING		= 0x10,
+	DF_INFLIGHT		= 0x20,
 };
 
 struct delivery_mda {
@@ -440,6 +449,7 @@ struct envelope {
 	time_t				 expire;
 	uint16_t			 retry;
 	enum delivery_flags		 flags;
+	time_t				 nexttry;
 };
 
 enum envelope_field {
@@ -815,6 +825,13 @@ struct delivery_backend {
 	void (*open)(struct deliver *);
 };
 
+struct evpstate {
+	uint64_t		evpid;
+	uint16_t		flags;
+	uint16_t		retry;
+	time_t			time;
+};
+
 struct scheduler_info {
 	uint64_t		evpid;
 	enum delivery_type	type;
@@ -856,6 +873,8 @@ struct scheduler_backend {
 
 	void	(*batch)(int, struct scheduler_batch *);
 
+	size_t	(*messages)(uint32_t, uint32_t *, size_t);
+	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);
 	void	(*schedule)(uint64_t);
 	void	(*remove)(uint64_t);
 };
@@ -1004,7 +1023,7 @@ int map_compare(objid_t, const char *, enum map_kind,
     int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
-struct map *map_create(enum map_src, const char *);
+struct map *map_create(const char *, const char *);
 void map_destroy(struct map *);
 void map_add(struct map *, const char *, const char *);
 void map_delete(struct map *, const char *);
@@ -1154,6 +1173,7 @@ void *tree_xpop(struct tree *, uint64_t);
 int tree_poproot(struct tree *, uint64_t *, void **);
 int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
+int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
 
 

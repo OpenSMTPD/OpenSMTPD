@@ -108,7 +108,6 @@ typedef struct {
 	union {
 		int64_t		 number;
 		objid_t		 object;
-		struct timeval	 tv;
 		struct cond	*cond;
 		char		*string;
 		struct host	*host;
@@ -129,9 +128,8 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.map>		map
-%type	<v.number>	quantifier port from auth ssl size expire
+%type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.tv>		interval
 %type	<v.object>	mapref
 %type	<v.maddr>	relay_as
 %type	<v.string>	certname tag on alias credentials compression
@@ -188,22 +186,6 @@ optrbracket    	: '}'
 		;
 
 nl		: '\n' optnl
-		;
-
-quantifier      : /* empty */                   { $$ = 1; }  	 
-		| 'm'                           { $$ = 60; } 	 
-		| 'h'                           { $$ = 3600; } 	 
-		| 'd'                           { $$ = 86400; } 	 
-		;
-
-interval	: NUMBER quantifier		{
-			if ($1 < 0) {
-				yyerror("invalid interval: %" PRId64, $1);
-				YYERROR;
-			}
-			$$.tv_usec = 0;
-			$$.tv_sec = $1 * $2;
-		}
 		;
 
 size		: NUMBER		{
@@ -438,40 +420,32 @@ main		: QUEUE compression {
 		;
 
 mapsource	: SOURCE FILE STRING			{
-			map->m_src = S_FILE;
+			strlcpy(map->m_src, "file", sizeof map->m_src);
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		| STRING {
-			map->m_src = S_FILE;
+			strlcpy(map->m_src, "file", sizeof map->m_src);
 			if (strlcpy(map->m_config, $1, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
 		| SOURCE DB STRING			{
-			map->m_src = S_DB;
+			strlcpy(map->m_src, "db", sizeof map->m_src);
 			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
 			    >= sizeof(map->m_config))
 				err(1, "pathname too long");
 		}
-/*
-		| SOURCE LDAP STRING			{
-			map->m_src = S_LDAP;
-			if (strlcpy(map->m_config, $3, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
-		}
-*/
 		;
 
 mapopt		: mapsource		{ }
 
 map		: MAP STRING			{
-			map = map_create(S_NONE, $2);
+			map = map_create("static", $2);
 			free($2);
 		} optlbracket mapopt optrbracket	{
-			if (map->m_src == S_NONE) {
+			if (!strcmp(map->m_src, "static")) {
 				yyerror("map %s has no source defined", $2);
 				free(map);
 				map = NULL;
@@ -505,17 +479,17 @@ string_list	: stringel
 mapref		: STRING			{
 			struct map	*m;
 
-			m = map_create(S_NONE, NULL);
+			m = map_create("static", NULL);
 			map_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
 		| '('				{
-			map = map_create(S_NONE, NULL);
+			map = map_create("static", NULL);
 		} string_list ')'		{
 			$$ = map->m_id;
 		}
 		| '{'				{
-			map = map_create(S_NONE, NULL);
+			map = map_create("static", NULL);
 		} keyval_list '}'		{
 			$$ = map->m_id;
 		}
@@ -559,7 +533,7 @@ condition	: DOMAIN mapref	alias		{
 			struct map	*m;
 
 			m = map_find($2);
-			if (m->m_src == S_NONE) {
+			if (!strcmp(m->m_src, "static")) {
 				yyerror("virtual parameter MUST be a map");
 				YYERROR;
 			}
@@ -588,7 +562,7 @@ condition	: DOMAIN mapref	alias		{
 				rule->r_amap = m->m_id;
 			}
 
-			m = map_create(S_NONE, NULL);
+			m = map_create("static", NULL);
 			map_add(m, "localhost", NULL);
 			map_add(m, hostname, NULL);
 
@@ -1680,7 +1654,7 @@ set_localaddrs(void)
 	struct sockaddr_in6	*sin6;
 	struct map		*m;
 
-	m = map_create(S_NONE, "<anyhost>");
+	m = map_create("static", "<anyhost>");
 	map_add(m, "local", NULL);
 	map_add(m, "0.0.0.0/0", NULL);
 	map_add(m, "::/0", NULL);
@@ -1688,7 +1662,7 @@ set_localaddrs(void)
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = map_create(S_NONE, "<localhost>");
+	m = map_create("static", "<localhost>");
 	map_add(m, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {

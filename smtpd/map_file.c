@@ -45,7 +45,7 @@ static int   map_file_compare(void *, const char *, enum map_kind,
     int (*)(const char *, const char *));
 static void  map_file_close(void *);
 
-struct map_backend *map_backend_lookup(enum map_src);
+struct map_backend *map_backend_lookup(const char *);
 
 struct map_backend map_backend_file = {
 	map_file_open,
@@ -102,7 +102,7 @@ map_file_open(struct map *map)
 	if (map->m_handle)
 		return map->m_handle;
 
-	mp = map_create(S_NONE, NULL);
+	mp = map_create("static", NULL);
 
 	fp = fopen(map->m_config, "r");
 	if (fp == NULL)
@@ -140,7 +140,7 @@ map_file_update(struct map *map)
 		return;
 	}
 
-	mp = map_create(S_NONE, NULL);
+	mp = map_create("static", NULL);
 	file_load(mp, fp);
 	fclose(fp);
 
