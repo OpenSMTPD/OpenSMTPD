@@ -185,7 +185,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
 			if (env->sc_tables)
-				purge_config(PURGE_MAPS);
+				purge_config(PURGE_TABLES);
 			env->sc_rules = env->sc_rules_reload;
 			env->sc_tables = env->sc_tables_reload;
 

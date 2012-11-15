@@ -954,7 +954,7 @@ void bounce_run(uint64_t, int);
 
 /* config.c */
 #define PURGE_LISTENERS		0x01
-#define PURGE_MAPS		0x02
+#define PURGE_TABLES		0x02
 #define PURGE_RULES		0x04
 #define PURGE_SSL		0x08
 #define PURGE_EVERYTHING	0xff
