@@ -676,6 +676,7 @@ struct dns {
 	uint64_t		 id;
 	char			 host[MAXHOSTNAMELEN];
 	char			 backup[MAXHOSTNAMELEN];
+	int			 preference;
 	int			 port;
 	int			 error;
 	int			 type;
@@ -723,17 +724,19 @@ struct mfa_session {
 
 struct mta_session;
 struct mta_route;
+struct tree;/* XXX before */
 
 struct mta_mx {
 	TAILQ_ENTRY(mta_mx)	 entry;
 	struct sockaddr_storage	 sa;
 	char			*hostname;
-};
-
-struct mta_mxlist {
-	struct mta_route	*route;
-	const char		*error;
-	TAILQ_HEAD(, mta_mx)	 mxs;
+	int			 preference;
+	int			 flags;
+#define MX_IGNORE	0x1
+#define MX_NOSMTPS	0x2
+#define MX_NOSMTP	0x4
+	int			 nconn;
+	time_t			 lastconn;
 };
 
 struct mta_route {
@@ -752,6 +755,7 @@ struct mta_route {
 
 	/* route limits	*/
 	int			 maxconn; 	/* in parallel */
+	int			 maxconnmx; 	/* on a single mx */
 	int			 maxmail;	/* per session */
 	int			 maxrcpt;	/* per mail */
 
@@ -1063,6 +1067,7 @@ void mta_route_ok(struct mta_route *);
 void mta_route_error(struct mta_route *, const char *);
 void mta_route_collect(struct mta_route *);
 void mta_route_query_mx(struct mta_route *);
+struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
 const char *mta_route_to_text(struct mta_route *);
 
 /* mta_session.c */

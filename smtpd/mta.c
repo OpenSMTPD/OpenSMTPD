@@ -44,12 +44,19 @@
 #include "log.h"
 
 #define MTA_MAXCONN	10	/* connections per route */
+#define MTA_MAXCONNMX	10	/* connections per mx    */
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
 
 struct mta_batch2 {
 	uint64_t	id;
 	struct tree	tasks;		/* map route to task */
+};
+
+struct mta_mxlist {
+	struct mta_route	*route;
+	const char		*error;
+	TAILQ_HEAD(, mta_mx)	 mxs;
 };
 
 SPLAY_HEAD(mta_route_tree, mta_route);
@@ -59,10 +66,12 @@ static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
 
 static struct mta_route *mta_route_for(struct envelope *);
+static int mta_route_next_preference(struct mta_mxlist *, int);
 static void mta_route_drain(struct mta_route *);
 static void mta_route_free(struct mta_route *);
 static void mta_envelope_done(struct mta_task *, struct envelope *, const char *);
 static int mta_route_cmp(struct mta_route *, struct mta_route *);
+
 
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
@@ -163,15 +172,16 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			mxl = tree_xget(&mxlists, dns->id);
 			mx = xcalloc(1, sizeof *mx, "mta: mx");
 			mx->sa = dns->ss;
+			mx->preference = dns->preference;
 			TAILQ_INSERT_TAIL(&mxl->mxs, mx, entry);
 			return;
 
 		case IMSG_DNS_HOST_END:
 			/* LKA responded to DNS lookup. */
 			dns = imsg->data;
-			mxl = tree_xget(&mxlists, dns->id);
+			mxl = tree_xpop(&mxlists, dns->id);
 			if (!dns->error)
-				;
+				mxl->error = NULL;
 			else if (dns->error == DNS_RETRY)
 				mxl->error = "100 MX lookup failed temporarily";
 			else if (dns->error == DNS_EINVAL)
@@ -183,7 +193,14 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			else
 				mxl->error = "100 Weird error";
 			mxl->route->mxlist = mxl;
-			waitq_run(&mxl->route->mxlist, mxl);
+
+			log_debug("debug: MXs for %s",
+			    mta_route_to_text(mxl->route));
+			TAILQ_FOREACH(mx, &mxl->mxs, entry)
+				log_debug("debug: %s -> preference %i",
+				    ss_to_text(&mx->sa), mx->preference);
+			log_debug("debug: ---");
+			waitq_run(&mxl->route->mxlist, mxl->error);
 			return;
 		}
 	}
@@ -383,6 +400,57 @@ mta_route_collect(struct mta_route *route)
 	mta_route_drain(route);
 }
 
+static int
+mta_route_next_preference(struct mta_mxlist *mxl, int current)
+{
+	struct mta_mx *mx;
+
+	if (current == -1)
+		return (TAILQ_FIRST(&mxl->mxs)->preference);
+	TAILQ_FOREACH(mx, &mxl->mxs, entry)
+		if (mx->preference > current)
+			return (mx->preference);
+	return (-1);
+}
+
+struct mta_mx *
+mta_route_next_mx(struct mta_route *route, struct tree *seen)
+{
+	struct mta_mx	*mx, *best;
+	int		 p = -1;
+
+	while((p = mta_route_next_preference(route->mxlist, p)) != -1) {
+		best = NULL;
+		TAILQ_FOREACH(mx, &route->mxlist->mxs, entry) {
+			if (mx->preference < p)
+				continue;
+			if (mx->preference > p)
+				break;
+
+			if (mx->flags & MX_IGNORE)
+				continue;
+
+			if (mx->nconn >= route->maxconnmx)
+				continue;
+
+			if (tree_get(seen, (uint64_t)mx))
+				continue;
+
+			if (best == NULL || mx->nconn < best->nconn)
+				best = mx;
+		}
+
+		if (best) {
+			best->nconn++;
+			tree_xset(seen, (uint64_t)best, best);
+			return (best);
+		}
+		/* XXX continue only of all others lead to errors */
+	}
+
+	return (NULL);
+}
+
 const char *
 mta_route_to_text(struct mta_route *route)
 {
@@ -500,6 +568,7 @@ mta_route_for(struct envelope *e)
 		SPLAY_INSERT(mta_route_tree, &routes, route);
 
 		route->maxconn = MTA_MAXCONN;
+		route->maxconnmx = MTA_MAXCONNMX;
 		route->maxmail = MTA_MAXMAIL;
 		route->maxrcpt = MTA_MAXRCPT;
 

@@ -90,6 +90,7 @@ struct mta_session {
 	int			 msgcount;
 	enum mta_state		 state;
 
+	struct tree		 mxseen;
 	struct mta_mx		*mx;
 	int			 mxtried;
 
@@ -124,6 +125,7 @@ mta_session(struct mta_route *route)
 	session->route = route;
 	session->state = MTA_INIT;
 	session->io.sock = -1;
+	tree_init(&session->mxseen);
 	tree_xset(&sessions, session->id, session);
 
 	if (route->flags & ROUTE_MX)
@@ -235,15 +237,15 @@ static void
 mta_on_mxlist(void *tag, void *arg, void *data)
 {
 	struct mta_session	*s = arg;
-	struct mta_mxlist	*mxl = data;
+	const char		*error = data;
 
-	if (mxl->error) {
-		mta_route_error(s->route, mxl->error);
+	if (error) {
+		mta_route_error(s->route, error);
 		mta_enter_state(s, MTA_DONE);
 		return;
 	}
-
-	s->mx = TAILQ_FIRST(&s->route->mxlist->mxs);
+	s->mx = mta_route_next_mx(s->route, &s->mxseen);
+	s->mxtried = 0;
 	mta_enter_state(s, MTA_CONNECT);
 }
 
@@ -255,7 +257,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 	struct mta_route	*route;
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
-	int			 max_reuse;
+	int			 max_reuse, portno;
 	ssize_t			 q;
 
     again:
@@ -304,7 +306,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		 * Lookup MX record.
 		 */
 		if (s->route->mxlist)
-			mta_on_mxlist(NULL, s, s->route->mxlist);
+			mta_on_mxlist(NULL, s, NULL);
 		else if (waitq_wait(&s->route->mxlist, mta_on_mxlist, s))
 			mta_route_query_mx(s->route);
 		break;
@@ -313,10 +315,13 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/*
 		 * Connect to the MX.
 		 */
-	
-		/* cleanup previous connection if any */
-		iobuf_clear(&s->iobuf);
-		io_clear(&s->io);
+
+		/* Cleanup previous connection if any */
+		if (s->mxtried) {
+			s->mx->nconn--;
+			iobuf_clear(&s->iobuf);
+			io_clear(&s->io);
+		}
 
 		if (s->flags & MTA_FORCE_ANYSSL)
 			max_reuse = 2;
@@ -326,9 +331,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/* pick next mx */
 
 		while (s->mx) {
-			log_debug("trying mx=%p mxtried=%i", s->mx, s->mxtried);
 			if (s->mxtried == max_reuse) {
-				s->mx = TAILQ_NEXT(s->mx, entry);
+				s->mx = mta_route_next_mx(s->route, &s->mxseen);
 				s->mxtried = 0;
 				continue;
 			}
@@ -337,15 +341,16 @@ mta_enter_state(struct mta_session *s, int newstate)
 			sa = (struct sockaddr *)&ss;
 
 			if (s->route->port)
-				sa_set_port(sa, s->route->port);
+				portno = s->route->port;
 			else if ((s->flags & MTA_FORCE_ANYSSL) && s->mxtried == 1)
-				sa_set_port(sa, 465);
+				portno = 465;
 			else if (s->flags & MTA_FORCE_SMTPS)
-				sa_set_port(sa, 465);
+				portno = 465;
 			else
-				sa_set_port(sa, 25);
-			log_debug("mta: %p: connecting to %s...", s,
-			    ss_to_text(&ss));
+				portno = 25;
+			sa_set_port(sa, portno);
+			log_debug("mta: %p: connecting to %s port %i (mx preference %i)...", s,
+			    ss_to_text(&ss), portno, s->mx->preference);
 
 			iobuf_xinit(&s->iobuf, 0, 0, "mta_enter_state");
 			io_init(&s->io, -1, s, mta_io, &s->iobuf);
@@ -356,10 +361,11 @@ mta_enter_state(struct mta_session *s, int newstate)
 				iobuf_clear(&s->iobuf);
 				/*
 				 * This error is most likely a "no route",
-				 * so there is no need to try the same
-				 * relay again.
+				 * so there is no need to try the same mx.
 				 */
-				s->mxtried = max_reuse;
+				s->mx->nconn--;
+				s->mx = mta_route_next_mx(s->route, &s->mxseen);
+				s->mxtried = 0;
 				continue;
 			}
 			return;
