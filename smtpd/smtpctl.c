@@ -255,10 +255,10 @@ main(int argc, char *argv[])
 	case SHOW_STATS:
 		imsg_compose(ibuf, IMSG_STATS, 0, 0, -1, NULL, 0);
 		break;
-	case UPDATE_MAP:
+	case UPDATE_TABLE:
 		if (strlcpy(name, res->data, sizeof name) >= sizeof name)
 			errx(1, "map name too long.");
-		imsg_compose(ibuf, IMSG_LKA_UPDATE_MAP, 0, 0, -1,
+		imsg_compose(ibuf, IMSG_LKA_UPDATE_TABLE, 0, 0, -1,
 		    name, strlen(name) + 1);
 		done = 1;
 		break;
@@ -310,7 +310,7 @@ main(int argc, char *argv[])
 			break;
 		case NONE:
 			break;
-		case UPDATE_MAP:
+		case UPDATE_TABLE:
 			break;
 		case MONITOR:
 

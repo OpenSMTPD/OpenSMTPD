@@ -358,10 +358,10 @@ parent_send_config_ruleset(int proc)
 	}
 	else {
 		TAILQ_FOREACH(m, env->sc_tables, m_entry) {
-			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_MAP,
+			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE,
 			    0, 0, -1, m, sizeof(*m));
 			TAILQ_FOREACH(mapel, &m->m_contents, me_entry) {
-			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_MAP_CONTENT,
+			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE_CONTENT,
 			    0, 0, -1, mapel, sizeof(*mapel));
 			}
 		}
@@ -1294,14 +1294,14 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_START);
 	CASE(IMSG_CONF_SSL);
 	CASE(IMSG_CONF_LISTENER);
-	CASE(IMSG_CONF_MAP);
-	CASE(IMSG_CONF_MAP_CONTENT);
+	CASE(IMSG_CONF_TABLE);
+	CASE(IMSG_CONF_TABLE_CONTENT);
 	CASE(IMSG_CONF_RULE);
 	CASE(IMSG_CONF_RULE_SOURCE);
 	CASE(IMSG_CONF_FILTER);
 	CASE(IMSG_CONF_END);
 
-	CASE(IMSG_LKA_UPDATE_MAP);
+	CASE(IMSG_LKA_UPDATE_TABLE);
 	CASE(IMSG_LKA_MAIL);
 	CASE(IMSG_LKA_RCPT);
 	CASE(IMSG_LKA_SECRET);

@@ -651,7 +651,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			    NULL, 0);
 			break;
 
-		case IMSG_LKA_UPDATE_MAP:
+		case IMSG_LKA_UPDATE_TABLE:
 			if (euid)
 				goto badcred;
 
@@ -660,7 +660,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			if (len >= MAX_LINE_SIZE)
 				goto invalid;
 
-			imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_UPDATE_MAP,
+			imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_UPDATE_TABLE,
 			    0, 0, -1, imsg.data, len + 1);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);

@@ -149,7 +149,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			TAILQ_INSERT_TAIL(env->sc_rules_reload, rule, r_entry);
 			return;
 
-		case IMSG_CONF_MAP:
+		case IMSG_CONF_TABLE:
 			map = xmemdup(imsg->data, sizeof *map, "lka:map");
 			TAILQ_INIT(&map->m_contents);
 			TAILQ_INSERT_TAIL(env->sc_tables_reload, map, m_entry);
@@ -175,7 +175,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables = tmp;
 			return;
 
-		case IMSG_CONF_MAP_CONTENT:
+		case IMSG_CONF_TABLE_CONTENT:
 			map = TAILQ_LAST(env->sc_tables_reload, maplist);
 			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
 			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
@@ -208,7 +208,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_UPDATE_MAP:
+		case IMSG_LKA_UPDATE_TABLE:
 			map = map_findbyname(imsg->data);
 			if (map == NULL) {
 				log_warnx("warn: lka: no such map \"%s\"",

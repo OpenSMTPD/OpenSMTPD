@@ -57,7 +57,7 @@ static const struct token t_show[];
 static const struct token t_show_envelope[];
 static const struct token t_show_message[];
 static const struct token t_update[];
-static const struct token t_update_map[];
+static const struct token t_update_table[];
 
 static const struct token t_main[] = {
 	{KEYWORD,	"schedule-id",  	NONE,		t_schedule_id},
@@ -122,12 +122,12 @@ static const struct token t_log[] = {
 };
 
 static const struct token t_update[] = {
-	{KEYWORD,	"map",		     	NONE,		t_update_map},
+	{KEYWORD,	"table",       	     	NONE,		t_update_table},
 	{ENDTOKEN,	"",			NONE,      	NULL}
 };
 
-static const struct token t_update_map[] = {
-	{VARIABLE,	"name",		      	UPDATE_MAP,	NULL},
+static const struct token t_update_table[] = {
+	{VARIABLE,	"name",		      	UPDATE_TABLE,	NULL},
 	{ENDTOKEN,	"",			NONE,      	NULL}
 };
 
