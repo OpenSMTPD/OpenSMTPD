@@ -58,7 +58,8 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 	nbaliases = 0;
 	RB_FOREACH(xn, expandtree, &table_alias->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expand, xn->u.buffer);
+			nbaliases += aliases_expand_include(expand,
+			    xn->u.buffer);
 		else {
 			expand_insert(expand, xn);
 			nbaliases++;
@@ -101,7 +102,8 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 	nbaliases = 0;
 	RB_FOREACH(xn, expandtree, &table_virtual->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expand, xn->u.buffer);
+			nbaliases += aliases_expand_include(expand,
+			    xn->u.buffer);
 		else {
 			expand_insert(expand, xn);
 			nbaliases++;
@@ -110,7 +112,8 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 
 	expand_free(&table_virtual->expand);
 	free(table_virtual);
-	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes", pbuf, nbaliases);
+	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes",
+	    pbuf, nbaliases);
 
 	return nbaliases;
 }
@@ -156,9 +159,9 @@ aliases_expand_include(struct expand *expand, const char *filename)
 			continue;
 		}
 
-		if (! alias_parse(&xn, line)) {
-			log_warnx("warn: could not parse include entry \"%s\".", line);
-		}
+		if (! alias_parse(&xn, line))
+			log_warnx("warn: could not parse include entry \"%s\".",
+			    line);
 
 		if (xn.type == EXPAND_INCLUDE)
 			log_warnx("warn: nested inclusion is not supported.");
@@ -252,7 +255,8 @@ alias_is_address(struct expandnode *alias, const char *line, size_t len)
 	/* scan pre @ for disallowed chars */
 	*domain++ = '\0';
 	strlcpy(alias->u.mailaddr.user, line, sizeof(alias->u.mailaddr.user));
-	strlcpy(alias->u.mailaddr.domain, domain, sizeof(alias->u.mailaddr.domain));
+	strlcpy(alias->u.mailaddr.domain, domain,
+	    sizeof(alias->u.mailaddr.domain));
 
 	while (*line) {
 		char allowedset[] = "!#$%*/?|^{}`~&'+-=_.";

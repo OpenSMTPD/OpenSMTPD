@@ -63,8 +63,10 @@ struct lka_session {
 	struct expandnode	*node;
 };
 
-static void lka_expand(struct lka_session *, struct rule *, struct expandnode *);
-static void lka_submit(struct lka_session *, struct rule *, struct expandnode *);
+static void lka_expand(struct lka_session *, struct rule *,
+    struct expandnode *);
+static void lka_submit(struct lka_session *, struct rule *,
+    struct expandnode *);
 static void lka_resume(struct lka_session *);
 static size_t lka_expand_format(char *, size_t, const struct envelope *);
 static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
@@ -226,7 +228,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_ADDRESS:
-		log_debug("debug: lka_expand: expanding address: %s@%s [depth=%d]",
+		log_debug("debug: lka_expand: address: %s@%s [depth=%d]",
 		    xn->u.mailaddr.user, xn->u.mailaddr.domain, xn->depth);
 
 		/* Pass the node through the ruleset */

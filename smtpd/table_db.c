@@ -42,7 +42,7 @@ static int table_db_update(struct table *, const char *);
 static void *table_db_open(struct table *);
 static void *table_db_lookup(void *, const char *, enum table_service);
 static int   table_db_compare(void *, const char *, enum table_service,
-    int (*)(const char *, const char *));
+    int(*)(const char *, const char *));
 static void  table_db_close(void *);
 
 static char *table_db_get_entry(void *, const char *, size_t *);
@@ -129,7 +129,7 @@ table_db_lookup(void *hdl, const char *key, enum table_service kind)
 
 static int
 table_db_compare(void *hdl, const char *key, enum table_service kind,
-    int (*func)(const char *, const char *))
+    int(*func)(const char *, const char *))
 {
 	int ret = 0;
 	DB *db = hdl;
@@ -219,8 +219,8 @@ err:
 static void *
 table_db_alias(const char *key, char *line, size_t len)
 {
-	char	       	*subrcpt;
-	char	       	*endp;
+	char		*subrcpt;
+	char		*endp;
 	struct table_alias	*table_alias = NULL;
 	struct expandnode	 xn;
 
@@ -256,8 +256,8 @@ error:
 static void *
 table_db_virtual(const char *key, char *line, size_t len)
 {
-	char	       	*subrcpt;
-	char	       	*endp;
+	char		*subrcpt;
+	char		*endp;
 	struct table_virtual	*table_virtual = NULL;
 	struct expandnode	 xn;
 
