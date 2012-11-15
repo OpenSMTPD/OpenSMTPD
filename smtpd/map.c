@@ -22,6 +22,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -38,7 +39,7 @@ struct map_backend *map_backend_lookup(const char *);
 extern struct map_backend map_backend_static;
 
 extern struct map_backend map_backend_db;
-extern struct map_backend map_backend_file;
+/*extern struct map_backend map_backend_file;*/
 
 static objid_t	last_map_id = 0;
 
@@ -49,8 +50,6 @@ map_backend_lookup(const char *source)
 		return &map_backend_static;
 	if (!strcmp(source, "db"))
 		return &map_backend_db;
-	if (!strcmp(source, "file"))
-		return &map_backend_file;
 	return NULL;
 }
 
@@ -140,20 +139,29 @@ map_compare(objid_t mapid, const char *key, enum map_kind kind,
 }
 
 struct map *
-map_create(const char *source, const char *name)
+map_create(const char *source, const char *name, const char *config)
 {
-	struct map	*m;
+	struct map		*m;
+	struct map_backend	*mb;
 	size_t		 n;
 
 	if (name && map_findbyname(name))
 		errx(1, "map_create: map \"%s\" already defined", name);
 
-	if (map_backend_lookup(source) == NULL)
+	if ((mb = map_backend_lookup(source)) == NULL)
 		errx(1, "map_create: backend \"%s\" does not exist", source);
 
 	m = xcalloc(1, sizeof(*m), "map_create");
+	m->m_backend = mb;
+
 	if (strlcpy(m->m_src, source, sizeof m->m_src) >= sizeof m->m_src)
 		errx(1, "map_create: map source \"%s\" too large", m->m_src);
+
+	if (config && *config) {
+		if (strlcpy(m->m_config, config, sizeof m->m_config)
+		    >= sizeof m->m_config)
+			errx(1, "map_create: map config \"%s\" too large", m->m_config);
+	}
 
 	if (strcmp(m->m_src, "static") != 0)
 		m->m_type = T_DYNAMIC;
@@ -171,7 +179,6 @@ map_create(const char *source, const char *name)
 	}
 
 	TAILQ_INIT(&m->m_contents);
-
 	TAILQ_INSERT_TAIL(env->sc_maps, m, m_entry);
 
 	return (m);
@@ -195,7 +202,7 @@ map_destroy(struct map *m)
 }
 
 void
-map_add(struct map *m, const char *key, const char * val)
+map_add(struct map *m, const char *key, const char *val)
 {
 	struct mapel	*me;
 	size_t		 n;
@@ -263,6 +270,67 @@ map_update(struct map *m)
 	struct map_backend *backend = NULL;
 
 	backend = map_backend_lookup(m->m_src);
-	if (backend->update)
-		backend->update(m);
+	backend->update(m, m->m_config[0] ? m->m_config : NULL);
+}
+
+int
+map_config_parser(struct map *m, char *config)
+{
+	FILE	*fp;
+	char *buf, *lbuf;
+	size_t flen;
+	char *keyp;
+	char *valp;
+	size_t	ret = 0;
+
+	if (strcmp("static", m->m_src) != 0) {
+		log_warn("map_config_parser: configuration map must be static");
+		return 0;
+	}
+
+	fp = fopen(config, "r");
+	if (fp == NULL)
+		return 0;
+
+	lbuf = NULL;
+	while ((buf = fgetln(fp, &flen))) {
+		if (buf[flen - 1] == '\n')
+			buf[flen - 1] = '\0';
+		else {
+			lbuf = xmalloc(flen + 1, "map_stdio_get_entry");
+			memcpy(lbuf, buf, flen);
+			lbuf[flen] = '\0';
+			buf = lbuf;
+		}
+		
+		keyp = buf;
+		while (isspace((int)*keyp))
+			++keyp;
+		if (*keyp == '\0' || *keyp == '#')
+			continue;		
+		valp = keyp;
+		strsep(&valp, " \t:");
+		if (valp) {
+			while (*valp && isspace(*valp))
+				++valp;
+			if (*valp == '\0')
+				valp = NULL;
+		}
+
+		/**/
+		if (m->m_type == 0)
+			m->m_type = (valp == keyp) ? T_LIST : T_HASH;
+
+		if ((valp == keyp || valp == NULL) && m->m_type == T_LIST)
+			map_add(m, keyp, NULL);
+		else if ((valp != keyp && valp != NULL) && m->m_type == T_HASH)
+			map_add(m, keyp, valp);
+		else
+			goto end;
+	}
+	ret = 1;
+end:
+	free(lbuf);
+	fclose(fp);
+	return ret;
 }

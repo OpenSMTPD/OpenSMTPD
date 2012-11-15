@@ -18,7 +18,7 @@ CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DNO_IO
 
 SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c map.c \
-	map_static.c map_db.c map_file.c tree.c
+	map_static.c map_db.c tree.c
 
 DPADD+= ${LIBUTIL} ${LIBCRYPTO}
 LDADD+= -lutil -lcrypto

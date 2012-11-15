@@ -37,6 +37,8 @@
 
 
 /* db(3) backend */
+static int map_db_config(struct map *, const char *);
+static int map_db_update(struct map *, const char *);
 static void *map_db_open(struct map *);
 static void *map_db_lookup(void *, const char *, enum map_kind);
 static int   map_db_compare(void *, const char *, enum map_kind,
@@ -51,13 +53,26 @@ static void *map_db_netaddr(const char *, char *, size_t);
 
 
 struct map_backend map_backend_db = {
+	map_db_config,
 	map_db_open,
-	NULL,
+	map_db_update,
 	map_db_close,
 	map_db_lookup,
 	map_db_compare
 };
 
+
+static int
+map_db_config(struct map *map, const char *config)
+{
+	return 1;
+}
+
+static int
+map_db_update(struct map *map, const char *config)
+{
+	return 1;
+}
 
 static void *
 map_db_open(struct map *map)

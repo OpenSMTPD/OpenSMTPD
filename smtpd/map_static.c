@@ -36,6 +36,8 @@
 
 
 /* static backend */
+static int map_static_config(struct map *, const char *);
+static int map_static_update(struct map *, const char *);
 static void *map_static_open(struct map *);
 static void *map_static_lookup(void *, const char *, enum map_kind);
 static int   map_static_compare(void *, const char *, enum map_kind,
@@ -48,12 +50,60 @@ static void *map_static_virtual(const char *, char *, size_t);
 static void *map_static_netaddr(const char *, char *, size_t);
 
 struct map_backend map_backend_static = {
+	map_static_config,
 	map_static_open,
-	NULL,
+	map_static_update,
 	map_static_close,
 	map_static_lookup,
 	map_static_compare
 };
+
+static int
+map_static_config(struct map *map, const char *config)
+{
+	/* no config ? ok */
+	if (config == NULL)
+		return 1;
+
+	return map_config_parser(map, config); 
+}
+
+static int
+map_static_update(struct map *map, const char *config)
+{
+	struct map	*m;
+	char		*name[MAX_LINE_SIZE];
+
+	/* no config ? ok */
+	if (config == NULL)
+		goto ok;
+
+	m = map_create(map->m_src, NULL, config);
+	if (! m->m_backend->config(m, config))
+		goto err;
+
+	/* update successful, swap map names */
+	strlcpy(name, map->m_name, sizeof name);
+	strlcpy(map->m_name, m->m_name, sizeof map->m_name);
+	strlcpy(m->m_name, name, sizeof m->m_name);
+
+	/* swap, map id */
+	map->m_id = map->m_id ^ m->m_id;
+	m->m_id   = map->m_id ^ m->m_id;
+	map->m_id = map->m_id ^ m->m_id;
+
+	/* destroy former map */
+	map_destroy(map);
+
+ok:
+	log_info("info: Table \"%s\" successfully updated", name);
+	return 1;
+
+err:
+	map_destroy(m);
+	log_info("info: Failed to update table \"%s\"", name);
+	return 0;
+}
 
 static void *
 map_static_open(struct map *map)
