@@ -532,7 +532,7 @@ mta_route_for(struct envelope *e)
 	key.cert = e->agent.mta.relay.cert;
 	if (!key.cert[0])
 		key.cert = NULL;
-	key.auth = e->agent.mta.relay.authmap;
+	key.auth = e->agent.mta.relay.authtable;
 	if (!key.auth[0])
 		key.auth = NULL;
 

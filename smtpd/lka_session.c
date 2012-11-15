@@ -248,7 +248,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			r = aliases_virtual_get(rule->r_condition.c_map,
+			r = aliases_virtual_get(rule->r_condition.c_table,
 			    &lks->expand, &xn->u.mailaddr);
 			if (r == -1) {
 				lks->flags |= F_ERROR;
@@ -286,8 +286,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
 		lks->expand.alias = 1;
-		if (rule->r_amap) {
-			r = aliases_get(rule->r_amap, &lks->expand, xn->u.user);
+		if (rule->r_atable) {
+			r = aliases_get(rule->r_atable, &lks->expand, xn->u.user);
 			if (r == -1) {
 				log_debug("debug: lka_expand: error in alias lookup");
 				lks->flags |= F_ERROR;
@@ -486,7 +486,7 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 			 return 0;
 	}
 
-	/* token -> searches token in table and maps to expand string */
+	/* token -> searches token in table and tables to expand string */
 	for (i = 0; i < (int)nitems(tokens); ++i)
 		if (strcasecmp(rtoken, tokens[i]) == 0)
 			break;

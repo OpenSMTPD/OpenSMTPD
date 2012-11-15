@@ -36,7 +36,7 @@
 
 #define MAX_TAG_SIZE		 32
 
-#define	MAX_MAPSOURCE_SIZE	 32
+#define	MAX_TABLE_BACKEND_SIZE	 32
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
@@ -128,7 +128,7 @@ struct relayhost {
 	char hostname[MAXHOSTNAMELEN];
 	uint16_t port;
 	char cert[PATH_MAX];
-	char authmap[MAX_PATH_SIZE];
+	char authtable[MAX_PATH_SIZE];
 };
 
 enum imsg_type {
@@ -140,14 +140,14 @@ enum imsg_type {
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
 	IMSG_CONF_LISTENER,
-	IMSG_CONF_MAP,
-	IMSG_CONF_MAP_CONTENT,
+	IMSG_CONF_TABLE,
+	IMSG_CONF_TABLE_CONTENT,
 	IMSG_CONF_RULE,
 	IMSG_CONF_RULE_SOURCE,
 	IMSG_CONF_FILTER,
 	IMSG_CONF_END,
 
-	IMSG_LKA_UPDATE_MAP,
+	IMSG_LKA_UPDATE_TABLE,
 
 	IMSG_LKA_MAIL,
 	IMSG_LKA_RCPT,
@@ -257,19 +257,20 @@ struct peer {
 };
 
 
-enum map_type {
+enum table_type {
 	T_NONE		= 0,
-	T_DYNAMIC	= 0x01,	/* map with external source	*/
-	T_LIST		= 0x02,	/* map holding a list		*/
-	T_HASH		= 0x04,	/* map holding a hash table	*/
+	T_DYNAMIC	= 0x01,	/* table with external source	*/
+	T_LIST		= 0x02,	/* table holding a list		*/
+	T_HASH		= 0x04,	/* table holding a hash table	*/
 };
 
-enum map_kind {
-	K_NONE,
-	K_ALIAS,
-	K_VIRTUAL,
-	K_CREDENTIALS,
-	K_NETADDR
+enum table_service {
+	K_NONE		= 0x00,
+	K_ALIAS		= 0x01,
+	K_VIRTUAL	= 0x02,
+	K_CREDENTIALS	= 0x04,
+	K_NETADDR	= 0x08,
+	K_USERINFO	= 0x10,
 };	
 
 struct mapel {
@@ -278,26 +279,27 @@ struct mapel {
 	char				 me_val[MAX_LINE_SIZE];
 };
 
-struct map {
-	TAILQ_ENTRY(map)		 m_entry;
-	char				 m_name[MAX_LINE_SIZE];
-	objid_t				 m_id;
-	enum map_type			 m_type;
-	char				 m_src[MAX_MAPSOURCE_SIZE];
-	char				 m_config[MAXPATHLEN];
-	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
-	void				*m_handle;
-	struct map_backend		*m_backend;
+struct table {
+	TAILQ_ENTRY(table)		 t_entry;
+	char				 t_name[MAX_LINE_SIZE];
+	objid_t				 t_id;
+	enum table_type			 t_type;
+	char				 t_src[MAX_TABLE_BACKEND_SIZE];
+	char				 t_config[MAXPATHLEN];
+	TAILQ_HEAD(mapel_list, mapel)	 t_contents;
+	void				*t_handle;
+	struct table_backend		*t_backend;
 };
 
 
-struct map_backend {
-	int  (*config)(struct map *, const char *);
-	void *(*open)(struct map *);
-	int  (*update)(struct map *, const char *);
+struct table_backend {
+	const unsigned int	services;
+	int  (*config)(struct table *, const char *);
+	void *(*open)(struct table *);
+	int  (*update)(struct table *, const char *);
 	void (*close)(void *);
-	void *(*lookup)(void *, const char *, enum map_kind);
-	int  (*compare)(void *, const char *, enum map_kind,
+	void *(*lookup)(void *, const char *, enum table_service);
+	int  (*compare)(void *, const char *, enum table_service,
 	    int (*)(const char *, const char *));
 };
 
@@ -310,7 +312,7 @@ enum cond_type {
 
 struct cond {
 	TAILQ_ENTRY(cond)		 c_entry;
-	objid_t				 c_map;
+	objid_t				 c_table;
 	enum cond_type			 c_type;
 };
 
@@ -333,7 +335,7 @@ struct rule {
 	enum decision			 r_decision;
 	char				 r_tag[MAX_TAG_SIZE];
 	int				 r_accept;
-	struct map			*r_sources;
+	struct table			*r_sources;
 	struct cond			 r_condition;
 	enum action_type		 r_action;
 	union rule_dest {
@@ -342,7 +344,7 @@ struct rule {
 	}				 r_value;
 
 	struct mailaddr			*r_as;
-	objid_t				 r_amap;
+	objid_t				 r_atable;
 	time_t				 r_qexpire;
 };
 
@@ -478,7 +480,8 @@ enum envelope_field {
 	EVP_MTA_RELAY_PORT,
 	EVP_MTA_RELAY_FLAGS,
 	EVP_MTA_RELAY_CERT,
-	EVP_MTA_RELAY_AUTHMAP
+	EVP_MTA_RELAY_AUTHMAP,
+	EVP_MTA_RELAY_AUTHTABLE
 };
 
 
@@ -623,7 +626,7 @@ struct smtpd {
 	TAILQ_HEAD(filterlist, filter)		*sc_filters;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
-	TAILQ_HEAD(maplist, map)		*sc_maps, *sc_maps_reload;
+	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
@@ -689,7 +692,7 @@ struct dns {
 
 struct secret {
 	uint64_t		 id;
-	char			 mapname[MAX_PATH_SIZE];
+	char			 tablename[MAX_PATH_SIZE];
 	char			 host[MAXHOSTNAMELEN];
 	char			 secret[MAX_LINE_SIZE];
 };
@@ -782,23 +785,23 @@ struct mta_task {
 	struct mta_session	*session;
 };
 
-/* maps return structures */
-struct map_credentials {
+/* tables return structures */
+struct table_credentials {
 	char username[MAX_LINE_SIZE];
 	char password[MAX_LINE_SIZE];
 };
 
-struct map_alias {
+struct table_alias {
 	size_t			nbnodes;
 	struct expand		expand;
 };
 
-struct map_virtual {
+struct table_virtual {
 	size_t			nbnodes;
 	struct expand		expand;
 };
 
-struct map_netaddr {
+struct table_netaddr {
 	struct netaddr		netaddr;
 };
 
@@ -973,7 +976,7 @@ void bounce_run(uint64_t, int);
 
 /* config.c */
 #define PURGE_LISTENERS		0x01
-#define PURGE_MAPS		0x02
+#define PURGE_TABLES		0x02
 #define PURGE_RULES		0x04
 #define PURGE_SSL		0x08
 #define PURGE_EVERYTHING	0xff
@@ -1030,23 +1033,6 @@ pid_t lka(void);
 /* lka_session.c */
 void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
-
-/* map.c */
-struct map_backend *map_backend_lookup(const char *);
-void *map_open(struct map *);
-void  map_update(struct map *);
-void  map_close(struct map *, void *);
-int map_config_parser(struct map *, const char *);
-void *map_lookup(objid_t, const char *, enum map_kind);
-int map_compare(objid_t, const char *, enum map_kind,
-    int (*)(const char *, const char *));
-struct map *map_find(objid_t);
-struct map *map_findbyname(const char *);
-struct map *map_create(const char *, const char *, const char *);
-void map_destroy(struct map *);
-void map_add(struct map *, const char *, const char *);
-void map_delete(struct map *, const char *);
-void map_delete_all(struct map *);
 
 
 /* mda.c */
@@ -1175,6 +1161,23 @@ struct stat_value *stat_counter(size_t);
 struct stat_value *stat_timestamp(time_t);
 struct stat_value *stat_timeval(struct timeval *);
 struct stat_value *stat_timespec(struct timespec *);
+
+
+/* table.c */
+void *table_open(struct table *);
+void  table_update(struct table *);
+void  table_close(struct table *, void *);
+int table_config_parser(struct table *, const char *);
+void *table_lookup(objid_t, const char *, enum table_service);
+int table_compare(objid_t, const char *, enum table_service,
+    int (*)(const char *, const char *));
+struct table *table_find(objid_t);
+struct table *table_findbyname(const char *);
+struct table *table_create(const char *, const char *, const char *);
+void table_destroy(struct table *);
+void table_add(struct table *, const char *, const char *);
+void table_delete(struct table *, const char *);
+void table_delete_all(struct table *);
 
 
 /* tree.c */

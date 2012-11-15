@@ -42,21 +42,21 @@ static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
 
 int
-aliases_get(objid_t mapid, struct expand *expand, const char *username)
+aliases_get(objid_t id, struct expand *expand, const char *username)
 {
-	struct map_alias *map_alias;
+	struct table_alias *table_alias;
 	struct expandnode *xn;
 	char buf[MAX_LOCALPART_SIZE];
 	size_t nbaliases;
 
 	xlowercase(buf, username, sizeof(buf));
-	map_alias = map_lookup(mapid, buf, K_ALIAS);
-	if (map_alias == NULL)
+	table_alias = table_lookup(id, buf, K_ALIAS);
+	if (table_alias == NULL)
 		return (errno ? -1 : 0);
 
-	/* foreach node in map_alias expandtree, we merge */
+	/* foreach node in table_alias expandtree, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &map_alias->expand.tree) {
+	RB_FOREACH(xn, expandtree, &table_alias->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
 			nbaliases += aliases_expand_include(expand, xn->u.buffer);
 		else {
@@ -65,18 +65,18 @@ aliases_get(objid_t mapid, struct expand *expand, const char *username)
 		}
 	}
 
-	expand_free(&map_alias->expand);
-	free(map_alias);
+	expand_free(&table_alias->expand);
+	free(table_alias);
 
 	log_debug("debug: aliases_get: returned %zd aliases", nbaliases);
 	return nbaliases;
 }
 
 int
-aliases_virtual_get(objid_t mapid, struct expand *expand,
+aliases_virtual_get(objid_t id, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct map_virtual *map_virtual;
+	struct table_virtual *table_virtual;
 	struct expandnode *xn;
 	char buf[MAX_LINE_SIZE];
 	char *pbuf = buf;
@@ -87,19 +87,19 @@ aliases_virtual_get(objid_t mapid, struct expand *expand,
 		return 0;
 	xlowercase(buf, buf, sizeof(buf));
 
-	map_virtual = map_lookup(mapid, buf, K_VIRTUAL);
-	if (map_virtual == NULL) {
+	table_virtual = table_lookup(id, buf, K_VIRTUAL);
+	if (table_virtual == NULL) {
 		if (errno)
 			return (-1);
 		pbuf = strchr(buf, '@');
-		map_virtual = map_lookup(mapid, pbuf, K_VIRTUAL);
+		table_virtual = table_lookup(id, pbuf, K_VIRTUAL);
 	}
-	if (map_virtual == NULL)
+	if (table_virtual == NULL)
 		return (errno ? -1 : 0);
 
-	/* foreach node in map_virtual expand, we merge */
+	/* foreach node in table_virtual expand, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &map_virtual->expand.tree) {
+	RB_FOREACH(xn, expandtree, &table_virtual->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
 			nbaliases += aliases_expand_include(expand, xn->u.buffer);
 		else {
@@ -108,28 +108,28 @@ aliases_virtual_get(objid_t mapid, struct expand *expand,
 		}
 	}
 
-	expand_free(&map_virtual->expand);
-	free(map_virtual);
+	expand_free(&table_virtual->expand);
+	free(table_virtual);
 	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes", pbuf, nbaliases);
 
 	return nbaliases;
 }
 
 int
-aliases_vdomain_exists(objid_t mapid, const char *hostname)
+aliases_vdomain_exists(objid_t id, const char *hostname)
 {
-	struct map_virtual *map_virtual;
+	struct table_virtual *table_virtual;
 	char buf[MAXHOSTNAMELEN];
 
 	xlowercase(buf, hostname, sizeof(buf));
-	map_virtual = map_lookup(mapid, buf, K_VIRTUAL);
-	if (map_virtual == NULL)
+	table_virtual = table_lookup(id, buf, K_VIRTUAL);
+	if (table_virtual == NULL)
 		return (errno ? -1 : 0);
 
-	/* XXX - for now the map API always allocate */
+	/* XXX - for now the table API always allocate */
 	log_debug("debug: aliases_vdomain_exist: '%s' exists", hostname);
-	expand_free(&map_virtual->expand);
-	free(map_virtual);
+	expand_free(&table_virtual->expand);
+	free(table_virtual);
 
 	return 1;
 }

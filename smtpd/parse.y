@@ -88,7 +88,7 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct map		*map = NULL;
+struct table		*table = NULL;
 struct rule		*rule = NULL;
 TAILQ_HEAD(condlist, cond) *conditions = NULL;
 
@@ -126,7 +126,7 @@ typedef struct {
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.map>		table
+%type	<v.table>		table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
 %type	<v.object>	tables tablenew tableref alias credentials
@@ -267,13 +267,13 @@ expire		: EXPIRE STRING {
 		;
 
 credentials	: AUTH tables	{
-			struct map	*m;
+			struct table	*m;
 
 			/* AUTH only accepts T_DYNAMIC and T_HASH */
-			m = map_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+			m = table_find($2);
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as AUTH parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 			$$ = $2;
@@ -438,22 +438,22 @@ table		: TABLE STRING STRING	{
 				free($3);
 				YYERROR;
 			}
-			map = map_create(backend, $2, config);
-			map->m_backend->config(map, config);
+			table = table_create(backend, $2, config);
+			table->t_backend->config(table, config);
 			free($2);
 			free($3);
 		}
 		| TABLE STRING {
-			map = map_create("static", $2, NULL);
+			table = table_create("static", $2, NULL);
 			free($2);
 		} '{' tableval_list '}' {
-			map = NULL;
+			table = NULL;
 		}
 		;
 
 keyval		: STRING ARROW STRING		{
-			map->m_type = T_HASH;
-			map_add(map, $1, $3);
+			table->t_type = T_HASH;
+			table_add(table, $1, $3);
 			free($1);
 			free($3);
 		}
@@ -464,8 +464,8 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
-			map->m_type = T_LIST;
-			map_add(map, $1, NULL);
+			table->t_type = T_LIST;
+			table_add(table, $1, NULL);
 			free($1);
 		}
 		;
@@ -479,30 +479,30 @@ tableval_list	: string_list			{ }
 		;
 
 tablenew		: STRING			{
-			struct map	*m;
+			struct table	*m;
 
-			m = map_create("static", NULL, NULL);
-			m->m_type = T_LIST;
-			map_add(m, $1, NULL);
-			$$ = m->m_id;
+			m = table_create("static", NULL, NULL);
+			m->t_type = T_LIST;
+			table_add(m, $1, NULL);
+			$$ = m->t_id;
 		}
 		| '{'				{
-			map = map_create("static", NULL, NULL);
+			table = table_create("static", NULL, NULL);
 		} tableval_list '}'		{
-			$$ = map->m_id;
+			$$ = table->t_id;
 		}
 		;
 
 tableref       	: '<' STRING '>'       		{
-			struct map	*m;
+			struct table	*m;
 
-			if ((m = map_findbyname($2)) == NULL) {
+			if ((m = table_findbyname($2)) == NULL) {
 				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
 			}
 			free($2);
-			$$ = m->m_id;
+			$$ = m->t_id;
 		}
 		;
 
@@ -511,59 +511,59 @@ tables		: tablenew			{ $$ = $1; }
 		;
 
 alias		: ALIAS tables			{
-			struct map	*m;
+			struct table	*m;
 
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
-			m = map_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+			m = table_find($2);
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as ALIAS parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
-			$$ = m->m_id;
+			$$ = m->t_id;
 		}
 		| /* empty */			{ $$ =  0; }
 		;
 
 condition	: DOMAIN tables alias		{
 			struct cond	*c;
-			struct map	*m;
+			struct table	*m;
 
 			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
-			m = map_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+			m = table_find($2);
+			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as DOMAIN parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 
-			rule->r_amap = $3;
+			rule->r_atable = $3;
 
 			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = COND_DOM;
-			c->c_map = $2;
+			c->c_table = $2;
 			$$ = c;
 		}
 		| VIRTUAL tables       		{
 			struct cond	*c;
-			struct map	*m;
+			struct table	*m;
 
 			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
-			m = map_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+			m = table_find($2);
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 
 			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = COND_VDOM;
-			c->c_map = $2;
+			c->c_table = $2;
 			$$ = c;
 		}
 		| LOCAL alias {
 			struct cond	*c;
-			struct map	*m;
+			struct table	*m;
 			char		 hostname[MAXHOSTNAMELEN];
 
 			if (gethostname(hostname, sizeof hostname) == -1) {
@@ -571,15 +571,15 @@ condition	: DOMAIN tables alias		{
 				YYERROR;
 			}
 
-			rule->r_amap = $2;
+			rule->r_atable = $2;
 
-			m = map_create("static", NULL, NULL);
-			map_add(m, "localhost", NULL);
-			map_add(m, hostname, NULL);
+			m = table_create("static", NULL, NULL);
+			table_add(m, "localhost", NULL);
+			table_add(m, hostname, NULL);
 
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
-			c->c_map = m->m_id;
+			c->c_table = m->t_id;
 
 			$$ = c;
 		}
@@ -589,7 +589,7 @@ condition	: DOMAIN tables alias		{
 			c = xcalloc(1, sizeof *c, "parse condition: ANY");
 			c->c_type = COND_ANY;
 
-			rule->r_amap = $2;
+			rule->r_atable = $2;
 			$$ = c;
 		}
 		;
@@ -718,7 +718,7 @@ action		: DELIVER TO MAILDIR			{
 			free($3);
 		}
 		| RELAY VIA STRING certname credentials relay_as {
-			struct map	*m;
+			struct table	*m;
 
 			rule->r_action = A_RELAYVIA;
 			rule->r_as = $6;
@@ -740,9 +740,9 @@ action		: DELIVER TO MAILDIR			{
 					free($6);
 					YYERROR;
 				}
-				m = map_find($5);
-				strlcpy(rule->r_value.relayhost.authmap, m->m_name,
-				    sizeof(rule->r_value.relayhost.authmap));
+				m = table_find($5);
+				strlcpy(rule->r_value.relayhost.authtable, m->t_name,
+				    sizeof(rule->r_value.relayhost.authtable));
 			}
 
 			if ($4 != NULL) {
@@ -763,26 +763,26 @@ action		: DELIVER TO MAILDIR			{
 		;
 
 from		: FROM tables			{
-			struct map	*m;
+			struct table	*m;
 
 			/* FROM only accepts T_DYNAMIC and T_LIST */
-			m = map_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+			m = table_find($2);
+			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as FROM parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 
 			$$ = $2;
 		}
 		| FROM ANY			{
-			$$ = map_findbyname("<anyhost>")->m_id;
+			$$ = table_findbyname("<anyhost>")->t_id;
 		}
 		| FROM LOCAL			{
-			$$ = map_findbyname("<localhost>")->m_id;
+			$$ = table_findbyname("<localhost>")->t_id;
 		}
 		| /* empty */			{
-			$$ = map_findbyname("<localhost>")->m_id;
+			$$ = table_findbyname("<localhost>")->t_id;
 		}
 		;
 
@@ -802,7 +802,7 @@ rule		: ACCEPT on from			{
 
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = map_find($3);
+			rule->r_sources = table_find($3);
 
 			conditions = xcalloc(1, sizeof(*conditions),
 			    "parse rule: ACCEPT");
@@ -835,7 +835,7 @@ rule		: ACCEPT on from			{
 				free(cond);
 			}
 
-			if (rule->r_amap) {
+			if (rule->r_atable) {
 				if (rule->r_action == A_RELAY ||
 				    rule->r_action == A_RELAYVIA) {
 					yyerror("aliases set on a relay rule");
@@ -854,7 +854,7 @@ rule		: ACCEPT on from			{
 
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
 			rule->r_decision = R_REJECT;
-			rule->r_sources = map_find($3);
+			rule->r_sources = table_find($3);
 
 			conditions = xcalloc(1, sizeof(*conditions),
 			    "parse rule: REJECT");
@@ -1290,19 +1290,19 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
-	conf->sc_maps = calloc(1, sizeof(*conf->sc_maps));
+	conf->sc_tables = calloc(1, sizeof(*conf->sc_tables));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
 	conf->sc_filters = calloc(1, sizeof(*conf->sc_filters));
 
-	if (conf->sc_maps == NULL	||
+	if (conf->sc_tables == NULL	||
 	    conf->sc_rules == NULL	||
 	    conf->sc_listeners == NULL	||
 	    conf->sc_ssl == NULL	||
 	    conf->sc_filters == NULL) {
 		log_warn("warn: cannot allocate memory");
-		free(conf->sc_maps);
+		free(conf->sc_tables);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_ssl);
@@ -1312,11 +1312,11 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	errors = 0;
 
-	map = NULL;
+	table = NULL;
 	rule = NULL;
 
 	TAILQ_INIT(conf->sc_listeners);
-	TAILQ_INIT(conf->sc_maps);
+	TAILQ_INIT(conf->sc_tables);
 	TAILQ_INIT(conf->sc_rules);
 	TAILQ_INIT(conf->sc_filters);
 	SPLAY_INIT(conf->sc_ssl);
@@ -1332,7 +1332,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	topfile = file;
 
 	/*
-	 * declare special "localhost" and "anyhost" maps
+	 * declare special "localhost" and "anyhost" tables
 	 */
 	set_localaddrs();
 
@@ -1656,18 +1656,18 @@ set_localaddrs(void)
 	struct sockaddr_storage ss;
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
-	struct map		*m;
+	struct table		*m;
 
-	m = map_create("static", "<anyhost>", NULL);
-	map_add(m, "local", NULL);
-	map_add(m, "0.0.0.0/0", NULL);
-	map_add(m, "::/0", NULL);
+	m = table_create("static", "<anyhost>", NULL);
+	table_add(m, "local", NULL);
+	table_add(m, "0.0.0.0/0", NULL);
+	table_add(m, "::/0", NULL);
 
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = map_create("static", "<localhost>", NULL);
-	map_add(m, "local", NULL);
+	m = table_create("static", "<localhost>", NULL);
+	table_add(m, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {
 		if (p->ifa_addr == NULL)
@@ -1677,14 +1677,14 @@ set_localaddrs(void)
 			sain = (struct sockaddr_in *)&ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
-			map_add(m, ss_to_text(&ss), NULL);
+			table_add(m, ss_to_text(&ss), NULL);
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-			map_add(m, ss_to_text(&ss), NULL);
+			table_add(m, ss_to_text(&ss), NULL);
 			break;
 		}
 	}

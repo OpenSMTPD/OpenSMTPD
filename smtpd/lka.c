@@ -46,7 +46,7 @@ static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_verify_mail(struct mailaddr *);
-static int lka_encode_credentials(char *, size_t, struct map_credentials *);
+static int lka_encode_credentials(char *, size_t, struct table_credentials *);
 
 
 static void
@@ -56,8 +56,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct secret		*secret;
 	struct mapel		*mapel;
 	struct rule		*rule;
-	struct map		*map;
-	struct map		*mp;
+	struct table		*table;
+	struct table		*tp;
 	void			*tmp;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
@@ -102,32 +102,32 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct map_credentials *map_credentials;
+			struct table_credentials *table_credentials;
 
 			secret = imsg->data;
-			map = map_findbyname(secret->mapname);
-			if (map == NULL) {
-				log_warn("warn: lka: credentials map %s is missing",
-				    secret->mapname);
+			table = table_findbyname(secret->tablename);
+			if (table == NULL) {
+				log_warn("warn: lka: credentials table %s is missing",
+				    secret->tablename);
 				imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0,
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			map_credentials = map_lookup(map->m_id, secret->host,
+			table_credentials = table_lookup(table->t_id, secret->host,
 			    K_CREDENTIALS);
 			log_debug("debug: lka: %s credentials lookup (%d)", secret->host,
-			    map_credentials != NULL);
+			    table_credentials != NULL);
 			secret->secret[0] = '\0';
-			if (map_credentials == NULL)
+			if (table_credentials == NULL)
 				log_warnx("warn: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,
-				     sizeof secret->secret, map_credentials) == 0)
+				     sizeof secret->secret, table_credentials) == 0)
 				log_warnx("warn: %s credentials parse fail",
 				    secret->host);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1, secret,
 			    sizeof *secret);
-			free(map_credentials);
+			free(table_credentials);
 			return;
 		}
 		}
@@ -138,10 +138,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_START:
 			env->sc_rules_reload = xcalloc(1, sizeof *env->sc_rules,
 			    "lka:sc_rules_reload");
-			env->sc_maps_reload = xcalloc(1, sizeof *env->sc_maps,
-			    "lka:sc_maps_reload");
+			env->sc_tables_reload = xcalloc(1, sizeof *env->sc_tables,
+			    "lka:sc_tables_reload");
 			TAILQ_INIT(env->sc_rules_reload);
-			TAILQ_INIT(env->sc_maps_reload);
+			TAILQ_INIT(env->sc_tables_reload);
 			return;
 
 		case IMSG_CONF_RULE:
@@ -149,45 +149,45 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			TAILQ_INSERT_TAIL(env->sc_rules_reload, rule, r_entry);
 			return;
 
-		case IMSG_CONF_MAP:
-			map = xmemdup(imsg->data, sizeof *map, "lka:map");
-			TAILQ_INIT(&map->m_contents);
-			TAILQ_INSERT_TAIL(env->sc_maps_reload, map, m_entry);
+		case IMSG_CONF_TABLE:
+			table = xmemdup(imsg->data, sizeof *table, "lka:table");
+			TAILQ_INIT(&table->t_contents);
+			TAILQ_INSERT_TAIL(env->sc_tables_reload, table, t_entry);
 
-			tmp = env->sc_maps;
-			env->sc_maps = env->sc_maps_reload;
+			tmp = env->sc_tables;
+			env->sc_tables = env->sc_tables_reload;
 
-			mp = map_open(map);
-			if (mp == NULL)
-				errx(1, "lka: could not open map \"%s\"", map->m_name);
-			map_close(map, mp);
+			tp = table_open(table);
+			if (tp == NULL)
+				errx(1, "lka: could not open table \"%s\"", table->t_name);
+			table_close(table, tp);
 
-			env->sc_maps = tmp;
+			env->sc_tables = tmp;
 			return;
 
 		case IMSG_CONF_RULE_SOURCE:
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
-			tmp = env->sc_maps;
-			env->sc_maps = env->sc_maps_reload;
-			rule->r_sources = map_findbyname(imsg->data);
+			tmp = env->sc_tables;
+			env->sc_tables = env->sc_tables_reload;
+			rule->r_sources = table_findbyname(imsg->data);
 			if (rule->r_sources == NULL)
-				fatalx("lka: maps inconsistency");
-			env->sc_maps = tmp;
+				fatalx("lka: tables inconsistency");
+			env->sc_tables = tmp;
 			return;
 
-		case IMSG_CONF_MAP_CONTENT:
-			map = TAILQ_LAST(env->sc_maps_reload, maplist);
+		case IMSG_CONF_TABLE_CONTENT:
+			table = TAILQ_LAST(env->sc_tables_reload, tablelist);
 			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
-			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
+			TAILQ_INSERT_TAIL(&table->t_contents, mapel, me_entry);
 			return;
 
 		case IMSG_CONF_END:
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
-			if (env->sc_maps)
-				purge_config(PURGE_MAPS);
+			if (env->sc_tables)
+				purge_config(PURGE_TABLES);
 			env->sc_rules = env->sc_rules_reload;
-			env->sc_maps = env->sc_maps_reload;
+			env->sc_tables = env->sc_tables_reload;
 
 			/* start fulfilling requests */
 			event_add(&env->sc_ievs[PROC_MTA]->ev, NULL);
@@ -208,14 +208,14 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_UPDATE_MAP:
-			map = map_findbyname(imsg->data);
-			if (map == NULL) {
-				log_warnx("warn: lka: no such map \"%s\"",
+		case IMSG_LKA_UPDATE_TABLE:
+			table = table_findbyname(imsg->data);
+			if (table == NULL) {
+				log_warnx("warn: lka: no such table \"%s\"",
 				    (char *)imsg->data);
 				return;
 			}
-			map_update(map);
+			table_update(table);
 			return;
 		}
 	}
@@ -333,13 +333,13 @@ lka_verify_mail(struct mailaddr *maddr)
 
 static int
 lka_encode_credentials(char *dst, size_t size,
-    struct map_credentials *map_credentials)
+    struct table_credentials *table_credentials)
 {
 	char	*buf;
 	int	 buflen;
 
-	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0', map_credentials->username,
-		    '\0', map_credentials->password)) == -1)
+	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0', table_credentials->username,
+		    '\0', table_credentials->password)) == -1)
 		fatal(NULL);
 
 	if (__b64_ntop((unsigned char *)buf, buflen, dst, size) == -1) {
