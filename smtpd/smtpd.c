@@ -342,7 +342,7 @@ void
 parent_send_config_ruleset(int proc)
 {
 	struct rule		*r;
-	struct table		*m;
+	struct table		*t;
 	struct mapel		*mapel;
 	struct filter		*f;
 	
@@ -357,10 +357,10 @@ parent_send_config_ruleset(int proc)
 		}
 	}
 	else {
-		TAILQ_FOREACH(m, env->sc_tables, t_entry) {
+		TAILQ_FOREACH(t, env->sc_tables, t_entry) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE,
-			    0, 0, -1, m, sizeof(*m));
-			TAILQ_FOREACH(mapel, &m->t_contents, me_entry) {
+			    0, 0, -1, t, sizeof(*t));
+			TAILQ_FOREACH(mapel, &t->t_contents, me_entry) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE_CONTENT,
 			    0, 0, -1, mapel, sizeof(*mapel));
 			}

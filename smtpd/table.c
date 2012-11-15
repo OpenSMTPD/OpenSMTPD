@@ -54,25 +54,25 @@ table_backend_lookup(const char *backend)
 struct table *
 table_findbyname(const char *name)
 {
-	struct table	*m;
+	struct table	*t;
 
-	TAILQ_FOREACH(m, env->sc_tables, t_entry) {
-		if (strcmp(m->t_name, name) == 0)
+	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
+		if (strcmp(t->t_name, name) == 0)
 			break;
 	}
-	return (m);
+	return (t);
 }
 
 struct table *
 table_find(objid_t id)
 {
-	struct table	*m;
+	struct table	*t;
 
-	TAILQ_FOREACH(m, env->sc_tables, t_entry) {
-		if (m->t_id == id)
+	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
+		if (t->t_id == id)
 			break;
 	}
-	return (m);
+	return (t);
 }
 
 void *
@@ -139,73 +139,73 @@ table_compare(objid_t id, const char *key, enum table_kind kind,
 struct table *
 table_create(const char *backend, const char *name, const char *config)
 {
-	struct table		*m;
-	struct table_backend	*mb;
+	struct table		*t;
+	struct table_backend	*tb;
 	size_t		 n;
 
 	if (name && table_findbyname(name))
 		errx(1, "table_create: table \"%s\" already defined", name);
 
-	if ((mb = table_backend_lookup(backend)) == NULL)
+	if ((tb = table_backend_lookup(backend)) == NULL)
 		errx(1, "table_create: backend \"%s\" does not exist", backend);
 
-	m = xcalloc(1, sizeof(*m), "table_create");
-	m->t_backend = mb;
+	t = xcalloc(1, sizeof(*t), "table_create");
+	t->t_backend = tb;
 
-	if (strlcpy(m->t_src, backend, sizeof m->t_src) >= sizeof m->t_src)
-		errx(1, "table_create: table backend \"%s\" too large", m->t_src);
+	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
+		errx(1, "table_create: table backend \"%s\" too large", t->t_src);
 
 	if (config && *config) {
-		if (strlcpy(m->t_config, config, sizeof m->t_config)
-		    >= sizeof m->t_config)
-			errx(1, "table_create: table config \"%s\" too large", m->t_config);
+		if (strlcpy(t->t_config, config, sizeof t->t_config)
+		    >= sizeof t->t_config)
+			errx(1, "table_create: table config \"%s\" too large", t->t_config);
 	}
 
-	if (strcmp(m->t_src, "static") != 0)
-		m->t_type = T_DYNAMIC;
+	if (strcmp(t->t_src, "static") != 0)
+		t->t_type = T_DYNAMIC;
 
-	m->t_id = ++last_table_id;
-	if (m->t_id == INT_MAX)
+	t->t_id = ++last_table_id;
+	if (t->t_id == INT_MAX)
 		errx(1, "table_create: too many tables defined");
 
 	if (name == NULL)
-		snprintf(m->t_name, sizeof(m->t_name), "<dynamic:%u>", m->t_id);
+		snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>", t->t_id);
 	else {
-		n = strlcpy(m->t_name, name, sizeof(m->t_name));
-		if (n >= sizeof(m->t_name))
+		n = strlcpy(t->t_name, name, sizeof(t->t_name));
+		if (n >= sizeof(t->t_name))
 			errx(1, "table_create: table name too long");
 	}
 
-	TAILQ_INIT(&m->t_contents);
-	TAILQ_INSERT_TAIL(env->sc_tables, m, t_entry);
+	TAILQ_INIT(&t->t_contents);
+	TAILQ_INSERT_TAIL(env->sc_tables, t, t_entry);
 
-	return (m);
+	return (t);
 }
 
 void
-table_destroy(struct table *m)
+table_destroy(struct table *t)
 {
 	struct mapel	*me;
 
-	if (strcmp(m->t_src, "static") != 0)
+	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "table_add: cannot delete all from table");
 
-	while ((me = TAILQ_FIRST(&m->t_contents))) {
-		TAILQ_REMOVE(&m->t_contents, me, me_entry);
+	while ((me = TAILQ_FIRST(&t->t_contents))) {
+		TAILQ_REMOVE(&t->t_contents, me, me_entry);
 		free(me);
 	}
 
-	TAILQ_REMOVE(env->sc_tables, m, t_entry);
-	free(m);
+	TAILQ_REMOVE(env->sc_tables, t, t_entry);
+	free(t);
 }
 
 void
-table_add(struct table *m, const char *key, const char *val)
+table_add(struct table *t, const char *key, const char *val)
 {
 	struct mapel	*me;
 	size_t		 n;
 
-	if (strcmp(m->t_src, "static") != 0)
+	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "table_add: cannot add to table");
 
 	me = xcalloc(1, sizeof(*me), "table_add");
@@ -220,59 +220,59 @@ table_add(struct table *m, const char *key, const char *val)
 			errx(1, "table_add: value too long");
 	}
 
-	TAILQ_INSERT_TAIL(&m->t_contents, me, me_entry);
+	TAILQ_INSERT_TAIL(&t->t_contents, me, me_entry);
 }
 
 void
-table_delete(struct table *m, const char *key)
+table_delete(struct table *t, const char *key)
 {
 	struct mapel	*me;
 	
-	if (strcmp(m->t_src, "static") != 0)
+	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "map_add: cannot delete from map");
 
-	TAILQ_FOREACH(me, &m->t_contents, me_entry) {
+	TAILQ_FOREACH(me, &t->t_contents, me_entry) {
 		if (strcmp(me->me_key, key) == 0)
 			break;
 	}
 	if (me == NULL)
 		return;
-	TAILQ_REMOVE(&m->t_contents, me, me_entry);
+	TAILQ_REMOVE(&t->t_contents, me, me_entry);
 	free(me);
 }
 
 void *
-table_open(struct table *m)
+table_open(struct table *t)
 {
 	struct table_backend *backend = NULL;
 
-	backend = table_backend_lookup(m->t_src);
+	backend = table_backend_lookup(t->t_src);
 	if (backend == NULL)
 		return NULL;
-	return backend->open(m);
+	return backend->open(t);
 }
 
 void
-table_close(struct table *m, void *hdl)
+table_close(struct table *t, void *hdl)
 {
 	struct table_backend *backend = NULL;
 
-	backend = table_backend_lookup(m->t_src);
+	backend = table_backend_lookup(t->t_src);
 	backend->close(hdl);
 }
 
 
 void
-table_update(struct table *m)
+table_update(struct table *t)
 {
 	struct table_backend *backend = NULL;
 
-	backend = table_backend_lookup(m->t_src);
-	backend->update(m, m->t_config[0] ? m->t_config : NULL);
+	backend = table_backend_lookup(t->t_src);
+	backend->update(t, t->t_config[0] ? t->t_config : NULL);
 }
 
 int
-table_config_parser(struct table *m, const char *config)
+table_config_parser(struct table *t, const char *config)
 {
 	FILE	*fp;
 	char *buf, *lbuf;
@@ -281,7 +281,7 @@ table_config_parser(struct table *m, const char *config)
 	char *valp;
 	size_t	ret = 0;
 
-	if (strcmp("static", m->t_src) != 0) {
+	if (strcmp("static", t->t_src) != 0) {
 		log_warn("table_config_parser: configuration table must be static");
 		return 0;
 	}
@@ -316,13 +316,13 @@ table_config_parser(struct table *m, const char *config)
 		}
 
 		/**/
-		if (m->t_type == 0)
-			m->t_type = (valp == keyp) ? T_LIST : T_HASH;
+		if (t->t_type == 0)
+			t->t_type = (valp == keyp) ? T_LIST : T_HASH;
 
-		if ((valp == keyp || valp == NULL) && m->t_type == T_LIST)
-			table_add(m, keyp, NULL);
-		else if ((valp != keyp && valp != NULL) && m->t_type == T_HASH)
-			table_add(m, keyp, valp);
+		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
+			table_add(t, keyp, NULL);
+		else if ((valp != keyp && valp != NULL) && t->t_type == T_HASH)
+			table_add(t, keyp, valp);
 		else
 			goto end;
 	}

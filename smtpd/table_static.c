@@ -71,26 +71,26 @@ table_static_config(struct table *table, const char *config)
 static int
 table_static_update(struct table *table, const char *config)
 {
-	struct table   *m;
+	struct table   *t;
 	char		name[MAX_LINE_SIZE];
 
 	/* no config ? ok */
 	if (config == NULL)
 		goto ok;
 
-	m = table_create(table->t_src, NULL, config);
-	if (! m->t_backend->config(m, config))
+	t = table_create(table->t_src, NULL, config);
+	if (! t->t_backend->config(t, config))
 		goto err;
 
 	/* update successful, swap table names */
 	strlcpy(name, table->t_name, sizeof name);
-	strlcpy(table->t_name, m->t_name, sizeof table->t_name);
-	strlcpy(m->t_name, name, sizeof m->t_name);
+	strlcpy(table->t_name, t->t_name, sizeof table->t_name);
+	strlcpy(t->t_name, name, sizeof t->t_name);
 
 	/* swap, table id */
-	table->t_id = table->t_id ^ m->t_id;
-	m->t_id   = table->t_id ^ m->t_id;
-	table->t_id = table->t_id ^ m->t_id;
+	table->t_id = table->t_id ^ t->t_id;
+	t->t_id     = table->t_id ^ t->t_id;
+	table->t_id = table->t_id ^ t->t_id;
 
 	/* destroy former table */
 	table_destroy(table);
@@ -100,7 +100,7 @@ ok:
 	return 1;
 
 err:
-	table_destroy(m);
+	table_destroy(t);
 	log_info("info: Failed to update table \"%s\"", name);
 	return 0;
 }

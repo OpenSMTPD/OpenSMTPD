@@ -57,7 +57,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct mapel		*mapel;
 	struct rule		*rule;
 	struct table		*table;
-	struct table		*mp;
+	struct table		*tp;
 	void			*tmp;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
@@ -157,10 +157,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			tmp = env->sc_tables;
 			env->sc_tables = env->sc_tables_reload;
 
-			mp = table_open(table);
-			if (mp == NULL)
+			tp = table_open(table);
+			if (tp == NULL)
 				errx(1, "lka: could not open table \"%s\"", table->t_name);
-			table_close(table, mp);
+			table_close(table, tp);
 
 			env->sc_tables = tmp;
 			return;

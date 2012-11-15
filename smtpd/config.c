@@ -58,7 +58,7 @@ void
 purge_config(uint8_t what)
 {
 	struct listener	*l;
-	struct table	*m;
+	struct table	*t;
 	struct rule	*r;
 	struct ssl	*s;
 	struct mapel	*me;
@@ -72,13 +72,13 @@ purge_config(uint8_t what)
 		env->sc_listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while ((m = TAILQ_FIRST(env->sc_tables)) != NULL) {
-			TAILQ_REMOVE(env->sc_tables, m, t_entry);
-			while ((me = TAILQ_FIRST(&m->t_contents))) {
-				TAILQ_REMOVE(&m->t_contents, me, me_entry);
+		while ((t = TAILQ_FIRST(env->sc_tables)) != NULL) {
+			TAILQ_REMOVE(env->sc_tables, t, t_entry);
+			while ((me = TAILQ_FIRST(&t->t_contents))) {
+				TAILQ_REMOVE(&t->t_contents, me, me_entry);
 				free(me);
 			}
-			free(m);
+			free(t);
 		}
 		free(env->sc_tables);
 		env->sc_tables = NULL;
