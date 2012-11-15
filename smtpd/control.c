@@ -655,7 +655,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			if (euid)
 				goto badcred;
 
-			/* map name too long */
+			/* table name too long */
 			len = strlen(imsg.data);
 			if (len >= MAX_LINE_SIZE)
 				goto invalid;

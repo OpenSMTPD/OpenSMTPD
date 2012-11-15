@@ -257,7 +257,7 @@ main(int argc, char *argv[])
 		break;
 	case UPDATE_TABLE:
 		if (strlcpy(name, res->data, sizeof name) >= sizeof name)
-			errx(1, "map name too long.");
+			errx(1, "table name too long.");
 		imsg_compose(ibuf, IMSG_LKA_UPDATE_TABLE, 0, 0, -1,
 		    name, strlen(name) + 1);
 		done = 1;

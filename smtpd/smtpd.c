@@ -346,7 +346,7 @@ parent_send_config_ruleset(int proc)
 	struct mapel		*mapel;
 	struct filter		*f;
 	
-	log_debug("debug: parent_send_config_ruleset: reloading rules and maps");
+	log_debug("debug: parent_send_config_ruleset: reloading rules and tables");
 	imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_START,
 	    0, 0, -1, NULL, 0);
 

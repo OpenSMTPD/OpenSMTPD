@@ -486,7 +486,7 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 			 return 0;
 	}
 
-	/* token -> searches token in table and maps to expand string */
+	/* token -> searches token in table and tables to expand string */
 	for (i = 0; i < (int)nitems(tokens); ++i)
 		if (strcasecmp(rtoken, tokens[i]) == 0)
 			break;
