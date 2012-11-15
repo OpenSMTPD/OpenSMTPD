@@ -138,10 +138,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_START:
 			env->sc_rules_reload = xcalloc(1, sizeof *env->sc_rules,
 			    "lka:sc_rules_reload");
-			env->sc_maps_reload = xcalloc(1, sizeof *env->sc_maps,
-			    "lka:sc_maps_reload");
+			env->sc_tables_reload = xcalloc(1, sizeof *env->sc_tables,
+			    "lka:sc_tables_reload");
 			TAILQ_INIT(env->sc_rules_reload);
-			TAILQ_INIT(env->sc_maps_reload);
+			TAILQ_INIT(env->sc_tables_reload);
 			return;
 
 		case IMSG_CONF_RULE:
@@ -152,31 +152,31 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_MAP:
 			map = xmemdup(imsg->data, sizeof *map, "lka:map");
 			TAILQ_INIT(&map->m_contents);
-			TAILQ_INSERT_TAIL(env->sc_maps_reload, map, m_entry);
+			TAILQ_INSERT_TAIL(env->sc_tables_reload, map, m_entry);
 
-			tmp = env->sc_maps;
-			env->sc_maps = env->sc_maps_reload;
+			tmp = env->sc_tables;
+			env->sc_tables = env->sc_tables_reload;
 
 			mp = map_open(map);
 			if (mp == NULL)
 				errx(1, "lka: could not open map \"%s\"", map->m_name);
 			map_close(map, mp);
 
-			env->sc_maps = tmp;
+			env->sc_tables = tmp;
 			return;
 
 		case IMSG_CONF_RULE_SOURCE:
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
-			tmp = env->sc_maps;
-			env->sc_maps = env->sc_maps_reload;
+			tmp = env->sc_tables;
+			env->sc_tables = env->sc_tables_reload;
 			rule->r_sources = map_findbyname(imsg->data);
 			if (rule->r_sources == NULL)
-				fatalx("lka: maps inconsistency");
-			env->sc_maps = tmp;
+				fatalx("lka: tables inconsistency");
+			env->sc_tables = tmp;
 			return;
 
 		case IMSG_CONF_MAP_CONTENT:
-			map = TAILQ_LAST(env->sc_maps_reload, maplist);
+			map = TAILQ_LAST(env->sc_tables_reload, maplist);
 			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
 			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
 			return;
@@ -184,10 +184,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_END:
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
-			if (env->sc_maps)
+			if (env->sc_tables)
 				purge_config(PURGE_MAPS);
 			env->sc_rules = env->sc_rules_reload;
-			env->sc_maps = env->sc_maps_reload;
+			env->sc_tables = env->sc_tables_reload;
 
 			/* start fulfilling requests */
 			event_add(&env->sc_ievs[PROC_MTA]->ev, NULL);

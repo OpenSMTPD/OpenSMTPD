@@ -56,7 +56,7 @@ map_findbyname(const char *name)
 {
 	struct map	*m;
 
-	TAILQ_FOREACH(m, env->sc_maps, m_entry) {
+	TAILQ_FOREACH(m, env->sc_tables, m_entry) {
 		if (strcmp(m->m_name, name) == 0)
 			break;
 	}
@@ -68,7 +68,7 @@ map_find(objid_t id)
 {
 	struct map	*m;
 
-	TAILQ_FOREACH(m, env->sc_maps, m_entry) {
+	TAILQ_FOREACH(m, env->sc_tables, m_entry) {
 		if (m->m_id == id)
 			break;
 	}
@@ -177,7 +177,7 @@ map_create(const char *source, const char *name, const char *config)
 	}
 
 	TAILQ_INIT(&m->m_contents);
-	TAILQ_INSERT_TAIL(env->sc_maps, m, m_entry);
+	TAILQ_INSERT_TAIL(env->sc_tables, m, m_entry);
 
 	return (m);
 }
@@ -195,7 +195,7 @@ map_destroy(struct map *m)
 		free(me);
 	}
 
-	TAILQ_REMOVE(env->sc_maps, m, m_entry);
+	TAILQ_REMOVE(env->sc_tables, m, m_entry);
 	free(m);
 }
 

@@ -357,7 +357,7 @@ parent_send_config_ruleset(int proc)
 		}
 	}
 	else {
-		TAILQ_FOREACH(m, env->sc_maps, m_entry) {
+		TAILQ_FOREACH(m, env->sc_tables, m_entry) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_MAP,
 			    0, 0, -1, m, sizeof(*m));
 			TAILQ_FOREACH(mapel, &m->m_contents, me_entry) {
