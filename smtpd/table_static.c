@@ -41,7 +41,7 @@ static int table_static_update(struct table *, const char *);
 static void *table_static_open(struct table *);
 static int table_static_lookup(void *, const char *, enum table_service, void **);
 static int   table_static_compare(void *, const char *, enum table_service,
-    int (*)(const char *, const char *));
+    int(*)(const char *, const char *));
 static void  table_static_close(void *);
 
 static int	table_static_credentials(const char *, char *, size_t, void **);
@@ -66,7 +66,7 @@ table_static_config(struct table *table, const char *config)
 	if (config == NULL)
 		return 1;
 
-	return table_config_parser(table, config); 
+	return table_config_parser(table, config);
 }
 
 static int
@@ -174,7 +174,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service kind, void **
 
 static int
 table_static_compare(void *hdl, const char *key, enum table_service kind,
-    int (*func)(const char *, const char *))
+    int(*func)(const char *, const char *))
 {
 	struct table	*m   = hdl;
 	struct mapel	*me  = NULL;
@@ -235,7 +235,7 @@ static int
 table_static_alias(const char *key, char *line, size_t len, void **retp)
 {
 	char			*subrcpt;
-	char		   	*endp;
+	char			*endp;
 	struct table_alias	*table_alias = NULL;
 	struct expandnode	 xn;
 
@@ -273,7 +273,7 @@ static int
 table_static_virtual(const char *key, char *line, size_t len, void **retp)
 {
 	char			*subrcpt;
-	char		   	*endp;
+	char			*endp;
 	struct table_virtual	*table_virtual = NULL;
 	struct expandnode	 xn;
 
@@ -320,8 +320,9 @@ table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 {
 	struct table_netaddr	*table_netaddr = NULL;
 
-	table_netaddr = xcalloc(1, sizeof *table_netaddr, "table_static_netaddr");
-	
+	table_netaddr = xcalloc(1, sizeof *table_netaddr,
+	    "table_static_netaddr");
+
 	if (! text_to_netaddr(&table_netaddr->netaddr, line))
 		goto error;
 

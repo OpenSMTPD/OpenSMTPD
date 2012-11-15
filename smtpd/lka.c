@@ -108,13 +108,12 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			secret = imsg->data;
 			table = table_findbyname(secret->tablename);
 			if (table == NULL) {
-				log_warn("warn: lka: credentials table %s is missing",
+				log_warn("warn: Credentials table %s missing",
 				    secret->tablename);
 				imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0,
 				    -1, secret, sizeof *secret);
 				return;
 			}
-
 			ret = table_lookup(table->t_id, secret->host, K_CREDENTIALS,
 			    (void **)&table_credentials);
 
@@ -129,11 +128,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_warnx("warn: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,
-				     sizeof secret->secret, table_credentials) == 0)
+				sizeof secret->secret, table_credentials) == 0)
 				log_warnx("warn: %s credentials parse fail",
 				    secret->host);
-			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1, secret,
-			    sizeof *secret);
+			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
+			    secret, sizeof *secret);
 			free(table_credentials);
 			return;
 		}
@@ -143,10 +142,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			env->sc_rules_reload = xcalloc(1, sizeof *env->sc_rules,
-			    "lka:sc_rules_reload");
-			env->sc_tables_reload = xcalloc(1, sizeof *env->sc_tables,
-			    "lka:sc_tables_reload");
+			env->sc_rules_reload = xcalloc(1,
+			    sizeof *env->sc_rules, "lka:sc_rules_reload");
+			env->sc_tables_reload = xcalloc(1,
+			    sizeof *env->sc_tables, "lka:sc_tables_reload");
 			TAILQ_INIT(env->sc_rules_reload);
 			TAILQ_INIT(env->sc_tables_reload);
 			return;
@@ -159,14 +158,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_TABLE:
 			table = xmemdup(imsg->data, sizeof *table, "lka:table");
 			TAILQ_INIT(&table->t_contents);
-			TAILQ_INSERT_TAIL(env->sc_tables_reload, table, t_entry);
-
+			TAILQ_INSERT_TAIL(env->sc_tables_reload, table,
+			    t_entry);
 			tmp = env->sc_tables;
 			env->sc_tables = env->sc_tables_reload;
 
 			tp = table_open(table);
 			if (tp == NULL)
-				errx(1, "lka: could not open table \"%s\"", table->t_name);
+				errx(1, "lka: could not open table \"%s\"",
+				    table->t_name);
 			table_close(table, tp);
 
 			env->sc_tables = tmp;
@@ -345,8 +345,9 @@ lka_encode_credentials(char *dst, size_t size,
 	char	*buf;
 	int	 buflen;
 
-	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0', table_credentials->username,
-		    '\0', table_credentials->password)) == -1)
+	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0',
+		    table_credentials->username, '\0',
+		    table_credentials->password)) == -1)
 		fatal(NULL);
 
 	if (__b64_ntop((unsigned char *)buf, buflen, dst, size) == -1) {

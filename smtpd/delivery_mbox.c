@@ -52,7 +52,7 @@ static void
 delivery_mbox_open(struct deliver *deliver)
 {
 	char	*environ_new[2];
-	
+
 	environ_new[0] = "PATH=" _PATH_DEFPATH;
 	environ_new[1] = (char *)NULL;
 	environ = environ_new;

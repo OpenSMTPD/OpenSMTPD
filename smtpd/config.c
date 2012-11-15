@@ -116,8 +116,8 @@ init_pipes(void)
 			/*
 			 * find out how many instances of this peer there are.
 			 */
-			if (i >= j || env->sc_instances[i] == 0||
-			   env->sc_instances[j] == 0)
+			if (i >= j || env->sc_instances[i] == 0 ||
+			    env->sc_instances[j] == 0)
 				continue;
 
 			if (env->sc_instances[i] > 1 &&
@@ -199,7 +199,7 @@ config_peers(struct peer *p, uint peercount)
 
 		if (dst == smtpd_process)
 			fatal("config_peers: cannot peer with oneself");
-		
+
 		env->sc_ievs[dst] = xcalloc(env->sc_instances[dst],
 		    sizeof(struct imsgev), "config_peers");
 

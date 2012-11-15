@@ -1,7 +1,7 @@
-/*	$OpenBSD: scheduler_backend.c,v 1.6 2012/09/11 19:19:13 gilles Exp $	*/
+/*	$OpenBSD: user.c,v 1.1 2011/12/13 22:04:35 eric Exp $	*/
 
 /*
- * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,51 +22,25 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <ctype.h>
-#include <err.h>
 #include <event.h>
-#include <fcntl.h>
 #include <imsg.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "smtpd.h"
 #include "log.h"
 
-extern struct scheduler_backend scheduler_backend_ramqueue;
+extern struct user_backend	user_backend_pwd;
 
-struct scheduler_backend *
-scheduler_backend_lookup(const char *name)
+struct user_backend *
+user_backend_lookup(enum user_type type)
 {
-	if (!strcmp(name, "ramqueue"))
-		return &scheduler_backend_ramqueue;
+	switch (type) {
+	case USER_PWD:
+		return &user_backend_pwd;
 
-	return NULL;
-}
+	default:
+		fatalx("invalid user backend");
+	}
 
-void
-scheduler_info(struct scheduler_info *sched, struct envelope *evp)
-{
-	sched->evpid    = evp->id;
-	sched->type     = evp->type;
-	sched->creation = evp->creation;
-	sched->lasttry  = evp->lasttry;
-	sched->expire   = evp->expire;
-	sched->retry    = evp->retry;
-}
-
-time_t
-scheduler_compute_schedule(struct scheduler_info *sched)
-{
-	time_t	delay;
-
-	if (sched->type == D_MTA)
-		delay = 800;
-	else
-		delay = 10;
-
-	delay = ((delay * sched->retry) * sched->retry) / 2;
-
-	return (sched->creation + delay);
+	return (NULL);
 }

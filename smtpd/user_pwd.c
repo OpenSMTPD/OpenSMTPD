@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_mda.c,v 1.5 2012/10/03 17:58:03 gilles Exp $	*/
+/*	$OpenBSD: user_pwd.c,v 1.3 2012/09/25 17:38:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -21,13 +21,12 @@
 #include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
-#include <ctype.h>
-#include <err.h>
 #include <event.h>
-#include <fcntl.h>
 #include <imsg.h>
-#include <paths.h>
+#include <libgen.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,26 +35,42 @@
 #include "smtpd.h"
 #include "log.h"
 
-extern char	**environ;
+static int user_getpw_ret(struct userinfo *, struct passwd *); /* helper */
+static int user_getpwnam(struct userinfo *, const char *);
 
-/* mda backend */
-static void delivery_mda_open(struct deliver *);
-
-struct delivery_backend delivery_backend_mda = {
-	0, delivery_mda_open
+struct user_backend user_backend_pwd = {
+	user_getpwnam
 };
 
-
-static void
-delivery_mda_open(struct deliver *deliver)
+static int
+user_getpw_ret(struct userinfo *u, struct passwd *pw)
 {
-	char	*environ_new[2];
+	if (strlcpy(u->username, pw->pw_name, sizeof (u->username))
+	    >= sizeof (u->username))
+		return 0;
 
-	environ_new[0] = "PATH=" _PATH_DEFPATH;
-	environ_new[1] = (char *)NULL;
-	environ = environ_new;
-	execle("/bin/sh", "/bin/sh", "-c", deliver->to, (char *)NULL,
-	    environ_new);
-	perror("execle");
-	_exit(1);
+	if (strlcpy(u->password, pw->pw_passwd, sizeof (u->password))
+	    >= sizeof (u->password))
+		return 0;
+
+	if (strlcpy(u->directory, pw->pw_dir, sizeof (u->directory))
+	    >= sizeof (u->directory))
+		return 0;
+
+	u->uid = pw->pw_uid;
+	u->gid = pw->pw_gid;
+
+	return 1;
+}
+
+static int
+user_getpwnam(struct userinfo *u, const char *username)
+{
+	struct passwd *pw;
+
+	pw = getpwnam(username);
+	if (pw == NULL)
+		return 0;
+
+	return user_getpw_ret(u, pw);
 }

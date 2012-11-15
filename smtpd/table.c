@@ -108,7 +108,7 @@ table_lookup(objid_t id, const char *key, enum table_service kind, void **retp)
 
 int
 table_compare(objid_t id, const char *key, enum table_service kind,
-    int (*func)(const char *, const char *))
+    int(*func)(const char *, const char *))
 {
 	void *hdl = NULL;
 	struct table *table;
@@ -134,7 +134,7 @@ table_compare(objid_t id, const char *key, enum table_service kind,
 
 	backend->close(hdl);
 	errno = 0;
-	return ret;	
+	return ret;
 }
 
 struct table *
@@ -154,12 +154,14 @@ table_create(const char *backend, const char *name, const char *config)
 	t->t_backend = tb;
 
 	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
-		errx(1, "table_create: table backend \"%s\" too large", t->t_src);
+		errx(1, "table_create: table backend \"%s\" too large",
+		    t->t_src);
 
 	if (config && *config) {
 		if (strlcpy(t->t_config, config, sizeof t->t_config)
 		    >= sizeof t->t_config)
-			errx(1, "table_create: table config \"%s\" too large", t->t_config);
+			errx(1, "table_create: table config \"%s\" too large",
+			    t->t_config);
 	}
 
 	if (strcmp(t->t_src, "static") != 0)
@@ -228,7 +230,7 @@ void
 table_delete(struct table *t, const char *key)
 {
 	struct mapel	*me;
-	
+
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "map_add: cannot delete from map");
 
@@ -283,7 +285,7 @@ table_config_parser(struct table *t, const char *config)
 	size_t	ret = 0;
 
 	if (strcmp("static", t->t_src) != 0) {
-		log_warn("table_config_parser: configuration table must be static");
+		log_warn("table_config_parser: config table must be static");
 		return 0;
 	}
 
@@ -301,12 +303,12 @@ table_config_parser(struct table *t, const char *config)
 			lbuf[flen] = '\0';
 			buf = lbuf;
 		}
-		
+
 		keyp = buf;
 		while (isspace((int)*keyp))
 			++keyp;
 		if (*keyp == '\0' || *keyp == '#')
-			continue;		
+			continue;
 		valp = keyp;
 		strsep(&valp, " \t:");
 		if (valp) {
