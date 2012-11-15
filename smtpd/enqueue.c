@@ -143,7 +143,7 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 			fprintf(fp, "=3D");
 		else if (*buf == ' ' || *buf == '\t') {
 			char *p = buf;
-			
+
 			while (*p != '\n') {
 				if (*p != ' ' && *p != '\t')
 					break;
@@ -228,7 +228,7 @@ enqueue(int argc, char *argv[])
 
 	build_from(fake_from, pw);
 
-	while(argc > 0) {
+	while (argc > 0) {
 		rcpt_add(argv[0]);
 		argv++;
 		argc--;
@@ -281,7 +281,7 @@ enqueue(int argc, char *argv[])
 	if (!msg.saw_from)
 		send_line(fout, 0, "From: %s%s<%s>\n",
 		    msg.fromname ? msg.fromname : "",
-		    msg.fromname ? " " : "", 
+		    msg.fromname ? " " : "",
 		    msg.from);
 
 	/* add Date */
@@ -298,14 +298,17 @@ enqueue(int argc, char *argv[])
 		if (!msg.saw_mime_version)
 			send_line(fout, 0, "MIME-Version: 1.0\n");
 		if (!msg.saw_content_type)
-			send_line(fout, 0, "Content-Type: text/plain; charset=unknown-8bit\n");
+			send_line(fout, 0, "Content-Type: text/plain; "
+			    "charset=unknown-8bit\n");
 		if (!msg.saw_content_disposition)
 			send_line(fout, 0, "Content-Disposition: inline\n");
 		if (!msg.saw_content_transfer_encoding)
-			send_line(fout, 0, "Content-Transfer-Encoding: quoted-printable\n");
+			send_line(fout, 0, "Content-Transfer-Encoding: "
+			    "quoted-printable\n");
 	}
 	if (!msg.saw_user_agent)
-		send_line(fout, 0, "User-Agent: OpenSMTPD enqueuer (Demoosh)\n");
+		send_line(fout, 0, "User-Agent: OpenSMTPD enqueuer (%s)\n",
+			"Demoosh");
 
 	/* add separating newline */
 	if (noheader)
@@ -331,7 +334,8 @@ enqueue(int argc, char *argv[])
 
 		line = buf;
 
-		if (msg.saw_content_transfer_encoding || noheader || inheaders || !msg.need_linesplit) {
+		if (msg.saw_content_transfer_encoding || noheader ||
+		    inheaders || !msg.need_linesplit) {
 			send_line(fout, 0, "%.*s", (int)len, line);
 			if (inheaders && buf[0] == '\n')
 				inheaders = 0;
@@ -345,7 +349,8 @@ enqueue(int argc, char *argv[])
 				break;
 			}
 			else {
-				qp_encoded_write(fout, line, LINESPLIT - 2 - dotted);
+				qp_encoded_write(fout, line,
+				    LINESPLIT - 2 - dotted);
 				send_line(fout, 0, "=\n");
 				line += LINESPLIT - 2 - dotted;
 				len -= LINESPLIT - 2 - dotted;
@@ -353,10 +358,10 @@ enqueue(int argc, char *argv[])
 		} while (len);
 	}
 	send_line(fout, verbose, ".\n");
-	get_responses(fout, 1);	
+	get_responses(fout, 1);
 
 	send_line(fout, verbose, "QUIT\n");
-	get_responses(fout, 1);	
+	get_responses(fout, 1);
 
 	fclose(fp);
 	fclose(fout);
@@ -375,7 +380,7 @@ get_responses(FILE *fin, int n)
 	if ((e = ferror(fin)))
 		errx(1, "ferror: %i", e);
 
-	while(n) {
+	while (n) {
 		buf = fgetln(fin, &len);
 		if (buf == NULL && ferror(fin))
 			err(1, "fgetln");
@@ -577,7 +582,7 @@ parse_addr(char *s, size_t len, int is_from)
 
 		if (!pstate.comment && !pstate.quote && !pstate.esc) {
 			if (s[pos] == ':') {	/* group */
-				for(pos++; pos < len && WSP(s[pos]); pos++)
+				for (pos++; pos < len && WSP(s[pos]); pos++)
 					;	/* nothing */
 				pstate.wpos = 0;
 			}
@@ -636,7 +641,7 @@ parse_addr_terminal(int is_from)
 		else
 			rcpt_add(pstate.buf);
 		pstate.wpos = 0;
-	}	
+	}
 }
 
 static char *

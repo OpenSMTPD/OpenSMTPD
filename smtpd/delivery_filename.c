@@ -57,7 +57,7 @@ struct delivery_backend delivery_backend_filename = {
 static void
 delivery_filename_open(struct deliver *deliver)
 {
-	struct stat 	 sb;
+	struct stat	 sb;
 	time_t		 now;
 	size_t		 len;
 	int		 fd;
@@ -66,7 +66,7 @@ delivery_filename_open(struct deliver *deliver)
 	char		*msg;
 	int		 n;
 
-#define error(m)	{ msg = m; goto err; }	
+#define error(m)	{ msg = m; goto err; }
 #define error2(m)	{ msg = m; goto err2; }
 
 	setproctitle("file delivery");

@@ -116,7 +116,7 @@ io_strevent(int evt)
 {
 	static char buf[32];
 
-	switch(evt) {
+	switch (evt) {
 	CASE(IO_CONNECTED);
 	CASE(IO_TLSREADY);
 	CASE(IO_DATAIN);
@@ -425,7 +425,7 @@ io_reset(struct io *io, short events, void (*dispatch)(int, short, void*))
 	} else
 		ptv = NULL;
 
-        event_add(&io->ev, ptv);
+	event_add(&io->ev, ptv);
 }
 
 size_t
@@ -447,7 +447,7 @@ io_strflags(int flags)
 
 	buf[0] = '\0';
 
-	switch(flags & IO_RW) {
+	switch (flags & IO_RW) {
 	case 0:
 		strlcat(buf, "rw", sizeof buf);
 		break;
@@ -569,7 +569,7 @@ io_dispatch(int fd, short ev, void *humppa)
 			io_callback(io, IO_DATAIN);
 	}
 
-   leave:
+leave:
 	io_frame_leave(io);
 }
 
@@ -817,7 +817,7 @@ io_reload_ssl(struct io *io)
 {
 	void	(*dispatch)(int, short, void*) = NULL;
 
-	switch(io->state) {
+	switch (io->state) {
 	case IO_STATE_CONNECT_SSL:
 		dispatch = io_dispatch_connect_ssl;
 		break;

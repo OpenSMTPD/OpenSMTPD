@@ -104,7 +104,7 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (c == NULL)
 				return;
 			imsg_compose_event(&c->iev, IMSG_SCHEDULER_MESSAGES, 0,
-			    0, -1, imsg->data, imsg->hdr.len - sizeof imsg->hdr);
+			    0, -1, imsg->data, imsg->hdr.len-sizeof imsg->hdr);
 			return;
 		}
 	}
@@ -115,7 +115,7 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (c == NULL)
 				return;
 			imsg_compose_event(&c->iev, IMSG_SCHEDULER_ENVELOPES, 0,
-			    0, -1, imsg->data, imsg->hdr.len - sizeof imsg->hdr);
+			    0, -1, imsg->data, imsg->hdr.len-sizeof imsg->hdr);
 			return;
 		}
 	}
@@ -217,7 +217,8 @@ control(void)
 	}
 	(void)umask(old_umask);
 
-	if (chmod(SMTPD_SOCKET, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) == -1) {
+	if (chmod(SMTPD_SOCKET,
+		S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) == -1) {
 		(void)unlink(SMTPD_SOCKET);
 		fatal("control: chmod");
 	}
@@ -420,7 +421,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 	uint64_t		 id;
 	struct stat_kv		*kvp;
 	char			*key;
-	struct stat_value      	 val;
+	struct stat_value	 val;
 	size_t			 len;
 
 	if (getpeereid(fd, &euid, &egid) == -1)
@@ -458,8 +459,8 @@ control_dispatch_ext(int fd, short event, void *arg)
 		case IMSG_SMTP_ENQUEUE:
 			if (env->sc_flags & (SMTPD_SMTP_PAUSED |
 			    SMTPD_CONFIGURING | SMTPD_EXITING)) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1, NULL, 0);
 				break;
 			}
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
@@ -469,7 +470,8 @@ control_dispatch_ext(int fd, short event, void *arg)
 		case IMSG_STATS:
 			if (euid)
 				goto badcred;
-			imsg_compose_event(&c->iev, IMSG_STATS, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_STATS, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_DIGEST:
@@ -522,9 +524,11 @@ control_dispatch_ext(int fd, short event, void *arg)
 
 			memcpy(&verbose, imsg.data, sizeof(verbose));
 			log_verbose(verbose);
-			imsg_compose_event(env->sc_ievs[PROC_PARENT], IMSG_CTL_VERBOSE,
-			    0, 0, -1, &verbose, sizeof(verbose));
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(env->sc_ievs[PROC_PARENT],
+			    IMSG_CTL_VERBOSE, 0, 0, -1, &verbose,
+			    sizeof(verbose));
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_QUEUE_PAUSE_MDA:
@@ -532,15 +536,16 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 
 			if (env->sc_flags & SMTPD_MDA_PAUSED) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1, NULL, 0);
 				break;
 			}
 			log_info("info: mda paused");
 			env->sc_flags |= SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_QUEUE_PAUSE_MTA:
@@ -548,15 +553,16 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 
 			if (env->sc_flags & SMTPD_MTA_PAUSED) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1, NULL, 0);
 				break;
 			}
 			log_info("info: mta paused");
 			env->sc_flags |= SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_SMTP_PAUSE:
@@ -564,15 +570,16 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 
 			if (env->sc_flags & SMTPD_SMTP_PAUSED) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1, NULL, 0);
 				break;
 			}
 			log_info("info: smtp paused");
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_PAUSE,			
-			    0, 0, -1, NULL, 0);
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_SMTP_PAUSE, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_QUEUE_RESUME_MDA:
@@ -580,15 +587,16 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 
 			if (! (env->sc_flags & SMTPD_MDA_PAUSED)) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1, NULL, 0);
 				break;
 			}
 			log_info("info: mda resumed");
 			env->sc_flags &= ~SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_QUEUE_RESUME_MTA:
@@ -596,15 +604,16 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 
 			if (!(env->sc_flags & SMTPD_MTA_PAUSED)) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1, NULL, 0);
 				break;
 			}
 			log_info("info: mta resumed");
 			env->sc_flags &= ~SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_SMTP_RESUME:
@@ -612,15 +621,16 @@ control_dispatch_ext(int fd, short event, void *arg)
 				goto badcred;
 
 			if (!(env->sc_flags & SMTPD_SMTP_PAUSED)) {
-				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0, -1,
-					NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
+				    -1,	NULL, 0);
 				break;
 			}
 			log_info("info: smtp resumed");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_RESUME,
-			    0, 0, -1, NULL, 0);
-			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		case IMSG_SCHEDULER_MESSAGES:
@@ -661,17 +671,19 @@ control_dispatch_ext(int fd, short event, void *arg)
 			    NULL, 0);
 			break;
 
-		case IMSG_LKA_UPDATE_MAP:
+		case IMSG_LKA_UPDATE_TABLE:
 			if (euid)
 				goto badcred;
 
-			/* map name too long */
+			/* table name too long */
 			len = strlen(imsg.data);
 			if (len >= MAX_LINE_SIZE)
 				goto invalid;
 
-			imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_UPDATE_MAP,
-			    0, 0, -1, imsg.data, len + 1);
+			imsg_compose_event(env->sc_ievs[PROC_LKA],
+			    IMSG_LKA_UPDATE_TABLE, 0, 0, -1, imsg.data, len+1);
+			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
+			    NULL, 0);
 			break;
 
 		default:

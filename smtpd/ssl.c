@@ -149,7 +149,8 @@ ssl_load_certfile(const char *name, uint8_t flags)
 
 	if (strlcpy(key.ssl_name, name, sizeof(key.ssl_name))
 	    >= sizeof(key.ssl_name)) {
-		log_warnx("warn:  ssl_load_certfile: certificate name truncated");
+		log_warnx("warn: ssl_load_certfile: "
+		    "certificate name truncated");
 		return -1;
 	}
 
@@ -403,11 +404,11 @@ ssl_smtp_init(void *ssl_ctx)
 	log_debug("debug: session_start_ssl: switching to SSL");
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
-                goto err;
-        if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
-                goto err;
+		goto err;
+	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
+		goto err;
 
-        return (void*)(ssl);
+	return (void*)(ssl);
 
     err:
 	if (ssl != NULL)
@@ -451,24 +452,24 @@ get_dh1024(void)
 		0x02
 	};
 
-        if ((dh = DH_new()) == NULL)
+	if ((dh = DH_new()) == NULL)
 		return NULL;
 
-        dh->p = BN_bin2bn(dh1024_p, sizeof(dh1024_p), NULL);
-        dh->g = BN_bin2bn(dh1024_g, sizeof(dh1024_g), NULL);
-        if (dh->p == NULL || dh->g == NULL) {
+	dh->p = BN_bin2bn(dh1024_p, sizeof(dh1024_p), NULL);
+	dh->g = BN_bin2bn(dh1024_g, sizeof(dh1024_g), NULL);
+	if (dh->p == NULL || dh->g == NULL) {
 		DH_free(dh);
 		return NULL;
 	}
 
-        return dh;
+	return dh;
 }
 
 DH *
 get_dh_from_memory(char *params, size_t len)
 {
 	BIO *mem;
-        DH *dh;
+	DH *dh;
 
 	mem = BIO_new_mem_buf(params, len);
 	if (mem == NULL)
@@ -476,7 +477,7 @@ get_dh_from_memory(char *params, size_t len)
 	dh = PEM_read_bio_DHparams(mem, NULL, NULL, NULL);
 	if (dh == NULL)
 		goto err;
-        if (dh->p == NULL || dh->g == NULL)
+	if (dh->p == NULL || dh->g == NULL)
 		goto err;
 	return dh;
 

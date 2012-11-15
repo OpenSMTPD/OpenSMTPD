@@ -36,7 +36,7 @@ enum actions {
 	RESUME_MDA,
 	RESUME_MTA,
 	RESUME_SMTP,
-	UPDATE_MAP,
+	UPDATE_TABLE,
 };
 
 struct parse_result {

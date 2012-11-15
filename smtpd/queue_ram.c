@@ -48,9 +48,9 @@ static int queue_ram_message(enum queue_op, uint32_t *);
 static int queue_ram_envelope(enum queue_op , uint64_t *, char *, size_t);
 
 struct queue_backend	queue_backend_ram = {
-	  queue_ram_init,
-	  queue_ram_message,
-	  queue_ram_envelope,
+	queue_ram_init,
+	queue_ram_message,
+	queue_ram_envelope,
 };
 
 struct qr_envelope {
@@ -80,13 +80,13 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 	char			 path[MAXPATHLEN];
 	uint64_t		 evpid;
 	struct qr_envelope	*evp;
-	struct qr_message 	*msg;
+	struct qr_message	*msg;
 	int			 fd;
 	struct stat		 sb;
 	FILE			*f;
 
-        switch (qop) {
-        case QOP_CREATE:
+	switch (qop) {
+	case QOP_CREATE:
 		msg = xcalloc(1, sizeof *msg, "queue_ram_message");
 		tree_init(&msg->envelopes);
 		do {
@@ -100,7 +100,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		tree_xset(&messages, *msgid, msg);
 		return (1);
 
-        case QOP_DELETE:
+	case QOP_DELETE:
 		msg = tree_pop(&messages, *msgid);
 		if (msg == NULL)
 			return (0);
@@ -113,7 +113,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		free(msg->buf);
 		return (1);
 
-        case QOP_COMMIT:
+	case QOP_COMMIT:
 		msg = tree_get(&messages, *msgid);
 		if (msg == NULL)
 			return (0);
@@ -138,7 +138,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		stat_increment("queue.ram.message.size", msg->len);
 		return (1);
 
-        case QOP_FD_R:
+	case QOP_FD_R:
 		msg = tree_get(&messages, *msgid);
 		if (msg == NULL)
 			return (0);
@@ -147,14 +147,14 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 			return (-1);
 		write(fd, msg->buf, msg->len);
 		lseek(fd, 0, SEEK_SET);
-                return (fd);
+		return (fd);
 
 	case QOP_CORRUPT:
 		return (queue_ram_message(QOP_DELETE, msgid));
 
-        default:
+	default:
 		fatalx("queue_queue_ram_message: unsupported operation.");
-        }
+	}
 
 	return (0);
 }
@@ -176,8 +176,8 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		return (0);
 	}
 
-        switch (qop) {
-        case QOP_CREATE:
+	switch (qop) {
+	case QOP_CREATE:
 		do {
 			*evpid = queue_generate_evpid(msgid);
 		} while (tree_check(&msg->envelopes, *evpid));
@@ -188,7 +188,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		tree_xset(&msg->envelopes, *evpid, evp);
 		return (1);
 
-        case QOP_DELETE:
+	case QOP_DELETE:
 		evp = tree_pop(&msg->envelopes, *evpid);
 		if (evp == NULL)
 			return (0);
@@ -204,7 +204,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		}
 		return (1);
 
-        case QOP_LOAD:
+	case QOP_LOAD:
 		evp = tree_get(&msg->envelopes, *evpid);
 		if (evp == NULL) {
 			log_debug("cannot find envelope %016" PRIx64, *evpid);
@@ -217,7 +217,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		memmove(buf, evp->buf, evp->len);
 		return (evp->len);
 
-        case QOP_UPDATE:
+	case QOP_UPDATE:
 		evp = tree_get(&msg->envelopes, *evpid);
 		if (evp == NULL)
 			return (0);
@@ -228,9 +228,9 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		evp->buf = xmemdup(buf, len, "queue_ram_envelope: update");
 		return (1);
 
-        default:
+	default:
 		fatalx("queue_queue_ram_envelope: unsupported operation.");
-        }
+	}
 
 	return (0);
 }

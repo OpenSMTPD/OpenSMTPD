@@ -167,15 +167,18 @@ main(int argc, char *argv[])
 
 		p = strstr(argv[1], ".db");
 		if (p == NULL || strcmp(p, ".db") != 0) {
-			if (! bsnprintf(dbname, sizeof dbname, "%s.db", argv[1]))
+			if (! bsnprintf(dbname, sizeof dbname, "%s.db",
+				argv[1]))
 				errx(1, "database name too long");
 		}
 		else {
-			if (strlcpy(dbname, argv[1], sizeof dbname) >= sizeof dbname)
+			if (strlcpy(dbname, argv[1], sizeof dbname)
+			    >= sizeof dbname)
 				errx(1, "database name too long");
 		}
 
-		execlp(execname, execname, "-d", argv[0], "-o", dbname, "-", NULL);
+		execlp(execname, execname, "-d", argv[0], "-o", dbname, "-",
+		    NULL);
 		err(1, "execlp");
 	}
 
@@ -222,7 +225,8 @@ main(int argc, char *argv[])
 	if (strcmp(source, "-") != 0)
 		if (fchmod(db->fd(db), sb.st_mode) == -1 ||
 		    fchown(db->fd(db), sb.st_uid, sb.st_gid) == -1) {
-			warn("couldn't carry ownership and perms to %s", dbname);
+			warn("couldn't carry ownership and perms to %s",
+			    dbname);
 			goto bad;
 		}
 
@@ -389,7 +393,7 @@ parse_setentry(char *line, size_t len, size_t lineno)
 	if (db->put(db, &key, &val, 0) == -1) {
 		warn("dbput");
 		return 0;
-	}	
+	}
 
 	dbputs++;
 
@@ -409,9 +413,9 @@ int
 make_aliases(DBT *val, char *text)
 {
 	struct expandnode	xn;
-	char	       	*subrcpt;
-	char	       	*endp;
-	char		*origtext;
+	char		       *subrcpt;
+	char		       *endp;
+	char		       *origtext;
 
 	val->data = NULL;
 	val->size = 0;
@@ -447,18 +451,18 @@ error:
 char *
 conf_aliases(char *cfgpath)
 {
-	struct map	*map;
+	struct table	*table;
 	char		*path;
 	char		*p;
 
 	if (parse_config(env, cfgpath, 0))
 		exit(1);
 
-	map = map_findbyname("aliases");
-	if (map == NULL)
+	table = table_findbyname("aliases");
+	if (table == NULL)
 		return (PATH_ALIASES);
 
-	path = xstrdup(map->m_config, "conf_aliases");
+	path = xstrdup(table->t_config, "conf_aliases");
 	p = strstr(path, ".db");
 	if (p == NULL || strcmp(p, ".db") != 0) {
 		return (path);
@@ -473,7 +477,7 @@ usage(void)
 	if (mode == P_NEWALIASES)
 		fprintf(stderr, "usage: %s [-f file]\n", __progname);
 	else
-		fprintf(stderr, "usage: %s [-d dbtype] [-o dbfile] [-t type] file\n",
-		    __progname);
+		fprintf(stderr, "usage: %s [-d dbtype] [-o dbfile] "
+		    "[-t type] file\n", __progname);
 	exit(1);
 }

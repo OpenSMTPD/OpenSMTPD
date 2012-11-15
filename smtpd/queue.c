@@ -237,7 +237,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
 			    &evp, sizeof evp);
 			return;
- 		}
+		}
 	}
 
 	if (iev->proc == PROC_MTA || iev->proc == PROC_MDA) {
@@ -480,5 +480,5 @@ queue_timeout(int fd, short event, void *p)
 
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
-	evtimer_add(ev, &tv);	
+	evtimer_add(ev, &tv);
 }

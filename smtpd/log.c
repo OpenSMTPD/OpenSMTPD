@@ -42,7 +42,7 @@ int	 verbose;
 
 void	 vlog(int, const char *, va_list);
 void	 logit(int, const char *, ...)
-    __attribute__ ((format (printf, 2, 3)));
+    __attribute__((format (printf, 2, 3)));
 
 
 void

@@ -36,7 +36,8 @@
 #include "log.h"
 
 
-static int ruleset_check_source(struct map *, const struct sockaddr_storage *);
+static int ruleset_check_source(struct table *,
+    const struct sockaddr_storage *);
 static int ruleset_match_mask(struct sockaddr_storage *, struct netaddr *);
 static int ruleset_inet4_match(struct sockaddr_in *, struct netaddr *);
 static int ruleset_inet6_match(struct sockaddr_in6 *, struct netaddr *);
@@ -48,7 +49,7 @@ ruleset_match(const struct envelope *evp)
 	const struct mailaddr *maddr = &evp->dest;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
-	struct map	*map;
+	struct table	*table;
 	struct mapel	*me;
 	int		 v;
 
@@ -74,18 +75,20 @@ ruleset_match(const struct envelope *evp)
 			return r;
 
 		if (r->r_condition.c_type == COND_DOM) {
-			map = map_find(r->r_condition.c_map);
-			if (map == NULL)
-				fatal("failed to lookup map.");
+			table = table_find(r->r_condition.c_table);
+			if (table == NULL)
+				fatal("failed to lookup table.");
 
-			if (! strcmp(map->m_src, "static")) {
-				TAILQ_FOREACH(me, &map->m_contents, me_entry) {
-					if (hostname_match(maddr->domain, me->me_key))
+			if (! strcmp(table->t_src, "static")) {
+				TAILQ_FOREACH(me, &table->t_contents,
+				    me_entry) {
+					if (hostname_match(maddr->domain,
+						me->me_key))
 						return r;
 				}
 			}
-			else if (map_lookup(map->m_id, maddr->domain,
-			    K_VIRTUAL) != NULL) {
+			else if (table_lookup(table->t_id, maddr->domain,
+				K_VIRTUAL, NULL) > 0) {
 				return (r);
 			} else if (errno) {
 				errno = EAGAIN;
@@ -94,7 +97,7 @@ ruleset_match(const struct envelope *evp)
 		}
 
 		if (r->r_condition.c_type == COND_VDOM) {
-			v = aliases_vdomain_exists(r->r_condition.c_map,
+			v = aliases_vdomain_exists(r->r_condition.c_table,
 			    maddr->domain);
 			if (v == -1) {
 				errno = EAGAIN;
@@ -130,7 +133,7 @@ ruleset_cmp_source(const char *s1, const char *s2)
 }
 
 static int
-ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
+ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 {
 	struct mapel *me;
 
@@ -141,8 +144,8 @@ ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
 		return 1;
 	}
 
-	if (! strcmp(map->m_src, "static")) {
-		TAILQ_FOREACH(me, &map->m_contents, me_entry) {
+	if (! strcmp(table->t_src, "static")) {
+		TAILQ_FOREACH(me, &table->t_contents, me_entry) {
 			if (ss->ss_family == AF_LOCAL) {
 				if (!strcmp(me->me_key, "local"))
 					return 1;
@@ -153,7 +156,7 @@ ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
 		}
 	}
 	else {
-		if (map_compare(map->m_id, ss_to_text(ss), K_NETADDR,
+		if (table_compare(table->t_id, ss_to_text(ss), K_NETADDR,
 		    ruleset_cmp_source))
 			return (1);
 		if (errno)
@@ -188,10 +191,10 @@ ruleset_inet4_match(struct sockaddr_in *ss, struct netaddr *ssmask)
 	mask = htonl(mask);
 
 	/* (addr & mask) == (net & mask) */
- 	if ((ss->sin_addr.s_addr & mask) ==
+	if ((ss->sin_addr.s_addr & mask) ==
 	    (((struct sockaddr_in *)ssmask)->sin_addr.s_addr & mask))
 		return 1;
-	
+
 	return 0;
 }
 
@@ -202,17 +205,17 @@ ruleset_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
 	struct in6_addr	*inmask;
 	struct in6_addr	 mask;
 	int		 i;
-	
+
 	bzero(&mask, sizeof(mask));
 	for (i = 0; i < ssmask->bits / 8; i++)
 		mask.s6_addr[i] = 0xff;
 	i = ssmask->bits % 8;
 	if (i)
 		mask.s6_addr[ssmask->bits / 8] = 0xff00 >> i;
-	
+
 	in = &ss->sin6_addr;
 	inmask = &((struct sockaddr_in6 *)&ssmask->ss)->sin6_addr;
-	
+
 	for (i = 0; i < 16; i++) {
 		if ((in->s6_addr[i] & mask.s6_addr[i]) !=
 		    (inmask->s6_addr[i] & mask.s6_addr[i]))

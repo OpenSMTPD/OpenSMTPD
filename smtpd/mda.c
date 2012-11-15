@@ -131,8 +131,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				if (!strcmp(name, u->name))
 					break;
 			if (u && u->evpcount >= MDA_MAXEVPUSER) {
-				log_debug("debug: mda: too many envelopes for \"%s\"",
-				    u->name);
+				log_debug("debug: mda: too many envelopes for "
+				    "\"%s\"", u->name);
 				envelope_set_errormsg(ep,
 				    "User envelope limit reached");
 				imsg_compose_event(env->sc_ievs[PROC_QUEUE],
@@ -148,8 +148,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				TAILQ_INSERT_TAIL(&users, u, entry);
 			}
 			if (u->runnable == 0 && u->running < MDA_MAXSESSUSER) {
-				log_debug("debug: mda: \"%s\" immediatly runnable",
-				    u->name);
+				log_debug("debug: mda: \"%s\" immediatly "
+				    "runnable", u->name);
 				TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 				u->runnable = 1;
 			}
@@ -203,7 +203,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				    s->evp->rcpt.user,
 				    s->evp->rcpt.domain);
 			if (n == -1) {
-				log_warn("warn: mda: fail to write delivery info");
+				log_warn("warn: mda: "
+				    "fail to write delivery info");
 				envelope_set_errormsg(s->evp, "Out of memory");
 				mda_done(s, IMSG_QUEUE_DELIVERY_TEMPFAIL);
 				return;
@@ -216,17 +217,17 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			case A_MDA:
 				deliver.mode = A_MDA;
 				strlcpy(deliver.user, d_mda->user.username,
-				    sizeof (deliver.user));
+				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
-				    sizeof deliver.to);
+				    sizeof(deliver.to));
 				break;
-				
+
 			case A_MBOX:
 				deliver.mode = A_MBOX;
 				strlcpy(deliver.user, "root",
-				    sizeof (deliver.user));
+				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->user.username,
-				    sizeof (deliver.to));
+				    sizeof(deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
 				    "%s@%s", ep->sender.user,
 				    ep->sender.domain);
@@ -235,9 +236,9 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
 				strlcpy(deliver.user, d_mda->user.username,
-				    sizeof deliver.user);
+				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
-				    sizeof deliver.to);
+				    sizeof(deliver.to));
 				break;
 
 			case A_FILENAME:
@@ -284,7 +285,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			 */
 			output[0] = '\0';
 			if (imsg->fd != -1)
-				mda_getlastline(imsg->fd, output, sizeof output);
+				mda_getlastline(imsg->fd, output,
+				    sizeof output);
 
 			/*
 			 * Choose between parent's description of error and
@@ -304,7 +306,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (error) {
 				msg = IMSG_QUEUE_DELIVERY_TEMPFAIL;
 				envelope_set_errormsg(s->evp, "%s", error);
-				snprintf(stat, sizeof stat, "Error (%s)", error);
+				snprintf(stat, sizeof stat, "Error (%s)",
+				    error);
 			}
 			log_envelope(s->evp, NULL, error ? "TempFail" : "Ok",
 				     error ? stat : "Delivered");
@@ -420,10 +423,10 @@ mda_io(struct io *io, int evt)
 	char			*ln, buf[256];
 	size_t			 len;
 
-	log_trace(TRACE_IO, "mda: %p: %s %s", s, io_strevent(evt), io_strio(io));
+	log_trace(TRACE_IO, "mda: %p: %s %s", s, io_strevent(evt),
+	    io_strio(io));
 
-	switch(evt) {
-
+	switch (evt) {
 	case IO_LOWAT:
 
 		/* done */
@@ -578,11 +581,13 @@ mda_drain(void)
 	while ((user = (TAILQ_FIRST(&runnable)))) {
 
 		if (running >= MDA_MAXSESS) {
-			log_debug("debug: mda: maximum number of session reached");
+			log_debug("debug: mda: "
+			    "maximum number of session reached");
 			return;
 		}
 
-		log_debug("debug: mda: new session for user \"%s\"", user->name);
+		log_debug("debug: mda: new session for user \"%s\"",
+		    user->name);
 
 		s = xcalloc(1, sizeof *s, "mda_drain");
 		s->user = user;
@@ -618,7 +623,8 @@ mda_drain(void)
 		    user->running < MDA_MAXSESSUSER) {
 			TAILQ_INSERT_TAIL(&runnable, user, entry_runnable);
 			user->runnable = 1;
-			log_debug("debug: mda: user \"%s\" still runnable", user->name);
+			log_debug("debug: mda: user \"%s\" still runnable",
+			    user->name);
 		}
 	}
 }
@@ -637,16 +643,17 @@ mda_done(struct mda_session *s, int msg)
 	stat_decrement("mda.running", 1);
 
 	if (TAILQ_FIRST(&s->user->envelopes) == NULL && s->user->running == 0) {
-		log_debug("debug: mda: all done for user \"%s\"", s->user->name);
+		log_debug("debug: mda: "
+		    "all done for user \"%s\"", s->user->name);
 		TAILQ_REMOVE(&users, s->user, entry);
 		free(s->user);
 	} else if (s->user->runnable == 0 &&
-		   TAILQ_FIRST(&s->user->envelopes) &&
-		    s->user->running < MDA_MAXSESSUSER) {
-			log_debug("debug: mda: user \"%s\" becomes runnable",
-			    s->user->name);
-			TAILQ_INSERT_TAIL(&runnable, s->user, entry_runnable);
-			s->user->runnable = 1;
+	    TAILQ_FIRST(&s->user->envelopes) &&
+	    s->user->running < MDA_MAXSESSUSER) {
+		log_debug("debug: mda: user \"%s\" becomes runnable",
+		    s->user->name);
+		TAILQ_INSERT_TAIL(&runnable, s->user, entry_runnable);
+		s->user->runnable = 1;
 	}
 
 	if (s->datafp)

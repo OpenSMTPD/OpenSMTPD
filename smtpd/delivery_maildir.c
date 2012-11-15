@@ -60,7 +60,7 @@ delivery_maildir_open(struct deliver *deliver)
 	char	*msg;
 	int	 n;
 
-#define error(m)	{ msg = m; goto err; }	
+#define error(m)	{ msg = m; goto err; }
 #define error2(m)	{ msg = m; goto err2; }
 
 	setproctitle("maildir delivery");

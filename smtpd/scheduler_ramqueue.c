@@ -129,7 +129,7 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 static struct rq_queue	ramqueue;
 static struct tree	updates;
 
-static time_t		currtime;	
+static time_t		currtime;
 
 extern int verbose;
 
@@ -338,7 +338,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 	ret->evpids = NULL;
 	ret->evpcount = 0;
 
-	while((evp = TAILQ_FIRST(q))) {
+	while ((evp = TAILQ_FIRST(q))) {
 
 		TAILQ_REMOVE(q, evp, entry);
 
@@ -428,7 +428,7 @@ scheduler_ramqueue_messages(uint32_t from, uint32_t *dst, size_t size)
 	size_t	 n;
 	void	*i;
 
-	for(n = 0, i = NULL; n < size; n++) {
+	for (n = 0, i = NULL; n < size; n++) {
 		if (tree_iterfrom(&ramqueue.messages, &i, from, &id, NULL) == 0)
 			break;
 		dst[n] = id;
@@ -447,8 +447,8 @@ scheduler_ramqueue_envelopes(uint64_t from, struct evpstate *dst, size_t size)
 
 	if ((msg = tree_get(&ramqueue.messages, evpid_to_msgid(from))) == NULL)
 		return (0);
-	
-	for(n = 0, i = NULL; n < size; ) {
+
+	for (n = 0, i = NULL; n < size; ) {
 
 		if (tree_iterfrom(&msg->envelopes, &i, from, NULL,
 		    (void**)&evp) == 0)
@@ -534,7 +534,7 @@ rq_queue_merge(struct rq_queue *rq, struct rq_queue *update)
 		}
 		/* need to re-link all envelopes before merging them */
 		i = NULL;
-		while((tree_iter(&message->envelopes, &i, &id,
+		while ((tree_iter(&message->envelopes, &i, &id,
 		    (void*)&envelope)))
 			envelope->message = tomessage;
 		tree_merge(&tomessage->envelopes, &message->envelopes);
@@ -636,7 +636,7 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 		if (rq->q_mtabatch == evp->message)
 			rq->q_mtabatch = evp->message->q_next;
 		else {
-			for(m = rq->q_mtabatch; m->q_next; m = m->q_next)
+			for (m = rq->q_mtabatch; m->q_next; m = m->q_next)
 				if (m->q_next == evp->message) {
 					m->q_next = evp->message->q_next;
 					break;
@@ -676,7 +676,8 @@ rq_envelope_to_text(struct rq_envelope *e)
 	else if (e->type == D_MTA)
 		strlcat(buf, "mta", sizeof buf);
 
-	snprintf(t, sizeof t, ",expire=%s", duration_to_text(e->expire - currtime));
+	snprintf(t, sizeof t, ",expire=%s",
+	    duration_to_text(e->expire - currtime));
 	strlcat(buf, t, sizeof buf);
 
 	if (e->flags & RQ_ENVELOPE_PENDING) {
@@ -715,10 +716,10 @@ rq_queue_dump(struct rq_queue *rq, const char * name)
 	log_debug("debug: /--- ramqueue: %s", name);
 
 	i = NULL;
-	while((tree_iter(&rq->messages, &i, &id, (void*)&message))) {
+	while ((tree_iter(&rq->messages, &i, &id, (void*)&message))) {
 		log_debug("debug: | msg:%08" PRIx32, message->msgid);
 		j = NULL;
-		while((tree_iter(&message->envelopes, &j, &id,
+		while ((tree_iter(&message->envelopes, &j, &id,
 		    (void*)&envelope)))
 			log_debug("debug: |   %s",
 			    rq_envelope_to_text(envelope));
