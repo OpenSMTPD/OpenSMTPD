@@ -59,6 +59,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct table		*table;
 	struct table		*tp;
 	void			*tmp;
+	int			ret;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_PTR) {
@@ -102,7 +103,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct table_credentials *table_credentials;
+			struct table_credentials *table_credentials = NULL;
 
 			secret = imsg->data;
 			table = table_findbyname(secret->tablename);
@@ -113,12 +114,18 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			table_credentials = table_lookup(table->t_id, secret->host,
-			    K_CREDENTIALS);
-			log_debug("debug: lka: %s credentials lookup (%d)", secret->host,
-			    table_credentials != NULL);
+
+			ret = table_lookup(table->t_id, secret->host, K_CREDENTIALS,
+			    (void **)&table_credentials);
+
+			log_debug("debug: lka: %s credentials lookup (%d)",
+			    secret->host, ret);
+
 			secret->secret[0] = '\0';
-			if (table_credentials == NULL)
+			if (ret == -1)
+				log_warnx("warn: error with %s credentials",
+				    secret->host);
+			else if (ret == 0)
 				log_warnx("warn: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,

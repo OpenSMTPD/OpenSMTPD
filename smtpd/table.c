@@ -38,6 +38,7 @@ struct table_backend *table_backend_lookup(const char *);
 
 extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
+extern struct table_backend table_backend_getpwnam;
 
 static objid_t	last_table_id = 0;
 
@@ -48,6 +49,8 @@ table_backend_lookup(const char *backend)
 		return &table_backend_static;
 	if (!strcmp(backend, "db"))
 		return &table_backend_db;
+	if (!strcmp(backend, "getpwnam"))
+		return &table_backend_getpwnam;
 	return NULL;
 }
 
@@ -75,30 +78,28 @@ table_find(objid_t id)
 	return (t);
 }
 
-void *
-table_lookup(objid_t id, const char *key, enum table_service kind)
+int
+table_lookup(objid_t id, const char *key, enum table_service kind, void **retp)
 {
 	void *hdl = NULL;
-	char *ret = NULL;
 	struct table *table;
 	struct table_backend *backend = NULL;
+	int	ret;
 
 	table = table_find(id);
 	if (table == NULL) {
 		errno = EINVAL;
-		return NULL;
+		return -1;
 	}
 
 	backend = table_backend_lookup(table->t_src);
 	hdl = backend->open(table);
 	if (hdl == NULL) {
 		log_warn("warn: table_lookup: can't open %s", table->t_config);
-		if (errno == 0)
-			errno = ENOTSUP;
-		return NULL;
+		return -1;
 	}
 
-	ret = backend->lookup(hdl, key, kind);
+	ret = backend->lookup(hdl, key, kind, retp);
 
 	backend->close(hdl);
 	errno = 0;

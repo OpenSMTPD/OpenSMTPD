@@ -18,7 +18,7 @@ CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DNO_IO
 
 SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c table.c \
-	table_static.c table_db.c tree.c
+	table_static.c table_db.c table_getpwnam.c tree.c
 
 DPADD+= ${LIBUTIL} ${LIBCRYPTO}
 LDADD+= -lutil -lcrypto

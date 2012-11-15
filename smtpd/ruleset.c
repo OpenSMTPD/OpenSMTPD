@@ -83,7 +83,7 @@ ruleset_match(const struct envelope *evp)
 				}
 			}
 			else if (table_lookup(table->t_id, maddr->domain,
-			    K_VIRTUAL) != NULL) {
+				K_VIRTUAL, NULL) > 0) {
 				return (r);
 			} else if (errno) {
 				errno = EAGAIN;
