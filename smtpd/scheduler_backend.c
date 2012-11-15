@@ -68,5 +68,5 @@ scheduler_compute_schedule(struct scheduler_info *sched)
 
 	delay = ((delay * sched->retry) * sched->retry) / 2;
 
- 	return (sched->creation + delay);
+	return (sched->creation + delay);
 }

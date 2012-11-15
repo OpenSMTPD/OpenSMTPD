@@ -44,21 +44,23 @@ static int alias_is_include(struct expandnode *, const char *, size_t);
 int
 aliases_get(objid_t id, struct expand *expand, const char *username)
 {
-	struct table_alias *table_alias;
-	struct expandnode *xn;
-	char buf[MAX_LOCALPART_SIZE];
-	size_t nbaliases;
+	struct table_alias     *table_alias = NULL;
+	struct expandnode      *xn;
+	char			buf[MAX_LOCALPART_SIZE];
+	size_t			nbaliases;
+	int			ret;
 
 	xlowercase(buf, username, sizeof(buf));
-	table_alias = table_lookup(id, buf, K_ALIAS);
-	if (table_alias == NULL)
-		return (errno ? -1 : 0);
+	ret = table_lookup(id, buf, K_ALIAS, (void **)&table_alias);
+	if (ret <= 0)
+		return ret;
 
 	/* foreach node in table_alias expandtree, we merge */
 	nbaliases = 0;
 	RB_FOREACH(xn, expandtree, &table_alias->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expand, xn->u.buffer);
+			nbaliases += aliases_expand_include(expand,
+			    xn->u.buffer);
 		else {
 			expand_insert(expand, xn);
 			nbaliases++;
@@ -76,32 +78,35 @@ int
 aliases_virtual_get(objid_t id, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct table_virtual *table_virtual;
+	struct table_virtual *table_virtual = NULL;
 	struct expandnode *xn;
 	char buf[MAX_LINE_SIZE];
 	char *pbuf = buf;
 	int nbaliases;
+	int	ret;
 
 	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
 		maddr->domain))
 		return 0;
 	xlowercase(buf, buf, sizeof(buf));
+	
+	ret = table_lookup(id, buf, K_VIRTUAL, (void **)&table_virtual);
+	if (ret < 0)
+		return (-1);
 
-	table_virtual = table_lookup(id, buf, K_VIRTUAL);
-	if (table_virtual == NULL) {
-		if (errno)
-			return (-1);
+	if (ret == 0) {
 		pbuf = strchr(buf, '@');
-		table_virtual = table_lookup(id, pbuf, K_VIRTUAL);
+		ret = table_lookup(id, pbuf, K_VIRTUAL, (void **)&table_virtual);
 	}
-	if (table_virtual == NULL)
-		return (errno ? -1 : 0);
+	if (ret <= 0)
+		return ret;
 
 	/* foreach node in table_virtual expand, we merge */
 	nbaliases = 0;
 	RB_FOREACH(xn, expandtree, &table_virtual->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
-			nbaliases += aliases_expand_include(expand, xn->u.buffer);
+			nbaliases += aliases_expand_include(expand,
+			    xn->u.buffer);
 		else {
 			expand_insert(expand, xn);
 			nbaliases++;
@@ -110,7 +115,8 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 
 	expand_free(&table_virtual->expand);
 	free(table_virtual);
-	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes", pbuf, nbaliases);
+	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes",
+	    pbuf, nbaliases);
 
 	return nbaliases;
 }
@@ -118,19 +124,16 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 int
 aliases_vdomain_exists(objid_t id, const char *hostname)
 {
-	struct table_virtual *table_virtual;
-	char buf[MAXHOSTNAMELEN];
+	char			buf[MAXHOSTNAMELEN];
+	int			ret;
 
 	xlowercase(buf, hostname, sizeof(buf));
-	table_virtual = table_lookup(id, buf, K_VIRTUAL);
-	if (table_virtual == NULL)
-		return (errno ? -1 : 0);
+	ret = table_lookup(id, buf, K_VIRTUAL, NULL);
+	if (ret <= 0)
+		return ret;
 
 	/* XXX - for now the table API always allocate */
 	log_debug("debug: aliases_vdomain_exist: '%s' exists", hostname);
-	expand_free(&table_virtual->expand);
-	free(table_virtual);
-
 	return 1;
 }
 
@@ -156,9 +159,9 @@ aliases_expand_include(struct expand *expand, const char *filename)
 			continue;
 		}
 
-		if (! alias_parse(&xn, line)) {
-			log_warnx("warn: could not parse include entry \"%s\".", line);
-		}
+		if (! alias_parse(&xn, line))
+			log_warnx("warn: could not parse include entry \"%s\".",
+			    line);
 
 		if (xn.type == EXPAND_INCLUDE)
 			log_warnx("warn: nested inclusion is not supported.");
@@ -252,7 +255,8 @@ alias_is_address(struct expandnode *alias, const char *line, size_t len)
 	/* scan pre @ for disallowed chars */
 	*domain++ = '\0';
 	strlcpy(alias->u.mailaddr.user, line, sizeof(alias->u.mailaddr.user));
-	strlcpy(alias->u.mailaddr.domain, domain, sizeof(alias->u.mailaddr.domain));
+	strlcpy(alias->u.mailaddr.domain, domain,
+	    sizeof(alias->u.mailaddr.domain));
 
 	while (*line) {
 		char allowedset[] = "!#$%*/?|^{}`~&'+-=_.";

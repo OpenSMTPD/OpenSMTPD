@@ -103,7 +103,8 @@ struct mta_session {
 static void mta_io(struct io *, int);
 static void mta_enter_state(struct mta_session *, int);
 static void mta_status(struct mta_session *, int, const char *, ...);
-static void mta_envelope_done(struct mta_task *, struct envelope *, const char *);
+static void mta_envelope_done(struct mta_task *, struct envelope *,
+    const char *);
 static void mta_send(struct mta_session *, char *, ...);
 static ssize_t mta_queue_data(struct mta_session *);
 static void mta_response(struct mta_session *, char *);
@@ -145,7 +146,8 @@ mta_session(struct mta_route *route)
 			session->flags |= MTA_ALLOW_PLAIN;
 	}
 
-	log_debug("debug: mta: %p: spawned for %s", session, mta_route_to_text(route));
+	log_debug("debug: mta: %p: spawned for %s", session,
+	    mta_route_to_text(route));
 	stat_increment("mta.session", 1);
 	mta_enter_state(session, MTA_INIT);
 }
@@ -157,8 +159,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct mta_session	*s;
 	struct dns		*dns;
 
-	switch(imsg->hdr.type) {
-
+	switch (imsg->hdr.type) {
 	case IMSG_QUEUE_MESSAGE_FD:
 		id = *(uint64_t*)(imsg->data);
 		if (imsg->fd == -1)
@@ -189,7 +190,6 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			s->mx->hostname = xstrdup(dns->host, "mta: ptr");
 		waitq_run(&s->mx->hostname, s->mx->hostname);
 		return;
-
 	default:
 		errx(1, "mta_session_imsg: unexpected %s imsg",
 		    imsg_to_str(imsg->hdr.type));
@@ -297,7 +297,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 			io_init(&s->io, -1, s, mta_io, &s->iobuf);
 			io_set_timeout(&s->io, 10000);
 			if (io_connect(&s->io, sa, NULL) == -1) {
-				log_debug("debug: mta: %p: connection failed: %s", s,
+				log_debug("debug: mta: %p: "
+				    "connection failed: %s", s,
 				    strerror(errno));
 				iobuf_clear(&s->iobuf);
 				/*
@@ -380,11 +381,13 @@ mta_enter_state(struct mta_session *s, int newstate)
 			mta_route_ok(s->route);
 		}
 		if (s->msgcount >= s->route->maxmail) {
-			log_debug("debug: mta: %p: cannot send more message to %s", s,
+			log_debug("debug: mta: "
+			    "%p: cannot send more message to %s", s,
 			    mta_route_to_text(s->route));
 			mta_enter_state(s, MTA_SMTP_QUIT);
 		} else if ((s->task = TAILQ_FIRST(&s->route->tasks))) {
-			log_debug("debug: mta: %p: handling next task for %s", s,
+			log_debug("debug: mta: "
+			    "%p: handling next task for %s", s,
 			    mta_route_to_text(s->route));
 			TAILQ_REMOVE(&s->route->tasks, s->task, entry);
 			s->route->ntask -= 1;
@@ -580,7 +583,8 @@ mta_io(struct io *io, int evt)
 	const char		*error;
 	int			 cont;
 
-	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt), io_strio(io));
+	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
+	    io_strio(io));
 
 	switch (evt) {
 
@@ -642,7 +646,7 @@ mta_io(struct io *io, int evt)
 
 		io_set_write(io);
 		mta_response(s, line);
-    		iobuf_normalize(&s->iobuf);
+		iobuf_normalize(&s->iobuf);
 
 		if (iobuf_len(&s->iobuf)) {
 			log_debug("debug: mta: remaining data in input buffer");
@@ -680,7 +684,8 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_DISCONNECTED:
-		log_debug("debug: mta: %p: disconnected in state %s", s, mta_strstate(s->state));
+		log_debug("debug: mta: %p: disconnected in state %s",
+		    s, mta_strstate(s->state));
 		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
@@ -759,7 +764,7 @@ mta_status(struct mta_session *s, int connerr, const char *fmt, ...)
 	va_end(ap);
 
 	if (s->task) {
-		while((e = TAILQ_FIRST(&s->task->envelopes)))
+		while ((e = TAILQ_FIRST(&s->task->envelopes)))
 			mta_envelope_done(s->task, e, status);
 		free(s->task);
 		s->task = NULL;
@@ -806,7 +811,7 @@ mta_strstate(int state)
 	CASE(MTA_CONNECT);
 	CASE(MTA_DONE);
 	CASE(MTA_SMTP_READY);
-	CASE(MTA_SMTP_BANNER);  
+	CASE(MTA_SMTP_BANNER);
 	CASE(MTA_SMTP_EHLO);
 	CASE(MTA_SMTP_HELO);
 	CASE(MTA_SMTP_STARTTLS);

@@ -22,6 +22,7 @@ SRCS+=		delivery_maildir.c
 SRCS+=		delivery_mbox.c
 SRCS+=		delivery_mda.c
 SRCS+=		table_db.c
+SRCS+=		table_getpwnam.c
 SRCS+=		table_static.c
 SRCS+=		queue_fsqueue.c
 SRCS+=		queue_ram.c

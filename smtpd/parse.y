@@ -420,10 +420,11 @@ table		: TABLE STRING STRING	{
 			p = $3;
 			if (*p == '/') {
 				backend = "static";
-				config  = $3;
+				config = $3;
 			}
 			else {
-				p = backend = config = NULL;
+				backend = $3;
+				config = NULL;
 				for (p = $3; *p && *p != ':'; p++)
 					;
 				if (*p == ':') {
@@ -432,8 +433,8 @@ table		: TABLE STRING STRING	{
 					config  = p+1;
 				}
 			}
-			if (config == NULL || *config != '/') {
-				yyerror("table parameter must be absolute path");
+			if (config != NULL && *config != '/') {
+				yyerror("backend parameter must be an absolute path");
 				free($2);
 				free($3);
 				YYERROR;
