@@ -419,7 +419,7 @@ table		: TABLE STRING STRING	{
 
 			p = $3;
 			if (*p == '/') {
-				backend = "file";
+				backend = "static";
 				config  = $3;
 			}
 			else {
@@ -438,16 +438,13 @@ table		: TABLE STRING STRING	{
 				free($3);
 				YYERROR;
 			}
-
-			map = map_create(backend, $2);
-			if (strlcpy(map->m_config, config, sizeof(map->m_config))
-			    >= sizeof(map->m_config))
-				err(1, "pathname too long");
+			map = map_create(backend, $2, config);
+			map->m_backend->config(map, config);
 			free($2);
 			free($3);
 		}
 		| TABLE STRING {
-			map = map_create("static", $2);
+			map = map_create("static", $2, NULL);
 			free($2);
 		} '{' tableval_list '}' {
 			map = NULL;
@@ -484,13 +481,13 @@ tableval_list	: string_list			{ }
 tablenew		: STRING			{
 			struct map	*m;
 
-			m = map_create("static", NULL);
+			m = map_create("static", NULL, NULL);
 			m->m_type = T_LIST;
 			map_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
 		| '{'				{
-			map = map_create("static", NULL);
+			map = map_create("static", NULL, NULL);
 		} tableval_list '}'		{
 			$$ = map->m_id;
 		}
@@ -576,7 +573,7 @@ condition	: DOMAIN tables alias		{
 
 			rule->r_amap = $2;
 
-			m = map_create("static", NULL);
+			m = map_create("static", NULL, NULL);
 			map_add(m, "localhost", NULL);
 			map_add(m, hostname, NULL);
 
@@ -1661,7 +1658,7 @@ set_localaddrs(void)
 	struct sockaddr_in6	*sin6;
 	struct map		*m;
 
-	m = map_create("static", "<anyhost>");
+	m = map_create("static", "<anyhost>", NULL);
 	map_add(m, "local", NULL);
 	map_add(m, "0.0.0.0/0", NULL);
 	map_add(m, "::/0", NULL);
@@ -1669,7 +1666,7 @@ set_localaddrs(void)
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = map_create("static", "<localhost>");
+	m = map_create("static", "<localhost>", NULL);
 	map_add(m, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {

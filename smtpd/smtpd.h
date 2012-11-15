@@ -258,6 +258,7 @@ struct peer {
 
 
 enum map_type {
+	T_NONE		= 0,
 	T_DYNAMIC	= 0x01,	/* map with external source	*/
 	T_LIST		= 0x02,	/* map holding a list		*/
 	T_HASH		= 0x04,	/* map holding a hash table	*/
@@ -286,12 +287,14 @@ struct map {
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
 	void				*m_handle;
+	struct map_backend		*m_backend;
 };
 
 
 struct map_backend {
+	int  (*config)(struct map *, const char *);
 	void *(*open)(struct map *);
-	void (*update)(struct map *);
+	int  (*update)(struct map *, const char *);
 	void (*close)(void *);
 	void *(*lookup)(void *, const char *, enum map_kind);
 	int  (*compare)(void *, const char *, enum map_kind,
@@ -1029,16 +1032,17 @@ void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
+struct map_backend *map_backend_lookup(const char *);
 void *map_open(struct map *);
 void  map_update(struct map *);
 void  map_close(struct map *, void *);
-
+int map_config_parser(struct map *, const char *);
 void *map_lookup(objid_t, const char *, enum map_kind);
 int map_compare(objid_t, const char *, enum map_kind,
     int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);
-struct map *map_create(const char *, const char *);
+struct map *map_create(const char *, const char *, const char *);
 void map_destroy(struct map *);
 void map_add(struct map *, const char *, const char *);
 void map_delete(struct map *, const char *);
