@@ -47,7 +47,6 @@
 
 enum mta_state {
 	MTA_INIT,
-	MTA_SECRET,
 	MTA_DATA,
 	MTA_CONNECT,
 	MTA_DONE,
@@ -82,7 +81,6 @@ struct mta_session {
 	uint64_t		 id;
 	struct mta_route	*route;
 
-	char			*secret;
 	int			 flags;
 	int			 ready;
 
@@ -157,7 +155,6 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	uint64_t		 id;
 	struct mta_session	*s;
-	struct secret		*secret;
 	struct dns		*dns;
 
 	switch(imsg->hdr.type) {
@@ -181,18 +178,6 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			mta_enter_state(s, MTA_SMTP_MAIL);
 		}
 		io_reload(&s->io);
-		return;
-
-	case IMSG_LKA_SECRET:
-		/* LKA responded to AUTH lookup. */
-		secret = imsg->data;
-		s = tree_xget(&sessions, secret->id);
-		s->secret = xstrdup(secret->secret, "mta: secret");
-		if (s->secret[0] == '\0') {
-			mta_route_error(s->route, "secrets lookup failed");
-			mta_enter_state(s, MTA_DONE);
-		} else
-			mta_enter_state(s, MTA_CONNECT);
 		return;
 
 	case IMSG_DNS_PTR:
@@ -236,7 +221,6 @@ static void
 mta_enter_state(struct mta_session *s, int newstate)
 {
 	int			 oldstate;
-	struct secret		 secret;
 	struct mta_route	*route;
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
@@ -257,10 +241,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	switch (s->state) {
 	case MTA_INIT:
-		if (s->route->auth)
-			mta_enter_state(s, MTA_SECRET);
-		else
-			mta_enter_state(s, MTA_CONNECT);
+		mta_enter_state(s, MTA_CONNECT);
 		break;
 
 	case MTA_DATA:
@@ -270,18 +251,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
 		    &s->id, sizeof(s->id));
-		break;
-
-	case MTA_SECRET:
-		/*
-		 * Lookup AUTH secret.
-		 */
-		bzero(&secret, sizeof(secret));
-		secret.id = s->id;
-		strlcpy(secret.tablename, s->route->auth, sizeof(secret.tablename));
-		strlcpy(secret.host, s->route->hostname, sizeof(secret.host));
-		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
-		    0, 0, -1, &secret, sizeof(secret));  
 		break;
 
 	case MTA_CONNECT:
@@ -393,9 +362,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_SMTP_AUTH:
-		if (s->secret && s->flags & MTA_TLS)
-			mta_send(s, "AUTH PLAIN %s", s->secret);
-		else if (s->secret) {
+		if (s->route->secret && s->flags & MTA_TLS)
+			mta_send(s, "AUTH PLAIN %s", s->route->secret);
+		else if (s->route->secret) {
 			log_debug("debug: mta: %p: not using AUTH on non-TLS session",
 			    s);
 			mta_enter_state(s, MTA_CONNECT);
@@ -833,7 +802,6 @@ mta_strstate(int state)
 {
 	switch (state) {
 	CASE(MTA_INIT);
-	CASE(MTA_SECRET);
 	CASE(MTA_DATA);
 	CASE(MTA_CONNECT);
 	CASE(MTA_DONE);

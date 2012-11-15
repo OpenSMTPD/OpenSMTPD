@@ -757,6 +757,12 @@ struct mta_route {
 	char			*auth;
 	void			*ssl;
 
+#define ROUTE_WAIT_MX		0x01
+#define ROUTE_WAIT_SECRET	0x02
+	int			 status;
+
+	char			*secret;
+
 	struct mta_mxlist	*mxlist;
 
 	/* route limits	*/
