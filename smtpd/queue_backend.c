@@ -216,7 +216,8 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		return (0);
 
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
-		evplen = compress_buffer(evp, evplen, evpbufcom, sizeof evpbufcom);
+		evplen = compress_buffer(evp, evplen, evpbufcom,
+		    sizeof evpbufcom);
 		if (evplen == 0)
 			return (0);
 		evp = evpbufcom;
@@ -238,7 +239,8 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	evplen = evpbufsize;
 
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
-		evplen = uncompress_buffer(evp, evplen, evpbufcom, sizeof evpbufcom);
+		evplen = uncompress_buffer(evp, evplen, evpbufcom,
+		    sizeof evpbufcom);
 		if (evplen == 0)
 			return (0);
 		evp = evpbufcom;
@@ -281,16 +283,18 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	size_t		 evplen;
 
 	ep->id = evpid;
-	evplen = env->sc_queue->envelope(QOP_LOAD, &ep->id, evpbuf, sizeof evpbuf);
+	evplen = env->sc_queue->envelope(QOP_LOAD, &ep->id, evpbuf,
+	    sizeof evpbuf);
 	if (evplen == 0)
 		return (0);
-		
+
 	if (queue_envelope_load_buffer(ep, evpbuf, evplen)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
 			return (1);
 		}
-		log_debug("debug: invalid envelope %016" PRIx64 ": %s", ep->id, e);
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
+		    ep->id, e);
 	}
 	return (0);
 }
@@ -325,7 +329,8 @@ queue_envelope_learn(struct envelope *ep)
 			ep->id = evpid;
 			return (1);
 		}
-		log_debug("debug: invalid envelope %016" PRIx64 ": %s", ep->id, e);
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
+		    ep->id, e);
 	}
 	return (0);
 }
@@ -335,7 +340,7 @@ queue_generate_msgid(void)
 {
 	uint32_t msgid;
 
-	while((msgid = arc4random_uniform(0xffffffff)) == 0)
+	while ((msgid = arc4random_uniform(0xffffffff)) == 0)
 		;
 
 	return msgid;
@@ -347,7 +352,7 @@ queue_generate_evpid(uint32_t msgid)
 	uint32_t rnd;
 	uint64_t evpid;
 
-	while((rnd = arc4random_uniform(0xffffffff)) == 0)
+	while ((rnd = arc4random_uniform(0xffffffff)) == 0)
 		;
 
 	evpid = msgid;

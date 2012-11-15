@@ -63,8 +63,10 @@ struct lka_session {
 	struct expandnode	*node;
 };
 
-static void lka_expand(struct lka_session *, struct rule *, struct expandnode *);
-static void lka_submit(struct lka_session *, struct rule *, struct expandnode *);
+static void lka_expand(struct lka_session *, struct rule *,
+    struct expandnode *);
+static void lka_submit(struct lka_session *, struct rule *,
+    struct expandnode *);
 static void lka_resume(struct lka_session *);
 static size_t lka_expand_format(char *, size_t, const struct envelope *);
 static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
@@ -81,7 +83,7 @@ static char *tokens[] = {
 	"dest.user",
 	"dest.domain",
 	"rcpt.user",
-	"rcpt.domain"	
+	"rcpt.domain"
 };
 
 void
@@ -160,7 +162,7 @@ lka_resume(struct lka_session *lks)
 		goto error;
 
 	/* pop next node and expand it */
-	while((xn = TAILQ_FIRST(&lks->nodes))) {
+	while ((xn = TAILQ_FIRST(&lks->nodes))) {
 		TAILQ_REMOVE(&lks->nodes, xn, tq_entry);
 		lka_expand(lks, xn->rule, xn);
 		if (lks->flags & F_WAITING)
@@ -171,7 +173,7 @@ lka_resume(struct lka_session *lks)
 
 	/* delivery list is empty, reject */
 	if (TAILQ_FIRST(&lks->deliverylist) == NULL) {
-		log_debug("debug: lka_done: expansion led to empty delivery list");
+		log_debug("debug: lka_done: expanded to empty delivery list");
 		lks->flags |= F_ERROR;
 	}
     error:
@@ -225,7 +227,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_ADDRESS:
-		log_debug("debug: lka_expand: expanding address: %s@%s [depth=%d]",
+		log_debug("debug: lka_expand: address: %s@%s [depth=%d]",
 		    xn->u.mailaddr.user, xn->u.mailaddr.domain, xn->depth);
 
 		/* Pass the node through the ruleset */
@@ -252,13 +254,14 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			if (r == -1) {
 				lks->flags |= F_ERROR;
 				lks->ss.code = 451;
-				log_debug(
-				    "lka_expand: error in virtual alias lookup");
+				log_debug("debug: lka_expand: "
+				    "error in virtual alias lookup");
 			}
 			else if (r == 0) {
 				lks->flags |= F_ERROR;
 				lks->ss.code = 530;
-				log_debug("debug: lka_expand: no aliases for virtual");
+				log_debug("debug: lka_expand: "
+				    "no aliases for virtual");
 			}
 		}
 		else {
@@ -273,7 +276,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_USERNAME:
-		log_debug("debug: lka_expand: expanding username: %s [depth=%d]", xn->u.user, xn->depth);
+		log_debug("debug: lka_expand: username: %s [depth=%d]",
+		    xn->u.user, xn->depth);
 
 		if (xn->sameuser) {
 			log_debug("debug: lka_expand: same user, submitting");
@@ -286,9 +290,11 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->expand.parent = xn;
 		lks->expand.alias = 1;
 		if (rule->r_atable) {
-			r = aliases_get(rule->r_atable, &lks->expand, xn->u.user);
+			r = aliases_get(rule->r_atable, &lks->expand,
+			    xn->u.user);
 			if (r == -1) {
-				log_debug("debug: lka_expand: error in alias lookup");
+				log_debug("debug: lka_expand: "
+				    "error in alias lookup");
 				lks->flags |= F_ERROR;
 				lks->ss.code = 451;
 			}
@@ -298,7 +304,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		/* a username should not exceed the size of a system user */
 		if (strlen(xn->u.user) >= sizeof fwreq.as_user) {
-			log_debug("debug: lka_expand: user-part too long to be a system user");
+			log_debug("debug: lka_expand: "
+			    "user-part too long to be a system user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
 			break;
@@ -327,12 +334,14 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILENAME:
-		log_debug("debug: lka_expand: expanding filename: %s [depth=%d]", xn->u.buffer, xn->depth);
+		log_debug("debug: lka_expand: filename: %s [depth=%d]",
+		    xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 
 	case EXPAND_FILTER:
-		log_debug("debug: lka_expand: expanding filter: %s [depth=%d]", xn->u.buffer, xn->depth);
+		log_debug("debug: lka_expand: filter: %s [depth=%d]",
+		    xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 	}
@@ -341,10 +350,11 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 static struct expandnode *
 lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 {
-	while(xn && (xn->type != type))
+	while (xn && (xn->type != type))
 		xn = xn->parent;
 	if (xn == NULL) {
-		log_warnx("warn: lka_find_ancestor: no ancestors of type %i", type);
+		log_warnx("warn: lka_find_ancestor: no ancestors of type %i",
+		    type);
 		fatalx(NULL);
 	}
 	return (xn);
@@ -389,12 +399,12 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		if ((xn->type == EXPAND_FILTER || xn->type == EXPAND_FILENAME)
 		    && xn->alias) {
 			strlcpy(ep->agent.mda.user.username, SMTPD_USER,
-			    sizeof (ep->agent.mda.user.username));
+			    sizeof(ep->agent.mda.user.username));
 		}
 		else {
 			xn2 = lka_find_ancestor(xn, EXPAND_USERNAME);
 			strlcpy(ep->agent.mda.user.username, xn2->u.user,
-			    sizeof (ep->agent.mda.user.username));
+			    sizeof(ep->agent.mda.user.username));
 		}
 
 		t = table_findbyname("<getpwnam>");
@@ -426,9 +436,9 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			tag = mailaddr_tag(&ep->dest);
 			if (rule->r_action == A_MAILDIR && tag && tag[0]) {
 				strlcat(ep->agent.mda.buffer, "/.",
-				    sizeof (ep->agent.mda.buffer));
+				    sizeof(ep->agent.mda.buffer));
 				strlcat(ep->agent.mda.buffer, tag,
-				    sizeof (ep->agent.mda.buffer));
+				    sizeof(ep->agent.mda.buffer));
 			}
 		}
 		else
@@ -439,7 +449,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
 			log_warnx("warn: format string error while"
-			    " expanding for user %s", ep->agent.mda.user.username);
+			    " expanding for user %s",
+			    ep->agent.mda.user.username);
 			free(ep);
 			return;
 		}
@@ -453,7 +464,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 
 static size_t
-lka_expand_token(char *dest, size_t len, const char *token, const struct envelope *ep)
+lka_expand_token(char *dest, size_t len, const char *token,
+    const struct envelope *ep)
 {
 	char		rtoken[MAXTOKENLEN];
 	const char     *string;
@@ -468,7 +480,8 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 		return 0;
 
 	/* token[x[:y]] -> extracts optional x and y, converts into offsets */
-	if ((lbracket = strchr(rtoken, '[')) && (rbracket = strchr(rtoken, ']'))) {
+	if ((lbracket = strchr(rtoken, '[')) &&
+	    (rbracket = strchr(rtoken, ']'))) {
 		/* ] before [ ... or empty */
 		if (rbracket < lbracket || rbracket - lbracket <= 1)
 			return 0;
@@ -476,16 +489,18 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 		 content  = lbracket + 1;
 
 		 if ((sep = strchr(content, ':')) == NULL)
-			 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
+			 begoff = strtonum(content, -EXPAND_BUFFER,
+			     EXPAND_BUFFER, &errstr);
 		 else {
 			 *sep = '\0';
 			 if (content != sep)
-				 begoff = strtonum(content, -EXPAND_BUFFER, EXPAND_BUFFER, &errstr);
+				 begoff = strtonum(content, -EXPAND_BUFFER,
+				     EXPAND_BUFFER, &errstr);
 			 sep++;
 			 if (*sep) {
 				 if (errstr == NULL)
-					 endoff = strtonum(sep, -EXPAND_BUFFER, EXPAND_BUFFER,
-					     &errstr);
+					 endoff = strtonum(sep, -EXPAND_BUFFER,
+					     EXPAND_BUFFER, &errstr);
 				 if (endoff == 0)
 					 return 0;
 			 }
@@ -528,7 +543,9 @@ lka_expand_token(char *dest, size_t len, const char *token, const struct envelop
 	if (begoff >= i)
 		return 0;
 
-	/* end offset beyond end of string or unspecified, make it end of string */
+	/* end offset beyond end of string or unspecified,
+	 * make it end of string
+	 */
 	if (endoff >= i || endoff == 0)
 		endoff = i;
 
@@ -562,7 +579,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 	size_t		ret, tmpret;
 
 	if (len < sizeof tmpbuf)
-		fatalx("lka_expand_format: tmp buffer smaller than rule buffer");
+		fatalx("lka_expand_format: tmp buffer < rule buffer");
 
 	bzero(tmpbuf, sizeof tmpbuf);
 	pbuf = buf;
@@ -571,7 +588,8 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 
 	/* special case: ~/ only allowed expanded at the beginning */
 	if (strncmp(pbuf, "~/", 2) == 0) {
-		tmpret = snprintf(ptmp, sizeof tmpbuf, "%s/", ep->agent.mda.user.directory);
+		tmpret = snprintf(ptmp, sizeof tmpbuf, "%s/",
+		    ep->agent.mda.user.directory);
 		if (tmpret >= sizeof tmpbuf) {
 			log_warnx("warn: user directory for %s too large",
 			    ep->agent.mda.user.directory);
@@ -607,7 +625,8 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 			return 0;
 		*strchr(memcpy(token, pbuf+2, ebuf-pbuf-1), '}') = '\0';
 
-		if ((exptoklen = lka_expand_token(exptok, sizeof exptok, token, ep)) == 0)
+		exptoklen = lka_expand_token(exptok, sizeof exptok, token, ep);
+		if (exptoklen == 0)
 			return 0;
 
 		if (! lowercase(exptok, exptok, sizeof exptok))

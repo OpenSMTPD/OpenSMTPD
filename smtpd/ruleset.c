@@ -34,7 +34,8 @@
 #include "log.h"
 
 
-static int ruleset_check_source(struct table *, const struct sockaddr_storage *);
+static int ruleset_check_source(struct table *,
+    const struct sockaddr_storage *);
 static int ruleset_match_mask(struct sockaddr_storage *, struct netaddr *);
 static int ruleset_inet4_match(struct sockaddr_in *, struct netaddr *);
 static int ruleset_inet6_match(struct sockaddr_in6 *, struct netaddr *);
@@ -77,8 +78,10 @@ ruleset_match(const struct envelope *evp)
 				fatal("failed to lookup table.");
 
 			if (! strcmp(table->t_src, "static")) {
-				TAILQ_FOREACH(me, &table->t_contents, me_entry) {
-					if (hostname_match(maddr->domain, me->me_key))
+				TAILQ_FOREACH(me, &table->t_contents,
+				    me_entry) {
+					if (hostname_match(maddr->domain,
+						me->me_key))
 						return r;
 				}
 			}
@@ -186,10 +189,10 @@ ruleset_inet4_match(struct sockaddr_in *ss, struct netaddr *ssmask)
 	mask = htonl(mask);
 
 	/* (addr & mask) == (net & mask) */
- 	if ((ss->sin_addr.s_addr & mask) ==
+	if ((ss->sin_addr.s_addr & mask) ==
 	    (((struct sockaddr_in *)ssmask)->sin_addr.s_addr & mask))
 		return 1;
-	
+
 	return 0;
 }
 
@@ -200,17 +203,17 @@ ruleset_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
 	struct in6_addr	*inmask;
 	struct in6_addr	 mask;
 	int		 i;
-	
+
 	bzero(&mask, sizeof(mask));
 	for (i = 0; i < ssmask->bits / 8; i++)
 		mask.s6_addr[i] = 0xff;
 	i = ssmask->bits % 8;
 	if (i)
 		mask.s6_addr[ssmask->bits / 8] = 0xff00 >> i;
-	
+
 	in = &ss->sin6_addr;
 	inmask = &((struct sockaddr_in6 *)&ssmask->ss)->sin6_addr;
-	
+
 	for (i = 0; i < 16; i++) {
 		if ((in->s6_addr[i] & mask.s6_addr[i]) !=
 		    (inmask->s6_addr[i] & mask.s6_addr[i]))
