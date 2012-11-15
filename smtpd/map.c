@@ -272,7 +272,7 @@ map_update(struct map *m)
 }
 
 int
-map_config_parser(struct map *m, char *config)
+map_config_parser(struct map *m, const char *config)
 {
 	FILE	*fp;
 	char *buf, *lbuf;

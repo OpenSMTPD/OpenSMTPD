@@ -294,7 +294,7 @@ struct map {
 struct map_backend {
 	int  (*config)(struct map *, const char *);
 	void *(*open)(struct map *);
-	void (*update)(struct map *, const char *);
+	int  (*update)(struct map *, const char *);
 	void (*close)(void *);
 	void *(*lookup)(void *, const char *, enum map_kind);
 	int  (*compare)(void *, const char *, enum map_kind,
@@ -1017,7 +1017,7 @@ struct map_backend *map_backend_lookup(const char *);
 void *map_open(struct map *);
 void  map_update(struct map *);
 void  map_close(struct map *, void *);
-int map_config_parser(struct map *, char *);
+int map_config_parser(struct map *, const char *);
 void *map_lookup(objid_t, const char *, enum map_kind);
 int map_compare(objid_t, const char *, enum map_kind,
     int (*)(const char *, const char *));
