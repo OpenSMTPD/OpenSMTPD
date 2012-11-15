@@ -286,8 +286,7 @@ main(int argc, char *argv[])
 		errx(1, "unknown request (%d)", action);
 	}
 
-	while (!done) {
-
+	do {
 		flush();
 		next_message(&imsg);
 
@@ -320,7 +319,7 @@ main(int argc, char *argv[])
 		}
 
 		imsg_free(&imsg);
-	}
+	} while (!done);
 	free(ibuf);
 
 	return (0);
