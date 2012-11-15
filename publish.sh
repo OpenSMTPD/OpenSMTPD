@@ -87,9 +87,9 @@ snapshot()
     mv ${FILES}/${TARBALL} ${FILES}/${SNAPSHOT}.tar.gz
 
     if test "${1}" = "master"; then
-	LASTTAGS=`git tag |grep '^opensmtpd-[0-9]*' | grep -v '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
+	LASTTAGS=`git tag |grep '^opensmtpd-[0-9][0-9]*' | grep -v '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
     else
-	LASTTAGS=`git tag |grep '^opensmtpd-[0-9]*' | grep '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
+	LASTTAGS=`git tag |grep '^opensmtpd-[0-9][0-9]*' | grep '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
     fi
 
     CHANGELOG=`git log $LASTTAGS`
