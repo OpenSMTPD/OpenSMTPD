@@ -34,7 +34,7 @@
 #include "log.h"
 
 
-static int ruleset_check_source(struct map *, const struct sockaddr_storage *);
+static int ruleset_check_source(struct table *, const struct sockaddr_storage *);
 static int ruleset_match_mask(struct sockaddr_storage *, struct netaddr *);
 static int ruleset_inet4_match(struct sockaddr_in *, struct netaddr *);
 static int ruleset_inet6_match(struct sockaddr_in6 *, struct netaddr *);
@@ -46,7 +46,7 @@ ruleset_match(const struct envelope *evp)
 	const struct mailaddr *maddr = &evp->dest;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
-	struct map	*map;
+	struct table	*map;
 	struct mapel	*me;
 	int		 v;
 
@@ -72,7 +72,7 @@ ruleset_match(const struct envelope *evp)
 			return r;
 
 		if (r->r_condition.c_type == COND_DOM) {
-			map = map_find(r->r_condition.c_map);
+			map = map_find(r->r_condition.c_table);
 			if (map == NULL)
 				fatal("failed to lookup map.");
 
@@ -92,7 +92,7 @@ ruleset_match(const struct envelope *evp)
 		}
 
 		if (r->r_condition.c_type == COND_VDOM) {
-			v = aliases_vdomain_exists(r->r_condition.c_map,
+			v = aliases_vdomain_exists(r->r_condition.c_table,
 			    maddr->domain);
 			if (v == -1) {
 				errno = EAGAIN;
@@ -128,7 +128,7 @@ ruleset_cmp_source(const char *s1, const char *s2)
 }
 
 static int
-ruleset_check_source(struct map *map, const struct sockaddr_storage *ss)
+ruleset_check_source(struct table *map, const struct sockaddr_storage *ss)
 {
 	struct mapel *me;
 

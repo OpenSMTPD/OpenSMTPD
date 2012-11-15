@@ -36,9 +36,9 @@
 
 
 /* static backend */
-static int map_static_config(struct map *, const char *);
-static int map_static_update(struct map *, const char *);
-static void *map_static_open(struct map *);
+static int map_static_config(struct table *, const char *);
+static int map_static_update(struct table *, const char *);
+static void *map_static_open(struct table *);
 static void *map_static_lookup(void *, const char *, enum table_kind);
 static int   map_static_compare(void *, const char *, enum table_kind,
     int (*)(const char *, const char *));
@@ -49,7 +49,7 @@ static void *map_static_alias(const char *, char *, size_t);
 static void *map_static_virtual(const char *, char *, size_t);
 static void *map_static_netaddr(const char *, char *, size_t);
 
-struct map_backend map_backend_static = {
+struct table_backend map_backend_static = {
 	map_static_config,
 	map_static_open,
 	map_static_update,
@@ -59,7 +59,7 @@ struct map_backend map_backend_static = {
 };
 
 static int
-map_static_config(struct map *map, const char *config)
+map_static_config(struct table *map, const char *config)
 {
 	/* no config ? ok */
 	if (config == NULL)
@@ -69,9 +69,9 @@ map_static_config(struct map *map, const char *config)
 }
 
 static int
-map_static_update(struct map *map, const char *config)
+map_static_update(struct table *map, const char *config)
 {
-	struct map     *m;
+	struct table   *m;
 	char		name[MAX_LINE_SIZE];
 
 	/* no config ? ok */
@@ -106,7 +106,7 @@ err:
 }
 
 static void *
-map_static_open(struct map *map)
+map_static_open(struct table *map)
 {
 	return map;
 }
@@ -120,7 +120,7 @@ map_static_close(void *hdl)
 static void *
 map_static_lookup(void *hdl, const char *key, enum table_kind kind)
 {
-	struct map	*m  = hdl;
+	struct table	*m  = hdl;
 	struct mapel	*me = NULL;
 	char		*line;
 	void		*ret;
@@ -171,7 +171,7 @@ static int
 map_static_compare(void *hdl, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
-	struct map	*m   = hdl;
+	struct table	*m   = hdl;
 	struct mapel	*me  = NULL;
 	int		 ret = 0;
 
@@ -188,7 +188,7 @@ map_static_compare(void *hdl, const char *key, enum table_kind kind,
 static void *
 map_static_credentials(const char *key, char *line, size_t len)
 {
-	struct map_credentials *map_credentials = NULL;
+	struct table_credentials *map_credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -230,9 +230,9 @@ err:
 static void *
 map_static_alias(const char *key, char *line, size_t len)
 {
-	char	       	*subrcpt;
-	char	       	*endp;
-	struct map_alias	*map_alias = NULL;
+	char			*subrcpt;
+	char		   	*endp;
+	struct table_alias	*map_alias = NULL;
 	struct expandnode	 xn;
 
 	map_alias = xcalloc(1, sizeof *map_alias, "map_static_alias");
@@ -267,9 +267,9 @@ error:
 static void *
 map_static_virtual(const char *key, char *line, size_t len)
 {
-	char	       	*subrcpt;
-	char	       	*endp;
-	struct map_virtual	*map_virtual = NULL;
+	char			*subrcpt;
+	char		   	*endp;
+	struct table_virtual	*map_virtual = NULL;
 	struct expandnode	 xn;
 
 	map_virtual = xcalloc(1, sizeof *map_virtual, "map_static_virtual");
@@ -309,7 +309,7 @@ error:
 static void *
 map_static_netaddr(const char *key, char *line, size_t len)
 {
-	struct map_netaddr	*map_netaddr = NULL;
+	struct table_netaddr	*map_netaddr = NULL;
 
 	map_netaddr = xcalloc(1, sizeof *map_netaddr, "map_static_netaddr");
 

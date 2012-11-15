@@ -422,7 +422,7 @@ error:
 char *
 conf_aliases(char *cfgpath)
 {
-	struct map	*map;
+	struct table	*map;
 	char		*path;
 	char		*p;
 

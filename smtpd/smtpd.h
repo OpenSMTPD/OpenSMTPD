@@ -278,8 +278,8 @@ struct mapel {
 	char				 me_val[MAX_LINE_SIZE];
 };
 
-struct map {
-	TAILQ_ENTRY(map)		 m_entry;
+struct table {
+	TAILQ_ENTRY(table)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
 	enum table_type			 m_type;
@@ -287,14 +287,14 @@ struct map {
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
 	void				*m_handle;
-	struct map_backend		*m_backend;
+	struct table_backend		*m_backend;
 };
 
 
-struct map_backend {
-	int  (*config)(struct map *, const char *);
-	void *(*open)(struct map *);
-	int  (*update)(struct map *, const char *);
+struct table_backend {
+	int  (*config)(struct table *, const char *);
+	void *(*open)(struct table *);
+	int  (*update)(struct table *, const char *);
 	void (*close)(void *);
 	void *(*lookup)(void *, const char *, enum table_kind);
 	int  (*compare)(void *, const char *, enum table_kind,
@@ -310,7 +310,7 @@ enum cond_type {
 
 struct cond {
 	TAILQ_ENTRY(cond)		 c_entry;
-	objid_t				 c_map;
+	objid_t				 c_table;
 	enum cond_type			 c_type;
 };
 
@@ -333,7 +333,7 @@ struct rule {
 	enum decision			 r_decision;
 	char				 r_tag[MAX_TAG_SIZE];
 	int				 r_accept;
-	struct map			*r_sources;
+	struct table			*r_sources;
 	struct cond			 r_condition;
 	enum action_type		 r_action;
 	union rule_dest {
@@ -342,7 +342,7 @@ struct rule {
 	}				 r_value;
 
 	struct mailaddr			*r_as;
-	objid_t				 r_amap;
+	objid_t				 r_atable;
 	time_t				 r_qexpire;
 };
 
@@ -624,7 +624,7 @@ struct smtpd {
 	TAILQ_HEAD(filterlist, filter)		*sc_filters;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
-	TAILQ_HEAD(maplist, map)		*sc_tables, *sc_tables_reload;
+	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
@@ -689,7 +689,7 @@ struct dns {
 
 struct secret {
 	uint64_t		 id;
-	char			 mapname[MAX_PATH_SIZE];
+	char			 tablename[MAX_PATH_SIZE];
 	char			 host[MAXHOSTNAMELEN];
 	char			 secret[MAX_LINE_SIZE];
 };
@@ -764,23 +764,23 @@ struct mta_task {
 	struct mta_session	*session;
 };
 
-/* maps return structures */
-struct map_credentials {
+/* tables return structures */
+struct table_credentials {
 	char username[MAX_LINE_SIZE];
 	char password[MAX_LINE_SIZE];
 };
 
-struct map_alias {
+struct table_alias {
 	size_t			nbnodes;
 	struct expand		expand;
 };
 
-struct map_virtual {
+struct table_virtual {
 	size_t			nbnodes;
 	struct expand		expand;
 };
 
-struct map_netaddr {
+struct table_netaddr {
 	struct netaddr		netaddr;
 };
 
@@ -1014,21 +1014,21 @@ void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 /* map.c */
-struct map_backend *map_backend_lookup(const char *);
-void *map_open(struct map *);
-void  map_update(struct map *);
-void  map_close(struct map *, void *);
-int map_config_parser(struct map *, const char *);
+struct table_backend *map_backend_lookup(const char *);
+void *map_open(struct table *);
+void  map_update(struct table *);
+void  map_close(struct table *, void *);
+int map_config_parser(struct table *, const char *);
 void *map_lookup(objid_t, const char *, enum table_kind);
 int map_compare(objid_t, const char *, enum table_kind,
     int (*)(const char *, const char *));
-struct map *map_find(objid_t);
-struct map *map_findbyname(const char *);
-struct map *map_create(const char *, const char *, const char *);
-void map_destroy(struct map *);
-void map_add(struct map *, const char *, const char *);
-void map_delete(struct map *, const char *);
-void map_delete_all(struct map *);
+struct table *map_find(objid_t);
+struct table *map_findbyname(const char *);
+struct table *map_create(const char *, const char *, const char *);
+void map_destroy(struct table *);
+void map_add(struct table *, const char *, const char *);
+void map_delete(struct table *, const char *);
+void map_delete_all(struct table *);
 
 
 /* mda.c */

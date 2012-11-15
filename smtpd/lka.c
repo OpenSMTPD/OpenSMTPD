@@ -46,7 +46,7 @@ static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_verify_mail(struct mailaddr *);
-static int lka_encode_credentials(char *, size_t, struct map_credentials *);
+static int lka_encode_credentials(char *, size_t, struct table_credentials *);
 
 
 static void
@@ -56,8 +56,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct secret		*secret;
 	struct mapel		*mapel;
 	struct rule		*rule;
-	struct map		*map;
-	struct map		*mp;
+	struct table		*map;
+	struct table		*mp;
 	void			*tmp;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
@@ -102,13 +102,13 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct map_credentials *map_credentials;
+			struct table_credentials *map_credentials;
 
 			secret = imsg->data;
-			map = map_findbyname(secret->mapname);
+			map = map_findbyname(secret->tablename);
 			if (map == NULL) {
 				log_warn("warn: lka: credentials map %s is missing",
-				    secret->mapname);
+				    secret->tablename);
 				imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0,
 				    -1, secret, sizeof *secret);
 				return;
@@ -176,7 +176,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_TABLE_CONTENT:
-			map = TAILQ_LAST(env->sc_tables_reload, maplist);
+			map = TAILQ_LAST(env->sc_tables_reload, tablelist);
 			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
 			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
 			return;
@@ -333,7 +333,7 @@ lka_verify_mail(struct mailaddr *maddr)
 
 static int
 lka_encode_credentials(char *dst, size_t size,
-    struct map_credentials *map_credentials)
+    struct table_credentials *map_credentials)
 {
 	char	*buf;
 	int	 buflen;

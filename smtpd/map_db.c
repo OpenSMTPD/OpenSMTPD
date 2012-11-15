@@ -37,9 +37,9 @@
 
 
 /* db(3) backend */
-static int map_db_config(struct map *, const char *);
-static int map_db_update(struct map *, const char *);
-static void *map_db_open(struct map *);
+static int map_db_config(struct table *, const char *);
+static int map_db_update(struct table *, const char *);
+static void *map_db_open(struct table *);
 static void *map_db_lookup(void *, const char *, enum table_kind);
 static int   map_db_compare(void *, const char *, enum table_kind,
     int (*)(const char *, const char *));
@@ -52,7 +52,7 @@ static void *map_db_virtual(const char *, char *, size_t);
 static void *map_db_netaddr(const char *, char *, size_t);
 
 
-struct map_backend map_backend_db = {
+struct table_backend map_backend_db = {
 	map_db_config,
 	map_db_open,
 	map_db_update,
@@ -63,19 +63,19 @@ struct map_backend map_backend_db = {
 
 
 static int
-map_db_config(struct map *map, const char *config)
+map_db_config(struct table *map, const char *config)
 {
 	return 1;
 }
 
 static int
-map_db_update(struct map *map, const char *config)
+map_db_update(struct table *map, const char *config)
 {
 	return 1;
 }
 
 static void *
-map_db_open(struct map *map)
+map_db_open(struct table *map)
 {
 	return dbopen(map->m_config, O_RDONLY, 0600, DB_HASH, NULL);
 }
@@ -176,7 +176,7 @@ map_db_get_entry(void *hdl, const char *key, size_t *len)
 static void *
 map_db_credentials(const char *key, char *line, size_t len)
 {
-	struct map_credentials *map_credentials = NULL;
+	struct table_credentials *map_credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -220,7 +220,7 @@ map_db_alias(const char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
-	struct map_alias	*map_alias = NULL;
+	struct table_alias	*map_alias = NULL;
 	struct expandnode	 xn;
 
 	map_alias = xcalloc(1, sizeof *map_alias, "map_db_alias");
@@ -257,7 +257,7 @@ map_db_virtual(const char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
-	struct map_virtual	*map_virtual = NULL;
+	struct table_virtual	*map_virtual = NULL;
 	struct expandnode	 xn;
 
 	map_virtual = xcalloc(1, sizeof *map_virtual, "map_db_virtual");
@@ -297,7 +297,7 @@ error:
 static void *
 map_db_netaddr(const char *key, char *line, size_t len)
 {
-	struct map_netaddr	*map_netaddr = NULL;
+	struct table_netaddr	*map_netaddr = NULL;
 
 	map_netaddr = xcalloc(1, sizeof *map_netaddr, "map_db_netaddr");
 

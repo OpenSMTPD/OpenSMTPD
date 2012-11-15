@@ -88,7 +88,7 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct map		*map = NULL;
+struct table		*map = NULL;
 struct rule		*rule = NULL;
 TAILQ_HEAD(condlist, cond) *conditions = NULL;
 
@@ -267,7 +267,7 @@ expire		: EXPIRE STRING {
 		;
 
 credentials	: AUTH tables	{
-			struct map	*m;
+			struct table	*m;
 
 			/* AUTH only accepts T_DYNAMIC and T_HASH */
 			m = map_find($2);
@@ -479,7 +479,7 @@ tableval_list	: string_list			{ }
 		;
 
 tablenew		: STRING			{
-			struct map	*m;
+			struct table	*m;
 
 			m = map_create("static", NULL, NULL);
 			m->m_type = T_LIST;
@@ -494,7 +494,7 @@ tablenew		: STRING			{
 		;
 
 tableref       	: '<' STRING '>'       		{
-			struct map	*m;
+			struct table	*m;
 
 			if ((m = map_findbyname($2)) == NULL) {
 				yyerror("no such table: %s", $2);
@@ -511,7 +511,7 @@ tables		: tablenew			{ $$ = $1; }
 		;
 
 alias		: ALIAS tables			{
-			struct map	*m;
+			struct table	*m;
 
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
 			m = map_find($2);
@@ -527,7 +527,7 @@ alias		: ALIAS tables			{
 
 condition	: DOMAIN tables alias		{
 			struct cond	*c;
-			struct map	*m;
+			struct table	*m;
 
 			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
@@ -537,16 +537,16 @@ condition	: DOMAIN tables alias		{
 				YYERROR;
 			}
 
-			rule->r_amap = $3;
+			rule->r_atable = $3;
 
 			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = COND_DOM;
-			c->c_map = $2;
+			c->c_table = $2;
 			$$ = c;
 		}
 		| VIRTUAL tables       		{
 			struct cond	*c;
-			struct map	*m;
+			struct table	*m;
 
 			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
@@ -558,12 +558,12 @@ condition	: DOMAIN tables alias		{
 
 			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = COND_VDOM;
-			c->c_map = $2;
+			c->c_table = $2;
 			$$ = c;
 		}
 		| LOCAL alias {
 			struct cond	*c;
-			struct map	*m;
+			struct table	*m;
 			char		 hostname[MAXHOSTNAMELEN];
 
 			if (gethostname(hostname, sizeof hostname) == -1) {
@@ -571,7 +571,7 @@ condition	: DOMAIN tables alias		{
 				YYERROR;
 			}
 
-			rule->r_amap = $2;
+			rule->r_atable = $2;
 
 			m = map_create("static", NULL, NULL);
 			map_add(m, "localhost", NULL);
@@ -579,7 +579,7 @@ condition	: DOMAIN tables alias		{
 
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
-			c->c_map = m->m_id;
+			c->c_table = m->m_id;
 
 			$$ = c;
 		}
@@ -589,7 +589,7 @@ condition	: DOMAIN tables alias		{
 			c = xcalloc(1, sizeof *c, "parse condition: ANY");
 			c->c_type = COND_ANY;
 
-			rule->r_amap = $2;
+			rule->r_atable = $2;
 			$$ = c;
 		}
 		;
@@ -718,7 +718,7 @@ action		: DELIVER TO MAILDIR			{
 			free($3);
 		}
 		| RELAY VIA STRING certname credentials relay_as {
-			struct map	*m;
+			struct table	*m;
 
 			rule->r_action = A_RELAYVIA;
 			rule->r_as = $6;
@@ -763,7 +763,7 @@ action		: DELIVER TO MAILDIR			{
 		;
 
 from		: FROM tables			{
-			struct map	*m;
+			struct table	*m;
 
 			/* FROM only accepts T_DYNAMIC and T_LIST */
 			m = map_find($2);
@@ -835,7 +835,7 @@ rule		: ACCEPT on from			{
 				free(cond);
 			}
 
-			if (rule->r_amap) {
+			if (rule->r_atable) {
 				if (rule->r_action == A_RELAY ||
 				    rule->r_action == A_RELAYVIA) {
 					yyerror("aliases set on a relay rule");
@@ -1656,7 +1656,7 @@ set_localaddrs(void)
 	struct sockaddr_storage ss;
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
-	struct map		*m;
+	struct table		*m;
 
 	m = map_create("static", "<anyhost>", NULL);
 	map_add(m, "local", NULL);

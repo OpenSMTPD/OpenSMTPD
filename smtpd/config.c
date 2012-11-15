@@ -58,7 +58,7 @@ void
 purge_config(uint8_t what)
 {
 	struct listener	*l;
-	struct map	*m;
+	struct table	*m;
 	struct rule	*r;
 	struct ssl	*s;
 	struct mapel	*me;

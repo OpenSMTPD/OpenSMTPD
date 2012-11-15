@@ -305,7 +305,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		 */
 		bzero(&secret, sizeof(secret));
 		secret.id = s->id;
-		strlcpy(secret.mapname, s->route->auth, sizeof(secret.mapname));
+		strlcpy(secret.tablename, s->route->auth, sizeof(secret.tablename));
 		strlcpy(secret.host, s->route->hostname, sizeof(secret.host));
 		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
 		    0, 0, -1, &secret, sizeof(secret));  

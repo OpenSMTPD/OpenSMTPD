@@ -342,7 +342,7 @@ void
 parent_send_config_ruleset(int proc)
 {
 	struct rule		*r;
-	struct map		*m;
+	struct table		*m;
 	struct mapel		*mapel;
 	struct filter		*f;
 	

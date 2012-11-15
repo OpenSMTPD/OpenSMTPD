@@ -34,14 +34,14 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct map_backend *map_backend_lookup(const char *);
+struct table_backend *map_backend_lookup(const char *);
 
-extern struct map_backend map_backend_static;
-extern struct map_backend map_backend_db;
+extern struct table_backend map_backend_static;
+extern struct table_backend map_backend_db;
 
 static objid_t	last_map_id = 0;
 
-struct map_backend *
+struct table_backend *
 map_backend_lookup(const char *source)
 {
 	if (!strcmp(source, "static") || !strcmp(source, "file"))
@@ -51,10 +51,10 @@ map_backend_lookup(const char *source)
 	return NULL;
 }
 
-struct map *
+struct table *
 map_findbyname(const char *name)
 {
-	struct map	*m;
+	struct table	*m;
 
 	TAILQ_FOREACH(m, env->sc_tables, m_entry) {
 		if (strcmp(m->m_name, name) == 0)
@@ -63,10 +63,10 @@ map_findbyname(const char *name)
 	return (m);
 }
 
-struct map *
+struct table *
 map_find(objid_t id)
 {
-	struct map	*m;
+	struct table	*m;
 
 	TAILQ_FOREACH(m, env->sc_tables, m_entry) {
 		if (m->m_id == id)
@@ -80,8 +80,8 @@ map_lookup(objid_t mapid, const char *key, enum table_kind kind)
 {
 	void *hdl = NULL;
 	char *ret = NULL;
-	struct map *map;
-	struct map_backend *backend = NULL;
+	struct table *map;
+	struct table_backend *backend = NULL;
 
 	map = map_find(mapid);
 	if (map == NULL) {
@@ -110,8 +110,8 @@ map_compare(objid_t mapid, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
 	void *hdl = NULL;
-	struct map *map;
-	struct map_backend *backend = NULL;
+	struct table *map;
+	struct table_backend *backend = NULL;
 	int ret;
 
 	map = map_find(mapid);
@@ -136,11 +136,11 @@ map_compare(objid_t mapid, const char *key, enum table_kind kind,
 	return ret;	
 }
 
-struct map *
+struct table *
 map_create(const char *source, const char *name, const char *config)
 {
-	struct map		*m;
-	struct map_backend	*mb;
+	struct table		*m;
+	struct table_backend	*mb;
 	size_t		 n;
 
 	if (name && map_findbyname(name))
@@ -183,7 +183,7 @@ map_create(const char *source, const char *name, const char *config)
 }
 
 void
-map_destroy(struct map *m)
+map_destroy(struct table *m)
 {
 	struct mapel	*me;
 
@@ -200,7 +200,7 @@ map_destroy(struct map *m)
 }
 
 void
-map_add(struct map *m, const char *key, const char *val)
+map_add(struct table *m, const char *key, const char *val)
 {
 	struct mapel	*me;
 	size_t		 n;
@@ -224,7 +224,7 @@ map_add(struct map *m, const char *key, const char *val)
 }
 
 void
-map_delete(struct map *m, const char *key)
+map_delete(struct table *m, const char *key)
 {
 	struct mapel	*me;
 	
@@ -242,9 +242,9 @@ map_delete(struct map *m, const char *key)
 }
 
 void *
-map_open(struct map *m)
+map_open(struct table *m)
 {
-	struct map_backend *backend = NULL;
+	struct table_backend *backend = NULL;
 
 	backend = map_backend_lookup(m->m_src);
 	if (backend == NULL)
@@ -253,9 +253,9 @@ map_open(struct map *m)
 }
 
 void
-map_close(struct map *m, void *hdl)
+map_close(struct table *m, void *hdl)
 {
-	struct map_backend *backend = NULL;
+	struct table_backend *backend = NULL;
 
 	backend = map_backend_lookup(m->m_src);
 	backend->close(hdl);
@@ -263,16 +263,16 @@ map_close(struct map *m, void *hdl)
 
 
 void
-map_update(struct map *m)
+map_update(struct table *m)
 {
-	struct map_backend *backend = NULL;
+	struct table_backend *backend = NULL;
 
 	backend = map_backend_lookup(m->m_src);
 	backend->update(m, m->m_config[0] ? m->m_config : NULL);
 }
 
 int
-map_config_parser(struct map *m, const char *config)
+map_config_parser(struct table *m, const char *config)
 {
 	FILE	*fp;
 	char *buf, *lbuf;

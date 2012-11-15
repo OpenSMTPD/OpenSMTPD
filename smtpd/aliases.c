@@ -44,7 +44,7 @@ static int alias_is_include(struct expandnode *, const char *, size_t);
 int
 aliases_get(objid_t mapid, struct expand *expand, const char *username)
 {
-	struct map_alias *map_alias;
+	struct table_alias *map_alias;
 	struct expandnode *xn;
 	char buf[MAX_LOCALPART_SIZE];
 	size_t nbaliases;
@@ -76,7 +76,7 @@ int
 aliases_virtual_get(objid_t mapid, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct map_virtual *map_virtual;
+	struct table_virtual *map_virtual;
 	struct expandnode *xn;
 	char buf[MAX_LINE_SIZE];
 	char *pbuf = buf;
@@ -118,7 +118,7 @@ aliases_virtual_get(objid_t mapid, struct expand *expand,
 int
 aliases_vdomain_exists(objid_t mapid, const char *hostname)
 {
-	struct map_virtual *map_virtual;
+	struct table_virtual *map_virtual;
 	char buf[MAXHOSTNAMELEN];
 
 	xlowercase(buf, hostname, sizeof(buf));
