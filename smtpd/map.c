@@ -37,16 +37,14 @@
 struct map_backend *map_backend_lookup(const char *);
 
 extern struct map_backend map_backend_static;
-
 extern struct map_backend map_backend_db;
-/*extern struct map_backend map_backend_file;*/
 
 static objid_t	last_map_id = 0;
 
 struct map_backend *
 map_backend_lookup(const char *source)
 {
-	if (!strcmp(source, "static"))
+	if (!strcmp(source, "static") || !strcmp(source, "file"))
 		return &map_backend_static;
 	if (!strcmp(source, "db"))
 		return &map_backend_db;
