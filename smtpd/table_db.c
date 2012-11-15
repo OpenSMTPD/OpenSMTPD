@@ -40,8 +40,8 @@
 static int table_db_config(struct table *, const char *);
 static int table_db_update(struct table *, const char *);
 static void *table_db_open(struct table *);
-static void *table_db_lookup(void *, const char *, enum table_kind);
-static int   table_db_compare(void *, const char *, enum table_kind,
+static void *table_db_lookup(void *, const char *, enum table_service);
+static int   table_db_compare(void *, const char *, enum table_service,
     int (*)(const char *, const char *));
 static void  table_db_close(void *);
 
@@ -53,6 +53,7 @@ static void *table_db_netaddr(const char *, char *, size_t);
 
 
 struct table_backend table_backend_db = {
+	K_ALIAS|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -89,7 +90,7 @@ table_db_close(void *hdl)
 }
 
 static void *
-table_db_lookup(void *hdl, const char *key, enum table_kind kind)
+table_db_lookup(void *hdl, const char *key, enum table_service kind)
 {
 	char *line;
 	size_t len;
@@ -127,7 +128,7 @@ table_db_lookup(void *hdl, const char *key, enum table_kind kind)
 }
 
 static int
-table_db_compare(void *hdl, const char *key, enum table_kind kind,
+table_db_compare(void *hdl, const char *key, enum table_service kind,
     int (*func)(const char *, const char *))
 {
 	int ret = 0;

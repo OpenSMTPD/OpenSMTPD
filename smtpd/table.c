@@ -76,7 +76,7 @@ table_find(objid_t id)
 }
 
 void *
-table_lookup(objid_t id, const char *key, enum table_kind kind)
+table_lookup(objid_t id, const char *key, enum table_service kind)
 {
 	void *hdl = NULL;
 	char *ret = NULL;
@@ -106,7 +106,7 @@ table_lookup(objid_t id, const char *key, enum table_kind kind)
 }
 
 int
-table_compare(objid_t id, const char *key, enum table_kind kind,
+table_compare(objid_t id, const char *key, enum table_service kind,
     int (*func)(const char *, const char *))
 {
 	void *hdl = NULL;

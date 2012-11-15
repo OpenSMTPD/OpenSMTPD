@@ -39,8 +39,8 @@
 static int table_static_config(struct table *, const char *);
 static int table_static_update(struct table *, const char *);
 static void *table_static_open(struct table *);
-static void *table_static_lookup(void *, const char *, enum table_kind);
-static int   table_static_compare(void *, const char *, enum table_kind,
+static void *table_static_lookup(void *, const char *, enum table_service);
+static int   table_static_compare(void *, const char *, enum table_service,
     int (*)(const char *, const char *));
 static void  table_static_close(void *);
 
@@ -50,6 +50,7 @@ static void *table_static_virtual(const char *, char *, size_t);
 static void *table_static_netaddr(const char *, char *, size_t);
 
 struct table_backend table_backend_static = {
+	K_ALIAS|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -118,7 +119,7 @@ table_static_close(void *hdl)
 }
 
 static void *
-table_static_lookup(void *hdl, const char *key, enum table_kind kind)
+table_static_lookup(void *hdl, const char *key, enum table_service kind)
 {
 	struct table	*m  = hdl;
 	struct mapel	*me = NULL;
@@ -168,7 +169,7 @@ table_static_lookup(void *hdl, const char *key, enum table_kind kind)
 }
 
 static int
-table_static_compare(void *hdl, const char *key, enum table_kind kind,
+table_static_compare(void *hdl, const char *key, enum table_service kind,
     int (*func)(const char *, const char *))
 {
 	struct table	*m   = hdl;

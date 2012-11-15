@@ -264,12 +264,13 @@ enum table_type {
 	T_HASH		= 0x04,	/* table holding a hash table	*/
 };
 
-enum table_kind {
-	K_NONE,
-	K_ALIAS,
-	K_VIRTUAL,
-	K_CREDENTIALS,
-	K_NETADDR
+enum table_service {
+	K_NONE		= 0x00,
+	K_ALIAS		= 0x01,
+	K_VIRTUAL	= 0x02,
+	K_CREDENTIALS	= 0x04,
+	K_NETADDR	= 0x08,
+	K_USERINFO	= 0x10,
 };	
 
 struct mapel {
@@ -292,12 +293,13 @@ struct table {
 
 
 struct table_backend {
+	const unsigned int	services;
 	int  (*config)(struct table *, const char *);
 	void *(*open)(struct table *);
 	int  (*update)(struct table *, const char *);
 	void (*close)(void *);
-	void *(*lookup)(void *, const char *, enum table_kind);
-	int  (*compare)(void *, const char *, enum table_kind,
+	void *(*lookup)(void *, const char *, enum table_service);
+	int  (*compare)(void *, const char *, enum table_service,
 	    int (*)(const char *, const char *));
 };
 
@@ -1146,8 +1148,8 @@ void *table_open(struct table *);
 void  table_update(struct table *);
 void  table_close(struct table *, void *);
 int table_config_parser(struct table *, const char *);
-void *table_lookup(objid_t, const char *, enum table_kind);
-int table_compare(objid_t, const char *, enum table_kind,
+void *table_lookup(objid_t, const char *, enum table_service);
+int table_compare(objid_t, const char *, enum table_service,
     int (*)(const char *, const char *));
 struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
