@@ -61,7 +61,8 @@ static void mta_sig_handler(int, short, void *);
 static struct mta_route *mta_route_for(struct envelope *);
 static void mta_route_drain(struct mta_route *);
 static void mta_route_free(struct mta_route *);
-static void mta_envelope_done(struct mta_task *, struct envelope *, const char *);
+static void mta_envelope_done(struct mta_task *, struct envelope *,
+    const char *);
 static int mta_route_cmp(struct mta_route *, struct mta_route *);
 
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
@@ -97,7 +98,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			route = mta_route_for(e);
 			batch = tree_xget(&batches, e->batch_id);
 
-			if ((task = tree_get(&batch->tasks, route->id)) == NULL) {
+			if ((task = tree_get(&batch->tasks, route->id))
+			    == NULL) {
 				log_trace(TRACE_MTA, "mta: new task for %s",
 				    mta_route_to_text(route));
 				task = xmalloc(sizeof *task, "mta_task");
@@ -119,7 +121,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			/* XXX honour route->maxrcpt */
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
 			stat_increment("mta.envelope", 1);
-			log_debug("debug: mta: received evp:%016" PRIx64 " for <%s@%s>",
+			log_debug("debug: mta: received evp:%016" PRIx64
+			    " for <%s@%s>",
 			    e->id, e->dest.user, e->dest.domain);
 			return;
 
@@ -129,12 +132,14 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
 			    batch->id);
 			/* for all tasks, queue them on there route */
-			while (tree_poproot(&batch->tasks, &id, (void**)&task)) {
+			while (tree_poproot(&batch->tasks, &id,
+				(void**)&task)) {
 				if (id != task->route->id)
 					errx(1, "route id mismatch!");
 				task->route->refcount -= 1;
 				task->route->ntask += 1;
-				TAILQ_INSERT_TAIL(&task->route->tasks, task, entry);
+				TAILQ_INSERT_TAIL(&task->route->tasks, task,
+				    entry);
 				stat_increment("mta.task", 1);
 				mta_route_drain(task->route);
 			}
@@ -164,7 +169,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_ssl = xcalloc(1, sizeof *env->sc_ssl, "mta:sc_ssl");
+			env->sc_ssl = xcalloc(1, sizeof *env->sc_ssl,
+			    "mta:sc_ssl");
 			return;
 
 		case IMSG_CONF_SSL:
@@ -444,7 +450,8 @@ mta_route_for(struct envelope *e)
 		route->cert = key.cert ? xstrdup(key.cert, "mta: cert") : NULL;
 		route->auth = key.auth ? xstrdup(key.auth, "mta: auth") : NULL;
 		if (route->cert) {
-			strlcpy(ssl.ssl_name, route->cert, sizeof(ssl.ssl_name));
+			strlcpy(ssl.ssl_name, route->cert,
+			    sizeof(ssl.ssl_name));
 			route->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &ssl);
 		}
 		SPLAY_INSERT(mta_route_tree, &routes, route);
@@ -456,7 +463,8 @@ mta_route_for(struct envelope *e)
 		log_trace(TRACE_MTA, "mta: new %s", mta_route_to_text(route));
 		stat_increment("mta.route", 1);
 	} else {
-		log_trace(TRACE_MTA, "mta: reusing %s", mta_route_to_text(route));
+		log_trace(TRACE_MTA, "mta: reusing %s",
+		    mta_route_to_text(route));
 	}
 
 	return (route);
@@ -492,7 +500,8 @@ mta_route_drain(struct mta_route *route)
 	}
 
 	if (route->ntask == 0) {
-		log_debug("debug: mta: no task for %s", mta_route_to_text(route));
+		log_debug("debug: mta: no task for %s",
+		    mta_route_to_text(route));
 		return;
 	}
 
@@ -506,7 +515,7 @@ mta_route_drain(struct mta_route *route)
 		while ((task = TAILQ_FIRST(&route->tasks))) {
 			TAILQ_REMOVE(&route->tasks, task, entry);
 			route->ntask -= 1;
-			while((e = TAILQ_FIRST(&task->envelopes)))
+			while ((e = TAILQ_FIRST(&task->envelopes)))
 				mta_envelope_done(task, e, route->errorline);
 			free(task);
 			stat_decrement("mta.task", 1);
