@@ -963,6 +963,14 @@ void bounce_add(uint64_t);
 void bounce_run(uint64_t, int);
 
 
+/* compress_backend.c */
+struct compress_backend *compress_backend_lookup(const char *);
+int compress_file(FILE *, FILE *);
+int uncompress_file(FILE *, FILE *);
+size_t compress_buffer(char *, size_t, char *, size_t);
+size_t uncompress_buffer(char *, size_t, char *, size_t);
+
+
 /* config.c */
 #define PURGE_LISTENERS		0x01
 #define PURGE_TABLES		0x02
@@ -1005,6 +1013,7 @@ int envelope_ascii_dump(enum envelope_field, struct envelope *, char *, size_t);
 int envelope_load_buffer(struct envelope *, char *, size_t);
 int envelope_dump_buffer(struct envelope *, char *, size_t);
 
+
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
 void expand_insert(struct expand *, struct expandnode *);
@@ -1012,12 +1021,14 @@ struct expandnode *expand_lookup(struct expand *, struct expandnode *);
 void expand_free(struct expand *);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
+
 /* forward.c */
 int forwards_get(int, struct expand *);
 
 
 /* lka.c */
 pid_t lka(void);
+
 
 /* lka_session.c */
 void lka_session(struct submit_status *);
@@ -1047,16 +1058,20 @@ void mta_route_error(struct mta_route *, const char *);
 void mta_route_collect(struct mta_route *);
 const char *mta_route_to_text(struct mta_route *);
 
+
 /* mta_session.c */
 void mta_session(struct mta_route *);
 void mta_session_imsg(struct imsgev *, struct imsg *);
+
 
 /* parse.y */
 int parse_config(struct smtpd *, const char *, int);
 int cmdline_symset(char *);
 
+
 /* queue.c */
 pid_t queue(void);
+
 
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);
@@ -1077,13 +1092,6 @@ int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
 int queue_envelope_learn(struct envelope *);
 
-/* compress_backend.c */
-struct compress_backend *compress_backend_lookup(const char *);
-int compress_file(FILE *, FILE *);
-int uncompress_file(FILE *, FILE *);
-size_t compress_buffer(char *, size_t, char *, size_t);
-size_t uncompress_buffer(char *, size_t, char *, size_t);
-
 
 /* ruleset.c */
 struct rule *ruleset_match(const struct envelope *);
@@ -1092,15 +1100,18 @@ struct rule *ruleset_match(const struct envelope *);
 /* scheduler.c */
 pid_t scheduler(void);
 
+
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
 void scheduler_info(struct scheduler_info *, struct envelope *);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
+
 /* smtp.c */
 pid_t smtp(void);
 void smtp_resume(void);
 void smtp_destroy(struct session *);
+
 
 /* smtp_session.c */
 void session_init(struct listener *, struct session *);
@@ -1110,7 +1121,6 @@ void session_pickup(struct session *, struct submit_status *);
 void session_destroy(struct session *, const char *);
 void session_respond(struct session *, char *, ...)
 	__attribute__ ((format (printf, 2, 3)));
-
 SPLAY_PROTOTYPE(sessiontree, session, s_nodes, session_cmp);
 
 
@@ -1144,7 +1154,6 @@ struct stat_backend	*stat_backend_lookup(const char *);
 void	stat_increment(const char *, size_t);
 void	stat_decrement(const char *, size_t);
 void	stat_set(const char *, const struct stat_value *);
-
 struct stat_value *stat_counter(size_t);
 struct stat_value *stat_timestamp(time_t);
 struct stat_value *stat_timeval(struct timeval *);
@@ -1238,6 +1247,7 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 uint64_t strtoevpid(const char *);
+
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
