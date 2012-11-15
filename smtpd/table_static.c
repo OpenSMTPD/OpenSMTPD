@@ -78,19 +78,19 @@ table_static_update(struct table *table, const char *config)
 	if (config == NULL)
 		goto ok;
 
-	m = table_create(table->m_src, NULL, config);
-	if (! m->m_backend->config(m, config))
+	m = table_create(table->t_src, NULL, config);
+	if (! m->t_backend->config(m, config))
 		goto err;
 
 	/* update successful, swap table names */
-	strlcpy(name, table->m_name, sizeof name);
-	strlcpy(table->m_name, m->m_name, sizeof table->m_name);
-	strlcpy(m->m_name, name, sizeof m->m_name);
+	strlcpy(name, table->t_name, sizeof name);
+	strlcpy(table->t_name, m->t_name, sizeof table->t_name);
+	strlcpy(m->t_name, name, sizeof m->t_name);
 
 	/* swap, table id */
-	table->m_id = table->m_id ^ m->m_id;
-	m->m_id   = table->m_id ^ m->m_id;
-	table->m_id = table->m_id ^ m->m_id;
+	table->t_id = table->t_id ^ m->t_id;
+	m->t_id   = table->t_id ^ m->t_id;
+	table->t_id = table->t_id ^ m->t_id;
 
 	/* destroy former table */
 	table_destroy(table);
@@ -127,7 +127,7 @@ table_static_lookup(void *hdl, const char *key, enum table_kind kind)
 	size_t		 len;
 
 	line = NULL;
-	TAILQ_FOREACH(me, &m->m_contents, me_entry) {
+	TAILQ_FOREACH(me, &m->t_contents, me_entry) {
 		if (strcmp(key, me->me_key) == 0) {
 			if (me->me_val == NULL)
 				return NULL;
@@ -175,7 +175,7 @@ table_static_compare(void *hdl, const char *key, enum table_kind kind,
 	struct mapel	*me  = NULL;
 	int		 ret = 0;
 
-	TAILQ_FOREACH(me, &m->m_contents, me_entry) {
+	TAILQ_FOREACH(me, &m->t_contents, me_entry) {
 		if (! func(key, me->me_key))
 			continue;
 		ret = 1;

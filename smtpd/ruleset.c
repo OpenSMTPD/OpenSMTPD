@@ -76,13 +76,13 @@ ruleset_match(const struct envelope *evp)
 			if (table == NULL)
 				fatal("failed to lookup table.");
 
-			if (! strcmp(table->m_src, "static")) {
-				TAILQ_FOREACH(me, &table->m_contents, me_entry) {
+			if (! strcmp(table->t_src, "static")) {
+				TAILQ_FOREACH(me, &table->t_contents, me_entry) {
 					if (hostname_match(maddr->domain, me->me_key))
 						return r;
 				}
 			}
-			else if (table_lookup(table->m_id, maddr->domain,
+			else if (table_lookup(table->t_id, maddr->domain,
 			    K_VIRTUAL) != NULL) {
 				return (r);
 			} else if (errno) {
@@ -139,8 +139,8 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 		return 1;
 	}
 
-	if (! strcmp(table->m_src, "static")) {
-		TAILQ_FOREACH(me, &table->m_contents, me_entry) {
+	if (! strcmp(table->t_src, "static")) {
+		TAILQ_FOREACH(me, &table->t_contents, me_entry) {
 			if (ss->ss_family == AF_LOCAL) {
 				if (!strcmp(me->me_key, "local"))
 					return 1;
@@ -151,7 +151,7 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 		}
 	}
 	else {
-		if (table_compare(table->m_id, ss_to_text(ss), K_NETADDR,
+		if (table_compare(table->t_id, ss_to_text(ss), K_NETADDR,
 		    ruleset_cmp_source))
 			return (1);
 		if (errno)

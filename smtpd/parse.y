@@ -271,9 +271,9 @@ credentials	: AUTH tables	{
 
 			/* AUTH only accepts T_DYNAMIC and T_HASH */
 			m = table_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as AUTH parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 			$$ = $2;
@@ -439,7 +439,7 @@ table		: TABLE STRING STRING	{
 				YYERROR;
 			}
 			table = table_create(backend, $2, config);
-			table->m_backend->config(table, config);
+			table->t_backend->config(table, config);
 			free($2);
 			free($3);
 		}
@@ -452,7 +452,7 @@ table		: TABLE STRING STRING	{
 		;
 
 keyval		: STRING ARROW STRING		{
-			table->m_type = T_HASH;
+			table->t_type = T_HASH;
 			table_add(table, $1, $3);
 			free($1);
 			free($3);
@@ -464,7 +464,7 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
-			table->m_type = T_LIST;
+			table->t_type = T_LIST;
 			table_add(table, $1, NULL);
 			free($1);
 		}
@@ -482,14 +482,14 @@ tablenew		: STRING			{
 			struct table	*m;
 
 			m = table_create("static", NULL, NULL);
-			m->m_type = T_LIST;
+			m->t_type = T_LIST;
 			table_add(m, $1, NULL);
-			$$ = m->m_id;
+			$$ = m->t_id;
 		}
 		| '{'				{
 			table = table_create("static", NULL, NULL);
 		} tableval_list '}'		{
-			$$ = table->m_id;
+			$$ = table->t_id;
 		}
 		;
 
@@ -502,7 +502,7 @@ tableref       	: '<' STRING '>'       		{
 				YYERROR;
 			}
 			free($2);
-			$$ = m->m_id;
+			$$ = m->t_id;
 		}
 		;
 
@@ -515,12 +515,12 @@ alias		: ALIAS tables			{
 
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
 			m = table_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as ALIAS parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
-			$$ = m->m_id;
+			$$ = m->t_id;
 		}
 		| /* empty */			{ $$ =  0; }
 		;
@@ -531,9 +531,9 @@ condition	: DOMAIN tables alias		{
 
 			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
 			m = table_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as DOMAIN parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 
@@ -550,9 +550,9 @@ condition	: DOMAIN tables alias		{
 
 			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
 			m = table_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 
@@ -579,7 +579,7 @@ condition	: DOMAIN tables alias		{
 
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
-			c->c_table = m->m_id;
+			c->c_table = m->t_id;
 
 			$$ = c;
 		}
@@ -741,7 +741,7 @@ action		: DELIVER TO MAILDIR			{
 					YYERROR;
 				}
 				m = table_find($5);
-				strlcpy(rule->r_value.relayhost.authtable, m->m_name,
+				strlcpy(rule->r_value.relayhost.authtable, m->t_name,
 				    sizeof(rule->r_value.relayhost.authtable));
 			}
 
@@ -767,22 +767,22 @@ from		: FROM tables			{
 
 			/* FROM only accepts T_DYNAMIC and T_LIST */
 			m = table_find($2);
-			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
+			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as FROM parameter",
-					m->m_name);
+					m->t_name);
 				YYERROR;
 			}
 
 			$$ = $2;
 		}
 		| FROM ANY			{
-			$$ = table_findbyname("<anyhost>")->m_id;
+			$$ = table_findbyname("<anyhost>")->t_id;
 		}
 		| FROM LOCAL			{
-			$$ = table_findbyname("<localhost>")->m_id;
+			$$ = table_findbyname("<localhost>")->t_id;
 		}
 		| /* empty */			{
-			$$ = table_findbyname("<localhost>")->m_id;
+			$$ = table_findbyname("<localhost>")->t_id;
 		}
 		;
 

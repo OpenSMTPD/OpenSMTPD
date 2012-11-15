@@ -279,15 +279,15 @@ struct mapel {
 };
 
 struct table {
-	TAILQ_ENTRY(table)		 m_entry;
-	char				 m_name[MAX_LINE_SIZE];
-	objid_t				 m_id;
-	enum table_type			 m_type;
-	char				 m_src[MAX_TABLE_BACKEND_SIZE];
-	char				 m_config[MAXPATHLEN];
-	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
-	void				*m_handle;
-	struct table_backend		*m_backend;
+	TAILQ_ENTRY(table)		 t_entry;
+	char				 t_name[MAX_LINE_SIZE];
+	objid_t				 t_id;
+	enum table_type			 t_type;
+	char				 t_src[MAX_TABLE_BACKEND_SIZE];
+	char				 t_config[MAXPATHLEN];
+	TAILQ_HEAD(mapel_list, mapel)	 t_contents;
+	void				*t_handle;
+	struct table_backend		*t_backend;
 };
 
 

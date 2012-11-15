@@ -113,7 +113,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			table_credentials = table_lookup(table->m_id, secret->host,
+			table_credentials = table_lookup(table->t_id, secret->host,
 			    K_CREDENTIALS);
 			log_debug("debug: lka: %s credentials lookup (%d)", secret->host,
 			    table_credentials != NULL);
@@ -151,15 +151,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_TABLE:
 			table = xmemdup(imsg->data, sizeof *table, "lka:table");
-			TAILQ_INIT(&table->m_contents);
-			TAILQ_INSERT_TAIL(env->sc_tables_reload, table, m_entry);
+			TAILQ_INIT(&table->t_contents);
+			TAILQ_INSERT_TAIL(env->sc_tables_reload, table, t_entry);
 
 			tmp = env->sc_tables;
 			env->sc_tables = env->sc_tables_reload;
 
 			mp = table_open(table);
 			if (mp == NULL)
-				errx(1, "lka: could not open table \"%s\"", table->m_name);
+				errx(1, "lka: could not open table \"%s\"", table->t_name);
 			table_close(table, mp);
 
 			env->sc_tables = tmp;
@@ -178,7 +178,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_TABLE_CONTENT:
 			table = TAILQ_LAST(env->sc_tables_reload, tablelist);
 			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
-			TAILQ_INSERT_TAIL(&table->m_contents, mapel, me_entry);
+			TAILQ_INSERT_TAIL(&table->t_contents, mapel, me_entry);
 			return;
 
 		case IMSG_CONF_END:

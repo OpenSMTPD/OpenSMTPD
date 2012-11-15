@@ -77,7 +77,7 @@ table_db_update(struct table *table, const char *config)
 static void *
 table_db_open(struct table *table)
 {
-	return dbopen(table->m_config, O_RDONLY, 0600, DB_HASH, NULL);
+	return dbopen(table->t_config, O_RDONLY, 0600, DB_HASH, NULL);
 }
 
 static void

@@ -73,9 +73,9 @@ purge_config(uint8_t what)
 	}
 	if (what & PURGE_TABLES) {
 		while ((m = TAILQ_FIRST(env->sc_tables)) != NULL) {
-			TAILQ_REMOVE(env->sc_tables, m, m_entry);
-			while ((me = TAILQ_FIRST(&m->m_contents))) {
-				TAILQ_REMOVE(&m->m_contents, me, me_entry);
+			TAILQ_REMOVE(env->sc_tables, m, t_entry);
+			while ((me = TAILQ_FIRST(&m->t_contents))) {
+				TAILQ_REMOVE(&m->t_contents, me, me_entry);
 				free(me);
 			}
 			free(m);

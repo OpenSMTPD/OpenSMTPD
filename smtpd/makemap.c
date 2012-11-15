@@ -433,7 +433,7 @@ conf_aliases(char *cfgpath)
 	if (table == NULL)
 		return (PATH_ALIASES);
 
-	path = xstrdup(table->m_config, "conf_aliases");
+	path = xstrdup(table->t_config, "conf_aliases");
 	p = strstr(path, ".db");
 	if (p == NULL || strcmp(p, ".db") != 0) {
 		return (path);
