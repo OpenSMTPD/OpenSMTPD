@@ -99,11 +99,6 @@
 typedef uint32_t	objid_t;
 
 
-/* user structures */
-enum user_type {
-	USER_PWD,
-};
-
 #define	MAXPASSWORDLEN	128
 struct userinfo {
 	char username[MAXLOGNAME];
@@ -112,11 +107,6 @@ struct userinfo {
 	uid_t uid;
 	gid_t gid;
 };
-
-struct user_backend {
-	int (*getbyname)(struct userinfo *, const char *);
-};
-
 
 struct netaddr {
 	struct sockaddr_storage ss;
@@ -786,6 +776,7 @@ struct table_netaddr {
 	struct netaddr		netaddr;
 };
 
+/* XXX - must be == to struct userinfo ! */
 struct table_userinfo {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
@@ -1193,10 +1184,6 @@ int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
 int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
-
-
-/* user.c */
-struct user_backend *user_backend_lookup(enum user_type);
 
 
 /* util.c */
