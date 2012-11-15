@@ -49,7 +49,6 @@ enum mta_state {
 	MTA_INIT,
 	MTA_SECRET,
 	MTA_DATA,
-	MTA_MX,
 	MTA_CONNECT,
 	MTA_DONE,
 	MTA_SMTP_READY,
@@ -193,7 +192,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			mta_route_error(s->route, "secrets lookup failed");
 			mta_enter_state(s, MTA_DONE);
 		} else
-			mta_enter_state(s, MTA_MX);
+			mta_enter_state(s, MTA_CONNECT);
 		return;
 
 	case IMSG_DNS_PTR:
@@ -234,22 +233,6 @@ mta_on_ptr(void *tag, void *arg, void *data)
 }
 
 static void
-mta_on_mxlist(void *tag, void *arg, void *data)
-{
-	struct mta_session	*s = arg;
-	const char		*error = data;
-
-	if (error) {
-		mta_route_error(s->route, error);
-		mta_enter_state(s, MTA_DONE);
-		return;
-	}
-	s->mx = mta_route_next_mx(s->route, &s->mxseen);
-	s->mxtried = 0;
-	mta_enter_state(s, MTA_CONNECT);
-}
-
-static void
 mta_enter_state(struct mta_session *s, int newstate)
 {
 	int			 oldstate;
@@ -277,7 +260,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		if (s->route->auth)
 			mta_enter_state(s, MTA_SECRET);
 		else
-			mta_enter_state(s, MTA_MX);
+			mta_enter_state(s, MTA_CONNECT);
 		break;
 
 	case MTA_DATA:
@@ -301,34 +284,23 @@ mta_enter_state(struct mta_session *s, int newstate)
 		    0, 0, -1, &secret, sizeof(secret));  
 		break;
 
-	case MTA_MX:
-		/*
-		 * Lookup MX record.
-		 */
-		if (s->route->mxlist)
-			mta_on_mxlist(NULL, s, NULL);
-		else if (waitq_wait(&s->route->mxlist, mta_on_mxlist, s))
-			mta_route_query_mx(s->route);
-		break;
-
 	case MTA_CONNECT:
 		/*
 		 * Connect to the MX.
 		 */
-
-		/* Cleanup previous connection if any */
-		if (s->mxtried) {
-			s->mx->nconn--;
-			iobuf_clear(&s->iobuf);
-			io_clear(&s->io);
-		}
 
 		if (s->flags & MTA_FORCE_ANYSSL)
 			max_reuse = 2;
 		else
 			max_reuse = 1;
 
-		/* pick next mx */
+		/* Cleanup previous connection if any */
+		if (s->mxtried) {
+			s->mx->nconn--;
+			iobuf_clear(&s->iobuf);
+			io_clear(&s->io);
+		} else
+			s->mx = mta_route_next_mx(s->route, &s->mxseen);
 
 		while (s->mx) {
 			if (s->mxtried == max_reuse) {
@@ -370,7 +342,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 			return;
 		}
-		/* tried them all? */
+		/* All tried, no connection */
 		mta_route_error(s->route, "150 Can not connect to MX");
 		mta_enter_state(s, MTA_DONE);
 		break;
@@ -863,7 +835,6 @@ mta_strstate(int state)
 	CASE(MTA_INIT);
 	CASE(MTA_SECRET);
 	CASE(MTA_DATA);
-	CASE(MTA_MX);
 	CASE(MTA_CONNECT);
 	CASE(MTA_DONE);
 	CASE(MTA_SMTP_READY);

@@ -66,6 +66,7 @@ static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
 
 static struct mta_route *mta_route_for(struct envelope *);
+static void mta_route_query_mx(struct mta_route *);
 static int mta_route_next_preference(struct mta_mxlist *, int);
 static void mta_route_drain(struct mta_route *);
 static void mta_route_free(struct mta_route *);
@@ -149,7 +150,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 				task->route->ntask += 1;
 				TAILQ_INSERT_TAIL(&task->route->tasks, task, entry);
 				stat_increment("mta.task", 1);
-				mta_route_drain(task->route);
+				if (task->route->mxlist)
+					mta_route_drain(task->route);
 			}
 			free(batch);
 			return;
@@ -200,7 +202,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_debug("debug: %s -> preference %i",
 				    ss_to_text(&mx->sa), mx->preference);
 			log_debug("debug: ---");
-			waitq_run(&mxl->route->mxlist, mxl->error);
+			mta_route_drain(mxl->route);
 			return;
 		}
 	}
@@ -509,22 +511,6 @@ mta_route_to_text(struct mta_route *route)
 	return (buf);
 }
 
-void
-mta_route_query_mx(struct mta_route *route)
-{
-	struct mta_mxlist *mxl;
-
-	mxl = xcalloc(1, sizeof *mxl, "mta: mxlist");
-	TAILQ_INIT(&mxl->mxs);
-	mxl->route = route;
-	tree_xset(&mxlists, route->id, mxl);
-
-	if (route->flags & ROUTE_MX)
-		dns_query_host(route->hostname, route->port, route->id);
-	else
-		dns_query_mx(route->hostname, route->backupname, 0, route->id);
-}
-
 static struct mta_route *
 mta_route_for(struct envelope *e)
 {
@@ -574,11 +560,28 @@ mta_route_for(struct envelope *e)
 
 		log_trace(TRACE_MTA, "mta: new %s", mta_route_to_text(route));
 		stat_increment("mta.route", 1);
+		mta_route_query_mx(route);
 	} else {
 		log_trace(TRACE_MTA, "mta: reusing %s", mta_route_to_text(route));
 	}
 
 	return (route);
+}
+
+static void
+mta_route_query_mx(struct mta_route *route)
+{
+	struct mta_mxlist *mxl;
+
+	mxl = xcalloc(1, sizeof *mxl, "mta: mxlist");
+	TAILQ_INIT(&mxl->mxs);
+	mxl->route = route;
+	tree_xset(&mxlists, route->id, mxl);
+
+	if (route->flags & ROUTE_MX)
+		dns_query_host(route->hostname, route->port, route->id);
+	else
+		dns_query_mx(route->hostname, route->backupname, 0, route->id);
 }
 
 static void
