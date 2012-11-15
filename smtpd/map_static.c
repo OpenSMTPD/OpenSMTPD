@@ -71,8 +71,8 @@ map_static_config(struct map *map, const char *config)
 static int
 map_static_update(struct map *map, const char *config)
 {
-	struct map	*m;
-	char		*name[MAX_LINE_SIZE];
+	struct map     *m;
+	char		name[MAX_LINE_SIZE];
 
 	/* no config ? ok */
 	if (config == NULL)
