@@ -40,8 +40,8 @@
 static int map_db_config(struct map *, const char *);
 static int map_db_update(struct map *, const char *);
 static void *map_db_open(struct map *);
-static void *map_db_lookup(void *, const char *, enum map_kind);
-static int   map_db_compare(void *, const char *, enum map_kind,
+static void *map_db_lookup(void *, const char *, enum table_kind);
+static int   map_db_compare(void *, const char *, enum table_kind,
     int (*)(const char *, const char *));
 static void  map_db_close(void *);
 
@@ -89,7 +89,7 @@ map_db_close(void *hdl)
 }
 
 static void *
-map_db_lookup(void *hdl, const char *key, enum map_kind kind)
+map_db_lookup(void *hdl, const char *key, enum table_kind kind)
 {
 	char *line;
 	size_t len;
@@ -127,7 +127,7 @@ map_db_lookup(void *hdl, const char *key, enum map_kind kind)
 }
 
 static int
-map_db_compare(void *hdl, const char *key, enum map_kind kind,
+map_db_compare(void *hdl, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
 	int ret = 0;

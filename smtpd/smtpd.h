@@ -257,14 +257,14 @@ struct peer {
 };
 
 
-enum map_type {
+enum table_type {
 	T_NONE		= 0,
-	T_DYNAMIC	= 0x01,	/* map with external source	*/
-	T_LIST		= 0x02,	/* map holding a list		*/
-	T_HASH		= 0x04,	/* map holding a hash table	*/
+	T_DYNAMIC	= 0x01,	/* table with external source	*/
+	T_LIST		= 0x02,	/* table holding a list		*/
+	T_HASH		= 0x04,	/* table holding a hash table	*/
 };
 
-enum map_kind {
+enum table_kind {
 	K_NONE,
 	K_ALIAS,
 	K_VIRTUAL,
@@ -282,7 +282,7 @@ struct map {
 	TAILQ_ENTRY(map)		 m_entry;
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
-	enum map_type			 m_type;
+	enum table_type			 m_type;
 	char				 m_src[MAX_MAPSOURCE_SIZE];
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
@@ -296,8 +296,8 @@ struct map_backend {
 	void *(*open)(struct map *);
 	void (*update)(struct map *, const char *);
 	void (*close)(void *);
-	void *(*lookup)(void *, const char *, enum map_kind);
-	int  (*compare)(void *, const char *, enum map_kind,
+	void *(*lookup)(void *, const char *, enum table_kind);
+	int  (*compare)(void *, const char *, enum table_kind,
 	    int (*)(const char *, const char *));
 };
 
@@ -1019,8 +1019,8 @@ void *map_open(struct map *);
 void  map_update(struct map *);
 void  map_close(struct map *, void *);
 int map_config_parser(struct map *, char *);
-void *map_lookup(objid_t, const char *, enum map_kind);
-int map_compare(objid_t, const char *, enum map_kind,
+void *map_lookup(objid_t, const char *, enum table_kind);
+int map_compare(objid_t, const char *, enum table_kind,
     int (*)(const char *, const char *));
 struct map *map_find(objid_t);
 struct map *map_findbyname(const char *);

@@ -76,7 +76,7 @@ map_find(objid_t id)
 }
 
 void *
-map_lookup(objid_t mapid, const char *key, enum map_kind kind)
+map_lookup(objid_t mapid, const char *key, enum table_kind kind)
 {
 	void *hdl = NULL;
 	char *ret = NULL;
@@ -106,7 +106,7 @@ map_lookup(objid_t mapid, const char *key, enum map_kind kind)
 }
 
 int
-map_compare(objid_t mapid, const char *key, enum map_kind kind,
+map_compare(objid_t mapid, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
 	void *hdl = NULL;
