@@ -84,10 +84,11 @@ usage(void)
 	extern char *__progname;
 
 	if (sendmail)
-		fprintf(stderr, "usage: %s [-tv] [-f from] [-F name] to ..\n",
+		fprintf(stderr, "usage: %s [-tv] [-f from] [-F name] to ...\n",
 		    __progname);
 	else
-		fprintf(stderr, "usage: %s command [argument ...]\n", __progname);
+		fprintf(stderr, "usage: %s command [argument ...]\n",
+		    __progname);
 	exit(1);
 }
 
@@ -147,7 +148,7 @@ next_message(struct imsg *imsg)
 {
 	ssize_t	n;
 
-	while(1) {
+	while (1) {
 		if ((n = imsg_get(ibuf, imsg)) == -1)
 			errx(1, "imsg_get error");
 		if (n)
@@ -290,7 +291,7 @@ main(int argc, char *argv[])
 		flush();
 		next_message(&imsg);
 
-		switch(action) {
+		switch (action) {
 		case REMOVE:
 		case SCHEDULE:
 		case SHUTDOWN:
@@ -340,14 +341,14 @@ action_show_queue_message(uint32_t msgid)
 
 	found = 0;
 	imsg_compose(ibuf, IMSG_SCHEDULER_ENVELOPES, 0, 0, -1,
-	   &evpid, sizeof evpid);
+	    &evpid, sizeof evpid);
 	flush();
 
-	while(1) {
+	while (1) {
 		next_message(&imsg);
 		if (imsg.hdr.type != IMSG_SCHEDULER_ENVELOPES)
 			errx(1, "unexpected message %i", imsg.hdr.type);
-		
+
 		if (imsg.hdr.len == sizeof imsg.hdr) {
 			imsg_free(&imsg);
 			if (!found || evpid_to_msgid(++evpid) != msgid)
@@ -373,7 +374,7 @@ action_show_queue(void)
 	msgid = 0;
 	now = time(NULL);
 
-  	do {
+	do {
 		imsg_compose(ibuf, IMSG_SCHEDULER_MESSAGES, 0, 0, -1,
 		    &msgid, sizeof msgid);
 		flush();
@@ -467,7 +468,7 @@ show_stats_output(void)
 
 	bzero(&kv, sizeof kv);
 
-	while(1) {
+	while (1) {
 		imsg_compose(ibuf, IMSG_STATS_GET, 0, 0, -1, &kv, sizeof kv);
 		flush();
 		next_message(&imsg);
@@ -482,7 +483,7 @@ show_stats_output(void)
 
 		if (strcmp(kvp->key, "uptime") == 0) {
 			duration = time(NULL) - kvp->val.u.counter;
-			printf("uptime=%zd\n", (size_t)duration); 
+			printf("uptime=%zd\n", (size_t)duration);
 			printf("uptime.human=%s\n",
 			    duration_to_text(duration));
 		}
@@ -527,7 +528,7 @@ show_queue(flags)
 	if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
 		err(1, "%s", PATH_SPOOL);
 
-	while((r = queue_envelope_learn(&envelope)) != -1)
+	while ((r = queue_envelope_learn(&envelope)) != -1)
 		if (r)
 			show_queue_envelope(&envelope, flags);
 }
@@ -564,7 +565,7 @@ show_queue_envelope(struct envelope *e, int online)
 	if (e->flags)
 		errx(1, "%016" PRIx64 ": unexpected flags 0x%04x", e->id,
 		    e->flags);
-	
+
 	if (status[0])
 		status[strlen(status) - 1] = '\0';
 
