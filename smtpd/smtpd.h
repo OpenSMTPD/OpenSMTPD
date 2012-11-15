@@ -786,6 +786,14 @@ struct table_netaddr {
 	struct netaddr		netaddr;
 };
 
+struct table_userinfo {
+	char username[MAXLOGNAME];
+	char directory[MAXPATHLEN];
+	char password[MAXPASSWORDLEN];
+	uid_t uid;
+	gid_t gid;
+};
+
 enum queue_op {
 	QOP_CREATE,
 	QOP_DELETE,
