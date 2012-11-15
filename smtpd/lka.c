@@ -56,7 +56,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct secret		*secret;
 	struct mapel		*mapel;
 	struct rule		*rule;
-	struct table		*map;
+	struct table		*table;
 	struct table		*mp;
 	void			*tmp;
 
@@ -102,32 +102,32 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct table_credentials *map_credentials;
+			struct table_credentials *table_credentials;
 
 			secret = imsg->data;
-			map = map_findbyname(secret->tablename);
-			if (map == NULL) {
-				log_warn("warn: lka: credentials map %s is missing",
+			table = table_findbyname(secret->tablename);
+			if (table == NULL) {
+				log_warn("warn: lka: credentials table %s is missing",
 				    secret->tablename);
 				imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0,
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			map_credentials = map_lookup(map->m_id, secret->host,
+			table_credentials = table_lookup(table->m_id, secret->host,
 			    K_CREDENTIALS);
 			log_debug("debug: lka: %s credentials lookup (%d)", secret->host,
-			    map_credentials != NULL);
+			    table_credentials != NULL);
 			secret->secret[0] = '\0';
-			if (map_credentials == NULL)
+			if (table_credentials == NULL)
 				log_warnx("warn: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,
-				     sizeof secret->secret, map_credentials) == 0)
+				     sizeof secret->secret, table_credentials) == 0)
 				log_warnx("warn: %s credentials parse fail",
 				    secret->host);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1, secret,
 			    sizeof *secret);
-			free(map_credentials);
+			free(table_credentials);
 			return;
 		}
 		}
@@ -150,17 +150,17 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_TABLE:
-			map = xmemdup(imsg->data, sizeof *map, "lka:map");
-			TAILQ_INIT(&map->m_contents);
-			TAILQ_INSERT_TAIL(env->sc_tables_reload, map, m_entry);
+			table = xmemdup(imsg->data, sizeof *table, "lka:table");
+			TAILQ_INIT(&table->m_contents);
+			TAILQ_INSERT_TAIL(env->sc_tables_reload, table, m_entry);
 
 			tmp = env->sc_tables;
 			env->sc_tables = env->sc_tables_reload;
 
-			mp = map_open(map);
+			mp = table_open(table);
 			if (mp == NULL)
-				errx(1, "lka: could not open map \"%s\"", map->m_name);
-			map_close(map, mp);
+				errx(1, "lka: could not open table \"%s\"", table->m_name);
+			table_close(table, mp);
 
 			env->sc_tables = tmp;
 			return;
@@ -169,16 +169,16 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables;
 			env->sc_tables = env->sc_tables_reload;
-			rule->r_sources = map_findbyname(imsg->data);
+			rule->r_sources = table_findbyname(imsg->data);
 			if (rule->r_sources == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables = tmp;
 			return;
 
 		case IMSG_CONF_TABLE_CONTENT:
-			map = TAILQ_LAST(env->sc_tables_reload, tablelist);
+			table = TAILQ_LAST(env->sc_tables_reload, tablelist);
 			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
-			TAILQ_INSERT_TAIL(&map->m_contents, mapel, me_entry);
+			TAILQ_INSERT_TAIL(&table->m_contents, mapel, me_entry);
 			return;
 
 		case IMSG_CONF_END:
@@ -209,13 +209,13 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_UPDATE_TABLE:
-			map = map_findbyname(imsg->data);
-			if (map == NULL) {
-				log_warnx("warn: lka: no such map \"%s\"",
+			table = table_findbyname(imsg->data);
+			if (table == NULL) {
+				log_warnx("warn: lka: no such table \"%s\"",
 				    (char *)imsg->data);
 				return;
 			}
-			map_update(map);
+			table_update(table);
 			return;
 		}
 	}
@@ -333,13 +333,13 @@ lka_verify_mail(struct mailaddr *maddr)
 
 static int
 lka_encode_credentials(char *dst, size_t size,
-    struct table_credentials *map_credentials)
+    struct table_credentials *table_credentials)
 {
 	char	*buf;
 	int	 buflen;
 
-	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0', map_credentials->username,
-		    '\0', map_credentials->password)) == -1)
+	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0', table_credentials->username,
+		    '\0', table_credentials->password)) == -1)
 		fatal(NULL);
 
 	if (__b64_ntop((unsigned char *)buf, buflen, dst, size) == -1) {

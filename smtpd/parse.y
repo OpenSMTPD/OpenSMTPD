@@ -88,7 +88,7 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct table		*map = NULL;
+struct table		*table = NULL;
 struct rule		*rule = NULL;
 TAILQ_HEAD(condlist, cond) *conditions = NULL;
 
@@ -126,7 +126,7 @@ typedef struct {
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.map>		table
+%type	<v.table>		table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
 %type	<v.object>	tables tablenew tableref alias credentials
@@ -270,7 +270,7 @@ credentials	: AUTH tables	{
 			struct table	*m;
 
 			/* AUTH only accepts T_DYNAMIC and T_HASH */
-			m = map_find($2);
+			m = table_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as AUTH parameter",
 					m->m_name);
@@ -438,22 +438,22 @@ table		: TABLE STRING STRING	{
 				free($3);
 				YYERROR;
 			}
-			map = map_create(backend, $2, config);
-			map->m_backend->config(map, config);
+			table = table_create(backend, $2, config);
+			table->m_backend->config(table, config);
 			free($2);
 			free($3);
 		}
 		| TABLE STRING {
-			map = map_create("static", $2, NULL);
+			table = table_create("static", $2, NULL);
 			free($2);
 		} '{' tableval_list '}' {
-			map = NULL;
+			table = NULL;
 		}
 		;
 
 keyval		: STRING ARROW STRING		{
-			map->m_type = T_HASH;
-			map_add(map, $1, $3);
+			table->m_type = T_HASH;
+			table_add(table, $1, $3);
 			free($1);
 			free($3);
 		}
@@ -464,8 +464,8 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
-			map->m_type = T_LIST;
-			map_add(map, $1, NULL);
+			table->m_type = T_LIST;
+			table_add(table, $1, NULL);
 			free($1);
 		}
 		;
@@ -481,22 +481,22 @@ tableval_list	: string_list			{ }
 tablenew		: STRING			{
 			struct table	*m;
 
-			m = map_create("static", NULL, NULL);
+			m = table_create("static", NULL, NULL);
 			m->m_type = T_LIST;
-			map_add(m, $1, NULL);
+			table_add(m, $1, NULL);
 			$$ = m->m_id;
 		}
 		| '{'				{
-			map = map_create("static", NULL, NULL);
+			table = table_create("static", NULL, NULL);
 		} tableval_list '}'		{
-			$$ = map->m_id;
+			$$ = table->m_id;
 		}
 		;
 
 tableref       	: '<' STRING '>'       		{
 			struct table	*m;
 
-			if ((m = map_findbyname($2)) == NULL) {
+			if ((m = table_findbyname($2)) == NULL) {
 				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
@@ -514,7 +514,7 @@ alias		: ALIAS tables			{
 			struct table	*m;
 
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
-			m = map_find($2);
+			m = table_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as ALIAS parameter",
 					m->m_name);
@@ -530,7 +530,7 @@ condition	: DOMAIN tables alias		{
 			struct table	*m;
 
 			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
-			m = map_find($2);
+			m = table_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as DOMAIN parameter",
 					m->m_name);
@@ -549,7 +549,7 @@ condition	: DOMAIN tables alias		{
 			struct table	*m;
 
 			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
-			m = map_find($2);
+			m = table_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
 					m->m_name);
@@ -573,9 +573,9 @@ condition	: DOMAIN tables alias		{
 
 			rule->r_atable = $2;
 
-			m = map_create("static", NULL, NULL);
-			map_add(m, "localhost", NULL);
-			map_add(m, hostname, NULL);
+			m = table_create("static", NULL, NULL);
+			table_add(m, "localhost", NULL);
+			table_add(m, hostname, NULL);
 
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
@@ -740,7 +740,7 @@ action		: DELIVER TO MAILDIR			{
 					free($6);
 					YYERROR;
 				}
-				m = map_find($5);
+				m = table_find($5);
 				strlcpy(rule->r_value.relayhost.authtable, m->m_name,
 				    sizeof(rule->r_value.relayhost.authtable));
 			}
@@ -766,7 +766,7 @@ from		: FROM tables			{
 			struct table	*m;
 
 			/* FROM only accepts T_DYNAMIC and T_LIST */
-			m = map_find($2);
+			m = table_find($2);
 			if (!(m->m_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as FROM parameter",
 					m->m_name);
@@ -776,13 +776,13 @@ from		: FROM tables			{
 			$$ = $2;
 		}
 		| FROM ANY			{
-			$$ = map_findbyname("<anyhost>")->m_id;
+			$$ = table_findbyname("<anyhost>")->m_id;
 		}
 		| FROM LOCAL			{
-			$$ = map_findbyname("<localhost>")->m_id;
+			$$ = table_findbyname("<localhost>")->m_id;
 		}
 		| /* empty */			{
-			$$ = map_findbyname("<localhost>")->m_id;
+			$$ = table_findbyname("<localhost>")->m_id;
 		}
 		;
 
@@ -802,7 +802,7 @@ rule		: ACCEPT on from			{
 
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = map_find($3);
+			rule->r_sources = table_find($3);
 
 			conditions = xcalloc(1, sizeof(*conditions),
 			    "parse rule: ACCEPT");
@@ -854,7 +854,7 @@ rule		: ACCEPT on from			{
 
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
 			rule->r_decision = R_REJECT;
-			rule->r_sources = map_find($3);
+			rule->r_sources = table_find($3);
 
 			conditions = xcalloc(1, sizeof(*conditions),
 			    "parse rule: REJECT");
@@ -1312,7 +1312,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	errors = 0;
 
-	map = NULL;
+	table = NULL;
 	rule = NULL;
 
 	TAILQ_INIT(conf->sc_listeners);
@@ -1658,16 +1658,16 @@ set_localaddrs(void)
 	struct sockaddr_in6	*sin6;
 	struct table		*m;
 
-	m = map_create("static", "<anyhost>", NULL);
-	map_add(m, "local", NULL);
-	map_add(m, "0.0.0.0/0", NULL);
-	map_add(m, "::/0", NULL);
+	m = table_create("static", "<anyhost>", NULL);
+	table_add(m, "local", NULL);
+	table_add(m, "0.0.0.0/0", NULL);
+	table_add(m, "::/0", NULL);
 
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = map_create("static", "<localhost>", NULL);
-	map_add(m, "local", NULL);
+	m = table_create("static", "<localhost>", NULL);
+	table_add(m, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {
 		if (p->ifa_addr == NULL)
@@ -1677,14 +1677,14 @@ set_localaddrs(void)
 			sain = (struct sockaddr_in *)&ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
-			map_add(m, ss_to_text(&ss), NULL);
+			table_add(m, ss_to_text(&ss), NULL);
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-			map_add(m, ss_to_text(&ss), NULL);
+			table_add(m, ss_to_text(&ss), NULL);
 			break;
 		}
 	}

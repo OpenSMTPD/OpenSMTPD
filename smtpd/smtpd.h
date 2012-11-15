@@ -1013,23 +1013,6 @@ pid_t lka(void);
 void lka_session(struct submit_status *);
 void lka_session_forward_reply(struct forward_req *, int);
 
-/* map.c */
-struct table_backend *map_backend_lookup(const char *);
-void *map_open(struct table *);
-void  map_update(struct table *);
-void  map_close(struct table *, void *);
-int map_config_parser(struct table *, const char *);
-void *map_lookup(objid_t, const char *, enum table_kind);
-int map_compare(objid_t, const char *, enum table_kind,
-    int (*)(const char *, const char *));
-struct table *map_find(objid_t);
-struct table *map_findbyname(const char *);
-struct table *map_create(const char *, const char *, const char *);
-void map_destroy(struct table *);
-void map_add(struct table *, const char *, const char *);
-void map_delete(struct table *, const char *);
-void map_delete_all(struct table *);
-
 
 /* mda.c */
 pid_t mda(void);
@@ -1156,6 +1139,24 @@ struct stat_value *stat_counter(size_t);
 struct stat_value *stat_timestamp(time_t);
 struct stat_value *stat_timeval(struct timeval *);
 struct stat_value *stat_timespec(struct timespec *);
+
+
+/* table.c */
+struct table_backend *map_backend_lookup(const char *);
+void *table_open(struct table *);
+void  table_update(struct table *);
+void  table_close(struct table *, void *);
+int table_config_parser(struct table *, const char *);
+void *table_lookup(objid_t, const char *, enum table_kind);
+int table_compare(objid_t, const char *, enum table_kind,
+    int (*)(const char *, const char *));
+struct table *table_find(objid_t);
+struct table *table_findbyname(const char *);
+struct table *table_create(const char *, const char *, const char *);
+void table_destroy(struct table *);
+void table_add(struct table *, const char *, const char *);
+void table_delete(struct table *, const char *);
+void table_delete_all(struct table *);
 
 
 /* tree.c */

@@ -46,7 +46,7 @@ ruleset_match(const struct envelope *evp)
 	const struct mailaddr *maddr = &evp->dest;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
-	struct table	*map;
+	struct table	*table;
 	struct mapel	*me;
 	int		 v;
 
@@ -72,17 +72,17 @@ ruleset_match(const struct envelope *evp)
 			return r;
 
 		if (r->r_condition.c_type == COND_DOM) {
-			map = map_find(r->r_condition.c_table);
-			if (map == NULL)
-				fatal("failed to lookup map.");
+			table = table_find(r->r_condition.c_table);
+			if (table == NULL)
+				fatal("failed to lookup table.");
 
-			if (! strcmp(map->m_src, "static")) {
-				TAILQ_FOREACH(me, &map->m_contents, me_entry) {
+			if (! strcmp(table->m_src, "static")) {
+				TAILQ_FOREACH(me, &table->m_contents, me_entry) {
 					if (hostname_match(maddr->domain, me->me_key))
 						return r;
 				}
 			}
-			else if (map_lookup(map->m_id, maddr->domain,
+			else if (table_lookup(table->m_id, maddr->domain,
 			    K_VIRTUAL) != NULL) {
 				return (r);
 			} else if (errno) {
@@ -128,7 +128,7 @@ ruleset_cmp_source(const char *s1, const char *s2)
 }
 
 static int
-ruleset_check_source(struct table *map, const struct sockaddr_storage *ss)
+ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 {
 	struct mapel *me;
 
@@ -139,8 +139,8 @@ ruleset_check_source(struct table *map, const struct sockaddr_storage *ss)
 		return 1;
 	}
 
-	if (! strcmp(map->m_src, "static")) {
-		TAILQ_FOREACH(me, &map->m_contents, me_entry) {
+	if (! strcmp(table->m_src, "static")) {
+		TAILQ_FOREACH(me, &table->m_contents, me_entry) {
 			if (ss->ss_family == AF_LOCAL) {
 				if (!strcmp(me->me_key, "local"))
 					return 1;
@@ -151,7 +151,7 @@ ruleset_check_source(struct table *map, const struct sockaddr_storage *ss)
 		}
 	}
 	else {
-		if (map_compare(map->m_id, ss_to_text(ss), K_NETADDR,
+		if (table_compare(table->m_id, ss_to_text(ss), K_NETADDR,
 		    ruleset_cmp_source))
 			return (1);
 		if (errno)

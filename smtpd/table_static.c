@@ -36,40 +36,40 @@
 
 
 /* static backend */
-static int map_static_config(struct table *, const char *);
-static int map_static_update(struct table *, const char *);
-static void *map_static_open(struct table *);
-static void *map_static_lookup(void *, const char *, enum table_kind);
-static int   map_static_compare(void *, const char *, enum table_kind,
+static int table_static_config(struct table *, const char *);
+static int table_static_update(struct table *, const char *);
+static void *table_static_open(struct table *);
+static void *table_static_lookup(void *, const char *, enum table_kind);
+static int   table_static_compare(void *, const char *, enum table_kind,
     int (*)(const char *, const char *));
-static void  map_static_close(void *);
+static void  table_static_close(void *);
 
-static void *map_static_credentials(const char *, char *, size_t);
-static void *map_static_alias(const char *, char *, size_t);
-static void *map_static_virtual(const char *, char *, size_t);
-static void *map_static_netaddr(const char *, char *, size_t);
+static void *table_static_credentials(const char *, char *, size_t);
+static void *table_static_alias(const char *, char *, size_t);
+static void *table_static_virtual(const char *, char *, size_t);
+static void *table_static_netaddr(const char *, char *, size_t);
 
-struct table_backend map_backend_static = {
-	map_static_config,
-	map_static_open,
-	map_static_update,
-	map_static_close,
-	map_static_lookup,
-	map_static_compare
+struct table_backend table_backend_static = {
+	table_static_config,
+	table_static_open,
+	table_static_update,
+	table_static_close,
+	table_static_lookup,
+	table_static_compare
 };
 
 static int
-map_static_config(struct table *map, const char *config)
+table_static_config(struct table *table, const char *config)
 {
 	/* no config ? ok */
 	if (config == NULL)
 		return 1;
 
-	return map_config_parser(map, config); 
+	return table_config_parser(table, config); 
 }
 
 static int
-map_static_update(struct table *map, const char *config)
+table_static_update(struct table *table, const char *config)
 {
 	struct table   *m;
 	char		name[MAX_LINE_SIZE];
@@ -78,47 +78,47 @@ map_static_update(struct table *map, const char *config)
 	if (config == NULL)
 		goto ok;
 
-	m = map_create(map->m_src, NULL, config);
+	m = table_create(table->m_src, NULL, config);
 	if (! m->m_backend->config(m, config))
 		goto err;
 
-	/* update successful, swap map names */
-	strlcpy(name, map->m_name, sizeof name);
-	strlcpy(map->m_name, m->m_name, sizeof map->m_name);
+	/* update successful, swap table names */
+	strlcpy(name, table->m_name, sizeof name);
+	strlcpy(table->m_name, m->m_name, sizeof table->m_name);
 	strlcpy(m->m_name, name, sizeof m->m_name);
 
-	/* swap, map id */
-	map->m_id = map->m_id ^ m->m_id;
-	m->m_id   = map->m_id ^ m->m_id;
-	map->m_id = map->m_id ^ m->m_id;
+	/* swap, table id */
+	table->m_id = table->m_id ^ m->m_id;
+	m->m_id   = table->m_id ^ m->m_id;
+	table->m_id = table->m_id ^ m->m_id;
 
-	/* destroy former map */
-	map_destroy(map);
+	/* destroy former table */
+	table_destroy(table);
 
 ok:
 	log_info("info: Table \"%s\" successfully updated", name);
 	return 1;
 
 err:
-	map_destroy(m);
+	table_destroy(m);
 	log_info("info: Failed to update table \"%s\"", name);
 	return 0;
 }
 
 static void *
-map_static_open(struct table *map)
+table_static_open(struct table *table)
 {
-	return map;
+	return table;
 }
 
 static void
-map_static_close(void *hdl)
+table_static_close(void *hdl)
 {
 	return;
 }
 
 static void *
-map_static_lookup(void *hdl, const char *key, enum table_kind kind)
+table_static_lookup(void *hdl, const char *key, enum table_kind kind)
 {
 	struct table	*m  = hdl;
 	struct mapel	*me = NULL;
@@ -142,19 +142,19 @@ map_static_lookup(void *hdl, const char *key, enum table_kind kind)
 	len = strlen(line);
 	switch (kind) {
 	case K_ALIAS:
-		ret = map_static_alias(key, line, len);
+		ret = table_static_alias(key, line, len);
 		break;
 
 	case K_CREDENTIALS:
-		ret = map_static_credentials(key, line, len);
+		ret = table_static_credentials(key, line, len);
 		break;
 
 	case K_VIRTUAL:
-		ret = map_static_virtual(key, line, len);
+		ret = table_static_virtual(key, line, len);
 		break;
 
 	case K_NETADDR:
-		ret = map_static_netaddr(key, line, len);
+		ret = table_static_netaddr(key, line, len);
 		break;
 
 	default:
@@ -168,7 +168,7 @@ map_static_lookup(void *hdl, const char *key, enum table_kind kind)
 }
 
 static int
-map_static_compare(void *hdl, const char *key, enum table_kind kind,
+table_static_compare(void *hdl, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
 	struct table	*m   = hdl;
@@ -186,9 +186,9 @@ map_static_compare(void *hdl, const char *key, enum table_kind kind,
 }
 
 static void *
-map_static_credentials(const char *key, char *line, size_t len)
+table_static_credentials(const char *key, char *line, size_t len)
 {
-	struct table_credentials *map_credentials = NULL;
+	struct table_credentials *table_credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -207,35 +207,35 @@ map_static_credentials(const char *key, char *line, size_t len)
 		return NULL;
 	*p++ = '\0';
 
-	map_credentials = xcalloc(1, sizeof *map_credentials,
-	    "map_static_credentials");
+	table_credentials = xcalloc(1, sizeof *table_credentials,
+	    "table_static_credentials");
 
-	if (strlcpy(map_credentials->username, line,
-		sizeof(map_credentials->username)) >=
-	    sizeof(map_credentials->username))
+	if (strlcpy(table_credentials->username, line,
+		sizeof(table_credentials->username)) >=
+	    sizeof(table_credentials->username))
 		goto err;
 
-	if (strlcpy(map_credentials->password, p,
-		sizeof(map_credentials->password)) >=
-	    sizeof(map_credentials->password))
+	if (strlcpy(table_credentials->password, p,
+		sizeof(table_credentials->password)) >=
+	    sizeof(table_credentials->password))
 		goto err;
 
-	return map_credentials;
+	return table_credentials;
 
 err:
-	free(map_credentials);
+	free(table_credentials);
 	return NULL;
 }
 
 static void *
-map_static_alias(const char *key, char *line, size_t len)
+table_static_alias(const char *key, char *line, size_t len)
 {
 	char			*subrcpt;
 	char		   	*endp;
-	struct table_alias	*map_alias = NULL;
+	struct table_alias	*table_alias = NULL;
 	struct expandnode	 xn;
 
-	map_alias = xcalloc(1, sizeof *map_alias, "map_static_alias");
+	table_alias = xcalloc(1, sizeof *table_alias, "table_static_alias");
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -252,31 +252,31 @@ map_static_alias(const char *key, char *line, size_t len)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&map_alias->expand, &xn);
-		map_alias->nbnodes++;
+		expand_insert(&table_alias->expand, &xn);
+		table_alias->nbnodes++;
 	}
 
-	return map_alias;
+	return table_alias;
 
 error:
-	expand_free(&map_alias->expand);
-	free(map_alias);
+	expand_free(&table_alias->expand);
+	free(table_alias);
 	return NULL;
 }
 
 static void *
-map_static_virtual(const char *key, char *line, size_t len)
+table_static_virtual(const char *key, char *line, size_t len)
 {
 	char			*subrcpt;
 	char		   	*endp;
-	struct table_virtual	*map_virtual = NULL;
+	struct table_virtual	*table_virtual = NULL;
 	struct expandnode	 xn;
 
-	map_virtual = xcalloc(1, sizeof *map_virtual, "map_static_virtual");
+	table_virtual = xcalloc(1, sizeof *table_virtual, "table_static_virtual");
 
 	/* domain key, discard value */
 	if (strchr(key, '@') == NULL)
-		return map_virtual;
+		return table_virtual;
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -293,32 +293,32 @@ map_static_virtual(const char *key, char *line, size_t len)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&map_virtual->expand, &xn);
-		map_virtual->nbnodes++;
+		expand_insert(&table_virtual->expand, &xn);
+		table_virtual->nbnodes++;
 	}
 
-	return map_virtual;
+	return table_virtual;
 
 error:
-	expand_free(&map_virtual->expand);
-	free(map_virtual);
+	expand_free(&table_virtual->expand);
+	free(table_virtual);
 	return NULL;
 }
 
 
 static void *
-map_static_netaddr(const char *key, char *line, size_t len)
+table_static_netaddr(const char *key, char *line, size_t len)
 {
-	struct table_netaddr	*map_netaddr = NULL;
+	struct table_netaddr	*table_netaddr = NULL;
 
-	map_netaddr = xcalloc(1, sizeof *map_netaddr, "map_static_netaddr");
+	table_netaddr = xcalloc(1, sizeof *table_netaddr, "table_static_netaddr");
 
-	if (! text_to_netaddr(&map_netaddr->netaddr, line))
+	if (! text_to_netaddr(&table_netaddr->netaddr, line))
 	    goto error;
 
-	return map_netaddr;
+	return table_netaddr;
 
 error:
-	free(map_netaddr);
+	free(table_netaddr);
 	return NULL;
 }

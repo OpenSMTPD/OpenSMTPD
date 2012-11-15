@@ -34,25 +34,25 @@
 #include "smtpd.h"
 #include "log.h"
 
-struct table_backend *map_backend_lookup(const char *);
+struct table_backend *table_backend_lookup(const char *);
 
-extern struct table_backend map_backend_static;
-extern struct table_backend map_backend_db;
+extern struct table_backend table_backend_static;
+extern struct table_backend table_backend_db;
 
-static objid_t	last_map_id = 0;
+static objid_t	last_table_id = 0;
 
 struct table_backend *
-map_backend_lookup(const char *source)
+table_backend_lookup(const char *backend)
 {
-	if (!strcmp(source, "static") || !strcmp(source, "file"))
-		return &map_backend_static;
-	if (!strcmp(source, "db"))
-		return &map_backend_db;
+	if (!strcmp(backend, "static") || !strcmp(backend, "file"))
+		return &table_backend_static;
+	if (!strcmp(backend, "db"))
+		return &table_backend_db;
 	return NULL;
 }
 
 struct table *
-map_findbyname(const char *name)
+table_findbyname(const char *name)
 {
 	struct table	*m;
 
@@ -64,7 +64,7 @@ map_findbyname(const char *name)
 }
 
 struct table *
-map_find(objid_t id)
+table_find(objid_t id)
 {
 	struct table	*m;
 
@@ -76,23 +76,23 @@ map_find(objid_t id)
 }
 
 void *
-map_lookup(objid_t mapid, const char *key, enum table_kind kind)
+table_lookup(objid_t id, const char *key, enum table_kind kind)
 {
 	void *hdl = NULL;
 	char *ret = NULL;
-	struct table *map;
+	struct table *table;
 	struct table_backend *backend = NULL;
 
-	map = map_find(mapid);
-	if (map == NULL) {
+	table = table_find(id);
+	if (table == NULL) {
 		errno = EINVAL;
 		return NULL;
 	}
 
-	backend = map_backend_lookup(map->m_src);
-	hdl = backend->open(map);
+	backend = table_backend_lookup(table->m_src);
+	hdl = backend->open(table);
 	if (hdl == NULL) {
-		log_warn("warn: map_lookup: can't open %s", map->m_config);
+		log_warn("warn: table_lookup: can't open %s", table->m_config);
 		if (errno == 0)
 			errno = ENOTSUP;
 		return NULL;
@@ -106,24 +106,24 @@ map_lookup(objid_t mapid, const char *key, enum table_kind kind)
 }
 
 int
-map_compare(objid_t mapid, const char *key, enum table_kind kind,
+table_compare(objid_t id, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
 	void *hdl = NULL;
-	struct table *map;
+	struct table *table;
 	struct table_backend *backend = NULL;
 	int ret;
 
-	map = map_find(mapid);
-	if (map == NULL) {
+	table = table_find(id);
+	if (table == NULL) {
 		errno = EINVAL;
 		return 0;
 	}
 
-	backend = map_backend_lookup(map->m_src);
-	hdl = backend->open(map);
+	backend = table_backend_lookup(table->m_src);
+	hdl = backend->open(table);
 	if (hdl == NULL) {
-		log_warn("warn: map_compare: can't open %s", map->m_config);
+		log_warn("warn: table_compare: can't open %s", table->m_config);
 		if (errno == 0)
 			errno = ENOTSUP;
 		return 0;
@@ -137,43 +137,43 @@ map_compare(objid_t mapid, const char *key, enum table_kind kind,
 }
 
 struct table *
-map_create(const char *source, const char *name, const char *config)
+table_create(const char *backend, const char *name, const char *config)
 {
 	struct table		*m;
 	struct table_backend	*mb;
 	size_t		 n;
 
-	if (name && map_findbyname(name))
-		errx(1, "map_create: map \"%s\" already defined", name);
+	if (name && table_findbyname(name))
+		errx(1, "table_create: table \"%s\" already defined", name);
 
-	if ((mb = map_backend_lookup(source)) == NULL)
-		errx(1, "map_create: backend \"%s\" does not exist", source);
+	if ((mb = table_backend_lookup(backend)) == NULL)
+		errx(1, "table_create: backend \"%s\" does not exist", backend);
 
-	m = xcalloc(1, sizeof(*m), "map_create");
+	m = xcalloc(1, sizeof(*m), "table_create");
 	m->m_backend = mb;
 
-	if (strlcpy(m->m_src, source, sizeof m->m_src) >= sizeof m->m_src)
-		errx(1, "map_create: map source \"%s\" too large", m->m_src);
+	if (strlcpy(m->m_src, backend, sizeof m->m_src) >= sizeof m->m_src)
+		errx(1, "table_create: table backend \"%s\" too large", m->m_src);
 
 	if (config && *config) {
 		if (strlcpy(m->m_config, config, sizeof m->m_config)
 		    >= sizeof m->m_config)
-			errx(1, "map_create: map config \"%s\" too large", m->m_config);
+			errx(1, "table_create: table config \"%s\" too large", m->m_config);
 	}
 
 	if (strcmp(m->m_src, "static") != 0)
 		m->m_type = T_DYNAMIC;
 
-	m->m_id = ++last_map_id;
+	m->m_id = ++last_table_id;
 	if (m->m_id == INT_MAX)
-		errx(1, "map_create: too many maps defined");
+		errx(1, "table_create: too many tables defined");
 
 	if (name == NULL)
 		snprintf(m->m_name, sizeof(m->m_name), "<dynamic:%u>", m->m_id);
 	else {
 		n = strlcpy(m->m_name, name, sizeof(m->m_name));
 		if (n >= sizeof(m->m_name))
-			errx(1, "map_create: map name too long");
+			errx(1, "table_create: table name too long");
 	}
 
 	TAILQ_INIT(&m->m_contents);
@@ -183,12 +183,12 @@ map_create(const char *source, const char *name, const char *config)
 }
 
 void
-map_destroy(struct table *m)
+table_destroy(struct table *m)
 {
 	struct mapel	*me;
 
 	if (strcmp(m->m_src, "static") != 0)
-		errx(1, "map_add: cannot delete all from map");
+		errx(1, "table_add: cannot delete all from table");
 
 	while ((me = TAILQ_FIRST(&m->m_contents))) {
 		TAILQ_REMOVE(&m->m_contents, me, me_entry);
@@ -200,31 +200,31 @@ map_destroy(struct table *m)
 }
 
 void
-map_add(struct table *m, const char *key, const char *val)
+table_add(struct table *m, const char *key, const char *val)
 {
 	struct mapel	*me;
 	size_t		 n;
 
 	if (strcmp(m->m_src, "static") != 0)
-		errx(1, "map_add: cannot add to map");
+		errx(1, "table_add: cannot add to table");
 
-	me = xcalloc(1, sizeof(*me), "map_add");
+	me = xcalloc(1, sizeof(*me), "table_add");
 	n = strlcpy(me->me_key, key, sizeof(me->me_key));
 	if (n >= sizeof(me->me_key))
-		errx(1, "map_add: key too long");
+		errx(1, "table_add: key too long");
 
 	if (val) {
 		n = strlcpy(me->me_val, val,
 		    sizeof(me->me_val));
 		if (n >= sizeof(me->me_val))
-			errx(1, "map_add: value too long");
+			errx(1, "table_add: value too long");
 	}
 
 	TAILQ_INSERT_TAIL(&m->m_contents, me, me_entry);
 }
 
 void
-map_delete(struct table *m, const char *key)
+table_delete(struct table *m, const char *key)
 {
 	struct mapel	*me;
 	
@@ -242,37 +242,37 @@ map_delete(struct table *m, const char *key)
 }
 
 void *
-map_open(struct table *m)
+table_open(struct table *m)
 {
 	struct table_backend *backend = NULL;
 
-	backend = map_backend_lookup(m->m_src);
+	backend = table_backend_lookup(m->m_src);
 	if (backend == NULL)
 		return NULL;
 	return backend->open(m);
 }
 
 void
-map_close(struct table *m, void *hdl)
+table_close(struct table *m, void *hdl)
 {
 	struct table_backend *backend = NULL;
 
-	backend = map_backend_lookup(m->m_src);
+	backend = table_backend_lookup(m->m_src);
 	backend->close(hdl);
 }
 
 
 void
-map_update(struct table *m)
+table_update(struct table *m)
 {
 	struct table_backend *backend = NULL;
 
-	backend = map_backend_lookup(m->m_src);
+	backend = table_backend_lookup(m->m_src);
 	backend->update(m, m->m_config[0] ? m->m_config : NULL);
 }
 
 int
-map_config_parser(struct table *m, const char *config)
+table_config_parser(struct table *m, const char *config)
 {
 	FILE	*fp;
 	char *buf, *lbuf;
@@ -282,7 +282,7 @@ map_config_parser(struct table *m, const char *config)
 	size_t	ret = 0;
 
 	if (strcmp("static", m->m_src) != 0) {
-		log_warn("map_config_parser: configuration map must be static");
+		log_warn("table_config_parser: configuration table must be static");
 		return 0;
 	}
 
@@ -295,7 +295,7 @@ map_config_parser(struct table *m, const char *config)
 		if (buf[flen - 1] == '\n')
 			buf[flen - 1] = '\0';
 		else {
-			lbuf = xmalloc(flen + 1, "map_stdio_get_entry");
+			lbuf = xmalloc(flen + 1, "table_stdio_get_entry");
 			memcpy(lbuf, buf, flen);
 			lbuf[flen] = '\0';
 			buf = lbuf;
@@ -320,9 +320,9 @@ map_config_parser(struct table *m, const char *config)
 			m->m_type = (valp == keyp) ? T_LIST : T_HASH;
 
 		if ((valp == keyp || valp == NULL) && m->m_type == T_LIST)
-			map_add(m, keyp, NULL);
+			table_add(m, keyp, NULL);
 		else if ((valp != keyp && valp != NULL) && m->m_type == T_HASH)
-			map_add(m, keyp, valp);
+			table_add(m, keyp, valp);
 		else
 			goto end;
 	}

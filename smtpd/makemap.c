@@ -422,18 +422,18 @@ error:
 char *
 conf_aliases(char *cfgpath)
 {
-	struct table	*map;
+	struct table	*table;
 	char		*path;
 	char		*p;
 
 	if (parse_config(env, cfgpath, 0))
 		exit(1);
 
-	map = map_findbyname("aliases");
-	if (map == NULL)
+	table = table_findbyname("aliases");
+	if (table == NULL)
 		return (PATH_ALIASES);
 
-	path = xstrdup(map->m_config, "conf_aliases");
+	path = xstrdup(table->m_config, "conf_aliases");
 	p = strstr(path, ".db");
 	if (p == NULL || strcmp(p, ".db") != 0) {
 		return (path);

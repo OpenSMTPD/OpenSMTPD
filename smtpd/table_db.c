@@ -37,51 +37,51 @@
 
 
 /* db(3) backend */
-static int map_db_config(struct table *, const char *);
-static int map_db_update(struct table *, const char *);
-static void *map_db_open(struct table *);
-static void *map_db_lookup(void *, const char *, enum table_kind);
-static int   map_db_compare(void *, const char *, enum table_kind,
+static int table_db_config(struct table *, const char *);
+static int table_db_update(struct table *, const char *);
+static void *table_db_open(struct table *);
+static void *table_db_lookup(void *, const char *, enum table_kind);
+static int   table_db_compare(void *, const char *, enum table_kind,
     int (*)(const char *, const char *));
-static void  map_db_close(void *);
+static void  table_db_close(void *);
 
-static char *map_db_get_entry(void *, const char *, size_t *);
-static void *map_db_credentials(const char *, char *, size_t);
-static void *map_db_alias(const char *, char *, size_t);
-static void *map_db_virtual(const char *, char *, size_t);
-static void *map_db_netaddr(const char *, char *, size_t);
+static char *table_db_get_entry(void *, const char *, size_t *);
+static void *table_db_credentials(const char *, char *, size_t);
+static void *table_db_alias(const char *, char *, size_t);
+static void *table_db_virtual(const char *, char *, size_t);
+static void *table_db_netaddr(const char *, char *, size_t);
 
 
-struct table_backend map_backend_db = {
-	map_db_config,
-	map_db_open,
-	map_db_update,
-	map_db_close,
-	map_db_lookup,
-	map_db_compare
+struct table_backend table_backend_db = {
+	table_db_config,
+	table_db_open,
+	table_db_update,
+	table_db_close,
+	table_db_lookup,
+	table_db_compare
 };
 
 
 static int
-map_db_config(struct table *map, const char *config)
+table_db_config(struct table *table, const char *config)
 {
 	return 1;
 }
 
 static int
-map_db_update(struct table *map, const char *config)
+table_db_update(struct table *table, const char *config)
 {
 	return 1;
 }
 
 static void *
-map_db_open(struct table *map)
+table_db_open(struct table *table)
 {
-	return dbopen(map->m_config, O_RDONLY, 0600, DB_HASH, NULL);
+	return dbopen(table->m_config, O_RDONLY, 0600, DB_HASH, NULL);
 }
 
 static void
-map_db_close(void *hdl)
+table_db_close(void *hdl)
 {
 	DB *db = hdl;
 
@@ -89,32 +89,32 @@ map_db_close(void *hdl)
 }
 
 static void *
-map_db_lookup(void *hdl, const char *key, enum table_kind kind)
+table_db_lookup(void *hdl, const char *key, enum table_kind kind)
 {
 	char *line;
 	size_t len;
 	void *ret;
 
-	line = map_db_get_entry(hdl, key, &len);
+	line = table_db_get_entry(hdl, key, &len);
 	if (line == NULL)
 		return NULL;
 
 	ret = 0;
 	switch (kind) {
 	case K_ALIAS:
-		ret = map_db_alias(key, line, len);
+		ret = table_db_alias(key, line, len);
 		break;
 
 	case K_CREDENTIALS:
-		ret = map_db_credentials(key, line, len);
+		ret = table_db_credentials(key, line, len);
 		break;
 
 	case K_VIRTUAL:
-		ret = map_db_virtual(key, line, len);
+		ret = table_db_virtual(key, line, len);
 		break;
 
 	case K_NETADDR:
-		ret = map_db_netaddr(key, line, len);
+		ret = table_db_netaddr(key, line, len);
 		break;
 
 	default:
@@ -127,7 +127,7 @@ map_db_lookup(void *hdl, const char *key, enum table_kind kind)
 }
 
 static int
-map_db_compare(void *hdl, const char *key, enum table_kind kind,
+table_db_compare(void *hdl, const char *key, enum table_kind kind,
     int (*func)(const char *, const char *))
 {
 	int ret = 0;
@@ -139,7 +139,7 @@ map_db_compare(void *hdl, const char *key, enum table_kind kind,
 
 	for (r = db->seq(db, &dbk, &dbd, R_FIRST); !r;
 	     r = db->seq(db, &dbk, &dbd, R_NEXT)) {
-		buf = xmemdup(dbk.data, dbk.size + 1, "map_db_compare");
+		buf = xmemdup(dbk.data, dbk.size + 1, "table_db_compare");
 		log_debug("debug: key: %s, buf: %s", key, buf);
 		if (func(key, buf))
 			ret = 1;
@@ -151,7 +151,7 @@ map_db_compare(void *hdl, const char *key, enum table_kind kind,
 }
 
 static char *
-map_db_get_entry(void *hdl, const char *key, size_t *len)
+table_db_get_entry(void *hdl, const char *key, size_t *len)
 {
 	int ret;
 	DBT dbk;
@@ -161,7 +161,7 @@ map_db_get_entry(void *hdl, const char *key, size_t *len)
 
 	/* workaround the stupidity of the DB interface */
 	if (strlcpy(pkey, key, sizeof pkey) >= sizeof pkey)
-		errx(1, "map_db_get_entry: key too long");
+		errx(1, "table_db_get_entry: key too long");
 	dbk.data = pkey;
 	dbk.size = strlen(pkey) + 1;
 
@@ -170,13 +170,13 @@ map_db_get_entry(void *hdl, const char *key, size_t *len)
 
 	*len = dbv.size;
 
-	return xmemdup(dbv.data, dbv.size, "map_db_get_entry");
+	return xmemdup(dbv.data, dbv.size, "table_db_get_entry");
 }
 
 static void *
-map_db_credentials(const char *key, char *line, size_t len)
+table_db_credentials(const char *key, char *line, size_t len)
 {
-	struct table_credentials *map_credentials = NULL;
+	struct table_credentials *table_credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -195,35 +195,35 @@ map_db_credentials(const char *key, char *line, size_t len)
 		return NULL;
 	*p++ = '\0';
 
-	map_credentials = xcalloc(1, sizeof *map_credentials,
-	    "map_db_credentials");
+	table_credentials = xcalloc(1, sizeof *table_credentials,
+	    "table_db_credentials");
 
-	if (strlcpy(map_credentials->username, line,
-		sizeof(map_credentials->username)) >=
-	    sizeof(map_credentials->username))
+	if (strlcpy(table_credentials->username, line,
+		sizeof(table_credentials->username)) >=
+	    sizeof(table_credentials->username))
 		goto err;
 
-	if (strlcpy(map_credentials->password, p,
-		sizeof(map_credentials->password)) >=
-	    sizeof(map_credentials->password))
+	if (strlcpy(table_credentials->password, p,
+		sizeof(table_credentials->password)) >=
+	    sizeof(table_credentials->password))
 		goto err;
 
-	return map_credentials;
+	return table_credentials;
 
 err:
-	free(map_credentials);
+	free(table_credentials);
 	return NULL;
 }
 
 static void *
-map_db_alias(const char *key, char *line, size_t len)
+table_db_alias(const char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
-	struct table_alias	*map_alias = NULL;
+	struct table_alias	*table_alias = NULL;
 	struct expandnode	 xn;
 
-	map_alias = xcalloc(1, sizeof *map_alias, "map_db_alias");
+	table_alias = xcalloc(1, sizeof *table_alias, "table_db_alias");
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -240,31 +240,31 @@ map_db_alias(const char *key, char *line, size_t len)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&map_alias->expand, &xn);
-		map_alias->nbnodes++;
+		expand_insert(&table_alias->expand, &xn);
+		table_alias->nbnodes++;
 	}
 
-	return map_alias;
+	return table_alias;
 
 error:
-	expand_free(&map_alias->expand);
-	free(map_alias);
+	expand_free(&table_alias->expand);
+	free(table_alias);
 	return NULL;
 }
 
 static void *
-map_db_virtual(const char *key, char *line, size_t len)
+table_db_virtual(const char *key, char *line, size_t len)
 {
 	char	       	*subrcpt;
 	char	       	*endp;
-	struct table_virtual	*map_virtual = NULL;
+	struct table_virtual	*table_virtual = NULL;
 	struct expandnode	 xn;
 
-	map_virtual = xcalloc(1, sizeof *map_virtual, "map_db_virtual");
+	table_virtual = xcalloc(1, sizeof *table_virtual, "table_db_virtual");
 
 	/* domain key, discard value */
 	if (strchr(key, '@') == NULL)
-		return map_virtual;
+		return table_virtual;
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -281,32 +281,32 @@ map_db_virtual(const char *key, char *line, size_t len)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&map_virtual->expand, &xn);
-		map_virtual->nbnodes++;
+		expand_insert(&table_virtual->expand, &xn);
+		table_virtual->nbnodes++;
 	}
 
-	return map_virtual;
+	return table_virtual;
 
 error:
-	expand_free(&map_virtual->expand);
-	free(map_virtual);
+	expand_free(&table_virtual->expand);
+	free(table_virtual);
 	return NULL;
 }
 
 
 static void *
-map_db_netaddr(const char *key, char *line, size_t len)
+table_db_netaddr(const char *key, char *line, size_t len)
 {
-	struct table_netaddr	*map_netaddr = NULL;
+	struct table_netaddr	*table_netaddr = NULL;
 
-	map_netaddr = xcalloc(1, sizeof *map_netaddr, "map_db_netaddr");
+	table_netaddr = xcalloc(1, sizeof *table_netaddr, "table_db_netaddr");
 
-	if (! text_to_netaddr(&map_netaddr->netaddr, line))
+	if (! text_to_netaddr(&table_netaddr->netaddr, line))
 	    goto error;
 
-	return map_netaddr;
+	return table_netaddr;
 
 error:
-	free(map_netaddr);
+	free(table_netaddr);
 	return NULL;
 }
