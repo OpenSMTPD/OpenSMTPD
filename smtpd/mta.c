@@ -66,8 +66,9 @@ static int mta_route_cmp(struct mta_route *, struct mta_route *);
 
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-static struct mta_route_tree routes = SPLAY_INITIALIZER(&routes);
-static struct tree batches = SPLAY_INITIALIZER(&batches);
+static struct mta_route_tree routes;
+static struct tree mxlists;
+static struct tree batches;
 
 void
 mta_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -75,8 +76,11 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct mta_route	*route;
 	struct mta_batch2	*batch;
 	struct mta_task		*task;
+	struct mta_mxlist	*mxl;
+	struct mta_mx		*mx;
 	struct envelope		*e;
 	struct ssl		*ssl;
+	struct dns		*dns;
 	uint64_t		 id;
 
 	if (iev->proc == PROC_QUEUE) {
@@ -150,10 +154,36 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET:
-		case IMSG_DNS_HOST:
-		case IMSG_DNS_HOST_END:
 		case IMSG_DNS_PTR:
 			mta_session_imsg(iev, imsg);
+			return;
+
+		case IMSG_DNS_HOST:
+			dns = imsg->data;
+			mxl = tree_xget(&mxlists, dns->id);
+			mx = xcalloc(1, sizeof *mx, "mta: mx");
+			mx->sa = dns->ss;
+			TAILQ_INSERT_TAIL(&mxl->mxs, mx, entry);
+			return;
+
+		case IMSG_DNS_HOST_END:
+			/* LKA responded to DNS lookup. */
+			dns = imsg->data;
+			mxl = tree_xget(&mxlists, dns->id);
+			if (!dns->error)
+				;
+			else if (dns->error == DNS_RETRY)
+				mxl->error = "100 MX lookup failed temporarily";
+			else if (dns->error == DNS_EINVAL)
+				mxl->error = "600 Invalid domain name";
+			else if (dns->error == DNS_ENONAME)
+				mxl->error = "600 Domain does not exist";
+			else if (dns->error == DNS_ENOTFOUND)
+				mxl->error = "600 No MX found for domain";
+			else
+				mxl->error = "100 Weird error";
+			mxl->route->mxlist = mxl;
+			waitq_run(&mxl->route->mxlist, mxl);
 			return;
 		}
 	}
@@ -253,6 +283,10 @@ mta(void)
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mta: cannot drop privileges");
+
+	SPLAY_INIT(&routes);
+	tree_init(&batches);
+	tree_init(&mxlists);
 
 	imsg_callback = mta_imsg;
 	event_init();
@@ -407,6 +441,22 @@ mta_route_to_text(struct mta_route *route)
 	return (buf);
 }
 
+void
+mta_route_query_mx(struct mta_route *route)
+{
+	struct mta_mxlist *mxl;
+
+	mxl = xcalloc(1, sizeof *mxl, "mta: mxlist");
+	TAILQ_INIT(&mxl->mxs);
+	mxl->route = route;
+	tree_xset(&mxlists, route->id, mxl);
+
+	if (route->flags & ROUTE_MX)
+		dns_query_host(route->hostname, route->port, route->id);
+	else
+		dns_query_mx(route->hostname, route->backupname, 0, route->id);
+}
+
 static struct mta_route *
 mta_route_for(struct envelope *e)
 {
@@ -465,6 +515,8 @@ mta_route_for(struct envelope *e)
 static void
 mta_route_free(struct mta_route *route)
 {
+	struct mta_mx	*mx;
+
 	log_trace(TRACE_MTA, "mta: freeing %s", mta_route_to_text(route));
 	SPLAY_REMOVE(mta_route_tree, &routes, route);
 	free(route->hostname);
@@ -472,6 +524,14 @@ mta_route_free(struct mta_route *route)
 		free(route->cert);
 	if (route->auth)
 		free(route->auth);
+
+	if (route->mxlist)
+		while((mx = TAILQ_FIRST(&route->mxlist->mxs))) {
+			TAILQ_REMOVE(&route->mxlist->mxs, mx, entry);
+			free(mx->hostname);
+			free(mx);
+		}
+
 	free(route);
 }
 

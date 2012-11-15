@@ -79,18 +79,6 @@ enum mta_state {
 #define MTA_EXT_AUTH		0x02
 #define MTA_EXT_PIPELINING	0x04
 
-struct mta_mx {
-	TAILQ_ENTRY(mta_mx)	 entry;
-	struct sockaddr_storage	 sa;
-	char			*hostname;
-};
-
-struct mta_mxlist {
-	int			 refcount;
-	const char		*error;
-	TAILQ_HEAD(, mta_mx)	 mxs;
-};
-
 struct mta_session {
 	uint64_t		 id;
 	struct mta_route	*route;
@@ -102,7 +90,6 @@ struct mta_session {
 	int			 msgcount;
 	enum mta_state		 state;
 
-	struct mta_mxlist	*mxlist;
 	struct mta_mx		*mx;
 	int			 mxtried;
 
@@ -169,7 +156,6 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	uint64_t		 id;
 	struct mta_session	*s;
-	struct mta_mx		*mx;
 	struct secret		*secret;
 	struct dns		*dns;
 
@@ -208,34 +194,6 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			mta_enter_state(s, MTA_MX);
 		return;
 
-	case IMSG_DNS_HOST:
-		dns = imsg->data;
-		s = tree_xget(&sessions, dns->id);
-		mx = xcalloc(1, sizeof *mx, "mta: mx");
-		mx->sa = dns->ss;
-		TAILQ_INSERT_TAIL(&s->mxlist->mxs, mx, entry);
-		return;
-
-	case IMSG_DNS_HOST_END:
-		/* LKA responded to DNS lookup. */
-		dns = imsg->data;
-		s = tree_xget(&sessions, dns->id);
-		if (!dns->error)
-			;
-		else if (dns->error == DNS_RETRY)
-			s->mxlist->error = "100 MX lookup failed temporarily";
-		else if (dns->error == DNS_EINVAL)
-			s->mxlist->error = "600 Invalid domain name";
-		else if (dns->error == DNS_ENONAME)
-			s->mxlist->error = "600 Domain does not exist";
-		else if (dns->error == DNS_ENOTFOUND)
-			s->mxlist->error = "600 No MX address found for domain";
-		else
-			s->mxlist->error = "100 Weird error";
-		s->route->mxlist = s->mxlist;
-		waitq_run(&s->route->mxlist, s->mxlist);
-		return;
-
 	case IMSG_DNS_PTR:
 		dns = imsg->data;
 		s = tree_xget(&sessions, dns->id);
@@ -244,7 +202,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		else
 			s->mx->hostname = xstrdup(dns->host, "mta: ptr");
 		waitq_run(&s->mx->hostname, s->mx->hostname);
-		break;
+		return;
 
 	default:
 		errx(1, "mta_session_imsg: unexpected %s imsg",
@@ -277,18 +235,15 @@ static void
 mta_on_mxlist(void *tag, void *arg, void *data)
 {
 	struct mta_session	*s = arg;
-	struct mta_mxlist	*mxlist = data;
+	struct mta_mxlist	*mxl = data;
 
-	s->mxlist = mxlist;
-	s->mxlist->refcount += 1;
-
-	if (mxlist->error) {
-		mta_route_error(s->route, mxlist->error);
+	if (mxl->error) {
+		mta_route_error(s->route, mxl->error);
 		mta_enter_state(s, MTA_DONE);
 		return;
 	}
 
-	s->mx = TAILQ_FIRST(&s->mxlist->mxs);
+	s->mx = TAILQ_FIRST(&s->route->mxlist->mxs);
 	mta_enter_state(s, MTA_CONNECT);
 }
 
@@ -298,7 +253,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 	int			 oldstate;
 	struct secret		 secret;
 	struct mta_route	*route;
-	struct mta_mx		*mx;
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
 	int			 max_reuse;
@@ -349,22 +303,10 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/*
 		 * Lookup MX record.
 		 */
-		if (s->route->mxlist) {
+		if (s->route->mxlist)
 			mta_on_mxlist(NULL, s, s->route->mxlist);
-			break;
-		}
-
-		if (waitq_wait(&s->route->mxlist, mta_on_mxlist, s) == 0)
-			break;
-
-		s->mxlist = xcalloc(1, sizeof *s->mxlist, "mta: mxlist");
-		TAILQ_INIT(&s->mxlist->mxs);
-		if (s->route->flags & ROUTE_MX)
-			dns_query_host(s->route->hostname, s->route->port,
-			    s->id);
-		else
-			dns_query_mx(s->route->hostname, s->route->backupname, 0,
-			    s->id);
+		else if (waitq_wait(&s->route->mxlist, mta_on_mxlist, s))
+			mta_route_query_mx(s->route);
 		break;
 
 	case MTA_CONNECT:
@@ -441,16 +383,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 		s->datafp = NULL;
 		route = s->route;
 		tree_xpop(&sessions, s->id);
-
-		if (s->mxlist && --s->mxlist->refcount == 0) {
-			log_debug("mta: %p: freeing mxlist at %p",s, s->mxlist);
-			while((mx = TAILQ_FIRST(&s->mxlist->mxs))) {
-				TAILQ_REMOVE(&s->mxlist->mxs, mx, entry);
-				free(mx->hostname);
-				free(mx);
-			}
-			route->mxlist = NULL;
-		}
 
 		free(s);
 		stat_decrement("mta.session", 1);

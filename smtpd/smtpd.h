@@ -722,7 +722,19 @@ struct mfa_session {
 };
 
 struct mta_session;
-struct mta_mxlist;
+struct mta_route;
+
+struct mta_mx {
+	TAILQ_ENTRY(mta_mx)	 entry;
+	struct sockaddr_storage	 sa;
+	char			*hostname;
+};
+
+struct mta_mxlist {
+	struct mta_route	*route;
+	const char		*error;
+	TAILQ_HEAD(, mta_mx)	 mxs;
+};
 
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
@@ -1050,6 +1062,7 @@ const char *mta_response_text(const char *);
 void mta_route_ok(struct mta_route *);
 void mta_route_error(struct mta_route *, const char *);
 void mta_route_collect(struct mta_route *);
+void mta_route_query_mx(struct mta_route *);
 const char *mta_route_to_text(struct mta_route *);
 
 /* mta_session.c */
