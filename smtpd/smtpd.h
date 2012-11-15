@@ -1142,7 +1142,6 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
-struct table_backend *map_backend_lookup(const char *);
 void *table_open(struct table *);
 void  table_update(struct table *);
 void  table_close(struct table *, void *);
