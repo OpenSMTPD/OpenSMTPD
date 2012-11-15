@@ -36,7 +36,7 @@
 
 #define MAX_TAG_SIZE		 32
 
-#define	MAX_MAPSOURCE_SIZE	 32
+#define	MAX_TABLE_BACKEND_SIZE	 32
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
@@ -283,7 +283,7 @@ struct map {
 	char				 m_name[MAX_LINE_SIZE];
 	objid_t				 m_id;
 	enum table_type			 m_type;
-	char				 m_src[MAX_MAPSOURCE_SIZE];
+	char				 m_src[MAX_TABLE_BACKEND_SIZE];
 	char				 m_config[MAXPATHLEN];
 	TAILQ_HEAD(mapel_list, mapel)	 m_contents;
 	void				*m_handle;
