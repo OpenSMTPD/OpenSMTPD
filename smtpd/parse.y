@@ -741,8 +741,8 @@ action		: DELIVER TO MAILDIR			{
 					YYERROR;
 				}
 				m = map_find($5);
-				strlcpy(rule->r_value.relayhost.authmap, m->m_name,
-				    sizeof(rule->r_value.relayhost.authmap));
+				strlcpy(rule->r_value.relayhost.authtable, m->m_name,
+				    sizeof(rule->r_value.relayhost.authtable));
 			}
 
 			if ($4 != NULL) {

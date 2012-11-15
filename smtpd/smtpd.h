@@ -128,7 +128,7 @@ struct relayhost {
 	char hostname[MAXHOSTNAMELEN];
 	uint16_t port;
 	char cert[PATH_MAX];
-	char authmap[MAX_PATH_SIZE];
+	char authtable[MAX_PATH_SIZE];
 };
 
 enum imsg_type {
@@ -478,7 +478,8 @@ enum envelope_field {
 	EVP_MTA_RELAY_PORT,
 	EVP_MTA_RELAY_FLAGS,
 	EVP_MTA_RELAY_CERT,
-	EVP_MTA_RELAY_AUTHMAP
+	EVP_MTA_RELAY_AUTHMAP,
+	EVP_MTA_RELAY_AUTHTABLE
 };
 
 
