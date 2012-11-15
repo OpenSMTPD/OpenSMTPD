@@ -79,7 +79,7 @@ snapshot()
     REMOTEDIR=/var/www/virtual/org.opensmtpd/archives/
 
     TARBALL=`build_tarball ${1}`
-    SNAPSHOT=opensmtpd-`date +%Y%m%d%H%M%S`
+    SNAPSHOT=opensmtpd-`date +%Y%m%d%H%M`
     if test "${1}" = "portable"; then
 	SNAPSHOT=${SNAPSHOT}p1
     fi
