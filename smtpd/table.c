@@ -22,6 +22,8 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <netinet/in.h>
+
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
