@@ -257,10 +257,11 @@ enum table_type {
 enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,
-	K_VIRTUAL	= 0x02,
-	K_CREDENTIALS	= 0x04,
-	K_NETADDR	= 0x08,
-	K_USERINFO	= 0x10,
+	K_DOMAIN	= 0x02,
+	K_VIRTUAL	= 0x04,
+	K_CREDENTIALS	= 0x08,
+	K_NETADDR	= 0x10,
+	K_USERINFO	= 0x20,
 };
 
 enum table_strategy {
@@ -777,6 +778,11 @@ struct table_virtual {
 struct table_netaddr {
 	struct netaddr		netaddr;
 };
+
+struct table_domain {
+	char			name[MAXHOSTNAMELEN];
+};
+
 
 /* XXX - must be == to struct userinfo ! */
 struct table_userinfo {

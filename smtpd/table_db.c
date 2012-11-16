@@ -50,10 +50,11 @@ static char *table_db_get_entry_match(void *, const char *, size_t *,
 static int table_db_credentials(const char *, char *, size_t, void **);
 static int table_db_alias(const char *, char *, size_t, void **);
 static int table_db_virtual(const char *, char *, size_t, void **);
+static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -125,6 +126,10 @@ table_db_lookup(void *hdl, const char *key, enum table_service service, void **r
 
 	case K_CREDENTIALS:
 		ret = table_db_credentials(key, line, len, retp);
+		break;
+
+	case K_DOMAIN:
+		ret = table_db_domain(key, line, len, retp);
 		break;
 
 	case K_VIRTUAL:
@@ -331,6 +336,26 @@ table_db_netaddr(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(table_netaddr);
+	return 0;
+}
+
+static int
+table_db_domain(const char *key, char *line, size_t len, void **retp)
+{
+	struct table_domain	*domain = NULL;
+
+	domain = xcalloc(1, sizeof *domain, "table_db_domain");
+
+	if (strlcpy(domain->name, line, sizeof domain->name)
+	    >= sizeof domain->name)
+		goto error;
+
+	*retp = domain;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(domain);
 	return 0;
 }
 
