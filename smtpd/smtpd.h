@@ -262,7 +262,6 @@ enum table_service {
 	K_CREDENTIALS	= 0x08,
 	K_NETADDR	= 0x10,
 	K_USERINFO	= 0x20,
-	K_RELAYHOST	= 0x40,
 };
 
 enum table_strategy {
@@ -782,10 +781,6 @@ struct table_netaddr {
 
 struct table_domain {
 	char			name[MAXHOSTNAMELEN];
-};
-
-struct table_relayhost {
-	struct relayhost	relay;
 };
 
 
