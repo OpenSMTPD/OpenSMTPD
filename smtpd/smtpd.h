@@ -1189,7 +1189,7 @@ void *table_open(struct table *);
 void  table_update(struct table *);
 void  table_close(struct table *, void *);
 int table_config_parser(struct table *, const char *);
-int table_lookup(objid_t, const char *, enum table_service, void **);
+int table_lookup(struct table *, const char *, enum table_service, void **);
 int table_compare(objid_t, const char *, enum table_service,
     int(*)(const char *, const char *));
 struct table *table_find(objid_t);

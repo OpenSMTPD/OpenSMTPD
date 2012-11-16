@@ -87,7 +87,7 @@ ruleset_match(const struct envelope *evp)
 						return r;
 				}
 			}
-			else if (table_lookup(table->t_id, maddr->domain,
+			else if (table_lookup(table, maddr->domain,
 				K_VIRTUAL, NULL) > 0) {
 				return (r);
 			} else if (errno) {
