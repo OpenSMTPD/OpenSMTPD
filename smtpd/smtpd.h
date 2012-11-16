@@ -992,6 +992,24 @@ pid_t control(void);
 struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
+/* dict.c */
+SPLAY_HEAD(dict, dictentry);
+#define dict_init(d) SPLAY_INIT((d))
+#define dict_empty(d) SPLAY_EMPTY((d))
+int dict_check(struct dict *, const char *);
+void *dict_set(struct dict *, const char *, void *);
+void dict_xset(struct dict *, const char *, void *);
+void *dict_get(struct dict *, const char *);
+void *dict_xget(struct dict *, const char *);
+void *dict_pop(struct dict *, const char *);
+void *dict_xpop(struct dict *, const char *);
+int dict_poproot(struct dict *, const char * *, void **);
+int dict_root(struct dict *, const char * *, void **);
+int dict_iter(struct dict *, void **, const char * *, void **);
+int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
+void dict_merge(struct dict *, struct dict *);
+
+
 /* dns.c */
 void dns_query_host(char *, int, uint64_t);
 void dns_query_mx(char *, char *, int, uint64_t);
