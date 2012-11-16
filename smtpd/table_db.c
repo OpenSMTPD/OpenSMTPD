@@ -52,9 +52,10 @@ static int table_db_alias(const char *, char *, size_t, void **);
 static int table_db_virtual(const char *, char *, size_t, void **);
 static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
+static int table_db_relayhost(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR|K_RELAYHOST,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -145,6 +146,10 @@ table_db_lookup(void *hdl, const char *key, enum table_service service, void **r
 
 	case K_NETADDR:
 		ret = table_db_netaddr(key, line, len, retp);
+		break;
+
+	case K_RELAYHOST:
+		ret = table_db_relayhost(key, line, len, retp);
 		break;
 
 	default:
@@ -366,3 +371,21 @@ error:
 	return 0;
 }
 
+static int
+table_db_relayhost(const char *key, char *line, size_t len, void **retp)
+{
+	struct table_relayhost	*table_relayhost = NULL;
+
+	table_relayhost = xcalloc(1, sizeof *table_relayhost, "table_db_relayhost");
+	
+	if (! text_to_relayhost(&table_relayhost->relay, line))
+		goto error;
+
+	*retp = table_relayhost;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(table_relayhost);
+	return 0;
+}
