@@ -447,7 +447,14 @@ table		: TABLE STRING STRING	{
 				YYERROR;
 			}
 			table = table_create(backend, $2, config);
-			table->t_backend->config(table, config);
+			if (! table->t_backend->config(table, config)) {
+				yyerror("backend configuration failure for table %s",
+				    table->t_name);
+				free($2);
+				free($3);
+				YYERROR;
+			}
+
 			free($2);
 			free($3);
 		}

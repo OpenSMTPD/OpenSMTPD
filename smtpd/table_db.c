@@ -72,6 +72,13 @@ static struct keycmp {
 static int
 table_db_config(struct table *table, const char *config)
 {
+	DB	*db;
+
+	db = table_db_open(table);
+	if (db == NULL)
+		return 0;
+
+	table_db_close(db);
 	return 1;
 }
 
