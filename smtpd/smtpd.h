@@ -1069,7 +1069,7 @@ void mta_route_error(struct mta_route *, struct mta_mx *, const char *);
 void mta_route_collect(struct mta_route *);
 struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
 const char *mta_route_to_text(struct mta_route *);
-
+const char *mta_mx_to_text(struct mta_mx *);
 
 /* mta_session.c */
 void mta_session(struct mta_route *);

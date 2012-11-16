@@ -301,7 +301,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 			else
 				portno = 25;
 			sa_set_port(sa, portno);
-			log_debug("mta: %p: connecting to %s port %i (mx preference %i)...", s,
+			log_debug("debug: mta: %p: "
+			    "connecting to %s port %i (mx preference %i)...", s,
 			    ss_to_text(&ss), portno, s->mx->preference);
 
 			iobuf_xinit(&s->iobuf, 0, 0, "mta_enter_state");
@@ -323,7 +324,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 			return;
 		}
-		mta_route_error(s->route, NULL, "Cannot connect to MX");
+		mta_route_error(s->route, NULL, "No MX could be reached");
 		mta_enter_state(s, MTA_DONE);
 		break;
 
@@ -810,8 +811,8 @@ mta_task_flush(struct mta_task *task, int delivery, const char *error)
 		errx(1, "unexpected delivery status %i", delivery);
 	}
 
-	snprintf(relay, sizeof relay, "relay=%s [%s], ",
-	    task->session->mx->hostname, ss_to_text(&task->session->mx->sa));
+	snprintf(relay, sizeof relay, "relay=%s, ",
+	    mta_mx_to_text(task->session->mx));
 
 	n = 0;
 	while ((e = TAILQ_FIRST(&task->envelopes))) {
@@ -842,8 +843,7 @@ mta_envelope_fail(struct envelope *evp, struct mta_mx *mx, int delivery)
 	else
 		pfx = "PermFail";
 
-	snprintf(relay, sizeof relay, "relay=%s [%s], ",
-	    mx->hostname, ss_to_text(&mx->sa));
+	snprintf(relay, sizeof relay, "relay=%s, ", mta_mx_to_text(mx));
 	snprintf(stat, sizeof stat, "RemoteError (%s)", &evp->errorline[4]);
 	log_envelope(evp, relay, pfx, stat);
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE], delivery, 0, 0, -1,

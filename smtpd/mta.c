@@ -350,26 +350,40 @@ mta(void)
 	return (0);
 }
 
+const char *
+mta_mx_to_text(struct mta_mx *mx)
+{
+	static char buf[1024];
+
+	if (mx->hostname)
+		snprintf(buf, sizeof buf, "%s [%s]", mx->hostname,
+			ss_to_text(&mx->sa));
+	else
+		snprintf(buf, sizeof buf, "[%s]", ss_to_text(&mx->sa));
+
+	return (buf);
+}
+
 void
 mta_route_error(struct mta_route *route, struct mta_mx *mx, const char *e)
 {
 	if (mx) {
+		log_info("smtp-out: Error on MX %s: %s", mta_mx_to_text(mx), e);
 		if (mx->error++ == MX_MAXERROR)
-			log_info("smtp-out: Too many errors on MX %s [%s]",
-			    mx->hostname, ss_to_text(&mx->sa));
+			log_warnx("warn: Too many errors on MX %s: ignoring",
+			    mta_mx_to_text(mx));
 		return;
 	}
 
 	route->nfail += 1;
 	strlcpy(route->errorline, e, sizeof route->errorline);
-	log_warnx("warn: Error on route %s: %s", mta_route_to_text(route), e);
 }
 
 void
 mta_route_ok(struct mta_route *route, struct mta_mx *mx)
 {
-	log_debug("debug: mta: %s ready on MX %s [%s]",
-	    mta_route_to_text(route), mx->hostname, ss_to_text(&mx->sa));
+	log_debug("debug: mta: %s ready on MX %s", mta_route_to_text(route),
+	    mta_mx_to_text(mx));
 	route->nfail = 0;
 }
 
@@ -386,6 +400,10 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 {
 	struct mta_mx	*mx, *best;
 	int		 p = -1;
+	union {
+		uint64_t v;
+		void	*p;
+	} u;
 
 	while((p = mta_route_next_preference(route->mxlist, p)) != -1) {
 		best = NULL;
@@ -403,8 +421,9 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 
 			if (mx->nconn >= MX_MAXCONN)
 				continue;
-
-			if (tree_get(seen, (uint64_t)mx))
+			u.v = 0;
+			u.p = mx;
+			if (tree_get(seen, u.v))
 				continue;
 
 			if (best == NULL || mx->nconn < best->nconn)
@@ -413,7 +432,9 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 
 		if (best) {
 			best->nconn++;
-			tree_xset(seen, (uint64_t)best, best);
+			u.v = 0;
+			u.p = best;
+			tree_xset(seen, u.v, best);
 			return (best);
 		}
 		/* XXX continue only of all others lead to errors */
@@ -675,15 +696,15 @@ mta_route_drain(struct mta_route *route)
 	}
 
 	if (route->auth && route->secret == NULL) {
-		log_warn("warn: Failed to retreive secret for %s",
+		log_warnx("warn: Failed to retreive secret for %s",
 		    mta_route_to_text(route));
 		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
-		    "cannot retreive secret");
+		    "Cannot retreive secret");
 		mta_route_free(route);
 		return;
 	}
 	if (route->mxlist->error) {
-		log_warn("warn: Failed to resolve MX for route %s: %s",
+		log_warnx("warn: Failed to resolve MX for route %s: %s",
 		    mta_route_to_text(route), route->mxlist->error);
 		mta_route_flush(route, route->mxlist->errortype,
 		    route->mxlist->error);
@@ -705,10 +726,11 @@ mta_route_drain(struct mta_route *route)
 	}
 
 	if (route->nfail > 3) {
-		/* Three connection errors in a row: consider that the route
+		/*
+		 * Three connection errors in a row: consider that the route
 		 * has a problem.
 		 */
-		log_debug("debug: mta: too many failures on %s",
+		log_warnx("smtp-out: Too many errors on %s: Cancelling all",
 		    mta_route_to_text(route));
 		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
 		    route->errorline);
