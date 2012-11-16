@@ -11,7 +11,7 @@ SRCS=		aliases.c auth.c bounce.c compress_backend.c config.c	\
 		mta_session.c parse.y queue.c queue_backend.c ruleset.c \
 		scheduler.c scheduler_backend.c smtp.c smtp_session.c	\
 		smtpd.c	ssl.c ssl_privsep.c stat_backend.c table.c	\
-		tree.c user.c util.c
+		tree.c util.c
 
 # backends
 SRCS+=		auth_bsd.c
@@ -29,7 +29,7 @@ SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		stat_ramstat.c
 #SRCS+=		stat_sqlite.c
-SRCS+=		user_pwd.c
+#SRCS+=		user_pwd.c
 
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\

@@ -869,20 +869,20 @@ forkmda(struct imsgev *iev, uint32_t id,
     struct deliver *deliver)
 {
 	char		 ebuf[128], sfn[32];
-	struct user_backend	*ub;
 	struct delivery_backend	*db;
-	struct userinfo u;
 	struct child	*child;
 	pid_t		 pid;
 	int		 n, allout, pipefd[2];
+	struct table		*t;
+	struct table_userinfo	*tu;
+	int		 r;
 
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
 
-	bzero(&u, sizeof (u));
-	ub = user_backend_lookup(USER_PWD);
-	errno = 0;
-	if (! ub->getbyname(&u, deliver->user)) {
+	t = table_findbyname("<getpwnam>");
+	r = table_lookup(t->t_id, deliver->user, K_USERINFO, (void **)&tu);
+	if (r <= 0) {
 		n = snprintf(ebuf, sizeof ebuf, "getpwnam: %s",
 		    errno ? strerror(errno) : "no such user");
 		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
@@ -893,7 +893,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	if (db == NULL)
 		return;
 
-	if (u.uid == 0 && ! db->allow_root) {
+	if (tu->uid == 0 && ! db->allow_root) {
 		n = snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
 		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
@@ -901,7 +901,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	}
 
 	/* lower privs early to allow fork fail due to ulimit */
-	if (seteuid(u.uid) < 0)
+	if (seteuid(tu->uid) < 0)
 		fatal("smtpd: forkmda: cannot lower privileges");
 
 	if (pipe(pipefd) < 0) {
@@ -940,6 +940,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 
 	/* parent passes the child fd over to mda */
 	if (pid > 0) {
+		free(tu);
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		child = child_add(pid, CHILD_MDA, NULL);
@@ -954,7 +955,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 #define error(m) { perror(m); _exit(1); }
 	if (seteuid(0) < 0)
 		error("forkmda: cannot restore privileges");
-	if (chdir(u.directory) < 0 && chdir("/") < 0)
+	if (chdir(tu->directory) < 0 && chdir("/") < 0)
 		error("chdir");
 	if (dup2(pipefd[0], STDIN_FILENO) < 0 ||
 	    dup2(allout, STDOUT_FILENO) < 0 ||
@@ -962,9 +963,9 @@ forkmda(struct imsgev *iev, uint32_t id,
 		error("forkmda: dup2");
 	if (closefrom(STDERR_FILENO + 1) < 0)
 		error("closefrom");
-	if (setgroups(1, &u.gid) ||
-	    setresgid(u.gid, u.gid, u.gid) ||
-	    setresuid(u.uid, u.uid, u.uid))
+	if (setgroups(1, &tu->gid) ||
+	    setresgid(tu->gid, tu->gid, tu->gid) ||
+	    setresuid(tu->uid, tu->uid, tu->uid))
 		error("forkmda: cannot drop privileges");
 	if (setsid() < 0)
 		error("setsid");
@@ -1163,18 +1164,19 @@ offline_done(void)
 static int
 parent_forward_open(char *username)
 {
-	struct user_backend *ub;
-	struct userinfo u;
+	struct table		*t;
+	struct table_userinfo	*tu;
 	char pathname[MAXPATHLEN];
-	int fd;
+	int	fd;
+	int	r;
 
-	bzero(&u, sizeof (u));
-	ub = user_backend_lookup(USER_PWD);
-	if (! ub->getbyname(&u, username))
+	t = table_findbyname("<getpwnam>");
+	r = table_lookup(t->t_id, username, K_USERINFO, (void **)&tu);
+	if (r <= 0)
 		return -1;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
-		u.directory))
+		tu->directory))
 		fatal("smtpd: parent_forward_open: snprintf");
 
 	fd = open(pathname, O_RDONLY);
@@ -1185,7 +1187,7 @@ parent_forward_open(char *username)
 		return -1;
 	}
 
-	if (! secure_file(fd, pathname, u.directory, u.uid, 1)) {
+	if (! secure_file(fd, pathname, tu->directory, tu->uid, 1)) {
 		log_warnx("warn: smtpd: %s: unsecure file", pathname);
 		close(fd);
 		return -1;
