@@ -41,9 +41,6 @@ static int table_getpwnam_config(struct table *, const char *);
 static int table_getpwnam_update(struct table *, const char *);
 static void *table_getpwnam_open(struct table *);
 static int table_getpwnam_lookup(void *, const char *, enum table_service, void **);
-
-static int   table_getpwnam_compare(void *, const char *, enum table_service,
-    int (*)(const char *, const char *));
 static void  table_getpwnam_close(void *);
 
 struct table_backend table_backend_getpwnam = {
@@ -53,7 +50,6 @@ struct table_backend table_backend_getpwnam = {
 	table_getpwnam_update,
 	table_getpwnam_close,
 	table_getpwnam_lookup,
-	table_getpwnam_compare
 };
 
 
@@ -119,11 +115,4 @@ table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind, void 
 error:
 	free(userinfo);
 	return -1;
-}
-
-static int
-table_getpwnam_compare(void *hdl, const char *key, enum table_service kind,
-    int (*func)(const char *, const char *))
-{
-	return 0;
 }

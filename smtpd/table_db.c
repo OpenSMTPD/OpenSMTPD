@@ -41,11 +41,11 @@ static int table_db_config(struct table *, const char *);
 static int table_db_update(struct table *, const char *);
 static void *table_db_open(struct table *);
 static int table_db_lookup(void *, const char *, enum table_service, void **);
-static int   table_db_compare(void *, const char *, enum table_service,
-    int(*)(const char *, const char *));
 static void  table_db_close(void *);
 
 static char *table_db_get_entry(void *, const char *, size_t *);
+static char *table_db_get_entry_match(void *, const char *, size_t *,
+    int(*)(const char *, const char *));
 
 static int table_db_credentials(const char *, char *, size_t, void **);
 static int table_db_alias(const char *, char *, size_t, void **);
@@ -59,7 +59,13 @@ struct table_backend table_backend_db = {
 	table_db_update,
 	table_db_close,
 	table_db_lookup,
-	table_db_compare
+};
+
+static struct keycmp {
+	enum table_service	service;
+	int		       (*func)(const char *, const char *);
+} keycmp[] = {
+	{ K_NETADDR, table_netaddr_match }
 };
 
 static int
@@ -89,18 +95,30 @@ table_db_close(void *hdl)
 }
 
 static int
-table_db_lookup(void *hdl, const char *key, enum table_service kind, void **retp)
+table_db_lookup(void *hdl, const char *key, enum table_service service, void **retp)
 {
-	char *line;
-	size_t len;
-	int	ret;
+	char	       *line;
+	size_t		len = 0;
+	int		ret;
+	int	       (*match)(const char *, const char *) = NULL;
+	size_t		i;
 
-	line = table_db_get_entry(hdl, key, &len);
+	for (i = 0; i < nitems(keycmp); ++i)
+		if (keycmp->service == service)
+			match = keycmp->func;
+
+	if (match == NULL)
+		line = table_db_get_entry(hdl, key, &len);
+	else
+		line = table_db_get_entry_match(hdl, key, &len, match);
 	if (line == NULL)
 		return 0;
 
+	if (retp == NULL)
+		return 1;
+
 	ret = 0;
-	switch (kind) {
+	switch (service) {
 	case K_ALIAS:
 		ret = table_db_alias(key, line, len, retp);
 		break;
@@ -126,11 +144,11 @@ table_db_lookup(void *hdl, const char *key, enum table_service kind, void **retp
 	return ret;
 }
 
-static int
-table_db_compare(void *hdl, const char *key, enum table_service kind,
+
+static char *
+table_db_get_entry_match(void *hdl, const char *key, size_t *len,
     int(*func)(const char *, const char *))
 {
-	int ret = 0;
 	DB *db = hdl;
 	DBT dbk;
 	DBT dbd;
@@ -139,15 +157,14 @@ table_db_compare(void *hdl, const char *key, enum table_service kind,
 
 	for (r = db->seq(db, &dbk, &dbd, R_FIRST); !r;
 	     r = db->seq(db, &dbk, &dbd, R_NEXT)) {
-		buf = xmemdup(dbk.data, dbk.size + 1, "table_db_compare");
-		log_debug("debug: key: %s, buf: %s", key, buf);
-		if (func(key, buf))
-			ret = 1;
+		buf = xmemdup(dbk.data, dbk.size, "table_db_get_entry_cmp");
+		if (func(key, buf)) {
+			*len = dbk.size;
+			return buf;
+		}
 		free(buf);
-		if (ret)
-			break;
 	}
-	return ret;
+	return NULL;
 }
 
 static char *

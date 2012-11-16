@@ -263,6 +263,11 @@ enum table_service {
 	K_USERINFO	= 0x10,
 };
 
+enum table_strategy {
+	ST_RANDOM,
+	ST_ROUNDROBIN,
+};
+
 struct mapel {
 	TAILQ_ENTRY(mapel)		 me_entry;
 	char				 me_key[MAX_LINE_SIZE];
@@ -281,7 +286,6 @@ struct table {
 	struct table_backend		*t_backend;
 };
 
-
 struct table_backend {
 	const unsigned int	services;
 	int  (*config)(struct table *, const char *);
@@ -289,8 +293,7 @@ struct table_backend {
 	int  (*update)(struct table *, const char *);
 	void (*close)(void *);
 	int (*lookup)(void *, const char *, enum table_service, void **);
-	int  (*compare)(void *, const char *, enum table_service,
-	    int (*)(const char *, const char *));
+	/*int (*fetch)(void *, enum table_service, void **, enum table_strategy);*/
 };
 
 
@@ -1156,8 +1159,6 @@ void  table_update(struct table *);
 void  table_close(struct table *, void *);
 int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
-int table_compare(objid_t, const char *, enum table_service,
-    int(*)(const char *, const char *));
 struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
 struct table *table_create(const char *, const char *, const char *);
@@ -1165,6 +1166,8 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
+
+int table_netaddr_match(const char *, const char *);
 
 
 /* tree.c */
