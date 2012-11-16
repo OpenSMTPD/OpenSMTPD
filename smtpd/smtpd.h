@@ -257,10 +257,16 @@ enum table_type {
 enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,
-	K_VIRTUAL	= 0x02,
-	K_CREDENTIALS	= 0x04,
-	K_NETADDR	= 0x08,
-	K_USERINFO	= 0x10,
+	K_DOMAIN	= 0x02,
+	K_VIRTUAL	= 0x04,
+	K_CREDENTIALS	= 0x08,
+	K_NETADDR	= 0x10,
+	K_USERINFO	= 0x20,
+};
+
+enum table_strategy {
+	ST_RANDOM,
+	ST_ROUNDROBIN,
 };
 
 struct mapel {
@@ -281,7 +287,6 @@ struct table {
 	struct table_backend		*t_backend;
 };
 
-
 struct table_backend {
 	const unsigned int	services;
 	int  (*config)(struct table *, const char *);
@@ -289,8 +294,7 @@ struct table_backend {
 	int  (*update)(struct table *, const char *);
 	void (*close)(void *);
 	int (*lookup)(void *, const char *, enum table_service, void **);
-	int  (*compare)(void *, const char *, enum table_service,
-	    int (*)(const char *, const char *));
+	/*int (*fetch)(void *, enum table_service, void **, enum table_strategy);*/
 };
 
 
@@ -800,6 +804,11 @@ struct table_netaddr {
 	struct netaddr		netaddr;
 };
 
+struct table_domain {
+	char			name[MAXHOSTNAMELEN];
+};
+
+
 /* XXX - must be == to struct userinfo ! */
 struct table_userinfo {
 	char username[MAXLOGNAME];
@@ -1008,6 +1017,24 @@ pid_t control(void);
 struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
+/* dict.c */
+SPLAY_HEAD(dict, dictentry);
+#define dict_init(d) SPLAY_INIT((d))
+#define dict_empty(d) SPLAY_EMPTY((d))
+int dict_check(struct dict *, const char *);
+void *dict_set(struct dict *, const char *, void *);
+void dict_xset(struct dict *, const char *, void *);
+void *dict_get(struct dict *, const char *);
+void *dict_xget(struct dict *, const char *);
+void *dict_pop(struct dict *, const char *);
+void *dict_xpop(struct dict *, const char *);
+int dict_poproot(struct dict *, const char * *, void **);
+int dict_root(struct dict *, const char * *, void **);
+int dict_iter(struct dict *, void **, const char * *, void **);
+int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
+void dict_merge(struct dict *, struct dict *);
+
+
 /* dns.c */
 void dns_query_host(char *, int, uint64_t);
 void dns_query_mx(char *, char *, int, uint64_t);
@@ -1178,8 +1205,6 @@ void  table_update(struct table *);
 void  table_close(struct table *, void *);
 int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
-int table_compare(objid_t, const char *, enum table_service,
-    int(*)(const char *, const char *));
 struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
 struct table *table_create(const char *, const char *, const char *);
@@ -1187,6 +1212,8 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
+
+int table_netaddr_match(const char *, const char *);
 
 
 /* tree.c */

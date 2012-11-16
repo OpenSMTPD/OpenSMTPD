@@ -267,15 +267,22 @@ expire		: EXPIRE STRING {
 		;
 
 credentials	: AUTH tables	{
-			struct table	*m;
+			struct table	*m = table_find($2);
 
 			/* AUTH only accepts T_DYNAMIC and T_HASH */
-			m = table_find($2);
 			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as AUTH parameter",
 					m->t_name);
 				YYERROR;
 			}
+
+			/* AUTH requires table to provide K_CREDENTIALS service */
+			if (!(m->t_backend->services & K_CREDENTIALS)) {
+				yyerror("table \"%s\" can't be used as AUTH parameter",
+					m->t_name);
+				YYERROR;
+			}
+
 			$$ = $2;
 		}
 		| /* empty */	{ $$ = 0; }
@@ -440,7 +447,14 @@ table		: TABLE STRING STRING	{
 				YYERROR;
 			}
 			table = table_create(backend, $2, config);
-			table->t_backend->config(table, config);
+			if (! table->t_backend->config(table, config)) {
+				yyerror("backend configuration failure for table %s",
+				    table->t_name);
+				free($2);
+				free($3);
+				YYERROR;
+			}
+
 			free($2);
 			free($3);
 		}
@@ -512,15 +526,22 @@ tables		: tablenew			{ $$ = $1; }
 		;
 
 alias		: ALIAS tables			{
-			struct table	*m;
+			struct table	*m = table_find($2);
 
 			/* ALIAS only accepts T_DYNAMIC and T_HASH */
-			m = table_find($2);
 			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
 				yyerror("table \"%s\" can't be used as ALIAS parameter",
 					m->t_name);
 				YYERROR;
 			}
+
+			/* ALIAS requires table to provide K_ALIAS service */
+			if (!(m->t_backend->services & K_ALIAS)) {
+				yyerror("table \"%s\" can't be used as ALIAS parameter",
+					m->t_name);
+				YYERROR;
+			}
+
 			$$ = m->t_id;
 		}
 		| /* empty */			{ $$ =  0; }
@@ -528,11 +549,17 @@ alias		: ALIAS tables			{
 
 condition	: DOMAIN tables alias		{
 			struct cond	*c;
-			struct table	*m;
+			struct table	*m = table_find($2);
 
 			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
-			m = table_find($2);
 			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("table \"%s\" can't be used as DOMAIN parameter",
+					m->t_name);
+				YYERROR;
+			}
+
+			/* DOMAIN requires table to provide K_DOMAIN service */
+			if (!(m->t_backend->services & K_DOMAIN)) {
 				yyerror("table \"%s\" can't be used as DOMAIN parameter",
 					m->t_name);
 				YYERROR;
@@ -547,11 +574,18 @@ condition	: DOMAIN tables alias		{
 		}
 		| VIRTUAL tables       		{
 			struct cond	*c;
-			struct table	*m;
+			struct table	*m = table_find($2);
 
-			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
-			m = table_find($2);
+			/* VIRTUAL only accepts T_DYNAMIC and T_HASH */
+
 			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
+					m->t_name);
+				YYERROR;
+			}
+
+			/* VIRTUAL requires table to provide K_VIRTUAL service */
+			if (!(m->t_backend->services & K_VIRTUAL)) {
 				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
 					m->t_name);
 				YYERROR;
@@ -769,6 +803,13 @@ from		: FROM tables			{
 			/* FROM only accepts T_DYNAMIC and T_LIST */
 			m = table_find($2);
 			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("table \"%s\" can't be used as FROM parameter",
+					m->t_name);
+				YYERROR;
+			}
+
+			/* FROM requires table to provide K_NETADDR service */
+			if (!(m->t_backend->services & K_NETADDR)) {
 				yyerror("table \"%s\" can't be used as FROM parameter",
 					m->t_name);
 				YYERROR;

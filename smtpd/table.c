@@ -99,37 +99,6 @@ table_lookup(struct table *table, const char *key, enum table_service kind, void
 	return ret;
 }
 
-int
-table_compare(objid_t id, const char *key, enum table_service kind,
-    int(*func)(const char *, const char *))
-{
-	void *hdl = NULL;
-	struct table *table;
-	struct table_backend *backend = NULL;
-	int ret;
-
-	table = table_find(id);
-	if (table == NULL) {
-		errno = EINVAL;
-		return 0;
-	}
-
-	backend = table_backend_lookup(table->t_src);
-	hdl = backend->open(table);
-	if (hdl == NULL) {
-		log_warn("warn: table_compare: can't open %s", table->t_config);
-		if (errno == 0)
-			errno = ENOTSUP;
-		return 0;
-	}
-
-	ret = backend->compare(hdl, key, kind, func);
-
-	backend->close(hdl);
-	errno = 0;
-	return ret;
-}
-
 struct table *
 table_create(const char *backend, const char *name, const char *config)
 {
@@ -145,6 +114,13 @@ table_create(const char *backend, const char *name, const char *config)
 
 	t = xcalloc(1, sizeof(*t), "table_create");
 	t->t_backend = tb;
+
+	/* XXX */
+	/*
+	 * until people forget about it, "file" really means "static"
+	 */
+	if (!strcmp(backend, "file"))
+		backend = "static";
 
 	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
 		errx(1, "table_create: table backend \"%s\" too large",
@@ -327,4 +303,86 @@ end:
 	free(lbuf);
 	fclose(fp);
 	return ret;
+}
+
+static int table_match_mask(struct sockaddr_storage *, struct netaddr *);
+static int table_inet4_match(struct sockaddr_in *, struct netaddr *);
+static int table_inet6_match(struct sockaddr_in6 *, struct netaddr *);
+
+int
+table_netaddr_match(const char *s1, const char *s2)
+{
+	struct netaddr n1;
+	struct netaddr n2;
+
+	if (strcmp(s1, s2) == 0)
+		return 1;
+	if (! text_to_netaddr(&n1, s1))
+		return 0;
+	if (! text_to_netaddr(&n2, s2))
+		return 0;
+	if (n1.ss.ss_family != n2.ss.ss_family)
+		return 0;
+	if (n1.ss.ss_len != n2.ss.ss_len)
+		return 0;
+	return table_match_mask(&n1.ss, &n2);
+}
+
+static int
+table_match_mask(struct sockaddr_storage *ss, struct netaddr *ssmask)
+{
+	if (ss->ss_family == AF_INET)
+		return table_inet4_match((struct sockaddr_in *)ss, ssmask);
+
+	if (ss->ss_family == AF_INET6)
+		return table_inet6_match((struct sockaddr_in6 *)ss, ssmask);
+
+	return (0);
+}
+
+static int
+table_inet4_match(struct sockaddr_in *ss, struct netaddr *ssmask)
+{
+	in_addr_t mask;
+	int i;
+
+	/* a.b.c.d/8 -> htonl(0xff000000) */
+	mask = 0;
+	for (i = 0; i < ssmask->bits; ++i)
+		mask = (mask >> 1) | 0x80000000;
+	mask = htonl(mask);
+
+	/* (addr & mask) == (net & mask) */
+	if ((ss->sin_addr.s_addr & mask) ==
+	    (((struct sockaddr_in *)ssmask)->sin_addr.s_addr & mask))
+		return 1;
+
+	return 0;
+}
+
+static int
+table_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
+{
+	struct in6_addr	*in;
+	struct in6_addr	*inmask;
+	struct in6_addr	 mask;
+	int		 i;
+
+	bzero(&mask, sizeof(mask));
+	for (i = 0; i < ssmask->bits / 8; i++)
+		mask.s6_addr[i] = 0xff;
+	i = ssmask->bits % 8;
+	if (i)
+		mask.s6_addr[ssmask->bits / 8] = 0xff00 >> i;
+
+	in = &ss->sin6_addr;
+	inmask = &((struct sockaddr_in6 *)&ssmask->ss)->sin6_addr;
+
+	for (i = 0; i < 16; i++) {
+		if ((in->s6_addr[i] & mask.s6_addr[i]) !=
+		    (inmask->s6_addr[i] & mask.s6_addr[i]))
+			return (0);
+	}
+
+	return (1);
 }
