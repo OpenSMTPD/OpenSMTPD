@@ -323,7 +323,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 			return;
 		}
-		mta_route_error(s->route, "Cannot connect to MX");
+		mta_route_error(s->route, NULL, "Cannot connect to MX");
 		mta_enter_state(s, MTA_DONE);
 		break;
 
@@ -387,7 +387,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/* ready to send a new mail */
 		if (s->ready == 0) {
 			s->ready = 1;
-			mta_route_ok(s->route);
+			mta_route_ok(s->route, s->mx);
 		}
 		if (s->msgcount >= s->route->maxmail) {
 			log_debug("debug: mta: "
@@ -485,7 +485,7 @@ mta_response(struct mta_session *s, char *line)
 		if (line[0] != '2') {
 			if ((s->flags & MTA_USE_AUTH) ||
 			    !(s->flags & MTA_ALLOW_PLAIN)) {
-				mta_route_error(s->route, line);
+				mta_mx_error(s, "EHLO rejected: %s", line);
 				mta_enter_state(s, MTA_DONE);
 				return;
 			}
@@ -497,7 +497,7 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_SMTP_HELO:
 		if (line[0] != '2') {
-			mta_route_error(s->route, line);
+			mta_mx_error(s, "HELO rejected: %s", line);
 			mta_enter_state(s, MTA_DONE);
 			return;
 		}
@@ -510,8 +510,8 @@ mta_response(struct mta_session *s, char *line)
 				mta_enter_state(s, MTA_SMTP_AUTH);
 				return;
 			}
-			/* stop here if ssl can't be used */
-			mta_route_error(s->route, line);
+			/* XXX mark that the MX doesn't support STARTTLS */
+			mta_mx_error(s, "STARTTLS rejected: %s", line);
 			mta_enter_state(s, MTA_DONE);
 			return;
 		}
@@ -523,7 +523,7 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_SMTP_AUTH:
 		if (line[0] != '2') {
-			mta_route_error(s->route, line);
+			mta_mx_error(s, "AUTH rejected: %s", line);
 			mta_enter_state(s, MTA_DONE);
 			return;
 		}
@@ -871,11 +871,7 @@ mta_mx_error(struct mta_session *s, const char *fmt, ...)
 		fatal("mta: vasprintf");
 	va_end(ap);
 
-
-	s->mx->error++;
-
-	log_info("smtp-out: Error on MX %s [%s]: %s",
-	    s->mx->hostname, ss_to_text(&s->mx->sa), error);
+	mta_route_error(s->route, s->mx, error);
 
 	if (s->task) {
 		mta_task_flush(s->task, IMSG_QUEUE_DELIVERY_TEMPFAIL, error);

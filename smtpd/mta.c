@@ -351,17 +351,25 @@ mta(void)
 }
 
 void
-mta_route_error(struct mta_route *route, const char *error)
+mta_route_error(struct mta_route *route, struct mta_mx *mx, const char *e)
 {
+	if (mx) {
+		if (mx->error++ == MX_MAXERROR)
+			log_info("smtp-out: Too many errors on MX %s [%s]",
+			    mx->hostname, ss_to_text(&mx->sa));
+		return;
+	}
+
 	route->nfail += 1;
-	strlcpy(route->errorline, error, sizeof route->errorline);
-	log_warnx("warn: mta: %s error: %s", mta_route_to_text(route), error);
+	strlcpy(route->errorline, e, sizeof route->errorline);
+	log_warnx("warn: Error on route %s: %s", mta_route_to_text(route), e);
 }
 
 void
-mta_route_ok(struct mta_route *route)
+mta_route_ok(struct mta_route *route, struct mta_mx *mx)
 {
-	log_debug("debug: mta: %s ready", mta_route_to_text(route));
+	log_debug("debug: mta: %s ready on MX %s [%s]",
+	    mta_route_to_text(route), mx->hostname, ss_to_text(&mx->sa));
 	route->nfail = 0;
 }
 

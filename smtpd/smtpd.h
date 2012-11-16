@@ -1064,8 +1064,8 @@ void mfa_session(struct submit_status *, enum session_state);
 
 /* mta.c */
 pid_t mta(void);
-void mta_route_ok(struct mta_route *);
-void mta_route_error(struct mta_route *, const char *);
+void mta_route_ok(struct mta_route *, struct mta_mx *);
+void mta_route_error(struct mta_route *, struct mta_mx *, const char *);
 void mta_route_collect(struct mta_route *);
 struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
 const char *mta_route_to_text(struct mta_route *);
