@@ -399,7 +399,7 @@ struct mta_mx *
 mta_route_next_mx(struct mta_route *route, struct tree *seen)
 {
 	struct mta_mx	*mx, *best;
-	int		 p = -1;
+	int		 p = -1, limit;
 	union {
 		uint64_t v;
 		void	*p;
@@ -407,6 +407,7 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 
 	while((p = mta_route_next_preference(route->mxlist, p)) != -1) {
 		best = NULL;
+		limit = 0;
 		TAILQ_FOREACH(mx, &route->mxlist->mxs, entry) {
 			if (mx->preference < p)
 				continue;
@@ -419,8 +420,10 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 			if (mx->error > MX_MAXERROR)
 				continue;
 
-			if (mx->nconn >= MX_MAXCONN)
+			if (mx->nconn >= MX_MAXCONN) {
+				limit = 1;
 				continue;
+			}
 			u.v = 0;
 			u.p = mx;
 			if (tree_get(seen, u.v))
@@ -437,7 +440,13 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 			tree_xset(seen, u.v, best);
 			return (best);
 		}
-		/* XXX continue only of all others lead to errors */
+
+		/*
+		 * There are MX for this preference level, but they are
+		 * currently all busy.
+		 */
+		if (limit)
+			break;
 	}
 	return (NULL);
 }
@@ -729,6 +738,12 @@ mta_route_drain(struct mta_route *route)
 		/*
 		 * Three connection errors in a row: consider that the route
 		 * has a problem.
+		 */
+		/*
+		 * XXX the logic is wrong.  What we want is: Fail if
+		 * there is no running sessions and starting one fails.
+		 * The error is that no MX could be reached.  The logs
+		 * should already have all errors on MX.
 		 */
 		log_warnx("smtp-out: Too many errors on %s: Cancelling all",
 		    mta_route_to_text(route));

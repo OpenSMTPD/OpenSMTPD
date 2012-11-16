@@ -324,6 +324,14 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 			return;
 		}
+		/*
+		 * XXX It is not really a failure: it can be just that some
+		 * MX/route limits have been reached, so the route must not
+		 * necessarily TempFail all remaining sessions.
+		 *
+		 * Also, this is not necessary, since the route already knows
+		 * it returned NULL.
+		 */
 		mta_route_error(s->route, NULL, "No MX could be reached");
 		mta_enter_state(s, MTA_DONE);
 		break;
