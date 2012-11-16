@@ -312,7 +312,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 
 		t = table_findbyname("<getpwnam>");
-		r = table_lookup(t->t_id, xn->u.user, K_USERINFO, NULL);
+		r = table_lookup(t, xn->u.user, K_USERINFO, NULL);
 		if (r <= 0) {
 			if (r == 0)
 				log_debug("debug: lka_expand: user-part does not match system user");
@@ -409,7 +409,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		t = table_findbyname("<getpwnam>");
 		tu = NULL;
-		r = table_lookup(t->t_id, ep->agent.mda.user.username, K_USERINFO, (void **)&tu);
+		r = table_lookup(t, ep->agent.mda.user.username, K_USERINFO, (void **)&tu);
 		if (r <= 0) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;

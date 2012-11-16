@@ -881,7 +881,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	    deliver->to, deliver->user);
 
 	t = table_findbyname("<getpwnam>");
-	r = table_lookup(t->t_id, deliver->user, K_USERINFO, (void **)&tu);
+	r = table_lookup(t, deliver->user, K_USERINFO, (void **)&tu);
 	if (r <= 0) {
 		n = snprintf(ebuf, sizeof ebuf, "getpwnam: %s",
 		    errno ? strerror(errno) : "no such user");
@@ -1171,7 +1171,7 @@ parent_forward_open(char *username)
 	int	r;
 
 	t = table_findbyname("<getpwnam>");
-	r = table_lookup(t->t_id, username, K_USERINFO, (void **)&tu);
+	r = table_lookup(t, username, K_USERINFO, (void **)&tu);
 	if (r <= 0)
 		return -1;
 
