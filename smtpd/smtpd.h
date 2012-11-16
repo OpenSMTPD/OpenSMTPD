@@ -98,6 +98,8 @@
 
 typedef uint32_t	objid_t;
 
+SPLAY_HEAD(dict, dictentry);
+SPLAY_HEAD(tree, treeentry);
 
 #define	MAXPASSWORDLEN	128
 struct userinfo {
@@ -269,12 +271,6 @@ enum table_strategy {
 	ST_ROUNDROBIN,
 };
 
-struct mapel {
-	TAILQ_ENTRY(mapel)		 me_entry;
-	char				 me_key[MAX_LINE_SIZE];
-	char				 me_val[MAX_LINE_SIZE];
-};
-
 struct table {
 	TAILQ_ENTRY(table)		 t_entry;
 	char				 t_name[MAX_LINE_SIZE];
@@ -282,7 +278,9 @@ struct table {
 	enum table_type			 t_type;
 	char				 t_src[MAX_TABLE_BACKEND_SIZE];
 	char				 t_config[MAXPATHLEN];
-	TAILQ_HEAD(mapel_list, mapel)	 t_contents;
+
+	struct dict			 t_dict;
+
 	void				*t_handle;
 	struct table_backend		*t_backend;
 };
@@ -993,7 +991,6 @@ struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
 /* dict.c */
-SPLAY_HEAD(dict, dictentry);
 #define dict_init(d) SPLAY_INIT((d))
 #define dict_empty(d) SPLAY_EMPTY((d))
 int dict_check(struct dict *, const char *);
@@ -1195,7 +1192,6 @@ int table_netaddr_match(const char *, const char *);
 
 
 /* tree.c */
-SPLAY_HEAD(tree, treeentry);
 #define tree_init(t) SPLAY_INIT((t))
 #define tree_empty(t) SPLAY_EMPTY((t))
 int tree_check(struct tree *, uint64_t);

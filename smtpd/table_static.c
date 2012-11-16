@@ -127,34 +127,42 @@ static int
 table_static_lookup(void *hdl, const char *key, enum table_service service, void **retp)
 {
 	struct table   *m  = hdl;
-	struct mapel   *me = NULL;
 	char	       *line;
 	size_t		len;
 	int		ret;
 	int	       (*match)(const char *, const char *) = NULL;
 	size_t		i;
+	void	       *iter;
+	const char     *k;
+	char	       *v;
 
 	for (i = 0; i < nitems(keycmp); ++i)
 		if (keycmp->service == service)
 			match = keycmp->func;
+
 	line = NULL;
-	TAILQ_FOREACH(me, &m->t_contents, me_entry) {
+	iter = NULL;
+	ret = 0;
+	while (dict_iter(&m->t_dict, &iter, &k, (void **)&v)) {
 		if (match) {
-			if (match(key, me->me_key))
-				line = me->me_val;
+			if (match(key, k)) {
+				line = v;
+				ret = 1;
+			}
 		}
 		else {
-			if (strcmp(key, me->me_key) == 0)
-				line = me->me_val;
+			if (strcmp(key, k) == 0) {
+				line = v;
+				ret = 1;
+			}
 		}
-		if (line)
-			break;
+		if (ret)
+			break;		
 	}
-
 	if (retp == NULL)
-		return me ? 1 : 0;
+		return ret ? 1 : 0;
 
-	if (me == NULL) {
+	if (ret == 0) {
 		*retp = NULL;
 		return 0;
 	}

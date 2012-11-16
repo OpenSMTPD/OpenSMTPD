@@ -148,7 +148,7 @@ table_create(const char *backend, const char *name, const char *config)
 			errx(1, "table_create: table name too long");
 	}
 
-	TAILQ_INIT(&t->t_contents);
+	dict_init(&t->t_dict);
 	TAILQ_INSERT_TAIL(env->sc_tables, t, t_entry);
 
 	return (t);
@@ -157,15 +157,13 @@ table_create(const char *backend, const char *name, const char *config)
 void
 table_destroy(struct table *t)
 {
-	struct mapel	*me;
+	void	*p = NULL;
 
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "table_add: cannot delete all from table");
 
-	while ((me = TAILQ_FIRST(&t->t_contents))) {
-		TAILQ_REMOVE(&t->t_contents, me, me_entry);
-		free(me);
-	}
+	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
+		free(p);
 
 	TAILQ_REMOVE(env->sc_tables, t, t_entry);
 	free(t);
@@ -174,43 +172,17 @@ table_destroy(struct table *t)
 void
 table_add(struct table *t, const char *key, const char *val)
 {
-	struct mapel	*me;
-	size_t		 n;
-
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "table_add: cannot add to table");
-
-	me = xcalloc(1, sizeof(*me), "table_add");
-	n = strlcpy(me->me_key, key, sizeof(me->me_key));
-	if (n >= sizeof(me->me_key))
-		errx(1, "table_add: key too long");
-
-	if (val) {
-		n = strlcpy(me->me_val, val,
-		    sizeof(me->me_val));
-		if (n >= sizeof(me->me_val))
-			errx(1, "table_add: value too long");
-	}
-
-	TAILQ_INSERT_TAIL(&t->t_contents, me, me_entry);
+	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
 }
 
 void
 table_delete(struct table *t, const char *key)
 {
-	struct mapel	*me;
-
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "map_add: cannot delete from map");
-
-	TAILQ_FOREACH(me, &t->t_contents, me_entry) {
-		if (strcmp(me->me_key, key) == 0)
-			break;
-	}
-	if (me == NULL)
-		return;
-	TAILQ_REMOVE(&t->t_contents, me, me_entry);
-	free(me);
+	free(dict_pop(&t->t_dict, key));
 }
 
 void *
