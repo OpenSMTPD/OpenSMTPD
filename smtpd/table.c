@@ -115,6 +115,13 @@ table_create(const char *backend, const char *name, const char *config)
 	t = xcalloc(1, sizeof(*t), "table_create");
 	t->t_backend = tb;
 
+	/* XXX */
+	/*
+	 * until people forget about it, "file" really means "static"
+	 */
+	if (!strcmp(backend, "file"))
+		backend = "static";
+
 	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
 		errx(1, "table_create: table backend \"%s\" too large",
 		    t->t_src);
