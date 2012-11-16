@@ -730,6 +730,7 @@ struct mta_mx {
 #define MX_IGNORE	0x1
 #define MX_NOSMTPS	0x2
 #define MX_NOSMTP	0x4
+	int			 error;
 	int			 nconn;
 	time_t			 lastconn;
 };
@@ -756,7 +757,6 @@ struct mta_route {
 
 	/* route limits	*/
 	int			 maxconn; 	/* in parallel */
-	int			 maxconnmx; 	/* on a single mx */
 	int			 maxmail;	/* per session */
 	int			 maxrcpt;	/* per mail */
 

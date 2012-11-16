@@ -102,9 +102,9 @@ struct mta_session {
 
 static void mta_io(struct io *, int);
 static void mta_enter_state(struct mta_session *, int);
-/* static void mta_status(struct mta_session *, int, const char *, ...); */
 static void mta_task_flush(struct mta_task *, int, const char *);
 static void mta_envelope_fail(struct envelope *, struct mta_mx *, int);
+static void mta_mx_error(struct mta_session *, const char *, ...);
 static void mta_send(struct mta_session *, char *, ...);
 static ssize_t mta_queue_data(struct mta_session *);
 static void mta_response(struct mta_session *, char *);
@@ -323,8 +323,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 			return;
 		}
-		/* All tried, no connection */
-		mta_route_error(s->route, "150 Can not connect to MX");
+		mta_route_error(s->route, "Cannot connect to MX");
 		mta_enter_state(s, MTA_DONE);
 		break;
 
@@ -408,7 +407,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 		} else {
 			log_debug("debug: mta: %p: no pending task for %s", s,
 			    mta_route_to_text(s->route));
-			/* XXX stay open for a while? */
 			mta_enter_state(s, MTA_SMTP_QUIT);
 		}
 		break;
@@ -534,7 +532,12 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_SMTP_MAIL:
 		if (line[0] != '2') {
-			mta_status(s, 0, line);
+			if (line[0] == '5')
+				delivery = IMSG_QUEUE_DELIVERY_PERMFAIL;
+			else
+				delivery = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+			mta_task_flush(s->task, delivery, line);
+			s->task = NULL;
 			mta_enter_state(s, MTA_SMTP_RSET);
 			return;
 		}
@@ -567,18 +570,30 @@ mta_response(struct mta_session *s, char *line)
 		break;
 
 	case MTA_SMTP_DATA:
-		if (line[0] != '2' && line[0] != '3') {
-			mta_status(s, 0, line);
-			mta_enter_state(s, MTA_SMTP_RSET);
-			return;
+		if (line[0] == '2' || line[0] == '3') {
+			mta_enter_state(s, MTA_SMTP_BODY);
+			break;
 		}
-		mta_enter_state(s, MTA_SMTP_BODY);
+		if (line[0] == '5')
+			delivery = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		else
+			delivery = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		mta_task_flush(s->task, delivery, line);
+		s->task = NULL;
+		mta_enter_state(s, MTA_SMTP_RSET);
 		break;
 
 	case MTA_SMTP_DONE:
-		mta_status(s, 0, line);
-		if (line[0] == '2')
+		if (line[0] == '2') {
+			delivery = IMSG_QUEUE_DELIVERY_OK;
 			s->msgcount++;
+		}
+		else if (line[0] == '5')
+			delivery = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		else
+			delivery = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		mta_task_flush(s->task, delivery, line);
+		s->task = NULL;
 		mta_enter_state(s, MTA_SMTP_READY);
 		break;
 
@@ -629,7 +644,7 @@ mta_io(struct io *io, int evt)
 		line = iobuf_getline(&s->iobuf, &len);
 		if (line == NULL) {
 			if (iobuf_len(&s->iobuf) >= SMTP_LINE_MAX) {
-				mta_status(s, 1, "150 Input too long");
+				mta_mx_error(s, "Input too long");
 				mta_enter_state(s, MTA_DONE);
 				return;
 			}
@@ -640,7 +655,7 @@ mta_io(struct io *io, int evt)
 		log_trace(TRACE_MTA, "mta: %p: <<< %s", s, line);
 
 		if ((error = parse_smtp_response(line, len, &msg, &cont))) {
-			mta_status(s, 1, "150 Bad response: %s", error);
+			mta_mx_error(s, "Bad response: %s", error);
 			mta_enter_state(s, MTA_DONE);
 			return;
 		}
@@ -669,7 +684,7 @@ mta_io(struct io *io, int evt)
 
 		if (iobuf_len(&s->iobuf)) {
 			log_debug("debug: mta: remaining data in input buffer");
-			mta_status(s, 1, "150 Remote sent too much data");
+			mta_mx_error(s, "Remote host sent too much data");
 			mta_enter_state(s, MTA_DONE);
 		}
 		break;
@@ -684,32 +699,32 @@ mta_io(struct io *io, int evt)
 
 	case IO_TIMEOUT:
 		log_debug("debug: mta: %p: connection timeout", s);
+		mta_mx_error(s, "Connection timeout");
 		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
 		}
-		mta_status(s, 1, "150 connection timeout");
 		mta_enter_state(s, MTA_DONE);
 		break;
 
 	case IO_ERROR:
 		log_debug("debug: mta: %p: IO error: %s", s, strerror(errno));
+		mta_mx_error(s, "IO Error: %s", strerror(errno));
 		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
 		}
-		mta_status(s, 1, "150 IO error");
 		mta_enter_state(s, MTA_DONE);
 		break;
 
 	case IO_DISCONNECTED:
 		log_debug("debug: mta: %p: disconnected in state %s",
 		    s, mta_strstate(s->state));
+		mta_mx_error(s, "Connection closed unexpectedly");
 		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;
 		}
-		mta_status(s, 1, "150 connection closed unexpectedly");
 		mta_enter_state(s, MTA_DONE);
 		break;
 
@@ -758,7 +773,9 @@ mta_queue_data(struct mta_session *s)
 	}
 
 	if (ferror(s->datafp)) {
-		mta_status(s, 1, "460 Error reading content file");
+		mta_task_flush(s->task, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+		    "Error reading content file");
+		s->task = NULL;
 		return (-1);
 	}
 
@@ -831,6 +848,42 @@ mta_envelope_fail(struct envelope *evp, struct mta_mx *mx, int delivery)
 	log_envelope(evp, relay, pfx, stat);
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE], delivery, 0, 0, -1,
 	    evp, sizeof(*evp));
+}
+
+static void
+mta_mx_error(struct mta_session *s, const char *fmt, ...)
+{
+	va_list  ap;
+	char	*error;
+	int	 len;
+
+	/*
+	 * If we fail to connect on port 25, we want to try port 465, so
+	 * ignore this error.
+	 */
+	if (s->state == MTA_CONNECT &&
+	    s->flags & MTA_FORCE_ANYSSL &&
+	    s->mxtried == 1)
+		return;
+
+	va_start(ap, fmt);
+	if ((len = vasprintf(&error, fmt, ap)) == -1)
+		fatal("mta: vasprintf");
+	va_end(ap);
+
+
+	s->mx->error++;
+
+	log_info("smtp-out: Error on MX %s [%s]: %s",
+	    s->mx->hostname, ss_to_text(&s->mx->sa), error);
+
+	if (s->task) {
+		mta_task_flush(s->task, IMSG_QUEUE_DELIVERY_TEMPFAIL, error);
+		s->task = NULL;
+	}
+
+	free(error);
+
 }
 
 #define CASE(x) case x : return #x

@@ -44,9 +44,11 @@
 #include "log.h"
 
 #define MTA_MAXCONN	10	/* connections per route */
-#define MTA_MAXCONNMX	10	/* connections per mx    */
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
+
+#define MX_MAXCONN	10
+#define MX_MAXERROR	5	/* ignore MX after that	 */
 
 struct mta_mxlist {
 	struct mta_route	*route;
@@ -388,7 +390,10 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 			if (mx->flags & MX_IGNORE)
 				continue;
 
-			if (mx->nconn >= route->maxconnmx)
+			if (mx->error > MX_MAXERROR)
+				continue;
+
+			if (mx->nconn >= MX_MAXCONN)
 				continue;
 
 			if (tree_get(seen, (uint64_t)mx))
@@ -510,7 +515,6 @@ mta_route_for(struct envelope *e)
 		SPLAY_INSERT(mta_route_tree, &routes, route);
 
 		route->maxconn = MTA_MAXCONN;
-		route->maxconnmx = MTA_MAXCONNMX;
 		route->maxmail = MTA_MAXMAIL;
 		route->maxrcpt = MTA_MAXRCPT;
 
