@@ -135,7 +135,6 @@ aliases_vdomain_exists(objid_t id, const char *hostname)
 	if (ret <= 0)
 		return ret;
 
-	/* XXX - for now the table API always allocate */
 	log_debug("debug: aliases_vdomain_exist: '%s' exists", hostname);
 	return 1;
 }
