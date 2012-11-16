@@ -115,12 +115,20 @@ static const char *mta_response_text(const char *);
 static const char * mta_strstate(int);
 static int mta_check_loop(FILE *);
 
-static struct tree sessions = SPLAY_INITIALIZER(&sessions);
+static int init = 0;
+static struct tree waitptr;
+static struct tree waitfd;
 
 void
 mta_session(struct mta_route *route)
 {
 	struct mta_session	*session;
+
+	if (!init) {
+		tree_init(&waitptr);
+		tree_init(&waitfd);
+		init = 1;
+	}
 
 	session = xcalloc(1, sizeof *session, "mta_session");
 	session->id = generate_uid();
@@ -128,7 +136,6 @@ mta_session(struct mta_route *route)
 	session->state = MTA_INIT;
 	session->io.sock = -1;
 	tree_init(&session->mxseen);
-	tree_xset(&sessions, session->id, session);
 
 	if (route->flags & ROUTE_MX)
 		session->flags |= MTA_FORCE_MX;
@@ -168,7 +175,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		id = *(uint64_t*)(imsg->data);
 		if (imsg->fd == -1)
 			fatalx("mta: cannot obtain msgfd");
-		s = tree_xget(&sessions, id);
+		s = tree_xpop(&waitfd, id);
 		s->datafp = fdopen(imsg->fd, "r");
 		if (s->datafp == NULL)
 			fatal("mta: fdopen");
@@ -187,13 +194,14 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_DNS_PTR:
 		dns = imsg->data;
-		s = tree_xget(&sessions, dns->id);
+		s = tree_xpop(&waitptr, dns->id);
 		if (dns->error)
 			s->mx->hostname = xstrdup("<unknown>", "mta: ptr");
 		else
 			s->mx->hostname = xstrdup(dns->host, "mta: ptr");
 		waitq_run(&s->mx->hostname, s->mx->hostname);
 		return;
+
 	default:
 		errx(1, "mta_session_imsg: unexpected %s imsg",
 		    imsg_to_str(imsg->hdr.type));
@@ -255,6 +263,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
 		    &s->id, sizeof(s->id));
+		tree_xset(&waitfd, s->id, s);
 		break;
 
 	case MTA_CONNECT:
@@ -332,10 +341,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 			fatalx("current task should have been deleted already");
 		if (s->datafp)
 			fclose(s->datafp);
-		s->datafp = NULL;
+		while (tree_poproot(&s->mxseen, NULL,  NULL))
+			;
 		route = s->route;
-		tree_xpop(&sessions, s->id);
-
 		free(s);
 		stat_decrement("mta.session", 1);
 		mta_route_collect(route);
@@ -597,8 +605,10 @@ mta_io(struct io *io, int evt)
 		io_set_write(io);
 		if (s->mx->hostname)
 			mta_on_ptr(NULL, s, s->mx->hostname);
-		else if (waitq_wait(&s->mx->hostname, mta_on_ptr, s))
+		else if (waitq_wait(&s->mx->hostname, mta_on_ptr, s)) {
 			dns_query_ptr(&s->mx->sa, s->id);
+			tree_xset(&waitptr, s->id, s);
+		}
 		break;
 
 	case IO_TLSREADY:
