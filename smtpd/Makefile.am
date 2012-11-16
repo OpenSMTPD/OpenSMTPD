@@ -36,7 +36,7 @@ smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
 			queue.c queue_backend.c ruleset.c			\
 			scheduler.c scheduler_backend.c	smtp.c smtp_session.c	\
 			smtpd.c ssl.c ssl_privsep.c stat_backend.c table.c	\
-			tree.c user.c util.c
+			tree.c util.c
 # backends
 smtpd_SOURCES+=		auth_bsd.c
 smtpd_SOURCES+=		auth_pwd.c
@@ -53,7 +53,6 @@ smtpd_SOURCES+=		stat_ramstat.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c
-smtpd_SOURCES+=		user_pwd.c
 
 # resolver
 smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\

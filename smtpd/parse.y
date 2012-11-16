@@ -1692,6 +1692,8 @@ set_localaddrs(void)
 	m = table_create("static", "<localhost>", NULL);
 	table_add(m, "local", NULL);
 
+	table_create("getpwnam", "<getpwnam>", NULL);
+
 	for (p = ifap; p != NULL; p = p->ifa_next) {
 		if (p->ifa_addr == NULL)
 			continue;
