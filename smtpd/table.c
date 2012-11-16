@@ -79,18 +79,11 @@ table_find(objid_t id)
 }
 
 int
-table_lookup(objid_t id, const char *key, enum table_service kind, void **retp)
+table_lookup(struct table *table, const char *key, enum table_service kind, void **retp)
 {
 	void *hdl = NULL;
-	struct table *table;
 	struct table_backend *backend = NULL;
 	int	ret;
-
-	table = table_find(id);
-	if (table == NULL) {
-		errno = EINVAL;
-		return -1;
-	}
 
 	backend = table_backend_lookup(table->t_src);
 	hdl = backend->open(table);
