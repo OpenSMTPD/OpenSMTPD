@@ -48,11 +48,6 @@
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
 
-struct mta_batch2 {
-	uint64_t	id;
-	struct tree	tasks;		/* map route to task */
-};
-
 struct mta_mxlist {
 	struct mta_route	*route;
 	const char		*error;
@@ -87,10 +82,10 @@ void
 mta_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct mta_route	*route;
-	struct mta_batch2	*batch;
 	struct mta_task		*task;
 	struct mta_mxlist	*mxl;
 	struct mta_mx		*mx;
+	struct tree		*batch;
 	struct secret		*secret;
 	struct envelope		*e;
 	struct ssl		*ssl;
@@ -103,11 +98,10 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_BATCH_CREATE:
 			id = *(uint64_t*)(imsg->data);
 			batch = xmalloc(sizeof *batch, "mta_batch");
-			batch->id = id;
-			tree_init(&batch->tasks);
-			tree_xset(&batches, batch->id, batch);
+			tree_init(batch);
+			tree_xset(&batches, id, batch);
 			log_trace(TRACE_MTA,
-			    "mta: batch:%016" PRIx64 " created", batch->id);
+			    "mta: batch:%016" PRIx64 " created", id);
 			return;
 
 		case IMSG_BATCH_APPEND:
@@ -115,14 +109,13 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			route = mta_route_for(e);
 			batch = tree_xget(&batches, e->batch_id);
 
-			if ((task = tree_get(&batch->tasks, route->id))
-			    == NULL) {
+			if ((task = tree_get(batch, route->id)) == NULL) {
 				log_trace(TRACE_MTA, "mta: new task for %s",
 				    mta_route_to_text(route));
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
 				task->route = route;
-				tree_xset(&batch->tasks, route->id, task);
+				tree_xset(batch, route->id, task);
 				task->msgid = evpid_to_msgid(e->id);
 				task->sender = e->sender;
 				route->refcount += 1;
@@ -147,10 +140,9 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			batch = tree_xpop(&batches, id);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
-			    batch->id);
+			    id);
 			/* for all tasks, queue them on there route */
-			while (tree_poproot(&batch->tasks, &id,
-				(void**)&task)) {
+			while (tree_poproot(batch, &id, (void**)&task)) {
 				if (id != task->route->id)
 					errx(1, "route id mismatch!");
 				task->route->refcount -= 1;
