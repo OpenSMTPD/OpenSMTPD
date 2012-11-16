@@ -1073,10 +1073,6 @@ void mfa_session(struct submit_status *, enum session_state);
 
 /* mta.c */
 pid_t mta(void);
-int mta_response_delivery(const char *);
-const char *mta_response_prefix(const char *);
-const char *mta_response_status(const char *);
-const char *mta_response_text(const char *);
 void mta_route_ok(struct mta_route *);
 void mta_route_error(struct mta_route *, const char *);
 void mta_route_collect(struct mta_route *);

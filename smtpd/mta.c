@@ -356,58 +356,6 @@ mta(void)
 	return (0);
 }
 
-const char *
-mta_response_status(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return "Sent";
-	case '4':
-	case '5':
-		return "RemoteError";
-	default:
-		return "LocalError";
-	}
-}
-
-int
-mta_response_delivery(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return IMSG_QUEUE_DELIVERY_OK;
-	case '5':
-	case '6':
-		if (r[1] == '4' && r[2] == '6')
-			return IMSG_QUEUE_DELIVERY_LOOP;
-		return IMSG_QUEUE_DELIVERY_PERMFAIL;
-	default:
-		return IMSG_QUEUE_DELIVERY_TEMPFAIL;
-	}
-}
-
-const char *
-mta_response_prefix(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return "Ok";
-	case '5':
-	case '6':
-		if (r[1] == '4' && r[2] == '6')
-			return "Loop";
-		return "PermFail";
-	default:
-		return "TempFail";
-	}
-}
-
-const char *
-mta_response_text(const char *r)
-{
-	return (r + 4);
-}
-
 void
 mta_route_error(struct mta_route *route, const char *error)
 {
@@ -429,19 +377,6 @@ mta_route_collect(struct mta_route *route)
 	route->nsession -= 1;
 
 	mta_route_drain(route);
-}
-
-static int
-mta_route_next_preference(struct mta_mxlist *mxl, int current)
-{
-	struct mta_mx *mx;
-
-	if (current == -1)
-		return (TAILQ_FIRST(&mxl->mxs)->preference);
-	TAILQ_FOREACH(mx, &mxl->mxs, entry)
-		if (mx->preference > current)
-			return (mx->preference);
-	return (-1);
 }
 
 struct mta_mx *
@@ -633,6 +568,19 @@ mta_route_query_mx(struct mta_route *route)
 		dns_query_host(route->hostname, route->port, route->id);
 	else
 		dns_query_mx(route->hostname, route->backupname, 0, route->id);
+}
+
+static int
+mta_route_next_preference(struct mta_mxlist *mxl, int current)
+{
+	struct mta_mx *mx;
+
+	if (current == -1)
+		return (TAILQ_FIRST(&mxl->mxs)->preference);
+	TAILQ_FOREACH(mx, &mxl->mxs, entry)
+		if (mx->preference > current)
+			return (mx->preference);
+	return (-1);
 }
 
 static void

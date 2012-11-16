@@ -108,6 +108,10 @@ static void mta_envelope_done(struct mta_task *, struct envelope *,
 static void mta_send(struct mta_session *, char *, ...);
 static ssize_t mta_queue_data(struct mta_session *);
 static void mta_response(struct mta_session *, char *);
+static int mta_response_delivery(const char *);
+static const char *mta_response_prefix(const char *);
+static const char *mta_response_status(const char *);
+static const char *mta_response_text(const char *);
 static const char * mta_strstate(int);
 static int mta_check_loop(FILE *);
 
@@ -798,6 +802,58 @@ mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
 	TAILQ_REMOVE(&task->envelopes, e, entry);
 	free(e);
 	stat_decrement("mta.envelope", 1);
+}
+
+static const char *
+mta_response_status(const char *r)
+{
+	switch (r[0]) {
+	case '2':
+		return "Sent";
+	case '4':
+	case '5':
+		return "RemoteError";
+	default:
+		return "LocalError";
+	}
+}
+
+static int
+mta_response_delivery(const char *r)
+{
+	switch (r[0]) {
+	case '2':
+		return IMSG_QUEUE_DELIVERY_OK;
+	case '5':
+	case '6':
+		if (r[1] == '4' && r[2] == '6')
+			return IMSG_QUEUE_DELIVERY_LOOP;
+		return IMSG_QUEUE_DELIVERY_PERMFAIL;
+	default:
+		return IMSG_QUEUE_DELIVERY_TEMPFAIL;
+	}
+}
+
+static const char *
+mta_response_prefix(const char *r)
+{
+	switch (r[0]) {
+	case '2':
+		return "Ok";
+	case '5':
+	case '6':
+		if (r[1] == '4' && r[2] == '6')
+			return "Loop";
+		return "PermFail";
+	default:
+		return "TempFail";
+	}
+}
+
+static const char *
+mta_response_text(const char *r)
+{
+	return (r + 4);
 }
 
 #define CASE(x) case x : return #x
