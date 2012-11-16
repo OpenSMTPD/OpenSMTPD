@@ -114,7 +114,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			ret = table_lookup(table->t_id, secret->host, K_CREDENTIALS,
+			ret = table_lookup(table, secret->host, K_CREDENTIALS,
 			    (void **)&table_credentials);
 
 			log_debug("debug: lka: %s credentials lookup (%d)",

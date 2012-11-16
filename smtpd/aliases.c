@@ -44,6 +44,7 @@ static int alias_is_include(struct expandnode *, const char *, size_t);
 int
 aliases_get(objid_t id, struct expand *expand, const char *username)
 {
+	struct table	       *table = table_find(id);
 	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LOCALPART_SIZE];
@@ -51,7 +52,7 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 	int			ret;
 
 	xlowercase(buf, username, sizeof(buf));
-	ret = table_lookup(id, buf, K_ALIAS, (void **)&table_alias);
+	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
 	if (ret <= 0)
 		return ret;
 
@@ -78,25 +79,26 @@ int
 aliases_virtual_get(objid_t id, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct table_virtual *table_virtual = NULL;
-	struct expandnode *xn;
-	char buf[MAX_LINE_SIZE];
-	char *pbuf = buf;
-	int nbaliases;
-	int	ret;
+	struct table	       *table = table_find(id);
+	struct table_virtual   *table_virtual = NULL;
+	struct expandnode      *xn;
+	char			buf[MAX_LINE_SIZE];
+	char		       *pbuf = buf;
+	int			nbaliases;
+	int			ret;
 
 	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
 		maddr->domain))
 		return 0;
 	xlowercase(buf, buf, sizeof(buf));
-	
-	ret = table_lookup(id, buf, K_VIRTUAL, (void **)&table_virtual);
+
+	ret = table_lookup(table, buf, K_VIRTUAL, (void **)&table_virtual);
 	if (ret < 0)
 		return (-1);
 
 	if (ret == 0) {
 		pbuf = strchr(buf, '@');
-		ret = table_lookup(id, pbuf, K_VIRTUAL, (void **)&table_virtual);
+		ret = table_lookup(table, pbuf, K_VIRTUAL, (void **)&table_virtual);
 	}
 	if (ret <= 0)
 		return ret;
@@ -124,15 +126,15 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 int
 aliases_vdomain_exists(objid_t id, const char *hostname)
 {
-	char			buf[MAXHOSTNAMELEN];
-	int			ret;
+	struct table   *table = table_find(id);
+	char		buf[MAXHOSTNAMELEN];
+	int    		ret;
 
 	xlowercase(buf, hostname, sizeof(buf));
-	ret = table_lookup(id, buf, K_VIRTUAL, NULL);
+	ret = table_lookup(table, buf, K_VIRTUAL, NULL);
 	if (ret <= 0)
 		return ret;
 
-	/* XXX - for now the table API always allocate */
 	log_debug("debug: aliases_vdomain_exist: '%s' exists", hostname);
 	return 1;
 }

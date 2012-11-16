@@ -210,8 +210,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
-	struct user_backend    *ub;
-	struct userinfo		u;
+	struct table	       *t;
 	int			r;
 
 	if (xn->depth >= EXPAND_DEPTH) {
@@ -312,11 +311,13 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		bzero(&u, sizeof (u));
-		ub = user_backend_lookup(USER_PWD);
-		if (! ub->getbyname(&u, xn->u.user)) {
-			log_debug("debug: lka_expand: "
-			    "user-part does not match system user");
+		t = table_findbyname("<getpwnam>");
+		r = table_lookup(t, xn->u.user, K_USERINFO, NULL);
+		if (r <= 0) {
+			if (r == 0)
+				log_debug("debug: lka_expand: user-part does not match system user");
+			else
+				log_debug("debug: lka_expand: backend error while searching user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
 			break;
@@ -362,10 +363,12 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
-	struct user_backend	*ub;
+	struct table		*t;
+	struct table_userinfo	*tu;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
 	const char		*tag;
+	int			r;
 
 	ep = xmemdup(&lks->envelope, sizeof *ep, "lka_submit");
 	ep->expire = rule->r_qexpire;
@@ -404,14 +407,17 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    sizeof(ep->agent.mda.user.username));
 		}
 
-		ub = user_backend_lookup(USER_PWD);
-		if (! ub->getbyname(&ep->agent.mda.user,
-			ep->agent.mda.user.username)) {
+		t = table_findbyname("<getpwnam>");
+		tu = NULL;
+		r = table_lookup(t, ep->agent.mda.user.username, K_USERINFO, (void **)&tu);
+		if (r <= 0) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
 			free(ep);
 			return;
 		}
+		memcpy(&ep->agent.mda.user, tu, sizeof(ep->agent.mda.user));
+		free (tu);
 
 		if (xn->type == EXPAND_FILENAME) {
 			ep->agent.mda.method = A_FILENAME;
