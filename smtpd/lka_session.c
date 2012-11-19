@@ -317,9 +317,11 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		r = table_lookup(t, xn->u.user, K_USERINFO, NULL);
 		if (r <= 0) {
 			if (r == 0)
-				log_debug("debug: lka_expand: user-part does not match system user");
+				log_debug("debug: lka_expand: "
+				    "user-part does not match system user");
 			else
-				log_debug("debug: lka_expand: backend error while searching user");
+				log_debug("debug: lka_expand: "
+				    "backend error while searching user");
 			lks->flags |= F_ERROR;
 			lks->ss.code = 530;
 			break;
@@ -416,7 +418,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		t = table_findbyname("<getpwnam>");
 		tu = NULL;
-		r = table_lookup(t, ep->agent.mda.user.username, K_USERINFO, (void **)&tu);
+		r = table_lookup(t, ep->agent.mda.user.username, K_USERINFO,
+		    (void **)&tu);
 		if (r <= 0) {
 			lks->flags |= F_ERROR;
 			lks->ss.code = 451;
@@ -424,7 +427,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			return;
 		}
 		memcpy(&ep->agent.mda.user, tu, sizeof(ep->agent.mda.user));
-		free (tu);
+		free(tu);
 
 		if (xn->type == EXPAND_FILENAME) {
 			ep->agent.mda.method = A_FILENAME;

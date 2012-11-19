@@ -105,7 +105,8 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 
 	if (ret == 0) {
 		pbuf = strchr(buf, '@');
-		ret = table_lookup(table, pbuf, K_VIRTUAL, (void **)&table_virtual);
+		ret = table_lookup(table, pbuf, K_VIRTUAL,
+		    (void **)&table_virtual);
 	}
 	if (ret <= 0)
 		return ret;
@@ -135,7 +136,7 @@ aliases_vdomain_exists(objid_t id, const char *hostname)
 {
 	struct table   *table = table_find(id);
 	char		buf[MAXHOSTNAMELEN];
-	int    		ret;
+	int		ret;
 
 	xlowercase(buf, hostname, sizeof(buf));
 	ret = table_lookup(table, buf, K_VIRTUAL, NULL);

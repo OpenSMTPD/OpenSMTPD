@@ -24,6 +24,8 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <netinet/in.h>
+
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -59,77 +61,20 @@ table_backend_lookup(const char *backend)
 struct table *
 table_findbyname(const char *name)
 {
-	struct table	*t;
-
-	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
-		if (strcmp(t->t_name, name) == 0)
-			break;
-	}
-	return (t);
+	return dict_get(env->sc_tables_dict, name);
 }
 
 struct table *
 table_find(objid_t id)
 {
-	struct table	*t;
-
-	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
-		if (t->t_id == id)
-			break;
-	}
-	return (t);
+	return tree_get(env->sc_tables_tree, id);
 }
 
 int
-table_lookup(struct table *table, const char *key, enum table_service kind, void **retp)
+table_lookup(struct table *table, const char *key, enum table_service kind,
+    void **retp)
 {
-	void *hdl = NULL;
-	struct table_backend *backend = NULL;
-	int	ret;
-
-	backend = table_backend_lookup(table->t_src);
-	hdl = backend->open(table);
-	if (hdl == NULL) {
-		log_warn("warn: table_lookup: can't open %s", table->t_config);
-		return -1;
-	}
-
-	ret = backend->lookup(hdl, key, kind, retp);
-
-	backend->close(hdl);
-	errno = 0;
-	return ret;
-}
-
-int
-table_compare(objid_t id, const char *key, enum table_service kind,
-    int(*func)(const char *, const char *))
-{
-	void *hdl = NULL;
-	struct table *table;
-	struct table_backend *backend = NULL;
-	int ret;
-
-	table = table_find(id);
-	if (table == NULL) {
-		errno = EINVAL;
-		return 0;
-	}
-
-	backend = table_backend_lookup(table->t_src);
-	hdl = backend->open(table);
-	if (hdl == NULL) {
-		log_warn("warn: table_compare: can't open %s", table->t_config);
-		if (errno == 0)
-			errno = ENOTSUP;
-		return 0;
-	}
-
-	ret = backend->compare(hdl, key, kind, func);
-
-	backend->close(hdl);
-	errno = 0;
-	return ret;
+	return table->t_backend->lookup(table->t_handle, key, kind, retp);
 }
 
 struct table *
@@ -147,6 +92,13 @@ table_create(const char *backend, const char *name, const char *config)
 
 	t = xcalloc(1, sizeof(*t), "table_create");
 	t->t_backend = tb;
+
+	/* XXX */
+	/*
+	 * until people forget about it, "file" really means "static"
+	 */
+	if (!strcmp(backend, "file"))
+		backend = "static";
 
 	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
 		errx(1, "table_create: table backend \"%s\" too large",
@@ -174,8 +126,9 @@ table_create(const char *backend, const char *name, const char *config)
 			errx(1, "table_create: table name too long");
 	}
 
-	TAILQ_INIT(&t->t_contents);
-	TAILQ_INSERT_TAIL(env->sc_tables, t, t_entry);
+	dict_init(&t->t_dict);
+	dict_set(env->sc_tables_dict, t->t_name, t);
+	tree_set(env->sc_tables_tree, t->t_id, t);
 
 	return (t);
 }
@@ -183,90 +136,49 @@ table_create(const char *backend, const char *name, const char *config)
 void
 table_destroy(struct table *t)
 {
-	struct mapel	*me;
+	void	*p = NULL;
 
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "table_add: cannot delete all from table");
+	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
+		free(p);
 
-	while ((me = TAILQ_FIRST(&t->t_contents))) {
-		TAILQ_REMOVE(&t->t_contents, me, me_entry);
-		free(me);
-	}
-
-	TAILQ_REMOVE(env->sc_tables, t, t_entry);
+	dict_xpop(env->sc_tables_dict, t->t_name);
+	tree_xpop(env->sc_tables_tree, t->t_id);
 	free(t);
 }
 
 void
 table_add(struct table *t, const char *key, const char *val)
 {
-	struct mapel	*me;
-	size_t		 n;
-
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "table_add: cannot add to table");
-
-	me = xcalloc(1, sizeof(*me), "table_add");
-	n = strlcpy(me->me_key, key, sizeof(me->me_key));
-	if (n >= sizeof(me->me_key))
-		errx(1, "table_add: key too long");
-
-	if (val) {
-		n = strlcpy(me->me_val, val,
-		    sizeof(me->me_val));
-		if (n >= sizeof(me->me_val))
-			errx(1, "table_add: value too long");
-	}
-
-	TAILQ_INSERT_TAIL(&t->t_contents, me, me_entry);
+	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
 }
 
 void
 table_delete(struct table *t, const char *key)
 {
-	struct mapel	*me;
-
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "map_add: cannot delete from map");
-
-	TAILQ_FOREACH(me, &t->t_contents, me_entry) {
-		if (strcmp(me->me_key, key) == 0)
-			break;
-	}
-	if (me == NULL)
-		return;
-	TAILQ_REMOVE(&t->t_contents, me, me_entry);
-	free(me);
-}
-
-void *
-table_open(struct table *t)
-{
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	if (backend == NULL)
-		return NULL;
-	return backend->open(t);
+	free(dict_pop(&t->t_dict, key));
 }
 
 void
-table_close(struct table *t, void *hdl)
+table_open(struct table *t)
 {
-	struct table_backend *backend = NULL;
+	t->t_handle = t->t_backend->open(t);
+}
 
-	backend = table_backend_lookup(t->t_src);
-	backend->close(hdl);
+void
+table_close(struct table *t)
+{
+	t->t_backend->close(t->t_handle);
 }
 
 
 void
 table_update(struct table *t)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	backend->update(t, t->t_config[0] ? t->t_config : NULL);
+	t->t_backend->update(t);
 }
 
 int
@@ -315,7 +227,8 @@ table_config_parser(struct table *t, const char *config)
 
 		/**/
 		if (t->t_type == 0)
-			t->t_type = (valp == keyp) ? T_LIST : T_HASH;
+			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
+			    T_HASH;
 
 		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
 			table_add(t, keyp, NULL);
@@ -329,4 +242,108 @@ end:
 	free(lbuf);
 	fclose(fp);
 	return ret;
+}
+
+static int table_match_mask(struct sockaddr_storage *, struct netaddr *);
+static int table_inet4_match(struct sockaddr_in *, struct netaddr *);
+static int table_inet6_match(struct sockaddr_in6 *, struct netaddr *);
+
+int
+table_netaddr_match(const char *s1, const char *s2)
+{
+	struct netaddr n1;
+	struct netaddr n2;
+
+	if (strcmp(s1, s2) == 0)
+		return 1;
+	if (! text_to_netaddr(&n1, s1))
+		return 0;
+	if (! text_to_netaddr(&n2, s2))
+		return 0;
+	if (n1.ss.ss_family != n2.ss.ss_family)
+		return 0;
+	if (n1.ss.ss_len != n2.ss.ss_len)
+		return 0;
+	return table_match_mask(&n1.ss, &n2);
+}
+
+static int
+table_match_mask(struct sockaddr_storage *ss, struct netaddr *ssmask)
+{
+	if (ss->ss_family == AF_INET)
+		return table_inet4_match((struct sockaddr_in *)ss, ssmask);
+
+	if (ss->ss_family == AF_INET6)
+		return table_inet6_match((struct sockaddr_in6 *)ss, ssmask);
+
+	return (0);
+}
+
+static int
+table_inet4_match(struct sockaddr_in *ss, struct netaddr *ssmask)
+{
+	in_addr_t mask;
+	int i;
+
+	/* a.b.c.d/8 -> htonl(0xff000000) */
+	mask = 0;
+	for (i = 0; i < ssmask->bits; ++i)
+		mask = (mask >> 1) | 0x80000000;
+	mask = htonl(mask);
+
+	/* (addr & mask) == (net & mask) */
+	if ((ss->sin_addr.s_addr & mask) ==
+	    (((struct sockaddr_in *)ssmask)->sin_addr.s_addr & mask))
+		return 1;
+
+	return 0;
+}
+
+static int
+table_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
+{
+	struct in6_addr	*in;
+	struct in6_addr	*inmask;
+	struct in6_addr	 mask;
+	int		 i;
+
+	bzero(&mask, sizeof(mask));
+	for (i = 0; i < ssmask->bits / 8; i++)
+		mask.s6_addr[i] = 0xff;
+	i = ssmask->bits % 8;
+	if (i)
+		mask.s6_addr[ssmask->bits / 8] = 0xff00 >> i;
+
+	in = &ss->sin6_addr;
+	inmask = &((struct sockaddr_in6 *)&ssmask->ss)->sin6_addr;
+
+	for (i = 0; i < 16; i++) {
+		if ((in->s6_addr[i] & mask.s6_addr[i]) !=
+		    (inmask->s6_addr[i] & mask.s6_addr[i]))
+			return (0);
+	}
+
+	return (1);
+}
+
+void
+table_open_all(void)
+{
+	struct table	*t;
+	void		*iter;
+
+	iter = NULL;
+	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
+		table_open(t);
+}
+
+void
+table_close_all(void)
+{
+	struct table	*t;
+	void		*iter;
+
+	iter = NULL;
+	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
+		table_close(t);
 }

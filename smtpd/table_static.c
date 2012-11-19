@@ -36,30 +36,36 @@
 #include "smtpd.h"
 #include "log.h"
 
-
 /* static backend */
 static int table_static_config(struct table *, const char *);
-static int table_static_update(struct table *, const char *);
+static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
-static int table_static_lookup(void *, const char *, enum table_service, void **);
-static int   table_static_compare(void *, const char *, enum table_service,
-    int(*)(const char *, const char *));
+static int table_static_lookup(void *, const char *, enum table_service,
+    void **);
 static void  table_static_close(void *);
 
 static int	table_static_credentials(const char *, char *, size_t, void **);
 static int	table_static_alias(const char *, char *, size_t, void **);
+static int	table_static_domain(const char *, char *, size_t, void **);
 static int	table_static_virtual(const char *, char *, size_t, void **);
 static int	table_static_netaddr(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
 	table_static_config,
 	table_static_open,
 	table_static_update,
 	table_static_close,
 	table_static_lookup,
-	table_static_compare
 };
+
+static struct keycmp {
+	enum table_service	service;
+	int		       (*func)(const char *, const char *);
+} keycmp[] = {
+	{ K_NETADDR, table_netaddr_match }
+};
+
 
 static int
 table_static_config(struct table *table, const char *config)
@@ -72,17 +78,17 @@ table_static_config(struct table *table, const char *config)
 }
 
 static int
-table_static_update(struct table *table, const char *config)
+table_static_update(struct table *table)
 {
 	struct table   *t;
 	char		name[MAX_LINE_SIZE];
 
 	/* no config ? ok */
-	if (config == NULL)
+	if (table->t_config[0] == '\0')
 		goto ok;
 
-	t = table_create(table->t_src, NULL, config);
-	if (! t->t_backend->config(t, config))
+	t = table_create(table->t_src, NULL, table->t_config);
+	if (! t->t_backend->config(t, table->t_config))
 		goto err;
 
 	/* update successful, swap table names */
@@ -121,25 +127,46 @@ table_static_close(void *hdl)
 }
 
 static int
-table_static_lookup(void *hdl, const char *key, enum table_service kind, void **retp)
+table_static_lookup(void *hdl, const char *key, enum table_service service,
+    void **retp)
 {
-	struct table	*m  = hdl;
-	struct mapel	*me = NULL;
-	char		*line;
-	size_t		 len;
+	struct table   *m  = hdl;
+	char	       *line;
+	size_t		len;
 	int		ret;
+	int	       (*match)(const char *, const char *) = NULL;
+	size_t		i;
+	void	       *iter;
+	const char     *k;
+	char	       *v;
+
+	for (i = 0; i < nitems(keycmp); ++i)
+		if (keycmp->service == service)
+			match = keycmp->func;
 
 	line = NULL;
-	TAILQ_FOREACH(me, &m->t_contents, me_entry)
-	    if (strcmp(key, me->me_key) == 0) {
-		    line = me->me_val;
-		    break;
-	    }
-
+	iter = NULL;
+	ret = 0;
+	while (dict_iter(&m->t_dict, &iter, &k, (void **)&v)) {
+		if (match) {
+			if (match(key, k)) {
+				line = v;
+				ret = 1;
+			}
+		}
+		else {
+			if (strcmp(key, k) == 0) {
+				line = v;
+				ret = 1;
+			}
+		}
+		if (ret)
+			break;
+	}
 	if (retp == NULL)
-		return me ? 1 : 0;
+		return ret ? 1 : 0;
 
-	if (me == NULL) {
+	if (ret == 0) {
 		*retp = NULL;
 		return 0;
 	}
@@ -148,13 +175,17 @@ table_static_lookup(void *hdl, const char *key, enum table_service kind, void **
 		return -1;
 
 	len = strlen(line);
-	switch (kind) {
+	switch (service) {
 	case K_ALIAS:
 		ret = table_static_alias(key, line, len, retp);
 		break;
 
 	case K_CREDENTIALS:
 		ret = table_static_credentials(key, line, len, retp);
+		break;
+
+	case K_DOMAIN:
+		ret = table_static_domain(key, line, len, retp);
 		break;
 
 	case K_VIRTUAL:
@@ -170,24 +201,6 @@ table_static_lookup(void *hdl, const char *key, enum table_service kind, void **
 	}
 
 	free(line);
-
-	return ret;
-}
-
-static int
-table_static_compare(void *hdl, const char *key, enum table_service kind,
-    int(*func)(const char *, const char *))
-{
-	struct table	*m   = hdl;
-	struct mapel	*me  = NULL;
-	int		 ret = 0;
-
-	TAILQ_FOREACH(me, &m->t_contents, me_entry) {
-		if (! func(key, me->me_key))
-			continue;
-		ret = 1;
-		break;
-	}
 
 	return ret;
 }
@@ -316,7 +329,6 @@ error:
 	return 0;
 }
 
-
 static int
 table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 {
@@ -334,5 +346,25 @@ table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(table_netaddr);
+	return 0;
+}
+
+static int
+table_static_domain(const char *key, char *line, size_t len, void **retp)
+{
+	struct table_domain	*domain = NULL;
+
+	domain = xcalloc(1, sizeof *domain, "table_static_domain");
+
+	if (strlcpy(domain->name, line, sizeof domain->name)
+	    >= sizeof domain->name)
+		goto error;
+
+	*retp = domain;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(domain);
 	return 0;
 }

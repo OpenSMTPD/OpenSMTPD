@@ -119,6 +119,8 @@
 
 typedef uint32_t	objid_t;
 
+SPLAY_HEAD(dict, dictentry);
+SPLAY_HEAD(tree, treeentry);
 
 #define	MAXPASSWORDLEN	128
 struct userinfo {
@@ -278,40 +280,33 @@ enum table_type {
 enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,
-	K_VIRTUAL	= 0x02,
-	K_CREDENTIALS	= 0x04,
-	K_NETADDR	= 0x08,
-	K_USERINFO	= 0x10,
-};
-
-struct mapel {
-	TAILQ_ENTRY(mapel)		 me_entry;
-	char				 me_key[MAX_LINE_SIZE];
-	char				 me_val[MAX_LINE_SIZE];
+	K_DOMAIN	= 0x02,
+	K_VIRTUAL	= 0x04,
+	K_CREDENTIALS	= 0x08,
+	K_NETADDR	= 0x10,
+	K_USERINFO	= 0x20,
 };
 
 struct table {
-	TAILQ_ENTRY(table)		 t_entry;
 	char				 t_name[MAX_LINE_SIZE];
 	objid_t				 t_id;
 	enum table_type			 t_type;
 	char				 t_src[MAX_TABLE_BACKEND_SIZE];
 	char				 t_config[MAXPATHLEN];
-	TAILQ_HEAD(mapel_list, mapel)	 t_contents;
+
+	struct dict			 t_dict;
+
 	void				*t_handle;
 	struct table_backend		*t_backend;
 };
 
-
 struct table_backend {
 	const unsigned int	services;
-	int  (*config)(struct table *, const char *);
-	void *(*open)(struct table *);
-	int  (*update)(struct table *, const char *);
-	void (*close)(void *);
-	int (*lookup)(void *, const char *, enum table_service, void **);
-	int  (*compare)(void *, const char *, enum table_service,
-	    int (*)(const char *, const char *));
+	int	(*config)(struct table *, const char *);
+	void	*(*open)(struct table *);
+	int	(*update)(struct table *);
+	void	(*close)(void *);
+	int	(*lookup)(void *, const char *, enum table_service, void **);
 };
 
 
@@ -354,9 +349,9 @@ struct rule {
 		struct relayhost	relayhost;
 	}				r_value;
 
-	struct mailaddr			*r_as;
-	objid_t				 r_atable;
-	time_t				 r_qexpire;
+	struct mailaddr		       *r_as;
+	objid_t				r_atable;
+	time_t				r_qexpire;
 };
 
 struct mailaddr {
@@ -636,7 +631,7 @@ struct smtpd {
 	TAILQ_HEAD(filterlist, filter)		*sc_filters;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
-	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;
+
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
@@ -644,6 +639,9 @@ struct smtpd {
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
 	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
+
+	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
+	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
 	uint64_t				 filtermask;
 };
@@ -796,6 +794,15 @@ struct table_netaddr {
 	struct netaddr		netaddr;
 };
 
+struct table_domain {
+	char			name[MAXHOSTNAMELEN];
+};
+
+struct table_relayhost {
+	struct relayhost	relay;
+};
+
+
 /* XXX - must be == to struct userinfo ! */
 struct table_userinfo {
 	char username[MAXLOGNAME];
@@ -817,16 +824,16 @@ enum queue_op {
 };
 
 struct queue_backend {
-	int(*init)(int);
-	int(*message)(enum queue_op, uint32_t *);
-	int(*envelope)(enum queue_op, uint64_t *, char *, size_t);
+	int	(*init)(int);
+	int	(*message)(enum queue_op, uint32_t *);
+	int	(*envelope)(enum queue_op, uint64_t *, char *, size_t);
 };
 
 struct compress_backend {
-	int(*compress_file)(FILE *, FILE *);
-	int(*uncompress_file)(FILE *, FILE *);
-	size_t(*compress_buffer)(char *, size_t, char *, size_t);
-	size_t(*uncompress_buffer)(char *, size_t, char *, size_t);
+	int	(*compress_file)(FILE *, FILE *);
+	int	(*uncompress_file)(FILE *, FILE *);
+	size_t	(*compress_buffer)(char *, size_t, char *, size_t);
+	size_t	(*uncompress_buffer)(char *, size_t, char *, size_t);
 };
 
 /* auth structures */
@@ -836,14 +843,14 @@ enum auth_type {
 };
 
 struct auth_backend {
-	int(*authenticate)(char *, char *);
+	int	(*authenticate)(char *, char *);
 };
 
 
 /* delivery_backend */
 struct delivery_backend {
-	int allow_root;
-	void(*open)(struct deliver *);
+	int	allow_root;
+	void	(*open)(struct deliver *);
 };
 
 struct evpstate {
@@ -1006,6 +1013,23 @@ pid_t control(void);
 
 /* delivery.c */
 struct delivery_backend *delivery_backend_lookup(enum action_type);
+
+
+/* dict.c */
+#define dict_init(d) SPLAY_INIT((d))
+#define dict_empty(d) SPLAY_EMPTY((d))
+int dict_check(struct dict *, const char *);
+void *dict_set(struct dict *, const char *, void *);
+void dict_xset(struct dict *, const char *, void *);
+void *dict_get(struct dict *, const char *);
+void *dict_xget(struct dict *, const char *);
+void *dict_pop(struct dict *, const char *);
+void *dict_xpop(struct dict *, const char *);
+int dict_poproot(struct dict *, const char * *, void **);
+int dict_root(struct dict *, const char * *, void **);
+int dict_iter(struct dict *, void **, const char * *, void **);
+int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
+void dict_merge(struct dict *, struct dict *);
 
 
 /* dns.c */
@@ -1176,13 +1200,11 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
-void *table_open(struct table *);
-void  table_update(struct table *);
-void  table_close(struct table *, void *);
+void	table_open(struct table *);
+void	table_update(struct table *);
+void	table_close(struct table *);
 int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
-int table_compare(objid_t, const char *, enum table_service,
-    int(*)(const char *, const char *));
 struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
 struct table *table_create(const char *, const char *, const char *);
@@ -1190,10 +1212,11 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
-
+int table_netaddr_match(const char *, const char *);
+void	table_open_all(void);
+void	table_close_all(void);
 
 /* tree.c */
-SPLAY_HEAD(tree, treeentry);
 #define tree_init(t) SPLAY_INIT((t))
 #define tree_empty(t) SPLAY_EMPTY((t))
 int tree_check(struct tree *, uint64_t);

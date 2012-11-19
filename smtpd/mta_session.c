@@ -140,6 +140,8 @@ mta_session(struct mta_route *route)
 		session->flags |= MTA_USE_AUTH;
 	if (route->cert)
 		session->flags |= MTA_USE_CERT;
+	if (route->ssl)
+		session->ssl = route->ssl;
 	switch (route->flags & ROUTE_SSL) {
 		case ROUTE_SSL:
 			session->flags |= MTA_FORCE_ANYSSL;

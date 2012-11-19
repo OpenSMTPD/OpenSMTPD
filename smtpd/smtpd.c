@@ -394,10 +394,15 @@ parent_send_config_client_certs(void)
 void
 parent_send_config_ruleset(int proc)
 {
-	struct rule		*r;
-	struct table		*t;
-	struct mapel		*mapel;
-	struct filter		*f;
+	struct rule	       *r;
+	struct table	       *t;
+	struct filter	       *f;
+	void		       *iter_tree;
+	void		       *iter_dict;
+	const char	       *k;
+	char		       *v;
+	char		       *buffer;
+	size_t			buflen;
 
 	log_debug("debug: parent_send_config_ruleset: reloading");
 	imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_START,
@@ -410,13 +415,28 @@ parent_send_config_ruleset(int proc)
 		}
 	}
 	else {
-		TAILQ_FOREACH(t, env->sc_tables, t_entry) {
+		iter_tree = NULL;
+		while (tree_iter(env->sc_tables_tree, &iter_tree, NULL,
+		    (void **)&t)) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE,
 			    0, 0, -1, t, sizeof(*t));
-			TAILQ_FOREACH(mapel, &t->t_contents, me_entry) {
-			imsg_compose_event(env->sc_ievs[proc],
-			    IMSG_CONF_TABLE_CONTENT, 0, 0, -1, mapel,
-			    sizeof(*mapel));
+
+			iter_dict = NULL;
+			while (dict_iter(&t->t_dict, &iter_dict, &k,
+			    (void **)&v)) {
+				buflen = strlen(k) + 1;
+				if (v)
+					buflen += strlen(v) + 1;
+				buffer = xcalloc(1, buflen,
+				    "parent_send_config_ruleset");
+				memcpy(buffer, k, strlen(k) + 1);
+				if (v)
+					memcpy(buffer + strlen(k) + 1, v,
+					    strlen(v) + 1);
+				imsg_compose_event(env->sc_ievs[proc],
+				    IMSG_CONF_TABLE_CONTENT, 0, 0, -1, buffer,
+				    buflen);
+				free(buffer);
 			}
 		}
 
