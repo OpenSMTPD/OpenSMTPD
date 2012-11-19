@@ -61,7 +61,6 @@ purge_config(uint8_t what)
 	struct table	*t;
 	struct rule	*r;
 	struct ssl	*s;
-	void		*p;
 
 	if (what & PURGE_LISTENERS) {
 		while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
@@ -72,16 +71,12 @@ purge_config(uint8_t what)
 		env->sc_listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while ((t = TAILQ_FIRST(env->sc_tables)) != NULL) {
-			TAILQ_REMOVE(env->sc_tables, t, t_entry);
-
-			p = NULL;
-			while (dict_poproot(&t->t_dict, NULL, (void **)&p))
-				free(p);
-			free(t);
-		}
-		free(env->sc_tables);
-		env->sc_tables = NULL;
+		while (tree_root(env->sc_tables_tree, NULL, (void **)&t))
+			table_destroy(t);
+		free(env->sc_tables_dict);
+		free(env->sc_tables_tree);
+		env->sc_tables_dict = NULL;
+		env->sc_tables_tree = NULL;
 	}
 	if (what & PURGE_RULES) {
 		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {

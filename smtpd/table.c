@@ -59,46 +59,19 @@ table_backend_lookup(const char *backend)
 struct table *
 table_findbyname(const char *name)
 {
-	struct table	*t;
-
-	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
-		if (strcmp(t->t_name, name) == 0)
-			break;
-	}
-	return (t);
+	return dict_get(env->sc_tables_dict, name);
 }
 
 struct table *
 table_find(objid_t id)
 {
-	struct table	*t;
-
-	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
-		if (t->t_id == id)
-			break;
-	}
-	return (t);
+	return tree_get(env->sc_tables_tree, id);
 }
 
 int
 table_lookup(struct table *table, const char *key, enum table_service kind, void **retp)
 {
-	void *hdl = NULL;
-	struct table_backend *backend = NULL;
-	int	ret;
-
-	backend = table_backend_lookup(table->t_src);
-	hdl = backend->open(table);
-	if (hdl == NULL) {
-		log_warn("warn: table_lookup: can't open %s", table->t_config);
-		return -1;
-	}
-
-	ret = backend->lookup(hdl, key, kind, retp);
-
-	backend->close(hdl);
-	errno = 0;
-	return ret;
+	return table->t_backend->lookup(table->t_handle, key, kind, retp);
 }
 
 struct table *
@@ -151,7 +124,8 @@ table_create(const char *backend, const char *name, const char *config)
 	}
 
 	dict_init(&t->t_dict);
-	TAILQ_INSERT_TAIL(env->sc_tables, t, t_entry);
+	dict_set(env->sc_tables_dict, t->t_name, t);
+	tree_set(env->sc_tables_tree, t->t_id, t);
 
 	return (t);
 }
@@ -161,13 +135,11 @@ table_destroy(struct table *t)
 {
 	void	*p = NULL;
 
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "table_add: cannot delete all from table");
-
 	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
 		free(p);
 
-	TAILQ_REMOVE(env->sc_tables, t, t_entry);
+	dict_xpop(env->sc_tables_dict, t->t_name);
+	tree_xpop(env->sc_tables_tree, t->t_id);
 	free(t);
 }
 
@@ -187,34 +159,23 @@ table_delete(struct table *t, const char *key)
 	free(dict_pop(&t->t_dict, key));
 }
 
-void *
+void
 table_open(struct table *t)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	if (backend == NULL)
-		return NULL;
-	return backend->open(t);
+	t->t_handle = t->t_backend->open(t);
 }
 
 void
-table_close(struct table *t, void *hdl)
+table_close(struct table *t)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	backend->close(hdl);
+	t->t_backend->close(t->t_handle);
 }
 
 
 void
 table_update(struct table *t)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	backend->update(t, t->t_config[0] ? t->t_config : NULL);
+	t->t_backend->update(t);
 }
 
 int
@@ -359,4 +320,26 @@ table_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
 	}
 
 	return (1);
+}
+
+void
+table_open_all(void)
+{
+	struct table	*t;
+	void		*iter;
+
+	iter = NULL;
+	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
+		table_open(t);
+}
+
+void
+table_close_all(void)
+{
+	struct table	*t;
+	void		*iter;
+
+	iter = NULL;
+	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
+		table_close(t);
 }

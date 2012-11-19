@@ -89,7 +89,7 @@ dict_xset(struct dict *d, const char * k, void *data)
 }
 
 void *
-dict_get(struct dict *d, const char * k)
+dict_get(struct dict *d, const char *k)
 {
 	struct dictentry	key, *entry;
 
@@ -102,7 +102,7 @@ dict_get(struct dict *d, const char * k)
 }
 
 void *
-dict_xget(struct dict *d, const char * k)
+dict_xget(struct dict *d, const char *k)
 {
 	struct dictentry	key, *entry;
 
@@ -115,7 +115,7 @@ dict_xget(struct dict *d, const char * k)
 }
 
 void *
-dict_pop(struct dict *d, const char * k)
+dict_pop(struct dict *d, const char *k)
 {
 	struct dictentry	key, *entry;
 	void			*data;
@@ -133,7 +133,7 @@ dict_pop(struct dict *d, const char * k)
 }
 
 void *
-dict_xpop(struct dict *d, const char * k)
+dict_xpop(struct dict *d, const char *k)
 {
 	struct dictentry	key, *entry;
 	void			*data;

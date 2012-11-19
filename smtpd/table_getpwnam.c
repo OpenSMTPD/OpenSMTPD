@@ -38,7 +38,7 @@
 
 /* getpwnam(3) backend */
 static int table_getpwnam_config(struct table *, const char *);
-static int table_getpwnam_update(struct table *, const char *);
+static int table_getpwnam_update(struct table *);
 static void *table_getpwnam_open(struct table *);
 static int table_getpwnam_lookup(void *, const char *, enum table_service, void **);
 static void  table_getpwnam_close(void *);
@@ -62,7 +62,7 @@ table_getpwnam_config(struct table *table, const char *config)
 }
 
 static int
-table_getpwnam_update(struct table *table, const char *config)
+table_getpwnam_update(struct table *table)
 {
 	return 1;
 }
