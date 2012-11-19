@@ -267,7 +267,6 @@ enum table_service {
 };
 
 struct table {
-	TAILQ_ENTRY(table)		 t_entry;
 	char				 t_name[MAX_LINE_SIZE];
 	objid_t				 t_id;
 	enum table_type			 t_type;
@@ -611,7 +610,7 @@ struct smtpd {
 	TAILQ_HEAD(filterlist, filter)		*sc_filters;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
-	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;
+
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
@@ -619,6 +618,9 @@ struct smtpd {
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
 	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
+
+	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
+	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
 	uint64_t				 filtermask;
 };

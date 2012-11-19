@@ -1332,19 +1332,22 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
-	conf->sc_tables = calloc(1, sizeof(*conf->sc_tables));
+	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
+	conf->sc_tables_tree = calloc(1, sizeof(*conf->sc_tables_tree));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
 	conf->sc_filters = calloc(1, sizeof(*conf->sc_filters));
 
-	if (conf->sc_tables == NULL	||
-	    conf->sc_rules == NULL	||
-	    conf->sc_listeners == NULL	||
-	    conf->sc_ssl == NULL	||
+	if (conf->sc_tables_dict == NULL	||
+	    conf->sc_tables_tree == NULL	||
+	    conf->sc_rules == NULL		||
+	    conf->sc_listeners == NULL		||
+	    conf->sc_ssl == NULL		||
 	    conf->sc_filters == NULL) {
 		log_warn("warn: cannot allocate memory");
-		free(conf->sc_tables);
+		free(conf->sc_tables_dict);
+		free(conf->sc_tables_tree);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_ssl);
@@ -1357,8 +1360,10 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	table = NULL;
 	rule = NULL;
 
+	dict_init(conf->sc_tables_dict);
+	tree_init(conf->sc_tables_tree);
+
 	TAILQ_INIT(conf->sc_listeners);
-	TAILQ_INIT(conf->sc_tables);
 	TAILQ_INIT(conf->sc_rules);
 	TAILQ_INIT(conf->sc_filters);
 	SPLAY_INIT(conf->sc_ssl);
