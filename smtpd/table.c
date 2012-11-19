@@ -138,9 +138,6 @@ table_destroy(struct table *t)
 {
 	void	*p = NULL;
 
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "table_add: cannot delete all from table");
-
 	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
 		free(p);
 
