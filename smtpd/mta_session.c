@@ -334,8 +334,11 @@ mta_enter_state(struct mta_session *s, int newstate)
 		 * Kill the mta session.
 		 */
 		log_debug("debug: mta: %p: session done", s);
-		io_clear(&s->io);
-		iobuf_clear(&s->iobuf);
+		if (s->mx) {
+			s->mx->nconn--;
+			io_clear(&s->io);
+			iobuf_clear(&s->iobuf);
+		}
 		if (s->task)
 			fatalx("current task should have been deleted already");
 		if (s->datafp)
