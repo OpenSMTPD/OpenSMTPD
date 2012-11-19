@@ -28,8 +28,6 @@ SRCS+=		queue_fsqueue.c
 SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		stat_ramstat.c
-#SRCS+=		stat_sqlite.c
-#SRCS+=		user_pwd.c
 
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
