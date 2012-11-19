@@ -272,7 +272,6 @@ enum table_strategy {
 };
 
 struct table {
-	TAILQ_ENTRY(table)		 t_entry;
 	char				 t_name[MAX_LINE_SIZE];
 	objid_t				 t_id;
 	enum table_type			 t_type;
