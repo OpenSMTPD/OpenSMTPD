@@ -105,7 +105,7 @@ table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind, void 
 	s = strlcpy(userinfo->password, pw->pw_passwd, sizeof(userinfo->password));
 	if (s >= sizeof(userinfo->password))
 		goto error;
-	s = strlcpy(userinfo->directory, pw->pw_passwd, sizeof(userinfo->directory));
+	s = strlcpy(userinfo->directory, pw->pw_dir, sizeof(userinfo->directory));
 	if (s >= sizeof(userinfo->directory))
 		goto error;
 

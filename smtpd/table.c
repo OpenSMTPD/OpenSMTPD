@@ -22,6 +22,8 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <netinet/in.h>
+
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -289,7 +291,7 @@ table_config_parser(struct table *t, const char *config)
 
 		/**/
 		if (t->t_type == 0)
-			t->t_type = (valp == keyp) ? T_LIST : T_HASH;
+			t->t_type = (valp == keyp || valp == NULL) ? T_LIST : T_HASH;
 
 		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
 			table_add(t, keyp, NULL);
