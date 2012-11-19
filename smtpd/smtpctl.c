@@ -194,7 +194,9 @@ main(int argc, char *argv[])
 	} else
 		errx(1, "unsupported mode");
 
-	if (!try_connect()) {
+	if (action == SHOW_ENVELOPE ||
+	    action == SHOW_MESSAGE ||
+	    !try_connect()) {
 		setup_env(&smtpd);
 		switch (action) {
 		case SHOW_QUEUE:
