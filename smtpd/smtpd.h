@@ -600,6 +600,7 @@ struct smtpd {
 	int				sc_instance;
 	char			       *sc_title[PROC_COUNT];
 	struct passwd		       *sc_pw;
+	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[MAXHOSTNAMELEN];
 	struct queue_backend	       *sc_queue;
 	struct compress_backend	       *sc_compress;

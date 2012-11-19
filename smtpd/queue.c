@@ -390,9 +390,12 @@ queue(void)
 	}
 
 	purge_config(PURGE_EVERYTHING);
+	if (env->sc_pwqueue) {
+		free(env->sc_pw);
+		env->sc_pw = env->sc_pwqueue;
+	}
 
 	pw = env->sc_pw;
-
 	if (chroot(PATH_SPOOL) == -1)
 		fatal("queue: chroot");
 	if (chdir("/") == -1)
