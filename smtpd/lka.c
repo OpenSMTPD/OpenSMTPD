@@ -147,7 +147,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables_dict_rld = xcalloc(1,
 			    sizeof *env->sc_tables_dict_rld, "lka:sc_tables_dict_rld");
 			env->sc_tables_tree_rld = xcalloc(1,
-			    sizeof *env->sc_tables_tree_rld, "lka:sc_tables_dict_rld");
+			    sizeof *env->sc_tables_tree_rld, "lka:sc_tables_tree_rld");
 
 			dict_init(env->sc_tables_dict_rld);
 			tree_init(env->sc_tables_tree_rld);
