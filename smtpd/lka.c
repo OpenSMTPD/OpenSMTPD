@@ -56,7 +56,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
-	struct table		*tp;
 	void			*tmp;
 	int			ret;
 	const char		*k;
@@ -145,10 +144,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_START:
 			env->sc_rules_reload = xcalloc(1,
 			    sizeof *env->sc_rules, "lka:sc_rules_reload");
-			env->sc_tables_reload = xcalloc(1,
-			    sizeof *env->sc_tables, "lka:sc_tables_reload");
+			env->sc_tables_dict_rld = xcalloc(1,
+			    sizeof *env->sc_tables_dict_rld, "lka:sc_tables_dict_rld");
+			env->sc_tables_tree_rld = xcalloc(1,
+			    sizeof *env->sc_tables_tree_rld, "lka:sc_tables_dict_rld");
+
+			dict_init(env->sc_tables_dict_rld);
+			tree_init(env->sc_tables_tree_rld);
 			TAILQ_INIT(env->sc_rules_reload);
-			TAILQ_INIT(env->sc_tables_reload);
+
 			return;
 
 		case IMSG_CONF_RULE:
@@ -159,33 +163,22 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_TABLE:
 			table = xmemdup(imsg->data, sizeof *table, "lka:table");
 			dict_init(&table->t_dict);
-
-			TAILQ_INSERT_TAIL(env->sc_tables_reload, table,
-			    t_entry);
-			tmp = env->sc_tables;
-			env->sc_tables = env->sc_tables_reload;
-
-			tp = table_open(table);
-			if (tp == NULL)
-				errx(1, "lka: could not open table \"%s\"",
-				    table->t_name);
-			table_close(table, tp);
-
-			env->sc_tables = tmp;
+			dict_set(env->sc_tables_dict_rld, table->t_name, table);
+			tree_set(env->sc_tables_tree_rld, table->t_id, table);
 			return;
 
 		case IMSG_CONF_RULE_SOURCE:
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
-			tmp = env->sc_tables;
-			env->sc_tables = env->sc_tables_reload;
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = env->sc_tables_dict_rld;
 			rule->r_sources = table_findbyname(imsg->data);
 			if (rule->r_sources == NULL)
 				fatalx("lka: tables inconsistency");
-			env->sc_tables = tmp;
+			env->sc_tables_dict = tmp;
 			return;
 
 		case IMSG_CONF_TABLE_CONTENT:
-			table = TAILQ_LAST(env->sc_tables_reload, tablelist);
+			table = tree_max(env->sc_tables_tree_rld);
 
 			k = imsg->data;
 			if (table->t_type == T_HASH)
@@ -200,10 +193,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_CONF_END:
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
-			if (env->sc_tables)
+			if (env->sc_tables_tree)
 				purge_config(PURGE_TABLES);
 			env->sc_rules = env->sc_rules_reload;
-			env->sc_tables = env->sc_tables_reload;
+			env->sc_tables_dict = env->sc_tables_dict_rld;
+			env->sc_tables_tree = env->sc_tables_tree_rld;
 
 			/* start fulfilling requests */
 			event_add(&env->sc_ievs[PROC_MTA]->ev, NULL);

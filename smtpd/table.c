@@ -59,25 +59,13 @@ table_backend_lookup(const char *backend)
 struct table *
 table_findbyname(const char *name)
 {
-	struct table	*t;
-
-	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
-		if (strcmp(t->t_name, name) == 0)
-			break;
-	}
-	return (t);
+	return dict_get(env->sc_tables_dict, name);
 }
 
 struct table *
 table_find(objid_t id)
 {
-	struct table	*t;
-
-	TAILQ_FOREACH(t, env->sc_tables, t_entry) {
-		if (t->t_id == id)
-			break;
-	}
-	return (t);
+	return tree_get(env->sc_tables_tree, id);
 }
 
 int
@@ -151,7 +139,8 @@ table_create(const char *backend, const char *name, const char *config)
 	}
 
 	dict_init(&t->t_dict);
-	TAILQ_INSERT_TAIL(env->sc_tables, t, t_entry);
+	dict_set(env->sc_tables_dict, t->t_name, t);
+	tree_set(env->sc_tables_tree, t->t_id, t);
 
 	return (t);
 }
@@ -167,7 +156,8 @@ table_destroy(struct table *t)
 	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
 		free(p);
 
-	TAILQ_REMOVE(env->sc_tables, t, t_entry);
+	dict_xpop(env->sc_tables_dict, t->t_name);
+	tree_xpop(env->sc_tables_tree, t->t_id);
 	free(t);
 }
 

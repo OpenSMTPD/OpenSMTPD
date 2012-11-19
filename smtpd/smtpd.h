@@ -617,7 +617,8 @@ struct smtpd {
 	TAILQ_HEAD(filterlist, filter)		*sc_filters;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
-	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;
+/*	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;*/
+
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
@@ -625,6 +626,11 @@ struct smtpd {
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
 	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
+
+	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
+	struct tree			       *sc_tables_tree;		/* id lookup	*/
+	struct dict			       *sc_tables_dict_rld;	/* reload */
+	struct tree			       *sc_tables_tree_rld;	/* reload */
 
 	uint64_t				 filtermask;
 };
@@ -1208,6 +1214,8 @@ void *tree_xpop(struct tree *, uint64_t);
 int tree_poproot(struct tree *, uint64_t *, void **);
 int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
+void *tree_min(struct tree *);
+void *tree_max(struct tree *);
 int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
 

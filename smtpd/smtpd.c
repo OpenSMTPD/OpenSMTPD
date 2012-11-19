@@ -352,7 +352,8 @@ parent_send_config_ruleset(int proc)
 	struct rule	       *r;
 	struct table	       *t;
 	struct filter	       *f;
-	void		       *iter;
+	void		       *iter_tree;
+	void		       *iter_dict;
 	const char	       *k;
 	char		       *v;
 	char		       *buffer;
@@ -369,12 +370,13 @@ parent_send_config_ruleset(int proc)
 		}
 	}
 	else {
-		TAILQ_FOREACH(t, env->sc_tables, t_entry) {
+		iter_tree = NULL;
+		while (tree_iter(env->sc_tables_tree, &iter_tree, NULL, (void **)&t)) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE,
 			    0, 0, -1, t, sizeof(*t));
 
-			iter = NULL;
-			while (dict_iter(&t->t_dict, &iter, &k, (void **)&v)) {
+			iter_dict = NULL;
+			while (dict_iter(&t->t_dict, &iter_dict, &k, (void **)&v)) {
 				buflen = strlen(k) + 1;
 				if (v)
 					buflen += strlen(v) + 1;

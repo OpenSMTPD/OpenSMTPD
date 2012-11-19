@@ -225,6 +225,20 @@ tree_iterfrom(struct tree *t, void **hdl, uint64_t k, uint64_t *id, void **data)
 	return (0);
 }
 
+void *
+tree_min(struct tree *t)
+{
+	struct treeentry *e = SPLAY_MIN(tree, t);
+	return e->data;
+}
+
+void *
+tree_max(struct tree *t)
+{
+	struct treeentry *e = SPLAY_MAX(tree, t);
+	return e->data;
+}
+
 void
 tree_merge(struct tree *dst, struct tree *src)
 {

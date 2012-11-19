@@ -72,16 +72,17 @@ purge_config(uint8_t what)
 		env->sc_listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while ((t = TAILQ_FIRST(env->sc_tables)) != NULL) {
-			TAILQ_REMOVE(env->sc_tables, t, t_entry);
-
+		while (tree_poproot(env->sc_tables_tree, NULL, (void **)&t)) {
 			p = NULL;
 			while (dict_poproot(&t->t_dict, NULL, (void **)&p))
 				free(p);
+			dict_xpop(env->sc_tables_dict, t->t_name);
 			free(t);
 		}
-		free(env->sc_tables);
-		env->sc_tables = NULL;
+		free(env->sc_tables_dict);
+		free(env->sc_tables_tree);
+		env->sc_tables_dict = NULL;
+		env->sc_tables_tree = NULL;
 	}
 	if (what & PURGE_RULES) {
 		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {
