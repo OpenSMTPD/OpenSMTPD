@@ -36,7 +36,7 @@
 
 /* static backend */
 static int table_static_config(struct table *, const char *);
-static int table_static_update(struct table *, const char *);
+static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
 static int table_static_lookup(void *, const char *, enum table_service, void **);
 static void  table_static_close(void *);
@@ -75,17 +75,17 @@ table_static_config(struct table *table, const char *config)
 }
 
 static int
-table_static_update(struct table *table, const char *config)
+table_static_update(struct table *table)
 {
 	struct table   *t;
 	char		name[MAX_LINE_SIZE];
 
 	/* no config ? ok */
-	if (config == NULL)
+	if (table->t_config[0] == '\0')
 		goto ok;
 
-	t = table_create(table->t_src, NULL, config);
-	if (! t->t_backend->config(t, config))
+	t = table_create(table->t_src, NULL, table->t_config);
+	if (! t->t_backend->config(t, table->t_config))
 		goto err;
 
 	/* update successful, swap table names */

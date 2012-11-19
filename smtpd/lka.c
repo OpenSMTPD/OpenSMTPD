@@ -194,13 +194,17 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_END:
+
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
-			if (env->sc_tables_tree)
+			if (env->sc_tables_tree) {
+				table_close_all();
 				purge_config(PURGE_TABLES);
+			}
 			env->sc_rules = env->sc_rules_reload;
 			env->sc_tables_dict = tables_dict;
 			env->sc_tables_tree = tables_tree;
+			table_open_all();
 
 			table_last = NULL;
 			tables_dict = NULL;

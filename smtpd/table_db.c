@@ -17,6 +17,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/param.h>
@@ -38,7 +39,7 @@
 
 /* db(3) backend */
 static int table_db_config(struct table *, const char *);
-static int table_db_update(struct table *, const char *);
+static int table_db_update(struct table *);
 static void *table_db_open(struct table *);
 static int table_db_lookup(void *, const char *, enum table_service, void **);
 static void  table_db_close(void *);
@@ -69,6 +70,13 @@ static struct keycmp {
 	{ K_NETADDR, table_netaddr_match }
 };
 
+struct dbhandle {
+	DB		*db;
+	char		 pathname[MAXPATHLEN];
+	time_t		 mtime;
+	struct table	*table;
+};
+
 static int
 table_db_config(struct table *table, const char *config)
 {
@@ -83,33 +91,72 @@ table_db_config(struct table *table, const char *config)
 }
 
 static int
-table_db_update(struct table *table, const char *config)
+table_db_update(struct table *table)
 {
+	struct dbhandle	*handle;
+
+	handle = table_db_open(table);
+	if (handle) {
+		table_db_close(handle);
+		free(table->t_handle);
+		table->t_handle = handle;
+	}
 	return 1;
 }
 
 static void *
 table_db_open(struct table *table)
 {
-	return dbopen(table->t_config, O_RDONLY, 0600, DB_HASH, NULL);
+	struct dbhandle	       *handle;
+	struct stat		sb;
+
+	handle = xcalloc(1, sizeof *handle, "table_db_open");
+	if (strlcpy(handle->pathname, table->t_config, sizeof handle->pathname)
+	    >= sizeof handle->pathname)
+		goto error;
+
+	if (stat(handle->pathname, &sb) < 0)
+		goto error;
+
+	handle->mtime = sb.st_mtime;
+	handle->db = dbopen(table->t_config, O_RDONLY, 0600, DB_HASH, NULL);
+	if (handle->db == NULL)
+		goto error;
+	handle->table = table;
+
+	return handle;
+
+error:
+	if (handle->db)
+		handle->db->close(handle->db);
+	free(handle);
+	return NULL;
 }
 
 static void
 table_db_close(void *hdl)
 {
-	DB *db = hdl;
-
-	db->close(db);
+	struct dbhandle	*handle = hdl;
+	handle->db->close(handle->db);
 }
 
 static int
 table_db_lookup(void *hdl, const char *key, enum table_service service, void **retp)
 {
+	struct dbhandle	*handle = hdl;
 	char	       *line;
 	size_t		len = 0;
 	int		ret;
 	int	       (*match)(const char *, const char *) = NULL;
 	size_t		i;
+	struct stat	sb;
+
+	if (stat(handle->pathname, &sb) < 0)
+		return -1;
+
+	/* DB has changed, close and reopen */
+	if (sb.st_mtime != handle->mtime)
+		table_db_update(handle->table);
 
 	for (i = 0; i < nitems(keycmp); ++i)
 		if (keycmp->service == service)
@@ -161,14 +208,14 @@ static char *
 table_db_get_entry_match(void *hdl, const char *key, size_t *len,
     int(*func)(const char *, const char *))
 {
-	DB *db = hdl;
+	struct dbhandle	*handle = hdl;
 	DBT dbk;
 	DBT dbd;
 	int r;
 	char *buf = NULL;
 
-	for (r = db->seq(db, &dbk, &dbd, R_FIRST); !r;
-	     r = db->seq(db, &dbk, &dbd, R_NEXT)) {
+	for (r = handle->db->seq(handle->db, &dbk, &dbd, R_FIRST); !r;
+	     r = handle->db->seq(handle->db, &dbk, &dbd, R_NEXT)) {
 		buf = xmemdup(dbk.data, dbk.size, "table_db_get_entry_cmp");
 		if (func(key, buf)) {
 			*len = dbk.size;
@@ -182,10 +229,10 @@ table_db_get_entry_match(void *hdl, const char *key, size_t *len,
 static char *
 table_db_get_entry(void *hdl, const char *key, size_t *len)
 {
+	struct dbhandle	*handle = hdl;
 	int ret;
 	DBT dbk;
 	DBT dbv;
-	DB *db = hdl;
 	char pkey[MAX_LINE_SIZE];
 
 	/* workaround the stupidity of the DB interface */
@@ -194,7 +241,7 @@ table_db_get_entry(void *hdl, const char *key, size_t *len)
 	dbk.data = pkey;
 	dbk.size = strlen(pkey) + 1;
 
-	if ((ret = db->get(db, &dbk, &dbv, 0)) != 0)
+	if ((ret = handle->db->get(handle->db, &dbk, &dbv, 0)) != 0)
 		return NULL;
 
 	*len = dbv.size;

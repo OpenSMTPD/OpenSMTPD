@@ -289,7 +289,7 @@ struct table_backend {
 	const unsigned int	services;
 	int  (*config)(struct table *, const char *);
 	void *(*open)(struct table *);
-	int  (*update)(struct table *, const char *);
+	int  (*update)(struct table *);
 	void (*close)(void *);
 	int (*lookup)(void *, const char *, enum table_service, void **);
 	/*int (*fetch)(void *, enum table_service, void **, enum table_strategy);*/
@@ -1182,9 +1182,9 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
-void *table_open(struct table *);
-void  table_update(struct table *);
-void  table_close(struct table *, void *);
+void	table_open(struct table *);
+void	table_update(struct table *);
+void	table_close(struct table *);
 int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
 struct table *table_find(objid_t);
@@ -1194,9 +1194,9 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
-
 int table_netaddr_match(const char *, const char *);
-
+void	table_open_all(void);
+void	table_close_all(void);
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))
