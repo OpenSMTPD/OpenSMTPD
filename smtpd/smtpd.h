@@ -1211,8 +1211,6 @@ void *tree_xpop(struct tree *, uint64_t);
 int tree_poproot(struct tree *, uint64_t *, void **);
 int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
-void *tree_min(struct tree *);
-void *tree_max(struct tree *);
 int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
 
