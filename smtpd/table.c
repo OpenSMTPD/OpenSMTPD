@@ -71,10 +71,7 @@ table_find(objid_t id)
 int
 table_lookup(struct table *table, const char *key, enum table_service kind, void **retp)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(table->t_src);
-	return backend->lookup(table->t_handle, key, kind, retp);
+	return table->t_backend->lookup(table->t_handle, key, kind, retp);
 }
 
 struct table *
@@ -165,29 +162,20 @@ table_delete(struct table *t, const char *key)
 void
 table_open(struct table *t)
 {
-	struct table_backend	*backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	t->t_handle = backend->open(t);
+	t->t_handle = t->t_backend->open(t);
 }
 
 void
 table_close(struct table *t)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	backend->close(t->t_handle);
+	t->t_backend->close(t->t_handle);
 }
 
 
 void
 table_update(struct table *t)
 {
-	struct table_backend *backend = NULL;
-
-	backend = table_backend_lookup(t->t_src);
-	backend->update(t);
+	t->t_backend->update(t);
 }
 
 int
