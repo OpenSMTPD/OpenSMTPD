@@ -25,12 +25,12 @@ pkglibexec_PROGRAMS=	makemap
 
 makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c	\
 			table.c	table_db.c table_getpwnam.c table_static.c	\
-			tree.c
+			tree.c dict.c
 
 makemap_CFLAGS=		-DNO_IO
 
 smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
-			control.c delivery.c dns.c envelope.c expand.c		\
+			control.c delivery.c dict.c dns.c envelope.c expand.c	\
 			forward.c iobuf.c ioev.c lka.c lka_session.c log.c	\
 			mda.c mfa.c mfa_session.c mta.c mta_session.c parse.y	\
 			queue.c queue_backend.c ruleset.c			\

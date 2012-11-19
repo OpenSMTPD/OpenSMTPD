@@ -262,7 +262,7 @@ table_netaddr_match(const char *s1, const char *s2)
 		return 0;
 	if (n1.ss.ss_family != n2.ss.ss_family)
 		return 0;
-	if (n1.ss.ss_len != n2.ss.ss_len)
+	if (SS_LEN(&n1.ss) != SS_LEN(&n2.ss))
 		return 0;
 	return table_match_mask(&n1.ss, &n2);
 }
