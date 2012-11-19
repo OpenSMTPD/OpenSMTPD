@@ -60,7 +60,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	int			ret;
 	const char		*k;
 	const char		*v;
-
 	static struct dict		*tables_dict;
 	static struct tree		*tables_tree;
 	static struct table		*table_last;
