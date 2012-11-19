@@ -180,7 +180,7 @@ config_pipes(struct peer *p, uint peercount)
 void
 config_peers(struct peer *p, uint peercount)
 {
-	int	count;
+	int	n;
 	uint	src;
 	uint	dst;
 	uint	i;
@@ -198,20 +198,20 @@ config_peers(struct peer *p, uint peercount)
 		env->sc_ievs[dst] = xcalloc(env->sc_instances[dst],
 		    sizeof(struct imsgev), "config_peers");
 
-		for (count = 0; count < env->sc_instances[dst]; count++) {
-			imsg_init(&(env->sc_ievs[dst][count].ibuf),
-			    env->sc_pipes[src][dst][count]);
-			env->sc_ievs[dst][count].handler =  p[i].cb;
-			env->sc_ievs[dst][count].events = EV_READ;
-			env->sc_ievs[dst][count].proc = dst;
-			env->sc_ievs[dst][count].data = &env->sc_ievs[dst][count];
+		for (n = 0; n < env->sc_instances[dst]; n++) {
+			imsg_init(&(env->sc_ievs[dst][n].ibuf),
+			    env->sc_pipes[src][dst][n]);
+			env->sc_ievs[dst][n].handler =  p[i].cb;
+			env->sc_ievs[dst][n].events = EV_READ;
+			env->sc_ievs[dst][n].proc = dst;
+			env->sc_ievs[dst][n].data = &env->sc_ievs[dst][n];
 
-			event_set(&(env->sc_ievs[dst][count].ev),
-			    env->sc_ievs[dst][count].ibuf.fd,
-			    env->sc_ievs[dst][count].events,
-			    env->sc_ievs[dst][count].handler,
-			    env->sc_ievs[dst][count].data);
-			event_add(&(env->sc_ievs[dst][count].ev), NULL);
+			event_set(&(env->sc_ievs[dst][n].ev),
+			    env->sc_ievs[dst][n].ibuf.fd,
+			    env->sc_ievs[dst][n].events,
+			    env->sc_ievs[dst][n].handler,
+			    env->sc_ievs[dst][n].data);
+			event_add(&(env->sc_ievs[dst][n].ev), NULL);
 		}
 	}
 }

@@ -40,7 +40,8 @@
 static int table_getpwnam_config(struct table *, const char *);
 static int table_getpwnam_update(struct table *);
 static void *table_getpwnam_open(struct table *);
-static int table_getpwnam_lookup(void *, const char *, enum table_service, void **);
+static int table_getpwnam_lookup(void *, const char *, enum table_service,
+    void **);
 static void  table_getpwnam_close(void *);
 
 struct table_backend table_backend_getpwnam = {
@@ -80,7 +81,8 @@ table_getpwnam_close(void *hdl)
 }
 
 static int
-table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind, void **ret)
+table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind,
+    void **ret)
 {
 	struct table_userinfo  *userinfo;
 	struct passwd	       *pw;
@@ -99,13 +101,16 @@ table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind, void 
 	userinfo = xcalloc(1, sizeof *userinfo, "table_getpwnam_lookup");
 	userinfo->uid = pw->pw_uid;
 	userinfo->gid = pw->pw_gid;
-	s = strlcpy(userinfo->username, pw->pw_name, sizeof(userinfo->username));
+	s = strlcpy(userinfo->username, pw->pw_name,
+	    sizeof(userinfo->username));
 	if (s >= sizeof(userinfo->username))
 		goto error;
-	s = strlcpy(userinfo->password, pw->pw_passwd, sizeof(userinfo->password));
+	s = strlcpy(userinfo->password, pw->pw_passwd,
+	    sizeof(userinfo->password));
 	if (s >= sizeof(userinfo->password))
 		goto error;
-	s = strlcpy(userinfo->directory, pw->pw_dir, sizeof(userinfo->directory));
+	s = strlcpy(userinfo->directory, pw->pw_dir,
+	    sizeof(userinfo->directory));
 	if (s >= sizeof(userinfo->directory))
 		goto error;
 
