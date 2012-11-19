@@ -275,7 +275,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			max_reuse = 1;
 
 		/* Cleanup previous connection if any */
-		if (s->mxtried) {
+		if (s->mx) {
 			s->mx->nconn--;
 			iobuf_clear(&s->iobuf);
 			io_clear(&s->io);
@@ -309,10 +309,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 			io_init(&s->io, -1, s, mta_io, &s->iobuf);
 			io_set_timeout(&s->io, 10000);
 			if (io_connect(&s->io, sa, NULL) == -1) {
-				log_debug("debug: mta: %p: "
-				    "connection failed: %s", s,
+				mta_mx_error(s, "Connection failed: %s",
 				    strerror(errno));
-				iobuf_clear(&s->iobuf);
 				/*
 				 * This error is most likely a "no route",
 				 * so there is no need to try the same mx.
@@ -320,19 +318,12 @@ mta_enter_state(struct mta_session *s, int newstate)
 				s->mx->nconn--;
 				s->mx = mta_route_next_mx(s->route, &s->mxseen);
 				s->mxtried = 0;
+				iobuf_clear(&s->iobuf);
 				continue;
 			}
 			return;
 		}
-		/*
-		 * XXX It is not really a failure: it can be just that some
-		 * MX/route limits have been reached, so the route must not
-		 * necessarily TempFail all remaining sessions.
-		 *
-		 * Also, this is not necessary, since the route already knows
-		 * it returned NULL.
-		 */
-		mta_route_error(s->route, NULL, "No MX could be reached");
+		log_debug("debug: mta: %p: no MX could be reached", s);
 		mta_enter_state(s, MTA_DONE);
 		break;
 
@@ -386,6 +377,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		else if (s->route->secret) {
 			log_debug("debug: mta: %p: not using AUTH on non-TLS session",
 			    s);
+			mta_mx_error(s, "Refuse to AUTH over unsecure channel");
 			mta_enter_state(s, MTA_CONNECT);
 		} else {
 			mta_enter_state(s, MTA_SMTP_READY);
@@ -870,6 +862,7 @@ mta_mx_error(struct mta_session *s, const char *fmt, ...)
 	 * ignore this error.
 	 */
 	if (s->state == MTA_CONNECT &&
+	    s->route->port == 0 &&
 	    s->flags & MTA_FORCE_ANYSSL &&
 	    s->mxtried == 1)
 		return;

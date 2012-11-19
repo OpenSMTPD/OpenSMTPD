@@ -66,7 +66,6 @@ static void mta_sig_handler(int, short, void *);
 static struct mta_route *mta_route_for(struct envelope *);
 static void mta_route_query_mx(struct mta_route *);
 static void mta_route_query_secret(struct mta_route *);
-static int mta_route_next_preference(struct mta_mxlist *, int);
 static void mta_route_flush(struct mta_route *, int, const char *);
 static void mta_route_drain(struct mta_route *);
 static void mta_route_free(struct mta_route *);
@@ -367,16 +366,10 @@ mta_mx_to_text(struct mta_mx *mx)
 void
 mta_route_error(struct mta_route *route, struct mta_mx *mx, const char *e)
 {
-	if (mx) {
-		log_info("smtp-out: Error on MX %s: %s", mta_mx_to_text(mx), e);
-		if (mx->error++ == MX_MAXERROR)
-			log_warnx("warn: Too many errors on MX %s: ignoring",
-			    mta_mx_to_text(mx));
-		return;
-	}
-
-	route->nfail += 1;
-	strlcpy(route->errorline, e, sizeof route->errorline);
+	log_info("smtp-out: Error on MX %s: %s", mta_mx_to_text(mx), e);
+	if (mx->error++ == MX_MAXERROR)
+		log_warnx("warn: Too many errors on MX %s: ignoring",
+		    mta_mx_to_text(mx));
 }
 
 void
@@ -384,7 +377,7 @@ mta_route_ok(struct mta_route *route, struct mta_mx *mx)
 {
 	log_debug("debug: mta: %s ready on MX %s", mta_route_to_text(route),
 	    mta_mx_to_text(mx));
-	route->nfail = 0;
+	mx->error = 0;
 }
 
 void
@@ -399,55 +392,92 @@ struct mta_mx *
 mta_route_next_mx(struct mta_route *route, struct tree *seen)
 {
 	struct mta_mx	*mx, *best;
-	int		 p = -1, limit;
+	int		 level, limit;
 	union {
 		uint64_t v;
 		void	*p;
 	} u;
 
-	while((p = mta_route_next_preference(route->mxlist, p)) != -1) {
-		best = NULL;
-		limit = 0;
-		TAILQ_FOREACH(mx, &route->mxlist->mxs, entry) {
-			if (mx->preference < p)
-				continue;
-			if (mx->preference > p)
+
+	limit = 0;
+	level = -1;
+	best = NULL;
+
+	TAILQ_FOREACH(mx, &route->mxlist->mxs, entry) {
+
+		/* New preference level */		
+		if (mx->preference > level) {
+			/*
+			 * Use the current best if found.
+			 */
+			if (best)
 				break;
 
-			if (mx->flags & MX_IGNORE)
-				continue;
+			/*
+			 * No candidate found.  If there are valid MXs at this
+			 * preference level but they reached their limit, just
+			 * close the session.
+			 */
+			if (limit)
+				break;
 
-			if (mx->error > MX_MAXERROR)
-				continue;
-
-			if (mx->nconn >= MX_MAXCONN) {
-				limit = 1;
-				continue;
-			}
-			u.v = 0;
-			u.p = mx;
-			if (tree_get(seen, u.v))
-				continue;
-
-			if (best == NULL || mx->nconn < best->nconn)
-				best = mx;
+			/*
+			 * Start looking at MXs on this preference level.
+			 * Reset the runtime session limit.
+			 */ 
+			level = mx->preference;
+			route->maxsession = route->maxconn;
 		}
 
-		if (best) {
-			best->nconn++;
-			u.v = 0;
-			u.p = best;
-			tree_xset(seen, u.v, best);
-			return (best);
+		if (mx->flags & MX_IGNORE)
+			continue;
+
+		if (mx->error > MX_MAXERROR)
+			continue;
+
+		if (mx->nconn >= MX_MAXCONN) {
+			limit = 1;
+			continue;
 		}
 
-		/*
-		 * There are MX for this preference level, but they are
-		 * currently all busy.
-		 */
-		if (limit)
-			break;
+		if (best && mx->nconn >= best->nconn)
+			continue;
+
+		u.v = 0;
+		u.p = mx;
+		if (tree_get(seen, u.v))
+			continue;
+
+		best = mx;
 	}
+
+	if (best) {
+		best->nconn++;
+		u.v = 0;
+		u.p = best;
+		tree_xset(seen, u.v, best);
+		return (best);
+	}
+
+	/*
+	 * We are trying too much on this route.
+	 */
+	route->maxsession = route->nsession - 1;
+
+	/*
+	 * No reachable MX for this route. Mark it dead for the last session.
+	 * This is never true if we hit a limit, because it would mean there
+	 * is at least one other session running, so nsession would at least
+	 * 2 when this function was called.
+	 */
+	if (route->maxsession == 0) {
+		route->status |= ROUTE_CLOSED;
+		/* Log for the last session only */
+		log_warnx("smtp-out: No reachable MX for %s: "
+		    "Cancelling all transfers",
+		    mta_route_to_text(route));
+	}
+
 	return (NULL);
 }
 
@@ -556,6 +586,8 @@ mta_route_for(struct envelope *e)
 		route->maxmail = MTA_MAXMAIL;
 		route->maxrcpt = MTA_MAXRCPT;
 
+		route->maxsession = route->maxconn;
+
 		log_trace(TRACE_MTA, "mta: new %s", mta_route_to_text(route));
 		stat_increment("mta.route", 1);
 		mta_route_query_mx(route);
@@ -604,25 +636,12 @@ mta_route_query_mx(struct mta_route *route)
 		dns_query_mx(route->hostname, route->backupname, 0, route->id);
 }
 
-static int
-mta_route_next_preference(struct mta_mxlist *mxl, int current)
-{
-	struct mta_mx *mx;
-
-	if (current == -1)
-		return (TAILQ_FIRST(&mxl->mxs)->preference);
-	TAILQ_FOREACH(mx, &mxl->mxs, entry)
-		if (mx->preference > current)
-			return (mx->preference);
-	return (-1);
-}
-
 static void
 mta_route_free(struct mta_route *route)
 {
 	struct mta_mx	*mx;
 
-	log_trace(TRACE_MTA, "mta: freeing %s", mta_route_to_text(route));
+	log_debug("debug: mta: freeing %s", mta_route_to_text(route));
 	SPLAY_REMOVE(mta_route_tree, &routes, route);
 	free(route->hostname);
 	if (route->cert)
@@ -685,10 +704,9 @@ mta_route_drain(struct mta_route *route)
 	int		 m;
 	const char	*w;
 
-
-	log_debug("debug: mta: draining %s (tasks=%i, refs=%i, sessions=%i)",
+	log_debug("debug: mta: draining %s (tasks=%i, refs=%i, sessions=%i/%i)",
 	    mta_route_to_text(route),
-	    route->ntask, route->refcount, route->nsession);
+	    route->ntask, route->refcount, route->nsession, route->maxsession);
 
 	/* Wait until we are ready to proceed */
 	if (route->status & (ROUTE_WAIT_MX | ROUTE_WAIT_SECRET)) {
@@ -709,55 +727,43 @@ mta_route_drain(struct mta_route *route)
 		    mta_route_to_text(route));
 		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
 		    "Cannot retreive secret");
-		mta_route_free(route);
+		if (route->refcount == 0)
+			mta_route_free(route);
 		return;
 	}
+
 	if (route->mxlist->error) {
 		log_warnx("warn: Failed to resolve MX for route %s: %s",
 		    mta_route_to_text(route), route->mxlist->error);
 		mta_route_flush(route, route->mxlist->errortype,
 		    route->mxlist->error);
-		mta_route_free(route);
-		return;
-	}
-
-	if (route->ntask == 0 && route->refcount == 0 && route->nsession == 0) {
-		log_debug("debug: mta: all done for %s",
-		    mta_route_to_text(route));
-		mta_route_free(route);
+		if (route->refcount == 0)
+			mta_route_free(route);
 		return;
 	}
 
 	if (route->ntask == 0) {
-		log_debug("debug: mta: no task for %s",
+		log_debug("debug: mta: all done for %s",
 		    mta_route_to_text(route));
+		if (route->refcount == 0 && route->nsession == 0)
+			mta_route_free(route);
 		return;
 	}
 
-	if (route->nfail > 3) {
-		/*
-		 * Three connection errors in a row: consider that the route
-		 * has a problem.
-		 */
-		/*
-		 * XXX the logic is wrong.  What we want is: Fail if
-		 * there is no running sessions and starting one fails.
-		 * The error is that no MX could be reached.  The logs
-		 * should already have all errors on MX.
-		 */
-		log_warnx("smtp-out: Too many errors on %s: Cancelling all",
-		    mta_route_to_text(route));
+	if (route->status & ROUTE_CLOSED) {
 		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
-		    route->errorline);
-		route->nfail = 0;
-		/* XXX mark for deletion */
+		    "No reacheable MX");
+		if (route->refcount == 0 && route->nsession == 0)
+			mta_route_free(route);
 		return;
 	}
 
 	/* Make sure there is one session for each task */
 	while (route->nsession < route->ntask) {
-		/* If we have reached the max number of session, wait */
-		if (route->nsession >= route->maxconn) {
+		/*
+		 * If we have reached the max number of session, just wait
+		 */
+		if (route->nsession >= route->maxsession) {
 			log_debug("debug: mta: max conn reached for %s",
 			    mta_route_to_text(route));
 			return;

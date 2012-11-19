@@ -753,6 +753,7 @@ struct mta_route {
 
 #define ROUTE_WAIT_MX		0x01
 #define ROUTE_WAIT_SECRET	0x02
+#define ROUTE_CLOSED		0x04
 	int			 status;
 
 	char			*secret;
@@ -769,10 +770,8 @@ struct mta_route {
 	int			 ntask;
 	TAILQ_HEAD(, mta_task)	 tasks;
 
+	int			 maxsession;	/* runtime condition */
 	int			 nsession;
-
-	int			 nfail;
-	char			 errorline[64];
 };
 
 struct mta_task {
