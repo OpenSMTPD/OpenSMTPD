@@ -781,6 +781,10 @@ struct table_domain {
 	char			name[MAXHOSTNAMELEN];
 };
 
+struct table_relayhost {
+	struct relayhost	relay;
+};
+
 
 /* XXX - must be == to struct userinfo ! */
 struct table_userinfo {
