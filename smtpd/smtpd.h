@@ -281,11 +281,11 @@ struct table {
 
 struct table_backend {
 	const unsigned int	services;
-	int  (*config)(struct table *, const char *);
-	void *(*open)(struct table *);
-	int  (*update)(struct table *);
-	void (*close)(void *);
-	int (*lookup)(void *, const char *, enum table_service, void **);
+	int	(*config)(struct table *, const char *);
+	void	*(*open)(struct table *);
+	int	(*update)(struct table *);
+	void	(*close)(void *);
+	int	(*lookup)(void *, const char *, enum table_service, void **);
 };
 
 
@@ -328,9 +328,9 @@ struct rule {
 		struct relayhost	relayhost;
 	}				r_value;
 
-	struct mailaddr			*r_as;
-	objid_t				 r_atable;
-	time_t				 r_qexpire;
+	struct mailaddr		       *r_as;
+	objid_t				r_atable;
+	time_t				r_qexpire;
 };
 
 struct mailaddr {
@@ -827,16 +827,16 @@ enum queue_op {
 };
 
 struct queue_backend {
-	int(*init)(int);
-	int(*message)(enum queue_op, uint32_t *);
-	int(*envelope)(enum queue_op, uint64_t *, char *, size_t);
+	int	(*init)(int);
+	int	(*message)(enum queue_op, uint32_t *);
+	int	(*envelope)(enum queue_op, uint64_t *, char *, size_t);
 };
 
 struct compress_backend {
-	int(*compress_file)(FILE *, FILE *);
-	int(*uncompress_file)(FILE *, FILE *);
-	size_t(*compress_buffer)(char *, size_t, char *, size_t);
-	size_t(*uncompress_buffer)(char *, size_t, char *, size_t);
+	int	(*compress_file)(FILE *, FILE *);
+	int	(*uncompress_file)(FILE *, FILE *);
+	size_t	(*compress_buffer)(char *, size_t, char *, size_t);
+	size_t	(*uncompress_buffer)(char *, size_t, char *, size_t);
 };
 
 /* auth structures */
@@ -846,14 +846,14 @@ enum auth_type {
 };
 
 struct auth_backend {
-	int(*authenticate)(char *, char *);
+	int	(*authenticate)(char *, char *);
 };
 
 
 /* delivery_backend */
 struct delivery_backend {
-	int allow_root;
-	void(*open)(struct deliver *);
+	int	allow_root;
+	void	(*open)(struct deliver *);
 };
 
 struct evpstate {

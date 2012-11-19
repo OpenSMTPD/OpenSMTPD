@@ -350,7 +350,7 @@ mktmpfile(void)
 	int		fd;
 
 	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
-		PATH_TEMPORARY))
+	    PATH_TEMPORARY))
 		err(1, "snprintf");
 
 	if ((fd = mkstemp(path)) == -1)
@@ -525,8 +525,7 @@ ss_to_text(const struct sockaddr_storage *ss)
 		addr = ntohl(addr);
 		bsnprintf(p, NI_MAXHOST, "%d.%d.%d.%d",
 		    (addr >> 24) & 0xff, (addr >> 16) & 0xff,
-		    (addr >> 8) & 0xff,
-		    addr & 0xff);
+		    (addr >> 8) & 0xff, addr & 0xff);
 	}
 	else if (ss->ss_family == AF_INET6) {
 		const struct sockaddr_in6 *in6;
@@ -557,14 +556,14 @@ time_to_text(time_t when)
 
 	/* We do not use strftime because it is subject to locale substitution*/
 	if (! bsnprintf(buf, sizeof(buf),
-		"%s, %d %s %d %02d:%02d:%02d %c%02d%02d (%s)",
-		day[lt->tm_wday], lt->tm_mday, month[lt->tm_mon],
-		lt->tm_year + 1900,
-		lt->tm_hour, lt->tm_min, lt->tm_sec,
-		lt->tm_gmtoff >= 0 ? '+' : '-',
-		abs((int)lt->tm_gmtoff / 3600),
-		abs((int)lt->tm_gmtoff % 3600) / 60,
-		lt->tm_zone))
+	    "%s, %d %s %d %02d:%02d:%02d %c%02d%02d (%s)",
+	    day[lt->tm_wday], lt->tm_mday, month[lt->tm_mon],
+	    lt->tm_year + 1900,
+	    lt->tm_hour, lt->tm_min, lt->tm_sec,
+	    lt->tm_gmtoff >= 0 ? '+' : '-',
+	    abs((int)lt->tm_gmtoff / 3600),
+	    abs((int)lt->tm_gmtoff % 3600) / 60,
+	    lt->tm_zone))
 		fatalx("time_to_text: bsnprintf");
 
 	return buf;
@@ -707,7 +706,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 
 	for (i = 0; i < nitems(schemas); ++i)
 		if (strncasecmp(schemas[i].name, s,
-			strlen(schemas[i].name)) == 0)
+		    strlen(schemas[i].name)) == 0)
 			break;
 
 	if (i == nitems(schemas)) {

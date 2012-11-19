@@ -164,7 +164,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_TABLE:
-			table_last = table = xmemdup(imsg->data, sizeof *table, "lka:table");
+			table_last = table = xmemdup(imsg->data, sizeof *table,
+			    "lka:table");
 			dict_init(&table->t_dict);
 			dict_set(tables_dict, table->t_name, table);
 			tree_set(tables_tree, table->t_id, table);
