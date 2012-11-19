@@ -73,7 +73,6 @@ purge_config(uint8_t what)
 	}
 	if (what & PURGE_TABLES) {
 		while (tree_poproot(env->sc_tables_tree, NULL, (void **)&t)) {
-			p = NULL;
 			while (dict_poproot(&t->t_dict, NULL, (void **)&p))
 				free(p);
 			dict_xpop(env->sc_tables_dict, t->t_name);
