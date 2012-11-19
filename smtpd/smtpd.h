@@ -266,11 +266,6 @@ enum table_service {
 	K_USERINFO	= 0x20,
 };
 
-enum table_strategy {
-	ST_RANDOM,
-	ST_ROUNDROBIN,
-};
-
 struct table {
 	TAILQ_ENTRY(table)		 t_entry;
 	char				 t_name[MAX_LINE_SIZE];
@@ -292,7 +287,6 @@ struct table_backend {
 	int  (*update)(struct table *);
 	void (*close)(void *);
 	int (*lookup)(void *, const char *, enum table_service, void **);
-	/*int (*fetch)(void *, enum table_service, void **, enum table_strategy);*/
 };
 
 
