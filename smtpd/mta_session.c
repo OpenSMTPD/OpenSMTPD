@@ -220,7 +220,8 @@ mta_on_ptr(void *tag, void *arg, void *data)
 	/* check if we need to start tls now... */
 	if (((s->flags & MTA_FORCE_ANYSSL) && s->mxtried == 1) ||
 	    (s->flags & MTA_FORCE_SMTPS)) {
-		log_debug("debug: mta: %p: trying smtps (ssl=%p)...", s, s->ssl);
+		log_debug("debug: mta: %p: trying smtps (ssl=%p)...", s,
+		    s->ssl);
 		if ((ssl = ssl_mta_init(s->ssl)) == NULL)
 			fatalx("mta: ssl_mta_init");
 		io_start_tls(&s->io, ssl);
@@ -249,7 +250,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 	s->state = newstate;
 
 	/* don't try this at home! */
-#define mta_enter_state(_s, _st) do { newstate = _st; goto again; } while(0)
+#define mta_enter_state(_s, _st) do { newstate = _st; goto again; } while (0)
 
 	switch (s->state) {
 	case MTA_INIT:
@@ -296,7 +297,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 			if (s->route->port)
 				portno = s->route->port;
-			else if ((s->flags & MTA_FORCE_ANYSSL) && s->mxtried == 1)
+			else if ((s->flags & MTA_FORCE_ANYSSL) &&
+			    s->mxtried == 1)
 				portno = 465;
 			else if (s->flags & MTA_FORCE_SMTPS)
 				portno = 465;
@@ -380,8 +382,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 		if (s->route->secret && s->flags & MTA_TLS)
 			mta_send(s, "AUTH PLAIN %s", s->route->secret);
 		else if (s->route->secret) {
-			log_debug("debug: mta: %p: not using AUTH on non-TLS session",
-			    s);
+			log_debug("debug: mta: %p: not using AUTH on non-TLS "
+			    "session", s);
 			mta_mx_error(s, "Refuse to AUTH over unsecure channel");
 			mta_enter_state(s, MTA_CONNECT);
 		} else {
@@ -477,7 +479,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 static void
 mta_response(struct mta_session *s, char *line)
 {
-	struct envelope	*evp;	
+	struct envelope	*evp;
 	void		*ssl;
 	int		 delivery;
 

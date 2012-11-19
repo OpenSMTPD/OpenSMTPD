@@ -213,7 +213,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 				mxl->error = "Unknown DNS error";
 			}
 			route->mxlist = mxl;
-			log_debug("debug: MXs for %s", mta_route_to_text(route));
+			log_debug("debug: MXs for %s",
+			    mta_route_to_text(route));
 			TAILQ_FOREACH(mx, &mxl->mxs, entry)
 				log_debug("debug: %s -> preference %i",
 				    ss_to_text(&mx->sa), mx->preference);
@@ -650,7 +651,7 @@ mta_route_free(struct mta_route *route)
 		free(route->auth);
 
 	if (route->mxlist)
-		while((mx = TAILQ_FIRST(&route->mxlist->mxs))) {
+		while ((mx = TAILQ_FIRST(&route->mxlist->mxs))) {
 			TAILQ_REMOVE(&route->mxlist->mxs, mx, entry);
 			free(mx->hostname);
 			free(mx);
@@ -681,7 +682,7 @@ mta_route_flush(struct mta_route *route, int fail, const char *error)
 	n = 0;
 	while ((task = TAILQ_FIRST(&route->tasks))) {
 		TAILQ_REMOVE(&route->tasks, task, entry);
-		while((e = TAILQ_FIRST(&task->envelopes))) {
+		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			envelope_set_errormsg(e, "%s", error);
 			log_envelope(e, relay, pfx, e->errorline);
