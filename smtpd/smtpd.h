@@ -617,7 +617,6 @@ struct smtpd {
 	TAILQ_HEAD(filterlist, filter)		*sc_filters;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
-/*	TAILQ_HEAD(tablelist, table)		*sc_tables, *sc_tables_reload;*/
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
@@ -629,8 +628,6 @@ struct smtpd {
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
-	struct dict			       *sc_tables_dict_rld;	/* reload */
-	struct tree			       *sc_tables_tree_rld;	/* reload */
 
 	uint64_t				 filtermask;
 };
