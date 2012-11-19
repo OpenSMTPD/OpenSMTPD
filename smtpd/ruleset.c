@@ -44,8 +44,8 @@ ruleset_match(const struct envelope *evp)
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
 	struct table	*table;
-	struct mapel	*me;
 	int		 v;
+	int		 ret;
 
 	if (evp->flags & DF_INTERNAL)
 		ss = NULL;
@@ -56,12 +56,12 @@ ruleset_match(const struct envelope *evp)
 			continue;
 
 		if (ss != NULL && !(evp->flags & DF_AUTHENTICATED)) {
-			v = ruleset_check_source(r->r_sources, ss);
-			if (v == -1) {
+			ret = ruleset_check_source(r->r_sources, ss);
+			if (ret == -1) {
 				errno = EAGAIN;
 				return (NULL);
 			}
-			if (v == 0)
+			if (ret == 0)
 				continue;
 		}
 
@@ -73,21 +73,14 @@ ruleset_match(const struct envelope *evp)
 			if (table == NULL)
 				fatal("failed to lookup table.");
 
-			if (! strcmp(table->t_src, "static")) {
-				TAILQ_FOREACH(me, &table->t_contents,
-				    me_entry) {
-					if (hostname_match(maddr->domain,
-						me->me_key))
-						return r;
-				}
-			}
-			else if (table_lookup(table, maddr->domain,
-				K_VIRTUAL, NULL) > 0) {
-				return (r);
-			} else if (errno) {
+			ret = table_lookup(table, maddr->domain, K_DOMAIN,
+			    NULL);
+			if (ret == -1) {
 				errno = EAGAIN;
-				return (NULL);
+				return NULL;
 			}
+			if (ret)
+				return r;
 		}
 
 		if (r->r_condition.c_type == COND_VDOM) {

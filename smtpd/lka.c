@@ -54,12 +54,13 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct submit_status	*ss;
 	struct secret		*secret;
-	struct mapel		*mapel;
 	struct rule		*rule;
 	struct table		*table;
 	struct table		*tp;
 	void			*tmp;
 	int			ret;
+	const char		*k;
+	const char		*v;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_PTR) {
@@ -157,7 +158,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_TABLE:
 			table = xmemdup(imsg->data, sizeof *table, "lka:table");
-			TAILQ_INIT(&table->t_contents);
+			dict_init(&table->t_dict);
+
 			TAILQ_INSERT_TAIL(env->sc_tables_reload, table,
 			    t_entry);
 			tmp = env->sc_tables;
@@ -184,8 +186,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_CONF_TABLE_CONTENT:
 			table = TAILQ_LAST(env->sc_tables_reload, tablelist);
-			mapel = xmemdup(imsg->data, sizeof *mapel, "lka:mapel");
-			TAILQ_INSERT_TAIL(&table->t_contents, mapel, me_entry);
+
+			k = imsg->data;
+			if (table->t_type == T_HASH)
+				v = k + strlen(k) + 1;
+			else
+				v = NULL;
+
+			dict_set(&table->t_dict, k,
+			    v ? xstrdup(v, "lka:dict_set") : NULL);
 			return;
 
 		case IMSG_CONF_END:
