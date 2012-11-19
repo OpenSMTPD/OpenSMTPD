@@ -96,11 +96,12 @@ table_db_update(struct table *table)
 	struct dbhandle	*handle;
 
 	handle = table_db_open(table);
-	if (handle) {
-		table_db_close(handle);
-		free(table->t_handle);
-		table->t_handle = handle;
-	}
+	if (handle == NULL)
+		return 0;
+
+	table_db_close(table->t_handle);
+	free(table->t_handle);
+	table->t_handle = handle;
 	return 1;
 }
 
