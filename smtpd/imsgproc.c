@@ -70,7 +70,6 @@ imsgproc_fork(const char *path, const char *name, void (*cb)(struct imsg *, void
 
 		execl(proc->path, proc->name, NULL);
 		err(1, "execl");
-		exit(1);
 	}
 
 	/* parent process */
