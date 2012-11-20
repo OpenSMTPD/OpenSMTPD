@@ -1100,6 +1100,9 @@ int cmdline_symset(char *);
 void proc_init(void);
 struct proc *proc_fork(const char *, const char *,
     void (*)(struct imsg *, void *), void *);
+void proc_set_read(struct proc *);
+void proc_set_write(struct proc *);
+void proc_set_read_write(struct proc *);
 
 /* queue.c */
 pid_t queue(void);
