@@ -698,7 +698,7 @@ struct rulematch {
 };
 
 struct filter {
-	struct proc	       *process;
+	struct imsgproc	       *process;
 	char			name[MAX_FILTER_NAME];
 	char			path[MAXPATHLEN];
 };
@@ -943,9 +943,7 @@ struct stat_digest {
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
-
-/* proc stuff */
-struct proc {
+struct imsgproc {
 	pid_t			pid;
 	struct event		ev;
 	struct imsgbuf	       *ibuf;
@@ -1053,6 +1051,15 @@ RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 int forwards_get(int, struct expand *);
 
 
+/* imsgproc.c */
+void imsgproc_init(void);
+struct imsgproc *imsgproc_fork(const char *, const char *,
+    void (*)(struct imsg *, void *), void *);
+void imsgproc_set_read(struct imsgproc *);
+void imsgproc_set_write(struct imsgproc *);
+void imsgproc_set_read_write(struct imsgproc *);
+
+
 /* lka.c */
 pid_t lka(void);
 
@@ -1095,14 +1102,6 @@ void mta_session_imsg(struct imsgev *, struct imsg *);
 int parse_config(struct smtpd *, const char *, int);
 int cmdline_symset(char *);
 
-
-/* proc.c */
-void proc_init(void);
-struct proc *proc_fork(const char *, const char *,
-    void (*)(struct imsg *, void *), void *);
-void proc_set_read(struct proc *);
-void proc_set_write(struct proc *);
-void proc_set_read_write(struct proc *);
 
 /* queue.c */
 pid_t queue(void);

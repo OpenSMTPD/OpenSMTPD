@@ -19,7 +19,9 @@
 #include <sys/types.h>
 #include <sys/tree.h>
 #include <sys/queue.h>
+#include <sys/uio.h>
 
+#include <err.h>
 #include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,16 +33,16 @@
 static struct tree	children;
 
 void
-proc_init(void)
+imsgproc_init(void)
 {
 	tree_init(&children);
 }
 
-struct proc *
-proc_fork(const char *path, const char *name, void (*cb)(struct imsg *, void *),
+struct imsgproc *
+imsgproc_fork(const char *path, const char *name, void (*cb)(struct imsg *, void *),
     void *cb_arg)
 {
-	struct proc	*proc;
+	struct imsgproc	*proc;
 	int		 sp[2];
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0)
@@ -89,13 +91,12 @@ err:
 }
 
 static void
-proc_imsg(int fd, short event, void *p)
+imsgproc_imsg(int fd, short event, void *p)
 {
-	struct proc	       *proc = p;
+	struct imsgproc	       *proc = p;
 	struct imsg		imsg;
 	ssize_t			n;
 	short			evflags = EV_READ;
-	size_t			i;
 
 	if (event & EV_READ) {
 		n = imsg_read(proc->ibuf);
@@ -126,34 +127,34 @@ proc_imsg(int fd, short event, void *p)
 
 		imsg_free(&imsg);
 	}
-	event_set(&proc->ev, proc->ibuf->fd, evflags, proc_imsg, proc);
+	event_set(&proc->ev, proc->ibuf->fd, evflags, imsgproc_imsg, proc);
 	event_add(&proc->ev, NULL);
 }
 
 void
-proc_set_write(struct proc *proc)
+imsgproc_set_write(struct imsgproc *proc)
 {
 	if (proc->ibuf->w.queued) {
-		event_set(&proc->ev, proc->ibuf->fd, EV_WRITE, proc_imsg, proc);
+		event_set(&proc->ev, proc->ibuf->fd, EV_WRITE, imsgproc_imsg, proc);
 		event_add(&proc->ev, NULL);
 	}
 }
 
 void
-proc_set_read(struct proc *proc)
+imsgproc_set_read(struct imsgproc *proc)
 {
-	event_set(&proc->ev, proc->ibuf->fd, EV_READ, proc_imsg, proc);
+	event_set(&proc->ev, proc->ibuf->fd, EV_READ, imsgproc_imsg, proc);
 	event_add(&proc->ev, NULL);
 }
 
 void
-proc_set_read_write(struct proc *proc)
+imsgproc_set_read_write(struct imsgproc *proc)
 {
 	short	events;
 
 	events = EV_READ;
 	if (proc->ibuf->w.queued)
 		events |= EV_WRITE;
-	event_set(&proc->ev, proc->ibuf->fd, events, proc_imsg, proc);
+	event_set(&proc->ev, proc->ibuf->fd, events, imsgproc_imsg, proc);
 	event_add(&proc->ev, NULL);
 }

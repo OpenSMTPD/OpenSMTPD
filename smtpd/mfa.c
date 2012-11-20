@@ -220,7 +220,7 @@ mfa(void)
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 
-	proc_init();
+	imsgproc_init();
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	mfa_shutdown();

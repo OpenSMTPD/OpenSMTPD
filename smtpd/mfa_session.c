@@ -56,7 +56,7 @@ mfa_session_filters_init(void)
 
 	iter = NULL;
 	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
-		filter->process = proc_fork(filter->path, filter->name,
+		filter->process = imsgproc_fork(filter->path, filter->name,
 		    mfa_session_imsg_handler, NULL);
 		if (filter->process == NULL)
 			fatalx("could not start filter");
@@ -158,7 +158,7 @@ mfa_session_proceed(struct mfa_session *ms)
 
 	log_debug("SENDING IMSG TYPE: %d", fm.type);
 	imsg_compose(ms->filter->process->ibuf, fm.type, 0, 0, -1, &fm, sizeof(fm));
-	proc_set_write(ms->filter->process);
+	imsgproc_set_write(ms->filter->process);
 	return 1;
 }
 
