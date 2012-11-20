@@ -155,7 +155,7 @@ mta_session(struct mta_route *route)
 			session->flags |= MTA_ALLOW_PLAIN;
 	}
 
-	log_debug("debug: mta: %p: spawned for %s", session,
+	log_debug("debug: mta: %p: spawned for route %s", session,
 	    mta_route_to_text(route));
 	stat_increment("mta.session", 1);
 	mta_enter_state(session, MTA_INIT);
@@ -399,12 +399,12 @@ mta_enter_state(struct mta_session *s, int newstate)
 		}
 		if (s->msgcount >= s->route->maxmail) {
 			log_debug("debug: mta: "
-			    "%p: cannot send more message to %s", s,
+			    "%p: cannot send more message to route %s", s,
 			    mta_route_to_text(s->route));
 			mta_enter_state(s, MTA_SMTP_QUIT);
 		} else if ((s->task = TAILQ_FIRST(&s->route->tasks))) {
 			log_debug("debug: mta: "
-			    "%p: handling next task for %s", s,
+			    "%p: handling next task for route %s", s,
 			    mta_route_to_text(s->route));
 			TAILQ_REMOVE(&s->route->tasks, s->task, entry);
 			s->route->ntask -= 1;
@@ -413,8 +413,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 			stat_increment("mta.task.running", 1);
 			mta_enter_state(s, MTA_DATA);
 		} else {
-			log_debug("debug: mta: %p: no pending task for %s", s,
-			    mta_route_to_text(s->route));
+			log_debug("debug: mta: %p: no task for route %s",
+			    s, mta_route_to_text(s->route));
 			mta_enter_state(s, MTA_SMTP_QUIT);
 		}
 		break;

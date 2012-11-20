@@ -111,8 +111,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			batch = tree_xget(&batches, e->batch_id);
 
 			if ((task = tree_get(batch, route->id)) == NULL) {
-				log_trace(TRACE_MTA, "mta: new task for %s",
-				    mta_route_to_text(route));
+				log_trace(TRACE_MTA, "mta: new task for route "
+				   "%s", mta_route_to_text(route));
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
 				task->route = route;
@@ -213,7 +213,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 				mxl->error = "Unknown DNS error";
 			}
 			route->mxlist = mxl;
-			log_debug("debug: MXs for %s",
+			log_debug("debug: MXs for route %s",
 			    mta_route_to_text(route));
 			TAILQ_FOREACH(mx, &mxl->mxs, entry)
 				log_debug("debug: %s -> preference %i",
@@ -369,7 +369,7 @@ mta_route_error(struct mta_route *route, struct mta_mx *mx, const char *e)
 {
 	log_info("smtp-out: Error on MX %s: %s", mta_mx_to_text(mx), e);
 	if (mx->error++ == MX_MAXERROR)
-		log_warnx("warn: Too many errors on MX %s: ignoring",
+		log_info("smtp-out: Too many errors on MX %s: ignoring this MX",
 		    mta_mx_to_text(mx));
 }
 
@@ -474,7 +474,7 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 	if (route->maxsession == 0) {
 		route->status |= ROUTE_CLOSED;
 		/* Log for the last session only */
-		log_warnx("smtp-out: No reachable MX for %s: "
+		log_info("smtp-out: No reachable MX for route %s: "
 		    "Cancelling all transfers",
 		    mta_route_to_text(route));
 	}
@@ -489,7 +489,7 @@ mta_route_to_text(struct mta_route *route)
 	char		 tmp[32];
 	const char	*sep = "";
 
-	snprintf(buf, sizeof buf, "route:%s[", route->hostname);
+	snprintf(buf, sizeof buf, "%s[", route->hostname);
 
 	if (route->port) {
 		snprintf(tmp, sizeof tmp, "port=%i", (int)route->port);
@@ -589,12 +589,13 @@ mta_route_for(struct envelope *e)
 
 		route->maxsession = route->maxconn;
 
-		log_trace(TRACE_MTA, "mta: new %s", mta_route_to_text(route));
+		log_trace(TRACE_MTA, "mta: new route %s",
+		    mta_route_to_text(route));
 		stat_increment("mta.route", 1);
 		mta_route_query_mx(route);
 		mta_route_query_secret(route);
 	} else {
-		log_trace(TRACE_MTA, "mta: reusing %s",
+		log_trace(TRACE_MTA, "mta: reusing route %s",
 		    mta_route_to_text(route));
 	}
 
@@ -642,7 +643,7 @@ mta_route_free(struct mta_route *route)
 {
 	struct mta_mx	*mx;
 
-	log_debug("debug: mta: freeing %s", mta_route_to_text(route));
+	log_debug("debug: mta: freeing route %s", mta_route_to_text(route));
 	SPLAY_REMOVE(mta_route_tree, &routes, route);
 	free(route->hostname);
 	if (route->cert)
@@ -705,7 +706,8 @@ mta_route_drain(struct mta_route *route)
 	int		 m;
 	const char	*w;
 
-	log_debug("debug: mta: draining %s (tasks=%i, refs=%i, sessions=%i/%i)",
+	log_debug("debug: mta: draining route %s "
+	    "(tasks=%i, refs=%i, sessions=%i/%i)",
 	    mta_route_to_text(route),
 	    route->ntask, route->refcount, route->nsession, route->maxsession);
 
@@ -718,13 +720,13 @@ mta_route_drain(struct mta_route *route)
 			w = "secret";
 		else
 			w = "MX+secret";
-		log_debug("debug: mta: %s waiting for %s",
+		log_debug("debug: mta: route %s waiting for %s",
 		    mta_route_to_text(route), w);
 		return;
 	}
 
 	if (route->auth && route->secret == NULL) {
-		log_warnx("warn: Failed to retreive secret for %s",
+		log_warnx("warn: Failed to retreive secret for route %s",
 		    mta_route_to_text(route));
 		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
 		    "Cannot retreive secret");
@@ -734,7 +736,7 @@ mta_route_drain(struct mta_route *route)
 	}
 
 	if (route->mxlist->error) {
-		log_warnx("warn: Failed to resolve MX for route %s: %s",
+		log_info("smtp-out: Failed to resolve MX for route %s: %s",
 		    mta_route_to_text(route), route->mxlist->error);
 		mta_route_flush(route, route->mxlist->errortype,
 		    route->mxlist->error);
@@ -744,7 +746,7 @@ mta_route_drain(struct mta_route *route)
 	}
 
 	if (route->ntask == 0) {
-		log_debug("debug: mta: all done for %s",
+		log_debug("debug: mta: all done for route %s",
 		    mta_route_to_text(route));
 		if (route->refcount == 0 && route->nsession == 0)
 			mta_route_free(route);
@@ -765,7 +767,7 @@ mta_route_drain(struct mta_route *route)
 		 * If we have reached the max number of session, just wait
 		 */
 		if (route->nsession >= route->maxsession) {
-			log_debug("debug: mta: max conn reached for %s",
+			log_debug("debug: mta: max conn reached for route %s",
 			    mta_route_to_text(route));
 			return;
 		}
