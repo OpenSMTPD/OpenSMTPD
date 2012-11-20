@@ -51,7 +51,6 @@ static void mfa_test_quit(struct envelope *);
 static void mfa_test_close(struct envelope *);
 static void mfa_test_rset(struct envelope *);
 static int mfa_strip_source_route(char *, size_t);
-static int mfa_fork_filter(struct filter *);
 
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -121,12 +120,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_END:
-			TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
-				log_info("info: Forking filter: %s",
-				    filter->name);
-				if (! mfa_fork_filter(filter))
-					fatalx("could not fork filter");
-			}
+			mfa_session_filters_init();
 			return;
 
 		case IMSG_CTL_VERBOSE:
@@ -234,6 +228,7 @@ mfa(void)
 	config_pipes(peers, nitems(peers));
 	config_peers(peers, nitems(peers));
 
+	proc_init();
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	mfa_shutdown();
@@ -393,49 +388,5 @@ mfa_strip_source_route(char *buf, size_t len)
 		return 1;
 	}
 
-	return 0;
-}
-
-static int
-mfa_fork_filter(struct filter *filter)
-{
-	pid_t	pid;
-	int	sockpair[2];
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sockpair) < 0)
-		return 0;
-
-	session_socket_blockmode(sockpair[0], BM_NONBLOCK);
-	session_socket_blockmode(sockpair[1], BM_NONBLOCK);
-
-	filter->ibuf = calloc(1, sizeof(struct imsgbuf));
-	if (filter->ibuf == NULL)
-		goto err;
-
-	pid = fork();
-	if (pid == -1)
-		goto err;
-
-	if (pid == 0) {
-		/* filter */
-		dup2(sockpair[0], STDIN_FILENO);
-
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
-
-		execl(filter->path, filter->name, NULL);
-		exit(1);
-	}
-
-	/* in parent */
-	close(sockpair[0]);
-	imsg_init(filter->ibuf, sockpair[1]);
-
-	return 1;
-
-err:
-	free(filter->ibuf);
-	close(sockpair[0]);
-	close(sockpair[1]);
 	return 0;
 }

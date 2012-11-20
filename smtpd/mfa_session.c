@@ -44,9 +44,35 @@ static void mfa_session_pickup(struct mfa_session *);
 static void mfa_session_fail(struct mfa_session *);
 static void mfa_session_destroy(struct mfa_session *);
 static void mfa_session_done(struct mfa_session *);
-static void mfa_session_imsg(int, short, void *);
-
+void mfa_session_imsg_handler(struct imsg *, void *);
 struct tree sessions;
+
+static struct proc_handlers proc_handlers[] = {
+	{ FILTER_CONNECT,	mfa_session_imsg_handler },
+	{ FILTER_HELO,		mfa_session_imsg_handler },
+	{ FILTER_EHLO,		mfa_session_imsg_handler },
+	{ FILTER_MAIL,		mfa_session_imsg_handler },
+	{ FILTER_RCPT,		mfa_session_imsg_handler },
+	{ FILTER_DATALINE,     	mfa_session_imsg_handler },
+	{ FILTER_QUIT,     	mfa_session_imsg_handler },
+	{ FILTER_CLOSE,     	mfa_session_imsg_handler },
+	{ FILTER_RSET,     	mfa_session_imsg_handler }
+};
+
+void
+mfa_session_filters_init(void)
+{
+	struct filter	*filter;
+
+
+	TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
+		log_info("info: Forking filter: %s", filter->name);
+		if (! proc_fork(filter->path, filter->name, proc_handlers,
+			nitems(proc_handlers), NULL))
+			fatalx("could not fork filter");
+	}
+
+}
 
 void
 mfa_session(struct submit_status *ss, enum session_state state)
@@ -235,76 +261,24 @@ mfa_session_destroy(struct mfa_session *ms)
 	free(ms);
 }
 
-static void
-mfa_session_imsg(int fd, short event, void *p)
+void
+mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 {
-	struct filter	       *filter = p;
-	struct mfa_session     *ms;
-	struct imsg		imsg;
-	ssize_t			n;
 	struct filter_msg	fm;
-	short			evflags = EV_READ;
+	struct mfa_session     *ms;
 
-	if (event & EV_READ) {
-		n = imsg_read(filter->ibuf);
-		if (n == -1)
-			fatal("mfa_session_imsg: imsg_read");
-		if (n == 0) {
-			event_del(&filter->ev);
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&filter->ibuf->w) == -1)
-			fatal("mfa_session_imsg: msgbuf_write");
-		if (filter->ibuf->w.queued)
-			evflags |= EV_WRITE;
-	}
-
-	for (;;) {
-		n = imsg_get(filter->ibuf, &imsg);
-		if (n == -1)
-			fatalx("mfa_session_imsg: imsg_get");
-		if (n == 0)
-			break;
-
-		if ((imsg.hdr.len - IMSG_HEADER_SIZE)
-		    != sizeof(fm))
-			fatalx("mfa_session_imsg: corrupted imsg");
-
-		memcpy(&fm, imsg.data, sizeof (fm));
-		if (fm.version != FILTER_API_VERSION)
-			fatalx("mfa_session_imsg: API version mismatch");
-
-		switch (imsg.hdr.type) {
-		case FILTER_CONNECT:
-		case FILTER_HELO:
-		case FILTER_EHLO:
-		case FILTER_MAIL:
-		case FILTER_RCPT:
-		case FILTER_DATALINE:
-		case FILTER_QUIT:
-		case FILTER_CLOSE:
-		case FILTER_RSET:
-			ms = tree_xget(&sessions, fm.id);
-
-			/* overwrite filter code */
-			ms->fm.code = fm.code;
-
-			/* success, overwrite */
-			if (fm.code == STATUS_ACCEPT)
-				ms->fm = fm;
-
-			mfa_session_pickup(ms);
-			break;
-		default:
-			fatalx("mfa_session_imsg: unsupported imsg");
-		}
-		imsg_free(&imsg);
-	}
-	event_set(&filter->ev, filter->ibuf->fd, evflags,
-	    mfa_session_imsg, filter);
-	event_add(&filter->ev, NULL);
+	memcpy(&fm, imsg->data, sizeof (fm));
+	if (fm.version != FILTER_API_VERSION)
+		fatalx("mfa_session_imsg_handler: API version mismatch");
+	
+	ms = tree_xget(&sessions, fm.id);
+	
+	/* overwrite filter code */
+	ms->fm.code = fm.code;
+	
+	/* success, overwrite */
+	if (fm.code == STATUS_ACCEPT)
+		ms->fm = fm;
+	
+	mfa_session_pickup(ms);
 }

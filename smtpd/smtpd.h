@@ -22,7 +22,7 @@
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
-#include "filter_api.h"
+#include "smtpd-api.h"
 #include "ioev.h"
 #include "iobuf.h"
 
@@ -944,6 +944,25 @@ extern struct smtpd	*env;
 extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
 
+/* proc stuff */
+struct proc_handlers {
+	uint32_t	type;
+	void	       (*cb)(uint32_t, void *);
+};
+
+struct proc {
+	pid_t			pid;
+	struct event		ev;
+	struct imsgbuf	       *ibuf;
+	char		       *path;
+	char		       *name;
+	struct proc_handlers   *handlers;
+	size_t			n_handlers;
+	void		       *cb_arg;
+};
+
+
+
 /* aliases.c */
 int aliases_get(objid_t, struct expand *, const char *);
 int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
@@ -1055,7 +1074,7 @@ pid_t mda(void);
 
 /* mfa.c */
 pid_t mfa(void);
-
+void mfa_session_filters_init(void);
 
 /* mfa_session.c */
 void mfa_session(struct submit_status *, enum session_state);
@@ -1082,6 +1101,10 @@ void mta_session_imsg(struct imsgev *, struct imsg *);
 int parse_config(struct smtpd *, const char *, int);
 int cmdline_symset(char *);
 
+
+/* proc.c */
+void proc_init(void);
+int proc_fork(const char *, const char *, struct proc_handlers *, size_t, void *);
 
 /* queue.c */
 pid_t queue(void);
