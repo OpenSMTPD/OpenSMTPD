@@ -945,19 +945,13 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
 
 /* proc stuff */
-struct proc_handlers {
-	uint32_t	type;
-	void	       (*cb)(struct imsg *, void *);
-};
-
 struct proc {
 	pid_t			pid;
 	struct event		ev;
 	struct imsgbuf	       *ibuf;
 	char		       *path;
 	char		       *name;
-	struct proc_handlers   *handlers;
-	size_t			n_handlers;
+	void		      (*cb)(struct imsg *, void *);
 	void		       *cb_arg;
 };
 
@@ -1104,8 +1098,8 @@ int cmdline_symset(char *);
 
 /* proc.c */
 void proc_init(void);
-struct proc *proc_fork(const char *, const char *, struct proc_handlers *,
-    size_t, void *);
+struct proc *proc_fork(const char *, const char *,
+    void (*)(struct imsg *, void *), void *);
 
 /* queue.c */
 pid_t queue(void);

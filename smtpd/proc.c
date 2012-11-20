@@ -37,8 +37,8 @@ proc_init(void)
 }
 
 struct proc *
-proc_fork(const char *path, const char *name, struct proc_handlers *handlers,
-    size_t n_handlers, void *cb_arg)
+proc_fork(const char *path, const char *name, void (*cb)(struct imsg *, void *),
+    void *cb_arg)
 {
 	struct proc	*proc;
 	int		 sp[2];
@@ -53,8 +53,7 @@ proc_fork(const char *path, const char *name, struct proc_handlers *handlers,
 	proc->ibuf = xcalloc(1, sizeof *proc->ibuf, "proc_new:ibuf");
 	proc->path = xstrdup(path, "proc_new:path");
 	proc->name = xstrdup(name, "proc_new:name");
-	proc->handlers = handlers;
-	proc->n_handlers = n_handlers;
+	proc->cb = cb;
 	proc->cb_arg = cb_arg;
 
 	if ((proc->pid = fork()) == -1)
@@ -123,13 +122,7 @@ proc_imsg(int fd, short event, void *p)
 		if (n == 0)
 			break;
 
-		for (i = 0; i < proc->n_handlers; ++i)
-			if (proc->handlers[i].type == imsg.hdr.type)
-				break;
-		if (i == proc->n_handlers)
-			fatalx("proc_imsg: unsupported imsg");
-
-		proc->handlers[i].cb(&imsg, proc->cb_arg);
+		proc->cb(&imsg, proc->cb_arg);
 
 		imsg_free(&imsg);
 	}

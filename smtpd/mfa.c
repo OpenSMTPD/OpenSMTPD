@@ -152,7 +152,6 @@ static void
 mfa_shutdown(void)
 {
 	pid_t pid;
-	struct filter *filter;
 
 	do {
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);

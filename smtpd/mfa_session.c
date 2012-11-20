@@ -48,18 +48,6 @@ void mfa_session_imsg_handler(struct imsg *, void *);
 
 struct tree sessions;
 
-static struct proc_handlers proc_handlers[] = {
-	{ FILTER_CONNECT,	mfa_session_imsg_handler },
-	{ FILTER_HELO,		mfa_session_imsg_handler },
-	{ FILTER_EHLO,		mfa_session_imsg_handler },
-	{ FILTER_MAIL,		mfa_session_imsg_handler },
-	{ FILTER_RCPT,		mfa_session_imsg_handler },
-	{ FILTER_DATALINE,     	mfa_session_imsg_handler },
-	{ FILTER_QUIT,     	mfa_session_imsg_handler },
-	{ FILTER_CLOSE,     	mfa_session_imsg_handler },
-	{ FILTER_RSET,     	mfa_session_imsg_handler }
-};
-
 void
 mfa_session_filters_init(void)
 {
@@ -68,8 +56,8 @@ mfa_session_filters_init(void)
 
 	iter = NULL;
 	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
-		filter->process = proc_fork(filter->path, filter->name, proc_handlers,
-		    nitems(proc_handlers), NULL);
+		filter->process = proc_fork(filter->path, filter->name,
+		    mfa_session_imsg_handler, NULL);
 		if (filter->process == NULL)
 			fatalx("could not start filter");
 	}
