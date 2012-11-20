@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #ifdef IO_SSL
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 #endif
 
@@ -414,11 +415,16 @@ iobuf_write_ssl(struct iobuf *io, void *ssl)
 			return (IOBUF_WANT_READ);
 		case SSL_ERROR_WANT_WRITE:
 			return (IOBUF_WANT_WRITE);
-		case SSL_ERROR_ZERO_RETURN:
-			/* connection closed */
+		case SSL_ERROR_ZERO_RETURN: /* connection closed */
 			return (IOBUF_CLOSED);
-		default:
+		case SSL_ERROR_SYSCALL:
+			if (ERR_peek_last_error())
+				return (IOBUF_SSLERROR);
+			if (r == 0)
+				errno = EPIPE;
 			return (IOBUF_ERROR);
+		default:
+			return (IOBUF_SSLERROR);
 		}
 	}
 	iobuf_drain(io, n);
@@ -439,8 +445,14 @@ iobuf_read_ssl(struct iobuf *io, void *ssl)
 			return (IOBUF_WANT_READ);
 		case SSL_ERROR_WANT_WRITE:
 			return (IOBUF_WANT_WRITE);
-		default:
+		case SSL_ERROR_SYSCALL:
+			if (ERR_peek_last_error())
+				return (IOBUF_SSLERROR);
+			if (r == 0)
+				errno = EPIPE;
 			return (IOBUF_ERROR);
+		default:
+			return (IOBUF_SSLERROR);
 		}
 	} else if (n == 0)
 		return (IOBUF_CLOSED);

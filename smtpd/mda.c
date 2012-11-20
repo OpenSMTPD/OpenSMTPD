@@ -454,7 +454,7 @@ mda_io(struct io *io, int evt)
 		return;
 
 	case IO_ERROR:
-		log_debug("debug: mda_io: io error: %s", strerror(errno));
+		log_debug("debug: mda_io: io error: %s", io->error);
 		io_pause(io, IO_PAUSE_OUT);
 		return;
 

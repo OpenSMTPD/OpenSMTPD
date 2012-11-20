@@ -716,8 +716,8 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_ERROR:
-		log_debug("debug: mta: %p: IO error: %s", s, strerror(errno));
-		mta_mx_error(s, "IO Error: %s", strerror(errno));
+		log_debug("debug: mta: %p: IO error: %s", s, io->error);
+		mta_mx_error(s, "IO Error: %s", io->error);
 		if (!s->ready) {
 			mta_enter_state(s, MTA_CONNECT);
 			break;

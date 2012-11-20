@@ -47,6 +47,7 @@ struct io {
 	int		 state;
 	struct event	 ev;
 	void		*ssl;
+	const char	*error; /* only valid immediatly on callback */
 };
 
 void io_set_blocking(int, int);

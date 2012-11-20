@@ -742,7 +742,7 @@ session_io(struct io *io, int evt)
 
 	case IO_ERROR:
 		log_info("smtp-in: Disconnecting session %016" PRIx64
-		    ": IO error: %s", s->s_id, strerror(errno));
+		    ": IO error: %s", s->s_id, io->error);
 		session_destroy(s, "error");
 		break;
 

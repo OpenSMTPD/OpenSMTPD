@@ -755,7 +755,7 @@ mta_route_drain(struct mta_route *route)
 
 	if (route->status & ROUTE_CLOSED) {
 		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
-		    "No reacheable MX");
+		    "No reachable MX");
 		if (route->refcount == 0 && route->nsession == 0)
 			mta_route_free(route);
 		return;
