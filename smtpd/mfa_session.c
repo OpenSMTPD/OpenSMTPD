@@ -156,7 +156,6 @@ mfa_session_proceed(struct mfa_session *ms)
 		fatalx("mfa_session_proceed: no such state");
 	}
 
-	log_debug("SENDING IMSG TYPE: %d", fm.type);
 	imsg_compose(ms->filter->process->ibuf, fm.type, 0, 0, -1, &fm, sizeof(fm));
 	imsgproc_set_write(ms->filter->process);
 	return 1;

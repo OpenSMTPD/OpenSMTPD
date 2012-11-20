@@ -146,15 +146,3 @@ imsgproc_set_read(struct imsgproc *proc)
 	event_set(&proc->ev, proc->ibuf->fd, EV_READ, imsgproc_imsg, proc);
 	event_add(&proc->ev, NULL);
 }
-
-void
-imsgproc_set_read_write(struct imsgproc *proc)
-{
-	short	events;
-
-	events = EV_READ;
-	if (proc->ibuf->w.queued)
-		events |= EV_WRITE;
-	event_set(&proc->ev, proc->ibuf->fd, events, imsgproc_imsg, proc);
-	event_add(&proc->ev, NULL);
-}

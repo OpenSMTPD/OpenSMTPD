@@ -1057,7 +1057,6 @@ struct imsgproc *imsgproc_fork(const char *, const char *,
     void (*)(struct imsg *, void *), void *);
 void imsgproc_set_read(struct imsgproc *);
 void imsgproc_set_write(struct imsgproc *);
-void imsgproc_set_read_write(struct imsgproc *);
 
 
 /* lka.c */
