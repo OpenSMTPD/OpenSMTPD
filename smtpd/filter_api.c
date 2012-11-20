@@ -29,7 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "filter_api.h"
+#include "smtpd-api.h"
 
 static struct filter_internals {
 	struct event	ev;
@@ -219,8 +219,6 @@ filter_handler(int fd, short event, void *p)
 	short			evflags = EV_READ;
 	enum filter_status	ret;
 	struct filter_msg	fm;
-
-	errx(1, "IN FILTER HANDLER");
 
 	if (event & EV_READ) {
 		n = imsg_read(&fi.ibuf);
