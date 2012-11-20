@@ -387,6 +387,31 @@ main		: QUEUE compression {
 			}
 			free($2);
 		}/**/
+		| FILTER STRING			{
+			struct filter *filter;
+			struct filter *tmp;
+
+			filter = xcalloc(1, sizeof *filter, "parse condition: FILTER");
+			if (strlcpy(filter->name, $2, sizeof (filter->name))
+			    >= sizeof (filter->name)) {
+       				yyerror("Filter name too long: %s", filter->name);
+				free($2);
+				YYERROR;
+				
+			}
+			(void)snprintf(filter->path, sizeof filter->path,
+			    PATH_FILTERS "/%s", filter->name);
+
+			tmp = dict_get(&conf->sc_filters, filter->name);
+			if (tmp == NULL)
+				dict_set(&conf->sc_filters, filter->name, filter);
+			else {
+       				yyerror("ambiguous filter name: %s", filter->name);
+				free($2);
+				YYERROR;
+			}
+			free($2);
+		}
 		| FILTER STRING STRING		{
 			struct filter *filter;
 			struct filter *tmp;

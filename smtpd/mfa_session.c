@@ -92,10 +92,8 @@ mfa_session_proceed(struct mfa_session *ms)
 	fm.cl_id = ms->ss.id;
 	fm.version = FILTER_API_VERSION;
 
-	log_debug("FOOBAR");
 	switch (ms->state) {
 	case S_CONNECTED:
-		log_debug("CONNECTED");
 		fm.type = FILTER_CONNECT;
 		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
 			    sizeof(fm.u.connect.hostname))
@@ -253,7 +251,6 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	struct filter_msg	fm;
 	struct mfa_session     *ms;
 
-	log_debug("REPLY");
 	memcpy(&fm, imsg->data, sizeof (fm));
 	if (fm.version != FILTER_API_VERSION)
 		fatalx("mfa_session_imsg_handler: API version mismatch");
@@ -262,10 +259,10 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	
 	/* overwrite filter code */
 	ms->fm.code = fm.code;
-	
+
 	/* success, overwrite */
 	if (fm.code == STATUS_ACCEPT)
 		ms->fm = fm;
-	
+
 	mfa_session_pickup(ms);
 }

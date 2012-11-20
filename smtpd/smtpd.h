@@ -64,6 +64,8 @@
 #define PATH_ENVELOPES		"/envelopes"
 #define PATH_MESSAGE		"/message"
 
+#define	PATH_FILTERS		"/usr/libexec/smtpd"
+
 /* number of MX records to lookup */
 #define MAX_MX_COUNT		10
 

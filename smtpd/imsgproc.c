@@ -52,9 +52,9 @@ imsgproc_fork(const char *path, const char *name, void (*cb)(struct imsg *, void
 	session_socket_blockmode(sp[1], BM_NONBLOCK);
 
 	proc = xcalloc(1, sizeof *proc, "proc_new");
-	proc->ibuf = xcalloc(1, sizeof *proc->ibuf, "proc_new:ibuf");
 	proc->path = xstrdup(path, "proc_new:path");
 	proc->name = xstrdup(name, "proc_new:name");
+	proc->ibuf = xcalloc(1, sizeof *proc->ibuf, "proc_new:ibuf");
 	proc->cb = cb;
 	proc->cb_arg = cb_arg;
 
@@ -83,7 +83,8 @@ imsgproc_fork(const char *path, const char *name, void (*cb)(struct imsg *, void
 	return proc;
 
 err:
-	log_warn("warn: failed to start process");
+	log_warn("warn: Failed to start process %s, instance of %s",
+	    proc->name, proc->path);
 	close(sp[0]);
 	close(sp[1]);
 	return NULL;

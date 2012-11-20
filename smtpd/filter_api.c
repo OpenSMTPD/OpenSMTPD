@@ -332,7 +332,7 @@ filter_handler(int fd, short event, void *p)
 
 ignore:
 	imsg_free(&imsg);
-	fm.code = STATUS_IGNORE;
+	fm.code = STATUS_ACCEPT;
 	imsg_compose(&fi.ibuf, imsg.hdr.type, 0, 0, -1, &fm, sizeof fm);
 	evflags |= EV_WRITE;
 	event_set(&fi.ev, 0, evflags, filter_handler, &fi);
