@@ -69,7 +69,8 @@ table_find(objid_t id)
 }
 
 int
-table_lookup(struct table *table, const char *key, enum table_service kind, void **retp)
+table_lookup(struct table *table, const char *key, enum table_service kind,
+    void **retp)
 {
 	return table->t_backend->lookup(table->t_handle, key, kind, retp);
 }
@@ -224,7 +225,8 @@ table_config_parser(struct table *t, const char *config)
 
 		/**/
 		if (t->t_type == 0)
-			t->t_type = (valp == keyp || valp == NULL) ? T_LIST : T_HASH;
+			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
+			    T_HASH;
 
 		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
 			table_add(t, keyp, NULL);

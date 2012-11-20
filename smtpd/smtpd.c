@@ -371,12 +371,14 @@ parent_send_config_ruleset(int proc)
 	}
 	else {
 		iter_tree = NULL;
-		while (tree_iter(env->sc_tables_tree, &iter_tree, NULL, (void **)&t)) {
+		while (tree_iter(env->sc_tables_tree, &iter_tree, NULL,
+		    (void **)&t)) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_TABLE,
 			    0, 0, -1, t, sizeof(*t));
 
 			iter_dict = NULL;
-			while (dict_iter(&t->t_dict, &iter_dict, &k, (void **)&v)) {
+			while (dict_iter(&t->t_dict, &iter_dict, &k,
+			    (void **)&v)) {
 				buflen = strlen(k) + 1;
 				if (v)
 					buflen += strlen(v) + 1;
@@ -384,7 +386,8 @@ parent_send_config_ruleset(int proc)
 				    "parent_send_config_ruleset");
 				memcpy(buffer, k, strlen(k) + 1);
 				if (v)
-					memcpy(buffer + strlen(k) + 1, v, strlen(v) + 1);
+					memcpy(buffer + strlen(k) + 1, v,
+					    strlen(v) + 1);
 				imsg_compose_event(env->sc_ievs[proc],
 				    IMSG_CONF_TABLE_CONTENT, 0, 0, -1, buffer,
 				    buflen);

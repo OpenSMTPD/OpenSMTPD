@@ -142,7 +142,8 @@ table_db_close(void *hdl)
 }
 
 static int
-table_db_lookup(void *hdl, const char *key, enum table_service service, void **retp)
+table_db_lookup(void *hdl, const char *key, enum table_service service,
+    void **retp)
 {
 	struct dbhandle	*handle = hdl;
 	char	       *line;
@@ -381,7 +382,7 @@ table_db_netaddr(const char *key, char *line, size_t len, void **retp)
 	struct table_netaddr	*table_netaddr = NULL;
 
 	table_netaddr = xcalloc(1, sizeof *table_netaddr, "table_db_netaddr");
-	
+
 	if (! text_to_netaddr(&table_netaddr->netaddr, line))
 		goto error;
 

@@ -38,7 +38,8 @@
 static int table_static_config(struct table *, const char *);
 static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
-static int table_static_lookup(void *, const char *, enum table_service, void **);
+static int table_static_lookup(void *, const char *, enum table_service,
+    void **);
 static void  table_static_close(void *);
 
 static int	table_static_credentials(const char *, char *, size_t, void **);
@@ -124,7 +125,8 @@ table_static_close(void *hdl)
 }
 
 static int
-table_static_lookup(void *hdl, const char *key, enum table_service service, void **retp)
+table_static_lookup(void *hdl, const char *key, enum table_service service,
+    void **retp)
 {
 	struct table   *m  = hdl;
 	char	       *line;
@@ -157,7 +159,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service service, void
 			}
 		}
 		if (ret)
-			break;		
+			break;
 	}
 	if (retp == NULL)
 		return ret ? 1 : 0;
