@@ -364,10 +364,10 @@ parent_send_config_ruleset(int proc)
 	    0, 0, -1, NULL, 0);
 
 	if (proc == PROC_MFA) {
-		TAILQ_FOREACH(f, env->sc_filters, f_entry) {
+		iter_dict = NULL;
+		while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_FILTER,
 			    0, 0, -1, f, sizeof(*f));
-		}
 	}
 	else {
 		iter_tree = NULL;

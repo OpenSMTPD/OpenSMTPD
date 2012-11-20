@@ -607,7 +607,7 @@ struct smtpd {
 
 	time_t					 sc_uptime;
 
-	TAILQ_HEAD(filterlist, filter)		*sc_filters;
+	/*TAILQ_HEAD(filterlist, filter)		*sc_filters;*/
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
@@ -618,6 +618,8 @@ struct smtpd {
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
 	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
+
+	struct dict				sc_filters;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
@@ -696,10 +698,7 @@ struct rulematch {
 };
 
 struct filter {
-	TAILQ_ENTRY(filter)     f_entry;
-	pid_t			pid;
-	struct event		ev;
-	struct imsgbuf		*ibuf;
+	struct proc	       *process;
 	char			name[MAX_FILTER_NAME];
 	char			path[MAXPATHLEN];
 };
@@ -712,6 +711,7 @@ struct mfa_session {
 	struct submit_status		 ss;
 	struct filter			*filter;
 	struct filter_msg		 fm;
+	void				*iter;
 };
 
 struct mta_session;
@@ -947,7 +947,7 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 /* proc stuff */
 struct proc_handlers {
 	uint32_t	type;
-	void	       (*cb)(uint32_t, void *);
+	void	       (*cb)(struct imsg *, void *);
 };
 
 struct proc {
@@ -1104,7 +1104,8 @@ int cmdline_symset(char *);
 
 /* proc.c */
 void proc_init(void);
-int proc_fork(const char *, const char *, struct proc_handlers *, size_t, void *);
+struct proc *proc_fork(const char *, const char *, struct proc_handlers *,
+    size_t, void *);
 
 /* queue.c */
 pid_t queue(void);

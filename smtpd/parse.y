@@ -403,12 +403,9 @@ main		: QUEUE compression {
 				YYERROR;
 			}
 
-			TAILQ_FOREACH(tmp, conf->sc_filters, f_entry) {
-				if (strcasecmp(filter->name, tmp->name) == 0)
-					break;
-			}
+			tmp = dict_get(&conf->sc_filters, filter->name);
 			if (tmp == NULL)
-				TAILQ_INSERT_TAIL(conf->sc_filters, filter, f_entry);
+				dict_set(&conf->sc_filters, filter->name, filter);
 			else {
        				yyerror("ambiguous filter name: %s", filter->name);
 				free($2);
@@ -1337,21 +1334,18 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
-	conf->sc_filters = calloc(1, sizeof(*conf->sc_filters));
 
 	if (conf->sc_tables_dict == NULL	||
 	    conf->sc_tables_tree == NULL	||
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
-	    conf->sc_ssl == NULL		||
-	    conf->sc_filters == NULL) {
+	    conf->sc_ssl == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
 		free(conf->sc_tables_tree);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_ssl);
-		free(conf->sc_filters);
 		return (-1);
 	}
 
@@ -1360,12 +1354,13 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	table = NULL;
 	rule = NULL;
 
+	dict_init(&conf->sc_filters);
+
 	dict_init(conf->sc_tables_dict);
 	tree_init(conf->sc_tables_tree);
 
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
-	TAILQ_INIT(conf->sc_filters);
 	SPLAY_INIT(conf->sc_ssl);
 	SPLAY_INIT(&conf->sc_sessions);
 

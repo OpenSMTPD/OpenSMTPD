@@ -45,6 +45,7 @@ static void mfa_session_fail(struct mfa_session *);
 static void mfa_session_destroy(struct mfa_session *);
 static void mfa_session_done(struct mfa_session *);
 void mfa_session_imsg_handler(struct imsg *, void *);
+
 struct tree sessions;
 
 static struct proc_handlers proc_handlers[] = {
@@ -62,14 +63,15 @@ static struct proc_handlers proc_handlers[] = {
 void
 mfa_session_filters_init(void)
 {
-	struct filter	*filter;
+	struct filter  *filter;
+	void	       *iter;
 
-
-	TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
-		log_info("info: Forking filter: %s", filter->name);
-		if (! proc_fork(filter->path, filter->name, proc_handlers,
-			nitems(proc_handlers), NULL))
-			fatalx("could not fork filter");
+	iter = NULL;
+	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
+		filter->process = proc_fork(filter->path, filter->name, proc_handlers,
+		    nitems(proc_handlers), NULL);
+		if (filter->process == NULL)
+			fatalx("could not start filter");
 	}
 
 }
@@ -84,11 +86,10 @@ mfa_session(struct submit_status *ss, enum session_state state)
 	ms->ss = *ss;
 	ms->ss.code = 250;
 	ms->state = state;
-	ms->filter = TAILQ_FIRST(env->sc_filters);
+	ms->iter = NULL;
 
 	tree_xset(&sessions, ms->id, ms);
-
-	if (ms->filter == NULL)
+	if (! dict_iter(&env->sc_filters, &ms->iter, NULL, (void **)&ms->filter))
 		mfa_session_done(ms);
 	else if (!mfa_session_proceed(ms))
 		mfa_session_fail(ms);
@@ -103,9 +104,10 @@ mfa_session_proceed(struct mfa_session *ms)
 	fm.cl_id = ms->ss.id;
 	fm.version = FILTER_API_VERSION;
 
+	log_debug("FOOBAR");
 	switch (ms->state) {
-
 	case S_CONNECTED:
+		log_debug("CONNECTED");
 		fm.type = FILTER_CONNECT;
 		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
 			    sizeof(fm.u.connect.hostname))
@@ -166,11 +168,9 @@ mfa_session_proceed(struct mfa_session *ms)
 		fatalx("mfa_session_proceed: no such state");
 	}
 
-	imsg_compose(ms->filter->ibuf, fm.type, 0, 0, -1,
-	    &fm, sizeof(fm));
-	event_set(&ms->filter->ev, ms->filter->ibuf->fd, EV_READ|EV_WRITE,
-	    mfa_session_imsg, ms->filter);
-	event_add(&ms->filter->ev, NULL);
+	log_debug("SENDING IMSG TYPE: %d", fm.type);
+	imsg_compose(ms->filter->process->ibuf, fm.type, 0, 0, -1, &fm, sizeof(fm));
+	proc_set_write(ms->filter->process);
 	return 1;
 }
 
@@ -182,8 +182,7 @@ mfa_session_pickup(struct mfa_session *ms)
 		return;
 	}
 
-	ms->filter = TAILQ_NEXT(ms->filter, f_entry);
-	if (ms->filter == NULL)
+	if (! dict_iter(&env->sc_filters, &ms->iter, NULL, (void **)&ms->filter))
 		mfa_session_done(ms);
 	else
 		mfa_session_proceed(ms);
@@ -267,6 +266,7 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	struct filter_msg	fm;
 	struct mfa_session     *ms;
 
+	log_debug("REPLY");
 	memcpy(&fm, imsg->data, sizeof (fm));
 	if (fm.version != FILTER_API_VERSION)
 		fatalx("mfa_session_imsg_handler: API version mismatch");

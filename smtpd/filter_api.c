@@ -82,7 +82,6 @@ filter_init(void)
 	bzero(&fi, sizeof (fi));
 
 	imsg_init(&fi.ibuf, 0);
-
 	event_init();
 	event_set(&fi.ev, 0, EV_READ, filter_handler, (void *)&fi);
 	event_add(&fi.ev, NULL);
@@ -220,6 +219,8 @@ filter_handler(int fd, short event, void *p)
 	short			evflags = EV_READ;
 	enum filter_status	ret;
 	struct filter_msg	fm;
+
+	errx(1, "IN FILTER HANDLER");
 
 	if (event & EV_READ) {
 		n = imsg_read(&fi.ibuf);

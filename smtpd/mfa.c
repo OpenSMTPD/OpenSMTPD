@@ -108,15 +108,13 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			env->sc_filters = xcalloc(1, sizeof *env->sc_filters,
-			    "mfa_imsg");
-			TAILQ_INIT(env->sc_filters);
+			dict_init(&env->sc_filters);
 			return;
 
 		case IMSG_CONF_FILTER:
 			filter = xmemdup(imsg->data, sizeof *filter,
 			    "mfa_imsg");
-			TAILQ_INSERT_TAIL(env->sc_filters, filter, f_entry);
+			dict_set(&env->sc_filters, filter->name, filter);
 			return;
 
 		case IMSG_CONF_END:
@@ -155,10 +153,6 @@ mfa_shutdown(void)
 {
 	pid_t pid;
 	struct filter *filter;
-
-	TAILQ_FOREACH(filter, env->sc_filters, f_entry) {
-		kill(filter->pid, SIGTERM);
-	}
 
 	do {
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
@@ -214,7 +208,6 @@ mfa(void)
 	event_init();
 
 	SPLAY_INIT(&env->mfa_sessions);
-	TAILQ_INIT(env->sc_filters);
 
 	signal_set(&ev_sigint, SIGINT, mfa_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mfa_sig_handler, NULL);
