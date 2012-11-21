@@ -39,8 +39,12 @@
 #include "smtpd.h"
 #include "log.h"
 
+static void mfa_session_proceed(struct mfa_session *);
 static void mfa_session_destroy(struct mfa_session *);
 static void mfa_session_done(struct mfa_session *);
+static void mfa_session_fail(struct mfa_session *);
+
+static void mfa_session_filter_register(uint32_t, struct filter *);
 void mfa_session_imsg_handler(struct imsg *, void *);
 
 struct fhook {
@@ -71,22 +75,20 @@ mfa_session_filters_init(void)
 	}
 }
 
-void
-mfa_session_filter_register(uint32_t hook, struct filter *filter)
+static void
+mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
 {
 	struct fhook   *np;
 	size_t		i;
 
-	for (i = 0; i < nitems(filter_hooks); ++i)
-		if ((1 << i) == hook)
-			break;
-	if (i == nitems(filter_hooks))
-		fatalx("filter returned bogus hook");
-
-	np = xcalloc(1, sizeof *np, "mfa_session_filter_register");
-	np->filter = filter;
-	SIMPLEQ_INSERT_TAIL(&filter_hooks[i], np, entry);
-	env->filtermask |= hook;	
+	for (i = 0; i < nitems(filter_hooks); ++i) {
+		if ((1 << i) & filtermask) {
+			np = xcalloc(1, sizeof *np, "mfa_session_filter_register");
+			np->filter = filter;
+			SIMPLEQ_INSERT_TAIL(&filter_hooks[i], np, entry);
+			env->filtermask |= filtermask;
+		}
+	}
 }
 
 void
@@ -99,18 +101,83 @@ mfa_session(struct submit_status *ss, enum filter_type hook)
 	ms->ss    = *ss;
 	ms->hook  = hook;
  	ms->ss.code = 250;
-
 	tree_xset(&env->mfa_sessions, ms->id, ms);
 
-	mfa_session_done(ms);
-
-	/*
-	tree_xset(&sessions, ms->id, ms);
-	if (! dict_iter(&env->sc_filters, &ms->iter, NULL, (void **)&ms->filter))
+	/* no filter handling this hook */
+	if (!(hook & env->filtermask)) {
 		mfa_session_done(ms);
-	else if (!mfa_session_proceed(ms))
-		mfa_session_fail(ms);
-	*/
+		return;
+	}
+
+	log_debug("MFA_SESSION");
+	ms->fhook = SIMPLEQ_FIRST(&filter_hooks[ms->hook]);
+	log_debug("MFA_SESSION #1");
+	mfa_session_proceed(ms);
+}
+
+static void
+mfa_session_proceed(struct mfa_session *ms)
+{
+	struct filter_msg	fm;
+	struct filter	       *filter = ((struct fhook *)ms->fhook)->filter;
+
+	bzero(&fm, sizeof fm);
+	fm.id = ms->id;
+	fm.version = FILTER_API_VERSION;
+
+	log_debug("MFA_SESSION_PROCEED");
+	switch (ms->hook) {
+	case FILTER_CONNECT:
+		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
+			sizeof(fm.u.connect.hostname))
+		    >= sizeof(fm.u.connect.hostname))
+			fatalx("mfa_session_proceed: CONNECT: truncation");
+		fm.u.connect.hostaddr = ms->ss.envelope.ss;
+		break;
+
+	case FILTER_HELO:
+	case FILTER_EHLO:
+		if (strlcpy(fm.u.helo.helohost, ms->ss.envelope.helo,
+			sizeof(fm.u.helo.helohost))
+		    >= sizeof(fm.u.helo.helohost))
+			fatalx("mfa_session_proceed: HELO: truncation");
+		break;
+
+	case FILTER_MAIL:
+		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
+			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
+			fatalx("mfa_session_proceed: MAIL: user truncation");
+		if (strlcpy(fm.u.mail.domain, ms->ss.u.maddr.domain,
+			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
+			fatalx("mfa_session_proceed: MAIL: domain truncation");
+		break;
+		
+	case FILTER_RCPT:
+		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
+			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
+			fatalx("mfa_session_proceed: RCPT: user truncation");
+		if (strlcpy(fm.u.mail.domain, ms->ss.u.maddr.domain,
+			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
+			fatalx("mfa_session_proceed: RCPT: domain truncation");
+		break;
+
+	case FILTER_DATALINE:
+		if (strlcpy(fm.u.dataline.line, ms->ss.u.dataline,
+			sizeof(fm.u.dataline.line))
+		    >= sizeof(fm.u.dataline.line))
+			fatalx("mfa_session_proceed: DATA: line truncation");
+		break;
+
+	case FILTER_QUIT:
+	case FILTER_CLOSE:
+	case FILTER_RSET:
+		break;
+
+	default:
+		fatalx("mfa_session_proceed: no such state");
+	}
+
+	imsg_compose(filter->process->ibuf, ms->hook, 0, 0, -1, &fm, sizeof(fm));
 }
 
 static void
@@ -169,6 +236,8 @@ mfa_session_done(struct mfa_session *ms)
 static void
 mfa_session_fail(struct mfa_session *ms)
 {
+	ms->ss.code = 530;
+	mfa_session_destroy(ms);
 }
 
 static void
@@ -181,12 +250,28 @@ mfa_session_destroy(struct mfa_session *ms)
 void
 mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 {
+	struct mfa_session	*ms;
+	struct filter		*filter;
+
+	log_debug("MFA_SESSION_IMSG_HANDLER");
+	if (imsg->hdr.type == FILTER_REGISTER) {
+		ms = NULL;
+		filter = arg;
+	}
+	else {
+		ms = arg;
+		filter = ((struct fhook *)ms->fhook)->filter;
+	}
+
 	switch (imsg->hdr.type) {
 	case FILTER_REGISTER:
 		mfa_session_filter_register(*(uint32_t *)imsg->data, arg);
 		break;
 	default:
-		log_debug("NOT HANDLED YET !\n", imsg->hdr.type);
+		log_debug("NOT HANDLED YET !\n");
+		log_debug("ms->id: %016"PRIx64, ms->id);
 		break;
 	}
+
+	imsgproc_set_write(filter->process);
 }

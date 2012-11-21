@@ -32,6 +32,8 @@
 #include "smtpd-api.h"
 
 static struct filter_internals {
+	uint32_t	filtermask;
+
 	struct event	ev;
 	struct imsgbuf	ibuf;
 
@@ -61,7 +63,6 @@ static struct filter_internals {
 
 	void (*rset_cb)(uint64_t, void *);
 	void *rset_cb_arg;
-
 } fi;
 
 static void filter_handler(int, short, void *);
@@ -81,6 +82,12 @@ filter_init(void)
 void
 filter_loop(void)
 {
+	/* notify smtpd of all registered hooks */
+	imsg_compose(&fi.ibuf, FILTER_REGISTER, 0, 0, -1,
+	    &fi.filtermask, sizeof fi.filtermask);
+	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, NULL);
+	event_add(&fi.ev, NULL);
+
 	if (event_dispatch() < 0)
 		errx(1, "event_dispatch");
 }
@@ -200,9 +207,7 @@ filter_register_callback(enum filter_type type, void *cb, void *cb_arg)
 		errx(1, "filter_register_callback: unknown filter type");
 	}
 
-	imsg_compose(&fi.ibuf, FILTER_REGISTER, 0, 0, -1, &type, sizeof type);
-	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, NULL);
-	event_add(&fi.ev, NULL);
+	fi.filtermask |= type;
 }
 
 static void

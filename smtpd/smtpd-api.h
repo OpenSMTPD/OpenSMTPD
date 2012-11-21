@@ -75,10 +75,8 @@ union filter_union {
 
 struct filter_msg {
 	uint64_t		id;	 /* set by smtpd(8) */
-	uint64_t		cl_id;	 /* set by smtpd(8) */
 	int8_t			code;
 	uint8_t			version;
-	enum filter_type	type;
 	union filter_union	u;
 };
 

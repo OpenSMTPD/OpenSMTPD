@@ -609,8 +609,6 @@ struct smtpd {
 
 	time_t					 sc_uptime;
 
-	/*TAILQ_HEAD(filterlist, filter)		*sc_filters;*/
-
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
@@ -618,7 +616,6 @@ struct smtpd {
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
 	SPLAY_HEAD(childtree, child)		 children;
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
-	/*	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;*/
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
 
 	struct tree				mfa_sessions;
@@ -628,7 +625,7 @@ struct smtpd {
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
-	uint64_t				filtermask;
+	uint32_t				filtermask;
 };
 
 #define	TRACE_VERBOSE	0x0001
@@ -714,7 +711,7 @@ struct mfa_session {
 /*	enum session_state		 state;*/
 	enum filter_type		hook;
 	struct submit_status		ss;
-	struct filter		       *filter;
+	void			       *fhook;
 	void			       *iter;
 };
 
@@ -1061,6 +1058,7 @@ struct imsgproc *imsgproc_fork(const char *, const char *,
     void (*)(struct imsg *, void *), void *);
 void imsgproc_set_read(struct imsgproc *);
 void imsgproc_set_write(struct imsgproc *);
+void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
 
 /* lka.c */

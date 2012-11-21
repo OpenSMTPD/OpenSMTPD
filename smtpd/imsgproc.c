@@ -146,3 +146,11 @@ imsgproc_set_read(struct imsgproc *proc)
 	event_set(&proc->ev, proc->ibuf->fd, EV_READ, imsgproc_imsg, proc);
 	event_add(&proc->ev, NULL);
 }
+
+void
+imsgproc_reset_callback(struct imsgproc *proc, void (*cb)(struct imsg *, void *),
+    void *cb_arg)
+{
+	proc->cb = cb;
+	proc->cb_arg = cb_arg;
+}
