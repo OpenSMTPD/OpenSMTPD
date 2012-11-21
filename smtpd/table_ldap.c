@@ -40,26 +40,27 @@
 #include "log.h"
 
 
-/* ldap backend */
-static void			*map_ldap_open(struct map *);
-static void			*map_ldap_lookup(void *, const  char *, enum map_kind);
-static void			 map_ldap_close(void *);
+static void			*table_ldap_open(struct table *);
+static int			 table_ldap_lookup(void *, const  char *, enum table_service, void **);
+static void			 table_ldap_close(void *);
 
-static void			*map_ldap_alias(void *, const char *);
-static void			*map_ldap_virtual(void *, const char *);
-static char			*map_ldap_expandfilter(struct ldaphandle *, const char*);
+static int			 table_ldap_alias(void *, const char *, void**);
+static int			 table_ldap_virtual(void *, const char *, void **);
+
+static char					*table_ldap_expandfilter(struct ldaphandle *, const char*);
 static struct ldap_conf		*ldapconf_findbyname(const char *);
-static struct aldap		*ldap_client_connect(struct ldap_conf *);
+static struct aldap			*ldap_client_connect(struct ldap_conf *);
 static struct ldap_conf		*ldap_parse_configuration(const char *);
 
 struct ldap_confs ldap_confs = TAILQ_HEAD_INITIALIZER(ldap_confs);
 
-struct map_backend map_backend_ldap = {
-	map_ldap_open,
+struct table_backend table_backend_ldap = {
+	K_ALIAS|K_VIRTUAL,
 	NULL,
-	map_ldap_close,
-	map_ldap_lookup,
-	NULL
+	table_ldap_open,
+	NULL,
+	table_ldap_close,
+	table_ldap_lookup
 };
 
 enum {
@@ -215,24 +216,24 @@ err:
 }
 
 static void *
-map_ldap_open(struct map *map)
+table_ldap_open(struct table *table)
 {
 	struct ldap_conf  *ldapconf;
 	struct aldap_message *message = NULL;
 	struct ldaphandle *ldaphandle = NULL;
 
 
-	ldapconf = ldapconf_findbyname(map->m_config);
+	ldapconf = ldapconf_findbyname(table->t_config);
 	if (ldapconf == NULL) {
-		ldapconf = ldap_parse_configuration(map->m_config);
+		ldapconf = ldap_parse_configuration(table->t_config);
 
 		if (ldapconf == NULL) {
-			warnx("ldap configuration file '%s' parse error", map->m_config);
+			warnx("ldap configuration file '%s' parse error", table->t_config);
 			return NULL;
 		}
 	}
 
-	warnx("map_ldap_open: found ldapserverconf '%s' in smtpd.conf", ldapconf->identifier);
+	warnx("table_ldap_open: found ldapserverconf '%s' in smtpd.conf", ldapconf->identifier);
 
 	ldaphandle = calloc(1, sizeof(*ldaphandle));
 	if (ldaphandle == NULL)
@@ -241,34 +242,34 @@ map_ldap_open(struct map *map)
 	ldaphandle->conf = ldapconf;
 	ldaphandle->aldap = ldap_client_connect(ldapconf);
 	if (ldaphandle->aldap == NULL) {
-		warnx("map_ldap_open: ldap_client_connect error");
+		warnx("table_ldap_open: ldap_client_connect error");
 		goto err;
 	}
 
 	if (aldap_bind(ldaphandle->aldap, ldapconf->username, ldapconf->password) == -1) {
-		warnx("map_ldap_open: aldap_bind error");
+		warnx("table_ldap_open: aldap_bind error");
 		goto err;
 	}
 
 	if ((message = aldap_parse(ldaphandle->aldap)) == NULL) {
-		warnx("map_ldap_open: aldap_parse");
+		warnx("table_ldap_open: aldap_parse");
 		goto err;
 	}
 
 	switch (aldap_get_resultcode(message)) {
 	case LDAP_SUCCESS:
-		warnx("map_ldap_open: ldap server accepted credentials");
+		warnx("table_ldap_open: ldap server accepted credentials");
 		break;
 	case LDAP_INVALID_CREDENTIALS:
-		warnx("map_ldap_open: ldap server refused credentials");
+		warnx("table_ldap_open: ldap server refused credentials");
 		goto err;
 
 	default:
-		warnx("map_ldap_open: failed to bind, result #%d", aldap_get_resultcode(message));
+		warnx("table_ldap_open: failed to bind, result #%d", aldap_get_resultcode(message));
 		goto err;
 	}
 
-	warnx("map_ldap_open: aldap: %p", ldaphandle->aldap);
+	warnx("table_ldap_open: aldap: %p", ldaphandle->aldap);
 	return ldaphandle;
 
 err:
@@ -281,7 +282,7 @@ err:
 }
 
 static void
-map_ldap_close(void *hdl)
+table_ldap_close(void *hdl)
 {
 	struct ldaphandle *ldaphandle = hdl;
 
@@ -289,18 +290,18 @@ map_ldap_close(void *hdl)
 	free(ldaphandle);
 }
 
-static void *
-map_ldap_lookup(void *hdl, const char *key, enum map_kind kind)
+static int
+table_ldap_lookup(void *hdl, const char *key, enum table_service service,
+		void **retp)
 {
-	void *ret;
+	int ret = 0;
 
-	ret = NULL;
-	switch (kind) {
+	switch (service) {
 	case K_ALIAS:
-		ret = map_ldap_alias(hdl, key);
+		ret = table_ldap_alias(hdl, key, retp);
 		break;
 	case K_VIRTUAL:
-		ret = map_ldap_virtual(hdl, key);
+		ret = table_ldap_virtual(hdl, key, retp);
 		break;
 	default:
 		break;
@@ -311,14 +312,14 @@ map_ldap_lookup(void *hdl, const char *key, enum map_kind kind)
 
 
 /* XXX: this should probably be factorized in a map_ldap_getentries function */
-static void *
-map_ldap_alias(void *hdl, const char *key)
+static int
+table_ldap_alias(void *hdl, const char *key, void **retp)
 {
 	struct ldaphandle *ldaphandle = hdl;
 	struct aldap *aldap = ldaphandle->aldap;
 	struct aldap_page_control *pg = NULL;
 	struct aldap_message *m = NULL;
-	struct map_alias	 *map_alias = NULL;
+	struct table_alias	 *table_alias = NULL;
 	struct expandnode	  expnode;
 	char *expandedfilter = NULL;
 	char *attributes[2];
@@ -326,13 +327,13 @@ map_ldap_alias(void *hdl, const char *key)
 	int i, ret;
 
 
-	if ((expandedfilter = map_ldap_expandfilter(ldaphandle, key)) == NULL)
-		return NULL;
+	if ((expandedfilter = table_ldap_expandfilter(ldaphandle, key)) == NULL)
+		return -1;
 
 	attributes[0] = ldaphandle->conf->m_ldapattr;
 	attributes[1] = NULL;
 
-	if ((map_alias = calloc(1, sizeof(struct map_alias))) == NULL)
+	if ((table_alias = calloc(1, sizeof(struct table_alias))) == NULL)
 			err(1, NULL);
 
 	do {
@@ -340,8 +341,8 @@ map_ldap_alias(void *hdl, const char *key)
 				expandedfilter, attributes, 0, 0, 0, pg);
 
 		if (ret == -1) {
-			free(map_alias);
-			return NULL;
+			free(table_alias);
+			return -1;
 		}
 
 		if (pg != NULL) {
@@ -374,8 +375,8 @@ map_ldap_alias(void *hdl, const char *key)
 				if (!alias_parse(&expnode, ldapattrsp[i]))
 					goto error;
 
-				expand_insert(&map_alias->expand, &expnode);
-				map_alias->nbnodes++;
+				expand_insert(&table_alias->expand, &expnode);
+				table_alias->nbnodes++;
 			}
 
 			aldap_freemsg(m);
@@ -384,27 +385,28 @@ map_ldap_alias(void *hdl, const char *key)
 
 	aldap_free_attr(ldapattrsp);
 	free(expandedfilter);
-	return map_alias;
+	*retp = table_alias;
+	return 1;
 
 error:
 	free(expandedfilter);
-	expand_free(&map_alias->expand);
-	free(map_alias);
+	expand_free(&table_alias->expand);
+	free(table_alias);
 	aldap_freemsg(m);
 	if (pg != NULL)
 		aldap_freepage(pg);
 
-	return NULL;
+	return -1;
 }
 
-static void *
-map_ldap_virtual(void *hdl, const char *key)
+static int
+table_ldap_virtual(void *hdl, const char *key, void **retp)
 {
 	struct ldaphandle *ldaphandle = hdl;
 	struct aldap *aldap = ldaphandle->aldap;
 	struct aldap_page_control *pg = NULL;
 	struct aldap_message *m = NULL;
-	struct map_virtual	 *map_virtual = NULL;
+	struct table_virtual	 *table_virtual = NULL;
 	struct expandnode	  expnode;
 	char *expandedfilter = NULL;
 	char *attributes[2];
@@ -412,26 +414,28 @@ map_ldap_virtual(void *hdl, const char *key)
 	int i, ret;
 
 
-	if ((expandedfilter = map_ldap_expandfilter(ldaphandle, key)) == NULL)
-		return NULL;
+	if ((expandedfilter = table_ldap_expandfilter(ldaphandle, key)) == NULL)
+		return -1;
 
 	attributes[0] = ldaphandle->conf->m_ldapattr;
 	attributes[1] = NULL;
 
-	if ((map_virtual = calloc(1, sizeof(struct map_virtual))) == NULL)
-			err(1, NULL);
-
 	/* domain key, discard value */
-	if (strchr(key, '@') == NULL)
-		return map_virtual;
+	if (strchr(key, '@') == NULL) {
+		*retp = NULL;
+		return 1;
+	}
+
+	if ((table_virtual = calloc(1, sizeof(struct table_virtual))) == NULL)
+			err(1, NULL);
 
 	do {
 		ret = aldap_search(aldap, ldaphandle->conf->m_ldapbasedn, LDAP_SCOPE_SUBTREE,
 				expandedfilter, attributes, 0, 0, 0, pg);
 
 		if (ret == -1) {
-			free(map_virtual);
-			return NULL;
+			free(table_virtual);
+			return -1;
 		}
 
 		if (pg != NULL) {
@@ -464,8 +468,8 @@ map_ldap_virtual(void *hdl, const char *key)
 				if (!alias_parse(&expnode, ldapattrsp[i]))
 					goto error;
 
-				expand_insert(&map_virtual->expand, &expnode);
-				map_virtual->nbnodes++;
+				expand_insert(&table_virtual->expand, &expnode);
+				table_virtual->nbnodes++;
 			}
 
 			aldap_freemsg(m);
@@ -475,21 +479,22 @@ map_ldap_virtual(void *hdl, const char *key)
 
 	aldap_free_attr(ldapattrsp);
 	free(expandedfilter);
-	return map_virtual;
+	*retp = table_virtual;
+	return 1;
 
 error:
-	expand_free(&map_virtual->expand);
+	expand_free(&table_virtual->expand);
 	free(expandedfilter);
-	free(map_virtual);
+	free(table_virtual);
 	aldap_freemsg(m);
 	if (pg != NULL)
 		aldap_freepage(pg);
 
-	return NULL;
+	return -1;
 }
 
 static char	*
-map_ldap_expandfilter(struct ldaphandle * hdl, const char *key)
+table_ldap_expandfilter(struct ldaphandle * hdl, const char *key)
 {
 	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
 	int i, ret;
@@ -511,7 +516,7 @@ map_ldap_expandfilter(struct ldaphandle * hdl, const char *key)
 			return NULL;
 	}
 
-	return xstrdup(expandedfilter, "map_ldap_expandfilter");
+	return xstrdup(expandedfilter, "table_ldap_expandfilter");
 }
 
 static struct ldap_conf *
