@@ -101,7 +101,6 @@ mfa_session(struct submit_status *ss, enum filter_type hook)
 	ms->id    = ss->id;
 	ms->ss    = *ss;
 	ms->hook  = hook;
- 	ms->ss.code = 250;
 	tree_xset(&env->mfa_sessions, ms->id, ms);
 
 	/* no filter handling this hook */
@@ -194,9 +193,6 @@ static void
 mfa_session_done(struct mfa_session *ms)
 {
 	enum imsg_type	imsg_type;
-
-	if (!ms->ss.code)
-		ms->ss.code = 250;
 
 	switch (ms->hook) {
 	case FILTER_CONNECT:

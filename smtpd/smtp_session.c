@@ -784,7 +784,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_INIT:
-		if (ss->code != 250) {
+		if (ss->code) {
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": rejected by filter", s->s_id);
 			session_destroy(s, "rejected by filter");
@@ -823,7 +823,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_HELO:
-		if (ss->code != 250) {
+		if (ss->code) {
 			session_enter_state(s, S_GREETED);
 			if (ss->u.errormsg[0])
 				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
@@ -858,7 +858,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_MAIL_MFA:
-		if (ss->code != 250) {
+		if (ss->code) {
 			session_enter_state(s, S_HELO);
 			session_respond(s, "%d Sender rejected", ss->code);
 			break;
@@ -878,7 +878,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	case S_RCPT_MFA:
 		/* recipient was not accepted */
-		if (ss->code != 250) {
+		if (ss->code) {
 			/* We do not have a valid recipient, downgrade state */
 			if (s->rcptcount == 0)
 				session_enter_state(s, S_MAIL);
@@ -926,7 +926,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_DATACONTENT:
-		if (ss->code != 250)
+		if (ss->code)
 			s->s_dstatus |= DS_PERMFAILURE;
 		session_read_data(s, ss->u.dataline);
 		break;
