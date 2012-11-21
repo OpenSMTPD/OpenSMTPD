@@ -43,16 +43,28 @@ static void mfa_session_destroy(struct mfa_session *);
 static void mfa_session_done(struct mfa_session *);
 void mfa_session_imsg_handler(struct imsg *, void *);
 
+struct fhook {
+	SIMPLEQ_ENTRY(fhook)	entry;
+	struct filter	       *filter;
+};
+
+/* XXX - needs to be update to match the number of filter_type in smtpd-api.h */
+SIMPLEQ_HEAD(flist, fhook)	filter_hooks[9];
+
 void
 mfa_session_filters_init(void)
 {
 	struct filter  *filter;
 	void	       *iter;
+	size_t		i;
+
+	for (i = 0; i < nitems(filter_hooks); ++i)
+		SIMPLEQ_INIT(&filter_hooks[i]);
 
 	iter = NULL;
 	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
 		filter->process = imsgproc_fork(filter->path, filter->name,
-		    mfa_session_imsg_handler, NULL);
+		    mfa_session_imsg_handler, filter);
 		if (filter->process == NULL)
 			fatalx("could not start filter");
 		imsgproc_set_read(filter->process);
@@ -60,14 +72,32 @@ mfa_session_filters_init(void)
 }
 
 void
-mfa_session(struct submit_status *ss, enum session_state state)
+mfa_session_filter_register(uint32_t hook, struct filter *filter)
+{
+	struct fhook   *np;
+	size_t		i;
+
+	for (i = 0; i < nitems(filter_hooks); ++i)
+		if ((1 << i) == hook)
+			break;
+	if (i == nitems(filter_hooks))
+		fatalx("filter returned bogus hook");
+
+	np = xcalloc(1, sizeof *np, "mfa_session_filter_register");
+	np->filter = filter;
+	SIMPLEQ_INSERT_TAIL(&filter_hooks[i], np, entry);
+	env->filtermask |= hook;	
+}
+
+void
+mfa_session(struct submit_status *ss, enum filter_type hook)
 {
 	struct mfa_session *ms;
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
 	ms->id    = ss->id;
 	ms->ss    = *ss;
-	ms->state = state;
+	ms->hook  = hook;
  	ms->ss.code = 250;
 
 	tree_xset(&env->mfa_sessions, ms->id, ms);
@@ -88,14 +118,15 @@ mfa_session_done(struct mfa_session *ms)
 {
 	enum imsg_type	imsg_type;
 
-	switch (ms->state) {
-	case S_CONNECTED:
+	switch (ms->hook) {
+	case FILTER_CONNECT:
 		imsg_type = IMSG_MFA_CONNECT;
 		break;
-	case S_HELO:
+	case FILTER_HELO:
+	case FILTER_EHLO:
 		imsg_type = IMSG_MFA_HELO;
 		break;
-	case S_MAIL_MFA:
+	case FILTER_MAIL:
 		if ((ms->ss.code / 100) == 2) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
                             IMSG_LKA_MAIL, 0, 0, -1,
@@ -105,7 +136,7 @@ mfa_session_done(struct mfa_session *ms)
 		}
 		imsg_type = IMSG_MFA_MAIL;
 		break;
-	case S_RCPT_MFA:
+	case FILTER_RCPT:
 		if ((ms->ss.code / 100) == 2) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
                             IMSG_LKA_RULEMATCH, 0, 0, -1,
@@ -115,16 +146,16 @@ mfa_session_done(struct mfa_session *ms)
 		}
 		imsg_type = IMSG_MFA_RCPT;
 		break;
-	case S_DATACONTENT:
+	case FILTER_DATALINE:
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
-	case S_QUIT:
+	case FILTER_QUIT:
 		imsg_type = IMSG_MFA_QUIT;
 		break;
-	case S_CLOSE:
+	case FILTER_CLOSE:
 		mfa_session_destroy(ms);
 		return;
-	case S_RSET:
+	case FILTER_RSET:
 		imsg_type = IMSG_MFA_RSET;
 		break;
 	default:
@@ -152,7 +183,7 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 {
 	switch (imsg->hdr.type) {
 	case FILTER_REGISTER:
-		log_debug("REGISTERING HOOK %d", *(uint32_t *)imsg->data);
+		mfa_session_filter_register(*(uint32_t *)imsg->data, arg);
 		break;
 	default:
 		log_debug("NOT HANDLED YET !\n", imsg->hdr.type);

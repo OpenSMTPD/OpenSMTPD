@@ -628,7 +628,7 @@ struct smtpd {
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
-	uint64_t				 filtermask;
+	uint64_t				filtermask;
 };
 
 #define	TRACE_VERBOSE	0x0001
@@ -711,10 +711,11 @@ struct mfa_session {
 	SPLAY_ENTRY(mfa_session)	 nodes;
 	uint64_t			 id;
 
-	enum session_state		 state;
-	struct submit_status		 ss;
-	struct filter			*filter;
-	void				*iter;
+/*	enum session_state		 state;*/
+	enum filter_type		hook;
+	struct submit_status		ss;
+	struct filter		       *filter;
+	void			       *iter;
 };
 
 struct mta_session;
@@ -1080,7 +1081,7 @@ pid_t mfa(void);
 void mfa_session_filters_init(void);
 
 /* mfa_session.c */
-void mfa_session(struct submit_status *, enum session_state);
+void mfa_session(struct submit_status *, enum filter_type);
 
 
 /* mta.c */

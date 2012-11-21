@@ -28,6 +28,7 @@
 #define MAX_LOCALPART_SIZE	 64
 #define MAX_DOMAINPART_SIZE	 255
 
+/* XXX - server side requires mfa_session.c update on filter_type changes */
 enum filter_type {
 	FILTER_REGISTER		= 0,
 	FILTER_CONNECT		= 0x001,

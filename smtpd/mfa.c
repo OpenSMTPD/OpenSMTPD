@@ -237,7 +237,7 @@ mfa_test_connect(struct envelope *e)
 	ss.code = 530;
 	ss.envelope = *e;
 
-	mfa_session(&ss, S_CONNECTED);
+	mfa_session(&ss, FILTER_CONNECT);
 }
 
 static void
@@ -249,7 +249,7 @@ mfa_test_helo(struct envelope *e)
 	ss.code = 530;
 	ss.envelope = *e;
 
-	mfa_session(&ss, S_HELO);
+	mfa_session(&ss, FILTER_HELO);
 }
 
 static void
@@ -274,7 +274,7 @@ mfa_test_mail(struct envelope *e)
 			goto refuse;
 	}
 
-	mfa_session(&ss, S_MAIL_MFA);
+	mfa_session(&ss, FILTER_MAIL);
 	return;
 
 refuse:
@@ -302,7 +302,7 @@ mfa_test_rcpt(struct envelope *e)
 	    ! valid_domainpart(ss.u.maddr.domain))
 		goto refuse;
 
-	mfa_session(&ss, S_RCPT_MFA);
+	mfa_session(&ss, FILTER_RCPT);
 	return;
 
 refuse:
@@ -329,7 +329,7 @@ mfa_test_dataline(struct submit_status *ss)
 {
 	ss->code = 250;
 
-	mfa_session(ss, S_DATACONTENT);
+	mfa_session(ss, FILTER_DATALINE);
 }
 
 static void
@@ -341,7 +341,7 @@ mfa_test_quit(struct envelope *e)
 	ss.code = 530;
 	ss.envelope = *e;
 
-	mfa_session(&ss, S_QUIT);
+	mfa_session(&ss, FILTER_QUIT);
 }
 
 static void
@@ -353,7 +353,7 @@ mfa_test_close(struct envelope *e)
 	ss.code = 530;
 	ss.envelope = *e;
 
-	mfa_session(&ss, S_CLOSE);
+	mfa_session(&ss, FILTER_CLOSE);
 }
 
 static void
@@ -365,7 +365,7 @@ mfa_test_rset(struct envelope *e)
 	ss.code = 530;
 	ss.envelope = *e;
 
-	mfa_session(&ss, S_RSET);
+	mfa_session(&ss, FILTER_RSET);
 }
 
 static int
