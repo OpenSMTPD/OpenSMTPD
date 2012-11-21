@@ -166,7 +166,7 @@ filter_accept(uint64_t id)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
-	session->fm.code = 1;
+	session->fm.code = 0;
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
 	    sizeof session->fm);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
@@ -174,11 +174,12 @@ filter_accept(uint64_t id)
 }
 
 void
-filter_reject(uint64_t id)
+filter_reject(uint64_t id, uint32_t code, char *status)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
-	session->fm.code = 0;
+	session->fm.code = code;
+	strlcpy(session->fm.errorline, status, sizeof session->fm.errorline);
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
 	    sizeof session->fm);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
@@ -282,72 +283,36 @@ filter_handler(int fd, short event, void *p)
 		
 		switch (session->hook) {
 		case FILTER_CONNECT:
-			if (fi.connect_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.connect_cb(session->fm.id, &session->fm.u.connect,
 			    fi.connect_cb_arg);
 			break;
 		case FILTER_HELO:
-			if (fi.helo_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.helo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.helo_cb_arg);
 			break;
 		case FILTER_EHLO:
-			if (fi.ehlo_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.ehlo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.ehlo_cb_arg);
 			break;
 		case FILTER_MAIL:
-			if (fi.mail_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.mail_cb(session->fm.id, &session->fm.u.mail,
 			    fi.mail_cb_arg);
 			break;
 		case FILTER_RCPT:
-			if (fi.rcpt_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.rcpt_cb(session->fm.id, &session->fm.u.rcpt,
 			    fi.rcpt_cb_arg);
 			break;
 		case FILTER_DATALINE:
-			if (fi.dataline_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.dataline_cb(session->fm.id, &session->fm.u.dataline,
 			    fi.dataline_cb_arg);
 			break;
 		case FILTER_QUIT:
-			if (fi.quit_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.quit_cb(session->fm.id, fi.quit_cb_arg);
 			break;
 		case FILTER_CLOSE:
-			if (fi.close_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.close_cb(session->fm.id, fi.close_cb_arg);
 			break;
 		case FILTER_RSET:
-			if (fi.rset_cb == NULL) {
-				filter_accept(session->fm.id);
-				break;
-			}
 			fi.rset_cb(session->fm.id, fi.rset_cb_arg);
 			break;
 
@@ -356,4 +321,6 @@ filter_handler(int fd, short event, void *p)
 		}
 		imsg_free(&imsg);
 	}
+	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, NULL);
+	event_add(&fi.ev, NULL);
 }

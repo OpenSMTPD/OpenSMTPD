@@ -42,7 +42,7 @@
 static void mfa_session_proceed(struct mfa_session *);
 static void mfa_session_destroy(struct mfa_session *);
 static void mfa_session_done(struct mfa_session *);
-static void mfa_session_fail(struct mfa_session *);
+static void mfa_session_fail(struct mfa_session *, uint32_t, char *);
 
 static void mfa_session_filter_register(uint32_t, struct filter *);
 void mfa_session_imsg_handler(struct imsg *, void *);
@@ -182,13 +182,8 @@ mfa_session_proceed(struct mfa_session *ms)
 }
 
 static void
-mfa_session_pickup(uint32_t code, struct mfa_session *ms)
+mfa_session_pickup(struct mfa_session *ms)
 {
-	if (! code) {
-		mfa_session_fail(ms);
-		return;
-	}
-
 	if ((ms->fhook = SIMPLEQ_NEXT((struct fhook *)ms->fhook, entry)) == NULL)
 		mfa_session_done(ms);
 	else
@@ -200,6 +195,9 @@ mfa_session_done(struct mfa_session *ms)
 {
 	enum imsg_type	imsg_type;
 
+	if (!ms->ss.code)
+		ms->ss.code = 250;
+
 	switch (ms->hook) {
 	case FILTER_CONNECT:
 		imsg_type = IMSG_MFA_CONNECT;
@@ -209,7 +207,7 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_HELO;
 		break;
 	case FILTER_MAIL:
-		if ((ms->ss.code / 100) == 2) {
+		if (! ms->ss.code) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
                             IMSG_LKA_MAIL, 0, 0, -1,
                             &ms->ss, sizeof(ms->ss));
@@ -219,7 +217,7 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_MAIL;
 		break;
 	case FILTER_RCPT:
-		if ((ms->ss.code / 100) == 2) {
+		if (! ms->ss.code) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
                             IMSG_LKA_RULEMATCH, 0, 0, -1,
                             &ms->ss, sizeof(ms->ss));
@@ -249,9 +247,10 @@ mfa_session_done(struct mfa_session *ms)
 }
 
 static void
-mfa_session_fail(struct mfa_session *ms)
+mfa_session_fail(struct mfa_session *ms, uint32_t code, char *errorline)
 {
-	ms->ss.code = 530;
+	ms->ss.code = code;
+	strlcpy(ms->ss.u.errormsg, errorline, sizeof ms->ss.u.errormsg);
 	mfa_session_done(ms);
 }
 
@@ -281,5 +280,13 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 		break;
 	}
 
-	mfa_session_pickup(fm->code, ms);
+	if (fm->code) {
+		mfa_session_fail(ms, fm->code, fm->errorline);
+		return;
+	}
+
+	ms->ss.code = fm->code;
+	strlcpy(ms->ss.u.errormsg, fm->errorline, sizeof ms->ss.u.errormsg);
+
+	mfa_session_pickup(ms);
 }
