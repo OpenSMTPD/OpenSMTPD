@@ -24,6 +24,7 @@ SRCS+=		delivery_mda.c
 SRCS+=		table_db.c
 SRCS+=		table_getpwnam.c
 SRCS+=		table_static.c
+SRCS+=		table_ldap.c
 SRCS+=		queue_fsqueue.c
 SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c

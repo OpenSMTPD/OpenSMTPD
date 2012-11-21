@@ -36,7 +36,7 @@
 
 #include "smtpd.h"
 #include "aldap.h"
-#include "map_ldap.h"
+#include "table_ldap.h"
 #include "log.h"
 
 
