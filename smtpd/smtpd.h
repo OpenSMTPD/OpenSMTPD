@@ -277,6 +277,7 @@ struct table {
 
 	void				*t_handle;
 	struct table_backend		*t_backend;
+	void				*t_payload;
 };
 
 struct table_backend {
@@ -1190,6 +1191,8 @@ void table_delete_all(struct table *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);
+void	table_set_payload(struct table *, void *);
+void   *table_get_payload(struct table *);
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))
