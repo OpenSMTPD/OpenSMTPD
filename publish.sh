@@ -75,8 +75,11 @@ tarball()
 #
 snapshot()
 {
+    REMOTEHOST=ssh.poolp.org
+    REMOTEDIR=/var/www/virtual/org.opensmtpd/archives/
+
     TARBALL=`build_tarball ${1}`
-    SNAPSHOT=opensmtpd-`date +%Y%m%d%H%M%S`
+    SNAPSHOT=opensmtpd-`date +%Y%m%d%H%M`
     if test "${1}" = "portable"; then
 	SNAPSHOT=${SNAPSHOT}p1
     fi
@@ -84,10 +87,12 @@ snapshot()
     mv ${FILES}/${TARBALL} ${FILES}/${SNAPSHOT}.tar.gz
 
     if test "${1}" = "master"; then
-	LASTTAGS=`git tag |grep '^opensmtpd-[0-9]*' | grep -v '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
+	LASTTAGS=`git tag |grep '^opensmtpd-[0-9][0-9][0-9]*' | grep -v '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
     else
-	LASTTAGS=`git tag |grep '^opensmtpd-[0-9]*' | grep '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
+	LASTTAGS=`git tag |grep '^opensmtpd-[0-9][0-9][0-9]*' | grep '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
     fi
+
+    echo git log $LASTTAGS
 
     CHANGELOG=`git log $LASTTAGS`
     if test "${CHANGELOG}" = ""; then
@@ -96,11 +101,18 @@ snapshot()
 	exit 1
     fi
 
-    scp -pr ${FILES}/${SNAPSHOT}.tar.gz ssh.poolp.org:/var/nginx/virtual/org.opensmtpd/archives/
+    
+    scp -pr ${FILES}/${SNAPSHOT}.tar.gz ${REMOTEHOST}:${REMOTEDIR}
     if test $? != 0; then
 	echo "Error: could not publish snapshot !" >&2
 	git tag -d ${SNAPSHOT}
 	exit 1
+    fi
+
+    if test "${1}" = "master"; then
+	ssh ${REMOTEHOST} "cd ${REMOTEDIR}; rm -f opensmtpd-latest.tar.gz; ln -s ${SNAPSHOT}.tar.gz opensmtpd-latest.tar.gz"
+    else
+	ssh ${REMOTEHOST} "cd ${REMOTEDIR}; rm -f opensmtpd-portable-latest.tar.gz; ln -s ${SNAPSHOT}.tar.gz opensmtpd-portable-latest.tar.gz"
     fi
 
     TMP=`mktemp /tmp/publish.XXXXXXXX` || {
@@ -144,7 +156,7 @@ EOF
     if test "${DEBUG}" = "1"; then
 	mail -s "[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available" `whoami` < ${TMP}
     else
-	ssh ssh.poolp.org "mail -s '[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available' misc@opensmtpd.org" < ${TMP}
+	ssh ${REMOTEHOST} "mail -s '[OpenSMTPD] ${1} snapshot ${SNAPSHOT} available' misc@opensmtpd.org" < ${TMP}
     fi
 
     if test $? != 0; then
@@ -167,7 +179,92 @@ EOF
 #
 release()
 {
-    echo not available yet
+    REMOTEHOST=ssh.poolp.org
+    REMOTEDIR=/var/www/virtual/org.opensmtpd/archives/
+    X=5
+    Y=1
+    Z=0
+
+    TARBALL=`build_tarball ${1}`
+    if test "$Z" = "0"; then
+	RELEASE=opensmtpd-$X.$Y
+    else
+	RELEASE=opensmtpd-$X.$Y.$Z
+    fi
+
+    if test "${1}" = "portable"; then
+	RELEASE=${RELEASE}p1
+    fi
+    git tag ${RELEASE}
+    mv ${FILES}/${TARBALL} ${FILES}/${RELEASE}.tar.gz
+
+    if test "${1}" = "master"; then
+	LASTTAGS=`git tag |grep '^opensmtpd-[0-9].[0-9]*' | grep -v '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
+    else
+	LASTTAGS=`git tag |grep '^opensmtpd-[0-9].[0-9]*' | grep '[0-9]p[0-9]$' | tail -2 | tr '\n' '@' | sed 's/@$//g'| sed 's/@/../g'`
+    fi
+
+    CHANGELOG=`git log $LASTTAGS`
+    if test "${CHANGELOG}" = ""; then
+	echo "Error: nothing new in this release, I won't publish it !" >&2
+	git tag -d ${RELEASE}
+	exit 1
+    fi
+
+    
+    scp -pr ${FILES}/${RELEASE}.tar.gz ${REMOTEHOST}:${REMOTEDIR}
+    if test $? != 0; then
+	echo "Error: could not publish release !" >&2
+	git tag -d ${RELEASE}
+	exit 1
+    fi
+
+    TMP=`mktemp /tmp/publish.XXXXXXXX` || {
+	echo "error: mktemp failed" >&2
+	git tag -d ${RELEASE}
+	exit 1
+    }
+
+    cat <<EOF > ${TMP}
+User `whoami` has just rebuilt a ${1} release,
+available from:
+
+        http://www.OpenSMTPD.org/archives/${RELEASE}.tar.gz
+
+XXX
+
+Summary of changes since last snapshot:
+---------------------------------------
+${CHANGELOG}
+EOF
+    ${EDITOR} ${TMP}
+
+    if test $? != 0; then
+	rm ${TMP}
+	echo "Error: edition aborted." 2>&1
+	git tag -d ${RELEASE}
+	exit 1
+    fi
+
+    if test "${DEBUG}" = "1"; then
+	mail -s "[OpenSMTPD] ${1} release ${RELEASE} available" `whoami` < ${TMP}
+    else
+	ssh ${REMOTEHOST} "mail -s '[OpenSMTPD] ${1} release ${RELEASE} available' misc@opensmtpd.org" < ${TMP}
+    fi
+
+    if test $? != 0; then
+	rm ${TMP}
+	echo "Error: failed to send mail." >&2
+	git tag -d ${RELEASE}
+	exit 1
+    fi
+    git push origin --tags ${RELEASE}
+    if test $? != 0; then
+	echo "Error: failed to push tag." >&2
+	git tag -d ${RELEASE}
+	exit 1
+    fi
+    rm ${TMP}
 }
 
 mkdir -p $FILES

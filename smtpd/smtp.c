@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.120 2012/10/07 15:46:38 chl Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.121 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -131,7 +131,9 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_QUEUE_TEMPFAIL:
 			skey.s_id = ss->id;
-			/* do not use lookup since this is not a expected imsg -- eric@ */
+			/* do not use lookup since this is not a expected imsg
+			 * -- eric@
+			 */
 			s = SPLAY_FIND(sessiontree, &env->sc_sessions, &skey);
 			if (s == NULL)
 				fatalx("smtp: session is gone");
@@ -167,7 +169,8 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_listeners = calloc(1, sizeof *env->sc_listeners);
+			env->sc_listeners = calloc(1,
+			    sizeof *env->sc_listeners);
 			env->sc_ssl = calloc(1, sizeof *env->sc_ssl);
 			if (env->sc_listeners == NULL || env->sc_ssl == NULL)
 				fatal(NULL);
@@ -183,8 +186,8 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			*ssl = *(struct ssl *)imsg->data;
 			ssl->ssl_cert = xstrdup((char *)imsg->data +
 			    sizeof *ssl, "smtp:ssl_cert");
-			ssl->ssl_key = xstrdup((char *)imsg->data + sizeof *ssl +
-			    ssl->ssl_cert_len, "smtp:ssl_key");
+			ssl->ssl_key = xstrdup((char *)imsg->data +
+			    sizeof *ssl + ssl->ssl_cert_len, "smtp:ssl_key");
 			if (ssl->ssl_dhparams_len) {
 				ssl->ssl_dhparams = xstrdup((char *)imsg->data
 				    + sizeof *ssl + ssl->ssl_cert_len +
@@ -259,13 +262,13 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_SMTP_PAUSE:
-			log_debug("smtp: pausing listening sockets");
+			log_debug("debug: smtp: pausing listening sockets");
 			smtp_pause();
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			return;
 
 		case IMSG_SMTP_RESUME:
-			log_debug("smtp: resuming listening sockets");
+			log_debug("debug: smtp: resuming listening sockets");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			smtp_resume();
 			return;
@@ -291,7 +294,7 @@ smtp_sig_handler(int sig, short event, void *p)
 static void
 smtp_shutdown(void)
 {
-	log_info("smtp server exiting");
+	log_info("info: smtp server exiting");
 	_exit(0);
 }
 
@@ -366,7 +369,7 @@ smtp_setup_events(void)
 	struct listener *l;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		log_debug("smtp: listen on %s port %d flags 0x%01x"
+		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
 		    " cert \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->ssl_cert_name);
 
@@ -381,7 +384,7 @@ smtp_setup_events(void)
 		ssl_setup(l);
 	}
 
-	log_debug("smtp: will accept at most %d clients",
+	log_debug("debug: smtp: will accept at most %d clients",
 	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
 }
 
@@ -463,21 +466,24 @@ smtp_accept(int fd, short event, void *p)
 	socklen_t		 len;
 
 	if ((s = smtp_new(l)) == NULL) {
-		log_warnx("smtp: client limit hit, disabling incoming connections");
+		log_warnx("warn: smtp: "
+		    "client limit hit, disabling incoming connections");
 		goto pause;
 	}
 
 	len = sizeof(s->s_ss);
-	if ((s->s_io.sock = accept(fd, (struct sockaddr *)&s->s_ss, &len)) == -1) {
+	if ((s->s_io.sock = accept(fd, (struct sockaddr *)&s->s_ss, &len))
+	    == -1) {
 		if (errno == ENFILE || errno == EMFILE) {
-			log_warnx("smtp: fd exhaustion, disabling incoming connections");
+			log_warnx("warn: smtp: "
+			    "fd exhaustion, disabling incoming connections");
 			goto pause;
 		}
 		if (errno == EINTR || errno == ECONNABORTED)
 			return;
 		fatal("smtp_accept");
 	}
-	
+
 	io_set_timeout(&s->s_io, SMTPD_SESSION_TIMEOUT * 1000);
 	io_set_write(&s->s_io);
 	dns_query_ptr(&s->s_ss, s->s_id);
@@ -495,7 +501,7 @@ smtp_new(struct listener *l)
 {
 	struct session	*s;
 
-	log_debug("smtp: new client on listener: %p", l);
+	log_debug("debug: smtp: new client on listener: %p", l);
 
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_new: unexpected client");
@@ -537,7 +543,8 @@ smtp_destroy(struct session *session)
 		return;
 
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
-		log_warnx("smtp: fd exaustion over, re-enabling incoming connections");
+		log_warnx("warn: smtp: "
+		    "fd exaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}

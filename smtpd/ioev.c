@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.7 2012/10/25 18:14:24 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.8 2012/11/12 14:58:53 eric Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -114,7 +114,7 @@ io_strevent(int evt)
 {
 	static char buf[32];
 
-	switch(evt) {
+	switch (evt) {
 	CASE(IO_CONNECTED);
 	CASE(IO_TLSREADY);
 	CASE(IO_DATAIN);
@@ -423,7 +423,7 @@ io_reset(struct io *io, short events, void (*dispatch)(int, short, void*))
 	} else
 		ptv = NULL;
 
-        event_add(&io->ev, ptv);
+	event_add(&io->ev, ptv);
 }
 
 size_t
@@ -445,7 +445,7 @@ io_strflags(int flags)
 
 	buf[0] = '\0';
 
-	switch(flags & IO_RW) {
+	switch (flags & IO_RW) {
 	case 0:
 		strlcat(buf, "rw", sizeof buf);
 		break;
@@ -543,7 +543,7 @@ io_dispatch(int fd, short ev, void *humppa)
 	if (ev & EV_WRITE && (w = io_queued(io))) {
 		if ((n = iobuf_write(io->iobuf, io->sock)) < 0) {
 			if (n == IOBUF_ERROR || n == IOBUF_WANT_WRITE)
-				log_warn("io_dispatch: iobuf_write");
+				log_warn("warn: io_dispatch: iobuf_write");
 			if (n == IOBUF_WANT_WRITE)  /* kqueue bug? */
 				goto read;
 			io_callback(io, n == IOBUF_CLOSED ?
@@ -558,7 +558,7 @@ io_dispatch(int fd, short ev, void *humppa)
 	if (ev & EV_READ) {
 		if ((n = iobuf_read(io->iobuf, io->sock)) < 0) {
 			if (n == IO_ERROR)
-				log_warn("io_dispatch: iobuf_read");
+				log_warn("warn: io_dispatch: iobuf_read");
 			io_callback(io, n == IOBUF_CLOSED ?
 			    IO_DISCONNECTED : IO_ERROR);
 			goto leave;
@@ -567,7 +567,7 @@ io_dispatch(int fd, short ev, void *humppa)
 			io_callback(io, IO_DATAIN);
 	}
 
-   leave:
+leave:
 	io_frame_leave(io);
 }
 
@@ -815,7 +815,7 @@ io_reload_ssl(struct io *io)
 {
 	void	(*dispatch)(int, short, void*) = NULL;
 
-	switch(io->state) {
+	switch (io->state) {
 	case IO_STATE_CONNECT_SSL:
 		dispatch = io_dispatch_connect_ssl;
 		break;

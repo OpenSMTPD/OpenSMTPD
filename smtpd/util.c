@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.87 2012/10/10 19:39:11 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.88 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -349,7 +349,8 @@ mktmpfile(void)
 	char		path[MAXPATHLEN];
 	int		fd;
 
-	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX", PATH_TEMPORARY))
+	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
+	    PATH_TEMPORARY))
 		err(1, "snprintf");
 
 	if ((fd = mkstemp(path)) == -1)
@@ -413,20 +414,20 @@ valid_localpart(const char *s)
  */
 #define IS_ATEXT(c)     (isalnum((int)(c)) || strchr("%+-=_", (c)))
 nextatom:
-        if (! IS_ATEXT(*s) || *s == '\0')
-                return 0;
-        while (*(++s) != '\0') {
-                if (*s == '.')
-                        break;
-                if (IS_ATEXT(*s))
-                        continue;
-                return 0;
-        }
-        if (*s == '.') {
-                s++;
-                goto nextatom;
-        }
-        return 1;
+	if (! IS_ATEXT(*s) || *s == '\0')
+		return 0;
+	while (*(++s) != '\0') {
+		if (*s == '.')
+			break;
+		if (IS_ATEXT(*s))
+			continue;
+		return 0;
+	}
+	if (*s == '.') {
+		s++;
+		goto nextatom;
+	}
+	return 1;
 }
 
 int
@@ -454,22 +455,22 @@ valid_domainpart(const char *s)
 	}
 
 nextsub:
-        if (!isalnum((int)*s))
-                return 0;
-        while (*(++s) != '\0') {
-                if (*s == '.')
-                        break;
-                if (isalnum((int)*s) || *s == '-')
-                        continue;
-                return 0;
-        }
-        if (s[-1] == '-')
-                return 0;
-        if (*s == '.') {
-		s++;
-                goto nextsub;
+	if (!isalnum((int)*s))
+		return 0;
+	while (*(++s) != '\0') {
+		if (*s == '.')
+			break;
+		if (isalnum((int)*s) || *s == '-')
+			continue;
+		return 0;
 	}
-        return 1;
+	if (s[-1] == '-')
+		return 0;
+	if (*s == '.') {
+		s++;
+		goto nextsub;
+	}
+	return 1;
 }
 
 int
@@ -515,25 +516,22 @@ ss_to_text(const struct sockaddr_storage *ss)
 	buf[0] = '\0';
 	p = buf;
 
-	if (ss->ss_family == AF_LOCAL) {
+	if (ss->ss_family == AF_LOCAL)
 		strlcpy(buf, "local", sizeof buf);
-	}
 	else if (ss->ss_family == AF_INET) {
 		in_addr_t addr;
-		
+
 		addr = ((const struct sockaddr_in *)ss)->sin_addr.s_addr;
-                addr = ntohl(addr);
-                bsnprintf(p, NI_MAXHOST,
-                    "%d.%d.%d.%d",
-                    (addr >> 24) & 0xff,
-                    (addr >> 16) & 0xff,
-                    (addr >> 8) & 0xff,
-                    addr & 0xff);
+		addr = ntohl(addr);
+		bsnprintf(p, NI_MAXHOST, "%d.%d.%d.%d",
+		    (addr >> 24) & 0xff, (addr >> 16) & 0xff,
+		    (addr >> 8) & 0xff, addr & 0xff);
 	}
 	else if (ss->ss_family == AF_INET6) {
-		const struct sockaddr_in6 *in6 = (const struct sockaddr_in6 *)ss;
+		const struct sockaddr_in6 *in6;
 		const struct in6_addr	*in6_addr;
 
+		in6 = (const struct sockaddr_in6 *)ss;
 		strlcpy(buf, "IPv6:", sizeof(buf));
 		p = buf + 5;
 		in6_addr = &in6->sin6_addr;
@@ -547,26 +545,27 @@ char *
 time_to_text(time_t when)
 {
 	struct tm *lt;
-	static char buf[40]; 
+	static char buf[40];
 	char *day[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 	char *month[] = {"Jan","Feb","Mar","Apr","May","Jun",
-		       "Jul","Aug","Sep","Oct","Nov","Dec"};
+			 "Jul","Aug","Sep","Oct","Nov","Dec"};
 
 	lt = localtime(&when);
-	if (lt == NULL || when == 0) 
+	if (lt == NULL || when == 0)
 		fatalx("time_to_text: localtime");
 
 	/* We do not use strftime because it is subject to locale substitution*/
-	if (! bsnprintf(buf, sizeof(buf), "%s, %d %s %d %02d:%02d:%02d %c%02d%02d (%s)",
-		day[lt->tm_wday], lt->tm_mday, month[lt->tm_mon],
-		lt->tm_year + 1900,
-		lt->tm_hour, lt->tm_min, lt->tm_sec,
-		lt->tm_gmtoff >= 0 ? '+' : '-',
-		abs((int)lt->tm_gmtoff / 3600),
-		abs((int)lt->tm_gmtoff % 3600) / 60,
-		lt->tm_zone))
+	if (! bsnprintf(buf, sizeof(buf),
+	    "%s, %d %s %d %02d:%02d:%02d %c%02d%02d (%s)",
+	    day[lt->tm_wday], lt->tm_mday, month[lt->tm_mon],
+	    lt->tm_year + 1900,
+	    lt->tm_hour, lt->tm_min, lt->tm_sec,
+	    lt->tm_gmtoff >= 0 ? '+' : '-',
+	    abs((int)lt->tm_gmtoff / 3600),
+	    abs((int)lt->tm_gmtoff % 3600) / 60,
+	    lt->tm_zone))
 		fatalx("time_to_text: bsnprintf");
-	
+
 	return buf;
 }
 
@@ -646,7 +645,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 
 				/* XXX - until AF_INET6 support gets in base */
 				if (errno != EAFNOSUPPORT) {
-					log_warn("inet_net_pton");
+					log_warn("warn: inet_net_pton");
 					return 0;
 				}
 				bits = temp_inet_net_pton_ipv6(s,
@@ -654,7 +653,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 				    sizeof(struct in6_addr));
 			}
 			if (bits == -1) {
-				log_warn("inet_net_pton");
+				log_warn("warn: inet_net_pton");
 				return 0;
 			}
 			ssin6.sin6_family = AF_INET6;
@@ -694,7 +693,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		{ "smtp://",		0				},
 		{ "smtps://",		F_SMTPS				},
 		{ "tls://",		F_STARTTLS			},
-		{ "smtps+auth://",     	F_SMTPS|F_AUTH			},
+		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
 		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
 		{ "ssl://",		F_SMTPS|F_STARTTLS		},
 		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
@@ -706,7 +705,8 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	int		 len;
 
 	for (i = 0; i < nitems(schemas); ++i)
-		if (strncasecmp(schemas[i].name, s, strlen(schemas[i].name)) == 0)
+		if (strncasecmp(schemas[i].name, s,
+		    strlen(schemas[i].name)) == 0)
 			break;
 
 	if (i == nitems(schemas)) {
@@ -729,7 +729,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 			return 0;
 		len = sep - p;
 	}
-	else 
+	else
 		len = strlen(p);
 
 	if (strlcpy(relay->hostname, p, sizeof (relay->hostname))
@@ -856,7 +856,8 @@ sa_set_port(struct sockaddr *sa, int port)
 	struct addrinfo hints, *res;
 	int error;
 
-	error = getnameinfo(sa, sa->sa_len, hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST);
+	error = getnameinfo(sa, sa->sa_len, hbuf, sizeof(hbuf), NULL, 0,
+	    NI_NUMERICHOST);
 	if (error)
 		fatalx("sa_set_port: getnameinfo failed");
 
@@ -1055,7 +1056,8 @@ temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 }
 
 void
-log_envelope(const struct envelope *evp, const char *extra, const char *status)
+log_envelope(const struct envelope *evp, const char *extra, const char *prefix,
+    const char *status)
 {
 	char rcpt[MAX_LINE_SIZE];
 	char tmp[MAX_LINE_SIZE];
@@ -1080,13 +1082,16 @@ log_envelope(const struct envelope *evp, const char *extra, const char *status)
 		else
 			fatalx("log_envelope: bad method");
 		snprintf(tmp, sizeof tmp, "user=%s, method=%s, ",
-		    evp->agent.mda.user, method);
+		    evp->agent.mda.user.username, method);
 	}
 
 	if (extra == NULL)
 		extra = "";
 
-	log_info("%016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, %s%sdelay=%s, %sstat=%s",
+	log_info("%s: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
+	    "%s%sdelay=%s, %sstat=%s",
+	    evp->type == D_MDA ? "delivery" : "relay",
+	    prefix,
 	    evp->id, evp->sender.user, evp->sender.domain,
 	    evp->dest.user, evp->dest.domain,
 	    rcpt,

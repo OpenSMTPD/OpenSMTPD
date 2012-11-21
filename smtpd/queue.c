@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.140 2012/10/25 09:51:08 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.141 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
@@ -51,6 +51,7 @@ static void queue_sig_handler(int, short, void *);
 static void
 queue_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct submit_status	 ss;
 	struct envelope		*e, evp;
@@ -146,7 +147,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
-			log_envelope(&evp, NULL, "Removed by administrator");
+			log_envelope(&evp, NULL, "Remove",
+			    "Removed by administrator");
 			queue_envelope_delete(&evp);
 			return;
 
@@ -156,7 +158,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			envelope_set_errormsg(&evp, "Envelope expired");
 			queue_bounce(&evp);
-			log_envelope(&evp, NULL, evp.errorline);
+			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(&evp);
 			return;
 
@@ -196,7 +198,38 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    IMSG_BATCH_CLOSE, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
- 		}
+
+		case IMSG_SCHEDULER_ENVELOPES:
+			if (imsg->hdr.len == sizeof imsg->hdr) {
+				imsg_compose_event(env->sc_ievs[PROC_CONTROL],
+				    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid,
+				    0, -1, NULL, 0);
+				return;
+			}
+			state = imsg->data;
+			if (queue_envelope_load(state->evpid, &evp) == 0)
+				return; /* Envelope is gone, drop it */
+			/*
+			 * XXX consistency: The envelope might already be on
+			 * its way back to the scheduler.  We need to detect
+			 * this properly and report that state.
+			 */
+			evp.flags |= state->flags;
+			/* In the past if running or runnable */
+			evp.nexttry = state->time;
+			if (state->flags == DF_INFLIGHT) {
+				/*
+				 * Not exactly correct but pretty close: The
+				 * value is not recorded on the envelope unless
+				 * a tempfail occurs.
+				 */
+				evp.lasttry = state->time;
+			}
+			imsg_compose_event(env->sc_ievs[PROC_CONTROL],
+			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    &evp, sizeof evp);
+			return;
+		}
 	}
 
 	if (iev->proc == PROC_MTA || iev->proc == PROC_MDA) {
@@ -290,19 +323,20 @@ queue_bounce(struct envelope *e)
 	b.expire = 3600 * 24 * 7;
 
 	if (e->type == D_BOUNCE) {
-		log_warnx("queue: double bounce!");
+		log_warnx("warn: queue: double bounce!");
 	} else if (e->sender.user[0] == '\0') {
-		log_warnx("queue: no return path!");
+		log_warnx("warn: queue: no return path!");
 	} else if (!queue_envelope_create(&b)) {
-		log_warnx("queue: cannot bounce!");
+		log_warnx("warn: queue: cannot bounce!");
 	} else {
-		log_debug("queue: bouncing evp:%016" PRIx64
+		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &b, sizeof b);
 		msgid = evpid_to_msgid(b.id);
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid, sizeof msgid);
+		stat_increment("queue.bounce", 1);
 	}
 }
 
@@ -322,7 +356,7 @@ queue_sig_handler(int sig, short event, void *p)
 static void
 queue_shutdown(void)
 {
-	log_info("queue handler exiting");
+	log_info("info: queue handler exiting");
 	_exit(0);
 }
 
@@ -403,42 +437,33 @@ queue(void)
 static void
 queue_timeout(int fd, short event, void *p)
 {
-	static struct qwalk	*q = NULL;
-	static uint32_t		 last_msgid = 0;
-	struct event		*ev = p;
-	struct envelope		 envelope;
-	struct timeval		 tv;
-	uint64_t		 evpid;
+	static uint32_t	 msgid = 0;
+	struct envelope	 evp;
+	struct event	*ev = p;
+	struct timeval	 tv;
+	int		 r;
 
-	if (q == NULL) {
-		log_debug("queue: loading queue into scheduler");
-		q = qwalk_new(0);
-	}
-
-	while (qwalk(q, &evpid)) {
-		if (queue_envelope_load(evpid, &envelope))
+	r = queue_envelope_learn(&evp);
+	if (r == -1) {
+		if (msgid)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &envelope,
-			    sizeof envelope);
-
-		if (last_msgid && evpid_to_msgid(evpid) != last_msgid)
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &last_msgid,
-			    sizeof last_msgid);
-
-		last_msgid = evpid_to_msgid(evpid);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		evtimer_add(ev, &tv);	
+			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
+			    sizeof msgid);
+		log_debug("debug: queue: done loading queue into scheduler");
 		return;
 	}
 
-	if (last_msgid) {
+	if (r) {
+		if (msgid && evpid_to_msgid(evp.id) != msgid)
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
+			    sizeof msgid);
+		msgid = evpid_to_msgid(evp.id);
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &last_msgid,
-		    sizeof last_msgid);
+		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &evp, sizeof evp);
 	}
 
-	log_debug("queue: done loading queue into scheduler");
-	qwalk_close(q);
+	tv.tv_sec = 0;
+	tv.tv_usec = 10;
+	evtimer_add(ev, &tv);
 }

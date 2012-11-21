@@ -56,21 +56,32 @@ listen on $lan_addr
 listen on $lan_addr tls auth
 .Ed
 .Pp
-Some configuration directives expect expansion of their parameters at runtime.
+Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example
 .Ar deliver to maildir ,
-.Ar deliver to mda ,
-.Ar relay via )
+.Ar deliver to mda )
 may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
-%a expands to the user part of the email address prior to the
-resolution of aliases;
-%u expands to the user part after aliases
-resolution and will typically be the system account;
-%d expands to the domain part of the email address;
-%A expands to the user part of the sender email address;
-%D expands to the domain part of the sender email address.
+.Bd -literal -offset indent
+%{sender.user}	     user part of the sender email address
+%{sender.domain}     domain part of the sender email address
+%{rcpt.user}	     user part of the recipient email address
+%{rcpt.domain}	     domain part of the recipient email address
+%{dest.user}	     user part after expansion
+%{dest.domain}	     domain part after expansion
+%{user.username}     local user
+%{user.directory}    home directory of the local user
+.Ed
+.Pp
+Expansion formats also support partial expansion using the optional bracket notations
+with substring offset. For example, with recipient domain "example.org":
+.Bd -literal -offset indent
+%{rcpt.domain[8]}	expands to "org"
+%{rcpt.domain[-3]}	expands to "org"
+%{rcpt.domain[0:6]}	expands to "example"
+%{rcpt.domain[0:-4]} 	expands to "example"
+.Ed
 .Pp
 Additional configuration files can be included with the
 .Ic include
@@ -169,40 +180,71 @@ untrusted senders and outgoing mail from authenticated users in
 situations where it is not possible to listen on the submission
 port.
 .It Xo
-.Ic map Ar map
-.Ic source Ar type Ar source
+.Ic table Ar name
+.Ar [type:]config
 .Xc
-Maps are used to provide additional configuration information for
-.Xr smtpd 8 .
+Tables are used to provide additional configuration information for
+.Xr smtpd 8
+in the form of lists or key-value mappings.
 .Pp
-The map is identified using map name
-.Ar map ;
+The table is identified using table name
+.Ar name ;
 the name itself is arbitrarily chosen.
 .Pp
 .Ar type
-specifies the file format,
+specifies the table backend,
 and should be one of the following:
 .Pp
 .Bl -tag -width "fileXXX" -compact
 .It db
-Mappings are stored in a file created using
+Information is stored in a file created using
 .Xr makemap 8 .
-This is the default type if none is specified.
-.It plain
-Mappings are stored in a plain text file using the
+.It file
+Information is stored in a plain text file using the
 same format as used to generate
 .Xr makemap 8
 mappings.
 This is the default.
 .El
 .Pp
-.Ar source
-specifies the source of the map data.
+.Ar config
+specifies a configuration file for the table data.
 It must be an absolute path to a file for the
 .Dq file
 and
 .Dq db
-map types.
+table types.
+
+.It Xo
+.Ic table Ar name
+.Ic { Ar value
+.Op , Ar value_n
+.Ic }
+.Xc
+Tables containing list of static values may be declared using an inlined notation.
+.Pp
+The table is identified using table name
+.Ar name ;
+the name itself is arbitrarily chosen.
+.Pp
+The table must contain at least one value and may declare many values as a list of
+comma separated strings.
+.It Xo
+.Ic table Ar name
+.Ic { Ar key => value
+.Op , key_n => value_n
+.Ic }
+.Xc
+Tables containing static key-value mappings may be declared using an inlined notation.
+.Pp
+The table is identified using table name
+.Ar name ;
+the name itself is arbitrarily chosen.
+.Pp
+The table must contain at least one key-value mapping and may declare many mappings as
+a list of comma separated
+.Ar key => value
+descriptions.
 .It Ic size Ar n
 Specify a maximum message size of
 .Ar n
@@ -244,21 +286,25 @@ and may be omitted.
 The rule matches if the connection is made from the specified
 .Ar network ,
 specified in CIDR notation.
+.It Ic from Ar <table>
+The rule matches if the connection is made from a client whose address
+is declared in the table
+.Ar table .
 .El
 .Pp
 Next comes the selection based on the domain the message is sent to:
 .Bl -tag -width Ds
 .It Xo
 .Ic for any
-.Op Ic alias Ar aliases
+.Op Ic alias Ar <aliases>
 .Xc
 Make the rule match regardless of the domain it is sent to.
-If specified,
+If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for all addresses.
 .It Xo
 .Ic for domain Ar domain
-.Op Ic alias Ar aliases
+.Op Ic alias Ar <aliases>
 .Xc
 This rule applies to mail destined for the specified
 .Ar domain .
@@ -270,35 +316,35 @@ so that a single rule for all sub-domains can be used, for example:
 accept for domain "*.example.com" deliver to mbox
 .Ed
 .Pp
-If specified,
+If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for addresses in this
 .Ar domain .
 .It Xo
-.Ic for domain map Ar domains
-.Op Ic alias Ar aliases
+.Ic for domain Ar <domains>
+.Op Ic alias Ar <aliases>
 .Xc
-This rule applies to mail destined to domains which are part of the map
+This rule applies to mail destined to domains which are part of the table
 .Ar domains .
 .Pp
-If specified,
+If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for addresses in these
 .Ar domains .
 .It Xo
 .Ic for local
-.Op Ic alias Ar map
+.Op Ic alias Ar <aliases>
 .Xc
 This rule applies to mail destined to
 .Dq localhost
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
-.It Ic for virtual map Ar vmap
+.It Ic for virtual Ar <vdomains>
 This rule applies to mail destined for the virtual domains specified
-in the map
-.Ar vmap .
-For an example of how to configure a virtual map, see
+in the table
+.Ar vdomains .
+For an example of how to configure a virtual table, see
 .Xr makemap 8 .
 .El
 .Pp
@@ -356,7 +402,7 @@ respectively.
 .Ic relay via
 .Ar host
 .Op Ic certificate Ar name
-.Op Ic auth Ar map
+.Op Ic auth Ar <auth>
 .Op Ic as Ar address
 .Xc
 Mail is relayed through the specified
@@ -403,8 +449,8 @@ If an SMTPAUTH session with
 is desired, the
 .Ic auth
 parameter is used to specify the
-.Ar map
-that holds the credentials.
+.Ar auth
+table that holds the credentials.
 .Pp
 If the
 .Ic as
@@ -456,10 +502,10 @@ A secrets file is needed to specify a username and password:
 would look like this:
 .Bd -literal -offset indent
 listen on lo0
-map aliases source db "/etc/mail/aliases.db"
-map secrets source db "/etc/mail/secrets.db"
-accept for local alias aliases deliver to mbox
-accept for any relay via tls+auth://smtp.example.com auth secrets
+table aliases db:/etc/mail/aliases.db
+table secrets db:/etc/mail/secrets.db"
+accept for local alias <aliases> deliver to mbox
+accept for any relay via tls+auth://smtp.example.com auth <secrets>
 .Ed
 .Pp
 In this second example,
@@ -482,8 +528,8 @@ The configuration file would look like this:
 .Bd -literal -offset indent
 listen on lo0
 listen on egress tls certificate mail.example.com auth
-map aliases source db "/etc/mail/aliases.db"
-accept for local deliver to mda "/path/to/mda -f -"
+table aliases db:/etc/mail/aliases.db
+accept for local alias <aliases> deliver to mda "/path/to/mda -f -"
 accept from any for domain example.org \e
 	deliver to mda "/path/to/mda -f -"
 accept for any relay

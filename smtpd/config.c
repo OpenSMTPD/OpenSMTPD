@@ -58,10 +58,9 @@ void
 purge_config(uint8_t what)
 {
 	struct listener	*l;
-	struct map	*m;
+	struct table	*t;
 	struct rule	*r;
 	struct ssl	*s;
-	struct mapel	*me;
 
 	if (what & PURGE_LISTENERS) {
 		while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
@@ -71,17 +70,13 @@ purge_config(uint8_t what)
 		free(env->sc_listeners);
 		env->sc_listeners = NULL;
 	}
-	if (what & PURGE_MAPS) {
-		while ((m = TAILQ_FIRST(env->sc_maps)) != NULL) {
-			TAILQ_REMOVE(env->sc_maps, m, m_entry);
-			while ((me = TAILQ_FIRST(&m->m_contents))) {
-				TAILQ_REMOVE(&m->m_contents, me, me_entry);
-				free(me);
-			}
-			free(m);
-		}
-		free(env->sc_maps);
-		env->sc_maps = NULL;
+	if (what & PURGE_TABLES) {
+		while (tree_root(env->sc_tables_tree, NULL, (void **)&t))
+			table_destroy(t);
+		free(env->sc_tables_dict);
+		free(env->sc_tables_tree);
+		env->sc_tables_dict = NULL;
+		env->sc_tables_tree = NULL;
 	}
 	if (what & PURGE_RULES) {
 		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {
@@ -116,8 +111,8 @@ init_pipes(void)
 			/*
 			 * find out how many instances of this peer there are.
 			 */
-			if (i >= j || env->sc_instances[i] == 0||
-			   env->sc_instances[j] == 0)
+			if (i >= j || env->sc_instances[i] == 0 ||
+			    env->sc_instances[j] == 0)
 				continue;
 
 			if (env->sc_instances[i] > 1 &&
@@ -185,7 +180,7 @@ config_pipes(struct peer *p, uint peercount)
 void
 config_peers(struct peer *p, uint peercount)
 {
-	int	count;
+	int	n;
 	uint	src;
 	uint	dst;
 	uint	i;
@@ -199,24 +194,24 @@ config_peers(struct peer *p, uint peercount)
 
 		if (dst == smtpd_process)
 			fatal("config_peers: cannot peer with oneself");
-		
+
 		env->sc_ievs[dst] = xcalloc(env->sc_instances[dst],
 		    sizeof(struct imsgev), "config_peers");
 
-		for (count = 0; count < env->sc_instances[dst]; count++) {
-			imsg_init(&(env->sc_ievs[dst][count].ibuf),
-			    env->sc_pipes[src][dst][count]);
-			env->sc_ievs[dst][count].handler =  p[i].cb;
-			env->sc_ievs[dst][count].events = EV_READ;
-			env->sc_ievs[dst][count].proc = dst;
-			env->sc_ievs[dst][count].data = &env->sc_ievs[dst][count];
+		for (n = 0; n < env->sc_instances[dst]; n++) {
+			imsg_init(&(env->sc_ievs[dst][n].ibuf),
+			    env->sc_pipes[src][dst][n]);
+			env->sc_ievs[dst][n].handler =  p[i].cb;
+			env->sc_ievs[dst][n].events = EV_READ;
+			env->sc_ievs[dst][n].proc = dst;
+			env->sc_ievs[dst][n].data = &env->sc_ievs[dst][n];
 
-			event_set(&(env->sc_ievs[dst][count].ev),
-			    env->sc_ievs[dst][count].ibuf.fd,
-			    env->sc_ievs[dst][count].events,
-			    env->sc_ievs[dst][count].handler,
-			    env->sc_ievs[dst][count].data);
-			event_add(&(env->sc_ievs[dst][count].ev), NULL);
+			event_set(&(env->sc_ievs[dst][n].ev),
+			    env->sc_ievs[dst][n].ibuf.fd,
+			    env->sc_ievs[dst][n].events,
+			    env->sc_ievs[dst][n].handler,
+			    env->sc_ievs[dst][n].data);
+			event_add(&(env->sc_ievs[dst][n].ev), NULL);
 		}
 	}
 }

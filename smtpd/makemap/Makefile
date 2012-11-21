@@ -17,8 +17,11 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DNO_IO
 
-SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c map.c \
-	map_static.c map_db.c map_file.c tree.c map_ldap.c ber.c aldap.c
+SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c table.c dict.c tree.c
+
+SRCS+=	table_static.c
+SRCS+=	table_db.c
+SRCS+=	table_getpwnam.c
 
 DPADD+= ${LIBUTIL} ${LIBCRYPTO}
 LDADD+= -lutil -lcrypto

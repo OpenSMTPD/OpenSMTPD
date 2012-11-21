@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.51 2012/10/07 15:46:38 chl Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.52 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
@@ -111,7 +111,7 @@ bounce_add(uint64_t evpid)
 		bounce->msgid = evpid_to_msgid(evpid);
 		tree_xset(&bounces_by_msgid, bounce->msgid, bounce);
 
-		log_debug("bounce: %p: new bounce for msg:%08" PRIx32,
+		log_debug("debug: bounce: %p: new bounce for msg:%08" PRIx32,
 		    bounce, bounce->msgid);
 
 		TAILQ_INIT(&bounce->envelopes);
@@ -121,7 +121,7 @@ bounce_add(uint64_t evpid)
 		evtimer_add(&bounce->evt, &tv);
 	}
 
-	log_debug("bounce: %p: adding evp:%16" PRIx64, bounce, evp->id);
+	log_debug("debug: bounce: %p: adding evp:%16" PRIx64, bounce, evp->id);
 
 	TAILQ_INSERT_TAIL(&bounce->envelopes, evp, entry);
 	bounce->count += 1;
@@ -140,7 +140,7 @@ bounce_run(uint64_t id, int fd)
 {
 	struct bounce	*bounce;
 	int		 msgfd;
-	
+
 	log_trace(TRACE_BOUNCE, "bounce: run %016" PRIx64 " fd %i", id, fd);
 
 	bounce = tree_xpop(&bounces_by_uid, id);
@@ -158,7 +158,7 @@ bounce_run(uint64_t id, int fd)
 	}
 
 	if ((bounce->msgfp = fdopen(msgfd, "r")) == NULL) {
-		log_warn("bounce_run: fdopen");
+		log_warn("warn: bounce_run: fdopen");
 		bounce_status(bounce, "error %i in fdopen", errno);
 		bounce_free(bounce);
 		close(msgfd);
@@ -203,20 +203,21 @@ bounce_drain()
 	while ((bounce = TAILQ_FIRST(&runnable))) {
 
 		if (running >= BOUNCE_MAXRUN) {
-			log_debug("bounce: max session reached");
+			log_debug("debug: bounce: max session reached");
 			return;
 		}
 
 		TAILQ_REMOVE(&runnable, bounce, entry);
 		if (TAILQ_FIRST(&bounce->envelopes) == NULL) {
-			log_debug("bounce: %p: no envelopes", bounce);
+			log_debug("debug: bounce: %p: no envelopes", bounce);
 			bounce_free(bounce);
 			continue;
 		}
 
 		tree_xset(&bounces_by_uid, bounce->id, bounce);
 
-		log_debug("bounce: %p: requesting enqueue socket with id 0x%016" PRIx64,
+		log_debug("debug: bounce: %p: requesting enqueue socket "
+		    "with id 0x%016" PRIx64,
 		    bounce, bounce->id);
 
 		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_ENQUEUE,
@@ -242,7 +243,7 @@ bounce_send(struct bounce *bounce, const char *fmt, ...)
 
 	iobuf_xfqueue(&bounce->iobuf, "bounce_send", "%s\n", p);
 
-        free(p);
+	free(p);
 }
 
 /* This can simplified once we support PIPELINING */
@@ -253,7 +254,7 @@ bounce_next(struct bounce *bounce)
 	char		*line;
 	size_t		 len, s;
 
-	switch(bounce->state) {
+	switch (bounce->state) {
 	case BOUNCE_EHLO:
 		bounce_send(bounce, "EHLO %s", env->sc_hostname);
 		bounce->state = BOUNCE_MAIL;
@@ -303,7 +304,8 @@ bounce_next(struct bounce *bounce)
 			line = evp->errorline;
 			if (strlen(line) > 4 && (*line == '1' || *line == '6'))
 				line += 4;
-			iobuf_xfqueue(&bounce->iobuf, "bounce_next: DATA_NOTICE",
+			iobuf_xfqueue(&bounce->iobuf,
+			    "bounce_next: DATA_NOTICE",
 			    "Recipient: %s@%s\n"
 			    "Reason: %s\n",
 			    evp->dest.user, evp->dest.domain, line);
@@ -389,12 +391,12 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 			evp->retry++;
 			envelope_set_errormsg(evp, "%s", status);
 			queue_envelope_update(evp);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], msg, 0, 0, -1,
-			    evp, sizeof *evp);
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], msg, 0,
+			    0, -1, evp, sizeof *evp);
 		} else {
 			queue_envelope_delete(evp);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], msg, 0, 0, -1,
-			    &evp->id, sizeof evp->id);
+			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], msg, 0,
+			    0, -1, &evp->id, sizeof evp->id);
 		}
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);
 		free(evp);
@@ -408,7 +410,7 @@ bounce_free(struct bounce *bounce)
 {
 	struct envelope	*evp;
 
-	log_debug("bounce: %p: deleting session", bounce);
+	log_debug("debug: bounce: %p: deleting session", bounce);
 
 	/* if the envelopes where not sent, it is still in the tree */
 	tree_pop(&bounces_by_msgid, bounce->msgid);
@@ -452,7 +454,7 @@ bounce_io(struct io *io, int evt)
 			}
 			iobuf_normalize(&bounce->iobuf);
 			break;
-		} 
+		}
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: <<< %s", bounce, line);
 

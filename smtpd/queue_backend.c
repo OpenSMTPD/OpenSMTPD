@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.39 2012/10/09 13:39:00 eric Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.40 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
@@ -43,6 +43,7 @@
 static const char* envelope_validate(struct envelope *);
 
 extern struct queue_backend	queue_backend_fs;
+extern struct queue_backend	queue_backend_ram;
 
 int
 queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
@@ -81,6 +82,8 @@ queue_backend_lookup(const char *name)
 {
 	if (!strcmp(name, "fs"))
 		return &queue_backend_fs;
+	if (!strcmp(name, "ram"))
+		return &queue_backend_ram;
 
 	return (NULL);
 }
@@ -213,7 +216,8 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		return (0);
 
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
-		evplen = compress_buffer(evp, evplen, evpbufcom, sizeof evpbufcom);
+		evplen = compress_buffer(evp, evplen, evpbufcom,
+		    sizeof evpbufcom);
 		if (evplen == 0)
 			return (0);
 		evp = evpbufcom;
@@ -235,7 +239,8 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	evplen = evpbufsize;
 
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
-		evplen = uncompress_buffer(evp, evplen, evpbufcom, sizeof evpbufcom);
+		evplen = uncompress_buffer(evp, evplen, evpbufcom,
+		    sizeof evpbufcom);
 		if (evplen == 0)
 			return (0);
 		evp = evpbufcom;
@@ -278,16 +283,18 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	size_t		 evplen;
 
 	ep->id = evpid;
-	evplen = env->sc_queue->envelope(QOP_LOAD, &ep->id, evpbuf, sizeof evpbuf);
+	evplen = env->sc_queue->envelope(QOP_LOAD, &ep->id, evpbuf,
+	    sizeof evpbuf);
 	if (evplen == 0)
 		return (0);
-		
+
 	if (queue_envelope_load_buffer(ep, evpbuf, evplen)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
 			return (1);
 		}
-		log_debug("invalid envelope %016" PRIx64 ": %s", ep->id, e);
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
+		    ep->id, e);
 	}
 	return (0);
 }
@@ -305,22 +312,27 @@ queue_envelope_update(struct envelope *ep)
 	return env->sc_queue->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
 }
 
-void *
-qwalk_new(uint32_t msgid)
-{
-	return env->sc_queue->qwalk_new(msgid);
-}
-
 int
-qwalk(void *hdl, uint64_t *evpid)
+queue_envelope_learn(struct envelope *ep)
 {
-	return env->sc_queue->qwalk(hdl, evpid);
-}
+	const char	*e;
+	uint64_t	 evpid;
+	char		 evpbuf[sizeof(struct envelope)];
+	int		 r;
 
-void
-qwalk_close(void *hdl)
-{
-	return env->sc_queue->qwalk_close(hdl);
+	r = env->sc_queue->envelope(QOP_LEARN, &evpid, evpbuf, sizeof evpbuf);
+	if (r == -1 || r == 0)
+		return (r);
+
+	if (queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
+		if ((e = envelope_validate(ep)) == NULL) {
+			ep->id = evpid;
+			return (1);
+		}
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
+		    ep->id, e);
+	}
+	return (0);
 }
 
 uint32_t
@@ -328,7 +340,7 @@ queue_generate_msgid(void)
 {
 	uint32_t msgid;
 
-	while((msgid = arc4random_uniform(0xffffffff)) == 0)
+	while ((msgid = arc4random_uniform(0xffffffff)) == 0)
 		;
 
 	return msgid;
@@ -340,7 +352,7 @@ queue_generate_evpid(uint32_t msgid)
 	uint32_t rnd;
 	uint64_t evpid;
 
-	while((rnd = arc4random_uniform(0xffffffff)) == 0)
+	while ((rnd = arc4random_uniform(0xffffffff)) == 0)
 		;
 
 	evpid = msgid;
@@ -350,8 +362,6 @@ queue_generate_evpid(uint32_t msgid)
 	return evpid;
 }
 
-
-/**/
 static const char*
 envelope_validate(struct envelope *ep)
 {

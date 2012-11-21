@@ -5,13 +5,13 @@
 PROG=		smtpd
 
 SRCS=		aliases.c auth.c bounce.c compress_backend.c config.c	\
-		control.c delivery.c dns.c envelope.c			\
+		control.c delivery.c dict.c dns.c envelope.c		\
 		expand.c forward.c iobuf.c ioev.c lka.c lka_session.c	\
-		log.c map.c mda.c mfa.c mfa_session.c mta.c		\
+		log.c mda.c mfa.c mfa_session.c mta.c			\
 		mta_session.c parse.y queue.c queue_backend.c ruleset.c \
 		scheduler.c scheduler_backend.c smtp.c smtp_session.c	\
-		smtpd.c	ssl.c ssl_privsep.c stat_backend.c tree.c	\
-		user.c util.c
+		smtpd.c	ssl.c ssl_privsep.c stat_backend.c table.c	\
+		tree.c util.c
 
 # backends
 SRCS+=		auth_bsd.c
@@ -21,15 +21,13 @@ SRCS+=		delivery_filename.c
 SRCS+=		delivery_maildir.c
 SRCS+=		delivery_mbox.c
 SRCS+=		delivery_mda.c
-SRCS+=		map_db.c
-SRCS+=		map_ldap.c
-SRCS+=		map_file.c
-SRCS+=		map_static.c
+SRCS+=		table_db.c
+SRCS+=		table_getpwnam.c
+SRCS+=		table_static.c
 SRCS+=		queue_fsqueue.c
+SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		stat_ramstat.c
-#SRCS+=		stat_sqlite.c
-SRCS+=		user_pwd.c
 
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
