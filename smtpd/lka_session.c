@@ -75,16 +75,6 @@ static const char * mailaddr_tag(const struct mailaddr *);
 static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
 
 #define	MAXTOKENLEN	128
-static char *tokens[] = {
-	"sender.user",
-	"sender.domain",
-	"user.username",
-	"user.directory",
-	"dest.user",
-	"dest.domain",
-	"rcpt.user",
-	"rcpt.domain"
-};
 
 void
 lka_session(struct submit_status *ss)
@@ -471,13 +461,15 @@ lka_expand_token(char *dest, size_t len, const char *token,
     const struct envelope *ep)
 {
 	char		rtoken[MAXTOKENLEN];
+	char		tmp[EXPAND_BUFFER];
 	const char     *string;
 	char	       *lbracket, *rbracket, *content, *sep;
 	ssize_t		i;
 	ssize_t		begoff, endoff;
-	const char     *errstr;
+	const char     *errstr = NULL;
 
-	begoff = endoff = 0;
+	begoff = 0;
+	endoff = EXPAND_BUFFER;
 
 	if (strlcpy(rtoken, token, sizeof rtoken) >= sizeof rtoken)
 		return 0;
@@ -488,54 +480,65 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		/* ] before [ ... or empty */
 		if (rbracket < lbracket || rbracket - lbracket <= 1)
 			return 0;
+
 		*lbracket = *rbracket = '\0';
 		 content  = lbracket + 1;
 
 		 if ((sep = strchr(content, ':')) == NULL)
-			 begoff = strtonum(content, -EXPAND_BUFFER,
+			 endoff = begoff = strtonum(content, -EXPAND_BUFFER,
 			     EXPAND_BUFFER, &errstr);
 		 else {
 			 *sep = '\0';
 			 if (content != sep)
 				 begoff = strtonum(content, -EXPAND_BUFFER,
 				     EXPAND_BUFFER, &errstr);
-			 sep++;
-			 if (*sep) {
+			 if (*(++sep)) {
 				 if (errstr == NULL)
 					 endoff = strtonum(sep, -EXPAND_BUFFER,
 					     EXPAND_BUFFER, &errstr);
-				 if (endoff == 0)
-					 return 0;
 			 }
 		 }
 		 if (errstr)
 			 return 0;
 	}
 
-	/* token -> searches token in table and tables to expand string */
-	for (i = 0; i < (int)nitems(tokens); ++i)
-		if (strcasecmp(rtoken, tokens[i]) == 0)
-			break;
-	if (i == (int)nitems(tokens))
-		return 0;
-	if (! strcasecmp("sender.user", tokens[i]))
+	/* token -> expanded token */
+	if (! strcasecmp("sender", rtoken)) {
+		if (snprintf(tmp, sizeof tmp, "%s@%s",
+			ep->sender.user, ep->sender.domain) <= 0)
+			return 0;
+		string = tmp;
+	}
+	else if (! strcasecmp("dest", rtoken)) {
+		if (snprintf(tmp, sizeof tmp, "%s@%s",
+			ep->dest.user, ep->dest.domain) <= 0)
+			return 0;
+		string = tmp;
+	}
+	else if (! strcasecmp("rcpt", rtoken)) {
+		if (snprintf(tmp, sizeof tmp, "%s@%s",
+			ep->rcpt.user, ep->rcpt.domain) <= 0)
+			return 0;
+		string = tmp;
+	}
+	else if (! strcasecmp("sender.user", rtoken))
 		string = ep->sender.user;
-	else if (! strcasecmp("sender.domain", tokens[i]))
+	else if (! strcasecmp("sender.domain", rtoken))
 		string = ep->sender.domain;
-	else if (! strcasecmp("user.username", tokens[i]))
+	else if (! strcasecmp("user.username", rtoken))
 		string = ep->agent.mda.user.username;
-	else if (! strcasecmp("user.directory", tokens[i]))
+	else if (! strcasecmp("user.directory", rtoken))
 		string = ep->agent.mda.user.directory;
-	else if (! strcasecmp("dest.user", tokens[i]))
+	else if (! strcasecmp("dest.user", rtoken))
 		string = ep->dest.user;
-	else if (! strcasecmp("dest.domain", tokens[i]))
+	else if (! strcasecmp("dest.domain", rtoken))
 		string = ep->dest.domain;
-	else if (! strcasecmp("rcpt.user", tokens[i]))
+	else if (! strcasecmp("rcpt.user", rtoken))
 		string = ep->rcpt.user;
-	else if (! strcasecmp("rcpt.domain", tokens[i]))
+	else if (! strcasecmp("rcpt.domain", rtoken))
 		string = ep->rcpt.domain;
 	else
-		fatalx("lka_expand_token: missing token handler");
+		return 0;
 
 	/* expanded string is empty */
 	i = strlen(string);
@@ -546,29 +549,32 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	if (begoff >= i)
 		return 0;
 
-	/* end offset beyond end of string or unspecified,
-	 * make it end of string
-	 */
-	if (endoff >= i || endoff == 0)
-		endoff = i;
+	/* end offset beyond end of string, make it end of string */
+	if (endoff >= i)
+		endoff = i - 1;
 
 	/* negative begin offset, make it relative to end of string */
 	if (begoff < 0)
 		begoff += i;
-	/* negative end offset, make it relative to end of string */
+	/* negative end offset, make it relative to end of string,
+	 * note that end offset is inclusive.
+	 */
 	if (endoff < 0)
 		endoff += i - 1;
 
 	/* check that final offsets are valid */
-	if (begoff < 0 || endoff <= 0 || endoff <= begoff)
+	if (begoff < 0 || endoff < 0 || endoff < begoff)
 		return 0;
+	endoff += 1; /* end offset is inclusive */
 
 	/* check that substring does not exceed destination buffer length */
-	i = endoff - begoff + 1;
+	i = endoff - begoff;
 	if ((size_t)i + 1 >= len)
 		return 0;
 
-	return strlcpy(dest, string + begoff, i + 1);
+	memcpy(dest, string + begoff, i);
+
+	return i;
 }
 
 
@@ -631,6 +637,8 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 		exptoklen = lka_expand_token(exptok, sizeof exptok, token, ep);
 		if (exptoklen == 0)
 			return 0;
+
+		log_debug("exptoklen: %d", exptoklen);
 
 		if (! lowercase(exptok, exptok, sizeof exptok))
 			return 0;
