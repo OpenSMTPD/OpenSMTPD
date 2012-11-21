@@ -147,6 +147,18 @@ table_destroy(struct table *t)
 }
 
 void
+table_set_payload(struct table *t, void *payload)
+{
+	t->t_payload = payload;
+}
+
+void *
+table_get_payload(struct table *t)
+{
+	return t->t_payload;
+}
+
+void
 table_add(struct table *t, const char *key, const char *val)
 {
 	if (strcmp(t->t_src, "static") != 0)
