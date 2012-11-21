@@ -16,8 +16,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/socket.h>
+#ifndef	_SMTPD_API_H_
+#define	_SMTPD_API_H_
 
+#include <sys/socket.h>
 #include <netdb.h>
 
 #define	FILTER_API_VERSION	 50
@@ -26,13 +28,8 @@
 #define MAX_LOCALPART_SIZE	 64
 #define MAX_DOMAINPART_SIZE	 255
 
-enum filter_status {
-	STATUS_REJECT,
-	STATUS_ACCEPT,
-	STATUS_WAITING
-};
-
 enum filter_type {
+	FILTER_REGISTER		= 0,
 	FILTER_CONNECT		= 0x001,
 	FILTER_HELO		= 0x002,
 	FILTER_EHLO		= 0x004,
@@ -88,22 +85,14 @@ struct filter_msg {
 void filter_init(void);
 void filter_loop(void);
 
-void filter_register_connect_callback(enum filter_status
-    (*)(uint64_t, struct filter_connect *, void *), void *);
-void filter_register_helo_callback(enum filter_status
-    (*)(uint64_t, struct filter_helo *, void *), void *);
-void filter_register_ehlo_callback(enum filter_status
-    (*)(uint64_t, struct filter_helo *, void *), void *);
-void filter_register_mail_callback(enum filter_status
-    (*)(uint64_t, struct filter_mail *, void *), void *);
-void filter_register_rcpt_callback(enum filter_status
-    (*)(uint64_t, struct filter_rcpt *, void *), void *);
-void filter_register_dataline_callback(enum filter_status
-    (*)(uint64_t, struct filter_dataline *, void *), void *);
-void filter_register_quit_callback(enum filter_status
-    (*)(uint64_t, void *), void *);
-void filter_register_close_callback(enum filter_status
-    (*)(uint64_t, void *), void *);
-void filter_register_rset_callback(enum filter_status
-    (*)(uint64_t, void *), void *);
+void filter_register_connect_callback(void (*)(uint64_t, struct filter_connect *, void *), void *);
+void filter_register_helo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
+void filter_register_ehlo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
+void filter_register_mail_callback(void (*)(uint64_t, struct filter_mail *, void *), void *);
+void filter_register_rcpt_callback(void (*)(uint64_t, struct filter_rcpt *, void *), void *);
+void filter_register_dataline_callback(void (*)(uint64_t, struct filter_dataline *, void *), void *);
+void filter_register_quit_callback(void (*)(uint64_t, void *), void *);
+void filter_register_close_callback(void (*)(uint64_t, void *), void *);
+void filter_register_rset_callback(void (*)(uint64_t, void *), void *);
 
+#endif

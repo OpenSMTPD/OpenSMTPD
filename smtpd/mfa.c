@@ -206,7 +206,7 @@ mfa(void)
 	imsg_callback = mfa_imsg;
 	event_init();
 
-	SPLAY_INIT(&env->mfa_sessions);
+	tree_init(&env->mfa_sessions);
 
 	signal_set(&ev_sigint, SIGINT, mfa_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mfa_sig_handler, NULL);

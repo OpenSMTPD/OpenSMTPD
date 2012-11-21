@@ -618,8 +618,10 @@ struct smtpd {
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
 	SPLAY_HEAD(childtree, child)		 children;
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
-	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
+	/*	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;*/
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
+
+	struct tree				mfa_sessions;
 
 	struct dict				sc_filters;
 
@@ -712,7 +714,6 @@ struct mfa_session {
 	enum session_state		 state;
 	struct submit_status		 ss;
 	struct filter			*filter;
-	struct filter_msg		 fm;
 	void				*iter;
 };
 
