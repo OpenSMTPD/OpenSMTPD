@@ -94,7 +94,8 @@ mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
 void
 mfa_session(struct submit_status *ss, enum filter_type hook)
 {
-	struct mfa_session *ms;
+	struct mfa_session     *ms;
+	uint32_t	       	i;
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
 	ms->id    = ss->id;
@@ -109,9 +110,9 @@ mfa_session(struct submit_status *ss, enum filter_type hook)
 		return;
 	}
 
-	log_debug("MFA_SESSION");
-	ms->fhook = SIMPLEQ_FIRST(&filter_hooks[ms->hook]);
-	log_debug("MFA_SESSION #1");
+	if ((i = ffs(ms->hook)) == 0)
+		fatalx("something strange happened");
+	ms->fhook = SIMPLEQ_FIRST(&filter_hooks[i - 1]);
 	mfa_session_proceed(ms);
 }
 
@@ -125,7 +126,6 @@ mfa_session_proceed(struct mfa_session *ms)
 	fm.id = ms->id;
 	fm.version = FILTER_API_VERSION;
 
-	log_debug("MFA_SESSION_PROCEED");
 	switch (ms->hook) {
 	case FILTER_CONNECT:
 		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
@@ -178,6 +178,21 @@ mfa_session_proceed(struct mfa_session *ms)
 	}
 
 	imsg_compose(filter->process->ibuf, ms->hook, 0, 0, -1, &fm, sizeof(fm));
+	imsgproc_set_read_write(filter->process);
+}
+
+static void
+mfa_session_pickup(uint32_t code, struct mfa_session *ms)
+{
+	if (! code) {
+		mfa_session_fail(ms);
+		return;
+	}
+
+	if ((ms->fhook = SIMPLEQ_NEXT((struct fhook *)ms->fhook, entry)) == NULL)
+		mfa_session_done(ms);
+	else
+		mfa_session_proceed(ms);
 }
 
 static void
@@ -237,7 +252,7 @@ static void
 mfa_session_fail(struct mfa_session *ms)
 {
 	ms->ss.code = 530;
-	mfa_session_destroy(ms);
+	mfa_session_done(ms);
 }
 
 static void
@@ -251,27 +266,20 @@ void
 mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 {
 	struct mfa_session	*ms;
-	struct filter		*filter;
+	struct filter_msg	*fm;
 
-	log_debug("MFA_SESSION_IMSG_HANDLER");
 	if (imsg->hdr.type == FILTER_REGISTER) {
-		ms = NULL;
-		filter = arg;
-	}
-	else {
-		ms = arg;
-		filter = ((struct fhook *)ms->fhook)->filter;
-	}
-
-	switch (imsg->hdr.type) {
-	case FILTER_REGISTER:
 		mfa_session_filter_register(*(uint32_t *)imsg->data, arg);
-		break;
+		return;
+	}
+
+	fm = imsg->data;
+	switch (imsg->hdr.type) {
 	default:
-		log_debug("NOT HANDLED YET !\n");
-		log_debug("ms->id: %016"PRIx64, ms->id);
+		fm = imsg->data;
+		ms = tree_xget(&env->mfa_sessions, fm->id);
 		break;
 	}
 
-	imsgproc_set_write(filter->process);
+	mfa_session_pickup(fm->code, ms);
 }

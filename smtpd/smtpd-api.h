@@ -19,6 +19,9 @@
 #ifndef	_SMTPD_API_H_
 #define	_SMTPD_API_H_
 
+#include <sys/queue.h>
+#include <sys/tree.h>
+
 #include <sys/socket.h>
 #include <netdb.h>
 
@@ -27,6 +30,11 @@
 #define MAX_LINE_SIZE		 2048
 #define MAX_LOCALPART_SIZE	 64
 #define MAX_DOMAINPART_SIZE	 255
+
+
+SPLAY_HEAD(dict, dictentry);
+SPLAY_HEAD(tree, treeentry);
+
 
 /* XXX - server side requires mfa_session.c update on filter_type changes */
 enum filter_type {
@@ -80,7 +88,25 @@ struct filter_msg {
 	union filter_union	u;
 };
 
-/**/
+
+/* dict.c */
+#define dict_init(d) SPLAY_INIT((d))
+#define dict_empty(d) SPLAY_EMPTY((d))
+int dict_check(struct dict *, const char *);
+void *dict_set(struct dict *, const char *, void *);
+void dict_xset(struct dict *, const char *, void *);
+void *dict_get(struct dict *, const char *);
+void *dict_xget(struct dict *, const char *);
+void *dict_pop(struct dict *, const char *);
+void *dict_xpop(struct dict *, const char *);
+int dict_poproot(struct dict *, const char * *, void **);
+int dict_root(struct dict *, const char * *, void **);
+int dict_iter(struct dict *, void **, const char * *, void **);
+int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
+void dict_merge(struct dict *, struct dict *);
+
+
+/* filter_api.c */
 void filter_init(void);
 void filter_loop(void);
 
@@ -93,5 +119,23 @@ void filter_register_dataline_callback(void (*)(uint64_t, struct filter_dataline
 void filter_register_quit_callback(void (*)(uint64_t, void *), void *);
 void filter_register_close_callback(void (*)(uint64_t, void *), void *);
 void filter_register_rset_callback(void (*)(uint64_t, void *), void *);
+
+
+/* tree.c */
+#define tree_init(t) SPLAY_INIT((t))
+#define tree_empty(t) SPLAY_EMPTY((t))
+int tree_check(struct tree *, uint64_t);
+void *tree_set(struct tree *, uint64_t, void *);
+void tree_xset(struct tree *, uint64_t, void *);
+void *tree_get(struct tree *, uint64_t);
+void *tree_xget(struct tree *, uint64_t);
+void *tree_pop(struct tree *, uint64_t);
+void *tree_xpop(struct tree *, uint64_t);
+int tree_poproot(struct tree *, uint64_t *, void **);
+int tree_root(struct tree *, uint64_t *, void **);
+int tree_iter(struct tree *, void **, uint64_t *, void **);
+int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
+void tree_merge(struct tree *, struct tree *);
+
 
 #endif

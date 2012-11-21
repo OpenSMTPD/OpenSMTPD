@@ -100,9 +100,6 @@
 
 typedef uint32_t	objid_t;
 
-SPLAY_HEAD(dict, dictentry);
-SPLAY_HEAD(tree, treeentry);
-
 #define	MAXPASSWORDLEN	128
 struct userinfo {
 	char username[MAXLOGNAME];
@@ -1002,23 +999,6 @@ pid_t control(void);
 struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
-/* dict.c */
-#define dict_init(d) SPLAY_INIT((d))
-#define dict_empty(d) SPLAY_EMPTY((d))
-int dict_check(struct dict *, const char *);
-void *dict_set(struct dict *, const char *, void *);
-void dict_xset(struct dict *, const char *, void *);
-void *dict_get(struct dict *, const char *);
-void *dict_xget(struct dict *, const char *);
-void *dict_pop(struct dict *, const char *);
-void *dict_xpop(struct dict *, const char *);
-int dict_poproot(struct dict *, const char * *, void **);
-int dict_root(struct dict *, const char * *, void **);
-int dict_iter(struct dict *, void **, const char * *, void **);
-int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
-void dict_merge(struct dict *, struct dict *);
-
-
 /* dns.c */
 void dns_query_host(char *, int, uint64_t);
 void dns_query_mx(char *, char *, int, uint64_t);
@@ -1058,6 +1038,7 @@ struct imsgproc *imsgproc_fork(const char *, const char *,
     void (*)(struct imsg *, void *), void *);
 void imsgproc_set_read(struct imsgproc *);
 void imsgproc_set_write(struct imsgproc *);
+void imsgproc_set_read_write(struct imsgproc *);
 void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
 
@@ -1211,22 +1192,6 @@ void table_delete_all(struct table *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);
-
-/* tree.c */
-#define tree_init(t) SPLAY_INIT((t))
-#define tree_empty(t) SPLAY_EMPTY((t))
-int tree_check(struct tree *, uint64_t);
-void *tree_set(struct tree *, uint64_t, void *);
-void tree_xset(struct tree *, uint64_t, void *);
-void *tree_get(struct tree *, uint64_t);
-void *tree_xget(struct tree *, uint64_t);
-void *tree_pop(struct tree *, uint64_t);
-void *tree_xpop(struct tree *, uint64_t);
-int tree_poproot(struct tree *, uint64_t *, void **);
-int tree_root(struct tree *, uint64_t *, void **);
-int tree_iter(struct tree *, void **, uint64_t *, void **);
-int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
-void tree_merge(struct tree *, struct tree *);
 
 
 /* util.c */

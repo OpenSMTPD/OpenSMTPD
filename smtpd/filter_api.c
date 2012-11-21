@@ -31,6 +31,12 @@
 
 #include "smtpd-api.h"
 
+static struct tree		sessions;
+struct session {
+	enum filter_type	hook;
+	struct filter_msg	fm;
+};
+
 static struct filter_internals {
 	uint32_t	filtermask;
 
@@ -77,6 +83,8 @@ filter_init(void)
 	event_init();
 	event_set(&fi.ev, 0, EV_READ, filter_handler, (void *)&fi);
 	event_add(&fi.ev, NULL);
+
+	tree_init(&sessions);
 }
 
 void
@@ -156,11 +164,25 @@ filter_register_rset_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 void
 filter_accept(uint64_t id)
 {
+	struct session	*session = tree_xpop(&sessions, id);
+
+	session->fm.code = 1;
+	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
+	    sizeof session->fm);
+	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
+	event_add(&fi.ev, NULL);
 }
 
 void
 filter_reject(uint64_t id)
 {
+	struct session	*session = tree_xpop(&sessions, id);
+
+	session->fm.code = 0;
+	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
+	    sizeof session->fm);
+	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
+	event_add(&fi.ev, NULL);
 }
 
 static void
@@ -216,7 +238,7 @@ filter_handler(int fd, short event, void *p)
 	struct imsg		imsg;
 	ssize_t			n;
 	short			evflags = EV_READ;
-	struct filter_msg	fm;
+	struct session	       *session;
 
 	if (event & EV_READ) {
 		n = imsg_read(&fi.ibuf);
@@ -243,83 +265,90 @@ filter_handler(int fd, short event, void *p)
 		if (n == 0)
 			break;
 
+		session = calloc(1, sizeof *session);
+		if (session == NULL)
+			errx(1, "memory exhaustion");
+
 		if ((imsg.hdr.len - IMSG_HEADER_SIZE)
-		    != sizeof(fm))
+		    != sizeof(session->fm))
 			errx(1, "corrupted imsg");
 
-		memcpy(&fm, imsg.data, sizeof (fm));
-		if (fm.version != FILTER_API_VERSION)
+		memcpy(&session->fm, imsg.data, sizeof (session->fm));
+		if (session->fm.version != FILTER_API_VERSION)
 			errx(1, "API version mismatch");
 
-		switch (imsg.hdr.type) {
+		tree_set(&sessions, session->fm.id, session);
+		session->hook = imsg.hdr.type;
+		
+		switch (session->hook) {
 		case FILTER_CONNECT:
 			if (fi.connect_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.connect_cb(fm.cl_id, &fm.u.connect,
+			fi.connect_cb(session->fm.id, &session->fm.u.connect,
 			    fi.connect_cb_arg);
 			break;
 		case FILTER_HELO:
 			if (fi.helo_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.helo_cb(fm.cl_id, &fm.u.helo,
+			fi.helo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.helo_cb_arg);
 			break;
 		case FILTER_EHLO:
 			if (fi.ehlo_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.ehlo_cb(fm.cl_id, &fm.u.helo,
+			fi.ehlo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.ehlo_cb_arg);
 			break;
 		case FILTER_MAIL:
 			if (fi.mail_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.mail_cb(fm.cl_id, &fm.u.mail,
+			fi.mail_cb(session->fm.id, &session->fm.u.mail,
 			    fi.mail_cb_arg);
 			break;
 		case FILTER_RCPT:
 			if (fi.rcpt_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.rcpt_cb(fm.cl_id, &fm.u.rcpt,
+			fi.rcpt_cb(session->fm.id, &session->fm.u.rcpt,
 			    fi.rcpt_cb_arg);
 			break;
 		case FILTER_DATALINE:
 			if (fi.dataline_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.dataline_cb(fm.cl_id, &fm.u.dataline,
+			fi.dataline_cb(session->fm.id, &session->fm.u.dataline,
 			    fi.dataline_cb_arg);
 			break;
 		case FILTER_QUIT:
 			if (fi.quit_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.quit_cb(fm.cl_id, fi.quit_cb_arg);
+			fi.quit_cb(session->fm.id, fi.quit_cb_arg);
 			break;
 		case FILTER_CLOSE:
 			if (fi.close_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.close_cb(fm.cl_id, fi.close_cb_arg);
+			fi.close_cb(session->fm.id, fi.close_cb_arg);
 			break;
 		case FILTER_RSET:
 			if (fi.rset_cb == NULL) {
-				filter_accept(fm.cl_id);
+				filter_accept(session->fm.id);
 				break;
 			}
-			fi.rset_cb(fm.cl_id, fi.rset_cb_arg);
+			fi.rset_cb(session->fm.id, fi.rset_cb_arg);
 			break;
 
 		default:
@@ -327,8 +356,4 @@ filter_handler(int fd, short event, void *p)
 		}
 		imsg_free(&imsg);
 	}
-
-	event_set(&fi.ev, 0, evflags, filter_handler, &fi);
-	event_add(&fi.ev, NULL);
-	return;
 }

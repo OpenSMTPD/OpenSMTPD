@@ -148,6 +148,18 @@ imsgproc_set_read(struct imsgproc *proc)
 }
 
 void
+imsgproc_set_read_write(struct imsgproc *proc)
+{
+	short	events = EV_READ;
+
+	if (proc->ibuf->w.queued)
+		events |= EV_WRITE;
+
+	event_set(&proc->ev, proc->ibuf->fd, events, imsgproc_imsg, proc);
+	event_add(&proc->ev, NULL);
+}
+
+void
 imsgproc_reset_callback(struct imsgproc *proc, void (*cb)(struct imsg *, void *),
     void *cb_arg)
 {
