@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "log.h"
 #include "ioev.h"
 #include "iobuf.h"
 
@@ -545,9 +544,7 @@ io_dispatch(int fd, short ev, void *humppa)
 
 	if (ev & EV_WRITE && (w = io_queued(io))) {
 		if ((n = iobuf_write(io->iobuf, io->sock)) < 0) {
-			if (n == IOBUF_ERROR || n == IOBUF_WANT_WRITE)
-				log_warn("warn: io_dispatch: iobuf_write");
-			if (n == IOBUF_WANT_WRITE)  /* kqueue bug? */
+			if (n == IOBUF_WANT_WRITE) /* kqueue bug? */
 				goto read;
 			if (n == IOBUF_CLOSED)
 				io_callback(io, IO_DISCONNECTED);
@@ -566,8 +563,6 @@ io_dispatch(int fd, short ev, void *humppa)
 
 	if (ev & EV_READ) {
 		if ((n = iobuf_read(io->iobuf, io->sock)) < 0) {
-			if (n == IOBUF_ERROR)
-				log_warn("warn: io_dispatch: iobuf_read");
 			if (n == IOBUF_CLOSED)
 				io_callback(io, IO_DISCONNECTED);
 			else {
