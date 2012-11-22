@@ -33,7 +33,7 @@
 
 static struct tree		sessions;
 struct session {
-	enum filter_type	hook;
+	enum filter_hook	hook;
 	struct filter_msg	fm;
 };
 
@@ -72,7 +72,7 @@ static struct filter_internals {
 } fi;
 
 static void filter_handler(int, short, void *);
-static void filter_register_callback(enum filter_type, void *, void *);
+static void filter_register_callback(enum filter_hook, void *, void *);
 
 void
 filter_init(void)
@@ -91,7 +91,7 @@ void
 filter_loop(void)
 {
 	/* notify smtpd of all registered hooks */
-	imsg_compose(&fi.ibuf, FILTER_REGISTER, 0, 0, -1,
+	imsg_compose(&fi.ibuf, HOOK_REGISTER, 0, 0, -1,
 	    &fi.filtermask, sizeof fi.filtermask);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, NULL);
 	event_add(&fi.ev, NULL);
@@ -104,61 +104,61 @@ void
 filter_register_connect_callback(void (*cb)(uint64_t, struct filter_connect *, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_CONNECT, cb, cb_arg);
+	filter_register_callback(HOOK_CONNECT, cb, cb_arg);
 }
 
 void
 filter_register_helo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_HELO, cb, cb_arg);
+	filter_register_callback(HOOK_HELO, cb, cb_arg);
 }
 
 void
 filter_register_ehlo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_EHLO, cb, cb_arg);
+	filter_register_callback(HOOK_EHLO, cb, cb_arg);
 }
 
 void
 filter_register_mail_callback(void (*cb)(uint64_t, struct filter_mail *, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_MAIL, cb, cb_arg);
+	filter_register_callback(HOOK_MAIL, cb, cb_arg);
 }
 
 void
 filter_register_rcpt_callback(void (*cb)(uint64_t, struct filter_rcpt *, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_RCPT, cb, cb_arg);
+	filter_register_callback(HOOK_RCPT, cb, cb_arg);
 }
 
 void
 filter_register_dataline_callback(void (*cb)(uint64_t, struct filter_dataline *, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_DATALINE, cb, cb_arg);
+	filter_register_callback(HOOK_DATALINE, cb, cb_arg);
 }
 
 void
 filter_register_quit_callback(void (*cb)(uint64_t, void *),
     void *cb_arg)
 {
-	filter_register_callback(FILTER_QUIT, cb, cb_arg);
+	filter_register_callback(HOOK_QUIT, cb, cb_arg);
 }
 
 void
 filter_register_close_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_register_callback(FILTER_CLOSE, cb, cb_arg);
+	filter_register_callback(HOOK_CLOSE, cb, cb_arg);
 }
 
 void
 filter_register_rset_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_register_callback(FILTER_RSET, cb, cb_arg);
+	filter_register_callback(HOOK_RSET, cb, cb_arg);
 }
 
 void
@@ -166,7 +166,7 @@ filter_accept(uint64_t id)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
-	session->fm.code = 0;
+	session->fm.code = FILTER_SUCCESS;
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
 	    sizeof session->fm);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
@@ -190,50 +190,50 @@ filter_reject(uint64_t id, enum filter_status code, char *status)
 }
 
 static void
-filter_register_callback(enum filter_type type, void *cb, void *cb_arg)
+filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
 {
-	switch (type) {
-	case FILTER_CONNECT:
+	switch (hook) {
+	case HOOK_CONNECT:
 		fi.connect_cb = cb;
 		fi.connect_cb_arg = cb_arg;
 		break;
-	case FILTER_HELO:
+	case HOOK_HELO:
 		fi.helo_cb = cb;
 		fi.helo_cb_arg = cb_arg;
 		break;
-	case FILTER_EHLO:
+	case HOOK_EHLO:
 		fi.ehlo_cb = cb;
 		fi.ehlo_cb_arg = cb_arg;
 		break;
-	case FILTER_MAIL:
+	case HOOK_MAIL:
 		fi.mail_cb = cb;
 		fi.mail_cb_arg = cb_arg;
 		break;
-	case FILTER_RCPT:
+	case HOOK_RCPT:
 		fi.rcpt_cb = cb;
 		fi.rcpt_cb_arg = cb_arg;
 		break;
-	case FILTER_DATALINE:
+	case HOOK_DATALINE:
 		fi.dataline_cb = cb;
 		fi.dataline_cb_arg = cb_arg;
 		break;
-	case FILTER_QUIT:
+	case HOOK_QUIT:
 		fi.quit_cb = cb;
 		fi.quit_cb_arg = cb_arg;
 		break;
-	case FILTER_CLOSE:
+	case HOOK_CLOSE:
 		fi.close_cb = cb;
 		fi.close_cb_arg = cb_arg;
 		break;
-	case FILTER_RSET:
+	case HOOK_RSET:
 		fi.rset_cb = cb;
 		fi.rset_cb_arg = cb_arg;
 		break;
 	default:
-		errx(1, "filter_register_callback: unknown filter type");
+		errx(1, "filter_register_callback: unknown filter hook");
 	}
 
-	fi.filtermask |= type;
+	fi.filtermask |= hook;
 }
 
 static void
@@ -269,7 +269,7 @@ filter_handler(int fd, short event, void *p)
 		if (n == 0)
 			break;
 
-		if (imsg.hdr.type == FILTER_REGISTER) {
+		if (imsg.hdr.type == HOOK_REGISTER) {
 			if (*(uint32_t *)imsg.data != FILTER_API_VERSION)
 				errx(1, "API version mismatch");
 			imsg_free(&imsg);
@@ -290,37 +290,37 @@ filter_handler(int fd, short event, void *p)
 		session->hook = imsg.hdr.type;
 		
 		switch (session->hook) {
-		case FILTER_CONNECT:
+		case HOOK_CONNECT:
 			fi.connect_cb(session->fm.id, &session->fm.u.connect,
 			    fi.connect_cb_arg);
 			break;
-		case FILTER_HELO:
+		case HOOK_HELO:
 			fi.helo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.helo_cb_arg);
 			break;
-		case FILTER_EHLO:
+		case HOOK_EHLO:
 			fi.ehlo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.ehlo_cb_arg);
 			break;
-		case FILTER_MAIL:
+		case HOOK_MAIL:
 			fi.mail_cb(session->fm.id, &session->fm.u.mail,
 			    fi.mail_cb_arg);
 			break;
-		case FILTER_RCPT:
+		case HOOK_RCPT:
 			fi.rcpt_cb(session->fm.id, &session->fm.u.rcpt,
 			    fi.rcpt_cb_arg);
 			break;
-		case FILTER_DATALINE:
+		case HOOK_DATALINE:
 			fi.dataline_cb(session->fm.id, &session->fm.u.dataline,
 			    fi.dataline_cb_arg);
 			break;
-		case FILTER_QUIT:
+		case HOOK_QUIT:
 			fi.quit_cb(session->fm.id, fi.quit_cb_arg);
 			break;
-		case FILTER_CLOSE:
+		case HOOK_CLOSE:
 			fi.close_cb(session->fm.id, fi.close_cb_arg);
 			break;
-		case FILTER_RSET:
+		case HOOK_RSET:
 			fi.rset_cb(session->fm.id, fi.rset_cb_arg);
 			break;
 

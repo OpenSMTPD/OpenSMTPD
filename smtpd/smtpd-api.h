@@ -88,7 +88,7 @@ union filter_union {
 
 struct filter_msg {
 	uint64_t		id;	 /* set by smtpd(8) */
-	uint32_t       		code;
+	enum filter_status	code;
 	char			errorline[MAX_LINE_SIZE];
 	union filter_union	u;
 };
