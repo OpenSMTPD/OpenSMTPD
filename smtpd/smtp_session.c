@@ -865,7 +865,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		s->s_msg.sender = ss->u.maddr;
 
 		session_imsg(s, PROC_QUEUE, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-		    &s->s_msg, sizeof(s->s_msg));
+		    &s->s_id, sizeof(s->s_id));
 		break;
 
 	case S_MAIL_QUEUE:

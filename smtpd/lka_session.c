@@ -78,7 +78,12 @@ lka_session(struct envelope *envelope)
 {
 	struct lka_session	*lks;
 	struct expandnode	 xn;
+/*
+	char			 buf[1024];
 
+	envelope_dump_buffer(envelope, buf, sizeof buf);
+	log_debug("DFFFFFFUUUU>KKKK\n%s", buf);
+*/
 	lks = xcalloc(1, sizeof(*lks), "lka_session");
 	lks->id = generate_uid();
 	RB_INIT(&lks->expand.tree);
@@ -142,7 +147,6 @@ lka_resume(struct lka_session *lks)
 	struct imsg_lka_reply	 reply;
 	struct envelope		*ep;
 	struct expandnode	*xn;
-
 
 	if (lks->error)
 		goto error;
@@ -228,9 +232,9 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    LKA_TEMPFAIL : LKA_PERMFAIL;
 			break; /* no rule for address or REJECT match */
 		}
+
 		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA)
 			lka_submit(lks, rule, xn);
-
 		else if (rule->r_condition.c_type == COND_VDOM) {
 			/* expand */
 			lks->expand.rule = rule;

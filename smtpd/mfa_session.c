@@ -178,6 +178,7 @@ mfa_session_done(struct mfa_session *ms)
 		break;
 	case S_MAIL_MFA:
 		imsg_type = IMSG_MFA_MAIL;
+		mfa_reply.u.mailaddr = ms->ss.u.maddr;
 		break;
 	case S_RCPT_MFA:
 		if (ms->ss.code != 530) {

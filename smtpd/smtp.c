@@ -103,6 +103,9 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 					    mfa_reply->u.buffer,
 					    sizeof (ss.u.dataline));
 				}
+				if (imsg->hdr.type == IMSG_MFA_MAIL) {
+					ss.u.maddr = mfa_reply->u.mailaddr;
+				}
 			}
 			else if (mfa_reply->status == MFA_TEMPFAIL)
 				ss.code = 421;

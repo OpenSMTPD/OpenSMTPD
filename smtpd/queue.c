@@ -60,12 +60,12 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint32_t		 msgid;
 
 	if (iev->proc == PROC_SMTP) {
-		e = imsg->data;
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
+			id = *(uint64_t*)(imsg->data);
 			ret = queue_message_create(&msgid);
-			reply.id = e->session_id;
+			reply.id = id;
 			reply.success = (ret == 0) ? 0 : 1;
 			reply.evpid = (ret == 0) ? 0 : msgid_to_evpid(msgid);
 			imsg_compose_event(iev, IMSG_QUEUE_CREATE_MESSAGE, 0, 0,
@@ -81,6 +81,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
+			e = imsg->data;
 			msgid = evpid_to_msgid(e->id);
 			ret = queue_message_commit(msgid);
 			reply.id = e->session_id;
@@ -95,6 +96,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
+			e = imsg->data;
 			fd = queue_message_fd_rw(evpid_to_msgid(e->id));
 			reply.id = e->session_id;
 			reply.success = (fd == -1) ? 0 : 1;
