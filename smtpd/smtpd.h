@@ -140,6 +140,11 @@ enum imsg_mfa_status {
 	MFA_PERMFAIL
 };
 
+struct imsg_mfa_data {
+	uint64_t		id;
+	char			buffer[MAX_LINE_SIZE];
+};
+
 struct imsg_mfa_reply {
 	uint64_t			id;
 	enum imsg_mfa_status		status;

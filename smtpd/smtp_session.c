@@ -959,7 +959,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 static void
 session_line(struct session *s, char *line, size_t len)
 {
-	struct submit_status ss;
+	struct imsg_mfa_data	mfa_data;
 
 	if (s->s_state != S_DATACONTENT) {
 		log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
@@ -998,13 +998,13 @@ session_line(struct session *s, char *line, size_t len)
 	case S_DATACONTENT:
 		if (env->filtermask & FILTER_DATALINE) {
 			bzero(&ss, sizeof(ss));
-			ss.id = s->s_id;
-			if (strlcpy(ss.u.dataline, line,
-				sizeof(ss.u.dataline)) >= sizeof(ss.u.dataline))
+			mfa_data.id = s->s_id;
+			if (strlcpy(mfa_data.buffer, line,
+			    sizeof(mfa_data.buffer)) >= sizeof(mfa_data.buffer))
 				fatal("session_line: data truncation");
 
 			session_imsg(s, PROC_MFA, IMSG_MFA_DATALINE,
-			    0, 0, -1, &ss, sizeof(ss));
+			    0, 0, -1, &mfa_data, sizeof mfa_data);
 		} else {
 			/* no filtering */
 			session_read_data(s, line);

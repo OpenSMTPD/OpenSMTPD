@@ -46,7 +46,7 @@ static void mfa_test_helo(struct envelope *);
 static void mfa_test_mail(struct envelope *);
 static void mfa_test_rcpt(struct envelope *);
 static void mfa_test_rcpt_resume(struct imsg_lka_reply *);
-static void mfa_test_dataline(struct submit_status *);
+static void mfa_test_dataline(struct imsg_mfa_data *);
 static void mfa_test_quit(struct envelope *);
 static void mfa_test_close(struct envelope *);
 static void mfa_test_rset(struct envelope *);
@@ -358,10 +358,14 @@ mfa_test_rcpt_resume(struct imsg_lka_reply *lka_reply)
 }
 
 static void
-mfa_test_dataline(struct submit_status *ss)
+mfa_test_dataline(struct imsg_mfa_data *mfa_data)
 {
-	ss->code = 250;
-	mfa_session(ss, S_DATACONTENT);
+	struct submit_status	 ss;
+
+	ss.id = mfa_data->id;
+	ss.code = 530;
+	strlcpy(ss.u.dataline, mfa_data->buffer, sizeof ss.u.dataline);
+	mfa_session(&ss, S_DATACONTENT);
 }
 
 static void
