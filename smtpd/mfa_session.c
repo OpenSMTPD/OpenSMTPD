@@ -166,7 +166,8 @@ mfa_session_pickup(struct mfa_session *ms)
 static void
 mfa_session_done(struct mfa_session *ms)
 {
-	enum imsg_type imsg_type;
+	enum imsg_type		imsg_type;
+	struct imsg_mfa_reply	mfa_reply;
 
 	switch (ms->state) {
 	case S_CONNECTED:
@@ -197,9 +198,9 @@ mfa_session_done(struct mfa_session *ms)
 		break;
 	case S_DATACONTENT:
 		if (ms->ss.code != 530 && ms->fm.code != 0)
-			(void)strlcpy(ms->ss.u.dataline,
+			(void)strlcpy(mfa_reply.u.buffer,
 			    ms->fm.u.dataline.line,
-			    sizeof(ms->ss.u.dataline));
+			    sizeof(mfa_reply.u.buffer));
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
 	case S_QUIT:
@@ -216,8 +217,20 @@ mfa_session_done(struct mfa_session *ms)
 		fatalx("mfa_session_done: unsupported state");
 	}
 
+	mfa_reply.id = ms->ss.id;
+	switch (ms->ss.code / 100) {
+	case 2:
+		mfa_reply.status = MFA_SUCCESS;
+		break;
+	case 4:
+		mfa_reply.status = MFA_TEMPFAIL;
+		break;
+	default:
+		mfa_reply.status = MFA_SUCCESS;
+		break;
+	}
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,
-	    -1, &ms->ss, sizeof(struct submit_status));
+	    -1, &mfa_reply, sizeof(mfa_reply));
 	mfa_session_destroy(ms);
 }
 

@@ -110,6 +110,11 @@ struct userinfo {
 	gid_t gid;
 };
 
+struct mailaddr {
+	char	user[MAX_LOCALPART_SIZE];
+	char	domain[MAX_DOMAINPART_SIZE];
+};
+
 struct netaddr {
 	struct sockaddr_storage ss;
 	int bits;
@@ -127,6 +132,22 @@ struct imsg_queue_reply {
 	uint64_t	id;
 	int		success;
 	uint64_t	evpid;
+};
+
+enum imsg_mfa_status {
+	MFA_SUCCESS,
+	MFA_TEMPFAIL,
+	MFA_PERMFAIL
+};
+
+struct imsg_mfa_reply {
+	uint64_t			id;
+	enum imsg_mfa_status		status;
+	uint32_t			code;
+	union imsg_mfa_reply_data {
+		struct mailaddr		mailaddr;
+		char			buffer[MAX_LINE_SIZE];
+	}				u;
 };
 
 enum imsg_type {
@@ -338,11 +359,6 @@ struct rule {
 	struct mailaddr		       *r_as;
 	objid_t				r_atable;
 	time_t				r_qexpire;
-};
-
-struct mailaddr {
-	char	user[MAX_LOCALPART_SIZE];
-	char	domain[MAX_DOMAINPART_SIZE];
 };
 
 enum delivery_type {

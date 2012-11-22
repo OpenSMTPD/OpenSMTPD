@@ -57,6 +57,7 @@ static void
 smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct imsg_queue_reply	*queue_reply;
+	struct imsg_mfa_reply	*mfa_reply;
 	struct submit_status	 ss;
 	struct listener		*l;
 	struct session		*s;
@@ -90,10 +91,24 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_DATALINE:
 		case IMSG_MFA_QUIT:
 		case IMSG_MFA_RSET:
-			ss = *(struct submit_status*)(imsg->data);
-			s = session_lookup(ss.id);
+			mfa_reply = (struct imsg_mfa_reply *)imsg->data;
+			s = session_lookup(mfa_reply->id);
 			if (s == NULL)
 				return;
+			if (mfa_reply->status == MFA_SUCCESS) {
+				ss.code = 250;
+				/* until we get rid of submit_status */
+				if (imsg->hdr.type == IMSG_MFA_DATALINE) {
+					strlcpy(ss.u.dataline,
+					    mfa_reply->u.buffer,
+					    sizeof (ss.u.dataline));
+				}
+			}
+			else if (mfa_reply->status == MFA_TEMPFAIL)
+				ss.code = 421;
+			else
+				ss.code = 530;
+
 			session_pickup(s, &ss);
 			return;
 		case IMSG_MFA_CLOSE:
