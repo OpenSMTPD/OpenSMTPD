@@ -143,7 +143,6 @@ enum imsg_mfa_status {
 struct imsg_mfa_reply {
 	uint64_t			id;
 	enum imsg_mfa_status		status;
-	uint32_t			code;
 	union imsg_mfa_reply_data {
 		struct mailaddr		mailaddr;
 		char			buffer[MAX_LINE_SIZE];
