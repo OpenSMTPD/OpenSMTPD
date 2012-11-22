@@ -178,6 +178,9 @@ filter_reject(uint64_t id, uint32_t code, char *status)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
+	/* This is NOT an acceptable code for a failure */
+	if (code < 400 || code >= 600)
+		code = 530;
 	session->fm.code = code;
 	strlcpy(session->fm.errorline, status, sizeof session->fm.errorline);
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,

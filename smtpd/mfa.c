@@ -234,7 +234,6 @@ mfa_test_connect(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.envelope = *e;
 
 	mfa_session(&ss, FILTER_CONNECT);
@@ -246,7 +245,6 @@ mfa_test_helo(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.envelope = *e;
 
 	mfa_session(&ss, FILTER_HELO);
@@ -258,7 +256,6 @@ mfa_test_mail(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.u.maddr = e->sender;
 
 	if (mfa_strip_source_route(ss.u.maddr.user, sizeof(ss.u.maddr.user)))
@@ -289,7 +286,6 @@ mfa_test_rcpt(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.u.maddr = e->rcpt;
 	ss.ss = e->ss;
 	ss.envelope = *e;
@@ -338,7 +334,6 @@ mfa_test_quit(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.envelope = *e;
 
 	mfa_session(&ss, FILTER_QUIT);
@@ -350,7 +345,6 @@ mfa_test_close(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.envelope = *e;
 
 	mfa_session(&ss, FILTER_CLOSE);
@@ -362,7 +356,6 @@ mfa_test_rset(struct envelope *e)
 	struct submit_status	 ss;
 
 	ss.id = e->session_id;
-	ss.code = 530;
 	ss.envelope = *e;
 
 	mfa_session(&ss, FILTER_RSET);

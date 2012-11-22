@@ -2,10 +2,11 @@
 
 .PATH:		${.CURDIR}/..
 
-LIB=	smtpdfilter
-SRCS=	filter_api.c dict.c tree.c util.c ioev.c iobuf.c log.c
-DEBUGLIBS= no
-NOPROFILE= yes
+CFLAGS	  = -DNOIO
+LIB	  = smtpdfilter
+SRCS	  = filter_api.c dict.c tree.c util.c
+DEBUGLIBS = no
+NOPROFILE = yes
 NOPIC=	yes
 
 install:

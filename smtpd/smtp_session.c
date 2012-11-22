@@ -784,6 +784,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_INIT:
+		log_debug("ss->code: %d", ss->code);
 		if (ss->code) {
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": rejected by filter", s->s_id);
