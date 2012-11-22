@@ -56,8 +56,8 @@ static uint32_t	sessions;
 static void
 smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct session		 skey;
-	struct submit_status	*ss;
+	struct imsg_queue_reply	*queue_reply;
+	struct submit_status	 ss;
 	struct listener		*l;
 	struct session		*s;
 	struct auth		*auth;
@@ -90,11 +90,11 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_DATALINE:
 		case IMSG_MFA_QUIT:
 		case IMSG_MFA_RSET:
-			ss = imsg->data;
-			s = session_lookup(ss->id);
+			ss = *(struct submit_status*)(imsg->data);
+			s = session_lookup(ss.id);
 			if (s == NULL)
 				return;
-			session_pickup(s, ss);
+			session_pickup(s, &ss);
 			return;
 		case IMSG_MFA_CLOSE:
 			return;
@@ -102,19 +102,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 
 	if (iev->proc == PROC_QUEUE) {
-		ss = imsg->data;
+		queue_reply = imsg->data;
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_reply->id);
 			if (s == NULL)
 				return;
-			s->s_msg.id = ((uint64_t)ss->u.msgid) << 32;
-			session_pickup(s, ss);
+			s->s_msg.id = queue_reply->evpid;
+			ss.code = (queue_reply->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_reply->id);
 			if (s == NULL) {
 				close(imsg->fd);
 				return;
@@ -122,36 +123,36 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s->datafp = fdopen(imsg->fd, "w");
 			if (s->datafp == NULL) {
 				/* queue may have experienced tempfail. */
-				if (ss->code != 421)
+				if (!queue_reply->success)
 					fatalx("smtp: fdopen");
 				close(imsg->fd);
 			}
-			session_pickup(s, ss);
+			ss.code = (queue_reply->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
-		case IMSG_QUEUE_TEMPFAIL:
-			skey.s_id = ss->id;
-			/* do not use lookup since this is not a expected imsg
-			 * -- eric@
-			 */
-			s = SPLAY_FIND(sessiontree, &env->sc_sessions, &skey);
+		case IMSG_QUEUE_SUBMIT_ENVELOPE:
+			s = session_lookup(queue_reply->id);
 			if (s == NULL)
-				fatalx("smtp: session is gone");
-			s->s_dstatus |= DS_TEMPFAILURE;
+				return;
+			if (!queue_reply->success)
+				s->s_dstatus |= DS_TEMPFAILURE;
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_reply->id);
 			if (s == NULL)
 				return;
-			session_pickup(s, ss);
+			ss.code = (queue_reply->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_reply->id);
 			if (s == NULL)
 				return;
-			session_pickup(s, ss);
+			ss.code = (queue_reply->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
 		case IMSG_SMTP_ENQUEUE:

@@ -123,6 +123,12 @@ struct relayhost {
 	char authtable[MAX_PATH_SIZE];
 };
 
+struct imsg_queue_reply {
+	uint64_t	id;
+	int		success;
+	uint64_t	evpid;
+};
+
 enum imsg_type {
 	IMSG_NONE,
 	IMSG_CTL_OK,		/* answer to smtpctl requests */
@@ -163,7 +169,7 @@ enum imsg_type {
 	IMSG_QUEUE_COMMIT_ENVELOPES,
 	IMSG_QUEUE_REMOVE_MESSAGE,
 	IMSG_QUEUE_COMMIT_MESSAGE,
-	IMSG_QUEUE_TEMPFAIL,
+
 	IMSG_QUEUE_PAUSE_MDA,
 	IMSG_QUEUE_PAUSE_MTA,
 	IMSG_QUEUE_RESUME_MDA,
