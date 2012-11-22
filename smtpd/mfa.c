@@ -45,7 +45,6 @@ static void mfa_test_connect(struct envelope *);
 static void mfa_test_helo(struct envelope *);
 static void mfa_test_mail(struct envelope *);
 static void mfa_test_rcpt(struct envelope *);
-static void mfa_test_rcpt_resume(struct imsg_lka_reply *);
 static void mfa_test_dataline(struct imsg_mfa_data *);
 static void mfa_test_quit(struct envelope *);
 static void mfa_test_close(struct envelope *);
@@ -91,7 +90,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_RCPT:
+		case IMSG_LKA_EXPAND_RCPT:
 			lka_reply = imsg->data;
 			reply.id = lka_reply->id;
 			if (lka_reply->status == LKA_OK)
@@ -102,10 +101,6 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 				reply.status = MFA_PERMFAIL;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_MFA_RCPT, 0, 0, -1, &reply, sizeof (reply));
-			return;
-
-		case IMSG_LKA_RULEMATCH:
-			mfa_test_rcpt_resume(imsg->data);
 			return;
 		}
 	}
@@ -306,7 +301,7 @@ refuse:
 static void
 mfa_test_rcpt(struct envelope *e)
 {
-	struct submit_status	 ss;
+	struct submit_status	ss;
 	struct imsg_mfa_reply	mfa_reply;
 
 	ss.id = e->session_id;
@@ -331,30 +326,6 @@ refuse:
 	mfa_reply.status = MFA_PERMFAIL;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1,
 	    &mfa_reply, sizeof(mfa_reply));
-}
-
-static void
-mfa_test_rcpt_resume(struct imsg_lka_reply *lka_reply)
-{
-	struct imsg_mfa_reply	reply;
-
-	switch (lka_reply->status) {
-	case LKA_OK:
-		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RCPT, 0, 0,
-		    -1, envelope, sizeof *envelope);
-		break;
-
-	case LKA_TEMPFAIL:
-	case LKA_PERMFAIL:
-		reply.id = lka_reply->id;
-		if (lka_reply->status == LKA_TEMPFAIL)
-			reply.status = MFA_TEMPFAIL;
-		else
-			reply.status = MFA_PERMFAIL;
-		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0,
-		    -1, &reply, sizeof(reply));
-		break;
-	}
 }
 
 static void

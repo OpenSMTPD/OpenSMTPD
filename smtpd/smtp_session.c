@@ -997,7 +997,6 @@ session_line(struct session *s, char *line, size_t len)
 
 	case S_DATACONTENT:
 		if (env->filtermask & FILTER_DATALINE) {
-			bzero(&ss, sizeof(ss));
 			mfa_data.id = s->s_id;
 			if (strlcpy(mfa_data.buffer, line,
 			    sizeof(mfa_data.buffer)) >= sizeof(mfa_data.buffer))

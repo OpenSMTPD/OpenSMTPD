@@ -166,8 +166,8 @@ lka_resume(struct lka_session *lks)
 	if (lks->error) {
 		reply.id = lks->envelope.session_id;
 		reply.status = lks->error;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_RCPT, 0, 0,
-		    -1, &reply, sizeof reply);
+		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_EXPAND_RCPT,
+		    0, 0, -1, &reply, sizeof reply);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			free(ep);

@@ -182,8 +182,8 @@ mfa_session_done(struct mfa_session *ms)
 	case S_RCPT_MFA:
 		if (ms->ss.code != 530) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
-			    IMSG_LKA_RULEMATCH, 0, 0, -1,
-			    &ms->ss, sizeof(ms->ss));
+			    IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
+			    &ms->ss.envelope, sizeof(ms->ss.envelope));
 			mfa_session_destroy(ms);
 			return;
 		}
