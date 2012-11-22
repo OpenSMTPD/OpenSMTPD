@@ -345,11 +345,16 @@ This rule applies to mail destined to
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
-.It Ic for virtual Ar <vdomains>
+.It Ic for virtual Ar <domains> Ic users Ar <users>
 This rule applies to mail destined for the virtual domains specified
 in the table
-.Ar vdomains .
-For an example of how to configure a virtual table, see
+.Ar domains .
+The table
+.Ar users
+holds a key-value mapping of virtual to system users.
+For an example of how to configure the
+.Ar users
+table, see
 .Xr makemap 8 .
 .El
 .Pp

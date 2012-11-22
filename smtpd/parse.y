@@ -123,7 +123,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE
+%token	AUTH_OPTIONAL TLS_REQUIRE USERS
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>		table
@@ -572,27 +572,44 @@ condition	: DOMAIN tables alias		{
 			c->c_table = $2;
 			$$ = c;
 		}
-		| VIRTUAL tables       		{
+		| VIRTUAL tables USERS tables    		{
 			struct cond	*c;
-			struct table	*m = table_find($2);
+			struct table	*vt = table_find($2);
+			struct table	*ut = table_find($4);
 
-			/* VIRTUAL only accepts T_DYNAMIC and T_HASH */
-
-			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
+			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
+			if (!(vt->t_type & (T_DYNAMIC|T_LIST))) {
 				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					m->t_name);
+					vt->t_name);
 				YYERROR;
 			}
 
-			/* VIRTUAL requires table to provide K_VIRTUAL service */
-			if (!(m->t_backend->services & K_VIRTUAL)) {
+			/* VIRTUAL requires table to provide K_DOMAIN service */
+			if (!(vt->t_backend->services & K_DOMAIN)) {
 				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					m->t_name);
+					vt->t_name);
 				YYERROR;
 			}
+
+			/* USERS only accepts T_DYNAMIC and T_HASH */
+			if (!(ut->t_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("table \"%s\" can't be used as USERS parameter",
+					ut->t_name);
+				YYERROR;
+			}
+
+			/* USERS requires table to provide K_ALIAS service */
+			if (!(ut->t_backend->services & K_ALIAS)) {
+				yyerror("table \"%s\" can't be used as USERS parameter",
+					ut->t_name);
+				YYERROR;
+			}
+
+			rule->r_atable = $4;
 
 			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = COND_VDOM;
+			c->c_table = $2;
 			c->c_table = $2;
 			$$ = c;
 		}
@@ -996,6 +1013,7 @@ lookup(char *s)
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
+		{ "users",     		USERS },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};
