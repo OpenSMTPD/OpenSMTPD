@@ -176,13 +176,6 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_HELO;
 		break;
 	case S_MAIL_MFA:
-		if (ms->ss.code != 530) {
-			imsg_compose_event(env->sc_ievs[PROC_LKA],
-			    IMSG_LKA_MAIL, 0, 0, -1,
-			    &ms->ss, sizeof(ms->ss));
-			mfa_session_destroy(ms);
-			return;
-		}
 		imsg_type = IMSG_MFA_MAIL;
 		break;
 	case S_RCPT_MFA:
