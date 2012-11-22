@@ -95,7 +95,6 @@ void
 mfa_session(struct submit_status *ss, enum filter_type hook)
 {
 	struct mfa_session     *ms;
-	uint32_t	       	i;
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
 	ms->id    = ss->id;
@@ -109,9 +108,7 @@ mfa_session(struct submit_status *ss, enum filter_type hook)
 		return;
 	}
 
-	if ((i = ffs(ms->hook)) == 0)
-		fatalx("something strange happened");
-	ms->fhook = SIMPLEQ_FIRST(&filter_hooks[i - 1]);
+	ms->fhook = SIMPLEQ_FIRST(&filter_hooks[ffs(ms->hook) - 1]);
 	mfa_session_proceed(ms);
 }
 
@@ -269,20 +266,15 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	}
 
 	fm = imsg->data;
-	switch (imsg->hdr.type) {
-	default:
-		fm = imsg->data;
-		ms = tree_xget(&env->mfa_sessions, fm->id);
-		break;
-	}
+	ms = tree_xget(&env->mfa_sessions, fm->id);
 
+	/* we have a code set, the filter has rejected */
 	if (fm->code) {
 		mfa_session_fail(ms, fm->code, fm->errorline);
 		return;
 	}
 
-	ms->ss.code = fm->code;
-	strlcpy(ms->ss.u.errormsg, fm->errorline, sizeof ms->ss.u.errormsg);
+	/* XXX - needs to be completed */
 
 	mfa_session_pickup(ms);
 }
