@@ -65,7 +65,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
 			ss.id = e->session_id;
-			ss.code = 250;
+			ss.code = 0;
 			ss.u.msgid = 0;
 			ret = queue_message_create(&ss.u.msgid);
 			if (ret == 0)
@@ -84,7 +84,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
 			ss.id = e->session_id;
-			ss.code = 250;
+			ss.code = 0;
 			msgid = evpid_to_msgid(e->id);
 			if (queue_message_commit(msgid)) {
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
@@ -133,7 +133,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
 			ss.id = e->session_id;
-			ss.code = 250;
+			ss.code = 0;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, &ss,
 			    sizeof ss);

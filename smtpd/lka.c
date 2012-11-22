@@ -77,10 +77,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			ss->code = 530;
 			if (ss->u.maddr.user[0] == '\0' &&
 			    ss->u.maddr.domain[0] == '\0')
-				ss->code = 250;
+				ss->code = 0;
 			else
 				if (lka_verify_mail(&ss->u.maddr))
-					ss->code = 250;
+					ss->code = 0;
 			imsg_compose_event(iev, IMSG_LKA_MAIL, 0, 0, -1, ss,
 			    sizeof *ss);
 			return;
@@ -92,7 +92,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				ss->code = (errno == EAGAIN) ? 451 : 530;
 			else
 				ss->code = (rule->r_decision == R_ACCEPT) ?
-				    250 : 530;
+				    0 : 530;
 			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
 			    ss, sizeof *ss);
 			return;

@@ -309,7 +309,7 @@ refuse:
 static void
 mfa_test_rcpt_resume(struct submit_status *ss)
 {
-	if (ss->code != 250) {
+	if (ss->code) {
 		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0,
 		    -1, ss, sizeof(*ss));
 		return;
@@ -323,8 +323,6 @@ mfa_test_rcpt_resume(struct submit_status *ss)
 static void
 mfa_test_dataline(struct submit_status *ss)
 {
-	ss->code = 250;
-
 	mfa_session(ss, HOOK_DATALINE);
 }
 

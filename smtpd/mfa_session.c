@@ -244,7 +244,10 @@ mfa_session_done(struct mfa_session *ms)
 static void
 mfa_session_fail(struct mfa_session *ms, uint32_t code, char *errorline)
 {
-	ms->ss.code = code;
+	if (code == FILTER_PERMFAIL)
+		ms->ss.code = 530;
+	else
+		ms->ss.code = 421;
 	strlcpy(ms->ss.u.errormsg, errorline, sizeof ms->ss.u.errormsg);
 	mfa_session_done(ms);
 }

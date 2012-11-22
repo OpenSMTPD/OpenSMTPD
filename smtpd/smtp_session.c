@@ -784,7 +784,6 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_INIT:
-		log_debug("ss->code: %d", ss->code);
 		if (ss->code) {
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": rejected by filter", s->s_id);
@@ -832,7 +831,6 @@ session_pickup(struct session *s, struct submit_status *ss)
 				session_respond(s, "%d Helo rejected", ss->code);
 			break;
 		}
-
 		session_respond(s, "250%c%s Hello %s [%s], pleased to meet you",
 		    (s->s_flags & F_EHLO) ? '-' : ' ',
 		    env->sc_hostname, s->s_msg.helo, ss_to_text(&s->s_ss));
@@ -873,6 +871,8 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_MAIL_QUEUE:
+		if (ss->code == 0)
+			ss->code = 250;
 		session_enter_state(s, S_MAIL);
 		session_respond(s, "%d 2.1.0 Sender ok", ss->code);
 		break;
@@ -892,6 +892,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 			break;
 		}
 
+		ss->code = 250;
 		session_enter_state(s, S_RCPT);
 		s->rcptcount++;
 		s->kickcount--;
