@@ -174,13 +174,13 @@ filter_accept(uint64_t id)
 }
 
 void
-filter_reject(uint64_t id, uint32_t code, char *status)
+filter_reject(uint64_t id, enum filter_status code, char *status)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
 	/* This is NOT an acceptable code for a failure */
-	if (code < 400 || code >= 600)
-		code = 530;
+	if (code == FILTER_SUCCESS)
+		code = FILTER_PERMFAIL;
 	session->fm.code = code;
 	strlcpy(session->fm.errorline, status, sizeof session->fm.errorline);
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
@@ -269,6 +269,13 @@ filter_handler(int fd, short event, void *p)
 		if (n == 0)
 			break;
 
+		if (imsg.hdr.type == FILTER_REGISTER) {
+			if (*(uint32_t *)imsg.data != FILTER_API_VERSION)
+				errx(1, "API version mismatch");
+			imsg_free(&imsg);
+			continue;
+		}
+
 		session = calloc(1, sizeof *session);
 		if (session == NULL)
 			errx(1, "memory exhaustion");
@@ -278,8 +285,6 @@ filter_handler(int fd, short event, void *p)
 			errx(1, "corrupted imsg");
 
 		memcpy(&session->fm, imsg.data, sizeof (session->fm));
-		if (session->fm.version != FILTER_API_VERSION)
-			errx(1, "API version mismatch");
 
 		tree_set(&sessions, session->fm.id, session);
 		session->hook = imsg.hdr.type;

@@ -706,7 +706,7 @@ struct mfa_session {
 	uint64_t			 id;
 
 /*	enum session_state		 state;*/
-	enum filter_type		hook;
+	enum filter_hook       		hook;
 	struct submit_status		ss;
 	void			       *fhook;
 	void			       *iter;
@@ -1060,7 +1060,7 @@ pid_t mfa(void);
 void mfa_session_filters_init(void);
 
 /* mfa_session.c */
-void mfa_session(struct submit_status *, enum filter_type);
+void mfa_session(struct submit_status *, enum filter_hook);
 
 
 /* mta.c */

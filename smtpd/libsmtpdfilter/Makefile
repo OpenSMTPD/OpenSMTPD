@@ -2,9 +2,9 @@
 
 .PATH:		${.CURDIR}/..
 
-CFLAGS	  = -DNOIO
+CFLAGS	  = -DNO_IO
 LIB	  = smtpdfilter
-SRCS	  = filter_api.c dict.c tree.c util.c
+SRCS	  = filter_api.c dict.c tree.c util.c ioev.c iobuf.c log.c
 DEBUGLIBS = no
 NOPROFILE = yes
 NOPIC=	yes

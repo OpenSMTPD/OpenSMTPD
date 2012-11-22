@@ -35,19 +35,24 @@
 SPLAY_HEAD(dict, dictentry);
 SPLAY_HEAD(tree, treeentry);
 
+enum filter_status {
+	FILTER_SUCCESS,
+	FILTER_PERMFAIL,
+	FILTER_TEMPFAIL
+};
 
-/* XXX - server side requires mfa_session.c update on filter_type changes */
-enum filter_type {
-	FILTER_REGISTER		= 0,
-	FILTER_CONNECT		= 0x001,
-	FILTER_HELO		= 0x002,
-	FILTER_EHLO		= 0x004,
-	FILTER_MAIL		= 0x008,
-	FILTER_RCPT		= 0x010,
-	FILTER_DATALINE		= 0x020,
-	FILTER_QUIT		= 0x040,
-	FILTER_CLOSE		= 0x080,
-	FILTER_RSET		= 0x100,
+/* XXX - server side requires mfa_session.c update on filter_hook changes */
+enum filter_hook {
+	HOOK_REGISTER		= 0,
+	HOOK_CONNECT		= 0x001,
+	HOOK_HELO		= 0x002,
+	HOOK_EHLO		= 0x004,
+	HOOK_MAIL		= 0x008,
+	HOOK_RCPT		= 0x010,
+	HOOK_DATALINE		= 0x020,
+	HOOK_QUIT		= 0x040,
+	HOOK_CLOSE		= 0x080,
+	HOOK_RSET		= 0x100,
 };
 
 struct filter_connect {
@@ -83,7 +88,6 @@ union filter_union {
 
 struct filter_msg {
 	uint64_t		id;	 /* set by smtpd(8) */
-	uint8_t			version;
 	uint32_t       		code;
 	char			errorline[MAX_LINE_SIZE];
 	union filter_union	u;

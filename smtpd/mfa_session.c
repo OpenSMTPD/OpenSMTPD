@@ -52,7 +52,7 @@ struct fhook {
 	struct filter	       *filter;
 };
 
-/* XXX - needs to be update to match the number of filter_type in smtpd-api.h */
+/* XXX - needs to be update to match the number of filter_hook in smtpd-api.h */
 SIMPLEQ_HEAD(flist, fhook)	filter_hooks[9];
 
 void
@@ -61,6 +61,7 @@ mfa_session_filters_init(void)
 	struct filter  *filter;
 	void	       *iter;
 	size_t		i;
+	uint32_t	version = FILTER_API_VERSION;
 
 	for (i = 0; i < nitems(filter_hooks); ++i)
 		SIMPLEQ_INIT(&filter_hooks[i]);
@@ -71,7 +72,9 @@ mfa_session_filters_init(void)
 		    mfa_session_imsg_handler, filter);
 		if (filter->process == NULL)
 			fatalx("could not start filter");
-		imsgproc_set_read(filter->process);
+		imsg_compose(filter->process->ibuf, HOOK_REGISTER, 0, 0, -1,
+		    &version, sizeof version);
+		imsgproc_set_write(filter->process);
 	}
 }
 
@@ -92,7 +95,7 @@ mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
 }
 
 void
-mfa_session(struct submit_status *ss, enum filter_type hook)
+mfa_session(struct submit_status *ss, enum filter_hook hook)
 {
 	struct mfa_session     *ms;
 
@@ -120,10 +123,9 @@ mfa_session_proceed(struct mfa_session *ms)
 
 	bzero(&fm, sizeof fm);
 	fm.id = ms->id;
-	fm.version = FILTER_API_VERSION;
 
 	switch (ms->hook) {
-	case FILTER_CONNECT:
+	case HOOK_CONNECT:
 		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
 			sizeof(fm.u.connect.hostname))
 		    >= sizeof(fm.u.connect.hostname))
@@ -131,15 +133,15 @@ mfa_session_proceed(struct mfa_session *ms)
 		fm.u.connect.hostaddr = ms->ss.envelope.ss;
 		break;
 
-	case FILTER_HELO:
-	case FILTER_EHLO:
+	case HOOK_HELO:
+	case HOOK_EHLO:
 		if (strlcpy(fm.u.helo.helohost, ms->ss.envelope.helo,
 			sizeof(fm.u.helo.helohost))
 		    >= sizeof(fm.u.helo.helohost))
 			fatalx("mfa_session_proceed: HELO: truncation");
 		break;
 
-	case FILTER_MAIL:
+	case HOOK_MAIL:
 		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: MAIL: user truncation");
@@ -148,7 +150,7 @@ mfa_session_proceed(struct mfa_session *ms)
 			fatalx("mfa_session_proceed: MAIL: domain truncation");
 		break;
 		
-	case FILTER_RCPT:
+	case HOOK_RCPT:
 		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: RCPT: user truncation");
@@ -157,16 +159,16 @@ mfa_session_proceed(struct mfa_session *ms)
 			fatalx("mfa_session_proceed: RCPT: domain truncation");
 		break;
 
-	case FILTER_DATALINE:
+	case HOOK_DATALINE:
 		if (strlcpy(fm.u.dataline.line, ms->ss.u.dataline,
 			sizeof(fm.u.dataline.line))
 		    >= sizeof(fm.u.dataline.line))
 			fatalx("mfa_session_proceed: DATA: line truncation");
 		break;
 
-	case FILTER_QUIT:
-	case FILTER_CLOSE:
-	case FILTER_RSET:
+	case HOOK_QUIT:
+	case HOOK_CLOSE:
+	case HOOK_RSET:
 		break;
 
 	default:
@@ -192,14 +194,14 @@ mfa_session_done(struct mfa_session *ms)
 	enum imsg_type	imsg_type;
 
 	switch (ms->hook) {
-	case FILTER_CONNECT:
+	case HOOK_CONNECT:
 		imsg_type = IMSG_MFA_CONNECT;
 		break;
-	case FILTER_HELO:
-	case FILTER_EHLO:
+	case HOOK_HELO:
+	case HOOK_EHLO:
 		imsg_type = IMSG_MFA_HELO;
 		break;
-	case FILTER_MAIL:
+	case HOOK_MAIL:
 		if (! ms->ss.code) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
                             IMSG_LKA_MAIL, 0, 0, -1,
@@ -209,7 +211,7 @@ mfa_session_done(struct mfa_session *ms)
 		}
 		imsg_type = IMSG_MFA_MAIL;
 		break;
-	case FILTER_RCPT:
+	case HOOK_RCPT:
 		if (! ms->ss.code) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
                             IMSG_LKA_RULEMATCH, 0, 0, -1,
@@ -219,16 +221,16 @@ mfa_session_done(struct mfa_session *ms)
 		}
 		imsg_type = IMSG_MFA_RCPT;
 		break;
-	case FILTER_DATALINE:
+	case HOOK_DATALINE:
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
-	case FILTER_QUIT:
+	case HOOK_QUIT:
 		imsg_type = IMSG_MFA_QUIT;
 		break;
-	case FILTER_CLOSE:
+	case HOOK_CLOSE:
 		mfa_session_destroy(ms);
 		return;
-	case FILTER_RSET:
+	case HOOK_RSET:
 		imsg_type = IMSG_MFA_RSET;
 		break;
 	default:
@@ -260,7 +262,7 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	struct mfa_session	*ms;
 	struct filter_msg	*fm;
 
-	if (imsg->hdr.type == FILTER_REGISTER) {
+	if (imsg->hdr.type == HOOK_REGISTER) {
 		mfa_session_filter_register(*(uint32_t *)imsg->data, arg);
 		return;
 	}

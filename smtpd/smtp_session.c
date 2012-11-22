@@ -759,10 +759,10 @@ session_pickup(struct session *s, struct submit_status *ss)
 
 	s->s_flags &= ~F_WAITIMSG;
 
-	if ((ss != NULL && ss->code == 421) ||
+	if ((ss != NULL && (ss->code/100) == 4) ||
 	    (s->s_dstatus & DS_TEMPFAILURE)) {
 		stat_increment("smtp.tempfail", 1);
-		session_respond(s, "421 Service temporarily unavailable");
+		session_respond(s, "%d Service temporarily unavailable", ss->code);
 		session_enter_state(s, S_QUIT);
 		io_reload(&s->s_io);
 		return;
@@ -1000,7 +1000,7 @@ session_line(struct session *s, char *line, size_t len)
 		break;
 
 	case S_DATACONTENT:
-		if (env->filtermask & FILTER_DATALINE) {
+		if (env->filtermask & HOOK_DATALINE) {
 			bzero(&ss, sizeof(ss));
 			ss.id = s->s_id;
 			if (strlcpy(ss.u.dataline, line,
