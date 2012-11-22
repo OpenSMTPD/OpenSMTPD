@@ -309,7 +309,6 @@ mfa_test_rcpt(struct envelope *e)
 	ss.u.maddr = e->rcpt;
 	ss.ss = e->ss;
 	ss.envelope = *e;
-	ss.envelope.dest = e->rcpt;
 	ss.flags = e->flags;
 
 	mfa_strip_source_route(ss.u.maddr.user, sizeof(ss.u.maddr.user));

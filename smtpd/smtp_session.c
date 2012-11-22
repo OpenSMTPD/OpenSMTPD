@@ -891,7 +891,6 @@ session_pickup(struct session *s, struct submit_status *ss)
 		session_enter_state(s, S_RCPT);
 		s->rcptcount++;
 		s->kickcount--;
-		s->s_msg.dest = ss->u.maddr;
 		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
 		break;
 

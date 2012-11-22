@@ -90,12 +90,13 @@ lka_session(struct envelope *envelope)
 	TAILQ_INIT(&lks->deliverylist);
 	tree_xset(&sessions, lks->id, lks);
 
-	lks->envelope = *envelope;
+	memmove(&lks->envelope, envelope, sizeof *envelope);
+	/*lks->envelope = *envelope;*/
 
 	TAILQ_INIT(&lks->nodes);
 	bzero(&xn, sizeof xn);
 	xn.type = EXPAND_ADDRESS;
-	xn.u.mailaddr = lks->envelope.dest; /* XXX we should only have rcpt */
+	xn.u.mailaddr = lks->envelope.rcpt;
 	lks->expand.rule = NULL;
 	lks->expand.queue = &lks->nodes;
 	expand_insert(&lks->expand, &xn);
@@ -230,11 +231,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		if (rule == NULL || rule->r_decision == R_REJECT) {
 			lks->error = (errno == EAGAIN) ?
 			    LKA_TEMPFAIL : LKA_PERMFAIL;
-			break; /* no rule for address or REJECT match */
+			break;
 		}
 
-		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA)
+		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 			lka_submit(lks, rule, xn);
+		}
 		else if (rule->r_condition.c_type == COND_VDOM) {
 			/* expand */
 			lks->expand.rule = rule;
