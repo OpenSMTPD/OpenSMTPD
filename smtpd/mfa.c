@@ -89,11 +89,6 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_MAIL:
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_MFA_MAIL, 0, 0, -1, imsg->data,
-			    sizeof(struct submit_status));
-			return;
 		case IMSG_LKA_RCPT:
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_MFA_RCPT, 0, 0, -1, imsg->data,
