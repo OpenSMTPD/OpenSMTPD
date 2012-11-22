@@ -56,7 +56,9 @@ static int mfa_fork_filter(struct filter *);
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct filter *filter;
+	struct imsg_mfa_reply	reply;
+	struct imsg_lka_reply  *lka_reply;
+	struct filter	       *filter;
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -90,9 +92,22 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_RCPT:
+			lka_reply = imsg->data;
+			reply.id = lka_reply->id;
+			if (lka_reply->status == LKA_OK) {
+				reply.status = MFA_OK;
+				reply.code = 250;
+			}
+			else if (lka_reply->status == LKA_TEMPFAIL) {
+				reply.status = MFA_TEMPFAIL;
+				reply.code = 451;
+			}
+			else if (lka_reply->status == LKA_PERMFAIL) {
+				reply.status = MFA_PERMFAIL;
+				reply.code = 530;
+			}
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_MFA_RCPT, 0, 0, -1, imsg->data,
-			    sizeof(struct submit_status));
+			    IMSG_MFA_RCPT, 0, 0, -1, &reply, sizeof (reply));
 			return;
 
 		case IMSG_LKA_RULEMATCH:

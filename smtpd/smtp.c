@@ -95,7 +95,7 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s = session_lookup(mfa_reply->id);
 			if (s == NULL)
 				return;
-			if (mfa_reply->status == MFA_SUCCESS) {
+			if (mfa_reply->status == MFA_OK) {
 				ss.code = 250;
 				/* until we get rid of submit_status */
 				if (imsg->hdr.type == IMSG_MFA_DATALINE) {

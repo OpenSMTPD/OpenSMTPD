@@ -213,13 +213,13 @@ mfa_session_done(struct mfa_session *ms)
 	mfa_reply.id = ms->ss.id;
 	switch (ms->ss.code / 100) {
 	case 2:
-		mfa_reply.status = MFA_SUCCESS;
+		mfa_reply.status = MFA_OK;
 		break;
 	case 4:
 		mfa_reply.status = MFA_TEMPFAIL;
 		break;
 	default:
-		mfa_reply.status = MFA_SUCCESS;
+		mfa_reply.status = MFA_PERMFAIL;
 		break;
 	}
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,

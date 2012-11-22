@@ -84,7 +84,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_RCPT:
-			lka_session(imsg->data);
+			ss = imsg->data;
+			lka_session(&ss->envelope);
 			return;
 		}
 	}

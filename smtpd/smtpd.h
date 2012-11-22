@@ -135,7 +135,7 @@ struct imsg_queue_reply {
 };
 
 enum imsg_mfa_status {
-	MFA_SUCCESS,
+	MFA_OK,
 	MFA_TEMPFAIL,
 	MFA_PERMFAIL
 };
@@ -148,6 +148,17 @@ struct imsg_mfa_reply {
 		struct mailaddr		mailaddr;
 		char			buffer[MAX_LINE_SIZE];
 	}				u;
+};
+
+enum imsg_lka_status {
+	LKA_OK,
+	LKA_TEMPFAIL,
+	LKA_PERMFAIL
+};
+
+struct imsg_lka_reply {
+	uint64_t		id;
+	enum imsg_lka_status	status;
 };
 
 enum imsg_type {
@@ -1067,7 +1078,7 @@ pid_t lka(void);
 
 
 /* lka_session.c */
-void lka_session(struct submit_status *);
+void lka_session(struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 
