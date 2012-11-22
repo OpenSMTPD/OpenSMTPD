@@ -64,10 +64,13 @@ may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
 .Bd -literal -offset indent
+%{sender}	     sender email address
 %{sender.user}	     user part of the sender email address
 %{sender.domain}     domain part of the sender email address
+%{rcpt}              recipient email address
 %{rcpt.user}	     user part of the recipient email address
 %{rcpt.domain}	     domain part of the recipient email address
+%{dest}              recipient email address after expansion
 %{dest.user}	     user part after expansion
 %{dest.domain}	     domain part after expansion
 %{user.username}     local user
@@ -77,8 +80,10 @@ The following formats are currently supported:
 Expansion formats also support partial expansion using the optional bracket notations
 with substring offset. For example, with recipient domain "example.org":
 .Bd -literal -offset indent
-%{rcpt.domain[8]}	expands to "org"
-%{rcpt.domain[-3]}	expands to "org"
+%{rcpt.domain[0]}	expands to "e"
+%{rcpt.domain[1]}	expands to "x"
+%{rcpt.domain[8:]}	expands to "org"
+%{rcpt.domain[-3:]}	expands to "org"
 %{rcpt.domain[0:6]}	expands to "example"
 %{rcpt.domain[0:-4]} 	expands to "example"
 .Ed

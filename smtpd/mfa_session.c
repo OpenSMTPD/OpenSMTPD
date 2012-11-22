@@ -100,8 +100,9 @@ mfa_session(struct submit_status *ss, enum filter_hook hook)
 	struct mfa_session     *ms;
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
-	ms->id    = ss->id;
-	ms->ss    = *ss;
+	ms->id      = ss->id;
+	ms->ss      = *ss;
+	ms->ss.code = 250;
 	ms->hook  = hook;
 	tree_xset(&env->mfa_sessions, ms->id, ms);
 
@@ -191,7 +192,8 @@ mfa_session_pickup(struct mfa_session *ms)
 static void
 mfa_session_done(struct mfa_session *ms)
 {
-	enum imsg_type	imsg_type;
+	enum imsg_type		imsg_type;
+	struct imsg_mfa_reply	mfa_reply;
 
 	switch (ms->hook) {
 	case HOOK_CONNECT:
@@ -202,13 +204,7 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_HELO;
 		break;
 	case HOOK_MAIL:
-		if (! ms->ss.code) {
-			imsg_compose_event(env->sc_ievs[PROC_LKA],
-                            IMSG_LKA_MAIL, 0, 0, -1,
-                            &ms->ss, sizeof(ms->ss));
-                        mfa_session_destroy(ms);
-                        return;
-		}
+		mfa_reply.u.mailaddr = ms->ss.u.maddr;
 		imsg_type = IMSG_MFA_MAIL;
 		break;
 	case HOOK_RCPT:
@@ -219,9 +215,15 @@ mfa_session_done(struct mfa_session *ms)
                         mfa_session_destroy(ms);
                         return;
 		}
+		mfa_reply.u.mailaddr = ms->ss.u.maddr;
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATALINE:
+		if (! ms->ss.code) {
+			strlcpy(mfa_reply.u.buffer,
+			    ms->ss.u.dataline,
+			    sizeof (mfa_reply.u.buffer));
+		}
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
 	case HOOK_QUIT:
@@ -236,9 +238,28 @@ mfa_session_done(struct mfa_session *ms)
 	default:
 		fatalx("mda_session_done: unsupported state");
 	}
+
+	log_debug("ms->ss.code: %d", ms->ss.code);
+	mfa_reply.id = ms->ss.id;
+	mfa_reply.code = ms->ss.code;
+	switch (ms->ss.code / 100) {
+	case 2:
+		mfa_reply.status = MFA_SUCCESS;
+		mfa_reply.code = 250;
+		break;
+	case 4:
+		mfa_reply.status = MFA_TEMPFAIL;
+		mfa_reply.code = 421;
+		break;
+	default:
+		mfa_reply.status = MFA_PERMFAIL;
+		mfa_reply.code = 530;
+		break;
+	}
+
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,
-            -1, &ms->ss, sizeof(struct submit_status));
-        mfa_session_destroy(ms);
+	    -1, &mfa_reply, sizeof(mfa_reply));
+	mfa_session_destroy(ms);
 }
 
 static void

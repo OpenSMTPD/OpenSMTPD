@@ -88,11 +88,6 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_MAIL:
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_MFA_MAIL, 0, 0, -1, imsg->data,
-			    sizeof(struct submit_status));
-			return;
 		case IMSG_LKA_RCPT:
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_MFA_RCPT, 0, 0, -1, imsg->data,
@@ -253,7 +248,8 @@ mfa_test_helo(struct envelope *e)
 static void
 mfa_test_mail(struct envelope *e)
 {
-	struct submit_status	 ss;
+	struct submit_status	ss;
+	struct imsg_mfa_reply	mfa_reply;
 
 	ss.id = e->session_id;
 	ss.u.maddr = e->sender;
@@ -275,8 +271,11 @@ mfa_test_mail(struct envelope *e)
 	return;
 
 refuse:
+	mfa_reply.id = e->session_id;
+	mfa_reply.status = MFA_PERMFAIL;
+	mfa_reply.u.mailaddr = ss.u.maddr;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL, 0, 0, -1,
-	    &ss, sizeof(ss));
+	    &mfa_reply, sizeof(mfa_reply));
 	return;
 }
 
@@ -284,6 +283,7 @@ static void
 mfa_test_rcpt(struct envelope *e)
 {
 	struct submit_status	 ss;
+	struct imsg_mfa_reply	mfa_reply;
 
 	ss.id = e->session_id;
 	ss.u.maddr = e->rcpt;
@@ -297,21 +297,29 @@ mfa_test_rcpt(struct envelope *e)
 	if (! valid_localpart(ss.u.maddr.user) ||
 	    ! valid_domainpart(ss.u.maddr.domain))
 		goto refuse;
-
 	mfa_session(&ss, HOOK_RCPT);
 	return;
 
 refuse:
+	mfa_reply.id = e->session_id;
+	mfa_reply.status = MFA_PERMFAIL;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1,
-	    &ss, sizeof(ss));
+	    &mfa_reply, sizeof(mfa_reply));
 }
 
 static void
 mfa_test_rcpt_resume(struct submit_status *ss)
 {
-	if (ss->code) {
+	struct imsg_mfa_reply	mfa_reply;
+
+	if (ss->code != 250) {
+		mfa_reply.id = ss->id;
+		if ((ss->code / 100) == 4)
+			mfa_reply.status = MFA_TEMPFAIL;
+		else
+			mfa_reply.status = MFA_PERMFAIL;
 		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0,
-		    -1, ss, sizeof(*ss));
+		    -1, &mfa_reply, sizeof(mfa_reply));
 		return;
 	}
 

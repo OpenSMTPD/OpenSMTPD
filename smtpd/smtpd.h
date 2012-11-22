@@ -109,6 +109,11 @@ struct userinfo {
 	gid_t gid;
 };
 
+struct mailaddr {
+	char	user[MAX_LOCALPART_SIZE];
+	char	domain[MAX_DOMAINPART_SIZE];
+};
+
 struct netaddr {
 	struct sockaddr_storage ss;
 	int bits;
@@ -120,6 +125,28 @@ struct relayhost {
 	uint16_t port;
 	char cert[PATH_MAX];
 	char authtable[MAX_PATH_SIZE];
+};
+
+struct imsg_queue_reply {
+	uint64_t	id;
+	int		success;
+	uint64_t	evpid;
+};
+
+enum imsg_mfa_status {
+	MFA_SUCCESS,
+	MFA_TEMPFAIL,
+	MFA_PERMFAIL
+};
+
+struct imsg_mfa_reply {
+	uint64_t			id;
+	enum imsg_mfa_status		status;
+	uint32_t			code;
+	union imsg_mfa_reply_data {
+		struct mailaddr		mailaddr;
+		char			buffer[MAX_LINE_SIZE];
+	}				u;
 };
 
 enum imsg_type {
@@ -140,7 +167,6 @@ enum imsg_type {
 
 	IMSG_LKA_UPDATE_TABLE,
 
-	IMSG_LKA_MAIL,
 	IMSG_LKA_RCPT,
 	IMSG_LKA_SECRET,
 	IMSG_LKA_RULEMATCH,
@@ -162,7 +188,7 @@ enum imsg_type {
 	IMSG_QUEUE_COMMIT_ENVELOPES,
 	IMSG_QUEUE_REMOVE_MESSAGE,
 	IMSG_QUEUE_COMMIT_MESSAGE,
-	IMSG_QUEUE_TEMPFAIL,
+
 	IMSG_QUEUE_PAUSE_MDA,
 	IMSG_QUEUE_PAUSE_MTA,
 	IMSG_QUEUE_RESUME_MDA,
@@ -276,6 +302,7 @@ struct table {
 
 	void				*t_handle;
 	struct table_backend		*t_backend;
+	void				*t_payload;
 };
 
 struct table_backend {
@@ -330,11 +357,6 @@ struct rule {
 	struct mailaddr		       *r_as;
 	objid_t				r_atable;
 	time_t				r_qexpire;
-};
-
-struct mailaddr {
-	char	user[MAX_LOCALPART_SIZE];
-	char	domain[MAX_DOMAINPART_SIZE];
 };
 
 enum delivery_type {
@@ -1192,6 +1214,8 @@ void table_delete_all(struct table *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);
+void	table_set_payload(struct table *, void *);
+void   *table_get_payload(struct table *);
 
 
 /* util.c */
