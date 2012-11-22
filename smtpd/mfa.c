@@ -45,7 +45,7 @@ static void mfa_test_connect(struct envelope *);
 static void mfa_test_helo(struct envelope *);
 static void mfa_test_mail(struct envelope *);
 static void mfa_test_rcpt(struct envelope *);
-static void mfa_test_rcpt_resume(struct submit_status *);
+static void mfa_test_rcpt_resume(struct imsg_lka_reply *);
 static void mfa_test_dataline(struct submit_status *);
 static void mfa_test_quit(struct envelope *);
 static void mfa_test_close(struct envelope *);
@@ -94,18 +94,12 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_RCPT:
 			lka_reply = imsg->data;
 			reply.id = lka_reply->id;
-			if (lka_reply->status == LKA_OK) {
+			if (lka_reply->status == LKA_OK)
 				reply.status = MFA_OK;
-				reply.code = 250;
-			}
-			else if (lka_reply->status == LKA_TEMPFAIL) {
+			else if (lka_reply->status == LKA_TEMPFAIL)
 				reply.status = MFA_TEMPFAIL;
-				reply.code = 451;
-			}
-			else if (lka_reply->status == LKA_PERMFAIL) {
+			else if (lka_reply->status == LKA_PERMFAIL)
 				reply.status = MFA_PERMFAIL;
-				reply.code = 530;
-			}
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_MFA_RCPT, 0, 0, -1, &reply, sizeof (reply));
 			return;
@@ -340,24 +334,27 @@ refuse:
 }
 
 static void
-mfa_test_rcpt_resume(struct submit_status *ss)
+mfa_test_rcpt_resume(struct imsg_lka_reply *lka_reply)
 {
-	struct imsg_mfa_reply	mfa_reply;
+	struct imsg_mfa_reply	reply;
 
-	if (ss->code != 250) {
-		mfa_reply.id = ss->id;
-		if ((ss->code / 100) == 4)
-			mfa_reply.status = MFA_TEMPFAIL;
+	switch (lka_reply->status) {
+	case LKA_OK:
+		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RCPT, 0, 0,
+		    -1, envelope, sizeof *envelope);
+		break;
+
+	case LKA_TEMPFAIL:
+	case LKA_PERMFAIL:
+		reply.id = lka_reply->id;
+		if (lka_reply->status == LKA_TEMPFAIL)
+			reply.status = MFA_TEMPFAIL;
 		else
-			mfa_reply.status = MFA_PERMFAIL;
+			reply.status = MFA_PERMFAIL;
 		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0,
-		    -1, &mfa_reply, sizeof(mfa_reply));
-		return;
+		    -1, &reply, sizeof(reply));
+		break;
 	}
-
-	ss->envelope.dest = ss->u.maddr;
-	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_RCPT, 0, 0, -1,
-	    ss, sizeof(*ss));
 }
 
 static void

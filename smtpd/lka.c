@@ -50,7 +50,8 @@ static int lka_encode_credentials(char *, size_t, struct table_credentials *);
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct submit_status	*ss;
+	struct imsg_lka_reply	 reply;
+	struct envelope		*envelope;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
@@ -72,20 +73,28 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 
 		case IMSG_LKA_RULEMATCH:
-			ss = imsg->data;
-			rule = ruleset_match(&ss->envelope);
-			if (rule == NULL)
-				ss->code = (errno == EAGAIN) ? 451 : 530;
-			else
-				ss->code = (rule->r_decision == R_ACCEPT) ?
-				    250 : 530;
+			envelope = imsg->data;
+			rule = ruleset_match(envelope);
+			reply.id = envelope->session_id;
+			if (rule == NULL) {
+				if (errno == EAGAIN)
+					reply.status = LKA_TEMPFAIL;
+				else
+					reply.status = LKA_PERMFAIL;
+			}
+			else {
+				if (rule->r_decision == R_ACCEPT)
+					reply.status = LKA_OK;
+				else
+					reply.status = LKA_PERMFAIL;
+			}
 			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
-			    ss, sizeof *ss);
+			    &reply, sizeof reply);
 			return;
 
 		case IMSG_LKA_RCPT:
-			ss = imsg->data;
-			lka_session(&ss->envelope);
+			envelope = imsg->data;
+			lka_session(envelope);
 			return;
 		}
 	}
