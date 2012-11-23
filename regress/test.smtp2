@@ -1,0 +1,38 @@
+#
+#  Make sure that the SMTP limits are ok
+#
+
+# 1000 RCPT per message
+test-case {
+	expect smtp
+	writeln "EHLO fkf"
+	expect smtp helo
+	writeln "MAIL FROM: <eric@blabla>"
+	expect smtp ok
+	repeat 100 {
+		writeln "RCPT TO: <eric@localhost>"
+		expect smtp ok
+	}
+	writeln "RCPT TO: <eric@localhost>"
+	expect smtp tempfail
+}
+
+# 100 messages per session
+test-case {
+	expect smtp
+	writeln "EHLO fkf"
+	expect smtp helo
+	repeat 100 {
+		writeln "MAIL FROM: <eric@blabla>"
+		expect smtp ok
+		writeln "RCPT TO: <eric@localhost>"
+		expect smtp ok
+		writeln "DATA"
+		expect smtp ok
+		writeln "foo"
+		writeln "."
+		expect smtp ok
+	}
+	writeln "MAIL FROM: <eric@blabla>"
+	expect smtp tempfail
+}

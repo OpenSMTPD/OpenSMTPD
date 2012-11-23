@@ -1,0 +1,87 @@
+#
+# Simple test cases for the SMTP server.
+#
+
+# Make sure we get an smtp welcome message
+test-case {
+	expect smtp
+}
+
+# Make sure that the server accept QUIT and disconnect immediatly
+test-case {
+	expect smtp
+	writeln "QUIT"
+	expect smtp ok
+	expect disconnect
+}
+
+# Make sure that the server rejects an empty HELO
+test-case {
+	expect smtp
+	writeln "HELO"
+	expect smtp permfail
+}
+
+# Make sure that the server rejects an empty EHLO
+test-case {
+	expect smtp
+	writeln "EHLO"
+	expect smtp permfail
+}
+
+# Make sure that the server accepts HELO
+test-case {
+	expect smtp
+	writeln "HELO myself"
+	expect smtp ok
+}
+
+# Make sure that the server accepts EHLO
+test-case {
+	expect smtp
+	writeln "EHLO myself"
+	expect smtp helo
+}
+
+# Make sure that the server doesn't accept mail before HELO
+test-case {
+	expect smtp
+	writeln "MAIL FROM: <me@localhost>"
+	expect smtp permfail
+}
+
+# Simple mail transfer test, without pipelining
+test-case {
+	expect smtp
+	writeln "EHLO fkf"
+	expect smtp helo
+	writeln "MAIL FROM: <eric@blabla>"
+	expect smtp ok
+	writeln "RCPT TO: <eric@localhost>"
+	expect smtp ok
+	writeln "DATA"
+	expect smtp ok
+	writeln "foo"
+	writeln "."
+	expect smtp ok
+	writeln "QUIT"
+	expect smtp
+	expect disconnect
+}
+
+# Simple mail transfer test, with pipelining
+test-case {
+	expect smtp
+	writeln "EHLO fkf"
+	expect smtp helo
+	writeln "MAIL FROM: <eric@blabla>"
+	writeln "RCPT TO: <eric@localhost>"
+	writeln "DATA"
+	repeat 3 expect smtp ok
+	writeln "foo"
+	writeln "."
+	expect smtp ok
+	writeln "QUIT"
+	expect smtp
+	expect disconnect
+}
