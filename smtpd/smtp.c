@@ -56,7 +56,7 @@ static uint32_t	sessions;
 static void
 smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct imsg_queue_reply	*queue_reply;
+	struct queue_resp_msg	*queue_resp;
 	struct imsg_mfa_reply	*mfa_reply;
 	struct submit_status	 ss;
 	struct listener		*l;
@@ -120,20 +120,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 
 	if (iev->proc == PROC_QUEUE) {
-		queue_reply = imsg->data;
+		queue_resp = imsg->data;
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			s->s_msg.id = queue_reply->evpid;
-			ss.code = (queue_reply->success) ? 250 : 421;
+			s->s_msg.id = queue_resp->evpid;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL) {
 				close(imsg->fd);
 				return;
@@ -141,35 +141,35 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s->datafp = fdopen(imsg->fd, "w");
 			if (s->datafp == NULL) {
 				/* queue may have experienced tempfail. */
-				if (!queue_reply->success)
+				if (!queue_resp->success)
 					fatalx("smtp: fdopen");
 				close(imsg->fd);
 			}
-			ss.code = (queue_reply->success) ? 250 : 421;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			if (!queue_reply->success)
+			if (!queue_resp->success)
 				s->s_dstatus |= DS_TEMPFAILURE;
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			ss.code = (queue_reply->success) ? 250 : 421;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			ss.code = (queue_reply->success) ? 250 : 421;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 

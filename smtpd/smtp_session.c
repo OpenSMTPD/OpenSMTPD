@@ -520,7 +520,7 @@ session_rfc5321_quit_handler(struct session *s, char *args)
 static int
 session_rfc5321_data_handler(struct session *s, char *args)
 {
-	struct imsg_queue_data	queue_data;
+	struct queue_req_msg	queue_req;
 
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
@@ -539,10 +539,10 @@ session_rfc5321_data_handler(struct session *s, char *args)
 
 	session_enter_state(s, S_DATA_QUEUE);
 
-	queue_data.id = s->s_id;
-	queue_data.evpid = s->s_msg.id;
+	queue_req.reqid = s->s_id;
+	queue_req.evpid = s->s_msg.id;
 	session_imsg(s, PROC_QUEUE, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-	    &queue_data, sizeof(queue_data));
+	    &queue_req, sizeof(queue_req));
 
 	return 1;
 }
@@ -780,9 +780,11 @@ session_io(struct io *io, int evt)
 void
 session_pickup(struct session *s, struct submit_status *ss)
 {
+	struct queue_req_msg	queue_req;
+	struct imsg_mfa_data	mfa_data;
 	char			user[MAXLOGNAME];
 	void		       *ssl;
-	struct imsg_mfa_data	mfa_data;
+	
 
 	s->s_flags &= ~F_WAITIMSG;
 
@@ -894,8 +896,10 @@ session_pickup(struct session *s, struct submit_status *ss)
 		session_enter_state(s, S_MAIL_QUEUE);
 		s->s_msg.sender = ss->u.maddr;
 
+		queue_req.reqid = s->s_id;
+		queue_req.evpid = 0;
 		session_imsg(s, PROC_QUEUE, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-		    &s->s_id, sizeof(s->s_id));
+		    &queue_req, sizeof queue_req);
 		break;
 
 	case S_MAIL_QUEUE:
@@ -1055,7 +1059,7 @@ tempfail:
 static void
 session_read_data(struct session *s, char *line)
 {
-	struct imsg_queue_data	queue_data;
+	struct queue_req_msg	queue_req;
 	size_t datalen;
 	size_t len;
 	size_t i;
@@ -1074,10 +1078,10 @@ session_read_data(struct session *s, char *line)
 			session_enter_state(s, S_QUIT);
 			stat_increment("smtp.tempfail", 1);
 		} else {
-			queue_data.id = s->s_id;
-			queue_data.evpid = s->s_msg.id;
+			queue_req.reqid = s->s_id;
+			queue_req.evpid = s->s_msg.id;
 			session_imsg(s, PROC_QUEUE, IMSG_QUEUE_COMMIT_MESSAGE,
-			    0, 0, -1, &queue_data, sizeof(queue_data));
+			    0, 0, -1, &queue_req, sizeof(queue_req));
 			session_enter_state(s, S_DONE);
 		}
 		return;
