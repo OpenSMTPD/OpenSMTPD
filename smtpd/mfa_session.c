@@ -42,7 +42,7 @@
 static void mfa_session_proceed(struct mfa_session *);
 static void mfa_session_destroy(struct mfa_session *);
 static void mfa_session_done(struct mfa_session *);
-static void mfa_session_fail(struct mfa_session *, uint32_t, char *);
+static void mfa_session_fail(struct mfa_session *, enum filter_status, uint32_t, char *);
 
 static void mfa_session_filter_register(uint32_t, struct filter *);
 void mfa_session_imsg_handler(struct imsg *, void *);
@@ -209,7 +209,7 @@ mfa_session_done(struct mfa_session *ms)
 		mfa_reply.u.mailaddr = ms->data.evp.sender;
 		break;
 	case HOOK_RCPT:
-		if (ms->code != 530) {
+		if (ms->status == FILTER_OK) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
 			    IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
 			    &ms->data.evp, sizeof(ms->data.evp));
@@ -220,7 +220,7 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATALINE:
-		if (! ms->ss.code) {
+		if (ms->status == FILTER_OK) {
 			(void)strlcpy(mfa_reply.u.buffer,
 			    ms->fm.u.dataline.line,
 			    sizeof(mfa_reply.u.buffer));
@@ -241,11 +241,11 @@ mfa_session_done(struct mfa_session *ms)
 	}
 
 	mfa_reply.id = ms->id;
-	switch (ms->code / 100) {
-	case 2:
+	switch (ms->status) {
+	case FILTER_OK:
 		mfa_reply.status = MFA_OK;
 		break;
-	case 4:
+	case FILTER_TEMPFAIL:
 		mfa_reply.status = MFA_TEMPFAIL;
 		mfa_reply.code = 421;
 		break;
@@ -255,15 +255,23 @@ mfa_session_done(struct mfa_session *ms)
 		break;
 	}
 
+	if (ms->code)
+		mfa_reply.code = ms->code;
+
+	memcpy(mfa_reply.u.buffer, ms->errorline, sizeof mfa_reply.u.buffer);
+
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,
 	    -1, &mfa_reply, sizeof(mfa_reply));
 	mfa_session_destroy(ms);
 }
 
 static void
-mfa_session_fail(struct mfa_session *ms, uint32_t code, char *errorline)
+mfa_session_fail(struct mfa_session *ms, enum filter_status status, uint32_t code, char *errorline)
 {
-	ms->code = 530;
+	ms->status = status;
+	if (code)
+		ms->code = code;
+	strlcpy(ms->errorline, errorline, sizeof ms->errorline);
 	mfa_session_done(ms);
 }
 
@@ -288,9 +296,8 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	fm = imsg->data;
 	ms = tree_xget(&env->mfa_sessions, fm->id);
 
-	/* we have a code set, the filter has rejected */
-	if (fm->code) {
-		mfa_session_fail(ms, fm->code, fm->errorline);
+	if (fm->code != FILTER_OK) {
+		mfa_session_fail(ms, fm->status, fm->code, fm->errorline);
 		return;
 	}
 

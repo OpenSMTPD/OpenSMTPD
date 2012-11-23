@@ -694,7 +694,10 @@ union mfa_session_data {
 struct mfa_session {
 	SPLAY_ENTRY(mfa_session)	nodes;
 	uint64_t			id;
+
+	enum filter_status		status;
 	uint32_t			code;
+	char				errorline[MAX_LINE_SIZE];
 
 	union mfa_session_data		data;
 

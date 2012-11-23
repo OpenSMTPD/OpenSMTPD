@@ -36,7 +36,7 @@ SPLAY_HEAD(dict, dictentry);
 SPLAY_HEAD(tree, treeentry);
 
 enum filter_status {
-	FILTER_SUCCESS,
+	FILTER_OK,
 	FILTER_PERMFAIL,
 	FILTER_TEMPFAIL
 };
@@ -88,7 +88,8 @@ union filter_union {
 
 struct filter_msg {
 	uint64_t		id;	 /* set by smtpd(8) */
-	enum filter_status	code;
+	enum filter_status	status;
+	uint32_t		code;
 	char			errorline[MAX_LINE_SIZE];
 	union filter_union	u;
 };
@@ -115,7 +116,9 @@ void dict_merge(struct dict *, struct dict *);
 void filter_init(void);
 void filter_loop(void);
 void filter_accept(uint64_t);
-void filter_reject(uint64_t, uint32_t, char *);
+void filter_reject(uint64_t, enum filter_status);
+void filter_reject_status(uint64_t, uint32_t, const char *);
+
 
 void filter_register_connect_callback(void (*)(uint64_t, struct filter_connect *, void *), void *);
 void filter_register_helo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);

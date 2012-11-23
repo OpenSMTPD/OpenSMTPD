@@ -97,23 +97,28 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 
 			if (mfa_reply->status == MFA_OK) {
-				ss.code = 250;
+				ss.code = mfa_reply->code ? mfa_reply->code : 250;
 				/* until we get rid of submit_status */
 				if (imsg->hdr.type == IMSG_MFA_DATALINE) {
 					strlcpy(ss.u.dataline,
 					    mfa_reply->u.buffer,
 					    sizeof (ss.u.dataline));
 				}
-
 				if (imsg->hdr.type == IMSG_MFA_MAIL) {
 					ss.u.maddr = mfa_reply->u.mailaddr;
 				}
 			}
 			else if (mfa_reply->status == MFA_TEMPFAIL) {
-				ss.code = 421;
+				ss.code = mfa_reply->code ? mfa_reply->code : 421;
+				if (mfa_reply->u.buffer[0])
+					strlcpy(ss.u.errormsg, mfa_reply->u.buffer,
+					    sizeof ss.u.errormsg);
 			}
 			else {
-				ss.code = 530;
+				ss.code = mfa_reply->code ? mfa_reply->code : 530;
+				if (mfa_reply->u.buffer[0])
+					strlcpy(ss.u.errormsg, mfa_reply->u.buffer,
+					    sizeof ss.u.errormsg);
 			}
 			session_pickup(s, &ss);
 			return;

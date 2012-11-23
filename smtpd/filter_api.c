@@ -166,7 +166,8 @@ filter_accept(uint64_t id)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
-	session->fm.code = FILTER_SUCCESS;
+	session->fm.status = FILTER_OK;
+	session->fm.code = 0;
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
 	    sizeof session->fm);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
@@ -174,15 +175,46 @@ filter_accept(uint64_t id)
 }
 
 void
-filter_reject(uint64_t id, enum filter_status code, char *status)
+filter_reject_status(uint64_t id, uint32_t code, const char *errorline)
+{
+	struct session *session = tree_xpop(&sessions, id);
+
+	switch (code / 100) {
+	case 4:
+		session->fm.status = FILTER_TEMPFAIL;
+		session->fm.code = code;
+		break;
+	case 5:
+		session->fm.status = FILTER_PERMFAIL;
+		session->fm.code = code;
+		break;
+	default:	/* This is NOT an acceptable code for a failure */
+		session->fm.status = FILTER_PERMFAIL;
+		session->fm.code = 0;
+		status = NULL;
+	}
+
+	if (errorline) {
+		strlcpy(session->fm.errorline, errorline,
+		    sizeof session->fm.errorline);
+	}
+	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
+	    sizeof session->fm);
+	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
+	event_add(&fi.ev, NULL);
+}
+
+void
+filter_reject(uint64_t id, enum filter_status status)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
-	/* This is NOT an acceptable code for a failure */
-	if (code == FILTER_SUCCESS)
-		code = FILTER_PERMFAIL;
-	session->fm.code = code;
-	strlcpy(session->fm.errorline, status, sizeof session->fm.errorline);
+	/* This is NOT an acceptable status for a failure */
+	if (status == FILTER_SUCCESS)
+		status = FILTER_PERMFAIL;
+
+	session->fm.status = status;
+	session->fm.code = 0;
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
 	    sizeof session->fm);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
