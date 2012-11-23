@@ -563,6 +563,7 @@ domain		: DOMAIN tables			{
 					m->t_name);
 				YYERROR;
 			}
+			$$ = $2;
 		}
 		;
 
@@ -583,7 +584,7 @@ alias		: ALIAS tables			{
 				YYERROR;
 			}
 
-			$$ = m->t_id;
+			$$ = $2;
 		}
 		| /* empty */			{ $$ =  0; }
 		;

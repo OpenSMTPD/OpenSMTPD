@@ -70,9 +70,10 @@ ruleset_match(const struct envelope *evp)
 
 		if (r->r_condition.c_type == COND_DOM ||
 		    r->r_condition.c_type == COND_VDOM) {
+			log_debug("table :%d", r->r_condition.c_table);
 			table = table_find(r->r_condition.c_table);
 			if (table == NULL)
-				fatal("failed to lookup table.");
+				fatal("failed to lookup table");
 
 			ret = table_lookup(table, maddr->domain, K_DOMAIN,
 			    NULL);
