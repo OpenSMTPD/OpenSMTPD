@@ -944,40 +944,37 @@ struct queue_resp_msg {
 	uint64_t	evpid;
 };
 
+struct mfa_req_msg {
+	uint64_t		reqid;
+	char			buffer[MAX_LINE_SIZE];
+	struct envelope		evp;
+};
 
-enum imsg_mfa_status {
+enum mfa_resp_status {
 	MFA_OK,
 	MFA_TEMPFAIL,
 	MFA_PERMFAIL
 };
 
-struct imsg_mfa_data {
-	uint64_t		id;
-	char			buffer[MAX_LINE_SIZE];
-	struct envelope		evp;
+struct mfa_resp_msg {
+	uint64_t		reqid;
+	enum mfa_resp_status	status;
+	union	{
+		struct mailaddr	mailaddr;
+		char		buffer[MAX_LINE_SIZE];
+	}			u;
 };
 
-struct imsg_mfa_reply {
-	uint64_t			id;
-	enum imsg_mfa_status		status;
-	union imsg_mfa_reply_data {
-		struct mailaddr		mailaddr;
-		char			buffer[MAX_LINE_SIZE];
-	}				u;
-};
-
-enum imsg_lka_status {
+enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,
 	LKA_PERMFAIL
 };
 
-struct imsg_lka_reply {
-	uint64_t		id;
-	enum imsg_lka_status	status;
+struct lka_resp_msg {
+	uint64_t		reqid;
+	enum lka_resp_status	status;
 };
-
-
 
 
 /* aliases.c */

@@ -41,22 +41,22 @@
 static void mfa_imsg(struct imsgev *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
-static void mfa_test_connect(struct imsg_mfa_data *);
-static void mfa_test_helo(struct imsg_mfa_data *);
-static void mfa_test_mail(struct imsg_mfa_data *);
-static void mfa_test_rcpt(struct imsg_mfa_data *);
-static void mfa_test_dataline(struct imsg_mfa_data *);
-static void mfa_test_quit(struct imsg_mfa_data *);
-static void mfa_test_close(struct imsg_mfa_data *);
-static void mfa_test_rset(struct imsg_mfa_data *);
+static void mfa_test_connect(struct mfa_req_msg *);
+static void mfa_test_helo(struct mfa_req_msg *);
+static void mfa_test_mail(struct mfa_req_msg *);
+static void mfa_test_rcpt(struct mfa_req_msg *);
+static void mfa_test_dataline(struct mfa_req_msg *);
+static void mfa_test_quit(struct mfa_req_msg *);
+static void mfa_test_close(struct mfa_req_msg *);
+static void mfa_test_rset(struct mfa_req_msg *);
 static int mfa_strip_source_route(char *, size_t);
 static int mfa_fork_filter(struct filter *);
 
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct imsg_mfa_reply	reply;
-	struct imsg_lka_reply  *lka_reply;
+	struct mfa_resp_msg	resp;
+	struct lka_resp_msg    *lka_resp;
 	struct filter	       *filter;
 
 	if (iev->proc == PROC_SMTP) {
@@ -91,16 +91,16 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_EXPAND_RCPT:
-			lka_reply = imsg->data;
-			reply.id = lka_reply->id;
-			if (lka_reply->status == LKA_OK)
-				reply.status = MFA_OK;
-			else if (lka_reply->status == LKA_TEMPFAIL)
-				reply.status = MFA_TEMPFAIL;
-			else if (lka_reply->status == LKA_PERMFAIL)
-				reply.status = MFA_PERMFAIL;
+			lka_resp = imsg->data;
+			resp.reqid = lka_resp->reqid;
+			if (lka_resp->status == LKA_OK)
+				resp.status = MFA_OK;
+			else if (lka_resp->status == LKA_TEMPFAIL)
+				resp.status = MFA_TEMPFAIL;
+			else if (lka_resp->status == LKA_PERMFAIL)
+				resp.status = MFA_PERMFAIL;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_MFA_RCPT, 0, 0, -1, &reply, sizeof (reply));
+			    IMSG_MFA_RCPT, 0, 0, -1, &resp, sizeof (resp));
 			return;
 		}
 	}
@@ -241,28 +241,28 @@ mfa(void)
 }
 
 static void
-mfa_test_connect(struct imsg_mfa_data *d)
+mfa_test_connect(struct mfa_req_msg *d)
 {
 	union mfa_session_data	data;
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_CONNECTED, &data);
+	mfa_session(d->reqid, S_CONNECTED, &data);
 }
 
 static void
-mfa_test_helo(struct imsg_mfa_data *d)
+mfa_test_helo(struct mfa_req_msg *d)
 {
 	union mfa_session_data	data;
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_HELO, &data);
+	mfa_session(d->reqid, S_HELO, &data);
 }
 
 static void
-mfa_test_mail(struct imsg_mfa_data *d)
+mfa_test_mail(struct mfa_req_msg *d)
 {
 	struct envelope	       *e = &d->evp;
-	struct imsg_mfa_reply	mfa_reply;
+	struct mfa_resp_msg	mfa_resp;
 	union mfa_session_data	data;
 
 	if (mfa_strip_source_route(e->sender.user, sizeof(e->sender.user)))
@@ -279,22 +279,22 @@ mfa_test_mail(struct imsg_mfa_data *d)
 	}
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_MAIL_MFA, &data);
+	mfa_session(d->reqid, S_MAIL_MFA, &data);
 	return;
 
 refuse:
-	mfa_reply.id = d->id;
-	mfa_reply.status = MFA_PERMFAIL;
+	mfa_resp.reqid = d->reqid;
+	mfa_resp.status = MFA_PERMFAIL;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL, 0, 0, -1,
-	    &mfa_reply, sizeof(mfa_reply));
+	    &mfa_resp, sizeof(mfa_resp));
 	return;
 }
 
 static void
-mfa_test_rcpt(struct imsg_mfa_data *d)
+mfa_test_rcpt(struct mfa_req_msg *d)
 {
 	struct envelope	       *e = &d->evp;
-	struct imsg_mfa_reply	mfa_reply;
+	struct mfa_resp_msg	mfa_resp;
 	union mfa_session_data	data;
 
 	mfa_strip_source_route(e->rcpt.user, sizeof(e->rcpt.user));
@@ -304,50 +304,50 @@ mfa_test_rcpt(struct imsg_mfa_data *d)
 		goto refuse;
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_RCPT_MFA, &data);
+	mfa_session(d->reqid, S_RCPT_MFA, &data);
 	return;
 
 refuse:
-	mfa_reply.id = d->id;
-	mfa_reply.status = MFA_PERMFAIL;
+	mfa_resp.reqid = d->reqid;
+	mfa_resp.status = MFA_PERMFAIL;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1,
-	    &mfa_reply, sizeof(mfa_reply));
+	    &mfa_resp, sizeof(mfa_resp));
 }
 
 static void
-mfa_test_dataline(struct imsg_mfa_data *d)
+mfa_test_dataline(struct mfa_req_msg *d)
 {
 	union mfa_session_data	data;
 
 	strlcpy(data.buffer, d->buffer, sizeof data.buffer);
-	mfa_session(d->id, S_DATACONTENT, &data);
+	mfa_session(d->reqid, S_DATACONTENT, &data);
 }
 
 static void
-mfa_test_quit(struct imsg_mfa_data *d)
+mfa_test_quit(struct mfa_req_msg *d)
 {
 	union mfa_session_data	data;
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_QUIT, &data);
+	mfa_session(d->reqid, S_QUIT, &data);
 }
 
 static void
-mfa_test_close(struct imsg_mfa_data *d)
+mfa_test_close(struct mfa_req_msg *d)
 {
 	union mfa_session_data	data;
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_CLOSE, &data);
+	mfa_session(d->reqid, S_CLOSE, &data);
 }
 
 static void
-mfa_test_rset(struct imsg_mfa_data *d)
+mfa_test_rset(struct mfa_req_msg *d)
 {
 	union mfa_session_data	data;
 
 	data.evp = d->evp;
-	mfa_session(d->id, S_RSET, &data);
+	mfa_session(d->reqid, S_RSET, &data);
 }
 
 static int
