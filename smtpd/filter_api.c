@@ -191,7 +191,7 @@ filter_reject_status(uint64_t id, uint32_t code, const char *errorline)
 	default:	/* This is NOT an acceptable code for a failure */
 		session->fm.status = FILTER_PERMFAIL;
 		session->fm.code = 0;
-		status = NULL;
+		errorline = NULL;
 	}
 
 	if (errorline) {
@@ -210,7 +210,7 @@ filter_reject(uint64_t id, enum filter_status status)
 	struct session	*session = tree_xpop(&sessions, id);
 
 	/* This is NOT an acceptable status for a failure */
-	if (status == FILTER_SUCCESS)
+	if (status == FILTER_OK)
 		status = FILTER_PERMFAIL;
 
 	session->fm.status = status;
