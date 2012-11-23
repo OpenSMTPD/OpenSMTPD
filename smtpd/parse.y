@@ -610,7 +610,6 @@ condition	: DOMAIN tables alias		{
 			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = COND_VDOM;
 			c->c_table = $2;
-			c->c_table = $2;
 			$$ = c;
 		}
 		| LOCAL alias {
