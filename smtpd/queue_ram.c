@@ -166,7 +166,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 	struct qr_message	*msg;
 	uint32_t		 msgid;
 
-	if (qop == QOP_LEARN)
+	if (qop == QOP_WALK)
 		return (-1);
 
 	msgid = evpid_to_msgid(*evpid);

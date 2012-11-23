@@ -70,7 +70,8 @@ ruleset_match(const struct envelope *evp)
 		if (r->r_condition.c_type == COND_ANY)
 			return r;
 
-		if (r->r_condition.c_type == COND_DOM) {
+		if (r->r_condition.c_type == COND_DOM ||
+		    r->r_condition.c_type == COND_VDOM) {
 			table = table_find(r->r_condition.c_table);
 			if (table == NULL)
 				fatal("failed to lookup table.");
@@ -83,17 +84,6 @@ ruleset_match(const struct envelope *evp)
 			}
 			if (ret)
 				return r;
-		}
-
-		if (r->r_condition.c_type == COND_VDOM) {
-			v = aliases_vdomain_exists(r->r_condition.c_table,
-			    maddr->domain);
-			if (v == -1) {
-				errno = EAGAIN;
-				return (NULL);
-			}
-			if (v)
-				return (r);
 		}
 	}
 

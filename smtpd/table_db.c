@@ -58,12 +58,11 @@ static char *table_db_get_entry_match(void *, const char *, size_t *,
 
 static int table_db_credentials(const char *, char *, size_t, void **);
 static int table_db_alias(const char *, char *, size_t, void **);
-static int table_db_virtual(const char *, char *, size_t, void **);
 static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -75,6 +74,7 @@ static struct keycmp {
 	enum table_service	service;
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
+	{ K_DOMAIN, table_domain_match },
 	{ K_NETADDR, table_netaddr_match }
 };
 
@@ -194,10 +194,6 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 
 	case K_DOMAIN:
 		ret = table_db_domain(key, line, len, retp);
-		break;
-
-	case K_VIRTUAL:
-		ret = table_db_virtual(key, line, len, retp);
 		break;
 
 	case K_NETADDR:
@@ -337,52 +333,6 @@ error:
 	free(table_alias);
 	return -1;
 }
-
-static int
-table_db_virtual(const char *key, char *line, size_t len, void **retp)
-{
-	char		*subrcpt;
-	char		*endp;
-	struct table_virtual	*table_virtual = NULL;
-	struct expandnode	 xn;
-
-	/* domain key, discard value */
-	if (strchr(key, '@') == NULL) {
-		*retp = NULL;
-		return 1;
-	}
-
-	table_virtual = xcalloc(1, sizeof *table_virtual,
-	    "table_db_virtual");
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			goto error;
-
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-
-		if (! alias_parse(&xn, subrcpt))
-			goto error;
-
-		expand_insert(&table_virtual->expand, &xn);
-		table_virtual->nbnodes++;
-	}
-
-	*retp = table_virtual;
-	return 1;
-
-error:
-	*retp = NULL;
-	expand_free(&table_virtual->expand);
-	free(table_virtual);
-	return 0;
-}
-
 
 static int
 table_db_netaddr(const char *key, char *line, size_t len, void **retp)

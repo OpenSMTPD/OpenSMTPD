@@ -337,6 +337,39 @@ If specified, the table
 is used for looking up alternative destinations for addresses in these
 .Ar domains .
 .It Xo
+.Ic for domain Ar domain Ic virtual Ar <users>
+.Xc
+This rule applies to mail destined for the specified virtual
+.Ar domain .
+This parameter supports the
+.Sq *
+wildcard,
+so that a single rule for all sub-domains can be used, for example:
+.Bd -literal -offset indent
+accept for domain "*.example.com" \e
+       virtual <users> deliver to mbox
+.Ed
+.Pp
+The table
+.Ar users
+holds a key-value mapping of virtual to system users.
+For an example of how to configure the
+.Ar users
+table, see
+.Xr makemap 8 .
+.It Ic for domain Ar <domains> Ic virtual Ar <users>
+This rule applies to mail destined for the virtual domains specified
+in the table
+.Ar domains .
+.Pp
+The table
+.Ar users
+holds a key-value mapping of virtual to system users.
+For an example of how to configure the
+.Ar users
+table, see
+.Xr makemap 8 .
+.It Xo
 .Ic for local
 .Op Ic alias Ar <aliases>
 .Xc
@@ -345,12 +378,6 @@ This rule applies to mail destined to
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
-.It Ic for virtual Ar <vdomains>
-This rule applies to mail destined for the virtual domains specified
-in the table
-.Ar vdomains .
-For an example of how to configure a virtual table, see
-.Xr makemap 8 .
 .El
 .Pp
 Finally, the method of delivery is specified:

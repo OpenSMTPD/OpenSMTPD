@@ -256,6 +256,12 @@ end:
 	return ret;
 }
 
+int
+table_domain_match(const char *s1, const char *s2)
+{
+	return hostname_match(s1, s2);
+}
+
 static int table_match_mask(struct sockaddr_storage *, struct netaddr *);
 static int table_inet4_match(struct sockaddr_in *, struct netaddr *);
 static int table_inet6_match(struct sockaddr_in6 *, struct netaddr *);

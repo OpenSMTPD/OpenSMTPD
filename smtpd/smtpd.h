@@ -281,10 +281,9 @@ enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,
 	K_DOMAIN	= 0x02,
-	K_VIRTUAL	= 0x04,
-	K_CREDENTIALS	= 0x08,
-	K_NETADDR	= 0x10,
-	K_USERINFO	= 0x20,
+	K_CREDENTIALS	= 0x04,
+	K_NETADDR	= 0x08,
+	K_USERINFO	= 0x10,
 };
 
 struct table {
@@ -376,7 +375,7 @@ enum delivery_flags {
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8, /* internal expansion forward */
 
-	/* the remaining flags are not saved on disk */
+	/* runstate, not saved on disk */
 
 	DF_PENDING		= 0x10,
 	DF_INFLIGHT		= 0x20,
@@ -786,11 +785,6 @@ struct table_alias {
 	struct expand		expand;
 };
 
-struct table_virtual {
-	size_t			nbnodes;
-	struct expand		expand;
-};
-
 struct table_netaddr {
 	struct netaddr		netaddr;
 };
@@ -817,7 +811,7 @@ enum queue_op {
 	QOP_CREATE,
 	QOP_DELETE,
 	QOP_UPDATE,
-	QOP_LEARN,
+	QOP_WALK,
 	QOP_COMMIT,
 	QOP_LOAD,
 	QOP_FD_R,
@@ -969,7 +963,6 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 /* aliases.c */
 int aliases_get(objid_t, struct expand *, const char *);
 int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
-int aliases_vdomain_exists(objid_t, const char *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -1130,7 +1123,7 @@ int queue_envelope_create(struct envelope *);
 int queue_envelope_delete(struct envelope *);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
-int queue_envelope_learn(struct envelope *);
+int queue_envelope_walk(struct envelope *);
 
 
 /* ruleset.c */
@@ -1213,6 +1206,7 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
+int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);

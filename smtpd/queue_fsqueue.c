@@ -48,7 +48,7 @@ static int	fsqueue_envelope_create(uint64_t *, char *, size_t);
 static int	fsqueue_envelope_load(uint64_t, char *, size_t);
 static int	fsqueue_envelope_update(uint64_t, char *, size_t);
 static int	fsqueue_envelope_delete(uint64_t);
-static int	fsqueue_envelope_learn(uint64_t *, char *, size_t);
+static int	fsqueue_envelope_walk(uint64_t *, char *, size_t);
 
 static int	fsqueue_message_create(uint32_t *);
 static int	fsqueue_message_commit(uint32_t);
@@ -243,7 +243,7 @@ fsqueue_envelope_delete(uint64_t evpid)
 }
 
 static int
-fsqueue_envelope_learn(uint64_t *evpid, char *buf, size_t len)
+fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 {
 	static int	 done = 0;
 	static void	*hdl = NULL;
@@ -450,8 +450,8 @@ fsqueue_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		return fsqueue_envelope_load(*evpid, buf, len);
 	case QOP_UPDATE:
 		return fsqueue_envelope_update(*evpid, buf, len);
-	case QOP_LEARN:
-		return fsqueue_envelope_learn(evpid, buf, len);
+	case QOP_WALK:
+		return fsqueue_envelope_walk(evpid, buf, len);
 	default:
 		fatalx("queue_fsqueue_envelope: unsupported operation.");
 	}
