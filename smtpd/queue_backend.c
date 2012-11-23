@@ -313,14 +313,14 @@ queue_envelope_update(struct envelope *ep)
 }
 
 int
-queue_envelope_learn(struct envelope *ep)
+queue_envelope_walk(struct envelope *ep)
 {
 	const char	*e;
 	uint64_t	 evpid;
 	char		 evpbuf[sizeof(struct envelope)];
 	int		 r;
 
-	r = env->sc_queue->envelope(QOP_LEARN, &evpid, evpbuf, sizeof evpbuf);
+	r = env->sc_queue->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
 	if (r == -1 || r == 0)
 		return (r);
 

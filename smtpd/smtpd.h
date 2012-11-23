@@ -355,7 +355,7 @@ enum delivery_flags {
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8, /* internal expansion forward */
 
-	/* the remaining flags are not saved on disk */
+	/* runstate, not saved on disk */
 
 	DF_PENDING		= 0x10,
 	DF_INFLIGHT		= 0x20,
@@ -796,7 +796,7 @@ enum queue_op {
 	QOP_CREATE,
 	QOP_DELETE,
 	QOP_UPDATE,
-	QOP_LEARN,
+	QOP_WALK,
 	QOP_COMMIT,
 	QOP_LOAD,
 	QOP_FD_R,
@@ -1105,7 +1105,7 @@ int queue_envelope_create(struct envelope *);
 int queue_envelope_delete(struct envelope *);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
-int queue_envelope_learn(struct envelope *);
+int queue_envelope_walk(struct envelope *);
 
 
 /* ruleset.c */
