@@ -41,13 +41,13 @@
 static void mfa_imsg(struct imsgev *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
-static void mfa_filter(struct imsg_mfa_data *, enum filter_hook);
+static void mfa_filter(struct mfa_req_msg *, enum filter_hook);
 
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct imsg_mfa_reply	reply;
-	struct imsg_lka_reply  *lka_reply;
+	struct mfa_resp_msg	resp;
+	struct lka_resp_msg    *lka_resp;
 	struct filter	       *filter;
 
 	if (iev->proc == PROC_SMTP) {
@@ -82,16 +82,16 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_EXPAND_RCPT:
-			lka_reply = imsg->data;
-			reply.id = lka_reply->id;
-			if (lka_reply->status == LKA_OK)
-				reply.status = MFA_OK;
-			else if (lka_reply->status == LKA_TEMPFAIL)
-				reply.status = MFA_TEMPFAIL;
-			else if (lka_reply->status == LKA_PERMFAIL)
-				reply.status = MFA_PERMFAIL;
+			lka_resp = imsg->data;
+			resp.reqid = lka_resp->reqid;
+			if (lka_resp->status == LKA_OK)
+				resp.status = MFA_OK;
+			else if (lka_resp->status == LKA_TEMPFAIL)
+				resp.status = MFA_TEMPFAIL;
+			else if (lka_resp->status == LKA_PERMFAIL)
+				resp.status = MFA_PERMFAIL;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_MFA_RCPT, 0, 0, -1, &reply, sizeof (reply));
+			    IMSG_MFA_RCPT, 0, 0, -1, &resp, sizeof (resp));
 			return;
 		}
 	}
@@ -220,16 +220,16 @@ mfa(void)
 }
 
 static void
-mfa_filter(struct imsg_mfa_data *d, enum filter_hook hook)
+mfa_filter(struct mfa_req_msg *d, enum filter_hook hook)
 {
 	union mfa_session_data	data;
 
 	switch (hook) {
 	case HOOK_DATALINE:
-		strlcpy(data.buffer, d->buffer, sizeof data.buffer);
+		strlcpy(data.buffer, d->u.buffer, sizeof data.buffer);
 		break;
 	default:
-		data.evp = d->evp;
+		data.evp = d->u.evp;
 	}
-	mfa_session(d->id, hook, &data);
+	mfa_session(d->reqid, hook, &data);
 }

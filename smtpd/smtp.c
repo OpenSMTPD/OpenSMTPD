@@ -56,8 +56,8 @@ static uint32_t	sessions;
 static void
 smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct imsg_queue_reply	*queue_reply;
-	struct imsg_mfa_reply	*mfa_reply;
+	struct queue_resp_msg	*queue_resp;
+	struct mfa_resp_msg	*mfa_resp;
 	struct submit_status	 ss;
 	struct listener		*l;
 	struct session		*s;
@@ -91,33 +91,35 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_DATALINE:
 		case IMSG_MFA_QUIT:
 		case IMSG_MFA_RSET:
-			mfa_reply = (struct imsg_mfa_reply *)imsg->data;
-			s = session_lookup(mfa_reply->id);
+			mfa_resp = imsg->data;
+			s = session_lookup(mfa_resp->reqid);
 			if (s == NULL)
 				return;
 
-			if (mfa_reply->status == MFA_OK) {
-				ss.code = mfa_reply->code ? mfa_reply->code : 250;
+			if (mfa_resp->status == MFA_OK) {
+				ss.code = mfa_resp->code ? mfa_resp->code : 250;
 				/* until we get rid of submit_status */
 				if (imsg->hdr.type == IMSG_MFA_DATALINE) {
 					strlcpy(ss.u.dataline,
-					    mfa_reply->u.buffer,
+					    mfa_resp->u.buffer,
 					    sizeof (ss.u.dataline));
 				}
 				if (imsg->hdr.type == IMSG_MFA_MAIL) {
-					ss.u.maddr = mfa_reply->u.mailaddr;
+					ss.u.maddr = mfa_resp->u.mailaddr;
 				}
 			}
-			else if (mfa_reply->status == MFA_TEMPFAIL) {
-				ss.code = mfa_reply->code ? mfa_reply->code : 421;
-				if (mfa_reply->u.buffer[0])
-					strlcpy(ss.u.errormsg, mfa_reply->u.buffer,
+			else if (mfa_resp->status == MFA_TEMPFAIL) {
+				ss.code = mfa_resp->code ? mfa_resp->code : 421;
+				if (mfa_resp->u.buffer[0])
+					strlcpy(ss.u.errormsg,
+					    mfa_resp->u.buffer,
 					    sizeof ss.u.errormsg);
 			}
 			else {
-				ss.code = mfa_reply->code ? mfa_reply->code : 530;
-				if (mfa_reply->u.buffer[0])
-					strlcpy(ss.u.errormsg, mfa_reply->u.buffer,
+				ss.code = mfa_resp->code ? mfa_resp->code : 530;
+				if (mfa_resp->u.buffer[0])
+					strlcpy(ss.u.errormsg,
+					    mfa_resp->u.buffer,
 					    sizeof ss.u.errormsg);
 			}
 			session_pickup(s, &ss);
@@ -128,20 +130,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 
 	if (iev->proc == PROC_QUEUE) {
-		queue_reply = imsg->data;
+		queue_resp = imsg->data;
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			s->s_msg.id = queue_reply->evpid;
-			ss.code = (queue_reply->success) ? 250 : 421;
+			s->s_msg.id = queue_resp->evpid;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL) {
 				close(imsg->fd);
 				return;
@@ -149,35 +151,35 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s->datafp = fdopen(imsg->fd, "w");
 			if (s->datafp == NULL) {
 				/* queue may have experienced tempfail. */
-				if (!queue_reply->success)
+				if (!queue_resp->success)
 					fatalx("smtp: fdopen");
 				close(imsg->fd);
 			}
-			ss.code = (queue_reply->success) ? 250 : 421;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			if (!queue_reply->success)
+			if (!queue_resp->success)
 				s->s_dstatus |= DS_TEMPFAILURE;
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			ss.code = (queue_reply->success) ? 250 : 421;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			s = session_lookup(queue_reply->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			ss.code = (queue_reply->success) ? 250 : 421;
+			ss.code = (queue_resp->success) ? 250 : 421;
 			session_pickup(s, &ss);
 			return;
 

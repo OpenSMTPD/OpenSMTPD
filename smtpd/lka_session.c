@@ -145,7 +145,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 static void
 lka_resume(struct lka_session *lks)
 {
-	struct imsg_lka_reply	 reply;
+	struct lka_resp_msg	 resp;
 	struct envelope		*ep;
 	struct expandnode	*xn;
 
@@ -169,10 +169,10 @@ lka_resume(struct lka_session *lks)
 	}
     error:
 	if (lks->error) {
-		reply.id = lks->envelope.session_id;
-		reply.status = lks->error;
+		resp.reqid = lks->envelope.session_id;
+		resp.status = lks->error;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_EXPAND_RCPT,
-		    0, 0, -1, &reply, sizeof reply);
+		    0, 0, -1, &resp, sizeof resp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			free(ep);

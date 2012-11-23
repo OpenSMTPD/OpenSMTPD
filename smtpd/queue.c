@@ -51,11 +51,11 @@ static void queue_sig_handler(int, short, void *);
 static void
 queue_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct queue_req_msg	*req;
+	struct queue_resp_msg	 resp;
+	struct envelope		*e, evp;
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
-	struct envelope		*e, evp;
-	struct imsg_queue_data	*data;
-	struct imsg_queue_reply	 reply;
 	int			 fd, ret;
 	uint64_t		 id;
 	uint32_t		 msgid;
@@ -64,13 +64,13 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			id = *(uint64_t*)(imsg->data);
+			req = imsg->data;
 			ret = queue_message_create(&msgid);
-			reply.id = id;
-			reply.success = (ret == 0) ? 0 : 1;
-			reply.evpid = (ret == 0) ? 0 : msgid_to_evpid(msgid);
+			resp.reqid = req->reqid;
+			resp.success = (ret == 0) ? 0 : 1;
+			resp.evpid = (ret == 0) ? 0 : msgid_to_evpid(msgid);
 			imsg_compose_event(iev, IMSG_QUEUE_CREATE_MESSAGE, 0, 0,
-			    -1, &reply, sizeof reply);
+			    -1, &resp, sizeof resp);
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
@@ -82,28 +82,29 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			data = imsg->data;
-			msgid = evpid_to_msgid(data->evpid);
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
 			ret = queue_message_commit(msgid);
-			reply.id = data->id;
-			reply.success = (ret == 0) ? 0 : 1;
-			reply.evpid = msgid_to_evpid(msgid);
+			resp.reqid = req->reqid;
+			resp.success = (ret == 0) ? 0 : 1;
+			resp.evpid = msgid_to_evpid(msgid);
 			imsg_compose_event(iev, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0,
-			    -1, &reply, sizeof reply);
-			if (reply.success)
+			    -1, &resp, sizeof resp);
+			if (resp.success)
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 				    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
 				    &msgid, sizeof msgid);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			data = imsg->data;
-			fd = queue_message_fd_rw(evpid_to_msgid(data->evpid));
-			reply.id = data->id;
-			reply.success = (fd == -1) ? 0 : 1;
-			reply.evpid = data->evpid;
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
+			fd = queue_message_fd_rw(msgid);
+			resp.reqid = req->reqid;
+			resp.success = (fd == -1) ? 0 : 1;
+			resp.evpid = req->evpid;
 			imsg_compose_event(iev, IMSG_QUEUE_MESSAGE_FILE, 0, 0,
-			    fd, &reply, sizeof reply);
+			    fd, &resp, sizeof resp);
 			return;
 
 		case IMSG_SMTP_ENQUEUE:
@@ -114,29 +115,30 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 
 	if (iev->proc == PROC_LKA) {
-		e = imsg->data;
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
+			e = imsg->data;
 			ret = queue_envelope_create(e);
-			reply.id = e->session_id;
-			reply.success = (ret == 0) ? 0 : 1;
-			reply.evpid = (ret == 0) ? 0 : e->id;
-			if (reply.success)
+			resp.reqid = e->session_id;
+			resp.success = (ret == 0) ? 0 : 1;
+			resp.evpid = (ret == 0) ? 0 : e->id;
+			if (resp.success)
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, e,
 				    sizeof *e);
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &reply,
-			    sizeof reply);
+			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &resp,
+			    sizeof resp);
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			reply.id = e->session_id;
-			reply.success = 1;
-			reply.evpid = 0;
+			e = imsg->data;
+			resp.reqid = e->session_id;
+			resp.success = 1;
+			resp.evpid = 0;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, &reply,
-			    sizeof reply);
+			    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, &resp,
+			    sizeof resp);
 			return;
 		}
 	}

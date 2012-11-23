@@ -193,7 +193,7 @@ static void
 mfa_session_done(struct mfa_session *ms)
 {
 	enum imsg_type		imsg_type;
-	struct imsg_mfa_reply	mfa_reply;
+	struct mfa_resp_msg	resp;
 
 	switch (ms->hook) {
 	case HOOK_CONNECT:
@@ -205,7 +205,7 @@ mfa_session_done(struct mfa_session *ms)
 		break;
 	case HOOK_MAIL:
 		imsg_type = IMSG_MFA_MAIL;
-		mfa_reply.u.mailaddr = ms->data.evp.sender;
+		resp.u.mailaddr = ms->data.evp.sender;
 		break;
 	case HOOK_RCPT:
 		if (ms->status == FILTER_OK) {
@@ -215,14 +215,14 @@ mfa_session_done(struct mfa_session *ms)
                         mfa_session_destroy(ms);
                         return;
 		}
-		mfa_reply.u.mailaddr = ms->data.evp.rcpt;
+		resp.u.mailaddr = ms->data.evp.rcpt;
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATALINE:
 		if (ms->status == FILTER_OK) {
-			(void)strlcpy(mfa_reply.u.buffer,
+			(void)strlcpy(resp.u.buffer,
 			    ms->fm.u.dataline.line,
-			    sizeof(mfa_reply.u.buffer));
+			    sizeof(resp.u.buffer));
 		}
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
@@ -239,28 +239,28 @@ mfa_session_done(struct mfa_session *ms)
 		fatalx("mda_session_done: unsupported state");
 	}
 
-	mfa_reply.id = ms->id;
+	resp.reqid = ms->id;
 	switch (ms->status) {
 	case FILTER_OK:
-		mfa_reply.status = MFA_OK;
+		resp.status = MFA_OK;
 		break;
 	case FILTER_TEMPFAIL:
-		mfa_reply.status = MFA_TEMPFAIL;
-		mfa_reply.code = 421;
+		resp.status = MFA_TEMPFAIL;
+		resp.code = 421;
 		break;
 	default:
-		mfa_reply.status = MFA_PERMFAIL;
-		mfa_reply.code = 530;
+		resp.status = MFA_PERMFAIL;
+		resp.code = 530;
 		break;
 	}
 
 	if (ms->code)
-		mfa_reply.code = ms->code;
+		resp.code = ms->code;
 
-	memcpy(mfa_reply.u.buffer, ms->errorline, sizeof mfa_reply.u.buffer);
+	memcpy(resp.u.buffer, ms->errorline, sizeof resp.u.buffer);
 
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,
-	    -1, &mfa_reply, sizeof(mfa_reply));
+	    -1, &resp, sizeof(resp));
 	mfa_session_destroy(ms);
 }
 
