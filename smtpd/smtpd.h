@@ -634,18 +634,11 @@ struct smtpd {
 #define	TRACE_PROFILING	0x0100
 
 struct submit_status {
-	uint64_t			 id;
-	int				 code;
+	int				 code; /**/
 	union submit_path {
-		struct mailaddr		 maddr;
-		uint32_t		 msgid;
-		uint64_t		 evpid;
-		char			 errormsg[MAX_LINE_SIZE + 1];
-		char			 dataline[MAX_LINE_SIZE + 1];
+		struct mailaddr		 maddr; /**/
+		char			 dataline[MAX_LINE_SIZE + 1]; /**/
 	}				 u;
-	enum delivery_flags		 flags;
-	struct sockaddr_storage		 ss;
-	struct envelope			 envelope;
 };
 
 struct forward_req {
