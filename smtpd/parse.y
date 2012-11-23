@@ -123,13 +123,13 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERS
+%token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>		table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.cond>	condition
-%type	<v.object>	tables tablenew tableref alias credentials
+%type	<v.object>	tables tablenew tableref alias virtual domain credentials
 %type	<v.maddr>	relay_as
 %type	<v.string>	certname tag on compression
 %%
@@ -525,6 +525,25 @@ tables		: tablenew			{ $$ = $1; }
 		| tableref			{ $$ = $1; }
 		;
 
+domain		: DOMAIN tables			{
+			struct table	*m = table_find($2);
+
+			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
+			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
+				yyerror("table \"%s\" can't be used as DOMAIN parameter",
+					m->t_name);
+				YYERROR;
+			}
+
+			/* DOMAIN requires table to provide K_DOMAIN service */
+			if (!(m->t_backend->services & K_DOMAIN)) {
+				yyerror("table \"%s\" can't be used as DOMAIN parameter",
+					m->t_name);
+				YYERROR;
+			}
+		}
+		;
+
 alias		: ALIAS tables			{
 			struct table	*m = table_find($2);
 
@@ -547,69 +566,45 @@ alias		: ALIAS tables			{
 		| /* empty */			{ $$ =  0; }
 		;
 
-condition	: DOMAIN tables alias		{
-			struct cond	*c;
+virtual		: VIRTUAL tables		{
 			struct table	*m = table_find($2);
 
-			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
-			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
-				yyerror("table \"%s\" can't be used as DOMAIN parameter",
+			/* VIRTUAL only accepts T_DYNAMIC and T_HASH */
+			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
+				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
 					m->t_name);
 				YYERROR;
 			}
 
-			/* DOMAIN requires table to provide K_DOMAIN service */
-			if (!(m->t_backend->services & K_DOMAIN)) {
-				yyerror("table \"%s\" can't be used as DOMAIN parameter",
+			/* VIRTUAL requires table to provide K_ALIAS service */
+			if (!(m->t_backend->services & K_ALIAS)) {
+				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
 					m->t_name);
 				YYERROR;
 			}
 
-			rule->r_atable = $3;
+			$$ = m->t_id;
+		}
+		;
+
+condition	: domain alias	{
+			struct cond	*c;
+
+			rule->r_atable = $2;
 
 			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = COND_DOM;
-			c->c_table = $2;
+			c->c_table = $1;
 			$$ = c;
 		}
-		| VIRTUAL tables USERS tables    		{
+		| domain virtual {
 			struct cond	*c;
-			struct table	*vt = table_find($2);
-			struct table	*ut = table_find($4);
 
-			/* VIRTUAL only accepts T_DYNAMIC and T_LIST */
-			if (!(vt->t_type & (T_DYNAMIC|T_LIST))) {
-				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					vt->t_name);
-				YYERROR;
-			}
-
-			/* VIRTUAL requires table to provide K_DOMAIN service */
-			if (!(vt->t_backend->services & K_DOMAIN)) {
-				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					vt->t_name);
-				YYERROR;
-			}
-
-			/* USERS only accepts T_DYNAMIC and T_HASH */
-			if (!(ut->t_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("table \"%s\" can't be used as USERS parameter",
-					ut->t_name);
-				YYERROR;
-			}
-
-			/* USERS requires table to provide K_ALIAS service */
-			if (!(ut->t_backend->services & K_ALIAS)) {
-				yyerror("table \"%s\" can't be used as USERS parameter",
-					ut->t_name);
-				YYERROR;
-			}
-
-			rule->r_atable = $4;
+			rule->r_atable = $2;
 
 			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = COND_VDOM;
-			c->c_table = $2;
+			c->c_table = $1;
 			$$ = c;
 		}
 		| LOCAL alias {
@@ -1012,7 +1007,6 @@ lookup(char *s)
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
-		{ "users",     		USERS },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};
