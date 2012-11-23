@@ -670,7 +670,6 @@ struct smtpd {
 #define	TRACE_STAT	0x0080
 #define	TRACE_PROFILING	0x0100
 
-
 struct submit_status {
 	uint64_t			 id;
 	int				 code;
@@ -739,14 +738,22 @@ struct filter {
 	char			path[MAXPATHLEN];
 };
 
-struct mfa_session {
-	SPLAY_ENTRY(mfa_session)	 nodes;
-	uint64_t			 id;
+union mfa_session_data {
+	struct envelope		evp;
+	char			buffer[MAX_LINE_SIZE];
+};
 
-	enum session_state		 state;
-	struct submit_status		 ss;
-	struct filter			*filter;
-	struct filter_msg		 fm;
+struct mfa_session {
+	SPLAY_ENTRY(mfa_session)	nodes;
+	uint64_t			id;
+	enum session_state		state;
+
+	uint32_t			code;
+
+	union mfa_session_data		data;
+
+	struct filter		       *filter;
+	struct filter_msg		fm;
 };
 
 struct mta_session;
@@ -1093,7 +1100,7 @@ pid_t mfa(void);
 
 
 /* mfa_session.c */
-void mfa_session(struct submit_status *, enum session_state);
+void mfa_session(uint64_t, enum session_state, union mfa_session_data *);
 
 
 /* mta.c */

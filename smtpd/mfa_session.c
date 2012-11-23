@@ -49,16 +49,16 @@ static void mfa_session_imsg(int, short, void *);
 struct tree sessions;
 
 void
-mfa_session(struct submit_status *ss, enum session_state state)
+mfa_session(uint64_t id, enum session_state state, union mfa_session_data *data)
 {
 	struct mfa_session *ms;
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
-	ms->id = generate_uid();
-	ms->ss = *ss;
-	ms->ss.code = 250;
+	ms->id = id;
 	ms->state = state;
+	ms->code = 250;
 	ms->filter = TAILQ_FIRST(env->sc_filters);
+	ms->data = *data;
 
 	tree_xset(&sessions, ms->id, ms);
 
@@ -74,23 +74,22 @@ mfa_session_proceed(struct mfa_session *ms)
 	struct filter_msg	fm;
 
 	fm.id = ms->id;
-	fm.cl_id = ms->ss.id;
 	fm.version = FILTER_API_VERSION;
 
 	switch (ms->state) {
 
 	case S_CONNECTED:
 		fm.type = FILTER_CONNECT;
-		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
+		if (strlcpy(fm.u.connect.hostname, ms->data.evp.hostname,
 			    sizeof(fm.u.connect.hostname))
 		    >= sizeof(fm.u.connect.hostname))
 			fatalx("mfa_session_proceed: CONNECT: truncation");
-		fm.u.connect.hostaddr = ms->ss.envelope.ss;
+		fm.u.connect.hostaddr = ms->data.evp.ss;
 		break;
 
 	case S_HELO:
 		fm.type = FILTER_HELO;
-		if (strlcpy(fm.u.helo.helohost, ms->ss.envelope.helo,
+		if (strlcpy(fm.u.helo.helohost, ms->data.evp.helo,
 			sizeof(fm.u.helo.helohost))
 		    >= sizeof(fm.u.helo.helohost))
 			fatalx("mfa_session_proceed: HELO: truncation");
@@ -98,27 +97,27 @@ mfa_session_proceed(struct mfa_session *ms)
 
 	case S_MAIL_MFA:
 		fm.type = FILTER_MAIL;
-		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
+		if (strlcpy(fm.u.mail.user, ms->data.evp.sender.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: MAIL: user truncation");
-		if (strlcpy(fm.u.mail.domain, ms->ss.u.maddr.domain,
+		if (strlcpy(fm.u.mail.domain, ms->data.evp.sender.domain,
 			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
 			fatalx("mfa_session_proceed: MAIL: domain truncation");
 		break;
 
 	case S_RCPT_MFA:
 		fm.type = FILTER_RCPT;
-		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
+		if (strlcpy(fm.u.mail.user, ms->data.evp.rcpt.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: RCPT: user truncation");
-		if (strlcpy(fm.u.mail.domain, ms->ss.u.maddr.domain,
+		if (strlcpy(fm.u.mail.domain, ms->data.evp.rcpt.domain,
 			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
 			fatalx("mfa_session_proceed: RCPT: domain truncation");
 		break;
 
 	case S_DATACONTENT:
 		fm.type = FILTER_DATALINE;
-		if (strlcpy(fm.u.dataline.line, ms->ss.u.dataline,
+		if (strlcpy(fm.u.dataline.line, ms->data.buffer,
 			sizeof(fm.u.dataline.line))
 		    >= sizeof(fm.u.dataline.line))
 			fatalx("mfa_session_proceed: DATA: line truncation");
@@ -178,23 +177,24 @@ mfa_session_done(struct mfa_session *ms)
 		break;
 	case S_MAIL_MFA:
 		imsg_type = IMSG_MFA_MAIL;
-		mfa_reply.u.mailaddr = ms->ss.u.maddr;
+		mfa_reply.u.mailaddr = ms->data.evp.sender;
 		break;
 	case S_RCPT_MFA:
-		if (ms->ss.code != 530) {
+		if (ms->code != 530) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
 			    IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
-			    &ms->ss.envelope, sizeof(ms->ss.envelope));
+			    &ms->data.evp, sizeof(ms->data.evp));
 			mfa_session_destroy(ms);
 			return;
 		}
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case S_DATACONTENT:
-		if (ms->ss.code != 530 && ms->fm.code != 0)
+		if (ms->code != 530) {
 			(void)strlcpy(mfa_reply.u.buffer,
 			    ms->fm.u.dataline.line,
 			    sizeof(mfa_reply.u.buffer));
+		}
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
 	case S_QUIT:
@@ -211,8 +211,8 @@ mfa_session_done(struct mfa_session *ms)
 		fatalx("mfa_session_done: unsupported state");
 	}
 
-	mfa_reply.id = ms->ss.id;
-	switch (ms->ss.code / 100) {
+	mfa_reply.id = ms->id;
+	switch (ms->code / 100) {
 	case 2:
 		mfa_reply.status = MFA_OK;
 		break;
@@ -231,7 +231,7 @@ mfa_session_done(struct mfa_session *ms)
 static void
 mfa_session_fail(struct mfa_session *ms)
 {
-	ms->ss.code = 530;
+	ms->code = 530;
 	mfa_session_done(ms);
 }
 

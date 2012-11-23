@@ -243,51 +243,42 @@ mfa(void)
 static void
 mfa_test_connect(struct envelope *e)
 {
-	struct submit_status	 ss;
+	union mfa_session_data	data;
 
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.envelope = *e;
-
-	mfa_session(&ss, S_CONNECTED);
+	data.evp = *e;
+	mfa_session(e->session_id, S_CONNECTED, &data);
 }
 
 static void
 mfa_test_helo(struct envelope *e)
 {
-	struct submit_status	 ss;
+	union mfa_session_data	data;
 
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.envelope = *e;
-
-	mfa_session(&ss, S_HELO);
+	data.evp = *e;
+	mfa_session(e->session_id, S_HELO, &data);
 }
 
 static void
 mfa_test_mail(struct envelope *e)
 {
-	struct submit_status	ss;
 	struct imsg_mfa_reply	mfa_reply;
+	union mfa_session_data	data;
 
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.u.maddr = e->sender;
-
-	if (mfa_strip_source_route(ss.u.maddr.user, sizeof(ss.u.maddr.user)))
+	if (mfa_strip_source_route(e->sender.user, sizeof(e->sender.user)))
 		goto refuse;
 
-	if (! valid_localpart(ss.u.maddr.user) ||
-	    ! valid_domainpart(ss.u.maddr.domain)) {
+	if (! valid_localpart(e->sender.user) ||
+	    ! valid_domainpart(e->sender.user)) {
 		/*
 		 * "MAIL FROM:<>" is the exception we allow.
 		 */
-		if (!(ss.u.maddr.user[0] == '\0' &&
-			ss.u.maddr.domain[0] == '\0'))
+		if (!(e->sender.user[0] == '\0' &&
+			e->sender.domain[0] == '\0'))
 			goto refuse;
 	}
 
-	mfa_session(&ss, S_MAIL_MFA);
+	data.evp = *e;
+	mfa_session(e->session_id, S_MAIL_MFA, &data);
 	return;
 
 refuse:
@@ -301,23 +292,17 @@ refuse:
 static void
 mfa_test_rcpt(struct envelope *e)
 {
-	struct submit_status	ss;
 	struct imsg_mfa_reply	mfa_reply;
+	union mfa_session_data	data;
 
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.u.maddr = e->rcpt;
-	ss.ss = e->ss;
-	ss.envelope = *e;
-	ss.flags = e->flags;
+	mfa_strip_source_route(e->rcpt.user, sizeof(e->rcpt.user));
 
-	mfa_strip_source_route(ss.u.maddr.user, sizeof(ss.u.maddr.user));
-
-	if (! valid_localpart(ss.u.maddr.user) ||
-	    ! valid_domainpart(ss.u.maddr.domain))
+	if (! valid_localpart(e->rcpt.user) ||
+	    ! valid_domainpart(e->rcpt.domain))
 		goto refuse;
 
-	mfa_session(&ss, S_RCPT_MFA);
+	data.evp = *e;
+	mfa_session(e->session_id, S_RCPT_MFA, &data);
 	return;
 
 refuse:
@@ -330,48 +315,28 @@ refuse:
 static void
 mfa_test_dataline(struct imsg_mfa_data *mfa_data)
 {
-	struct submit_status	 ss;
+	union mfa_session_data	data;
 
-	ss.id = mfa_data->id;
-	ss.code = 530;
-	strlcpy(ss.u.dataline, mfa_data->buffer, sizeof ss.u.dataline);
-	mfa_session(&ss, S_DATACONTENT);
+	strlcpy(data.buffer, mfa_data->buffer, sizeof data.buffer);
+	mfa_session(mfa_data->id, S_DATACONTENT, &data);
 }
 
 static void
 mfa_test_quit(struct envelope *e)
 {
-	struct submit_status	 ss;
-
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.envelope = *e;
-
-	mfa_session(&ss, S_QUIT);
+	mfa_session(e->session_id, S_QUIT, e);
 }
 
 static void
 mfa_test_close(struct envelope *e)
 {
-	struct submit_status	 ss;
-
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.envelope = *e;
-
-	mfa_session(&ss, S_CLOSE);
+	mfa_session(e->session_id, S_CLOSE, e);
 }
 
 static void
 mfa_test_rset(struct envelope *e)
 {
-	struct submit_status	 ss;
-
-	ss.id = e->session_id;
-	ss.code = 530;
-	ss.envelope = *e;
-
-	mfa_session(&ss, S_RSET);
+	mfa_session(e->session_id, S_RSET, e);
 }
 
 static int
