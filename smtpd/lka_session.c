@@ -242,7 +242,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			r = aliases_virtual_get(rule->r_condition.c_table,
+			r = aliases_virtual_get(rule->r_atable,
 			    &lks->expand, &xn->u.mailaddr);
 			if (r == -1) {
 				lks->error = LKA_TEMPFAIL;

@@ -45,11 +45,10 @@ static void  table_static_close(void *);
 static int	table_static_credentials(const char *, char *, size_t, void **);
 static int	table_static_alias(const char *, char *, size_t, void **);
 static int	table_static_domain(const char *, char *, size_t, void **);
-static int	table_static_virtual(const char *, char *, size_t, void **);
 static int	table_static_netaddr(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -61,6 +60,7 @@ static struct keycmp {
 	enum table_service	service;
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
+	{ K_DOMAIN, table_domain_match },
 	{ K_NETADDR, table_netaddr_match }
 };
 
@@ -186,10 +186,6 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_static_domain(key, line, len, retp);
 		break;
 
-	case K_VIRTUAL:
-		ret = table_static_virtual(key, line, len, retp);
-		break;
-
 	case K_NETADDR:
 		ret = table_static_netaddr(key, line, len, retp);
 		break;
@@ -280,51 +276,6 @@ error:
 	expand_free(&table_alias->expand);
 	free(table_alias);
 	return -1;
-}
-
-static int
-table_static_virtual(const char *key, char *line, size_t len, void **retp)
-{
-	char			*subrcpt;
-	char			*endp;
-	struct table_virtual	*table_virtual = NULL;
-	struct expandnode	 xn;
-
-	/* domain key, discard value */
-	if (strchr(key, '@') == NULL) {
-		*retp = NULL;
-		return 1;
-	}
-
-	table_virtual = xcalloc(1, sizeof *table_virtual,
-	    "table_static_virtual");
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			goto error;
-
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-
-		if (! alias_parse(&xn, subrcpt))
-			goto error;
-
-		expand_insert(&table_virtual->expand, &xn);
-		table_virtual->nbnodes++;
-	}
-
-	*retp = table_virtual;
-	return 1;
-
-error:
-	*retp = NULL;
-	expand_free(&table_virtual->expand);
-	free(table_virtual);
-	return 0;
 }
 
 static int

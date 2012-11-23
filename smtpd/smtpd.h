@@ -261,10 +261,9 @@ enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,
 	K_DOMAIN	= 0x02,
-	K_VIRTUAL	= 0x04,
-	K_CREDENTIALS	= 0x08,
-	K_NETADDR	= 0x10,
-	K_USERINFO	= 0x20,
+	K_CREDENTIALS	= 0x04,
+	K_NETADDR	= 0x08,
+	K_USERINFO	= 0x10,
 };
 
 struct table {
@@ -757,11 +756,6 @@ struct table_alias {
 	struct expand		expand;
 };
 
-struct table_virtual {
-	size_t			nbnodes;
-	struct expand		expand;
-};
-
 struct table_netaddr {
 	struct netaddr		netaddr;
 };
@@ -999,7 +993,6 @@ struct imsg_lka_reply {
 /* aliases.c */
 int aliases_get(objid_t, struct expand *, const char *);
 int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
-int aliases_vdomain_exists(objid_t, const char *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -1232,6 +1225,7 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
+int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);
