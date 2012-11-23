@@ -51,6 +51,7 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 	size_t			nbaliases;
 	int			ret;
 
+	
 	xlowercase(buf, username, sizeof(buf));
 	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
 	if (ret <= 0)
@@ -83,15 +84,16 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LINE_SIZE];
-	char		       *pbuf = buf;
+	char		       *pbuf;
 	int			nbaliases;
 	int			ret;
 
-	/* First, we lookup for full entry: user@domain */
 	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
 		maddr->domain))
-		return 0;
+		return 0;	
 	xlowercase(buf, buf, sizeof(buf));
+
+	/* First, we lookup for full entry: user@domain */
 	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
 	if (ret < 0)
 		return (-1);
@@ -99,19 +101,16 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 		goto expand;
 
 	/* Failed ? We lookup for username only */
-	xlowercase(buf, maddr->user, sizeof(buf));
+	pbuf = strchr(buf, '@');
+	*pbuf = '\0';
 	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
 	if (ret < 0)
 		return (-1);
 	if (ret)
 		goto expand;
 
+	*pbuf = '@';
 	/* Failed ? We lookup for catch all for virtual domain */
-	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
-		maddr->domain))
-		return 0;
-	xlowercase(buf, buf, sizeof(buf));
-	pbuf = strchr(buf, '@');
 	ret = table_lookup(table, pbuf, K_ALIAS, (void **)&table_alias);
 	if (ret <= 0)
 		return (ret);
@@ -132,7 +131,7 @@ expand:
 	expand_free(&table_alias->expand);
 	free(table_alias);
 	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes",
-	    pbuf, nbaliases);
+	    buf, nbaliases);
 
 	return nbaliases;
 }

@@ -1181,6 +1181,7 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
+int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);

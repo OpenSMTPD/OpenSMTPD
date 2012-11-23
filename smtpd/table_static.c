@@ -60,6 +60,7 @@ static struct keycmp {
 	enum table_service	service;
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
+	{ K_DOMAIN, table_domain_match },
 	{ K_NETADDR, table_netaddr_match }
 };
 
