@@ -563,7 +563,8 @@ domain		: DOMAIN tables			{
 					m->t_name);
 				YYERROR;
 			}
-			$$ = $2;
+
+			$$ = m->t_id;
 		}
 		;
 

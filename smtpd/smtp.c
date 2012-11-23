@@ -109,6 +109,12 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 					ss.u.maddr = mfa_reply->u.mailaddr;
 				}
 			}
+			else if (mfa_reply->status == MFA_TEMPFAIL) {
+				ss.code = 421;
+			}
+			else {
+				ss.code = 530;
+			}
 			session_pickup(s, &ss);
 			return;
 		case IMSG_MFA_CLOSE:
