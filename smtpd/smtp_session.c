@@ -916,10 +916,20 @@ session_pickup(struct session *s, struct submit_status *ss)
 				session_enter_state(s, S_MAIL);
 			else
 				session_enter_state(s, S_RCPT);
-			session_respond(s, "%d 5.0.0 Recipient rejected: %s@%s",
-			    ss->code,
-			    s->s_msg.rcpt.user,
-			    s->s_msg.rcpt.domain);
+
+			if (ss->u.errormsg[0]) {
+				session_respond(s, "%d 5.0.0 %s: %s@%s",
+				    ss->code,
+				    ss->u.errormsg,
+				    s->s_msg.rcpt.user,
+				    s->s_msg.rcpt.domain);
+			}
+			else {
+				session_respond(s, "%d 5.0.0 Recipient rejected: %s@%s",
+				    ss->code,
+				    s->s_msg.rcpt.user,
+				    s->s_msg.rcpt.domain);
+			}
 			break;
 		}
 		session_enter_state(s, S_RCPT);

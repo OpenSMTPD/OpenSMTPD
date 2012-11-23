@@ -41,15 +41,7 @@
 static void mfa_imsg(struct imsgev *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
-static void mfa_test_connect(struct imsg_mfa_data *);
-static void mfa_test_helo(struct imsg_mfa_data *);
-static void mfa_test_mail(struct imsg_mfa_data *);
-static void mfa_test_rcpt(struct imsg_mfa_data *);
-static void mfa_test_dataline(struct imsg_mfa_data *);
-static void mfa_test_quit(struct imsg_mfa_data *);
-static void mfa_test_close(struct imsg_mfa_data *);
-static void mfa_test_rset(struct imsg_mfa_data *);
-static int mfa_strip_source_route(char *, size_t);
+static void mfa_filter(struct imsg_mfa_data *, enum filter_hook);
 
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -61,28 +53,28 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_CONNECT:
-			mfa_test_connect(imsg->data);
+			mfa_filter(imsg->data, HOOK_CONNECT);
 			return;
 		case IMSG_MFA_HELO:
-			mfa_test_helo(imsg->data);
+			mfa_filter(imsg->data, HOOK_HELO);
 			return;
 		case IMSG_MFA_MAIL:
-			mfa_test_mail(imsg->data);
+			mfa_filter(imsg->data, HOOK_MAIL);
 			return;
 		case IMSG_MFA_RCPT:
-			mfa_test_rcpt(imsg->data);
+			mfa_filter(imsg->data, HOOK_RCPT);
 			return;
 		case IMSG_MFA_DATALINE:
-			mfa_test_dataline(imsg->data);
+			mfa_filter(imsg->data, HOOK_DATALINE);
 			return;
 		case IMSG_MFA_QUIT:
-			mfa_test_quit(imsg->data);
+			mfa_filter(imsg->data, HOOK_QUIT);
 			return;
 		case IMSG_MFA_CLOSE:
-			mfa_test_close(imsg->data);
+			mfa_filter(imsg->data, HOOK_CLOSE);
 			return;
 		case IMSG_MFA_RSET:
-			mfa_test_rset(imsg->data);
+			mfa_filter(imsg->data, HOOK_RSET);
 			return;
 		}
 	}
@@ -228,127 +220,16 @@ mfa(void)
 }
 
 static void
-mfa_test_connect(struct imsg_mfa_data *d)
-{
-	union mfa_session_data	data;
-	
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_CONNECT, &data);
-}
-
-static void
-mfa_test_helo(struct imsg_mfa_data *d)
+mfa_filter(struct imsg_mfa_data *d, enum filter_hook hook)
 {
 	union mfa_session_data	data;
 
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_HELO, &data);
-}
-
-static void
-mfa_test_mail(struct imsg_mfa_data *d)
-{
-	struct envelope	       *e = &d->evp;
-	struct imsg_mfa_reply	mfa_reply;
-	union mfa_session_data	data;
-
-	if (mfa_strip_source_route(e->sender.user, sizeof(e->sender.user)))
-		goto refuse;
-
-	if (! valid_localpart(e->sender.user) ||
-	    ! valid_domainpart(e->sender.user)) {
-		/*
-		 * "MAIL FROM:<>" is the exception we allow.
-		 */
-		if (!(e->sender.user[0] == '\0' &&
-			e->sender.domain[0] == '\0'))
-			goto refuse;
+	switch (hook) {
+	case HOOK_DATALINE:
+		strlcpy(data.buffer, d->buffer, sizeof data.buffer);
+		break;
+	default:
+		data.evp = d->evp;
 	}
-
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_MAIL, &data);
-	return;
-
-refuse:
-	mfa_reply.id = d->id;
-	mfa_reply.status = MFA_PERMFAIL;
-	mfa_reply.u.mailaddr = d->evp.sender;
-	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL, 0, 0, -1,
-	    &mfa_reply, sizeof(mfa_reply));
-	return;
-}
-
-static void
-mfa_test_rcpt(struct imsg_mfa_data *d)
-{
-	struct envelope	       *e = &d->evp;
-	struct imsg_mfa_reply	mfa_reply;
-	union mfa_session_data	data;
-
-	mfa_strip_source_route(e->rcpt.user, sizeof(e->rcpt.user));
-
-	if (! valid_localpart(e->rcpt.user) ||
-	    ! valid_domainpart(e->rcpt.domain))
-		goto refuse;
-
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_RCPT, &data);
-	return;
-
-refuse:
-	mfa_reply.id = d->id;
-	mfa_reply.status = MFA_PERMFAIL;
-	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1,
-	    &mfa_reply, sizeof(mfa_reply));
-}
-
-static void
-mfa_test_dataline(struct imsg_mfa_data *d)
-{
-	union mfa_session_data	data;
-
-	strlcpy(data.buffer, d->buffer, sizeof data.buffer);
-	mfa_session(d->id, HOOK_DATALINE, &data);
-}
-
-static void
-mfa_test_quit(struct imsg_mfa_data *d)
-{
-	union mfa_session_data	data;
-
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_QUIT, &data);
-}
-
-static void
-mfa_test_close(struct imsg_mfa_data *d)
-{
-	union mfa_session_data	data;
-
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_CLOSE, &data);
-}
-
-static void
-mfa_test_rset(struct imsg_mfa_data *d)
-{
-	union mfa_session_data	data;
-
-	data.evp = d->evp;
-	mfa_session(d->id, HOOK_RSET, &data);
-}
-
-static int
-mfa_strip_source_route(char *buf, size_t len)
-{
-	char *p;
-
-	p = strchr(buf, ':');
-	if (p != NULL) {
-		p++;
-		memmove(buf, p, strlen(p) + 1);
-		return 1;
-	}
-
-	return 0;
+	mfa_session(d->id, hook, &data);
 }
