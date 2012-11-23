@@ -41,14 +41,14 @@
 static void mfa_imsg(struct imsgev *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
-static void mfa_test_connect(struct envelope *);
-static void mfa_test_helo(struct envelope *);
-static void mfa_test_mail(struct envelope *);
-static void mfa_test_rcpt(struct envelope *);
+static void mfa_test_connect(struct imsg_mfa_data *);
+static void mfa_test_helo(struct imsg_mfa_data *);
+static void mfa_test_mail(struct imsg_mfa_data *);
+static void mfa_test_rcpt(struct imsg_mfa_data *);
 static void mfa_test_dataline(struct imsg_mfa_data *);
-static void mfa_test_quit(struct envelope *);
-static void mfa_test_close(struct envelope *);
-static void mfa_test_rset(struct envelope *);
+static void mfa_test_quit(struct imsg_mfa_data *);
+static void mfa_test_close(struct imsg_mfa_data *);
+static void mfa_test_rset(struct imsg_mfa_data *);
 static int mfa_strip_source_route(char *, size_t);
 static int mfa_fork_filter(struct filter *);
 
@@ -241,26 +241,27 @@ mfa(void)
 }
 
 static void
-mfa_test_connect(struct envelope *e)
+mfa_test_connect(struct imsg_mfa_data *d)
 {
 	union mfa_session_data	data;
 
-	data.evp = *e;
-	mfa_session(e->session_id, S_CONNECTED, &data);
+	data.evp = d->evp;
+	mfa_session(d->id, S_CONNECTED, &data);
 }
 
 static void
-mfa_test_helo(struct envelope *e)
+mfa_test_helo(struct imsg_mfa_data *d)
 {
 	union mfa_session_data	data;
 
-	data.evp = *e;
-	mfa_session(e->session_id, S_HELO, &data);
+	data.evp = d->evp;
+	mfa_session(d->id, S_HELO, &data);
 }
 
 static void
-mfa_test_mail(struct envelope *e)
+mfa_test_mail(struct imsg_mfa_data *d)
 {
+	struct envelope	       *e = &d->evp;
 	struct imsg_mfa_reply	mfa_reply;
 	union mfa_session_data	data;
 
@@ -277,12 +278,12 @@ mfa_test_mail(struct envelope *e)
 			goto refuse;
 	}
 
-	data.evp = *e;
-	mfa_session(e->session_id, S_MAIL_MFA, &data);
+	data.evp = d->evp;
+	mfa_session(d->id, S_MAIL_MFA, &data);
 	return;
 
 refuse:
-	mfa_reply.id = e->session_id;
+	mfa_reply.id = d->id;
 	mfa_reply.status = MFA_PERMFAIL;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_MAIL, 0, 0, -1,
 	    &mfa_reply, sizeof(mfa_reply));
@@ -290,8 +291,9 @@ refuse:
 }
 
 static void
-mfa_test_rcpt(struct envelope *e)
+mfa_test_rcpt(struct imsg_mfa_data *d)
 {
+	struct envelope	       *e = &d->evp;
 	struct imsg_mfa_reply	mfa_reply;
 	union mfa_session_data	data;
 
@@ -301,42 +303,51 @@ mfa_test_rcpt(struct envelope *e)
 	    ! valid_domainpart(e->rcpt.domain))
 		goto refuse;
 
-	data.evp = *e;
-	mfa_session(e->session_id, S_RCPT_MFA, &data);
+	data.evp = d->evp;
+	mfa_session(d->id, S_RCPT_MFA, &data);
 	return;
 
 refuse:
-	mfa_reply.id = e->session_id;
+	mfa_reply.id = d->id;
 	mfa_reply.status = MFA_PERMFAIL;
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_MFA_RCPT, 0, 0, -1,
 	    &mfa_reply, sizeof(mfa_reply));
 }
 
 static void
-mfa_test_dataline(struct imsg_mfa_data *mfa_data)
+mfa_test_dataline(struct imsg_mfa_data *d)
 {
 	union mfa_session_data	data;
 
-	strlcpy(data.buffer, mfa_data->buffer, sizeof data.buffer);
-	mfa_session(mfa_data->id, S_DATACONTENT, &data);
+	strlcpy(data.buffer, d->buffer, sizeof data.buffer);
+	mfa_session(d->id, S_DATACONTENT, &data);
 }
 
 static void
-mfa_test_quit(struct envelope *e)
+mfa_test_quit(struct imsg_mfa_data *d)
 {
-	mfa_session(e->session_id, S_QUIT, e);
+	union mfa_session_data	data;
+
+	data.evp = d->evp;
+	mfa_session(d->id, S_QUIT, &data);
 }
 
 static void
-mfa_test_close(struct envelope *e)
+mfa_test_close(struct imsg_mfa_data *d)
 {
-	mfa_session(e->session_id, S_CLOSE, e);
+	union mfa_session_data	data;
+
+	data.evp = d->evp;
+	mfa_session(d->id, S_CLOSE, &data);
 }
 
 static void
-mfa_test_rset(struct envelope *e)
+mfa_test_rset(struct imsg_mfa_data *d)
 {
-	mfa_session(e->session_id, S_RSET, e);
+	union mfa_session_data	data;
+
+	data.evp = d->evp;
+	mfa_session(d->id, S_RSET, &data);
 }
 
 static int

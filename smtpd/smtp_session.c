@@ -342,6 +342,8 @@ session_rfc1652_mail_handler(struct session *s, char *args)
 static int
 session_rfc5321_helo_handler(struct session *s, char *args)
 {
+	struct imsg_mfa_data	mfa_data;
+
 	if (args == NULL || !valid_domainpart(args)) {
 		session_respond(s, "501 HELO requires domain address");
 		return 1;
@@ -357,14 +359,18 @@ session_rfc5321_helo_handler(struct session *s, char *args)
 	s->s_flags &= F_SECURE|F_AUTHENTICATED;
 	session_enter_state(s, S_HELO);
 
-	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+	mfa_data.id = s->s_id;
+	mfa_data.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &mfa_data,
+	    sizeof(mfa_data));
 	return 1;
 }
 
 static int
 session_rfc5321_ehlo_handler(struct session *s, char *args)
 {
+	struct imsg_mfa_data	mfa_data;
+
 	if (args == NULL || !valid_domainpart(args)) {
 		session_respond(s, "501 EHLO requires domain address");
 		return 1;
@@ -382,18 +388,24 @@ session_rfc5321_ehlo_handler(struct session *s, char *args)
 	s->s_flags |= F_8BITMIME;
 	session_enter_state(s, S_HELO);
 
-	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+	mfa_data.id = s->s_id;
+	mfa_data.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &mfa_data,
+	    sizeof(mfa_data));
 	return 1;
 }
 
 static int
 session_rfc5321_rset_handler(struct session *s, char *args)
 {
+	struct imsg_mfa_data	mfa_data;
+
 	session_enter_state(s, S_RSET);
 
-	session_imsg(s, PROC_MFA, IMSG_MFA_RSET, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+	mfa_data.id = s->s_id;
+	mfa_data.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_RSET, 0, 0, -1, &mfa_data,
+	    sizeof(mfa_data));
 	return 1;
 }
 
@@ -408,6 +420,8 @@ session_rfc5321_noop_handler(struct session *s, char *args)
 static int
 session_rfc5321_mail_handler(struct session *s, char *args)
 {
+	struct imsg_mfa_data	mfa_data;
+
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -448,14 +462,19 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 	s->s_msg.id = 0;
 
 	session_enter_state(s, S_MAIL_MFA);
-	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+
+	mfa_data.id = s->s_id;
+	mfa_data.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &mfa_data,
+	    sizeof(mfa_data));
 	return 1;
 }
 
 static int
 session_rfc5321_rcpt_handler(struct session *s, char *args)
 {
+	struct imsg_mfa_data	mfa_data;
+
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -478,8 +497,11 @@ session_rfc5321_rcpt_handler(struct session *s, char *args)
 	}
 
 	session_enter_state(s, S_RCPT_MFA);
-	session_imsg(s, PROC_MFA, IMSG_MFA_RCPT, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+
+	mfa_data.id = s->s_id;
+	mfa_data.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_RCPT, 0, 0, -1, &mfa_data,
+	    sizeof(mfa_data));
 	return 1;
 }
 
@@ -498,6 +520,8 @@ session_rfc5321_quit_handler(struct session *s, char *args)
 static int
 session_rfc5321_data_handler(struct session *s, char *args)
 {
+	struct imsg_queue_data	queue_data;
+
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -515,8 +539,10 @@ session_rfc5321_data_handler(struct session *s, char *args)
 
 	session_enter_state(s, S_DATA_QUEUE);
 
+	queue_data.id = s->s_id;
+	queue_data.evpid = s->s_msg.id;
 	session_imsg(s, PROC_QUEUE, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-	    &s->s_msg, sizeof(s->s_msg));
+	    &queue_data, sizeof(queue_data));
 
 	return 1;
 }
@@ -754,8 +780,9 @@ session_io(struct io *io, int evt)
 void
 session_pickup(struct session *s, struct submit_status *ss)
 {
-	char	 user[MAXLOGNAME];
-	void	*ssl;
+	char			user[MAXLOGNAME];
+	void		       *ssl;
+	struct imsg_mfa_data	mfa_data;
 
 	s->s_flags &= ~F_WAITIMSG;
 
@@ -779,8 +806,11 @@ session_pickup(struct session *s, struct submit_status *ss)
 		    ss_to_text(&s->s_ss));
 		s->s_msg.session_id = s->s_id;
 		s->s_msg.ss = s->s_ss;
+
+		mfa_data.id = s->s_id;
+		mfa_data.evp = s->s_msg;
 		session_imsg(s, PROC_MFA, IMSG_MFA_CONNECT, 0, 0, -1,
-		    &s->s_msg, sizeof(s->s_msg));
+		    &mfa_data, sizeof(mfa_data));
 		break;
 
 	case S_INIT:
@@ -1025,6 +1055,7 @@ tempfail:
 static void
 session_read_data(struct session *s, char *line)
 {
+	struct imsg_queue_data	queue_data;
 	size_t datalen;
 	size_t len;
 	size_t i;
@@ -1043,8 +1074,10 @@ session_read_data(struct session *s, char *line)
 			session_enter_state(s, S_QUIT);
 			stat_increment("smtp.tempfail", 1);
 		} else {
+			queue_data.id = s->s_id;
+			queue_data.evpid = s->s_msg.id;
 			session_imsg(s, PROC_QUEUE, IMSG_QUEUE_COMMIT_MESSAGE,
-			    0, 0, -1, &s->s_msg, sizeof(s->s_msg));
+			    0, 0, -1, &queue_data, sizeof(queue_data));
 			session_enter_state(s, S_DONE);
 		}
 		return;

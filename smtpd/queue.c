@@ -54,6 +54,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct envelope		*e, evp;
+	struct imsg_queue_data	*data;
 	struct imsg_queue_reply	 reply;
 	int			 fd, ret;
 	uint64_t		 id;
@@ -81,10 +82,10 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			e = imsg->data;
-			msgid = evpid_to_msgid(e->id);
+			data = imsg->data;
+			msgid = evpid_to_msgid(data->evpid);
 			ret = queue_message_commit(msgid);
-			reply.id = e->session_id;
+			reply.id = data->id;
 			reply.success = (ret == 0) ? 0 : 1;
 			reply.evpid = msgid_to_evpid(msgid);
 			imsg_compose_event(iev, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0,
@@ -96,11 +97,11 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			e = imsg->data;
-			fd = queue_message_fd_rw(evpid_to_msgid(e->id));
-			reply.id = e->session_id;
+			data = imsg->data;
+			fd = queue_message_fd_rw(evpid_to_msgid(data->evpid));
+			reply.id = data->id;
 			reply.success = (fd == -1) ? 0 : 1;
-			reply.evpid = e->id;
+			reply.evpid = data->evpid;
 			imsg_compose_event(iev, IMSG_QUEUE_MESSAGE_FILE, 0, 0,
 			    fd, &reply, sizeof reply);
 			return;

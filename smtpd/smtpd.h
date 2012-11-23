@@ -128,43 +128,6 @@ struct relayhost {
 	char authtable[MAX_PATH_SIZE];
 };
 
-struct imsg_queue_reply {
-	uint64_t	id;
-	int		success;
-	uint64_t	evpid;
-};
-
-enum imsg_mfa_status {
-	MFA_OK,
-	MFA_TEMPFAIL,
-	MFA_PERMFAIL
-};
-
-struct imsg_mfa_data {
-	uint64_t		id;
-	char			buffer[MAX_LINE_SIZE];
-};
-
-struct imsg_mfa_reply {
-	uint64_t			id;
-	enum imsg_mfa_status		status;
-	union imsg_mfa_reply_data {
-		struct mailaddr		mailaddr;
-		char			buffer[MAX_LINE_SIZE];
-	}				u;
-};
-
-enum imsg_lka_status {
-	LKA_OK,
-	LKA_TEMPFAIL,
-	LKA_PERMFAIL
-};
-
-struct imsg_lka_reply {
-	uint64_t		id;
-	enum imsg_lka_status	status;
-};
-
 enum imsg_type {
 	IMSG_NONE,
 	IMSG_CTL_OK,		/* answer to smtpctl requests */
@@ -724,11 +687,6 @@ struct deliver {
 	short			mode;
 };
 
-struct rulematch {
-	uint64_t		 id;
-	struct submit_status	 ss;
-};
-
 struct filter {
 	TAILQ_ENTRY(filter)     f_entry;
 	pid_t			pid;
@@ -984,6 +942,53 @@ struct stat_digest {
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct imsgev *, struct imsg *);
+
+
+/* inter-process structures */
+struct imsg_queue_data {
+	uint64_t	id;
+	uint64_t	evpid;
+};
+
+struct imsg_queue_reply {
+	uint64_t	id;
+	int		success;
+	uint64_t	evpid;
+};
+
+enum imsg_mfa_status {
+	MFA_OK,
+	MFA_TEMPFAIL,
+	MFA_PERMFAIL
+};
+
+struct imsg_mfa_data {
+	uint64_t		id;
+	char			buffer[MAX_LINE_SIZE];
+	struct envelope		evp;
+};
+
+struct imsg_mfa_reply {
+	uint64_t			id;
+	enum imsg_mfa_status		status;
+	union imsg_mfa_reply_data {
+		struct mailaddr		mailaddr;
+		char			buffer[MAX_LINE_SIZE];
+	}				u;
+};
+
+enum imsg_lka_status {
+	LKA_OK,
+	LKA_TEMPFAIL,
+	LKA_PERMFAIL
+};
+
+struct imsg_lka_reply {
+	uint64_t		id;
+	enum imsg_lka_status	status;
+};
+
+
 
 
 /* aliases.c */
