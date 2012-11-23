@@ -541,6 +541,8 @@ domain		: DOMAIN tables			{
 					m->t_name);
 				YYERROR;
 			}
+
+			$$ = m->t_id;
 		}
 		;
 
