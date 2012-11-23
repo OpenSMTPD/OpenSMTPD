@@ -121,15 +121,13 @@ for example:
 table vdomains "/etc/mail/vdomains"
 table vusers "/etc/mail/users"
 
-accept for virtual <vdomains> users <vusers> deliver to mbox
-accept for virtual example.org users <vusers> deliver to mbox
+accept for domain <vdomains> virtual <vusers> deliver to mbox
+accept for domain example.org virtual <vusers> deliver to mbox
 .Ed
 .Sh FILES
 .Bl -tag -width "/etc/mail/aliasesXXX" -compact
 .It Pa /etc/mail/aliases
 List of user mail aliases.
-.It Pa /etc/mail/virtual
-List of hosted virtual domains.
 .It Pa /etc/mail/secrets
 List of remote host credentials.
 .El
