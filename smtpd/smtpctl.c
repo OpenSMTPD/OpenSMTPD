@@ -530,7 +530,7 @@ show_queue(flags)
 	if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
 		err(1, "%s", PATH_SPOOL);
 
-	while ((r = queue_envelope_learn(&envelope)) != -1)
+	while ((r = queue_envelope_walk(&envelope)) != -1)
 		if (r)
 			show_queue_envelope(&envelope, flags);
 }
