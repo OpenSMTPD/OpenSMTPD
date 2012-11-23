@@ -446,7 +446,7 @@ queue_timeout(int fd, short event, void *p)
 	struct timeval	 tv;
 	int		 r;
 
-	r = queue_envelope_learn(&evp);
+	r = queue_envelope_walk(&evp);
 	if (r == -1) {
 		if (msgid)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],

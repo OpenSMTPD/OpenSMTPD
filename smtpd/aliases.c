@@ -51,6 +51,7 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 	size_t			nbaliases;
 	int			ret;
 
+	
 	xlowercase(buf, username, sizeof(buf));
 	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
 	if (ret <= 0)
@@ -80,32 +81,44 @@ aliases_virtual_get(objid_t id, struct expand *expand,
     const struct mailaddr *maddr)
 {
 	struct table	       *table = table_find(id);
-	struct table_virtual   *table_virtual = NULL;
+	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LINE_SIZE];
-	char		       *pbuf = buf;
+	char		       *pbuf;
 	int			nbaliases;
 	int			ret;
 
 	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
 		maddr->domain))
-		return 0;
+		return 0;	
 	xlowercase(buf, buf, sizeof(buf));
 
-	ret = table_lookup(table, buf, K_VIRTUAL, (void **)&table_virtual);
+	/* First, we lookup for full entry: user@domain */
+	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
 	if (ret < 0)
 		return (-1);
+	if (ret)
+		goto expand;
 
-	if (ret == 0) {
-		pbuf = strchr(buf, '@');
-		ret = table_lookup(table, pbuf, K_VIRTUAL, (void **)&table_virtual);
-	}
+	/* Failed ? We lookup for username only */
+	pbuf = strchr(buf, '@');
+	*pbuf = '\0';
+	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		goto expand;
+
+	*pbuf = '@';
+	/* Failed ? We lookup for catch all for virtual domain */
+	ret = table_lookup(table, pbuf, K_ALIAS, (void **)&table_alias);
 	if (ret <= 0)
-		return ret;
+		return (ret);
 
+expand:
 	/* foreach node in table_virtual expand, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &table_virtual->expand.tree) {
+	RB_FOREACH(xn, expandtree, &table_alias->expand.tree) {
 		if (xn->type == EXPAND_INCLUDE)
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
@@ -115,28 +128,12 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 		}
 	}
 
-	expand_free(&table_virtual->expand);
-	free(table_virtual);
+	expand_free(&table_alias->expand);
+	free(table_alias);
 	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes",
-	    pbuf, nbaliases);
+	    buf, nbaliases);
 
 	return nbaliases;
-}
-
-int
-aliases_vdomain_exists(objid_t id, const char *hostname)
-{
-	struct table   *table = table_find(id);
-	char		buf[MAXHOSTNAMELEN];
-	int    		ret;
-
-	xlowercase(buf, hostname, sizeof(buf));
-	ret = table_lookup(table, buf, K_VIRTUAL, NULL);
-	if (ret <= 0)
-		return ret;
-
-	log_debug("debug: aliases_vdomain_exist: '%s' exists", hostname);
-	return 1;
 }
 
 static int

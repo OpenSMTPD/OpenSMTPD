@@ -205,7 +205,8 @@ dict_iter(struct dict *d, void **hdl, const char **k, void **data)
 }
 
 int
-dict_iterfrom(struct dict *d, void **hdl, const char *kfrom, const char **k, void **data)
+dict_iterfrom(struct dict *d, void **hdl, const char *kfrom, const char **k,
+    void **data)
 {
 	struct dictentry *curr = *hdl, key;
 

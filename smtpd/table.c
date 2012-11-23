@@ -69,7 +69,8 @@ table_find(objid_t id)
 }
 
 int
-table_lookup(struct table *table, const char *key, enum table_service kind, void **retp)
+table_lookup(struct table *table, const char *key, enum table_service kind,
+    void **retp)
 {
 	return table->t_backend->lookup(table->t_handle, key, kind, retp);
 }
@@ -141,6 +142,18 @@ table_destroy(struct table *t)
 	dict_xpop(env->sc_tables_dict, t->t_name);
 	tree_xpop(env->sc_tables_tree, t->t_id);
 	free(t);
+}
+
+void
+table_set_payload(struct table *t, void *payload)
+{
+	t->t_payload = payload;
+}
+
+void *
+table_get_payload(struct table *t)
+{
+	return t->t_payload;
 }
 
 void
@@ -224,7 +237,8 @@ table_config_parser(struct table *t, const char *config)
 
 		/**/
 		if (t->t_type == 0)
-			t->t_type = (valp == keyp || valp == NULL) ? T_LIST : T_HASH;
+			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
+			    T_HASH;
 
 		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
 			table_add(t, keyp, NULL);
@@ -238,6 +252,12 @@ end:
 	free(lbuf);
 	fclose(fp);
 	return ret;
+}
+
+int
+table_domain_match(const char *s1, const char *s2)
+{
+	return hostname_match(s1, s2);
 }
 
 static int table_match_mask(struct sockaddr_storage *, struct netaddr *);

@@ -261,10 +261,9 @@ enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,
 	K_DOMAIN	= 0x02,
-	K_VIRTUAL	= 0x04,
-	K_CREDENTIALS	= 0x08,
-	K_NETADDR	= 0x10,
-	K_USERINFO	= 0x20,
+	K_CREDENTIALS	= 0x04,
+	K_NETADDR	= 0x08,
+	K_USERINFO	= 0x10,
 };
 
 struct table {
@@ -278,15 +277,16 @@ struct table {
 
 	void				*t_handle;
 	struct table_backend		*t_backend;
+	void				*t_payload;
 };
 
 struct table_backend {
 	const unsigned int	services;
-	int  (*config)(struct table *, const char *);
-	void *(*open)(struct table *);
-	int  (*update)(struct table *);
-	void (*close)(void *);
-	int (*lookup)(void *, const char *, enum table_service, void **);
+	int	(*config)(struct table *, const char *);
+	void	*(*open)(struct table *);
+	int	(*update)(struct table *);
+	void	(*close)(void *);
+	int	(*lookup)(void *, const char *, enum table_service, void **);
 };
 
 
@@ -329,9 +329,9 @@ struct rule {
 		struct relayhost	relayhost;
 	}				r_value;
 
-	struct mailaddr			*r_as;
-	objid_t				 r_atable;
-	time_t				 r_qexpire;
+	struct mailaddr		       *r_as;
+	objid_t				r_atable;
+	time_t				r_qexpire;
 };
 
 struct mailaddr {
@@ -355,7 +355,7 @@ enum delivery_flags {
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8, /* internal expansion forward */
 
-	/* the remaining flags are not saved on disk */
+	/* runstate, not saved on disk */
 
 	DF_PENDING		= 0x10,
 	DF_INFLIGHT		= 0x20,
@@ -766,11 +766,6 @@ struct table_alias {
 	struct expand		expand;
 };
 
-struct table_virtual {
-	size_t			nbnodes;
-	struct expand		expand;
-};
-
 struct table_netaddr {
 	struct netaddr		netaddr;
 };
@@ -797,7 +792,7 @@ enum queue_op {
 	QOP_CREATE,
 	QOP_DELETE,
 	QOP_UPDATE,
-	QOP_LEARN,
+	QOP_WALK,
 	QOP_COMMIT,
 	QOP_LOAD,
 	QOP_FD_R,
@@ -805,16 +800,16 @@ enum queue_op {
 };
 
 struct queue_backend {
-	int(*init)(int);
-	int(*message)(enum queue_op, uint32_t *);
-	int(*envelope)(enum queue_op, uint64_t *, char *, size_t);
+	int	(*init)(int);
+	int	(*message)(enum queue_op, uint32_t *);
+	int	(*envelope)(enum queue_op, uint64_t *, char *, size_t);
 };
 
 struct compress_backend {
-	int(*compress_file)(FILE *, FILE *);
-	int(*uncompress_file)(FILE *, FILE *);
-	size_t(*compress_buffer)(char *, size_t, char *, size_t);
-	size_t(*uncompress_buffer)(char *, size_t, char *, size_t);
+	int	(*compress_file)(FILE *, FILE *);
+	int	(*uncompress_file)(FILE *, FILE *);
+	size_t	(*compress_buffer)(char *, size_t, char *, size_t);
+	size_t	(*uncompress_buffer)(char *, size_t, char *, size_t);
 };
 
 /* auth structures */
@@ -824,14 +819,14 @@ enum auth_type {
 };
 
 struct auth_backend {
-	int(*authenticate)(char *, char *);
+	int	(*authenticate)(char *, char *);
 };
 
 
 /* delivery_backend */
 struct delivery_backend {
-	int allow_root;
-	void(*open)(struct deliver *);
+	int	allow_root;
+	void	(*open)(struct deliver *);
 };
 
 struct evpstate {
@@ -949,7 +944,6 @@ extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 /* aliases.c */
 int aliases_get(objid_t, struct expand *, const char *);
 int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
-int aliases_vdomain_exists(objid_t, const char *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -1106,7 +1100,7 @@ int queue_envelope_create(struct envelope *);
 int queue_envelope_delete(struct envelope *);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
-int queue_envelope_learn(struct envelope *);
+int queue_envelope_walk(struct envelope *);
 
 
 /* ruleset.c */
@@ -1189,9 +1183,12 @@ void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
+int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);
+void	table_set_payload(struct table *, void *);
+void   *table_get_payload(struct table *);
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))
