@@ -95,15 +95,15 @@ mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
 }
 
 void
-mfa_session(struct submit_status *ss, enum filter_hook hook)
+mfa_session(uint64_t id, enum filter_hook hook, union mfa_session_data *data)
 {
 	struct mfa_session     *ms;
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
-	ms->id      = ss->id;
-	ms->ss      = *ss;
-	ms->ss.code = 250;
-	ms->hook  = hook;
+	ms->id      = id;
+	ms->code    = 250;
+	ms->hook    = hook;
+	ms->data    = *data;
 	tree_xset(&env->mfa_sessions, ms->id, ms);
 
 	/* no filter handling this hook */
@@ -127,16 +127,16 @@ mfa_session_proceed(struct mfa_session *ms)
 
 	switch (ms->hook) {
 	case HOOK_CONNECT:
-		if (strlcpy(fm.u.connect.hostname, ms->ss.envelope.hostname,
+		if (strlcpy(fm.u.connect.hostname, ms->data.evp.hostname,
 			sizeof(fm.u.connect.hostname))
 		    >= sizeof(fm.u.connect.hostname))
 			fatalx("mfa_session_proceed: CONNECT: truncation");
-		fm.u.connect.hostaddr = ms->ss.envelope.ss;
+		fm.u.connect.hostaddr = ms->data.evp.ss;
 		break;
 
 	case HOOK_HELO:
 	case HOOK_EHLO:
-		if (strlcpy(fm.u.helo.helohost, ms->ss.envelope.helo,
+		if (strlcpy(fm.u.helo.helohost, ms->data.evp.helo,
 			sizeof(fm.u.helo.helohost))
 		    >= sizeof(fm.u.helo.helohost))
 			fatalx("mfa_session_proceed: HELO: truncation");
@@ -146,16 +146,16 @@ mfa_session_proceed(struct mfa_session *ms)
 		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: MAIL: user truncation");
-		if (strlcpy(fm.u.mail.domain, ms->ss.u.maddr.domain,
+		if (strlcpy(fm.u.mail.domain, ms->data.evp.sender.domain,
 			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
 			fatalx("mfa_session_proceed: MAIL: domain truncation");
 		break;
-		
+
 	case HOOK_RCPT:
 		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: RCPT: user truncation");
-		if (strlcpy(fm.u.mail.domain, ms->ss.u.maddr.domain,
+		if (strlcpy(fm.u.mail.domain, ms->data.evp.rcpt.domain,
 			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
 			fatalx("mfa_session_proceed: RCPT: domain truncation");
 		break;
@@ -206,12 +206,13 @@ mfa_session_done(struct mfa_session *ms)
 	case HOOK_MAIL:
 		mfa_reply.u.mailaddr = ms->ss.u.maddr;
 		imsg_type = IMSG_MFA_MAIL;
+		mfa_reply.u.mailaddr = ms->data.evp.sender;
 		break;
 	case HOOK_RCPT:
-		if (! ms->ss.code) {
+		if (ms->code != 530) {
 			imsg_compose_event(env->sc_ievs[PROC_LKA],
-                            IMSG_LKA_RULEMATCH, 0, 0, -1,
-                            &ms->ss, sizeof(ms->ss));
+			    IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
+			    &ms->data.evp, sizeof(ms->data.evp));
                         mfa_session_destroy(ms);
                         return;
 		}
@@ -220,9 +221,9 @@ mfa_session_done(struct mfa_session *ms)
 		break;
 	case HOOK_DATALINE:
 		if (! ms->ss.code) {
-			strlcpy(mfa_reply.u.buffer,
-			    ms->ss.u.dataline,
-			    sizeof (mfa_reply.u.buffer));
+			(void)strlcpy(mfa_reply.u.buffer,
+			    ms->fm.u.dataline.line,
+			    sizeof(mfa_reply.u.buffer));
 		}
 		imsg_type = IMSG_MFA_DATALINE;
 		break;
@@ -239,13 +240,10 @@ mfa_session_done(struct mfa_session *ms)
 		fatalx("mda_session_done: unsupported state");
 	}
 
-	log_debug("ms->ss.code: %d", ms->ss.code);
-	mfa_reply.id = ms->ss.id;
-	mfa_reply.code = ms->ss.code;
-	switch (ms->ss.code / 100) {
+	mfa_reply.id = ms->id;
+	switch (ms->code / 100) {
 	case 2:
-		mfa_reply.status = MFA_SUCCESS;
-		mfa_reply.code = 250;
+		mfa_reply.status = MFA_OK;
 		break;
 	case 4:
 		mfa_reply.status = MFA_TEMPFAIL;
@@ -265,11 +263,7 @@ mfa_session_done(struct mfa_session *ms)
 static void
 mfa_session_fail(struct mfa_session *ms, uint32_t code, char *errorline)
 {
-	if (code == FILTER_PERMFAIL)
-		ms->ss.code = 530;
-	else
-		ms->ss.code = 421;
-	strlcpy(ms->ss.u.errormsg, errorline, sizeof ms->ss.u.errormsg);
+	ms->code = 530;
 	mfa_session_done(ms);
 }
 

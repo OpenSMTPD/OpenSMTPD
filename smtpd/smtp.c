@@ -95,19 +95,17 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s = session_lookup(mfa_reply->id);
 			if (s == NULL)
 				return;
-			ss.code = mfa_reply->code;
-			if (mfa_reply->status == MFA_SUCCESS) {
+
+			if (mfa_reply->status == MFA_OK) {
+				ss.code = 250;
 				/* until we get rid of submit_status */
 				if (imsg->hdr.type == IMSG_MFA_DATALINE) {
 					strlcpy(ss.u.dataline,
 					    mfa_reply->u.buffer,
 					    sizeof (ss.u.dataline));
 				}
-				if (imsg->hdr.type == IMSG_MFA_MAIL ||
-				    imsg->hdr.type == IMSG_MFA_RCPT) {
-					log_debug("ffoooo: %s@%s",
-					    mfa_reply->u.mailaddr.user,
-					    mfa_reply->u.mailaddr.domain);
+
+				if (imsg->hdr.type == IMSG_MFA_MAIL) {
 					ss.u.maddr = mfa_reply->u.mailaddr;
 				}
 			}

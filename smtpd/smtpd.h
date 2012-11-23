@@ -127,28 +127,6 @@ struct relayhost {
 	char authtable[MAX_PATH_SIZE];
 };
 
-struct imsg_queue_reply {
-	uint64_t	id;
-	int		success;
-	uint64_t	evpid;
-};
-
-enum imsg_mfa_status {
-	MFA_SUCCESS,
-	MFA_TEMPFAIL,
-	MFA_PERMFAIL
-};
-
-struct imsg_mfa_reply {
-	uint64_t			id;
-	enum imsg_mfa_status		status;
-	uint32_t			code;
-	union imsg_mfa_reply_data {
-		struct mailaddr		mailaddr;
-		char			buffer[MAX_LINE_SIZE];
-	}				u;
-};
-
 enum imsg_type {
 	IMSG_NONE,
 	IMSG_CTL_OK,		/* answer to smtpctl requests */
@@ -166,10 +144,8 @@ enum imsg_type {
 	IMSG_CONF_END,
 
 	IMSG_LKA_UPDATE_TABLE,
-
-	IMSG_LKA_RCPT,
+	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
-	IMSG_LKA_RULEMATCH,
 
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
@@ -375,7 +351,7 @@ enum delivery_flags {
 	DF_BOUNCE		= 0x4,
 	DF_INTERNAL		= 0x8, /* internal expansion forward */
 
-	/* the remaining flags are not saved on disk */
+	/* runstate, not saved on disk */
 
 	DF_PENDING		= 0x10,
 	DF_INFLIGHT		= 0x20,
@@ -657,20 +633,13 @@ struct smtpd {
 #define	TRACE_STAT	0x0080
 #define	TRACE_PROFILING	0x0100
 
-
 struct submit_status {
-	uint64_t			 id;
-	int				 code;
+	int				 code; /**/
 	union submit_path {
-		struct mailaddr		 maddr;
-		uint32_t		 msgid;
-		uint64_t		 evpid;
-		char			 errormsg[MAX_LINE_SIZE + 1];
-		char			 dataline[MAX_LINE_SIZE + 1];
+		struct mailaddr		 maddr; /**/
+		char			 errormsg[MAX_LINE_SIZE + 1]; /**/
+		char			 dataline[MAX_LINE_SIZE + 1]; /**/
 	}				 u;
-	enum delivery_flags		 flags;
-	struct sockaddr_storage		 ss;
-	struct envelope			 envelope;
 };
 
 struct forward_req {
@@ -712,26 +681,30 @@ struct deliver {
 	short			mode;
 };
 
-struct rulematch {
-	uint64_t		 id;
-	struct submit_status	 ss;
-};
-
 struct filter {
 	struct imsgproc	       *process;
 	char			name[MAX_FILTER_NAME];
 	char			path[MAXPATHLEN];
 };
 
-struct mfa_session {
-	SPLAY_ENTRY(mfa_session)	 nodes;
-	uint64_t			 id;
+union mfa_session_data {
+	struct envelope		evp;
+	char			buffer[MAX_LINE_SIZE];
+};
 
-/*	enum session_state		 state;*/
+struct mfa_session {
+	SPLAY_ENTRY(mfa_session)	nodes;
+	uint64_t			id;
+	uint32_t			code;
+
+	union mfa_session_data		data;
+
 	enum filter_hook       		hook;
 	struct submit_status		ss;
 	void			       *fhook;
 	void			       *iter;
+
+	struct filter_msg		fm;
 };
 
 struct mta_session;
@@ -815,7 +788,7 @@ enum queue_op {
 	QOP_CREATE,
 	QOP_DELETE,
 	QOP_UPDATE,
-	QOP_LEARN,
+	QOP_WALK,
 	QOP_COMMIT,
 	QOP_LOAD,
 	QOP_FD_R,
@@ -975,6 +948,54 @@ struct imsgproc {
 
 
 
+/* inter-process structures */
+struct imsg_queue_data {
+	uint64_t	id;
+	uint64_t	evpid;
+};
+
+struct imsg_queue_reply {
+	uint64_t	id;
+	int		success;
+	uint64_t	evpid;
+};
+
+enum imsg_mfa_status {
+	MFA_OK,
+	MFA_TEMPFAIL,
+	MFA_PERMFAIL
+};
+
+struct imsg_mfa_data {
+	uint64_t		id;
+	char			buffer[MAX_LINE_SIZE];
+	struct envelope		evp;
+};
+
+struct imsg_mfa_reply {
+	uint64_t			id;
+	enum imsg_mfa_status		status;
+	uint32_t			code;
+	union imsg_mfa_reply_data {
+		struct mailaddr		mailaddr;
+		char			buffer[MAX_LINE_SIZE];
+	}				u;
+};
+
+enum imsg_lka_status {
+	LKA_OK,
+	LKA_TEMPFAIL,
+	LKA_PERMFAIL
+};
+
+struct imsg_lka_reply {
+	uint64_t		id;
+	enum imsg_lka_status	status;
+};
+
+
+
+
 /* aliases.c */
 int aliases_get(objid_t, struct expand *, const char *);
 int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
@@ -1069,7 +1090,7 @@ pid_t lka(void);
 
 
 /* lka_session.c */
-void lka_session(struct submit_status *);
+void lka_session(struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 
@@ -1082,7 +1103,7 @@ pid_t mfa(void);
 void mfa_session_filters_init(void);
 
 /* mfa_session.c */
-void mfa_session(struct submit_status *, enum filter_hook);
+void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 
 /* mta.c */
@@ -1128,7 +1149,7 @@ int queue_envelope_create(struct envelope *);
 int queue_envelope_delete(struct envelope *);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
-int queue_envelope_learn(struct envelope *);
+int queue_envelope_walk(struct envelope *);
 
 
 /* ruleset.c */
