@@ -143,7 +143,7 @@ mfa_session_proceed(struct mfa_session *ms)
 		break;
 
 	case HOOK_MAIL:
-		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
+		if (strlcpy(fm.u.mail.user, ms->data.evp.sender.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: MAIL: user truncation");
 		if (strlcpy(fm.u.mail.domain, ms->data.evp.sender.domain,
@@ -152,7 +152,7 @@ mfa_session_proceed(struct mfa_session *ms)
 		break;
 
 	case HOOK_RCPT:
-		if (strlcpy(fm.u.mail.user, ms->ss.u.maddr.user,
+		if (strlcpy(fm.u.mail.user, ms->data.evp.rcpt.user,
 			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
 			fatalx("mfa_session_proceed: RCPT: user truncation");
 		if (strlcpy(fm.u.mail.domain, ms->data.evp.rcpt.domain,
@@ -161,7 +161,7 @@ mfa_session_proceed(struct mfa_session *ms)
 		break;
 
 	case HOOK_DATALINE:
-		if (strlcpy(fm.u.dataline.line, ms->ss.u.dataline,
+		if (strlcpy(fm.u.dataline.line, ms->data.buffer,
 			sizeof(fm.u.dataline.line))
 		    >= sizeof(fm.u.dataline.line))
 			fatalx("mfa_session_proceed: DATA: line truncation");
@@ -204,7 +204,6 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_HELO;
 		break;
 	case HOOK_MAIL:
-		mfa_reply.u.mailaddr = ms->ss.u.maddr;
 		imsg_type = IMSG_MFA_MAIL;
 		mfa_reply.u.mailaddr = ms->data.evp.sender;
 		break;
@@ -216,7 +215,7 @@ mfa_session_done(struct mfa_session *ms)
                         mfa_session_destroy(ms);
                         return;
 		}
-		mfa_reply.u.mailaddr = ms->ss.u.maddr;
+		mfa_reply.u.mailaddr = ms->data.evp.rcpt;
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATALINE:

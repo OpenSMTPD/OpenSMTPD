@@ -889,7 +889,10 @@ session_pickup(struct session *s, struct submit_status *ss)
 	case S_MAIL_MFA:
 		if (ss->code != 250) {
 			session_enter_state(s, S_HELO);
-			session_respond(s, "%d Sender rejected", ss->code);
+			if (ss->u.errormsg[0])
+				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
+			else
+				session_respond(s, "%d Sender rejected", ss->code);
 			break;
 		}
 

@@ -702,7 +702,6 @@ struct mfa_session {
 	union mfa_session_data		data;
 
 	enum filter_hook       		hook;
-	struct submit_status		ss;
 	void			       *fhook;
 	void			       *iter;
 

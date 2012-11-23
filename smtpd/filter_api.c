@@ -194,10 +194,10 @@ filter_reject_status(uint64_t id, uint32_t code, const char *errorline)
 		errorline = NULL;
 	}
 
-	if (errorline) {
+	if (errorline)
 		strlcpy(session->fm.errorline, errorline,
 		    sizeof session->fm.errorline);
-	}
+
 	imsg_compose(&fi.ibuf, session->hook, 0, 0, -1, &session->fm,
 	    sizeof session->fm);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, &fi);
@@ -318,7 +318,7 @@ filter_handler(int fd, short event, void *p)
 
 		memcpy(&session->fm, imsg.data, sizeof (session->fm));
 
-		tree_set(&sessions, session->fm.id, session);
+		tree_xset(&sessions, session->fm.id, session);
 		session->hook = imsg.hdr.type;
 		
 		switch (session->hook) {
