@@ -638,7 +638,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 		if (exptoklen == 0)
 			return 0;
 
-		log_debug("exptoklen: %d", exptoklen);
+		log_debug("exptoklen: %zu", exptoklen);
 
 		if (! lowercase(exptok, exptok, sizeof exptok))
 			return 0;
