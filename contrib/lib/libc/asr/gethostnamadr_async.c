@@ -1,4 +1,4 @@
-/*	$OpenBSD: gethostnamadr_async.c,v 1.8 2012/09/06 15:05:16 eric Exp $	*/
+/*	$OpenBSD: gethostnamadr_async.c,v 1.10 2012/11/24 15:12:48 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -19,22 +19,21 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
-        
-#include <err.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #ifdef YP
 #include <rpc/rpc.h>
 #include <rpcsvc/yp.h>
 #include <rpcsvc/ypclnt.h>
 #include "ypinternal.h"
 #endif
+
+#include <err.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "asr.h"
 #include "asr_private.h"
@@ -148,7 +147,7 @@ gethostnamadr_async_run(struct async *as, struct async_res *ar)
 	char	dname[MAXDNAME], *data;
 
     next:
-	switch(as->as_state) {
+	switch (as->as_state) {
 
 	case ASR_STATE_INIT:
 
@@ -178,7 +177,8 @@ gethostnamadr_async_run(struct async *as, struct async_res *ar)
 
 	case ASR_STATE_NEXT_DOMAIN:
 
-		r = asr_iter_domain(as, as->as.hostnamadr.name, dname, sizeof(dname));
+		r = asr_iter_domain(as, as->as.hostnamadr.name, dname,
+		    sizeof(dname));
 		if (r == -1) {
 			async_set_state(as, ASR_STATE_NOT_FOUND);
 			break;
@@ -206,7 +206,7 @@ gethostnamadr_async_run(struct async *as, struct async_res *ar)
 			break;
 		}
 
-		switch(AS_DB(as)) {
+		switch (AS_DB(as)) {
 
 		case ASR_DB_DNS:
 
@@ -317,7 +317,7 @@ gethostnamadr_async_run(struct async *as, struct async_res *ar)
 		}
 
 		/* Read the hostent from the packet. */
-		
+
 		ar->ar_hostent = hostent_from_packet(as->as_type,
 		    as->as.hostnamadr.family, ar->ar_data, ar->ar_datalen);
 		free(ar->ar_data);
@@ -374,7 +374,7 @@ gethostnamadr_async_run(struct async *as, struct async_res *ar)
 		ar->ar_h_errno = NETDB_INTERNAL;
 		ar->ar_gai_errno = EAI_SYSTEM;
 		async_set_state(as, ASR_STATE_HALT);
-                break;
+		break;
 	}
 	goto next;
 }
@@ -384,13 +384,14 @@ gethostnamadr_async_run(struct async *as, struct async_res *ar)
  * name depending on reqtype, and build a hostent from the line.
  */
 static struct hostent *
-hostent_file_match(FILE *f, int reqtype, int family, const char *data, int datalen)
+hostent_file_match(FILE *f, int reqtype, int family, const char *data,
+    int datalen)
 {
 	char	*tokens[MAXTOKEN], addr[16];
 	struct	 hostent *h;
 	int	 n, i;
 
-	for(;;) {
+	for (;;) {
 		n = asr_parse_namedb_line(f, tokens, MAXTOKEN);
 		if (n == -1) {
 			errno = 0; /* ignore errors reading the file */
@@ -434,7 +435,7 @@ static struct hostent *
 hostent_from_packet(int reqtype, int family, char *pkt, size_t pktlen)
 {
 	struct hostent	*h;
-	struct packed	 p;
+	struct unpack	 p;
 	struct header	 hdr;
 	struct query	 q;
 	struct rr	 rr;
@@ -442,11 +443,11 @@ hostent_from_packet(int reqtype, int family, char *pkt, size_t pktlen)
 	if ((h = hostent_alloc(family)) == NULL)
 		return (NULL);
 
-	packed_init(&p, pkt, pktlen);
+	unpack_init(&p, pkt, pktlen);
 	unpack_header(&p, &hdr);
-	for(; hdr.qdcount; hdr.qdcount--)
+	for (; hdr.qdcount; hdr.qdcount--)
 		unpack_query(&p, &q);
-	for(; hdr.ancount; hdr.ancount--) {
+	for (; hdr.ancount; hdr.ancount--) {
 		unpack_rr(&p, &rr);
 		if (rr.rr_class != C_IN)
 			continue;
@@ -597,7 +598,7 @@ addr_as_fqdn(const char *addr, int family, char *dst, size_t max)
 {
 	const struct in6_addr	*in6_addr;
 	in_addr_t		 in_addr;
-	
+
 	switch (family) {
 	case AF_INET:
 		in_addr = ntohl(*((const in_addr_t *)addr));
@@ -696,7 +697,7 @@ strsplit(char *line, char **tokens, int ntokens)
 	int	ntok;
 	char	*cp, **tp;
 
-	for(cp = line, tp = tokens, ntok = 0;
+	for (cp = line, tp = tokens, ntok = 0;
 	    ntok < ntokens && (*tp = strsep(&cp, " \t")) != NULL; )
 		if (**tp != '\0') {
 			tp++;
@@ -716,7 +717,7 @@ hostent_from_yp(int family, char *line)
 	if ((h = hostent_alloc(family)) == NULL)
 		return (NULL);
 
-	for(next = line; line; line = next) {
+	for (next = line; line; line = next) {
 		if ((next = strchr(line, '\n'))) {
 			*next = '\0';
 			next += 1;

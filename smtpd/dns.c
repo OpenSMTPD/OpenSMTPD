@@ -235,7 +235,7 @@ dns_asr_dispatch_mx(struct dnssession *s)
 {
 	struct dns		*query = &s->query;
 	struct async_res	 ar;
-	struct packed		 pack;
+	struct unpack		 pack;
 	struct header		 h;
 	struct query		 q;
 	struct rr		 rr;
@@ -255,7 +255,7 @@ dns_asr_dispatch_mx(struct dnssession *s)
 		return;
 	}
 
-	packed_init(&pack, ar.ar_data, ar.ar_datalen);
+	unpack_init(&pack, ar.ar_data, ar.ar_datalen);
 	unpack_header(&pack, &h);
 	unpack_query(&pack, &q);
 

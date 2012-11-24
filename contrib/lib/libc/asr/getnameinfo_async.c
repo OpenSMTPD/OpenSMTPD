@@ -1,4 +1,4 @@
-/*	$OpenBSD: getnameinfo_async.c,v 1.4 2012/08/19 16:17:40 eric Exp $	*/
+/*	$OpenBSD: getnameinfo_async.c,v 1.5 2012/11/24 15:12:48 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -80,7 +80,7 @@ getnameinfo_async_run(struct async *as, struct async_res *ar)
 	int		 r;
 
     next:
-	switch(as->as_state) {
+	switch (as->as_state) {
 
 	case ASR_STATE_INIT:
 
@@ -198,7 +198,7 @@ getnameinfo_async_run(struct async *as, struct async_res *ar)
 		ar->ar_errno = EOPNOTSUPP;
 		ar->ar_gai_errno = EAI_SYSTEM;
 		async_set_state(as, ASR_STATE_HALT);
-                break;
+		break;
 	}
 	goto next;
 }
@@ -268,10 +268,9 @@ _numerichost(struct async *as)
 		addr = &as->as.ni.sa.sain.sin_addr;
 	else
 		addr = &as->as.ni.sa.sain6.sin6_addr;
-	
+
 	if (inet_ntop(as->as.ni.sa.sa.sa_family, addr, buf, buflen) == NULL)
-		/* errno set */
-		return (-1);
+		return (-1); /* errno set */
 
 	return (0);
 }

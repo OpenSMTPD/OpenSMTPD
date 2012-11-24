@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_utils.c,v 1.1 2012/04/14 09:24:18 eric Exp $	*/
+/*	$OpenBSD: asr_utils.c,v 1.3 2012/11/24 15:12:48 eric Exp $	*/
 /*
  * Copyright (c) 2009-2012	Eric Faurot	<eric@faurot.net>
  *
@@ -19,7 +19,6 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
@@ -37,16 +36,16 @@ static int dname_check_label(const char*, size_t);
 static ssize_t dname_expand(const unsigned char*, size_t, size_t, size_t*,
     char *, size_t);
 
-static int unpack_data(struct packed*, void*, size_t);
-static int unpack_u16(struct packed*, uint16_t*);
-static int unpack_u32(struct packed*, uint32_t*);
-static int unpack_inaddr(struct packed*, struct in_addr*);
-static int unpack_in6addr(struct packed*, struct in6_addr*);
-static int unpack_dname(struct packed*, char*, size_t);
+static int unpack_data(struct unpack*, void*, size_t);
+static int unpack_u16(struct unpack*, uint16_t*);
+static int unpack_u32(struct unpack*, uint32_t*);
+static int unpack_inaddr(struct unpack*, struct in_addr*);
+static int unpack_in6addr(struct unpack*, struct in6_addr*);
+static int unpack_dname(struct unpack*, char*, size_t);
 
-static int pack_data(struct packed*, const void*, size_t);
-static int pack_u16(struct packed*, uint16_t);
-static int pack_dname(struct packed*, const char*);
+static int pack_data(struct pack*, const void*, size_t);
+static int pack_u16(struct pack*, uint16_t);
+static int pack_dname(struct pack*, const char*);
 
 static int
 dname_check_label(const char *s, size_t l)
@@ -54,7 +53,7 @@ dname_check_label(const char *s, size_t l)
 	if (l == 0 || l > 63)
 		return (-1);
 
-	for(l--; l; l--, s++)
+	for (l--; l; l--, s++)
 		if (!(isalnum(*s) || *s == '_' || *s == '-'))
 			return (-1);
 
@@ -79,7 +78,7 @@ dname_from_fqdn(const char *str, char *dst, size_t max)
 		return (1);
 	}
 
-	for(; *str; str = d + 1) {
+	for (; *str; str = d + 1) {
 
 		d = strchr(str, '.');
 		if (d == NULL || d == str)
@@ -124,7 +123,7 @@ dname_expand(const unsigned char *data, size_t len, size_t offset,
 	res = 0;
 	end = start = offset;
 
-	for(; (n = data[offset]); ) {
+	for (; (n = data[offset]); ) {
 		if ((n & 0xc0) == 0xc0) {
 			if (offset + 2 > len)
 				return (-1);
@@ -165,16 +164,25 @@ dname_expand(const unsigned char *data, size_t len, size_t offset,
 }
 
 void
-packed_init(struct packed *pack, char *data, size_t len)
+pack_init(struct pack *pack, char *buf, size_t len)
 {
-	pack->data = data;
+	pack->buf = buf;
 	pack->len = len;
 	pack->offset = 0;
 	pack->err = NULL;
 }
 
+void
+unpack_init(struct unpack *unpack, const char *buf, size_t len)
+{
+	unpack->buf = buf;
+	unpack->len = len;
+	unpack->offset = 0;
+	unpack->err = NULL;
+}
+
 static int
-unpack_data(struct packed *p, void *data, size_t len)
+unpack_data(struct unpack *p, void *data, size_t len)
 {
 	if (p->err)
 		return (-1);
@@ -184,14 +192,14 @@ unpack_data(struct packed *p, void *data, size_t len)
 		return (-1);
 	}
 
-	memmove(data, p->data + p->offset, len);
+	memmove(data, p->buf + p->offset, len);
 	p->offset += len;
 
 	return (0);
 }
 
 static int
-unpack_u16(struct packed *p, uint16_t *u16)
+unpack_u16(struct unpack *p, uint16_t *u16)
 {
 	if (unpack_data(p, u16, 2) == -1)
 		return (-1);
@@ -202,7 +210,7 @@ unpack_u16(struct packed *p, uint16_t *u16)
 }
 
 static int
-unpack_u32(struct packed *p, uint32_t *u32)
+unpack_u32(struct unpack *p, uint32_t *u32)
 {
 	if (unpack_data(p, u32, 4) == -1)
 		return (-1);
@@ -213,26 +221,26 @@ unpack_u32(struct packed *p, uint32_t *u32)
 }
 
 static int
-unpack_inaddr(struct packed *p, struct in_addr *a)
+unpack_inaddr(struct unpack *p, struct in_addr *a)
 {
 	return (unpack_data(p, a, 4));
 }
 
 static int
-unpack_in6addr(struct packed *p, struct in6_addr *a6)
+unpack_in6addr(struct unpack *p, struct in6_addr *a6)
 {
 	return (unpack_data(p, a6, 16));
 }
 
 static int
-unpack_dname(struct packed *p, char *dst, size_t max)
+unpack_dname(struct unpack *p, char *dst, size_t max)
 {
 	ssize_t e;
 
 	if (p->err)
 		return (-1);
 
-	e = dname_expand(p->data, p->len, p->offset, &p->offset, dst, max);
+	e = dname_expand(p->buf, p->len, p->offset, &p->offset, dst, max);
 	if (e == -1) {
 		p->err = "bad domain name";
 		return (-1);
@@ -246,7 +254,7 @@ unpack_dname(struct packed *p, char *dst, size_t max)
 }
 
 int
-unpack_header(struct packed *p, struct header *h)
+unpack_header(struct unpack *p, struct header *h)
 {
 	if (unpack_data(p, h, HFIXEDSZ) == -1)
 		return (-1);
@@ -261,7 +269,7 @@ unpack_header(struct packed *p, struct header *h)
 }
 
 int
-unpack_query(struct packed *p, struct query *q)
+unpack_query(struct unpack *p, struct query *q)
 {
 	unpack_dname(p, q->q_dname, sizeof(q->q_dname));
 	unpack_u16(p, &q->q_type);
@@ -271,7 +279,7 @@ unpack_query(struct packed *p, struct query *q)
 }
 
 int
-unpack_rr(struct packed *p, struct rr *rr)
+unpack_rr(struct unpack *p, struct rr *rr)
 {
 	uint16_t	rdlen;
 	size_t		save_offset;
@@ -292,7 +300,7 @@ unpack_rr(struct packed *p, struct rr *rr)
 
 	save_offset = p->offset;
 
-	switch(rr->rr_type) {
+	switch (rr->rr_type) {
 
 	case T_CNAME:
 		unpack_dname(p, rr->rr.cname.cname, sizeof(rr->rr.cname.cname));
@@ -334,7 +342,7 @@ unpack_rr(struct packed *p, struct rr *rr)
 		break;
 	default:
 	other:
-		rr->rr.other.rdata = p->data + p->offset;
+		rr->rr.other.rdata = p->buf + p->offset;
 		rr->rr.other.rdlen = rdlen;
 		p->offset += rdlen;
 	}
@@ -350,7 +358,7 @@ unpack_rr(struct packed *p, struct rr *rr)
 }
 
 static int
-pack_data(struct packed *p, const void *data, size_t len)
+pack_data(struct pack *p, const void *data, size_t len)
 {
 	if (p->err)
 		return (-1);
@@ -360,14 +368,14 @@ pack_data(struct packed *p, const void *data, size_t len)
 		return (-1);
 	}
 
-	memmove(p->data + p->offset, data, len);
+	memmove(p->buf + p->offset, data, len);
 	p->offset += len;
 
 	return (0);
 }
 
 static int
-pack_u16(struct packed *p, uint16_t v)
+pack_u16(struct pack *p, uint16_t v)
 {
 	v = htons(v);
 
@@ -375,7 +383,7 @@ pack_u16(struct packed *p, uint16_t v)
 }
 
 static int
-pack_dname(struct packed *p, const char *dname)
+pack_dname(struct pack *p, const char *dname)
 {
 	/* dname compression would be nice to have here.
 	 * need additionnal context.
@@ -384,7 +392,7 @@ pack_dname(struct packed *p, const char *dname)
 }
 
 int
-pack_header(struct packed *p, const struct header *h)
+pack_header(struct pack *p, const struct header *h)
 {
 	struct header c;
 
@@ -393,13 +401,13 @@ pack_header(struct packed *p, const struct header *h)
 	c.qdcount = htons(h->qdcount);
 	c.ancount = htons(h->ancount);
 	c.nscount = htons(h->nscount);
-	c.arcount = htons(h->arcount);	
+	c.arcount = htons(h->arcount);
 
 	return (pack_data(p, &c, HFIXEDSZ));
 }
 
 int
-pack_query(struct packed *p, uint16_t type, uint16_t class, const char *dname)
+pack_query(struct pack *p, uint16_t type, uint16_t class, const char *dname)
 {
 	pack_dname(p, dname);
 	pack_u16(p, type);

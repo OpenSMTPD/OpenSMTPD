@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_debug.c,v 1.8 2012/09/09 12:15:32 eric Exp $	*/
+/*	$OpenBSD: asr_debug.c,v 1.10 2012/11/24 15:12:48 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -19,7 +19,6 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <arpa/inet.h>
@@ -43,7 +42,7 @@ FILE *asr_debug = NULL;
 static const char *
 rcodetostr(uint16_t v)
 {
-	switch(v) {
+	switch (v) {
 	case NOERROR:	return "NOERROR";
 	case FORMERR:	return "FORMERR";
 	case SERVFAIL:	return "SERVFAIL";
@@ -86,7 +85,7 @@ print_rr(const struct rr *rr, char *buf, size_t max)
 	max -= r;
 	buf += r;
 
-	switch(rr->rr_type) {
+	switch (rr->rr_type) {
 	case T_CNAME:
 		print_dname(rr->rr.cname.cname, buf, max);
 		break;
@@ -155,7 +154,7 @@ print_header(const struct header *h, char *buf, size_t max)
 	    (h->flags & AA_MASK) ? "AA":"  ",
 	    (h->flags & TC_MASK) ? "TC":"  ",
 	    (h->flags & RD_MASK) ? "RD":"  ",
-	    (h->flags & RA_MASK) ? "RA":"  ",  
+	    (h->flags & RA_MASK) ? "RA":"  ",
 	    ((h->flags & Z_MASK) >> Z_SHIFT),
 	    rcodetostr(RCODE(h->flags)),
 	    h->qdcount, h->ancount, h->nscount, h->arcount);
@@ -167,7 +166,7 @@ void
 asr_dump_packet(FILE *f, const void *data, size_t len)
 {
 	char		buf[1024];
-	struct packed	p;
+	struct unpack	p;
 	struct header	h;
 	struct query	q;
 	struct rr	rr;
@@ -176,7 +175,7 @@ asr_dump_packet(FILE *f, const void *data, size_t len)
 	if (f == NULL)
 		return;
 
-	packed_init(&p, (char *)data, len);
+	unpack_init(&p, data, len);
 
 	if (unpack_header(&p, &h) == -1) {
 		fprintf(f, ";; BAD PACKET: %s\n", p.err);
@@ -271,7 +270,7 @@ asr_dump_config(FILE *f, struct asr *a)
 		fprintf(f, "STATIC CONF\n");
 	fprintf(f, "DOMAIN \"%s\"\n", ac->ac_domain);
 	fprintf(f, "SEARCH\n");
-	for(i = 0; i < ac->ac_domcount; i++)
+	for (i = 0; i < ac->ac_domcount; i++)
 		fprintf(f, "   \"%s\"\n", ac->ac_dom[i]);
 	fprintf(f, "OPTIONS\n");
 	fprintf(f, " options:");
@@ -295,18 +294,18 @@ asr_dump_config(FILE *f, struct asr *a)
 
 	fprintf(f, " ndots: %i\n", ac->ac_ndots);
 	fprintf(f, " family:");
-	for(i = 0; ac->ac_family[i] != -1; i++)
+	for (i = 0; ac->ac_family[i] != -1; i++)
 		fprintf(f, " %s", (ac->ac_family[i] == AF_INET)?"inet":"inet6");
 	fprintf(f, "\n");
 	fprintf(f, "NAMESERVERS timeout=%i retry=%i\n",
-		   ac->ac_nstimeout,
-		   ac->ac_nsretries);
-	for(i = 0; i < ac->ac_nscount; i++)
+		    ac->ac_nstimeout,
+		    ac->ac_nsretries);
+	for (i = 0; i < ac->ac_nscount; i++)
 		fprintf(f, "	%s\n", print_sockaddr(ac->ac_ns[i], buf,
 		    sizeof buf));
 	fprintf(f, "HOSTFILE %s\n", ac->ac_hostfile);
 	fprintf(f, "LOOKUP");
-	for(i = 0; i < ac->ac_dbcount; i++) {
+	for (i = 0; i < ac->ac_dbcount; i++) {
 		switch (ac->ac_db[i]) {
 		case ASR_DB_FILE:
 			fprintf(f, " file");
@@ -370,7 +369,7 @@ asr_querystr(int type)
 const char *
 asr_transitionstr(int type)
 {
-	switch(type) {
+	switch (type) {
 	CASE(ASYNC_COND);
 	CASE(ASYNC_YIELD);
 	CASE(ASYNC_DONE);

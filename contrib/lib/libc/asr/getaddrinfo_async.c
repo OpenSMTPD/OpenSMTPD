@@ -1,4 +1,4 @@
-/*	$OpenBSD: getaddrinfo_async.c,v 1.8 2012/09/06 15:05:16 eric Exp $	*/
+/*	$OpenBSD: getaddrinfo_async.c,v 1.10 2012/11/24 15:12:48 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -19,20 +19,19 @@
 
 #include <sys/types.h>
 #include <sys/uio.h>
-
 #include <arpa/nameser.h>
-        
-#include <err.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #ifdef YP
 #include <rpc/rpc.h>
 #include <rpcsvc/yp.h>
 #include <rpcsvc/ypclnt.h>
 #include "ypinternal.h"
 #endif
+
+#include <err.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "asr.h"
 #include "asr_private.h"
@@ -60,7 +59,7 @@ static const struct match matches[] = {
 	{ PF_INET6,	SOCK_DGRAM,	IPPROTO_UDP	},
 	{ PF_INET6,	SOCK_STREAM,	IPPROTO_TCP	},
 	{ PF_INET6,	SOCK_RAW,	0		},
-	{ -1, 		0, 		0, 		},
+	{ -1,		0,		0,		},
 };
 
 #define MATCH_FAMILY(a, b) ((a) == matches[(b)].family || (a) == PF_UNSPEC)
@@ -121,7 +120,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 	} sa;
 
     next:
-	switch(as->as_state) {
+	switch (as->as_state) {
 
 	case ASR_STATE_INIT:
 
@@ -227,7 +226,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 
 		/* If hostname is NULL, use local address */
 		if (as->as.ai.hostname == NULL) {
-			for(family = iter_family(as, 1);
+			for (family = iter_family(as, 1);
 			    family != -1;
 			    family = iter_family(as, 0)) {
 				/*
@@ -255,17 +254,16 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		}
 
 		/* Try numeric addresses first */
-		for(family = iter_family(as, 1);
+		for (family = iter_family(as, 1);
 		    family != -1;
 		    family = iter_family(as, 0)) {
 
 			if (sockaddr_from_str(&sa.sa, family,
-					      as->as.ai.hostname) == -1)
+			    as->as.ai.hostname) == -1)
 				continue;
 
-			if ((r = addrinfo_add(as, &sa.sa, NULL))) {
+			if ((r = addrinfo_add(as, &sa.sa, NULL)))
 				ar->ar_gai_errno = r;
-			}
 			break;
 		}
 		if (ar->ar_gai_errno || as->as_count) {
@@ -333,7 +331,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 
 	case ASR_STATE_SAME_DB:
 		/* query the current DB again. */
-		switch(AS_DB(as)) {
+		switch (AS_DB(as)) {
 		case ASR_DB_DNS:
 			family = (as->as.ai.hints.ai_family == AF_UNSPEC) ?
 			    AS_FAMILY(as) : as->as.ai.hints.ai_family;
@@ -453,7 +451,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 		ar->ar_errno = EOPNOTSUPP;
 		ar->ar_gai_errno = EAI_SYSTEM;
 		async_set_state(as, ASR_STATE_HALT);
-                break;
+		break;
 	}
 	goto next;
 }
@@ -536,7 +534,7 @@ addrinfo_add(struct async *as, const struct sockaddr *sa, const char *cname)
 	struct addrinfo		*ai;
 	int			 i, port;
 
-	for(i = 0; matches[i].family != -1; i++) {
+	for (i = 0; matches[i].family != -1; i++) {
 		if (matches[i].family != sa->sa_family ||
 		    !MATCH_SOCKTYPE(as->as.ai.hints.ai_socktype, i) ||
 		    !MATCH_PROTO(as->as.ai.hints.ai_protocol, i))
@@ -612,7 +610,7 @@ addrinfo_from_file(struct async *as, int family, FILE *f)
 		struct sockaddr_in6	sain6;
 	} u;
 
-	for(;;) {
+	for (;;) {
 		n = asr_parse_namedb_line(f, tokens, MAXTOKEN);
 		if (n == -1)
 			break; /* ignore errors reading the file */
@@ -643,7 +641,7 @@ addrinfo_from_file(struct async *as, int family, FILE *f)
 static int
 addrinfo_from_pkt(struct async *as, char *pkt, size_t pktlen)
 {
-	struct packed	 p;
+	struct unpack	 p;
 	struct header	 h;
 	struct query	 q;
 	struct rr	 rr;
@@ -655,9 +653,9 @@ addrinfo_from_pkt(struct async *as, char *pkt, size_t pktlen)
 	} u;
 	char		 buf[MAXDNAME], *c;
 
-	packed_init(&p, pkt, pktlen);
+	unpack_init(&p, pkt, pktlen);
 	unpack_header(&p, &h);
-	for(; h.qdcount; h.qdcount--)
+	for (; h.qdcount; h.qdcount--)
 		unpack_query(&p, &q);
 
 	for (i = 0; i < h.ancount; i++) {
@@ -679,7 +677,7 @@ addrinfo_from_pkt(struct async *as, char *pkt, size_t pktlen)
 			u.sain6.sin6_len = sizeof u.sain6;
 #endif
 			u.sain6.sin6_family = AF_INET6;
- 			u.sain6.sin6_addr = rr.rr.in_aaaa.addr6;
+			u.sain6.sin6_addr = rr.rr.in_aaaa.addr6;
 			u.sain6.sin6_port = 0;
 		} else
 			continue;
@@ -706,7 +704,7 @@ strsplit(char *line, char **tokens, int ntokens)
 	int	ntok;
 	char	*cp, **tp;
 
-	for(cp = line, tp = tokens, ntok = 0;
+	for (cp = line, tp = tokens, ntok = 0;
 	    ntok < ntokens && (*tp = strsep(&cp, " \t")) != NULL; )
 		if (**tp != '\0') {
 			tp++;
@@ -727,7 +725,7 @@ addrinfo_from_yp(struct async *as, int family, char *line)
 		struct sockaddr_in6	sain6;
 	} u;
 
-	for(next = line; line; line = next) {
+	for (next = line; line; line = next) {
 		if ((next = strchr(line, '\n'))) {
 			*next = '\0';
 			next += 1;
