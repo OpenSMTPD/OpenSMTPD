@@ -367,7 +367,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 			iobuf_xinit(&s->iobuf, 0, 0, "mta_enter_state");
 			io_init(&s->io, -1, s, mta_io, &s->iobuf);
-			io_set_timeout(&s->io, 10000);
+			io_set_timeout(&s->io, 300000);
 			if (io_connect(&s->io, sa, NULL) == -1) {
 				log_debug("debug: mta: %p: "
 				    "connection failed: %s", s,

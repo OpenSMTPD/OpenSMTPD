@@ -44,7 +44,6 @@ ruleset_match(const struct envelope *evp)
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
 	struct table	*table;
-	int		 v;
 	int		 ret;
 
 	if (evp->flags & DF_INTERNAL)
