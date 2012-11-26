@@ -36,6 +36,7 @@ struct session {
 	enum filter_hook	hook;
 	struct filter_msg	fm;
 };
+static int			register_done;
 
 static struct filter_internals {
 	uint32_t	filtermask;
@@ -75,7 +76,7 @@ static void filter_handler(int, short, void *);
 static void filter_register_callback(enum filter_hook, void *, void *);
 
 void
-filter_init(void)
+filter_api_init(void)
 {
 	bzero(&fi, sizeof (fi));
 
@@ -88,62 +89,63 @@ filter_init(void)
 }
 
 void
-filter_loop(void)
+filter_api_loop(void)
 {
+	register_done = 1;
+
 	/* notify smtpd of all registered hooks */
 	imsg_compose(&fi.ibuf, HOOK_REGISTER, 0, 0, -1,
 	    &fi.filtermask, sizeof fi.filtermask);
 	event_set(&fi.ev, 0, EV_READ|EV_WRITE, filter_handler, NULL);
 	event_add(&fi.ev, NULL);
-
 	if (event_dispatch() < 0)
 		errx(1, "event_dispatch");
 }
 
 void
-filter_register_connect_callback(void (*cb)(uint64_t, struct filter_connect *, void *),
+filter_api_register_connect_callback(void (*cb)(uint64_t, struct filter_connect *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_CONNECT, cb, cb_arg);
 }
 
 void
-filter_register_helo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
+filter_api_register_helo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_HELO, cb, cb_arg);
 }
 
 void
-filter_register_ehlo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
+filter_api_register_ehlo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_EHLO, cb, cb_arg);
 }
 
 void
-filter_register_mail_callback(void (*cb)(uint64_t, struct filter_mail *, void *),
+filter_api_register_mail_callback(void (*cb)(uint64_t, struct filter_mail *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_MAIL, cb, cb_arg);
 }
 
 void
-filter_register_rcpt_callback(void (*cb)(uint64_t, struct filter_rcpt *, void *),
+filter_api_register_rcpt_callback(void (*cb)(uint64_t, struct filter_rcpt *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_RCPT, cb, cb_arg);
 }
 
 void
-filter_register_dataline_callback(void (*cb)(uint64_t, struct filter_dataline *, void *),
+filter_api_register_dataline_callback(void (*cb)(uint64_t, struct filter_dataline *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_DATALINE, cb, cb_arg);
 }
 
 void
-filter_register_quit_callback(void (*cb)(uint64_t, void *),
+filter_api_register_quit_callback(void (*cb)(uint64_t, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_QUIT, cb, cb_arg);
@@ -152,7 +154,7 @@ filter_register_quit_callback(void (*cb)(uint64_t, void *),
 void
 filter_register_close_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_register_callback(HOOK_CLOSE, cb, cb_arg);
+	filter_api_register_callback(HOOK_CLOSE, cb, cb_arg);
 }
 
 void
@@ -162,7 +164,7 @@ filter_register_rset_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 }
 
 void
-filter_accept(uint64_t id)
+filter_api_accept(uint64_t id)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
@@ -175,7 +177,7 @@ filter_accept(uint64_t id)
 }
 
 void
-filter_reject_status(uint64_t id, uint32_t code, const char *errorline)
+filter_api_reject_status(uint64_t id, uint32_t code, const char *errorline)
 {
 	struct session *session = tree_xpop(&sessions, id);
 
@@ -205,7 +207,7 @@ filter_reject_status(uint64_t id, uint32_t code, const char *errorline)
 }
 
 void
-filter_reject(uint64_t id, enum filter_status status)
+filter_api_reject(uint64_t id, enum filter_status status)
 {
 	struct session	*session = tree_xpop(&sessions, id);
 
@@ -224,6 +226,9 @@ filter_reject(uint64_t id, enum filter_status status)
 static void
 filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
 {
+	if (register_done)
+		errx(1, "filter_register_callback: called at runtime");
+
 	switch (hook) {
 	case HOOK_CONNECT:
 		fi.connect_cb = cb;

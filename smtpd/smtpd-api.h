@@ -113,22 +113,22 @@ void dict_merge(struct dict *, struct dict *);
 
 
 /* filter_api.c */
-void filter_init(void);
-void filter_loop(void);
-void filter_accept(uint64_t);
-void filter_reject(uint64_t, enum filter_status);
-void filter_reject_status(uint64_t, uint32_t, const char *);
+void filter_api_init(void);
+void filter_api_loop(void);
+void filter_api_accept(uint64_t);
+void filter_api_reject(uint64_t, enum filter_status);
+void filter_api_reject_status(uint64_t, uint32_t, const char *);
 
 
-void filter_register_connect_callback(void (*)(uint64_t, struct filter_connect *, void *), void *);
-void filter_register_helo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
-void filter_register_ehlo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
-void filter_register_mail_callback(void (*)(uint64_t, struct filter_mail *, void *), void *);
-void filter_register_rcpt_callback(void (*)(uint64_t, struct filter_rcpt *, void *), void *);
-void filter_register_dataline_callback(void (*)(uint64_t, struct filter_dataline *, void *), void *);
-void filter_register_quit_callback(void (*)(uint64_t, void *), void *);
-void filter_register_close_callback(void (*)(uint64_t, void *), void *);
-void filter_register_rset_callback(void (*)(uint64_t, void *), void *);
+void filter_api_register_connect_callback(void (*)(uint64_t, struct filter_connect *, void *), void *);
+void filter_api_register_helo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
+void filter_api_register_ehlo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
+void filter_api_register_mail_callback(void (*)(uint64_t, struct filter_mail *, void *), void *);
+void filter_api_register_rcpt_callback(void (*)(uint64_t, struct filter_rcpt *, void *), void *);
+void filter_api_register_dataline_callback(void (*)(uint64_t, struct filter_dataline *, void *), void *);
+void filter_api_register_quit_callback(void (*)(uint64_t, void *), void *);
+void filter_api_register_close_callback(void (*)(uint64_t, void *), void *);
+void filter_api_register_rset_callback(void (*)(uint64_t, void *), void *);
 
 
 /* tree.c */
