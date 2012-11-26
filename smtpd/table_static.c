@@ -141,8 +141,8 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 	char	       *v;
 
 	for (i = 0; i < nitems(keycmp); ++i)
-		if (keycmp->service == service)
-			match = keycmp->func;
+		if (keycmp[i].service == service)
+			match = keycmp[i].func;
 
 	line = NULL;
 	iter = NULL;

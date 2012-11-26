@@ -169,8 +169,8 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 		table_db_update(handle->table);
 
 	for (i = 0; i < nitems(keycmp); ++i)
-		if (keycmp->service == service)
-			match = keycmp->func;
+		if (keycmp[i].service == service)
+			match = keycmp[i].func;
 
 	if (match == NULL)
 		line = table_db_get_entry(hdl, key, &len);

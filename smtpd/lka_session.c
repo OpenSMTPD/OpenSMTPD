@@ -260,6 +260,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
+			bzero(&node, sizeof node);
 			node.type = EXPAND_USERNAME;
 			mailaddr_to_username(&xn->u.mailaddr, node.u.user,
 				sizeof node.u.user);
@@ -645,7 +646,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 		if (exptoklen == 0)
 			return 0;
 
-		log_debug("exptoklen: %d", exptoklen);
+		log_debug("exptoklen: %zu", exptoklen);
 
 		if (! lowercase(exptok, exptok, sizeof exptok))
 			return 0;
