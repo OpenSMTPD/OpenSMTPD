@@ -86,11 +86,12 @@ struct filter_dataline {
 };
 
 union filter_union {
-	struct filter_connect	connect;
-	struct filter_helo	helo;
-	struct filter_mail	mail;
-	struct filter_rcpt	rcpt;
-	struct filter_dataline	dataline;
+	struct filter_connect		connect;
+	struct filter_helo		helo;
+	struct filter_mail		mail;
+	struct filter_rcpt		rcpt;
+	struct filter_headerline	headerline;
+	struct filter_dataline		dataline;
 };
 
 struct filter_msg {

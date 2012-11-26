@@ -101,7 +101,6 @@ mfa_session(uint64_t id, enum filter_hook hook, union mfa_session_data *data)
 
 	ms = xcalloc(1, sizeof(*ms), "mfa_session");
 	ms->id      = id;
-	ms->code    = 250;
 	ms->hook    = hook;
 	ms->data    = *data;
 	tree_xset(&env->mfa_sessions, ms->id, ms);
@@ -157,6 +156,13 @@ mfa_session_proceed(struct mfa_session *ms)
 		if (strlcpy(fm.u.mail.domain, ms->data.evp.rcpt.domain,
 			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
 			fatalx("mfa_session_proceed: RCPT: domain truncation");
+		break;
+
+	case HOOK_HEADERLINE:
+		if (strlcpy(fm.u.headerline.line, ms->data.buffer,
+			sizeof(fm.u.headerline.line))
+		    >= sizeof(fm.u.headerline.line))
+			fatalx("mfa_session_proceed: HEADER: line truncation");
 		break;
 
 	case HOOK_DATALINE:
@@ -219,6 +225,7 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATA:
+		log_debug("FILTER STATUS/CODE FOR DATA: %d/%d", ms->status, ms->code);
 		if (ms->status == FILTER_OK) {
 			queue_req.reqid = ms->id;
 			queue_req.evpid = ms->data.evp.id;
@@ -229,6 +236,14 @@ mfa_session_done(struct mfa_session *ms)
                         return;
 		}
 		imsg_type = IMSG_MFA_DATA;
+		break;
+	case HOOK_HEADERLINE:
+		if (ms->status == FILTER_OK) {
+			(void)strlcpy(resp.u.buffer,
+			    ms->fm.u.headerline.line,
+			    sizeof(resp.u.buffer));
+		}
+		imsg_type = IMSG_MFA_HEADERLINE;
 		break;
 	case HOOK_DATALINE:
 		if (ms->status == FILTER_OK) {
@@ -307,7 +322,7 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	fm = imsg->data;
 	ms = tree_xget(&env->mfa_sessions, fm->id);
 
-	if (fm->code != FILTER_OK) {
+	if (fm->status != FILTER_OK) {
 		mfa_session_fail(ms, fm->status, fm->code, fm->errorline);
 		return;
 	}

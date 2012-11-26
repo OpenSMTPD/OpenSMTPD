@@ -155,7 +155,10 @@ enum imsg_type {
 	IMSG_MFA_MAIL,
 	IMSG_MFA_RCPT,
 	IMSG_MFA_DATA,
+	IMSG_MFA_HEADERLINE,
+	IMSG_MFA_EOH,
 	IMSG_MFA_DATALINE,
+	IMSG_MFA_EOM,
 	IMSG_MFA_QUIT,
 	IMSG_MFA_CLOSE,
 	IMSG_MFA_RSET,
@@ -536,6 +539,7 @@ enum session_flags {
 	F_WAITIMSG	= 0x10,
 	F_ZOMBIE	= 0x20,
 	F_KICK		= 0x40,
+	F_DATAINBODY	= 0x80
 };
 
 struct session {
@@ -639,6 +643,7 @@ struct submit_status {
 		struct mailaddr		 maddr; /**/
 		char			 errormsg[MAX_LINE_SIZE + 1]; /**/
 		char			 dataline[MAX_LINE_SIZE + 1]; /**/
+		char			 headerline[MAX_LINE_SIZE + 1]; /**/
 	}				 u;
 };
 

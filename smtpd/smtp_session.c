@@ -1052,16 +1052,33 @@ session_line(struct session *s, char *line, size_t len)
 		break;
 
 	case S_DATACONTENT:
-		if (env->filtermask & HOOK_DATALINE) {
-			mfa_req.reqid = s->s_id;
-			if (strlcpy(mfa_req.u.buffer, line,
-			    sizeof(mfa_req.u.buffer)) >=
-			    sizeof(mfa_req.u.buffer))
-				fatal("session_line: data truncation");
+		mfa_req.reqid = s->s_id;
 
+		/* first empty line sets the F_DATAINBODY flag and notifies
+		 * MFA of end-of-headers
+		 */
+		if (env->filtermask & HOOK_EOH) {
+			if (!(s->s_flags & F_DATAINBODY) && strcmp(line, "") == 0) {
+				s->s_flags |= F_DATAINBODY;
+				session_read_data(s, line);
+				session_imsg(s, PROC_MFA, IMSG_MFA_EOH,
+				    0, 0, -1, &mfa_req, sizeof mfa_req);
+				break;
+			}
+		}
+		
+		if (strlcpy(mfa_req.u.buffer, line,
+			sizeof(mfa_req.u.buffer)) >=
+		    sizeof(mfa_req.u.buffer))
+			fatal("session_line: data truncation");
+
+		if (env->filtermask & HOOK_HEADERLINE && ! (s->s_flags & F_DATAINBODY))
+			session_imsg(s, PROC_MFA, IMSG_MFA_HEADERLINE,
+			    0, 0, -1, &mfa_req, sizeof mfa_req);
+		else if (env->filtermask & HOOK_DATALINE && (s->s_flags & F_DATAINBODY))
 			session_imsg(s, PROC_MFA, IMSG_MFA_DATALINE,
 			    0, 0, -1, &mfa_req, sizeof mfa_req);
-		} else {
+		else {
 			/* no filtering */
 			session_read_data(s, line);
 		}

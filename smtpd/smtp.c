@@ -89,6 +89,7 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_MAIL:
 		case IMSG_MFA_RCPT:
 		case IMSG_MFA_DATA:
+		case IMSG_MFA_HEADERLINE:
 		case IMSG_MFA_DATALINE:
 		case IMSG_MFA_QUIT:
 		case IMSG_MFA_RSET:
@@ -99,6 +100,11 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (mfa_resp->status == MFA_OK) {
 				ss.code = mfa_resp->code ? mfa_resp->code : 250;
 				/* until we get rid of submit_status */
+				if (imsg->hdr.type == IMSG_MFA_HEADERLINE) {
+					strlcpy(ss.u.headerline,
+					    mfa_resp->u.buffer,
+					    sizeof (ss.u.headerline));
+				}
 				if (imsg->hdr.type == IMSG_MFA_DATALINE) {
 					strlcpy(ss.u.dataline,
 					    mfa_resp->u.buffer,

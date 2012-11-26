@@ -140,9 +140,9 @@ filter_api_register_rcpt_callback(void (*cb)(uint64_t, struct filter_rcpt *, voi
 }
 
 void
-filter_register_data_callback(void (*cb)(uint64_t, void *), void *cb_arg)
+filter_api_register_data_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_api_register_callback(HOOK_DATA, cb, cb_arg);
+	filter_register_callback(HOOK_DATA, cb, cb_arg);
 }
 
 void
@@ -155,7 +155,7 @@ filter_api_register_headerline_callback(void (*cb)(uint64_t, struct filter_heade
 void
 filter_register_eoh_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_api_register_callback(HOOK_EOH, cb, cb_arg);
+	filter_register_callback(HOOK_EOH, cb, cb_arg);
 }
 
 void
@@ -168,7 +168,7 @@ filter_api_register_dataline_callback(void (*cb)(uint64_t, struct filter_datalin
 void
 filter_register_eom_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_api_register_callback(HOOK_EOM, cb, cb_arg);
+	filter_register_callback(HOOK_EOM, cb, cb_arg);
 }
 
 void
@@ -181,7 +181,7 @@ filter_api_register_quit_callback(void (*cb)(uint64_t, void *),
 void
 filter_register_close_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
-	filter_api_register_callback(HOOK_CLOSE, cb, cb_arg);
+	filter_register_callback(HOOK_CLOSE, cb, cb_arg);
 }
 
 void
