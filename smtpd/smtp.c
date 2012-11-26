@@ -84,6 +84,39 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
+		case HOOK_REGISTER:
+			env->filtermask |= *(uint32_t *)imsg->data;
+			return;
+		case IMSG_MFA_EOH:
+			mfa_resp = imsg->data;
+			s = session_lookup(mfa_resp->reqid);
+			if (s == NULL)
+				return;
+			if (mfa_resp->status == MFA_TEMPFAIL) {
+				s->s_dstatus |= DS_TEMPFAILURE;
+				ss.code = mfa_resp->code ? mfa_resp->code : 421;
+			}
+			else if (mfa_resp->status == MFA_PERMFAIL) {
+				s->s_dstatus |= DS_PERMFAILURE;
+				ss.code = mfa_resp->code ? mfa_resp->code : 530;
+			}
+			else
+				ss.code = mfa_resp->code ? mfa_resp->code : 250;
+			session_pickup(s, &ss);
+			return;
+
+		case IMSG_MFA_EOM:
+			mfa_resp = imsg->data;
+			s = session_lookup(mfa_resp->reqid);
+			if (s == NULL)
+				return;
+			if (mfa_resp->status == MFA_TEMPFAIL)
+				s->s_dstatus |= DS_TEMPFAILURE;
+			else if (mfa_resp->status == MFA_PERMFAIL)
+				s->s_dstatus |= DS_PERMFAILURE;
+			session_pickup(s, &ss);
+			return;
+			
 		case IMSG_MFA_CONNECT:
 		case IMSG_MFA_HELO:
 		case IMSG_MFA_MAIL:

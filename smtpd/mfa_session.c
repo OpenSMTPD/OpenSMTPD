@@ -92,6 +92,8 @@ mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
 			env->filtermask |= filtermask;
 		}
 	}
+	imsg_compose_event(env->sc_ievs[PROC_SMTP], HOOK_REGISTER, 0, 0,
+	    -1, &env->filtermask, sizeof(env->filtermask));
 }
 
 void
@@ -176,6 +178,7 @@ mfa_session_proceed(struct mfa_session *ms)
 	case HOOK_CLOSE:
 	case HOOK_RSET:
 	case HOOK_DATA:
+	case HOOK_EOH:
 		break;
 
 	default:
@@ -225,7 +228,6 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATA:
-		log_debug("FILTER STATUS/CODE FOR DATA: %d/%d", ms->status, ms->code);
 		if (ms->status == FILTER_OK) {
 			queue_req.reqid = ms->id;
 			queue_req.evpid = ms->data.evp.id;
@@ -261,6 +263,9 @@ mfa_session_done(struct mfa_session *ms)
 		return;
 	case HOOK_RSET:
 		imsg_type = IMSG_MFA_RSET;
+		break;
+	case HOOK_EOH:
+		imsg_type = IMSG_MFA_EOH;
 		break;
 	default:
 		fatalx("mda_session_done: unsupported state");

@@ -153,7 +153,7 @@ filter_api_register_headerline_callback(void (*cb)(uint64_t, struct filter_heade
 }
 
 void
-filter_register_eoh_callback(void (*cb)(uint64_t, void *), void *cb_arg)
+filter_api_register_eoh_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
 	filter_register_callback(HOOK_EOH, cb, cb_arg);
 }
@@ -166,7 +166,7 @@ filter_api_register_dataline_callback(void (*cb)(uint64_t, struct filter_datalin
 }
 
 void
-filter_register_eom_callback(void (*cb)(uint64_t, void *), void *cb_arg)
+filter_api_register_eom_callback(void (*cb)(uint64_t, void *), void *cb_arg)
 {
 	filter_register_callback(HOOK_EOM, cb, cb_arg);
 }
@@ -308,7 +308,6 @@ filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
 	default:
 		errx(1, "filter_register_callback: unknown filter hook");
 	}
-
 	fi.filtermask |= hook;
 }
 

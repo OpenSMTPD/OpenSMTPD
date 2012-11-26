@@ -942,7 +942,6 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_DATA_QUEUE:
-		log_debug("DATA code: %d", ss->code);
 		if (ss->code != 250) {
 			session_enter_state(s, S_HELO);
 			if (ss->u.errormsg[0])
