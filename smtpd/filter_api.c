@@ -50,17 +50,26 @@ static struct filter_internals {
 	void (*helo_cb)(uint64_t, struct filter_helo *, void *);
 	void *helo_cb_arg;
 
-	void (*ehlo_cb)(uint64_t, struct filter_helo *, void *);
-	void *ehlo_cb_arg;
-
 	void (*mail_cb)(uint64_t, struct filter_mail *, void *);
 	void *mail_cb_arg;
 
 	void (*rcpt_cb)(uint64_t, struct filter_rcpt *, void *);
 	void *rcpt_cb_arg;
 
+	void (*data_cb)(uint64_t, void *);
+	void *data_cb_arg;
+
+	void (*headerline_cb)(uint64_t, struct filter_headerline *, void *);
+	void *headerline_cb_arg;
+
+	void (*eoh_cb)(uint64_t, void *);
+	void *eoh_cb_arg;
+
 	void (*dataline_cb)(uint64_t, struct filter_dataline *, void *);
 	void *dataline_cb_arg;
+
+	void (*eom_cb)(uint64_t, void *);
+	void *eom_cb_arg;
 
 	void (*quit_cb)(uint64_t, void *);
 	void *quit_cb_arg;
@@ -117,13 +126,6 @@ filter_api_register_helo_callback(void (*cb)(uint64_t, struct filter_helo *, voi
 }
 
 void
-filter_api_register_ehlo_callback(void (*cb)(uint64_t, struct filter_helo *, void *),
-    void *cb_arg)
-{
-	filter_register_callback(HOOK_EHLO, cb, cb_arg);
-}
-
-void
 filter_api_register_mail_callback(void (*cb)(uint64_t, struct filter_mail *, void *),
     void *cb_arg)
 {
@@ -138,10 +140,35 @@ filter_api_register_rcpt_callback(void (*cb)(uint64_t, struct filter_rcpt *, voi
 }
 
 void
+filter_register_data_callback(void (*cb)(uint64_t, void *), void *cb_arg)
+{
+	filter_api_register_callback(HOOK_DATA, cb, cb_arg);
+}
+
+void
+filter_api_register_headerline_callback(void (*cb)(uint64_t, struct filter_headerline *, void *),
+    void *cb_arg)
+{
+	filter_register_callback(HOOK_HEADERLINE, cb, cb_arg);
+}
+
+void
+filter_register_eoh_callback(void (*cb)(uint64_t, void *), void *cb_arg)
+{
+	filter_api_register_callback(HOOK_EOH, cb, cb_arg);
+}
+
+void
 filter_api_register_dataline_callback(void (*cb)(uint64_t, struct filter_dataline *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_DATALINE, cb, cb_arg);
+}
+
+void
+filter_register_eom_callback(void (*cb)(uint64_t, void *), void *cb_arg)
+{
+	filter_api_register_callback(HOOK_EOM, cb, cb_arg);
 }
 
 void
@@ -238,10 +265,6 @@ filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
 		fi.helo_cb = cb;
 		fi.helo_cb_arg = cb_arg;
 		break;
-	case HOOK_EHLO:
-		fi.ehlo_cb = cb;
-		fi.ehlo_cb_arg = cb_arg;
-		break;
 	case HOOK_MAIL:
 		fi.mail_cb = cb;
 		fi.mail_cb_arg = cb_arg;
@@ -250,9 +273,25 @@ filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
 		fi.rcpt_cb = cb;
 		fi.rcpt_cb_arg = cb_arg;
 		break;
+	case HOOK_DATA:
+		fi.data_cb = cb;
+		fi.data_cb_arg = cb_arg;
+		break;
+	case HOOK_HEADERLINE:
+		fi.headerline_cb = cb;
+		fi.headerline_cb_arg = cb_arg;
+		break;
+	case HOOK_EOH:
+		fi.eoh_cb = cb;
+		fi.eoh_cb_arg = cb_arg;
+		break;
 	case HOOK_DATALINE:
 		fi.dataline_cb = cb;
 		fi.dataline_cb_arg = cb_arg;
+		break;
+	case HOOK_EOM:
+		fi.eom_cb = cb;
+		fi.eom_cb_arg = cb_arg;
 		break;
 	case HOOK_QUIT:
 		fi.quit_cb = cb;
@@ -335,10 +374,6 @@ filter_handler(int fd, short event, void *p)
 			fi.helo_cb(session->fm.id, &session->fm.u.helo,
 			    fi.helo_cb_arg);
 			break;
-		case HOOK_EHLO:
-			fi.ehlo_cb(session->fm.id, &session->fm.u.helo,
-			    fi.ehlo_cb_arg);
-			break;
 		case HOOK_MAIL:
 			fi.mail_cb(session->fm.id, &session->fm.u.mail,
 			    fi.mail_cb_arg);
@@ -347,9 +382,22 @@ filter_handler(int fd, short event, void *p)
 			fi.rcpt_cb(session->fm.id, &session->fm.u.rcpt,
 			    fi.rcpt_cb_arg);
 			break;
+		case HOOK_DATA:
+			fi.data_cb(session->fm.id, fi.data_cb_arg);
+			break;
+		case HOOK_HEADERLINE:
+			fi.headerline_cb(session->fm.id, &session->fm.u.headerline,
+			    fi.headerline_cb_arg);
+			break;
+		case HOOK_EOH:
+			fi.eoh_cb(session->fm.id, fi.eoh_cb_arg);
+			break;
 		case HOOK_DATALINE:
 			fi.dataline_cb(session->fm.id, &session->fm.u.dataline,
 			    fi.dataline_cb_arg);
+			break;
+		case HOOK_EOM:
+			fi.eom_cb(session->fm.id, fi.eom_cb_arg);
 			break;
 		case HOOK_QUIT:
 			fi.quit_cb(session->fm.id, fi.quit_cb_arg);

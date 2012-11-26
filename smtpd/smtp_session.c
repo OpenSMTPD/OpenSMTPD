@@ -520,7 +520,7 @@ session_rfc5321_quit_handler(struct session *s, char *args)
 static int
 session_rfc5321_data_handler(struct session *s, char *args)
 {
-	struct queue_req_msg	queue_req;
+	struct mfa_req_msg	mfa_req;
 
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
@@ -539,11 +539,10 @@ session_rfc5321_data_handler(struct session *s, char *args)
 
 	session_enter_state(s, S_DATA_QUEUE);
 
-	queue_req.reqid = s->s_id;
-	queue_req.evpid = s->s_msg.id;
-	session_imsg(s, PROC_QUEUE, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-	    &queue_req, sizeof(queue_req));
-
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_DATA, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
@@ -943,6 +942,16 @@ session_pickup(struct session *s, struct submit_status *ss)
 		break;
 
 	case S_DATA_QUEUE:
+		log_debug("DATA code: %d", ss->code);
+		if (ss->code != 250) {
+			session_enter_state(s, S_HELO);
+			if (ss->u.errormsg[0])
+				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
+			else
+				session_respond(s, "%d Cannot enter DATA state", ss->code);
+			break;
+		}
+
 		session_enter_state(s, S_DATACONTENT);
 		session_respond(s, "354 Enter mail, end with \".\" on a line by"
 		    " itself");

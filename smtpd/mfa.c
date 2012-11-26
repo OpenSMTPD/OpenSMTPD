@@ -64,6 +64,9 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_RCPT:
 			mfa_filter(imsg->data, HOOK_RCPT);
 			return;
+		case IMSG_MFA_DATA:
+			mfa_filter(imsg->data, HOOK_DATA);
+			return;
 		case IMSG_MFA_DATALINE:
 			mfa_filter(imsg->data, HOOK_DATALINE);
 			return;
@@ -167,7 +170,8 @@ mfa(void)
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_SMTP,	imsg_dispatch },
 		{ PROC_LKA,	imsg_dispatch },
-		{ PROC_CONTROL,	imsg_dispatch }
+		{ PROC_CONTROL,	imsg_dispatch },
+		{ PROC_QUEUE,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
