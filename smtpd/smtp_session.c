@@ -48,168 +48,866 @@
 #define SMTP_MAXMAIL	100
 #define SMTP_MAXRCPT	1000
 
+enum {
+	CMD_HELO = 0,
+	CMD_EHLO,
+	CMD_STARTTLS,
+	CMD_AUTH,
+	CMD_MAIL_FROM,
+	CMD_RCPT_TO,
+	CMD_DATA,
+	CMD_RSET,
+	CMD_QUIT,
+	CMD_HELP,
+	CMD_NOOP,
+};
+
+enum smtp_state {
+	S_NEW = 0,
+	S_CONNECTED,
+	S_TLS,
+	S_HELO,
+	S_AUTH_INIT,
+	S_AUTH_USERNAME,
+	S_AUTH_PASSWORD,
+	S_AUTH_FINALIZE,
+	S_BODY,
+	S_QUIT,
+};
+
+enum session_flags {
+	F_EHLO			= 0x01,
+	F_8BITMIME		= 0x02,
+	F_SECURE		= 0x04,
+	F_AUTHENTICATED		= 0x08,
+
+	F_SMTP_MESSAGE_END	= 0x10,
+	F_MFA_MESSAGE_END	= 0x20,
+
+	F_KICK			= 0x40,
+};
+
+enum {
+	PHASE_INIT = 0,
+	PHASE_SETUP,
+	PHASE_TRANSACTION
+};
+
+struct smtp_session {
+	uint64_t		 id;
+	struct iobuf		 iobuf;
+	struct io		 io;
+	struct listener		*listener;
+	struct sockaddr_storage	 ss;
+	char			 hostname[MAXHOSTNAMELEN];
+
+	int			 flags;
+	int			 phase;
+	enum smtp_state		 state;
+
+	struct auth		 auth;
+	struct envelope		 evp;
+
+	char			 cmd[SMTP_LINE_MAX];
+
+	size_t			 kickcount;
+	size_t			 mailcount;
+	size_t			 rcptcount;
+	size_t			 destcount;
+
+	FILE			*ofile;
+	size_t			 datalen;
+
+	int			 s_dstatus;
+};
+
 #define ADVERTISE_TLS(s) \
-	((s)->s_l->flags & F_STARTTLS && !((s)->s_flags & F_SECURE))
+	((s)->listener->flags & F_STARTTLS && !((s)->flags & F_SECURE))
 
 #define ADVERTISE_AUTH(s) \
-	((s)->s_l->flags & F_AUTH && (s)->s_flags & F_SECURE && \
-	 !((s)->s_flags & F_AUTHENTICATED))
+	((s)->listener->flags & F_AUTH && (s)->flags & F_SECURE && \
+	 !((s)->flags & F_AUTHENTICATED))
 
 void	 ssl_error(const char *);
 
-static int session_rfc5321_helo_handler(struct session *, char *);
-static int session_rfc5321_ehlo_handler(struct session *, char *);
-static int session_rfc5321_rset_handler(struct session *, char *);
-static int session_rfc5321_noop_handler(struct session *, char *);
-static int session_rfc5321_data_handler(struct session *, char *);
-static int session_rfc5321_mail_handler(struct session *, char *);
-static int session_rfc5321_rcpt_handler(struct session *, char *);
-static int session_rfc5321_vrfy_handler(struct session *, char *);
-static int session_rfc5321_expn_handler(struct session *, char *);
-static int session_rfc5321_turn_handler(struct session *, char *);
-static int session_rfc5321_help_handler(struct session *, char *);
-static int session_rfc5321_quit_handler(struct session *, char *);
+static void smtp_io(struct io *, int);
+static void smtp_enter_state(struct smtp_session *, int);
+static void smtp_reply(struct smtp_session *, char *, ...);
+static void smtp_command(struct smtp_session *, char *);
+static int smtp_parse_mail_args(struct smtp_session *, char *);
+static void smtp_rfc4954_auth_plain(struct smtp_session *, char *);
+static void smtp_rfc4954_auth_login(struct smtp_session *, char *);
+static void smtp_end_body(struct smtp_session *);
+static void smtp_queue_data(struct smtp_session *, char *);
+static void smtp_free(struct smtp_session *, const char *);
+static const char *smtp_strstate(int);
 
-static int session_rfc1652_mail_handler(struct session *, char *);
+static int smtp_mailaddr(struct mailaddr *, char *);
 
-static int session_rfc3207_stls_handler(struct session *, char *);
-
-static int session_rfc4954_auth_handler(struct session *, char *);
-static void session_rfc4954_auth_plain(struct session *, char *);
-static void session_rfc4954_auth_login(struct session *, char *);
-
-static void session_line(struct session *, char *, size_t);
-static void session_read_data(struct session *, char *);
-static void session_command(struct session *, char *);
-static void session_respond_delayed(int, short, void *);
-static int session_set_mailaddr(struct mailaddr *, char *);
-static void session_imsg(struct session *, enum smtp_proc_type,
-    enum imsg_type, uint32_t, pid_t, int, void *, uint16_t);
-
-static void session_enter_state(struct session *, int);
-
-const char *session_strstate(int);
-
-struct session_cmd {
-	char	 *name;
-	int		(*func)(struct session *, char *);
+static struct { int code; const char *cmd; } commands[] = {
+	{ CMD_HELO,		"HELO" },
+	{ CMD_EHLO,		"EHLO" },
+	{ CMD_STARTTLS,		"STARTTLS" },
+	{ CMD_AUTH,		"AUTH" },
+	{ CMD_MAIL_FROM,	"MAIL FROM" },
+	{ CMD_RCPT_TO,		"RCPT TO" },
+	{ CMD_DATA,		"DATA" },
+	{ CMD_RSET,		"RSET" },
+	{ CMD_QUIT,		"QUIT" },
+	{ CMD_HELP,		"HELP" },
+	{ CMD_NOOP,		"NOOP" },
+	{ -1, NULL },
 };
 
-struct session_cmd rfc5321_cmdtab[] = {
-	{ "helo",	session_rfc5321_helo_handler },
-	{ "ehlo",	session_rfc5321_ehlo_handler },
-	{ "rset",	session_rfc5321_rset_handler },
-	{ "noop",	session_rfc5321_noop_handler },
-	{ "data",	session_rfc5321_data_handler },
-	{ "mail from",	session_rfc5321_mail_handler },
-	{ "rcpt to",	session_rfc5321_rcpt_handler },
-	{ "vrfy",	session_rfc5321_vrfy_handler },
-	{ "expn",	session_rfc5321_expn_handler },
-	{ "turn",	session_rfc5321_turn_handler },
-	{ "help",	session_rfc5321_help_handler },
-	{ "quit",	session_rfc5321_quit_handler }
-};
+static struct tree wait_lka_ptr;
+static struct tree wait_mfa_connect;
+static struct tree wait_mfa_data;
+static struct tree wait_mfa_helo;
+static struct tree wait_mfa_mailfrom;
+static struct tree wait_mfa_rcpt;
+static struct tree wait_parent_auth;
+static struct tree wait_queue_msg;
+static struct tree wait_queue_fd;
+static struct tree wait_queue_commit;
 
-struct session_cmd rfc1652_cmdtab[] = {
-	{ "mail from",	session_rfc1652_mail_handler },
-};
-
-struct session_cmd rfc3207_cmdtab[] = {
-	{ "starttls",	session_rfc3207_stls_handler }
-};
-
-struct session_cmd rfc4954_cmdtab[] = {
-	{ "auth",	session_rfc4954_auth_handler }
-};
-
-static int
-session_rfc3207_stls_handler(struct session *s, char *args)
+int
+smtp_session(struct listener *listener, int sock,
+    const struct sockaddr_storage *ss, const char *hostname)
 {
-	if (! ADVERTISE_TLS(s))
-		return 0;
+	static int		 init = 0;
+	struct smtp_session	*s;
 
-	if (s->s_state == S_GREETED) {
-		session_respond(s, "503 Polite people say HELO first");
-		return 1;
+	log_debug("debug: smtp: new client on listener: %p", listener);
+
+	if (!init) {
+		tree_init(&wait_lka_ptr);
+		tree_init(&wait_mfa_connect);
+		tree_init(&wait_mfa_data);
+		tree_init(&wait_mfa_helo);
+		tree_init(&wait_mfa_mailfrom);
+		tree_init(&wait_mfa_rcpt);
+		tree_init(&wait_parent_auth);
+		tree_init(&wait_queue_msg);
+		tree_init(&wait_queue_fd);
+		tree_init(&wait_queue_commit);
+		init = 1;
 	}
 
-	if (s->s_state != S_HELO) {
-		session_respond(s, "503 TLS not allowed at this stage");
-		return 1;
+	if ((s = calloc(1, sizeof(*s))) == NULL)
+		return (-1);
+	if (iobuf_init(&s->iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE) == -1) {
+		free(s);
+		return (-1);
+	}
+	s->id = generate_uid();
+	s->listener = listener;
+	memmove(&s->ss, ss, sizeof(*ss));
+	io_init(&s->io, sock, s, smtp_io, &s->iobuf);
+	io_set_timeout(&s->io, SMTPD_SESSION_TIMEOUT * 1000);
+	io_set_write(&s->io);
+
+	s->state = S_NEW;
+	s->phase = PHASE_INIT;
+
+	strlcpy(s->evp.tag, listener->tag, sizeof(s->evp.tag));
+	s->evp.session_id = s->id;
+	s->evp.ss = s->ss;
+
+	/* For local enqueueing, the hostname is already set */
+	if (hostname) {
+		/* A bit of a hack */
+		if (!strcmp(hostname, "localhost"))
+			s->evp.flags |= DF_BOUNCE;
+		strlcpy(s->hostname, hostname, sizeof(s->hostname));
+		strlcpy(s->evp.hostname, hostname, sizeof(s->evp.hostname));
+		smtp_enter_state(s, S_CONNECTED);
+	} else {
+		dns_query_ptr(&s->ss, s->id);
+		tree_xset(&wait_lka_ptr, s->id, s);
 	}
 
-	if (args != NULL) {
-		session_respond(s, "501 No parameters allowed");
-		return 1;
-	}
-
-	session_enter_state(s, S_TLS);
-	session_respond(s, "220 Ready to start TLS");
-
-	return 1;
+	return (0);
 }
 
-static int
-session_rfc4954_auth_handler(struct session *s, char *args)
+void
+smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	char	*method;
-	char	*eom;
+	struct queue_resp_msg	*queue_resp;
+	struct queue_req_msg	 queue_req;
+	struct mfa_resp_msg	*mfa_resp;
+	struct smtp_session	*s;
+	struct auth		*auth;
+	struct dns		*dns;
+	void			*ssl;
+	char			 user[MAXLOGNAME];
 
-	if (! ADVERTISE_AUTH(s)) {
-		if (s->s_flags & F_AUTHENTICATED) {
-			session_respond(s, "503 Already authenticated");
-			return 1;
-		} else
-			return 0;
+	switch (imsg->hdr.type) {
+	case IMSG_DNS_PTR:
+		dns = imsg->data;
+		s = tree_xpop(&wait_lka_ptr, dns->id);
+		if (dns->error)
+			strlcpy(s->hostname, "<unknown>", sizeof s->hostname);
+		else
+			strlcpy(s->hostname, dns->host, sizeof s->hostname);
+		smtp_enter_state(s, S_CONNECTED);
+		return;
+
+	case IMSG_MFA_CONNECT:
+		mfa_resp = imsg->data;
+		s = tree_xpop(&wait_mfa_connect, mfa_resp->reqid);
+		if (mfa_resp->status != MFA_OK) {
+			log_info("smtp-in: Disconnecting session %016" PRIx64
+			    ": rejected by filter", s->id);
+			smtp_free(s, "rejected by filter");
+			return;
+		}
+
+		if (s->listener->flags & F_SMTPS) {
+			ssl = ssl_smtp_init(s->listener->ssl_ctx);
+			io_set_read(&s->io);
+			io_start_tls(&s->io, ssl);
+			return;
+		}
+		smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
+		smtp_enter_state(s, S_HELO);
+		io_reload(&s->io);
+		return;
+
+	case IMSG_MFA_HELO:
+		mfa_resp = imsg->data;
+		s = tree_xpop(&wait_mfa_helo, mfa_resp->reqid);
+		if (mfa_resp->status != MFA_OK) {
+			smtp_reply(s, "%d Hello rejected", mfa_resp->code);
+			io_reload(&s->io);
+			return;
+		}
+
+		smtp_reply(s, "250%c%s Hello %s [%s], pleased to meet you",
+		    (s->flags & F_EHLO) ? '-' : ' ',
+		    env->sc_hostname,
+		    s->evp.helo,
+		    ss_to_text(&s->ss));
+
+		if (s->flags & F_EHLO) {
+			smtp_reply(s, "250-8BITMIME");
+			smtp_reply(s, "250-ENHANCEDSTATUSCODES");
+			smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
+			if (ADVERTISE_TLS(s))
+				smtp_reply(s, "250-STARTTLS");
+			if (ADVERTISE_AUTH(s))
+				smtp_reply(s, "250-AUTH PLAIN LOGIN");
+			smtp_reply(s, "250 HELP");
+		}
+		s->kickcount = 0;
+		s->phase = PHASE_SETUP;
+		io_reload(&s->io);
+		return;
+
+	case IMSG_MFA_MAIL:
+		mfa_resp = imsg->data;
+		s = tree_xpop(&wait_mfa_mailfrom, mfa_resp->reqid);
+		if (mfa_resp->status != MFA_OK) {
+			smtp_reply(s, "%d Sender rejected", mfa_resp->code);
+			io_reload(&s->io);
+			return;
+		}
+		s->evp.sender = mfa_resp->u.mailaddr;
+
+		queue_req.reqid = s->id;
+		queue_req.evpid = 0;
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
+		    &queue_req, sizeof(queue_req));
+		tree_xset(&wait_queue_msg, s->id, s);
+		return;
+
+	case IMSG_MFA_RCPT:
+		mfa_resp = imsg->data;
+		s = tree_xpop(&wait_mfa_rcpt, mfa_resp->reqid);
+		if (mfa_resp->status != MFA_OK) {
+			smtp_reply(s, "%d 5.0.0 Recipient rejected: %s@%s",
+			    mfa_resp->code,
+			    s->evp.rcpt.user,
+			    s->evp.rcpt.domain);
+			/* s->rcptfailed++; XXX */
+		}
+		else {
+			s->rcptcount++;
+			s->kickcount--;
+			smtp_reply(s, "%d 2.0.0 Recipient ok", mfa_resp->code);
+		}
+		io_reload(&s->io);
+		return;
+
+	case IMSG_MFA_DATALINE:
+		mfa_resp = imsg->data;
+		if (!strcmp(mfa_resp->u.buffer, ".")) {
+			s = tree_pop(&wait_mfa_data, mfa_resp->reqid);
+			if (s == NULL)
+				return;	/* dead session */
+			s->flags |= F_MFA_MESSAGE_END;
+			smtp_end_body(s);
+		} else {
+			s = tree_get(&wait_mfa_data, mfa_resp->reqid);
+			if (s == NULL)
+				return;	/* dead session */
+			smtp_queue_data(s, mfa_resp->u.buffer);
+		}
+		return;
+
+	case IMSG_QUEUE_CREATE_MESSAGE:
+		queue_resp = imsg->data;
+		s = tree_xpop(&wait_queue_msg, queue_resp->reqid);
+		if (queue_resp->success) {
+			s->evp.id = queue_resp->evpid;
+			s->rcptcount = 0;
+			s->phase = PHASE_TRANSACTION;
+			smtp_reply(s, "250 Ok");
+		} else {
+			smtp_reply(s, "421 Temporary Error");
+		}
+		io_reload(&s->io);
+		return;
+
+	case IMSG_QUEUE_MESSAGE_FILE:
+		queue_resp = imsg->data;
+		s = tree_xpop(&wait_queue_fd, queue_resp->reqid);
+		if (!queue_resp->success) {
+			smtp_reply(s, "421 Temporary Error");
+			/* XXX ROLLBACK */
+			return;
+		}
+		if (imsg->fd == -1) {
+			smtp_reply(s, "421 Temporary Error");
+			/* XXX ROLLBACK */
+			return;
+		}
+		if ((s->ofile = fdopen(imsg->fd, "w")) == NULL) {
+			close(imsg->fd);
+			smtp_reply(s, "421 Temporary Error");
+			/* XXX ROLLBACK */
+			return;
+		}
+
+		fprintf(s->ofile, "Received: from %s (%s [%s])\n"
+		    "\tby %s (OpenSMTPD) with %sSMTP id %08x;\n",
+		    s->evp.helo,
+		    s->hostname,
+		    ss_to_text(&s->ss),
+		    env->sc_hostname,
+		    s->flags & F_EHLO ? "E" : "",
+		    evpid_to_msgid(s->evp.id));
+
+		if (s->flags & F_SECURE)
+			fprintf(s->ofile, "\tTLS version=%s cipher=%s bits=%d;\n",
+			    SSL_get_cipher_version(s->io.ssl),
+			    SSL_get_cipher_name(s->io.ssl),
+			    SSL_get_cipher_bits(s->io.ssl, NULL));
+
+		if (s->rcptcount == 1)
+			fprintf(s->ofile, "\tfor <%s@%s>;\n",
+			    s->evp.rcpt.user,
+			    s->evp.rcpt.domain);
+
+		fprintf(s->ofile, "\n\t%s\n", time_to_text(time(NULL)));
+
+		/* XXX Test ferror() */
+		smtp_reply(s, "354 Enter mail, end with \".\" on a line"
+		    "by itself");
+
+		tree_xset(&wait_mfa_data, s->id, s);
+		smtp_enter_state(s, S_BODY);
+		/* By-pass mfa for message body */
+		if (!(env->filtermask & HOOK_DATALINE)) {
+			log_debug("disabling mfa for msg body");
+			s->flags |= F_MFA_MESSAGE_END;
+		}
+		io_reload(&s->io);
+		return;
+
+	case IMSG_QUEUE_SUBMIT_ENVELOPE:
+		queue_resp = imsg->data;
+		s = tree_xget(&wait_mfa_rcpt, queue_resp->reqid);
+		if (queue_resp->success)
+			s->destcount++;
+		else
+			s->s_dstatus |= DS_TEMPFAILURE;
+		return;
+
+	case IMSG_QUEUE_COMMIT_ENVELOPES:
+		queue_resp = imsg->data;
+		s = tree_xpop(&wait_mfa_rcpt, queue_resp->reqid);
+		/* This cannot fail. */
+		s->rcptcount++;
+		s->kickcount--;
+		smtp_reply(s, "250 2.0.0 Recipient ok");
+		io_reload(&s->io);
+		return;
+
+	case IMSG_QUEUE_COMMIT_MESSAGE:
+		queue_resp = imsg->data;
+		s = tree_xpop(&wait_queue_commit, queue_resp->reqid);
+		if (!queue_resp->success) {
+			smtp_reply(s, "421 Temporay failure");
+			/* XXX reset */
+			io_reload(&s->io);
+			return;
+		}
+
+		smtp_reply(s, "250 2.0.0 %08x Message accepted for delivery",
+		    evpid_to_msgid(s->evp.id));
+		log_info("smtp-in: Accepted message %08x on session %016"PRIx64
+		    ": from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s",
+		    evpid_to_msgid(s->evp.id),
+		    s->id,
+		    s->evp.sender.user,
+		    s->evp.sender.user[0] == '\0' ? "" : "@",
+		    s->evp.sender.domain,
+		    s->datalen,
+		    s->rcptcount,
+		    s->flags & F_EHLO ? "ESMTP" : "SMTP");
+
+		s->mailcount++;
+		s->evp.id = 0;
+		s->phase = PHASE_SETUP;
+		s->kickcount = 0;
+		smtp_enter_state(s, S_HELO);
+		io_reload(&s->io);
+		return;
+
+	case IMSG_PARENT_AUTHENTICATE:
+		auth = imsg->data;
+		s = tree_xpop(&wait_parent_auth, auth->id);
+		strnvis(user, auth->user, sizeof user, VIS_WHITE | VIS_SAFE);
+		if (auth->success) {
+			log_info("smtp-in: Accepted authentication for user %s "
+			    "on session %016"PRIx64, user, s->id);
+			s->kickcount = 0;
+			s->flags |= F_AUTHENTICATED;
+			smtp_reply(s, "235 Authentication succeeded");
+		}
+		else {
+			log_info("smtp-in: Authentication failed for user %s "
+			    "on session %016"PRIx64, user, s->id);
+			smtp_reply(s, "535 Authentication failed");
+		}
+		io_reload(&s->io);
+		return;
 	}
 
-	if (s->s_state == S_GREETED) {
-		session_respond(s, "503 Polite people say HELO first");
-		return 1;
-	}
-
-	if (s->s_state != S_HELO) {
-		session_respond(s, "503 Session already in progress");
-		return 1;
-	}
-
-	if (args == NULL) {
-		session_respond(s, "501 No parameters given");
-		return 1;
-	}
-
-	method = args;
-	eom = strchr(args, ' ');
-	if (eom == NULL)
-		eom = strchr(args, '\t');
-	if (eom != NULL)
-		*eom++ = '\0';
-
-	if (strcasecmp(method, "PLAIN") == 0)
-		session_rfc4954_auth_plain(s, eom);
-	else if (strcasecmp(method, "LOGIN") == 0)
-		session_rfc4954_auth_login(s, eom);
-	else
-		session_respond(s, "504 AUTH method '%s' unsupported", method);
-
-	return 1;
+	log_warnx("smtp_session_imsg: unexpected %s imsg",
+	    imsg_to_str(imsg->hdr.type));
+	fatalx(NULL);
 }
 
 static void
-session_rfc4954_auth_plain(struct session *s, char *arg)
+smtp_io(struct io *io, int evt)
 {
-	struct auth	*a = &s->s_auth;
+	struct smtp_session    *s = io->arg;
+	struct mfa_req_msg	req;
+	void		       *ssl;
+	char		       *line;
+	size_t			len;
+
+	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
+	    io_strio(io));
+
+	switch (evt) {
+
+	case IO_TLSREADY:
+		log_info("smtp-in: Started TLS on session %016"PRIx64": %s",
+		    s->id, ssl_to_text(s->io.ssl));
+		s->flags |= F_SECURE;
+		s->kickcount = 0;
+		if (s->listener->flags & F_SMTPS) {
+			stat_increment("smtp.smtps", 1);
+			smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
+			io_set_write(&s->io);
+		}
+		else {
+			stat_increment("smtp.tls", 1);
+		}
+		break;
+
+	case IO_DATAIN:
+	    nextline:
+		line = iobuf_getline(&s->iobuf, &len);
+		if ((line == NULL && iobuf_len(&s->iobuf) >= SMTP_LINE_MAX) ||
+		    (line && len >= SMTP_LINE_MAX)) {
+			smtp_reply(s, "500 5.0.0 Line too long");
+			smtp_enter_state(s, S_QUIT);
+			io_set_write(io);
+			return;
+		}
+
+		/* No complete line received */
+		if (line == NULL) {
+			iobuf_normalize(&s->iobuf);
+			return;
+		}
+
+		/* Message body */
+		if (s->state == S_BODY && strcmp(line, ".")) {
+			if (env->filtermask & HOOK_DATALINE) {
+				req.reqid = s->id;
+				if (strlcpy(req.u.buffer, line,
+				    sizeof req.u.buffer) >= sizeof req.u.buffer)
+					fatalx("smtp_io: data truncation");
+				imsg_compose_event(env->sc_ievs[PROC_MFA],
+				    IMSG_MFA_DATALINE, 0, 0, -1, &req,
+				    sizeof(req));
+			} else
+				smtp_queue_data(s, line);
+			goto nextline;
+		}
+
+		/* Pipelining not supported */
+		if (iobuf_len(&s->iobuf)) {
+			smtp_reply(s, "500 5.0.0 Pipelining not supported");
+			smtp_enter_state(s, S_QUIT);
+			io_set_write(io);
+			return;
+		}
+
+		/* End of body */
+		if (s->state == S_BODY) {
+			s->flags |= F_SMTP_MESSAGE_END;
+			iobuf_normalize(&s->iobuf);
+			io_set_write(io);
+			smtp_end_body(s);
+			return;
+		}
+
+		/* Must be a command */
+		strlcpy(s->cmd, line, sizeof s->cmd);
+		iobuf_normalize(&s->iobuf);
+		io_set_write(io);
+		smtp_command(s, s->cmd);
+		if (s->flags & F_KICK) {
+			smtp_free(s, "kick");
+			return;
+		}
+		break;
+
+	case IO_LOWAT:
+		if (s->state == S_QUIT) {
+			log_info("smtp-in: Closing session %016" PRIx64, s->id);
+			smtp_free(s, "done");
+			break;
+		}
+
+		io_set_read(io);
+
+		/* Wait for the client to start tls */
+		if (s->state == S_TLS) {
+			ssl = ssl_smtp_init(s->listener->ssl_ctx);
+			io_start_tls(io, ssl);
+		}
+		break;
+
+	case IO_TIMEOUT:
+		log_info("smtp-in: Disconnecting session %016"PRIx64": "
+		    "session timeout", s->id);
+		smtp_free(s, "timeout");
+		break;
+
+	case IO_DISCONNECTED:
+		log_info("smtp-in: Received disconnect from session %016"PRIx64,
+		    s->id);
+		smtp_free(s, "disconnected");
+		break;
+
+	case IO_ERROR:
+		log_info("smtp-in: Disconnecting session %016"PRIx64": "
+		    "IO error: %s", s->id, io->error);
+		smtp_free(s, "IO error");
+		break;
+
+	default:
+		fatalx("smtp_io()");
+	}
+}
+
+static void
+smtp_command(struct smtp_session *s, char *line)
+{
+	struct queue_req_msg	 queue_req;
+	struct mfa_req_msg	 mfa_req;
+	char			*args, *eom, *method;
+	int			 cmd, i;
+
+	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
+	
+	if (++s->kickcount >= SMTP_KICKTHRESHOLD) {
+		log_info("smtp-in: Disconnecting session %016" PRIx64
+		    ": session not moving forward", s->id);
+		s->flags |= F_KICK;
+		stat_increment("smtp.kick", 1);
+		return;
+	}
+
+	/*
+	 * These states are special
+	 */
+	if (s->state == S_AUTH_INIT) {
+		smtp_rfc4954_auth_plain(s, line);
+		return;
+	}
+	if (s->state == S_AUTH_USERNAME || s->state == S_AUTH_PASSWORD) {
+		smtp_rfc4954_auth_login(s, line);
+		return;
+	}
+
+	/*
+	 * Unlike other commands, "mail from" and "rcpt to" contain a
+	 * space in the command name.
+	 */
+	if (strncasecmp("mail from:", line, 10) == 0 ||
+	    strncasecmp("rcpt to:", line, 8) == 0)
+		args = strchr(line, ':');
+	else
+		args = strchr(line, ' ');
+
+	if (args) {
+		*args++ = '\0';
+		while (isspace((int)*args))
+			args++;
+	}
+
+	cmd = -1;
+	for (i = 0; commands[i].code != -1; i++)
+		if (!strcasecmp(line, commands[i].cmd)) {
+			cmd = commands[i].code;
+			break;
+		}
+
+	switch (cmd) {
+	/*
+	 * INIT
+	 */
+	case CMD_HELO:
+	case CMD_EHLO:
+		if (s->phase != PHASE_INIT) {
+			smtp_reply(s, "XXX Already indentified");
+			break;
+		}
+
+		if (args == NULL) {
+			smtp_reply(s, "501 %s requires domain address",
+			    (cmd == CMD_HELO) ? "HELO" : "EHLO");
+			break;
+		}
+
+		if (!valid_domainpart(args)) {
+			smtp_reply(s, "501 Invalid domain name");
+			break;
+		}
+		strlcpy(s->evp.helo, args, sizeof(s->evp.helo));
+		s->evp.session_id = s->id;
+		s->flags &= F_SECURE|F_AUTHENTICATED;
+		if (cmd == CMD_EHLO) {
+			s->flags |= F_EHLO;
+			s->flags |= F_8BITMIME;
+		}
+		mfa_req.reqid = s->id;
+		mfa_req.u.evp = s->evp;
+		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_HELO,
+		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		tree_xset(&wait_mfa_helo, s->id, s);
+		break;
+	/*
+	 * SETUP
+	 */
+	case CMD_STARTTLS:
+		if (s->phase != PHASE_SETUP) {
+			smtp_reply(s, "XXX Command not allowed at this point.");
+			break;
+		}
+
+		if (s->flags & F_SECURE) {
+			smtp_reply(s, "501 Channel already secured");
+			break;
+		}
+		if (args != NULL) {
+			smtp_reply(s, "501 No parameters allowed");
+			break;
+		}
+		smtp_reply(s, "220 Ready to start TLS");
+		smtp_enter_state(s, S_TLS);
+		break;
+
+	case CMD_AUTH:
+		if (s->phase != PHASE_SETUP) {
+			smtp_reply(s, "XXX Command not allowed at this point.");
+			break;
+		}
+
+		if (s->flags & F_AUTHENTICATED) {
+			smtp_reply(s, "503 Already authenticated");
+			break;
+		}
+
+		if (!ADVERTISE_AUTH(s)) {
+			smtp_reply(s, "503 Command not supported");
+			break;
+		}
+
+		if (args == NULL) {
+			smtp_reply(s, "501 No parameters given");
+			break;
+		}
+
+		method = args;
+		eom = strchr(args, ' ');
+		if (eom == NULL)
+			eom = strchr(args, '\t');
+		if (eom != NULL)
+			*eom++ = '\0';
+		if (strcasecmp(method, "PLAIN") == 0)
+			smtp_rfc4954_auth_plain(s, eom);
+		else if (strcasecmp(method, "LOGIN") == 0)
+			smtp_rfc4954_auth_login(s, eom);
+		else
+			smtp_reply(s, "504 AUTH method \"%s\" not supported",
+			    method);
+		break;
+
+	case CMD_MAIL_FROM:
+		if (s->phase != PHASE_SETUP) {
+			smtp_reply(s, "XXX Command not allowed at this point.");
+			break;
+		}
+
+		if (s->listener->flags & F_STARTTLS_REQUIRE &&
+		    !(s->flags & F_SECURE)) {
+			smtp_reply(s,
+			    "530 5.7.0 Must issue a STARTTLS command first");
+			break;
+		}
+
+		if (s->listener->flags & F_AUTH_REQUIRE &&
+		    !(s->flags & F_AUTHENTICATED)) {
+			smtp_reply(s,
+			    "530 5.7.0 Must issue an AUTH command first");
+			break;
+		}
+
+		if (s->mailcount >= SMTP_MAXMAIL) {
+			smtp_reply(s, "452 Too many messages sent");
+			break;
+		}
+
+		if (smtp_mailaddr(&s->evp.sender, args) == 0) {
+			smtp_reply(s, "553 5.1.7 Sender address syntax error");
+			break;
+		}
+
+		if (s->flags & F_EHLO && smtp_parse_mail_args(s, args) == -1)
+			break;
+
+		mfa_req.reqid = s->id;
+		mfa_req.u.evp = s->evp;
+		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_MAIL,
+		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		tree_xset(&wait_mfa_mailfrom, s->id, s);
+		break;
+	/*
+	 * TRANSACTION
+	 */
+	case CMD_RCPT_TO:
+		if (s->phase != PHASE_TRANSACTION) {
+			smtp_reply(s, "XXX Command not allowed at this point.");
+			break;
+		}
+
+		if (s->rcptcount >= SMTP_MAXRCPT) {
+			smtp_reply(s, "452 Too many recipients");
+			break;
+		}
+
+		if (smtp_mailaddr(&s->evp.rcpt, args) == 0) {
+			smtp_reply(s,
+			    "553 5.1.3 Recipient address syntax error");
+			break;
+		}
+		mfa_req.reqid = s->id;
+		mfa_req.u.evp = s->evp;
+		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RCPT,
+		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		tree_xset(&wait_mfa_rcpt, s->id, s);
+		break;
+
+	case CMD_RSET:
+		if (s->phase != PHASE_TRANSACTION) {
+			smtp_reply(s, "XXX Command not allowed at this point.");
+			break;
+		}
+		mfa_req.reqid = s->id;
+		mfa_req.u.evp = s->evp;
+		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RSET,
+		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		smtp_reply(s, "250 2.0.0 Reset state");
+		s->phase = PHASE_SETUP;
+		s->evp.id = 0;
+		break;
+
+	case CMD_DATA:
+		if (s->phase != PHASE_TRANSACTION) {
+			smtp_reply(s, "XXX Command not allowed at this point.");
+			break;
+		}
+		if (s->rcptcount == 0) {
+			smtp_reply(s, "503 5.5.1 No recipient specified");
+			break;
+		}
+		queue_req.reqid = s->id;
+		queue_req.evpid = s->evp.id;
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, &queue_req,
+		    sizeof(queue_req));
+		tree_xset(&wait_queue_fd, s->id, s);
+		break;
+	/*
+	 * ANY
+	 */
+	case CMD_QUIT:
+		smtp_reply(s, "221 2.0.0 Bye");
+		smtp_enter_state(s, S_QUIT);
+		break;
+
+	case CMD_NOOP:
+		smtp_reply(s, "250 2.0.0 Ok");
+		break;
+
+	case CMD_HELP:
+		smtp_reply(s, "214- This is OpenSMTPD");
+		smtp_reply(s, "214- To report bugs in the implementation, "
+		    "please contact bugs@openbsd.org");
+		smtp_reply(s, "214- with full details");
+		smtp_reply(s, "214 End of HELP info");
+		break;
+
+	default:
+		smtp_reply(s, "500 Command unrecognized");
+		break;
+	}
+}
+
+static void
+smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
+{
+	struct auth	*a = &s->auth;
 	char		 buf[1024], *user, *pass;
 	int		 len;
 
-	switch (s->s_state) {
+	switch (s->state) {
 	case S_HELO:
 		if (arg == NULL) {
-			session_enter_state(s, S_AUTH_INIT);
-			session_respond(s, "334 ");
+			smtp_enter_state(s, S_AUTH_INIT);
+			smtp_reply(s, "334 ");
 			return;
 		}
-		session_enter_state(s, S_AUTH_INIT);
+		smtp_enter_state(s, S_AUTH_INIT);
 		/* FALLTHROUGH */
 
 	case S_AUTH_INIT:
@@ -237,33 +935,31 @@ session_rfc4954_auth_plain(struct session *s, char *arg)
 		if (strlcpy(a->pass, pass, sizeof(a->pass)) >= sizeof(a->pass))
 			goto abort;
 
-		session_enter_state(s, S_AUTH_FINALIZE);
-
-		a->id = s->s_id;
-		session_imsg(s, PROC_PARENT, IMSG_PARENT_AUTHENTICATE, 0, 0, -1,
-		    a, sizeof(*a));
-
+		a->id = s->id;
+		imsg_compose_event(env->sc_ievs[PROC_PARENT],
+		    IMSG_PARENT_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
 		bzero(a->pass, sizeof(a->pass));
+		tree_xset(&wait_parent_auth, s->id, s);
 		return;
 
 	default:
-		fatal("session_rfc4954_auth_plain: unknown state");
+		fatal("smtp_rfc4954_auth_plain: unknown state");
 	}
 
 abort:
-	session_respond(s, "501 Syntax error");
-	session_enter_state(s, S_HELO);
+	smtp_reply(s, "501 Syntax error");
+	smtp_enter_state(s, S_HELO);
 }
 
 static void
-session_rfc4954_auth_login(struct session *s, char *arg)
+smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 {
-	struct auth	*a = &s->s_auth;
+	struct auth	*a = &s->auth;
 
-	switch (s->s_state) {
+	switch (s->state) {
 	case S_HELO:
-		session_enter_state(s, S_AUTH_USERNAME);
-		session_respond(s, "334 VXNlcm5hbWU6");
+		smtp_enter_state(s, S_AUTH_USERNAME);
+		smtp_reply(s, "334 VXNlcm5hbWU6");
 		return;
 
 	case S_AUTH_USERNAME:
@@ -272,8 +968,8 @@ session_rfc4954_auth_login(struct session *s, char *arg)
 			sizeof(a->user) - 1) == -1)
 			goto abort;
 
-		session_enter_state(s, S_AUTH_PASSWORD);
-		session_respond(s, "334 UGFzc3dvcmQ6");
+		smtp_enter_state(s, S_AUTH_PASSWORD);
+		smtp_reply(s, "334 UGFzc3dvcmQ6");
 		return;
 
 	case S_AUTH_PASSWORD:
@@ -282,856 +978,134 @@ session_rfc4954_auth_login(struct session *s, char *arg)
 			sizeof(a->pass) - 1) == -1)
 			goto abort;
 
-		session_enter_state(s, S_AUTH_FINALIZE);
-
-		a->id = s->s_id;
-		session_imsg(s, PROC_PARENT, IMSG_PARENT_AUTHENTICATE, 0, 0, -1,
-		    a, sizeof(*a));
-
+		a->id = s->id;
+		imsg_compose_event(env->sc_ievs[PROC_PARENT],
+		    IMSG_PARENT_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
 		bzero(a->pass, sizeof(a->pass));
+		tree_xset(&wait_parent_auth, s->id, s);
 		return;
 
 	default:
-		fatal("session_rfc4954_auth_login: unknown state");
+		fatal("smtp_rfc4954_auth_login: unknown state");
 	}
 
 abort:
-	session_respond(s, "501 Syntax error");
-	session_enter_state(s, S_HELO);
+	smtp_reply(s, "501 Syntax error");
+	smtp_enter_state(s, S_HELO);
 }
 
 static int
-session_rfc1652_mail_handler(struct session *s, char *args)
+smtp_parse_mail_args(struct smtp_session *s, char *args)
 {
-	char *body;
+	char *b;
 
-	if (s->s_state == S_GREETED) {
-		session_respond(s, "503 5.5.1 Polite people say HELO first");
-		return 1;
-	}
-
-	for (body = strrchr(args, ' '); body != NULL;
-		body = strrchr(args, ' ')) {
-		*body++ = '\0';
-
-		if (strncasecmp(body, "AUTH=", 5) == 0) {
-			log_debug("debug: smtp: "
-			    "AUTH in MAIL FROM command, skipping");
-			continue;
-		}
-
-		if (strncasecmp(body, "BODY=", 5) == 0) {
-			log_debug("debug: smtp: BODY in MAIL FROM command");
-
-			if (strncasecmp("body=7bit", body, 9) == 0) {
-				s->s_flags &= ~F_8BITMIME;
-				continue;
-			}
-
-			else if (strncasecmp("body=8bitmime", body, 13) != 0) {
-				session_respond(s,
-				    "503 5.5.4 Unsupported option %s", body);
-				return 1;
-			}
+	for (b = strrchr(args, ' '); b != NULL; b = strrchr(args, ' ')) {
+		*b++ = '\0';
+		if (strncasecmp(b, "AUTH=", 5) == 0)
+			log_debug("debug: smtp: AUTH in MAIL FROM command");
+		else if (!strcasecmp(b, "BODY=7BIT"))
+			/* XXX only for this transaction */
+			s->flags &= ~F_8BITMIME;
+		else if (strcasecmp(b, "BODY=8BITMIME"))
+			;
+		else {
+			smtp_reply(s, "503 5.5.4 Unsupported option %s", b);
+			return (-1);
 		}
 	}
 
-	return session_rfc5321_mail_handler(s, args);
+	return (0);
 }
 
-static int
-session_rfc5321_helo_handler(struct session *s, char *args)
+void
+smtp_enter_state(struct smtp_session *s, int newstate)
 {
 	struct mfa_req_msg	mfa_req;
+	int			oldstate;
 
-	if (args == NULL || !valid_domainpart(args)) {
-		session_respond(s, "501 HELO requires domain address");
-		return 1;
-	}
+	oldstate = s->state;
 
-	if (strlcpy(s->s_msg.helo, args, sizeof(s->s_msg.helo))
-	    >= sizeof(s->s_msg.helo)) {
-		session_respond(s, "501 Invalid domain name");
-		return 1;
-	}
-
-	s->s_msg.session_id = s->s_id;
-	s->s_flags &= F_SECURE|F_AUTHENTICATED;
-	session_enter_state(s, S_HELO);
-
-	mfa_req.reqid = s->s_id;
-	mfa_req.u.evp = s->s_msg;
-	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &mfa_req,
-	    sizeof(mfa_req));
-	return 1;
-}
-
-static int
-session_rfc5321_ehlo_handler(struct session *s, char *args)
-{
-	struct mfa_req_msg	mfa_req;
-
-	if (args == NULL || !valid_domainpart(args)) {
-		session_respond(s, "501 EHLO requires domain address");
-		return 1;
-	}
-
-	if (strlcpy(s->s_msg.helo, args, sizeof(s->s_msg.helo))
-	    >= sizeof(s->s_msg.helo)) {
-		session_respond(s, "501 Invalid domain name");
-		return 1;
-	}
-
-	s->s_msg.session_id = s->s_id;
-	s->s_flags &= F_SECURE|F_AUTHENTICATED;
-	s->s_flags |= F_EHLO;
-	s->s_flags |= F_8BITMIME;
-	session_enter_state(s, S_HELO);
-
-	mfa_req.reqid = s->s_id;
-	mfa_req.u.evp = s->s_msg;
-	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &mfa_req,
-	    sizeof(mfa_req));
-	return 1;
-}
-
-static int
-session_rfc5321_rset_handler(struct session *s, char *args)
-{
-	struct mfa_req_msg	mfa_req;
-
-	session_enter_state(s, S_RSET);
-
-	mfa_req.reqid = s->s_id;
-	mfa_req.u.evp = s->s_msg;
-	session_imsg(s, PROC_MFA, IMSG_MFA_RSET, 0, 0, -1, &mfa_req,
-	    sizeof(mfa_req));
-	return 1;
-}
-
-static int
-session_rfc5321_noop_handler(struct session *s, char *args)
-{
-	session_respond(s, "250 2.0.0 OK");
-
-	return 1;
-}
-
-static int
-session_rfc5321_mail_handler(struct session *s, char *args)
-{
-	struct mfa_req_msg	mfa_req;
-
-	if (s->s_state == S_GREETED) {
-		session_respond(s, "503 5.5.1 Polite people say HELO first");
-		return 1;
-	}
-
-
-	if (s->s_l->flags & F_STARTTLS_REQUIRE)
-		if (!(s->s_flags & F_SECURE)) {
-			session_respond(s,
-			    "530 5.7.0 Must issue a STARTTLS command first");
-			return 1;
-		}
-
-	if (s->s_l->flags & F_AUTH_REQUIRE)
-		if (!(s->s_flags & F_AUTHENTICATED)) {
-			session_respond(s,
-			    "530 5.7.0 Must issue an AUTH command first");
-			return 1;
-		}
-
-	if (s->s_state != S_HELO) {
-		session_respond(s, "503 5.5.1 Sender already specified");
-		return 1;
-	}
-
-	if (s->mailcount >= SMTP_MAXMAIL) {
-		session_respond(s, "452 Too many messages sent");
-		return 1;
-	}
-
-	if (! session_set_mailaddr(&s->s_msg.sender, args)) {
-		/* No need to even transmit to MFA, path is invalid */
-		session_respond(s, "553 5.1.7 Sender address syntax error");
-		return 1;
-	}
-
-	s->rcptcount = 0;
-	s->s_msg.id = 0;
-
-	session_enter_state(s, S_MAIL_MFA);
-
-	mfa_req.reqid = s->s_id;
-	mfa_req.u.evp = s->s_msg;
-	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &mfa_req,
-	    sizeof(mfa_req));
-	return 1;
-}
-
-static int
-session_rfc5321_rcpt_handler(struct session *s, char *args)
-{
-	struct mfa_req_msg	mfa_req;
-
-	if (s->s_state == S_GREETED) {
-		session_respond(s, "503 5.5.1 Polite people say HELO first");
-		return 1;
-	}
-
-	if (s->s_state == S_HELO) {
-		session_respond(s, "503 5.5.1 Need MAIL before RCPT");
-		return 1;
-	}
-
-	if (s->rcptcount >= SMTP_MAXRCPT) {
-		session_respond(s, "452 Too many recipients");
-		return 1;
-	}
-
-	if (! session_set_mailaddr(&s->s_msg.rcpt, args)) {
-		/* No need to even transmit to MFA, path is invalid */
-		session_respond(s, "553 5.1.3 Recipient address syntax error");
-		return 1;
-	}
-
-	session_enter_state(s, S_RCPT_MFA);
-
-	mfa_req.reqid = s->s_id;
-	mfa_req.u.evp = s->s_msg;
-	session_imsg(s, PROC_MFA, IMSG_MFA_RCPT, 0, 0, -1, &mfa_req,
-	    sizeof(mfa_req));
-	return 1;
-}
-
-static int
-session_rfc5321_quit_handler(struct session *s, char *args)
-{
-	session_enter_state(s, S_QUIT);
-	session_respond(s, "221 2.0.0 %s Closing connection", env->sc_hostname);
-/*
-	session_imsg(s, PROC_MFA, IMSG_MFA_QUIT, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
-*/
-	return 1;
-}
-
-static int
-session_rfc5321_data_handler(struct session *s, char *args)
-{
-	struct mfa_req_msg	mfa_req;
-
-	if (s->s_state == S_GREETED) {
-		session_respond(s, "503 5.5.1 Polite people say HELO first");
-		return 1;
-	}
-
-	if (s->s_state == S_HELO) {
-		session_respond(s, "503 5.5.1 Need MAIL before DATA");
-		return 1;
-	}
-
-	if (s->s_state == S_MAIL) {
-		session_respond(s, "503 5.5.1 Need RCPT before DATA");
-		return 1;
-	}
-
-	session_enter_state(s, S_DATA_QUEUE);
-
-	mfa_req.reqid = s->s_id;
-	mfa_req.u.evp = s->s_msg;
-	session_imsg(s, PROC_MFA, IMSG_MFA_DATA, 0, 0, -1, &mfa_req,
-	    sizeof(mfa_req));
-	return 1;
-}
-
-static int
-session_rfc5321_vrfy_handler(struct session *s, char *args)
-{
-	session_respond(s,
-	    "252 5.5.1 Cannot VRFY; try RCPT to attempt delivery");
-
-	return 1;
-}
-
-static int
-session_rfc5321_expn_handler(struct session *s, char *args)
-{
-	session_respond(s,
-	    "502 5.5.2 Sorry, we do not allow this operation");
-
-	return 1;
-}
-
-static int
-session_rfc5321_turn_handler(struct session *s, char *args)
-{
-	session_respond(s,
-	    "502 5.5.2 Sorry, we do not allow this operation");
-
-	return 1;
-}
-
-static int
-session_rfc5321_help_handler(struct session *s, char *args)
-{
-	session_respond(s, "214- This is OpenSMTPD");
-	session_respond(s, "214- To report bugs in the implementation, please "
-	    "contact bugs@openbsd.org");
-	session_respond(s, "214- with full details");
-	session_respond(s, "214 End of HELP info");
-
-	return 1;
-}
-
-static void
-session_enter_state(struct session *s, int newstate)
-{
 	log_trace(TRACE_SMTP, "smtp: %p: %s -> %s", s,
-	    session_strstate(s->s_state),
-	    session_strstate(newstate));
+	    smtp_strstate(s->state),
+	    smtp_strstate(newstate));
 
-	s->s_state = newstate;
-}
+	s->state = newstate;
 
-static void
-session_command(struct session *s, char *cmd)
-{
-	char		*ep, *args;
-	unsigned int	 i;
+	/* don't try this at home! */
+#define smtp_enter_state(_s, _st) do { newstate = _st; goto again; } while(0)
 
-	/*
-	 * unlike other commands, "mail from" and "rcpt to" contain a
-	 * space in the command name.
-	 */
-	if (strncasecmp("mail from:", cmd, 10) == 0 ||
-	    strncasecmp("rcpt to:", cmd, 8) == 0)
-		ep = strchr(cmd, ':');
-	else
-		ep = strchr(cmd, ' ');
-
-	if (ep != NULL) {
-		*ep = '\0';
-		args = ++ep;
-		while (isspace((int)*args))
-			args++;
-	} else
-		args = NULL;
-
-	if (!(s->s_flags & F_EHLO))
-		goto rfc5321;
-
-	/* RFC 1652 - 8BITMIME */
-	for (i = 0; i < nitems(rfc1652_cmdtab); ++i)
-		if (strcasecmp(rfc1652_cmdtab[i].name, cmd) == 0)
-			break;
-	if (i < nitems(rfc1652_cmdtab)) {
-		if (rfc1652_cmdtab[i].func(s, args))
-			return;
-	}
-
-	/* RFC 3207 - STARTTLS */
-	for (i = 0; i < nitems(rfc3207_cmdtab); ++i)
-		if (strcasecmp(rfc3207_cmdtab[i].name, cmd) == 0)
-			break;
-	if (i < nitems(rfc3207_cmdtab)) {
-		if (rfc3207_cmdtab[i].func(s, args))
-			return;
-	}
-
-	/* RFC 4954 - AUTH */
-	for (i = 0; i < nitems(rfc4954_cmdtab); ++i)
-		if (strcasecmp(rfc4954_cmdtab[i].name, cmd) == 0)
-			break;
-	if (i < nitems(rfc4954_cmdtab)) {
-		if (rfc4954_cmdtab[i].func(s, args))
-			return;
-	}
-
-rfc5321:
-	/* RFC 5321 - SMTP */
-	for (i = 0; i < nitems(rfc5321_cmdtab); ++i)
-		if (strcasecmp(rfc5321_cmdtab[i].name, cmd) == 0)
-			break;
-	if (i < nitems(rfc5321_cmdtab)) {
-		if (rfc5321_cmdtab[i].func(s, args))
-			return;
-	}
-
-	session_respond(s, "500 Command unrecognized");
-}
-
-void
-session_io(struct io *io, int evt)
-{
-	struct session	*s = io->arg;
-	void		*ssl;
-	char		*line;
-	size_t		 len;
-
-	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
-	    io_strio(io));
-
-	switch (evt) {
-
-	case IO_TLSREADY:
-		s->s_flags |= F_SECURE;
-		if (s->s_l->flags & F_SMTPS)
-			stat_increment("smtp.smtps", 1);
-		if (s->s_l->flags & F_STARTTLS)
-			stat_increment("smtp.tls", 1);
-		if (s->s_state == S_INIT) {
-			io_set_write(&s->s_io);
-			session_respond(s, SMTPD_BANNER, env->sc_hostname);
-		}
-		log_info("smtp-in: Started TLS on session %016" PRIx64 ": %s",
-		    s->s_id, ssl_to_text(s->s_io.ssl));
-		s->kickcount = 0;
-		session_enter_state(s, S_GREETED);
-		break;
-
-	case IO_DATAIN:
-	    nextline:
-		line = iobuf_getline(&s->s_iobuf, &len);
-		if ((line == NULL && iobuf_len(&s->s_iobuf) >= SMTP_LINE_MAX) ||
-		    (line && len >= SMTP_LINE_MAX)) {
-			session_respond(s, "500 5.0.0 Line too long");
-			session_enter_state(s, S_QUIT);
-			io_set_write(io);
-			return;
-		}
-
-		if (line == NULL) {
-			iobuf_normalize(&s->s_iobuf);
-			return;
-		}
-
-		if (s->s_state == S_DATACONTENT && strcmp(line, ".")) {
-			/* more data to come */
-			session_line(s, line, len);
-			if (s->s_flags & F_KICK) {
-				session_destroy(s, "kick");
-				return;
-			}
-			goto nextline;
-		}
-
-		/* pipelining not supported */
-		if (iobuf_len(&s->s_iobuf)) {
-			session_respond(s,
-			    "500 5.0.0 Pipelining not supported");
-			session_enter_state(s, S_QUIT);
-			io_set_write(io);
-			return;
-		}
-
-		strlcpy(s->cmd, line, sizeof s->cmd);
-		session_line(s, line, len);
-		if (s->s_flags & F_KICK) {
-			session_destroy(s, "kick");
-			return;
-		}
-		iobuf_normalize(&s->s_iobuf);
-		io_set_write(io);
-		break;
-
-	case IO_LOWAT:
-		if (s->s_state == S_QUIT) {
-			log_info("smtp-in: Closing session %016" PRIx64,
-			    s->s_id);
-			session_destroy(s, "done");
-			break;
-		}
-
-		io_set_read(io);
-
-		/* wait for the client to start tls */
-		if (s->s_state == S_TLS) {
-			ssl = ssl_smtp_init(s->s_l->ssl_ctx);
-			io_start_tls(io, ssl);
-		}
-		break;
-
-	case IO_TIMEOUT:
-		log_info("smtp-in: Disconnecting session %016" PRIx64
-		    ": session timeout", s->s_id);
-		session_destroy(s, "timeout");
-		break;
-
-	case IO_DISCONNECTED:
-		log_info("smtp-in: "
-		    "Received disconnect from session %016" PRIx64, s->s_id);
-		session_destroy(s, "disconnected");
-		break;
-
-	case IO_ERROR:
-		log_info("smtp-in: Disconnecting session %016" PRIx64
-		    ": IO error: %s", s->s_id, io->error);
-		session_destroy(s, "error");
-		break;
-
-	default:
-		fatal("session_io()");
-	}
-}
-
-void
-session_pickup(struct session *s, struct submit_status *ss)
-{
-	struct queue_req_msg	queue_req;
-	struct mfa_req_msg	mfa_req;
-	char			user[MAXLOGNAME];
-	void		       *ssl;
-	
-
-	s->s_flags &= ~F_WAITIMSG;
-
-	if ((ss != NULL && (ss->code/100) == 4) ||
-	    (s->s_dstatus & DS_TEMPFAILURE)) {
-		stat_increment("smtp.tempfail", 1);
-		session_respond(s, "%d Service temporarily unavailable", ss->code);
-		session_enter_state(s, S_QUIT);
-		io_reload(&s->s_io);
-		return;
-	}
-
-	switch (s->s_state) {
+	switch (s->state) {
 
 	case S_CONNECTED:
-		session_enter_state(s, S_INIT);
-		log_info("smtp-in: "
-		    "New session %016" PRIx64 " from host %s [%s]",
-		    s->s_id,
-		    s->s_hostname,
-		    ss_to_text(&s->s_ss));
-		s->s_msg.session_id = s->s_id;
-		s->s_msg.ss = s->s_ss;
-
-		mfa_req.reqid = s->s_id;
-		mfa_req.u.evp = s->s_msg;
-		session_imsg(s, PROC_MFA, IMSG_MFA_CONNECT, 0, 0, -1,
-		    &mfa_req, sizeof(mfa_req));
-		break;
-
-	case S_INIT:
-		if (ss->code != 250) {
-			log_info("smtp-in: Disconnecting session %016" PRIx64
-			    ": rejected by filter", s->s_id);
-			session_destroy(s, "rejected by filter");
-			return;
-		}
-
-		if (s->s_l->flags & F_SMTPS) {
-			ssl = ssl_smtp_init(s->s_l->ssl_ctx);
-			io_set_read(&s->s_io);
-			io_start_tls(&s->s_io, ssl);
-			return;
-		}
-
-		session_respond(s, SMTPD_BANNER, env->sc_hostname);
-		session_enter_state(s, S_GREETED);
-		break;
-
-	case S_AUTH_FINALIZE:
-		strnvis(user, s->s_auth.user, sizeof user, VIS_WHITE|VIS_SAFE);
-		if (s->s_flags & F_AUTHENTICATED) {
-			session_respond(s, "235 Authentication succeeded");
-			log_info("smtp-in: Accepted authentication for user %s "
-			    "on session %016" PRIx64, user, s->s_id);
-			s->kickcount = 0;
-		} else {
-			log_info("smtp-in: Failed authentication for user %s "
-			    "on session %016" PRIx64, user, s->s_id);
-			session_respond(s, "535 Authentication failed");
-		}
-		session_enter_state(s, S_HELO);
-		break;
-
-	case S_RSET:
-		session_respond(s, "250 2.0.0 Reset state");
-		session_enter_state(s, S_HELO);
-		break;
-
-	case S_HELO:
-		if (ss->code != 250) {
-			session_enter_state(s, S_GREETED);
-			if (ss->u.errormsg[0])
-				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
-			else
-				session_respond(s, "%d Helo rejected", ss->code);
-			break;
-		}
-		session_respond(s, "250%c%s Hello %s [%s], pleased to meet you",
-		    (s->s_flags & F_EHLO) ? '-' : ' ',
-		    env->sc_hostname, s->s_msg.helo, ss_to_text(&s->s_ss));
-
-		if (s->s_flags & F_EHLO) {
-			/* unconditionnal extensions go first */
-			session_respond(s, "250-8BITMIME");
-			session_respond(s, "250-ENHANCEDSTATUSCODES");
-
-			/* XXX */
-			/* we also want to support reading SIZE from MAIL
-			 * parameters
-			 */
-			session_respond(s, "250-SIZE %zu", env->sc_maxsize);
-
-			if (ADVERTISE_TLS(s))
-				session_respond(s, "250-STARTTLS");
-
-			if (ADVERTISE_AUTH(s))
-				session_respond(s, "250-AUTH PLAIN LOGIN");
-			session_respond(s, "250 HELP");
-		}
-		s->kickcount = 0;
-		break;
-
-	case S_MAIL_MFA:
-		if (ss->code != 250) {
-			session_enter_state(s, S_HELO);
-			if (ss->u.errormsg[0])
-				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
-			else
-				session_respond(s, "%d Sender rejected", ss->code);
-			break;
-		}
-
-		session_enter_state(s, S_MAIL_QUEUE);
-		s->s_msg.sender = ss->u.maddr;
-
-		queue_req.reqid = s->s_id;
-		queue_req.evpid = 0;
-		session_imsg(s, PROC_QUEUE, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-		    &queue_req, sizeof queue_req);
-		break;
-
-	case S_MAIL_QUEUE:
-		session_enter_state(s, S_MAIL);
-		session_respond(s, "%d 2.1.0 Sender ok", ss->code);
-		break;
-
-	case S_RCPT_MFA:
-		/* recipient was not accepted */
-		if (ss->code != 250) {
-			/* We do not have a valid recipient, downgrade state */
-			if (s->rcptcount == 0)
-				session_enter_state(s, S_MAIL);
-			else
-				session_enter_state(s, S_RCPT);
-
-			if (ss->u.errormsg[0]) {
-				session_respond(s, "%d 5.0.0 %s: %s@%s",
-				    ss->code,
-				    ss->u.errormsg,
-				    s->s_msg.rcpt.user,
-				    s->s_msg.rcpt.domain);
-			}
-			else {
-				session_respond(s, "%d 5.0.0 Recipient rejected: %s@%s",
-				    ss->code,
-				    s->s_msg.rcpt.user,
-				    s->s_msg.rcpt.domain);
-			}
-			break;
-		}
-		session_enter_state(s, S_RCPT);
-		s->rcptcount++;
-		s->kickcount--;
-		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
-		break;
-
-	case S_DATA_QUEUE:
-		if (ss->code != 250) {
-			session_enter_state(s, S_HELO);
-			if (ss->u.errormsg[0])
-				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
-			else
-				session_respond(s, "%d Cannot enter DATA state", ss->code);
-			break;
-		}
-
-		session_enter_state(s, S_DATACONTENT);
-		session_respond(s, "354 Enter mail, end with \".\" on a line by"
-		    " itself");
-
-		fprintf(s->datafp, "Received: from %s (%s [%s])\n",
-		    s->s_msg.helo, s->s_hostname, ss_to_text(&s->s_ss));
-		fprintf(s->datafp, "\tby %s (OpenSMTPD) with %sSMTP id %08x",
-		    env->sc_hostname, s->s_flags & F_EHLO ? "E" : "",
-		    evpid_to_msgid(s->s_msg.id));
-
-		if (s->s_flags & F_SECURE) {
-			fprintf(s->datafp, "\n\t(version=%s cipher=%s bits=%d)",
-			    SSL_get_cipher_version(s->s_io.ssl),
-			    SSL_get_cipher_name(s->s_io.ssl),
-			    SSL_get_cipher_bits(s->s_io.ssl, NULL));
-		}
-		if (s->rcptcount == 1)
-			fprintf(s->datafp, "\n\tfor <%s@%s>; ",
-			    s->s_msg.rcpt.user,
-			    s->s_msg.rcpt.domain);
-		else
-			fprintf(s->datafp, ";\n\t");
-
-		fprintf(s->datafp, "%s\n", time_to_text(time(NULL)));
-		break;
-
-	case S_DATACONTENT:
-		if (ss->code != 250)
-			s->s_dstatus |= DS_PERMFAILURE;
-		session_read_data(s, ss->u.dataline);
-		break;
-
-	case S_DONE:
-		session_respond(s,
-		    "250 2.0.0 %08x Message accepted for delivery",
-		    evpid_to_msgid(s->s_msg.id));
-		log_info("smtp-in: Accepted message %08x on session %016" PRIx64
-		    ": from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s",
-		    evpid_to_msgid(s->s_msg.id),
-		    s->s_id,
-		    s->s_msg.sender.user,
-		    s->s_msg.sender.user[0] == '\0' ? "" : "@",
-		    s->s_msg.sender.domain,
-		    s->s_datalen,
-		    s->rcptcount,
-		    s->s_flags & F_EHLO ? "ESMTP" : "SMTP");
-		session_enter_state(s, S_HELO);
-		s->s_msg.id = 0;
-		s->mailcount++;
-		s->kickcount = 0;
-		bzero(&s->s_nresp, sizeof(s->s_nresp));
+		log_info("smtp-in: New session %016"PRIx64" from host %s [%s]",
+		    s->id, s->hostname, ss_to_text(&s->ss));
+		mfa_req.reqid = s->id;
+		mfa_req.u.evp = s->evp;
+		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_CONNECT,
+		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		tree_xset(&wait_mfa_connect, s->id, s);
 		break;
 
 	default:
-		fatal("session_pickup: unknown state");
+		break;
 	}
 
-	io_reload(&s->s_io);
+#undef smtp_enter_state
 }
 
 static void
-session_line(struct session *s, char *line, size_t len)
-{
-	struct mfa_req_msg	mfa_req;
-
-	if (s->s_state != S_DATACONTENT) {
-		log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
-		if (++s->kickcount >= SMTP_KICKTHRESHOLD) {
-			log_info("smtp-in: Disconnecting session %016" PRIx64
-			    ": session not moving forward", s->s_id);
-			s->s_flags |= F_KICK;
-			stat_increment("smtp.kick", 1);
-			return;
-		}
-	}
-
-	switch (s->s_state) {
-	case S_AUTH_INIT:
-		if (s->s_dstatus & DS_TEMPFAILURE)
-			goto tempfail;
-		session_rfc4954_auth_plain(s, line);
-		break;
-
-	case S_AUTH_USERNAME:
-	case S_AUTH_PASSWORD:
-		if (s->s_dstatus & DS_TEMPFAILURE)
-			goto tempfail;
-		session_rfc4954_auth_login(s, line);
-		break;
-
-	case S_GREETED:
-	case S_HELO:
-	case S_MAIL:
-	case S_RCPT:
-		if (s->s_dstatus & DS_TEMPFAILURE)
-			goto tempfail;
-		session_command(s, line);
-		break;
-
-	case S_DATACONTENT:
-		mfa_req.reqid = s->s_id;
-
-		/* first empty line sets the F_DATAINBODY flag and notifies
-		 * MFA of end-of-headers
-		 */
-		if (env->filtermask & HOOK_EOH) {
-			if (!(s->s_flags & F_DATAINBODY) && strcmp(line, "") == 0) {
-				s->s_flags |= F_DATAINBODY;
-				session_read_data(s, line);
-				session_imsg(s, PROC_MFA, IMSG_MFA_EOH,
-				    0, 0, -1, &mfa_req, sizeof mfa_req);
-				break;
-			}
-		}
-		
-		if (strlcpy(mfa_req.u.buffer, line,
-			sizeof(mfa_req.u.buffer)) >=
-		    sizeof(mfa_req.u.buffer))
-			fatal("session_line: data truncation");
-
-		if (env->filtermask & HOOK_HEADERLINE && ! (s->s_flags & F_DATAINBODY))
-			session_imsg(s, PROC_MFA, IMSG_MFA_HEADERLINE,
-			    0, 0, -1, &mfa_req, sizeof mfa_req);
-		else if (env->filtermask & HOOK_DATALINE && (s->s_flags & F_DATAINBODY))
-			session_imsg(s, PROC_MFA, IMSG_MFA_DATALINE,
-			    0, 0, -1, &mfa_req, sizeof mfa_req);
-		else {
-			/* no filtering */
-			session_read_data(s, line);
-		}
-		break;
-
-	default:
-		log_debug("debug: session_read: %i", s->s_state);
-		fatalx("session_read: unexpected state");
-	}
-
-	return;
-
-tempfail:
-	session_respond(s, "421 4.0.0 Service temporarily unavailable");
-	stat_increment("smtp.tempfail", 1);
-	session_enter_state(s, S_QUIT);
-}
-
-static void
-session_read_data(struct session *s, char *line)
+smtp_end_body(struct smtp_session *s)
 {
 	struct queue_req_msg	queue_req;
-	size_t datalen;
-	size_t len;
-	size_t i;
 
-	if (strcmp(line, ".") == 0) {
-		s->s_datalen = ftell(s->datafp);
-		if (! safe_fclose(s->datafp))
-			s->s_dstatus |= DS_TEMPFAILURE;
-		s->datafp = NULL;
+	log_trace(TRACE_SMTP, "[EOM] 0x%04x", s->flags);
 
-		if (s->s_dstatus & DS_PERMFAILURE) {
-			session_respond(s, "554 5.0.0 Transaction failed");
-			session_enter_state(s, S_HELO);
-		} else if (s->s_dstatus & DS_TEMPFAILURE) {
-			session_respond(s, "421 4.0.0 Temporary failure");
-			session_enter_state(s, S_QUIT);
-			stat_increment("smtp.tempfail", 1);
-		} else {
-			queue_req.reqid = s->s_id;
-			queue_req.evpid = s->s_msg.id;
-			session_imsg(s, PROC_QUEUE, IMSG_QUEUE_COMMIT_MESSAGE,
-			    0, 0, -1, &queue_req, sizeof(queue_req));
-			session_enter_state(s, S_DONE);
-		}
+	if (!(s->flags & F_SMTP_MESSAGE_END && s->flags & F_MFA_MESSAGE_END))
+		return;
+
+	log_trace(TRACE_SMTP, "[GO]");
+
+	s->phase = PHASE_SETUP;
+
+	s->datalen = ftell(s->ofile);
+	if (! safe_fclose(s->ofile))
+		s->s_dstatus |= DS_TEMPFAILURE;
+	s->ofile = NULL;
+
+	if (s->s_dstatus & DS_PERMFAILURE) {
+		smtp_reply(s, "554 5.0.0 Transaction failed");
+		smtp_enter_state(s, S_HELO);
 		return;
 	}
+	
+	if (s->s_dstatus & DS_TEMPFAILURE) {
+		smtp_reply(s, "421 4.0.0 Temporary failure");
+		smtp_enter_state(s, S_QUIT);
+		stat_increment("smtp.tempfail", 1);
+		return;
+	}
+
+	queue_req.reqid = s->id;
+	queue_req.evpid = s->evp.id;
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_COMMIT_MESSAGE,
+	    0, 0, -1, &queue_req, sizeof(queue_req));
+	tree_xset(&wait_queue_commit, s->id, s);
+}
+
+static void
+smtp_queue_data(struct smtp_session *s, char *line)
+{
+	size_t datalen, i, len;
+
+
+	log_trace(TRACE_SMTP, "[BODY] %s", line);
 
 	/* Don't waste resources on message if it's going to bin anyway. */
 	if (s->s_dstatus & (DS_PERMFAILURE|DS_TEMPFAILURE))
 		return;
 
-	/* "If the first character is a period and there are other characters
+	/*
+	 * "If the first character is a period and there are other characters
 	 *  on the line, the first character is deleted." [4.5.2]
 	 */
 	if (*line == '.')
@@ -1139,237 +1113,118 @@ session_read_data(struct session *s, char *line)
 
 	len = strlen(line);
 
-	/* If size of data overflows a size_t or exceeds max size allowed
+	/*
+	 * If size of data overflows a size_t or exceeds max size allowed
 	 * for a message, set permanent failure.
 	 */
-	datalen = ftell(s->datafp);
+	datalen = ftell(s->ofile);
 	if (SIZE_MAX - datalen < len + 1 ||
 	    datalen + len + 1 > env->sc_maxsize) {
 		s->s_dstatus |= DS_PERMFAILURE;
 		return;
 	}
 
-	if (! (s->s_flags & F_8BITMIME)) {
+	if (!(s->flags & F_8BITMIME))
 		for (i = 0; i < len; ++i)
 			if (line[i] & 0x80)
 				line[i] = line[i] & 0x7f;
-	}
 
-	if (fprintf(s->datafp, "%s\n", line) != (int)len + 1)
+	if (fprintf(s->ofile, "%s\n", line) != (int)len + 1)
 		s->s_dstatus |= DS_TEMPFAILURE;
 }
 
-void
-session_destroy(struct session *s, const char * reason)
-{
-	uint32_t msgid;
-
-	log_debug("debug: smtp: %p: deleting session: %s", s, reason);
-
-	if (s->s_flags & F_ZOMBIE)
-		goto finalize;
-
-	if (s->datafp != NULL)
-		fclose(s->datafp);
-
-	if (s->s_msg.id != 0 && s->s_state != S_DONE) {
-		msgid = evpid_to_msgid(s->s_msg.id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, &msgid, sizeof(msgid));
-	}
-
-	if (s->s_io.ssl) {
-		if (s->s_l->flags & F_SMTPS)
-			if (s->s_flags & F_SECURE)
-				stat_decrement("smtp.smtps", 1);
-		if (s->s_l->flags & F_STARTTLS)
-			if (s->s_flags & F_SECURE)
-				stat_decrement("smtp.tls", 1);
-	}
-
-	event_del(&s->s_ev); /* in case something was scheduled */
-	io_clear(&s->s_io);
-	iobuf_clear(&s->s_iobuf);
-
-	/* resume when session count decreases to 95% */
-	stat_decrement("smtp.session", 1);
-
-	/* If the session is waiting for an imsg, do not kill it now, since
-	 * the id must still be valid.
-	 */
-	if (s->s_flags & F_WAITIMSG) {
-		s->s_flags = F_ZOMBIE;
-		return;
-	}
-
-    finalize:
-
-	smtp_destroy(s);
-
-	SPLAY_REMOVE(sessiontree, &env->sc_sessions, s);
-	bzero(s, sizeof(*s));
-	free(s);
-}
-
-int
-session_cmp(struct session *s1, struct session *s2)
-{
-	/*
-	 * do not return uint64_t's
-	 */
-	if (s1->s_id < s2->s_id)
-		return (-1);
-
-	if (s1->s_id > s2->s_id)
-		return (1);
-
-	return (0);
-}
-
-static int
-session_set_mailaddr(struct mailaddr *maddr, char *line)
-{
-	size_t len;
-
-	len = strlen(line);
-	if (*line != '<' || line[len - 1] != '>')
-		return 0;
-	line[len - 1] = '\0';
-
-	return email_to_mailaddr(maddr, line + 1);
-}
-
-void
-session_respond(struct session *s, char *fmt, ...)
+static void
+smtp_reply(struct smtp_session *s, char *fmt, ...)
 {
 	va_list	 ap;
-	int	 n, delay;
+	int	 n;
 	char	 buf[SMTP_LINE_MAX], tmp[SMTP_LINE_MAX];
 
 	va_start(ap, fmt);
 	n = vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
 	if (n == -1 || n >= SMTP_LINE_MAX)
-		fatal("session_respond: line too long");
+		fatalx("smtp_reply: line too long");
 	if (n < 4)
-		fatal("session_respond: response too short");
+		fatalx("smtp_reply: response too short");
 
 	log_trace(TRACE_SMTP, "smtp: %p: >>> %s", s, buf);
 
-	iobuf_xfqueue(&s->s_iobuf, "session_respond", "%s\r\n", buf);
+	iobuf_xfqueue(&s->iobuf, "smtp_reply", "%s\r\n", buf);
 
-	/*
-	 * Log failures.  Might be annoying in the long term, but it is a good
-	 * development aid for now.
-	 */
 	switch (buf[0]) {
 	case '5':
 	case '4':
 		strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
 		log_info("smtp-in: Failed command on session %016" PRIx64
-		    ": \"%s\" => %.*s", s->s_id, tmp, n, buf);
+		    ": \"%s\" => %.*s", s->id, tmp, n, buf);
 		break;
-	}
-
-	/* Detect multi-line response. */
-	switch (buf[3]) {
-	case '-':
-		return;
-	case ' ':
-		break;
-	default:
-		fatalx("session_respond: invalid response");
-	}
-
-	/*
-	 * Deal with request flooding; avoid letting response rate keep up
-	 * with incoming request rate.
-	 */
-	s->s_nresp[s->s_state]++;
-
-	if (s->s_state == S_RCPT)
-		delay = 0;
-	else if ((n = s->s_nresp[s->s_state] - FAST_RESPONSES) > 0)
-		delay = MIN(1 << (n - 1), MAX_RESPONSE_DELAY);
-	else
-		delay = 0;
-
-	if (delay > 0) {
-		struct timeval tv = { delay, 0 };
-
-		io_pause(&s->s_io, IO_PAUSE_OUT);
-		stat_increment("smtp.delays", 1);
-
-		/* in case session_respond is called multiple times */
-		evtimer_del(&s->s_ev);
-		evtimer_set(&s->s_ev, session_respond_delayed, s);
-		evtimer_add(&s->s_ev, &tv);
 	}
 }
 
 static void
-session_respond_delayed(int fd, short event, void *p)
+smtp_free(struct smtp_session *s, const char * reason)
 {
-	struct session	*s = p;
+	uint32_t msgid;
 
-	io_resume(&s->s_io, IO_PAUSE_OUT);
+	log_debug("debug: smtp: %p: deleting session: %s", s, reason);
+
+	tree_pop(&wait_mfa_data, s->id);
+
+	if (s->evp.id != 0) {
+		msgid = evpid_to_msgid(s->evp.id);
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, &msgid, sizeof(msgid));
+	}
+
+	if (s->ofile != NULL)
+		fclose(s->ofile);
+
+	if (s->flags & F_SECURE && s->listener->flags & F_SMTPS)
+		stat_decrement("smtp.smtps", 1);
+	if (s->flags & F_SECURE && s->listener->flags & F_STARTTLS)
+		stat_decrement("smtp.tls", 1);
+
+	io_clear(&s->io);
+	iobuf_clear(&s->iobuf);
+	free(s);
+
+	smtp_collect();
 }
 
-/*
- * Send IMSG, waiting for reply safely.
- */
-static void
-session_imsg(struct session *s, enum smtp_proc_type proc, enum imsg_type type,
-    uint32_t peerid, pid_t pid, int fd, void *data, uint16_t datalen)
+static int
+smtp_mailaddr(struct mailaddr *maddr, char *line)
 {
-	/*
-	 * Each outgoing IMSG has a response IMSG associated that must be
-	 * waited for before the session can be progressed further.
-	 * During the wait period:
-	 * 1) session must not be destroyed,
-	 * 2) session must not be read from,
-	 * 3) session may be written to.
-	 */
+	size_t len;
 
-	s->s_flags |= F_WAITIMSG;
-	imsg_compose_event(env->sc_ievs[proc], type, peerid, pid, fd, data,
-	    datalen);
+	len = strlen(line);
+	if (*line != '<' || line[len - 1] != '>')
+		return (0);
+	line[len - 1] = '\0';
+
+	return (email_to_mailaddr(maddr, line + 1));
 }
-
-SPLAY_GENERATE(sessiontree, session, s_nodes, session_cmp);
 
 #define CASE(x) case x : return #x
 
 const char *
-session_strstate(int state)
+smtp_strstate(int state)
 {
 	static char	buf[32];
 
 	switch (state) {
 	CASE(S_NEW);
 	CASE(S_CONNECTED);
-	CASE(S_INIT);
-	CASE(S_GREETED);
 	CASE(S_TLS);
+	CASE(S_HELO);
 	CASE(S_AUTH_INIT);
 	CASE(S_AUTH_USERNAME);
 	CASE(S_AUTH_PASSWORD);
 	CASE(S_AUTH_FINALIZE);
-	CASE(S_RSET);
-	CASE(S_HELO);
-	CASE(S_MAIL_MFA);
-	CASE(S_MAIL_QUEUE);
-	CASE(S_MAIL);
-	CASE(S_RCPT_MFA);
-	CASE(S_RCPT);
-	CASE(S_DATA);
-	CASE(S_DATA_QUEUE);
-	CASE(S_DATACONTENT);
-	CASE(S_DONE);
+	CASE(S_BODY);
 	CASE(S_QUIT);
-	CASE(S_CLOSE);
 	default:
-		snprintf(buf, sizeof(buf), "S_??? (%d)", state);
-		return buf;
+		snprintf(buf, sizeof(buf), "??? (%d)", state);
+		return (buf);
 	}
 }

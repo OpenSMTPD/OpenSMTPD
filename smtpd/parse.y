@@ -1400,7 +1400,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
 	SPLAY_INIT(conf->sc_ssl);
-	SPLAY_INIT(&conf->sc_sessions);
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;

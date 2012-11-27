@@ -469,33 +469,6 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTHTABLE
 };
 
-
-enum session_state {
-	S_NEW = 0,
-	S_CONNECTED,
-	S_INIT,
-	S_GREETED,
-	S_TLS,
-	S_AUTH_INIT,
-	S_AUTH_USERNAME,
-	S_AUTH_PASSWORD,
-	S_AUTH_FINALIZE,
-	S_RSET,
-	S_HELO,
-	S_MAIL_MFA,
-	S_MAIL_QUEUE,
-	S_MAIL,
-	S_RCPT_MFA,
-	S_RCPT,
-	S_DATA,
-	S_DATA_QUEUE,
-	S_DATACONTENT,
-	S_DONE,
-	S_QUIT,
-	S_CLOSE
-};
-#define STATE_COUNT	22
-
 struct ssl {
 	SPLAY_ENTRY(ssl)	 ssl_nodes;
 	char			 ssl_name[PATH_MAX];
@@ -530,47 +503,6 @@ struct auth {
 	char		 pass[MAX_LINE_SIZE + 1];
 	int		 success;
 };
-
-enum session_flags {
-	F_EHLO		= 0x01,
-	F_8BITMIME	= 0x02,
-	F_SECURE	= 0x04,
-	F_AUTHENTICATED	= 0x08,
-	F_WAITIMSG	= 0x10,
-	F_ZOMBIE	= 0x20,
-	F_KICK		= 0x40,
-	F_DATAINBODY	= 0x80
-};
-
-struct session {
-	SPLAY_ENTRY(session)		 s_nodes;
-	uint64_t			 s_id;
-
-	struct iobuf			 s_iobuf;
-	struct io			 s_io;
-
-	enum session_flags		 s_flags;
-	enum session_state		 s_state;
-	struct sockaddr_storage		 s_ss;
-	char				 s_hostname[MAXHOSTNAMELEN];
-	struct event			 s_ev;
-	struct listener			*s_l;
-	struct timeval			 s_tv;
-	struct envelope			 s_msg;
-	short				 s_nresp[STATE_COUNT];
-
-	char				 cmd[SMTP_LINE_MAX];
-	size_t				 kickcount;
-	size_t				 mailcount;
-	size_t				 rcptcount;
-	long				 s_datalen;
-
-	struct auth			 s_auth;
-	int				 s_dstatus;
-
-	FILE				*datafp;
-};
-
 
 struct smtpd {
 	char				sc_conffile[MAXPATHLEN];
@@ -611,7 +543,6 @@ struct smtpd {
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
-	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
 	SPLAY_HEAD(childtree, child)		 children;
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
@@ -1191,19 +1122,13 @@ time_t scheduler_compute_schedule(struct scheduler_info *);
 
 /* smtp.c */
 pid_t smtp(void);
-void smtp_resume(void);
-void smtp_destroy(struct session *);
+void smtp_collect(void);
 
 
 /* smtp_session.c */
-void session_init(struct listener *, struct session *);
-int session_cmp(struct session *, struct session *);
-void session_io(struct io *, int);
-void session_pickup(struct session *, struct submit_status *);
-void session_destroy(struct session *, const char *);
-void session_respond(struct session *, char *, ...)
-	__attribute__((format (printf, 2, 3)));
-SPLAY_PROTOTYPE(sessiontree, session, s_nodes, session_cmp);
+int smtp_session(struct listener *, int, const struct sockaddr_storage *,
+    const char *);
+void smtp_session_imsg(struct imsgev *, struct imsg *);
 
 
 /* smtpd.c */
