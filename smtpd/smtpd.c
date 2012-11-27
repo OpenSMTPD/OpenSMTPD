@@ -364,10 +364,10 @@ parent_send_config_ruleset(int proc)
 	    0, 0, -1, NULL, 0);
 
 	if (proc == PROC_MFA) {
-		TAILQ_FOREACH(f, env->sc_filters, f_entry) {
+		iter_dict = NULL;
+		while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_FILTER,
 			    0, 0, -1, f, sizeof(*f));
-		}
 	}
 	else {
 		iter_tree = NULL;
@@ -1346,10 +1346,9 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_END);
 
 	CASE(IMSG_LKA_UPDATE_TABLE);
-	CASE(IMSG_LKA_MAIL);
-	CASE(IMSG_LKA_RCPT);
+	CASE(IMSG_LKA_EXPAND_RCPT);
 	CASE(IMSG_LKA_SECRET);
-	CASE(IMSG_LKA_RULEMATCH);
+
 	CASE(IMSG_MDA_SESS_NEW);
 	CASE(IMSG_MDA_DONE);
 
@@ -1357,6 +1356,7 @@ imsg_to_str(int type)
 	CASE(IMSG_MFA_HELO);
 	CASE(IMSG_MFA_MAIL);
 	CASE(IMSG_MFA_RCPT);
+	CASE(IMSG_MFA_DATA);
 	CASE(IMSG_MFA_DATALINE);
 	CASE(IMSG_MFA_QUIT);
 	CASE(IMSG_MFA_CLOSE);
@@ -1367,7 +1367,7 @@ imsg_to_str(int type)
 	CASE(IMSG_QUEUE_COMMIT_ENVELOPES);
 	CASE(IMSG_QUEUE_REMOVE_MESSAGE);
 	CASE(IMSG_QUEUE_COMMIT_MESSAGE);
-	CASE(IMSG_QUEUE_TEMPFAIL);
+
 	CASE(IMSG_QUEUE_PAUSE_MDA);
 	CASE(IMSG_QUEUE_PAUSE_MTA);
 	CASE(IMSG_QUEUE_RESUME_MDA);

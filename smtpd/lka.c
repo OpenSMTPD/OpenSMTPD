@@ -45,14 +45,12 @@
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
-static int lka_verify_mail(struct mailaddr *);
 static int lka_encode_credentials(char *, size_t, struct table_credentials *);
-
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct submit_status	*ss;
+	struct envelope		*envelope;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
@@ -72,33 +70,9 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_MAIL:
-			ss = imsg->data;
-			ss->code = 530;
-			if (ss->u.maddr.user[0] == '\0' &&
-			    ss->u.maddr.domain[0] == '\0')
-				ss->code = 250;
-			else
-				if (lka_verify_mail(&ss->u.maddr))
-					ss->code = 250;
-			imsg_compose_event(iev, IMSG_LKA_MAIL, 0, 0, -1, ss,
-			    sizeof *ss);
-			return;
-
-		case IMSG_LKA_RULEMATCH:
-			ss = imsg->data;
-			rule = ruleset_match(&ss->envelope);
-			if (rule == NULL)
-				ss->code = (errno == EAGAIN) ? 451 : 530;
-			else
-				ss->code = (rule->r_decision == R_ACCEPT) ?
-				    250 : 530;
-			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
-			    ss, sizeof *ss);
-			return;
-
-		case IMSG_LKA_RCPT:
-			lka_session(imsg->data);
+		case IMSG_LKA_EXPAND_RCPT:
+			envelope = imsg->data;
+			lka_session(envelope);
 			return;
 		}
 	}
@@ -345,12 +319,6 @@ lka(void)
 	lka_shutdown();
 
 	return (0);
-}
-
-static int
-lka_verify_mail(struct mailaddr *maddr)
-{
-	return 1;
 }
 
 static int

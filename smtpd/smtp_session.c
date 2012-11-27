@@ -342,6 +342,8 @@ session_rfc1652_mail_handler(struct session *s, char *args)
 static int
 session_rfc5321_helo_handler(struct session *s, char *args)
 {
+	struct mfa_req_msg	mfa_req;
+
 	if (args == NULL || !valid_domainpart(args)) {
 		session_respond(s, "501 HELO requires domain address");
 		return 1;
@@ -357,14 +359,18 @@ session_rfc5321_helo_handler(struct session *s, char *args)
 	s->s_flags &= F_SECURE|F_AUTHENTICATED;
 	session_enter_state(s, S_HELO);
 
-	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
 static int
 session_rfc5321_ehlo_handler(struct session *s, char *args)
 {
+	struct mfa_req_msg	mfa_req;
+
 	if (args == NULL || !valid_domainpart(args)) {
 		session_respond(s, "501 EHLO requires domain address");
 		return 1;
@@ -382,18 +388,24 @@ session_rfc5321_ehlo_handler(struct session *s, char *args)
 	s->s_flags |= F_8BITMIME;
 	session_enter_state(s, S_HELO);
 
-	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_HELO, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
 static int
 session_rfc5321_rset_handler(struct session *s, char *args)
 {
+	struct mfa_req_msg	mfa_req;
+
 	session_enter_state(s, S_RSET);
 
-	session_imsg(s, PROC_MFA, IMSG_MFA_RSET, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_RSET, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
@@ -408,6 +420,8 @@ session_rfc5321_noop_handler(struct session *s, char *args)
 static int
 session_rfc5321_mail_handler(struct session *s, char *args)
 {
+	struct mfa_req_msg	mfa_req;
+
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -448,14 +462,19 @@ session_rfc5321_mail_handler(struct session *s, char *args)
 	s->s_msg.id = 0;
 
 	session_enter_state(s, S_MAIL_MFA);
-	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_MAIL, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
 static int
 session_rfc5321_rcpt_handler(struct session *s, char *args)
 {
+	struct mfa_req_msg	mfa_req;
+
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -478,8 +497,11 @@ session_rfc5321_rcpt_handler(struct session *s, char *args)
 	}
 
 	session_enter_state(s, S_RCPT_MFA);
-	session_imsg(s, PROC_MFA, IMSG_MFA_RCPT, 0, 0, -1, &s->s_msg,
-	    sizeof(s->s_msg));
+
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_RCPT, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
@@ -498,6 +520,8 @@ session_rfc5321_quit_handler(struct session *s, char *args)
 static int
 session_rfc5321_data_handler(struct session *s, char *args)
 {
+	struct mfa_req_msg	mfa_req;
+
 	if (s->s_state == S_GREETED) {
 		session_respond(s, "503 5.5.1 Polite people say HELO first");
 		return 1;
@@ -515,9 +539,10 @@ session_rfc5321_data_handler(struct session *s, char *args)
 
 	session_enter_state(s, S_DATA_QUEUE);
 
-	session_imsg(s, PROC_QUEUE, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-	    &s->s_msg, sizeof(s->s_msg));
-
+	mfa_req.reqid = s->s_id;
+	mfa_req.u.evp = s->s_msg;
+	session_imsg(s, PROC_MFA, IMSG_MFA_DATA, 0, 0, -1, &mfa_req,
+	    sizeof(mfa_req));
 	return 1;
 }
 
@@ -754,15 +779,18 @@ session_io(struct io *io, int evt)
 void
 session_pickup(struct session *s, struct submit_status *ss)
 {
-	char	 user[MAXLOGNAME];
-	void	*ssl;
+	struct queue_req_msg	queue_req;
+	struct mfa_req_msg	mfa_req;
+	char			user[MAXLOGNAME];
+	void		       *ssl;
+	
 
 	s->s_flags &= ~F_WAITIMSG;
 
-	if ((ss != NULL && ss->code == 421) ||
+	if ((ss != NULL && (ss->code/100) == 4) ||
 	    (s->s_dstatus & DS_TEMPFAILURE)) {
 		stat_increment("smtp.tempfail", 1);
-		session_respond(s, "421 Service temporarily unavailable");
+		session_respond(s, "%d Service temporarily unavailable", ss->code);
 		session_enter_state(s, S_QUIT);
 		io_reload(&s->s_io);
 		return;
@@ -779,8 +807,11 @@ session_pickup(struct session *s, struct submit_status *ss)
 		    ss_to_text(&s->s_ss));
 		s->s_msg.session_id = s->s_id;
 		s->s_msg.ss = s->s_ss;
+
+		mfa_req.reqid = s->s_id;
+		mfa_req.u.evp = s->s_msg;
 		session_imsg(s, PROC_MFA, IMSG_MFA_CONNECT, 0, 0, -1,
-		    &s->s_msg, sizeof(s->s_msg));
+		    &mfa_req, sizeof(mfa_req));
 		break;
 
 	case S_INIT:
@@ -825,10 +856,12 @@ session_pickup(struct session *s, struct submit_status *ss)
 	case S_HELO:
 		if (ss->code != 250) {
 			session_enter_state(s, S_GREETED);
-			session_respond(s, "%d Helo rejected", ss->code);
+			if (ss->u.errormsg[0])
+				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
+			else
+				session_respond(s, "%d Helo rejected", ss->code);
 			break;
 		}
-
 		session_respond(s, "250%c%s Hello %s [%s], pleased to meet you",
 		    (s->s_flags & F_EHLO) ? '-' : ' ',
 		    env->sc_hostname, s->s_msg.helo, ss_to_text(&s->s_ss));
@@ -857,15 +890,20 @@ session_pickup(struct session *s, struct submit_status *ss)
 	case S_MAIL_MFA:
 		if (ss->code != 250) {
 			session_enter_state(s, S_HELO);
-			session_respond(s, "%d Sender rejected", ss->code);
+			if (ss->u.errormsg[0])
+				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
+			else
+				session_respond(s, "%d Sender rejected", ss->code);
 			break;
 		}
 
 		session_enter_state(s, S_MAIL_QUEUE);
 		s->s_msg.sender = ss->u.maddr;
 
+		queue_req.reqid = s->s_id;
+		queue_req.evpid = 0;
 		session_imsg(s, PROC_QUEUE, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-		    &s->s_msg, sizeof(s->s_msg));
+		    &queue_req, sizeof queue_req);
 		break;
 
 	case S_MAIL_QUEUE:
@@ -881,21 +919,38 @@ session_pickup(struct session *s, struct submit_status *ss)
 				session_enter_state(s, S_MAIL);
 			else
 				session_enter_state(s, S_RCPT);
-			session_respond(s, "%d 5.0.0 Recipient rejected: %s@%s",
-			    ss->code,
-			    s->s_msg.rcpt.user,
-			    s->s_msg.rcpt.domain);
+
+			if (ss->u.errormsg[0]) {
+				session_respond(s, "%d 5.0.0 %s: %s@%s",
+				    ss->code,
+				    ss->u.errormsg,
+				    s->s_msg.rcpt.user,
+				    s->s_msg.rcpt.domain);
+			}
+			else {
+				session_respond(s, "%d 5.0.0 Recipient rejected: %s@%s",
+				    ss->code,
+				    s->s_msg.rcpt.user,
+				    s->s_msg.rcpt.domain);
+			}
 			break;
 		}
-
 		session_enter_state(s, S_RCPT);
 		s->rcptcount++;
 		s->kickcount--;
-		s->s_msg.dest = ss->u.maddr;
 		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
 		break;
 
 	case S_DATA_QUEUE:
+		if (ss->code != 250) {
+			session_enter_state(s, S_HELO);
+			if (ss->u.errormsg[0])
+				session_respond(s, "%d %s", ss->code, ss->u.errormsg);
+			else
+				session_respond(s, "%d Cannot enter DATA state", ss->code);
+			break;
+		}
+
 		session_enter_state(s, S_DATACONTENT);
 		session_respond(s, "354 Enter mail, end with \".\" on a line by"
 		    " itself");
@@ -959,7 +1014,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 static void
 session_line(struct session *s, char *line, size_t len)
 {
-	struct submit_status ss;
+	struct mfa_req_msg	mfa_req;
 
 	if (s->s_state != S_DATACONTENT) {
 		log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
@@ -996,16 +1051,33 @@ session_line(struct session *s, char *line, size_t len)
 		break;
 
 	case S_DATACONTENT:
-		if (env->filtermask & FILTER_DATALINE) {
-			bzero(&ss, sizeof(ss));
-			ss.id = s->s_id;
-			if (strlcpy(ss.u.dataline, line,
-				sizeof(ss.u.dataline)) >= sizeof(ss.u.dataline))
-				fatal("session_line: data truncation");
+		mfa_req.reqid = s->s_id;
 
+		/* first empty line sets the F_DATAINBODY flag and notifies
+		 * MFA of end-of-headers
+		 */
+		if (env->filtermask & HOOK_EOH) {
+			if (!(s->s_flags & F_DATAINBODY) && strcmp(line, "") == 0) {
+				s->s_flags |= F_DATAINBODY;
+				session_read_data(s, line);
+				session_imsg(s, PROC_MFA, IMSG_MFA_EOH,
+				    0, 0, -1, &mfa_req, sizeof mfa_req);
+				break;
+			}
+		}
+		
+		if (strlcpy(mfa_req.u.buffer, line,
+			sizeof(mfa_req.u.buffer)) >=
+		    sizeof(mfa_req.u.buffer))
+			fatal("session_line: data truncation");
+
+		if (env->filtermask & HOOK_HEADERLINE && ! (s->s_flags & F_DATAINBODY))
+			session_imsg(s, PROC_MFA, IMSG_MFA_HEADERLINE,
+			    0, 0, -1, &mfa_req, sizeof mfa_req);
+		else if (env->filtermask & HOOK_DATALINE && (s->s_flags & F_DATAINBODY))
 			session_imsg(s, PROC_MFA, IMSG_MFA_DATALINE,
-			    0, 0, -1, &ss, sizeof(ss));
-		} else {
+			    0, 0, -1, &mfa_req, sizeof mfa_req);
+		else {
 			/* no filtering */
 			session_read_data(s, line);
 		}
@@ -1027,6 +1099,7 @@ tempfail:
 static void
 session_read_data(struct session *s, char *line)
 {
+	struct queue_req_msg	queue_req;
 	size_t datalen;
 	size_t len;
 	size_t i;
@@ -1045,8 +1118,10 @@ session_read_data(struct session *s, char *line)
 			session_enter_state(s, S_QUIT);
 			stat_increment("smtp.tempfail", 1);
 		} else {
+			queue_req.reqid = s->s_id;
+			queue_req.evpid = s->s_msg.id;
 			session_imsg(s, PROC_QUEUE, IMSG_QUEUE_COMMIT_MESSAGE,
-			    0, 0, -1, &s->s_msg, sizeof(s->s_msg));
+			    0, 0, -1, &queue_req, sizeof(queue_req));
 			session_enter_state(s, S_DONE);
 		}
 		return;

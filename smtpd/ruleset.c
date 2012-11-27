@@ -40,11 +40,10 @@ static int ruleset_check_source(struct table *,
 struct rule *
 ruleset_match(const struct envelope *evp)
 {
-	const struct mailaddr *maddr = &evp->dest;
+	const struct mailaddr *maddr = &evp->rcpt;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
 	struct table	*table;
-	int		 v;
 	int		 ret;
 
 	if (evp->flags & DF_INTERNAL)
@@ -72,7 +71,7 @@ ruleset_match(const struct envelope *evp)
 		    r->r_condition.c_type == COND_VDOM) {
 			table = table_find(r->r_condition.c_table);
 			if (table == NULL)
-				fatal("failed to lookup table.");
+				fatal("failed to lookup table");
 
 			ret = table_lookup(table, maddr->domain, K_DOMAIN,
 			    NULL);
