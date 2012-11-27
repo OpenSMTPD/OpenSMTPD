@@ -60,22 +60,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint64_t		 id;
 	uint32_t		 msgid;
 
-	if (iev->proc == PROC_MFA) {
-		switch (imsg->hdr.type) {
-		case IMSG_QUEUE_MESSAGE_FILE:
-			req = imsg->data;
-			msgid = evpid_to_msgid(req->evpid);
-			fd = queue_message_fd_rw(msgid);
-			resp.reqid = req->reqid;
-			resp.success = (fd == -1) ? 0 : 1;
-			resp.evpid = req->evpid;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_QUEUE_MESSAGE_FILE, 0, 0,
-			    fd, &resp, sizeof resp);
-			return;
-		}
-	}
-
 	if (iev->proc == PROC_SMTP) {
+
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
 			req = imsg->data;
@@ -110,6 +96,17 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				    &msgid, sizeof msgid);
 			return;
 
+		case IMSG_QUEUE_MESSAGE_FILE:
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
+			fd = queue_message_fd_rw(msgid);
+			resp.reqid = req->reqid;
+			resp.success = (fd == -1) ? 0 : 1;
+			resp.evpid = req->evpid;
+			imsg_compose_event(iev, IMSG_QUEUE_MESSAGE_FILE, 0, 0,
+			    fd, &resp, sizeof resp);
+			return;
+
 		case IMSG_SMTP_ENQUEUE:
 			id = *(uint64_t*)(imsg->data);
 			bounce_run(id, imsg->fd);
@@ -125,13 +122,13 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.reqid = e->session_id;
 			resp.success = (ret == 0) ? 0 : 1;
 			resp.evpid = (ret == 0) ? 0 : e->id;
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &resp,
+			    sizeof resp);
 			if (resp.success)
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, e,
 				    sizeof *e);
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &resp,
-			    sizeof resp);
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
@@ -382,8 +379,7 @@ queue(void)
 		{ PROC_MDA,		imsg_dispatch },
 		{ PROC_MTA,		imsg_dispatch },
 		{ PROC_LKA,		imsg_dispatch },
-		{ PROC_SCHEDULER,	imsg_dispatch },
-		{ PROC_MFA,		imsg_dispatch }
+		{ PROC_SCHEDULER,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
