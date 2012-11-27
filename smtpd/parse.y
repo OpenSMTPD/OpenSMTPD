@@ -279,7 +279,7 @@ credentials	: AUTH tables	{
 				YYERROR;
 			}
 
-			$$ = $2;
+			$$ = t->t_id;
 		}
 		| /* empty */	{ $$ = 0; }
 		;
@@ -313,8 +313,18 @@ main		: QUEUE compression {
 			}
 			free($2);
 		}
-	       	| MAXMESSAGESIZE size {
-       			conf->sc_maxsize = $2;
+		| MAXMESSAGESIZE size {
+			conf->sc_maxsize = $2;
+		}
+		| HOSTNAME STRING		{
+			if (strlcpy(conf->sc_hostname, $2,
+				sizeof(conf->sc_hostname)) >=
+			    sizeof(conf->sc_hostname)) {
+				yyerror("invalid hostname: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
 		}
 		| LISTEN ON STRING port ssl certificate auth tag {
 			char		*cert;
@@ -373,16 +383,6 @@ main		: QUEUE compression {
 			free($8);
 			free($6);
 			free($3);
-		}
-		| HOSTNAME STRING		{
-			if (strlcpy(conf->sc_hostname, $2,
-			    sizeof(conf->sc_hostname)) >=
-			    sizeof(conf->sc_hostname)) {
-				yyerror("hostname truncated");
-				free($2);
-				YYERROR;
-			}
-			free($2);
 		}/*
 		| FILTER STRING			{
 			struct filter *filter;
@@ -460,20 +460,20 @@ table		: TABLE STRING STRING	{
 				}
 			}
 			if (config != NULL && *config != '/') {
-				yyerror("backend parameter must be an absolute path");
+				yyerror("invalid backend parameter for table: %s",
+				    $2);
 				free($2);
 				free($3);
 				YYERROR;
 			}
 			table = table_create(backend, $2, config);
 			if (! table->t_backend->config(table, config)) {
-				yyerror("backend configuration failure for table %s",
+				yyerror("invalid backend configuration for table %s",
 				    table->t_name);
 				free($2);
 				free($3);
 				YYERROR;
 			}
-
 			free($2);
 			free($3);
 		}
@@ -512,12 +512,13 @@ tableval_list	: string_list			{ }
 		| keyval_list			{ }
 		;
 
-tablenew		: STRING			{
+tablenew	: STRING			{
 			struct table	*m;
 
 			m = table_create("static", NULL, NULL);
 			m->t_type = T_LIST;
 			table_add(m, $1, NULL);
+			free($1);
 			$$ = m->t_id;
 		}
 		| '{'				{
@@ -545,66 +546,42 @@ tables		: tablenew			{ $$ = $1; }
 		;
 
 domain		: DOMAIN tables			{
-			struct table	*m = table_find($2);
+			struct table   *t = table_find($2);
 
-			/* DOMAIN only accepts T_DYNAMIC and T_LIST */
-			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
-				yyerror("table \"%s\" can't be used as DOMAIN parameter",
-					m->t_name);
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
+				    t->t_name);
 				YYERROR;
 			}
 
-			/* DOMAIN requires table to provide K_DOMAIN service */
-			if (!(m->t_backend->services & K_DOMAIN)) {
-				yyerror("table \"%s\" can't be used as DOMAIN parameter",
-					m->t_name);
-				YYERROR;
-			}
-
-			$$ = m->t_id;
+			$$ = t->t_id;
 		}
 		;
 
 alias		: ALIAS tables			{
-			struct table	*m = table_find($2);
+			struct table   *t = table_find($2);
 
-			/* ALIAS only accepts T_DYNAMIC and T_HASH */
-			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("table \"%s\" can't be used as ALIAS parameter",
-					m->t_name);
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
+				yyerror("invalid use of table \"%s\" as ALIAS parameter",
+				    t->t_name);
 				YYERROR;
 			}
 
-			/* ALIAS requires table to provide K_ALIAS service */
-			if (!(m->t_backend->services & K_ALIAS)) {
-				yyerror("table \"%s\" can't be used as ALIAS parameter",
-					m->t_name);
-				YYERROR;
-			}
-
-			$$ = $2;
+			$$ = t->t_id;
 		}
 		| /* empty */			{ $$ =  0; }
 		;
 
 virtual		: VIRTUAL tables		{
-			struct table	*m = table_find($2);
+			struct table   *t = table_find($2);
 
-			/* VIRTUAL only accepts T_DYNAMIC and T_HASH */
-			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					m->t_name);
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
+				yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
+				    t->t_name);
 				YYERROR;
 			}
 
-			/* VIRTUAL requires table to provide K_ALIAS service */
-			if (!(m->t_backend->services & K_ALIAS)) {
-				yyerror("table \"%s\" can't be used as VIRTUAL parameter",
-					m->t_name);
-				YYERROR;
-			}
-
-			$$ = m->t_id;
+			$$ = t->t_id;
 		}
 		;
 
