@@ -131,7 +131,7 @@ typedef struct {
 %type	<v.cond>	condition
 %type	<v.object>	tables tablenew tableref alias virtual domain credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certname tag on compression
+%type	<v.string>	certificate tag on compression
 %%
 
 grammar		: /* empty */
@@ -191,10 +191,10 @@ size		: NUMBER		{
 
 			if (scan_scaled($1, &result) == -1 || result < 0) {
 				yyerror("invalid size: %s", $1);
+				free($1);
 				YYERROR;
 			}
 			free($1);
-
 			$$ = result;
 		}
 		;
@@ -204,12 +204,12 @@ port		: PORT STRING			{
 
 			servent = getservbyname($2, "tcp");
 			if (servent == NULL) {
-				yyerror("port %s is invalid", $2);
+				yyerror("invalid port: %s", $2);
 				free($2);
 				YYERROR;
 			}
-			$$ = servent->s_port;
 			free($2);
+			$$ = servent->s_port;
 		}
 		| PORT NUMBER			{
 			if ($2 <= 0 || $2 >= (int)USHRT_MAX) {
@@ -223,9 +223,12 @@ port		: PORT STRING			{
 		}
 		;
 
-certname	: CERTIFICATE STRING	{
-			if (($$ = strdup($2)) == NULL)
-				fatal(NULL);
+certificate	: CERTIFICATE STRING	{
+			if (($$ = strdup($2)) == NULL) {
+				yyerror("strdup");
+				free($2);
+				YYERROR;
+			}
 			free($2);
 		}
 		| /* empty */			{ $$ = NULL; }
@@ -319,7 +322,7 @@ main		: QUEUE compression {
 	       	| SIZE size {
        			conf->sc_maxsize = $2;
 		}
-		| LISTEN ON STRING port ssl certname auth tag {
+		| LISTEN ON STRING port ssl certificate auth tag {
 			char		*cert;
 			char		*tag;
 			uint8_t		 flags;
@@ -787,7 +790,7 @@ action		: DELIVER TO MAILDIR			{
 			    sizeof (rule->r_value.relayhost.hostname));
 			free($3);
 		}
-		| RELAY VIA STRING certname credentials relay_as {
+		| RELAY VIA STRING certificate credentials relay_as {
 			struct table	*m;
 
 			rule->r_action = A_RELAYVIA;
@@ -1264,7 +1267,7 @@ nodigits:
 	(isalnum(x) || (ispunct(x) && x != '(' && x != ')' && \
 	x != '{' && x != '}' && x != '<' && x != '>' && \
 	x != '!' && x != '=' && x != '#' && \
-	x != ','))
+	x != ',' && x != '/'))
 
 	if (isalnum(c) || c == ':' || c == '_') {
 		do {
