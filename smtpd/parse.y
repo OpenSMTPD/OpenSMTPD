@@ -807,24 +807,15 @@ action		: DELIVER TO MAILDIR			{
 		;
 
 from		: FROM tables			{
-			struct table	*m;
+			struct table   *t = table_find($2);
 
-			/* FROM only accepts T_DYNAMIC and T_LIST */
-			m = table_find($2);
-			if (!(m->t_type & (T_DYNAMIC|T_LIST))) {
-				yyerror("table \"%s\" can't be used as FROM parameter",
-					m->t_name);
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
+				yyerror("invalid use of table \"%s\" as FROM parameter",
+				    t->t_name);
 				YYERROR;
 			}
 
-			/* FROM requires table to provide K_NETADDR service */
-			if (!(m->t_backend->services & K_NETADDR)) {
-				yyerror("table \"%s\" can't be used as FROM parameter",
-					m->t_name);
-				YYERROR;
-			}
-
-			$$ = $2;
+			$$ = t->t_id;
 		}
 		| FROM ANY			{
 			$$ = table_findbyname("<anyhost>")->t_id;
