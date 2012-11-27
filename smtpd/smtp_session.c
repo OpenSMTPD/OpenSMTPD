@@ -249,6 +249,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			strlcpy(s->hostname, "<unknown>", sizeof s->hostname);
 		else
 			strlcpy(s->hostname, dns->host, sizeof s->hostname);
+		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
 		smtp_enter_state(s, S_CONNECTED);
 		return;
 
@@ -389,7 +390,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		}
 
-		fprintf(s->ofile, "Received: from %s (%s [%s])\n"
+		fprintf(s->ofile, "Received: from %s (%s [%s]);\n"
 		    "\tby %s (OpenSMTPD) with %sSMTP id %08x;\n",
 		    s->evp.helo,
 		    s->hostname,
@@ -399,7 +400,8 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		    evpid_to_msgid(s->evp.id));
 
 		if (s->flags & F_SECURE)
-			fprintf(s->ofile, "\tTLS version=%s cipher=%s bits=%d;\n",
+			fprintf(s->ofile,
+			    "\tTLS version=%s cipher=%s bits=%d;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL));
@@ -409,7 +411,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			    s->evp.rcpt.user,
 			    s->evp.rcpt.domain);
 
-		fprintf(s->ofile, "\n\t%s\n", time_to_text(time(NULL)));
+		fprintf(s->ofile, "\t%s\n", time_to_text(time(NULL)));
 
 		/* XXX Test ferror() */
 		smtp_reply(s, "354 Enter mail, end with \".\" on a line"
@@ -637,7 +639,7 @@ smtp_command(struct smtp_session *s, char *line)
 	int			 cmd, i;
 
 	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
-	
+
 	if (++s->kickcount >= SMTP_KICKTHRESHOLD) {
 		log_info("smtp-in: Disconnecting session %016" PRIx64
 		    ": session not moving forward", s->id);
@@ -1077,7 +1079,7 @@ smtp_end_body(struct smtp_session *s)
 		smtp_enter_state(s, S_HELO);
 		return;
 	}
-	
+
 	if (s->s_dstatus & DS_TEMPFAILURE) {
 		smtp_reply(s, "421 4.0.0 Temporary failure");
 		smtp_enter_state(s, S_QUIT);
