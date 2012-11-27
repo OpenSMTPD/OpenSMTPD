@@ -588,21 +588,23 @@ virtual		: VIRTUAL tables		{
 condition	: domain alias	{
 			struct cond	*c;
 
-			rule->r_atable = $2;
-
 			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
 			c->c_type = COND_DOM;
 			c->c_table = $1;
+
+			rule->r_atable = $2;
+
 			$$ = c;
 		}
 		| domain virtual {
 			struct cond	*c;
 
-			rule->r_atable = $2;
-
 			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
 			c->c_type = COND_VDOM;
 			c->c_table = $1;
+
+			rule->r_atable = $2;
+
 			$$ = c;
 		}
 		| LOCAL alias {
@@ -611,19 +613,21 @@ condition	: domain alias	{
 			char		 hostname[MAXHOSTNAMELEN];
 
 			if (gethostname(hostname, sizeof hostname) == -1) {
-				yyerror("gethostname() failed");
+				yyerror("invalid hostname: gethostname() failed");
 				YYERROR;
 			}
-
-			rule->r_atable = $2;
 
 			t = table_create("static", NULL, NULL);
 			table_add(t, "localhost", NULL);
 			table_add(t, hostname, NULL);
-
+			if (conf->sc_hostname[0])
+				table_add(t, conf->sc_hostname, NULL);
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
 			c->c_table = t->t_id;
+
+
+			rule->r_atable = $2;
 
 			$$ = c;
 		}
@@ -634,6 +638,7 @@ condition	: domain alias	{
 			c->c_type = COND_ANY;
 
 			rule->r_atable = $2;
+
 			$$ = c;
 		}
 		;
@@ -654,67 +659,28 @@ conditions	: condition				{
 
 relay_as     	: AS STRING		{
 			struct mailaddr maddr, *maddrp;
-			char *p;
 
-			bzero(&maddr, sizeof (maddr));
-
-			p = strrchr($2, '@');
-			if (p == NULL) {
-				if (strlcpy(maddr.user, $2, sizeof (maddr.user))
-				    >= sizeof (maddr.user))
-					yyerror("user-part too long");
-					free($2);
-					YYERROR;
-			}
-			else {
-				if (p == $2) {
-					/* domain only */
-					p++;
-					if (strlcpy(maddr.domain, p, sizeof (maddr.domain))
-					    >= sizeof (maddr.domain)) {
-						yyerror("user-part too long");
-						free($2);
-						YYERROR;
-					}
-				}
-				else {
-					*p++ = '\0';
-					if (strlcpy(maddr.user, $2, sizeof (maddr.user))
-					    >= sizeof (maddr.user)) {
-						yyerror("user-part too long");
-						free($2);
-						YYERROR;
-					}
-					if (strlcpy(maddr.domain, p, sizeof (maddr.domain))
-					    >= sizeof (maddr.domain)) {
-						yyerror("domain-part too long");
-						free($2);
-						YYERROR;
-					}
-				}
-			}
-
-			if (maddr.user[0] == '\0' && maddr.domain[0] == '\0') {
-				yyerror("invalid 'relay as' value");
+			if (! email_to_mailaddr($2, &maddr)) {
+				yyerror("invalid parameter to AS: %s", $2);
 				free($2);
 				YYERROR;
 			}
+			free($2);
 
-			if (maddr.domain[0] == '\0') {
+			if (maddr.user[0] == '\0' && maddr.domain[0] == '\0') {
+				yyerror("invalid empty parameter to AS");
+				YYERROR;
+			}
+			else if (maddr.domain[0] == '\0') {
 				if (strlcpy(maddr.domain, conf->sc_hostname,
 					sizeof (maddr.domain))
 				    >= sizeof (maddr.domain)) {
-					fatalx("domain too long");
-					yyerror("domain-part too long");
-					free($2);
+					yyerror("hostname too long for AS parameter: %s",
+					    conf->sc_hosname);
 					YYERROR;
 				}
 			}
-			
-			maddrp = xmemdup(&maddr, sizeof (*maddrp), "parse relay_as: AS");
-			free($2);
-
-			$$ = maddrp;
+			$$ = xmemdup(&maddr, sizeof (*maddrp), "parse relay_as: AS");
 		}
 		| /* empty */		{ $$ = NULL; }
 		;
