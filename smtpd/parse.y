@@ -386,7 +386,7 @@ main		: QUEUE compression {
 				YYERROR;
 			}
 			free($2);
-		}/**/
+		}/*
 		| FILTER STRING			{
 			struct filter *filter;
 			struct filter *tmp;
@@ -440,7 +440,7 @@ main		: QUEUE compression {
 			free($2);
 			free($3);
 		}
-		/**/
+		 */
 		;
 
 table		: TABLE STRING STRING	{
