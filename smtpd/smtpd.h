@@ -665,6 +665,7 @@ struct dns {
 	uint64_t		 id;
 	char			 host[MAXHOSTNAMELEN];
 	char			 backup[MAXHOSTNAMELEN];
+	int			 preference;
 	int			 port;
 	int			 error;
 	int			 type;
@@ -715,6 +716,22 @@ struct mfa_session {
 };
 
 struct mta_session;
+struct mta_route;
+struct tree;/* XXX before */
+
+struct mta_mx {
+	TAILQ_ENTRY(mta_mx)	 entry;
+	struct sockaddr_storage	 sa;
+	char			*hostname;
+	int			 preference;
+	int			 flags;
+#define MX_IGNORE	0x1
+#define MX_NOSMTPS	0x2
+#define MX_NOSMTP	0x4
+	int			 error;
+	int			 nconn;
+	time_t			 lastconn;
+};
 
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
@@ -728,6 +745,15 @@ struct mta_route {
 	char			*auth;
 	void			*ssl;
 
+#define ROUTE_WAIT_MX		0x01
+#define ROUTE_WAIT_SECRET	0x02
+#define ROUTE_CLOSED		0x04
+	int			 status;
+
+	char			*secret;
+
+	struct mta_mxlist	*mxlist;
+
 	/* route limits	*/
 	int			 maxconn; 	/* in parallel */
 	int			 maxmail;	/* per session */
@@ -738,10 +764,8 @@ struct mta_route {
 	int			 ntask;
 	TAILQ_HEAD(, mta_task)	 tasks;
 
+	int			 maxsession;	/* runtime condition */
 	int			 nsession;
-
-	int			 nfail;
-	char			 errorline[64];
 };
 
 struct mta_task {
@@ -1110,15 +1134,12 @@ void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 /* mta.c */
 pid_t mta(void);
-int mta_response_delivery(const char *);
-const char *mta_response_prefix(const char *);
-const char *mta_response_status(const char *);
-const char *mta_response_text(const char *);
-void mta_route_ok(struct mta_route *);
-void mta_route_error(struct mta_route *, const char *);
+void mta_route_ok(struct mta_route *, struct mta_mx *);
+void mta_route_error(struct mta_route *, struct mta_mx *, const char *);
 void mta_route_collect(struct mta_route *);
+struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
 const char *mta_route_to_text(struct mta_route *);
-
+const char *mta_mx_to_text(struct mta_mx *);
 
 /* mta_session.c */
 void mta_session(struct mta_route *);

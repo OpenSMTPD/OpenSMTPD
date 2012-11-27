@@ -309,6 +309,7 @@ next:
 		hints.ai_family = PF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
 		s->as = getaddrinfo_async(mx->host, NULL, &hints, NULL);
+		s->query.preference = mx->preference;
 		TAILQ_REMOVE(&s->mx, mx, entry);
 		free(mx->host);
 		free(mx);

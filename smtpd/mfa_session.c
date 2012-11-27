@@ -202,7 +202,6 @@ static void
 mfa_session_done(struct mfa_session *ms)
 {
 	enum imsg_type		imsg_type;
-	struct queue_req_msg	queue_req;
 	struct mfa_resp_msg	resp;
 
 	switch (ms->hook) {
@@ -228,15 +227,6 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_RCPT;
 		break;
 	case HOOK_DATA:
-		if (ms->status == FILTER_OK) {
-			queue_req.reqid = ms->id;
-			queue_req.evpid = ms->data.evp.id;
-			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-			    &queue_req, sizeof queue_req);
-                        mfa_session_destroy(ms);
-                        return;
-		}
 		imsg_type = IMSG_MFA_DATA;
 		break;
 	case HOOK_HEADERLINE:

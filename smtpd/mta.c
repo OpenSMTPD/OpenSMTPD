@@ -47,9 +47,14 @@
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
 
-struct mta_batch2 {
-	uint64_t	id;
-	struct tree	tasks;		/* map route to task */
+#define MX_MAXCONN	10
+#define MX_MAXERROR	5	/* ignore MX after that	 */
+
+struct mta_mxlist {
+	struct mta_route	*route;
+	const char		*error;
+	int			 errortype;
+	TAILQ_HEAD(, mta_mx)	 mxs;
 };
 
 SPLAY_HEAD(mta_route_tree, mta_route);
@@ -59,25 +64,33 @@ static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
 
 static struct mta_route *mta_route_for(struct envelope *);
+static void mta_route_query_mx(struct mta_route *);
+static void mta_route_query_secret(struct mta_route *);
+static void mta_route_flush(struct mta_route *, int, const char *);
 static void mta_route_drain(struct mta_route *);
 static void mta_route_free(struct mta_route *);
-static void mta_envelope_done(struct mta_task *, struct envelope *,
-    const char *);
 static int mta_route_cmp(struct mta_route *, struct mta_route *);
+
 
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-static struct mta_route_tree routes = SPLAY_INITIALIZER(&routes);
-static struct tree batches = SPLAY_INITIALIZER(&batches);
+static struct mta_route_tree routes;
+static struct tree mxlists;
+static struct tree secrets;
+static struct tree batches;
 
 void
 mta_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct mta_route	*route;
-	struct mta_batch2	*batch;
 	struct mta_task		*task;
+	struct mta_mxlist	*mxl;
+	struct mta_mx		*mx;
+	struct tree		*batch;
+	struct secret		*secret;
 	struct envelope		*e;
 	struct ssl		*ssl;
+	struct dns		*dns;
 	uint64_t		 id;
 
 	if (iev->proc == PROC_QUEUE) {
@@ -86,11 +99,10 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_BATCH_CREATE:
 			id = *(uint64_t*)(imsg->data);
 			batch = xmalloc(sizeof *batch, "mta_batch");
-			batch->id = id;
-			tree_init(&batch->tasks);
-			tree_xset(&batches, batch->id, batch);
+			tree_init(batch);
+			tree_xset(&batches, id, batch);
 			log_trace(TRACE_MTA,
-			    "mta: batch:%016" PRIx64 " created", batch->id);
+			    "mta: batch:%016" PRIx64 " created", id);
 			return;
 
 		case IMSG_BATCH_APPEND:
@@ -98,14 +110,13 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			route = mta_route_for(e);
 			batch = tree_xget(&batches, e->batch_id);
 
-			if ((task = tree_get(&batch->tasks, route->id))
-			    == NULL) {
-				log_trace(TRACE_MTA, "mta: new task for %s",
-				    mta_route_to_text(route));
+			if ((task = tree_get(batch, route->id)) == NULL) {
+				log_trace(TRACE_MTA, "mta: new task for route "
+				   "%s", mta_route_to_text(route));
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
 				task->route = route;
-				tree_xset(&batch->tasks, route->id, task);
+				tree_xset(batch, route->id, task);
 				task->msgid = evpid_to_msgid(e->id);
 				task->sender = e->sender;
 				route->refcount += 1;
@@ -130,10 +141,9 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			batch = tree_xpop(&batches, id);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
-			    batch->id);
+			    id);
 			/* for all tasks, queue them on there route */
-			while (tree_poproot(&batch->tasks, &id,
-				(void**)&task)) {
+			while (tree_poproot(batch, &id, (void**)&task)) {
 				if (id != task->route->id)
 					errx(1, "route id mismatch!");
 				task->route->refcount -= 1;
@@ -154,9 +164,64 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
+
 		case IMSG_LKA_SECRET:
+			secret = imsg->data;
+			route = tree_xpop(&secrets, secret->id);
+			route->status &= ~ROUTE_WAIT_SECRET;
+			if (secret->secret[0])
+				route->secret = xstrdup(secret->secret,
+				    "mta: secret");
+			mta_route_drain(route);
+			return;
+
 		case IMSG_DNS_HOST:
+			dns = imsg->data;
+			mxl = tree_xget(&mxlists, dns->id);
+			mx = xcalloc(1, sizeof *mx, "mta: mx");
+			mx->sa = dns->ss;
+			mx->preference = dns->preference;
+			TAILQ_INSERT_TAIL(&mxl->mxs, mx, entry);
+			return;
+
 		case IMSG_DNS_HOST_END:
+			/* LKA responded to DNS lookup. */
+			dns = imsg->data;
+			mxl = tree_xpop(&mxlists, dns->id);
+			route = mxl->route;
+			route->status &= ~ROUTE_WAIT_MX;
+			if (!dns->error)
+				mxl->error = NULL;
+			else if (dns->error == DNS_RETRY) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				mxl->error = "Temporary failure in MX lookup";
+			}
+			else if (dns->error == DNS_EINVAL) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_PERMFAIL;
+				mxl->error = "Invalid domain name";
+			}
+			else if (dns->error == DNS_ENONAME) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_PERMFAIL;
+				mxl->error = "Domain does not exist";
+			}
+			else if (dns->error == DNS_ENOTFOUND) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				mxl->error = "No MX found for domain";
+			}
+			else {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				mxl->error = "Unknown DNS error";
+			}
+			route->mxlist = mxl;
+			log_debug("debug: MXs for route %s",
+			    mta_route_to_text(route));
+			TAILQ_FOREACH(mx, &mxl->mxs, entry)
+				log_debug("debug: %s -> preference %i",
+				    ss_to_text(&mx->sa), mx->preference);
+			log_debug("debug: ---");
+			mta_route_drain(route);
+			return;
+
 		case IMSG_DNS_PTR:
 			mta_session_imsg(iev, imsg);
 			return;
@@ -260,6 +325,11 @@ mta(void)
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mta: cannot drop privileges");
 
+	SPLAY_INIT(&routes);
+	tree_init(&batches);
+	tree_init(&secrets);
+	tree_init(&mxlists);
+
 	imsg_callback = mta_imsg;
 	event_init();
 
@@ -281,70 +351,34 @@ mta(void)
 }
 
 const char *
-mta_response_status(const char *r)
+mta_mx_to_text(struct mta_mx *mx)
 {
-	switch (r[0]) {
-	case '2':
-		return "Sent";
-	case '4':
-	case '5':
-		return "RemoteError";
-	default:
-		return "LocalError";
-	}
-}
+	static char buf[1024];
 
-int
-mta_response_delivery(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return IMSG_QUEUE_DELIVERY_OK;
-	case '5':
-	case '6':
-		if (r[1] == '4' && r[2] == '6')
-			return IMSG_QUEUE_DELIVERY_LOOP;
-		return IMSG_QUEUE_DELIVERY_PERMFAIL;
-	default:
-		return IMSG_QUEUE_DELIVERY_TEMPFAIL;
-	}
-}
+	if (mx->hostname)
+		snprintf(buf, sizeof buf, "%s [%s]", mx->hostname,
+			ss_to_text(&mx->sa));
+	else
+		snprintf(buf, sizeof buf, "[%s]", ss_to_text(&mx->sa));
 
-const char *
-mta_response_prefix(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return "Ok";
-	case '5':
-	case '6':
-		if (r[1] == '4' && r[2] == '6')
-			return "Loop";
-		return "PermFail";
-	default:
-		return "TempFail";
-	}
-}
-
-const char *
-mta_response_text(const char *r)
-{
-	return (r + 4);
+	return (buf);
 }
 
 void
-mta_route_error(struct mta_route *route, const char *error)
+mta_route_error(struct mta_route *route, struct mta_mx *mx, const char *e)
 {
-	route->nfail += 1;
-	strlcpy(route->errorline, error, sizeof route->errorline);
-	log_warnx("warn: mta: %s error: %s", mta_route_to_text(route), error);
+	log_info("smtp-out: Error on MX %s: %s", mta_mx_to_text(mx), e);
+	if (mx->error++ == MX_MAXERROR)
+		log_info("smtp-out: Too many errors on MX %s: ignoring this MX",
+		    mta_mx_to_text(mx));
 }
 
 void
-mta_route_ok(struct mta_route *route)
+mta_route_ok(struct mta_route *route, struct mta_mx *mx)
 {
-	log_debug("debug: mta: %s ready", mta_route_to_text(route));
-	route->nfail = 0;
+	log_debug("debug: mta: %s ready on MX %s", mta_route_to_text(route),
+	    mta_mx_to_text(mx));
+	mx->error = 0;
 }
 
 void
@@ -355,6 +389,99 @@ mta_route_collect(struct mta_route *route)
 	mta_route_drain(route);
 }
 
+struct mta_mx *
+mta_route_next_mx(struct mta_route *route, struct tree *seen)
+{
+	struct mta_mx	*mx, *best;
+	int		 level, limit;
+	union {
+		uint64_t v;
+		void	*p;
+	} u;
+
+
+	limit = 0;
+	level = -1;
+	best = NULL;
+
+	TAILQ_FOREACH(mx, &route->mxlist->mxs, entry) {
+
+		/* New preference level */		
+		if (mx->preference > level) {
+			/*
+			 * Use the current best if found.
+			 */
+			if (best)
+				break;
+
+			/*
+			 * No candidate found.  If there are valid MXs at this
+			 * preference level but they reached their limit, just
+			 * close the session.
+			 */
+			if (limit)
+				break;
+
+			/*
+			 * Start looking at MXs on this preference level.
+			 * Reset the runtime session limit.
+			 */ 
+			level = mx->preference;
+			route->maxsession = route->maxconn;
+		}
+
+		if (mx->flags & MX_IGNORE)
+			continue;
+
+		if (mx->error > MX_MAXERROR)
+			continue;
+
+		if (mx->nconn >= MX_MAXCONN) {
+			limit = 1;
+			continue;
+		}
+
+		if (best && mx->nconn >= best->nconn)
+			continue;
+
+		u.v = 0;
+		u.p = mx;
+		if (tree_get(seen, u.v))
+			continue;
+
+		best = mx;
+	}
+
+	if (best) {
+		best->nconn++;
+		u.v = 0;
+		u.p = best;
+		tree_xset(seen, u.v, best);
+		return (best);
+	}
+
+	/*
+	 * We are trying too much on this route.
+	 */
+	route->maxsession = route->nsession - 1;
+
+	/*
+	 * No reachable MX for this route. Mark it dead for the last session.
+	 * This is never true if we hit a limit, because it would mean there
+	 * is at least one other session running, so nsession would at least
+	 * 2 when this function was called.
+	 */
+	if (route->maxsession == 0) {
+		route->status |= ROUTE_CLOSED;
+		/* Log for the last session only */
+		log_info("smtp-out: No reachable MX for route %s: "
+		    "Cancelling all transfers",
+		    mta_route_to_text(route));
+	}
+
+	return (NULL);
+}
+
 const char *
 mta_route_to_text(struct mta_route *route)
 {
@@ -362,7 +489,7 @@ mta_route_to_text(struct mta_route *route)
 	char		 tmp[32];
 	const char	*sep = "";
 
-	snprintf(buf, sizeof buf, "route:%s[", route->hostname);
+	snprintf(buf, sizeof buf, "%s[", route->hostname);
 
 	if (route->port) {
 		snprintf(tmp, sizeof tmp, "port=%i", (int)route->port);
@@ -460,10 +587,15 @@ mta_route_for(struct envelope *e)
 		route->maxmail = MTA_MAXMAIL;
 		route->maxrcpt = MTA_MAXRCPT;
 
-		log_trace(TRACE_MTA, "mta: new %s", mta_route_to_text(route));
+		route->maxsession = route->maxconn;
+
+		log_trace(TRACE_MTA, "mta: new route %s",
+		    mta_route_to_text(route));
 		stat_increment("mta.route", 1);
+		mta_route_query_mx(route);
+		mta_route_query_secret(route);
 	} else {
-		log_trace(TRACE_MTA, "mta: reusing %s",
+		log_trace(TRACE_MTA, "mta: reusing route %s",
 		    mta_route_to_text(route));
 	}
 
@@ -471,88 +603,177 @@ mta_route_for(struct envelope *e)
 }
 
 static void
+mta_route_query_secret(struct mta_route *route)
+{
+	struct secret	secret;
+
+	if (route->auth == NULL)
+		return;
+
+	tree_xset(&secrets, route->id, route);
+	route->status |= ROUTE_WAIT_SECRET;
+
+	bzero(&secret, sizeof(secret));
+	secret.id = route->id;
+	strlcpy(secret.tablename, route->auth, sizeof(secret.tablename));
+	strlcpy(secret.host, route->hostname, sizeof(secret.host));
+	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
+		    0, 0, -1, &secret, sizeof(secret));
+}
+
+static void
+mta_route_query_mx(struct mta_route *route)
+{
+	struct mta_mxlist *mxl;
+
+	mxl = xcalloc(1, sizeof *mxl, "mta: mxlist");
+	TAILQ_INIT(&mxl->mxs);
+	mxl->route = route;
+	tree_xset(&mxlists, route->id, mxl);
+	route->status |= ROUTE_WAIT_MX;
+
+	if (route->flags & ROUTE_MX)
+		dns_query_host(route->hostname, route->port, route->id);
+	else
+		dns_query_mx(route->hostname, route->backupname, 0, route->id);
+}
+
+static void
 mta_route_free(struct mta_route *route)
 {
-	log_trace(TRACE_MTA, "mta: freeing %s", mta_route_to_text(route));
+	struct mta_mx	*mx;
+
+	log_debug("debug: mta: freeing route %s", mta_route_to_text(route));
 	SPLAY_REMOVE(mta_route_tree, &routes, route);
 	free(route->hostname);
 	if (route->cert)
 		free(route->cert);
 	if (route->auth)
 		free(route->auth);
+
+	if (route->mxlist)
+		while ((mx = TAILQ_FIRST(&route->mxlist->mxs))) {
+			TAILQ_REMOVE(&route->mxlist->mxs, mx, entry);
+			free(mx->hostname);
+			free(mx);
+		}
 	free(route);
+	stat_decrement("mta.route", 1);
+
+}
+
+static void
+mta_route_flush(struct mta_route *route, int fail, const char *error)
+{
+	struct envelope	*e;
+	struct mta_task	*task;
+	const char	*pfx;
+	char		 relay[MAX_LINE_SIZE];
+	size_t		 n;
+
+	if (fail == IMSG_QUEUE_DELIVERY_TEMPFAIL)
+		pfx = "TempFail";
+	else if (fail == IMSG_QUEUE_DELIVERY_PERMFAIL)
+		pfx = "PermFail";
+	else
+		errx(1, "unexpected delivery status %i", fail);
+
+	snprintf(relay, sizeof relay, "relay=%s, ", route->hostname);
+
+	n = 0;
+	while ((task = TAILQ_FIRST(&route->tasks))) {
+		TAILQ_REMOVE(&route->tasks, task, entry);
+		while ((e = TAILQ_FIRST(&task->envelopes))) {
+			TAILQ_REMOVE(&task->envelopes, e, entry);
+			envelope_set_errormsg(e, "%s", error);
+			log_envelope(e, relay, pfx, e->errorline);
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE], fail,
+			    0, 0, -1, e, sizeof(*e));
+			free(e);
+			n++;
+		}
+		free(task);
+	}
+
+	stat_decrement("mta.task", route->ntask);
+	stat_decrement("mta.envelope", n);
+	route->ntask = 0;
 }
 
 static void
 mta_route_drain(struct mta_route *route)
 {
-	struct mta_task		*task;
-	struct envelope		*e;
+	int		 m;
+	const char	*w;
 
-	log_debug("debug: mta: draining %s (tasks=%i, refs=%i, sessions=%i)",
+	log_debug("debug: mta: draining route %s "
+	    "(tasks=%i, refs=%i, sessions=%i/%i)",
 	    mta_route_to_text(route),
-	    route->ntask, route->refcount, route->nsession);
+	    route->ntask, route->refcount, route->nsession, route->maxsession);
 
-	if (route->ntask == 0 && route->refcount == 0 && route->nsession == 0) {
-		mta_route_free(route);
-		stat_decrement("mta.route", 1);
+	/* Wait until we are ready to proceed */
+	if (route->status & (ROUTE_WAIT_MX | ROUTE_WAIT_SECRET)) {
+		m = route->status & (ROUTE_WAIT_MX | ROUTE_WAIT_SECRET);
+		if (m == ROUTE_WAIT_MX)
+			w = "MX";
+		else if (m == ROUTE_WAIT_SECRET)
+			w = "secret";
+		else
+			w = "MX+secret";
+		log_debug("debug: mta: route %s waiting for %s",
+		    mta_route_to_text(route), w);
+		return;
+	}
+
+	if (route->auth && route->secret == NULL) {
+		log_warnx("warn: Failed to retreive secret for route %s",
+		    mta_route_to_text(route));
+		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+		    "Cannot retreive secret");
+		if (route->refcount == 0)
+			mta_route_free(route);
+		return;
+	}
+
+	if (route->mxlist->error) {
+		log_info("smtp-out: Failed to resolve MX for route %s: %s",
+		    mta_route_to_text(route), route->mxlist->error);
+		mta_route_flush(route, route->mxlist->errortype,
+		    route->mxlist->error);
+		if (route->refcount == 0)
+			mta_route_free(route);
 		return;
 	}
 
 	if (route->ntask == 0) {
-		log_debug("debug: mta: no task for %s",
+		log_debug("debug: mta: all done for route %s",
 		    mta_route_to_text(route));
+		if (route->refcount == 0 && route->nsession == 0)
+			mta_route_free(route);
 		return;
 	}
 
-	if (route->nfail > 3) {
-		/* Three connection errors in a row: consider that the route
-		 * has a problem.
-		 */
-		log_debug("debug: mta: too many failures on %s",
-		    mta_route_to_text(route));
-
-		while ((task = TAILQ_FIRST(&route->tasks))) {
-			TAILQ_REMOVE(&route->tasks, task, entry);
-			route->ntask -= 1;
-			while ((e = TAILQ_FIRST(&task->envelopes)))
-				mta_envelope_done(task, e, route->errorline);
-			free(task);
-			stat_decrement("mta.task", 1);
-		}
-		route->nfail = 0;
-		/* XXX maybe close the route for while */
+	if (route->status & ROUTE_CLOSED) {
+		mta_route_flush(route, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+		    "No reachable MX");
+		if (route->refcount == 0 && route->nsession == 0)
+			mta_route_free(route);
 		return;
 	}
 
-	/* make sure there are one session for each task */
+	/* Make sure there is one session for each task */
 	while (route->nsession < route->ntask) {
-		/* if we have reached the max number of session, wait */
-		if (route->nsession >= route->maxconn) {
-			log_debug("debug: mta: max conn reached for %s",
+		/*
+		 * If we have reached the max number of session, just wait
+		 */
+		if (route->nsession >= route->maxsession) {
+			log_debug("debug: mta: max conn reached for route %s",
 			    mta_route_to_text(route));
 			return;
 		}
 		route->nsession += 1;
 		mta_session(route);
 	}
-}
-
-static void
-mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
-{
-	char	 relay[MAX_LINE_SIZE];
-
-	envelope_set_errormsg(e, "%s", status);
-
-	snprintf(relay, sizeof relay, "relay=%s, ", task->route->hostname);
-
-	log_envelope(e, relay, mta_response_prefix(e->errorline), e->errorline);
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));
-	TAILQ_REMOVE(&task->envelopes, e, entry);
-	free(e);
-	stat_decrement("mta.envelope", 1);
 }
 
 static int

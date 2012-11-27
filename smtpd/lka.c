@@ -99,15 +99,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			secret->secret[0] = '\0';
 			if (ret == -1)
-				log_warnx("warn: error with %s credentials",
-				    secret->host);
+				log_warnx("warn: Credentials lookup fail for "
+				    "%s", secret->host);
 			else if (ret == 0)
-				log_warnx("warn: %s credentials not found",
+				log_debug("debug: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,
 				sizeof secret->secret, table_credentials) == 0)
-				log_warnx("warn: %s credentials parse fail",
-				    secret->host);
+				log_warnx("warn: Credentials parse error for "
+				    "%s", secret->host);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
 			free(table_credentials);
@@ -207,8 +207,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_UPDATE_TABLE:
 			table = table_findbyname(imsg->data);
 			if (table == NULL) {
-				log_warnx("warn: lka: no such table \"%s\"",
-				    (char *)imsg->data);
+				log_warnx("warn: Lookup table not found: "
+				    "\"%s\"", (char *)imsg->data);
 				return;
 			}
 			table_update(table);
