@@ -617,7 +617,6 @@ condition	: domain alias	{
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
 			c->c_table = t->t_id;
-
 			rule->r_atable = $2;
 
 			$$ = c;
@@ -1285,6 +1284,11 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	struct table   *t;
 	char		hostname[MAXHOSTNAMELEN];
 
+	if (gethostname(hostname, sizeof hostname) == -1) {
+		fprintf(stderr, "invalid hostname: gethostname() failed\n");
+		return (-1);
+	}
+
 	conf = x_conf;
 	bzero(conf, sizeof(*conf));
 
@@ -1328,14 +1332,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;
 
-	t = table_create("static", "<localnames>", NULL);
-	if (gethostname(hostname, sizeof hostname) == -1) {
-		fprintf(stderr, "invalid hostname: gethostname() failed\n");
-		return (-1);
-	}
-	table_add(t, "localhost", NULL);
-	table_add(t, hostname, NULL);
-
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);
 		return (-1);
@@ -1343,9 +1339,16 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	topfile = file;
 
 	/*
-	 * declare special "localhost" and "anyhost" tables
+	 * declare special "localhost", "anyhost" and "localnames" tables
 	 */
 	set_localaddrs();
+
+	t = table_create("static", "<localnames>", NULL);
+	t->t_type = T_LIST;
+	table_add(t, "localhost", NULL);
+	table_add(t, hostname, NULL);
+
+	table_create("getpwnam", "<getpwnam>", NULL);
 
 	/*
 	 * parse configuration
@@ -1667,20 +1670,18 @@ set_localaddrs(void)
 	struct sockaddr_storage ss;
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
-	struct table		*m;
+	struct table		*t;
 
-	m = table_create("static", "<anyhost>", NULL);
-	table_add(m, "local", NULL);
-	table_add(m, "0.0.0.0/0", NULL);
-	table_add(m, "::/0", NULL);
+	t = table_create("static", "<anyhost>", NULL);
+	table_add(t, "local", NULL);
+	table_add(t, "0.0.0.0/0", NULL);
+	table_add(t, "::/0", NULL);
 
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	m = table_create("static", "<localhost>", NULL);
-	table_add(m, "local", NULL);
-
-	table_create("getpwnam", "<getpwnam>", NULL);
+	t = table_create("static", "<localhost>", NULL);
+	table_add(t, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {
 		if (p->ifa_addr == NULL)
@@ -1690,14 +1691,14 @@ set_localaddrs(void)
 			sain = (struct sockaddr_in *)&ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
-			table_add(m, ss_to_text(&ss), NULL);
+			table_add(t, ss_to_text(&ss), NULL);
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-			table_add(m, ss_to_text(&ss), NULL);
+			table_add(t, ss_to_text(&ss), NULL);
 			break;
 		}
 	}
