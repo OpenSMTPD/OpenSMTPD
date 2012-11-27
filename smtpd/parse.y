@@ -513,13 +513,13 @@ tableval_list	: string_list			{ }
 		;
 
 tablenew	: STRING			{
-			struct table	*m;
+			struct table	*t;
 
-			m = table_create("static", NULL, NULL);
-			m->t_type = T_LIST;
-			table_add(m, $1, NULL);
+			t = table_create("static", NULL, NULL);
+			t->t_type = T_LIST;
+			table_add(t, $1, NULL);
 			free($1);
-			$$ = m->t_id;
+			$$ = t->t_id;
 		}
 		| '{'				{
 			table = table_create("static", NULL, NULL);
@@ -529,15 +529,15 @@ tablenew	: STRING			{
 		;
 
 tableref       	: '<' STRING '>'       		{
-			struct table	*m;
+			struct table	*t;
 
-			if ((m = table_findbyname($2)) == NULL) {
+			if ((t = table_findbyname($2)) == NULL) {
 				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
 			}
 			free($2);
-			$$ = m->t_id;
+			$$ = t->t_id;
 		}
 		;
 
@@ -607,7 +607,7 @@ condition	: domain alias	{
 		}
 		| LOCAL alias {
 			struct cond	*c;
-			struct table	*m;
+			struct table	*t;
 			char		 hostname[MAXHOSTNAMELEN];
 
 			if (gethostname(hostname, sizeof hostname) == -1) {
@@ -617,13 +617,13 @@ condition	: domain alias	{
 
 			rule->r_atable = $2;
 
-			m = table_create("static", NULL, NULL);
-			table_add(m, "localhost", NULL);
-			table_add(m, hostname, NULL);
+			t = table_create("static", NULL, NULL);
+			table_add(t, "localhost", NULL);
+			table_add(t, hostname, NULL);
 
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
-			c->c_table = m->t_id;
+			c->c_table = t->t_id;
 
 			$$ = c;
 		}
@@ -762,7 +762,7 @@ action		: DELIVER TO MAILDIR			{
 			free($3);
 		}
 		| RELAY VIA STRING certificate credentials relay_as {
-			struct table	*m;
+			struct table	*t;
 
 			rule->r_action = A_RELAYVIA;
 			rule->r_as = $6;
@@ -784,8 +784,8 @@ action		: DELIVER TO MAILDIR			{
 					free($6);
 					YYERROR;
 				}
-				m = table_find($5);
-				strlcpy(rule->r_value.relayhost.authtable, m->t_name,
+				t = table_find($5);
+				strlcpy(rule->r_value.relayhost.authtable, t->t_name,
 				    sizeof(rule->r_value.relayhost.authtable));
 			}
 
@@ -834,7 +834,6 @@ on		: ON STRING	{
 				free($2);
 				YYERROR;
 			}
-
 			$$ = $2;
 		}
 		| /* empty */	{ $$ = NULL; }
