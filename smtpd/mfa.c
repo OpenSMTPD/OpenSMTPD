@@ -174,7 +174,6 @@ mfa(void)
 		{ PROC_SMTP,	imsg_dispatch },
 		{ PROC_LKA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch },
-		{ PROC_QUEUE,	imsg_dispatch }
 	};
 
 	switch (pid = fork()) {
