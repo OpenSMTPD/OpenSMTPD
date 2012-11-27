@@ -660,7 +660,7 @@ conditions	: condition				{
 relay_as     	: AS STRING		{
 			struct mailaddr maddr, *maddrp;
 
-			if (! email_to_mailaddr($2, &maddr)) {
+			if (! email_to_mailaddr(&maddr, $2)) {
 				yyerror("invalid parameter to AS: %s", $2);
 				free($2);
 				YYERROR;
@@ -676,7 +676,7 @@ relay_as     	: AS STRING		{
 					sizeof (maddr.domain))
 				    >= sizeof (maddr.domain)) {
 					yyerror("hostname too long for AS parameter: %s",
-					    conf->sc_hosname);
+					    conf->sc_hostname);
 					YYERROR;
 				}
 			}
