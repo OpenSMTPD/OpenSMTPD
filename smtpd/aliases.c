@@ -112,6 +112,13 @@ aliases_virtual_get(objid_t id, struct expand *expand,
 	*pbuf = '@';
 	/* Failed ? We lookup for catch all for virtual domain */
 	ret = table_lookup(table, pbuf, K_ALIAS, (void **)&table_alias);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		goto expand;
+
+	/* Failed ? We lookup for a *global* catch all */
+	ret = table_lookup(table, "@", K_ALIAS, (void **)&table_alias);
 	if (ret <= 0)
 		return (ret);
 
