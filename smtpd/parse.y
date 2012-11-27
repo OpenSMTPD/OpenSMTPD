@@ -118,7 +118,7 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION SIZE LISTEN ON ANY PORT EXPIRE
+%token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
@@ -262,6 +262,7 @@ expire		: EXPIRE STRING {
 			$$ = delaytonum($2);
 			if ($$ == -1) {
 				yyerror("invalid expire delay: %s", $2);
+				free($2);
 				YYERROR;
 			}
 			free($2);
@@ -270,19 +271,11 @@ expire		: EXPIRE STRING {
 		;
 
 credentials	: AUTH tables	{
-			struct table	*m = table_find($2);
+			struct table   *t = table_find($2);
 
-			/* AUTH only accepts T_DYNAMIC and T_HASH */
-			if (!(m->t_type & (T_DYNAMIC|T_HASH))) {
-				yyerror("table \"%s\" can't be used as AUTH parameter",
-					m->t_name);
-				YYERROR;
-			}
-
-			/* AUTH requires table to provide K_CREDENTIALS service */
-			if (!(m->t_backend->services & K_CREDENTIALS)) {
-				yyerror("table \"%s\" can't be used as AUTH parameter",
-					m->t_name);
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_CREDENTIALS)) {
+				yyerror("invalid use of table \"%s\" as AUTH parameter",
+				    t->t_name);
 				YYERROR;
 			}
 
@@ -291,35 +284,36 @@ credentials	: AUTH tables	{
 		| /* empty */	{ $$ = 0; }
 		;
 
-compression	: COMPRESSION STRING {
-			$$ = $2;
+compression	: COMPRESSION		{
+			$$ = strdup("gzip");
+			if ($$ == NULL) {
+				yyerror("strdup");
+				YYERROR;
+			}
 		}
-		| COMPRESSION {
-			$$ = "gzip";
-		}
-		| /* empty */	{ $$ = NULL; }
+		| COMPRESSION STRING	{ $$ = $2; }
 		;
 
 main		: QUEUE compression {
-			if ($2) {
-				conf->sc_queue_flags |= QUEUE_COMPRESS;
-				conf->sc_queue_compress_algo = strdup($2);
-				log_debug("debug: queue compress using %s",
-				    conf->sc_queue_compress_algo);
-			}
-			if ($2 == NULL) {
-				yyerror("invalid queue compress <algo>");
+			conf->sc_queue_compress_algo = strdup($2);
+			if (conf->sc_queue_compress_algo == NULL) {
+				yyerror("strdup");
+				free($2);
 				YYERROR;
 			}
+			conf->sc_queue_flags |= QUEUE_COMPRESS;
+			free($2);
 		}
 		| EXPIRE STRING {
 			conf->sc_qexpire = delaytonum($2);
 			if (conf->sc_qexpire == -1) {
 				yyerror("invalid expire delay: %s", $2);
+				free($2);
 				YYERROR;
 			}
+			free($2);
 		}
-	       	| SIZE size {
+	       	| MAXMESSAGESIZE size {
        			conf->sc_maxsize = $2;
 		}
 		| LISTEN ON STRING port ssl certificate auth tag {
@@ -1019,6 +1013,7 @@ lookup(char *s)
 		{ "listen",		LISTEN },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
+		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "on",			ON },
@@ -1026,7 +1021,6 @@ lookup(char *s)
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
-		{ "size",		SIZE },
 		{ "smtps",		SMTPS },
 		{ "ssl",		SSL },
 		{ "table",		TABLE },
