@@ -317,6 +317,7 @@ main		: QUEUE compression {
 			conf->sc_maxsize = $2;
 		}
 		| HOSTNAME STRING		{
+			struct table	*t = table_findbyname("<localnames>");
 			if (strlcpy(conf->sc_hostname, $2,
 				sizeof(conf->sc_hostname)) >=
 			    sizeof(conf->sc_hostname)) {
@@ -324,6 +325,8 @@ main		: QUEUE compression {
 				free($2);
 				YYERROR;
 			}
+			table_add(t, conf->sc_hostname, NULL);
+       
 			free($2);
 		}
 		| LISTEN ON STRING port ssl certificate auth tag {
@@ -609,23 +612,11 @@ condition	: domain alias	{
 		}
 		| LOCAL alias {
 			struct cond	*c;
-			struct table	*t;
-			char		 hostname[MAXHOSTNAMELEN];
+			struct table	*t = table_findbyname("<localnames>");
 
-			if (gethostname(hostname, sizeof hostname) == -1) {
-				yyerror("invalid hostname: gethostname() failed");
-				YYERROR;
-			}
-
-			t = table_create("static", NULL, NULL);
-			table_add(t, "localhost", NULL);
-			table_add(t, hostname, NULL);
-			if (conf->sc_hostname[0])
-				table_add(t, conf->sc_hostname, NULL);
 			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
 			c->c_type = COND_DOM;
 			c->c_table = t->t_id;
-
 
 			rule->r_atable = $2;
 
@@ -1290,7 +1281,9 @@ popfile(void)
 int
 parse_config(struct smtpd *x_conf, const char *filename, int opts)
 {
-	struct sym	*sym, *next;
+	struct sym     *sym, *next;
+	struct table   *t;
+	char		hostname[MAXHOSTNAMELEN];
 
 	conf = x_conf;
 	bzero(conf, sizeof(*conf));
@@ -1334,6 +1327,14 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;
+
+	t = table_create("static", "<localnames>", NULL);
+	if (gethostname(hostname, sizeof hostname) == -1) {
+		fprintf(stderr, "invalid hostname: gethostname() failed\n");
+		return (-1);
+	}
+	table_add(t, "localhost", NULL);
+	table_add(t, hostname, NULL);
 
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);
