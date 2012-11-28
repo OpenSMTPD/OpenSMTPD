@@ -63,10 +63,8 @@ ruleset_match(const struct envelope *evp)
 				continue;
 		}
 
-		if (r->r_desttype == DEST_ANY) {
-			log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
-			return r;
-		}
+		if (r->r_desttype == DEST_ANY)
+			goto matched;
 
 		if (r->r_desttype == DEST_DOM ||
 		    r->r_desttype == DEST_VDOM) {
@@ -84,14 +82,17 @@ ruleset_match(const struct envelope *evp)
 						return NULL;
 					}
 				}
-				log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
-				return r;
+				goto matched;
 			}
 		}
 	}
 
 	errno = 0;
 	return (NULL);
+
+matched:
+	log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
+	return r;
 }
 
 static int
