@@ -279,7 +279,8 @@ mfa_session_done(struct mfa_session *ms)
 	if (ms->code)
 		resp.code = ms->code;
 
-	memcpy(resp.u.buffer, ms->errorline, sizeof resp.u.buffer);
+	if (ms->status != FILTER_OK)
+		memcpy(resp.u.buffer, ms->errorline, sizeof resp.u.buffer);
 
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,
 	    -1, &resp, sizeof(resp));
