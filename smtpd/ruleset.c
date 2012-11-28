@@ -63,8 +63,10 @@ ruleset_match(const struct envelope *evp)
 				continue;
 		}
 
-		if (r->r_desttype == DEST_ANY)
+		if (r->r_desttype == DEST_ANY) {
+			log_debug("rule matched: %s", rule_to_text(r));
 			return r;
+		}
 
 		if (r->r_desttype == DEST_DOM ||
 		    r->r_desttype == DEST_VDOM) {
@@ -82,6 +84,7 @@ ruleset_match(const struct envelope *evp)
 						return NULL;
 					}
 				}
+				log_debug("rule matched: %s", rule_to_text(r));
 				return r;
 			}
 		}

@@ -748,21 +748,7 @@ relayhost_to_text(struct relayhost *relay)
 	static char	buf[4096];
 	char		port[4096];
 
-	static const struct schema {
-		const char	*name;
-		uint8_t		 flags;
-	} schemas [] = {
-		{ "smtp://",		0				},
-		{ "smtps://",		F_SMTPS				},
-		{ "tls://",		F_STARTTLS			},
-		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
-		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
-		{ "ssl://",		F_SMTPS|F_STARTTLS		},
-		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
-	};
-
 	bzero(buf, sizeof buf);
-
 	switch (relay->flags) {
 	case F_SMTPS|F_STARTTLS|F_AUTH:
 		strlcat(buf, "ssl+auth://", sizeof buf);
@@ -1195,7 +1181,7 @@ rule_to_text(struct rule *r)
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		if (r->r_mapping) {
 			strlcat(buf, " alias ", sizeof buf);
-			strlcat(buf, r->r_mapping, sizeof buf);
+			strlcat(buf, r->r_mapping->t_name, sizeof buf);
 		}
 		break;
 	case DEST_VDOM:
