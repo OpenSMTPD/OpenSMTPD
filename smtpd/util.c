@@ -1173,10 +1173,11 @@ rule_to_text(struct rule *r)
 	strlcat(buf, r->r_sources->t_name, sizeof buf);
 
 	switch (r->r_desttype) {
-	case DEST_ANY:
-		strlcat(buf, " for any", sizeof buf);
-		break;
 	case DEST_DOM:
+		if (r->r_destination == NULL) {
+			strlcat(buf, " for any", sizeof buf);
+			break;
+		}
 		strlcat(buf, " for domain ", sizeof buf);
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		if (r->r_mapping) {
@@ -1185,6 +1186,11 @@ rule_to_text(struct rule *r)
 		}
 		break;
 	case DEST_VDOM:
+		if (r->r_destination == NULL) {
+			strlcat(buf, " for any virtual ", sizeof buf);
+			strlcat(buf, r->r_mapping->t_name, sizeof buf);
+			break;
+		}
 		strlcat(buf, " for domain ", sizeof buf);
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		strlcat(buf, " virtual ", sizeof buf);

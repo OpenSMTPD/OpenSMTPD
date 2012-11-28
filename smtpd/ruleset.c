@@ -63,27 +63,22 @@ ruleset_match(const struct envelope *evp)
 				continue;
 		}
 
-		if (r->r_desttype == DEST_ANY)
-			goto matched;
-
-		if (r->r_desttype == DEST_DOM ||
-		    r->r_desttype == DEST_VDOM) {
-			ret = table_lookup(r->r_destination, maddr->domain, K_DOMAIN,
-			    NULL);
-			if (ret == -1) {
-				errno = EAGAIN;
-				return NULL;
-			}
-			if (ret) {
-				if (r->r_desttype == DEST_VDOM &&
-				    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
-					if (! aliases_virtual_check(r->r_mapping,
-						&evp->rcpt)) {
-						return NULL;
-					}
+		ret = r->r_destination == NULL ? 1 :
+		    table_lookup(r->r_destination, maddr->domain, K_DOMAIN,
+			NULL);
+		if (ret == -1) {
+			errno = EAGAIN;
+			return NULL;
+		}
+		if (ret) {
+			if (r->r_desttype == DEST_VDOM &&
+			    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
+				if (! aliases_virtual_check(r->r_mapping,
+					&evp->rcpt)) {
+					return NULL;
 				}
-				goto matched;
 			}
+			goto matched;
 		}
 	}
 

@@ -124,11 +124,11 @@ typedef struct {
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.table>		table
+%type	<v.table>	table
 %type	<v.number>	port from auth ssl size expire
-%type	<v.object>	tables tablenew tableref alias virtual domain credentials
+%type	<v.object>	tables tablenew tableref destination alias virtual usermapping credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag compression
+%type	<v.string>	certificate tag tagged compression
 %%
 
 grammar		: /* empty */
@@ -256,15 +256,14 @@ tag		: TAG STRING			{
 		;
 
 tagged		: TAGGED STRING			{
-			if (strlcpy(rule->r_tag, $2, sizeof rule->r_tag)
-			    >= sizeof rule->r_tag) {
-       				yyerror("invalid tag name: too long");
+			if (($$ = strdup($2)) == NULL) {
+       				yyerror("strdup");
 				free($2);
 				YYERROR;
 			}
 			free($2);
 		}
-		| /* empty */			{ }
+		| /* empty */			{ $$ = NULL; }
 		;
 
 expire		: EXPIRE STRING {
@@ -557,19 +556,6 @@ tables		: tablenew			{ $$ = $1; }
 		| tableref			{ $$ = $1; }
 		;
 
-domain		: DOMAIN tables			{
-			struct table   *t = table_find($2);
-
-			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
-				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
-				    t->t_name);
-				YYERROR;
-			}
-
-			$$ = t->t_id;
-		}
-		;
-
 alias		: ALIAS tables			{
 			struct table   *t = table_find($2);
 
@@ -581,7 +567,6 @@ alias		: ALIAS tables			{
 
 			$$ = t->t_id;
 		}
-		| /* empty */			{ $$ =  0; }
 		;
 
 virtual		: VIRTUAL tables		{
@@ -597,26 +582,36 @@ virtual		: VIRTUAL tables		{
 		}
 		;
 
-destination	: domain alias	{
+usermapping	: alias		{
 			rule->r_desttype = DEST_DOM;
-			rule->r_destination = table_find($1);
-			rule->r_mapping = table_find($2);
+			$$ = $1;
 		}
-		| domain virtual {
+		| virtual	{
 			rule->r_desttype = DEST_VDOM;
-			rule->r_destination = table_find($1);
-			rule->r_mapping = table_find($2);
+			$$ = $1;
 		}
-		| LOCAL alias {
+		| /**/		{
 			rule->r_desttype = DEST_DOM;
-			rule->r_destination = table_findbyname("<localnames>");
-			rule->r_mapping = table_find($2);
+			$$ = 0;
 		}
-		| ANY alias			{
-			rule->r_desttype = DEST_ANY;
-			rule->r_destination = NULL;
-			rule->r_mapping = table_find($2);
+		;
+
+		
+
+
+destination	: DOMAIN tables			{
+			struct table   *t = table_find($2);
+
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
+				    t->t_name);
+				YYERROR;
+			}
+
+			$$ = t->t_id;
 		}
+		| LOCAL		{ $$ = table_findbyname("<localnames>")->t_id; }
+		| ANY		{ $$ = 0; }
 		;
 
 relay_as     	: AS STRING		{
@@ -758,10 +753,21 @@ from		: FROM tables			{
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		} from FOR destination action tagged expire {
+		 } from FOR destination usermapping action tagged expire {
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = table_find($3);
-			rule->r_qexpire = $8;
+			rule->r_destination = table_find($5);
+			rule->r_mapping = table_find($6);
+			if ($8) {
+				if (strlcpy(rule->r_tag, $8, sizeof rule->r_tag)
+				    >= sizeof rule->r_tag) {
+					yyerror("tag name too long: %s", $8);
+					free($8);
+					YYERROR;
+				}
+				free($8);
+			}
+			rule->r_qexpire = $9;
 
 			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
 				enum table_type type;
@@ -788,9 +794,20 @@ rule		: ACCEPT {
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} from FOR destination tagged {
+		} from FOR destination usermapping tagged {
 			rule->r_decision = R_REJECT;
 			rule->r_sources = table_find($3);
+			rule->r_destination = table_find($5);
+			rule->r_mapping = table_find($6);
+			if ($7) {
+				if (strlcpy(rule->r_tag, $7, sizeof rule->r_tag)
+				    >= sizeof rule->r_tag) {
+					yyerror("tag name too long: %s", $7);
+					free($7);
+					YYERROR;
+				}
+				free($7);
+			}
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}

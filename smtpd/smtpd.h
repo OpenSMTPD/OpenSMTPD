@@ -297,7 +297,7 @@ struct table_backend {
 
 
 enum dest_type {
-	DEST_ANY,
+/*	DEST_ANY,*/
 	DEST_DOM,
 	DEST_VDOM
 };
