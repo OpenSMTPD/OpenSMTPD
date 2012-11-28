@@ -118,6 +118,7 @@ as returned by
 .Op Ic tls | tls-require | smtps
 .Op Ic certificate Ar name
 .Op Ic auth | auth-optional
+.Op Ic tag Ar tag
 .Xc
 Specify an
 .Ar interface
@@ -184,6 +185,12 @@ This is only useful to let a listener accept incoming mail from
 untrusted senders and outgoing mail from authenticated users in
 situations where it is not possible to listen on the submission
 port.
+.Pp
+If the
+.Ic tag
+parameter is used, then clients connecting to the listener will be
+tagged
+.Ar tag .
 .It Xo
 .Ic table Ar name
 .Ar [type:]config
@@ -496,6 +503,10 @@ may be a user, a domain prefixed with
 or an email address, causing
 smtpd to rewrite the user-part, the domain-part, or the entire address,
 respectively.
+.El
+.It Ic tagged Ar tag
+If specified, the rule will only be matched if the client session was tagged
+.Ar tag .
 .It Ic expire Ar n {s|m|h|d}
 Specify how long a message that matched this rule can stay in the queue.
 .El
