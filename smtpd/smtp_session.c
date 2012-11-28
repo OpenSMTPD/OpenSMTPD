@@ -537,7 +537,7 @@ session_rfc5321_data_handler(struct session *s, char *args)
 		return 1;
 	}
 
-	session_enter_state(s, S_DATA_QUEUE);
+	session_enter_state(s, S_DATA);
 
 	mfa_req.reqid = s->s_id;
 	mfa_req.u.evp = s->s_msg;
@@ -941,7 +941,7 @@ session_pickup(struct session *s, struct submit_status *ss)
 		session_respond(s, "%d 2.0.0 Recipient ok", ss->code);
 		break;
 
-	case S_DATA_QUEUE:
+	case S_DATA:
 		if (ss->code != 250) {
 			session_enter_state(s, S_HELO);
 			if (ss->u.errormsg[0])
@@ -950,6 +950,16 @@ session_pickup(struct session *s, struct submit_status *ss)
 				session_respond(s, "%d Cannot enter DATA state", ss->code);
 			break;
 		}
+
+		session_enter_state(s, S_DATA_QUEUE);
+
+		queue_req.reqid = s->s_id;
+		queue_req.evpid = s->s_msg.id;
+		session_imsg(s, PROC_QUEUE, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
+		    &queue_req, sizeof(queue_req));
+		break;
+
+	case S_DATA_QUEUE:
 
 		session_enter_state(s, S_DATACONTENT);
 		session_respond(s, "354 Enter mail, end with \".\" on a line by"
