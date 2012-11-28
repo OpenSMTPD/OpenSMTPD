@@ -315,6 +315,14 @@ If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for all addresses.
 .It Xo
+.Ic for any
+.Ic virtual Ar <vmap>
+.Xc
+Make the rule match regardless of the domain it is sent to.
+The
+.Ar vmap
+table will be used as the virtual domain mapping.
+.It Xo
 .Ic for domain Ar domain
 .Op Ic alias Ar <aliases>
 .Xc
@@ -385,6 +393,18 @@ This rule applies to mail destined to
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
+.It Xo
+.Ic for local
+.Ic virtual Ar <vmap>
+.Xc
+This rule applies to mail destined to
+.Dq localhost
+and to the server's fully qualified domain name,
+as returned by
+.Xr hostname 1 .
+The
+.Ar vmap
+table will be used as the virtual domain mapping.
 .El
 .Pp
 Finally, the method of delivery is specified:
