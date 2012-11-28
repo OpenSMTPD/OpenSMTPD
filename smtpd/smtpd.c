@@ -398,7 +398,6 @@ parent_send_config_ruleset(int proc)
 		TAILQ_FOREACH(r, env->sc_rules, r_entry) {
 			imsg_compose_event(env->sc_ievs[proc], IMSG_CONF_RULE,
 			    0, 0, -1, r, sizeof(*r));
-			log_debug("DEBUG: %s", rule_to_text(r));
 			imsg_compose_event(env->sc_ievs[proc],
 			    IMSG_CONF_RULE_SOURCE, 0, 0, -1,
 			    &r->r_sources->t_name,
