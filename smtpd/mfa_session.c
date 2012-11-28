@@ -47,6 +47,8 @@ static void mfa_session_fail(struct mfa_session *, enum filter_status, uint32_t,
 static void mfa_session_filter_register(uint32_t, struct filter *);
 void mfa_session_imsg_handler(struct imsg *, void *);
 
+struct tree				sessions;
+
 struct fhook {
 	SIMPLEQ_ENTRY(fhook)	entry;
 	struct filter	       *filter;
@@ -62,6 +64,8 @@ mfa_session_filters_init(void)
 	void	       *iter;
 	size_t		i;
 	uint32_t	version = FILTER_API_VERSION;
+
+	dict_init(&sessions);
 
 	for (i = 0; i < nitems(filter_hooks); ++i)
 		SIMPLEQ_INIT(&filter_hooks[i]);
@@ -105,7 +109,7 @@ mfa_session(uint64_t id, enum filter_hook hook, union mfa_session_data *data)
 	ms->id      = id;
 	ms->hook    = hook;
 	ms->data    = *data;
-	tree_xset(&env->mfa_sessions, ms->id, ms);
+	tree_xset(&sessions, ms->id, ms);
 
 	/* no filter handling this hook */
 	if (!(hook & env->filtermask)) {
@@ -300,7 +304,7 @@ mfa_session_fail(struct mfa_session *ms, enum filter_status status, uint32_t cod
 static void
 mfa_session_destroy(struct mfa_session *ms)
 {
-	tree_xpop(&env->mfa_sessions, ms->id);
+	tree_xpop(&sessions, ms->id);
 	free(ms);
 }
 
@@ -316,7 +320,7 @@ mfa_session_imsg_handler(struct imsg *imsg, void *arg)
 	}
 
 	fm = imsg->data;
-	ms = tree_xget(&env->mfa_sessions, fm->id);
+	ms = tree_xget(&sessions, fm->id);
 
 	if (fm->status != FILTER_OK) {
 		mfa_session_fail(ms, fm->status, fm->code, fm->errorline);

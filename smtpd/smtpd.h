@@ -617,8 +617,6 @@ struct smtpd {
 	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
 
-	struct tree				mfa_sessions;
-
 	struct dict				sc_filters;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
