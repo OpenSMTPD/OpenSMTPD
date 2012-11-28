@@ -59,8 +59,9 @@ static uint32_t	sessions;
 static void
 smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct session		 skey;
-	struct submit_status	*ss;
+	struct queue_resp_msg	*queue_resp;
+	struct mfa_resp_msg	*mfa_resp;
+	struct submit_status	 ss;
 	struct listener		*l;
 	struct session		*s;
 	struct auth		*auth;
@@ -86,18 +87,84 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
+		case HOOK_REGISTER:
+			env->filtermask |= *(uint32_t *)imsg->data;
+			return;
+		case IMSG_MFA_EOH:
+			mfa_resp = imsg->data;
+			s = session_lookup(mfa_resp->reqid);
+			if (s == NULL)
+				return;
+			if (mfa_resp->status == MFA_TEMPFAIL) {
+				s->s_dstatus |= DS_TEMPFAILURE;
+				ss.code = mfa_resp->code ? mfa_resp->code : 421;
+			}
+			else if (mfa_resp->status == MFA_PERMFAIL) {
+				s->s_dstatus |= DS_PERMFAILURE;
+				ss.code = mfa_resp->code ? mfa_resp->code : 530;
+			}
+			else
+				ss.code = mfa_resp->code ? mfa_resp->code : 250;
+			session_pickup(s, &ss);
+			return;
+
+		case IMSG_MFA_EOM:
+			mfa_resp = imsg->data;
+			s = session_lookup(mfa_resp->reqid);
+			if (s == NULL)
+				return;
+			if (mfa_resp->status == MFA_TEMPFAIL)
+				s->s_dstatus |= DS_TEMPFAILURE;
+			else if (mfa_resp->status == MFA_PERMFAIL)
+				s->s_dstatus |= DS_PERMFAILURE;
+			session_pickup(s, &ss);
+			return;
+			
 		case IMSG_MFA_CONNECT:
 		case IMSG_MFA_HELO:
 		case IMSG_MFA_MAIL:
 		case IMSG_MFA_RCPT:
+		case IMSG_MFA_DATA:
+		case IMSG_MFA_HEADERLINE:
 		case IMSG_MFA_DATALINE:
 		case IMSG_MFA_QUIT:
 		case IMSG_MFA_RSET:
-			ss = imsg->data;
-			s = session_lookup(ss->id);
+			mfa_resp = imsg->data;
+			s = session_lookup(mfa_resp->reqid);
 			if (s == NULL)
 				return;
-			session_pickup(s, ss);
+			if (mfa_resp->status == MFA_OK) {
+				ss.code = mfa_resp->code ? mfa_resp->code : 250;
+				/* until we get rid of submit_status */
+				if (imsg->hdr.type == IMSG_MFA_HEADERLINE) {
+					strlcpy(ss.u.headerline,
+					    mfa_resp->u.buffer,
+					    sizeof (ss.u.headerline));
+				}
+				if (imsg->hdr.type == IMSG_MFA_DATALINE) {
+					strlcpy(ss.u.dataline,
+					    mfa_resp->u.buffer,
+					    sizeof (ss.u.dataline));
+				}
+				if (imsg->hdr.type == IMSG_MFA_MAIL) {
+					ss.u.maddr = mfa_resp->u.mailaddr;
+				}
+			}
+			else if (mfa_resp->status == MFA_TEMPFAIL) {
+				ss.code = mfa_resp->code ? mfa_resp->code : 421;
+				if (mfa_resp->u.buffer[0])
+					strlcpy(ss.u.errormsg,
+					    mfa_resp->u.buffer,
+					    sizeof ss.u.errormsg);
+			}
+			else {
+				ss.code = mfa_resp->code ? mfa_resp->code : 530;
+				if (mfa_resp->u.buffer[0])
+					strlcpy(ss.u.errormsg,
+					    mfa_resp->u.buffer,
+					    sizeof ss.u.errormsg);
+			}
+			session_pickup(s, &ss);
 			return;
 		case IMSG_MFA_CLOSE:
 			return;
@@ -105,19 +172,20 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 
 	if (iev->proc == PROC_QUEUE) {
-		ss = imsg->data;
+		queue_resp = imsg->data;
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			s->s_msg.id = ((uint64_t)ss->u.msgid) << 32;
-			session_pickup(s, ss);
+			s->s_msg.id = queue_resp->evpid;
+			ss.code = (queue_resp->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL) {
 				close(imsg->fd);
 				return;
@@ -125,36 +193,36 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			s->datafp = fdopen(imsg->fd, "w");
 			if (s->datafp == NULL) {
 				/* queue may have experienced tempfail. */
-				if (ss->code != 421)
+				if (!queue_resp->success)
 					fatalx("smtp: fdopen");
 				close(imsg->fd);
 			}
-			session_pickup(s, ss);
+			ss.code = (queue_resp->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
-		case IMSG_QUEUE_TEMPFAIL:
-			skey.s_id = ss->id;
-			/* do not use lookup since this is not a expected imsg
-			 * -- eric@
-			 */
-			s = SPLAY_FIND(sessiontree, &env->sc_sessions, &skey);
+		case IMSG_QUEUE_SUBMIT_ENVELOPE:
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
-				fatalx("smtp: session is gone");
-			s->s_dstatus |= DS_TEMPFAILURE;
+				return;
+			if (!queue_resp->success)
+				s->s_dstatus |= DS_TEMPFAILURE;
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			session_pickup(s, ss);
+			ss.code = (queue_resp->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			s = session_lookup(ss->id);
+			s = session_lookup(queue_resp->reqid);
 			if (s == NULL)
 				return;
-			session_pickup(s, ss);
+			ss.code = (queue_resp->success) ? 250 : 421;
+			session_pickup(s, &ss);
 			return;
 
 		case IMSG_SMTP_ENQUEUE:
@@ -354,6 +422,7 @@ smtp(void)
 	imsg_callback = smtp_imsg;
 	event_init();
 
+	SPLAY_INIT(&env->sc_sessions);
 	signal_set(&ev_sigint, SIGINT, smtp_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, smtp_sig_handler, NULL);
 	signal_add(&ev_sigint, NULL);

@@ -42,10 +42,9 @@ static int ruleset_check_source(struct table *,
 struct rule *
 ruleset_match(const struct envelope *evp)
 {
-	const struct mailaddr *maddr = &evp->dest;
+	const struct mailaddr *maddr = &evp->rcpt;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
-	struct table	*table;
 	int		 ret;
 
 	if (evp->flags & DF_INTERNAL)
@@ -66,28 +65,31 @@ ruleset_match(const struct envelope *evp)
 				continue;
 		}
 
-		if (r->r_condition.c_type == COND_ANY)
-			return r;
-
-		if (r->r_condition.c_type == COND_DOM ||
-		    r->r_condition.c_type == COND_VDOM) {
-			table = table_find(r->r_condition.c_table);
-			if (table == NULL)
-				fatal("failed to lookup table.");
-
-			ret = table_lookup(table, maddr->domain, K_DOMAIN,
-			    NULL);
-			if (ret == -1) {
-				errno = EAGAIN;
-				return NULL;
+		ret = r->r_destination == NULL ? 1 :
+		    table_lookup(r->r_destination, maddr->domain, K_DOMAIN,
+			NULL);
+		if (ret == -1) {
+			errno = EAGAIN;
+			return NULL;
+		}
+		if (ret) {
+			if (r->r_desttype == DEST_VDOM &&
+			    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
+				if (! aliases_virtual_check(r->r_mapping,
+					&evp->rcpt)) {
+					return NULL;
+				}
 			}
-			if (ret)
-				return r;
+			goto matched;
 		}
 	}
 
 	errno = 0;
 	return (NULL);
+
+matched:
+	log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
+	return r;
 }
 
 static int

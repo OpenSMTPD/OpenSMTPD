@@ -30,13 +30,14 @@ makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c	\
 makemap_CFLAGS=		-DNO_IO
 
 smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
-			control.c delivery.c dict.c dns.c envelope.c expand.c	\
-			forward.c iobuf.c ioev.c lka.c lka_session.c log.c	\
-			mda.c mfa.c mfa_session.c mta.c mta_session.c parse.y	\
-			queue.c queue_backend.c ruleset.c			\
-			scheduler.c scheduler_backend.c	smtp.c smtp_session.c	\
-			smtpd.c ssl.c ssl_privsep.c stat_backend.c table.c	\
-			tree.c util.c
+			control.c delivery.c dict.c dns.c envelope.c		\
+			expand.c forward.c imsgproc.c iobuf.c ioev.c lka.c	\
+			lka_session.c log.c mda.c mfa.c mfa_session.c mta.c	\
+			mta_session.c parse.y queue.c queue_backend.c		\
+			ruleset.c scheduler.c scheduler_backend.c smtp.c	\
+			smtp_session.c smtpd.c ssl.c ssl_privsep.c		\
+			stat_backend.c table.c tree.c util.c waitq.c
+
 # backends
 smtpd_SOURCES+=		auth_bsd.c
 smtpd_SOURCES+=		auth_pwd.c
@@ -45,14 +46,13 @@ smtpd_SOURCES+=		delivery_filename.c
 smtpd_SOURCES+=		delivery_maildir.c
 smtpd_SOURCES+=		delivery_mbox.c
 smtpd_SOURCES+=		delivery_mda.c
+smtpd_SOURCES+=		table_db.c
+smtpd_SOURCES+=		table_getpwnam.c
+smtpd_SOURCES+=		table_static.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		queue_ram.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
 smtpd_SOURCES+=		stat_ramstat.c
-#smtpd_SOURCES+=	stat_sqlite.c
-smtpd_SOURCES+=		table_db.c
-smtpd_SOURCES+=		table_getpwnam.c
-smtpd_SOURCES+=		table_static.c
 
 # resolver
 smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\

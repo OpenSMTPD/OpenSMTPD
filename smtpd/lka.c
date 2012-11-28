@@ -49,14 +49,12 @@
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
-static int lka_verify_mail(struct mailaddr *);
 static int lka_encode_credentials(char *, size_t, struct table_credentials *);
-
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct submit_status	*ss;
+	struct envelope		*envelope;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
@@ -76,33 +74,9 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_MAIL:
-			ss = imsg->data;
-			ss->code = 530;
-			if (ss->u.maddr.user[0] == '\0' &&
-			    ss->u.maddr.domain[0] == '\0')
-				ss->code = 250;
-			else
-				if (lka_verify_mail(&ss->u.maddr))
-					ss->code = 250;
-			imsg_compose_event(iev, IMSG_LKA_MAIL, 0, 0, -1, ss,
-			    sizeof *ss);
-			return;
-
-		case IMSG_LKA_RULEMATCH:
-			ss = imsg->data;
-			rule = ruleset_match(&ss->envelope);
-			if (rule == NULL)
-				ss->code = (errno == EAGAIN) ? 451 : 530;
-			else
-				ss->code = (rule->r_decision == R_ACCEPT) ?
-				    250 : 530;
-			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
-			    ss, sizeof *ss);
-			return;
-
-		case IMSG_LKA_RCPT:
-			lka_session(imsg->data);
+		case IMSG_LKA_EXPAND_RCPT:
+			envelope = imsg->data;
+			lka_session(envelope);
 			return;
 		}
 	}
@@ -129,15 +103,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			secret->secret[0] = '\0';
 			if (ret == -1)
-				log_warnx("warn: error with %s credentials",
-				    secret->host);
+				log_warnx("warn: Credentials lookup fail for "
+				    "%s", secret->host);
 			else if (ret == 0)
-				log_warnx("warn: %s credentials not found",
+				log_debug("debug: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,
 				sizeof secret->secret, table_credentials) == 0)
-				log_warnx("warn: %s credentials parse fail",
-				    secret->host);
+				log_warnx("warn: Credentials parse error for "
+				    "%s", secret->host);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
 			free(table_credentials);
@@ -181,6 +155,26 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables_dict = tables_dict;
 			rule->r_sources = table_findbyname(imsg->data);
 			if (rule->r_sources == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
+		case IMSG_CONF_RULE_DESTINATION:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_destination = table_findbyname(imsg->data);
+			if (rule->r_destination == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
+		case IMSG_CONF_RULE_MAPPING:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_mapping = table_findbyname(imsg->data);
+			if (rule->r_mapping == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
 			return;
@@ -237,8 +231,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_UPDATE_TABLE:
 			table = table_findbyname(imsg->data);
 			if (table == NULL) {
-				log_warnx("warn: lka: no such table \"%s\"",
-				    (char *)imsg->data);
+				log_warnx("warn: Lookup table not found: "
+				    "\"%s\"", (char *)imsg->data);
 				return;
 			}
 			table_update(table);
@@ -325,7 +319,6 @@ lka(void)
 
 	imsg_callback = lka_imsg;
 	event_init();
-	SPLAY_INIT(&env->lka_sessions);
 
 	signal_set(&ev_sigint, SIGINT, lka_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, lka_sig_handler, NULL);
@@ -355,12 +348,6 @@ lka(void)
 	lka_shutdown();
 
 	return (0);
-}
-
-static int
-lka_verify_mail(struct mailaddr *maddr)
-{
-	return 1;
 }
 
 static int

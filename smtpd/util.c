@@ -492,30 +492,31 @@ email_to_mailaddr(struct mailaddr *maddr, char *email)
 	char *username;
 	char *hostname;
 
+	bzero(maddr, sizeof *maddr);
+
 	username = email;
 	hostname = strrchr(username, '@');
 
-	if (username[0] == '\0') {
-		*maddr->user = '\0';
-		*maddr->domain = '\0';
-		return 1;
-	}
-
 	if (hostname == NULL) {
-		if (strcasecmp(username, "postmaster") != 0)
+		if (strlcpy(maddr->user, username, sizeof maddr->user)
+		    >= sizeof maddr->user)
 			return 0;
-		hostname = "localhost";
-	} else {
-		*hostname++ = '\0';
 	}
-
-	if (strlcpy(maddr->user, username, sizeof(maddr->user))
-	    >= sizeof(maddr->user))
-		return 0;
-
-	if (strlcpy(maddr->domain, hostname, sizeof(maddr->domain))
-	    >= sizeof(maddr->domain))
-		return 0;
+	else if (username == hostname) {
+		*hostname++ = '\0';
+		if (strlcpy(maddr->domain, hostname, sizeof maddr->domain)
+		    >= sizeof maddr->domain)
+			return 0;
+	}
+	else {
+		*hostname++ = '\0';
+		if (strlcpy(maddr->user, username, sizeof maddr->user)
+		    >= sizeof maddr->user)
+			return 0;
+		if (strlcpy(maddr->domain, hostname, sizeof maddr->domain)
+		    >= sizeof maddr->domain)
+			return 0;
+	}	
 
 	return 1;
 }
@@ -760,6 +761,45 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	relay->hostname[len] = 0;
 
 	return 1;
+}
+
+char *
+relayhost_to_text(struct relayhost *relay)
+{
+	static char	buf[4096];
+	char		port[4096];
+
+	bzero(buf, sizeof buf);
+	switch (relay->flags) {
+	case F_SMTPS|F_STARTTLS|F_AUTH:
+		strlcat(buf, "ssl+auth://", sizeof buf);
+		break;
+	case F_SMTPS|F_STARTTLS:
+		strlcat(buf, "ssl://", sizeof buf);
+		break;
+	case F_STARTTLS|F_AUTH:
+		strlcat(buf, "tls+auth://", sizeof buf);
+		break;
+	case F_SMTPS|F_AUTH:
+		strlcat(buf, "smtps+auth://", sizeof buf);
+		break;
+	case F_STARTTLS:
+		strlcat(buf, "tls://", sizeof buf);
+		break;
+	case F_SMTPS:
+		strlcat(buf, "smtps://", sizeof buf);
+		break;
+	default:
+		strlcat(buf, "smtp://", sizeof buf);
+		break;
+	}
+	strlcat(buf, relay->hostname, sizeof buf);
+	if (relay->port) {
+		strlcat(buf, ":", sizeof buf);
+		snprintf(port, sizeof port, "%d", relay->port);
+		strlcat(buf, port, sizeof buf);
+	}
+	return buf;
 }
 
 /*
@@ -1141,4 +1181,75 @@ strtoevpid(const char *s)
 	if (ulval == 0)
 		errx(1, "invalid msgid/evpid");
 	return (ulval);
+}
+
+char *
+rule_to_text(struct rule *r)
+{
+	static char buf[4096];
+
+	bzero(buf, sizeof buf);
+	strlcpy(buf, r->r_decision == R_ACCEPT  ? "accept" : "reject", sizeof buf);
+	if (r->r_tag[0]) {
+		strlcat(buf, " on ", sizeof buf);
+		strlcat(buf, r->r_tag, sizeof buf);
+	}
+	strlcat(buf, " from ", sizeof buf);
+	strlcat(buf, r->r_sources->t_name, sizeof buf);
+
+	switch (r->r_desttype) {
+	case DEST_DOM:
+		if (r->r_destination == NULL) {
+			strlcat(buf, " for any", sizeof buf);
+			break;
+		}
+		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, r->r_destination->t_name, sizeof buf);
+		if (r->r_mapping) {
+			strlcat(buf, " alias ", sizeof buf);
+			strlcat(buf, r->r_mapping->t_name, sizeof buf);
+		}
+		break;
+	case DEST_VDOM:
+		if (r->r_destination == NULL) {
+			strlcat(buf, " for any virtual ", sizeof buf);
+			strlcat(buf, r->r_mapping->t_name, sizeof buf);
+			break;
+		}
+		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, r->r_destination->t_name, sizeof buf);
+		strlcat(buf, " virtual ", sizeof buf);
+		strlcat(buf, r->r_mapping->t_name, sizeof buf);
+		break;
+	}
+
+	switch (r->r_action) {
+	case A_RELAY:
+		strlcat(buf, " relay", sizeof buf);
+		break;
+	case A_RELAYVIA:
+		strlcat(buf, " relay via ", sizeof buf);
+		strlcat(buf, relayhost_to_text(&r->r_value.relayhost), sizeof buf);
+		break;
+	case A_MAILDIR:
+		strlcat(buf, " deliver to maildir \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	case A_MBOX:
+		strlcat(buf, " deliver to mbox", sizeof buf);
+		break;
+	case A_FILENAME:
+		strlcat(buf, " deliver to filename \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	case A_MDA:
+		strlcat(buf, " deliver to mda \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	}
+	    
+	return buf;
 }

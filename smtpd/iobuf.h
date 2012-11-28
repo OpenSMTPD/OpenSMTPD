@@ -43,6 +43,7 @@ struct iobuf {
 #define IOBUF_WANT_WRITE	-2
 #define IOBUF_CLOSED		-3
 #define IOBUF_ERROR		-4
+#define IOBUF_SSLERROR		-5
 
 int	iobuf_init(struct iobuf *, size_t, size_t);
 void	iobuf_clear(struct iobuf *);

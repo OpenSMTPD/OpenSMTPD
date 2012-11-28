@@ -32,7 +32,7 @@
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
-#include "filter_api.h"
+#include "smtpd-api.h"
 #include "ioev.h"
 #include "iobuf.h"
 
@@ -85,6 +85,8 @@
 #define PATH_ENVELOPES		"/envelopes"
 #define PATH_MESSAGE		"/message"
 
+#define	PATH_FILTERS		"/usr/libexec/smtpd"
+
 /* number of MX records to lookup */
 #define MAX_MX_COUNT		10
 
@@ -119,9 +121,6 @@
 
 typedef uint32_t	objid_t;
 
-SPLAY_HEAD(dict, dictentry);
-SPLAY_HEAD(tree, treeentry);
-
 #define	MAXPASSWORDLEN	128
 struct userinfo {
 	char username[MAXLOGNAME];
@@ -129,6 +128,11 @@ struct userinfo {
 	char password[MAXPASSWORDLEN];
 	uid_t uid;
 	gid_t gid;
+};
+
+struct mailaddr {
+	char	user[MAX_LOCALPART_SIZE];
+	char	domain[MAX_DOMAINPART_SIZE];
 };
 
 struct netaddr {
@@ -157,15 +161,14 @@ enum imsg_type {
 	IMSG_CONF_TABLE_CONTENT,
 	IMSG_CONF_RULE,
 	IMSG_CONF_RULE_SOURCE,
+	IMSG_CONF_RULE_DESTINATION,
+	IMSG_CONF_RULE_MAPPING,
 	IMSG_CONF_FILTER,
 	IMSG_CONF_END,
 
 	IMSG_LKA_UPDATE_TABLE,
-
-	IMSG_LKA_MAIL,
-	IMSG_LKA_RCPT,
+	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
-	IMSG_LKA_RULEMATCH,
 
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
@@ -174,7 +177,11 @@ enum imsg_type {
 	IMSG_MFA_HELO,
 	IMSG_MFA_MAIL,
 	IMSG_MFA_RCPT,
+	IMSG_MFA_DATA,
+	IMSG_MFA_HEADERLINE,
+	IMSG_MFA_EOH,
 	IMSG_MFA_DATALINE,
+	IMSG_MFA_EOM,
 	IMSG_MFA_QUIT,
 	IMSG_MFA_CLOSE,
 	IMSG_MFA_RSET,
@@ -184,7 +191,7 @@ enum imsg_type {
 	IMSG_QUEUE_COMMIT_ENVELOPES,
 	IMSG_QUEUE_REMOVE_MESSAGE,
 	IMSG_QUEUE_COMMIT_MESSAGE,
-	IMSG_QUEUE_TEMPFAIL,
+
 	IMSG_QUEUE_PAUSE_MDA,
 	IMSG_QUEUE_PAUSE_MTA,
 	IMSG_QUEUE_RESUME_MDA,
@@ -310,16 +317,10 @@ struct table_backend {
 };
 
 
-enum cond_type {
-	COND_ANY,
-	COND_DOM,
-	COND_VDOM
-};
-
-struct cond {
-	TAILQ_ENTRY(cond)		 c_entry;
-	objid_t				 c_table;
-	enum cond_type			 c_type;
+enum dest_type {
+/*	DEST_ANY,*/
+	DEST_DOM,
+	DEST_VDOM
 };
 
 enum action_type {
@@ -340,9 +341,11 @@ struct rule {
 	TAILQ_ENTRY(rule)		r_entry;
 	enum decision			r_decision;
 	char				r_tag[MAX_TAG_SIZE];
-	int				r_accept;
 	struct table		       *r_sources;
-	struct cond			r_condition;
+
+	enum dest_type			r_desttype;
+	struct table		       *r_destination;
+
 	enum action_type		r_action;
 	union rule_dest {
 		char			buffer[EXPAND_BUFFER];
@@ -350,13 +353,8 @@ struct rule {
 	}				r_value;
 
 	struct mailaddr		       *r_as;
-	objid_t				r_atable;
+	struct table		       *r_mapping;
 	time_t				r_qexpire;
-};
-
-struct mailaddr {
-	char	user[MAX_LOCALPART_SIZE];
-	char	domain[MAX_DOMAINPART_SIZE];
 };
 
 enum delivery_type {
@@ -560,6 +558,7 @@ enum session_flags {
 	F_WAITIMSG	= 0x10,
 	F_ZOMBIE	= 0x20,
 	F_KICK		= 0x40,
+	F_DATAINBODY	= 0x80
 };
 
 struct session {
@@ -628,22 +627,17 @@ struct smtpd {
 
 	time_t					 sc_uptime;
 
-	TAILQ_HEAD(filterlist, filter)		*sc_filters;
-
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
-	SPLAY_HEAD(childtree, child)		 children;
-	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
-	SPLAY_HEAD(mfatree, mfa_session)	 mfa_sessions;
-	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
-	uint64_t				 filtermask;
+	struct dict				sc_filters;
+	uint32_t				filtermask;
 };
 
 #define	TRACE_VERBOSE	0x0001
@@ -655,21 +649,16 @@ struct smtpd {
 #define	TRACE_SCHEDULER	0x0040
 #define	TRACE_STAT	0x0080
 #define	TRACE_PROFILING	0x0100
-
+#define	TRACE_RULES	0x0200
 
 struct submit_status {
-	uint64_t			 id;
-	int				 code;
+	int				 code; /**/
 	union submit_path {
-		struct mailaddr		 maddr;
-		uint32_t		 msgid;
-		uint64_t		 evpid;
-		char			 errormsg[MAX_LINE_SIZE + 1];
-		char			 dataline[MAX_LINE_SIZE + 1];
+		struct mailaddr		 maddr; /**/
+		char			 errormsg[MAX_LINE_SIZE + 1]; /**/
+		char			 dataline[MAX_LINE_SIZE + 1]; /**/
+		char			 headerline[MAX_LINE_SIZE + 1]; /**/
 	}				 u;
-	enum delivery_flags		 flags;
-	struct sockaddr_storage		 ss;
-	struct envelope			 envelope;
 };
 
 struct forward_req {
@@ -690,6 +679,7 @@ struct dns {
 	uint64_t		 id;
 	char			 host[MAXHOSTNAMELEN];
 	char			 backup[MAXHOSTNAMELEN];
+	int			 preference;
 	int			 port;
 	int			 error;
 	int			 type;
@@ -711,31 +701,51 @@ struct deliver {
 	short			mode;
 };
 
-struct rulematch {
-	uint64_t		 id;
-	struct submit_status	 ss;
-};
-
 struct filter {
-	TAILQ_ENTRY(filter)     f_entry;
-	pid_t			pid;
-	struct event		ev;
-	struct imsgbuf		*ibuf;
+	struct imsgproc	       *process;
 	char			name[MAX_FILTER_NAME];
 	char			path[MAXPATHLEN];
 };
 
-struct mfa_session {
-	SPLAY_ENTRY(mfa_session)	 nodes;
-	uint64_t			 id;
+union mfa_session_data {
+	struct envelope		evp;
+	char			buffer[MAX_LINE_SIZE];
+};
 
-	enum session_state		 state;
-	struct submit_status		 ss;
-	struct filter			*filter;
-	struct filter_msg		 fm;
+struct mfa_session {
+	SPLAY_ENTRY(mfa_session)	nodes;
+	uint64_t			id;
+
+	enum filter_status		status;
+	uint32_t			code;
+	char				errorline[MAX_LINE_SIZE];
+
+	union mfa_session_data		data;
+
+	enum filter_hook       		hook;
+	void			       *fhook;
+	void			       *iter;
+
+	struct filter_msg		fm;
 };
 
 struct mta_session;
+struct mta_route;
+struct tree;/* XXX before */
+
+struct mta_mx {
+	TAILQ_ENTRY(mta_mx)	 entry;
+	struct sockaddr_storage	 sa;
+	char			*hostname;
+	int			 preference;
+	int			 flags;
+#define MX_IGNORE	0x1
+#define MX_NOSMTPS	0x2
+#define MX_NOSMTP	0x4
+	int			 error;
+	int			 nconn;
+	time_t			 lastconn;
+};
 
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
@@ -749,6 +759,15 @@ struct mta_route {
 	char			*auth;
 	void			*ssl;
 
+#define ROUTE_WAIT_MX		0x01
+#define ROUTE_WAIT_SECRET	0x02
+#define ROUTE_CLOSED		0x04
+	int			 status;
+
+	char			*secret;
+
+	struct mta_mxlist	*mxlist;
+
 	/* route limits	*/
 	int			 maxconn; 	/* in parallel */
 	int			 maxmail;	/* per session */
@@ -759,10 +778,8 @@ struct mta_route {
 	int			 ntask;
 	TAILQ_HEAD(, mta_task)	 tasks;
 
+	int			 maxsession;	/* runtime condition */
 	int			 nsession;
-
-	int			 nfail;
-	char			 errorline[64];
 };
 
 struct mta_task {
@@ -959,10 +976,71 @@ struct stat_digest {
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct imsgev *, struct imsg *);
 
+struct imsgproc {
+	pid_t			pid;
+	struct event		ev;
+	struct imsgbuf	       *ibuf;
+	char		       *path;
+	char		       *name;
+	void		      (*cb)(struct imsg *, void *);
+	void		       *cb_arg;
+};
+
+
+
+/* inter-process structures */
+
+struct queue_req_msg {
+	uint64_t	reqid;
+	uint64_t	evpid;
+};
+
+struct queue_resp_msg {
+	uint64_t	reqid;
+	int		success;
+	uint64_t	evpid;
+};
+
+struct mfa_req_msg {
+	uint64_t		reqid;
+	union {
+		char		buffer[MAX_LINE_SIZE];
+		struct envelope	evp;
+	}			u;
+};
+
+enum mfa_resp_status {
+	MFA_OK,
+	MFA_TEMPFAIL,
+	MFA_PERMFAIL
+};
+
+struct mfa_resp_msg {
+	uint64_t		reqid;
+	enum mfa_resp_status	status;
+	uint32_t		code;
+	union	{
+		struct mailaddr	mailaddr;
+		char		buffer[MAX_LINE_SIZE];
+	}			u;
+};
+
+enum lka_resp_status {
+	LKA_OK,
+	LKA_TEMPFAIL,
+	LKA_PERMFAIL
+};
+
+struct lka_resp_msg {
+	uint64_t		reqid;
+	enum lka_resp_status	status;
+};
+
 
 /* aliases.c */
-int aliases_get(objid_t, struct expand *, const char *);
-int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
+int aliases_get(struct table *, struct expand *, const char *);
+int aliases_virtual_check(struct table *, const struct mailaddr *);
+int aliases_virtual_get(struct table *, struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -1009,23 +1087,6 @@ pid_t control(void);
 struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
-/* dict.c */
-#define dict_init(d) SPLAY_INIT((d))
-#define dict_empty(d) SPLAY_EMPTY((d))
-int dict_check(struct dict *, const char *);
-void *dict_set(struct dict *, const char *, void *);
-void dict_xset(struct dict *, const char *, void *);
-void *dict_get(struct dict *, const char *);
-void *dict_xget(struct dict *, const char *);
-void *dict_pop(struct dict *, const char *);
-void *dict_xpop(struct dict *, const char *);
-int dict_poproot(struct dict *, const char * *, void **);
-int dict_root(struct dict *, const char * *, void **);
-int dict_iter(struct dict *, void **, const char * *, void **);
-int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
-void dict_merge(struct dict *, struct dict *);
-
-
 /* dns.c */
 void dns_query_host(char *, int, uint64_t);
 void dns_query_mx(char *, char *, int, uint64_t);
@@ -1059,12 +1120,22 @@ RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 int forwards_get(int, struct expand *);
 
 
+/* imsgproc.c */
+void imsgproc_init(void);
+struct imsgproc *imsgproc_fork(const char *, const char *,
+    void (*)(struct imsg *, void *), void *);
+void imsgproc_set_read(struct imsgproc *);
+void imsgproc_set_write(struct imsgproc *);
+void imsgproc_set_read_write(struct imsgproc *);
+void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
+
+
 /* lka.c */
 pid_t lka(void);
 
 
 /* lka_session.c */
-void lka_session(struct submit_status *);
+void lka_session(struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 
@@ -1074,23 +1145,20 @@ pid_t mda(void);
 
 /* mfa.c */
 pid_t mfa(void);
-
+void mfa_session_filters_init(void);
 
 /* mfa_session.c */
-void mfa_session(struct submit_status *, enum session_state);
+void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 
 /* mta.c */
 pid_t mta(void);
-int mta_response_delivery(const char *);
-const char *mta_response_prefix(const char *);
-const char *mta_response_status(const char *);
-const char *mta_response_text(const char *);
-void mta_route_ok(struct mta_route *);
-void mta_route_error(struct mta_route *, const char *);
+void mta_route_ok(struct mta_route *, struct mta_mx *);
+void mta_route_error(struct mta_route *, struct mta_mx *, const char *);
 void mta_route_collect(struct mta_route *);
+struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
 const char *mta_route_to_text(struct mta_route *);
-
+const char *mta_mx_to_text(struct mta_mx *);
 
 /* mta_session.c */
 void mta_session(struct mta_route *);
@@ -1197,6 +1265,9 @@ struct stat_value *stat_timespec(struct timespec *);
 void	table_open(struct table *);
 void	table_update(struct table *);
 void	table_close(struct table *);
+int	table_check_use(struct table *, uint32_t, uint32_t);
+int	table_check_type(struct table *, uint32_t);
+int	table_check_service(struct table *, uint32_t);
 int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
 struct table *table_find(objid_t);
@@ -1212,22 +1283,6 @@ void	table_open_all(void);
 void	table_close_all(void);
 void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
-
-/* tree.c */
-#define tree_init(t) SPLAY_INIT((t))
-#define tree_empty(t) SPLAY_EMPTY((t))
-int tree_check(struct tree *, uint64_t);
-void *tree_set(struct tree *, uint64_t, void *);
-void tree_xset(struct tree *, uint64_t, void *);
-void *tree_get(struct tree *, uint64_t);
-void *tree_xget(struct tree *, uint64_t);
-void *tree_pop(struct tree *, uint64_t);
-void *tree_xpop(struct tree *, uint64_t);
-int tree_poproot(struct tree *, uint64_t *, void **);
-int tree_root(struct tree *, uint64_t *, void **);
-int tree_iter(struct tree *, void **, uint64_t *, void **);
-int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
-void tree_merge(struct tree *, struct tree *);
 
 
 /* util.c */
@@ -1266,6 +1321,7 @@ int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
+char *relayhost_to_text(struct relayhost *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 void *xrealloc(void *, size_t, const char *);
@@ -1279,7 +1335,7 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 uint64_t strtoevpid(const char *);
-
+char *rule_to_text(struct rule *);
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

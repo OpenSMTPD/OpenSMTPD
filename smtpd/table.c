@@ -174,6 +174,24 @@ table_delete(struct table *t, const char *key)
 	free(dict_pop(&t->t_dict, key));
 }
 
+int
+table_check_type(struct table *t, uint32_t mask)
+{
+	return t->t_type & mask;
+}
+
+int
+table_check_service(struct table *t, uint32_t mask)
+{
+	return t->t_backend->services & mask;
+}
+
+int
+table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
+{
+	return table_check_type(t, tmask) && table_check_service(t, smask);
+}
+
 void
 table_open(struct table *t)
 {
