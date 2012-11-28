@@ -77,6 +77,51 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 }
 
 int
+aliases_virtual_check(objid_t id, const struct mailaddr *maddr)
+{
+	struct table	       *table = table_find(id);
+	char			buf[MAX_LINE_SIZE];
+	char		       *pbuf;
+	int			ret;
+
+	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
+		maddr->domain))
+		return 0;	
+	xlowercase(buf, buf, sizeof(buf));
+
+	/* First, we lookup for full entry: user@domain */
+	ret = table_lookup(table, buf, K_ALIAS, NULL);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		return 1;
+
+	/* Failed ? We lookup for username only */
+	pbuf = strchr(buf, '@');
+	*pbuf = '\0';
+	ret = table_lookup(table, buf, K_ALIAS, NULL);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		return 1;
+
+	*pbuf = '@';
+	/* Failed ? We lookup for catch all for virtual domain */
+	ret = table_lookup(table, pbuf, K_ALIAS, NULL);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		return 1;
+
+	/* Failed ? We lookup for a *global* catch all */
+	ret = table_lookup(table, "@", K_ALIAS, NULL);
+	if (ret <= 0)
+		return (ret);
+
+	return 1;
+}
+
+int
 aliases_virtual_get(objid_t id, struct expand *expand,
     const struct mailaddr *maddr)
 {

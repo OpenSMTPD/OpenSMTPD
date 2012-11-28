@@ -79,8 +79,16 @@ ruleset_match(const struct envelope *evp)
 				errno = EAGAIN;
 				return NULL;
 			}
-			if (ret)
+			if (ret) {
+				if (r->r_condition.c_type == COND_VDOM &&
+				    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
+					if (! aliases_virtual_check(r->r_atable,
+						&evp->rcpt)) {
+						return NULL;
+					}
+				}
 				return r;
+			}
 		}
 	}
 

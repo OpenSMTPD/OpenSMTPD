@@ -1019,6 +1019,7 @@ struct lka_resp_msg {
 
 /* aliases.c */
 int aliases_get(objid_t, struct expand *, const char *);
+int aliases_virtual_check(objid_t, const struct mailaddr *);
 int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, char *);
 

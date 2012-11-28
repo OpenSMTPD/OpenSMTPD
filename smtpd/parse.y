@@ -90,7 +90,6 @@ static int		 errors = 0;
 
 struct table		*table = NULL;
 struct rule		*rule = NULL;
-TAILQ_HEAD(condlist, cond) *conditions = NULL;
 
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
@@ -578,7 +577,7 @@ alias		: ALIAS tables			{
 virtual		: VIRTUAL tables		{
 			struct table   *t = table_find($2);
 
-			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
+			if (! table_check_service(t, K_ALIAS)) {
 				yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
 				    t->t_name);
 				YYERROR;
@@ -631,20 +630,6 @@ condition	: domain alias	{
 
 			$$ = c;
 		}
-		;
-
-condition_list	: condition comma condition_list	{
-			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
-		}
-		| condition	{
-			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
-		}
-		;
-
-conditions	: condition				{
-			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
-		}
-		| '{' condition_list '}'
 		;
 
 relay_as     	: AS STRING		{
@@ -801,18 +786,13 @@ rule		: ACCEPT on from			{
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = table_find($3);
 
-			conditions = xcalloc(1, sizeof(*conditions),
-			    "parse rule: ACCEPT");
-
 			if ($2)
 				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
 			free($2);
 
-			TAILQ_INIT(conditions);
-
-		} FOR conditions action	tag expire {
-			struct rule	*subr;
-			struct cond	*cond;
+		} FOR condition action tag expire {
+			struct cond    *cond = $6;
+			struct table   *t;
 
 			if ($8)
 				(void)strlcpy(rule->r_tag, $8, sizeof(rule->r_tag));
@@ -820,31 +800,27 @@ rule		: ACCEPT on from			{
 
 			rule->r_qexpire = $9;
 
-			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
-
-				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
-
-				subr->r_condition = *cond;
-				
-				TAILQ_REMOVE(conditions, cond, c_entry);
-				TAILQ_INSERT_TAIL(conf->sc_rules, subr, r_entry);
-
-				free(cond);
-			}
+			rule->r_condition = *cond;
+			free(cond);
 
 			if (rule->r_atable) {
-				if (rule->r_action == A_RELAY ||
-				    rule->r_action == A_RELAYVIA) {
-					yyerror("aliases set on a relay rule");
-					free(conditions);
-					free(rule);
+				enum table_type type;
+
+				if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA)
+					type = T_LIST;
+				else
+					type = T_HASH;
+
+				t = table_find(rule->r_atable);
+				if (! table_check_type(t, T_LIST)) {
+					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
+					    t->t_name);
 					YYERROR;
 				}
 			}
 
-			free(conditions);
-			free(rule);
-			conditions = NULL;
+			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
+
 			rule = NULL;
 		}
 		| REJECT on from			{
@@ -852,34 +828,16 @@ rule		: ACCEPT on from			{
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
 			rule->r_decision = R_REJECT;
 			rule->r_sources = table_find($3);
-
-			conditions = xcalloc(1, sizeof(*conditions),
-			    "parse rule: REJECT");
-
 			if ($2)
 				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
 			free($2);
+		} FOR condition {
+			struct cond	*cond = $6;
 
-			TAILQ_INIT(conditions);
+			rule->r_condition = *cond;
+			free(cond);
 
-		} FOR conditions {
-			struct rule	*subr;
-			struct cond	*cond;
-
-			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
-
-				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
-
-				subr->r_condition = *cond;
-				
-				TAILQ_REMOVE(conditions, cond, c_entry);
-				TAILQ_INSERT_TAIL(conf->sc_rules, subr, r_entry);
-
-				free(cond);
-			}
-			free(conditions);
-			free(rule);
-			conditions = NULL;
+			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
 		;
