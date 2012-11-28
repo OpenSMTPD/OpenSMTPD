@@ -90,7 +90,6 @@ static int		 errors = 0;
 
 struct table		*table = NULL;
 struct rule		*rule = NULL;
-TAILQ_HEAD(condlist, cond) *conditions = NULL;
 
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
@@ -108,7 +107,6 @@ typedef struct {
 	union {
 		int64_t		 number;
 		objid_t		 object;
-		struct cond	*cond;
 		char		*string;
 		struct host	*host;
 		struct mailaddr	*maddr;
@@ -122,16 +120,15 @@ typedef struct {
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
-%token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.table>		table
+%type	<v.table>	table
 %type	<v.number>	port from auth ssl size expire
-%type	<v.cond>	condition
-%type	<v.object>	tables tablenew tableref alias virtual domain credentials
+%type	<v.object>	tables tablenew tableref destination alias virtual usermapping credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag on compression
+%type	<v.string>	certificate tag tagged compression
 %%
 
 grammar		: /* empty */
@@ -254,6 +251,17 @@ tag		: TAG STRING			{
 			}
 
 			$$ = $2;
+		}
+		| /* empty */			{ $$ = NULL; }
+		;
+
+tagged		: TAGGED STRING			{
+			if (($$ = strdup($2)) == NULL) {
+       				yyerror("strdup");
+				free($2);
+				YYERROR;
+			}
+			free($2);
 		}
 		| /* empty */			{ $$ = NULL; }
 		;
@@ -548,19 +556,6 @@ tables		: tablenew			{ $$ = $1; }
 		| tableref			{ $$ = $1; }
 		;
 
-domain		: DOMAIN tables			{
-			struct table   *t = table_find($2);
-
-			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
-				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
-				    t->t_name);
-				YYERROR;
-			}
-
-			$$ = t->t_id;
-		}
-		;
-
 alias		: ALIAS tables			{
 			struct table   *t = table_find($2);
 
@@ -572,13 +567,12 @@ alias		: ALIAS tables			{
 
 			$$ = t->t_id;
 		}
-		| /* empty */			{ $$ =  0; }
 		;
 
 virtual		: VIRTUAL tables		{
 			struct table   *t = table_find($2);
 
-			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
+			if (! table_check_service(t, K_ALIAS)) {
 				yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
 				    t->t_name);
 				YYERROR;
@@ -588,63 +582,36 @@ virtual		: VIRTUAL tables		{
 		}
 		;
 
-condition	: domain alias	{
-			struct cond	*c;
-
-			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
-			c->c_type = COND_DOM;
-			c->c_table = $1;
-
-			rule->r_atable = $2;
-
-			$$ = c;
+usermapping	: alias		{
+			rule->r_desttype = DEST_DOM;
+			$$ = $1;
 		}
-		| domain virtual {
-			struct cond	*c;
-
-			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
-			c->c_type = COND_VDOM;
-			c->c_table = $1;
-
-			rule->r_atable = $2;
-
-			$$ = c;
+		| virtual	{
+			rule->r_desttype = DEST_VDOM;
+			$$ = $1;
 		}
-		| LOCAL alias {
-			struct cond	*c;
-			struct table	*t = table_findbyname("<localnames>");
-
-			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
-			c->c_type = COND_DOM;
-			c->c_table = t->t_id;
-			rule->r_atable = $2;
-
-			$$ = c;
-		}
-		| ANY alias			{
-			struct cond	*c;
-
-			c = xcalloc(1, sizeof *c, "parse condition: ANY");
-			c->c_type = COND_ANY;
-
-			rule->r_atable = $2;
-
-			$$ = c;
+		| /**/		{
+			rule->r_desttype = DEST_DOM;
+			$$ = 0;
 		}
 		;
 
-condition_list	: condition comma condition_list	{
-			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
-		}
-		| condition	{
-			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
-		}
-		;
+		
 
-conditions	: condition				{
-			TAILQ_INSERT_TAIL(conditions, $1, c_entry);
+
+destination	: DOMAIN tables			{
+			struct table   *t = table_find($2);
+
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
+				    t->t_name);
+				YYERROR;
+			}
+
+			$$ = t->t_id;
 		}
-		| '{' condition_list '}'
+		| LOCAL		{ $$ = table_findbyname("<localnames>")->t_id; }
+		| ANY		{ $$ = 0; }
 		;
 
 relay_as     	: AS STRING		{
@@ -784,102 +751,64 @@ from		: FROM tables			{
 		}
 		;
 
-on		: ON STRING	{
-       			if (strlen($2) >= MAX_TAG_SIZE) {
-       				yyerror("interface, address or tag name too long");
-				free($2);
-				YYERROR;
-			}
-			$$ = $2;
-		}
-		| /* empty */	{ $$ = NULL; }
-		;
-
-rule		: ACCEPT on from			{
-
+rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
+		 } from FOR destination usermapping action tagged expire {
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = table_find($3);
-
-			conditions = xcalloc(1, sizeof(*conditions),
-			    "parse rule: ACCEPT");
-
-			if ($2)
-				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
-			free($2);
-
-			TAILQ_INIT(conditions);
-
-		} FOR conditions action	tag expire {
-			struct rule	*subr;
-			struct cond	*cond;
-
-			if ($8)
-				(void)strlcpy(rule->r_tag, $8, sizeof(rule->r_tag));
-			free($8);
-
+			rule->r_destination = table_find($5);
+			rule->r_mapping = table_find($6);
+			if ($8) {
+				if (strlcpy(rule->r_tag, $8, sizeof rule->r_tag)
+				    >= sizeof rule->r_tag) {
+					yyerror("tag name too long: %s", $8);
+					free($8);
+					YYERROR;
+				}
+				free($8);
+			}
 			rule->r_qexpire = $9;
 
-			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
+			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
+				enum table_type type;
 
-				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
-
-				subr->r_condition = *cond;
-				
-				TAILQ_REMOVE(conditions, cond, c_entry);
-				TAILQ_INSERT_TAIL(conf->sc_rules, subr, r_entry);
-
-				free(cond);
-			}
-
-			if (rule->r_atable) {
-				if (rule->r_action == A_RELAY ||
-				    rule->r_action == A_RELAYVIA) {
-					yyerror("aliases set on a relay rule");
-					free(conditions);
-					free(rule);
+				switch (rule->r_action) {
+				case A_RELAY:
+				case A_RELAYVIA:
+					type = T_LIST;
+					break;
+				default:
+					type = T_HASH;
+					break;
+				}
+				if (! table_check_type(rule->r_mapping, type)) {
+					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
+					    rule->r_mapping->t_name);
 					YYERROR;
 				}
 			}
 
-			free(conditions);
-			free(rule);
-			conditions = NULL;
+			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
+
 			rule = NULL;
 		}
-		| REJECT on from			{
-
+		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
+		} from FOR destination usermapping tagged {
 			rule->r_decision = R_REJECT;
 			rule->r_sources = table_find($3);
-
-			conditions = xcalloc(1, sizeof(*conditions),
-			    "parse rule: REJECT");
-
-			if ($2)
-				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
-			free($2);
-
-			TAILQ_INIT(conditions);
-
-		} FOR conditions {
-			struct rule	*subr;
-			struct cond	*cond;
-
-			while ((cond = TAILQ_FIRST(conditions)) != NULL) {
-
-				subr = xmemdup(rule, sizeof(*subr), "parse rule: FOR");
-
-				subr->r_condition = *cond;
-				
-				TAILQ_REMOVE(conditions, cond, c_entry);
-				TAILQ_INSERT_TAIL(conf->sc_rules, subr, r_entry);
-
-				free(cond);
+			rule->r_destination = table_find($5);
+			rule->r_mapping = table_find($6);
+			if ($7) {
+				if (strlcpy(rule->r_tag, $7, sizeof rule->r_tag)
+				    >= sizeof rule->r_tag) {
+					yyerror("tag name too long: %s", $7);
+					free($7);
+					YYERROR;
+				}
+				free($7);
 			}
-			free(conditions);
-			free(rule);
-			conditions = NULL;
+			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
 		;
@@ -948,6 +877,7 @@ lookup(char *s)
 		{ "ssl",		SSL },
 		{ "table",		TABLE },
 		{ "tag",		TAG },
+		{ "tagged",		TAGGED },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },

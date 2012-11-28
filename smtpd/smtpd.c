@@ -402,6 +402,18 @@ parent_send_config_ruleset(int proc)
 			    IMSG_CONF_RULE_SOURCE, 0, 0, -1,
 			    &r->r_sources->t_name,
 			    sizeof(r->r_sources->t_name));
+			if (r->r_destination) {
+				imsg_compose_event(env->sc_ievs[proc],
+				    IMSG_CONF_RULE_DESTINATION, 0, 0, -1,
+				    &r->r_destination->t_name,
+				    sizeof(r->r_destination->t_name));
+			}
+			if (r->r_mapping) {
+				imsg_compose_event(env->sc_ievs[proc],
+				    IMSG_CONF_RULE_MAPPING, 0, 0, -1,
+				    &r->r_mapping->t_name,
+				    sizeof(r->r_mapping->t_name));
+			}
 		}
 	}
 
@@ -591,6 +603,8 @@ main(int argc, char *argv[])
 			}
 			else if (!strcmp(optarg, "profstat"))
 				profstat = 1;
+			else if (!strcmp(optarg, "rules"))
+				verbose |= TRACE_RULES;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else

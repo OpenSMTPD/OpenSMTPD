@@ -237,12 +237,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 			lka_submit(lks, rule, xn);
 		}
-		else if (rule->r_condition.c_type == COND_VDOM) {
+		else if (rule->r_desttype == DEST_VDOM) {
 			/* expand */
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			r = aliases_virtual_get(rule->r_atable,
+			r = aliases_virtual_get(rule->r_mapping,
 			    &lks->expand, &xn->u.mailaddr);
 			if (r == -1) {
 				lks->error = LKA_TEMPFAIL;
@@ -281,8 +281,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
 		lks->expand.alias = 1;
-		if (rule->r_atable) {
-			r = aliases_get(rule->r_atable, &lks->expand,
+		if (rule->r_mapping) {
+			r = aliases_get(rule->r_mapping, &lks->expand,
 			    xn->u.user);
 			if (r == -1) {
 				log_debug("debug: lka_expand: "

@@ -42,9 +42,8 @@ static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
 
 int
-aliases_get(objid_t id, struct expand *expand, const char *username)
+aliases_get(struct table *table, struct expand *expand, const char *username)
 {
-	struct table	       *table = table_find(id);
 	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LOCALPART_SIZE];
@@ -77,10 +76,53 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 }
 
 int
-aliases_virtual_get(objid_t id, struct expand *expand,
+aliases_virtual_check(struct table *table, const struct mailaddr *maddr)
+{
+	char			buf[MAX_LINE_SIZE];
+	char		       *pbuf;
+	int			ret;
+
+	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
+		maddr->domain))
+		return 0;	
+	xlowercase(buf, buf, sizeof(buf));
+
+	/* First, we lookup for full entry: user@domain */
+	ret = table_lookup(table, buf, K_ALIAS, NULL);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		return 1;
+
+	/* Failed ? We lookup for username only */
+	pbuf = strchr(buf, '@');
+	*pbuf = '\0';
+	ret = table_lookup(table, buf, K_ALIAS, NULL);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		return 1;
+
+	*pbuf = '@';
+	/* Failed ? We lookup for catch all for virtual domain */
+	ret = table_lookup(table, pbuf, K_ALIAS, NULL);
+	if (ret < 0)
+		return (-1);
+	if (ret)
+		return 1;
+
+	/* Failed ? We lookup for a *global* catch all */
+	ret = table_lookup(table, "@", K_ALIAS, NULL);
+	if (ret <= 0)
+		return (ret);
+
+	return 1;
+}
+
+int
+aliases_virtual_get(struct table *table, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct table	       *table = table_find(id);
 	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LINE_SIZE];

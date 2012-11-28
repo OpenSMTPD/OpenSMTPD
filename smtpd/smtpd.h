@@ -140,6 +140,8 @@ enum imsg_type {
 	IMSG_CONF_TABLE_CONTENT,
 	IMSG_CONF_RULE,
 	IMSG_CONF_RULE_SOURCE,
+	IMSG_CONF_RULE_DESTINATION,
+	IMSG_CONF_RULE_MAPPING,
 	IMSG_CONF_FILTER,
 	IMSG_CONF_END,
 
@@ -294,16 +296,10 @@ struct table_backend {
 };
 
 
-enum cond_type {
-	COND_ANY,
-	COND_DOM,
-	COND_VDOM
-};
-
-struct cond {
-	TAILQ_ENTRY(cond)		 c_entry;
-	objid_t				 c_table;
-	enum cond_type			 c_type;
+enum dest_type {
+/*	DEST_ANY,*/
+	DEST_DOM,
+	DEST_VDOM
 };
 
 enum action_type {
@@ -324,9 +320,11 @@ struct rule {
 	TAILQ_ENTRY(rule)		r_entry;
 	enum decision			r_decision;
 	char				r_tag[MAX_TAG_SIZE];
-	int				r_accept;
 	struct table		       *r_sources;
-	struct cond			r_condition;
+
+	enum dest_type			r_desttype;
+	struct table		       *r_destination;
+
 	enum action_type		r_action;
 	union rule_dest {
 		char			buffer[EXPAND_BUFFER];
@@ -334,7 +332,7 @@ struct rule {
 	}				r_value;
 
 	struct mailaddr		       *r_as;
-	objid_t				r_atable;
+	struct table		       *r_mapping;
 	time_t				r_qexpire;
 };
 
@@ -556,6 +554,7 @@ struct smtpd {
 #define	TRACE_SCHEDULER	0x0040
 #define	TRACE_STAT	0x0080
 #define	TRACE_PROFILING	0x0100
+#define	TRACE_RULES	0x0200
 
 struct submit_status {
 	int				 code; /**/
@@ -944,8 +943,9 @@ struct lka_resp_msg {
 
 
 /* aliases.c */
-int aliases_get(objid_t, struct expand *, const char *);
-int aliases_virtual_get(objid_t, struct expand *, const struct mailaddr *);
+int aliases_get(struct table *, struct expand *, const char *);
+int aliases_virtual_check(struct table *, const struct mailaddr *);
+int aliases_virtual_get(struct table *, struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, char *);
 
 
@@ -1216,6 +1216,7 @@ int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
+char *relayhost_to_text(struct relayhost *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
@@ -1228,7 +1229,7 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 uint64_t strtoevpid(const char *);
-
+char *rule_to_text(struct rule *);
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
