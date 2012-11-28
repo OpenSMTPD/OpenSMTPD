@@ -42,9 +42,8 @@ static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
 
 int
-aliases_get(objid_t id, struct expand *expand, const char *username)
+aliases_get(struct table *table, struct expand *expand, const char *username)
 {
-	struct table	       *table = table_find(id);
 	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LOCALPART_SIZE];
@@ -77,9 +76,8 @@ aliases_get(objid_t id, struct expand *expand, const char *username)
 }
 
 int
-aliases_virtual_check(objid_t id, const struct mailaddr *maddr)
+aliases_virtual_check(struct table *table, const struct mailaddr *maddr)
 {
-	struct table	       *table = table_find(id);
 	char			buf[MAX_LINE_SIZE];
 	char		       *pbuf;
 	int			ret;
@@ -122,10 +120,9 @@ aliases_virtual_check(objid_t id, const struct mailaddr *maddr)
 }
 
 int
-aliases_virtual_get(objid_t id, struct expand *expand,
+aliases_virtual_get(struct table *table, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct table	       *table = table_find(id);
 	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LINE_SIZE];

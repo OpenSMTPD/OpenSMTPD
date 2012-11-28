@@ -1118,3 +1118,36 @@ strtoevpid(const char *s)
 		errx(1, "invalid msgid/evpid");
 	return (ulval);
 }
+
+char *
+rule_to_text(struct rule *r)
+{
+	static char buf[4096];
+
+	bzero(buf, sizeof buf);
+	strlcpy(buf, r->r_decision == R_ACCEPT  ? "accept" : "reject", sizeof buf);
+	if (r->r_tag[0]) {
+		strlcat(buf, " on ", sizeof buf);
+		strlcat(buf, r->r_tag, sizeof buf);
+	}
+	strlcat(buf, " from ", sizeof buf);
+	strlcat(buf, r->r_sources->t_name, sizeof buf);
+
+/*
+	switch (r->r_condition.c_type) {
+	case COND_ANY:
+		strlcat(buf, " for any", sizeof buf);
+		break;
+	case COND_DOM:
+		strlcat(buf, " for domain", sizeof buf);
+		strlcat(buf, "bleh", sizeof buf);
+		break;
+	case COND_VDOM:
+		strlcat(buf, " for domain", sizeof buf);
+		strlcat(buf, "bleh", sizeof buf);
+		break;
+	}
+*/
+	    
+	return buf;
+}

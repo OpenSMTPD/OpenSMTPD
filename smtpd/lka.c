@@ -155,6 +155,26 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables_dict = tmp;
 			return;
 
+		case IMSG_CONF_RULE_DESTINATION:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_destination = table_findbyname(imsg->data);
+			if (rule->r_destination == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
+		case IMSG_CONF_RULE_MAPPING:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_mapping = table_findbyname(imsg->data);
+			if (rule->r_mapping == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
 		case IMSG_CONF_TABLE_CONTENT:
 			table = table_last;
 

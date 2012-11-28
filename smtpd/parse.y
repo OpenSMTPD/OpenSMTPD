@@ -107,7 +107,6 @@ typedef struct {
 	union {
 		int64_t		 number;
 		objid_t		 object;
-		struct cond	*cond;
 		char		*string;
 		struct host	*host;
 		struct mailaddr	*maddr;
@@ -127,7 +126,6 @@ typedef struct {
 %token  <v.number>	NUMBER
 %type	<v.table>		table
 %type	<v.number>	port from auth ssl size expire
-%type	<v.cond>	condition
 %type	<v.object>	tables tablenew tableref alias virtual domain credentials
 %type	<v.maddr>	relay_as
 %type	<v.string>	certificate tag on compression
@@ -587,48 +585,25 @@ virtual		: VIRTUAL tables		{
 		}
 		;
 
-condition	: domain alias	{
-			struct cond	*c;
-
-			c = xcalloc(1, sizeof *c, "parse condition: DOMAIN");
-			c->c_type = COND_DOM;
-			c->c_table = $1;
-
-			rule->r_atable = $2;
-
-			$$ = c;
+destination	: domain alias	{
+			rule->r_desttype = DEST_DOM;
+			rule->r_destination = table_find($1);
+			rule->r_mapping = table_find($2);
 		}
 		| domain virtual {
-			struct cond	*c;
-
-			c = xcalloc(1, sizeof *c, "parse condition: VIRTUAL");
-			c->c_type = COND_VDOM;
-			c->c_table = $1;
-
-			rule->r_atable = $2;
-
-			$$ = c;
+			rule->r_desttype = DEST_VDOM;
+			rule->r_destination = table_find($1);
+			rule->r_mapping = table_find($2);
 		}
 		| LOCAL alias {
-			struct cond	*c;
-			struct table	*t = table_findbyname("<localnames>");
-
-			c = xcalloc(1, sizeof *c, "parse condition: LOCAL");
-			c->c_type = COND_DOM;
-			c->c_table = t->t_id;
-			rule->r_atable = $2;
-
-			$$ = c;
+			rule->r_desttype = DEST_DOM;
+			rule->r_destination = table_findbyname("<localnames>");
+			rule->r_mapping = table_find($2);
 		}
 		| ANY alias			{
-			struct cond	*c;
-
-			c = xcalloc(1, sizeof *c, "parse condition: ANY");
-			c->c_type = COND_ANY;
-
-			rule->r_atable = $2;
-
-			$$ = c;
+			rule->r_desttype = DEST_ANY;
+			rule->r_destination = NULL;
+			rule->r_mapping = table_find($2);
 		}
 		;
 
@@ -790,20 +765,14 @@ rule		: ACCEPT on from			{
 				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
 			free($2);
 
-		} FOR condition action tag expire {
-			struct cond    *cond = $6;
-			struct table   *t;
-
+		} FOR destination action tag expire {
 			if ($8)
 				(void)strlcpy(rule->r_tag, $8, sizeof(rule->r_tag));
 			free($8);
 
 			rule->r_qexpire = $9;
 
-			rule->r_condition = *cond;
-			free(cond);
-
-			if (rule->r_atable) {
+			if (rule->r_mapping) {
 				enum table_type type;
 
 				if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA)
@@ -811,10 +780,9 @@ rule		: ACCEPT on from			{
 				else
 					type = T_HASH;
 
-				t = table_find(rule->r_atable);
-				if (! table_check_type(t, T_LIST)) {
+				if (! table_check_type(rule->r_mapping, T_LIST)) {
 					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
-					    t->t_name);
+					    rule->r_mapping->t_name);
 					YYERROR;
 				}
 			}
@@ -831,12 +799,7 @@ rule		: ACCEPT on from			{
 			if ($2)
 				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
 			free($2);
-		} FOR condition {
-			struct cond	*cond = $6;
-
-			rule->r_condition = *cond;
-			free(cond);
-
+		} FOR destination {
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
