@@ -344,11 +344,6 @@ enum delivery_type {
 	D_BOUNCE
 };
 
-enum delivery_status {
-	DS_PERMFAILURE	= 1,
-	DS_TEMPFAILURE	= 2,
-};
-
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
 	DF_BOUNCE		= 0x4,
@@ -544,17 +539,11 @@ struct smtpd {
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
-	SPLAY_HEAD(childtree, child)		 children;
-	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
-	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
-
-	struct tree				mfa_sessions;
-
-	struct dict				sc_filters;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
+	struct dict				sc_filters;
 	uint32_t				filtermask;
 };
 
@@ -1171,6 +1160,9 @@ struct stat_value *stat_timespec(struct timespec *);
 void	table_open(struct table *);
 void	table_update(struct table *);
 void	table_close(struct table *);
+int	table_check_use(struct table *, uint32_t, uint32_t);
+int	table_check_type(struct table *, uint32_t);
+int	table_check_service(struct table *, uint32_t);
 int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
 struct table *table_find(objid_t);

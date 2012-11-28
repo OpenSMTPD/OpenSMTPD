@@ -479,30 +479,31 @@ email_to_mailaddr(struct mailaddr *maddr, char *email)
 	char *username;
 	char *hostname;
 
+	bzero(maddr, sizeof *maddr);
+
 	username = email;
 	hostname = strrchr(username, '@');
 
-	if (username[0] == '\0') {
-		*maddr->user = '\0';
-		*maddr->domain = '\0';
-		return 1;
-	}
-
 	if (hostname == NULL) {
-		if (strcasecmp(username, "postmaster") != 0)
+		if (strlcpy(maddr->user, username, sizeof maddr->user)
+		    >= sizeof maddr->user)
 			return 0;
-		hostname = "localhost";
-	} else {
-		*hostname++ = '\0';
 	}
-
-	if (strlcpy(maddr->user, username, sizeof(maddr->user))
-	    >= sizeof(maddr->user))
-		return 0;
-
-	if (strlcpy(maddr->domain, hostname, sizeof(maddr->domain))
-	    >= sizeof(maddr->domain))
-		return 0;
+	else if (username == hostname) {
+		*hostname++ = '\0';
+		if (strlcpy(maddr->domain, hostname, sizeof maddr->domain)
+		    >= sizeof maddr->domain)
+			return 0;
+	}
+	else {
+		*hostname++ = '\0';
+		if (strlcpy(maddr->user, username, sizeof maddr->user)
+		    >= sizeof maddr->user)
+			return 0;
+		if (strlcpy(maddr->domain, hostname, sizeof maddr->domain)
+		    >= sizeof maddr->domain)
+			return 0;
+	}	
 
 	return 1;
 }
