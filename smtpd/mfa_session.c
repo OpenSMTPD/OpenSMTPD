@@ -47,7 +47,7 @@ static void mfa_session_fail(struct mfa_session *, enum filter_status, uint32_t,
 static void mfa_session_filter_register(uint32_t, struct filter *);
 void mfa_session_imsg_handler(struct imsg *, void *);
 
-struct tree				sessions;
+static struct tree	sessions;
 
 struct fhook {
 	SIMPLEQ_ENTRY(fhook)	entry;

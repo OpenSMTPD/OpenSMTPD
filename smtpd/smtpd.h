@@ -614,14 +614,13 @@ struct smtpd {
 	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
 	SPLAY_HEAD(childtree, child)		 children;
-	SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;
+	/*SPLAY_HEAD(lkatree, lka_session)	 lka_sessions;*/
 	LIST_HEAD(mdalist, mda_session)		 mda_sessions;
-
-	struct dict				sc_filters;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
+	struct dict				sc_filters;
 	uint32_t				filtermask;
 };
 
