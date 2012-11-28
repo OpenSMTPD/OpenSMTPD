@@ -742,6 +742,59 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	return 1;
 }
 
+char *
+relayhost_to_text(struct relayhost *relay)
+{
+	static char	buf[4096];
+	char		port[4096];
+
+	static const struct schema {
+		const char	*name;
+		uint8_t		 flags;
+	} schemas [] = {
+		{ "smtp://",		0				},
+		{ "smtps://",		F_SMTPS				},
+		{ "tls://",		F_STARTTLS			},
+		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
+		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
+		{ "ssl://",		F_SMTPS|F_STARTTLS		},
+		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
+	};
+
+	bzero(buf, sizeof buf);
+
+	switch (relay->flags) {
+	case F_SMTPS|F_STARTTLS|F_AUTH:
+		strlcat(buf, "ssl+auth://", sizeof buf);
+		break;
+	case F_SMTPS|F_STARTTLS:
+		strlcat(buf, "ssl://", sizeof buf);
+		break;
+	case F_STARTTLS|F_AUTH:
+		strlcat(buf, "tls+auth://", sizeof buf);
+		break;
+	case F_SMTPS|F_AUTH:
+		strlcat(buf, "smtps+auth://", sizeof buf);
+		break;
+	case F_STARTTLS:
+		strlcat(buf, "tls://", sizeof buf);
+		break;
+	case F_SMTPS:
+		strlcat(buf, "smtps://", sizeof buf);
+		break;
+	default:
+		strlcat(buf, "smtp://", sizeof buf);
+		break;
+	}
+	strlcat(buf, relay->hostname, sizeof buf);
+	if (relay->port) {
+		strlcat(buf, ":", sizeof buf);
+		snprintf(port, sizeof port, "%d", relay->port);
+		strlcat(buf, port, sizeof buf);
+	}
+	return buf;
+}
+
 /*
  * Check file for security. Based on usr.bin/ssh/auth.c.
  */
@@ -1133,21 +1186,53 @@ rule_to_text(struct rule *r)
 	strlcat(buf, " from ", sizeof buf);
 	strlcat(buf, r->r_sources->t_name, sizeof buf);
 
-/*
-	switch (r->r_condition.c_type) {
-	case COND_ANY:
+	switch (r->r_desttype) {
+	case DEST_ANY:
 		strlcat(buf, " for any", sizeof buf);
 		break;
-	case COND_DOM:
-		strlcat(buf, " for domain", sizeof buf);
-		strlcat(buf, "bleh", sizeof buf);
+	case DEST_DOM:
+		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, r->r_destination->t_name, sizeof buf);
+		if (r->r_mapping) {
+			strlcat(buf, " alias ", sizeof buf);
+			strlcat(buf, r->r_mapping, sizeof buf);
+		}
 		break;
-	case COND_VDOM:
-		strlcat(buf, " for domain", sizeof buf);
-		strlcat(buf, "bleh", sizeof buf);
+	case DEST_VDOM:
+		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, r->r_destination->t_name, sizeof buf);
+		strlcat(buf, " virtual ", sizeof buf);
+		strlcat(buf, r->r_mapping->t_name, sizeof buf);
 		break;
 	}
-*/
+
+	switch (r->r_action) {
+	case A_RELAY:
+		strlcat(buf, " relay", sizeof buf);
+		break;
+	case A_RELAYVIA:
+		strlcat(buf, " relay via ", sizeof buf);
+		strlcat(buf, relayhost_to_text(&r->r_value.relayhost), sizeof buf);
+		break;
+	case A_MAILDIR:
+		strlcat(buf, " deliver to maildir \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	case A_MBOX:
+		strlcat(buf, " deliver to mbox", sizeof buf);
+		break;
+	case A_FILENAME:
+		strlcat(buf, " deliver to filename \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	case A_MDA:
+		strlcat(buf, " deliver to mda \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	}
 	    
 	return buf;
 }
