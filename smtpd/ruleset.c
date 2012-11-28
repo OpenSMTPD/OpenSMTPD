@@ -64,7 +64,7 @@ ruleset_match(const struct envelope *evp)
 		}
 
 		if (r->r_desttype == DEST_ANY) {
-			log_debug("rule matched: %s", rule_to_text(r));
+			log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
 			return r;
 		}
 
@@ -84,7 +84,7 @@ ruleset_match(const struct envelope *evp)
 						return NULL;
 					}
 				}
-				log_debug("rule matched: %s", rule_to_text(r));
+				log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
 				return r;
 			}
 		}

@@ -628,6 +628,7 @@ struct smtpd {
 #define	TRACE_SCHEDULER	0x0040
 #define	TRACE_STAT	0x0080
 #define	TRACE_PROFILING	0x0100
+#define	TRACE_RULES	0x0200
 
 struct submit_status {
 	int				 code; /**/

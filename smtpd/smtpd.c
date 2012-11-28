@@ -603,6 +603,8 @@ main(int argc, char *argv[])
 			}
 			else if (!strcmp(optarg, "profstat"))
 				profstat = 1;
+			else if (!strcmp(optarg, "rules"))
+				verbose |= TRACE_RULES;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else
