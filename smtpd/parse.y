@@ -120,7 +120,7 @@ typedef struct {
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
-%token	ARROW AUTH TLS LOCAL VIRTUAL TAG ALIAS FILTER KEY
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
@@ -128,7 +128,7 @@ typedef struct {
 %type	<v.number>	port from auth ssl size expire
 %type	<v.object>	tables tablenew tableref alias virtual domain credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag on compression
+%type	<v.string>	certificate tag compression
 %%
 
 grammar		: /* empty */
@@ -253,6 +253,18 @@ tag		: TAG STRING			{
 			$$ = $2;
 		}
 		| /* empty */			{ $$ = NULL; }
+		;
+
+tagged		: TAGGED STRING			{
+			if (strlcpy(rule->r_tag, $2, sizeof rule->r_tag)
+			    >= sizeof rule->r_tag) {
+       				yyerror("invalid tag name: too long");
+				free($2);
+				YYERROR;
+			}
+			free($2);
+		}
+		| /* empty */			{ }
 		;
 
 expire		: EXPIRE STRING {
@@ -744,43 +756,29 @@ from		: FROM tables			{
 		}
 		;
 
-on		: ON STRING	{
-       			if (strlen($2) >= MAX_TAG_SIZE) {
-       				yyerror("interface, address or tag name too long");
-				free($2);
-				YYERROR;
-			}
-			$$ = $2;
+accept		: {
 		}
-		| /* empty */	{ $$ = NULL; }
-		;
 
-rule		: ACCEPT on from			{
-
+rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
+		} from FOR destination action tagged expire {
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = table_find($3);
+			rule->r_qexpire = $8;
 
-			if ($2)
-				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
-			free($2);
-
-		} FOR destination action tag expire {
-			if ($8)
-				(void)strlcpy(rule->r_tag, $8, sizeof(rule->r_tag));
-			free($8);
-
-			rule->r_qexpire = $9;
-
-			if (rule->r_mapping) {
+			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
 				enum table_type type;
 
-				if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA)
+				switch (rule->r_action) {
+				case A_RELAY:
+				case A_RELAYVIA:
 					type = T_LIST;
-				else
+					break;
+				default:
 					type = T_HASH;
-
-				if (! table_check_type(rule->r_mapping, T_LIST)) {
+					break;
+				}
+				if (! table_check_type(rule->r_mapping, type)) {
 					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
 					    rule->r_mapping->t_name);
 					YYERROR;
@@ -791,15 +789,11 @@ rule		: ACCEPT on from			{
 
 			rule = NULL;
 		}
-		| REJECT on from			{
-
+		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
+		} from FOR destination tagged {
 			rule->r_decision = R_REJECT;
 			rule->r_sources = table_find($3);
-			if ($2)
-				(void)strlcpy(rule->r_tag, $2, sizeof(rule->r_tag));
-			free($2);
-		} FOR destination {
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
@@ -869,6 +863,7 @@ lookup(char *s)
 		{ "ssl",		SSL },
 		{ "table",		TABLE },
 		{ "tag",		TAG },
+		{ "tagged",		TAGGED },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
@@ -1248,7 +1243,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
 	SPLAY_INIT(conf->sc_ssl);
-	SPLAY_INIT(&conf->sc_sessions);
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;

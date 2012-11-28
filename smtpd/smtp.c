@@ -412,6 +412,7 @@ smtp(void)
 	imsg_callback = smtp_imsg;
 	event_init();
 
+	SPLAY_INIT(&env->sc_sessions);
 	signal_set(&ev_sigint, SIGINT, smtp_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, smtp_sig_handler, NULL);
 	signal_add(&ev_sigint, NULL);
