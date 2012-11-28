@@ -756,9 +756,6 @@ from		: FROM tables			{
 		}
 		;
 
-accept		: {
-		}
-
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
 		} from FOR destination action tagged expire {
