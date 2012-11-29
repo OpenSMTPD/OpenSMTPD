@@ -43,7 +43,8 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define SMTP_KICKTHRESHOLD	50
+#define SMTP_KICKTHRESHOLD	5
+#define SMTP_MAXRCPTFAIL	50
 
 #define SMTP_MAXMAIL	100
 #define SMTP_MAXRCPT	1000
@@ -80,7 +81,8 @@ enum session_flags {
 	F_8BITMIME		= 0x0002,
 	F_SECURE		= 0x0004,
 	F_AUTHENTICATED		= 0x0008,
-	F_KICK			= 0x0010,
+	F_BOUNCE		= 0x0010,
+	F_KICK			= 0x0020,
 };
 
 enum message_flags {
@@ -155,7 +157,7 @@ static void smtp_message_dataline(struct smtp_session *, char *);
 static void smtp_message_headerline(struct smtp_session *, char *);
 static void smtp_message_write(struct smtp_session *, char *);
 static void smtp_message_end(struct smtp_session *);
-static void smtp_message_reset(struct smtp_session *);
+static void smtp_message_reset(struct smtp_session *, int);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 
@@ -235,17 +237,12 @@ smtp_session(struct listener *listener, int sock,
 	s->state = S_NEW;
 	s->phase = PHASE_INIT;
 
-	strlcpy(s->evp.tag, listener->tag, sizeof(s->evp.tag));
-	s->evp.session_id = s->id;
-	s->evp.ss = s->ss;
-
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
 		/* A bit of a hack */
 		if (!strcmp(hostname, "localhost"))
-			s->evp.flags |= DF_BOUNCE;
+			s->flags |= F_BOUNCE;
 		strlcpy(s->hostname, hostname, sizeof(s->hostname));
-		strlcpy(s->evp.hostname, hostname, sizeof(s->evp.hostname));
 		smtp_enter_state(s, S_CONNECTED);
 	} else {
 		dns_query_ptr(&s->ss, s->id);
@@ -277,7 +274,6 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			strlcpy(s->hostname, "<unknown>", sizeof s->hostname);
 		else
 			strlcpy(s->hostname, dns->host, sizeof s->hostname);
-		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
 		smtp_enter_state(s, S_CONNECTED);
 		return;
 
@@ -288,7 +284,13 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		case LKA_OK:
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
+			s->rcptfail += 1;
 			smtp_reply(s, "550 Invalid recipient");
+			if (s->rcptfail >= SMTP_MAXRCPTFAIL) {
+				log_info("smtp-in: Disconnecting session %016"
+				    PRIx64": too many failed RCPT", s->id);
+				smtp_enter_state(s, S_QUIT);
+			}
 			break;
 		case LKA_TEMPFAIL:
 			smtp_reply(s, "421 Temporary failure");
@@ -373,6 +375,11 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		if (mfa_resp->status != MFA_OK) {
 			smtp_reply(s, "%d Recipient rejected", mfa_resp->code);
 			s->rcptfail += 1;
+			if (s->rcptfail >= SMTP_MAXRCPTFAIL) {
+				log_info("smtp-in: Disconnecting session %016"
+				    PRIx64": too many failed RCPT", s->id);
+				smtp_enter_state(s, S_QUIT);
+			}
 			io_reload(&s->io);
 			return;
 		}
@@ -568,9 +575,6 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		s->mailcount++;
 		s->kickcount = 0;
-
-		smtp_message_reset(s);
-
 		s->phase = PHASE_SETUP;
 		smtp_enter_state(s, S_HELO);
 		io_reload(&s->io);
@@ -907,6 +911,7 @@ smtp_command(struct smtp_session *s, char *line)
 		if (s->flags & F_EHLO && smtp_parse_mail_args(s, args) == -1)
 			break;
 
+		smtp_message_reset(s, 1);
 		mfa_req.reqid = s->id;
 		mfa_req.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_MAIL,
@@ -958,11 +963,7 @@ smtp_command(struct smtp_session *s, char *line)
 		s->phase = PHASE_SETUP;
 		if (s->ofile)
 			fclose(s->ofile);
-		bzero(&s->evp, sizeof s->evp);
-		s->msgflags = 0;
-		s->rcptfail = 0;
-		s->rcptcount = 0;
-		s->destcount = 0;
+		smtp_message_reset(s, 0);
 		smtp_reply(s, "250 2.0.0 Reset state");
 		break;
 
@@ -1266,6 +1267,8 @@ smtp_message_end(struct smtp_session *s)
 	if (!(s->msgflags & F_SMTP_DATA_END && s->flags & F_MFA_DATA_END))
 		return;
 
+	tree_xpop(&wait_mfa_data, s->id);
+
 	s->phase = PHASE_SETUP;
 
 	if (!safe_fclose(s->ofile))
@@ -1283,7 +1286,7 @@ smtp_message_end(struct smtp_session *s)
 			smtp_reply(s, "554 Message too big");
 		else
 			smtp_reply(s, "%i Message rejected", s->msgcode);
-		smtp_message_reset(s);
+		smtp_message_reset(s, 0);
 		smtp_enter_state(s, S_HELO);
 		return;
 	}
@@ -1300,14 +1303,25 @@ smtp_message_end(struct smtp_session *s)
 }
 
 static void
-smtp_message_reset(struct smtp_session *s)
+smtp_message_reset(struct smtp_session *s, int prepare)
 {
 	bzero(&s->evp, sizeof s->evp);
 	s->msgflags = 0;
 	s->destcount = 0;
 	s->rcptcount = 0;
-	s->rcptfail = 0;
 	s->datalen = 0;
+
+	if (prepare) {
+		s->evp.session_id = s->id;
+		s->evp.ss = s->ss;
+		strlcpy(s->evp.tag, s->listener->tag, sizeof(s->evp.tag));
+		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
+
+		if (s->flags & F_BOUNCE)
+			s->evp.flags |= DF_BOUNCE;
+		if (s->flags & F_AUTHENTICATED)
+			s->evp.flags |= DF_AUTHENTICATED;
+	}
 }
 
 static void

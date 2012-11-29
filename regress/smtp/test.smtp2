@@ -3,19 +3,31 @@
 #  Make sure that the SMTP limits are ok
 #
 
+# Make sure the server disconnects on the 5th useless command
+test-case skip {
+	expect smtp
+	repeat 4 {
+		writeln "FOO"
+		expect smtp permfail
+	}
+	writeln "FOO"
+	expect disconnect
+}
+
 # 1000 RCPT per message
-test-case {
+test-case skip {
 	expect smtp
 	writeln "EHLO fkf"
 	expect smtp helo
 	writeln "MAIL FROM: <eric@blabla>"
 	expect smtp ok
-	repeat 100 {
+	repeat 1000 {
 		writeln "RCPT TO: <eric@localhost>"
 		expect smtp ok
 	}
 	writeln "RCPT TO: <eric@localhost>"
 	expect smtp tempfail
+	expect disconnect
 }
 
 # 100 messages per session
@@ -26,7 +38,7 @@ test-case {
 	repeat 100 {
 		writeln "MAIL FROM: <eric@blabla>"
 		expect smtp ok
-		writeln "RCPT TO: <eric@localhost>"
+		writeln "RCPT TO: <eric@foo.bar>"
 		expect smtp ok
 		writeln "DATA"
 		expect smtp ok

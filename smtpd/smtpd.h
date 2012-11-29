@@ -343,7 +343,7 @@ enum delivery_type {
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
 	DF_BOUNCE		= 0x4,
-	DF_INTERNAL		= 0x8, /* internal expansion forward */
+	DF_INTERNAL		= 0x8, /* Internal expansion forward */
 
 	/* runstate, not saved on disk */
 
