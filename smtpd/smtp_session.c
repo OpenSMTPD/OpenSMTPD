@@ -143,6 +143,7 @@ struct smtp_session {
 
 void	 ssl_error(const char *);
 
+static void smtp_session_init(void);
 static void smtp_io(struct io *, int);
 static void smtp_enter_state(struct smtp_session *, int);
 static void smtp_reply(struct smtp_session *, char *, ...);
@@ -186,14 +187,10 @@ static struct tree wait_queue_msg;
 static struct tree wait_queue_fd;
 static struct tree wait_queue_commit;
 
-int
-smtp_session(struct listener *listener, int sock,
-    const struct sockaddr_storage *ss, const char *hostname)
+static void
+smtp_session_init(void)
 {
-	static int		 init = 0;
-	struct smtp_session	*s;
-
-	log_debug("debug: smtp: new client on listener: %p", listener);
+	static int	init = 0;
 
 	if (!init) {
 		tree_init(&wait_lka_ptr);
@@ -208,6 +205,17 @@ smtp_session(struct listener *listener, int sock,
 		tree_init(&wait_queue_commit);
 		init = 1;
 	}
+}
+
+int
+smtp_session(struct listener *listener, int sock,
+    const struct sockaddr_storage *ss, const char *hostname)
+{
+	struct smtp_session	*s;
+
+	log_debug("debug: smtp: new client on listener: %p", listener);
+
+	smtp_session_init();
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
 		return (-1);
@@ -757,7 +765,7 @@ smtp_command(struct smtp_session *s, char *line)
 	case CMD_HELO:
 	case CMD_EHLO:
 		if (s->phase != PHASE_INIT) {
-			smtp_reply(s, "XXX Already indentified");
+			smtp_reply(s, "503 Already indentified");
 			break;
 		}
 
@@ -789,12 +797,12 @@ smtp_command(struct smtp_session *s, char *line)
 	 */
 	case CMD_STARTTLS:
 		if (s->phase != PHASE_SETUP) {
-			smtp_reply(s, "XXX Command not allowed at this point.");
+			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
 
 		if (s->flags & F_SECURE) {
-			smtp_reply(s, "501 Channel already secured");
+			smtp_reply(s, "503 Channel already secured");
 			break;
 		}
 		if (args != NULL) {
@@ -807,7 +815,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 	case CMD_AUTH:
 		if (s->phase != PHASE_SETUP) {
-			smtp_reply(s, "XXX Command not allowed at this point.");
+			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
 
@@ -843,7 +851,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 	case CMD_MAIL_FROM:
 		if (s->phase != PHASE_SETUP) {
-			smtp_reply(s, "XXX Command not allowed at this point.");
+			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
 
@@ -885,7 +893,7 @@ smtp_command(struct smtp_session *s, char *line)
 	 */
 	case CMD_RCPT_TO:
 		if (s->phase != PHASE_TRANSACTION) {
-			smtp_reply(s, "XXX Command not allowed at this point.");
+			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
 
@@ -908,7 +916,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 	case CMD_RSET:
 		if (s->phase != PHASE_TRANSACTION) {
-			smtp_reply(s, "XXX Command not allowed at this point.");
+			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
 		mfa_req.reqid = s->id;
@@ -935,7 +943,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 	case CMD_DATA:
 		if (s->phase != PHASE_TRANSACTION) {
-			smtp_reply(s, "XXX Command not allowed at this point.");
+			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
 		if (s->rcptcount == 0) {
