@@ -1,3 +1,4 @@
+#! /usr/bin/smtpscript
 #
 # Simple test cases for the SMTP server.
 #
