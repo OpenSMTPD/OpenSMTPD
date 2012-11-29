@@ -43,9 +43,15 @@ auth_pwd(char *username, char *password)
 {
 	struct passwd *pw;
 
-	pw = getpwnam(username);
-	if (pw == NULL)
+	do {
+		pw = getpwnam(username);
+	} while (pw == NULL && errno == EINTR);
+
+	if (pw == NULL) {
+		if (errno == EIO || errno == EMFILE || errno == ENFILE || errno == ENOMEM)
+			return -1;
 		return 0;
+	}
 
 	if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
 		return 1;

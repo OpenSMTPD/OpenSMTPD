@@ -49,3 +49,4 @@ auth_backend_lookup(enum auth_type type)
 
 	return (NULL);
 }
+

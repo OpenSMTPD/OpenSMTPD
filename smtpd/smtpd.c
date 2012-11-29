@@ -136,6 +136,11 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 			auth = imsg->data;
 			auth->success = auth_backend->authenticate(auth->user,
 			    auth->pass);
+
+			/* XXX - for now, smtp does not handle temporary failures */
+			if (auth->success == -1)
+				auth->success = 0;
+
 			imsg_compose_event(iev, IMSG_PARENT_AUTHENTICATE, 0, 0,
 			    -1, auth, sizeof *auth);
 			return;
