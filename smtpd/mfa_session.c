@@ -182,7 +182,6 @@ mfa_session_proceed(struct mfa_session *ms)
 	case HOOK_CLOSE:
 	case HOOK_RSET:
 	case HOOK_DATA:
-	case HOOK_EOH:
 		break;
 
 	default:
@@ -257,9 +256,6 @@ mfa_session_done(struct mfa_session *ms)
 		return;
 	case HOOK_RSET:
 		imsg_type = IMSG_MFA_RSET;
-		break;
-	case HOOK_EOH:
-		imsg_type = IMSG_MFA_EOH;
 		break;
 	default:
 		fatalx("mda_session_done: unsupported state");

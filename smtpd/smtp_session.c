@@ -158,7 +158,7 @@ static void smtp_message_reset(struct smtp_session *);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 
-static int smtp_mailaddr(struct mailaddr *, char *);
+static int smtp_mailaddr(struct mailaddr *, char *, int);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -866,7 +866,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (smtp_mailaddr(&s->evp.sender, args) == 0) {
+		if (smtp_mailaddr(&s->evp.sender, args, 1) == 0) {
 			smtp_reply(s, "553 Sender address syntax error");
 			break;
 		}
@@ -894,7 +894,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (smtp_mailaddr(&s->evp.rcpt, args) == 0) {
+		if (smtp_mailaddr(&s->evp.rcpt, args, 0) == 0) {
 			smtp_reply(s,
 			    "553 Recipient address syntax error");
 			break;
@@ -1186,7 +1186,7 @@ smtp_message_write(struct smtp_session *s, char *line)
 {
 	size_t i, len;
 
-	log_trace(TRACE_SMTP, "[BODY] %s", line);
+	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 
 	/* Don't waste resources on message if it's going to bin anyway. */
 	if (s->msgflags & (F_ERROR_IO | F_ERROR_SIZE))
@@ -1228,7 +1228,7 @@ smtp_message_end(struct smtp_session *s)
 {
 	struct queue_req_msg	queue_req;
 
-	log_trace(TRACE_SMTP, "[EOM] 0x%04x", s->flags);
+	log_debug("debug: %p: end of message, msgflags=0x%04x", s, s->msgflags);
 
 	if (!(s->msgflags & F_SMTP_DATA_END && s->flags & F_MFA_DATA_END))
 		return;
@@ -1345,16 +1345,36 @@ smtp_free(struct smtp_session *s, const char * reason)
 }
 
 static int
-smtp_mailaddr(struct mailaddr *maddr, char *line)
+smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom)
 {
-	size_t len;
+	char   *p;
+	size_t	len;
 
 	len = strlen(line);
 	if (*line != '<' || line[len - 1] != '>')
 		return (0);
 	line[len - 1] = '\0';
 
-	return (email_to_mailaddr(maddr, line + 1));
+	if (!email_to_mailaddr(maddr, line + 1))
+		return (0);
+
+	p = strchr(maddr->user, ':');
+	if (p != NULL) {
+		p++;
+		memmove(maddr->user, p, strlen(p) + 1);
+	}
+
+	if (!valid_localpart(maddr->user) ||
+	    !valid_localpart(maddr->domain)) {
+		/* We accept empty sender for MAIL FROM */
+		if (mailfrom &&
+		    maddr->user[0] == '\0' &&
+		    maddr->domain[0] == '\0')
+			return (1);
+		return (0);
+	}
+
+	return (1);
 }
 
 #define CASE(x) case x : return #x

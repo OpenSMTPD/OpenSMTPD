@@ -67,11 +67,11 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_DATA:
 			mfa_filter(imsg->data, HOOK_DATA);
 			return;
-		case IMSG_MFA_EOH:
-			mfa_filter(imsg->data, HOOK_EOH);
-			return;
 		case IMSG_MFA_DATALINE:
 			mfa_filter(imsg->data, HOOK_DATALINE);
+			return;
+		case IMSG_MFA_HEADERLINE:
+			mfa_filter(imsg->data, HOOK_HEADERLINE);
 			return;
 		case IMSG_MFA_QUIT:
 			mfa_filter(imsg->data, HOOK_QUIT);

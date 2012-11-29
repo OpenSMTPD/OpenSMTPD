@@ -44,18 +44,16 @@ enum filter_status {
 /* XXX - server side requires mfa_session.c update on filter_hook changes */
 enum filter_hook {
 	HOOK_REGISTER		= 0,
-	HOOK_CONNECT		= 1<<0,
-	HOOK_HELO		= 1<<1,
-	HOOK_MAIL		= 1<<2,
-	HOOK_RCPT		= 1<<3,
-	HOOK_DATA		= 1<<4,
-	HOOK_HEADERLINE       	= 1<<5,
-	HOOK_EOH		= 1<<6,
-	HOOK_DATALINE		= 1<<7,
-	HOOK_EOM		= 1<<8,
-	HOOK_QUIT		= 1<<9,
-	HOOK_CLOSE		= 1<<10,
-	HOOK_RSET		= 1<<11,
+	HOOK_CONNECT		= 1 << 0,
+	HOOK_HELO		= 1 << 1,
+	HOOK_MAIL		= 1 << 2,
+	HOOK_RCPT		= 1 << 3,
+	HOOK_DATA		= 1 << 4,
+	HOOK_HEADERLINE       	= 1 << 5,
+	HOOK_DATALINE		= 1 << 6,
+	HOOK_QUIT		= 1 << 7,
+	HOOK_CLOSE		= 1 << 8,
+	HOOK_RSET		= 1 << 9,
 };
 
 struct filter_connect {
@@ -134,9 +132,7 @@ void filter_api_register_mail_callback(void (*)(uint64_t, struct filter_mail *, 
 void filter_api_register_rcpt_callback(void (*)(uint64_t, struct filter_rcpt *, void *), void *);
 void filter_api_register_data_callback(void (*)(uint64_t, void *), void *);
 void filter_api_register_headerline_callback(void (*)(uint64_t, struct filter_headerline *, void *), void *);
-void filter_api_register_eoh_callback(void (*)(uint64_t, void *), void *);
 void filter_api_register_dataline_callback(void (*)(uint64_t, struct filter_dataline *, void *), void *);
-void filter_api_register_eom_callback(void (*)(uint64_t, void *), void *);
 void filter_api_register_quit_callback(void (*)(uint64_t, void *), void *);
 void filter_api_register_close_callback(void (*)(uint64_t, void *), void *);
 void filter_api_register_rset_callback(void (*)(uint64_t, void *), void *);
