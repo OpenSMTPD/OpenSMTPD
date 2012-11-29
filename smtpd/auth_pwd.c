@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
 #include <pwd.h>

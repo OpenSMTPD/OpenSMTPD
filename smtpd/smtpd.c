@@ -151,9 +151,7 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORWARD_OPEN:
 			fwreq = imsg->data;
-			log_debug("+ about to open forward");
 			fd = parent_forward_open(fwreq->as_user);
-			log_debug("+ opened forward: %d", fd);
 			fwreq->status = 0;
 			if (fd == -1 && errno != ENOENT) {
 				if (errno == EAGAIN)
@@ -1223,10 +1221,16 @@ parent_forward_open(char *username)
 		tu->directory))
 		fatal("smtpd: parent_forward_open: snprintf");
 
-	fd = open(pathname, O_RDONLY);
+	do {
+		fd = open(pathname, O_RDONLY);
+	} while (fd == -1 && errno == EINTR);
 	if (fd == -1) {
 		if (errno == ENOENT)
 			return -1;
+		if (errno == EMFILE || errno == ENFILE || errno == EIO) {
+			errno = EAGAIN;
+			return -1;
+		}
 		log_warn("warn: smtpd: parent_forward_open: %s", pathname);
 		return -1;
 	}
