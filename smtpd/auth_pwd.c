@@ -50,7 +50,7 @@ auth_pwd(char *username, char *password)
 	} while (pw == NULL && errno == EINTR);
 
 	if (pw == NULL) {
-		if (errno == EIO || errno == EMFILE || errno == ENFILE || errno == ENOMEM)
+		if (errno)
 			return -1;
 		return 0;
 	}
