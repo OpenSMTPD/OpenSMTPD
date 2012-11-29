@@ -1,3 +1,4 @@
+#! /usr/bin/smtpscript
 #
 #  Make sure that the SMTP limits are ok
 #

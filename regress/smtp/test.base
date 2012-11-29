@@ -1,3 +1,4 @@
+#! /usr/bin/smtpscript
 #
 # This file is simply used to test the grammar and the behaviour of
 # the scripting engine. Not SMTP related.
