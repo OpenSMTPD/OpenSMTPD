@@ -133,6 +133,7 @@ enum imsg_type {
 	IMSG_CTL_FAIL,
 	IMSG_CTL_SHUTDOWN,
 	IMSG_CTL_VERBOSE,
+
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
 	IMSG_CONF_LISTENER,
@@ -195,7 +196,6 @@ enum imsg_type {
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 	IMSG_PARENT_KILL_MDA,
-
 	IMSG_PARENT_AUTHENTICATE,
 	IMSG_PARENT_SEND_CONFIG,
 
@@ -928,6 +928,11 @@ struct mfa_resp_msg {
 	}			u;
 };
 
+struct lka_expand_msg {
+	uint64_t		reqid;
+	struct envelope		evp;
+};
+
 enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,
@@ -1034,7 +1039,7 @@ pid_t lka(void);
 
 
 /* lka_session.c */
-void lka_session(struct envelope *);
+void lka_session(uint64_t, struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 

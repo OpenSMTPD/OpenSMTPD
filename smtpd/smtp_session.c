@@ -177,6 +177,7 @@ static struct { int code; const char *cmd; } commands[] = {
 };
 
 static struct tree wait_lka_ptr;
+static struct tree wait_lka_rcpt;
 static struct tree wait_mfa_connect;
 static struct tree wait_mfa_data;
 static struct tree wait_mfa_helo;
@@ -194,6 +195,7 @@ smtp_session_init(void)
 
 	if (!init) {
 		tree_init(&wait_lka_ptr);
+		tree_init(&wait_lka_rcpt);
 		tree_init(&wait_mfa_connect);
 		tree_init(&wait_mfa_data);
 		tree_init(&wait_mfa_helo);
@@ -259,6 +261,8 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct queue_resp_msg	*queue_resp;
 	struct queue_req_msg	 queue_req;
 	struct mfa_resp_msg	*mfa_resp;
+	struct lka_expand_msg	 lka_req;
+	struct lka_resp_msg	*lka_resp;
 	struct smtp_session	*s;
 	struct auth		*auth;
 	struct dns		*dns;
@@ -276,6 +280,23 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
 		smtp_enter_state(s, S_CONNECTED);
 		return;
+
+	case IMSG_LKA_EXPAND_RCPT:
+		lka_resp = imsg->data;
+		s = tree_xpop(&wait_lka_rcpt, lka_resp->reqid);
+		switch (lka_resp->status) {
+		case LKA_OK:
+			fatalx("unexpected ok");
+		case LKA_PERMFAIL:
+			smtp_reply(s, "550 Invalid recipient");
+			break;
+		case LKA_TEMPFAIL:
+			smtp_reply(s, "421 Temporary failure");
+			smtp_enter_state(s, S_QUIT);
+			break;
+		}
+		io_reload(&s->io);
+		return;	
 
 	case IMSG_MFA_CONNECT:
 		mfa_resp = imsg->data;
@@ -349,15 +370,19 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_MFA_RCPT:
 		mfa_resp = imsg->data;
 		s = tree_xpop(&wait_mfa_rcpt, mfa_resp->reqid);
-		if (mfa_resp->status == MFA_OK)
-			fatalx("unexpected valid RCPT from mfa");
+		if (mfa_resp->status != MFA_OK) {
+			smtp_reply(s, "%d Recipient rejected", mfa_resp->code);
+			s->rcptfail += 1;
+			io_reload(&s->io);
+			return;
+		}
 
-		smtp_reply(s, "%d Recipient rejected: %s@%s",
-		    mfa_resp->code,
-		    s->evp.rcpt.user,
-		    s->evp.rcpt.domain);
-		s->rcptfail += 1;
-		io_reload(&s->io);
+		s->evp.rcpt = mfa_resp->u.mailaddr;
+		lka_req.reqid = s->id;
+		lka_req.evp = s->evp;
+		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_EXPAND_RCPT,
+		    0, 0, -1, &lka_req, sizeof(lka_req));
+		tree_xset(&wait_lka_rcpt, s->id, s);
 		return;
 
 	case IMSG_MFA_DATALINE:
@@ -487,7 +512,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_QUEUE_SUBMIT_ENVELOPE:
 		queue_resp = imsg->data;
-		s = tree_xget(&wait_mfa_rcpt, queue_resp->reqid);
+		s = tree_xget(&wait_lka_rcpt, queue_resp->reqid);
 		if (queue_resp->success)
 			s->destcount++;
 		else
@@ -496,7 +521,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_QUEUE_COMMIT_ENVELOPES:
 		queue_resp = imsg->data;
-		s = tree_xpop(&wait_mfa_rcpt, queue_resp->reqid);
+		s = tree_xpop(&wait_lka_rcpt, queue_resp->reqid);
 		/* This cannot fail. */
 		if (!queue_resp->success)
 			fatalx("commit failed: not supposed to happen");

@@ -61,6 +61,7 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
+		case IMSG_LKA_EXPAND_RCPT:
 			smtp_session_imsg(iev, imsg);
 			return;
 		}

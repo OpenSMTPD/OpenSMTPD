@@ -219,13 +219,6 @@ mfa_session_done(struct mfa_session *ms)
 		resp.u.mailaddr = ms->data.evp.sender;
 		break;
 	case HOOK_RCPT:
-		if (ms->status == FILTER_OK) {
-			imsg_compose_event(env->sc_ievs[PROC_LKA],
-			    IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
-			    &ms->data.evp, sizeof(ms->data.evp));
-                        mfa_session_destroy(ms);
-                        return;
-		}
 		resp.u.mailaddr = ms->data.evp.rcpt;
 		imsg_type = IMSG_MFA_RCPT;
 		break;
