@@ -44,6 +44,7 @@ auth_pwd(char *username, char *password)
 {
 	struct passwd *pw;
 
+	errno = 0;
 	do {
 		pw = getpwnam(username);
 	} while (pw == NULL && errno == EINTR);
