@@ -40,7 +40,7 @@ static int ruleset_check_source(struct table *,
 struct rule *
 ruleset_match(const struct envelope *evp)
 {
-	const struct mailaddr *maddr = &evp->rcpt;
+	const struct mailaddr *maddr = &evp->dest;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
 	int		 ret;
