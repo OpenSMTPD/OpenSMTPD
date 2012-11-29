@@ -109,6 +109,7 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 	case -1:
 		log_warnx("warn: failure to perform a table lookup on table %s",
 		    table->t_name);
+		return -1;
 	default:
 		break;
 	}
