@@ -4,7 +4,7 @@
 #
 
 # Make sure the server disconnects on the 5th useless command
-test-case skip {
+test-case {
 	expect smtp
 	repeat 4 {
 		writeln "FOO"
@@ -15,7 +15,7 @@ test-case skip {
 }
 
 # 1000 RCPT per message
-test-case skip {
+test-case {
 	expect smtp
 	writeln "EHLO fkf"
 	expect smtp helo
@@ -27,7 +27,6 @@ test-case skip {
 	}
 	writeln "RCPT TO: <eric@localhost>"
 	expect smtp tempfail
-	expect disconnect
 }
 
 # 100 messages per session

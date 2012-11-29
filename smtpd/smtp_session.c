@@ -118,10 +118,11 @@ struct smtp_session {
 	int			 phase;
 	enum smtp_state		 state;
 
+	char			 helo[SMTP_LINE_MAX];
+	char			 cmd[SMTP_LINE_MAX];
+
 	struct auth		 auth;
 	struct envelope		 evp;
-
-	char			 cmd[SMTP_LINE_MAX];
 
 	size_t			 kickcount;
 	size_t			 mailcount;
@@ -576,6 +577,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		s->mailcount++;
 		s->kickcount = 0;
 		s->phase = PHASE_SETUP;
+		smtp_message_reset(s, 0);
 		smtp_enter_state(s, S_HELO);
 		io_reload(&s->io);
 		return;
@@ -808,13 +810,15 @@ smtp_command(struct smtp_session *s, char *line)
 			smtp_reply(s, "501 Invalid domain name");
 			break;
 		}
-		strlcpy(s->evp.helo, args, sizeof(s->evp.helo));
-		s->evp.session_id = s->id;
-		s->flags &= F_SECURE|F_AUTHENTICATED;
+		strlcpy(s->helo, args, sizeof(s->helo));
+		s->flags &= F_SECURE | F_AUTHENTICATED;
 		if (cmd == CMD_EHLO) {
 			s->flags |= F_EHLO;
 			s->flags |= F_8BITMIME;
 		}
+
+		smtp_message_reset(s, 1);
+
 		mfa_req.reqid = s->id;
 		mfa_req.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_HELO,
@@ -1316,6 +1320,7 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 		s->evp.ss = s->ss;
 		strlcpy(s->evp.tag, s->listener->tag, sizeof(s->evp.tag));
 		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
+		strlcpy(s->evp.helo, s->helo, sizeof s->evp.helo);
 
 		if (s->flags & F_BOUNCE)
 			s->evp.flags |= DF_BOUNCE;
