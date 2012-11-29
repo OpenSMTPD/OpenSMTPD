@@ -151,13 +151,15 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORWARD_OPEN:
 			fwreq = imsg->data;
+			log_debug("+ about to open forward");
 			fd = parent_forward_open(fwreq->as_user);
+			log_debug("+ opened forward: %d", fd);
 			fwreq->status = 0;
-			if (fd == -2) {
-				/* no ~/.forward, however it's optional. */
-				fwreq->status = 1;
-				fd = -1;
-			} else if (fd != -1)
+			if (fd == -1 && errno != ENOENT) {
+				if (errno == EAGAIN)
+					fwreq->status = -1;
+			}
+			else
 				fwreq->status = 1;
 			imsg_compose_event(iev, IMSG_PARENT_FORWARD_OPEN, 0, 0,
 			    fd, fwreq, sizeof *fwreq);
@@ -1211,8 +1213,11 @@ parent_forward_open(char *username)
 
 	t = table_findbyname("<getpwnam>");
 	r = table_lookup(t, username, K_USERINFO, (void **)&tu);
-	if (r <= 0)
+	if (r <= 0) {
+		if (r == -1)
+			errno = EAGAIN;
 		return -1;
+	}
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
 		tu->directory))
@@ -1221,7 +1226,7 @@ parent_forward_open(char *username)
 	fd = open(pathname, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT)
-			return -2;
+			return -1;
 		log_warn("warn: smtpd: parent_forward_open: %s", pathname);
 		return -1;
 	}
