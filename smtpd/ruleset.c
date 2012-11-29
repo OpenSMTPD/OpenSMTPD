@@ -40,7 +40,7 @@ static int ruleset_check_source(struct table *,
 struct rule *
 ruleset_match(const struct envelope *evp)
 {
-	const struct mailaddr *maddr = &evp->rcpt;
+	const struct mailaddr *maddr = &evp->dest;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
 	int		 ret;
@@ -109,6 +109,7 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 	case -1:
 		log_warnx("warn: failure to perform a table lookup on table %s",
 		    table->t_name);
+		return -1;
 	default:
 		break;
 	}
