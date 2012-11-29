@@ -89,12 +89,13 @@ enum message_flags {
 	F_WAIT_MFA_EOH		= 0x0002,
 
 	F_SMTP_HEADERS_END	= 0x0010,
-	F_SMTP_BODY_END		= 0x0020,
+	F_SMTP_DATA_END		= 0x0020,
 	F_MFA_HEADERS_END	= 0x0040,
-	F_MFA_BODY_END		= 0x0080,
+	F_MFA_DATA_END		= 0x0080,
 
 	F_ERROR_SIZE		= 0x1000,
 	F_ERROR_IO		= 0x2000,
+	F_ERROR_MFA		= 0x4000,
 };
 
 enum {
@@ -124,6 +125,7 @@ struct smtp_session {
 	size_t			 mailcount;
 
 	int			 msgflags;
+	int			 msgcode;
 	size_t			 rcptcount;
 	size_t			 rcptfail;
 	size_t			 destcount;
@@ -148,10 +150,11 @@ static void smtp_command(struct smtp_session *, char *);
 static int smtp_parse_mail_args(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_plain(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_login(struct smtp_session *, char *);
-static void smtp_body_line(struct smtp_session *, char *);
-static void smtp_header_line(struct smtp_session *, char *);
+static void smtp_message_dataline(struct smtp_session *, char *);
+static void smtp_message_headerline(struct smtp_session *, char *);
+static void smtp_message_write(struct smtp_session *, char *);
 static void smtp_message_end(struct smtp_session *);
-static void smtp_queue_data(struct smtp_session *, char *);
+static void smtp_message_reset(struct smtp_session *);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 
@@ -351,11 +354,27 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_MFA_DATALINE:
 		mfa_resp = imsg->data;
+
+		if (mfa_resp->status != MFA_OK) {
+			s = tree_pop(&wait_mfa_data, mfa_resp->reqid);
+			if (s == NULL)
+				return;	/* dead session */
+			s->msgcode = mfa_resp->code;
+			s->msgflags |= F_MFA_DATA_END;
+			s->msgflags |= F_ERROR_MFA;
+			if (s->msgflags & F_WAIT_MFA_EOH) {
+				s->msgflags &= ~F_WAIT_MFA_EOH;
+				io_resume(&s->io, IO_PAUSE_IN);
+				smtp_io(&s->io, IO_DATAIN);
+			}
+			return;
+		}
+
 		if (!strcmp(mfa_resp->u.buffer, ".")) {
 			s = tree_pop(&wait_mfa_data, mfa_resp->reqid);
 			if (s == NULL)
 				return;	/* dead session */
-			s->msgflags |= F_MFA_BODY_END;
+			s->msgflags |= F_MFA_DATA_END;
 			smtp_message_end(s);
 			return;
 		}
@@ -364,7 +383,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		if (s == NULL)
 			return;	/* dead session */
 
-		smtp_queue_data(s, mfa_resp->u.buffer);
+		smtp_message_write(s, mfa_resp->u.buffer);
 
 		if (s->msgflags & F_WAIT_MFA_EOH &&
 		    mfa_resp->u.buffer[0] == '\0') {
@@ -452,8 +471,8 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		tree_xset(&wait_mfa_data, s->id, s);
 		/* By-pass mfa for message body if no filter registered. */
 		if (!(env->filtermask & HOOK_DATALINE)) {
-			log_debug("disabling mfa for msg body");
-			s->flags |= F_MFA_BODY_END;
+			log_debug("debug: disabling mfa for msg body");
+			s->flags |= F_MFA_DATA_END;
 		}
 		io_reload(&s->io);
 		return;
@@ -517,12 +536,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		s->mailcount++;
 		s->kickcount = 0;
 
-		bzero(&s->evp, sizeof s->evp);
-		s->msgflags = 0;
-		s->destcount = 0;
-		s->rcptcount = 0;
-		s->rcptfail = 0;
-		s->datalen = 0;
+		smtp_message_reset(s);
 
 		s->phase = PHASE_SETUP;
 		smtp_enter_state(s, S_HELO);
@@ -602,12 +616,12 @@ smtp_io(struct io *io, int evt)
 		/* Message body */
 		if (s->state == S_BODY && strcmp(line, ".")) {
 			/* Discard data if the mfa already ended the message */
-			if (s->msgflags & F_MFA_BODY_END)
+			if (s->msgflags & F_MFA_DATA_END)
 				goto nextline;
 			if (s->msgflags & F_SMTP_HEADERS_END)
-				smtp_body_line(s, line);
+				smtp_message_dataline(s, line);
 			else {
-				smtp_header_line(s, line);
+				smtp_message_headerline(s, line);
 				if (s->msgflags & F_WAIT_MFA_EOH) {
 					io_pause(io, IO_PAUSE_IN);
 					return;
@@ -626,7 +640,7 @@ smtp_io(struct io *io, int evt)
 
 		/* End of body */
 		if (s->state == S_BODY) {
-			s->msgflags |= F_SMTP_BODY_END;
+			s->msgflags |= F_SMTP_DATA_END;
 			iobuf_normalize(&s->iobuf);
 			io_set_write(io);
 			smtp_message_end(s);
@@ -1122,7 +1136,7 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 }
 
 static void
-smtp_header_line(struct smtp_session *s, char *line)
+smtp_message_headerline(struct smtp_session *s, char *line)
 {
 	struct mfa_req_msg	req;
 
@@ -1135,22 +1149,23 @@ smtp_header_line(struct smtp_session *s, char *line)
 		    0, 0, -1, &req, sizeof(req));
 	}
 	else
-		smtp_queue_data(s, line);
+		smtp_message_write(s, line);
 
 	if (*line == '\0') {
 		s->msgflags |= F_SMTP_HEADERS_END;
 		/*
-		 * If the mfa needs look at the headers only, the smtp
+		 * If the mfa needs to look at the headers only, the smtp
 		 * session must stop reading input from client until the
 		 * mfa sends the header termination.
 		 */
-		if (!env->filtermask & HOOK_DATALINE)
+		if (env->filtermask & HOOK_HEADERLINE &&
+		    (!env->filtermask & HOOK_DATALINE))
 			s->msgflags |= F_WAIT_MFA_EOH;
 	}
 }
 
 static void
-smtp_body_line(struct smtp_session *s, char *line)
+smtp_message_dataline(struct smtp_session *s, char *line)
 {
 	struct mfa_req_msg	req;
 
@@ -1163,58 +1178,11 @@ smtp_body_line(struct smtp_session *s, char *line)
 		    0, 0, -1, &req, sizeof(req));
 	}
 	else
-		smtp_queue_data(s, line);
+		smtp_message_write(s, line);
 }
 
 static void
-smtp_message_end(struct smtp_session *s)
-{
-	struct queue_req_msg	queue_req;
-
-	log_trace(TRACE_SMTP, "[EOM] 0x%04x", s->flags);
-
-	if (!(s->msgflags & F_SMTP_BODY_END && s->flags & F_MFA_BODY_END))
-		return;
-
-	s->phase = PHASE_SETUP;
-
-	if (! safe_fclose(s->ofile))
-		s->msgflags |= F_ERROR_IO;
-	s->ofile = NULL;
-
-	queue_req.reqid = s->id;
-	queue_req.evpid = s->evp.id;
-
-	if (s->msgflags & F_ERROR_SIZE) {
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-		    &queue_req, sizeof(queue_req));
-		smtp_reply(s, "554 Message too big");
-
-		bzero(&s->evp, sizeof s->evp);
-		s->msgflags = 0;
-		s->destcount = 0;
-		s->rcptcount = 0;
-		s->rcptfail = 0;
-		s->datalen = 0;
-
-		smtp_enter_state(s, S_HELO);
-		return;
-	}
-
-	if (s->msgflags & F_ERROR_IO) {
-		smtp_reply(s, "421 Temporary failure");
-		smtp_enter_state(s, S_QUIT);
-		return;
-	}
-
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_COMMIT_MESSAGE,
-	    0, 0, -1, &queue_req, sizeof(queue_req));
-	tree_xset(&wait_queue_commit, s->id, s);
-}
-
-static void
-smtp_queue_data(struct smtp_session *s, char *line)
+smtp_message_write(struct smtp_session *s, char *line)
 {
 	size_t i, len;
 
@@ -1253,6 +1221,60 @@ smtp_queue_data(struct smtp_session *s, char *line)
 		log_warnx("warn: Error writing incoming message");
 		s->msgflags |= F_ERROR_IO;
 	}
+}
+
+static void
+smtp_message_end(struct smtp_session *s)
+{
+	struct queue_req_msg	queue_req;
+
+	log_trace(TRACE_SMTP, "[EOM] 0x%04x", s->flags);
+
+	if (!(s->msgflags & F_SMTP_DATA_END && s->flags & F_MFA_DATA_END))
+		return;
+
+	s->phase = PHASE_SETUP;
+
+	if (!safe_fclose(s->ofile))
+		s->msgflags |= F_ERROR_IO;
+	s->ofile = NULL;
+
+	queue_req.reqid = s->id;
+	queue_req.evpid = s->evp.id;
+
+	if (s->msgflags & (F_ERROR_SIZE | F_ERROR_MFA)) {
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+		    &queue_req, sizeof(queue_req));
+		if (s->msgflags & F_ERROR_SIZE)
+			smtp_reply(s, "554 Message too big");
+		else
+			smtp_reply(s, "%i Message rejected", s->msgcode);
+		smtp_message_reset(s);
+		smtp_enter_state(s, S_HELO);
+		return;
+	}
+
+	if (s->msgflags & F_ERROR_IO) {
+		smtp_reply(s, "421 Temporary failure");
+		smtp_enter_state(s, S_QUIT);
+		return;
+	}
+
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_COMMIT_MESSAGE,
+	    0, 0, -1, &queue_req, sizeof(queue_req));
+	tree_xset(&wait_queue_commit, s->id, s);
+}
+
+static void
+smtp_message_reset(struct smtp_session *s)
+{
+	bzero(&s->evp, sizeof s->evp);
+	s->msgflags = 0;
+	s->destcount = 0;
+	s->rcptcount = 0;
+	s->rcptfail = 0;
+	s->datalen = 0;
 }
 
 static void
