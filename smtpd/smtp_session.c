@@ -233,6 +233,7 @@ smtp_session(struct listener *listener, int sock,
 
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
+		s->flags |= SF_AUTHENTICATED;
 		/* A bit of a hack */
 		if (!strcmp(hostname, "localhost"))
 			s->flags |= SF_BOUNCE;
@@ -1320,9 +1321,9 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 		strlcpy(s->evp.helo, s->helo, sizeof s->evp.helo);
 
 		if (s->flags & SF_BOUNCE)
-			s->evp.flags |= DF_BOUNCE;
+			s->evp.flags |= EF_BOUNCE;
 		if (s->flags & SF_AUTHENTICATED)
-			s->evp.flags |= DF_AUTHENTICATED;
+			s->evp.flags |= EF_AUTHENTICATED;
 	}
 }
 

@@ -340,17 +340,6 @@ enum delivery_type {
 	D_BOUNCE
 };
 
-enum delivery_flags {
-	DF_AUTHENTICATED	= 0x1,
-	DF_BOUNCE		= 0x4,
-	DF_INTERNAL		= 0x8, /* Internal expansion forward */
-
-	/* runstate, not saved on disk */
-
-	DF_PENDING		= 0x10,
-	DF_INFLIGHT		= 0x20,
-};
-
 struct delivery_mda {
 	enum action_type	method;
 	struct userinfo		user;
@@ -398,6 +387,17 @@ struct expand {
 	struct expandnode		*parent;
 };
 
+enum envelope_flags {
+	EF_AUTHENTICATED	= 0x01,
+	EF_BOUNCE		= 0x02,
+	EF_INTERNAL		= 0x04, /* Internal expansion forward */
+
+	/* runstate, not saved on disk */
+
+	EF_PENDING		= 0x10,
+	EF_INFLIGHT		= 0x20,
+};
+
 #define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -409,7 +409,7 @@ struct envelope {
 
 	uint32_t			version;
 	uint64_t			id;
-	enum delivery_type		type;
+	enum envelope_flags		flags;
 
 	char				helo[MAXHOSTNAMELEN];
 	char				hostname[MAXHOSTNAMELEN];
@@ -420,17 +420,17 @@ struct envelope {
 	struct mailaddr			rcpt;
 	struct mailaddr			dest;
 
-	union delivery_method {
+	enum delivery_type		type;
+	union {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
-	} agent;
+	}				agent;
 
-	time_t				 creation;
-	time_t				 lasttry;
-	time_t				 expire;
-	uint16_t			 retry;
-	enum delivery_flags		 flags;
-	time_t				 nexttry;
+	time_t				creation;
+	time_t				lasttry;
+	time_t				expire;
+	uint16_t			retry;
+	time_t				nexttry;
 };
 
 enum envelope_field {

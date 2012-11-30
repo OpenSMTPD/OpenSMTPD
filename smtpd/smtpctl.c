@@ -543,23 +543,23 @@ show_queue_envelope(struct envelope *e, int online)
 
 	status[0] = '\0';
 
-	getflag(&e->flags, DF_BOUNCE, "bounce",
+	getflag(&e->flags, EF_BOUNCE, "bounce",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_AUTHENTICATED, "auth",
+	getflag(&e->flags, EF_AUTHENTICATED, "auth",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_INTERNAL, "internal",
+	getflag(&e->flags, EF_INTERNAL, "internal",
 	    status, sizeof(status));
 
 	if (online) {
-		if (e->flags & DF_PENDING)
+		if (e->flags & EF_PENDING)
 			snprintf(runstate, sizeof runstate, "pending|%zi",
 			    (ssize_t)(e->nexttry - now));
-		else if (e->flags & DF_INFLIGHT)
+		else if (e->flags & EF_INFLIGHT)
 			snprintf(runstate, sizeof runstate, "inflight|%zi",
 			    (ssize_t)(now - e->lasttry));
 		else
 			snprintf(runstate, sizeof runstate, "invalid|");
-		e->flags &= ~(DF_PENDING|DF_INFLIGHT);
+		e->flags &= ~(EF_PENDING|EF_INFLIGHT);
 	}
 	else
 		strlcpy(runstate, "offline|", sizeof runstate);

@@ -459,15 +459,15 @@ scheduler_ramqueue_envelopes(uint64_t from, struct evpstate *dst, size_t size)
 		dst[n].evpid = evp->evpid;
 		if (evp->flags & RQ_ENVELOPE_PENDING) {
 			dst[n].time = evp->sched;
-			dst[n].flags = DF_PENDING;
+			dst[n].flags = EF_PENDING;
 		}
 		else if (evp->flags & RQ_ENVELOPE_SCHEDULED) {
 			dst[n].time = evp->t_scheduled;
-			dst[n].flags = DF_PENDING;
+			dst[n].flags = EF_PENDING;
 		}
 		else if (evp->flags & RQ_ENVELOPE_INFLIGHT) {
 			dst[n].time = evp->t_inflight;
-			dst[n].flags = DF_INFLIGHT;
+			dst[n].flags = EF_INFLIGHT;
 		}
 		n++;
 	}

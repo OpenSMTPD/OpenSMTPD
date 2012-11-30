@@ -52,7 +52,7 @@ static int ascii_load_string(char *, char *, size_t);
 static int ascii_load_sockaddr(struct sockaddr_storage *, char *);
 static int ascii_load_mda_method(enum action_type *, char *);
 static int ascii_load_mailaddr(struct mailaddr *, char *);
-static int ascii_load_flags(enum delivery_flags *, char *);
+static int ascii_load_flags(enum envelope_flags *, char *);
 static int ascii_load_mta_relay_flags(uint8_t *, char *);
 
 static int ascii_dump_uint16(uint16_t, char *, size_t);
@@ -62,7 +62,7 @@ static int ascii_dump_string(char *, char *, size_t);
 static int ascii_dump_type(enum delivery_type, char *, size_t);
 static int ascii_dump_mda_method(enum action_type, char *, size_t);
 static int ascii_dump_mailaddr(struct mailaddr *, char *, size_t);
-static int ascii_dump_flags(enum delivery_flags, char *, size_t);
+static int ascii_dump_flags(enum envelope_flags, char *, size_t);
 static int ascii_dump_mta_relay_port(uint16_t, char *, size_t);
 static int ascii_dump_mta_relay_flags(uint8_t, char *, size_t);
 
@@ -551,19 +551,19 @@ ascii_load_mailaddr(struct mailaddr *dest, char *buf)
 }
 
 static int
-ascii_load_flags(enum delivery_flags *dest, char *buf)
+ascii_load_flags(enum envelope_flags *dest, char *buf)
 {
 	char *flag;
 
 	while ((flag = strsep(&buf, " ,|")) != NULL) {
 		if (strcasecmp(flag, "authenticated") == 0)
-			*dest |= DF_AUTHENTICATED;
+			*dest |= EF_AUTHENTICATED;
 		else if (strcasecmp(flag, "enqueued") == 0)
 			;
 		else if (strcasecmp(flag, "bounce") == 0)
-			*dest |= DF_BOUNCE;
+			*dest |= EF_BOUNCE;
 		else if (strcasecmp(flag, "internal") == 0)
-			*dest |= DF_INTERNAL;
+			*dest |= EF_INTERNAL;
 		else
 			return 0;
 	}
@@ -703,20 +703,20 @@ ascii_dump_mta_relay_flags(uint8_t flags, char *buf, size_t len)
 }
 
 static int
-ascii_dump_flags(enum delivery_flags flags, char *buf, size_t len)
+ascii_dump_flags(enum envelope_flags flags, char *buf, size_t len)
 {
 	size_t cpylen = 0;
 
 	buf[0] = '\0';
 	if (flags) {
-		if (flags & DF_AUTHENTICATED)
+		if (flags & EF_AUTHENTICATED)
 			cpylen = strlcat(buf, "authenticated", len);
-		if (flags & DF_BOUNCE) {
+		if (flags & EF_BOUNCE) {
 			if (buf[0] != '\0')
 				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "bounce", len);
 		}
-		if (flags & DF_INTERNAL) {
+		if (flags & EF_INTERNAL) {
 			if (buf[0] != '\0')
 				strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "internal", len);

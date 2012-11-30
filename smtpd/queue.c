@@ -220,7 +220,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			evp.flags |= state->flags;
 			/* In the past if running or runnable */
 			evp.nexttry = state->time;
-			if (state->flags == DF_INFLIGHT) {
+			if (state->flags == EF_INFLIGHT) {
 				/*
 				 * Not exactly correct but pretty close: The
 				 * value is not recorded on the envelope unless
