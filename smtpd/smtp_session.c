@@ -1122,7 +1122,7 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 		else if (!strcasecmp(b, "BODY=7BIT"))
 			/* XXX only for this transaction */
 			s->flags &= ~SF_8BITMIME;
-		else if (strcasecmp(b, "BODY=8BITMIME"))
+		else if (strcasecmp(b, "BODY=8BITMIME") == 0)
 			;
 		else {
 			smtp_reply(s, "503 Unsupported option %s", b);
