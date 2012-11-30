@@ -949,7 +949,7 @@ smtp_command(struct smtp_session *s, char *line)
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RSET,
 		    0, 0, -1, &mfa_req, sizeof(mfa_req));
 
-		if (queue_req.evpid) {
+		if (s->evp.id) {
 			queue_req.reqid = s->id;
 			queue_req.evpid = s->evp.id;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
@@ -1361,7 +1361,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 
 	tree_pop(&wait_mfa_data, s->id);
 
-	if (s->evp.id != 0) {
+	if (s->evp.id) {
 		queue_req.reqid = s->id;
 		queue_req.evpid = s->evp.id;
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
