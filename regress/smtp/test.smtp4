@@ -138,3 +138,11 @@ test-case {
 	expect smtp ok
 }
 
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org> SIZE=1000"
+	expect smtp ok
+}
+
