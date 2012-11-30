@@ -1,0 +1,10 @@
+test-case name "starttls" {
+	expect smtp ok
+	writeln "EHLO regress"
+	expect smtp helo
+	writeln "STARTTLS"
+	expect smtp ok
+	starttls
+	writeln "EHLO regress"
+	expect smtp helo
+}
