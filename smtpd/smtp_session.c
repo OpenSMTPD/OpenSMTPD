@@ -899,7 +899,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (s->flags & SF_EHLO && smtp_parse_mail_args(s, args) == -1)
+		if (smtp_parse_mail_args(s, args) == -1)
 			break;
 
 		if (smtp_mailaddr(&s->evp.sender, args, 1) == 0) {
@@ -1114,10 +1114,13 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 {
 	char *b;
 
-	for (b = strrchr(args, ' '); b != NULL; b = strrchr(args, ' ')) {
-		*b++ = '\0';
+	for (; (b = strsep(&args, " ")) != NULL; ) {
+		if (*b == '\0')
+			continue;
 		if (strncasecmp(b, "AUTH=", 5) == 0)
 			log_debug("debug: smtp: AUTH in MAIL FROM command");
+		else if (strncasecmp(b, "SIZE=", 5) == 0)
+			log_debug("debug: smtp: SIZE in MAIL FROM command");
 		else if (!strcasecmp(b, "BODY=7BIT"))
 			/* XXX only for this transaction */
 			s->flags &= ~SF_8BITMIME;
