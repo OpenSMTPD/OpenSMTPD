@@ -554,16 +554,6 @@ struct smtpd {
 #define	TRACE_PROFILING	0x0100
 #define	TRACE_RULES	0x0200
 
-struct submit_status {
-	int				 code; /**/
-	union submit_path {
-		struct mailaddr		 maddr; /**/
-		char			 errormsg[MAX_LINE_SIZE + 1]; /**/
-		char			 dataline[MAX_LINE_SIZE + 1]; /**/
-		char			 headerline[MAX_LINE_SIZE + 1]; /**/
-	}				 u;
-};
-
 struct forward_req {
 	uint64_t			 id;
 	uint8_t				 status;
