@@ -4,96 +4,105 @@ proc init-helo {
 	expect smtp helo
 }
 
+# Allow emtpy MAIL FROM address (bounce messages)
 test-case name "mailfrom.empty" {
 	call init-helo
 	writeln "MAIL FROM: <>"
 	expect smtp ok
 }
 
+# Allow emtpy MAIL FROM address (bounce messages)
 test-case name "mailfrom.at-sign" {
 	call init-helo
 	writeln "MAIL FROM: <@>"
 	expect smtp ok
 }
 
+# Reject address without an '@'
 test-case name "mailfrom.no-at-sign" {
 	call init-helo
 	writeln "MAIL FROM: <a>"
 	expect smtp permfail
 }
 
+# Reject address with empty domain
 test-case name "mailfrom.no-domain" {
 	call init-helo
 	writeln "MAIL FROM: <a@>"
 	expect smtp permfail
 }
 
+# Reject address with empty user
 test-case name "mailfrom.no-user" {
 	call init-helo
 	writeln "MAIL FROM: <@a>"
 	expect smtp permfail
 }
 
-test-case name "mailfrom.colon-as-user" {
-	call init-helo
-	writeln "MAIL FROM: <:@a>"
-	expect smtp permfail
-}
-
+# Accept address after source-route stripping
 test-case name "mailfrom.src-route" {
 	call init-helo
 	writeln "MAIL FROM: <whatever:a@a>"
 	expect smtp ok
 }
 
+# Reject address with empty user after source-route stripping
 test-case name "mailfrom.src-route-no-user" {
 	call init-helo
 	writeln "MAIL FROM: <a:@a>"
 	expect smtp permfail
 }
 
+# Reject space as user
 test-case name "mailfrom.space-as-user" {
 	call init-helo
 	writeln "MAIL FROM: < @a>"
 	expect smtp permfail
 }
 
+# Reject space as domain
 test-case name "mailfrom.space-as-domain" {
 	call init-helo
 	writeln "MAIL FROM: <a@ >"
 	expect smtp permfail
 }
 
+# Reject unsupported options
 test-case name "mailfrom.option" {
 	call init-helo
 	writeln "MAIL FROM: <user@domain> OPT"
 	expect smtp permfail
 }
 
+# Allow SIZE=*
 test-case name "mailfrom.option-size" {
 	call init-helo
 	writeln "MAIL FROM: <user@domain> SIZE=3005"
 	expect smtp ok
 }
 
+# Allow BODY=7BIT
 test-case name "mailfrom.option-7bit" {
 	call init-helo
 	writeln "MAIL FROM: <user@domain> BODY=7BIT"
 	expect smtp ok
 }
 
+# Allow BODY=8BITMIME
 test-case name "mailfrom.option-8bitmime" {
 	call init-helo
 	writeln "MAIL FROM: <user@domain> BODY=8BITMIME"
 	expect smtp ok
 }
 
+# Allow multiple options
 test-case name "mailfrom.option-8bitmime-size" {
 	call init-helo
-	writeln "MAIL FROM: <user@domain> BODY=8BITMIME"
+	writeln "MAIL FROM: <user@domain> BODY=8BITMIME SIZE=100"
 	expect smtp ok
 }
 
+# Allow AUTH= (ignored)
 test-case name "mailfrom.option-auth" {
 	call init-helo
 	writeln "MAIL FROM: <user@domain> AUTH=WHATEVER"
