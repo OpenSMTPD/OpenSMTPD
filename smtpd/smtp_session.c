@@ -1112,9 +1112,10 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 {
 	char *b;
 
-	for (; (b = strsep(&args, " ")) != NULL; ) {
+	while ((b = strsep(&args, " "))) {
 		if (*b == '\0')
 			continue;
+
 		if (strncasecmp(b, "AUTH=", 5) == 0)
 			log_debug("debug: smtp: AUTH in MAIL FROM command");
 		else if (strncasecmp(b, "SIZE=", 5) == 0)
