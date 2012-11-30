@@ -402,6 +402,7 @@ lookup(char *s)
 		{ "expect",		EXPECT },
 		{ "fail",		FAIL },
 		{ "helo",		HELO },
+		{ "name",		NAME },
 		{ "no-autoconnect",	NO_AUTOCONNECT },
 		{ "noop",		NOOP },
 		{ "ok",			OK },
