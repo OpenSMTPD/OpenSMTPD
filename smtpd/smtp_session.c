@@ -932,6 +932,12 @@ smtp_command(struct smtp_session *s, char *line)
 			    "553 Recipient address syntax error");
 			break;
 		}
+		if (*args) {
+			smtp_reply(s,
+			    "553 No option supported on RCPT TO");
+			break;
+		}
+
 		mfa_req.reqid = s->id;
 		mfa_req.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RCPT,
@@ -1401,8 +1407,10 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 	e = strchr(line, '>');
 	if (e == NULL)
 		return (0);
-	*e = '\0';
-	*args = e + 1;
+	*e++ = '\0';
+	while(*e == ' ')
+		e++;
+	*args = e;
 
 	if (!email_to_mailaddr(maddr, line + 1))
 		return (0);
