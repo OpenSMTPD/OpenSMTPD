@@ -899,13 +899,14 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
+		if (s->flags & SF_EHLO && smtp_parse_mail_args(s, args) == -1)
+			break;
+
 		if (smtp_mailaddr(&s->evp.sender, args, 1) == 0) {
 			smtp_reply(s, "553 Sender address syntax error");
 			break;
 		}
 
-		if (s->flags & SF_EHLO && smtp_parse_mail_args(s, args) == -1)
-			break;
 
 		smtp_message_reset(s, 1);
 		mfa_req.reqid = s->id;
