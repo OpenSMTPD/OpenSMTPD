@@ -24,6 +24,7 @@
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -91,10 +92,16 @@ table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind,
 	if (kind != K_USERINFO)
 		return -1;
 
-	pw = getpwnam(key);
-	if (pw == NULL)
-		return 0;
+	errno = 0;
+	do {
+		pw = getpwnam(key);
+	} while (pw == NULL && errno == EINTR);
 
+	if (pw == NULL) {
+		if (errno)
+			return -1;
+		return 0;
+	}
 	if (ret == NULL)
 		return 1;
 
