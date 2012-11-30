@@ -618,6 +618,7 @@ smtp_io(struct io *io, int evt)
 		    s->id, ssl_to_text(s->io.ssl));
 		s->flags |= SF_SECURE;
 		s->kickcount = 0;
+		s->phase = PHASE_INIT;
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
 			smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
@@ -940,7 +941,7 @@ smtp_command(struct smtp_session *s, char *line)
 		break;
 
 	case CMD_RSET:
-		if (s->phase != PHASE_TRANSACTION) {
+		if (s->phase != PHASE_TRANSACTION && s->phase != PHASE_SETUP) {
 			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
@@ -949,11 +950,13 @@ smtp_command(struct smtp_session *s, char *line)
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RSET,
 		    0, 0, -1, &mfa_req, sizeof(mfa_req));
 
-		queue_req.reqid = s->id;
-		queue_req.evpid = s->evp.id;
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-		    &queue_req, sizeof(queue_req));
+		if (queue_req.evpid) {
+			queue_req.reqid = s->id;
+			queue_req.evpid = s->evp.id;
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
+			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+			    &queue_req, sizeof(queue_req));
+		}
 
 		s->phase = PHASE_SETUP;
 		if (s->ofile)
