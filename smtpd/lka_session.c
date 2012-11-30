@@ -76,24 +76,18 @@ static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
 #define	MAXTOKENLEN	128
 
 void
-lka_session(struct envelope *envelope)
+lka_session(uint64_t id, struct envelope *envelope)
 {
 	struct lka_session	*lks;
 	struct expandnode	 xn;
-/*
-	char			 buf[1024];
 
-	envelope_dump_buffer(envelope, buf, sizeof buf);
-	log_debug("DFFFFFFUUUU>KKKK\n%s", buf);
-*/
 	lks = xcalloc(1, sizeof(*lks), "lka_session");
-	lks->id = generate_uid();
+	lks->id = id;
 	RB_INIT(&lks->expand.tree);
 	TAILQ_INIT(&lks->deliverylist);
 	tree_xset(&sessions, lks->id, lks);
 
-	memmove(&lks->envelope, envelope, sizeof *envelope);
-	/*lks->envelope = *envelope;*/
+	lks->envelope = *envelope;
 
 	TAILQ_INIT(&lks->nodes);
 	bzero(&xn, sizeof xn);
@@ -171,10 +165,10 @@ lka_resume(struct lka_session *lks)
 	}
     error:
 	if (lks->error) {
-		resp.reqid = lks->envelope.session_id;
+		resp.reqid = lks->id;
 		resp.status = lks->error;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_LKA_EXPAND_RCPT,
-		    0, 0, -1, &resp, sizeof resp);
+		imsg_compose_event(env->sc_ievs[PROC_SMTP],
+		    IMSG_LKA_EXPAND_RCPT, 0, 0, -1, &resp, sizeof resp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			free(ep);
@@ -228,7 +222,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		ep = lks->envelope;
 		ep.dest = xn->u.mailaddr;
 		if (xn->parent) /* nodes with parent are forward addresses */
-			ep.flags |= DF_INTERNAL;
+			ep.flags |= EF_INTERNAL;
 		rule = ruleset_match(&ep);
 		if (rule == NULL || rule->r_decision == R_REJECT) {
 			lks->error = (errno == EAGAIN) ?

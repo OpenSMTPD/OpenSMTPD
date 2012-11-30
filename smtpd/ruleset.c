@@ -47,7 +47,7 @@ ruleset_match(const struct envelope *evp)
 	struct rule	*r;
 	int		 ret;
 
-	if (evp->flags & DF_INTERNAL)
+	if (evp->flags & EF_INTERNAL)
 		ss = NULL;
 
 	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
@@ -55,7 +55,7 @@ ruleset_match(const struct envelope *evp)
 		if (r->r_tag[0] != '\0' && strcmp(r->r_tag, evp->tag) != 0)
 			continue;
 
-		if (ss != NULL && !(evp->flags & DF_AUTHENTICATED)) {
+		if (ss != NULL && !(evp->flags & EF_AUTHENTICATED)) {
 			ret = ruleset_check_source(r->r_sources, ss);
 			if (ret == -1) {
 				errno = EAGAIN;

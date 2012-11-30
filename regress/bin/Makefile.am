@@ -1,6 +1,8 @@
 bin_PROGRAMS=		smtpscript
 
-smtpscript_SOURCES=	smtpscript.c iobuf.c parse.y
+smtpscript_SOURCES=	smtpscript.c iobuf.c parse.y ssl.c
+
+smtpscript_CFLAGS=	-DIO_SSL
 
 # compat
 smtpscript_SOURCES+=	$(top_srcdir)/smtpd/log.c

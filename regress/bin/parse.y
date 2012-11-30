@@ -112,7 +112,7 @@ typedef struct {
 
 %token  INCLUDE PORT REPEAT RANDOM NOOP
 %token	PROC TESTCASE NAME NO_AUTOCONNECT EXPECT FAIL SKIP
-%token	CALL CONNECT DISCONNECT SLEEP WRITE WRITELN
+%token	CALL CONNECT DISCONNECT STARTTLS SLEEP WRITE WRITELN
 %token	SMTP OK TEMPFAIL PERMFAIL HELO
 %token	ERROR ARROW
 %token	<v.string>	STRING
@@ -256,6 +256,9 @@ statement	: block
 		}
 		| DISCONNECT {
 			$$ = op_disconnect(peek_op());
+		}
+		| STARTTLS {
+			$$ = op_starttls(peek_op());
 		}
 		| WRITE STRING {
 			$$ = op_write(peek_op(), $2, strlen($2));
@@ -406,6 +409,7 @@ lookup(char *s)
 		{ "expect",		EXPECT },
 		{ "fail",		FAIL },
 		{ "helo",		HELO },
+		{ "name",		NAME },
 		{ "no-autoconnect",	NO_AUTOCONNECT },
 		{ "noop",		NOOP },
 		{ "ok",			OK },
@@ -417,6 +421,7 @@ lookup(char *s)
 		{ "skip",		SKIP },
 		{ "sleep",		SLEEP },
 		{ "smtp",		SMTP },
+		{ "starttls",		STARTTLS },
 		{ "tempfail",		TEMPFAIL },
 		{ "test-case",		TESTCASE },
 		{ "write",		WRITE },
