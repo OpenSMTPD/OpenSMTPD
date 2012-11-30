@@ -139,7 +139,7 @@ struct smtp_session {
 	((s)->listener->flags & F_AUTH && (s)->flags & SF_SECURE && \
 	 !((s)->flags & SF_AUTHENTICATED))
 
-static int smtp_mailaddr(struct mailaddr *, char *, int);
+static int smtp_mailaddr(struct mailaddr *, char *, int, char **);
 static void smtp_session_init(void);
 static void smtp_io(struct io *, int);
 static void smtp_enter_state(struct smtp_session *, int);
@@ -899,16 +899,15 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (smtp_parse_mail_args(s, args) == -1)
-			break;
+		smtp_message_reset(s, 1);
 
-		if (smtp_mailaddr(&s->evp.sender, args, 1) == 0) {
+		if (smtp_mailaddr(&s->evp.sender, args, 1, &args) == 0) {
 			smtp_reply(s, "553 Sender address syntax error");
 			break;
 		}
+		if (args && smtp_parse_mail_args(s, args) == -1)
+			break;
 
-
-		smtp_message_reset(s, 1);
 		mfa_req.reqid = s->id;
 		mfa_req.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_MAIL,
@@ -929,7 +928,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (smtp_mailaddr(&s->evp.rcpt, args, 0) == 0) {
+		if (smtp_mailaddr(&s->evp.rcpt, args, 0, &args) == 0) {
 			smtp_reply(s,
 			    "553 Recipient address syntax error");
 			break;
@@ -1395,15 +1394,18 @@ smtp_free(struct smtp_session *s, const char * reason)
 }
 
 static int
-smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom)
+smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 {
-	char   *p;
-	size_t	len;
+	char   *p, *e;
 
-	len = strlen(line);
-	if (*line != '<' || line[len - 1] != '>')
+	if (*line != '<')
 		return (0);
-	line[len - 1] = '\0';
+
+	e = strchr(line, '>');
+	if (e == NULL)
+		return (0);
+	*e = '\0';
+	*args = e + 1;
 
 	if (!email_to_mailaddr(maddr, line + 1))
 		return (0);
