@@ -825,6 +825,11 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
+		if (!(s->listener->flags & F_STARTTLS)) {
+			smtp_reply(s, "503 Command not supported");
+			break;
+		}
+
 		if (s->flags & SF_SECURE) {
 			smtp_reply(s, "503 Channel already secured");
 			break;
