@@ -504,11 +504,6 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		    " on a line by itself");
 
 		tree_xset(&wait_mfa_data, s->id, s);
-		/* By-pass mfa for message body if no filter registered. */
-		if (!(env->filtermask & HOOK_DATALINE)) {
-			log_debug("debug: disabling mfa for msg body");
-			s->msgflags |= MF_MFA_DATA_END;
-		}
 		io_reload(&s->io);
 		return;
 
@@ -650,8 +645,11 @@ smtp_io(struct io *io, int evt)
 		/* Message body */
 		if (s->state == STATE_BODY && strcmp(line, ".")) {
 			/* Discard data if the mfa already ended the message */
-			if (s->msgflags & MF_MFA_DATA_END)
+			/* XXX not for now */
+			/*
+			  if (s->msgflags & MF_MFA_DATA_END)
 				goto nextline;
+			*/
 			if (s->msgflags & MF_SMTP_HEADERS_END)
 				smtp_message_dataline(s, line);
 			else {
@@ -1180,7 +1178,7 @@ smtp_message_headerline(struct smtp_session *s, char *line)
 		req.reqid = s->id;
 		if (strlcpy(req.u.buffer, line, sizeof(req.u.buffer))
 		    >= (sizeof req.u.buffer))
-			fatalx("overflow in smtp_body()");
+			fatalx("overflow in smtp_message_headerline()");
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_HEADERLINE,
 		    0, 0, -1, &req, sizeof(req));
 	}
@@ -1209,7 +1207,7 @@ smtp_message_dataline(struct smtp_session *s, char *line)
 		req.reqid = s->id;
 		if (strlcpy(req.u.buffer, line, sizeof(req.u.buffer))
 		    >= (sizeof req.u.buffer))
-			fatalx("overflow in smtp_body()");
+			fatalx("overflow in smtp_message_dataline()");
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_DATALINE,
 		    0, 0, -1, &req, sizeof(req));
 	}
@@ -1265,9 +1263,6 @@ smtp_message_end(struct smtp_session *s)
 	struct queue_req_msg	queue_req;
 
 	log_debug("debug: %p: end of message, msgflags=0x%04x", s, s->msgflags);
-
-	if (!(s->msgflags & MF_SMTP_DATA_END && s->msgflags & MF_MFA_DATA_END))
-		return;
 
 	tree_xpop(&wait_mfa_data, s->id);
 
