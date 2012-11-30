@@ -145,4 +145,3 @@ test-case {
 	writeln "MAIL FROM:<opensmtpd@opensmtpd.org> SIZE=1000"
 	expect smtp ok
 }
-
