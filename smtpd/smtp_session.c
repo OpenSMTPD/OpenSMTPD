@@ -553,7 +553,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		smtp_reply(s, "250 %08x Message accepted for delivery",
 		    evpid_to_msgid(s->evp.id));
 		log_info("smtp-in: Accepted message %08x on session %016"PRIx64
-		    ": from=<%s%s%s>, size=%ld, nrcpts=%zu, proto=%s",
+		    ": from=<%s%s%s>, size=%zu, nrcpts=%zu, proto=%s",
 		    evpid_to_msgid(s->evp.id),
 		    s->id,
 		    s->evp.sender.user,
@@ -1149,9 +1149,6 @@ void
 smtp_enter_state(struct smtp_session *s, int newstate)
 {
 	struct mfa_req_msg	mfa_req;
-	int			oldstate;
-
-	oldstate = s->state;
 
 	log_trace(TRACE_SMTP, "smtp: %p: %s -> %s", s,
 	    smtp_strstate(s->state),
