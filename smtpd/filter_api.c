@@ -62,14 +62,8 @@ static struct filter_internals {
 	void (*headerline_cb)(uint64_t, struct filter_headerline *, void *);
 	void *headerline_cb_arg;
 
-	void (*eoh_cb)(uint64_t, void *);
-	void *eoh_cb_arg;
-
 	void (*dataline_cb)(uint64_t, struct filter_dataline *, void *);
 	void *dataline_cb_arg;
-
-	void (*eom_cb)(uint64_t, void *);
-	void *eom_cb_arg;
 
 	void (*quit_cb)(uint64_t, void *);
 	void *quit_cb_arg;
@@ -153,22 +147,10 @@ filter_api_register_headerline_callback(void (*cb)(uint64_t, struct filter_heade
 }
 
 void
-filter_api_register_eoh_callback(void (*cb)(uint64_t, void *), void *cb_arg)
-{
-	filter_register_callback(HOOK_EOH, cb, cb_arg);
-}
-
-void
 filter_api_register_dataline_callback(void (*cb)(uint64_t, struct filter_dataline *, void *),
     void *cb_arg)
 {
 	filter_register_callback(HOOK_DATALINE, cb, cb_arg);
-}
-
-void
-filter_api_register_eom_callback(void (*cb)(uint64_t, void *), void *cb_arg)
-{
-	filter_register_callback(HOOK_EOM, cb, cb_arg);
 }
 
 void
@@ -281,17 +263,9 @@ filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
 		fi.headerline_cb = cb;
 		fi.headerline_cb_arg = cb_arg;
 		break;
-	case HOOK_EOH:
-		fi.eoh_cb = cb;
-		fi.eoh_cb_arg = cb_arg;
-		break;
 	case HOOK_DATALINE:
 		fi.dataline_cb = cb;
 		fi.dataline_cb_arg = cb_arg;
-		break;
-	case HOOK_EOM:
-		fi.eom_cb = cb;
-		fi.eom_cb_arg = cb_arg;
 		break;
 	case HOOK_QUIT:
 		fi.quit_cb = cb;
@@ -388,15 +362,9 @@ filter_handler(int fd, short event, void *p)
 			fi.headerline_cb(session->fm.id, &session->fm.u.headerline,
 			    fi.headerline_cb_arg);
 			break;
-		case HOOK_EOH:
-			fi.eoh_cb(session->fm.id, fi.eoh_cb_arg);
-			break;
 		case HOOK_DATALINE:
 			fi.dataline_cb(session->fm.id, &session->fm.u.dataline,
 			    fi.dataline_cb_arg);
-			break;
-		case HOOK_EOM:
-			fi.eom_cb(session->fm.id, fi.eom_cb_arg);
 			break;
 		case HOOK_QUIT:
 			fi.quit_cb(session->fm.id, fi.quit_cb_arg);

@@ -46,8 +46,6 @@ static void mfa_filter(struct mfa_req_msg *, enum filter_hook);
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct mfa_resp_msg	resp;
-	struct lka_resp_msg    *lka_resp;
 	struct filter	       *filter;
 
 	if (iev->proc == PROC_SMTP) {
@@ -67,11 +65,11 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_MFA_DATA:
 			mfa_filter(imsg->data, HOOK_DATA);
 			return;
-		case IMSG_MFA_EOH:
-			mfa_filter(imsg->data, HOOK_EOH);
-			return;
 		case IMSG_MFA_DATALINE:
 			mfa_filter(imsg->data, HOOK_DATALINE);
+			return;
+		case IMSG_MFA_HEADERLINE:
+			mfa_filter(imsg->data, HOOK_HEADERLINE);
 			return;
 		case IMSG_MFA_QUIT:
 			mfa_filter(imsg->data, HOOK_QUIT);
@@ -81,23 +79,6 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		case IMSG_MFA_RSET:
 			mfa_filter(imsg->data, HOOK_RSET);
-			return;
-		}
-	}
-
-	if (iev->proc == PROC_LKA) {
-		switch (imsg->hdr.type) {
-		case IMSG_LKA_EXPAND_RCPT:
-			lka_resp = imsg->data;
-			resp.reqid = lka_resp->reqid;
-			if (lka_resp->status == LKA_OK)
-				resp.status = MFA_OK;
-			else if (lka_resp->status == LKA_TEMPFAIL)
-				resp.status = MFA_TEMPFAIL;
-			else if (lka_resp->status == LKA_PERMFAIL)
-				resp.status = MFA_PERMFAIL;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_MFA_RCPT, 0, 0, -1, &resp, sizeof (resp));
 			return;
 		}
 	}
@@ -172,7 +153,6 @@ mfa(void)
 	struct peer peers[] = {
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_SMTP,	imsg_dispatch },
-		{ PROC_LKA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch },
 	};
 

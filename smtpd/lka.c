@@ -50,7 +50,7 @@ static int lka_encode_credentials(char *, size_t, struct table_credentials *);
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct envelope		*envelope;
+	struct lka_expand_msg	*req;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
@@ -58,9 +58,9 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	int			ret;
 	const char		*k;
 	const char		*v;
-	static struct dict		*tables_dict;
-	static struct tree		*tables_tree;
-	static struct table		*table_last;
+	static struct dict	*tables_dict;
+	static struct tree	*tables_tree;
+	static struct table	*table_last;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_PTR) {
@@ -68,11 +68,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 	}
 
-	if (iev->proc == PROC_MFA) {
+	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_EXPAND_RCPT:
-			envelope = imsg->data;
-			lka_session(envelope);
+			req = imsg->data;
+			lka_session(req->reqid, &req->evp);
 			return;
 		}
 	}
@@ -207,7 +207,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			/* start fulfilling requests */
 			event_add(&env->sc_ievs[PROC_MTA]->ev, NULL);
-			event_add(&env->sc_ievs[PROC_MFA]->ev, NULL);
 			event_add(&env->sc_ievs[PROC_SMTP]->ev, NULL);
 			return;
 
@@ -279,7 +278,6 @@ lka(void)
 
 	struct peer peers[] = {
 		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_MFA,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
 		{ PROC_SMTP,	imsg_dispatch },
 		{ PROC_MTA,	imsg_dispatch },
@@ -330,7 +328,6 @@ lka(void)
 
 	/* ignore them until we get our config */
 	event_del(&env->sc_ievs[PROC_MTA]->ev);
-	event_del(&env->sc_ievs[PROC_MFA]->ev);
 	event_del(&env->sc_ievs[PROC_SMTP]->ev);
 
 	if (event_dispatch() < 0)

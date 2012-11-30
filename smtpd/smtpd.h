@@ -133,6 +133,7 @@ enum imsg_type {
 	IMSG_CTL_FAIL,
 	IMSG_CTL_SHUTDOWN,
 	IMSG_CTL_VERBOSE,
+
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
 	IMSG_CONF_LISTENER,
@@ -158,9 +159,7 @@ enum imsg_type {
 	IMSG_MFA_RCPT,
 	IMSG_MFA_DATA,
 	IMSG_MFA_HEADERLINE,
-	IMSG_MFA_EOH,
 	IMSG_MFA_DATALINE,
-	IMSG_MFA_EOM,
 	IMSG_MFA_QUIT,
 	IMSG_MFA_CLOSE,
 	IMSG_MFA_RSET,
@@ -197,7 +196,6 @@ enum imsg_type {
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 	IMSG_PARENT_KILL_MDA,
-
 	IMSG_PARENT_AUTHENTICATE,
 	IMSG_PARENT_SEND_CONFIG,
 
@@ -342,15 +340,10 @@ enum delivery_type {
 	D_BOUNCE
 };
 
-enum delivery_status {
-	DS_PERMFAILURE	= 1,
-	DS_TEMPFAILURE	= 2,
-};
-
 enum delivery_flags {
 	DF_AUTHENTICATED	= 0x1,
 	DF_BOUNCE		= 0x4,
-	DF_INTERNAL		= 0x8, /* internal expansion forward */
+	DF_INTERNAL		= 0x8, /* Internal expansion forward */
 
 	/* runstate, not saved on disk */
 
@@ -467,33 +460,6 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTHTABLE
 };
 
-
-enum session_state {
-	S_NEW = 0,
-	S_CONNECTED,
-	S_INIT,
-	S_GREETED,
-	S_TLS,
-	S_AUTH_INIT,
-	S_AUTH_USERNAME,
-	S_AUTH_PASSWORD,
-	S_AUTH_FINALIZE,
-	S_RSET,
-	S_HELO,
-	S_MAIL_MFA,
-	S_MAIL_QUEUE,
-	S_MAIL,
-	S_RCPT_MFA,
-	S_RCPT,
-	S_DATA,
-	S_DATA_QUEUE,
-	S_DATACONTENT,
-	S_DONE,
-	S_QUIT,
-	S_CLOSE
-};
-#define STATE_COUNT	22
-
 struct ssl {
 	SPLAY_ENTRY(ssl)	 ssl_nodes;
 	char			 ssl_name[PATH_MAX];
@@ -528,47 +494,6 @@ struct auth {
 	char		 pass[MAX_LINE_SIZE + 1];
 	int		 success;
 };
-
-enum session_flags {
-	F_EHLO		= 0x01,
-	F_8BITMIME	= 0x02,
-	F_SECURE	= 0x04,
-	F_AUTHENTICATED	= 0x08,
-	F_WAITIMSG	= 0x10,
-	F_ZOMBIE	= 0x20,
-	F_KICK		= 0x40,
-	F_DATAINBODY	= 0x80
-};
-
-struct session {
-	SPLAY_ENTRY(session)		 s_nodes;
-	uint64_t			 s_id;
-
-	struct iobuf			 s_iobuf;
-	struct io			 s_io;
-
-	enum session_flags		 s_flags;
-	enum session_state		 s_state;
-	struct sockaddr_storage		 s_ss;
-	char				 s_hostname[MAXHOSTNAMELEN];
-	struct event			 s_ev;
-	struct listener			*s_l;
-	struct timeval			 s_tv;
-	struct envelope			 s_msg;
-	short				 s_nresp[STATE_COUNT];
-
-	char				 cmd[SMTP_LINE_MAX];
-	size_t				 kickcount;
-	size_t				 mailcount;
-	size_t				 rcptcount;
-	long				 s_datalen;
-
-	struct auth			 s_auth;
-	int				 s_dstatus;
-
-	FILE				*datafp;
-};
-
 
 struct smtpd {
 	char				sc_conffile[MAXPATHLEN];
@@ -609,7 +534,6 @@ struct smtpd {
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
-	SPLAY_HEAD(sessiontree, session)	 sc_sessions;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
@@ -629,16 +553,6 @@ struct smtpd {
 #define	TRACE_STAT	0x0080
 #define	TRACE_PROFILING	0x0100
 #define	TRACE_RULES	0x0200
-
-struct submit_status {
-	int				 code; /**/
-	union submit_path {
-		struct mailaddr		 maddr; /**/
-		char			 errormsg[MAX_LINE_SIZE + 1]; /**/
-		char			 dataline[MAX_LINE_SIZE + 1]; /**/
-		char			 headerline[MAX_LINE_SIZE + 1]; /**/
-	}				 u;
-};
 
 struct forward_req {
 	uint64_t			 id;
@@ -1004,6 +918,11 @@ struct mfa_resp_msg {
 	}			u;
 };
 
+struct lka_expand_msg {
+	uint64_t		reqid;
+	struct envelope		evp;
+};
+
 enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,
@@ -1110,7 +1029,7 @@ pid_t lka(void);
 
 
 /* lka_session.c */
-void lka_session(struct envelope *);
+void lka_session(uint64_t, struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 
@@ -1185,19 +1104,13 @@ time_t scheduler_compute_schedule(struct scheduler_info *);
 
 /* smtp.c */
 pid_t smtp(void);
-void smtp_resume(void);
-void smtp_destroy(struct session *);
+void smtp_collect(void);
 
 
 /* smtp_session.c */
-void session_init(struct listener *, struct session *);
-int session_cmp(struct session *, struct session *);
-void session_io(struct io *, int);
-void session_pickup(struct session *, struct submit_status *);
-void session_destroy(struct session *, const char *);
-void session_respond(struct session *, char *, ...)
-	__attribute__((format (printf, 2, 3)));
-SPLAY_PROTOTYPE(sessiontree, session, s_nodes, session_cmp);
+int smtp_session(struct listener *, int, const struct sockaddr_storage *,
+    const char *);
+void smtp_session_imsg(struct imsgev *, struct imsg *);
 
 
 /* smtpd.c */

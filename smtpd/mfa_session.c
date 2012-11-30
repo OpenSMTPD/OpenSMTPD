@@ -180,11 +180,9 @@ mfa_session_proceed(struct mfa_session *ms)
 
 	case HOOK_QUIT:
 	case HOOK_CLOSE:
-	case HOOK_RSET:
 	case HOOK_DATA:
-	case HOOK_EOH:
+	case HOOK_RSET:
 		break;
-
 	default:
 		fatalx("mfa_session_proceed: no such state");
 	}
@@ -220,13 +218,6 @@ mfa_session_done(struct mfa_session *ms)
 		resp.u.mailaddr = ms->data.evp.sender;
 		break;
 	case HOOK_RCPT:
-		if (ms->status == FILTER_OK) {
-			imsg_compose_event(env->sc_ievs[PROC_LKA],
-			    IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
-			    &ms->data.evp, sizeof(ms->data.evp));
-                        mfa_session_destroy(ms);
-                        return;
-		}
 		resp.u.mailaddr = ms->data.evp.rcpt;
 		imsg_type = IMSG_MFA_RCPT;
 		break;
@@ -253,14 +244,9 @@ mfa_session_done(struct mfa_session *ms)
 		imsg_type = IMSG_MFA_QUIT;
 		break;
 	case HOOK_CLOSE:
+	case HOOK_RSET:
 		mfa_session_destroy(ms);
 		return;
-	case HOOK_RSET:
-		imsg_type = IMSG_MFA_RSET;
-		break;
-	case HOOK_EOH:
-		imsg_type = IMSG_MFA_EOH;
-		break;
 	default:
 		fatalx("mda_session_done: unsupported state");
 	}

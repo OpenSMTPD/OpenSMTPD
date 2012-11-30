@@ -74,7 +74,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
-			msgid = *(uint32_t*)(imsg->data);
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
 			queue_message_incoming_delete(msgid);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
