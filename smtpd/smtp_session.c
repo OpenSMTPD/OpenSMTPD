@@ -587,6 +587,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			    "on session %016"PRIx64, user, s->id);
 			smtp_reply(s, "535 Authentication failed");
 		}
+		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);
 		return;
 	}
