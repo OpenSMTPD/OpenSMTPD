@@ -250,12 +250,13 @@ smtp_session(struct listener *listener, int sock,
 void
 smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct queue_resp_msg	*queue_resp;
-	struct queue_req_msg	 queue_req;
-	struct mfa_resp_msg	*mfa_resp;
-	struct lka_expand_msg	 lka_req;
-	struct lka_resp_msg	*lka_resp;
+	struct queue_resp_msg	*resp_queue;
+	struct lka_resp_msg	*resp_lka;
+	struct mfa_resp_msg	*resp_mfa;
 	struct dns_resp_msg	*resp_dns;
+	struct queue_req_msg	 req_queue;
+	struct lka_expand_msg	 req_lka;
+
 	struct smtp_session	*s;
 	struct auth		*auth;
 	void			*ssl;
@@ -274,9 +275,9 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_LKA_EXPAND_RCPT:
-		lka_resp = imsg->data;
-		s = tree_xpop(&wait_lka_rcpt, lka_resp->reqid);
-		switch (lka_resp->status) {
+		resp_lka = imsg->data;
+		s = tree_xpop(&wait_lka_rcpt, resp_lka->reqid);
+		switch (resp_lka->status) {
 		case LKA_OK:
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
@@ -297,9 +298,9 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_MFA_CONNECT:
-		mfa_resp = imsg->data;
-		s = tree_xpop(&wait_mfa_connect, mfa_resp->reqid);
-		if (mfa_resp->status != MFA_OK) {
+		resp_mfa = imsg->data;
+		s = tree_xpop(&wait_mfa_connect, resp_mfa->reqid);
+		if (resp_mfa->status != MFA_OK) {
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": rejected by filter", s->id);
 			smtp_free(s, "rejected by filter");
@@ -317,10 +318,10 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_MFA_HELO:
-		mfa_resp = imsg->data;
-		s = tree_xpop(&wait_mfa_helo, mfa_resp->reqid);
-		if (mfa_resp->status != MFA_OK) {
-			smtp_reply(s, "%d Hello rejected", mfa_resp->code);
+		resp_mfa = imsg->data;
+		s = tree_xpop(&wait_mfa_helo, resp_mfa->reqid);
+		if (resp_mfa->status != MFA_OK) {
+			smtp_reply(s, "%d Hello rejected", resp_mfa->code);
 			io_reload(&s->io);
 			return;
 		}
@@ -348,28 +349,28 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_MFA_MAIL:
-		mfa_resp = imsg->data;
-		s = tree_xpop(&wait_mfa_mail, mfa_resp->reqid);
-		if (mfa_resp->status != MFA_OK) {
-			smtp_reply(s, "%d Sender rejected", mfa_resp->code);
+		resp_mfa = imsg->data;
+		s = tree_xpop(&wait_mfa_mail, resp_mfa->reqid);
+		if (resp_mfa->status != MFA_OK) {
+			smtp_reply(s, "%d Sender rejected", resp_mfa->code);
 			io_reload(&s->io);
 			return;
 		}
-		s->evp.sender = mfa_resp->u.mailaddr;
+		s->evp.sender = resp_mfa->u.mailaddr;
 
-		queue_req.reqid = s->id;
-		queue_req.evpid = 0;
+		req_queue.reqid = s->id;
+		req_queue.evpid = 0;
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-		    &queue_req, sizeof(queue_req));
+		    &req_queue, sizeof(req_queue));
 		tree_xset(&wait_queue_msg, s->id, s);
 		return;
 
 	case IMSG_MFA_RCPT:
-		mfa_resp = imsg->data;
-		s = tree_xpop(&wait_mfa_rcpt, mfa_resp->reqid);
-		if (mfa_resp->status != MFA_OK) {
-			smtp_reply(s, "%d Recipient rejected", mfa_resp->code);
+		resp_mfa = imsg->data;
+		s = tree_xpop(&wait_mfa_rcpt, resp_mfa->reqid);
+		if (resp_mfa->status != MFA_OK) {
+			smtp_reply(s, "%d Recipient rejected", resp_mfa->code);
 			s->rcptfail += 1;
 			if (s->rcptfail >= SMTP_KICK_RCPTFAIL) {
 				log_info("smtp-in: Ending session %016" PRIx64
@@ -380,22 +381,22 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		}
 
-		s->evp.rcpt = mfa_resp->u.mailaddr;
-		lka_req.reqid = s->id;
-		lka_req.evp = s->evp;
+		s->evp.rcpt = resp_mfa->u.mailaddr;
+		req_lka.reqid = s->id;
+		req_lka.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_EXPAND_RCPT,
-		    0, 0, -1, &lka_req, sizeof(lka_req));
+		    0, 0, -1, &req_lka, sizeof(req_lka));
 		tree_xset(&wait_lka_rcpt, s->id, s);
 		return;
 
 	case IMSG_MFA_DATALINE:
-		mfa_resp = imsg->data;
+		resp_mfa = imsg->data;
 
-		if (mfa_resp->status != MFA_OK) {
-			s = tree_pop(&wait_mfa_data, mfa_resp->reqid);
+		if (resp_mfa->status != MFA_OK) {
+			s = tree_pop(&wait_mfa_data, resp_mfa->reqid);
 			if (s == NULL)
 				return;	/* dead session */
-			s->msgcode = mfa_resp->code;
+			s->msgcode = resp_mfa->code;
 			s->msgflags |= MF_MFA_DATA_END;
 			s->msgflags |= MF_ERROR_MFA;
 			if (s->msgflags & MF_WAIT_MFA_EOH) {
@@ -406,8 +407,8 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		}
 
-		if (!strcmp(mfa_resp->u.buffer, ".")) {
-			s = tree_pop(&wait_mfa_data, mfa_resp->reqid);
+		if (!strcmp(resp_mfa->u.buffer, ".")) {
+			s = tree_pop(&wait_mfa_data, resp_mfa->reqid);
 			if (s == NULL)
 				return;	/* dead session */
 			s->msgflags |= MF_MFA_DATA_END;
@@ -415,14 +416,14 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		}
 
-		s = tree_get(&wait_mfa_data, mfa_resp->reqid);
+		s = tree_get(&wait_mfa_data, resp_mfa->reqid);
 		if (s == NULL)
 			return;	/* dead session */
 
-		smtp_message_write(s, mfa_resp->u.buffer);
+		smtp_message_write(s, resp_mfa->u.buffer);
 
 		if (s->msgflags & MF_WAIT_MFA_EOH &&
-		    mfa_resp->u.buffer[0] == '\0') {
+		    resp_mfa->u.buffer[0] == '\0') {
 			s->msgflags |= MF_MFA_HEADERS_END;
 			s->msgflags &= ~MF_WAIT_MFA_EOH;
 			io_resume(&s->io, IO_PAUSE_IN);
@@ -431,10 +432,10 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_CREATE_MESSAGE:
-		queue_resp = imsg->data;
-		s = tree_xpop(&wait_queue_msg, queue_resp->reqid);
-		if (queue_resp->success) {
-			s->evp.id = queue_resp->evpid;
+		resp_queue = imsg->data;
+		s = tree_xpop(&wait_queue_msg, resp_queue->reqid);
+		if (resp_queue->success) {
+			s->evp.id = resp_queue->evpid;
 			s->rcptcount = 0;
 			s->phase = PHASE_TRANSACTION;
 			smtp_reply(s, "250 Ok");
@@ -445,9 +446,9 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_MESSAGE_FILE:
-		queue_resp = imsg->data;
-		s = tree_xpop(&wait_queue_fd, queue_resp->reqid);
-		if (!queue_resp->success) {
+		resp_queue = imsg->data;
+		s = tree_xpop(&wait_queue_fd, resp_queue->reqid);
+		if (!resp_queue->success) {
 			smtp_reply(s, "421 Temporary Error");
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
@@ -509,19 +510,19 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_SUBMIT_ENVELOPE:
-		queue_resp = imsg->data;
-		s = tree_xget(&wait_lka_rcpt, queue_resp->reqid);
-		if (queue_resp->success)
+		resp_queue = imsg->data;
+		s = tree_xget(&wait_lka_rcpt, resp_queue->reqid);
+		if (resp_queue->success)
 			s->destcount++;
 		else
 			s->msgflags |= MF_QUEUE_ENVELOPE_FAIL;
 		return;
 
 	case IMSG_QUEUE_COMMIT_ENVELOPES:
-		queue_resp = imsg->data;
-		s = tree_xpop(&wait_lka_rcpt, queue_resp->reqid);
+		resp_queue = imsg->data;
+		s = tree_xpop(&wait_lka_rcpt, resp_queue->reqid);
 		/* This cannot fail. */
-		if (!queue_resp->success)
+		if (!resp_queue->success)
 			fatalx("commit failed: not supposed to happen");
 
 		if (s->msgflags & MF_QUEUE_ENVELOPE_FAIL) {
@@ -542,9 +543,9 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_COMMIT_MESSAGE:
-		queue_resp = imsg->data;
-		s = tree_xpop(&wait_queue_commit, queue_resp->reqid);
-		if (!queue_resp->success) {
+		resp_queue = imsg->data;
+		s = tree_xpop(&wait_queue_commit, resp_queue->reqid);
+		if (!resp_queue->success) {
 			smtp_reply(s, "421 Temporary failure");
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
@@ -732,8 +733,8 @@ smtp_io(struct io *io, int evt)
 static void
 smtp_command(struct smtp_session *s, char *line)
 {
-	struct queue_req_msg	 queue_req;
-	struct mfa_req_msg	 mfa_req;
+	struct queue_req_msg	 req_queue;
+	struct mfa_req_msg	 req_mfa;
 	char			*args, *eom, *method;
 	int			 cmd, i;
 
@@ -812,10 +813,10 @@ smtp_command(struct smtp_session *s, char *line)
 
 		smtp_message_reset(s, 1);
 
-		mfa_req.reqid = s->id;
-		mfa_req.u.evp = s->evp;
+		req_mfa.reqid = s->id;
+		req_mfa.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_HELO,
-		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		    0, 0, -1, &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_helo, s->id, s);
 		break;
 	/*
@@ -914,10 +915,10 @@ smtp_command(struct smtp_session *s, char *line)
 		if (args && smtp_parse_mail_args(s, args) == -1)
 			break;
 
-		mfa_req.reqid = s->id;
-		mfa_req.u.evp = s->evp;
+		req_mfa.reqid = s->id;
+		req_mfa.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_MAIL,
-		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		    0, 0, -1, &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_mail, s->id, s);
 		break;
 	/*
@@ -945,10 +946,10 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		mfa_req.reqid = s->id;
-		mfa_req.u.evp = s->evp;
+		req_mfa.reqid = s->id;
+		req_mfa.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RCPT,
-		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		    0, 0, -1, &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_rcpt, s->id, s);
 		break;
 
@@ -957,17 +958,17 @@ smtp_command(struct smtp_session *s, char *line)
 			smtp_reply(s, "503 Command not allowed at this point.");
 			break;
 		}
-		mfa_req.reqid = s->id;
-		mfa_req.u.evp = s->evp;
+		req_mfa.reqid = s->id;
+		req_mfa.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RSET,
-		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		    0, 0, -1, &req_mfa, sizeof(req_mfa));
 
 		if (s->evp.id) {
-			queue_req.reqid = s->id;
-			queue_req.evpid = s->evp.id;
+			req_queue.reqid = s->id;
+			req_queue.evpid = s->evp.id;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-			    &queue_req, sizeof(queue_req));
+			    &req_queue, sizeof(req_queue));
 		}
 
 		s->phase = PHASE_SETUP;
@@ -986,11 +987,11 @@ smtp_command(struct smtp_session *s, char *line)
 			smtp_reply(s, "503 5.5.1 No recipient specified");
 			break;
 		}
-		queue_req.reqid = s->id;
-		queue_req.evpid = s->evp.id;
+		req_queue.reqid = s->id;
+		req_queue.evpid = s->evp.id;
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, &queue_req,
-		    sizeof(queue_req));
+		    IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, &req_queue,
+		    sizeof(req_queue));
 		tree_xset(&wait_queue_fd, s->id, s);
 		break;
 	/*
@@ -1150,7 +1151,7 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 void
 smtp_enter_state(struct smtp_session *s, int newstate)
 {
-	struct mfa_req_msg	mfa_req;
+	struct mfa_req_msg	req_mfa;
 
 	log_trace(TRACE_SMTP, "smtp: %p: %s -> %s", s,
 	    smtp_strstate(s->state),
@@ -1166,10 +1167,10 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 	case STATE_CONNECTED:
 		log_info("smtp-in: New session %016"PRIx64" from host %s [%s]",
 		    s->id, s->hostname, ss_to_text(&s->ss));
-		mfa_req.reqid = s->id;
-		mfa_req.u.evp = s->evp;
+		req_mfa.reqid = s->id;
+		req_mfa.u.evp = s->evp;
 		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_CONNECT,
-		    0, 0, -1, &mfa_req, sizeof(mfa_req));
+		    0, 0, -1, &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_connect, s->id, s);
 		break;
 
@@ -1271,7 +1272,7 @@ smtp_message_write(struct smtp_session *s, char *line)
 static void
 smtp_message_end(struct smtp_session *s)
 {
-	struct queue_req_msg	queue_req;
+	struct queue_req_msg	req_queue;
 
 	log_debug("debug: %p: end of message, msgflags=0x%04x", s, s->msgflags);
 
@@ -1283,13 +1284,13 @@ smtp_message_end(struct smtp_session *s)
 		s->msgflags |= MF_ERROR_IO;
 	s->ofile = NULL;
 
-	queue_req.reqid = s->id;
-	queue_req.evpid = s->evp.id;
+	req_queue.reqid = s->id;
+	req_queue.evpid = s->evp.id;
 
 	if (s->msgflags & (MF_ERROR_SIZE | MF_ERROR_MFA)) {
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-		    &queue_req, sizeof(queue_req));
+		    &req_queue, sizeof(req_queue));
 		if (s->msgflags & MF_ERROR_SIZE)
 			smtp_reply(s, "554 Message too big");
 		else
@@ -1306,7 +1307,7 @@ smtp_message_end(struct smtp_session *s)
 	}
 
 	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_COMMIT_MESSAGE,
-	    0, 0, -1, &queue_req, sizeof(queue_req));
+	    0, 0, -1, &req_queue, sizeof(req_queue));
 	tree_xset(&wait_queue_commit, s->id, s);
 }
 
@@ -1365,25 +1366,25 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 static void
 smtp_free(struct smtp_session *s, const char * reason)
 {
-	struct queue_req_msg	queue_req;
-	struct mfa_req_msg	mfa_req;
+	struct queue_req_msg	req_queue;
+	struct mfa_req_msg	req_mfa;
 
 	log_debug("debug: smtp: %p: deleting session: %s", s, reason);
 
 	tree_pop(&wait_mfa_data, s->id);
 
 	if (s->evp.id) {
-		queue_req.reqid = s->id;
-		queue_req.evpid = s->evp.id;
+		req_queue.reqid = s->id;
+		req_queue.evpid = s->evp.id;
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-		    &queue_req, sizeof(queue_req));
+		    &req_queue, sizeof(req_queue));
 	}
 
-	mfa_req.reqid = s->id;
-	mfa_req.u.evp = s->evp;
+	req_mfa.reqid = s->id;
+	req_mfa.u.evp = s->evp;
 	imsg_compose_event(env->sc_ievs[PROC_MFA],
-	    IMSG_MFA_CLOSE, 0, 0, -1, &mfa_req, sizeof(mfa_req));
+	    IMSG_MFA_CLOSE, 0, 0, -1, &req_mfa, sizeof(req_mfa));
 
 	if (s->ofile != NULL)
 		fclose(s->ofile);
