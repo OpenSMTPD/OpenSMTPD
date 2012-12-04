@@ -240,7 +240,7 @@ smtp_session(struct listener *listener, int sock,
 		strlcpy(s->hostname, hostname, sizeof(s->hostname));
 		smtp_enter_state(s, STATE_CONNECTED);
 	} else {
-		dns_query_ptr(&s->ss, s->id);
+		dns_query_ptr(s->id, (struct sockaddr *)&s->ss);
 		tree_xset(&wait_lka_ptr, s->id, s);
 	}
 
@@ -255,20 +255,21 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct mfa_resp_msg	*mfa_resp;
 	struct lka_expand_msg	 lka_req;
 	struct lka_resp_msg	*lka_resp;
+	struct dns_resp_msg	*resp_dns;
 	struct smtp_session	*s;
 	struct auth		*auth;
-	struct dns		*dns;
 	void			*ssl;
 	char			 user[MAXLOGNAME];
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
-		dns = imsg->data;
-		s = tree_xpop(&wait_lka_ptr, dns->id);
-		if (dns->error)
+		resp_dns = imsg->data;
+		s = tree_xpop(&wait_lka_ptr, resp_dns->reqid);
+		if (resp_dns->error)
 			strlcpy(s->hostname, "<unknown>", sizeof s->hostname);
 		else
-			strlcpy(s->hostname, dns->host, sizeof s->hostname);
+			strlcpy(s->hostname, resp_dns->u.ptr,
+			    sizeof s->hostname);
 		smtp_enter_state(s, STATE_CONNECTED);
 		return;
 
