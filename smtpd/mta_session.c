@@ -168,7 +168,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	uint64_t		 id;
 	struct mta_session	*s;
-	struct dns		*dns;
+	struct dns_resp_msg	*resp_dns;
 
 	switch (imsg->hdr.type) {
 	case IMSG_QUEUE_MESSAGE_FD:
@@ -195,12 +195,12 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		return;
 
 	case IMSG_DNS_PTR:
-		dns = imsg->data;
-		s = tree_xpop(&waitptr, dns->id);
-		if (dns->error)
+		resp_dns = imsg->data;
+		s = tree_xpop(&waitptr, resp_dns->reqid);
+		if (resp_dns->error)
 			s->mx->hostname = xstrdup("<unknown>", "mta: ptr");
 		else
-			s->mx->hostname = xstrdup(dns->host, "mta: ptr");
+			s->mx->hostname = xstrdup(resp_dns->u.ptr, "mta: ptr");
 		waitq_run(&s->mx->hostname, s->mx->hostname);
 		return;
 
@@ -640,7 +640,7 @@ mta_io(struct io *io, int evt)
 		if (s->mx->hostname)
 			mta_on_ptr(NULL, s, s->mx->hostname);
 		else if (waitq_wait(&s->mx->hostname, mta_on_ptr, s)) {
-			dns_query_ptr(&s->mx->sa, s->id);
+			dns_query_ptr(s->id, (struct sockaddr *)&s->mx->sa);
 			tree_xset(&waitptr, s->id, s);
 		}
 		break;

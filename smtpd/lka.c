@@ -66,9 +66,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	static struct tree	*tables_tree;
 	static struct table	*table_last;
 
-	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
-	    imsg->hdr.type == IMSG_DNS_PTR) {
-		dns_async(iev, imsg->hdr.type, imsg->data);
+	if (imsg->hdr.type == IMSG_DNS_HOST ||
+	    imsg->hdr.type == IMSG_DNS_PTR ||
+	    imsg->hdr.type == IMSG_DNS_MX ||
+	    imsg->hdr.type == IMSG_DNS_MX_PREFERENCE) {
+		dns_imsg(iev, imsg);
 		return;
 	}
 

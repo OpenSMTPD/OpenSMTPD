@@ -78,22 +78,24 @@ static int mta_route_cmp(struct mta_route *, struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
 static struct mta_route_tree routes;
-static struct tree mxlists;
-static struct tree secrets;
 static struct tree batches;
+static struct tree wait_mx;
+static struct tree wait_preference;
+static struct tree wait_secret;
 
 void
 mta_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct dns_resp_msg	*resp_dns;
 	struct mta_route	*route;
 	struct mta_task		*task;
 	struct mta_mxlist	*mxl;
-	struct mta_mx		*mx;
+	struct mta_mx		*mx, *imx;
+
 	struct tree		*batch;
 	struct secret		*secret;
 	struct envelope		*e;
 	struct ssl		*ssl;
-	struct dns		*dns;
 	uint64_t		 id;
 
 	if (iev->proc == PROC_QUEUE) {
@@ -170,7 +172,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_LKA_SECRET:
 			secret = imsg->data;
-			route = tree_xpop(&secrets, secret->id);
+			route = tree_xpop(&wait_secret, secret->id);
 			route->status &= ~ROUTE_WAIT_SECRET;
 			if (secret->secret[0])
 				route->secret = xstrdup(secret->secret,
@@ -179,35 +181,41 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_HOST:
-			dns = imsg->data;
-			mxl = tree_xget(&mxlists, dns->id);
+			resp_dns = imsg->data;
+			mxl = tree_xget(&wait_mx, resp_dns->reqid);
 			mx = xcalloc(1, sizeof *mx, "mta: mx");
-			mx->sa = dns->ss;
-			mx->preference = dns->preference;
+			mx->sa = resp_dns->u.host.ss;
+			mx->preference = resp_dns->u.host.preference;
+			TAILQ_FOREACH(imx, &mxl->mxs, entry) {
+				if (imx->preference >= mx->preference) {
+					TAILQ_INSERT_BEFORE(imx, mx, entry);
+					return;
+				}
+			}
 			TAILQ_INSERT_TAIL(&mxl->mxs, mx, entry);
 			return;
 
 		case IMSG_DNS_HOST_END:
 			/* LKA responded to DNS lookup. */
-			dns = imsg->data;
-			mxl = tree_xpop(&mxlists, dns->id);
+			resp_dns = imsg->data;
+			mxl = tree_xpop(&wait_mx, resp_dns->reqid);
 			route = mxl->route;
 			route->status &= ~ROUTE_WAIT_MX;
-			if (!dns->error)
+			if (resp_dns->error == DNS_OK)
 				mxl->error = NULL;
-			else if (dns->error == DNS_RETRY) {
+			else if (resp_dns->error == DNS_RETRY) {
 				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
 				mxl->error = "Temporary failure in MX lookup";
 			}
-			else if (dns->error == DNS_EINVAL) {
+			else if (resp_dns->error == DNS_EINVAL) {
 				mxl->errortype = IMSG_QUEUE_DELIVERY_PERMFAIL;
 				mxl->error = "Invalid domain name";
 			}
-			else if (dns->error == DNS_ENONAME) {
+			else if (resp_dns->error == DNS_ENONAME) {
 				mxl->errortype = IMSG_QUEUE_DELIVERY_PERMFAIL;
 				mxl->error = "Domain does not exist";
 			}
-			else if (dns->error == DNS_ENOTFOUND) {
+			else if (resp_dns->error == DNS_ENOTFOUND) {
 				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
 				mxl->error = "No MX found for domain";
 			}
@@ -222,6 +230,26 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_debug("debug: %s -> preference %i",
 				    ss_to_text(&mx->sa), mx->preference);
 			log_debug("debug: ---");
+			mta_route_drain(route);
+			return;
+
+		case IMSG_DNS_MX_PREFERENCE:
+			/* LKA responded to DNS lookup. */
+			resp_dns = imsg->data;
+			route = tree_xpop(&wait_preference, resp_dns->reqid);
+			if (resp_dns->error) {
+				log_debug("debug: couldn't find backup "
+				    "preference for route %s",
+				    mta_route_to_text(route));
+			}
+			else {
+				route->backuppref = resp_dns->u.preference;
+				log_debug("debug: found backup preference %i "
+				    "for route %s",
+				    route->backuppref,
+				    mta_route_to_text(route));
+			}
+			route->status &= ~ROUTE_WAIT_PREFERENCE;
 			mta_route_drain(route);
 			return;
 
@@ -337,8 +365,9 @@ mta(void)
 
 	SPLAY_INIT(&routes);
 	tree_init(&batches);
-	tree_init(&secrets);
-	tree_init(&mxlists);
+	tree_init(&wait_secret);
+	tree_init(&wait_mx);
+	tree_init(&wait_preference);
 
 	imsg_callback = mta_imsg;
 	event_init();
@@ -430,6 +459,13 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 			 * close the session.
 			 */
 			if (limit)
+				break;
+
+			/*
+			 *  If we are a backup MX, do not relay to MXs with
+			 *  a greater preference value.
+			 */
+			if (mx->preference >= route->backuppref)
 				break;
 
 			/*
@@ -583,6 +619,7 @@ mta_route_for(struct envelope *e)
 		route->hostname = xstrdup(key.hostname, "mta: hostname");
 		route->backupname = key.backupname ?
 		    xstrdup(key.backupname, "mta: backupname") : NULL;
+		route->backuppref = -1;
 		route->port = key.port;
 		route->cert = key.cert ? xstrdup(key.cert, "mta: cert") : NULL;
 		route->auth = key.auth ? xstrdup(key.auth, "mta: auth") : NULL;
@@ -620,7 +657,7 @@ mta_route_query_secret(struct mta_route *route)
 	if (route->auth == NULL)
 		return;
 
-	tree_xset(&secrets, route->id, route);
+	tree_xset(&wait_secret, route->id, route);
 	route->status |= ROUTE_WAIT_SECRET;
 
 	bzero(&secret, sizeof(secret));
@@ -639,14 +676,23 @@ mta_route_query_mx(struct mta_route *route)
 	mxl = xcalloc(1, sizeof *mxl, "mta: mxlist");
 	TAILQ_INIT(&mxl->mxs);
 	mxl->route = route;
-	tree_xset(&mxlists, route->id, mxl);
+	tree_xset(&wait_mx, route->id, mxl);
 	route->status |= ROUTE_WAIT_MX;
 
 	if (route->flags & ROUTE_MX)
-		dns_query_host(route->hostname, route->port, route->id);
+		dns_query_host(route->id, route->hostname);
 	else
-		dns_query_mx(route->hostname, route->backupname, 0, route->id);
+		dns_query_mx(route->id, route->hostname);
+
+	if (route->backupname) {
+		tree_xset(&wait_preference, route->id, route);
+		route->status |= ROUTE_WAIT_PREFERENCE;
+		dns_query_mx_preference(route->id, route->hostname,
+		    route->backupname);
+	}
 }
+
+
 
 static void
 mta_route_free(struct mta_route *route)
@@ -713,8 +759,7 @@ mta_route_flush(struct mta_route *route, int fail, const char *error)
 static void
 mta_route_drain(struct mta_route *route)
 {
-	int		 m;
-	const char	*w;
+	char		 buf[64];
 
 	log_debug("debug: mta: draining route %s "
 	    "(tasks=%i, refs=%i, sessions=%i/%i)",
@@ -722,16 +767,16 @@ mta_route_drain(struct mta_route *route)
 	    route->ntask, route->refcount, route->nsession, route->maxsession);
 
 	/* Wait until we are ready to proceed */
-	if (route->status & (ROUTE_WAIT_MX | ROUTE_WAIT_SECRET)) {
-		m = route->status & (ROUTE_WAIT_MX | ROUTE_WAIT_SECRET);
-		if (m == ROUTE_WAIT_MX)
-			w = "MX";
-		else if (m == ROUTE_WAIT_SECRET)
-			w = "secret";
-		else
-			w = "MX+secret";
+	if (route->status & ROUTE_WAITMASK) {
+		buf[0] = '\0';
+		if (route->status & ROUTE_WAIT_MX)
+			strlcat(buf, "MX ", sizeof buf);
+		if (route->status & ROUTE_WAIT_PREFERENCE)
+			strlcat(buf, "preference ", sizeof buf);
+		if (route->status & ROUTE_WAIT_SECRET)
+			strlcat(buf, "secret ", sizeof buf);
 		log_debug("debug: mta: route %s waiting for %s",
-		    mta_route_to_text(route), w);
+		    mta_route_to_text(route), buf);
 		return;
 	}
 

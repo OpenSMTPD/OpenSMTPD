@@ -226,8 +226,9 @@ enum imsg_type {
 
 	IMSG_DNS_HOST,
 	IMSG_DNS_HOST_END,
-	IMSG_DNS_MX,
 	IMSG_DNS_PTR,
+	IMSG_DNS_MX,
+	IMSG_DNS_MX_PREFERENCE,
 
 	IMSG_STAT_INCREMENT,
 	IMSG_STAT_DECREMENT,
@@ -581,26 +582,6 @@ struct forward_req {
 	char				 as_user[MAXLOGNAME];
 };
 
-enum dns_status {
-	DNS_OK = 0,
-	DNS_RETRY,
-	DNS_EINVAL,
-	DNS_ENONAME,
-	DNS_ENOTFOUND,
-};
-
-struct dns {
-	uint64_t		 id;
-	char			 host[MAXHOSTNAMELEN];
-	char			 backup[MAXHOSTNAMELEN];
-	int			 preference;
-	int			 port;
-	int			 error;
-	int			 type;
-	struct imsgev		*asker;
-	struct sockaddr_storage	 ss;
-};
-
 struct secret {
 	uint64_t		 id;
 	char			 tablename[MAX_PATH_SIZE];
@@ -668,14 +649,18 @@ struct mta_route {
 	uint8_t			 flags;
 	char			*hostname;
 	char			*backupname;
+	int			 backuppref;
 	uint16_t		 port;
 	char			*cert;
 	char			*auth;
 	void			*ssl;
 
 #define ROUTE_WAIT_MX		0x01
-#define ROUTE_WAIT_SECRET	0x02
-#define ROUTE_CLOSED		0x04
+#define ROUTE_WAIT_PREFERENCE	0x02
+#define ROUTE_WAIT_SECRET	0x04
+#define ROUTE_WAITMASK		0x07
+
+#define ROUTE_CLOSED		0x08
 	int			 status;
 
 	char			*secret;
@@ -939,6 +924,40 @@ struct mfa_resp_msg {
 	}			u;
 };
 
+enum dns_error {
+	DNS_OK = 0,
+	DNS_RETRY,
+	DNS_EINVAL,
+	DNS_ENONAME,
+	DNS_ENOTFOUND,
+};
+
+struct dns_req_msg {
+	uint64_t			reqid;
+	union {
+		char			host[MAXHOSTNAMELEN];
+		char			domain[MAXHOSTNAMELEN];
+		struct sockaddr_storage	ss;
+		struct {
+			char		domain[MAXHOSTNAMELEN];
+			char		mx[MAXHOSTNAMELEN];
+		}			mxpref;
+	}				u;
+};
+
+struct dns_resp_msg {
+	uint64_t				reqid;
+	int					error;
+	union {
+		struct {
+			struct sockaddr_storage	ss;
+			int			preference;
+		}				host;
+		int				preference;
+		char				ptr[MAXHOSTNAMELEN];
+	} u;
+};
+
 struct lka_expand_msg {
 	uint64_t		reqid;
 	struct envelope		evp;
@@ -1007,10 +1026,11 @@ struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
 /* dns.c */
-void dns_query_host(char *, int, uint64_t);
-void dns_query_mx(char *, char *, int, uint64_t);
-void dns_query_ptr(struct sockaddr_storage *, uint64_t);
-void dns_async(struct imsgev *, int, struct dns *);
+void dns_query_host(uint64_t, const char *);
+void dns_query_ptr(uint64_t, const struct sockaddr *);
+void dns_query_mx(uint64_t, const char *);
+void dns_query_mx_preference(uint64_t, const char *, const char *);
+void dns_imsg(struct imsgev *, struct imsg *);
 
 
 /* enqueue.c */
