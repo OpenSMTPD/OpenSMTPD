@@ -455,7 +455,8 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 			 *  If we are a backup MX, do not relay to MXs with
 			 *  a greater preference value.
 			 */
-			if (mx->preference >= route->backuppref)
+			if (route->backuppref != -1 &&
+			    mx->preference >= route->backuppref)
 				break;
 
 			/*
