@@ -283,6 +283,7 @@ struct table {
 	void				*t_handle;
 	struct table_backend		*t_backend;
 	void				*t_payload;
+	char				 t_cfgtable[MAXPATHLEN];
 };
 
 struct table_backend {
@@ -958,7 +959,7 @@ struct lka_resp_msg {
 int aliases_get(struct table *, struct expand *, const char *);
 int aliases_virtual_check(struct table *, const struct mailaddr *);
 int aliases_virtual_get(struct table *, struct expand *, const struct mailaddr *);
-int alias_parse(struct expandnode *, char *);
+int alias_parse(struct expandnode *, const char *);
 
 
 /* auth.c */
@@ -1191,6 +1192,9 @@ void	table_open_all(void);
 void	table_close_all(void);
 void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
+void	table_set_config(struct table *, struct table *);
+struct table	*table_get_config(struct table *);
+const void	*table_get(struct table *, const char *);
 
 
 /* util.c */

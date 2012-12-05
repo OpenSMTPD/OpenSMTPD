@@ -22,7 +22,8 @@ SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c table.c dict.c tree.c
 SRCS+=	table_static.c
 SRCS+=	table_db.c
 SRCS+=	table_getpwnam.c
+SRCS+=	table_sqlite.c
 
-DPADD+= ${LIBUTIL} ${LIBCRYPTO}
-LDADD+= -lutil -lcrypto
+DPADD+= ${LIBUTIL} ${LIBCRYPTO} ${LIBSQLITE3}
+LDADD+= -lutil -lcrypto -lsqlite3
 .include <bsd.prog.mk>

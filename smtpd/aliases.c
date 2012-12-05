@@ -224,25 +224,28 @@ aliases_expand_include(struct expand *expand, const char *filename)
 }
 
 int
-alias_parse(struct expandnode *alias, char *line)
+alias_parse(struct expandnode *alias, const char *line)
 {
-	size_t l;
-	char *wsp;
+	size_t	l;
+	char	*wsp;
+	char	entry[MAX_LINE_SIZE];
+
+	strlcpy(entry, line, sizeof entry);
 
 	/* remove ending whitespaces */
-	wsp = line + strlen(line);
-	while (wsp != line) {
+	wsp = entry + strlen(entry);
+	while (wsp != entry) {
 		if (*wsp != '\0' && !isspace((int)*wsp))
 			break;
 		*wsp-- = '\0';
 	}
 
-	l = strlen(line);
-	if (alias_is_include(alias, line, l) ||
-	    alias_is_filter(alias, line, l) ||
-	    alias_is_filename(alias, line, l) ||
-	    alias_is_address(alias, line, l) ||
-	    alias_is_username(alias, line, l))
+	l = strlen(entry);
+	if (alias_is_include(alias, entry, l) ||
+	    alias_is_filter(alias, entry, l) ||
+	    alias_is_filename(alias, entry, l) ||
+	    alias_is_address(alias, entry, l) ||
+	    alias_is_username(alias, entry, l))
 		return (1);
 
 	return (0);
