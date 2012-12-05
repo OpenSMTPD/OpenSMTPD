@@ -199,7 +199,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct expandnode	node;
 	struct table	       *t;
 	int			r;
-	struct table_userinfo  *tu = NULL;
+	struct userinfo	       *tu = NULL;
 
 	if (xn->depth >= EXPAND_DEPTH) {
 		log_debug("debug: lka_expand: node too deep.");
@@ -356,7 +356,7 @@ static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
 	struct table		*t;
-	struct table_userinfo	*tu;
+	struct userinfo		*tu;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
 	const char		*tag;
@@ -390,25 +390,25 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		/* set username */
 		if ((xn->type == EXPAND_FILTER || xn->type == EXPAND_FILENAME)
 		    && xn->alias) {
-			strlcpy(ep->agent.mda.user.username, SMTPD_USER,
-			    sizeof(ep->agent.mda.user.username));
+			strlcpy(ep->agent.mda.userinfo.username, SMTPD_USER,
+			    sizeof(ep->agent.mda.userinfo.username));
 		}
 		else {
 			xn2 = lka_find_ancestor(xn, EXPAND_USERNAME);
-			strlcpy(ep->agent.mda.user.username, xn2->u.user,
-			    sizeof(ep->agent.mda.user.username));
+			strlcpy(ep->agent.mda.userinfo.username, xn2->u.user,
+			    sizeof(ep->agent.mda.userinfo.username));
 		}
 
 		t = table_findbyname("<getpwnam>");
 		tu = NULL;
-		r = table_lookup(t, ep->agent.mda.user.username, K_USERINFO,
+		r = table_lookup(t, ep->agent.mda.userinfo.username, K_USERINFO,
 		    (void **)&tu);
 		if (r <= 0) {
 			lks->error = (r == -1) ? LKA_TEMPFAIL : LKA_PERMFAIL;
 			free(ep);
 			return;
 		}
-		memcpy(&ep->agent.mda.user, tu, sizeof(ep->agent.mda.user));
+		memcpy(&ep->agent.mda.userinfo, tu, sizeof(ep->agent.mda.userinfo));
 		free(tu);
 
 		if (xn->type == EXPAND_FILENAME) {
@@ -441,7 +441,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->error = LKA_TEMPFAIL;
 			log_warnx("warn: format string error while"
 			    " expanding for user %s",
-			    ep->agent.mda.user.username);
+			    ep->agent.mda.userinfo.username);
 			free(ep);
 			return;
 		}
@@ -524,9 +524,9 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	else if (! strcasecmp("sender.domain", rtoken))
 		string = ep->sender.domain;
 	else if (! strcasecmp("user.username", rtoken))
-		string = ep->agent.mda.user.username;
+		string = ep->agent.mda.userinfo.username;
 	else if (! strcasecmp("user.directory", rtoken))
-		string = ep->agent.mda.user.directory;
+		string = ep->agent.mda.userinfo.directory;
 	else if (! strcasecmp("dest.user", rtoken))
 		string = ep->dest.user;
 	else if (! strcasecmp("dest.domain", rtoken))
@@ -596,10 +596,10 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep)
 	/* special case: ~/ only allowed expanded at the beginning */
 	if (strncmp(pbuf, "~/", 2) == 0) {
 		tmpret = snprintf(ptmp, sizeof tmpbuf, "%s/",
-		    ep->agent.mda.user.directory);
+		    ep->agent.mda.userinfo.directory);
 		if (tmpret >= sizeof tmpbuf) {
 			log_warnx("warn: user directory for %s too large",
-			    ep->agent.mda.user.directory);
+			    ep->agent.mda.userinfo.directory);
 			return 0;
 		}
 		ret  += tmpret;

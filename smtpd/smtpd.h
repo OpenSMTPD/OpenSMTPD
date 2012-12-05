@@ -100,11 +100,9 @@
 
 typedef uint32_t	objid_t;
 
-#define	MAXPASSWORDLEN	128
 struct userinfo {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
-	char password[MAXPASSWORDLEN];
 	uid_t uid;
 	gid_t gid;
 };
@@ -149,6 +147,7 @@ enum imsg_type {
 	IMSG_LKA_UPDATE_TABLE,
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
+	IMSG_LKA_USERINFO,
 
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
@@ -343,7 +342,7 @@ enum delivery_type {
 
 struct delivery_mda {
 	enum action_type	method;
-	struct userinfo		user;
+	struct userinfo		userinfo;
 	char			buffer[EXPAND_BUFFER];
 };
 
@@ -577,6 +576,8 @@ struct deliver {
 	char			from[PATH_MAX];
 	char			user[MAXLOGNAME];
 	short			mode;
+
+	struct userinfo		userinfo;
 };
 
 struct filter {
@@ -721,16 +722,6 @@ struct table_domain {
 
 struct table_relayhost {
 	struct relayhost	relay;
-};
-
-
-/* XXX - must be == to struct userinfo ! */
-struct table_userinfo {
-	char username[MAXLOGNAME];
-	char directory[MAXPATHLEN];
-	char password[MAXPASSWORDLEN];
-	uid_t uid;
-	gid_t gid;
 };
 
 enum queue_op {
@@ -982,6 +973,16 @@ enum lka_resp_status {
 struct lka_resp_msg {
 	uint64_t		reqid;
 	enum lka_resp_status	status;
+};
+
+struct lka_userinfo_req_msg {
+	char			username[MAXLOGNAME];
+};
+
+struct lka_userinfo_resp_msg {
+	enum lka_resp_status	status;
+	char			username[MAXLOGNAME];
+	struct userinfo		userinfo;
 };
 
 

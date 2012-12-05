@@ -58,6 +58,7 @@ struct mda_user {
 	TAILQ_HEAD(, envelope)	envelopes;
 	int			runnable;
 	size_t			running;
+	struct userinfo		userinfo;
 };
 
 struct mda_session {
@@ -99,6 +100,41 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint16_t		 msg;
 	uint32_t		 id;
 	int			 n;
+	struct lka_userinfo_req_msg	lka_userinfo_req;
+	struct lka_userinfo_resp_msg   *lka_userinfo_resp;
+	struct userinfo		       *userinfo;
+
+	if (iev->proc == PROC_LKA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_USERINFO:
+			lka_userinfo_resp = imsg->data;
+			name = lka_userinfo_resp->username;
+			TAILQ_FOREACH(u, &users, entry)
+				if (!strcmp(name, u->name))
+					break;
+			if (u == NULL)
+				return;
+
+			if (lka_userinfo_resp->status == LKA_OK) {
+				u->userinfo = lka_userinfo_resp->userinfo;
+				if (u->runnable == 0 && u->running < MDA_MAXSESSUSER) {
+					log_debug("debug: mda: \"%s\" immediatly "
+					    "runnable", u->name);
+					TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
+					u->runnable = 1;
+				}
+			}
+			else if (lka_userinfo_resp->status == LKA_TEMPFAIL) {
+				/* tell queue we tempfailed */
+			}
+			else if (lka_userinfo_resp->status == LKA_PERMFAIL) {
+				/* tell queue we permfailed */
+			}
+			
+			mda_drain();
+			return;
+		}
+	}
 
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -117,7 +153,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 			}
 
-			name = ep->agent.mda.user.username;
+			name = ep->agent.mda.userinfo.username;
 			TAILQ_FOREACH(u, &users, entry)
 				if (!strcmp(name, u->name))
 					break;
@@ -138,19 +174,18 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				strlcpy(u->name, name, sizeof u->name);
 				TAILQ_INSERT_TAIL(&users, u, entry);
 			}
-			if (u->runnable == 0 && u->running < MDA_MAXSESSUSER) {
-				log_debug("debug: mda: \"%s\" immediatly "
-				    "runnable", u->name);
-				TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
-				u->runnable = 1;
-			}
 
 			stat_increment("mda.pending", 1);
 
 			evpcount += 1;
 			u->evpcount += 1;
 			TAILQ_INSERT_TAIL(&u->envelopes, ep, entry);
-			mda_drain();
+
+			strlcpy(lka_userinfo_req.username, name, sizeof lka_userinfo_req.username);
+			imsg_compose_event(env->sc_ievs[PROC_LKA],
+			    IMSG_LKA_USERINFO, 0, 0, -1, &lka_userinfo_req,
+			    sizeof lka_userinfo_req);
+
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FD:
@@ -204,20 +239,27 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			/* request parent to fork a helper process */
 			ep = s->evp;
 			d_mda = &s->evp->agent.mda;
+			userinfo = &s->user->userinfo;
 			switch (d_mda->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;
-				strlcpy(deliver.user, d_mda->user.username,
+				deliver.userinfo = *userinfo;
+				strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof(deliver.to));
 				break;
 
 			case A_MBOX:
+				/* MBOX is a special case as we MUST deliver as root,
+				 * just override the uid.
+				 */
 				deliver.mode = A_MBOX;
+				deliver.userinfo = *userinfo;
+				deliver.userinfo.uid = 0;
 				strlcpy(deliver.user, "root",
 				    sizeof(deliver.user));
-				strlcpy(deliver.to, d_mda->user.username,
+				strlcpy(deliver.to, userinfo->username,
 				    sizeof(deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
 				    "%s@%s", ep->sender.user,
@@ -226,7 +268,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				strlcpy(deliver.user, d_mda->user.username,
+				deliver.userinfo = d_mda->userinfo;
+				strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof(deliver.to));
@@ -234,7 +277,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				strlcpy(deliver.user, d_mda->user.username,
+				deliver.userinfo = d_mda->userinfo;
+				strlcpy(deliver.user, userinfo->username,
 				    sizeof deliver.user);
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
@@ -346,6 +390,7 @@ mda(void)
 	struct peer peers[] = {
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
+		{ PROC_LKA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch }
 	};
 

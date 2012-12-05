@@ -908,27 +908,15 @@ forkmda(struct imsgev *iev, uint32_t id,
 	struct child	*child;
 	pid_t		 pid;
 	int		 n, allout, pipefd[2];
-	struct table		*t;
-	struct table_userinfo	*tu;
-	int		 r;
 
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
-
-	t = table_findbyname("<getpwnam>");
-	r = table_lookup(t, deliver->user, K_USERINFO, (void **)&tu);
-	if (r <= 0) {
-		n = snprintf(ebuf, sizeof ebuf, "getpwnam: %s",
-		    errno ? strerror(errno) : "no such user");
-		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
-		return;
-	}
 
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL)
 		return;
 
-	if (tu->uid == 0 && ! db->allow_root) {
+	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
 		n = snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
 		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
@@ -936,7 +924,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	}
 
 	/* lower privs early to allow fork fail due to ulimit */
-	if (seteuid(tu->uid) < 0)
+	if (seteuid(deliver->userinfo.uid) < 0)
 		fatal("smtpd: forkmda: cannot lower privileges");
 
 	if (pipe(pipefd) < 0) {
@@ -975,7 +963,6 @@ forkmda(struct imsgev *iev, uint32_t id,
 
 	/* parent passes the child fd over to mda */
 	if (pid > 0) {
-		free(tu);
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		child = child_add(pid, CHILD_MDA, NULL);
@@ -990,7 +977,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 #define error(m) { perror(m); _exit(1); }
 	if (seteuid(0) < 0)
 		error("forkmda: cannot restore privileges");
-	if (chdir(tu->directory) < 0 && chdir("/") < 0)
+	if (chdir(deliver->userinfo.directory) < 0 && chdir("/") < 0)
 		error("chdir");
 	if (dup2(pipefd[0], STDIN_FILENO) < 0 ||
 	    dup2(allout, STDOUT_FILENO) < 0 ||
@@ -998,9 +985,9 @@ forkmda(struct imsgev *iev, uint32_t id,
 		error("forkmda: dup2");
 	if (closefrom(STDERR_FILENO + 1) < 0)
 		error("closefrom");
-	if (setgroups(1, &tu->gid) ||
-	    setresgid(tu->gid, tu->gid, tu->gid) ||
-	    setresuid(tu->uid, tu->uid, tu->uid))
+	if (setgroups(1, &deliver->userinfo.gid) ||
+	    setresgid(deliver->userinfo.gid, deliver->userinfo.gid, deliver->userinfo.gid) ||
+	    setresuid(deliver->userinfo.uid, deliver->userinfo.uid, deliver->userinfo.uid))
 		error("forkmda: cannot drop privileges");
 	if (setsid() < 0)
 		error("setsid");

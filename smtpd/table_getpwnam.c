@@ -84,7 +84,7 @@ static int
 table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind,
     void **ret)
 {
-	struct table_userinfo  *userinfo;
+	struct userinfo	       *userinfo;
 	struct passwd	       *pw;
 	size_t			s;
 
@@ -104,10 +104,6 @@ table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind,
 	s = strlcpy(userinfo->username, pw->pw_name,
 	    sizeof(userinfo->username));
 	if (s >= sizeof(userinfo->username))
-		goto error;
-	s = strlcpy(userinfo->password, pw->pw_passwd,
-	    sizeof(userinfo->password));
-	if (s >= sizeof(userinfo->password))
 		goto error;
 	s = strlcpy(userinfo->directory, pw->pw_dir,
 	    sizeof(userinfo->directory));
