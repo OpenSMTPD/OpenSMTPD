@@ -556,9 +556,13 @@ struct smtpd {
 #define	TRACE_RULES	0x0200
 
 struct forward_req {
-	uint64_t			 id;
-	uint8_t				 status;
-	char				 as_user[MAXLOGNAME];
+	uint64_t			id;
+	uint8_t				status;
+
+	char				user[MAXLOGNAME];
+	uid_t				uid;
+	gid_t				gid;
+	char				directory[MAXPATHLEN];
 };
 
 struct secret {

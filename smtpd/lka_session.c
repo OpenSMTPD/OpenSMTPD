@@ -113,12 +113,12 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	if (fd == -1 && fwreq->status) {
 		/* no .forward, just deliver to local user */
 		log_debug("debug: lka: no .forward for user %s, just deliver",
-		    fwreq->as_user);
+		    fwreq->user);
 		lka_submit(lks, rule, xn);
 	}
 	else if (fd == -1) {
 		log_debug("debug: lka: opening .forward failed for user %s",
-		    fwreq->as_user);
+		    fwreq->user);
 		lks->error = LKA_PERMFAIL;
 	}
 	else {
@@ -128,7 +128,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 		lks->expand.alias = 0;
 		if (forwards_get(fd, &lks->expand) == 0) {
 			log_debug("debug: lka: no forward alias for user %s",
-			    fwreq->as_user);
+			    fwreq->user);
 			lks->error = LKA_PERMFAIL;
 		}
 		close(fd);
@@ -199,6 +199,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct expandnode	node;
 	struct table	       *t;
 	int			r;
+	struct table_userinfo  *tu = NULL;
 
 	if (xn->depth >= EXPAND_DEPTH) {
 		log_debug("debug: lka_expand: node too deep.");
@@ -288,7 +289,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 
 		/* A username should not exceed the size of a system user */
-		if (strlen(xn->u.user) >= sizeof fwreq.as_user) {
+		if (strlen(xn->u.user) >= sizeof fwreq.user) {
 			log_debug("debug: lka_expand: "
 			    "user-part too long to be a system user");
 			lks->error = LKA_PERMFAIL;
@@ -296,7 +297,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 
 		t = table_findbyname("<getpwnam>");
-		r = table_lookup(t, xn->u.user, K_USERINFO, NULL);
+		r = table_lookup(t, xn->u.user, K_USERINFO, (void **)&tu);
 		if (r == -1) {
 			log_debug("debug: lka_expand: "
 			    "backend error while searching user");
@@ -314,10 +315,14 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->rule = rule;
 		lks->node = xn;
 		fwreq.id = lks->id;
-		(void)strlcpy(fwreq.as_user, xn->u.user, sizeof(fwreq.as_user));
+		(void)strlcpy(fwreq.user, tu->username, sizeof(fwreq.user));
+		(void)strlcpy(fwreq.directory, tu->directory, sizeof(fwreq.directory));
+		fwreq.uid = tu->uid;
+		fwreq.gid = tu->gid;
 		imsg_compose_event(env->sc_ievs[PROC_PARENT],
 		    IMSG_PARENT_FORWARD_OPEN, 0, 0, -1, &fwreq, sizeof(fwreq));
 		lks->flags |= F_WAITING;
+		free(tu);
 		break;
 
 	case EXPAND_FILENAME:

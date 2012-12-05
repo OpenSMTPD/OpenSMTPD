@@ -55,7 +55,7 @@ static void parent_send_config_client_certs(void);
 static void parent_send_config_ruleset(int);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct imsgev *, uint32_t, struct deliver *);
-static int parent_forward_open(char *);
+static int parent_forward_open(char *, char *, uid_t, gid_t);
 static void fork_peers(void);
 static struct child *child_add(pid_t, int, const char *);
 
@@ -146,7 +146,8 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORWARD_OPEN:
 			fwreq = imsg->data;
-			fd = parent_forward_open(fwreq->as_user);
+			fd = parent_forward_open(fwreq->user, fwreq->directory,
+			    fwreq->uid, fwreq->gid);
 			fwreq->status = 0;
 			if (fd == -2) {
 				/* no ~/.forward, however it's optional. */
@@ -1196,21 +1197,13 @@ offline_done(void)
 }
 
 static int
-parent_forward_open(char *username)
+parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 {
-	struct table		*t;
-	struct table_userinfo	*tu;
 	char pathname[MAXPATHLEN];
 	int	fd;
-	int	r;
-
-	t = table_findbyname("<getpwnam>");
-	r = table_lookup(t, username, K_USERINFO, (void **)&tu);
-	if (r <= 0)
-		return -1;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
-		tu->directory))
+		directory))
 		fatal("smtpd: parent_forward_open: snprintf");
 
 	fd = open(pathname, O_RDONLY);
@@ -1221,7 +1214,7 @@ parent_forward_open(char *username)
 		return -1;
 	}
 
-	if (! secure_file(fd, pathname, tu->directory, tu->uid, 1)) {
+	if (! secure_file(fd, pathname, directory, uid, 1)) {
 		log_warnx("warn: smtpd: %s: unsecure file", pathname);
 		close(fd);
 		return -1;
