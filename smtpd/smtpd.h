@@ -622,6 +622,19 @@ struct mta_host {
 	int			 refcount;
 };
 
+struct mta_source {
+	SPLAY_ENTRY(mta_source)	 entry;
+	struct sockaddr		*sa;
+	int			 refcount;
+};
+
+struct mta_route {
+	SPLAY_ENTRY(mta_route)	 entry;
+	struct mta_source	*src;
+	struct mta_host		*dst;
+	int			 refcount;
+};
+
 struct mta_mx {
 	TAILQ_ENTRY(mta_mx)	 entry;
 	struct mta_host		*host;

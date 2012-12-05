@@ -83,6 +83,18 @@ static void mta_domain_unref(struct mta_domain *);
 static int mta_domain_cmp(const struct mta_domain *, const struct mta_domain *);
 SPLAY_PROTOTYPE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
 
+SPLAY_HEAD(mta_source_tree, mta_source);
+static struct mta_source *mta_source(const struct sockaddr *);
+static void mta_source_unref(struct mta_source *);
+static int mta_source_cmp(const struct mta_source *, const struct mta_source *);
+SPLAY_PROTOTYPE(mta_source_tree, mta_source, entry, mta_source_cmp);
+
+SPLAY_HEAD(mta_route_tree, mta_route);
+static struct mta_route *mta_route(struct mta_source *, struct mta_host *);
+static void mta_route_unref(struct mta_route *);
+static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
+SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
+
 static inline uint64_t
 ptoid(void * p)
 {
@@ -99,6 +111,8 @@ ptoid(void * p)
 static struct mta_relay_tree	relays;
 static struct mta_domain_tree	domains;
 static struct mta_host_tree	hosts;
+static struct mta_source_tree	sources;
+static struct mta_route_tree	routes;
 
 static struct tree batches;
 
@@ -383,6 +397,9 @@ mta(void)
 	SPLAY_INIT(&relays);
 	SPLAY_INIT(&domains);
 	SPLAY_INIT(&hosts);
+	SPLAY_INIT(&sources);
+	SPLAY_INIT(&routes);
+
 	tree_init(&batches);
 	tree_init(&wait_secret);
 	tree_init(&wait_mx);
@@ -976,3 +993,108 @@ mta_domain_cmp(const struct mta_domain *a, const struct mta_domain *b)
 }
 
 SPLAY_GENERATE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
+
+static struct mta_source *
+mta_source(const struct sockaddr *sa)
+{
+	struct mta_source	key, *s;
+	struct sockaddr_storage	ss;
+
+	if (sa) {
+		memmove(&ss, sa, sa->sa_len);
+		key.sa = (struct sockaddr*)&ss;
+	} else
+		key.sa = NULL;
+	s = SPLAY_FIND(mta_source_tree, &sources, &key);
+
+	if (s == NULL) {
+		s = xcalloc(1, sizeof(*s), "mta_source");
+		if (sa)
+			s->sa = xmemdup(sa, sa->sa_len, "mta_source");
+		SPLAY_INSERT(mta_source_tree, &sources, s);
+		stat_increment("mta.source", 1);
+	}
+
+	s->refcount++;
+	return (s);
+}
+
+static void
+mta_source_unref(struct mta_source *s)
+{
+	if (--s->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_source_tree, &sources, s);
+	free(s->sa);
+	stat_decrement("mta.source", 1);
+}
+
+static int
+mta_source_cmp(const struct mta_source *a, const struct mta_source *b)
+{
+	if (a->sa == NULL)
+		return ((b->sa == NULL) ? 0 : -1);
+	if (b->sa == NULL)
+		return (1);
+	if (a->sa->sa_len < b->sa->sa_len)
+		return (-1);
+	if (a->sa->sa_len > b->sa->sa_len)
+		return (1);
+	return (memcmp(a->sa, b->sa, a->sa->sa_len));
+}
+
+SPLAY_GENERATE(mta_source_tree, mta_source, entry, mta_source_cmp);
+
+static struct mta_route *
+mta_route(struct mta_source *src, struct mta_host *dst)
+{
+	struct mta_route	key, *r;
+
+	key.src = src;
+	key.dst = dst;
+	r = SPLAY_FIND(mta_route_tree, &routes, &key);
+
+	if (r == NULL) {
+		r = xcalloc(1, sizeof(*r), "mta_route");
+		r->src = src;
+		r->dst = dst;
+		SPLAY_INSERT(mta_route_tree, &routes, r);
+		src->refcount++;
+		dst->refcount++;
+		stat_increment("mta.route", 1);
+	}
+
+	r->refcount++;
+	return (r);
+}
+
+static void
+mta_route_unref(struct mta_route *r)
+{
+	if (--r->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_route_tree, &routes, r);
+	mta_source_unref(r->src);
+	mta_host_unref(r->dst);
+	stat_decrement("mta.route", 1);
+}
+
+static int
+mta_route_cmp(const struct mta_route *a, const struct mta_route *b)
+{
+	if (a->src < b->src)
+		return (-1);
+	if (a->src > b->src)
+		return (1);
+
+	if (a->dst < b->dst)
+		return (-1);
+	if (a->dst > b->dst)
+		return (1);
+
+	return (0);
+}
+
+SPLAY_GENERATE(mta_route_tree, mta_route, entry, mta_route_cmp);
