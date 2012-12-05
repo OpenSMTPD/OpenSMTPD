@@ -196,10 +196,11 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		resp_dns = imsg->data;
 		s = tree_xpop(&waitptr, resp_dns->reqid);
 		if (resp_dns->error)
-			s->mx->hostname = xstrdup("<unknown>", "mta: ptr");
+			s->mx->host->ptrname = xstrdup("<unknown>", "mta: ptr");
 		else
-			s->mx->hostname = xstrdup(resp_dns->u.ptr, "mta: ptr");
-		waitq_run(&s->mx->hostname, s->mx->hostname);
+			s->mx->host->ptrname = xstrdup(resp_dns->u.ptr,
+			    "mta: ptr");
+		waitq_run(&s->mx->host->ptrname, s->mx->host->ptrname);
 		return;
 
 	default:
@@ -292,7 +293,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 				continue;
 			}
 			s->mxtried++;
-			ss = s->mx->sa;
+			memmove(&ss, s->mx->host->sa, s->mx->host->sa->sa_len); 
 			sa = (struct sockaddr *)&ss;
 
 			if (s->route->port)
@@ -630,10 +631,10 @@ mta_io(struct io *io, int evt)
 	case IO_CONNECTED:
 		io_set_timeout(io, 300000);
 		io_set_write(io);
-		if (s->mx->hostname)
-			mta_on_ptr(NULL, s, s->mx->hostname);
-		else if (waitq_wait(&s->mx->hostname, mta_on_ptr, s)) {
-			dns_query_ptr(s->id, (struct sockaddr *)&s->mx->sa);
+		if (s->mx->host->ptrname)
+			mta_on_ptr(NULL, s, s->mx->host->ptrname);
+		else if (waitq_wait(&s->mx->host->ptrname, mta_on_ptr, s)) {
+			dns_query_ptr(s->id, s->mx->host->sa);
 			tree_xset(&waitptr, s->id, s);
 		}
 		break;

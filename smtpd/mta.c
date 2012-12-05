@@ -57,25 +57,38 @@ struct mta_mxlist {
 	TAILQ_HEAD(, mta_mx)	 mxs;
 };
 
-SPLAY_HEAD(mta_route_tree, mta_route);
-
 static void mta_imsg(struct imsgev *, struct imsg *);
 static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
 
+SPLAY_HEAD(mta_route_tree, mta_route);
 static struct mta_route *mta_route_for(struct envelope *);
 static void mta_route_query_mx(struct mta_route *);
 static void mta_route_query_secret(struct mta_route *);
 static void mta_route_flush(struct mta_route *, int, const char *);
 static void mta_route_drain(struct mta_route *);
 static void mta_route_free(struct mta_route *);
-static int mta_route_cmp(struct mta_route *, struct mta_route *);
-
-
+static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-static struct mta_route_tree routes;
+SPLAY_HEAD(mta_host_tree, mta_host);
+static struct mta_host *mta_host(const struct sockaddr *);
+static void mta_host_unref(struct mta_host *);
+static int mta_host_cmp(const struct mta_host *, const struct mta_host *);
+SPLAY_PROTOTYPE(mta_host_tree, mta_host, entry, mta_host_cmp);
+
+SPLAY_HEAD(mta_domain_tree, mta_domain);
+static struct mta_domain *mta_domain(char *, int);
+static void mta_domain_unref(struct mta_domain *);
+static int mta_domain_cmp(const struct mta_domain *, const struct mta_domain *);
+SPLAY_PROTOTYPE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
+
+static struct mta_route_tree	routes;
+static struct mta_domain_tree	domains;
+static struct mta_host_tree	hosts;
+
 static struct tree batches;
+
 static struct tree wait_mx;
 static struct tree wait_preference;
 static struct tree wait_secret;
@@ -181,7 +194,8 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp_dns = imsg->data;
 			mxl = tree_xget(&wait_mx, resp_dns->reqid);
 			mx = xcalloc(1, sizeof *mx, "mta: mx");
-			mx->sa = resp_dns->u.host.ss;
+			mx->host = mta_host(
+			    (struct sockaddr*)&resp_dns->u.host.ss);
 			mx->preference = resp_dns->u.host.preference;
 			TAILQ_FOREACH(imx, &mxl->mxs, entry) {
 				if (imx->preference >= mx->preference) {
@@ -225,7 +239,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			    mta_route_to_text(route));
 			TAILQ_FOREACH(mx, &mxl->mxs, entry)
 				log_debug("debug: %s -> preference %i",
-				    ss_to_text(&mx->sa), mx->preference);
+				    sa_to_text(mx->host->sa), mx->preference);
 			log_debug("debug: ---");
 			mta_route_drain(route);
 			return;
@@ -354,6 +368,8 @@ mta(void)
 		fatal("mta: cannot drop privileges");
 
 	SPLAY_INIT(&routes);
+	SPLAY_INIT(&domains);
+	SPLAY_INIT(&hosts);
 	tree_init(&batches);
 	tree_init(&wait_secret);
 	tree_init(&wait_mx);
@@ -384,11 +400,11 @@ mta_mx_to_text(struct mta_mx *mx)
 {
 	static char buf[1024];
 
-	if (mx->hostname)
-		snprintf(buf, sizeof buf, "%s [%s]", mx->hostname,
-			ss_to_text(&mx->sa));
+	if (mx->host->ptrname)
+		snprintf(buf, sizeof buf, "%s [%s]", mx->host->ptrname,
+			sa_to_text(mx->host->sa));
 	else
-		snprintf(buf, sizeof buf, "[%s]", ss_to_text(&mx->sa));
+		snprintf(buf, sizeof buf, "[%s]", sa_to_text(mx->host->sa));
 
 	return (buf);
 }
@@ -526,7 +542,7 @@ mta_route_to_text(struct mta_route *route)
 	char		 tmp[32];
 	const char	*sep = "";
 
-	snprintf(buf, sizeof buf, "%s[", route->hostname);
+	snprintf(buf, sizeof buf, "%s[", route->domain->name);
 
 	if (route->port) {
 		snprintf(tmp, sizeof tmp, "port=%i", (int)route->port);
@@ -580,20 +596,22 @@ mta_route_to_text(struct mta_route *route)
 static struct mta_route *
 mta_route_for(struct envelope *e)
 {
-	struct ssl		ssl;
-	struct mta_route	key, *route;
+	struct ssl		 ssl;
+	struct mta_route	 key, *route;
 
 	bzero(&key, sizeof key);
 
-	key.flags = e->agent.mta.relay.flags;
 	if (e->agent.mta.relay.flags & ROUTE_BACKUP) {
-		key.hostname = e->dest.domain;
+		key.domain = mta_domain(e->dest.domain, 0);
 		key.backupname = e->agent.mta.relay.hostname;
 	} else if (e->agent.mta.relay.hostname[0]) {
-		key.hostname = e->agent.mta.relay.hostname;
+		key.domain = mta_domain(e->agent.mta.relay.hostname, 1);
 		key.flags |= ROUTE_MX;
-	} else
-		key.hostname = e->dest.domain;
+	} else {
+		key.domain = mta_domain(e->agent.mta.relay.hostname, 0);
+	}
+
+	key.flags = e->agent.mta.relay.flags;
 	key.port = e->agent.mta.relay.port;
 	key.cert = e->agent.mta.relay.cert;
 	if (!key.cert[0])
@@ -607,7 +625,7 @@ mta_route_for(struct envelope *e)
 		TAILQ_INIT(&route->tasks);
 		route->id = generate_uid();
 		route->flags = key.flags;
-		route->hostname = xstrdup(key.hostname, "mta: hostname");
+		route->domain = key.domain;
 		route->backupname = key.backupname ?
 		    xstrdup(key.backupname, "mta: backupname") : NULL;
 		route->backuppref = -1;
@@ -633,6 +651,7 @@ mta_route_for(struct envelope *e)
 		mta_route_query_mx(route);
 		mta_route_query_secret(route);
 	} else {
+		mta_domain_unref(key.domain);
 		log_trace(TRACE_MTA, "mta: reusing route %s",
 		    mta_route_to_text(route));
 	}
@@ -654,7 +673,7 @@ mta_route_query_secret(struct mta_route *route)
 	bzero(&secret, sizeof(secret));
 	secret.id = route->id;
 	strlcpy(secret.tablename, route->auth, sizeof(secret.tablename));
-	strlcpy(secret.host, route->hostname, sizeof(secret.host));
+	strlcpy(secret.host, route->domain->name, sizeof(secret.host));
 	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
 		    0, 0, -1, &secret, sizeof(secret));
 }
@@ -671,14 +690,14 @@ mta_route_query_mx(struct mta_route *route)
 	route->status |= ROUTE_WAIT_MX;
 
 	if (route->flags & ROUTE_MX)
-		dns_query_host(route->id, route->hostname);
+		dns_query_host(route->id, route->domain->name);
 	else
-		dns_query_mx(route->id, route->hostname);
+		dns_query_mx(route->id, route->domain->name);
 
 	if (route->backupname) {
 		tree_xset(&wait_preference, route->id, route);
 		route->status |= ROUTE_WAIT_PREFERENCE;
-		dns_query_mx_preference(route->id, route->hostname,
+		dns_query_mx_preference(route->id, route->domain->name,
 		    route->backupname);
 	}
 }
@@ -692,7 +711,6 @@ mta_route_free(struct mta_route *route)
 
 	log_debug("debug: mta: freeing route %s", mta_route_to_text(route));
 	SPLAY_REMOVE(mta_route_tree, &routes, route);
-	free(route->hostname);
 	if (route->cert)
 		free(route->cert);
 	if (route->auth)
@@ -701,9 +719,10 @@ mta_route_free(struct mta_route *route)
 	if (route->mxlist)
 		while ((mx = TAILQ_FIRST(&route->mxlist->mxs))) {
 			TAILQ_REMOVE(&route->mxlist->mxs, mx, entry);
-			free(mx->hostname);
+			mta_host_unref(mx->host);
 			free(mx);
 		}
+	mta_domain_unref(route->domain);
 	free(route);
 	stat_decrement("mta.route", 1);
 
@@ -725,7 +744,7 @@ mta_route_flush(struct mta_route *route, int fail, const char *error)
 	else
 		errx(1, "unexpected delivery status %i", fail);
 
-	snprintf(relay, sizeof relay, "relay=%s, ", route->hostname);
+	snprintf(relay, sizeof relay, "relay=%s, ", route->domain->name);
 
 	n = 0;
 	while ((task = TAILQ_FIRST(&route->tasks))) {
@@ -823,9 +842,14 @@ mta_route_drain(struct mta_route *route)
 }
 
 static int
-mta_route_cmp(struct mta_route *a, struct mta_route *b)
+mta_route_cmp(const struct mta_route *a, const struct mta_route *b)
 {
 	int	r;
+
+	if (a->domain < b->domain)
+		return (-1);
+	if (a->domain > b->domain)
+		return (1);
 
 	if (a->flags < b->flags)
 		return (-1);
@@ -854,10 +878,97 @@ mta_route_cmp(struct mta_route *a, struct mta_route *b)
 	if (a->backupname && ((r = strcmp(a->backupname, b->backupname))))
 		return (r);
 
-	if ((r = strcmp(a->hostname, b->hostname)))
-		return (r);
-
 	return (0);
 }
 
 SPLAY_GENERATE(mta_route_tree, mta_route, entry, mta_route_cmp);
+
+static struct mta_host *
+mta_host(const struct sockaddr *sa)
+{
+	struct mta_host		key, *h;
+	struct sockaddr_storage	ss;
+
+	memmove(&ss, sa, sa->sa_len);
+	key.sa = (struct sockaddr*)&ss;
+	h = SPLAY_FIND(mta_host_tree, &hosts, &key);
+
+	if (h == NULL) {
+		h = xcalloc(1, sizeof(*h), "mta_host");
+		h->sa = xmemdup(sa, sa->sa_len, "mta_host");
+		SPLAY_INSERT(mta_host_tree, &hosts, h);
+		stat_increment("mta.host", 1);
+	}
+
+	h->refcount++;
+	return (h);
+}
+
+static void
+mta_host_unref(struct mta_host *h)
+{
+	if (--h->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_host_tree, &hosts, h);
+	free(h->sa);
+	free(h->ptrname);
+	stat_decrement("mta.host", 1);
+}
+
+static int
+mta_host_cmp(const struct mta_host *a, const struct mta_host *b)
+{
+	if (a->sa->sa_len < b->sa->sa_len)
+		return (-1);
+	if (a->sa->sa_len > b->sa->sa_len)
+		return (1);
+	return (memcmp(a->sa, b->sa, a->sa->sa_len));
+}
+
+SPLAY_GENERATE(mta_host_tree, mta_host, entry, mta_host_cmp);
+
+static struct mta_domain *
+mta_domain(char *name, int flags)
+{
+	struct mta_domain	key, *d;
+
+	key.name = name;
+	key.flags = flags;
+	d = SPLAY_FIND(mta_domain_tree, &domains, &key);
+
+	if (d == NULL) {
+		d = xcalloc(1, sizeof(*d), "mta_domain");
+		d->name = xstrdup(name, "mta_domain");
+		d->flags = flags;
+		TAILQ_INIT(&d->mxs);
+		SPLAY_INSERT(mta_domain_tree, &domains, d);
+		stat_increment("mta.domain", 1);
+	}
+
+	d->refcount++;
+	return (d);
+}
+
+static void
+mta_domain_unref(struct mta_domain *d)
+{
+	if (--d->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_domain_tree, &domains, d);
+	free(d->name);
+	stat_decrement("mta.domain", 1);
+}
+
+static int
+mta_domain_cmp(const struct mta_domain *a, const struct mta_domain *b)
+{
+	if (a->flags < b->flags)
+		return (-1);
+	if (a->flags > b->flags)
+		return (1);
+	return (strcasecmp(a->name, b->name));
+}
+
+SPLAY_GENERATE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);

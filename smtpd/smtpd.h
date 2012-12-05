@@ -607,15 +607,29 @@ struct mta_session;
 struct mta_route;
 struct tree;/* XXX before */
 
+struct mta_domain {
+	SPLAY_ENTRY(mta_domain)	 entry;
+	char			*name;
+	int			 flags;
+	int			 refcount;
+	TAILQ_HEAD(, 	mta_mx)	 mxs;
+};
+
+struct mta_host {
+	SPLAY_ENTRY(mta_host)	 entry;
+	struct sockaddr		*sa;
+	char			*ptrname;
+	int			 refcount;
+};
+
 struct mta_mx {
 	TAILQ_ENTRY(mta_mx)	 entry;
-	struct sockaddr_storage	 sa;
-	char			*hostname;
+	struct mta_host		*host;
 	int			 preference;
 	int			 flags;
-#define MX_IGNORE	0x1
-#define MX_NOSMTPS	0x2
-#define MX_NOSMTP	0x4
+#define MX_IGNORE		 0x1
+#define MX_NOSMTPS		 0x2
+#define MX_NOSMTP		 0x4
 	int			 error;
 	int			 nconn;
 	time_t			 lastconn;
@@ -624,9 +638,9 @@ struct mta_mx {
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
 	uint64_t		 id;
+	struct mta_domain	*domain;
 
 	uint8_t			 flags;
-	char			*hostname;
 	char			*backupname;
 	int			 backuppref;
 	uint16_t		 port;
@@ -1210,6 +1224,7 @@ int hostname_match(const char *, const char *);
 int email_to_mailaddr(struct mailaddr *, char *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
+char *sa_to_text(const struct sockaddr *);
 char *ss_to_text(const struct sockaddr_storage *);
 char *time_to_text(time_t);
 char *duration_to_text(time_t);

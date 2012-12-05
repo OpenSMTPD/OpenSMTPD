@@ -509,7 +509,7 @@ email_to_mailaddr(struct mailaddr *maddr, char *email)
 }
 
 char *
-ss_to_text(const struct sockaddr_storage *ss)
+sa_to_text(const struct sockaddr *sa)
 {
 	static char	 buf[NI_MAXHOST + 5];
 	char		*p;
@@ -517,22 +517,22 @@ ss_to_text(const struct sockaddr_storage *ss)
 	buf[0] = '\0';
 	p = buf;
 
-	if (ss->ss_family == AF_LOCAL)
+	if (sa->sa_family == AF_LOCAL)
 		strlcpy(buf, "local", sizeof buf);
-	else if (ss->ss_family == AF_INET) {
+	else if (sa->sa_family == AF_INET) {
 		in_addr_t addr;
 
-		addr = ((const struct sockaddr_in *)ss)->sin_addr.s_addr;
+		addr = ((const struct sockaddr_in *)sa)->sin_addr.s_addr;
 		addr = ntohl(addr);
 		bsnprintf(p, NI_MAXHOST, "%d.%d.%d.%d",
 		    (addr >> 24) & 0xff, (addr >> 16) & 0xff,
 		    (addr >> 8) & 0xff, addr & 0xff);
 	}
-	else if (ss->ss_family == AF_INET6) {
+	else if (sa->sa_family == AF_INET6) {
 		const struct sockaddr_in6 *in6;
 		const struct in6_addr	*in6_addr;
 
-		in6 = (const struct sockaddr_in6 *)ss;
+		in6 = (const struct sockaddr_in6 *)sa;
 		strlcpy(buf, "IPv6:", sizeof(buf));
 		p = buf + 5;
 		in6_addr = &in6->sin6_addr;
@@ -540,6 +540,12 @@ ss_to_text(const struct sockaddr_storage *ss)
 	}
 
 	return (buf);
+}
+
+char *
+ss_to_text(const struct sockaddr_storage *ss)
+{
+	return (sa_to_text((const struct sockaddr*)ss));
 }
 
 char *
