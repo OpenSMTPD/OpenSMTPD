@@ -409,7 +409,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 			TAILQ_REMOVE(&s->route->tasks, s->task, entry);
 			s->route->ntask -= 1;
 			s->task->session = s;
-			stat_decrement("mta.task", 1);
 			stat_increment("mta.task.running", 1);
 			mta_enter_state(s, MTA_DATA);
 		} else {
@@ -564,9 +563,9 @@ mta_response(struct mta_session *s, char *line)
 			envelope_set_errormsg(evp, "%s", line);
 			mta_envelope_fail(evp, s->mx, delivery);
 			if (TAILQ_EMPTY(&s->task->envelopes)) {
-				free(s->task);
+				mta_task_flush(s->task, IMSG_QUEUE_DELIVERY_OK,
+				    "No envelope");
 				s->task = NULL;
-				stat_decrement("mta.task.running", 1);
 				mta_enter_state(s, MTA_SMTP_RSET);
 				break;
 			}
