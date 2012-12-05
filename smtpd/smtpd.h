@@ -141,6 +141,7 @@ enum imsg_type {
 	IMSG_CONF_RULE_SOURCE,
 	IMSG_CONF_RULE_DESTINATION,
 	IMSG_CONF_RULE_MAPPING,
+	IMSG_CONF_RULE_USERS,
 	IMSG_CONF_FILTER,
 	IMSG_CONF_END,
 
@@ -331,6 +332,7 @@ struct rule {
 
 	struct mailaddr		       *r_as;
 	struct table		       *r_mapping;
+	struct table		       *r_users;
 	time_t				r_qexpire;
 };
 

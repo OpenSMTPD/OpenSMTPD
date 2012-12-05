@@ -46,9 +46,10 @@ static int	table_static_credentials(const char *, char *, size_t, void **);
 static int	table_static_alias(const char *, char *, size_t, void **);
 static int	table_static_domain(const char *, char *, size_t, void **);
 static int	table_static_netaddr(const char *, char *, size_t, void **);
+static int	table_static_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR|K_USERINFO,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -190,6 +191,10 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_static_netaddr(key, line, len, retp);
 		break;
 
+	case K_USERINFO:
+		ret = table_static_userinfo(key, line, len, retp);
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -315,5 +320,26 @@ table_static_domain(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(domain);
+	return 0;
+}
+
+static int
+table_static_userinfo(const char *key, char *line, size_t len, void **retp)
+{
+	struct userinfo	*userinfo = NULL;
+
+	userinfo = xcalloc(1, sizeof *userinfo, "table_static_userinfo");
+
+	strlcpy(userinfo->username, key, sizeof userinfo->username);
+	userinfo->uid = 10;
+	userinfo->gid = 10;
+	strlcpy(userinfo->directory, "/tmp", sizeof userinfo->directory);
+
+	*retp = userinfo;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(userinfo);
 	return 0;
 }

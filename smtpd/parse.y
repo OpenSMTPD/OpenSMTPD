@@ -121,12 +121,12 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE
+%token	AUTH_OPTIONAL TLS_REQUIRE USERS
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
 %type	<v.number>	port from auth ssl size expire
-%type	<v.object>	tables tablenew tableref destination alias virtual usermapping credentials
+%type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
 %type	<v.string>	certificate tag tagged compression
 %%
@@ -596,6 +596,20 @@ usermapping	: alias		{
 		}
 		;
 
+userbase	: USERS tables	{
+			struct table   *t = table_find($2);
+
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_USERINFO)) {
+				yyerror("invalid use of table \"%s\" as USERS parameter",
+				    t->t_name);
+				YYERROR;
+			}
+
+			$$ = t->t_id;
+		}
+		| /**/		{ $$ = table_findbyname("<getpwnam>")->t_id; }
+		;
+
 		
 
 
@@ -642,35 +656,39 @@ relay_as     	: AS STRING		{
 		| /* empty */		{ $$ = NULL; }
 		;
 
-action		: DELIVER TO MAILDIR			{
+action		: userbase DELIVER TO MAILDIR			{
+			rule->r_users = table_find($1);
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| DELIVER TO MAILDIR STRING		{
+		| userbase DELIVER TO MAILDIR STRING		{
+			rule->r_users = table_find($1);
 			rule->r_action = A_MAILDIR;
-			if (strlcpy(rule->r_value.buffer, $4,
+			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
-			free($4);
+			free($5);
 		}
-		| DELIVER TO MBOX			{
+		| userbase DELIVER TO MBOX			{
+			rule->r_users = table_find($1);
 			rule->r_action = A_MBOX;
 			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| DELIVER TO MDA STRING			{
+		| userbase DELIVER TO MDA STRING	       	{
+			rule->r_users = table_find($1);
 			rule->r_action = A_MDA;
-			if (strlcpy(rule->r_value.buffer, $4,
+			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
 				fatal("command too long");
-			free($4);
+			free($5);
 		}
 		| RELAY relay_as     			{
 			rule->r_action = A_RELAY;
@@ -881,6 +899,7 @@ lookup(char *s)
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
+		{ "users",     		USERS },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};

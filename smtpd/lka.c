@@ -208,6 +208,16 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables_dict = tmp;
 			return;
 
+		case IMSG_CONF_RULE_USERS:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_users = table_findbyname(imsg->data);
+			if (rule->r_users == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
 		case IMSG_CONF_TABLE_CONTENT:
 			table = table_last;
 

@@ -296,8 +296,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		t = table_findbyname("<getpwnam>");
-		r = table_lookup(t, xn->u.user, K_USERINFO, (void **)&tu);
+		r = table_lookup(rule->r_users, xn->u.user, K_USERINFO, (void **)&tu);
 		if (r == -1) {
 			log_debug("debug: lka_expand: "
 			    "backend error while searching user");
