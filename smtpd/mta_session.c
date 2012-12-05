@@ -79,7 +79,7 @@ enum mta_state {
 
 struct mta_session {
 	uint64_t		 id;
-	struct mta_route	*route;
+	struct mta_relay	*relay;
 
 	int			 flags;
 	int			 ready;
@@ -127,7 +127,7 @@ mta_session_init(void)
 }
 
 void
-mta_session(struct mta_route *route)
+mta_session(struct mta_relay *relay)
 {
 	struct mta_session	*session;
 
@@ -135,35 +135,35 @@ mta_session(struct mta_route *route)
 
 	session = xcalloc(1, sizeof *session, "mta_session");
 	session->id = generate_uid();
-	session->route = route;
+	session->relay = relay;
 	session->state = MTA_INIT;
 	session->io.sock = -1;
 	tree_init(&session->mxseen);
 
-	if (route->flags & ROUTE_MX)
+	if (relay->flags & RELAY_MX)
 		session->flags |= MTA_FORCE_MX;
-	if (route->flags & ROUTE_SSL && route->flags & ROUTE_AUTH)
+	if (relay->flags & RELAY_SSL && relay->flags & RELAY_AUTH)
 		session->flags |= MTA_USE_AUTH;
-	if (route->cert)
+	if (relay->cert)
 		session->flags |= MTA_USE_CERT;
-	if (route->ssl)
-		session->ssl = route->ssl;
-	switch (route->flags & ROUTE_SSL) {
-		case ROUTE_SSL:
+	if (relay->ssl)
+		session->ssl = relay->ssl;
+	switch (relay->flags & RELAY_SSL) {
+		case RELAY_SSL:
 			session->flags |= MTA_FORCE_ANYSSL;
 			break;
-		case ROUTE_SMTPS:
+		case RELAY_SMTPS:
 			session->flags |= MTA_FORCE_SMTPS;
 			break;
-		case ROUTE_STARTTLS:
+		case RELAY_STARTTLS:
 			/* STARTTLS is tried by default */
 			break;
 		default:
 			session->flags |= MTA_ALLOW_PLAIN;
 	}
 
-	log_debug("debug: mta: %p: spawned for route %s", session,
-	    mta_route_to_text(route));
+	log_debug("debug: mta: %p: spawned for relay %s", session,
+	    mta_relay_to_text(relay));
 	stat_increment("mta.session", 1);
 	mta_enter_state(session, MTA_INIT);
 }
@@ -242,7 +242,7 @@ static void
 mta_enter_state(struct mta_session *s, int newstate)
 {
 	int			 oldstate;
-	struct mta_route	*route;
+	struct mta_relay	*relay;
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
 	int			 max_reuse, portno;
@@ -291,11 +291,11 @@ mta_enter_state(struct mta_session *s, int newstate)
 			iobuf_clear(&s->iobuf);
 			io_clear(&s->io);
 		} else
-			s->mx = mta_route_next_mx(s->route, &s->mxseen);
+			s->mx = mta_relay_next_mx(s->relay, &s->mxseen);
 
 		while (s->mx) {
 			if (s->mxtried == max_reuse) {
-				s->mx = mta_route_next_mx(s->route, &s->mxseen);
+				s->mx = mta_relay_next_mx(s->relay, &s->mxseen);
 				s->mxtried = 0;
 				continue;
 			}
@@ -303,8 +303,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 			memmove(&ss, s->mx->host->sa, s->mx->host->sa->sa_len);
 			sa = (struct sockaddr *)&ss;
 
-			if (s->route->port)
-				portno = s->route->port;
+			if (s->relay->port)
+				portno = s->relay->port;
 			else if ((s->flags & MTA_FORCE_ANYSSL) &&
 			    s->mxtried == 1)
 				portno = 465;
@@ -324,11 +324,11 @@ mta_enter_state(struct mta_session *s, int newstate)
 				mta_mx_error(s, "Connection failed: %s",
 				    strerror(errno));
 				/*
-				 * This error is most likely a "no route",
+				 * This error is most likely a "no relay",
 				 * so there is no need to try the same mx.
 				 */
 				s->mx->nconn--;
-				s->mx = mta_route_next_mx(s->route, &s->mxseen);
+				s->mx = mta_relay_next_mx(s->relay, &s->mxseen);
 				s->mxtried = 0;
 				iobuf_clear(&s->iobuf);
 				continue;
@@ -355,10 +355,10 @@ mta_enter_state(struct mta_session *s, int newstate)
 			fclose(s->datafp);
 		while (tree_poproot(&s->mxseen, NULL,  NULL))
 			;
-		route = s->route;
+		relay = s->relay;
 		free(s);
 		stat_decrement("mta.session", 1);
-		mta_route_collect(route);
+		mta_relay_collect(relay);
 		break;
 
 	case MTA_SMTP_BANNER:
@@ -387,9 +387,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_SMTP_AUTH:
-		if (s->route->secret && s->flags & MTA_TLS)
-			mta_send(s, "AUTH PLAIN %s", s->route->secret);
-		else if (s->route->secret) {
+		if (s->relay->secret && s->flags & MTA_TLS)
+			mta_send(s, "AUTH PLAIN %s", s->relay->secret);
+		else if (s->relay->secret) {
 			log_debug("debug: mta: %p: not using AUTH on non-TLS "
 			    "session", s);
 			mta_mx_error(s, "Refuse to AUTH over unsecure channel");
@@ -403,25 +403,25 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/* ready to send a new mail */
 		if (s->ready == 0) {
 			s->ready = 1;
-			mta_route_ok(s->route, s->mx);
+			mta_relay_ok(s->relay, s->mx);
 		}
-		if (s->msgcount >= s->route->maxmail) {
+		if (s->msgcount >= s->relay->maxmail) {
 			log_debug("debug: mta: "
-			    "%p: cannot send more message to route %s", s,
-			    mta_route_to_text(s->route));
+			    "%p: cannot send more message to relay %s", s,
+			    mta_relay_to_text(s->relay));
 			mta_enter_state(s, MTA_SMTP_QUIT);
-		} else if ((s->task = TAILQ_FIRST(&s->route->tasks))) {
+		} else if ((s->task = TAILQ_FIRST(&s->relay->tasks))) {
 			log_debug("debug: mta: "
-			    "%p: handling next task for route %s", s,
-			    mta_route_to_text(s->route));
-			TAILQ_REMOVE(&s->route->tasks, s->task, entry);
-			s->route->ntask -= 1;
+			    "%p: handling next task for relay %s", s,
+			    mta_relay_to_text(s->relay));
+			TAILQ_REMOVE(&s->relay->tasks, s->task, entry);
+			s->relay->ntask -= 1;
 			s->task->session = s;
 			stat_increment("mta.task.running", 1);
 			mta_enter_state(s, MTA_DATA);
 		} else {
-			log_debug("debug: mta: %p: no task for route %s",
-			    s, mta_route_to_text(s->route));
+			log_debug("debug: mta: %p: no task for relay %s",
+			    s, mta_relay_to_text(s->relay));
 			mta_enter_state(s, MTA_SMTP_QUIT);
 		}
 		break;
@@ -876,7 +876,7 @@ mta_mx_error(struct mta_session *s, const char *fmt, ...)
 	 * ignore this error.
 	 */
 	if (s->state == MTA_CONNECT &&
-	    s->route->port == 0 &&
+	    s->relay->port == 0 &&
 	    s->flags & MTA_FORCE_ANYSSL &&
 	    s->mxtried == 1)
 		return;
@@ -886,7 +886,7 @@ mta_mx_error(struct mta_session *s, const char *fmt, ...)
 		fatal("mta: vasprintf");
 	va_end(ap);
 
-	mta_route_error(s->route, s->mx, error);
+	mta_relay_error(s->relay, s->mx, error);
 
 	if (s->task) {
 		mta_task_flush(s->task, IMSG_QUEUE_DELIVERY_TEMPFAIL, error);

@@ -85,18 +85,18 @@
 #define	F_STARTTLS_REQUIRE	0x08
 #define	F_AUTH_REQUIRE		0x10
 
-#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH ROUTE_BACKUP */
+#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH RELAY_BACKUP */
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
 
 /* must match F_* for mta */
-#define ROUTE_STARTTLS		0x01
-#define ROUTE_SMTPS		0x02
-#define ROUTE_SSL		(ROUTE_STARTTLS | ROUTE_SMTPS)
-#define ROUTE_AUTH		0x04
-#define ROUTE_MX		0x08
-#define ROUTE_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
+#define RELAY_STARTTLS		0x01
+#define RELAY_SMTPS		0x02
+#define RELAY_SSL		(RELAY_STARTTLS | RELAY_SMTPS)
+#define RELAY_AUTH		0x04
+#define RELAY_MX		0x08
+#define RELAY_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 
 typedef uint32_t	objid_t;
 
@@ -604,7 +604,7 @@ struct mfa_session {
 };
 
 struct mta_session;
-struct mta_route;
+struct mta_relay;
 struct tree;/* XXX before */
 
 struct mta_domain {
@@ -635,8 +635,8 @@ struct mta_mx {
 	time_t			 lastconn;
 };
 
-struct mta_route {
-	SPLAY_ENTRY(mta_route)	 entry;
+struct mta_relay {
+	SPLAY_ENTRY(mta_relay)	 entry;
 	uint64_t		 id;
 	struct mta_domain	*domain;
 
@@ -648,19 +648,19 @@ struct mta_route {
 	char			*auth;
 	void			*ssl;
 
-#define ROUTE_WAIT_MX		0x01
-#define ROUTE_WAIT_PREFERENCE	0x02
-#define ROUTE_WAIT_SECRET	0x04
-#define ROUTE_WAITMASK		0x07
+#define RELAY_WAIT_MX		0x01
+#define RELAY_WAIT_PREFERENCE	0x02
+#define RELAY_WAIT_SECRET	0x04
+#define RELAY_WAITMASK		0x07
 
-#define ROUTE_CLOSED		0x08
+#define RELAY_CLOSED		0x08
 	int			 status;
 
 	char			*secret;
 
 	struct mta_mxlist	*mxlist;
 
-	/* route limits	*/
+	/* relay limits	*/
 	int			 maxconn; 	/* in parallel */
 	int			 maxmail;	/* per session */
 	int			 maxrcpt;	/* per mail */
@@ -676,7 +676,7 @@ struct mta_route {
 
 struct mta_task {
 	TAILQ_ENTRY(mta_task)	 entry;
-	struct mta_route	*route;
+	struct mta_relay	*relay;
 	uint32_t		 msgid;
 	TAILQ_HEAD(, envelope)	 envelopes;
 	struct mailaddr		 sender;
@@ -1081,15 +1081,15 @@ void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 /* mta.c */
 pid_t mta(void);
-void mta_route_ok(struct mta_route *, struct mta_mx *);
-void mta_route_error(struct mta_route *, struct mta_mx *, const char *);
-void mta_route_collect(struct mta_route *);
-struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
-const char *mta_route_to_text(struct mta_route *);
+void mta_relay_ok(struct mta_relay *, struct mta_mx *);
+void mta_relay_error(struct mta_relay *, struct mta_mx *, const char *);
+void mta_relay_collect(struct mta_relay *);
+struct mta_mx *mta_relay_next_mx(struct mta_relay *, struct tree *);
+const char *mta_relay_to_text(struct mta_relay *);
 const char *mta_mx_to_text(struct mta_mx *);
 
 /* mta_session.c */
-void mta_session(struct mta_route *);
+void mta_session(struct mta_relay *);
 void mta_session_imsg(struct imsgev *, struct imsg *);
 
 
