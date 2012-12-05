@@ -83,6 +83,19 @@ static void mta_domain_unref(struct mta_domain *);
 static int mta_domain_cmp(const struct mta_domain *, const struct mta_domain *);
 SPLAY_PROTOTYPE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
 
+static inline uint64_t
+ptoid(void * p)
+{
+	union {
+		void	*p;
+		uint64_t v;
+	} u;
+
+	u.v = 0;
+	u.p = p;
+	return (u.v);
+}
+
 static struct mta_route_tree	routes;
 static struct mta_domain_tree	domains;
 static struct mta_host_tree	hosts;
@@ -127,7 +140,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			if ((task = tree_get(batch, route->id)) == NULL) {
 				log_trace(TRACE_MTA, "mta: new task for route "
-				   "%s", mta_route_to_text(route));
+				    "%s", mta_route_to_text(route));
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
 				task->route = route;
@@ -439,11 +452,6 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 {
 	struct mta_mx	*mx, *best;
 	int		 level, limit;
-	union {
-		uint64_t v;
-		void	*p;
-	} u;
-
 
 	limit = 0;
 	level = -1;
@@ -497,9 +505,7 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 		if (best && mx->nconn >= best->nconn)
 			continue;
 
-		u.v = 0;
-		u.p = mx;
-		if (tree_get(seen, u.v))
+		if (tree_get(seen, ptoid(mx)))
 			continue;
 
 		best = mx;
@@ -507,9 +513,7 @@ mta_route_next_mx(struct mta_route *route, struct tree *seen)
 
 	if (best) {
 		best->nconn++;
-		u.v = 0;
-		u.p = best;
-		tree_xset(seen, u.v, best);
+		tree_xset(seen, ptoid(best), best);
 		return (best);
 	}
 

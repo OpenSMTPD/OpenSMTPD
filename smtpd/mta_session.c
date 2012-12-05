@@ -111,20 +111,27 @@ static void mta_response(struct mta_session *, char *);
 static const char * mta_strstate(int);
 static int mta_check_loop(FILE *);
 
-static int init = 0;
-static struct tree waitptr;
-static struct tree waitfd;
+static struct tree wait_ptr;
+static struct tree wait_fd;
+
+static void
+mta_session_init(void)
+{
+	static int init = 0;
+
+	if (!init) {
+		tree_init(&wait_ptr);
+		tree_init(&wait_fd);
+		init = 1;
+	}
+}
 
 void
 mta_session(struct mta_route *route)
 {
 	struct mta_session	*session;
 
-	if (!init) {
-		tree_init(&waitptr);
-		tree_init(&waitfd);
-		init = 1;
-	}
+	mta_session_init();
 
 	session = xcalloc(1, sizeof *session, "mta_session");
 	session->id = generate_uid();
@@ -173,7 +180,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		id = *(uint64_t*)(imsg->data);
 		if (imsg->fd == -1)
 			fatalx("mta: cannot obtain msgfd");
-		s = tree_xpop(&waitfd, id);
+		s = tree_xpop(&wait_fd, id);
 		s->datafp = fdopen(imsg->fd, "r");
 		if (s->datafp == NULL)
 			fatal("mta: fdopen");
@@ -194,7 +201,7 @@ mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	case IMSG_DNS_PTR:
 		resp_dns = imsg->data;
-		s = tree_xpop(&waitptr, resp_dns->reqid);
+		s = tree_xpop(&wait_ptr, resp_dns->reqid);
 		if (resp_dns->error)
 			s->mx->host->ptrname = xstrdup("<unknown>", "mta: ptr");
 		else
@@ -265,7 +272,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
 		    IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
 		    &s->id, sizeof(s->id));
-		tree_xset(&waitfd, s->id, s);
+		tree_xset(&wait_fd, s->id, s);
 		break;
 
 	case MTA_CONNECT:
@@ -293,7 +300,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 				continue;
 			}
 			s->mxtried++;
-			memmove(&ss, s->mx->host->sa, s->mx->host->sa->sa_len); 
+			memmove(&ss, s->mx->host->sa, s->mx->host->sa->sa_len);
 			sa = (struct sockaddr *)&ss;
 
 			if (s->route->port)
@@ -635,7 +642,7 @@ mta_io(struct io *io, int evt)
 			mta_on_ptr(NULL, s, s->mx->host->ptrname);
 		else if (waitq_wait(&s->mx->host->ptrname, mta_on_ptr, s)) {
 			dns_query_ptr(s->id, s->mx->host->sa);
-			tree_xset(&waitptr, s->id, s);
+			tree_xset(&wait_ptr, s->id, s);
 		}
 		break;
 

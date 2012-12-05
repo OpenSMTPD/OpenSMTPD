@@ -1413,7 +1413,7 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 	if (e == NULL)
 		return (0);
 	*e++ = '\0';
-	while(*e == ' ')
+	while (*e == ' ')
 		e++;
 	*args = e;
 
