@@ -77,6 +77,7 @@ static void mda_sig_handler(int, short, void *);
 static int mda_check_loop(FILE *, struct envelope *);
 static int mda_getlastline(int, char *, size_t);
 static void mda_done(struct mda_session *, int);
+static void mda_fail(struct mda_user *, int, const char *);
 static void mda_drain(void);
 
 size_t			evpcount;
@@ -100,37 +101,35 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint16_t		 msg;
 	uint32_t		 id;
 	int			 n;
-	struct lka_userinfo_req_msg	lka_userinfo_req;
-	struct lka_userinfo_resp_msg   *lka_userinfo_resp;
+	struct lka_userinfo_req_msg	req_lka;
+	struct lka_userinfo_resp_msg   *resp_lka;
 	struct userinfo		       *userinfo;
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_USERINFO:
-			lka_userinfo_resp = imsg->data;
-			name = lka_userinfo_resp->username;
+			resp_lka = imsg->data;
 			TAILQ_FOREACH(u, &users, entry)
-				if (!strcmp(name, u->name))
+				if (!strcmp(resp_lka->username, u->name))
 					break;
 			if (u == NULL)
 				return;
 
-			if (lka_userinfo_resp->status == LKA_OK) {
-				u->userinfo = lka_userinfo_resp->userinfo;
-				if (u->runnable == 0 && u->running < MDA_MAXSESSUSER) {
-					log_debug("debug: mda: \"%s\" immediatly "
-					    "runnable", u->name);
-					TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
-					u->runnable = 1;
-				}
+			if (resp_lka->status == LKA_TEMPFAIL) {
+				mda_fail(u, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+				    "User lookup failed temporarily");
+				return;
 			}
-			else if (lka_userinfo_resp->status == LKA_TEMPFAIL) {
-				/* tell queue we tempfailed */
+
+			if (resp_lka->status == LKA_PERMFAIL) {
+				mda_fail(u, IMSG_QUEUE_DELIVERY_PERMFAIL,
+				    "User lookup failed permanently");
+				return;
 			}
-			else if (lka_userinfo_resp->status == LKA_PERMFAIL) {
-				/* tell queue we permfailed */
-			}
-			
+
+			u->userinfo = resp_lka->userinfo;
+			u->runnable = 1;
+			TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 			mda_drain();
 			return;
 		}
@@ -157,6 +156,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			TAILQ_FOREACH(u, &users, entry)
 				if (!strcmp(name, u->name))
 					break;
+
 			if (u && u->evpcount >= MDA_MAXEVPUSER) {
 				log_debug("debug: mda: too many envelopes for "
 				    "\"%s\"", u->name);
@@ -168,11 +168,17 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				free(ep);
 				return;
 			}
+
 			if (u == NULL) {
 				u = xcalloc(1, sizeof *u, "mda_user");
 				TAILQ_INIT(&u->envelopes);
 				strlcpy(u->name, name, sizeof u->name);
 				TAILQ_INSERT_TAIL(&users, u, entry);
+				strlcpy(req_lka.username, name,
+				    sizeof req_lka.username);
+				imsg_compose_event(env->sc_ievs[PROC_LKA],
+				    IMSG_LKA_USERINFO, 0, 0, -1, &req_lka,
+				    sizeof req_lka);
 			}
 
 			stat_increment("mda.pending", 1);
@@ -180,12 +186,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			evpcount += 1;
 			u->evpcount += 1;
 			TAILQ_INSERT_TAIL(&u->envelopes, ep, entry);
-
-			strlcpy(lka_userinfo_req.username, name, sizeof lka_userinfo_req.username);
-			imsg_compose_event(env->sc_ievs[PROC_LKA],
-			    IMSG_LKA_USERINFO, 0, 0, -1, &lka_userinfo_req,
-			    sizeof lka_userinfo_req);
-
+			mda_drain();
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FD:
@@ -599,6 +600,25 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	}
 
 	return (0);
+}
+
+static void
+mda_fail(struct mda_user *user, int type, const char *error)
+{
+	struct envelope	*e;
+	size_t		 n;
+
+	n = 0;
+	while ((e = TAILQ_FIRST(&user->envelopes))) {
+		TAILQ_REMOVE(&user->envelopes, e, entry);
+		envelope_set_errormsg(e, "%s", error);
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE], type, 0, 0, -1,
+		    e, sizeof *e);
+		free(e);
+	}
+
+	TAILQ_REMOVE(&users, user, entry);
+	free(user);
 }
 
 static void
