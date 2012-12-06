@@ -405,7 +405,9 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_string(ep->agent.mta.relay.authtable,
 		    buf, len);
 	case EVP_MTA_RELAY_URL:
-		return ascii_dump_mta_relay_url(&ep->agent.mta.relay, buf, len);
+		if (ep->agent.mta.relay.hostname[0])
+			return ascii_dump_mta_relay_url(&ep->agent.mta.relay, buf, len);
+		return 1;
 	case EVP_CTIME:
 		return ascii_dump_time(ep->creation, buf, len);
 	case EVP_EXPIRE:
