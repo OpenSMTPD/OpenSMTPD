@@ -85,18 +85,18 @@
 #define	F_STARTTLS_REQUIRE	0x08
 #define	F_AUTH_REQUIRE		0x10
 
-#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH ROUTE_BACKUP */
+#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH RELAY_BACKUP */
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
 
 /* must match F_* for mta */
-#define ROUTE_STARTTLS		0x01
-#define ROUTE_SMTPS		0x02
-#define ROUTE_SSL		(ROUTE_STARTTLS | ROUTE_SMTPS)
-#define ROUTE_AUTH		0x04
-#define ROUTE_MX		0x08
-#define ROUTE_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
+#define RELAY_STARTTLS		0x01
+#define RELAY_SMTPS		0x02
+#define RELAY_SSL		(RELAY_STARTTLS | RELAY_SMTPS)
+#define RELAY_AUTH		0x04
+#define RELAY_MX		0x08
+#define RELAY_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 
 typedef uint32_t	objid_t;
 
@@ -205,8 +205,9 @@ enum imsg_type {
 
 	IMSG_DNS_HOST,
 	IMSG_DNS_HOST_END,
-	IMSG_DNS_MX,
 	IMSG_DNS_PTR,
+	IMSG_DNS_MX,
+	IMSG_DNS_MX_PREFERENCE,
 
 	IMSG_STAT_INCREMENT,
 	IMSG_STAT_DECREMENT,
@@ -340,17 +341,6 @@ enum delivery_type {
 	D_BOUNCE
 };
 
-enum delivery_flags {
-	DF_AUTHENTICATED	= 0x1,
-	DF_BOUNCE		= 0x4,
-	DF_INTERNAL		= 0x8, /* Internal expansion forward */
-
-	/* runstate, not saved on disk */
-
-	DF_PENDING		= 0x10,
-	DF_INFLIGHT		= 0x20,
-};
-
 struct delivery_mda {
 	enum action_type	method;
 	struct userinfo		user;
@@ -398,6 +388,17 @@ struct expand {
 	struct expandnode		*parent;
 };
 
+enum envelope_flags {
+	EF_AUTHENTICATED	= 0x01,
+	EF_BOUNCE		= 0x02,
+	EF_INTERNAL		= 0x04, /* Internal expansion forward */
+
+	/* runstate, not saved on disk */
+
+	EF_PENDING		= 0x10,
+	EF_INFLIGHT		= 0x20,
+};
+
 #define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -409,7 +410,7 @@ struct envelope {
 
 	uint32_t			version;
 	uint64_t			id;
-	enum delivery_type		type;
+	enum envelope_flags		flags;
 
 	char				helo[MAXHOSTNAMELEN];
 	char				hostname[MAXHOSTNAMELEN];
@@ -420,17 +421,17 @@ struct envelope {
 	struct mailaddr			rcpt;
 	struct mailaddr			dest;
 
-	union delivery_method {
+	enum delivery_type		type;
+	union {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
-	} agent;
+	}				agent;
 
-	time_t				 creation;
-	time_t				 lasttry;
-	time_t				 expire;
-	uint16_t			 retry;
-	enum delivery_flags		 flags;
-	time_t				 nexttry;
+	time_t				creation;
+	time_t				lasttry;
+	time_t				expire;
+	uint16_t			retry;
+	time_t				nexttry;
 };
 
 enum envelope_field {
@@ -560,26 +561,6 @@ struct forward_req {
 	char				 as_user[MAXLOGNAME];
 };
 
-enum dns_status {
-	DNS_OK = 0,
-	DNS_RETRY,
-	DNS_EINVAL,
-	DNS_ENONAME,
-	DNS_ENOTFOUND,
-};
-
-struct dns {
-	uint64_t		 id;
-	char			 host[MAXHOSTNAMELEN];
-	char			 backup[MAXHOSTNAMELEN];
-	int			 preference;
-	int			 port;
-	int			 error;
-	int			 type;
-	struct imsgev		*asker;
-	struct sockaddr_storage	 ss;
-};
-
 struct secret {
 	uint64_t		 id;
 	char			 tablename[MAX_PATH_SIZE];
@@ -623,45 +604,76 @@ struct mfa_session {
 };
 
 struct mta_session;
-struct mta_route;
+struct mta_relay;
 struct tree;/* XXX before */
+
+struct mta_domain {
+	SPLAY_ENTRY(mta_domain)	 entry;
+	char			*name;
+	int			 flags;
+	int			 refcount;
+	TAILQ_HEAD(, 	mta_mx)	 mxs;
+};
+
+struct mta_host {
+	SPLAY_ENTRY(mta_host)	 entry;
+	struct sockaddr		*sa;
+	char			*ptrname;
+	int			 refcount;
+};
+
+struct mta_source {
+	SPLAY_ENTRY(mta_source)	 entry;
+	struct sockaddr		*sa;
+	int			 refcount;
+};
+
+struct mta_route {
+	SPLAY_ENTRY(mta_route)	 entry;
+	struct mta_source	*src;
+	struct mta_host		*dst;
+	int			 refcount;
+};
 
 struct mta_mx {
 	TAILQ_ENTRY(mta_mx)	 entry;
-	struct sockaddr_storage	 sa;
-	char			*hostname;
+	struct mta_host		*host;
 	int			 preference;
 	int			 flags;
-#define MX_IGNORE	0x1
-#define MX_NOSMTPS	0x2
-#define MX_NOSMTP	0x4
+#define MX_IGNORE		 0x1
+#define MX_NOSMTPS		 0x2
+#define MX_NOSMTP		 0x4
 	int			 error;
 	int			 nconn;
 	time_t			 lastconn;
 };
 
-struct mta_route {
-	SPLAY_ENTRY(mta_route)	 entry;
+struct mta_relay {
+	SPLAY_ENTRY(mta_relay)	 entry;
 	uint64_t		 id;
+	struct mta_domain	*domain;
 
 	uint8_t			 flags;
-	char			*hostname;
 	char			*backupname;
+	int			 backuppref;
 	uint16_t		 port;
 	char			*cert;
 	char			*auth;
 	void			*ssl;
 
-#define ROUTE_WAIT_MX		0x01
-#define ROUTE_WAIT_SECRET	0x02
-#define ROUTE_CLOSED		0x04
+#define RELAY_WAIT_MX		0x01
+#define RELAY_WAIT_PREFERENCE	0x02
+#define RELAY_WAIT_SECRET	0x04
+#define RELAY_WAITMASK		0x07
+
+#define RELAY_CLOSED		0x08
 	int			 status;
 
 	char			*secret;
 
 	struct mta_mxlist	*mxlist;
 
-	/* route limits	*/
+	/* relay limits	*/
 	int			 maxconn; 	/* in parallel */
 	int			 maxmail;	/* per session */
 	int			 maxrcpt;	/* per mail */
@@ -677,7 +689,7 @@ struct mta_route {
 
 struct mta_task {
 	TAILQ_ENTRY(mta_task)	 entry;
-	struct mta_route	*route;
+	struct mta_relay	*relay;
 	uint32_t		 msgid;
 	TAILQ_HEAD(, envelope)	 envelopes;
 	struct mailaddr		 sender;
@@ -918,6 +930,40 @@ struct mfa_resp_msg {
 	}			u;
 };
 
+enum dns_error {
+	DNS_OK = 0,
+	DNS_RETRY,
+	DNS_EINVAL,
+	DNS_ENONAME,
+	DNS_ENOTFOUND,
+};
+
+struct dns_req_msg {
+	uint64_t			reqid;
+	union {
+		char			host[MAXHOSTNAMELEN];
+		char			domain[MAXHOSTNAMELEN];
+		struct sockaddr_storage	ss;
+		struct {
+			char		domain[MAXHOSTNAMELEN];
+			char		mx[MAXHOSTNAMELEN];
+		}			mxpref;
+	}				u;
+};
+
+struct dns_resp_msg {
+	uint64_t				reqid;
+	int					error;
+	union {
+		struct {
+			struct sockaddr_storage	ss;
+			int			preference;
+		}				host;
+		int				preference;
+		char				ptr[MAXHOSTNAMELEN];
+	} u;
+};
+
 struct lka_expand_msg {
 	uint64_t		reqid;
 	struct envelope		evp;
@@ -982,10 +1028,11 @@ struct delivery_backend *delivery_backend_lookup(enum action_type);
 
 
 /* dns.c */
-void dns_query_host(char *, int, uint64_t);
-void dns_query_mx(char *, char *, int, uint64_t);
-void dns_query_ptr(struct sockaddr_storage *, uint64_t);
-void dns_async(struct imsgev *, int, struct dns *);
+void dns_query_host(uint64_t, const char *);
+void dns_query_ptr(uint64_t, const struct sockaddr *);
+void dns_query_mx(uint64_t, const char *);
+void dns_query_mx_preference(uint64_t, const char *, const char *);
+void dns_imsg(struct imsgev *, struct imsg *);
 
 
 /* enqueue.c */
@@ -1047,15 +1094,15 @@ void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 /* mta.c */
 pid_t mta(void);
-void mta_route_ok(struct mta_route *, struct mta_mx *);
-void mta_route_error(struct mta_route *, struct mta_mx *, const char *);
-void mta_route_collect(struct mta_route *);
-struct mta_mx *mta_route_next_mx(struct mta_route *, struct tree *);
-const char *mta_route_to_text(struct mta_route *);
+void mta_relay_ok(struct mta_relay *, struct mta_mx *);
+void mta_relay_error(struct mta_relay *, struct mta_mx *, const char *);
+void mta_relay_collect(struct mta_relay *);
+struct mta_mx *mta_relay_next_mx(struct mta_relay *, struct tree *);
+const char *mta_relay_to_text(struct mta_relay *);
 const char *mta_mx_to_text(struct mta_mx *);
 
 /* mta_session.c */
-void mta_session(struct mta_route *);
+void mta_session(struct mta_relay *);
 void mta_session_imsg(struct imsgev *, struct imsg *);
 
 
@@ -1173,6 +1220,23 @@ void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
 
 
+/* to.c */
+int email_to_mailaddr(struct mailaddr *, char *);
+uint32_t evpid_to_msgid(uint64_t);
+uint64_t msgid_to_evpid(uint32_t);
+int text_to_netaddr(struct netaddr *, const char *);
+int text_to_relayhost(struct relayhost *, const char *);
+uint64_t text_to_evpid(const char *);
+uint32_t text_to_msgid(const char *);
+const char *sa_to_text(const struct sockaddr *);
+const char *ss_to_text(const struct sockaddr_storage *);
+const char *time_to_text(time_t);
+const char *duration_to_text(time_t);
+const char *relayhost_to_text(struct relayhost *);
+const char *rule_to_text(struct rule *);
+const char *sockaddr_to_text(struct sockaddr *);
+const char *in6addr_to_text(const struct in6_addr *);
+
 /* util.c */
 typedef struct arglist arglist;
 struct arglist {
@@ -1187,12 +1251,8 @@ int bsnprintf(char *, size_t, const char *, ...)
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(const char *, const char *);
-int email_to_mailaddr(struct mailaddr *, char *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
-char *ss_to_text(const struct sockaddr_storage *);
-char *time_to_text(time_t);
-char *duration_to_text(time_t);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
@@ -1200,16 +1260,11 @@ void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
-int text_to_netaddr(struct netaddr *, const char *);
-int text_to_relayhost(struct relayhost *, const char *);
-char *relayhost_to_text(struct relayhost *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
@@ -1221,8 +1276,7 @@ void log_envelope(const struct envelope *, const char *, const char *,
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
-uint64_t strtoevpid(const char *);
-char *rule_to_text(struct rule *);
+
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

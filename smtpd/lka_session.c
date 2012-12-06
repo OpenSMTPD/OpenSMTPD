@@ -228,7 +228,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		ep = lks->envelope;
 		ep.dest = xn->u.mailaddr;
 		if (xn->parent) /* nodes with parent are forward addresses */
-			ep.flags |= DF_INTERNAL;
+			ep.flags |= EF_INTERNAL;
 		rule = ruleset_match(&ep);
 		if (rule == NULL || rule->r_decision == R_REJECT) {
 			lks->error = (errno == EAGAIN) ?

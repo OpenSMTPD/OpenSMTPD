@@ -1,0 +1,112 @@
+proc init-helo-mailfrom {
+	expect smtp ok
+	writeln "HELO regress"
+	expect smtp helo
+	writeln "MAIL FROM: <>"
+	expect smtp ok
+}
+
+# RCPT TO can't be empty
+test-case name "rcptto.empty" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <>"
+	expect smtp permfail
+}
+
+# RCPT TO can't be empty
+test-case name "rcptto.at-sign" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <@>"
+	expect smtp permfail
+}
+
+# Reject address without a '@'
+test-case name "rcptto.no-at-sign" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <a>"
+	expect smtp permfail
+}
+
+# Reject address with empty domain
+test-case name "rcptto.no-domain" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <a@>"
+	expect smtp permfail
+}
+
+# Reject address with empty user
+test-case name "rcptto.no-user" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <@a>"
+	expect smtp permfail
+}
+
+# Accept address after source-route stripping
+test-case name "rcptto.src-route" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <whatever:a@a>"
+	expect smtp ok
+}
+
+# Reject address with empty user after source-route stripping
+test-case name "rcptto.src-route-no-user" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <a:@a>"
+	expect smtp permfail
+}
+
+# Reject address with space as user
+test-case name "rcptto.space-as-user" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: < @a>"
+	expect smtp permfail
+}
+
+# Reject address with space as domain
+test-case name "rcptto.space-as-domain" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <a@ >"
+	expect smtp permfail
+}
+
+# Reject options
+test-case name "rcptto.option" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <user@domain> OPT"
+	expect smtp permfail
+}
+
+# Reject options
+test-case name "rcptto.option-size" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <user@domain> SIZE=3005"
+	expect smtp permfail
+}
+
+# Reject options
+test-case name "rcptto.option-7bit" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <user@domain> BODY=7BIT"
+	expect smtp permfail
+}
+
+# Reject options
+test-case name "rcptto.option-8bitmime" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <user@domain> BODY=8BITMIME"
+	expect smtp permfail
+}
+
+# Reject options
+test-case name "rcptto.option-8bitmime-size" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <user@domain> BODY=8BITMIME"
+	expect smtp permfail
+}
+
+# Reject options
+test-case name "rcptto.option-auth" {
+	call init-helo-mailfrom
+	writeln "RCPT TO: <user@domain> AUTH=WHATEVER"
+	expect smtp permfail
+}

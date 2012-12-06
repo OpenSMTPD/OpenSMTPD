@@ -65,6 +65,7 @@ struct op *op_fail(struct op *, char *);
 struct op *op_call(struct op *, struct procedure *);
 struct op *op_connect(struct op *, const char *, int);
 struct op *op_disconnect(struct op *);
+struct op *op_starttls(struct op *);
 struct op *op_sleep(struct op *, unsigned int);
 struct op *op_write(struct op *, const void *, size_t);
 struct op *op_printf(struct op *, const char *, ...);
