@@ -197,7 +197,6 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
-	struct table	       *t;
 	int			r;
 	struct userinfo	       *tu = NULL;
 
@@ -354,7 +353,6 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
-	struct table		*t;
 	struct userinfo		*tu;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
@@ -398,9 +396,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    sizeof(ep->agent.mda.userinfo.username));
 		}
 
-		t = table_findbyname("<getpwnam>");
-		tu = NULL;
-		r = table_lookup(t, ep->agent.mda.userinfo.username, K_USERINFO,
+		r = table_lookup(rule->r_users, ep->agent.mda.userinfo.username, K_USERINFO,
 		    (void **)&tu);
 		if (r <= 0) {
 			lks->error = (r == -1) ? LKA_TEMPFAIL : LKA_PERMFAIL;

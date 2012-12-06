@@ -918,6 +918,9 @@ forkmda(struct imsgev *iev, uint32_t id,
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
 
+	log_debug("debug: uid=%d, gid=%d",
+	    deliver->userinfo.uid, deliver->userinfo.gid);
+
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL)
 		return;

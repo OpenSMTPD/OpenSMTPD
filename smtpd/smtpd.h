@@ -344,6 +344,7 @@ enum delivery_type {
 
 struct delivery_mda {
 	enum action_type	method;
+	char			usertable[MAX_PATH_SIZE];
 	struct userinfo		userinfo;
 	char			buffer[EXPAND_BUFFER];
 };
@@ -454,6 +455,7 @@ enum envelope_field {
 	EVP_MDA_METHOD,
 	EVP_MDA_BUFFER,
 	EVP_MDA_USER,
+	EVP_MDA_USERTABLE,
 	EVP_MTA_RELAY_HOST,
 	EVP_MTA_RELAY_PORT,
 	EVP_MTA_RELAY_FLAGS,
@@ -1264,6 +1266,7 @@ int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
+int text_to_userinfo(struct userinfo *, const char *);
 char *relayhost_to_text(struct relayhost *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);

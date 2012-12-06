@@ -128,6 +128,10 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			u->userinfo = resp_lka->userinfo;
+
+			log_debug("debug: ## uid=%d, gid=%d",
+			    u->userinfo.uid, u->userinfo.gid);
+
 			u->runnable = 1;
 			TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 			mda_drain();
@@ -269,7 +273,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				deliver.userinfo = d_mda->userinfo;
+				deliver.userinfo = *userinfo;
 				strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
@@ -278,7 +282,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				deliver.userinfo = d_mda->userinfo;
+				deliver.userinfo = *userinfo;
 				strlcpy(deliver.user, userinfo->username,
 				    sizeof deliver.user);
 				strlcpy(deliver.to, d_mda->buffer,

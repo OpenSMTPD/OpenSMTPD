@@ -330,10 +330,8 @@ table_static_userinfo(const char *key, char *line, size_t len, void **retp)
 
 	userinfo = xcalloc(1, sizeof *userinfo, "table_static_userinfo");
 
-	strlcpy(userinfo->username, key, sizeof userinfo->username);
-	userinfo->uid = 10;
-	userinfo->gid = 10;
-	strlcpy(userinfo->directory, "/tmp", sizeof userinfo->directory);
+	if (! text_to_userinfo(userinfo, line))
+	    goto error;
 
 	*retp = userinfo;
 	return 1;
