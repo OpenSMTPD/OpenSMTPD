@@ -60,9 +60,10 @@ static int table_db_credentials(const char *, char *, size_t, void **);
 static int table_db_alias(const char *, char *, size_t, void **);
 static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
+static int table_db_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -200,6 +201,10 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_db_netaddr(key, line, len, retp);
 		break;
 
+	case K_USERINFO:
+		ret = table_db_userinfo(key, line, len, retp);
+		break;
+
 	default:
 		break;
 	}
@@ -258,7 +263,7 @@ table_db_get_entry(void *hdl, const char *key, size_t *len)
 static int
 table_db_credentials(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_credentials *credentials = NULL;
+	struct credentials *credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -301,10 +306,10 @@ table_db_alias(const char *key, char *line, size_t len, void **retp)
 {
 	char		*subrcpt;
 	char		*endp;
-	struct table_alias	*table_alias = NULL;
+	struct expand	*xp = NULL;
 	struct expandnode	 xn;
 
-	table_alias = xcalloc(1, sizeof *table_alias, "table_db_alias");
+	xp = xcalloc(1, sizeof *xp, "table_db_alias");
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -321,54 +326,65 @@ table_db_alias(const char *key, char *line, size_t len, void **retp)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&table_alias->expand, &xn);
-		table_alias->nbnodes++;
+		expand_insert(xp, &xn);
 	}
-	*retp = table_alias;
+	*retp = xp;
 	return 1;
 
 error:
 	*retp = NULL;
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	expand_free(xp);
 	return -1;
 }
 
 static int
 table_db_netaddr(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_netaddr	*table_netaddr = NULL;
+	struct netaddr		*netaddr;
 
-	table_netaddr = xcalloc(1, sizeof *table_netaddr, "table_db_netaddr");
-
-	if (! text_to_netaddr(&table_netaddr->netaddr, line))
+	netaddr = xcalloc(1, sizeof *netaddr, "table_db_netaddr");
+	if (! text_to_netaddr(netaddr, line))
 		goto error;
-
-	*retp = table_netaddr;
+	*retp = netaddr;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(table_netaddr);
-	return 0;
+	free(netaddr);
+	return -1;
 }
 
 static int
 table_db_domain(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_domain	*domain = NULL;
+	struct destination	*destination;
 
-	domain = xcalloc(1, sizeof *domain, "table_db_domain");
-
-	if (strlcpy(domain->name, line, sizeof domain->name)
-	    >= sizeof domain->name)
+	destination = xcalloc(1, sizeof *destination, "table_db_domain");
+	if (strlcpy(destination->name, line, sizeof destination->name)
+	    >= sizeof destination->name)
 		goto error;
-
-	*retp = domain;
+	*retp = destination;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(domain);
-	return 0;
+	free(destination);
+	return -1;
+}
+
+static int
+table_db_userinfo(const char *key, char *line, size_t len, void **retp)
+{
+	struct userinfo		*userinfo;
+
+	userinfo = xcalloc(1, sizeof *userinfo, "table_db_userinfo");
+	if (! text_to_userinfo(userinfo, line))
+	    goto error;
+	*retp = userinfo;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(userinfo);
+	return -1;
 }

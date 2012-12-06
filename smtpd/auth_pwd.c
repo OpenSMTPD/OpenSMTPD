@@ -28,6 +28,7 @@
 #ifdef HAVE_CRYPT_H
 #include <crypt.h> /* needed for crypt() */
 #endif
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
 #include <pwd.h>
@@ -48,9 +49,16 @@ auth_pwd(char *username, char *password)
 {
 	struct passwd *pw;
 
-	pw = getpwnam(username);
-	if (pw == NULL)
+	errno = 0;
+	do {
+		pw = getpwnam(username);
+	} while (pw == NULL && errno == EINTR);
+
+	if (pw == NULL) {
+		if (errno)
+			return -1;
 		return 0;
+	}
 
 	if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
 		return 1;

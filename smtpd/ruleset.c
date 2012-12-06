@@ -95,7 +95,7 @@ matched:
 static int
 ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 {
-	char   *key;
+	const char   *key;
 
 	if (ss == NULL) {
 		/* This happens when caller is part of an internal

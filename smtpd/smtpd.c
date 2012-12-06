@@ -62,7 +62,7 @@ static void parent_send_config_client_certs(void);
 static void parent_send_config_ruleset(int);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct imsgev *, uint32_t, struct deliver *);
-static int parent_forward_open(char *);
+static int parent_forward_open(char *, char *, uid_t, gid_t);
 static void fork_peers(void);
 static struct child *child_add(pid_t, int, const char *);
 
@@ -167,6 +167,11 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 			auth = imsg->data;
 			auth->success = auth_backend->authenticate(auth->user,
 			    auth->pass);
+
+			/* XXX - for now, smtp does not handle temporary failures */
+			if (auth->success == -1)
+				auth->success = 0;
+
 			imsg_compose_event(iev, IMSG_PARENT_AUTHENTICATE, 0, 0,
 			    -1, auth, sizeof *auth);
 			return;
@@ -177,13 +182,14 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORWARD_OPEN:
 			fwreq = imsg->data;
-			fd = parent_forward_open(fwreq->as_user);
+			fd = parent_forward_open(fwreq->user, fwreq->directory,
+			    fwreq->uid, fwreq->gid);
 			fwreq->status = 0;
-			if (fd == -2) {
-				/* no ~/.forward, however it's optional. */
-				fwreq->status = 1;
-				fd = -1;
-			} else if (fd != -1)
+			if (fd == -1 && errno != ENOENT) {
+				if (errno == EAGAIN)
+					fwreq->status = -1;
+			}
+			else
 				fwreq->status = 1;
 			imsg_compose_event(iev, IMSG_PARENT_FORWARD_OPEN, 0, 0,
 			    fd, fwreq, sizeof *fwreq);
@@ -458,6 +464,12 @@ parent_send_config_ruleset(int proc)
 				    IMSG_CONF_RULE_MAPPING, 0, 0, -1,
 				    &r->r_mapping->t_name,
 				    sizeof(r->r_mapping->t_name));
+			}
+			if (r->r_users) {
+				imsg_compose_event(env->sc_ievs[proc],
+				    IMSG_CONF_RULE_USERS, 0, 0, -1,
+				    &r->r_users->t_name,
+				    sizeof(r->r_users->t_name));
 			}
 		}
 	}
@@ -974,27 +986,15 @@ forkmda(struct imsgev *iev, uint32_t id,
 	struct child	*child;
 	pid_t		 pid;
 	int		 n, allout, pipefd[2];
-	struct table		*t;
-	struct table_userinfo	*tu;
-	int		 r;
 
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
-
-	t = table_findbyname("<getpwnam>");
-	r = table_lookup(t, deliver->user, K_USERINFO, (void **)&tu);
-	if (r <= 0) {
-		n = snprintf(ebuf, sizeof ebuf, "getpwnam: %s",
-		    errno ? strerror(errno) : "no such user");
-		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
-		return;
-	}
 
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL)
 		return;
 
-	if (tu->uid == 0 && ! db->allow_root) {
+	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
 		n = snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
 		imsg_compose_event(iev, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
@@ -1002,7 +1002,7 @@ forkmda(struct imsgev *iev, uint32_t id,
 	}
 
 	/* lower privs early to allow fork fail due to ulimit */
-	if (seteuid(tu->uid) < 0)
+	if (seteuid(deliver->userinfo.uid) < 0)
 		fatal("smtpd: forkmda: cannot lower privileges");
 
 	if (pipe(pipefd) < 0) {
@@ -1041,7 +1041,6 @@ forkmda(struct imsgev *iev, uint32_t id,
 
 	/* parent passes the child fd over to mda */
 	if (pid > 0) {
-		free(tu);
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		child = child_add(pid, CHILD_MDA, NULL);
@@ -1056,16 +1055,16 @@ forkmda(struct imsgev *iev, uint32_t id,
 #define error(m) { perror(m); _exit(1); }
 	if (seteuid(0) < 0)
 		error("forkmda: cannot restore privileges");
-	if (chdir(tu->directory) < 0 && chdir("/") < 0)
+	if (chdir(deliver->userinfo.directory) < 0 && chdir("/") < 0)
 		error("chdir");
 	if (dup2(pipefd[0], STDIN_FILENO) < 0 ||
 	    dup2(allout, STDOUT_FILENO) < 0 ||
 	    dup2(allout, STDERR_FILENO) < 0)
 		error("forkmda: dup2");
 	closefrom(STDERR_FILENO + 1);
-	if (setgroups(1, &tu->gid) ||
-	    setresgid(tu->gid, tu->gid, tu->gid) ||
-	    setresuid(tu->uid, tu->uid, tu->uid))
+	if (setgroups(1, &deliver->userinfo.gid) ||
+	    setresgid(deliver->userinfo.gid, deliver->userinfo.gid, deliver->userinfo.gid) ||
+	    setresuid(deliver->userinfo.uid, deliver->userinfo.uid, deliver->userinfo.uid))
 		error("forkmda: cannot drop privileges");
 	if (setsid() < 0)
 		error("setsid");
@@ -1265,32 +1264,30 @@ offline_done(void)
 }
 
 static int
-parent_forward_open(char *username)
+parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 {
-	struct table		*t;
-	struct table_userinfo	*tu;
 	char pathname[MAXPATHLEN];
 	int	fd;
-	int	r;
-
-	t = table_findbyname("<getpwnam>");
-	r = table_lookup(t, username, K_USERINFO, (void **)&tu);
-	if (r <= 0)
-		return -1;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
-		tu->directory))
+		directory))
 		fatal("smtpd: parent_forward_open: snprintf");
 
-	fd = open(pathname, O_RDONLY);
+	do {
+		fd = open(pathname, O_RDONLY);
+	} while (fd == -1 && errno == EINTR);
 	if (fd == -1) {
 		if (errno == ENOENT)
-			return -2;
+			return -1;
+		if (errno == EMFILE || errno == ENFILE || errno == EIO) {
+			errno = EAGAIN;
+			return -1;
+		}
 		log_warn("warn: smtpd: parent_forward_open: %s", pathname);
 		return -1;
 	}
 
-	if (! secure_file(fd, pathname, tu->directory, tu->uid, 1)) {
+	if (! secure_file(fd, pathname, directory, uid, 1)) {
 		log_warnx("warn: smtpd: %s: unsecure file", pathname);
 		close(fd);
 		return -1;

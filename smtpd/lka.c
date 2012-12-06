@@ -49,7 +49,7 @@
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
-static int lka_encode_credentials(char *, size_t, struct table_credentials *);
+static int lka_encode_credentials(char *, size_t, struct credentials *);
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -83,10 +83,47 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
+	if (iev->proc == PROC_MDA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_USERINFO: {
+			struct userinfo		       *userinfo = NULL;
+			struct lka_userinfo_req_msg    *lka_userinfo_req = imsg->data;
+			struct lka_userinfo_resp_msg	lka_userinfo_resp;
+
+			strlcpy(lka_userinfo_resp.username, lka_userinfo_req->username,
+			    sizeof lka_userinfo_resp.username);
+			strlcpy(lka_userinfo_resp.usertable, lka_userinfo_req->usertable,
+			    sizeof lka_userinfo_resp.usertable);
+
+			table = table_findbyname(lka_userinfo_req->usertable);
+			if (table == NULL)
+				lka_userinfo_resp.status = LKA_TEMPFAIL;
+			else {
+				switch (table_lookup(table, lka_userinfo_req->username, K_USERINFO, (void **)&userinfo)) {
+				case -1:
+					lka_userinfo_resp.status = LKA_TEMPFAIL;
+					break;
+				case 0:
+					lka_userinfo_resp.status = LKA_PERMFAIL;
+					break;
+				default:
+					lka_userinfo_resp.status = LKA_OK;
+					lka_userinfo_resp.userinfo = *userinfo;
+					break;
+				}
+			}
+			imsg_compose_event(iev, IMSG_LKA_USERINFO, 0, 0, -1,
+			    &lka_userinfo_resp, sizeof lka_userinfo_resp);
+			free(userinfo);
+			return;
+		}
+		}
+	}
+
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct table_credentials *table_credentials = NULL;
+			struct credentials *credentials = NULL;
 
 			secret = imsg->data;
 			table = table_findbyname(secret->tablename);
@@ -97,26 +134,30 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			ret = table_lookup(table, secret->host, K_CREDENTIALS,
-			    (void **)&table_credentials);
+			ret = table_lookup(table, secret->label, K_CREDENTIALS,
+			    (void **)&credentials);
 
 			log_debug("debug: lka: %s credentials lookup (%d)",
-			    secret->host, ret);
+			    secret->label, ret);
 
+			/*
+			  log_debug("k:%s, v:%s", credentials->username,
+			  credentials->password);
+			*/
 			secret->secret[0] = '\0';
 			if (ret == -1)
 				log_warnx("warn: Credentials lookup fail for "
-				    "%s", secret->host);
+				    "%s", secret->label);
 			else if (ret == 0)
 				log_debug("debug: %s credentials not found",
-				    secret->host);
+				    secret->label);
 			else if (lka_encode_credentials(secret->secret,
-				sizeof secret->secret, table_credentials) == 0)
+				sizeof secret->secret, credentials) == 0)
 				log_warnx("warn: Credentials parse error for "
-				    "%s", secret->host);
+				    "%s", secret->label);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
-			free(table_credentials);
+			free(credentials);
 			return;
 		}
 		}
@@ -177,6 +218,16 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables_dict = tables_dict;
 			rule->r_mapping = table_findbyname(imsg->data);
 			if (rule->r_mapping == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
+		case IMSG_CONF_RULE_USERS:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_users = table_findbyname(imsg->data);
+			if (rule->r_users == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
 			return;
@@ -292,6 +343,7 @@ lka(void)
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
 		{ PROC_SMTP,	imsg_dispatch },
+		{ PROC_MDA,	imsg_dispatch },
 		{ PROC_MTA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch }
 	};
@@ -351,14 +403,14 @@ lka(void)
 
 static int
 lka_encode_credentials(char *dst, size_t size,
-    struct table_credentials *table_credentials)
+    struct credentials *credentials)
 {
 	char	*buf;
 	int	 buflen;
 
 	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0',
-		    table_credentials->username, '\0',
-		    table_credentials->password)) == -1)
+		    credentials->username, '\0',
+		    credentials->password)) == -1)
 		fatal(NULL);
 
 	if (__b64_ntop((unsigned char *)buf, buflen, dst, size) == -1) {

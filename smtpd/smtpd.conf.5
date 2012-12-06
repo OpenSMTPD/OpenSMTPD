@@ -407,6 +407,19 @@ The
 table will be used as the virtual domain mapping.
 .El
 .Pp
+If the method of delivery is local, a user database may be
+specified to override the system database:
+.Bl -tag -width Ds
+.It Xo
+.Op Ic users Ar <table>
+.Xc
+Lookup users in the table
+.Ar table
+instead of performing system lookups using the
+.Xr getpwnam 3
+function.
+.El
+.Pp
 Finally, the method of delivery is specified:
 .Bl -tag -width Ds
 .It Ic deliver to maildir Ar path
@@ -488,10 +501,10 @@ In addition, credentials for authenticated relaying may be provided
 when using a secure schema.
 For example:
 .Bd -literal -offset indent
-tls+auth://mx1.example.org	# AUTH over TLS
-smtps+auth://mx1.example.org	# AUTH over SMTPS
-ssl+auth://mx1.example.org	# AUTH over either \e
-				# SMTPS or TLS
+tls+auth://label@mx.example.org	  # over TLS
+smtps+auth://label@mx.example.org # over SMTPS
+ssl+auth://label@mx.example.org	  # over either \e
+				  # SMTPS or TLS
 .Ed
 .Pp
 If a certificate
@@ -510,6 +523,7 @@ is desired, the
 parameter is used to specify the
 .Ar auth
 table that holds the credentials.
+Credentials will be looked up using the label provided in the URL.
 .Pp
 If the
 .Ic as

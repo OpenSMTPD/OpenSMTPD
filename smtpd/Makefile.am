@@ -24,8 +24,12 @@ sbin_PROGRAMS=		smtpd smtpctl
 pkglibexec_PROGRAMS=	makemap
 
 makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c	\
-			table.c	table_db.c table_getpwnam.c table_static.c	\
-			tree.c dict.c
+			table.c	dict.c tree.c to.c
+
+makemap_SOURCES+=	table_static.c
+makemap_SOURCES+=	table_db.c
+makemap_SOURCES+=	table_getpwnam.c
+makemap_SOURCES+=	table_sqlite.c
 
 makemap_CFLAGS=		-DNO_IO
 
@@ -36,7 +40,7 @@ smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
 			mta_session.c parse.y queue.c queue_backend.c		\
 			ruleset.c scheduler.c scheduler_backend.c smtp.c	\
 			smtp_session.c smtpd.c ssl.c ssl_privsep.c		\
-			stat_backend.c table.c tree.c util.c waitq.c
+			stat_backend.c table.c to.c tree.c util.c waitq.c
 
 # backends
 smtpd_SOURCES+=		auth_bsd.c
@@ -49,6 +53,7 @@ smtpd_SOURCES+=		delivery_mda.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c
+smtpd_SOURCES+=		table_sqlite.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		queue_ram.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
@@ -68,7 +73,8 @@ smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c util.c					\
-			compress_backend.c compress_gzip.c
+			compress_backend.c compress_gzip.c			\
+			to.c
 
 smtpctl_CFLAGS=		-DNO_IO
 
@@ -77,7 +83,7 @@ INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD=			$(LIBCOMPAT)
+LDADD=			$(LIBCOMPAT) -lsqlite3
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
