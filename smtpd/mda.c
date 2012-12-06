@@ -58,6 +58,7 @@ struct mda_user {
 	TAILQ_HEAD(, envelope)	envelopes;
 	int			runnable;
 	size_t			running;
+	struct userinfo		userinfo;
 };
 
 struct mda_session {
@@ -76,6 +77,7 @@ static void mda_sig_handler(int, short, void *);
 static int mda_check_loop(FILE *, struct envelope *);
 static int mda_getlastline(int, char *, size_t);
 static void mda_done(struct mda_session *, int);
+static void mda_fail(struct mda_user *, int, const char *);
 static void mda_drain(void);
 
 size_t			evpcount;
@@ -99,6 +101,39 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint16_t		 msg;
 	uint32_t		 id;
 	int			 n;
+	struct lka_userinfo_req_msg	req_lka;
+	struct lka_userinfo_resp_msg   *resp_lka;
+	struct userinfo		       *userinfo;
+
+	if (iev->proc == PROC_LKA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_USERINFO:
+			resp_lka = imsg->data;
+			TAILQ_FOREACH(u, &users, entry)
+				if (!strcmp(resp_lka->username, u->name))
+					break;
+			if (u == NULL)
+				return;
+
+			if (resp_lka->status == LKA_TEMPFAIL) {
+				mda_fail(u, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+				    "User lookup failed temporarily");
+				return;
+			}
+
+			if (resp_lka->status == LKA_PERMFAIL) {
+				mda_fail(u, IMSG_QUEUE_DELIVERY_PERMFAIL,
+				    "User lookup failed permanently");
+				return;
+			}
+
+			u->userinfo = resp_lka->userinfo;
+			u->runnable = 1;
+			TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
+			mda_drain();
+			return;
+		}
+	}
 
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -117,10 +152,11 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 			}
 
-			name = ep->agent.mda.user.username;
+			name = ep->agent.mda.userinfo.username;
 			TAILQ_FOREACH(u, &users, entry)
 				if (!strcmp(name, u->name))
 					break;
+
 			if (u && u->evpcount >= MDA_MAXEVPUSER) {
 				log_debug("debug: mda: too many envelopes for "
 				    "\"%s\"", u->name);
@@ -132,17 +168,17 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				free(ep);
 				return;
 			}
+
 			if (u == NULL) {
 				u = xcalloc(1, sizeof *u, "mda_user");
 				TAILQ_INIT(&u->envelopes);
 				strlcpy(u->name, name, sizeof u->name);
 				TAILQ_INSERT_TAIL(&users, u, entry);
-			}
-			if (u->runnable == 0 && u->running < MDA_MAXSESSUSER) {
-				log_debug("debug: mda: \"%s\" immediatly "
-				    "runnable", u->name);
-				TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
-				u->runnable = 1;
+				strlcpy(req_lka.username, name,
+				    sizeof req_lka.username);
+				imsg_compose_event(env->sc_ievs[PROC_LKA],
+				    IMSG_LKA_USERINFO, 0, 0, -1, &req_lka,
+				    sizeof req_lka);
 			}
 
 			stat_increment("mda.pending", 1);
@@ -204,20 +240,27 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			/* request parent to fork a helper process */
 			ep = s->evp;
 			d_mda = &s->evp->agent.mda;
+			userinfo = &s->user->userinfo;
 			switch (d_mda->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;
-				strlcpy(deliver.user, d_mda->user.username,
+				deliver.userinfo = *userinfo;
+				strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof(deliver.to));
 				break;
 
 			case A_MBOX:
+				/* MBOX is a special case as we MUST deliver as root,
+				 * just override the uid.
+				 */
 				deliver.mode = A_MBOX;
+				deliver.userinfo = *userinfo;
+				deliver.userinfo.uid = 0;
 				strlcpy(deliver.user, "root",
 				    sizeof(deliver.user));
-				strlcpy(deliver.to, d_mda->user.username,
+				strlcpy(deliver.to, userinfo->username,
 				    sizeof(deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
 				    "%s@%s", ep->sender.user,
@@ -226,7 +269,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				strlcpy(deliver.user, d_mda->user.username,
+				deliver.userinfo = d_mda->userinfo;
+				strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof(deliver.to));
@@ -234,7 +278,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				strlcpy(deliver.user, d_mda->user.username,
+				deliver.userinfo = d_mda->userinfo;
+				strlcpy(deliver.user, userinfo->username,
 				    sizeof deliver.user);
 				strlcpy(deliver.to, d_mda->buffer,
 				    sizeof deliver.to);
@@ -346,6 +391,7 @@ mda(void)
 	struct peer peers[] = {
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
+		{ PROC_LKA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch }
 	};
 
@@ -554,6 +600,25 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	}
 
 	return (0);
+}
+
+static void
+mda_fail(struct mda_user *user, int type, const char *error)
+{
+	struct envelope	*e;
+	size_t		 n;
+
+	n = 0;
+	while ((e = TAILQ_FIRST(&user->envelopes))) {
+		TAILQ_REMOVE(&user->envelopes, e, entry);
+		envelope_set_errormsg(e, "%s", error);
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE], type, 0, 0, -1,
+		    e, sizeof *e);
+		free(e);
+	}
+
+	TAILQ_REMOVE(&users, user, entry);
+	free(user);
 }
 
 static void

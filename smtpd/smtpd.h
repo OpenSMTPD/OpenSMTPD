@@ -100,11 +100,9 @@
 
 typedef uint32_t	objid_t;
 
-#define	MAXPASSWORDLEN	128
 struct userinfo {
 	char username[MAXLOGNAME];
 	char directory[MAXPATHLEN];
-	char password[MAXPASSWORDLEN];
 	uid_t uid;
 	gid_t gid;
 };
@@ -149,6 +147,7 @@ enum imsg_type {
 	IMSG_LKA_UPDATE_TABLE,
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
+	IMSG_LKA_USERINFO,
 
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
@@ -344,7 +343,7 @@ enum delivery_type {
 
 struct delivery_mda {
 	enum action_type	method;
-	struct userinfo		user;
+	struct userinfo		userinfo;
 	char			buffer[EXPAND_BUFFER];
 };
 
@@ -557,9 +556,13 @@ struct smtpd {
 #define	TRACE_RULES	0x0200
 
 struct forward_req {
-	uint64_t			 id;
-	uint8_t				 status;
-	char				 as_user[MAXLOGNAME];
+	uint64_t			id;
+	uint8_t				status;
+
+	char				user[MAXLOGNAME];
+	uid_t				uid;
+	gid_t				gid;
+	char				directory[MAXPATHLEN];
 };
 
 struct secret {
@@ -574,6 +577,8 @@ struct deliver {
 	char			from[PATH_MAX];
 	char			user[MAXLOGNAME];
 	short			mode;
+
+	struct userinfo		userinfo;
 };
 
 struct filter {
@@ -718,16 +723,6 @@ struct table_domain {
 
 struct table_relayhost {
 	struct relayhost	relay;
-};
-
-
-/* XXX - must be == to struct userinfo ! */
-struct table_userinfo {
-	char username[MAXLOGNAME];
-	char directory[MAXPATHLEN];
-	char password[MAXPASSWORDLEN];
-	uid_t uid;
-	gid_t gid;
 };
 
 enum queue_op {
@@ -981,6 +976,16 @@ struct lka_resp_msg {
 	enum lka_resp_status	status;
 };
 
+struct lka_userinfo_req_msg {
+	char			username[MAXLOGNAME];
+};
+
+struct lka_userinfo_resp_msg {
+	enum lka_resp_status	status;
+	char			username[MAXLOGNAME];
+	struct userinfo		userinfo;
+};
+
 
 /* aliases.c */
 int aliases_get(struct table *, struct expand *, const char *);
@@ -1224,6 +1229,23 @@ struct table	*table_get_config(struct table *);
 const void	*table_get(struct table *, const char *);
 
 
+/* to.c */
+int email_to_mailaddr(struct mailaddr *, char *);
+uint32_t evpid_to_msgid(uint64_t);
+uint64_t msgid_to_evpid(uint32_t);
+int text_to_netaddr(struct netaddr *, const char *);
+int text_to_relayhost(struct relayhost *, const char *);
+uint64_t text_to_evpid(const char *);
+uint32_t text_to_msgid(const char *);
+const char *sa_to_text(const struct sockaddr *);
+const char *ss_to_text(const struct sockaddr_storage *);
+const char *time_to_text(time_t);
+const char *duration_to_text(time_t);
+const char *relayhost_to_text(struct relayhost *);
+const char *rule_to_text(struct rule *);
+const char *sockaddr_to_text(struct sockaddr *);
+const char *in6addr_to_text(const struct in6_addr *);
+
 /* util.c */
 typedef struct arglist arglist;
 struct arglist {
@@ -1238,13 +1260,8 @@ int bsnprintf(char *, size_t, const char *, ...)
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(const char *, const char *);
-int email_to_mailaddr(struct mailaddr *, char *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
-char *sa_to_text(const struct sockaddr *);
-char *ss_to_text(const struct sockaddr_storage *);
-char *time_to_text(time_t);
-char *duration_to_text(time_t);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
@@ -1252,16 +1269,11 @@ void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
-int text_to_netaddr(struct netaddr *, const char *);
-int text_to_relayhost(struct relayhost *, const char *);
-char *relayhost_to_text(struct relayhost *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
@@ -1273,8 +1285,7 @@ void log_envelope(const struct envelope *, const char *, const char *,
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
-uint64_t strtoevpid(const char *);
-char *rule_to_text(struct rule *);
+
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

@@ -629,7 +629,7 @@ mta_relay_for(struct envelope *e)
 		key.domain = mta_domain(e->agent.mta.relay.hostname, 1);
 		key.flags |= RELAY_MX;
 	} else {
-		key.domain = mta_domain(e->agent.mta.relay.hostname, 0);
+		key.domain = mta_domain(e->dest.domain, 0);
 	}
 
 	key.flags = e->agent.mta.relay.flags;

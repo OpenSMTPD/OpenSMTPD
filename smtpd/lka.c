@@ -79,6 +79,37 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
+	if (iev->proc == PROC_MDA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_USERINFO: {
+			struct userinfo		       *userinfo = NULL;
+			struct lka_userinfo_req_msg    *lka_userinfo_req = imsg->data;
+			struct lka_userinfo_resp_msg	lka_userinfo_resp;
+
+			strlcpy(lka_userinfo_resp.username, lka_userinfo_req->username,
+			    sizeof lka_userinfo_resp.username);
+
+			table = table_findbyname("<getpwnam>");
+			switch (table_lookup(table, lka_userinfo_req->username, K_USERINFO, (void **)&userinfo)) {
+			case -1:
+				lka_userinfo_resp.status = LKA_TEMPFAIL;
+				break;
+			case 0:
+				lka_userinfo_resp.status = LKA_PERMFAIL;
+				break;
+			default:
+				lka_userinfo_resp.status = LKA_OK;
+				lka_userinfo_resp.userinfo = *userinfo;
+				break;
+			}
+			imsg_compose_event(iev, IMSG_LKA_USERINFO, 0, 0, -1,
+			    &lka_userinfo_resp, sizeof lka_userinfo_resp);
+			free(userinfo);
+			return;
+		}
+		}
+	}
+
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
@@ -282,6 +313,7 @@ lka(void)
 		{ PROC_PARENT,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
 		{ PROC_SMTP,	imsg_dispatch },
+		{ PROC_MDA,	imsg_dispatch },
 		{ PROC_MTA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch }
 	};

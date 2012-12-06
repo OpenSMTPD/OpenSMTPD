@@ -58,7 +58,7 @@ static int ascii_load_mta_relay_flags(uint8_t *, char *);
 static int ascii_dump_uint16(uint16_t, char *, size_t);
 static int ascii_dump_uint32(uint32_t, char *, size_t);
 static int ascii_dump_time(time_t, char *, size_t);
-static int ascii_dump_string(char *, char *, size_t);
+static int ascii_dump_string(const char *, char *, size_t);
 static int ascii_dump_type(enum delivery_type, char *, size_t);
 static int ascii_dump_mda_method(enum action_type, char *, size_t);
 static int ascii_dump_mailaddr(struct mailaddr *, char *, size_t);
@@ -346,8 +346,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_string(ep->agent.mda.buffer, buf,
 		    sizeof ep->agent.mda.buffer);
 	case EVP_MDA_USER:
-		return ascii_load_string(ep->agent.mda.user.username, buf,
-		    sizeof ep->agent.mda.user.username);
+		return ascii_load_string(ep->agent.mda.userinfo.username, buf,
+		    sizeof ep->agent.mda.userinfo.username);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_load_string(ep->agent.mta.relay.hostname, buf,
 		    sizeof ep->agent.mta.relay.hostname);
@@ -413,7 +413,7 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_MDA_BUFFER:
 		return ascii_dump_string(ep->agent.mda.buffer, buf, len);
 	case EVP_MDA_USER:
-		return ascii_dump_string(ep->agent.mda.user.username, buf, len);
+		return ascii_dump_string(ep->agent.mda.userinfo.username, buf, len);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_dump_string(ep->agent.mta.relay.hostname,
 		    buf, len);
@@ -609,7 +609,7 @@ ascii_dump_time(time_t src, char *dest, size_t len)
 }
 
 static int
-ascii_dump_string(char *src, char *dest, size_t len)
+ascii_dump_string(const char *src, char *dest, size_t len)
 {
 	return bsnprintf(dest, len, "%s", src);
 }
