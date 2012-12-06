@@ -42,6 +42,7 @@ extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_sqlite;
+extern struct table_backend table_backend_ldap;
 
 static objid_t	last_table_id = 0;
 
@@ -56,6 +57,8 @@ table_backend_lookup(const char *backend)
 		return &table_backend_getpwnam;
 	if (!strcmp(backend, "sqlite"))
 		return &table_backend_sqlite;
+	if (!strcmp(backend, "ldap"))
+		return &table_backend_ldap;
 	return NULL;
 }
 
