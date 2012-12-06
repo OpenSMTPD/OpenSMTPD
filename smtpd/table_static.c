@@ -300,7 +300,7 @@ table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(table_netaddr);
-	return 0;
+	return -1;
 }
 
 static int
@@ -320,7 +320,7 @@ table_static_domain(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(domain);
-	return 0;
+	return -1;
 }
 
 static int
@@ -339,5 +339,5 @@ table_static_userinfo(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(userinfo);
-	return 0;
+	return -1;
 }
