@@ -106,9 +106,9 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MDA_USERTABLE,
 		EVP_MDA_BUFFER,
 		EVP_MDA_USER,
-		EVP_MTA_RELAY_URL,
 		EVP_MTA_RELAY_CERT,
-		EVP_MTA_RELAY_AUTHTABLE,
+		EVP_MTA_RELAY_AUTH,
+		EVP_MTA_RELAY,
 	};
 	char	*field, *nextline;
 	size_t	 len;
@@ -188,9 +188,9 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_MDA_USER
 	};
 	enum envelope_field mta_fields[] = {
-		EVP_MTA_RELAY_URL,
 		EVP_MTA_RELAY_CERT,
-		EVP_MTA_RELAY_AUTHTABLE,
+		EVP_MTA_RELAY_AUTH,
+		EVP_MTA_RELAY,
 	};
 	enum envelope_field *pfields = NULL;
 	int	 i, n, l;
@@ -295,12 +295,12 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mda-user";
 	case EVP_MDA_USERTABLE:
 		return "mda-usertable";
-	case EVP_MTA_RELAY_URL:
-		return "mta-relay-url";
+	case EVP_MTA_RELAY:
+		return "mta-relay";
 	case EVP_MTA_RELAY_CERT:
 		return "mta-relay-cert";
-	case EVP_MTA_RELAY_AUTHTABLE:
-		return "mta-relay-authtable";
+	case EVP_MTA_RELAY_AUTH:
+		return "mta-relay-auth";
 	}
 
 	return NULL;
@@ -346,10 +346,10 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MTA_RELAY_CERT:
 		return ascii_load_string(ep->agent.mta.relay.cert, buf,
 		    sizeof ep->agent.mta.relay.cert);
-	case EVP_MTA_RELAY_AUTHTABLE:
+	case EVP_MTA_RELAY_AUTH:
 		return ascii_load_string(ep->agent.mta.relay.authtable, buf,
 		    sizeof ep->agent.mta.relay.authtable);
-	case EVP_MTA_RELAY_URL:
+	case EVP_MTA_RELAY:
 		return ascii_load_mta_relay_url(&ep->agent.mta.relay, buf);
 	case EVP_CTIME:
 		return ascii_load_time(&ep->creation, buf);
@@ -401,10 +401,10 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_MTA_RELAY_CERT:
 		return ascii_dump_string(ep->agent.mta.relay.cert,
 		    buf, len);
-	case EVP_MTA_RELAY_AUTHTABLE:
+	case EVP_MTA_RELAY_AUTH:
 		return ascii_dump_string(ep->agent.mta.relay.authtable,
 		    buf, len);
-	case EVP_MTA_RELAY_URL:
+	case EVP_MTA_RELAY:
 		if (ep->agent.mta.relay.hostname[0])
 			return ascii_dump_mta_relay_url(&ep->agent.mta.relay, buf, len);
 		return 1;
