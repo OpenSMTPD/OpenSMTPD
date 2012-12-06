@@ -221,12 +221,14 @@ main(int argc, char *argv[])
 		/* not reached */
 
 	case SCHEDULE:
-		ulval = strtoevpid(res->data);
+		if ((ulval = text_to_evpid(res->data)) == 0)
+			errx(1, "invalid msgid/evpid");
 		imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
 	case REMOVE:
-		ulval = strtoevpid(res->data);
+		if ((ulval = text_to_evpid(res->data)) == 0)
+			errx(1, "invalid msgid/evpid");
 		imsg_compose(ibuf, IMSG_SCHEDULER_REMOVE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
@@ -640,7 +642,9 @@ show_envelope(const char *s)
 	char	 buf[MAXPATHLEN];
 	uint64_t evpid;
 
-	evpid = strtoevpid(s);
+	if ((evpid = text_to_evpid(s)) == 0)
+		errx(1, "invalid msgid/evpid");
+
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x%s/%016" PRIx64,
 	    PATH_SPOOL,
 	    PATH_QUEUE,
@@ -658,7 +662,9 @@ show_message(const char *s)
 	char	 buf[MAXPATHLEN];
 	uint32_t msgid;
 
-	msgid = evpid_to_msgid(strtoevpid(s));
+	if ((msgid = text_to_evpid(s)) == 0)
+		errx(1, "invalid msgid/evpid");
+
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
 	    PATH_SPOOL,
 	    PATH_QUEUE,

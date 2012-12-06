@@ -1225,6 +1225,23 @@ void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
 
 
+/* to.c */
+int email_to_mailaddr(struct mailaddr *, char *);
+uint32_t evpid_to_msgid(uint64_t);
+uint64_t msgid_to_evpid(uint32_t);
+int text_to_netaddr(struct netaddr *, const char *);
+int text_to_relayhost(struct relayhost *, const char *);
+uint64_t text_to_evpid(const char *);
+uint32_t text_to_msgid(const char *);
+const char *sa_to_text(const struct sockaddr *);
+const char *ss_to_text(const struct sockaddr_storage *);
+const char *time_to_text(time_t);
+const char *duration_to_text(time_t);
+const char *relayhost_to_text(struct relayhost *);
+const char *rule_to_text(struct rule *);
+const char *sockaddr_to_text(struct sockaddr *);
+const char *in6addr_to_text(const struct in6_addr *);
+
 /* util.c */
 typedef struct arglist arglist;
 struct arglist {
@@ -1239,13 +1256,8 @@ int bsnprintf(char *, size_t, const char *, ...)
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(const char *, const char *);
-int email_to_mailaddr(struct mailaddr *, char *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
-char *sa_to_text(const struct sockaddr *);
-char *ss_to_text(const struct sockaddr_storage *);
-char *time_to_text(time_t);
-char *duration_to_text(time_t);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
@@ -1253,16 +1265,11 @@ void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
-int text_to_netaddr(struct netaddr *, const char *);
-int text_to_relayhost(struct relayhost *, const char *);
-char *relayhost_to_text(struct relayhost *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
@@ -1274,8 +1281,7 @@ void log_envelope(const struct envelope *, const char *, const char *,
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
-uint64_t strtoevpid(const char *);
-char *rule_to_text(struct rule *);
+
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

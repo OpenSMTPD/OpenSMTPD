@@ -110,29 +110,37 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 
 	lks->flags &= ~F_WAITING;
 
-	if (fd == -1 && fwreq->status) {
-		/* no .forward, just deliver to local user */
-		log_debug("debug: lka: no .forward for user %s, just deliver",
-		    fwreq->user);
-		lka_submit(lks, rule, xn);
-	}
-	else if (fd == -1) {
+	switch (fwreq->status) {
+	case 0:
+		/* permanent failure while lookup ~/.forward */
 		log_debug("debug: lka: opening .forward failed for user %s",
 		    fwreq->user);
 		lks->error = LKA_PERMFAIL;
-	}
-	else {
-		/* expand for the current user and rule */
-		lks->expand.rule = rule;
-		lks->expand.parent = xn;
-		lks->expand.alias = 0;
-		if (forwards_get(fd, &lks->expand) == 0) {
-			log_debug("debug: lka: no forward alias for user %s",
-			    fwreq->user);
-			lks->error = LKA_PERMFAIL;
+		break;
+	case 1:
+		if (fd == -1) {
+			log_debug("debug: lka: no .forward for user %s, just deliver",
+			    fwreq->as_user);
+			lka_submit(lks, rule, xn);
 		}
-		close(fd);
+		else {
+			/* expand for the current user and rule */
+			lks->expand.rule = rule;
+			lks->expand.parent = xn;
+			lks->expand.alias = 0;
+			if (forwards_get(fd, &lks->expand) == 0) {
+				log_debug("debug: lka: no forward alias for user %s",
+				    fwreq->as_user);
+				lks->error = LKA_PERMFAIL;
+			}
+			close(fd);
+		}
+		break;
+	default:
+		/* temporary failure while looking up ~/.forward */
+		lks->error = LKA_TEMPFAIL;
 	}
+
 	lka_resume(lks);
 }
 
