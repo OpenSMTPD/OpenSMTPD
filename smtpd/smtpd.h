@@ -125,6 +125,15 @@ struct relayhost {
 	char authtable[MAX_PATH_SIZE];
 };
 
+struct credentials {
+	char username[MAX_LINE_SIZE];
+	char password[MAX_LINE_SIZE];
+};
+
+struct destination {
+	char	name[MAXHOSTNAMELEN];
+};
+
 enum imsg_type {
 	IMSG_NONE,
 	IMSG_CTL_OK,		/* answer to smtpctl requests */
@@ -264,11 +273,11 @@ enum table_type {
 
 enum table_service {
 	K_NONE		= 0x00,
-	K_ALIAS		= 0x01,
-	K_DOMAIN	= 0x02,
-	K_CREDENTIALS	= 0x04,
-	K_NETADDR	= 0x08,
-	K_USERINFO	= 0x10,
+	K_ALIAS		= 0x01,	/* returns struct expand	*/
+	K_DOMAIN	= 0x02,	/* returns struct destination	*/
+	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
+	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
+	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
 };
 
 struct table {
@@ -297,7 +306,6 @@ struct table_backend {
 
 
 enum dest_type {
-/*	DEST_ANY,*/
 	DEST_DOM,
 	DEST_VDOM
 };
@@ -704,29 +712,6 @@ struct mta_task {
 	TAILQ_HEAD(, envelope)	 envelopes;
 	struct mailaddr		 sender;
 	struct mta_session	*session;
-};
-
-/* tables return structures */
-struct table_credentials {
-	char username[MAX_LINE_SIZE];
-	char password[MAX_LINE_SIZE];
-};
-
-struct table_alias {
-	size_t			nbnodes;
-	struct expand		expand;
-};
-
-struct table_netaddr {
-	struct netaddr		netaddr;
-};
-
-struct table_domain {
-	char			name[MAXHOSTNAMELEN];
-};
-
-struct table_relayhost {
-	struct relayhost	relay;
 };
 
 enum queue_op {
