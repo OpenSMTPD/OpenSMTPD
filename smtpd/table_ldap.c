@@ -41,6 +41,8 @@
 
 
 static void			*table_ldap_open(struct table *);
+static int			 table_ldap_update(struct table *);
+static int			 table_ldap_config(struct table *, const char*);
 static int			 table_ldap_lookup(void *, const  char *, enum table_service, void **);
 static void			 table_ldap_close(void *);
 
@@ -56,163 +58,50 @@ struct ldap_confs ldap_confs = TAILQ_HEAD_INITIALIZER(ldap_confs);
 
 struct table_backend table_backend_ldap = {
 	K_ALIAS|K_VIRTUAL,
-	NULL,
+	table_ldap_config,
 	table_ldap_open,
-	NULL,
+	table_ldap_update,
 	table_ldap_close,
 	table_ldap_lookup
 };
 
-enum {
-	BASEDN_OPT,
-	FILTER_OPT,
-	ATTR_OPT,
-	URL_OPT,
-	USER_OPT,
-	PWD_OPT
-};
-
-struct conf_option {
-	const char* opt_name;
-	int			opt_flag;
-};
-
-const struct conf_option cf_keywords[] = {
-	{ "basedn", BASEDN_OPT },
-	{ "filter", FILTER_OPT },
-	{ "attribute", ATTR_OPT },
-	{ "url", URL_OPT },
-	{ "username", USER_OPT },
-	{ "password", PWD_OPT }
-};
 
 static int
-setoptvalue(struct ldap_conf *lconf, int opt, char *value)
+table_ldap_config(struct table *table, const char *config)
 {
-	switch (opt) {
-	case BASEDN_OPT:
-		if (strlcpy(lconf->m_ldapbasedn, value, sizeof(lconf->m_ldapbasedn))
-		    >= sizeof(lconf->m_ldapbasedn)) {
-			warnx("ldap base dn too long");
-			return 0;
-		}
-		break;
-	case FILTER_OPT:
-		if (strlcpy(lconf->m_ldapfilter, value, sizeof(lconf->m_ldapfilter))
-		    >= sizeof(lconf->m_ldapfilter)) {
-			warnx("ldap filter too long");
-			return 0;
-		}
-		break;
-	case ATTR_OPT:
-		if (strlcpy(lconf->m_ldapattr, value, sizeof(lconf->m_ldapattr))
-		    >= sizeof(lconf->m_ldapattr)) {
-			warnx("ldap attribute too long");
-			return 0;
-		}
-		break;
-	case URL_OPT:
-		if (strlcpy(lconf->url, value, sizeof(lconf->url))
-		    >= sizeof(lconf->url)) {
-			warnx("ldap url too long");
-			return 0;
-		}
-		break;
-	case USER_OPT:
-		if (strlcpy(lconf->username, value, sizeof(lconf->username))
-		    >= sizeof(lconf->username)) {
-			warnx("ldap username too long");
-			return 0;
-		}
-		break;
-	case PWD_OPT:
-		if (strlcpy(lconf->password, value, sizeof(lconf->password))
-		    >= sizeof(lconf->password)) {
-			warnx("ldap password too long");
-			return 0;
-		}
-		break;
+	struct table	*cfg;
+
+	/* no config ? broken */
+	if (config == NULL)
+		return 0;
+
+	cfg = table_create("static", NULL, NULL);
+
+	if (! table_config_parser(cfg, config))
+		goto err;
+
+	if (cfg->t_type != T_HASH)
+		goto err;
+
+	/* sanity checks */
+	if (table_get(cfg, "url") == NULL) {
+		log_warnx("table_ldap: missing 'url' configuration");
+		table_destroy(cfg);
+		return 0;
 	}
+
+	table_set_config(table, cfg);
 	return 1;
-}
-
-static struct ldap_conf *
-ldap_parse_configuration(const char *path)
-{
-	char	*buf, *lbuf;
-	char	*p;
-	size_t	 len, wlen, i;
-	FILE	*fp;
-	struct  ldap_conf *ldapconf;
-
-	if ((fp = fopen(path, "r")) == NULL) {
-		warnx("ldap_parse_configuration: can't open configuration file '%s'", path);
-		return NULL;
-	}
-
-	if ((ldapconf = malloc(sizeof(struct ldap_conf))) == NULL)
-		err(1, "malloc");
-
-	if (strlcpy(ldapconf->identifier, path, sizeof(ldapconf->identifier))
-			>= sizeof(ldapconf->identifier)) {
-		free(ldapconf);
-		fclose(fp);
-		err(1, "path name too long");
-	}
-
-	lbuf = NULL;
-	while ((buf = fgetln(fp, &len))) {
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-		else {
-			if ((lbuf = malloc(len + 1)) == NULL)
-				err(1, NULL);
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
-
-		p = buf;
-		p += strspn(p, " \t");
-		wlen = strcspn(p, "= \t");
-
-		for (i = 0; i < nitems(cf_keywords); ++i) {
-			if (!strncmp(cf_keywords[i].opt_name, p, wlen) &&
-					strlen(cf_keywords[i].opt_name) == wlen)
-				break;
-		}
-
-		if (i == nitems(cf_keywords)) {
-			warnx("ldap configuration file '%s' syntax error", path);
-			goto err;
-		}
-
-		p += wlen;
-		p += strspn(p, " =\t");
-		wlen = strcspn(p, " \t");
-
-		if (wlen == 0) {
-			warnx("ldap configuration file '%s' invalid option argument", path);
-			goto err;
-		}
-
-		*(p+wlen) = '\0';
-		if (! setoptvalue(ldapconf, cf_keywords[i].opt_flag, p))
-			goto err;
-	}
-
-	fclose(fp);
-	free(lbuf);
-
-	TAILQ_INSERT_TAIL(&ldap_confs, ldapconf, entry);
-
-	return ldapconf;
 
 err:
-	fclose(fp);
-	free(ldapconf);
-	free(lbuf);
-	return NULL;
+	table_destroy(cfg);
+	return 0;
+}
+
+static int
+table_ldap_update(struct table *table)
+{
+	return 1;
 }
 
 static void *
