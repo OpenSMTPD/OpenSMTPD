@@ -695,13 +695,10 @@ mta_relay_query_secret(struct mta_relay *relay)
 	tree_xset(&wait_secret, relay->id, relay);
 	relay->status |= RELAY_WAIT_SECRET;
 
-	log_debug("foobar: %p, %p",
-	    relay->auth, relay->authlabel);
 	bzero(&secret, sizeof(secret));
 	secret.id = relay->id;
 	strlcpy(secret.tablename, relay->auth, sizeof(secret.tablename));
 	strlcpy(secret.label, relay->authlabel, sizeof(secret.label));
-	log_debug("barbaz");
 	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
 		    0, 0, -1, &secret, sizeof(secret));
 }

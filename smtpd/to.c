@@ -337,6 +337,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	relay->flags = schemas[i].flags;
 
 	if ((sep = strrchr(p, ':')) != NULL) {
+		*sep = 0;
 		relay->port = strtonum(sep+1, 1, 0xffff, &errstr);
 		if (errstr)
 			return 0;
@@ -400,8 +401,8 @@ relayhost_to_text(struct relayhost *relay)
 		break;
 	}
 	if (relay->authlabel[0]) {
+		strlcat(buf, relay->authlabel, sizeof buf);
 		strlcat(buf, "@", sizeof buf);
-		strlcat(buf, relay->hostname, sizeof buf);
 	}
 	strlcat(buf, relay->hostname, sizeof buf);
 	if (relay->port) {

@@ -136,6 +136,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			log_debug("debug: lka: %s credentials lookup (%d)",
 			    secret->label, ret);
 
+			/*
+			  log_debug("k:%s, v:%s", credentials->username,
+			  credentials->password);
+			*/
 			secret->secret[0] = '\0';
 			if (ret == -1)
 				log_warnx("warn: Credentials lookup fail for "

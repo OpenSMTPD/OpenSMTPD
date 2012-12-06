@@ -53,7 +53,7 @@ static int ascii_load_sockaddr(struct sockaddr_storage *, char *);
 static int ascii_load_mda_method(enum action_type *, char *);
 static int ascii_load_mailaddr(struct mailaddr *, char *);
 static int ascii_load_flags(enum envelope_flags *, char *);
-static int ascii_load_mta_relay_flags(uint8_t *, char *);
+static int ascii_load_mta_relay_url(struct relayhost *, char *);
 
 static int ascii_dump_uint16(uint16_t, char *, size_t);
 static int ascii_dump_uint32(uint32_t, char *, size_t);
@@ -63,8 +63,7 @@ static int ascii_dump_type(enum delivery_type, char *, size_t);
 static int ascii_dump_mda_method(enum action_type, char *, size_t);
 static int ascii_dump_mailaddr(struct mailaddr *, char *, size_t);
 static int ascii_dump_flags(enum envelope_flags, char *, size_t);
-static int ascii_dump_mta_relay_port(uint16_t, char *, size_t);
-static int ascii_dump_mta_relay_flags(uint8_t, char *, size_t);
+static int ascii_dump_mta_relay_url(struct relayhost *, char *, size_t);
 
 void
 envelope_set_errormsg(struct envelope *e, char *fmt, ...)
@@ -107,12 +106,9 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MDA_USERTABLE,
 		EVP_MDA_BUFFER,
 		EVP_MDA_USER,
-		EVP_MTA_RELAY_HOST,
-		EVP_MTA_RELAY_PORT,
+		EVP_MTA_RELAY_URL,
 		EVP_MTA_RELAY_CERT,
-		EVP_MTA_RELAY_FLAGS,
-		EVP_MTA_RELAY_AUTHMAP,
-		EVP_MTA_RELAY_AUTHTABLE
+		EVP_MTA_RELAY_AUTHTABLE,
 	};
 	char	*field, *nextline;
 	size_t	 len;
@@ -192,11 +188,9 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_MDA_USER
 	};
 	enum envelope_field mta_fields[] = {
-		EVP_MTA_RELAY_HOST,
-		EVP_MTA_RELAY_PORT,
+		EVP_MTA_RELAY_URL,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTHTABLE,
-		EVP_MTA_RELAY_FLAGS
 	};
 	enum envelope_field *pfields = NULL;
 	int	 i, n, l;
@@ -301,16 +295,10 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mda-user";
 	case EVP_MDA_USERTABLE:
 		return "mda-usertable";
-	case EVP_MTA_RELAY_HOST:
-		return "mta-relay-host";
-	case EVP_MTA_RELAY_PORT:
-		return "mta-relay-port";
-	case EVP_MTA_RELAY_FLAGS:
-		return "mta-relay-flags";
+	case EVP_MTA_RELAY_URL:
+		return "mta-relay-url";
 	case EVP_MTA_RELAY_CERT:
 		return "mta-relay-cert";
-	case EVP_MTA_RELAY_AUTHMAP:
-		return "mta-relay-authmap";
 	case EVP_MTA_RELAY_AUTHTABLE:
 		return "mta-relay-authtable";
 	}
@@ -355,27 +343,14 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MDA_USERTABLE:
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
-	case EVP_MTA_RELAY_HOST:
-		return ascii_load_string(ep->agent.mta.relay.hostname, buf,
-		    sizeof ep->agent.mta.relay.hostname);
-	case EVP_MTA_RELAY_PORT: {
-		uint16_t port;
-
-		if (! ascii_load_uint16(&port, buf))
-			return 0;
-		ep->agent.mta.relay.port = htons(port);
-		return 1;
-	}
 	case EVP_MTA_RELAY_CERT:
 		return ascii_load_string(ep->agent.mta.relay.cert, buf,
 		    sizeof ep->agent.mta.relay.cert);
-	case EVP_MTA_RELAY_FLAGS:
-		return ascii_load_mta_relay_flags(&ep->agent.mta.relay.flags,
-		    buf);
-	case EVP_MTA_RELAY_AUTHMAP:
 	case EVP_MTA_RELAY_AUTHTABLE:
 		return ascii_load_string(ep->agent.mta.relay.authtable, buf,
 		    sizeof ep->agent.mta.relay.authtable);
+	case EVP_MTA_RELAY_URL:
+		return ascii_load_mta_relay_url(&ep->agent.mta.relay, buf);
 	case EVP_CTIME:
 		return ascii_load_time(&ep->creation, buf);
 	case EVP_EXPIRE:
@@ -423,23 +398,14 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_string(ep->agent.mda.userinfo.username, buf, len);
 	case EVP_MDA_USERTABLE:
 		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
-	case EVP_MTA_RELAY_HOST:
-		return ascii_dump_string(ep->agent.mta.relay.hostname,
-		    buf, len);
-	case EVP_MTA_RELAY_PORT:
-		return ascii_dump_mta_relay_port(ep->agent.mta.relay.port,
-		    buf, len);
 	case EVP_MTA_RELAY_CERT:
 		return ascii_dump_string(ep->agent.mta.relay.cert,
 		    buf, len);
-	case EVP_MTA_RELAY_FLAGS:
-		return ascii_dump_mta_relay_flags(ep->agent.mta.relay.flags,
-		    buf, len);
-	case EVP_MTA_RELAY_AUTHMAP:
-		return 1;
 	case EVP_MTA_RELAY_AUTHTABLE:
 		return ascii_dump_string(ep->agent.mta.relay.authtable,
 		    buf, len);
+	case EVP_MTA_RELAY_URL:
+		return ascii_dump_mta_relay_url(&ep->agent.mta.relay, buf, len);
 	case EVP_CTIME:
 		return ascii_dump_time(ep->creation, buf, len);
 	case EVP_EXPIRE:
@@ -580,24 +546,13 @@ ascii_load_flags(enum envelope_flags *dest, char *buf)
 }
 
 static int
-ascii_load_mta_relay_flags(uint8_t *dest, char *buf)
+ascii_load_mta_relay_url(struct relayhost *relay, char *buf)
 {
-	char *flag;
-
-	while ((flag = strsep(&buf, " ,|")) != NULL) {
-		if (strcasecmp(flag, "smtps") == 0)
-			*dest |= F_SMTPS;
-		else if (strcasecmp(flag, "tls") == 0)
-			*dest |= F_STARTTLS;
-		else if (strcasecmp(flag, "auth") == 0)
-			*dest |= F_AUTH;
-		else if (strcasecmp(flag, "backup") == 0)
-			*dest |= F_BACKUP;
-		else
-			return 0;
-	}
+	if (! text_to_relayhost(relay, buf))
+		return 0;
 	return 1;
 }
+
 
 static int
 ascii_dump_uint16(uint16_t src, char *dest, size_t len)
@@ -677,41 +632,6 @@ ascii_dump_mailaddr(struct mailaddr *addr, char *dest, size_t len)
 }
 
 static int
-ascii_dump_mta_relay_port(uint16_t port, char *buf, size_t len)
-{
-	return bsnprintf(buf, len, "%d", ntohs(port));
-}
-
-static int
-ascii_dump_mta_relay_flags(uint8_t flags, char *buf, size_t len)
-{
-	size_t cpylen = 0;
-
-	buf[0] = '\0';
-	if (flags) {
-		if (flags & F_SMTPS)
-			cpylen = strlcat(buf, "smtps", len);
-		if (flags & F_STARTTLS) {
-			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
-			cpylen = strlcat(buf, "tls", len);
-		}
-		if (flags & F_AUTH) {
-			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
-			cpylen = strlcat(buf, "auth", len);
-		}
-		if (flags & F_BACKUP) {
-			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
-			cpylen = strlcat(buf, "backup", len);
-		}
-	}
-
-	return cpylen < len ? 1 : 0;
-}
-
-static int
 ascii_dump_flags(enum envelope_flags flags, char *buf, size_t len)
 {
 	size_t cpylen = 0;
@@ -733,4 +653,10 @@ ascii_dump_flags(enum envelope_flags flags, char *buf, size_t len)
 	}
 
 	return cpylen < len ? 1 : 0;
+}
+
+static int
+ascii_dump_mta_relay_url(struct relayhost *relay, char *buf, size_t len)
+{
+	return bsnprintf(buf, len, "%s", relayhost_to_text(relay));
 }
