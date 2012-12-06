@@ -401,7 +401,7 @@ msgid_to_evpid(uint32_t msgid)
 }
 
 uint64_t
-strtoevpid(const char *s)
+text_to_evpid(const char *s)
 {
 	uint64_t ulval;
 	char	 *ep;
@@ -409,12 +409,31 @@ strtoevpid(const char *s)
 	errno = 0;
 	ulval = strtoull(s, &ep, 16);
 	if (s[0] == '\0' || *ep != '\0')
-		errx(1, "invalid msgid/evpid");
+		return 0;
 	if (errno == ERANGE && ulval == ULLONG_MAX)
-		errx(1, "invalid msgid/evpid");
+		return 0;
 	if (ulval == 0)
-		errx(1, "invalid msgid/evpid");
+		return 0;
 	return (ulval);
+}
+
+uint32_t
+text_to_msgid(const char *s)
+{
+	uint64_t ulval;
+	char	 *ep;
+
+	errno = 0;
+	ulval = strtoull(s, &ep, 16);
+	if (s[0] == '\0' || *ep != '\0')
+		return 0;
+	if (errno == ERANGE && ulval == ULLONG_MAX)
+		return 0;
+	if (ulval == 0)
+		return 0;
+	if (ulval > 0xffffffff)
+		return 0;
+	return (ulval & 0xffffffff);
 }
 
 const char *

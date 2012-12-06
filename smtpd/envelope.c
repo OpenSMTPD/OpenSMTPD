@@ -58,7 +58,7 @@ static int ascii_load_mta_relay_flags(uint8_t *, char *);
 static int ascii_dump_uint16(uint16_t, char *, size_t);
 static int ascii_dump_uint32(uint32_t, char *, size_t);
 static int ascii_dump_time(time_t, char *, size_t);
-static int ascii_dump_string(char *, char *, size_t);
+static int ascii_dump_string(const char *, char *, size_t);
 static int ascii_dump_type(enum delivery_type, char *, size_t);
 static int ascii_dump_mda_method(enum action_type, char *, size_t);
 static int ascii_dump_mailaddr(struct mailaddr *, char *, size_t);
@@ -609,7 +609,7 @@ ascii_dump_time(time_t src, char *dest, size_t len)
 }
 
 static int
-ascii_dump_string(char *src, char *dest, size_t len)
+ascii_dump_string(const char *src, char *dest, size_t len)
 {
 	return bsnprintf(dest, len, "%s", src);
 }
