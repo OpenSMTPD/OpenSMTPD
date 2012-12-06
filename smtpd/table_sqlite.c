@@ -44,7 +44,7 @@ static int table_sqlite_lookup(void *, const char *, enum table_service,
 static void  table_sqlite_close(void *);
 
 struct table_backend table_backend_sqlite = {
-	K_ALIAS|K_DOMAIN|K_USERINFO/*|K_CREDENTIALS|K_NETADDR,*/,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_USERINFO/*|K_NETADDR,*/,
 	table_sqlite_config,
 	table_sqlite_open,
 	table_sqlite_update,
@@ -60,6 +60,8 @@ struct table_sqlite_handle {
 static int table_sqlite_alias(struct table_sqlite_handle *, const char *, void **);
 static int table_sqlite_domain(struct table_sqlite_handle *, const char *, void **);
 static int table_sqlite_userinfo(struct table_sqlite_handle *, const char *, void **);
+static int table_sqlite_credentials(struct table_sqlite_handle *, const char *, void **);
+static int table_sqlite_netaddr(struct table_sqlite_handle *, const char *, void **);
 
 static int
 table_sqlite_config(struct table *table, const char *config)
@@ -138,7 +140,9 @@ table_sqlite_lookup(void *hdl, const char *key, enum table_service service,
 	case K_DOMAIN:
 		return table_sqlite_domain(tsh, key, retp);
 	case K_USERINFO:
-		return table_sqlite_domain(tsh, key, retp);
+		return table_sqlite_userinfo(tsh, key, retp);
+	case K_CREDENTIALS:
+		return table_sqlite_credentials(tsh, key, retp);
 	default:
 		log_warnx("table_sqlite: lookup: unsupported lookup service");
 		return -1;
@@ -148,19 +152,15 @@ table_sqlite_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
-table_sqlite_credentials(const char *key, char *line, size_t len, void **retp)
-{
-	return 0;
-}
-
-static int
 table_sqlite_alias(struct table_sqlite_handle *tsh, const char *key, void **retp)
+
 {
 	struct table	       *cfg = table_get_config(tsh->table);
 	const char	       *query = table_get(cfg, "query_alias");
 	sqlite3_stmt	       *stmt;
-	struct table_alias     *table_alias = NULL;
+	struct expand	       *xp = NULL;
 	struct expandnode	xn;
+	int			nrows;
 	
 	if (query == NULL) {
 		log_warnx("table_sqlite: lookup: no query configured for aliases");
@@ -179,7 +179,9 @@ table_sqlite_alias(struct table_sqlite_handle *tsh, const char *key, void **retp
 	}
 
 	if (retp)
-		table_alias = xcalloc(1, sizeof *table_alias, "table_sqlite_alias");
+		xp = xcalloc(1, sizeof *xp, "table_sqlite_alias");
+
+	nrows = 0;
 
 	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -189,25 +191,21 @@ table_sqlite_alias(struct table_sqlite_handle *tsh, const char *key, void **retp
 		}
 		if (! alias_parse(&xn, sqlite3_column_text(stmt, 0)))
 			goto error;
-		expand_insert(&table_alias->expand, &xn);
-		table_alias->nbnodes++;
-		
+		expand_insert(xp, &xn);
+		nrows++;
 	}
+
 	sqlite3_finalize(stmt);
-	*retp = table_alias;
-	return table_alias->nbnodes;
+	if (retp)
+		*retp = xp;
+	return nrows ? 1 : 0;
 
 error:
-	*retp = NULL;
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	if (retp)
+		*retp = NULL;
+	if (xp)
+		expand_free(xp);
 	return -1;
-}
-
-static int
-table_sqlite_netaddr(const char *key, char *line, size_t len, void **retp)
-{
-	return 0;
 }
 
 static int
@@ -216,7 +214,7 @@ table_sqlite_domain(struct table_sqlite_handle *tsh, const char *key, void **ret
 	struct table	       *cfg = table_get_config(tsh->table);
 	const char	       *query = table_get(cfg, "query_domain");
 	sqlite3_stmt	       *stmt;
-	struct table_domain    *domain = NULL;
+	struct destination     *domain = NULL;
 	
 	if (query == NULL) {
 		log_warnx("table_sqlite: lookup: no query configured for domain");
@@ -264,7 +262,7 @@ static int
 table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **retp)
 {
 	struct table	       *cfg = table_get_config(tsh->table);
-	const char	       *query = table_get(cfg, "query_user");
+	const char	       *query = table_get(cfg, "query_userinfo");
 	sqlite3_stmt	       *stmt;
 	struct userinfo	       *userinfo = NULL;
 	size_t			s;
@@ -279,7 +277,7 @@ table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **r
 		return -1;
 	}
 
-	if (sqlite3_column_count(stmt) != 5) {
+	if (sqlite3_column_count(stmt) != 4) {
 		log_warnx("table_sqlite: columns: invalid resultset");
 		sqlite3_finalize(stmt);
 		return -1;
@@ -317,6 +315,125 @@ table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **r
 error:
 	sqlite3_finalize(stmt);
 	free(userinfo);
+	if (retp)
+		*retp = NULL;
+	return -1;
+}
+
+static int
+table_sqlite_credentials(struct table_sqlite_handle *tsh, const char *key, void **retp)
+{
+	struct table	       *cfg = table_get_config(tsh->table);
+	const char	       *query = table_get(cfg, "query_credentials");
+	sqlite3_stmt	       *stmt;
+	struct credentials     *creds = NULL;
+	size_t			s;
+	
+	if (query == NULL) {
+		log_warnx("table_sqlite: lookup: no query configured for credentials");
+		return -1;
+	}
+
+	if (sqlite3_prepare_v2(tsh->ppDb, query, -1, &stmt, 0) != SQLITE_OK) {
+		log_warnx("table_sqlite: prepare: %s", sqlite3_errmsg(tsh->ppDb));
+		return -1;
+	}
+
+	if (sqlite3_column_count(stmt) != 2) {
+		log_warnx("table_sqlite: columns: invalid resultset");
+		sqlite3_finalize(stmt);
+		return -1;
+	}
+
+	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
+	switch (sqlite3_step(stmt)) {
+	case SQLITE_ROW:
+		if (retp) {
+			creds = xcalloc(1, sizeof *creds, "table_sqlite_credentials");
+			s = strlcpy(creds->username, sqlite3_column_text(stmt, 0),
+			    sizeof(creds->username));
+			if (s >= sizeof(creds->username))
+				goto error;
+			s = strlcpy(creds->password, sqlite3_column_text(stmt, 1),
+			    sizeof(creds->password));
+			if (s >= sizeof(creds->password))
+				goto error;
+			*retp = creds;
+		}
+		sqlite3_finalize(stmt);
+		return 1;
+
+	case SQLITE_DONE:
+		sqlite3_finalize(stmt);
+		return 0;
+
+	default:
+		goto error;
+	}
+
+error:
+	sqlite3_finalize(stmt);
+	free(creds);
+	if (retp)
+		*retp = NULL;
+	return -1;
+}
+
+
+static int
+table_sqlite_netaddr(struct table_sqlite_handle *tsh, const char *key, void **retp)
+{
+	struct table	       *cfg = table_get_config(tsh->table);
+	const char	       *query = table_get(cfg, "query_netaddr");
+	sqlite3_stmt	       *stmt;
+	struct netaddr	       *netaddr = NULL;
+	size_t			s;
+	
+	if (query == NULL) {
+		log_warnx("table_sqlite: lookup: no query configured for netaddr");
+		return -1;
+	}
+
+	if (sqlite3_prepare_v2(tsh->ppDb, query, -1, &stmt, 0) != SQLITE_OK) {
+		log_warnx("table_sqlite: prepare: %s", sqlite3_errmsg(tsh->ppDb));
+		return -1;
+	}
+
+	if (sqlite3_column_count(stmt) != 5) {
+		log_warnx("table_sqlite: columns: invalid resultset");
+		sqlite3_finalize(stmt);
+		return -1;
+	}
+
+	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
+	switch (sqlite3_step(stmt)) {
+	case SQLITE_ROW:
+		if (retp) {
+			creds = xcalloc(1, sizeof *creds, "table_sqlite_credentials");
+			s = strlcpy(creds->username, sqlite3_column_text(stmt, 0),
+			    sizeof(creds->username));
+			if (s >= sizeof(creds->username))
+				goto error;
+			s = strlcpy(creds->password, sqlite3_column_text(stmt, 1),
+			    sizeof(creds->password));
+			if (s >= sizeof(creds->password))
+				goto error;
+			*retp = creds;
+		}
+		sqlite3_finalize(stmt);
+		return 1;
+
+	case SQLITE_DONE:
+		sqlite3_finalize(stmt);
+		return 0;
+
+	default:
+		goto error;
+	}
+
+error:
+	sqlite3_finalize(stmt);
+	free(creds);
 	if (retp)
 		*retp = NULL;
 	return -1;

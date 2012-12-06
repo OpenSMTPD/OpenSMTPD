@@ -52,9 +52,10 @@ static int table_db_credentials(const char *, char *, size_t, void **);
 static int table_db_alias(const char *, char *, size_t, void **);
 static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
+static int table_db_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -192,6 +193,10 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_db_netaddr(key, line, len, retp);
 		break;
 
+	case K_USERINFO:
+		ret = table_db_userinfo(key, line, len, retp);
+		break;
+
 	default:
 		break;
 	}
@@ -327,13 +332,11 @@ error:
 static int
 table_db_netaddr(const char *key, char *line, size_t len, void **retp)
 {
-	struct netaddr	*netaddr = NULL;
+	struct netaddr		*netaddr;
 
 	netaddr = xcalloc(1, sizeof *netaddr, "table_db_netaddr");
-
 	if (! text_to_netaddr(netaddr, line))
 		goto error;
-
 	*retp = netaddr;
 	return 1;
 
@@ -346,19 +349,34 @@ error:
 static int
 table_db_domain(const char *key, char *line, size_t len, void **retp)
 {
-	struct destination	*destination = NULL;
+	struct destination	*destination;
 
 	destination = xcalloc(1, sizeof *destination, "table_db_domain");
-
 	if (strlcpy(destination->name, line, sizeof destination->name)
 	    >= sizeof destination->name)
 		goto error;
-
 	*retp = destination;
 	return 1;
 
 error:
 	*retp = NULL;
 	free(destination);
+	return -1;
+}
+
+static int
+table_db_userinfo(const char *key, char *line, size_t len, void **retp)
+{
+	struct userinfo		*userinfo;
+
+	userinfo = xcalloc(1, sizeof *userinfo, "table_db_userinfo");
+	if (! text_to_userinfo(userinfo, line))
+	    goto error;
+	*retp = userinfo;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(userinfo);
 	return -1;
 }

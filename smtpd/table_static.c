@@ -49,7 +49,7 @@ static int	table_static_netaddr(const char *, char *, size_t, void **);
 static int	table_static_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR|K_USERINFO,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -207,8 +207,8 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 static int
 table_static_credentials(const char *key, char *line, size_t len, void **retp)
 {
-	struct credentials *credentials = NULL;
-	char *p;
+	struct credentials	*creds;
+	char			*p;
 
 	/* credentials are stored as user:password */
 	if (len < 3)
@@ -226,22 +226,21 @@ table_static_credentials(const char *key, char *line, size_t len, void **retp)
 		return -1;
 	*p++ = '\0';
 
-	credentials = xcalloc(1, sizeof *credentials,
-	    "table_static_credentials");
-	if (strlcpy(credentials->username, line, sizeof(credentials->username))
-	    >= sizeof(credentials->username))
+	creds = xcalloc(1, sizeof *creds, "table_static_credentials");
+	if (strlcpy(creds->username, line, sizeof(creds->username))
+	    >= sizeof(creds->username))
 		goto err;
 
-	if (strlcpy(credentials->password, p, sizeof(credentials->password))
-	    >= sizeof(credentials->password))
+	if (strlcpy(creds->password, p, sizeof(creds->password))
+	    >= sizeof(creds->password))
 		goto err;
 
-	*retp = credentials;
+	*retp = creds;
 	return 1;
 
 err:
 	*retp = NULL;
-	free(credentials);
+	free(creds);
 	return -1;
 }
 
@@ -284,14 +283,11 @@ error:
 static int
 table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 {
-	struct netaddr	*netaddr = NULL;
+	struct netaddr		*netaddr;
 
-	netaddr = xcalloc(1, sizeof *netaddr,
-	    "table_static_netaddr");
-
+	netaddr = xcalloc(1, sizeof *netaddr, "table_static_netaddr");
 	if (! text_to_netaddr(netaddr, line))
 		goto error;
-
 	*retp = netaddr;
 	return 1;
 
@@ -304,14 +300,12 @@ error:
 static int
 table_static_domain(const char *key, char *line, size_t len, void **retp)
 {
-	struct destination	*destination = NULL;
+	struct destination	*destination;
 
 	destination = xcalloc(1, sizeof *destination, "table_static_domain");
-
 	if (strlcpy(destination->name, line, sizeof destination->name)
 	    >= sizeof destination->name)
 		goto error;
-
 	*retp = destination;
 	return 1;
 
@@ -324,13 +318,11 @@ error:
 static int
 table_static_userinfo(const char *key, char *line, size_t len, void **retp)
 {
-	struct userinfo	*userinfo = NULL;
+	struct userinfo		*userinfo;
 
 	userinfo = xcalloc(1, sizeof *userinfo, "table_static_userinfo");
-
 	if (! text_to_userinfo(userinfo, line))
 	    goto error;
-
 	*retp = userinfo;
 	return 1;
 
