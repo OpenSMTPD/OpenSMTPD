@@ -130,20 +130,6 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_PARENT_SEND_CONFIG:
 			parent_send_config_listeners();
 			return;
-
-		case IMSG_PARENT_AUTHENTICATE:
-			auth_backend = auth_backend_lookup(AUTH_BSD);
-			auth = imsg->data;
-			auth->success = auth_backend->authenticate(auth->user,
-			    auth->pass);
-
-			/* XXX - for now, smtp does not handle temporary failures */
-			if (auth->success == -1)
-				auth->success = 0;
-
-			imsg_compose_event(iev, IMSG_PARENT_AUTHENTICATE, 0, 0,
-			    -1, auth, sizeof *auth);
-			return;
 		}
 	}
 
@@ -162,6 +148,19 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 				fwreq->status = 1;
 			imsg_compose_event(iev, IMSG_PARENT_FORWARD_OPEN, 0, 0,
 			    fd, fwreq, sizeof *fwreq);
+			return;
+		case IMSG_LKA_AUTHENTICATE:
+			auth_backend = auth_backend_lookup(AUTH_BSD);
+			auth = imsg->data;
+			auth->success = auth_backend->authenticate(auth->user,
+			    auth->pass);
+
+			/* XXX - for now, smtp does not handle temporary failures */
+			if (auth->success == -1)
+				auth->success = 0;
+
+			imsg_compose_event(iev, IMSG_LKA_AUTHENTICATE, 0, 0,
+			    -1, auth, sizeof *auth);
 			return;
 		}
 	}
@@ -1362,6 +1361,7 @@ imsg_to_str(int type)
 	CASE(IMSG_LKA_UPDATE_TABLE);
 	CASE(IMSG_LKA_EXPAND_RCPT);
 	CASE(IMSG_LKA_SECRET);
+	CASE(IMSG_LKA_AUTHENTICATE);
 
 	CASE(IMSG_MDA_SESS_NEW);
 	CASE(IMSG_MDA_DONE);
@@ -1409,7 +1409,6 @@ imsg_to_str(int type)
 	CASE(IMSG_PARENT_FORWARD_OPEN);
 	CASE(IMSG_PARENT_FORK_MDA);
 	CASE(IMSG_PARENT_KILL_MDA);
-	CASE(IMSG_PARENT_AUTHENTICATE);
 	CASE(IMSG_PARENT_SEND_CONFIG);
 
 	CASE(IMSG_SMTP_ENQUEUE);

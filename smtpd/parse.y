@@ -98,7 +98,7 @@ int		 host_dns(const char *, const char *, const char *,
 int		 host(const char *, const char *, const char *,
 		    struct listenerlist *, int, in_port_t, uint8_t);
 int		 interface(const char *, const char *, const char *,
-		    struct listenerlist *, int, in_port_t, uint8_t);
+    struct listenerlist *, int, in_port_t, const char *, uint8_t);
 void		 set_localaddrs(void);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
@@ -121,14 +121,14 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERS
+%token	AUTH_OPTIONAL TLS_REQUIRE USERS AUTHTABLE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged compression
+%type	<v.string>	certificate tag tagged compression authtable
 %%
 
 grammar		: /* empty */
@@ -243,6 +243,11 @@ auth		: AUTH  			{ $$ = F_AUTH|F_AUTH_REQUIRE; }
 		| /* empty */			{ $$ = 0; }
 		;
 
+authtable	: AUTHTABLE tables		{ $$ = strdup(table_find($2)->t_name);
+		}
+		| /* empty */			{ $$ = NULL; }
+		;
+
 tag		: TAG STRING			{
        			if (strlen($2) >= MAX_TAG_SIZE) {
        				yyerror("tag name too long");
@@ -337,13 +342,14 @@ main		: QUEUE compression {
        
 			free($2);
 		}
-		| LISTEN ON STRING port ssl certificate auth tag {
+		| LISTEN ON STRING port ssl certificate auth authtable tag {
 			char		*cert;
 			char		*tag;
 			uint8_t		 flags;
 
 			if ($5 == F_SSL) {
 				yyerror("syntax error");
+				free($9);
 				free($8);
 				free($6);
 				free($3);
@@ -352,6 +358,7 @@ main		: QUEUE compression {
 
 			if ($5 == 0 && ($6 != NULL || $7)) {
 				yyerror("error: must specify tls or smtps");
+				free($9);
 				free($8);
 				free($6);
 				free($3);
@@ -370,6 +377,7 @@ main		: QUEUE compression {
 
 			if ($5 && ssl_load_certfile(cert, F_SCERT) < 0) {
 				yyerror("cannot load certificate: %s", cert);
+				free($9);
 				free($8);
 				free($6);
 				free($3);
@@ -377,11 +385,10 @@ main		: QUEUE compression {
 			}
 
 			tag = $3;
-			if ($8 != NULL)
-				tag = $8;
-
+			if ($9 != NULL)
+				tag = $9;
 			if (! interface($3, tag, cert, conf->sc_listeners,
-				MAX_LISTEN, $4, flags)) {
+				MAX_LISTEN, $4, $8, flags)) {
 				if (host($3, tag, cert, conf->sc_listeners,
 					MAX_LISTEN, $4, flags) <= 0) {
 					yyerror("invalid virtual ip or interface: %s", $3);
@@ -868,6 +875,7 @@ lookup(char *s)
 		{ "as",			AS },
 		{ "auth",		AUTH },
 		{ "auth-optional",     	AUTH_OPTIONAL },
+		{ "authtable",     	AUTHTABLE },
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",       	COMPRESSION },
@@ -1552,7 +1560,7 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 
 int
 interface(const char *s, const char *tag, const char *cert,
-    struct listenerlist *al, int max, in_port_t port, uint8_t flags)
+    struct listenerlist *al, int max, in_port_t port, const char *authtable, uint8_t flags)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_in	*sain;
@@ -1597,6 +1605,8 @@ interface(const char *s, const char *tag, const char *cert,
 		h->flags = flags;
 		h->ssl = NULL;
 		h->ssl_cert_name[0] = '\0';
+		if (authtable != NULL)
+			(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
 		if (cert != NULL)
 			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
 		if (tag != NULL)
