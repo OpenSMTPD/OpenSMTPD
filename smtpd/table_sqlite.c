@@ -295,9 +295,9 @@ table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **r
 			    sizeof(userinfo->username));
 			if (s >= sizeof(userinfo->username))
 				goto error;
-			userinfo->uid = sqlite3_column_int(stmt, 2);
-			userinfo->gid = sqlite3_column_int(stmt, 3);
-			s = strlcpy(userinfo->directory, sqlite3_column_text(stmt, 4),
+			userinfo->uid = sqlite3_column_int(stmt, 1);
+			userinfo->gid = sqlite3_column_int(stmt, 2);
+			s = strlcpy(userinfo->directory, sqlite3_column_text(stmt, 3),
 			    sizeof(userinfo->directory));
 			if (s >= sizeof(userinfo->directory))
 				goto error;
