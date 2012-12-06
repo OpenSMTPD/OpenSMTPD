@@ -120,7 +120,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	case 1:
 		if (fd == -1) {
 			log_debug("debug: lka: no .forward for user %s, just deliver",
-			    fwreq->as_user);
+			    fwreq->user);
 			lka_submit(lks, rule, xn);
 		}
 		else {
@@ -130,7 +130,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 			lks->expand.alias = 0;
 			if (forwards_get(fd, &lks->expand) == 0) {
 				log_debug("debug: lka: no forward alias for user %s",
-				    fwreq->as_user);
+				    fwreq->user);
 				lks->error = LKA_PERMFAIL;
 			}
 			close(fd);
