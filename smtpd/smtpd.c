@@ -420,6 +420,12 @@ parent_send_config_ruleset(int proc)
 				    &r->r_mapping->t_name,
 				    sizeof(r->r_mapping->t_name));
 			}
+			if (r->r_users) {
+				imsg_compose_event(env->sc_ievs[proc],
+				    IMSG_CONF_RULE_USERS, 0, 0, -1,
+				    &r->r_users->t_name,
+				    sizeof(r->r_users->t_name));
+			}
 		}
 	}
 

@@ -141,6 +141,7 @@ enum imsg_type {
 	IMSG_CONF_RULE_SOURCE,
 	IMSG_CONF_RULE_DESTINATION,
 	IMSG_CONF_RULE_MAPPING,
+	IMSG_CONF_RULE_USERS,
 	IMSG_CONF_FILTER,
 	IMSG_CONF_END,
 
@@ -332,6 +333,7 @@ struct rule {
 
 	struct mailaddr		       *r_as;
 	struct table		       *r_mapping;
+	struct table		       *r_users;
 	time_t				r_qexpire;
 };
 
@@ -343,6 +345,7 @@ enum delivery_type {
 
 struct delivery_mda {
 	enum action_type	method;
+	char			usertable[MAX_PATH_SIZE];
 	struct userinfo		userinfo;
 	char			buffer[EXPAND_BUFFER];
 };
@@ -453,6 +456,7 @@ enum envelope_field {
 	EVP_MDA_METHOD,
 	EVP_MDA_BUFFER,
 	EVP_MDA_USER,
+	EVP_MDA_USERTABLE,
 	EVP_MTA_RELAY_HOST,
 	EVP_MTA_RELAY_PORT,
 	EVP_MTA_RELAY_FLAGS,
@@ -977,11 +981,13 @@ struct lka_resp_msg {
 };
 
 struct lka_userinfo_req_msg {
+	char			usertable[MAXPATHLEN];
 	char			username[MAXLOGNAME];
 };
 
 struct lka_userinfo_resp_msg {
 	enum lka_resp_status	status;
+	char			usertable[MAXPATHLEN];
 	char			username[MAXLOGNAME];
 	struct userinfo		userinfo;
 };
@@ -1235,6 +1241,7 @@ uint32_t evpid_to_msgid(uint64_t);
 uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
+int text_to_userinfo(struct userinfo *, const char *);
 uint64_t text_to_evpid(const char *);
 uint32_t text_to_msgid(const char *);
 const char *sa_to_text(const struct sockaddr *);

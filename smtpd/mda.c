@@ -54,6 +54,7 @@ struct mda_user {
 	TAILQ_ENTRY(mda_user)	entry;
 	TAILQ_ENTRY(mda_user)	entry_runnable;
 	char			name[MAXLOGNAME];
+	char			usertable[MAXPATHLEN];
 	size_t			evpcount;
 	TAILQ_HEAD(, envelope)	envelopes;
 	int			runnable;
@@ -92,6 +93,7 @@ static void
 mda_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	char			 output[128], *error, *parent_error, *name;
+	char			*usertable;
 	char			 stat[MAX_LINE_SIZE];
 	struct deliver		 deliver;
 	struct mda_session	*s;
@@ -110,7 +112,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_USERINFO:
 			resp_lka = imsg->data;
 			TAILQ_FOREACH(u, &users, entry)
-				if (!strcmp(resp_lka->username, u->name))
+				if (!strcmp(resp_lka->username, u->name) &&
+				    !strcmp(resp_lka->usertable, u->usertable))
 					break;
 			if (u == NULL)
 				return;
@@ -128,6 +131,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			u->userinfo = resp_lka->userinfo;
+
 			u->runnable = 1;
 			TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 			mda_drain();
@@ -153,8 +157,10 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			}
 
 			name = ep->agent.mda.userinfo.username;
+			usertable = ep->agent.mda.usertable;
 			TAILQ_FOREACH(u, &users, entry)
-				if (!strcmp(name, u->name))
+			    if (!strcmp(name, u->name) &&
+				!strcmp(usertable, u->usertable))
 					break;
 
 			if (u && u->evpcount >= MDA_MAXEVPUSER) {
@@ -173,9 +179,12 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				u = xcalloc(1, sizeof *u, "mda_user");
 				TAILQ_INIT(&u->envelopes);
 				strlcpy(u->name, name, sizeof u->name);
+				strlcpy(u->usertable, usertable, sizeof u->usertable);
 				TAILQ_INSERT_TAIL(&users, u, entry);
 				strlcpy(req_lka.username, name,
 				    sizeof req_lka.username);
+				strlcpy(req_lka.usertable, usertable,
+				    sizeof req_lka.usertable);
 				imsg_compose_event(env->sc_ievs[PROC_LKA],
 				    IMSG_LKA_USERINFO, 0, 0, -1, &req_lka,
 				    sizeof req_lka);
@@ -269,7 +278,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
-				deliver.userinfo = d_mda->userinfo;
+				deliver.userinfo = *userinfo;
 				strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
 				strlcpy(deliver.to, d_mda->buffer,
@@ -278,7 +287,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
-				deliver.userinfo = d_mda->userinfo;
+				deliver.userinfo = *userinfo;
 				strlcpy(deliver.user, userinfo->username,
 				    sizeof deliver.user);
 				strlcpy(deliver.to, d_mda->buffer,

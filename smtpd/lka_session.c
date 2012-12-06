@@ -205,7 +205,6 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
-	struct table	       *t;
 	int			r;
 	struct userinfo	       *tu = NULL;
 
@@ -304,8 +303,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		t = table_findbyname("<getpwnam>");
-		r = table_lookup(t, xn->u.user, K_USERINFO, (void **)&tu);
+		r = table_lookup(rule->r_users, xn->u.user, K_USERINFO, (void **)&tu);
 		if (r == -1) {
 			log_debug("debug: lka_expand: "
 			    "backend error while searching user");
@@ -363,7 +361,6 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
-	struct table		*t;
 	struct userinfo		*tu;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
@@ -407,15 +404,15 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    sizeof(ep->agent.mda.userinfo.username));
 		}
 
-		t = table_findbyname("<getpwnam>");
-		tu = NULL;
-		r = table_lookup(t, ep->agent.mda.userinfo.username, K_USERINFO,
+		r = table_lookup(rule->r_users, ep->agent.mda.userinfo.username, K_USERINFO,
 		    (void **)&tu);
 		if (r <= 0) {
 			lks->error = (r == -1) ? LKA_TEMPFAIL : LKA_PERMFAIL;
 			free(ep);
 			return;
 		}
+		strlcpy(ep->agent.mda.usertable, rule->r_users->t_name,
+		    sizeof ep->agent.mda.usertable);
 		memcpy(&ep->agent.mda.userinfo, tu, sizeof(ep->agent.mda.userinfo));
 		free(tu);
 

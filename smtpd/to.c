@@ -506,3 +506,51 @@ rule_to_text(struct rule *r)
 	    
 	return buf;
 }
+
+int
+text_to_userinfo(struct userinfo *userinfo, const char *s)
+{
+	char		buf[MAXPATHLEN];
+	char	       *p;
+	const char     *errstr;
+
+	bzero(buf, sizeof buf);
+	p = buf;
+	while (*s && *s != ':')
+		*p++ = *s++;
+	if (*s++ != ':')
+		goto error;
+
+	if (strlcpy(userinfo->username, buf,
+		sizeof userinfo->username) >= sizeof userinfo->username)
+		goto error;
+
+	bzero(buf, sizeof buf);
+	p = buf;
+	while (*s && *s != ':')
+		*p++ = *s++;
+	if (*s++ != ':')
+		goto error;
+	userinfo->uid = strtonum(buf, 0, UID_MAX, &errstr);
+	if (errstr)
+		goto error;
+
+	bzero(buf, sizeof buf);
+	p = buf;
+	while (*s && *s != ':')
+		*p++ = *s++;
+	if (*s++ != ':')
+		goto error;
+	userinfo->gid = strtonum(buf, 0, GID_MAX, &errstr);
+	if (errstr)
+		goto error;
+
+	if (strlcpy(userinfo->directory, s,
+		sizeof userinfo->directory) >= sizeof userinfo->directory)
+		goto error;
+
+	return 1;
+
+error:
+	return 0;
+}

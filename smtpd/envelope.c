@@ -104,6 +104,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_FLAGS,
 		EVP_ERRORLINE,
 		EVP_MDA_METHOD,
+		EVP_MDA_USERTABLE,
 		EVP_MDA_BUFFER,
 		EVP_MDA_USER,
 		EVP_MTA_RELAY_HOST,
@@ -186,6 +187,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 	};
 	enum envelope_field mda_fields[] = {
 		EVP_MDA_METHOD,
+		EVP_MDA_USERTABLE,
 		EVP_MDA_BUFFER,
 		EVP_MDA_USER
 	};
@@ -297,6 +299,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mda-buffer";
 	case EVP_MDA_USER:
 		return "mda-user";
+	case EVP_MDA_USERTABLE:
+		return "mda-usertable";
 	case EVP_MTA_RELAY_HOST:
 		return "mta-relay-host";
 	case EVP_MTA_RELAY_PORT:
@@ -348,6 +352,9 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MDA_USER:
 		return ascii_load_string(ep->agent.mda.userinfo.username, buf,
 		    sizeof ep->agent.mda.userinfo.username);
+	case EVP_MDA_USERTABLE:
+		return ascii_load_string(ep->agent.mda.usertable, buf,
+		    sizeof ep->agent.mda.usertable);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_load_string(ep->agent.mta.relay.hostname, buf,
 		    sizeof ep->agent.mta.relay.hostname);
@@ -414,6 +421,8 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_string(ep->agent.mda.buffer, buf, len);
 	case EVP_MDA_USER:
 		return ascii_dump_string(ep->agent.mda.userinfo.username, buf, len);
+	case EVP_MDA_USERTABLE:
+		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
 	case EVP_MTA_RELAY_HOST:
 		return ascii_dump_string(ep->agent.mta.relay.hostname,
 		    buf, len);
