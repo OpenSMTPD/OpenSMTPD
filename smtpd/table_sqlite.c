@@ -266,7 +266,7 @@ table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **r
 	struct table	       *cfg = table_get_config(tsh->table);
 	const char	       *query = table_get(cfg, "query_user");
 	sqlite3_stmt	       *stmt;
-	struct table_userinfo  *userinfo = NULL;
+	struct userinfo	       *userinfo = NULL;
 	size_t			s;
 	
 	if (query == NULL) {
@@ -294,10 +294,6 @@ table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **r
 			s = strlcpy(userinfo->username, sqlite3_column_text(stmt, 0),
 			    sizeof(userinfo->username));
 			if (s >= sizeof(userinfo->username))
-				goto error;
-			s = strlcpy(userinfo->password, sqlite3_column_text(stmt, 1),
-			    sizeof(userinfo->password));
-			if (s >= sizeof(userinfo->password))
 				goto error;
 			userinfo->uid = sqlite3_column_int(stmt, 2);
 			userinfo->gid = sqlite3_column_int(stmt, 3);
