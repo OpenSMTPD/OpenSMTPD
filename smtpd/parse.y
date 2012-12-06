@@ -607,7 +607,7 @@ userbase	: USERS tables	{
 
 			$$ = t->t_id;
 		}
-		| /**/		{ $$ = table_findbyname("<getpwnam>")->t_id; }
+		| /**/	{ $$ = table_findbyname("<getpwnam>")->t_id; }
 		;
 
 		

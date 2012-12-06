@@ -88,19 +88,25 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			strlcpy(lka_userinfo_resp.username, lka_userinfo_req->username,
 			    sizeof lka_userinfo_resp.username);
+			strlcpy(lka_userinfo_resp.usertable, lka_userinfo_req->usertable,
+			    sizeof lka_userinfo_resp.usertable);
 
-			table = table_findbyname("<getpwnam>");
-			switch (table_lookup(table, lka_userinfo_req->username, K_USERINFO, (void **)&userinfo)) {
-			case -1:
+			table = table_findbyname(lka_userinfo_req->usertable);
+			if (table == NULL)
 				lka_userinfo_resp.status = LKA_TEMPFAIL;
-				break;
-			case 0:
-				lka_userinfo_resp.status = LKA_PERMFAIL;
-				break;
-			default:
-				lka_userinfo_resp.status = LKA_OK;
-				lka_userinfo_resp.userinfo = *userinfo;
-				break;
+			else {
+				switch (table_lookup(table, lka_userinfo_req->username, K_USERINFO, (void **)&userinfo)) {
+				case -1:
+					lka_userinfo_resp.status = LKA_TEMPFAIL;
+					break;
+				case 0:
+					lka_userinfo_resp.status = LKA_PERMFAIL;
+					break;
+				default:
+					lka_userinfo_resp.status = LKA_OK;
+					lka_userinfo_resp.userinfo = *userinfo;
+					break;
+				}
 			}
 			imsg_compose_event(iev, IMSG_LKA_USERINFO, 0, 0, -1,
 			    &lka_userinfo_resp, sizeof lka_userinfo_resp);

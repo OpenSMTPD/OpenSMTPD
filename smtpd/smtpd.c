@@ -136,6 +136,11 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 			auth = imsg->data;
 			auth->success = auth_backend->authenticate(auth->user,
 			    auth->pass);
+
+			/* XXX - for now, smtp does not handle temporary failures */
+			if (auth->success == -1)
+				auth->success = 0;
+
 			imsg_compose_event(iev, IMSG_PARENT_AUTHENTICATE, 0, 0,
 			    -1, auth, sizeof *auth);
 			return;
@@ -149,11 +154,11 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 			fd = parent_forward_open(fwreq->user, fwreq->directory,
 			    fwreq->uid, fwreq->gid);
 			fwreq->status = 0;
-			if (fd == -2) {
-				/* no ~/.forward, however it's optional. */
-				fwreq->status = 1;
-				fd = -1;
-			} else if (fd != -1)
+			if (fd == -1 && errno != ENOENT) {
+				if (errno == EAGAIN)
+					fwreq->status = -1;
+			}
+			else
 				fwreq->status = 1;
 			imsg_compose_event(iev, IMSG_PARENT_FORWARD_OPEN, 0, 0,
 			    fd, fwreq, sizeof *fwreq);
@@ -918,9 +923,6 @@ forkmda(struct imsgev *iev, uint32_t id,
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
 
-	log_debug("debug: uid=%d, gid=%d",
-	    deliver->userinfo.uid, deliver->userinfo.gid);
-
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL)
 		return;
@@ -1202,10 +1204,16 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 		directory))
 		fatal("smtpd: parent_forward_open: snprintf");
 
-	fd = open(pathname, O_RDONLY);
+	do {
+		fd = open(pathname, O_RDONLY);
+	} while (fd == -1 && errno == EINTR);
 	if (fd == -1) {
 		if (errno == ENOENT)
-			return -2;
+			return -1;
+		if (errno == EMFILE || errno == ENFILE || errno == EIO) {
+			errno = EAGAIN;
+			return -1;
+		}
 		log_warn("warn: smtpd: parent_forward_open: %s", pathname);
 		return -1;
 	}
