@@ -411,8 +411,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			free(ep);
 			return;
 		}
-		log_debug("user table: %p", rule->r_users);
-		strlcpy(ep->agent.mda.usertable, rule->r_users->t_name, sizeof ep->agent.mda.usertable);
+		strlcpy(ep->agent.mda.usertable, rule->r_users->t_name,
+		    sizeof ep->agent.mda.usertable);
 		memcpy(&ep->agent.mda.userinfo, tu, sizeof(ep->agent.mda.userinfo));
 		free(tu);
 
