@@ -45,7 +45,7 @@
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
-static int lka_encode_credentials(char *, size_t, struct table_credentials *);
+static int lka_encode_credentials(char *, size_t, struct credentials *);
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
@@ -113,7 +113,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct table_credentials *table_credentials = NULL;
+			struct credentials *credentials = NULL;
 
 			secret = imsg->data;
 			table = table_findbyname(secret->tablename);
@@ -125,7 +125,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 			}
 			ret = table_lookup(table, secret->host, K_CREDENTIALS,
-			    (void **)&table_credentials);
+			    (void **)&credentials);
 
 			log_debug("debug: lka: %s credentials lookup (%d)",
 			    secret->host, ret);
@@ -138,12 +138,12 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_debug("debug: %s credentials not found",
 				    secret->host);
 			else if (lka_encode_credentials(secret->secret,
-				sizeof secret->secret, table_credentials) == 0)
+				sizeof secret->secret, credentials) == 0)
 				log_warnx("warn: Credentials parse error for "
 				    "%s", secret->host);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
-			free(table_credentials);
+			free(credentials);
 			return;
 		}
 		}
@@ -373,14 +373,14 @@ lka(void)
 
 static int
 lka_encode_credentials(char *dst, size_t size,
-    struct table_credentials *table_credentials)
+    struct credentials *credentials)
 {
 	char	*buf;
 	int	 buflen;
 
 	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0',
-		    table_credentials->username, '\0',
-		    table_credentials->password)) == -1)
+		    credentials->username, '\0',
+		    credentials->password)) == -1)
 		fatal(NULL);
 
 	if (__b64_ntop((unsigned char *)buf, buflen, dst, size) == -1) {
