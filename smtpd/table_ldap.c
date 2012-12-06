@@ -36,7 +36,6 @@
 
 #include "smtpd.h"
 #include "aldap.h"
-#include "table_ldap.h"
 #include "log.h"
 
 #define MAX_LDAP_IDENTIFIER		 32
@@ -395,23 +394,26 @@ static char	*
 table_ldap_expandfilter(const char *filter, const char *key)
 {
 	char expandedfilter[MAX_LDAP_FILTERLEN * 2];
-	int i, ret;
+	size_t i, j;
 
 	bzero(expandedfilter, sizeof(expandedfilter));
-	for (i = 0; filter[i] != '\0'; ++i) {
+	for (i = 0, j = 0; filter[i] != '\0'; ++i, ++j) {
+		if (j >= sizeof(expandedfilter))
+			return NULL;
+
 		if (filter[i] == '%') {
 			if (filter[i + 1] == 'k') {
-				ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%s", expandedfilter, key);
-				if (ret == -1 || ret >= (int)sizeof(expandedfilter))
+				if (strlcat(expandedfilter, key, sizeof(expandedfilter))
+						>= sizeof(expandedfilter))
 					return NULL;
 
+				j += strlen(key) - 1;
 				++i;
 			}
 			continue;
 		}
-		ret = snprintf(expandedfilter, sizeof(expandedfilter), "%s%c", expandedfilter, filter[i]);
-		if (ret == -1 || ret >= (int)sizeof(expandedfilter))
-			return NULL;
+
+		expandedfilter[j] = filter[i];
 	}
 
 	return xstrdup(expandedfilter, "table_ldap_expandfilter");
