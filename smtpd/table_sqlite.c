@@ -44,7 +44,7 @@ static int table_sqlite_lookup(void *, const char *, enum table_service,
 static void  table_sqlite_close(void *);
 
 struct table_backend table_backend_sqlite = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_USERINFO/*|K_NETADDR,*/,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO,
 	table_sqlite_config,
 	table_sqlite_open,
 	table_sqlite_update,
@@ -143,6 +143,8 @@ table_sqlite_lookup(void *hdl, const char *key, enum table_service service,
 		return table_sqlite_userinfo(tsh, key, retp);
 	case K_CREDENTIALS:
 		return table_sqlite_credentials(tsh, key, retp);
+	case K_NETADDR:
+		return table_sqlite_netaddr(tsh, key, retp);
 	default:
 		log_warnx("table_sqlite: lookup: unsupported lookup service");
 		return -1;
@@ -387,7 +389,6 @@ table_sqlite_netaddr(struct table_sqlite_handle *tsh, const char *key, void **re
 	const char	       *query = table_get(cfg, "query_netaddr");
 	sqlite3_stmt	       *stmt;
 	struct netaddr	       *netaddr = NULL;
-	size_t			s;
 	
 	if (query == NULL) {
 		log_warnx("table_sqlite: lookup: no query configured for netaddr");
@@ -399,7 +400,7 @@ table_sqlite_netaddr(struct table_sqlite_handle *tsh, const char *key, void **re
 		return -1;
 	}
 
-	if (sqlite3_column_count(stmt) != 5) {
+	if (sqlite3_column_count(stmt) != 1) {
 		log_warnx("table_sqlite: columns: invalid resultset");
 		sqlite3_finalize(stmt);
 		return -1;
@@ -409,16 +410,10 @@ table_sqlite_netaddr(struct table_sqlite_handle *tsh, const char *key, void **re
 	switch (sqlite3_step(stmt)) {
 	case SQLITE_ROW:
 		if (retp) {
-			creds = xcalloc(1, sizeof *creds, "table_sqlite_credentials");
-			s = strlcpy(creds->username, sqlite3_column_text(stmt, 0),
-			    sizeof(creds->username));
-			if (s >= sizeof(creds->username))
+			netaddr = xcalloc(1, sizeof *netaddr, "table_sqlite_netaddr");
+			if (! text_to_netaddr(netaddr, sqlite3_column_text(stmt, 0)))
 				goto error;
-			s = strlcpy(creds->password, sqlite3_column_text(stmt, 1),
-			    sizeof(creds->password));
-			if (s >= sizeof(creds->password))
-				goto error;
-			*retp = creds;
+			*retp = netaddr;
 		}
 		sqlite3_finalize(stmt);
 		return 1;
@@ -433,7 +428,7 @@ table_sqlite_netaddr(struct table_sqlite_handle *tsh, const char *key, void **re
 
 error:
 	sqlite3_finalize(stmt);
-	free(creds);
+	free(netaddr);
 	if (retp)
 		*retp = NULL;
 	return -1;
