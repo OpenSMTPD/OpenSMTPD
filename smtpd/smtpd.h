@@ -1222,17 +1222,17 @@ void   *table_get_payload(struct table *);
 
 /* to.c */
 int email_to_mailaddr(struct mailaddr *, char *);
-char *sa_to_text(const struct sockaddr *);
-char *ss_to_text(const struct sockaddr_storage *);
-char *time_to_text(time_t);
-char *duration_to_text(time_t);
 uint32_t evpid_to_msgid(uint64_t);
 uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
-char *relayhost_to_text(struct relayhost *);
 uint64_t strtoevpid(const char *);
-char *rule_to_text(struct rule *);
+const char *sa_to_text(const struct sockaddr *);
+const char *ss_to_text(const struct sockaddr_storage *);
+const char *time_to_text(time_t);
+const char *duration_to_text(time_t);
+const char *relayhost_to_text(struct relayhost *);
+const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
 const char *in6addr_to_text(const struct in6_addr *);
 

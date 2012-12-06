@@ -120,7 +120,7 @@ email_to_mailaddr(struct mailaddr *maddr, char *email)
 	return 1;
 }
 
-char *
+const char *
 sa_to_text(const struct sockaddr *sa)
 {
 	static char	 buf[NI_MAXHOST + 5];
@@ -154,13 +154,13 @@ sa_to_text(const struct sockaddr *sa)
 	return (buf);
 }
 
-char *
+const char *
 ss_to_text(const struct sockaddr_storage *ss)
 {
 	return (sa_to_text((const struct sockaddr*)ss));
 }
 
-char *
+const char *
 time_to_text(time_t when)
 {
 	struct tm *lt;
@@ -188,7 +188,7 @@ time_to_text(time_t when)
 	return buf;
 }
 
-char *
+const char *
 duration_to_text(time_t t)
 {
 	static char	dst[64];
@@ -349,7 +349,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	return 1;
 }
 
-char *
+const char *
 relayhost_to_text(struct relayhost *relay)
 {
 	static char	buf[4096];
@@ -417,7 +417,7 @@ strtoevpid(const char *s)
 	return (ulval);
 }
 
-char *
+const char *
 rule_to_text(struct rule *r)
 {
 	static char buf[4096];
