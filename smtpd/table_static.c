@@ -207,7 +207,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 static int
 table_static_credentials(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_credentials *credentials = NULL;
+	struct credentials *credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -250,10 +250,10 @@ table_static_alias(const char *key, char *line, size_t len, void **retp)
 {
 	char			*subrcpt;
 	char			*endp;
-	struct table_alias	*table_alias = NULL;
+	struct expand		*xp;
 	struct expandnode	 xn;
 
-	table_alias = xcalloc(1, sizeof *table_alias, "table_static_alias");
+	xp = xcalloc(1, sizeof *xp, "table_static_alias");
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -270,56 +270,54 @@ table_static_alias(const char *key, char *line, size_t len, void **retp)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&table_alias->expand, &xn);
-		table_alias->nbnodes++;
+		expand_insert(xp, &xn);
 	}
-	*retp = table_alias;
+	*retp = xp;
 	return 1;
 
 error:
 	*retp = NULL;
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	expand_free(xp);
 	return -1;
 }
 
 static int
 table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_netaddr	*table_netaddr = NULL;
+	struct netaddr	*netaddr = NULL;
 
-	table_netaddr = xcalloc(1, sizeof *table_netaddr,
+	netaddr = xcalloc(1, sizeof *netaddr,
 	    "table_static_netaddr");
 
-	if (! text_to_netaddr(&table_netaddr->netaddr, line))
+	if (! text_to_netaddr(netaddr, line))
 		goto error;
 
-	*retp = table_netaddr;
+	*retp = netaddr;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(table_netaddr);
+	free(netaddr);
 	return -1;
 }
 
 static int
 table_static_domain(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_domain	*domain = NULL;
+	struct destination	*destination = NULL;
 
-	domain = xcalloc(1, sizeof *domain, "table_static_domain");
+	destination = xcalloc(1, sizeof *destination, "table_static_domain");
 
-	if (strlcpy(domain->name, line, sizeof domain->name)
-	    >= sizeof domain->name)
+	if (strlcpy(destination->name, line, sizeof destination->name)
+	    >= sizeof destination->name)
 		goto error;
 
-	*retp = domain;
+	*retp = destination;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(domain);
+	free(destination);
 	return -1;
 }
 

@@ -44,21 +44,21 @@ static int alias_is_include(struct expandnode *, const char *, size_t);
 int
 aliases_get(struct table *table, struct expand *expand, const char *username)
 {
-	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
 	char			buf[MAX_LOCALPART_SIZE];
 	size_t			nbaliases;
 	int			ret;
+	struct expand	       *xp = NULL;
 
 	
 	xlowercase(buf, username, sizeof(buf));
-	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
+	ret = table_lookup(table, buf, K_ALIAS, (void **)&xp);
 	if (ret <= 0)
 		return ret;
 
 	/* foreach node in table_alias expandtree, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &table_alias->expand.tree) {
+	RB_FOREACH(xn, expandtree, &xp->tree) {
 		if (xn->type == EXPAND_INCLUDE)
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
@@ -68,8 +68,7 @@ aliases_get(struct table *table, struct expand *expand, const char *username)
 		}
 	}
 
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	expand_free(xp);
 
 	log_debug("debug: aliases_get: returned %zd aliases", nbaliases);
 	return nbaliases;
@@ -123,8 +122,8 @@ int
 aliases_virtual_get(struct table *table, struct expand *expand,
     const struct mailaddr *maddr)
 {
-	struct table_alias     *table_alias = NULL;
 	struct expandnode      *xn;
+	struct expand	       *xp;
 	char			buf[MAX_LINE_SIZE];
 	char		       *pbuf;
 	int			nbaliases;
@@ -136,7 +135,7 @@ aliases_virtual_get(struct table *table, struct expand *expand,
 	xlowercase(buf, buf, sizeof(buf));
 
 	/* First, we lookup for full entry: user@domain */
-	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
+	ret = table_lookup(table, buf, K_ALIAS, (void **)&xp);
 	if (ret < 0)
 		return (-1);
 	if (ret)
@@ -145,7 +144,7 @@ aliases_virtual_get(struct table *table, struct expand *expand,
 	/* Failed ? We lookup for username only */
 	pbuf = strchr(buf, '@');
 	*pbuf = '\0';
-	ret = table_lookup(table, buf, K_ALIAS, (void **)&table_alias);
+	ret = table_lookup(table, buf, K_ALIAS, (void **)&xp);
 	if (ret < 0)
 		return (-1);
 	if (ret)
@@ -153,21 +152,21 @@ aliases_virtual_get(struct table *table, struct expand *expand,
 
 	*pbuf = '@';
 	/* Failed ? We lookup for catch all for virtual domain */
-	ret = table_lookup(table, pbuf, K_ALIAS, (void **)&table_alias);
+	ret = table_lookup(table, pbuf, K_ALIAS, (void **)&xp);
 	if (ret < 0)
 		return (-1);
 	if (ret)
 		goto expand;
 
 	/* Failed ? We lookup for a *global* catch all */
-	ret = table_lookup(table, "@", K_ALIAS, (void **)&table_alias);
+	ret = table_lookup(table, "@", K_ALIAS, (void **)&xp);
 	if (ret <= 0)
 		return (ret);
 
 expand:
 	/* foreach node in table_virtual expand, we merge */
 	nbaliases = 0;
-	RB_FOREACH(xn, expandtree, &table_alias->expand.tree) {
+	RB_FOREACH(xn, expandtree, &xp->tree) {
 		if (xn->type == EXPAND_INCLUDE)
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
@@ -177,8 +176,8 @@ expand:
 		}
 	}
 
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	expand_free(xp);
+
 	log_debug("debug: aliases_virtual_get: '%s' resolved to %d nodes",
 	    buf, nbaliases);
 
