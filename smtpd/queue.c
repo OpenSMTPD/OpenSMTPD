@@ -51,31 +51,31 @@ static void queue_sig_handler(int, short, void *);
 static void
 queue_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct queue_req_msg	*req;
+	struct queue_resp_msg	 resp;
+	struct envelope		*e, evp;
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
-	struct submit_status	 ss;
-	struct envelope		*e, evp;
 	int			 fd, ret;
 	uint64_t		 id;
 	uint32_t		 msgid;
 
 	if (iev->proc == PROC_SMTP) {
-		e = imsg->data;
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			ss.id = e->session_id;
-			ss.code = 250;
-			ss.u.msgid = 0;
-			ret = queue_message_create(&ss.u.msgid);
-			if (ret == 0)
-				ss.code = 421;
+			req = imsg->data;
+			ret = queue_message_create(&msgid);
+			resp.reqid = req->reqid;
+			resp.success = (ret == 0) ? 0 : 1;
+			resp.evpid = (ret == 0) ? 0 : msgid_to_evpid(msgid);
 			imsg_compose_event(iev, IMSG_QUEUE_CREATE_MESSAGE, 0, 0,
-			    -1, &ss, sizeof ss);
+			    -1, &resp, sizeof resp);
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
-			msgid = *(uint32_t*)(imsg->data);
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
 			queue_message_incoming_delete(msgid);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
@@ -83,27 +83,29 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			ss.id = e->session_id;
-			ss.code = 250;
-			msgid = evpid_to_msgid(e->id);
-			if (queue_message_commit(msgid)) {
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
+			ret = queue_message_commit(msgid);
+			resp.reqid = req->reqid;
+			resp.success = (ret == 0) ? 0 : 1;
+			resp.evpid = msgid_to_evpid(msgid);
+			imsg_compose_event(iev, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0,
+			    -1, &resp, sizeof resp);
+			if (resp.success)
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 				    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
 				    &msgid, sizeof msgid);
-			} else
-				ss.code = 421;
-
-			imsg_compose_event(iev, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0,
-			    -1, &ss, sizeof ss);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			ss.id = e->session_id;
-			fd = queue_message_fd_rw(evpid_to_msgid(e->id));
-			if (fd == -1)
-				ss.code = 421;
+			req = imsg->data;
+			msgid = evpid_to_msgid(req->evpid);
+			fd = queue_message_fd_rw(msgid);
+			resp.reqid = req->reqid;
+			resp.success = (fd == -1) ? 0 : 1;
+			resp.evpid = req->evpid;
 			imsg_compose_event(iev, IMSG_QUEUE_MESSAGE_FILE, 0, 0,
-			    fd, &ss, sizeof ss);
+			    fd, &resp, sizeof resp);
 			return;
 
 		case IMSG_SMTP_ENQUEUE:
@@ -114,29 +116,30 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 
 	if (iev->proc == PROC_LKA) {
-		e = imsg->data;
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
-			if (!queue_envelope_create(e)) {
-				ss.id = e->session_id;
-				ss.code = 421;
-				imsg_compose_event(env->sc_ievs[PROC_SMTP],
-				    IMSG_QUEUE_TEMPFAIL, 0, 0, -1, &ss,
-				    sizeof ss);
-			} else {
-				/* tell the scheduler */
+			e = imsg->data;
+			ret = queue_envelope_create(e);
+			resp.reqid = e->session_id;
+			resp.success = (ret == 0) ? 0 : 1;
+			resp.evpid = (ret == 0) ? 0 : e->id;
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &resp,
+			    sizeof resp);
+			if (resp.success)
 				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, e,
 				    sizeof *e);
-			}
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
-			ss.id = e->session_id;
-			ss.code = 250;
+			e = imsg->data;
+			resp.reqid = e->session_id;
+			resp.success = 1;
+			resp.evpid = 0;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, &ss,
-			    sizeof ss);
+			    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, &resp,
+			    sizeof resp);
 			return;
 		}
 	}
@@ -217,7 +220,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			evp.flags |= state->flags;
 			/* In the past if running or runnable */
 			evp.nexttry = state->time;
-			if (state->flags == DF_INFLIGHT) {
+			if (state->flags == EF_INFLIGHT) {
 				/*
 				 * Not exactly correct but pretty close: The
 				 * value is not recorded on the envelope unless
@@ -443,7 +446,7 @@ queue_timeout(int fd, short event, void *p)
 	struct timeval	 tv;
 	int		 r;
 
-	r = queue_envelope_learn(&evp);
+	r = queue_envelope_walk(&evp);
 	if (r == -1) {
 		if (msgid)
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],

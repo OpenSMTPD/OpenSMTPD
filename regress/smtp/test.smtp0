@@ -1,3 +1,4 @@
+#! /usr/bin/smtpscript
 #
 # Simple test cases for the SMTP server.
 #
@@ -55,18 +56,19 @@ test-case {
 	expect smtp
 	writeln "EHLO fkf"
 	expect smtp helo
-	writeln "MAIL FROM: <eric@blabla>"
+	writeln "MAIL FROM: <test@blabla>"
 	expect smtp ok
-	writeln "RCPT TO: <eric@localhost>"
+	writeln "RCPT TO: <gilles
+@localhost>"
 	expect smtp ok
-	writeln "DATA"
-	expect smtp ok
-	writeln "foo"
-	writeln "."
-	expect smtp ok
-	writeln "QUIT"
-	expect smtp
-	expect disconnect
+#	writeln "DATA"
+#	expect smtp ok
+#	writeln "foo"
+#	writeln "."
+#	expect smtp ok
+#	writeln "QUIT"
+#	expect smtp
+#	expect disconnect
 }
 
 # Simple mail transfer test, with pipelining
@@ -74,8 +76,8 @@ test-case {
 	expect smtp
 	writeln "EHLO fkf"
 	expect smtp helo
-	writeln "MAIL FROM: <eric@blabla>"
-	writeln "RCPT TO: <eric@localhost>"
+	writeln "MAIL FROM: <test@blabla>"
+	writeln "RCPT TO: <test@localhost>"
 	writeln "DATA"
 	repeat 3 expect smtp ok
 	writeln "foo"

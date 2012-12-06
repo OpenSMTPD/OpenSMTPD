@@ -43,39 +43,94 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define MTA_MAXCONN	10	/* connections per route */
+#define MTA_MAXCONN	10	/* connections per relay */
 #define MTA_MAXMAIL	100	/* mails per session     */
 #define MTA_MAXRCPT	1000	/* rcpt per mail         */
 
-struct mta_batch2 {
-	uint64_t	id;
-	struct tree	tasks;		/* map route to task */
-};
+#define MX_MAXCONN	10
+#define MX_MAXERROR	5	/* ignore MX after that	 */
 
-SPLAY_HEAD(mta_route_tree, mta_route);
+struct mta_mxlist {
+	struct mta_relay	*relay;
+	const char		*error;
+	int			 errortype;
+	TAILQ_HEAD(, mta_mx)	 mxs;
+};
 
 static void mta_imsg(struct imsgev *, struct imsg *);
 static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
 
-static struct mta_route *mta_route_for(struct envelope *);
-static void mta_route_drain(struct mta_route *);
-static void mta_route_free(struct mta_route *);
-static void mta_envelope_done(struct mta_task *, struct envelope *,
-    const char *);
-static int mta_route_cmp(struct mta_route *, struct mta_route *);
+SPLAY_HEAD(mta_relay_tree, mta_relay);
+static struct mta_relay *mta_relay_for(struct envelope *);
+static void mta_relay_query_mx(struct mta_relay *);
+static void mta_relay_query_secret(struct mta_relay *);
+static void mta_relay_flush(struct mta_relay *, int, const char *);
+static void mta_relay_drain(struct mta_relay *);
+static void mta_relay_free(struct mta_relay *);
+static int mta_relay_cmp(const struct mta_relay *, const struct mta_relay *);
+SPLAY_PROTOTYPE(mta_relay_tree, mta_relay, entry, mta_relay_cmp);
 
+SPLAY_HEAD(mta_host_tree, mta_host);
+static struct mta_host *mta_host(const struct sockaddr *);
+static void mta_host_unref(struct mta_host *);
+static int mta_host_cmp(const struct mta_host *, const struct mta_host *);
+SPLAY_PROTOTYPE(mta_host_tree, mta_host, entry, mta_host_cmp);
+
+SPLAY_HEAD(mta_domain_tree, mta_domain);
+static struct mta_domain *mta_domain(char *, int);
+static void mta_domain_unref(struct mta_domain *);
+static int mta_domain_cmp(const struct mta_domain *, const struct mta_domain *);
+SPLAY_PROTOTYPE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
+
+SPLAY_HEAD(mta_source_tree, mta_source);
+static struct mta_source *mta_source(const struct sockaddr *);
+static void mta_source_unref(struct mta_source *);
+static int mta_source_cmp(const struct mta_source *, const struct mta_source *);
+SPLAY_PROTOTYPE(mta_source_tree, mta_source, entry, mta_source_cmp);
+
+SPLAY_HEAD(mta_route_tree, mta_route);
+static struct mta_route *mta_route(struct mta_source *, struct mta_host *);
+static void mta_route_unref(struct mta_route *);
+static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-static struct mta_route_tree routes = SPLAY_INITIALIZER(&routes);
-static struct tree batches = SPLAY_INITIALIZER(&batches);
+static inline uint64_t
+ptoid(void * p)
+{
+	union {
+		void	*p;
+		uint64_t v;
+	} u;
+
+	u.v = 0;
+	u.p = p;
+	return (u.v);
+}
+
+static struct mta_relay_tree	relays;
+static struct mta_domain_tree	domains;
+static struct mta_host_tree	hosts;
+static struct mta_source_tree	sources;
+static struct mta_route_tree	routes;
+
+static struct tree batches;
+
+static struct tree wait_mx;
+static struct tree wait_preference;
+static struct tree wait_secret;
 
 void
 mta_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct mta_route	*route;
-	struct mta_batch2	*batch;
+	struct dns_resp_msg	*resp_dns;
+	struct mta_relay	*relay;
 	struct mta_task		*task;
+	struct mta_mxlist	*mxl;
+	struct mta_mx		*mx, *imx;
+
+	struct tree		*batch;
+	struct secret		*secret;
 	struct envelope		*e;
 	struct ssl		*ssl;
 	uint64_t		 id;
@@ -86,29 +141,27 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_BATCH_CREATE:
 			id = *(uint64_t*)(imsg->data);
 			batch = xmalloc(sizeof *batch, "mta_batch");
-			batch->id = id;
-			tree_init(&batch->tasks);
-			tree_xset(&batches, batch->id, batch);
+			tree_init(batch);
+			tree_xset(&batches, id, batch);
 			log_trace(TRACE_MTA,
-			    "mta: batch:%016" PRIx64 " created", batch->id);
+			    "mta: batch:%016" PRIx64 " created", id);
 			return;
 
 		case IMSG_BATCH_APPEND:
 			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
-			route = mta_route_for(e);
+			relay = mta_relay_for(e);
 			batch = tree_xget(&batches, e->batch_id);
 
-			if ((task = tree_get(&batch->tasks, route->id))
-			    == NULL) {
-				log_trace(TRACE_MTA, "mta: new task for %s",
-				    mta_route_to_text(route));
+			if ((task = tree_get(batch, relay->id)) == NULL) {
+				log_trace(TRACE_MTA, "mta: new task for relay "
+				    "%s", mta_relay_to_text(relay));
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
-				task->route = route;
-				tree_xset(&batch->tasks, route->id, task);
+				task->relay = relay;
+				tree_xset(batch, relay->id, task);
 				task->msgid = evpid_to_msgid(e->id);
 				task->sender = e->sender;
-				route->refcount += 1;
+				relay->refcount += 1;
 			}
 
 			/* Technically, we could handle that by adding a msg
@@ -118,7 +171,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (task->msgid != evpid_to_msgid(e->id))
 				errx(1, "msgid mismatch in batch");
 
-			/* XXX honour route->maxrcpt */
+			/* XXX honour relay->maxrcpt */
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
 			stat_increment("mta.envelope", 1);
 			log_debug("debug: mta: received evp:%016" PRIx64
@@ -130,18 +183,17 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			id = *(uint64_t*)(imsg->data);
 			batch = tree_xpop(&batches, id);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
-			    batch->id);
-			/* for all tasks, queue them on there route */
-			while (tree_poproot(&batch->tasks, &id,
-				(void**)&task)) {
-				if (id != task->route->id)
-					errx(1, "route id mismatch!");
-				task->route->refcount -= 1;
-				task->route->ntask += 1;
-				TAILQ_INSERT_TAIL(&task->route->tasks, task,
+			    id);
+			/* for all tasks, queue them on there relay */
+			while (tree_poproot(batch, &id, (void**)&task)) {
+				if (id != task->relay->id)
+					errx(1, "relay id mismatch!");
+				task->relay->refcount -= 1;
+				task->relay->ntask += 1;
+				TAILQ_INSERT_TAIL(&task->relay->tasks, task,
 				    entry);
 				stat_increment("mta.task", 1);
-				mta_route_drain(task->route);
+				mta_relay_drain(task->relay);
 			}
 			free(batch);
 			return;
@@ -154,9 +206,91 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
+
 		case IMSG_LKA_SECRET:
+			secret = imsg->data;
+			relay = tree_xpop(&wait_secret, secret->id);
+			relay->status &= ~RELAY_WAIT_SECRET;
+			if (secret->secret[0])
+				relay->secret = xstrdup(secret->secret,
+				    "mta: secret");
+			mta_relay_drain(relay);
+			return;
+
 		case IMSG_DNS_HOST:
+			resp_dns = imsg->data;
+			mxl = tree_xget(&wait_mx, resp_dns->reqid);
+			mx = xcalloc(1, sizeof *mx, "mta: mx");
+			mx->host = mta_host(
+			    (struct sockaddr*)&resp_dns->u.host.ss);
+			mx->preference = resp_dns->u.host.preference;
+			TAILQ_FOREACH(imx, &mxl->mxs, entry) {
+				if (imx->preference >= mx->preference) {
+					TAILQ_INSERT_BEFORE(imx, mx, entry);
+					return;
+				}
+			}
+			TAILQ_INSERT_TAIL(&mxl->mxs, mx, entry);
+			return;
+
 		case IMSG_DNS_HOST_END:
+			/* LKA responded to DNS lookup. */
+			resp_dns = imsg->data;
+			mxl = tree_xpop(&wait_mx, resp_dns->reqid);
+			relay = mxl->relay;
+			relay->status &= ~RELAY_WAIT_MX;
+			if (resp_dns->error == DNS_OK)
+				mxl->error = NULL;
+			else if (resp_dns->error == DNS_RETRY) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				mxl->error = "Temporary failure in MX lookup";
+			}
+			else if (resp_dns->error == DNS_EINVAL) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_PERMFAIL;
+				mxl->error = "Invalid domain name";
+			}
+			else if (resp_dns->error == DNS_ENONAME) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_PERMFAIL;
+				mxl->error = "Domain does not exist";
+			}
+			else if (resp_dns->error == DNS_ENOTFOUND) {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				mxl->error = "No MX found for domain";
+			}
+			else {
+				mxl->errortype = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				mxl->error = "Unknown DNS error";
+			}
+			relay->mxlist = mxl;
+			log_debug("debug: MXs for relay %s",
+			    mta_relay_to_text(relay));
+			TAILQ_FOREACH(mx, &mxl->mxs, entry)
+				log_debug("debug: %s -> preference %i",
+				    sa_to_text(mx->host->sa), mx->preference);
+			log_debug("debug: ---");
+			mta_relay_drain(relay);
+			return;
+
+		case IMSG_DNS_MX_PREFERENCE:
+			/* LKA responded to DNS lookup. */
+			resp_dns = imsg->data;
+			relay = tree_xpop(&wait_preference, resp_dns->reqid);
+			if (resp_dns->error) {
+				log_debug("debug: couldn't find backup "
+				    "preference for relay %s",
+				    mta_relay_to_text(relay));
+			}
+			else {
+				relay->backuppref = resp_dns->u.preference;
+				log_debug("debug: found backup preference %i "
+				    "for relay %s",
+				    relay->backuppref,
+				    mta_relay_to_text(relay));
+			}
+			relay->status &= ~RELAY_WAIT_PREFERENCE;
+			mta_relay_drain(relay);
+			return;
+
 		case IMSG_DNS_PTR:
 			mta_session_imsg(iev, imsg);
 			return;
@@ -260,6 +394,17 @@ mta(void)
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mta: cannot drop privileges");
 
+	SPLAY_INIT(&relays);
+	SPLAY_INIT(&domains);
+	SPLAY_INIT(&hosts);
+	SPLAY_INIT(&sources);
+	SPLAY_INIT(&routes);
+
+	tree_init(&batches);
+	tree_init(&wait_secret);
+	tree_init(&wait_mx);
+	tree_init(&wait_preference);
+
 	imsg_callback = mta_imsg;
 	event_init();
 
@@ -281,131 +426,187 @@ mta(void)
 }
 
 const char *
-mta_response_status(const char *r)
+mta_mx_to_text(struct mta_mx *mx)
 {
-	switch (r[0]) {
-	case '2':
-		return "Sent";
-	case '4':
-	case '5':
-		return "RemoteError";
-	default:
-		return "LocalError";
-	}
-}
+	static char buf[1024];
 
-int
-mta_response_delivery(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return IMSG_QUEUE_DELIVERY_OK;
-	case '5':
-	case '6':
-		if (r[1] == '4' && r[2] == '6')
-			return IMSG_QUEUE_DELIVERY_LOOP;
-		return IMSG_QUEUE_DELIVERY_PERMFAIL;
-	default:
-		return IMSG_QUEUE_DELIVERY_TEMPFAIL;
-	}
-}
+	if (mx->host->ptrname)
+		snprintf(buf, sizeof buf, "%s [%s]", mx->host->ptrname,
+			sa_to_text(mx->host->sa));
+	else
+		snprintf(buf, sizeof buf, "[%s]", sa_to_text(mx->host->sa));
 
-const char *
-mta_response_prefix(const char *r)
-{
-	switch (r[0]) {
-	case '2':
-		return "Ok";
-	case '5':
-	case '6':
-		if (r[1] == '4' && r[2] == '6')
-			return "Loop";
-		return "PermFail";
-	default:
-		return "TempFail";
-	}
-}
-
-const char *
-mta_response_text(const char *r)
-{
-	return (r + 4);
+	return (buf);
 }
 
 void
-mta_route_error(struct mta_route *route, const char *error)
+mta_relay_error(struct mta_relay *relay, struct mta_mx *mx, const char *e)
 {
-	route->nfail += 1;
-	strlcpy(route->errorline, error, sizeof route->errorline);
-	log_warnx("warn: mta: %s error: %s", mta_route_to_text(route), error);
+	log_info("smtp-out: Error on MX %s: %s", mta_mx_to_text(mx), e);
+	if (mx->error++ == MX_MAXERROR)
+		log_info("smtp-out: Too many errors on MX %s: ignoring this MX",
+		    mta_mx_to_text(mx));
 }
 
 void
-mta_route_ok(struct mta_route *route)
+mta_relay_ok(struct mta_relay *relay, struct mta_mx *mx)
 {
-	log_debug("debug: mta: %s ready", mta_route_to_text(route));
-	route->nfail = 0;
+	log_debug("debug: mta: %s ready on MX %s", mta_relay_to_text(relay),
+	    mta_mx_to_text(mx));
+	mx->error = 0;
 }
 
 void
-mta_route_collect(struct mta_route *route)
+mta_relay_collect(struct mta_relay *relay)
 {
-	route->nsession -= 1;
+	relay->nsession -= 1;
 
-	mta_route_drain(route);
+	mta_relay_drain(relay);
+}
+
+struct mta_mx *
+mta_relay_next_mx(struct mta_relay *relay, struct tree *seen)
+{
+	struct mta_mx	*mx, *best;
+	int		 level, limit;
+
+	limit = 0;
+	level = -1;
+	best = NULL;
+
+	TAILQ_FOREACH(mx, &relay->mxlist->mxs, entry) {
+
+		/* New preference level */		
+		if (mx->preference > level) {
+			/*
+			 * Use the current best if found.
+			 */
+			if (best)
+				break;
+
+			/*
+			 * No candidate found.  If there are valid MXs at this
+			 * preference level but they reached their limit, just
+			 * close the session.
+			 */
+			if (limit)
+				break;
+
+			/*
+			 *  If we are a backup MX, do not relay to MXs with
+			 *  a greater preference value.
+			 */
+			if (relay->backuppref != -1 &&
+			    mx->preference >= relay->backuppref)
+				break;
+
+			/*
+			 * Start looking at MXs on this preference level.
+			 * Reset the runtime session limit.
+			 */ 
+			level = mx->preference;
+			relay->maxsession = relay->maxconn;
+		}
+
+		if (mx->flags & MX_IGNORE)
+			continue;
+
+		if (mx->error > MX_MAXERROR)
+			continue;
+
+		if (mx->nconn >= MX_MAXCONN) {
+			limit = 1;
+			continue;
+		}
+
+		if (best && mx->nconn >= best->nconn)
+			continue;
+
+		if (tree_get(seen, ptoid(mx)))
+			continue;
+
+		best = mx;
+	}
+
+	if (best) {
+		best->nconn++;
+		tree_xset(seen, ptoid(best), best);
+		return (best);
+	}
+
+	/*
+	 * We are trying too much on this relay.
+	 */
+	relay->maxsession = relay->nsession - 1;
+
+	/*
+	 * No reachable MX for this relay. Mark it dead for the last session.
+	 * This is never true if we hit a limit, because it would mean there
+	 * is at least one other session running, so nsession would at least
+	 * 2 when this function was called.
+	 */
+	if (relay->maxsession == 0) {
+		relay->status |= RELAY_CLOSED;
+		/* Log for the last session only */
+		log_info("smtp-out: No reachable MX for relay %s: "
+		    "Cancelling all transfers",
+		    mta_relay_to_text(relay));
+	}
+
+	return (NULL);
 }
 
 const char *
-mta_route_to_text(struct mta_route *route)
+mta_relay_to_text(struct mta_relay *relay)
 {
 	static char	 buf[1024];
 	char		 tmp[32];
 	const char	*sep = "";
 
-	snprintf(buf, sizeof buf, "route:%s[", route->hostname);
+	snprintf(buf, sizeof buf, "%s[", relay->domain->name);
 
-	if (route->port) {
-		snprintf(tmp, sizeof tmp, "port=%i", (int)route->port);
+	if (relay->port) {
+		snprintf(tmp, sizeof tmp, "port=%i", (int)relay->port);
 		strlcat(buf, tmp, sizeof buf);
 		sep = ",";
 	}
 
-	if (route->flags & ROUTE_STARTTLS) {
+	if (relay->flags & RELAY_STARTTLS) {
 		strlcat(buf, sep, sizeof buf);
 		sep = ",";
 		strlcat(buf, "starttls", sizeof buf);
 	}
 
-	if (route->flags & ROUTE_SMTPS) {
+	if (relay->flags & RELAY_SMTPS) {
 		strlcat(buf, sep, sizeof buf);
 		sep = ",";
 		strlcat(buf, "smtps", sizeof buf);
 	}
 
-	if (route->flags & ROUTE_AUTH) {
+	if (relay->flags & RELAY_AUTH) {
 		strlcat(buf, sep, sizeof buf);
 		sep = ",";
 		strlcat(buf, "auth=", sizeof buf);
-		strlcat(buf, route->auth, sizeof buf);
+		strlcat(buf, relay->auth, sizeof buf);
 	}
 
-	if (route->cert) {
+	if (relay->cert) {
 		strlcat(buf, sep, sizeof buf);
 		sep = ",";
 		strlcat(buf, "cert=", sizeof buf);
-		strlcat(buf, route->cert, sizeof buf);
+		strlcat(buf, relay->cert, sizeof buf);
 	}
 
-	if (route->flags & ROUTE_MX) {
+	if (relay->flags & RELAY_MX) {
 		strlcat(buf, sep, sizeof buf);
 		sep = ",";
 		strlcat(buf, "mx", sizeof buf);
 	}
 
-	if (route->flags & ROUTE_BACKUP) {
+	if (relay->flags & RELAY_BACKUP) {
 		strlcat(buf, sep, sizeof buf);
 		strlcat(buf, "backup=", sizeof buf);
-		strlcat(buf, route->backupname, sizeof buf);
+		strlcat(buf, relay->backupname, sizeof buf);
 	}
 
 	strlcat(buf, "]", sizeof buf);
@@ -413,23 +614,25 @@ mta_route_to_text(struct mta_route *route)
 	return (buf);
 }
 
-static struct mta_route *
-mta_route_for(struct envelope *e)
+static struct mta_relay *
+mta_relay_for(struct envelope *e)
 {
-	struct ssl		ssl;
-	struct mta_route	key, *route;
+	struct ssl		 ssl;
+	struct mta_relay	 key, *relay;
 
 	bzero(&key, sizeof key);
 
-	key.flags = e->agent.mta.relay.flags;
-	if (e->agent.mta.relay.flags & ROUTE_BACKUP) {
-		key.hostname = e->dest.domain;
+	if (e->agent.mta.relay.flags & RELAY_BACKUP) {
+		key.domain = mta_domain(e->dest.domain, 0);
 		key.backupname = e->agent.mta.relay.hostname;
 	} else if (e->agent.mta.relay.hostname[0]) {
-		key.hostname = e->agent.mta.relay.hostname;
-		key.flags |= ROUTE_MX;
-	} else
-		key.hostname = e->dest.domain;
+		key.domain = mta_domain(e->agent.mta.relay.hostname, 1);
+		key.flags |= RELAY_MX;
+	} else {
+		key.domain = mta_domain(e->dest.domain, 0);
+	}
+
+	key.flags = e->agent.mta.relay.flags;
 	key.port = e->agent.mta.relay.port;
 	key.cert = e->agent.mta.relay.cert;
 	if (!key.cert[0])
@@ -437,128 +640,241 @@ mta_route_for(struct envelope *e)
 	key.auth = e->agent.mta.relay.authtable;
 	if (!key.auth[0])
 		key.auth = NULL;
+	key.authlabel = e->agent.mta.relay.authlabel;
+	if (!key.authlabel[0])
+		key.authlabel = NULL;
 
-	if ((route = SPLAY_FIND(mta_route_tree, &routes, &key)) == NULL) {
-		route = xcalloc(1, sizeof *route, "mta_route");
-		TAILQ_INIT(&route->tasks);
-		route->id = generate_uid();
-		route->flags = key.flags;
-		route->hostname = xstrdup(key.hostname, "mta: hostname");
-		route->backupname = key.backupname ?
+	if ((relay = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
+		relay = xcalloc(1, sizeof *relay, "mta_relay");
+		TAILQ_INIT(&relay->tasks);
+		relay->id = generate_uid();
+		relay->flags = key.flags;
+		relay->domain = key.domain;
+		relay->backupname = key.backupname ?
 		    xstrdup(key.backupname, "mta: backupname") : NULL;
-		route->port = key.port;
-		route->cert = key.cert ? xstrdup(key.cert, "mta: cert") : NULL;
-		route->auth = key.auth ? xstrdup(key.auth, "mta: auth") : NULL;
-		if (route->cert) {
-			strlcpy(ssl.ssl_name, route->cert,
+		relay->backuppref = -1;
+		relay->port = key.port;
+		relay->cert = key.cert ? xstrdup(key.cert, "mta: cert") : NULL;
+		relay->auth = key.auth ? xstrdup(key.auth, "mta: auth") : NULL;
+		relay->authlabel = key.authlabel ? xstrdup(key.authlabel, "mta: auth") : NULL;
+		if (relay->cert) {
+			strlcpy(ssl.ssl_name, relay->cert,
 			    sizeof(ssl.ssl_name));
-			route->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &ssl);
+			relay->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &ssl);
 		}
-		SPLAY_INSERT(mta_route_tree, &routes, route);
+		SPLAY_INSERT(mta_relay_tree, &relays, relay);
 
-		route->maxconn = MTA_MAXCONN;
-		route->maxmail = MTA_MAXMAIL;
-		route->maxrcpt = MTA_MAXRCPT;
+		relay->maxconn = MTA_MAXCONN;
+		relay->maxmail = MTA_MAXMAIL;
+		relay->maxrcpt = MTA_MAXRCPT;
 
-		log_trace(TRACE_MTA, "mta: new %s", mta_route_to_text(route));
-		stat_increment("mta.route", 1);
+		relay->maxsession = relay->maxconn;
+
+		log_trace(TRACE_MTA, "mta: new relay %s",
+		    mta_relay_to_text(relay));
+		stat_increment("mta.relay", 1);
+		mta_relay_query_mx(relay);
+		mta_relay_query_secret(relay);
 	} else {
-		log_trace(TRACE_MTA, "mta: reusing %s",
-		    mta_route_to_text(route));
+		mta_domain_unref(key.domain);
+		log_trace(TRACE_MTA, "mta: reusing relay %s",
+		    mta_relay_to_text(relay));
 	}
 
-	return (route);
+	return (relay);
 }
 
 static void
-mta_route_free(struct mta_route *route)
+mta_relay_query_secret(struct mta_relay *relay)
 {
-	log_trace(TRACE_MTA, "mta: freeing %s", mta_route_to_text(route));
-	SPLAY_REMOVE(mta_route_tree, &routes, route);
-	free(route->hostname);
-	if (route->cert)
-		free(route->cert);
-	if (route->auth)
-		free(route->auth);
-	free(route);
+	struct secret	secret;
+
+	if (relay->auth == NULL)
+		return;
+
+	tree_xset(&wait_secret, relay->id, relay);
+	relay->status |= RELAY_WAIT_SECRET;
+
+	bzero(&secret, sizeof(secret));
+	secret.id = relay->id;
+	strlcpy(secret.tablename, relay->auth, sizeof(secret.tablename));
+	strlcpy(secret.label, relay->authlabel, sizeof(secret.label));
+	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
+		    0, 0, -1, &secret, sizeof(secret));
 }
 
 static void
-mta_route_drain(struct mta_route *route)
+mta_relay_query_mx(struct mta_relay *relay)
 {
-	struct mta_task		*task;
-	struct envelope		*e;
+	struct mta_mxlist *mxl;
 
-	log_debug("debug: mta: draining %s (tasks=%i, refs=%i, sessions=%i)",
-	    mta_route_to_text(route),
-	    route->ntask, route->refcount, route->nsession);
+	mxl = xcalloc(1, sizeof *mxl, "mta: mxlist");
+	TAILQ_INIT(&mxl->mxs);
+	mxl->relay = relay;
+	tree_xset(&wait_mx, relay->id, mxl);
+	relay->status |= RELAY_WAIT_MX;
 
-	if (route->ntask == 0 && route->refcount == 0 && route->nsession == 0) {
-		mta_route_free(route);
-		stat_decrement("mta.route", 1);
-		return;
+	if (relay->flags & RELAY_MX)
+		dns_query_host(relay->id, relay->domain->name);
+	else
+		dns_query_mx(relay->id, relay->domain->name);
+
+	if (relay->backupname) {
+		tree_xset(&wait_preference, relay->id, relay);
+		relay->status |= RELAY_WAIT_PREFERENCE;
+		dns_query_mx_preference(relay->id, relay->domain->name,
+		    relay->backupname);
 	}
+}
 
-	if (route->ntask == 0) {
-		log_debug("debug: mta: no task for %s",
-		    mta_route_to_text(route));
-		return;
-	}
 
-	if (route->nfail > 3) {
-		/* Three connection errors in a row: consider that the route
-		 * has a problem.
-		 */
-		log_debug("debug: mta: too many failures on %s",
-		    mta_route_to_text(route));
 
-		while ((task = TAILQ_FIRST(&route->tasks))) {
-			TAILQ_REMOVE(&route->tasks, task, entry);
-			route->ntask -= 1;
-			while ((e = TAILQ_FIRST(&task->envelopes)))
-				mta_envelope_done(task, e, route->errorline);
-			free(task);
-			stat_decrement("mta.task", 1);
+static void
+mta_relay_free(struct mta_relay *relay)
+{
+	struct mta_mx	*mx;
+
+	log_debug("debug: mta: freeing relay %s", mta_relay_to_text(relay));
+	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
+	if (relay->cert)
+		free(relay->cert);
+	if (relay->auth)
+		free(relay->auth);
+
+	if (relay->mxlist)
+		while ((mx = TAILQ_FIRST(&relay->mxlist->mxs))) {
+			TAILQ_REMOVE(&relay->mxlist->mxs, mx, entry);
+			mta_host_unref(mx->host);
+			free(mx);
 		}
-		route->nfail = 0;
-		/* XXX maybe close the route for while */
+	mta_domain_unref(relay->domain);
+	free(relay);
+	stat_decrement("mta.relay", 1);
+
+}
+
+static void
+mta_relay_flush(struct mta_relay *relay, int fail, const char *error)
+{
+	struct envelope	*e;
+	struct mta_task	*task;
+	const char	*pfx;
+	char		 buf[MAX_LINE_SIZE];
+	size_t		 n;
+
+	if (fail == IMSG_QUEUE_DELIVERY_TEMPFAIL)
+		pfx = "TempFail";
+	else if (fail == IMSG_QUEUE_DELIVERY_PERMFAIL)
+		pfx = "PermFail";
+	else
+		errx(1, "unexpected delivery status %i", fail);
+
+	snprintf(buf, sizeof buf, "relay=%s, ", relay->domain->name);
+
+	n = 0;
+	while ((task = TAILQ_FIRST(&relay->tasks))) {
+		TAILQ_REMOVE(&relay->tasks, task, entry);
+		while ((e = TAILQ_FIRST(&task->envelopes))) {
+			TAILQ_REMOVE(&task->envelopes, e, entry);
+			envelope_set_errormsg(e, "%s", error);
+			log_envelope(e, buf, pfx, e->errorline);
+			imsg_compose_event(env->sc_ievs[PROC_QUEUE], fail,
+			    0, 0, -1, e, sizeof(*e));
+			free(e);
+			n++;
+		}
+		free(task);
+	}
+
+	stat_decrement("mta.task", relay->ntask);
+	stat_decrement("mta.envelope", n);
+	relay->ntask = 0;
+}
+
+static void
+mta_relay_drain(struct mta_relay *relay)
+{
+	char		 buf[64];
+
+	log_debug("debug: mta: draining relay %s "
+	    "(tasks=%i, refs=%i, sessions=%i/%i)",
+	    mta_relay_to_text(relay),
+	    relay->ntask, relay->refcount, relay->nsession, relay->maxsession);
+
+	/* Wait until we are ready to proceed */
+	if (relay->status & RELAY_WAITMASK) {
+		buf[0] = '\0';
+		if (relay->status & RELAY_WAIT_MX)
+			strlcat(buf, "MX ", sizeof buf);
+		if (relay->status & RELAY_WAIT_PREFERENCE)
+			strlcat(buf, "preference ", sizeof buf);
+		if (relay->status & RELAY_WAIT_SECRET)
+			strlcat(buf, "secret ", sizeof buf);
+		log_debug("debug: mta: relay %s waiting for %s",
+		    mta_relay_to_text(relay), buf);
 		return;
 	}
 
-	/* make sure there are one session for each task */
-	while (route->nsession < route->ntask) {
-		/* if we have reached the max number of session, wait */
-		if (route->nsession >= route->maxconn) {
-			log_debug("debug: mta: max conn reached for %s",
-			    mta_route_to_text(route));
+	if (relay->auth && relay->secret == NULL) {
+		log_warnx("warn: Failed to retreive secret for relay %s",
+		    mta_relay_to_text(relay));
+		mta_relay_flush(relay, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+		    "Cannot retreive secret");
+		if (relay->refcount == 0)
+			mta_relay_free(relay);
+		return;
+	}
+
+	if (relay->mxlist->error) {
+		log_info("smtp-out: Failed to resolve MX for relay %s: %s",
+		    mta_relay_to_text(relay), relay->mxlist->error);
+		mta_relay_flush(relay, relay->mxlist->errortype,
+		    relay->mxlist->error);
+		if (relay->refcount == 0)
+			mta_relay_free(relay);
+		return;
+	}
+
+	if (relay->ntask == 0) {
+		log_debug("debug: mta: all done for relay %s",
+		    mta_relay_to_text(relay));
+		if (relay->refcount == 0 && relay->nsession == 0)
+			mta_relay_free(relay);
+		return;
+	}
+
+	if (relay->status & RELAY_CLOSED) {
+		mta_relay_flush(relay, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+		    "No reachable MX");
+		if (relay->refcount == 0 && relay->nsession == 0)
+			mta_relay_free(relay);
+		return;
+	}
+
+	/* Make sure there is one session for each task */
+	while (relay->nsession < relay->ntask) {
+		/*
+		 * If we have reached the max number of session, just wait
+		 */
+		if (relay->nsession >= relay->maxsession) {
+			log_debug("debug: mta: max conn reached for relay %s",
+			    mta_relay_to_text(relay));
 			return;
 		}
-		route->nsession += 1;
-		mta_session(route);
+		relay->nsession += 1;
+		mta_session(relay);
 	}
-}
-
-static void
-mta_envelope_done(struct mta_task *task, struct envelope *e, const char *status)
-{
-	char	 relay[MAX_LINE_SIZE];
-
-	envelope_set_errormsg(e, "%s", status);
-
-	snprintf(relay, sizeof relay, "relay=%s, ", task->route->hostname);
-
-	log_envelope(e, relay, mta_response_prefix(e->errorline), e->errorline);
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-	    mta_response_delivery(e->errorline), 0, 0, -1, e, sizeof(*e));
-	TAILQ_REMOVE(&task->envelopes, e, entry);
-	free(e);
-	stat_decrement("mta.envelope", 1);
 }
 
 static int
-mta_route_cmp(struct mta_route *a, struct mta_route *b)
+mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 {
 	int	r;
+
+	if (a->domain < b->domain)
+		return (-1);
+	if (a->domain > b->domain)
+		return (1);
 
 	if (a->flags < b->flags)
 		return (-1);
@@ -587,8 +903,200 @@ mta_route_cmp(struct mta_route *a, struct mta_route *b)
 	if (a->backupname && ((r = strcmp(a->backupname, b->backupname))))
 		return (r);
 
-	if ((r = strcmp(a->hostname, b->hostname)))
-		return (r);
+	return (0);
+}
+
+SPLAY_GENERATE(mta_relay_tree, mta_relay, entry, mta_relay_cmp);
+
+static struct mta_host *
+mta_host(const struct sockaddr *sa)
+{
+	struct mta_host		key, *h;
+	struct sockaddr_storage	ss;
+
+	memmove(&ss, sa, sa->sa_len);
+	key.sa = (struct sockaddr*)&ss;
+	h = SPLAY_FIND(mta_host_tree, &hosts, &key);
+
+	if (h == NULL) {
+		h = xcalloc(1, sizeof(*h), "mta_host");
+		h->sa = xmemdup(sa, sa->sa_len, "mta_host");
+		SPLAY_INSERT(mta_host_tree, &hosts, h);
+		stat_increment("mta.host", 1);
+	}
+
+	h->refcount++;
+	return (h);
+}
+
+static void
+mta_host_unref(struct mta_host *h)
+{
+	if (--h->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_host_tree, &hosts, h);
+	free(h->sa);
+	free(h->ptrname);
+	stat_decrement("mta.host", 1);
+}
+
+static int
+mta_host_cmp(const struct mta_host *a, const struct mta_host *b)
+{
+	if (a->sa->sa_len < b->sa->sa_len)
+		return (-1);
+	if (a->sa->sa_len > b->sa->sa_len)
+		return (1);
+	return (memcmp(a->sa, b->sa, a->sa->sa_len));
+}
+
+SPLAY_GENERATE(mta_host_tree, mta_host, entry, mta_host_cmp);
+
+static struct mta_domain *
+mta_domain(char *name, int flags)
+{
+	struct mta_domain	key, *d;
+
+	key.name = name;
+	key.flags = flags;
+	d = SPLAY_FIND(mta_domain_tree, &domains, &key);
+
+	if (d == NULL) {
+		d = xcalloc(1, sizeof(*d), "mta_domain");
+		d->name = xstrdup(name, "mta_domain");
+		d->flags = flags;
+		TAILQ_INIT(&d->mxs);
+		SPLAY_INSERT(mta_domain_tree, &domains, d);
+		stat_increment("mta.domain", 1);
+	}
+
+	d->refcount++;
+	return (d);
+}
+
+static void
+mta_domain_unref(struct mta_domain *d)
+{
+	if (--d->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_domain_tree, &domains, d);
+	free(d->name);
+	stat_decrement("mta.domain", 1);
+}
+
+static int
+mta_domain_cmp(const struct mta_domain *a, const struct mta_domain *b)
+{
+	if (a->flags < b->flags)
+		return (-1);
+	if (a->flags > b->flags)
+		return (1);
+	return (strcasecmp(a->name, b->name));
+}
+
+SPLAY_GENERATE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
+
+static struct mta_source *
+mta_source(const struct sockaddr *sa)
+{
+	struct mta_source	key, *s;
+	struct sockaddr_storage	ss;
+
+	if (sa) {
+		memmove(&ss, sa, sa->sa_len);
+		key.sa = (struct sockaddr*)&ss;
+	} else
+		key.sa = NULL;
+	s = SPLAY_FIND(mta_source_tree, &sources, &key);
+
+	if (s == NULL) {
+		s = xcalloc(1, sizeof(*s), "mta_source");
+		if (sa)
+			s->sa = xmemdup(sa, sa->sa_len, "mta_source");
+		SPLAY_INSERT(mta_source_tree, &sources, s);
+		stat_increment("mta.source", 1);
+	}
+
+	s->refcount++;
+	return (s);
+}
+
+static void
+mta_source_unref(struct mta_source *s)
+{
+	if (--s->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_source_tree, &sources, s);
+	free(s->sa);
+	stat_decrement("mta.source", 1);
+}
+
+static int
+mta_source_cmp(const struct mta_source *a, const struct mta_source *b)
+{
+	if (a->sa == NULL)
+		return ((b->sa == NULL) ? 0 : -1);
+	if (b->sa == NULL)
+		return (1);
+	if (a->sa->sa_len < b->sa->sa_len)
+		return (-1);
+	if (a->sa->sa_len > b->sa->sa_len)
+		return (1);
+	return (memcmp(a->sa, b->sa, a->sa->sa_len));
+}
+
+SPLAY_GENERATE(mta_source_tree, mta_source, entry, mta_source_cmp);
+
+static struct mta_route *
+mta_route(struct mta_source *src, struct mta_host *dst)
+{
+	struct mta_route	key, *r;
+
+	key.src = src;
+	key.dst = dst;
+	r = SPLAY_FIND(mta_route_tree, &routes, &key);
+
+	if (r == NULL) {
+		r = xcalloc(1, sizeof(*r), "mta_route");
+		r->src = src;
+		r->dst = dst;
+		SPLAY_INSERT(mta_route_tree, &routes, r);
+		src->refcount++;
+		dst->refcount++;
+		stat_increment("mta.route", 1);
+	}
+
+	r->refcount++;
+	return (r);
+}
+
+static void
+mta_route_unref(struct mta_route *r)
+{
+	if (--r->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_route_tree, &routes, r);
+	mta_source_unref(r->src);
+	mta_host_unref(r->dst);
+	stat_decrement("mta.route", 1);
+}
+
+static int
+mta_route_cmp(const struct mta_route *a, const struct mta_route *b)
+{
+	if (a->src < b->src)
+		return (-1);
+	if (a->src > b->src)
+		return (1);
+
+	if (a->dst < b->dst)
+		return (-1);
+	if (a->dst > b->dst)
+		return (1);
 
 	return (0);
 }

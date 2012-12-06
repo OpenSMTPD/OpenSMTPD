@@ -35,6 +35,9 @@
 
 #include "smtpscript.h"
 
+void   *ssl_connect(int);
+void	ssl_close(void *);
+
 /* XXX */
 #define SMTP_LINE_MAX	4096
 
@@ -49,6 +52,7 @@ enum {
 	OP_CALL,
 	OP_CONNECT,
 	OP_DISCONNECT,
+	OP_STARTTLS,
 	OP_SLEEP,
 	OP_WRITE,
 
@@ -102,6 +106,7 @@ struct op {
 
 struct ctx {
 	int		 sock;
+	void		*ssl;
 	struct iobuf	 iobuf;
 	int		 lvl;
 
@@ -278,6 +283,16 @@ op_disconnect(struct op *parent)
 
 	bzero(&o, sizeof o);
 	o.type	= OP_DISCONNECT;
+	return (op_add_child(parent, &o));
+}
+
+struct op *
+op_starttls(struct op *parent)
+{
+	struct op	o;
+
+	bzero(&o, sizeof o);
+	o.type	= OP_STARTTLS;
 	return (op_add_child(parent, &o));
 }
 
@@ -464,6 +479,8 @@ run_testcase(struct procedure *proc)
 
 	if (c.sock != -1)
 		close(c.sock);
+	if (c.ssl)
+		ssl_close(c.ssl);
 	iobuf_clear(&c.iobuf);
 
 	if (verbose > 1) {
@@ -603,6 +620,10 @@ print_op(struct op *op, int lvl)
 
 	case OP_DISCONNECT:
 		printf("=> disconnect\n");
+		break;
+
+	case OP_STARTTLS:
+		printf("=> starttls\n");
 		break;
 
 	case OP_SLEEP:
@@ -766,23 +787,37 @@ process_op(struct ctx *ctx, struct op *op)
 		iobuf_clear(iobuf);
 		break;
 
+	case OP_STARTTLS:
+		if (ctx->ssl)
+			set_failure(ctx, RES_ERROR, "SSL context already here");
+		else if ((ctx->ssl = ssl_connect(ctx->sock)) == NULL)
+			set_failure(ctx, RES_ERROR, "SSL connection failed");
+		break;
+
 	case OP_SLEEP:
 		usleep(op->u.sleep.ms * 1000);
 		break;
 
 	case OP_WRITE:
 		iobuf_queue(iobuf, op->u.write.buf, op->u.write.len);
-		switch (iobuf_flush(iobuf, ctx->sock)) {
+		if (ctx->ssl)
+			r = iobuf_flush_ssl(iobuf, ctx->ssl);
+		else
+			r = iobuf_flush(iobuf, ctx->sock);
+		switch (r) {
 		case 0:
 			break;
 		case IOBUF_CLOSED:
 			set_failure(ctx, RES_FAIL, "connection closed");
 			break;
 		case IOBUF_WANT_WRITE:
-			set_failure(ctx, RES_ERROR, "iobuf_write(): WANT_READ");
+			set_failure(ctx, RES_ERROR, "iobuf_write(): WANT_WRITE");
 			break;
 		case IOBUF_ERROR:
-			set_failure(ctx, RES_ERROR, "io error");
+			set_failure(ctx, RES_ERROR, "IO error");
+			break;
+		case IOBUF_SSLERROR:
+			set_failure(ctx, RES_ERROR, "SSL error");
 			break;
 		default:
 			set_failure(ctx, RES_ERROR, "iobuf_write(): bad value");
@@ -796,17 +831,25 @@ process_op(struct ctx *ctx, struct op *op)
 			    iobuf_len(iobuf));
 			break;
 		}
-		n = iobuf_read(iobuf, ctx->sock);
+		if (ctx->ssl)
+			n = iobuf_read_ssl(iobuf, ctx->ssl);
+		else
+			n = iobuf_read(iobuf, ctx->sock);
 		switch (n) {
 		case IOBUF_CLOSED:
 			close(ctx->sock);
 			ctx->sock = -1;
+			if (ctx->ssl)
+				ssl_close(ctx->ssl);
 			break;
 		case IOBUF_WANT_READ:
 			set_failure(ctx, RES_ERROR, "iobuf_read(): WANT_READ");
 			break;
 		case IOBUF_ERROR:
-			set_failure(ctx, RES_ERROR, "io error");
+			set_failure(ctx, RES_ERROR, "IO error");
+			break;
+		case IOBUF_SSLERROR:
+			set_failure(ctx, RES_ERROR, "SSL error");
 			break;
 		default:
 			set_failure(ctx, RES_FAIL, "data read: %s",
@@ -846,7 +889,10 @@ process_op(struct ctx *ctx, struct op *op)
 			iobuf_normalize(iobuf);
 
 		    again:
-			n = iobuf_read(iobuf, ctx->sock);
+			if (ctx->ssl)
+				n = iobuf_read_ssl(iobuf, ctx->ssl);
+			else
+				n = iobuf_read(iobuf, ctx->sock);
 			switch (n) {
 			case IOBUF_CLOSED:
 				set_failure(ctx, RES_FAIL, "connection closed");
@@ -855,6 +901,10 @@ process_op(struct ctx *ctx, struct op *op)
 				goto again;
 			case IOBUF_ERROR:
 				set_failure(ctx, RES_ERROR, "io error");
+				return;
+			case IOBUF_SSLERROR:
+				set_failure(ctx, RES_ERROR, "SSL error");
+				return;
 			default:
 				break;
 			}

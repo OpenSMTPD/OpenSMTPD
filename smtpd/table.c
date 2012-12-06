@@ -41,6 +41,7 @@ struct table_backend *table_backend_lookup(const char *);
 extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
+extern struct table_backend table_backend_sqlite;
 
 static objid_t	last_table_id = 0;
 
@@ -53,6 +54,8 @@ table_backend_lookup(const char *backend)
 		return &table_backend_db;
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
+	if (!strcmp(backend, "sqlite"))
+		return &table_backend_sqlite;
 	return NULL;
 }
 
@@ -145,11 +148,43 @@ table_destroy(struct table *t)
 }
 
 void
+table_set_config(struct table *t, struct table *config)
+{
+	strlcpy(t->t_cfgtable, config->t_name, sizeof t->t_cfgtable);
+}
+
+struct table *
+table_get_config(struct table *t)
+{
+	return table_findbyname(t->t_cfgtable);
+}
+
+void
+table_set_payload(struct table *t, void *payload)
+{
+	t->t_payload = payload;
+}
+
+void *
+table_get_payload(struct table *t)
+{
+	return t->t_payload;
+}
+
+void
 table_add(struct table *t, const char *key, const char *val)
 {
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "table_add: cannot add to table");
 	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
+}
+
+const void *
+table_get(struct table *t, const char *key)
+{
+	if (strcmp(t->t_src, "static") != 0)
+		errx(1, "table_add: cannot get from table");
+	return dict_get(&t->t_dict, key);
 }
 
 void
@@ -158,6 +193,24 @@ table_delete(struct table *t, const char *key)
 	if (strcmp(t->t_src, "static") != 0)
 		errx(1, "map_add: cannot delete from map");
 	free(dict_pop(&t->t_dict, key));
+}
+
+int
+table_check_type(struct table *t, uint32_t mask)
+{
+	return t->t_type & mask;
+}
+
+int
+table_check_service(struct table *t, uint32_t mask)
+{
+	return t->t_backend->services & mask;
+}
+
+int
+table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
+{
+	return table_check_type(t, tmask) && table_check_service(t, smask);
 }
 
 void
@@ -240,6 +293,12 @@ end:
 	free(lbuf);
 	fclose(fp);
 	return ret;
+}
+
+int
+table_domain_match(const char *s1, const char *s2)
+{
+	return hostname_match(s1, s2);
 }
 
 static int table_match_mask(struct sockaddr_storage *, struct netaddr *);

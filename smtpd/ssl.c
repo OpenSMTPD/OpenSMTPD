@@ -302,9 +302,9 @@ ssl_error(const char *where)
 	char		errbuf[128];
 	extern int	debug;
 
-	if (!debug)
-		return;
 	for (; (code = ERR_get_error()) != 0 ;) {
+		if (!debug)
+			continue;
 		ERR_error_string_n(code, errbuf, sizeof(errbuf));
 		log_debug("debug: SSL library error: %s: %s", where, errbuf);
 	}

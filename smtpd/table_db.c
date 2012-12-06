@@ -50,12 +50,12 @@ static char *table_db_get_entry_match(void *, const char *, size_t *,
 
 static int table_db_credentials(const char *, char *, size_t, void **);
 static int table_db_alias(const char *, char *, size_t, void **);
-static int table_db_virtual(const char *, char *, size_t, void **);
 static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
+static int table_db_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_DOMAIN|K_VIRTUAL|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -67,6 +67,7 @@ static struct keycmp {
 	enum table_service	service;
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
+	{ K_DOMAIN, table_domain_match },
 	{ K_NETADDR, table_netaddr_match }
 };
 
@@ -161,8 +162,8 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 		table_db_update(handle->table);
 
 	for (i = 0; i < nitems(keycmp); ++i)
-		if (keycmp->service == service)
-			match = keycmp->func;
+		if (keycmp[i].service == service)
+			match = keycmp[i].func;
 
 	if (match == NULL)
 		line = table_db_get_entry(hdl, key, &len);
@@ -188,12 +189,12 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_db_domain(key, line, len, retp);
 		break;
 
-	case K_VIRTUAL:
-		ret = table_db_virtual(key, line, len, retp);
-		break;
-
 	case K_NETADDR:
 		ret = table_db_netaddr(key, line, len, retp);
+		break;
+
+	case K_USERINFO:
+		ret = table_db_userinfo(key, line, len, retp);
 		break;
 
 	default:
@@ -254,7 +255,7 @@ table_db_get_entry(void *hdl, const char *key, size_t *len)
 static int
 table_db_credentials(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_credentials *credentials = NULL;
+	struct credentials *credentials = NULL;
 	char *p;
 
 	/* credentials are stored as user:password */
@@ -297,10 +298,10 @@ table_db_alias(const char *key, char *line, size_t len, void **retp)
 {
 	char		*subrcpt;
 	char		*endp;
-	struct table_alias	*table_alias = NULL;
+	struct expand	*xp = NULL;
 	struct expandnode	 xn;
 
-	table_alias = xcalloc(1, sizeof *table_alias, "table_db_alias");
+	xp = xcalloc(1, sizeof *xp, "table_db_alias");
 
 	while ((subrcpt = strsep(&line, ",")) != NULL) {
 		/* subrcpt: strip initial whitespace. */
@@ -317,100 +318,65 @@ table_db_alias(const char *key, char *line, size_t len, void **retp)
 		if (! alias_parse(&xn, subrcpt))
 			goto error;
 
-		expand_insert(&table_alias->expand, &xn);
-		table_alias->nbnodes++;
+		expand_insert(xp, &xn);
 	}
-	*retp = table_alias;
+	*retp = xp;
 	return 1;
 
 error:
 	*retp = NULL;
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	expand_free(xp);
 	return -1;
 }
 
 static int
-table_db_virtual(const char *key, char *line, size_t len, void **retp)
-{
-	char		*subrcpt;
-	char		*endp;
-	struct table_virtual	*table_virtual = NULL;
-	struct expandnode	 xn;
-
-	/* domain key, discard value */
-	if (strchr(key, '@') == NULL) {
-		*retp = NULL;
-		return 1;
-	}
-
-	table_virtual = xcalloc(1, sizeof *table_virtual,
-	    "table_db_virtual");
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			goto error;
-
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-
-		if (! alias_parse(&xn, subrcpt))
-			goto error;
-
-		expand_insert(&table_virtual->expand, &xn);
-		table_virtual->nbnodes++;
-	}
-
-	*retp = table_virtual;
-	return 1;
-
-error:
-	*retp = NULL;
-	expand_free(&table_virtual->expand);
-	free(table_virtual);
-	return 0;
-}
-
-
-static int
 table_db_netaddr(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_netaddr	*table_netaddr = NULL;
+	struct netaddr		*netaddr;
 
-	table_netaddr = xcalloc(1, sizeof *table_netaddr, "table_db_netaddr");
-
-	if (! text_to_netaddr(&table_netaddr->netaddr, line))
+	netaddr = xcalloc(1, sizeof *netaddr, "table_db_netaddr");
+	if (! text_to_netaddr(netaddr, line))
 		goto error;
-
-	*retp = table_netaddr;
+	*retp = netaddr;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(table_netaddr);
-	return 0;
+	free(netaddr);
+	return -1;
 }
 
 static int
 table_db_domain(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_domain	*domain = NULL;
+	struct destination	*destination;
 
-	domain = xcalloc(1, sizeof *domain, "table_db_domain");
-
-	if (strlcpy(domain->name, line, sizeof domain->name)
-	    >= sizeof domain->name)
+	destination = xcalloc(1, sizeof *destination, "table_db_domain");
+	if (strlcpy(destination->name, line, sizeof destination->name)
+	    >= sizeof destination->name)
 		goto error;
-
-	*retp = domain;
+	*retp = destination;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(domain);
-	return 0;
+	free(destination);
+	return -1;
+}
+
+static int
+table_db_userinfo(const char *key, char *line, size_t len, void **retp)
+{
+	struct userinfo		*userinfo;
+
+	userinfo = xcalloc(1, sizeof *userinfo, "table_db_userinfo");
+	if (! text_to_userinfo(userinfo, line))
+	    goto error;
+	*retp = userinfo;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(userinfo);
+	return -1;
 }

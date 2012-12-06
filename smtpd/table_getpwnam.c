@@ -24,6 +24,7 @@
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -84,17 +85,23 @@ static int
 table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind,
     void **ret)
 {
-	struct table_userinfo  *userinfo;
+	struct userinfo	       *userinfo;
 	struct passwd	       *pw;
 	size_t			s;
 
 	if (kind != K_USERINFO)
 		return -1;
 
-	pw = getpwnam(key);
-	if (pw == NULL)
-		return 0;
+	errno = 0;
+	do {
+		pw = getpwnam(key);
+	} while (pw == NULL && errno == EINTR);
 
+	if (pw == NULL) {
+		if (errno)
+			return -1;
+		return 0;
+	}
 	if (ret == NULL)
 		return 1;
 
@@ -104,10 +111,6 @@ table_getpwnam_lookup(void *hdl, const char *key, enum table_service kind,
 	s = strlcpy(userinfo->username, pw->pw_name,
 	    sizeof(userinfo->username));
 	if (s >= sizeof(userinfo->username))
-		goto error;
-	s = strlcpy(userinfo->password, pw->pw_passwd,
-	    sizeof(userinfo->password));
-	if (s >= sizeof(userinfo->password))
 		goto error;
 	s = strlcpy(userinfo->directory, pw->pw_dir,
 	    sizeof(userinfo->directory));

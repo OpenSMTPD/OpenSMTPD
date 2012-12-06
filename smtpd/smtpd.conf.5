@@ -64,10 +64,13 @@ may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
 .Bd -literal -offset indent
+%{sender}	     sender email address
 %{sender.user}	     user part of the sender email address
 %{sender.domain}     domain part of the sender email address
+%{rcpt}              recipient email address
 %{rcpt.user}	     user part of the recipient email address
 %{rcpt.domain}	     domain part of the recipient email address
+%{dest}              recipient email address after expansion
 %{dest.user}	     user part after expansion
 %{dest.domain}	     domain part after expansion
 %{user.username}     local user
@@ -77,8 +80,10 @@ The following formats are currently supported:
 Expansion formats also support partial expansion using the optional bracket notations
 with substring offset. For example, with recipient domain "example.org":
 .Bd -literal -offset indent
-%{rcpt.domain[8]}	expands to "org"
-%{rcpt.domain[-3]}	expands to "org"
+%{rcpt.domain[0]}	expands to "e"
+%{rcpt.domain[1]}	expands to "x"
+%{rcpt.domain[8:]}	expands to "org"
+%{rcpt.domain[-3:]}	expands to "org"
 %{rcpt.domain[0:6]}	expands to "example"
 %{rcpt.domain[0:-4]} 	expands to "example"
 .Ed
@@ -113,6 +118,7 @@ as returned by
 .Op Ic tls | tls-require | smtps
 .Op Ic certificate Ar name
 .Op Ic auth | auth-optional
+.Op Ic tag Ar tag
 .Xc
 Specify an
 .Ar interface
@@ -179,6 +185,12 @@ This is only useful to let a listener accept incoming mail from
 untrusted senders and outgoing mail from authenticated users in
 situations where it is not possible to listen on the submission
 port.
+.Pp
+If the
+.Ic tag
+parameter is used, then clients connecting to the listener will be
+tagged
+.Ar tag .
 .It Xo
 .Ic table Ar name
 .Ar [type:]config
@@ -245,7 +257,7 @@ The table must contain at least one key-value mapping and may declare many mappi
 a list of comma separated
 .Ar key => value
 descriptions.
-.It Ic size Ar n
+.It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
 bytes.
@@ -303,6 +315,14 @@ If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for all addresses.
 .It Xo
+.Ic for any
+.Ic virtual Ar <vmap>
+.Xc
+Make the rule match regardless of the domain it is sent to.
+The
+.Ar vmap
+table will be used as the virtual domain mapping.
+.It Xo
 .Ic for domain Ar domain
 .Op Ic alias Ar <aliases>
 .Xc
@@ -332,6 +352,39 @@ If specified, the table
 is used for looking up alternative destinations for addresses in these
 .Ar domains .
 .It Xo
+.Ic for domain Ar domain Ic virtual Ar <users>
+.Xc
+This rule applies to mail destined for the specified virtual
+.Ar domain .
+This parameter supports the
+.Sq *
+wildcard,
+so that a single rule for all sub-domains can be used, for example:
+.Bd -literal -offset indent
+accept for domain "*.example.com" \e
+       virtual <users> deliver to mbox
+.Ed
+.Pp
+The table
+.Ar users
+holds a key-value mapping of virtual to system users.
+For an example of how to configure the
+.Ar users
+table, see
+.Xr makemap 8 .
+.It Ic for domain Ar <domains> Ic virtual Ar <users>
+This rule applies to mail destined for the virtual domains specified
+in the table
+.Ar domains .
+.Pp
+The table
+.Ar users
+holds a key-value mapping of virtual to system users.
+For an example of how to configure the
+.Ar users
+table, see
+.Xr makemap 8 .
+.It Xo
 .Ic for local
 .Op Ic alias Ar <aliases>
 .Xc
@@ -340,12 +393,18 @@ This rule applies to mail destined to
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
-.It Ic for virtual Ar <vdomains>
-This rule applies to mail destined for the virtual domains specified
-in the table
-.Ar vdomains .
-For an example of how to configure a virtual table, see
-.Xr makemap 8 .
+.It Xo
+.Ic for local
+.Ic virtual Ar <vmap>
+.Xc
+This rule applies to mail destined to
+.Dq localhost
+and to the server's fully qualified domain name,
+as returned by
+.Xr hostname 1 .
+The
+.Ar vmap
+table will be used as the virtual domain mapping.
 .El
 .Pp
 Finally, the method of delivery is specified:
@@ -464,6 +523,10 @@ may be a user, a domain prefixed with
 or an email address, causing
 smtpd to rewrite the user-part, the domain-part, or the entire address,
 respectively.
+.El
+.It Ic tagged Ar tag
+If specified, the rule will only be matched if the client session was tagged
+.Ar tag .
 .It Ic expire Ar n {s|m|h|d}
 Specify how long a message that matched this rule can stay in the queue.
 .El

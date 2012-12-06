@@ -221,12 +221,14 @@ main(int argc, char *argv[])
 		/* not reached */
 
 	case SCHEDULE:
-		ulval = strtoevpid(res->data);
+		if ((ulval = text_to_evpid(res->data)) == 0)
+			errx(1, "invalid msgid/evpid");
 		imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
 	case REMOVE:
-		ulval = strtoevpid(res->data);
+		if ((ulval = text_to_evpid(res->data)) == 0)
+			errx(1, "invalid msgid/evpid");
 		imsg_compose(ibuf, IMSG_SCHEDULER_REMOVE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
@@ -530,7 +532,7 @@ show_queue(flags)
 	if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
 		err(1, "%s", PATH_SPOOL);
 
-	while ((r = queue_envelope_learn(&envelope)) != -1)
+	while ((r = queue_envelope_walk(&envelope)) != -1)
 		if (r)
 			show_queue_envelope(&envelope, flags);
 }
@@ -543,23 +545,23 @@ show_queue_envelope(struct envelope *e, int online)
 
 	status[0] = '\0';
 
-	getflag(&e->flags, DF_BOUNCE, "bounce",
+	getflag(&e->flags, EF_BOUNCE, "bounce",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_AUTHENTICATED, "auth",
+	getflag(&e->flags, EF_AUTHENTICATED, "auth",
 	    status, sizeof(status));
-	getflag(&e->flags, DF_INTERNAL, "internal",
+	getflag(&e->flags, EF_INTERNAL, "internal",
 	    status, sizeof(status));
 
 	if (online) {
-		if (e->flags & DF_PENDING)
+		if (e->flags & EF_PENDING)
 			snprintf(runstate, sizeof runstate, "pending|%zi",
 			    (ssize_t)(e->nexttry - now));
-		else if (e->flags & DF_INFLIGHT)
+		else if (e->flags & EF_INFLIGHT)
 			snprintf(runstate, sizeof runstate, "inflight|%zi",
 			    (ssize_t)(now - e->lasttry));
 		else
 			snprintf(runstate, sizeof runstate, "invalid|");
-		e->flags &= ~(DF_PENDING|DF_INFLIGHT);
+		e->flags &= ~(EF_PENDING|EF_INFLIGHT);
 	}
 	else
 		strlcpy(runstate, "offline|", sizeof runstate);
@@ -640,7 +642,9 @@ show_envelope(const char *s)
 	char	 buf[MAXPATHLEN];
 	uint64_t evpid;
 
-	evpid = strtoevpid(s);
+	if ((evpid = text_to_evpid(s)) == 0)
+		errx(1, "invalid msgid/evpid");
+
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x%s/%016" PRIx64,
 	    PATH_SPOOL,
 	    PATH_QUEUE,
@@ -658,7 +662,9 @@ show_message(const char *s)
 	char	 buf[MAXPATHLEN];
 	uint32_t msgid;
 
-	msgid = evpid_to_msgid(strtoevpid(s));
+	if ((msgid = text_to_evpid(s)) == 0)
+		errx(1, "invalid msgid/evpid");
+
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
 	    PATH_SPOOL,
 	    PATH_QUEUE,
