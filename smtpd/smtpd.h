@@ -123,6 +123,7 @@ struct relayhost {
 	uint16_t port;
 	char cert[PATH_MAX];
 	char authtable[MAX_PATH_SIZE];
+	char authlabel[MAX_PATH_SIZE];
 };
 
 struct credentials {
@@ -580,7 +581,7 @@ struct forward_req {
 struct secret {
 	uint64_t		 id;
 	char			 tablename[MAX_PATH_SIZE];
-	char			 host[MAXHOSTNAMELEN];
+	char			 label[MAX_LINE_SIZE];
 	char			 secret[MAX_LINE_SIZE];
 };
 
@@ -677,6 +678,7 @@ struct mta_relay {
 	uint16_t		 port;
 	char			*cert;
 	char			*auth;
+	char			*authlabel;
 	void			*ssl;
 
 #define RELAY_WAIT_MX		0x01

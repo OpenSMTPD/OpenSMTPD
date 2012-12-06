@@ -130,23 +130,23 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			ret = table_lookup(table, secret->host, K_CREDENTIALS,
+			ret = table_lookup(table, secret->label, K_CREDENTIALS,
 			    (void **)&credentials);
 
 			log_debug("debug: lka: %s credentials lookup (%d)",
-			    secret->host, ret);
+			    secret->label, ret);
 
 			secret->secret[0] = '\0';
 			if (ret == -1)
 				log_warnx("warn: Credentials lookup fail for "
-				    "%s", secret->host);
+				    "%s", secret->label);
 			else if (ret == 0)
 				log_debug("debug: %s credentials not found",
-				    secret->host);
+				    secret->label);
 			else if (lka_encode_credentials(secret->secret,
 				sizeof secret->secret, credentials) == 0)
 				log_warnx("warn: Credentials parse error for "
-				    "%s", secret->host);
+				    "%s", secret->label);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
 			free(credentials);

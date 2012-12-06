@@ -306,11 +306,16 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		{ "ssl://",		F_SMTPS|F_STARTTLS		},
 		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
 	};
-	const char	*errstr = NULL;
-	const char	*p;
-	char		*sep;
-	size_t		 i;
-	int		 len;
+	const char     *errstr = NULL;
+	char	       *p, *q;
+	char		buffer[1024];
+	char	       *sep;
+	size_t		i;
+	int		len;
+
+	bzero(buffer, sizeof buffer);
+	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
+		return 0;
 
 	for (i = 0; i < nitems(schemas); ++i)
 		if (strncasecmp(schemas[i].name, s,
@@ -319,15 +324,15 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 
 	if (i == nitems(schemas)) {
 		/* there is a schema, but it's not recognized */
-		if (strstr(s, "://"))
+		if (strstr(buffer, "://"))
 			return 0;
 
 		/* no schema, default to smtp:// */
 		i = 0;
-		p = s;
+		p = buffer;
 	}
 	else
-		p = s + strlen(schemas[i].name);
+		p = buffer + strlen(schemas[i].name);
 
 	relay->flags = schemas[i].flags;
 
@@ -340,12 +345,27 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	else
 		len = strlen(p);
 
-	if (strlcpy(relay->hostname, p, sizeof (relay->hostname))
-	    >= sizeof (relay->hostname))
-		return 0;
-
 	relay->hostname[len] = 0;
 
+	q = strchr(p, '@');
+	if (q == NULL && relay->flags & F_AUTH)
+		return 0;
+	if (q && !(relay->flags & F_AUTH))
+		return 0;
+
+	if (q == NULL) {
+		if (strlcpy(relay->hostname, p, sizeof (relay->hostname))
+		    >= sizeof (relay->hostname))
+			return 0;
+	} else {
+		*q = 0;
+		if (strlcpy(relay->authlabel, p, sizeof (relay->authlabel))
+		    >= sizeof (relay->authlabel))
+			return 0;
+		if (strlcpy(relay->hostname, q + 1, sizeof (relay->hostname))
+		    >= sizeof (relay->hostname))
+			return 0;
+	}
 	return 1;
 }
 
@@ -378,6 +398,10 @@ relayhost_to_text(struct relayhost *relay)
 	default:
 		strlcat(buf, "smtp://", sizeof buf);
 		break;
+	}
+	if (relay->authlabel[0]) {
+		strlcat(buf, "@", sizeof buf);
+		strlcat(buf, relay->hostname, sizeof buf);
 	}
 	strlcat(buf, relay->hostname, sizeof buf);
 	if (relay->port) {

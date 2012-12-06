@@ -640,6 +640,9 @@ mta_relay_for(struct envelope *e)
 	key.auth = e->agent.mta.relay.authtable;
 	if (!key.auth[0])
 		key.auth = NULL;
+	key.authlabel = e->agent.mta.relay.authlabel;
+	if (!key.authlabel[0])
+		key.authlabel = NULL;
 
 	if ((relay = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		relay = xcalloc(1, sizeof *relay, "mta_relay");
@@ -653,6 +656,7 @@ mta_relay_for(struct envelope *e)
 		relay->port = key.port;
 		relay->cert = key.cert ? xstrdup(key.cert, "mta: cert") : NULL;
 		relay->auth = key.auth ? xstrdup(key.auth, "mta: auth") : NULL;
+		relay->authlabel = key.authlabel ? xstrdup(key.authlabel, "mta: auth") : NULL;
 		if (relay->cert) {
 			strlcpy(ssl.ssl_name, relay->cert,
 			    sizeof(ssl.ssl_name));
@@ -691,10 +695,13 @@ mta_relay_query_secret(struct mta_relay *relay)
 	tree_xset(&wait_secret, relay->id, relay);
 	relay->status |= RELAY_WAIT_SECRET;
 
+	log_debug("foobar: %p, %p",
+	    relay->auth, relay->authlabel);
 	bzero(&secret, sizeof(secret));
 	secret.id = relay->id;
 	strlcpy(secret.tablename, relay->auth, sizeof(secret.tablename));
-	strlcpy(secret.host, relay->domain->name, sizeof(secret.host));
+	strlcpy(secret.label, relay->authlabel, sizeof(secret.label));
+	log_debug("barbaz");
 	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SECRET,
 		    0, 0, -1, &secret, sizeof(secret));
 }
