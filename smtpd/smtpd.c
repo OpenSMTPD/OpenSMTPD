@@ -722,7 +722,7 @@ main(int argc, char *argv[])
 		errx(1, "machine does not have a hostname set");
 	env->sc_uptime = time(NULL);
 
-	log_debug("init server-ssl tree");
+	log_debug("debug: init server-ssl tree");
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		if (l->flags & F_SSL) {
 			if (ssl_load_certfile(l->ssl_cert_name, F_SCERT) < 0)
@@ -730,7 +730,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	log_debug("init client-ssl tree");
+	log_debug("debug: init client-ssl tree");
 	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
 		if (r->r_action != A_RELAY && r->r_action != A_RELAYVIA)
 			continue;
