@@ -34,6 +34,9 @@
 #ifdef BSD_AUTH
 #include <bsd_auth.h>
 #endif
+#ifdef HAVE_CRYPT_H
+#include <crypt.h> /* needed for crypt() */
+#endif
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
@@ -1558,12 +1561,43 @@ imsg_to_str(int type)
 	}
 }
 
+#ifdef BSD_AUTH
+int
+parent_auth_bsd(char *username, char *password)
+{
+	return auth_userokay(username, NULL, "auth-smtp", password);
+}
+#endif
+
+int
+parent_auth_pwd(char *username, char *password)
+{
+       struct passwd *pw;
+
+       errno = 0;
+       do {
+               pw = getpwnam(username);
+       } while (pw == NULL && errno == EINTR);
+
+       if (pw == NULL) {
+               if (errno)
+                       return -1;
+               return 0;
+       }
+
+       if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
+               return 1;
+
+       return 0;
+
+}
+
 int
 parent_auth_user(char *username, char *password)
 {
 #ifdef BSD_AUTH
-	return auth_userokay(username, NULL, "auth-smtp", password);
+	return (parent_auth_bsd(username, password));
 #else
-	return (0);
+	return (parent_auth_pwd(username, password));
 #endif
 }
