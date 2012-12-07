@@ -151,7 +151,7 @@ table_destroy(struct table *t)
 }
 
 void
-table_set_config(struct table *t, struct table *config)
+table_set_configuration(struct table *t, struct table *config)
 {
 	strlcpy(t->t_cfgtable, config->t_name, sizeof t->t_cfgtable);
 }

@@ -1214,7 +1214,7 @@ void	table_open_all(void);
 void	table_close_all(void);
 void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
-void	table_set_config(struct table *, struct table *);
+void	table_set_configuration(struct table *, struct table *);
 struct table	*table_get_configuration(struct table *);
 const void	*table_get(struct table *, const char *);
 

@@ -68,39 +68,35 @@ struct table_ldap_handle {
 	struct table	*table;
 };
 
-static int			 table_ldap_alias(struct table_ldap_handle *, const char *, void**);
+static int	table_ldap_alias(struct table_ldap_handle *, const char *, void **);
 
 
 static int
 table_ldap_config(struct table *table, const char *config)
 {
-	struct table	*cfg;
+	void	*cfg = NULL;
 
 	/* no config ? broken */
 	if (config == NULL)
 		return 0;
 
-	cfg = table_create("static", NULL, NULL);
-
-	if (! table_config_parser(cfg, config))
-		goto err;
-
-	if (cfg->t_type != T_HASH)
+	cfg = table_config_create();
+	if (! table_config_parse(cfg, config, T_HASH))
 		goto err;
 
 	/* sanity checks */
-	if (table_get(cfg, "url") == NULL) {
+	if (table_config_get(cfg, "url") == NULL) {
 		log_warnx("table_ldap: missing 'url' configuration");
-		table_destroy(cfg);
-		return 0;
+		goto err;
 	}
 
-	table_set_config(table, cfg);
+	table_set_configuration(table, cfg);
 	return 1;
 
 err:
 	table_destroy(cfg);
 	return 0;
+
 }
 
 static int
@@ -120,7 +116,7 @@ table_ldap_open(struct table *table)
 	char				*password;
 
 
-	cfg      = table_get_config(table);
+	cfg      = table_get_configuration(table);
 	url      = table_get(cfg, "url");
 	username = table_get(cfg, "username");
 	password = table_get(cfg, "password");
@@ -187,34 +183,33 @@ table_ldap_lookup(void *hdl, const char *key, enum table_service service,
 		void **retp)
 {
 	struct table_ldap_handle	*tlh = hdl;
-	int ret = 0;
 
 	switch (service) {
 	case K_ALIAS:
-		ret = table_ldap_alias(tlh, key, retp);
-		break;
+		return table_ldap_alias(tlh, key, retp);
+
 	default:
 		break;
 	}
 
-	return ret;
+	return 0;
 }
 
 static int
 table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 {
-	struct aldap *aldap = tlh->aldap;
-	struct table *cfg = table_get_config(tlh->table);
-	const char   *filter = NULL;
-	const char	 *basedn = NULL;
-	struct aldap_page_control *pg = NULL;
-	struct aldap_message *m = NULL;
-	struct expand		  *expand = NULL;
-	struct expandnode	  expnode;
-	char *expandedfilter = NULL;
-	char *attributes[2];
-	char **ldapattrsp = NULL;
-	int i, ret;
+	struct aldap		       *aldap = tlh->aldap;
+	struct table		       *cfg = table_get_configuration(tlh->table);
+	const char		       *filter = NULL;
+	const char		       *basedn = NULL;
+	struct aldap_page_control      *pg = NULL;
+	struct aldap_message	       *m = NULL;
+	struct expand		       *expand = NULL;
+	struct expandnode		expnode;
+	char			       *expandedfilter = NULL;
+	char			       *attributes[2];
+	char			      **ldapattrsp = NULL;
+	int				i, ret;
 
 
 	if ((filter = table_get(cfg, "alias_filter")) == NULL) {

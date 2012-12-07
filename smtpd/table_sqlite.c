@@ -82,7 +82,7 @@ table_sqlite_config(struct table *table, const char *config)
 		return 0;
 	}
 
-	table_set_config(table, cfg);
+	table_set_configuration(table, cfg);
 	return 1;
 
 err:
@@ -101,7 +101,7 @@ static void *
 table_sqlite_open(struct table *table)
 {
 	struct table_sqlite_handle	*tsh;
-	struct table	*cfg;
+	void		*cfg;
 	const char	*dbpath;
 
 	tsh = xcalloc(1, sizeof *tsh, "table_sqlite_open");
