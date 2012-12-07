@@ -125,12 +125,12 @@ static struct tree batches;
 static struct tree wait_mx;
 static struct tree wait_preference;
 static struct tree wait_secret;
-static struct tree wait_sockaddr;
+static struct tree wait_source;
 
 void
 mta_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct lka_sockaddr_resp_msg	*resp_addr;
+	struct lka_source_resp_msg	*resp_addr;
 	struct dns_resp_msg	*resp_dns;
 	struct mta_relay	*relay;
 	struct mta_task		*task;
@@ -233,10 +233,10 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			mta_relay_unref(relay); /* from mta_query_secret() */
 			return;
 
-		case IMSG_LKA_SOCKADDR:
+		case IMSG_LKA_SOURCE:
 			resp_addr = imsg->data;
-			relay = tree_xpop(&wait_sockaddr, resp_addr->reqid);
-			relay->status &= ~RELAY_WAIT_SOCKADDR;
+			relay = tree_xpop(&wait_source, resp_addr->reqid);
+			relay->status &= ~RELAY_WAIT_SOURCE;
 			if (resp_addr->status == LKA_OK) {
 				sa = (struct sockaddr *)&resp_addr->ss;
 				source = mta_source(sa);
@@ -421,7 +421,7 @@ mta(void)
 	tree_init(&wait_secret);
 	tree_init(&wait_mx);
 	tree_init(&wait_preference);
-	tree_init(&wait_sockaddr);
+	tree_init(&wait_source);
 
 	imsg_callback = mta_imsg;
 	event_init();
@@ -560,16 +560,16 @@ mta_query_preference(struct mta_relay *relay)
 static void
 mta_query_source(struct mta_relay *relay)
 {
-	struct lka_sockaddr_req_msg	req;
+	struct lka_source_req_msg	req;
 
 	log_debug("debug: mta_query_source(%s)", mta_relay_to_text(relay));
 
 	req.reqid = relay->id;
 	strlcpy(req.tablename, relay->sourcetable, sizeof(req.tablename));
-	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SOCKADDR, 0, 0, -1,
+	imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_SOURCE, 0, 0, -1,
 	    &req, sizeof(req));
-	tree_xset(&wait_sockaddr, relay->id, relay);
-	relay->status |= RELAY_WAIT_SOCKADDR;
+	tree_xset(&wait_source, relay->id, relay);
+	relay->status |= RELAY_WAIT_SOURCE;
 	mta_relay_ref(relay);
 }
 
@@ -692,8 +692,8 @@ mta_drain(struct mta_relay *r)
 			strlcat(buf, "preference ", sizeof buf);
 		if (r->status & RELAY_WAIT_SECRET)
 			strlcat(buf, "secret ", sizeof buf);
-		if (r->status & RELAY_WAIT_SOCKADDR)
-			strlcat(buf, "sockaddr ", sizeof buf);
+		if (r->status & RELAY_WAIT_SOURCE)
+			strlcat(buf, "source ", sizeof buf);
 		log_debug("debug: mta: relay %s waiting for %s",
 		    mta_relay_to_text(r), buf);
 		goto done;
@@ -726,6 +726,10 @@ mta_drain(struct mta_relay *r)
 			goto done;
 		}
 
+		/* XXX */
+#if 0
+		r->sourcetable = "source";
+#endif
 		if (r->sourcetable) {
 			mta_query_source(r);
 			goto done;

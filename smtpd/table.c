@@ -78,6 +78,12 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 	return table->t_backend->lookup(table->t_handle, key, kind, retp);
 }
 
+int
+table_fetch(struct table *table, enum table_service kind, char **retp)
+{
+	return table->t_backend->fetch(table->t_handle, kind, retp);
+}
+
 struct table *
 table_create(const char *backend, const char *name, const char *config)
 {

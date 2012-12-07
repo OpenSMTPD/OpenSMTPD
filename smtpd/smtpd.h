@@ -135,6 +135,13 @@ struct destination {
 	char	name[MAXHOSTNAMELEN];
 };
 
+struct source {
+	union sockaddr_any {
+		struct in6_addr		in6;
+		struct in_addr		in4;
+	} addr;
+};
+
 enum imsg_type {
 	IMSG_NONE,
 	IMSG_CTL_OK,		/* answer to smtpctl requests */
@@ -158,7 +165,7 @@ enum imsg_type {
 	IMSG_LKA_UPDATE_TABLE,
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
-	IMSG_LKA_SOCKADDR,
+	IMSG_LKA_SOURCE,
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
 
@@ -280,6 +287,7 @@ enum table_service {
 	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
 	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
 	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
+	K_SOURCE	= 0x20, /* returns struct source	*/
 };
 
 struct table {
@@ -294,6 +302,7 @@ struct table {
 	void				*t_handle;
 	struct table_backend		*t_backend;
 	void				*t_payload;
+	void				*t_iter;
 	char				 t_cfgtable[MAXPATHLEN];
 };
 
@@ -304,6 +313,7 @@ struct table_backend {
 	int	(*update)(struct table *);
 	void	(*close)(void *);
 	int	(*lookup)(void *, const char *, enum table_service, void **);
+	int	(*fetch)(void *, enum table_service, char **);
 };
 
 
@@ -697,7 +707,7 @@ struct mta_relay {
 #define RELAY_WAIT_MX		0x01
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
-#define RELAY_WAIT_SOCKADDR	0x08
+#define RELAY_WAIT_SOURCE	0x08
 #define RELAY_WAITMASK		0x0f
 	int			 status;
 
@@ -969,12 +979,12 @@ struct lka_resp_msg {
 	enum lka_resp_status	status;
 };
 
-struct lka_sockaddr_req_msg {
+struct lka_source_req_msg {
 	uint64_t		reqid;
 	char			tablename[MAXPATHLEN];
 };
 
-struct lka_sockaddr_resp_msg {
+struct lka_source_resp_msg {
 	uint64_t		reqid;
 	enum lka_resp_status	status;
 	struct sockaddr_storage	ss;
@@ -1215,7 +1225,8 @@ void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
-int table_lookup(struct table *, const char *, enum table_service, void **);
+int	table_lookup(struct table *, const char *, enum table_service, void **);
+int	table_fetch(struct table *, enum table_service, char **);
 struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
 struct table *table_create(const char *, const char *, const char *);
