@@ -55,6 +55,7 @@ static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct lka_expand_msg	*req;
+	struct auth		*auth;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
@@ -65,6 +66,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	static struct dict	*tables_dict;
 	static struct tree	*tables_tree;
 	static struct table	*table_last;
+	struct credentials	*creds;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
 	    imsg->hdr.type == IMSG_DNS_PTR ||
@@ -79,6 +81,40 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_EXPAND_RCPT:
 			req = imsg->data;
 			lka_session(req->reqid, &req->evp);
+			return;
+		case IMSG_LKA_AUTHENTICATE:
+			auth = imsg->data;
+
+			if (! auth->authtable[0]) {
+				imsg_compose_event(env->sc_ievs[PROC_PARENT],
+				    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+				return;
+			}
+
+			log_debug("looking for user %s in auth table: %s",
+			    auth->user, auth->authtable);
+
+			table = table_findbyname(auth->authtable);
+			if (table == NULL)
+				auth->success = 0;
+			else {
+				switch (table_lookup(table, auth->user, K_CREDENTIALS, (void **)&creds)) {
+				case -1:
+					auth->success = 0;
+					break;
+				case 0:
+					auth->success = 0;
+					break;
+				default:
+					auth->success = 0;
+					if (! strcmp(creds->password, crypt(auth->pass, creds->password)))
+						auth->success = 1;
+					break;
+				}
+			}
+
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
 			return;
 		}
 	}
@@ -274,7 +310,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_PARENT_FORWARD_OPEN:
 			lka_session_forward_reply(imsg->data, imsg->fd);
 			return;
-
+		case IMSG_LKA_AUTHENTICATE:
+			auth = imsg->data;
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+			return;
 		}
 	}
 

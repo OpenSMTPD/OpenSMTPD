@@ -67,6 +67,9 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_EXPAND_RCPT:
 			smtp_session_imsg(iev, imsg);
 			return;
+		case IMSG_LKA_AUTHENTICATE:
+			smtp_session_imsg(iev, imsg);
+			return;
 		}
 	}
 
@@ -171,10 +174,6 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 			smtp_setup_events();
 			env->sc_flags &= ~SMTPD_CONFIGURING;
-			return;
-
-		case IMSG_PARENT_AUTHENTICATE:
-			smtp_session_imsg(iev, imsg);
 			return;
 
 		case IMSG_CTL_VERBOSE:

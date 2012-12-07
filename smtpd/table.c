@@ -156,7 +156,7 @@ table_set_config(struct table *t, struct table *config)
 }
 
 struct table *
-table_get_config(struct table *t)
+table_get_configuration(struct table *t)
 {
 	return table_findbyname(t->t_cfgtable);
 }
@@ -234,9 +234,28 @@ table_update(struct table *t)
 	t->t_backend->update(t);
 }
 
-int
-table_config_parser(struct table *t, const char *config)
+void *
+table_config_create(void)
 {
+	return table_create("static", NULL, NULL);
+}
+
+const char *
+table_config_get(void *p, const char *key)
+{
+	return (const char *)table_get(p, key);
+}
+
+void
+table_config_destroy(void *p)
+{
+	table_destroy(p);
+}
+
+int
+table_config_parse(void *p, const char *config, enum table_type type)
+{
+	struct table	*t = p;
 	FILE	*fp;
 	char *buf, *lbuf;
 	size_t flen;
@@ -282,6 +301,9 @@ table_config_parser(struct table *t, const char *config)
 		if (t->t_type == 0)
 			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
 			    T_HASH;
+
+		if (!(t->t_type & type))
+			goto end;
 
 		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
 			table_add(t, keyp, NULL);

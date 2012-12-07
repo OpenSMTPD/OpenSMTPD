@@ -75,7 +75,7 @@ table_static_config(struct table *table, const char *config)
 	if (config == NULL)
 		return 1;
 
-	return table_config_parser(table, config);
+	return table_config_parse(table, config, T_LIST|T_HASH);
 }
 
 static int

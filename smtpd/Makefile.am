@@ -33,7 +33,7 @@ makemap_SOURCES+=	table_sqlite.c
 
 makemap_CFLAGS=		-DNO_IO
 
-smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
+smtpd_SOURCES=		aliases.c bounce.c compress_backend.c config.c	\
 			control.c delivery.c dict.c dns.c envelope.c		\
 			expand.c forward.c imsgproc.c iobuf.c ioev.c lka.c	\
 			lka_session.c log.c mda.c mfa.c mfa_session.c mta.c	\
@@ -43,8 +43,6 @@ smtpd_SOURCES=		aliases.c auth.c bounce.c compress_backend.c config.c	\
 			stat_backend.c table.c to.c tree.c util.c waitq.c
 
 # backends
-smtpd_SOURCES+=		auth_bsd.c
-smtpd_SOURCES+=		auth_pwd.c
 smtpd_SOURCES+=		compress_gzip.c
 smtpd_SOURCES+=		delivery_filename.c
 smtpd_SOURCES+=		delivery_maildir.c
