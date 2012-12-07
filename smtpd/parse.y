@@ -244,7 +244,8 @@ auth		: AUTH				{
 		}
 		| AUTH_OPTIONAL			{
 			$$ = F_AUTH;
-		} AUTH tables  			{
+		}
+		| AUTH tables  			{
 			strlcpy(l.authtable, table_find($2)->t_name, sizeof l.authtable);
 			$$ = F_AUTH|F_AUTH_REQUIRE;
 		}
@@ -369,6 +370,7 @@ main		: QUEUE compression {
 				YYERROR;
 			}
 
+			log_debug("auth: %d", auth);
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
 					if (! interface(ifx, tag, cert, conf->sc_listeners,
