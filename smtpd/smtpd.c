@@ -28,12 +28,14 @@
 #include <sys/uio.h>
 #include <sys/mman.h>
 
+#include <bsd_auth.h>
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <event.h>
+#include <fcntl.h>
 #include <imsg.h>
+#include <login_cap.h>
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
@@ -66,6 +68,7 @@ static int	offline_enqueue(char *);
 
 static void	purge_task(int, short, void *);
 static void	log_imsg(int, int, struct imsg *);
+static int	parent_auth_user(char *, char *);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -119,7 +122,6 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct forward_req	*fwreq;
 	struct auth		*auth;
-	struct auth_backend	*auth_backend;
 	struct child		*c;
 	size_t			 len;
 	void			*i;
@@ -149,12 +151,12 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 			imsg_compose_event(iev, IMSG_PARENT_FORWARD_OPEN, 0, 0,
 			    fd, fwreq, sizeof *fwreq);
 			return;
-		case IMSG_LKA_AUTHENTICATE:
-			auth_backend = auth_backend_lookup(AUTH_BSD);
-			auth = imsg->data;
-			auth->success = auth_backend->authenticate(auth->user,
-			    auth->pass);
 
+		case IMSG_LKA_AUTHENTICATE:
+			/* If we reached here, it means we want root to lookup system user */
+			auth = imsg->data;
+
+			auth->success = parent_auth_user(auth->user, auth->pass);
 			/* XXX - for now, smtp does not handle temporary failures */
 			if (auth->success == -1)
 				auth->success = 0;
@@ -1453,4 +1455,10 @@ imsg_to_str(int type)
 
 		return buf;
 	}
+}
+
+int
+parent_auth_user(char *username, char *password)
+{
+	return auth_userokay(username, NULL, "auth-smtp", password);
 }

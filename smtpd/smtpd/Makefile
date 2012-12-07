@@ -4,7 +4,7 @@
 
 PROG=		smtpd
 
-SRCS=		aliases.c auth.c bounce.c compress_backend.c config.c	\
+SRCS=		aliases.c bounce.c compress_backend.c config.c		\
 		control.c delivery.c dict.c dns.c envelope.c		\
 		expand.c forward.c imsgproc.c iobuf.c ioev.c lka.c	\
 		lka_session.c log.c mda.c mfa.c mfa_session.c mta.c	\
@@ -14,8 +14,6 @@ SRCS=		aliases.c auth.c bounce.c compress_backend.c config.c	\
 		stat_backend.c table.c to.c tree.c util.c waitq.c
 
 # backends
-SRCS+=		auth_bsd.c
-SRCS+=		auth_pwd.c
 SRCS+=		compress_gzip.c
 SRCS+=		delivery_filename.c
 SRCS+=		delivery_maildir.c
