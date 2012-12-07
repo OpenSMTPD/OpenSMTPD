@@ -90,13 +90,14 @@ static int		 errors = 0;
 
 struct table		*table = NULL;
 struct rule		*rule = NULL;
+struct listener		 l;
 
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(const char *, const char *, const char *,
 		    struct listenerlist *, int, in_port_t, uint8_t);
 int		 host(const char *, const char *, const char *,
-		    struct listenerlist *, int, in_port_t, uint8_t);
+    struct listenerlist *, int, in_port_t, const char *, uint8_t);
 int		 interface(const char *, const char *, const char *,
     struct listenerlist *, int, in_port_t, const char *, uint8_t);
 void		 set_localaddrs(void);
@@ -121,14 +122,14 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERS AUTHTABLE
+%token	AUTH_OPTIONAL TLS_REQUIRE USERS
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
 %type	<v.number>	port from auth ssl size expire
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged compression authtable
+%type	<v.string>	certificate tag tagged compression
 %%
 
 grammar		: /* empty */
@@ -206,14 +207,14 @@ port		: PORT STRING			{
 				YYERROR;
 			}
 			free($2);
-			$$ = servent->s_port;
+			$$ = ntohs(servent->s_port);
 		}
 		| PORT NUMBER			{
 			if ($2 <= 0 || $2 >= (int)USHRT_MAX) {
 				yyerror("invalid port: %" PRId64, $2);
 				YYERROR;
 			}
-			$$ = htons($2);
+			$$ = $2;
 		}
 		| /* empty */			{
 			$$ = 0;
@@ -238,14 +239,20 @@ ssl		: SMTPS				{ $$ = F_SMTPS; }
 		| /* Empty */			{ $$ = 0; }
 		;
 
-auth		: AUTH  			{ $$ = F_AUTH|F_AUTH_REQUIRE; }
-		| AUTH_OPTIONAL			{ $$ = F_AUTH; }
-		| /* empty */			{ $$ = 0; }
-		;
-
-authtable	: AUTHTABLE tables		{ $$ = strdup(table_find($2)->t_name);
+auth		: AUTH				{
+			$$ = F_AUTH|F_AUTH_REQUIRE;
 		}
-		| /* empty */			{ $$ = NULL; }
+		| AUTH_OPTIONAL			{
+			$$ = F_AUTH;
+		} AUTH tables  			{
+			strlcpy(l.authtable, table_find($2)->t_name, sizeof l.authtable);
+			$$ = F_AUTH|F_AUTH_REQUIRE;
+		}
+		| AUTH_OPTIONAL tables 		{
+			strlcpy(l.authtable, table_find($2)->t_name, sizeof l.authtable);
+			$$ = F_AUTH;
+		}
+		| /* empty */			{ $$ = 0; }
 		;
 
 tag		: TAG STRING			{
@@ -342,65 +349,58 @@ main		: QUEUE compression {
        
 			free($2);
 		}
-		| LISTEN ON STRING port ssl certificate auth authtable tag {
-			char		*cert;
-			char		*tag;
-			uint8_t		 flags;
+		| LISTEN {
+			bzero(&l, sizeof l);
+		} ON STRING port ssl certificate auth tag {
+			char	       *ifx  = $4;
+			in_port_t	port = $5;
+			uint8_t		ssl  = $6;
+			char	       *cert = $7;
+			uint8_t		auth = $8;
+			char	       *tag  = $9;
 
-			if ($5 == F_SSL) {
-				yyerror("syntax error");
-				free($9);
-				free($8);
-				free($6);
-				free($3);
+			if (port != 0 && ssl == F_SSL) {
+				yyerror("invalid listen option: tls/smtps on same port");
 				YYERROR;
 			}
 
-			if ($5 == 0 && ($6 != NULL || $7)) {
-				yyerror("error: must specify tls or smtps");
-				free($9);
-				free($8);
-				free($6);
-				free($3);
+			if (auth != 0 && !ssl) {
+				yyerror("invalid listen option: auth requires tls/smtps");
 				YYERROR;
 			}
 
-			if ($4 == 0) {
-				if ($5 == F_SMTPS)
-					$4 = htons(465);
-				else
-					$4 = htons(25);
-			}
-
-			cert = ($6 != NULL) ? $6 : $3;
-			flags = $5 | $7; /* ssl | auth */
-
-			if ($5 && ssl_load_certfile(cert, F_SCERT) < 0) {
-				yyerror("cannot load certificate: %s", cert);
-				free($9);
-				free($8);
-				free($6);
-				free($3);
-				YYERROR;
-			}
-
-			tag = $3;
-			if ($9 != NULL)
-				tag = $9;
-			if (! interface($3, tag, cert, conf->sc_listeners,
-				MAX_LISTEN, $4, $8, flags)) {
-				if (host($3, tag, cert, conf->sc_listeners,
-					MAX_LISTEN, $4, flags) <= 0) {
-					yyerror("invalid virtual ip or interface: %s", $3);
-					free($8);
-					free($6);
-					free($3);
-					YYERROR;
+			if (port == 0) {
+				if (ssl & F_SMTPS) {
+					if (! interface(ifx, tag, cert, conf->sc_listeners,
+						MAX_LISTEN, 465, l.authtable, F_SMTPS|auth)) {
+						if (host(ifx, tag, cert, conf->sc_listeners,
+							MAX_LISTEN, port, l.authtable, ssl|auth) <= 0) {
+							yyerror("invalid virtual ip or interface: %s", ifx);
+							YYERROR;
+						}
+					}
+				}
+				if (! ssl || (ssl & ~F_SMTPS)) {
+					if (! interface(ifx, tag, cert, conf->sc_listeners,
+						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|auth)) {
+						if (host(ifx, tag, cert, conf->sc_listeners,
+							MAX_LISTEN, port, l.authtable, ssl|auth) <= 0) {
+							yyerror("invalid virtual ip or interface: %s", ifx);
+							YYERROR;
+						}
+					}
 				}
 			}
-			free($8);
-			free($6);
-			free($3);
+			else {
+				if (! interface(ifx, tag, cert, conf->sc_listeners,
+					MAX_LISTEN, port, l.authtable, ssl|auth)) {
+					if (host(ifx, tag, cert, conf->sc_listeners,
+						MAX_LISTEN, port, l.authtable, ssl|auth) <= 0) {
+						yyerror("invalid virtual ip or interface: %s", ifx);
+						YYERROR;
+					}
+				}
+			}
 		}/*
 		| FILTER STRING			{
 			struct filter *filter;
@@ -738,13 +738,6 @@ action		: userbase DELIVER TO MAILDIR			{
 			}
 
 			if ($4 != NULL) {
-				if (ssl_load_certfile($4, F_CCERT) < 0) {
-					yyerror("cannot load certificate: %s",
-					    $4);
-					free($4);
-					free($6);
-					YYERROR;
-				}
 				if (strlcpy(rule->r_value.relayhost.cert, $4,
 					sizeof(rule->r_value.relayhost.cert))
 				    >= sizeof(rule->r_value.relayhost.cert))
@@ -875,7 +868,6 @@ lookup(char *s)
 		{ "as",			AS },
 		{ "auth",		AUTH },
 		{ "auth-optional",     	AUTH_OPTIONAL },
-		{ "authtable",     	AUTHTABLE },
 		{ "backup",		BACKUP },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",       	COMPRESSION },
@@ -1531,9 +1523,11 @@ host_dns(const char *s, const char *tag, const char *cert,
 
 int
 host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
-    int max, in_port_t port, uint8_t flags)
+    int max, in_port_t port, const char *authtable, uint8_t flags)
 {
 	struct listener *h;
+
+	port = htons(port);
 
 	h = host_v4(s, port);
 
@@ -1544,8 +1538,13 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 	if (h != NULL) {
 		h->port = port;
 		h->flags = flags;
+		if (h->flags & F_SSL)
+			if (cert == NULL)
+				cert = s;
 		h->ssl = NULL;
 		h->ssl_cert_name[0] = '\0';
+		if (authtable != NULL)
+			(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
 		if (cert != NULL)
 			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
 		if (tag != NULL)
@@ -1567,6 +1566,8 @@ interface(const char *s, const char *tag, const char *cert,
 	struct sockaddr_in6	*sin6;
 	struct listener		*h;
 	int ret = 0;
+
+	port = htons(port);
 
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
@@ -1603,6 +1604,9 @@ interface(const char *s, const char *tag, const char *cert,
 		h->fd = -1;
 		h->port = port;
 		h->flags = flags;
+		if (h->flags & F_SSL)
+			if (cert == NULL)
+				cert = s;
 		h->ssl = NULL;
 		h->ssl_cert_name[0] = '\0';
 		if (authtable != NULL)

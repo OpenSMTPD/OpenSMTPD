@@ -541,6 +541,8 @@ main(int argc, char *argv[])
 	struct event	 ev_sigchld;
 	struct event	 ev_sighup;
 	struct timeval	 tv;
+	struct listener	*l;
+	struct rule	*r;
 	struct peer	 peers[] = {
 		{ PROC_CONTROL,	imsg_dispatch },
 		{ PROC_LKA,	imsg_dispatch },
@@ -720,6 +722,24 @@ main(int argc, char *argv[])
 		errx(1, "machine does not have a hostname set");
 	env->sc_uptime = time(NULL);
 
+	log_debug("init server-ssl tree");
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+		if (l->flags & F_SSL) {
+			if (ssl_load_certfile(l->ssl_cert_name, F_SCERT) < 0)
+				errx(1, "cannot load certificate: %s", l->ssl_cert_name);
+		}
+	}
+
+	log_debug("init client-ssl tree");
+	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
+		if (r->r_action != A_RELAY && r->r_action != A_RELAYVIA)
+			continue;
+		if (! r->r_value.relayhost.cert[0])
+			continue;
+		if (ssl_load_certfile(r->r_value.relayhost.cert, F_CCERT) < 0)
+			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
+	}
+	
 	fork_peers();
 
 	smtpd_process = PROC_PARENT;
