@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2010-2012 Gilles Chehade <gilles@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -51,8 +51,8 @@ static int			 table_ldap_update(struct table *);
 static int			 table_ldap_config(struct table *, const char *);
 static int			 table_ldap_lookup(void *, const  char *, enum table_service, void **);
 static void			 table_ldap_close(void *);
-static char					*table_ldap_expandfilter(const char*, const char *);
-static struct aldap			*ldap_client_connect(const char *);
+static char			*table_ldap_expandfilter(const char*, const char *);
+static struct aldap		*ldap_client_connect(const char *);
 
 struct table_backend table_backend_ldap = {
 	K_ALIAS,
@@ -63,13 +63,12 @@ struct table_backend table_backend_ldap = {
 	table_ldap_lookup
 };
 
-struct ldaphandle {
-	struct aldap	 *aldap;
-	struct table	 *table;
+struct table_ldap_handle {
+	struct aldap	*aldap;
+	struct table	*table;
 };
 
-static int			 table_ldap_alias(struct ldaphandle *, const char *, void**);
-/*static int			 table_ldap_virtual(void *, const char *, void **);*/
+static int			 table_ldap_alias(struct table_ldap_handle *, const char *, void**);
 
 
 static int
@@ -113,31 +112,40 @@ table_ldap_update(struct table *table)
 static void *
 table_ldap_open(struct table *table)
 {
-	struct table		 *cfg;
-	struct ldaphandle	 *ldaphandle;
-	struct aldap_message *message = NULL;
+	struct table			*cfg = NULL;
+	struct table_ldap_handle	*tlh = NULL;
+	struct aldap_message		*message = NULL;
+	char				*url;
+	char				*username;
+	char				*password;
 
 
-	ldaphandle = calloc(1, sizeof(*ldaphandle));
-	if (ldaphandle == NULL)
-		err(1, "calloc");
+	cfg      = table_get_config(table);
+	url      = table_get(cfg, "url");
+	username = table_get(cfg, "username");
+	password = table_get(cfg, "password");
 
-	cfg = table_get_config(table);
+	if (url == NULL || username == NULL || password == NULL)
+		goto err;
 
-	ldaphandle->table = table;
-	ldaphandle->aldap = ldap_client_connect(table_get(cfg, "url"));
-	if (ldaphandle->aldap == NULL) {
+	url      = xstrdup(url, "table_ldap_open");
+	username = xstrdup(username, "table_ldap_open");
+	password = xstrdup(password, "table_ldap_open");
+
+	tlh = xcalloc(1, sizeof(*tlh), "table_ldap_open");
+	tlh->table = table;
+	tlh->aldap = ldap_client_connect(url);
+	if (tlh->aldap == NULL) {
 		log_warnx("table_ldap_open: ldap_client_connect error");
 		goto err;
 	}
 
-	if (aldap_bind(ldaphandle->aldap, table_get(cfg, "username")
-				, table_get(cfg, "password")) == -1) {
+	if (aldap_bind(tlh->aldap, username, password) == -1) {
 		log_warnx("table_ldap_open: aldap_bind error");
 		goto err;
 	}
 
-	if ((message = aldap_parse(ldaphandle->aldap)) == NULL) {
+	if ((message = aldap_parse(tlh->aldap)) == NULL) {
 		log_warnx("table_ldap_open: aldap_parse");
 		goto err;
 	}
@@ -149,18 +157,17 @@ table_ldap_open(struct table *table)
 	case LDAP_INVALID_CREDENTIALS:
 		log_warnx("table_ldap_open: ldap server refused credentials");
 		goto err;
-
 	default:
 		log_warnx("table_ldap_open: failed to bind, result #%d", aldap_get_resultcode(message));
 		goto err;
 	}
 
-	return ldaphandle;
+	return tlh;
 
 err:
-	if (ldaphandle->aldap != NULL)
-		aldap_close(ldaphandle->aldap);
-	free(ldaphandle);
+	if (tlh->aldap != NULL)
+		aldap_close(tlh->aldap);
+	free(tlh);
 	if (message != NULL)
 		aldap_freemsg(message);
 	return NULL;
@@ -169,22 +176,22 @@ err:
 static void
 table_ldap_close(void *hdl)
 {
-	struct ldaphandle *ldaphandle = hdl;
+	struct table_ldap_handle	*tlh = hdl;
 
-	aldap_close(ldaphandle->aldap);
-	free(ldaphandle);
+	aldap_close(tlh->aldap);
+	free(tlh);
 }
 
 static int
 table_ldap_lookup(void *hdl, const char *key, enum table_service service,
 		void **retp)
 {
+	struct table_ldap_handle	*tlh = hdl;
 	int ret = 0;
-	struct ldaphandle *ldap_handle = hdl;
 
 	switch (service) {
 	case K_ALIAS:
-		ret = table_ldap_alias(ldap_handle, key, retp);
+		ret = table_ldap_alias(tlh, key, retp);
 		break;
 	default:
 		break;
@@ -194,10 +201,10 @@ table_ldap_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
-table_ldap_alias(struct ldaphandle *hdl, const char *key, void **retp)
+table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 {
-	struct aldap *aldap = hdl->aldap;
-	struct table *cfg = table_get_config(hdl->table);
+	struct aldap *aldap = tlh->aldap;
+	struct table *cfg = table_get_config(tlh->table);
 	const char   *filter = NULL;
 	const char	 *basedn = NULL;
 	struct aldap_page_control *pg = NULL;
