@@ -250,10 +250,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 	int			 max_reuse, portno;
 	ssize_t			 q;
 
-#ifdef VALGRIND
-	bzero(&batch, sizeof(batch));
-#endif
-
     again:
 	oldstate = s->state;
 

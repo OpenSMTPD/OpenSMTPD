@@ -143,6 +143,31 @@ void clean_setproctitle(void)
 	free(environ);
 #endif
 }
+
+void
+child_free(void)
+{
+	void		*iter;
+	struct child	*child;
+
+	iter = NULL;
+	while (tree_iter(&children, &iter, NULL, (void**)&child))
+		if (child) {
+			free(child);
+			child = NULL;
+		}
+}
+
+void
+free_all(void)
+{
+	child_free();
+	purge_config(PURGE_EVERYTHING);
+	free_pipes();
+	free_peers();
+	clean_setproctitle();
+	EVP_cleanup();
+}
 #endif /* VALGRIND */
 
 static void
@@ -966,6 +991,9 @@ purge_task(int fd, short ev, void *arg)
 				    setresuid(uid, uid, uid))
 					fatal("smtpd: cannot drop privileges");
 				rmtree("/", 1);
+#ifdef VALGRIND
+				free_all();
+#endif
 				_exit(0);
 				break;
 			default:
@@ -1216,6 +1244,10 @@ offline_enqueue(char *name)
 		envp[0] = "PATH=" _PATH_DEFPATH;
 		envp[1] = (char *)NULL;
 		environ = envp;
+
+#ifdef VALGRIND
+		free_all();
+#endif
 
 		execvp(PATH_SMTPCTL, args.list);
 		_exit(1);

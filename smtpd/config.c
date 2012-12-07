@@ -223,9 +223,12 @@ void free_peers(void)
 {
 	u_int	i;
 
-	for (i = 0; i < PROC_COUNT; i++)
-		if (env->sc_ievs[i])
+	for (i = 0; i < PROC_COUNT; i++) {
+		if (env->sc_ievs[i]) {
 			free(env->sc_ievs[i]);
+			env->sc_ievs[i] = NULL;
+		}
+	}
 }
 
 void free_pipes(void)
@@ -233,16 +236,22 @@ void free_pipes(void)
 	u_int	i;
 	u_int	j;
 
-	for (i = 0; i < PROC_COUNT; i++)
+	for (i = 0; i < PROC_COUNT; i++) {
 		for (j = 0; j < PROC_COUNT; j++) {
-
 			if (i >= j || env->sc_instances[i] == 0 ||
 			   env->sc_instances[j] == 0)
 				continue;
 
-			free(env->sc_pipes[i][j]);
-			free(env->sc_pipes[j][i]);
+			if (env->sc_pipes[i][j]) {
+				free(env->sc_pipes[i][j]);
+				env->sc_pipes[i][j] = NULL;
+			}
 
+			if (env->sc_pipes[j][i]) {
+				free(env->sc_pipes[j][i]);
+				env->sc_pipes[j][i] = NULL;
+			}
 		}
+	}
 }
 #endif

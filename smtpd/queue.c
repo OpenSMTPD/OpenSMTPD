@@ -64,10 +64,6 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint64_t		 id;
 	uint32_t		 msgid;
 
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
-
 	if (iev->proc == PROC_SMTP) {
 
 		switch (imsg->hdr.type) {
