@@ -159,6 +159,7 @@ enum imsg_type {
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
 	IMSG_LKA_USERINFO,
+	IMSG_LKA_AUTHENTICATE,
 
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
@@ -206,7 +207,6 @@ enum imsg_type {
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 	IMSG_PARENT_KILL_MDA,
-	IMSG_PARENT_AUTHENTICATE,
 	IMSG_PARENT_SEND_CONFIG,
 
 	IMSG_SMTP_ENQUEUE,
@@ -495,14 +495,16 @@ struct listener {
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
+	char			 authtable[MAX_LINE_SIZE];
 	TAILQ_ENTRY(listener)	 entry;
 };
 
 struct auth {
-	uint64_t	 id;
-	char		 user[MAXLOGNAME];
-	char		 pass[MAX_LINE_SIZE + 1];
-	int		 success;
+	uint64_t	id;
+	char		authtable[MAX_LINE_SIZE];
+	char		user[MAXLOGNAME];
+	char		pass[MAX_LINE_SIZE + 1];
+	int		success;
 };
 
 struct smtpd {
@@ -1198,7 +1200,6 @@ void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
-int table_config_parser(struct table *, const char *);
 int table_lookup(struct table *, const char *, enum table_service, void **);
 struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
@@ -1214,8 +1215,13 @@ void	table_close_all(void);
 void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
 void	table_set_config(struct table *, struct table *);
-struct table	*table_get_config(struct table *);
+struct table	*table_get_configuration(struct table *);
 const void	*table_get(struct table *, const char *);
+
+void *table_config_create(void);
+const char *table_config_get(void *, const char *);
+void table_config_destroy(void *);
+int table_config_parse(void *, const char *, enum table_type);
 
 
 /* to.c */

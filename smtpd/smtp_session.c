@@ -573,7 +573,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
-	case IMSG_PARENT_AUTHENTICATE:
+	case IMSG_LKA_AUTHENTICATE:
 		auth = imsg->data;
 		s = tree_xpop(&wait_parent_auth, auth->id);
 		strnvis(user, auth->user, sizeof user, VIS_WHITE | VIS_SAFE);
@@ -1063,8 +1063,9 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 			goto abort;
 
 		a->id = s->id;
-		imsg_compose_event(env->sc_ievs[PROC_PARENT],
-		    IMSG_PARENT_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
+		strlcpy(a->authtable, s->listener->authtable, sizeof a->authtable);
+		imsg_compose_event(env->sc_ievs[PROC_LKA],
+		    IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
 		bzero(a->pass, sizeof(a->pass));
 		tree_xset(&wait_parent_auth, s->id, s);
 		return;
@@ -1106,8 +1107,9 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 			goto abort;
 
 		a->id = s->id;
-		imsg_compose_event(env->sc_ievs[PROC_PARENT],
-		    IMSG_PARENT_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
+		strlcpy(a->authtable, s->listener->authtable, sizeof a->authtable);
+		imsg_compose_event(env->sc_ievs[PROC_LKA],
+		    IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
 		bzero(a->pass, sizeof(a->pass));
 		tree_xset(&wait_parent_auth, s->id, s);
 		return;
