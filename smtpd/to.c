@@ -52,6 +52,8 @@
 #include "smtpd.h"
 #include "log.h"
 
+static const char *in6addr_to_text(const struct in6_addr *);
+
 const char *
 sockaddr_to_text(struct sockaddr *sa)
 {
@@ -64,7 +66,7 @@ sockaddr_to_text(struct sockaddr *sa)
 		return (buf);
 }
 
-const char *
+static const char *
 in6addr_to_text(const struct in6_addr *addr)
 {
 	struct sockaddr_in6	sa_in6;
