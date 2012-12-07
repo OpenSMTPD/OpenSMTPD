@@ -158,6 +158,7 @@ enum imsg_type {
 	IMSG_LKA_UPDATE_TABLE,
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
+	IMSG_LKA_SOCKADDR,
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
 
@@ -621,29 +622,44 @@ struct mfa_session {
 	struct filter_msg		fm;
 };
 
-struct mta_session;
-struct mta_relay;
-struct tree;/* XXX before */
-
-struct mta_domain {
-	SPLAY_ENTRY(mta_domain)	 entry;
-	char			*name;
-	int			 flags;
-	int			 refcount;
-	TAILQ_HEAD(, 	mta_mx)	 mxs;
-};
-
 struct mta_host {
 	SPLAY_ENTRY(mta_host)	 entry;
 	struct sockaddr		*sa;
 	char			*ptrname;
 	int			 refcount;
+	size_t			 nconn;
+	time_t			 lastconn;
+	time_t			 lastptrquery;
+
+#define HOST_IGNORE	0x01
+	int			 flags;
+	int			 nerror;
+};
+
+struct mta_mx {
+	TAILQ_ENTRY(mta_mx)	 entry;
+	struct mta_host		*host;
+	int			 preference;
+};
+
+struct mta_domain {
+	SPLAY_ENTRY(mta_domain)	 entry;
+	char			*name;
+	int			 flags;
+	TAILQ_HEAD(, mta_mx)	 mxs;
+	int			 mxstatus;
+	int			 refcount;
+	size_t			 nconn;
+	time_t			 lastconn;
+	time_t			 lastmxquery;
 };
 
 struct mta_source {
 	SPLAY_ENTRY(mta_source)	 entry;
 	struct sockaddr		*sa;
 	int			 refcount;
+	size_t			 nconn;
+	time_t			 lastconn;
 };
 
 struct mta_route {
@@ -651,59 +667,47 @@ struct mta_route {
 	struct mta_source	*src;
 	struct mta_host		*dst;
 	int			 refcount;
-};
-
-struct mta_mx {
-	TAILQ_ENTRY(mta_mx)	 entry;
-	struct mta_host		*host;
-	int			 preference;
-	int			 flags;
-#define MX_IGNORE		 0x1
-#define MX_NOSMTPS		 0x2
-#define MX_NOSMTP		 0x4
-	int			 error;
-	int			 nconn;
+	size_t			 nconn;
 	time_t			 lastconn;
 };
 
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
 	uint64_t		 id;
-	struct mta_domain	*domain;
 
-	uint8_t			 flags;
+	struct mta_domain	*domain;
+	int			 flags;
 	char			*backupname;
 	int			 backuppref;
+	char			*sourcetable;
 	uint16_t		 port;
 	char			*cert;
-	char			*auth;
+	char			*authtable;
 	char			*authlabel;
 	void			*ssl;
+
+	char			*secret;
+
+	size_t			 ntask;
+	TAILQ_HEAD(, mta_task)	 tasks;
+
+	int			 fail;
+	char			*failstr;
 
 #define RELAY_WAIT_MX		0x01
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
-#define RELAY_WAITMASK		0x07
-
-#define RELAY_CLOSED		0x08
+#define RELAY_WAIT_SOCKADDR	0x08
+#define RELAY_WAITMASK		0x0f
 	int			 status;
 
-	char			*secret;
-
-	struct mta_mxlist	*mxlist;
-
-	/* relay limits	*/
-	int			 maxconn; 	/* in parallel */
-	int			 maxmail;	/* per session */
-	int			 maxrcpt;	/* per mail */
+	int			 limit_hit;
 
 	int			 refcount;
+	size_t			 nconn;
+	time_t			 lastconn;
 
-	int			 ntask;
-	TAILQ_HEAD(, mta_task)	 tasks;
-
-	int			 maxsession;	/* runtime condition */
-	int			 nsession;
+	size_t			 maxconn;
 };
 
 struct mta_task {
@@ -712,7 +716,6 @@ struct mta_task {
 	uint32_t		 msgid;
 	TAILQ_HEAD(, envelope)	 envelopes;
 	struct mailaddr		 sender;
-	struct mta_session	*session;
 };
 
 enum queue_op {
@@ -966,6 +969,17 @@ struct lka_resp_msg {
 	enum lka_resp_status	status;
 };
 
+struct lka_sockaddr_req_msg {
+	uint64_t		reqid;
+	char			tablename[MAXPATHLEN];
+};
+
+struct lka_sockaddr_resp_msg {
+	uint64_t		reqid;
+	enum lka_resp_status	status;
+	struct sockaddr_storage	ss;
+};
+
 struct lka_userinfo_req_msg {
 	char			usertable[MAXPATHLEN];
 	char			username[MAXLOGNAME];
@@ -1092,15 +1106,15 @@ void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 /* mta.c */
 pid_t mta(void);
-void mta_relay_ok(struct mta_relay *, struct mta_mx *);
-void mta_relay_error(struct mta_relay *, struct mta_mx *, const char *);
-void mta_relay_collect(struct mta_relay *);
-struct mta_mx *mta_relay_next_mx(struct mta_relay *, struct tree *);
+void mta_route_ok(struct mta_relay *, struct mta_route *);
+void mta_route_error(struct mta_relay *, struct mta_route *, const char *);
+void mta_route_collect(struct mta_relay *, struct mta_route *);
+struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
+const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
-const char *mta_mx_to_text(struct mta_mx *);
 
 /* mta_session.c */
-void mta_session(struct mta_relay *);
+void mta_session(struct mta_relay *, struct mta_route *);
 void mta_session_imsg(struct imsgev *, struct imsg *);
 
 
