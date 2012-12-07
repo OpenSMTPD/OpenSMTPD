@@ -54,15 +54,17 @@ static int lka_encode_credentials(char *, size_t, struct credentials *);
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct lka_expand_msg	*req;
+	struct lka_expand_msg		*req;
+	struct lka_source_req_msg	*req_source;
+	struct lka_source_resp_msg	 resp;
 	struct auth		*auth;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
 	void			*tmp;
 	int			ret;
-	const char		*k;
-	const char		*v;
+	const char		*k, *v;
+	char			*src;
 	static struct dict	*tables_dict;
 	static struct tree	*tables_tree;
 	static struct table	*table_last;
@@ -196,6 +198,38 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			free(credentials);
 			return;
 		}
+		case IMSG_LKA_SOURCE:
+			req_source = imsg->data;
+			resp.reqid = req_source->reqid;
+			table = table_findbyname(req_source->tablename);
+			if (table == NULL) {
+				log_warn("warn: source address table %s missing",
+				    req_source->tablename);
+				resp.status = LKA_TEMPFAIL;
+			} 
+			else {
+				ret = table_fetch(table, K_SOURCE, &src);
+				if (ret == -1)
+					resp.status = LKA_TEMPFAIL;
+				else if (ret == 0)
+					resp.status = LKA_PERMFAIL;
+				else {
+					struct addrinfo	hints, *ai;
+					log_debug("debug: source: %s", src);
+					resp.status = LKA_OK;
+					/* XXX find a nicer way? */
+					bzero(&hints, sizeof hints);
+					hints.ai_flags = AI_NUMERICHOST;
+					getaddrinfo(src, NULL, &hints, &ai);
+					memmove(&resp.ss, ai->ai_addr,
+					    ai->ai_addrlen);
+					freeaddrinfo(ai);
+					free(src);
+				}
+			}
+			imsg_compose_event(iev, IMSG_LKA_SOURCE, 0, 0, -1,
+			    &resp, sizeof resp);
+			return;
 		}
 	}
 

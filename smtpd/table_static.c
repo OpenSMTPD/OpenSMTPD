@@ -24,6 +24,9 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <ctype.h>
 #include <err.h>
 #include <event.h>
@@ -42,21 +45,24 @@ static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
 static int table_static_lookup(void *, const char *, enum table_service,
     void **);
+static int table_static_fetch(void *, enum table_service, char **);
 static void  table_static_close(void *);
 
 static int	table_static_credentials(const char *, char *, size_t, void **);
 static int	table_static_alias(const char *, char *, size_t, void **);
 static int	table_static_domain(const char *, char *, size_t, void **);
 static int	table_static_netaddr(const char *, char *, size_t, void **);
+static int	table_static_source(const char *, char *, size_t, void **);
 static int	table_static_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE,
 	table_static_config,
 	table_static_open,
 	table_static_update,
 	table_static_close,
 	table_static_lookup,
+	table_static_fetch
 };
 
 static struct keycmp {
@@ -193,8 +199,12 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_static_netaddr(key, line, len, retp);
 		break;
 
+	case K_SOURCE:
+		ret = table_static_source(key, line, len, retp);
+
 	case K_USERINFO:
 		ret = table_static_userinfo(key, line, len, retp);
+
 		break;
 
 	default:
@@ -204,6 +214,30 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 	free(line);
 
 	return ret;
+}
+
+static int
+table_static_fetch(void *hdl, enum table_service service, char **retp)
+{
+	struct table   *t = hdl;
+	const char     *k;
+	char	       *line;
+
+	if (! dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL)) {
+		t->t_iter = NULL;
+		if (! dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL))
+			return 0;
+	}
+
+	if (retp == NULL)
+		return 1;
+
+	if ((line = strdup(k)) == NULL)
+		return -1;
+
+	*retp = line;
+
+	return 1;
 }
 
 static int
@@ -297,6 +331,24 @@ error:
 	*retp = NULL;
 	free(netaddr);
 	return -1;
+}
+
+static int
+table_static_source(const char *key, char *line, size_t len, void **retp)
+{
+	struct source	*source = NULL;
+
+	source = xcalloc(1, sizeof *source, "table_static_source");
+	if (inet_pton(AF_INET6, line, &source->addr.in6) != 1)
+		if (inet_pton(AF_INET, line, &source->addr.in4) != 1)
+			goto error;
+	*retp = source;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(source);
+	return 0;
 }
 
 static int

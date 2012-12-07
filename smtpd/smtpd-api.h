@@ -21,8 +21,9 @@
 
 #include "sys-queue.h"
 #include "sys-tree.h"
-
 #include <sys/socket.h>
+
+#include <netinet/in.h>
 #include <netdb.h>
 
 #define	FILTER_API_VERSION	 50
