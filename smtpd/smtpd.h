@@ -159,6 +159,7 @@ enum imsg_type {
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
 	IMSG_LKA_USERINFO,
+	IMSG_LKA_AUTHENTICATE,
 
 	IMSG_MDA_SESS_NEW,
 	IMSG_MDA_DONE,
@@ -206,7 +207,6 @@ enum imsg_type {
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 	IMSG_PARENT_KILL_MDA,
-	IMSG_PARENT_AUTHENTICATE,
 	IMSG_PARENT_SEND_CONFIG,
 
 	IMSG_SMTP_ENQUEUE,
@@ -496,14 +496,16 @@ struct listener {
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
+	char			 authtable[MAX_LINE_SIZE];
 	TAILQ_ENTRY(listener)	 entry;
 };
 
 struct auth {
-	uint64_t	 id;
-	char		 user[MAXLOGNAME];
-	char		 pass[MAX_LINE_SIZE + 1];
-	int		 success;
+	uint64_t	id;
+	char		authtable[MAX_LINE_SIZE];
+	char		user[MAXLOGNAME];
+	char		pass[MAX_LINE_SIZE + 1];
+	int		success;
 };
 
 struct smtpd {

@@ -28,12 +28,14 @@
 #include <sys/uio.h>
 #include <sys/mman.h>
 
+#include <bsd_auth.h>
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <event.h>
+#include <fcntl.h>
 #include <imsg.h>
+#include <login_cap.h>
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
@@ -66,6 +68,7 @@ static int	offline_enqueue(char *);
 
 static void	purge_task(int, short, void *);
 static void	log_imsg(int, int, struct imsg *);
+static int	parent_auth_user(char *, char *);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -119,7 +122,6 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 {
 	struct forward_req	*fwreq;
 	struct auth		*auth;
-	struct auth_backend	*auth_backend;
 	struct child		*c;
 	size_t			 len;
 	void			*i;
@@ -129,20 +131,6 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_SEND_CONFIG:
 			parent_send_config_listeners();
-			return;
-
-		case IMSG_PARENT_AUTHENTICATE:
-			auth_backend = auth_backend_lookup(AUTH_BSD);
-			auth = imsg->data;
-			auth->success = auth_backend->authenticate(auth->user,
-			    auth->pass);
-
-			/* XXX - for now, smtp does not handle temporary failures */
-			if (auth->success == -1)
-				auth->success = 0;
-
-			imsg_compose_event(iev, IMSG_PARENT_AUTHENTICATE, 0, 0,
-			    -1, auth, sizeof *auth);
 			return;
 		}
 	}
@@ -162,6 +150,19 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 				fwreq->status = 1;
 			imsg_compose_event(iev, IMSG_PARENT_FORWARD_OPEN, 0, 0,
 			    fd, fwreq, sizeof *fwreq);
+			return;
+
+		case IMSG_LKA_AUTHENTICATE:
+			/* If we reached here, it means we want root to lookup system user */
+			auth = imsg->data;
+
+			auth->success = parent_auth_user(auth->user, auth->pass);
+			/* XXX - for now, smtp does not handle temporary failures */
+			if (auth->success == -1)
+				auth->success = 0;
+
+			imsg_compose_event(iev, IMSG_LKA_AUTHENTICATE, 0, 0,
+			    -1, auth, sizeof *auth);
 			return;
 		}
 	}
@@ -542,6 +543,8 @@ main(int argc, char *argv[])
 	struct event	 ev_sigchld;
 	struct event	 ev_sighup;
 	struct timeval	 tv;
+	struct listener	*l;
+	struct rule	*r;
 	struct peer	 peers[] = {
 		{ PROC_CONTROL,	imsg_dispatch },
 		{ PROC_LKA,	imsg_dispatch },
@@ -721,6 +724,24 @@ main(int argc, char *argv[])
 		errx(1, "machine does not have a hostname set");
 	env->sc_uptime = time(NULL);
 
+	log_debug("debug: init server-ssl tree");
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+		if (l->flags & F_SSL) {
+			if (ssl_load_certfile(l->ssl_cert_name, F_SCERT) < 0)
+				errx(1, "cannot load certificate: %s", l->ssl_cert_name);
+		}
+	}
+
+	log_debug("debug: init client-ssl tree");
+	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
+		if (r->r_action != A_RELAY && r->r_action != A_RELAYVIA)
+			continue;
+		if (! r->r_value.relayhost.cert[0])
+			continue;
+		if (ssl_load_certfile(r->r_value.relayhost.cert, F_CCERT) < 0)
+			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
+	}
+	
 	fork_peers();
 
 	smtpd_process = PROC_PARENT;
@@ -1362,6 +1383,7 @@ imsg_to_str(int type)
 	CASE(IMSG_LKA_UPDATE_TABLE);
 	CASE(IMSG_LKA_EXPAND_RCPT);
 	CASE(IMSG_LKA_SECRET);
+	CASE(IMSG_LKA_AUTHENTICATE);
 
 	CASE(IMSG_MDA_SESS_NEW);
 	CASE(IMSG_MDA_DONE);
@@ -1409,7 +1431,6 @@ imsg_to_str(int type)
 	CASE(IMSG_PARENT_FORWARD_OPEN);
 	CASE(IMSG_PARENT_FORK_MDA);
 	CASE(IMSG_PARENT_KILL_MDA);
-	CASE(IMSG_PARENT_AUTHENTICATE);
 	CASE(IMSG_PARENT_SEND_CONFIG);
 
 	CASE(IMSG_SMTP_ENQUEUE);
@@ -1434,4 +1455,10 @@ imsg_to_str(int type)
 
 		return buf;
 	}
+}
+
+int
+parent_auth_user(char *username, char *password)
+{
+	return auth_userokay(username, NULL, "auth-smtp", password);
 }
