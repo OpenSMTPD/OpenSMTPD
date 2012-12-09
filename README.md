@@ -26,6 +26,7 @@ OpenSMTPD relies on:
 * [libevent](http://libevent.org/)
 * [libtool](http://www.gnu.org/software/libtool/)
 * [openssl](http://www.openssl.org/)
+* [sqlite3](http://sqlite.org/)
 * [zlib](http://www.zlib.net/)
 
 
@@ -36,14 +37,14 @@ Get the source
 
 or
 
-    wget http://www.opensmtpd.org/archives/opensmtpd-latest.tar.gz
-    tar xzvf opensmtpd-latest.tar.gz
+    wget http://www.opensmtpd.org/archives/opensmtpd-portable-latest.tar.gz
+    tar xzvf opensmtpd-portable-latest.tar.gz
 
 
 Build
 -----
 
-    cd opensmtpd  
+    cd opensmtpd*
     ./bootstrap  
     ./configure  
     make  
