@@ -32,7 +32,7 @@ OpenSMTPD relies on:
 Get the source
 --------------
 
-    git clone git://github.com/clongeau/opensmtpd.git
+    git clone -b portable git://github.com/poolpOrg/OpenSMTPD.git opensmtpd
 
 or
 
