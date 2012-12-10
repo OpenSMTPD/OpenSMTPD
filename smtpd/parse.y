@@ -370,6 +370,7 @@ main		: QUEUE compression {
 				YYERROR;
 			}
 
+			log_debug("auth: %d", auth);
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
 					if (! interface(ifx, tag, cert, conf->sc_listeners,

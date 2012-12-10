@@ -51,6 +51,11 @@
 #include "log.h"
 
 static const char *in6addr_to_text(const struct in6_addr *);
+static int alias_is_filter(struct expandnode *, const char *, size_t);
+static int alias_is_username(struct expandnode *, const char *, size_t);
+static int alias_is_address(struct expandnode *, const char *, size_t);
+static int alias_is_filename(struct expandnode *, const char *, size_t);
+static int alias_is_include(struct expandnode *, const char *, size_t);
 
 const char *
 sockaddr_to_text(struct sockaddr *sa)
@@ -580,4 +585,183 @@ text_to_userinfo(struct userinfo *userinfo, const char *s)
 
 error:
 	return 0;
+}
+
+int
+text_to_credentials(struct credentials *creds, const char *s)
+{
+	char   *p;
+	char	buffer[MAX_LINE_SIZE];
+	size_t	offset;
+
+	p = strchr(s, ':');
+	if (p == NULL) {
+		creds->username[0] = '\0';
+		if (strlcpy(creds->password, s, sizeof creds->password)
+		    >= sizeof creds->password)
+			return 0;
+		return 1;
+	}
+
+	offset = p - s;
+
+	bzero(buffer, sizeof buffer);
+	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
+		return 0;
+	p = buffer + offset;
+	*p = '\0';
+
+	if (strlcpy(creds->username, buffer, sizeof creds->username)
+	    >= sizeof creds->username)
+		return 0;
+	if (strlcpy(creds->password, p+1, sizeof creds->password)
+	    >= sizeof creds->password)
+		return 0;
+
+	return 1;
+}
+
+int
+text_to_expandnode(struct expandnode *expandnode, const char *s)
+{
+	char	buffer[MAX_LINE_SIZE];
+	size_t	l;
+	char   *wsp;
+
+	bzero(buffer, sizeof buffer);
+	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
+		return 0;
+
+	/* remove ending whitespaces */
+	wsp = buffer + strlen(buffer);
+	while (wsp != buffer) {
+		if (*wsp != '\0' && !isspace((int)*wsp))
+			break;
+		*wsp-- = '\0';
+	}
+
+	l = strlen(buffer);
+	if (alias_is_include(expandnode, buffer, l) ||
+	    alias_is_filter(expandnode, buffer, l) ||
+	    alias_is_filename(expandnode, buffer, l) ||
+	    alias_is_address(expandnode, buffer, l) ||
+	    alias_is_username(expandnode, buffer, l))
+		return (1);
+
+	return (0);
+}
+
+
+/******/
+static int
+alias_is_filter(struct expandnode *alias, const char *line, size_t len)
+{
+	if (*line == '|') {
+		if (strlcpy(alias->u.buffer, line + 1,
+			sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+			return 0;
+		alias->type = EXPAND_FILTER;
+		return 1;
+	}
+	return 0;
+}
+
+static int
+alias_is_username(struct expandnode *alias, const char *line, size_t len)
+{
+	bzero(alias, sizeof *alias);
+
+	if (strlcpy(alias->u.user, line,
+	    sizeof(alias->u.user)) >= sizeof(alias->u.user))
+		return 0;
+
+	while (*line) {
+		if (!isalnum((int)*line) &&
+		    *line != '_' && *line != '.' && *line != '-')
+			return 0;
+		++line;
+	}
+
+	alias->type = EXPAND_USERNAME;
+	return 1;
+}
+
+static int
+alias_is_address(struct expandnode *alias, const char *line, size_t len)
+{
+	char *domain;
+
+	bzero(alias, sizeof *alias);
+
+	if (len < 3)	/* x@y */
+		return 0;
+
+	domain = strchr(line, '@');
+	if (domain == NULL)
+		return 0;
+
+	/* @ cannot start or end an address */
+	if (domain == line || domain == line + len - 1)
+		return 0;
+
+	/* scan pre @ for disallowed chars */
+	*domain++ = '\0';
+	strlcpy(alias->u.mailaddr.user, line, sizeof(alias->u.mailaddr.user));
+	strlcpy(alias->u.mailaddr.domain, domain,
+	    sizeof(alias->u.mailaddr.domain));
+
+	while (*line) {
+		char allowedset[] = "!#$%*/?|^{}`~&'+-=_.";
+		if (!isalnum((int)*line) &&
+		    strchr(allowedset, *line) == NULL)
+			return 0;
+		++line;
+	}
+
+	while (*domain) {
+		char allowedset[] = "-.";
+		if (!isalnum((int)*domain) &&
+		    strchr(allowedset, *domain) == NULL)
+			return 0;
+		++domain;
+	}
+
+	alias->type = EXPAND_ADDRESS;
+	return 1;
+}
+
+static int
+alias_is_filename(struct expandnode *alias, const char *line, size_t len)
+{
+	bzero(alias, sizeof *alias);
+
+	if (*line != '/')
+		return 0;
+
+	if (strlcpy(alias->u.buffer, line,
+	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+		return 0;
+	alias->type = EXPAND_FILENAME;
+	return 1;
+}
+
+static int
+alias_is_include(struct expandnode *alias, const char *line, size_t len)
+{
+	size_t skip;
+
+	bzero(alias, sizeof *alias);
+
+	if (strncasecmp(":include:", line, 9) == 0)
+		skip = 9;
+	else if (strncasecmp("include:", line, 8) == 0)
+		skip = 8;
+	else
+		return 0;
+
+	if (! alias_is_filename(alias, line + skip, len - skip))
+		return 0;
+
+	alias->type = EXPAND_INCLUDE;
+	return 1;
 }
