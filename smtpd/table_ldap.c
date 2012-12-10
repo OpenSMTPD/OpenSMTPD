@@ -50,16 +50,18 @@ static void			*table_ldap_open(struct table *);
 static int			 table_ldap_update(struct table *);
 static int			 table_ldap_config(struct table *, const char *);
 static int			 table_ldap_lookup(void *, const  char *, enum table_service, void **);
+static int			 table_ldap_fetch(void *, enum table_service, char **);
 static void			 table_ldap_close(void *);
 static struct aldap		*ldap_client_connect(const char *);
 
 struct table_backend table_backend_ldap = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_USERINFO, /* K_DOMAIN|K_NETADDR|K_SOURCE,*/
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_USERINFO, /* K_NETADDR|K_SOURCE,*/
 	table_ldap_config,
 	table_ldap_open,
 	table_ldap_update,
 	table_ldap_close,
-	table_ldap_lookup
+	table_ldap_lookup,
+	table_ldap_fetch
 };
 
 struct table_ldap_handle {
@@ -210,6 +212,13 @@ table_ldap_lookup(void *hdl, const char *key, enum table_service service,
 	}
 
 	return 0;
+}
+
+static int
+table_ldap_fetch(void *hdl, enum table_service service, char **retp)
+{
+	/* fetch not support for LDAP at this point */
+	return -1;
 }
 
 static int
