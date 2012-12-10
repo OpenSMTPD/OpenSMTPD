@@ -71,7 +71,7 @@ struct table_ldap_handle {
 
 static int	parse_attributes(char **, const char *, size_t);
 static int	table_ldap_internal_query(struct aldap *, const char *,
-    const char *, char **, char ***);
+    const char *, char **, char ***, size_t);
 
 static int	table_ldap_alias(struct table_ldap_handle *, const char *, void **);
 static int	table_ldap_credentials(struct table_ldap_handle *, const char *, void **);
@@ -231,13 +231,13 @@ filter_expand(char **expfilter, const char *filter, const char *key)
 
 static int
 table_ldap_internal_query(struct aldap *aldap, const char *basedn,
-    const char *filter, char **attributes, char ***outp)
+    const char *filter, char **attributes, char ***outp, size_t n)
 {
 	struct aldap_message	       *m = NULL;
 	struct aldap_page_control      *pg = NULL;
 	int				ret;
 	int				found;
-	int				i;
+	size_t				i;
 	char				basedn__[MAX_LDAP_BASELEN];
 	char				filter__[MAX_LDAP_FILTERLEN];
 
@@ -273,10 +273,9 @@ table_ldap_internal_query(struct aldap *aldap, const char *basedn,
 				goto error;
 
 			found = 1;
-			for (i = 0; attributes[i]; ++i)
+			for (i = 0; i < n; ++i)
 				if (aldap_match_attr(m, attributes[i], &outp[i]) != 1)
 					goto error;
-
 			aldap_freemsg(m);
 			m = NULL;
 		}
@@ -287,9 +286,6 @@ table_ldap_internal_query(struct aldap *aldap, const char *basedn,
 
 error:
 	ret = -1;
-	for (i = 0; attributes[i]; ++i)
-		if (outp[i])
-			aldap_free_attr(outp[i]);
 
 end:
 	if (pg)
@@ -317,6 +313,9 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 	int				ret = -1;
 	size_t				i;
 
+	bzero(&attributes, sizeof attributes);
+	bzero(&ret_attr, sizeof ret_attr);
+
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "credentials_filter")) == NULL) {
 		log_warnx("table_ldap: lookup: no filter configured for credentials");
@@ -338,9 +337,8 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 		goto end;
 	}
 
-	bzero(&ret_attr, sizeof ret_attr);
 	if ((ret = table_ldap_internal_query(aldap, basedn, expfilter, attributes,
-		    ret_attr)) <= 0)
+		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
 	if (retp == NULL)
@@ -362,9 +360,10 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
 		free(attributes[i]);
-		aldap_free_attr(ret_attr[i]);
+		if (ret_attr[i])
+			aldap_free_attr(ret_attr[i]);
 	}
-
+	
 	free(expfilter);
 	log_debug("debug: table_ldap_credentials: ret=%d", ret);
 	return ret;
@@ -385,6 +384,10 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 	int				ret = -1;
 	size_t				i;
 
+	bzero(&attributes, sizeof attributes);
+	bzero(&ret_attr, sizeof ret_attr);
+
+	log_debug("domain: %s", key);
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "domain_filter")) == NULL) {
 		log_warnx("table_ldap: lookup: no filter configured for domain");
@@ -406,9 +409,8 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	bzero(&ret_attr, sizeof ret_attr);
 	if ((ret = table_ldap_internal_query(aldap, basedn, expfilter, attributes,
-		    ret_attr)) <= 0)
+		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
 	if (retp == NULL)
@@ -422,7 +424,8 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
 		free(attributes[i]);
-		aldap_free_attr(ret_attr[i]);
+		if (ret_attr[i])
+			aldap_free_attr(ret_attr[i]);
 	}
 	free(expfilter);
 	log_debug("debug: table_ldap_destination: ret=%d", ret);
@@ -445,6 +448,9 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 	int				ret = -1;
 	size_t				i;
 
+	bzero(&attributes, sizeof attributes);
+	bzero(&ret_attr, sizeof ret_attr);
+
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "userinfo_filter")) == NULL) {
 		log_warnx("table_ldap: lookup: no filter configured for userinfo");
@@ -466,9 +472,8 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	bzero(&ret_attr, sizeof ret_attr);
 	if ((ret = table_ldap_internal_query(aldap, basedn, expfilter, attributes,
-		    ret_attr)) <= 0)
+		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
 	if (retp == NULL)
@@ -491,7 +496,8 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
 		free(attributes[i]);
-		aldap_free_attr(ret_attr[i]);
+		if (ret_attr[i])
+			aldap_free_attr(ret_attr[i]);
 	}
 	free(expfilter);
 	log_debug("debug: table_ldap_userinfo: ret=%d", ret);
@@ -508,10 +514,13 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 	struct expand		       *xp = NULL;
 	char			       *expfilter = NULL;
 	char     		       *attributes[1];
-	char     		      **ret_attr[4];
+	char     		      **ret_attr[1];
 	const char     		       *attr;
 	int				ret = -1;
 	size_t				i;
+
+	bzero(&attributes, sizeof attributes);
+	bzero(&ret_attr, sizeof ret_attr);
 
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "alias_filter")) == NULL) {
@@ -534,9 +543,8 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	bzero(&ret_attr, sizeof ret_attr);
 	if ((ret = table_ldap_internal_query(aldap, basedn, expfilter, attributes,
-		    ret_attr)) <= 0)
+		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
 	if (retp == NULL)
@@ -554,7 +562,8 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
 		free(attributes[i]);
-		aldap_free_attr(ret_attr[i]);
+		if (ret_attr[i])
+			aldap_free_attr(ret_attr[i]);
 	}
 	if (ret != 1) {
 		if (retp)
