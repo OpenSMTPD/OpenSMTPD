@@ -121,22 +121,23 @@ table_ldap_open(struct table *table)
 	struct table			*cfg = NULL;
 	struct table_ldap_handle	*tlh = NULL;
 	struct aldap_message		*message = NULL;
-	char     			*url;
-	char     			*username;
-	char     			*password;
+	char     			*url = NULL;
+	char     			*username = NULL;
+	char     			*password = NULL;
 
 
 	cfg      = table_get_configuration(table);
-	url      = table_get(cfg, "url");
-	username = table_get(cfg, "username");
-	password = table_get(cfg, "password");
+	if (table_get(cfg, "url") == NULL ||
+	    table_get(cfg, "username") == NULL ||
+	    table_get(cfg, "password") == NULL)
+		goto err;
 
 	if (url == NULL || username == NULL || password == NULL)
 		goto err;
 
-	url      = xstrdup(url, "table_ldap_open");
-	username = xstrdup(username, "table_ldap_open");
-	password = xstrdup(password, "table_ldap_open");
+	url      = xstrdup(table_get(cfg, "url"), "table_ldap_open");
+	username = xstrdup(table_get(cfg, "username"), "table_ldap_open");
+	password = xstrdup(table_get(cfg, "password"), "table_ldap_open");
 
 	tlh = xcalloc(1, sizeof(*tlh), "table_ldap_open");
 	tlh->table = table;
@@ -228,11 +229,19 @@ table_ldap_internal_query(struct aldap *aldap, const char *basedn,
 	int				ret;
 	int				found;
 	int				i;
+	char				basedn__[MAX_LDAP_BASELEN];
+	char				filter__[MAX_LDAP_FILTERLEN];
 
+	if (strlcpy(basedn__, basedn, sizeof basedn__)
+	    >= sizeof basedn__)
+		return -1;
+	if (strlcpy(filter__, filter, sizeof filter__)
+	    >= sizeof filter__)
+		return -1;
 	found = 0;
 	do {
-		if ((ret = aldap_search(aldap, basedn, LDAP_SCOPE_SUBTREE,
-			    filter, NULL, 0, 0, 0, pg)) == -1)
+		if ((ret = aldap_search(aldap, basedn__, LDAP_SCOPE_SUBTREE,
+			    filter__, NULL, 0, 0, 0, pg)) == -1)
 			return -1;
 
 		if (pg != NULL) {
@@ -354,7 +363,7 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 	char			       *expfilter = NULL;
 	char     		      **attributes = NULL;
 	char     		      **ret_attr[4];
-	char			       *attr;
+	const char     		       *attr;
 	char				line[1024];
 	int				ret = -1;
 
@@ -419,7 +428,7 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 	char			       *expfilter = NULL;
 	char     		      **attributes = NULL;
 	char     		      **ret_attr[4];
-	char			       *attr;
+	const char     		       *attr;
 	int				ret = -1;
 	int				i;
 

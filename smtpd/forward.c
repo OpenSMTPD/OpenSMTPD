@@ -81,7 +81,7 @@ forwards_get(int fd, struct expand *expand)
 			buf = cp;
 			cp = p;
 
-			if (! text_to_expand(&xn, buf)) {
+			if (! text_to_expandnode(&xn, buf)) {
 				log_debug("debug: bad entry in ~/.forward");
 				continue;
 			}

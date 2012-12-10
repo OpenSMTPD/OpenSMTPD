@@ -641,11 +641,11 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	}
 
 	l = strlen(buffer);
-	if (alias_is_include(s, buffer, l) ||
-	    alias_is_filter(s, buffer, l) ||
-	    alias_is_filename(s, buffer, l) ||
-	    alias_is_address(s, buffer, l) ||
-	    alias_is_username(s, buffer, l))
+	if (alias_is_include(expandnode, buffer, l) ||
+	    alias_is_filter(expandnode, buffer, l) ||
+	    alias_is_filename(expandnode, buffer, l) ||
+	    alias_is_address(expandnode, buffer, l) ||
+	    alias_is_username(expandnode, buffer, l))
 		return (1);
 
 	return (0);

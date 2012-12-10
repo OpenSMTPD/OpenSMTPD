@@ -281,10 +281,7 @@ err:
 static int
 table_static_alias(const char *key, char *line, size_t len, void **retp)
 {
-	char			*subrcpt;
-	char			*endp;
 	struct expand		*xp;
-	struct expandnode	 xn;
 
 	xp = xcalloc(1, sizeof *xp, "table_static_alias");
 	if (! text_to_expand(xp, line))
