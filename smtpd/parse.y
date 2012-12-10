@@ -120,7 +120,7 @@ typedef struct {
 %token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
-%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR
+%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE USERS
 %token	<v.string>	STRING
@@ -129,7 +129,7 @@ typedef struct {
 %type	<v.number>	port from auth ssl size expire
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged compression
+%type	<v.string>	certificate tag tagged compression relay_source
 %%
 
 grammar		: /* empty */
@@ -636,6 +636,18 @@ destination	: DOMAIN tables			{
 		| ANY		{ $$ = 0; }
 		;
 
+relay_source	: SOURCE tableref			{
+			struct table	*t = table_find($2);
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "SOURCE parameter", t->t_name);
+				YYERROR;
+			}
+			$$ = t->t_name;
+		}
+		| { $$ = NULL; }
+		;
+
 relay_as     	: AS STRING		{
 			struct mailaddr maddr, *maddrp;
 
@@ -698,19 +710,25 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("command too long");
 			free($5);
 		}
-		| RELAY relay_as     			{
+		| RELAY relay_as relay_source		{
 			rule->r_action = A_RELAY;
 			rule->r_as = $2;
+			if ($3)
+				strlcpy(rule->r_value.relayhost.sourcetable, $3,
+				    sizeof rule->r_value.relayhost.sourcetable);
 		}
-		| RELAY BACKUP STRING relay_as     		{
+		| RELAY BACKUP STRING relay_as relay_source		{
 			rule->r_action = A_RELAY;
 			rule->r_as = $4;
 			rule->r_value.relayhost.flags |= F_BACKUP;
 			strlcpy(rule->r_value.relayhost.hostname, $3,
 			    sizeof (rule->r_value.relayhost.hostname));
 			free($3);
+			if ($5)
+				strlcpy(rule->r_value.relayhost.sourcetable, $5,
+				    sizeof rule->r_value.relayhost.sourcetable);
 		}
-		| RELAY VIA STRING certificate credentials relay_as {
+		| RELAY VIA STRING certificate credentials relay_as relay_source {
 			struct table	*t;
 
 			rule->r_action = A_RELAYVIA;
@@ -745,6 +763,10 @@ action		: userbase DELIVER TO MAILDIR			{
 					fatal("certificate path too long");
 			}
 			free($4);
+
+			if ($7)
+				strlcpy(rule->r_value.relayhost.sourcetable, $7,
+				    sizeof rule->r_value.relayhost.sourcetable);
 		}
 		;
 
@@ -893,6 +915,7 @@ lookup(char *s)
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
 		{ "smtps",		SMTPS },
+		{ "source",		SOURCE },
 		{ "ssl",		SSL },
 		{ "table",		TABLE },
 		{ "tag",		TAG },

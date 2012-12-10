@@ -106,6 +106,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MDA_USERTABLE,
 		EVP_MDA_BUFFER,
 		EVP_MDA_USER,
+		EVP_MTA_RELAY_SOURCE,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
 		EVP_MTA_RELAY,
@@ -188,6 +189,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_MDA_USER
 	};
 	enum envelope_field mta_fields[] = {
+		EVP_MTA_RELAY_SOURCE,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
 		EVP_MTA_RELAY,
@@ -297,10 +299,12 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mda-usertable";
 	case EVP_MTA_RELAY:
 		return "mta-relay";
-	case EVP_MTA_RELAY_CERT:
-		return "mta-relay-cert";
 	case EVP_MTA_RELAY_AUTH:
 		return "mta-relay-auth";
+	case EVP_MTA_RELAY_CERT:
+		return "mta-relay-cert";
+	case EVP_MTA_RELAY_SOURCE:
+		return "mta-relay-source";
 	}
 
 	return NULL;
@@ -343,6 +347,9 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MDA_USERTABLE:
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
+	case EVP_MTA_RELAY_SOURCE:
+		return ascii_load_string(ep->agent.mta.relay.sourcetable, buf,
+		    sizeof ep->agent.mta.relay.sourcetable);
 	case EVP_MTA_RELAY_CERT:
 		return ascii_load_string(ep->agent.mta.relay.cert, buf,
 		    sizeof ep->agent.mta.relay.cert);
@@ -398,6 +405,9 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_string(ep->agent.mda.userinfo.username, buf, len);
 	case EVP_MDA_USERTABLE:
 		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
+	case EVP_MTA_RELAY_SOURCE:
+		return ascii_dump_string(ep->agent.mta.relay.sourcetable,
+		    buf, len);
 	case EVP_MTA_RELAY_CERT:
 		return ascii_dump_string(ep->agent.mta.relay.cert,
 		    buf, len);
