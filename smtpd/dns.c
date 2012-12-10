@@ -257,7 +257,7 @@ dns_dispatch_mx(int ev, struct async_res *ar, void *arg)
 
 	/* fallback to host if no MX is found. */
 	if (found == 0)
-		dns_lookup_host(s, s->name, -1);
+		dns_lookup_host(s, s->name, 0);
 }
 
 static void

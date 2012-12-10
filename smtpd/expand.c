@@ -25,6 +25,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <ctype.h>
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
@@ -101,6 +102,39 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 		return 1;
 
 	return memcmp(&e1->u, &e2->u, sizeof(e1->u));
+}
+
+int
+expand_line(struct expand *expand, const char *s)
+{
+	struct expandnode	xn;
+	char			buffer[MAX_LINE_SIZE];
+	char		       *line, *subrcpt, *endp;
+
+	bzero(buffer, sizeof buffer);
+	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
+		return 0;
+
+	line = buffer;
+	while ((subrcpt = strsep(&line, ",")) != NULL) {
+		/* subrcpt: strip initial whitespace. */
+		while (isspace((int)*subrcpt))
+			++subrcpt;
+		if (*subrcpt == '\0')
+			return 0;
+		
+		/* subrcpt: strip trailing whitespace. */
+		endp = subrcpt + strlen(subrcpt) - 1;
+		while (subrcpt < endp && isspace((int)*endp))
+			*endp-- = '\0';
+		
+		if (! text_to_expandnode(&xn, subrcpt))
+			return 0;
+
+		expand_insert(expand, &xn);
+	}
+
+	return 1;
 }
 
 RB_GENERATE(expandtree, expandnode, entry, expand_cmp);

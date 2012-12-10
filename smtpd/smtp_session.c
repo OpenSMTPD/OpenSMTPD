@@ -1209,7 +1209,7 @@ smtp_message_headerline(struct smtp_session *s, char *line)
 		 * mfa sends the header termination.
 		 */
 		if (env->filtermask & HOOK_HEADERLINE &&
-		    (!env->filtermask & HOOK_DATALINE))
+		    !(env->filtermask & HOOK_DATALINE))
 			s->msgflags |= MF_WAIT_MFA_EOH;
 	}
 }

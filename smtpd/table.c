@@ -44,6 +44,7 @@ extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_sqlite;
+extern struct table_backend table_backend_ldap;
 
 static objid_t	last_table_id = 0;
 
@@ -58,6 +59,8 @@ table_backend_lookup(const char *backend)
 		return &table_backend_getpwnam;
 	if (!strcmp(backend, "sqlite"))
 		return &table_backend_sqlite;
+	if (!strcmp(backend, "ldap"))
+		return &table_backend_ldap;
 	return NULL;
 }
 
@@ -156,7 +159,7 @@ table_destroy(struct table *t)
 }
 
 void
-table_set_config(struct table *t, struct table *config)
+table_set_configuration(struct table *t, struct table *config)
 {
 	strlcpy(t->t_cfgtable, config->t_name, sizeof t->t_cfgtable);
 }
@@ -221,10 +224,13 @@ table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
 	return table_check_type(t, tmask) && table_check_service(t, smask);
 }
 
-void
+int
 table_open(struct table *t)
 {
 	t->t_handle = t->t_backend->open(t);
+	if (t->t_handle == NULL)
+		return 0;
+	return 1;
 }
 
 void
@@ -421,7 +427,8 @@ table_open_all(void)
 
 	iter = NULL;
 	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
-		table_open(t);
+		if (! table_open(t))
+			errx(1, "failed to open table %s", t->t_name);
 }
 
 void

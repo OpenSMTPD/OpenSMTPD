@@ -329,30 +329,11 @@ err:
 static int
 table_db_alias(const char *key, char *line, size_t len, void **retp)
 {
-	char		*subrcpt;
-	char		*endp;
 	struct expand	*xp = NULL;
-	struct expandnode	 xn;
 
 	xp = xcalloc(1, sizeof *xp, "table_db_alias");
-
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			goto error;
-
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-
-		if (! alias_parse(&xn, subrcpt))
-			goto error;
-
-		expand_insert(xp, &xn);
-	}
+	if (! expand_line(xp, line))
+		goto error;
 	*retp = xp;
 	return 1;
 

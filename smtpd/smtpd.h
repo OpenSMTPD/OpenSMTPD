@@ -145,6 +145,7 @@ struct relayhost {
 	char cert[PATH_MAX];
 	char authtable[MAX_PATH_SIZE];
 	char authlabel[MAX_PATH_SIZE];
+	char sourcetable[MAX_PATH_SIZE];
 };
 
 struct credentials {
@@ -292,7 +293,6 @@ struct peer {
 	enum smtp_proc_type	 id;
 	void			(*cb)(int, short, void *);
 };
-
 
 enum table_type {
 	T_NONE		= 0,
@@ -501,6 +501,7 @@ enum envelope_field {
 	EVP_MTA_RELAY,
 	EVP_MTA_RELAY_AUTH,
 	EVP_MTA_RELAY_CERT,
+	EVP_MTA_RELAY_SOURCE,
 };
 
 struct ssl {
@@ -1101,6 +1102,7 @@ int expand_cmp(struct expandnode *, struct expandnode *);
 void expand_insert(struct expand *, struct expandnode *);
 struct expandnode *expand_lookup(struct expand *, struct expandnode *);
 void expand_free(struct expand *);
+int expand_line(struct expand *, const char *);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
@@ -1244,7 +1246,7 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
-void	table_open(struct table *);
+int	table_open(struct table *);
 void	table_update(struct table *);
 void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
@@ -1265,7 +1267,7 @@ void	table_open_all(void);
 void	table_close_all(void);
 void	table_set_payload(struct table *, void *);
 void   *table_get_payload(struct table *);
-void	table_set_config(struct table *, struct table *);
+void	table_set_configuration(struct table *, struct table *);
 struct table	*table_get_configuration(struct table *);
 const void	*table_get(struct table *, const char *);
 
@@ -1282,6 +1284,8 @@ uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
 int text_to_userinfo(struct userinfo *, const char *);
+int text_to_credentials(struct credentials *, const char *);
+int text_to_expandnode(struct expandnode *, const char *);
 uint64_t text_to_evpid(const char *);
 uint32_t text_to_msgid(const char *);
 const char *sa_to_text(const struct sockaddr *);
@@ -1291,6 +1295,7 @@ const char *duration_to_text(time_t);
 const char *relayhost_to_text(struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
+
 
 /* util.c */
 typedef struct arglist arglist;

@@ -29,11 +29,14 @@ makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c	\
 makemap_SOURCES+=	table_static.c
 makemap_SOURCES+=	table_db.c
 makemap_SOURCES+=	table_getpwnam.c
+makemap_SOURCES+=	table_ldap.c
+makemap_SOURCES+=	ber.c
+makemap_SOURCES+=	aldap.c
 makemap_SOURCES+=	table_sqlite.c
 
 makemap_CFLAGS=		-DNO_IO
 
-smtpd_SOURCES=		aliases.c bounce.c compress_backend.c config.c	\
+smtpd_SOURCES=		aliases.c bounce.c compress_backend.c config.c		\
 			control.c delivery.c dict.c dns.c envelope.c		\
 			expand.c forward.c imsgproc.c iobuf.c ioev.c lka.c	\
 			lka_session.c log.c mda.c mfa.c mfa_session.c mta.c	\
@@ -51,6 +54,7 @@ smtpd_SOURCES+=		delivery_mda.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c
+smtpd_SOURCES+=		table_ldap.c
 smtpd_SOURCES+=		table_sqlite.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		queue_ram.c
@@ -66,13 +70,16 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/getaddrinfo_async.c		\
 			../contrib/lib/libc/asr/getnameinfo_async.c
 
+# ldap backend
+smtpd_SOURCES+=		ber.c aldap.c
+
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c util.c					\
 			compress_backend.c compress_gzip.c			\
-			to.c
+			to.c expand.c
 
 smtpctl_CFLAGS=		-DNO_IO
 
