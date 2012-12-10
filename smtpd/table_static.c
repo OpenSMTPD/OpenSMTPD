@@ -284,7 +284,7 @@ table_static_alias(const char *key, char *line, size_t len, void **retp)
 	struct expand		*xp;
 
 	xp = xcalloc(1, sizeof *xp, "table_static_alias");
-	if (! text_to_expand(xp, line))
+	if (! expand_line(xp, line))
 		goto error;
 	*retp = xp;
 	return 1;

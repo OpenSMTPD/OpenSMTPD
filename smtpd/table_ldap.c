@@ -69,7 +69,7 @@ struct table_ldap_handle {
 	struct table	*table;
 };
 
-static int	parse_attributes(char ***, const char *, size_t);
+static int	parse_attributes(char **, const char *, size_t);
 static int	table_ldap_internal_query(struct aldap *, const char *,
     const char *, char **, char ***);
 
@@ -310,11 +310,12 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 	const char		       *basedn = NULL;
 	struct credentials		credentials;
 	char			       *expfilter = NULL;
-	char     		      **attributes = NULL;
+	char     		       *attributes[4];
 	char     		      **ret_attr[4];
 	const char     		       *attr;
 	char				line[1024];
 	int				ret = -1;
+	size_t				i;
 
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "credentials_filter")) == NULL) {
@@ -332,7 +333,7 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 		goto end;
 	}
 
-	if (! parse_attributes(&attributes, attr, 2)) {
+	if (! parse_attributes(attributes, attr, 2)) {
 		log_warnx("table_ldap: lookup: failed to parse attributes");
 		goto end;
 	}
@@ -359,8 +360,12 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 	*retp = xmemdup(&credentials, sizeof credentials, "table_ldap_credentials");
 
 end:
+	for (i = 0; i < nitems(attributes); ++i) {
+		free(attributes[i]);
+		aldap_free_attr(ret_attr[i]);
+	}
+
 	free(expfilter);
-	free(attributes);
 	log_debug("debug: table_ldap_credentials: ret=%d", ret);
 	return ret;
 }
@@ -374,10 +379,11 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 	const char		       *basedn = NULL;
 	struct destination		destination;
 	char			       *expfilter = NULL;
-	char     		      **attributes = NULL;
+	char     		       *attributes[1];
 	char     		      **ret_attr[1];
 	const char     		       *attr;
 	int				ret = -1;
+	size_t				i;
 
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "domain_filter")) == NULL) {
@@ -395,7 +401,7 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	if (! parse_attributes(&attributes, attr, 1)) {
+	if (! parse_attributes(attributes, attr, 1)) {
 		log_warnx("table_ldap: lookup: failed to parse attributes");
 		goto end;
 	}
@@ -414,8 +420,11 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 	*retp = xmemdup(&destination, sizeof destination, "table_ldap_destination");
 
 end:
+	for (i = 0; i < nitems(attributes); ++i) {
+		free(attributes[i]);
+		aldap_free_attr(ret_attr[i]);
+	}
 	free(expfilter);
-	free(attributes);
 	log_debug("debug: table_ldap_destination: ret=%d", ret);
 	return ret;
 }
@@ -429,11 +438,12 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 	const char		       *basedn = NULL;
 	struct userinfo			userinfo;
 	char			       *expfilter = NULL;
-	char     		      **attributes = NULL;
+	char     		       *attributes[4];
 	char     		      **ret_attr[4];
 	const char     		       *attr;
 	char				line[1024];
 	int				ret = -1;
+	size_t				i;
 
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "userinfo_filter")) == NULL) {
@@ -451,7 +461,7 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	if (! parse_attributes(&attributes, attr, 4)) {
+	if (! parse_attributes(attributes, attr, 4)) {
 		log_warnx("table_ldap: lookup: failed to parse attributes");
 		goto end;
 	}
@@ -479,8 +489,11 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 	*retp = xmemdup(&userinfo, sizeof userinfo, "table_ldap_userinfo");
 
 end:
+	for (i = 0; i < nitems(attributes); ++i) {
+		free(attributes[i]);
+		aldap_free_attr(ret_attr[i]);
+	}
 	free(expfilter);
-	free(attributes);
 	log_debug("debug: table_ldap_userinfo: ret=%d", ret);
 	return ret;
 }
@@ -494,11 +507,11 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 	const char		       *basedn = NULL;
 	struct expand		       *xp = NULL;
 	char			       *expfilter = NULL;
-	char     		      **attributes = NULL;
+	char     		       *attributes[1];
 	char     		      **ret_attr[4];
 	const char     		       *attr;
 	int				ret = -1;
-	int				i;
+	size_t				i;
 
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "alias_filter")) == NULL) {
@@ -516,7 +529,7 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	if (! parse_attributes(&attributes, attr, 1)) {
+	if (! parse_attributes(attributes, attr, 1)) {
 		log_warnx("table_ldap: lookup: failed to parse attributes");
 		goto end;
 	}
@@ -531,7 +544,7 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 
 	xp = xcalloc(1, sizeof *xp, "table_ldap_alias");
 	for (i = 0; ret_attr[0][i]; ++i) {
-		if (! text_to_expand(xp, ret_attr[0][i])) {
+		if (! expand_line(xp, ret_attr[0][i])) {
 			ret = -1;
 			goto end;
 		}
@@ -539,6 +552,10 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 	*retp = xp;
 
 end:
+	for (i = 0; i < nitems(attributes); ++i) {
+		free(attributes[i]);
+		aldap_free_attr(ret_attr[i]);
+	}
 	if (ret != 1) {
 		if (retp)
 			*retp = NULL;
@@ -546,7 +563,6 @@ end:
 			expand_free(xp);
 	}
 	free(expfilter);
-	free(attributes);
 	log_debug("debug: table_ldap_alias: ret=%d", ret);
 	return ret;
 }
@@ -613,12 +629,11 @@ err:
 }
 
 static int
-parse_attributes(char ***attributes, const char *line, size_t expect)
+parse_attributes(char **attributes, const char *line, size_t expect)
 {
 	char	buffer[1024];
 	char   *p;
 	size_t	m, n;
-	char   **attr;
 
 	if (strlcpy(buffer, line, sizeof buffer)
 	    >= sizeof buffer)
@@ -634,12 +649,12 @@ parse_attributes(char ***attributes, const char *line, size_t expect)
 	if (expect != m)
 		return 0;
 
-	attr = xcalloc(m+1, sizeof (char *), "parse_attributes");
 	p = buffer;
+	for (n = 0; n < expect; ++n)
+		attributes[n] = NULL;
 	for (n = 0; n < m; ++n) {
-		attr[n] = xstrdup(p, "parse_attributes");
+		attributes[n] = xstrdup(p, "parse_attributes");
 		p += strlen(p) + 1;
 	}
-	*attributes = attr;
 	return 1;
 }

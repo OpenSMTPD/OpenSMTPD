@@ -651,41 +651,6 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	return (0);
 }
 
-int
-text_to_expand(struct expand *expand, const char *s)
-{
-	struct expandnode	xn;
-	char			buffer[MAX_LINE_SIZE];
-	char		       *line, *subrcpt, *endp;
-
-	bzero(buffer, sizeof buffer);
-	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
-		return 0;
-
-	line = buffer;
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			return 0;
-		
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-		
-		if (! text_to_expandnode(&xn, subrcpt))
-			return 0;
-
-		expand_insert(expand, &xn);
-	}
-
-	return 1;
-}
-
-
-
 
 /******/
 static int

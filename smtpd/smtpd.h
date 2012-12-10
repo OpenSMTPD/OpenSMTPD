@@ -1077,6 +1077,7 @@ int expand_cmp(struct expandnode *, struct expandnode *);
 void expand_insert(struct expand *, struct expandnode *);
 struct expandnode *expand_lookup(struct expand *, struct expandnode *);
 void expand_free(struct expand *);
+int expand_line(struct expand *, const char *);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
@@ -1259,7 +1260,6 @@ int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
 int text_to_userinfo(struct userinfo *, const char *);
 int text_to_credentials(struct credentials *, const char *);
-int text_to_expand(struct expand *, const char *);
 int text_to_expandnode(struct expandnode *, const char *);
 uint64_t text_to_evpid(const char *);
 uint32_t text_to_msgid(const char *);
