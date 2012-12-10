@@ -1220,7 +1220,7 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
-void	table_open(struct table *);
+int	table_open(struct table *);
 void	table_update(struct table *);
 void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);

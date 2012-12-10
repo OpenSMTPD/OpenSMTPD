@@ -222,10 +222,13 @@ table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
 	return table_check_type(t, tmask) && table_check_service(t, smask);
 }
 
-void
+int
 table_open(struct table *t)
 {
 	t->t_handle = t->t_backend->open(t);
+	if (t->t_handle == NULL)
+		return 0;
+	return 1;
 }
 
 void
@@ -422,7 +425,8 @@ table_open_all(void)
 
 	iter = NULL;
 	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
-		table_open(t);
+		if (! table_open(t))
+			errx(1, "failed to open table %s", t->t_name);
 }
 
 void
