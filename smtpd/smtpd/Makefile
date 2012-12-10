@@ -22,6 +22,7 @@ SRCS+=		delivery_mda.c
 SRCS+=		table_db.c
 SRCS+=		table_getpwnam.c
 SRCS+=		table_static.c
+SRCS+=		table_ldap.c
 SRCS+=		table_sqlite.c
 SRCS+=		queue_fsqueue.c
 SRCS+=		queue_ram.c
@@ -31,6 +32,9 @@ SRCS+=		stat_ramstat.c
 # resolver
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
 		res_send_async.c getaddrinfo_async.c getnameinfo_async.c
+
+# ldap backend
+SRCS+=		ber.c aldap.c
 
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
@@ -48,3 +52,4 @@ CFLAGS+=	-DASR_OPT_THREADSAFE=0
 YFLAGS=
 
 .include <bsd.prog.mk>
+

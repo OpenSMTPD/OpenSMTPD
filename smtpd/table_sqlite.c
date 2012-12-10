@@ -82,7 +82,7 @@ table_sqlite_config(struct table *table, const char *config)
 		return 0;
 	}
 
-	table_set_config(table, cfg);
+	table_set_configuration(table, cfg);
 	return 1;
 
 err:
@@ -101,7 +101,7 @@ static void *
 table_sqlite_open(struct table *table)
 {
 	struct table_sqlite_handle	*tsh;
-	struct table	*cfg;
+	void		*cfg;
 	const char	*dbpath;
 
 	tsh = xcalloc(1, sizeof *tsh, "table_sqlite_open");
@@ -187,7 +187,7 @@ table_sqlite_alias(struct table_sqlite_handle *tsh, const char *key, void **retp
 			sqlite3_finalize(stmt);
 			return 1;
 		}
-		if (! alias_parse(&xn, sqlite3_column_text(stmt, 0)))
+		if (! text_to_expandnode(&xn, sqlite3_column_text(stmt, 0)))
 			goto error;
 		expand_insert(xp, &xn);
 		nrows++;
