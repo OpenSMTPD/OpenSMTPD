@@ -642,7 +642,7 @@ destination	: DOMAIN tables			{
 		| ANY		{ $$ = 0; }
 		;
 
-relay_source	: SOURCE tableref			{
+relay_source	: SOURCE tables			{
 			struct table	*t = table_find($2);
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
 				yyerror("invalid use of table \"%s\" as "
