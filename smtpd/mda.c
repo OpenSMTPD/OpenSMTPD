@@ -615,9 +615,7 @@ static void
 mda_fail(struct mda_user *user, int type, const char *error)
 {
 	struct envelope	*e;
-	size_t		 n;
 
-	n = 0;
 	while ((e = TAILQ_FIRST(&user->envelopes))) {
 		TAILQ_REMOVE(&user->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
