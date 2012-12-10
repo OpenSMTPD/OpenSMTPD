@@ -736,10 +736,6 @@ mta_drain(struct mta_relay *r)
 			goto done;
 		}
 
-		/* XXX */
-#if 0
-		r->sourcetable = "source";
-#endif
 		if (r->sourcetable) {
 			mta_query_source(r);
 			goto done;
@@ -934,6 +930,9 @@ mta_relay(struct envelope *e)
 	key.authlabel = e->agent.mta.relay.authlabel;
 	if (!key.authlabel[0])
 		key.authlabel = NULL;
+	key.sourcetable = e->agent.mta.relay.sourcetable;
+	if (!key.sourcetable[0])
+		key.sourcetable = NULL;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r, "mta_relay");
@@ -954,6 +953,9 @@ mta_relay(struct envelope *e)
 			strlcpy(ssl.ssl_name, r->cert, sizeof(ssl.ssl_name));
 			r->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &ssl);
 		}
+		if (key.sourcetable)
+			r->sourcetable = xstrdup(key.sourcetable,
+			    "mta: sourcetable");
 		SPLAY_INSERT(mta_relay_tree, &relays, r);
 		log_trace(TRACE_MTA, "mta: new relay %s", mta_relay_to_text(r));
 		stat_increment("mta.relay", 1);
@@ -1048,6 +1050,12 @@ mta_relay_to_text(struct mta_relay *relay)
 		strlcat(buf, relay->backupname, sizeof buf);
 	}
 
+	if (relay->sourcetable) {
+		strlcat(buf, sep, sizeof buf);
+		strlcat(buf, "sourcetable=", sizeof buf);
+		strlcat(buf, relay->sourcetable, sizeof buf);
+	}
+
 	strlcat(buf, "]", sizeof buf);
 
 	return (buf);
@@ -1080,6 +1088,12 @@ mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 	if (a->authtable && ((r = strcmp(a->authtable, b->authtable))))
 		return (r);
 	if (a->authlabel && ((r = strcmp(a->authlabel, b->authlabel))))
+		return (r);
+	if (a->sourcetable == NULL && b->sourcetable)
+		return (-1);
+	if (a->sourcetable && b->sourcetable == NULL)
+		return (1);
+	if (a->sourcetable && ((r = strcmp(a->sourcetable, b->sourcetable))))
 		return (r);
 
 	if (a->cert == NULL && b->cert)

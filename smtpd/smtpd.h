@@ -145,6 +145,7 @@ struct relayhost {
 	char cert[PATH_MAX];
 	char authtable[MAX_PATH_SIZE];
 	char authlabel[MAX_PATH_SIZE];
+	char sourcetable[MAX_PATH_SIZE];
 };
 
 struct credentials {
@@ -501,6 +502,7 @@ enum envelope_field {
 	EVP_MTA_RELAY,
 	EVP_MTA_RELAY_AUTH,
 	EVP_MTA_RELAY_CERT,
+	EVP_MTA_RELAY_SOURCE,
 };
 
 struct ssl {
