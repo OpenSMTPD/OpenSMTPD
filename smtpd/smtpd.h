@@ -1256,6 +1256,9 @@ uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
 int text_to_userinfo(struct userinfo *, const char *);
+int text_to_credentials(struct credentials *, const char *);
+int text_to_expand(struct expand *, const char *);
+int text_to_expandnode(struct expandnode *, const char *);
 uint64_t text_to_evpid(const char *);
 uint32_t text_to_msgid(const char *);
 const char *sa_to_text(const struct sockaddr *);
@@ -1265,6 +1268,7 @@ const char *duration_to_text(time_t);
 const char *relayhost_to_text(struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
+
 
 /* util.c */
 typedef struct arglist arglist;

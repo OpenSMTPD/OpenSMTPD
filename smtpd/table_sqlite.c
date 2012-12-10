@@ -187,7 +187,7 @@ table_sqlite_alias(struct table_sqlite_handle *tsh, const char *key, void **retp
 			sqlite3_finalize(stmt);
 			return 1;
 		}
-		if (! alias_parse(&xn, sqlite3_column_text(stmt, 0)))
+		if (! text_to_expandnode(&xn, sqlite3_column_text(stmt, 0)))
 			goto error;
 		expand_insert(xp, &xn);
 		nrows++;

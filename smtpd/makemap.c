@@ -409,7 +409,7 @@ make_aliases(DBT *val, char *text)
 		while (subrcpt < endp && isspace((int)*endp))
 			*endp-- = '\0';
 
-		if (! alias_parse(&xn, subrcpt))
+		if (! text_to_expandnode(&xn, subrcpt))
 			goto error;
 	}
 
