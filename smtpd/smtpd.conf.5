@@ -226,7 +226,6 @@ It must be an absolute path to a file for the
 and
 .Dq db
 table types.
-
 .It Xo
 .Ic table Ar name
 .Ic { Ar value
@@ -446,6 +445,7 @@ This parameter may use conversion specifiers that are expanded before use
 .Ic relay
 .Op Ic backup Ar mx
 .Op Ic as Ar address
+.Op Ic source Ar source
 .Xc
 Mail is relayed.
 The routing decision is based on the DNS system.
@@ -470,12 +470,23 @@ may be a user, a domain prefixed with
 or an email address, causing
 smtpd to rewrite the user-part, the domain-part, or the entire address,
 respectively.
+.Pp
+If the
+.Ic source
+parameter is specified,
+.Xr smtpd 8
+will explicitely bind to an address found in the table referenced by
+.Ar table
+when connecting to the relay.
+If the table contains more than one address, they are picked in turn each
+time a new connection is opened.
 .It Xo
 .Ic relay via
 .Ar host
 .Op Ic certificate Ar name
 .Op Ic auth Ar <auth>
 .Op Ic as Ar address
+.Op Ic source Ar source
 .Xc
 Mail is relayed through the specified
 .Ar host
@@ -537,13 +548,22 @@ may be a user, a domain prefixed with
 or an email address, causing
 smtpd to rewrite the user-part, the domain-part, or the entire address,
 respectively.
+.Pp
+If the
+.Ic source
+parameter is specified,
+.Xr smtpd 8
+will explicitely bind to an address found in the table referenced by
+.Ar table
+when connecting to the relay.
+If the table contains more than one address, they are picked in turn each
+time a new connection is opened.
 .El
 .It Ic tagged Ar tag
 If specified, the rule will only be matched if the client session was tagged
 .Ar tag .
 .It Ic expire Ar n {s|m|h|d}
 Specify how long a message that matched this rule can stay in the queue.
-.El
 .El
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX" -compact
