@@ -617,6 +617,7 @@ main(int argc, char *argv[])
 	struct event	 ev_sigchld;
 	struct event	 ev_sighup;
 	struct timeval	 tv;
+	struct passwd	*pwq;
 	struct listener	*l;
 	struct rule	*r;
 	struct peer	 peers[] = {
@@ -759,22 +760,32 @@ main(int argc, char *argv[])
 	if (geteuid())
 		errx(1, "need root privileges");
 
-	if ((env->sc_pw =  getpwnam(SMTPD_USER)) == NULL)
+	if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
 		errx(1, "unknown user %s", SMTPD_USER);
+	if ((env->sc_pw = pw_dup(env->sc_pw)) == NULL)
+		err(1, NULL);
+
+	env->sc_pwqueue = getpwnam(SMTPD_QUEUE_USER);
+	if (env->sc_pwqueue)
+		pwq = env->sc_pwqueue = pw_dup(env->sc_pwqueue);
+	else
+		pwq = env->sc_pwqueue = pw_dup(env->sc_pw);
+	if (env->sc_pwqueue == NULL)
+		err(1, NULL);
 
 	if (ckdir(PATH_SPOOL, 0711, 0, 0, 1) == 0)
 		errx(1, "error in spool directory setup");
 	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 1) == 0)
 		errx(1, "error in offline directory setup");
-	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, env->sc_pw->pw_uid, 0, 1) == 0)
+	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
 		errx(1, "error in purge directory setup");
-	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, env->sc_pw->pw_uid, 0, 1)
+	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, pwq->pw_uid, 0, 1)
 	    == 0)
 		errx(1, "error in purge directory setup");
 
 	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
-	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, env->sc_pw->pw_uid, 0, 1)
+	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, pwq->pw_uid, 0, 1)
 	    == 0)
 		errx(1, "error in incoming directory setup");
 
@@ -1471,6 +1482,16 @@ imsg_to_str(int type)
 	CASE(IMSG_CTL_FAIL);
 	CASE(IMSG_CTL_SHUTDOWN);
 	CASE(IMSG_CTL_VERBOSE);
+	CASE(IMSG_CTL_PAUSE_MDA);
+	CASE(IMSG_CTL_PAUSE_MTA);
+	CASE(IMSG_CTL_PAUSE_SMTP);
+	CASE(IMSG_CTL_RESUME_MDA);
+	CASE(IMSG_CTL_RESUME_MTA);
+	CASE(IMSG_CTL_RESUME_SMTP);
+	CASE(IMSG_CTL_LIST_MESSAGES);
+	CASE(IMSG_CTL_LIST_ENVELOPES);
+	CASE(IMSG_CTL_REMOVE);
+	CASE(IMSG_CTL_SCHEDULE);
 
 	CASE(IMSG_CONF_START);
 	CASE(IMSG_CONF_SSL);
@@ -1485,6 +1506,13 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_FILTER);
 	CASE(IMSG_CONF_END);
 
+	CASE(IMSG_DELIVERY_OK);
+	CASE(IMSG_DELIVERY_TEMPFAIL);
+	CASE(IMSG_DELIVERY_PERMFAIL);
+	CASE(IMSG_DELIVERY_LOOP);
+
+	CASE(IMSG_BOUNCE_INJECT);
+
 	CASE(IMSG_LKA_UPDATE_TABLE);
 	CASE(IMSG_LKA_EXPAND_RCPT);
 	CASE(IMSG_LKA_SECRET);
@@ -1492,7 +1520,7 @@ imsg_to_str(int type)
 	CASE(IMSG_LKA_USERINFO);
 	CASE(IMSG_LKA_AUTHENTICATE);
 
-	CASE(IMSG_MDA_SESS_NEW);
+	CASE(IMSG_MDA_DELIVER);
 	CASE(IMSG_MDA_DONE);
 
 	CASE(IMSG_MFA_CONNECT);
@@ -1506,43 +1534,26 @@ imsg_to_str(int type)
 	CASE(IMSG_MFA_CLOSE);
 	CASE(IMSG_MFA_RSET);
 
+	CASE(IMSG_MTA_BATCH);
+	CASE(IMSG_MTA_BATCH_ADD);
+	CASE(IMSG_MTA_BATCH_END);
+
 	CASE(IMSG_QUEUE_CREATE_MESSAGE);
 	CASE(IMSG_QUEUE_SUBMIT_ENVELOPE);
 	CASE(IMSG_QUEUE_COMMIT_ENVELOPES);
 	CASE(IMSG_QUEUE_REMOVE_MESSAGE);
 	CASE(IMSG_QUEUE_COMMIT_MESSAGE);
-
-	CASE(IMSG_QUEUE_PAUSE_MDA);
-	CASE(IMSG_QUEUE_PAUSE_MTA);
-	CASE(IMSG_QUEUE_RESUME_MDA);
-	CASE(IMSG_QUEUE_RESUME_MTA);
-
-	CASE(IMSG_QUEUE_DELIVERY_OK);
-	CASE(IMSG_QUEUE_DELIVERY_TEMPFAIL);
-	CASE(IMSG_QUEUE_DELIVERY_PERMFAIL);
-	CASE(IMSG_QUEUE_DELIVERY_LOOP);
 	CASE(IMSG_QUEUE_MESSAGE_FD);
 	CASE(IMSG_QUEUE_MESSAGE_FILE);
 	CASE(IMSG_QUEUE_REMOVE);
 	CASE(IMSG_QUEUE_EXPIRE);
-
-	CASE(IMSG_SCHEDULER_MESSAGES);
-	CASE(IMSG_SCHEDULER_ENVELOPES);
-	CASE(IMSG_SCHEDULER_REMOVE);
-	CASE(IMSG_SCHEDULER_SCHEDULE);
-
-	CASE(IMSG_BATCH_CREATE);
-	CASE(IMSG_BATCH_APPEND);
-	CASE(IMSG_BATCH_CLOSE);
 
 	CASE(IMSG_PARENT_FORWARD_OPEN);
 	CASE(IMSG_PARENT_FORK_MDA);
 	CASE(IMSG_PARENT_KILL_MDA);
 	CASE(IMSG_PARENT_SEND_CONFIG);
 
-	CASE(IMSG_SMTP_ENQUEUE);
-	CASE(IMSG_SMTP_PAUSE);
-	CASE(IMSG_SMTP_RESUME);
+	CASE(IMSG_SMTP_ENQUEUE_FD);
 
 	CASE(IMSG_DNS_HOST);
 	CASE(IMSG_DNS_HOST_END);

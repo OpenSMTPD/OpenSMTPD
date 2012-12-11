@@ -124,13 +124,13 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				return;
 
 			if (resp_lka->status == LKA_TEMPFAIL) {
-				mda_fail(u, IMSG_QUEUE_DELIVERY_TEMPFAIL,
+				mda_fail(u, IMSG_DELIVERY_TEMPFAIL,
 				    "User lookup failed temporarily");
 				return;
 			}
 
 			if (resp_lka->status == LKA_PERMFAIL) {
-				mda_fail(u, IMSG_QUEUE_DELIVERY_PERMFAIL,
+				mda_fail(u, IMSG_DELIVERY_PERMFAIL,
 				    "User lookup failed permanently");
 				return;
 			}
@@ -151,7 +151,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_MDA_SESS_NEW:
+		case IMSG_MDA_DELIVER:
 			ep = xmemdup(imsg->data, sizeof *ep, "mda_imsg");
 
 			if (evpcount >= MDA_MAXEVP) {
@@ -159,7 +159,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				envelope_set_errormsg(ep,
 				    "Global envelope limit reached");
 				imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-				    IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1,
+				    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
 				    ep, sizeof *ep);
 				free(ep);
 				return;
@@ -178,7 +178,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				envelope_set_errormsg(ep,
 				    "User envelope limit reached");
 				imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-				    IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1,
+				    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
 				    ep, sizeof *ep);
 				free(ep);
 				return;
@@ -215,14 +215,14 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_debug("debug: mda: cannot get message fd");
 				envelope_set_errormsg(s->evp,
 				    "Cannot get message fd");
-				mda_done(s, IMSG_QUEUE_DELIVERY_TEMPFAIL);
+				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
 
 			if ((s->datafp = fdopen(imsg->fd, "r")) == NULL) {
 				log_warn("warn: mda: fdopen");
 				envelope_set_errormsg(s->evp, "fdopen failed");
-				mda_done(s, IMSG_QUEUE_DELIVERY_TEMPFAIL);
+				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
 
@@ -230,7 +230,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (mda_check_loop(s->datafp, s->evp)) {
 				log_debug("debug: mda: loop detected");
 				envelope_set_errormsg(s->evp, "Loop detected");
-				mda_done(s, IMSG_QUEUE_DELIVERY_LOOP);
+				mda_done(s, IMSG_DELIVERY_LOOP);
 				return;
 			}
 
@@ -251,7 +251,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_warn("warn: mda: "
 				    "fail to write delivery info");
 				envelope_set_errormsg(s->evp, "Out of memory");
-				mda_done(s, IMSG_QUEUE_DELIVERY_TEMPFAIL);
+				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
 
@@ -323,7 +323,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_warn("warn: mda: fail to retreive mda fd");
 				envelope_set_errormsg(s->evp,
 				    "Cannot get mda fd");
-				mda_done(s, IMSG_QUEUE_DELIVERY_TEMPFAIL);
+				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
 
@@ -356,9 +356,9 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				error = output[0] ? output : parent_error;
 
 			/* update queue entry */
-			msg = IMSG_QUEUE_DELIVERY_OK;
+			msg = IMSG_DELIVERY_OK;
 			if (error) {
-				msg = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				msg = IMSG_DELIVERY_TEMPFAIL;
 				envelope_set_errormsg(s->evp, "%s", error);
 				snprintf(stat, sizeof stat, "Error (%s)",
 				    error);

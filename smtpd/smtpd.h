@@ -64,7 +64,8 @@
 #ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
 #endif
-#define SMTPD_FILTER_USER      	 "_smtpdmfa"
+#define SMTPD_FILTER_USER	 "_smtpf"
+#define SMTPD_QUEUE_USER	 "_smtpq"
 #ifndef SMTPD_SOCKDIR
 #define SMTPD_SOCKDIR		 "/var/run"
 #endif
@@ -170,6 +171,16 @@ enum imsg_type {
 	IMSG_CTL_FAIL,
 	IMSG_CTL_SHUTDOWN,
 	IMSG_CTL_VERBOSE,
+	IMSG_CTL_PAUSE_MDA,
+	IMSG_CTL_PAUSE_MTA,
+	IMSG_CTL_PAUSE_SMTP,
+	IMSG_CTL_RESUME_MDA,
+	IMSG_CTL_RESUME_MTA,
+	IMSG_CTL_RESUME_SMTP,
+	IMSG_CTL_LIST_MESSAGES,
+	IMSG_CTL_LIST_ENVELOPES,
+	IMSG_CTL_REMOVE,
+	IMSG_CTL_SCHEDULE,
 
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
@@ -191,7 +202,14 @@ enum imsg_type {
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
 
-	IMSG_MDA_SESS_NEW,
+	IMSG_DELIVERY_OK,
+	IMSG_DELIVERY_TEMPFAIL,
+	IMSG_DELIVERY_PERMFAIL,
+	IMSG_DELIVERY_LOOP,
+
+	IMSG_BOUNCE_INJECT,
+
+	IMSG_MDA_DELIVER,
 	IMSG_MDA_DONE,
 
 	IMSG_MFA_CONNECT,
@@ -205,43 +223,26 @@ enum imsg_type {
 	IMSG_MFA_CLOSE,
 	IMSG_MFA_RSET,
 
+	IMSG_MTA_BATCH,
+	IMSG_MTA_BATCH_ADD,
+	IMSG_MTA_BATCH_END,
+
 	IMSG_QUEUE_CREATE_MESSAGE,
 	IMSG_QUEUE_SUBMIT_ENVELOPE,
 	IMSG_QUEUE_COMMIT_ENVELOPES,
 	IMSG_QUEUE_REMOVE_MESSAGE,
 	IMSG_QUEUE_COMMIT_MESSAGE,
-
-	IMSG_QUEUE_PAUSE_MDA,
-	IMSG_QUEUE_PAUSE_MTA,
-	IMSG_QUEUE_RESUME_MDA,
-	IMSG_QUEUE_RESUME_MTA,
-
-	IMSG_QUEUE_DELIVERY_OK,
-	IMSG_QUEUE_DELIVERY_TEMPFAIL,
-	IMSG_QUEUE_DELIVERY_PERMFAIL,
-	IMSG_QUEUE_DELIVERY_LOOP,
 	IMSG_QUEUE_MESSAGE_FD,
 	IMSG_QUEUE_MESSAGE_FILE,
 	IMSG_QUEUE_REMOVE,
 	IMSG_QUEUE_EXPIRE,
-
-	IMSG_SCHEDULER_MESSAGES,
-	IMSG_SCHEDULER_ENVELOPES,
-	IMSG_SCHEDULER_REMOVE,
-	IMSG_SCHEDULER_SCHEDULE,
-
-	IMSG_BATCH_CREATE,
-	IMSG_BATCH_APPEND,
-	IMSG_BATCH_CLOSE,
 
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 	IMSG_PARENT_KILL_MDA,
 	IMSG_PARENT_SEND_CONFIG,
 
-	IMSG_SMTP_ENQUEUE,
-	IMSG_SMTP_PAUSE,
-	IMSG_SMTP_RESUME,
+	IMSG_SMTP_ENQUEUE_FD,
 
 	IMSG_DNS_HOST,
 	IMSG_DNS_HOST_END,
@@ -569,6 +570,7 @@ struct smtpd {
 	int				sc_instance;
 	char			       *sc_title[PROC_COUNT];
 	struct passwd		       *sc_pw;
+	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[MAXHOSTNAMELEN];
 	struct queue_backend	       *sc_queue;
 	struct compress_backend	       *sc_compress;
@@ -732,6 +734,8 @@ struct mta_relay {
 #define RELAY_WAIT_SOURCE	0x08
 #define RELAY_WAITMASK		0x0f
 	int			 status;
+
+	struct tree		 source_fail;
 
 	int			 limit_hit;
 
@@ -1146,6 +1150,7 @@ pid_t mta(void);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
+void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);

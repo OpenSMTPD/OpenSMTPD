@@ -88,7 +88,7 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_SMTP_ENQUEUE_FD:
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -99,22 +99,22 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 	if (iev->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
-		case IMSG_SCHEDULER_MESSAGES:
+		case IMSG_CTL_LIST_MESSAGES:
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
-			imsg_compose_event(&c->iev, IMSG_SCHEDULER_MESSAGES, 0,
+			imsg_compose_event(&c->iev, IMSG_CTL_LIST_MESSAGES, 0,
 			    0, -1, imsg->data, imsg->hdr.len-sizeof imsg->hdr);
 			return;
 		}
 	}
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
-		case IMSG_SCHEDULER_ENVELOPES:
+		case IMSG_CTL_LIST_ENVELOPES:
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
-			imsg_compose_event(&c->iev, IMSG_SCHEDULER_ENVELOPES, 0,
+			imsg_compose_event(&c->iev, IMSG_CTL_LIST_ENVELOPES, 0,
 			    0, -1, imsg->data, imsg->hdr.len-sizeof imsg->hdr);
 			return;
 		}
@@ -456,7 +456,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_SMTP_ENQUEUE_FD:
 			if (env->sc_flags & (SMTPD_SMTP_PAUSED |
 			    SMTPD_CONFIGURING | SMTPD_EXITING)) {
 				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
@@ -464,7 +464,8 @@ control_dispatch_ext(int fd, short event, void *arg)
 				break;
 			}
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_SMTP_ENQUEUE, fd, 0, -1, &euid, sizeof(euid));
+			    IMSG_SMTP_ENQUEUE_FD, fd, 0, -1,
+			    &euid, sizeof(euid));
 			break;
 
 		case IMSG_STATS:
@@ -531,7 +532,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_PAUSE_MDA:
+		case IMSG_CTL_PAUSE_MDA:
 			if (euid)
 				goto badcred;
 
@@ -543,12 +544,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mda paused");
 			env->sc_flags |= SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_PAUSE_MDA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_PAUSE_MTA:
+		case IMSG_CTL_PAUSE_MTA:
 			if (euid)
 				goto badcred;
 
@@ -560,12 +561,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mta paused");
 			env->sc_flags |= SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_PAUSE_MTA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SMTP_PAUSE:
+		case IMSG_CTL_PAUSE_SMTP:
 			if (euid)
 				goto badcred;
 
@@ -577,12 +578,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: smtp paused");
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_SMTP_PAUSE, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_RESUME_MDA:
+		case IMSG_CTL_RESUME_MDA:
 			if (euid)
 				goto badcred;
 
@@ -594,12 +595,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mda resumed");
 			env->sc_flags &= ~SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_RESUME_MDA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_RESUME_MTA:
+		case IMSG_CTL_RESUME_MTA:
 			if (euid)
 				goto badcred;
 
@@ -611,12 +612,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mta resumed");
 			env->sc_flags &= ~SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_RESUME_MTA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SMTP_RESUME:
+		case IMSG_CTL_RESUME_SMTP:
 			if (euid)
 				goto badcred;
 
@@ -628,45 +629,45 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: smtp resumed");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_RESUME_SMTP, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SCHEDULER_MESSAGES:
+		case IMSG_CTL_LIST_MESSAGES:
 			if (euid)
 				goto badcred;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_MESSAGES, fd, 0, -1, imsg.data,
+			    IMSG_CTL_LIST_MESSAGES, fd, 0, -1, imsg.data,
 			    imsg.hdr.len - sizeof(imsg.hdr));
 			break;
 
-		case IMSG_SCHEDULER_ENVELOPES:
+		case IMSG_CTL_LIST_ENVELOPES:
 			if (euid)
 				goto badcred;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_ENVELOPES, fd, 0, -1, imsg.data,
+			    IMSG_CTL_LIST_ENVELOPES, fd, 0, -1, imsg.data,
 			    imsg.hdr.len - sizeof(imsg.hdr));
 			break;
 
-		case IMSG_SCHEDULER_SCHEDULE:
+		case IMSG_CTL_SCHEDULE:
 			if (euid)
 				goto badcred;
 
 			id = *(uint64_t *)imsg.data;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &id, sizeof id);
+			    IMSG_CTL_SCHEDULE, 0, 0, -1, &id, sizeof id);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SCHEDULER_REMOVE:
+		case IMSG_CTL_REMOVE:
 			if (euid)
 				goto badcred;
 
 			id = *(uint64_t *)imsg.data;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_REMOVE, 0, 0, -1, &id, sizeof id);
+			    IMSG_CTL_REMOVE, 0, 0, -1, &id, sizeof id);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;

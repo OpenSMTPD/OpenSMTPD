@@ -179,7 +179,7 @@ mfa(void)
 
 	if ((env->sc_pw =  getpwnam(SMTPD_FILTER_USER)) == NULL)
 		if ((env->sc_pw =  getpwnam(SMTPD_USER)) == NULL)
-			fatalx("unknown user " SMTPD_FILTER_USER);
+			fatalx("unknown user " SMTPD_USER);
 	pw = env->sc_pw;
 
 	smtpd_process = PROC_MFA;

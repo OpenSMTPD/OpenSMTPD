@@ -692,7 +692,7 @@ open_connection(void)
 	int		fd;
 	int		n;
 
-	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE, 0, 0, -1, NULL, 0);
+	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, 0, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
 		if (msgbuf_write(&ibuf->w) < 0)

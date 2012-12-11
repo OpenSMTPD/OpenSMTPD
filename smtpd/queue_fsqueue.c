@@ -407,7 +407,7 @@ fsqueue_init(int server)
 		if (strlcat(path, paths[n], sizeof(path)) >= sizeof(path))
 			errx(1, "path too long %s%s", PATH_SPOOL, paths[n]);
 
-		if (ckdir(path, 0700, env->sc_pw->pw_uid, 0, server) == 0)
+		if (ckdir(path, 0700, env->sc_pwqueue->pw_uid, 0, server) == 0)
 			ret = 0;
 	}
 

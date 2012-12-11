@@ -617,6 +617,7 @@ io_connect(struct io *io, const struct sockaddr *sa, const struct sockaddr *bsa)
 		errno_save = errno;
 		close(sock);
 		errno = errno_save;
+		io->error = strerror(errno);
 	}
 	return (-1);
 }

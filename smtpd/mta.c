@@ -150,7 +150,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_BATCH_CREATE:
+		case IMSG_MTA_BATCH:
 			id = *(uint64_t*)(imsg->data);
 			batch = xmalloc(sizeof *batch, "mta_batch");
 			tree_init(batch);
@@ -159,7 +159,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			    "mta: batch:%016" PRIx64 " created", id);
 			return;
 
-		case IMSG_BATCH_APPEND:
+		case IMSG_MTA_BATCH_ADD:
 			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
 			relay = mta_relay(e);
 			batch = tree_xget(&batches, e->batch_id);
@@ -192,7 +192,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			    e->id, e->dest.user, e->dest.domain);
 			return;
 
-		case IMSG_BATCH_CLOSE:
+		case IMSG_MTA_BATCH_END:
 			id = *(uint64_t*)(imsg->data);
 			batch = tree_xpop(&batches, id);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
@@ -228,7 +228,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (relay->secret == NULL) {
 				log_warnx("warn: Failed to retreive secret "
 				    "for relay %s", mta_relay_to_text(relay));
-				relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				relay->fail = IMSG_DELIVERY_TEMPFAIL;
 				relay->failstr = "Could not retreive secret";
 			}
 			relay->status &= ~RELAY_WAIT_SECRET;
@@ -248,7 +248,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			else {
 				log_warnx("warn: Failed to get source address"
 				    "for relay %s", mta_relay_to_text(relay));
-				relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				relay->fail = IMSG_DELIVERY_TEMPFAIL;
 				relay->failstr = "Could not get source address";
 			}
 			mta_drain(relay);
@@ -454,9 +454,26 @@ mta(void)
 }
 
 /*
+ * Local error on the given source.
+ */
+void
+mta_source_error(struct mta_relay *relay, struct mta_route *route, const char *e)
+{
+	log_info("smtp-out: Error on source %s: %s",
+	    mta_source_to_text(route->src), e);
+
+	/*
+	 * Remember the source as broken for this relay.  Take a reference if
+	 * it's not already marked by another session.
+	 */
+	if (tree_set(&relay->source_fail, ptoid(route->src), route->src) == NULL)
+		mta_source_ref(route->src);
+}
+
+/*
  * TODO:
  * Currently all errors are reported on the host itself.  Technically,
- * it should depends on the error, and it would be proably better to report
+ * it should depend on the error, and it would be probably better to report
  * it at the route level.  But we would need to have persistent routes
  * for that.  Hosts are "naturally" persisted, as they are referenced from
  * the MX list on the domain.
@@ -464,10 +481,9 @@ mta(void)
 void
 mta_route_error(struct mta_relay *relay, struct mta_route *route, const char *e)
 {
-	log_debug("debug: mta: route error %s", mta_route_to_text(route));
-
 	log_info("smtp-out: Error on MX %s: %s",
 	    mta_host_to_text(route->dst), e);
+
 	if (++route->dst->nerror >= MAXERROR_PER_HOST) {
 		route->dst->flags |= HOST_IGNORE;
 		log_info("smtp-out: Too many errors on MX %s: ignoring this MX",
@@ -478,7 +494,18 @@ mta_route_error(struct mta_relay *relay, struct mta_route *route, const char *e)
 void
 mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 {
+	struct mta_source	*source;
+
 	log_debug("debug: mta: route ok %s", mta_route_to_text(route));
+
+	/*
+	 * If a connection was successfully establish, reset all sources.
+	 * This is suboptimal, but it avoids source loops. It must really
+	 * be improved, but we need to have more specific error reports
+	 * for that.
+	 */
+	while (tree_poproot(&relay->source_fail, NULL, (void**)&source))
+		mta_source_unref(source); /* from mta_on_source() */
 
 	route->dst->nerror = 0;
 }
@@ -596,19 +623,19 @@ mta_on_mx(void *tag, void *arg, void *data)
 	case DNS_OK:
 		break;
 	case DNS_RETRY:
-		relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "Temporary failure in MX lookup";
 		break;
 	case DNS_EINVAL:
-		relay->fail = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		relay->fail = IMSG_DELIVERY_PERMFAIL;
 		relay->failstr = "Invalid domain name";
 		break;
 	case DNS_ENONAME:
-		relay->fail = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		relay->fail = IMSG_DELIVERY_PERMFAIL;
 		relay->failstr = "Domain does not exist";
 		break;
 	case DNS_ENOTFOUND:
-		relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "No MX found for domain";
 		break;
 	default:
@@ -629,12 +656,36 @@ static void
 mta_on_source(struct mta_relay *relay, struct mta_source *source)
 {
 	struct mta_route	*route;
+	uint64_t		 id;
 
 	log_debug("debug: mta_on_source(%s, %s)",
 	    mta_relay_to_text(relay), mta_source_to_text(source));
 
-	route = mta_find_route(relay, source);
+	/* Give up right away if the relay is already failing */
+	if (relay->fail) {
+		log_debug("debug: mta: relay is failing, giving up");
+		mta_source_unref(source); /* from IMSG_LKA_SOURCE */
+		return;
+	}
 
+	id = ptoid(source);
+	if (tree_check(&relay->source_fail, id)) {
+		/*
+		 * If this source has been tried already, and there is no
+		 * active connection (which would mean that a source was found
+		 * to be useable), assume we looped over all available source
+		 * addresses, and all of them failed.
+		 */
+		log_debug("debug: mta: source already tried");
+		if (relay->nconn == 0) {
+			relay->fail = IMSG_DELIVERY_TEMPFAIL;
+			relay->failstr = "Could not find a valid source address";
+		}
+		mta_source_unref(source); /* from IMSG_LKA_SOURCE */
+		return;
+	}
+
+	route = mta_find_route(relay, source);
 	if (route) {
 		mta_source_unref(source); /* transfered to mta_route() */
 		mta_relay_ref(relay);
@@ -649,10 +700,8 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 		mta_session(relay, route);
 		return;
 	}
-
 	else {
-		/* XXX else? */
-		mta_source_unref(source);
+		mta_source_unref(source); /* from IMSG_LKA_SOURCE */
 	}
 }
 
@@ -760,9 +809,9 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
 
-	if (fail == IMSG_QUEUE_DELIVERY_TEMPFAIL)
+	if (fail == IMSG_DELIVERY_TEMPFAIL)
 		pfx = "TempFail";
-	else if (fail == IMSG_QUEUE_DELIVERY_PERMFAIL)
+	else if (fail == IMSG_DELIVERY_PERMFAIL)
 		pfx = "PermFail";
 	else
 		errx(1, "unexpected delivery status %i", fail);
@@ -798,9 +847,11 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 	struct mta_route	*route, *best;
 	struct mta_mx		*mx;
 	int			 level, limit_host, limit_route;
+	int			 family_mismatch;
 
 	limit_host = 0;
 	limit_route = 0;
+	family_mismatch = 0;
 	level = -1;
 	best = NULL;
 
@@ -846,6 +897,12 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 			continue;
 		}
 
+		if (source->sa &&
+		    source->sa->sa_family != mx->host->sa->sa_family) {
+			family_mismatch = 1;
+			continue;
+		}
+
 		route = mta_route(source, mx->host);
 
 		if (route->nconn >= MAXCONN_PER_ROUTE) {
@@ -854,9 +911,7 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 			continue;
 		}
 
-		/*
-		 * Use the route with the lowest number of connections.
-		 */
+		/* Use the route with the lowest number of connections. */
 		if (best && route->nconn >= best->nconn) {
 			mta_route_unref(route); /* from here */
 			continue;
@@ -869,6 +924,16 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 
 	if (best)
 		return (best);
+
+	if (family_mismatch) {
+		log_debug("debug: mta: Address family mismatch for relay %s",
+		    mta_relay_to_text(relay));
+
+		/* Remember that this route is not useable */
+		mta_source_ref(source);
+		tree_xset(&relay->source_fail, ptoid(source), source);
+		return (NULL);
+	}
 
 	/*
 	 * XXX this is not really correct, since we could be hitting a limit
@@ -887,14 +952,15 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 		    mta_relay_to_text(relay));
 		relay->limit_hit = 1;
 	}
-
 	/*
 	 * No reachable MX for this relay with this source.
+	 * XXX Not until we tried all possible sources, and this might 
+	 * change when limits are reset.
 	 */
 	if (relay->nconn == 0) {
 		log_info("smtp-out: No reachable MX for relay %s",
 		    mta_relay_to_text(relay));
-		relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "No MX could be reached";
 	}
 
@@ -937,6 +1003,7 @@ mta_relay(struct envelope *e)
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r, "mta_relay");
 		TAILQ_INIT(&r->tasks);
+		tree_init(&r->source_fail);
 		r->id = generate_uid();
 		r->flags = key.flags;
 		r->domain = key.domain;
@@ -978,6 +1045,8 @@ mta_relay_ref(struct mta_relay *r)
 static void
 mta_relay_unref(struct mta_relay *relay)
 {
+	struct mta_source	*source;
+
 	if (--relay->refcount)
 		return;
 
@@ -989,6 +1058,9 @@ mta_relay_unref(struct mta_relay *relay)
 		free(relay->authtable);
 	if (relay->authlabel)
 		free(relay->authlabel);
+
+	while (tree_poproot(&relay->source_fail, NULL, (void**)&source))
+		mta_source_unref(source); /* from mta_on_source() */
 
 	mta_domain_unref(relay->domain); /* from constructor */
 	free(relay);

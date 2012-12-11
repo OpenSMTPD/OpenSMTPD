@@ -98,8 +98,8 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 			smtp_session_imsg(iev, imsg);
 			return;
 
-		case IMSG_SMTP_ENQUEUE:
-			imsg_compose_event(iev, IMSG_SMTP_ENQUEUE, 0, 0,
+		case IMSG_SMTP_ENQUEUE_FD:
+			imsg_compose_event(iev, IMSG_SMTP_ENQUEUE_FD, 0, 0,
 			    smtp_enqueue(NULL), imsg->data,
 			    imsg->hdr.len - sizeof imsg->hdr);
 			return;
@@ -184,19 +184,19 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE:
-			imsg_compose_event(iev, IMSG_SMTP_ENQUEUE,
+		case IMSG_SMTP_ENQUEUE_FD:
+			imsg_compose_event(iev, IMSG_SMTP_ENQUEUE_FD,
 			    imsg->hdr.peerid, 0, smtp_enqueue(imsg->data),
 			    NULL, 0);
 			return;
 
-		case IMSG_SMTP_PAUSE:
+		case IMSG_CTL_PAUSE_SMTP:
 			log_debug("debug: smtp: pausing listening sockets");
 			smtp_pause();
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			return;
 
-		case IMSG_SMTP_RESUME:
+		case IMSG_CTL_RESUME_SMTP:
 			log_debug("debug: smtp: resuming listening sockets");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			smtp_resume();

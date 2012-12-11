@@ -97,7 +97,7 @@ bounce_add(uint64_t evpid)
 	if (queue_envelope_load(evpid, evp) == 0) {
 		evp->id = evpid;
 		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1, evp, sizeof *evp);
+		    IMSG_DELIVERY_PERMFAIL, 0, 0, -1, evp, sizeof *evp);
 		free(evp);
 		return;
 	}
@@ -222,8 +222,9 @@ bounce_drain()
 		    "with id 0x%016" PRIx64,
 		    bounce, bounce->id);
 
-		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_ENQUEUE,
-		    0, 0, -1, &bounce->id, sizeof (bounce->id));
+		imsg_compose_event(env->sc_ievs[PROC_SMTP],
+		    IMSG_SMTP_ENQUEUE_FD, 0, 0, -1,
+		    &bounce->id, sizeof(bounce->id));
 
 		running += 1;
 	}
@@ -382,14 +383,14 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 	va_end(ap);
 
 	if (*status == '2')
-		msg = IMSG_QUEUE_DELIVERY_OK;
+		msg = IMSG_DELIVERY_OK;
 	else if (*status == '5' || *status == '6')
-		msg = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		msg = IMSG_DELIVERY_PERMFAIL;
 	else
-		msg = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		msg = IMSG_DELIVERY_TEMPFAIL;
 
 	while ((evp = TAILQ_FIRST(&bounce->envelopes))) {
-		if (msg == IMSG_QUEUE_DELIVERY_TEMPFAIL) {
+		if (msg == IMSG_DELIVERY_TEMPFAIL) {
 			evp->retry++;
 			envelope_set_errormsg(evp, "%s", status);
 			queue_envelope_update(evp);

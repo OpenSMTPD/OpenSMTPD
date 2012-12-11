@@ -112,7 +112,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    fd, &resp, sizeof resp);
 			return;
 
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_SMTP_ENQUEUE_FD:
 			id = *(uint64_t*)(imsg->data);
 			bounce_run(id, imsg->fd);
 			return;
@@ -169,47 +169,47 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			queue_envelope_delete(&evp);
 			return;
 
-		case IMSG_MDA_SESS_NEW:
+		case IMSG_MDA_DELIVER:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			imsg_compose_event(env->sc_ievs[PROC_MDA],
-			    IMSG_MDA_SESS_NEW, 0, 0, -1, &evp, sizeof evp);
+			    IMSG_MDA_DELIVER, 0, 0, -1, &evp, sizeof evp);
 			return;
 
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_BOUNCE_INJECT:
 			id = *(uint64_t*)(imsg->data);
 			bounce_add(id);
 			return;
 
-		case IMSG_BATCH_CREATE:
+		case IMSG_MTA_BATCH:
 			batch_id = generate_uid();
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_BATCH_CREATE, 0, 0, -1,
+			    IMSG_MTA_BATCH, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
 
-		case IMSG_BATCH_APPEND:
+		case IMSG_MTA_BATCH_ADD:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_BATCH_APPEND, 0, 0, -1, &evp, sizeof evp);
+			    IMSG_MTA_BATCH_ADD, 0, 0, -1, &evp, sizeof evp);
 			return;
 
-		case IMSG_BATCH_CLOSE:
+		case IMSG_MTA_BATCH_END:
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_BATCH_CLOSE, 0, 0, -1,
+			    IMSG_MTA_BATCH_END, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
 
-		case IMSG_SCHEDULER_ENVELOPES:
+		case IMSG_CTL_LIST_ENVELOPES:
 			if (imsg->hdr.len == sizeof imsg->hdr) {
 				imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-				    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid,
+				    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid,
 				    0, -1, NULL, 0);
 				return;
 			}
@@ -233,7 +233,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				evp.lasttry = state->time;
 			}
 			imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1,
 			    &evp, sizeof evp);
 			return;
 		}
@@ -247,49 +247,47 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    fd, imsg->data, imsg->hdr.len - sizeof imsg->hdr);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_OK:
+		case IMSG_DELIVERY_OK:
 			e = imsg->data;
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_OK, 0, 0, -1, &e->id,
-			    sizeof e->id);
+			    IMSG_DELIVERY_OK, 0, 0, -1, &e->id, sizeof e->id);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_TEMPFAIL:
+		case IMSG_DELIVERY_TEMPFAIL:
 			e = imsg->data;
 			e->retry++;
 			queue_envelope_update(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1, e,
+			    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1, e,
 			    sizeof *e);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_PERMFAIL:
+		case IMSG_DELIVERY_PERMFAIL:
 			e = imsg->data;
 			queue_bounce(e);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
+			    IMSG_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
 			    sizeof e->id);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_LOOP:
+		case IMSG_DELIVERY_LOOP:
 			e = imsg->data;
 			queue_bounce(e);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_LOOP, 0, 0, -1, &e->id,
-			    sizeof e->id);
+			    IMSG_DELIVERY_LOOP, 0, 0, -1, &e->id, sizeof e->id);
 			return;
 		}
 	}
 
 	if (iev->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_QUEUE_PAUSE_MDA:
-		case IMSG_QUEUE_PAUSE_MTA:
-		case IMSG_QUEUE_RESUME_MDA:
-		case IMSG_QUEUE_RESUME_MTA:
+		case IMSG_CTL_PAUSE_MDA:
+		case IMSG_CTL_PAUSE_MTA:
+		case IMSG_CTL_RESUME_MDA:
+		case IMSG_CTL_RESUME_MTA:
 		case IMSG_QUEUE_REMOVE:
 			queue_pass_to_scheduler(iev, imsg);
 			return;
@@ -404,9 +402,12 @@ queue(void)
 	}
 
 	purge_config(PURGE_EVERYTHING);
+	if (env->sc_pwqueue) {
+		free(env->sc_pw);
+		env->sc_pw = env->sc_pwqueue;
+	}
 
 	pw = env->sc_pw;
-
 	if (chroot(PATH_SPOOL) == -1)
 		fatal("queue: chroot");
 	if (chdir("/") == -1)
