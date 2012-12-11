@@ -142,7 +142,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_MDA_SESS_NEW:
+		case IMSG_MDA_DELIVER:
 			ep = xmemdup(imsg->data, sizeof *ep, "mda_imsg");
 
 			if (evpcount >= MDA_MAXEVP) {

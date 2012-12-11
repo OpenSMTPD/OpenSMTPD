@@ -440,7 +440,7 @@ scheduler_process_mda(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mda)", e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MDA_SESS_NEW,
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MDA_DELIVER,
 		    0, 0, -1, &e->id, sizeof e->id);
 		free(e);
 	}

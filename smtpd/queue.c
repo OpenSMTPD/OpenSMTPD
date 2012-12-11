@@ -165,13 +165,13 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			queue_envelope_delete(&evp);
 			return;
 
-		case IMSG_MDA_SESS_NEW:
+		case IMSG_MDA_DELIVER:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			imsg_compose_event(env->sc_ievs[PROC_MDA],
-			    IMSG_MDA_SESS_NEW, 0, 0, -1, &evp, sizeof evp);
+			    IMSG_MDA_DELIVER, 0, 0, -1, &evp, sizeof evp);
 			return;
 
 		case IMSG_SMTP_ENQUEUE:
