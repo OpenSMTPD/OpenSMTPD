@@ -147,7 +147,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_BATCH_CREATE:
+		case IMSG_MTA_BATCH:
 			id = *(uint64_t*)(imsg->data);
 			batch = xmalloc(sizeof *batch, "mta_batch");
 			tree_init(batch);
@@ -156,7 +156,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			    "mta: batch:%016" PRIx64 " created", id);
 			return;
 
-		case IMSG_BATCH_APPEND:
+		case IMSG_MTA_BATCH_ADD:
 			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
 			relay = mta_relay(e);
 			batch = tree_xget(&batches, e->batch_id);
@@ -189,7 +189,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			    e->id, e->dest.user, e->dest.domain);
 			return;
 
-		case IMSG_BATCH_CLOSE:
+		case IMSG_MTA_BATCH_END:
 			id = *(uint64_t*)(imsg->data);
 			batch = tree_xpop(&batches, id);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",

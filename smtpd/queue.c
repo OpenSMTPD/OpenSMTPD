@@ -179,26 +179,26 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			bounce_add(id);
 			return;
 
-		case IMSG_BATCH_CREATE:
+		case IMSG_MTA_BATCH:
 			batch_id = generate_uid();
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_BATCH_CREATE, 0, 0, -1,
+			    IMSG_MTA_BATCH, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
 
-		case IMSG_BATCH_APPEND:
+		case IMSG_MTA_BATCH_ADD:
 			id = *(uint64_t*)(imsg->data);
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_BATCH_APPEND, 0, 0, -1, &evp, sizeof evp);
+			    IMSG_MTA_BATCH_ADD, 0, 0, -1, &evp, sizeof evp);
 			return;
 
-		case IMSG_BATCH_CLOSE:
+		case IMSG_MTA_BATCH_END:
 			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_BATCH_CLOSE, 0, 0, -1,
+			    IMSG_MTA_BATCH_END, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
 

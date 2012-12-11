@@ -453,20 +453,20 @@ scheduler_process_mta(struct scheduler_batch *batch)
 {
 	struct id_list	*e;
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BATCH_CREATE,
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH,
 	    0, 0, -1, NULL, 0);
 
 	while ((e = batch->evpids)) {
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mta)", e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BATCH_APPEND,
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH_ADD,
 		    0, 0, -1, &e->id, sizeof e->id);
 		free(e);
 	}
 
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BATCH_CLOSE,
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH,
 	    0, 0, -1, NULL, 0);
 }
