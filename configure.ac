@@ -472,6 +472,7 @@ AC_CHECK_FUNCS( \
 	getopt \
 	getpeereid \
 	memmove \
+	pw_dup \
 	setproctitle \
 	setregid \
 	setreuid \

@@ -20,6 +20,7 @@ includes.h		portable openssh
 log.h
 mktemp.c		portable openssh
 openbsd-compat.h	portable openssh
+pw_dup.c		/usr/src/lib/libc/gen/pw_dup.c
 setproctitle.c		portable openssh
 strlcat.c		portable openssh
 strlcpy.c		portable openssh
