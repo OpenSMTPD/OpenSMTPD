@@ -122,6 +122,10 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		backend->update(&si);
 		stat_increment("scheduler.delivery.tempfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
+		/*
+		imsg_compose_event(iev, IMSG_QUEUE_BOUNCE, 0, 0, -1,
+		    &e->id, sizeof e->id);
+		*/
 		scheduler_reset_events();
 		return;
 

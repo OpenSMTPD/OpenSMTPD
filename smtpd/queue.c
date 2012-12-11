@@ -43,7 +43,7 @@
 
 static void queue_imsg(struct imsgev *, struct imsg *);
 static void queue_timeout(int, short, void *);
-static void queue_bounce(struct envelope *);
+static void queue_bounce(struct envelope *, enum bounce_type);
 static void queue_pass_to_scheduler(struct imsgev *, struct imsg *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
@@ -160,9 +160,16 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			envelope_set_errormsg(&evp, "Envelope expired");
-			queue_bounce(&evp);
+			queue_bounce(&evp, B_FINAL);
 			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(&evp);
+			return;
+
+		case IMSG_QUEUE_BOUNCE:
+			id = *(uint64_t*)(imsg->data);
+			if (queue_envelope_load(id, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, id);
+			queue_bounce(&evp, B_INTERMEDIATE);
 			return;
 
 		case IMSG_MDA_DELIVER:
@@ -261,7 +268,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_DELIVERY_PERMFAIL:
 			e = imsg->data;
-			queue_bounce(e);
+			queue_bounce(e, B_FINAL);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
@@ -270,7 +277,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_DELIVERY_LOOP:
 			e = imsg->data;
-			queue_bounce(e);
+			queue_bounce(e, B_FINAL);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
 			    IMSG_DELIVERY_LOOP, 0, 0, -1, &e->id, sizeof e->id);
@@ -311,13 +318,14 @@ queue_pass_to_scheduler(struct imsgev *iev, struct imsg *imsg)
 }
 
 static void
-queue_bounce(struct envelope *e)
+queue_bounce(struct envelope *e, enum bounce_type type)
 {
 	struct envelope	b;
 	uint32_t	msgid;
 
 	b = *e;
 	b.type = D_BOUNCE;
+	b.agent.bounce.type = type;
 	b.retry = 0;
 	b.lasttry = 0;
 	b.creation = time(NULL);

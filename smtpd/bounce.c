@@ -56,6 +56,8 @@ enum {
 
 struct bounce {
 	TAILQ_ENTRY(bounce)	 entry;
+	int			 type;
+	struct tree		*tree;
 	uint64_t		 id;
 	uint32_t		 msgid;
 	TAILQ_HEAD(, envelope)	 envelopes;
@@ -69,7 +71,7 @@ struct bounce {
 };
 
 static void bounce_drain(void);
-static void bounce_commit(uint32_t);
+static void bounce_commit(struct bounce *);
 static void bounce_send(struct bounce *, const char *, ...);
 static int  bounce_next(struct bounce *);
 static void bounce_status(struct bounce *, const char *, ...);
@@ -77,11 +79,26 @@ static void bounce_io(struct io *, int);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce *);
 
-static struct tree bounces_by_msgid = SPLAY_INITIALIZER(&bounces_by_msgid);
-static struct tree bounces_by_uid = SPLAY_INITIALIZER(&bounces_by_uid);
+static struct tree bounces_intermediate;
+static struct tree bounces_final;
+static struct tree wait_fd;
 
 static int running = 0;
-static TAILQ_HEAD(, bounce) runnable = TAILQ_HEAD_INITIALIZER(runnable);
+static TAILQ_HEAD(, bounce) runnable;
+
+static void
+bounce_init(void)
+{
+	static int	init = 0;
+
+	if (init == 0) {
+		TAILQ_INIT(&runnable);
+		tree_init(&bounces_final);
+		tree_init(&bounces_intermediate);
+		tree_init(&wait_fd);
+		init = 1;
+	}
+}
 
 void
 bounce_add(uint64_t evpid)
@@ -89,6 +106,9 @@ bounce_add(uint64_t evpid)
 	struct envelope	*evp;
 	struct bounce	*bounce;
 	struct timeval	 tv;
+	struct tree	*tree;
+
+	bounce_init();
 
 	evp = xcalloc(1, sizeof *evp, "bounce_add");
 
@@ -105,17 +125,30 @@ bounce_add(uint64_t evpid)
 		    evp->id);
 	evp->lasttry = time(NULL);
 
-	bounce = tree_get(&bounces_by_msgid, evpid_to_msgid(evpid));
+	switch (evp->agent.bounce.type) {
+	case B_FINAL:
+		tree = &bounces_final;
+		break;
+	case B_INTERMEDIATE:
+		tree = &bounces_intermediate;
+		break;
+	default:
+		errx(1, "invalid bounce type: %i", evp->agent.bounce.type);
+	}
+
+	bounce = tree_get(tree, evpid_to_msgid(evpid));
 	if (bounce == NULL) {
 		bounce = xcalloc(1, sizeof(*bounce), "bounce_add");
+		bounce->tree = tree;
+		bounce->type = evp->agent.bounce.type;
 		bounce->msgid = evpid_to_msgid(evpid);
-		tree_xset(&bounces_by_msgid, bounce->msgid, bounce);
+		tree_xset(tree, bounce->msgid, bounce);
 
 		log_debug("debug: bounce: %p: new bounce for msg:%08" PRIx32,
 		    bounce, bounce->msgid);
 
 		TAILQ_INIT(&bounce->envelopes);
-		evtimer_set(&bounce->evt, bounce_timeout, &bounce->msgid);
+		evtimer_set(&bounce->evt, bounce_timeout, bounce);
 		tv.tv_sec = 1;
 		tv.tv_usec = 0;
 		evtimer_add(&bounce->evt, &tv);
@@ -143,7 +176,7 @@ bounce_run(uint64_t id, int fd)
 
 	log_trace(TRACE_BOUNCE, "bounce: run %016" PRIx64 " fd %i", id, fd);
 
-	bounce = tree_xpop(&bounces_by_uid, id);
+	bounce = tree_xpop(&wait_fd, id);
 
 	if (fd == -1) {
 		bounce_status(bounce, "failed to receive enqueueing socket");
@@ -173,13 +206,10 @@ bounce_run(uint64_t id, int fd)
 }
 
 static void
-bounce_commit(uint32_t msgid)
+bounce_commit(struct bounce *bounce)
 {
-	struct bounce	*bounce;
+	log_trace(TRACE_BOUNCE, "bounce: commit msg:%08" PRIx32, bounce->msgid);
 
-	log_trace(TRACE_BOUNCE, "bounce: commit msg:%08" PRIx32, msgid);
-
-	bounce = tree_xget(&bounces_by_msgid, msgid);
 	bounce->id = generate_uid();
 	evtimer_del(&bounce->evt);
 	TAILQ_INSERT_TAIL(&runnable, bounce, entry);
@@ -190,9 +220,9 @@ bounce_commit(uint32_t msgid)
 static void
 bounce_timeout(int fd, short ev, void *arg)
 {
-	uint32_t *msgid = arg;
+	struct bounce	*bounce = arg;
 
-	bounce_commit(*msgid);
+	bounce_commit(bounce);
 }
 
 static void
@@ -214,8 +244,6 @@ bounce_drain()
 			continue;
 		}
 
-		tree_xset(&bounces_by_uid, bounce->id, bounce);
-
 		log_debug("debug: bounce: %p: requesting enqueue socket "
 		    "with id 0x%016" PRIx64,
 		    bounce, bounce->id);
@@ -223,7 +251,7 @@ bounce_drain()
 		imsg_compose_event(env->sc_ievs[PROC_SMTP],
 		    IMSG_SMTP_ENQUEUE_FD, 0, 0, -1,
 		    &bounce->id, sizeof(bounce->id));
-
+		tree_xset(&wait_fd, bounce->id, bounce);
 		running += 1;
 	}
 }
@@ -246,6 +274,19 @@ bounce_send(struct bounce *bounce, const char *fmt, ...)
 
 	free(p);
 }
+
+#define NOTICE_INTRO							    \
+	"    Hi!\n\n"							    \
+	"    This is the MAILER-DAEMON, please DO NOT REPLY to this e-mail.\n"
+
+const char *notice_final =
+    "    An error has occurred while attempting to deliver a message for\n"
+    "    the following list of recipients:\n\n";
+
+const char *notice_intermediate =
+    "   Due to transient error(s), a message is delayed for the following\n"
+    "   recipients (note that this is a only a temporary failure report;\n"
+    "   DO NOT re-send the message to these recipients):\n\n";
 
 /* This can simplified once we support PIPELINING */
 static int
@@ -282,24 +323,26 @@ bounce_next(struct bounce *bounce)
 		/* Construct an appropriate reason line. */
 
 		/* prevent more envelopes from being added to this bounce */
-		tree_xpop(&bounces_by_msgid, bounce->msgid);
+		tree_xpop(bounce->tree, bounce->msgid);
 
 		evp = TAILQ_FIRST(&bounce->envelopes);
 
-		iobuf_xfqueue(&bounce->iobuf, "bounce_next: DATA_NOTICE",
-		    "Subject: Delivery status notification\n"
+		iobuf_xfqueue(&bounce->iobuf, "bounce_next: HEADER",
+		    "Subject: Delivery status notification: %s\n"
 		    "From: Mailer Daemon <MAILER-DAEMON@%s>\n"
 		    "To: %s@%s\n"
 		    "Date: %s\n"
 		    "\n"
-		    "Hi !\n"
-		    "\n"
-		    "This is the MAILER-DAEMON, please DO NOT REPLY to this e-mail.\n"
-		    "An error has occurred while attempting to deliver a message.\n"
+		    NOTICE_INTRO
 		    "\n",
+		    (bounce->type == B_FINAL) ? "fail" : "delay",
 		    env->sc_hostname,
 		    evp->sender.user, evp->sender.domain,
 		    time_to_text(time(NULL)));
+
+		iobuf_xfqueue(&bounce->iobuf, "bounce_next: BODY",
+		    (bounce->type == B_FINAL) ?
+		    notice_final : notice_intermediate);
 
 		TAILQ_FOREACH(evp, &bounce->envelopes, entry) {
 			line = evp->errorline;
@@ -307,14 +350,13 @@ bounce_next(struct bounce *bounce)
 				line += 4;
 			iobuf_xfqueue(&bounce->iobuf,
 			    "bounce_next: DATA_NOTICE",
-			    "Recipient: %s@%s\n"
-			    "Reason: %s\n",
+			    "%s@%s: %s\n",
 			    evp->dest.user, evp->dest.domain, line);
 		}
 
 		iobuf_xfqueue(&bounce->iobuf, "bounce_next: DATA_NOTICE",
 		    "\n"
-		    "Below is a copy of the original message:\n"
+		    "    Below is a copy of the original message:\n"
 		    "\n");
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
@@ -414,7 +456,7 @@ bounce_free(struct bounce *bounce)
 	log_debug("debug: bounce: %p: deleting session", bounce);
 
 	/* if the envelopes where not sent, it is still in the tree */
-	tree_pop(&bounces_by_msgid, bounce->msgid);
+	tree_pop(bounce->tree, bounce->msgid);
 
 	while ((evp = TAILQ_FIRST(&bounce->envelopes))) {
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);

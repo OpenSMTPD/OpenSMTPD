@@ -215,6 +215,7 @@ enum imsg_type {
 	IMSG_QUEUE_MESSAGE_FILE,
 	IMSG_QUEUE_REMOVE,
 	IMSG_QUEUE_EXPIRE,
+	IMSG_QUEUE_BOUNCE,
 
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
@@ -361,7 +362,7 @@ struct rule {
 enum delivery_type {
 	D_MDA,
 	D_MTA,
-	D_BOUNCE
+	D_BOUNCE,
 };
 
 struct delivery_mda {
@@ -374,6 +375,16 @@ struct delivery_mda {
 struct delivery_mta {
 	struct relayhost	relay;
 };
+
+enum bounce_type {
+	B_FINAL,
+	B_INTERMEDIATE
+};
+
+struct delivery_bounce {
+	enum bounce_type	type;
+};
+
 
 enum expand_type {
 	EXPAND_INVALID,
@@ -449,6 +460,7 @@ struct envelope {
 	union {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
+		struct delivery_bounce	bounce;
 	}				agent;
 
 	time_t				creation;
@@ -482,6 +494,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTH,
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
+	EVP_BOUNCE_TYPE,
 };
 
 struct ssl {

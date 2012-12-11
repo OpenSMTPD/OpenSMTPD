@@ -54,6 +54,7 @@ static int ascii_load_mda_method(enum action_type *, char *);
 static int ascii_load_mailaddr(struct mailaddr *, char *);
 static int ascii_load_flags(enum envelope_flags *, char *);
 static int ascii_load_mta_relay_url(struct relayhost *, char *);
+static int ascii_load_bounce_type(enum bounce_type *, char *);
 
 static int ascii_dump_uint16(uint16_t, char *, size_t);
 static int ascii_dump_uint32(uint32_t, char *, size_t);
@@ -64,6 +65,7 @@ static int ascii_dump_mda_method(enum action_type, char *, size_t);
 static int ascii_dump_mailaddr(struct mailaddr *, char *, size_t);
 static int ascii_dump_flags(enum envelope_flags, char *, size_t);
 static int ascii_dump_mta_relay_url(struct relayhost *, char *, size_t);
+static int ascii_dump_bounce_type(enum bounce_type, char *, size_t);
 
 void
 envelope_set_errormsg(struct envelope *e, char *fmt, ...)
@@ -110,6 +112,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
 		EVP_MTA_RELAY,
+		EVP_BOUNCE_TYPE,
 	};
 	char	*field, *nextline;
 	size_t	 len;
@@ -194,6 +197,9 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_MTA_RELAY_AUTH,
 		EVP_MTA_RELAY,
 	};
+	enum envelope_field bounce_fields[] = {
+		EVP_BOUNCE_TYPE,
+	};
 	enum envelope_field *pfields = NULL;
 	int	 i, n, l;
 	char	*p;
@@ -225,7 +231,8 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		n = sizeof(mta_fields) / sizeof(enum envelope_field);
 		break;
 	case D_BOUNCE:
-		/* nothing ! */
+		pfields = bounce_fields;
+		n = sizeof(bounce_fields) / sizeof(enum envelope_field);
 		break;
 	default:
 		goto err;
@@ -305,6 +312,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mta-relay-cert";
 	case EVP_MTA_RELAY_SOURCE:
 		return "mta-relay-source";
+	case EVP_BOUNCE_TYPE:
+		return "mta-bounce-type";
 	}
 
 	return NULL;
@@ -368,6 +377,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_time(&ep->lasttry, buf);
 	case EVP_FLAGS:
 		return ascii_load_flags(&ep->flags, buf);
+	case EVP_BOUNCE_TYPE:
+		return ascii_load_bounce_type(&ep->agent.bounce.type, buf);
 	}
 	return 0;
 }
@@ -428,6 +439,8 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_time(ep->lasttry, buf, len);
 	case EVP_FLAGS:
 		return ascii_dump_flags(ep->flags, buf, len);
+	case EVP_BOUNCE_TYPE:
+		return ascii_dump_bounce_type(ep->agent.bounce.type, buf, len);
 	}
 	return 0;
 }
@@ -565,6 +578,17 @@ ascii_load_mta_relay_url(struct relayhost *relay, char *buf)
 	return 1;
 }
 
+static int
+ascii_load_bounce_type(enum bounce_type *dest, char *buf)
+{
+	if (strcasecmp(buf, "final") == 0)
+		*dest = B_FINAL;
+	else if (strcasecmp(buf, "intermediate") == 0)
+		*dest = B_INTERMEDIATE;
+	else
+		return 0;
+	return 1;
+}
 
 static int
 ascii_dump_uint16(uint16_t src, char *dest, size_t len)
@@ -671,4 +695,22 @@ static int
 ascii_dump_mta_relay_url(struct relayhost *relay, char *buf, size_t len)
 {
 	return bsnprintf(buf, len, "%s", relayhost_to_text(relay));
+}
+
+static int
+ascii_dump_bounce_type(enum bounce_type type, char *dest, size_t len)
+{
+	char *p = NULL;
+
+	switch (type) {
+	case B_FINAL:
+		p = "final";
+		break;
+	case B_INTERMEDIATE:
+		p = "intermediate";
+		break;
+	default:
+		return 0;
+	}
+	return bsnprintf(dest, len, "%s", p);
 }
