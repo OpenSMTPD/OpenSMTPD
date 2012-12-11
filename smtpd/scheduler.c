@@ -467,6 +467,6 @@ scheduler_process_mta(struct scheduler_batch *batch)
 
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH,
+	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH_END,
 	    0, 0, -1, NULL, 0);
 }
