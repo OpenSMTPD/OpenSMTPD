@@ -108,7 +108,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    fd, &resp, sizeof resp);
 			return;
 
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_SMTP_ENQUEUE_FD:
 			id = *(uint64_t*)(imsg->data);
 			bounce_run(id, imsg->fd);
 			return;
@@ -174,7 +174,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    IMSG_MDA_DELIVER, 0, 0, -1, &evp, sizeof evp);
 			return;
 
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_BOUNCE_INJECT:
 			id = *(uint64_t*)(imsg->data);
 			bounce_add(id);
 			return;

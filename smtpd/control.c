@@ -85,7 +85,7 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_SMTP_ENQUEUE_FD:
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -446,7 +446,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_SMTP_ENQUEUE:
+		case IMSG_SMTP_ENQUEUE_FD:
 			if (env->sc_flags & (SMTPD_SMTP_PAUSED |
 			    SMTPD_CONFIGURING | SMTPD_EXITING)) {
 				imsg_compose_event(&c->iev, IMSG_CTL_FAIL, 0, 0,
@@ -454,7 +454,8 @@ control_dispatch_ext(int fd, short event, void *arg)
 				break;
 			}
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_SMTP_ENQUEUE, fd, 0, -1, &euid, sizeof(euid));
+			    IMSG_SMTP_ENQUEUE_FD, fd, 0, -1,
+			    &euid, sizeof(euid));
 			break;
 
 		case IMSG_STATS:

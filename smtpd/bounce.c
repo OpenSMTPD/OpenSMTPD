@@ -220,8 +220,9 @@ bounce_drain()
 		    "with id 0x%016" PRIx64,
 		    bounce, bounce->id);
 
-		imsg_compose_event(env->sc_ievs[PROC_SMTP], IMSG_SMTP_ENQUEUE,
-		    0, 0, -1, &bounce->id, sizeof (bounce->id));
+		imsg_compose_event(env->sc_ievs[PROC_SMTP],
+		    IMSG_SMTP_ENQUEUE_FD, 0, 0, -1,
+		    &bounce->id, sizeof(bounce->id));
 
 		running += 1;
 	}

@@ -423,7 +423,7 @@ scheduler_process_bounce(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (bounce)", e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_SMTP_ENQUEUE,
+		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BOUNCE_INJECT,
 		    0, 0, -1, &e->id, sizeof e->id);
 		free(e);
 	}
