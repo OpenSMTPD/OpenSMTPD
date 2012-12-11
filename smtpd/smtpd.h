@@ -64,7 +64,7 @@
 #ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
 #endif
-#define SMTPD_FILTER_USER      	 SMTPD_USER "mfa"
+#define SMTPD_FILTER_USER      	 "_smtpdmfa"
 #ifndef SMTPD_SOCKDIR
 #define SMTPD_SOCKDIR		 "/var/run"
 #endif
