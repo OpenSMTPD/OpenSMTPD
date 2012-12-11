@@ -155,12 +155,7 @@ parent_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_AUTHENTICATE:
 			/* If we reached here, it means we want root to lookup system user */
 			auth = imsg->data;
-
 			auth->success = parent_auth_user(auth->user, auth->pass);
-			/* XXX - for now, smtp does not handle temporary failures */
-			if (auth->success == -1)
-				auth->success = 0;
-
 			imsg_compose_event(iev, IMSG_LKA_AUTHENTICATE, 0, 0,
 			    -1, auth, sizeof *auth);
 			return;
