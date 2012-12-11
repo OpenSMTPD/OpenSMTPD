@@ -370,7 +370,6 @@ main		: QUEUE compression {
 				YYERROR;
 			}
 
-			log_debug("auth: %d", auth);
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
 					if (! interface(ifx, tag, cert, conf->sc_listeners,
@@ -500,7 +499,7 @@ table		: TABLE STRING STRING	{
 		| TABLE STRING {
 			table = table_create("static", $2, NULL);
 			free($2);
-		} '{' tableval_list '}' {
+		} tableval_list {
 			table = NULL;
 		}
 		;
@@ -528,8 +527,8 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
-tableval_list	: string_list			{ }
-		| keyval_list			{ }
+tableval_list	: '{' string_list '}'			{ }
+		| '{' keyval_list '}'			{ }
 		;
 
 tablenew	: STRING			{
@@ -540,10 +539,9 @@ tablenew	: STRING			{
 			table_add(t, $1, NULL);
 			free($1);
 			$$ = t->t_id;
-		}
-		| '{'				{
 			table = table_create("static", NULL, NULL);
-		} tableval_list '}'		{
+		}
+		| tableval_list	{
 			$$ = table->t_id;
 		}
 		;
