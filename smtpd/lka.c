@@ -93,8 +93,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			    auth->user, auth->authtable);
 
 			table = table_findbyname(auth->authtable);
-			if (table == NULL)
+			if (table == NULL) {
+				log_warnx("warn: could not find table %s needed for authentication",
+					auth->authtable);
 				auth->success = -1;
+			}
 			else {
 				switch (table_lookup(table, auth->user, K_CREDENTIALS, (void **)&creds)) {
 				case -1:
