@@ -712,6 +712,8 @@ struct mta_relay {
 #define RELAY_WAITMASK		0x0f
 	int			 status;
 
+	struct tree		 source_fail;
+
 	int			 limit_hit;
 
 	int			 refcount;
@@ -1121,6 +1123,7 @@ pid_t mta(void);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
+void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
