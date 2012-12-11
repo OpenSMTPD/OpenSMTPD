@@ -43,11 +43,9 @@ ruleset_match(const struct envelope *evp)
 	const struct mailaddr *maddr = &evp->dest;
 	const struct sockaddr_storage *ss = &evp->ss;
 	struct rule	*r;
-	struct table	*table;
-	int		 v;
 	int		 ret;
 
-	if (evp->flags & DF_INTERNAL)
+	if (evp->flags & EF_INTERNAL)
 		ss = NULL;
 
 	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
@@ -55,7 +53,7 @@ ruleset_match(const struct envelope *evp)
 		if (r->r_tag[0] != '\0' && strcmp(r->r_tag, evp->tag) != 0)
 			continue;
 
-		if (ss != NULL && !(evp->flags & DF_AUTHENTICATED)) {
+		if (ss != NULL && !(evp->flags & EF_AUTHENTICATED)) {
 			ret = ruleset_check_source(r->r_sources, ss);
 			if (ret == -1) {
 				errno = EAGAIN;
@@ -65,34 +63,37 @@ ruleset_match(const struct envelope *evp)
 				continue;
 		}
 
-		if (r->r_condition.c_type == COND_ANY)
-			return r;
-
-		if (r->r_condition.c_type == COND_DOM ||
-		    r->r_condition.c_type == COND_VDOM) {
-			table = table_find(r->r_condition.c_table);
-			if (table == NULL)
-				fatal("failed to lookup table.");
-
-			ret = table_lookup(table, maddr->domain, K_DOMAIN,
-			    NULL);
-			if (ret == -1) {
-				errno = EAGAIN;
-				return NULL;
+		ret = r->r_destination == NULL ? 1 :
+		    table_lookup(r->r_destination, maddr->domain, K_DOMAIN,
+			NULL);
+		if (ret == -1) {
+			errno = EAGAIN;
+			return NULL;
+		}
+		if (ret) {
+			if (r->r_desttype == DEST_VDOM &&
+			    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
+				if (! aliases_virtual_check(r->r_mapping,
+					&evp->rcpt)) {
+					return NULL;
+				}
 			}
-			if (ret)
-				return r;
+			goto matched;
 		}
 	}
 
 	errno = 0;
 	return (NULL);
+
+matched:
+	log_trace(TRACE_RULES, "rule matched: %s", rule_to_text(r));
+	return r;
 }
 
 static int
 ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 {
-	char   *key;
+	const char   *key;
 
 	if (ss == NULL) {
 		/* This happens when caller is part of an internal
@@ -108,6 +109,7 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
 	case -1:
 		log_warnx("warn: failure to perform a table lookup on table %s",
 		    table->t_name);
+		return -1;
 	default:
 		break;
 	}

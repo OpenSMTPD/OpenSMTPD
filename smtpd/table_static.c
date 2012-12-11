@@ -22,6 +22,9 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <ctype.h>
 #include <err.h>
 #include <event.h>
@@ -40,20 +43,24 @@ static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
 static int table_static_lookup(void *, const char *, enum table_service,
     void **);
+static int table_static_fetch(void *, enum table_service, char **);
 static void  table_static_close(void *);
 
 static int	table_static_credentials(const char *, char *, size_t, void **);
 static int	table_static_alias(const char *, char *, size_t, void **);
 static int	table_static_domain(const char *, char *, size_t, void **);
 static int	table_static_netaddr(const char *, char *, size_t, void **);
+static int	table_static_source(const char *, char *, size_t, void **);
+static int	table_static_userinfo(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_DOMAIN|K_CREDENTIALS|K_NETADDR,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE,
 	table_static_config,
 	table_static_open,
 	table_static_update,
 	table_static_close,
 	table_static_lookup,
+	table_static_fetch
 };
 
 static struct keycmp {
@@ -72,7 +79,7 @@ table_static_config(struct table *table, const char *config)
 	if (config == NULL)
 		return 1;
 
-	return table_config_parser(table, config);
+	return table_config_parse(table, config, T_LIST|T_HASH);
 }
 
 static int
@@ -139,8 +146,8 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 	char	       *v;
 
 	for (i = 0; i < nitems(keycmp); ++i)
-		if (keycmp->service == service)
-			match = keycmp->func;
+		if (keycmp[i].service == service)
+			match = keycmp[i].func;
 
 	line = NULL;
 	iter = NULL;
@@ -190,6 +197,14 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		ret = table_static_netaddr(key, line, len, retp);
 		break;
 
+	case K_SOURCE:
+		ret = table_static_source(key, line, len, retp);
+
+	case K_USERINFO:
+		ret = table_static_userinfo(key, line, len, retp);
+
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -200,10 +215,34 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
+table_static_fetch(void *hdl, enum table_service service, char **retp)
+{
+	struct table   *t = hdl;
+	const char     *k;
+	char	       *line;
+
+	if (! dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL)) {
+		t->t_iter = NULL;
+		if (! dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL))
+			return 0;
+	}
+
+	if (retp == NULL)
+		return 1;
+
+	if ((line = strdup(k)) == NULL)
+		return -1;
+
+	*retp = line;
+
+	return 1;
+}
+
+static int
 table_static_credentials(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_credentials *credentials = NULL;
-	char *p;
+	struct credentials	*creds;
+	char			*p;
 
 	/* credentials are stored as user:password */
 	if (len < 3)
@@ -221,99 +260,107 @@ table_static_credentials(const char *key, char *line, size_t len, void **retp)
 		return -1;
 	*p++ = '\0';
 
-	credentials = xcalloc(1, sizeof *credentials,
-	    "table_static_credentials");
-	if (strlcpy(credentials->username, line, sizeof(credentials->username))
-	    >= sizeof(credentials->username))
+	creds = xcalloc(1, sizeof *creds, "table_static_credentials");
+	if (strlcpy(creds->username, line, sizeof(creds->username))
+	    >= sizeof(creds->username))
 		goto err;
 
-	if (strlcpy(credentials->password, p, sizeof(credentials->password))
-	    >= sizeof(credentials->password))
+	if (strlcpy(creds->password, p, sizeof(creds->password))
+	    >= sizeof(creds->password))
 		goto err;
 
-	*retp = credentials;
+	*retp = creds;
 	return 1;
 
 err:
 	*retp = NULL;
-	free(credentials);
+	free(creds);
 	return -1;
 }
 
 static int
 table_static_alias(const char *key, char *line, size_t len, void **retp)
 {
-	char			*subrcpt;
-	char			*endp;
-	struct table_alias	*table_alias = NULL;
-	struct expandnode	 xn;
+	struct expand		*xp;
 
-	table_alias = xcalloc(1, sizeof *table_alias, "table_static_alias");
-
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			goto error;
-
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-
-		if (! alias_parse(&xn, subrcpt))
-			goto error;
-
-		expand_insert(&table_alias->expand, &xn);
-		table_alias->nbnodes++;
-	}
-	*retp = table_alias;
+	xp = xcalloc(1, sizeof *xp, "table_static_alias");
+	if (! expand_line(xp, line))
+		goto error;
+	*retp = xp;
 	return 1;
 
 error:
 	*retp = NULL;
-	expand_free(&table_alias->expand);
-	free(table_alias);
+	expand_free(xp);
 	return -1;
 }
 
 static int
 table_static_netaddr(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_netaddr	*table_netaddr = NULL;
+	struct netaddr		*netaddr;
 
-	table_netaddr = xcalloc(1, sizeof *table_netaddr,
-	    "table_static_netaddr");
-
-	if (! text_to_netaddr(&table_netaddr->netaddr, line))
+	netaddr = xcalloc(1, sizeof *netaddr, "table_static_netaddr");
+	if (! text_to_netaddr(netaddr, line))
 		goto error;
-
-	*retp = table_netaddr;
+	*retp = netaddr;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(table_netaddr);
+	free(netaddr);
+	return -1;
+}
+
+static int
+table_static_source(const char *key, char *line, size_t len, void **retp)
+{
+	struct source	*source = NULL;
+
+	source = xcalloc(1, sizeof *source, "table_static_source");
+	if (inet_pton(AF_INET6, line, &source->addr.in6) != 1)
+		if (inet_pton(AF_INET, line, &source->addr.in4) != 1)
+			goto error;
+	*retp = source;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(source);
 	return 0;
 }
 
 static int
 table_static_domain(const char *key, char *line, size_t len, void **retp)
 {
-	struct table_domain	*domain = NULL;
+	struct destination	*destination;
 
-	domain = xcalloc(1, sizeof *domain, "table_static_domain");
-
-	if (strlcpy(domain->name, line, sizeof domain->name)
-	    >= sizeof domain->name)
+	destination = xcalloc(1, sizeof *destination, "table_static_domain");
+	if (strlcpy(destination->name, line, sizeof destination->name)
+	    >= sizeof destination->name)
 		goto error;
-
-	*retp = domain;
+	*retp = destination;
 	return 1;
 
 error:
 	*retp = NULL;
-	free(domain);
-	return 0;
+	free(destination);
+	return -1;
+}
+
+static int
+table_static_userinfo(const char *key, char *line, size_t len, void **retp)
+{
+	struct userinfo		*userinfo;
+
+	userinfo = xcalloc(1, sizeof *userinfo, "table_static_userinfo");
+	if (! text_to_userinfo(userinfo, line))
+	    goto error;
+	*retp = userinfo;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(userinfo);
+	return -1;
 }

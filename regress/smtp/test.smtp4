@@ -1,0 +1,155 @@
+#! /usr/bin/smtpscript
+#
+#  Make sure that broken sessions are handled as they should
+#
+
+test-case {
+	expect smtp
+	writeln "EHLO"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "HELO"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "HELO "
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln " HELO "
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "HELO l"
+	expect smtp helo
+}
+
+
+test-case {
+	expect smtp
+	writeln "HELO l"
+	expect smtp ok
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "RCPT TO:"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "DATA"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "DATA"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "RCPT TO:"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "RCPT TO:<root@localhost>"
+	expect smtp ok
+	writeln "RSET"
+	expect smtp ok
+	writeln "DATA"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "RCPT TO:<root@localhost>"
+	expect smtp ok
+	writeln "RSET"
+	expect smtp ok
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "DATA"
+	expect smtp permfail
+}
+
+test-case {
+	expect smtp ok
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "RCPT TO:<root@localhost>"
+	expect smtp ok
+	writeln "RSET"
+	expect smtp ok
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org>"
+	expect smtp ok
+	writeln "RCPT TO:<root@localhost>"
+	expect smtp ok
+	writeln "DATA"
+	expect smtp ok
+}
+
+test-case {
+	expect smtp ok
+	writeln "EHLO l"
+	expect smtp helo
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org> SIZE=1000"
+	expect smtp ok
+}
+
+test-case {
+	expect smtp ok
+	writeln "HELO l"
+	expect smtp ok
+	writeln "MAIL FROM:<opensmtpd@opensmtpd.org> SIZE=1000"
+	expect smtp ok
+}

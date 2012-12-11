@@ -45,68 +45,119 @@
 static void lka_imsg(struct imsgev *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
-static int lka_verify_mail(struct mailaddr *);
-static int lka_encode_credentials(char *, size_t, struct table_credentials *);
-
+static int lka_encode_credentials(char *, size_t, struct credentials *);
 
 static void
 lka_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct submit_status	*ss;
+	struct lka_expand_msg		*req;
+	struct lka_source_req_msg	*req_source;
+	struct lka_source_resp_msg	 resp;
+	struct auth		*auth;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
 	void			*tmp;
 	int			ret;
-	const char		*k;
-	const char		*v;
-	static struct dict		*tables_dict;
-	static struct tree		*tables_tree;
-	static struct table		*table_last;
+	const char		*k, *v;
+	char			*src;
+	static struct dict	*tables_dict;
+	static struct tree	*tables_tree;
+	static struct table	*table_last;
+	struct credentials	*creds;
 
-	if (imsg->hdr.type == IMSG_DNS_HOST || imsg->hdr.type == IMSG_DNS_MX ||
-	    imsg->hdr.type == IMSG_DNS_PTR) {
-		dns_async(iev, imsg->hdr.type, imsg->data);
+	if (imsg->hdr.type == IMSG_DNS_HOST ||
+	    imsg->hdr.type == IMSG_DNS_PTR ||
+	    imsg->hdr.type == IMSG_DNS_MX ||
+	    imsg->hdr.type == IMSG_DNS_MX_PREFERENCE) {
+		dns_imsg(iev, imsg);
 		return;
 	}
 
-	if (iev->proc == PROC_MFA) {
+	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_MAIL:
-			ss = imsg->data;
-			ss->code = 530;
-			if (ss->u.maddr.user[0] == '\0' &&
-			    ss->u.maddr.domain[0] == '\0')
-				ss->code = 250;
-			else
-				if (lka_verify_mail(&ss->u.maddr))
-					ss->code = 250;
-			imsg_compose_event(iev, IMSG_LKA_MAIL, 0, 0, -1, ss,
-			    sizeof *ss);
+		case IMSG_LKA_EXPAND_RCPT:
+			req = imsg->data;
+			lka_session(req->reqid, &req->evp);
 			return;
+		case IMSG_LKA_AUTHENTICATE:
+			auth = imsg->data;
 
-		case IMSG_LKA_RULEMATCH:
-			ss = imsg->data;
-			rule = ruleset_match(&ss->envelope);
-			if (rule == NULL)
-				ss->code = (errno == EAGAIN) ? 451 : 530;
-			else
-				ss->code = (rule->r_decision == R_ACCEPT) ?
-				    250 : 530;
-			imsg_compose_event(iev, IMSG_LKA_RULEMATCH, 0, 0, -1,
-			    ss, sizeof *ss);
-			return;
+			if (! auth->authtable[0]) {
+				imsg_compose_event(env->sc_ievs[PROC_PARENT],
+				    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+				return;
+			}
 
-		case IMSG_LKA_RCPT:
-			lka_session(imsg->data);
+			log_debug("looking for user %s in auth table: %s",
+			    auth->user, auth->authtable);
+
+			table = table_findbyname(auth->authtable);
+			if (table == NULL)
+				auth->success = 0;
+			else {
+				switch (table_lookup(table, auth->user, K_CREDENTIALS, (void **)&creds)) {
+				case -1:
+					auth->success = 0;
+					break;
+				case 0:
+					auth->success = 0;
+					break;
+				default:
+					auth->success = 0;
+					if (! strcmp(creds->password, crypt(auth->pass, creds->password)))
+						auth->success = 1;
+					break;
+				}
+			}
+
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
 			return;
+		}
+	}
+
+	if (iev->proc == PROC_MDA) {
+		switch (imsg->hdr.type) {
+		case IMSG_LKA_USERINFO: {
+			struct userinfo		       *userinfo = NULL;
+			struct lka_userinfo_req_msg    *lka_userinfo_req = imsg->data;
+			struct lka_userinfo_resp_msg	lka_userinfo_resp;
+
+			strlcpy(lka_userinfo_resp.username, lka_userinfo_req->username,
+			    sizeof lka_userinfo_resp.username);
+			strlcpy(lka_userinfo_resp.usertable, lka_userinfo_req->usertable,
+			    sizeof lka_userinfo_resp.usertable);
+
+			table = table_findbyname(lka_userinfo_req->usertable);
+			if (table == NULL)
+				lka_userinfo_resp.status = LKA_TEMPFAIL;
+			else {
+				switch (table_lookup(table, lka_userinfo_req->username, K_USERINFO, (void **)&userinfo)) {
+				case -1:
+					lka_userinfo_resp.status = LKA_TEMPFAIL;
+					break;
+				case 0:
+					lka_userinfo_resp.status = LKA_PERMFAIL;
+					break;
+				default:
+					lka_userinfo_resp.status = LKA_OK;
+					lka_userinfo_resp.userinfo = *userinfo;
+					break;
+				}
+			}
+			imsg_compose_event(iev, IMSG_LKA_USERINFO, 0, 0, -1,
+			    &lka_userinfo_resp, sizeof lka_userinfo_resp);
+			free(userinfo);
+			return;
+		}
 		}
 	}
 
 	if (iev->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
-			struct table_credentials *table_credentials = NULL;
+			struct credentials *credentials = NULL;
 
 			secret = imsg->data;
 			table = table_findbyname(secret->tablename);
@@ -117,28 +168,64 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				    -1, secret, sizeof *secret);
 				return;
 			}
-			ret = table_lookup(table, secret->host, K_CREDENTIALS,
-			    (void **)&table_credentials);
+			ret = table_lookup(table, secret->label, K_CREDENTIALS,
+			    (void **)&credentials);
 
 			log_debug("debug: lka: %s credentials lookup (%d)",
-			    secret->host, ret);
+			    secret->label, ret);
 
+			/*
+			  log_debug("k:%s, v:%s", credentials->username,
+			  credentials->password);
+			*/
 			secret->secret[0] = '\0';
 			if (ret == -1)
-				log_warnx("warn: error with %s credentials",
-				    secret->host);
+				log_warnx("warn: Credentials lookup fail for "
+				    "%s", secret->label);
 			else if (ret == 0)
-				log_warnx("warn: %s credentials not found",
-				    secret->host);
+				log_debug("debug: %s credentials not found",
+				    secret->label);
 			else if (lka_encode_credentials(secret->secret,
-				sizeof secret->secret, table_credentials) == 0)
-				log_warnx("warn: %s credentials parse fail",
-				    secret->host);
+				sizeof secret->secret, credentials) == 0)
+				log_warnx("warn: Credentials parse error for "
+				    "%s", secret->label);
 			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
-			free(table_credentials);
+			free(credentials);
 			return;
 		}
+		case IMSG_LKA_SOURCE:
+			req_source = imsg->data;
+			resp.reqid = req_source->reqid;
+			table = table_findbyname(req_source->tablename);
+			if (table == NULL) {
+				log_warn("warn: source address table %s missing",
+				    req_source->tablename);
+				resp.status = LKA_TEMPFAIL;
+			} 
+			else {
+				ret = table_fetch(table, K_SOURCE, &src);
+				if (ret == -1)
+					resp.status = LKA_TEMPFAIL;
+				else if (ret == 0)
+					resp.status = LKA_PERMFAIL;
+				else {
+					struct addrinfo	hints, *ai;
+					log_debug("debug: source: %s", src);
+					resp.status = LKA_OK;
+					/* XXX find a nicer way? */
+					bzero(&hints, sizeof hints);
+					hints.ai_flags = AI_NUMERICHOST;
+					getaddrinfo(src, NULL, &hints, &ai);
+					memmove(&resp.ss, ai->ai_addr,
+					    ai->ai_addrlen);
+					freeaddrinfo(ai);
+					free(src);
+				}
+			}
+			imsg_compose_event(iev, IMSG_LKA_SOURCE, 0, 0, -1,
+			    &resp, sizeof resp);
+			return;
 		}
 	}
 
@@ -181,6 +268,36 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			env->sc_tables_dict = tmp;
 			return;
 
+		case IMSG_CONF_RULE_DESTINATION:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_destination = table_findbyname(imsg->data);
+			if (rule->r_destination == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
+		case IMSG_CONF_RULE_MAPPING:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_mapping = table_findbyname(imsg->data);
+			if (rule->r_mapping == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
+		case IMSG_CONF_RULE_USERS:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_users = table_findbyname(imsg->data);
+			if (rule->r_users == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
 		case IMSG_CONF_TABLE_CONTENT:
 			table = table_last;
 
@@ -213,7 +330,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 
 			/* start fulfilling requests */
 			event_add(&env->sc_ievs[PROC_MTA]->ev, NULL);
-			event_add(&env->sc_ievs[PROC_MFA]->ev, NULL);
 			event_add(&env->sc_ievs[PROC_SMTP]->ev, NULL);
 			return;
 
@@ -224,7 +340,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_PARENT_FORWARD_OPEN:
 			lka_session_forward_reply(imsg->data, imsg->fd);
 			return;
-
+		case IMSG_LKA_AUTHENTICATE:
+			auth = imsg->data;
+			imsg_compose_event(env->sc_ievs[PROC_SMTP],
+			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+			return;
 		}
 	}
 
@@ -233,8 +353,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		case IMSG_LKA_UPDATE_TABLE:
 			table = table_findbyname(imsg->data);
 			if (table == NULL) {
-				log_warnx("warn: lka: no such table \"%s\"",
-				    (char *)imsg->data);
+				log_warnx("warn: Lookup table not found: "
+				    "\"%s\"", (char *)imsg->data);
 				return;
 			}
 			table_update(table);
@@ -285,9 +405,9 @@ lka(void)
 
 	struct peer peers[] = {
 		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_MFA,	imsg_dispatch },
 		{ PROC_QUEUE,	imsg_dispatch },
 		{ PROC_SMTP,	imsg_dispatch },
+		{ PROC_MDA,	imsg_dispatch },
 		{ PROC_MTA,	imsg_dispatch },
 		{ PROC_CONTROL,	imsg_dispatch }
 	};
@@ -315,7 +435,6 @@ lka(void)
 
 	imsg_callback = lka_imsg;
 	event_init();
-	SPLAY_INIT(&env->lka_sessions);
 
 	signal_set(&ev_sigint, SIGINT, lka_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, lka_sig_handler, NULL);
@@ -337,7 +456,6 @@ lka(void)
 
 	/* ignore them until we get our config */
 	event_del(&env->sc_ievs[PROC_MTA]->ev);
-	event_del(&env->sc_ievs[PROC_MFA]->ev);
 	event_del(&env->sc_ievs[PROC_SMTP]->ev);
 
 	if (event_dispatch() < 0)
@@ -348,21 +466,15 @@ lka(void)
 }
 
 static int
-lka_verify_mail(struct mailaddr *maddr)
-{
-	return 1;
-}
-
-static int
 lka_encode_credentials(char *dst, size_t size,
-    struct table_credentials *table_credentials)
+    struct credentials *credentials)
 {
 	char	*buf;
 	int	 buflen;
 
 	if ((buflen = asprintf(&buf, "%c%s%c%s", '\0',
-		    table_credentials->username, '\0',
-		    table_credentials->password)) == -1)
+		    credentials->username, '\0',
+		    credentials->password)) == -1)
 		fatal(NULL);
 
 	if (__b64_ntop((unsigned char *)buf, buflen, dst, size) == -1) {

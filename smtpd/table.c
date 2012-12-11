@@ -41,6 +41,8 @@ struct table_backend *table_backend_lookup(const char *);
 extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
+extern struct table_backend table_backend_sqlite;
+extern struct table_backend table_backend_ldap;
 
 static objid_t	last_table_id = 0;
 
@@ -53,6 +55,10 @@ table_backend_lookup(const char *backend)
 		return &table_backend_db;
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
+	if (!strcmp(backend, "sqlite"))
+		return &table_backend_sqlite;
+	if (!strcmp(backend, "ldap"))
+		return &table_backend_ldap;
 	return NULL;
 }
 
@@ -73,6 +79,12 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
     void **retp)
 {
 	return table->t_backend->lookup(table->t_handle, key, kind, retp);
+}
+
+int
+table_fetch(struct table *table, enum table_service kind, char **retp)
+{
+	return table->t_backend->fetch(table->t_handle, kind, retp);
 }
 
 struct table *
@@ -145,6 +157,18 @@ table_destroy(struct table *t)
 }
 
 void
+table_set_configuration(struct table *t, struct table *config)
+{
+	strlcpy(t->t_cfgtable, config->t_name, sizeof t->t_cfgtable);
+}
+
+struct table *
+table_get_configuration(struct table *t)
+{
+	return table_findbyname(t->t_cfgtable);
+}
+
+void
 table_set_payload(struct table *t, void *payload)
 {
 	t->t_payload = payload;
@@ -164,6 +188,14 @@ table_add(struct table *t, const char *key, const char *val)
 	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
 }
 
+const void *
+table_get(struct table *t, const char *key)
+{
+	if (strcmp(t->t_src, "static") != 0)
+		errx(1, "table_add: cannot get from table");
+	return dict_get(&t->t_dict, key);
+}
+
 void
 table_delete(struct table *t, const char *key)
 {
@@ -172,10 +204,31 @@ table_delete(struct table *t, const char *key)
 	free(dict_pop(&t->t_dict, key));
 }
 
-void
+int
+table_check_type(struct table *t, uint32_t mask)
+{
+	return t->t_type & mask;
+}
+
+int
+table_check_service(struct table *t, uint32_t mask)
+{
+	return t->t_backend->services & mask;
+}
+
+int
+table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
+{
+	return table_check_type(t, tmask) && table_check_service(t, smask);
+}
+
+int
 table_open(struct table *t)
 {
 	t->t_handle = t->t_backend->open(t);
+	if (t->t_handle == NULL)
+		return 0;
+	return 1;
 }
 
 void
@@ -191,9 +244,28 @@ table_update(struct table *t)
 	t->t_backend->update(t);
 }
 
-int
-table_config_parser(struct table *t, const char *config)
+void *
+table_config_create(void)
 {
+	return table_create("static", NULL, NULL);
+}
+
+const char *
+table_config_get(void *p, const char *key)
+{
+	return (const char *)table_get(p, key);
+}
+
+void
+table_config_destroy(void *p)
+{
+	table_destroy(p);
+}
+
+int
+table_config_parse(void *p, const char *config, enum table_type type)
+{
+	struct table	*t = p;
 	FILE	*fp;
 	char *buf, *lbuf;
 	size_t flen;
@@ -239,6 +311,9 @@ table_config_parser(struct table *t, const char *config)
 		if (t->t_type == 0)
 			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
 			    T_HASH;
+
+		if (!(t->t_type & type))
+			goto end;
 
 		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
 			table_add(t, keyp, NULL);
@@ -350,7 +425,8 @@ table_open_all(void)
 
 	iter = NULL;
 	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
-		table_open(t);
+		if (! table_open(t))
+			errx(1, "failed to open table %s", t->t_name);
 }
 
 void

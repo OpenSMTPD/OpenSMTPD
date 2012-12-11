@@ -101,9 +101,11 @@ which allows the use of
 .Dq user@domain.tld
 to accept user only on the specified domain,
 .Dq user
-to accept the user for any of the virtual domains and
+to accept the user for any of the virtual domains,
 .Dq @domain.tld
-to provide a catch-all for the specified domain.
+to provide a catch-all for the specified domain and
+.Dq @
+to provide a global catch-all for all domains.
 .Xr smtpd 8
 will perform the lookups in that specific order.
 .Pp

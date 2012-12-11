@@ -118,6 +118,7 @@ as returned by
 .Op Ic tls | tls-require | smtps
 .Op Ic certificate Ar name
 .Op Ic auth | auth-optional
+.Op Ic tag Ar tag
 .Xc
 Specify an
 .Ar interface
@@ -184,6 +185,12 @@ This is only useful to let a listener accept incoming mail from
 untrusted senders and outgoing mail from authenticated users in
 situations where it is not possible to listen on the submission
 port.
+.Pp
+If the
+.Ic tag
+parameter is used, then clients connecting to the listener will be
+tagged
+.Ar tag .
 .It Xo
 .Ic table Ar name
 .Ar [type:]config
@@ -219,7 +226,6 @@ It must be an absolute path to a file for the
 and
 .Dq db
 table types.
-
 .It Xo
 .Ic table Ar name
 .Ic { Ar value
@@ -250,7 +256,7 @@ The table must contain at least one key-value mapping and may declare many mappi
 a list of comma separated
 .Ar key => value
 descriptions.
-.It Ic size Ar n
+.It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
 bytes.
@@ -307,6 +313,14 @@ Make the rule match regardless of the domain it is sent to.
 If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for all addresses.
+.It Xo
+.Ic for any
+.Ic virtual Ar <vmap>
+.Xc
+Make the rule match regardless of the domain it is sent to.
+The
+.Ar vmap
+table will be used as the virtual domain mapping.
 .It Xo
 .Ic for domain Ar domain
 .Op Ic alias Ar <aliases>
@@ -378,6 +392,31 @@ This rule applies to mail destined to
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
+.It Xo
+.Ic for local
+.Ic virtual Ar <vmap>
+.Xc
+This rule applies to mail destined to
+.Dq localhost
+and to the server's fully qualified domain name,
+as returned by
+.Xr hostname 1 .
+The
+.Ar vmap
+table will be used as the virtual domain mapping.
+.El
+.Pp
+If the method of delivery is local, a user database may be
+specified to override the system database:
+.Bl -tag -width Ds
+.It Xo
+.Op Ic users Ar <table>
+.Xc
+Lookup users in the table
+.Ar table
+instead of performing system lookups using the
+.Xr getpwnam 3
+function.
 .El
 .Pp
 Finally, the method of delivery is specified:
@@ -406,6 +445,7 @@ This parameter may use conversion specifiers that are expanded before use
 .Ic relay
 .Op Ic backup Ar mx
 .Op Ic as Ar address
+.Op Ic source Ar source
 .Xc
 Mail is relayed.
 The routing decision is based on the DNS system.
@@ -430,12 +470,23 @@ may be a user, a domain prefixed with
 or an email address, causing
 smtpd to rewrite the user-part, the domain-part, or the entire address,
 respectively.
+.Pp
+If the
+.Ic source
+parameter is specified,
+.Xr smtpd 8
+will explicitely bind to an address found in the table referenced by
+.Ar table
+when connecting to the relay.
+If the table contains more than one address, they are picked in turn each
+time a new connection is opened.
 .It Xo
 .Ic relay via
 .Ar host
 .Op Ic certificate Ar name
 .Op Ic auth Ar <auth>
 .Op Ic as Ar address
+.Op Ic source Ar source
 .Xc
 Mail is relayed through the specified
 .Ar host
@@ -461,10 +512,10 @@ In addition, credentials for authenticated relaying may be provided
 when using a secure schema.
 For example:
 .Bd -literal -offset indent
-tls+auth://mx1.example.org	# AUTH over TLS
-smtps+auth://mx1.example.org	# AUTH over SMTPS
-ssl+auth://mx1.example.org	# AUTH over either \e
-				# SMTPS or TLS
+tls+auth://label@mx.example.org	  # over TLS
+smtps+auth://label@mx.example.org # over SMTPS
+ssl+auth://label@mx.example.org	  # over either \e
+				  # SMTPS or TLS
 .Ed
 .Pp
 If a certificate
@@ -483,6 +534,7 @@ is desired, the
 parameter is used to specify the
 .Ar auth
 table that holds the credentials.
+Credentials will be looked up using the label provided in the URL.
 .Pp
 If the
 .Ic as
@@ -496,9 +548,22 @@ may be a user, a domain prefixed with
 or an email address, causing
 smtpd to rewrite the user-part, the domain-part, or the entire address,
 respectively.
+.Pp
+If the
+.Ic source
+parameter is specified,
+.Xr smtpd 8
+will explicitely bind to an address found in the table referenced by
+.Ar table
+when connecting to the relay.
+If the table contains more than one address, they are picked in turn each
+time a new connection is opened.
+.El
+.It Ic tagged Ar tag
+If specified, the rule will only be matched if the client session was tagged
+.Ar tag .
 .It Ic expire Ar n {s|m|h|d}
 Specify how long a message that matched this rule can stay in the queue.
-.El
 .El
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX" -compact

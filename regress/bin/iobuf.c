@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #ifdef IO_SSL
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 #endif
 
@@ -47,7 +48,7 @@ iobuf_init(struct iobuf *io, size_t size, size_t max)
 
 	if (size == 0)
 		size = max;
-	
+
 	if (size > max)
 		return (-1);
 
@@ -68,7 +69,7 @@ iobuf_clear(struct iobuf *io)
 	if (io->buf)
 		free(io->buf);
 
-	while((q = io->outq)) {
+	while ((q = io->outq)) {
 		io->outq = q->next;
 		free(q);
 	}
@@ -82,7 +83,7 @@ iobuf_drain(struct iobuf *io, size_t n)
 	struct	ioqbuf	*q;
 	size_t		 left = n;
 
-	while((q = io->outq) && left) {
+	while ((q = io->outq) && left) {
 		if ((q->wpos - q->rpos) > left) {
 			q->rpos += left;
 			left = 0;
@@ -180,7 +181,7 @@ iobuf_getline(struct iobuf *iobuf, size_t *rlen)
 			return (buf);
 		}
 
-        return (NULL);
+	return (NULL);
 }
 
 void
@@ -231,9 +232,9 @@ ioqbuf_alloc(struct iobuf *io, size_t len)
 		return (NULL);
 
 	q->rpos = 0;
-        q->wpos = 0;
-        q->size = len;
-        q->next = NULL;
+	q->wpos = 0;
+	q->size = len;
+	q->next = NULL;
 	q->buf = (char *)(q) + sizeof(*q);
 
 	if (io->outqlast == NULL)
@@ -295,13 +296,13 @@ iobuf_queuev(struct iobuf *io, const struct iovec *iov, int iovcnt)
 	size_t	 len = 0;
 	char	*buf;
 
-	for(i = 0; i < iovcnt; i++)
+	for (i = 0; i < iovcnt; i++)
 		len += iov[i].iov_len;
 
 	if ((buf = iobuf_reserve(io, len)) == NULL)
 		return (-1);
 
-	for(i = 0; i < iovcnt; i++) {
+	for (i = 0; i < iovcnt; i++) {
 		if (iov[i].iov_len == 0)
 			continue;
 		memmove(buf, iov[i].iov_base, iov[i].iov_len);
@@ -351,7 +352,7 @@ iobuf_write(struct iobuf *io, int fd)
 	ssize_t		 n;
 
 	i = 0;
-	for(q = io->outq; q ; q = q->next) {
+	for (q = io->outq; q ; q = q->next) {
 		if (i >= IOV_MAX)
 			break;
 		iov[i].iov_base = q->buf + q->rpos;
@@ -414,11 +415,16 @@ iobuf_write_ssl(struct iobuf *io, void *ssl)
 			return (IOBUF_WANT_READ);
 		case SSL_ERROR_WANT_WRITE:
 			return (IOBUF_WANT_WRITE);
-		case SSL_ERROR_ZERO_RETURN:
-			/* connection closed */
+		case SSL_ERROR_ZERO_RETURN: /* connection closed */
 			return (IOBUF_CLOSED);
-		default:
+		case SSL_ERROR_SYSCALL:
+			if (ERR_peek_last_error())
+				return (IOBUF_SSLERROR);
+			if (r == 0)
+				errno = EPIPE;
 			return (IOBUF_ERROR);
+		default:
+			return (IOBUF_SSLERROR);
 		}
 	}
 	iobuf_drain(io, n);
@@ -439,8 +445,14 @@ iobuf_read_ssl(struct iobuf *io, void *ssl)
 			return (IOBUF_WANT_READ);
 		case SSL_ERROR_WANT_WRITE:
 			return (IOBUF_WANT_WRITE);
-		default:
+		case SSL_ERROR_SYSCALL:
+			if (ERR_peek_last_error())
+				return (IOBUF_SSLERROR);
+			if (r == 0)
+				errno = EPIPE;
 			return (IOBUF_ERROR);
+		default:
+			return (IOBUF_SSLERROR);
 		}
 	} else if (n == 0)
 		return (IOBUF_CLOSED);
