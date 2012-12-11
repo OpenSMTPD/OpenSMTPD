@@ -240,22 +240,22 @@ main(int argc, char *argv[])
 		imsg_compose(ibuf, IMSG_CTL_SHUTDOWN, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_MDA:
-		imsg_compose(ibuf, IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_CTL_PAUSE_MDA, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_MTA:
-		imsg_compose(ibuf, IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_CTL_PAUSE_MTA, 0, 0, -1, NULL, 0);
 		break;
 	case PAUSE_SMTP:
-		imsg_compose(ibuf, IMSG_SMTP_PAUSE, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MDA:
-		imsg_compose(ibuf, IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_CTL_RESUME_MDA, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_MTA:
-		imsg_compose(ibuf, IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_CTL_RESUME_MTA, 0, 0, -1, NULL, 0);
 		break;
 	case RESUME_SMTP:
-		imsg_compose(ibuf, IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
+		imsg_compose(ibuf, IMSG_CTL_RESUME_SMTP, 0, 0, -1, NULL, 0);
 		break;
 	case SHOW_STATS:
 		imsg_compose(ibuf, IMSG_STATS, 0, 0, -1, NULL, 0);

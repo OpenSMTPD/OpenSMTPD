@@ -103,7 +103,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
-	case IMSG_QUEUE_DELIVERY_OK:
+	case IMSG_DELIVERY_OK:
 		id = *(uint64_t *)(imsg->data);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (ok)", id);
@@ -114,7 +114,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
-	case IMSG_QUEUE_DELIVERY_TEMPFAIL:
+	case IMSG_DELIVERY_TEMPFAIL:
 		e = imsg->data;
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: updating evp:%016" PRIx64, e->id);
@@ -125,7 +125,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
-	case IMSG_QUEUE_DELIVERY_PERMFAIL:
+	case IMSG_DELIVERY_PERMFAIL:
 		id = *(uint64_t *)(imsg->data);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (fail)", id);
@@ -136,7 +136,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
-	case IMSG_QUEUE_DELIVERY_LOOP:
+	case IMSG_DELIVERY_LOOP:
 		id = *(uint64_t *)(imsg->data);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (loop)", id);
@@ -147,23 +147,23 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
-	case IMSG_QUEUE_PAUSE_MDA:
+	case IMSG_CTL_PAUSE_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mda");
 		env->sc_flags |= SMTPD_MDA_PAUSED;
 		return;
 
-	case IMSG_QUEUE_RESUME_MDA:
+	case IMSG_CTL_RESUME_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: resuming mda");
 		env->sc_flags &= ~SMTPD_MDA_PAUSED;
 		scheduler_reset_events();
 		return;
 
-	case IMSG_QUEUE_PAUSE_MTA:
+	case IMSG_CTL_PAUSE_MTA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mta");
 		env->sc_flags |= SMTPD_MTA_PAUSED;
 		return;
 
-	case IMSG_QUEUE_RESUME_MTA:
+	case IMSG_CTL_RESUME_MTA:
 		log_trace(TRACE_SCHEDULER, "scheduler: resuming mta");
 		env->sc_flags &= ~SMTPD_MTA_PAUSED;
 		scheduler_reset_events();

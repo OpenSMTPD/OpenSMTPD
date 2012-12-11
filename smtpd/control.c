@@ -521,7 +521,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_PAUSE_MDA:
+		case IMSG_CTL_PAUSE_MDA:
 			if (euid)
 				goto badcred;
 
@@ -533,12 +533,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mda paused");
 			env->sc_flags |= SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_PAUSE_MDA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_PAUSE_MDA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_PAUSE_MTA:
+		case IMSG_CTL_PAUSE_MTA:
 			if (euid)
 				goto badcred;
 
@@ -550,12 +550,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mta paused");
 			env->sc_flags |= SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_PAUSE_MTA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_PAUSE_MTA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SMTP_PAUSE:
+		case IMSG_CTL_PAUSE_SMTP:
 			if (euid)
 				goto badcred;
 
@@ -567,12 +567,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: smtp paused");
 			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_SMTP_PAUSE, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_RESUME_MDA:
+		case IMSG_CTL_RESUME_MDA:
 			if (euid)
 				goto badcred;
 
@@ -584,12 +584,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mda resumed");
 			env->sc_flags &= ~SMTPD_MDA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_RESUME_MDA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_RESUME_MDA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_QUEUE_RESUME_MTA:
+		case IMSG_CTL_RESUME_MTA:
 			if (euid)
 				goto badcred;
 
@@ -601,12 +601,12 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: mta resumed");
 			env->sc_flags &= ~SMTPD_MTA_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_RESUME_MTA, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_RESUME_MTA, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SMTP_RESUME:
+		case IMSG_CTL_RESUME_SMTP:
 			if (euid)
 				goto badcred;
 
@@ -618,7 +618,7 @@ control_dispatch_ext(int fd, short event, void *arg)
 			log_info("info: smtp resumed");
 			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_SMTP_RESUME, 0, 0, -1, NULL, 0);
+			    IMSG_CTL_RESUME_SMTP, 0, 0, -1, NULL, 0);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;

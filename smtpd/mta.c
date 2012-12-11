@@ -225,7 +225,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (relay->secret == NULL) {
 				log_warnx("warn: Failed to retreive secret "
 				    "for relay %s", mta_relay_to_text(relay));
-				relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				relay->fail = IMSG_DELIVERY_TEMPFAIL;
 				relay->failstr = "Could not retreive secret";
 			}
 			relay->status &= ~RELAY_WAIT_SECRET;
@@ -245,7 +245,7 @@ mta_imsg(struct imsgev *iev, struct imsg *imsg)
 			else {
 				log_warnx("warn: Failed to get source address"
 				    "for relay %s", mta_relay_to_text(relay));
-				relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+				relay->fail = IMSG_DELIVERY_TEMPFAIL;
 				relay->failstr = "Could not get source address";
 			}
 			mta_drain(relay);
@@ -613,19 +613,19 @@ mta_on_mx(void *tag, void *arg, void *data)
 	case DNS_OK:
 		break;
 	case DNS_RETRY:
-		relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "Temporary failure in MX lookup";
 		break;
 	case DNS_EINVAL:
-		relay->fail = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		relay->fail = IMSG_DELIVERY_PERMFAIL;
 		relay->failstr = "Invalid domain name";
 		break;
 	case DNS_ENONAME:
-		relay->fail = IMSG_QUEUE_DELIVERY_PERMFAIL;
+		relay->fail = IMSG_DELIVERY_PERMFAIL;
 		relay->failstr = "Domain does not exist";
 		break;
 	case DNS_ENOTFOUND:
-		relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "No MX found for domain";
 		break;
 	default:
@@ -668,7 +668,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 		 */
 		log_debug("debug: mta: source already tried");
 		if (relay->nconn == 0) {
-			relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+			relay->fail = IMSG_DELIVERY_TEMPFAIL;
 			relay->failstr = "Could not find a valid source address";
 		}
 		mta_source_unref(source); /* from IMSG_LKA_SOURCE */
@@ -799,9 +799,9 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
 
-	if (fail == IMSG_QUEUE_DELIVERY_TEMPFAIL)
+	if (fail == IMSG_DELIVERY_TEMPFAIL)
 		pfx = "TempFail";
-	else if (fail == IMSG_QUEUE_DELIVERY_PERMFAIL)
+	else if (fail == IMSG_DELIVERY_PERMFAIL)
 		pfx = "PermFail";
 	else
 		errx(1, "unexpected delivery status %i", fail);
@@ -950,7 +950,7 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 	if (relay->nconn == 0) {
 		log_info("smtp-out: No reachable MX for relay %s",
 		    mta_relay_to_text(relay));
-		relay->fail = IMSG_QUEUE_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "No MX could be reached";
 	}
 

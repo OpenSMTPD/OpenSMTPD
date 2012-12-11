@@ -243,49 +243,47 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    fd, imsg->data, imsg->hdr.len - sizeof imsg->hdr);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_OK:
+		case IMSG_DELIVERY_OK:
 			e = imsg->data;
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_OK, 0, 0, -1, &e->id,
-			    sizeof e->id);
+			    IMSG_DELIVERY_OK, 0, 0, -1, &e->id, sizeof e->id);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_TEMPFAIL:
+		case IMSG_DELIVERY_TEMPFAIL:
 			e = imsg->data;
 			e->retry++;
 			queue_envelope_update(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1, e,
+			    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1, e,
 			    sizeof *e);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_PERMFAIL:
+		case IMSG_DELIVERY_PERMFAIL:
 			e = imsg->data;
 			queue_bounce(e);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
+			    IMSG_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
 			    sizeof e->id);
 			return;
 
-		case IMSG_QUEUE_DELIVERY_LOOP:
+		case IMSG_DELIVERY_LOOP:
 			e = imsg->data;
 			queue_bounce(e);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_DELIVERY_LOOP, 0, 0, -1, &e->id,
-			    sizeof e->id);
+			    IMSG_DELIVERY_LOOP, 0, 0, -1, &e->id, sizeof e->id);
 			return;
 		}
 	}
 
 	if (iev->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_QUEUE_PAUSE_MDA:
-		case IMSG_QUEUE_PAUSE_MTA:
-		case IMSG_QUEUE_RESUME_MDA:
-		case IMSG_QUEUE_RESUME_MTA:
+		case IMSG_CTL_PAUSE_MDA:
+		case IMSG_CTL_PAUSE_MTA:
+		case IMSG_CTL_RESUME_MDA:
+		case IMSG_CTL_RESUME_MTA:
 		case IMSG_QUEUE_REMOVE:
 			queue_pass_to_scheduler(iev, imsg);
 			return;
