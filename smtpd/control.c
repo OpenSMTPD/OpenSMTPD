@@ -96,22 +96,22 @@ control_imsg(struct imsgev *iev, struct imsg *imsg)
 	}
 	if (iev->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
-		case IMSG_SCHEDULER_MESSAGES:
+		case IMSG_CTL_LIST_MESSAGES:
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
-			imsg_compose_event(&c->iev, IMSG_SCHEDULER_MESSAGES, 0,
+			imsg_compose_event(&c->iev, IMSG_CTL_LIST_MESSAGES, 0,
 			    0, -1, imsg->data, imsg->hdr.len-sizeof imsg->hdr);
 			return;
 		}
 	}
 	if (iev->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
-		case IMSG_SCHEDULER_ENVELOPES:
+		case IMSG_CTL_LIST_ENVELOPES:
 			c = control_connbyfd(imsg->hdr.peerid);
 			if (c == NULL)
 				return;
-			imsg_compose_event(&c->iev, IMSG_SCHEDULER_ENVELOPES, 0,
+			imsg_compose_event(&c->iev, IMSG_CTL_LIST_ENVELOPES, 0,
 			    0, -1, imsg->data, imsg->hdr.len-sizeof imsg->hdr);
 			return;
 		}
@@ -623,40 +623,40 @@ control_dispatch_ext(int fd, short event, void *arg)
 			    NULL, 0);
 			break;
 
-		case IMSG_SCHEDULER_MESSAGES:
+		case IMSG_CTL_LIST_MESSAGES:
 			if (euid)
 				goto badcred;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_MESSAGES, fd, 0, -1, imsg.data,
+			    IMSG_CTL_LIST_MESSAGES, fd, 0, -1, imsg.data,
 			    imsg.hdr.len - sizeof(imsg.hdr));
 			break;
 
-		case IMSG_SCHEDULER_ENVELOPES:
+		case IMSG_CTL_LIST_ENVELOPES:
 			if (euid)
 				goto badcred;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_ENVELOPES, fd, 0, -1, imsg.data,
+			    IMSG_CTL_LIST_ENVELOPES, fd, 0, -1, imsg.data,
 			    imsg.hdr.len - sizeof(imsg.hdr));
 			break;
 
-		case IMSG_SCHEDULER_SCHEDULE:
+		case IMSG_CTL_SCHEDULE:
 			if (euid)
 				goto badcred;
 
 			id = *(uint64_t *)imsg.data;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &id, sizeof id);
+			    IMSG_CTL_SCHEDULE, 0, 0, -1, &id, sizeof id);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;
 
-		case IMSG_SCHEDULER_REMOVE:
+		case IMSG_CTL_REMOVE:
 			if (euid)
 				goto badcred;
 
 			id = *(uint64_t *)imsg.data;
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_SCHEDULER_REMOVE, 0, 0, -1, &id, sizeof id);
+			    IMSG_CTL_REMOVE, 0, 0, -1, &id, sizeof id);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK, 0, 0, -1,
 			    NULL, 0);
 			break;

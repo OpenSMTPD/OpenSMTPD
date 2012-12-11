@@ -202,10 +202,10 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			    &batch_id, sizeof batch_id);
 			return;
 
-		case IMSG_SCHEDULER_ENVELOPES:
+		case IMSG_CTL_LIST_ENVELOPES:
 			if (imsg->hdr.len == sizeof imsg->hdr) {
 				imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-				    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid,
+				    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid,
 				    0, -1, NULL, 0);
 				return;
 			}
@@ -229,7 +229,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				evp.lasttry = state->time;
 			}
 			imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1,
 			    &evp, sizeof evp);
 			return;
 		}

@@ -223,13 +223,13 @@ main(int argc, char *argv[])
 	case SCHEDULE:
 		if ((ulval = text_to_evpid(res->data)) == 0)
 			errx(1, "invalid msgid/evpid");
-		imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0, 0, -1, &ulval,
+		imsg_compose(ibuf, IMSG_CTL_SCHEDULE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
 	case REMOVE:
 		if ((ulval = text_to_evpid(res->data)) == 0)
 			errx(1, "invalid msgid/evpid");
-		imsg_compose(ibuf, IMSG_SCHEDULER_REMOVE, 0, 0, -1, &ulval,
+		imsg_compose(ibuf, IMSG_CTL_REMOVE, 0, 0, -1, &ulval,
 		    sizeof(ulval));
 		break;
 	case SHOW_QUEUE:
@@ -344,13 +344,13 @@ action_show_queue_message(uint32_t msgid)
     nextbatch:
 
 	found = 0;
-	imsg_compose(ibuf, IMSG_SCHEDULER_ENVELOPES, 0, 0, -1,
+	imsg_compose(ibuf, IMSG_CTL_LIST_ENVELOPES, 0, 0, -1,
 	    &evpid, sizeof evpid);
 	flush();
 
 	while (1) {
 		next_message(&imsg);
-		if (imsg.hdr.type != IMSG_SCHEDULER_ENVELOPES)
+		if (imsg.hdr.type != IMSG_CTL_LIST_ENVELOPES)
 			errx(1, "unexpected message %i", imsg.hdr.type);
 
 		if (imsg.hdr.len == sizeof imsg.hdr) {
@@ -379,11 +379,11 @@ action_show_queue(void)
 	now = time(NULL);
 
 	do {
-		imsg_compose(ibuf, IMSG_SCHEDULER_MESSAGES, 0, 0, -1,
+		imsg_compose(ibuf, IMSG_CTL_LIST_MESSAGES, 0, 0, -1,
 		    &msgid, sizeof msgid);
 		flush();
 		next_message(&imsg);
-		if (imsg.hdr.type != IMSG_SCHEDULER_MESSAGES)
+		if (imsg.hdr.type != IMSG_CTL_LIST_MESSAGES)
 			errx(1, "unexpected message type %i", imsg.hdr.type);
 		msgids = imsg.data;
 		n = (imsg.hdr.len - sizeof imsg.hdr) / sizeof (*msgids);
@@ -412,11 +412,11 @@ action_schedule_all(void)
 
 	from = 0;
 	while (1) {
-		imsg_compose(ibuf, IMSG_SCHEDULER_MESSAGES, 0, 0, -1,
+		imsg_compose(ibuf, IMSG_CTL_LIST_MESSAGES, 0, 0, -1,
 		    &from, sizeof from);
 		flush();
 		next_message(&imsg);
-		if (imsg.hdr.type != IMSG_SCHEDULER_MESSAGES)
+		if (imsg.hdr.type != IMSG_CTL_LIST_MESSAGES)
 			errx(1, "unexpected message type %i", imsg.hdr.type);
 		msgids = imsg.data;
 		n = (imsg.hdr.len - sizeof imsg.hdr) / sizeof (*msgids);
@@ -425,7 +425,7 @@ action_schedule_all(void)
 
 		for (i = 0; i < n; i++) {
 			evpid = msgids[i];
-			imsg_compose(ibuf, IMSG_SCHEDULER_SCHEDULE, 0,
+			imsg_compose(ibuf, IMSG_CTL_SCHEDULE, 0,
 			    0, -1, &evpid, sizeof(evpid));
 		}
 		from = msgids[n - 1] + 1;

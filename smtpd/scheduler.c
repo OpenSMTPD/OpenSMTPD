@@ -173,26 +173,26 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		log_verbose(*(int *)imsg->data);
 		return;
 
-	case IMSG_SCHEDULER_MESSAGES:
+	case IMSG_CTL_LIST_MESSAGES:
 		msgid = *(uint32_t *)(imsg->data);
 		n = backend->messages(msgid, msgids, MSGBATCHSIZE);
-		imsg_compose_event(iev, IMSG_SCHEDULER_MESSAGES,
+		imsg_compose_event(iev, IMSG_CTL_LIST_MESSAGES,
 		    imsg->hdr.peerid, 0, -1, msgids, n * sizeof (*msgids));
 		return;
 
-	case IMSG_SCHEDULER_ENVELOPES:
+	case IMSG_CTL_LIST_ENVELOPES:
 		id = *(uint64_t *)(imsg->data);
 		n = backend->envelopes(id, state, EVPBATCHSIZE);
 		for (i = 0; i < n; i++) {
 			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1,
+			    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1,
 			    &state[i], sizeof state[i]);
 		}
 		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_SCHEDULER_ENVELOPES, imsg->hdr.peerid, 0, -1, NULL, 0);
+		    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_SCHEDULER_SCHEDULE:
+	case IMSG_CTL_SCHEDULE:
 		id = *(uint64_t *)(imsg->data);
 		if (id <= 0xffffffffL)
 			log_debug("debug: scheduler: "
@@ -204,7 +204,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
-	case IMSG_SCHEDULER_REMOVE:
+	case IMSG_CTL_REMOVE:
 		id = *(uint64_t *)(imsg->data);
 		if (id <= 0xffffffffL)
 			log_debug("debug: scheduler: "
