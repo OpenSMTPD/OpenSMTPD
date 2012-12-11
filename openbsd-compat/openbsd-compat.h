@@ -159,6 +159,10 @@ char * fgetln(FILE *stream, size_t *len);
 char * fparseln(FILE *fp, size_t *size, size_t *lineno, const char str[3], int flags);
 #endif
 
+#ifndef HAVE_PW_DUP
+struct passwd *pw_dup(const struct passwd *);
+#endif
+
 #ifndef HAVE_STRTONUM
 long long strtonum(const char *nptr, long long minval, long long maxval, const char **errstr);
 #endif
