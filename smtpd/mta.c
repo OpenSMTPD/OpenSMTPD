@@ -783,6 +783,9 @@ mta_drain(struct mta_relay *r)
 			mta_on_source(r, mta_source(NULL));
 	}
 
+	if (r->nconn == 0 && r->ntask && r->fail)
+		mta_drain(r);
+
     done:
 	mta_relay_unref(r); /* from here */
 }
