@@ -304,7 +304,11 @@ mta_connect(struct mta_session *s)
 		 * This error is most likely a "no route",
 		 * so there is no need to try again.
 		 */
-		mta_error(s, "Connection failed: %s", strerror(errno));
+		log_debug("debug: mta: io_connect failed: %s", s->io.error);
+		if (errno == EADDRNOTAVAIL)
+			mta_source_error(s->relay, s->route, s->io.error);
+		else
+			mta_error(s, "Connection failed: %s", s->io.error);
 		mta_free(s);
 	}
 }
@@ -846,9 +850,11 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 	int	 len;
 
 	/*
-	 * If not connected yet, just ignore the error and try to reconnect.
+	 * If not connected yet, and the error is not local, just ignore it
+	 * and try to reconnect.
 	 */
-	if (s->state == MTA_INIT)
+	if (s->state == MTA_INIT && 
+	    (errno == ETIMEDOUT || errno == ECONNREFUSED))
 		return;
 
 	va_start(ap, fmt);
