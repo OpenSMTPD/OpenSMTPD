@@ -102,6 +102,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_EXPIRE,
 		EVP_RETRY,
 		EVP_LASTTRY,
+		EVP_LASTBOUNCE,
 		EVP_FLAGS,
 		EVP_ERRORLINE,
 		EVP_MDA_METHOD,
@@ -113,6 +114,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MTA_RELAY_AUTH,
 		EVP_MTA_RELAY,
 		EVP_BOUNCE_TYPE,
+		EVP_BOUNCE_DELAY,
 	};
 	char	*field, *nextline;
 	size_t	 len;
@@ -181,6 +183,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_DEST,
 		EVP_CTIME,
 		EVP_LASTTRY,
+		EVP_LASTBOUNCE,
 		EVP_EXPIRE,
 		EVP_RETRY,
 		EVP_FLAGS
@@ -199,6 +202,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 	};
 	enum envelope_field bounce_fields[] = {
 		EVP_BOUNCE_TYPE,
+		EVP_BOUNCE_DELAY,
 	};
 	enum envelope_field *pfields = NULL;
 	int	 i, n, l;
@@ -294,6 +298,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "retry";
 	case EVP_LASTTRY:
 		return "last-try";
+	case EVP_LASTBOUNCE:
+		return "last-bounce";
 	case EVP_FLAGS:
 		return "flags";
 	case EVP_MDA_METHOD:
@@ -314,6 +320,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mta-relay-source";
 	case EVP_BOUNCE_TYPE:
 		return "mta-bounce-type";
+	case EVP_BOUNCE_DELAY:
+		return "mta-bounce-delay";
 	}
 
 	return NULL;
@@ -375,10 +383,14 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_uint16(&ep->retry, buf);
 	case EVP_LASTTRY:
 		return ascii_load_time(&ep->lasttry, buf);
+	case EVP_LASTBOUNCE:
+		return ascii_load_time(&ep->lastbounce, buf);
 	case EVP_FLAGS:
 		return ascii_load_flags(&ep->flags, buf);
 	case EVP_BOUNCE_TYPE:
 		return ascii_load_bounce_type(&ep->agent.bounce.type, buf);
+	case EVP_BOUNCE_DELAY:
+		return ascii_load_time(&ep->agent.bounce.delay, buf);
 	}
 	return 0;
 }
@@ -437,10 +449,16 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_uint16(ep->retry, buf, len);
 	case EVP_LASTTRY:
 		return ascii_dump_time(ep->lasttry, buf, len);
+	case EVP_LASTBOUNCE:
+		return ascii_dump_time(ep->lastbounce, buf, len);
 	case EVP_FLAGS:
 		return ascii_dump_flags(ep->flags, buf, len);
 	case EVP_BOUNCE_TYPE:
 		return ascii_dump_bounce_type(ep->agent.bounce.type, buf, len);
+	case EVP_BOUNCE_DELAY:
+		if (ep->agent.bounce.type == B_WARNING)
+			return ascii_dump_time(ep->agent.bounce.delay, buf, len);
+		return 1;
 	}
 	return 0;
 }
@@ -581,10 +599,10 @@ ascii_load_mta_relay_url(struct relayhost *relay, char *buf)
 static int
 ascii_load_bounce_type(enum bounce_type *dest, char *buf)
 {
-	if (strcasecmp(buf, "final") == 0)
-		*dest = B_FINAL;
-	else if (strcasecmp(buf, "intermediate") == 0)
-		*dest = B_INTERMEDIATE;
+	if (strcasecmp(buf, "error") == 0)
+		*dest = B_ERROR;
+	else if (strcasecmp(buf, "warn") == 0)
+		*dest = B_WARNING;
 	else
 		return 0;
 	return 1;
@@ -703,11 +721,11 @@ ascii_dump_bounce_type(enum bounce_type type, char *dest, size_t len)
 	char *p = NULL;
 
 	switch (type) {
-	case B_FINAL:
-		p = "final";
+	case B_ERROR:
+		p = "error";
 		break;
-	case B_INTERMEDIATE:
-		p = "intermediate";
+	case B_WARNING:
+		p = "warn";
 		break;
 	default:
 		return 0;

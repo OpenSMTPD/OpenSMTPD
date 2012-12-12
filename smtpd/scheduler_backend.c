@@ -48,12 +48,14 @@ scheduler_backend_lookup(const char *name)
 void
 scheduler_info(struct scheduler_info *sched, struct envelope *evp)
 {
-	sched->evpid    = evp->id;
-	sched->type     = evp->type;
+	sched->evpid = evp->id;
+	sched->type = evp->type;
 	sched->creation = evp->creation;
-	sched->lasttry  = evp->lasttry;
-	sched->expire   = evp->expire;
-	sched->retry    = evp->retry;
+	sched->retry = evp->retry;
+	sched->expire = evp->expire;
+	sched->lasttry = evp->lasttry;
+	sched->lastbounce = evp->lastbounce;
+	sched->nexttry	= 0;
 }
 
 time_t

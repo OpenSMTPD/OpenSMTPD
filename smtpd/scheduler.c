@@ -66,12 +66,14 @@ extern const char *backend_scheduler;
 void
 scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 {
+	struct bounce_req_msg	 req;
 	struct evpstate		 state[EVPBATCHSIZE];
 	struct envelope		*e;
 	struct scheduler_info	 si;
 	uint64_t		 id;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
 	size_t			 n, i;
+	time_t			 timestamp;
 
 	switch (imsg->hdr.type) {
 
@@ -122,10 +124,22 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 		backend->update(&si);
 		stat_increment("scheduler.delivery.tempfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
-		/*
-		imsg_compose_event(iev, IMSG_QUEUE_BOUNCE, 0, 0, -1,
-		    &e->id, sizeof e->id);
-		*/
+
+		for (i = 0; i < MAX_BOUNCE_WARN; i++) {
+			if (env->sc_bounce_warn[i] == 0)
+				break;
+			timestamp = si.creation + env->sc_bounce_warn[i];
+			if (si.nexttry >= timestamp &&
+			    si.lastbounce < timestamp) {
+	    			req.evpid = e->id;
+				req.timestamp = timestamp;
+				req.bounce.type = B_WARNING;
+				req.bounce.delay = env->sc_bounce_warn[i];
+				imsg_compose_event(iev, IMSG_QUEUE_BOUNCE,
+				    0, 0, -1, &req, sizeof req);
+				break;
+			}
+		}
 		scheduler_reset_events();
 		return;
 
