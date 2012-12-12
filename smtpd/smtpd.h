@@ -463,11 +463,12 @@ struct envelope {
 		struct delivery_bounce	bounce;
 	}				agent;
 
-	time_t				creation;
-	time_t				lasttry;
-	time_t				expire;
 	uint16_t			retry;
+	time_t				creation;
+	time_t				expire;
+	time_t				lasttry;
 	time_t				nexttry;
+	time_t				lastbounce;
 };
 
 enum envelope_field {
@@ -485,6 +486,7 @@ enum envelope_field {
 	EVP_EXPIRE,
 	EVP_RETRY,
 	EVP_LASTTRY,
+	EVP_LASTBOUNCE,
 	EVP_FLAGS,
 	EVP_MDA_METHOD,
 	EVP_MDA_BUFFER,
@@ -556,6 +558,8 @@ struct smtpd {
 #define QUEUE_COMPRESS			0x00000001
 	char			       *sc_queue_compress_algo;
 	int				sc_qexpire;
+#define MAX_BOUNCE_WARN			4
+	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
 	struct event			sc_ev;
 	int			       *sc_pipes[PROC_COUNT][PROC_COUNT];
 	struct imsgev		       *sc_ievs[PROC_COUNT];
@@ -798,10 +802,12 @@ struct evpstate {
 struct scheduler_info {
 	uint64_t		evpid;
 	enum delivery_type	type;
-	time_t			creation;
-	time_t			lasttry;
-	time_t			expire;
 	uint16_t		retry;
+	time_t			creation;
+	time_t			expire;
+	time_t			lasttry;
+	time_t			lastbounce;
+	time_t			nexttry;
 };
 
 struct id_list {
@@ -915,6 +921,7 @@ struct imsgproc {
 
 struct bounce_req_msg {
 	uint64_t		evpid;
+	time_t			timestamp;
 	struct delivery_bounce	bounce;
 };
 

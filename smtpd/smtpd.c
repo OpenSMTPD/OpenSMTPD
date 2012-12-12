@@ -528,7 +528,7 @@ parent_sig_handler(int sig, short event, void *p)
 int
 main(int argc, char *argv[])
 {
-	int		 c;
+	int		 c, i;
 	int		 debug, verbose;
 	int		 opts, flags;
 	const char	*conffile = CONF_FILE;
@@ -720,6 +720,13 @@ main(int argc, char *argv[])
 	if (!debug)
 		if (daemon(0, 0) == -1)
 			err(1, "failed to daemonize");
+
+	for (i = 0; i < MAX_BOUNCE_WARN; i++) {
+		if (env->sc_bounce_warn[i] == 0)
+			break;
+		log_debug("debug: bounce warning after %s",
+		    duration_to_text(env->sc_bounce_warn[i]));
+	}
 
 	log_debug("debug: using \"%s\" queue backend", backend_queue);
 	log_debug("debug: using \"%s\" scheduler backend", backend_scheduler);

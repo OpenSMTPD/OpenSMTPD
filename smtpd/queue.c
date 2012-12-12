@@ -175,6 +175,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			queue_bounce(&evp, &req_bounce->bounce);
+			evp.lastbounce = req_bounce->timestamp;
+			queue_envelope_update(&evp);
 			return;
 
 		case IMSG_MDA_DELIVER:

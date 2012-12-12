@@ -102,6 +102,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_EXPIRE,
 		EVP_RETRY,
 		EVP_LASTTRY,
+		EVP_LASTBOUNCE,
 		EVP_FLAGS,
 		EVP_ERRORLINE,
 		EVP_MDA_METHOD,
@@ -182,6 +183,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_DEST,
 		EVP_CTIME,
 		EVP_LASTTRY,
+		EVP_LASTBOUNCE,
 		EVP_EXPIRE,
 		EVP_RETRY,
 		EVP_FLAGS
@@ -296,6 +298,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "retry";
 	case EVP_LASTTRY:
 		return "last-try";
+	case EVP_LASTBOUNCE:
+		return "last-bounce";
 	case EVP_FLAGS:
 		return "flags";
 	case EVP_MDA_METHOD:
@@ -379,6 +383,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_uint16(&ep->retry, buf);
 	case EVP_LASTTRY:
 		return ascii_load_time(&ep->lasttry, buf);
+	case EVP_LASTBOUNCE:
+		return ascii_load_time(&ep->lastbounce, buf);
 	case EVP_FLAGS:
 		return ascii_load_flags(&ep->flags, buf);
 	case EVP_BOUNCE_TYPE:
@@ -443,6 +449,8 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		return ascii_dump_uint16(ep->retry, buf, len);
 	case EVP_LASTTRY:
 		return ascii_dump_time(ep->lasttry, buf, len);
+	case EVP_LASTBOUNCE:
+		return ascii_dump_time(ep->lastbounce, buf, len);
 	case EVP_FLAGS:
 		return ascii_dump_flags(ep->flags, buf, len);
 	case EVP_BOUNCE_TYPE:

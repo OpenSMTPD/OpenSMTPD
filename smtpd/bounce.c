@@ -264,18 +264,42 @@ bounce_send(struct bounce *bounce, const char *fmt, ...)
 	free(p);
 }
 
+static const char *
+bounce_duration(long long int d) {
+	static char buf[32];
+
+	if (d < 60) {
+		snprintf(buf, sizeof buf, "%lli second%s", d, (d == 1)?"":"s");
+	} else if (d < 3600) {
+		d = d / 60;
+		snprintf(buf, sizeof buf, "%lli minute%s", d, (d == 1)?"":"s");
+	}
+	else if (d < 3600 * 24) {
+		d = d / 3600;
+		snprintf(buf, sizeof buf, "%lli hour%s", d, (d == 1)?"":"s");
+	}
+	else {
+		d = d / (3600 * 24);
+		snprintf(buf, sizeof buf, "%lli day%s", d, (d == 1)?"":"s");
+	}
+	return (buf);
+};
+
 #define NOTICE_INTRO							    \
 	"    Hi!\n\n"							    \
 	"    This is the MAILER-DAEMON, please DO NOT REPLY to this e-mail.\n"
 
-const char *notice_final =
+const char *notice_error =
     "    An error has occurred while attempting to deliver a message for\n"
     "    the following list of recipients:\n\n";
 
-const char *notice_intermediate =
-    "   Due to transient error(s), a message is delayed for the following\n"
-    "   recipients (note that this is a only a temporary failure report;\n"
-    "   DO NOT re-send the message to these recipients):\n\n";
+const char *notice_warning =
+    "    A message is delayed for more than %s for the following\n"
+    "    list of recipients:\n\n";
+
+const char *notice_warning2 =
+    "    Please note that this is a only a temporary failure report.\n"
+    "    You DO NOT NEED to re-send the message to these recipients.\n\n";
 
 /* This can simplified once we support PIPELINING */
 static int
@@ -329,9 +353,13 @@ bounce_next(struct bounce *bounce)
 		    evp->sender.user, evp->sender.domain,
 		    time_to_text(time(NULL)));
 
-		iobuf_xfqueue(&bounce->iobuf, "bounce_next: BODY",
-		    (bounce->bounce.type == B_ERROR) ?
-		    notice_final : notice_intermediate);
+		if (bounce->bounce.type == B_ERROR)
+			iobuf_xfqueue(&bounce->iobuf, "bounce_next: BODY",
+			    notice_error);
+		else
+			iobuf_xfqueue(&bounce->iobuf, "bounce_next: BODY",
+			    notice_warning,
+			    bounce_duration(bounce->bounce.delay));
 
 		TAILQ_FOREACH(evp, &bounce->envelopes, entry) {
 			line = evp->errorline;
@@ -343,8 +371,13 @@ bounce_next(struct bounce *bounce)
 			    evp->dest.user, evp->dest.domain, line);
 		}
 
+		iobuf_xfqueue(&bounce->iobuf, "bounce_next: DATA_NOTICE", "\n");
+
+		if (bounce->bounce.type == B_WARNING)
+			iobuf_xfqueue(&bounce->iobuf, "bounce_next: BODY",
+			    notice_warning2);
+
 		iobuf_xfqueue(&bounce->iobuf, "bounce_next: DATA_NOTICE",
-		    "\n"
 		    "    Below is a copy of the original message:\n"
 		    "\n");
 

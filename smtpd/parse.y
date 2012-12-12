@@ -118,7 +118,7 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
-%token	TABLE SSL SMTPS CERTIFICATE DOMAIN
+%token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
@@ -291,6 +291,30 @@ expire		: EXPIRE STRING {
 		| /* empty */	{ $$ = conf->sc_qexpire; }
 		;
 
+bouncedelay	: STRING {
+			time_t	d;
+			int	i;
+
+			d = delaytonum($1);
+			if (d < 0) {
+				yyerror("invalid bounce delay: %s", $1);
+				free($1);
+				YYERROR;
+			}
+			free($1);
+			for (i = 0; i < MAX_BOUNCE_WARN; i++) {
+				if (conf->sc_bounce_warn[i] != 0)
+					continue;
+				conf->sc_bounce_warn[i] = d;
+				break;
+			}
+		}
+
+bouncedelays	: bouncedelays ',' bouncedelay
+		| bouncedelay
+		| /* EMPTY */
+		;
+
 credentials	: AUTH tables	{
 			struct table   *t = table_find($2);
 
@@ -325,6 +349,9 @@ main		: QUEUE compression {
 			conf->sc_queue_flags |= QUEUE_COMPRESS;
 			free($2);
 		}
+		| BOUNCEWARN {
+			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
+		} bouncedelays
 		| EXPIRE STRING {
 			conf->sc_qexpire = delaytonum($2);
 			if (conf->sc_qexpire == -1) {
@@ -892,6 +919,7 @@ lookup(char *s)
 		{ "auth",		AUTH },
 		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
+		{ "bounce-warn",	BOUNCEWARN },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",       	COMPRESSION },
 		{ "deliver",		DELIVER },
@@ -1272,6 +1300,9 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
+
+	/* Report mails delayed for more than 4 hours */
+	conf->sc_bounce_warn[0] = 3600 * 4;
 
 	if (conf->sc_tables_dict == NULL	||
 	    conf->sc_tables_tree == NULL	||
