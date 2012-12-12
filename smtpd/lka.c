@@ -93,12 +93,15 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			    auth->user, auth->authtable);
 
 			table = table_findbyname(auth->authtable);
-			if (table == NULL)
-				auth->success = 0;
+			if (table == NULL) {
+				log_warnx("warn: could not find table %s needed for authentication",
+					auth->authtable);
+				auth->success = -1;
+			}
 			else {
 				switch (table_lookup(table, auth->user, K_CREDENTIALS, (void **)&creds)) {
 				case -1:
-					auth->success = 0;
+					auth->success = -1;
 					break;
 				case 0:
 					auth->success = 0;
@@ -110,7 +113,6 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 					break;
 				}
 			}
-
 			imsg_compose_event(env->sc_ievs[PROC_SMTP],
 			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
 			return;
