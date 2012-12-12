@@ -115,6 +115,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MTA_RELAY,
 		EVP_BOUNCE_TYPE,
 		EVP_BOUNCE_DELAY,
+		EVP_BOUNCE_EXPIRE,
 	};
 	char	*field, *nextline;
 	size_t	 len;
@@ -203,6 +204,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 	enum envelope_field bounce_fields[] = {
 		EVP_BOUNCE_TYPE,
 		EVP_BOUNCE_DELAY,
+		EVP_BOUNCE_EXPIRE,
 	};
 	enum envelope_field *pfields = NULL;
 	int	 i, n, l;
@@ -319,9 +321,11 @@ envelope_ascii_field_name(enum envelope_field field)
 	case EVP_MTA_RELAY_SOURCE:
 		return "mta-relay-source";
 	case EVP_BOUNCE_TYPE:
-		return "mta-bounce-type";
+		return "bounce-type";
 	case EVP_BOUNCE_DELAY:
-		return "mta-bounce-delay";
+		return "bounce-delay";
+	case EVP_BOUNCE_EXPIRE:
+		return "bounce-expire";
 	}
 
 	return NULL;
@@ -391,6 +395,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_bounce_type(&ep->agent.bounce.type, buf);
 	case EVP_BOUNCE_DELAY:
 		return ascii_load_time(&ep->agent.bounce.delay, buf);
+	case EVP_BOUNCE_EXPIRE:
+		return ascii_load_time(&ep->agent.bounce.expire, buf);
 	}
 	return 0;
 }
@@ -456,9 +462,13 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_BOUNCE_TYPE:
 		return ascii_dump_bounce_type(ep->agent.bounce.type, buf, len);
 	case EVP_BOUNCE_DELAY:
-		if (ep->agent.bounce.type == B_WARNING)
-			return ascii_dump_time(ep->agent.bounce.delay, buf, len);
-		return 1;
+		if (ep->agent.bounce.type != B_WARNING)
+			return (1);
+		return ascii_dump_time(ep->agent.bounce.delay, buf, len);
+	case EVP_BOUNCE_EXPIRE:
+		if (ep->agent.bounce.type != B_WARNING)
+			return (1);
+		return ascii_dump_time(ep->agent.bounce.expire, buf, len);
 	}
 	return 0;
 }

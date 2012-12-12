@@ -78,7 +78,8 @@ The following formats are currently supported:
 .Ed
 .Pp
 Expansion formats also support partial expansion using the optional bracket notations
-with substring offset. For example, with recipient domain "example.org":
+with substring offset.
+For example, with recipient domain "example.org":
 .Bd -literal -offset indent
 %{rcpt.domain[0]}	expands to "e"
 %{rcpt.domain[1]}	expands to "x"
@@ -564,6 +565,17 @@ time a new connection is opened.
 .El
 .It Ic expire Ar n {s|m|h|d}
 Specify how long a message that matched this rule can stay in the queue.
+.It Ic bounce-warn Ar n {s|m|h|d} [, ...]
+Specify the delays for which temporary failure reports must be generated
+when messages are stuck in the queue.
+For example:
+.Bd -literal -offset indent
+bounce-warn	1h, 6h, 2d
+.Ed
+.Pp
+will generate a failure report when an envelope is in the queue for more
+than one hour, six hours and two days.
+The default is 4h.
 .El
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX" -compact

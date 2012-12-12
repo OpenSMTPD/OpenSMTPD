@@ -164,6 +164,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			envelope_set_errormsg(&evp, "Envelope expired");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
+			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(&evp);
@@ -277,6 +278,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			e = imsg->data;
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
+			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
@@ -288,6 +290,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			e = imsg->data;
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
+			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(e);
 			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
