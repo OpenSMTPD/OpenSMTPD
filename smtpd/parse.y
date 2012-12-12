@@ -526,7 +526,7 @@ table		: TABLE STRING STRING	{
 		| TABLE STRING {
 			table = table_create("static", $2, NULL);
 			free($2);
-		} tableval_list {
+		} '{' tableval_list '}' {
 			table = NULL;
 		}
 		;
@@ -554,8 +554,8 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
-tableval_list	: '{' string_list '}'			{ }
-		| '{' keyval_list '}'			{ }
+tableval_list	: string_list			{ }
+		| keyval_list			{ }
 		;
 
 tablenew	: STRING			{
@@ -568,7 +568,9 @@ tablenew	: STRING			{
 			$$ = t->t_id;
 			table = table_create("static", NULL, NULL);
 		}
-		| tableval_list	{
+		| '{'				{
+			table = table_create("static", NULL, NULL);
+		} tableval_list '}'		{
 			$$ = table->t_id;
 		}
 		;
