@@ -840,13 +840,14 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 	struct mta_route	*route, *best;
 	struct mta_mx		*mx;
 	int			 level, limit_host, limit_route;
-	int			 family_mismatch;
+	int			 family_mismatch, seen;
 
 	limit_host = 0;
 	limit_route = 0;
 	family_mismatch = 0;
 	level = -1;
 	best = NULL;
+	seen = 0;
 
 	TAILQ_FOREACH(mx, &relay->domain->mxs, entry) {
 		/*
@@ -884,6 +885,9 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 
 		if (mx->host->flags & HOST_IGNORE)
 			continue;
+
+		/* Found a possibly valid mx */
+		seen++;
 
 		if (mx->host->nconn >= MAXCONN_PER_HOST) {
 			limit_host = 1;
@@ -950,7 +954,7 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 	 * XXX Not until we tried all possible sources, and this might 
 	 * change when limits are reset.
 	 */
-	if (relay->nconn == 0) {
+	if (relay->nconn == 0 || seen == 0) {
 		log_info("smtp-out: No reachable MX for relay %s",
 		    mta_relay_to_text(relay));
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
