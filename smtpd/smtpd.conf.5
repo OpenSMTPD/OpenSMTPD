@@ -287,6 +287,9 @@ the default action is to reject the message.
 Following the accept/reject
 decision comes the client's IP address filter:
 .Bl -tag -width Ds
+.It Ic tagged Ar tag
+If specified, the rule will only be matched if the client session was tagged
+.Ar tag .
 .It Ic from any
 Make the rule match regardless of the IP of connecting client.
 .It Ic from local
@@ -559,9 +562,6 @@ when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
 time a new connection is opened.
 .El
-.It Ic tagged Ar tag
-If specified, the rule will only be matched if the client session was tagged
-.Ar tag .
 .It Ic expire Ar n {s|m|h|d}
 Specify how long a message that matched this rule can stay in the queue.
 .El

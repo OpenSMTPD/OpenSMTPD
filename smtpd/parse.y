@@ -799,19 +799,20 @@ from		: FROM tables			{
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		 } from FOR destination usermapping action tagged expire {
+		 } tagged from FOR destination usermapping action expire {
+
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = table_find($3);
-			rule->r_destination = table_find($5);
-			rule->r_mapping = table_find($6);
-			if ($8) {
-				if (strlcpy(rule->r_tag, $8, sizeof rule->r_tag)
+			rule->r_sources = table_find($4);
+			rule->r_destination = table_find($6);
+			rule->r_mapping = table_find($7);
+			if ($3) {
+				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $8);
-					free($8);
+					yyerror("tag name too long: %s", $3);
+					free($3);
 					YYERROR;
 				}
-				free($8);
+				free($3);
 			}
 			rule->r_qexpire = $9;
 
@@ -840,19 +841,19 @@ rule		: ACCEPT {
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} from FOR destination usermapping tagged {
+		} tagged from FOR destination usermapping {
 			rule->r_decision = R_REJECT;
-			rule->r_sources = table_find($3);
-			rule->r_destination = table_find($5);
-			rule->r_mapping = table_find($6);
-			if ($7) {
-				if (strlcpy(rule->r_tag, $7, sizeof rule->r_tag)
+			rule->r_sources = table_find($4);
+			rule->r_destination = table_find($6);
+			rule->r_mapping = table_find($7);
+			if ($3) {
+				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $7);
-					free($7);
+					yyerror("tag name too long: %s", $3);
+					free($3);
 					YYERROR;
 				}
-				free($7);
+				free($3);
 			}
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
