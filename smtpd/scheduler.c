@@ -135,6 +135,7 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 				req.timestamp = timestamp;
 				req.bounce.type = B_WARNING;
 				req.bounce.delay = env->sc_bounce_warn[i];
+				req.bounce.expire = si.expire;
 				imsg_compose_event(iev, IMSG_QUEUE_BOUNCE,
 				    0, 0, -1, &req, sizeof req);
 				break;
