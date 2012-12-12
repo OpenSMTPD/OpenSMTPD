@@ -124,7 +124,7 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
-%token	TABLE SSL SMTPS CERTIFICATE DOMAIN
+%token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
@@ -297,6 +297,30 @@ expire		: EXPIRE STRING {
 		| /* empty */	{ $$ = conf->sc_qexpire; }
 		;
 
+bouncedelay	: STRING {
+			time_t	d;
+			int	i;
+
+			d = delaytonum($1);
+			if (d < 0) {
+				yyerror("invalid bounce delay: %s", $1);
+				free($1);
+				YYERROR;
+			}
+			free($1);
+			for (i = 0; i < MAX_BOUNCE_WARN; i++) {
+				if (conf->sc_bounce_warn[i] != 0)
+					continue;
+				conf->sc_bounce_warn[i] = d;
+				break;
+			}
+		}
+
+bouncedelays	: bouncedelays ',' bouncedelay
+		| bouncedelay
+		| /* EMPTY */
+		;
+
 credentials	: AUTH tables	{
 			struct table   *t = table_find($2);
 
@@ -331,6 +355,9 @@ main		: QUEUE compression {
 			conf->sc_queue_flags |= QUEUE_COMPRESS;
 			free($2);
 		}
+		| BOUNCEWARN {
+			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
+		} bouncedelays
 		| EXPIRE STRING {
 			conf->sc_qexpire = delaytonum($2);
 			if (conf->sc_qexpire == -1) {
@@ -505,7 +532,7 @@ table		: TABLE STRING STRING	{
 		| TABLE STRING {
 			table = table_create("static", $2, NULL);
 			free($2);
-		} tableval_list {
+		} '{' tableval_list '}' {
 			table = NULL;
 		}
 		;
@@ -533,8 +560,8 @@ string_list	: stringel
 		| stringel comma string_list
 		;
 
-tableval_list	: '{' string_list '}'			{ }
-		| '{' keyval_list '}'			{ }
+tableval_list	: string_list			{ }
+		| keyval_list			{ }
 		;
 
 tablenew	: STRING			{
@@ -547,7 +574,9 @@ tablenew	: STRING			{
 			$$ = t->t_id;
 			table = table_create("static", NULL, NULL);
 		}
-		| tableval_list	{
+		| '{'				{
+			table = table_create("static", NULL, NULL);
+		} tableval_list '}'		{
 			$$ = table->t_id;
 		}
 		;
@@ -799,19 +828,20 @@ from		: FROM tables			{
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		 } from FOR destination usermapping action tagged expire {
+		 } tagged from FOR destination usermapping action expire {
+
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = table_find($3);
-			rule->r_destination = table_find($5);
-			rule->r_mapping = table_find($6);
-			if ($8) {
-				if (strlcpy(rule->r_tag, $8, sizeof rule->r_tag)
+			rule->r_sources = table_find($4);
+			rule->r_destination = table_find($6);
+			rule->r_mapping = table_find($7);
+			if ($3) {
+				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $8);
-					free($8);
+					yyerror("tag name too long: %s", $3);
+					free($3);
 					YYERROR;
 				}
-				free($8);
+				free($3);
 			}
 			rule->r_qexpire = $9;
 
@@ -840,19 +870,19 @@ rule		: ACCEPT {
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} from FOR destination usermapping tagged {
+		} tagged from FOR destination usermapping {
 			rule->r_decision = R_REJECT;
-			rule->r_sources = table_find($3);
-			rule->r_destination = table_find($5);
-			rule->r_mapping = table_find($6);
-			if ($7) {
-				if (strlcpy(rule->r_tag, $7, sizeof rule->r_tag)
+			rule->r_sources = table_find($4);
+			rule->r_destination = table_find($6);
+			rule->r_mapping = table_find($7);
+			if ($3) {
+				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $7);
-					free($7);
+					yyerror("tag name too long: %s", $3);
+					free($3);
 					YYERROR;
 				}
-				free($7);
+				free($3);
 			}
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
@@ -897,6 +927,7 @@ lookup(char *s)
 		{ "auth",		AUTH },
 		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
+		{ "bounce-warn",	BOUNCEWARN },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",       	COMPRESSION },
 		{ "deliver",		DELIVER },
@@ -1277,6 +1308,9 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
+
+	/* Report mails delayed for more than 4 hours */
+	conf->sc_bounce_warn[0] = 3600 * 4;
 
 	if (conf->sc_tables_dict == NULL	||
 	    conf->sc_tables_tree == NULL	||

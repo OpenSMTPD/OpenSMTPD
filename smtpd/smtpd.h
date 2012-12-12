@@ -236,6 +236,7 @@ enum imsg_type {
 	IMSG_QUEUE_MESSAGE_FILE,
 	IMSG_QUEUE_REMOVE,
 	IMSG_QUEUE_EXPIRE,
+	IMSG_QUEUE_BOUNCE,
 
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
@@ -382,7 +383,7 @@ struct rule {
 enum delivery_type {
 	D_MDA,
 	D_MTA,
-	D_BOUNCE
+	D_BOUNCE,
 };
 
 struct delivery_mda {
@@ -394,6 +395,17 @@ struct delivery_mda {
 
 struct delivery_mta {
 	struct relayhost	relay;
+};
+
+enum bounce_type {
+	B_ERROR,
+	B_WARNING,
+};
+
+struct delivery_bounce {
+	enum bounce_type	type;
+	time_t			delay;
+	time_t			expire;
 };
 
 enum expand_type {
@@ -470,13 +482,15 @@ struct envelope {
 	union {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
+		struct delivery_bounce	bounce;
 	}				agent;
 
-	time_t				creation;
-	time_t				lasttry;
-	time_t				expire;
 	uint16_t			retry;
+	time_t				creation;
+	time_t				expire;
+	time_t				lasttry;
 	time_t				nexttry;
+	time_t				lastbounce;
 };
 
 enum envelope_field {
@@ -494,6 +508,7 @@ enum envelope_field {
 	EVP_EXPIRE,
 	EVP_RETRY,
 	EVP_LASTTRY,
+	EVP_LASTBOUNCE,
 	EVP_FLAGS,
 	EVP_MDA_METHOD,
 	EVP_MDA_BUFFER,
@@ -503,6 +518,9 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTH,
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
+	EVP_BOUNCE_TYPE,
+	EVP_BOUNCE_DELAY,
+	EVP_BOUNCE_EXPIRE,
 };
 
 struct ssl {
@@ -563,6 +581,8 @@ struct smtpd {
 #define QUEUE_COMPRESS			0x00000001
 	char			       *sc_queue_compress_algo;
 	int				sc_qexpire;
+#define MAX_BOUNCE_WARN			4
+	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
 	struct event			sc_ev;
 	int			       *sc_pipes[PROC_COUNT][PROC_COUNT];
 	struct imsgev		       *sc_ievs[PROC_COUNT];
@@ -805,10 +825,12 @@ struct evpstate {
 struct scheduler_info {
 	uint64_t		evpid;
 	enum delivery_type	type;
-	time_t			creation;
-	time_t			lasttry;
-	time_t			expire;
 	uint16_t		retry;
+	time_t			creation;
+	time_t			expire;
+	time_t			lasttry;
+	time_t			lastbounce;
+	time_t			nexttry;
 };
 
 struct id_list {
@@ -919,6 +941,12 @@ struct imsgproc {
 
 
 /* inter-process structures */
+
+struct bounce_req_msg {
+	uint64_t		evpid;
+	time_t			timestamp;
+	struct delivery_bounce	bounce;
+};
 
 struct queue_req_msg {
 	uint64_t	reqid;

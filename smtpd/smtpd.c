@@ -810,6 +810,13 @@ main(int argc, char *argv[])
 		if (daemon(0, 0) == -1)
 			err(1, "failed to daemonize");
 
+	for (i = 0; i < MAX_BOUNCE_WARN; i++) {
+		if (env->sc_bounce_warn[i] == 0)
+			break;
+		log_debug("debug: bounce warning after %s",
+		    duration_to_text(env->sc_bounce_warn[i]));
+	}
+
 	log_debug("debug: using \"%s\" queue backend", backend_queue);
 	log_debug("debug: using \"%s\" scheduler backend", backend_scheduler);
 	log_debug("debug: using \"%s\" stat backend", backend_stat);
@@ -1542,6 +1549,7 @@ imsg_to_str(int type)
 	CASE(IMSG_QUEUE_MESSAGE_FILE);
 	CASE(IMSG_QUEUE_REMOVE);
 	CASE(IMSG_QUEUE_EXPIRE);
+	CASE(IMSG_QUEUE_BOUNCE);
 
 	CASE(IMSG_PARENT_FORWARD_OPEN);
 	CASE(IMSG_PARENT_FORK_MDA);
