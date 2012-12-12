@@ -577,7 +577,12 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		auth = imsg->data;
 		s = tree_xpop(&wait_parent_auth, auth->id);
 		strnvis(user, auth->user, sizeof user, VIS_WHITE | VIS_SAFE);
-		if (auth->success) {
+		if (auth->success == 0) {
+			log_info("smtp-in: Authentication failed for user %s "
+			    "on session %016"PRIx64, user, s->id);
+			smtp_reply(s, "535 Authentication failed");
+		}
+		else if (auth->success) {
 			log_info("smtp-in: Accepted authentication for user %s "
 			    "on session %016"PRIx64, user, s->id);
 			s->kickcount = 0;
@@ -585,9 +590,9 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 			smtp_reply(s, "235 Authentication succeeded");
 		}
 		else {
-			log_info("smtp-in: Authentication failed for user %s "
-			    "on session %016"PRIx64, user, s->id);
-			smtp_reply(s, "535 Authentication failed");
+			log_info("smtp-in: Authentication temporarily failed "
+			    "for user %s on session %016"PRIx64, user, s->id);
+			smtp_reply(s, "421 Temporary failure");
 		}
 		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);

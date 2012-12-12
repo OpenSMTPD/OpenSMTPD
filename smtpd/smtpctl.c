@@ -95,11 +95,23 @@ usage(void)
 static void
 setup_env(struct smtpd *smtpd)
 {
+	struct passwd	*pwq;
+
 	bzero(smtpd, sizeof (*smtpd));
 	env = smtpd;
 
 	if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
 		errx(1, "unknown user %s", SMTPD_USER);
+	if ((env->sc_pw = pw_dup(env->sc_pw)) == NULL)
+		err(1, NULL);
+
+	env->sc_pwqueue = getpwnam(SMTPD_QUEUE_USER);
+	if (env->sc_pwqueue)
+		pwq = env->sc_pwqueue = pw_dup(env->sc_pwqueue);
+	else
+		pwq = env->sc_pwqueue = pw_dup(env->sc_pw);
+	if (env->sc_pwqueue == NULL)
+		err(1, NULL);
 
 	env->sc_queue = queue_backend_lookup("fs");
 	if (env->sc_queue == NULL)
