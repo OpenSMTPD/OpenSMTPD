@@ -377,14 +377,14 @@ struct delivery_mta {
 };
 
 enum bounce_type {
-	B_FINAL,
-	B_INTERMEDIATE
+	B_ERROR,
+	B_WARNING,
 };
 
 struct delivery_bounce {
 	enum bounce_type	type;
+	int			delay;
 };
-
 
 enum expand_type {
 	EXPAND_INVALID,
@@ -495,6 +495,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
 	EVP_BOUNCE_TYPE,
+	EVP_BOUNCE_DELAY,
 };
 
 struct ssl {
@@ -911,6 +912,11 @@ struct imsgproc {
 
 
 /* inter-process structures */
+
+struct bounce_req_msg {
+	uint64_t		evpid;
+	struct delivery_bounce	bounce;
+};
 
 struct queue_req_msg {
 	uint64_t	reqid;
