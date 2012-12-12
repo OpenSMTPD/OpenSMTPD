@@ -383,7 +383,8 @@ enum bounce_type {
 
 struct delivery_bounce {
 	enum bounce_type	type;
-	int			delay;
+	time_t			delay;
+	time_t			expire;
 };
 
 enum expand_type {
@@ -498,6 +499,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_SOURCE,
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
+	EVP_BOUNCE_EXPIRE,
 };
 
 struct ssl {

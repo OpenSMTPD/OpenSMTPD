@@ -298,7 +298,8 @@ const char *notice_warning =
     "    list of recipients:\n\n";
 
 const char *notice_warning2 =
-    "    Please note that this is a only a temporary failure report.\n"
+    "    Please note that this is only a temporary failure report.\n"
+    "    The message is kept in the queue for up to %s.\n"
     "    You DO NOT NEED to re-send the message to these recipients.\n\n";
 
 /* This can simplified once we support PIPELINING */
@@ -375,7 +376,8 @@ bounce_next(struct bounce *bounce)
 
 		if (bounce->bounce.type == B_WARNING)
 			iobuf_xfqueue(&bounce->iobuf, "bounce_next: BODY",
-			    notice_warning2);
+			    notice_warning2,
+			    bounce_duration(bounce->bounce.expire));
 
 		iobuf_xfqueue(&bounce->iobuf, "bounce_next: DATA_NOTICE",
 		    "    Below is a copy of the original message:\n"
