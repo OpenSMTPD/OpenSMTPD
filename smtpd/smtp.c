@@ -388,6 +388,8 @@ smtp_enqueue(uid_t *euid)
 	}
 
 	sessions++;
+	stat_increment("smtp.session", 1);
+	stat_increment("smtp.session.local", 1);
 
 	return (fd[1]);
 }
