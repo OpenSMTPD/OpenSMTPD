@@ -191,16 +191,17 @@ enum imsg_type {
 	IMSG_MDA_DELIVER,
 	IMSG_MDA_DONE,
 
-	IMSG_MFA_CONNECT,
-	IMSG_MFA_HELO,
-	IMSG_MFA_MAIL,
-	IMSG_MFA_RCPT,
-	IMSG_MFA_DATA,
-	IMSG_MFA_HEADERLINE,
-	IMSG_MFA_DATALINE,
-	IMSG_MFA_QUIT,
-	IMSG_MFA_CLOSE,
-	IMSG_MFA_RSET,
+	IMSG_MFA_REQ_CONNECT,
+	IMSG_MFA_REQ_HELO,
+	IMSG_MFA_REQ_MAIL,
+	IMSG_MFA_REQ_RCPT,
+	IMSG_MFA_REQ_DATA,
+	IMSG_MFA_REQ_EOM,
+	IMSG_MFA_EVENT_RSET,
+	IMSG_MFA_EVENT_COMMIT,
+	IMSG_MFA_EVENT_DISCONNECT,
+	IMSG_MFA_SMTP_DATA,
+	IMSG_MFA_SMTP_RESPONSE,
 
 	IMSG_MTA_BATCH,
 	IMSG_MTA_BATCH_ADD,
@@ -633,28 +634,6 @@ struct filter {
 	char			path[MAXPATHLEN];
 };
 
-union mfa_session_data {
-	struct envelope		evp;
-	char			buffer[MAX_LINE_SIZE];
-};
-
-struct mfa_session {
-	SPLAY_ENTRY(mfa_session)	nodes;
-	uint64_t			id;
-
-	enum filter_status		status;
-	uint32_t			code;
-	char				errorline[MAX_LINE_SIZE];
-
-	union mfa_session_data		data;
-
-	enum filter_hook       		hook;
-	void			       *fhook;
-	void			       *iter;
-
-	struct filter_msg		fm;
-};
-
 struct mta_host {
 	SPLAY_ENTRY(mta_host)	 entry;
 	struct sockaddr		*sa;
@@ -938,12 +917,38 @@ struct queue_resp_msg {
 	uint64_t	evpid;
 };
 
+
+struct mfa_connect_msg {
+	uint64_t		reqid;
+	struct sockaddr_storage	local;
+	struct sockaddr_storage	peer;
+	char			hostname[MAXHOSTNAMELEN];
+};
+
+struct mfa_helo_msg {
+	uint64_t		reqid;
+	int			flags;
+	char			helo[MAX_LINE_SIZE];
+};
+
+struct mfa_mail_msg {
+	uint64_t		reqid;
+	int			flags;
+	struct mailaddr		sender;
+};
+
+struct mfa_rcpt_msg {
+	uint64_t		reqid;
+	struct mailaddr		rcpt;
+};
+
+struct mfa_data_msg {
+	uint64_t		reqid;
+	char			buffer[MAX_LINE_SIZE];
+};
+
 struct mfa_req_msg {
 	uint64_t		reqid;
-	union {
-		char		buffer[MAX_LINE_SIZE];
-		struct envelope	evp;
-	}			u;
 };
 
 enum mfa_resp_status {
@@ -952,14 +957,11 @@ enum mfa_resp_status {
 	MFA_PERMFAIL
 };
 
-struct mfa_resp_msg {
+struct mfa_smtp_resp_msg {
 	uint64_t		reqid;
 	enum mfa_resp_status	status;
 	uint32_t		code;
-	union	{
-		struct mailaddr	mailaddr;
-		char		buffer[MAX_LINE_SIZE];
-	}			u;
+	char			line[MAX_LINE_SIZE];
 };
 
 enum dns_error {
@@ -1142,10 +1144,6 @@ pid_t mda(void);
 
 /* mfa.c */
 pid_t mfa(void);
-void mfa_session_filters_init(void);
-
-/* mfa_session.c */
-void mfa_session(uint64_t, enum filter_hook, union mfa_session_data *);
 
 
 /* mta.c */

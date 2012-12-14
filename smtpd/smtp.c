@@ -72,14 +72,8 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 
 	if (iev->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_CONNECT:
-		case IMSG_MFA_HELO:
-		case IMSG_MFA_MAIL:
-		case IMSG_MFA_RCPT:
-		case IMSG_MFA_DATALINE:
-		case IMSG_MFA_QUIT:
-		case IMSG_MFA_RSET:
-		case IMSG_MFA_CLOSE:
+		case IMSG_MFA_SMTP_DATA:
+		case IMSG_MFA_SMTP_RESPONSE:
 			smtp_session_imsg(iev, imsg);
 			return;
 		}

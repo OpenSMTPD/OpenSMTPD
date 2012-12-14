@@ -39,23 +39,47 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void mfa_session_proceed(struct mfa_session *);
-static void mfa_session_destroy(struct mfa_session *);
-static void mfa_session_done(struct mfa_session *);
-static void mfa_session_fail(struct mfa_session *, enum filter_status, uint32_t, char *);
 
-static void mfa_session_filter_register(uint32_t, struct filter *);
-void mfa_session_imsg_handler(struct imsg *, void *);
-
-static struct tree	sessions;
-
-struct fhook {
-	SIMPLEQ_ENTRY(fhook)	entry;
-	struct filter	       *filter;
+struct mfa_filter {
+	TAILQ_ENTRY(mfa_filter)		 entry;
+	struct imsgproc			*proc;
 };
 
-/* XXX - needs to be update to match the number of filter_hook in smtpd-api.h */
-SIMPLEQ_HEAD(flist, fhook)	filter_hooks[9];
+struct mfa_filter_chain {
+	TAILQ_HEAD(, mfa_filter)	filters;
+};
+
+struct mfa_request {
+	uint64_t		 conn_id;
+	uint64_t		 req_id;
+
+	struct mfa_filter	*current;	/* the filter currently running
+	struct tree		 notify;	/* list of filters to notify */
+};
+
+
+static void
+mfa_finalize(struct mfa_request *req)
+{
+	struct mfa_filter	*f;
+
+	while (tree_poproot(&req->notify, NULL, (void**)&f)) {
+		mfa_filter_notify(f, ???);
+	}
+
+	imsg_compose_event(env->sc_ievs[PROC_SMTP], ???);
+};
+
+
+void
+mfa_filter_imsg(struct , struct imsg *imsg)
+{
+}
+
+void
+mfa_filter()
+{
+};
 
 void
 mfa_session_filters_init(void)

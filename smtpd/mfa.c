@@ -41,44 +41,52 @@
 static void mfa_imsg(struct imsgev *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
-static void mfa_filter(struct mfa_req_msg *, enum filter_hook);
 
 static void
 mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 {
-	struct filter	       *filter;
+	struct mfa_connect_msg		*req_connect;
+	struct mfa_data_msg		*req_data;
+	struct mfa_req_msg		*req;
+	struct mfa_smtp_resp_msg	 resp;
+	struct filter			*filter;
 
 	if (iev->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_CONNECT:
-			mfa_filter(imsg->data, HOOK_CONNECT);
+		case IMSG_MFA_REQ_CONNECT:
+			req_connect = imsg->data;
+			resp.reqid = req_connect->reqid;
+			resp.status = MFA_OK;
+			resp.code = 0;
+			resp.line[0] = '\0';
+			imsg_compose_event(iev, IMSG_MFA_SMTP_RESPONSE,
+			    0, 0, -1, &resp, sizeof(resp));
 			return;
-		case IMSG_MFA_HELO:
-			mfa_filter(imsg->data, HOOK_HELO);
+
+		case IMSG_MFA_REQ_HELO:
+		case IMSG_MFA_REQ_MAIL:
+		case IMSG_MFA_REQ_RCPT:
+		case IMSG_MFA_REQ_DATA:
+		case IMSG_MFA_REQ_EOM:
+			req = imsg->data;
+			resp.reqid = req->reqid;
+			resp.status = MFA_OK;
+			resp.code = 0;
+			resp.line[0] = '\0';
+			imsg_compose_event(iev, IMSG_MFA_SMTP_RESPONSE,
+			    0, 0, -1, &resp, sizeof(resp));
 			return;
-		case IMSG_MFA_MAIL:
-			mfa_filter(imsg->data, HOOK_MAIL);
+
+		case IMSG_MFA_SMTP_DATA:
+			req_data = imsg->data;
+			imsg_compose_event(iev, IMSG_MFA_SMTP_DATA,
+			    0, 0, -1, req_data, imsg->hdr.len - sizeof(imsg->hdr));
 			return;
-		case IMSG_MFA_RCPT:
-			mfa_filter(imsg->data, HOOK_RCPT);
-			return;
-		case IMSG_MFA_DATA:
-			mfa_filter(imsg->data, HOOK_DATA);
-			return;
-		case IMSG_MFA_DATALINE:
-			mfa_filter(imsg->data, HOOK_DATALINE);
-			return;
-		case IMSG_MFA_HEADERLINE:
-			mfa_filter(imsg->data, HOOK_HEADERLINE);
-			return;
-		case IMSG_MFA_QUIT:
-			mfa_filter(imsg->data, HOOK_QUIT);
-			return;
-		case IMSG_MFA_CLOSE:
-			mfa_filter(imsg->data, HOOK_CLOSE);
-			return;
-		case IMSG_MFA_RSET:
-			mfa_filter(imsg->data, HOOK_RSET);
+
+		case IMSG_MFA_EVENT_RSET:
+		case IMSG_MFA_EVENT_COMMIT:
+		case IMSG_MFA_EVENT_DISCONNECT:
+			/* No reponse expected */
 			return;
 		}
 	}
@@ -96,7 +104,6 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 
 		case IMSG_CONF_END:
-			mfa_session_filters_init();
 			return;
 
 		case IMSG_CTL_VERBOSE:
@@ -201,19 +208,4 @@ mfa(void)
 	mfa_shutdown();
 
 	return (0);
-}
-
-static void
-mfa_filter(struct mfa_req_msg *d, enum filter_hook hook)
-{
-	union mfa_session_data	data;
-
-	switch (hook) {
-	case HOOK_DATALINE:
-		strlcpy(data.buffer, d->u.buffer, sizeof data.buffer);
-		break;
-	default:
-		data.evp = d->u.evp;
-	}
-	mfa_session(d->reqid, hook, &data);
 }
