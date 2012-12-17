@@ -45,15 +45,14 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void queue_imsg(struct imsgev *, struct imsg *);
+static void queue_imsg(struct mproc *, struct imsg *);
 static void queue_timeout(int, short, void *);
 static void queue_bounce(struct envelope *, struct delivery_bounce *);
-static void queue_pass_to_scheduler(struct imsgev *, struct imsg *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
 static void
-queue_imsg(struct imsgev *iev, struct imsg *imsg)
+queue_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
@@ -66,7 +65,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 	uint64_t		 id;
 	uint32_t		 msgid;
 
-	if (iev->proc == PROC_SMTP) {
+	if (p->proc == PROC_SMTP) {
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
@@ -75,17 +74,16 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.reqid = req->reqid;
 			resp.success = (ret == 0) ? 0 : 1;
 			resp.evpid = (ret == 0) ? 0 : msgid_to_evpid(msgid);
-			imsg_compose_event(iev, IMSG_QUEUE_CREATE_MESSAGE, 0, 0,
-			    -1, &resp, sizeof resp);
+			m_compose(p, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
+			    &resp, sizeof resp);
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
 			queue_message_incoming_delete(msgid);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-			    &msgid, sizeof msgid);
+			m_compose(p_scheduler, IMSG_QUEUE_REMOVE_MESSAGE,
+			    0, 0, -1, &msgid, sizeof msgid);
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
@@ -95,10 +93,10 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.reqid = req->reqid;
 			resp.success = (ret == 0) ? 0 : 1;
 			resp.evpid = msgid_to_evpid(msgid);
-			imsg_compose_event(iev, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0,
-			    -1, &resp, sizeof resp);
+			m_compose(p, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
+			    &resp, sizeof resp);
 			if (resp.success)
-				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+				m_compose(p_scheduler,
 				    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
 				    &msgid, sizeof msgid);
 			return;
@@ -110,8 +108,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.reqid = req->reqid;
 			resp.success = (fd == -1) ? 0 : 1;
 			resp.evpid = req->evpid;
-			imsg_compose_event(iev, IMSG_QUEUE_MESSAGE_FILE, 0, 0,
-			    fd, &resp, sizeof resp);
+			m_compose(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd,
+			    &resp, sizeof resp);
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
@@ -121,7 +119,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	if (iev->proc == PROC_LKA) {
+	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
 			e = imsg->data;
@@ -129,11 +127,10 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.reqid = e->session_id;
 			resp.success = (ret == 0) ? 0 : 1;
 			resp.evpid = (ret == 0) ? 0 : e->id;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &resp,
-			    sizeof resp);
+			m_compose(p_smtp, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+			    &resp, sizeof resp);
 			if (resp.success)
-				imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
+				m_compose(p_scheduler,
 				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, e,
 				    sizeof *e);
 			return;
@@ -143,14 +140,13 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.reqid = e->session_id;
 			resp.success = 1;
 			resp.evpid = 0;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, &resp,
-			    sizeof resp);
+			m_compose(p_smtp, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
+			    &resp, sizeof resp);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_SCHEDULER) {
+	if (p->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_REMOVE:
 			id = *(uint64_t*)(imsg->data);
@@ -189,8 +185,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (queue_envelope_load(id, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
-			imsg_compose_event(env->sc_ievs[PROC_MDA],
-			    IMSG_MDA_DELIVER, 0, 0, -1, &evp, sizeof evp);
+			m_compose(p_mda, IMSG_MDA_DELIVER, 0, 0, -1,
+			    &evp, sizeof evp);
 			return;
 
 		case IMSG_BOUNCE_INJECT:
@@ -200,8 +196,7 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		case IMSG_MTA_BATCH:
 			batch_id = generate_uid();
-			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_MTA_BATCH, 0, 0, -1,
+			m_compose(p_mta, IMSG_MTA_BATCH, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
 
@@ -211,21 +206,18 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				errx(1, "cannot load evp:%016" PRIx64, id);
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
-			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_MTA_BATCH_ADD, 0, 0, -1, &evp, sizeof evp);
+			m_compose(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1,
+			    &evp, sizeof evp);
 			return;
 
 		case IMSG_MTA_BATCH_END:
-			imsg_compose_event(env->sc_ievs[PROC_MTA],
-			    IMSG_MTA_BATCH_END, 0, 0, -1,
+			m_compose(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1,
 			    &batch_id, sizeof batch_id);
 			return;
 
 		case IMSG_CTL_LIST_ENVELOPES:
 			if (imsg->hdr.len == sizeof imsg->hdr) {
-				imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-				    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid,
-				    0, -1, NULL, 0);
+				m_forward(p_control, imsg);
 				return;
 			}
 			state = imsg->data;
@@ -247,35 +239,33 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 				 */
 				evp.lasttry = state->time;
 			}
-			imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-			    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1,
-			    &evp, sizeof evp);
+			m_compose(p_control, IMSG_CTL_LIST_ENVELOPES,
+			    imsg->hdr.peerid, 0, -1, &evp, sizeof evp);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_MTA || iev->proc == PROC_MDA) {
+	if (p->proc == PROC_MTA || p->proc == PROC_MDA) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_MESSAGE_FD:
 			fd = queue_message_fd_r(imsg->hdr.peerid);
-			imsg_compose_event(iev,  IMSG_QUEUE_MESSAGE_FD, 0, 0,
-			    fd, imsg->data, imsg->hdr.len - sizeof imsg->hdr);
+			m_compose(p,  IMSG_QUEUE_MESSAGE_FD, 0, 0, fd,
+			    imsg->data, imsg->hdr.len - sizeof imsg->hdr);
 			return;
 
 		case IMSG_DELIVERY_OK:
 			e = imsg->data;
 			queue_envelope_delete(e);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_DELIVERY_OK, 0, 0, -1, &e->id, sizeof e->id);
+			m_compose(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1,
+			    &e->id, sizeof e->id);
 			return;
 
 		case IMSG_DELIVERY_TEMPFAIL:
 			e = imsg->data;
 			e->retry++;
 			queue_envelope_update(e);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1, e,
-			    sizeof *e);
+			m_compose(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
+			    e, sizeof *e);
 			return;
 
 		case IMSG_DELIVERY_PERMFAIL:
@@ -285,9 +275,8 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(e);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_DELIVERY_PERMFAIL, 0, 0, -1, &e->id,
-			    sizeof e->id);
+			m_compose(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
+			&e->id, sizeof e->id);
 			return;
 
 		case IMSG_DELIVERY_LOOP:
@@ -297,42 +286,34 @@ queue_imsg(struct imsgev *iev, struct imsg *imsg)
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(e);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_DELIVERY_LOOP, 0, 0, -1, &e->id, sizeof e->id);
+			m_compose(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1,
+			    &e->id, sizeof e->id);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_CONTROL) {
+	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_PAUSE_MDA:
 		case IMSG_CTL_PAUSE_MTA:
 		case IMSG_CTL_RESUME_MDA:
 		case IMSG_CTL_RESUME_MTA:
 		case IMSG_QUEUE_REMOVE:
-			queue_pass_to_scheduler(iev, imsg);
+			m_forward(p_scheduler, imsg);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_PARENT) {
+	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_VERBOSE:
 			log_verbose(*(int *)imsg->data);
-			queue_pass_to_scheduler(iev, imsg);
+			m_forward(p_scheduler, imsg);
 			return;
 		}
 	}
 
 	errx(1, "queue_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
-}
-
-static void
-queue_pass_to_scheduler(struct imsgev *iev, struct imsg *imsg)
-{
-	imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], imsg->hdr.type,
-	    iev->proc, imsg->hdr.pid, imsg->fd, imsg->data,
-	    imsg->hdr.len - sizeof imsg->hdr);
 }
 
 static void
@@ -358,11 +339,11 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	} else {
 		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
-		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &b, sizeof b);
+		m_compose(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+		    &b, sizeof b);
 		msgid = evpid_to_msgid(b.id);
-		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid, sizeof msgid);
+		m_compose(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
+		    &msgid, sizeof msgid);
 		stat_increment("queue.bounce", 1);
 	}
 }
@@ -403,16 +384,6 @@ queue(void)
 	struct event	 ev_qload;
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
-
-	struct peer peers[] = {
-		{ PROC_PARENT,		imsg_dispatch },
-		{ PROC_CONTROL,		imsg_dispatch },
-		{ PROC_SMTP,		imsg_dispatch },
-		{ PROC_MDA,		imsg_dispatch },
-		{ PROC_MTA,		imsg_dispatch },
-		{ PROC_LKA,		imsg_dispatch },
-		{ PROC_SCHEDULER,	imsg_dispatch }
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -455,8 +426,14 @@ queue(void)
 
 	fdlimit(1.0);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_PARENT);
+	config_peer(PROC_CONTROL);
+	config_peer(PROC_SMTP);
+	config_peer(PROC_MDA);
+	config_peer(PROC_MTA);
+	config_peer(PROC_LKA);
+	config_peer(PROC_SCHEDULER);
+	config_done();
 
 	/* setup queue loading task */
 	evtimer_set(&ev_qload, queue_timeout, &ev_qload);
@@ -483,21 +460,19 @@ queue_timeout(int fd, short event, void *p)
 	r = queue_envelope_walk(&evp);
 	if (r == -1) {
 		if (msgid)
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
-			    sizeof msgid);
+			m_compose(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE,
+			    0, 0, -1, &msgid, sizeof msgid);
 		log_debug("debug: queue: done loading queue into scheduler");
 		return;
 	}
 
 	if (r) {
 		if (msgid && evpid_to_msgid(evp.id) != msgid)
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-			    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, &msgid,
-			    sizeof msgid);
+			m_compose(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE,
+			    0, 0, -1, &msgid, sizeof msgid);
 		msgid = evpid_to_msgid(evp.id);
-		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, &evp, sizeof evp);
+		m_compose(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+		    &evp, sizeof evp);
 	}
 
 	tv.tv_sec = 0;

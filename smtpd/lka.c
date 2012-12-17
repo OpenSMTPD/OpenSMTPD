@@ -46,13 +46,13 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void lka_imsg(struct imsgev *, struct imsg *);
+static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_encode_credentials(char *, size_t, struct credentials *);
 
 static void
-lka_imsg(struct imsgev *iev, struct imsg *imsg)
+lka_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct lka_expand_msg		*req;
 	struct lka_source_req_msg	*req_source;
@@ -74,11 +74,11 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 	    imsg->hdr.type == IMSG_DNS_PTR ||
 	    imsg->hdr.type == IMSG_DNS_MX ||
 	    imsg->hdr.type == IMSG_DNS_MX_PREFERENCE) {
-		dns_imsg(iev, imsg);
+		dns_imsg(p, imsg);
 		return;
 	}
 
-	if (iev->proc == PROC_SMTP) {
+	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_EXPAND_RCPT:
 			req = imsg->data;
@@ -88,8 +88,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			auth = imsg->data;
 
 			if (! auth->authtable[0]) {
-				imsg_compose_event(env->sc_ievs[PROC_PARENT],
-				    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+				m_compose(p_parent, IMSG_LKA_AUTHENTICATE,
+				    0, 0, -1, auth, sizeof(*auth));
 				return;
 			}
 
@@ -117,13 +117,13 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 					break;
 				}
 			}
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+			m_compose(p_smtp, IMSG_LKA_AUTHENTICATE, 0, 0, -1,
+			    auth, sizeof(*auth));
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_MDA) {
+	if (p->proc == PROC_MDA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_USERINFO: {
 			struct userinfo		       *userinfo = NULL;
@@ -152,7 +152,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 					break;
 				}
 			}
-			imsg_compose_event(iev, IMSG_LKA_USERINFO, 0, 0, -1,
+			m_compose(p, IMSG_LKA_USERINFO, 0, 0, -1,
 			    &lka_userinfo_resp, sizeof lka_userinfo_resp);
 			free(userinfo);
 			return;
@@ -160,7 +160,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	if (iev->proc == PROC_MTA) {
+	if (p->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_SECRET: {
 			struct credentials *credentials = NULL;
@@ -170,8 +170,8 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			if (table == NULL) {
 				log_warn("warn: Credentials table %s missing",
 				    secret->tablename);
-				imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0,
-				    -1, secret, sizeof *secret);
+				m_compose(p, IMSG_LKA_SECRET, 0, 0, -1,
+				    secret, sizeof *secret);
 				return;
 			}
 			ret = table_lookup(table, secret->label, K_CREDENTIALS,
@@ -195,7 +195,7 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 				sizeof secret->secret, credentials) == 0)
 				log_warnx("warn: Credentials parse error for "
 				    "%s", secret->label);
-			imsg_compose_event(iev, IMSG_LKA_SECRET, 0, 0, -1,
+			m_compose(p, IMSG_LKA_SECRET, 0, 0, -1,
 			    secret, sizeof *secret);
 			free(credentials);
 			return;
@@ -229,13 +229,13 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 					free(src);
 				}
 			}
-			imsg_compose_event(iev, IMSG_LKA_SOURCE, 0, 0, -1,
+			m_compose(p, IMSG_LKA_SOURCE, 0, 0, -1,
 			    &resp, sizeof resp);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_PARENT) {
+	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
 			env->sc_rules_reload = xcalloc(1,
@@ -334,9 +334,10 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			tables_dict = NULL;
 			tables_tree = NULL;
 
-			/* start fulfilling requests */
-			event_add(&env->sc_ievs[PROC_MTA]->ev, NULL);
-			event_add(&env->sc_ievs[PROC_SMTP]->ev, NULL);
+			/* Start fulfilling requests */
+			mproc_enable(p_mda);
+			mproc_enable(p_mta);
+			mproc_enable(p_smtp);
 			return;
 
 		case IMSG_CTL_VERBOSE:
@@ -348,13 +349,13 @@ lka_imsg(struct imsgev *iev, struct imsg *imsg)
 			return;
 		case IMSG_LKA_AUTHENTICATE:
 			auth = imsg->data;
-			imsg_compose_event(env->sc_ievs[PROC_SMTP],
-			    IMSG_LKA_AUTHENTICATE, 0, 0, -1, auth, sizeof(*auth));
+			m_compose(p_smtp,  IMSG_LKA_AUTHENTICATE, 0, 0, -1,
+			    auth, sizeof(*auth));
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_CONTROL) {
+	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_UPDATE_TABLE:
 			table = table_findbyname(imsg->data);
@@ -410,19 +411,9 @@ lka(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
-
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
 	struct event	 ev_sigchld;
-
-	struct peer peers[] = {
-		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_QUEUE,	imsg_dispatch },
-		{ PROC_SMTP,	imsg_dispatch },
-		{ PROC_MDA,	imsg_dispatch },
-		{ PROC_MTA,	imsg_dispatch },
-		{ PROC_CONTROL,	imsg_dispatch }
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -463,12 +454,18 @@ lka(void)
 	 */
 	fdlimit(1.0);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_PARENT);
+	config_peer(PROC_QUEUE);
+	config_peer(PROC_SMTP);
+	config_peer(PROC_MDA);
+	config_peer(PROC_MTA);
+	config_peer(PROC_CONTROL);
+	config_done();
 
-	/* ignore them until we get our config */
-	event_del(&env->sc_ievs[PROC_MTA]->ev);
-	event_del(&env->sc_ievs[PROC_SMTP]->ev);
+	/* Ignore them until we get our config */
+	mproc_disable(p_mda);
+	mproc_disable(p_mta);
+	mproc_disable(p_smtp);
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");

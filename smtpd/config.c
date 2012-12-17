@@ -33,28 +33,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int is_peer(struct peer *, enum smtp_proc_type, uint);
-
-static int
-is_peer(struct peer *p, enum smtp_proc_type peer, uint peercount)
-{
-	uint	i;
-
-	for (i = 0; i < peercount; i++)
-		if (p[i].id == peer)
-			return (1);
-	return (0);
-}
-
-void
-unconfigure(void)
-{
-}
-
-void
-configure(void)
-{
-}
+static int pipes[PROC_COUNT][PROC_COUNT];
 
 void
 purge_config(uint8_t what)
@@ -103,155 +82,70 @@ purge_config(uint8_t what)
 void
 init_pipes(void)
 {
-	int	 i;
-	int	 j;
-	int	 count;
-	int	 sockpair[2];
+	int	 i, j, sockpair[2];
 
 	for (i = 0; i < PROC_COUNT; i++)
-		for (j = 0; j < PROC_COUNT; j++) {
-			/*
-			 * find out how many instances of this peer there are.
-			 */
-			if (i >= j || env->sc_instances[i] == 0 ||
-			    env->sc_instances[j] == 0)
-				continue;
-
-			if (env->sc_instances[i] > 1 &&
-			    env->sc_instances[j] > 1)
-				fatalx("N:N peering not supported");
-
-			count = env->sc_instances[i] * env->sc_instances[j];
-
-			env->sc_pipes[i][j] = xcalloc(count, sizeof(int),
-			    "init_pipes");
-			env->sc_pipes[j][i] = xcalloc(count, sizeof(int),
-			    "init_pipes");
-
-			while (--count >= 0) {
-				if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
-				    sockpair) == -1)
-					fatal("socketpair");
-				env->sc_pipes[i][j][count] = sockpair[0];
-				env->sc_pipes[j][i][count] = sockpair[1];
-				session_socket_blockmode(
-				    env->sc_pipes[i][j][count],
-				    BM_NONBLOCK);
-				session_socket_blockmode(
-				    env->sc_pipes[j][i][count],
-				    BM_NONBLOCK);
-			}
+		for (j = i + 1; j < PROC_COUNT; j++) {
+			if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
+			    sockpair) == -1)
+				fatal("socketpair");
+			pipes[i][j] = sockpair[0];
+			pipes[j][i] = sockpair[1];
+			session_socket_blockmode(pipes[i][j], BM_NONBLOCK);
+			session_socket_blockmode(pipes[j][i], BM_NONBLOCK);
 		}
 }
 
 void
-config_pipes(struct peer *p, uint peercount)
+config_peer(enum smtp_proc_type proc)
 {
-	uint	i;
-	uint	j;
-	int	count;
+	struct mproc	*p;
 
-	/*
-	 * close pipes
-	 */
-	for (i = 0; i < PROC_COUNT; i++) {
-		for (j = 0; j < PROC_COUNT; j++) {
-			if (i == j ||
-			    env->sc_instances[i] == 0 ||
-			    env->sc_instances[j] == 0)
-				continue;
+	if (proc == smtpd_process)
+		fatal("config_peers: cannot peer with oneself");
 
-			for (count = 0;
-			    count < env->sc_instances[i]*env->sc_instances[j];
-			    count++) {
-				if (i == smtpd_process &&
-				    is_peer(p, j, peercount) &&
-				    count == env->sc_instance)
-					continue;
-				if (i == smtpd_process &&
-				    is_peer(p, j, peercount) &&
-				    env->sc_instances[i] == 1)
-					continue;
-				close(env->sc_pipes[i][j][count]);
-				env->sc_pipes[i][j][count] = -1;
-			}
-		}
-	}
+	p = xcalloc(1, sizeof *p, "config_peer");
+	p->proc = proc;
+	p->name = xstrdup(proc_to_str(proc), "config_peer");
+	p->handler = imsg_dispatch;
+
+	mproc_init(p, pipes[smtpd_process][proc]);
+	mproc_enable(p);
+	pipes[smtpd_process][proc] = -1;
+
+	if (proc == PROC_CONTROL)
+		p_control = p;
+	else if (proc == PROC_LKA)
+		p_lka = p;
+	else if (proc == PROC_MDA)
+		p_mda = p;
+	else if (proc == PROC_MFA)
+		p_mfa = p;
+	else if (proc == PROC_MTA)
+		p_mta = p;
+	else if (proc == PROC_PARENT)
+		p_parent = p;
+	else if (proc == PROC_QUEUE)
+		p_queue = p;
+	else if (proc == PROC_SCHEDULER)
+		p_scheduler = p;
+	else if (proc == PROC_SMTP)
+		p_smtp = p;
+	else
+		fatalx("bad peer");
 }
 
 void
-config_peers(struct peer *p, uint peercount)
+config_done(void)
 {
-	int	n;
-	uint	src;
-	uint	dst;
-	uint	i;
-	/*
-	 * listen on appropriate pipes
-	 */
-	for (i = 0; i < peercount; i++) {
-
-		src = smtpd_process;
-		dst = p[i].id;
-
-		if (dst == smtpd_process)
-			fatal("config_peers: cannot peer with oneself");
-
-		env->sc_ievs[dst] = xcalloc(env->sc_instances[dst],
-		    sizeof(struct imsgev), "config_peers");
-
-		for (n = 0; n < env->sc_instances[dst]; n++) {
-			imsg_init(&(env->sc_ievs[dst][n].ibuf),
-			    env->sc_pipes[src][dst][n]);
-			env->sc_ievs[dst][n].handler =  p[i].cb;
-			env->sc_ievs[dst][n].events = EV_READ;
-			env->sc_ievs[dst][n].proc = dst;
-			env->sc_ievs[dst][n].data = &env->sc_ievs[dst][n];
-
-			event_set(&(env->sc_ievs[dst][n].ev),
-			    env->sc_ievs[dst][n].ibuf.fd,
-			    env->sc_ievs[dst][n].events,
-			    env->sc_ievs[dst][n].handler,
-			    env->sc_ievs[dst][n].data);
-			event_add(&(env->sc_ievs[dst][n].ev), NULL);
-		}
-	}
-}
-
-#ifdef VALGRIND
-void free_peers(void)
-{
-	u_int	i;
-
-	for (i = 0; i < PROC_COUNT; i++) {
-		if (env->sc_ievs[i]) {
-			free(env->sc_ievs[i]);
-			env->sc_ievs[i] = NULL;
-		}
-	}
-}
-
-void free_pipes(void)
-{
-	u_int	i;
-	u_int	j;
+	unsigned int	i, j;
 
 	for (i = 0; i < PROC_COUNT; i++) {
 		for (j = 0; j < PROC_COUNT; j++) {
-			if (i >= j || env->sc_instances[i] == 0 ||
-			   env->sc_instances[j] == 0)
+			if (i == j || pipes[i][j] == -1)
 				continue;
-
-			if (env->sc_pipes[i][j]) {
-				free(env->sc_pipes[i][j]);
-				env->sc_pipes[i][j] = NULL;
-			}
-
-			if (env->sc_pipes[j][i]) {
-				free(env->sc_pipes[j][i]);
-				env->sc_pipes[j][i] = NULL;
-			}
+			close(pipes[i][j]);
+			pipes[i][j] = -1;
 		}
 	}
 }
-#endif
