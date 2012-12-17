@@ -478,6 +478,11 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 	struct queue_req_msg		 req_queue;
 	struct lka_expand_msg		 req_lka;
 	void				*ssl;
+	const char			*line;
+	uint32_t			 code;
+
+	code = resp->code ? resp->code : 0;
+	line = resp->line[0] ? resp->line : NULL;
 
 	switch (s->mfa_imsg) {
 
@@ -501,7 +506,9 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 
 	case IMSG_MFA_REQ_HELO:
 		if (resp->status != MFA_OK) {
-			smtp_reply(s, "%d Hello rejected", resp->code);
+			code = code ? code : 530;
+			line = line ? line : "Hello rejected";
+			smtp_reply(s, "%d %s", code, line);
 			io_reload(&s->io);
 			return;
 		}
@@ -530,7 +537,9 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 
 	case IMSG_MFA_REQ_MAIL:
 		if (resp->status != MFA_OK) {
-			smtp_reply(s, "%d Sender rejected", resp->code);
+			code = code ? code : 530;
+			line = line ? line : "Sender rejected";
+			smtp_reply(s, "%d %s", code, line);
 			io_reload(&s->io);
 			return;
 		}
@@ -543,7 +552,10 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 
 	case IMSG_MFA_REQ_RCPT:
 		if (resp->status != MFA_OK) {
-			smtp_reply(s, "%d Recipient rejected", resp->code);
+			code = code ? code : 530;
+			line = line ? line : "Recipient rejected";
+			smtp_reply(s, "%d %s", code, line);
+
 			s->rcptfail += 1;
 			if (s->rcptfail >= SMTP_KICK_RCPTFAIL) {
 				log_info("smtp-in: Ending session %016" PRIx64
@@ -562,13 +574,9 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 
 	case IMSG_MFA_REQ_DATA:
 		if (resp->status != MFA_OK) {
-			smtp_reply(s, "%d Recipient rejected", resp->code);
-			s->rcptfail += 1;
-			if (s->rcptfail >= SMTP_KICK_RCPTFAIL) {
-				log_info("smtp-in: Ending session %016" PRIx64
-				    ": too many failed RCPT", s->id);
-				smtp_enter_state(s, STATE_QUIT);
-			}
+			code = code ? code : 530;
+			line = line ? line : "Message rejected";
+			smtp_reply(s, "%d %s", code, line);
 			io_reload(&s->io);
 			return;
 		}
@@ -581,7 +589,9 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 
 	case IMSG_MFA_REQ_EOM:
 		if (resp->status != MFA_OK) {
-			smtp_reply(s, "%d Message rejected", resp->code);
+			code = code ? code : 530;
+			line = line ? line : "Message rejected";
+			smtp_reply(s, "%d %s", code, line);
 			io_reload(&s->io);
 			return;
 		}
