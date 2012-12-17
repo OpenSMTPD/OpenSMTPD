@@ -311,7 +311,8 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
 		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
 		{ "ssl://",		F_SMTPS|F_STARTTLS		},
-		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	}
+		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	},
+		{ "backup://",		F_BACKUP       			}
 	};
 	const char     *errstr = NULL;
 	char	       *p, *q;
@@ -402,6 +403,9 @@ relayhost_to_text(struct relayhost *relay)
 		break;
 	case F_SMTPS:
 		strlcat(buf, "smtps://", sizeof buf);
+		break;
+	case F_BACKUP:
+		strlcat(buf, "backup://", sizeof buf);
 		break;
 	default:
 		strlcat(buf, "smtp://", sizeof buf);
