@@ -957,8 +957,8 @@ struct mfa_req_msg {
 
 enum mfa_resp_status {
 	MFA_OK,
-	MFA_TEMPFAIL,
-	MFA_PERMFAIL
+	MFA_FAIL,
+	MFA_CLOSE,
 };
 
 struct mfa_smtp_resp_msg {

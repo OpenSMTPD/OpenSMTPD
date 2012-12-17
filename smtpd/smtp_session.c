@@ -484,6 +484,15 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 	code = resp->code ? resp->code : 0;
 	line = resp->line[0] ? resp->line : NULL;
 
+	if (resp->status == MFA_CLOSE) {
+		code = code ? code : 421;
+		line = line ? line : "Temporary failure";
+		smtp_reply(s, "%d %s", code, line);
+		smtp_enter_state(s, STATE_QUIT);
+		io_reload(&s->io);
+		return;
+	}
+
 	switch (s->mfa_imsg) {
 
 	case IMSG_MFA_REQ_CONNECT:
