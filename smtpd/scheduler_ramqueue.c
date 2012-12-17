@@ -184,6 +184,8 @@ scheduler_ramqueue_insert(struct scheduler_info *si)
 
 	envelope->flags = RQ_ENVELOPE_PENDING;
 	sorted_insert(&update->q_pending, envelope);
+
+	si->nexttry = envelope->sched;
 }
 
 static size_t
@@ -261,6 +263,8 @@ scheduler_ramqueue_update(struct scheduler_info *si)
 	sorted_insert(&ramqueue.q_pending, evp);
 	evp->flags &= ~RQ_ENVELOPE_INFLIGHT;
 	evp->flags |= RQ_ENVELOPE_PENDING;
+
+	si->nexttry = evp->sched;
 }
 
 static void

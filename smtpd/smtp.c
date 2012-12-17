@@ -42,7 +42,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void smtp_imsg(struct imsgev *, struct imsg *);
+static void smtp_imsg(struct mproc *, struct imsg *);
 static void smtp_shutdown(void);
 static void smtp_sig_handler(int, short, void *);
 static void smtp_setup_events(void);
@@ -56,57 +56,51 @@ static int smtp_can_accept(void);
 static size_t	sessions;
 
 static void
-smtp_imsg(struct imsgev *iev, struct imsg *imsg)
+smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct listener		*l;
 	struct ssl		*ssl;
 
-	if (iev->proc == PROC_LKA) {
+	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
 		case IMSG_LKA_EXPAND_RCPT:
-			smtp_session_imsg(iev, imsg);
+			smtp_session_imsg(p, imsg);
 			return;
 		case IMSG_LKA_AUTHENTICATE:
-			smtp_session_imsg(iev, imsg);
+			smtp_session_imsg(p, imsg);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_MFA) {
+	if (p->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_CONNECT:
-		case IMSG_MFA_HELO:
-		case IMSG_MFA_MAIL:
-		case IMSG_MFA_RCPT:
-		case IMSG_MFA_DATALINE:
-		case IMSG_MFA_QUIT:
-		case IMSG_MFA_RSET:
-		case IMSG_MFA_CLOSE:
-			smtp_session_imsg(iev, imsg);
+		case IMSG_MFA_SMTP_DATA:
+		case IMSG_MFA_SMTP_RESPONSE:
+			smtp_session_imsg(p, imsg);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_QUEUE) {
+	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
 		case IMSG_QUEUE_MESSAGE_FILE:
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			smtp_session_imsg(iev, imsg);
+			smtp_session_imsg(p, imsg);
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
-			imsg_compose_event(iev, IMSG_SMTP_ENQUEUE_FD, 0, 0,
+			m_compose(p, IMSG_SMTP_ENQUEUE_FD, 0, 0,
 			    smtp_enqueue(NULL), imsg->data,
 			    imsg->hdr.len - sizeof imsg->hdr);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_PARENT) {
+	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 
 		case IMSG_CONF_START:
@@ -182,12 +176,11 @@ smtp_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	if (iev->proc == PROC_CONTROL) {
+	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_ENQUEUE_FD:
-			imsg_compose_event(iev, IMSG_SMTP_ENQUEUE_FD,
-			    imsg->hdr.peerid, 0, smtp_enqueue(imsg->data),
-			    NULL, 0);
+			m_compose(p, IMSG_SMTP_ENQUEUE_FD, imsg->hdr.peerid, 0,
+			    smtp_enqueue(imsg->data), NULL, 0);
 			return;
 
 		case IMSG_CTL_PAUSE_SMTP:
@@ -239,17 +232,8 @@ smtp(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
-
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
-
-	struct peer peers[] = {
-		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_MFA,	imsg_dispatch },
-		{ PROC_QUEUE,	imsg_dispatch },
-		{ PROC_LKA,	imsg_dispatch },
-		{ PROC_CONTROL,	imsg_dispatch }
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -289,8 +273,12 @@ smtp(void)
 
 	fdlimit(1.0);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_CONTROL);
+	config_peer(PROC_PARENT);
+	config_peer(PROC_LKA);
+	config_peer(PROC_MFA);
+	config_peer(PROC_QUEUE);
+	config_done();
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -388,6 +376,8 @@ smtp_enqueue(uid_t *euid)
 	}
 
 	sessions++;
+	stat_increment("smtp.session", 1);
+	stat_increment("smtp.session.local", 1);
 
 	return (fd[1]);
 }

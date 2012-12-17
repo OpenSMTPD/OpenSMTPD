@@ -180,7 +180,7 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 }
 
 void
-mta_session_imsg(struct imsgev *iev, struct imsg *imsg)
+mta_session_imsg(struct mproc *p, struct imsg *imsg)
 {
 	uint64_t		 id;
 	struct mta_session	*s;
@@ -398,8 +398,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    mta_relay_to_text(s->relay));
 
 		stat_increment("mta.task.running", 1);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
+		m_compose(p_queue, IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
 		    &s->id, sizeof(s->id));
 		tree_xset(&wait_fd, s->id, s);
 		break;
@@ -810,8 +809,7 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
 		log_envelope(e, relay, pfx, error);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], delivery,
-		    0, 0, -1, e, sizeof(*e));
+		m_compose(p_queue, delivery, 0, 0, -1, e, sizeof(*e));
 		free(e);
 		n++;
 	}
@@ -840,8 +838,7 @@ mta_envelope_fail(struct envelope *evp, struct mta_route *route, int delivery)
 
 	snprintf(stat, sizeof stat, "RemoteError (%s)", &evp->errorline[4]);
 	log_envelope(evp, relay, pfx, stat);
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], delivery, 0, 0, -1,
-	    evp, sizeof(*evp));
+	m_compose(p_queue, delivery, 0, 0, -1, evp, sizeof(*evp));
 }
 
 static void
