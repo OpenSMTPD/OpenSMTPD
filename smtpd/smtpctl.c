@@ -673,10 +673,12 @@ show_message(const char *s)
 {
 	char	 buf[MAXPATHLEN];
 	uint32_t msgid;
+	uint64_t evpid;
 
-	if ((msgid = text_to_evpid(s)) == 0)
+	if ((evpid = text_to_evpid(s)) == 0)
 		errx(1, "invalid msgid/evpid");
 
+	msgid = evpid_to_msgid(evpid);
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
 	    PATH_SPOOL,
 	    PATH_QUEUE,
