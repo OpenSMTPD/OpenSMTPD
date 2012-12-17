@@ -96,8 +96,8 @@ mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
 			env->filtermask |= filtermask;
 		}
 	}
-	imsg_compose_event(env->sc_ievs[PROC_SMTP], HOOK_REGISTER, 0, 0,
-	    -1, &env->filtermask, sizeof(env->filtermask));
+	m_compose(p_smtp, HOOK_REGISTER, 0, 0, -1,
+	    &env->filtermask, sizeof(env->filtermask));
 }
 
 void
@@ -272,8 +272,7 @@ mfa_session_done(struct mfa_session *ms)
 	if (ms->status != FILTER_OK)
 		memcpy(resp.u.buffer, ms->errorline, sizeof resp.u.buffer);
 
-	imsg_compose_event(env->sc_ievs[PROC_SMTP], imsg_type, 0, 0,
-	    -1, &resp, sizeof(resp));
+	m_compose(p_smtp, imsg_type, 0, 0, -1, &resp, sizeof(resp));
 	mfa_session_destroy(ms);
 }
 

@@ -248,7 +248,7 @@ smtp_session(struct listener *listener, int sock,
 }
 
 void
-smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
+smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct queue_resp_msg	*resp_queue;
 	struct lka_resp_msg	*resp_lka;
@@ -360,8 +360,7 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 
 		req_queue.reqid = s->id;
 		req_queue.evpid = 0;
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
+		m_compose(p_queue, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
 		    &req_queue, sizeof(req_queue));
 		tree_xset(&wait_queue_msg, s->id, s);
 		return;
@@ -384,8 +383,8 @@ smtp_session_imsg(struct imsgev *iev, struct imsg *imsg)
 		s->evp.rcpt = resp_mfa->u.mailaddr;
 		req_lka.reqid = s->id;
 		req_lka.evp = s->evp;
-		imsg_compose_event(env->sc_ievs[PROC_LKA], IMSG_LKA_EXPAND_RCPT,
-		    0, 0, -1, &req_lka, sizeof(req_lka));
+		m_compose(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
+		    &req_lka, sizeof(req_lka));
 		tree_xset(&wait_lka_rcpt, s->id, s);
 		return;
 
@@ -820,8 +819,8 @@ smtp_command(struct smtp_session *s, char *line)
 
 		req_mfa.reqid = s->id;
 		req_mfa.u.evp = s->evp;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_HELO,
-		    0, 0, -1, &req_mfa, sizeof(req_mfa));
+		m_compose(p_mfa, IMSG_MFA_HELO, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_helo, s->id, s);
 		break;
 	/*
@@ -922,8 +921,8 @@ smtp_command(struct smtp_session *s, char *line)
 
 		req_mfa.reqid = s->id;
 		req_mfa.u.evp = s->evp;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_MAIL,
-		    0, 0, -1, &req_mfa, sizeof(req_mfa));
+		m_compose(p_mfa, IMSG_MFA_MAIL, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_mail, s->id, s);
 		break;
 	/*
@@ -953,8 +952,8 @@ smtp_command(struct smtp_session *s, char *line)
 
 		req_mfa.reqid = s->id;
 		req_mfa.u.evp = s->evp;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RCPT,
-		    0, 0, -1, &req_mfa, sizeof(req_mfa));
+		m_compose(p_mfa, IMSG_MFA_RCPT, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_rcpt, s->id, s);
 		break;
 
@@ -965,14 +964,13 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 		req_mfa.reqid = s->id;
 		req_mfa.u.evp = s->evp;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_RSET,
-		    0, 0, -1, &req_mfa, sizeof(req_mfa));
+		m_compose(p_mfa, IMSG_MFA_RSET, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 
 		if (s->evp.id) {
 			req_queue.reqid = s->id;
 			req_queue.evpid = s->evp.id;
-			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+			m_compose(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
 			    &req_queue, sizeof(req_queue));
 		}
 
@@ -994,9 +992,8 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 		req_queue.reqid = s->id;
 		req_queue.evpid = s->evp.id;
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, &req_queue,
-		    sizeof(req_queue));
+		m_compose(p_queue, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
+		    &req_queue, sizeof(req_queue));
 		tree_xset(&wait_queue_fd, s->id, s);
 		break;
 	/*
@@ -1069,8 +1066,7 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 
 		a->id = s->id;
 		strlcpy(a->authtable, s->listener->authtable, sizeof a->authtable);
-		imsg_compose_event(env->sc_ievs[PROC_LKA],
-		    IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
+		m_compose(p_lka, IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
 		bzero(a->pass, sizeof(a->pass));
 		tree_xset(&wait_parent_auth, s->id, s);
 		return;
@@ -1113,8 +1109,7 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 
 		a->id = s->id;
 		strlcpy(a->authtable, s->listener->authtable, sizeof a->authtable);
-		imsg_compose_event(env->sc_ievs[PROC_LKA],
-		    IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
+		m_compose(p_lka, IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
 		bzero(a->pass, sizeof(a->pass));
 		tree_xset(&wait_parent_auth, s->id, s);
 		return;
@@ -1176,8 +1171,8 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 		    s->id, s->hostname, ss_to_text(&s->ss));
 		req_mfa.reqid = s->id;
 		req_mfa.u.evp = s->evp;
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_CONNECT,
-		    0, 0, -1, &req_mfa, sizeof(req_mfa));
+		m_compose(p_mfa, IMSG_MFA_CONNECT, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 		tree_xset(&wait_mfa_connect, s->id, s);
 		break;
 
@@ -1198,8 +1193,8 @@ smtp_message_headerline(struct smtp_session *s, char *line)
 		if (strlcpy(req.u.buffer, line, sizeof(req.u.buffer))
 		    >= (sizeof req.u.buffer))
 			fatalx("overflow in smtp_message_headerline()");
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_HEADERLINE,
-		    0, 0, -1, &req, sizeof(req));
+		m_compose(p_mfa, IMSG_MFA_HEADERLINE, 0, 0, -1,
+		    &req, sizeof(req));
 	}
 	else
 		smtp_message_write(s, line);
@@ -1227,8 +1222,7 @@ smtp_message_dataline(struct smtp_session *s, char *line)
 		if (strlcpy(req.u.buffer, line, sizeof(req.u.buffer))
 		    >= (sizeof req.u.buffer))
 			fatalx("overflow in smtp_message_dataline()");
-		imsg_compose_event(env->sc_ievs[PROC_MFA], IMSG_MFA_DATALINE,
-		    0, 0, -1, &req, sizeof(req));
+		m_compose(p_mfa, IMSG_MFA_DATALINE, 0, 0, -1, &req, sizeof(req));
 	}
 	else
 		smtp_message_write(s, line);
@@ -1295,8 +1289,7 @@ smtp_message_end(struct smtp_session *s)
 	req_queue.evpid = s->evp.id;
 
 	if (s->msgflags & (MF_ERROR_SIZE | MF_ERROR_MFA)) {
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+		m_compose(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
 		    &req_queue, sizeof(req_queue));
 		if (s->msgflags & MF_ERROR_SIZE)
 			smtp_reply(s, "554 Message too big");
@@ -1313,8 +1306,8 @@ smtp_message_end(struct smtp_session *s)
 		return;
 	}
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_COMMIT_MESSAGE,
-	    0, 0, -1, &req_queue, sizeof(req_queue));
+	m_compose(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
+	    &req_queue, sizeof(req_queue));
 	tree_xset(&wait_queue_commit, s->id, s);
 }
 
@@ -1383,15 +1376,13 @@ smtp_free(struct smtp_session *s, const char * reason)
 	if (s->evp.id) {
 		req_queue.reqid = s->id;
 		req_queue.evpid = s->evp.id;
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+		m_compose(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
 		    &req_queue, sizeof(req_queue));
 	}
 
 	req_mfa.reqid = s->id;
 	req_mfa.u.evp = s->evp;
-	imsg_compose_event(env->sc_ievs[PROC_MFA],
-	    IMSG_MFA_CLOSE, 0, 0, -1, &req_mfa, sizeof(req_mfa));
+	m_compose(p_mfa, IMSG_MFA_CLOSE, 0, 0, -1, &req_mfa, sizeof(req_mfa));
 
 	if (s->ofile != NULL)
 		fclose(s->ofile);

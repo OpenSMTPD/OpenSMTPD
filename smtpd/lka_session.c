@@ -173,8 +173,8 @@ lka_resume(struct lka_session *lks)
 	if (lks->error) {
 		resp.reqid = lks->id;
 		resp.status = lks->error;
-		imsg_compose_event(env->sc_ievs[PROC_SMTP],
-		    IMSG_LKA_EXPAND_RCPT, 0, 0, -1, &resp, sizeof resp);
+		m_compose(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
+		    &resp, sizeof resp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			free(ep);
@@ -184,14 +184,13 @@ lka_resume(struct lka_session *lks)
 		/* Process the delivery list and submit envelopes to queue */
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
-			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+			m_compose(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
 			    ep, sizeof *ep);
 			free(ep);
 		}
 		ep = &lks->envelope;
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, ep, sizeof *ep);
+		m_compose(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
+		    ep, sizeof *ep);
 	}
 
 	expand_free(&lks->expand);
@@ -325,8 +324,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		(void)strlcpy(fwreq.directory, tu->directory, sizeof(fwreq.directory));
 		fwreq.uid = tu->uid;
 		fwreq.gid = tu->gid;
-		imsg_compose_event(env->sc_ievs[PROC_PARENT],
-		    IMSG_PARENT_FORWARD_OPEN, 0, 0, -1, &fwreq, sizeof(fwreq));
+		m_compose(p_parent, IMSG_PARENT_FORWARD_OPEN, 0, 0, -1,
+		    &fwreq, sizeof(fwreq));
 		lks->flags |= F_WAITING;
 		free(tu);
 		break;

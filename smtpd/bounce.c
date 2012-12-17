@@ -113,8 +113,8 @@ bounce_add(uint64_t evpid)
 
 	if (queue_envelope_load(evpid, evp) == 0) {
 		evp->id = evpid;
-		imsg_compose_event(env->sc_ievs[PROC_SCHEDULER],
-		    IMSG_DELIVERY_PERMFAIL, 0, 0, -1, evp, sizeof *evp);
+		m_compose(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
+		    evp, sizeof *evp);
 		free(evp);
 		return;
 	}
@@ -237,8 +237,7 @@ bounce_drain()
 		    "with id 0x%016" PRIx64,
 		    bounce, bounce->id);
 
-		imsg_compose_event(env->sc_ievs[PROC_SMTP],
-		    IMSG_SMTP_ENQUEUE_FD, 0, 0, -1,
+		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, 0, 0, -1,
 		    &bounce->id, sizeof(bounce->id));
 		tree_xset(&wait_fd, bounce->id, bounce);
 		running += 1;
@@ -458,12 +457,11 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 			evp->retry++;
 			envelope_set_errormsg(evp, "%s", status);
 			queue_envelope_update(evp);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], msg, 0,
-			    0, -1, evp, sizeof *evp);
+			m_compose(p_scheduler, msg, 0, 0, -1, evp, sizeof *evp);
 		} else {
 			queue_envelope_delete(evp);
-			imsg_compose_event(env->sc_ievs[PROC_SCHEDULER], msg, 0,
-			    0, -1, &evp->id, sizeof evp->id);
+			m_compose(p_scheduler, msg, 0, 0, -1,
+			    &evp->id, sizeof evp->id);
 		}
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);
 		free(evp);

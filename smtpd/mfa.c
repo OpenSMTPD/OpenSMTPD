@@ -38,17 +38,17 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void mfa_imsg(struct imsgev *, struct imsg *);
+static void mfa_imsg(struct mproc *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
 static void mfa_filter(struct mfa_req_msg *, enum filter_hook);
 
 static void
-mfa_imsg(struct imsgev *iev, struct imsg *imsg)
+mfa_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct filter	       *filter;
 
-	if (iev->proc == PROC_SMTP) {
+	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_CONNECT:
 			mfa_filter(imsg->data, HOOK_CONNECT);
@@ -83,7 +83,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	if (iev->proc == PROC_PARENT) {
+	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
 			dict_init(&env->sc_filters);
@@ -145,16 +145,9 @@ mfa(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
-
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
 	struct event	 ev_sigchld;
-
-	struct peer peers[] = {
-		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_SMTP,	imsg_dispatch },
-		{ PROC_CONTROL,	imsg_dispatch },
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -192,8 +185,10 @@ mfa(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_PARENT);
+	config_peer(PROC_SMTP);
+	config_peer(PROC_CONTROL);
+	config_done();
 
 	imsgproc_init();
 	if (event_dispatch() < 0)

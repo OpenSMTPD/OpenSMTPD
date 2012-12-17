@@ -59,8 +59,8 @@ stat_increment(const char *name, size_t count)
 		    name);
 	}
 
-	imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-	    IMSG_STAT_INCREMENT, 0, 0, -1, buf, sizeof (*value) + len + 1);
+	m_compose(p_control, IMSG_STAT_INCREMENT, 0, 0, -1,
+	    buf, sizeof (*value) + len + 1);
 }
 
 void
@@ -79,8 +79,8 @@ stat_decrement(const char *name, size_t count)
 		    name);
 	}
 
-	imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-	    IMSG_STAT_DECREMENT, 0, 0, -1, buf, sizeof (*value) + len + 1);
+	m_compose(p_control, IMSG_STAT_DECREMENT, 0, 0, -1,
+	    buf, sizeof (*value) + len + 1);
 }
 
 void
@@ -97,8 +97,8 @@ stat_set(const char *name, const struct stat_value *value)
 		    name);
 	}
 
-	imsg_compose_event(env->sc_ievs[PROC_CONTROL],
-	    IMSG_STAT_SET, 0, 0, -1, buf, sizeof (*value) + len + 1);
+	m_compose(p_control, IMSG_STAT_SET, 0, 0, -1,
+	    buf, sizeof (*value) + len + 1);
 }
 
 
