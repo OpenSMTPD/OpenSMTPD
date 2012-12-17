@@ -38,29 +38,33 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void mfa_imsg(struct imsgev *, struct imsg *);
+static void mfa_imsg(struct mproc *, struct imsg *);
 static void mfa_shutdown(void);
 static void mfa_sig_handler(int, short, void *);
 
 static void
-mfa_imsg(struct imsgev *iev, struct imsg *imsg)
+mfa_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct mfa_connect_msg		*req_connect;
-	struct mfa_data_msg		*req_data;
 	struct mfa_req_msg		*req;
 	struct mfa_smtp_resp_msg	 resp;
 	struct filter			*filter;
 
-	if (iev->proc == PROC_SMTP) {
+	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_REQ_CONNECT:
 			req_connect = imsg->data;
+
+			log_debug("mfa: CONNECT %s <-> %s",
+			    ss_to_text(&req_connect->local),
+			    ss_to_text(&req_connect->peer));
+
 			resp.reqid = req_connect->reqid;
 			resp.status = MFA_OK;
 			resp.code = 0;
 			resp.line[0] = '\0';
-			imsg_compose_event(iev, IMSG_MFA_SMTP_RESPONSE,
-			    0, 0, -1, &resp, sizeof(resp));
+			m_compose(p, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1,
+			    &resp, sizeof(resp));
 			return;
 
 		case IMSG_MFA_REQ_HELO:
@@ -73,14 +77,12 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 			resp.status = MFA_OK;
 			resp.code = 0;
 			resp.line[0] = '\0';
-			imsg_compose_event(iev, IMSG_MFA_SMTP_RESPONSE,
-			    0, 0, -1, &resp, sizeof(resp));
+			m_compose(p, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1,
+			    &resp, sizeof(resp));
 			return;
 
 		case IMSG_MFA_SMTP_DATA:
-			req_data = imsg->data;
-			imsg_compose_event(iev, IMSG_MFA_SMTP_DATA,
-			    0, 0, -1, req_data, imsg->hdr.len - sizeof(imsg->hdr));
+			m_forward(p, imsg);
 			return;
 
 		case IMSG_MFA_EVENT_RSET:
@@ -91,7 +93,7 @@ mfa_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	if (iev->proc == PROC_PARENT) {
+	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
 			dict_init(&env->sc_filters);
@@ -152,16 +154,9 @@ mfa(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
-
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
 	struct event	 ev_sigchld;
-
-	struct peer peers[] = {
-		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_SMTP,	imsg_dispatch },
-		{ PROC_CONTROL,	imsg_dispatch },
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -199,8 +194,10 @@ mfa(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_PARENT);
+	config_peer(PROC_SMTP);
+	config_peer(PROC_CONTROL);
+	config_done();
 
 	imsgproc_init();
 	if (event_dispatch() < 0)

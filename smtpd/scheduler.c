@@ -45,7 +45,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void scheduler_imsg(struct imsgev *, struct imsg *);
+static void scheduler_imsg(struct mproc *, struct imsg *);
 static void scheduler_shutdown(void);
 static void scheduler_sig_handler(int, short, void *);
 static void scheduler_reset_events(void);
@@ -64,7 +64,7 @@ extern const char *backend_scheduler;
 #define	EVPBATCHSIZE	256
 
 void
-scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
+scheduler_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct bounce_req_msg	 req;
 	struct evpstate		 state[EVPBATCHSIZE];
@@ -136,8 +136,8 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 				req.bounce.type = B_WARNING;
 				req.bounce.delay = env->sc_bounce_warn[i];
 				req.bounce.expire = si.expire;
-				imsg_compose_event(iev, IMSG_QUEUE_BOUNCE,
-				    0, 0, -1, &req, sizeof req);
+				m_compose(p, IMSG_QUEUE_BOUNCE, 0, 0, -1,
+				    &req, sizeof req);
 				break;
 			}
 		}
@@ -195,20 +195,19 @@ scheduler_imsg(struct imsgev *iev, struct imsg *imsg)
 	case IMSG_CTL_LIST_MESSAGES:
 		msgid = *(uint32_t *)(imsg->data);
 		n = backend->messages(msgid, msgids, MSGBATCHSIZE);
-		imsg_compose_event(iev, IMSG_CTL_LIST_MESSAGES,
-		    imsg->hdr.peerid, 0, -1, msgids, n * sizeof (*msgids));
+		m_compose(p, IMSG_CTL_LIST_MESSAGES, imsg->hdr.peerid, 0, -1,
+		    msgids, n * sizeof (*msgids));
 		return;
 
 	case IMSG_CTL_LIST_ENVELOPES:
 		id = *(uint64_t *)(imsg->data);
 		n = backend->envelopes(id, state, EVPBATCHSIZE);
 		for (i = 0; i < n; i++) {
-			imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-			    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1,
-			    &state[i], sizeof state[i]);
+			m_compose(p_queue, IMSG_CTL_LIST_ENVELOPES,
+			    imsg->hdr.peerid, 0, -1, &state[i], sizeof state[i]);
 		}
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_CTL_LIST_ENVELOPES, imsg->hdr.peerid, 0, -1, NULL, 0);
+		m_compose(p_queue, IMSG_CTL_LIST_ENVELOPES,
+		    imsg->hdr.peerid, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_CTL_SCHEDULE:
@@ -275,14 +274,8 @@ scheduler(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
-
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
-
-	struct peer peers[] = {
-		{ PROC_CONTROL,	imsg_dispatch },
-		{ PROC_QUEUE,	imsg_dispatch }
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -329,8 +322,9 @@ scheduler(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_CONTROL);
+	config_peer(PROC_QUEUE);
+	config_done();
 
 	evtimer_set(&env->sc_ev, scheduler_timeout, NULL);
 	scheduler_reset_events();
@@ -406,8 +400,8 @@ scheduler_process_remove(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64 " removed",
 		    e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_REMOVE,
-		    0, 0, -1, &e->id, sizeof e->id);
+		m_compose(p_queue, IMSG_QUEUE_REMOVE, 0, 0, -1,
+		    &e->id, sizeof e->id);
 		free(e);
 	}
 
@@ -424,8 +418,8 @@ scheduler_process_expire(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64 " expired",
 		    e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_QUEUE_EXPIRE,
-		    0, 0, -1, &e->id, sizeof e->id);
+		m_compose(p_queue, IMSG_QUEUE_EXPIRE, 0, 0, -1,
+		    &e->id, sizeof e->id);
 		free(e);
 	}
 
@@ -442,8 +436,8 @@ scheduler_process_bounce(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (bounce)", e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_BOUNCE_INJECT,
-		    0, 0, -1, &e->id, sizeof e->id);
+		m_compose(p_queue, IMSG_BOUNCE_INJECT, 0, 0, -1,
+		    &e->id, sizeof e->id);
 		free(e);
 	}
 
@@ -459,8 +453,8 @@ scheduler_process_mda(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mda)", e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MDA_DELIVER,
-		    0, 0, -1, &e->id, sizeof e->id);
+		m_compose(p_queue, IMSG_MDA_DELIVER, 0, 0, -1,
+		    &e->id, sizeof e->id);
 		free(e);
 	}
 
@@ -472,20 +466,18 @@ scheduler_process_mta(struct scheduler_batch *batch)
 {
 	struct id_list	*e;
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH,
-	    0, 0, -1, NULL, 0);
+	m_compose(p_queue, IMSG_MTA_BATCH, 0, 0, -1, NULL, 0);
 
 	while ((e = batch->evpids)) {
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mta)", e->id);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH_ADD,
-		    0, 0, -1, &e->id, sizeof e->id);
+		m_compose(p_queue, IMSG_MTA_BATCH_ADD, 0, 0, -1,
+		    &e->id, sizeof e->id);
 		free(e);
 	}
 
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], IMSG_MTA_BATCH_END,
-	    0, 0, -1, NULL, 0);
+	m_compose(p_queue, IMSG_MTA_BATCH_END, 0, 0, -1, NULL, 0);
 }

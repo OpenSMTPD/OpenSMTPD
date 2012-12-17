@@ -245,15 +245,6 @@ enum blockmodes {
 	BM_NONBLOCK
 };
 
-struct imsgev {
-	struct imsgbuf		 ibuf;
-	void			(*handler)(int, short, void *);
-	struct event		 ev;
-	void			*data;
-	int			 proc;
-	short			 events;
-};
-
 struct ctl_id {
 	objid_t		 id;
 	char		 name[MAX_NAME_SIZE];
@@ -270,11 +261,6 @@ enum smtp_proc_type {
 	PROC_CONTROL,
 	PROC_SCHEDULER,
 } smtpd_process;
-
-struct peer {
-	enum smtp_proc_type	 id;
-	void			(*cb)(int, short, void *);
-};
 
 enum table_type {
 	T_NONE		= 0,
@@ -564,10 +550,6 @@ struct smtpd {
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
 	struct event			sc_ev;
-	int			       *sc_pipes[PROC_COUNT][PROC_COUNT];
-	struct imsgev		       *sc_ievs[PROC_COUNT];
-	int				sc_instances[PROC_COUNT];
-	int				sc_instance;
 	char			       *sc_title[PROC_COUNT];
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
@@ -883,8 +865,30 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
+struct mproc {
+	int		 proc; /* remove later */
+	char		*name;
+	void		(*handler)(struct mproc *, struct imsg *);
+	struct imsgbuf	 imsgbuf;
+	struct ibuf	*ibuf;
+	int		 ibuferror;
+	int		 enable;
+	struct event	 ev;
+	void		*data;
+};
+
+extern struct mproc *p_control;
+extern struct mproc *p_parent;
+extern struct mproc *p_lka;
+extern struct mproc *p_mda;
+extern struct mproc *p_mfa;
+extern struct mproc *p_mta;
+extern struct mproc *p_queue;
+extern struct mproc *p_scheduler;
+extern struct mproc *p_smtp;
+
 extern struct smtpd	*env;
-extern void (*imsg_callback)(struct imsgev *, struct imsg *);
+extern void (*imsg_callback)(struct mproc *, struct imsg *);
 
 struct imsgproc {
 	pid_t			pid;
@@ -1069,11 +1073,9 @@ size_t uncompress_buffer(char *, size_t, char *, size_t);
 #define PURGE_SSL		0x08
 #define PURGE_EVERYTHING	0xff
 void purge_config(uint8_t);
-void unconfigure(void);
-void configure(void);
 void init_pipes(void);
-void config_pipes(struct peer *, uint);
-void config_peers(struct peer *, uint);
+void config_peer(enum smtp_proc_type);
+void config_done(void);
 
 
 /* control.c */
@@ -1089,7 +1091,7 @@ void dns_query_host(uint64_t, const char *);
 void dns_query_ptr(uint64_t, const struct sockaddr *);
 void dns_query_mx(uint64_t, const char *);
 void dns_query_mx_preference(uint64_t, const char *, const char *);
-void dns_imsg(struct imsgev *, struct imsg *);
+void dns_imsg(struct mproc *, struct imsg *);
 
 
 /* enqueue.c */
@@ -1146,6 +1148,20 @@ pid_t mda(void);
 pid_t mfa(void);
 
 
+/* mproc.c */
+void mproc_init(struct mproc *, int);
+void mproc_clear(struct mproc *);
+void mproc_enable(struct mproc *);
+void mproc_disable(struct mproc *);
+void m_compose(struct mproc *, uint32_t, uint32_t, pid_t, int, void *, size_t);
+void m_composev(struct mproc *, uint32_t, uint32_t, pid_t, int,
+    const struct iovec *, int);
+void m_forward(struct mproc *, struct imsg *);
+void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int, size_t);
+void m_add(struct mproc *, const void *, size_t);
+void m_close(struct mproc *);
+
+
 /* mta.c */
 pid_t mta(void);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
@@ -1158,7 +1174,7 @@ const char *mta_relay_to_text(struct mta_relay *);
 
 /* mta_session.c */
 void mta_session(struct mta_relay *, struct mta_route *);
-void mta_session_imsg(struct imsgev *, struct imsg *);
+void mta_session_imsg(struct mproc *, struct imsg *);
 
 
 /* parse.y */
@@ -1212,14 +1228,11 @@ void smtp_collect(void);
 /* smtp_session.c */
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
     const char *);
-void smtp_session_imsg(struct imsgev *, struct imsg *);
+void smtp_session_imsg(struct mproc *, struct imsg *);
 
 
 /* smtpd.c */
-void imsg_event_add(struct imsgev *);
-void imsg_compose_event(struct imsgev *, uint16_t, uint32_t, pid_t,
-    int, void *, uint16_t);
-void imsg_dispatch(int, short, void *);
+void imsg_dispatch(struct mproc *, struct imsg *);
 const char * proc_to_str(int);
 const char * imsg_to_str(int);
 

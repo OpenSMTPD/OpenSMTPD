@@ -71,7 +71,7 @@ struct mda_session {
 	FILE			*datafp;
 };
 
-static void mda_imsg(struct imsgev *, struct imsg *);
+static void mda_imsg(struct mproc *, struct imsg *);
 static void mda_io(struct io *, int);
 static void mda_shutdown(void);
 static void mda_sig_handler(int, short, void *);
@@ -90,7 +90,7 @@ static TAILQ_HEAD(, mda_user)	runnable;
 size_t				running;
 
 static void
-mda_imsg(struct imsgev *iev, struct imsg *imsg)
+mda_imsg(struct mproc *p, struct imsg *imsg)
 {
 	char			 output[128], *error, *parent_error, *name;
 	char			*usertable;
@@ -107,7 +107,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 	struct lka_userinfo_resp_msg   *resp_lka;
 	struct userinfo		       *userinfo;
 
-	if (iev->proc == PROC_LKA) {
+	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_USERINFO:
 			resp_lka = imsg->data;
@@ -139,7 +139,7 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 		}
 	}
 
-	if (iev->proc == PROC_QUEUE) {
+	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
 		case IMSG_MDA_DELIVER:
@@ -149,9 +149,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				log_debug("debug: mda: too many envelopes");
 				envelope_set_errormsg(ep,
 				    "Global envelope limit reached");
-				imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-				    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
-				    ep, sizeof *ep);
+				m_compose(p_queue,  IMSG_DELIVERY_TEMPFAIL,
+				    0, 0, -1, ep, sizeof *ep);
 				free(ep);
 				return;
 			}
@@ -168,9 +167,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				    "\"%s\"", u->name);
 				envelope_set_errormsg(ep,
 				    "User envelope limit reached");
-				imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-				    IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
-				    ep, sizeof *ep);
+				m_compose(p_queue,  IMSG_DELIVERY_TEMPFAIL,
+				    0, 0, -1, ep, sizeof *ep);
 				free(ep);
 				return;
 			}
@@ -185,9 +183,8 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				    sizeof req_lka.username);
 				strlcpy(req_lka.usertable, usertable,
 				    sizeof req_lka.usertable);
-				imsg_compose_event(env->sc_ievs[PROC_LKA],
-				    IMSG_LKA_USERINFO, 0, 0, -1, &req_lka,
-				    sizeof req_lka);
+				m_compose(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
+				    &req_lka, sizeof req_lka);
 			}
 
 			stat_increment("mda.pending", 1);
@@ -299,14 +296,13 @@ mda_imsg(struct imsgev *iev, struct imsg *imsg)
 				    d_mda->method);
 			}
 
-			imsg_compose_event(env->sc_ievs[PROC_PARENT],
-			    IMSG_PARENT_FORK_MDA, id, 0, -1, &deliver,
-			    sizeof deliver);
+			m_compose(p_parent, IMSG_PARENT_FORK_MDA, id, 0, -1,
+			    &deliver, sizeof deliver);
 			return;
 		}
 	}
 
-	if (iev->proc == PROC_PARENT) {
+	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORK_MDA:
 			s = tree_xget(&sessions, imsg->hdr.peerid);
@@ -393,16 +389,8 @@ mda(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
-
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
-
-	struct peer peers[] = {
-		{ PROC_PARENT,	imsg_dispatch },
-		{ PROC_QUEUE,	imsg_dispatch },
-		{ PROC_LKA,	imsg_dispatch },
-		{ PROC_CONTROL,	imsg_dispatch }
-	};
 
 	switch (pid = fork()) {
 	case -1:
@@ -445,8 +433,11 @@ mda(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	config_pipes(peers, nitems(peers));
-	config_peers(peers, nitems(peers));
+	config_peer(PROC_PARENT);
+	config_peer(PROC_QUEUE);
+	config_peer(PROC_LKA);
+	config_peer(PROC_CONTROL);
+	config_done();
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -479,9 +470,8 @@ mda_io(struct io *io, int evt)
 				break;
 			if (iobuf_queue(&s->iobuf, ln, len) == -1) {
 				snprintf(buf, sizeof buf, "Out of memory");
-				imsg_compose_event(env->sc_ievs[PROC_PARENT],
-				    IMSG_PARENT_KILL_MDA, s->id, 0, -1,
-				    buf, strlen(buf) + 1);
+				m_compose(p_parent, IMSG_PARENT_KILL_MDA,
+				    s->id, 0, -1, buf, strlen(buf) + 1);
 				io_pause(io, IO_PAUSE_OUT);
 				return;
 			}
@@ -490,8 +480,7 @@ mda_io(struct io *io, int evt)
 		if (ferror(s->datafp)) {
 			log_debug("debug: mda_io: %p: ferror", s);
 			snprintf(buf, sizeof buf, "Error reading body");
-			imsg_compose_event(env->sc_ievs[PROC_PARENT],
-			    IMSG_PARENT_KILL_MDA, s->id, 0, -1,
+			m_compose(p_parent, IMSG_PARENT_KILL_MDA, s->id, 0, -1,
 			    buf, strlen(buf) + 1);
 			io_pause(io, IO_PAUSE_OUT);
 			return;
@@ -619,8 +608,7 @@ mda_fail(struct mda_user *user, int type, const char *error)
 	while ((e = TAILQ_FIRST(&user->envelopes))) {
 		TAILQ_REMOVE(&user->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE], type, 0, 0, -1,
-		    e, sizeof *e);
+		m_compose(p_queue, type, 0, 0, -1, e, sizeof *e);
 		free(e);
 	}
 
@@ -654,9 +642,8 @@ mda_drain(void)
 			fatal("mda_drain");
 		s->io.sock = -1;
 		tree_xset(&sessions, s->id, s);
-		imsg_compose_event(env->sc_ievs[PROC_QUEUE],
-		    IMSG_QUEUE_MESSAGE_FD, evpid_to_msgid(s->evp->id), 0, -1,
-		    &s->id, sizeof(s->id));
+		m_compose(p_queue,  IMSG_QUEUE_MESSAGE_FD,
+		    evpid_to_msgid(s->evp->id), 0, -1, &s->id, sizeof(s->id));
 
 		stat_decrement("mda.pending", 1);
 
@@ -690,8 +677,7 @@ mda_done(struct mda_session *s, int msg)
 {
 	tree_xpop(&sessions, s->id);
 
-	imsg_compose_event(env->sc_ievs[PROC_QUEUE], msg, 0, 0, -1,
-	    s->evp, sizeof *s->evp);
+	m_compose(p_queue, msg, 0, 0, -1, s->evp, sizeof *s->evp);
 
 	running--;
 	s->user->running--;
