@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -42,7 +43,7 @@
 
 struct mfa_filter {
 	TAILQ_ENTRY(mfa_filter)		 entry;
-	struct imsgproc			*proc;
+	struct mproc			 mproc;
 };
 
 struct mfa_filter_chain {
@@ -52,11 +53,39 @@ struct mfa_filter_chain {
 struct mfa_request {
 	uint64_t		 conn_id;
 	uint64_t		 req_id;
-
-	struct mfa_filter	*current;	/* the filter currently running
-	struct tree		 notify;	/* list of filters to notify */
+	struct mfa_filter	*current; /* the filter currently running */
+	struct tree		 notify;  /* list of filters to notify */
 };
 
+static struct mfa_filter_chain	chain;
+
+static void
+mfa_session_init(void)
+{
+	static int		 init = 0;
+	struct filter		*filter;
+	void			*iter;
+	struct mfa_filter	*f;
+	struct mproc		*p;
+	int			 r;
+	uint32_t		 v = FILTER_API_VERSION;
+
+	if (init)
+		return;
+	init = 1;
+
+	TAILQ_INIT(&chain.filters);
+
+	iter = NULL;
+	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
+		f = xcalloc(1, sizeof *f, "mfa_session_init");
+		p = &f->mproc;
+		r = mproc_fork(p, filter->path, filter->name);
+		m_compose(p, HOOK_REGISTER, 0, 0, -1, &v, sizeof(v));
+		mproc_enable(p);
+		TAILQ_INSERT_TAIL(&chain.filters, f, entry);
+	}
+}
 
 static void
 mfa_finalize(struct mfa_request *req)
@@ -64,279 +93,11 @@ mfa_finalize(struct mfa_request *req)
 	struct mfa_filter	*f;
 
 	while (tree_poproot(&req->notify, NULL, (void**)&f)) {
-		mfa_filter_notify(f, ???);
+		/*
+		mfa_filter_notify(f,);
+		*/
 	}
-
+	/*
 	imsg_compose_event(env->sc_ievs[PROC_SMTP], ???);
+	*/
 };
-
-
-void
-mfa_filter_imsg(struct , struct imsg *imsg)
-{
-}
-
-void
-mfa_filter()
-{
-};
-
-void
-mfa_session_filters_init(void)
-{
-	struct filter  *filter;
-	void	       *iter;
-	size_t		i;
-	uint32_t	version = FILTER_API_VERSION;
-
-	dict_init(&sessions);
-
-	for (i = 0; i < nitems(filter_hooks); ++i)
-		SIMPLEQ_INIT(&filter_hooks[i]);
-
-	iter = NULL;
-	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
-		filter->process = imsgproc_fork(filter->path, filter->name,
-		    mfa_session_imsg_handler, filter);
-		if (filter->process == NULL)
-			fatalx("could not start filter");
-		imsg_compose(filter->process->ibuf, HOOK_REGISTER, 0, 0, -1,
-		    &version, sizeof version);
-		imsgproc_set_write(filter->process);
-	}
-}
-
-static void
-mfa_session_filter_register(uint32_t filtermask, struct filter *filter)
-{
-	struct fhook   *np;
-	size_t		i;
-
-	for (i = 0; i < nitems(filter_hooks); ++i) {
-		if ((1 << i) & filtermask) {
-			np = xcalloc(1, sizeof *np, "mfa_session_filter_register");
-			np->filter = filter;
-			SIMPLEQ_INSERT_TAIL(&filter_hooks[i], np, entry);
-			env->filtermask |= filtermask;
-		}
-	}
-	m_compose(p_smtp, HOOK_REGISTER, 0, 0, -1,
-	    &env->filtermask, sizeof(env->filtermask));
-}
-
-void
-mfa_session(uint64_t id, enum filter_hook hook, union mfa_session_data *data)
-{
-	struct mfa_session     *ms;
-
-	ms = xcalloc(1, sizeof(*ms), "mfa_session");
-	ms->id      = id;
-	ms->hook    = hook;
-	ms->data    = *data;
-	tree_xset(&sessions, ms->id, ms);
-
-	/* no filter handling this hook */
-	if (!(hook & env->filtermask)) {
-		mfa_session_done(ms);
-		return;
-	}
-
-	ms->fhook = SIMPLEQ_FIRST(&filter_hooks[ffs(ms->hook) - 1]);
-	mfa_session_proceed(ms);
-}
-
-static void
-mfa_session_proceed(struct mfa_session *ms)
-{
-	struct filter_msg	fm;
-	struct filter	       *filter = ((struct fhook *)ms->fhook)->filter;
-
-	bzero(&fm, sizeof fm);
-	fm.id = ms->id;
-
-	switch (ms->hook) {
-	case HOOK_CONNECT:
-		if (strlcpy(fm.u.connect.hostname, ms->data.evp.hostname,
-			sizeof(fm.u.connect.hostname))
-		    >= sizeof(fm.u.connect.hostname))
-			fatalx("mfa_session_proceed: CONNECT: truncation");
-		fm.u.connect.hostaddr = ms->data.evp.ss;
-		break;
-
-	case HOOK_HELO:
-		if (strlcpy(fm.u.helo.host, ms->data.evp.helo,
-			sizeof(fm.u.helo.host))
-		    >= sizeof(fm.u.helo.host))
-			fatalx("mfa_session_proceed: HELO: truncation");
-		break;
-
-	case HOOK_MAIL:
-		if (strlcpy(fm.u.mail.user, ms->data.evp.sender.user,
-			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
-			fatalx("mfa_session_proceed: MAIL: user truncation");
-		if (strlcpy(fm.u.mail.domain, ms->data.evp.sender.domain,
-			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
-			fatalx("mfa_session_proceed: MAIL: domain truncation");
-		break;
-
-	case HOOK_RCPT:
-		if (strlcpy(fm.u.mail.user, ms->data.evp.rcpt.user,
-			sizeof(fm.u.mail.user)) >= sizeof(fm.u.mail.user))
-			fatalx("mfa_session_proceed: RCPT: user truncation");
-		if (strlcpy(fm.u.mail.domain, ms->data.evp.rcpt.domain,
-			sizeof(fm.u.mail.domain)) >= sizeof(fm.u.mail.domain))
-			fatalx("mfa_session_proceed: RCPT: domain truncation");
-		break;
-
-	case HOOK_HEADERLINE:
-		if (strlcpy(fm.u.headerline.line, ms->data.buffer,
-			sizeof(fm.u.headerline.line))
-		    >= sizeof(fm.u.headerline.line))
-			fatalx("mfa_session_proceed: HEADER: line truncation");
-		break;
-
-	case HOOK_DATALINE:
-		if (strlcpy(fm.u.dataline.line, ms->data.buffer,
-			sizeof(fm.u.dataline.line))
-		    >= sizeof(fm.u.dataline.line))
-			fatalx("mfa_session_proceed: DATA: line truncation");
-		break;
-
-	case HOOK_QUIT:
-	case HOOK_CLOSE:
-	case HOOK_DATA:
-	case HOOK_RSET:
-		break;
-	default:
-		fatalx("mfa_session_proceed: no such state");
-	}
-
-	imsg_compose(filter->process->ibuf, ms->hook, 0, 0, -1, &fm, sizeof(fm));
-	imsgproc_set_read_write(filter->process);
-}
-
-static void
-mfa_session_pickup(struct mfa_session *ms)
-{
-	if ((ms->fhook = SIMPLEQ_NEXT((struct fhook *)ms->fhook, entry)) == NULL)
-		mfa_session_done(ms);
-	else
-		mfa_session_proceed(ms);
-}
-
-static void
-mfa_session_done(struct mfa_session *ms)
-{
-	enum imsg_type		imsg_type;
-	struct mfa_resp_msg	resp;
-
-	switch (ms->hook) {
-	case HOOK_CONNECT:
-		imsg_type = IMSG_MFA_CONNECT;
-		break;
-	case HOOK_HELO:
-		imsg_type = IMSG_MFA_HELO;
-		break;
-	case HOOK_MAIL:
-		imsg_type = IMSG_MFA_MAIL;
-		resp.u.mailaddr = ms->data.evp.sender;
-		break;
-	case HOOK_RCPT:
-		resp.u.mailaddr = ms->data.evp.rcpt;
-		imsg_type = IMSG_MFA_RCPT;
-		break;
-	case HOOK_DATA:
-		imsg_type = IMSG_MFA_DATA;
-		break;
-	case HOOK_HEADERLINE:
-		if (ms->status == FILTER_OK) {
-			(void)strlcpy(resp.u.buffer,
-			    ms->fm.u.headerline.line,
-			    sizeof(resp.u.buffer));
-		}
-		imsg_type = IMSG_MFA_HEADERLINE;
-		break;
-	case HOOK_DATALINE:
-		if (ms->status == FILTER_OK) {
-			(void)strlcpy(resp.u.buffer,
-			    ms->fm.u.dataline.line,
-			    sizeof(resp.u.buffer));
-		}
-		imsg_type = IMSG_MFA_DATALINE;
-		break;
-	case HOOK_QUIT:
-		imsg_type = IMSG_MFA_QUIT;
-		break;
-	case HOOK_CLOSE:
-	case HOOK_RSET:
-		mfa_session_destroy(ms);
-		return;
-	default:
-		fatalx("mda_session_done: unsupported state");
-	}
-
-	resp.reqid = ms->id;
-	switch (ms->status) {
-	case FILTER_OK:
-		resp.status = MFA_OK;
-		break;
-	case FILTER_TEMPFAIL:
-		resp.status = MFA_TEMPFAIL;
-		resp.code = 421;
-		break;
-	default:
-		resp.status = MFA_PERMFAIL;
-		resp.code = 530;
-		break;
-	}
-
-	if (ms->code)
-		resp.code = ms->code;
-
-	if (ms->status != FILTER_OK)
-		memcpy(resp.u.buffer, ms->errorline, sizeof resp.u.buffer);
-
-	m_compose(p_smtp, imsg_type, 0, 0, -1, &resp, sizeof(resp));
-	mfa_session_destroy(ms);
-}
-
-static void
-mfa_session_fail(struct mfa_session *ms, enum filter_status status, uint32_t code, char *errorline)
-{
-	ms->status = status;
-	if (code)
-		ms->code = code;
-	strlcpy(ms->errorline, errorline, sizeof ms->errorline);
-	mfa_session_done(ms);
-}
-
-static void
-mfa_session_destroy(struct mfa_session *ms)
-{
-	tree_xpop(&sessions, ms->id);
-	free(ms);
-}
-
-void
-mfa_session_imsg_handler(struct imsg *imsg, void *arg)
-{
-	struct mfa_session	*ms;
-	struct filter_msg	*fm;
-
-	if (imsg->hdr.type == HOOK_REGISTER) {
-		mfa_session_filter_register(*(uint32_t *)imsg->data, arg);
-		return;
-	}
-
-	fm = imsg->data;
-	ms = tree_xget(&sessions, fm->id);
-
-	if (fm->status != FILTER_OK) {
-		mfa_session_fail(ms, fm->status, fm->code, fm->errorline);
-		return;
-	}
-
-	/* XXX - needs to be completed */
-
-	mfa_session_pickup(ms);
-}

@@ -866,8 +866,9 @@ struct stat_digest {
 };
 
 struct mproc {
-	int		 proc; /* remove later */
+	pid_t		 pid;
 	char		*name;
+	int		 proc;
 	void		(*handler)(struct mproc *, struct imsg *);
 	struct imsgbuf	 imsgbuf;
 	struct ibuf	*ibuf;
@@ -1149,6 +1150,7 @@ pid_t mfa(void);
 
 
 /* mproc.c */
+int mproc_fork(struct mproc *, const char*, const char *);
 void mproc_init(struct mproc *, int);
 void mproc_clear(struct mproc *);
 void mproc_enable(struct mproc *);

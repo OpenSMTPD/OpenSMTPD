@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 
+#include <err.h>
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
@@ -38,6 +39,43 @@
 
 static void mproc_dispatch(int, short, void *);
 static void mproc_event_add(struct mproc *);
+
+int
+mproc_fork(struct mproc *p, const char *path, const char *arg)
+{
+	int sp[2];
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0)
+		return (-1);
+
+	session_socket_blockmode(sp[0], BM_NONBLOCK);
+	session_socket_blockmode(sp[1], BM_NONBLOCK);
+
+	if ((p->pid = fork()) == -1)
+		goto err;
+
+	if (p->pid == 0) {
+		/* child process */
+		dup2(sp[0], STDIN_FILENO);
+
+		if (closefrom(STDERR_FILENO + 1) < 0)
+			exit(1);
+
+		execl(path, arg, NULL);
+		err(1, "execl");
+	}
+
+	/* parent process */
+	close(sp[0]);
+	mproc_init(p, sp[1]);
+	return (0);
+
+err:
+	log_warn("warn: Failed to start process %s, instance of %s", arg, path);
+	close(sp[0]);
+	close(sp[1]);
+	return (-1);
+}
 
 void
 mproc_init(struct mproc *p, int fd)
