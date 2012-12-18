@@ -128,6 +128,12 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 				    + sizeof *ssl + ssl->ssl_cert_len +
 				    ssl->ssl_key_len, "smtp:ssl_dhparams");
 			}
+			if (ssl->ssl_ca_len) {
+				ssl->ssl_ca = xstrdup((char *)imsg->data
+				    + sizeof *ssl + ssl->ssl_cert_len +
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
+				    "smtp:ssl_ca");
+			}
 
 			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
 			return;

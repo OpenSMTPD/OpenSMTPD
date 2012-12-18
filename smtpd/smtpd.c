@@ -270,7 +270,7 @@ parent_send_config_listeners(void)
 {
 	struct listener		*l;
 	struct ssl		*s;
-	struct iovec		 iov[4];
+	struct iovec		 iov[5];
 	int			 opt;
 
 	log_debug("debug: parent_send_config: configuring smtp");
@@ -288,6 +288,8 @@ parent_send_config_listeners(void)
 		iov[2].iov_len = s->ssl_key_len;
 		iov[3].iov_base = s->ssl_dhparams;
 		iov[3].iov_len = s->ssl_dhparams_len;
+		iov[4].iov_base = s->ssl_ca;
+		iov[4].iov_len = s->ssl_ca_len;
 		m_composev(p_smtp, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
 	}
 

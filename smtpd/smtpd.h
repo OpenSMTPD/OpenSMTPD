@@ -491,6 +491,8 @@ enum envelope_field {
 struct ssl {
 	SPLAY_ENTRY(ssl)	 ssl_nodes;
 	char			 ssl_name[PATH_MAX];
+	char			*ssl_ca;
+	off_t			 ssl_ca_len;
 	char			*ssl_cert;
 	off_t			 ssl_cert_len;
 	char			*ssl_key;
