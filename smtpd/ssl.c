@@ -47,8 +47,6 @@ void	 ssl_error(const char *);
 char	*ssl_load_file(const char *, off_t *, mode_t);
 SSL_CTX	*ssl_ctx_create(void);
 
-SSL	*ssl_client_init(int, char *, size_t, char *, size_t);
-
 DH	*get_dh1024(void);
 DH	*get_dh_from_memory(char *, size_t);
 void	 ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
@@ -310,46 +308,6 @@ ssl_error(const char *where)
 	}
 }
 
-SSL *
-ssl_client_init(int fd, char *cert, size_t certsz, char *key, size_t keysz)
-{
-	SSL_CTX		*ctx;
-	SSL		*ssl = NULL;
-	int		 rv = -1;
-
-	ctx = ssl_ctx_create();
-
-	if (cert && key) {
-		if (!ssl_ctx_use_certificate_chain(ctx, cert, certsz))
-			goto done;
-		else if (!ssl_ctx_use_private_key(ctx, key, keysz))
-			goto done;
-		else if (!SSL_CTX_check_private_key(ctx))
-			goto done;
-	}
-
-	if ((ssl = SSL_new(ctx)) == NULL)
-		goto done;
-	SSL_CTX_free(ctx);
-
-	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
-		goto done;
-	if (!SSL_set_fd(ssl, fd))
-		goto done;
-	SSL_set_connect_state(ssl);
-
-	rv = 0;
-done:
-	if (rv) {
-		if (ssl)
-			SSL_free(ssl);
-		else if (ctx)
-			SSL_CTX_free(ctx);
-		ssl = NULL;
-	}
-	return (ssl);
-}
-
 void *
 ssl_mta_init(struct ssl *s)
 {
@@ -390,11 +348,26 @@ done:
 }
 
 void *
-ssl_smtp_init(void *ssl_ctx)
+ssl_smtp_init(void *ssl_ctx, struct ssl *s)
 {
-	SSL *ssl;
+	SSL *ssl = NULL;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
+
+	if (s->ssl_cert && s->ssl_key) {
+		if (!ssl_ctx_use_certificate_chain(ssl_ctx,
+			s->ssl_cert, s->ssl_cert_len))
+			goto err;
+		else if (!ssl_ctx_use_private_key(ssl_ctx,
+			s->ssl_key, s->ssl_key_len))
+			goto err;
+		else if (!SSL_CTX_check_private_key(ssl_ctx))
+			goto err;		
+	}
+
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
+/*	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL); */
+	SSL_CTX_set_verify_depth(ssl_ctx, 4);
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;

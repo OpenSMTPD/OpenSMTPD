@@ -85,7 +85,6 @@
 #define F_SSL		       (F_SMTPS|F_STARTTLS)
 #define	F_STARTTLS_REQUIRE	0x08
 #define	F_AUTH_REQUIRE		0x10
-
 #define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH RELAY_BACKUP */
 
 #define F_SCERT			0x01
@@ -1243,7 +1242,7 @@ const char * imsg_to_str(int);
 void ssl_init(void);
 int ssl_load_certfile(const char *, uint8_t);
 void ssl_setup(struct listener *);
-void *ssl_smtp_init(void *);
+void *ssl_smtp_init(void *, struct ssl *);
 void *ssl_mta_init(struct ssl *);
 const char *ssl_to_text(void *);
 int ssl_cmp(struct ssl *, struct ssl *);

@@ -349,10 +349,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (s->flags & SF_SECURE)
 			fprintf(s->ofile,
-			    "\tTLS version=%s cipher=%s bits=%d;\n",
+			    "\tTLS version=%s cipher=%s bits=%d verified=%s;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
-			    SSL_get_cipher_bits(s->io.ssl, NULL));
+			    SSL_get_cipher_bits(s->io.ssl, NULL),
+			    SSL_get_peer_certificate(s->io.ssl) ? "Yes" : "No");
 
 		if (s->rcptcount == 1)
 			fprintf(s->ofile, "\tfor <%s@%s>;\n",
@@ -504,7 +505,7 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 		}
 
 		if (s->listener->flags & F_SMTPS) {
-			ssl = ssl_smtp_init(s->listener->ssl_ctx);
+			ssl = ssl_smtp_init(s->listener->ssl_ctx, s->listener->ssl);
 			io_set_read(&s->io);
 			io_start_tls(&s->io, ssl);
 			return;
@@ -714,7 +715,7 @@ smtp_io(struct io *io, int evt)
 
 		/* Wait for the client to start tls */
 		if (s->state == STATE_TLS) {
-			ssl = ssl_smtp_init(s->listener->ssl_ctx);
+			ssl = ssl_smtp_init(s->listener->ssl_ctx, s->listener->ssl);
 			io_start_tls(io, ssl);
 		}
 		break;
