@@ -233,10 +233,8 @@ main(int argc, char *argv[])
 		/* not reached */
 
 	case SCHEDULE:
-		if (! strcmp(res->data, "all")) {
-			action_schedule_all();
-			return;
-		}
+		if (! strcmp(res->data, "all"))
+			return action_schedule_all();
 
 		if ((ulval = text_to_evpid(res->data)) == 0)
 			errx(1, "invalid msgid/evpid");
