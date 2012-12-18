@@ -349,11 +349,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (s->flags & SF_SECURE)
 			fprintf(s->ofile,
-			    "\tTLS version=%s cipher=%s bits=%d verified=%s;\n",
+			    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
-			    SSL_get_peer_certificate(s->io.ssl) ? "Yes" : "No");
+			    SSL_get_peer_certificate(s->io.ssl) ? "YES" : "NO");
 
 		if (s->rcptcount == 1)
 			fprintf(s->ofile, "\tfor <%s@%s>;\n",
