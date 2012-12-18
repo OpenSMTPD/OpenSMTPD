@@ -174,17 +174,6 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		goto err;
 
 	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.ca", name))
-		goto err;
-
-	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL) {
-		if (errno == EACCES)
-			goto err;
-		log_warnx("warn:  no CA found in %s", certfile);
-	}
-
-	if (! bsnprintf(certfile, sizeof(certfile),
 		"/etc/mail/certs/%s.dh", name))
 		goto err;
 
@@ -241,12 +230,6 @@ ssl_setup(struct listener *l)
 		fatal("ssl_setup: certificate tree corrupted");
 
 	l->ssl_ctx = ssl_ctx_create();
-
-	if (l->ssl->ssl_ca != NULL) {
-		if (! ssl_ctx_load_verify_memory(l->ssl_ctx,
-			l->ssl->ssl_ca, l->ssl->ssl_ca_len))
-			goto err;
-	}
 
 	if (!ssl_ctx_use_certificate_chain(l->ssl_ctx,
 	    l->ssl->ssl_cert, l->ssl->ssl_cert_len))
