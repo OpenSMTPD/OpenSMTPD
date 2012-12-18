@@ -564,7 +564,9 @@ struct smtpd {
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
 	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
-
+	const char			       *cert_store;
+	off_t					cert_store_len;
+	
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 

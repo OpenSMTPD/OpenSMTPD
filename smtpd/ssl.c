@@ -173,15 +173,14 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	if (s->ssl_key == NULL)
 		goto err;
 
+	/*
 	if (! bsnprintf(certfile, sizeof(certfile),
 		"/etc/mail/certs/%s.ca", name))
 		goto err;
 	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL) {
-		s->ssl_ca = ssl_load_file("/etc/ssl/cert.pem", &s->ssl_ca_len, 0755);
-		if (s->ssl_ca == NULL)
-			goto err;
-	}
+	if (s->ssl_ca == NULL)
+		goto err;
+	*/
 
 	if (! bsnprintf(certfile, sizeof(certfile),
 		"/etc/mail/certs/%s.dh", name))
@@ -221,6 +220,12 @@ ssl_init(void)
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
+
+	/* Load certificate store */
+	env->cert_store = ssl_load_file("/etc/ssl/cert.pem",
+	    &env->cert_store_len, 0755);
+	if (env->cert_store == NULL)
+		fatal("ssl_init: cannot load certificate store");
 }
 
 void
@@ -356,8 +361,10 @@ ssl_smtp_init(void *ssl_ctx, struct ssl *s)
 			goto err;
 		else if (!SSL_CTX_check_private_key(ssl_ctx))
 			goto err;	
-
-		ssl_ctx_load_verify_memory(ssl_ctx, s->ssl_ca, s->ssl_ca_len);
+		if (s->ssl_ca_len)
+			ssl_ctx_load_verify_memory(ssl_ctx, s->ssl_ca, s->ssl_ca_len);
+		else
+			ssl_ctx_load_verify_memory(ssl_ctx, env->cert_store, env->cert_store_len);
 		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
 		/* XXX - we'll want to allow strict checks of specific listeners */
 		/* SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL); */
