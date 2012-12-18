@@ -348,10 +348,10 @@ ssl_smtp_init(void *ssl_ctx, struct ssl *s)
 			goto err;		
 	}
 
-	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
+	/*SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);*/
 	/* XXX - we'll want to allow strict checks of specific listeners */
 	/* SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL); */
-	SSL_CTX_set_verify_depth(ssl_ctx, 4);
+	/*SSL_CTX_set_verify_depth(ssl_ctx, 4);*/
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;
