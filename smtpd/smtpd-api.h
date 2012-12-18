@@ -32,75 +32,96 @@
 #define MAX_LOCALPART_SIZE	 64
 #define MAX_DOMAINPART_SIZE	 255
 
-
 SPLAY_HEAD(dict, dictentry);
 SPLAY_HEAD(tree, treeentry);
 
 enum filter_status {
 	FILTER_OK,
-	FILTER_PERMFAIL,
-	FILTER_TEMPFAIL
+	FILTER_FAIL,
+	FILTER_CLOSE,
 };
+
+enum filter_imsg {
+	IMSG_FILTER_REGISTER,
+	IMSG_FILTER_EVENT,
+	IMSG_FILTER_QUERY,
+	IMSG_FILTER_NOTIFY,
+	IMSG_FILTER_DATA,
+	IMSG_FILTER_RESPONSE,
+};
+
+#define	FILTER_ALTERDATA	0x01 /* The filter wants to alter the message */
 
 /* XXX - server side requires mfa_session.c update on filter_hook changes */
 enum filter_hook {
-	HOOK_REGISTER		= 0,
-	HOOK_CONNECT		= 1 << 0,
-	HOOK_HELO		= 1 << 1,
-	HOOK_MAIL		= 1 << 2,
-	HOOK_RCPT		= 1 << 3,
-	HOOK_DATA		= 1 << 4,
-	HOOK_HEADERLINE       	= 1 << 5,
-	HOOK_DATALINE		= 1 << 6,
-	HOOK_QUIT		= 1 << 7,
-	HOOK_CLOSE		= 1 << 8,
-	HOOK_RSET		= 1 << 9,
+	HOOK_CONNECT		= 1 << 0,	/* req */
+	HOOK_HELO		= 1 << 1,	/* req */
+	HOOK_MAIL		= 1 << 2,	/* req */
+	HOOK_RCPT		= 1 << 3,	/* req */
+	HOOK_DATA		= 1 << 4,	/* req */
+	HOOK_ENDOFDATA		= 1 << 5,	/* req */
+
+	HOOK_RESET		= 1 << 6,	/* evt */
+	HOOK_DISCONNECT		= 1 << 7,	/* evt */
+	HOOK_COMMIT		= 1 << 8,	/* evt */
+	HOOK_ROLLBACK		= 1 << 9,	/* evt */
+
+	HOOK_DATALINE		= 1 << 10,	/* data */
 };
 
 struct filter_connect {
+	struct sockaddr_storage	local;
+	struct sockaddr_storage	remote;
 	char			hostname[MAXHOSTNAMELEN];
-	struct sockaddr_storage	hostaddr;
 };
 
-struct filter_helo {
-	char			host[MAXHOSTNAMELEN];
+struct filter_line {
+	char			line[MAX_LINE_SIZE];
 };
 
-struct filter_mail {
+struct filter_mailaddr {
 	char			user[MAX_LOCALPART_SIZE];
 	char			domain[MAX_DOMAINPART_SIZE];
 };
 
-struct filter_rcpt {
-	char			user[MAX_LOCALPART_SIZE];
-	char			domain[MAX_DOMAINPART_SIZE];
+struct filter_register_msg {
+	int	hooks;
+	int	flags;
 };
 
-struct filter_headerline {
+struct filter_query_msg {
+	uint64_t			id;
+	uint64_t			qid;
+	enum filter_hook		hook;
+	union {
+		struct filter_connect	connect;
+		struct filter_line	line;
+		struct filter_mailaddr	maddr;
+	} u;
+};
+
+struct filter_event_msg {
+	uint64_t		id;
+	enum filter_hook	event;
+};
+
+struct filter_notify_msg {
+	uint64_t		qid;
+	enum filter_status	status;
+};
+
+struct filter_data_msg {
+	uint64_t		id;
 	char			line[MAX_LINE_SIZE];
 };
 
-struct filter_dataline {
-	char			line[MAX_LINE_SIZE];
-};
-
-union filter_union {
-	struct filter_connect		connect;
-	struct filter_helo		helo;
-	struct filter_mail		mail;
-	struct filter_rcpt		rcpt;
-	struct filter_headerline	headerline;
-	struct filter_dataline		dataline;
-};
-
-struct filter_msg {
-	uint64_t		id;	 /* set by smtpd(8) */
+struct filter_response_msg {
+	uint64_t		qid;
 	enum filter_status	status;
 	uint32_t		code;
-	char			errorline[MAX_LINE_SIZE];
-	union filter_union	u;
+	int			notify;
+	char			response[MAX_LINE_SIZE];
 };
-
 
 /* dict.c */
 #define dict_init(d) SPLAY_INIT((d))
@@ -118,26 +139,15 @@ int dict_iter(struct dict *, void **, const char * *, void **);
 int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
 void dict_merge(struct dict *, struct dict *);
 
-
 /* filter_api.c */
 void filter_api_init(void);
 void filter_api_loop(void);
 void filter_api_accept(uint64_t);
+void filter_api_accept_notify(uint64_t);
 void filter_api_reject(uint64_t, enum filter_status);
-void filter_api_reject_status(uint64_t, uint32_t, const char *);
-
-
-void filter_api_register_connect_callback(void (*)(uint64_t, struct filter_connect *, void *), void *);
-void filter_api_register_helo_callback(void (*)(uint64_t, struct filter_helo *, void *), void *);
-void filter_api_register_mail_callback(void (*)(uint64_t, struct filter_mail *, void *), void *);
-void filter_api_register_rcpt_callback(void (*)(uint64_t, struct filter_rcpt *, void *), void *);
-void filter_api_register_data_callback(void (*)(uint64_t, void *), void *);
-void filter_api_register_headerline_callback(void (*)(uint64_t, struct filter_headerline *, void *), void *);
-void filter_api_register_dataline_callback(void (*)(uint64_t, struct filter_dataline *, void *), void *);
-void filter_api_register_quit_callback(void (*)(uint64_t, void *), void *);
-void filter_api_register_close_callback(void (*)(uint64_t, void *), void *);
-void filter_api_register_rset_callback(void (*)(uint64_t, void *), void *);
-
+void filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
+    const char *);
+void filter_api_push_data(uint64_t, const char *);
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))
@@ -154,6 +164,5 @@ int tree_root(struct tree *, uint64_t *, void **);
 int tree_iter(struct tree *, void **, uint64_t *, void **);
 int tree_iterfrom(struct tree *, void **, uint64_t, uint64_t *, void **);
 void tree_merge(struct tree *, struct tree *);
-
 
 #endif

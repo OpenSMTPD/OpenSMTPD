@@ -567,6 +567,8 @@ main(int argc, char *argv[])
 			else if (!strcmp(optarg, "smtp"))
 				verbose |= TRACE_SMTP;
 			else if (!strcmp(optarg, "mta"))
+				verbose |= TRACE_MFA;
+			else if (!strcmp(optarg, "mfa"))
 				verbose |= TRACE_MTA;
 			else if (!strcmp(optarg, "bounce"))
 				verbose |= TRACE_BOUNCE;

@@ -32,6 +32,7 @@
 #include "smtpd-api.h"
 
 static struct tree		sessions;
+
 struct session {
 	enum filter_hook	hook;
 	struct filter_msg	fm;

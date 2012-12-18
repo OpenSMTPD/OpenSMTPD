@@ -574,12 +574,13 @@ struct smtpd {
 #define	TRACE_IMSG	0x0002
 #define	TRACE_IO	0x0004
 #define	TRACE_SMTP	0x0008
-#define	TRACE_MTA	0x0010
-#define	TRACE_BOUNCE	0x0020
-#define	TRACE_SCHEDULER	0x0040
-#define	TRACE_STAT	0x0080
-#define	TRACE_PROFILING	0x0100
-#define	TRACE_RULES	0x0200
+#define	TRACE_MFA	0x0010
+#define	TRACE_MTA	0x0020
+#define	TRACE_BOUNCE	0x0040
+#define	TRACE_SCHEDULER	0x0080
+#define	TRACE_STAT	0x0100
+#define	TRACE_PROFILING	0x0200
+#define	TRACE_RULES	0x0400
 
 struct forward_req {
 	uint64_t			id;
@@ -919,38 +920,35 @@ struct queue_resp_msg {
 	uint64_t	evpid;
 };
 
-
 struct mfa_connect_msg {
 	uint64_t		reqid;
+	int			flags;
 	struct sockaddr_storage	local;
-	struct sockaddr_storage	peer;
+	struct sockaddr_storage	remote;
 	char			hostname[MAXHOSTNAMELEN];
 };
 
-struct mfa_helo_msg {
+struct mfa_line_msg {
 	uint64_t		reqid;
 	int			flags;
-	char			helo[MAX_LINE_SIZE];
+	char			line[MAX_LINE_SIZE];
 };
 
-struct mfa_mail_msg {
+struct mfa_maddr_msg {
 	uint64_t		reqid;
 	int			flags;
-	struct mailaddr		sender;
-};
-
-struct mfa_rcpt_msg {
-	uint64_t		reqid;
-	struct mailaddr		rcpt;
+	struct mailaddr		maddr;
 };
 
 struct mfa_data_msg {
 	uint64_t		reqid;
+	int			flags;
 	char			buffer[MAX_LINE_SIZE];
 };
 
 struct mfa_req_msg {
 	uint64_t		reqid;
+	int			flags;
 };
 
 enum mfa_resp_status {
@@ -1144,7 +1142,17 @@ pid_t mda(void);
 
 /* mfa.c */
 pid_t mfa(void);
+void mfa_ready(void);
 
+/* mfa_session.c */
+void mfa_filter_init(void);
+void mfa_filter_connect(uint64_t, const struct sockaddr *,
+    const struct sockaddr *, const char *);
+void mfa_filter_mailaddr(uint64_t, int, const struct mailaddr *);
+void mfa_filter_line(uint64_t, int, const char *);
+void mfa_filter(uint64_t, int);
+void mfa_filter_event(uint64_t, int);
+void mfa_filter_data(uint64_t, const char *);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);
