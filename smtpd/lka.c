@@ -91,7 +91,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;
 
-			log_debug("LKA SEARCHING FOR: %s", req_ca_cert->name);
 			ssl = dict_get(env->sc_ssl_dict, req_ca_cert->name);
 			if (ssl == NULL) {
 				resp_ca_cert.status = CA_FAIL;
