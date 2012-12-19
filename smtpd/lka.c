@@ -596,17 +596,19 @@ lka_X509_verify(X509 *certificate, const char *CAfile, const char *CRLfile, cons
 		goto end;
 
 	if (CAfile) {
-//		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file())) == NULL)
-//			goto end;
+		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file())) == NULL)
+			goto end;
 		
 		log_debug("CAfile: %s", CAfile);
-//		if (! X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_PEM))
-//			goto end;
-//
-		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir())) == NULL)
+		if (! X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_PEM))
 			goto end;
 
-		X509_LOOKUP_add_dir(lookup, "/etc/ssl", X509_FILETYPE_PEM);
+/*
+//		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir())) == NULL)
+//			goto end;
+//
+//		X509_LOOKUP_add_dir(lookup, "/etc/ssl", X509_FILETYPE_PEM);
+*/
 	}
 
 	if ((xsc = X509_STORE_CTX_new()) == NULL)
