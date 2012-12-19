@@ -676,6 +676,12 @@ smtp_io(struct io *io, int evt)
 	case IO_TLSREADY:
 		log_info("smtp-in: Started TLS on session %016"PRIx64": %s",
 		    s->id, ssl_to_text(s->io.ssl));
+
+		if (SSL_get_peer_certificate(s->io.ssl))
+			log_info("smtp-in: client sent certificate");
+		else
+			log_info("smtp-in: client did NOT send certificate");
+
 		s->flags |= SF_SECURE;
 		s->kickcount = 0;
 		s->phase = PHASE_INIT;
@@ -687,6 +693,7 @@ smtp_io(struct io *io, int evt)
 		else {
 			stat_increment("smtp.tls", 1);
 		}
+		smtp_enter_state(s, STATE_HELO);
 		break;
 
 	case IO_DATAIN:
