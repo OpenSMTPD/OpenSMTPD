@@ -24,6 +24,8 @@
 #include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
+
 #include <netinet/in.h>
 
 #include <ctype.h>
@@ -73,6 +75,7 @@ enum session_flags {
 	SF_AUTHENTICATED	= 0x0008,
 	SF_BOUNCE		= 0x0010,
 	SF_KICK			= 0x0020,
+	SF_VERIFIED		= 0x0040,
 };
 
 enum message_flags {
@@ -180,6 +183,7 @@ static struct tree wait_queue_msg;
 static struct tree wait_queue_fd;
 static struct tree wait_queue_commit;
 static struct tree wait_ssl_init;
+static struct tree wait_ssl_verify;
 
 static void
 smtp_session_init(void)
@@ -196,6 +200,7 @@ smtp_session_init(void)
 		tree_init(&wait_queue_fd);
 		tree_init(&wait_queue_commit);
 		tree_init(&wait_ssl_init);
+		tree_init(&wait_ssl_verify);
 		init = 1;
 	}
 }
@@ -251,6 +256,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct lka_resp_msg		*resp_lka;
 	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
+	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
 	struct smtp_session		*s;
 	struct auth			*auth;
 	void				*ssl;
@@ -357,7 +363,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
-			    SSL_get_peer_certificate(s->io.ssl) ? "YES" : "NO");
+			    (s->flags & SF_VERIFIED) ? "YES" :
+			    (SSL_get_peer_certificate(s->io.ssl) ? "FAILURE" : "NO"));
 
 		if (s->rcptcount == 1)
 			fprintf(s->ofile, "\tfor <%s@%s>;\n",
@@ -501,6 +508,28 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		bzero(resp_ca_cert->key, resp_ca_cert->key_len);
 		free(resp_ca_cert);
+		return;
+
+	case IMSG_LKA_SSL_VERIFY:
+		resp_ca_vrfy = imsg->data;
+		s = tree_xpop(&wait_ssl_verify, resp_ca_vrfy->reqid);
+
+		/* strict mode */
+		/*
+		if (resp_ca_vrfy->status == CA_FAIL) {
+			log_info("smtp-in: Disconnecting session %016" PRIx64
+			    ": CA failure", s->id);
+			smtp_free(s, "CA failure");	
+			return;
+		}
+		*/
+
+		if (resp_ca_vrfy->status == CA_OK) {
+			s->flags |= SF_VERIFIED;
+			log_debug("setting %p->flags: %d", s, s->flags);
+		}
+
+		io_callback(&s->io, IO_TLSVERIFIED);
 		return;
 	}
 
@@ -664,9 +693,12 @@ smtp_io(struct io *io, int evt)
 {
 	struct mfa_data_msg	req;
 	struct ca_cert_req_msg	req_ca_cert;
+	struct ca_vrfy_req_msg	req_ca_vrfy;
 	struct smtp_session    *s = io->arg;
 	char		       *line;
 	size_t			len;
+	struct iovec		iov[2];
+	X509		       *x;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -677,14 +709,35 @@ smtp_io(struct io *io, int evt)
 		log_info("smtp-in: Started TLS on session %016"PRIx64": %s",
 		    s->id, ssl_to_text(s->io.ssl));
 
-		if (SSL_get_peer_certificate(s->io.ssl))
-			log_info("smtp-in: client sent certificate");
-		else
-			log_info("smtp-in: client did NOT send certificate");
-
 		s->flags |= SF_SECURE;
 		s->kickcount = 0;
 		s->phase = PHASE_INIT;
+
+		if ((x = SSL_get_peer_certificate(s->io.ssl)) != NULL) {
+			log_info("smtp-in: client sent certificate");
+			tree_xset(&wait_ssl_verify, s->id, s);
+			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+			req_ca_vrfy.reqid = s->id;
+			req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+			iov[0].iov_base = &req_ca_vrfy;
+			iov[0].iov_len = sizeof(req_ca_vrfy);
+			iov[1].iov_base = req_ca_vrfy.cert;
+			iov[1].iov_len = req_ca_vrfy.cert_len;
+			m_composev(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
+			    iov, nitems(iov));
+			free(req_ca_vrfy.cert);
+			break;
+		}
+		else
+			log_info("smtp-in: client did NOT send certificate");
+
+		/* No verification required, cascade */
+
+	case IO_TLSVERIFIED:
+		if (s->flags & SF_VERIFIED)
+			log_info("smtp-in: Verified TLS on session %016"PRIx64": %s",
+			    s->id, ssl_to_text(s->io.ssl));
+
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
 			smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
@@ -692,8 +745,8 @@ smtp_io(struct io *io, int evt)
 		}
 		else {
 			stat_increment("smtp.tls", 1);
+			smtp_enter_state(s, STATE_HELO);
 		}
-		smtp_enter_state(s, STATE_HELO);
 		break;
 
 	case IO_DATAIN:
@@ -874,7 +927,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 		strlcpy(s->helo, args, sizeof(s->helo));
-		s->flags &= SF_SECURE | SF_AUTHENTICATED;
+		s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
 		if (cmd == CMD_EHLO) {
 			s->flags |= SF_EHLO;
 			s->flags |= SF_8BITMIME;

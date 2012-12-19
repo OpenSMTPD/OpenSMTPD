@@ -20,6 +20,7 @@
 enum {
 	IO_CONNECTED = 0, 	/* connection successful	*/
 	IO_TLSREADY,		/* TLS started succesfully	*/
+	IO_TLSVERIFIED,		/* TLS started & verified	*/
 	IO_DATAIN,		/* new data in input buffer	*/
 	IO_LOWAT,		/* output queue running low	*/
 	IO_DISCONNECTED,	/* error?			*/

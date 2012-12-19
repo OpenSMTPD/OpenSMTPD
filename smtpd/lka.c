@@ -32,6 +32,8 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 #include <pwd.h>
 #include <resolv.h>
 #include <signal.h>
@@ -47,6 +49,7 @@ static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_encode_credentials(char *, size_t, struct credentials *);
+static int lka_X509_verify(X509 *, const char *, const char *, const char **);
 
 static void
 lka_imsg(struct mproc *p, struct imsg *imsg)
@@ -69,8 +72,13 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct credentials	*creds;
 	struct ca_cert_req_msg	*req_ca_cert;
 	struct ca_cert_resp_msg	resp_ca_cert;
+	struct ca_vrfy_req_msg	*req_ca_vrfy;
+	struct ca_vrfy_resp_msg	resp_ca_vrfy;
 	struct ssl		*ssl;
 	struct iovec		iov[3];
+	X509		        *x;
+	const unsigned char    	*d2i;
+	const char	        *errstr = NULL;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
 	    imsg->hdr.type == IMSG_DNS_PTR ||
@@ -108,6 +116,35 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			iov[2].iov_base = ssl->ssl_key;
 			iov[2].iov_len = ssl->ssl_key_len;
 			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
+			return;
+
+		case IMSG_LKA_SSL_VERIFY:
+			req_ca_vrfy = xmemdup(imsg->data, sizeof *req_ca_vrfy, "lka:ca_vrfy");
+			if (req_ca_vrfy == NULL)
+				fatal(NULL);
+			req_ca_vrfy->cert = xmemdup((char *)imsg->data +
+			    sizeof *req_ca_vrfy, req_ca_vrfy->cert_len, "lka:ca_vrfy");
+
+			resp_ca_vrfy.reqid = req_ca_vrfy->reqid;
+			resp_ca_vrfy.status = CA_FAIL;
+
+			x = NULL;
+			d2i = req_ca_vrfy->cert;
+			d2i_X509(&x, &d2i, req_ca_vrfy->cert_len);
+
+			if (! lka_X509_verify(x, "/etc/ssl/cert.pem", NULL, &errstr))
+				resp_ca_vrfy.status = CA_FAIL;
+			else
+				resp_ca_vrfy.status = CA_OK;
+
+			if (x)
+				X509_free(x);
+
+			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
+			    sizeof resp_ca_vrfy);
+
+			free(req_ca_vrfy->cert);
+			free(req_ca_vrfy);
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
@@ -516,6 +553,9 @@ lka(void)
 	mproc_disable(p_mta);
 	mproc_disable(p_smtp);
 
+	OpenSSL_add_all_algorithms();
+	SSL_load_error_strings();
+
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	lka_shutdown();
@@ -542,4 +582,54 @@ lka_encode_credentials(char *dst, size_t size,
 
 	free(buf);
 	return 1;
+}
+
+static int
+lka_X509_verify(X509 *certificate, const char *CAfile, const char *CRLfile, const char **errstr)
+{
+	X509_STORE	*store = NULL;
+	X509_LOOKUP	*lookup = NULL;
+	X509_STORE_CTX	*xsc = NULL;
+	int		i = 0;
+
+	if ((store = X509_STORE_new()) == NULL)
+		goto end;
+
+	if (CAfile) {
+//		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file())) == NULL)
+//			goto end;
+		
+		log_debug("CAfile: %s", CAfile);
+//		if (! X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_PEM))
+//			goto end;
+//
+		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir())) == NULL)
+			goto end;
+
+		X509_LOOKUP_add_dir(lookup, "/etc/ssl", X509_FILETYPE_PEM);
+	}
+
+	if ((xsc = X509_STORE_CTX_new()) == NULL)
+		goto end;
+
+	if (! X509_STORE_CTX_init(xsc, store, certificate, 0))
+		goto end;
+
+	i = X509_verify_cert(xsc);
+
+	log_debug("DID THE VERIF");
+
+end:
+	log_debug("i == %d", i);
+	*errstr = NULL;
+	if (i <= 0) {
+		if (ERR_peek_last_error())
+			*errstr = ERR_error_string(ERR_peek_last_error(), NULL);
+	}
+
+	if (xsc)
+		X509_STORE_CTX_free(xsc);
+	if (store)
+		X509_STORE_free(store);
+	return i > 0 ? 1 : 0;
 }

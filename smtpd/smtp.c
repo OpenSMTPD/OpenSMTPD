@@ -70,6 +70,9 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_LKA_SSL_INIT:
 			smtp_session_imsg(p, imsg);
 			return;
+		case IMSG_LKA_SSL_VERIFY:
+			smtp_session_imsg(p, imsg);
+			return;
 		}
 	}
 
@@ -238,11 +241,12 @@ smtp(void)
 
 	pw = env->sc_pw;
 
+	/*
 	if (chroot(pw->pw_dir) == -1)
 		fatal("smtp: chroot");
 	if (chdir("/") == -1)
 		fatal("smtp: chdir(\"/\")");
-
+	*/
 	smtpd_process = PROC_SMTP;
 	setproctitle("%s", env->sc_title[smtpd_process]);
 

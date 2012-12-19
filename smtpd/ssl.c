@@ -337,6 +337,18 @@ done:
 	return (void*)(ssl);
 }
 
+/* dummy_verify */
+static int
+dummy_verify(int ok, X509_STORE_CTX *store)
+{
+	/*
+	 * We *want* SMTP to request an optional client certificate, however we don't want the
+	 * verification to take place in the SMTP process. This dummy verify will allow us to
+	 * asynchronously verify in the lookup process.
+	 */
+	return 1;
+}
+
 void *
 ssl_smtp_init(void *ssl_ctx, const char *cert, off_t cert_len, const char *key, off_t key_len)
 {
@@ -350,6 +362,10 @@ ssl_smtp_init(void *ssl_ctx, const char *cert, off_t cert_len, const char *key, 
 		goto err;
 	else if (!SSL_CTX_check_private_key(ssl_ctx))
 		goto err;
+
+	/*SSL_CTX_load_verify_locations(ssl_ctx, "/etc/ssl/cert.pem", NULL);*/
+	/*SSL_CTX_set_verify_depth(ssl_ctx, 0);*/
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;
