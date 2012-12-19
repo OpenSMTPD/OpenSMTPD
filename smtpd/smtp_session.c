@@ -647,6 +647,7 @@ smtp_io(struct io *io, int evt)
 		}
 		else {
 			stat_increment("smtp.tls", 1);
+			smtp_enter_state(s, STATE_HELO);
 		}
 		break;
 
