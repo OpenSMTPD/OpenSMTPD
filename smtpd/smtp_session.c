@@ -357,7 +357,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
-			    SSL_get_peer_certificate(s->io.ssl) ? "YES" : "NO");
+			    "NO"); /* until we really verify */
 
 		if (s->rcptcount == 1)
 			fprintf(s->ofile, "\tfor <%s@%s>;\n",
