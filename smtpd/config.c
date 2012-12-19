@@ -131,8 +131,6 @@ config_peer(enum smtp_proc_type proc)
 		p_scheduler = p;
 	else if (proc == PROC_SMTP)
 		p_smtp = p;
-	else if (proc == PROC_CA)
-		p_ca = p;
 	else
 		fatalx("bad peer");
 }

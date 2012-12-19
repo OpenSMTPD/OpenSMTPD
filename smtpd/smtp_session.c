@@ -471,7 +471,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
-	case IMSG_SSL_INIT:
+	case IMSG_LKA_SSL_INIT:
 		resp_ca_cert = imsg->data;
 		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
 
@@ -544,7 +544,7 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 			req_ca_cert.reqid = s->id;
 			strlcpy(req_ca_cert.name, s->listener->ssl_cert_name,
 			    sizeof req_ca_cert.name);
-			m_compose(p_ca, IMSG_SSL_INIT, 0, 0, -1,
+			m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
 			tree_xset(&wait_ssl_init, s->id, s);
 			return;
@@ -756,7 +756,7 @@ smtp_io(struct io *io, int evt)
 			req_ca_cert.reqid = s->id;
 			strlcpy(req_ca_cert.name, s->listener->ssl_cert_name,
 			    sizeof req_ca_cert.name);
-			m_compose(p_ca, IMSG_SSL_INIT, 0, 0, -1,
+			m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
 			tree_xset(&wait_ssl_init, s->id, s);
 			break;

@@ -429,7 +429,6 @@ mta(void)
 	config_peer(PROC_QUEUE);
 	config_peer(PROC_LKA);
 	config_peer(PROC_CONTROL);
-	config_peer(PROC_CA);
 	config_done();
 
 	if (event_dispatch() < 0)

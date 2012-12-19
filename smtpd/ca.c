@@ -52,28 +52,6 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
-		case IMSG_SSL_INIT:
-			req_ca_cert = imsg->data;
-			resp_ca_cert.reqid = req_ca_cert->reqid;
-
-			ssl = dict_get(env->sc_ssl_dict, req_ca_cert->name);
-			if (ssl == NULL) {
-				resp_ca_cert.status = CA_FAIL;
-				m_compose(p, IMSG_SSL_INIT, 0, 0, -1, &resp_ca_cert,
-				    sizeof(resp_ca_cert));
-				return;
-			}
-			resp_ca_cert.status = CA_OK;
-			resp_ca_cert.cert_len = ssl->ssl_cert_len;
-			resp_ca_cert.key_len = ssl->ssl_key_len;
-			iov[0].iov_base = &resp_ca_cert;
-			iov[0].iov_len = sizeof(resp_ca_cert);
-			iov[1].iov_base = ssl->ssl_cert;
-			iov[1].iov_len = ssl->ssl_cert_len;
-			iov[2].iov_base = ssl->ssl_key;
-			iov[2].iov_len = ssl->ssl_key_len;
-			m_composev(p, IMSG_SSL_INIT, 0, 0, -1, iov, nitems(iov));
-			return;
 		}
 	}
 
@@ -87,31 +65,6 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 			env->sc_ssl_dict = calloc(1, sizeof *env->sc_ssl_dict);
 			if (env->sc_ssl_dict == NULL)
 				fatal(NULL);
-			return;
-
-		case IMSG_CONF_SSL:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
-			ssl = calloc(1, sizeof *ssl);
-			if (ssl == NULL)
-				fatal(NULL);
-			*ssl = *(struct ssl *)imsg->data;
-			ssl->ssl_cert = xstrdup((char *)imsg->data +
-			    sizeof *ssl, "smtp:ssl_cert");
-			ssl->ssl_key = xstrdup((char *)imsg->data +
-			    sizeof *ssl + ssl->ssl_cert_len, "smtp:ssl_key");
-			if (ssl->ssl_dhparams_len) {
-				ssl->ssl_dhparams = xstrdup((char *)imsg->data
-				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len, "smtp:ssl_dhparams");
-			}
-			if (ssl->ssl_ca_len) {
-				ssl->ssl_ca = xstrdup((char *)imsg->data
-				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
-				    "smtp:ssl_ca");
-			}
-			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 			return;
 
 		case IMSG_CONF_END:
@@ -170,10 +123,12 @@ ca(void)
 
 	pw = env->sc_pw;
 
-	if (chroot(PATH_CERTIFICATES) == -1)
-		fatal("ca: chroot");
-	if (chdir("/") == -1)
-		fatal("ca: chdir(\"/\")");
+	/*
+	  if (chroot(PATH_CERTIFICATES) == -1)
+	  fatal("ca: chroot");
+	  if (chdir("/") == -1)
+	  fatal("ca: chdir(\"/\")");
+	*/
 
 	smtpd_process = PROC_CA;
 	setproctitle("%s", env->sc_title[smtpd_process]);

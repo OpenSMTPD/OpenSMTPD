@@ -58,14 +58,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	struct listener		*l;
 	struct ssl		*ssl;
 
-	if (p->proc == PROC_CA) {
-		switch (imsg->hdr.type) {
-		case IMSG_SSL_INIT:
-			smtp_session_imsg(p, imsg);
-			return;
-		}
-	}
-
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
@@ -73,6 +65,9 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			smtp_session_imsg(p, imsg);
 			return;
 		case IMSG_LKA_AUTHENTICATE:
+			smtp_session_imsg(p, imsg);
+			return;
+		case IMSG_LKA_SSL_INIT:
 			smtp_session_imsg(p, imsg);
 			return;
 		}
@@ -273,7 +268,6 @@ smtp(void)
 	config_peer(PROC_LKA);
 	config_peer(PROC_MFA);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_CA);
 	config_done();
 
 	if (event_dispatch() < 0)

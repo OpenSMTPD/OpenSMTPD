@@ -23,6 +23,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <sys/uio.h>
 
 #include <netinet/in.h>
 
@@ -61,10 +62,15 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	int			ret;
 	const char		*k, *v;
 	char			*src;
+	static struct dict	*ssl_dict;
 	static struct dict	*tables_dict;
 	static struct tree	*tables_tree;
 	static struct table	*table_last;
 	struct credentials	*creds;
+	struct ca_cert_req_msg	*req_ca_cert;
+	struct ca_cert_resp_msg	resp_ca_cert;
+	struct ssl		*ssl;
+	struct iovec		iov[3];
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
 	    imsg->hdr.type == IMSG_DNS_PTR ||
@@ -80,6 +86,31 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req = imsg->data;
 			lka_session(req->reqid, &req->evp);
 			return;
+
+		case IMSG_LKA_SSL_INIT:
+			req_ca_cert = imsg->data;
+			resp_ca_cert.reqid = req_ca_cert->reqid;
+
+			log_debug("LKA SEARCHING FOR: %s", req_ca_cert->name);
+			ssl = dict_get(env->sc_ssl_dict, req_ca_cert->name);
+			if (ssl == NULL) {
+				resp_ca_cert.status = CA_FAIL;
+				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
+				    sizeof(resp_ca_cert));
+				return;
+			}
+			resp_ca_cert.status = CA_OK;
+			resp_ca_cert.cert_len = ssl->ssl_cert_len;
+			resp_ca_cert.key_len = ssl->ssl_key_len;
+			iov[0].iov_base = &resp_ca_cert;
+			iov[0].iov_len = sizeof(resp_ca_cert);
+			iov[1].iov_base = ssl->ssl_cert;
+			iov[1].iov_len = ssl->ssl_cert_len;
+			iov[2].iov_base = ssl->ssl_key;
+			iov[2].iov_len = ssl->ssl_key_len;
+			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
+			return;
+
 		case IMSG_LKA_AUTHENTICATE:
 			auth = imsg->data;
 
@@ -241,10 +272,37 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			tables_tree = xcalloc(1,
 			    sizeof *tables_tree, "lka:tables_tree");
 
+			ssl_dict = calloc(1, sizeof *ssl_dict);
+			if (ssl_dict == NULL)
+				fatal(NULL);
+			dict_init(ssl_dict);
 			dict_init(tables_dict);
 			tree_init(tables_tree);
 			TAILQ_INIT(env->sc_rules_reload);
 
+			return;
+
+		case IMSG_CONF_SSL:
+			ssl = calloc(1, sizeof *ssl);
+			if (ssl == NULL)
+				fatal(NULL);
+			*ssl = *(struct ssl *)imsg->data;
+			ssl->ssl_cert = xstrdup((char *)imsg->data +
+			    sizeof *ssl, "smtp:ssl_cert");
+			ssl->ssl_key = xstrdup((char *)imsg->data +
+			    sizeof *ssl + ssl->ssl_cert_len, "smtp:ssl_key");
+			if (ssl->ssl_dhparams_len) {
+				ssl->ssl_dhparams = xstrdup((char *)imsg->data
+				    + sizeof *ssl + ssl->ssl_cert_len +
+				    ssl->ssl_key_len, "smtp:ssl_dhparams");
+			}
+			if (ssl->ssl_ca_len) {
+				ssl->ssl_ca = xstrdup((char *)imsg->data
+				    + sizeof *ssl + ssl->ssl_cert_len +
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
+				    "smtp:ssl_ca");
+			}
+			dict_set(ssl_dict, ssl->ssl_name, ssl);
 			return;
 
 		case IMSG_CONF_RULE:
@@ -322,10 +380,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				purge_config(PURGE_TABLES);
 			}
 			env->sc_rules = env->sc_rules_reload;
+			env->sc_ssl_dict = ssl_dict;
 			env->sc_tables_dict = tables_dict;
 			env->sc_tables_tree = tables_tree;
 			table_open_all();
 
+			ssl_dict = NULL;
 			table_last = NULL;
 			tables_dict = NULL;
 			tables_tree = NULL;

@@ -66,7 +66,6 @@
 #define PATH_MESSAGE		"/message"
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
-#define	PATH_CERTIFICATES      	"/etc/mail/certs"
 
 
 /* number of MX records to lookup */
@@ -181,6 +180,7 @@ enum imsg_type {
 	IMSG_LKA_SOURCE,
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
+	IMSG_LKA_SSL_INIT,
 
 	IMSG_DELIVERY_OK,
 	IMSG_DELIVERY_TEMPFAIL,
@@ -239,8 +239,6 @@ enum imsg_type {
 	IMSG_DIGEST,
 	IMSG_STATS,
 	IMSG_STATS_GET,
-
-	IMSG_SSL_INIT,
 };
 
 enum blockmodes {
@@ -263,7 +261,6 @@ enum smtp_proc_type {
 	PROC_MTA,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
-	PROC_CA,
 } smtpd_process;
 
 enum table_type {
@@ -893,7 +890,6 @@ extern struct mproc *p_mta;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_smtp;
-extern struct mproc *p_ca;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);

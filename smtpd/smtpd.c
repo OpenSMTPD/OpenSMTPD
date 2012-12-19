@@ -52,10 +52,10 @@ static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
 static void parent_shutdown(void);
 static void parent_send_config(int, short, void *);
-static void parent_send_config_ca(void);
-static void parent_send_config_listeners(void);
-static void parent_send_config_client_certs(void);
-static void parent_send_config_ruleset(struct mproc *);
+static void parent_send_config_lka(void);
+static void parent_send_config_mfa(void);
+static void parent_send_config_mta(void);
+static void parent_send_config_smtp(void);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct mproc *, uint32_t, struct deliver *);
 static int parent_forward_open(char *, char *, uid_t, gid_t);
@@ -118,7 +118,6 @@ struct mproc	*p_parent;
 struct mproc	*p_queue;
 struct mproc	*p_scheduler;
 struct mproc	*p_smtp;
-struct mproc	*p_ca;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
@@ -142,7 +141,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_SEND_CONFIG:
-			parent_send_config_listeners();
+			parent_send_config_smtp();
 			return;
 		}
 	}
@@ -261,43 +260,14 @@ parent_shutdown(void)
 static void
 parent_send_config(int fd, short event, void *p)
 {
-	parent_send_config_ca();
-	parent_send_config_listeners();
-	parent_send_config_client_certs();
-	parent_send_config_ruleset(p_mfa);
-	parent_send_config_ruleset(p_lka);
+	parent_send_config_lka();
+	parent_send_config_mfa();
+	parent_send_config_smtp();
+	parent_send_config_mta();
 }
 
 static void
-parent_send_config_ca(void)
-{
-	struct ssl		*s;
-	void			*iter = NULL;
-	struct iovec		 iov[5];
-
-	log_debug("debug: parent_send_config: configuring ca");
-	m_compose(p_ca, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-
-	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
-		if (!(s->flags & F_SCERT))
-			continue;
-		iov[0].iov_base = s;
-		iov[0].iov_len = sizeof(*s);
-		iov[1].iov_base = s->ssl_cert;
-		iov[1].iov_len = s->ssl_cert_len;
-		iov[2].iov_base = s->ssl_key;
-		iov[2].iov_len = s->ssl_key_len;
-		iov[3].iov_base = s->ssl_dhparams;
-		iov[3].iov_len = s->ssl_dhparams_len;
-		iov[4].iov_base = s->ssl_ca;
-		iov[4].iov_len = s->ssl_ca_len;
-		m_composev(p_ca, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
-	}
-	m_compose(p_ca, IMSG_CONF_END, 0, 0, -1, NULL, 0);
-}
-
-static void
-parent_send_config_listeners(void)
+parent_send_config_smtp(void)
 {
 	struct listener		*l;
 	struct ssl		*s;
@@ -341,7 +311,7 @@ parent_send_config_listeners(void)
 }
 
 static void
-parent_send_config_client_certs(void)
+parent_send_config_mta(void)
 {
 	struct ssl		*s;
 	void			*iter = NULL;
@@ -367,7 +337,22 @@ parent_send_config_client_certs(void)
 }
 
 void
-parent_send_config_ruleset(struct mproc *p)
+parent_send_config_mfa()
+{
+	struct filter	       *f;
+	void		       *iter_dict = NULL;
+
+	log_debug("debug: parent_send_config_mfa: reloading");
+	m_compose(p_mfa, IMSG_CONF_START, 0, 0, -1, NULL, 0);
+
+	while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
+		m_compose(p_mfa, IMSG_CONF_FILTER, 0, 0, -1, f, sizeof(*f));
+
+	m_compose(p_mfa, IMSG_CONF_END, 0, 0, -1, NULL, 0);
+}
+
+void
+parent_send_config_lka()
 {
 	struct rule	       *r;
 	struct table	       *t;
@@ -378,64 +363,76 @@ parent_send_config_ruleset(struct mproc *p)
 	char		       *v;
 	char		       *buffer;
 	size_t			buflen;
+	struct ssl	       *s;
+	struct iovec		iov[5];
 
 	log_debug("debug: parent_send_config_ruleset: reloading");
-	m_compose(p, IMSG_CONF_START, 0, 0, -1, NULL, 0);
+	m_compose(p_lka, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 
-	if (p->proc == PROC_MFA) {
+	iter_dict = NULL;
+	while (dict_iter(env->sc_ssl_dict, &iter_dict, NULL, (void **)&s)) {
+		if (!(s->flags & F_SCERT))
+			continue;
+		iov[0].iov_base = s;
+		iov[0].iov_len = sizeof(*s);
+		iov[1].iov_base = s->ssl_cert;
+		iov[1].iov_len = s->ssl_cert_len;
+		iov[2].iov_base = s->ssl_key;
+		iov[2].iov_len = s->ssl_key_len;
+		iov[3].iov_base = s->ssl_dhparams;
+		iov[3].iov_len = s->ssl_dhparams_len;
+		iov[4].iov_base = s->ssl_ca;
+		iov[4].iov_len = s->ssl_ca_len;
+		m_composev(p_lka, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
+	}
+
+	iter_tree = NULL;
+	while (tree_iter(env->sc_tables_tree, &iter_tree, NULL,
+		(void **)&t)) {
+		m_compose(p_lka, IMSG_CONF_TABLE, 0, 0, -1, t, sizeof(*t));
+		
 		iter_dict = NULL;
-		while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
-			m_compose(p, IMSG_CONF_FILTER, 0, 0, -1, f, sizeof(*f));
-	}
-	else {
-		iter_tree = NULL;
-		while (tree_iter(env->sc_tables_tree, &iter_tree, NULL,
-		    (void **)&t)) {
-			m_compose(p, IMSG_CONF_TABLE, 0, 0, -1, t, sizeof(*t));
-
-			iter_dict = NULL;
-			while (dict_iter(&t->t_dict, &iter_dict, &k,
-			    (void **)&v)) {
-				buflen = strlen(k) + 1;
-				if (v)
-					buflen += strlen(v) + 1;
-				buffer = xcalloc(1, buflen,
-				    "parent_send_config_ruleset");
-				memcpy(buffer, k, strlen(k) + 1);
-				if (v)
-					memcpy(buffer + strlen(k) + 1, v,
-					    strlen(v) + 1);
-				m_compose(p, IMSG_CONF_TABLE_CONTENT, 0, 0, -1,
-				    buffer, buflen);
-				free(buffer);
-			}
+		while (dict_iter(&t->t_dict, &iter_dict, &k,
+			(void **)&v)) {
+			buflen = strlen(k) + 1;
+			if (v)
+				buflen += strlen(v) + 1;
+			buffer = xcalloc(1, buflen,
+			    "parent_send_config_ruleset");
+			memcpy(buffer, k, strlen(k) + 1);
+			if (v)
+				memcpy(buffer + strlen(k) + 1, v,
+				    strlen(v) + 1);
+			m_compose(p_lka, IMSG_CONF_TABLE_CONTENT, 0, 0, -1,
+			    buffer, buflen);
+			free(buffer);
 		}
-
-		TAILQ_FOREACH(r, env->sc_rules, r_entry) {
-			m_compose(p, IMSG_CONF_RULE, 0, 0, -1, r, sizeof(*r));
-			m_compose(p, IMSG_CONF_RULE_SOURCE, 0, 0, -1,
-			    &r->r_sources->t_name,
-			    sizeof(r->r_sources->t_name));
-			if (r->r_destination) {
-				m_compose(p, IMSG_CONF_RULE_DESTINATION,
-				    0, 0, -1,
-				    &r->r_destination->t_name,
-				    sizeof(r->r_destination->t_name));
-			}
-			if (r->r_mapping) {
-				m_compose(p, IMSG_CONF_RULE_MAPPING, 0, 0, -1,
-				    &r->r_mapping->t_name,
-				    sizeof(r->r_mapping->t_name));
-			}
-			if (r->r_users) {
-				m_compose(p, IMSG_CONF_RULE_USERS, 0, 0, -1,
-				    &r->r_users->t_name,
-				    sizeof(r->r_users->t_name));
-			}
+	}
+	
+	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
+		m_compose(p_lka, IMSG_CONF_RULE, 0, 0, -1, r, sizeof(*r));
+		m_compose(p_lka, IMSG_CONF_RULE_SOURCE, 0, 0, -1,
+		    &r->r_sources->t_name,
+		    sizeof(r->r_sources->t_name));
+		if (r->r_destination) {
+			m_compose(p_lka, IMSG_CONF_RULE_DESTINATION,
+			    0, 0, -1,
+			    &r->r_destination->t_name,
+			    sizeof(r->r_destination->t_name));
+		}
+		if (r->r_mapping) {
+			m_compose(p_lka, IMSG_CONF_RULE_MAPPING, 0, 0, -1,
+			    &r->r_mapping->t_name,
+			    sizeof(r->r_mapping->t_name));
+		}
+		if (r->r_users) {
+			m_compose(p_lka, IMSG_CONF_RULE_USERS, 0, 0, -1,
+			    &r->r_users->t_name,
+			    sizeof(r->r_users->t_name));
 		}
 	}
 
-	m_compose(p, IMSG_CONF_END, 0, 0, -1, NULL, 0);
+	m_compose(p_lka, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
 static void
@@ -773,7 +770,6 @@ main(int argc, char *argv[])
 	signal_add(&ev_sighup, NULL);
 	signal(SIGPIPE, SIG_IGN);
 
-	config_peer(PROC_CA);
 	config_peer(PROC_CONTROL);
 	config_peer(PROC_LKA);
 	config_peer(PROC_MDA);
@@ -836,7 +832,6 @@ fork_peers(void)
 	env->sc_title[PROC_QUEUE] = "queue";
 	env->sc_title[PROC_SCHEDULER] = "scheduler";
 	env->sc_title[PROC_SMTP] = "smtp";
-	env->sc_title[PROC_CA] = "ssl";
 
 	child_add(control(), CHILD_DAEMON, env->sc_title[PROC_CONTROL]);
 	child_add(lka(), CHILD_DAEMON, env->sc_title[PROC_LKA]);
@@ -846,7 +841,6 @@ fork_peers(void)
 	child_add(queue(), CHILD_DAEMON, env->sc_title[PROC_QUEUE]);
 	child_add(scheduler(), CHILD_DAEMON, env->sc_title[PROC_SCHEDULER]);
 	child_add(smtp(), CHILD_DAEMON, env->sc_title[PROC_SMTP]);
-	child_add(ca(), CHILD_DAEMON, env->sc_title[PROC_CA]);
 }
 
 struct child *
@@ -1307,7 +1301,6 @@ proc_to_str(int proc)
 	CASE(PROC_MTA);
 	CASE(PROC_CONTROL);
 	CASE(PROC_SCHEDULER);
-	CASE(PROC_CA);
 	default:
 		return "PROC_???";
 	}
@@ -1361,6 +1354,7 @@ imsg_to_str(int type)
 	CASE(IMSG_LKA_SOURCE);
 	CASE(IMSG_LKA_USERINFO);
 	CASE(IMSG_LKA_AUTHENTICATE);
+	CASE(IMSG_LKA_SSL_INIT);
 
 	CASE(IMSG_MDA_DELIVER);
 	CASE(IMSG_MDA_DONE);
@@ -1412,8 +1406,6 @@ imsg_to_str(int type)
 	CASE(IMSG_DIGEST);
 	CASE(IMSG_STATS);
 	CASE(IMSG_STATS_GET);
-
-	CASE(IMSG_SSL_INIT);
 
 	default:
 		snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
