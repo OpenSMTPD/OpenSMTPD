@@ -179,6 +179,7 @@ static struct tree wait_parent_auth;
 static struct tree wait_queue_msg;
 static struct tree wait_queue_fd;
 static struct tree wait_queue_commit;
+static struct tree wait_ssl_init;
 
 static void
 smtp_session_init(void)
@@ -194,6 +195,7 @@ smtp_session_init(void)
 		tree_init(&wait_queue_msg);
 		tree_init(&wait_queue_fd);
 		tree_init(&wait_queue_commit);
+		tree_init(&wait_ssl_init);
 		init = 1;
 	}
 }
@@ -248,8 +250,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct queue_resp_msg		*resp_queue;
 	struct lka_resp_msg		*resp_lka;
 	struct dns_resp_msg		*resp_dns;
+	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct smtp_session		*s;
 	struct auth			*auth;
+	void				*ssl;
 	char				 user[MAXLOGNAME];
 
 	switch (imsg->hdr.type) {
@@ -466,6 +470,36 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);
 		return;
+
+	case IMSG_SSL_INIT:
+		resp_ca_cert = imsg->data;
+		if (resp_ca_cert->status == CA_FAIL) {
+			smtp_reply(s, "421 Temporary failure");
+			smtp_enter_state(s, STATE_QUIT);
+			return;
+		}
+
+		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "smtp:ca_cert");
+		if (resp_ca_cert == NULL)
+			fatal(NULL);
+		resp_ca_cert->cert = xstrdup((char *)imsg->data +
+		    sizeof *resp_ca_cert, "smtp:ca_cert");
+
+		resp_ca_cert->key = xstrdup((char *)imsg->data +
+		    sizeof *resp_ca_cert + resp_ca_cert->cert_len,
+		    "smtp:ca_key");
+
+		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
+		ssl = ssl_smtp_init(s->listener->ssl_ctx,
+		    resp_ca_cert->cert, resp_ca_cert->cert_len,
+		    resp_ca_cert->key, resp_ca_cert->key_len);
+		io_set_read(&s->io);
+		io_start_tls(&s->io, ssl);
+
+		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
+		bzero(resp_ca_cert->key, resp_ca_cert->key_len);
+		free(resp_ca_cert);
+		return;
 	}
 
 	log_warnx("smtp_session_imsg: unexpected %s imsg",
@@ -476,9 +510,9 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 static void
 smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 {
+	struct ca_cert_req_msg		 req_ca_cert;
 	struct queue_req_msg		 req_queue;
 	struct lka_expand_msg		 req_lka;
-	void				*ssl;
 	const char			*line;
 	uint32_t			 code;
 
@@ -505,9 +539,12 @@ smtp_mfa_response(struct smtp_session *s, struct mfa_smtp_resp_msg *resp)
 		}
 
 		if (s->listener->flags & F_SMTPS) {
-			ssl = ssl_smtp_init(s->listener->ssl_ctx, s->listener->ssl);
-			io_set_read(&s->io);
-			io_start_tls(&s->io, ssl);
+			req_ca_cert.reqid = s->id;
+			strlcpy(req_ca_cert.name, s->listener->ssl_cert_name,
+			    sizeof req_ca_cert.name);
+			m_compose(p_ca, IMSG_SSL_INIT, 0, 0, -1,
+			    &req_ca_cert, sizeof(req_ca_cert));
+			tree_xset(&wait_ssl_init, s->id, s);
 			return;
 		}
 		smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
@@ -624,8 +661,8 @@ static void
 smtp_io(struct io *io, int evt)
 {
 	struct mfa_data_msg	req;
+	struct ca_cert_req_msg	req_ca_cert;
 	struct smtp_session    *s = io->arg;
-	void		       *ssl;
 	char		       *line;
 	size_t			len;
 
@@ -711,13 +748,19 @@ smtp_io(struct io *io, int evt)
 			break;
 		}
 
-		io_set_read(io);
 
 		/* Wait for the client to start tls */
 		if (s->state == STATE_TLS) {
-			ssl = ssl_smtp_init(s->listener->ssl_ctx, s->listener->ssl);
-			io_start_tls(io, ssl);
+			req_ca_cert.reqid = s->id;
+			strlcpy(req_ca_cert.name, s->listener->ssl_cert_name,
+			    sizeof req_ca_cert.name);
+			m_compose(p_ca, IMSG_SSL_INIT, 0, 0, -1,
+			    &req_ca_cert, sizeof(req_ca_cert));
+			tree_xset(&wait_ssl_init, s->id, s);
+			break;
 		}
+
+		io_set_read(io);
 		break;
 
 	case IO_TIMEOUT:

@@ -52,6 +52,7 @@ static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
 static void parent_shutdown(void);
 static void parent_send_config(int, short, void *);
+static void parent_send_config_ca(void);
 static void parent_send_config_listeners(void);
 static void parent_send_config_client_certs(void);
 static void parent_send_config_ruleset(struct mproc *);
@@ -117,6 +118,7 @@ struct mproc	*p_parent;
 struct mproc	*p_queue;
 struct mproc	*p_scheduler;
 struct mproc	*p_smtp;
+struct mproc	*p_ca;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
@@ -259,6 +261,7 @@ parent_shutdown(void)
 static void
 parent_send_config(int fd, short event, void *p)
 {
+	parent_send_config_ca();
 	parent_send_config_listeners();
 	parent_send_config_client_certs();
 	parent_send_config_ruleset(p_mfa);
@@ -266,20 +269,48 @@ parent_send_config(int fd, short event, void *p)
 }
 
 static void
+parent_send_config_ca(void)
+{
+	struct ssl		*s;
+	void			*iter = NULL;
+	struct iovec		 iov[5];
+
+	log_debug("debug: parent_send_config: configuring ca");
+	m_compose(p_ca, IMSG_CONF_START, 0, 0, -1, NULL, 0);
+
+	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
+		if (!(s->flags & F_SCERT))
+			continue;
+		iov[0].iov_base = s;
+		iov[0].iov_len = sizeof(*s);
+		iov[1].iov_base = s->ssl_cert;
+		iov[1].iov_len = s->ssl_cert_len;
+		iov[2].iov_base = s->ssl_key;
+		iov[2].iov_len = s->ssl_key_len;
+		iov[3].iov_base = s->ssl_dhparams;
+		iov[3].iov_len = s->ssl_dhparams_len;
+		iov[4].iov_base = s->ssl_ca;
+		iov[4].iov_len = s->ssl_ca_len;
+		m_composev(p_ca, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
+	}
+	m_compose(p_ca, IMSG_CONF_END, 0, 0, -1, NULL, 0);
+}
+
+static void
 parent_send_config_listeners(void)
 {
 	struct listener		*l;
 	struct ssl		*s;
+	void			*iter = NULL;
 	struct iovec		 iov[5];
 	int			 opt;
 
 	log_debug("debug: parent_send_config: configuring smtp");
 	m_compose(p_smtp, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 
-	SPLAY_FOREACH(s, ssltree, env->sc_ssl) {
+	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
 		if (!(s->flags & F_SCERT))
 			continue;
-
 		iov[0].iov_base = s;
 		iov[0].iov_len = sizeof(*s);
 		iov[1].iov_base = s->ssl_cert;
@@ -313,15 +344,16 @@ static void
 parent_send_config_client_certs(void)
 {
 	struct ssl		*s;
+	void			*iter = NULL;
 	struct iovec		 iov[3];
 
 	log_debug("debug: parent_send_config_client_certs: configuring smtp");
 	m_compose(p_mta, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 
-	SPLAY_FOREACH(s, ssltree, env->sc_ssl) {
+
+	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
 		if (!(s->flags & F_CCERT))
 			continue;
-
 		iov[0].iov_base = s;
 		iov[0].iov_len = sizeof(*s);
 		iov[1].iov_base = s->ssl_cert;
@@ -741,6 +773,7 @@ main(int argc, char *argv[])
 	signal_add(&ev_sighup, NULL);
 	signal(SIGPIPE, SIG_IGN);
 
+	config_peer(PROC_CA);
 	config_peer(PROC_CONTROL);
 	config_peer(PROC_LKA);
 	config_peer(PROC_MDA);
@@ -803,6 +836,7 @@ fork_peers(void)
 	env->sc_title[PROC_QUEUE] = "queue";
 	env->sc_title[PROC_SCHEDULER] = "scheduler";
 	env->sc_title[PROC_SMTP] = "smtp";
+	env->sc_title[PROC_CA] = "ssl";
 
 	child_add(control(), CHILD_DAEMON, env->sc_title[PROC_CONTROL]);
 	child_add(lka(), CHILD_DAEMON, env->sc_title[PROC_LKA]);
@@ -812,6 +846,7 @@ fork_peers(void)
 	child_add(queue(), CHILD_DAEMON, env->sc_title[PROC_QUEUE]);
 	child_add(scheduler(), CHILD_DAEMON, env->sc_title[PROC_SCHEDULER]);
 	child_add(smtp(), CHILD_DAEMON, env->sc_title[PROC_SMTP]);
+	child_add(ca(), CHILD_DAEMON, env->sc_title[PROC_CA]);
 }
 
 struct child *
@@ -1272,6 +1307,7 @@ proc_to_str(int proc)
 	CASE(PROC_MTA);
 	CASE(PROC_CONTROL);
 	CASE(PROC_SCHEDULER);
+	CASE(PROC_CA);
 	default:
 		return "PROC_???";
 	}
@@ -1376,6 +1412,9 @@ imsg_to_str(int type)
 	CASE(IMSG_DIGEST);
 	CASE(IMSG_STATS);
 	CASE(IMSG_STATS_GET);
+
+	CASE(IMSG_SSL_INIT);
+
 	default:
 		snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 

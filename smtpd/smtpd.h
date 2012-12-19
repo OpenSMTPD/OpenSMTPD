@@ -28,7 +28,7 @@
 
 #define CONF_FILE		 "/etc/mail/smtpd.conf"
 #define MAX_LISTEN		 16
-#define PROC_COUNT		 9
+#define PROC_COUNT		 10
 #define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
@@ -66,6 +66,8 @@
 #define PATH_MESSAGE		"/message"
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
+#define	PATH_CERTIFICATES      	"/etc/mail/certs"
+
 
 /* number of MX records to lookup */
 #define MAX_MX_COUNT		10
@@ -237,6 +239,8 @@ enum imsg_type {
 	IMSG_DIGEST,
 	IMSG_STATS,
 	IMSG_STATS_GET,
+
+	IMSG_SSL_INIT,
 };
 
 enum blockmodes {
@@ -259,6 +263,7 @@ enum smtp_proc_type {
 	PROC_MTA,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
+	PROC_CA,
 } smtpd_process;
 
 enum table_type {
@@ -489,7 +494,6 @@ enum envelope_field {
 };
 
 struct ssl {
-	SPLAY_ENTRY(ssl)	 ssl_nodes;
 	char			 ssl_name[PATH_MAX];
 	char			*ssl_ca;
 	off_t			 ssl_ca_len;
@@ -563,10 +567,11 @@ struct smtpd {
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
-	SPLAY_HEAD(ssltree, ssl)		*sc_ssl;
 	const char			       *cert_store;
 	off_t					cert_store_len;
 	
+	struct dict			       *sc_ssl_dict;
+
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
@@ -888,6 +893,7 @@ extern struct mproc *p_mta;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_smtp;
+extern struct mproc *p_ca;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);
@@ -1043,6 +1049,25 @@ struct lka_userinfo_resp_msg {
 	struct userinfo		userinfo;
 };
 
+enum ca_resp_status {
+	CA_OK,
+	CA_FAIL
+};
+
+struct ca_cert_req_msg {
+	uint64_t		reqid;
+	char			name[MAXPATHLEN];
+};
+
+struct ca_cert_resp_msg {
+	uint64_t		reqid;
+	enum ca_resp_status	status;
+	char		       *cert;
+	off_t			cert_len;
+	char		       *key;
+	off_t			key_len;
+};
+
 
 /* aliases.c */
 int aliases_get(struct table *, struct expand *, const char *);
@@ -1058,6 +1083,10 @@ struct auth_backend *auth_backend_lookup(enum auth_type);
 /* bounce.c */
 void bounce_add(uint64_t);
 void bounce_run(uint64_t, int);
+
+
+/* ca.c */
+pid_t ca(void);
 
 
 /* compress_backend.c */
@@ -1244,11 +1273,10 @@ const char * imsg_to_str(int);
 void ssl_init(void);
 int ssl_load_certfile(const char *, uint8_t);
 void ssl_setup(struct listener *);
-void *ssl_smtp_init(void *, struct ssl *);
+void *ssl_smtp_init(void *, const char *, off_t, const char *, off_t);
 void *ssl_mta_init(struct ssl *);
 const char *ssl_to_text(void *);
 int ssl_cmp(struct ssl *, struct ssl *);
-SPLAY_PROTOTYPE(ssltree, ssl, ssl_nodes, ssl_cmp);
 
 
 /* ssl_privsep.c */

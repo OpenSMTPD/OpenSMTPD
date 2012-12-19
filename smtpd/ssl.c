@@ -53,14 +53,6 @@ void	 ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
 
 extern int ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
 
-int
-ssl_cmp(struct ssl *s1, struct ssl *s2)
-{
-	return (strcmp(s1->ssl_name, s2->ssl_name));
-}
-
-SPLAY_GENERATE(ssltree, ssl, ssl_nodes, ssl_cmp);
-
 char *
 ssl_load_file(const char *name, off_t *len, mode_t perm)
 {
@@ -145,7 +137,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		return -1;
 	}
 
-	s = SPLAY_FIND(ssltree, env->sc_ssl, &key);
+	s = dict_get(env->sc_ssl_dict, name);
 	if (s != NULL) {
 		s->flags |= flags;
 		return 0;
@@ -194,7 +186,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		    "using built-in parameters", certfile);
 	}
 
-	SPLAY_INSERT(ssltree, env->sc_ssl, s);
+	dict_set(env->sc_ssl_dict, name, s);
 
 	return (0);
 err:
@@ -241,7 +233,7 @@ ssl_setup(struct listener *l)
 	    >= sizeof(key.ssl_name))
 		fatal("ssl_setup: certificate name truncated");
 
-	if ((l->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &key)) == NULL)
+	if ((l->ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
 		fatal("ssl_setup: certificate tree corrupted");
 
 	l->ssl_ctx = ssl_ctx_create();
@@ -346,30 +338,18 @@ done:
 }
 
 void *
-ssl_smtp_init(void *ssl_ctx, struct ssl *s)
+ssl_smtp_init(void *ssl_ctx, const char *cert, off_t cert_len, const char *key, off_t key_len)
 {
 	SSL *ssl = NULL;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
 
-	if (s->ssl_cert && s->ssl_key) {
-		if (!ssl_ctx_use_certificate_chain(ssl_ctx,
-			s->ssl_cert, s->ssl_cert_len))
-			goto err;
-		else if (!ssl_ctx_use_private_key(ssl_ctx,
-			s->ssl_key, s->ssl_key_len))
-			goto err;
-		else if (!SSL_CTX_check_private_key(ssl_ctx))
-			goto err;	
-		if (s->ssl_ca_len)
-			ssl_ctx_load_verify_memory(ssl_ctx, s->ssl_ca, s->ssl_ca_len);
-		else
-			ssl_ctx_load_verify_memory(ssl_ctx, env->cert_store, env->cert_store_len);
-		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
-		/* XXX - we'll want to allow strict checks of specific listeners */
-		/* SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL); */
-		SSL_CTX_set_verify_depth(ssl_ctx, 4);
-	}
+	if (!ssl_ctx_use_certificate_chain(ssl_ctx, cert, cert_len))
+		goto err;
+	else if (!ssl_ctx_use_private_key(ssl_ctx, key, key_len))
+		goto err;
+	else if (!SSL_CTX_check_private_key(ssl_ctx))
+		goto err;
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;
