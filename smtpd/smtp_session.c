@@ -671,11 +671,12 @@ smtp_io(struct io *io, int evt)
 		/* Message body */
 		if (s->state == STATE_BODY && strcmp(line, ".")) {
 			req.reqid = s->id;
+			req.flags = s->flags;
 			len = strlcpy(req.buffer, line, sizeof(req.buffer));
 			if (len >= (sizeof req.buffer))
 				fatalx("overflow in smtp_io()");
 			m_compose(p_mfa, IMSG_MFA_SMTP_DATA, 0, 0, -1,
-			    &req, sizeof(req.reqid) + len + 1);
+			    &req, sizeof(req));
 			goto nextline;
 		}
 
