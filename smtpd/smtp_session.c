@@ -473,9 +473,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_SSL_INIT:
 		resp_ca_cert = imsg->data;
+		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
+
 		if (resp_ca_cert->status == CA_FAIL) {
-			smtp_reply(s, "421 Temporary failure");
-			smtp_enter_state(s, STATE_QUIT);
+			log_info("smtp-in: Disconnecting session %016" PRIx64
+			    ": CA failure", s->id);
+			smtp_free(s, "CA failure");	
 			return;
 		}
 
@@ -489,7 +492,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    sizeof *resp_ca_cert + resp_ca_cert->cert_len,
 		    "smtp:ca_key");
 
-		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
 		ssl = ssl_smtp_init(s->listener->ssl_ctx,
 		    resp_ca_cert->cert, resp_ca_cert->cert_len,
 		    resp_ca_cert->key, resp_ca_cert->key_len);
