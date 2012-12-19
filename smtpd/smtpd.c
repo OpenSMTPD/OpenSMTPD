@@ -356,7 +356,6 @@ parent_send_config_lka()
 {
 	struct rule	       *r;
 	struct table	       *t;
-	struct filter	       *f;
 	void		       *iter_tree;
 	void		       *iter_dict;
 	const char	       *k;

@@ -350,7 +350,7 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 }
 
 void *
-ssl_smtp_init(void *ssl_ctx, const char *cert, off_t cert_len, const char *key, off_t key_len)
+ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
 {
 	SSL *ssl = NULL;
 
