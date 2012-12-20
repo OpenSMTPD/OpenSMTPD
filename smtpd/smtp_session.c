@@ -518,16 +518,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		resp_ca_vrfy = imsg->data;
 		s = tree_xpop(&wait_ssl_verify, resp_ca_vrfy->reqid);
 
-		/* strict mode */
-		/*
-		if (resp_ca_vrfy->status == CA_FAIL) {
-			log_info("smtp-in: Disconnecting session %016" PRIx64
-			    ": CA failure", s->id);
-			smtp_free(s, "CA failure");	
-			return;
-		}
-		*/
-
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= SF_VERIFIED;
 
