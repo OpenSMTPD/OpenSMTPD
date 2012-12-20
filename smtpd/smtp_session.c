@@ -717,7 +717,7 @@ smtp_io(struct io *io, int evt)
 		s->phase = PHASE_INIT;
 
 		if ((x = SSL_get_peer_certificate(s->io.ssl)) != NULL) {
-			log_info("smtp-in: client sent certificate");
+			log_info("smtp-in: client sent certificate, verifying");
 			xchain = SSL_get_peer_cert_chain(s->io.ssl);
 
 			tree_xset(&wait_ssl_verify, s->id, s);
@@ -757,8 +757,6 @@ smtp_io(struct io *io, int evt)
 			free(req_ca_vrfy.cert);
 			break;
 		}
-		else
-			log_info("smtp-in: client did NOT send certificate");
 
 		/* No verification required, cascade */
 

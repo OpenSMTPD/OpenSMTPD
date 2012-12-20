@@ -81,6 +81,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_cert_resp_msg		resp_ca_cert;
 	X509				*x509;
 	X509				*x509_tmp;
+	X509				*x509_tmp2;
 	STACK_OF(X509) 			*x509_chain;
 	size_t				i;
 
@@ -144,35 +145,57 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_LKA_SSL_VERIFY:
 			resp_ca_vrfy.reqid = req_ca_vrfy->reqid;
+			resp_ca_vrfy.status = CA_FAIL;
 
 			x509 = NULL;
 			x509_chain = NULL;
 
 			d2i = req_ca_vrfy->cert;
-			d2i_X509(&x509, &d2i, req_ca_vrfy->cert_len);
+			if (d2i_X509(&x509, &d2i, req_ca_vrfy->cert_len) == NULL)
+				x509 = NULL;
+			else {
+				if (req_ca_vrfy->n_chain) {
+					x509_chain = sk_X509_new_null();
+					for (i = 0; i < req_ca_vrfy->n_chain; ++i) {
+						d2i = req_ca_vrfy->chain_cert[i];
+						if (d2i_X509(&x509_tmp, &d2i, req_ca_vrfy->chain_cert_len[i]) == NULL) {
+							x509_tmp = NULL;
+							break;
+						}
+						
+						x509_tmp2 = X509_dup(x509_tmp);
+						if (x509_tmp2 == NULL)
+							break;
+						sk_X509_insert(x509_chain, x509_tmp2, i);
+						x509_tmp = x509_tmp2 = NULL;
+					}
+				}
 
-			if (req_ca_vrfy->n_chain) {
-				x509_chain = sk_X509_new_null();
-				for (i = 0; i < req_ca_vrfy->n_chain; ++i) {
-					d2i = req_ca_vrfy->chain_cert[i];
-					d2i_X509(&x509_tmp, &d2i, req_ca_vrfy->chain_cert_len[i]);
-					sk_X509_insert(x509_chain, X509_dup(x509_tmp), i);
+				if (req_ca_vrfy->n_chain && i == req_ca_vrfy->n_chain) {
+					if (! ca_X509_verify(x509, x509_chain,
+						"/etc/ssl/cert.pem", NULL, &errstr)) {
+						resp_ca_vrfy.status = CA_FAIL;
+						log_debug("debug: lka_X509_verify: failure: %s", errstr);
+					}
+					else
+						resp_ca_vrfy.status = CA_OK;
 				}
 			}
-
-			if (! ca_X509_verify(x509, x509_chain, "/etc/ssl/cert.pem", NULL, &errstr)) {
-				resp_ca_vrfy.status = CA_FAIL;
-				log_debug("debug: lka_X509_verify: failure: %s", errstr);
-			}
-			else
-				resp_ca_vrfy.status = CA_OK;
-
-			if (x509)
-				X509_free(x509);
 
 			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
 			    sizeof resp_ca_vrfy);
 
+			if (x509)
+				X509_free(x509);
+			if (x509_tmp)
+				X509_free(x509_tmp);
+			if (x509_chain)
+				sk_X509_pop_free(x509_chain, X509_free);
+
+			for (i = 0; i < req_ca_vrfy->n_chain; ++i)
+				free(req_ca_vrfy->chain_cert[i]);
+			free(req_ca_vrfy->chain_cert);
+			free(req_ca_vrfy->chain_cert_len);
 			free(req_ca_vrfy->cert);
 			free(req_ca_vrfy);
 			return;
