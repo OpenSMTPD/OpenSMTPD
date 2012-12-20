@@ -748,6 +748,7 @@ smtp_io(struct io *io, int evt)
 					    iov, nitems(iov));
 				}
 			}
+
 			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
 			req_ca_vrfy.reqid = s->id;
 			m_compose(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
