@@ -563,9 +563,6 @@ lka(void)
 	mproc_disable(p_mta);
 	mproc_disable(p_smtp);
 
-	OpenSSL_add_all_algorithms();
-	SSL_load_error_strings();
-
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	lka_shutdown();
