@@ -363,8 +363,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
-			    (s->flags & SF_VERIFIED) ? "YES" :
-			    (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
+			    "NO");
+			/* XXX - this can be uncommented when we *fully* verify */
+			/*
+			 *  (s->flags & SF_VERIFIED) ? "YES" :
+			 *  (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
+			 */
 
 		if (s->rcptcount == 1)
 			fprintf(s->ofile, "\tfor <%s@%s>;\n",
