@@ -699,6 +699,7 @@ smtp_io(struct io *io, int evt)
 	size_t			len;
 	struct iovec		iov[2];
 	X509		       *x;
+	STACK_OF(X509)	       *xchain;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -715,16 +716,42 @@ smtp_io(struct io *io, int evt)
 
 		if ((x = SSL_get_peer_certificate(s->io.ssl)) != NULL) {
 			log_info("smtp-in: client sent certificate");
+			xchain = SSL_get_peer_cert_chain(s->io.ssl);
+
 			tree_xset(&wait_ssl_verify, s->id, s);
 			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
 			req_ca_vrfy.reqid = s->id;
 			req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+			if (xchain)
+				req_ca_vrfy.n_chain = sk_X509_num(xchain);
 			iov[0].iov_base = &req_ca_vrfy;
 			iov[0].iov_len = sizeof(req_ca_vrfy);
 			iov[1].iov_base = req_ca_vrfy.cert;
 			iov[1].iov_len = req_ca_vrfy.cert_len;
-			m_composev(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
+			m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CERT, 0, 0, -1,
 			    iov, nitems(iov));
+
+			if (xchain) {
+				int	i;
+
+				for (i = 0; i < sk_X509_num(xchain); ++i) {
+					x = sk_X509_value(xchain, i);
+					bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+					req_ca_vrfy.reqid = s->id;
+					req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+					iov[0].iov_base = &req_ca_vrfy;
+					iov[0].iov_len = sizeof(req_ca_vrfy);
+					iov[1].iov_base = req_ca_vrfy.cert;
+					iov[1].iov_len = req_ca_vrfy.cert_len;
+					m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CHAIN, 0, 0, -1,
+					    iov, nitems(iov));
+				}
+			}
+			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+			req_ca_vrfy.reqid = s->id;
+			m_compose(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
+			    &req_ca_vrfy, sizeof req_ca_vrfy);
+
 			free(req_ca_vrfy.cert);
 			break;
 		}

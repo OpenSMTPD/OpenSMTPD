@@ -49,7 +49,7 @@ static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_encode_credentials(char *, size_t, struct credentials *);
-static int lka_X509_verify(X509 *, const char *, const char *, const char **);
+static int lka_X509_verify(X509 *, STACK_OF(X509) *, const char *, const char *, const char **);
 
 static void
 lka_imsg(struct mproc *p, struct imsg *imsg)
@@ -65,20 +65,24 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	int			ret;
 	const char		*k, *v;
 	char			*src;
+	struct credentials	*creds;
+	struct ssl		*ssl;
+	struct iovec		iov[3];
+	const unsigned char    	*d2i;
+	const char	        *errstr = NULL;
 	static struct dict	*ssl_dict;
 	static struct dict	*tables_dict;
 	static struct tree	*tables_tree;
 	static struct table	*table_last;
-	struct credentials	*creds;
-	struct ca_cert_req_msg	*req_ca_cert;
-	struct ca_cert_resp_msg	resp_ca_cert;
-	struct ca_vrfy_req_msg	*req_ca_vrfy;
-	struct ca_vrfy_resp_msg	resp_ca_vrfy;
-	struct ssl		*ssl;
-	struct iovec		iov[3];
-	X509		        *x;
-	const unsigned char    	*d2i;
-	const char	        *errstr = NULL;
+	static struct ca_vrfy_req_msg	*req_ca_vrfy = NULL;
+	struct ca_vrfy_req_msg		*req_ca_vrfy_chain;
+	struct ca_vrfy_resp_msg		resp_ca_vrfy;
+	struct ca_cert_req_msg		*req_ca_cert;
+	struct ca_cert_resp_msg		resp_ca_cert;
+	X509				*x509;
+	X509				*x509_tmp;
+	STACK_OF(X509) 			*x509_chain;
+	size_t				i;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
 	    imsg->hdr.type == IMSG_DNS_PTR ||
@@ -118,27 +122,55 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 
-		case IMSG_LKA_SSL_VERIFY:
+		case IMSG_LKA_SSL_VERIFY_CERT:
 			req_ca_vrfy = xmemdup(imsg->data, sizeof *req_ca_vrfy, "lka:ca_vrfy");
 			if (req_ca_vrfy == NULL)
 				fatal(NULL);
 			req_ca_vrfy->cert = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy, req_ca_vrfy->cert_len, "lka:ca_vrfy");
+			req_ca_vrfy->chain_cert = xcalloc(req_ca_vrfy->n_chain,
+			    sizeof (unsigned char *), "lka:ca_vrfy");
+			req_ca_vrfy->chain_cert_len = xcalloc(req_ca_vrfy->n_chain,
+			    sizeof (off_t), "lka:ca_vrfy");
+			return;
 
+		case IMSG_LKA_SSL_VERIFY_CHAIN:
+			req_ca_vrfy_chain = imsg->data;
+			req_ca_vrfy->chain_cert[req_ca_vrfy->chain_offset] = xmemdup((char *)imsg->data +
+			    sizeof *req_ca_vrfy_chain, req_ca_vrfy_chain->cert_len, "lka:ca_vrfy");
+			req_ca_vrfy->chain_cert_len[req_ca_vrfy->chain_offset] = req_ca_vrfy_chain->cert_len;
+			req_ca_vrfy->chain_offset++;
+			return;
+
+		case IMSG_LKA_SSL_VERIFY:
 			resp_ca_vrfy.reqid = req_ca_vrfy->reqid;
 			resp_ca_vrfy.status = CA_FAIL;
 
-			x = NULL;
-			d2i = req_ca_vrfy->cert;
-			d2i_X509(&x, &d2i, req_ca_vrfy->cert_len);
+			x509 = NULL;
+			x509_chain = NULL;
 
-			if (! lka_X509_verify(x, "/etc/ssl/cert.pem", NULL, &errstr))
+			d2i = req_ca_vrfy->cert;
+			d2i_X509(&x509, &d2i, req_ca_vrfy->cert_len);
+
+			if (req_ca_vrfy->n_chain) {
+				x509_chain = sk_X509_new_null();
+				for (i = 0; i < req_ca_vrfy->n_chain; ++i) {
+					d2i = req_ca_vrfy->chain_cert[i];
+					d2i_X509(&x509_tmp, &d2i, req_ca_vrfy->chain_cert_len[i]);
+					sk_X509_insert(x509_chain, x509_tmp, i);
+				}
+			}
+
+			if (! lka_X509_verify(x509, x509_chain, "/etc/ssl/cert.pem", NULL, &errstr)) {
 				resp_ca_vrfy.status = CA_FAIL;
+				/* we should forward that to SMTP too ... */
+				log_debug("debug: lka_X509_verify: failure: %s", errstr);
+			}
 			else
 				resp_ca_vrfy.status = CA_OK;
 
-			if (x)
-				X509_free(x);
+			if (x509)
+				X509_free(x509);
 
 			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
 			    sizeof resp_ca_vrfy);
@@ -585,7 +617,8 @@ lka_encode_credentials(char *dst, size_t size,
 }
 
 static int
-lka_X509_verify(X509 *certificate, const char *CAfile, const char *CRLfile, const char **errstr)
+lka_X509_verify(X509 *certificate, STACK_OF(X509) *chain, const char *CAfile,
+    const char *CRLfile, const char **errstr)
 {
 	X509_STORE	*store = NULL;
 	X509_LOOKUP	*lookup = NULL;
@@ -599,7 +632,6 @@ lka_X509_verify(X509 *certificate, const char *CAfile, const char *CRLfile, cons
 		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file())) == NULL)
 			goto end;
 		
-		log_debug("CAfile: %s", CAfile);
 		if (! X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_PEM))
 			goto end;
 
@@ -614,19 +646,21 @@ lka_X509_verify(X509 *certificate, const char *CAfile, const char *CRLfile, cons
 	if ((xsc = X509_STORE_CTX_new()) == NULL)
 		goto end;
 
-	if (! X509_STORE_CTX_init(xsc, store, certificate, 0))
+	if (! X509_STORE_CTX_init(xsc, store, certificate, NULL))
 		goto end;
+
+	X509_STORE_CTX_set_cert(xsc, certificate);
 
 	i = X509_verify_cert(xsc);
 
-	log_debug("DID THE VERIF");
-
 end:
-	log_debug("i == %d", i);
-	*errstr = NULL;
-	if (i <= 0) {
-		if (ERR_peek_last_error())
-			*errstr = ERR_error_string(ERR_peek_last_error(), NULL);
+	if (errstr) {
+		if (i <= 0) {
+			if (ERR_peek_last_error())
+				*errstr = ERR_error_string(ERR_peek_last_error(), NULL);
+		}
+		else
+			*errstr = NULL;
 	}
 
 	if (xsc)

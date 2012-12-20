@@ -181,6 +181,8 @@ enum imsg_type {
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
 	IMSG_LKA_SSL_INIT,
+	IMSG_LKA_SSL_VERIFY_CERT,
+	IMSG_LKA_SSL_VERIFY_CHAIN,
 	IMSG_LKA_SSL_VERIFY,
 
 	IMSG_DELIVERY_OK,
@@ -1069,6 +1071,10 @@ struct ca_vrfy_req_msg {
 	uint64_t		reqid;
 	unsigned char  	       *cert;
 	off_t			cert_len;
+	size_t			n_chain;
+	size_t			chain_offset;
+	unsigned char	      **chain_cert;
+	off_t		       *chain_cert_len;
 };
 
 struct ca_vrfy_resp_msg {
