@@ -157,7 +157,7 @@ static void smtp_message_reset(struct smtp_session *, int);
 static void smtp_query_mfa(struct smtp_session *, int, void *, size_t);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
-
+static int smtp_verify_certificate(struct smtp_session *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -693,15 +693,11 @@ smtp_mfa_data(struct smtp_session *s, char *buffer)
 static void
 smtp_io(struct io *io, int evt)
 {
-	struct mfa_data_msg	req;
 	struct ca_cert_req_msg	req_ca_cert;
-	struct ca_vrfy_req_msg	req_ca_vrfy;
+	struct mfa_data_msg	req;
 	struct smtp_session    *s = io->arg;
 	char		       *line;
 	size_t			len;
-	struct iovec		iov[2];
-	X509		       *x;
-	STACK_OF(X509)	       *xchain;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -716,59 +712,17 @@ smtp_io(struct io *io, int evt)
 		s->kickcount = 0;
 		s->phase = PHASE_INIT;
 
-		if ((x = SSL_get_peer_certificate(s->io.ssl)) != NULL) {
-			xchain = SSL_get_peer_cert_chain(s->io.ssl);
-
-			tree_xset(&wait_ssl_verify, s->id, s);
-			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
-			req_ca_vrfy.reqid = s->id;
-			req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
-			if (xchain)
-				req_ca_vrfy.n_chain = sk_X509_num(xchain);
-			iov[0].iov_base = &req_ca_vrfy;
-			iov[0].iov_len = sizeof(req_ca_vrfy);
-			iov[1].iov_base = req_ca_vrfy.cert;
-			iov[1].iov_len = req_ca_vrfy.cert_len;
-			m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CERT, 0, 0, -1,
-			    iov, nitems(iov));
-
-			if (xchain) {
-				int	i;
-
-				for (i = 0; i < sk_X509_num(xchain); ++i) {
-					x = sk_X509_value(xchain, i);
-					bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
-					req_ca_vrfy.reqid = s->id;
-					req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
-					iov[0].iov_base = &req_ca_vrfy;
-					iov[0].iov_len = sizeof(req_ca_vrfy);
-					iov[1].iov_base = req_ca_vrfy.cert;
-					iov[1].iov_len = req_ca_vrfy.cert_len;
-					m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CHAIN, 0, 0, -1,
-					    iov, nitems(iov));
-				}
-			}
-
-			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
-			req_ca_vrfy.reqid = s->id;
-			m_compose(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
-			    &req_ca_vrfy, sizeof req_ca_vrfy);
-
-			free(req_ca_vrfy.cert);
+		if (smtp_verify_certificate(s))
 			break;
-		}
 
 		/* No verification required, cascade */
 
 	case IO_TLSVERIFIED:
-		if (SSL_get_peer_certificate(s->io.ssl) != NULL) {
-			if (s->flags & SF_VERIFIED)
-				log_info("smtp-in: Verified TLS on session %016"PRIx64": %s",
-				    s->id, ssl_to_text(s->io.ssl));
-			else
-				log_info("smtp-in: Verification failed on session %016"PRIx64": %s",
-				    s->id, ssl_to_text(s->io.ssl));
-		}
+		if (SSL_get_peer_certificate(s->io.ssl))
+			log_info("smtp-in: Client certificate verification %s "
+			    "on session %016"PRIx64,
+			    (s->flags & SF_VERIFIED) ? "succeeded" : "failed",
+			    s->id);
 
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
@@ -1538,6 +1492,71 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 	}
 
 	return (1);
+}
+
+static int
+smtp_verify_certificate(struct smtp_session *s)
+{
+	struct ca_vrfy_req_msg	req_ca_vrfy;
+	struct iovec		iov[2];
+	X509		       *x;
+	STACK_OF(X509)	       *xchain;
+	int			i;
+
+	x = SSL_get_peer_certificate(s->io.ssl);
+	if (x == NULL)
+		return 0;
+	xchain = SSL_get_peer_cert_chain(s->io.ssl);
+
+
+	/*
+	 * Client provided a certificate and possibly a certificate chain.
+	 * SMTP can't verify because it does not have the information that
+	 * it needs, instead it will pass the certificate and chain to the
+	 * lookup process and wait for a reply.
+	 *
+	 */
+
+	tree_xset(&wait_ssl_verify, s->id, s);
+
+	/* Send the client certificate */
+	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	req_ca_vrfy.reqid = s->id;
+	req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+	if (xchain)
+		req_ca_vrfy.n_chain = sk_X509_num(xchain);
+	iov[0].iov_base = &req_ca_vrfy;
+	iov[0].iov_len = sizeof(req_ca_vrfy);
+	iov[1].iov_base = req_ca_vrfy.cert;
+	iov[1].iov_len = req_ca_vrfy.cert_len;
+	m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CERT, 0, 0, -1,
+	    iov, nitems(iov));
+	free(req_ca_vrfy.cert);
+
+	if (xchain) {		
+		/* Send the chain, one cert at a time */
+		for (i = 0; i < sk_X509_num(xchain); ++i) {
+			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+			req_ca_vrfy.reqid = s->id;
+			x = sk_X509_value(xchain, i);
+			req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+			iov[0].iov_base = &req_ca_vrfy;
+			iov[0].iov_len  = sizeof(req_ca_vrfy);
+			iov[1].iov_base = req_ca_vrfy.cert;
+			iov[1].iov_len  = req_ca_vrfy.cert_len;
+			m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CHAIN, 0, 0, -1,
+			    iov, nitems(iov));
+			free(req_ca_vrfy.cert);
+		}
+	}
+
+	/* Tell lookup process that it can start verifying, we're done */
+	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	req_ca_vrfy.reqid = s->id;
+	m_compose(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
+	    &req_ca_vrfy, sizeof req_ca_vrfy);
+
+	return 1;
 }
 
 #define CASE(x) case x : return #x
