@@ -364,7 +364,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
 			    (s->flags & SF_VERIFIED) ? "YES" :
-			    (SSL_get_peer_certificate(s->io.ssl) ? "FAILURE" : "NO"));
+			    (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
 
 		if (s->rcptcount == 1)
 			fprintf(s->ofile, "\tfor <%s@%s>;\n",
@@ -524,10 +524,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		}
 		*/
 
-		if (resp_ca_vrfy->status == CA_OK) {
+		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= SF_VERIFIED;
-			log_debug("setting %p->flags: %d", s, s->flags);
-		}
 
 		io_callback(&s->io, IO_TLSVERIFIED);
 		return;

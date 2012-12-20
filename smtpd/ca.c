@@ -21,46 +21,36 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
-int	ca_X509_verify(X509 *, const char *, const char *, const char **);
+int	ca_X509_verify(X509 *, STACK_OF(X509) *, const char *, const char *, const char **);
 
 int
-ca_X509_verify(X509 *certificate, const char *CAfile, const char *CRLfile, const char **errstr)
+ca_X509_verify(X509 *certificate, STACK_OF(X509) *chain, const char *CAfile,
+    const char *CRLfile, const char **errstr)
 {
-	X509_STORE	*store = NULL;
-	X509_LOOKUP	*lookup = NULL;
-	X509_STORE_CTX	*xsc = NULL;
-	int		i = 0;
+	X509_STORE     *store = NULL;
+	X509_STORE_CTX *xsc = NULL;
+	int		ret = 0;
 
 	if ((store = X509_STORE_new()) == NULL)
 		goto end;
 
-	if (CAfile) {
-		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file())) == NULL)
-			goto end;
-		
-		if (! X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_PEM))
-			goto end;
-
-/*
-//		if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir())) == NULL)
-//			goto end;
-//
-//		X509_LOOKUP_add_dir(lookup, "/etc/ssl", X509_FILETYPE_PEM);
-*/
-	}
+	X509_STORE_load_locations(store, CAfile, NULL);
+	X509_STORE_set_default_paths(store);
 
 	if ((xsc = X509_STORE_CTX_new()) == NULL)
 		goto end;
 
-	if (! X509_STORE_CTX_init(xsc, store, certificate, 0))
+	if (X509_STORE_CTX_init(xsc, store, certificate, chain) != 1)
 		goto end;
 
-	i = X509_verify_cert(xsc);
+	ret = X509_verify_cert(xsc);
 
 end:
 	*errstr = NULL;
-	if (i <= 0) {
-		if (ERR_peek_last_error())
+	if (ret != 1) {
+		if (xsc)
+			*errstr = X509_verify_cert_error_string(xsc->error);
+		else if (ERR_peek_last_error())
 			*errstr = ERR_error_string(ERR_peek_last_error(), NULL);
 	}
 
@@ -68,5 +58,6 @@ end:
 		X509_STORE_CTX_free(xsc);
 	if (store)
 		X509_STORE_free(store);
-	return i > 0 ? 1 : 0;
+
+	return ret > 0 ? 1 : 0;
 }

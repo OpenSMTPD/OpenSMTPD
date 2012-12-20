@@ -50,7 +50,6 @@ static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_encode_credentials(char *, size_t, struct credentials *);
-static int lka_X509_verify(X509 *, STACK_OF(X509) *, const char *, const char *, const char **);
 
 static void
 lka_imsg(struct mproc *p, struct imsg *imsg)
@@ -157,13 +156,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				for (i = 0; i < req_ca_vrfy->n_chain; ++i) {
 					d2i = req_ca_vrfy->chain_cert[i];
 					d2i_X509(&x509_tmp, &d2i, req_ca_vrfy->chain_cert_len[i]);
-					sk_X509_insert(x509_chain, x509_tmp, i);
+					sk_X509_insert(x509_chain, X509_dup(x509_tmp), i);
 				}
 			}
 
-			if (! lka_X509_verify(x509, x509_chain, "/etc/ssl/cert.pem", NULL, &errstr)) {
+			if (! ca_X509_verify(x509, x509_chain, "/etc/ssl/cert.pem", NULL, &errstr)) {
 				resp_ca_vrfy.status = CA_FAIL;
-				/* we should forward that to SMTP too ... */
 				log_debug("debug: lka_X509_verify: failure: %s", errstr);
 			}
 			else
@@ -614,12 +612,4 @@ lka_encode_credentials(char *dst, size_t size,
 
 	free(buf);
 	return 1;
-}
-
-/* XXX - to be removed when I'm done with the ca_* interface */
-static int
-lka_X509_verify(X509 *certificate, STACK_OF(X509) *chain, const char *CAfile,
-    const char *CRLfile, const char **errstr)
-{
-	return ca_X509_verify(certificate, CAfile, CRLfile, errstr);
 }
