@@ -717,7 +717,6 @@ smtp_io(struct io *io, int evt)
 		s->phase = PHASE_INIT;
 
 		if ((x = SSL_get_peer_certificate(s->io.ssl)) != NULL) {
-			log_info("smtp-in: client sent certificate, verifying");
 			xchain = SSL_get_peer_cert_chain(s->io.ssl);
 
 			tree_xset(&wait_ssl_verify, s->id, s);
@@ -761,9 +760,14 @@ smtp_io(struct io *io, int evt)
 		/* No verification required, cascade */
 
 	case IO_TLSVERIFIED:
-		if (s->flags & SF_VERIFIED)
-			log_info("smtp-in: Verified TLS on session %016"PRIx64": %s",
-			    s->id, ssl_to_text(s->io.ssl));
+		if (SSL_get_peer_certificate(s->io.ssl) != NULL) {
+			if (s->flags & SF_VERIFIED)
+				log_info("smtp-in: Verified TLS on session %016"PRIx64": %s",
+				    s->id, ssl_to_text(s->io.ssl));
+			else
+				log_info("smtp-in: Verification failed on session %016"PRIx64": %s",
+				    s->id, ssl_to_text(s->io.ssl));
+		}
 
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
