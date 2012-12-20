@@ -1100,7 +1100,7 @@ void bounce_run(uint64_t, int);
 
 
 /* ca.c */
-pid_t ca(void);
+int	ca_X509_verify(X509 *, const char *, const char *, const char **);
 
 
 /* compress_backend.c */
