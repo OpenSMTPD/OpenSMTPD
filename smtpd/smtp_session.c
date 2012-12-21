@@ -1153,6 +1153,9 @@ smtp_connected(struct smtp_session *s)
 	req.peer = s->ss;
 	sl = sizeof(req.local);
 	getsockname(s->io.sock, (struct sockaddr*)&req.local, &sl);
+#if defined(HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN)
+	req.local.ss_len = sl;
+#endif
 	smtp_query_mfa(s, IMSG_MFA_REQ_CONNECT, &req, sizeof(req));
 }
 
