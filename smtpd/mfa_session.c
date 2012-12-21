@@ -104,6 +104,8 @@ static void mfa_run_query(struct mfa_filter *, struct mfa_query *);
 static void mfa_run_data(struct mfa_filter *, uint64_t, const char *);
 static struct mfa_filter_chain	chain;
 
+static const char * mfa_query_to_text(struct mfa_query *);
+static const char * mfa_filter_to_text(struct mfa_filter *);
 static const char * type_to_str(int);
 static const char * hook_to_str(int);
 static const char * status_to_str(int);
@@ -247,7 +249,6 @@ mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 	log_trace(TRACE_MFA,
 	    "mfa: running data for %016"PRIx64" on filter %p: %s", id, f, line);
 
-	p = p_smtp;
 	len = sizeof(id) + strlen(line) + 1;
 
 	/* Send the dataline to the filters that want to see it. */
@@ -264,16 +265,23 @@ mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 			 * iterating here, and the filter becomes responsible
 			 * for sending datalines back.
 			 */
-			if (f->flags & FILTER_ALTERDATA)
+			if (f->flags & FILTER_ALTERDATA) {
+				log_trace(TRACE_MFA,
+	 			   "mfa: expect datalines from filter %s",
+				   mfa_filter_to_text(f));
 				return;
+			}
 		}
 		f = TAILQ_NEXT(f, entry);
 	}
 
 	/* When all filters are done, send the line back to the smtp process. */
+	log_trace(TRACE_MFA,
+	    "mfa: sending final data to smtp for %016"PRIx64" on filter %p: %s", id, f, line);
+
 	resp.reqid = id;
 	strlcpy(resp.buffer, line, sizeof(resp.buffer));
-	m_compose(p, IMSG_MFA_SMTP_DATA, 0, 0, -1, &resp, sizeof(resp));
+	m_compose(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1, &resp, sizeof(resp));
 }
 
 static struct mfa_query *
@@ -307,6 +315,8 @@ mfa_drain_query(struct mfa_query *q)
 	struct mfa_smtp_resp_msg	 resp;
 	struct filter_notify_msg	 notify;
 
+	log_trace(TRACE_MFA, "mfa: draining query %s", mfa_query_to_text(q));
+
 	/*
 	 * The query must be passed through all filters that registered
 	 * a hook, until one rejects it.  
@@ -321,8 +331,12 @@ mfa_drain_query(struct mfa_query *q)
 				mfa_run_query(q->current, q);
 				q->hasrun = 1;
 			}
-			if (q->state == QUERY_RUNNING)
+			if (q->state == QUERY_RUNNING) {
+				log_trace(TRACE_MFA,
+				    "mfa: waiting for running query %s",
+				    mfa_query_to_text(q));
 				return;
+			}
 
 			/*
 			 * Do not move forward if the query ahead of us is
@@ -331,6 +345,9 @@ mfa_drain_query(struct mfa_query *q)
 			prev = TAILQ_PREV(q, mfa_queries, entry);
 			if (prev && prev->current == q->current) {
 				q->state = QUERY_WAITING;
+				log_trace(TRACE_MFA,
+				    "mfa: query blocked by previoius query %s",
+				    mfa_query_to_text(prev));
 				return;
 			}
 
@@ -376,7 +393,7 @@ mfa_drain_query(struct mfa_query *q)
 		free(q->session);
 	}
 
-	log_trace(TRACE_MFA, "mfa: freeing query 0x%016" PRIx64, q->qid);
+	log_trace(TRACE_MFA, "mfa: freeing query %016" PRIx64, q->qid);
 
 	TAILQ_REMOVE(&q->session->queries, q, entry);
 	free(q);
@@ -385,14 +402,44 @@ mfa_drain_query(struct mfa_query *q)
 static void
 mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 {
-/*
-	m_compose(&f->mproc, q->type, 0, 0, -1, q->data, q->datalen);
-*/
+	struct filter_event_msg		 evt;
+	struct filter_query_msg		 query;
+
+	log_trace(TRACE_MFA, "mfa: running query %s on filter %s",
+	    mfa_query_to_text(q), mfa_filter_to_text(f));
+
 	if (q->type == QT_QUERY) {
+
+		query.id = q->session->id;
+		query.qid = q->qid;
+		query.hook = q->hook;
+
+		switch (q->hook) {
+		case HOOK_CONNECT:
+			query.u.connect = q->u.connect;
+			break;
+		case HOOK_HELO:
+			query.u.line = q->u.line;
+			break;
+		case HOOK_MAIL:
+		case HOOK_RCPT:
+			query.u.maddr = q->u.maddr;
+			break;
+		default:
+			break;
+		}
+
+		m_compose(&f->mproc, IMSG_FILTER_QUERY, 0, 0, -1,
+		    &query, sizeof(query));
 		tree_xset(&queries, q->qid, q);
 		q->state = QUERY_RUNNING;
 	}
-
+	else {
+		evt.id = q->session->id;
+		evt.event = q->hook;
+		m_compose(&f->mproc, IMSG_FILTER_EVENT, 0, 0, -1,
+		    &evt, sizeof(evt));
+	}
 }
 
 static void
@@ -463,6 +510,59 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		exit(1);
 	}
 }
+
+
+static const char *
+mfa_query_to_text(struct mfa_query *q)
+{
+	static char buf[1024];
+	char tmp[1024];
+
+	tmp[0] = '\0';
+
+	switch(q->hook) {
+
+	case HOOK_CONNECT:
+		strlcat(tmp, "=", sizeof tmp);
+		strlcat(tmp, ss_to_text(&q->u.connect.local), sizeof tmp);
+		strlcat(tmp, " <-> ", sizeof tmp);
+		strlcat(tmp, ss_to_text(&q->u.connect.remote), sizeof tmp);
+		strlcat(tmp, "(", sizeof tmp);
+		strlcat(tmp, q->u.connect.hostname, sizeof tmp);
+		strlcat(tmp, ")", sizeof tmp);
+		break;
+
+	case HOOK_MAIL:
+	case HOOK_RCPT:
+		snprintf(tmp, sizeof tmp, "=%s@%s",
+		    q->u.maddr.user, q->u.maddr.domain);
+		break;
+
+	case HOOK_HELO:
+		snprintf(tmp, sizeof tmp, "=%s", q->u.line.line);
+		break;
+
+	default:
+		break;
+	}
+
+	snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
+	    q->qid, type_to_str(q->type), hook_to_str(q->hook), tmp);
+
+	return (buf);
+}
+
+static const char *
+mfa_filter_to_text(struct mfa_filter *f)
+{
+	static char buf[1024];
+
+	snprintf(buf, sizeof buf, "%s[hooks=0x%04x,flags=0x%x]",
+	    f->mproc.name, f->hooks, f->flags);
+
+	return (buf);
+}
+
 
 #define CASE(x) case x : return #x
 

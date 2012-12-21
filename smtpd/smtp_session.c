@@ -1165,6 +1165,7 @@ smtp_connected(struct smtp_session *s)
 {
 	struct mfa_connect_msg	req;
 	socklen_t		sl;
+	int			r;
 
 	smtp_enter_state(s, STATE_CONNECTED);
 	log_info("smtp-in: New session %016"PRIx64" from host %s [%s]",
@@ -1172,8 +1173,9 @@ smtp_connected(struct smtp_session *s)
 	req.reqid = s->id;
 	req.remote = s->ss;
 	sl = sizeof(req.local);
-	getsockname(s->io.sock, (struct sockaddr*)&req.local, &sl);
-	req.local.ss_len = sl;
+	r = getsockname(s->io.sock, (struct sockaddr*)&req.local, &sl);
+	log_debug("getsockname: %i, size %i, family: %i, retsz=%i", r, sl, req.local.ss_family, req.local.ss_len);
+	strlcpy(req.hostname, s->hostname, sizeof(req.hostname));
 	smtp_query_mfa(s, IMSG_MFA_REQ_CONNECT, &req, sizeof(req));
 }
 

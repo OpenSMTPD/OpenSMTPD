@@ -331,6 +331,7 @@ smtp_enqueue(uid_t *euid)
 		listener = &local;
 		strlcpy(listener->tag, "local", sizeof(listener->tag));
 		listener->ss.ss_family = AF_LOCAL;
+		listener->ss.ss_len = sizeof(struct sockaddr *);
 	}
 
 	/*

@@ -82,33 +82,18 @@ filter_api_loop(void)
 void
 filter_api_accept(uint64_t id)
 {
-	struct filter_query		*q;
-
-	q = tree_xpop(&queries, id);
-	free(q);
-
 	filter_response(id, FILTER_OK, 0, NULL, 0);
 }
 
 void
 filter_api_accept_notify(uint64_t id)
 {
-	struct filter_query		*q;
-
-	q = tree_xpop(&queries, id);
-	free(q);
-
 	filter_response(id, FILTER_OK, 0, NULL, 1);
 }
 
 void
 filter_api_reject(uint64_t id, enum filter_status status)
 {
-	struct filter_query		*q;
-
-	q = tree_xpop(&queries, id);
-	free(q);
-
 	/* This is NOT an acceptable status for a failure */
 	if (status == FILTER_OK)
 		status = FILTER_FAIL;
@@ -120,11 +105,6 @@ void
 filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
     const char *line)
 {
-	struct filter_query		*q;
-
-	q = tree_xpop(&queries, id);
-	free(q);
-
 	/* This is NOT an acceptable status for a failure */
 	if (status == FILTER_OK)
 		status = FILTER_FAIL;
@@ -136,7 +116,6 @@ void
 filter_api_data(uint64_t id, const char *line)
 {
 	struct filter_data_msg	 msg;
-	struct filter_query	*q;
 
 	msg.id = id;
 	strlcpy(msg.line, line, sizeof(line));
@@ -147,10 +126,15 @@ filter_api_data(uint64_t id, const char *line)
 }
 
 static void
-filter_response(uint64_t id, int status, int code, const char *line, int notify)
+filter_response(uint64_t qid, int status, int code, const char *line, int notify)
 {
 	struct filter_response_msg	 r;
+	struct filter_query		*q;
 
+	q = tree_xpop(&queries, qid);
+	free(q);
+
+	r.qid = qid;
 	r.status = status;
 	r.code = code;
 	r.notify = notify;
@@ -274,6 +258,8 @@ filter_dispatch(int fd, short event, void *p)
 
 		case IMSG_FILTER_QUERY:
 			query = imsg.data;
+			/* XXX ? */
+			tree_xset(&queries, query->qid, NULL);
 			switch(query->hook) {
 			case HOOK_CONNECT:
 				filter_dispatch_connect(query->id, query->qid,
@@ -376,7 +362,7 @@ static void
 filter_dispatch_dataline(uint64_t id, const char *data)
 {
 	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, data);
-	filter_api_data(id, data);
+	/* filter_api_data(id, data); */
 }
 
 static void
