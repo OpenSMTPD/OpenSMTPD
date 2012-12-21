@@ -81,11 +81,12 @@
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
-#define F_AUTH			0x04
-#define F_SSL		       (F_SMTPS|F_STARTTLS)
-#define	F_STARTTLS_REQUIRE	0x08
-#define	F_AUTH_REQUIRE		0x10
-#define	F_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH RELAY_BACKUP */
+#define	F_TLS_OPTIONAL		0x04
+#define F_SSL		       (F_STARTTLS | F_SMTPS)
+#define F_AUTH			0x08
+#define	F_BACKUP		0x10	/* XXX - MUST BE SYNC-ED WITH RELAY_BACKUP */
+#define	F_STARTTLS_REQUIRE	0x20
+#define	F_AUTH_REQUIRE		0x40
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -93,10 +94,11 @@
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
 #define RELAY_SMTPS		0x02
+#define	RELAY_TLS_OPTIONAL     	0x04
 #define RELAY_SSL		(RELAY_STARTTLS | RELAY_SMTPS)
-#define RELAY_AUTH		0x04
-#define RELAY_MX		0x08
-#define RELAY_BACKUP		0x20	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
+#define RELAY_AUTH		0x08
+#define RELAY_BACKUP		0x10	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
+#define RELAY_MX		0x20
 
 typedef uint32_t	objid_t;
 
