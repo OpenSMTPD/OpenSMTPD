@@ -89,7 +89,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_MFA_REQ_EOM:
 			req = imsg->data;
-			mfa_filter(req->reqid, HOOK_ENDOFDATA);
+			mfa_filter(req->reqid, HOOK_EOM);
 			return;
 
 		case IMSG_MFA_SMTP_DATA:
@@ -105,6 +105,11 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_MFA_EVENT_COMMIT:
 			req_id = imsg->data;
 			mfa_filter_event(*req_id, HOOK_COMMIT);
+			return;
+
+		case IMSG_MFA_EVENT_ROLLBACK:
+			req_id = imsg->data;
+			mfa_filter_event(*req_id, HOOK_ROLLBACK);
 			return;
 
 		case IMSG_MFA_EVENT_DISCONNECT:

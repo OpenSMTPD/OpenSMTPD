@@ -40,15 +40,27 @@ struct query {
 static int			register_done;
 
 static struct filter_internals {
+	struct event	ev;
+	struct imsgbuf	ibuf;
+
 	uint32_t	hooks;
 	uint32_t	flags;
 
-	struct event	ev;
-	struct imsgbuf	ibuf;
+	struct {
+		void (*notify)(uint64_t, enum filter_status);
+		void (*connect)(uint64_t, uint64_t, struct filter_connect *);
+		void (*helo)(uint64_t, uint64_t, const char *);
+		void (*mail)(uint64_t, uint64_t, struct filter_mailaddr *);
+		void (*rcpt)(uint64_t, uint64_t, struct filter_mailaddr *);
+		void (*data)(uint64_t, uint64_t);
+		void (*dataline)(uint64_t, const char *);
+		void (*eom)(uint64_t, uint64_t);
+		void (*event)(uint64_t, enum filter_hook);
+	} cb;
+
 } fi;
 
 static void filter_api_init(void);
-static void filter_register_callback(enum filter_hook, void *, void *);
 static void filter_response(uint64_t, int, int, const char *line, int);
 static void filter_event_add(void);
 static void filter_dispatch(int, short, void *);
@@ -61,6 +73,87 @@ static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *)
 static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
 static void filter_dispatch_mail(uint64_t, uint64_t, struct filter_mailaddr *);
 static void filter_dispatch_rcpt(uint64_t, uint64_t, struct filter_mailaddr *);
+
+void
+filter_api_on_notify(void(*cb)(uint64_t, enum filter_status))
+{
+	filter_api_init();
+
+	fi.cb.notify = cb;
+}
+
+void
+filter_api_on_connect(void(*cb)(uint64_t, uint64_t, struct filter_connect *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_CONNECT;
+	fi.cb.connect = cb;
+}
+
+void
+filter_api_on_helo(void(*cb)(uint64_t, uint64_t, const char *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_HELO;
+	fi.cb.helo = cb;
+}
+
+void
+filter_api_on_mail(void(*cb)(uint64_t, uint64_t, struct filter_mailaddr *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_MAIL;
+	fi.cb.mail = cb;
+}
+
+void
+filter_api_on_rcpt(void(*cb)(uint64_t, uint64_t, struct filter_mailaddr *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_RCPT;
+	fi.cb.rcpt = cb;
+}
+
+void
+filter_api_on_data(void(*cb)(uint64_t, uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_DATA;
+	fi.cb.data = cb;
+}
+
+void
+filter_api_on_dataline(void(*cb)(uint64_t, const char *), int flags)
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_DATALINE;
+	fi.flags |= flags & FILTER_ALTERDATA;
+	fi.cb.dataline = cb;
+}
+
+void
+filter_api_on_eom(void(*cb)(uint64_t, uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_EOM;
+	fi.cb.eom = cb;
+}
+
+void
+filter_api_on_event(void(*cb)(uint64_t, enum filter_hook))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_DISCONNECT | HOOK_RESET | HOOK_COMMIT;
+	fi.cb.event = cb;
+}
 
 void
 filter_api_loop(void)
@@ -161,32 +254,6 @@ filter_api_init(void)
 	tree_init(&queries);
 	imsg_init(&fi.ibuf, 0);
 	event_init();
-
-	fi.hooks = -1;
-}
-
-static void
-filter_register_callback(enum filter_hook hook, void *cb, void *cb_arg)
-{
-	if (register_done)
-		errx(1, "filter_register_callback: called at runtime");
-
-	filter_api_init();
-
-	switch (hook) {
-	case HOOK_CONNECT:
-	case HOOK_DISCONNECT:
-	case HOOK_HELO:
-	case HOOK_MAIL:
-	case HOOK_RCPT:
-	case HOOK_DATA:
-	case HOOK_DATALINE:
-	case HOOK_COMMIT:
-	case HOOK_RESET:
-	default:
-		errx(1, "filter_register_callback: unknown filter hook");
-	}
-	fi.hooks |= hook;
 }
 
 static void
@@ -280,7 +347,7 @@ filter_dispatch(int fd, short event, void *p)
 			case HOOK_DATA:
 				filter_dispatch_data(query->id, query->qid);
 				break;
-			case HOOK_ENDOFDATA:
+			case HOOK_EOM:
 				filter_dispatch_eom(query->id, query->qid);
 				break;
 			default:
@@ -308,66 +375,53 @@ filter_dispatch(int fd, short event, void *p)
 static void
 filter_dispatch_event(uint64_t id,  enum filter_hook event)
 {
-	printf("filter-event: id=%016"PRIx64", event=%i\n",
-	    id, event);
+	fi.cb.event(id, event);
 }
 
 static void
 filter_dispatch_notify(uint64_t qid, enum filter_status status)
 {
-	printf("filter-notify: qid=%016"PRIx64", status=%i\n",
-	    qid, status);
+	fi.cb.notify(qid, status);
 }
 
 static void
 filter_dispatch_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
 {
-	printf("filter-connect: id=%016"PRIx64", qid=%016"PRIx64" hostname=%s\n",
-	    id, qid, conn->hostname);
-	filter_api_accept(qid);
+	fi.cb.connect(id, qid, conn);
 }
 
 static void
 filter_dispatch_helo(uint64_t id, uint64_t qid, const char *helo)
 {
-	printf("filter: HELO id=%016"PRIx64", qid=%016"PRIx64" %s\n",
-	    id, qid, helo);
-	filter_api_accept(qid);
+	fi.cb.helo(id, qid, helo);
 }
 
 static void
 filter_dispatch_mail(uint64_t id, uint64_t qid, struct filter_mailaddr *mail)
 {
-	printf("filter: MAIL id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
-	    id, qid, mail->user, mail->domain);
-	filter_api_accept(qid);
+	fi.cb.mail(id, qid, mail);
 }
 
 static void
 filter_dispatch_rcpt(uint64_t id, uint64_t qid, struct filter_mailaddr *rcpt)
 {
-	printf("filter: RCPT id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
-	    id, qid, rcpt->user, rcpt->domain);
-	filter_api_accept(qid);
+	fi.cb.rcpt(id, qid, rcpt);
 }
 
 static void
 filter_dispatch_data(uint64_t id, uint64_t qid)
 {
-	printf("filter: DATA id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
-	filter_api_accept(qid);
+	fi.cb.data(id, qid);
 }
 
 static void
 filter_dispatch_dataline(uint64_t id, const char *data)
 {
-	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, data);
-	/* filter_api_data(id, data); */
+	fi.cb.dataline(id, data);
 }
 
 static void
 filter_dispatch_eom(uint64_t id, uint64_t qid)
 {
-	printf("filter-eom: id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
-	filter_api_accept(qid);
+	fi.cb.eom(id, qid);
 }

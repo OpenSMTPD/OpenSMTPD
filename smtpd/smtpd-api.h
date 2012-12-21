@@ -59,7 +59,7 @@ enum filter_hook {
 	HOOK_MAIL		= 1 << 2,	/* req */
 	HOOK_RCPT		= 1 << 3,	/* req */
 	HOOK_DATA		= 1 << 4,	/* req */
-	HOOK_ENDOFDATA		= 1 << 5,	/* req */
+	HOOK_EOM		= 1 << 5,	/* req */
 
 	HOOK_RESET		= 1 << 6,	/* evt */
 	HOOK_DISCONNECT		= 1 << 7,	/* evt */
@@ -147,6 +147,16 @@ void filter_api_reject(uint64_t, enum filter_status);
 void filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
 void filter_api_data(uint64_t, const char *);
+
+void filter_api_on_notify(void(*)(uint64_t, enum filter_status));
+void filter_api_on_connect(void(*)(uint64_t, uint64_t, struct filter_connect *));
+void filter_api_on_helo(void(*)(uint64_t, uint64_t, const char *));
+void filter_api_on_mail(void(*)(uint64_t, uint64_t, struct filter_mailaddr *));
+void filter_api_on_rcpt(void(*)(uint64_t, uint64_t, struct filter_mailaddr *));
+void filter_api_on_data(void(*)(uint64_t, uint64_t));
+void filter_api_on_dataline(void(*)(uint64_t, const char *), int);
+void filter_api_on_eom(void(*)(uint64_t, uint64_t));
+void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))

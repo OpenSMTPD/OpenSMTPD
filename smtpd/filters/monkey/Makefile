@@ -1,7 +1,8 @@
 .PATH: ${.CURDIR}/../..
 
-PROG=filter_simple
+PROG=filter_monkey
+SRCS=filter_monkey.c
+
 NOMAN=noman
-SRCS=filter_simple.c
 
 .include <bsd.prog.mk>
