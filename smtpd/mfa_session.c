@@ -302,9 +302,10 @@ mfa_query(struct mfa_session *s, int type, int hook)
 static void
 mfa_drain_query(struct mfa_query *q)
 {
-	struct mfa_filter	*f;
-	struct mfa_query	*prev;
-	struct mfa_smtp_resp_msg resp;
+	struct mfa_filter		*f;
+	struct mfa_query		*prev;
+	struct mfa_smtp_resp_msg	 resp;
+	struct filter_notify_msg	 notify;
 
 	/*
 	 * The query must be passed through all filters that registered
@@ -350,12 +351,11 @@ mfa_drain_query(struct mfa_query *q)
 		    q->smtp.response);
 
 		/* Done, notify all listeners and return smtp response */
-		while (tree_poproot(&q->notify, NULL, (void**)&f)) {
-			m_create(&f->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1, 16);
-			m_add(&f->mproc, &q->qid, sizeof q->qid);
-			m_add(&f->mproc, &q->smtp.status, sizeof q->smtp.status);
-			m_close(&f->mproc);
-		}
+		notify.qid = q->qid;
+		notify.status = q->smtp.status;
+		while (tree_poproot(&q->notify, NULL, (void**)&f))
+			m_compose(&f->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1,
+			    &notify, sizeof (notify));
 
 		resp.reqid = q->session->id;
 		resp.status = q->smtp.status;

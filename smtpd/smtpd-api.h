@@ -140,14 +140,13 @@ int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
 void dict_merge(struct dict *, struct dict *);
 
 /* filter_api.c */
-void filter_api_init(void);
 void filter_api_loop(void);
 void filter_api_accept(uint64_t);
 void filter_api_accept_notify(uint64_t);
 void filter_api_reject(uint64_t, enum filter_status);
 void filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
-void filter_api_push_data(uint64_t, const char *);
+void filter_api_data(uint64_t, const char *);
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))
