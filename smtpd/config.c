@@ -26,6 +26,7 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "smtpd.h"
@@ -66,14 +67,15 @@ purge_config(uint8_t what)
 		env->sc_rules = NULL;
 	}
 	if (what & PURGE_SSL) {
-		while ((s = SPLAY_ROOT(env->sc_ssl)) != NULL) {
-			SPLAY_REMOVE(ssltree, env->sc_ssl, s);
+		while (dict_poproot(env->sc_ssl_dict, NULL, (void **)&s)) {
+			bzero(s->ssl_cert, sizeof s->ssl_cert);
+			bzero(s->ssl_key, sizeof s->ssl_key);
 			free(s->ssl_cert);
 			free(s->ssl_key);
 			free(s);
 		}
-		free(env->sc_ssl);
-		env->sc_ssl = NULL;
+		free(env->sc_ssl_dict);
+		env->sc_ssl_dict = NULL;
 	}
 }
 
