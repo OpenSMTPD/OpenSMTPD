@@ -109,6 +109,7 @@ static const char * mfa_filter_to_text(struct mfa_filter *);
 static const char * type_to_str(int);
 static const char * hook_to_str(int);
 static const char * status_to_str(int);
+static const char * filterimsg_to_str(int);
 
 struct tree	sessions;
 struct tree	queries;
@@ -405,8 +406,14 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 	struct filter_event_msg		 evt;
 	struct filter_query_msg		 query;
 
-	log_trace(TRACE_MFA, "mfa: running query %s on filter %s",
-	    mfa_query_to_text(q), mfa_filter_to_text(f));
+	if ((f->hooks & q->hook) == 0) {
+		log_trace(TRACE_MFA, "mfa: skipping filter %s for query %s",
+		    mfa_filter_to_text(f), mfa_query_to_text(q));
+		return;
+	}
+
+	log_trace(TRACE_MFA, "mfa: running filter %s for query %s",
+	    mfa_filter_to_text(f), mfa_query_to_text(q));
 
 	if (q->type == QT_QUERY) {
 
@@ -451,7 +458,11 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	struct mfa_filter		*f;
 	struct mfa_query		*q, *next;
 
+
 	f = p->data;
+	log_trace(TRACE_MFA, "mfa: imsg %s from filter %s",
+	    filterimsg_to_str(imsg->hdr.type),
+	    mfa_filter_to_text(f));
 
 	switch (imsg->hdr.type) {
 
@@ -568,6 +579,21 @@ mfa_filter_to_text(struct mfa_filter *f)
 
 
 #define CASE(x) case x : return #x
+
+static const char *
+filterimsg_to_str(int imsg)
+{
+	switch (imsg) {
+	CASE(IMSG_FILTER_REGISTER);
+	CASE(IMSG_FILTER_EVENT);
+	CASE(IMSG_FILTER_QUERY);
+	CASE(IMSG_FILTER_NOTIFY);
+	CASE(IMSG_FILTER_DATA);
+	CASE(IMSG_FILTER_RESPONSE);
+	default:
+		return "IMSG_FILTER_???";
+	}
+}
 
 static const char *
 hook_to_str(int hook)
