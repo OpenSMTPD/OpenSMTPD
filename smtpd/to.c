@@ -318,6 +318,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		uint8_t		 flags;
 	} schemas [] = {
 		{ "smtp://",		0				},
+		{ "smtp+tls://",       	F_TLS_OPTIONAL 			},
 		{ "smtps://",		F_SMTPS				},
 		{ "tls://",		F_STARTTLS			},
 		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
@@ -347,8 +348,8 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		if (strstr(buffer, "://"))
 			return 0;
 
-		/* no schema, default to smtp:// */
-		i = 0;
+		/* no schema, default to smtp+tls:// */
+		i = 1;
 		p = buffer;
 	}
 	else
@@ -418,6 +419,9 @@ relayhost_to_text(struct relayhost *relay)
 		break;
 	case F_BACKUP:
 		strlcat(buf, "backup://", sizeof buf);
+		break;
+	case F_TLS_OPTIONAL:
+		strlcat(buf, "smtp+tls://", sizeof buf);
 		break;
 	default:
 		strlcat(buf, "smtp://", sizeof buf);

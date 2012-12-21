@@ -241,6 +241,9 @@ main(int argc, char *argv[])
 		/* not reached */
 
 	case SCHEDULE:
+		if (! strcmp(res->data, "all"))
+			return action_schedule_all();
+
 		if ((ulval = text_to_evpid(res->data)) == 0)
 			errx(1, "invalid msgid/evpid");
 		imsg_compose(ibuf, IMSG_CTL_SCHEDULE, 0, 0, -1, &ulval,
@@ -254,8 +257,6 @@ main(int argc, char *argv[])
 		break;
 	case SHOW_QUEUE:
 		return action_show_queue();
-	case SCHEDULE_ALL:
-		return action_schedule_all();
 	case SHUTDOWN:
 		imsg_compose(ibuf, IMSG_CTL_SHUTDOWN, 0, 0, -1, NULL, 0);
 		break;

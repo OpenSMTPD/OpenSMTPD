@@ -54,21 +54,11 @@ void	 ssl_error(const char *);
 char	*ssl_load_file(const char *, off_t *, mode_t);
 SSL_CTX	*ssl_ctx_create(void);
 
-SSL	*ssl_client_init(int, char *, size_t, char *, size_t);
-
 DH	*get_dh1024(void);
 DH	*get_dh_from_memory(char *, size_t);
 void	 ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
 
 extern int ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
-
-int
-ssl_cmp(struct ssl *s1, struct ssl *s2)
-{
-	return (strcmp(s1->ssl_name, s2->ssl_name));
-}
-
-SPLAY_GENERATE(ssltree, ssl, ssl_nodes, ssl_cmp);
 
 char *
 ssl_load_file(const char *name, off_t *len, mode_t perm)
@@ -154,7 +144,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		return -1;
 	}
 
-	s = SPLAY_FIND(ssltree, env->sc_ssl, &key);
+	s = dict_get(env->sc_ssl_dict, name);
 	if (s != NULL) {
 		s->flags |= flags;
 		return 0;
@@ -182,16 +172,14 @@ ssl_load_certfile(const char *name, uint8_t flags)
 	if (s->ssl_key == NULL)
 		goto err;
 
+	/*
 	if (! bsnprintf(certfile, sizeof(certfile),
 		SMTPD_CONFDIR "/certs/%s.ca", name))
 		goto err;
-
 	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL) {
-		if (errno == EACCES)
-			goto err;
-		log_warnx("warn:  no CA found in %s", certfile);
-	}
+	if (s->ssl_ca == NULL)
+		goto err;
+	*/
 
 	if (! bsnprintf(certfile, sizeof(certfile),
 		SMTPD_CONFDIR "/certs/%s.dh", name))
@@ -205,7 +193,7 @@ ssl_load_certfile(const char *name, uint8_t flags)
 		    "using built-in parameters", certfile);
 	}
 
-	SPLAY_INSERT(ssltree, env->sc_ssl, s);
+	dict_set(env->sc_ssl_dict, name, s);
 
 	return (0);
 err:
@@ -231,6 +219,12 @@ ssl_init(void)
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
+
+	/* Load certificate store */
+	env->cert_store = ssl_load_file("/etc/ssl/cert.pem",
+	    &env->cert_store_len, 0755);
+	if (env->cert_store == NULL)
+		fatal("ssl_init: cannot load certificate store");
 }
 
 void
@@ -246,16 +240,10 @@ ssl_setup(struct listener *l)
 	    >= sizeof(key.ssl_name))
 		fatal("ssl_setup: certificate name truncated");
 
-	if ((l->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &key)) == NULL)
+	if ((l->ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
 		fatal("ssl_setup: certificate tree corrupted");
 
 	l->ssl_ctx = ssl_ctx_create();
-
-	if (l->ssl->ssl_ca != NULL) {
-		if (! ssl_ctx_load_verify_memory(l->ssl_ctx,
-			l->ssl->ssl_ca, l->ssl->ssl_ca_len))
-			goto err;
-	}
 
 	if (!ssl_ctx_use_certificate_chain(l->ssl_ctx,
 	    l->ssl->ssl_cert, l->ssl->ssl_cert_len))
@@ -317,46 +305,6 @@ ssl_error(const char *where)
 	}
 }
 
-SSL *
-ssl_client_init(int fd, char *cert, size_t certsz, char *key, size_t keysz)
-{
-	SSL_CTX		*ctx;
-	SSL		*ssl = NULL;
-	int		 rv = -1;
-
-	ctx = ssl_ctx_create();
-
-	if (cert && key) {
-		if (!ssl_ctx_use_certificate_chain(ctx, cert, certsz))
-			goto done;
-		else if (!ssl_ctx_use_private_key(ctx, key, keysz))
-			goto done;
-		else if (!SSL_CTX_check_private_key(ctx))
-			goto done;
-	}
-
-	if ((ssl = SSL_new(ctx)) == NULL)
-		goto done;
-	SSL_CTX_free(ctx);
-
-	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
-		goto done;
-	if (!SSL_set_fd(ssl, fd))
-		goto done;
-	SSL_set_connect_state(ssl);
-
-	rv = 0;
-done:
-	if (rv) {
-		if (ssl)
-			SSL_free(ssl);
-		else if (ctx)
-			SSL_CTX_free(ctx);
-		ssl = NULL;
-	}
-	return (ssl);
-}
-
 void *
 ssl_mta_init(struct ssl *s)
 {
@@ -396,12 +344,33 @@ done:
 	return (void*)(ssl);
 }
 
-void *
-ssl_smtp_init(void *ssl_ctx)
+/* dummy_verify */
+static int
+dummy_verify(int ok, X509_STORE_CTX *store)
 {
-	SSL *ssl;
+	/*
+	 * We *want* SMTP to request an optional client certificate, however we don't want the
+	 * verification to take place in the SMTP process. This dummy verify will allow us to
+	 * asynchronously verify in the lookup process.
+	 */
+	return 1;
+}
+
+void *
+ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
+{
+	SSL *ssl = NULL;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
+
+	if (!ssl_ctx_use_certificate_chain(ssl_ctx, cert, cert_len))
+		goto err;
+	else if (!ssl_ctx_use_private_key(ssl_ctx, key, key_len))
+		goto err;
+	else if (!SSL_CTX_check_private_key(ssl_ctx))
+		goto err;
+
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;

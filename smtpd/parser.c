@@ -40,7 +40,7 @@ static const struct token t_main[];
 static const struct token t_pause[];
 static const struct token t_remove[];
 static const struct token t_resume[];
-static const struct token t_schedule_id[];
+static const struct token t_schedule[];
 static const struct token t_show[];
 static const struct token t_show_envelope[];
 static const struct token t_show_message[];
@@ -48,8 +48,7 @@ static const struct token t_update[];
 static const struct token t_update_table[];
 
 static const struct token t_main[] = {
-	{KEYWORD,	"schedule-id",	NONE,		t_schedule_id},
-	{KEYWORD,	"schedule-all",	SCHEDULE_ALL,	NULL},
+	{KEYWORD,	"schedule",	NONE,		t_schedule},
 	{KEYWORD,	"show",		NONE,		t_show},
 	{KEYWORD,	"monitor",	MONITOR,	NULL},
 	{KEYWORD,	"pause",	NONE,		t_pause},
@@ -66,9 +65,9 @@ static const struct token t_remove[] = {
 	{ENDTOKEN,	"",		NONE,		NULL}
 };
 
-static const struct token t_schedule_id[] = {
-	{VARIABLE,	"msgid/evpid",	SCHEDULE,	NULL},
-	{ENDTOKEN,	"",		NONE,		NULL}
+static const struct token t_schedule[] = {
+	{VARIABLE,	"msgid/evpid/all",	SCHEDULE,	NULL},
+	{ENDTOKEN,	"",			NONE,		NULL}
 };
 
 static const struct token t_show[] = {

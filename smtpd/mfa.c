@@ -209,7 +209,6 @@ mfa(void)
 	config_peer(PROC_CONTROL);
 	config_done();
 
-	imsgproc_init();
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	mfa_shutdown();
