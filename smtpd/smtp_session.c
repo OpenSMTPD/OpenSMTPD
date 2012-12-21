@@ -521,7 +521,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= SF_VERIFIED;
 
-		io_callback(&s->io, IO_TLSVERIFIED);
+		smtp_io(&s->io, IO_TLSVERIFIED);
 		return;
 	}
 
