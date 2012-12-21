@@ -66,13 +66,15 @@ enum mta_state {
 
 #define MTA_FORCE_ANYSSL	0x0001
 #define MTA_FORCE_SMTPS		0x0002
-#define MTA_ALLOW_PLAIN		0x0004
-#define MTA_USE_AUTH		0x0008
-#define MTA_USE_CERT		0x0010
+#define MTA_FORCE_TLS     	0x0004
+#define MTA_FORCE_PLAIN		0x0008
+#define MTA_WANT_SECURE		0x0010
+#define MTA_USE_AUTH		0x0020
+#define MTA_USE_CERT		0x0040
 
-#define MTA_TLS_TRIED		0x0020
+#define MTA_TLS_TRIED		0x0080
 
-#define MTA_TLS			0x0040
+#define MTA_TLS			0x0100
 
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
@@ -87,6 +89,8 @@ struct mta_session {
 
 	int			 attempt;
 	int			 use_smtps;
+	int			 use_starttls;
+	int			 use_smtp_tls;
 	int			 ready;
 
 	struct iobuf		 iobuf;
@@ -151,18 +155,24 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 		s->flags |= MTA_USE_CERT;
 	if (relay->ssl)
 		s->ssl = relay->ssl;
-	switch (relay->flags & RELAY_SSL) {
+	switch (relay->flags & (RELAY_SSL|RELAY_TLS_OPTIONAL)) {
 		case RELAY_SSL:
 			s->flags |= MTA_FORCE_ANYSSL;
+			s->flags |= MTA_WANT_SECURE;
 			break;
 		case RELAY_SMTPS:
 			s->flags |= MTA_FORCE_SMTPS;
+			s->flags |= MTA_WANT_SECURE;
 			break;
 		case RELAY_STARTTLS:
-			/* STARTTLS is tried by default */
+			s->flags |= MTA_FORCE_TLS;
+			s->flags |= MTA_WANT_SECURE;
+			break;
+		case RELAY_TLS_OPTIONAL:
+			/* do not force anything, try tls then smtp */
 			break;
 		default:
-			s->flags |= MTA_ALLOW_PLAIN;
+			s->flags |= MTA_FORCE_PLAIN;
 	}
 
 	log_debug("debug: mta: %p: spawned for relay %s", s,
@@ -262,24 +272,31 @@ mta_connect(struct mta_session *s)
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
 	int			 portno;
+	const char		*schema = "smtp+tls://";
 
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
 
-	/* If we already tried smtps, it's over */
-	if (s->use_smtps) {
-		mta_error(s, "Could not connect");
-		mta_free(s);
-		return;
-	}
+	s->use_smtps = s->use_starttls = s->use_smtp_tls = 0;
 
-	portno = 25;
-
-	/* Second attempt or forced SMTPS */
-	if (s->attempt == 1 || s->flags & MTA_FORCE_SMTPS) {
-		s->use_smtps = 1;
-		portno = 465;
+	switch (s->attempt) {
+	case 0:
+		if (s->flags & MTA_FORCE_SMTPS)
+			s->use_smtps = 1;	/* smtps */
+		else if (s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))
+			s->use_starttls = 1;	/* tls, tls+smtps */
+		else if (!(s->flags & MTA_FORCE_PLAIN))
+			s->use_smtp_tls = 1;
+		break;
+	case 1:
+		if (s->flags & MTA_FORCE_ANYSSL) {
+			s->use_smtps = 1;	/* tls+smtps */
+			break;
+		}
+	default:
+		goto fail;
 	}
+	portno = s->use_smtps ? 465 : 25;
 
 	/* Override with relay-specified port */
 	if (s->relay->port)
@@ -290,10 +307,17 @@ mta_connect(struct mta_session *s)
 	sa_set_port(sa, portno);
 
 	s->attempt += 1;
-	
-	log_debug("debug: mta: %p: connecting to smtp%s://%s:%i (%s)",
-	    s, s->use_smtps ? "s": "", sa_to_text(sa), portno,
-	    s->route->dst->ptrname);
+
+	if (s->use_smtp_tls)
+		schema = "smtp+tls://";
+	else if (s->use_starttls)
+		schema = "tls://";
+	else if (s->use_smtps)
+		schema = "smtps://";
+	else
+		schema = "smtp://";
+	log_debug("debug: mta: %p: connecting to %s%s:%i (%s)",
+	    s, schema, sa_to_text(sa), portno, s->route->dst->ptrname);
 
 	mta_enter_state(s, MTA_INIT);
 	iobuf_xinit(&s->iobuf, 0, 0, "mta_connect");
@@ -311,6 +335,12 @@ mta_connect(struct mta_session *s)
 			mta_error(s, "Connection failed: %s", s->io.error);
 		mta_free(s);
 	}
+	return;
+
+fail:
+	mta_error(s, "Could not connect");
+	mta_free(s);
+	return;
 }
 
 static void
@@ -349,9 +379,15 @@ mta_enter_state(struct mta_session *s, int newstate)
 	case MTA_STARTTLS:
 		if (s->flags & MTA_TLS) /* already started */
 			mta_enter_state(s, MTA_AUTH);
-		else if ((s->ext & MTA_EXT_STARTTLS) == 0)
-			/* server doesn't support starttls, do not use it */
-			mta_enter_state(s, MTA_AUTH);
+		else if ((s->ext & MTA_EXT_STARTTLS) == 0) {
+			if (s->flags & MTA_FORCE_TLS || s->flags & MTA_WANT_SECURE) {
+				mta_error(s, "TLS required but not supported by remote host");
+				mta_connect(s);
+			}
+			else
+				/* server doesn't support starttls, do not use it */
+				mta_enter_state(s, MTA_AUTH);
+		}
 		else
 			mta_send(s, "STARTTLS");
 		break;
@@ -473,8 +509,9 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_EHLO:
 		if (line[0] != '2') {
+			/* rejected at ehlo state */
 			if ((s->flags & MTA_USE_AUTH) ||
-			    !(s->flags & MTA_ALLOW_PLAIN)) {
+			    (s->flags & MTA_WANT_SECURE)) {
 				mta_error(s, "EHLO rejected: %s", line);
 				mta_free(s);
 				return;
@@ -496,7 +533,7 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_STARTTLS:
 		if (line[0] != '2') {
-			if (s->flags & MTA_ALLOW_PLAIN) {
+			if (!(s->flags & MTA_WANT_SECURE)) {
 				mta_enter_state(s, MTA_AUTH);
 				return;
 			}
@@ -601,6 +638,7 @@ mta_io(struct io *io, int evt)
 	const char		*error;
 	int			 cont;
 	void			*ptr;
+	const char		*schema;
 
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -608,9 +646,17 @@ mta_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_CONNECTED:
-		log_debug("debug: mta: %p: connected to smtp%s://%s (%s)",
-		    s, s->use_smtps ? "s": "", sa_to_text(s->route->dst->sa),
-		    s->route->dst->ptrname);
+		if (s->use_smtp_tls)
+			schema = "smtp+tls://";
+		else if (s->use_starttls)
+			schema = "tls://";
+		else if (s->use_smtps)
+			schema = "smtps://";
+		else
+			schema = "smtp://";
+		log_debug("debug: mta: %p: connected to %s%s (%s)",
+		    s, schema, sa_to_text(s->route->dst->sa), s->route->dst->ptrname);
+
 		if (s->use_smtps) {
 			io_set_write(io);
 			ptr = ssl_mta_init(s->ssl);

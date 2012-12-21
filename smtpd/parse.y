@@ -1300,7 +1300,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_tables_tree = calloc(1, sizeof(*conf->sc_tables_tree));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
-	conf->sc_ssl = calloc(1, sizeof(*conf->sc_ssl));
+	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 
 	/* Report mails delayed for more than 4 hours */
 	conf->sc_bounce_warn[0] = 3600 * 4;
@@ -1309,13 +1309,13 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	    conf->sc_tables_tree == NULL	||
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
-	    conf->sc_ssl == NULL) {
+	    conf->sc_ssl_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
 		free(conf->sc_tables_tree);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
-		free(conf->sc_ssl);
+		free(conf->sc_ssl_dict);
 		return (-1);
 	}
 
@@ -1326,12 +1326,12 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	dict_init(&conf->sc_filters);
 
+	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
 	tree_init(conf->sc_tables_tree);
 
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
-	SPLAY_INIT(conf->sc_ssl);
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;

@@ -320,8 +320,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (env->sc_flags & SMTPD_CONFIGURING)
 				return;
 			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_ssl = xcalloc(1, sizeof *env->sc_ssl,
-			    "mta:sc_ssl");
+			env->sc_ssl_dict = xcalloc(1, sizeof *env->sc_ssl_dict,
+			    "mta:sc_ssl_dict");
 			return;
 
 		case IMSG_CONF_SSL:
@@ -332,7 +332,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			    "mta:ssl_cert");
 			ssl->ssl_key = xstrdup((char*)imsg->data +
 			    sizeof *ssl + ssl->ssl_cert_len, "mta:ssl_key");
-			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
+			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 			return;
 
 		case IMSG_CONF_END:
@@ -959,7 +959,6 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 static struct mta_relay *
 mta_relay(struct envelope *e)
 {
-	struct ssl		 ssl;
 	struct mta_relay	 key, *r;
 
 	bzero(&key, sizeof key);
@@ -1006,8 +1005,7 @@ mta_relay(struct envelope *e)
 		if (key.authlabel)
 			r->authlabel = xstrdup(key.authlabel, "mta: authlabel");
 		if (r->cert) {
-			strlcpy(ssl.ssl_name, r->cert, sizeof(ssl.ssl_name));
-			r->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &ssl);
+			r->ssl = dict_get(env->sc_ssl_dict, r->cert);
 		}
 		if (key.sourcetable)
 			r->sourcetable = xstrdup(key.sourcetable,

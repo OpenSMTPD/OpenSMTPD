@@ -67,6 +67,12 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_LKA_AUTHENTICATE:
 			smtp_session_imsg(p, imsg);
 			return;
+		case IMSG_LKA_SSL_INIT:
+			smtp_session_imsg(p, imsg);
+			return;
+		case IMSG_LKA_SSL_VERIFY:
+			smtp_session_imsg(p, imsg);
+			return;
 		}
 	}
 
@@ -106,8 +112,10 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			env->sc_flags |= SMTPD_CONFIGURING;
 			env->sc_listeners = calloc(1,
 			    sizeof *env->sc_listeners);
-			env->sc_ssl = calloc(1, sizeof *env->sc_ssl);
-			if (env->sc_listeners == NULL || env->sc_ssl == NULL)
+			if (env->sc_listeners == NULL)
+				fatal(NULL);
+			env->sc_ssl_dict = calloc(1, sizeof *env->sc_ssl_dict);
+			if (env->sc_ssl_dict == NULL)
 				fatal(NULL);
 			TAILQ_INIT(env->sc_listeners);
 			return;
@@ -128,8 +136,13 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 				    + sizeof *ssl + ssl->ssl_cert_len +
 				    ssl->ssl_key_len, "smtp:ssl_dhparams");
 			}
-
-			SPLAY_INSERT(ssltree, env->sc_ssl, ssl);
+			if (ssl->ssl_ca_len) {
+				ssl->ssl_ca = xstrdup((char *)imsg->data
+				    + sizeof *ssl + ssl->ssl_cert_len +
+				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
+				    "smtp:ssl_ca");
+			}
+			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 			return;
 
 		case IMSG_CONF_LISTENER:
@@ -142,15 +155,11 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			l->fd = imsg->fd;
 			if (l->fd < 0)
 				fatalx("smtp: listener pass failed");
-			if (l->flags & F_SSL) {
-				struct ssl key;
-
-				strlcpy(key.ssl_name, l->ssl_cert_name,
-				    sizeof key.ssl_name);
-				l->ssl = SPLAY_FIND(ssltree, env->sc_ssl, &key);
-				if (l->ssl == NULL)
-					fatalx("smtp: ssltree out of sync");
-			}
+                        if (l->flags & F_SSL) {
+				l->ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name);
+                                if (l->ssl == NULL)
+                                        fatalx("smtp: ssltree out of sync");
+                        }
 			TAILQ_INSERT_TAIL(env->sc_listeners, l, entry);
 			return;
 
@@ -289,8 +298,11 @@ smtp_setup_events(void)
 		if (!(env->sc_flags & SMTPD_SMTP_PAUSED))
 			event_add(&l->ev, NULL);
 
-		ssl_setup(l);
+		if (l->flags & F_SSL)
+			ssl_setup(l);
 	}
+
+	purge_config(PURGE_SSL);
 
 	log_debug("debug: smtp: will accept at most %d clients",
 	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
