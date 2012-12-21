@@ -60,8 +60,7 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
 
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		execl(path, arg, NULL);
 		err(1, "execl");
