@@ -257,6 +257,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
+	struct mfa_req_msg		 req_mfa;
 	struct smtp_session		*s;
 	struct auth			*auth;
 	void				*ssl;
@@ -429,13 +430,18 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_QUEUE_COMMIT_MESSAGE:
 		resp_queue = imsg->data;
 		s = tree_xpop(&wait_queue_commit, resp_queue->reqid);
+		req_mfa.reqid = s->id;
+
 		if (!resp_queue->success) {
+			m_compose(p_mfa, IMSG_MFA_EVENT_ROLLBACK, 0, 0, -1,
+			    &req_mfa, sizeof(req_mfa));
 			smtp_reply(s, "421 Temporary failure");
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
 			return;
 		}
-
+		m_compose(p_mfa, IMSG_MFA_EVENT_COMMIT, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 		smtp_reply(s, "250 %08x Message accepted for delivery",
 		    evpid_to_msgid(s->evp.id));
 		log_info("smtp-in: Accepted message %08x on session %016"PRIx64
