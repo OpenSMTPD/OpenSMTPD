@@ -244,6 +244,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->flags |= MTA_VERIFIED;
 
 		mta_io(&s->io, IO_TLSVERIFIED);
+		io_resume(&s->io, IO_PAUSE_IN);
+		io_reload(&s->io);
 		return;
 
 	default:
@@ -690,8 +692,10 @@ mta_io(struct io *io, int evt)
 		    s->id, ssl_to_text(s->io.ssl));
 		s->flags |= MTA_TLS;
 
-		if (mta_verify_certificate(s))
+		if (mta_verify_certificate(s)) {
+			io_pause(&s->io, IO_PAUSE_IN);
 			break;
+		}
 
 	case IO_TLSVERIFIED:
 		if (SSL_get_peer_certificate(s->io.ssl))

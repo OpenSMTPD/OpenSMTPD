@@ -528,6 +528,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->flags |= SF_VERIFIED;
 
 		smtp_io(&s->io, IO_TLSVERIFIED);
+		io_resume(&s->io, IO_PAUSE_IN);
 		return;
 	}
 
@@ -708,8 +709,10 @@ smtp_io(struct io *io, int evt)
 		s->kickcount = 0;
 		s->phase = PHASE_INIT;
 
-		if (smtp_verify_certificate(s))
+		if (smtp_verify_certificate(s)) {
+			io_pause(&s->io, IO_PAUSE_IN);
 			break;
+		}
 
 		/* No verification required, cascade */
 
