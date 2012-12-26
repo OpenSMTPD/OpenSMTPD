@@ -221,7 +221,7 @@ ssl_init(void)
 	ENGINE_register_all_complete();
 
 	/* Load certificate store */
-	env->cert_store = ssl_load_file("/etc/ssl/cert.pem",
+	env->cert_store = ssl_load_file(CA_FILE,
 	    &env->cert_store_len, 0755);
 	if (env->cert_store == NULL)
 		fatal("ssl_init: cannot load certificate store");

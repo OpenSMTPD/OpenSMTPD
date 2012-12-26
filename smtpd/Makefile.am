@@ -74,6 +74,7 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 smtpd_SOURCES+=		ber.c aldap.c
 
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
+smtpd_CFLAGS+=		-DCA_FILE=/etc/ssl/cert.pem
 
 smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
