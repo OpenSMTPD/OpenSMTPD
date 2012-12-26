@@ -99,7 +99,6 @@ struct mta_session {
 	struct iobuf		 iobuf;
 	struct io		 io;
 	int			 ext;
-//	struct ssl		*ssl;
 
 	int			 msgcount;
 
