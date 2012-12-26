@@ -681,6 +681,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_IO;
 			else if (!strcmp(optarg, "smtp"))
 				verbose |= TRACE_SMTP;
+			else if (!strcmp(optarg, "mfa"))
+				verbose |= TRACE_MFA;
 			else if (!strcmp(optarg, "mta"))
 				verbose |= TRACE_MTA;
 			else if (!strcmp(optarg, "bounce"))
@@ -1467,6 +1469,7 @@ imsg_to_str(int type)
 	CASE(IMSG_MFA_REQ_EOM);
 	CASE(IMSG_MFA_EVENT_RSET);
 	CASE(IMSG_MFA_EVENT_COMMIT);
+	CASE(IMSG_MFA_EVENT_ROLLBACK);
 	CASE(IMSG_MFA_EVENT_DISCONNECT);
 	CASE(IMSG_MFA_SMTP_DATA);
 	CASE(IMSG_MFA_SMTP_RESPONSE);

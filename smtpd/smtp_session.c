@@ -259,6 +259,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
+	struct mfa_req_msg		 req_mfa;
 	struct smtp_session		*s;
 	struct auth			*auth;
 	void				*ssl;
@@ -431,13 +432,18 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_QUEUE_COMMIT_MESSAGE:
 		resp_queue = imsg->data;
 		s = tree_xpop(&wait_queue_commit, resp_queue->reqid);
+		req_mfa.reqid = s->id;
+
 		if (!resp_queue->success) {
+			m_compose(p_mfa, IMSG_MFA_EVENT_ROLLBACK, 0, 0, -1,
+			    &req_mfa, sizeof(req_mfa));
 			smtp_reply(s, "421 Temporary failure");
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
 			return;
 		}
-
+		m_compose(p_mfa, IMSG_MFA_EVENT_COMMIT, 0, 0, -1,
+		    &req_mfa, sizeof(req_mfa));
 		smtp_reply(s, "250 %08x Message accepted for delivery",
 		    evpid_to_msgid(s->evp.id));
 		log_info("smtp-in: Accepted message %08x on session %016"PRIx64
@@ -747,11 +753,12 @@ smtp_io(struct io *io, int evt)
 		/* Message body */
 		if (s->state == STATE_BODY && strcmp(line, ".")) {
 			req.reqid = s->id;
+			req.flags = s->flags;
 			len = strlcpy(req.buffer, line, sizeof(req.buffer));
 			if (len >= (sizeof req.buffer))
 				fatalx("overflow in smtp_io()");
 			m_compose(p_mfa, IMSG_MFA_SMTP_DATA, 0, 0, -1,
-			    &req, sizeof(req.reqid) + len + 1);
+			    &req, sizeof(req));
 			goto nextline;
 		}
 
@@ -831,9 +838,8 @@ smtp_command(struct smtp_session *s, char *line)
 {
 	struct queue_req_msg	 req_queue;
 	struct mfa_req_msg	 req_mfa;
-	struct mfa_helo_msg	 req_helo;
-	struct mfa_mail_msg	 req_mail;
-	struct mfa_rcpt_msg	 req_rcpt;
+	struct mfa_line_msg	 req_line;
+	struct mfa_maddr_msg	 req_maddr;
 	char			*args, *eom, *method;
 	int			 cmd, i;
 	size_t			 len;
@@ -912,11 +918,11 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 
 		smtp_message_reset(s, 1);
-		req_helo.reqid = s->id;
-		req_helo.flags = s->flags;
-		len = strlcpy(req_helo.helo, s->helo, sizeof(req_helo.helo));
-		smtp_query_mfa(s, IMSG_MFA_REQ_HELO, &req_helo,
-		    sizeof(req_helo));
+		req_line.reqid = s->id;
+		req_line.flags = s->flags;
+		len = strlcpy(req_line.line, s->helo, sizeof(req_line.line));
+		smtp_query_mfa(s, IMSG_MFA_REQ_HELO, &req_line,
+		    sizeof(req_line));
 		break;
 	/*
 	 * SETUP
@@ -1014,11 +1020,11 @@ smtp_command(struct smtp_session *s, char *line)
 		if (args && smtp_parse_mail_args(s, args) == -1)
 			break;
 
-		req_mail.reqid = s->id;
-		req_mail.flags = s->flags;
-		req_mail.sender = s->evp.sender;
-		smtp_query_mfa(s, IMSG_MFA_REQ_MAIL, &req_mail,
-		    sizeof(req_mail));
+		req_maddr.reqid = s->id;
+		req_maddr.flags = s->flags;
+		req_maddr.maddr = s->evp.sender;
+		smtp_query_mfa(s, IMSG_MFA_REQ_MAIL, &req_maddr,
+		    sizeof(req_maddr));
 		break;
 	/*
 	 * TRANSACTION
@@ -1045,10 +1051,11 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		req_rcpt.reqid = s->id;
-		req_rcpt.rcpt = s->evp.rcpt;
-		smtp_query_mfa(s, IMSG_MFA_REQ_RCPT, &req_rcpt,
-		    sizeof(req_rcpt));
+		req_maddr.reqid = s->id;
+		req_maddr.flags = s->flags;
+		req_maddr.maddr = s->evp.rcpt;
+		smtp_query_mfa(s, IMSG_MFA_REQ_RCPT, &req_maddr,
+		    sizeof(req_maddr));
 		break;
 
 	case CMD_RSET:
@@ -1251,12 +1258,10 @@ smtp_connected(struct smtp_session *s)
 	log_info("smtp-in: New session %016"PRIx64" from host %s [%s]",
 	    s->id, s->hostname, ss_to_text(&s->ss));
 	req.reqid = s->id;
-	req.peer = s->ss;
+	req.remote = s->ss;
 	sl = sizeof(req.local);
 	getsockname(s->io.sock, (struct sockaddr*)&req.local, &sl);
-#if defined(HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN)
-	req.local.ss_len = sl;
-#endif
+	strlcpy(req.hostname, s->hostname, sizeof(req.hostname));
 	smtp_query_mfa(s, IMSG_MFA_REQ_CONNECT, &req, sizeof(req));
 }
 
