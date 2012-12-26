@@ -92,8 +92,10 @@ delivery_filename_open(struct deliver *deliver)
 	putc('\n', fp);
 	if (fflush(fp) == EOF || ferror(fp))
 		error2("write error");
-	if (fsync(fd) < 0)
-		error2("fsync");
+	if (fsync(fd) == -1) {
+		if (errno != EINVAL)
+			error2("fsync");
+	}
 	if (fclose(fp) == EOF)
 		error2("fclose");
 	_exit(0);
