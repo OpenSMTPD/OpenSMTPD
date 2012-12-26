@@ -169,7 +169,7 @@ mfa_filter_connect(uint64_t id, const struct sockaddr *local,
 
 	q = mfa_query(s, QT_QUERY, HOOK_CONNECT);
 
-	memmove(&q->u.connect.local, local, SA_LEN(local);
+	memmove(&q->u.connect.local, local, SA_LEN(local));
 	memmove(&q->u.connect.remote, remote, SA_LEN(remote));
 	strlcpy(q->u.connect.hostname, host, sizeof(q->u.connect.hostname));
 
