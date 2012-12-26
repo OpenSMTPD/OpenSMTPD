@@ -73,7 +73,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	static struct dict	*tables_dict;
 	static struct tree	*tables_tree;
 	static struct table	*table_last;
-	static struct ca_vrfy_req_msg	*req_ca_vrfy = NULL;
+	static struct ca_vrfy_req_msg	*req_ca_vrfy_smtp = NULL;
+	static struct ca_vrfy_req_msg	*req_ca_vrfy_mta = NULL;
 	struct ca_vrfy_req_msg		*req_ca_vrfy_chain;
 	struct ca_vrfy_resp_msg		resp_ca_vrfy;
 	struct ca_cert_req_msg		*req_ca_cert;
@@ -119,29 +120,29 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SSL_VERIFY_CERT:
-			req_ca_vrfy = xmemdup(imsg->data, sizeof *req_ca_vrfy, "lka:ca_vrfy");
-			if (req_ca_vrfy == NULL)
+			req_ca_vrfy_smtp = xmemdup(imsg->data, sizeof *req_ca_vrfy_smtp, "lka:ca_vrfy");
+			if (req_ca_vrfy_smtp == NULL)
 				fatal(NULL);
-			req_ca_vrfy->cert = xmemdup((char *)imsg->data +
-			    sizeof *req_ca_vrfy, req_ca_vrfy->cert_len, "lka:ca_vrfy");
-			req_ca_vrfy->chain_cert = xcalloc(req_ca_vrfy->n_chain,
+			req_ca_vrfy_smtp->cert = xmemdup((char *)imsg->data +
+			    sizeof *req_ca_vrfy_smtp, req_ca_vrfy_smtp->cert_len, "lka:ca_vrfy");
+			req_ca_vrfy_smtp->chain_cert = xcalloc(req_ca_vrfy_smtp->n_chain,
 			    sizeof (unsigned char *), "lka:ca_vrfy");
-			req_ca_vrfy->chain_cert_len = xcalloc(req_ca_vrfy->n_chain,
+			req_ca_vrfy_smtp->chain_cert_len = xcalloc(req_ca_vrfy_smtp->n_chain,
 			    sizeof (off_t), "lka:ca_vrfy");
 			return;
 
 		case IMSG_LKA_SSL_VERIFY_CHAIN:
 			req_ca_vrfy_chain = imsg->data;
-			req_ca_vrfy->chain_cert[req_ca_vrfy->chain_offset] = xmemdup((char *)imsg->data +
+			req_ca_vrfy_smtp->chain_cert[req_ca_vrfy_smtp->chain_offset] = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_chain, req_ca_vrfy_chain->cert_len, "lka:ca_vrfy");
-			req_ca_vrfy->chain_cert_len[req_ca_vrfy->chain_offset] = req_ca_vrfy_chain->cert_len;
-			req_ca_vrfy->chain_offset++;
+			req_ca_vrfy_smtp->chain_cert_len[req_ca_vrfy_smtp->chain_offset] = req_ca_vrfy_chain->cert_len;
+			req_ca_vrfy_smtp->chain_offset++;
 			return;
 
 		case IMSG_LKA_SSL_VERIFY:
-			resp_ca_vrfy.reqid = req_ca_vrfy->reqid;
+			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
 
-			if (! lka_X509_verify(req_ca_vrfy, "/etc/ssl/cert.pem", NULL))
+			if (! lka_X509_verify(req_ca_vrfy_smtp, "/etc/ssl/cert.pem", NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
@@ -149,12 +150,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
 			    sizeof resp_ca_vrfy);
 
-			for (i = 0; i < req_ca_vrfy->n_chain; ++i)
-				free(req_ca_vrfy->chain_cert[i]);
-			free(req_ca_vrfy->chain_cert);
-			free(req_ca_vrfy->chain_cert_len);
-			free(req_ca_vrfy->cert);
-			free(req_ca_vrfy);
+			for (i = 0; i < req_ca_vrfy_smtp->n_chain; ++i)
+				free(req_ca_vrfy_smtp->chain_cert[i]);
+			free(req_ca_vrfy_smtp->chain_cert);
+			free(req_ca_vrfy_smtp->chain_cert_len);
+			free(req_ca_vrfy_smtp->cert);
+			free(req_ca_vrfy_smtp);
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
@@ -235,6 +236,45 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
+		case IMSG_LKA_SSL_VERIFY_CERT:
+			req_ca_vrfy_mta = xmemdup(imsg->data, sizeof *req_ca_vrfy_mta, "lka:ca_vrfy");
+			if (req_ca_vrfy_mta == NULL)
+				fatal(NULL);
+			req_ca_vrfy_mta->cert = xmemdup((char *)imsg->data +
+			    sizeof *req_ca_vrfy_mta, req_ca_vrfy_mta->cert_len, "lka:ca_vrfy");
+			req_ca_vrfy_mta->chain_cert = xcalloc(req_ca_vrfy_mta->n_chain,
+			    sizeof (unsigned char *), "lka:ca_vrfy");
+			req_ca_vrfy_mta->chain_cert_len = xcalloc(req_ca_vrfy_mta->n_chain,
+			    sizeof (off_t), "lka:ca_vrfy");
+			return;
+
+		case IMSG_LKA_SSL_VERIFY_CHAIN:
+			req_ca_vrfy_chain = imsg->data;
+			req_ca_vrfy_mta->chain_cert[req_ca_vrfy_mta->chain_offset] = xmemdup((char *)imsg->data +
+			    sizeof *req_ca_vrfy_chain, req_ca_vrfy_chain->cert_len, "lka:ca_vrfy");
+			req_ca_vrfy_mta->chain_cert_len[req_ca_vrfy_mta->chain_offset] = req_ca_vrfy_chain->cert_len;
+			req_ca_vrfy_mta->chain_offset++;
+			return;
+
+		case IMSG_LKA_SSL_VERIFY:
+			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
+
+			if (! lka_X509_verify(req_ca_vrfy_mta, "/etc/ssl/cert.pem", NULL))
+				resp_ca_vrfy.status = CA_FAIL;
+			else
+				resp_ca_vrfy.status = CA_OK;
+
+			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
+			    sizeof resp_ca_vrfy);
+
+			for (i = 0; i < req_ca_vrfy_mta->n_chain; ++i)
+				free(req_ca_vrfy_mta->chain_cert[i]);
+			free(req_ca_vrfy_mta->chain_cert);
+			free(req_ca_vrfy_mta->chain_cert_len);
+			free(req_ca_vrfy_mta->cert);
+			free(req_ca_vrfy_mta);
+			return;
+
 		case IMSG_LKA_SECRET: {
 			struct credentials *credentials = NULL;
 
@@ -605,8 +645,9 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 	const char		*errstr;
 
 	x509 = NULL;
+	x509_tmp = NULL;
 	x509_chain = NULL;
-	
+
 	d2i = vrfy->cert;
 	if (d2i_X509(&x509, &d2i, vrfy->cert_len) == NULL) {
 		x509 = NULL;
@@ -621,15 +662,13 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 				x509_tmp = NULL;
 				goto end;
 			}
-				
+
 			if ((x509_tmp2 = X509_dup(x509_tmp)) == NULL)
 				goto end;
-
 			sk_X509_insert(x509_chain, x509_tmp2, i);
 			x509_tmp = x509_tmp2 = NULL;
 		}
 	}
-
 	if (! ca_X509_verify(x509, x509_chain, "/etc/ssl/cert.pem",
 		NULL, &errstr)) {
 		log_debug("debug: lka_X509_verify: failure: %s", errstr);

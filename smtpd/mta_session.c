@@ -24,6 +24,7 @@
 #include <sys/tree.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -32,6 +33,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
+#include <openssl/ssl.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -75,6 +77,7 @@ enum mta_state {
 #define MTA_TLS_TRIED		0x0080
 
 #define MTA_TLS			0x0100
+#define MTA_VERIFIED   		0x0200
 
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
@@ -120,9 +123,11 @@ static ssize_t mta_queue_data(struct mta_session *);
 static void mta_response(struct mta_session *, char *);
 static const char * mta_strstate(int);
 static int mta_check_loop(FILE *);
+static int mta_verify_certificate(struct mta_session *);
 
 static struct tree wait_ptr;
 static struct tree wait_fd;
+static struct tree wait_ssl_verify;
 
 static void
 mta_session_init(void)
@@ -132,6 +137,7 @@ mta_session_init(void)
 	if (!init) {
 		tree_init(&wait_ptr);
 		tree_init(&wait_fd);
+		tree_init(&wait_ssl_verify);
 		init = 1;
 	}
 }
@@ -190,10 +196,11 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 void
 mta_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	uint64_t		 id;
-	struct mta_session	*s;
-	struct mta_host		*h;
-	struct dns_resp_msg	*resp_dns;
+	uint64_t			id;
+	struct mta_session	       *s;
+	struct mta_host		       *h;
+	struct dns_resp_msg	       *resp_dns;
+	struct ca_vrfy_resp_msg	       *resp_ca_vrfy;
 
 	switch (imsg->hdr.type) {
 
@@ -227,6 +234,16 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (!resp_dns->error)
 			h->ptrname = xstrdup(resp_dns->u.ptr, "mta: ptr");
 		waitq_run(&h->ptrname, h->ptrname);
+		return;
+
+	case IMSG_LKA_SSL_VERIFY:
+		resp_ca_vrfy = imsg->data;
+		s = tree_xpop(&wait_ssl_verify, resp_ca_vrfy->reqid);
+
+		if (resp_ca_vrfy->status == CA_OK)
+			s->flags |= MTA_VERIFIED;
+
+		mta_io(&s->io, IO_TLSVERIFIED);
 		return;
 
 	default:
@@ -659,7 +676,7 @@ mta_io(struct io *io, int evt)
 
 		if (s->use_smtps) {
 			io_set_write(io);
-			ptr = ssl_mta_init(s->ssl);
+			ptr = ssl_mta_init(s->io.ssl);
 			io_start_tls(io, ptr);
 		}
 		else {
@@ -669,7 +686,20 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_TLSREADY:
+		log_info("relay: Started TLS on session %016"PRIx64": %s",
+		    s->id, ssl_to_text(s->io.ssl));
 		s->flags |= MTA_TLS;
+
+		if (mta_verify_certificate(s))
+			break;
+
+	case IO_TLSVERIFIED:
+		if (SSL_get_peer_certificate(s->io.ssl))
+			log_info("relay: Server certificate verification %s "
+			    "on session %016"PRIx64,
+			    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
+			    s->id);
+
 		if (s->use_smtps) {
 			mta_enter_state(s, MTA_BANNER);
 			io_set_read(io);
@@ -953,6 +983,70 @@ mta_check_loop(FILE *fp)
 
 	fseek(fp, SEEK_SET, 0);
 	return ret;
+}
+
+static int
+mta_verify_certificate(struct mta_session *s)
+{
+	struct ca_vrfy_req_msg	req_ca_vrfy;
+	struct iovec		iov[2];
+	X509		       *x;
+	STACK_OF(X509)	       *xchain;
+	int			i;
+
+	x = SSL_get_peer_certificate(s->io.ssl);
+	if (x == NULL)
+		return 0;
+	xchain = SSL_get_peer_cert_chain(s->io.ssl);
+
+	/*
+	 * Client provided a certificate and possibly a certificate chain.
+	 * SMTP can't verify because it does not have the information that
+	 * it needs, instead it will pass the certificate and chain to the
+	 * lookup process and wait for a reply.
+	 *
+	 */
+
+	tree_xset(&wait_ssl_verify, s->id, s);
+
+	/* Send the client certificate */
+	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	req_ca_vrfy.reqid = s->id;
+	req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+	if (xchain)
+		req_ca_vrfy.n_chain = sk_X509_num(xchain);
+	iov[0].iov_base = &req_ca_vrfy;
+	iov[0].iov_len = sizeof(req_ca_vrfy);
+	iov[1].iov_base = req_ca_vrfy.cert;
+	iov[1].iov_len = req_ca_vrfy.cert_len;
+	m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CERT, 0, 0, -1,
+	    iov, nitems(iov));
+	free(req_ca_vrfy.cert);
+
+	if (xchain) {		
+		/* Send the chain, one cert at a time */
+		for (i = 0; i < sk_X509_num(xchain); ++i) {
+			bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+			req_ca_vrfy.reqid = s->id;
+			x = sk_X509_value(xchain, i);
+			req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
+			iov[0].iov_base = &req_ca_vrfy;
+			iov[0].iov_len  = sizeof(req_ca_vrfy);
+			iov[1].iov_base = req_ca_vrfy.cert;
+			iov[1].iov_len  = req_ca_vrfy.cert_len;
+			m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CHAIN, 0, 0, -1,
+			    iov, nitems(iov));
+			free(req_ca_vrfy.cert);
+		}
+	}
+
+	/* Tell lookup process that it can start verifying, we're done */
+	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	req_ca_vrfy.reqid = s->id;
+	m_compose(p_lka, IMSG_LKA_SSL_VERIFY, 0, 0, -1,
+	    &req_ca_vrfy, sizeof req_ca_vrfy);
+
+	return 1;
 }
 
 #define CASE(x) case x : return #x

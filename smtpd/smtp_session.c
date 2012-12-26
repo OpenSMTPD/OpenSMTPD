@@ -1505,7 +1505,6 @@ smtp_verify_certificate(struct smtp_session *s)
 		return 0;
 	xchain = SSL_get_peer_cert_chain(s->io.ssl);
 
-
 	/*
 	 * Client provided a certificate and possibly a certificate chain.
 	 * SMTP can't verify because it does not have the information that

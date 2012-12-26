@@ -311,6 +311,10 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DNS_PTR:
 			mta_session_imsg(p, imsg);
 			return;
+
+		case IMSG_LKA_SSL_VERIFY:
+			mta_session_imsg(p, imsg);
+			return;
 		}
 	}
 
