@@ -65,7 +65,6 @@ static void parent_shutdown(void);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
 static void parent_send_config_mfa(void);
-static void parent_send_config_mta(void);
 static void parent_send_config_smtp(void);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct mproc *, uint32_t, struct deliver *);
@@ -330,7 +329,6 @@ parent_send_config(int fd, short event, void *p)
 	parent_send_config_lka();
 	parent_send_config_mfa();
 	parent_send_config_smtp();
-	parent_send_config_mta();
 }
 
 static void
@@ -380,32 +378,6 @@ parent_send_config_smtp(void)
 	}
 
 	m_compose(p_smtp, IMSG_CONF_END, 0, 0, -1, NULL, 0);
-}
-
-static void
-parent_send_config_mta(void)
-{
-	struct ssl		*s;
-	void			*iter = NULL;
-	struct iovec		 iov[3];
-
-	log_debug("debug: parent_send_config_client_certs: configuring smtp");
-	m_compose(p_mta, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-
-
-	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
-		if (!(s->flags & F_CCERT))
-			continue;
-		iov[0].iov_base = s;
-		iov[0].iov_len = sizeof(*s);
-		iov[1].iov_base = s->ssl_cert;
-		iov[1].iov_len = s->ssl_cert_len;
-		iov[2].iov_base = s->ssl_key;
-		iov[2].iov_len = s->ssl_key_len;
-		m_composev(p_mta, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
-	}
-
-	m_compose(p_mta, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
 void

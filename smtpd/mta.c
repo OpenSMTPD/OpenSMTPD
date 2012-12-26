@@ -144,7 +144,6 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct tree		*batch;
 	struct secret		*secret;
 	struct envelope		*e;
-	struct ssl		*ssl;
 	uint64_t		 id;
 
 	if (p->proc == PROC_QUEUE) {
@@ -314,36 +313,19 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DNS_PTR:
 			mta_session_imsg(p, imsg);
 			return;
+
+		case IMSG_LKA_SSL_INIT:
+			mta_session_imsg(p, imsg);
+			return;
+
+		case IMSG_LKA_SSL_VERIFY:
+			mta_session_imsg(p, imsg);
+			return;
 		}
 	}
 
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
-		case IMSG_CONF_START:
-			if (env->sc_flags & SMTPD_CONFIGURING)
-				return;
-			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_ssl_dict = xcalloc(1, sizeof *env->sc_ssl_dict,
-			    "mta:sc_ssl_dict");
-			return;
-
-		case IMSG_CONF_SSL:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
-			ssl = xmemdup(imsg->data, sizeof *ssl, "mta:ssl");
-			ssl->ssl_cert = xstrdup((char*)imsg->data + sizeof *ssl,
-			    "mta:ssl_cert");
-			ssl->ssl_key = xstrdup((char*)imsg->data +
-			    sizeof *ssl + ssl->ssl_cert_len, "mta:ssl_key");
-			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
-			return;
-
-		case IMSG_CONF_END:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
-			env->sc_flags &= ~SMTPD_CONFIGURING;
-			return;
-
 		case IMSG_CTL_VERBOSE:
 			log_verbose(*(int *)imsg->data);
 			return;
@@ -1014,9 +996,6 @@ mta_relay(struct envelope *e)
 			r->authtable = xstrdup(key.authtable, "mta: authtable");
 		if (key.authlabel)
 			r->authlabel = xstrdup(key.authlabel, "mta: authlabel");
-		if (r->cert) {
-			r->ssl = dict_get(env->sc_ssl_dict, r->cert);
-		}
 		if (key.sourcetable)
 			r->sourcetable = xstrdup(key.sourcetable,
 			    "mta: sourcetable");
