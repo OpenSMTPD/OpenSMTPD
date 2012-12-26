@@ -299,42 +299,32 @@ ssl_error(const char *where)
 }
 
 void *
-ssl_mta_init(struct ssl *s)
+ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 {
 	SSL_CTX		*ctx;
 	SSL		*ssl = NULL;
-	int		 rv = -1;
 
 	ctx = ssl_ctx_create();
 
-	if (s && s->ssl_cert && s->ssl_key) {
-		if (!ssl_ctx_use_certificate_chain(ctx,
-		    s->ssl_cert, s->ssl_cert_len))
-			goto done;
-		else if (!ssl_ctx_use_private_key(ctx,
-		    s->ssl_key, s->ssl_key_len))
-			goto done;
-		else if (!SSL_CTX_check_private_key(ctx))
-			goto done;
-	}
+	if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 
+		goto err;
+	else if (!ssl_ctx_use_private_key(ctx, key, key_len))
+		goto err;
+	else if (!SSL_CTX_check_private_key(ctx))
+		goto err;
 
 	if ((ssl = SSL_new(ctx)) == NULL)
-		goto done;
-	SSL_CTX_free(ctx);
+		goto err;
+	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
+		goto err;
 
-	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
-		goto done;
+	return (void *)(ssl);
 
-	rv = 0;
-done:
-	if (rv) {
-		if (ssl)
-			SSL_free(ssl);
-		else if (ctx)
-			SSL_CTX_free(ctx);
-		ssl = NULL;
-	}
-	return (void*)(ssl);
+err:
+	if (ssl != NULL)
+		SSL_free(ssl);
+	ssl_error("ssl_mta_init");
+	return (NULL);
 }
 
 /* dummy_verify */
@@ -370,12 +360,12 @@ ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_le
 	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
 		goto err;
 
-	return (void*)(ssl);
+	return (void *)(ssl);
 
-    err:
+err:
 	if (ssl != NULL)
 		SSL_free(ssl);
-	ssl_error("ssl_session_init");
+	ssl_error("ssl_smtp_init");
 	return (NULL);
 }
 

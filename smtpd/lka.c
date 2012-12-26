@@ -236,6 +236,30 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
+
+		case IMSG_LKA_SSL_INIT:
+			req_ca_cert = imsg->data;
+			resp_ca_cert.reqid = req_ca_cert->reqid;
+
+			ssl = dict_get(env->sc_ssl_dict, req_ca_cert->name);
+			if (ssl == NULL) {
+				resp_ca_cert.status = CA_FAIL;
+				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
+				    sizeof(resp_ca_cert));
+				return;
+			}
+			resp_ca_cert.status = CA_OK;
+			resp_ca_cert.cert_len = ssl->ssl_cert_len;
+			resp_ca_cert.key_len = ssl->ssl_key_len;
+			iov[0].iov_base = &resp_ca_cert;
+			iov[0].iov_len = sizeof(resp_ca_cert);
+			iov[1].iov_base = ssl->ssl_cert;
+			iov[1].iov_len = ssl->ssl_cert_len;
+			iov[2].iov_base = ssl->ssl_key;
+			iov[2].iov_len = ssl->ssl_key_len;
+			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
+			return;
+
 		case IMSG_LKA_SSL_VERIFY_CERT:
 			req_ca_vrfy_mta = xmemdup(imsg->data, sizeof *req_ca_vrfy_mta, "lka:ca_vrfy");
 			if (req_ca_vrfy_mta == NULL)

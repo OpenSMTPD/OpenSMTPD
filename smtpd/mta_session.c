@@ -99,7 +99,7 @@ struct mta_session {
 	struct iobuf		 iobuf;
 	struct io		 io;
 	int			 ext;
-	struct ssl		*ssl;
+//	struct ssl		*ssl;
 
 	int			 msgcount;
 
@@ -127,6 +127,7 @@ static int mta_verify_certificate(struct mta_session *);
 
 static struct tree wait_ptr;
 static struct tree wait_fd;
+static struct tree wait_ssl_init;
 static struct tree wait_ssl_verify;
 
 static void
@@ -137,6 +138,7 @@ mta_session_init(void)
 	if (!init) {
 		tree_init(&wait_ptr);
 		tree_init(&wait_fd);
+		tree_init(&wait_ssl_init);
 		tree_init(&wait_ssl_verify);
 		init = 1;
 	}
@@ -159,8 +161,6 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 		s->flags |= MTA_USE_AUTH;
 	if (relay->cert)
 		s->flags |= MTA_USE_CERT;
-	if (relay->ssl)
-		s->ssl = relay->ssl;
 	switch (relay->flags & (RELAY_SSL|RELAY_TLS_OPTIONAL)) {
 		case RELAY_SSL:
 			s->flags |= MTA_FORCE_ANYSSL;
@@ -201,6 +201,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_host		       *h;
 	struct dns_resp_msg	       *resp_dns;
 	struct ca_vrfy_resp_msg	       *resp_ca_vrfy;
+	struct ca_cert_resp_msg	       *resp_ca_cert;
+	void     		       *ssl;
 
 	switch (imsg->hdr.type) {
 
@@ -234,6 +236,39 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (!resp_dns->error)
 			h->ptrname = xstrdup(resp_dns->u.ptr, "mta: ptr");
 		waitq_run(&h->ptrname, h->ptrname);
+		return;
+
+	case IMSG_LKA_SSL_INIT:
+		resp_ca_cert = imsg->data;
+		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
+
+		if (resp_ca_cert->status == CA_FAIL) {
+			log_info("relay: Disconnecting session %016" PRIx64
+			    ": CA failure", s->id);
+			mta_free(s);
+			return;
+		}
+
+		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "mta:ca_cert");
+		if (resp_ca_cert == NULL)
+			fatal(NULL);
+		resp_ca_cert->cert = xstrdup((char *)imsg->data +
+		    sizeof *resp_ca_cert, "mta:ca_cert");
+
+		resp_ca_cert->key = xstrdup((char *)imsg->data +
+		    sizeof *resp_ca_cert + resp_ca_cert->cert_len,
+		    "mta:ca_key");
+
+		ssl = ssl_mta_init(resp_ca_cert->cert, resp_ca_cert->cert_len,
+		    resp_ca_cert->key, resp_ca_cert->key_len);
+		if (ssl == NULL)
+			fatal("mta: ssl_mta_init");
+		io_start_tls(&s->io, ssl);
+
+		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
+		bzero(resp_ca_cert->key, resp_ca_cert->key_len);
+		free(resp_ca_cert);
+
 		return;
 
 	case IMSG_LKA_SSL_VERIFY:
@@ -516,9 +551,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 static void
 mta_response(struct mta_session *s, char *line)
 {
-	struct envelope	*evp;
-	void		*ssl;
-	int		 delivery;
+	struct envelope	       *evp;
+	int			delivery;
+	struct ca_cert_req_msg	req_ca_cert;
 
 	switch (s->state) {
 
@@ -561,10 +596,13 @@ mta_response(struct mta_session *s, char *line)
 			mta_free(s);
 			return;
 		}
-		ssl = ssl_mta_init(s->ssl);
-		if (ssl == NULL)
-			fatal("mta: ssl_mta_init");
-		io_start_tls(&s->io, ssl);
+
+		req_ca_cert.reqid = s->id;
+		strlcpy(req_ca_cert.name, s->relay->cert,
+		    sizeof req_ca_cert.name);
+		m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
+		    &req_ca_cert, sizeof(req_ca_cert));
+		tree_xset(&wait_ssl_init, s->id, s);
 		break;
 
 	case MTA_AUTH:
@@ -658,6 +696,7 @@ mta_io(struct io *io, int evt)
 	int			 cont;
 	void			*ptr;
 	const char		*schema;
+	struct ca_cert_req_msg	req_ca_cert;
 
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -677,9 +716,13 @@ mta_io(struct io *io, int evt)
 		    s, schema, sa_to_text(s->route->dst->sa), s->route->dst->ptrname);
 
 		if (s->use_smtps) {
+			req_ca_cert.reqid = s->id;
+			strlcpy(req_ca_cert.name, s->relay->cert,
+			    sizeof req_ca_cert.name);
+			m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
+			    &req_ca_cert, sizeof(req_ca_cert));
+			tree_xset(&wait_ssl_init, s->id, s);
 			io_set_write(io);
-			ptr = ssl_mta_init(s->io.ssl);
-			io_start_tls(io, ptr);
 		}
 		else {
 			mta_enter_state(s, MTA_BANNER);

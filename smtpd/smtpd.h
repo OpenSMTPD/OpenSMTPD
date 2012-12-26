@@ -688,7 +688,6 @@ struct mta_relay {
 	char			*cert;
 	char			*authtable;
 	char			*authlabel;
-	void			*ssl;
 
 	char			*secret;
 
@@ -1297,8 +1296,8 @@ const char * imsg_to_str(int);
 void ssl_init(void);
 int ssl_load_certfile(const char *, uint8_t);
 void ssl_setup(struct listener *);
+void *ssl_mta_init(char *, off_t, char *, off_t);
 void *ssl_smtp_init(void *, char *, off_t, char *, off_t);
-void *ssl_mta_init(struct ssl *);
 const char *ssl_to_text(void *);
 int ssl_cmp(struct ssl *, struct ssl *);
 
