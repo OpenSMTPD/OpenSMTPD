@@ -306,16 +306,18 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 
 	ctx = ssl_ctx_create();
 
-	if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 
-		goto err;
-	else if (!ssl_ctx_use_private_key(ctx, key, key_len))
-		goto err;
-	else if (!SSL_CTX_check_private_key(ctx))
-		goto err;
+	if (cert != NULL && key != NULL) {
+		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 
+			goto err;
+		else if (!ssl_ctx_use_private_key(ctx, key, key_len))
+			goto err;
+		else if (!SSL_CTX_check_private_key(ctx))
+			goto err;
+	}
 
 	if ((ssl = SSL_new(ctx)) == NULL)
 		goto err;
-	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
+	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
 		goto err;
 
 	return (void *)(ssl);

@@ -123,6 +123,7 @@ static ssize_t mta_queue_data(struct mta_session *);
 static void mta_response(struct mta_session *, char *);
 static const char * mta_strstate(int);
 static int mta_check_loop(FILE *);
+static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
 
 static struct tree wait_ptr;
@@ -263,7 +264,6 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		    resp_ca_cert->key, resp_ca_cert->key_len);
 		if (ssl == NULL)
 			fatal("mta: ssl_mta_init");
-		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
 		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
@@ -554,7 +554,6 @@ mta_response(struct mta_session *s, char *line)
 {
 	struct envelope	       *evp;
 	int			delivery;
-	struct ca_cert_req_msg	req_ca_cert;
 
 	switch (s->state) {
 
@@ -574,7 +573,10 @@ mta_response(struct mta_session *s, char *line)
 			mta_enter_state(s, MTA_HELO);
 			return;
 		}
-		mta_enter_state(s, MTA_STARTTLS);
+		if (!(s->flags & MTA_FORCE_PLAIN))
+			mta_enter_state(s, MTA_STARTTLS);
+		else
+			mta_enter_state(s, MTA_READY);
 		break;
 
 	case MTA_HELO:
@@ -598,12 +600,7 @@ mta_response(struct mta_session *s, char *line)
 			return;
 		}
 
-		req_ca_cert.reqid = s->id;
-		strlcpy(req_ca_cert.name, s->relay->cert,
-		    sizeof req_ca_cert.name);
-		m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
-		    &req_ca_cert, sizeof(req_ca_cert));
-		tree_xset(&wait_ssl_init, s->id, s);
+		mta_start_tls(s);
 		break;
 
 	case MTA_AUTH:
@@ -695,9 +692,7 @@ mta_io(struct io *io, int evt)
 	size_t			 len;
 	const char		*error;
 	int			 cont;
-	void			*ptr;
 	const char		*schema;
-	struct ca_cert_req_msg	req_ca_cert;
 
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -717,13 +712,8 @@ mta_io(struct io *io, int evt)
 		    s, schema, sa_to_text(s->route->dst->sa), s->route->dst->ptrname);
 
 		if (s->use_smtps) {
-			req_ca_cert.reqid = s->id;
-			strlcpy(req_ca_cert.name, s->relay->cert,
-			    sizeof req_ca_cert.name);
-			m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
-			    &req_ca_cert, sizeof(req_ca_cert));
-			tree_xset(&wait_ssl_init, s->id, s);
 			io_set_write(io);
+			mta_start_tls(s);
 		}
 		else {
 			mta_enter_state(s, MTA_BANNER);
@@ -1031,6 +1021,27 @@ mta_check_loop(FILE *fp)
 
 	fseek(fp, SEEK_SET, 0);
 	return ret;
+}
+
+static void
+mta_start_tls(struct mta_session *s)
+{
+	struct ca_cert_req_msg	req_ca_cert;
+	void		       *ssl;
+
+	if (s->relay->cert) {
+		req_ca_cert.reqid = s->id;
+		strlcpy(req_ca_cert.name, s->relay->cert,
+		    sizeof req_ca_cert.name);
+		m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
+		    &req_ca_cert, sizeof(req_ca_cert));
+		tree_xset(&wait_ssl_init, s->id, s);
+		return;
+	}
+	ssl = ssl_mta_init(NULL, 0, NULL, 0);
+	if (ssl == NULL)
+		fatal("mta: ssl_mta_init");
+	io_start_tls(&s->io, ssl);
 }
 
 static int
