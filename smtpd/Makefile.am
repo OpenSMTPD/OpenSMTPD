@@ -89,7 +89,7 @@ INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD=			$(LIBCOMPAT) -lsqlite3
+LDADD=			$(LIBCOMPAT)
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined

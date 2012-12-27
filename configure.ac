@@ -2412,6 +2412,33 @@ AC_LINK_IFELSE(
 AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
 
 
+AC_CHECK_HEADER([sqlite3.h],
+		[AC_DEFINE([HAVE_SQLITE3_H], [], [if you have the <sqlite3.h> header file]) ],
+		[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
+		)
+
+AC_CHECK_LIB([sqlite3], [sqlite3_open], ,
+	[
+		saved_CPPFLAGS="$CPPFLAGS"
+		saved_LDFLAGS="$LDFLAGS"
+		save_LIBS="$LIBS"
+		dnl Check default sqlite install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+		LIBS="$LIBS -lsqlite3"
+		AC_TRY_LINK_FUNC([sqlite3_open], [AC_DEFINE([HAVE_LIBSQLITE3])],
+			[
+				AC_MSG_ERROR([*** sqlite3 missing - please install first or check config.log ***])
+			]
+		)
+	]
+)
+
+
 LIBS="$LIBS ${SSHDLIBS}"
 ##end of chl
 
