@@ -1,7 +1,7 @@
 /*	$OpenBSD: mfa_session.c,v 1.11 2012/10/11 21:51:37 gilles Exp $	*/
 
 /*
- * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any

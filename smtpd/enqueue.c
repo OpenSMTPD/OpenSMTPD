@@ -3,6 +3,7 @@
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above

@@ -1,7 +1,7 @@
 /*	$OpenBSD: parse.y,v 1.110 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
  * Copyright (c) 2002, 2003, 2004 Henning Brauer <henning@openbsd.org>
  * Copyright (c) 2001 Markus Friedl.  All rights reserved.

@@ -1,7 +1,7 @@
 /*	$OpenBSD: expand.c,v 1.18 2012/10/10 18:02:37 eric Exp $	*/
 
 /*
- * Copyright (c) 2009 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any

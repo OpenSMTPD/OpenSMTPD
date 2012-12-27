@@ -1,7 +1,7 @@
 /*	$OpenBSD: forward.c,v 1.32 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above

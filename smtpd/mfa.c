@@ -1,7 +1,7 @@
 /*	$OpenBSD: mfa.c,v 1.73 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any

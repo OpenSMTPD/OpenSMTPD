@@ -1,7 +1,7 @@
 /*	$OpenBSD: makemap.c,v 1.40 2012/10/13 09:44:25 gilles Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2008-2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  *
  * Permission to use, copy, modify, and distribute this software for any

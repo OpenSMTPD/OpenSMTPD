@@ -2,7 +2,7 @@
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
  *
  * Permission to use, copy, modify, and distribute this software for any

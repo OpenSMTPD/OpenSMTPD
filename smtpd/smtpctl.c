@@ -1,6 +1,7 @@
 /*	$OpenBSD: smtpctl.c,v 1.95 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
+ * Copyright (c) 2006 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004, 2005 Esben Norby <norby@openbsd.org>

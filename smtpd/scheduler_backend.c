@@ -1,7 +1,7 @@
 /*	$OpenBSD: scheduler_backend.c,v 1.6 2012/09/11 19:19:13 gilles Exp $	*/
 
 /*
- * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above

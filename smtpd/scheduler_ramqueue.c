@@ -1,7 +1,7 @@
 /*	$OpenBSD: scheduler_ramqueue.c,v 1.24 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
- * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
