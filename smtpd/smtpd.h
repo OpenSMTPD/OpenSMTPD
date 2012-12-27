@@ -570,8 +570,6 @@ struct smtpd {
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
-	const char			       *cert_store;
-	off_t					cert_store_len;
 	
 	struct dict			       *sc_ssl_dict;
 
