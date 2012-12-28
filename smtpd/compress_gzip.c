@@ -1,7 +1,7 @@
 /*	$OpenBSD: compress_gzip.c,v 1.5 2012/10/11 21:34:19 gilles Exp $	*/
 
 /*
- * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any

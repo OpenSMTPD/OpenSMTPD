@@ -1,7 +1,7 @@
 /*	$OpenBSD: log.h,v 1.2 2011/10/22 00:16:33 eric Exp $	*/
 
 /*
- * Copyright (c) 2010 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2010 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above

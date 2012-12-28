@@ -2,7 +2,7 @@
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -146,7 +146,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_LKA_SSL_VERIFY:
 			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
 
-			if (! lka_X509_verify(req_ca_vrfy_smtp, "/etc/ssl/cert.pem", NULL))
+			if (! lka_X509_verify(req_ca_vrfy_smtp, CA_FILE, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
@@ -287,7 +287,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_LKA_SSL_VERIFY:
 			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
 
-			if (! lka_X509_verify(req_ca_vrfy_mta, "/etc/ssl/cert.pem", NULL))
+			if (! lka_X509_verify(req_ca_vrfy_mta, CA_FILE, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
@@ -703,7 +703,7 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 			x509_tmp = x509_tmp2 = NULL;
 		}
 	}
-	if (! ca_X509_verify(x509, x509_chain, "/etc/ssl/cert.pem",
+	if (! ca_X509_verify(x509, x509_chain, CAfile,
 		NULL, &errstr)) {
 		log_debug("debug: lka_X509_verify: failure: %s", errstr);
 	}

@@ -33,9 +33,6 @@ ca_X509_verify(X509 *certificate, STACK_OF(X509) *chain, const char *CAfile,
 	X509_STORE_CTX *xsc = NULL;
 	int		ret = 0;
 
-	
-
-
 	if ((store = X509_STORE_new()) == NULL)
 		goto end;
 

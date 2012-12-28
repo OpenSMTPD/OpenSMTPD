@@ -1,7 +1,7 @@
 /*	$OpenBSD: dns.c,v 1.61 2012/11/12 14:58:53 eric Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
  * Copyright (c) 2011-2012 Eric Faurot <eric@faurot.net>
  *

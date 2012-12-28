@@ -3,6 +3,7 @@
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
  * Copyright (c) 2008 Reyk Floeter <reyk@openbsd.org>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -219,12 +220,6 @@ ssl_init(void)
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
-
-	/* Load certificate store */
-	env->cert_store = ssl_load_file(CA_FILE,
-	    &env->cert_store_len, 0755);
-	if (env->cert_store == NULL)
-		fatal("ssl_init: cannot load certificate store");
 }
 
 void
