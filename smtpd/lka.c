@@ -703,8 +703,7 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 			x509_tmp = x509_tmp2 = NULL;
 		}
 	}
-	if (! ca_X509_verify(x509, x509_chain, CAfile,
-		NULL, &errstr)) {
+	if (! ca_X509_verify(x509, x509_chain, CAfile, NULL, &errstr)) {
 		log_debug("debug: lka_X509_verify: failure: %s", errstr);
 	}
 	else
