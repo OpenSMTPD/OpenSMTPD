@@ -37,33 +37,28 @@
 
 
 static int ruleset_check_source(struct table *,
-    const struct sockaddr_storage *);
+    const struct sockaddr_storage *, int);
 
 struct rule *
 ruleset_match(const struct envelope *evp)
 {
-	const struct mailaddr *maddr = &evp->dest;
-	const struct sockaddr_storage *ss = &evp->ss;
-	struct rule	*r;
-	int		 ret;
-
-	if (evp->flags & EF_INTERNAL)
-		ss = NULL;
+	const struct mailaddr		*maddr = &evp->dest;
+	const struct sockaddr_storage	*ss = &evp->ss;
+	struct rule			*r;
+	int				 ret;
 
 	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
 
 		if (r->r_tag[0] != '\0' && strcmp(r->r_tag, evp->tag) != 0)
 			continue;
 
-		if (ss != NULL && !(evp->flags & EF_AUTHENTICATED)) {
-			ret = ruleset_check_source(r->r_sources, ss);
-			if (ret == -1) {
-				errno = EAGAIN;
-				return (NULL);
-			}
-			if (ret == 0)
-				continue;
+		ret = ruleset_check_source(r->r_sources, ss, evp->flags);
+		if (ret == -1) {
+			errno = EAGAIN;
+			return (NULL);
 		}
+		if (ret == 0)
+			continue;
 
 		ret = r->r_destination == NULL ? 1 :
 		    table_lookup(r->r_destination, maddr->domain, K_DOMAIN,
@@ -93,18 +88,15 @@ matched:
 }
 
 static int
-ruleset_check_source(struct table *table, const struct sockaddr_storage *ss)
+ruleset_check_source(struct table *table, const struct sockaddr_storage *ss,
+    int evpflags)
 {
 	const char   *key;
 
-	if (ss == NULL) {
-		/* This happens when caller is part of an internal
-		 * lookup (ie: alias resolved to a remote address)
-		 */
-		return 1;
-	}
-
-	key = ss->ss_family == AF_LOCAL ? "local" : ss_to_text(ss);
+	if (evpflags & (EF_AUTHENTICATED | EF_INTERNAL))
+		key = "local";
+	else
+		key = ss_to_text(ss);
 	switch (table_lookup(table, key, K_NETADDR, NULL)) {
 	case 1:
 		return 1;
