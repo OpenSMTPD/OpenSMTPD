@@ -60,11 +60,16 @@ queue_null_init(int server)
 static int
 queue_null_message(enum queue_op qop, uint32_t *msgid)
 {
-	char			 path[MAXPATHLEN];
+	char	path[MAXPATHLEN];
 
 	switch (qop) {
 	case QOP_CREATE:
 		*msgid = queue_generate_msgid();
+		queue_message_incoming_path(*msgid, path, sizeof(path));
+		if (mkdir(path, 0700) == -1) {
+			log_warn("queue_ram_message: mkdir");
+			return (0);
+		}
 		return (1);
 	case QOP_DELETE:
 		return (1);
