@@ -43,6 +43,7 @@
 static const char* envelope_validate(struct envelope *);
 
 extern struct queue_backend	queue_backend_fs;
+extern struct queue_backend	queue_backend_null;
 extern struct queue_backend	queue_backend_ram;
 
 static struct queue_backend	*backend;
@@ -120,6 +121,8 @@ queue_init(const char *name, int server)
 {
 	if (!strcmp(name, "fs"))
 		backend = &queue_backend_fs;
+	if (!strcmp(name, "null"))
+		backend = &queue_backend_null;
 	if (!strcmp(name, "ram"))
 		backend = &queue_backend_ram;
 

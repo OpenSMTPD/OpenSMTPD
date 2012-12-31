@@ -77,6 +77,7 @@ struct smtpd	*env = NULL;
 
 time_t now;
 
+struct queue_backend queue_backend_null;
 struct queue_backend queue_backend_ram;
 
 __dead void

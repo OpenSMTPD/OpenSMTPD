@@ -25,8 +25,10 @@ SRCS+=		table_static.c
 SRCS+=		table_ldap.c
 SRCS+=		table_sqlite.c
 SRCS+=		queue_fsqueue.c
+SRCS+=		queue_null.c
 SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
+SRCS+=		scheduler_null.c
 SRCS+=		stat_ramstat.c
 
 # resolver
