@@ -114,11 +114,7 @@ setup_env(struct smtpd *smtpd)
 	if (env->sc_pwqueue == NULL)
 		err(1, NULL);
 
-	env->sc_queue = queue_backend_lookup("fs");
-	if (env->sc_queue == NULL)
-		errx(1, "could not find queue backend");
-
-	if (!env->sc_queue->init(0))
+	if (!queue_init("fs", 0))
 		errx(1, "invalid directory permissions");
 }
 

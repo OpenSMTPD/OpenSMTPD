@@ -665,11 +665,7 @@ main(int argc, char *argv[])
 	    == 0)
 		errx(1, "error in incoming directory setup");
 
-	env->sc_queue = queue_backend_lookup(backend_queue);
-	if (env->sc_queue == NULL)
-		errx(1, "could not find queue backend \"%s\"", backend_queue);
-
-	if (!env->sc_queue->init(1))
+	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
 
 	env->sc_stat = stat_backend_lookup(backend_stat);

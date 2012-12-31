@@ -560,7 +560,6 @@ struct smtpd {
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[MAXHOSTNAMELEN];
-	struct queue_backend	       *sc_queue;
 	struct compress_backend	       *sc_compress;
 	struct scheduler_backend       *sc_scheduler;
 	struct stat_backend	       *sc_stat;
@@ -1242,7 +1241,7 @@ pid_t queue(void);
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);
 uint64_t queue_generate_evpid(uint32_t msgid);
-struct queue_backend *queue_backend_lookup(const char *);
+int queue_init(const char *, int);
 int queue_message_incoming_path(uint32_t, char *, size_t);
 int queue_envelope_incoming_path(uint64_t, char *, size_t);
 int queue_message_incoming_delete(uint32_t);

@@ -45,6 +45,9 @@ static const char* envelope_validate(struct envelope *);
 extern struct queue_backend	queue_backend_fs;
 extern struct queue_backend	queue_backend_ram;
 
+static struct queue_backend	*backend;
+
+
 int
 queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
 {
@@ -77,27 +80,31 @@ queue_message_incoming_delete(uint32_t msgid)
 	return 1;
 }
 
-struct queue_backend *
-queue_backend_lookup(const char *name)
+int
+queue_init(const char *name, int server)
 {
 	if (!strcmp(name, "fs"))
-		return &queue_backend_fs;
+		backend = &queue_backend_fs;
 	if (!strcmp(name, "ram"))
-		return &queue_backend_ram;
+		backend = &queue_backend_ram;
 
-	return (NULL);
+	if (backend == NULL) {
+		log_warn("could not find queue backend \"%s\"", name);
+		return (0);
+	}
+	return backend->init(server);
 }
 
 int
 queue_message_create(uint32_t *msgid)
 {
-	return env->sc_queue->message(QOP_CREATE, msgid);
+	return backend->message(QOP_CREATE, msgid);
 }
 
 int
 queue_message_delete(uint32_t msgid)
 {
-	return env->sc_queue->message(QOP_DELETE, &msgid);
+	return backend->message(QOP_DELETE, &msgid);
 }
 
 int
@@ -132,7 +139,7 @@ queue_message_commit(uint32_t msgid)
 		}
 	}
 
-	return env->sc_queue->message(QOP_COMMIT, &msgid);
+	return backend->message(QOP_COMMIT, &msgid);
 
 err:
 	if (ifp)
@@ -145,7 +152,7 @@ err:
 int
 queue_message_corrupt(uint32_t msgid)
 {
-	return env->sc_queue->message(QOP_CORRUPT, &msgid);
+	return backend->message(QOP_CORRUPT, &msgid);
 }
 
 int
@@ -155,7 +162,7 @@ queue_message_fd_r(uint32_t msgid)
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
-	if ((fdin = env->sc_queue->message(QOP_FD_R, &msgid)) == -1)
+	if ((fdin = backend->message(QOP_FD_R, &msgid)) == -1)
 		return (-1);
 
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
@@ -261,7 +268,7 @@ queue_envelope_create(struct envelope *ep)
 	if (evplen == 0)
 		return (0);
 
-	r = env->sc_queue->envelope(QOP_CREATE, &ep->id, evpbuf, evplen);
+	r = backend->envelope(QOP_CREATE, &ep->id, evpbuf, evplen);
 	if (!r) {
 		ep->creation = 0;
 		ep->id = 0;
@@ -272,7 +279,7 @@ queue_envelope_create(struct envelope *ep)
 int
 queue_envelope_delete(struct envelope *ep)
 {
-	return env->sc_queue->envelope(QOP_DELETE, &ep->id, NULL, 0);
+	return backend->envelope(QOP_DELETE, &ep->id, NULL, 0);
 }
 
 int
@@ -283,7 +290,7 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	size_t		 evplen;
 
 	ep->id = evpid;
-	evplen = env->sc_queue->envelope(QOP_LOAD, &ep->id, evpbuf,
+	evplen = backend->envelope(QOP_LOAD, &ep->id, evpbuf,
 	    sizeof evpbuf);
 	if (evplen == 0)
 		return (0);
@@ -309,7 +316,7 @@ queue_envelope_update(struct envelope *ep)
 	if (evplen == 0)
 		return (0);
 
-	return env->sc_queue->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
+	return backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
 }
 
 int
@@ -320,7 +327,7 @@ queue_envelope_walk(struct envelope *ep)
 	char		 evpbuf[sizeof(struct envelope)];
 	int		 r;
 
-	r = env->sc_queue->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
+	r = backend->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
 	if (r == -1 || r == 0)
 		return (r);
 
