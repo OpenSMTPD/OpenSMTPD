@@ -894,6 +894,7 @@ extern struct mproc *p_mta;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_smtp;
+extern struct mproc *p_current;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);

@@ -117,6 +117,7 @@ struct mproc	*p_parent;
 struct mproc	*p_queue;
 struct mproc	*p_scheduler;
 struct mproc	*p_smtp;
+struct mproc	*p_current;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";

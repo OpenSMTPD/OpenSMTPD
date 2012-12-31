@@ -56,7 +56,7 @@ static int	fsqueue_message_corrupt(uint32_t);
 
 static int	fsqueue_message_path(uint32_t, char *, size_t);
 static int	fsqueue_envelope_path(uint64_t, char *, size_t);
-static int	fsqueue_envelope_dump_atomic(char *, char *, size_t);
+static int	fsqueue_envelope_dump(char *, char *, size_t, int, int);
 
 static int	fsqueue_init(int);
 static int	fsqueue_message(enum queue_op, uint32_t *);
@@ -107,7 +107,7 @@ fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 }
 
 static int
-fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
+fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, int do_sync)
 {
 	int	 fd;
 	char	 evpname[MAXPATHLEN];
@@ -117,7 +117,10 @@ fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
 	 * should be fixed by rerouting ALL queue access through
 	 * the queue process.
 	 */
-	snprintf(evpname, sizeof evpname, PATH_EVPTMP".%d", getpid());
+	if (do_atomic)
+		snprintf(evpname, sizeof evpname, PATH_EVPTMP".%d", env->sc_pw->pw_uid);
+	else
+		snprintf(evpname, sizeof evpname, "%s", dest);
 
 	if ((fd = open(evpname, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
 		if (errno == ENOSPC || errno == ENFILE)
@@ -138,16 +141,17 @@ fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
 		goto tempfail;
 	}
 
-	if (fsync(fd))
+	if (do_sync && fsync(fd))
 		fatal("fsync");
 	close(fd);
 
-	if (rename(evpname, dest) == -1) {
-		log_warn("warn: fsqueue_envelope_dump_atomic: rename");
-		if (errno == ENOSPC)
-			goto tempfail;
-		fatal("fsqueue_envelope_dump_atomic: rename");
-	}
+	if (do_atomic)
+		if (rename(evpname, dest) == -1) {
+			log_warn("warn: fsqueue_envelope_dump_atomic: rename");
+			if (errno == ENOSPC)
+				goto tempfail;
+			fatal("fsqueue_envelope_dump_atomic: rename");
+		}
 
 	return (1);
 
@@ -186,7 +190,7 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 	fatal("couldn't figure out a new envelope id");
 
 found:
-	return (fsqueue_envelope_dump_atomic(path, buf, len));
+	return (fsqueue_envelope_dump(path, buf, len, 0, 1));
 }
 
 static int
@@ -219,7 +223,7 @@ fsqueue_envelope_update(uint64_t evpid, char *buf, size_t len)
 
 	fsqueue_envelope_path(evpid, dest, sizeof(dest));
 
-	return (fsqueue_envelope_dump_atomic(dest, buf, len));
+	return (fsqueue_envelope_dump(dest, buf, len, 1, 1));
 }
 
 static int
@@ -326,6 +330,8 @@ fsqueue_message_commit(uint32_t msgid)
 			return 0;
 		fatal("fsqueue_message_commit: rename");
 	}
+
+//	sync();
 
 	return 1;
 }
