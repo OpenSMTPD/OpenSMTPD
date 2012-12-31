@@ -28,6 +28,7 @@ SRCS+=		queue_fsqueue.c
 SRCS+=		queue_null.c
 SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
+SRCS+=		scheduler_null.c
 SRCS+=		stat_ramstat.c
 
 # resolver
