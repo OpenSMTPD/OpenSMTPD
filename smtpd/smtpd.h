@@ -588,8 +588,11 @@ struct smtpd {
 #define	TRACE_BOUNCE	0x0040
 #define	TRACE_SCHEDULER	0x0080
 #define	TRACE_STAT	0x0100
-#define	TRACE_PROFILING	0x0200
-#define	TRACE_RULES	0x0400
+#define	TRACE_RULES	0x0200
+
+#define PROFILE_TOSTAT	0x0001
+#define PROFILE_IMSG	0x0002
+#define PROFILE_QUEUE	0x0004
 
 struct forward_req {
 	uint64_t			id;

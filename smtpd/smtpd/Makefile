@@ -48,6 +48,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
+CFLAGS+=	-DQUEUE_PROFILING
 CFLAGS+=	-DASR_OPT_THREADSAFE=0
 YFLAGS=
 

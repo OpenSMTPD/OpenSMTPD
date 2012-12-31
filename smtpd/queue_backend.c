@@ -47,6 +47,41 @@ extern struct queue_backend	queue_backend_ram;
 
 static struct queue_backend	*backend;
 
+#ifdef QUEUE_PROFILING
+
+extern int profiling;
+
+static struct {
+	struct timespec	 t0;
+	const char	*name;
+} profile;
+
+static inline void profile_enter(const char *name)
+{
+	if ((profiling & PROFILE_QUEUE) == 0)
+		return;
+
+	profile.name = name;
+	clock_gettime(CLOCK_MONOTONIC, &profile.t0);
+}
+
+static inline void profile_leave(void)
+{
+	struct timespec	 t1, dt;
+
+	if ((profiling & PROFILE_QUEUE) == 0)
+		return;
+
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	timespecsub(&t1, &profile.t0, &dt);
+	log_debug("profile-queue: %s %li.%06li", profile.name,
+	    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
+	    dt.tv_nsec % 1000000);
+}
+#else
+#define profile_enter(x)	do {} while (0)
+#define profile_leave()		do {} while (0)
+#endif
 
 int
 queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
@@ -92,19 +127,32 @@ queue_init(const char *name, int server)
 		log_warn("could not find queue backend \"%s\"", name);
 		return (0);
 	}
+
 	return backend->init(server);
 }
 
 int
 queue_message_create(uint32_t *msgid)
 {
-	return backend->message(QOP_CREATE, msgid);
+	int	r;
+
+	profile_enter("queue_message_create");
+	r = backend->message(QOP_CREATE, msgid);
+	profile_leave();
+
+	return (r);
 }
 
 int
 queue_message_delete(uint32_t msgid)
 {
-	return backend->message(QOP_DELETE, &msgid);
+	int	r;
+
+	profile_enter("queue_message_delete");
+	r = backend->message(QOP_DELETE, &msgid);
+	profile_leave();
+
+	return (r);
 }
 
 int
@@ -114,6 +162,7 @@ queue_message_commit(uint32_t msgid)
 	char	tmppath[MAXPATHLEN];
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
+	int	r;
 
 	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
 	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
@@ -139,8 +188,11 @@ queue_message_commit(uint32_t msgid)
 		}
 	}
 
-	return backend->message(QOP_COMMIT, &msgid);
+	profile_enter("queue_message_commit");
+	r = backend->message(QOP_COMMIT, &msgid);
+	profile_leave();
 
+	return (r);
 err:
 	if (ifp)
 		fclose(ifp);
@@ -152,7 +204,13 @@ err:
 int
 queue_message_corrupt(uint32_t msgid)
 {
-	return backend->message(QOP_CORRUPT, &msgid);
+	int	r;
+
+	profile_enter("queue_message_corrupt");
+	r = backend->message(QOP_CORRUPT, &msgid);
+	profile_leave();
+
+	return (r);
 }
 
 int
@@ -162,7 +220,11 @@ queue_message_fd_r(uint32_t msgid)
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
-	if ((fdin = backend->message(QOP_FD_R, &msgid)) == -1)
+	profile_enter("queue_message_fd_r");
+	fdin = backend->message(QOP_FD_R, &msgid);
+	profile_leave();
+
+	if (fdin == -1)
 		return (-1);
 
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
@@ -268,7 +330,9 @@ queue_envelope_create(struct envelope *ep)
 	if (evplen == 0)
 		return (0);
 
+	profile_enter("queue_envelope_create");
 	r = backend->envelope(QOP_CREATE, &ep->id, evpbuf, evplen);
+	profile_leave();
 	if (!r) {
 		ep->creation = 0;
 		ep->id = 0;
@@ -279,7 +343,13 @@ queue_envelope_create(struct envelope *ep)
 int
 queue_envelope_delete(struct envelope *ep)
 {
-	return backend->envelope(QOP_DELETE, &ep->id, NULL, 0);
+	int	r;
+
+	profile_enter("queue_envelope_delete");
+	r = backend->envelope(QOP_DELETE, &ep->id, NULL, 0);
+	profile_leave();
+
+	return (r);
 }
 
 int
@@ -290,8 +360,9 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	size_t		 evplen;
 
 	ep->id = evpid;
-	evplen = backend->envelope(QOP_LOAD, &ep->id, evpbuf,
-	    sizeof evpbuf);
+	profile_enter("queue_envelope_load");
+	evplen = backend->envelope(QOP_LOAD, &ep->id, evpbuf, sizeof evpbuf);
+	profile_leave();
 	if (evplen == 0)
 		return (0);
 
@@ -309,14 +380,19 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 int
 queue_envelope_update(struct envelope *ep)
 {
-	char	 evpbuf[sizeof(struct envelope)];
-	size_t	 evplen;
+	char	evpbuf[sizeof(struct envelope)];
+	size_t	evplen;
+	int	r;
 
 	evplen = queue_envelope_dump_buffer(ep, evpbuf, sizeof evpbuf);
 	if (evplen == 0)
 		return (0);
 
-	return backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
+	profile_enter("queue_envelope_update");
+	r = backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
+	profile_leave();
+
+	return (r);
 }
 
 int
@@ -327,7 +403,9 @@ queue_envelope_walk(struct envelope *ep)
 	char		 evpbuf[sizeof(struct envelope)];
 	int		 r;
 
+	profile_enter("queue_envelope_walk");
 	r = backend->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
+	profile_leave();
 	if (r == -1 || r == 0)
 		return (r);
 
