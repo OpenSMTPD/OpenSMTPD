@@ -316,8 +316,17 @@ fsqueue_message_commit(uint32_t msgid)
 	queue_message_incoming_path(msgid, incomingdir, sizeof(incomingdir));
 	fsqueue_message_path(msgid, msgdir, sizeof(msgdir));
 	strlcpy(queuedir, msgdir, sizeof(queuedir));
-	*strrchr(queuedir, '/') = '\0';
 
+	/* first attempt to rename */
+	if (rename(incomingdir, msgdir) == 0)
+		return 1;
+	if (errno == ENOSPC)
+		return 0;
+	if (errno != ENOENT)
+		fatal("fsqueue_message_commit: rename");
+
+	/* create the bucket */
+	*strrchr(queuedir, '/') = '\0';
 	if (mkdir(queuedir, 0700) == -1) {
 		if (errno == ENOSPC)
 			return 0;
@@ -325,13 +334,12 @@ fsqueue_message_commit(uint32_t msgid)
 			fatal("fsqueue_message_commit: mkdir");
 	}
 
+	/* rename */
 	if (rename(incomingdir, msgdir) == -1) {
 		if (errno == ENOSPC)
 			return 0;
 		fatal("fsqueue_message_commit: rename");
 	}
-
-//	sync();
 
 	return 1;
 }
