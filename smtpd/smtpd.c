@@ -123,8 +123,7 @@ const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
 const char	*backend_stat = "ram";
 
-static int	 profiling;
-static int	 profstat;
+int		 profiling = 0;
 
 struct tree	 children;
 
@@ -579,16 +578,16 @@ main(int argc, char *argv[])
 				verbose |= TRACE_SCHEDULER;
 			else if (!strcmp(optarg, "stat"))
 				verbose |= TRACE_STAT;
-			else if (!strcmp(optarg, "profiling")) {
-				verbose |= TRACE_PROFILING;
-				profiling = 1;
-			}
-			else if (!strcmp(optarg, "profstat"))
-				profstat = 1;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
+			else if (!strcmp(optarg, "profstat"))
+				profiling |= PROFILE_TOSTAT;
+			else if (!strcmp(optarg, "profile-imsg"))
+				profiling |= PROFILE_IMSG;
+			else if (!strcmp(optarg, "profile-queue"))
+				profiling |= PROFILE_QUEUE;
 			else
 				log_warnx("warn: unknown trace flag \"%s\"",
 				    optarg);
@@ -666,11 +665,7 @@ main(int argc, char *argv[])
 	    == 0)
 		errx(1, "error in incoming directory setup");
 
-	env->sc_queue = queue_backend_lookup(backend_queue);
-	if (env->sc_queue == NULL)
-		errx(1, "could not find queue backend \"%s\"", backend_queue);
-
-	if (!env->sc_queue->init(1))
+	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
 
 	env->sc_stat = stat_backend_lookup(backend_stat);
@@ -1209,23 +1204,23 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 
 	log_imsg(smtpd_process, p->proc, imsg);
 
-	if (profiling || profstat)
+	if (profiling & PROFILE_IMSG)
 		clock_gettime(CLOCK_MONOTONIC, &t0);
 
 	imsg_callback(p, imsg);
 
-	if (profiling || profstat) {
+	if (profiling & PROFILE_IMSG) {
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 		timespecsub(&t1, &t0, &dt);
 
-		log_trace(TRACE_PROFILING, "PROFILE %s %s %s %li.%06li",
+		log_debug("profile-imsg: %s %s %s %li.%06li",
 		    proc_to_str(smtpd_process),
 		    proc_to_str(p->proc),
 		    imsg_to_str(imsg->hdr.type),
 		    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 		    dt.tv_nsec % 1000000);
 
-		if (profstat) {
+		if (profiling & PROFILE_TOSTAT) {
 			char	key[STAT_KEY_SIZE];
 			/* can't profstat control process yet */
 			if (smtpd_process == PROC_CONTROL)
