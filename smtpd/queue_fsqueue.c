@@ -335,6 +335,14 @@ fsqueue_message_commit(uint32_t msgid)
 	char queuedir[MAXPATHLEN];
 	char msgdir[MAXPATHLEN];
 
+	/* compress the message if needed */
+	if (env->sc_queue_flags & QUEUE_COMPRESS) {
+		fsqueue_message_path(msgid, msgdir, sizeof(msgdir));
+		strlcat(msgdir, PATH_MESSAGE, sizeof(msgdir));
+		if (queue_compress_file(msgdir) == 0)
+			return (0);
+	}
+
 	queue_message_incoming_path(msgid, incomingdir, sizeof(incomingdir));
 	fsqueue_message_path(msgid, msgdir, sizeof(msgdir));
 	strlcpy(queuedir, msgdir, sizeof(queuedir));
