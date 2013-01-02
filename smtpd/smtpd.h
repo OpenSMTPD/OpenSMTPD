@@ -218,6 +218,7 @@ enum imsg_type {
 	IMSG_QUEUE_COMMIT_ENVELOPES,
 	IMSG_QUEUE_REMOVE_MESSAGE,
 	IMSG_QUEUE_COMMIT_MESSAGE,
+	IMSG_QUEUE_DATA,
 	IMSG_QUEUE_MESSAGE_FD,
 	IMSG_QUEUE_MESSAGE_FILE,
 	IMSG_QUEUE_REMOVE,
@@ -925,6 +926,12 @@ struct bounce_req_msg {
 struct queue_req_msg {
 	uint64_t	reqid;
 	uint64_t	evpid;
+};
+
+struct queue_data_msg {
+	uint32_t	msgid;
+	size_t		len;
+	char		data[MAX_LINE_SIZE];
 };
 
 struct queue_resp_msg {

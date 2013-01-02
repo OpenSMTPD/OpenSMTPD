@@ -51,9 +51,18 @@ struct queue_backend queue_backend_null = {
 	queue_null_envelope,
 };
 
+static int	devnull;
+
 static int
 queue_null_init(int server)
 {
+
+	devnull = open("/dev/null", O_WRONLY, 0777);
+	if (devnull == -1) {
+		log_warn("open");
+		return (0);
+	}
+
 	return (1);
 }
 
@@ -70,7 +79,7 @@ queue_null_message(enum queue_op qop, uint32_t *msgid)
 	case QOP_FD_R:
 		return (-1);
 	case QOP_FD_RW:
-		return mktmpfile();
+		return dup(devnull);
 	case QOP_CORRUPT:
 		return (0);
 	default:

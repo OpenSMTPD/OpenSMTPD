@@ -47,12 +47,15 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
+static struct tree	files;
+
 static void
 queue_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
 	struct queue_req_msg	*req;
+	struct queue_data_msg	*data;
 	struct queue_resp_msg	 resp;
 	struct envelope		*e, evp;
 	struct evpstate		*state;
@@ -60,6 +63,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	int			 fd, ret;
 	uint64_t		 id;
 	uint32_t		 msgid;
+	FILE			*ofile;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -77,6 +81,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_REMOVE_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
+			if ((ofile = tree_pop(&files, msgid)))
+				fclose(ofile);
 			queue_message_delete(msgid);
 			m_compose(p_scheduler, IMSG_QUEUE_REMOVE_MESSAGE,
 			    0, 0, -1, &msgid, sizeof msgid);
@@ -85,6 +91,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_COMMIT_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
+			if ((ofile = tree_xpop(&files, msgid)))
+				fclose(ofile);
 			ret = queue_message_commit(msgid);
 			resp.reqid = req->reqid;
 			resp.success = (ret == 0) ? 0 : 1;
@@ -101,11 +109,28 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
 			fd = queue_message_fd_rw(msgid);
+			if (fd != -1) {
+				ofile = fdopen(fd, "w");
+				if (ofile == NULL) {
+					close(fd);
+					fd = -1;
+				}
+				else
+					tree_xset(&files, msgid, ofile);
+			}
 			resp.reqid = req->reqid;
 			resp.success = (fd == -1) ? 0 : 1;
 			resp.evpid = req->evpid;
-			m_compose(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd,
+			m_compose(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
 			    &resp, sizeof resp);
+			return;
+
+		case IMSG_QUEUE_DATA:
+			data = imsg->data;
+			ofile = tree_xget(&files, data->msgid);
+			/* XXX plug compression/crypto */
+			fwrite(data->data, 1, data->len, ofile);
+			/* XXX check for failure and report to smtp */
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
