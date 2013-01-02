@@ -58,7 +58,7 @@ static int	fsqueue_message_corrupt(uint32_t);
 
 static int	fsqueue_message_path(uint32_t, char *, size_t);
 static int	fsqueue_envelope_path(uint64_t, char *, size_t);
-static int	fsqueue_envelope_dump_atomic(char *, char *, size_t);
+static int	fsqueue_envelope_dump(char *, char *, size_t, int, int);
 
 static int	fsqueue_init(int);
 static int	fsqueue_message(enum queue_op, uint32_t *);
@@ -109,7 +109,7 @@ fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 }
 
 static int
-fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
+fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, int do_sync)
 {
 	int	 fd;
 	char	 evpname[MAXPATHLEN];
@@ -119,11 +119,16 @@ fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
 	 * should be fixed by rerouting ALL queue access through
 	 * the queue process.
 	 */
-	snprintf(evpname, sizeof evpname, PATH_EVPTMP".%d", getpid());
+	if (do_atomic)
+		snprintf(evpname, sizeof evpname, PATH_EVPTMP".%d", env->sc_pw->pw_uid);
+	else
+		snprintf(evpname, sizeof evpname, "%s", dest);
 
 	if ((fd = open(evpname, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
 		if (errno == ENOSPC || errno == ENFILE)
 			goto tempfail;
+		if (errno == EEXIST)
+			return -1;
 		fatal("fsqueue_envelope_dump_atomic: open");
 	}
 
@@ -140,16 +145,17 @@ fsqueue_envelope_dump_atomic(char *dest, char *evpbuf, size_t evplen)
 		goto tempfail;
 	}
 
-	if (fsync(fd))
+	if (do_sync && fsync(fd))
 		fatal("fsync");
 	close(fd);
 
-	if (rename(evpname, dest) == -1) {
-		log_warn("warn: fsqueue_envelope_dump_atomic: rename");
-		if (errno == ENOSPC)
-			goto tempfail;
-		fatal("fsqueue_envelope_dump_atomic: rename");
-	}
+	if (do_atomic)
+		if (rename(evpname, dest) == -1) {
+			log_warn("warn: fsqueue_envelope_dump_atomic: rename");
+			if (errno == ENOSPC)
+				goto tempfail;
+			fatal("fsqueue_envelope_dump_atomic: rename");
+		}
 
 	return (1);
 
@@ -168,6 +174,7 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 	uint32_t	msgid;
 	int		queued = 0, i;
 	struct stat	sb;
+	int		ret;
 
 	msgid = evpid_to_msgid(*evpid);
 	queue_message_incoming_path(msgid, path, sizeof(path));
@@ -182,13 +189,14 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 			queue_envelope_incoming_path(*evpid, path,
 			    sizeof(path));
 
-		if (stat(path, &sb) == -1 && errno == ENOENT)
-			goto found;
+		ret = fsqueue_envelope_dump(path, buf, len, 0, 1);
+		if (ret >= 0)
+			goto done;
 	}
 	fatal("couldn't figure out a new envelope id");
 
-found:
-	return (fsqueue_envelope_dump_atomic(path, buf, len));
+done:
+	return ret;
 }
 
 static int
@@ -221,7 +229,7 @@ fsqueue_envelope_update(uint64_t evpid, char *buf, size_t len)
 
 	fsqueue_envelope_path(evpid, dest, sizeof(dest));
 
-	return (fsqueue_envelope_dump_atomic(dest, buf, len));
+	return (fsqueue_envelope_dump(dest, buf, len, 1, 1));
 }
 
 static int
@@ -314,8 +322,17 @@ fsqueue_message_commit(uint32_t msgid)
 	queue_message_incoming_path(msgid, incomingdir, sizeof(incomingdir));
 	fsqueue_message_path(msgid, msgdir, sizeof(msgdir));
 	strlcpy(queuedir, msgdir, sizeof(queuedir));
-	*strrchr(queuedir, '/') = '\0';
 
+	/* first attempt to rename */
+	if (rename(incomingdir, msgdir) == 0)
+		return 1;
+	if (errno == ENOSPC)
+		return 0;
+	if (errno != ENOENT)
+		fatal("fsqueue_message_commit: rename");
+
+	/* create the bucket */
+	*strrchr(queuedir, '/') = '\0';
 	if (mkdir(queuedir, 0700) == -1) {
 		if (errno == ENOSPC)
 			return 0;
@@ -323,6 +340,7 @@ fsqueue_message_commit(uint32_t msgid)
 			fatal("fsqueue_message_commit: mkdir");
 	}
 
+	/* rename */
 	if (rename(incomingdir, msgdir) == -1) {
 		if (errno == ENOSPC)
 			return 0;
@@ -350,12 +368,17 @@ fsqueue_message_fd_r(uint32_t msgid)
 static int
 fsqueue_message_delete(uint32_t msgid)
 {
-	char rootdir[MAXPATHLEN];
+	char		path[MAXPATHLEN];
+	struct stat	sb;
 
-	if (! fsqueue_message_path(msgid, rootdir, sizeof(rootdir)))
-		fatal("fsqueue_message_delete: snprintf");
+	if (! queue_message_incoming_path(msgid, path, sizeof(path)))
+		fatal("queue_message_incoming_delete: snprintf");
 
-	if (rmtree(rootdir, 0) == -1)
+	if (stat(path, &sb) == -1)
+		if (! fsqueue_message_path(msgid, path, sizeof(path)))
+			fatal("fsqueue_message_delete: snprintf");
+
+	if (rmtree(path, 0) == -1)
 		fatal("fsqueue_message_delete: rmtree");
 
 	return 1;

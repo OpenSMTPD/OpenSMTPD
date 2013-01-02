@@ -59,9 +59,7 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 	if (p->pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-
 		closefrom(STDERR_FILENO + 1);
-
 		execl(path, arg, NULL);
 		err(1, "execl");
 	}

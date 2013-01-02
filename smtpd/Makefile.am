@@ -57,8 +57,10 @@ smtpd_SOURCES+=		table_static.c
 smtpd_SOURCES+=		table_ldap.c
 smtpd_SOURCES+=		table_sqlite.c
 smtpd_SOURCES+=		queue_fsqueue.c
+smtpd_SOURCES+=		queue_null.c
 smtpd_SOURCES+=		queue_ram.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
+smtpd_SOURCES+=		scheduler_null.c
 smtpd_SOURCES+=		stat_ramstat.c
 
 # resolver

@@ -59,6 +59,7 @@ struct qr_envelope {
 };
 
 struct qr_message {
+	int		 incoming;
 	char		*buf;
 	size_t		 len;
 	struct tree	 envelopes;
@@ -88,6 +89,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 	switch (qop) {
 	case QOP_CREATE:
 		msg = xcalloc(1, sizeof *msg, "queue_ram_message");
+		msg->incoming = 1;
 		tree_init(&msg->envelopes);
 		do {
 			*msgid = queue_generate_msgid();
@@ -111,6 +113,14 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		}
 		stat_decrement("queue.ram.message.size", msg->len);
 		free(msg->buf);
+		if (msg->incoming) {
+			queue_message_incoming_path(*msgid, path, sizeof(path));
+			strlcat(path, PATH_MESSAGE, sizeof(path));
+			unlink(path);
+			queue_message_incoming_path(*msgid, path, sizeof(path));
+			rmdir(path);
+		}
+		free(msg);
 		return (1);
 
 	case QOP_COMMIT:
@@ -134,8 +144,9 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		fclose(f);
 		unlink(path);
 		queue_message_incoming_path(*msgid, path, sizeof(path));
-		unlink(path);
+		rmdir(path);
 		stat_increment("queue.ram.message.size", msg->len);
+		msg->incoming = 0;
 		return (1);
 
 	case QOP_FD_R:
