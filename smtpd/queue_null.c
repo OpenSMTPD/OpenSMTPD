@@ -60,8 +60,6 @@ queue_null_init(int server)
 static int
 queue_null_message(enum queue_op qop, uint32_t *msgid)
 {
-	char	path[MAXPATHLEN];
-
 	switch (qop) {
 	case QOP_CREATE:
 		*msgid = queue_generate_msgid();

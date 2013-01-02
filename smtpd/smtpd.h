@@ -1245,7 +1245,8 @@ pid_t queue(void);
 
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);
-uint64_t queue_generate_evpid(uint32_t msgid);
+uint64_t queue_generate_evpid(uint32_t);
+int queue_compress_file(const char *);
 int queue_init(const char *, int);
 int queue_message_incoming_path(uint32_t, char *, size_t);
 int queue_envelope_incoming_path(uint64_t, char *, size_t);

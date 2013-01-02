@@ -145,49 +145,51 @@ queue_message_delete(uint32_t msgid)
 }
 
 int
+queue_compress_file(const char *path)
+{
+	FILE	*ifp, *ofp;
+	char	tmppath[MAXPATHLEN];
+
+	if (!env->sc_queue_flags & QUEUE_COMPRESS)
+		return (0);
+
+	bsnprintf(tmppath, sizeof tmppath, "%s.comp", path);
+	ifp = fopen(path, "r");
+	ofp = fopen(tmppath, "w+");
+	if (ifp == NULL || ofp == NULL)
+		goto err;
+	if (! compress_file(ifp, ofp))
+		goto err;
+	fclose(ifp);
+	fclose(ofp);
+	ifp = NULL;
+	ofp = NULL;
+
+	if (rename(tmppath, path) == -1) {
+		if (errno == ENOSPC)
+			return (0);
+		fatal("queue_compress_file: rename");
+	}
+	return (1);
+
+err:
+	if (ifp)
+		fclose(ifp);
+	if (ofp)
+		fclose(ofp);
+	return (0);
+}
+
+int
 queue_message_commit(uint32_t msgid)
 {
-	char	msgpath[MAXPATHLEN];
-	char	tmppath[MAXPATHLEN];
-	FILE	*ifp = NULL;
-	FILE	*ofp = NULL;
 	int	r;
-
-	if (env->sc_queue_flags & QUEUE_COMPRESS) {
-
-		queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-		strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
-
-		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
-		ifp = fopen(msgpath, "r");
-		ofp = fopen(tmppath, "w+");
-		if (ifp == NULL || ofp == NULL)
-			goto err;
-		if (! compress_file(ifp, ofp))
-			goto err;
-		fclose(ifp);
-		fclose(ofp);
-		ifp = NULL;
-		ofp = NULL;
-
-		if (rename(tmppath, msgpath) == -1) {
-			if (errno == ENOSPC)
-				return (0);
-			fatal("queue_message_commit: rename");
-		}
-	}
 
 	profile_enter("queue_message_commit");
 	r = backend->message(QOP_COMMIT, &msgid);
 	profile_leave();
 
 	return (r);
-err:
-	if (ifp)
-		fclose(ifp);
-	if (ofp)
-		fclose(ofp);
-	return 0;
 }
 
 int
