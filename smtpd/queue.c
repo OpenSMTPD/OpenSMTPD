@@ -77,7 +77,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_REMOVE_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
-			queue_message_incoming_delete(msgid);
+			queue_message_delete(msgid);
 			m_compose(p_scheduler, IMSG_QUEUE_REMOVE_MESSAGE,
 			    0, 0, -1, &msgid, sizeof msgid);
 			return;

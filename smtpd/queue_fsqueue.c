@@ -362,12 +362,17 @@ fsqueue_message_fd_r(uint32_t msgid)
 static int
 fsqueue_message_delete(uint32_t msgid)
 {
-	char rootdir[MAXPATHLEN];
+	char		path[MAXPATHLEN];
+	struct stat	sb;
 
-	if (! fsqueue_message_path(msgid, rootdir, sizeof(rootdir)))
-		fatal("fsqueue_message_delete: snprintf");
+	if (! queue_message_incoming_path(msgid, path, sizeof(path)))
+		fatal("queue_message_incoming_delete: snprintf");
 
-	if (rmtree(rootdir, 0) == -1)
+	if (stat(path, &sb) == -1)
+		if (! fsqueue_message_path(msgid, path, sizeof(path)))
+			fatal("fsqueue_message_delete: snprintf");
+
+	if (rmtree(path, 0) == -1)
 		fatal("fsqueue_message_delete: rmtree");
 
 	return 1;

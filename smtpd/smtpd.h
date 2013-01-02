@@ -1248,7 +1248,6 @@ uint64_t queue_generate_evpid(uint32_t msgid);
 int queue_init(const char *, int);
 int queue_message_incoming_path(uint32_t, char *, size_t);
 int queue_envelope_incoming_path(uint64_t, char *, size_t);
-int queue_message_incoming_delete(uint32_t);
 int queue_message_create(uint32_t *);
 int queue_message_delete(uint32_t);
 int queue_message_commit(uint32_t);

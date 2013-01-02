@@ -103,20 +103,6 @@ queue_envelope_incoming_path(uint64_t evpid, char *buf, size_t len)
 }
 
 int
-queue_message_incoming_delete(uint32_t msgid)
-{
-	char rootdir[MAXPATHLEN];
-
-	if (! queue_message_incoming_path(msgid, rootdir, sizeof(rootdir)))
-		fatal("queue_message_incoming_delete: snprintf");
-
-	if (rmtree(rootdir, 0) == -1)
-		fatal("queue_message_incoming_delete: rmtree");
-
-	return 1;
-}
-
-int
 queue_init(const char *name, int server)
 {
 	if (!strcmp(name, "fs"))
