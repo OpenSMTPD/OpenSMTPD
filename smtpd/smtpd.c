@@ -163,9 +163,13 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
-			/* If we reached here, it means we want root to lookup system user */
+			/*
+			 * If we reached here, it means we want root to lookup
+			 * system user
+			 */
 			auth = imsg->data;
-			auth->success = parent_auth_user(auth->user, auth->pass);
+			auth->success = parent_auth_user(auth->user,
+			    auth->pass);
 			m_compose(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1,
 			    auth, sizeof *auth);
 			return;
@@ -361,7 +365,7 @@ parent_send_config_lka()
 	while (tree_iter(env->sc_tables_tree, &iter_tree, NULL,
 		(void **)&t)) {
 		m_compose(p_lka, IMSG_CONF_TABLE, 0, 0, -1, t, sizeof(*t));
-		
+
 		iter_dict = NULL;
 		while (dict_iter(&t->t_dict, &iter_dict, &k,
 			(void **)&v)) {
@@ -379,7 +383,7 @@ parent_send_config_lka()
 			free(buffer);
 		}
 	}
-	
+
 	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
 		m_compose(p_lka, IMSG_CONF_RULE, 0, 0, -1, r, sizeof(*r));
 		m_compose(p_lka, IMSG_CONF_RULE_SOURCE, 0, 0, -1,
@@ -655,14 +659,12 @@ main(int argc, char *argv[])
 		errx(1, "error in offline directory setup");
 	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
 		errx(1, "error in purge directory setup");
-	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, pwq->pw_uid, 0, 1)
-	    == 0)
+	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, pwq->pw_uid, 0, 1) == 0)
 		errx(1, "error in purge directory setup");
 
 	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
-	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, pwq->pw_uid, 0, 1)
-	    == 0)
+	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, pwq->pw_uid, 0, 1) == 0)
 		errx(1, "error in incoming directory setup");
 
 	if (!queue_init(backend_queue, 1))
@@ -707,7 +709,8 @@ main(int argc, char *argv[])
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		if (l->flags & F_SSL) {
 			if (ssl_load_certfile(l->ssl_cert_name, F_SCERT) < 0)
-				errx(1, "cannot load certificate: %s", l->ssl_cert_name);
+				errx(1, "cannot load certificate: %s",
+				    l->ssl_cert_name);
 		}
 	}
 
@@ -718,9 +721,10 @@ main(int argc, char *argv[])
 		if (! r->r_value.relayhost.cert[0])
 			continue;
 		if (ssl_load_certfile(r->r_value.relayhost.cert, F_CCERT) < 0)
-			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
+			errx(1, "cannot load certificate: %s",
+			    r->r_value.relayhost.cert);
 	}
-	
+
 	fork_peers();
 
 	smtpd_process = PROC_PARENT;
