@@ -153,10 +153,10 @@ queue_message_commit(uint32_t msgid)
 	FILE	*ofp = NULL;
 	int	r;
 
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
-
 	if (env->sc_queue_flags & QUEUE_COMPRESS) {
+
+		queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
+		strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
 
 		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
 		ifp = fopen(msgpath, "r");
@@ -253,12 +253,13 @@ err:
 int
 queue_message_fd_rw(uint32_t msgid)
 {
-	char msgpath[MAXPATHLEN];
+	int	r;
 
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+	profile_enter("queue_message_fd_rw");
+	r = backend->message(QOP_FD_RW, &msgid);
+	profile_leave();
 
-	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
+	return (r);
 }
 
 static int

@@ -51,6 +51,7 @@ static int	fsqueue_envelope_walk(uint64_t *, char *, size_t);
 static int	fsqueue_message_create(uint32_t *);
 static int	fsqueue_message_commit(uint32_t);
 static int	fsqueue_message_fd_r(uint32_t);
+static int	fsqueue_message_fd_rw(uint32_t);
 static int	fsqueue_message_delete(uint32_t);
 static int	fsqueue_message_corrupt(uint32_t);
 
@@ -360,6 +361,17 @@ fsqueue_message_fd_r(uint32_t msgid)
 }
 
 static int
+fsqueue_message_fd_rw(uint32_t msgid)
+{
+	char msgpath[MAXPATHLEN];
+
+	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
+	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+
+	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
+}
+
+static int
 fsqueue_message_delete(uint32_t msgid)
 {
 	char		path[MAXPATHLEN];
@@ -447,6 +459,8 @@ fsqueue_message(enum queue_op qop, uint32_t *msgid)
 		return fsqueue_message_commit(*msgid);
 	case QOP_FD_R:
 		return fsqueue_message_fd_r(*msgid);
+	case QOP_FD_RW:
+		return fsqueue_message_fd_rw(*msgid);
 	case QOP_CORRUPT:
 		return fsqueue_message_corrupt(*msgid);
 	default:

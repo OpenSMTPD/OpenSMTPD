@@ -730,6 +730,7 @@ enum queue_op {
 	QOP_WALK,
 	QOP_COMMIT,
 	QOP_LOAD,
+	QOP_FD_RW,
 	QOP_FD_R,
 	QOP_CORRUPT,
 };
