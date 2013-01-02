@@ -132,7 +132,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		fclose(f);
 		unlink(path);
 		queue_message_incoming_path(*msgid, path, sizeof(path));
-		unlink(path);
+		rmdir(path);
 		stat_increment("queue.ram.message.size", msg->len);
 		return (1);
 
