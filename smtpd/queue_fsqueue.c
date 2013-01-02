@@ -56,6 +56,7 @@ static int	fsqueue_message_corrupt(uint32_t);
 
 static int	fsqueue_message_path(uint32_t, char *, size_t);
 static int	fsqueue_envelope_path(uint64_t, char *, size_t);
+static int	fsqueue_envelope_incoming_path(uint64_t, char *, size_t);
 static int	fsqueue_envelope_dump(char *, char *, size_t, int, int);
 
 static int	fsqueue_init(int);
@@ -104,6 +105,15 @@ fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 	return bsnprintf(buf, len, "%s/%02x/%08x/%016" PRIx64,
 	    PATH_QUEUE,
 	    evpid_to_msgid(evpid) & 0xff,
+	    evpid_to_msgid(evpid),
+	    evpid);
+}
+
+static int
+fsqueue_envelope_incoming_path(uint64_t evpid, char *buf, size_t len)
+{
+	return bsnprintf(buf, len, "%s/%08x/%016" PRIx64,
+	    PATH_INCOMING,
 	    evpid_to_msgid(evpid),
 	    evpid);
 }
@@ -186,7 +196,7 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 		if (queued)
 			fsqueue_envelope_path(*evpid, path, sizeof(path));
 		else
-			queue_envelope_incoming_path(*evpid, path,
+			fsqueue_envelope_incoming_path(*evpid, path,
 			    sizeof(path));
 
 		r = fsqueue_envelope_dump(path, buf, len, 0, 1);
