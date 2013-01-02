@@ -95,10 +95,9 @@ queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
 int
 queue_envelope_incoming_path(uint64_t evpid, char *buf, size_t len)
 {
-	return bsnprintf(buf, len, "%s/%08x%s/%016" PRIx64,
+	return bsnprintf(buf, len, "%s/%08x/%016" PRIx64,
 	    PATH_INCOMING,
 	    evpid_to_msgid(evpid),
-	    PATH_ENVELOPES,
 	    evpid);
 }
 
