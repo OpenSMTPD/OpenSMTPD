@@ -633,19 +633,38 @@ int
 text_to_expandnode(struct expandnode *expandnode, const char *s)
 {
 	char	buffer[MAX_LINE_SIZE];
+	char   *p;
 	size_t	l;
-	char   *wsp;
 
+	int	esc, dq, sq;
+
+	esc = dq = sq = 0;
 	bzero(buffer, sizeof buffer);
-	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
+	for (p = buffer; *s; ++s) {
+		if (*s == '\\') {
+			esc = 1;
+			continue;
+		}
+                if (*s == '"' && !esc && !sq) {
+                        dq ^= 1;
+			continue;
+                }
+                if (*s == '\\' && !esc && !dq) {
+                        sq ^= 1;
+			continue;
+                }
+                *p++ = *s;
+                esc = 0;
+	}
+	if (esc || sq || dq)
 		return 0;
 
 	/* remove ending whitespaces */
-	wsp = buffer + strlen(buffer);
-	while (wsp != buffer) {
-		if (*wsp != '\0' && !isspace((int)*wsp))
+	p = buffer + strlen(buffer);
+	while (p != buffer) {
+		if (*p != '\0' && !isspace((int)*p))
 			break;
-		*wsp-- = '\0';
+		*p-- = '\0';
 	}
 
 	l = strlen(buffer);

@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <util.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -36,67 +37,21 @@
 int
 forwards_get(int fd, struct expand *expand)
 {
-	FILE *fp;
-	char *buf, *lbuf, *p, *cp;
-	size_t len;
-	size_t nbaliases = 0;
-	int quoted;
-	struct expandnode xn;
+	FILE   *fp;
+	char   *line;
+	size_t	len;
+	size_t	lineno;
+
 
 	fp = fdopen(fd, "r");
 	if (fp == NULL)
 		return 0;
 
-	lbuf = NULL;
-	while ((buf = fgetln(fp, &len))) {
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-		else {
-			/* EOF without EOL, copy and add the NUL */
-			lbuf = xmalloc(len + 1, "forwards_get");
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
-
-		/* ignore empty lines and comments */
-		if (buf[0] == '#' || buf[0] == '\0')
-			continue;
-
-		quoted = 0;
-		cp = buf;
-		do {
-			/* skip whitespace */
-			while (isspace((int)*cp))
-				cp++;
-
-			/* parse line */
-			for (p = cp; *p != '\0'; p++) {
-				if (*p == ',' && !quoted) {
-					*p++ = '\0';
-					break;
-				} else if (*p == '"')
-					quoted = !quoted;
-			}
-			buf = cp;
-			cp = p;
-
-			if (! text_to_expandnode(&xn, buf)) {
-				log_debug("debug: bad entry in ~/.forward");
-				continue;
-			}
-
-			if (xn.type == EXPAND_INCLUDE) {
-				log_debug(
-				    "includes are forbidden in ~/.forward");
-				continue;
-			}
-
-			expand_insert(expand, &xn);
-			nbaliases++;
-		} while (*cp != '\0');
+	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
+		if (! expand_line(expand, line, 0))
+			return 0;
+		free(line);
 	}
-	free(lbuf);
-	fclose(fp);
-	return (nbaliases);
+
+	return 1;
 }
