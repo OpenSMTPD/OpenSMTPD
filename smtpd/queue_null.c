@@ -78,7 +78,7 @@ queue_null_message(enum queue_op qop, uint32_t *msgid)
 		strlcat(path, PATH_MESSAGE, sizeof(path));
 		unlink(path);
 		queue_message_incoming_path(*msgid, path, sizeof(path));
-		unlink(path);
+		rmdir(path);
 		return (1);
 	case QOP_FD_R:
 		return (-1);
