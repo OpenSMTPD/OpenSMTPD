@@ -62,7 +62,6 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 #define PATH_INCOMING		"/incoming"
-#define PATH_ENVELOPES		"/envelopes"
 #define PATH_MESSAGE		"/message"
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
@@ -536,6 +535,8 @@ struct smtpd {
 	char				sc_conffile[MAXPATHLEN];
 	size_t				sc_maxsize;
 
+	pid_t				sc_pid;
+
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
@@ -896,7 +897,6 @@ extern struct mproc *p_mta;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_smtp;
-extern struct mproc *p_current;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);

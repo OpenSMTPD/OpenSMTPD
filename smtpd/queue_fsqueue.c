@@ -127,6 +127,8 @@ fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, in
 	if ((fd = open(evpname, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
 		if (errno == ENOSPC || errno == ENFILE)
 			goto tempfail;
+		if (errno == EEXIST)
+			return -1;
 		fatal("fsqueue_envelope_dump_atomic: open");
 	}
 
@@ -187,20 +189,16 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 			queue_envelope_incoming_path(*evpid, path,
 			    sizeof(path));
 
-		if (stat(path, &sb) == -1 && errno == ENOENT)
-			goto found;
+		r = fsqueue_envelope_dump(path, buf, len, 0, 1);
+		if (r >= 0)
+			goto done;
 	}
 	fatal("couldn't figure out a new envelope id");
 
-found:
-	r = fsqueue_envelope_dump(path, buf, len, 0, 1);
-
-	if (r) {
-		n = tree_pop(&evpcount, msgid);
-		n += 1;
-		tree_xset(&evpcount, msgid, n);
-	}
-
+done:
+	n = tree_pop(&evpcount, msgid);
+	n += 1;
+	tree_xset(&evpcount, msgid, n);
 	return (r);
 }
 

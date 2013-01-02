@@ -57,10 +57,6 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 	if (p->pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-
-		p->pid = getpid();
-		p_current = p;
-
 		if (closefrom(STDERR_FILENO + 1) < 0)
 			exit(1);
 
@@ -125,8 +121,6 @@ void
 m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
     void *data, size_t len)
 {
-	if (!pid && p_current)
-		pid = p_current->pid;
 	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
 	mproc_event_add(p);
 }
