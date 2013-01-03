@@ -100,39 +100,42 @@ static int
 expand_line_split(char **line, char **ret)
 {
 	static char	buffer[MAX_LINE_SIZE];
-	int		esc, dq, sq;
-	int		i;
+	int		esc, i, dq, sq;
 	char	       *s;
 
 	bzero(buffer, sizeof buffer);
 	esc = dq = sq = i = 0;
-	for (s = *line; *s; ++s, ++i) {
-		if (*s == ',' && !esc && !dq && !sq) {
-			*ret = buffer;
-			*line = s+1;
-			return 1;
+	for (s = *line; (*s) && (i < (int)sizeof(buffer)); ++s) {
+		if (esc) {
+			buffer[i++] = *s;
+			esc = 0;
+			continue;
 		}
 		if (*s == '\\') {
 			esc = 1;
-			buffer[i] = *s;
 			continue;
 		}
-		if (*s == '"' && !esc && !sq) {
-			dq ^= 1;
+		if (*s == ',' && !dq && !sq) {
+			*ret = buffer;
+			*line = s+1;
+			return (1);
 		}
-		if (*s == '\\' && !esc && !dq) {
-			sq ^= 1;
-		}
-		buffer[i] = *s;
+
+		buffer[i++] = *s;
 		esc = 0;
+
+		if (*s == '"' && !sq)
+			dq ^= 1;
+		if (*s == '\'' && !dq)
+			sq ^= 1;
 	}
 
-	if (esc || dq || sq)
-		return -1;
+	if (esc || dq || sq || i == sizeof(buffer))
+		return (-1);
 
 	*ret = buffer;
 	*line = s;
-	return i ? 1 : 0;
+	return (i ? 1 : 0);
 }
 
 int
