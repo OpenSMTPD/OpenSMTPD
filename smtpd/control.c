@@ -402,7 +402,6 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 {
 	struct ctl_conn		*c;
 	int			 verbose;
-	uint64_t		 id;
 	struct stat_kv		*kvp;
 	char			*key;
 	struct stat_value	 val;

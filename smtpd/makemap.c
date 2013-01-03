@@ -58,7 +58,8 @@ char	*source;
 char	*oflag;
 int	 dbputs;
 
-struct smtpd	*env = NULL;
+struct smtpd	smtpd;
+struct smtpd	*env = &smtpd;
 
 enum program {
 	P_MAKEMAP,
@@ -95,11 +96,8 @@ main(int argc, char *argv[])
 	char		*conf;
 	int		 ch;
 	DBTYPE		 dbtype = DB_HASH;
-	struct smtpd	 smtpd;
 	char		*execname;
 	char		*p;
-
-	env = &smtpd;
 
 	log_init(1);
 

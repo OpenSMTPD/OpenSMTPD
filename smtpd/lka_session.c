@@ -103,7 +103,6 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	struct lka_session     *lks;
 	struct rule	       *rule;
 	struct expandnode      *xn;
-	int			ret;
 
 	lks = tree_xget(&sessions, fwreq->id);
 	xn = lks->node;
