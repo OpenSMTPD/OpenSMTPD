@@ -30,17 +30,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <util.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
 
 #define	MAX_FORWARD_SIZE	(4 * 1024)
+#define	MAX_EXPAND_NODES	(100)
 
 int
 forwards_get(int fd, struct expand *expand)
 {
-	FILE	       *fp;
-	char	       *line;
+	FILE	       *fp = NULL;
+	char	       *line = NULL;
 	size_t		len;
 	size_t		lineno;
 	int		ret;
@@ -70,11 +72,18 @@ forwards_get(int fd, struct expand *expand)
 			log_info("info: parse error in forward file");
 			goto end;
 		}
+		if (expand->nb_nodes > MAX_EXPAND_NODES) {
+			log_info("info: forward file expanded too many nodes");
+			goto end;
+		}
 		free(line);
 	}
+	       
 	ret = 1;
 
 end:
+	if (line)
+		free(line);
 	if (fp)
 		fclose(fp);
 	else
