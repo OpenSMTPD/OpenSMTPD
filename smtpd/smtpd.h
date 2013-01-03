@@ -435,6 +435,7 @@ struct expand {
 	RB_HEAD(expandtree, expandnode)	 tree;
 	TAILQ_HEAD(xnodes, expandnode)	*queue;
 	int				 alias;
+	size_t				 nb_nodes;
 	struct rule			*rule;
 	struct expandnode		*parent;
 };

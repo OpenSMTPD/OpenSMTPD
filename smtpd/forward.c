@@ -37,28 +37,63 @@
 #ifdef HAVE_LIBUTIL_H
 #include <libutil.h>
 #endif
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
 
+#define	MAX_FORWARD_SIZE	(4 * 1024)
+#define	MAX_EXPAND_NODES	(100)
+
 int
 forwards_get(int fd, struct expand *expand)
 {
-	FILE   *fp;
-	char   *line;
-	size_t	len;
-	size_t	lineno;
+	FILE	       *fp = NULL;
+	char	       *line = NULL;
+	size_t		len;
+	size_t		lineno;
+	int		ret;
+	struct stat	sb;
 
+	ret = 0;
+	if (fstat(fd, &sb) == -1)
+		goto end;
 
-	fp = fdopen(fd, "r");
-	if (fp == NULL)
-		return 0;
-
-	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
-		if (! expand_line(expand, line, 0))
-			return 0;
-		free(line);
+	/* empty or over MAX_FORWARD_SIZE, temporarily fail */
+	if (sb.st_size == 0) {
+		log_info("info: forward file is empty");
+		goto end;
+	}
+	if (sb.st_size >= MAX_FORWARD_SIZE) {
+		log_info("info: forward file exceeds max size");
+		goto end;
 	}
 
-	return 1;
+	if ((fp = fdopen(fd, "r")) == NULL) {
+		log_warn("warn: fdopen failure in forwards_get()");
+		goto end;
+	}
+
+	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
+		if (! expand_line(expand, line, 0)) {
+			log_info("info: parse error in forward file");
+			goto end;
+		}
+		if (expand->nb_nodes > MAX_EXPAND_NODES) {
+			log_info("info: forward file expanded too many nodes");
+			goto end;
+		}
+		free(line);
+	}
+	       
+	ret = 1;
+
+end:
+	if (line)
+		free(line);
+	if (fp)
+		fclose(fp);
+	else
+		close(fd);
+	return ret;
 }

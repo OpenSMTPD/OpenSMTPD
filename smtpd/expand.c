@@ -72,6 +72,7 @@ expand_insert(struct expand *expand, struct expandnode *node)
 	RB_INSERT(expandtree, &expand->tree, xn);
 	if (expand->queue)
 		TAILQ_INSERT_TAIL(expand->queue, xn, tq_entry);
+	expand->nb_nodes++;
 }
 
 void
