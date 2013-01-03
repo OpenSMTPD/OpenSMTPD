@@ -912,6 +912,11 @@ smtp_command(struct smtp_session *s, char *line)
 		req_line.reqid = s->id;
 		req_line.flags = s->flags;
 		len = strlcpy(req_line.line, s->helo, sizeof(req_line.line));
+		if (len >= sizeof (req_line.line)) {
+			smtp_reply(s, "501 Invalid domain name (too long)");
+			break;
+		}
+
 		smtp_query_mfa(s, IMSG_MFA_REQ_HELO, &req_line,
 		    sizeof(req_line));
 		break;

@@ -201,10 +201,10 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 
 	case K_SOURCE:
 		ret = table_static_source(key, line, len, retp);
+		break;
 
 	case K_USERINFO:
 		ret = table_static_userinfo(key, line, len, retp);
-
 		break;
 
 	default:
