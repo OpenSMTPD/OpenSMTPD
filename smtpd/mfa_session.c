@@ -122,7 +122,6 @@ mfa_filter_init(void)
 	void			*iter;
 	struct mfa_filter	*f;
 	struct mproc		*p;
-	int			 r;
 	uint32_t		 v = FILTER_API_VERSION;
 
 	if (init)
@@ -142,7 +141,8 @@ mfa_filter_init(void)
 		p->proc = -1;
 		p->name = xstrdup(filter->name, "mfa_filter_init");
 		p->data = f;
-		r = mproc_fork(p, filter->path, filter->name);
+		if (mproc_fork(p, filter->path, filter->name) < 0)
+			fatalx("mfa_filter_init");
 		m_compose(p, IMSG_FILTER_REGISTER, 0, 0, -1, &v, sizeof(v));
 		mproc_enable(p);
 		TAILQ_INSERT_TAIL(&chain.filters, f, entry);

@@ -132,6 +132,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SSL_VERIFY_CHAIN:
+			if (req_ca_vrfy_smtp == NULL)
+				fatalx("lka:ca_vrfy: chain without a certificate");
 			req_ca_vrfy_chain = imsg->data;
 			req_ca_vrfy_smtp->chain_cert[req_ca_vrfy_smtp->chain_offset] = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_chain, req_ca_vrfy_chain->cert_len, "lka:ca_vrfy");

@@ -584,7 +584,6 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		id = *(uint64_t *)imsg->data;
 		m_forward(p_scheduler, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -593,7 +592,6 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		id = *(uint64_t *)imsg->data;
 		m_forward(p_scheduler, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;

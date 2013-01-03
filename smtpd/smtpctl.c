@@ -97,8 +97,6 @@ usage(void)
 static void
 setup_env(struct smtpd *smtpd)
 {
-	struct passwd	*pwq;
-
 	bzero(smtpd, sizeof (*smtpd));
 	env = smtpd;
 
@@ -109,9 +107,9 @@ setup_env(struct smtpd *smtpd)
 
 	env->sc_pwqueue = getpwnam(SMTPD_QUEUE_USER);
 	if (env->sc_pwqueue)
-		pwq = env->sc_pwqueue = pw_dup(env->sc_pwqueue);
+		env->sc_pwqueue = pw_dup(env->sc_pwqueue);
 	else
-		pwq = env->sc_pwqueue = pw_dup(env->sc_pw);
+		env->sc_pwqueue = pw_dup(env->sc_pw);
 	if (env->sc_pwqueue == NULL)
 		err(1, NULL);
 
@@ -279,7 +277,6 @@ main(int argc, char *argv[])
 		done = 1;
 		break;
 	case MONITOR:
-		done = 1;
 		while (1) {
 			imsg_compose(ibuf, IMSG_DIGEST, 0, 0, -1, NULL, 0);
 			flush();
