@@ -632,47 +632,14 @@ text_to_credentials(struct credentials *creds, const char *s)
 int
 text_to_expandnode(struct expandnode *expandnode, const char *s)
 {
-	char	buffer[MAX_LINE_SIZE];
-	char   *p;
 	size_t	l;
 
-	int	esc, dq, sq;
-
-	esc = dq = sq = 0;
-	bzero(buffer, sizeof buffer);
-	for (p = buffer; *s; ++s) {
-		if (*s == '\\') {
-			esc = 1;
-			continue;
-		}
-                if (*s == '"' && !esc && !sq) {
-                        dq ^= 1;
-			continue;
-                }
-                if (*s == '\\' && !esc && !dq) {
-                        sq ^= 1;
-			continue;
-                }
-                *p++ = *s;
-                esc = 0;
-	}
-	if (esc || sq || dq)
-		return 0;
-
-	/* remove ending whitespaces */
-	p = buffer + strlen(buffer);
-	while (p != buffer) {
-		if (*p != '\0' && !isspace((int)*p))
-			break;
-		*p-- = '\0';
-	}
-
-	l = strlen(buffer);
-	if (alias_is_include(expandnode, buffer, l) ||
-	    alias_is_filter(expandnode, buffer, l) ||
-	    alias_is_filename(expandnode, buffer, l) ||
-	    alias_is_address(expandnode, buffer, l) ||
-	    alias_is_username(expandnode, buffer, l))
+	l = strlen(s);
+	if (alias_is_include(expandnode, s, l) ||
+	    alias_is_filter(expandnode, s, l) ||
+	    alias_is_filename(expandnode, s, l) ||
+	    alias_is_address(expandnode, s, l) ||
+	    alias_is_username(expandnode, s, l))
 		return (1);
 
 	return (0);
