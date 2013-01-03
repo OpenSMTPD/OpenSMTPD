@@ -34,7 +34,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	MAX_FORWARD_SIZE	(1024 * 1024)
+#define	MAX_FORWARD_SIZE	(4 * 1024)
 
 int
 forwards_get(int fd, struct expand *expand)
@@ -50,13 +50,13 @@ forwards_get(int fd, struct expand *expand)
 	if (fstat(fd, &sb) == -1)
 		goto end;
 
-	/* empty or over 1MB, temporarily fail */
+	/* empty or over MAX_FORWARD_SIZE, temporarily fail */
 	if (sb.st_size == 0) {
 		log_info("info: forward file is empty");
 		goto end;
 	}
 	if (sb.st_size >= MAX_FORWARD_SIZE) {
-		log_info("info: forward file exceeds 1MB");
+		log_info("info: forward file exceeds max size");
 		goto end;
 	}
 
