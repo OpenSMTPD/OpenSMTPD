@@ -563,7 +563,7 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 			break;
 
 		case FTS_F:
-			if (q->depth != 4)
+			if (q->depth != 3)
 				break;
 			if (e->fts_namelen != 16)
 				break;
