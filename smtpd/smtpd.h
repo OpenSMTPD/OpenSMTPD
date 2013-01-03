@@ -1166,7 +1166,7 @@ int expand_cmp(struct expandnode *, struct expandnode *);
 void expand_insert(struct expand *, struct expandnode *);
 struct expandnode *expand_lookup(struct expand *, struct expandnode *);
 void expand_free(struct expand *);
-int expand_line(struct expand *, const char *);
+int expand_line(struct expand *, const char *, int);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
@@ -1410,6 +1410,7 @@ void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
+char *strip(char *);
 void iobuf_xinit(struct iobuf *, size_t, size_t, const char *);
 void iobuf_xfqueue(struct iobuf *, const char *, const char *, ...);
 void log_envelope(const struct envelope *, const char *, const char *,
