@@ -91,9 +91,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_COMMIT_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
+			ret = 1;
 			if ((ofile = tree_xpop(&files, msgid)))
-				fclose(ofile);
-			ret = queue_message_commit(msgid);
+				ret = safe_fclose(ofile);
+			if (ret)
+				ret = queue_message_commit(msgid);
 			resp.reqid = req->reqid;
 			resp.success = (ret == 0) ? 0 : 1;
 			resp.evpid = msgid_to_evpid(msgid);
