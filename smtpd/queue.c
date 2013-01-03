@@ -64,6 +64,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 id;
 	uint32_t		 msgid;
 	FILE			*ofile;
+	size_t			 n;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -92,7 +93,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
 			ret = 1;
-			if ((ofile = tree_xpop(&files, msgid)))
+			if ((ofile = tree_xpop(&files, msgid)) == NULL)
+				ret = 0; /* fwrite failed */
+			else
 				ret = safe_fclose(ofile);
 			if (ret)
 				ret = queue_message_commit(msgid);
@@ -130,9 +133,18 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_DATA:
 			data = imsg->data;
 			ofile = tree_xget(&files, data->msgid);
+			if (ofile == NULL)
+				return;
+
 			/* XXX plug compression/crypto */
-			fwrite(data->data, 1, data->len, ofile);
-			/* XXX check for failure and report to smtp */
+
+			n = fwrite(data->data, 1, data->len, ofile);
+			if (n != data->len) {
+				log_warn("warn: failed to write message data");
+				fclose(ofile);
+				tree_xset(&files, data->msgid, NULL);
+				/* XXX report to SMTP */
+			}
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
