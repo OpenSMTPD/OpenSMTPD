@@ -72,7 +72,6 @@ queue_null_message(enum queue_op qop, uint32_t *msgid)
 		}
 		return (1);
 	case QOP_DELETE:
-		return (1);
 	case QOP_COMMIT:
 		queue_message_incoming_path(*msgid, path, sizeof(path));
 		strlcat(path, PATH_MESSAGE, sizeof(path));
