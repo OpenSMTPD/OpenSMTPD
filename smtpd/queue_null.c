@@ -51,36 +51,35 @@ struct queue_backend queue_backend_null = {
 	queue_null_envelope,
 };
 
+static int	devnull;
+
 static int
 queue_null_init(int server)
 {
+
+	devnull = open("/dev/null", O_WRONLY, 0777);
+	if (devnull == -1) {
+		log_warn("open");
+		return (0);
+	}
+
 	return (1);
 }
 
 static int
 queue_null_message(enum queue_op qop, uint32_t *msgid)
 {
-	char	path[MAXPATHLEN];
-
 	switch (qop) {
 	case QOP_CREATE:
 		*msgid = queue_generate_msgid();
-		queue_message_incoming_path(*msgid, path, sizeof(path));
-		if (mkdir(path, 0700) == -1) {
-			log_warn("queue_ram_message: mkdir");
-			return (0);
-		}
 		return (1);
 	case QOP_DELETE:
 	case QOP_COMMIT:
-		queue_message_incoming_path(*msgid, path, sizeof(path));
-		strlcat(path, PATH_MESSAGE, sizeof(path));
-		unlink(path);
-		queue_message_incoming_path(*msgid, path, sizeof(path));
-		rmdir(path);
 		return (1);
 	case QOP_FD_R:
 		return (-1);
+	case QOP_FD_RW:
+		return dup(devnull);
 	case QOP_CORRUPT:
 		return (0);
 	default:

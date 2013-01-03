@@ -137,47 +137,13 @@ queue_message_delete(uint32_t msgid)
 int
 queue_message_commit(uint32_t msgid)
 {
-	char	msgpath[MAXPATHLEN];
-	char	tmppath[MAXPATHLEN];
-	FILE	*ifp = NULL;
-	FILE	*ofp = NULL;
 	int	r;
-
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
-
-	if (env->sc_queue_flags & QUEUE_COMPRESS) {
-
-		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
-		ifp = fopen(msgpath, "r");
-		ofp = fopen(tmppath, "w+");
-		if (ifp == NULL || ofp == NULL)
-			goto err;
-		if (! compress_file(ifp, ofp))
-			goto err;
-		fclose(ifp);
-		fclose(ofp);
-		ifp = NULL;
-		ofp = NULL;
-
-		if (rename(tmppath, msgpath) == -1) {
-			if (errno == ENOSPC)
-				return (0);
-			fatal("queue_message_commit: rename");
-		}
-	}
 
 	profile_enter("queue_message_commit");
 	r = backend->message(QOP_COMMIT, &msgid);
 	profile_leave();
 
 	return (r);
-err:
-	if (ifp)
-		fclose(ifp);
-	if (ofp)
-		fclose(ofp);
-	return 0;
 }
 
 int
@@ -243,12 +209,13 @@ err:
 int
 queue_message_fd_rw(uint32_t msgid)
 {
-	char msgpath[MAXPATHLEN];
+	int	r;
 
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+	profile_enter("queue_message_fd_rw");
+	r = backend->message(QOP_FD_RW, &msgid);
+	profile_leave();
 
-	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
+	return (r);
 }
 
 static int

@@ -34,35 +34,69 @@
 
 extern struct compress_backend compress_gzip;
 
-struct compress_backend *
-compress_backend_lookup(const char *name)
+static struct compress_backend	*backend = NULL;
+
+int
+compress_backend_init(const char *name)
 {
 	if (!strcmp(name, "gzip"))
-		return &compress_gzip;
+		backend = &compress_gzip;
 
-	return (NULL);
+	if (backend)
+		return (1);
+	return (0);
 }
 
-int
-compress_file(FILE *in, FILE *out)
+void *
+compress_new(void)
 {
-	return env->sc_compress->compress_file(in, out);
+	return (backend->compress_new());
 }
 
-int
-uncompress_file(FILE *in, FILE *out)
+size_t
+compress_chunk(void *hdl, void *ib, size_t ibsz, void *ob, size_t obsz)
 {
-	return env->sc_compress->uncompress_file(in, out);
+	return (backend->compress_chunk(hdl, ib, ibsz, ob, obsz));
+}
+
+size_t
+compress_finalize(void *hdl, void *ob, size_t obsz)
+{
+	return (backend->compress_finalize(hdl, ob, obsz));
+}
+
+void *
+uncompress_new(void)
+{
+	return (backend->uncompress_new());
+}
+
+size_t
+uncompress_chunk(void *hdl, void *ib, size_t ibsz, void *ob, size_t obsz)
+{
+	return (backend->uncompress_chunk(hdl, ib, ibsz, ob, obsz));
+}
+
+size_t
+uncompress_finalize(void *hdl, void *ob, size_t obsz)
+{
+	return (backend->uncompress_finalize(hdl, ob, obsz));
 }
 
 size_t
 compress_buffer(char *ib, size_t iblen, char *ob, size_t oblen)
 {
-	return env->sc_compress->compress_buffer(ib, iblen, ob, oblen);
+	return (compress_chunk(NULL, ib, iblen, ob, oblen));
 }
 
 size_t
 uncompress_buffer(char *ib, size_t iblen, char *ob, size_t oblen)
 {
-	return env->sc_compress->uncompress_buffer(ib, iblen, ob, oblen);
+	return (uncompress_chunk(NULL, ib, iblen, ob, oblen));
 }
+
+int
+uncompress_file(FILE *ifile, FILE *ofile)
+{
+	return (0);
+};

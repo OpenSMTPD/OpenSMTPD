@@ -218,6 +218,7 @@ enum imsg_type {
 	IMSG_QUEUE_COMMIT_ENVELOPES,
 	IMSG_QUEUE_REMOVE_MESSAGE,
 	IMSG_QUEUE_COMMIT_MESSAGE,
+	IMSG_QUEUE_DATA,
 	IMSG_QUEUE_MESSAGE_FD,
 	IMSG_QUEUE_MESSAGE_FILE,
 	IMSG_QUEUE_REMOVE,
@@ -561,7 +562,6 @@ struct smtpd {
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[MAXHOSTNAMELEN];
-	struct compress_backend	       *sc_compress;
 	struct scheduler_backend       *sc_scheduler;
 	struct stat_backend	       *sc_stat;
 
@@ -731,6 +731,7 @@ enum queue_op {
 	QOP_WALK,
 	QOP_COMMIT,
 	QOP_LOAD,
+	QOP_FD_RW,
 	QOP_FD_R,
 	QOP_CORRUPT,
 };
@@ -742,10 +743,12 @@ struct queue_backend {
 };
 
 struct compress_backend {
-	int	(*compress_file)(FILE *, FILE *);
-	int	(*uncompress_file)(FILE *, FILE *);
-	size_t	(*compress_buffer)(char *, size_t, char *, size_t);
-	size_t	(*uncompress_buffer)(char *, size_t, char *, size_t);
+	void *	(*compress_new)(void);
+	size_t	(*compress_chunk)(void *, void *, size_t, void *, size_t);
+	size_t	(*compress_finalize)(void *, void *, size_t);
+	void *	(*uncompress_new)(void);
+	size_t	(*uncompress_chunk)(void *, void *, size_t, void *, size_t);
+	size_t	(*uncompress_finalize)(void *, void *, size_t);
 };
 
 /* auth structures */
@@ -926,6 +929,12 @@ struct queue_req_msg {
 	uint64_t	evpid;
 };
 
+struct queue_data_msg {
+	uint32_t	msgid;
+	size_t		len;
+	char		data[MAX_LINE_SIZE];
+};
+
 struct queue_resp_msg {
 	uint64_t	reqid;
 	int		success;
@@ -1103,13 +1112,18 @@ void bounce_run(uint64_t, int);
 /* ca.c */
 int	ca_X509_verify(void *, void *, const char *, const char *, const char **);
 
-/* compress_backend.c */
-struct compress_backend *compress_backend_lookup(const char *);
-int compress_file(FILE *, FILE *);
-int uncompress_file(FILE *, FILE *);
-size_t compress_buffer(char *, size_t, char *, size_t);
-size_t uncompress_buffer(char *, size_t, char *, size_t);
 
+/* compress_backend.c */
+int	compress_backend_init(const char *);
+void*	compress_new(void);
+size_t	compress_chunk(void *, void *, size_t, void *, size_t);
+size_t	compress_finalize(void *, void *, size_t);
+size_t	compress_buffer(char *, size_t, char *, size_t);
+void*	uncompress_new(void);
+size_t	uncompress_chunk(void *, void *, size_t, void *, size_t);
+size_t	uncompress_finalize(void *, void *, size_t);
+size_t	uncompress_buffer(char *, size_t, char *, size_t);
+int	uncompress_file(FILE *, FILE *);
 
 /* config.c */
 #define PURGE_LISTENERS		0x01
@@ -1244,7 +1258,7 @@ pid_t queue(void);
 
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);
-uint64_t queue_generate_evpid(uint32_t msgid);
+uint64_t queue_generate_evpid(uint32_t);
 int queue_init(const char *, int);
 int queue_message_incoming_path(uint32_t, char *, size_t);
 int queue_message_create(uint32_t *);
