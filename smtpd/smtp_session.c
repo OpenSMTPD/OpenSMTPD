@@ -1448,6 +1448,9 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 {
 	char   *p, *e;
 
+	if (line == NULL)
+		return (0);
+
 	if (*line != '<')
 		return (0);
 

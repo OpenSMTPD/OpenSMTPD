@@ -760,11 +760,12 @@ main(int argc, char *argv[])
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
 
+	/*
 	if (env->sc_queue_compress_algo &&
 	    !compress_backend_init(env->sc_queue_compress_algo));
 		errx(1, "could setup queue compress backend \"%s\"",
 		    env->sc_queue_compress_algo);
-
+	*/
 	log_init(debug);
 	log_verbose(verbose);
 
