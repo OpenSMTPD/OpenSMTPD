@@ -122,6 +122,23 @@ iobuf_xfqueue(struct iobuf *io, const char *where, const char *fmt, ...)
 }
 #endif
 
+char *
+strip(char *s)
+{
+	size_t	 l;
+
+	while (*s == ' ' || *s == '\t')
+		s++;
+
+	for (l = strlen(s); l; l--) {
+		if (s[l-1] != ' ' && s[l-1] != '\t')
+			break;
+		s[l-1] = '\0';
+	}
+
+	return (s);
+}
+
 int
 bsnprintf(char *str, size_t size, const char *format, ...)
 {

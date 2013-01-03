@@ -25,6 +25,23 @@
 
 #define MAX_LINE_SIZE	2048
 
+static char *
+strip(char *s)
+{
+	size_t	 l;
+
+	while (*s == ' ' || *s == '\t')
+		s++;
+
+	for (l = strlen(s); l; l--) {
+		if (s[l-1] != ' ' && s[l-1] != '\t')
+			break;
+		s[l-1] = '\0';
+	}
+
+	return (s);
+}
+
 static int
 expand_line_split(char **line, char **ret)
 {
@@ -79,8 +96,10 @@ expand_line(const char *s)
 		return 0;
 
 	p = buffer;
-	while ((ret = expand_line_split(&p, &subrcpt)) > 0)
-		printf("   -> [%s]\n", subrcpt);
+	while ((ret = expand_line_split(&p, &subrcpt)) > 0) {
+		printf("   -> [%s]", subrcpt);
+		printf(" (%s)\n", strip(subrcpt));
+	}
 
 	if (ret >= 0)
 		return 1;

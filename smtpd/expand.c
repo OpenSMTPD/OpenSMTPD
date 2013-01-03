@@ -152,6 +152,9 @@ expand_line(struct expand *expand, const char *s, int do_includes)
 
 	p = buffer;
 	while ((ret = expand_line_split(&p, &subrcpt)) > 0) {
+		subrcpt = strip(subrcpt);
+		if (subrcpt[0] == '\0')
+			continue;
 		if (! text_to_expandnode(&xn, subrcpt))
 			return 0;
 		if (! do_includes)
