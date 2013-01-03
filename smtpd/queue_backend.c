@@ -135,42 +135,6 @@ queue_message_delete(uint32_t msgid)
 }
 
 int
-queue_compress_file(const char *path)
-{
-	FILE	*ifp, *ofp;
-	char	tmppath[MAXPATHLEN];
-
-	if (!env->sc_queue_flags & QUEUE_COMPRESS)
-		return (0);
-
-	bsnprintf(tmppath, sizeof tmppath, "%s.comp", path);
-	ifp = fopen(path, "r");
-	ofp = fopen(tmppath, "w+");
-	if (ifp == NULL || ofp == NULL)
-		goto err;
-	if (! compress_file(ifp, ofp))
-		goto err;
-	fclose(ifp);
-	fclose(ofp);
-	ifp = NULL;
-	ofp = NULL;
-
-	if (rename(tmppath, path) == -1) {
-		if (errno == ENOSPC)
-			return (0);
-		fatal("queue_compress_file: rename");
-	}
-	return (1);
-
-err:
-	if (ifp)
-		fclose(ifp);
-	if (ofp)
-		fclose(ofp);
-	return (0);
-}
-
-int
 queue_message_commit(uint32_t msgid)
 {
 	int	r;
