@@ -34,24 +34,50 @@
 #include "smtpd.h"
 #include "log.h"
 
+#define	MAX_FORWARD_SIZE	(1024 * 1024)
+
 int
 forwards_get(int fd, struct expand *expand)
 {
-	FILE   *fp;
-	char   *line;
-	size_t	len;
-	size_t	lineno;
+	FILE	       *fp;
+	char	       *line;
+	size_t		len;
+	size_t		lineno;
+	int		ret;
+	struct stat	sb;
 
+	ret = 0;
+	if (fstat(fd, &sb) == -1)
+		goto end;
 
-	fp = fdopen(fd, "r");
-	if (fp == NULL)
-		return 0;
-
-	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
-		if (! expand_line(expand, line, 0))
-			return 0;
-		free(line);
+	/* empty or over 1MB, temporarily fail */
+	if (sb.st_size == 0) {
+		log_info("info: forward file is empty");
+		goto end;
+	}
+	if (sb.st_size >= MAX_FORWARD_SIZE) {
+		log_info("info: forward file exceeds 1MB");
+		goto end;
 	}
 
-	return 1;
+	if ((fp = fdopen(fd, "r")) == NULL) {
+		log_warn("warn: fdopen failure in forwards_get()");
+		goto end;
+	}
+
+	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
+		if (! expand_line(expand, line, 0)) {
+			log_info("info: parse error in forward file");
+			goto end;
+		}
+		free(line);
+	}
+	ret = 1;
+
+end:
+	if (fp)
+		fclose(fp);
+	else
+		close(fd);
+	return ret;
 }

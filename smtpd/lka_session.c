@@ -100,9 +100,10 @@ lka_session(uint64_t id, struct envelope *envelope)
 void
 lka_session_forward_reply(struct forward_req *fwreq, int fd)
 {
-	struct lka_session	*lks;
-	struct rule		*rule;
-	struct expandnode	*xn;
+	struct lka_session     *lks;
+	struct rule	       *rule;
+	struct expandnode      *xn;
+	int			ret;
 
 	lks = tree_xget(&sessions, fwreq->id);
 	xn = lks->node;
@@ -128,12 +129,13 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 0;
-			if (forwards_get(fd, &lks->expand) == 0) {
-				log_debug("debug: lka: no forward alias for user %s",
+
+			/* forwards_get() will close the descriptor no matter what */
+			if (! forwards_get(fd, &lks->expand)) {
+				log_debug("debug: lka: temporary forward error for user %s",
 				    fwreq->user);
-				lks->error = LKA_PERMFAIL;
+				lks->error = LKA_TEMPFAIL;
 			}
-			close(fd);
 		}
 		break;
 	default:
