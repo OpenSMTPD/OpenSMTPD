@@ -51,19 +51,28 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
+static struct tree	sinks;
+
+struct sink {
+	FILE	*ofile;
+};
+
 static void
 queue_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
 	struct queue_req_msg	*req;
+	struct queue_data_msg	*data;
 	struct queue_resp_msg	 resp;
 	struct envelope		*e, evp;
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
+	struct sink		*sink;
 	int			 fd, ret;
 	uint64_t		 id;
 	uint32_t		 msgid;
+	size_t			 n;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -81,6 +90,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_REMOVE_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
+			if ((sink = tree_pop(&sinks, msgid))) {
+				fclose(sink->ofile);
+				free(sink);
+			}
 			queue_message_delete(msgid);
 			m_compose(p_scheduler, IMSG_QUEUE_REMOVE_MESSAGE,
 			    0, 0, -1, &msgid, sizeof msgid);
@@ -89,7 +102,15 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_COMMIT_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
-			ret = queue_message_commit(msgid);
+			ret = 1;
+			if ((sink = tree_xpop(&sinks, msgid)) == NULL)
+				ret = 0; /* fwrite failed */
+			else {
+				ret = safe_fclose(sink->ofile);
+				free(sink);
+			}
+			if (ret)
+				ret = queue_message_commit(msgid);
 			resp.reqid = req->reqid;
 			resp.success = (ret == 0) ? 0 : 1;
 			resp.evpid = msgid_to_evpid(msgid);
@@ -105,11 +126,42 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
 			fd = queue_message_fd_rw(msgid);
+			if (fd != -1) {
+				sink = xcalloc(1, sizeof(*sink), "sink");
+				sink->ofile = fdopen(fd, "w");
+				if (sink->ofile == NULL) {
+					free(sink);
+					close(fd);
+					fd = -1;
+				}
+				else
+					tree_xset(&sinks, msgid, sink);
+			}
 			resp.reqid = req->reqid;
 			resp.success = (fd == -1) ? 0 : 1;
 			resp.evpid = req->evpid;
-			m_compose(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd,
+			m_compose(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
 			    &resp, sizeof resp);
+			return;
+
+		case IMSG_QUEUE_DATA:
+			data = imsg->data;
+			sink = tree_xget(&sinks, data->msgid);
+			if (sink == NULL)
+				return;
+
+			if (env->sc_queue_flags & QUEUE_COMPRESS) {
+				/* XXX plug compression/crypto */
+			}
+
+			n = fwrite(data->data, 1, data->len, sink->ofile);
+			if (n != data->len) {
+				log_warn("warn: failed to write message data");
+				fclose(sink->ofile);
+				free(sink);
+				tree_xset(&sinks, data->msgid, NULL);
+				/* XXX report to SMTP */
+			}
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
@@ -417,6 +469,8 @@ queue(void)
 
 	imsg_callback = queue_imsg;
 	event_init();
+
+	tree_init(&sinks);
 
 	signal_set(&ev_sigint, SIGINT, queue_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, queue_sig_handler, NULL);

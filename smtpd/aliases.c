@@ -191,10 +191,8 @@ aliases_expand_include(struct expand *expand, const char *filename)
 {
 	FILE *fp;
 	char *line;
-	size_t len;
-	size_t lineno = 0;
+	size_t len, lineno = 0;
 	char delim[] = { '\\', '#' };
-	struct expandnode xn;
 
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
@@ -203,20 +201,7 @@ aliases_expand_include(struct expand *expand, const char *filename)
 	}
 
 	while ((line = fparseln(fp, &len, &lineno, delim, 0)) != NULL) {
-		if (len == 0) {
-			free(line);
-			continue;
-		}
-
-		if (! text_to_expandnode(&xn, line))
-			log_warnx("warn: could not parse include entry \"%s\".",
-			    line);
-
-		if (xn.type == EXPAND_INCLUDE)
-			log_warnx("warn: nested inclusion is not supported.");
-		else
-			expand_insert(expand, &xn);
-
+		expand_line(expand, line, 0);
 		free(line);
 	}
 

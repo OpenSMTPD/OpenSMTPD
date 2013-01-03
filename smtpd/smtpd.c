@@ -760,13 +760,10 @@ main(int argc, char *argv[])
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
 
-	if (env->sc_queue_compress_algo) {
-		env->sc_compress =
-			compress_backend_lookup(env->sc_queue_compress_algo);
-		if (env->sc_compress == NULL)
-			errx(1, "could not find queue compress backend \"%s\"",
-			    env->sc_queue_compress_algo);
-	}
+	if (env->sc_queue_compress_algo &&
+	    !compress_backend_init(env->sc_queue_compress_algo));
+		errx(1, "could setup queue compress backend \"%s\"",
+		    env->sc_queue_compress_algo);
 
 	log_init(debug);
 	log_verbose(verbose);
@@ -1454,6 +1451,7 @@ imsg_to_str(int type)
 	CASE(IMSG_QUEUE_COMMIT_ENVELOPES);
 	CASE(IMSG_QUEUE_REMOVE_MESSAGE);
 	CASE(IMSG_QUEUE_COMMIT_MESSAGE);
+	CASE(IMSG_QUEUE_DATA);
 	CASE(IMSG_QUEUE_MESSAGE_FD);
 	CASE(IMSG_QUEUE_MESSAGE_FILE);
 	CASE(IMSG_QUEUE_REMOVE);

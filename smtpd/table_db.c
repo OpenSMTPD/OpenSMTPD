@@ -332,7 +332,7 @@ table_db_alias(const char *key, char *line, size_t len, void **retp)
 	struct expand	*xp = NULL;
 
 	xp = xcalloc(1, sizeof *xp, "table_db_alias");
-	if (! expand_line(xp, line))
+	if (! expand_line(xp, line, 1))
 		goto error;
 	*retp = xp;
 	return 1;

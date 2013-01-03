@@ -130,7 +130,6 @@ struct smtp_session {
 	size_t			 rcptfail;
 	size_t			 destcount;
 
-	FILE			*ofile;
 	size_t			 datalen;
 };
 
@@ -260,6 +259,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
 	struct mfa_req_msg		 req_mfa;
+	struct queue_data_msg		 data;
 	struct smtp_session		*s;
 	struct auth			*auth;
 	void				*ssl;
@@ -335,23 +335,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			io_reload(&s->io);
 			return;
 		}
-		if (imsg->fd == -1) {
-			log_warnx("warn: Failed to retreive message fd");
-			smtp_reply(s, "421 Temporary Error");
-			smtp_enter_state(s, STATE_QUIT);
-			io_reload(&s->io);
-			return;
-		}
-		if ((s->ofile = fdopen(imsg->fd, "w")) == NULL) {
-			log_warn("warn: Failed fdopen in smtp");
-			close(imsg->fd);
-			smtp_reply(s, "421 Temporary Error");
-			smtp_enter_state(s, STATE_QUIT);
-			io_reload(&s->io);
-			return;
-		}
 
-		fprintf(s->ofile, "Received: from %s (%s [%s]);\n"
+		data.msgid = evpid_to_msgid(s->evp.id);
+		
+		data.len = snprintf(data.data, (sizeof data.data),
+		    "Received: from %s (%s [%s]);\n"
 		    "\tby %s (OpenSMTPD) with %sSMTP id %08x;\n",
 		    s->evp.helo,
 		    s->hostname,
@@ -359,9 +347,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    env->sc_hostname,
 		    s->flags & SF_EHLO ? "E" : "",
 		    evpid_to_msgid(s->evp.id));
+		m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
 
-		if (s->flags & SF_SECURE)
-			fprintf(s->ofile,
+		if (s->flags & SF_SECURE) {
+			data.len = snprintf(data.data, (sizeof data.data),
 			    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
@@ -372,21 +361,20 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			 *  (s->flags & SF_VERIFIED) ? "YES" :
 			 *  (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
 			 */
+			m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
+		}
 
-		if (s->rcptcount == 1)
-			fprintf(s->ofile, "\tfor <%s@%s>;\n",
+		if (s->rcptcount == 1) {
+			data.len = snprintf(data.data, (sizeof data.data),
+			    "\tfor <%s@%s>;\n",
 			    s->evp.rcpt.user,
 			    s->evp.rcpt.domain);
-
-		fprintf(s->ofile, "\t%s\n", time_to_text(time(NULL)));
-
-		if (ferror(s->ofile)) {
-			log_warnx("warn: Error on output file");
-			smtp_reply(s, "421 Temporary Error");
-			smtp_enter_state(s, STATE_QUIT);
-			io_reload(&s->io);
-			return;
+			m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
 		}
+
+		data.len = snprintf(data.data, (sizeof data.data),
+		    "\t%s\n", time_to_text(time(NULL)));
+		m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
 
 		smtp_enter_state(s, STATE_BODY);
 		smtp_reply(s, "354 Enter mail, end with \".\""
@@ -1078,8 +1066,6 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 
 		s->phase = PHASE_SETUP;
-		if (s->ofile)
-			fclose(s->ofile);
 		smtp_message_reset(s, 0);
 		smtp_reply(s, "250 2.0.0 Reset state");
 		break;
@@ -1281,7 +1267,8 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 static void
 smtp_message_write(struct smtp_session *s, char *line)
 {
-	size_t i, len;
+	struct queue_data_msg	msg;
+	size_t			i, len;
 
 	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 
@@ -1314,10 +1301,10 @@ smtp_message_write(struct smtp_session *s, char *line)
 			if (line[i] & 0x80)
 				line[i] = line[i] & 0x7f;
 
-	if (fprintf(s->ofile, "%s\n", line) != (int)len + 1) {
-		log_warnx("warn: Error writing incoming message");
-		s->msgflags |= MF_ERROR_IO;
-	}
+	snprintf(msg.data, sizeof(msg.data), "%s\n", line);
+	msg.msgid = evpid_to_msgid(s->evp.id);
+	msg.len = len + 1;
+	m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &msg, sizeof(msg));
 }
 
 static void
@@ -1330,10 +1317,6 @@ smtp_message_end(struct smtp_session *s)
 	tree_xpop(&wait_mfa_data, s->id);
 
 	s->phase = PHASE_SETUP;
-
-	if (!safe_fclose(s->ofile))
-		s->msgflags |= MF_ERROR_IO;
-	s->ofile = NULL;
 
 	req_queue.reqid = s->id;
 	req_queue.evpid = s->evp.id;
@@ -1442,9 +1425,6 @@ smtp_free(struct smtp_session *s, const char * reason)
 	req_mfa.reqid = s->id;
 	m_compose(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1,
 	    &req_mfa, sizeof(req_mfa));
-
-	if (s->ofile != NULL)
-		fclose(s->ofile);
 
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
 		stat_decrement("smtp.smtps", 1);

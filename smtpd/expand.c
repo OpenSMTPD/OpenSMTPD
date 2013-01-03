@@ -104,37 +104,78 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 	return memcmp(&e1->u, &e2->u, sizeof(e1->u));
 }
 
+static int
+expand_line_split(char **line, char **ret)
+{
+	static char	buffer[MAX_LINE_SIZE];
+	int		esc, i, dq, sq;
+	char	       *s;
+
+	bzero(buffer, sizeof buffer);
+	esc = dq = sq = i = 0;
+	for (s = *line; (*s) && (i < (int)sizeof(buffer)); ++s) {
+		if (esc) {
+			buffer[i++] = *s;
+			esc = 0;
+			continue;
+		}
+		if (*s == '\\') {
+			esc = 1;
+			continue;
+		}
+		if (*s == ',' && !dq && !sq) {
+			*ret = buffer;
+			*line = s+1;
+			return (1);
+		}
+
+		buffer[i++] = *s;
+		esc = 0;
+
+		if (*s == '"' && !sq)
+			dq ^= 1;
+		if (*s == '\'' && !dq)
+			sq ^= 1;
+	}
+
+	if (esc || dq || sq || i == sizeof(buffer))
+		return (-1);
+
+	*ret = buffer;
+	*line = s;
+	return (i ? 1 : 0);
+}
+
 int
-expand_line(struct expand *expand, const char *s)
+expand_line(struct expand *expand, const char *s, int do_includes)
 {
 	struct expandnode	xn;
 	char			buffer[MAX_LINE_SIZE];
-	char		       *line, *subrcpt, *endp;
+	char		       *p, *subrcpt;
+	int			ret;
 
 	bzero(buffer, sizeof buffer);
 	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
 		return 0;
 
-	line = buffer;
-	while ((subrcpt = strsep(&line, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((int)*subrcpt))
-			++subrcpt;
-		if (*subrcpt == '\0')
-			return 0;
-		
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((int)*endp))
-			*endp-- = '\0';
-		
+	p = buffer;
+	while ((ret = expand_line_split(&p, &subrcpt)) > 0) {
+		subrcpt = strip(subrcpt);
+		if (subrcpt[0] == '\0')
+			continue;
 		if (! text_to_expandnode(&xn, subrcpt))
 			return 0;
-
+		if (! do_includes)
+			if (xn.type == EXPAND_INCLUDE)
+				continue;
 		expand_insert(expand, &xn);
 	}
 
-	return 1;
+	if (ret >= 0)
+		return 1;
+
+	/* expand_line_split() returned < 0 */
+	return 0;
 }
 
 RB_GENERATE(expandtree, expandnode, entry, expand_cmp);

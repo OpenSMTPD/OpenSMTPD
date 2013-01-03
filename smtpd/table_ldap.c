@@ -554,7 +554,7 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 
 	xp = xcalloc(1, sizeof *xp, "table_ldap_alias");
 	for (i = 0; ret_attr[0][i]; ++i) {
-		if (! expand_line(xp, ret_attr[0][i])) {
+		if (! expand_line(xp, ret_attr[0][i], 1)) {
 			ret = -1;
 			goto end;
 		}
