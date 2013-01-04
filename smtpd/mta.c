@@ -54,7 +54,7 @@ static void mta_imsg(struct mproc *, struct imsg *);
 static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
 
-static void mta_query_mx(struct mta_domain *);
+static void mta_query_mx(struct mta_relay *);
 static void mta_query_secret(struct mta_relay *);
 static void mta_query_preference(struct mta_relay *);
 static void mta_query_source(struct mta_relay *);
@@ -514,25 +514,35 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 }
 
 static void
-mta_query_mx(struct mta_domain *domain)
+mta_query_mx(struct mta_relay *relay)
 {
 	uint64_t	id;
 
-	log_debug("debug: mta_query_mx(%s)", domain->name);
+	if (relay->status & RELAY_WAIT_MX)
+		return;
 
-	id = generate_uid();
-	tree_xset(&wait_mx, id, domain);
-	if (domain->flags)
-		dns_query_host(id, domain->name);
-	else
-		dns_query_mx(id, domain->name);
-	domain->lastmxquery = time(NULL);
+	log_debug("debug: mta_query_mx(%s)", relay->domain->name);
+
+	if (waitq_wait(&relay->domain->mxs, mta_on_mx, relay)) {
+		id = generate_uid();
+		tree_xset(&wait_mx, id, relay->domain);
+		if (relay->domain->flags)
+			dns_query_host(id, relay->domain->name);
+		else
+			dns_query_mx(id, relay->domain->name);
+		relay->domain->lastmxquery = time(NULL);
+	}
+	relay->status |= RELAY_WAIT_MX;
+	mta_relay_ref(relay);
 }
 
 static void
 mta_query_secret(struct mta_relay *relay)
 {
 	struct secret	secret;
+
+	if (relay->status & RELAY_WAIT_SECRET)
+		return;
 
 	log_debug("debug: mta_query_secret(%s)", mta_relay_to_text(relay));
 
@@ -550,6 +560,8 @@ mta_query_secret(struct mta_relay *relay)
 static void
 mta_query_preference(struct mta_relay *relay)
 {
+	if (relay->status & RELAY_WAIT_PREFERENCE)
+		return;
 
 	log_debug("debug: mta_query_preference(%s)", mta_relay_to_text(relay));
 
@@ -689,21 +701,16 @@ mta_drain(struct mta_relay *r)
 	}
 
 	/* Query secret if needed */
-	if (r->flags & RELAY_AUTH && r->secret == NULL &&
-	    !(r->status & RELAY_WAIT_SECRET))
+	if (r->flags & RELAY_AUTH && r->secret == NULL)
 		mta_query_secret(r);
 
 	/* Query our preference if needed */
-	if (r->backupname && r->backuppref == -1 && !(r->status & RELAY_WAIT_PREFERENCE))
+	if (r->backupname && r->backuppref == -1)
 		mta_query_preference(r);
 
 	/* Query the domain MXs if needed */
-	if (r->domain->lastmxquery == 0 && !(r->status & RELAY_WAIT_MX)) {
-		if (waitq_wait(&r->domain->mxs, mta_on_mx, r))
-			mta_query_mx(r->domain);
-		r->status |= RELAY_WAIT_MX;
-		mta_relay_ref(r);
-	}
+	if (r->domain->lastmxquery == 0)
+		mta_query_mx(r);
 
 	/* Wait until we are ready to proceed */
 	if (r->status & RELAY_WAITMASK) {
