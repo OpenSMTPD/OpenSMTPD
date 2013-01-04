@@ -300,8 +300,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_MFA_SMTP_DATA:
 		resp_mfa_data = imsg->data;
-		s = tree_xget(&wait_mfa_data, resp_mfa_data->reqid);
-		smtp_mfa_data(s, resp_mfa_data->buffer);
+		if ((s = tree_get(&wait_mfa_data, resp_mfa_data->reqid)))
+			smtp_mfa_data(s, resp_mfa_data->buffer);
 		return;
 
 	case IMSG_MFA_SMTP_RESPONSE:
