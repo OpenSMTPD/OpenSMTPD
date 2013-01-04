@@ -506,7 +506,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		q->state = (resp->status == MFA_OK) ? QUERY_READY : QUERY_DONE;
 
 		if (resp->notify)
-			tree_xset(&q->notify, (uint64_t)(f), f);
+			tree_xset(&q->notify, (uintptr_t)(f), f);
 
 		next = TAILQ_NEXT(q, entry);
 		mfa_drain_query(q);
