@@ -698,19 +698,19 @@ mta_drain(struct mta_relay *r)
 		return;
 	}
 
-	/* Query secret if needed */
+	/* Query secret if needed. */
 	if (r->flags & RELAY_AUTH && r->secret == NULL)
 		mta_query_secret(r);
 
-	/* Query our preference if needed */
+	/* Query our preference if needed. */
 	if (r->backupname && r->backuppref == -1)
 		mta_query_preference(r);
 
-	/* Query the domain MXs if needed */
+	/* Query the domain MXs if needed. */
 	if (r->domain->lastmxquery == 0)
 		mta_query_mx(r);
 
-	/* Wait until we are ready to proceed */
+	/* Wait until we are ready to proceed. */
 	if (r->status & RELAY_WAITMASK) {
 		buf[0] = '\0';
 		if (r->status & RELAY_WAIT_MX)
@@ -733,7 +733,9 @@ mta_drain(struct mta_relay *r)
 	}
 
 	/*
-	 * Relay is failing, but there are sessions running
+	 * Relay is failing, but there are sessions running.  The existing
+	 * sessions will either succeed in delivering the pending tasks, or
+	 * the last session will trigger the task flush.
 	 */
 	if (r->fail) {
 		log_debug("debug: mta: relay %s is failing, but has sessions",
