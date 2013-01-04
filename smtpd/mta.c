@@ -759,10 +759,12 @@ mta_drain(struct mta_relay *r)
 			mta_query_source(r);
 			return;
 		}
-		else
-			mta_on_source(r, mta_source(NULL));
+		mta_on_source(r, mta_source(NULL));
 	}
 
+	/*
+	 * This means that mta_on_source triggered an error immediatly.
+	 */
 	if (r->nconn == 0 && r->ntask && r->fail)
 		mta_drain(r);
 }
