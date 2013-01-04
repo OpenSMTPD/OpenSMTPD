@@ -689,15 +689,13 @@ mta_drain(struct mta_relay *r)
 	    "(refcount=%i, ntask=%zu, nconn=%zu)", 
 	    mta_relay_to_text(r), r->refcount, r->ntask, r->nconn);
 
-	mta_relay_ref(r);
-
 	/*
 	 * If we know that this relay is failing and there are no session
 	 * currently running, flush the tasks.
 	 */
 	if (r->fail && r->nconn == 0) {
 		mta_flush(r, r->fail, r->failstr);
-		goto done;
+		return;
 	}
 
 	/* Query secret if needed */
@@ -725,13 +723,13 @@ mta_drain(struct mta_relay *r)
 			strlcat(buf, "source ", sizeof buf);
 		log_debug("debug: mta: relay %s waiting for %s",
 		    mta_relay_to_text(r), buf);
-		goto done;
+		return;
 	}
 
 	if (r->ntask == 0) {
 		log_debug("debug: mta: all done for relay %s",
 		    mta_relay_to_text(r));
-		goto done;
+		return;
 	}
 
 	/*
@@ -740,7 +738,7 @@ mta_drain(struct mta_relay *r)
 	if (r->fail) {
 		log_debug("debug: mta: relay %s is failing, but has sessions",
 		    mta_relay_to_text(r));
-		goto done;
+		return;
 	}
 
 	/*
@@ -752,12 +750,12 @@ mta_drain(struct mta_relay *r)
 			log_info("smtp-out: Hit connection limit on relay %s",
 			    mta_relay_to_text(r));
 			r->limit_hit = 1;
-			goto done;
+			return;
 		}
 
 		if (r->sourcetable) {
 			mta_query_source(r);
-			goto done;
+			return;
 		}
 		else
 			mta_on_source(r, mta_source(NULL));
@@ -765,9 +763,6 @@ mta_drain(struct mta_relay *r)
 
 	if (r->nconn == 0 && r->ntask && r->fail)
 		mta_drain(r);
-
-    done:
-	mta_relay_unref(r); /* from here */
 }
 
 static void
