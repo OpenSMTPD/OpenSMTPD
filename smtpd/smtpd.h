@@ -668,6 +668,15 @@ struct mta_source {
 	time_t			 lastconn;
 };
 
+struct mta_connector {
+	SPLAY_ENTRY(mta_connector)	 entry;
+	struct mta_source		*source;
+	struct mta_relay		*relay;
+	int				 refcount;
+	size_t				 nconn;
+	time_t				 lastconn;
+};
+
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
 	struct mta_source	*src;

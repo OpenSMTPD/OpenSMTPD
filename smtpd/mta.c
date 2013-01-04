@@ -93,6 +93,16 @@ static const char *mta_source_to_text(struct mta_source *);
 static int mta_source_cmp(const struct mta_source *, const struct mta_source *);
 SPLAY_PROTOTYPE(mta_source_tree, mta_source, entry, mta_source_cmp);
 
+SPLAY_HEAD(mta_connector_tree, mta_connector);
+static struct mta_connector *mta_connector(struct mta_relay *,
+    struct mta_source *);
+static void mta_connector_ref(struct mta_connector *);
+static void mta_connector_unref(struct mta_connector *);
+static const char *mta_connector_to_text(struct mta_connector *);
+static int mta_connector_cmp(const struct mta_connector *,
+    const struct mta_connector *);
+SPLAY_PROTOTYPE(mta_connector_tree, mta_connector, entry, mta_connector_cmp);
+
 SPLAY_HEAD(mta_route_tree, mta_route);
 static struct mta_route *mta_route(struct mta_source *, struct mta_host *);
 static void mta_route_ref(struct mta_route *);
@@ -114,11 +124,12 @@ ptoid(void * p)
 	return (u.v);
 }
 
-static struct mta_relay_tree	relays;
-static struct mta_domain_tree	domains;
-static struct mta_host_tree	hosts;
-static struct mta_source_tree	sources;
-static struct mta_route_tree	routes;
+static struct mta_connector_tree	connectors;
+static struct mta_relay_tree		relays;
+static struct mta_domain_tree		domains;
+static struct mta_host_tree		hosts;
+static struct mta_source_tree		sources;
+static struct mta_route_tree		routes;
 
 static struct tree batches;
 
@@ -386,6 +397,7 @@ mta(void)
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("mta: cannot drop privileges");
 
+	SPLAY_INIT(&connectors);
 	SPLAY_INIT(&relays);
 	SPLAY_INIT(&domains);
 	SPLAY_INIT(&hosts);
@@ -1342,6 +1354,74 @@ mta_source_cmp(const struct mta_source *a, const struct mta_source *b)
 }
 
 SPLAY_GENERATE(mta_source_tree, mta_source, entry, mta_source_cmp);
+
+static struct mta_connector *
+mta_connector(struct mta_relay *relay, struct mta_source *source)
+{
+	struct mta_connector	key, *c;
+
+	key.relay = relay;
+	key.source = source;
+	c = SPLAY_FIND(mta_connector_tree, &connectors, &key);
+
+	if (c == NULL) {
+		c = xcalloc(1, sizeof(*c), "mta_connector");
+		c->relay = relay;
+		c->source = source;
+		mta_relay_ref(relay);
+		mta_source_ref(source);
+		SPLAY_INSERT(mta_connector_tree, &connectors, c);
+		stat_increment("mta.connector", 1);
+	}
+
+	c->refcount++;
+	return (c);
+}
+
+static void
+mta_connector_ref(struct mta_connector *c)
+{
+	c->refcount++;
+}
+
+static void
+mta_connector_unref(struct mta_connector *c)
+{
+	if (--c->refcount)
+		return;
+
+	SPLAY_REMOVE(mta_connector_tree, &connectors, c);
+	mta_relay_unref(c->relay);
+	mta_source_unref(c->source);
+	stat_decrement("mta.connector", 1);
+}
+
+static const char *
+mta_connector_to_text(struct mta_connector *c)
+{
+	static char buf[1024];
+
+	snprintf(buf, sizeof buf, "%s:%s", mta_relay_to_text(c->relay),
+	    mta_source_to_text(c->source));
+	return (buf);
+}
+
+static int
+mta_connector_cmp(const struct mta_connector *a, const struct mta_connector *b)
+{
+	if (a->relay < b->relay)
+		return (-1);
+	if (a->relay > b->relay)
+		return (1);
+	if (a->source < b->source)
+		return (-1);
+	if (a->source > b->source)
+		return (1);
+
+	return (0);
+}
+
+SPLAY_GENERATE(mta_connector_tree, mta_connector, entry, mta_connector_cmp);
 
 static struct mta_route *
 mta_route(struct mta_source *src, struct mta_host *dst)
