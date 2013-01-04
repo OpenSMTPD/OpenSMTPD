@@ -142,6 +142,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SSL_VERIFY:
+			if (req_ca_vrfy_smtp == NULL)
+				fatalx("lka:ca_vrfy: verify without a certificate");
+
 			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
 
 			if (! lka_X509_verify(req_ca_vrfy_smtp, "/etc/ssl/cert.pem", NULL))
@@ -275,6 +278,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SSL_VERIFY_CHAIN:
+			if (req_ca_vrfy_mta == NULL)
+				fatalx("lka:ca_vrfy: verify without a certificate");
+
 			req_ca_vrfy_chain = imsg->data;
 			req_ca_vrfy_mta->chain_cert[req_ca_vrfy_mta->chain_offset] = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_chain, req_ca_vrfy_chain->cert_len, "lka:ca_vrfy");
@@ -283,6 +289,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SSL_VERIFY:
+			if (req_ca_vrfy_mta == NULL)
+				fatalx("lka:ca_vrfy: verify without a certificate");
+
 			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
 
 			if (! lka_X509_verify(req_ca_vrfy_mta, "/etc/ssl/cert.pem", NULL))
@@ -472,6 +481,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_CONF_TABLE_CONTENT:
 			table = table_last;
+			if (table == NULL)
+				fatalx("lka: tables inconsistency");
 
 			k = imsg->data;
 			if (table->t_type == T_HASH)
