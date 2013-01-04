@@ -98,7 +98,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_COMMIT_MESSAGE:
 			req = imsg->data;
 			msgid = evpid_to_msgid(req->evpid);
-			ret = 1;
+
 			if ((sink = tree_xpop(&sinks, msgid)) == NULL)
 				ret = 0; /* fwrite failed */
 			else {
