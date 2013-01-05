@@ -688,6 +688,8 @@ struct mta_connector {
 	int				 refcount;
 	size_t				 nconn;
 	time_t				 lastconn;
+	time_t				 nextconn;
+	time_t				 clearlimit;
 };
 
 struct mta_route {
@@ -721,12 +723,14 @@ struct mta_relay {
 	TAILQ_HEAD(, mta_task)	 tasks;
 
 	struct tree		 connectors;
-	size_t			 nconnectors;
+	size_t			 nconnector;
 	size_t			 sourceloop;
 
 	struct mta_connectors	 c_ready;
 	struct mta_connectors	 c_limit;
+	struct mta_connectors	 c_delay;
 	struct mta_connectors	 c_error;
+	struct event		 ev;
 
 	int			 fail;
 	char			*failstr;

@@ -48,8 +48,11 @@
 #define MAXCONN_PER_HOST	10
 #define MAXCONN_PER_ROUTE	5
 #define MAXCONN_PER_SOURCE	50	/* XXX missing */
-#define MAXCONN_PER_CONNECTOR	10
+#define MAXCONN_PER_CONNECTOR	20
 #define MAXCONN_PER_RELAY	100
+
+#define CONNECTOR_DELAY_CONNECT	1
+#define CONNECTOR_DELAY_LIMIT	5
 
 static void mta_imsg(struct mproc *, struct imsg *);
 static void mta_shutdown(void);
@@ -64,6 +67,8 @@ static void mta_on_source(struct mta_relay *, struct mta_source *);
 static void mta_connect(struct mta_connector *);
 static void mta_recycle(struct mta_connector *);
 static void mta_drain(struct mta_relay *);
+static void mta_relay_schedule(struct mta_relay *, unsigned int);
+static void mta_relay_timeout(int, short, void *);
 static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *);
 
@@ -156,8 +161,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			batch = tree_xget(&batches, e->batch_id);
 
 			if ((task = tree_get(batch, relay->id)) == NULL) {
-				log_trace(TRACE_MTA, "mta: new task for relay "
-				    "%s", mta_relay_to_text(relay));
+				log_trace(TRACE_MTA, "mta: new task for %s",
+				    mta_relay_to_text(relay));
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
 				task->relay = relay;
@@ -218,7 +223,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				relay->secret = strdup(secret->secret);
 			if (relay->secret == NULL) {
 				log_warnx("warn: Failed to retreive secret "
-				    "for relay %s", mta_relay_to_text(relay));
+				    "for %s", mta_relay_to_text(relay));
 				relay->fail = IMSG_DELIVERY_TEMPFAIL;
 				relay->failstr = "Could not retreive secret";
 			}
@@ -239,7 +244,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			else {
 				log_warnx("warn: Failed to get source address"
-				    "for relay %s", mta_relay_to_text(relay));
+				    "for %s", mta_relay_to_text(relay));
 			}
 			mta_drain(relay);
 			mta_relay_unref(relay); /* from mta_query_source() */
@@ -285,14 +290,14 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			relay = tree_xpop(&wait_preference, resp_dns->reqid);
 			if (resp_dns->error) {
 				log_debug("debug: couldn't find backup "
-				    "preference for relay %s",
+				    "preference for %s",
 				    mta_relay_to_text(relay));
 				/* use all */
 				relay->backuppref = INT_MAX;
 			} else {
 				relay->backuppref = resp_dns->u.preference;
 				log_debug("debug: found backup preference %i "
-				    "for relay %s",
+				    "for %s",
 				    relay->backuppref,
 				    mta_relay_to_text(relay));
 			}
@@ -449,7 +454,7 @@ mta_route_error(struct mta_relay *relay, struct mta_route *route, const char *e)
 	if (route->dst->flags & HOST_IGNORE)
 		return;
 
-	log_info("smtp-out: Route error on %s: %s",
+	log_info("smtp-out: Error on route %s: %s",
 	    mta_route_to_text(route), e);
 
 	if (route->dst->nerror > MAXERROR_PER_HOST) {
@@ -469,7 +474,7 @@ mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 	route->dst->nerror = 0;
 
 	c = mta_connector(relay, route->src);
-	c->flags |= ~CONNECTOR_SOURCE_ERROR;
+	c->flags &= ~CONNECTOR_SOURCE_ERROR;
 }
 
 void
@@ -490,10 +495,11 @@ mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 	c->nconn -= 1;
 
 	if (c->flags & CONNECTOR_LIMIT) {
-		log_info("smtp-out: Resetting limit flags on connector %s",
+		log_debug("debug: mta; resetting limit flags on connector %s",
 		    mta_connector_to_text(c));
 		c->flags &= ~CONNECTOR_LIMIT;
 	}
+
 	mta_recycle(c);
 	mta_drain(relay);
 	mta_relay_unref(relay); /* from mta_connect() */
@@ -621,7 +627,7 @@ mta_on_mx(void *tag, void *arg, void *data)
 	}
 
 	if (domain->mxstatus)
-		log_info("smtp-out: Failed to resolve MX for relay %s: %s",
+		log_info("smtp-out: Failed to resolve MX for %s: %s",
 		    mta_relay_to_text(relay), relay->failstr);
 
 	relay->status &= ~RELAY_WAIT_MX;
@@ -645,6 +651,8 @@ mta_connect(struct mta_connector *c)
 	route = mta_find_route(c);
 	if (route == NULL) {
 		mta_recycle(c);
+		if (c->queue == &c->relay->c_limit)
+			c->clearlimit = time(NULL) + CONNECTOR_DELAY_LIMIT;
 		if (c->queue == &c->relay->c_ready)
 			fatalx("connector with no route ended up in ready list");
 		return;
@@ -652,6 +660,7 @@ mta_connect(struct mta_connector *c)
 
 	c->nconn += 1;
 	c->lastconn = time(NULL);
+	c->nextconn = c->lastconn + CONNECTOR_DELAY_CONNECT;
 
 	c->relay->nconn += 1;
 	c->relay->lastconn = c->lastconn;
@@ -673,33 +682,97 @@ mta_recycle(struct mta_connector *c)
 {
 	TAILQ_REMOVE(c->queue, c, lst_entry);
 
-	if (c->flags & CONNECTOR_ERROR)
+	if (c->flags & CONNECTOR_ERROR) {
+		log_debug("debug: mta: putting %s on error queue",
+		    mta_connector_to_text(c));
 		c->queue = &c->relay->c_error;
-	else if (c->flags & CONNECTOR_LIMIT)
+	}
+	else if (c->flags & CONNECTOR_LIMIT) {
+		log_debug("debug: mta: putting %s on limit queue",
+		    mta_connector_to_text(c));
 		c->queue = &c->relay->c_limit;
-	else
+	}
+	else if (c->nextconn > time(NULL)) {
+		log_debug("debug: mta: putting %s on delay queue",
+		    mta_connector_to_text(c));
+		c->queue = &c->relay->c_delay;
+	}
+	else {
+		log_debug("debug: mta: putting %s on ready queue",
+		    mta_connector_to_text(c));
 		c->queue = &c->relay->c_ready;
+	}
 
 	TAILQ_INSERT_TAIL(c->queue, c, lst_entry);
 }
 
 static void
+mta_relay_timeout(int fd, short ev, void *arg)
+{
+	struct mta_relay	*r = arg;
+	struct mta_connector	*c;
+	time_t			 t;
+
+	log_debug("debug: mta: timeout for %s", mta_relay_to_text(r));
+
+	t = time(NULL);
+
+	/*
+	 * Clear the limit flags on all connectors.
+	 */
+	while ((c = TAILQ_FIRST(&r->c_limit))) {
+		/* This requires that the list is always sorted */
+		if (c->clearlimit > t)
+			break;
+		log_debug("debug: mta: clearing limits on %s",
+		    mta_connector_to_text(c));
+		c->flags &= ~CONNECTOR_LIMIT;
+		mta_recycle(c);
+	}
+
+	while ((c = TAILQ_FIRST(&r->c_delay))) {
+		/* This requires that the list is always sorted */
+		if (c->nextconn > t)
+			break;
+		log_debug("debug: mta: delay expired for %s",
+		    mta_connector_to_text(c));
+		mta_recycle(c);
+	}
+
+	mta_drain(r);
+}
+
+static void
+mta_relay_schedule(struct mta_relay *r, unsigned int delay)
+{
+	struct timeval	tv;
+
+	if (evtimer_pending(&r->ev, &tv))
+		return;
+
+	tv.tv_sec = delay;
+	tv.tv_usec = 0;
+	evtimer_add(&r->ev, &tv);
+	log_debug("debug: mta: adding relay timeout");
+}
+
+static void
 mta_drain(struct mta_relay *r)
 {
-	char			 buf[64];
 	struct mta_connector	*c;
 	struct mta_source	*s;
+	char			 buf[64];
 
-	log_debug("debug: draining relay %s "
-	    "(refcount=%i, ntask=%zu, nconn=%zu)", 
-	    mta_relay_to_text(r), r->refcount, r->ntask, r->nconn);
+	log_debug("debug: draining %s "
+	    "refcount=%i, ntask=%zu, nconnector=%zu, nconn=%zu", 
+	    mta_relay_to_text(r),
+	    r->refcount, r->ntask, r->nconnector, r->nconn);
 
 	/*
 	 * All done.
 	 */
 	if (r->ntask == 0) {
-		log_debug("debug: mta: all done for relay %s",
-		    mta_relay_to_text(r));
+		log_debug("debug: mta: all done for %s", mta_relay_to_text(r));
 		return;
 	}
 
@@ -734,7 +807,7 @@ mta_drain(struct mta_relay *r)
 			strlcat(buf, "secret ", sizeof buf);
 		if (r->status & RELAY_WAIT_SOURCE)
 			strlcat(buf, "source ", sizeof buf);
-		log_debug("debug: mta: relay %s waiting for %s",
+		log_debug("debug: mta: %s waiting for %s",
 		    mta_relay_to_text(r), buf);
 		return;
 	}
@@ -747,10 +820,13 @@ mta_drain(struct mta_relay *r)
 	 * hit a mx faster if the first ones timeout.
 	 */
 	while (r->nconn < r->ntask) {
+		log_debug("debug: mta: trying to create new connection: "
+		    "refcount=%i, ntask=%zu, nconnector=%zu, nconn=%zu", 
+		    r->refcount, r->ntask, r->nconnector, r->nconn);
 
 		/* Check the per-relay connection limit */
 		if (r->nconn >= MAXCONN_PER_RELAY) {
-			log_debug("debug: mta: Hit connection limit on relay %s",
+			log_debug("debug: mta: hit connection limit on %s",
 			    mta_relay_to_text(r));
 			return;
 		}
@@ -758,18 +834,37 @@ mta_drain(struct mta_relay *r)
 		/* Use the first connector if ready */
 		c = TAILQ_FIRST(&r->c_ready);
 		if (c) {
+			log_debug("debug: mta: using connector %s",
+			    mta_connector_to_text(c));
 			r->sourceloop = 0;
 			mta_connect(c);
 			continue;
 		}
 
 		/* No new connectors */
-		if (r->sourceloop > r->nconnectors) {
-			if (TAILQ_FIRST(&r->c_limit)) {
-				log_debug("debug: No more connectors");
+		if (r->sourceloop > r->nconnector) {
+			log_debug("debug: mta: no new connector available");
+
+			if (TAILQ_FIRST(&r->c_delay)) {
+				mta_relay_schedule(r, 1);
+				log_debug(
+				    "debug: mta: waiting for relay timeout");
 				return;
 			}
-			if (r->nconnectors == 0) {
+
+			if (TAILQ_FIRST(&r->c_limit)) {
+				mta_relay_schedule(r, 5);
+				log_debug(
+				    "debug: mta: waiting for relay timeout");
+				return;
+			}
+
+			log_debug("debug: mta: failing...");
+			/*
+			 * All sources have been tried and no connectors can
+			 * be used.
+			 */
+			if (r->nconnector == 0) {
 				r->fail = IMSG_DELIVERY_TEMPFAIL;
 				r->failstr = "No source address";
 			}
@@ -782,10 +877,15 @@ mta_drain(struct mta_relay *r)
 		}
 
 		r->sourceloop++;
+		log_debug("debug: mta: need new connector (attempt %zu)",
+			r->sourceloop);
 		if (r->sourcetable) {
+			log_debug("debug: mta: querying source %s",
+			    r->sourcetable);
 			mta_query_source(r);
 			return;
 		}
+		log_debug("debug: mta: using default source");
 		s = mta_source(NULL);
 		mta_on_source(r, s);
 		mta_source_unref(s);
@@ -851,7 +951,7 @@ mta_find_route(struct mta_connector *c)
 	seen = 0;
 
 	if (c->nconn >= MAXCONN_PER_CONNECTOR) {
-		log_info("smtp-out: Hit limit on connector %s",
+		log_debug("debug: mta: hit limit on connector %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_LIMIT_SOURCE;
 		return (NULL);
@@ -936,24 +1036,17 @@ mta_find_route(struct mta_connector *c)
 		c->flags |= CONNECTOR_MX_ERROR;
 	}
 	else if (family_mismatch) {
-		log_debug("debug: mta: Address family mismatch on connector %s",
-		    mta_relay_to_text(c->relay));
+		log_info("smtp-out: Address family mismatch on connector %s",
+		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_FAMILY_ERROR;
 	}
 	else if (limit_route) {
-		log_info("smtp-out: Hit route limit on connector %s",
+		log_debug("debug: mta: hit route limit on connector %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_LIMIT_ROUTE;
 	}
-	/*
-	 * XXX this is not really correct, since we could be hitting a limit
-	 * because of another relay, and we might never have a chance to
-	 * reset the limit. What we should is put ourself on a waitq for
-	 * that resource and reset+drain when that resource is possibly
-	 * available.
-	 */
 	else if (limit_host) {
-		log_info("smtp-out: Hit host limit on connector %s",
+		log_debug("debug: mta: hit host limit on connector %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_LIMIT_HOST;
 	}
@@ -997,6 +1090,7 @@ mta_relay(struct envelope *e)
 		r = xcalloc(1, sizeof *r, "mta_relay");
 		TAILQ_INIT(&r->tasks);
 		TAILQ_INIT(&r->c_ready);
+		TAILQ_INIT(&r->c_delay);
 		TAILQ_INIT(&r->c_limit);
 		TAILQ_INIT(&r->c_error);
 		r->id = generate_uid();
@@ -1015,12 +1109,12 @@ mta_relay(struct envelope *e)
 			r->sourcetable = xstrdup(key.sourcetable,
 			    "mta: sourcetable");
 		SPLAY_INSERT(mta_relay_tree, &relays, r);
-		log_trace(TRACE_MTA, "mta: new relay %s", mta_relay_to_text(r));
+		evtimer_set(&r->ev, mta_relay_timeout, r);
+		log_trace(TRACE_MTA, "mta: new %s", mta_relay_to_text(r));
 		stat_increment("mta.relay", 1);
 	} else {
 		mta_domain_unref(key.domain); /* from here */
-		log_trace(TRACE_MTA, "mta: reusing relay %s",
-		    mta_relay_to_text(r));
+		log_trace(TRACE_MTA, "mta: reusing %s", mta_relay_to_text(r));
 	}
 
 	r->refcount++;
@@ -1041,7 +1135,7 @@ mta_relay_unref(struct mta_relay *relay)
 	if (--relay->refcount)
 		return;
 
-	log_debug("debug: mta: freeing relay %s", mta_relay_to_text(relay));
+	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
 	if (relay->cert)
 		free(relay->cert);
@@ -1053,6 +1147,9 @@ mta_relay_unref(struct mta_relay *relay)
 	while ((tree_poproot(&relay->connectors, NULL, (void**)&c)))
 		mta_connector_free(c);
 
+	if (evtimer_pending(&relay->ev, NULL))
+		evtimer_del(&relay->ev);
+
 	mta_domain_unref(relay->domain); /* from constructor */
 	free(relay);
 	stat_decrement("mta.relay", 1);
@@ -1063,31 +1160,28 @@ mta_relay_to_text(struct mta_relay *relay)
 {
 	static char	 buf[1024];
 	char		 tmp[32];
-	const char	*sep = "";
+	const char	*sep = ",";
 
-	snprintf(buf, sizeof buf, "%s[", relay->domain->name);
+	snprintf(buf, sizeof buf, "[relay:%s", relay->domain->name);
 
 	if (relay->port) {
+		strlcat(buf, sep, sizeof buf);
 		snprintf(tmp, sizeof tmp, "port=%i", (int)relay->port);
 		strlcat(buf, tmp, sizeof buf);
-		sep = ",";
 	}
 
 	if (relay->flags & RELAY_STARTTLS) {
 		strlcat(buf, sep, sizeof buf);
-		sep = ",";
 		strlcat(buf, "starttls", sizeof buf);
 	}
 
 	if (relay->flags & RELAY_SMTPS) {
 		strlcat(buf, sep, sizeof buf);
-		sep = ",";
 		strlcat(buf, "smtps", sizeof buf);
 	}
 
 	if (relay->flags & RELAY_AUTH) {
 		strlcat(buf, sep, sizeof buf);
-		sep = ",";
 		strlcat(buf, "auth=", sizeof buf);
 		strlcat(buf, relay->authtable, sizeof buf);
 		strlcat(buf, ":", sizeof buf);
@@ -1096,14 +1190,12 @@ mta_relay_to_text(struct mta_relay *relay)
 
 	if (relay->cert) {
 		strlcat(buf, sep, sizeof buf);
-		sep = ",";
 		strlcat(buf, "cert=", sizeof buf);
 		strlcat(buf, relay->cert, sizeof buf);
 	}
 
 	if (relay->flags & RELAY_MX) {
 		strlcat(buf, sep, sizeof buf);
-		sep = ",";
 		strlcat(buf, "mx", sizeof buf);
 	}
 
@@ -1219,10 +1311,10 @@ mta_host_to_text(struct mta_host *h)
 	static char buf[1024];
 
 	if (h->ptrname)
-		snprintf(buf, sizeof buf, "%s [%s]",
-		    h->ptrname, sa_to_text(h->sa));
+		snprintf(buf, sizeof buf, "%s (%s)",
+		    sa_to_text(h->sa), h->ptrname);
 	else
-		snprintf(buf, sizeof buf, "[%s]", sa_to_text(h->sa));
+		snprintf(buf, sizeof buf, "%s", sa_to_text(h->sa));
 
 	return (buf);
 }
@@ -1347,7 +1439,7 @@ mta_source_to_text(struct mta_source *s)
 
 	if (s->sa == NULL)
 		return "[]";
-	snprintf(buf, sizeof buf, "[%s]", sa_to_text(s->sa));
+	snprintf(buf, sizeof buf, "%s", sa_to_text(s->sa));
 	return (buf);
 }
 
@@ -1381,9 +1473,9 @@ mta_connector(struct mta_relay *relay, struct mta_source *source)
 		c->queue = &relay->c_ready;
 		TAILQ_INSERT_HEAD(c->queue, c, lst_entry);
 		tree_xset(&relay->connectors, (uintptr_t)(source), c);
-		relay->nconnectors++;
+		relay->nconnector++;
 		stat_increment("mta.connector", 1);
-		log_debug("debug: new connector %s",
+		log_debug("debug: mta: new connector %s",
 		    mta_connector_to_text(c));
 	}
 
@@ -1393,7 +1485,7 @@ mta_connector(struct mta_relay *relay, struct mta_source *source)
 static void
 mta_connector_free(struct mta_connector *c)
 {
-	c->relay->nconnectors--;
+	c->relay->nconnector--;
 	TAILQ_REMOVE(c->queue, c, lst_entry);
 	mta_source_unref(c->source);
 	stat_decrement("mta.connector", 1);
@@ -1404,8 +1496,9 @@ mta_connector_to_text(struct mta_connector *c)
 {
 	static char buf[1024];
 
-	snprintf(buf, sizeof buf, "%s:%s", mta_relay_to_text(c->relay),
-	    mta_source_to_text(c->source));
+	snprintf(buf, sizeof buf, "%s->%s",
+	    mta_source_to_text(c->source),
+	    mta_relay_to_text(c->relay));
 	return (buf);
 }
 
@@ -1455,7 +1548,7 @@ mta_route_to_text(struct mta_route *r)
 {
 	static char	buf[1024];
 
-	snprintf(buf, sizeof buf, "%s <--> %s",
+	snprintf(buf, sizeof buf, "%s <-> %s",
 	    mta_source_to_text(r->src),
 	    mta_host_to_text(r->dst));
 
