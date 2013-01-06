@@ -111,6 +111,7 @@ struct mta_session {
 };
 
 static void mta_session_init(void);
+static void mta_start(int fd, short ev, void *arg);
 static void mta_io(struct io *, int);
 static void mta_free(struct mta_session *);
 static void mta_on_ptr(void *, void *, void *);
@@ -150,6 +151,7 @@ void
 mta_session(struct mta_relay *relay, struct mta_route *route)
 {
 	struct mta_session	*s;
+	struct timeval		 tv;
 
 	mta_session_init();
 
@@ -188,7 +190,13 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 	stat_increment("mta.session", 1);
 
 	if (route->dst->ptrname || route->dst->lastptrquery) {
-		mta_on_ptr(NULL, s, route->dst->ptrname);
+		/* We want to delay the connection since to always notify
+		 * the relay asynchronously.
+		 */
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		evtimer_set(&s->io.ev, mta_start, s);
+		evtimer_add(&s->io.ev, &tv);
 	} else if (waitq_wait(&route->dst->ptrname, mta_on_ptr, s)) {
 		dns_query_ptr(s->id, s->route->dst->sa);
 		tree_xset(&wait_ptr, s->id, s);
@@ -245,7 +253,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
 
 		if (resp_ca_cert->status == CA_FAIL) {
-			log_info("relay: Disconnecting session %016" PRIx64
+			log_info("smtp-out: Disconnecting session %016" PRIx64
 			    ": CA failure", s->id);
 			mta_free(s);
 			return;
@@ -316,6 +324,14 @@ mta_free(struct mta_session *s)
 
 static void
 mta_on_ptr(void *tag, void *arg, void *data)
+{
+	struct mta_session *s = arg;
+
+	mta_connect(s);
+}
+
+static void
+mta_start(int fd, short ev, void *arg)
 {
 	struct mta_session *s = arg;
 
@@ -723,7 +739,7 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_TLSREADY:
-		log_info("relay: Started TLS on session %016"PRIx64": %s",
+		log_info("smtp-out: Started TLS on session %016"PRIx64": %s",
 		    s->id, ssl_to_text(s->io.ssl));
 		s->flags |= MTA_TLS;
 
@@ -734,7 +750,7 @@ mta_io(struct io *io, int evt)
 
 	case IO_TLSVERIFIED:
 		if (SSL_get_peer_certificate(s->io.ssl))
-			log_info("relay: Server certificate verification %s "
+			log_info("smtp-out: Server certificate verification %s "
 			    "on session %016"PRIx64,
 			    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
 			    s->id);

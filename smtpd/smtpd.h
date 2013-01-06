@@ -689,6 +689,30 @@ struct mta_source {
 	time_t			 lastconn;
 };
 
+struct mta_connector {
+	TAILQ_ENTRY(mta_connector)	 lst_entry;
+	struct mta_source		*source;
+	struct mta_relay		*relay;
+	struct mta_connectors		*queue;
+
+#define CONNECTOR_FAMILY_ERROR	0x01
+#define CONNECTOR_SOURCE_ERROR	0x02
+#define CONNECTOR_MX_ERROR	0x04
+#define CONNECTOR_ERROR		0x0f
+
+#define CONNECTOR_LIMIT_HOST	0x10
+#define CONNECTOR_LIMIT_ROUTE	0x20
+#define CONNECTOR_LIMIT_SOURCE	0x40
+#define CONNECTOR_LIMIT		0xf0
+	int				 flags;
+
+	int				 refcount;
+	size_t				 nconn;
+	time_t				 lastconn;
+	time_t				 nextconn;
+	time_t				 clearlimit;
+};
+
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
 	struct mta_source	*src;
@@ -697,6 +721,8 @@ struct mta_route {
 	size_t			 nconn;
 	time_t			 lastconn;
 };
+
+TAILQ_HEAD(mta_connectors, mta_connector);
 
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
@@ -717,6 +743,16 @@ struct mta_relay {
 	size_t			 ntask;
 	TAILQ_HEAD(, mta_task)	 tasks;
 
+	struct tree		 connectors;
+	size_t			 nconnector;
+	size_t			 sourceloop;
+
+	struct mta_connectors	 c_ready;
+	struct mta_connectors	 c_limit;
+	struct mta_connectors	 c_delay;
+	struct mta_connectors	 c_error;
+	struct event		 ev;
+
 	int			 fail;
 	char			*failstr;
 
@@ -726,10 +762,6 @@ struct mta_relay {
 #define RELAY_WAIT_SOURCE	0x08
 #define RELAY_WAITMASK		0x0f
 	int			 status;
-
-	struct tree		 source_fail;
-
-	int			 limit_hit;
 
 	int			 refcount;
 	size_t			 nconn;
