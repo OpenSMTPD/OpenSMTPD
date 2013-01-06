@@ -506,7 +506,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			q->smtp.response = xstrdup(resp->response,
 			    "mfa_filter_imsg");
 		}
-		q->state = (resp->status == MFA_OK) ? QUERY_READY : QUERY_DONE;
+		q->state = (resp->status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 
 		if (resp->notify)
 			tree_xset(&q->notify, (uintptr_t)(f), f);
