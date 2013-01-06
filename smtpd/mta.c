@@ -104,19 +104,6 @@ static const char *mta_route_to_text(struct mta_route *);
 static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-static inline uint64_t
-ptoid(void * p)
-{
-	union {
-		void	*p;
-		uint64_t v;
-	} u;
-
-	u.v = 0;
-	u.p = p;
-	return (u.v);
-}
-
 static struct mta_relay_tree	relays;
 static struct mta_domain_tree	domains;
 static struct mta_host_tree	hosts;
@@ -444,7 +431,7 @@ mta_source_error(struct mta_relay *relay, struct mta_route *route, const char *e
 	 * Remember the source as broken for this relay.  Take a reference if
 	 * it's not already marked by another session.
 	 */
-	if (tree_set(&relay->source_fail, ptoid(route->src), route->src) == NULL)
+	if (tree_set(&relay->source_fail, (uintptr_t)(route->src), route->src) == NULL)
 		mta_source_ref(route->src);
 }
 
@@ -632,7 +619,6 @@ static void
 mta_on_source(struct mta_relay *relay, struct mta_source *source)
 {
 	struct mta_route	*route;
-	uint64_t		 id;
 
 	log_debug("debug: mta_on_source(%s, %s)",
 	    mta_relay_to_text(relay), mta_source_to_text(source));
@@ -644,8 +630,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 		return;
 	}
 
-	id = ptoid(source);
-	if (tree_check(&relay->source_fail, id)) {
+	if (tree_check(&relay->source_fail, (uintptr_t)(source))) {
 		/*
 		 * If this source has been tried already, and there is no
 		 * active connection (which would mean that a source was found
@@ -913,7 +898,7 @@ mta_find_route(struct mta_relay *relay, struct mta_source *source)
 
 		/* Remember that this route is not useable */
 		mta_source_ref(source);
-		tree_xset(&relay->source_fail, ptoid(source), source);
+		tree_xset(&relay->source_fail, (uintptr_t)(source), source);
 		return (NULL);
 	}
 
