@@ -108,60 +108,6 @@ mproc_disable(struct mproc *p)
 	event_del(&p->ev);
 }
 
-void
-m_forward(struct mproc *p, struct imsg *imsg)
-{
-	imsg_compose(&p->imsgbuf, imsg->hdr.type, imsg->hdr.peerid,
-	    imsg->hdr.pid, imsg->fd, imsg->data,
-	    imsg->hdr.len - sizeof(imsg->hdr));
-	mproc_event_add(p);
-}
-
-void
-m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
-    void *data, size_t len)
-{
-	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
-	mproc_event_add(p);
-}
-
-void m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
-    int fd, const struct iovec *iov, int n)
-{
-	imsg_composev(&p->imsgbuf, type, peerid, pid, fd, iov, n);
-	mproc_event_add(p);
-}
-
-void
-m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
-    size_t len)
-{
-	if (p->ibuf)
-		fatal("ibuf already rhere");
-
-	p->ibuf = imsg_create(&p->imsgbuf, type, peerid, pid, fd);
-	if (p->ibuf == NULL)
-		fatal("imsg_create");
-}
-
-void
-m_add(struct mproc *p, const void *data, size_t len)
-{
-	if (p->ibuferror)
-		return;
-
-	if (ibuf_add(p->ibuf, data, len) == -1)
-		p->ibuferror = 1;
-}
-
-void
-m_close(struct mproc *p)
-{
-	imsg_close(&p->imsgbuf, p->ibuf);
-	p->ibuf = NULL;
-	mproc_event_add(p);
-}
-
 static void
 mproc_event_add(struct mproc *p)
 {
@@ -219,4 +165,104 @@ mproc_dispatch(int fd, short event, void *arg)
 		imsg_free(&imsg);
 	}
 	mproc_event_add(p);
+}
+
+void
+m_forward(struct mproc *p, struct imsg *imsg)
+{
+	imsg_compose(&p->imsgbuf, imsg->hdr.type, imsg->hdr.peerid,
+	    imsg->hdr.pid, imsg->fd, imsg->data,
+	    imsg->hdr.len - sizeof(imsg->hdr));
+	mproc_event_add(p);
+}
+
+void
+m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
+    void *data, size_t len)
+{
+	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
+	mproc_event_add(p);
+}
+
+void
+m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
+    int fd, const struct iovec *iov, int n)
+{
+	imsg_composev(&p->imsgbuf, type, peerid, pid, fd, iov, n);
+	mproc_event_add(p);
+}
+
+void
+m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
+    size_t len)
+{
+	if (p->ibuf)
+		fatal("ibuf already rhere");
+
+	p->ibuf = imsg_create(&p->imsgbuf, type, peerid, pid, fd);
+	if (p->ibuf == NULL)
+		fatal("imsg_create");
+}
+
+void
+m_add(struct mproc *p, const void *data, size_t len)
+{
+	if (p->ibuferror)
+		return;
+
+	if (ibuf_add(p->ibuf, data, len) == -1)
+		p->ibuferror = 1;
+}
+
+void
+m_add_typed(struct mproc *p, uint8_t type, const void *data, size_t len)
+{
+	if (p->ibuferror)
+		return;
+
+	if (ibuf_add(p->ibuf, &type, 1) == -1 ||
+	    ibuf_add(p->ibuf, data, len) == -1)
+		p->ibuferror = 1;
+}
+
+void
+m_close(struct mproc *p)
+{
+	imsg_close(&p->imsgbuf, p->ibuf);
+	p->ibuf = NULL;
+	mproc_event_add(p);
+}
+
+void
+m_msg(struct msg *m, struct imsg *imsg)
+{
+	m->pos = imsg->data;
+	m->end = m->pos + (imsg->hdr.len - sizeof(imsg->hdr));
+}
+
+void
+m_end(struct msg *m)
+{
+	if (m->pos == m->end)
+		fatalx("not at msg end");
+}
+
+static inline void
+m_get(struct msg *m, void *dst, size_t sz)
+{
+	if (m->pos + sz > m->end)
+		fatalx("msg too short");
+	memmove(dst, m->pos, sz);
+	m->pos += sz;
+}
+
+static inline void
+m_get_typed(struct msg *m, uint8_t type, void *dst, size_t sz)
+{
+	if (m->pos + sz + 1 > m->end)
+		fatalx("msg too short");
+	if (*m->pos != type)
+		fatalx("msg bad type");
+	memmove(dst, m->pos + 1, sz);
+	m->pos += sz + 1;
 }

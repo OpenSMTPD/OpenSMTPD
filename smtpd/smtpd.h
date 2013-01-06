@@ -892,6 +892,11 @@ struct mproc {
 	void		*data;
 };
 
+struct msg {
+	const uint8_t	*pos;
+	const uint8_t	*end;
+};
+
 extern struct mproc *p_control;
 extern struct mproc *p_parent;
 extern struct mproc *p_lka;
@@ -1230,8 +1235,26 @@ void m_composev(struct mproc *, uint32_t, uint32_t, pid_t, int,
 void m_forward(struct mproc *, struct imsg *);
 void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int, size_t);
 void m_add(struct mproc *, const void *, size_t);
+void m_add_reqid(struct mproc *, uint64_t);
+void m_add_msgid(struct mproc *, uint32_t);
+void m_add_evpid(struct mproc *, uint64_t);
+void m_add_int(struct msg *, int);
+void m_add_string(struct mproc *, const char *);
+void m_add_data(struct mproc *, const void *, size_t);
+void m_add_sockaddr(struct mproc *, const struct sockaddr *);
+void m_add_envelope(struct mproc *, const struct envelope *);
 void m_close(struct mproc *);
 
+void m_msg(struct msg *, struct imsg *);
+void m_get_reqid(struct msg *, uint64_t *);
+void m_get_msgid(struct msg *, uint32_t *);
+void m_get_evpid(struct msg *, uint64_t *);
+void m_get_int(struct msg *, int *);
+void m_get_string(struct msg *, const char **);
+void m_get_data(struct msg *, void *, size_t *);
+void m_get_sockaddr(struct mproc *, struct sockaddr *);
+void m_get_envelope(struct msg *, struct envelope *);
+void m_end(struct msg *);
 
 /* mta.c */
 pid_t mta(void);
