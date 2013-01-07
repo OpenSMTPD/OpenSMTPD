@@ -66,7 +66,7 @@ on_helo(uint64_t id, uint64_t qid, const char *helo)
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct filter_mailaddr *mail)
+on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
 {
 	printf("filter: MAIL id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
 	    id, qid, mail->user, mail->domain);
@@ -74,7 +74,7 @@ on_mail(uint64_t id, uint64_t qid, struct filter_mailaddr *mail)
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct filter_mailaddr *rcpt)
+on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
 {
 	printf("filter: RCPT id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
 	    id, qid, rcpt->user, rcpt->domain);

@@ -404,8 +404,9 @@ scheduler_process_remove(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64 " removed",
 		    e->id);
-		m_compose(p_queue, IMSG_QUEUE_REMOVE, 0, 0, -1,
-		    &e->id, sizeof e->id);
+		m_create(p_queue, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+		m_add_evpid(p_queue, e->id);
+		m_close(p_queue);
 		free(e);
 	}
 
@@ -422,8 +423,9 @@ scheduler_process_expire(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64 " expired",
 		    e->id);
-		m_compose(p_queue, IMSG_QUEUE_EXPIRE, 0, 0, -1,
-		    &e->id, sizeof e->id);
+		m_create(p_queue, IMSG_QUEUE_EXPIRE, 0, 0, -1, 9);
+		m_add_evpid(p_queue, e->id);
+		m_close(p_queue);
 		free(e);
 	}
 
@@ -440,8 +442,9 @@ scheduler_process_bounce(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (bounce)", e->id);
-		m_compose(p_queue, IMSG_BOUNCE_INJECT, 0, 0, -1,
-		    &e->id, sizeof e->id);
+		m_create(p_queue, IMSG_BOUNCE_INJECT, 0, 0, -1, 9);
+		m_add_evpid(p_queue, e->id);
+		m_close(p_queue);
 		free(e);
 	}
 
@@ -457,8 +460,9 @@ scheduler_process_mda(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mda)", e->id);
-		m_compose(p_queue, IMSG_MDA_DELIVER, 0, 0, -1,
-		    &e->id, sizeof e->id);
+		m_create(p_queue, IMSG_MDA_DELIVER, 0, 0, -1, 9);
+		m_add_evpid(p_queue, e->id);
+		m_close(p_queue);
 		free(e);
 	}
 
@@ -476,8 +480,9 @@ scheduler_process_mta(struct scheduler_batch *batch)
 		batch->evpids = e->next;
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mta)", e->id);
-		m_compose(p_queue, IMSG_MTA_BATCH_ADD, 0, 0, -1,
-		    &e->id, sizeof e->id);
+		m_create(p_queue, IMSG_MTA_BATCH_ADD, 0, 0, -1, 9);
+		m_add_evpid(p_queue, e->id);
+		m_close(p_queue);
 		free(e);
 	}
 

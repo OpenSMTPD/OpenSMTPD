@@ -239,8 +239,9 @@ bounce_drain()
 		    "with id 0x%016" PRIx64,
 		    bounce, bounce->id);
 
-		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, 0, 0, -1,
-		    &bounce->id, sizeof(bounce->id));
+		m_create(p_smtp, IMSG_SMTP_ENQUEUE_FD, 0, 0, -1, 5);
+		m_add_id(p_smtp, bounce->id);
+		m_close(p_smtp);
 		tree_xset(&wait_fd, bounce->id, bounce);
 		running += 1;
 	}

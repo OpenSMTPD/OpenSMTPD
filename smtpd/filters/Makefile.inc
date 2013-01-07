@@ -2,6 +2,6 @@
 
 CFLAGS	+= -DNO_IO
 CPPFLAGS+= -I../../
-SRCS	+= filter_api.c dict.c tree.c util.c iobuf.c log.c to.c
+SRCS	+= filter_api.c dict.c tree.c util.c iobuf.c log.c to.c mproc.c
 
 LDADD	+= -levent -lutil
