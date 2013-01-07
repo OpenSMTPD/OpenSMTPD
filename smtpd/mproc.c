@@ -365,7 +365,7 @@ m_add_msgid(struct mproc *m, uint32_t v)
 void
 m_add_sockaddr(struct mproc *m, const struct sockaddr *sa)
 {
-	m_add_typed_sized(m, M_SOCKADDR, sa, sa->sa_len);
+	m_add_typed_sized(m, M_SOCKADDR, sa, SA_LEN(sa));
 }
 
 void
@@ -461,4 +461,3 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 {
 	m_get_typed(m, M_ENVELOPE, evp, sizeof(*evp));
 }
-
