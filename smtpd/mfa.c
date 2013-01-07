@@ -45,76 +45,98 @@ static void mfa_sig_handler(int, short, void *);
 static void
 mfa_imsg(struct mproc *p, struct imsg *imsg)
 {
-	uint64_t			*req_id;
-	struct mfa_maddr_msg		*req_maddr;
-	struct mfa_connect_msg		*req_connect;
-	struct mfa_line_msg		*req_line;
-	struct mfa_data_msg		*req_data;
-	struct mfa_req_msg		*req;
-
-	struct filter			*filter;
+	struct sockaddr_storage	 local, remote;
+	struct mailaddr		 maddr;
+	struct msg		 m;
+	uint64_t		 reqid;
+	const char		*line, *hostname;
+	struct filter		*filter;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_REQ_CONNECT:
-			req_connect = imsg->data;
-			mfa_filter_connect(req_connect->reqid,
-			    (struct sockaddr *)&req_connect->local,
-			    (struct sockaddr *)&req_connect->remote,
-			    req_connect->hostname);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_sockaddr(&m, (struct sockaddr *)&local);
+			m_get_sockaddr(&m, (struct sockaddr *)&remote);
+			m_get_string(&m, &hostname);
+			m_end(&m);
+			mfa_filter_connect(reqid, (struct sockaddr *)&local,
+			    (struct sockaddr *)&remote, hostname);
 			return;
 
 		case IMSG_MFA_REQ_HELO:
-			req_line = imsg->data;
-			mfa_filter_line(req_line->reqid, HOOK_HELO,
-			    req_line->line);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &line);
+			m_end(&m);
+			mfa_filter_line(reqid, HOOK_HELO, line);
 			return;
 
 		case IMSG_MFA_REQ_MAIL:
-			req_maddr = imsg->data;
-			mfa_filter_mailaddr(req_maddr->reqid, HOOK_MAIL,
-			    &req_maddr->maddr);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_mailaddr(&m, &maddr);
+			m_end(&m);
+			mfa_filter_mailaddr(reqid, HOOK_MAIL, &maddr);
 			return;
 
 		case IMSG_MFA_REQ_RCPT:
-			req_maddr = imsg->data;
-			mfa_filter_mailaddr(req_maddr->reqid, HOOK_RCPT,
-			   &req_maddr->maddr);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_mailaddr(&m, &maddr);
+			m_end(&m);
+			mfa_filter_mailaddr(reqid, HOOK_RCPT, &maddr);
 			return;
 
 		case IMSG_MFA_REQ_DATA:
-			req = imsg->data;
-			mfa_filter(req->reqid, HOOK_DATA);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			mfa_filter(reqid, HOOK_DATA);
 			return;
 
 		case IMSG_MFA_REQ_EOM:
-			req = imsg->data;
-			mfa_filter(req->reqid, HOOK_EOM);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			mfa_filter(reqid, HOOK_EOM);
 			return;
 
 		case IMSG_MFA_SMTP_DATA:
-			req_data = imsg->data;
-			mfa_filter_data(req_data->reqid, req_data->buffer);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &line);
+			m_end(&m);
+			mfa_filter_data(reqid, line);
 			return;
 
 		case IMSG_MFA_EVENT_RSET:
-			req_id = imsg->data;
-			mfa_filter_event(*req_id, HOOK_RESET);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			mfa_filter_event(reqid, HOOK_RESET);
 			return;
 
 		case IMSG_MFA_EVENT_COMMIT:
-			req_id = imsg->data;
-			mfa_filter_event(*req_id, HOOK_COMMIT);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			mfa_filter_event(reqid, HOOK_COMMIT);
 			return;
 
 		case IMSG_MFA_EVENT_ROLLBACK:
-			req_id = imsg->data;
-			mfa_filter_event(*req_id, HOOK_ROLLBACK);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			mfa_filter_event(reqid, HOOK_ROLLBACK);
 			return;
 
 		case IMSG_MFA_EVENT_DISCONNECT:
-			req_id = imsg->data;
-			mfa_filter_event(*req_id, HOOK_DISCONNECT);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			mfa_filter_event(reqid, HOOK_DISCONNECT);
 			return;
 		}
 	}

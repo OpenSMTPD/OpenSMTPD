@@ -952,8 +952,6 @@ struct imsgproc {
 	void		       *cb_arg;
 };
 
-
-
 /* inter-process structures */
 
 struct bounce_req_msg {
@@ -973,48 +971,10 @@ struct queue_resp_msg {
 	uint64_t	evpid;
 };
 
-struct mfa_connect_msg {
-	uint64_t		reqid;
-	int			flags;
-	struct sockaddr_storage	local;
-	struct sockaddr_storage	remote;
-	char			hostname[MAXHOSTNAMELEN];
-};
-
-struct mfa_line_msg {
-	uint64_t		reqid;
-	int			flags;
-	char			line[MAX_LINE_SIZE];
-};
-
-struct mfa_maddr_msg {
-	uint64_t		reqid;
-	int			flags;
-	struct mailaddr		maddr;
-};
-
-struct mfa_data_msg {
-	uint64_t		reqid;
-	int			flags;
-	char			buffer[MAX_LINE_SIZE];
-};
-
-struct mfa_req_msg {
-	uint64_t		reqid;
-	int			flags;
-};
-
 enum mfa_resp_status {
 	MFA_OK,
 	MFA_FAIL,
 	MFA_CLOSE,
-};
-
-struct mfa_smtp_resp_msg {
-	uint64_t		reqid;
-	enum mfa_resp_status	status;
-	uint32_t		code;
-	char			line[MAX_LINE_SIZE];
 };
 
 enum dns_error {
@@ -1262,6 +1222,7 @@ void m_forward(struct mproc *, struct imsg *);
 void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int, size_t);
 void m_add(struct mproc *, const void *, size_t);
 void m_add_int(struct mproc *, int);
+void m_add_u32(struct mproc *, uint32_t);
 void m_add_time(struct mproc *, time_t);
 void m_add_string(struct mproc *, const char *);
 void m_add_data(struct mproc *, const void *, size_t);
@@ -1277,6 +1238,7 @@ void m_msg(struct msg *, struct imsg *);
 int  m_is_eom(struct msg *);
 void m_end(struct msg *);
 void m_get_int(struct msg *, int *);
+void m_get_u32(struct msg *, uint32_t *);
 void m_get_time(struct msg *, time_t *);
 void m_get_string(struct msg *, const char **);
 void m_get_data(struct msg *, const void **, size_t *);

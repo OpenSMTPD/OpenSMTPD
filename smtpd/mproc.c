@@ -232,7 +232,7 @@ m_msg(struct msg *m, struct imsg *imsg)
 void
 m_end(struct msg *m)
 {
-	if (m->pos == m->end)
+	if (m->pos != m->end)
 		fatalx("not at msg end");
 }
 
@@ -302,6 +302,7 @@ m_add_typed_sized(struct mproc *p, uint8_t type, const void *data, size_t len)
 
 enum {
 	M_INT,
+	M_UINT32,
 	M_TIME,
 	M_STRING,
 	M_DATA,
@@ -317,6 +318,12 @@ void
 m_add_int(struct mproc *m, int v)
 {
 	m_add_typed(m, M_INT, &v, sizeof v);
+};
+
+void
+m_add_u32(struct mproc *m, uint32_t u32)
+{
+	m_add_typed(m, M_UINT32, &u32, sizeof u32);
 };
 
 void
@@ -380,6 +387,12 @@ m_get_int(struct msg *m, int *i)
 }
 
 void
+m_get_u32(struct msg *m, uint32_t *u32)
+{
+	m_get_typed(m, M_UINT32, u32, sizeof(*u32));
+}
+
+void
 m_get_time(struct msg *m, time_t *t)
 {
 	m_get_typed(m, M_TIME, t, sizeof(*t));
@@ -390,7 +403,7 @@ m_get_string(struct msg *m, const char **s)
 {
 	uint8_t	*end;
 
-	if (m->pos + 2)
+	if (m->pos + 2 > m->end)
 		fatalx("msg too short");
 	if (*m->pos != M_STRING)
 		fatalx("bad msg type");

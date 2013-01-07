@@ -243,7 +243,6 @@ mfa_filter_data(uint64_t id, const char *line)
 static void
 mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 {
-	struct mfa_data_msg	 resp;
 	struct mproc		*p;
 	size_t			 len;
 
@@ -280,9 +279,10 @@ mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 	log_trace(TRACE_MFA,
 	    "mfa: sending final data to smtp for %016"PRIx64" on filter %p: %s", id, f, line);
 
-	resp.reqid = id;
-	strlcpy(resp.buffer, line, sizeof(resp.buffer));
-	m_compose(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1, &resp, sizeof(resp));
+	m_create(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1, len);
+	m_add_id(p_smtp, id);
+	m_add_string(p_smtp, line);
+	m_close(p_smtp);
 }
 
 static struct mfa_query *
@@ -313,7 +313,6 @@ mfa_drain_query(struct mfa_query *q)
 {
 	struct mfa_filter		*f;
 	struct mfa_query		*prev;
-	struct mfa_smtp_resp_msg	 resp;
 	struct filter_notify_msg	 notify;
 
 	log_trace(TRACE_MFA, "mfa: draining query %s", mfa_query_to_text(q));
@@ -375,15 +374,13 @@ mfa_drain_query(struct mfa_query *q)
 			m_compose(&f->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1,
 			    &notify, sizeof (notify));
 
-		resp.reqid = q->session->id;
-		resp.status = q->smtp.status;
-		resp.code = q->smtp.code;
+		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1, 2048);
+		m_add_id(p_smtp, q->session->id);
+		m_add_int(p_smtp, q->smtp.status);
+		m_add_u32(p_smtp, q->smtp.code);
 		if (q->smtp.response)
-			strlcpy(resp.line, q->smtp.response, sizeof resp.line);
-		else
-			resp.line[0] = '\0';
-		m_compose(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1, &resp,
-		    sizeof(resp));
+			m_add_string(p_smtp, q->smtp.response);
+		m_close(p_smtp);
 
 		free(q->smtp.response);
 	}
