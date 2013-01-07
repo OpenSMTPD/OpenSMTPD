@@ -13,9 +13,11 @@ monkey(uint64_t qid)
 	if (r < 70)
 		filter_api_accept(qid);
 	else if (r < 90)
-		filter_api_reject_code(qid, FILTER_FAIL, 666, "I am a monkey!");
+		filter_api_reject_code(qid, FILTER_FAIL, 666,
+		    "I am a monkey!");
 	else
-		filter_api_reject_code(qid, FILTER_CLOSE, 666, "I am a funny monkey!");
+		filter_api_reject_code(qid, FILTER_CLOSE, 666,
+		    "I am a funny monkey!");
 }
 
 static void
@@ -31,13 +33,13 @@ on_helo(uint64_t id, uint64_t qid, const char *helo)
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct filter_mailaddr *mail)
+on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
 {
 	monkey(qid);
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct filter_mailaddr *rcpt)
+on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
 {
 	monkey(qid);
 }

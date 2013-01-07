@@ -109,11 +109,6 @@ struct userinfo {
 	gid_t gid;
 };
 
-struct mailaddr {
-	char	user[MAX_LOCALPART_SIZE];
-	char	domain[MAX_DOMAINPART_SIZE];
-};
-
 struct netaddr {
 	struct sockaddr_storage ss;
 	int bits;

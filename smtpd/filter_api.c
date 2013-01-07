@@ -29,7 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "smtpd-api.h"
+#include "smtpd.h"
 
 static struct tree		queries;
 
@@ -40,8 +40,7 @@ struct query {
 static int			register_done;
 
 static struct filter_internals {
-	struct event	ev;
-	struct imsgbuf	ibuf;
+	struct mproc	p;
 
 	uint32_t	hooks;
 	uint32_t	flags;
@@ -50,8 +49,8 @@ static struct filter_internals {
 		void (*notify)(uint64_t, enum filter_status);
 		void (*connect)(uint64_t, uint64_t, struct filter_connect *);
 		void (*helo)(uint64_t, uint64_t, const char *);
-		void (*mail)(uint64_t, uint64_t, struct filter_mailaddr *);
-		void (*rcpt)(uint64_t, uint64_t, struct filter_mailaddr *);
+		void (*mail)(uint64_t, uint64_t, struct mailaddr *);
+		void (*rcpt)(uint64_t, uint64_t, struct mailaddr *);
 		void (*data)(uint64_t, uint64_t);
 		void (*dataline)(uint64_t, const char *);
 		void (*eom)(uint64_t, uint64_t);
@@ -62,8 +61,7 @@ static struct filter_internals {
 
 static void filter_api_init(void);
 static void filter_response(uint64_t, int, int, const char *line, int);
-static void filter_event_add(void);
-static void filter_dispatch(int, short, void *);
+static void filter_dispatch(struct mproc *, struct imsg *);
 static void filter_dispatch_event(uint64_t, enum filter_hook);
 static void filter_dispatch_dataline(uint64_t, const char *);
 static void filter_dispatch_data(uint64_t, uint64_t);
@@ -71,8 +69,14 @@ static void filter_dispatch_eom(uint64_t, uint64_t);
 static void filter_dispatch_notify(uint64_t, enum filter_status);
 static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *);
 static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
-static void filter_dispatch_mail(uint64_t, uint64_t, struct filter_mailaddr *);
-static void filter_dispatch_rcpt(uint64_t, uint64_t, struct filter_mailaddr *);
+static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
+static void filter_dispatch_rcpt(uint64_t, uint64_t, struct mailaddr *);
+
+const char *
+proc_to_str(int proc)
+{
+	return "PEER";
+}
 
 void
 filter_api_on_notify(void(*cb)(uint64_t, enum filter_status))
@@ -101,7 +105,7 @@ filter_api_on_helo(void(*cb)(uint64_t, uint64_t, const char *))
 }
 
 void
-filter_api_on_mail(void(*cb)(uint64_t, uint64_t, struct filter_mailaddr *))
+filter_api_on_mail(void(*cb)(uint64_t, uint64_t, struct mailaddr *))
 {
 	filter_api_init();
 
@@ -110,7 +114,7 @@ filter_api_on_mail(void(*cb)(uint64_t, uint64_t, struct filter_mailaddr *))
 }
 
 void
-filter_api_on_rcpt(void(*cb)(uint64_t, uint64_t, struct filter_mailaddr *))
+filter_api_on_rcpt(void(*cb)(uint64_t, uint64_t, struct mailaddr *))
 {
 	filter_api_init();
 
@@ -167,7 +171,6 @@ filter_api_loop(void)
 
 	register_done = 1;
 
-	filter_event_add();
 	if (event_dispatch() < 0)
 		errx(1, "event_dispatch");
 }
@@ -208,36 +211,28 @@ filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
 void
 filter_api_data(uint64_t id, const char *line)
 {
-	struct filter_data_msg	 msg;
-
-	msg.id = id;
-	strlcpy(msg.line, line, sizeof(line));
-
-	imsg_compose(&fi.ibuf, IMSG_FILTER_DATA, 0, 0, -1, &msg, sizeof(msg));
-
-	filter_event_add();
+	m_create(&fi.p, IMSG_FILTER_DATA, 0, 0, -1, 1024);
+	m_add_id(&fi.p, id);
+	m_add_string(&fi.p, line);
+	m_close(&fi.p);
 }
 
 static void
 filter_response(uint64_t qid, int status, int code, const char *line, int notify)
 {
-	struct filter_response_msg	 r;
-	struct filter_query		*q;
+	struct filter_query	*q;
 
 	q = tree_xpop(&queries, qid);
 	free(q);
 
-	r.qid = qid;
-	r.status = status;
-	r.code = code;
-	r.notify = notify;
-	if (line == NULL)
-		line = "";
-	strlcpy(r.response, line, sizeof(r.response));
-
-	imsg_compose(&fi.ibuf, IMSG_FILTER_RESPONSE, 0, 0, -1, &r, sizeof(r));
-
-	filter_event_add();
+	m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1, 64);
+	m_add_id(&fi.p, qid);
+	m_add_int(&fi.p, status);
+	m_add_int(&fi.p, code);
+	m_add_int(&fi.p, notify);
+	if (line)
+		m_add_string(&fi.p, line);
+	m_close(&fi.p);
 }
 
 static void
@@ -252,124 +247,100 @@ filter_api_init(void)
 
 	bzero(&fi, sizeof(fi));
 	tree_init(&queries);
-	imsg_init(&fi.ibuf, 0);
 	event_init();
+	mproc_init(&fi.p, 0);
 }
 
 static void
-filter_event_add(void)
+filter_dispatch(struct mproc *p, struct imsg *imsg)
 {
-	short	evflags;
-	
-	evflags = EV_READ;
-	if (fi.ibuf.w.queued)
-		evflags |= EV_WRITE;
+	struct filter_connect	 q_connect;
+	struct mailaddr		 maddr;
+	struct msg		 m;
+	const char		*line;
+	uint32_t		 v;
+	uint64_t		 id, qid;
+	int			 status, event, hook;
 
-	event_del(&fi.ev);
-	event_set(&fi.ev, 0, evflags, filter_dispatch, NULL);
-	event_add(&fi.ev, NULL);
-}
+	switch (imsg->hdr.type) {
+	case IMSG_FILTER_REGISTER:
+		m_msg(&m, imsg);
+		m_get_u32(&m, &v);
+		m_end(&m);
+		if (v != FILTER_API_VERSION)
+			errx(1, "API version mismatch");
+		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1, 18);
+		m_add_int(p, fi.hooks);
+		m_add_int(p, fi.flags);
+		m_close(p);
+		break;
 
-static void
-filter_dispatch(int fd, short event, void *p)
-{
-	struct imsg			 imsg;
-	ssize_t				 n;
-	struct session			*session;
-	uint32_t			 v;
-	struct filter_register_msg	 reg;
-	struct filter_query_msg		*query;
-	struct filter_event_msg		*evt;
-	struct filter_data_msg		*data;
-	struct filter_notify_msg	*notify;
+	case IMSG_FILTER_EVENT:
+		m_msg(&m, imsg);
+		m_get_id(&m, &id);
+		m_get_int(&m, &event);
+		m_end(&m);
+		filter_dispatch_event(id, event);
+		break;
 
-	if (event & EV_READ) {
-		n = imsg_read(&fi.ibuf);
-		if (n == -1)
-			err(1, "imsg_read");
-		if (n == 0) {
-			event_del(&fi.ev);
-			event_loopexit(NULL);
-			return;
+	case IMSG_FILTER_QUERY:
+		m_msg(&m, imsg);
+		m_get_id(&m, &id);
+		m_get_id(&m, &qid);
+		m_get_int(&m, &hook);
+		tree_xset(&queries, qid, NULL);
+		switch(hook) {
+		case HOOK_CONNECT:
+			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.local);
+			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.remote);
+			m_get_string(&m, &q_connect.hostname);
+			m_end(&m);
+			filter_dispatch_connect(id, qid, &q_connect);
+			break;
+		case HOOK_HELO:
+			m_get_string(&m, &line);
+			m_end(&m);
+			filter_dispatch_helo(id, qid, line);
+			break;
+		case HOOK_MAIL:
+			m_get_mailaddr(&m, &maddr);
+			m_end(&m);
+			filter_dispatch_mail(id, qid, &maddr);
+			break;
+		case HOOK_RCPT:
+			m_get_mailaddr(&m, &maddr);
+			m_end(&m);
+			filter_dispatch_rcpt(id, qid, &maddr);
+			break;
+		case HOOK_DATA:
+			m_end(&m);
+			filter_dispatch_data(id, qid);
+			break;
+		case HOOK_EOM:
+			m_end(&m);
+			filter_dispatch_eom(id, qid);
+			break;
+		default:
+			errx(1, "bad query hook", hook);
 		}
+		break;
+
+	case IMSG_FILTER_NOTIFY:
+		m_msg(&m, imsg);
+		m_get_id(&m, &qid);
+		m_get_int(&m, &status);
+		m_end(&m);
+		filter_dispatch_notify(qid, status);
+		break;
+
+	case IMSG_FILTER_DATA:
+		m_msg(&m, imsg);
+		m_get_id(&m, &id);
+		m_get_string(&m, &line);
+		m_end(&m);
+		filter_dispatch_dataline(id, line);
+		break;
 	}
-
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&fi.ibuf.w) == -1)
-			err(1, "msgbuf_write");
-	}
-
-	for (;;) {
-		n = imsg_get(&fi.ibuf, &imsg);
-		if (n == -1)
-			errx(1, "imsg_get");
-		if (n == 0)
-			break;
-
-		switch (imsg.hdr.type) {
-		case IMSG_FILTER_REGISTER:
-			v = *(uint32_t *)imsg.data;
-			if (v != FILTER_API_VERSION)
-				errx(1, "API version mismatch");
-
-			reg.hooks = fi.hooks;
-			reg.flags = fi.flags;	
-			imsg_compose(&fi.ibuf, IMSG_FILTER_REGISTER, 0, 0, -1,
-			    &reg, sizeof(reg));
-			break;
-
-		case IMSG_FILTER_EVENT:
-			evt = imsg.data;
-			filter_dispatch_event(evt->id, evt->event);
-			break;
-
-		case IMSG_FILTER_QUERY:
-			query = imsg.data;
-			/* XXX ? */
-			tree_xset(&queries, query->qid, NULL);
-			switch(query->hook) {
-			case HOOK_CONNECT:
-				filter_dispatch_connect(query->id, query->qid,
-				    &query->u.connect);
-				break;
-			case HOOK_HELO:
-				filter_dispatch_helo(query->id, query->qid,
-				    query->u.line.line);
-				break;
-			case HOOK_MAIL:
-				filter_dispatch_mail(query->id, query->qid,
-				    &query->u.maddr);
-				break;
-			case HOOK_RCPT:
-				filter_dispatch_rcpt(query->id, query->qid,
-				    &query->u.maddr);
-				break;
-			case HOOK_DATA:
-				filter_dispatch_data(query->id, query->qid);
-				break;
-			case HOOK_EOM:
-				filter_dispatch_eom(query->id, query->qid);
-				break;
-			default:
-				errx(1, "bad query hook", query->hook);
-			}
-			break;
-
-		case IMSG_FILTER_NOTIFY:
-			notify = imsg.data;
-			filter_dispatch_notify(notify->qid, notify->status);
-			break;
-
-		case IMSG_FILTER_DATA:
-			data = imsg.data;
-			filter_dispatch_dataline(data->id, data->line);
-			break;
-		}
-
-		imsg_free(&imsg);
-	}
-
-	filter_event_add();
 }
 
 static void
@@ -397,13 +368,13 @@ filter_dispatch_helo(uint64_t id, uint64_t qid, const char *helo)
 }
 
 static void
-filter_dispatch_mail(uint64_t id, uint64_t qid, struct filter_mailaddr *mail)
+filter_dispatch_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
 {
 	fi.cb.mail(id, qid, mail);
 }
 
 static void
-filter_dispatch_rcpt(uint64_t id, uint64_t qid, struct filter_mailaddr *rcpt)
+filter_dispatch_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
 {
 	fi.cb.rcpt(id, qid, rcpt);
 }
