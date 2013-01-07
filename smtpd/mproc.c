@@ -215,17 +215,6 @@ m_add(struct mproc *p, const void *data, size_t len)
 }
 
 void
-m_add_typed(struct mproc *p, uint8_t type, const void *data, size_t len)
-{
-	if (p->ibuferror)
-		return;
-
-	if (ibuf_add(p->ibuf, &type, 1) == -1 ||
-	    ibuf_add(p->ibuf, data, len) == -1)
-		p->ibuferror = 1;
-}
-
-void
 m_close(struct mproc *p)
 {
 	imsg_close(&p->imsgbuf, p->ibuf);
@@ -259,10 +248,198 @@ m_get(struct msg *m, void *dst, size_t sz)
 static inline void
 m_get_typed(struct msg *m, uint8_t type, void *dst, size_t sz)
 {
-	if (m->pos + sz + 1 > m->end)
+	if (m->pos + 1 + sz > m->end)
 		fatalx("msg too short");
 	if (*m->pos != type)
 		fatalx("msg bad type");
 	memmove(dst, m->pos + 1, sz);
 	m->pos += sz + 1;
 }
+
+static inline void
+m_get_typed_sized(struct msg *m, uint8_t type, const void **dst, size_t *sz)
+{
+	if (m->pos + 1 + sizeof(*sz) > m->end)
+		fatalx("msg too short");
+	if (*m->pos != type)
+		fatalx("msg bad type");
+	memmove(sz, m->pos + 1, sizeof(*sz));
+	m->pos += sizeof(sz) + 1;
+	if (m->pos + *sz > m->end)
+		fatalx("msg too short");
+	*dst = m->pos;
+	m->pos += *sz;
+}
+
+static void
+m_add_typed(struct mproc *p, uint8_t type, const void *data, size_t len)
+{
+	if (p->ibuferror)
+		return;
+
+	if (ibuf_add(p->ibuf, &type, 1) == -1 ||
+	    ibuf_add(p->ibuf, data, len) == -1)
+		p->ibuferror = 1;
+}
+
+static void
+m_add_typed_sized(struct mproc *p, uint8_t type, const void *data, size_t len)
+{
+	if (p->ibuferror)
+		return;
+
+	if (ibuf_add(p->ibuf, &type, 1) == -1 ||
+	    ibuf_add(p->ibuf, &len, sizeof(len)) == -1 ||
+	    ibuf_add(p->ibuf, data, len) == -1)
+		p->ibuferror = 1;
+}
+
+enum {
+	M_INT,
+	M_TIME,
+	M_STRING,
+	M_DATA,
+	M_ID,
+	M_EVPID,
+	M_MSGID,
+	M_SOCKADDR,
+	M_MAILADDR,
+	M_ENVELOPE,
+};
+
+void
+m_add_int(struct mproc *m, int v)
+{
+	m_add_typed(m, M_INT, &v, sizeof v);
+};
+
+void
+m_add_time(struct mproc *m, time_t v)
+{
+	m_add_typed(m, M_TIME, &v, sizeof v);
+};
+
+void
+m_add_string(struct mproc *m, const char *v)
+{
+	m_add_typed(m, M_STRING, v, strlen(v) + 1);
+};
+
+void
+m_add_data(struct mproc *m, const void *v, size_t len)
+{
+	m_add_typed_sized(m, M_DATA, v, len);
+};
+
+void
+m_add_id(struct mproc *m, uint64_t v)
+{
+	m_add_typed(m, M_ID, &v, sizeof(v));
+}
+
+void
+m_add_evpid(struct mproc *m, uint64_t v)
+{
+	m_add_typed(m, M_EVPID, &v, sizeof(v));
+}
+
+void
+m_add_msgid(struct mproc *m, uint32_t v)
+{
+	m_add_typed(m, M_MSGID, &v, sizeof(v));
+}
+
+void
+m_add_sockaddr(struct mproc *m, const struct sockaddr *sa)
+{
+	m_add_typed_sized(m, M_SOCKADDR, sa, sa->sa_len);
+}
+
+void
+m_add_mailaddr(struct mproc *m, const struct mailaddr *maddr)
+{
+	m_add_typed(m, M_MAILADDR, maddr, sizeof(*maddr));
+}
+
+void
+m_add_envelope(struct mproc *m, const struct envelope *evp)
+{
+	m_add_typed(m, M_ENVELOPE, evp, sizeof(*evp));
+}
+
+void
+m_get_int(struct msg *m, int *i)
+{
+	m_get_typed(m, M_INT, i, sizeof(*i));
+}
+
+void
+m_get_time(struct msg *m, time_t *t)
+{
+	m_get_typed(m, M_TIME, t, sizeof(*t));
+}
+
+void
+m_get_string(struct msg *m, const char **s)
+{
+	uint8_t	*end;
+
+	if (m->pos + 2)
+		fatalx("msg too short");
+	if (*m->pos != M_STRING)
+		fatalx("bad msg type");
+
+	end = memchr(m->pos + 1, 0, m->end - (m->pos + 1));
+	if (end == NULL)
+		fatalx("unterminated string");
+	
+	*s = m->pos + 1;
+	m->pos = end + 1;
+}
+
+void
+m_get_data(struct msg *m, const void **data, size_t *sz)
+{
+	m_get_typed_sized(m, M_DATA, data, sz);
+}
+
+void
+m_get_evpid(struct msg *m, uint64_t *evpid)
+{
+	m_get_typed(m, M_EVPID, evpid, sizeof(*evpid));
+}
+
+void
+m_get_msgid(struct msg *m, uint32_t *msgid)
+{
+	m_get_typed(m, M_MSGID, msgid, sizeof(*msgid));
+}
+
+void
+m_get_id(struct msg *m, uint64_t *id)
+{
+	m_get_typed(m, M_ID, id, sizeof(*id));
+}
+
+void
+m_get_sockaddr(struct msg *m, struct sockaddr *sa)
+{
+	size_t		 s;
+	const void	*d;
+
+	m_get_typed_sized(m, M_SOCKADDR, &d, &s);
+	memmove(sa, d, s);
+}
+
+void
+m_get_mailaddr(struct msg *m, struct mailaddr *maddr)
+{
+	m_get_typed(m, M_MAILADDR, maddr, sizeof(*maddr));
+}
+
+void
+m_get_envelope(struct msg *m, struct envelope *evp)
+{
+	m_get_typed(m, M_ENVELOPE, evp, sizeof(*evp));
+}
+
