@@ -204,13 +204,15 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 void
 mta_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	uint64_t			id;
-	struct mta_session	       *s;
-	struct mta_host		       *h;
-	struct dns_resp_msg	       *resp_dns;
-	struct ca_vrfy_resp_msg	       *resp_ca_vrfy;
-	struct ca_cert_resp_msg	       *resp_ca_cert;
-	void     		       *ssl;
+	struct ca_vrfy_resp_msg	*resp_ca_vrfy;
+	struct ca_cert_resp_msg	*resp_ca_cert;
+	struct mta_session	*s;
+	struct mta_host		*h;
+	struct msg		 m;
+	uint64_t		 id, reqid;
+	const char		*name;
+	void			*ssl;
+	int			 dnserror;
 
 	switch (imsg->hdr.type) {
 
@@ -237,12 +239,19 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_DNS_PTR:
-		resp_dns = imsg->data;
-		s = tree_xpop(&wait_ptr, resp_dns->reqid);
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &dnserror);
+		if (dnserror)
+			name = NULL;
+		else
+			m_get_string(&m, &name);
+		m_end(&m);
+		s = tree_xpop(&wait_ptr, reqid);
 		h = s->route->dst;
 		h->lastptrquery = time(NULL);
-		if (!resp_dns->error)
-			h->ptrname = xstrdup(resp_dns->u.ptr, "mta: ptr");
+		if (name)
+			h->ptrname = xstrdup(name, "mta: ptr");
 		waitq_run(&h->ptrname, h->ptrname);
 		return;
 

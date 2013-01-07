@@ -131,17 +131,18 @@ void
 mta_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct lka_source_resp_msg	*resp_addr;
-	struct dns_resp_msg	*resp_dns;
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_source	*source;
 	struct mta_domain	*domain;
 	struct mta_mx		*mx, *imx;
-	struct sockaddr		*sa;
+	struct sockaddr_storage	 ss;
 	struct tree		*batch;
 	struct secret		*secret;
 	struct envelope		*e;
-	uint64_t		 id;
+	struct msg		 m;
+	uint64_t		 id, reqid;
+	int			 dnserror, preference;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -237,8 +238,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			relay = tree_xpop(&wait_source, resp_addr->reqid);
 			relay->status &= ~RELAY_WAIT_SOURCE;
 			if (resp_addr->status == LKA_OK) {
-				sa = (struct sockaddr *)&resp_addr->ss;
-				source = mta_source(sa);
+				source = mta_source((struct sockaddr *)&resp_addr->ss);
 				mta_on_source(relay, source);
 				mta_source_unref(source);
 			}
@@ -251,12 +251,15 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_HOST:
-			resp_dns = imsg->data;
-			domain = tree_xget(&wait_mx, resp_dns->reqid);
-			sa = (struct sockaddr*)&resp_dns->u.host.ss;
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_sockaddr(&m, (struct sockaddr*)&ss);
+			m_get_int(&m, &preference);
+			m_end(&m);
+			domain = tree_xget(&wait_mx, reqid);
 			mx = xcalloc(1, sizeof *mx, "mta: mx");
-			mx->host = mta_host(sa);
-			mx->preference = resp_dns->u.host.preference;
+			mx->host = mta_host((struct sockaddr*)&ss);
+			mx->preference = preference;
 			TAILQ_FOREACH(imx, &domain->mxs, entry) {
 				if (imx->preference >= mx->preference) {
 					TAILQ_INSERT_BEFORE(imx, mx, entry);
@@ -267,9 +270,12 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_HOST_END:
-			resp_dns = imsg->data;
-			domain = tree_xpop(&wait_mx, resp_dns->reqid);
-			domain->mxstatus = resp_dns->error;
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &dnserror);
+			m_end(&m);
+			domain = tree_xpop(&wait_mx, reqid);
+			domain->mxstatus = dnserror;
 			if (domain->mxstatus == DNS_OK) {
 				log_debug("debug: MXs for domain %s:",
 				    domain->name);
@@ -286,21 +292,23 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_MX_PREFERENCE:
-			resp_dns = imsg->data;
-			relay = tree_xpop(&wait_preference, resp_dns->reqid);
-			if (resp_dns->error) {
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &dnserror);
+			relay = tree_xpop(&wait_preference, reqid);
+			if (dnserror) {
 				log_debug("debug: couldn't find backup "
 				    "preference for %s",
 				    mta_relay_to_text(relay));
-				/* use all */
 				relay->backuppref = INT_MAX;
 			} else {
-				relay->backuppref = resp_dns->u.preference;
+				m_get_int(&m, &relay->backuppref);
 				log_debug("debug: found backup preference %i "
 				    "for %s",
 				    relay->backuppref,
 				    mta_relay_to_text(relay));
 			}
+			m_end(&m);
 			relay->status &= ~RELAY_WAIT_PREFERENCE;
 			mta_drain(relay);
 			mta_relay_unref(relay); /* from mta_query_preference() */

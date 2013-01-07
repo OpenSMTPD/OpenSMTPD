@@ -969,32 +969,6 @@ enum dns_error {
 	DNS_ENOTFOUND,
 };
 
-struct dns_req_msg {
-	uint64_t			reqid;
-	union {
-		char			host[MAXHOSTNAMELEN];
-		char			domain[MAXHOSTNAMELEN];
-		struct sockaddr_storage	ss;
-		struct {
-			char		domain[MAXHOSTNAMELEN];
-			char		mx[MAXHOSTNAMELEN];
-		}			mxpref;
-	}				u;
-};
-
-struct dns_resp_msg {
-	uint64_t				reqid;
-	int					error;
-	union {
-		struct {
-			struct sockaddr_storage	ss;
-			int			preference;
-		}				host;
-		int				preference;
-		char				ptr[MAXHOSTNAMELEN];
-	} u;
-};
-
 enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,

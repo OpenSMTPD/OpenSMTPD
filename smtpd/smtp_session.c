@@ -249,7 +249,6 @@ smtp_session(struct listener *listener, int sock,
 void
 smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
 	struct smtp_session		*s;
@@ -262,17 +261,20 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t			 reqid, evpid;
 	uint32_t			 code, msgid;
 	size_t				 len;
-	int				 status, success;
+	int				 status, success, dnserror;
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
-		resp_dns = imsg->data;
-		s = tree_xpop(&wait_lka_ptr, resp_dns->reqid);
-		if (resp_dns->error)
-			strlcpy(s->hostname, "<unknown>", sizeof s->hostname);
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &dnserror);
+		if (dnserror)
+			line = "<unknown>";
 		else
-			strlcpy(s->hostname, resp_dns->u.ptr,
-			    sizeof s->hostname);
+			m_get_string(&m, &line);
+		m_end(&m);
+		s = tree_xpop(&wait_lka_ptr, reqid);
+		strlcpy(s->hostname, line, sizeof s->hostname);
 		smtp_connected(s);
 		return;
 
