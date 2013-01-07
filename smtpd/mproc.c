@@ -236,6 +236,12 @@ m_end(struct msg *m)
 		fatalx("not at msg end");
 }
 
+int
+m_is_eom(struct msg *m)
+{
+	return (m->pos == m->end);
+}
+
 static inline void
 m_get(struct msg *m, void *dst, size_t sz)
 {

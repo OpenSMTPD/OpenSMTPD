@@ -257,11 +257,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
 	struct mfa_req_msg		 req_mfa;
-	struct queue_data_msg		 data;
 	struct smtp_session		*s;
 	struct auth			*auth;
 	void				*ssl;
 	char				 user[MAXLOGNAME];
+	char				 buf[MAX_LINE_SIZE];
+	size_t				 len;
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
@@ -334,9 +335,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		data.msgid = evpid_to_msgid(s->evp.id);
-		
-		data.len = snprintf(data.data, (sizeof data.data),
+		m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, 2048);
+		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+
+		len = snprintf(buf, (sizeof buf),
 		    "Received: from %s (%s [%s]);\n"
 		    "\tby %s (OpenSMTPD) with %sSMTP id %08x;\n",
 		    s->evp.helo,
@@ -345,10 +347,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    env->sc_hostname,
 		    s->flags & SF_EHLO ? "E" : "",
 		    evpid_to_msgid(s->evp.id));
-		m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
+		m_add_data(p_queue, buf, len);
 
 		if (s->flags & SF_SECURE) {
-			data.len = snprintf(data.data, (sizeof data.data),
+			len = snprintf(buf, sizeof(buf),
 			    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
@@ -359,20 +361,21 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			 *  (s->flags & SF_VERIFIED) ? "YES" :
 			 *  (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
 			 */
-			m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
+			m_add_data(p_queue, buf, len);
 		}
 
 		if (s->rcptcount == 1) {
-			data.len = snprintf(data.data, (sizeof data.data),
-			    "\tfor <%s@%s>;\n",
+			len = snprintf(buf, sizeof(buf), "\tfor <%s@%s>;\n",
 			    s->evp.rcpt.user,
 			    s->evp.rcpt.domain);
-			m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
+			m_add_data(p_queue, buf, len);
 		}
 
-		data.len = snprintf(data.data, (sizeof data.data),
-		    "\t%s\n", time_to_text(time(NULL)));
-		m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &data, sizeof(data));
+		len = snprintf(buf, sizeof(buf), "\t%s\n",
+		    time_to_text(time(NULL)));
+		m_add_data(p_queue, buf, len);
+
+		m_close(p_queue);
 
 		smtp_enter_state(s, STATE_BODY);
 		smtp_reply(s, "354 Enter mail, end with \".\""
@@ -1270,8 +1273,8 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 static void
 smtp_message_write(struct smtp_session *s, char *line)
 {
-	struct queue_data_msg	msg;
-	size_t			i, len;
+	char	buf[MAX_LINE_SIZE];	
+	size_t	i, len;
 
 	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 
@@ -1304,10 +1307,11 @@ smtp_message_write(struct smtp_session *s, char *line)
 			if (line[i] & 0x80)
 				line[i] = line[i] & 0x7f;
 
-	snprintf(msg.data, sizeof(msg.data), "%s\n", line);
-	msg.msgid = evpid_to_msgid(s->evp.id);
-	msg.len = len + 1;
-	m_compose(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, &msg, sizeof(msg));
+	snprintf(buf, sizeof(buf), "%s\n", line);
+	m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, len + 5);
+	m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+	m_add_data(p_queue, buf, len + 1);
+	m_close(p_queue);
 }
 
 static void

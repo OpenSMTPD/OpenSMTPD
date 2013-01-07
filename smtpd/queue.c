@@ -59,16 +59,17 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
 	struct queue_req_msg	*req;
-	struct queue_data_msg	*data;
 	struct queue_resp_msg	 resp;
 	struct envelope		*e, evp;
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct sink		*sink;
+	struct msg		 m;
+	const void		*data;
 	int			 fd, ret;
 	uint64_t		 id;
 	uint32_t		 msgid;
-	size_t			 n;
+	size_t			 n, len;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -141,22 +142,28 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_DATA:
-			data = imsg->data;
-			sink = tree_xget(&sinks, data->msgid);
+			m_msg(&m, imsg);
+			m_get_msgid(&m, &msgid);
+
+			sink = tree_xget(&sinks, msgid);
 			if (sink == NULL)
 				return;
 
-			if (env->sc_queue_flags & QUEUE_COMPRESS) {
-				/* XXX plug compression/crypto */
-			}
+			while (!m_is_eom(&m)) {
+				m_get_data(&m, &data, &len);
+				if (env->sc_queue_flags & QUEUE_COMPRESS) {
+					/* XXX plug compression/crypto */
+				}
 
-			n = fwrite(data->data, 1, data->len, sink->ofile);
-			if (n != data->len) {
-				log_warn("warn: failed to write message data");
-				fclose(sink->ofile);
-				free(sink);
-				tree_xset(&sinks, data->msgid, NULL);
-				/* XXX report to SMTP */
+				n = fwrite(data, 1, len, sink->ofile);
+				if (n != len) {
+					log_warn("warn: failed to write data");
+					fclose(sink->ofile);
+					free(sink);
+					tree_xset(&sinks, msgid, NULL);
+					/* XXX report to SMTP */
+					break;
+				}
 			}
 			return;
 

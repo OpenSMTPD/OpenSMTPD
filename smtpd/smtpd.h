@@ -967,12 +967,6 @@ struct queue_req_msg {
 	uint64_t	evpid;
 };
 
-struct queue_data_msg {
-	uint32_t	msgid;
-	size_t		len;
-	char		data[MAX_LINE_SIZE];
-};
-
 struct queue_resp_msg {
 	uint64_t	reqid;
 	int		success;
@@ -1280,6 +1274,8 @@ void m_add_envelope(struct mproc *, const struct envelope *);
 void m_close(struct mproc *);
 
 void m_msg(struct msg *, struct imsg *);
+int  m_is_eom(struct msg *);
+void m_end(struct msg *);
 void m_get_int(struct msg *, int *);
 void m_get_time(struct msg *, time_t *);
 void m_get_string(struct msg *, const char **);
@@ -1290,7 +1286,7 @@ void m_get_id(struct msg *, uint64_t *);
 void m_get_sockaddr(struct msg *, struct sockaddr *);
 void m_get_mailaddr(struct msg *, struct mailaddr *);
 void m_get_envelope(struct msg *, struct envelope *);
-void m_end(struct msg *);
+
 
 /* mta.c */
 pid_t mta(void);
