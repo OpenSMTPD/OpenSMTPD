@@ -249,7 +249,6 @@ smtp_session(struct listener *listener, int sock,
 void
 smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct queue_resp_msg		*resp_queue;
 	struct lka_resp_msg		*resp_lka;
 	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
@@ -260,11 +259,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	char				 user[MAXLOGNAME];
 	char				 buf[MAX_LINE_SIZE];
 	struct msg			 m;
-	uint64_t			 reqid;
-	int				 status;
-	uint32_t			 code;
 	const char			*line;
+	uint64_t			 reqid, evpid;
+	uint32_t			 code, msgid;
 	size_t				 len;
+	int				 status, success;
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
@@ -325,23 +324,30 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_CREATE_MESSAGE:
-		resp_queue = imsg->data;
-		s = tree_xpop(&wait_queue_msg, resp_queue->reqid);
-		if (resp_queue->success) {
-			s->evp.id = resp_queue->evpid;
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &success);
+		s = tree_xpop(&wait_queue_msg, reqid);
+		if (success) {
+			m_get_msgid(&m, &msgid);
+			s->evp.id = msgid_to_evpid(msgid);
 			s->rcptcount = 0;
 			s->phase = PHASE_TRANSACTION;
 			smtp_reply(s, "250 Ok");
 		} else {
 			smtp_reply(s, "421 Temporary Error");
 		}
+		m_end(&m);
 		io_reload(&s->io);
 		return;
 
 	case IMSG_QUEUE_MESSAGE_FILE:
-		resp_queue = imsg->data;
-		s = tree_xpop(&wait_queue_fd, resp_queue->reqid);
-		if (!resp_queue->success) {
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &success);
+		m_end(&m);
+		s = tree_xpop(&wait_queue_fd, reqid);
+		if (!success) {
 			smtp_reply(s, "421 Temporary Error");
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
@@ -399,21 +405,27 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_SUBMIT_ENVELOPE:
-		resp_queue = imsg->data;
-		s = tree_xget(&wait_lka_rcpt, resp_queue->reqid);
-		if (resp_queue->success)
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &success);
+		s = tree_xget(&wait_lka_rcpt, reqid);
+		if (success) {
+			m_get_evpid(&m, &evpid);
 			s->destcount++;
+		}
 		else
 			s->msgflags |= MF_QUEUE_ENVELOPE_FAIL;
+		m_end(&m);
 		return;
 
 	case IMSG_QUEUE_COMMIT_ENVELOPES:
-		resp_queue = imsg->data;
-		s = tree_xpop(&wait_lka_rcpt, resp_queue->reqid);
-		/* This cannot fail. */
-		if (!resp_queue->success)
-			fatalx("commit failed: not supposed to happen");
-
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &success);
+		m_end(&m);
+		if (!success)
+			fatalx("commit evp failed: not supposed to happen");
+		s = tree_xpop(&wait_lka_rcpt, reqid);
 		if (s->msgflags & MF_QUEUE_ENVELOPE_FAIL) {
 			/*
 			 * If an envelope failed, we can't cancel the last
@@ -432,10 +444,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_COMMIT_MESSAGE:
-		resp_queue = imsg->data;
-		s = tree_xpop(&wait_queue_commit, resp_queue->reqid);
-
-		if (!resp_queue->success) {
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &success);
+		m_end(&m);
+		s = tree_xpop(&wait_queue_commit, reqid);
+		if (!success) {
 			m_create(p_mfa, IMSG_MFA_EVENT_ROLLBACK, 0, 0, -1, 8);
 			m_add_id(p_mfa, s->id);
 			m_close(p_mfa);
@@ -550,7 +564,6 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
     const char *line)
 {
 	struct ca_cert_req_msg		 req_ca_cert;
-	struct queue_req_msg		 req_queue;
 	struct lka_expand_msg		 req_lka;
 
 	if (status == MFA_CLOSE) {
@@ -624,10 +637,10 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			io_reload(&s->io);
 			return;
 		}
-		req_queue.reqid = s->id;
-		req_queue.evpid = 0;
-		m_compose(p_queue, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-		    &req_queue, sizeof(req_queue));
+
+		m_create(p_queue, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1, 8);
+		m_add_id(p_queue, s->id);
+		m_close(p_queue);
 		tree_xset(&wait_queue_msg, s->id, s);
 		return;
 
@@ -661,10 +674,10 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			io_reload(&s->io);
 			return;
 		}
-		req_queue.reqid = s->id;
-		req_queue.evpid = s->evp.id;
-		m_compose(p_queue, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-		    &req_queue, sizeof(req_queue));
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, 12);
+		m_add_id(p_queue, s->id);
+		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+		m_close(p_queue);
 		tree_xset(&wait_queue_fd, s->id, s);
 		return;
 
@@ -833,7 +846,6 @@ smtp_io(struct io *io, int evt)
 static void
 smtp_command(struct smtp_session *s, char *line)
 {
-	struct queue_req_msg	 req_queue;
 	char			*args, *eom, *method;
 	int			 cmd, i;
 
@@ -1064,10 +1076,10 @@ smtp_command(struct smtp_session *s, char *line)
 		m_close(p_mfa);
 
 		if (s->evp.id) {
-			req_queue.reqid = s->id;
-			req_queue.evpid = s->evp.id;
-			m_compose(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-			    &req_queue, sizeof(req_queue));
+			m_create(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
+			    4);
+			m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+			m_close(p_queue);
 		}
 
 		s->phase = PHASE_SETUP;
@@ -1325,20 +1337,16 @@ smtp_message_write(struct smtp_session *s, const char *line)
 static void
 smtp_message_end(struct smtp_session *s)
 {
-	struct queue_req_msg	req_queue;
-
 	log_debug("debug: %p: end of message, msgflags=0x%04x", s, s->msgflags);
 
 	tree_xpop(&wait_mfa_data, s->id);
 
 	s->phase = PHASE_SETUP;
 
-	req_queue.reqid = s->id;
-	req_queue.evpid = s->evp.id;
-
 	if (s->msgflags & (MF_ERROR_SIZE | MF_ERROR_MFA)) {
-		m_compose(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-		    &req_queue, sizeof(req_queue));
+		m_create(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, 4);
+		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+		m_close(p_queue);
 		if (s->msgflags & MF_ERROR_SIZE)
 			smtp_reply(s, "554 Message too big");
 		else
@@ -1353,9 +1361,10 @@ smtp_message_end(struct smtp_session *s)
 		smtp_enter_state(s, STATE_QUIT);
 		return;
 	}
-
-	m_compose(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
-	    &req_queue, sizeof(req_queue));
+	m_create(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 12);
+	m_add_id(p_queue, s->id);
+	m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+	m_close(p_queue);
 	tree_xset(&wait_queue_commit, s->id, s);
 }
 
@@ -1421,18 +1430,15 @@ smtp_wait_mfa(struct smtp_session *s, int type)
 static void
 smtp_free(struct smtp_session *s, const char * reason)
 {
-	struct queue_req_msg	req_queue;
-
 	log_debug("debug: smtp: %p: deleting session: %s", s, reason);
 
 	tree_pop(&wait_mfa_data, s->id);
 	tree_pop(&wait_mfa_response, s->id);
 
 	if (s->evp.id) {
-		req_queue.reqid = s->id;
-		req_queue.evpid = s->evp.id;
-		m_compose(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1,
-		    &req_queue, sizeof(req_queue));
+		m_create(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, 5);
+		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
+		m_close(p_queue);
 	}
 
 	m_create(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1, 8);

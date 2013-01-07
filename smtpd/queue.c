@@ -58,35 +58,40 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
-	struct queue_req_msg	*req;
-	struct queue_resp_msg	 resp;
 	struct envelope		*e, evp;
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct sink		*sink;
 	struct msg		 m;
 	const void		*data;
-	int			 fd, ret;
-	uint64_t		 id;
+	uint64_t		 reqid, evpid;
 	uint32_t		 msgid;
 	size_t			 n, len;
+	int			 fd, ret;
 
 	if (p->proc == PROC_SMTP) {
 
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-			req = imsg->data;
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
 			ret = queue_message_create(&msgid);
-			resp.reqid = req->reqid;
-			resp.success = (ret == 0) ? 0 : 1;
-			resp.evpid = (ret == 0) ? 0 : msgid_to_evpid(msgid);
-			m_compose(p, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1,
-			    &resp, sizeof resp);
+			m_create(p, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1, 24);
+			m_add_id(p, reqid);
+			if (ret == 0)
+				m_add_int(p, 0);
+			else {
+				m_add_int(p, 1);
+				m_add_msgid(p, msgid);
+			}
+			m_close(p);
 			return;
 
 		case IMSG_QUEUE_REMOVE_MESSAGE:
-			req = imsg->data;
-			msgid = evpid_to_msgid(req->evpid);
+			m_msg(&m, imsg);
+			m_get_msgid(&m, &msgid);
+			m_end(&m);
 			if ((sink = tree_pop(&sinks, msgid))) {
 				fclose(sink->ofile);
 				free(sink);
@@ -97,8 +102,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_COMMIT_MESSAGE:
-			req = imsg->data;
-			msgid = evpid_to_msgid(req->evpid);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_msgid(&m, &msgid);
+			m_end(&m);
 
 			if ((sink = tree_xpop(&sinks, msgid)) == NULL)
 				ret = 0; /* fwrite failed */
@@ -108,20 +115,22 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			if (ret)
 				ret = queue_message_commit(msgid);
-			resp.reqid = req->reqid;
-			resp.success = (ret == 0) ? 0 : 1;
-			resp.evpid = msgid_to_evpid(msgid);
-			m_compose(p, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
-			    &resp, sizeof resp);
-			if (resp.success)
+
+			m_create(p,  IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 16);
+			m_add_id(p, reqid);
+			m_add_int(p, (ret == 0) ? 0 : 1);
+			m_close(p);
+			if (ret)
 				m_compose(p_scheduler,
 				    IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1,
 				    &msgid, sizeof msgid);
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FILE:
-			req = imsg->data;
-			msgid = evpid_to_msgid(req->evpid);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_msgid(&m, &msgid);
+			m_end(&m);
 			fd = queue_message_fd_rw(msgid);
 			if (fd != -1) {
 				sink = xcalloc(1, sizeof(*sink), "sink");
@@ -134,11 +143,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				else
 					tree_xset(&sinks, msgid, sink);
 			}
-			resp.reqid = req->reqid;
-			resp.success = (fd == -1) ? 0 : 1;
-			resp.evpid = req->evpid;
-			m_compose(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1,
-			    &resp, sizeof resp);
+
+			m_create(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, 16);
+			m_add_id(p, reqid);
+			m_add_int(p, (fd == -1) ? 0 : 1);
+			m_close(p);
 			return;
 
 		case IMSG_QUEUE_DATA:
@@ -168,8 +177,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
-			id = *(uint64_t*)(imsg->data);
-			bounce_run(id, imsg->fd);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			bounce_run(reqid, imsg->fd);
 			return;
 		}
 	}
@@ -179,12 +190,17 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
 			e = imsg->data;
 			ret = queue_envelope_create(e);
-			resp.reqid = e->session_id;
-			resp.success = (ret == 0) ? 0 : 1;
-			resp.evpid = (ret == 0) ? 0 : e->id;
-			m_compose(p_smtp, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-			    &resp, sizeof resp);
-			if (resp.success)
+			m_create(p_smtp, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+			    24);
+			m_add_id(p_smtp, e->session_id);
+			if (ret == 0)
+				m_add_int(p_smtp, 0);
+			else {
+				m_add_int(p_smtp, 1);
+				m_add_evpid(p_smtp, e->id);
+			}
+			m_close(p_smtp);
+			if (ret)
 				m_compose(p_scheduler,
 				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, e,
 				    sizeof *e);
@@ -192,11 +208,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
 			e = imsg->data;
-			resp.reqid = e->session_id;
-			resp.success = 1;
-			resp.evpid = 0;
-			m_compose(p_smtp, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
-			    &resp, sizeof resp);
+			m_create(p_smtp, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
+			    8);
+			m_add_id(p_smtp, e->session_id);
+			m_add_int(p_smtp, 1);
+			m_close(p_smtp);
 			return;
 		}
 	}
@@ -204,18 +220,22 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_REMOVE:
-			id = *(uint64_t*)(imsg->data);
-			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id);
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			log_envelope(&evp, NULL, "Remove",
 			    "Removed by administrator");
 			queue_envelope_delete(&evp);
 			return;
 
 		case IMSG_QUEUE_EXPIRE:
-			id = *(uint64_t*)(imsg->data);
-			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id);
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			envelope_set_errormsg(&evp, "Envelope expired");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
@@ -227,26 +247,30 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_QUEUE_BOUNCE:
 			req_bounce = imsg->data;
-			id = req_bounce->evpid;
-			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id);
+			evpid = req_bounce->evpid;
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
 			queue_envelope_update(&evp);
 			return;
 
 		case IMSG_MDA_DELIVER:
-			id = *(uint64_t*)(imsg->data);
-			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id);
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			evp.lasttry = time(NULL);
 			m_compose(p_mda, IMSG_MDA_DELIVER, 0, 0, -1,
 			    &evp, sizeof evp);
 			return;
 
 		case IMSG_BOUNCE_INJECT:
-			id = *(uint64_t*)(imsg->data);
-			bounce_add(id);
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			bounce_add(evpid);
 			return;
 
 		case IMSG_MTA_BATCH:
@@ -256,9 +280,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_MTA_BATCH_ADD:
-			id = *(uint64_t*)(imsg->data);
-			if (queue_envelope_load(id, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, id);
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			evp.lasttry = time(NULL);
 			evp.batch_id = batch_id;
 			m_compose(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1,

@@ -960,17 +960,6 @@ struct bounce_req_msg {
 	struct delivery_bounce	bounce;
 };
 
-struct queue_req_msg {
-	uint64_t	reqid;
-	uint64_t	evpid;
-};
-
-struct queue_resp_msg {
-	uint64_t	reqid;
-	int		success;
-	uint64_t	evpid;
-};
-
 enum mfa_resp_status {
 	MFA_OK,
 	MFA_FAIL,
