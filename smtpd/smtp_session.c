@@ -249,7 +249,6 @@ smtp_session(struct listener *listener, int sock,
 void
 smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct lka_resp_msg		*resp_lka;
 	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
@@ -278,9 +277,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_LKA_EXPAND_RCPT:
-		resp_lka = imsg->data;
-		s = tree_xpop(&wait_lka_rcpt, resp_lka->reqid);
-		switch (resp_lka->status) {
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &status);
+		m_end(&m);
+		s = tree_xpop(&wait_lka_rcpt, reqid);
+		switch (status) {
 		case LKA_OK:
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
@@ -564,7 +566,6 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
     const char *line)
 {
 	struct ca_cert_req_msg		 req_ca_cert;
-	struct lka_expand_msg		 req_lka;
 
 	if (status == MFA_CLOSE) {
 		code = code ? code : 421;
@@ -659,10 +660,11 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			io_reload(&s->io);
 			return;
 		}
-		req_lka.reqid = s->id;
-		req_lka.evp = s->evp;
-		m_compose(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
-		    &req_lka, sizeof(req_lka));
+
+		m_create(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 7000);
+		m_add_id(p_lka, s->id);
+		m_add_envelope(p_lka, &s->evp);
+		m_close(p_lka);
 		tree_xset(&wait_lka_rcpt, s->id, s);
 		return;
 

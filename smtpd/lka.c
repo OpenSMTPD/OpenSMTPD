@@ -55,7 +55,6 @@ static int lka_X509_verify(struct ca_vrfy_req_msg *, const char *, const char *)
 static void
 lka_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct lka_expand_msg		*req;
 	struct lka_source_req_msg	*req_source;
 	struct lka_source_resp_msg	 resp;
 	struct auth		*auth;
@@ -79,6 +78,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_vrfy_resp_msg		resp_ca_vrfy;
 	struct ca_cert_req_msg		*req_ca_cert;
 	struct ca_cert_resp_msg		resp_ca_cert;
+	struct envelope			evp;
+	struct msg			m;
+	uint64_t			reqid;
 	size_t				i;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
@@ -92,8 +94,11 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_EXPAND_RCPT:
-			req = imsg->data;
-			lka_session(req->reqid, &req->evp);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_envelope(&m, &evp);
+			m_end(&m);
+			lka_session(reqid, &evp);
 			return;
 
 		case IMSG_LKA_SSL_INIT:

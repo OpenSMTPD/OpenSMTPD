@@ -148,7 +148,6 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 static void
 lka_resume(struct lka_session *lks)
 {
-	struct lka_resp_msg	 resp;
 	struct envelope		*ep;
 	struct expandnode	*xn;
 
@@ -172,10 +171,10 @@ lka_resume(struct lka_session *lks)
 	}
     error:
 	if (lks->error) {
-		resp.reqid = lks->id;
-		resp.status = lks->error;
-		m_compose(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
-		    &resp, sizeof resp);
+		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 24);
+		m_add_id(p_smtp, lks->id);
+		m_add_int(p_smtp, lks->error);
+		m_close(p_smtp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			free(ep);

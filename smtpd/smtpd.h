@@ -995,20 +995,10 @@ struct dns_resp_msg {
 	} u;
 };
 
-struct lka_expand_msg {
-	uint64_t		reqid;
-	struct envelope		evp;
-};
-
 enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,
 	LKA_PERMFAIL
-};
-
-struct lka_resp_msg {
-	uint64_t		reqid;
-	enum lka_resp_status	status;
 };
 
 struct lka_source_req_msg {
