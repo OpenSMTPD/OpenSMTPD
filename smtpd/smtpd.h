@@ -432,7 +432,6 @@ struct envelope {
 	char				tag[MAX_TAG_SIZE];
 
 	uint64_t			session_id;
-	uint64_t			batch_id;
 
 	uint32_t			version;
 	uint64_t			id;

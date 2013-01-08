@@ -945,7 +945,9 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
 		log_envelope(e, relay, pfx, error);
-		m_compose(p_queue, delivery, 0, 0, -1, e, sizeof(*e));
+		m_create(p_queue, delivery, 0, 0, -1, 7000);
+		m_add_envelope(p_queue, e);
+		m_close(p_queue);
 		free(e);
 		n++;
 	}
@@ -959,7 +961,7 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 }
 
 static void
-mta_envelope_fail(struct envelope *evp, struct mta_route *route, int delivery)
+mta_envelope_fail(struct envelope *e, struct mta_route *route, int delivery)
 {
 	char relay[MAX_LINE_SIZE], stat[MAX_LINE_SIZE];
 	const char *pfx;
@@ -972,9 +974,11 @@ mta_envelope_fail(struct envelope *evp, struct mta_route *route, int delivery)
 	snprintf(relay, sizeof relay, "relay=%s, ",
 	    mta_host_to_text(route->dst));
 
-	snprintf(stat, sizeof stat, "RemoteError (%s)", &evp->errorline[4]);
-	log_envelope(evp, relay, pfx, stat);
-	m_compose(p_queue, delivery, 0, 0, -1, evp, sizeof(*evp));
+	snprintf(stat, sizeof stat, "RemoteError (%s)", &e->errorline[4]);
+	log_envelope(e, relay, pfx, stat);
+	m_create(p_queue, delivery, 0, 0, -1, 7000);
+	m_add_envelope(p_queue, e);
+	m_close(p_queue);
 }
 
 static void

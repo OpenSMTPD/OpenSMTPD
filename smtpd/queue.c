@@ -58,7 +58,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
-	struct envelope		 evp, *e;
+	struct envelope		 evp;
 	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct sink		*sink;
@@ -276,8 +276,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			evp.lasttry = time(NULL);
-			m_compose(p_mda, IMSG_MDA_DELIVER, 0, 0, -1,
-			    &evp, sizeof evp);
+			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, 7000);
+			m_add_envelope(p_mda, &evp);
+			m_close(p_mda);
 			return;
 
 		case IMSG_BOUNCE_INJECT:
@@ -289,8 +290,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_MTA_BATCH:
 			batch_id = generate_uid();
-			m_compose(p_mta, IMSG_MTA_BATCH, 0, 0, -1,
-			    &batch_id, sizeof batch_id);
+			m_create(p_mta, IMSG_MTA_BATCH, 0, 0, -1, 9);
+			m_add_id(p_mta, batch_id);
+			m_close(p_mta);
 			return;
 
 		case IMSG_MTA_BATCH_ADD:
@@ -300,14 +302,16 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			evp.lasttry = time(NULL);
-			evp.batch_id = batch_id;
-			m_compose(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1,
-			    &evp, sizeof evp);
+			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, 7000);
+			m_add_id(p_mta, batch_id);
+			m_add_envelope(p_mta, &evp);
+			m_close(p_mta);
 			return;
 
 		case IMSG_MTA_BATCH_END:
-			m_compose(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1,
-			    &batch_id, sizeof batch_id);
+			m_create(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1, 9);
+			m_add_id(p_mta, batch_id);
+			m_close(p_mta);
 			return;
 
 		case IMSG_CTL_LIST_ENVELOPES:
@@ -349,44 +353,53 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_DELIVERY_OK:
-			e = imsg->data;
-			queue_envelope_delete(e);
+			m_msg(&m, imsg);
+			m_get_envelope(&m, &evp);
+			m_end(&m);
+			queue_envelope_delete(&evp);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1, 9);
-			m_add_evpid(p_scheduler, e->id);
+			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
 			return;
 
 		case IMSG_DELIVERY_TEMPFAIL:
-			e = imsg->data;
-			e->retry++;
-			queue_envelope_update(e);
+			m_msg(&m, imsg);
+			m_get_envelope(&m, &evp);
+			m_end(&m);
+			evp.retry++;
+			queue_envelope_update(&evp);
 			m_create(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
 			    7000);
-			m_add_envelope(p_scheduler, e);
+			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
 			return;
 
 		case IMSG_DELIVERY_PERMFAIL:
-			e = imsg->data;
+			m_msg(&m, imsg);
+			m_get_envelope(&m, &evp);
+			m_end(&m);
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
-			queue_bounce(e, &bounce);
-			queue_envelope_delete(e);
-			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1, 9);
-			m_add_evpid(p_scheduler, e->id);
+			queue_bounce(&evp, &bounce);
+			queue_envelope_delete(&evp);
+			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
+			    9);
+			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
 			return;
 
 		case IMSG_DELIVERY_LOOP:
-			e = imsg->data;
+			m_msg(&m, imsg);
+			m_get_envelope(&m, &evp);
+			m_end(&m);
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
-			queue_bounce(e, &bounce);
-			queue_envelope_delete(e);
+			queue_bounce(&evp, &bounce);
+			queue_envelope_delete(&evp);
 			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
-			m_add_evpid(p_scheduler, e->id);
+			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
 			return;
 		}

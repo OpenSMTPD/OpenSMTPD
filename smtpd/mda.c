@@ -99,7 +99,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	struct mda_session	*s;
 	struct mda_user		*u;
 	struct delivery_mda	*d_mda;
-	struct envelope		*ep;
+	struct envelope		*e;
 	struct msg		 m;
 	uint32_t		 id;
 	uint16_t		 msg;
@@ -144,20 +144,25 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 
 		case IMSG_MDA_DELIVER:
-			ep = xmemdup(imsg->data, sizeof *ep, "mda_imsg");
+			e = xmalloc(sizeof(*e), "mda:envelope");
+			m_msg(&m, imsg);
+			m_get_envelope(&m, e);
+			m_end(&m);
 
 			if (evpcount >= MDA_MAXEVP) {
 				log_debug("debug: mda: too many envelopes");
-				envelope_set_errormsg(ep,
+				envelope_set_errormsg(e,
 				    "Global envelope limit reached");
-				m_compose(p_queue,  IMSG_DELIVERY_TEMPFAIL,
-				    0, 0, -1, ep, sizeof *ep);
-				free(ep);
+				m_create(p_queue, IMSG_DELIVERY_TEMPFAIL,
+				    0, 0, -1, 7000);
+				m_add_envelope(p_queue, e);
+				m_close(p_queue);
+				free(e);
 				return;
 			}
 
-			name = ep->agent.mda.userinfo.username;
-			usertable = ep->agent.mda.usertable;
+			name = e->agent.mda.userinfo.username;
+			usertable = e->agent.mda.usertable;
 			TAILQ_FOREACH(u, &users, entry)
 			    if (!strcmp(name, u->name) &&
 				!strcmp(usertable, u->usertable))
@@ -166,11 +171,13 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (u && u->evpcount >= MDA_MAXEVPUSER) {
 				log_debug("debug: mda: too many envelopes for "
 				    "\"%s\"", u->name);
-				envelope_set_errormsg(ep,
+				envelope_set_errormsg(e,
 				    "User envelope limit reached");
-				m_compose(p_queue,  IMSG_DELIVERY_TEMPFAIL,
-				    0, 0, -1, ep, sizeof *ep);
-				free(ep);
+				m_create(p_queue, IMSG_DELIVERY_TEMPFAIL,
+				    0, 0, -1, 7000);
+				m_add_envelope(p_queue, e);
+				m_close(p_queue);
+				free(e);
 				return;
 			}
 
@@ -192,7 +199,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			evpcount += 1;
 			u->evpcount += 1;
-			TAILQ_INSERT_TAIL(&u->envelopes, ep, entry);
+			TAILQ_INSERT_TAIL(&u->envelopes, e, entry);
 			mda_drain();
 			return;
 
@@ -245,7 +252,6 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			}
 
 			/* request parent to fork a helper process */
-			ep = s->evp;
 			d_mda = &s->evp->agent.mda;
 			userinfo = &s->user->userinfo;
 			switch (d_mda->method) {
@@ -270,8 +276,9 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				strlcpy(deliver.to, userinfo->username,
 				    sizeof(deliver.to));
 				snprintf(deliver.from, sizeof(deliver.from),
-				    "%s@%s", ep->sender.user,
-				    ep->sender.domain);
+				    "%s@%s",
+				    s->evp->sender.user,
+				    s->evp->sender.domain);
 				break;
 
 			case A_MAILDIR:
@@ -614,7 +621,9 @@ mda_fail(struct mda_user *user, int type, const char *error)
 	while ((e = TAILQ_FIRST(&user->envelopes))) {
 		TAILQ_REMOVE(&user->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
-		m_compose(p_queue, type, 0, 0, -1, e, sizeof *e);
+		m_create(p_queue, type, 0, 0, -1, 7000);
+		m_add_envelope(p_queue, e);
+		m_close(p_queue);
 		free(e);
 	}
 
@@ -683,7 +692,9 @@ mda_done(struct mda_session *s, int msg)
 {
 	tree_xpop(&sessions, s->id);
 
-	m_compose(p_queue, msg, 0, 0, -1, s->evp, sizeof *s->evp);
+	m_create(p_queue, msg, 0, 0, -1, 7000);
+	m_add_envelope(p_queue, s->evp);
+	m_close(p_queue);
 
 	running--;
 	s->user->running--;

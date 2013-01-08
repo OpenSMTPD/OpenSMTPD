@@ -140,25 +140,32 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct secret		*secret;
 	struct envelope		*e;
 	struct msg		 m;
-	uint64_t		 id, reqid;
+	uint64_t		 reqid;
 	int			 dnserror, preference, v, status;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
 		case IMSG_MTA_BATCH:
-			id = *(uint64_t*)(imsg->data);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
 			batch = xmalloc(sizeof *batch, "mta_batch");
 			tree_init(batch);
-			tree_xset(&batches, id, batch);
+			tree_xset(&batches, reqid, batch);
 			log_trace(TRACE_MTA,
-			    "mta: batch:%016" PRIx64 " created", id);
+			    "mta: batch:%016" PRIx64 " created", reqid);
 			return;
 
 		case IMSG_MTA_BATCH_ADD:
-			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
+			e = xmalloc(sizeof(*e), "mta:envelope");
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_envelope(&m, e);
+			m_end(&m);
+
 			relay = mta_relay(e);
-			batch = tree_xget(&batches, e->batch_id);
+			batch = tree_xget(&batches, reqid);
 
 			if ((task = tree_get(batch, relay->id)) == NULL) {
 				log_trace(TRACE_MTA, "mta: new task for %s",
@@ -189,13 +196,15 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_MTA_BATCH_END:
-			id = *(uint64_t*)(imsg->data);
-			batch = tree_xpop(&batches, id);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			batch = tree_xpop(&batches, reqid);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
-			    id);
+			    reqid);
 			/* For all tasks, queue them on its relay */
-			while (tree_poproot(batch, &id, (void**)&task)) {
-				if (id != task->relay->id)
+			while (tree_poproot(batch, &reqid, (void**)&task)) {
+				if (reqid != task->relay->id)
 					errx(1, "relay id mismatch!");
 				relay = task->relay;
 				relay->ntask += 1;
@@ -936,7 +945,9 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			envelope_set_errormsg(e, "%s", error);
 			log_envelope(e, buf, pfx, e->errorline);
-			m_compose(p_queue, fail, 0, 0, -1, e, sizeof(*e));
+			m_create(p_queue, fail, 0, 0, -1, 7000);
+			m_add_envelope(p_queue, e);
+			m_close(p_queue);
 			free(e);
 			n++;
 		}
