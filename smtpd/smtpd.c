@@ -56,7 +56,7 @@ static void parent_send_config_lka(void);
 static void parent_send_config_mfa(void);
 static void parent_send_config_smtp(void);
 static void parent_sig_handler(int, short, void *);
-static void forkmda(struct mproc *, uint32_t, struct deliver *);
+static void forkmda(struct mproc *, uint64_t, struct deliver *);
 static int parent_forward_open(char *, char *, uid_t, gid_t);
 static void fork_peers(void);
 static struct child *child_add(pid_t, int, const char *);
@@ -81,7 +81,7 @@ struct child {
 	enum child_type		 type;
 	const char		*title;
 	int			 mda_out;
-	uint32_t		 mda_id;
+	uint64_t		 mda_id;
 	char			*path;
 	char			*cause;
 };
@@ -130,12 +130,14 @@ static void
 parent_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct forward_req	*fwreq;
+	struct deliver		 deliver;
 	struct child		*c;
-	size_t			 len;
-	void			*i;
 	struct msg		 m;
-	const char		*username, *password;
+	const void		*data;
+	const char		*username, *password, *cause;
 	uint64_t		 reqid;
+	size_t			 sz;
+	void			*i;
 	int			 fd, n, v, ret;
 
 	if (p->proc == PROC_SMTP) {
@@ -187,14 +189,26 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_MDA) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORK_MDA:
-			forkmda(p, imsg->hdr.peerid, imsg->data);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_data(&m, &data, &sz);
+			m_end(&m);
+			if (sz != sizeof(deliver))
+				fatalx("expected deliver");
+			memmove(&deliver, data, sz);
+			forkmda(p, reqid, &deliver);
 			return;
 
 		case IMSG_PARENT_KILL_MDA:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &cause);
+			m_end(&m);
+
 			i = NULL;
 			while ((n = tree_iter(&children, &i, NULL, (void**)&c)))
 				if (c->type == CHILD_MDA &&
-				    c->mda_id == imsg->hdr.peerid &&
+				    c->mda_id == reqid &&
 				    c->cause == NULL)
 					break;
 			if (!n) {
@@ -202,14 +216,8 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 				    "kill request: proc not found");
 				return;
 			}
-			len = imsg->hdr.len - sizeof imsg->hdr;
-			if (len == 0)
-				c->cause = xstrdup("no reason", "parent_imsg");
-			else {
-				c->cause = xmemdup(imsg->data, len,
-				    "parent_imsg");
-				c->cause[len - 1] = '\0';
-			}
+
+			c->cause = xstrdup(cause, "parent_imsg");
 			log_debug("debug: smptd: kill requested for %u: %s",
 			    c->pid, c->cause);
 			kill(c->pid, SIGTERM);
@@ -484,9 +492,12 @@ parent_sig_handler(int sig, short event, void *p)
 				}
 				if (child->cause)
 					free(child->cause);
-				m_compose(p_mda, IMSG_MDA_DONE, child->mda_id,
-				    0, child->mda_out,
-				    cause, strlen(cause) + 1);
+				m_create(p_mda, IMSG_MDA_DONE, 0, 0,
+				    child->mda_out, 128);
+				m_add_id(p_mda, child->mda_id);
+				m_add_string(p_mda, cause);
+				m_close(p_mda);
+				/* free(cause); */
 				break;
 
 			case CHILD_ENQUEUE_OFFLINE:
@@ -890,7 +901,7 @@ purge_task(int fd, short ev, void *arg)
 }
 
 static void
-forkmda(struct mproc *p, uint32_t id, struct deliver *deliver)
+forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 {
 	char		 ebuf[128], sfn[32];
 	struct delivery_backend	*db;
@@ -906,9 +917,12 @@ forkmda(struct mproc *p, uint32_t id, struct deliver *deliver)
 		return;
 
 	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
-		n = snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
+		snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
-		m_compose(p, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_add_id(p_mda,	id);
+		m_add_string(p_mda, ebuf);
+		m_close(p_mda);
 		return;
 	}
 
@@ -920,7 +934,10 @@ forkmda(struct mproc *p, uint32_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_compose(p, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_add_id(p_mda,	id);
+		m_add_string(p_mda, ebuf);
+		m_close(p_mda);
 		return;
 	}
 
@@ -931,7 +948,10 @@ forkmda(struct mproc *p, uint32_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_compose(p, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_add_id(p_mda,	id);
+		m_add_string(p_mda, ebuf);
+		m_close(p_mda);
 		close(pipefd[0]);
 		close(pipefd[1]);
 		return;
@@ -943,7 +963,9 @@ forkmda(struct mproc *p, uint32_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_compose(p, IMSG_MDA_DONE, id, 0, -1, ebuf, n + 1);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_add_id(p_mda,	id);
+		m_add_string(p_mda, ebuf);
 		close(pipefd[0]);
 		close(pipefd[1]);
 		close(allout);
@@ -958,7 +980,9 @@ forkmda(struct mproc *p, uint32_t id, struct deliver *deliver)
 		child->mda_out = allout;
 		child->mda_id = id;
 		close(pipefd[0]);
-		m_compose(p, IMSG_PARENT_FORK_MDA, id, 0, pipefd[1], NULL, 0);
+		m_create(p, IMSG_PARENT_FORK_MDA, 0, 0, pipefd[1], 9);
+		m_add_id(p, id);
+		m_close(p);
 		return;
 	}
 

@@ -63,7 +63,7 @@ struct mda_user {
 };
 
 struct mda_session {
-	uint32_t		 id;
+	uint64_t		 id;
 	struct mda_user		*user;
 	struct envelope		*evp;
 	struct io		 io;
@@ -83,7 +83,6 @@ static void mda_drain(void);
 
 size_t			evpcount;
 static struct tree	sessions;
-static uint32_t		mda_id = 0;
 
 static TAILQ_HEAD(, mda_user)	users;
 static TAILQ_HEAD(, mda_user)	runnable;
@@ -92,16 +91,15 @@ size_t				running;
 static void
 mda_imsg(struct mproc *p, struct imsg *imsg)
 {
-	char			 output[128], *error, *parent_error, *name;
-	char			*usertable;
-	char			 stat[MAX_LINE_SIZE];
 	struct deliver		 deliver;
 	struct mda_session	*s;
 	struct mda_user		*u;
 	struct delivery_mda	*d_mda;
 	struct envelope		*e;
 	struct msg		 m;
-	uint32_t		 id;
+	const char		*error, *parent_error, *name;
+	char			 out[256], stat[MAX_LINE_SIZE], *usertable;
+	uint64_t		 reqid;
 	uint16_t		 msg;
 	int			 n, v;
 	struct lka_userinfo_req_msg	req_lka;
@@ -204,8 +202,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FD:
-			id = *(uint32_t*)(imsg->data);
-			s = tree_xget(&sessions, id);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+
+			s = tree_xget(&sessions, reqid);
 
 			if (imsg->fd == -1) {
 				log_debug("debug: mda: cannot get message fd");
@@ -304,8 +305,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    d_mda->method);
 			}
 
-			m_compose(p_parent, IMSG_PARENT_FORK_MDA, id, 0, -1,
-			    &deliver, sizeof deliver);
+			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1, 999);
+			m_add_id(p_parent, reqid);
+			m_add_data(p_parent, &deliver, sizeof(deliver));
+			m_close(p_parent);
 			return;
 		}
 	}
@@ -313,7 +316,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORK_MDA:
-			s = tree_xget(&sessions, imsg->hdr.peerid);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+
+			s = tree_xget(&sessions, reqid);
 			if (imsg->fd == -1) {
 				log_warn("warn: mda: fail to retreive mda fd");
 				envelope_set_errormsg(s->evp,
@@ -328,27 +335,29 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_MDA_DONE:
-			s = tree_xget(&sessions, imsg->hdr.peerid);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &parent_error);
+			m_end(&m);
+
+			s = tree_xget(&sessions, reqid);
 			/*
 			 * Grab last line of mda stdout/stderr if available.
 			 */
-			output[0] = '\0';
+			out[0] = '\0';
 			if (imsg->fd != -1)
-				mda_getlastline(imsg->fd, output,
-				    sizeof output);
-
+				mda_getlastline(imsg->fd, out, sizeof(out));
 			/*
 			 * Choose between parent's description of error and
 			 * child's output, the latter having preference over
 			 * the former.
 			 */
 			error = NULL;
-			parent_error = imsg->data;
 			if (strcmp(parent_error, "exited okay") == 0) {
 				if (s->datafp || iobuf_queued(&s->iobuf))
 					error = "mda exited prematurely";
 			} else
-				error = output[0] ? output : parent_error;
+				error = out[0] ? out : parent_error;
 
 			/* update queue entry */
 			msg = IMSG_DELIVERY_OK;
@@ -462,7 +471,7 @@ static void
 mda_io(struct io *io, int evt)
 {
 	struct mda_session	*s = io->arg;
-	char			*ln, buf[256];
+	char			*ln;
 	size_t			 len;
 
 	log_trace(TRACE_IO, "mda: %p: %s %s", s, io_strevent(evt),
@@ -481,9 +490,11 @@ mda_io(struct io *io, int evt)
 			if ((ln = fgetln(s->datafp, &len)) == NULL)
 				break;
 			if (iobuf_queue(&s->iobuf, ln, len) == -1) {
-				snprintf(buf, sizeof buf, "Out of memory");
-				m_compose(p_parent, IMSG_PARENT_KILL_MDA,
-				    s->id, 0, -1, buf, strlen(buf) + 1);
+				m_create(p_parent, IMSG_PARENT_KILL_MDA,
+				    0, 0, -1, 128);
+				m_add_id(p_parent, s->id);
+				m_add_string(p_parent, "Out of memory");
+				m_close(p_parent);
 				io_pause(io, IO_PAUSE_OUT);
 				return;
 			}
@@ -491,9 +502,10 @@ mda_io(struct io *io, int evt)
 
 		if (ferror(s->datafp)) {
 			log_debug("debug: mda_io: %p: ferror", s);
-			snprintf(buf, sizeof buf, "Error reading body");
-			m_compose(p_parent, IMSG_PARENT_KILL_MDA, s->id, 0, -1,
-			    buf, strlen(buf) + 1);
+			m_create(p_parent, IMSG_PARENT_KILL_MDA, 0, 0, -1, 128);
+			m_add_id(p_parent, s->id);
+			m_add_string(p_parent, "Error reading body");
+			m_close(p_parent);
 			io_pause(io, IO_PAUSE_OUT);
 			return;
 		}
@@ -652,13 +664,16 @@ mda_drain(void)
 		s->user = user;
 		s->evp = TAILQ_FIRST(&user->envelopes);
 		TAILQ_REMOVE(&user->envelopes, s->evp, entry);
-		s->id = mda_id++;
+		s->id = generate_uid();
 		if (iobuf_init(&s->iobuf, 0, 0) == -1)
 			fatal("mda_drain");
 		s->io.sock = -1;
 		tree_xset(&sessions, s->id, s);
-		m_compose(p_queue,  IMSG_QUEUE_MESSAGE_FD,
-		    evpid_to_msgid(s->evp->id), 0, -1, &s->id, sizeof(s->id));
+
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
+		m_add_id(p_queue, s->id);
+		m_add_msgid(p_queue, evpid_to_msgid(s->evp->id));
+		m_close(p_queue);
 
 		stat_decrement("mda.pending", 1);
 

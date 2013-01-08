@@ -199,7 +199,10 @@ m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 	if (p->ibuf)
 		fatal("ibuf already rhere");
 
-	p->ibuf = imsg_create(&p->imsgbuf, type, peerid, pid, fd);
+	p->ibuf = imsg_create(&p->imsgbuf, type, peerid, pid, len);
+	/* Is this a problem with imsg? */
+	p->ibuf->fd = fd;
+
 	if (p->ibuf == NULL)
 		fatal("imsg_create");
 }

@@ -209,7 +209,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_session	*s;
 	struct mta_host		*h;
 	struct msg		 m;
-	uint64_t		 id, reqid;
+	uint64_t		 reqid;
 	const char		*name;
 	void			*ssl;
 	int			 dnserror;
@@ -217,10 +217,13 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	switch (imsg->hdr.type) {
 
 	case IMSG_QUEUE_MESSAGE_FD:
-		id = *(uint64_t*)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
 		if (imsg->fd == -1)
 			fatalx("mta: cannot obtain msgfd");
-		s = tree_xpop(&wait_fd, id);
+
+		s = tree_xpop(&wait_fd, reqid);
 		s->datafp = fdopen(imsg->fd, "r");
 		if (s->datafp == NULL)
 			fatal("mta: fdopen");
@@ -511,8 +514,12 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    mta_relay_to_text(s->relay));
 
 		stat_increment("mta.task.running", 1);
-		m_compose(p_queue, IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
-		    &s->id, sizeof(s->id));
+
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
+		m_add_id(p_queue, s->id);
+		m_add_msgid(p_queue, s->task->msgid);
+		m_close(p_queue);
+
 		tree_xset(&wait_fd, s->id, s);
 		break;
 

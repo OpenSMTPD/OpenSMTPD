@@ -347,9 +347,16 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_MTA || p->proc == PROC_MDA) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_MESSAGE_FD:
-			fd = queue_message_fd_r(imsg->hdr.peerid);
-			m_compose(p,  IMSG_QUEUE_MESSAGE_FD, 0, 0, fd,
-			    imsg->data, imsg->hdr.len - sizeof imsg->hdr);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_msgid(&m, &msgid);
+			m_end(&m);
+			fd = queue_message_fd_r(msgid);
+			log_debug("debug: queue: fd_r msgid=%08"PRIx32", fd=%i",
+			    msgid, fd);
+			m_create(p, IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, 25);
+			m_add_id(p, reqid);
+			m_close(p);
 			return;
 
 		case IMSG_DELIVERY_OK:
