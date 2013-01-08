@@ -137,10 +137,14 @@ config_peer(enum smtp_proc_type proc)
 		fatalx("bad peer");
 }
 
+static void process_stat_event(int, short, void *);
+
 void
 config_done(void)
 {
-	unsigned int	i, j;
+	static struct event	ev;
+	struct timeval		tv;
+	unsigned int		i, j;
 
 	for (i = 0; i < PROC_COUNT; i++) {
 		for (j = 0; j < PROC_COUNT; j++) {
@@ -150,4 +154,50 @@ config_done(void)
 			pipes[i][j] = -1;
 		}
 	}
+
+	if (smtpd_process == PROC_CONTROL)
+		return;
+
+	evtimer_set(&ev, process_stat_event, &ev);
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	evtimer_add(&ev, &tv);
+}
+
+static void
+process_stat(struct mproc *p)
+{
+	char			buf[1024];
+	struct stat_value	value;
+
+	if (p == NULL)
+		return;
+
+	value.type = STAT_COUNTER;
+	snprintf(buf, sizeof buf, "buffer.%s.%s",
+	    env->sc_title[smtpd_process],
+	    env->sc_title[p->proc]);
+	value.u.counter = mproc_queued(p);
+	stat_set(buf, &value);
+}
+
+static void
+process_stat_event(int fd, short ev, void *arg)
+{
+	struct event	*e = arg;
+	struct timeval	 tv;
+
+	process_stat(p_control);
+	process_stat(p_lka);
+	process_stat(p_mda);
+	process_stat(p_mfa);
+	process_stat(p_mda);
+	process_stat(p_parent);
+	process_stat(p_queue);
+	process_stat(p_scheduler);
+	process_stat(p_smtp);
+
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	evtimer_add(e, &tv);
 }

@@ -206,21 +206,26 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 void
 mta_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	uint64_t			id;
-	struct mta_session	       *s;
-	struct mta_host		       *h;
-	struct dns_resp_msg	       *resp_dns;
-	struct ca_vrfy_resp_msg	       *resp_ca_vrfy;
-	struct ca_cert_resp_msg	       *resp_ca_cert;
-	void     		       *ssl;
+	struct ca_vrfy_resp_msg	*resp_ca_vrfy;
+	struct ca_cert_resp_msg	*resp_ca_cert;
+	struct mta_session	*s;
+	struct mta_host		*h;
+	struct msg		 m;
+	uint64_t		 reqid;
+	const char		*name;
+	void			*ssl;
+	int			 dnserror;
 
 	switch (imsg->hdr.type) {
 
 	case IMSG_QUEUE_MESSAGE_FD:
-		id = *(uint64_t*)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
 		if (imsg->fd == -1)
 			fatalx("mta: cannot obtain msgfd");
-		s = tree_xpop(&wait_fd, id);
+
+		s = tree_xpop(&wait_fd, reqid);
 		s->datafp = fdopen(imsg->fd, "r");
 		if (s->datafp == NULL)
 			fatal("mta: fdopen");
@@ -239,12 +244,19 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_DNS_PTR:
-		resp_dns = imsg->data;
-		s = tree_xpop(&wait_ptr, resp_dns->reqid);
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &dnserror);
+		if (dnserror)
+			name = NULL;
+		else
+			m_get_string(&m, &name);
+		m_end(&m);
+		s = tree_xpop(&wait_ptr, reqid);
 		h = s->route->dst;
 		h->lastptrquery = time(NULL);
-		if (!resp_dns->error)
-			h->ptrname = xstrdup(resp_dns->u.ptr, "mta: ptr");
+		if (name)
+			h->ptrname = xstrdup(name, "mta: ptr");
 		waitq_run(&h->ptrname, h->ptrname);
 		return;
 
@@ -504,8 +516,12 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    mta_relay_to_text(s->relay));
 
 		stat_increment("mta.task.running", 1);
-		m_compose(p_queue, IMSG_QUEUE_MESSAGE_FD, s->task->msgid, 0, -1,
-		    &s->id, sizeof(s->id));
+
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
+		m_add_id(p_queue, s->id);
+		m_add_msgid(p_queue, s->task->msgid);
+		m_close(p_queue);
+
 		tree_xset(&wait_fd, s->id, s);
 		break;
 
@@ -938,7 +954,9 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
 		log_envelope(e, relay, pfx, error);
-		m_compose(p_queue, delivery, 0, 0, -1, e, sizeof(*e));
+		m_create(p_queue, delivery, 0, 0, -1, 7000);
+		m_add_envelope(p_queue, e);
+		m_close(p_queue);
 		free(e);
 		n++;
 	}
@@ -952,7 +970,7 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 }
 
 static void
-mta_envelope_fail(struct envelope *evp, struct mta_route *route, int delivery)
+mta_envelope_fail(struct envelope *e, struct mta_route *route, int delivery)
 {
 	char relay[MAX_LINE_SIZE], stat[MAX_LINE_SIZE];
 	const char *pfx;
@@ -965,9 +983,11 @@ mta_envelope_fail(struct envelope *evp, struct mta_route *route, int delivery)
 	snprintf(relay, sizeof relay, "relay=%s, ",
 	    mta_host_to_text(route->dst));
 
-	snprintf(stat, sizeof stat, "RemoteError (%s)", &evp->errorline[4]);
-	log_envelope(evp, relay, pfx, stat);
-	m_compose(p_queue, delivery, 0, 0, -1, evp, sizeof(*evp));
+	snprintf(stat, sizeof stat, "RemoteError (%s)", &e->errorline[4]);
+	log_envelope(e, relay, pfx, stat);
+	m_create(p_queue, delivery, 0, 0, -1, 7000);
+	m_add_envelope(p_queue, e);
+	m_close(p_queue);
 }
 
 static void

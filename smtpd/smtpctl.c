@@ -295,7 +295,7 @@ main(int argc, char *argv[])
 		}
 		break;
 	case LOG_VERBOSE:
-		verbose = 1;
+		verbose = TRACE_VERBOSE;
 		/* FALLTHROUGH */
 	case LOG_BRIEF:
 		imsg_compose(ibuf, IMSG_CTL_VERBOSE, 0, 0, -1, &verbose,

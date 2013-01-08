@@ -133,35 +133,42 @@ static struct tree wait_source;
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct lka_source_resp_msg	*resp_addr;
-	struct dns_resp_msg	*resp_dns;
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_source	*source;
 	struct mta_domain	*domain;
 	struct mta_mx		*mx, *imx;
-	struct sockaddr		*sa;
+	struct sockaddr_storage	 ss;
 	struct tree		*batch;
-	struct secret		*secret;
 	struct envelope		*e;
-	uint64_t		 id;
+	struct msg		 m;
+	const char		*secret;
+	uint64_t		 reqid;
+	int			 dnserror, preference, v, status;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
 		case IMSG_MTA_BATCH:
-			id = *(uint64_t*)(imsg->data);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
 			batch = xmalloc(sizeof *batch, "mta_batch");
 			tree_init(batch);
-			tree_xset(&batches, id, batch);
+			tree_xset(&batches, reqid, batch);
 			log_trace(TRACE_MTA,
-			    "mta: batch:%016" PRIx64 " created", id);
+			    "mta: batch:%016" PRIx64 " created", reqid);
 			return;
 
 		case IMSG_MTA_BATCH_ADD:
-			e = xmemdup(imsg->data, sizeof *e, "mta:envelope");
+			e = xmalloc(sizeof(*e), "mta:envelope");
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_envelope(&m, e);
+			m_end(&m);
+
 			relay = mta_relay(e);
-			batch = tree_xget(&batches, e->batch_id);
+			batch = tree_xget(&batches, reqid);
 
 			if ((task = tree_get(batch, relay->id)) == NULL) {
 				log_trace(TRACE_MTA, "mta: new task for %s",
@@ -192,13 +199,15 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_MTA_BATCH_END:
-			id = *(uint64_t*)(imsg->data);
-			batch = tree_xpop(&batches, id);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_end(&m);
+			batch = tree_xpop(&batches, reqid);
 			log_trace(TRACE_MTA, "mta: batch:%016" PRIx64 " closed",
-			    id);
+			    reqid);
 			/* For all tasks, queue them on its relay */
-			while (tree_poproot(batch, &id, (void**)&task)) {
-				if (id != task->relay->id)
+			while (tree_poproot(batch, &reqid, (void**)&task)) {
+				if (reqid != task->relay->id)
 					errx(1, "relay id mismatch!");
 				relay = task->relay;
 				relay->ntask += 1;
@@ -220,10 +229,13 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 
 		case IMSG_LKA_SECRET:
-			secret = imsg->data;
-			relay = tree_xpop(&wait_secret, secret->id);
-			if (secret->secret[0])
-				relay->secret = strdup(secret->secret);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &secret);
+			m_end(&m);
+			relay = tree_xpop(&wait_secret, reqid);
+			if (secret[0])
+				relay->secret = strdup(secret);
 			if (relay->secret == NULL) {
 				log_warnx("warn: Failed to retreive secret "
 				    "for %s", mta_relay_to_text(relay));
@@ -236,12 +248,15 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SOURCE:
-			resp_addr = imsg->data;
-			relay = tree_xpop(&wait_source, resp_addr->reqid);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &status);
+
+			relay = tree_xpop(&wait_source, reqid);
 			relay->status &= ~RELAY_WAIT_SOURCE;
-			if (resp_addr->status == LKA_OK) {
-				sa = (struct sockaddr *)&resp_addr->ss;
-				source = mta_source(sa);
+			if (status == LKA_OK) {
+				m_get_sockaddr(&m, (struct sockaddr*)&ss);
+				source = mta_source((struct sockaddr *)&ss);
 				mta_on_source(relay, source);
 				mta_source_unref(source);
 			}
@@ -249,17 +264,22 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				log_warnx("warn: Failed to get source address"
 				    "for %s", mta_relay_to_text(relay));
 			}
+			m_end(&m);
+
 			mta_drain(relay);
 			mta_relay_unref(relay); /* from mta_query_source() */
 			return;
 
 		case IMSG_DNS_HOST:
-			resp_dns = imsg->data;
-			domain = tree_xget(&wait_mx, resp_dns->reqid);
-			sa = (struct sockaddr*)&resp_dns->u.host.ss;
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_sockaddr(&m, (struct sockaddr*)&ss);
+			m_get_int(&m, &preference);
+			m_end(&m);
+			domain = tree_xget(&wait_mx, reqid);
 			mx = xcalloc(1, sizeof *mx, "mta: mx");
-			mx->host = mta_host(sa);
-			mx->preference = resp_dns->u.host.preference;
+			mx->host = mta_host((struct sockaddr*)&ss);
+			mx->preference = preference;
 			TAILQ_FOREACH(imx, &domain->mxs, entry) {
 				if (imx->preference >= mx->preference) {
 					TAILQ_INSERT_BEFORE(imx, mx, entry);
@@ -270,9 +290,12 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_HOST_END:
-			resp_dns = imsg->data;
-			domain = tree_xpop(&wait_mx, resp_dns->reqid);
-			domain->mxstatus = resp_dns->error;
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &dnserror);
+			m_end(&m);
+			domain = tree_xpop(&wait_mx, reqid);
+			domain->mxstatus = dnserror;
 			if (domain->mxstatus == DNS_OK) {
 				log_debug("debug: MXs for domain %s:",
 				    domain->name);
@@ -289,21 +312,23 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_DNS_MX_PREFERENCE:
-			resp_dns = imsg->data;
-			relay = tree_xpop(&wait_preference, resp_dns->reqid);
-			if (resp_dns->error) {
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &dnserror);
+			relay = tree_xpop(&wait_preference, reqid);
+			if (dnserror) {
 				log_debug("debug: couldn't find backup "
 				    "preference for %s",
 				    mta_relay_to_text(relay));
-				/* use all */
 				relay->backuppref = INT_MAX;
 			} else {
-				relay->backuppref = resp_dns->u.preference;
+				m_get_int(&m, &relay->backuppref);
 				log_debug("debug: found backup preference %i "
 				    "for %s",
 				    relay->backuppref,
 				    mta_relay_to_text(relay));
 			}
+			m_end(&m);
 			relay->status &= ~RELAY_WAIT_PREFERENCE;
 			mta_drain(relay);
 			mta_relay_unref(relay); /* from mta_query_preference() */
@@ -326,7 +351,10 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			return;
 		}
 	}
@@ -555,8 +583,6 @@ mta_query_mx(struct mta_relay *relay)
 static void
 mta_query_secret(struct mta_relay *relay)
 {
-	struct secret	secret;
-
 	if (relay->status & RELAY_WAIT_SECRET)
 		return;
 
@@ -565,11 +591,12 @@ mta_query_secret(struct mta_relay *relay)
 	tree_xset(&wait_secret, relay->id, relay);
 	relay->status |= RELAY_WAIT_SECRET;
 
-	bzero(&secret, sizeof(secret));
-	secret.id = relay->id;
-	strlcpy(secret.tablename, relay->authtable, sizeof(secret.tablename));
-	strlcpy(secret.label, relay->authlabel, sizeof(secret.label));
-	m_compose(p_lka, IMSG_LKA_SECRET, 0, 0, -1, &secret, sizeof(secret));
+	m_create(p_lka, IMSG_LKA_SECRET, 0, 0, -1, 128);
+	m_add_id(p_lka, relay->id);
+	m_add_string(p_lka, relay->authtable);
+	m_add_string(p_lka, relay->authlabel);
+	m_close(p_lka);
+
 	mta_relay_ref(relay);
 }
 
@@ -591,13 +618,13 @@ mta_query_preference(struct mta_relay *relay)
 static void
 mta_query_source(struct mta_relay *relay)
 {
-	struct lka_source_req_msg	req;
-
 	log_debug("debug: mta_query_source(%s)", mta_relay_to_text(relay));
 
-	req.reqid = relay->id;
-	strlcpy(req.tablename, relay->sourcetable, sizeof(req.tablename));
-	m_compose(p_lka, IMSG_LKA_SOURCE, 0, 0, -1, &req, sizeof(req));
+	m_create(p_lka, IMSG_LKA_SOURCE, 0, 0, -1, 64);
+	m_add_id(p_lka, relay->id);
+	m_add_string(p_lka, relay->sourcetable);
+	m_close(p_lka);
+
 	tree_xset(&wait_source, relay->id, relay);
 	relay->status |= RELAY_WAIT_SOURCE;
 	mta_relay_ref(relay);
@@ -930,7 +957,9 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			envelope_set_errormsg(e, "%s", error);
 			log_envelope(e, buf, pfx, e->errorline);
-			m_compose(p_queue, fail, 0, 0, -1, e, sizeof(*e));
+			m_create(p_queue, fail, 0, 0, -1, 7000);
+			m_add_envelope(p_queue, e);
+			m_close(p_queue);
 			free(e);
 			n++;
 		}
