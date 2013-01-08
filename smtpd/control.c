@@ -81,9 +81,12 @@ static struct stat_digest	digest;
 static void
 control_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct ctl_conn	       *c;
-	char		       *key;
-	struct stat_value	val;
+	struct ctl_conn		*c;
+	struct stat_value	 val;
+	struct msg		 m;
+	const char		*key;
+	const void		*data;
+	size_t			 sz;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -119,22 +122,31 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_STAT_INCREMENT:
-		memmove(&val, imsg->data, sizeof (val));
-		key = (char*)imsg->data + sizeof (val);
+		m_msg(&m, imsg);
+		m_get_string(&m, &key);
+		m_get_data(&m, &data, &sz);
+		m_end(&m);
+		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->increment(key, val.u.counter);
 		control_digest_update(key, val.u.counter, 1);
 		return;
 	case IMSG_STAT_DECREMENT:
-		memmove(&val, imsg->data, sizeof (val));
-		key = (char*)imsg->data + sizeof (val);
+		m_msg(&m, imsg);
+		m_get_string(&m, &key);
+		m_get_data(&m, &data, &sz);
+		m_end(&m);
+		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->decrement(key, val.u.counter);
 		control_digest_update(key, val.u.counter, 0);
 		return;
 	case IMSG_STAT_SET:
-		memmove(&val, imsg->data, sizeof (val));
-		key = (char*)imsg->data + sizeof (val);
+		m_msg(&m, imsg);
+		m_get_string(&m, &key);
+		m_get_data(&m, &data, &sz);
+		m_end(&m);
+		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->set(key, &val);
 		return;
