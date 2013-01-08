@@ -113,8 +113,9 @@ bounce_add(uint64_t evpid)
 
 	if (queue_envelope_load(evpid, evp) == 0) {
 		evp->id = evpid;
-		m_compose(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
-		    evp, sizeof *evp);
+		m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1, 9);
+		m_add_evpid(p_scheduler, evp->id);
+		m_close(p_scheduler);
 		free(evp);
 		return;
 	}
@@ -458,11 +459,14 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 			evp->retry++;
 			envelope_set_errormsg(evp, "%s", status);
 			queue_envelope_update(evp);
-			m_compose(p_scheduler, msg, 0, 0, -1, evp, sizeof *evp);
+			m_create(p_scheduler, msg, 0, 0, -1, 7000);
+			m_add_envelope(p_scheduler, evp);
+			m_close(p_scheduler);
 		} else {
+			m_create(p_scheduler, msg, 0, 0, -1, 9);
+			m_add_evpid(p_scheduler, evp->id);
+			m_close(p_scheduler);
 			queue_envelope_delete(evp);
-			m_compose(p_scheduler, msg, 0, 0, -1,
-			    &evp->id, sizeof evp->id);
 		}
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);
 		free(evp);

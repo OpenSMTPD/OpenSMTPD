@@ -222,9 +222,24 @@ m_close(struct mproc *p)
 	mproc_event_add(p);
 }
 
+static struct imsg * current;
+
+static void
+m_error(const char *error)
+{
+	char	buf[512];
+
+	snprintf(buf, sizeof buf, "%s: %s: %s",
+	    proc_to_str(smtpd_process),
+	    imsg_to_str(current->hdr.type),
+	    error);
+	fatalx(buf);
+}
+
 void
 m_msg(struct msg *m, struct imsg *imsg)
 {
+	current = imsg;
 	m->pos = imsg->data;
 	m->end = m->pos + (imsg->hdr.len - sizeof(imsg->hdr));
 }
@@ -233,7 +248,7 @@ void
 m_end(struct msg *m)
 {
 	if (m->pos != m->end)
-		fatalx("not at msg end");
+		m_error("not at msg end");
 }
 
 int
@@ -246,7 +261,7 @@ static inline void
 m_get(struct msg *m, void *dst, size_t sz)
 {
 	if (m->pos + sz > m->end)
-		fatalx("msg too short");
+		m_error("msg too short");
 	memmove(dst, m->pos, sz);
 	m->pos += sz;
 }
@@ -255,9 +270,9 @@ static inline void
 m_get_typed(struct msg *m, uint8_t type, void *dst, size_t sz)
 {
 	if (m->pos + 1 + sz > m->end)
-		fatalx("msg too short");
+		m_error("msg too short");
 	if (*m->pos != type)
-		fatalx("msg bad type");
+		m_error("msg bad type");
 	memmove(dst, m->pos + 1, sz);
 	m->pos += sz + 1;
 }
@@ -266,13 +281,13 @@ static inline void
 m_get_typed_sized(struct msg *m, uint8_t type, const void **dst, size_t *sz)
 {
 	if (m->pos + 1 + sizeof(*sz) > m->end)
-		fatalx("msg too short");
+		m_error("msg too short");
 	if (*m->pos != type)
-		fatalx("msg bad type");
+		m_error("msg bad type");
 	memmove(sz, m->pos + 1, sizeof(*sz));
 	m->pos += sizeof(sz) + 1;
 	if (m->pos + *sz > m->end)
-		fatalx("msg too short");
+		m_error("msg too short");
 	*dst = m->pos;
 	m->pos += *sz;
 }
@@ -404,13 +419,13 @@ m_get_string(struct msg *m, const char **s)
 	uint8_t	*end;
 
 	if (m->pos + 2 > m->end)
-		fatalx("msg too short");
+		m_error("msg too short");
 	if (*m->pos != M_STRING)
-		fatalx("bad msg type");
+		m_error("bad msg type");
 
 	end = memchr(m->pos + 1, 0, m->end - (m->pos + 1));
 	if (end == NULL)
-		fatalx("unterminated string");
+		m_error("unterminated string");
 	
 	*s = m->pos + 1;
 	m->pos = end + 1;
@@ -461,4 +476,3 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 {
 	m_get_typed(m, M_ENVELOPE, evp, sizeof(*evp));
 }
-

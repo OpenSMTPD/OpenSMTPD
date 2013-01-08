@@ -184,13 +184,17 @@ lka_resume(struct lka_session *lks)
 		/* Process the delivery list and submit envelopes to queue */
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
-			m_compose(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-			    ep, sizeof *ep);
+			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+			    7000);
+			m_add_id(p_queue, ep->session_id);
+			m_add_envelope(p_queue, ep);
+			m_close(p_queue);
 			free(ep);
 		}
-		ep = &lks->envelope;
-		m_compose(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
-		    ep, sizeof *ep);
+
+		m_create(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, 9);
+		m_add_id(p_queue, lks->envelope.session_id);
+		m_close(p_queue);
 	}
 
 	expand_free(&lks->expand);

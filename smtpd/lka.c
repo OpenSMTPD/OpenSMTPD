@@ -49,23 +49,20 @@
 static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
+static int lka_authenticate(const char *, const char *, const char *);
 static int lka_encode_credentials(char *, size_t, struct credentials *);
 static int lka_X509_verify(struct ca_vrfy_req_msg *, const char *, const char *);
 
 static void
 lka_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct lka_source_req_msg	*req_source;
-	struct lka_source_resp_msg	 resp;
-	struct auth		*auth;
 	struct secret		*secret;
 	struct rule		*rule;
 	struct table		*table;
 	void			*tmp;
-	int			ret;
-	const char		*k, *v;
+	int			 ret;
+	const char		*key, *val;
 	char			*src;
-	struct credentials	*creds;
 	struct ssl		*ssl;
 	struct iovec		iov[3];
 	static struct dict	*ssl_dict;
@@ -77,11 +74,14 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_vrfy_req_msg		*req_ca_vrfy_chain;
 	struct ca_vrfy_resp_msg		resp_ca_vrfy;
 	struct ca_cert_req_msg		*req_ca_cert;
-	struct ca_cert_resp_msg		resp_ca_cert;
-	struct envelope			evp;
-	struct msg			m;
-	uint64_t			reqid;
-	size_t				i;
+	struct ca_cert_resp_msg		 resp_ca_cert;
+	struct addrinfo			 hints, *ai;
+	struct envelope			 evp;
+	struct msg			 m;
+	const char			*tablename, *username, *password;
+	uint64_t			 reqid;
+	size_t				 i;
+	int				 v;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
 	    imsg->hdr.type == IMSG_DNS_PTR ||
@@ -169,40 +169,29 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
-			auth = imsg->data;
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &tablename);
+			m_get_string(&m, &username);
+			m_get_string(&m, &password);
+			m_end(&m);
 
-			if (! auth->authtable[0]) {
-				m_compose(p_parent, IMSG_LKA_AUTHENTICATE,
-				    0, 0, -1, auth, sizeof(*auth));
+			if (!tablename[0]) {
+				m_create(p_parent, IMSG_LKA_AUTHENTICATE,
+				    0, 0, -1, 128);
+				m_add_id(p_parent, reqid);
+				m_add_string(p_parent, username);
+				m_add_string(p_parent, password);
+				m_close(p_parent);
 				return;
 			}
 
-			log_debug("looking for user %s in auth table: %s",
-			    auth->user, auth->authtable);
+			ret = lka_authenticate(tablename, username, password);
 
-			table = table_findbyname(auth->authtable);
-			if (table == NULL) {
-				log_warnx("warn: could not find table %s needed for authentication",
-					auth->authtable);
-				auth->success = -1;
-			}
-			else {
-				switch (table_lookup(table, auth->user, K_CREDENTIALS, (void **)&creds)) {
-				case -1:
-					auth->success = -1;
-					break;
-				case 0:
-					auth->success = 0;
-					break;
-				default:
-					auth->success = 0;
-					if (! strcmp(creds->password, crypt(auth->pass, creds->password)))
-						auth->success = 1;
-					break;
-				}
-			}
-			m_compose(p_smtp, IMSG_LKA_AUTHENTICATE, 0, 0, -1,
-			    auth, sizeof(*auth));
+			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+			m_add_id(p, reqid);
+			m_add_int(p, ret);
+			m_close(p);
 			return;
 		}
 	}
@@ -354,36 +343,40 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 		case IMSG_LKA_SOURCE:
-			req_source = imsg->data;
-			resp.reqid = req_source->reqid;
-			table = table_findbyname(req_source->tablename);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &tablename);
+
+			table = table_findbyname(tablename);
+
+			m_create(p, IMSG_LKA_SOURCE, 0, 0, -1, 64);
+			m_add_id(p, reqid);
+
 			if (table == NULL) {
 				log_warn("warn: source address table %s missing",
-				    req_source->tablename);
-				resp.status = LKA_TEMPFAIL;
+				    tablename);
+				m_add_int(p, LKA_TEMPFAIL);
 			} 
 			else {
 				ret = table_fetch(table, K_SOURCE, &src);
 				if (ret == -1)
-					resp.status = LKA_TEMPFAIL;
+					m_add_int(p, LKA_TEMPFAIL);
 				else if (ret == 0)
-					resp.status = LKA_PERMFAIL;
+					m_add_int(p, LKA_PERMFAIL);
 				else {
-					struct addrinfo	hints, *ai;
-					log_debug("debug: source: %s", src);
-					resp.status = LKA_OK;
+					m_add_int(p, LKA_OK);
+
 					/* XXX find a nicer way? */
 					bzero(&hints, sizeof hints);
 					hints.ai_flags = AI_NUMERICHOST;
 					getaddrinfo(src, NULL, &hints, &ai);
-					memmove(&resp.ss, ai->ai_addr,
-					    ai->ai_addrlen);
-					freeaddrinfo(ai);
 					free(src);
+
+					m_add_sockaddr(p, ai->ai_addr);
+					freeaddrinfo(ai);
 				}
 			}
-			m_compose(p, IMSG_LKA_SOURCE, 0, 0, -1,
-			    &resp, sizeof resp);
+			m_close(p);
 			return;
 		}
 	}
@@ -489,14 +482,14 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			if (table == NULL)
 				fatalx("lka: tables inconsistency");
 
-			k = imsg->data;
+			key = imsg->data;
 			if (table->t_type == T_HASH)
-				v = k + strlen(k) + 1;
+				val = key + strlen(key) + 1;
 			else
-				v = NULL;
+				val = NULL;
 
-			dict_set(&table->t_dict, k,
-			    v ? xstrdup(v, "lka:dict_set") : NULL);
+			dict_set(&table->t_dict, key,
+			    val ? xstrdup(val, "lka:dict_set") : NULL);
 			return;
 
 		case IMSG_CONF_END:
@@ -525,16 +518,18 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			return;
 
 		case IMSG_PARENT_FORWARD_OPEN:
 			lka_session_forward_reply(imsg->data, imsg->fd);
 			return;
+
 		case IMSG_LKA_AUTHENTICATE:
-			auth = imsg->data;
-			m_compose(p_smtp,  IMSG_LKA_AUTHENTICATE, 0, 0, -1,
-			    auth, sizeof(*auth));
+			m_forward(p_smtp, imsg);
 			return;
 		}
 	}
@@ -651,6 +646,34 @@ lka(void)
 	lka_shutdown();
 
 	return (0);
+}
+
+static int
+lka_authenticate(const char *tablename, const char *user, const char *password)
+{
+	struct table		*table;
+	struct credentials	*creds;
+
+	log_debug("debug: lka: looking for user %s in auth table: %s",
+	    user, tablename);
+
+	table = table_findbyname(tablename);
+	if (table == NULL) {
+		log_warnx("warn: could not find table %s needed for authentication",
+		    tablename);
+		return (-1);
+	}
+
+	switch (table_lookup(table, user, K_CREDENTIALS, (void **)&creds)) {
+	case -1:
+		return (-1);
+	case 0:
+		return (0);
+	default:
+		if (!strcmp(creds->password, crypt(password, creds->password)))
+			return (1);
+		return (0);
+	}
 }
 
 static int

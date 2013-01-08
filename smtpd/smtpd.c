@@ -68,7 +68,7 @@ static int	offline_enqueue(char *);
 
 static void	purge_task(int, short, void *);
 static void	log_imsg(int, int, struct imsg *);
-static int	parent_auth_user(char *, char *);
+static int	parent_auth_user(const char *, const char *);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -130,11 +130,13 @@ static void
 parent_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct forward_req	*fwreq;
-	struct auth		*auth;
 	struct child		*c;
 	size_t			 len;
 	void			*i;
-	int			 fd, n;
+	struct msg		 m;
+	const char		*username, *password;
+	uint64_t		 reqid;
+	int			 fd, n, v, ret;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -164,13 +166,20 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_LKA_AUTHENTICATE:
 			/*
 			 * If we reached here, it means we want root to lookup
-			 * system user
+			 * system user.
 			 */
-			auth = imsg->data;
-			auth->success = parent_auth_user(auth->user,
-			    auth->pass);
-			m_compose(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1,
-			    auth, sizeof *auth);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &username);
+			m_get_string(&m, &password);
+			m_end(&m);
+
+			ret = parent_auth_user(username, password);
+
+			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+			m_add_id(p, reqid);
+			m_add_int(p, ret);
+			m_close(p);
 			return;
 		}
 	}
@@ -211,7 +220,10 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			m_forward(p_lka, imsg);
 			m_forward(p_mda, imsg);
 			m_forward(p_mfa, imsg);
@@ -1390,7 +1402,13 @@ imsg_to_str(int type)
 }
 
 int
-parent_auth_user(char *username, char *password)
+parent_auth_user(const char *username, const char *password)
 {
-	return auth_userokay(username, NULL, "auth-smtp", password);
+	char	user[MAXLOGNAME];
+	char	pass[MAX_LINE_SIZE + 1];
+
+	strlcpy(user, username, sizeof(user));
+	strlcpy(pass, password, sizeof(pass));
+
+	return auth_userokay(user, NULL, "auth-smtp", pass);
 }

@@ -130,7 +130,6 @@ static struct tree wait_source;
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct lka_source_resp_msg	*resp_addr;
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_source	*source;
@@ -142,7 +141,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct envelope		*e;
 	struct msg		 m;
 	uint64_t		 id, reqid;
-	int			 dnserror, preference;
+	int			 dnserror, preference, v, status;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -234,11 +233,15 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_SOURCE:
-			resp_addr = imsg->data;
-			relay = tree_xpop(&wait_source, resp_addr->reqid);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &status);
+
+			relay = tree_xpop(&wait_source, reqid);
 			relay->status &= ~RELAY_WAIT_SOURCE;
-			if (resp_addr->status == LKA_OK) {
-				source = mta_source((struct sockaddr *)&resp_addr->ss);
+			if (status == LKA_OK) {
+				m_get_sockaddr(&m, (struct sockaddr*)&ss);
+				source = mta_source((struct sockaddr *)&ss);
 				mta_on_source(relay, source);
 				mta_source_unref(source);
 			}
@@ -246,6 +249,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				log_warnx("warn: Failed to get source address"
 				    "for %s", mta_relay_to_text(relay));
 			}
+			m_end(&m);
+
 			mta_drain(relay);
 			mta_relay_unref(relay); /* from mta_query_source() */
 			return;
@@ -331,7 +336,10 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			return;
 		}
 	}
@@ -589,13 +597,13 @@ mta_query_preference(struct mta_relay *relay)
 static void
 mta_query_source(struct mta_relay *relay)
 {
-	struct lka_source_req_msg	req;
-
 	log_debug("debug: mta_query_source(%s)", mta_relay_to_text(relay));
 
-	req.reqid = relay->id;
-	strlcpy(req.tablename, relay->sourcetable, sizeof(req.tablename));
-	m_compose(p_lka, IMSG_LKA_SOURCE, 0, 0, -1, &req, sizeof(req));
+	m_create(p_lka, IMSG_LKA_SOURCE, 0, 0, -1, 64);
+	m_add_id(p_lka, relay->id);
+	m_add_string(p_lka, relay->sourcetable);
+	m_close(p_lka);
+
 	tree_xset(&wait_source, relay->id, relay);
 	relay->status |= RELAY_WAIT_SOURCE;
 	mta_relay_ref(relay);

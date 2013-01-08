@@ -100,9 +100,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	struct mda_user		*u;
 	struct delivery_mda	*d_mda;
 	struct envelope		*ep;
-	uint16_t		 msg;
+	struct msg		 m;
 	uint32_t		 id;
-	int			 n;
+	uint16_t		 msg;
+	int			 n, v;
 	struct lka_userinfo_req_msg	req_lka;
 	struct lka_userinfo_resp_msg   *resp_lka;
 	struct userinfo		       *userinfo;
@@ -356,7 +357,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			return;
 		}
 	}

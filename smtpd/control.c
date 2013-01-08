@@ -476,8 +476,11 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 
 		memcpy(&verbose, imsg->data, sizeof(verbose));
 		log_verbose(verbose);
-		m_compose(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1, &verbose,
-		    sizeof(verbose));
+
+		m_create(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1, 9);
+		m_add_int(p_parent, verbose);
+		m_close(p_parent);
+
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 

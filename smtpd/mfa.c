@@ -47,10 +47,11 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct sockaddr_storage	 local, remote;
 	struct mailaddr		 maddr;
-	struct msg		 m;
-	uint64_t		 reqid;
-	const char		*line, *hostname;
 	struct filter		*filter;
+	struct msg		 m;
+	const char		*line, *hostname;
+	uint64_t		 reqid;
+	int			 v;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -158,7 +159,10 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			return;
 		}
 	}

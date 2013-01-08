@@ -520,14 +520,6 @@ struct listener {
 	TAILQ_ENTRY(listener)	 entry;
 };
 
-struct auth {
-	uint64_t	id;
-	char		authtable[MAX_LINE_SIZE];
-	char		user[MAXLOGNAME];
-	char		pass[MAX_LINE_SIZE + 1];
-	int		success;
-};
-
 struct smtpd {
 	char				sc_conffile[MAXPATHLEN];
 	size_t				sc_maxsize;
@@ -973,17 +965,6 @@ enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,
 	LKA_PERMFAIL
-};
-
-struct lka_source_req_msg {
-	uint64_t		reqid;
-	char			tablename[MAXPATHLEN];
-};
-
-struct lka_source_resp_msg {
-	uint64_t		reqid;
-	enum lka_resp_status	status;
-	struct sockaddr_storage	ss;
 };
 
 struct lka_userinfo_req_msg {
