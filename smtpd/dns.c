@@ -136,7 +136,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		sa = (struct sockaddr *)&ss;
 		m_get_sockaddr(&m, sa);
 		m_end(&m);
-		as = getnameinfo_async(sa, sa->sa_len, s->name, sizeof(s->name),
+		as = getnameinfo_async(sa, SA_LEN(sa_len), s->name, sizeof(s->name),
 		    NULL, 0, 0, NULL);
 		async_run_event(as, dns_dispatch_ptr, s);
 		return;
