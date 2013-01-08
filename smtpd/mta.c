@@ -137,9 +137,9 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_mx		*mx, *imx;
 	struct sockaddr_storage	 ss;
 	struct tree		*batch;
-	struct secret		*secret;
 	struct envelope		*e;
 	struct msg		 m;
+	const char		*secret;
 	uint64_t		 reqid;
 	int			 dnserror, preference, v, status;
 
@@ -226,10 +226,13 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 
 		case IMSG_LKA_SECRET:
-			secret = imsg->data;
-			relay = tree_xpop(&wait_secret, secret->id);
-			if (secret->secret[0])
-				relay->secret = strdup(secret->secret);
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &secret);
+			m_end(&m);
+			relay = tree_xpop(&wait_secret, reqid);
+			if (secret[0])
+				relay->secret = strdup(secret);
 			if (relay->secret == NULL) {
 				log_warnx("warn: Failed to retreive secret "
 				    "for %s", mta_relay_to_text(relay));
@@ -570,8 +573,6 @@ mta_query_mx(struct mta_relay *relay)
 static void
 mta_query_secret(struct mta_relay *relay)
 {
-	struct secret	secret;
-
 	if (relay->status & RELAY_WAIT_SECRET)
 		return;
 
@@ -580,11 +581,12 @@ mta_query_secret(struct mta_relay *relay)
 	tree_xset(&wait_secret, relay->id, relay);
 	relay->status |= RELAY_WAIT_SECRET;
 
-	bzero(&secret, sizeof(secret));
-	secret.id = relay->id;
-	strlcpy(secret.tablename, relay->authtable, sizeof(secret.tablename));
-	strlcpy(secret.label, relay->authlabel, sizeof(secret.label));
-	m_compose(p_lka, IMSG_LKA_SECRET, 0, 0, -1, &secret, sizeof(secret));
+	m_create(p_lka, IMSG_LKA_SECRET, 0, 0, -1, 128);
+	m_add_id(p_lka, relay->id);
+	m_add_string(p_lka, relay->authtable);
+	m_add_string(p_lka, relay->authlabel);
+	m_close(p_lka);
+
 	mta_relay_ref(relay);
 }
 

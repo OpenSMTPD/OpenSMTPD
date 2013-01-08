@@ -592,13 +592,6 @@ struct forward_req {
 	char				directory[MAXPATHLEN];
 };
 
-struct secret {
-	uint64_t		 id;
-	char			 tablename[MAX_PATH_SIZE];
-	char			 label[MAX_LINE_SIZE];
-	char			 secret[MAX_LINE_SIZE];
-};
-
 struct deliver {
 	char			to[PATH_MAX];
 	char			from[PATH_MAX];
