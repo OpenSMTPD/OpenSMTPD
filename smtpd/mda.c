@@ -91,49 +91,52 @@ size_t				running;
 static void
 mda_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct deliver		 deliver;
+	struct delivery_mda	*d_mda;
 	struct mda_session	*s;
 	struct mda_user		*u;
-	struct delivery_mda	*d_mda;
 	struct envelope		*e;
+	struct userinfo		*userinfo;
+	struct deliver		 deliver;
 	struct msg		 m;
-	const char		*error, *parent_error, *name;
-	char			 out[256], stat[MAX_LINE_SIZE], *usertable;
+	const void		*data;
+	const char		*error, *parent_error;
+	const char		*username, *usertable;
 	uint64_t		 reqid;
 	uint16_t		 msg;
-	int			 n, v;
-	struct lka_userinfo_req_msg	req_lka;
-	struct lka_userinfo_resp_msg   *resp_lka;
-	struct userinfo		       *userinfo;
+	size_t			 sz;
+	char			 out[256], stat[MAX_LINE_SIZE];
+	int			 n, v, status;
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_USERINFO:
-			resp_lka = imsg->data;
+			m_msg(&m, imsg);
+			m_get_string(&m, &usertable);
+			m_get_string(&m, &username);
+			m_get_int(&m, &status);
+			if (status == LKA_OK)
+				m_get_data(&m, &data, &sz);
+			m_end(&m);
+
 			TAILQ_FOREACH(u, &users, entry)
-				if (!strcmp(resp_lka->username, u->name) &&
-				    !strcmp(resp_lka->usertable, u->usertable))
+				if (!strcmp(username, u->name) &&
+				    !strcmp(usertable, u->usertable))
 					break;
 			if (u == NULL)
 				return;
 
-			if (resp_lka->status == LKA_TEMPFAIL) {
+			if (status == LKA_TEMPFAIL)
 				mda_fail(u, IMSG_DELIVERY_TEMPFAIL,
-				    "User lookup failed temporarily");
-				return;
-			}
-
-			if (resp_lka->status == LKA_PERMFAIL) {
+				    "Temporariy failure in user lookup");
+			else if (status == LKA_PERMFAIL)
 				mda_fail(u, IMSG_DELIVERY_PERMFAIL,
-				    "User lookup failed permanently");
-				return;
+				    "Permanent failure in user lookup");
+			else {
+				memmove(&u->userinfo, data, sz);
+				u->runnable = 1;
+				TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
+				mda_drain();
 			}
-
-			u->userinfo = resp_lka->userinfo;
-
-			u->runnable = 1;
-			TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
-			mda_drain();
 			return;
 		}
 	}
@@ -159,10 +162,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
-			name = e->agent.mda.userinfo.username;
+			username = e->agent.mda.userinfo.username;
 			usertable = e->agent.mda.usertable;
 			TAILQ_FOREACH(u, &users, entry)
-			    if (!strcmp(name, u->name) &&
+			    if (!strcmp(username, u->name) &&
 				!strcmp(usertable, u->usertable))
 					break;
 
@@ -182,15 +185,14 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (u == NULL) {
 				u = xcalloc(1, sizeof *u, "mda_user");
 				TAILQ_INIT(&u->envelopes);
-				strlcpy(u->name, name, sizeof u->name);
+				strlcpy(u->name, username, sizeof u->name);
 				strlcpy(u->usertable, usertable, sizeof u->usertable);
 				TAILQ_INSERT_TAIL(&users, u, entry);
-				strlcpy(req_lka.username, name,
-				    sizeof req_lka.username);
-				strlcpy(req_lka.usertable, usertable,
-				    sizeof req_lka.usertable);
-				m_compose(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
-				    &req_lka, sizeof req_lka);
+
+				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1, 99);
+				m_add_string(p_lka, usertable);
+				m_add_string(p_lka, username);
+				m_close(p_lka);
 			}
 
 			stat_increment("mda.pending", 1);

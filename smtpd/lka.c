@@ -51,6 +51,7 @@ static void lka_shutdown(void);
 static void lka_sig_handler(int, short, void *);
 static int lka_authenticate(const char *, const char *, const char *);
 static int lka_credentials(const char *, const char *, char *, size_t);
+static int lka_userinfo(const char *, const char *, struct userinfo *);
 static int lka_X509_verify(struct ca_vrfy_req_msg *, const char *, const char *);
 
 static void
@@ -75,6 +76,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_cert_req_msg		*req_ca_cert;
 	struct ca_cert_resp_msg		 resp_ca_cert;
 	struct addrinfo		 hints, *ai;
+	struct userinfo		 userinfo;
 	struct envelope		 evp;
 	struct msg		 m;
 	char			 buf[MAX_LINE_SIZE];
@@ -198,38 +200,22 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MDA) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_USERINFO: {
-			struct userinfo		       *userinfo = NULL;
-			struct lka_userinfo_req_msg    *lka_userinfo_req = imsg->data;
-			struct lka_userinfo_resp_msg	lka_userinfo_resp;
+		case IMSG_LKA_USERINFO:
+			m_msg(&m, imsg);
+			m_get_string(&m, &tablename);
+			m_get_string(&m, &username);
+			m_end(&m);
 
-			strlcpy(lka_userinfo_resp.username, lka_userinfo_req->username,
-			    sizeof lka_userinfo_resp.username);
-			strlcpy(lka_userinfo_resp.usertable, lka_userinfo_req->usertable,
-			    sizeof lka_userinfo_resp.usertable);
+			ret = lka_userinfo(tablename, username, &userinfo);
 
-			table = table_findbyname(lka_userinfo_req->usertable);
-			if (table == NULL)
-				lka_userinfo_resp.status = LKA_TEMPFAIL;
-			else {
-				switch (table_lookup(table, lka_userinfo_req->username, K_USERINFO, (void **)&userinfo)) {
-				case -1:
-					lka_userinfo_resp.status = LKA_TEMPFAIL;
-					break;
-				case 0:
-					lka_userinfo_resp.status = LKA_PERMFAIL;
-					break;
-				default:
-					lka_userinfo_resp.status = LKA_OK;
-					lka_userinfo_resp.userinfo = *userinfo;
-					break;
-				}
-			}
-			m_compose(p, IMSG_LKA_USERINFO, 0, 0, -1,
-			    &lka_userinfo_resp, sizeof lka_userinfo_resp);
-			free(userinfo);
+			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1, 128);
+			m_add_string(p, tablename);
+			m_add_string(p, username);
+			m_add_int(p, ret);
+			if (ret == LKA_OK)
+				m_add_data(p, &userinfo, sizeof(userinfo));
+			m_close(p);
 			return;
-		}
 		}
 	}
 
@@ -701,6 +687,35 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 		return (1);
 	}
 }
+
+static int
+lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
+{
+	struct userinfo *info;
+	struct table	*table;
+
+	log_debug("debug: looking up userinfo %s:%s", tablename, username);
+
+	table = table_findbyname(tablename);
+	if (table == NULL) {
+		log_warnx("warn: cannot find user table %s", tablename);
+		return (LKA_TEMPFAIL);
+	}
+
+	switch (table_lookup(table, username, K_USERINFO, (void **)&info)) {
+	case -1:
+		log_warnx("warn: failure during userinfo lookup %s:%s",
+		    tablename, username);
+		return (LKA_TEMPFAIL);
+	case 0:
+		return (LKA_PERMFAIL);
+	default:
+		*res = *info;
+		free(info);
+		return (LKA_OK);
+	}
+}
+
 
 static int
 lka_X509_verify(struct ca_vrfy_req_msg *vrfy,

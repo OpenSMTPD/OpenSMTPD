@@ -959,18 +959,6 @@ enum lka_resp_status {
 	LKA_PERMFAIL
 };
 
-struct lka_userinfo_req_msg {
-	char			usertable[MAXPATHLEN];
-	char			username[MAXLOGNAME];
-};
-
-struct lka_userinfo_resp_msg {
-	enum lka_resp_status	status;
-	char			usertable[MAXPATHLEN];
-	char			username[MAXLOGNAME];
-	struct userinfo		userinfo;
-};
-
 enum ca_resp_status {
 	CA_OK,
 	CA_FAIL
