@@ -58,21 +58,17 @@ static size_t	sessions;
 static void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct listener		*l;
-	struct ssl		*ssl;
+	struct listener	*l;
+	struct ssl	*ssl;
+	struct msg	 m;
+	int		 v;
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
 		case IMSG_LKA_EXPAND_RCPT:
-			smtp_session_imsg(p, imsg);
-			return;
 		case IMSG_LKA_AUTHENTICATE:
-			smtp_session_imsg(p, imsg);
-			return;
 		case IMSG_LKA_SSL_INIT:
-			smtp_session_imsg(p, imsg);
-			return;
 		case IMSG_LKA_SSL_VERIFY:
 			smtp_session_imsg(p, imsg);
 			return;
@@ -174,7 +170,10 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_CTL_VERBOSE:
-			log_verbose(*(int *)imsg->data);
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			log_verbose(v);
 			return;
 		}
 	}

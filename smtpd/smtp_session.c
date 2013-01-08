@@ -117,8 +117,8 @@ struct smtp_session {
 
 	char			 helo[SMTP_LINE_MAX];
 	char			 cmd[SMTP_LINE_MAX];
+	char			 username[MAXLOGNAME];
 
-	struct auth		 auth;
 	struct envelope		 evp;
 
 	size_t			 kickcount;
@@ -251,12 +251,9 @@ smtp_session(struct listener *listener, int sock,
 void
 smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct lka_resp_msg		*resp_lka;
-	struct dns_resp_msg		*resp_dns;
 	struct ca_cert_resp_msg       	*resp_ca_cert;
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
 	struct smtp_session		*s;
-	struct auth			*auth;
 	void				*ssl;
 	char				 user[MAXLOGNAME];
 	char				 buf[MAX_LINE_SIZE];
@@ -265,24 +262,30 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t			 reqid, evpid;
 	uint32_t			 code, msgid;
 	size_t				 len;
-	int				 status, success;
+	int				 status, success, dnserror;
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
-		resp_dns = imsg->data;
-		s = tree_xpop(&wait_lka_ptr, resp_dns->reqid);
-		if (resp_dns->error)
-			strlcpy(s->hostname, "<unknown>", sizeof s->hostname);
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &dnserror);
+		if (dnserror)
+			line = "<unknown>";
 		else
-			strlcpy(s->hostname, resp_dns->u.ptr,
-			    sizeof s->hostname);
+			m_get_string(&m, &line);
+		m_end(&m);
+		s = tree_xpop(&wait_lka_ptr, reqid);
+		strlcpy(s->hostname, line, sizeof s->hostname);
 		smtp_connected(s);
 		return;
 
 	case IMSG_LKA_EXPAND_RCPT:
-		resp_lka = imsg->data;
-		s = tree_xpop(&wait_lka_rcpt, resp_lka->reqid);
-		switch (resp_lka->status) {
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &status);
+		m_end(&m);
+		s = tree_xpop(&wait_lka_rcpt, reqid);
+		switch (status) {
 		case LKA_OK:
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
@@ -488,26 +491,32 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_LKA_AUTHENTICATE:
-		auth = imsg->data;
-		s = tree_xpop(&wait_parent_auth, auth->id);
-		strnvis(user, auth->user, sizeof user, VIS_WHITE | VIS_SAFE);
-		if (auth->success == 0) {
-			log_info("smtp-in: Authentication failed for user %s "
-			    "on session %016"PRIx64, user, s->id);
-			smtp_reply(s, "535 Authentication failed");
-		}
-		else if (auth->success) {
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &status);
+		m_end(&m);
+
+		s = tree_xpop(&wait_parent_auth, reqid);
+		strnvis(user, s->username, sizeof user, VIS_WHITE | VIS_SAFE);
+		if (success == LKA_OK) {
 			log_info("smtp-in: Accepted authentication for user %s "
 			    "on session %016"PRIx64, user, s->id);
 			s->kickcount = 0;
 			s->flags |= SF_AUTHENTICATED;
 			smtp_reply(s, "235 Authentication succeeded");
 		}
-		else {
+		else if (success == LKA_PERMFAIL) {
+			log_info("smtp-in: Authentication failed for user %s "
+			    "on session %016"PRIx64, user, s->id);
+			smtp_reply(s, "535 Authentication failed");
+		}
+		else if (success == LKA_TEMPFAIL) {
 			log_info("smtp-in: Authentication temporarily failed "
 			    "for user %s on session %016"PRIx64, user, s->id);
 			smtp_reply(s, "421 Temporary failure");
 		}
+		else
+			fatalx("bad lka response");
 		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);
 		return;
@@ -566,7 +575,6 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
     const char *line)
 {
 	struct ca_cert_req_msg		 req_ca_cert;
-	struct lka_expand_msg		 req_lka;
 
 	if (status == MFA_CLOSE) {
 		code = code ? code : 421;
@@ -661,10 +669,11 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			io_reload(&s->io);
 			return;
 		}
-		req_lka.reqid = s->id;
-		req_lka.evp = s->evp;
-		m_compose(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1,
-		    &req_lka, sizeof(req_lka));
+
+		m_create(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 7000);
+		m_add_id(p_lka, s->id);
+		m_add_envelope(p_lka, &s->evp);
+		m_close(p_lka);
 		tree_xset(&wait_lka_rcpt, s->id, s);
 		return;
 
@@ -1133,7 +1142,6 @@ smtp_command(struct smtp_session *s, char *line)
 static void
 smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 {
-	struct auth	*a = &s->auth;
 	char		 buf[1024], *user, *pass;
 	int		 len;
 
@@ -1162,20 +1170,21 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 		if (user == NULL || user >= buf + len - 2)
 			goto abort;
 		user++; /* skip NUL */
-		if (strlcpy(a->user, user, sizeof(a->user)) >= sizeof(a->user))
+		if (strlcpy(s->username, user, sizeof(s->username))
+		    >= sizeof(s->username))
 			goto abort;
 
 		pass = memchr(user, '\0', len - (user - buf));
 		if (pass == NULL || pass >= buf + len - 2)
 			goto abort;
 		pass++; /* skip NUL */
-		if (strlcpy(a->pass, pass, sizeof(a->pass)) >= sizeof(a->pass))
-			goto abort;
 
-		a->id = s->id;
-		strlcpy(a->authtable, s->listener->authtable, sizeof a->authtable);
-		m_compose(p_lka, IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
-		bzero(a->pass, sizeof(a->pass));
+		m_create(p_lka,  IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+		m_add_id(p_lka, s->id);
+		m_add_string(p_lka, s->listener->authtable);
+		m_add_string(p_lka, user);
+		m_add_string(p_lka, pass);
+		m_close(p_lka);
 		tree_xset(&wait_parent_auth, s->id, s);
 		return;
 
@@ -1191,7 +1200,7 @@ abort:
 static void
 smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 {
-	struct auth	*a = &s->auth;
+	char		buf[MAX_LINE_SIZE + 1];
 
 	switch (s->state) {
 	case STATE_HELO:
@@ -1200,9 +1209,9 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 		return;
 
 	case STATE_AUTH_USERNAME:
-		bzero(a->user, sizeof(a->user));
-		if (__b64_pton(arg, (unsigned char *)a->user,
-			sizeof(a->user) - 1) == -1)
+		bzero(s->username, sizeof(s->username));
+		if (__b64_pton(arg, (unsigned char *)s->username,
+		    sizeof(s->username) - 1) == -1)
 			goto abort;
 
 		smtp_enter_state(s, STATE_AUTH_PASSWORD);
@@ -1210,15 +1219,16 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 		return;
 
 	case STATE_AUTH_PASSWORD:
-		bzero(a->pass, sizeof(a->pass));
-		if (__b64_pton(arg, (unsigned char *)a->pass,
-			sizeof(a->pass) - 1) == -1)
+		bzero(buf, sizeof(buf));
+		if (__b64_pton(arg, (unsigned char *)buf, sizeof(buf)-1) == -1)
 			goto abort;
 
-		a->id = s->id;
-		strlcpy(a->authtable, s->listener->authtable, sizeof a->authtable);
-		m_compose(p_lka, IMSG_LKA_AUTHENTICATE, 0, 0, -1, a, sizeof(*a));
-		bzero(a->pass, sizeof(a->pass));
+		m_create(p_lka,  IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+		m_add_id(p_lka, s->id);
+		m_add_string(p_lka, s->listener->authtable);
+		m_add_string(p_lka, s->username);
+		m_add_string(p_lka, buf);
+		m_close(p_lka);
 		tree_xset(&wait_parent_auth, s->id, s);
 		return;
 
@@ -1443,7 +1453,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 		m_close(p_queue);
 	}
 
-	m_create(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1, 8);
+	m_create(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1, 9);
 	m_add_id(p_mfa, s->id);
 	m_close(p_mfa);
 

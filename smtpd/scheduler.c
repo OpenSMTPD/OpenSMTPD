@@ -71,26 +71,32 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct bounce_req_msg	 req;
 	struct evpstate		 state[EVPBATCHSIZE];
-	struct envelope		*e;
+	struct envelope		 evp;
 	struct scheduler_info	 si;
-	uint64_t		 id;
+	struct msg		 m;
+	uint64_t		 evpid, id;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
 	size_t			 n, i;
 	time_t			 timestamp;
+	int			 v;
 
 	switch (imsg->hdr.type) {
 
 	case IMSG_QUEUE_SUBMIT_ENVELOPE:
-		e = imsg->data;
+		m_msg(&m, imsg);
+		m_get_envelope(&m, &evp);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: inserting evp:%016" PRIx64, e->id);
-		scheduler_info(&si, e);
+		    "scheduler: inserting evp:%016" PRIx64, evp.id);
+		scheduler_info(&si, &evp);
 		stat_increment("scheduler.envelope.incoming", 1);
 		backend->insert(&si);
 		return;
 
 	case IMSG_QUEUE_COMMIT_MESSAGE:
-		msgid = *(uint32_t *)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_msgid(&m, &msgid);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: commiting msg:%08" PRIx32, msgid);
 		n = backend->commit(msgid);
@@ -100,7 +106,9 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_QUEUE_REMOVE_MESSAGE:
-		msgid = *(uint32_t *)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_msgid(&m, &msgid);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER, "scheduler: aborting msg:%08" PRIx32,
 		    msgid);
 		n = backend->rollback(msgid);
@@ -109,10 +117,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_DELIVERY_OK:
-		id = *(uint64_t *)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: deleting evp:%016" PRIx64 " (ok)", id);
-		backend->delete(id);
+		    "scheduler: deleting evp:%016" PRIx64 " (ok)", evpid);
+		backend->delete(evpid);
 		stat_increment("scheduler.delivery.ok", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_decrement("scheduler.envelope", 1);
@@ -120,10 +130,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_DELIVERY_TEMPFAIL:
-		e = imsg->data;
+		m_msg(&m, imsg);
+		m_get_envelope(&m, &evp);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: updating evp:%016" PRIx64, e->id);
-		scheduler_info(&si, e);
+		    "scheduler: updating evp:%016" PRIx64, evp.id);
+		scheduler_info(&si, &evp);
 		backend->update(&si);
 		stat_increment("scheduler.delivery.tempfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
@@ -134,7 +146,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 			timestamp = si.creation + env->sc_bounce_warn[i];
 			if (si.nexttry >= timestamp &&
 			    si.lastbounce < timestamp) {
-	    			req.evpid = e->id;
+	    			req.evpid = evp.id;
 				req.timestamp = timestamp;
 				req.bounce.type = B_WARNING;
 				req.bounce.delay = env->sc_bounce_warn[i];
@@ -148,10 +160,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_DELIVERY_PERMFAIL:
-		id = *(uint64_t *)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: deleting evp:%016" PRIx64 " (fail)", id);
-		backend->delete(id);
+		    "scheduler: deleting evp:%016" PRIx64 " (fail)", evpid);
+		backend->delete(evpid);
 		stat_increment("scheduler.delivery.permfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_decrement("scheduler.envelope", 1);
@@ -159,10 +173,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_DELIVERY_LOOP:
-		id = *(uint64_t *)(imsg->data);
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: deleting evp:%016" PRIx64 " (loop)", id);
-		backend->delete(id);
+		    "scheduler: deleting evp:%016" PRIx64 " (loop)", evpid);
+		backend->delete(evpid);
 		stat_increment("scheduler.delivery.loop", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_decrement("scheduler.envelope", 1);
@@ -192,7 +208,10 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_CTL_VERBOSE:
-		log_verbose(*(int *)imsg->data);
+		m_msg(&m, imsg);
+		m_get_int(&m, &v);
+		m_end(&m);
+		log_verbose(v);
 		return;
 
 	case IMSG_CTL_LIST_MESSAGES:

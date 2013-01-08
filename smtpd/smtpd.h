@@ -453,7 +453,6 @@ struct envelope {
 	char				tag[MAX_TAG_SIZE];
 
 	uint64_t			session_id;
-	uint64_t			batch_id;
 
 	uint32_t			version;
 	uint64_t			id;
@@ -541,14 +540,6 @@ struct listener {
 	TAILQ_ENTRY(listener)	 entry;
 };
 
-struct auth {
-	uint64_t	id;
-	char		authtable[MAX_LINE_SIZE];
-	char		user[MAXLOGNAME];
-	char		pass[MAX_LINE_SIZE + 1];
-	int		success;
-};
-
 struct smtpd {
 	char				sc_conffile[MAXPATHLEN];
 	size_t				sc_maxsize;
@@ -620,13 +611,6 @@ struct forward_req {
 	uid_t				uid;
 	gid_t				gid;
 	char				directory[MAXPATHLEN];
-};
-
-struct secret {
-	uint64_t		 id;
-	char			 tablename[MAX_PATH_SIZE];
-	char			 label[MAX_LINE_SIZE];
-	char			 secret[MAX_LINE_SIZE];
 };
 
 struct deliver {
@@ -990,69 +974,10 @@ enum dns_error {
 	DNS_ENOTFOUND,
 };
 
-struct dns_req_msg {
-	uint64_t			reqid;
-	union {
-		char			host[MAXHOSTNAMELEN];
-		char			domain[MAXHOSTNAMELEN];
-		struct sockaddr_storage	ss;
-		struct {
-			char		domain[MAXHOSTNAMELEN];
-			char		mx[MAXHOSTNAMELEN];
-		}			mxpref;
-	}				u;
-};
-
-struct dns_resp_msg {
-	uint64_t				reqid;
-	int					error;
-	union {
-		struct {
-			struct sockaddr_storage	ss;
-			int			preference;
-		}				host;
-		int				preference;
-		char				ptr[MAXHOSTNAMELEN];
-	} u;
-};
-
-struct lka_expand_msg {
-	uint64_t		reqid;
-	struct envelope		evp;
-};
-
 enum lka_resp_status {
 	LKA_OK,
 	LKA_TEMPFAIL,
 	LKA_PERMFAIL
-};
-
-struct lka_resp_msg {
-	uint64_t		reqid;
-	enum lka_resp_status	status;
-};
-
-struct lka_source_req_msg {
-	uint64_t		reqid;
-	char			tablename[MAXPATHLEN];
-};
-
-struct lka_source_resp_msg {
-	uint64_t		reqid;
-	enum lka_resp_status	status;
-	struct sockaddr_storage	ss;
-};
-
-struct lka_userinfo_req_msg {
-	char			usertable[MAXPATHLEN];
-	char			username[MAXLOGNAME];
-};
-
-struct lka_userinfo_resp_msg {
-	enum lka_resp_status	status;
-	char			usertable[MAXPATHLEN];
-	char			username[MAXLOGNAME];
-	struct userinfo		userinfo;
 };
 
 enum ca_resp_status {
