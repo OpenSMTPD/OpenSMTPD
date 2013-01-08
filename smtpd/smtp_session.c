@@ -491,28 +491,30 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_LKA_AUTHENTICATE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
-		m_get_int(&m, &success);
+		m_get_int(&m, &status);
 		m_end(&m);
 
 		s = tree_xpop(&wait_parent_auth, reqid);
 		strnvis(user, s->username, sizeof user, VIS_WHITE | VIS_SAFE);
-		if (success == 0) {
-			log_info("smtp-in: Authentication failed for user %s "
-			    "on session %016"PRIx64, user, s->id);
-			smtp_reply(s, "535 Authentication failed");
-		}
-		else if (success) {
+		if (success == LKA_OK) {
 			log_info("smtp-in: Accepted authentication for user %s "
 			    "on session %016"PRIx64, user, s->id);
 			s->kickcount = 0;
 			s->flags |= SF_AUTHENTICATED;
 			smtp_reply(s, "235 Authentication succeeded");
 		}
-		else {
+		else if (success == LKA_PERMFAIL) {
+			log_info("smtp-in: Authentication failed for user %s "
+			    "on session %016"PRIx64, user, s->id);
+			smtp_reply(s, "535 Authentication failed");
+		}
+		else if (success == LKA_TEMPFAIL) {
 			log_info("smtp-in: Authentication temporarily failed "
 			    "for user %s on session %016"PRIx64, user, s->id);
 			smtp_reply(s, "421 Temporary failure");
 		}
+		else
+			fatalx("bad lka response");
 		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);
 		return;

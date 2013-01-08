@@ -618,27 +618,28 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	struct credentials	*creds;
 	int			 r;
 
-	log_debug("debug: lka: looking for user %s in auth table: %s",
-	    user, tablename);
+	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
 
 	table = table_findbyname(tablename);
 	if (table == NULL) {
 		log_warnx("warn: could not find table %s needed for authentication",
 		    tablename);
-		return (-1);
+		return (LKA_TEMPFAIL);
 	}
 
 	switch (table_lookup(table, user, K_CREDENTIALS, (void **)&creds)) {
 	case -1:
-		return (-1);
+		log_warnx("warn: user credentials lookup fail for %s:%s",
+		    tablename, user);
+		return (LKA_TEMPFAIL);
 	case 0:
-		return (0);
+		return (LKA_PERMFAIL);
 	default:
 		r = !strcmp(creds->password, crypt(password, creds->password));
 		free(creds);
 		if (r)
-			return (1);
-		return (0);
+			return (LKA_OK);
+		return (LKA_PERMFAIL);
 	}
 }
 
@@ -653,7 +654,7 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 	table = table_findbyname(tablename);
 	if (table == NULL) {
 		log_warnx("warn: credentials table %s missing", tablename);
-		return (-1);
+		return (LKA_TEMPFAIL);
 	}
 
 	dst[0] = '\0';
@@ -662,17 +663,17 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 	case -1:
 		log_warnx("warn: credentials lookup fail for %s:%s",
 		    tablename, label);
-		return (-1);
+		return (LKA_TEMPFAIL);
 	case 0:
 		log_warnx("warn: credentials not found for %s:%s",
 		    tablename, label);
-		return (0);
+		return (LKA_PERMFAIL);
 	default:
 		if ((buflen = asprintf(&buf, "%c%s%c%s", '\0',
 		    creds->username, '\0', creds->password)) == -1) {
 			free(creds);
 			log_warn("warn");
-			return (-1);
+			return (LKA_TEMPFAIL);
 		}
 		free(creds);
 
@@ -682,9 +683,9 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 		if (r == -1) {
 			log_warnx("warn: credentials parse error for %s:%s",
 			    tablename, label);
-			return (-1);
+			return (LKA_TEMPFAIL);
 		}
-		return (1);
+		return (LKA_OK);
 	}
 }
 
