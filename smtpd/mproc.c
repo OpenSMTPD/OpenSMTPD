@@ -108,6 +108,19 @@ mproc_disable(struct mproc *p)
 	event_del(&p->ev);
 }
 
+size_t
+mproc_queued(struct mproc *p)
+{
+	struct ibuf	*buf;
+	size_t		 n;
+
+	n = 0;
+	TAILQ_FOREACH(buf, &p->imsgbuf.w.bufs, entry)
+		n += buf->wpos - buf->rpos;
+
+	return (n);
+}
+
 static void
 mproc_event_add(struct mproc *p)
 {

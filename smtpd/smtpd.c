@@ -108,15 +108,15 @@ void		(*imsg_callback)(struct mproc *, struct imsg *);
 
 struct smtpd	*env = NULL;
 
-struct mproc	*p_control;
-struct mproc	*p_lka;
-struct mproc	*p_mda;
-struct mproc	*p_mfa;
-struct mproc	*p_mta;
-struct mproc	*p_parent;
-struct mproc	*p_queue;
-struct mproc	*p_scheduler;
-struct mproc	*p_smtp;
+struct mproc	*p_control = NULL;
+struct mproc	*p_lka = NULL;
+struct mproc	*p_mda = NULL;
+struct mproc	*p_mfa = NULL;
+struct mproc	*p_mta = NULL;
+struct mproc	*p_parent = NULL;
+struct mproc	*p_queue = NULL;
+struct mproc	*p_scheduler = NULL;
+struct mproc	*p_smtp = NULL;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
