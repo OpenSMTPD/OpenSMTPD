@@ -177,7 +177,7 @@ process_stat(struct mproc *p)
 	snprintf(buf, sizeof buf, "buffer.%s.%s",
 	    env->sc_title[smtpd_process],
 	    env->sc_title[p->proc]);
-	value.u.counter = mproc_queued(p);
+	value.u.counter = p->bytes_queued;
 	stat_set(buf, &value);
 }
 

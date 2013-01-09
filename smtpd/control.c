@@ -48,7 +48,7 @@
 #define CONTROL_BACKLOG 5
 
 struct ctl_conn {
-	TAILQ_ENTRY(ctl_conn)	 entry;
+	uint32_t		 id;
 	uint8_t			 flags;
 #define CTL_CONN_NOTIFY		 0x01
 	struct mproc		 mproc;
@@ -65,18 +65,16 @@ static void control_imsg(struct mproc *, struct imsg *);
 static void control_shutdown(void);
 static void control_listen(void);
 static void control_accept(int, short, void *);
-static struct ctl_conn *control_connbyfd(int);
 static void control_close(struct ctl_conn *);
 static void control_sig_handler(int, short, void *);
 static void control_dispatch_ext(struct mproc *, struct imsg *);
-
 static void control_digest_update(const char *, size_t, int);
 
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
 
-static TAILQ_HEAD(, ctl_conn)	ctl_conns;
-
+static uint32_t			connid = 0;
+static struct tree		ctl_conns;
 static struct stat_digest	digest;
 
 #define	CONTROL_FD_RESERVE	5
@@ -94,7 +92,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_ENQUEUE_FD:
-			c = control_connbyfd(imsg->hdr.peerid);
+			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
 			m_compose(&c->mproc, IMSG_CTL_OK, 0, 0, imsg->fd,
@@ -105,7 +103,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_LIST_MESSAGES:
-			c = control_connbyfd(imsg->hdr.peerid);
+			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
 			m_forward(&c->mproc, imsg);
@@ -115,7 +113,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_LIST_ENVELOPES:
-			c = control_connbyfd(imsg->hdr.peerid);
+			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
 			m_forward(&c->mproc, imsg);
@@ -255,7 +253,7 @@ control(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	TAILQ_INIT(&ctl_conns);
+	tree_init(&ctl_conns);
 
 	bzero(&digest, sizeof digest);
 	digest.startup = time(NULL);
@@ -331,11 +329,12 @@ control_accept(int listenfd, short event, void *arg)
 	c = xcalloc(1, sizeof(*c), "control_accept");
 	if (getpeereid(connfd, &c->euid, &c->egid) == -1)
 		fatal("getpeereid");
+	c->id = ++connid;
 	c->mproc.handler = control_dispatch_ext;
 	c->mproc.data = c;
 	mproc_init(&c->mproc, connfd);
 	mproc_enable(&c->mproc);
-	TAILQ_INSERT_TAIL(&ctl_conns, c, entry);
+	tree_xset(&ctl_conns, c->id, c);
 
 	stat_backend->increment("control.session", 1);
 	return;
@@ -345,22 +344,10 @@ pause:
 	event_del(&control_state.ev);
 }
 
-static struct ctl_conn *
-control_connbyfd(int fd)
-{
-	struct ctl_conn	*c;
-
-	for (c = TAILQ_FIRST(&ctl_conns); c != NULL && c->mproc.imsgbuf.fd != fd;
-	    c = TAILQ_NEXT(c, entry))
-		;	/* nothing */
-
-	return (c);
-}
-
 static void
 control_close(struct ctl_conn *c)
 {
-	TAILQ_REMOVE(&ctl_conns, c, entry);
+	tree_xpop(&ctl_conns, c->id);
 	mproc_clear(&c->mproc);
 	free(c);
 
@@ -443,7 +430,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
-		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, p->imsgbuf.fd, 0, -1,
+		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, c->id, 0, -1,
 		    &c->euid, sizeof(c->euid));
 		return;
 
@@ -593,14 +580,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 	case IMSG_CTL_LIST_MESSAGES:
 		if (c->euid)
 			goto badcred;
-		m_compose(p_scheduler, IMSG_CTL_LIST_MESSAGES, p->imsgbuf.fd, 0, -1,
+		m_compose(p_scheduler, IMSG_CTL_LIST_MESSAGES, c->id, 0, -1,
 		    imsg->data, imsg->hdr.len - sizeof(imsg->hdr));
 		return;
 
 	case IMSG_CTL_LIST_ENVELOPES:
 		if (c->euid)
 			goto badcred;
-		m_compose(p_scheduler, IMSG_CTL_LIST_ENVELOPES, p->imsgbuf.fd, 0, -1,
+		m_compose(p_scheduler, IMSG_CTL_LIST_ENVELOPES, c->id, 0, -1,
 		    imsg->data, imsg->hdr.len - sizeof(imsg->hdr));
 		return;
 

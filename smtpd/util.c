@@ -303,33 +303,34 @@ rmtree(char *path, int keepdir)
 	path_argv[0] = path;
 	path_argv[1] = NULL;
 	ret = 0;
-	depth = 1;
+	depth = 0;
 
-	if ((fts = fts_open(path_argv, FTS_PHYSICAL, NULL)) == NULL) {
+	fts = fts_open(path_argv, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+	if (fts == NULL) {
 		warn("fts_open: %s", path);
 		return (-1);
 	}
 
 	while ((e = fts_read(fts)) != NULL) {
-		if (e->fts_number) {
+		switch (e->fts_info) {
+		case FTS_D:
+			depth++;
+			break;
+		case FTS_DP:
 			depth--;
-			if (keepdir && e->fts_number == 1)
+			if (keepdir && depth == 0)
 				continue;
 			if (rmdir(e->fts_path) == -1) {
 				warn("rmdir: %s", e->fts_path);
 				ret = -1;
 			}
-			continue;
-		}
+			break;
 
-		if (S_ISDIR(e->fts_statp->st_mode)) {
-			e->fts_number = depth++;
-			continue;
-		}
-
-		if (unlink(e->fts_path) == -1) {
-			warn("unlink: %s", e->fts_path);
-			ret = -1;
+		case FTS_F:
+			if (unlink(e->fts_path) == -1) {
+				warn("unlink: %s", e->fts_path);
+				ret = -1;
+			}
 		}
 	}
 

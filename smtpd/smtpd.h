@@ -922,6 +922,12 @@ struct mproc {
 	int		 enable;
 	struct event	 ev;
 	void		*data;
+
+	size_t		 msg_in;
+	size_t		 msg_out;
+	size_t		 bytes_in;
+	size_t		 bytes_out;
+	size_t		 bytes_queued;
 };
 
 struct msg {
@@ -1145,7 +1151,6 @@ void mproc_init(struct mproc *, int);
 void mproc_clear(struct mproc *);
 void mproc_enable(struct mproc *);
 void mproc_disable(struct mproc *);
-size_t mproc_queued(struct mproc *);
 void m_compose(struct mproc *, uint32_t, uint32_t, pid_t, int, void *, size_t);
 void m_composev(struct mproc *, uint32_t, uint32_t, pid_t, int,
     const struct iovec *, int);
