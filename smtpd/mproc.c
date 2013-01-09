@@ -27,6 +27,7 @@
 #include <arpa/nameser.h>
 
 #include <err.h>
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
@@ -37,8 +38,10 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void mproc_dispatch(int, short, void *);
 static void mproc_event_add(struct mproc *);
+static void mproc_dispatch(int, short, void *);
+
+static ssize_t msgbuf_write2(struct msgbuf *);
 
 int
 mproc_fork(struct mproc *p, const char *path, const char *arg)
@@ -108,19 +111,6 @@ mproc_disable(struct mproc *p)
 	event_del(&p->ev);
 }
 
-size_t
-mproc_queued(struct mproc *p)
-{
-	struct ibuf	*buf;
-	size_t		 n;
-
-	n = 0;
-	TAILQ_FOREACH(buf, &p->imsgbuf.w.bufs, entry)
-		n += buf->wpos - buf->rpos;
-
-	return (n);
-}
-
 static void
 mproc_event_add(struct mproc *p)
 {
@@ -160,11 +150,15 @@ mproc_dispatch(int fd, short event, void *arg)
 			p->handler(p, NULL);
 			return;
 		}
+		p->bytes_in += n;
 	}
 
 	if (event & EV_WRITE) {
-		if (msgbuf_write(&p->imsgbuf.w) == -1)
+		n = msgbuf_write2(&p->imsgbuf.w);
+		if (n == -1)
 			fatal("msgbuf_write");
+		p->bytes_out += n;
+		p->bytes_queued -= n;
 	}
 
 	for (;;) {
@@ -173,11 +167,80 @@ mproc_dispatch(int fd, short event, void *arg)
 		if (n == 0)
 			break;
 
+		p->msg_in += 1;
 		p->handler(p, &imsg);
 
 		imsg_free(&imsg);
 	}
 	mproc_event_add(p);
+}
+
+/* XXX msgbuf_write() should return n ... */
+static ssize_t
+msgbuf_write2(struct msgbuf *msgbuf)
+{
+	struct iovec	 iov[IOV_MAX];
+	struct ibuf	*buf;
+	unsigned int	 i = 0;
+	ssize_t		 n;
+	struct msghdr	 msg;
+	struct cmsghdr	*cmsg;
+	union {
+		struct cmsghdr	hdr;
+		char		buf[CMSG_SPACE(sizeof(int))];
+	} cmsgbuf;
+
+	bzero(&iov, sizeof(iov));
+	bzero(&msg, sizeof(msg));
+	TAILQ_FOREACH(buf, &msgbuf->bufs, entry) {
+		if (i >= IOV_MAX)
+			break;
+		iov[i].iov_base = buf->buf + buf->rpos;
+		iov[i].iov_len = buf->wpos - buf->rpos;
+		i++;
+		if (buf->fd != -1)
+			break;
+	}
+
+	msg.msg_iov = iov;
+	msg.msg_iovlen = i;
+
+	if (buf != NULL && buf->fd != -1) {
+		msg.msg_control = (caddr_t)&cmsgbuf.buf;
+		msg.msg_controllen = sizeof(cmsgbuf.buf);
+		cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+		cmsg->cmsg_level = SOL_SOCKET;
+		cmsg->cmsg_type = SCM_RIGHTS;
+		*(int *)CMSG_DATA(cmsg) = buf->fd;
+	}
+
+again:
+	if ((n = sendmsg(msgbuf->fd, &msg, 0)) == -1) {
+		if (errno == EAGAIN || errno == EINTR)
+			goto again;
+		if (errno == ENOBUFS)
+			errno = EAGAIN;
+		return (-1);
+	}
+
+	if (n == 0) {			/* connection closed */
+		errno = 0;
+		return (0);
+	}
+
+	/*
+	 * assumption: fd got sent if sendmsg sent anything
+	 * this works because fds are passed one at a time
+	 */
+	if (buf != NULL && buf->fd != -1) {
+		close(buf->fd);
+		buf->fd = -1;
+	}
+
+	msgbuf_drain(msgbuf, n);
+
+	return (n);
 }
 
 void
@@ -186,6 +249,10 @@ m_forward(struct mproc *p, struct imsg *imsg)
 	imsg_compose(&p->imsgbuf, imsg->hdr.type, imsg->hdr.peerid,
 	    imsg->hdr.pid, imsg->fd, imsg->data,
 	    imsg->hdr.len - sizeof(imsg->hdr));
+
+	p->msg_out += 1;
+	p->bytes_queued += imsg->hdr.len;
+
 	mproc_event_add(p);
 }
 
@@ -194,6 +261,10 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
     void *data, size_t len)
 {
 	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
+
+	p->msg_out += 1;
+	p->bytes_queued += len + IMSG_HEADER_SIZE;
+
 	mproc_event_add(p);
 }
 
@@ -201,7 +272,14 @@ void
 m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
     int fd, const struct iovec *iov, int n)
 {
+	int	i;
+
 	imsg_composev(&p->imsgbuf, type, peerid, pid, fd, iov, n);
+
+	p->msg_out += 1;
+	for (i = 0; i < n; i++)
+		p->bytes_queued += iov[i].iov_len;
+
 	mproc_event_add(p);
 }
 
@@ -234,7 +312,11 @@ void
 m_close(struct mproc *p)
 {
 	imsg_close(&p->imsgbuf, p->ibuf);
+
+	p->msg_out += 1;
+	p->bytes_queued += p->ibuf->wpos;
 	p->ibuf = NULL;
+
 	mproc_event_add(p);
 }
 
