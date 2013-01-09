@@ -51,7 +51,7 @@ stat_increment(const char *key, size_t count)
 
 	value = stat_counter(count);
 
-	len = strlen(key) + sizeof(*value) + 3;
+	len = 32 + strlen(key) + sizeof(*value);
 	m_create(p_control, IMSG_STAT_INCREMENT, 0, 0, -1, len);
 	m_add_string(p_control, key);
 	m_add_data(p_control, value, sizeof(*value));
@@ -66,7 +66,7 @@ stat_decrement(const char *key, size_t count)
 
 	value = stat_counter(count);
 
-	len = strlen(key) + sizeof(*value) + 3;
+	len = 32 + strlen(key) + sizeof(*value);
 	m_create(p_control, IMSG_STAT_DECREMENT, 0, 0, -1, len);
 	m_add_string(p_control, key);
 	m_add_data(p_control, value, sizeof(*value));
@@ -78,7 +78,7 @@ stat_set(const char *key, const struct stat_value *value)
 {
 	size_t			 len;
 
-	len = strlen(key) + sizeof(*value) + 3;
+	len = 32 + strlen(key) + sizeof(*value);
 	m_create(p_control, IMSG_STAT_SET, 0, 0, -1, len);
 	m_add_string(p_control, key);
 	m_add_data(p_control, value, sizeof(*value));

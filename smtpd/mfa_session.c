@@ -254,7 +254,7 @@ mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 	log_trace(TRACE_MFA,
 	    "mfa: running data for %016"PRIx64" on filter %p: %s", id, f, line);
 
-	len = sizeof(id) + strlen(line) + 1;
+	len = 16 + strlen(line);
 
 	/* Send the dataline to the filters that want to see it. */
 	while (f) {
@@ -318,6 +318,7 @@ mfa_drain_query(struct mfa_query *q)
 {
 	struct mfa_filter	*f;
 	struct mfa_query	*prev;
+	size_t			 len;
 
 	log_trace(TRACE_MFA, "mfa: draining query %s", mfa_query_to_text(q));
 
@@ -379,7 +380,10 @@ mfa_drain_query(struct mfa_query *q)
 			m_close(&f->mproc);
 		}
 
-		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1, 2048);
+		len = 48;
+		if (q->smtp.response)
+			len += strlen(q->smtp.response);
+		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1, len);
 		m_add_id(p_smtp, q->session->id);
 		m_add_int(p_smtp, q->smtp.status);
 		m_add_u32(p_smtp, q->smtp.code);

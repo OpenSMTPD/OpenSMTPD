@@ -493,7 +493,7 @@ parent_sig_handler(int sig, short event, void *p)
 				if (child->cause)
 					free(child->cause);
 				m_create(p_mda, IMSG_MDA_DONE, 0, 0,
-				    child->mda_out, 128);
+				    child->mda_out, 32 + strlen(cause));
 				m_add_id(p_mda, child->mda_id);
 				m_add_string(p_mda, cause);
 				m_close(p_mda);
@@ -606,6 +606,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
+			else if (!strcmp(optarg, "imsg-size"))
+				verbose |= TRACE_IMSGSIZE;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else if (!strcmp(optarg, "profstat"))

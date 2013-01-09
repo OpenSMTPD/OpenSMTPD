@@ -947,7 +947,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			envelope_set_errormsg(e, "%s", error);
 			log_envelope(e, buf, pfx, e->errorline);
-			m_create(p_queue, fail, 0, 0, -1, 7000);
+			m_create(p_queue, fail, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_queue, e);
 			m_close(p_queue);
 			free(e);

@@ -155,7 +155,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				envelope_set_errormsg(e,
 				    "Global envelope limit reached");
 				m_create(p_queue, IMSG_DELIVERY_TEMPFAIL,
-				    0, 0, -1, 7000);
+				    0, 0, -1, MSZ_EVP);
 				m_add_envelope(p_queue, e);
 				m_close(p_queue);
 				free(e);
@@ -175,7 +175,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				envelope_set_errormsg(e,
 				    "User envelope limit reached");
 				m_create(p_queue, IMSG_DELIVERY_TEMPFAIL,
-				    0, 0, -1, 7000);
+				    0, 0, -1, MSZ_EVP);
 				m_add_envelope(p_queue, e);
 				m_close(p_queue);
 				free(e);
@@ -188,8 +188,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				strlcpy(u->name, username, sizeof u->name);
 				strlcpy(u->usertable, usertable, sizeof u->usertable);
 				TAILQ_INSERT_TAIL(&users, u, entry);
-
-				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1, 99);
+				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
+				    32 + strlen(usertable) + strlen(username));
 				m_add_string(p_lka, usertable);
 				m_add_string(p_lka, username);
 				m_close(p_lka);
@@ -307,7 +307,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    d_mda->method);
 			}
 
-			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1, 999);
+			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1,
+			    32 + sizeof(deliver));
 			m_add_id(p_parent, reqid);
 			m_add_data(p_parent, &deliver, sizeof(deliver));
 			m_close(p_parent);
@@ -635,7 +636,7 @@ mda_fail(struct mda_user *user, int type, const char *error)
 	while ((e = TAILQ_FIRST(&user->envelopes))) {
 		TAILQ_REMOVE(&user->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
-		m_create(p_queue, type, 0, 0, -1, 7000);
+		m_create(p_queue, type, 0, 0, -1, MSZ_EVP);
 		m_add_envelope(p_queue, e);
 		m_close(p_queue);
 		free(e);
@@ -709,7 +710,7 @@ mda_done(struct mda_session *s, int msg)
 {
 	tree_xpop(&sessions, s->id);
 
-	m_create(p_queue, msg, 0, 0, -1, 7000);
+	m_create(p_queue, msg, 0, 0, -1, MSZ_EVP);
 	m_add_envelope(p_queue, s->evp);
 	m_close(p_queue);
 
