@@ -516,6 +516,7 @@ struct listener {
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[MAX_LINE_SIZE];
+	char			 helo[MAXHOSTNAMELEN];
 	TAILQ_ENTRY(listener)	 entry;
 };
 
