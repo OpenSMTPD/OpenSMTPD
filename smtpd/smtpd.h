@@ -247,11 +247,6 @@ enum blockmodes {
 	BM_NONBLOCK
 };
 
-struct ctl_id {
-	objid_t		 id;
-	char		 name[MAX_NAME_SIZE];
-};
-
 enum smtp_proc_type {
 	PROC_PARENT = 0,
 	PROC_SMTP,
