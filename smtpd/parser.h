@@ -38,6 +38,11 @@ enum actions {
 	UPDATE_TABLE,
 };
 
+struct ctl_id {
+	objid_t		 id;
+	char		 name[MAX_NAME_SIZE];
+};
+
 struct parse_result {
 	struct ctl_id	id;
 	enum actions	action;
