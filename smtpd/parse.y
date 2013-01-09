@@ -97,9 +97,9 @@ struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(const char *, const char *, const char *,
 		    struct listenerlist *, int, in_port_t, uint8_t);
 int		 host(const char *, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint8_t);
+    struct listenerlist *, int, in_port_t, const char *, uint8_t, const char *);
 int		 interface(const char *, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint8_t);
+    struct listenerlist *, int, in_port_t, const char *, uint8_t, const char *);
 void		 set_localaddrs(void);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
@@ -129,7 +129,7 @@ typedef struct {
 %type	<v.number>	port from auth ssl size expire
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged compression relay_source
+%type	<v.string>	certificate tag tagged compression relay_source listen_helo
 %%
 
 grammar		: /* empty */
@@ -339,6 +339,9 @@ compression	: COMPRESSION		{
 		| COMPRESSION STRING	{ $$ = $2; }
 		;
 
+listen_helo	: HOSTNAME STRING	{ $$ = $2; }
+		| /* empty */		{ $$ = NULL; }
+
 main		: QUEUE compression {
 			conf->sc_queue_compress_algo = strdup($2);
 			if (conf->sc_queue_compress_algo == NULL) {
@@ -379,13 +382,14 @@ main		: QUEUE compression {
 		}
 		| LISTEN {
 			bzero(&l, sizeof l);
-		} ON STRING port ssl certificate auth tag {
+		} ON STRING port ssl certificate auth tag listen_helo {
 			char	       *ifx  = $4;
 			in_port_t	port = $5;
 			uint8_t		ssl  = $6;
 			char	       *cert = $7;
 			uint8_t		auth = $8;
 			char	       *tag  = $9;
+			char	       *helo = $10;
 
 			if (port != 0 && ssl == F_SSL) {
 				yyerror("invalid listen option: tls/smtps on same port");
@@ -400,9 +404,9 @@ main		: QUEUE compression {
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
 					if (! interface(ifx, tag, cert, conf->sc_listeners,
-						MAX_LISTEN, 465, l.authtable, F_SMTPS|auth)) {
+						MAX_LISTEN, 465, l.authtable, F_SMTPS|auth, helo)) {
 						if (host(ifx, tag, cert, conf->sc_listeners,
-							MAX_LISTEN, port, l.authtable, ssl|auth) <= 0) {
+							MAX_LISTEN, 465, l.authtable, ssl|auth, helo) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -410,9 +414,9 @@ main		: QUEUE compression {
 				}
 				if (! ssl || (ssl & ~F_SMTPS)) {
 					if (! interface(ifx, tag, cert, conf->sc_listeners,
-						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|auth)) {
+						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|auth, helo)) {
 						if (host(ifx, tag, cert, conf->sc_listeners,
-							MAX_LISTEN, port, l.authtable, ssl|auth) <= 0) {
+							MAX_LISTEN, 25, l.authtable, ssl|auth, helo) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -421,9 +425,9 @@ main		: QUEUE compression {
 			}
 			else {
 				if (! interface(ifx, tag, cert, conf->sc_listeners,
-					MAX_LISTEN, port, l.authtable, ssl|auth)) {
+					MAX_LISTEN, port, l.authtable, ssl|auth, helo)) {
 					if (host(ifx, tag, cert, conf->sc_listeners,
-						MAX_LISTEN, port, l.authtable, ssl|auth) <= 0) {
+						MAX_LISTEN, port, l.authtable, ssl|auth, helo) <= 0) {
 						yyerror("invalid virtual ip or interface: %s", ifx);
 						YYERROR;
 					}
@@ -1579,7 +1583,8 @@ host_dns(const char *s, const char *tag, const char *cert,
 
 int
 host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
-    int max, in_port_t port, const char *authtable, uint8_t flags)
+    int max, in_port_t port, const char *authtable, uint8_t flags,
+    const char *helo)
 {
 	struct listener *h;
 
@@ -1605,6 +1610,8 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
 		if (tag != NULL)
 			(void)strlcpy(h->tag, tag, sizeof(h->tag));
+		if (helo != NULL)
+			(void)strlcpy(h->helo, helo, sizeof(h->helo));
 
 		TAILQ_INSERT_HEAD(al, h, entry);
 		return (1);
@@ -1615,7 +1622,8 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 
 int
 interface(const char *s, const char *tag, const char *cert,
-    struct listenerlist *al, int max, in_port_t port, const char *authtable, uint8_t flags)
+    struct listenerlist *al, int max, in_port_t port, const char *authtable, uint8_t flags,
+    const char *helo)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_in	*sain;
@@ -1671,7 +1679,8 @@ interface(const char *s, const char *tag, const char *cert,
 			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
 		if (tag != NULL)
 			(void)strlcpy(h->tag, tag, sizeof(h->tag));
-
+		if (helo != NULL)
+			(void)strlcpy(h->helo, helo, sizeof(h->helo));
 		ret = 1;
 		TAILQ_INSERT_HEAD(al, h, entry);
 	}

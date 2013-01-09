@@ -121,6 +121,7 @@ as returned by
 .Op Ic certificate Ar name
 .Op Ic auth | auth-optional
 .Op Ic tag Ar tag
+.Op Ic hostname Ar hostname
 .Xc
 Specify an
 .Ar interface
@@ -193,6 +194,10 @@ If the
 parameter is used, then clients connecting to the listener will be
 tagged
 .Ar tag .
+.Pp
+If the
+.Ic hostname
+parameter is used, then it will be used in the greeting banner.
 .It Xo
 .Ic table Ar name
 .Ar [type:]config
