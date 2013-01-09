@@ -461,7 +461,7 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 			evp->retry++;
 			envelope_set_errormsg(evp, "%s", status);
 			queue_envelope_update(evp);
-			m_create(p_scheduler, msg, 0, 0, -1, 7000);
+			m_create(p_scheduler, msg, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_scheduler, evp);
 			m_close(p_scheduler);
 		} else {

@@ -359,7 +359,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, 2048);
+		m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, 512);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 
 		len = snprintf(buf, (sizeof buf),
@@ -464,7 +464,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		m_create(p_mfa, IMSG_MFA_EVENT_COMMIT, 0, 0, -1, 8);
+		m_create(p_mfa, IMSG_MFA_EVENT_COMMIT, 0, 0, -1, 16);
 		m_add_id(p_mfa, s->id);
 		m_close(p_mfa);
 
@@ -651,7 +651,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			return;
 		}
 
-		m_create(p_queue, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1, 8);
+		m_create(p_queue, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1, 32);
 		m_add_id(p_queue, s->id);
 		m_close(p_queue);
 		tree_xset(&wait_queue_msg, s->id, s);
@@ -673,7 +673,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			return;
 		}
 
-		m_create(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 7000);
+		m_create(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, MSZ_EVP);
 		m_add_id(p_lka, s->id);
 		m_add_envelope(p_lka, &s->evp);
 		m_close(p_lka);
@@ -688,7 +688,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			io_reload(&s->io);
 			return;
 		}
-		m_create(p_queue, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, 12);
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FILE, 0, 0, -1, 16);
 		m_add_id(p_queue, s->id);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
@@ -776,7 +776,7 @@ smtp_io(struct io *io, int evt)
 
 		/* Message body */
 		if (s->state == STATE_BODY && strcmp(line, ".")) {
-			m_create(p_mfa, IMSG_MFA_SMTP_DATA, 0, 0, -1, len + 16);
+			m_create(p_mfa, IMSG_MFA_SMTP_DATA, 0, 0, -1, 32 + len);
 			m_add_id(p_mfa, s->id);
 			m_add_string(p_mfa, line);
 			m_close(p_mfa);
@@ -796,7 +796,7 @@ smtp_io(struct io *io, int evt)
 			iobuf_normalize(&s->iobuf);
 			io_set_write(io);
 
-			m_create(p_mfa, IMSG_MFA_REQ_EOM, 0, 0, -1, 8);
+			m_create(p_mfa, IMSG_MFA_REQ_EOM, 0, 0, -1, 16);
 			m_add_id(p_mfa, s->id);
 			m_close(p_mfa);
 			smtp_wait_mfa(s, IMSG_MFA_REQ_EOM);
@@ -938,7 +938,8 @@ smtp_command(struct smtp_session *s, char *line)
 
 		smtp_message_reset(s, 1);
 
-		m_create(p_mfa, IMSG_MFA_REQ_HELO, 0, 0, -1, 1024);
+		m_create(p_mfa, IMSG_MFA_REQ_HELO, 0, 0, -1,
+		    32 + strlen(s->helo));
 		m_add_id(p_mfa, s->id);
 		m_add_string(p_mfa, s->helo);
 		m_close(p_mfa);
@@ -1041,7 +1042,8 @@ smtp_command(struct smtp_session *s, char *line)
 		if (args && smtp_parse_mail_args(s, args) == -1)
 			break;
 
-		m_create(p_mfa, IMSG_MFA_REQ_MAIL, 0, 0, -1, 2048);
+		m_create(p_mfa, IMSG_MFA_REQ_MAIL, 0, 0, -1,
+		    32 + sizeof(struct mailaddr));
 		m_add_id(p_mfa, s->id);
 		m_add_mailaddr(p_mfa, &s->evp.sender);
 		m_close(p_mfa);
@@ -1072,7 +1074,8 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		m_create(p_mfa, IMSG_MFA_REQ_RCPT, 0, 0, -1, 2048);
+		m_create(p_mfa, IMSG_MFA_REQ_RCPT, 0, 0, -1,
+		    32 + sizeof(struct mailaddr));
 		m_add_id(p_mfa, s->id);
 		m_add_mailaddr(p_mfa, &s->evp.rcpt);
 		m_close(p_mfa);
@@ -1111,7 +1114,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		m_create(p_mfa, IMSG_MFA_REQ_DATA, 0, 0, -1, 8);
+		m_create(p_mfa, IMSG_MFA_REQ_DATA, 0, 0, -1, 16);
 		m_add_id(p_mfa, s->id);
 		m_close(p_mfa);
 		smtp_wait_mfa(s, IMSG_MFA_REQ_DATA);
@@ -1285,7 +1288,7 @@ smtp_connected(struct smtp_session *s)
 	sl = sizeof(ss);
 	getsockname(s->io.sock, (struct sockaddr*)&ss, &sl);
 
-	m_create(p_mfa, IMSG_MFA_REQ_CONNECT, 0, 0, -1, 2048);
+	m_create(p_mfa, IMSG_MFA_REQ_CONNECT, 0, 0, -1, 64 + strlen(s->hostname));
 	m_add_id(p_mfa, s->id);
 	m_add_sockaddr(p_mfa, (struct sockaddr *)&ss);
 	m_add_sockaddr(p_mfa, (struct sockaddr *)&s->ss);
@@ -1343,7 +1346,7 @@ smtp_message_write(struct smtp_session *s, const char *line)
 			if (buf[i] & 0x80)
 				buf[i] = buf[i] & 0x7f;
 
-	m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, len + 5);
+	m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, 32 + len);
 	m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 	m_add_data(p_queue, buf, len + 1);
 	m_close(p_queue);
@@ -1376,7 +1379,7 @@ smtp_message_end(struct smtp_session *s)
 		smtp_enter_state(s, STATE_QUIT);
 		return;
 	}
-	m_create(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 12);
+	m_create(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 16);
 	m_add_id(p_queue, s->id);
 	m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 	m_close(p_queue);
@@ -1456,7 +1459,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 		m_close(p_queue);
 	}
 
-	m_create(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1, 9);
+	m_create(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1, 16);
 	m_add_id(p_mfa, s->id);
 	m_close(p_mfa);
 

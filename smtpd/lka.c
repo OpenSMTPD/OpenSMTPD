@@ -86,7 +86,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	char			 buf[MAX_LINE_SIZE];
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
-	size_t			 i;
+	size_t			 i, len;
 	int			 v;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
@@ -212,7 +212,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = lka_userinfo(tablename, username, &userinfo);
 
-			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1, 128);
+			len = 32 + strlen(tablename) + strlen(username);
+			if (ret == LKA_OK)
+				len += sizeof(userinfo);
+			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1, len);
 			m_add_string(p, tablename);
 			m_add_string(p, username);
 			m_add_int(p, ret);

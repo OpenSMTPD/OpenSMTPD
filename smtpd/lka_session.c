@@ -187,7 +187,7 @@ lka_resume(struct lka_session *lks)
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-			    7000);
+			    MSZ_EVP);
 			m_add_id(p_queue, ep->session_id);
 			m_add_envelope(p_queue, ep);
 			m_close(p_queue);

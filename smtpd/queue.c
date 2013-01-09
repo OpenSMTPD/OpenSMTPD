@@ -215,7 +215,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p_smtp);
 			if (ret) {
 				m_create(p_scheduler,
-				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, 7000);
+				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+				    MSZ_EVP);
 				m_add_envelope(p_scheduler, &evp);
 				m_close(p_scheduler);
 
@@ -227,7 +228,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_end(&m);
 			m_create(p_smtp, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
-			    8);
+			    16);
 			m_add_id(p_smtp, reqid);
 			m_add_int(p_smtp, 1);
 			m_close(p_smtp);
@@ -280,7 +281,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			evp.lasttry = time(NULL);
-			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, 7000);
+			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_mda, &evp);
 			m_close(p_mda);
 			return;
@@ -306,7 +307,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			evp.lasttry = time(NULL);
-			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, 7000);
+			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, MSZ_EVP);
 			m_add_id(p_mta, batch_id);
 			m_add_envelope(p_mta, &evp);
 			m_close(p_mta);
@@ -378,7 +379,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			evp.retry++;
 			queue_envelope_update(&evp);
 			m_create(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
-			    7000);
+			    MSZ_EVP);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
 			return;
@@ -464,7 +465,8 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
 
-		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1, 7000);
+		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
+		    MSZ_EVP);
 		m_add_envelope(p_scheduler, &b);
 		m_close(p_scheduler);
 
@@ -609,7 +611,7 @@ queue_timeout(int fd, short event, void *p)
 		}
 		msgid = evpid_to_msgid(evp.id);
 		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-		    7000);
+		    MSZ_EVP);
 		m_add_envelope(p_scheduler, &evp);
 		m_close(p_scheduler);
 	}

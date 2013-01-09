@@ -45,6 +45,11 @@ static void mproc_dispatch(int, short, void *);
 
 static ssize_t msgbuf_write2(struct msgbuf *);
 
+static uint32_t	reqtype;
+static size_t	reqlen;
+
+extern int verbose;
+
 int
 mproc_fork(struct mproc *p, const char *path, const char *arg)
 {
@@ -290,6 +295,9 @@ m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 	if (p->ibuf)
 		fatal("ibuf already rhere");
 
+	reqtype = type;
+	reqlen = len;
+
 	p->ibuf = imsg_create(&p->imsgbuf, type, peerid, pid, len);
 	/* Is this a problem with imsg? */
 	p->ibuf->fd = fd;
@@ -312,6 +320,15 @@ void
 m_close(struct mproc *p)
 {
 	imsg_close(&p->imsgbuf, p->ibuf);
+
+	if (verbose & TRACE_IMSGSIZE &&
+	    reqlen != p->ibuf->wpos - IMSG_HEADER_SIZE)
+		log_debug("msg-len: too %s %zu -> %zu : %s -> %s : %s",
+		    (reqlen < p->ibuf->wpos - IMSG_HEADER_SIZE) ? "small" : "large",
+		    reqlen, p->ibuf->wpos - IMSG_HEADER_SIZE,
+		    proc_to_str(smtpd_process),
+		    proc_to_str(p->proc),
+		    imsg_to_str(reqtype));
 
 	p->msg_out += 1;
 	p->bytes_queued += p->ibuf->wpos;

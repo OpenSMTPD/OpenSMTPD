@@ -594,6 +594,7 @@ struct smtpd {
 #define	TRACE_SCHEDULER	0x0080
 #define	TRACE_STAT	0x0100
 #define	TRACE_RULES	0x0200
+#define	TRACE_IMSGSIZE	0x0400
 
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
@@ -906,6 +907,8 @@ struct stat_digest {
 	size_t			 dlv_tempfail;
 	size_t			 dlv_loop;
 };
+
+#define MSZ_EVP	(32 + sizeof(struct envelope))
 
 struct mproc {
 	pid_t		 pid;
