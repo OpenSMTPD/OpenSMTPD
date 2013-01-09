@@ -604,7 +604,10 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			tree_xset(&wait_ssl_init, s->id, s);
 			return;
 		}
-		smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
+		if (s->listener->helo[0])
+			smtp_reply(s, SMTPD_BANNER, s->listener->helo);
+		else
+			smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
 		io_reload(&s->io);
 		return;
 
