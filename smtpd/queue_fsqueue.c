@@ -55,9 +55,10 @@ static int	fsqueue_message_fd_rw(uint32_t);
 static int	fsqueue_message_delete(uint32_t);
 static int	fsqueue_message_corrupt(uint32_t);
 
-static int	fsqueue_message_path(uint32_t, char *, size_t);
-static int	fsqueue_envelope_path(uint64_t, char *, size_t);
-static int	fsqueue_envelope_incoming_path(uint64_t, char *, size_t);
+static void	fsqueue_message_path(uint32_t, char *, size_t);
+static void	fsqueue_envelope_path(uint64_t, char *, size_t);
+static void	fsqueue_envelope_incoming_path(uint64_t, char *, size_t);
+
 static int	fsqueue_envelope_dump(char *, char *, size_t, int, int);
 
 static int	fsqueue_init(int);
@@ -83,97 +84,98 @@ struct queue_backend	queue_backend_fs = {
 
 static struct timespec	startup;
 
-static int
+static void
 fsqueue_message_path(uint32_t msgid, char *buf, size_t len)
 {
-	return bsnprintf(buf, len, "%s/%02x/%08x",
-	    PATH_QUEUE,
-	    msgid & 0xff,
-	    msgid);
+	if (! bsnprintf(buf, len, "%s/%02x/%08x",
+		PATH_QUEUE,
+		msgid & 0xff,
+		msgid))
+		fatalx("fsqueue_message_path: path does not fit buffer");
 }
 
-static int
+static void
 fsqueue_message_corrupt_path(uint32_t msgid, char *buf, size_t len)
 {
-	return bsnprintf(buf, len, "%s/%08x",
-	    PATH_CORRUPT,
-	    msgid);
+	if (! bsnprintf(buf, len, "%s/%08x",
+		PATH_CORRUPT,
+		msgid))
+		fatalx("fsqueue_message_corrupt_path: path does not fit buffer");
 }
 
-static int
+static void
 fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 {
-	return bsnprintf(buf, len, "%s/%02x/%08x/%016" PRIx64,
-	    PATH_QUEUE,
-	    evpid_to_msgid(evpid) & 0xff,
-	    evpid_to_msgid(evpid),
-	    evpid);
+	if (! bsnprintf(buf, len, "%s/%02x/%08x/%016" PRIx64,
+		PATH_QUEUE,
+		evpid_to_msgid(evpid) & 0xff,
+		evpid_to_msgid(evpid),
+		evpid))
+		fatalx("fsqueue_envelope_path: path does not fit buffer");
 }
 
-static int
+static void
 fsqueue_envelope_incoming_path(uint64_t evpid, char *buf, size_t len)
 {
-	return bsnprintf(buf, len, "%s/%08x/%016" PRIx64,
-	    PATH_INCOMING,
-	    evpid_to_msgid(evpid),
-	    evpid);
+	if (! bsnprintf(buf, len, "%s/%08x/%016" PRIx64,
+		PATH_INCOMING,
+		evpid_to_msgid(evpid),
+		evpid))
+		fatalx("fsqueue_envelope_incoming_path: path does not fit buffer");
 }
 
 static int
 fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, int do_sync)
 {
-	int	 fd;
-	char	 evpname[MAXPATHLEN];
-	ssize_t	 w;
+	const char     *path = do_atomic ? PATH_EVPTMP : dest;
+	FILE	       *fp = NULL;
+	int		fd;
+	size_t		w;
 
-	/* temporary fix for multi-process access to the queue,
-	 * should be fixed by rerouting ALL queue access through
-	 * the queue process.
-	 */
-	if (do_atomic)
-		snprintf(evpname, sizeof evpname, PATH_EVPTMP".%d", env->sc_pw->pw_uid);
-	else
-		snprintf(evpname, sizeof evpname, "%s", dest);
-
-	if ((fd = open(evpname, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
-		if (errno == ENOSPC || errno == ENFILE)
-			goto tempfail;
+	if ((fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
 		if (errno == EEXIST)
 			return -1;
-		fatal("fsqueue_envelope_dump_atomic: open");
-	}
-
-	w = write(fd, evpbuf, evplen);
-	if (w == -1) {
-		log_warn("warn: fsqueue_envelope_dump_atomic: write");
-		if (errno == ENOSPC)
-			goto tempfail;
-		fatal("fsqueue_envelope_dump_atomic: write");
-	}
-
-	if ((size_t) w != evplen) {
-		log_warnx("warn: fsqueue_envelope_dump_atomic: partial write");
+		log_warn("warn: fsqueue_envelope_dump: open");
 		goto tempfail;
 	}
 
-	if (do_sync && fsync(fd))
-		fatal("fsync");
-	close(fd);
+	if ((fp = fdopen(fd, "w")) == NULL) {
+		log_warn("warn: fsqueue_envelope_dump: fdopen");
+		goto tempfail;
+	}
 
-	if (do_atomic)
-		if (rename(evpname, dest) == -1) {
-			log_warn("warn: fsqueue_envelope_dump_atomic: rename");
-			if (errno == ENOSPC)
-				goto tempfail;
-			fatal("fsqueue_envelope_dump_atomic: rename");
-		}
+	w = fwrite(evpbuf, 1, evplen, fp);
+	if (w < evplen) {
+		log_warn("warn: fsqueue_envelope_dump: short write");
+		goto tempfail;
+	}
+	if (fflush(fp)) {
+		log_warn("warn: fsqueue_envelope_dump: fflush");
+		goto tempfail;
+	}
+	if (do_sync && fsync(fileno(fp))) {
+		log_warn("warn: fsqueue_envelope_dump: fsync");
+		goto tempfail;
+	}
+	if (fclose(fp)) {
+		log_warn("warn: fsqueue_envelope_dump: fclose");
+		goto tempfail;
+	}
+	fp = NULL;
+	fd = -1;
 
+	if (do_atomic && rename(path, dest) == -1) {
+		log_warn("warn: fsqueue_envelope_dump_atomic: rename");
+		goto tempfail;
+	}
 	return (1);
 
 tempfail:
-	if (fd != -1)
+	if (fp)
+		fclose(fp);
+	else if (fd != -1)
 		close(fd);
-	if (unlink(evpname) == -1)
+	if (unlink(path) == -1)
 		fatal("fsqueue_envelope_dump_atomic: unlink");
 	return (0);
 }
@@ -189,7 +191,7 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 
 	msgid = evpid_to_msgid(*evpid);
 	if (msgid == 0) {
-		log_warn("warn: fsqueue_envelope_create: msgid=0, "
+		log_warnx("warn: fsqueue_envelope_create: msgid=0, "
 		    "evpid=%016"PRIx64, *evpid);
 		goto done;
 	}
@@ -210,7 +212,8 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 		if (r >= 0)
 			goto done;
 	}
-	fatal("couldn't figure out a new envelope id");
+	r = 0;
+	log_warnx("warn: fsqueue_envelope_create: could not allocate evpid");
 
 done:
 	if (r) {
@@ -232,9 +235,9 @@ fsqueue_envelope_load(uint64_t evpid, char *buf, size_t len)
 
 	fp = fopen(pathname, "r");
 	if (fp == NULL) {
-		if (errno == ENOENT || errno == ENFILE)
-			return (0);
-		fatal("fsqueue_envelope_load: fopen");
+		if (errno != ENOENT && errno != ENFILE)
+			log_warn("warn: fsqueue_envelope_load: fopen");
+		return 0;
 	}
 
 	r = fread(buf, 1, len, fp);
@@ -262,8 +265,10 @@ fsqueue_envelope_delete(uint64_t evpid)
 	uintptr_t	*n;
 
 	fsqueue_envelope_path(evpid, pathname, sizeof(pathname));
-	if (unlink(pathname) == -1)
-		fatal("fsqueue_envelope_delete: unlink");
+	if (unlink(pathname) == -1) {
+		if (errno != ENOENT)
+			fatal("fsqueue_envelope_delete: unlink");
+	}
 
 	msgid = evpid_to_msgid(evpid);
 	n = tree_pop(&evpcount, msgid);
@@ -330,7 +335,10 @@ again:
 			*msgid = 0;
 			return 0;
 		}
-		fatal("fsqueue_message_create: mkdir");
+
+		log_warn("warn: fsqueue_message_create: mkdir");
+		*msgid = 0;
+		return 0;
 	}
 
 	return (1);
@@ -352,23 +360,28 @@ fsqueue_message_commit(uint32_t msgid)
 		return 1;
 	if (errno == ENOSPC)
 		return 0;
-	if (errno != ENOENT)
-		fatal("fsqueue_message_commit: rename");
+	if (errno != ENOENT) {
+		log_warn("warn: fsqueue_message_commit: rename");
+		return 0;
+	}
 
 	/* create the bucket */
 	*strrchr(queuedir, '/') = '\0';
 	if (mkdir(queuedir, 0700) == -1) {
 		if (errno == ENOSPC)
 			return 0;
-		if (errno != EEXIST)
-			fatal("fsqueue_message_commit: mkdir");
+		if (errno != EEXIST) {
+			log_warn("warn: fsqueue_message_commit: mkdir");
+			return 0;
+		}
 	}
 
 	/* rename */
 	if (rename(incomingdir, msgdir) == -1) {
 		if (errno == ENOSPC)
 			return 0;
-		fatal("fsqueue_message_commit: rename");
+		log_warn("warn: fsqueue_message_commit: rename");
+		return 0;
 	}
 
 	return 1;
@@ -383,8 +396,10 @@ fsqueue_message_fd_r(uint32_t msgid)
 	fsqueue_message_path(msgid, path, sizeof(path));
 	strlcat(path, PATH_MESSAGE, sizeof(path));
 
-	if ((fd = open(path, O_RDONLY)) == -1)
-		fatal("fsqueue_message_fd_r: open");
+	if ((fd = open(path, O_RDONLY)) == -1) {
+		log_warn("fsqueue_message_fd_r: open");
+		return -1;
+	}
 
 	return fd;
 }
@@ -406,12 +421,9 @@ fsqueue_message_delete(uint32_t msgid)
 	char		path[MAXPATHLEN];
 	struct stat	sb;
 
-	if (! queue_message_incoming_path(msgid, path, sizeof(path)))
-		fatal("queue_message_incoming_delete: snprintf");
-
+	queue_message_incoming_path(msgid, path, sizeof(path));
 	if (stat(path, &sb) == -1)
-		if (! fsqueue_message_path(msgid, path, sizeof(path)))
-			fatal("fsqueue_message_delete: snprintf");
+		fsqueue_message_path(msgid, path, sizeof(path));
 
 	if (rmtree(path, 0) == -1)
 		fatal("fsqueue_message_delete: rmtree");
@@ -443,8 +455,10 @@ again:
 		goto again;
 	}
 
-	if (rename(rootdir, corruptdir) == -1)
-		fatalx("fsqueue_message_corrupt: rename");
+	if (rename(rootdir, corruptdir) == -1) {
+		log_warn("warn: fsqueue_message_corrupt: rename");
+		return 0;
+	}
 
 	return 1;
 }
@@ -458,8 +472,7 @@ fsqueue_init(int server)
 	int		 ret;
 	struct timeval	 tv;
 
-	if (!fsqueue_envelope_path(0, path, sizeof(path)))
-		errx(1, "cannot store envelope path in %s", PATH_QUEUE);
+	fsqueue_envelope_path(0, path, sizeof(path));
 
 	ret = 1;
 	for (n = 0; n < nitems(paths); n++) {
