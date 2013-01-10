@@ -129,6 +129,7 @@ struct smtp_session {
 	size_t			 destcount;
 
 	size_t			 datalen;
+	FILE			*ofile;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -254,12 +255,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct smtp_session		*s;
 	void				*ssl;
 	char				 user[MAXLOGNAME];
-	char				 buf[MAX_LINE_SIZE];
 	struct msg			 m;
 	const char			*line;
 	uint64_t			 reqid, evpid;
 	uint32_t			 code, msgid;
-	size_t				 len;
 	int				 status, success, dnserror;
 
 	switch (imsg->hdr.type) {
@@ -349,18 +348,19 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &success);
 		m_end(&m);
+
 		s = tree_xpop(&wait_queue_fd, reqid);
-		if (!success) {
+		if (!success || imsg->fd == -1 ||
+		    (s->ofile = fdopen(imsg->fd, "w")) == NULL) {
+			if (imsg->fd != -1)
+				close(imsg->fd);
 			smtp_reply(s, "421 Temporary Error");
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
 			return;
 		}
 
-		m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, 512);
-		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
-
-		len = snprintf(buf, (sizeof buf),
+		fprintf(s->ofile,
 		    "Received: from %s (%s [%s]);\n"
 		    "\tby %s (OpenSMTPD) with %sSMTP id %08x;\n",
 		    s->evp.helo,
@@ -369,10 +369,9 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    env->sc_hostname,
 		    s->flags & SF_EHLO ? "E" : "",
 		    evpid_to_msgid(s->evp.id));
-		m_add_data(p_queue, buf, len);
 
 		if (s->flags & SF_SECURE) {
-			len = snprintf(buf, sizeof(buf),
+			fprintf(s->ofile,
 			    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
@@ -383,21 +382,15 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			 *  (s->flags & SF_VERIFIED) ? "YES" :
 			 *  (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
 			 */
-			m_add_data(p_queue, buf, len);
 		}
 
 		if (s->rcptcount == 1) {
-			len = snprintf(buf, sizeof(buf), "\tfor <%s@%s>;\n",
+			fprintf(s->ofile, "\tfor <%s@%s>;\n",
 			    s->evp.rcpt.user,
 			    s->evp.rcpt.domain);
-			m_add_data(p_queue, buf, len);
 		}
 
-		len = snprintf(buf, sizeof(buf), "\t%s\n",
-		    time_to_text(time(NULL)));
-		m_add_data(p_queue, buf, len);
-
-		m_close(p_queue);
+		fprintf(s->ofile, "\t%s\n", time_to_text(time(NULL)));
 
 		smtp_enter_state(s, STATE_BODY);
 		smtp_reply(s, "354 Enter mail, end with \".\""
@@ -715,7 +708,7 @@ smtp_io(struct io *io, int evt)
 	struct ca_cert_req_msg	req_ca_cert;
 	struct smtp_session    *s = io->arg;
 	char		       *line;
-	size_t			len;
+	size_t			len, i;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -774,10 +767,18 @@ smtp_io(struct io *io, int evt)
 
 		/* Message body */
 		if (s->state == STATE_BODY && strcmp(line, ".")) {
-			m_create(p_mfa, IMSG_MFA_SMTP_DATA, 0, 0, -1, 32 + len);
-			m_add_id(p_mfa, s->id);
-			m_add_string(p_mfa, line);
-			m_close(p_mfa);
+
+			if (line[0] == '.') {
+				line += 1;
+				len -= 1;
+			}
+
+			if (!(s->flags & SF_8BITMIME))
+				for (i = 0; i < len; ++i)
+					if (line[i] & 0x80)
+						line[i] = line[i] & 0x7f;
+
+			smtp_message_write(s, line);
 			goto nextline;
 		}
 
@@ -1308,8 +1309,7 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 static void
 smtp_message_write(struct smtp_session *s, const char *line)
 {
-	char	buf[MAX_LINE_SIZE];	
-	size_t	i, len;
+	ssize_t	len;
 
 	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 
@@ -1317,37 +1317,24 @@ smtp_message_write(struct smtp_session *s, const char *line)
 	if (s->msgflags & (MF_ERROR_IO | MF_ERROR_SIZE))
 		return;
 
-	/*
-	 * "If the first character is a period and there are other characters
-	 *  on the line, the first character is deleted." [4.5.2]
-	 */
-	if (*line == '.')
-		line++;
-
-	len = strlen(line);
+	len = strlen(line) + 1;
 
 	/*
 	 * If size of data overflows a size_t or exceeds max size allowed
 	 * for a message, set permanent failure.
 	 */
-	if (SIZE_MAX - s->datalen < len + 1 ||
-	    s->datalen + len + 1 > env->sc_maxsize) {
+	if (SIZE_MAX - s->datalen < len ||
+	    s->datalen + len > env->sc_maxsize) {
 		s->msgflags |= MF_ERROR_SIZE;
 		return;
 	}
-	s->datalen += len + 1;
 
-	snprintf(buf, sizeof(buf), "%s\n", line);
+	if (fprintf(s->ofile, "%s\n", line) != len) {
+		s->msgflags |= MF_ERROR_IO;
+		return;
+	}
 
-	if (!(s->flags & SF_8BITMIME))
-		for (i = 0; i < len; ++i)
-			if (buf[i] & 0x80)
-				buf[i] = buf[i] & 0x7f;
-
-	m_create(p_queue, IMSG_QUEUE_DATA, 0, 0, -1, 32 + len);
-	m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
-	m_add_data(p_queue, buf, len + 1);
-	m_close(p_queue);
+	s->datalen += len;
 }
 
 static void
@@ -1359,7 +1346,10 @@ smtp_message_end(struct smtp_session *s)
 
 	s->phase = PHASE_SETUP;
 
-	if (s->msgflags & (MF_ERROR_SIZE | MF_ERROR_MFA)) {
+	fclose(s->ofile);
+	s->ofile = NULL;
+
+	if (s->msgflags & (MF_ERROR_SIZE | MF_ERROR_MFA | MF_ERROR_IO)) {
 		m_create(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, 4);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
@@ -1372,11 +1362,6 @@ smtp_message_end(struct smtp_session *s)
 		return;
 	}
 
-	if (s->msgflags & MF_ERROR_IO) {
-		smtp_reply(s, "421 Temporary failure");
-		smtp_enter_state(s, STATE_QUIT);
-		return;
-	}
 	m_create(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 16);
 	m_add_id(p_queue, s->id);
 	m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
@@ -1450,6 +1435,9 @@ smtp_free(struct smtp_session *s, const char * reason)
 
 	tree_pop(&wait_mfa_data, s->id);
 	tree_pop(&wait_mfa_response, s->id);
+
+	if (s->ofile)
+		fclose(s->ofile);
 
 	if (s->evp.id) {
 		m_create(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1, 5);
