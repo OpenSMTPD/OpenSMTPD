@@ -417,6 +417,16 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			env->sc_tables_dict = tmp;
 			return;
 
+		case IMSG_CONF_RULE_SENDER:
+			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
+			tmp = env->sc_tables_dict;
+			env->sc_tables_dict = tables_dict;
+			rule->r_senders = table_findbyname(imsg->data);
+			if (rule->r_senders == NULL)
+				fatalx("lka: tables inconsistency");
+			env->sc_tables_dict = tmp;
+			return;
+
 		case IMSG_CONF_RULE_DESTINATION:
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables_dict;

@@ -482,6 +482,12 @@ parent_send_config_lka()
 		m_compose(p_lka, IMSG_CONF_RULE_SOURCE, 0, 0, -1,
 		    &r->r_sources->t_name,
 		    sizeof(r->r_sources->t_name));
+		if (r->r_senders) {
+			m_compose(p_lka, IMSG_CONF_RULE_SENDER,
+			    0, 0, -1,
+			    &r->r_senders->t_name,
+			    sizeof(r->r_senders->t_name));
+		}
 		if (r->r_destination) {
 			m_compose(p_lka, IMSG_CONF_RULE_DESTINATION,
 			    0, 0, -1,

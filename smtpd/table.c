@@ -337,6 +337,26 @@ table_domain_match(const char *s1, const char *s2)
 	return hostname_match(s1, s2);
 }
 
+int
+table_mailaddr_match(const char *s1, const char *s2)
+{
+	struct mailaddr m1;
+	struct mailaddr m2;
+
+	if (! text_to_mailaddr(&m1, s1))
+		return 0;
+	if (! text_to_mailaddr(&m2, s2))
+		return 0;
+
+	if (strcasecmp(m1.domain, m2.domain))
+		return 0;
+
+	if (m2.user[0])
+		if (strcasecmp(m1.user, m2.user))
+			return 0;
+	return 1;
+}
+
 static int table_match_mask(struct sockaddr_storage *, struct netaddr *);
 static int table_inet4_match(struct sockaddr_in *, struct netaddr *);
 static int table_inet6_match(struct sockaddr_in6 *, struct netaddr *);

@@ -128,11 +128,11 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERS
+%token	AUTH_OPTIONAL TLS_REQUIRE USERS SENDER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	port from auth ssl size expire
+%type	<v.number>	port from auth ssl size expire sender
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
 %type	<v.string>	certificate tag tagged compression relay_source listen_helo
@@ -688,7 +688,7 @@ relay_source	: SOURCE tables			{
 relay_as     	: AS STRING		{
 			struct mailaddr maddr, *maddrp;
 
-			if (! email_to_mailaddr(&maddr, $2)) {
+			if (! text_to_mailaddr(&maddr, $2)) {
 				yyerror("invalid parameter to AS: %s", $2);
 				free($2);
 				YYERROR;
@@ -829,14 +829,29 @@ from		: FROM tables			{
 		}
 		;
 
+sender		: SENDER tables			{
+			struct table   *t = table_find($2);
+
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+				yyerror("invalid use of table \"%s\" as SENDER parameter",
+				    t->t_name);
+				YYERROR;
+			}
+
+			$$ = t->t_id;
+		}
+		| /* empty */			{ $$ = 0; }
+		;
+
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		 } tagged from FOR destination usermapping action expire {
+		 } tagged from sender FOR destination usermapping action expire {
 
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = table_find($4);
-			rule->r_destination = table_find($6);
-			rule->r_mapping = table_find($7);
+			rule->r_senders = table_find($5);
+			rule->r_destination = table_find($7);
+			rule->r_mapping = table_find($8);
 			if ($3) {
 				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
@@ -846,7 +861,7 @@ rule		: ACCEPT {
 				}
 				free($3);
 			}
-			rule->r_qexpire = $9;
+			rule->r_qexpire = $10;
 
 			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
 				enum table_type type;
@@ -873,11 +888,12 @@ rule		: ACCEPT {
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} tagged from FOR destination usermapping {
+		} tagged from sender FOR destination usermapping {
 			rule->r_decision = R_REJECT;
 			rule->r_sources = table_find($4);
-			rule->r_destination = table_find($6);
-			rule->r_mapping = table_find($7);
+			rule->r_sources = table_find($5);
+			rule->r_destination = table_find($7);
+			rule->r_mapping = table_find($8);
 			if ($3) {
 				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
@@ -953,6 +969,7 @@ lookup(char *s)
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "sender",    		SENDER },
 		{ "smtps",		SMTPS },
 		{ "source",		SOURCE },
 		{ "ssl",		SSL },

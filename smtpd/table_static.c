@@ -54,9 +54,10 @@ static int	table_static_domain(const char *, char *, size_t, void **);
 static int	table_static_netaddr(const char *, char *, size_t, void **);
 static int	table_static_source(const char *, char *, size_t, void **);
 static int	table_static_userinfo(const char *, char *, size_t, void **);
+static int	table_static_mailaddr(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -70,7 +71,8 @@ static struct keycmp {
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
 	{ K_DOMAIN, table_domain_match },
-	{ K_NETADDR, table_netaddr_match }
+	{ K_NETADDR, table_netaddr_match },
+	{ K_MAILADDR, table_mailaddr_match }
 };
 
 
@@ -205,6 +207,10 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 
 	case K_USERINFO:
 		ret = table_static_userinfo(key, line, len, retp);
+		break;
+
+	case K_MAILADDR:
+		ret = table_static_mailaddr(key, line, len, retp);
 		break;
 
 	default:
@@ -364,5 +370,22 @@ table_static_userinfo(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(userinfo);
+	return -1;
+}
+
+static int
+table_static_mailaddr(const char *key, char *line, size_t len, void **retp)
+{
+	struct mailaddr		*mailaddr;
+
+	mailaddr = xcalloc(1, sizeof *mailaddr, "table_static_mailaddr");
+	if (! text_to_mailaddr(mailaddr, line))
+	    goto error;
+	*retp = mailaddr;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(mailaddr);
 	return -1;
 }
