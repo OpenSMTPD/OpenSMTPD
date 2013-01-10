@@ -900,10 +900,10 @@ struct mproc {
 	struct event	 ev;
 	void		*data;
 
-	size_t		 msg_in;
-	size_t		 msg_out;
-	size_t		 bytes_in;
-	size_t		 bytes_out;
+	off_t		 msg_in;
+	off_t		 msg_out;
+	off_t		 bytes_in;
+	off_t		 bytes_out;
 	size_t		 bytes_queued;
 };
 
