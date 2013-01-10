@@ -80,9 +80,10 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 	uint64_t		 evpid;
 	struct qr_envelope	*evp;
 	struct qr_message	*msg;
-	int			 fd;
+	int			 fd, fd2, ret;
 	struct stat		 sb;
 	FILE			*f;
+	size_t			 n;
 
 	switch (qop) {
 	case QOP_CREATE:
@@ -95,9 +96,10 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		return (1);
 
 	case QOP_DELETE:
-		msg = tree_pop(&messages, *msgid);
-		if (msg == NULL)
+		if ((msg = tree_pop(&messages, *msgid)) == NULL) {
+			log_warnx("warn: queue_ram_message: not found");
 			return (0);
+		}
 		while (tree_poproot(&messages, &evpid, (void**)&evp)) {
 			stat_decrement("queue.ram.envelope.size", evp->len);
 			free(evp->buf);
@@ -107,58 +109,100 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		free(msg->buf);
 		if (msg->hasfile) {
 			queue_message_incoming_path(*msgid, path, sizeof(path));
-			unlink(path);
+			if (unlink(path) == -1)
+				log_warn("warn: queue_ram_message: unlink");
 		}
 		free(msg);
 		return (1);
 
 	case QOP_COMMIT:
-		msg = tree_get(&messages, *msgid);
-		if (msg == NULL)
-			return (0);
-		queue_message_incoming_path(*msgid, path, sizeof(path));
-		if (stat(path, &sb) == -1) {
-			log_warn("queue_ram_message: stat");
+		if ((msg = tree_get(&messages, *msgid)) == NULL) {
+			log_warnx("warn: queue_ram_message: not found");
 			return (0);
 		}
+		queue_message_incoming_path(*msgid, path, sizeof(path));
 		f = fopen(path, "rb");
 		if (f == NULL) {
-			log_warn("queue_ram: fopen");
+			log_warn("warn: queue_ram: fopen");
 			return (0);
 		}
+		if (fstat(fileno(f), &sb) == -1) {
+			log_warn("warn: queue_ram_message: fstat");
+			fclose(f);
+			return (0);
+		}
+
 		msg->len = sb.st_size;
 		msg->buf = xmalloc(msg->len, "queue_ram_message");
-		fread(msg->buf, 1, msg->len, f);
+		ret = 0;
+		n = fread(msg->buf, 1, msg->len, f);
+		if (ferror(f))
+			log_warn("warn: queue_ram_message: fread");
+		else if (n != sb.st_size)
+			log_warnx("warn: queue_ram_message: bad read");
+		else {
+			ret = 1;
+			stat_increment("queue.ram.message.size", msg->len);
+		}
 		fclose(f);
-		unlink(path);
-		stat_increment("queue.ram.message.size", msg->len);
+		if (unlink(path) == -1)
+			log_warn("warn: queue_ram_message: unlink");
 		msg->hasfile = 0;
-		return (1);
+		return (ret);
 
 	case QOP_FD_R:
-		msg = tree_get(&messages, *msgid);
-		if (msg == NULL)
+		if ((msg = tree_get(&messages, *msgid)) == NULL) {
+			log_warnx("warn: queue_ram_message: not found");
 			return (-1);
+		}
 		fd = mktmpfile();
-		if (fd == -1)
+		if (fd == -1) {
+			log_warn("warn: queue_ram_message: mktmpfile");
 			return (-1);
-		write(fd, msg->buf, msg->len);
+		}
+		fd2 = dup(fd);
+		if (fd2 == -1) {
+			log_warn("warn: queue_ram_message: dup");
+			close(fd);
+			return (-1);
+		}
+		f = fdopen(fd2, "w");
+		if (f == NULL) {
+			log_warn("warn: queue_ram_message: fdopen");
+			close(fd);
+			close(fd2);
+			return (-1);
+		}
+		n = fwrite(msg->buf, 1, msg->len, f);
+		if (n != msg->len) {
+			log_warn("warn: queue_ram_message: write");
+			close(fd);
+			fclose(f);
+			return (-1);
+		}
+		fclose(f);
 		lseek(fd, 0, SEEK_SET);
 		return (fd);
 
 	case QOP_FD_RW:
-		msg = tree_get(&messages, *msgid);
-		if (msg == NULL)
-			return (0);
+		if ((msg = tree_get(&messages, *msgid)) == NULL) {
+			log_warnx("warn: queue_ram_message: not found");
+			return (-1);
+		}
 		queue_message_incoming_path(*msgid, path, sizeof(path));
+		fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
+		if (fd == -1) {
+			log_warn("warn: queue_ram_message: open");
+			return (-1);
+		}
 		msg->hasfile = 1;
-		return (open(path, O_RDWR | O_CREAT | O_EXCL, 0600));
+		return (fd);
 
 	case QOP_CORRUPT:
 		return (queue_ram_message(QOP_DELETE, msgid));
 
 	default:
-		fatalx("queue_queue_ram_message: unsupported operation.");
+		fatalx("queue_ram_message: unsupported operation.");
 	}
 
 	return (0);
@@ -170,6 +214,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 	struct qr_envelope	*evp;
 	struct qr_message	*msg;
 	uint32_t		 msgid;
+	char			*tmp;
 
 	if (qop == QOP_WALK)
 		return (-1);
@@ -177,7 +222,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 	msgid = evpid_to_msgid(*evpid);
 	msg = tree_get(&messages, msgid);
 	if (msg == NULL) {
-		log_debug("message not found: %" PRIx32 , msgid);
+		log_warn("warn: queue_ram_envelope: message not found");
 		return (0);
 	}
 
@@ -186,21 +231,30 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		do {
 			*evpid = queue_generate_evpid(msgid);
 		} while (tree_check(&msg->envelopes, *evpid));
-		evp = xcalloc(1, sizeof *evp, "queue_ram_envelope: create");
+		evp = calloc(1, sizeof *evp);
+		if (evp == NULL) {
+			log_warn("warn: queue_ram_envelope: calloc");
+			return (0);
+		}
 		evp->len = len;
-		evp->buf = xmemdup(buf, len, "queue_ram_envelope: create");
-		stat_increment("queue.ram.envelope.size", len);
+		evp->buf = malloc(len);
+		if (evp->buf == NULL) {
+			log_warn("warn: queue_ram_envelope: malloc");
+			return (0);
+		}
+		memmove(evp->buf, buf, len);
 		tree_xset(&msg->envelopes, *evpid, evp);
+		stat_increment("queue.ram.envelope.size", len);
 		return (1);
 
 	case QOP_DELETE:
-		evp = tree_pop(&msg->envelopes, *evpid);
-		if (evp == NULL)
+		if ((evp = tree_pop(&msg->envelopes, *evpid)) == NULL) {
+			log_warnx("warn: queue_ram_envelope: not found");
 			return (0);
+		}
 		stat_decrement("queue.ram.envelope.size", evp->len);
 		free(evp->buf);
 		free(evp);
-
 		if (tree_empty(&msg->envelopes)) {
 			tree_xpop(&messages, msgid);
 			stat_decrement("queue.ram.message.size", msg->len);
@@ -210,31 +264,37 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		return (1);
 
 	case QOP_LOAD:
-		evp = tree_get(&msg->envelopes, *evpid);
-		if (evp == NULL) {
-			log_debug("cannot find envelope %016" PRIx64, *evpid);
+		if ((evp = tree_get(&msg->envelopes, *evpid)) == NULL) {
+			log_warn("warn: queue_ram_envelope: not found");
 			return (0);
 		}
 		if (len < evp->len) {
-			log_debug("buffer too short (%zu/%zu)", len, evp->len);
+			log_warnx("warn: queue_ram_envelope: buffer too small");
 			return (0);
 		}
 		memmove(buf, evp->buf, evp->len);
 		return (evp->len);
 
 	case QOP_UPDATE:
-		evp = tree_get(&msg->envelopes, *evpid);
-		if (evp == NULL)
+		if ((evp = tree_get(&msg->envelopes, *evpid)) == NULL) {
+			log_warn("warn: queue_ram_envelope: not found");
 			return (0);
-		stat_decrement("queue.ram.envelope.size", evp->len);
-		stat_increment("queue.ram.envelope.size", len);
+		}
+		tmp = malloc(len);
+		if (tmp == NULL) {
+			log_warn("warn: queue_ram_envelope: malloc");
+			return (0);
+		}
+		memmove(tmp, buf, len);
 		free(evp->buf);
 		evp->len = len;
-		evp->buf = xmemdup(buf, len, "queue_ram_envelope: update");
+		evp->buf = tmp;
+		stat_decrement("queue.ram.envelope.size", evp->len);
+		stat_increment("queue.ram.envelope.size", len);
 		return (1);
 
 	default:
-		fatalx("queue_queue_ram_envelope: unsupported operation.");
+		fatalx("queue_ram_envelope: unsupported operation.");
 	}
 
 	return (0);
