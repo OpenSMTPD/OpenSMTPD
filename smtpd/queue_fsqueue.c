@@ -425,7 +425,7 @@ fsqueue_message_delete(uint32_t msgid)
 		fsqueue_message_path(msgid, path, sizeof(path));
 
 	if (rmtree(path, 0) == -1)
-		fatal("fsqueue_message_delete: rmtree");
+		log_warn("warn: fsqueue_message_delete: rmtree");
 
 	tree_pop(&evpcount, msgid);
 
