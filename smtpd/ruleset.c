@@ -60,7 +60,6 @@ ruleset_match(const struct envelope *evp)
 			continue;
 
 		if (r->r_senders) {
-			log_debug("need to check senders: ");
 			ret = ruleset_check_sender(r->r_senders, &evp->sender);
 			if (ret == -1) {
 				errno = EAGAIN;
