@@ -106,6 +106,8 @@ static struct event		purge_ev;
 extern char	**environ;
 void		(*imsg_callback)(struct mproc *, struct imsg *);
 
+enum smtp_proc_type	smtpd_process;
+
 struct smtpd	*env = NULL;
 
 struct mproc	*p_control = NULL;
@@ -749,8 +751,7 @@ main(int argc, char *argv[])
 
 	fork_peers();
 
-	smtpd_process = PROC_PARENT;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_PARENT);
 
 	imsg_callback = parent_imsg;
 	event_init();
@@ -818,24 +819,14 @@ fork_peers(void)
 
 	init_pipes();
 
-	env->sc_title[PROC_CONTROL] = "control";
-	env->sc_title[PROC_LKA] = "lookup";
-	env->sc_title[PROC_MDA] = "delivery";
-	env->sc_title[PROC_MFA] = "filter";
-	env->sc_title[PROC_MTA] = "transfer";
-	env->sc_title[PROC_PARENT] = "[priv]";
-	env->sc_title[PROC_QUEUE] = "queue";
-	env->sc_title[PROC_SCHEDULER] = "scheduler";
-	env->sc_title[PROC_SMTP] = "smtp";
-
-	child_add(control(), CHILD_DAEMON, env->sc_title[PROC_CONTROL]);
-	child_add(lka(), CHILD_DAEMON, env->sc_title[PROC_LKA]);
-	child_add(mda(), CHILD_DAEMON, env->sc_title[PROC_MDA]);
-	child_add(mfa(), CHILD_DAEMON, env->sc_title[PROC_MFA]);
-	child_add(mta(), CHILD_DAEMON, env->sc_title[PROC_MTA]);
-	child_add(queue(), CHILD_DAEMON, env->sc_title[PROC_QUEUE]);
-	child_add(scheduler(), CHILD_DAEMON, env->sc_title[PROC_SCHEDULER]);
-	child_add(smtp(), CHILD_DAEMON, env->sc_title[PROC_SMTP]);
+	child_add(control(), CHILD_DAEMON, proc_title(PROC_CONTROL));
+	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
+	child_add(mda(), CHILD_DAEMON, proc_title(PROC_MDA));
+	child_add(mfa(), CHILD_DAEMON, proc_title(PROC_MFA));
+	child_add(mta(), CHILD_DAEMON, proc_title(PROC_MTA));
+	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
+	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
+	child_add(smtp(), CHILD_DAEMON, proc_title(PROC_SMTP));
 }
 
 struct child *
@@ -1253,8 +1244,8 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 		timespecsub(&t1, &t0, &dt);
 
 		log_debug("profile-imsg: %s %s %s %li.%06li",
-		    proc_to_str(smtpd_process),
-		    proc_to_str(p->proc),
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
 		    imsg_to_str(imsg->hdr.type),
 		    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 		    dt.tv_nsec % 1000000);
@@ -1268,8 +1259,8 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 			if (! bsnprintf(key, sizeof key,
 				"profiling.imsg.%s.%s.%s",
 				imsg_to_str(imsg->hdr.type),
-				proc_to_str(p->proc),
-				proc_to_str(smtpd_process)))
+				proc_name(p->proc),
+				proc_name(smtpd_process)))
 				return;
 			stat_set(key, stat_timespec(&dt));
 		}
@@ -1281,38 +1272,74 @@ log_imsg(int to, int from, struct imsg *imsg)
 {
 	if (imsg->fd != -1)
 		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%i)",
-		    proc_to_str(to),
-		    proc_to_str(from),
+		    proc_name(to),
+		    proc_name(from),
 		    imsg_to_str(imsg->hdr.type),
 		    imsg->hdr.len - IMSG_HEADER_SIZE,
 		    imsg->fd);
 	else
 		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
-		    proc_to_str(to),
-		    proc_to_str(from),
+		    proc_name(to),
+		    proc_name(from),
 		    imsg_to_str(imsg->hdr.type),
 		    imsg->hdr.len - IMSG_HEADER_SIZE);
 }
 
-#define CASE(x) case x : return #x
-
 const char *
-proc_to_str(int proc)
+proc_title(enum smtp_proc_type proc)
 {
 	switch (proc) {
-	CASE(PROC_PARENT);
-	CASE(PROC_SMTP);
-	CASE(PROC_MFA);
-	CASE(PROC_LKA);
-	CASE(PROC_QUEUE);
-	CASE(PROC_MDA);
-	CASE(PROC_MTA);
-	CASE(PROC_CONTROL);
-	CASE(PROC_SCHEDULER);
+	case PROC_CONTROL:
+		return "control";
+	case PROC_LKA:
+		return "lookup";
+	case PROC_MDA:
+		return "delivery";
+	case PROC_MFA:
+		return "filter";
+	case PROC_MTA:
+		return "transfer";
+	case PROC_PARENT:
+		return "[priv]";
+	case PROC_QUEUE:
+		return "queue";
+	case PROC_SCHEDULER:
+		return "scheduler";
+	case PROC_SMTP:
+		return "smtp";
 	default:
-		return "PROC_???";
+		return "unknown";
 	}
 }
+
+const char *
+proc_name(enum smtp_proc_type proc)
+{
+	switch (proc) {
+	case PROC_PARENT:
+		return "parent";
+	case PROC_SMTP:
+		return "smtp";
+	case PROC_MFA:
+		return "mfa";
+	case PROC_LKA:
+		return "lka";
+	case PROC_QUEUE:
+		return "queue";
+	case PROC_MDA:
+		return "mda";
+	case PROC_MTA:
+		return "mta";
+	case PROC_CONTROL:
+		return "control";
+	case PROC_SCHEDULER:
+		return "scheduler";
+	default:
+		return "unknown";
+	}
+}
+
+#define CASE(x) case x : return #x
 
 const char *
 imsg_to_str(int type)

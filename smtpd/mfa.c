@@ -227,8 +227,7 @@ mfa(void)
 			fatalx("unknown user " SMTPD_USER);
 	pw = env->sc_pw;
 
-	smtpd_process = PROC_MFA;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_MFA);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||

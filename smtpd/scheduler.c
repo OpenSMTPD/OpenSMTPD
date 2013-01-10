@@ -314,8 +314,7 @@ scheduler(void)
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");
 
-	smtpd_process = PROC_SCHEDULER;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_SCHEDULER);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||

@@ -473,8 +473,7 @@ queue(void)
 	if (chdir("/") == -1)
 		fatal("queue: chdir(\"/\")");
 
-	smtpd_process = PROC_QUEUE;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_QUEUE);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||

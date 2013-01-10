@@ -434,8 +434,7 @@ mda(void)
 	if (chdir("/") == -1)
 		fatal("mda: chdir(\"/\")");
 
-	smtpd_process = PROC_MDA;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_MDA);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
