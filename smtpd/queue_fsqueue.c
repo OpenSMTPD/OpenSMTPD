@@ -209,9 +209,11 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 	fatal("couldn't figure out a new envelope id");
 
 done:
-	n = tree_pop(&evpcount, msgid);
-	n += 1;
-	tree_xset(&evpcount, msgid, n);
+	if (r) {
+		n = tree_pop(&evpcount, msgid);
+		n += 1;
+		tree_xset(&evpcount, msgid, n);
+	}
 	return (r);
 }
 
