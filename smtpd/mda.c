@@ -566,7 +566,7 @@ mda_check_loop(FILE *fp, struct envelope *ep)
 		if (strncasecmp("Delivered-To: ", buf, 14) == 0) {
 
 			bzero(&maddr, sizeof maddr);
-			if (! email_to_mailaddr(&maddr, buf + 14))
+			if (! text_to_mailaddr(&maddr, buf + 14))
 				continue;
 			if (strcasecmp(maddr.user, ep->dest.user) == 0 &&
 			    strcasecmp(maddr.domain, ep->dest.domain) == 0) {

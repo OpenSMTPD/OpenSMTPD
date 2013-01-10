@@ -313,6 +313,16 @@ is declared in the table
 .Ar table .
 .El
 .Pp
+In addition, finer filtering may be achieved on the sender if desired:
+.Bl -tag -width Ds
+.It Ic sender Ar senders
+If specified, the rule will only be matched if the sender email address
+is found in the table
+.Ar senders .
+The table may contain complete email addresses or apply to an entire
+domain if prefixed with @.
+.El
+.Pp
 Next comes the selection based on the domain the message is sent to:
 .Bl -tag -width Ds
 .It Xo

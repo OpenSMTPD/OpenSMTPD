@@ -573,7 +573,7 @@ ascii_load_mda_method(enum action_type *dest, char *buf)
 static int
 ascii_load_mailaddr(struct mailaddr *dest, char *buf)
 {
-	if (! email_to_mailaddr(dest, buf))
+	if (! text_to_mailaddr(dest, buf))
 		return 0;
 	return 1;
 }

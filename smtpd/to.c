@@ -93,14 +93,18 @@ in6addr_to_text(const struct in6_addr *addr)
 }
 
 int
-email_to_mailaddr(struct mailaddr *maddr, char *email)
+text_to_mailaddr(struct mailaddr *maddr, const char *email)
 {
 	char *username;
 	char *hostname;
+	char  buffer[MAX_LINE_SIZE];
+
+	if (strlcpy(buffer, email, sizeof buffer) >= sizeof buffer)
+		return 0;
 
 	bzero(maddr, sizeof *maddr);
 
-	username = email;
+	username = buffer;
 	hostname = strrchr(username, '@');
 
 	if (hostname == NULL) {
@@ -126,6 +130,20 @@ email_to_mailaddr(struct mailaddr *maddr, char *email)
 
 	return 1;
 }
+
+const char *
+mailaddr_to_text(struct mailaddr *maddr)
+{
+	static char  buffer[MAX_LINE_SIZE];
+
+	strlcpy(buffer, maddr->user, sizeof buffer);
+	strlcat(buffer, "@", sizeof buffer);
+	if (strlcat(buffer, maddr->domain, sizeof buffer) >= sizeof buffer)
+		return NULL;
+
+	return buffer;
+}
+
 
 const char *
 sa_to_text(const struct sockaddr *sa)

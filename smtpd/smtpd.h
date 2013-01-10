@@ -164,6 +164,7 @@ enum imsg_type {
 	IMSG_CONF_TABLE_CONTENT,
 	IMSG_CONF_RULE,
 	IMSG_CONF_RULE_SOURCE,
+	IMSG_CONF_RULE_SENDER,
 	IMSG_CONF_RULE_DESTINATION,
 	IMSG_CONF_RULE_MAPPING,
 	IMSG_CONF_RULE_USERS,
@@ -273,6 +274,7 @@ enum table_service {
 	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
 	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
 	K_SOURCE	= 0x20, /* returns struct source	*/
+	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
 };
 
 struct table {
@@ -326,6 +328,7 @@ struct rule {
 	enum decision			r_decision;
 	char				r_tag[MAX_TAG_SIZE];
 	struct table		       *r_sources;
+	struct table		       *r_senders;
 
 	enum dest_type			r_desttype;
 	struct table		       *r_destination;
@@ -1282,6 +1285,7 @@ void table_delete(struct table *, const char *);
 void table_delete_all(struct table *);
 int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
+int table_mailaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_close_all(void);
 void	table_set_payload(struct table *, void *);
@@ -1301,6 +1305,7 @@ int email_to_mailaddr(struct mailaddr *, char *);
 uint32_t evpid_to_msgid(uint64_t);
 uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
+int text_to_mailaddr(struct mailaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
 int text_to_userinfo(struct userinfo *, const char *);
 int text_to_credentials(struct credentials *, const char *);
@@ -1314,6 +1319,7 @@ const char *duration_to_text(time_t);
 const char *relayhost_to_text(struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
+const char *mailaddr_to_text(struct mailaddr *);
 
 
 /* util.c */

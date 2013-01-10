@@ -1475,7 +1475,7 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 		e++;
 	*args = e;
 
-	if (!email_to_mailaddr(maddr, line + 1))
+	if (!text_to_mailaddr(maddr, line + 1))
 		return (0);
 
 	p = strchr(maddr->user, ':');
