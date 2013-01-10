@@ -1309,27 +1309,22 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 static void
 smtp_message_write(struct smtp_session *s, const char *line)
 {
-	ssize_t	len;
+	size_t	len;
 
 	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 
 	/* Don't waste resources on message if it's going to bin anyway. */
-	if (s->msgflags & (MF_ERROR_IO | MF_ERROR_SIZE))
+	if (s->msgflags & (MF_ERROR_IO | MF_ERROR_SIZE | MF_ERROR_MFA))
 		return;
 
 	len = strlen(line) + 1;
 
-	/*
-	 * If size of data overflows a size_t or exceeds max size allowed
-	 * for a message, set permanent failure.
-	 */
-	if (SIZE_MAX - s->datalen < len ||
-	    s->datalen + len > env->sc_maxsize) {
+	if (s->datalen + len > env->sc_maxsize) {
 		s->msgflags |= MF_ERROR_SIZE;
 		return;
 	}
 
-	if (fprintf(s->ofile, "%s\n", line) != len) {
+	if (fprintf(s->ofile, "%s\n", line) != (int)len) {
 		s->msgflags |= MF_ERROR_IO;
 		return;
 	}
