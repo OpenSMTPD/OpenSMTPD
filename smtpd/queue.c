@@ -145,6 +145,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_envelope(&m, &evp);
 			m_end(&m);
+		    
+			if (evp.id == 0)
+				log_warn("warn: imsg_queue_submit_envelope: evpid=0");
+			if (evpid_to_msgid(evp.id) == 0)
+				log_warn("warn: imsg_queue_submit_envelope: msgid=0, "
+				    "evpid=%016"PRIx64, evp.id);
 			ret = queue_envelope_create(&evp);
 			m_create(p_smtp, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
 			    24);
@@ -398,6 +404,11 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	b.creation = time(NULL);
 	b.expire = 3600 * 24 * 7;
 
+	if (b.id == 0)
+		log_warn("warn: queue_bounce: evpid=0");
+	if (evpid_to_msgid(b.id) == 0)
+		log_warn("warn: queue_bounce: msgid=0, evpid=%016"PRIx64,
+			b.id);
 	if (e->type == D_BOUNCE) {
 		log_warnx("warn: queue: double bounce!");
 	} else if (e->sender.user[0] == '\0') {
