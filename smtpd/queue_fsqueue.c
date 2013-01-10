@@ -165,7 +165,7 @@ fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, in
 	fd = -1;
 
 	if (do_atomic && rename(path, dest) == -1) {
-		log_warn("warn: fsqueue_envelope_dump_atomic: rename");
+		log_warn("warn: fsqueue_envelope_dump: rename");
 		goto tempfail;
 	}
 	return (1);
@@ -176,7 +176,7 @@ tempfail:
 	else if (fd != -1)
 		close(fd);
 	if (unlink(path) == -1)
-		fatal("fsqueue_envelope_dump_atomic: unlink");
+		log_warn("warn: fsqueue_envelope_dump: unlink");
 	return (0);
 }
 
@@ -265,10 +265,9 @@ fsqueue_envelope_delete(uint64_t evpid)
 	uintptr_t	*n;
 
 	fsqueue_envelope_path(evpid, pathname, sizeof(pathname));
-	if (unlink(pathname) == -1) {
+	if (unlink(pathname) == -1)
 		if (errno != ENOENT)
-			fatal("fsqueue_envelope_delete: unlink");
-	}
+			return 0;
 
 	msgid = evpid_to_msgid(evpid);
 	n = tree_pop(&evpcount, msgid);
