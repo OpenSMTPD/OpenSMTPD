@@ -99,6 +99,13 @@ init_pipes(void)
 }
 
 void
+config_process(enum smtp_proc_type proc)
+{
+	smtpd_process = proc;
+	setproctitle("%s", proc_title(proc));
+}
+
+void
 config_peer(enum smtp_proc_type proc)
 {
 	struct mproc	*p;
@@ -108,7 +115,7 @@ config_peer(enum smtp_proc_type proc)
 
 	p = xcalloc(1, sizeof *p, "config_peer");
 	p->proc = proc;
-	p->name = xstrdup(proc_to_str(proc), "config_peer");
+	p->name = xstrdup(proc_name(proc), "config_peer");
 	p->handler = imsg_dispatch;
 
 	mproc_init(p, pipes[smtpd_process][proc]);
@@ -175,8 +182,8 @@ process_stat(struct mproc *p)
 
 	value.type = STAT_COUNTER;
 	snprintf(buf, sizeof buf, "buffer.%s.%s",
-	    env->sc_title[smtpd_process],
-	    env->sc_title[p->proc]);
+	    proc_name(smtpd_process),
+	    proc_name(p->proc));
 	value.u.counter = p->bytes_queued;
 	stat_set(buf, &value);
 }

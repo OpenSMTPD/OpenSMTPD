@@ -185,11 +185,17 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 {
 	char		path[MAXPATHLEN];
 	uint32_t	msgid;
-	int		queued = 0, i, r;
+	int		queued = 0, i, r = 0;
 	struct stat	sb;
 	uintptr_t	*n;
 
 	msgid = evpid_to_msgid(*evpid);
+	if (msgid == 0) {
+		log_warn("warn: fsqueue_envelope_create: msgid=0, "
+		    "evpid=%016"PRIx64, *evpid);
+		goto done;
+	}
+	
 	queue_message_incoming_path(msgid, path, sizeof(path));
 	if (stat(path, &sb) == -1)
 		queued = 1;

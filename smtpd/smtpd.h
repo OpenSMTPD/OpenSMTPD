@@ -277,7 +277,7 @@ enum smtp_proc_type {
 	PROC_MTA,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
-} smtpd_process;
+};
 
 enum table_type {
 	T_NONE		= 0,
@@ -561,7 +561,6 @@ struct smtpd {
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
 	struct event			sc_ev;
-	char			       *sc_title[PROC_COUNT];
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[MAXHOSTNAMELEN];
@@ -921,10 +920,10 @@ struct mproc {
 	struct event	 ev;
 	void		*data;
 
-	size_t		 msg_in;
-	size_t		 msg_out;
-	size_t		 bytes_in;
-	size_t		 bytes_out;
+	off_t		 msg_in;
+	off_t		 msg_out;
+	off_t		 bytes_in;
+	off_t		 bytes_out;
 	size_t		 bytes_queued;
 };
 
@@ -932,6 +931,8 @@ struct msg {
 	const uint8_t	*pos;
 	const uint8_t	*end;
 };
+
+extern enum smtp_proc_type	smtpd_process;
 
 extern struct mproc *p_control;
 extern struct mproc *p_parent;
@@ -1059,6 +1060,7 @@ int	uncompress_file(FILE *, FILE *);
 #define PURGE_EVERYTHING	0xff
 void purge_config(uint8_t);
 void init_pipes(void);
+void config_process(enum smtp_proc_type);
 void config_peer(enum smtp_proc_type);
 void config_done(void);
 
@@ -1253,8 +1255,9 @@ void smtp_session_imsg(struct mproc *, struct imsg *);
 
 /* smtpd.c */
 void imsg_dispatch(struct mproc *, struct imsg *);
-const char * proc_to_str(int);
-const char * imsg_to_str(int);
+const char *proc_name(enum smtp_proc_type);
+const char *proc_title(enum smtp_proc_type);
+const char *imsg_to_str(int);
 
 /* ssl.c */
 void ssl_init(void);

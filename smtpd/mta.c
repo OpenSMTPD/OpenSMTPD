@@ -415,8 +415,7 @@ mta(void)
 	if (chdir("/") == -1)
 		fatal("mta: chdir(\"/\")");
 
-	smtpd_process = PROC_MTA;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_MTA);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||

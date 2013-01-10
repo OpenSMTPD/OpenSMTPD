@@ -144,7 +144,7 @@ mproc_dispatch(int fd, short event, void *arg)
 
 		if (p->enable == 0) {
 			log_warn("%s <=> %s not enabled!",
-			    proc_to_str(smtpd_process), p->name);
+			    proc_name(smtpd_process), p->name);
 			fatal("nga");
 		}
 
@@ -326,8 +326,8 @@ m_close(struct mproc *p)
 		log_debug("msg-len: too %s %zu -> %zu : %s -> %s : %s",
 		    (reqlen < p->ibuf->wpos - IMSG_HEADER_SIZE) ? "small" : "large",
 		    reqlen, p->ibuf->wpos - IMSG_HEADER_SIZE,
-		    proc_to_str(smtpd_process),
-		    proc_to_str(p->proc),
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
 		    imsg_to_str(reqtype));
 
 	p->msg_out += 1;
@@ -345,7 +345,7 @@ m_error(const char *error)
 	char	buf[512];
 
 	snprintf(buf, sizeof buf, "%s: %s: %s",
-	    proc_to_str(smtpd_process),
+	    proc_name(smtpd_process),
 	    imsg_to_str(current->hdr.type),
 	    error);
 	fatalx(buf);

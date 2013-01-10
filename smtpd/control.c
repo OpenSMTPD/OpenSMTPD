@@ -235,8 +235,7 @@ control(void)
 	if (chdir("/") == -1)
 		fatal("control: chdir(\"/\")");
 
-	smtpd_process = PROC_CONTROL;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_CONTROL);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||

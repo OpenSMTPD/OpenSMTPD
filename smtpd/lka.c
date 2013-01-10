@@ -578,8 +578,7 @@ lka(void)
 
 	pw = env->sc_pw;
 
-	smtpd_process = PROC_LKA;
-	setproctitle("%s", env->sc_title[smtpd_process]);
+	config_process(PROC_LKA);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
