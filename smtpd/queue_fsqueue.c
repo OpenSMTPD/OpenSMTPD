@@ -594,6 +594,7 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 			break;
 
 		case FTS_DP:
+		case FTS_DNR:
 			q->depth -= 1;
 			break;
 
