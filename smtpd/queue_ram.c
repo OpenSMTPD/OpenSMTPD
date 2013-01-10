@@ -140,7 +140,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 	case QOP_FD_R:
 		msg = tree_get(&messages, *msgid);
 		if (msg == NULL)
-			return (0);
+			return (-1);
 		fd = mktmpfile();
 		if (fd == -1)
 			return (-1);

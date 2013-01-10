@@ -317,6 +317,7 @@ rmtree(char *path, int keepdir)
 			depth++;
 			break;
 		case FTS_DP:
+		case FTS_DNR:
 			depth--;
 			if (keepdir && depth == 0)
 				continue;
