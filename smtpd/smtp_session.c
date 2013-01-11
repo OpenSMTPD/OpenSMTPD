@@ -486,7 +486,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_LKA_AUTHENTICATE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
-		m_get_int(&m, &status);
+		m_get_int(&m, &success);
 		m_end(&m);
 
 		s = tree_xpop(&wait_parent_auth, reqid);

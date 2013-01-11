@@ -1563,11 +1563,15 @@ parent_auth_bsd(const char *username, const char *password)
 {
 	char	user[MAXLOGNAME];
 	char	pass[MAX_LINE_SIZE + 1];
+	int	ret;
 
 	strlcpy(user, username, sizeof(user));
 	strlcpy(pass, password, sizeof(pass));
 
-	return auth_userokay(user, NULL, "auth-smtp", pass);
+	ret = auth_userokay(user, NULL, "auth-smtp", pass);
+	if (ret)
+		return LKA_OK;
+	return LKA_PERMFAIL;
 }
 #endif
 

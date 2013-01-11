@@ -136,7 +136,7 @@ text_to_mailaddr(struct mailaddr *maddr, const char *email)
 }
 
 const char *
-mailaddr_to_text(struct mailaddr *maddr)
+mailaddr_to_text(const struct mailaddr *maddr)
 {
 	static char  buffer[MAX_LINE_SIZE];
 

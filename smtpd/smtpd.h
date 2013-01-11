@@ -1340,7 +1340,7 @@ const char *duration_to_text(time_t);
 const char *relayhost_to_text(struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
-const char *mailaddr_to_text(struct mailaddr *);
+const char *mailaddr_to_text(const struct mailaddr *);
 
 
 /* util.c */
