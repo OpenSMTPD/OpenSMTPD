@@ -119,7 +119,7 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
-%token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME
+%token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE USERS SENDER
@@ -129,7 +129,7 @@ typedef struct {
 %type	<v.number>	port from auth ssl size expire sender
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged compression relay_source listen_helo
+%type	<v.string>	certificate tag tagged compression relay_source listen_helo relay_helo
 %%
 
 grammar		: /* empty */
@@ -679,6 +679,18 @@ relay_source	: SOURCE tables			{
 		| { $$ = NULL; }
 		;
 
+relay_helo	: HELO tables			{
+			struct table	*t = table_find($2);
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "HELO parameter", t->t_name);
+				YYERROR;
+			}
+			$$ = t->t_name;
+		}
+		| { $$ = NULL; }
+		;
+
 relay_as     	: AS STRING		{
 			struct mailaddr maddr, *maddrp;
 
@@ -741,14 +753,17 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("command too long");
 			free($5);
 		}
-		| RELAY relay_as relay_source		{
+		| RELAY relay_as relay_source relay_helo       	{
 			rule->r_action = A_RELAY;
 			rule->r_as = $2;
 			if ($3)
 				strlcpy(rule->r_value.relayhost.sourcetable, $3,
 				    sizeof rule->r_value.relayhost.sourcetable);
+			if ($4)
+				strlcpy(rule->r_value.relayhost.helotable, $4,
+				    sizeof rule->r_value.relayhost.helotable);
 		}
-		| RELAY BACKUP STRING relay_as relay_source		{
+		| RELAY BACKUP STRING relay_as relay_source relay_helo	{
 			rule->r_action = A_RELAY;
 			rule->r_as = $4;
 			rule->r_value.relayhost.flags |= F_BACKUP;
@@ -758,8 +773,11 @@ action		: userbase DELIVER TO MAILDIR			{
 			if ($5)
 				strlcpy(rule->r_value.relayhost.sourcetable, $5,
 				    sizeof rule->r_value.relayhost.sourcetable);
+			if ($6)
+				strlcpy(rule->r_value.relayhost.helotable, $6,
+				    sizeof rule->r_value.relayhost.helotable);
 		}
-		| RELAY VIA STRING certificate credentials relay_as relay_source {
+		| RELAY VIA STRING certificate credentials relay_as relay_source relay_helo {
 			struct table	*t;
 
 			rule->r_action = A_RELAYVIA;
@@ -798,6 +816,9 @@ action		: userbase DELIVER TO MAILDIR			{
 			if ($7)
 				strlcpy(rule->r_value.relayhost.sourcetable, $7,
 				    sizeof rule->r_value.relayhost.sourcetable);
+			if ($8)
+				strlcpy(rule->r_value.relayhost.helotable, $8,
+				    sizeof rule->r_value.relayhost.helotable);
 		}
 		;
 
@@ -949,6 +970,7 @@ lookup(char *s)
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
+		{ "helo",		HELO },
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
 		{ "key",		KEY },

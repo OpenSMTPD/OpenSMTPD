@@ -344,6 +344,38 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			m_close(p);
 			return;
+
+		case IMSG_LKA_HELO:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &tablename);
+			m_get_string(&m, &label);
+
+			table = table_findbyname(tablename);
+
+			m_create(p, IMSG_LKA_HELO, 0, 0, -1, 64);
+			m_add_id(p, reqid);
+
+			if (table == NULL) {
+				log_warn("warn: helo table %s missing",
+				    tablename);
+				m_add_int(p, LKA_TEMPFAIL);
+			} 
+			else {
+				ret = table_lookup(table, label, K_ADDRNAME, &src);
+				if (ret == -1)
+					m_add_int(p, LKA_TEMPFAIL);
+				else if (ret == 0)
+					m_add_int(p, LKA_PERMFAIL);
+				else {
+					m_add_int(p, LKA_OK);
+					m_add_string(p, src);
+					free(src);
+				}
+			}
+			m_close(p);
+			return;
+
 		}
 	}
 

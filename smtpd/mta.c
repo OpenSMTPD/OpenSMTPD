@@ -62,6 +62,7 @@ static void mta_query_mx(struct mta_relay *);
 static void mta_query_secret(struct mta_relay *);
 static void mta_query_preference(struct mta_relay *);
 static void mta_query_source(struct mta_relay *);
+static void mta_query_helo(struct mta_relay *, const struct sockaddr *);
 static void mta_on_mx(void *, void *, void *);
 static void mta_on_source(struct mta_relay *, struct mta_source *);
 static void mta_connect(struct mta_connector *);
@@ -126,6 +127,7 @@ static struct tree wait_mx;
 static struct tree wait_preference;
 static struct tree wait_secret;
 static struct tree wait_source;
+static struct tree wait_helo;
 
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
@@ -601,6 +603,22 @@ mta_query_preference(struct mta_relay *relay)
 	relay->status |= RELAY_WAIT_PREFERENCE;
 	dns_query_mx_preference(relay->id, relay->domain->name,
 		relay->backupname);
+	mta_relay_ref(relay);
+}
+
+static void
+mta_query_helo(struct mta_relay *relay, const struct sockaddr *sa)
+{
+	log_debug("debug: mta_query_helo(%s)", mta_relay_to_text(relay));
+
+	m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1, 64);
+	m_add_id(p_lka, relay->id);
+	m_add_string(p_lka, relay->sourcetable);
+	m_add_string(p_lka, sa_to_text(sa));
+	m_close(p_lka);
+
+	tree_xset(&wait_helo, relay->id, relay);
+	relay->status |= RELAY_WAIT_HELO;
 	mta_relay_ref(relay);
 }
 

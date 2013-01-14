@@ -127,6 +127,7 @@ struct relayhost {
 	char authtable[MAX_PATH_SIZE];
 	char authlabel[MAX_PATH_SIZE];
 	char sourcetable[MAX_PATH_SIZE];
+	char helotable[MAX_PATH_SIZE];
 };
 
 struct credentials {
@@ -182,6 +183,7 @@ enum imsg_type {
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
 	IMSG_LKA_SOURCE,
+	IMSG_LKA_HELO,
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
 	IMSG_LKA_SSL_INIT,
@@ -491,6 +493,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTH,
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
+	EVP_MTA_RELAY_HELO,
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,
@@ -724,7 +727,8 @@ struct mta_relay {
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
 #define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAITMASK		0x0f
+#define RELAY_WAIT_HELO		0x10
+#define RELAY_WAITMASK		0x1f
 	int			 status;
 
 	int			 refcount;
