@@ -79,6 +79,8 @@ enum mta_state {
 #define MTA_TLS			0x0100
 #define MTA_VERIFIED   		0x0200
 
+#define MTA_FREE		0x0400
+
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
 #define MTA_EXT_PIPELINING	0x04
@@ -552,7 +554,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		}
 
 		if ((q = mta_queue_data(s)) == -1) {
-			mta_free(s);
+			s->flags |= MTA_FREE;
 			break;
 		}
 
@@ -598,7 +600,7 @@ mta_response(struct mta_session *s, char *line)
 			if ((s->flags & MTA_USE_AUTH) ||
 			    (s->flags & MTA_WANT_SECURE)) {
 				mta_error(s, "EHLO rejected: %s", line);
-				mta_free(s);
+				s->flags |= MTA_FREE;
 				return;
 			}
 			mta_enter_state(s, MTA_HELO);
@@ -613,7 +615,7 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_HELO:
 		if (line[0] != '2') {
 			mta_error(s, "HELO rejected: %s", line);
-			mta_free(s);
+			s->flags |= MTA_FREE;
 			return;
 		}
 		mta_enter_state(s, MTA_READY);
@@ -627,7 +629,7 @@ mta_response(struct mta_session *s, char *line)
 			}
 			/* XXX mark that the MX doesn't support STARTTLS */
 			mta_error(s, "STARTTLS rejected: %s", line);
-			mta_free(s);
+			s->flags |= MTA_FREE;
 			return;
 		}
 
@@ -637,7 +639,7 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_AUTH:
 		if (line[0] != '2') {
 			mta_error(s, "AUTH rejected: %s", line);
-			mta_free(s);
+			s->flags |= MTA_FREE;
 			return;
 		}
 		mta_enter_state(s, MTA_READY);
@@ -818,6 +820,11 @@ mta_io(struct io *io, int evt)
 
 		io_set_write(io);
 		mta_response(s, line);
+		if (s->flags & MTA_FREE) {
+			mta_free(s);
+			return;
+		}
+
 		iobuf_normalize(&s->iobuf);
 
 		if (iobuf_len(&s->iobuf)) {
@@ -828,8 +835,13 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_LOWAT:
-		if (s->state == MTA_BODY)
+		if (s->state == MTA_BODY) {
 			mta_enter_state(s, MTA_BODY);
+			if (s->flags & MTA_FREE) {
+				mta_free(s);
+				return;
+			}
+		}
 
 		if (iobuf_queued(&s->iobuf) == 0)
 			io_set_read(io);
