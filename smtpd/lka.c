@@ -56,6 +56,8 @@ static void lka_sig_handler(int, short, void *);
 static int lka_authenticate(const char *, const char *, const char *);
 static int lka_credentials(const char *, const char *, char *, size_t);
 static int lka_userinfo(const char *, const char *, struct userinfo *);
+static int lka_addrname(const char *, const struct sockaddr *,
+    struct addrname *);
 static int lka_X509_verify(struct ca_vrfy_req_msg *, const char *, const char *);
 
 static void
@@ -79,8 +81,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_vrfy_resp_msg		resp_ca_vrfy;
 	struct ca_cert_req_msg		*req_ca_cert;
 	struct ca_cert_resp_msg		 resp_ca_cert;
+	struct sockaddr_storage	 ss;
 	struct addrinfo		 hints, *ai;
 	struct userinfo		 userinfo;
+	struct addrname		 addrname;
 	struct envelope		 evp;
 	struct msg		 m;
 	char			 buf[MAX_LINE_SIZE];
@@ -348,6 +352,24 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			m_close(p);
 			return;
+
+		case IMSG_LKA_HELO:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &tablename);
+			m_get_sockaddr(&m, (struct sockaddr *)&ss);
+			m_end(&m);
+
+			ret = lka_addrname(tablename, (struct sockaddr*)&ss,
+			    &addrname);
+
+			m_create(p, IMSG_LKA_HELO, 0, 0, -1, 1024);
+			m_add_id(p, reqid);
+			m_add_int(p, ret);
+			m_add_string(p, addrname.name);
+			m_close(p);
+			return;
+
 		}
 	}
 
@@ -739,6 +761,37 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 	}
 }
 
+static int
+lka_addrname(const char *tablename, const struct sockaddr *sa,
+    struct addrname *res)
+{
+	struct addrname *addrname;
+	struct table	*table;
+	const char	*source;
+
+	source = sa_to_text(sa);
+
+	log_debug("debug: looking up helo %s:%s", tablename, source);
+
+	table = table_findbyname(tablename);
+	if (table == NULL) {
+		log_warnx("warn: cannot find helo table %s", tablename);
+		return (LKA_TEMPFAIL);
+	}
+
+	switch (table_lookup(table, source, K_ADDRNAME, (void **)&addrname)) {
+	case -1:
+		log_warnx("warn: failure during helo lookup %s:%s",
+		    tablename, source);
+		return (LKA_TEMPFAIL);
+	case 0:
+		return (LKA_PERMFAIL);
+	default:
+		*res = *addrname;
+		free(addrname);
+		return (LKA_OK);
+	}
+}      
 
 static int
 lka_X509_verify(struct ca_vrfy_req_msg *vrfy,

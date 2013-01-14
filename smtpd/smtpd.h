@@ -135,6 +135,11 @@ struct netaddr {
 	int bits;
 };
 
+union sockaddr_any {
+	struct in6_addr		in6;
+	struct in_addr		in4;
+};
+
 struct relayhost {
 	uint8_t flags;
 	char hostname[MAXHOSTNAMELEN];
@@ -143,6 +148,7 @@ struct relayhost {
 	char authtable[MAX_PATH_SIZE];
 	char authlabel[MAX_PATH_SIZE];
 	char sourcetable[MAX_PATH_SIZE];
+	char helotable[MAX_PATH_SIZE];
 };
 
 struct credentials {
@@ -155,10 +161,12 @@ struct destination {
 };
 
 struct source {
-	union sockaddr_any {
-		struct in6_addr		in6;
-		struct in_addr		in4;
-	} addr;
+	union sockaddr_any	addr;
+};
+
+struct addrname {
+	union sockaddr_any	addr;
+	char			name[MAXHOSTNAMELEN];
 };
 
 enum imsg_type {
@@ -196,6 +204,7 @@ enum imsg_type {
 	IMSG_LKA_EXPAND_RCPT,
 	IMSG_LKA_SECRET,
 	IMSG_LKA_SOURCE,
+	IMSG_LKA_HELO,
 	IMSG_LKA_USERINFO,
 	IMSG_LKA_AUTHENTICATE,
 	IMSG_LKA_SSL_INIT,
@@ -296,6 +305,7 @@ enum table_service {
 	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
 	K_SOURCE	= 0x20, /* returns struct source	*/
 	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
 };
 
 struct table {
@@ -504,6 +514,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_AUTH,
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
+	EVP_MTA_RELAY_HELO,
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,
@@ -714,6 +725,8 @@ struct mta_relay {
 	char			*cert;
 	char			*authtable;
 	char			*authlabel;
+	char			*helotable;
+	char			*heloname;
 
 	char			*secret;
 
@@ -737,7 +750,8 @@ struct mta_relay {
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
 #define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAITMASK		0x0f
+#define RELAY_WAIT_HELO		0x10
+#define RELAY_WAITMASK		0x1f
 	int			 status;
 
 	int			 refcount;
