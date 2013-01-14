@@ -152,10 +152,12 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		if (keycmp[i].service == service)
 			match = keycmp[i].func;
 
+	log_debug("key: %s", key);
 	line = NULL;
 	iter = NULL;
 	ret = 0;
 	while (dict_iter(&m->t_dict, &iter, &k, (void **)&v)) {
+		log_debug("key: %s, val: %s", k, v);
 		if (match) {
 			if (match(key, k)) {
 				line = v;
@@ -171,6 +173,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		if (ret)
 			break;
 	}
+
 	if (retp == NULL)
 		return ret ? 1 : 0;
 
@@ -179,9 +182,10 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		return 0;
 	}
 
+	log_debug("key##: %s, line: %p", key, line);
 	if ((line = strdup(line)) == NULL)
 		return -1;
-
+	log_debug("key##: %s", key);
 	len = strlen(line);
 	switch (service) {
 	case K_ALIAS:
@@ -213,6 +217,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		break;
 
 	case K_ADDRNAME:
+		log_debug("key##: %s", key);
 		ret = table_static_addrname(key, line, len, retp);
 		break;
 
@@ -400,10 +405,12 @@ table_static_addrname(const char *key, char *line, size_t len, void **retp)
 
 	addrname = xcalloc(1, sizeof *addrname, "table_static_addrname");
 
+	log_debug("key: %s", key);
 	if (inet_pton(AF_INET6, key, &addrname->addr.in6) != 1)
 		if (inet_pton(AF_INET, key, &addrname->addr.in4) != 1)
 			goto error;
 
+	log_debug("line: %s", line);
 	if (strlcpy(addrname->name, line, sizeof addrname->name)
 	    >= sizeof addrname->name)
 		goto error;

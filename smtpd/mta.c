@@ -142,6 +142,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct envelope		*e;
 	struct msg		 m;
 	const char		*secret;
+	const char		*helo;
 	uint64_t		 reqid;
 	int			 dnserror, preference, v, status;
 
@@ -258,6 +259,27 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				source = mta_source((struct sockaddr *)&ss);
 				mta_on_source(relay, source);
 				mta_source_unref(source);
+			}
+			else {
+				log_warnx("warn: Failed to get source address"
+				    "for %s", mta_relay_to_text(relay));
+			}
+			m_end(&m);
+
+			mta_drain(relay);
+			mta_relay_unref(relay); /* from mta_query_source() */
+			return;
+
+		case IMSG_LKA_HELO:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, &status);
+
+			relay = tree_xpop(&wait_helo, reqid);
+			relay->status &= ~RELAY_WAIT_HELO;
+			if (status == LKA_OK) {
+				m_get_string(&m, &helo);
+				relay->heloname = xstrdup(helo, "mta:helo");
 			}
 			else {
 				log_warnx("warn: Failed to get source address"
@@ -613,7 +635,7 @@ mta_query_helo(struct mta_relay *relay, const struct sockaddr *sa)
 
 	m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1, 64);
 	m_add_id(p_lka, relay->id);
-	m_add_string(p_lka, relay->sourcetable);
+	m_add_string(p_lka, relay->helotable);
 	m_add_string(p_lka, sa_to_text(sa));
 	m_close(p_lka);
 
@@ -851,6 +873,8 @@ mta_drain(struct mta_relay *r)
 			strlcat(buf, "secret ", sizeof buf);
 		if (r->status & RELAY_WAIT_SOURCE)
 			strlcat(buf, "source ", sizeof buf);
+		if (r->status & RELAY_WAIT_HELO)
+			strlcat(buf, "helo ", sizeof buf);
 		log_debug("debug: mta: %s waiting for %s",
 		    mta_relay_to_text(r), buf);
 		return;
@@ -1131,6 +1155,9 @@ mta_relay(struct envelope *e)
 	key.sourcetable = e->agent.mta.relay.sourcetable;
 	if (!key.sourcetable[0])
 		key.sourcetable = NULL;
+	key.helotable = e->agent.mta.relay.helotable;
+	if (!key.helotable[0])
+		key.helotable = NULL;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r, "mta_relay");
@@ -1154,6 +1181,9 @@ mta_relay(struct envelope *e)
 		if (key.sourcetable)
 			r->sourcetable = xstrdup(key.sourcetable,
 			    "mta: sourcetable");
+		if (key.helotable)
+			r->helotable = xstrdup(key.helotable,
+			    "mta: helotable");
 		SPLAY_INSERT(mta_relay_tree, &relays, r);
 		evtimer_set(&r->ev, mta_relay_timeout, r);
 		log_trace(TRACE_MTA, "mta: new %s", mta_relay_to_text(r));

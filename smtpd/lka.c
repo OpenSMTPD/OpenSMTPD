@@ -369,7 +369,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 					m_add_int(p, LKA_PERMFAIL);
 				else {
 					m_add_int(p, LKA_OK);
-					m_add_string(p, src);
+					m_add_string(p, ((struct addrname *)src)->name);
 					free(src);
 				}
 			}

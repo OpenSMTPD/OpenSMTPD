@@ -704,6 +704,8 @@ struct mta_relay {
 	char			*cert;
 	char			*authtable;
 	char			*authlabel;
+	char			*helotable;
+	char			*heloname;
 
 	char			*secret;
 

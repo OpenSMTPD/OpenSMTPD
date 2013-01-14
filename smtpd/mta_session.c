@@ -452,12 +452,18 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_EHLO:
 		s->ext = 0;
-		mta_send(s, "EHLO %s", env->sc_hostname);
+		if (s->relay->heloname)
+			mta_send(s, "EHLO %s", s->relay->heloname);
+		else
+			mta_send(s, "EHLO %s", env->sc_hostname);
 		break;
 
 	case MTA_HELO:
 		s->ext = 0;
-		mta_send(s, "HELO %s", env->sc_hostname);
+		if (s->relay->heloname)
+			mta_send(s, "EHLO %s", s->relay->heloname);
+		else
+			mta_send(s, "HELO %s", env->sc_hostname);
 		break;
 
 	case MTA_STARTTLS:
