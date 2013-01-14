@@ -53,9 +53,10 @@ static int	table_static_netaddr(const char *, char *, size_t, void **);
 static int	table_static_source(const char *, char *, size_t, void **);
 static int	table_static_userinfo(const char *, char *, size_t, void **);
 static int	table_static_mailaddr(const char *, char *, size_t, void **);
+static int	table_static_addrname(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -170,6 +171,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		if (ret)
 			break;
 	}
+
 	if (retp == NULL)
 		return ret ? 1 : 0;
 
@@ -178,9 +180,10 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		return 0;
 	}
 
+	log_debug("key##: %s, line: %p", key, line);
 	if ((line = strdup(line)) == NULL)
 		return -1;
-
+	log_debug("key##: %s", key);
 	len = strlen(line);
 	switch (service) {
 	case K_ALIAS:
@@ -209,6 +212,11 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 
 	case K_MAILADDR:
 		ret = table_static_mailaddr(key, line, len, retp);
+		break;
+
+	case K_ADDRNAME:
+		log_debug("key##: %s", key);
+		ret = table_static_addrname(key, line, len, retp);
 		break;
 
 	default:
@@ -385,5 +393,29 @@ table_static_mailaddr(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(mailaddr);
+	return -1;
+}
+
+static int
+table_static_addrname(const char *key, char *line, size_t len, void **retp)
+{
+	struct addrname		*addrname;
+
+	addrname = xcalloc(1, sizeof *addrname, "table_static_addrname");
+
+	if (inet_pton(AF_INET6, key, &addrname->addr.in6) != 1)
+		if (inet_pton(AF_INET, key, &addrname->addr.in4) != 1)
+			goto error;
+
+	if (strlcpy(addrname->name, line, sizeof addrname->name)
+	    >= sizeof addrname->name)
+		goto error;
+
+	*retp = addrname;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(addrname);
 	return -1;
 }

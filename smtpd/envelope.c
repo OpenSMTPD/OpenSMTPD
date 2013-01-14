@@ -112,6 +112,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_MTA_RELAY_SOURCE,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
+		EVP_MTA_RELAY_HELO,
 		EVP_MTA_RELAY,
 		EVP_BOUNCE_TYPE,
 		EVP_BOUNCE_DELAY,
@@ -199,6 +200,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 		EVP_MTA_RELAY_SOURCE,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
+		EVP_MTA_RELAY_HELO,
 		EVP_MTA_RELAY,
 	};
 	enum envelope_field bounce_fields[] = {
@@ -320,6 +322,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mta-relay-cert";
 	case EVP_MTA_RELAY_SOURCE:
 		return "mta-relay-source";
+	case EVP_MTA_RELAY_HELO:
+		return "mta-relay-helo";
 	case EVP_BOUNCE_TYPE:
 		return "bounce-type";
 	case EVP_BOUNCE_DELAY:
@@ -377,6 +381,9 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MTA_RELAY_AUTH:
 		return ascii_load_string(ep->agent.mta.relay.authtable, buf,
 		    sizeof ep->agent.mta.relay.authtable);
+	case EVP_MTA_RELAY_HELO:
+		return ascii_load_string(ep->agent.mta.relay.helotable, buf,
+		    sizeof ep->agent.mta.relay.helotable);
 	case EVP_MTA_RELAY:
 		return ascii_load_mta_relay_url(&ep->agent.mta.relay, buf);
 	case EVP_CTIME:
@@ -442,6 +449,9 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 		    buf, len);
 	case EVP_MTA_RELAY_AUTH:
 		return ascii_dump_string(ep->agent.mta.relay.authtable,
+		    buf, len);
+	case EVP_MTA_RELAY_HELO:
+		return ascii_dump_string(ep->agent.mta.relay.helotable,
 		    buf, len);
 	case EVP_MTA_RELAY:
 		if (ep->agent.mta.relay.hostname[0])
