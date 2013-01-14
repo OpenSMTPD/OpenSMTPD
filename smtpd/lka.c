@@ -52,6 +52,7 @@ static void lka_sig_handler(int, short, void *);
 static int lka_authenticate(const char *, const char *, const char *);
 static int lka_credentials(const char *, const char *, char *, size_t);
 static int lka_userinfo(const char *, const char *, struct userinfo *);
+static int lka_addrname(const char *, const char *, struct addrname *);
 static int lka_X509_verify(struct ca_vrfy_req_msg *, const char *, const char *);
 
 static void
@@ -77,6 +78,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_cert_resp_msg		 resp_ca_cert;
 	struct addrinfo		 hints, *ai;
 	struct userinfo		 userinfo;
+	struct addrname		 addrname;
 	struct envelope		 evp;
 	struct msg		 m;
 	char			 buf[MAX_LINE_SIZE];
@@ -350,29 +352,14 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
 			m_get_string(&m, &label);
+			m_end(&m);
 
-			table = table_findbyname(tablename);
+			ret = lka_addrname(tablename, label, &addrname);
 
-			m_create(p, IMSG_LKA_HELO, 0, 0, -1, 64);
+			m_create(p, IMSG_LKA_HELO, 0, 0, -1, 1024);
 			m_add_id(p, reqid);
-
-			if (table == NULL) {
-				log_warn("warn: helo table %s missing",
-				    tablename);
-				m_add_int(p, LKA_TEMPFAIL);
-			} 
-			else {
-				ret = table_lookup(table, label, K_ADDRNAME, &src);
-				if (ret == -1)
-					m_add_int(p, LKA_TEMPFAIL);
-				else if (ret == 0)
-					m_add_int(p, LKA_PERMFAIL);
-				else {
-					m_add_int(p, LKA_OK);
-					m_add_string(p, ((struct addrname *)src)->name);
-					free(src);
-				}
-			}
+			m_add_int(p, ret);
+			m_add_string(p, addrname.name);
 			m_close(p);
 			return;
 
@@ -761,6 +748,33 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 	}
 }
 
+static int
+lka_addrname(const char *tablename, const char *source, struct addrname *res)
+{
+	struct addrname *addrname;
+	struct table	*table;
+
+	log_debug("debug: looking up helo %s:%s", tablename, source);
+
+	table = table_findbyname(tablename);
+	if (table == NULL) {
+		log_warnx("warn: cannot find helo table %s", tablename);
+		return (LKA_TEMPFAIL);
+	}
+
+	switch (table_lookup(table, source, K_ADDRNAME, (void **)&addrname)) {
+	case -1:
+		log_warnx("warn: failure during helo lookup %s:%s",
+		    tablename, source);
+		return (LKA_TEMPFAIL);
+	case 0:
+		return (LKA_PERMFAIL);
+	default:
+		*res = *addrname;
+		free(addrname);
+		return (LKA_OK);
+	}
+}      
 
 static int
 lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
