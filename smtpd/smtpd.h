@@ -114,6 +114,11 @@ struct netaddr {
 	int bits;
 };
 
+union sockaddr_any {
+	struct in6_addr		in6;
+	struct in_addr		in4;
+};
+
 struct relayhost {
 	uint8_t flags;
 	char hostname[MAXHOSTNAMELEN];
@@ -134,10 +139,12 @@ struct destination {
 };
 
 struct source {
-	union sockaddr_any {
-		struct in6_addr		in6;
-		struct in_addr		in4;
-	} addr;
+	union sockaddr_any	addr;
+};
+
+struct addrname {
+	union sockaddr_any	addr;
+	char			name[MAXHOSTNAMELEN];
 };
 
 enum imsg_type {
@@ -275,6 +282,7 @@ enum table_service {
 	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
 	K_SOURCE	= 0x20, /* returns struct source	*/
 	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
 };
 
 struct table {
