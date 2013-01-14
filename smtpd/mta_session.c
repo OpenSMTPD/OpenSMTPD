@@ -998,6 +998,8 @@ mta_envelope_fail(struct envelope *e, struct mta_route *route, int delivery)
 	m_create(p_queue, delivery, 0, 0, -1, MSZ_EVP);
 	m_add_envelope(p_queue, e);
 	m_close(p_queue);
+
+	stat_decrement("mta.envelope", 1);
 }
 
 static void
