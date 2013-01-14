@@ -81,14 +81,17 @@ enum mta_state {
 
 #define MTA_FREE		0x0400
 
+
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
 #define MTA_EXT_PIPELINING	0x04
+
 
 struct mta_session {
 	uint64_t		 id;
 	struct mta_relay	*relay;
 	struct mta_route	*route;
+	char			*helo;
 
 	int			 flags;
 
@@ -128,6 +131,7 @@ static int mta_check_loop(FILE *);
 static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
 
+static struct tree wait_helo;
 static struct tree wait_ptr;
 static struct tree wait_fd;
 static struct tree wait_ssl_init;
@@ -139,6 +143,7 @@ mta_session_init(void)
 	static int init = 0;
 
 	if (!init) {
+		tree_init(&wait_helo);
 		tree_init(&wait_ptr);
 		tree_init(&wait_fd);
 		tree_init(&wait_ssl_init);
@@ -214,7 +219,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	const char		*name;
 	void			*ssl;
-	int			 dnserror;
+	int			 dnserror, status;
 
 	switch (imsg->hdr.type) {
 
@@ -305,6 +310,26 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
+	case IMSG_LKA_HELO:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &status);
+		if (status == LKA_OK)
+			m_get_string(&m, &name);
+		m_end(&m);
+
+		s = tree_xpop(&wait_helo, reqid);
+
+		if (status == LKA_OK) {
+			s->helo = xstrdup(name, "mta_session_imsg");
+			mta_connect(s);
+		} else {
+			mta_source_error(s->relay, s->route,
+			    "Failed to retreive helo string");
+			mta_free(s);
+		}
+		return;
+
 	default:
 		errx(1, "mta_session_imsg: unexpected %s imsg",
 		    imsg_to_str(imsg->hdr.type));
@@ -326,6 +351,8 @@ mta_free(struct mta_session *s)
 		fatalx("current task should have been deleted already");
 	if (s->datafp)
 		fclose(s->datafp);
+	if (s->helo)
+		free(s->helo);
 
 	relay = s->relay;
 	route = s->route;
@@ -357,6 +384,22 @@ mta_connect(struct mta_session *s)
 	struct sockaddr		*sa;
 	int			 portno;
 	const char		*schema = "smtp+tls://";
+
+	if (s->helo == NULL) {
+		if (s->relay->helotable) {
+			m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1, 64);
+			m_add_id(p_lka, s->id);
+			m_add_string(p_lka, s->relay->helotable);
+			m_add_sockaddr(p_lka, s->route->src->sa);
+			m_close(p_lka);
+			tree_xset(&wait_helo, s->id, s);
+			return;
+		}
+		if (s->relay->heloname)
+			s->helo = xstrdup(s->relay->heloname, "mta_connect");
+		else
+			s->helo = xstrdup(env->sc_hostname, "mta_connect");
+	}
 
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
@@ -452,18 +495,12 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_EHLO:
 		s->ext = 0;
-		if (s->relay->heloname)
-			mta_send(s, "EHLO %s", s->relay->heloname);
-		else
-			mta_send(s, "EHLO %s", env->sc_hostname);
+		mta_send(s, "EHLO %s", s->helo);
 		break;
 
 	case MTA_HELO:
 		s->ext = 0;
-		if (s->relay->heloname)
-			mta_send(s, "EHLO %s", s->relay->heloname);
-		else
-			mta_send(s, "HELO %s", env->sc_hostname);
+		mta_send(s, "HELO %s", s->helo);
 		break;
 
 	case MTA_STARTTLS:
