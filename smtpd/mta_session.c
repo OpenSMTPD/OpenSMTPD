@@ -386,7 +386,7 @@ mta_connect(struct mta_session *s)
 	const char		*schema = "smtp+tls://";
 
 	if (s->helo == NULL) {
-		if (s->relay->helotable) {
+		if (s->relay->helotable && s->route->src->sa) {
 			m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1, 64);
 			m_add_id(p_lka, s->id);
 			m_add_string(p_lka, s->relay->helotable);
