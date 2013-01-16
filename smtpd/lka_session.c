@@ -48,7 +48,7 @@
 #define	F_WAITING	0x01
 
 struct lka_session {
-	uint64_t		 id;
+	uint64_t		 id; /* given by smtp */
 
 	TAILQ_HEAD(, envelope)	 deliverylist;
 	struct expand		 expand;
@@ -188,14 +188,14 @@ lka_resume(struct lka_session *lks)
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
 			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
 			    MSZ_EVP);
-			m_add_id(p_queue, ep->session_id);
+			m_add_id(p_queue, lks->id);
 			m_add_envelope(p_queue, ep);
 			m_close(p_queue);
 			free(ep);
 		}
 
 		m_create(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, 9);
-		m_add_id(p_queue, lks->envelope.session_id);
+		m_add_id(p_queue, lks->id);
 		m_close(p_queue);
 	}
 
