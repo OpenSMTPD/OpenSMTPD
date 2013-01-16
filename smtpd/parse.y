@@ -367,19 +367,6 @@ main		: QUEUE compression {
 		| MAXMESSAGESIZE size {
 			conf->sc_maxsize = $2;
 		}
-		| HOSTNAME STRING		{
-			struct table	*t = table_findbyname("<localnames>");
-			if (strlcpy(conf->sc_hostname, $2,
-				sizeof(conf->sc_hostname)) >=
-			    sizeof(conf->sc_hostname)) {
-				yyerror("invalid hostname: %s", $2);
-				free($2);
-				YYERROR;
-			}
-			table_add(t, conf->sc_hostname, NULL);
-       
-			free($2);
-		}
 		| LISTEN {
 			bzero(&l, sizeof l);
 		} ON STRING port ssl certificate auth tag listen_helo {
