@@ -129,7 +129,7 @@ typedef struct {
 %type	<v.number>	port from auth ssl size expire sender
 %type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
 %type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged compression relay_source listen_helo relay_helo
+%type	<v.string>	certificate tag tagged compression relay_source listen_helo relay_helo relay_backup
 %%
 
 grammar		: /* empty */
@@ -366,19 +366,6 @@ main		: QUEUE compression {
 		}
 		| MAXMESSAGESIZE size {
 			conf->sc_maxsize = $2;
-		}
-		| HOSTNAME STRING		{
-			struct table	*t = table_findbyname("<localnames>");
-			if (strlcpy(conf->sc_hostname, $2,
-				sizeof(conf->sc_hostname)) >=
-			    sizeof(conf->sc_hostname)) {
-				yyerror("invalid hostname: %s", $2);
-				free($2);
-				YYERROR;
-			}
-			table_add(t, conf->sc_hostname, NULL);
-       
-			free($2);
 		}
 		| LISTEN {
 			bzero(&l, sizeof l);
@@ -691,6 +678,10 @@ relay_helo	: HELO tables			{
 		| { $$ = NULL; }
 		;
 
+relay_backup	: BACKUP STRING			{ $$ = $2; }
+		| BACKUP       			{ $$ = NULL; }
+		;
+
 relay_as     	: AS STRING		{
 			struct mailaddr maddr, *maddrp;
 
@@ -767,22 +758,28 @@ action		: userbase DELIVER TO MAILDIR			{
 				strlcpy(rule->r_value.relayhost.helotable, $4,
 				    sizeof rule->r_value.relayhost.helotable);
 		}
-		| RELAY BACKUP STRING relay_as relay_source relay_helo	{
+		| RELAY relay_backup relay_as relay_source relay_helo	{
 			rule->r_action = A_RELAY;
-			rule->r_as = $4;
+			rule->r_as = $3;
 			rule->r_value.relayhost.flags |= F_BACKUP;
-			strlcpy(rule->r_value.relayhost.hostname, $3,
-			    sizeof (rule->r_value.relayhost.hostname));
-			free($3);
-			if ($6 != NULL && $5 == NULL) {
+
+			if ($2)
+				strlcpy(rule->r_value.relayhost.hostname, $2,
+				    sizeof (rule->r_value.relayhost.hostname));
+			else
+				strlcpy(rule->r_value.relayhost.hostname, env->sc_hostname,
+				    sizeof (rule->r_value.relayhost.hostname));
+			free($2);
+
+			if ($5 != NULL && $4 == NULL) {
 				yyerror("HELO can only be used with SOURCE");
 				YYERROR;
 			}
-			if ($5)
-				strlcpy(rule->r_value.relayhost.sourcetable, $5,
+			if ($4)
+				strlcpy(rule->r_value.relayhost.sourcetable, $4,
 				    sizeof rule->r_value.relayhost.sourcetable);
-			if ($6)
-				strlcpy(rule->r_value.relayhost.helotable, $6,
+			if ($5)
+				strlcpy(rule->r_value.relayhost.helotable, $5,
 				    sizeof rule->r_value.relayhost.helotable);
 		}
 		| RELAY VIA STRING certificate credentials relay_as relay_source relay_helo {
