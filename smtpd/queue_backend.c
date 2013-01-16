@@ -287,12 +287,12 @@ queue_envelope_create(struct envelope *ep)
 }
 
 int
-queue_envelope_delete(struct envelope *ep)
+queue_envelope_delete(uint64_t evpid)
 {
 	int	r;
 
 	profile_enter("queue_envelope_delete");
-	r = backend->envelope(QOP_DELETE, &ep->id, NULL, 0);
+	r = backend->envelope(QOP_DELETE, &evpid, NULL, 0);
 	profile_leave();
 
 	return (r);

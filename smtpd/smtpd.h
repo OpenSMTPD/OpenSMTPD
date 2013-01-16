@@ -1218,7 +1218,7 @@ int queue_message_fd_r(uint32_t);
 int queue_message_fd_rw(uint32_t);
 int queue_message_corrupt(uint32_t);
 int queue_envelope_create(struct envelope *);
-int queue_envelope_delete(struct envelope *);
+int queue_envelope_delete(uint64_t);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);

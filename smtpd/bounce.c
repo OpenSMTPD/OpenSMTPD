@@ -466,7 +466,7 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 			m_create(p_scheduler, msg, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp->id);
 			m_close(p_scheduler);
-			queue_envelope_delete(evp);
+			queue_envelope_delete(evp->id);
 		}
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);
 		free(evp);

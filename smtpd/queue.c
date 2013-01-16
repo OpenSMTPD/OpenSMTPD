@@ -195,7 +195,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			log_envelope(&evp, NULL, "Remove",
 			    "Removed by administrator");
-			queue_envelope_delete(&evp);
+			queue_envelope_delete(evpid);
 			return;
 
 		case IMSG_QUEUE_EXPIRE:
@@ -210,7 +210,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			log_envelope(&evp, NULL, "Expire", evp.errorline);
-			queue_envelope_delete(&evp);
+			queue_envelope_delete(evpid);
 			return;
 
 		case IMSG_QUEUE_BOUNCE:
@@ -315,7 +315,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_envelope(&m, &evp);
 			m_end(&m);
-			queue_envelope_delete(&evp);
+			queue_envelope_delete(evp.id);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
@@ -341,7 +341,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			bounce.delay = 0;
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
-			queue_envelope_delete(&evp);
+			queue_envelope_delete(evp.id);
 			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
 			    9);
 			m_add_evpid(p_scheduler, evp.id);
@@ -356,7 +356,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			bounce.delay = 0;
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
-			queue_envelope_delete(&evp);
+			queue_envelope_delete(evp.id);
 			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
