@@ -364,7 +364,7 @@ enum delivery_type {
 struct delivery_mda {
 	enum action_type	method;
 	char			usertable[MAX_PATH_SIZE];
-	struct userinfo		userinfo;
+	char			username[MAXLOGNAME];
 	char			buffer[EXPAND_BUFFER];
 };
 

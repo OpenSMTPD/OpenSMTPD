@@ -162,7 +162,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
-			username = e->agent.mda.userinfo.username;
+			username = e->agent.mda.username;
 			usertable = e->agent.mda.usertable;
 			TAILQ_FOREACH(u, &users, entry)
 			    if (!strcmp(username, u->name) &&
