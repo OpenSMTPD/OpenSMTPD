@@ -507,11 +507,15 @@ m_add_mailaddr(struct mproc *m, const struct mailaddr *maddr)
 void
 m_add_envelope(struct mproc *m, const struct envelope *evp)
 {
+#if 1
+	m_add_typed(m, M_ENVELOPE, evp, sizeof(*evp));
+#else
 	char	buf[sizeof(*evp)];
 
 	envelope_dump_buffer(evp, buf, sizeof(buf));
 	m_add_evpid(m, evp->id);
 	m_add_typed_sized(m, M_ENVELOPE, buf, strlen(buf) + 1);
+#endif
 }
 
 void
@@ -593,6 +597,9 @@ m_get_mailaddr(struct msg *m, struct mailaddr *maddr)
 void
 m_get_envelope(struct msg *m, struct envelope *evp)
 {
+#if 1
+	m_get_typed(m, M_ENVELOPE, evp, sizeof(*evp));
+#else
 	uint64_t	 evpid;
 	size_t		 s;
 	const void	*d;
@@ -603,4 +610,5 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 	if (!envelope_load_buffer(evp, d, s - 1))
 		fatalx("failed to load envelope");
 	evp->id = evpid;
+#endif
 }
