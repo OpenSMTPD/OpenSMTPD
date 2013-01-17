@@ -222,8 +222,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		id = *(uint64_t *)(imsg->data);
 		n = backend->envelopes(id, state, EVPBATCHSIZE);
 		for (i = 0; i < n; i++) {
-			m_compose(p_queue, IMSG_CTL_LIST_ENVELOPES,
-			    imsg->hdr.peerid, 0, -1, &state[i], sizeof state[i]);
+			m_create(p_queue, IMSG_CTL_LIST_ENVELOPES,
+			    imsg->hdr.peerid, 0, -1, 32);
+			m_add_evpid(p_queue, state[i].evpid);
+			m_add_int(p_queue, state[i].flags);
+			m_add_time(p_queue, state[i].time);
+			m_close(p_queue);
 		}
 		m_compose(p_queue, IMSG_CTL_LIST_ENVELOPES,
 		    imsg->hdr.peerid, 0, -1, NULL, 0);

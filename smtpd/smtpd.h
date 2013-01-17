@@ -900,7 +900,7 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
-#define MSZ_EVP	(32 + sizeof(struct envelope))
+#define MSZ_EVP	384
 
 struct mproc {
 	pid_t		 pid;
