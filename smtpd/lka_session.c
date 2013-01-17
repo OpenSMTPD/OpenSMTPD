@@ -419,7 +419,6 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		    sizeof ep->agent.mda.usertable);
 		strlcpy(ep->agent.mda.username, tu->username,
 		    sizeof ep->agent.mda.username);
-		free(tu);
 
 		if (xn->type == EXPAND_FILENAME) {
 			ep->agent.mda.method = A_FILENAME;
