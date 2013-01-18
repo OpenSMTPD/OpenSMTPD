@@ -385,7 +385,7 @@ enum delivery_type {
 struct delivery_mda {
 	enum action_type	method;
 	char			usertable[MAX_PATH_SIZE];
-	struct userinfo		userinfo;
+	char			username[MAXLOGNAME];
 	char			buffer[EXPAND_BUFFER];
 };
 
@@ -921,7 +921,11 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
+#if 1
 #define MSZ_EVP	(32 + sizeof(struct envelope))
+#else
+#define MSZ_EVP	384
+#endif
 
 struct mproc {
 	pid_t		 pid;

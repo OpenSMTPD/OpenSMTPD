@@ -91,7 +91,7 @@ fsqueue_message_path(uint32_t msgid, char *buf, size_t len)
 {
 	if (! bsnprintf(buf, len, "%s/%02x/%08x",
 		PATH_QUEUE,
-		msgid & 0xff,
+		(msgid & 0xff000000) >> 24,
 		msgid))
 		fatalx("fsqueue_message_path: path does not fit buffer");
 }
@@ -110,7 +110,7 @@ fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 {
 	if (! bsnprintf(buf, len, "%s/%02x/%08x/%016" PRIx64,
 		PATH_QUEUE,
-		evpid_to_msgid(evpid) & 0xff,
+		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
 		evpid_to_msgid(evpid),
 		evpid))
 		fatalx("fsqueue_envelope_path: path does not fit buffer");

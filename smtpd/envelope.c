@@ -369,8 +369,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_string(ep->agent.mda.buffer, buf,
 		    sizeof ep->agent.mda.buffer);
 	case EVP_MDA_USER:
-		return ascii_load_string(ep->agent.mda.userinfo.username, buf,
-		    sizeof ep->agent.mda.userinfo.username);
+		return ascii_load_string(ep->agent.mda.username, buf,
+		    sizeof ep->agent.mda.username);
 	case EVP_MDA_USERTABLE:
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
@@ -440,7 +440,7 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	case EVP_MDA_BUFFER:
 		return ascii_dump_string(ep->agent.mda.buffer, buf, len);
 	case EVP_MDA_USER:
-		return ascii_dump_string(ep->agent.mda.userinfo.username, buf, len);
+		return ascii_dump_string(ep->agent.mda.username, buf, len);
 	case EVP_MDA_USERTABLE:
 		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
 	case EVP_MTA_RELAY_SOURCE:

@@ -611,6 +611,10 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_RSET:
+		if (s->datafp) {
+			fclose(s->datafp);
+			s->datafp = NULL;
+		}
 		mta_send(s, "RSET");
 		break;
 

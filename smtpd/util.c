@@ -767,7 +767,7 @@ log_envelope(const struct envelope *evp, const char *extra, const char *prefix,
 		else
 			fatalx("log_envelope: bad method");
 		snprintf(tmp, sizeof tmp, "user=%s, method=%s, ",
-		    evp->agent.mda.userinfo.username, method);
+		    evp->agent.mda.username, method);
 	}
 
 	if (extra == NULL)

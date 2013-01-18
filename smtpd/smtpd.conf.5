@@ -109,11 +109,6 @@ For example:
 expire 4d	# expire after 4 days
 expire 10h	# expire after 10 hours
 .Ed
-.It Ic hostname Ar name
-Specify the fully qualified domain name (FQDN) of the server.
-By default the current host name is used,
-as returned by
-.Xr hostname 1 .
 .It Xo
 .Ic listen on Ar interface
 .Op Ic port Ar port
@@ -463,7 +458,7 @@ This parameter may use conversion specifiers that are expanded before use
 (see above).
 .It Xo
 .Ic relay
-.Op Ic backup Ar mx
+.Op Ic backup Op Ar mx
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Xc
@@ -477,6 +472,9 @@ for the target domain.
 Accepted mails are only relayed through servers with a lower preference
 value in the MX record for the domain than the one specified in
 .Ar mx .
+If
+.Ar mx
+is not specified, local hostname will be assumed.
 .Pp
 If the
 .Ic as

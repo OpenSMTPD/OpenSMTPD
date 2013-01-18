@@ -57,12 +57,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
 	struct envelope		 evp;
-	struct evpstate		*state;
 	static uint64_t		 batch_id;
 	struct msg		 m;
 	uint64_t		 reqid, evpid;
 	uint32_t		 msgid;
-	int			 fd, ret, v;
+	time_t			 nexttry;
+	int			 fd, ret, v, flags;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -277,24 +277,31 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				m_forward(p_control, imsg);
 				return;
 			}
-			state = imsg->data;
-			if (queue_envelope_load(state->evpid, &evp) == 0)
+
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_get_int(&m, &flags);
+			m_get_time(&m, &nexttry);
+			m_end(&m);
+
+			if (queue_envelope_load(evpid, &evp) == 0)
 				return; /* Envelope is gone, drop it */
+
 			/*
 			 * XXX consistency: The envelope might already be on
 			 * its way back to the scheduler.  We need to detect
 			 * this properly and report that state.
 			 */
-			evp.flags |= state->flags;
+			evp.flags |= flags;
 			/* In the past if running or runnable */
-			evp.nexttry = state->time;
-			if (state->flags == EF_INFLIGHT) {
+			evp.nexttry = nexttry;
+			if (flags == EF_INFLIGHT) {
 				/*
 				 * Not exactly correct but pretty close: The
 				 * value is not recorded on the envelope unless
 				 * a tempfail occurs.
 				 */
-				evp.lasttry = state->time;
+				evp.lasttry = nexttry;
 			}
 			m_compose(p_control, IMSG_CTL_LIST_ENVELOPES,
 			    imsg->hdr.peerid, 0, -1, &evp, sizeof evp);
