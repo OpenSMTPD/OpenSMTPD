@@ -290,6 +290,7 @@ parent_send_config(int fd, short event, void *p)
 	parent_send_config_lka();
 	parent_send_config_mfa();
 	parent_send_config_smtp();
+	purge_config(PURGE_SSL);
 }
 
 static void
