@@ -144,6 +144,68 @@ fail:
 	return (NULL);
 }
 
+static int
+ssl_password_cb(char *buf, int size, int rwflag, void *u)
+{
+	size_t	len;
+	if (u == NULL) {
+		bzero(buf, size);
+		return (0);
+	}
+	if ((len = strlcpy(buf, u, size)) >= (size_t)size)
+		return (0);
+	return (len);
+}
+
+char *
+ssl_load_key(const char *name, off_t *len, char *pass)
+{
+	FILE		*fp;
+	EVP_PKEY	*key = NULL;
+	BIO		*bio = NULL;
+	long		 size;
+	char		*data, *buf = NULL;
+
+	/* Initialize SSL library once */
+	ssl_init();
+
+	/*
+	 * Read (possibly) encrypted key from file
+	 */
+	if ((fp = fopen(name, "r")) == NULL)
+		return (NULL);
+
+	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, pass);
+	fclose(fp);
+	if (key == NULL)
+		goto fail;
+
+	/*
+	 * Write unencrypted key to memory buffer
+	 */
+	if ((bio = BIO_new(BIO_s_mem())) == NULL)
+		goto fail;
+	if (!PEM_write_bio_PrivateKey(bio, key, NULL, NULL, 0, NULL, NULL))
+		goto fail;
+	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
+		goto fail;
+	if ((buf = calloc(1, size)) == NULL)
+		goto fail;
+	memcpy(buf, data, size);
+
+	BIO_free_all(bio);
+	*len = (off_t)size;
+	return (buf);
+
+fail:
+	ssl_error("ssl_load_key");
+
+	free(buf);
+	if (bio != NULL)
+		BIO_free_all(bio);
+	return (NULL);
+}
+
 SSL_CTX *
 ssl_ctx_create(void)
 {
@@ -173,8 +235,9 @@ ssl_ctx_create(void)
 int
 ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t flags)
 {
-	struct ssl	*s;
-	char		 pathname[PATH_MAX];
+	struct ssl     *s;
+	char		pathname[PATH_MAX];
+	int		ret;
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
 		fatal(NULL);
@@ -182,25 +245,25 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 	s->flags = flags;
 	(void)strlcpy(s->ssl_name, name, sizeof(s->ssl_name));
 
-	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.crt",
-		path ? path : "/etc/ssl",
-		name))
+	ret =  snprintf(pathname, sizeof(pathname), "%s/%s.crt",
+	    path ? path : "/etc/ssl", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
 	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
 	if (s->ssl_cert == NULL)
 		goto err;
 
-	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.key",
-		path ? path : "/etc/ssl/private",
-		name))
+	ret = snprintf(pathname, sizeof(pathname), "%s/%s.key",
+	    path ? path : "/etc/ssl/private", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
 	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0700);
 	if (s->ssl_key == NULL)
 		goto err;
 
-	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.ca",
-		path ? path : "/etc/ssl",
-		name))
+	ret = snprintf(pathname, sizeof(pathname), "%s/%s.ca",
+	    path ? path : "/etc/ssl", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
 	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
 	if (s->ssl_ca == NULL) {
@@ -209,9 +272,9 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 		log_info("info: No CAf found in %s", pathname);
 	}
 
-	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.dh",
-		path ? path : "/etc/ssl",
-		name))
+	ret = snprintf(pathname, sizeof(pathname), "%s/%s.dh",
+	    path ? path : "/etc/ssl", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
 	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
 	if (s->ssl_dhparams == NULL) {
