@@ -47,6 +47,21 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
+static size_t	flow_bounce_hiwat = 1000;
+static size_t	flow_bounce_lowat = 100;
+static size_t	flow_agent_hiwat = 20 * 1048576;
+static size_t	flow_agent_lowat =   1 * 1048576;
+static size_t	flow_scheduler_hiwat = 20 * 1048576;
+static size_t	flow_scheduler_lowat = 1 * 1048576;
+
+extern size_t	nbounce;
+
+#define LIMIT_BOUNCE	0x01
+#define LIMIT_AGENT	0x02
+#define LIMIT_SCHEDULER	0x04
+
+static int limit = 0;
+
 static void
 queue_imsg(struct mproc *p, struct imsg *imsg)
 {
@@ -170,6 +185,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				m_close(p_scheduler);
 
 			}
+			queue_flow_control();
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
@@ -196,6 +212,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			log_envelope(&evp, NULL, "Remove",
 			    "Removed by administrator");
 			queue_envelope_delete(evpid);
+			queue_flow_control();
 			return;
 
 		case IMSG_QUEUE_EXPIRE:
@@ -211,6 +228,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			queue_bounce(&evp, &bounce);
 			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(evpid);
+			queue_flow_control();
 			return;
 
 		case IMSG_QUEUE_BOUNCE:
@@ -221,6 +239,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
 			queue_envelope_update(&evp);
+			queue_flow_control();
 			return;
 
 		case IMSG_MDA_DELIVER:
@@ -233,6 +252,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_mda, &evp);
 			m_close(p_mda);
+			queue_flow_control();
 			return;
 
 		case IMSG_BOUNCE_INJECT:
@@ -240,6 +260,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			bounce_add(evpid);
+			queue_flow_control();
 			return;
 
 		case IMSG_MTA_BATCH:
@@ -247,6 +268,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_mta, IMSG_MTA_BATCH, 0, 0, -1, 9);
 			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
+			queue_flow_control();
 			return;
 
 		case IMSG_MTA_BATCH_ADD:
@@ -260,12 +282,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_add_id(p_mta, batch_id);
 			m_add_envelope(p_mta, &evp);
 			m_close(p_mta);
+			queue_flow_control();
 			return;
 
 		case IMSG_MTA_BATCH_END:
 			m_create(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1, 9);
 			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
+			queue_flow_control();
 			return;
 
 		case IMSG_CTL_LIST_ENVELOPES:
@@ -570,4 +594,45 @@ queue_timeout(int fd, short event, void *p)
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
 	evtimer_add(ev, &tv);
+}
+
+void
+queue_flow_control(void)
+{
+	size_t	bufsz;
+
+	if (nbounce <= flow_bounce_lowat)
+		limit &= ~LIMIT_BOUNCE;
+	else if (nbounce > flow_bounce_hiwat)
+		limit |= LIMIT_BOUNCE;
+
+	bufsz = p_mda->bytes_queued + p_mta->bytes_queued;
+	if (bufsz <= flow_agent_lowat)
+		limit &= ~LIMIT_AGENT;
+	else if (bufsz > flow_agent_hiwat)
+		limit |= LIMIT_AGENT;
+
+	if (p_scheduler->bytes_queued <= flow_scheduler_lowat)
+		limit &= ~LIMIT_SCHEDULER;
+	else if (p_scheduler->bytes_queued > flow_scheduler_hiwat)
+		limit |= LIMIT_SCHEDULER;
+
+	if (limit & (LIMIT_BOUNCE | LIMIT_SCHEDULER)) {
+		mproc_disable(p_mta);
+		mproc_disable(p_mda);
+	}
+	else {
+		mproc_enable(p_mta);
+		mproc_enable(p_mda);
+	}
+
+	if (limit & LIMIT_SCHEDULER)
+		mproc_disable(p_lka);
+	else
+		mproc_enable(p_lka);
+
+	if (limit & (LIMIT_AGENT | LIMIT_BOUNCE))
+		mproc_disable(p_scheduler);
+	else
+		mproc_enable(p_scheduler);
 }

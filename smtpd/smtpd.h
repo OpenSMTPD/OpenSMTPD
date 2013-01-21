@@ -915,6 +915,7 @@ struct mproc {
 	struct ibuf	*ibuf;
 	int		 ibuferror;
 	int		 enable;
+	short		 events;
 	struct event	 ev;
 	void		*data;
 
@@ -1206,7 +1207,7 @@ int cmdline_symset(char *);
 
 /* queue.c */
 pid_t queue(void);
-
+void queue_flow_control(void);
 
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);

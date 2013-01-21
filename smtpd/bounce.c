@@ -85,8 +85,10 @@ static void bounce_free(struct bounce *);
 
 static struct tree		wait_fd;
 static struct bounce_tree	bounces;
+size_t				nbounce;
 static int			running = 0;
 static TAILQ_HEAD(, bounce)	runnable;
+
 
 static void
 bounce_init(void)
@@ -94,6 +96,7 @@ bounce_init(void)
 	static int	init = 0;
 
 	if (init == 0) {
+		nbounce = 0;
 		TAILQ_INIT(&runnable);
 		SPLAY_INIT(&bounces);
 		init = 1;
@@ -156,6 +159,10 @@ bounce_add(uint64_t evpid)
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	evtimer_add(&bounce->evt, &tv);
+
+	nbounce += 1;
+
+	queue_flow_control();
 }
 
 void
@@ -224,7 +231,7 @@ bounce_drain()
 
 		if (running >= BOUNCE_MAXRUN) {
 			log_debug("debug: bounce: max session reached");
-			return;
+			break;
 		}
 
 		TAILQ_REMOVE(&runnable, bounce, entry);
@@ -244,6 +251,8 @@ bounce_drain()
 		tree_xset(&wait_fd, bounce->id, bounce);
 		running += 1;
 	}
+
+	queue_flow_control();
 }
 
 static void
@@ -470,6 +479,7 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 		}
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);
 		free(evp);
+		nbounce -= 1;
 	}
 
 	free(status);
@@ -488,6 +498,7 @@ bounce_free(struct bounce *bounce)
 	while ((evp = TAILQ_FIRST(&bounce->envelopes))) {
 		TAILQ_REMOVE(&bounce->envelopes, evp, entry);
 		free(evp);
+		nbounce -= 1;
 	}
 
 	if (bounce->msgfp)

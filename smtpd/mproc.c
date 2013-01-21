@@ -101,19 +101,23 @@ mproc_clear(struct mproc *p)
 void
 mproc_enable(struct mproc *p)
 {
-	if (p->enable)
-		return;
-	p->enable = 1;
+	if (p->enable == 0) {
+		log_debug("debug: enabling %s -> %s", proc_name(smtpd_process),
+		    proc_name(p->proc));
+		p->enable = 1;
+	}
 	mproc_event_add(p);
 }
 
 void
 mproc_disable(struct mproc *p)
 {
-	if (p->enable == 0)
-		return;
-	p->enable = 0;
-	event_del(&p->ev);
+	if (p->enable == 1) {
+		log_debug("debug: disabling %s -> %s", proc_name(smtpd_process),
+		    proc_name(p->proc));
+		p->enable = 0;
+	}
+	mproc_event_add(p);
 }
 
 static void
@@ -121,16 +125,22 @@ mproc_event_add(struct mproc *p)
 {
 	short	events;
 
-	if (p->enable == 0)
-		return;
+	if (p->enable)
+		events = EV_READ;
+	else
+		events = 0;
 
-	events = EV_READ;
 	if (p->imsgbuf.w.queued)
 		events |= EV_WRITE;
 
-	event_del(&p->ev);
-	event_set(&p->ev, p->imsgbuf.fd, events, mproc_dispatch, p);
-	event_add(&p->ev, NULL);
+	if (p->events)
+		event_del(&p->ev);
+
+	p->events = events;
+	if (events) {
+		event_set(&p->ev, p->imsgbuf.fd, events, mproc_dispatch, p);
+		event_add(&p->ev, NULL);
+	}
 }
 
 static void
@@ -139,6 +149,8 @@ mproc_dispatch(int fd, short event, void *arg)
 	struct mproc	*p = arg;
 	struct imsg	 imsg;
 	ssize_t		 n;
+
+	p->events = 0;
 
 	if (event & EV_READ) {
 
