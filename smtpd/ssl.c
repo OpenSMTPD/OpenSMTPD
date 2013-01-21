@@ -172,82 +172,73 @@ ssl_ctx_create(void)
 }
 
 int
-ssl_load_certfile(const char *name, uint8_t flags)
+ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t flags)
 {
 	struct ssl	*s;
-	struct ssl	 key;
-	char		 certfile[PATH_MAX];
-
-	if (strlcpy(key.ssl_name, name, sizeof(key.ssl_name))
-	    >= sizeof(key.ssl_name)) {
-		log_warnx("warn: ssl_load_certfile: "
-		    "certificate name truncated");
-		return -1;
-	}
-
-	s = dict_get(env->sc_ssl_dict, name);
-	if (s != NULL) {
-		s->flags |= flags;
-		return 0;
-	}
+	char		 pathname[PATH_MAX];
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
 		fatal(NULL);
 
 	s->flags = flags;
-	(void)strlcpy(s->ssl_name, key.ssl_name, sizeof(s->ssl_name));
+	(void)strlcpy(s->ssl_name, name, sizeof(s->ssl_name));
 
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.crt", name))
+	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.crt",
+		path ? path : "/etc/ssl",
+		name))
 		goto err;
-
-	s->ssl_cert = ssl_load_file(certfile, &s->ssl_cert_len, 0755);
+	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
 	if (s->ssl_cert == NULL)
 		goto err;
 
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.key", name))
+	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.key",
+		path ? path : "/etc/ssl/private",
+		name))
 		goto err;
-
-	s->ssl_key = ssl_load_file(certfile, &s->ssl_key_len, 0700);
+	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0700);
 	if (s->ssl_key == NULL)
 		goto err;
 
-	/*
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.ca", name))
+	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.ca",
+		path ? path : "/etc/ssl",
+		name))
 		goto err;
-	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL)
-		goto err;
-	*/
+	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
+	if (s->ssl_ca == NULL) {
+		if (errno == EACCES)
+			goto err;
+		log_info("info: No CAf found in %s", pathname);
+	}
 
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.dh", name))
+	if (! bsnprintf(pathname, sizeof(pathname), "%s/%s.dh",
+		path ? path : "/etc/ssl",
+		name))
 		goto err;
-
-	s->ssl_dhparams = ssl_load_file(certfile, &s->ssl_dhparams_len, 0755);
+	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
 	if (s->ssl_dhparams == NULL) {
 		if (errno == EACCES)
 			goto err;
 		log_info("info: No DH parameters found in %s: "
-		    "using built-in parameters", certfile);
+		    "using built-in parameters", pathname);
 	}
 
-	dict_set(env->sc_ssl_dict, name, s);
+	*sp = s;
+	return (1);
 
-	return (0);
 err:
 	if (s->ssl_cert != NULL)
 		free(s->ssl_cert);
 	if (s->ssl_key != NULL)
 		free(s->ssl_key);
+	if (s->ssl_ca != NULL)
+		free(s->ssl_ca);
 	if (s->ssl_dhparams != NULL)
 		free(s->ssl_dhparams);
 	if (s != NULL)
 		free(s);
-	return (-1);
+	return (0);
 }
+
 
 const char *
 ssl_to_text(const SSL *ssl)

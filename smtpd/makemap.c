@@ -52,7 +52,6 @@ static int parse_setentry(char *, size_t, size_t);
 static int make_plain(DBT *, char *);
 static int make_aliases(DBT *, char *);
 static char *conf_aliases(char *);
-//static int ssl_load_certfile(const char *name, uint8_t flags);
 
 DB	*db;
 char	*source;
@@ -81,12 +80,6 @@ purge_config(uint8_t what)
 {
 	bzero(env, sizeof(struct smtpd));
 }
-
-//static int
-//ssl_load_certfile(const char *name, uint8_t flags)
-//{
-//	return (0);
-//}
 
 int
 main(int argc, char *argv[])
