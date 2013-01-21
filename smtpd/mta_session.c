@@ -121,7 +121,6 @@ static void mta_on_ptr(void *, void *, void *);
 static void mta_connect(struct mta_session *);
 static void mta_enter_state(struct mta_session *, int);
 static void mta_flush_task(struct mta_session *, int, const char *);
-static void mta_envelope_fail(struct envelope *, struct mta_route *, int);
 static void mta_error(struct mta_session *, const char *, ...);
 static void mta_send(struct mta_session *, char *, ...);
 static ssize_t mta_queue_data(struct mta_session *);
@@ -632,8 +631,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 static void
 mta_response(struct mta_session *s, char *line)
 {
-	struct envelope	       *evp;
-	int			delivery;
+	struct envelope	*evp;
+	char		 buf[MAX_LINE_SIZE];
+	int		 delivery;
 
 	switch (s->state) {
 
@@ -713,9 +713,14 @@ mta_response(struct mta_session *s, char *line)
 				delivery = IMSG_DELIVERY_PERMFAIL;
 			else
 				delivery = IMSG_DELIVERY_TEMPFAIL;
+
 			TAILQ_REMOVE(&s->task->envelopes, evp, entry);
-			envelope_set_errormsg(evp, "%s", line);
-			mta_envelope_fail(evp, s->route, delivery);
+			snprintf(buf, sizeof(buf), "%s",
+			    mta_host_to_text(s->route->dst));
+			mta_delivery(evp, buf, delivery, line);
+			free(evp);
+			stat_decrement("mta.envelope", 1);
+
 			if (TAILQ_EMPTY(&s->task->envelopes)) {
 				mta_flush_task(s, IMSG_DELIVERY_OK,
 				    "No envelope");
@@ -984,36 +989,15 @@ static void
 mta_flush_task(struct mta_session *s, int delivery, const char *error)
 {
 	struct envelope	*e;
-	const char	*pfx;
 	char		 relay[MAX_LINE_SIZE];
 	size_t		 n;
 
-	switch (delivery) {
-	case IMSG_DELIVERY_OK:
-		pfx = "Ok";
-		break;
-	case IMSG_DELIVERY_TEMPFAIL:
-		pfx = "TempFail";
-		break;
-	case IMSG_DELIVERY_PERMFAIL:
-	case IMSG_DELIVERY_LOOP:
-		pfx = "PermFail";
-		break;
-	default:
-		errx(1, "unexpected delivery status %i", delivery);
-	}
-
-	snprintf(relay, sizeof relay, "relay=%s, ",
-	    mta_host_to_text(s->route->dst));
+	snprintf(relay, sizeof relay, "%s", mta_host_to_text(s->route->dst));
 
 	n = 0;
 	while ((e = TAILQ_FIRST(&s->task->envelopes))) {
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
-		envelope_set_errormsg(e, "%s", error);
-		log_envelope(e, relay, pfx, error);
-		m_create(p_queue, delivery, 0, 0, -1, MSZ_EVP);
-		m_add_envelope(p_queue, e);
-		m_close(p_queue);
+		mta_delivery(e, relay, delivery, error);
 		free(e);
 		n++;
 	}
@@ -1024,29 +1008,6 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 	stat_decrement("mta.envelope", n);
 	stat_decrement("mta.task.running", 1);
 	stat_decrement("mta.task", 1);
-}
-
-static void
-mta_envelope_fail(struct envelope *e, struct mta_route *route, int delivery)
-{
-	char relay[MAX_LINE_SIZE], stat[MAX_LINE_SIZE];
-	const char *pfx;
-
-	if (delivery == IMSG_DELIVERY_TEMPFAIL)
-		pfx = "TempFail";
-	else
-		pfx = "PermFail";
-
-	snprintf(relay, sizeof relay, "relay=%s, ",
-	    mta_host_to_text(route->dst));
-
-	snprintf(stat, sizeof stat, "RemoteError (%s)", &e->errorline[4]);
-	log_envelope(e, relay, pfx, stat);
-	m_create(p_queue, delivery, 0, 0, -1, MSZ_EVP);
-	m_add_envelope(p_queue, e);
-	m_close(p_queue);
-
-	stat_decrement("mta.envelope", 1);
 }
 
 static void

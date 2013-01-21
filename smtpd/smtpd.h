@@ -1190,6 +1190,7 @@ void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
+void mta_delivery(struct envelope *, const char *, int, const char *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1206,6 +1207,10 @@ int cmdline_symset(char *);
 
 /* queue.c */
 pid_t queue(void);
+void queue_ok(uint64_t);
+void queue_tempfail(uint64_t, const char *);
+void queue_permfail(uint64_t, const char *);
+void queue_loop(uint64_t);
 
 
 /* queue_backend.c */

@@ -1276,6 +1276,10 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 static void
 log_imsg(int to, int from, struct imsg *imsg)
 {
+
+	if (to == PROC_CONTROL)
+		return;
+
 	if (imsg->fd != -1)
 		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%i)",
 		    proc_name(to),

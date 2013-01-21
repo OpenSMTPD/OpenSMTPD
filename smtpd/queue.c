@@ -46,6 +46,7 @@ static void queue_timeout(int, short, void *);
 static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
+static void queue_log(const struct envelope *, const char *, const char *);
 
 static void
 queue_imsg(struct mproc *p, struct imsg *imsg)
@@ -55,6 +56,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	struct envelope		 evp;
 	static uint64_t		 batch_id;
 	struct msg		 m;
+	const char		*reason;
 	uint64_t		 reqid, evpid;
 	uint32_t		 msgid;
 	time_t			 nexttry;
@@ -193,8 +195,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
-			log_envelope(&evp, NULL, "Remove",
-			    "Removed by administrator");
+			queue_log(&evp, "Remove", "Removed by administrator");
 			queue_envelope_delete(evpid);
 			return;
 
@@ -204,12 +205,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
-			envelope_set_errormsg(&evp, "Envelope expired");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
-			log_envelope(&evp, NULL, "Expire", evp.errorline);
+			queue_log(&evp, "Expire", "Envelope expired");
 			queue_envelope_delete(evpid);
 			return;
 
@@ -320,18 +320,22 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_DELIVERY_OK:
 			m_msg(&m, imsg);
-			m_get_envelope(&m, &evp);
+			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			queue_envelope_delete(evp.id);
+			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1, 9);
-			m_add_evpid(p_scheduler, evp.id);
+			m_add_evpid(p_scheduler, evpid);
 			m_close(p_scheduler);
 			return;
 
 		case IMSG_DELIVERY_TEMPFAIL:
 			m_msg(&m, imsg);
-			m_get_envelope(&m, &evp);
+			m_get_evpid(&m, &evpid);
+			m_get_string(&m, &reason);
 			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			envelope_set_errormsg(&evp, "%s", reason);
 			evp.retry++;
 			queue_envelope_update(&evp);
 			m_create(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
@@ -342,23 +346,30 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_DELIVERY_PERMFAIL:
 			m_msg(&m, imsg);
-			m_get_envelope(&m, &evp);
+			m_get_evpid(&m, &evpid);
+			m_get_string(&m, &reason);
 			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
+			envelope_set_errormsg(&evp, "%s", reason);
 			queue_bounce(&evp, &bounce);
-			queue_envelope_delete(evp.id);
+			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
 			    9);
-			m_add_evpid(p_scheduler, evp.id);
+			m_add_evpid(p_scheduler, evpid);
 			m_close(p_scheduler);
 			return;
 
 		case IMSG_DELIVERY_LOOP:
 			m_msg(&m, imsg);
-			m_get_envelope(&m, &evp);
+			m_get_evpid(&m, &evpid);
 			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0)
+				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			envelope_set_errormsg(&evp, "%s", "Loop detected");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -570,4 +581,60 @@ queue_timeout(int fd, short event, void *p)
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
 	evtimer_add(ev, &tv);
+}
+
+void
+queue_ok(uint64_t evpid)
+{
+	m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1, 9);
+	m_add_evpid(p_queue, evpid);
+	m_close(p_queue);
+}
+
+void
+queue_tempfail(uint64_t evpid, const char *reason)
+{
+	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1, 32 + strlen(reason));
+	m_add_evpid(p_queue, evpid);
+	m_add_string(p_queue, reason);
+	m_close(p_queue);
+}
+
+void
+queue_permfail(uint64_t evpid, const char *reason)
+{
+	m_create(p_queue, IMSG_DELIVERY_PERMFAIL, 0, 0, -1, 32 + strlen(reason));
+	m_add_evpid(p_queue, evpid);
+	m_add_string(p_queue, reason);
+	m_close(p_queue);
+}
+
+void
+queue_loop(uint64_t evpid)
+{
+	m_create(p_queue, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
+	m_add_evpid(p_queue, evpid);
+	m_close(p_queue);
+}
+
+static void
+queue_log(const struct envelope *e, const char *prefix, const char *status)
+{
+       char rcpt[MAX_LINE_SIZE];
+
+       rcpt[0] = '\0';
+       if (strcmp(e->rcpt.user, e->dest.user) ||
+           strcmp(e->rcpt.domain, e->dest.domain))
+               snprintf(rcpt, sizeof rcpt, "rcpt=<%s@%s>, ",
+                   e->rcpt.user, e->rcpt.domain);
+
+       log_info("%s: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
+           "%sdelay=%s, stat=%s",
+           e->type == D_MDA ? "delivery" : "relay",
+           prefix,
+           e->id, e->sender.user, e->sender.domain,
+           e->dest.user, e->dest.domain,
+           rcpt,
+           duration_to_text(time(NULL) - e->creation),
+           status);
 }
