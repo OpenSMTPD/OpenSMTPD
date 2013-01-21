@@ -586,7 +586,7 @@ queue_timeout(int fd, short event, void *p)
 void
 queue_ok(uint64_t evpid)
 {
-	m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1, 9);
+	m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1, sizeof(evpid) + 1);
 	m_add_evpid(p_queue, evpid);
 	m_close(p_queue);
 }
@@ -594,7 +594,8 @@ queue_ok(uint64_t evpid)
 void
 queue_tempfail(uint64_t evpid, const char *reason)
 {
-	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1, 32 + strlen(reason));
+	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
+	    sizeof(evpid) + strlen(reason) + 2);
 	m_add_evpid(p_queue, evpid);
 	m_add_string(p_queue, reason);
 	m_close(p_queue);
@@ -603,7 +604,8 @@ queue_tempfail(uint64_t evpid, const char *reason)
 void
 queue_permfail(uint64_t evpid, const char *reason)
 {
-	m_create(p_queue, IMSG_DELIVERY_PERMFAIL, 0, 0, -1, 32 + strlen(reason));
+	m_create(p_queue, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
+	    sizeof(evpid) + strlen(reason) + 2);
 	m_add_evpid(p_queue, evpid);
 	m_add_string(p_queue, reason);
 	m_close(p_queue);
@@ -612,7 +614,7 @@ queue_permfail(uint64_t evpid, const char *reason)
 void
 queue_loop(uint64_t evpid)
 {
-	m_create(p_queue, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
+	m_create(p_queue, IMSG_DELIVERY_LOOP, 0, 0, -1, sizeof(evpid) + 1);
 	m_add_evpid(p_queue, evpid);
 	m_close(p_queue);
 }
