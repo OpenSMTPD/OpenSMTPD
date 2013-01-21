@@ -39,21 +39,26 @@
 #include <openssl/engine.h>
 #include <openssl/err.h>
 
-#include "smtpd.h"
 #include "log.h"
 #include "ssl.h"
 
 void
 ssl_init(void)
 {
+	static int	inited = 0;
+
+	if (inited)
+		return;
+
 	SSL_library_init();
 	SSL_load_error_strings();
-
+	
 	OpenSSL_add_all_algorithms();
-
+	
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
+	inited = 1;
 }
 
 int
@@ -151,7 +156,7 @@ ssl_ctx_create(void)
 	}
 
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
-	SSL_CTX_set_timeout(ctx, SMTPD_SESSION_TIMEOUT);
+	SSL_CTX_set_timeout(ctx, SSL_SESSION_TIMEOUT);
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_TICKET);
 	SSL_CTX_set_options(ctx,
