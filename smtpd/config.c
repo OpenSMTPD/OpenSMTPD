@@ -71,8 +71,8 @@ purge_config(uint8_t what)
 	}
 	if (what & PURGE_SSL) {
 		while (dict_poproot(env->sc_ssl_dict, NULL, (void **)&s)) {
-			bzero(s->ssl_cert, sizeof s->ssl_cert);
-			bzero(s->ssl_key, sizeof s->ssl_key);
+			bzero(s->ssl_cert, s->ssl_cert_len);
+			bzero(s->ssl_key, s->ssl_key_len);
 			free(s->ssl_cert);
 			free(s->ssl_key);
 			free(s);
