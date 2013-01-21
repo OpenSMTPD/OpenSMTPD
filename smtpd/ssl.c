@@ -39,6 +39,7 @@
 #include <openssl/engine.h>
 #include <openssl/err.h>
 
+#include "smtpd.h"
 #include "log.h"
 #include "ssl.h"
 
