@@ -45,6 +45,7 @@
 
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);

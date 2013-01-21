@@ -45,8 +45,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <openssl/ssl.h>
+
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);

@@ -29,8 +29,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <openssl/ssl.h>
+
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static int pipes[PROC_COUNT][PROC_COUNT];
 

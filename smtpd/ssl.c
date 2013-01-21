@@ -56,6 +56,45 @@ ssl_init(void)
 	ENGINE_register_all_complete();
 }
 
+int
+ssl_setup(SSL_CTX **ctxp, struct ssl *ssl)
+{
+	DH	*dh;
+	SSL_CTX	*ctx;
+	
+	ctx = ssl_ctx_create();
+
+	if (!ssl_ctx_use_certificate_chain(ctx,
+		ssl->ssl_cert, ssl->ssl_cert_len))
+		goto err;
+	if (!ssl_ctx_use_private_key(ctx,
+		ssl->ssl_key, ssl->ssl_key_len))
+		goto err;
+
+	if (!SSL_CTX_check_private_key(ctx))
+		goto err;
+	if (!SSL_CTX_set_session_id_context(ctx,
+		(const unsigned char *)ssl->ssl_name,
+		strlen(ssl->ssl_name) + 1))
+		goto err;
+
+	if (ssl->ssl_dhparams_len == 0)
+		dh = get_dh1024();
+	else
+		dh = get_dh_from_memory(ssl->ssl_dhparams,
+		    ssl->ssl_dhparams_len);
+	ssl_set_ephemeral_key_exchange(ctx, dh);
+	DH_free(dh);
+
+	*ctxp = ctx;
+	return 1;
+
+err:
+	SSL_CTX_free(ctx);
+	ssl_error("ssl_setup");
+	return 0;
+}
+
 char *
 ssl_load_file(const char *name, off_t *len, mode_t perm)
 {
@@ -205,7 +244,8 @@ err:
 }
 
 const char *
-ssl_to_text(void *ssl) {
+ssl_to_text(const SSL *ssl)
+{
 	static char buf[256];
 
 	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%i",

@@ -43,56 +43,6 @@
 #include "log.h"
 #include "ssl.h"
 
-void
-ssl_setup(struct listener *l)
-{
-	struct ssl	key;
-	DH *dh;
-
-	if (!(l->flags & F_SSL))
-		return;
-
-	if (strlcpy(key.ssl_name, l->ssl_cert_name, sizeof(key.ssl_name))
-	    >= sizeof(key.ssl_name))
-		fatal("ssl_setup: certificate name truncated");
-
-	if ((l->ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
-		fatal("ssl_setup: certificate tree corrupted");
-
-	l->ssl_ctx = ssl_ctx_create();
-
-	if (!ssl_ctx_use_certificate_chain(l->ssl_ctx,
-	    l->ssl->ssl_cert, l->ssl->ssl_cert_len))
-		goto err;
-	if (!ssl_ctx_use_private_key(l->ssl_ctx,
-	    l->ssl->ssl_key, l->ssl->ssl_key_len))
-		goto err;
-
-	if (!SSL_CTX_check_private_key(l->ssl_ctx))
-		goto err;
-	if (!SSL_CTX_set_session_id_context(l->ssl_ctx,
-		(const unsigned char *)l->ssl_cert_name,
-		strlen(l->ssl_cert_name) + 1))
-		goto err;
-
-	if (l->ssl->ssl_dhparams_len == 0)
-		dh = get_dh1024();
-	else
-		dh = get_dh_from_memory(l->ssl->ssl_dhparams,
-		    l->ssl->ssl_dhparams_len);
-	ssl_set_ephemeral_key_exchange(l->ssl_ctx, dh);
-	DH_free(dh);
-
-	log_debug("debug: ssl_setup: ssl setup finished for listener: %p", l);
-	return;
-
-err:
-	if (l->ssl_ctx != NULL)
-		SSL_CTX_free(l->ssl_ctx);
-	ssl_error("ssl_setup");
-	fatal("ssl_setup: cannot set SSL up");
-	return;
-}
 
 void *
 ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
