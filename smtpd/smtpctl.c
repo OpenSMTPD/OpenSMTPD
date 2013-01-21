@@ -66,6 +66,7 @@ static int action_schedule_all(void);
 
 static int action_show_queue(void);
 static int action_show_queue_message(uint32_t);
+static uint32_t trace_convert(uint32_t);
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -295,6 +296,43 @@ main(int argc, char *argv[])
 		printf("logging request sent.\n");
 		done = 1;
 		break;
+
+	case LOG_TRACE_IMSG:
+	case LOG_TRACE_IO:
+	case LOG_TRACE_SMTP:
+	case LOG_TRACE_MFA:
+	case LOG_TRACE_MTA:
+	case LOG_TRACE_BOUNCE:
+	case LOG_TRACE_SCHEDULER:
+	case LOG_TRACE_STAT:
+	case LOG_TRACE_RULES:
+	case LOG_TRACE_IMSG_SIZE:
+	case LOG_TRACE_ALL:
+		verbose = trace_convert(action);
+		imsg_compose(ibuf, IMSG_CTL_TRACE, 0, 0, -1, &verbose,
+		    sizeof(verbose));
+		done = 1;
+		printf("trace request sent.\n");
+		break;
+
+	case LOG_UNTRACE_IMSG:
+	case LOG_UNTRACE_IO:
+	case LOG_UNTRACE_SMTP:
+	case LOG_UNTRACE_MFA:
+	case LOG_UNTRACE_MTA:
+	case LOG_UNTRACE_BOUNCE:
+	case LOG_UNTRACE_SCHEDULER:
+	case LOG_UNTRACE_STAT:
+	case LOG_UNTRACE_RULES:
+	case LOG_UNTRACE_IMSG_SIZE:
+	case LOG_UNTRACE_ALL:
+		verbose = trace_convert(action);
+		imsg_compose(ibuf, IMSG_CTL_UNTRACE, 0, 0, -1, &verbose,
+		    sizeof(verbose));
+		done = 1;
+		printf("untrace request sent.\n");
+		break;
+
 	default:
 		errx(1, "unknown request (%d)", action);
 	}
@@ -315,6 +353,28 @@ main(int argc, char *argv[])
 		case RESUME_SMTP:
 		case LOG_VERBOSE:
 		case LOG_BRIEF:
+		case LOG_TRACE_IMSG:
+		case LOG_TRACE_IO:
+		case LOG_TRACE_SMTP:
+		case LOG_TRACE_MFA:
+		case LOG_TRACE_MTA:
+		case LOG_TRACE_BOUNCE:
+		case LOG_TRACE_SCHEDULER:
+		case LOG_TRACE_STAT:
+		case LOG_TRACE_RULES:
+		case LOG_TRACE_IMSG_SIZE:
+		case LOG_TRACE_ALL:
+		case LOG_UNTRACE_IMSG:
+		case LOG_UNTRACE_IO:
+		case LOG_UNTRACE_SMTP:
+		case LOG_UNTRACE_MFA:
+		case LOG_UNTRACE_MTA:
+		case LOG_UNTRACE_BOUNCE:
+		case LOG_UNTRACE_SCHEDULER:
+		case LOG_UNTRACE_STAT:
+		case LOG_UNTRACE_RULES:
+		case LOG_UNTRACE_IMSG_SIZE:
+		case LOG_UNTRACE_ALL:
 			done = show_command_output(&imsg);
 			break;
 		case SHOW_STATS:
@@ -732,4 +792,32 @@ show_monitor(struct stat_digest *d)
 
 	last = *d;
 	count++;
+}
+
+static uint32_t
+trace_convert(uint32_t trace)
+{
+	if (trace == LOG_TRACE_IMSG || trace == LOG_UNTRACE_IMSG)
+		return TRACE_IMSG;
+	if (trace == LOG_TRACE_IO || trace == LOG_UNTRACE_IO)
+		return TRACE_IO;
+	if (trace == LOG_TRACE_SMTP || trace == LOG_UNTRACE_SMTP)
+		return TRACE_SMTP;
+	if (trace == LOG_TRACE_MFA || trace == LOG_UNTRACE_MFA)
+		return TRACE_MFA;
+	if (trace == LOG_TRACE_MTA || trace == LOG_UNTRACE_MTA)
+		return TRACE_MTA;
+	if (trace == LOG_TRACE_BOUNCE || trace == LOG_UNTRACE_BOUNCE)
+		return TRACE_BOUNCE;
+	if (trace == LOG_TRACE_SCHEDULER || trace == LOG_UNTRACE_SCHEDULER)
+		return TRACE_SCHEDULER;
+	if (trace == LOG_TRACE_STAT || trace == LOG_UNTRACE_STAT)
+		return TRACE_STAT;
+	if (trace == LOG_TRACE_RULES || trace == LOG_UNTRACE_RULES)
+		return TRACE_RULES;
+	if (trace == LOG_TRACE_IMSG_SIZE || trace == LOG_UNTRACE_IMSG_SIZE)
+		return TRACE_IMSGSIZE;
+	if (trace == LOG_TRACE_ALL || trace == LOG_UNTRACE_ALL)
+		return ~TRACE_VERBOSE;
+	return 0;
 }

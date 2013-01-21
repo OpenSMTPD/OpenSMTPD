@@ -124,7 +124,9 @@ const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
 const char	*backend_stat = "ram";
 
-int		 profiling = 0;
+int	profiling = 0;
+int	verbose = 0;
+int	debug = 0;
 
 struct tree	 children;
 
@@ -234,6 +236,36 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_int(&m, &v);
 			m_end(&m);
 			log_verbose(v);
+			m_forward(p_lka, imsg);
+			m_forward(p_mda, imsg);
+			m_forward(p_mfa, imsg);
+			m_forward(p_mta, imsg);
+			m_forward(p_queue, imsg);
+			m_forward(p_smtp, imsg);
+			return;
+
+		case IMSG_CTL_TRACE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			verbose |= v;
+			log_verbose(verbose);
+			imsg->hdr.type = IMSG_CTL_VERBOSE;
+			m_forward(p_lka, imsg);
+			m_forward(p_mda, imsg);
+			m_forward(p_mfa, imsg);
+			m_forward(p_mta, imsg);
+			m_forward(p_queue, imsg);
+			m_forward(p_smtp, imsg);
+			return;
+
+		case IMSG_CTL_UNTRACE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			verbose &= ~v;
+			log_verbose(verbose);
+			imsg->hdr.type = IMSG_CTL_VERBOSE;
 			m_forward(p_lka, imsg);
 			m_forward(p_mda, imsg);
 			m_forward(p_mfa, imsg);
@@ -540,7 +572,6 @@ int
 main(int argc, char *argv[])
 {
 	int		 c, i;
-	int		 debug, verbose;
 	int		 opts, flags;
 	const char	*conffile = CONF_FILE;
 	struct smtpd	 smtpd;
@@ -706,12 +737,6 @@ main(int argc, char *argv[])
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
 
-	/*
-	if (env->sc_queue_compress_algo &&
-	    !compress_backend_init(env->sc_queue_compress_algo));
-		errx(1, "could setup queue compress backend \"%s\"",
-		    env->sc_queue_compress_algo);
-	*/
 	log_init(debug);
 	log_verbose(verbose);
 

@@ -33,8 +33,8 @@
 
 #include "log.h"
 
-int	 debug;
-int	 verbose;
+static int	 debug;
+static int	 verbose;
 
 void	 vlog(int, const char *, va_list);
 void	 logit(int, const char *, ...)
