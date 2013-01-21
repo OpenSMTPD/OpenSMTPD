@@ -43,6 +43,19 @@
 #include "log.h"
 #include "ssl.h"
 
+void
+ssl_init(void)
+{
+	SSL_library_init();
+	SSL_load_error_strings();
+
+	OpenSSL_add_all_algorithms();
+
+	/* Init hardware crypto engines. */
+	ENGINE_load_builtin_engines();
+	ENGINE_register_all_complete();
+}
+
 char *
 ssl_load_file(const char *name, off_t *len, mode_t perm)
 {
@@ -189,19 +202,6 @@ err:
 	if (s != NULL)
 		free(s);
 	return (-1);
-}
-
-void
-ssl_init(void)
-{
-	SSL_library_init();
-	SSL_load_error_strings();
-
-	OpenSSL_add_all_algorithms();
-
-	/* Init hardware crypto engines. */
-	ENGINE_load_builtin_engines();
-	ENGINE_register_all_complete();
 }
 
 const char *
