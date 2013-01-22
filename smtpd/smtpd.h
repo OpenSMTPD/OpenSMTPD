@@ -924,6 +924,7 @@ struct mproc {
 	off_t		 bytes_in;
 	off_t		 bytes_out;
 	size_t		 bytes_queued;
+	size_t		 bytes_queued_max;
 };
 
 struct msg {

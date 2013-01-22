@@ -269,6 +269,8 @@ m_forward(struct mproc *p, struct imsg *imsg)
 
 	p->msg_out += 1;
 	p->bytes_queued += imsg->hdr.len;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 
 	mproc_event_add(p);
 }
@@ -281,6 +283,8 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 
 	p->msg_out += 1;
 	p->bytes_queued += len + IMSG_HEADER_SIZE;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 
 	mproc_event_add(p);
 }
@@ -294,8 +298,11 @@ m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
 	imsg_composev(&p->imsgbuf, type, peerid, pid, fd, iov, n);
 
 	p->msg_out += 1;
+	p->bytes_queued += IMSG_HEADER_SIZE;
 	for (i = 0; i < n; i++)
 		p->bytes_queued += iov[i].iov_len;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 
 	mproc_event_add(p);
 }
@@ -344,6 +351,8 @@ m_close(struct mproc *p)
 
 	p->msg_out += 1;
 	p->bytes_queued += p->ibuf->wpos;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 	p->ibuf = NULL;
 
 	mproc_event_add(p);

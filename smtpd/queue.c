@@ -47,12 +47,12 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
-static size_t	flow_bounce_hiwat = 1000;
-static size_t	flow_bounce_lowat = 100;
-static size_t	flow_agent_hiwat = 20 * 1048576;
-static size_t	flow_agent_lowat =   1 * 1048576;
-static size_t	flow_scheduler_hiwat = 20 * 1048576;
-static size_t	flow_scheduler_lowat = 1 * 1048576;
+static size_t	flow_bounce_hiwat = 10;
+static size_t	flow_bounce_lowat = 0;
+static size_t	flow_agent_hiwat = 100 * 1024;
+static size_t	flow_agent_lowat =   0;
+static size_t	flow_scheduler_hiwat = 100 * 1024;
+static size_t	flow_scheduler_lowat = 0;
 
 extern size_t	nbounce;
 
@@ -340,6 +340,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p, IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, 25);
 			m_add_id(p, reqid);
 			m_close(p);
+			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_OK:
@@ -350,6 +351,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
+			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_TEMPFAIL:
@@ -362,6 +364,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			    MSZ_EVP);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
+			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_PERMFAIL:
@@ -377,6 +380,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			    9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
+			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_LOOP:
@@ -391,6 +395,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
+			queue_flow_control();
 			return;
 		}
 	}
