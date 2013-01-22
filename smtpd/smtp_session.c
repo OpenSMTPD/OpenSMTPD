@@ -598,9 +598,9 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			return;
 		}
 		if (s->listener->helo[0])
-			smtp_reply(s, SMTPD_BANNER, s->listener->helo);
+			smtp_reply(s, SMTPD_BANNER, s->listener->helo, SMTPD_NAME);
 		else
-			smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
+			smtp_reply(s, SMTPD_BANNER, env->sc_hostname, SMTPD_NAME);
 		io_reload(&s->io);
 		return;
 
@@ -741,7 +741,7 @@ smtp_io(struct io *io, int evt)
 
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
-			smtp_reply(s, SMTPD_BANNER, env->sc_hostname);
+			smtp_reply(s, SMTPD_BANNER, env->sc_hostname, SMTPD_NAME);
 			io_set_write(&s->io);
 		}
 		else {
