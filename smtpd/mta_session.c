@@ -44,6 +44,7 @@
 
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 #define MAX_MAIL	100
 

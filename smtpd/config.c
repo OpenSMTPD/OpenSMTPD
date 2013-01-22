@@ -29,8 +29,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <openssl/ssl.h>
+
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static int pipes[PROC_COUNT][PROC_COUNT];
 
@@ -68,8 +71,8 @@ purge_config(uint8_t what)
 	}
 	if (what & PURGE_SSL) {
 		while (dict_poproot(env->sc_ssl_dict, NULL, (void **)&s)) {
-			bzero(s->ssl_cert, sizeof s->ssl_cert);
-			bzero(s->ssl_key, sizeof s->ssl_key);
+			bzero(s->ssl_cert, s->ssl_cert_len);
+			bzero(s->ssl_key, s->ssl_key_len);
 			free(s->ssl_cert);
 			free(s->ssl_key);
 			free(s);
@@ -182,7 +185,8 @@ process_stat(struct mproc *p)
 	snprintf(buf, sizeof buf, "buffer.%s.%s",
 	    proc_name(smtpd_process),
 	    proc_name(p->proc));
-	value.u.counter = p->bytes_queued;
+	value.u.counter = p->bytes_queued_max;
+	p->bytes_queued_max = p->bytes_queued;
 	stat_set(buf, &value);
 }
 

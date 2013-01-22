@@ -403,6 +403,13 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			log_verbose(v);
 			m_forward(p_scheduler, imsg);
 			return;
+
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling = v;
+			return;
 		}
 	}
 

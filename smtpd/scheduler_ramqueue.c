@@ -129,8 +129,6 @@ static struct tree	updates;
 
 static time_t		currtime;
 
-extern int verbose;
-
 static void
 scheduler_ramqueue_init(void)
 {

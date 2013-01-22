@@ -51,7 +51,10 @@
 #define SMTPD_FILTER_USER	 "_smtpf"
 #define SMTPD_QUEUE_USER	 "_smtpq"
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
-#define SMTPD_BANNER		 "220 %s ESMTP OpenSMTPD"
+#ifndef SMTPD_NAME
+#define	SMTPD_NAME		 "OpenSMTPD"
+#endif
+#define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -164,6 +167,11 @@ enum imsg_type {
 	IMSG_CTL_LIST_ENVELOPES,
 	IMSG_CTL_REMOVE,
 	IMSG_CTL_SCHEDULE,
+
+	IMSG_CTL_TRACE,
+	IMSG_CTL_UNTRACE,
+	IMSG_CTL_PROFILE,
+	IMSG_CTL_UNPROFILE,
 
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
@@ -495,19 +503,6 @@ enum envelope_field {
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,
-};
-
-struct ssl {
-	char			 ssl_name[PATH_MAX];
-	char			*ssl_ca;
-	off_t			 ssl_ca_len;
-	char			*ssl_cert;
-	off_t			 ssl_cert_len;
-	char			*ssl_key;
-	off_t			 ssl_key_len;
-	char			*ssl_dhparams;
-	off_t			 ssl_dhparams_len;
-	uint8_t			 flags;
 };
 
 struct listener {
@@ -915,6 +910,7 @@ struct mproc {
 	struct ibuf	*ibuf;
 	int		 ibuferror;
 	int		 enable;
+	short		 events;
 	struct event	 ev;
 	void		*data;
 
@@ -923,6 +919,7 @@ struct mproc {
 	off_t		 bytes_in;
 	off_t		 bytes_out;
 	size_t		 bytes_queued;
+	size_t		 bytes_queued_max;
 };
 
 struct msg {
@@ -931,6 +928,9 @@ struct msg {
 };
 
 extern enum smtp_proc_type	smtpd_process;
+
+extern int verbose;
+extern int profiling;
 
 extern struct mproc *p_control;
 extern struct mproc *p_parent;
@@ -1262,19 +1262,10 @@ const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);
 
-/* ssl.c */
-void ssl_init(void);
-int ssl_load_certfile(const char *, uint8_t);
-void ssl_setup(struct listener *);
-void *ssl_mta_init(char *, off_t, char *, off_t);
-void *ssl_smtp_init(void *, char *, off_t, char *, off_t);
-const char *ssl_to_text(void *);
-int ssl_cmp(struct ssl *, struct ssl *);
 
-
-/* ssl_privsep.c */
-int	 ssl_ctx_use_private_key(void *, char *, off_t);
-int	 ssl_ctx_use_certificate_chain(void *, char *, off_t);
+/* ssl_smtpd.c */
+void   *ssl_mta_init(char *, off_t, char *, off_t);
+void   *ssl_smtp_init(void *, char *, off_t, char *, off_t);
 
 
 /* stat_backend.c */
