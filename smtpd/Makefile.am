@@ -42,7 +42,7 @@ smtpd_SOURCES=		aliases.c bounce.c ca.c compress_backend.c config.c	\
 			lka_session.c log.c mda.c mfa.c mfa_session.c mproc.c	\
 			mta.c mta_session.c parse.y queue.c queue_backend.c	\
 			ruleset.c scheduler.c scheduler_backend.c smtp.c	\
-			smtp_session.c smtpd.c ssl.c ssl_privsep.c		\
+			smtp_session.c smtpd.c ssl.c ssl_privsep.c ssl_smtpd.c	\
 			stat_backend.c table.c to.c tree.c util.c waitq.c
 
 # backends

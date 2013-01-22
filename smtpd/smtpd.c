@@ -1651,6 +1651,7 @@ parent_auth_user(const char *username, const char *password)
 #else
 	return (parent_auth_pwd(username, password));
 #endif
+}
 
 static void
 parent_broadcast_verbose(uint32_t v)
