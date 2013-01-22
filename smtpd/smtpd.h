@@ -902,6 +902,7 @@ struct mproc {
 	struct ibuf	*ibuf;
 	int		 ibuferror;
 	int		 enable;
+	short		 events;
 	struct event	 ev;
 	void		*data;
 
@@ -910,6 +911,7 @@ struct mproc {
 	off_t		 bytes_in;
 	off_t		 bytes_out;
 	size_t		 bytes_queued;
+	size_t		 bytes_queued_max;
 };
 
 struct msg {
