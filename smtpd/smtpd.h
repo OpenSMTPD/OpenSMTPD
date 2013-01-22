@@ -51,7 +51,10 @@
 #define SMTPD_FILTER_USER	 "_smtpf"
 #define SMTPD_QUEUE_USER	 "_smtpq"
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
-#define SMTPD_BANNER		 "220 %s ESMTP OpenSMTPD"
+#ifndef SMTPD_NAME
+#define	SMTPD_NAME		 "OpenSMTPD"
+#endif
+#define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
