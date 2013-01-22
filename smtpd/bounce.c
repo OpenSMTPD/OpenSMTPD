@@ -161,8 +161,6 @@ bounce_add(uint64_t evpid)
 	evtimer_add(&bounce->evt, &tv);
 
 	nbounce += 1;
-
-	queue_flow_control();
 }
 
 void
@@ -251,8 +249,6 @@ bounce_drain()
 		tree_xset(&wait_fd, bounce->id, bounce);
 		running += 1;
 	}
-
-	queue_flow_control();
 }
 
 static void
@@ -483,6 +479,7 @@ bounce_status(struct bounce *bounce, const char *fmt, ...)
 	}
 
 	free(status);
+	queue_flow_control();
 }
 
 static void
@@ -509,6 +506,8 @@ bounce_free(struct bounce *bounce)
 
 	running -= 1;
 	bounce_drain();
+
+	queue_flow_control();
 }
 
 static void

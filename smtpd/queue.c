@@ -47,11 +47,11 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
-static size_t	flow_bounce_hiwat = 10;
+static size_t	flow_bounce_hiwat = 1000;
 static size_t	flow_bounce_lowat = 0;
-static size_t	flow_agent_hiwat = 100 * 1024;
+static size_t	flow_agent_hiwat = 200 * 1024;
 static size_t	flow_agent_lowat =   0;
-static size_t	flow_scheduler_hiwat = 100 * 1024;
+static size_t	flow_scheduler_hiwat = 200 * 1024;
 static size_t	flow_scheduler_lowat = 0;
 
 extern size_t	nbounce;
@@ -185,7 +185,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				m_close(p_scheduler);
 
 			}
-			queue_flow_control();
 			return;
 
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
@@ -212,7 +211,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			log_envelope(&evp, NULL, "Remove",
 			    "Removed by administrator");
 			queue_envelope_delete(evpid);
-			queue_flow_control();
 			return;
 
 		case IMSG_QUEUE_EXPIRE:
@@ -228,7 +226,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			queue_bounce(&evp, &bounce);
 			log_envelope(&evp, NULL, "Expire", evp.errorline);
 			queue_envelope_delete(evpid);
-			queue_flow_control();
 			return;
 
 		case IMSG_QUEUE_BOUNCE:
@@ -239,7 +236,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
 			queue_envelope_update(&evp);
-			queue_flow_control();
 			return;
 
 		case IMSG_MDA_DELIVER:
@@ -252,7 +248,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_mda, &evp);
 			m_close(p_mda);
-			queue_flow_control();
 			return;
 
 		case IMSG_BOUNCE_INJECT:
@@ -260,7 +255,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			bounce_add(evpid);
-			queue_flow_control();
 			return;
 
 		case IMSG_MTA_BATCH:
@@ -268,7 +262,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_mta, IMSG_MTA_BATCH, 0, 0, -1, 9);
 			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
-			queue_flow_control();
 			return;
 
 		case IMSG_MTA_BATCH_ADD:
@@ -282,14 +275,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_add_id(p_mta, batch_id);
 			m_add_envelope(p_mta, &evp);
 			m_close(p_mta);
-			queue_flow_control();
 			return;
 
 		case IMSG_MTA_BATCH_END:
 			m_create(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1, 9);
 			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
-			queue_flow_control();
 			return;
 
 		case IMSG_CTL_LIST_ENVELOPES:
@@ -340,7 +331,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p, IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, 25);
 			m_add_id(p, reqid);
 			m_close(p);
-			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_OK:
@@ -351,7 +341,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
-			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_TEMPFAIL:
@@ -364,7 +353,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			    MSZ_EVP);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
-			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_PERMFAIL:
@@ -380,7 +368,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			    9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
-			queue_flow_control();
 			return;
 
 		case IMSG_DELIVERY_LOOP:
@@ -395,7 +382,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
-			queue_flow_control();
 			return;
 		}
 	}
@@ -612,6 +598,8 @@ void
 queue_flow_control(void)
 {
 	size_t	bufsz;
+	int	oldlimit = limit;
+	int	set, unset;
 
 	if (nbounce <= flow_bounce_lowat)
 		limit &= ~LIMIT_BOUNCE;
@@ -628,6 +616,22 @@ queue_flow_control(void)
 		limit &= ~LIMIT_SCHEDULER;
 	else if (p_scheduler->bytes_queued > flow_scheduler_hiwat)
 		limit |= LIMIT_SCHEDULER;
+
+	set = limit & (limit ^ oldlimit);
+	unset = oldlimit & (limit ^ oldlimit);
+	if (set & LIMIT_BOUNCE)
+		log_warnx("warn: queue: bounce limit reached");
+	if (set & LIMIT_AGENT)
+		log_warnx("warn: queue: buffer limit reached for transfer and delivery agents");
+	if (set & LIMIT_SCHEDULER)
+		log_warnx("warn: queue: buffer limit reached for scheduler");
+
+	if (unset & LIMIT_BOUNCE)
+		log_warnx("warn: queue: bounce count down to normal");
+	if (unset & LIMIT_AGENT)
+		log_warnx("warn: queue: buffer usage for transfert and delivery agent down to normal");
+	if (unset & LIMIT_SCHEDULER)
+		log_warnx("warn: queue: buffer usage for scheduler down to normal");
 
 	if (limit & (LIMIT_BOUNCE | LIMIT_SCHEDULER)) {
 		mproc_disable(p_mta);
