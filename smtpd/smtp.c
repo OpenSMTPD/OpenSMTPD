@@ -175,6 +175,13 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			log_verbose(v);
 			return;
+
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling = v;
+			return;
 		}
 	}
 
@@ -309,7 +316,7 @@ smtp_setup_events(void)
 			fatal("smtp_setup_events: certificate name truncated");
 		if ((ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
 			fatal("smtp_setup_events: certificate tree corrupted");
-		if (! ssl_setup(&l->ssl_ctx, ssl))
+		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, ssl))
 			fatal("smtp_setup_events: ssl_setup failure");
 	}
 

@@ -165,6 +165,11 @@ enum imsg_type {
 	IMSG_CTL_REMOVE,
 	IMSG_CTL_SCHEDULE,
 
+	IMSG_CTL_TRACE,
+	IMSG_CTL_UNTRACE,
+	IMSG_CTL_PROFILE,
+	IMSG_CTL_UNPROFILE,
+
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
 	IMSG_CONF_LISTENER,
@@ -920,6 +925,9 @@ struct msg {
 };
 
 extern enum smtp_proc_type	smtpd_process;
+
+extern int verbose;
+extern int profiling;
 
 extern struct mproc *p_control;
 extern struct mproc *p_parent;

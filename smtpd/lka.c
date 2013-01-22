@@ -523,6 +523,13 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			log_verbose(v);
 			return;
 
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling = v;
+			return;
+
 		case IMSG_PARENT_FORWARD_OPEN:
 			lka_session_forward_reply(imsg->data, imsg->fd);
 			return;

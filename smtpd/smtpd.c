@@ -61,6 +61,8 @@ static void parent_send_config_smtp(void);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct mproc *, uint64_t, struct deliver *);
 static int parent_forward_open(char *, char *, uid_t, gid_t);
+static void parent_broadcast_verbose(uint32_t);
+static void parent_broadcast_profile(uint32_t);
 static void fork_peers(void);
 static struct child *child_add(pid_t, int, const char *);
 
@@ -127,7 +129,9 @@ const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
 const char	*backend_stat = "ram";
 
-int		 profiling = 0;
+int	profiling = 0;
+int	verbose = 0;
+int	debug = 0;
 
 struct tree	 children;
 
@@ -243,6 +247,40 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_forward(p_mta, imsg);
 			m_forward(p_queue, imsg);
 			m_forward(p_smtp, imsg);
+			return;
+
+		case IMSG_CTL_TRACE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			verbose |= v;
+			log_verbose(verbose);
+			parent_broadcast_verbose(verbose);
+			return;
+
+		case IMSG_CTL_UNTRACE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			verbose &= ~v;
+			log_verbose(verbose);
+			parent_broadcast_verbose(verbose);
+			return;
+
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling |= v;
+			parent_broadcast_profile(profiling);
+			return;
+
+		case IMSG_CTL_UNPROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling &= ~v;
+			parent_broadcast_profile(profiling);
 			return;
 
 		case IMSG_CTL_SHUTDOWN:
@@ -544,7 +582,6 @@ int
 main(int argc, char *argv[])
 {
 	int		 c, i;
-	int		 debug, verbose;
 	int		 opts, flags;
 	const char	*conffile = CONF_FILE;
 	struct smtpd	 smtpd;
@@ -711,12 +748,6 @@ main(int argc, char *argv[])
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
 
-	/*
-	if (env->sc_queue_compress_algo &&
-	    !compress_backend_init(env->sc_queue_compress_algo));
-		errx(1, "could setup queue compress backend \"%s\"",
-		    env->sc_queue_compress_algo);
-	*/
 	log_init(debug);
 	log_verbose(verbose);
 
@@ -1378,6 +1409,11 @@ imsg_to_str(int type)
 	CASE(IMSG_CTL_REMOVE);
 	CASE(IMSG_CTL_SCHEDULE);
 
+	CASE(IMSG_CTL_TRACE);
+	CASE(IMSG_CTL_UNTRACE);
+	CASE(IMSG_CTL_PROFILE);
+	CASE(IMSG_CTL_UNPROFILE);
+
 	CASE(IMSG_CONF_START);
 	CASE(IMSG_CONF_SSL);
 	CASE(IMSG_CONF_LISTENER);
@@ -1482,4 +1518,60 @@ parent_auth_user(const char *username, const char *password)
 	if (ret)
 		return LKA_OK;
 	return LKA_PERMFAIL;
+}
+
+static void
+parent_broadcast_verbose(uint32_t v)
+{
+	m_create(p_lka, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_add_int(p_lka, v);
+	m_close(p_lka);
+	
+	m_create(p_mda, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_add_int(p_mda, v);
+	m_close(p_mda);
+	
+	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_add_int(p_mfa, v);
+	m_close(p_mfa);
+	
+	m_create(p_mta, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_add_int(p_mta, v);
+	m_close(p_mta);
+	
+	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_add_int(p_queue, v);
+	m_close(p_queue);
+	
+	m_create(p_smtp, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_add_int(p_smtp, v);
+	m_close(p_smtp);
+}
+
+static void
+parent_broadcast_profile(uint32_t v)
+{
+	m_create(p_lka, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_add_int(p_lka, v);
+	m_close(p_lka);
+	
+	m_create(p_mda, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_add_int(p_mda, v);
+	m_close(p_mda);
+	
+	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_add_int(p_mfa, v);
+	m_close(p_mfa);
+	
+	m_create(p_mta, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_add_int(p_mta, v);
+	m_close(p_mta);
+	
+	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_add_int(p_queue, v);
+	m_close(p_queue);
+	
+	m_create(p_smtp, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_add_int(p_smtp, v);
+	m_close(p_smtp);
 }

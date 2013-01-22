@@ -180,10 +180,8 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		return 0;
 	}
 
-	log_debug("key##: %s, line: %p", key, line);
 	if ((line = strdup(line)) == NULL)
 		return -1;
-	log_debug("key##: %s", key);
 	len = strlen(line);
 	switch (service) {
 	case K_ALIAS:
@@ -215,7 +213,6 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 		break;
 
 	case K_ADDRNAME:
-		log_debug("key##: %s", key);
 		ret = table_static_addrname(key, line, len, retp);
 		break;
 

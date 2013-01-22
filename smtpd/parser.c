@@ -58,6 +58,10 @@ static const struct token t_show_envelope[];
 static const struct token t_show_message[];
 static const struct token t_update[];
 static const struct token t_update_table[];
+static const struct token t_trace[];
+static const struct token t_untrace[];
+static const struct token t_profile[];
+static const struct token t_unprofile[];
 
 static const struct token t_main[] = {
 	{KEYWORD,	"schedule",	NONE,		t_schedule},
@@ -68,6 +72,10 @@ static const struct token t_main[] = {
 	{KEYWORD,	"resume",	NONE,		t_resume},
 	{KEYWORD,	"stop",		SHUTDOWN,	NULL},
 	{KEYWORD,	"log",		NONE,		t_log},
+	{KEYWORD,	"profile",	NONE,		t_profile},
+	{KEYWORD,	"trace",	NONE,		t_trace},
+	{KEYWORD,	"unprofile",	NONE,		t_unprofile},
+	{KEYWORD,	"untrace",	NONE,		t_untrace},
 	{KEYWORD,	"update",	NONE,		t_update},
 	{ENDTOKEN,	"",		NONE,		NULL}
 };
@@ -130,6 +138,47 @@ static const struct token t_update_table[] = {
 	{ENDTOKEN,	"",			NONE,		NULL}
 };
 
+static const struct token t_trace[] = {
+	{KEYWORD,	"imsg",			LOG_TRACE_IMSG,		NULL},
+	{KEYWORD,	"io",			LOG_TRACE_IO,		NULL},
+	{KEYWORD,	"smtp",			LOG_TRACE_SMTP,		NULL},
+	{KEYWORD,	"filter",      		LOG_TRACE_MFA,		NULL},
+	{KEYWORD,	"transfer",    		LOG_TRACE_MTA,		NULL},
+	{KEYWORD,	"bounce",    		LOG_TRACE_BOUNCE,	NULL},
+	{KEYWORD,	"scheduler",   		LOG_TRACE_SCHEDULER,  	NULL},
+	{KEYWORD,	"stat",   		LOG_TRACE_STAT,	  	NULL},
+	{KEYWORD,	"rules",   		LOG_TRACE_RULES,  	NULL},
+	{KEYWORD,	"msg-size",   		LOG_TRACE_IMSG_SIZE,	NULL},
+	{KEYWORD,	"all",   		LOG_TRACE_ALL,		NULL},
+	{ENDTOKEN,	"",			NONE,			NULL}
+};
+
+static const struct token t_untrace[] = {
+	{KEYWORD,	"imsg",			LOG_UNTRACE_IMSG,	NULL},
+	{KEYWORD,	"io",			LOG_UNTRACE_IO,		NULL},
+	{KEYWORD,	"smtp",			LOG_UNTRACE_SMTP,	NULL},
+	{KEYWORD,	"filter",      		LOG_UNTRACE_MFA,	NULL},
+	{KEYWORD,	"transfer",    		LOG_UNTRACE_MTA,	NULL},
+	{KEYWORD,	"bounce",    		LOG_UNTRACE_BOUNCE,	NULL},
+	{KEYWORD,	"scheduler",   		LOG_UNTRACE_SCHEDULER, 	NULL},
+	{KEYWORD,	"stat",   		LOG_UNTRACE_STAT,  	NULL},
+	{KEYWORD,	"rules",   		LOG_UNTRACE_RULES,  	NULL},
+	{KEYWORD,	"msg-size",   		LOG_UNTRACE_IMSG_SIZE,	NULL},
+	{KEYWORD,	"all",   		LOG_UNTRACE_ALL,	NULL},
+	{ENDTOKEN,	"",			NONE,			NULL}
+};
+
+static const struct token t_profile[] = {
+	{KEYWORD,	"imsg",			LOG_PROFILE_IMSG,	NULL},
+	{KEYWORD,	"queue",       		LOG_PROFILE_QUEUE,     	NULL},
+	{ENDTOKEN,	"",			NONE,			NULL}
+};
+
+static const struct token t_unprofile[] = {
+	{KEYWORD,	"imsg",			LOG_UNPROFILE_IMSG,    	NULL},
+	{KEYWORD,	"queue",       		LOG_UNPROFILE_QUEUE,	NULL},
+	{ENDTOKEN,	"",			NONE,			NULL}
+};
 
 
 static const struct token *match_token(const char *, const struct token [],

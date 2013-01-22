@@ -46,8 +46,6 @@ static ssize_t msgbuf_write2(struct msgbuf *);
 static uint32_t	reqtype;
 static size_t	reqlen;
 
-extern int verbose;
-
 int
 mproc_fork(struct mproc *p, const char *path, const char *arg)
 {
