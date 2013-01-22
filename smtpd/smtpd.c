@@ -45,8 +45,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <openssl/ssl.h>
+
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
@@ -287,6 +290,7 @@ parent_send_config(int fd, short event, void *p)
 	parent_send_config_lka();
 	parent_send_config_mfa();
 	parent_send_config_smtp();
+	purge_config(PURGE_SSL);
 }
 
 static void
@@ -552,6 +556,7 @@ main(int argc, char *argv[])
 	struct passwd	*pwq;
 	struct listener	*l;
 	struct rule	*r;
+	struct ssl	*ssl;
 
 	env = &smtpd;
 
@@ -737,11 +742,13 @@ main(int argc, char *argv[])
 
 	log_debug("debug: init server-ssl tree");
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if (l->flags & F_SSL) {
-			if (ssl_load_certfile(l->ssl_cert_name, F_SCERT) < 0)
-				errx(1, "cannot load certificate: %s",
-				    l->ssl_cert_name);
-		}
+		if (!(l->flags & F_SSL))
+			continue;
+		ssl = NULL;
+		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+			l->ssl_cert_name, F_SCERT))
+			errx(1, "cannot load certificate: %s", l->ssl_cert_name);
+		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 	}
 
 	log_debug("debug: init client-ssl tree");
@@ -750,9 +757,11 @@ main(int argc, char *argv[])
 			continue;
 		if (! r->r_value.relayhost.cert[0])
 			continue;
-		if (ssl_load_certfile(r->r_value.relayhost.cert, F_CCERT) < 0)
-			errx(1, "cannot load certificate: %s",
-			    r->r_value.relayhost.cert);
+		ssl = NULL;
+		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+			r->r_value.relayhost.cert, F_CCERT) < 0)
+			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
+		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 	}
 
 	fork_peers();

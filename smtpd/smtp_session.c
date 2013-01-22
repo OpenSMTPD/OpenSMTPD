@@ -42,6 +42,7 @@
 
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 #define SMTP_LIMIT_MAIL		100
 #define SMTP_LIMIT_RCPT		1000

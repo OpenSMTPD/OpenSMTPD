@@ -36,8 +36,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <openssl/ssl.h>
+
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static void smtp_imsg(struct mproc *, struct imsg *);
 static void smtp_shutdown(void);
@@ -283,6 +286,7 @@ static void
 smtp_setup_events(void)
 {
 	struct listener *l;
+	struct ssl	*ssl, key;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
@@ -297,8 +301,16 @@ smtp_setup_events(void)
 		if (!(env->sc_flags & SMTPD_SMTP_PAUSED))
 			event_add(&l->ev, NULL);
 
-		if (l->flags & F_SSL)
-			ssl_setup(l);
+		if (!(l->flags & F_SSL))
+			continue;
+
+		if (strlcpy(key.ssl_name, l->ssl_cert_name, sizeof(key.ssl_name))
+		    >= sizeof(key.ssl_name))
+			fatal("smtp_setup_events: certificate name truncated");
+		if ((ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
+			fatal("smtp_setup_events: certificate tree corrupted");
+		if (! ssl_setup(&l->ssl_ctx, ssl))
+			fatal("smtp_setup_events: ssl_setup failure");
 	}
 
 	purge_config(PURGE_SSL);

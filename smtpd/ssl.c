@@ -39,20 +39,66 @@
 #include <openssl/engine.h>
 #include <openssl/err.h>
 
-#include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
-#define SSL_CIPHERS	"HIGH"
+void
+ssl_init(void)
+{
+	static int	inited = 0;
 
-void	 ssl_error(const char *);
-char	*ssl_load_file(const char *, off_t *, mode_t);
-SSL_CTX	*ssl_ctx_create(void);
+	if (inited)
+		return;
 
-DH	*get_dh1024(void);
-DH	*get_dh_from_memory(char *, size_t);
-void	 ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
+	SSL_library_init();
+	SSL_load_error_strings();
+	
+	OpenSSL_add_all_algorithms();
+	
+	/* Init hardware crypto engines. */
+	ENGINE_load_builtin_engines();
+	ENGINE_register_all_complete();
+	inited = 1;
+}
 
-extern int ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
+int
+ssl_setup(SSL_CTX **ctxp, struct ssl *ssl)
+{
+	DH	*dh;
+	SSL_CTX	*ctx;
+	
+	ctx = ssl_ctx_create();
+
+	if (!ssl_ctx_use_certificate_chain(ctx,
+		ssl->ssl_cert, ssl->ssl_cert_len))
+		goto err;
+	if (!ssl_ctx_use_private_key(ctx,
+		ssl->ssl_key, ssl->ssl_key_len))
+		goto err;
+
+	if (!SSL_CTX_check_private_key(ctx))
+		goto err;
+	if (!SSL_CTX_set_session_id_context(ctx,
+		(const unsigned char *)ssl->ssl_name,
+		strlen(ssl->ssl_name) + 1))
+		goto err;
+
+	if (ssl->ssl_dhparams_len == 0)
+		dh = get_dh1024();
+	else
+		dh = get_dh_from_memory(ssl->ssl_dhparams,
+		    ssl->ssl_dhparams_len);
+	ssl_set_ephemeral_key_exchange(ctx, dh);
+	DH_free(dh);
+
+	*ctxp = ctx;
+	return 1;
+
+err:
+	SSL_CTX_free(ctx);
+	ssl_error("ssl_setup");
+	return 0;
+}
 
 char *
 ssl_load_file(const char *name, off_t *len, mode_t perm)
@@ -98,6 +144,68 @@ fail:
 	return (NULL);
 }
 
+static int
+ssl_password_cb(char *buf, int size, int rwflag, void *u)
+{
+	size_t	len;
+	if (u == NULL) {
+		bzero(buf, size);
+		return (0);
+	}
+	if ((len = strlcpy(buf, u, size)) >= (size_t)size)
+		return (0);
+	return (len);
+}
+
+char *
+ssl_load_key(const char *name, off_t *len, char *pass)
+{
+	FILE		*fp;
+	EVP_PKEY	*key = NULL;
+	BIO		*bio = NULL;
+	long		 size;
+	char		*data, *buf = NULL;
+
+	/* Initialize SSL library once */
+	ssl_init();
+
+	/*
+	 * Read (possibly) encrypted key from file
+	 */
+	if ((fp = fopen(name, "r")) == NULL)
+		return (NULL);
+
+	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, pass);
+	fclose(fp);
+	if (key == NULL)
+		goto fail;
+
+	/*
+	 * Write unencrypted key to memory buffer
+	 */
+	if ((bio = BIO_new(BIO_s_mem())) == NULL)
+		goto fail;
+	if (!PEM_write_bio_PrivateKey(bio, key, NULL, NULL, 0, NULL, NULL))
+		goto fail;
+	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
+		goto fail;
+	if ((buf = calloc(1, size)) == NULL)
+		goto fail;
+	memcpy(buf, data, size);
+
+	BIO_free_all(bio);
+	*len = (off_t)size;
+	return (buf);
+
+fail:
+	ssl_error("ssl_load_key");
+
+	free(buf);
+	if (bio != NULL)
+		BIO_free_all(bio);
+	return (NULL);
+}
+
 SSL_CTX *
 ssl_ctx_create(void)
 {
@@ -110,7 +218,7 @@ ssl_ctx_create(void)
 	}
 
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
-	SSL_CTX_set_timeout(ctx, SMTPD_SESSION_TIMEOUT);
+	SSL_CTX_set_timeout(ctx, SSL_SESSION_TIMEOUT);
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_TICKET);
 	SSL_CTX_set_options(ctx,
@@ -125,149 +233,78 @@ ssl_ctx_create(void)
 }
 
 int
-ssl_load_certfile(const char *name, uint8_t flags)
+ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t flags)
 {
-	struct ssl	*s;
-	struct ssl	 key;
-	char		 certfile[PATH_MAX];
-
-	if (strlcpy(key.ssl_name, name, sizeof(key.ssl_name))
-	    >= sizeof(key.ssl_name)) {
-		log_warnx("warn: ssl_load_certfile: "
-		    "certificate name truncated");
-		return -1;
-	}
-
-	s = dict_get(env->sc_ssl_dict, name);
-	if (s != NULL) {
-		s->flags |= flags;
-		return 0;
-	}
+	struct ssl     *s;
+	char		pathname[PATH_MAX];
+	int		ret;
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
 		fatal(NULL);
 
 	s->flags = flags;
-	(void)strlcpy(s->ssl_name, key.ssl_name, sizeof(s->ssl_name));
+	(void)strlcpy(s->ssl_name, name, sizeof(s->ssl_name));
 
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.crt", name))
+	ret =  snprintf(pathname, sizeof(pathname), "%s/%s.crt",
+	    path ? path : "/etc/ssl", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-
-	s->ssl_cert = ssl_load_file(certfile, &s->ssl_cert_len, 0755);
+	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
 	if (s->ssl_cert == NULL)
 		goto err;
 
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.key", name))
+	ret = snprintf(pathname, sizeof(pathname), "%s/%s.key",
+	    path ? path : "/etc/ssl/private", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-
-	s->ssl_key = ssl_load_file(certfile, &s->ssl_key_len, 0700);
+	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0700);
 	if (s->ssl_key == NULL)
 		goto err;
 
-	/*
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.ca", name))
+	ret = snprintf(pathname, sizeof(pathname), "%s/%s.ca",
+	    path ? path : "/etc/ssl", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-	s->ssl_ca = ssl_load_file(certfile, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL)
-		goto err;
-	*/
+	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
+	if (s->ssl_ca == NULL) {
+		if (errno == EACCES)
+			goto err;
+		log_info("info: No CAf found in %s", pathname);
+	}
 
-	if (! bsnprintf(certfile, sizeof(certfile),
-		"/etc/mail/certs/%s.dh", name))
+	ret = snprintf(pathname, sizeof(pathname), "%s/%s.dh",
+	    path ? path : "/etc/ssl", name);
+	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-
-	s->ssl_dhparams = ssl_load_file(certfile, &s->ssl_dhparams_len, 0755);
+	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
 	if (s->ssl_dhparams == NULL) {
 		if (errno == EACCES)
 			goto err;
 		log_info("info: No DH parameters found in %s: "
-		    "using built-in parameters", certfile);
+		    "using built-in parameters", pathname);
 	}
 
-	dict_set(env->sc_ssl_dict, name, s);
+	*sp = s;
+	return (1);
 
-	return (0);
 err:
 	if (s->ssl_cert != NULL)
 		free(s->ssl_cert);
 	if (s->ssl_key != NULL)
 		free(s->ssl_key);
+	if (s->ssl_ca != NULL)
+		free(s->ssl_ca);
 	if (s->ssl_dhparams != NULL)
 		free(s->ssl_dhparams);
 	if (s != NULL)
 		free(s);
-	return (-1);
+	return (0);
 }
 
-void
-ssl_init(void)
-{
-	SSL_library_init();
-	SSL_load_error_strings();
-
-	OpenSSL_add_all_algorithms();
-
-	/* Init hardware crypto engines. */
-	ENGINE_load_builtin_engines();
-	ENGINE_register_all_complete();
-}
-
-void
-ssl_setup(struct listener *l)
-{
-	struct ssl	key;
-	DH *dh;
-
-	if (!(l->flags & F_SSL))
-		return;
-
-	if (strlcpy(key.ssl_name, l->ssl_cert_name, sizeof(key.ssl_name))
-	    >= sizeof(key.ssl_name))
-		fatal("ssl_setup: certificate name truncated");
-
-	if ((l->ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
-		fatal("ssl_setup: certificate tree corrupted");
-
-	l->ssl_ctx = ssl_ctx_create();
-
-	if (!ssl_ctx_use_certificate_chain(l->ssl_ctx,
-	    l->ssl->ssl_cert, l->ssl->ssl_cert_len))
-		goto err;
-	if (!ssl_ctx_use_private_key(l->ssl_ctx,
-	    l->ssl->ssl_key, l->ssl->ssl_key_len))
-		goto err;
-
-	if (!SSL_CTX_check_private_key(l->ssl_ctx))
-		goto err;
-	if (!SSL_CTX_set_session_id_context(l->ssl_ctx,
-		(const unsigned char *)l->ssl_cert_name,
-		strlen(l->ssl_cert_name) + 1))
-		goto err;
-
-	if (l->ssl->ssl_dhparams_len == 0)
-		dh = get_dh1024();
-	else
-		dh = get_dh_from_memory(l->ssl->ssl_dhparams,
-		    l->ssl->ssl_dhparams_len);
-	ssl_set_ephemeral_key_exchange(l->ssl_ctx, dh);
-	DH_free(dh);
-
-	log_debug("debug: ssl_setup: ssl setup finished for listener: %p", l);
-	return;
-
-err:
-	if (l->ssl_ctx != NULL)
-		SSL_CTX_free(l->ssl_ctx);
-	ssl_error("ssl_setup");
-	fatal("ssl_setup: cannot set SSL up");
-	return;
-}
 
 const char *
-ssl_to_text(void *ssl) {
+ssl_to_text(const SSL *ssl)
+{
 	static char buf[256];
 
 	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%i",
@@ -292,80 +329,6 @@ ssl_error(const char *where)
 		log_debug("debug: SSL library error: %s: %s", where, errbuf);
 	}
 }
-
-void *
-ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
-{
-	SSL_CTX		*ctx;
-	SSL		*ssl = NULL;
-
-	ctx = ssl_ctx_create();
-
-	if (cert != NULL && key != NULL) {
-		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 
-			goto err;
-		else if (!ssl_ctx_use_private_key(ctx, key, key_len))
-			goto err;
-		else if (!SSL_CTX_check_private_key(ctx))
-			goto err;
-	}
-
-	if ((ssl = SSL_new(ctx)) == NULL)
-		goto err;
-	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
-		goto err;
-
-	return (void *)(ssl);
-
-err:
-	if (ssl != NULL)
-		SSL_free(ssl);
-	ssl_error("ssl_mta_init");
-	return (NULL);
-}
-
-/* dummy_verify */
-static int
-dummy_verify(int ok, X509_STORE_CTX *store)
-{
-	/*
-	 * We *want* SMTP to request an optional client certificate, however we don't want the
-	 * verification to take place in the SMTP process. This dummy verify will allow us to
-	 * asynchronously verify in the lookup process.
-	 */
-	return 1;
-}
-
-void *
-ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
-{
-	SSL *ssl = NULL;
-
-	log_debug("debug: session_start_ssl: switching to SSL");
-
-	if (!ssl_ctx_use_certificate_chain(ssl_ctx, cert, cert_len))
-		goto err;
-	else if (!ssl_ctx_use_private_key(ssl_ctx, key, key_len))
-		goto err;
-	else if (!SSL_CTX_check_private_key(ssl_ctx))
-		goto err;
-
-	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
-
-	if ((ssl = SSL_new(ssl_ctx)) == NULL)
-		goto err;
-	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
-		goto err;
-
-	return (void *)(ssl);
-
-err:
-	if (ssl != NULL)
-		SSL_free(ssl);
-	ssl_error("ssl_smtp_init");
-	return (NULL);
-}
-
 
 /* From OpenSSL's documentation:
  *

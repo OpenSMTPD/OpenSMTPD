@@ -497,19 +497,6 @@ enum envelope_field {
 	EVP_BOUNCE_EXPIRE,
 };
 
-struct ssl {
-	char			 ssl_name[PATH_MAX];
-	char			*ssl_ca;
-	off_t			 ssl_ca_len;
-	char			*ssl_cert;
-	off_t			 ssl_cert_len;
-	char			*ssl_key;
-	off_t			 ssl_key_len;
-	char			*ssl_dhparams;
-	off_t			 ssl_dhparams_len;
-	uint8_t			 flags;
-};
-
 struct listener {
 	uint8_t			 flags;
 	int			 fd;
@@ -1259,19 +1246,10 @@ const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);
 
-/* ssl.c */
-void ssl_init(void);
-int ssl_load_certfile(const char *, uint8_t);
-void ssl_setup(struct listener *);
-void *ssl_mta_init(char *, off_t, char *, off_t);
-void *ssl_smtp_init(void *, char *, off_t, char *, off_t);
-const char *ssl_to_text(void *);
-int ssl_cmp(struct ssl *, struct ssl *);
 
-
-/* ssl_privsep.c */
-int	 ssl_ctx_use_private_key(void *, char *, off_t);
-int	 ssl_ctx_use_certificate_chain(void *, char *, off_t);
+/* ssl_smtpd.c */
+void   *ssl_mta_init(char *, off_t, char *, off_t);
+void   *ssl_smtp_init(void *, char *, off_t, char *, off_t);
 
 
 /* stat_backend.c */
