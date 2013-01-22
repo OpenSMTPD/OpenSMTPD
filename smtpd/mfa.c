@@ -52,6 +52,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*line, *hostname;
 	uint64_t		 reqid;
 	int			 v;
+	extern int		 profiling;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -163,6 +164,13 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_int(&m, &v);
 			m_end(&m);
 			log_verbose(v);
+			return;
+
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling = v;
 			return;
 		}
 	}

@@ -67,6 +67,7 @@ static int action_schedule_all(void);
 static int action_show_queue(void);
 static int action_show_queue_message(uint32_t);
 static uint32_t trace_convert(uint32_t);
+static uint32_t profile_convert(uint32_t);
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -180,6 +181,7 @@ main(int argc, char *argv[])
 	char			name[MAX_LINE_SIZE];
 	int			done = 0;
 	int			verbose = 0;
+	int			profile = 0;
 	int			action = -1;
 
 	/* parse options */
@@ -312,7 +314,6 @@ main(int argc, char *argv[])
 		imsg_compose(ibuf, IMSG_CTL_TRACE, 0, 0, -1, &verbose,
 		    sizeof(verbose));
 		done = 1;
-		printf("trace request sent.\n");
 		break;
 
 	case LOG_UNTRACE_IMSG:
@@ -330,7 +331,22 @@ main(int argc, char *argv[])
 		imsg_compose(ibuf, IMSG_CTL_UNTRACE, 0, 0, -1, &verbose,
 		    sizeof(verbose));
 		done = 1;
-		printf("untrace request sent.\n");
+		break;
+
+	case LOG_PROFILE_IMSG:
+	case LOG_PROFILE_QUEUE:
+		profile = profile_convert(action);
+		imsg_compose(ibuf, IMSG_CTL_PROFILE, 0, 0, -1, &profile,
+		    sizeof(profile));
+		done = 1;
+		break;
+
+	case LOG_UNPROFILE_IMSG:
+	case LOG_UNPROFILE_QUEUE:
+		profile = profile_convert(action);
+		imsg_compose(ibuf, IMSG_CTL_UNPROFILE, 0, 0, -1, &profile,
+		    sizeof(profile));
+		done = 1;
 		break;
 
 	default:
@@ -375,6 +391,10 @@ main(int argc, char *argv[])
 		case LOG_UNTRACE_RULES:
 		case LOG_UNTRACE_IMSG_SIZE:
 		case LOG_UNTRACE_ALL:
+		case LOG_PROFILE_IMSG:
+		case LOG_PROFILE_QUEUE:
+		case LOG_UNPROFILE_IMSG:
+		case LOG_UNPROFILE_QUEUE:
 			done = show_command_output(&imsg);
 			break;
 		case SHOW_STATS:
@@ -797,27 +817,67 @@ show_monitor(struct stat_digest *d)
 static uint32_t
 trace_convert(uint32_t trace)
 {
-	if (trace == LOG_TRACE_IMSG || trace == LOG_UNTRACE_IMSG)
+	switch (trace) {
+	case LOG_TRACE_IMSG:
+	case LOG_UNTRACE_IMSG:
 		return TRACE_IMSG;
-	if (trace == LOG_TRACE_IO || trace == LOG_UNTRACE_IO)
+
+	case LOG_TRACE_IO:
+	case LOG_UNTRACE_IO:
 		return TRACE_IO;
-	if (trace == LOG_TRACE_SMTP || trace == LOG_UNTRACE_SMTP)
+
+	case LOG_TRACE_SMTP:
+	case LOG_UNTRACE_SMTP:
 		return TRACE_SMTP;
-	if (trace == LOG_TRACE_MFA || trace == LOG_UNTRACE_MFA)
+
+	case LOG_TRACE_MFA:
+	case LOG_UNTRACE_MFA:
 		return TRACE_MFA;
-	if (trace == LOG_TRACE_MTA || trace == LOG_UNTRACE_MTA)
+
+	case LOG_TRACE_MTA:
+	case LOG_UNTRACE_MTA:
 		return TRACE_MTA;
-	if (trace == LOG_TRACE_BOUNCE || trace == LOG_UNTRACE_BOUNCE)
+
+	case LOG_TRACE_BOUNCE:
+	case LOG_UNTRACE_BOUNCE:
 		return TRACE_BOUNCE;
-	if (trace == LOG_TRACE_SCHEDULER || trace == LOG_UNTRACE_SCHEDULER)
+
+	case LOG_TRACE_SCHEDULER:
+	case LOG_UNTRACE_SCHEDULER:
 		return TRACE_SCHEDULER;
-	if (trace == LOG_TRACE_STAT || trace == LOG_UNTRACE_STAT)
+
+	case LOG_TRACE_STAT:
+	case LOG_UNTRACE_STAT:
 		return TRACE_STAT;
-	if (trace == LOG_TRACE_RULES || trace == LOG_UNTRACE_RULES)
+
+	case LOG_TRACE_RULES:
+	case LOG_UNTRACE_RULES:
 		return TRACE_RULES;
-	if (trace == LOG_TRACE_IMSG_SIZE || trace == LOG_UNTRACE_IMSG_SIZE)
+
+	case LOG_TRACE_IMSG_SIZE:
+	case LOG_UNTRACE_IMSG_SIZE:
 		return TRACE_IMSGSIZE;
-	if (trace == LOG_TRACE_ALL || trace == LOG_UNTRACE_ALL)
+
+	case LOG_TRACE_ALL:
+	case LOG_UNTRACE_ALL:
 		return ~TRACE_VERBOSE;
+	}
+
+	return 0;
+}
+
+static uint32_t
+profile_convert(uint32_t prof)
+{
+	switch (prof) {
+	case LOG_PROFILE_IMSG:
+	case LOG_UNPROFILE_IMSG:
+		return PROFILE_IMSG;
+
+	case LOG_PROFILE_QUEUE:
+	case LOG_UNPROFILE_QUEUE:
+		return PROFILE_QUEUE;
+	}
+
 	return 0;
 }
