@@ -360,6 +360,13 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			log_verbose(v);
 			return;
+
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling = v;
+			return;
 		}
 	}
 

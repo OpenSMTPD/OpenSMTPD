@@ -409,7 +409,7 @@ static void
 control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 {
 	struct ctl_conn		*c;
-	int			 verbose;
+	int			 v;
 	struct stat_kv		*kvp;
 	char			*key;
 	struct stat_value	 val;
@@ -482,11 +482,82 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(verbose))
 			goto badcred;
 
-		memcpy(&verbose, imsg->data, sizeof(verbose));
+		memcpy(&v, imsg->data, sizeof(v));
+		verbose = v;
 		log_verbose(verbose);
 
 		m_create(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1, 9);
 		m_add_int(p_parent, verbose);
+		m_close(p_parent);
+
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_TRACE:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(verbose))
+			goto badcred;
+
+		memcpy(&v, imsg->data, sizeof(v));
+		verbose |= v;
+		log_verbose(verbose);
+
+		m_create(p_parent, IMSG_CTL_TRACE, 0, 0, -1, 9);
+		m_add_int(p_parent, v);
+		m_close(p_parent);
+
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_UNTRACE:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(verbose))
+			goto badcred;
+
+		memcpy(&v, imsg->data, sizeof(v));
+		verbose &= ~v;
+		log_verbose(verbose);
+
+		m_create(p_parent, IMSG_CTL_UNTRACE, 0, 0, -1, 9);
+		m_add_int(p_parent, v);
+		m_close(p_parent);
+
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_PROFILE:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(verbose))
+			goto badcred;
+
+		memcpy(&v, imsg->data, sizeof(v));
+		profiling |= v;
+
+		m_create(p_parent, IMSG_CTL_PROFILE, 0, 0, -1, 9);
+		m_add_int(p_parent, v);
+		m_close(p_parent);
+
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_UNPROFILE:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof(verbose))
+			goto badcred;
+
+		memcpy(&v, imsg->data, sizeof(v));
+		profiling &= ~v;
+
+		m_create(p_parent, IMSG_CTL_UNPROFILE, 0, 0, -1, 9);
+		m_add_int(p_parent, v);
 		m_close(p_parent);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);

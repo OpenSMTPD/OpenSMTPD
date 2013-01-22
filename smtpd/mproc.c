@@ -48,8 +48,6 @@ static ssize_t msgbuf_write2(struct msgbuf *);
 static uint32_t	reqtype;
 static size_t	reqlen;
 
-extern int verbose;
-
 int
 mproc_fork(struct mproc *p, const char *path, const char *arg)
 {
@@ -101,19 +99,23 @@ mproc_clear(struct mproc *p)
 void
 mproc_enable(struct mproc *p)
 {
-	if (p->enable)
-		return;
-	p->enable = 1;
+	if (p->enable == 0) {
+		log_debug("debug: enabling %s -> %s", proc_name(smtpd_process),
+		    proc_name(p->proc));
+		p->enable = 1;
+	}
 	mproc_event_add(p);
 }
 
 void
 mproc_disable(struct mproc *p)
 {
-	if (p->enable == 0)
-		return;
-	p->enable = 0;
-	event_del(&p->ev);
+	if (p->enable == 1) {
+		log_debug("debug: disabling %s -> %s", proc_name(smtpd_process),
+		    proc_name(p->proc));
+		p->enable = 0;
+	}
+	mproc_event_add(p);
 }
 
 static void
@@ -121,16 +123,22 @@ mproc_event_add(struct mproc *p)
 {
 	short	events;
 
-	if (p->enable == 0)
-		return;
+	if (p->enable)
+		events = EV_READ;
+	else
+		events = 0;
 
-	events = EV_READ;
 	if (p->imsgbuf.w.queued)
 		events |= EV_WRITE;
 
-	event_del(&p->ev);
-	event_set(&p->ev, p->imsgbuf.fd, events, mproc_dispatch, p);
-	event_add(&p->ev, NULL);
+	if (p->events)
+		event_del(&p->ev);
+
+	p->events = events;
+	if (events) {
+		event_set(&p->ev, p->imsgbuf.fd, events, mproc_dispatch, p);
+		event_add(&p->ev, NULL);
+	}
 }
 
 static void
@@ -139,6 +147,8 @@ mproc_dispatch(int fd, short event, void *arg)
 	struct mproc	*p = arg;
 	struct imsg	 imsg;
 	ssize_t		 n;
+
+	p->events = 0;
 
 	if (event & EV_READ) {
 
@@ -257,6 +267,8 @@ m_forward(struct mproc *p, struct imsg *imsg)
 
 	p->msg_out += 1;
 	p->bytes_queued += imsg->hdr.len;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 
 	mproc_event_add(p);
 }
@@ -269,6 +281,8 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 
 	p->msg_out += 1;
 	p->bytes_queued += len + IMSG_HEADER_SIZE;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 
 	mproc_event_add(p);
 }
@@ -282,8 +296,11 @@ m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
 	imsg_composev(&p->imsgbuf, type, peerid, pid, fd, iov, n);
 
 	p->msg_out += 1;
+	p->bytes_queued += IMSG_HEADER_SIZE;
 	for (i = 0; i < n; i++)
 		p->bytes_queued += iov[i].iov_len;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 
 	mproc_event_add(p);
 }
@@ -332,6 +349,8 @@ m_close(struct mproc *p)
 
 	p->msg_out += 1;
 	p->bytes_queued += p->ibuf->wpos;
+	if (p->bytes_queued > p->bytes_queued_max)
+		p->bytes_queued_max = p->bytes_queued;
 	p->ibuf = NULL;
 
 	mproc_event_add(p);

@@ -140,7 +140,7 @@ queue_ram_message(enum queue_op qop, uint32_t *msgid)
 		n = fread(msg->buf, 1, msg->len, f);
 		if (ferror(f))
 			log_warn("warn: queue_ram_message: fread");
-		else if (n != sb.st_size)
+		else if ((off_t)n != sb.st_size)
 			log_warnx("warn: queue_ram_message: bad read");
 		else {
 			ret = 1;

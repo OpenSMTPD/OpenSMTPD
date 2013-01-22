@@ -49,6 +49,7 @@
 
 #include "smtpd.h"
 #include "log.h"
+#include "ssl.h"
 
 static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
@@ -524,6 +525,13 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_int(&m, &v);
 			m_end(&m);
 			log_verbose(v);
+			return;
+
+		case IMSG_CTL_PROFILE:
+			m_msg(&m, imsg);
+			m_get_int(&m, &v);
+			m_end(&m);
+			profiling = v;
 			return;
 
 		case IMSG_PARENT_FORWARD_OPEN:

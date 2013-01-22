@@ -98,12 +98,6 @@ purge_config(uint8_t what)
 }
 
 int
-ssl_load_certfile(const char *name, uint8_t flags)
-{
-	return (0);
-}
-
-int
 main(int argc, char *argv[])
 {
 	struct stat	 sb;
