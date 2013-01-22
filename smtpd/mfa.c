@@ -52,7 +52,6 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*line, *hostname;
 	uint64_t		 reqid;
 	int			 v;
-	extern int		 profiling;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {

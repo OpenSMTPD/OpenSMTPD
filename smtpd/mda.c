@@ -106,7 +106,6 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	size_t			 sz;
 	char			 out[256], stat[MAX_LINE_SIZE];
 	int			 n, v, status;
-	extern int		 profiling;
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {

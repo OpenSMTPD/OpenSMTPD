@@ -180,7 +180,7 @@ main(int argc, char *argv[])
 	uint64_t		ulval;
 	char			name[MAX_LINE_SIZE];
 	int			done = 0;
-	int			verbose = 0;
+	int			verb = 0;
 	int			profile = 0;
 	int			action = -1;
 
@@ -290,11 +290,11 @@ main(int argc, char *argv[])
 		}
 		break;
 	case LOG_VERBOSE:
-		verbose = TRACE_VERBOSE;
+		verb = TRACE_VERBOSE;
 		/* FALLTHROUGH */
 	case LOG_BRIEF:
-		imsg_compose(ibuf, IMSG_CTL_VERBOSE, 0, 0, -1, &verbose,
-		    sizeof(verbose));
+		imsg_compose(ibuf, IMSG_CTL_VERBOSE, 0, 0, -1, &verb,
+		    sizeof(verb));
 		printf("logging request sent.\n");
 		done = 1;
 		break;
@@ -310,9 +310,9 @@ main(int argc, char *argv[])
 	case LOG_TRACE_RULES:
 	case LOG_TRACE_IMSG_SIZE:
 	case LOG_TRACE_ALL:
-		verbose = trace_convert(action);
-		imsg_compose(ibuf, IMSG_CTL_TRACE, 0, 0, -1, &verbose,
-		    sizeof(verbose));
+		verb = trace_convert(action);
+		imsg_compose(ibuf, IMSG_CTL_TRACE, 0, 0, -1, &verb,
+		    sizeof(verb));
 		done = 1;
 		break;
 
@@ -327,9 +327,9 @@ main(int argc, char *argv[])
 	case LOG_UNTRACE_RULES:
 	case LOG_UNTRACE_IMSG_SIZE:
 	case LOG_UNTRACE_ALL:
-		verbose = trace_convert(action);
-		imsg_compose(ibuf, IMSG_CTL_UNTRACE, 0, 0, -1, &verbose,
-		    sizeof(verbose));
+		verb = trace_convert(action);
+		imsg_compose(ibuf, IMSG_CTL_UNTRACE, 0, 0, -1, &verb,
+		    sizeof(verb));
 		done = 1;
 		break;
 

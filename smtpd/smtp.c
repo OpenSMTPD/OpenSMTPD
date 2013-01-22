@@ -62,7 +62,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	struct ssl	*ssl;
 	struct msg	 m;
 	int		 v;
-	extern int	 profiling;
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
@@ -317,7 +316,7 @@ smtp_setup_events(void)
 			fatal("smtp_setup_events: certificate name truncated");
 		if ((ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
 			fatal("smtp_setup_events: certificate tree corrupted");
-		if (! ssl_setup(&l->ssl_ctx, ssl))
+		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, ssl))
 			fatal("smtp_setup_events: ssl_setup failure");
 	}
 

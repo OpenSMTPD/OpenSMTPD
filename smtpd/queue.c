@@ -59,7 +59,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t		 msgid;
 	time_t			 nexttry;
 	int			 fd, ret, v, flags;
-	extern int		 profiling;
 
 	if (p->proc == PROC_SMTP) {
 

@@ -50,8 +50,6 @@ static struct queue_backend	*backend;
 
 #ifdef QUEUE_PROFILING
 
-extern int profiling;
-
 static struct {
 	struct timespec	 t0;
 	const char	*name;

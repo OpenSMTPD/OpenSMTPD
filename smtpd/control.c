@@ -399,8 +399,6 @@ static void
 control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 {
 	struct ctl_conn		*c;
-	extern int     		 verbose;
-	extern int     		 profiling;
 	int			 v;
 	struct stat_kv		*kvp;
 	char			*key;
