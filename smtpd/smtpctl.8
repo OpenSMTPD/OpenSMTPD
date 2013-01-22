@@ -148,6 +148,52 @@ Displays runtime statistics concerning
 .Xr smtpd 8 .
 .It Cm stop
 Stop the server.
+.It Cm trace Ar subsystem
+Enables real-time tracing of
+.Ar subsystem .
+Supported subsystems are:
+.Pp
+.Bl -compact -bullet
+.It
+imsg
+.It
+io
+.It
+smtp (incoming sessions)
+.It
+filter
+.It
+transfer (outgoing sessions)
+.It
+bounce
+.It
+scheduler
+.It
+stat
+.It
+rules (matched by incoming sessions)
+.It
+imsg-size
+.It
+all
+.El
+.It Cm untrace Ar subsystem
+Disables real-time tracing of
+.Ar subsystem .
+.It Cm profile Ar subsystem
+Enables real-time profiling of
+.Ar subsystem .
+Supported subsystems are:
+.Pp
+.Bl -compact -bullet
+.It
+queue, to profile cost of queue IO
+.It
+imsg, to profile cost of event handlers
+.El
+.It Cm unprofile Ar subsystem
+Disables real-time profiling of
+.Ar subsystem .
 .It Cm update table Ar name
 For table backends that provide caching, causes
 .Xr smtpd 8
