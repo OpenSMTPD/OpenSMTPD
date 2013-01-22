@@ -363,11 +363,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		fprintf(s->ofile,
 		    "Received: from %s (%s [%s]);\n"
-		    "\tby %s (OpenSMTPD) with %sSMTP id %08x;\n",
+		    "\tby %s (%s) with %sSMTP id %08x;\n",
 		    s->evp.helo,
 		    s->hostname,
 		    ss_to_text(&s->ss),
 		    env->sc_hostname,
+		    SMTPD_NAME,
 		    s->flags & SF_EHLO ? "E" : "",
 		    evpid_to_msgid(s->evp.id));
 
