@@ -308,8 +308,8 @@ enqueue(int argc, char *argv[])
 			    "quoted-printable\n");
 	}
 	if (!msg.saw_user_agent)
-		send_line(fout, 0, "User-Agent: OpenSMTPD enqueuer (%s)\n",
-			"Demoosh");
+		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
+		    SMTPD_NAME, "Demoosh");
 
 	/* add separating newline */
 	if (noheader)
