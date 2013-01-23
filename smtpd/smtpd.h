@@ -71,9 +71,9 @@
 #endif
 #define SMTPD_SOCKET		 SMTPD_SOCKDIR "/smtpd.sock"
 #ifndef SMTPD_NAME
-#define	SMTPD_NAME		 "OpenSMTPD"
+#define	SMTPD_NAME		 "OpenSMTPD-portable"
 #endif
-#define SMTPD_BANNER		 "220 %s ESMTP %s-portable"
+#define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
