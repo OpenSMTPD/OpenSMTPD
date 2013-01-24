@@ -47,10 +47,10 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
-static size_t	flow_agent_hiwat = 10 * 1024;
-static size_t	flow_agent_lowat =   0;
-static size_t	flow_scheduler_hiwat = 10 * 1024;
-static size_t	flow_scheduler_lowat = 0;
+static size_t	flow_agent_hiwat = 10 * 1024 * 1024;
+static size_t	flow_agent_lowat =   1 * 1024 * 1024;
+static size_t	flow_scheduler_hiwat = 10 * 1024 * 1024;
+static size_t	flow_scheduler_lowat = 1 * 1024 * 1024;
 
 #define LIMIT_AGENT	0x01
 #define LIMIT_SCHEDULER	0x02

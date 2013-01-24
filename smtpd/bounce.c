@@ -65,7 +65,6 @@ struct bounce_message {
 	SPLAY_ENTRY(bounce_message)	 sp_entry;
 	TAILQ_ENTRY(bounce_message)	 entry;
 	uint32_t			 msgid;
-	int				 pending;
 	struct delivery_bounce		 bounce;
 	char				*to;
 	time_t				 timeout;
@@ -154,11 +153,10 @@ bounce_add(uint64_t evpid)
 		    evp.sender.domain);
 		msg->to = xstrdup(buf, "bounce_add");
 		nmessage += 1;
-		msg->pending = 1;
 		log_debug("debug: bounce: new message %08" PRIx32,
 		    msg->msgid);
 		stat_increment("bounce.message", 1);
-	} else if (msg->pending)
+	} else
 		TAILQ_REMOVE(&pending, msg, entry);
 
 	line = evp.errorline;
@@ -173,10 +171,10 @@ bounce_add(uint64_t evpid)
 	TAILQ_INSERT_TAIL(&msg->envelopes, be, entry);
 	log_debug("debug: bounce: adding report %16"PRIx64": %s", be->id,
 	    be->report);
-	if (msg->pending) {
-		msg->timeout = time(NULL) + 1;
-		TAILQ_INSERT_TAIL(&pending, msg, entry);
-	}
+
+	msg->timeout = time(NULL) + 1;
+	TAILQ_INSERT_TAIL(&pending, msg, entry);
+
 	stat_increment("bounce.envelope", 1);
 	bounce_drain();
 }
@@ -333,8 +331,8 @@ bounce_next_message(struct bounce_session *s)
 	if (msg == NULL || msg->timeout > time(NULL))
 		return (0);
 
-	msg->pending = 0;
 	TAILQ_REMOVE(&pending, msg, entry);
+	SPLAY_REMOVE(bounce_message_tree, &messages, msg);
 
 	if ((fd = queue_message_fd_r(msg->msgid)) == -1) {
 		bounce_delivery(msg, IMSG_DELIVERY_TEMPFAIL,
@@ -394,9 +392,6 @@ bounce_next(struct bounce_session *s)
 
 	case BOUNCE_DATA_NOTICE:
 		/* Construct an appropriate notice. */
-
-		/* Prevent more envelopes from being added to this bounce */
-		SPLAY_REMOVE(bounce_message_tree, &messages, s->msg);
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: HEADER",
 		    "Subject: Delivery status notification: %s\n"
