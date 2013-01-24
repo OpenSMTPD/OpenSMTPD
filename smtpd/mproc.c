@@ -181,6 +181,10 @@ mproc_dispatch(int fd, short event, void *arg)
 
 		imsg_free(&imsg);
 	}
+
+	if (smtpd_process == PROC_QUEUE)
+		queue_flow_control();
+
 	mproc_event_add(p);
 }
 

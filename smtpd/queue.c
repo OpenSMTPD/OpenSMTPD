@@ -47,9 +47,9 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
-static size_t	flow_agent_hiwat = 200 * 1024;
+static size_t	flow_agent_hiwat = 10 * 1024;
 static size_t	flow_agent_lowat =   0;
-static size_t	flow_scheduler_hiwat = 200 * 1024;
+static size_t	flow_scheduler_hiwat = 10 * 1024;
 static size_t	flow_scheduler_lowat = 0;
 
 #define LIMIT_AGENT	0x01
@@ -606,29 +606,30 @@ queue_flow_control(void)
 
 	set = limit & (limit ^ oldlimit);
 	unset = oldlimit & (limit ^ oldlimit);
-	if (set & LIMIT_AGENT)
-		log_warnx("warn: queue: buffer limit reached for transfer and delivery agents");
-	if (set & LIMIT_SCHEDULER)
-		log_warnx("warn: queue: buffer limit reached for scheduler");
 
-	if (unset & LIMIT_AGENT)
-		log_warnx("warn: queue: buffer usage for transfert and delivery agents down to lowat");
-	if (unset & LIMIT_SCHEDULER)
-		log_warnx("warn: queue: buffer usage for scheduler down to lowat");
-
-	if (limit & LIMIT_SCHEDULER) {
+	if (set & LIMIT_SCHEDULER) {
+		log_warnx("warn: queue: Hiwat reached on scheduler buffer: "
+		    "suspending transfer, delivery and lookup input");
 		mproc_disable(p_mta);
 		mproc_disable(p_mda);
 		mproc_disable(p_lka);
 	}
-	else {
+	else if (unset & LIMIT_SCHEDULER) {
+		log_warnx("warn: queue: Down to lowat on scheduler buffer: "
+		    "resuming transfer, delivery and lookup input");
 		mproc_enable(p_mta);
 		mproc_enable(p_mda);
 		mproc_enable(p_lka);
 	}
 
-	if (limit & LIMIT_AGENT)
+	if (set & LIMIT_AGENT) {
+		log_warnx("warn: queue: Hiwat reached on transfer and delivery "
+		    "buffers: suspending scheduler input");
 		mproc_disable(p_scheduler);
-	else
+	}
+	else if (unset & LIMIT_AGENT) {
+		log_warnx("warn: queue: Down to lowat on transfer and delivery "
+		    "buffers: resuming scheduler input");
 		mproc_enable(p_scheduler);
+	}
 }

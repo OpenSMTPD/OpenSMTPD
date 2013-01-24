@@ -1311,9 +1311,6 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 			stat_set(key, stat_timespec(&dt));
 		}
 	}
-
-	if (smtpd_process == PROC_QUEUE)
-		queue_flow_control();
 }
 
 static void
