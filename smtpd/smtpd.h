@@ -1052,7 +1052,7 @@ struct auth_backend *auth_backend_lookup(enum auth_type);
 
 /* bounce.c */
 void bounce_add(uint64_t);
-void bounce_run(uint64_t, int);
+void bounce_fd(int);
 
 
 /* ca.c */
@@ -1227,6 +1227,7 @@ int cmdline_symset(char *);
 
 /* queue.c */
 pid_t queue(void);
+void queue_flow_control(void);
 
 
 /* queue_backend.c */

@@ -152,12 +152,6 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	if (event & EV_READ) {
 
-		if (p->enable == 0) {
-			log_warn("%s <=> %s not enabled!",
-			    proc_name(smtpd_process), p->name);
-			fatal("nga");
-		}
-
 		if ((n = imsg_read(&p->imsgbuf)) == -1)
 			fatal("imsg_read");
 		if (n == 0) {
@@ -187,6 +181,10 @@ mproc_dispatch(int fd, short event, void *arg)
 
 		imsg_free(&imsg);
 	}
+
+	if (smtpd_process == PROC_QUEUE)
+		queue_flow_control();
+
 	mproc_event_add(p);
 }
 

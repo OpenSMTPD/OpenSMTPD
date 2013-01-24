@@ -287,9 +287,10 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 {
 	static int	 done = 0;
 	static void	*hdl = NULL;
+	uintptr_t	*n;
 	int		 r;
 	uint32_t	 msgid;
-	uintptr_t	 *n;
+	struct envelope	 ep;
 
 	if (done)
 		return (-1);
@@ -301,9 +302,13 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 		r = fsqueue_envelope_load(*evpid, buf, len);
 		if (r) {
 			msgid = evpid_to_msgid(*evpid);
-			n = tree_pop(&evpcount, msgid);
-			n += 1;
-			tree_xset(&evpcount, msgid, n);
+			if (! envelope_load_buffer(&ep, buf, r))
+				(void)fsqueue_message_corrupt(msgid);
+			else {
+				n = tree_pop(&evpcount, msgid);
+				n += 1;
+				tree_xset(&evpcount, msgid, n);
+			}
 		}
 		return (r);
 	}
