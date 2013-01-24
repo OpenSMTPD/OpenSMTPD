@@ -777,6 +777,7 @@ mta_relay_timeout(int fd, short ev, void *arg)
 	}
 
 	mta_drain(r);
+	mta_relay_unref(r); /* from mta_relay_schedule() */
 }
 
 static void
@@ -787,10 +788,12 @@ mta_relay_schedule(struct mta_relay *r, unsigned int delay)
 	if (evtimer_pending(&r->ev, &tv))
 		return;
 
+	log_debug("debug: mta: adding relay timeout: %u", delay);
+
 	tv.tv_sec = delay;
 	tv.tv_usec = 0;
 	evtimer_add(&r->ev, &tv);
-	log_debug("debug: mta: adding relay timeout");
+	mta_relay_ref(r);
 }
 
 static void
@@ -800,7 +803,7 @@ mta_drain(struct mta_relay *r)
 	struct mta_source	*s;
 	char			 buf[64];
 
-	log_debug("debug: draining %s "
+	log_debug("debug: mta: draining %s "
 	    "refcount=%i, ntask=%zu, nconnector=%zu, nconn=%zu", 
 	    mta_relay_to_text(r),
 	    r->refcount, r->ntask, r->nconnector, r->nconn);
