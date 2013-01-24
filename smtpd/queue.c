@@ -47,18 +47,13 @@ static void queue_bounce(struct envelope *, struct delivery_bounce *);
 static void queue_shutdown(void);
 static void queue_sig_handler(int, short, void *);
 
-static size_t	flow_bounce_hiwat = 1000;
-static size_t	flow_bounce_lowat = 0;
 static size_t	flow_agent_hiwat = 200 * 1024;
 static size_t	flow_agent_lowat =   0;
 static size_t	flow_scheduler_hiwat = 200 * 1024;
 static size_t	flow_scheduler_lowat = 0;
 
-extern size_t	nbounce;
-
-#define LIMIT_BOUNCE	0x01
-#define LIMIT_AGENT	0x02
-#define LIMIT_SCHEDULER	0x04
+#define LIMIT_AGENT	0x01
+#define LIMIT_SCHEDULER	0x02
 
 static int limit = 0;
 
@@ -598,11 +593,6 @@ queue_flow_control(void)
 	int	oldlimit = limit;
 	int	set, unset;
 
-	if (nbounce <= flow_bounce_lowat)
-		limit &= ~LIMIT_BOUNCE;
-	else if (nbounce > flow_bounce_hiwat)
-		limit |= LIMIT_BOUNCE;
-
 	bufsz = p_mda->bytes_queued + p_mta->bytes_queued;
 	if (bufsz <= flow_agent_lowat)
 		limit &= ~LIMIT_AGENT;
@@ -616,35 +606,28 @@ queue_flow_control(void)
 
 	set = limit & (limit ^ oldlimit);
 	unset = oldlimit & (limit ^ oldlimit);
-	if (set & LIMIT_BOUNCE)
-		log_warnx("warn: queue: bounce limit reached");
 	if (set & LIMIT_AGENT)
 		log_warnx("warn: queue: buffer limit reached for transfer and delivery agents");
 	if (set & LIMIT_SCHEDULER)
 		log_warnx("warn: queue: buffer limit reached for scheduler");
 
-	if (unset & LIMIT_BOUNCE)
-		log_warnx("warn: queue: bounce count down to normal");
 	if (unset & LIMIT_AGENT)
-		log_warnx("warn: queue: buffer usage for transfert and delivery agent down to normal");
+		log_warnx("warn: queue: buffer usage for transfert and delivery agents down to lowat");
 	if (unset & LIMIT_SCHEDULER)
-		log_warnx("warn: queue: buffer usage for scheduler down to normal");
+		log_warnx("warn: queue: buffer usage for scheduler down to lowat");
 
-	if (limit & (LIMIT_BOUNCE | LIMIT_SCHEDULER)) {
+	if (limit & LIMIT_SCHEDULER) {
 		mproc_disable(p_mta);
 		mproc_disable(p_mda);
+		mproc_disable(p_lka);
 	}
 	else {
 		mproc_enable(p_mta);
 		mproc_enable(p_mda);
+		mproc_enable(p_lka);
 	}
 
-	if (limit & LIMIT_SCHEDULER)
-		mproc_disable(p_lka);
-	else
-		mproc_enable(p_lka);
-
-	if (limit & (LIMIT_AGENT | LIMIT_BOUNCE))
+	if (limit & LIMIT_AGENT)
 		mproc_disable(p_scheduler);
 	else
 		mproc_enable(p_scheduler);

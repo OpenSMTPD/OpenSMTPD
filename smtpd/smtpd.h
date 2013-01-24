@@ -1208,6 +1208,7 @@ int cmdline_symset(char *);
 pid_t queue(void);
 void queue_flow_control(void);
 
+
 /* queue_backend.c */
 uint32_t queue_generate_msgid(void);
 uint64_t queue_generate_evpid(uint32_t);
