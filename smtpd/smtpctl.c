@@ -734,11 +734,11 @@ show_envelope(const char *s)
 		errx(1, "invalid msgid/evpid");
 
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/%016" PRIx64,
-	    PATH_SPOOL,
-	    PATH_QUEUE,
-	    evpid_to_msgid(evpid) & 0xff,
-	    evpid_to_msgid(evpid),
-	    evpid))
+		PATH_SPOOL,
+		PATH_QUEUE,
+		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
+		evpid_to_msgid(evpid),
+		evpid))
 		errx(1, "unable to retrieve envelope");
 
 	display(buf);
