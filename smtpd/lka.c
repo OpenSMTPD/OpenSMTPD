@@ -367,7 +367,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(p, IMSG_LKA_HELO, 0, 0, -1, 1024);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
-			m_add_string(p, addrname.name);
+			if (ret == LKA_OK)
+				m_add_string(p, addrname.name);
 			m_close(p);
 			return;
 
