@@ -145,10 +145,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
-			m_msg(&m, imsg);
-			m_get_id(&m, &reqid);
-			m_end(&m);
-			bounce_run(reqid, imsg->fd);
+			bounce_fd(imsg->fd);
 			return;
 		}
 	}
