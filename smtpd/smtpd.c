@@ -863,7 +863,7 @@ main(int argc, char *argv[])
 		if (!(l->flags & F_SSL))
 			continue;
 		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
 			l->ssl_cert_name, F_SCERT))
 			errx(1, "cannot load certificate: %s", l->ssl_cert_name);
 		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
@@ -876,7 +876,7 @@ main(int argc, char *argv[])
 		if (! r->r_value.relayhost.cert[0])
 			continue;
 		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
 			r->r_value.relayhost.cert, F_CCERT) < 0)
 			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
 		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
