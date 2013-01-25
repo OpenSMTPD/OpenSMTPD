@@ -476,6 +476,7 @@ struct envelope {
 
 enum envelope_field {
 	EVP_VERSION,
+	EVP_TAG,
 	EVP_MSGID,
 	EVP_TYPE,
 	EVP_HELO,
