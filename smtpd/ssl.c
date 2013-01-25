@@ -276,7 +276,7 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 	if (s->ssl_ca == NULL) {
 		if (errno == EACCES)
 			goto err;
-		log_info("info: No CAf found in %s", pathname);
+		log_info("info: No CA found in %s", pathname);
 	}
 
 	ret = snprintf(pathname, sizeof(pathname), "%s/%s.dh",
