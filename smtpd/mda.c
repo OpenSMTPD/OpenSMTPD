@@ -154,6 +154,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: mda: too many envelopes");
 				envelope_set_errormsg(e,
 				    "Global envelope limit reached");
+				log_envelope(e, NULL, "TempFail", e->errorline);
 				m_create(p_queue, IMSG_DELIVERY_TEMPFAIL,
 				    0, 0, -1, MSZ_EVP);
 				m_add_envelope(p_queue, e);
@@ -174,6 +175,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    "\"%s\"", u->name);
 				envelope_set_errormsg(e,
 				    "User envelope limit reached");
+				log_envelope(e, NULL, "TempFail", e->errorline);
 				m_create(p_queue, IMSG_DELIVERY_TEMPFAIL,
 				    0, 0, -1, MSZ_EVP);
 				m_add_envelope(p_queue, e);
@@ -209,11 +211,13 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 
 			s = tree_xget(&sessions, reqid);
+			e = s->evp;
 
 			if (imsg->fd == -1) {
 				log_debug("debug: mda: cannot get message fd");
 				envelope_set_errormsg(s->evp,
 				    "Cannot get message fd");
+				log_envelope(e, NULL, "TempFail", e->errorline);
 				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
@@ -221,6 +225,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if ((s->datafp = fdopen(imsg->fd, "r")) == NULL) {
 				log_warn("warn: mda: fdopen");
 				envelope_set_errormsg(s->evp, "fdopen failed");
+				log_envelope(e, NULL, "TempFail", e->errorline);
 				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
@@ -229,6 +234,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (mda_check_loop(s->datafp, s->evp)) {
 				log_debug("debug: mda: loop detected");
 				envelope_set_errormsg(s->evp, "Loop detected");
+				log_envelope(e, NULL, "PermFail", e->errorline);
 				mda_done(s, IMSG_DELIVERY_LOOP);
 				return;
 			}
@@ -250,6 +256,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				log_warn("warn: mda: "
 				    "fail to write delivery info");
 				envelope_set_errormsg(s->evp, "Out of memory");
+				log_envelope(e, NULL, "TempFail", e->errorline);
 				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
@@ -324,10 +331,12 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 
 			s = tree_xget(&sessions, reqid);
+			e = s->evp;
 			if (imsg->fd == -1) {
 				log_warn("warn: mda: fail to retreive mda fd");
 				envelope_set_errormsg(s->evp,
 				    "Cannot get mda fd");
+				log_envelope(e, NULL, "TempFail", e->errorline);
 				mda_done(s, IMSG_DELIVERY_TEMPFAIL);
 				return;
 			}
@@ -371,7 +380,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    error);
 			}
 			log_envelope(s->evp, NULL, error ? "TempFail" : "Ok",
-				     error ? stat : "Delivered");
+			    error ? stat : "Delivered");
 			mda_done(s, msg);
 			return;
 
@@ -642,6 +651,8 @@ mda_fail(struct mda_user *user, int type, const char *error)
 	while ((e = TAILQ_FIRST(&user->envelopes))) {
 		TAILQ_REMOVE(&user->envelopes, e, entry);
 		envelope_set_errormsg(e, "%s", error);
+		log_envelope(e, NULL, (type == IMSG_DELIVERY_TEMPFAIL) ?
+		    "TempFail" : "PermFail", e->errorline);
 		m_create(p_queue, type, 0, 0, -1, MSZ_EVP);
 		m_add_envelope(p_queue, e);
 		m_close(p_queue);
