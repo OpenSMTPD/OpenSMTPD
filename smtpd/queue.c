@@ -215,6 +215,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
+			envelope_set_errormsg(&evp, "Envelope expired");
 			queue_bounce(&evp, &bounce);
 			queue_log(&evp, "Expire", "Envelope expired");
 			queue_envelope_delete(evpid);
