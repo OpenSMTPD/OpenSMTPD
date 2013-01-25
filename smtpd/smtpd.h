@@ -1031,7 +1031,7 @@ struct auth_backend *auth_backend_lookup(enum auth_type);
 
 /* bounce.c */
 void bounce_add(uint64_t);
-void bounce_run(uint64_t, int);
+void bounce_fd(int);
 
 
 /* ca.c */
@@ -1211,6 +1211,7 @@ void queue_ok(uint64_t);
 void queue_tempfail(uint64_t, const char *);
 void queue_permfail(uint64_t, const char *);
 void queue_loop(uint64_t);
+void queue_flow_control(void);
 
 
 /* queue_backend.c */

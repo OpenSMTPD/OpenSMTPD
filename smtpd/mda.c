@@ -154,6 +154,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: mda: too many envelopes");
 				queue_tempfail(e->id,
 				    "Global envelope limit reached");
+				mda_log(e, "TempFail",
+				    "Global envelope limit reached");
 				free(e);
 				return;
 			}
@@ -169,6 +171,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: mda: too many envelopes for "
 				    "\"%s\"", u->name);
 				queue_tempfail(e->id,
+				    "User envelope limit reached");
+				mda_log(e, "TempFail",
 				    "User envelope limit reached");
 				free(e);
 				return;
@@ -201,11 +205,14 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 
 			s = tree_xget(&sessions, reqid);
+			e = s->evp;
 
 			if (imsg->fd == -1) {
 				log_debug("debug: mda: cannot get message fd");
 				queue_tempfail(s->evp->id,
 				    "Cannot get message fd");
+				mda_log(e, "TempFail",
+				    "Cannot get messafe fd");
 				mda_done(s);
 				return;
 			}
@@ -213,6 +220,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if ((s->datafp = fdopen(imsg->fd, "r")) == NULL) {
 				log_warn("warn: mda: fdopen");
 				queue_tempfail(s->evp->id, "fdopen failed");
+				mda_log(e, "TempFail", "fdopen failed");
 				mda_done(s);
 				return;
 			}
@@ -221,6 +229,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (mda_check_loop(s->datafp, s->evp)) {
 				log_debug("debug: mda: loop detected");
 				queue_loop(s->evp->id);
+				mda_log(e, "PermFail", "Loop detected");
 				mda_done(s);
 				return;
 			}
@@ -242,6 +251,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				log_warn("warn: mda: "
 				    "fail to write delivery info");
 				queue_tempfail(s->evp->id, "Out of memory");
+				mda_log(s->evp, "TempFail", "Out of memory");
 				mda_done(s);
 				return;
 			}
@@ -316,9 +326,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 
 			s = tree_xget(&sessions, reqid);
+			e = s->evp;
 			if (imsg->fd == -1) {
 				log_warn("warn: mda: fail to retreive mda fd");
 				queue_tempfail(s->evp->id, "Cannot get mda fd");
+				mda_log(e, "TempFail", "Cannot get mda fd");
 				mda_done(s);
 				return;
 			}
@@ -633,10 +645,14 @@ mda_fail(struct mda_user *user, int permfail, const char *error)
 
 	while ((e = TAILQ_FIRST(&user->envelopes))) {
 		TAILQ_REMOVE(&user->envelopes, e, entry);
-		if (permfail)
+		if (permfail) {
+			mda_log(e, "PermFail", error);
 			queue_permfail(e->id, error);
-		else
+		}
+		else {
+			mda_log(e, "TempFail", error);
 			queue_tempfail(e->id, error);
+		}
 		free(e);
 	}
 
