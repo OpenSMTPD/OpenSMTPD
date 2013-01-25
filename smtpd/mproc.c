@@ -526,7 +526,7 @@ m_add_mailaddr(struct mproc *m, const struct mailaddr *maddr)
 void
 m_add_envelope(struct mproc *m, const struct envelope *evp)
 {
-#if 1
+#if 0
 	m_add_typed(m, M_ENVELOPE, evp, sizeof(*evp));
 #else
 	char	buf[sizeof(*evp)];
@@ -616,7 +616,7 @@ m_get_mailaddr(struct msg *m, struct mailaddr *maddr)
 void
 m_get_envelope(struct msg *m, struct envelope *evp)
 {
-#if 1
+#if 0
 	m_get_typed(m, M_ENVELOPE, evp, sizeof(*evp));
 #else
 	uint64_t	 evpid;

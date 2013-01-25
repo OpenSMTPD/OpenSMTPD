@@ -290,6 +290,7 @@ scheduler_reset_events(void)
 {
 	struct timeval	 tv;
 
+	evtimer_del(&env->sc_ev);
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 	evtimer_add(&env->sc_ev, &tv);

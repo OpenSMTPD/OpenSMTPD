@@ -74,6 +74,8 @@ static void mta_relay_schedule(struct mta_relay *, unsigned int);
 static void mta_relay_timeout(int, short, void *);
 static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *);
+static void mta_log(const struct envelope *, const char *, const char *,
+    const char *);
 
 SPLAY_HEAD(mta_relay_tree, mta_relay);
 static struct mta_relay *mta_relay(struct envelope *);
@@ -567,6 +569,30 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 	return (task);
 }
 
+void
+mta_delivery(struct envelope *e, const char *relay, int delivery,
+    const char *status)
+{
+	if (delivery == IMSG_DELIVERY_OK) {
+		mta_log(e, "Ok", relay, status);
+		queue_ok(e->id);
+	}
+	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
+		mta_log(e, "TempFail", relay, status);
+		queue_tempfail(e->id, status);
+	}
+	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
+		mta_log(e, "PermFail", relay, status);
+		queue_permfail(e->id, status);
+	}
+	else if (delivery == IMSG_DELIVERY_LOOP) {
+		mta_log(e, "PermFail", relay, "Loop detected");
+		queue_loop(e->id);
+	}
+	else
+		errx(1, "bad delivery");
+}
+
 static void
 mta_query_mx(struct mta_relay *relay)
 {
@@ -950,7 +976,6 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	struct envelope	*e;
 	struct mta_task	*task;
 	const char	*pfx;
-	char		 buf[MAX_LINE_SIZE];
 	size_t		 n;
 
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
@@ -963,18 +988,12 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	else
 		errx(1, "unexpected delivery status %i", fail);
 
-	snprintf(buf, sizeof buf, "relay=%s, ", relay->domain->name);
-
 	n = 0;
 	while ((task = TAILQ_FIRST(&relay->tasks))) {
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
-			envelope_set_errormsg(e, "%s", error);
-			log_envelope(e, buf, pfx, e->errorline);
-			m_create(p_queue, fail, 0, 0, -1, MSZ_EVP);
-			m_add_envelope(p_queue, e);
-			m_close(p_queue);
+			mta_delivery(e, relay->domain->name, fail, error);
 			free(e);
 			n++;
 		}
@@ -1106,6 +1125,29 @@ mta_find_route(struct mta_connector *c)
 	}
 
 	return (NULL);
+}
+
+static void
+mta_log(const struct envelope *evp, const char *prefix, const char *relay,
+    const char *status)
+{
+	char rcpt[MAX_LINE_SIZE];
+
+	rcpt[0] = '\0';
+	if (strcmp(evp->rcpt.user, evp->dest.user) ||
+	    strcmp(evp->rcpt.domain, evp->dest.domain))
+		snprintf(rcpt, sizeof rcpt, "rcpt=<%s@%s>, ",
+		    evp->rcpt.user, evp->rcpt.domain);
+
+	log_info("relay: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
+	    "%srelay=%s delay=%s, stat=%s",
+	    prefix,
+	    evp->id, evp->sender.user, evp->sender.domain,
+	    evp->dest.user, evp->dest.domain,
+	    rcpt,
+	    relay,
+	    duration_to_text(time(NULL) - evp->creation),
+	    status);
 }
 
 static struct mta_relay *

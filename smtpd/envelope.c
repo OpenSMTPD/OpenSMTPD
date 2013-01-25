@@ -92,6 +92,7 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 {
 	enum envelope_field fields[] = {
 		EVP_VERSION,
+		EVP_TAG,
 		EVP_MSGID,
 		EVP_HOSTNAME,
 		EVP_SOCKADDR,
@@ -177,6 +178,7 @@ envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
 
 	enum envelope_field fields[] = {
 		EVP_VERSION,
+		EVP_TAG,
 		EVP_TYPE,
 		EVP_HELO,
 		EVP_HOSTNAME,
@@ -278,6 +280,8 @@ envelope_ascii_field_name(enum envelope_field field)
 	switch (field) {
 	case EVP_VERSION:
 		return "version";
+	case EVP_TAG:
+		return "tag";
 	case EVP_MSGID:
 		return "msgid";
 	case EVP_TYPE:
@@ -343,6 +347,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	switch (field) {
 	case EVP_VERSION:
 		return ascii_load_uint32(&ep->version, buf);
+	case EVP_TAG:
+		return ascii_load_string(ep->tag, buf, sizeof ep->tag);
 	case EVP_MSGID:
 		return 1;
 	case EVP_TYPE:
@@ -417,6 +423,8 @@ envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
 	switch (field) {
 	case EVP_VERSION:
 		return ascii_dump_uint32(SMTPD_ENVELOPE_VERSION, buf, len);
+	case EVP_TAG:
+		return ascii_dump_string(ep->tag, buf, len);
 	case EVP_MSGID:
 		return 1;
 	case EVP_TYPE:
