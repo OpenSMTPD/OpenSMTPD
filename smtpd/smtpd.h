@@ -1089,9 +1089,10 @@ int		 enqueue_offline(int, char **);
 void envelope_set_errormsg(struct envelope *, char *, ...);
 char *envelope_ascii_field_name(enum envelope_field);
 int envelope_ascii_load(enum envelope_field, struct envelope *, char *);
-int envelope_ascii_dump(enum envelope_field, struct envelope *, char *, size_t);
-int envelope_load_buffer(struct envelope *, char *, size_t);
-int envelope_dump_buffer(struct envelope *, char *, size_t);
+int envelope_ascii_dump(enum envelope_field, const struct envelope *, char *,
+    size_t);
+int envelope_load_buffer(struct envelope *, const char *, size_t);
+int envelope_dump_buffer(const struct envelope *, char *, size_t);
 
 
 /* expand.c */
@@ -1330,7 +1331,7 @@ const char *sa_to_text(const struct sockaddr *);
 const char *ss_to_text(const struct sockaddr_storage *);
 const char *time_to_text(time_t);
 const char *duration_to_text(time_t);
-const char *relayhost_to_text(struct relayhost *);
+const char *relayhost_to_text(const struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
 const char *mailaddr_to_text(const struct mailaddr *);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.148 2012/11/12 14:58:53 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.149 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -90,7 +90,9 @@ SPLAY_PROTOTYPE(mta_host_tree, mta_host, entry, mta_host_cmp);
 
 SPLAY_HEAD(mta_domain_tree, mta_domain);
 static struct mta_domain *mta_domain(char *, int);
+#if 0
 static void mta_domain_ref(struct mta_domain *);
+#endif
 static void mta_domain_unref(struct mta_domain *);
 static int mta_domain_cmp(const struct mta_domain *, const struct mta_domain *);
 SPLAY_PROTOTYPE(mta_domain_tree, mta_domain, entry, mta_domain_cmp);
@@ -110,7 +112,9 @@ static const char *mta_connector_to_text(struct mta_connector *);
 
 SPLAY_HEAD(mta_route_tree, mta_route);
 static struct mta_route *mta_route(struct mta_source *, struct mta_host *);
+#if 0
 static void mta_route_ref(struct mta_route *);
+#endif
 static void mta_route_unref(struct mta_route *);
 static const char *mta_route_to_text(struct mta_route *);
 static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
@@ -1445,11 +1449,13 @@ mta_domain(char *name, int flags)
 	return (d);
 }
 
+#if 0
 static void
 mta_domain_ref(struct mta_domain *d)
 {
 	d->refcount++;
 }
+#endif
 
 static void
 mta_domain_unref(struct mta_domain *d)
@@ -1617,11 +1623,13 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 	return (r);
 }
 
+#if 0
 static void
 mta_route_ref(struct mta_route *r)
 {
 	r->refcount++;
 }
+#endif
 
 static void
 mta_route_unref(struct mta_route *r)
