@@ -64,9 +64,9 @@ static int ascii_dump_time(time_t, char *, size_t);
 static int ascii_dump_string(const char *, char *, size_t);
 static int ascii_dump_type(enum delivery_type, char *, size_t);
 static int ascii_dump_mda_method(enum action_type, char *, size_t);
-static int ascii_dump_mailaddr(struct mailaddr *, char *, size_t);
+static int ascii_dump_mailaddr(const struct mailaddr *, char *, size_t);
 static int ascii_dump_flags(enum envelope_flags, char *, size_t);
-static int ascii_dump_mta_relay_url(struct relayhost *, char *, size_t);
+static int ascii_dump_mta_relay_url(const struct relayhost *, char *, size_t);
 static int ascii_dump_bounce_type(enum bounce_type, char *, size_t);
 
 void
@@ -88,7 +88,7 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 }
 
 int
-envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
+envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 {
 	enum envelope_field fields[] = {
 		EVP_VERSION,
@@ -122,10 +122,16 @@ envelope_load_buffer(struct envelope *ep, char *buf, size_t buflen)
 		EVP_BOUNCE_EXPIRE,
 	};
 	char	*field, *nextline;
+	char	 lbuf[sizeof(*ep)], *buf;
 	size_t	 len;
 	int	 i;
 	int	 n;
 	int	 ret;
+
+	bzero(lbuf, sizeof lbuf);
+	if (strlcpy(lbuf, ibuf, sizeof lbuf) >= sizeof lbuf)
+		goto err;
+	buf = lbuf;
 
 	n = sizeof(fields) / sizeof(enum envelope_field);
 	bzero(ep, sizeof (*ep));
@@ -172,7 +178,7 @@ err:
 }
 
 int
-envelope_dump_buffer(struct envelope *ep, char *dest, size_t len)
+envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 {
 	char	buf[8192];
 
@@ -417,7 +423,7 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 }
 
 int
-envelope_ascii_dump(enum envelope_field field, struct envelope *ep,
+envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
     char *buf, size_t len)
 {
 	switch (field) {
@@ -713,7 +719,7 @@ ascii_dump_mda_method(enum action_type type, char *dest, size_t len)
 }
 
 static int
-ascii_dump_mailaddr(struct mailaddr *addr, char *dest, size_t len)
+ascii_dump_mailaddr(const struct mailaddr *addr, char *dest, size_t len)
 {
 	return bsnprintf(dest, len, "%s@%s",
 	    addr->user, addr->domain);
@@ -744,7 +750,7 @@ ascii_dump_flags(enum envelope_flags flags, char *buf, size_t len)
 }
 
 static int
-ascii_dump_mta_relay_url(struct relayhost *relay, char *buf, size_t len)
+ascii_dump_mta_relay_url(const struct relayhost *relay, char *buf, size_t len)
 {
 	return bsnprintf(buf, len, "%s", relayhost_to_text(relay));
 }

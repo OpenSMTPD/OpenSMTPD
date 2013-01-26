@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: to.c,v 1.1 2013/01/26 09:37:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -410,7 +410,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 }
 
 const char *
-relayhost_to_text(struct relayhost *relay)
+relayhost_to_text(const struct relayhost *relay)
 {
 	static char	buf[4096];
 	char		port[4096];
