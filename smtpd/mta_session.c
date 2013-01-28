@@ -1013,6 +1013,11 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 	free(s->task);
 	s->task = NULL;
 
+	if (s->datafp) {
+		fclose(s->datafp);
+		s->datafp = NULL;
+	}
+
 	stat_decrement("mta.envelope", n);
 	stat_decrement("mta.task.running", 1);
 	stat_decrement("mta.task", 1);
