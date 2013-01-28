@@ -647,8 +647,6 @@ lka(void)
 	mproc_disable(p_mta);
 	mproc_disable(p_smtp);
 
-	sleep(10);
-
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	lka_shutdown();
