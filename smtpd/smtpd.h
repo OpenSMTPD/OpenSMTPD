@@ -1189,7 +1189,7 @@ void m_get_envelope(struct msg *, struct envelope *);
 /* mta.c */
 pid_t mta(void);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
-void mta_route_error(struct mta_relay *, struct mta_route *, const char *);
+void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_delivery(struct envelope *, const char *, int, const char *);

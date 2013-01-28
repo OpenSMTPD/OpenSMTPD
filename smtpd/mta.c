@@ -491,15 +491,12 @@ mta_source_error(struct mta_relay *relay, struct mta_route *route, const char *e
  * Also, we need a timeout on that.
  */
 void
-mta_route_error(struct mta_relay *relay, struct mta_route *route, const char *e)
+mta_route_error(struct mta_relay *relay, struct mta_route *route)
 {
 	route->dst->nerror++;
 
 	if (route->dst->flags & HOST_IGNORE)
 		return;
-
-	log_info("smtp-out: Error on route %s: %s",
-	    mta_route_to_text(route), e);
 
 	if (route->dst->nerror > MAXERROR_PER_HOST) {
 		log_info("smtp-out: Too many errors on host %s: ignoring this MX",
