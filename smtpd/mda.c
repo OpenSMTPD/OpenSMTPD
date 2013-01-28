@@ -773,6 +773,7 @@ static void
 mda_log(const struct envelope *evp, const char *prefix, const char *status)
 {
 	char rcpt[MAX_LINE_SIZE];
+	char sender[MAX_LINE_SIZE];
 	const char *method;
 
 	rcpt[0] = '\0';
@@ -780,6 +781,11 @@ mda_log(const struct envelope *evp, const char *prefix, const char *status)
 	    strcmp(evp->rcpt.domain, evp->dest.domain))
 		snprintf(rcpt, sizeof rcpt, "rcpt=<%s@%s>, ",
 		    evp->rcpt.user, evp->rcpt.domain);
+
+	sender[0] = '\0';
+	if (evp->sender.user[0] || evp->sender.domain[0])
+		snprintf(sender, sizeof(sender), "%s@%s",
+		    evp->sender.user, evp->sender.domain);
 
 	if (evp->agent.mda.method == A_MAILDIR)
 		method = "maildir";
@@ -792,10 +798,11 @@ mda_log(const struct envelope *evp, const char *prefix, const char *status)
 	else
 		method = "???";
 
-	log_info("delivery: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
+	log_info("delivery: %s for %016" PRIx64 ": from=<%s>, to=<%s@%s>, "
 	    "%suser=%s, method=%s, delay=%s, stat=%s",
 	    prefix,
-	    evp->id, evp->sender.user, evp->sender.domain,
+	    evp->id,
+	    sender,
 	    evp->dest.user, evp->dest.domain,
 	    rcpt,
 	    evp->agent.mda.username, method,

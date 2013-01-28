@@ -756,12 +756,21 @@ struct mta_relay {
 	size_t			 maxconn;
 };
 
+struct mta_envelope {
+	TAILQ_ENTRY(mta_envelope)	 entry;
+	uint64_t			 id;
+	time_t				 creation;
+	char				*dest;
+	char				*rcpt;
+	struct mta_task			*task;
+};
+
 struct mta_task {
-	TAILQ_ENTRY(mta_task)	 entry;
-	struct mta_relay	*relay;
-	uint32_t		 msgid;
-	TAILQ_HEAD(, envelope)	 envelopes;
-	struct mailaddr		 sender;
+	TAILQ_ENTRY(mta_task)		 entry;
+	struct mta_relay		*relay;
+	uint32_t			 msgid;
+	TAILQ_HEAD(, mta_envelope)	 envelopes;
+	char				*sender;
 };
 
 enum queue_op {
@@ -1214,7 +1223,7 @@ void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
-void mta_delivery(struct envelope *, const char *, int, const char *);
+void mta_delivery(struct mta_envelope *, const char *, int, const char *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);

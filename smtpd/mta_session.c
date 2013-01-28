@@ -112,7 +112,7 @@ struct mta_session {
 
 	enum mta_state		 state;
 	struct mta_task		*task;
-	struct envelope		*currevp;
+	struct mta_envelope	*currevp;
 	FILE			*datafp;
 };
 
@@ -573,19 +573,13 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
-		if (s->task->sender.user[0] && s->task->sender.domain[0])
-			mta_send(s, "MAIL FROM: <%s@%s>",
-			    s->task->sender.user, s->task->sender.domain);
-		else
-			mta_send(s, "MAIL FROM: <>");
+		mta_send(s, "MAIL FROM: <%s>", s->task->sender);
 		break;
 
 	case MTA_RCPT:
 		if (s->currevp == NULL)
 			s->currevp = TAILQ_FIRST(&s->task->envelopes);
-		mta_send(s, "RCPT TO: <%s@%s>",
-		    s->currevp->dest.user,
-		    s->currevp->dest.domain);
+		mta_send(s, "RCPT TO: <%s>", s->currevp->dest);
 		break;
 
 	case MTA_DATA:
@@ -636,9 +630,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 static void
 mta_response(struct mta_session *s, char *line)
 {
-	struct envelope	*evp;
-	char		 buf[MAX_LINE_SIZE];
-	int		 delivery;
+	struct mta_envelope	*e;
+	char			 buf[MAX_LINE_SIZE];
+	int			 delivery;
 
 	switch (s->state) {
 
@@ -711,7 +705,7 @@ mta_response(struct mta_session *s, char *line)
 		break;
 
 	case MTA_RCPT:
-		evp = s->currevp;
+		e = s->currevp;
 		s->currevp = TAILQ_NEXT(s->currevp, entry);
 		if (line[0] != '2') {
 			if (line[0] == '5')
@@ -719,11 +713,13 @@ mta_response(struct mta_session *s, char *line)
 			else
 				delivery = IMSG_DELIVERY_TEMPFAIL;
 
-			TAILQ_REMOVE(&s->task->envelopes, evp, entry);
+			TAILQ_REMOVE(&s->task->envelopes, e, entry);
 			snprintf(buf, sizeof(buf), "%s",
 			    mta_host_to_text(s->route->dst));
-			mta_delivery(evp, buf, delivery, line);
-			free(evp);
+			mta_delivery(e, buf, delivery, line);
+			free(e->dest);
+			free(e->rcpt);
+			free(e);
 			stat_decrement("mta.envelope", 1);
 
 			if (TAILQ_EMPTY(&s->task->envelopes)) {
@@ -996,9 +992,9 @@ mta_queue_data(struct mta_session *s)
 static void
 mta_flush_task(struct mta_session *s, int delivery, const char *error)
 {
-	struct envelope	*e;
-	char		 relay[MAX_LINE_SIZE];
-	size_t		 n;
+	struct mta_envelope	*e;
+	char			 relay[MAX_LINE_SIZE];
+	size_t			 n;
 
 	snprintf(relay, sizeof relay, "%s", mta_host_to_text(s->route->dst));
 
@@ -1006,10 +1002,13 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 	while ((e = TAILQ_FIRST(&s->task->envelopes))) {
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
 		mta_delivery(e, relay, delivery, error);
+		free(e->dest);
+		free(e->rcpt);
 		free(e);
 		n++;
 	}
 
+	free(s->task->sender);
 	free(s->task);
 	s->task = NULL;
 
