@@ -652,6 +652,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_BOUNCE;
 			else if (!strcmp(optarg, "scheduler"))
 				verbose |= TRACE_SCHEDULER;
+			else if (!strcmp(optarg, "lookup"))
+				verbose |= TRACE_LOOKUP;
 			else if (!strcmp(optarg, "stat"))
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
