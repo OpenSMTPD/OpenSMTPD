@@ -485,8 +485,6 @@ io_evstr(short ev)
 	}
 
 	if (ev & EV_TIMEOUT) {
-		if (n)
-			strlcat(buf, "|", sizeof(buf));
 		strlcat(buf, "EV_TIMEOUT", sizeof(buf));
 		ev &= ~EV_TIMEOUT;
 		n++;
