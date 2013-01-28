@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler_backend.c,v 1.6 2012/09/11 19:19:13 gilles Exp $	*/
+/*	$OpenBSD: scheduler_backend.c,v 1.8 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>

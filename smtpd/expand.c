@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.18 2012/10/10 18:02:37 eric Exp $	*/
+/*	$OpenBSD: expand.c,v 1.19 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>

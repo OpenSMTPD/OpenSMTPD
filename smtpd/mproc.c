@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.61 2012/11/12 14:58:53 eric Exp $	*/
+/*	$OpenBSD: mproc.c,v 1.1 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpfilter.c,v 1.5 2012/09/03 21:28:21 chl Exp $	*/
+/*	$OpenBSD: smtpfilter.c,v 1.6 2013/01/26 09:37:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
