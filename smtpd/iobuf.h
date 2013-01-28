@@ -1,4 +1,4 @@
-/*	$OpenBSD: iobuf.h,v 1.1 2012/01/29 00:32:51 eric Exp $	*/
+/*	$OpenBSD: iobuf.h,v 1.3 2013/01/26 09:37:23 gilles Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

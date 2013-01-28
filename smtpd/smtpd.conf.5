@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.76 2012/10/16 16:47:40 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.79 2013/01/26 17:02:52 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: October 16 2012 $
+.Dd $Mdocdate: January 26 2013 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -78,8 +78,8 @@ The following formats are currently supported:
 %{user.directory}    home directory of the local user
 .Ed
 .Pp
-Expansion formats also support partial expansion using the optional bracket notations
-with substring offset.
+Expansion formats also support partial expansion using the optional
+bracket notations with substring offset.
 For example, with recipient domain "example.org":
 .Bd -literal -offset indent
 %{rcpt.domain[0]}	expands to "e"
@@ -234,28 +234,30 @@ table types.
 .Op , Ar value_n
 .Ic }
 .Xc
-Tables containing list of static values may be declared using an inlined notation.
+Tables containing list of static values may be declared
+using an inlined notation.
 .Pp
 The table is identified using table name
 .Ar name ;
 the name itself is arbitrarily chosen.
 .Pp
-The table must contain at least one value and may declare many values as a list of
-comma separated strings.
+The table must contain at least one value and may declare many values as a
+list of comma separated strings.
 .It Xo
 .Ic table Ar name
 .Ic { Ar key => value
 .Op , key_n => value_n
 .Ic }
 .Xc
-Tables containing static key-value mappings may be declared using an inlined notation.
+Tables containing static key-value mappings may be declared
+using an inlined notation.
 .Pp
 The table is identified using table name
 .Ar name ;
 the name itself is arbitrarily chosen.
 .Pp
-The table must contain at least one key-value mapping and may declare many mappings as
-a list of comma separated
+The table must contain at least one key-value mapping and may declare
+many mappings as a list of comma separated
 .Ar key => value
 descriptions.
 .It Ic max-message-size Ar n
@@ -427,7 +429,7 @@ specified to override the system database:
 .It Xo
 .Op Ic users Ar <table>
 .Xc
-Lookup users in the table
+Look up users in the table
 .Ar table
 instead of performing system lookups using the
 .Xr getpwnam 3
@@ -493,7 +495,7 @@ If the
 .Ic source
 parameter is specified,
 .Xr smtpd 8
-will explicitely bind to an address found in the table referenced by
+will explicitly bind to an address found in the table referenced by
 .Ar table
 when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
@@ -571,7 +573,7 @@ If the
 .Ic source
 parameter is specified,
 .Xr smtpd 8
-will explicitely bind to an address found in the table referenced by
+will explicitly bind to an address found in the table referenced by
 .Ar table
 when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
@@ -624,7 +626,7 @@ would look like this:
 .Bd -literal -offset indent
 listen on lo0
 table aliases db:/etc/mail/aliases.db
-table secrets db:/etc/mail/secrets.db"
+table secrets db:/etc/mail/secrets.db
 accept for local alias <aliases> deliver to mbox
 accept for any relay via tls+auth://smtp.example.com auth <secrets>
 .Ed

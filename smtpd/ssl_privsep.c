@@ -1,4 +1,4 @@
-/*      $OpenBSD: ssl_privsep.c,v 1.9 2012/10/04 20:53:30 reyk Exp $    */
+/*      $OpenBSD: ssl_privsep.c,v 1.5 2013/01/26 09:37:24 gilles Exp $    */
 
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.

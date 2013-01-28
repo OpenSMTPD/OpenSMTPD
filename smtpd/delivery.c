@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery.c,v 1.2 2012/01/13 10:53:12 chl Exp $	*/
+/*	$OpenBSD: delivery.c,v 1.3 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>

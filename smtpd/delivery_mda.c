@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_mda.c,v 1.5 2012/10/03 17:58:03 gilles Exp $	*/
+/*	$OpenBSD: delivery_mda.c,v 1.7 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>

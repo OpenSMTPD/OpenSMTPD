@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.181 2012/11/12 14:58:53 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.184 2013/01/26 09:37:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -737,6 +737,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_BOUNCE;
 			else if (!strcmp(optarg, "scheduler"))
 				verbose |= TRACE_SCHEDULER;
+			else if (!strcmp(optarg, "lookup"))
+				verbose |= TRACE_LOOKUP;
 			else if (!strcmp(optarg, "stat"))
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
