@@ -898,7 +898,8 @@ rule		: ACCEPT {
 					type = T_HASH;
 					break;
 				}
-				if (! table_check_type(rule->r_mapping, type)) {
+				if (! table_check_service(rule->r_mapping, K_ALIAS) &&
+				    ! table_check_type(rule->r_mapping, type)) {
 					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
 					    rule->r_mapping->t_name);
 					YYERROR;
