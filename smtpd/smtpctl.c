@@ -306,6 +306,7 @@ main(int argc, char *argv[])
 	case LOG_TRACE_MTA:
 	case LOG_TRACE_BOUNCE:
 	case LOG_TRACE_SCHEDULER:
+	case LOG_TRACE_LOOKUP:
 	case LOG_TRACE_STAT:
 	case LOG_TRACE_RULES:
 	case LOG_TRACE_IMSG_SIZE:
@@ -323,6 +324,7 @@ main(int argc, char *argv[])
 	case LOG_UNTRACE_MTA:
 	case LOG_UNTRACE_BOUNCE:
 	case LOG_UNTRACE_SCHEDULER:
+	case LOG_UNTRACE_LOOKUP:
 	case LOG_UNTRACE_STAT:
 	case LOG_UNTRACE_RULES:
 	case LOG_UNTRACE_IMSG_SIZE:
@@ -376,6 +378,7 @@ main(int argc, char *argv[])
 		case LOG_TRACE_MTA:
 		case LOG_TRACE_BOUNCE:
 		case LOG_TRACE_SCHEDULER:
+		case LOG_TRACE_LOOKUP:
 		case LOG_TRACE_STAT:
 		case LOG_TRACE_RULES:
 		case LOG_TRACE_IMSG_SIZE:
@@ -387,6 +390,7 @@ main(int argc, char *argv[])
 		case LOG_UNTRACE_MTA:
 		case LOG_UNTRACE_BOUNCE:
 		case LOG_UNTRACE_SCHEDULER:
+		case LOG_UNTRACE_LOOKUP:
 		case LOG_UNTRACE_STAT:
 		case LOG_UNTRACE_RULES:
 		case LOG_UNTRACE_IMSG_SIZE:
@@ -845,6 +849,10 @@ trace_convert(uint32_t trace)
 	case LOG_TRACE_SCHEDULER:
 	case LOG_UNTRACE_SCHEDULER:
 		return TRACE_SCHEDULER;
+
+	case LOG_TRACE_LOOKUP:
+	case LOG_UNTRACE_LOOKUP:
+		return TRACE_LOOKUP;
 
 	case LOG_TRACE_STAT:
 	case LOG_UNTRACE_STAT:
