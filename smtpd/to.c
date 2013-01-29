@@ -273,16 +273,16 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 		/* dealing with netmask */
 
 		bzero(&ssin, sizeof(struct sockaddr_in));
+		bzero(&ssin6, sizeof(struct sockaddr_in6));
+
 		bits = inet_net_pton(AF_INET, s, &ssin.sin_addr,
 		    sizeof(struct in_addr));
-
 		if (bits != -1) {
 			ssin.sin_family = AF_INET;
 			memcpy(&ss, &ssin, sizeof(ssin));
 			ss.ss_len = sizeof(struct sockaddr_in);
 		}
 		else {
-			bzero(&ssin6, sizeof(struct sockaddr_in6));
 			bits = inet_net_pton(AF_INET6, s, &ssin6.sin6_addr,
 			    sizeof(struct in6_addr));
 			if (bits == -1) {
