@@ -165,6 +165,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			e = xcalloc(1, sizeof *e, "mda_envelope");
 			e->id = evp.id;
 			e->creation = evp.creation;
+			buf[0] = '\0';
+			if (evp.sender.user[0] && evp.sender.domain[0])
+				snprintf(buf, sizeof buf, "%s@%s",
+				    evp.sender.user, evp.sender.domain);
+			e->sender = xstrdup(buf, "mda_envelope:sender");
 			snprintf(buf, sizeof buf, "%s@%s",
 			    evp.dest.user, evp.dest.domain);
 			e->dest = xstrdup(buf, "mda_envelope:dest");
@@ -283,10 +288,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				/* XXX: remove exising Return-Path, if any */
 				n = iobuf_fqueue(&s->iobuf,
 				    "Return-Path: %s\nDelivered-To: %s\n",
-				    e->sender, e->rcpt);
+				    e->sender, e->rcpt ? e->rcpt : e->dest);
 			else
 				n = iobuf_fqueue(&s->iobuf,
-				    "Delivered-To: %s\n", e->rcpt);
+				    "Delivered-To: %s\n",
+				    e->rcpt ? e->rcpt : e->dest);
 			if (n == -1) {
 				log_warn("warn: mda: "
 				    "fail to write delivery info");
@@ -492,6 +498,7 @@ mda(void)
 	tree_init(&sessions);
 	TAILQ_INIT(&users);
 	TAILQ_INIT(&runnable);
+	evpcount = 0;
 	running = 0;
 
 	imsg_callback = mda_imsg;
