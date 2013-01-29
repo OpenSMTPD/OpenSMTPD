@@ -324,30 +324,29 @@ aldap_parse_page_control(struct ber_element *control, size_t len)
 	ber_scanf_elements(control, "ss", &oid, &encoded);
 	ber_set_readbuf(&b, encoded, control->be_next->be_len);
 	elm = ber_read_elements(&b, NULL);
-
-	if ((page = malloc(sizeof(struct aldap_page_control))) == NULL) {
-		if (elm != NULL)
-			ber_free_elements(elm);
+	if (elm == NULL) {
 		ber_free(&b);
 		return NULL;
 	}
 
-	if (elm != NULL) {
-		ber_scanf_elements(elm->be_sub, "is", &page->size, &s);
-		page->cookie_len = elm->be_sub->be_next->be_len;
+	if ((page = malloc(sizeof(struct aldap_page_control))) == NULL) {
+		ber_free_elements(elm);
+		ber_free(&b);
+		return NULL;
 	}
 
+	ber_scanf_elements(elm->be_sub, "is", &page->size, &s);
+	page->cookie_len = elm->be_sub->be_next->be_len;
+
 	if ((page->cookie = malloc(page->cookie_len)) == NULL) {
-		if (elm != NULL)
-			ber_free_elements(elm);
+		ber_free_elements(elm);
 		ber_free(&b);
 		free(page);
 		return NULL;
 	}
 	memcpy(page->cookie, s, page->cookie_len);
 
-	if (elm)
-		ber_free_elements(elm);
+	ber_free_elements(elm);
 	ber_free(&b);
 	return page;
 }
