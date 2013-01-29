@@ -185,7 +185,7 @@ aliases_expand_include(struct expand *expand, const char *filename)
 	FILE *fp;
 	char *line;
 	size_t len, lineno = 0;
-	char delim[] = { '\\', '#' };
+	char delim[3] = { '\\', '#', '\0' };
 
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
