@@ -778,7 +778,7 @@ ldap_parse_search_filter(struct ber_element *ber, char *filter)
 static struct ber_element *
 ldap_do_parse_search_filter(struct ber_element *prev, char **cpp)
 {
-	struct ber_element *elm, *root = NULL;
+	struct ber_element *root = NULL;
 	char *attr_desc, *attr_val, *parsed_val, *cp;
 	size_t len;
 	unsigned long type;
@@ -822,7 +822,7 @@ ldap_do_parse_search_filter(struct ber_element *prev, char **cpp)
 		ber_set_header(root, BER_CLASS_CONTEXT, LDAP_FILT_NOT);
 
 		cp++;				/* now points to sub-filter */
-		if ((elm = ldap_do_parse_search_filter(root, &cp)) == NULL)
+		if (ldap_do_parse_search_filter(root, &cp) == NULL)
 			goto bad;
 
 		if (*cp != ')')			/* trailing `)` of filter */
