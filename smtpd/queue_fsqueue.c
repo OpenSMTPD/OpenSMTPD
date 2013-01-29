@@ -157,8 +157,9 @@ fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, in
 		log_warn("warn: fsqueue_envelope_dump: fsync");
 		goto tempfail;
 	}
-	if (fclose(fp)) {
+	if (fclose(fp) != 0) {
 		log_warn("warn: fsqueue_envelope_dump: fclose");
+		fp = NULL;
 		goto tempfail;
 	}
 	fp = NULL;
