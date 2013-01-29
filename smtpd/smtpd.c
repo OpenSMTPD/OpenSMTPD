@@ -898,7 +898,6 @@ static void
 purge_task(int fd, short ev, void *arg)
 {
 	DIR		*d;
-	struct dirent	*de;
 	int		 n;
 	uid_t		 uid;
 	gid_t		 gid;
@@ -907,7 +906,7 @@ purge_task(int fd, short ev, void *arg)
 
 		n = 0;
 		if ((d = opendir(PATH_SPOOL PATH_PURGE))) {
-			while ((de = readdir(d)) != NULL)
+			while (readdir(d) != NULL)
 				n++;
 			closedir(d);
 		} else
