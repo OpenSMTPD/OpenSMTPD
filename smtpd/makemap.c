@@ -90,7 +90,6 @@ main(int argc, char *argv[])
 	char		*conf;
 	int		 ch;
 	DBTYPE		 dbtype = DB_HASH;
-	char		*execname;
 	char		*p;
 
 	log_init(1);
@@ -101,7 +100,6 @@ main(int argc, char *argv[])
 	opts = "ho:t:d:";
 	if (mode == P_NEWALIASES)
 		opts = "f:h";
-	execname = argv[0];
 
 	while ((ch = getopt(argc, argv, opts)) != -1) {
 		switch (ch) {
@@ -153,7 +151,7 @@ main(int argc, char *argv[])
 				errx(1, "database name too long");
 		}
 
-		execlp(execname, execname, "-d", argv[0], "-o", dbname, "-",
+		execlp("makemap", "makemap", "-d", argv[0], "-o", dbname, "-",
 		    NULL);
 		err(1, "execlp");
 	}

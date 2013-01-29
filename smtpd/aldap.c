@@ -778,7 +778,7 @@ ldap_parse_search_filter(struct ber_element *ber, char *filter)
 static struct ber_element *
 ldap_do_parse_search_filter(struct ber_element *prev, char **cpp)
 {
-	struct ber_element *root = NULL;
+	struct ber_element *elm, *root = NULL;
 	char *attr_desc, *attr_val, *parsed_val, *cp;
 	size_t len;
 	unsigned long type;
