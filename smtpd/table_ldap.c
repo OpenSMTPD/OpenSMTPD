@@ -171,9 +171,11 @@ table_ldap_open(struct table *table)
 	return tlh;
 
 err:
-	if (tlh->aldap != NULL)
-		aldap_close(tlh->aldap);
-	free(tlh);
+	if (tlh) {
+		if (tlh->aldap != NULL)
+			aldap_close(tlh->aldap);
+		free(tlh);
+	}
 	if (message != NULL)
 		aldap_freemsg(message);
 	return NULL;
