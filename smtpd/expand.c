@@ -80,6 +80,7 @@ expand_free(struct expand *expand)
 		RB_REMOVE(expandtree, &expand->tree, xn);
 		free(xn);
 	}
+	free(expand);
 }
 
 int
