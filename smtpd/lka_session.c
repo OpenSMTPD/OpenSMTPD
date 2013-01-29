@@ -199,7 +199,7 @@ lka_resume(struct lka_session *lks)
 		m_close(p_queue);
 	}
 
-	expand_free(&lks->expand);
+	expand_clear(&lks->expand);
 	tree_xpop(&sessions, lks->id);
 	free(lks);
 }

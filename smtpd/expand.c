@@ -68,7 +68,7 @@ expand_insert(struct expand *expand, struct expandnode *node)
 }
 
 void
-expand_free(struct expand *expand)
+expand_clear(struct expand *expand)
 {
 	struct expandnode *xn;
 
@@ -80,6 +80,12 @@ expand_free(struct expand *expand)
 		RB_REMOVE(expandtree, &expand->tree, xn);
 		free(xn);
 	}
+}
+
+void
+expand_free(struct expand *expand)
+{
+	expand_clear(expand);
 	free(expand);
 }
 
