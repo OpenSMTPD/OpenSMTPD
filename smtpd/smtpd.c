@@ -948,6 +948,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	struct child	*child;
 	pid_t		 pid;
 	int		 n, allout, pipefd[2];
+	mode_t		 omode;
 
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
@@ -983,7 +984,9 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	/* prepare file which captures stdout and stderr */
 	strlcpy(sfn, "/tmp/smtpd.out.XXXXXXXXXXX", sizeof(sfn));
+	omode = umask(7077);
 	allout = mkstemp(sfn);
+	umask(omode);
 	if (allout < 0) {
 		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
