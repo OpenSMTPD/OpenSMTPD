@@ -629,6 +629,7 @@ ldap_client_connect(const char *addr)
 		}
 
 		close(fd);
+		fd = -1;
 	}
 
 err:
