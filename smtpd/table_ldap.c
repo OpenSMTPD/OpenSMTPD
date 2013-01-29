@@ -593,6 +593,7 @@ ldap_client_connect(const char *addr)
 		warnx("aldap_parse_url fail");
 		goto err;
 	}
+	url = NULL;
 
 	bzero(&hints, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;
