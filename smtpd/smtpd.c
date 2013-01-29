@@ -792,7 +792,7 @@ main(int argc, char *argv[])
 			continue;
 		ssl = NULL;
 		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
-			r->r_value.relayhost.cert, F_CCERT) < 0)
+			r->r_value.relayhost.cert, F_CCERT))
 			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
 		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 	}
