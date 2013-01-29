@@ -352,7 +352,8 @@ scheduler(void)
 
 	evtimer_set(&env->sc_ev, scheduler_timeout, NULL);
 	scheduler_reset_events();
-	event_dispatch();
+	if (event_dispatch() < 0)
+		fatal("event_dispatch");
 	scheduler_shutdown();
 
 	return (0);
