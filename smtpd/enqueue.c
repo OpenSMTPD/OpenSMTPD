@@ -661,7 +661,7 @@ static void
 rcpt_add(char *addr)
 {
 	void	*nrcpts;
-	char	*p;
+	char	*p, *q;
 	int	n;
 
 	n = 1;
@@ -680,6 +680,8 @@ rcpt_add(char *addr)
 		if ((p = strchr(addr, ',')) != NULL)
 			*p++ = '\0';
 		msg.rcpts[msg.rcpt_cnt++] = qualify_addr(addr);
+		if (p == NULL)
+			break;
 		addr = p;
 	}
 }
