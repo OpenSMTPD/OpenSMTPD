@@ -114,7 +114,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_string(&m, &usertable);
 			m_get_string(&m, &username);
-			m_get_int(&m, &status);
+			m_get_int(&m, (int *)&status);
 			if (status == LKA_OK)
 				m_get_data(&m, &data, &sz);
 			m_end(&m);

@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/tree.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -661,7 +662,7 @@ static void
 rcpt_add(char *addr)
 {
 	void	*nrcpts;
-	char	*p, *q;
+	char	*p;
 	int	n;
 
 	n = 1;
