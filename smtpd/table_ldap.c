@@ -288,8 +288,6 @@ error:
 	ret = -1;
 
 end:
-	if (pg)
-		aldap_freepage(pg);
 	if (m)
 		aldap_freemsg(m);
 	log_debug("debug: table_ldap_internal_query: filter=%s, ret=%d", filter, ret);
