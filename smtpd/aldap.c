@@ -332,8 +332,10 @@ aldap_parse_page_control(struct ber_element *control, size_t len)
 		return NULL;
 	}
 
-	ber_scanf_elements(elm->be_sub, "is", &page->size, &s);
-	page->cookie_len = elm->be_sub->be_next->be_len;
+	if (elm != NULL) {
+		ber_scanf_elements(elm->be_sub, "is", &page->size, &s);
+		page->cookie_len = elm->be_sub->be_next->be_len;
+	}
 
 	if ((page->cookie = malloc(page->cookie_len)) == NULL) {
 		if (elm != NULL)
@@ -344,7 +346,8 @@ aldap_parse_page_control(struct ber_element *control, size_t len)
 	}
 	memcpy(page->cookie, s, page->cookie_len);
 
-	ber_free_elements(elm);
+	if (elm)
+		ber_free_elements(elm);
 	ber_free(&b);
 	return page;
 }
@@ -569,8 +572,9 @@ aldap_parse_url(char *url, struct aldap_url *lu)
 	const char	*errstr = NULL;
 	int		 i;
 
-	if ((lu->buffer = p = strdup(url)) == NULL)
+	if ((lu->buffer = strdup(url)) == NULL)
 		return (-1);
+	p = lu->buffer;
 
 	/* protocol */
 	if (strncasecmp(LDAP_URL, p, strlen(LDAP_URL)) != 0)
