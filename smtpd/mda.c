@@ -45,8 +45,8 @@
 
 #define MDA_HIWAT		65536
 
-#define MDA_MAXEVP		200000
-#define MDA_MAXEVPUSER		15000
+#define MDA_MAXEVP		2000
+#define MDA_MAXEVPUSER		15
 #define MDA_MAXSESS		50
 #define MDA_MAXSESSUSER		7
 
@@ -225,10 +225,6 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
-			e->method = evp.agent.mda.method;
-			e->buffer = xstrdup(evp.agent.mda.buffer,
-			    "mda_envelope:buffer");
-
 			if (u == NULL) {
 				u = xcalloc(1, sizeof *u, "mda_user");
 				TAILQ_INIT(&u->envelopes);
@@ -240,8 +236,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				m_add_string(p_lka, usertable);
 				m_add_string(p_lka, username);
 				m_close(p_lka);
+				stat_increment("mda.user", 1);
 			}
 
+			stat_increment("mda.envelope", 1);
 			stat_increment("mda.pending", 1);
 
 			evpcount += 1;
@@ -697,10 +695,12 @@ mda_fail(struct mda_user *user, int permfail, const char *error)
 		free(e->user);
 		free(e->buffer);
 		free(e);
+		stat_decrement("mda.envelope", 1);
 	}
 
 	TAILQ_REMOVE(&users, user, entry);
 	free(user);
+	stat_decrement("mda.user", 1);
 }
 
 static void
@@ -777,6 +777,7 @@ mda_done(struct mda_session *s)
 		    "all done for user \"%s\"", s->user->name);
 		TAILQ_REMOVE(&users, s->user, entry);
 		free(s->user);
+		stat_decrement("mda.user", 1);
 	} else if (s->user->runnable == 0 &&
 	    TAILQ_FIRST(&s->user->envelopes) &&
 	    s->user->running < MDA_MAXSESSUSER) {
@@ -797,6 +798,7 @@ mda_done(struct mda_session *s)
 		free(s->evp->user);
 		free(s->evp->buffer);
 		free(s->evp);
+		stat_decrement("mda.envelope", 1);
 	}
 	free(s);
 
