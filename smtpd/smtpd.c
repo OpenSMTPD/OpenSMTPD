@@ -792,7 +792,7 @@ main(int argc, char *argv[])
 			continue;
 		ssl = NULL;
 		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
-			r->r_value.relayhost.cert, F_CCERT) < 0)
+			r->r_value.relayhost.cert, F_CCERT))
 			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
 		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
 	}
@@ -898,7 +898,6 @@ static void
 purge_task(int fd, short ev, void *arg)
 {
 	DIR		*d;
-	struct dirent	*de;
 	int		 n;
 	uid_t		 uid;
 	gid_t		 gid;
@@ -907,7 +906,7 @@ purge_task(int fd, short ev, void *arg)
 
 		n = 0;
 		if ((d = opendir(PATH_SPOOL PATH_PURGE))) {
-			while ((de = readdir(d)) != NULL)
+			while (readdir(d) != NULL)
 				n++;
 			closedir(d);
 		} else
@@ -949,6 +948,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	struct child	*child;
 	pid_t		 pid;
 	int		 n, allout, pipefd[2];
+	mode_t		 omode;
 
 	log_debug("debug: forkmda: to \"%s\" as %s",
 	    deliver->to, deliver->user);
@@ -984,7 +984,9 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	/* prepare file which captures stdout and stderr */
 	strlcpy(sfn, "/tmp/smtpd.out.XXXXXXXXXXX", sizeof(sfn));
+	omode = umask(7077);
 	allout = mkstemp(sfn);
+	umask(omode);
 	if (allout < 0) {
 		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)

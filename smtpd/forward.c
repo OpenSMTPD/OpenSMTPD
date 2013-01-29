@@ -67,6 +67,7 @@ forwards_get(int fd, struct expand *expand)
 		goto end;
 	}
 
+	lineno = 0;
 	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
 		if (! expand_line(expand, line, 0)) {
 			log_info("info: parse error in forward file");

@@ -1109,6 +1109,7 @@ int envelope_dump_buffer(const struct envelope *, char *, size_t);
 int expand_cmp(struct expandnode *, struct expandnode *);
 void expand_insert(struct expand *, struct expandnode *);
 struct expandnode *expand_lookup(struct expand *, struct expandnode *);
+void expand_clear(struct expand *);
 void expand_free(struct expand *);
 int expand_line(struct expand *, const char *, int);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);

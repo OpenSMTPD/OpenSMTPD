@@ -87,6 +87,7 @@ err:
 	    proc->name, proc->path);
 	close(sp[0]);
 	close(sp[1]);
+	free(proc);
 	return NULL;
 }
 
