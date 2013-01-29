@@ -644,7 +644,11 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep,
 		/* extract token from %{token} */
 		if ((size_t)(ebuf - pbuf) - 1 >= sizeof token)
 			return 0;
-		*strchr(memcpy(token, pbuf+2, ebuf-pbuf-1), '}') = '\0';
+
+		memcpy(token, pbuf+2, ebuf-pbuf-1);
+		if (strchr(token, '}') == NULL)
+			return 0;
+		*strchr(token, '}') = '\0';
 
 		exptoklen = lka_expand_token(exptok, sizeof exptok, token, ep,
 		    ui);
