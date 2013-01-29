@@ -45,8 +45,8 @@
 
 #define MDA_HIWAT		65536
 
-#define MDA_MAXEVP		5000
-#define MDA_MAXEVPUSER		500
+#define MDA_MAXEVP		200000
+#define MDA_MAXEVPUSER		15000
 #define MDA_MAXSESS		50
 #define MDA_MAXSESSUSER		7
 
