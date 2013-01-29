@@ -298,7 +298,8 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 		hdl = fsqueue_qwalk_new();
 
 	if (fsqueue_qwalk(hdl, evpid)) {
-		r = fsqueue_envelope_load(*evpid, buf, len);
+		bzero(buf, len);
+		r = fsqueue_envelope_load(*evpid, buf, len-1);
 		if (r) {
 			msgid = evpid_to_msgid(*evpid);
 			if (! envelope_load_buffer(&ep, buf, r))
