@@ -181,9 +181,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (evpcount >= MDA_MAXEVP) {
 				log_debug("debug: mda: too many envelopes");
 				queue_tempfail(e->id,
-				    "Global envelope limit reached");
+				    "Too many envelopes in the delivery agent: "
+				    "will try again later");
 				mda_log(e, "TempFail",
-				    "Global envelope limit reached");
+				    "Too many envelopes in the delivery agent: "
+				    "will try again later");
 				free(e->sender);
 				free(e->dest);
 				free(e->rcpt);
@@ -204,9 +206,11 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: mda: too many envelopes for "
 				    "\"%s\"", u->name);
 				queue_tempfail(e->id,
-				    "User envelope limit reached");
+				    "Too many envelopes for this user in the "
+				    "delivery agent: will try again later");
 				mda_log(e, "TempFail",
-				    "User envelope limit reached");
+				    "Too many envelopes for this user in the "
+				    "delivery agent: will try again later");
 				free(e->sender);
 				free(e->dest);
 				free(e->rcpt);
