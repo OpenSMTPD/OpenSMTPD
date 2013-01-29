@@ -174,8 +174,10 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 	if (line == NULL)
 		return 0;
 
-	if (retp == NULL)
+	if (retp == NULL) {
+		free(line);
 		return 1;
+	}
 
 	ret = 0;
 	switch (service) {
