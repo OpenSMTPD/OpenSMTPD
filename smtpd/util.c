@@ -378,14 +378,16 @@ mktmpfile(void)
 {
 	char		path[MAXPATHLEN];
 	int		fd;
+	mode_t		omode;
 
 	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
 	    PATH_TEMPORARY))
 		err(1, "snprintf");
 
+	omode = umask(7077);
 	if ((fd = mkstemp(path)) == -1)
 		err(1, "cannot create temporary file %s", path);
-
+	umask(omode);
 	unlink(path);
 	return (fd);
 }

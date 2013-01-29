@@ -110,7 +110,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	size_t			 sz;
 	char			 out[256], stat[MAX_LINE_SIZE];
-	int			 n, v, status;
+	int			 n, v;
+	enum lka_resp_status	status;
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
@@ -118,7 +119,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_string(&m, &usertable);
 			m_get_string(&m, &username);
-			m_get_int(&m, &status);
+			m_get_int(&m, (int *)&status);
 			if (status == LKA_OK)
 				m_get_data(&m, &data, &sz);
 			m_end(&m);

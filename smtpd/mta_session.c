@@ -1029,14 +1029,6 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 	char	*error;
 	int	 len;
 
-	/*
-	 * If not connected yet, and the error is not local, just ignore it
-	 * and try to reconnect.
-	 */
-	if (s->state == MTA_INIT && 
-	    (errno == ETIMEDOUT || errno == ECONNREFUSED))
-		return;
-
 	va_start(ap, fmt);
 	if ((len = vasprintf(&error, fmt, ap)) == -1)
 		fatal("mta: vasprintf");
@@ -1049,6 +1041,16 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 	else
 		log_info("smtp-out: Error on session %016"PRIx64 ": %s",
 		    s->id, error);
+	/*
+	 * If not connected yet, and the error is not local, just ignore it
+	 * and try to reconnect.
+	 */
+	if (s->state == MTA_INIT && 
+	    (errno == ETIMEDOUT || errno == ECONNREFUSED)) {
+		log_debug("debug: mta: not reporting route error yet");
+		free(error);
+		return;
+	}
 
 	mta_route_error(s->relay, s->route);
 

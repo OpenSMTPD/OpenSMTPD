@@ -560,6 +560,9 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 	struct sockaddr_in6 ssin6;
 	struct sockaddr_in  ssin;
 
+	bzero(&ssin, sizeof ssin);
+	bzero(&ssin6, sizeof ssin6);
+
 	if (!strcmp("local", buf)) {
 		ss->ss_family = AF_LOCAL;
 	}

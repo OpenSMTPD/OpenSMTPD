@@ -114,6 +114,7 @@ table_sqlite_open(struct table *table)
 
 	if (sqlite3_open(dbpath, &tsh->ppDb) != SQLITE_OK) {
 		log_warnx("table_sqlite: open: %s", sqlite3_errmsg(tsh->ppDb));
+		free(tsh);
 		return NULL;
 	}
 
