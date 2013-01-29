@@ -83,13 +83,13 @@ struct dbhandle {
 static int
 table_db_config(struct table *table, const char *config)
 {
-	DB	*db;
+	struct dbhandle	       *handle;
 
-	db = table_db_open(table);
-	if (db == NULL)
+	handle = table_db_open(table);
+	if (handle == NULL)
 		return 0;
 
-	table_db_close(db);
+	table_db_close(handle);
 	return 1;
 }
 
