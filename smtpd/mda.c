@@ -62,6 +62,9 @@ struct mda_envelope {
 	char				*buffer;
 };
 
+#define FLAG_USER_WAITINFO	0x01
+#define FLAG_USER_RUNNABLE	0x02
+
 struct mda_user {
 	TAILQ_ENTRY(mda_user)		entry;
 	TAILQ_ENTRY(mda_user)		entry_runnable;
@@ -69,7 +72,7 @@ struct mda_user {
 	char				usertable[MAXPATHLEN];
 	size_t				evpcount;
 	TAILQ_HEAD(, mda_envelope)	envelopes;
-	int				runnable;
+	int				flags;
 	size_t				running;
 	struct userinfo			userinfo;
 };
@@ -146,7 +149,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    "Permanent failure in user lookup");
 			else {
 				memmove(&u->userinfo, data, sz);
-				u->runnable = 1;
+				u->flags &= ~FLAG_USER_WAITINFO;
+				u->flags |= FLAG_USER_RUNNABLE;
 				TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 				mda_drain();
 			}
@@ -207,7 +211,20 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				!strcmp(usertable, u->usertable))
 					break;
 
-			if (u && u->evpcount >= MDA_MAXEVPUSER) {
+			if (u == NULL) {
+				u = xcalloc(1, sizeof *u, "mda_user");
+				TAILQ_INSERT_TAIL(&users, u, entry);
+				TAILQ_INIT(&u->envelopes);
+				strlcpy(u->name, username, sizeof u->name);
+				strlcpy(u->usertable, usertable, sizeof u->usertable);
+				u->flags |= FLAG_USER_WAITINFO;
+				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
+				    32 + strlen(usertable) + strlen(username));
+				m_add_string(p_lka, usertable);
+				m_add_string(p_lka, username);
+				m_close(p_lka);
+				stat_increment("mda.user", 1);
+			} else if (u->evpcount >= MDA_MAXEVPUSER) {
 				log_debug("debug: mda: too many envelopes for "
 				    "\"%s\"", u->name);
 				queue_tempfail(e->id,
@@ -223,20 +240,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				free(e->buffer);
 				free(e);
 				return;
-			}
-
-			if (u == NULL) {
-				u = xcalloc(1, sizeof *u, "mda_user");
-				TAILQ_INIT(&u->envelopes);
-				strlcpy(u->name, username, sizeof u->name);
-				strlcpy(u->usertable, usertable, sizeof u->usertable);
-				TAILQ_INSERT_TAIL(&users, u, entry);
-				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
-				    32 + strlen(usertable) + strlen(username));
-				m_add_string(p_lka, usertable);
-				m_add_string(p_lka, username);
-				m_close(p_lka);
-				stat_increment("mda.user", 1);
+			} else if (!(u->flags & FLAG_USER_RUNNABLE) &&
+				   !(u->flags & FLAG_USER_WAITINFO)) {
+				u->flags |= FLAG_USER_RUNNABLE;
+				TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 			}
 
 			stat_increment("mda.envelope", 1);
@@ -245,6 +252,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			evpcount += 1;
 			u->evpcount += 1;
 			TAILQ_INSERT_TAIL(&u->envelopes, e, entry);
+
 			mda_drain();
 			return;
 
@@ -707,100 +715,108 @@ static void
 mda_drain(void)
 {
 	struct mda_session	*s;
-	struct mda_user		*user;
+	struct mda_user		*u;
 
-	while ((user = (TAILQ_FIRST(&runnable)))) {
+	while ((u = (TAILQ_FIRST(&runnable)))) {
+		TAILQ_REMOVE(&runnable, u, entry_runnable);
+
+		if (u->evpcount == 0 && u->running == 0) {
+			log_debug("debug: mda: all done for user \"%s\"",
+			    u->name);
+			TAILQ_REMOVE(&users, u, entry);
+			free(u);
+			stat_decrement("mda.user", 1);
+			continue;
+		}
+
+		if (u->evpcount == 0) {
+			log_debug("debug: mda: no more envelope for \"%s\"",
+			    u->name);
+			u->flags &= ~FLAG_USER_RUNNABLE;
+			continue;
+		}
+
+		if (u->running >= MDA_MAXSESSUSER) {
+			log_debug("debug: mda: "
+			    "maximum number of session reached for user \"%s\"",
+			    u->name);
+			u->flags &= ~FLAG_USER_RUNNABLE;
+			continue;
+		}
 
 		if (running >= MDA_MAXSESS) {
 			log_debug("debug: mda: "
 			    "maximum number of session reached");
+			TAILQ_INSERT_HEAD(&runnable, u, entry_runnable);
 			return;
 		}
 
-		log_debug("debug: mda: new session for user \"%s\"",
-		    user->name);
-
 		s = xcalloc(1, sizeof *s, "mda_drain");
-		s->user = user;
-		s->evp = TAILQ_FIRST(&user->envelopes);
-		TAILQ_REMOVE(&user->envelopes, s->evp, entry);
+		s->user = u;
+		s->evp = TAILQ_FIRST(&u->envelopes);
+		TAILQ_REMOVE(&u->envelopes, s->evp, entry);
 		s->id = generate_uid();
 		if (iobuf_init(&s->iobuf, 0, 0) == -1)
 			fatal("mda_drain");
 		s->io.sock = -1;
 		tree_xset(&sessions, s->id, s);
 
+		log_debug("debug: mda: new session %016" PRIx64
+		    " for user \"%s\" evpid %016" PRIx64, s->id, u->name,
+		    s->evp->id);
+
 		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
 		m_add_id(p_queue, s->id);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp->id));
 		m_close(p_queue);
 
+		evpcount--;
+		u->evpcount--;
 		stat_decrement("mda.pending", 1);
 
-		user->evpcount--;
-		evpcount--;
-
+		running++;
+		u->running++;
 		stat_increment("mda.running", 1);
 
-		user->running++;
-		running++;
-
-		/*
-		 * The user is still runnable if there are pending envelopes
-		 * and the session limit is not reached. We put it at the tail
-		 * so that everyone gets a fair share.
-		 */
-		TAILQ_REMOVE(&runnable, user, entry_runnable);
-		user->runnable = 0;
-		if (TAILQ_FIRST(&user->envelopes) &&
-		    user->running < MDA_MAXSESSUSER) {
-			TAILQ_INSERT_TAIL(&runnable, user, entry_runnable);
-			user->runnable = 1;
-			log_debug("debug: mda: user \"%s\" still runnable",
-			    user->name);
-		}
+		/* Re-add the user at the tail of the queue */
+		TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
 	}
 }
 
 static void
 mda_done(struct mda_session *s)
 {
+	struct mda_user	*u;
+
 	tree_xpop(&sessions, s->id);
 
+	log_debug("debug: mda: session %016" PRIx64 " done", s->id);
+
+	u = s->user;
+
 	running--;
-	s->user->running--;
-
+	u->running--;
 	stat_decrement("mda.running", 1);
-
-	if (TAILQ_FIRST(&s->user->envelopes) == NULL && s->user->running == 0) {
-		log_debug("debug: mda: "
-		    "all done for user \"%s\"", s->user->name);
-		TAILQ_REMOVE(&users, s->user, entry);
-		free(s->user);
-		stat_decrement("mda.user", 1);
-	} else if (s->user->runnable == 0 &&
-	    TAILQ_FIRST(&s->user->envelopes) &&
-	    s->user->running < MDA_MAXSESSUSER) {
-		log_debug("debug: mda: user \"%s\" becomes runnable",
-		    s->user->name);
-		TAILQ_INSERT_TAIL(&runnable, s->user, entry_runnable);
-		s->user->runnable = 1;
-	}
 
 	if (s->datafp)
 		fclose(s->datafp);
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
-	if (s->evp) {
-		free(s->evp->sender);
-		free(s->evp->dest);
-		free(s->evp->rcpt);
-		free(s->evp->user);
-		free(s->evp->buffer);
-		free(s->evp);
-		stat_decrement("mda.envelope", 1);
-	}
+
+	free(s->evp->sender);
+	free(s->evp->dest);
+	free(s->evp->rcpt);
+	free(s->evp->user);
+	free(s->evp->buffer);
+	free(s->evp);
 	free(s);
+	stat_decrement("mda.envelope", 1);
+
+	if (!(u->flags & FLAG_USER_RUNNABLE)) {
+		log_debug("debug: mda: user \"%s\" becomes runnable", u->name);
+		TAILQ_INSERT_TAIL(&runnable, u, entry_runnable);
+		u->flags |= FLAG_USER_RUNNABLE;
+	}
 
 	mda_drain();
 }
