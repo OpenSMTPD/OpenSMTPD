@@ -635,8 +635,6 @@ ldap_client_connect(const char *addr)
 	}
 
 err:
-	if (fd != -1)
-		close(fd);
 	free(url);
 	return NULL;
 }

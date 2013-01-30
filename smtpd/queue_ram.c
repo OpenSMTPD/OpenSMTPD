@@ -242,7 +242,6 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		evp->buf = malloc(len);
 		if (evp->buf == NULL) {
 			log_warn("warn: queue_ram_envelope: malloc");
-			free(evp->buf);
 			free(evp);
 			return (0);
 		}

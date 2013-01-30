@@ -232,7 +232,7 @@ fsqueue_envelope_load(uint64_t evpid, char *buf, size_t len)
 {
 	char	 pathname[MAXPATHLEN];
 	FILE	*fp;
-	ssize_t	 r;
+	size_t	 r;
 
 	fsqueue_envelope_path(evpid, pathname, sizeof(pathname));
 
@@ -244,7 +244,14 @@ fsqueue_envelope_load(uint64_t evpid, char *buf, size_t len)
 	}
 
 	r = fread(buf, 1, len, fp);
-
+	if (r) {
+		if (r == len) {
+			log_warn("warn: fsqueue_envelope_load: too large");
+			r = 0;
+		}
+		else
+			buf[r] = '\0';
+	}
 	fclose(fp);
 
 	return (r);
@@ -301,7 +308,7 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 
 	if (fsqueue_qwalk(hdl, evpid)) {
 		bzero(buf, len);
-		r = fsqueue_envelope_load(*evpid, buf, len-1);
+		r = fsqueue_envelope_load(*evpid, buf, len);
 		if (r) {
 			msgid = evpid_to_msgid(*evpid);
 			if (! envelope_load_buffer(&ep, buf, r))

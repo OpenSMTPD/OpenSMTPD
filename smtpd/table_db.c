@@ -111,7 +111,6 @@ table_db_update(struct table *table)
 		return 0;
 
 	table_db_close(table->t_handle);
-	free(table->t_handle);
 	table->t_handle = handle;
 	return 1;
 }
@@ -150,6 +149,7 @@ table_db_close(void *hdl)
 {
 	struct dbhandle	*handle = hdl;
 	handle->db->close(handle->db);
+	free(handle);
 }
 
 static int
