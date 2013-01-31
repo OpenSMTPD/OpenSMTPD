@@ -906,11 +906,8 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
-#if 1
-#define MSZ_EVP	(32 + sizeof(struct envelope))
-#else
-#define MSZ_EVP	384
-#endif
+#define MSZ_EVP		512
+
 
 struct mproc {
 	pid_t		 pid;
