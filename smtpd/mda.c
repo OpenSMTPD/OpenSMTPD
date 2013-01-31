@@ -272,11 +272,16 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
+			log_debug("debug: mda: got message fd %i "
+			    "for session %016"PRIx64 " evpid %016"PRIx64,
+			    imsg->fd, s->id, e->id);
+
 			if ((s->datafp = fdopen(imsg->fd, "r")) == NULL) {
 				log_warn("warn: mda: fdopen");
 				queue_tempfail(e->id, "fdopen failed");
 				mda_log(e, "TempFail", "fdopen failed");
 				mda_done(s);
+				close(imsg->fd);
 				return;
 			}
 
@@ -358,6 +363,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    e->method);
 			}
 
+			log_debug("debug: mda: querying mda fd "
+			    "for session %016"PRIx64 " evpid %016"PRIx64,
+			    s->id, s->evp->id);
+
 			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1,
 			    32 + sizeof(deliver));
 			m_add_id(p_parent, reqid);
@@ -383,6 +392,10 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				mda_done(s);
 				return;
 			}
+
+			log_debug("debug: mda: got mda fd %i "
+			    "for session %016"PRIx64 " evpid %016"PRIx64,
+			    imsg->fd, s->id, s->evp->id);
 
 			io_set_blocking(imsg->fd, 0);
 			io_init(&s->io, imsg->fd, s, mda_io, &s->iobuf);
@@ -545,6 +558,9 @@ mda_io(struct io *io, int evt)
 
 		/* done */
 		if (s->datafp == NULL) {
+			log_debug("debug: mda: all data sent for session"
+			    " %016"PRIx64 " evpid %016"PRIx64,
+			    s->id, s->evp->id);
 			io_clear(io);
 			return;
 		}
@@ -561,10 +577,16 @@ mda_io(struct io *io, int evt)
 				io_pause(io, IO_PAUSE_OUT);
 				return;
 			}
+#if 0
+			log_debug("debug: mda: %zu bytes queued "
+			    "for session %016"PRIx64 " evpid %016"PRIx64,
+			    iobuf_queued(&s->iobuf), s->id, s->evp->id);
+#endif
 		}
 
 		if (ferror(s->datafp)) {
-			log_debug("debug: mda_io: %p: ferror", s);
+			log_debug("debug: mda: ferror on session %016"PRIx64,
+			    s->id);
 			m_create(p_parent, IMSG_PARENT_KILL_MDA, 0, 0, -1, 128);
 			m_add_id(p_parent, s->id);
 			m_add_string(p_parent, "Error reading body");
@@ -574,28 +596,34 @@ mda_io(struct io *io, int evt)
 		}
 
 		if (feof(s->datafp)) {
+			log_debug("debug: mda: end-of-file for session"
+			    " %016"PRIx64 " evpid %016"PRIx64,
+			    s->id, s->evp->id);
 			fclose(s->datafp);
 			s->datafp = NULL;
 		}
 		return;
 
 	case IO_TIMEOUT:
-		log_debug("debug: mda_io: timeout");
+		log_debug("debug: mda: timeout on session %016"PRIx64, s->id);
 		io_pause(io, IO_PAUSE_OUT);
 		return;
 
 	case IO_ERROR:
-		log_debug("debug: mda_io: io error: %s", io->error);
+		log_debug("debug: mda: io error on session %016"PRIx64": %s",
+		    s->id, io->error);
 		io_pause(io, IO_PAUSE_OUT);
 		return;
 
 	case IO_DISCONNECTED:
-		log_debug("debug: mda_io: disconnected");
+		log_debug("debug: mda: io disconnected on session %016"PRIx64,
+		    s->id);
 		io_pause(io, IO_PAUSE_OUT);
 		return;
 
 	default:
-		log_debug("debug: mda_io: unexpected io event: %i", evt);
+		log_debug("debug: mda: unexpected event on session %016"PRIx64,
+		    s->id);
 		io_pause(io, IO_PAUSE_OUT);
 		return;
 	}

@@ -321,6 +321,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_msgid(&m, &msgid);
 			m_end(&m);
 			fd = queue_message_fd_r(msgid);
+			log_debug("debug: queue: got message fd %i for %s "
+			    "session %016"PRIx64, fd, p->name, reqid);
 			m_create(p, IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, 25);
 			m_add_id(p, reqid);
 			m_close(p);

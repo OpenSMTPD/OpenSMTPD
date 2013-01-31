@@ -171,8 +171,11 @@ mproc_dispatch(int fd, short event, void *arg)
 	}
 
 	for (;;) {
-		if ((n = imsg_get(&p->imsgbuf, &imsg)) == -1)
-			fatal("imsg_get");
+		if ((n = imsg_get(&p->imsgbuf, &imsg)) == -1) {
+			log_warn("fatal: %s: error in imsg_get for %s",
+			    proc_name(smtpd_process),  p->name);
+			fatalx(NULL);
+		}
 		if (n == 0)
 			break;
 
@@ -343,6 +346,12 @@ m_close(struct mproc *p)
 		log_debug("msg-len: too %s %zu -> %zu : %s -> %s : %s",
 		    (reqlen < p->ibuf->wpos - IMSG_HEADER_SIZE) ? "small" : "large",
 		    reqlen, p->ibuf->wpos - IMSG_HEADER_SIZE,
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
+		    imsg_to_str(reqtype));
+	else if (verbose & TRACE_IMSGSIZE)
+		log_debug("msg-len: ok %zu : %s -> %s : %s",
+		    p->ibuf->wpos - IMSG_HEADER_SIZE,
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg_to_str(reqtype));
