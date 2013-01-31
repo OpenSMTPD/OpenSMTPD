@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.184 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.186 2013/01/31 18:34:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1647,15 +1647,14 @@ parent_auth_pwd(const char *username, const char *password)
 
        if (pw == NULL) {
                if (errno)
-                       return -1;
-               return 0;
+                       return LKA_TEMPFAIL;
+               return LKA_PERMFAIL;
        }
 
        if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
-               return 1;
+               return LKA_OK;
 
-       return 0;
-
+       return LKA_PERMFAIL;
 }
 
 int
