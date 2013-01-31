@@ -44,6 +44,7 @@
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
 #include "imsg.h"
+#include <inttypes.h>
 #ifdef HAVE_LOGIN_CAP_H
 #include <login_cap.h>
 #endif
