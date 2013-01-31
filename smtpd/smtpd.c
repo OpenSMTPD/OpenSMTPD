@@ -35,6 +35,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <login_cap.h>
 #include <paths.h>
 #include <pwd.h>
