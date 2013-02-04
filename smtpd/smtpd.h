@@ -445,6 +445,23 @@ enum envelope_flags {
 	EF_INFLIGHT		= 0x20,
 };
 
+#define DSN_SUCCESS 0x01
+#define DSN_FAILURE 0x02
+#define DSN_DELAY   0x04
+#define DSN_NEVER   0x08
+
+enum dsn_ret {
+	DSN_RETFULL = 1,
+	DSN_RETHDRS
+};
+
+struct dsn {
+	struct mailaddr orcpt;
+	char		envid[101];
+	uint8_t		notify_flags;
+	enum dsn_ret	ret;
+};
+
 #define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -477,6 +494,8 @@ struct envelope {
 	time_t				lasttry;
 	time_t				nexttry;
 	time_t				lastbounce;
+
+	struct dsn			dsn;
 };
 
 enum envelope_field {
@@ -509,6 +528,10 @@ enum envelope_field {
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,
+	EVP_DSN_ENVID,
+	EVP_DSN_NOTIFY,
+	EVP_DSN_ORCPT,
+	EVP_DSN_RET,
 };
 
 struct listener {
