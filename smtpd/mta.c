@@ -890,8 +890,6 @@ mta_drain(struct mta_relay *r)
 			strlcat(buf, "secret ", sizeof buf);
 		if (r->status & RELAY_WAIT_SOURCE)
 			strlcat(buf, "source ", sizeof buf);
-		if (r->status & RELAY_WAIT_HELO)
-			strlcat(buf, "helo ", sizeof buf);
 		log_debug("debug: mta: %s waiting for %s",
 		    mta_relay_to_text(r), buf);
 		return;

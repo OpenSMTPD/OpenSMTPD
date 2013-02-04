@@ -724,8 +724,7 @@ struct mta_relay {
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
 #define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAIT_HELO		0x10
-#define RELAY_WAITMASK		0x1f
+#define RELAY_WAITMASK		0x0f
 	int			 status;
 
 	int			 refcount;
