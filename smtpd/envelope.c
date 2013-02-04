@@ -44,6 +44,7 @@
 #include "smtpd.h"
 #include "log.h"
 
+static int ascii_load_uint8(uint8_t *, char *);
 static int ascii_load_uint16(uint16_t *, char *);
 static int ascii_load_uint32(uint32_t *, char *);
 static int ascii_load_time(time_t *, char *);
@@ -55,7 +56,9 @@ static int ascii_load_mailaddr(struct mailaddr *, char *);
 static int ascii_load_flags(enum envelope_flags *, char *);
 static int ascii_load_mta_relay_url(struct relayhost *, char *);
 static int ascii_load_bounce_type(enum bounce_type *, char *);
+static int ascii_load_dsn_ret(enum dsn_ret *, char *);
 
+static int ascii_dump_uint8(uint8_t, char *, size_t);
 static int ascii_dump_uint16(uint16_t, char *, size_t);
 static int ascii_dump_uint32(uint32_t, char *, size_t);
 static int ascii_dump_time(time_t, char *, size_t);
@@ -118,6 +121,10 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 		EVP_BOUNCE_TYPE,
 		EVP_BOUNCE_DELAY,
 		EVP_BOUNCE_EXPIRE,
+		EVP_DSN_ENVID,
+		EVP_DSN_NOTIFY,
+		EVP_DSN_ORCPT,
+		EVP_DSN_RET
 	};
 	char	*field, *nextline;
 	char	 lbuf[sizeof(*ep)], *buf;
@@ -416,6 +423,15 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_time(&ep->agent.bounce.delay, buf);
 	case EVP_BOUNCE_EXPIRE:
 		return ascii_load_time(&ep->agent.bounce.expire, buf);
+	case EVP_DSN_NOTIFY:
+		return ascii_load_uint8(&ep->dsn.notify_flags, buf);
+	case EVP_DSN_ORCPT:
+		return ascii_load_mailaddr(&ep->dsn.orcpt, buf);
+	case EVP_DSN_RET:
+		return ascii_load_dsn_ret(&ep->dsn.ret, buf);
+	case EVP_DSN_ENVID:
+		return ascii_load_string(ep->dsn.envid, buf,
+		    sizeof ep->dsn.envid);
 	}
 	return 0;
 }
@@ -495,6 +511,17 @@ envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
 		return ascii_dump_time(ep->agent.bounce.expire, buf, len);
 	}
 	return 0;
+}
+
+static int
+ascii_load_uint8(uint8_t *dest, char *buf)
+{
+	const char *errstr;
+
+	*dest = strtonum(buf, 0, 0xff, &errstr);
+	if (errstr)
+		return 0;
+	return 1;
 }
 
 static int
@@ -643,6 +670,24 @@ ascii_load_bounce_type(enum bounce_type *dest, char *buf)
 	else
 		return 0;
 	return 1;
+}
+
+static int
+ascii_load_dsn_ret(enum dsn_ret *ret, char *buf)
+{
+	if (strcasecmp(buf, "HDRS") == 0)
+		*ret = DSN_RETHDRS;
+	else if (strcasecmp(buf, "FULL") == 0)
+		*ret = DSN_RETFULL;
+	else
+		return 0;
+	return 1;
+}
+
+static int
+ascii_dump_uint8(uint8_t src, char *dest, size_t len)
+{
+	return bsnprintf(dest, len, "%d", src);
 }
 
 static int
