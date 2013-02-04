@@ -386,7 +386,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			s = tree_xget(&sessions, reqid);
 			e = s->evp;
 			if (imsg->fd == -1) {
-				log_warn("warn: mda: fail to retreive mda fd");
+				log_warn("warn: mda: fail to retrieve mda fd");
 				queue_tempfail(e->id, "Cannot get mda fd");
 				mda_log(e, "TempFail", "Cannot get mda fd");
 				mda_done(s);

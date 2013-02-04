@@ -256,10 +256,10 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (secret[0])
 				relay->secret = strdup(secret);
 			if (relay->secret == NULL) {
-				log_warnx("warn: Failed to retreive secret "
+				log_warnx("warn: Failed to retrieve secret "
 				    "for %s", mta_relay_to_text(relay));
 				relay->fail = IMSG_DELIVERY_TEMPFAIL;
-				relay->failstr = "Could not retreive secret";
+				relay->failstr = "Could not retrieve secret";
 			}
 			relay->status &= ~RELAY_WAIT_SECRET;
 			mta_drain(relay);
