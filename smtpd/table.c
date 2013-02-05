@@ -159,6 +159,17 @@ table_destroy(struct table *t)
 }
 
 void
+table_replace(struct table *orig, struct table *tnew)
+{
+	void	*p = NULL;
+
+	while (dict_poproot(&orig->t_dict, NULL, (void **)&p))
+		free(p);
+	dict_merge(&orig->t_dict, &tnew->t_dict);
+	table_destroy(tnew);
+}
+
+void
 table_set_configuration(struct table *t, struct table *config)
 {
 	strlcpy(t->t_cfgtable, config->t_name, sizeof t->t_cfgtable);
