@@ -304,7 +304,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			}
 
 			/* start queueing delivery headers */
-			if (e->sender)
+			if (e->sender[0])
 				/* XXX: remove exising Return-Path, if any */
 				n = iobuf_fqueue(&s->iobuf,
 				    "Return-Path: %s\nDelivered-To: %s\n",
