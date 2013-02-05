@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.149 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.151 2013/01/28 16:40:22 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -256,10 +256,10 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (secret[0])
 				relay->secret = strdup(secret);
 			if (relay->secret == NULL) {
-				log_warnx("warn: Failed to retreive secret "
+				log_warnx("warn: Failed to retrieve secret "
 				    "for %s", mta_relay_to_text(relay));
 				relay->fail = IMSG_DELIVERY_TEMPFAIL;
-				relay->failstr = "Could not retreive secret";
+				relay->failstr = "Could not retrieve secret";
 			}
 			relay->status &= ~RELAY_WAIT_SECRET;
 			mta_drain(relay);
@@ -890,8 +890,6 @@ mta_drain(struct mta_relay *r)
 			strlcat(buf, "secret ", sizeof buf);
 		if (r->status & RELAY_WAIT_SOURCE)
 			strlcat(buf, "source ", sizeof buf);
-		if (r->status & RELAY_WAIT_HELO)
-			strlcat(buf, "helo ", sizeof buf);
 		log_debug("debug: mta: %s waiting for %s",
 		    mta_relay_to_text(r), buf);
 		return;
