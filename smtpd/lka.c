@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.147 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.148 2013/01/28 11:09:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -339,16 +339,17 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				else if (ret == 0)
 					m_add_int(p, LKA_PERMFAIL);
 				else {
-					m_add_int(p, LKA_OK);
-
 					/* XXX find a nicer way? */
 					bzero(&hints, sizeof hints);
 					hints.ai_flags = AI_NUMERICHOST;
-					getaddrinfo(src, NULL, &hints, &ai);
+					if (getaddrinfo(src, NULL, &hints, &ai) != 0)
+						m_add_int(p, LKA_TEMPFAIL);
+					else {
+						m_add_int(p, LKA_OK);
+						m_add_sockaddr(p, ai->ai_addr);
+						freeaddrinfo(ai);
+					}
 					free(src);
-
-					m_add_sockaddr(p, ai->ai_addr);
-					freeaddrinfo(ai);
 				}
 			}
 			m_close(p);

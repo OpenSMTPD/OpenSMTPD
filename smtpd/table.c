@@ -303,8 +303,12 @@ table_config_parse(void *p, const char *config, enum table_type type)
 		valp = keyp;
 		strsep(&valp, " \t:");
 		if (valp) {
-			while (*valp && isspace(*valp))
+			while (*valp) {
+				if (!isspace(*valp) &&
+				    !(*valp == ':' && isspace(*(valp + 1))))
+					break;
 				++valp;
+			}
 			if (*valp == '\0')
 				valp = NULL;
 		}

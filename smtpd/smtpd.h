@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.398 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.402 2013/01/31 18:34:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -745,8 +745,7 @@ struct mta_relay {
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
 #define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAIT_HELO		0x10
-#define RELAY_WAITMASK		0x1f
+#define RELAY_WAITMASK		0x0f
 	int			 status;
 
 	int			 refcount;
@@ -927,11 +926,8 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
-#if 1
-#define MSZ_EVP	(32 + sizeof(struct envelope))
-#else
-#define MSZ_EVP	384
-#endif
+#define MSZ_EVP		512
+
 
 struct mproc {
 	pid_t		 pid;

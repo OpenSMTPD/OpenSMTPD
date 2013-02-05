@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.184 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.186 2013/01/31 18:34:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -44,6 +44,7 @@
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
 #include "imsg.h"
+#include <inttypes.h>
 #ifdef HAVE_LOGIN_CAP_H
 #include <login_cap.h>
 #endif
@@ -614,6 +615,9 @@ parent_sig_handler(int sig, short event, void *p)
 				}
 				if (child->cause)
 					free(child->cause);
+				log_debug("debug: smtpd: mda process done "
+				    "for session %016"PRIx64 ": %s",
+				    child->mda_id, cause);
 				m_create(p_mda, IMSG_MDA_DONE, 0, 0,
 				    child->mda_out, 32 + strlen(cause));
 				m_add_id(p_mda, child->mda_id);
@@ -1042,8 +1046,8 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	int		 n, allout, pipefd[2];
 	mode_t		 omode;
 
-	log_debug("debug: forkmda: to \"%s\" as %s",
-	    deliver->to, deliver->user);
+	log_debug("debug: smtpd: forking mda for session %016"PRIx64
+	    ": \"%s\" as %s", id, deliver->to, deliver->user);
 
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL)
@@ -1101,6 +1105,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
+		m_close(p_mda);
 		close(pipefd[0]);
 		close(pipefd[1]);
 		close(allout);
@@ -1642,15 +1647,14 @@ parent_auth_pwd(const char *username, const char *password)
 
        if (pw == NULL) {
                if (errno)
-                       return -1;
-               return 0;
+                       return LKA_TEMPFAIL;
+               return LKA_PERMFAIL;
        }
 
        if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
-               return 1;
+               return LKA_OK;
 
-       return 0;
-
+       return LKA_PERMFAIL;
 }
 
 int

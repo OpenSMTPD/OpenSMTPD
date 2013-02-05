@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.111 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.112 2013/01/28 15:14:02 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -436,6 +436,7 @@ main		: QUEUE compression {
 			    >= sizeof (filter->name)) {
        				yyerror("Filter name too long: %s", filter->name);
 				free($2);
+				free(filter);
 				YYERROR;
 				
 			}
@@ -448,6 +449,7 @@ main		: QUEUE compression {
 			else {
        				yyerror("ambiguous filter name: %s", filter->name);
 				free($2);
+				free(filter);
 				YYERROR;
 			}
 			free($2);
@@ -465,6 +467,7 @@ main		: QUEUE compression {
 				free(filter);
 				free($2);
 				free($3);
+				free(filter);
 				YYERROR;
 			}
 
@@ -475,6 +478,7 @@ main		: QUEUE compression {
        				yyerror("ambiguous filter name: %s", filter->name);
 				free($2);
 				free($3);
+				free(filter);
 				YYERROR;
 			}
 			free($2);
