@@ -327,7 +327,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			mta_connect(s);
 		} else {
 			mta_source_error(s->relay, s->route,
-			    "Failed to retreive helo string");
+			    "Failed to retrieve helo string");
 			mta_free(s);
 		}
 		return;

@@ -339,16 +339,17 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				else if (ret == 0)
 					m_add_int(p, LKA_PERMFAIL);
 				else {
-					m_add_int(p, LKA_OK);
-
 					/* XXX find a nicer way? */
 					bzero(&hints, sizeof hints);
 					hints.ai_flags = AI_NUMERICHOST;
-					getaddrinfo(src, NULL, &hints, &ai);
+					if (getaddrinfo(src, NULL, &hints, &ai) != 0)
+						m_add_int(p, LKA_TEMPFAIL);
+					else {
+						m_add_int(p, LKA_OK);
+						m_add_sockaddr(p, ai->ai_addr);
+						freeaddrinfo(ai);
+					}
 					free(src);
-
-					m_add_sockaddr(p, ai->ai_addr);
-					freeaddrinfo(ai);
 				}
 			}
 			m_close(p);

@@ -591,9 +591,14 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	if ((size_t)i + 1 >= len)
 		return 0;
 
-	memcpy(dest, string + begoff, i);
+	string += begoff;
+	for (; i; i--) {
+		*dest = (*string == '/') ? ':' : *string;
+		dest++;
+		string++;
+	}
 
-	return i;
+	return endoff - begoff;
 }
 
 
