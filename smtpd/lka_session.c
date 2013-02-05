@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.53 2013/01/31 18:34:43 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.54 2013/02/05 11:45:18 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
