@@ -98,6 +98,7 @@ again:
 	if (available_fds(imsg_fd_overhead +
 	    (CMSG_SPACE(sizeof(int))-CMSG_SPACE(0))/sizeof(int))) {
 		errno = EAGAIN;
+		free(ifd);
 		return (-1);
 	}
 	
@@ -127,7 +128,7 @@ again:
 			    (char *)CMSG_DATA(cmsg)) / sizeof(int);
 			for (i = 0; i < j; i++) {
 				fd = ((int *)CMSG_DATA(cmsg))[i];
-				if (i == 0) {
+				if (ifd != NULL) {
 					ifd->fd = fd;
 					TAILQ_INSERT_TAIL(&ibuf->fds, ifd,
 					    entry);
