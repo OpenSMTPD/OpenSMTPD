@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.1 2013/01/26 09:37:24 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.3 2013/02/05 15:23:40 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
