@@ -304,7 +304,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			mx->host = mta_host((struct sockaddr*)&ss);
 			mx->preference = preference;
 			TAILQ_FOREACH(imx, &domain->mxs, entry) {
-				if (imx->preference >= mx->preference) {
+				if (imx->preference > mx->preference) {
 					TAILQ_INSERT_BEFORE(imx, mx, entry);
 					return;
 				}
