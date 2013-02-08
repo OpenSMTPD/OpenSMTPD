@@ -293,7 +293,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 	struct evplist		*q;
 	struct rq_envelope	*evp;
 	struct rq_message	*msg;
-	struct id_list		*item;
+	size_t			 n;
 
 	currtime = time(NULL);
 
@@ -337,10 +337,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 		return;
 	}
 
-	ret->evpids = NULL;
-	ret->evpcount = 0;
-
-	while ((evp = TAILQ_FIRST(q))) {
+	for (n = 0; (evp = TAILQ_FIRST(q)) && n < ret->evpcount; n++) {
 
 		TAILQ_REMOVE(q, evp, entry);
 
@@ -348,10 +345,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 		if (!(evp->flags & RQ_ENVELOPE_SCHEDULED))
 			errx(1, "evp:%016" PRIx64 " not scheduled", evp->evpid);
 
-		item = xmalloc(sizeof *item, "schedule_batch");
-		item->id = evp->evpid;
-		item->next = ret->evpids;
-		ret->evpids = item;
+		ret->evpids[n] = evp->evpid;
 
 		if (ret->type == SCHED_REMOVE || ret->type == SCHED_EXPIRE)
 			rq_envelope_delete(&ramqueue, evp);
@@ -361,8 +355,9 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 			evp->flags |= RQ_ENVELOPE_INFLIGHT;
 			evp->t_inflight = currtime;
 		}
-		ret->evpcount++;
 	}
+
+	ret->evpcount = n;
 }
 
 static void
