@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler_ramqueue.c,v 1.26 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: scheduler_ramqueue.c,v 1.27 2013/02/10 15:01:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
