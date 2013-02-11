@@ -69,6 +69,7 @@ static int ascii_dump_mailaddr(const struct mailaddr *, char *, size_t);
 static int ascii_dump_flags(enum envelope_flags, char *, size_t);
 static int ascii_dump_mta_relay_url(const struct relayhost *, char *, size_t);
 static int ascii_dump_bounce_type(enum bounce_type, char *, size_t);
+static int ascii_dump_dsn_ret(enum dsn_ret, char *, size_t);
 
 void
 envelope_set_errormsg(struct envelope *e, char *fmt, ...)
@@ -347,6 +348,14 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "bounce-delay";
 	case EVP_BOUNCE_EXPIRE:
 		return "bounce-expire";
+	case EVP_DSN_ENVID:
+		return "dsn-envid";
+	case EVP_DSN_NOTIFY:
+		return "dsn-notify";
+	case EVP_DSN_ORCPT:
+		return "dsn-orcpt";
+	case EVP_DSN_RET:
+		return "dsn-ret";
 	}
 
 	return NULL;
@@ -509,6 +518,16 @@ envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
 		if (ep->agent.bounce.type != B_WARNING)
 			return (1);
 		return ascii_dump_time(ep->agent.bounce.expire, buf, len);
+	case EVP_DSN_NOTIFY:
+		return ascii_dump_uint8(ep->dsn.notify_flags, buf, len);
+	case EVP_DSN_RET:
+		return ascii_dump_dsn_ret(ep->dsn.ret, buf, len);
+	case EVP_DSN_ORCPT:
+		if (ep->dsn.orcpt.user[0] && ep->dsn.orcpt.domain[0])
+			return ascii_dump_mailaddr(&ep->dsn.orcpt, buf, len);
+		return 1;
+	case EVP_DSN_ENVID:
+		return ascii_dump_string(ep->dsn.envid, buf, len);
 	}
 	return 0;
 }
@@ -813,4 +832,18 @@ ascii_dump_bounce_type(enum bounce_type type, char *dest, size_t len)
 		return 0;
 	}
 	return bsnprintf(dest, len, "%s", p);
+}
+
+static int
+ascii_dump_dsn_ret(enum dsn_ret flag, char *dest, size_t len)
+{
+	size_t cpylen = 0;
+
+	dest[0] = '\0';
+	if (flag == DSN_RETFULL)
+		cpylen = strlcat(dest, "FULL", len);
+	else if (flag == DSN_RETHDRS)
+		cpylen = strlcat(dest, "HDRS", len);
+
+	return cpylen < len ? 1 : 0;
 }
