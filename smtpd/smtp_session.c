@@ -150,6 +150,7 @@ static void smtp_enter_state(struct smtp_session *, int);
 static void smtp_reply(struct smtp_session *, char *, ...);
 static void smtp_command(struct smtp_session *, char *);
 static int smtp_parse_mail_args(struct smtp_session *, char *);
+static int smtp_parse_rcpt_args(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_plain(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_login(struct smtp_session *, char *);
 static void smtp_message_write(struct smtp_session *, const char *);
@@ -159,6 +160,7 @@ static void smtp_wait_mfa(struct smtp_session *s, int);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 static int smtp_verify_certificate(struct smtp_session *);
+static uint8_t dsn_notify_str_to_uint8(const char *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -1069,11 +1071,8 @@ smtp_command(struct smtp_session *s, char *line)
 			    "553 Recipient address syntax error");
 			break;
 		}
-		if (*args) {
-			smtp_reply(s,
-			    "553 No option supported on RCPT TO");
+		if (args && smtp_parse_rcpt_args(s, args) == -1)
 			break;
-		}
 
 		m_create(p_mfa, IMSG_MFA_REQ_RCPT, 0, 0, -1,
 		    32 + sizeof(struct mailaddr));
@@ -1248,6 +1247,67 @@ abort:
 	smtp_enter_state(s, STATE_HELO);
 }
 
+static uint8_t
+dsn_notify_str_to_uint8(const char *arg)
+{
+	if (strcasecmp(arg, "SUCCESS") == 0)
+		return DSN_SUCCESS;
+	else if (strcasecmp(arg, "FAILURE") == 0)
+		return DSN_FAILURE;
+	else if (strcasecmp(arg, "DELAY") == 0)
+		return DSN_DELAY;
+	else if (strcasecmp(arg, "NEVER") == 0)
+		return DSN_NEVER;
+
+	return (0);
+}
+
+static int
+smtp_parse_rcpt_args(struct smtp_session *s, char *args)
+{
+	char 	*b, *p;
+	uint8_t flag;
+
+	while ((b = strsep(&args, " "))) {
+		if (*b == '\0')
+			continue;
+		
+		if (strncasecmp(b, "NOTIFY=", 7) == 0) {
+			b += 7;
+			while ((p = strsep(&b, ","))) {
+				if (*p == '\0')
+					continue;
+
+				if ((flag = dsn_notify_str_to_uint8(p)) == 0)
+					continue;
+
+				s->evp.dsn.notify_flags |= flag;
+			}
+			if (s->evp.dsn.notify_flags > DSN_NEVER) {
+				smtp_reply(s,
+				    "553 NOTIFY option NEVER cannot be \
+				    combined with other options");
+				return (-1);
+			}
+		} else if (strncasecmp(b, "ORCPT=", 6) == 0) {
+			b += 6;
+			/* skip "rfc822;" prefix */
+			if ((p = strchr(b, ';')) != NULL)
+				b = ++p;
+			if (smtp_mailaddr(&s->evp.dsn.orcpt, b, 0, &b) == 0) {
+				smtp_reply(s,
+			    	    "553 ORCPT Recipient address syntax error");
+				return (-1);
+			}
+		} else {
+			smtp_reply(s, "503 Unsupported option %s", b);
+			return (-1);
+		}
+	}
+
+	return (0);
+}
+
 static int
 smtp_parse_mail_args(struct smtp_session *s, char *args)
 {
@@ -1261,12 +1321,21 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 			log_debug("debug: smtp: AUTH in MAIL FROM command");
 		else if (strncasecmp(b, "SIZE=", 5) == 0)
 			log_debug("debug: smtp: SIZE in MAIL FROM command");
-		else if (!strcasecmp(b, "BODY=7BIT"))
+		else if (strcasecmp(b, "BODY=7BIT") == 0)
 			/* XXX only for this transaction */
 			s->flags &= ~SF_8BITMIME;
 		else if (strcasecmp(b, "BODY=8BITMIME") == 0)
 			;
-		else {
+		else if (strncasecmp(b, "RET=", 4) == 0) {
+			b += 4;
+			if (strcasecmp(b, "HDRS") == 0)
+				s->evp.dsn.ret = DSN_RETHDRS;
+			else if (strcasecmp(b, "FULL") == 0)
+				s->evp.dsn.ret = DSN_RETFULL;
+		} else if (strncasecmp(b, "ENVID=", 6) == 0) {
+			b += 6;
+			strlcpy(s->evp.dsn.envid, b, sizeof(s->evp.dsn.envid));
+		} else {
 			smtp_reply(s, "503 Unsupported option %s", b);
 			return (-1);
 		}
