@@ -204,7 +204,11 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		EVP_LASTBOUNCE,
 		EVP_EXPIRE,
 		EVP_RETRY,
-		EVP_FLAGS
+		EVP_FLAGS,
+		EVP_DSN_ENVID,
+		EVP_DSN_NOTIFY,
+		EVP_DSN_ORCPT,
+		EVP_DSN_RET
 	};
 	enum envelope_field mda_fields[] = {
 		EVP_MDA_METHOD,
