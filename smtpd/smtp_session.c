@@ -1291,14 +1291,7 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 			}
 		} else if (strncasecmp(b, "ORCPT=", 6) == 0) {
 			b += 6;
-			/* skip "rfc822;" prefix */
-			if ((p = strchr(b, ';')) != NULL)
-				b = ++p;
-			if (smtp_mailaddr(&s->evp.dsn.orcpt, b, 0, &b) == 0) {
-				smtp_reply(s,
-			    	    "553 ORCPT Recipient address syntax error");
-				return (-1);
-			}
+			/* XXX */
 		} else {
 			smtp_reply(s, "503 Unsupported option %s", b);
 			return (-1);
