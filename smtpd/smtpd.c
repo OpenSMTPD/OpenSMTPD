@@ -664,6 +664,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_RULES;
 			else if (!strcmp(optarg, "imsg-size"))
 				verbose |= TRACE_IMSGSIZE;
+			else if (!strcmp(optarg, "expand"))
+				verbose |= TRACE_EXPAND;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else if (!strcmp(optarg, "profstat"))

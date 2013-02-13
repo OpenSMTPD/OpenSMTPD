@@ -581,6 +581,7 @@ struct smtpd {
 #define	TRACE_STAT	0x0200
 #define	TRACE_RULES	0x0400
 #define	TRACE_IMSGSIZE	0x0800
+#define	TRACE_EXPAND	0x1000
 
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
@@ -1338,7 +1339,7 @@ const char *relayhost_to_text(const struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
 const char *mailaddr_to_text(const struct mailaddr *);
-
+const char *expandnode_to_text(struct expandnode *);
 
 /* util.c */
 typedef struct arglist arglist;

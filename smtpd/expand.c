@@ -44,15 +44,24 @@ expand_insert(struct expand *expand, struct expandnode *node)
 {
 	struct expandnode *xn;
 
+	log_trace(TRACE_EXPAND, "expand: expand_insert() called for %s",
+	    expandnode_to_text(node));
 	if (node->type == EXPAND_USERNAME &&
 	    expand->parent &&
 	    expand->parent->type == EXPAND_USERNAME &&
-	    !strcmp(expand->parent->u.user, node->u.user))
+	    !strcmp(expand->parent->u.user, node->u.user)) {
+		log_trace(TRACE_EXPAND, "expand: setting sameuser = 1");
 		node->sameuser = 1;
+	}
 
-	if (expand_lookup(expand, node))
+
+	log_trace(TRACE_EXPAND, "expand: checking if node already exists in expand tree");
+	if (expand_lookup(expand, node)) {
+		log_trace(TRACE_EXPAND, "expand: node found, discarding");
 		return;
+	}
 
+	log_trace(TRACE_EXPAND, "expand: inserting node");
 	xn = xmemdup(node, sizeof *xn, "expand_insert");
 	xn->rule = expand->rule;
 	xn->parent = expand->parent;
@@ -72,6 +81,7 @@ expand_clear(struct expand *expand)
 {
 	struct expandnode *xn;
 
+	log_trace(TRACE_EXPAND, "expand: clearing expand tree");
 	if (expand->queue)
 		while ((xn = TAILQ_FIRST(expand->queue)))
 			TAILQ_REMOVE(expand->queue, xn, tq_entry);
@@ -86,6 +96,8 @@ void
 expand_free(struct expand *expand)
 {
 	expand_clear(expand);
+
+	log_trace(TRACE_EXPAND, "expand: freeing expand tree");
 	free(expand);
 }
 

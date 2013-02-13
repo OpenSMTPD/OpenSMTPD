@@ -150,6 +150,7 @@ static const struct token t_trace[] = {
 	{KEYWORD,	"stat",   		LOG_TRACE_STAT,	  	NULL},
 	{KEYWORD,	"rules",   		LOG_TRACE_RULES,  	NULL},
 	{KEYWORD,	"msg-size",   		LOG_TRACE_IMSG_SIZE,	NULL},
+	{KEYWORD,	"expand",   		LOG_TRACE_EXPAND,	NULL},
 	{KEYWORD,	"all",   		LOG_TRACE_ALL,		NULL},
 	{ENDTOKEN,	"",			NONE,			NULL}
 };
@@ -166,6 +167,7 @@ static const struct token t_untrace[] = {
 	{KEYWORD,	"stat",   		LOG_UNTRACE_STAT,  	NULL},
 	{KEYWORD,	"rules",   		LOG_UNTRACE_RULES,  	NULL},
 	{KEYWORD,	"msg-size",   		LOG_UNTRACE_IMSG_SIZE,	NULL},
+	{KEYWORD,	"expand",   		LOG_UNTRACE_EXPAND,	NULL},
 	{KEYWORD,	"all",   		LOG_UNTRACE_ALL,	NULL},
 	{ENDTOKEN,	"",			NONE,			NULL}
 };

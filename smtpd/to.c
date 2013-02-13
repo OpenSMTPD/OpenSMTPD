@@ -662,6 +662,25 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	return (0);
 }
 
+const char *
+expandnode_to_text(struct expandnode *expandnode)
+{
+	switch (expandnode->type) {
+	case EXPAND_FILTER:
+	case EXPAND_FILENAME:
+	case EXPAND_INCLUDE:
+		return expandnode->u.buffer;
+	case EXPAND_USERNAME:
+		return expandnode->u.user;
+	case EXPAND_ADDRESS:
+		return mailaddr_to_text(&expandnode->u.mailaddr);
+	case EXPAND_INVALID:
+		break;
+	}
+
+	return NULL;
+}
+
 
 /******/
 static int
