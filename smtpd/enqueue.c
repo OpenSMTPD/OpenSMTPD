@@ -105,6 +105,9 @@ struct {
 	char	 *from;
 	char	 *fromname;
 	char	**rcpts;
+	char	 *dsn_notify;
+	char	 *dsn_ret;
+	char	 *dsn_envid;
 	int	  rcpt_cnt;
 	int	  need_linesplit;
 	int	  saw_date;
@@ -179,7 +182,7 @@ enqueue(int argc, char *argv[])
 	time(&timestamp);
 
 	while ((ch = getopt(argc, argv,
-	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qR:tvx")) != -1) {
+	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qR:tvV:x")) != -1) {
 		switch (ch) {
 		case 'f':
 			fake_from = optarg;
@@ -187,11 +190,20 @@ enqueue(int argc, char *argv[])
 		case 'F':
 			msg.fromname = optarg;
 			break;
+		case 'N':
+			msg.dsn_notify = optarg;
+			break;
+		case 'R':
+			msg.dsn_ret = optarg;
+			break;
 		case 't':
 			tflag = 1;
 			break;
 		case 'v':
 			verbose = 1;
+			break;
+		case 'V':
+			msg.dsn_envid = optarg;
 			break;
 		/* all remaining: ignored, sendmail compat */
 		case 'A':
@@ -202,10 +214,8 @@ enqueue(int argc, char *argv[])
 		case 'i':
 		case 'L':
 		case 'm':
-		case 'N': /* XXX: DSN */
 		case 'o':
 		case 'p':
-		case 'R':
 		case 'x':
 			break;
 		case 'q':
@@ -266,11 +276,19 @@ enqueue(int argc, char *argv[])
 	send_line(fout, verbose, "EHLO localhost\n");
 	get_responses(fout, 1);
 
-	send_line(fout, verbose, "MAIL FROM: <%s>\n", msg.from);
+	send_line(fout, verbose, "MAIL FROM: <%s> %s%s %s%s\n",
+	    msg.from,
+	    msg.dsn_ret ? "RET=" : "",
+	    msg.dsn_ret ? msg.dsn_ret : "",
+	    msg.dsn_envid ? "ENVID=" : "",
+	    msg.dsn_envid ? msg.dsn_envid : "");
 	get_responses(fout, 1);
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
-		send_line(fout, verbose, "RCPT TO: <%s>\n", msg.rcpts[i]);
+		send_line(fout, verbose, "RCPT TO: <%s> %s%s\n",
+		    msg.rcpts[i],
+		    msg.dsn_notify ? "NOTIFY=" : "",
+		    msg.dsn_notify ? msg.dsn_notify : "");
 		get_responses(fout, 1);
 	}
 
