@@ -48,7 +48,7 @@ aliases_get(struct expand *expand, const char *username)
 	struct table	       *userbase = NULL;
 
 	mapping = expand->rule->r_mapping;
-	userbase = expand->rule->r_users;
+	userbase = expand->rule->r_userbase;
 	
 	xlowercase(buf, username, sizeof(buf));
 	ret = table_lookup(mapping, buf, K_ALIAS, (void **)&xp);
@@ -132,7 +132,7 @@ aliases_virtual_get(struct expand *expand, const struct mailaddr *maddr)
 	struct table	       *userbase = NULL;
 
 	mapping = expand->rule->r_mapping;
-	userbase = expand->rule->r_users;
+	userbase = expand->rule->r_userbase;
 
 	if (! bsnprintf(buf, sizeof(buf), "%s@%s", maddr->user,
 		maddr->domain))
