@@ -367,6 +367,7 @@ enum delivery_type {
 	D_MDA,
 	D_MTA,
 	D_BOUNCE,
+	D_DSN
 };
 
 struct delivery_mda {
@@ -378,6 +379,16 @@ struct delivery_mda {
 
 struct delivery_mta {
 	struct relayhost	relay;
+};
+
+enum dsn_type {
+	D_SUCCESS,
+	D_FAILURE,
+	D_DELAY
+};
+
+struct delivery_dsn {
+	enum dsn_type		type;
 };
 
 enum bounce_type {
@@ -450,13 +461,6 @@ enum dsn_ret {
 	DSN_RETHDRS
 };
 
-struct dsn {
-	struct mailaddr orcpt;
-	char		envid[101];
-	uint8_t		notify_flags;
-	enum dsn_ret	ret;
-};
-
 #define	SMTPD_ENVELOPE_VERSION		1
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -481,6 +485,7 @@ struct envelope {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
 		struct delivery_bounce	bounce;
+		struct delivery_dsn	dsn;
 	}				agent;
 
 	uint16_t			retry;
@@ -490,7 +495,10 @@ struct envelope {
 	time_t				nexttry;
 	time_t				lastbounce;
 
-	struct dsn			dsn;
+	struct mailaddr			dsn_orcpt;
+	char				dsn_envid[101];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
 };
 
 enum envelope_field {
