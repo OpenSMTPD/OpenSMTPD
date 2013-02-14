@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.113 2013/02/05 15:30:59 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.114 2013/02/14 12:30:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -128,7 +128,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERS SENDER
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -531,7 +531,9 @@ table		: TABLE STRING STRING	{
 		}
 		;
 
-keyval		: STRING ARROW STRING		{
+assign		: '=' | ARROW;
+
+keyval		: STRING assign STRING		{
 			table->t_type = T_HASH;
 			table_add(table, $1, $3);
 			free($1);
@@ -632,11 +634,11 @@ usermapping	: alias		{
 		}
 		;
 
-userbase	: USERS tables	{
+userbase	: USERBASE tables	{
 			struct table   *t = table_find($2);
 
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_USERINFO)) {
-				yyerror("invalid use of table \"%s\" as USERS parameter",
+				yyerror("invalid use of table \"%s\" as USERBASE parameter",
 				    t->t_name);
 				YYERROR;
 			}
@@ -721,7 +723,7 @@ relay_as     	: AS STRING		{
 		;
 
 action		: userbase DELIVER TO MAILDIR			{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
@@ -729,7 +731,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 		}
 		| userbase DELIVER TO MAILDIR STRING		{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer)) >=
@@ -738,7 +740,7 @@ action		: userbase DELIVER TO MAILDIR			{
 			free($5);
 		}
 		| userbase DELIVER TO MBOX			{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MBOX;
 			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
 			    sizeof(rule->r_value.buffer))
@@ -746,7 +748,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 		}
 		| userbase DELIVER TO MDA STRING	       	{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer))
@@ -1014,7 +1016,7 @@ lookup(char *s)
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
-		{ "users",     		USERS },
+		{ "userbase",		USERBASE },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};

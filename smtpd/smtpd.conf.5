@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.84 2013/02/08 10:13:55 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.89 2013/02/14 12:32:19 gilles Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: February 8 2013 $
+.Dd $Mdocdate: February 14 2013 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -126,7 +126,7 @@ and may be omitted.
 The rule matches if the connection is made from the specified
 .Ar network ,
 specified in CIDR notation.
-.It Ic from Ar <table>
+.It Ic from Aq Ar table
 The rule matches if the connection is made from a client whose address
 is declared in the table
 .Ar table .
@@ -147,26 +147,17 @@ domain if prefixed with @.
 .Pp
 Next comes the selection based on the domain the message is sent to:
 .Bl -tag -width Ds
-.It Xo
-.Ic for any
-.Op Ic alias Ar <aliases>
-.Xc
+.It Ic for any Op Ic alias Aq Ar aliases
 Make the rule match regardless of the domain it is sent to.
 If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for all addresses.
-.It Xo
-.Ic for any
-.Ic virtual Ar <vmap>
-.Xc
+.It Ic for any virtual Aq Ar vmap
 Make the rule match regardless of the domain it is sent to.
 The
 .Ar vmap
 table will be used as the virtual domain mapping.
-.It Xo
-.Ic for domain Ar domain
-.Op Ic alias Ar <aliases>
-.Xc
+.It Ic for domain Ar domain Op Ic alias Aq Ar aliases
 This rule applies to mail destined for the specified
 .Ar domain .
 This parameter supports the
@@ -181,10 +172,7 @@ If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for addresses in this
 .Ar domain .
-.It Xo
-.Ic for domain Ar <domains>
-.Op Ic alias Ar <aliases>
-.Xc
+.It Ic for domain Aq Ar domains Op Ic alias Aq Ar aliases
 This rule applies to mail destined to domains which are part of the table
 .Ar domains .
 .Pp
@@ -192,9 +180,7 @@ If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for addresses in these
 .Ar domains .
-.It Xo
-.Ic for domain Ar domain Ic virtual Ar <users>
-.Xc
+.It Ic for domain Ar domain Ic virtual Aq Ar users
 This rule applies to mail destined for the specified virtual
 .Ar domain .
 This parameter supports the
@@ -213,7 +199,7 @@ For an example of how to configure the
 .Ar users
 table, see
 .Xr makemap 8 .
-.It Ic for domain Ar <domains> Ic virtual Ar <users>
+.It Ic for domain Ao Ar domains Ac Ic virtual Aq Ar users
 This rule applies to mail destined for the virtual domains specified
 in the table
 .Ar domains .
@@ -225,19 +211,13 @@ For an example of how to configure the
 .Ar users
 table, see
 .Xr makemap 8 .
-.It Xo
-.Ic for local
-.Op Ic alias Ar <aliases>
-.Xc
+.It Ic for local Op Ic alias Aq Ar aliases
 This rule applies to mail destined to
 .Dq localhost
 and to the server's fully qualified domain name,
 as returned by
 .Xr hostname 1 .
-.It Xo
-.Ic for local
-.Ic virtual Ar <vmap>
-.Xc
+.It Ic for local virtual Aq Ar vmap
 This rule applies to mail destined to
 .Dq localhost
 and to the server's fully qualified domain name,
@@ -251,9 +231,7 @@ table will be used as the virtual domain mapping.
 If the method of delivery is local, a user database may be
 specified to override the system database:
 .Bl -tag -width Ds
-.It Xo
-.Op Ic users Ar <table>
-.Xc
+.It Op Ic userbase Aq Ar table
 Look up users in the table
 .Ar table
 instead of performing system lookups using the
@@ -343,7 +321,7 @@ when connected to the remote server.
 .Ic relay via
 .Ar host
 .Op Ic certificate Ar name
-.Op Ic auth Ar <auth>
+.Op Ic auth Aq Ar auth
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Op Ic helo Ar names
@@ -430,10 +408,10 @@ when connected to the remote server.
 .Pp
 Additional per-rule adjustments available:
 .Bl -tag -width Ds
-.It Ic expire Ar n {s|m|h|d}
+.It Ic expire Ar n Brq Ar s\*(Bam\*(Bah\*(Bad
 Specify how long a message that matched this rule can stay in the queue.
 .El
-.It Ic bounce-warn Ar n {s|m|h|d} [, ...]
+.It Ic bounce-warn Ar n Bro Ar s\*(Bam\*(Bah\*(Bad Brc Bq , Ar ...
 Specify the delays for which temporary failure reports must be generated
 when messages are stuck in the queue.
 For example:
@@ -444,7 +422,7 @@ bounce-warn	1h, 6h, 2d
 will generate a failure report when an envelope is in the queue for more
 than one hour, six hours and two days.
 The default is 4h.
-.It Ic expire Ar n {s|m|h|d}
+.It Ic expire Ar n Brq Ar s\*(Bam\*(Bah\*(Bad
 Specify how long a message can stay in the queue.
 The default value is 4 days.
 For example:
@@ -545,19 +523,13 @@ bytes.
 The argument may contain a multiplier, as documented in
 .Xr scan_scaled 3 .
 The default maximum message size is 35MB if none is specified.
-.It Xo
-.Ic queue
-.Ic compression Op Ar gzip
-.Xc
+.It Ic queue compression Op Ar gzip
 Enable transparent deflating and inflating of all envelopes
 and messages.
 The only supported algorithm at the moment is gzip.
 Envelopes and messages may be inspected using
 .Xr gzcat 1 .
-.It Xo
-.Ic table Ar name
-.Ar [type:]config
-.Xc
+.It Ic table Ar name Oo Ar type : Oc Ns Ar config
 Tables are used to provide additional configuration information for
 .Xr smtpd 8
 in the form of lists or key-value mappings.
@@ -589,12 +561,7 @@ It must be an absolute path to a file for the
 and
 .Dq db
 table types.
-.It Xo
-.Ic table Ar name
-.Ic { Ar value
-.Op , Ar value_n
-.Ic }
-.Xc
+.It Ic table Ar name Brq Ar value Op , Ar ...
 Tables containing list of static values may be declared
 using an inlined notation.
 .Pp
@@ -604,12 +571,7 @@ the name itself is arbitrarily chosen.
 .Pp
 The table must contain at least one value and may declare many values as a
 list of comma separated strings.
-.It Xo
-.Ic table Ar name
-.Ic { Ar key => value
-.Op , key_n => value_n
-.Ic }
-.Xc
+.It Ic table Ar name Brq Ar key = value Op , Ar ...
 Tables containing static key-value mappings may be declared
 using an inlined notation.
 .Pp
@@ -619,7 +581,7 @@ the name itself is arbitrarily chosen.
 .Pp
 The table must contain at least one key-value mapping and may declare
 many mappings as a list of comma separated
-.Ar key => value
+.Ar key = value
 descriptions.
 .El
 .Sh FILES
