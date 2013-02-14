@@ -202,6 +202,7 @@ expandnode_info(struct expandnode *e)
 	static char	buffer[1024];
 	const char     *type = NULL;
 	const char     *value = NULL;
+	struct table   *table = e->mapping;
 
 	switch (e->type) {
 	case EXPAND_FILTER:
@@ -226,9 +227,17 @@ expandnode_info(struct expandnode *e)
 
 	if ((value = expandnode_to_text(e)) == NULL)
 		return NULL;
-	if (! bsnprintf(buffer, sizeof buffer, "%s:%s [mapping=%p]",
-		type, value, e->mapping))
+
+	strlcpy(buffer, type, sizeof buffer);
+	strlcat(buffer, ":", sizeof buffer);
+	if (strlcat(buffer, value, sizeof buffer) >= sizeof buffer)
 		return NULL;
+	if (table) {
+		strlcat(buffer, " [mapping=", sizeof buffer);
+		strlcat(buffer, table->t_name, sizeof buffer);
+		if (strlcat(buffer, "]", sizeof buffer) >= sizeof buffer)
+			return NULL;
+	}
 	return buffer;
 }
 
