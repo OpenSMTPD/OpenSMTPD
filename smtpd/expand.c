@@ -33,6 +33,8 @@
 #include "smtpd.h"
 #include "log.h"
 
+static const char *expandnode_info(struct expandnode *);
+
 struct expandnode *
 expand_lookup(struct expand *expand, struct expandnode *key)
 {
@@ -45,7 +47,7 @@ expand_insert(struct expand *expand, struct expandnode *node)
 	struct expandnode *xn;
 
 	log_trace(TRACE_EXPAND, "expand: %p: expand_insert() called for %s",
-	    expand, expandnode_to_text(node));
+	    expand, expandnode_info(node));
 	if (node->type == EXPAND_USERNAME &&
 	    expand->parent &&
 	    expand->parent->type == EXPAND_USERNAME &&
@@ -191,6 +193,41 @@ expand_line(struct expand *expand, const char *s, int do_includes)
 
 	/* expand_line_split() returned < 0 */
 	return 0;
+}
+
+static const char *
+expandnode_info(struct expandnode *e)
+{
+	static char	buffer[1024];
+	const char     *type = NULL;
+	const char     *value = NULL;
+
+	switch (e->type) {
+	case EXPAND_FILTER:
+		type = "filter";
+		break;
+	case EXPAND_FILENAME:
+		type = "filename";
+		break;
+	case EXPAND_INCLUDE:
+		type = "include";
+		break;
+	case EXPAND_USERNAME:
+		type = "username";
+		break;
+	case EXPAND_ADDRESS:
+		type = "address";
+		break;
+	case EXPAND_INVALID:
+	default:
+		return NULL;
+	}
+
+	if ((value = expandnode_to_text(e)) == NULL)
+		return NULL;
+	if (! bsnprintf(buffer, sizeof buffer, "%s:%s", type, value))
+		return NULL;
+	return buffer;
 }
 
 RB_GENERATE(expandtree, expandnode, entry, expand_cmp);
