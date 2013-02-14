@@ -202,7 +202,6 @@ expandnode_info(struct expandnode *e)
 	static char	buffer[1024];
 	const char     *type = NULL;
 	const char     *value = NULL;
-	struct table   *table = e->mapping;
 
 	switch (e->type) {
 	case EXPAND_FILTER:
@@ -232,9 +231,9 @@ expandnode_info(struct expandnode *e)
 	strlcat(buffer, ":", sizeof buffer);
 	if (strlcat(buffer, value, sizeof buffer) >= sizeof buffer)
 		return NULL;
-	if (table) {
+	if (e->mapping) {
 		strlcat(buffer, " [mapping=", sizeof buffer);
-		strlcat(buffer, table->t_name, sizeof buffer);
+		strlcat(buffer, e->mapping->t_name, sizeof buffer);
 		if (strlcat(buffer, "]", sizeof buffer) >= sizeof buffer)
 			return NULL;
 	}
