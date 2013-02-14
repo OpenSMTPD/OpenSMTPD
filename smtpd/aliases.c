@@ -58,6 +58,7 @@ aliases_get(struct table *table, struct expand *expand, const char *username)
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
 		else {
+			xn->mapping = table;
 			expand_insert(expand, xn);
 			nbaliases++;
 		}
@@ -166,6 +167,7 @@ expand:
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
 		else {
+			xn->mapping = table;
 			expand_insert(expand, xn);
 			nbaliases++;
 		}

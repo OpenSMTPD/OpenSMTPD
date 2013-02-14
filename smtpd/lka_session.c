@@ -129,7 +129,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 0;
-
+			xn->mapping = rule->r_mapping;
 			/* forwards_get() will close the descriptor no matter what */
 			if (! forwards_get(fd, &lks->expand)) {
 				log_trace(TRACE_EXPAND, "expand: temporary "
@@ -251,6 +251,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
+			xn->mapping = rule->r_mapping;
 			r = aliases_virtual_get(rule->r_mapping,
 			    &lks->expand, &xn->u.mailaddr);
 			if (r == -1) {
@@ -272,6 +273,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			node.type = EXPAND_USERNAME;
 			mailaddr_to_username(&xn->u.mailaddr, node.u.user,
 				sizeof node.u.user);
+			node.mapping = rule->r_mapping;
 			expand_insert(&lks->expand, &node);
 		}
 		break;
@@ -291,6 +293,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
 		lks->expand.alias = 1;
+		xn->mapping = rule->r_mapping;
 		if (rule->r_mapping) {
 			r = aliases_get(rule->r_mapping, &lks->expand,
 			    xn->u.user);

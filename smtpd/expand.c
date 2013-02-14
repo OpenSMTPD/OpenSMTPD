@@ -114,6 +114,10 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 		return -1;
 	if (e1->sameuser > e2->sameuser)
 		return 1;
+	if (e1->mapping < e2->mapping)
+		return -1;
+	if (e1->mapping > e2->mapping)
+		return 1;
 
 	return memcmp(&e1->u, &e2->u, sizeof(e1->u));
 }
@@ -222,7 +226,8 @@ expandnode_info(struct expandnode *e)
 
 	if ((value = expandnode_to_text(e)) == NULL)
 		return NULL;
-	if (! bsnprintf(buffer, sizeof buffer, "%s:%s", type, value))
+	if (! bsnprintf(buffer, sizeof buffer, "%s:%s [mapping=%p]",
+		type, value, e->mapping))
 		return NULL;
 	return buffer;
 }

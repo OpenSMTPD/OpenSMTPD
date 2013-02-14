@@ -409,6 +409,7 @@ struct expandnode {
 	struct rule	       *rule;
 	struct expandnode      *parent;
 	unsigned int		depth;
+	void		       *mapping;
 	union {
 		/*
 		 * user field handles both expansion user and system user
