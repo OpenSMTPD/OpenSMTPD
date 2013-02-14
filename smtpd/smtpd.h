@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.404 2013/02/10 15:01:16 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.405 2013/02/14 12:30:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
