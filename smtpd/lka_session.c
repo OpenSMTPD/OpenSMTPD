@@ -130,6 +130,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 			lks->expand.parent = xn;
 			lks->expand.alias = 0;
 			xn->mapping = rule->r_mapping;
+			xn->userbase = rule->r_users;
 			/* forwards_get() will close the descriptor no matter what */
 			if (! forwards_get(fd, &lks->expand)) {
 				log_trace(TRACE_EXPAND, "expand: temporary "
@@ -243,6 +244,9 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
+		xn->mapping = rule->r_mapping;
+		xn->userbase = rule->r_users;
+
 		if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 			lka_submit(lks, rule, xn);
 		}
@@ -251,9 +255,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			xn->mapping = rule->r_mapping;
-			r = aliases_virtual_get(rule->r_mapping,
-			    &lks->expand, &xn->u.mailaddr);
+			r = aliases_virtual_get(&lks->expand, &xn->u.mailaddr);
 			if (r == -1) {
 				lks->error = LKA_TEMPFAIL;
 				log_trace(TRACE_EXPAND, "expand: lka_expand: "
@@ -274,6 +276,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			mailaddr_to_username(&xn->u.mailaddr, node.u.user,
 				sizeof node.u.user);
 			node.mapping = rule->r_mapping;
+			node.userbase = rule->r_users;
 			expand_insert(&lks->expand, &node);
 		}
 		break;
@@ -294,9 +297,9 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->expand.parent = xn;
 		lks->expand.alias = 1;
 		xn->mapping = rule->r_mapping;
+		xn->userbase = rule->r_users;
 		if (rule->r_mapping) {
-			r = aliases_get(rule->r_mapping, &lks->expand,
-			    xn->u.user);
+			r = aliases_get(&lks->expand, xn->u.user);
 			if (r == -1) {
 				log_trace(TRACE_EXPAND, "expand: lka_expand: "
 				    "error in alias lookup");

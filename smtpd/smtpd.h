@@ -410,6 +410,7 @@ struct expandnode {
 	struct expandnode      *parent;
 	unsigned int		depth;
 	struct table   	       *mapping;
+	struct table   	       *userbase;
 	union {
 		/*
 		 * user field handles both expansion user and system user
@@ -1023,9 +1024,9 @@ struct ca_vrfy_resp_msg {
 
 
 /* aliases.c */
-int aliases_get(struct table *, struct expand *, const char *);
+int aliases_get(struct expand *, const char *);
 int aliases_virtual_check(struct table *, const struct mailaddr *);
-int aliases_virtual_get(struct table *, struct expand *, const struct mailaddr *);
+int aliases_virtual_get(struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, const char *);
 
 

@@ -118,6 +118,10 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 		return -1;
 	if (e1->mapping > e2->mapping)
 		return 1;
+	if (e1->userbase < e2->userbase)
+		return -1;
+	if (e1->userbase > e2->userbase)
+		return 1;
 
 	return memcmp(&e1->u, &e2->u, sizeof(e1->u));
 }
@@ -231,9 +235,19 @@ expandnode_info(struct expandnode *e)
 	strlcat(buffer, ":", sizeof buffer);
 	if (strlcat(buffer, value, sizeof buffer) >= sizeof buffer)
 		return NULL;
-	if (e->mapping) {
-		strlcat(buffer, " [mapping=", sizeof buffer);
-		strlcat(buffer, e->mapping->t_name, sizeof buffer);
+	if (e->mapping || e->userbase) {
+		strlcat(buffer, " [", sizeof buffer);
+		if (e->mapping) {
+			strlcat(buffer, "mapping=", sizeof buffer);
+			strlcat(buffer, e->mapping->t_name, sizeof buffer);
+			if (e->userbase)
+				strlcat(buffer, ", ", sizeof buffer);
+
+		}
+		if (e->userbase) {
+			strlcat(buffer, "userbase=", sizeof buffer);
+			strlcat(buffer, e->userbase->t_name, sizeof buffer);
+		}
 		if (strlcat(buffer, "]", sizeof buffer) >= sizeof buffer)
 			return NULL;
 	}
