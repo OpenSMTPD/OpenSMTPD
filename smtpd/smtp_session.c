@@ -1281,9 +1281,9 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 				if ((flag = dsn_notify_str_to_uint8(p)) == 0)
 					continue;
 
-				s->evp.dsn.notify_flags |= flag;
+				s->evp.dsn_notify |= flag;
 			}
-			if (s->evp.dsn.notify_flags > DSN_NEVER) {
+			if (s->evp.dsn_notify > DSN_NEVER) {
 				smtp_reply(s,
 				    "553 NOTIFY option NEVER cannot be \
 				    combined with other options");
@@ -1322,12 +1322,12 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 		else if (strncasecmp(b, "RET=", 4) == 0) {
 			b += 4;
 			if (strcasecmp(b, "HDRS") == 0)
-				s->evp.dsn.ret = DSN_RETHDRS;
+				s->evp.dsn_ret = DSN_RETHDRS;
 			else if (strcasecmp(b, "FULL") == 0)
-				s->evp.dsn.ret = DSN_RETFULL;
+				s->evp.dsn_ret = DSN_RETFULL;
 		} else if (strncasecmp(b, "ENVID=", 6) == 0) {
 			b += 6;
-			strlcpy(s->evp.dsn.envid, b, sizeof(s->evp.dsn.envid));
+			strlcpy(s->evp.dsn_envid, b, sizeof(s->evp.dsn_envid));
 		} else {
 			smtp_reply(s, "503 Unsupported option %s", b);
 			return (-1);

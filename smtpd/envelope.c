@@ -437,14 +437,14 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_BOUNCE_EXPIRE:
 		return ascii_load_time(&ep->agent.bounce.expire, buf);
 	case EVP_DSN_NOTIFY:
-		return ascii_load_uint8(&ep->dsn.notify_flags, buf);
+		return ascii_load_uint8(&ep->dsn_notify, buf);
 	case EVP_DSN_ORCPT:
-		return ascii_load_mailaddr(&ep->dsn.orcpt, buf);
+		return ascii_load_mailaddr(&ep->dsn_orcpt, buf);
 	case EVP_DSN_RET:
-		return ascii_load_dsn_ret(&ep->dsn.ret, buf);
+		return ascii_load_dsn_ret(&ep->dsn_ret, buf);
 	case EVP_DSN_ENVID:
-		return ascii_load_string(ep->dsn.envid, buf,
-		    sizeof ep->dsn.envid);
+		return ascii_load_string(ep->dsn_envid, buf,
+		    sizeof ep->dsn_envid);
 	}
 	return 0;
 }
@@ -523,15 +523,15 @@ envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
 			return (1);
 		return ascii_dump_time(ep->agent.bounce.expire, buf, len);
 	case EVP_DSN_NOTIFY:
-		return ascii_dump_uint8(ep->dsn.notify_flags, buf, len);
+		return ascii_dump_uint8(ep->dsn_notify, buf, len);
 	case EVP_DSN_RET:
-		return ascii_dump_dsn_ret(ep->dsn.ret, buf, len);
+		return ascii_dump_dsn_ret(ep->dsn_ret, buf, len);
 	case EVP_DSN_ORCPT:
-		if (ep->dsn.orcpt.user[0] && ep->dsn.orcpt.domain[0])
-			return ascii_dump_mailaddr(&ep->dsn.orcpt, buf, len);
+		if (ep->dsn_orcpt.user[0] && ep->dsn_orcpt.domain[0])
+			return ascii_dump_mailaddr(&ep->dsn_orcpt, buf, len);
 		return 1;
 	case EVP_DSN_ENVID:
-		return ascii_dump_string(ep->dsn.envid, buf, len);
+		return ascii_dump_string(ep->dsn_envid, buf, len);
 	}
 	return 0;
 }
