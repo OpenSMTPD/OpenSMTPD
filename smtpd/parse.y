@@ -122,7 +122,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERS SENDER
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -525,7 +525,9 @@ table		: TABLE STRING STRING	{
 		}
 		;
 
-keyval		: STRING ARROW STRING		{
+assign		: '=' | ARROW;
+
+keyval		: STRING assign STRING		{
 			table->t_type = T_HASH;
 			table_add(table, $1, $3);
 			free($1);
@@ -626,11 +628,11 @@ usermapping	: alias		{
 		}
 		;
 
-userbase	: USERS tables	{
+userbase	: USERBASE tables	{
 			struct table   *t = table_find($2);
 
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_USERINFO)) {
-				yyerror("invalid use of table \"%s\" as USERS parameter",
+				yyerror("invalid use of table \"%s\" as USERBASE parameter",
 				    t->t_name);
 				YYERROR;
 			}
@@ -1008,7 +1010,7 @@ lookup(char *s)
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
-		{ "users",     		USERS },
+		{ "userbase",		USERBASE },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};
