@@ -359,7 +359,7 @@ struct rule {
 
 	struct mailaddr		       *r_as;
 	struct table		       *r_mapping;
-	struct table		       *r_users;
+	struct table		       *r_userbase;
 	time_t				r_qexpire;
 };
 

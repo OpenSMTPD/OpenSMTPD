@@ -470,10 +470,10 @@ parent_send_config_lka()
 			    &r->r_mapping->t_name,
 			    sizeof(r->r_mapping->t_name));
 		}
-		if (r->r_users) {
+		if (r->r_userbase) {
 			m_compose(p_lka, IMSG_CONF_RULE_USERS, 0, 0, -1,
-			    &r->r_users->t_name,
-			    sizeof(r->r_users->t_name));
+			    &r->r_userbase->t_name,
+			    sizeof(r->r_userbase->t_name));
 		}
 	}
 

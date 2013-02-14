@@ -717,7 +717,7 @@ relay_as     	: AS STRING		{
 		;
 
 action		: userbase DELIVER TO MAILDIR			{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
@@ -725,7 +725,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 		}
 		| userbase DELIVER TO MAILDIR STRING		{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer)) >=
@@ -734,7 +734,7 @@ action		: userbase DELIVER TO MAILDIR			{
 			free($5);
 		}
 		| userbase DELIVER TO MBOX			{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MBOX;
 			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
 			    sizeof(rule->r_value.buffer))
@@ -742,7 +742,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 		}
 		| userbase DELIVER TO MDA STRING	       	{
-			rule->r_users = table_find($1);
+			rule->r_userbase = table_find($1);
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer))
