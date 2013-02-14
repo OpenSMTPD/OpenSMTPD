@@ -44,24 +44,27 @@ expand_insert(struct expand *expand, struct expandnode *node)
 {
 	struct expandnode *xn;
 
-	log_trace(TRACE_EXPAND, "expand: expand_insert() called for %s",
-	    expandnode_to_text(node));
+	log_trace(TRACE_EXPAND, "expand: %p: expand_insert() called for %s",
+	    expand, expandnode_to_text(node));
 	if (node->type == EXPAND_USERNAME &&
 	    expand->parent &&
 	    expand->parent->type == EXPAND_USERNAME &&
 	    !strcmp(expand->parent->u.user, node->u.user)) {
-		log_trace(TRACE_EXPAND, "expand: setting sameuser = 1");
+		log_trace(TRACE_EXPAND, "expand: %p: setting sameuser = 1",
+		    expand);
 		node->sameuser = 1;
 	}
 
 
-	log_trace(TRACE_EXPAND, "expand: checking if node already exists in expand tree");
+	log_trace(TRACE_EXPAND, "expand: %p: checking if node already exists "
+	    "in expand tree", expand);
 	if (expand_lookup(expand, node)) {
-		log_trace(TRACE_EXPAND, "expand: node found, discarding");
+		log_trace(TRACE_EXPAND, "expand: %p: node found, discarding",
+			expand);
 		return;
 	}
 
-	log_trace(TRACE_EXPAND, "expand: inserting node");
+	log_trace(TRACE_EXPAND, "expand: %p: inserting node", expand);
 	xn = xmemdup(node, sizeof *xn, "expand_insert");
 	xn->rule = expand->rule;
 	xn->parent = expand->parent;
@@ -81,7 +84,7 @@ expand_clear(struct expand *expand)
 {
 	struct expandnode *xn;
 
-	log_trace(TRACE_EXPAND, "expand: clearing expand tree");
+	log_trace(TRACE_EXPAND, "expand: %p: clearing expand tree", expand);
 	if (expand->queue)
 		while ((xn = TAILQ_FIRST(expand->queue)))
 			TAILQ_REMOVE(expand->queue, xn, tq_entry);
@@ -97,7 +100,7 @@ expand_free(struct expand *expand)
 {
 	expand_clear(expand);
 
-	log_trace(TRACE_EXPAND, "expand: freeing expand tree");
+	log_trace(TRACE_EXPAND, "expand: %p: freeing expand tree", expand);
 	free(expand);
 }
 
