@@ -57,9 +57,6 @@ expand_insert(struct expand *expand, struct expandnode *node)
 		node->sameuser = 1;
 	}
 
-
-	log_trace(TRACE_EXPAND, "expand: %p: checking if node already exists "
-	    "in expand tree", expand);
 	if (expand_lookup(expand, node)) {
 		log_trace(TRACE_EXPAND, "expand: %p: node found, discarding",
 			expand);
