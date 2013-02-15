@@ -1287,8 +1287,10 @@ smtp_connected(struct smtp_session *s)
 	    s->id, s->hostname, ss_to_text(&s->ss));
 
 	sl = sizeof(ss);
-	if (getsockname(s->io.sock, (struct sockaddr*)&ss, &sl) == -1)
-		fatal("getsockname");
+	if (getsockname(s->io.sock, (struct sockaddr*)&ss, &sl) == -1) {
+		smtp_free(s, strerror(errno));
+		return;
+	}
 
 	m_create(p_mfa, IMSG_MFA_REQ_CONNECT, 0, 0, -1, 64 + strlen(s->hostname));
 	m_add_id(p_mfa, s->id);
