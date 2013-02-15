@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.32 2013/02/05 10:53:57 nicm Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.33 2013/02/15 22:43:21 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -57,6 +57,7 @@ enum mta_state {
 	MTA_BANNER,
 	MTA_EHLO,
 	MTA_HELO,
+	MTA_LHLO,
 	MTA_STARTTLS,
 	MTA_AUTH,
 	MTA_READY,
@@ -65,6 +66,7 @@ enum mta_state {
 	MTA_DATA,
 	MTA_BODY,
 	MTA_EOM,
+	MTA_LMTP_EOM,
 	MTA_RSET,
 	MTA_QUIT,
 };
@@ -84,6 +86,7 @@ enum mta_state {
 
 #define MTA_FREE		0x0400
 
+#define MTA_LMTP		0x0800
 
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
@@ -109,6 +112,7 @@ struct mta_session {
 	int			 ext;
 
 	int			 msgcount;
+	int			 rcptcount;
 
 	enum mta_state		 state;
 	struct mta_task		*task;
@@ -123,7 +127,7 @@ static void mta_free(struct mta_session *);
 static void mta_on_ptr(void *, void *, void *);
 static void mta_connect(struct mta_session *);
 static void mta_enter_state(struct mta_session *, int);
-static void mta_flush_task(struct mta_session *, int, const char *);
+static void mta_flush_task(struct mta_session *, int, const char *, size_t);
 static void mta_error(struct mta_session *, const char *, ...);
 static void mta_send(struct mta_session *, char *, ...);
 static ssize_t mta_queue_data(struct mta_session *);
@@ -172,6 +176,8 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 		s->flags |= MTA_USE_AUTH;
 	if (relay->cert)
 		s->flags |= MTA_USE_CERT;
+	if (relay->flags & RELAY_LMTP)
+		s->flags |= MTA_LMTP;
 	switch (relay->flags & (RELAY_SSL|RELAY_TLS_OPTIONAL)) {
 		case RELAY_SSL:
 			s->flags |= MTA_FORCE_ANYSSL;
@@ -242,7 +248,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			fclose(s->datafp);
 			s->datafp = NULL;
 			mta_flush_task(s, IMSG_DELIVERY_LOOP,
-			    "Loop detected");
+			    "Loop detected", 0);
 			mta_enter_state(s, MTA_READY);
 		} else {
 			mta_enter_state(s, MTA_MAIL);
@@ -443,6 +449,8 @@ mta_connect(struct mta_session *s)
 		schema = "tls://";
 	else if (s->use_smtps)
 		schema = "smtps://";
+	else if (s->flags & MTA_LMTP)
+		schema = "lmtp://";
 	else
 		schema = "smtp://";
 
@@ -505,6 +513,11 @@ mta_enter_state(struct mta_session *s, int newstate)
 	case MTA_HELO:
 		s->ext = 0;
 		mta_send(s, "HELO %s", s->helo);
+		break;
+
+	case MTA_LHLO:
+		s->ext = 0;
+		mta_send(s, "LHLO %s", s->helo);
 		break;
 
 	case MTA_STARTTLS:
@@ -573,13 +586,14 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
-		mta_send(s, "MAIL FROM: <%s>", s->task->sender);
+		mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
 
 	case MTA_RCPT:
 		if (s->currevp == NULL)
 			s->currevp = TAILQ_FIRST(&s->task->envelopes);
-		mta_send(s, "RCPT TO: <%s>", s->currevp->dest);
+		mta_send(s, "RCPT TO:<%s>", s->currevp->dest);
+		s->rcptcount++;
 		break;
 
 	case MTA_DATA:
@@ -604,6 +618,11 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_EOM:
 		mta_send(s, ".");
+		break;
+
+	case MTA_LMTP_EOM:
+		/* LMTP reports status of each delivery, so enable read */
+		io_set_read(&s->io);
 		break;
 
 	case MTA_RSET:
@@ -637,7 +656,10 @@ mta_response(struct mta_session *s, char *line)
 	switch (s->state) {
 
 	case MTA_BANNER:
-		mta_enter_state(s, MTA_EHLO);
+		if (s->flags & MTA_LMTP)
+			mta_enter_state(s, MTA_LHLO);
+		else
+			mta_enter_state(s, MTA_EHLO);
 		break;
 
 	case MTA_EHLO:
@@ -661,6 +683,15 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_HELO:
 		if (line[0] != '2') {
 			mta_error(s, "HELO rejected: %s", line);
+			s->flags |= MTA_FREE;
+			return;
+		}
+		mta_enter_state(s, MTA_READY);
+		break;
+
+	case MTA_LHLO:
+		if (line[0] != '2') {
+			mta_error(s, "LHLO rejected: %s", line);
 			s->flags |= MTA_FREE;
 			return;
 		}
@@ -697,7 +728,7 @@ mta_response(struct mta_session *s, char *line)
 				delivery = IMSG_DELIVERY_PERMFAIL;
 			else
 				delivery = IMSG_DELIVERY_TEMPFAIL;
-			mta_flush_task(s, delivery, line);
+			mta_flush_task(s, delivery, line, 0);
 			mta_enter_state(s, MTA_RSET);
 			return;
 		}
@@ -724,7 +755,7 @@ mta_response(struct mta_session *s, char *line)
 
 			if (TAILQ_EMPTY(&s->task->envelopes)) {
 				mta_flush_task(s, IMSG_DELIVERY_OK,
-				    "No envelope");
+				    "No envelope", 0);
 				mta_enter_state(s, MTA_RSET);
 				break;
 			}
@@ -744,10 +775,11 @@ mta_response(struct mta_session *s, char *line)
 			delivery = IMSG_DELIVERY_PERMFAIL;
 		else
 			delivery = IMSG_DELIVERY_TEMPFAIL;
-		mta_flush_task(s, delivery, line);
+		mta_flush_task(s, delivery, line, 0);
 		mta_enter_state(s, MTA_RSET);
 		break;
 
+	case MTA_LMTP_EOM:
 	case MTA_EOM:
 		if (line[0] == '2') {
 			delivery = IMSG_DELIVERY_OK;
@@ -757,8 +789,14 @@ mta_response(struct mta_session *s, char *line)
 			delivery = IMSG_DELIVERY_PERMFAIL;
 		else
 			delivery = IMSG_DELIVERY_TEMPFAIL;
-		mta_flush_task(s, delivery, line);
-		mta_enter_state(s, MTA_READY);
+		mta_flush_task(s, delivery, line, (s->flags & MTA_LMTP) ? 1 : 0 );
+		if (s->task) {
+			s->rcptcount--;
+			mta_enter_state(s, MTA_LMTP_EOM);
+		} else {
+			s->rcptcount = 0;
+			mta_enter_state(s, MTA_READY);
+		}
 		break;
 
 	case MTA_RSET:
@@ -873,7 +911,6 @@ mta_io(struct io *io, int evt)
 			mta_free(s);
 			return;
 		}
-
 		io_set_write(io);
 		mta_response(s, line);
 		if (s->flags & MTA_FREE) {
@@ -977,7 +1014,7 @@ mta_queue_data(struct mta_session *s)
 
 	if (ferror(s->datafp)) {
 		mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
-		    "Error reading content file");
+		    "Error reading content file", 0);
 		return (-1);
 	}
 
@@ -990,7 +1027,7 @@ mta_queue_data(struct mta_session *s)
 }
 
 static void
-mta_flush_task(struct mta_session *s, int delivery, const char *error)
+mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t count)
 {
 	struct mta_envelope	*e;
 	char			 relay[MAX_LINE_SIZE];
@@ -1000,6 +1037,12 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error)
 
 	n = 0;
 	while ((e = TAILQ_FIRST(&s->task->envelopes))) {
+
+		if (count && n == count) {
+			stat_decrement("mta.envelope", n);
+			return;
+		}
+
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
 		mta_delivery(e, relay, delivery, error);
 		free(e->dest);
@@ -1055,7 +1098,7 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 	mta_route_error(s->relay, s->route);
 
 	if (s->task)
-		mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL, error);
+		mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL, error, 0);
 
 	free(error);
 }
@@ -1205,6 +1248,7 @@ mta_strstate(int state)
 	CASE(MTA_DATA);
 	CASE(MTA_BODY);
 	CASE(MTA_EOM);
+	CASE(MTA_LMTP_EOM);
 	CASE(MTA_RSET);
 	CASE(MTA_QUIT);
 	default:
