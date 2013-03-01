@@ -34,6 +34,15 @@
 #ifdef BSD_AUTH
 #include <bsd_auth.h>
 #endif
+
+#ifdef USE_PAM
+#if defined(HAVE_SECURITY_PAM_APPL_H)
+#include <security/pam_appl.h>
+#elif defined (HAVE_PAM_PAM_APPL_H)
+#include <pam/pam_appl.h>
+#endif
+#endif
+
 #ifdef HAVE_CRYPT_H
 #include <crypt.h> /* needed for crypt() */
 #endif
@@ -1639,6 +1648,55 @@ parent_auth_bsd(const char *username, const char *password)
 }
 #endif
 
+#ifdef USE_PAM
+int 
+pam_conv_password(int num_msg, const struct pam_message **msg,
+    struct pam_response **respp, const char *password)
+{
+	struct pam_response *response;
+
+	if (num_msg != 1)
+		return PAM_CONV_ERR;
+
+	response = calloc(1, sizeof(struct pam_response));
+	if (response == NULL || (response->resp = strdup(password)) == NULL) {
+		free(response);
+		return PAM_BUF_ERR;
+	}
+
+	*respp = response;
+	return PAM_SUCCESS;
+}
+int
+parent_auth_pam(const char *username, const char *password)
+{
+	int rc;
+	pam_handle_t *pamh = NULL;
+	struct pam_conv conv = { pam_conv_password, password };
+	
+	if ((rc = pam_start("smtpd", username, &conv, &pamh)) != PAM_SUCCESS)
+		goto end;
+	if ((rc = pam_authenticate(pamh, 0)) != PAM_SUCCESS)
+		goto end;
+	if ((rc = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS)
+		goto end;
+
+end:
+	pam_end(pamh, rc);
+	
+	switch (rc) {
+		case PAM_SUCCESS:
+			return LKA_OK;
+		case PAM_SYSTEM_ERR:
+		case PAM_ABORT:
+		case PAM_AUTHINFO_UNAVAIL:
+			return LKA_TEMPFAIL;
+		default:
+			return LKA_PERMFAIL;
+	}
+}
+#endif
+
 int
 parent_auth_pwd(const char *username, const char *password)
 {
@@ -1664,8 +1722,10 @@ parent_auth_pwd(const char *username, const char *password)
 int
 parent_auth_user(const char *username, const char *password)
 {
-#ifdef BSD_AUTH
+#if defined(BSD_AUTH)
 	return (parent_auth_bsd(username, password));
+#elif defined(USE_PAM)
+	return (parent_auth_pam(username, password));
 #else
 	return (parent_auth_pwd(username, password));
 #endif
