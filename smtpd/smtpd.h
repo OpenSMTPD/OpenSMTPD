@@ -64,8 +64,12 @@
 #ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
 #endif
+#ifndef SMTPD_FILTER_USER
 #define SMTPD_FILTER_USER	 "_smtpf"
+#endif
+#ifndef SMTPD_QUEUE_USER
 #define SMTPD_QUEUE_USER	 "_smtpq"
+#endif
 #ifndef SMTPD_SOCKDIR
 #define SMTPD_SOCKDIR		 "/var/run"
 #endif

@@ -1248,6 +1248,34 @@ AC_ARG_WITH([privsep-user],
 AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 	[non-privileged user for privilege separation])
 AC_SUBST([SMTPD_USER])
+
+SMTPD_FILTER_USER=_smtpf
+AC_ARG_WITH([filter-user],
+	[  --with-filter-user=user Specify non-privileged user for filter process],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_FILTER_USER=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_FILTER_USER], ["$SMTPD_FILTER_USER"],
+	[non-privileged user for filter process])
+AC_SUBST([SMTPD_USER])
+
+SMTPD_QUEUE_USER=_smtpq
+AC_ARG_WITH([queue-user],
+	[  --with-queue-user=user Specify non-privileged user for queue process],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_QUEUE_USER=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
+	[non-privileged user for queue process])
+AC_SUBST([SMTPD_QUEUE_USER])
 #l2566
 
 #l2691
