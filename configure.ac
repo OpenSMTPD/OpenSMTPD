@@ -1171,7 +1171,7 @@ elif test ! -z "$OPENSSL_SEEDS_ITSELF" ; then
 		[Define if you want OpenSSL's internally seeded PRNG only])
 	RAND_MSG="OpenSSL internal ONLY"
 else
-	AC_MSG_ERROR([OpenSSH has no source of random numbers. Please configure OpenSSL with an entropy source or re-run configure using one of the --with-prngd-port or --with-prngd-socket options])
+	AC_MSG_ERROR([OpenSMTPD has no source of random numbers. Please configure OpenSSL with an entropy source or re-run configure using one of the --with-prngd-port or --with-prngd-socket options])
 fi
 
 # Check for PAM libs
@@ -1728,7 +1728,7 @@ AC_CHECK_TYPES([struct timespec])
 if test "x$ac_cv_have_int64_t" = "xno" && \
 	test "x$ac_cv_sizeof_long_int" != "x8" && \
 	test "x$ac_cv_sizeof_long_long_int" = "x0" ; then
-	echo "OpenSSH requires int64_t support.  Contact your vendor or install"
+	echo "OpenSMTPD requires int64_t support.  Contact your vendor or install"
 	echo "an alternative compiler (I.E., GCC) before continuing."
 	echo ""
 	exit 1;
@@ -2533,17 +2533,17 @@ echo "                      Manual pages: $F"
 echo "                    smtpd.sock dir: $G"
 echo "  Privilege separation chroot path: $H"
 if test "x$external_path_file" = "x/etc/login.conf" ; then
-echo "   At runtime, sshd will use the path defined in $external_path_file"
+echo "   At runtime, smtpd will use the path defined in $external_path_file"
 echo "   Make sure the path to scp is present, otherwise scp will not work"
 else
-echo "            sshd default user PATH: $I"
+echo "           smtpd default user PATH: $I"
 	if test ! -z "$external_path_file"; then
 echo "   (If PATH is set in $external_path_file it will be used instead. If"
 echo "   used, ensure the path to scp is present, otherwise scp will not work.)"
 	fi
 fi
 if test ! -z "$superuser_path" ; then
-echo "          sshd superuser user PATH: $J"
+echo "         smtpd superuser user PATH: $J"
 fi
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
@@ -2578,21 +2578,21 @@ fi
 
 if test "x$PAM_MSG" = "xyes" ; then
 	echo "PAM is enabled. You may need to install a PAM control file "
-	echo "for sshd, otherwise password authentication may fail. "
-	echo "Example PAM control files can be found in the contrib/ "
-	echo "subdirectory"
+	echo "for smtpd, otherwise password authentication may fail. "
+#	echo "Example PAM control files can be found in the contrib/ "
+#	echo "subdirectory"
 	echo ""
 fi
 
-if test ! -z "$NO_PEERCHECK" ; then
-	echo "WARNING: the operating system that you are using does not"
-	echo "appear to support getpeereid(), getpeerucred() or the"
-	echo "SO_PEERCRED getsockopt() option. These facilities are used to"
-	echo "enforce security checks to prevent unauthorised connections to"
-	echo "ssh-agent. Their absence increases the risk that a malicious"
-	echo "user can connect to your agent."
-	echo ""
-fi
+#if test ! -z "$NO_PEERCHECK" ; then
+#	echo "WARNING: the operating system that you are using does not"
+#	echo "appear to support getpeereid(), getpeerucred() or the"
+#	echo "SO_PEERCRED getsockopt() option. These facilities are used to"
+#	echo "enforce security checks to prevent unauthorised connections to"
+#	echo "ssh-agent. Their absence increases the risk that a malicious"
+#	echo "user can connect to your agent."
+#	echo ""
+#fi
 
 if test "$AUDIT_MODULE" = "bsm" ; then
 	echo "WARNING: BSM audit support is currently considered EXPERIMENTAL."
