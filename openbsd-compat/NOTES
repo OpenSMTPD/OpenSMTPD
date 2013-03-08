@@ -6,6 +6,7 @@ bsd-arc4random.c	portable openssh
 bsd-closefrom.c		portable openssh
 bsd-getpeereid.c	portable openssh
 bsd-waitpid.{c,h}	portable openssh
+clock_gettime.c		handmade
 daemon.c		portable openssh
 defines.h		portable openssh
 dirname.c		portable openssh
@@ -17,7 +18,7 @@ getopt.c	  	portable openssh
 imsg-buffer.c		part of /usr/src/libutil/imsg-buffer.c
 imsg.{c,h}		part of /usr/src/libutil/imsg.c
 includes.h		portable openssh
-log.h
+log.h			portable openssh
 mktemp.c		portable openssh
 openbsd-compat.h	portable openssh
 pw_dup.c		/usr/src/lib/libc/gen/pw_dup.c
