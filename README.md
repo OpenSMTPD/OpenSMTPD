@@ -10,26 +10,18 @@ the SMTP protocol.
 OpenSMTPD runs on top of the OpenBSD operating system but also has a portable
 version that can build and run on several systems, including:
 
-	- Linux
-	- FreeBSD
-	- NetBSD
-	- DragonFly
-	- MacOSX
+* Linux
+* FreeBSD
+* NetBSD
+* DragonFly
+* MacOSX
 
-For more information:
-
-    	[http://www.opensmtpd.org/portable.html](http://www.opensmtpd.org/portable.html)
-
+For more information: [http://www.opensmtpd.org/portable.html](http://www.opensmtpd.org/portable.html)
 
 People interested about OpenSMTPD are encouraged to subscribe to our mailing
-list:
+list: [http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
 
-	[http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
-
-
-and to join the IRC channel:
-
-       #OpenSMTPD @ irc.freenode.net
+and to join the IRC channel: #OpenSMTPD @ irc.freenode.net
 
 Cheers !
 
@@ -148,8 +140,7 @@ Add a user - here we have picked 444:
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd RealName "SMTP Daemon"
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_stmpd Password "*"
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd PrimaryGroupID 444
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory \
-		/var/empty
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
 repeat for the _smtpq and _smtpf users.
@@ -167,15 +158,3 @@ Then:
 or in debug and verbose mode
 
     smtpd -dv
-
-
-Manual pages
-------------
-
-* [aliases](http://opensmtpd.org/aliases.5.html) - 
-* [forward](http://opensmtpd.org/forward.5.html) - 
-* [smtpd](http://opensmtpd.org/smtpd.8.html) - Simple Mail Transfer Protocol daemon
-* [smtpd.conf](http://opensmtpd.org/smtpd.conf.5.html) - Simple Mail Transfer Protocol daemon configuration file
-* [smtpctl](http://opensmtpd.org/smtpctl.8.html) - control the Simple Mail Transfer Protocol daemon
-* [newaliases](http://opensmtpd.org/newaliases.8.html) - generate aliases mappings for the Simple Mail Transfer Protocol daemon
-* [makemap](http://opensmtpd.org/makemap.8.html) - generate mappings for the Simple Mail Transfer Protocol daemon
