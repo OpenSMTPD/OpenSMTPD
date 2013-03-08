@@ -10,26 +10,18 @@ the SMTP protocol.
 OpenSMTPD runs on top of the OpenBSD operating system but also has a portable
 version that can build and run on several systems, including:
 
-	- Linux
-	- FreeBSD
-	- NetBSD
-	- DragonFly
-	- MacOSX
+* Linux
+* FreeBSD
+* NetBSD
+* DragonFly
+* MacOSX
 
-For more information:
-
-    	[http://www.opensmtpd.org/portable.html](http://www.opensmtpd.org/portable.html)
-
+For more information: [http://www.opensmtpd.org/portable.html](http://www.opensmtpd.org/portable.html)
 
 People interested about OpenSMTPD are encouraged to subscribe to our mailing
-list:
+list: [http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
 
-	[http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
-
-
-and to join the IRC channel:
-
-       #OpenSMTPD @ irc.freenode.net
+and to join the IRC channel: #OpenSMTPD @ irc.freenode.net
 
 Cheers !
 
@@ -148,8 +140,7 @@ Add a user - here we have picked 444:
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd RealName "SMTP Daemon"
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_stmpd Password "*"
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd PrimaryGroupID 444
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory \
-		/var/empty
+	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
 repeat for the _smtpq and _smtpf users.
