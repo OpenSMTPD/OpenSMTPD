@@ -16,7 +16,7 @@
 
 dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
 dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([OpenSMTPD], [5.2.1p0], [Charles Longeau <chl@openbsd.org>])
+AC_INIT([OpenSMTPD], [5.3p1], [Charles Longeau <chl@openbsd.org>])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
