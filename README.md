@@ -3,13 +3,10 @@ Preliminary note
 
 [smtpd](http://www.openbsd.org/cgi-bin/cvsweb/src/usr.sbin/smtpd/) also known as
 OpenSMTPD is a [smtp server implementation for OpenBSD](http://http://opensmtpd.org/smtpd.8.html).
-It is still a work in progress which still lacks many features.
 
-Then, on top of that, all OpenSMTPD's features are not ported yet. For instance,
-authentification still doesn't work.
-
-People interested about portable OpenSMTPD, or about OpenSMTPD in general, are
-encouraged to join the IRC channel #opensmtpd @ FreeNode.net.
+People interested about [portable OpenSMTPD](http://www.opensmtpd.org/portable.html), or about
+[OpenSMTPD](http://www.opensmtpd.org/) in general, are encouraged to join the IRC channel:
+#opensmtpd @ FreeNode.net.
 
 
 How to use Portable OpenSMTPD
@@ -26,8 +23,13 @@ OpenSMTPD relies on:
 * [libevent](http://libevent.org/)
 * [libtool](http://www.gnu.org/software/libtool/)
 * [openssl](http://www.openssl.org/)
-* [sqlite3](http://sqlite.org/)
 * [zlib](http://www.zlib.net/)
+
+
+Optionnal dependencies
+----------------------
+
+* [sqlite3](http://sqlite.org/)
 
 
 Get the source
