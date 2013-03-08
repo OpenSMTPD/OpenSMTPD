@@ -23,13 +23,6 @@ OpenSMTPD relies on:
 * [libevent](http://libevent.org/)
 * [libtool](http://www.gnu.org/software/libtool/)
 * [openssl](http://www.openssl.org/)
-* [zlib](http://www.zlib.net/)
-
-
-Optionnal dependencies
-----------------------
-
-* [sqlite3](http://sqlite.org/)
 
 
 Get the source
