@@ -2183,6 +2183,59 @@ AC_ARG_WITH([bsd-auth],
 	]
 )
 
+# Whether to enable *experimental* LDAP support
+EXPERIMENTAL_LDAP=no
+AC_ARG_WITH([experimental-ldap],
+	[  --with-experimental-ldap	Enable experimental LDAP support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_LDAP], [1],
+				[Define if you have experimental LDAP support])
+			EXPERIMENTAL_LDAP=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_LDAP], [test $EXPERIMENTAL_LDAP = yes])
+
+# Whether to enable *experimental* SQLite support
+EXPERIMENTAL_SQLITE=no
+AC_ARG_WITH([experimental-sqlite],
+	[  --with-experimental-sqlite	Enable experimental SQLite support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_SQLITE], [1],
+				[Define if you have experimental SQLITE support])
+				AC_CHECK_HEADER([sqlite3.h],
+						[AC_DEFINE([HAVE_SQLITE3_H], [], [if you have the <sqlite3.h> header file]) ],
+						[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
+						)
+
+				AC_CHECK_LIB([sqlite3], [sqlite3_open], ,
+					[
+						saved_CPPFLAGS="$CPPFLAGS"
+						saved_LDFLAGS="$LDFLAGS"
+						save_LIBS="$LIBS"
+						dnl Check default sqlite install dir
+						if test -n "${need_dash_r}"; then
+							LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+						else
+							LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+						fi
+						CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+						LIBS="$LIBS -lsqlite3"
+						AC_TRY_LINK_FUNC([sqlite3_open], [AC_DEFINE([HAVE_LIBSQLITE3])],
+							[
+							AC_MSG_ERROR([*** sqlite3 missing - please install first or check config.log ***])
+							]
+						)
+					]
+				)
+			EXPERIMENTAL_SQLITE=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_SQLITE], [test $EXPERIMENTAL_SQLITE = yes])
+
 # Where to place smtpd.sock
 sockdir=/var/run
 # make sure the directory exists
@@ -2438,33 +2491,6 @@ AC_LINK_IFELSE(
 )
 
 AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
-
-
-AC_CHECK_HEADER([sqlite3.h],
-		[AC_DEFINE([HAVE_SQLITE3_H], [], [if you have the <sqlite3.h> header file]) ],
-		[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
-		)
-
-AC_CHECK_LIB([sqlite3], [sqlite3_open], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default sqlite install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-		LIBS="$LIBS -lsqlite3"
-		AC_TRY_LINK_FUNC([sqlite3_open], [AC_DEFINE([HAVE_LIBSQLITE3])],
-			[
-				AC_MSG_ERROR([*** sqlite3 missing - please install first or check config.log ***])
-			]
-		)
-	]
-)
 
 
 LIBS="$LIBS ${SSHDLIBS}"

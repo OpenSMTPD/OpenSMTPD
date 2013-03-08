@@ -43,8 +43,12 @@ struct table_backend *table_backend_lookup(const char *);
 extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
+#if defined(HAVE_SQLITE)
 extern struct table_backend table_backend_sqlite;
+#endif
+#if defined(HAVE_LDAP)
 extern struct table_backend table_backend_ldap;
+#endif
 
 static objid_t	last_table_id = 0;
 
@@ -57,10 +61,14 @@ table_backend_lookup(const char *backend)
 		return &table_backend_db;
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
+#if defined(HAVE_SQLITE)
 	if (!strcmp(backend, "sqlite"))
 		return &table_backend_sqlite;
+#endif
+#if defined(HAVE_LDAP)
 	if (!strcmp(backend, "ldap"))
 		return &table_backend_ldap;
+#endif
 	return NULL;
 }
 

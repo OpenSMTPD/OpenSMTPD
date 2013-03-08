@@ -29,10 +29,14 @@ makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c	\
 makemap_SOURCES+=	table_static.c
 makemap_SOURCES+=	table_db.c
 makemap_SOURCES+=	table_getpwnam.c
+if HAVE_LDAP
 makemap_SOURCES+=	table_ldap.c
-makemap_SOURCES+=	ber.c
 makemap_SOURCES+=	aldap.c
+makemap_SOURCES+=	ber.c
+endif
+if HAVE_SQLITE
 makemap_SOURCES+=	table_sqlite.c
+endif
 
 makemap_CFLAGS=		-DNO_IO
 
@@ -54,8 +58,12 @@ smtpd_SOURCES+=		delivery_mda.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c
+if HAVE_LDAP
 smtpd_SOURCES+=		table_ldap.c
+endif
+if HAVE_SQLITE
 smtpd_SOURCES+=		table_sqlite.c
+endif
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		queue_null.c
 smtpd_SOURCES+=		queue_ram.c
@@ -73,7 +81,9 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/getnameinfo_async.c
 
 # ldap backend
+if HAVE_LDAP
 smtpd_SOURCES+=		ber.c aldap.c
+endif
 
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 smtpd_CFLAGS+=		-DCA_FILE=\"/etc/ssl/cert.pem\"
