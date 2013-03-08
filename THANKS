@@ -7,7 +7,7 @@ Francois Tigeot		DragonFlyBSD fixes / pkgsrc
 Ashish SHUKLA		FreeBSD port, LMTP support
 Jean-Loup Colautti	Debian package
 Rune Lynge		MacOS X port
-Jason A. Donenfeld	Gentoo ebuild
+Jason A. Donenfeld	Gentoo ebuild, PAM support
 
 
 And of course Gilles Chehade and Eric Faurot for their work and continuous help.
