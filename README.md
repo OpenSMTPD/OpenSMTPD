@@ -1,21 +1,46 @@
 Preliminary note
 ================
 
-[smtpd](http://www.openbsd.org/cgi-bin/cvsweb/src/usr.sbin/smtpd/) also known as
-OpenSMTPD is a [smtp server implementation for OpenBSD](http://http://opensmtpd.org/smtpd.8.html).
+OpenSMTPD is a FREE implementation of the server-side SMTP protocol as defined
+by RFC 5321, with some additional standart extensions.
 
-People interested about [portable OpenSMTPD](http://www.opensmtpd.org/portable.html), or about
-[OpenSMTPD](http://www.opensmtpd.org/) in general, are encouraged to join the IRC channel:
-#opensmtpd @ FreeNode.net.
+It allows ordinary machines to exchange e-mails with other systems speaking
+the SMTP protocol.
+
+OpenSMTPD runs on top of the OpenBSD operating system but also has a portable
+version that can build and run on several systems, including:
+
+	- Linux
+	- FreeBSD
+	- NetBSD
+	- DragonFly
+	- MacOSX
+
+For more information:
+
+    	[http://www.opensmtpd.org/portable.html](http://www.opensmtpd.org/portable.html)
 
 
-How to use Portable OpenSMTPD
-=============================
+People interested about OpenSMTPD are encouraged to subscribe to our mailing
+list:
+
+	[http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
+
+
+and to join the IRC channel:
+
+       #OpenSMTPD @ irc.freenode.net
+
+Cheers !
+
+
+How to build, configure and use Portable OpenSMTPD
+==================================================
 
 Dependencies
 ------------
 
-OpenSMTPD relies on:
+Portable OpenSMTPD relies on:
 * [autoconf](http://www.gnu.org/software/autoconf/)
 * [automake](http://www.gnu.org/software/automake/)
 * [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html)
