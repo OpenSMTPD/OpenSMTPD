@@ -33,12 +33,14 @@ OpenSMTPD
 	Claudio Jeker
 	Reyk Floeter
 	Janne Johansson
+	Alexander Schrijver
+	Marc Balmer
 	Charles Longeau
 
 
 2) ssl_privsep.c
 
-     * Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+    /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
      * All rights reserved.
      *
      * This package is an SSL implementation written
@@ -93,6 +95,12 @@ OpenSMTPD
      * derivative of this code cannot be changed.  i.e. this code cannot simply be
      * copied and put under another distribution licence
      * [including the GNU Public Licence.]
+     */
+
+    /*
+     * SSL operations needed when running in a privilege separated environment.
+     * Adapted from openssl's ssl_rsa.c by Pierre-Yves Ritschard .
+     */
 
 
 
@@ -176,6 +184,9 @@ openbsd-compat
 ==============
 
 
+Most of the OpenBSD compatibility layer is based on the work by Damien Miller for
+Portable OpenSSH.
+
 1) Almost all code is licensed under an ISC-style license, to the following
    copyright holders:
 
@@ -183,8 +194,11 @@ openbsd-compat
 	Todd C. Miller
 	Damien Miller
 	Henning Brauer
+	Pierre-Yves Ritschard
+	Reyk Floeter
 	Theo de Raadt
 	Ted Unangst
+	Charles Longeau
 
      * Permission to use, copy, modify, and distribute this software for any
      * purpose with or without fee is hereby granted, provided that the above
@@ -232,6 +246,7 @@ openbsd-compat
 	Ben Lindstrom
 	Damien Miller
 	Marc Espie
+	Tim Rice
 	Niels Provos
 
      * Redistribution and use in source and binary forms, with or without
@@ -261,6 +276,7 @@ openbsd-compat
         The Regents of the University of California.
         Ian F. Darwin
 	Eric P. Allman
+	Damien Miller
 
      * Redistribution and use in source and binary forms, with or without
      * modification, are permitted provided that the following conditions
@@ -288,7 +304,7 @@ openbsd-compat
 
 
 5)  Some code is under a 4-clause BSD license, from the
-    following copyright holders:
+    following copyright holder:
 
 	Christos Zoulas
 
@@ -318,7 +334,7 @@ openbsd-compat
      * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-6) setresguid, xmalloc
+6) includes.h, log.h, setresguid.c, xmalloc.c, xmalloc.c
 
      * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
      *                    All rights reserved
@@ -328,3 +344,14 @@ openbsd-compat
      * software must be clearly marked as such, and if the derived work is
      * incompatible with the protocol description in the RFC file, it must be
      * called by a name other than "ssh" or "Secure Shell".
+
+
+7) bootstrap
+
+     # Copyright (c) 2002-2011 Sam Hocevar <sam@hocevar.net>
+     #
+     #    This program is free software. It comes without any warranty, to
+     #    the extent permitted by applicable law. You can redistribute it
+     #    and/or modify it under the terms of the Do What The Fuck You Want
+     #    To Public License, Version 2, as published by Sam Hocevar. See
+     #    http://sam.zoy.org/wtfpl/COPYING for more details.
