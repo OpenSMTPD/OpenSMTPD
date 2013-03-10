@@ -48,6 +48,7 @@
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_USER		 "_smtpd"
+#define SMTPD_LOOKUP_USER	 "_smtpl"
 #define SMTPD_FILTER_USER	 "_smtpf"
 #define SMTPD_QUEUE_USER	 "_smtpq"
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
