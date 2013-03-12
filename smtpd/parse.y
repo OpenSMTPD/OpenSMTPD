@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.115 2013/02/17 12:28:30 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.116 2013/03/06 21:42:40 sthen Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
