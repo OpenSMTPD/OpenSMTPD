@@ -1422,9 +1422,15 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	switch (buf[0]) {
 	case '5':
 	case '4':
-		strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
-		log_info("smtp-in: Failed command on session %016" PRIx64
-		    ": \"%s\" => %.*s", s->id, tmp, n, buf);
+		if (strstr(s->cmd, "AUTH ") == s->cmd) {
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"AUTH [...]\" => %.*s", s->id, n, buf);
+		}
+		else {
+			strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"%s\" => %.*s", s->id, tmp, n, buf);
+		}
 		break;
 	}
 }
