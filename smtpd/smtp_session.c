@@ -165,6 +165,9 @@ static int smtp_verify_certificate(struct smtp_session *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
 
+static void smtp_auth_failure_pause(struct smtp_session *);
+static void smtp_auth_failure_resume(int, short, void *);
+
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
 	{ CMD_EHLO,		"EHLO" },
@@ -515,6 +518,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		}
 		else
 			fatalx("bad lka response");
+
 		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);
 		return;
