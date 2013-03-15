@@ -132,6 +132,8 @@ struct smtp_session {
 
 	size_t			 datalen;
 	FILE			*ofile;
+
+	struct event		 pause;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -160,6 +162,9 @@ static void smtp_wait_mfa(struct smtp_session *s, int);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 static int smtp_verify_certificate(struct smtp_session *);
+
+static void smtp_auth_failure_pause(struct smtp_session *);
+static void smtp_auth_failure_resume(int, short, void *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -502,7 +507,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else if (success == LKA_PERMFAIL) {
 			log_info("smtp-in: Authentication failed for user %s "
 			    "on session %016"PRIx64, user, s->id);
-			smtp_reply(s, "535 Authentication failed");
+			smtp_auth_failure_pause(s);
+			return;
 		}
 		else if (success == LKA_TEMPFAIL) {
 			log_info("smtp-in: Authentication temporarily failed "
@@ -511,6 +517,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		}
 		else
 			fatalx("bad lka response");
+
 		smtp_enter_state(s, STATE_HELO);
 		io_reload(&s->io);
 		return;
@@ -1568,6 +1575,30 @@ smtp_verify_certificate(struct smtp_session *s)
 
 	return 1;
 }
+
+static void
+smtp_auth_failure_resume(int fd, short event, void *p)
+{
+	struct smtp_session *s = p;
+
+	smtp_reply(s, "535 Authentication failed");
+	smtp_enter_state(s, STATE_HELO);
+	io_reload(&s->io);
+}
+
+static void
+smtp_auth_failure_pause(struct smtp_session *s)
+{
+	struct timeval	tv;
+
+	tv.tv_sec = 0;
+	tv.tv_usec = arc4random_uniform(1000000);
+	log_trace(TRACE_SMTP, "smtp: timing-attack protection triggered, "
+	    "will defer answer for for %lu microseconds", tv.tv_usec);
+	evtimer_set(&s->pause, smtp_auth_failure_resume, s);
+	evtimer_add(&s->pause, &tv);
+}
+
 
 #define CASE(x) case x : return #x
 
