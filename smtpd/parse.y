@@ -120,7 +120,7 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
-%token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME HELO
+%token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
@@ -714,6 +714,18 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 			free($5);
 		}
+		| userbase DELIVER TO LMTP STRING		{
+			rule->r_userbase = table_find($1);
+			rule->r_action = A_LMTP;
+			if (strchr($5, ':')) {
+				if (strlcpy(rule->r_value.buffer, $5,
+					sizeof(rule->r_value.buffer))
+					>= sizeof(rule->r_value.buffer))
+					fatal("lmtp destination too long");
+			} else
+				fatal("invalid lmtp destination");
+			free($5);
+		}
 		| userbase DELIVER TO MBOX			{
 			rule->r_userbase = table_find($1);
 			rule->r_action = A_MBOX;
@@ -972,6 +984,7 @@ lookup(char *s)
 		{ "include",		INCLUDE },
 		{ "key",		KEY },
 		{ "listen",		LISTEN },
+		{ "lmtp",		LMTP },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
 		{ "max-message-size",  	MAXMESSAGESIZE },
