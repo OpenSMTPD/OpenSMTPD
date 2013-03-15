@@ -1575,6 +1575,29 @@ smtp_verify_certificate(struct smtp_session *s)
 	return 1;
 }
 
+static void
+smtp_auth_failure_resume(int fd, short event, void *p)
+{
+	struct smtp_session *s = p;
+
+	smtp_reply(s, "535 Authentication failed");
+	smtp_enter_state(s, STATE_HELO);
+	io_reload(&s->io);
+}
+
+static void
+smtp_auth_failure_pause(struct smtp_session *s)
+{
+	struct timeval	tv;
+
+	tv.tv_sec = 0;
+	tv.tv_usec = arc4random_uniform(1000000);
+	log_trace(TRACE_SMTP, "smtp: timing-attack protection triggered, "
+	    "will defer answer for %lu microseconds", tv.tv_usec);
+	evtimer_set(&s->pause, smtp_auth_failure_resume, s);
+	evtimer_add(&s->pause, &tv);
+}
+
 #define CASE(x) case x : return #x
 
 const char *
