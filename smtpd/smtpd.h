@@ -336,7 +336,8 @@ enum action_type {
 	A_MAILDIR,
 	A_MBOX,
 	A_FILENAME,
-	A_MDA
+	A_MDA,
+	A_LMTP
 };
 
 enum decision {
