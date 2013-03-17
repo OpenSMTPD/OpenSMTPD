@@ -582,6 +582,11 @@ rule_to_text(struct rule *r)
 		strlcat(buf, r->r_value.buffer, sizeof buf);
 		strlcat(buf, "\"", sizeof buf);
 		break;
+	case A_LMTP:
+		strlcat(buf, " deliver to lmtp \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
 	}
 	    
 	return buf;

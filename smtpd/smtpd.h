@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.407 2013/02/15 22:43:21 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.408 2013/03/06 21:42:40 sthen Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -63,6 +63,9 @@
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
+#endif
+#ifndef SMTPD_LOOKUP_USER
+#define SMTPD_LOOKUP_USER	 "_smtpl"
 #endif
 #ifndef SMTPD_FILTER_USER
 #define SMTPD_FILTER_USER	 "_smtpf"
@@ -361,7 +364,8 @@ enum action_type {
 	A_MAILDIR,
 	A_MBOX,
 	A_FILENAME,
-	A_MDA
+	A_MDA,
+	A_LMTP
 };
 
 enum decision {
@@ -1153,6 +1157,10 @@ void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *),
 
 /* lka.c */
 pid_t lka(void);
+
+
+/* log.c */
+void vlog(int, const char *, va_list);
 
 
 /* lka_session.c */

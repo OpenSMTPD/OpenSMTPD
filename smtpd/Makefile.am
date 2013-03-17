@@ -55,6 +55,7 @@ smtpd_SOURCES+=		delivery_filename.c
 smtpd_SOURCES+=		delivery_maildir.c
 smtpd_SOURCES+=		delivery_mbox.c
 smtpd_SOURCES+=		delivery_mda.c
+smtpd_SOURCES+=		delivery_lmtp.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c

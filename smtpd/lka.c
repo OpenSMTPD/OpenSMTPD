@@ -618,6 +618,9 @@ lka(void)
 
 	purge_config(PURGE_EVERYTHING);
 
+	if ((env->sc_pw =  getpwnam(SMTPD_LOOKUP_USER)) == NULL)
+		if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
+			fatalx("unknown user " SMTPD_USER);
 	pw = env->sc_pw;
 
 	config_process(PROC_LKA);

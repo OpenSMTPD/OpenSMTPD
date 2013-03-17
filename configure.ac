@@ -16,7 +16,7 @@
 
 dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
 dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([OpenSMTPD], [5.3p1], [Charles Longeau <chl@openbsd.org>])
+AC_INIT([OpenSMTPD], [5.3p-current], [Charles Longeau <chl@openbsd.org>])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -1249,6 +1249,20 @@ AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 	[non-privileged user for privilege separation])
 AC_SUBST([SMTPD_USER])
 #l2566
+
+SMTPD_FILTER_USER=_smtpl
+AC_ARG_WITH([lookup-user],
+	[  --with-lookup-user=user Specify non-privileged user for filter process],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_LOOKUP_USER=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_LOOKUP_USER], ["$SMTPD_LOOKUP_USER"],
+	[non-privileged user for lookup process])
+AC_SUBST([SMTPD_LOOKUP_USER])
 
 SMTPD_FILTER_USER=_smtpf
 AC_ARG_WITH([filter-user],
