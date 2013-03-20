@@ -18,11 +18,10 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
