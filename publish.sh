@@ -31,7 +31,7 @@ esac
 #
 build_tarball()
 {
-    V=5.2.x
+    V=5.3.x
     P=p1
     ASRSRC=/usr/src/lib/libc/asr
     ASRFILES="asr.c asr_debug.c asr_utils.c gethostnamadr_async.c
