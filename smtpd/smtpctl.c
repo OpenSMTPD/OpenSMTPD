@@ -27,7 +27,6 @@
 #include "sys-queue.h"
 #include "sys-tree.h"
 #include <sys/un.h>
-#include <sys/param.h>
 
 #include <net/if.h>
 /* #include <net/if_media.h> */

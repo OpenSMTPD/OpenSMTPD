@@ -22,7 +22,6 @@
 #include <sys/stat.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #ifdef HAVE_DB_H

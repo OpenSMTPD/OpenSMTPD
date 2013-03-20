@@ -17,11 +17,12 @@
 
 #include "includes.h"
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
