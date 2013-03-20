@@ -22,7 +22,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #include <ctype.h>
@@ -356,6 +355,17 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				    sizeof deliver.user);
 				strlcpy(deliver.to, e->buffer,
 				    sizeof deliver.to);
+				break;
+
+			case A_LMTP:
+				deliver.mode = A_LMTP;
+				deliver.userinfo = *userinfo;
+				strlcpy(deliver.user, userinfo->username,
+				    sizeof(deliver.user));
+				strlcpy(deliver.to, e->buffer,
+				    sizeof(deliver.to));
+				strlcpy(deliver.from, e->sender,
+				    sizeof(deliver.from));
 				break;
 
 			default:
@@ -867,6 +877,8 @@ mda_log(const struct mda_envelope *evp, const char *prefix, const char *status)
 		method = "file";
 	else if (evp->method == A_MDA)
 		method = "mda";
+	else if (evp->method == A_LMTP)
+		method = "lmtp";
 	else
 		method = "???";
 

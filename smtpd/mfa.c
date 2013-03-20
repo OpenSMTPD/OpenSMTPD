@@ -21,7 +21,6 @@
 #include <sys/wait.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #include <err.h>

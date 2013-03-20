@@ -1,3 +1,5 @@
+/*	$OpenBSD: table_ldap.c,v 1.3 2013/03/08 19:11:52 chl Exp $	*/
+
 /*
  * Copyright (c) 2010-2012 Gilles Chehade <gilles@poolp.org>
  *
@@ -17,7 +19,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>

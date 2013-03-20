@@ -19,7 +19,6 @@
  */
 
 #include <sys/types.h>
-#include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
@@ -567,6 +566,11 @@ rule_to_text(struct rule *r)
 		break;
 	case A_MDA:
 		strlcat(buf, " deliver to mda \"", sizeof buf);
+		strlcat(buf, r->r_value.buffer, sizeof buf);
+		strlcat(buf, "\"", sizeof buf);
+		break;
+	case A_LMTP:
+		strlcat(buf, " deliver to lmtp \"", sizeof buf);
 		strlcat(buf, r->r_value.buffer, sizeof buf);
 		strlcat(buf, "\"", sizeof buf);
 		break;

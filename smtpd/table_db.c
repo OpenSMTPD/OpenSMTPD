@@ -20,7 +20,6 @@
 #include <sys/stat.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #include <db.h>
@@ -149,6 +148,7 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
     void **retp)
 {
 	struct dbhandle	*handle = hdl;
+	struct table	*table = NULL;
 	char	       *line;
 	size_t		len = 0;
 	int		ret;
@@ -160,17 +160,20 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 		return -1;
 
 	/* DB has changed, close and reopen */
-	if (sb.st_mtime != handle->mtime)
+	if (sb.st_mtime != handle->mtime) {
+		table = handle->table;
 		table_db_update(handle->table);
+		handle = table->t_handle;
+	}
 
 	for (i = 0; i < nitems(keycmp); ++i)
 		if (keycmp[i].service == service)
 			match = keycmp[i].func;
 
 	if (match == NULL)
-		line = table_db_get_entry(hdl, key, &len);
+		line = table_db_get_entry(handle, key, &len);
 	else
-		line = table_db_get_entry_match(hdl, key, &len, match);
+		line = table_db_get_entry_match(handle, key, &len, match);
 	if (line == NULL)
 		return 0;
 

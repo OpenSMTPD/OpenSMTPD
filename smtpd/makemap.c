@@ -21,7 +21,6 @@
 #include <sys/stat.h>
 #include <sys/tree.h>
 #include <sys/queue.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #include <db.h>

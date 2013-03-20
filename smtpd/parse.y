@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.115 2013/02/17 12:28:30 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.116 2013/03/06 21:42:40 sthen Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <util.h>
 
@@ -119,7 +120,7 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
-%token  RELAY BACKUP VIA DELIVER TO MAILDIR MBOX HOSTNAME HELO
+%token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
@@ -713,6 +714,18 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 			free($5);
 		}
+		| userbase DELIVER TO LMTP STRING		{
+			rule->r_userbase = table_find($1);
+			rule->r_action = A_LMTP;
+			if (strchr($5, ':')) {
+				if (strlcpy(rule->r_value.buffer, $5,
+					sizeof(rule->r_value.buffer))
+					>= sizeof(rule->r_value.buffer))
+					fatal("lmtp destination too long");
+			} else
+				fatal("invalid lmtp destination");
+			free($5);
+		}
 		| userbase DELIVER TO MBOX			{
 			rule->r_userbase = table_find($1);
 			rule->r_action = A_MBOX;
@@ -928,13 +941,15 @@ int
 yyerror(const char *fmt, ...)
 {
 	va_list		 ap;
+	char		*nfmt;
 
 	file->errors++;
 	va_start(ap, fmt);
-	fprintf(stderr, "%s:%d: ", file->name, yylval.lineno);
-	vfprintf(stderr, fmt, ap);
-	fprintf(stderr, "\n");
+	if (asprintf(&nfmt, "%s:%d: %s", file->name, yylval.lineno, fmt) == -1)
+		fatalx("yyerror asprintf");
+	vlog(LOG_CRIT, nfmt, ap);
 	va_end(ap);
+	free(nfmt);
 	return (0);
 }
 
@@ -969,6 +984,7 @@ lookup(char *s)
 		{ "include",		INCLUDE },
 		{ "key",		KEY },
 		{ "listen",		LISTEN },
+		{ "lmtp",		LMTP },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
 		{ "max-message-size",  	MAXMESSAGESIZE },

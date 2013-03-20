@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 
@@ -403,6 +402,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	case A_MAILDIR:
 	case A_FILENAME:
 	case A_MDA:
+	case A_LMTP:
 		ep->type = D_MDA;
 		ep->dest = lka_find_ancestor(xn, EXPAND_ADDRESS)->u.mailaddr;
 

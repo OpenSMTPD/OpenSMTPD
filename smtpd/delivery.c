@@ -19,7 +19,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 
 #include <ctype.h>
@@ -38,6 +37,7 @@ extern struct delivery_backend delivery_backend_mbox;
 extern struct delivery_backend delivery_backend_mda;
 extern struct delivery_backend delivery_backend_maildir;
 extern struct delivery_backend delivery_backend_filename;
+extern struct delivery_backend delivery_backend_lmtp;
 
 struct delivery_backend *
 delivery_backend_lookup(enum action_type type)
@@ -51,6 +51,8 @@ delivery_backend_lookup(enum action_type type)
 		return &delivery_backend_maildir;
 	case A_FILENAME:
 		return &delivery_backend_filename;
+	case A_LMTP:
+		return &delivery_backend_lmtp;
 	default:
 		fatal("unsupported delivery_backend type");
 	}

@@ -19,7 +19,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
@@ -642,6 +641,8 @@ ascii_load_mda_method(enum action_type *dest, char *buf)
 		*dest = A_FILENAME;
 	else if (strcasecmp(buf, "mda") == 0)
 		*dest = A_MDA;
+	else if (strcasecmp(buf, "lmtp") == 0)
+		*dest = A_LMTP;
 	else
 		return 0;
 	return 1;
@@ -765,6 +766,9 @@ ascii_dump_mda_method(enum action_type type, char *dest, size_t len)
 	char *p = NULL;
 
 	switch (type) {
+	case A_LMTP:
+		p = "lmtp";
+		break;
 	case A_MAILDIR:
 		p = "maildir";
 		break;
