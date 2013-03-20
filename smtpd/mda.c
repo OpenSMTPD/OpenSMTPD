@@ -22,14 +22,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-<<<<<<< HEAD
 #include "sys-queue.h"
 #include "sys-tree.h"
-#include <sys/param.h>
-=======
-#include <sys/queue.h>
-#include <sys/tree.h>
->>>>>>> master
 #include <sys/socket.h>
 
 #include <ctype.h>
