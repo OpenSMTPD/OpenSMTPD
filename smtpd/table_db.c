@@ -103,7 +103,6 @@ table_db_update(struct table *table)
 
 	table_db_close(table->t_handle);
 	table->t_handle = handle;
-	log_debug("HANDLE: %p", handle);
 	return 1;
 }
 
