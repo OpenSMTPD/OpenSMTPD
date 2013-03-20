@@ -25,7 +25,6 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/un.h>
-#include <sys/param.h>
 
 #include <err.h>
 #include <errno.h>
