@@ -1505,7 +1505,7 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 	}
 
 	if (!valid_localpart(maddr->user) ||
-	    !valid_localpart(maddr->domain)) {
+	    !valid_domainpart(maddr->domain)) {
 		/* We accept empty sender for MAIL FROM */
 		if (mailfrom &&
 		    maddr->user[0] == '\0' &&
