@@ -595,8 +595,8 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		return 0;
 
 	string += begoff;
-	for (; replace && i; i--) {
-		*dest = (*string == '/') ? ':' : *string;
+	for (; i; i--) {
+		*dest = (replace && *string == '/') ? ':' : *string;
 		dest++;
 		string++;
 	}
