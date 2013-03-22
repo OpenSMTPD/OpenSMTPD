@@ -485,6 +485,7 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	ssize_t		i;
 	ssize_t		begoff, endoff;
 	const char     *errstr = NULL;
+	int		replace = 1;
 
 	begoff = 0;
 	endoff = EXPAND_BUFFER;
@@ -545,8 +546,10 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		string = ep->sender.domain;
 	else if (! strcasecmp("user.username", rtoken))
 		string = ui->username;
-	else if (! strcasecmp("user.directory", rtoken))
+	else if (! strcasecmp("user.directory", rtoken)) {
 		string = ui->directory;
+		replace = 0;
+	}
 	else if (! strcasecmp("dest.user", rtoken))
 		string = ep->dest.user;
 	else if (! strcasecmp("dest.domain", rtoken))
@@ -592,7 +595,7 @@ lka_expand_token(char *dest, size_t len, const char *token,
 
 	string += begoff;
 	for (; i; i--) {
-		*dest = (*string == '/') ? ':' : *string;
+		*dest = (replace && *string == '/') ? ':' : *string;
 		dest++;
 		string++;
 	}
