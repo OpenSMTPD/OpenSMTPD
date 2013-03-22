@@ -28,7 +28,6 @@
 #include <sys/time.h>
 #include "sys-queue.h"
 #include "sys-tree.h"
-#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
