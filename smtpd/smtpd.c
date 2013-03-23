@@ -707,8 +707,9 @@ main(int argc, char *argv[])
 	if (parse_config(&smtpd, conffile, opts))
 		exit(1);
 
-	if (strlcpy(env->sc_conffile, conffile, MAXPATHLEN) >= MAXPATHLEN)
-		errx(1, "config file exceeds MAXPATHLEN");
+	if (strlcpy(env->sc_conffile, conffile, SMTPD_MAXPATHLEN)
+	    >= SMTPD_MAXPATHLEN)
+		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
 		fprintf(stderr, "configuration OK\n");
@@ -1109,7 +1110,7 @@ offline_scan(int fd, short ev, void *arg)
 static int
 offline_enqueue(char *name)
 {
-	char		 t[MAXPATHLEN], *path;
+	char		 t[SMTPD_MAXPATHLEN], *path;
 	struct stat	 sb;
 	pid_t		 pid;
 	struct child	*child;
@@ -1249,7 +1250,7 @@ offline_done(void)
 static int
 parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 {
-	char pathname[MAXPATHLEN];
+	char pathname[SMTPD_MAXPATHLEN];
 	int	fd;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
@@ -1525,8 +1526,8 @@ imsg_to_str(int type)
 int
 parent_auth_user(const char *username, const char *password)
 {
-	char	user[MAXLOGNAME];
-	char	pass[MAX_LINE_SIZE + 1];
+	char	user[SMTPD_MAXLOGNAME];
+	char	pass[SMTPD_MAXLINESIZE];
 	int	ret;
 
 	strlcpy(user, username, sizeof(user));

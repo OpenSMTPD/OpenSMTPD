@@ -51,7 +51,7 @@ struct delivery_backend delivery_backend_maildir = {
 static void
 delivery_maildir_open(struct deliver *deliver)
 {
-	char	 tmp[PATH_MAX], new[PATH_MAX];
+	char	 tmp[SMTPD_MAXPATHLEN], new[SMTPD_MAXPATHLEN];
 	int	 ch, fd;
 	FILE	*fp;
 	char	*msg;

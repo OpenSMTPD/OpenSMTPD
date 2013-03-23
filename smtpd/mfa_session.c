@@ -86,9 +86,9 @@ struct mfa_query {
 		struct {
 			struct sockaddr_storage	 local;
 			struct sockaddr_storage	 remote;
-			char			 hostname[MAXHOSTNAMELEN];
+			char			 hostname[SMTPD_MAXHOSTNAMELEN];
 		} connect;
-		char			line[MAX_LINE_SIZE];
+		char			line[SMTPD_MAXLINESIZE];
 		struct mailaddr		maddr;
 	} u;
 
