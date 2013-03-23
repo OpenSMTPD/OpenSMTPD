@@ -84,7 +84,7 @@ int
 main(int argc, char *argv[])
 {
 	struct stat	 sb;
-	char		 dbname[MAXPATHLEN];
+	char		 dbname[SMTPD_MAXPATHLEN];
 	char		*opts;
 	char		*conf;
 	int		 ch;

@@ -48,7 +48,7 @@ struct dns_session {
 	struct mproc		*p;
 	uint64_t		 reqid;
 	int			 type;
-	char			 name[MAXHOSTNAMELEN];
+	char			 name[SMTPD_MAXHOSTNAMELEN];
 	size_t			 mxfound;
 	int			 error;
 	int			 refcount;

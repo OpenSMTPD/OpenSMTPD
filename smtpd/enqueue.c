@@ -95,7 +95,7 @@ struct {
 #define WSP(c)			(c == ' ' || c == '\t')
 
 int	  verbose = 0;
-char	  host[MAXHOSTNAMELEN];
+char	  host[SMTPD_MAXHOSTNAMELEN];
 char	 *user = NULL;
 time_t	  timestamp;
 
@@ -731,7 +731,7 @@ open_connection(void)
 int
 enqueue_offline(int argc, char *argv[])
 {
-	char	 path[MAXPATHLEN];
+	char	 path[SMTPD_MAXPATHLEN];
 	FILE	*fp;
 	int	 i, fd, ch;
 	mode_t	 omode;
