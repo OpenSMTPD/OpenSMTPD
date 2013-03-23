@@ -34,7 +34,7 @@
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
-#include "defines.h"
+#include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "ioev.h"
 #include "iobuf.h"
@@ -57,8 +57,7 @@
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
-#define MAX_PATH_SIZE		 256
-/*#define MAX_RULEBUFFER_LEN	 512*/
+
 #define	EXPAND_BUFFER		 1024
 
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
@@ -100,19 +99,6 @@
 #define PATH_MESSAGE		"/message"
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
-
-
-/* number of MX records to lookup */
-#define MAX_MX_COUNT		10
-
-/* max response delay under flood conditions */
-#define MAX_RESPONSE_DELAY	60
-
-/* how many responses per state are undelayed */
-#define FAST_RESPONSES		2
-
-/* max len of any smtp line */
-#define	SMTP_LINE_MAX		MAX_LINE_SIZE
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
