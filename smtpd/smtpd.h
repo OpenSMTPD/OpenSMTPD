@@ -24,6 +24,8 @@
 #include <event2/event_struct.h>
 #endif
 
+#include			<sys/param.h>
+
 #include			 "imsg.h"
 
 #include			 "openbsd-compat.h"
