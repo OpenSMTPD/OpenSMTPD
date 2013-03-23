@@ -1252,7 +1252,7 @@ AC_SUBST([SMTPD_USER])
 
 SMTPD_FILTER_USER=_smtpl
 AC_ARG_WITH([lookup-user],
-	[  --with-lookup-user=user Specify non-privileged user for filter process],
+	[  --with-lookup-user=user Specify non-privileged user for lookup process],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
