@@ -77,7 +77,7 @@ queue_ram_init(int server)
 static int
 queue_ram_message(enum queue_op qop, uint32_t *msgid)
 {
-	char			 path[MAXPATHLEN];
+	char			 path[SMTPD_MAXPATHLEN];
 	uint64_t		 evpid;
 	struct qr_envelope	*evp;
 	struct qr_message	*msg;

@@ -250,7 +250,7 @@ table_static_credentials(const char *key, char *line, size_t len, void **retp)
 		return -1;
 
 	/* too big to fit in a smtp session line */
-	if (len >= MAX_LINE_SIZE)
+	if (len >= SMTPD_MAXLINESIZE)
 		return -1;
 
 	p = strchr(line, ':');

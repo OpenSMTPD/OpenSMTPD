@@ -150,7 +150,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*secret;
 	uint64_t		 reqid;
-	char			 buf[MAX_LINE_SIZE];
+	char			 buf[SMTPD_MAXLINESIZE];
 	int			 dnserror, preference, v, status;
 
 	if (p->proc == PROC_QUEUE) {
@@ -1148,7 +1148,7 @@ static void
 mta_log(const struct mta_envelope *evp, const char *prefix, const char *relay,
     const char *status)
 {
-	char rcpt[MAX_LINE_SIZE];
+	char rcpt[SMTPD_MAXLINESIZE];
 
 	rcpt[0] = '\0';
 	if (evp->rcpt)

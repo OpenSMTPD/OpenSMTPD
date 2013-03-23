@@ -121,7 +121,7 @@ bounce_init(void)
 void
 bounce_add(uint64_t evpid)
 {
-	char			 buf[MAX_LINE_SIZE], *line;
+	char			 buf[SMTPD_MAXLINESIZE], *line;
 	struct envelope		 evp;
 	struct bounce_message	 key, *msg;
 	struct bounce_envelope	*be;
@@ -323,7 +323,7 @@ static int
 bounce_next_message(struct bounce_session *s)
 {
 	struct bounce_message	*msg;
-	char			 buf[MAX_LINE_SIZE];
+	char			 buf[SMTPD_MAXLINESIZE];
 	int			 fd;
 
     again:
@@ -588,7 +588,7 @@ bounce_io(struct io *io, int evt)
 	case IO_DATAIN:
 	    nextline:
 		line = iobuf_getline(&s->iobuf, &len);
-		if (line == NULL && iobuf_len(&s->iobuf) >= SMTP_LINE_MAX) {
+		if (line == NULL && iobuf_len(&s->iobuf) >= SMTPD_MAXLINESIZE) {
 			bounce_status(s, "Input too long");
 			bounce_free(s);
 			return;

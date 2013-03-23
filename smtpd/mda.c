@@ -72,8 +72,8 @@ struct mda_envelope {
 struct mda_user {
 	TAILQ_ENTRY(mda_user)		entry;
 	TAILQ_ENTRY(mda_user)		entry_runnable;
-	char				name[MAXLOGNAME];
-	char				usertable[MAXPATHLEN];
+	char				name[SMTPD_MAXLOGNAME];
+	char				usertable[SMTPD_MAXPATHLEN];
 	size_t				evpcount;
 	TAILQ_HEAD(, mda_envelope)	envelopes;
 	int				flags;
@@ -123,7 +123,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*username, *usertable;
 	uint64_t		 reqid;
 	size_t			 sz;
-	char			 out[256], buf[MAX_LINE_SIZE];
+	char			 out[256], buf[SMTPD_MAXLINESIZE];
 	int			 n, v;
 	enum lka_resp_status	status;
 
@@ -700,7 +700,7 @@ static int
 mda_getlastline(int fd, char *dst, size_t dstsz)
 {
 	FILE	*fp;
-	char	*ln, buf[MAX_LINE_SIZE];
+	char	*ln, buf[SMTPD_MAXLINESIZE];
 	size_t	 len;
 
 	bzero(buf, sizeof buf);
@@ -878,7 +878,7 @@ mda_done(struct mda_session *s)
 static void
 mda_log(const struct mda_envelope *evp, const char *prefix, const char *status)
 {
-	char rcpt[MAX_LINE_SIZE];
+	char rcpt[SMTPD_MAXLINESIZE];
 	const char *method;
 
 	rcpt[0] = '\0';

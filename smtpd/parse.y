@@ -1342,7 +1342,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 {
 	struct sym     *sym, *next;
 	struct table   *t;
-	char		hostname[MAXHOSTNAMELEN];
+	char		hostname[SMTPD_MAXHOSTNAMELEN];
 
 	if (gethostname(hostname, sizeof hostname) == -1) {
 		fprintf(stderr, "invalid hostname: gethostname() failed\n");

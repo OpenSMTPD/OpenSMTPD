@@ -108,7 +108,7 @@ struct smtp_session {
 	struct io		 io;
 	struct listener		*listener;
 	struct sockaddr_storage	 ss;
-	char			 hostname[MAXHOSTNAMELEN];
+	char			 hostname[SMTPD_MAXHOSTNAMELEN];
 
 	int			 flags;
 	int			 phase;
@@ -116,9 +116,9 @@ struct smtp_session {
 
 	enum imsg_type		 mfa_imsg; /* last send */
 
-	char			 helo[SMTP_LINE_MAX];
-	char			 cmd[SMTP_LINE_MAX];
-	char			 username[MAXLOGNAME];
+	char			 helo[SMTPD_MAXLINESIZE];
+	char			 cmd[SMTPD_MAXLINESIZE];
+	char			 username[SMTPD_MAXLOGNAME];
 
 	struct envelope		 evp;
 
@@ -225,7 +225,7 @@ smtp_session(struct listener *listener, int sock,
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
 		return (-1);
-	if (iobuf_init(&s->iobuf, MAX_LINE_SIZE, MAX_LINE_SIZE) == -1) {
+	if (iobuf_init(&s->iobuf, SMTPD_MAXLINESIZE, SMTPD_MAXLINESIZE) == -1) {
 		free(s);
 		return (-1);
 	}
@@ -262,7 +262,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_vrfy_resp_msg       	*resp_ca_vrfy;
 	struct smtp_session		*s;
 	void				*ssl;
-	char				 user[MAXLOGNAME];
+	char				 user[SMTPD_MAXLOGNAME];
 	struct msg			 m;
 	const char			*line;
 	uint64_t			 reqid, evpid;
@@ -762,8 +762,8 @@ smtp_io(struct io *io, int evt)
 	case IO_DATAIN:
 	    nextline:
 		line = iobuf_getline(&s->iobuf, &len);
-		if ((line == NULL && iobuf_len(&s->iobuf) >= SMTP_LINE_MAX) ||
-		    (line && len >= SMTP_LINE_MAX)) {
+		if ((line == NULL && iobuf_len(&s->iobuf) >= SMTPD_MAXLINESIZE) ||
+		    (line && len >= SMTPD_MAXLINESIZE)) {
 			smtp_reply(s, "500 Line too long");
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
@@ -1216,7 +1216,7 @@ abort:
 static void
 smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 {
-	char		buf[MAX_LINE_SIZE + 1];
+	char		buf[SMTPD_MAXLINESIZE];
 
 	switch (s->state) {
 	case STATE_HELO:
@@ -1406,12 +1406,12 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 {
 	va_list	 ap;
 	int	 n;
-	char	 buf[SMTP_LINE_MAX], tmp[SMTP_LINE_MAX];
+	char	 buf[SMTPD_MAXLINESIZE], tmp[SMTPD_MAXLINESIZE];
 
 	va_start(ap, fmt);
 	n = vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
-	if (n == -1 || n >= SMTP_LINE_MAX)
+	if (n == -1 || n >= SMTPD_MAXLINESIZE)
 		fatalx("smtp_reply: line too long");
 	if (n < 4)
 		fatalx("smtp_reply: response too short");

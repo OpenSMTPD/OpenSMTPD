@@ -28,13 +28,9 @@
 
 #define	FILTER_API_VERSION	 50
 
-#define MAX_LINE_SIZE		 2048
-#define MAX_LOCALPART_SIZE	 (64 + 1)
-#define MAX_DOMAINPART_SIZE	 (255 + 1)
-
 struct mailaddr {
-	char	user[MAX_LOCALPART_SIZE];
-	char	domain[MAX_DOMAINPART_SIZE];
+	char	user[SMTPD_MAXLOCALPARTSIZE];
+	char	domain[SMTPD_MAXDOMAINPARTSIZE];
 };
 
 SPLAY_HEAD(dict, dictentry);

@@ -87,7 +87,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct addrname		 addrname;
 	struct envelope		 evp;
 	struct msg		 m;
-	char			 buf[MAX_LINE_SIZE];
+	char			 buf[SMTPD_MAXLINESIZE];
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
 	size_t			 i, len;

@@ -647,7 +647,7 @@ queue_loop(uint64_t evpid)
 static void
 queue_log(const struct envelope *e, const char *prefix, const char *status)
 {
-       char rcpt[MAX_LINE_SIZE];
+       char rcpt[SMTPD_MAXLINESIZE];
 
        rcpt[0] = '\0';
        if (strcmp(e->rcpt.user, e->dest.user) ||
