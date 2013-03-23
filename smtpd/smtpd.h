@@ -22,7 +22,7 @@
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
-#include "defines.h"
+#include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "ioev.h"
 #include "iobuf.h"
