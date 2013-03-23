@@ -1250,7 +1250,7 @@ AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 AC_SUBST([SMTPD_USER])
 #l2566
 
-SMTPD_FILTER_USER=_smtpl
+SMTPD_LOOKUP_USER=_smtpl
 AC_ARG_WITH([lookup-user],
 	[  --with-lookup-user=user Specify non-privileged user for lookup process],
 	[
