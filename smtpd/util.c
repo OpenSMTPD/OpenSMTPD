@@ -354,7 +354,7 @@ mvpurge(char *from, char *to)
 	sep = (to[n - 1] == '/') ? "" : "/";
 	retry = 0;
 
-    again:
+again:
 	snprintf(buf, sizeof buf, "%s%s%u", to, sep, arc4random());
 	if (rename(from, buf) == -1) {
 		/* ENOTDIR has actually 2 meanings, and incorrect input
@@ -381,7 +381,7 @@ mktmpfile(void)
 	mode_t		omode;
 
 	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
-	    PATH_TEMPORARY))
+		PATH_TEMPORARY))
 		err(1, "snprintf");
 
 	omode = umask(7077);
@@ -468,24 +468,31 @@ valid_domainpart(const char *s)
 	struct in_addr	 ina;
 	struct in6_addr	 ina6;
 	char		*c, domain[MAX_DOMAINPART_SIZE];
+	const char	*p;
 
 	if (*s == '[') {
-		strlcpy(domain, s + 1, sizeof domain);
+		if (strncasecmp("[IPv6:", s, 6) == 0)
+			p = s + 6;
+		else
+			p = s + 1;
+	
+		if (strlcpy(domain, p, sizeof domain) >= sizeof domain)
+			return 0;
 
 		c = strchr(domain, (int)']');
 		if (!c || c[1] != '\0')
 			return 0;
-
+		
 		*c = '\0';
-
+		
 		if (inet_pton(AF_INET6, domain, &ina6) == 1)
 			return 1;
 		if (inet_pton(AF_INET, domain, &ina) == 1)
 			return 1;
-
+		
 		return 0;
 	}
-
+	
 nextsub:
 	if (!isalnum((int)*s))
 		return 0;

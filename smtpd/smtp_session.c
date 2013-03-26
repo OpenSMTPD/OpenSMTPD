@@ -134,6 +134,8 @@ struct smtp_session {
 
 	size_t			 datalen;
 	FILE			*ofile;
+
+	struct event		 pause;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -1417,9 +1419,15 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	switch (buf[0]) {
 	case '5':
 	case '4':
-		strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
-		log_info("smtp-in: Failed command on session %016" PRIx64
-		    ": \"%s\" => %.*s", s->id, tmp, n, buf);
+		if (strstr(s->cmd, "AUTH ") == s->cmd) {
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"AUTH [...]\" => %.*s", s->id, n, buf);
+		}
+		else {
+			strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"%s\" => %.*s", s->id, tmp, n, buf);
+		}
 		break;
 	}
 }
@@ -1495,7 +1503,7 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 	}
 
 	if (!valid_localpart(maddr->user) ||
-	    !valid_localpart(maddr->domain)) {
+	    !valid_domainpart(maddr->domain)) {
 		/* We accept empty sender for MAIL FROM */
 		if (mailfrom &&
 		    maddr->user[0] == '\0' &&
@@ -1569,6 +1577,29 @@ smtp_verify_certificate(struct smtp_session *s)
 	    &req_ca_vrfy, sizeof req_ca_vrfy);
 
 	return 1;
+}
+
+static void
+smtp_auth_failure_resume(int fd, short event, void *p)
+{
+	struct smtp_session *s = p;
+
+	smtp_reply(s, "535 Authentication failed");
+	smtp_enter_state(s, STATE_HELO);
+	io_reload(&s->io);
+}
+
+static void
+smtp_auth_failure_pause(struct smtp_session *s)
+{
+	struct timeval	tv;
+
+	tv.tv_sec = 0;
+	tv.tv_usec = arc4random_uniform(1000000);
+	log_trace(TRACE_SMTP, "smtp: timing-attack protection triggered, "
+	    "will defer answer for %lu microseconds", tv.tv_usec);
+	evtimer_set(&s->pause, smtp_auth_failure_resume, s);
+	evtimer_add(&s->pause, &tv);
 }
 
 #define CASE(x) case x : return #x
