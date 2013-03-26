@@ -132,6 +132,8 @@ struct smtp_session {
 
 	size_t			 datalen;
 	FILE			*ofile;
+
+	struct event		 pause;
 };
 
 #define ADVERTISE_TLS(s) \
