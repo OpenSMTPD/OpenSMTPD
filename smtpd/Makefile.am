@@ -80,7 +80,8 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/res_send_async.c		\
 			../contrib/lib/libc/asr/res_search_async.c		\
 			../contrib/lib/libc/asr/getaddrinfo_async.c		\
-			../contrib/lib/libc/asr/getnameinfo_async.c
+			../contrib/lib/libc/asr/getnameinfo_async.c		\
+			../contrib/lib/libc/asr/res_search_async.c
 
 # ldap backend
 if HAVE_LDAP
