@@ -288,13 +288,13 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 				    c->cause == NULL)
 					break;
 			if (!n) {
-				log_debug("debug: smptd: "
+				log_debug("debug: smtpd: "
 				    "kill request: proc not found");
 				return;
 			}
 
 			c->cause = xstrdup(cause, "parent_imsg");
-			log_debug("debug: smptd: kill requested for %u: %s",
+			log_debug("debug: smtpd: kill requested for %u: %s",
 			    c->pid, c->cause);
 			kill(c->pid, SIGTERM);
 			return;
