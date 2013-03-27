@@ -174,7 +174,7 @@ mkdirs_component(char *path, mode_t mode)
 int
 mkdirs(char *path, mode_t mode)
 {
-	char	 buf[MAXPATHLEN];
+	char	 buf[SMTPD_MAXPATHLEN];
 	int	 i = 0;
 	int	 done = 0;
 	char	*p;
@@ -183,7 +183,7 @@ mkdirs(char *path, mode_t mode)
 	if (*path != '/')
 		return 0;
 
-	/* make sure we don't exceed MAXPATHLEN */
+	/* make sure we don't exceed SMTPD_MAXPATHLEN */
 	if (strlen(path) >= sizeof buf)
 		return 0;
 
@@ -332,7 +332,7 @@ mvpurge(char *from, char *to)
 	size_t		 n;
 	int		 retry;
 	const char	*sep;
-	char		 buf[MAXPATHLEN];
+	char		 buf[SMTPD_MAXPATHLEN];
 
 	if ((n = strlen(to)) == 0)
 		fatalx("to is empty");
@@ -362,7 +362,7 @@ mvpurge(char *from, char *to)
 int
 mktmpfile(void)
 {
-	char		path[MAXPATHLEN];
+	char		path[SMTPD_MAXPATHLEN];
 	int		fd;
 	mode_t		omode;
 
@@ -453,7 +453,7 @@ valid_domainpart(const char *s)
 {
 	struct in_addr	 ina;
 	struct in6_addr	 ina6;
-	char		*c, domain[MAX_DOMAINPART_SIZE];
+	char		*c, domain[SMTPD_MAXDOMAINPARTSIZE];
 
 	if (*s == '[') {
 		strlcpy(domain, s + 1, sizeof domain);
@@ -498,8 +498,8 @@ nextsub:
 int
 secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 {
-	char		 buf[MAXPATHLEN];
-	char		 homedir[MAXPATHLEN];
+	char		 buf[SMTPD_MAXPATHLEN];
+	char		 homedir[SMTPD_MAXPATHLEN];
 	struct stat	 st;
 	char		*cp;
 
@@ -698,7 +698,7 @@ parse_smtp_response(char *line, size_t len, char **msg, int *cont)
 {
 	size_t	 i;
 
-	if (len >= SMTP_LINE_MAX)
+	if (len >= SMTPD_MAXLINESIZE)
 		return "line too long";
 
 	if (len > 3) {

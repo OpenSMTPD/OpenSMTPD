@@ -673,7 +673,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 
 		/* table name too long */
 		len = strlen(imsg->data);
-		if (len >= MAX_LINE_SIZE)
+		if (len >= SMTPD_MAXLINESIZE)
 			goto invalid;
 
 		m_forward(p_lka, imsg);

@@ -74,7 +74,7 @@ static struct keycmp {
 
 struct dbhandle {
 	DB		*db;
-	char		 pathname[MAXPATHLEN];
+	char		 pathname[SMTPD_MAXPATHLEN];
 	time_t		 mtime;
 	struct table	*table;
 };
@@ -266,7 +266,7 @@ table_db_get_entry(void *hdl, const char *key, size_t *len)
 	int ret;
 	DBT dbk;
 	DBT dbv;
-	char pkey[MAX_LINE_SIZE];
+	char pkey[SMTPD_MAXLINESIZE];
 
 	/* workaround the stupidity of the DB interface */
 	if (strlcpy(pkey, key, sizeof pkey) >= sizeof pkey)
@@ -293,7 +293,7 @@ table_db_credentials(const char *key, char *line, size_t len, void **retp)
 		return -1;
 
 	/* too big to fit in a smtp session line */
-	if (len >= MAX_LINE_SIZE)
+	if (len >= SMTPD_MAXLINESIZE)
 		return -1;
 
 	p = strchr(line, ':');

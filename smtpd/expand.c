@@ -128,7 +128,7 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 static int
 expand_line_split(char **line, char **ret)
 {
-	static char	buffer[MAX_LINE_SIZE];
+	static char	buffer[SMTPD_MAXLINESIZE];
 	int		esc, i, dq, sq;
 	char	       *s;
 
@@ -171,7 +171,7 @@ int
 expand_line(struct expand *expand, const char *s, int do_includes)
 {
 	struct expandnode	xn;
-	char			buffer[MAX_LINE_SIZE];
+	char			buffer[SMTPD_MAXLINESIZE];
 	char		       *p, *subrcpt;
 	int			ret;
 

@@ -22,6 +22,7 @@
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
+#include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "ioev.h"
 #include "iobuf.h"
@@ -40,8 +41,7 @@
 
 /* return and forward path size */
 #define	MAX_FILTER_NAME		 32
-#define MAX_PATH_SIZE		 256
-/*#define MAX_RULEBUFFER_LEN	 512*/
+
 #define	EXPAND_BUFFER		 1024
 
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
@@ -71,19 +71,6 @@
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
 
-
-/* number of MX records to lookup */
-#define MAX_MX_COUNT		10
-
-/* max response delay under flood conditions */
-#define MAX_RESPONSE_DELAY	60
-
-/* how many responses per state are undelayed */
-#define FAST_RESPONSES		2
-
-/* max len of any smtp line */
-#define	SMTP_LINE_MAX		MAX_LINE_SIZE
-
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
 #define	F_TLS_OPTIONAL		0x04
@@ -110,8 +97,8 @@
 typedef uint32_t	objid_t;
 
 struct userinfo {
-	char username[MAXLOGNAME];
-	char directory[MAXPATHLEN];
+	char username[SMTPD_MAXLOGNAME];
+	char directory[SMTPD_MAXPATHLEN];
 	uid_t uid;
 	gid_t gid;
 };
@@ -128,22 +115,22 @@ union sockaddr_any {
 
 struct relayhost {
 	uint8_t flags;
-	char hostname[MAXHOSTNAMELEN];
+	char hostname[SMTPD_MAXHOSTNAMELEN];
 	uint16_t port;
-	char cert[PATH_MAX];
-	char authtable[MAX_PATH_SIZE];
-	char authlabel[MAX_PATH_SIZE];
-	char sourcetable[MAX_PATH_SIZE];
-	char helotable[MAX_PATH_SIZE];
+	char cert[SMTPD_MAXPATHLEN];
+	char authtable[SMTPD_MAXPATHLEN];
+	char authlabel[SMTPD_MAXPATHLEN];
+	char sourcetable[SMTPD_MAXPATHLEN];
+	char helotable[SMTPD_MAXPATHLEN];
 };
 
 struct credentials {
-	char username[MAX_LINE_SIZE];
-	char password[MAX_LINE_SIZE];
+	char username[SMTPD_MAXLINESIZE];
+	char password[SMTPD_MAXLINESIZE];
 };
 
 struct destination {
-	char	name[MAXHOSTNAMELEN];
+	char	name[SMTPD_MAXHOSTNAMELEN];
 };
 
 struct source {
@@ -152,7 +139,7 @@ struct source {
 
 struct addrname {
 	union sockaddr_any	addr;
-	char			name[MAXHOSTNAMELEN];
+	char			name[SMTPD_MAXHOSTNAMELEN];
 };
 
 enum imsg_type {
@@ -300,11 +287,11 @@ enum table_service {
 };
 
 struct table {
-	char				 t_name[MAX_LINE_SIZE];
+	char				 t_name[SMTPD_MAXLINESIZE];
 	objid_t				 t_id;
 	enum table_type			 t_type;
 	char				 t_src[MAX_TABLE_BACKEND_SIZE];
-	char				 t_config[MAXPATHLEN];
+	char				 t_config[SMTPD_MAXPATHLEN];
 
 	struct dict			 t_dict;
 
@@ -312,7 +299,7 @@ struct table {
 	struct table_backend		*t_backend;
 	void				*t_payload;
 	void				*t_iter;
-	char				 t_cfgtable[MAXPATHLEN];
+	char				 t_cfgtable[SMTPD_MAXPATHLEN];
 };
 
 struct table_backend {
@@ -377,8 +364,8 @@ enum delivery_type {
 
 struct delivery_mda {
 	enum action_type	method;
-	char			usertable[MAX_PATH_SIZE];
-	char			username[MAXLOGNAME];
+	char			usertable[SMTPD_MAXPATHLEN];
+	char			username[SMTPD_MAXLOGNAME];
 	char			buffer[EXPAND_BUFFER];
 };
 
@@ -432,7 +419,7 @@ struct expandnode {
 		 * user field handles both expansion user and system user
 		 * so we MUST make it large enough to fit a mailaddr user
 		 */
-		char		user[MAX_LOCALPART_SIZE];
+		char		user[SMTPD_MAXLOCALPARTSIZE];
 		char		buffer[EXPAND_BUFFER];
 		struct mailaddr	mailaddr;
 	}			u;
@@ -478,9 +465,9 @@ struct envelope {
 	uint64_t			id;
 	enum envelope_flags		flags;
 
-	char				helo[MAXHOSTNAMELEN];
-	char				hostname[MAXHOSTNAMELEN];
-	char				errorline[MAX_LINE_SIZE + 1];
+	char				helo[SMTPD_MAXHOSTNAMELEN];
+	char				hostname[SMTPD_MAXHOSTNAMELEN];
+	char				errorline[SMTPD_MAXLINESIZE];
 	struct sockaddr_storage		ss;
 
 	struct mailaddr			sender;
@@ -551,17 +538,17 @@ struct listener {
 	in_port_t		 port;
 	struct timeval		 timeout;
 	struct event		 ev;
-	char			 ssl_cert_name[PATH_MAX];
+	char			 ssl_cert_name[SMTPD_MAXPATHLEN];
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
-	char			 authtable[MAX_LINE_SIZE];
-	char			 helo[MAXHOSTNAMELEN];
+	char			 authtable[SMTPD_MAXLINESIZE];
+	char			 helo[SMTPD_MAXHOSTNAMELEN];
 	TAILQ_ENTRY(listener)	 entry;
 };
 
 struct smtpd {
-	char				sc_conffile[MAXPATHLEN];
+	char				sc_conffile[SMTPD_MAXPATHLEN];
 	size_t				sc_maxsize;
 
 	pid_t				sc_pid;
@@ -588,7 +575,7 @@ struct smtpd {
 	struct event			sc_ev;
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
-	char				sc_hostname[MAXHOSTNAMELEN];
+	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
 	struct scheduler_backend       *sc_scheduler;
 	struct stat_backend	       *sc_stat;
 
@@ -629,16 +616,16 @@ struct forward_req {
 	uint64_t			id;
 	uint8_t				status;
 
-	char				user[MAXLOGNAME];
+	char				user[SMTPD_MAXLOGNAME];
 	uid_t				uid;
 	gid_t				gid;
-	char				directory[MAXPATHLEN];
+	char				directory[SMTPD_MAXPATHLEN];
 };
 
 struct deliver {
-	char			to[PATH_MAX];
-	char			from[PATH_MAX];
-	char			user[MAXLOGNAME];
+	char			to[SMTPD_MAXPATHLEN];
+	char			from[SMTPD_MAXPATHLEN];
+	char			user[SMTPD_MAXLOGNAME];
 	short			mode;
 
 	struct userinfo		userinfo;
@@ -647,7 +634,7 @@ struct deliver {
 struct filter {
 	struct imsgproc	       *process;
 	char			name[MAX_FILTER_NAME];
-	char			path[MAXPATHLEN];
+	char			path[SMTPD_MAXPATHLEN];
 };
 
 struct mta_host {
@@ -1031,7 +1018,7 @@ enum ca_resp_status {
 
 struct ca_cert_req_msg {
 	uint64_t		reqid;
-	char			name[MAXPATHLEN];
+	char			name[SMTPD_MAXPATHLEN];
 };
 
 struct ca_cert_resp_msg {

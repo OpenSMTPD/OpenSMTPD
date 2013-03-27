@@ -177,7 +177,7 @@ main(int argc, char *argv[])
 	struct imsg		imsg;
 	struct smtpd		smtpd;
 	uint64_t		ulval;
-	char			name[MAX_LINE_SIZE];
+	char			name[SMTPD_MAXLINESIZE];
 	int			done = 0;
 	int			verb = 0;
 	int			profile = 0;
@@ -734,7 +734,7 @@ display(const char *s)
 static void
 show_envelope(const char *s)
 {
-	char	 buf[MAXPATHLEN];
+	char	 buf[SMTPD_MAXPATHLEN];
 	uint64_t evpid;
 
 	if ((evpid = text_to_evpid(s)) == 0)
@@ -754,7 +754,7 @@ show_envelope(const char *s)
 static void
 show_message(const char *s)
 {
-	char	 buf[MAXPATHLEN];
+	char	 buf[SMTPD_MAXPATHLEN];
 	uint32_t msgid;
 	uint64_t evpid;
 

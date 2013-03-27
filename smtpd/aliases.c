@@ -39,7 +39,7 @@ int
 aliases_get(struct expand *expand, const char *username)
 {
 	struct expandnode      *xn;
-	char			buf[MAX_LOCALPART_SIZE];
+	char			buf[SMTPD_MAXLOCALPARTSIZE];
 	size_t			nbaliases;
 	int			ret;
 	struct expand	       *xp = NULL;
@@ -77,7 +77,7 @@ aliases_get(struct expand *expand, const char *username)
 int
 aliases_virtual_check(struct table *table, const struct mailaddr *maddr)
 {
-	char			buf[MAX_LINE_SIZE];
+	char			buf[SMTPD_MAXLINESIZE];
 	char		       *pbuf;
 	int			ret;
 
@@ -123,7 +123,7 @@ aliases_virtual_get(struct expand *expand, const struct mailaddr *maddr)
 {
 	struct expandnode      *xn;
 	struct expand	       *xp;
-	char			buf[MAX_LINE_SIZE];
+	char			buf[SMTPD_MAXLINESIZE];
 	char		       *pbuf;
 	int			nbaliases;
 	int			ret;
