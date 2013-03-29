@@ -104,7 +104,7 @@ fsqueue_check_space(void)
 	used = buf.f_blocks - buf.f_bfree;
 	total = buf.f_bavail + used;
 	if (total != 0)
-		used = ((double)used / (double)total * 1000) / 10;
+		used = used / total * 100;
 	if (100 - used < MINSPACE) {
 		log_warnx("warn: not enough disk space: %lu%% left", 100 - used);
 		return 0;
@@ -113,7 +113,7 @@ fsqueue_check_space(void)
 	used = buf.f_files - buf.f_ffree;
 	total = buf.f_favail + used;
 	if (total != 0)
-		used = ((double)used / (double)total * 1000) / 10;
+		used = used / total * 100;
 	if (100 - used < MININODES) {
 		log_warnx("warn: not enough inodes: %lu%% left", 100 - used);
 		return 0;
