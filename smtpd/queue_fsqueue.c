@@ -95,7 +95,6 @@ fsqueue_check_space(void)
 	struct statfs	buf;
 	uint64_t	used;
 	uint64_t	avail;
-	uint32_t       	remaining;
 
 	if (statfs(PATH_QUEUE, &buf) < 0) {
 		log_warn("warn: fsqueue_check_space: statfs");
@@ -104,25 +103,19 @@ fsqueue_check_space(void)
 
 	used = buf.f_blocks - buf.f_bfree;
 	avail = buf.f_bavail + used;
-	if (avail == 0)
-		remaining = 100;
-	else
-		remaining = (1000 - ((double)used / (double)avail * 1000)) / 10;
-	if (remaining < MINSPACE) {
-		log_warnx("warn: not enough disk space, %lu%% remaining",
-		    remaining);
+	if (avail != 0)
+		avail = (1000 - ((double)used / (double)avail * 1000)) / 10;
+	if (avail < MINSPACE) {
+		log_warnx("warn: not enough disk space: %lu%% left", avail);
 		return 0;
 	}
 
 	used = buf.f_files - buf.f_ffree;
 	avail = buf.f_favail + used;
-	if (avail == 0)
-		remaining = 100;
-	else
-		remaining = (1000 - ((double)used / (double)avail * 1000)) / 10;
-	if (remaining < MININODES) {
-		log_warnx("warn: not enough inodes, %lu%% remaining",
-		    remaining);
+	if (avail != 0)
+		avail = (1000 - ((double)used / (double)avail * 1000)) / 10;
+	if (avail < MININODES) {
+		log_warnx("warn: not enough inodes: %lu%% left", avail);
 		return 0;
 	}
 
