@@ -336,7 +336,6 @@ main		: BOUNCEWARN {
 			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
 		} bouncedelays
 		| QUEUE COMPRESSION {
-			conf->sc_comp = compress_backend_lookup("gzip");
 			conf->sc_queue_flags |= QUEUE_COMPRESSION;
 		}
 		| EXPIRE STRING {

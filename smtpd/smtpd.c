@@ -756,6 +756,9 @@ main(int argc, char *argv[])
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
 
+	if (env->sc_queue_flags & QUEUE_COMPRESSION)
+		env->sc_comp = compress_backend_lookup("gzip");
+
 	log_init(debug);
 	log_verbose(verbose);
 
