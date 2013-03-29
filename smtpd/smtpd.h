@@ -767,12 +767,10 @@ struct queue_backend {
 };
 
 struct compress_backend {
-	void *	(*compress_new)(void);
-	size_t	(*compress_chunk)(void *, void *, size_t, void *, size_t);
-	void	(*compress_destroy)(void *);
-	void *	(*uncompress_new)(void);
-	size_t	(*uncompress_chunk)(void *, void *, size_t, void *, size_t);
-	void	(*uncompress_destroy)(void *);
+	size_t	(*compress_chunk)(void *, size_t, void *, size_t);
+	size_t	(*uncompress_chunk)(void *, size_t, void *, size_t);
+	int	(*compress_file)(FILE *, FILE *);
+	int	(*uncompress_file)(FILE *, FILE *);
 };
 
 /* auth structures */
@@ -1039,14 +1037,9 @@ int	ca_X509_verify(void *, void *, const char *, const char *, const char **);
 
 /* compress_backend.c */
 struct compress_backend *compress_backend_lookup(const char *);
-void*	compress_new(void);
-size_t	compress_chunk(void *, void *, size_t, void *, size_t);
-void	compress_destroy(void *);
-size_t	compress_buffer(char *, size_t, char *, size_t);
-void*	uncompress_new(void);
-size_t	uncompress_chunk(void *, void *, size_t, void *, size_t);
-void	uncompress_destroy(void *);
-size_t	uncompress_buffer(char *, size_t, char *, size_t);
+size_t	compress_chunk(void *, size_t, void *, size_t);
+size_t	uncompress_chunk(void *, size_t, void *, size_t);
+int	compress_file(FILE *, FILE *);
 int	uncompress_file(FILE *, FILE *);
 
 /* config.c */

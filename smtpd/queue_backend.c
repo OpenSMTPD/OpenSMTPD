@@ -135,12 +135,47 @@ int
 queue_message_commit(uint32_t msgid)
 {
 	int	r;
+	char	msgpath[MAXPATHLEN];
+	char	tmppath[MAXPATHLEN];
+	FILE	*ifp = NULL;
+	FILE	*ofp = NULL;
 
 	profile_enter("queue_message_commit");
+	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
+	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+
+	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
+
+		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
+		ifp = fopen(msgpath, "r");
+		ofp = fopen(tmppath, "w+");
+		if (ifp == NULL || ofp == NULL)
+			goto err;
+		if (! compress_file(ifp, ofp))
+			goto err;
+		fclose(ifp);
+		fclose(ofp);
+		ifp = NULL;
+		ofp = NULL;
+
+		if (rename(tmppath, msgpath) == -1) {
+			if (errno == ENOSPC)
+				return (0);
+			fatal("queue_message_commit: rename");
+		}
+	}
+
 	r = backend->message(QOP_COMMIT, &msgid);
 	profile_leave();
 
 	return (r);
+
+err:
+	if (ifp)
+		fclose(ifp);
+	if (ofp)
+		fclose(ofp);
+	return 0;
 }
 
 int
@@ -180,8 +215,10 @@ queue_message_fd_r(uint32_t msgid)
 		fd = -1;
 		if ((ofp = fdopen(fdout, "w+")) == NULL)
 			goto err;
+
 		if (! uncompress_file(ifp, ofp))
 			goto err;
+
 		fclose(ifp);
 		fclose(ofp);
 		lseek(fdin, SEEK_SET, 0);
@@ -218,9 +255,10 @@ queue_message_fd_rw(uint32_t msgid)
 static int
 queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 {
-	char		 evpbufcom[sizeof(struct envelope)];
-	char		*evp;
-	size_t		 evplen;
+	char   *evp;
+	size_t	evplen;
+	size_t	complen;
+	char	compbuf[sizeof(struct envelope)];
 
 	evp = evpbuf;
 	evplen = envelope_dump_buffer(ep, evpbuf, evpbufsize);
@@ -228,11 +266,11 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		return (0);
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
-		evplen = compress_buffer(evp, evplen, evpbufcom,
-		    sizeof evpbufcom);
-		if (evplen == 0)
+		complen = compress_chunk(evp, evplen, compbuf, sizeof compbuf);
+		if (complen == 0)
 			return (0);
-		evp = evpbufcom;
+		evp = compbuf;
+		evplen = complen;
 	}
 
 	memmove(evpbuf, evp, evplen);
@@ -243,19 +281,20 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 static int
 queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 {
-	char		 evpbufcom[sizeof(struct envelope)];
 	char		*evp;
 	size_t		 evplen;
+	char		 compbuf[sizeof(struct envelope)];
+	size_t		 complen;
 
 	evp = evpbuf;
 	evplen = evpbufsize;
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
-		evplen = uncompress_buffer(evp, evplen, evpbufcom,
-		    sizeof evpbufcom);
-		if (evplen == 0)
+		complen = uncompress_chunk(evp, evplen, compbuf, sizeof compbuf);
+		if (complen == 0)
 			return (0);
-		evp = evpbufcom;
+		evp = compbuf;
+		evplen = complen;
 	}
 
 	return (envelope_load_buffer(ep, evp, evplen));
