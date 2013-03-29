@@ -719,7 +719,7 @@ display(const char *s)
 	arglist args;
 	char	*cmd;
 
-	if (env->sc_queue_flags & QUEUE_COMPRESS)
+	if (env->sc_queue_flags & QUEUE_COMPRESSION)
 		cmd = PATH_GZCAT;
 	else
 		cmd = PATH_CAT;

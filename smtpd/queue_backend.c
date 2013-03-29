@@ -169,7 +169,7 @@ queue_message_fd_r(uint32_t msgid)
 	if (fdin == -1)
 		return (-1);
 
-	if (env->sc_queue_flags & QUEUE_COMPRESS) {
+	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		if ((fdout = mktmpfile()) == -1)
 			goto err;
 		if ((fd = dup(fdout)) == -1)
@@ -227,7 +227,7 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	if (evplen == 0)
 		return (0);
 
-	if (env->sc_queue_flags & QUEUE_COMPRESS) {
+	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		evplen = compress_buffer(evp, evplen, evpbufcom,
 		    sizeof evpbufcom);
 		if (evplen == 0)
@@ -250,7 +250,7 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	evp = evpbuf;
 	evplen = evpbufsize;
 
-	if (env->sc_queue_flags & QUEUE_COMPRESS) {
+	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		evplen = uncompress_buffer(evp, evplen, evpbufcom,
 		    sizeof evpbufcom);
 		if (evplen == 0)
