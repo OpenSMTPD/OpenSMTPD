@@ -78,7 +78,7 @@ struct tree	evpcount;
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
 
 /* percentage of remaining space / inodes required to accept new messages */
-#define	MINSPACE		10
+#define	MINSPACE		99
 #define	MININODES		10
 
 struct queue_backend	queue_backend_fs = {
@@ -104,7 +104,7 @@ fsqueue_check_space(void)
 	used = buf.f_blocks - buf.f_bfree;
 	total = buf.f_bavail + used;
 	if (total != 0)
-		used = used / total * 100;
+		used = (float)used / (float)total * 100;
 	else
 		used = 100;
 	if (100 - used < MINSPACE) {
@@ -115,7 +115,7 @@ fsqueue_check_space(void)
 	used = buf.f_files - buf.f_ffree;
 	total = buf.f_favail + used;
 	if (total != 0)
-		used = used / total * 100;
+		used = (float)used / (float)total * 100;
 	else
 		used = 100;
 	if (100 - used < MININODES) {
