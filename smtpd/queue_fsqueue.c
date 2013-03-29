@@ -21,6 +21,8 @@
 #include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/param.h>
+#include <sys/mount.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -75,6 +77,10 @@ struct tree	evpcount;
 
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
 
+/* percentage of remaining space / inodes required to accept new messages */
+#define	MINSPACE		10
+#define	MININODES		10
+
 struct queue_backend	queue_backend_fs = {
 	fsqueue_init,
 	fsqueue_message,
@@ -82,6 +88,46 @@ struct queue_backend	queue_backend_fs = {
 };
 
 static struct timespec	startup;
+
+static int
+fsqueue_check_space(void)
+{
+	struct statfs	buf;
+	uint64_t	used;
+	uint64_t	avail;
+	uint32_t       	remaining;
+
+	if (statfs(PATH_QUEUE, &buf) < 0) {
+		log_warn("warn: fsqueue_check_space: statfs");
+		return 0;
+	}
+
+	used = buf.f_blocks - buf.f_bfree;
+	avail = buf.f_bavail + used;
+	if (avail == 0)
+		remaining = 100;
+	else
+		remaining = (1000 - ((double)used / (double)avail * 1000)) / 10;
+	if (remaining < MINSPACE) {
+		log_warnx("warn: not enough disk space, %lu%% remaining",
+		    remaining);
+		return 0;
+	}
+
+	used = buf.f_files - buf.f_ffree;
+	avail = buf.f_favail + used;
+	if (avail == 0)
+		remaining = 100;
+	else
+		remaining = (1000 - ((double)used / (double)avail * 1000)) / 10;
+	if (remaining < MININODES) {
+		log_warnx("warn: not enough inodes, %lu%% remaining",
+		    remaining);
+		return 0;
+	}
+
+	return 1;
+}
 
 static void
 fsqueue_message_path(uint32_t msgid, char *buf, size_t len)
@@ -329,6 +375,9 @@ fsqueue_message_create(uint32_t *msgid)
 {
 	char rootdir[SMTPD_MAXPATHLEN];
 	struct stat sb;
+
+	if (! fsqueue_check_space())
+		return 0;
 
 again:
 	*msgid = queue_generate_msgid();
