@@ -40,53 +40,107 @@
 
 static void*	compress_gzip_new(void);
 static size_t	compress_gzip_chunk(void *, void *, size_t, void *, size_t);
-static size_t	compress_gzip_finalize(void *, void *, size_t);
+static void	compress_gzip_destroy(void *);
 static void*	uncompress_gzip_new(void);
 static size_t	uncompress_gzip_chunk(void *, void *, size_t, void *, size_t);
-static size_t	uncompress_gzip_finalize(void *, void *, size_t);
+static void	uncompress_gzip_destroy(void *);
 
 struct compress_backend	compress_gzip = {
 	compress_gzip_new,
 	compress_gzip_chunk,
-	compress_gzip_finalize,
+	compress_gzip_destroy,
 
 	uncompress_gzip_new,
 	uncompress_gzip_chunk,
-	uncompress_gzip_finalize,
+	uncompress_gzip_destroy
 };
 
 static void *
 compress_gzip_new(void)
 {
-	return (NULL);
+	z_stream	*strm;
+
+	if ((strm = calloc(1, sizeof *strm)) == NULL)
+		return NULL;
+	
+	strm->zalloc = Z_NULL;
+	strm->zfree = Z_NULL;
+	strm->opaque = Z_NULL;
+	if (deflateInit2(strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+		(15+16), 8, Z_DEFAULT_STRATEGY) != Z_OK)
+		goto error;
+
+	return strm;
+
+error:
+	free(strm);
+	return NULL;
 }
 
 static size_t
 compress_gzip_chunk(void *hdl, void *ib, size_t ibsz, void *ob, size_t obsz)
 {
-	return (-1);
+	z_stream	*strm = hdl;
+
+	strm->avail_in  = ibsz;
+	strm->next_in   = (unsigned char *)ib;
+	strm->avail_out = obsz;
+	strm->next_out  = (unsigned char *)ob;
+
+	if (deflate(strm, Z_FINISH) != Z_STREAM_END)
+		return 0;
+
+	return strm->total_out;
 }
 
-static size_t
-compress_gzip_finalize(void *hdl, void *ob, size_t obsz)
+static void
+compress_gzip_destroy(void *hdl)
 {
-	return (-1);
+	deflateEnd(hdl);
 }
 
 static void *
 uncompress_gzip_new(void)
 {
-	return (NULL);
+	z_stream	*strm;
+
+	if ((strm = calloc(1, sizeof *strm)) == NULL)
+		return NULL;
+
+	strm->zalloc   = Z_NULL;
+	strm->zfree    = Z_NULL;
+	strm->opaque   = Z_NULL;
+	strm->avail_in = 0;
+	strm->next_in  = Z_NULL;
+
+	if (inflateInit2(strm, (15+16)) != Z_OK)
+		goto error;
+
+	return strm;
+
+error:
+	free(strm);
+	return NULL;
 }
 
 static size_t
 uncompress_gzip_chunk(void *hdl, void *ib, size_t ibsz, void *ob, size_t obsz)
 {
-	return (-1);
+	z_stream	*strm = hdl;
+
+	strm->avail_in  = ibsz;
+	strm->next_in   = (unsigned char *)ib;
+	strm->avail_out = obsz;
+	strm->next_out  = (unsigned char *)ob;
+
+	if (inflate(strm, Z_FINISH) != Z_STREAM_END)
+		return 0;
+
+	return strm->total_out;
 }
 
-static size_t
-uncompress_gzip_finalize(void *hdl, void *ob, size_t obsz)
+static void
+uncompress_gzip_destroy(void *hdl)
 {
-	return (-1);
+	inflateEnd(hdl);
 }
