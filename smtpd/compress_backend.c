@@ -31,6 +31,8 @@
 
 #include "smtpd.h"
 
+#define	BUFFER_SIZE	16364
+
 extern struct compress_backend compress_gzip;
 
 struct compress_backend *
@@ -42,56 +44,26 @@ compress_backend_lookup(const char *name)
 	return NULL;
 }
 
-void *
-compress_new(void)
+size_t
+compress_chunk(void *ib, size_t ibsz, void *ob, size_t obsz)
 {
-	return (env->sc_comp->compress_new());
+	return (env->sc_comp->compress_chunk(ib, ibsz, ob, obsz));
 }
 
 size_t
-compress_chunk(void *hdl, void *ib, size_t ibsz, void *ob, size_t obsz)
+uncompress_chunk(void *ib, size_t ibsz, void *ob, size_t obsz)
 {
-	return (env->sc_comp->compress_chunk(hdl, ib, ibsz, ob, obsz));
+	return (env->sc_comp->uncompress_chunk(ib, ibsz, ob, obsz));
 }
 
-void
-compress_destroy(void *hdl)
+int
+compress_file(FILE *ifile, FILE *ofile)
 {
-	env->sc_comp->compress_destroy(hdl);
-}
-
-void *
-uncompress_new(void)
-{
-	return (env->sc_comp->uncompress_new());
-}
-
-size_t
-uncompress_chunk(void *hdl, void *ib, size_t ibsz, void *ob, size_t obsz)
-{
-	return (env->sc_comp->uncompress_chunk(hdl, ib, ibsz, ob, obsz));
-}
-
-void
-uncompress_destroy(void *hdl)
-{
-	env->sc_comp->uncompress_destroy(hdl);
-}
-
-size_t
-compress_buffer(char *ib, size_t iblen, char *ob, size_t oblen)
-{
-	return (compress_chunk(NULL, ib, iblen, ob, oblen));
-}
-
-size_t
-uncompress_buffer(char *ib, size_t iblen, char *ob, size_t oblen)
-{
-	return (uncompress_chunk(NULL, ib, iblen, ob, oblen));
+	return (env->sc_comp->compress_file(ifile, ofile));
 }
 
 int
 uncompress_file(FILE *ifile, FILE *ofile)
 {
-	return (0);
-};
+	return (env->sc_comp->uncompress_file(ifile, ofile));
+}
