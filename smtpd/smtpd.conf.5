@@ -529,6 +529,14 @@ bytes.
 The argument may contain a multiplier, as documented in
 .Xr scan_scaled 3 .
 The default maximum message size is 35MB if none is specified.
+.It Ic queue compression
+Enable transparent compression of envelopes and messages.
+The only supported algorithm at the moment is gzip.
+Envelopes and messages may be inspected using the
+.Xr smtpctl 8
+or
+.Xr gzcat 1
+utilities.
 .It Ic table Ar name Oo Ar type : Oc Ns Ar config
 Tables are used to provide additional configuration information for
 .Xr smtpd 8
