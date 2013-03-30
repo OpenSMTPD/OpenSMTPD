@@ -23,10 +23,11 @@ SRCS+=	table_static.c
 SRCS+=	table_db.c
 SRCS+=	table_getpwnam.c
 SRCS+=	table_ldap.c
-SRCS+=	ber.c
-SRCS+=	aldap.c
 SRCS+=	table_sqlite.c
 
-DPADD+= ${LIBUTIL} ${LIBCRYPTO} ${LIBSQLITE3}
-LDADD+= -lutil -lcrypto -lsqlite3
+SRCS+=	ber.c
+SRCS+=	aldap.c
+
+DPADD+= ${LIBUTIL} ${LIBCRYPTO} ${LIBSQLITE3} ${LIBZ}
+LDADD+= -lutil -lcrypto -lsqlite3 -lz
 .include <bsd.prog.mk>

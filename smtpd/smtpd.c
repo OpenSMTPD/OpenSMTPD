@@ -221,13 +221,13 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 				    c->cause == NULL)
 					break;
 			if (!n) {
-				log_debug("debug: smptd: "
+				log_debug("debug: smtpd: "
 				    "kill request: proc not found");
 				return;
 			}
 
 			c->cause = xstrdup(cause, "parent_imsg");
-			log_debug("debug: smptd: kill requested for %u: %s",
+			log_debug("debug: smtpd: kill requested for %u: %s",
 			    c->pid, c->cause);
 			kill(c->pid, SIGTERM);
 			return;
@@ -755,6 +755,9 @@ main(int argc, char *argv[])
 	env->sc_stat = stat_backend_lookup(backend_stat);
 	if (env->sc_stat == NULL)
 		errx(1, "could not find stat backend \"%s\"", backend_stat);
+
+	if (env->sc_queue_flags & QUEUE_COMPRESSION)
+		env->sc_comp = compress_backend_lookup("gzip");
 
 	log_init(debug);
 	log_verbose(verbose);
