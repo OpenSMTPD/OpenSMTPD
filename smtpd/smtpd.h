@@ -554,6 +554,7 @@ struct smtpd {
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
+
 #define SMTPD_CONFIGURING		0x00000001
 #define SMTPD_EXITING			0x00000002
 #define SMTPD_MDA_PAUSED		0x00000004
@@ -564,9 +565,10 @@ struct smtpd {
 #define SMTPD_BOUNCE_BUSY		0x00000080
 #define SMTPD_SMTP_DISABLED		0x00000100
 	uint32_t			sc_flags;
+
+#define QUEUE_COMPRESSION      		0x00000001
 	uint32_t			sc_queue_flags;
-#define QUEUE_COMPRESS			0x00000001
-	char			       *sc_queue_compress_algo;
+
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
@@ -576,6 +578,7 @@ struct smtpd {
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
 	struct scheduler_backend       *sc_scheduler;
 	struct stat_backend	       *sc_stat;
+	struct compress_backend	       *sc_comp;
 
 	time_t					 sc_uptime;
 
@@ -794,12 +797,10 @@ struct queue_backend {
 };
 
 struct compress_backend {
-	void *	(*compress_new)(void);
-	size_t	(*compress_chunk)(void *, void *, size_t, void *, size_t);
-	size_t	(*compress_finalize)(void *, void *, size_t);
-	void *	(*uncompress_new)(void);
-	size_t	(*uncompress_chunk)(void *, void *, size_t, void *, size_t);
-	size_t	(*uncompress_finalize)(void *, void *, size_t);
+	size_t	(*compress_chunk)(void *, size_t, void *, size_t);
+	size_t	(*uncompress_chunk)(void *, size_t, void *, size_t);
+	int	(*compress_file)(FILE *, FILE *);
+	int	(*uncompress_file)(FILE *, FILE *);
 };
 
 /* auth structures */
@@ -1065,15 +1066,10 @@ int	ca_X509_verify(void *, void *, const char *, const char *, const char **);
 
 
 /* compress_backend.c */
-int	compress_backend_init(const char *);
-void*	compress_new(void);
-size_t	compress_chunk(void *, void *, size_t, void *, size_t);
-size_t	compress_finalize(void *, void *, size_t);
-size_t	compress_buffer(char *, size_t, char *, size_t);
-void*	uncompress_new(void);
-size_t	uncompress_chunk(void *, void *, size_t, void *, size_t);
-size_t	uncompress_finalize(void *, void *, size_t);
-size_t	uncompress_buffer(char *, size_t, char *, size_t);
+struct compress_backend *compress_backend_lookup(const char *);
+size_t	compress_chunk(void *, size_t, void *, size_t);
+size_t	uncompress_chunk(void *, size_t, void *, size_t);
+int	compress_file(FILE *, FILE *);
 int	uncompress_file(FILE *, FILE *);
 
 /* config.c */

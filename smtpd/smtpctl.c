@@ -27,6 +27,7 @@
 #include "sys-queue.h"
 #include "sys-tree.h"
 #include <sys/un.h>
+#include <sys/wait.h>
 
 #include <net/if.h>
 /* #include <net/if_media.h> */
@@ -51,7 +52,7 @@
 #include "log.h"
 
 #define PATH_CAT	"/bin/cat"
-#define PATH_GZCAT	"/bin/gzcat"
+#define PATH_GZCAT	"/usr/bin/gzcat"
 #define PATH_QUEUE	"/queue"
 
 void usage(void);
@@ -724,19 +725,31 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 static void
 display(const char *s)
 {
+	pid_t	pid;
 	arglist args;
 	char	*cmd;
+	int	status;
 
-	if (env->sc_queue_flags & QUEUE_COMPRESS)
+	pid = fork();
+	if (pid < 0)
+		err(1, "fork");
+	if (pid == 0) {
 		cmd = PATH_GZCAT;
-	else
-		cmd = PATH_CAT;
-
+		bzero(&args, sizeof(args));
+		addargs(&args, "%s", cmd);
+		addargs(&args, "%s", s);
+		execvp(cmd, args.list);
+		err(1, "execvp");
+	}
+	wait(&status);
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+		exit(0);
+	cmd = PATH_CAT;
 	bzero(&args, sizeof(args));
 	addargs(&args, "%s", cmd);
 	addargs(&args, "%s", s);
 	execvp(cmd, args.list);
-	errx(1, "execvp");
+	err(1, "execvp");
 }
 
 static void
@@ -771,10 +784,10 @@ show_message(const char *s)
 
 	msgid = evpid_to_msgid(evpid);
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
-	    PATH_SPOOL,
-	    PATH_QUEUE,
-	    msgid & 0xff,
-	    msgid))
+		PATH_SPOOL,
+		PATH_QUEUE,
+		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
+		msgid))
 		errx(1, "unable to retrieve message");
 
 	display(buf);

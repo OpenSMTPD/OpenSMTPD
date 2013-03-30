@@ -341,6 +341,9 @@ listen_helo	: HOSTNAME STRING	{ $$ = $2; }
 main		: BOUNCEWARN {
 			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
 		} bouncedelays
+		| QUEUE COMPRESSION {
+			conf->sc_queue_flags |= QUEUE_COMPRESSION;
+		}
 		| EXPIRE STRING {
 			conf->sc_qexpire = delaytonum($2);
 			if (conf->sc_qexpire == -1) {
@@ -978,6 +981,7 @@ lookup(char *s)
 		{ "backup",		BACKUP },
 		{ "bounce-warn",	BOUNCEWARN },
 		{ "certificate",	CERTIFICATE },
+		{ "compression",	COMPRESSION },
 		{ "deliver",		DELIVER },
 		{ "domain",		DOMAIN },
 		{ "expire",		EXPIRE },
