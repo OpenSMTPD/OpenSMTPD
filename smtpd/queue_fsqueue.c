@@ -23,6 +23,7 @@
 #include "sys-tree.h"
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/param.h>
 #include <sys/mount.h>
 
@@ -110,18 +111,22 @@ fsqueue_check_space(void)
 	else
 		used = 100;
 	if (100 - used < MINSPACE) {
-		log_warnx("warn: not enough disk space: %lu%% left", 100 - used);
+		log_warnx("warn: not enough disk space: %llu%% left", 100 - used);
 		return 0;
 	}
 
 	used = buf.f_files - buf.f_ffree;
+#ifdef HAVE_STRUCT_STATFS_F_FAVAIL
 	total = buf.f_favail + used;
+#else
+	total = buf.f_files;
+#endif
 	if (total != 0)
 		used = (float)used / (float)total * 100;
 	else
 		used = 100;
 	if (100 - used < MININODES) {
-		log_warnx("warn: not enough inodes: %lu%% left", 100 - used);
+		log_warnx("warn: not enough inodes: %llu%% left", 100 - used);
 		return 0;
 	}
 

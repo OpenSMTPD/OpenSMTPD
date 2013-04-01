@@ -2045,6 +2045,10 @@ AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
 	  #include <netinet/in.h>
 	  #include <sys/socket.h> ]
 )
+AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
+	[ #include <sys/vfs.h>
+	  #include <sys/statfs.h> ]
+)
 ##chl part
 
 
