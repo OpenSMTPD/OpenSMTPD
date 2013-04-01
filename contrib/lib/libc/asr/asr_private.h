@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_private.h,v 1.11 2013/03/27 07:40:41 eric Exp $	*/
+/*	$OpenBSD: asr_private.h,v 1.13 2013/04/01 08:54:06 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -32,14 +32,6 @@
 
 #define OPCODE(v)	((v) & OPCODE_MASK)
 #define RCODE(v)	((v) & RCODE_MASK)
-
-/* XXX chl
- * On Linux, netbd.h is #defining h_errno,conflicting with
- * hostnamadr struct member */
-
-#ifdef h_errno
-#undef h_errno
-#endif
 
 
 struct pack {
@@ -214,7 +206,6 @@ struct async {
 			unsigned char	*ibuf;
 			size_t		 ibuflen;
 			size_t		 ibufsize;
-			size_t		 bufpos;
 			size_t		 datalen; /* for tcp io */
 		} dns;
 
@@ -244,7 +235,7 @@ struct async {
 			struct async	*subq;
 			char		 addr[16];
 			int		 addrlen;
-			int		 h_errno;
+			int		 subq_h_errno;
 		} hostnamadr;
 
 		struct {
