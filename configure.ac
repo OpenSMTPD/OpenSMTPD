@@ -139,6 +139,7 @@ AC_CHECK_HEADERS( \
 		sys/file.h \
 		sys/ndir.h \
 		sys/pstat.h \
+		sys/statfs.h \
 		sys/un.h \
 		ucred.h \
 		util.h \

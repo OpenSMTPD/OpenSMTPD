@@ -23,7 +23,9 @@
 #include "sys-tree.h"
 #include <sys/socket.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_STATFS_H
 #include <sys/statfs.h>
+#endif
 #include <sys/param.h>
 #include <sys/mount.h>
 
