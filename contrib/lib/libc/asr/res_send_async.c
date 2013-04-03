@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send_async.c,v 1.9 2013/04/01 07:52:06 eric Exp $	*/
+/*	$OpenBSD: res_send_async.c,v 1.13 2013/04/02 21:57:33 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -25,6 +25,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <resolv.h> /* for res_random */
 #include <stdlib.h>
 #include <string.h>
@@ -80,7 +81,7 @@ res_send_async(const unsigned char *buf, int buflen, unsigned char *ans,
 	}
 
 	as->as.dns.flags |= ASYNC_EXTOBUF;
-	as->as.dns.obuf = (unsigned char*)buf;
+	as->as.dns.obuf = (unsigned char *)buf;
 	as->as.dns.obuflen = buflen;
 	as->as.dns.obufsize = buflen;
 
@@ -339,6 +340,11 @@ sockaddr_connect(const struct sockaddr *sa, int socktype)
 		goto fail;
 
 	if (connect(sock, sa, SA_LEN(sa)) == -1) {
+		/*
+		 * In the TCP case, the caller will be asked to poll for
+		 * POLLOUT so that we start writing the packet in tcp_write()
+		 * when the connection is established, or fail there on error.
+		 */
 		if (errno == EINPROGRESS)
 			return (sock);
 		goto fail;
@@ -538,7 +544,7 @@ tcp_write(struct async *as)
 	if (as->as.dns.datalen < sizeof(len)) {
 		offset = 0;
 		len = htons(as->as.dns.obuflen);
-		iov[i].iov_base = (char*)(&len) + as->as.dns.datalen;
+		iov[i].iov_base = (char *)(&len) + as->as.dns.datalen;
 		iov[i].iov_len = sizeof(len) - as->as.dns.datalen;
 		i++;
 	} else
@@ -578,44 +584,54 @@ close:
 static int
 tcp_read(struct async *as)
 {
-	uint16_t	len;
-	ssize_t		n;
-	int		save_errno;
+	ssize_t		 n;
+	size_t		 offset, len;
+	char		*pos;
+	int		 save_errno, nfds;
+	struct pollfd	 pfd;
 
 	/* We must read the packet len first */
-	if (as->as.dns.datalen == 0) {
-		n = read(as->as_fd, &len, sizeof(len));
+	if (as->as.dns.datalen < sizeof(as->as.dns.pktlen)) {
+
+		pos = (char*)(&as->as.dns.pktlen) + as->as.dns.datalen;
+		len = sizeof(as->as.dns.pktlen) - as->as.dns.datalen;
+
+		n = read(as->as_fd, pos, len);
 		if (n == -1)
 			goto close; /* errno set */
-		/*
-		 * If the server has sent us only the first byte, we fail.
-		 * Technically, we could recover but it might not be worth
-		 * supporting that.
-		 */
-		if (n < 2) {
-			errno = EIO;
-			goto close;
-		}
 
-		as->as.dns.datalen = ntohs(len);
-		as->as.dns.ibuflen = 0;
+		as->as.dns.datalen += n;
+		if (as->as.dns.datalen < sizeof(as->as.dns.pktlen))
+			return (1); /* need more data */
 
-		if (ensure_ibuf(as, as->as.dns.datalen) == -1)
+		as->as.dns.ibuflen = ntohs(as->as.dns.pktlen);
+		if (ensure_ibuf(as, as->as.dns.ibuflen) == -1)
 			goto close; /* errno set */
+
+		pfd.fd = as->as_fd;
+		pfd.events = POLLIN;
+		nfds = poll(&pfd, 1, 0);
+		if (nfds == -1)
+			goto close; /* errno set */
+		if (nfds == 0)
+			return (1); /* no more data available */
 	}
 
-	n = read(as->as_fd, as->as.dns.ibuf + as->as.dns.ibuflen,
-	    as->as.dns.datalen - as->as.dns.ibuflen);
+	offset = as->as.dns.datalen - sizeof(as->as.dns.pktlen);
+	pos = as->as.dns.ibuf + offset;
+	len =  as->as.dns.ibuflen - offset;
+
+	n = read(as->as_fd, pos, len);
 	if (n == -1)
 		goto close; /* errno set */
 	if (n == 0) {
 		errno = ECONNRESET;
 		goto close;
 	}
-	as->as.dns.ibuflen += n;
+	as->as.dns.datalen += n;
 
 	/* See if we got all the advertised bytes. */
-	if (as->as.dns.ibuflen != as->as.dns.datalen)
+	if (as->as.dns.datalen != as->as.dns.ibuflen + sizeof(as->as.dns.pktlen))
 		return (1);
 
 	DPRINT_PACKET("asr_tcp_read()", as->as.dns.ibuf, as->as.dns.ibuflen);
