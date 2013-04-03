@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_utils.c,v 1.4 2013/03/29 23:01:24 eric Exp $	*/
+/*	$OpenBSD: asr_utils.c,v 1.6 2013/04/02 21:23:17 eric Exp $	*/
 /*
  * Copyright (c) 2009-2012	Eric Faurot	<eric@faurot.net>
  *
@@ -35,20 +35,20 @@
 #include "asr.h"
 #include "asr_private.h"
 
-static int dname_check_label(const char*, size_t);
-static ssize_t dname_expand(const unsigned char*, size_t, size_t, size_t*,
+static int dname_check_label(const char *, size_t);
+static ssize_t dname_expand(const unsigned char *, size_t, size_t, size_t *,
     char *, size_t);
 
-static int unpack_data(struct unpack*, void*, size_t);
-static int unpack_u16(struct unpack*, uint16_t*);
-static int unpack_u32(struct unpack*, uint32_t*);
-static int unpack_inaddr(struct unpack*, struct in_addr*);
-static int unpack_in6addr(struct unpack*, struct in6_addr*);
-static int unpack_dname(struct unpack*, char*, size_t);
+static int unpack_data(struct unpack *, void *, size_t);
+static int unpack_u16(struct unpack *, uint16_t *);
+static int unpack_u32(struct unpack *, uint32_t *);
+static int unpack_inaddr(struct unpack *, struct in_addr *);
+static int unpack_in6addr(struct unpack *, struct in6_addr *);
+static int unpack_dname(struct unpack *, char *, size_t);
 
-static int pack_data(struct pack*, const void*, size_t);
-static int pack_u16(struct pack*, uint16_t);
-static int pack_dname(struct pack*, const char*);
+static int pack_data(struct pack *, const void *, size_t);
+static int pack_u16(struct pack *, uint16_t);
+static int pack_dname(struct pack *, const char *);
 
 static int
 dname_check_label(const char *s, size_t l)
@@ -135,7 +135,7 @@ dname_expand(const unsigned char *data, size_t len, size_t offset,
 				return (-1);
 			if (end < offset + 2)
 				end = offset + 2;
-			offset = ptr;
+			offset = start = ptr;
 			continue;
 		}
 		if (offset + n + 1 > len)
