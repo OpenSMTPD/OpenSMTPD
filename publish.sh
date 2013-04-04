@@ -36,7 +36,7 @@ build_tarball()
     ASRSRC=/usr/src/lib/libc/asr
     ASRFILES="asr.c asr_debug.c asr_utils.c gethostnamadr_async.c
 	      res_send_async.c getaddrinfo_async.c getnameinfo_async.c
-	      asr.h asr_private.h"
+	      res_search_async.c asr.h asr_private.h"
 
     T=`mktemp -d /tmp/publish.XXXXXXXXXX` || {
 	echo "error: failed to mktemp" >&2
