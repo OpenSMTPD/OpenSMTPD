@@ -301,9 +301,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			break;
 		case LKA_TEMPFAIL:
-			smtp_reply(s, "421 Temporary failure");
-			smtp_enter_state(s, STATE_QUIT);
-			break;
+			smtp_reply(s, "451 Temporary failure");
 		}
 		io_reload(&s->io);
 		return;
@@ -344,6 +342,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			smtp_reply(s, "250 Ok");
 		} else {
 			smtp_reply(s, "421 Temporary Error");
+			smtp_enter_state(s, STATE_QUIT);
 		}
 		m_end(&m);
 		io_reload(&s->io);
