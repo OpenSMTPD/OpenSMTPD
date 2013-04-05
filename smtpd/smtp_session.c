@@ -164,6 +164,8 @@ static void smtp_wait_mfa(struct smtp_session *s, int);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 static int smtp_verify_certificate(struct smtp_session *);
+static void smtp_auth_failure_pause(struct smtp_session *);
+static void smtp_auth_failure_resume(int, short, void *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -505,7 +507,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else if (success == LKA_PERMFAIL) {
 			log_info("smtp-in: Authentication failed for user %s "
 			    "on session %016"PRIx64, user, s->id);
-			smtp_reply(s, "535 Authentication failed");
+			smtp_auth_failure_pause(s);
+			return;
 		}
 		else if (success == LKA_TEMPFAIL) {
 			log_info("smtp-in: Authentication temporarily failed "
