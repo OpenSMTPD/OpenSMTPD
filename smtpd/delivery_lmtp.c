@@ -61,6 +61,7 @@ static void
 delivery_lmtp_open(struct deliver *deliver)
 {
 	 char *buffer;
+	 char *lbuf;
 	 char lhloname[255];
 	 int s, n;
 	 FILE* fp;
@@ -68,6 +69,7 @@ delivery_lmtp_open(struct deliver *deliver)
 	 struct addrinfo hints;
 	 struct addrinfo *result0, *result;
 	 enum lmtp_state state = LMTP_BANNER;
+	 size_t	len;
 
 	 servname = strchr(deliver->to, ':');
 	 *servname++ = '\0';
@@ -107,7 +109,6 @@ delivery_lmtp_open(struct deliver *deliver)
 
 	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
 		 buffer = lmtp_getline(fp);
-
 		 if (!buffer)
 			 err(1, "No input received");
 
@@ -151,9 +152,21 @@ delivery_lmtp_open(struct deliver *deliver)
 			 if (buffer[0] != '3')
 				 errx(1, "DATA rejected: %s\n", buffer);
 
-			 while ((n = getc(stdin)) != EOF)
-				 if (putc(n, fp) == EOF)
-					 break;
+			 lbuf = NULL;
+			 while ((buffer = fgetln(stdin, &len))) {
+				 if (buffer[len- 1] == '\n')
+					 buffer[len - 1] = '\0';
+				 else {
+					 if ((lbuf = malloc(len + 1)) == NULL)
+						 err(1, NULL);
+					 memcpy(lbuf, buffer, len);
+					 lbuf[len] = '\0';
+					 buffer = lbuf;
+				 }
+				 fprintf(fp, "%s%s\r\n",
+				     *buffer == '.' ? "." : "", buffer);
+			 }
+			 free(lbuf);
 
 			 fprintf(fp, ".\r\n");
 
