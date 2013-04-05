@@ -52,6 +52,7 @@ smtpd_SOURCES=		aliases.c bounce.c ca.c compress_backend.c config.c	\
 # backends
 smtpd_SOURCES+=		compress_gzip.c
 smtpd_SOURCES+=		delivery_filename.c
+smtpd_SOURCES+=		delivery_lmtp.c
 smtpd_SOURCES+=		delivery_maildir.c
 smtpd_SOURCES+=		delivery_mbox.c
 smtpd_SOURCES+=		delivery_mda.c
