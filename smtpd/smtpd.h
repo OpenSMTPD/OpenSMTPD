@@ -1144,13 +1144,13 @@ void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *),
 pid_t lka(void);
 
 
-/* log.c */
-void vlog(int, const char *, va_list);
-
-
 /* lka_session.c */
 void lka_session(uint64_t, struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
+
+
+/* log.c */
+void vlog(int, const char *, va_list);
 
 
 /* mda.c */
