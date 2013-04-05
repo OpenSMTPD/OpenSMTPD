@@ -52,10 +52,10 @@ smtpd_SOURCES=		aliases.c bounce.c ca.c compress_backend.c config.c	\
 # backends
 smtpd_SOURCES+=		compress_gzip.c
 smtpd_SOURCES+=		delivery_filename.c
-smtpd_SOURCES+=		delivery_lmtp.c
 smtpd_SOURCES+=		delivery_maildir.c
 smtpd_SOURCES+=		delivery_mbox.c
 smtpd_SOURCES+=		delivery_mda.c
+smtpd_SOURCES+=		delivery_lmtp.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c
@@ -78,7 +78,6 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 			../contrib/lib/libc/asr/asr_utils.c			\
 			../contrib/lib/libc/asr/gethostnamadr_async.c		\
 			../contrib/lib/libc/asr/res_send_async.c		\
-			../contrib/lib/libc/asr/res_search_async.c		\
 			../contrib/lib/libc/asr/getaddrinfo_async.c		\
 			../contrib/lib/libc/asr/getnameinfo_async.c		\
 			../contrib/lib/libc/asr/res_search_async.c
