@@ -18,12 +18,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "includes.h"
-
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 
 #include <event.h>
 #include <imsg.h>
@@ -33,6 +31,20 @@
 #include "smtpd.h"
 
 #include "parser.h"
+
+enum token_type {
+	NOTOKEN,
+	ENDTOKEN,
+	KEYWORD,
+	VARIABLE
+};
+
+struct token {
+	enum token_type		 type;
+	const char		*keyword;
+	int			 value;
+	const struct token	*next;
+};
 
 static const struct token t_log[];
 static const struct token t_main[];
