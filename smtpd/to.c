@@ -223,7 +223,8 @@ duration_to_text(time_t t)
 {
 	static char	dst[64];
 	char		buf[64];
-	int		d, h, m, s;
+	int		h, m, s;
+	long long	d;
 
 	if (t == 0) {
 		strlcpy(dst, "0s", sizeof dst);
@@ -244,7 +245,7 @@ duration_to_text(time_t t)
 	d = t / 24;
 
 	if (d) {
-		snprintf(buf, sizeof buf, "%id", d);
+		snprintf(buf, sizeof buf, "%llid", d);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (h) {
