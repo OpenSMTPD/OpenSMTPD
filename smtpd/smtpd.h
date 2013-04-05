@@ -1136,6 +1136,10 @@ void lka_session(uint64_t, struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
 
 
+/* lka_session.c */
+void vlog(int, const char *, va_list);
+
+
 /* mda.c */
 pid_t mda(void);
 

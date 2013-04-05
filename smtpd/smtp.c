@@ -418,7 +418,8 @@ smtp_accept(int fd, short event, void *p)
 			log_warn("warn: Disabling incoming SMTP connections");
 			goto pause;
 		}
-		if (errno == EINTR || errno == ECONNABORTED)
+		if (errno == EINTR || errno == EWOULDBLOCK ||
+		    errno == ECONNABORTED)
 			return;
 		fatal("smtp_accept");
 	}
