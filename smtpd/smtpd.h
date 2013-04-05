@@ -1406,7 +1406,6 @@ int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
-void *xrealloc(void *, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
 char *strip(char *);
