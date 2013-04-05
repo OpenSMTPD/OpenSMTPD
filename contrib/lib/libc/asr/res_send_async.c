@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send_async.c,v 1.13 2013/04/02 21:57:33 eric Exp $	*/
+/*	$OpenBSD: res_send_async.c,v 1.15 2013/04/05 07:12:24 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -518,6 +518,7 @@ udp_recv(struct async *as)
 static int
 tcp_write(struct async *as)
 {
+	struct msghdr	msg;
 	struct iovec	iov[2];
 	uint16_t	len;
 	ssize_t		n;
@@ -554,9 +555,17 @@ tcp_write(struct async *as)
 	iov[i].iov_len = as->as.dns.obuflen - offset;
 	i++;
 
-	n = writev(as->as_fd, iov, i);
-	if (n == -1)
+	memset(&msg, 0, sizeof msg);
+	msg.msg_iov = iov;
+	msg.msg_iovlen = i;
+
+    send_again:
+	n = sendmsg(as->as_fd, &msg, MSG_NOSIGNAL);
+	if (n == -1) {
+		if (errno == EINTR)
+			goto send_again;
 		goto close; /* errno set */
+	}
 
 	as->as.dns.datalen += n;
 
@@ -610,9 +619,13 @@ tcp_read(struct async *as)
 
 		pfd.fd = as->as_fd;
 		pfd.events = POLLIN;
+	    poll_again:
 		nfds = poll(&pfd, 1, 0);
-		if (nfds == -1)
+		if (nfds == -1) {
+			if (errno == EINTR)
+				goto poll_again;
 			goto close; /* errno set */
+		}
 		if (nfds == 0)
 			return (1); /* no more data available */
 	}
@@ -621,9 +634,13 @@ tcp_read(struct async *as)
 	pos = as->as.dns.ibuf + offset;
 	len =  as->as.dns.ibuflen - offset;
 
+    read_again:
 	n = read(as->as_fd, pos, len);
-	if (n == -1)
+	if (n == -1) {
+		if (errno == EINTR)
+			goto read_again;
 		goto close; /* errno set */
+	}
 	if (n == 0) {
 		errno = ECONNRESET;
 		goto close;
