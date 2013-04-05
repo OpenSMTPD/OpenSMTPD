@@ -77,17 +77,6 @@ xcalloc(size_t nmemb, size_t size, const char *where)
 	return (r);
 }
 
-void *
-xrealloc(void *p, size_t size, const char *where)
-{
-	void	*r;
-
-	if ((r = realloc(p, size)) == NULL)
-		errx(1, "%s: realloc(%p, %zu)", where, p, size);
-
-	return (r);
-}
-
 char *
 xstrdup(const char *str, const char *where)
 {
