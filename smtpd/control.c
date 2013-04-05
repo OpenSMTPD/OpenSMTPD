@@ -308,7 +308,8 @@ control_accept(int listenfd, short event, void *arg)
 	if ((connfd = accept(listenfd, (struct sockaddr *)&sun, &len)) == -1) {
 		if (errno == ENFILE || errno == EMFILE)
 			goto pause;
-		if (errno == EINTR || errno == ECONNABORTED)
+		if (errno == EINTR || errno == EWOULDBLOCK ||
+		    errno == ECONNABORTED)
 			return;
 		fatal("control_accept: accept");
 	}
