@@ -17,15 +17,6 @@ case $COMMAND in
 	exit 1;
 esac
 
-# supported branches
-case $BRANCH in
-    master|portable)
-	;;
-    *)
-	echo "`basename $0` $COMMAND not supported on branch $BRANCH" >&2
-	exit 1;
-esac
-
 
 # builds a tarball from current branch and returns its name
 #
@@ -36,16 +27,16 @@ build_tarball()
     ASRSRC=/usr/src/lib/libc/asr
     ASRFILES="asr.c asr_debug.c asr_utils.c gethostnamadr_async.c
 	      res_send_async.c getaddrinfo_async.c getnameinfo_async.c
-	      asr.h asr_private.h"
+	      res_search_async.c asr.h asr_private.h"
 
     T=`mktemp -d /tmp/publish.XXXXXXXXXX` || {
 	echo "error: failed to mktemp" >&2
 	exit 1
     }
     CURDIR=`pwd`
-    if test "$1" = "master"; then
+    if echo "$1" | grep -vE '(portable|p[0-9])$' >/dev/null; then
 	TARGET=opensmtpd-${V}
-	git archive --format=tar --prefix=${TARGET}/ master:smtpd/ | \
+	git archive --format=tar --prefix=${TARGET}/ ${1}:smtpd/ | \
 	    (cd ${T} && tar xf -)
 	for i in ${ASRFILES}; do cp ${ASRSRC}/$i ${T}/${TARGET}/; done
 	cat ${T}/${TARGET}/smtpd/Makefile |	\
@@ -54,7 +45,7 @@ build_tarball()
 	cat ${T}/_makefile > ${T}/${TARGET}/smtpd/Makefile
     else
 	TARGET=opensmtpd-${V}${P}
-	git archive --format=tar --prefix=${TARGET}/ portable | \
+	git archive --format=tar --prefix=${TARGET}/ ${1} | \
 	    (cd ${T} && tar xf -)
 	rm -f ${T}/${TARGET}/Makefile ${T}/${TARGET}/smtpd/Makefile
     fi
