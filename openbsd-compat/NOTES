@@ -13,7 +13,7 @@ dirname.c		portable openssh
 entropy.{c,h}		portable openssh
 fgetln.c		part of /usr/src/usr.bin/make/util.c
 fmt_scaled.c		portable openssh
-fparseln.c		part of /usr/src/libutil/fparseln.c
+fparseln.c		part of /usr/src/lib/libutil/fparseln.c
 getopt.c	  	portable openssh
 imsg-buffer.c		part of /usr/src/libutil/imsg-buffer.c
 imsg.{c,h}		part of /usr/src/libutil/imsg.c
