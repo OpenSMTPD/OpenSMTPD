@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#include "smtpd-defines.h"
 #include "smtpd-api.h"
 
 static const char *
