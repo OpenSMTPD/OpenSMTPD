@@ -30,7 +30,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <resolv.h>
 #include <signal.h>

@@ -33,7 +33,7 @@
 #include <event.h>
 #include <netdb.h>
 #include <resolv.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

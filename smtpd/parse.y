@@ -41,7 +41,7 @@
 #include <errno.h>
 #include <event.h>
 #include <ifaddrs.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
 #include <paths.h>

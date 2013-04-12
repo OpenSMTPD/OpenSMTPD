@@ -26,7 +26,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

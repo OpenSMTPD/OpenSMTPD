@@ -32,7 +32,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
