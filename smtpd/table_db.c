@@ -20,8 +20,8 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 
 #ifdef HAVE_DB_H

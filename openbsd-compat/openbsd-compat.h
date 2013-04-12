@@ -52,8 +52,8 @@
 #define AI_FQDN AI_CANONNAME
 #endif
 
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include "vis.h"
 #include "xmalloc.h"
 

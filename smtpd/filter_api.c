@@ -19,7 +19,7 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
+#include <sys/queue.h>
 #include <sys/uio.h>
 
 #include <err.h>

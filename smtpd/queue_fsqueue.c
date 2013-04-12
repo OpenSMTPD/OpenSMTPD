@@ -19,8 +19,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #ifdef HAVE_SYS_STATFS_H

@@ -20,10 +20,10 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-tree.h"
+#include <sys/tree.h>
 
 #include <sys/socket.h>	/* for smtpd.h */
-#include "sys-queue.h"	/* for smtpd.h */
+#include <sys/queue.h>	/* for smtpd.h */
 #include <stdio.h>	/* for smtpd.h */
 #include <imsg.h>	/* for smtpd.h */
 

@@ -24,8 +24,8 @@
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "sys-tree.h"
-#include "sys-queue.h"
+#include <sys/tree.h>
+#include <sys/queue.h>
 #include <sys/socket.h>
 
 #include <ctype.h>
