@@ -28,7 +28,7 @@ strlcpy.c		portable openssh
 strmode.c		portable openssh
 strsep.c		portable openssh
 strtonum.c		portable openssh
-sys-queue.h		portable openssh
-sys-tree.h		portable openssh
+sys/queue.h		portable openssh
+sys/tree.h		portable openssh
 vis.{c,h}		portable openssh
 xmalloc.{c,h}		portable openssh
