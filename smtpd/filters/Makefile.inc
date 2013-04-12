@@ -5,3 +5,5 @@ CPPFLAGS+= -I../../
 SRCS	+= filter_api.c dict.c tree.c util.c iobuf.c log.c to.c mproc.c
 
 LDADD	+= -levent -lutil
+
+BINDIR	= /usr/libexec/smtpd
