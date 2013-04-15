@@ -1,4 +1,4 @@
-SUBDIR=		monkey
-SUBDIR+=	trace
+SUBDIR=		filter-monkey
+SUBDIR+=	filter-trace
 
 .include <bsd.subdir.mk>

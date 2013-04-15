@@ -158,7 +158,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
 
-			if (! lka_X509_verify(req_ca_vrfy_smtp, "/etc/ssl/cert.pem", NULL))
+			if (! lka_X509_verify(req_ca_vrfy_smtp, CA_FILE, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
@@ -281,7 +281,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
 
-			if (! lka_X509_verify(req_ca_vrfy_mta, "/etc/ssl/cert.pem", NULL))
+			if (! lka_X509_verify(req_ca_vrfy_mta, CA_FILE, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
