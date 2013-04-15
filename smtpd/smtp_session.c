@@ -369,13 +369,15 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		fprintf(s->ofile,
 		    "Received: from %s (%s [%s]);\n"
-		    "\tby %s (%s) with %sSMTP id %08x;\n",
+		    "\tby %s (%s) with %sSMTP%s%s id %08x;\n",
 		    s->evp.helo,
 		    s->hostname,
 		    ss_to_text(&s->ss),
 		    s->listener->helo[0] ? s->listener->helo : env->sc_hostname,
 		    SMTPD_NAME,
 		    s->flags & SF_EHLO ? "E" : "",
+		    s->flags & SF_SECURE ? "S" : "",
+		    s->flags & SF_AUTHENTICATED ? "A" : "",
 		    evpid_to_msgid(s->evp.id));
 
 		if (s->flags & SF_SECURE) {
