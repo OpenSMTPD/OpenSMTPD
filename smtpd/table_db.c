@@ -53,9 +53,10 @@ static int table_db_alias(const char *, char *, size_t, void **);
 static int table_db_domain(const char *, char *, size_t, void **);
 static int table_db_netaddr(const char *, char *, size_t, void **);
 static int table_db_userinfo(const char *, char *, size_t, void **);
+static int table_db_addrname(const char *, char *, size_t, void **);
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_ADDRNAME,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -202,6 +203,10 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 
 	case K_USERINFO:
 		ret = table_db_userinfo(key, line, len, retp);
+		break;
+
+	case K_ADDRNAME:
+		ret = table_db_addrname(key, line, len, retp);
 		break;
 
 	default:
@@ -393,5 +398,29 @@ table_db_userinfo(const char *key, char *line, size_t len, void **retp)
 error:
 	*retp = NULL;
 	free(userinfo);
+	return -1;
+}
+
+static int
+table_db_addrname(const char *key, char *line, size_t len, void **retp)
+{
+	struct addrname		*addrname;
+
+	addrname = xcalloc(1, sizeof *addrname, "table_db_addrname");
+
+	if (inet_pton(AF_INET6, key, &addrname->addr.in6) != 1)
+		if (inet_pton(AF_INET, key, &addrname->addr.in4) != 1)
+			goto error;
+
+	if (strlcpy(addrname->name, line, sizeof addrname->name)
+	    >= sizeof addrname->name)
+		goto error;
+
+	*retp = addrname;
+	return 1;
+
+error:
+	*retp = NULL;
+	free(addrname);
 	return -1;
 }
