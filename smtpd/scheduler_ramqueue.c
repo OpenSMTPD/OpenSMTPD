@@ -323,6 +323,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 	}
 	else if ((evp = TAILQ_FIRST(&ramqueue.q_pending))) {
 		ret->type = SCHED_DELAY;
+		ret->evpcount = 0;
 		if (evp->sched < evp->expire)
 			ret->delay = evp->sched - currtime;
 		else
@@ -331,6 +332,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 	}
 	else {
 		ret->type = SCHED_NONE;
+		ret->evpcount = 0;
 		return;
 	}
 
