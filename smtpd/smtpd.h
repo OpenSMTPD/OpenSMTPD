@@ -143,6 +143,13 @@ struct addrname {
 	char			name[SMTPD_MAXHOSTNAMELEN];
 };
 
+/* XXX */
+/*
+ * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
+ * This will ensure that we can never use a wrong version of smtpctl with smtpd.
+ */
+#define	IMSG_VERSION		1
+
 enum imsg_type {
 	IMSG_NONE,
 	IMSG_CTL_OK,		/* answer to smtpctl requests */
