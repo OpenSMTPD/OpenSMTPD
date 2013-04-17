@@ -22,6 +22,9 @@
 #include <sys/tree.h>
 #include <sys/socket.h>
 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <db.h>
 #include <ctype.h>
 #include <err.h>
