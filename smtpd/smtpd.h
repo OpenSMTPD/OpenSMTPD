@@ -95,8 +95,6 @@
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
 
-typedef uint32_t	objid_t;
-
 struct userinfo {
 	char username[SMTPD_MAXLOGNAME];
 	char directory[SMTPD_MAXPATHLEN];
@@ -296,7 +294,6 @@ enum table_service {
 
 struct table {
 	char				 t_name[SMTPD_MAXLINESIZE];
-	objid_t				 t_id;
 	enum table_type			 t_type;
 	char				 t_src[MAX_TABLE_BACKEND_SIZE];
 	char				 t_config[SMTPD_MAXPATHLEN];
@@ -568,7 +565,6 @@ struct smtpd {
 	struct dict			       *sc_ssl_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
-	struct tree			       *sc_tables_tree;		/* id lookup	*/
 
 	struct dict				sc_filters;
 	uint32_t				filtermask;
@@ -1296,7 +1292,6 @@ int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
 int	table_lookup(struct table *, const char *, enum table_service, void **);
 int	table_fetch(struct table *, enum table_service, char **);
-struct table *table_find(objid_t);
 struct table *table_findbyname(const char *);
 struct table *table_create(const char *, const char *, const char *);
 void table_destroy(struct table *);

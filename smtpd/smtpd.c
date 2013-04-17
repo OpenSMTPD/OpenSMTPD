@@ -425,7 +425,7 @@ parent_send_config_lka()
 	}
 
 	iter_tree = NULL;
-	while (tree_iter(env->sc_tables_tree, &iter_tree, NULL,
+	while (dict_iter(env->sc_tables_dict, &iter_tree, NULL,
 		(void **)&t)) {
 		m_compose(p_lka, IMSG_CONF_TABLE, 0, 0, -1, t, sizeof(*t));
 
