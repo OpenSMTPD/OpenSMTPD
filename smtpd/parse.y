@@ -545,7 +545,6 @@ tablenew	: STRING			{
 			table_add(t, $1, NULL);
 			free($1);
 			$$ = t->t_id;
-			table = table_create("static", NULL, NULL);
 		}
 		| '{'				{
 			table = table_create("static", NULL, NULL);
