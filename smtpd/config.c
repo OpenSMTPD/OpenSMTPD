@@ -55,12 +55,10 @@ purge_config(uint8_t what)
 		env->sc_listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while (tree_root(env->sc_tables_tree, NULL, (void **)&t))
+		while (dict_root(env->sc_tables_dict, NULL, (void **)&t))
 			table_destroy(t);
 		free(env->sc_tables_dict);
-		free(env->sc_tables_tree);
 		env->sc_tables_dict = NULL;
-		env->sc_tables_tree = NULL;
 	}
 	if (what & PURGE_RULES) {
 		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {

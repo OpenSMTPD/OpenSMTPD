@@ -422,6 +422,11 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		return;
 	}
 
+	if (imsg->hdr.peerid != IMSG_VERSION) {
+		m_compose(p, IMSG_CTL_FAIL, IMSG_VERSION, 0, -1, NULL, 0);
+		return;
+	}
+
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_ENQUEUE_FD:
 		if (env->sc_flags & (SMTPD_SMTP_PAUSED |

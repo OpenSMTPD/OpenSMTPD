@@ -73,7 +73,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct iovec		iov[3];
 	static struct dict	*ssl_dict;
 	static struct dict	*tables_dict;
-	static struct tree	*tables_tree;
 	static struct table	*table_last;
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_smtp = NULL;
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_mta = NULL;
@@ -382,15 +381,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			    sizeof *env->sc_rules, "lka:sc_rules_reload");
 			tables_dict = xcalloc(1,
 			    sizeof *tables_dict, "lka:tables_dict");
-			tables_tree = xcalloc(1,
-			    sizeof *tables_tree, "lka:tables_tree");
 
 			ssl_dict = calloc(1, sizeof *ssl_dict);
 			if (ssl_dict == NULL)
 				fatal(NULL);
 			dict_init(ssl_dict);
 			dict_init(tables_dict);
-			tree_init(tables_tree);
 			TAILQ_INIT(env->sc_rules_reload);
 
 			return;
@@ -428,7 +424,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			    "lka:table");
 			dict_init(&table->t_dict);
 			dict_set(tables_dict, table->t_name, table);
-			tree_set(tables_tree, table->t_id, table);
 			return;
 
 		case IMSG_CONF_RULE_SOURCE:
@@ -500,20 +495,18 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			if (env->sc_rules)
 				purge_config(PURGE_RULES);
-			if (env->sc_tables_tree) {
+			if (env->sc_tables_dict) {
 				table_close_all();
 				purge_config(PURGE_TABLES);
 			}
 			env->sc_rules = env->sc_rules_reload;
 			env->sc_ssl_dict = ssl_dict;
 			env->sc_tables_dict = tables_dict;
-			env->sc_tables_tree = tables_tree;
 			table_open_all();
 
 			ssl_dict = NULL;
 			table_last = NULL;
 			tables_dict = NULL;
-			tables_tree = NULL;
 
 			/* Start fulfilling requests */
 			mproc_enable(p_mda);

@@ -379,8 +379,8 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 static int
 fsqueue_message_create(uint32_t *msgid)
 {
-	char rootdir[SMTPD_MAXPATHLEN];
-	struct stat sb;
+	char		rootdir[SMTPD_MAXPATHLEN];
+	struct stat	sb;
 
 	if (! fsqueue_check_space())
 		return 0;
@@ -390,8 +390,14 @@ again:
 
 	/* prevent possible collision later when moving to Q_QUEUE */
 	fsqueue_message_path(*msgid, rootdir, sizeof(rootdir));
-	if (stat(rootdir, &sb) != -1 || errno != ENOENT)
+	if (stat(rootdir, &sb) != -1)
 		goto again;
+
+	/* we hit an unexpected error, temporarily fail */
+	if (errno != ENOENT) {
+		*msgid = 0;
+		return 0;
+	}
 
 	queue_message_incoming_path(*msgid, rootdir, sizeof(rootdir));
 	if (mkdir(rootdir, 0700) == -1) {

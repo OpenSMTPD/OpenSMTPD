@@ -49,7 +49,7 @@ extern struct table_backend table_backend_sqlite;
 extern struct table_backend table_backend_ldap;
 #endif
 
-static objid_t	last_table_id = 0;
+static unsigned int last_table_id = 0;
 
 struct table_backend *
 table_backend_lookup(const char *backend)
@@ -75,12 +75,6 @@ struct table *
 table_findbyname(const char *name)
 {
 	return dict_get(env->sc_tables_dict, name);
-}
-
-struct table *
-table_find(objid_t id)
-{
-	return tree_get(env->sc_tables_tree, id);
 }
 
 int
@@ -133,12 +127,9 @@ table_create(const char *backend, const char *name, const char *config)
 	if (strcmp(t->t_src, "static") != 0)
 		t->t_type = T_DYNAMIC;
 
-	t->t_id = ++last_table_id;
-	if (t->t_id == INT_MAX)
-		errx(1, "table_create: too many tables defined");
-
 	if (name == NULL)
-		snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>", t->t_id);
+		snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>",
+		    last_table_id++);
 	else {
 		n = strlcpy(t->t_name, name, sizeof(t->t_name));
 		if (n >= sizeof(t->t_name))
@@ -147,7 +138,6 @@ table_create(const char *backend, const char *name, const char *config)
 
 	dict_init(&t->t_dict);
 	dict_set(env->sc_tables_dict, t->t_name, t);
-	tree_set(env->sc_tables_tree, t->t_id, t);
 
 	return (t);
 }
@@ -161,7 +151,6 @@ table_destroy(struct table *t)
 		free(p);
 
 	dict_xpop(env->sc_tables_dict, t->t_name);
-	tree_xpop(env->sc_tables_tree, t->t_id);
 	free(t);
 }
 
@@ -468,7 +457,7 @@ table_open_all(void)
 	void		*iter;
 
 	iter = NULL;
-	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
+	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
 		if (! table_open(t))
 			errx(1, "failed to open table %s", t->t_name);
 }
@@ -480,6 +469,6 @@ table_close_all(void)
 	void		*iter;
 
 	iter = NULL;
-	while (tree_iter(env->sc_tables_tree, &iter, NULL, (void **)&t))
+	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
 		table_close(t);
 }
