@@ -69,7 +69,7 @@ enum actions {
 };
 
 struct ctl_id {
-	objid_t		 id;
+	uint32_t	 id;
 	char		 name[MAX_NAME_SIZE];
 };
 
