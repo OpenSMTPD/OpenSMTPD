@@ -96,6 +96,7 @@ static void
 scheduler_null_batch(int typemask, struct scheduler_batch *ret)
 {
 	ret->type = SCHED_NONE;
+	ret->evpcount = 0;
 }
 
 static void
