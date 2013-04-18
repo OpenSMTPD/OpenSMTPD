@@ -52,6 +52,7 @@ struct lka_session {
 
 	int			 flags;
 	int			 error;
+	const char		*errormsg;
 	struct envelope		 envelope;
 	struct xnodes		 nodes;
 	/* waiting for fwdrq */
@@ -176,6 +177,13 @@ lka_resume(struct lka_session *lks)
 		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 24);
 		m_add_id(p_smtp, lks->id);
 		m_add_int(p_smtp, lks->error);
+
+		/* XXX */
+		if (lks->errormsg)
+			m_add_string(p_smtp, lks->errormsg);
+		else
+			m_add_string(p_smtp, "");
+
 		m_close(p_smtp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
@@ -348,6 +356,16 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filename: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
+		break;
+
+	case EXPAND_ERROR:
+		log_trace(TRACE_EXPAND, "expand: lka_expand: error: %s "
+		    "[depth=%d]", xn->u.buffer, xn->depth);
+		if (xn->u.buffer[0] == '4')
+			lks->error = LKA_TEMPFAIL;
+		else if (xn->u.buffer[0] == '5')
+			lks->error = LKA_PERMFAIL;
+		lks->errormsg = xn->u.buffer;
 		break;
 
 	case EXPAND_FILTER:
