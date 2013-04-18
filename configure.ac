@@ -2444,6 +2444,20 @@ AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"],
 AC_SUBST([sockdir])
 #l4241
 
+
+CA_FILE=/etc/ssl/cert.pem
+AC_ARG_WITH([ca-file],
+	[  --with-ca-file=FILE     Path for certificate file (default=/etc/ssl/cert.pem)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			CA_FILE=$withval
+		fi
+	]
+)
+AC_SUBST([CA_FILE])
+
+
 # Whether to enable *experimental* LDAP support
 EXPERIMENTAL_LDAP=no
 AC_ARG_WITH([experimental-ldap],
