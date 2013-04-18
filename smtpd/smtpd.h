@@ -393,7 +393,8 @@ enum expand_type {
 	EXPAND_FILENAME,
 	EXPAND_FILTER,
 	EXPAND_INCLUDE,
-	EXPAND_ADDRESS
+	EXPAND_ADDRESS,
+	EXPAND_ERROR
 };
 
 struct expandnode {
