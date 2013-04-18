@@ -1484,7 +1484,7 @@ AC_SUBST([SMTPD_FILTER_USER])
 
 SMTPD_QUEUE_USER=_smtpq
 AC_ARG_WITH([queue-user],
-	[  --with-queue-user=user Specify non-privileged user for queue process],
+	[  --with-queue-user=user  Specify non-privileged user for queue process],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -2427,7 +2427,7 @@ if test ! -d $sockdir ; then
 fi
 
 AC_ARG_WITH([sock-dir],
-	[  --with-sock-dir=PATH     Specify location of smtpd.sock file],
+	[  --with-sock-dir=PATH    Specify location of smtpd.sock file],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
