@@ -847,7 +847,6 @@ mta_io(struct io *io, int evt)
 	size_t			 len;
 	const char		*error;
 	int			 cont;
-	const char		*schema;
 
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -855,15 +854,6 @@ mta_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_CONNECTED:
-		if (s->use_smtp_tls)
-			schema = "smtp+tls://";
-		else if (s->use_starttls)
-			schema = "tls://";
-		else if (s->use_smtps)
-			schema = "smtps://";
-		else
-			schema = "smtp://";
-
 		log_info("smtp-out: Connected on session %016"PRIx64, s->id);
 
 		if (s->use_smtps) {
