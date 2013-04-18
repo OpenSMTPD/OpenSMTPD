@@ -989,17 +989,12 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 {
 	struct mta_envelope	*e;
 	struct mta_task		*task;
-	const char		*pfx;
 	size_t			 n;
 
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
 
-	if (fail == IMSG_DELIVERY_TEMPFAIL)
-		pfx = "TempFail";
-	else if (fail == IMSG_DELIVERY_PERMFAIL)
-		pfx = "PermFail";
-	else
+	if (fail != IMSG_DELIVERY_TEMPFAIL && fail != IMSG_DELIVERY_PERMFAIL)
 		errx(1, "unexpected delivery status %i", fail);
 
 	n = 0;
