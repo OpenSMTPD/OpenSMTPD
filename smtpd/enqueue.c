@@ -754,6 +754,11 @@ enqueue_offline(int argc, char *argv[])
 	}
 	umask(omode);
 
+	if (fchmod(fd, 0600) == -1) {
+		unlink(path);
+		exit(1);
+	}
+
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {
 			warnx("%s contains illegal character", argv[i]);
