@@ -819,7 +819,6 @@ static int
 alias_is_error(struct expandnode *alias, const char *line, size_t len)
 {
 	size_t	skip;
-	char	code[4];
 
 	bzero(alias, sizeof *alias);
 
