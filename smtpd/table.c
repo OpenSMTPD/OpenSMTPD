@@ -103,10 +103,6 @@ table_create(const char *backend, const char *name, const char *config)
 	if (!strcmp(backend, "file"))
 		backend = "static";
 
-	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
-		errx(1, "table_create: table backend \"%s\" too large",
-		    t->t_src);
-
 	if (config && *config) {
 		if (strlcpy(t->t_config, config, sizeof t->t_config)
 		    >= sizeof t->t_config)
@@ -114,7 +110,7 @@ table_create(const char *backend, const char *name, const char *config)
 			    t->t_config);
 	}
 
-	if (strcmp(t->t_src, "static") != 0)
+	if (strcmp(backend, "static") != 0)
 		t->t_type = T_DYNAMIC;
 
 	if (name == NULL)
@@ -168,21 +164,9 @@ table_get_configuration(struct table *t)
 }
 
 void
-table_set_payload(struct table *t, void *payload)
-{
-	t->t_payload = payload;
-}
-
-void *
-table_get_payload(struct table *t)
-{
-	return t->t_payload;
-}
-
-void
 table_add(struct table *t, const char *key, const char *val)
 {
-	if (strcmp(t->t_src, "static") != 0)
+	if (t->t_type & T_DYNAMIC)
 		errx(1, "table_add: cannot add to table");
 	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
 }
@@ -190,16 +174,16 @@ table_add(struct table *t, const char *key, const char *val)
 const void *
 table_get(struct table *t, const char *key)
 {
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "table_add: cannot get from table");
+	if (t->t_type & T_DYNAMIC)
+		errx(1, "table_add: cannot add to table");
 	return dict_get(&t->t_dict, key);
 }
 
 void
 table_delete(struct table *t, const char *key)
 {
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "map_add: cannot delete from map");
+	if (t->t_type & T_DYNAMIC)
+		errx(1, "table_delete: cannot delete from map");
 	free(dict_pop(&t->t_dict, key));
 }
 
@@ -272,7 +256,7 @@ table_config_parse(void *p, const char *config, enum table_type type)
 	char *valp;
 	size_t	ret = 0;
 
-	if (strcmp("static", t->t_src) != 0) {
+	if (t->t_type & T_DYNAMIC) {
 		log_warn("table_config_parser: config table must be static");
 		return 0;
 	}

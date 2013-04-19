@@ -295,14 +295,12 @@ enum table_service {
 struct table {
 	char				 t_name[SMTPD_MAXLINESIZE];
 	enum table_type			 t_type;
-	char				 t_src[MAX_TABLE_BACKEND_SIZE];
 	char				 t_config[SMTPD_MAXPATHLEN];
 
 	struct dict			 t_dict;
 
 	void				*t_handle;
 	struct table_backend		*t_backend;
-	void				*t_payload;
 	void				*t_iter;
 	char				 t_cfgtable[SMTPD_MAXPATHLEN];
 };
@@ -310,7 +308,7 @@ struct table {
 struct table_backend {
 	const unsigned int	services;
 	int	(*config)(struct table *, const char *);
-	void	*(*open)(struct table *);
+	void   *(*open)(struct table *);
 	int	(*update)(struct table *);
 	void	(*close)(void *);
 	int	(*lookup)(void *, const char *, enum table_service, void **);
