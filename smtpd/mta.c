@@ -842,7 +842,7 @@ static void
 mta_drain(struct mta_relay *r)
 {
 	struct mta_connector	*c;
-	struct mta_source	*s = NULL;
+	struct mta_source	*s;
 	char			 buf[64];
 
 	log_debug("debug: mta: draining %s "
