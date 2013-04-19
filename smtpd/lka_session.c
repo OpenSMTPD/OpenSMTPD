@@ -178,11 +178,14 @@ lka_resume(struct lka_session *lks)
 		m_add_id(p_smtp, lks->id);
 		m_add_int(p_smtp, lks->error);
 
-		/* XXX */
 		if (lks->errormsg)
 			m_add_string(p_smtp, lks->errormsg);
-		else
-			m_add_string(p_smtp, "");
+		else {
+			if (lks->error == LKA_PERMFAIL)
+				m_add_string(p_smtp, "550 Invalid recipient");
+			else if (lks->error == LKA_TEMPFAIL)
+				m_add_string(p_smtp, "451 Temporary failure");
+		}
 
 		m_close(p_smtp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
