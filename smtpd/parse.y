@@ -747,10 +747,6 @@ action		: userbase DELIVER TO MAILDIR			{
 		| RELAY relay_as relay_source relay_helo       	{
 			rule->r_action = A_RELAY;
 			rule->r_as = $2;
-			if ($4 != NULL && $3 == NULL) {
-				yyerror("HELO can only be used with SOURCE");
-				YYERROR;
-			}
 			if ($3)
 				strlcpy(rule->r_value.relayhost.sourcetable, $3,
 				    sizeof rule->r_value.relayhost.sourcetable);
@@ -767,14 +763,11 @@ action		: userbase DELIVER TO MAILDIR			{
 				strlcpy(rule->r_value.relayhost.hostname, $2,
 				    sizeof (rule->r_value.relayhost.hostname));
 			else
-				strlcpy(rule->r_value.relayhost.hostname, env->sc_hostname,
+				strlcpy(rule->r_value.relayhost.hostname,
+				    env->sc_hostname,
 				    sizeof (rule->r_value.relayhost.hostname));
 			free($2);
 
-			if ($5 != NULL && $4 == NULL) {
-				yyerror("HELO can only be used with SOURCE");
-				YYERROR;
-			}
 			if ($4)
 				strlcpy(rule->r_value.relayhost.sourcetable, $4,
 				    sizeof rule->r_value.relayhost.sourcetable);
@@ -817,10 +810,7 @@ action		: userbase DELIVER TO MAILDIR			{
 					fatal("certificate path too long");
 			}
 			free($4);
-			if ($8 != NULL && $7 == NULL) {
-				yyerror("HELO can only be used with SOURCE");
-				YYERROR;
-			}
+
 			if ($7)
 				strlcpy(rule->r_value.relayhost.sourcetable, $7,
 				    sizeof rule->r_value.relayhost.sourcetable);

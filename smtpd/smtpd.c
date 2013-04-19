@@ -149,14 +149,6 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 	void			*i;
 	int			 fd, n, v, ret;
 
-	if (p->proc == PROC_SMTP) {
-		switch (imsg->hdr.type) {
-		case IMSG_PARENT_SEND_CONFIG:
-			parent_send_config_smtp();
-			return;
-		}
-	}
-
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_PARENT_FORWARD_OPEN:
@@ -1501,7 +1493,6 @@ imsg_to_str(int type)
 	CASE(IMSG_PARENT_FORWARD_OPEN);
 	CASE(IMSG_PARENT_FORK_MDA);
 	CASE(IMSG_PARENT_KILL_MDA);
-	CASE(IMSG_PARENT_SEND_CONFIG);
 
 	CASE(IMSG_SMTP_ENQUEUE_FD);
 

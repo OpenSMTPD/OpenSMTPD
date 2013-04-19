@@ -146,7 +146,7 @@ struct addrname {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		1
+#define	IMSG_VERSION		2
 
 enum imsg_type {
 	IMSG_NONE,
@@ -237,7 +237,6 @@ enum imsg_type {
 	IMSG_PARENT_FORWARD_OPEN,
 	IMSG_PARENT_FORK_MDA,
 	IMSG_PARENT_KILL_MDA,
-	IMSG_PARENT_SEND_CONFIG,
 
 	IMSG_SMTP_ENQUEUE_FD,
 
