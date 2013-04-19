@@ -93,7 +93,7 @@ table_static_update(struct table *table)
 	if (table->t_config[0] == '\0')
 		goto ok;
 
-	t = table_create(table->t_src, NULL, table->t_config);
+	t = table_create("static", NULL, table->t_config);
 	if (! t->t_backend->config(t, table->t_config))
 		goto err;
 
