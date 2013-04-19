@@ -68,7 +68,7 @@ static void mta_recycle(struct mta_connector *);
 static void mta_drain(struct mta_relay *);
 static void mta_relay_schedule(struct mta_relay *, unsigned int);
 static void mta_relay_timeout(int, short, void *);
-static void mta_flush(struct mta_source *, struct mta_relay *, int, const char *);
+static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *);
 static void mta_log(const struct mta_envelope *, const char *, const char *,
     const char *, const char *);
@@ -862,7 +862,7 @@ mta_drain(struct mta_relay *r)
 	 * If we know that this relay is failing flush the tasks.
 	 */
 	if (r->fail) {
-		mta_flush(s, r, r->fail, r->failstr);
+		mta_flush(r, r->fail, r->failstr);
 		return;
 	}
 
@@ -954,7 +954,7 @@ mta_drain(struct mta_relay *r)
 				r->fail = IMSG_DELIVERY_TEMPFAIL;
 				r->failstr = "No MX could be reached";
 			}
-			mta_flush(s, r, r->fail, r->failstr);
+			mta_flush(r, r->fail, r->failstr);
 			return;
 		}
 
@@ -975,15 +975,13 @@ mta_drain(struct mta_relay *r)
 }
 
 static void
-mta_flush(struct mta_source *source, struct mta_relay *relay, int fail,
-    const char *error)
+mta_flush(struct mta_relay *relay, int fail, const char *error)
 {
 	struct mta_envelope	*e;
 	struct mta_task		*task;
 	size_t			 n;
 
-	log_debug("debug: mta_flush(%s, %s, %i, \"%s\")",
-	    source ? mta_source_to_text(source) : "None",
+	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
 
 	if (fail != IMSG_DELIVERY_TEMPFAIL && fail != IMSG_DELIVERY_PERMFAIL)
@@ -994,9 +992,7 @@ mta_flush(struct mta_source *source, struct mta_relay *relay, int fail,
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
-			mta_delivery(e,
-			    source && source->sa ? sa_to_text(source->sa) : NULL,
-			    relay->domain->name, fail, error);
+			mta_delivery(e, NULL, relay->domain->name, fail, error);
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
