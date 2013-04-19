@@ -995,7 +995,7 @@ mta_flush(struct mta_source *source, struct mta_relay *relay, int fail,
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			mta_delivery(e,
-			    source ? sa_to_text(source->sa) : NULL,
+			    source && source->sa ? sa_to_text(source->sa) : NULL,
 			    relay->domain->name, fail, error);
 			free(e->dest);
 			free(e->rcpt);
