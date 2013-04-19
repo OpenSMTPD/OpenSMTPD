@@ -68,10 +68,10 @@ static void mta_recycle(struct mta_connector *);
 static void mta_drain(struct mta_relay *);
 static void mta_relay_schedule(struct mta_relay *, unsigned int);
 static void mta_relay_timeout(int, short, void *);
-static void mta_flush(struct mta_relay *, int, const char *);
+static void mta_flush(struct mta_source *, struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *);
 static void mta_log(const struct mta_envelope *, const char *, const char *,
-    const char *);
+    const char *, const char *);
 
 SPLAY_HEAD(mta_relay_tree, mta_relay);
 static struct mta_relay *mta_relay(struct envelope *);
@@ -576,23 +576,23 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 }
 
 void
-mta_delivery(struct mta_envelope *e, const char *relay, int delivery,
-    const char *status)
+mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
+    int delivery, const char *status)
 {
 	if (delivery == IMSG_DELIVERY_OK) {
-		mta_log(e, "Ok", relay, status);
+		mta_log(e, "Ok", source, relay, status);
 		queue_ok(e->id);
 	}
 	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
-		mta_log(e, "TempFail", relay, status);
+		mta_log(e, "TempFail", source, relay, status);
 		queue_tempfail(e->id, status);
 	}
 	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
-		mta_log(e, "PermFail", relay, status);
+		mta_log(e, "PermFail", source, relay, status);
 		queue_permfail(e->id, status);
 	}
 	else if (delivery == IMSG_DELIVERY_LOOP) {
-		mta_log(e, "PermFail", relay, "Loop detected");
+		mta_log(e, "PermFail", source, relay, "Loop detected");
 		queue_loop(e->id);
 	}
 	else
@@ -842,7 +842,7 @@ static void
 mta_drain(struct mta_relay *r)
 {
 	struct mta_connector	*c;
-	struct mta_source	*s;
+	struct mta_source	*s = NULL;
 	char			 buf[64];
 
 	log_debug("debug: mta: draining %s "
@@ -862,7 +862,7 @@ mta_drain(struct mta_relay *r)
 	 * If we know that this relay is failing flush the tasks.
 	 */
 	if (r->fail) {
-		mta_flush(r, r->fail, r->failstr);
+		mta_flush(s, r, r->fail, r->failstr);
 		return;
 	}
 
@@ -954,7 +954,7 @@ mta_drain(struct mta_relay *r)
 				r->fail = IMSG_DELIVERY_TEMPFAIL;
 				r->failstr = "No MX could be reached";
 			}
-			mta_flush(r, r->fail, r->failstr);
+			mta_flush(s, r, r->fail, r->failstr);
 			return;
 		}
 
@@ -975,13 +975,15 @@ mta_drain(struct mta_relay *r)
 }
 
 static void
-mta_flush(struct mta_relay *relay, int fail, const char *error)
+mta_flush(struct mta_source *source, struct mta_relay *relay, int fail,
+    const char *error)
 {
 	struct mta_envelope	*e;
 	struct mta_task		*task;
 	size_t			 n;
 
-	log_debug("debug: mta_flush(%s, %i, \"%s\")",
+	log_debug("debug: mta_flush(%s, %s, %i, \"%s\")",
+	    source ? mta_source_to_text(source) : "None",
 	    mta_relay_to_text(relay), fail, error);
 
 	if (fail != IMSG_DELIVERY_TEMPFAIL && fail != IMSG_DELIVERY_PERMFAIL)
@@ -992,7 +994,9 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
-			mta_delivery(e, relay->domain->name, fail, error);
+			mta_delivery(e,
+			    source ? sa_to_text(source->sa) : NULL,
+			    relay->domain->name, fail, error);
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
@@ -1130,21 +1134,28 @@ mta_find_route(struct mta_connector *c)
 }
 
 static void
-mta_log(const struct mta_envelope *evp, const char *prefix, const char *relay,
-    const char *status)
+mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
+    const char *relay, const char *status)
 {
 	char rcpt[SMTPD_MAXLINESIZE];
+	char src[SMTPD_MAXLINESIZE];
 
 	rcpt[0] = '\0';
 	if (evp->rcpt)
 		snprintf(rcpt, sizeof rcpt, "rcpt=<%s>, ", evp->rcpt);
 
+	src[0] = '\0';
+	if (source)
+		snprintf(rcpt, sizeof rcpt, "source=%s, ", source);
+
+
 	log_info("relay: %s for %016" PRIx64 ": from=<%s>, to=<%s>, "
-	    "%srelay=%s, delay=%s, stat=%s",
+	    "%s%srelay=%s, delay=%s, stat=%s",
 	    prefix,
 	    evp->id,
 	    evp->task->sender,
 	    evp->dest,
+	    src,
 	    rcpt,
 	    relay,
 	    duration_to_text(time(NULL) - evp->creation),
