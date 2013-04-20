@@ -711,7 +711,7 @@ open_connection(void)
 	int		fd;
 	int		n;
 
-	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, 0, 0, -1, NULL, 0);
+	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
 		if (msgbuf_write(&ibuf->w) < 0)
@@ -769,6 +769,11 @@ enqueue_offline(int argc, char *argv[])
 		exit(1);
 	}
 	umask(omode);
+
+	if (fchmod(fd, 0600) == -1) {
+		unlink(path);
+		exit(1);
+	}
 
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {

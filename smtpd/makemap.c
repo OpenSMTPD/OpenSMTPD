@@ -33,8 +33,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
 #include <unistd.h>
+#include <util.h>
 
 #include "smtpd.h"
 #include "log.h"

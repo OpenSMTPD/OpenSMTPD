@@ -498,7 +498,6 @@ nextsub:
 	return 1;
 }
 
-
 /*
  * Check file for security. Based on usr.bin/ssh/auth.c.
  */
