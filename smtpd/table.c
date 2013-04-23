@@ -1,6 +1,7 @@
 /*	$OpenBSD: table.c,v 1.3 2013/02/05 15:23:40 gilles Exp $	*/
 
 /*
+ * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -62,9 +63,19 @@ table_backend_lookup(const char *backend)
 }
 
 struct table *
-table_findbyname(const char *name)
+table_find(const char *name, const char *tag)
 {
-	return dict_get(env->sc_tables_dict, name);
+	char buf[SMTPD_MAXLINESIZE];
+
+	if (tag == NULL)
+		return dict_get(env->sc_tables_dict, name);
+
+	if (snprintf(buf, sizeof(buf), "%s#%s", name, tag) >= (int)sizeof(buf)) {
+		log_warnx("warn: table name too long: %s#%s", name, tag);
+		return (NULL);
+	}
+
+	return dict_get(env->sc_tables_dict, buf);
 }
 
 int
@@ -81,13 +92,23 @@ table_fetch(struct table *table, enum table_service kind, char **retp)
 }
 
 struct table *
-table_create(const char *backend, const char *name, const char *config)
+table_create(const char *backend, const char *name, const char *tag,
+    const char *config)
 {
 	struct table		*t;
 	struct table_backend	*tb;
-	size_t		 n;
+	char			 buf[SMTPD_MAXLINESIZE];
+	size_t			 n;
 
-	if (name && table_findbyname(name))
+	if (name && tag) {
+		if (snprintf(buf, sizeof(buf), "%s#%s", name, tag)
+		    >= (int)sizeof(buf))
+			errx(1, "table_create: name too long \"%s#%s\"",
+			    name, tag);
+		name = buf;
+	}
+
+	if (name && table_find(name, NULL))
 		errx(1, "table_create: table \"%s\" already defined", name);
 
 	if ((tb = table_backend_lookup(backend)) == NULL)
@@ -103,18 +124,14 @@ table_create(const char *backend, const char *name, const char *config)
 	if (!strcmp(backend, "file"))
 		backend = "static";
 
-	if (strlcpy(t->t_src, backend, sizeof t->t_src) >= sizeof t->t_src)
-		errx(1, "table_create: table backend \"%s\" too large",
-		    t->t_src);
-
-	if (config && *config) {
+	if (config) {
 		if (strlcpy(t->t_config, config, sizeof t->t_config)
 		    >= sizeof t->t_config)
 			errx(1, "table_create: table config \"%s\" too large",
 			    t->t_config);
 	}
 
-	if (strcmp(t->t_src, "static") != 0)
+	if (strcmp(backend, "static") != 0)
 		t->t_type = T_DYNAMIC;
 
 	if (name == NULL)
@@ -144,45 +161,16 @@ table_destroy(struct table *t)
 	free(t);
 }
 
-void
-table_replace(struct table *orig, struct table *tnew)
+int
+table_config(struct table *t)
 {
-	void	*p = NULL;
-
-	while (dict_poproot(&orig->t_dict, NULL, (void **)&p))
-		free(p);
-	dict_merge(&orig->t_dict, &tnew->t_dict);
-	table_destroy(tnew);
-}
-
-void
-table_set_configuration(struct table *t, struct table *config)
-{
-	strlcpy(t->t_cfgtable, config->t_name, sizeof t->t_cfgtable);
-}
-
-struct table *
-table_get_configuration(struct table *t)
-{
-	return table_findbyname(t->t_cfgtable);
-}
-
-void
-table_set_payload(struct table *t, void *payload)
-{
-	t->t_payload = payload;
-}
-
-void *
-table_get_payload(struct table *t)
-{
-	return t->t_payload;
+	return (t->t_backend->config(t));
 }
 
 void
 table_add(struct table *t, const char *key, const char *val)
 {
-	if (strcmp(t->t_src, "static") != 0)
+	if (t->t_type & T_DYNAMIC)
 		errx(1, "table_add: cannot add to table");
 	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
 }
@@ -190,16 +178,16 @@ table_add(struct table *t, const char *key, const char *val)
 const void *
 table_get(struct table *t, const char *key)
 {
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "table_add: cannot get from table");
+	if (t->t_type & T_DYNAMIC)
+		errx(1, "table_get: cannot get from table");
 	return dict_get(&t->t_dict, key);
 }
 
 void
 table_delete(struct table *t, const char *key)
 {
-	if (strcmp(t->t_src, "static") != 0)
-		errx(1, "map_add: cannot delete from map");
+	if (t->t_type & T_DYNAMIC)
+		errx(1, "table_delete: cannot delete from table");
 	free(dict_pop(&t->t_dict, key));
 }
 
@@ -241,95 +229,6 @@ void
 table_update(struct table *t)
 {
 	t->t_backend->update(t);
-}
-
-void *
-table_config_create(void)
-{
-	return table_create("static", NULL, NULL);
-}
-
-const char *
-table_config_get(void *p, const char *key)
-{
-	return (const char *)table_get(p, key);
-}
-
-void
-table_config_destroy(void *p)
-{
-	table_destroy(p);
-}
-
-int
-table_config_parse(void *p, const char *config, enum table_type type)
-{
-	struct table	*t = p;
-	FILE	*fp;
-	char *buf, *lbuf;
-	size_t flen;
-	char *keyp;
-	char *valp;
-	size_t	ret = 0;
-
-	if (strcmp("static", t->t_src) != 0) {
-		log_warn("table_config_parser: config table must be static");
-		return 0;
-	}
-
-	fp = fopen(config, "r");
-	if (fp == NULL)
-		return 0;
-
-	lbuf = NULL;
-	while ((buf = fgetln(fp, &flen))) {
-		if (buf[flen - 1] == '\n')
-			buf[flen - 1] = '\0';
-		else {
-			lbuf = xmalloc(flen + 1, "table_stdio_get_entry");
-			memcpy(lbuf, buf, flen);
-			lbuf[flen] = '\0';
-			buf = lbuf;
-		}
-
-		keyp = buf;
-		while (isspace((int)*keyp))
-			++keyp;
-		if (*keyp == '\0' || *keyp == '#')
-			continue;
-		valp = keyp;
-		strsep(&valp, " \t:");
-		if (valp) {
-			while (*valp) {
-				if (!isspace(*valp) &&
-				    !(*valp == ':' && isspace(*(valp + 1))))
-					break;
-				++valp;
-			}
-			if (*valp == '\0')
-				valp = NULL;
-		}
-
-		/**/
-		if (t->t_type == 0)
-			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
-			    T_HASH;
-
-		if (!(t->t_type & type))
-			goto end;
-
-		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
-			table_add(t, keyp, NULL);
-		else if ((valp != keyp && valp != NULL) && t->t_type == T_HASH)
-			table_add(t, keyp, valp);
-		else
-			goto end;
-	}
-	ret = 1;
-end:
-	free(lbuf);
-	fclose(fp);
-	return ret;
 }
 
 int
@@ -438,6 +337,45 @@ table_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
 	}
 
 	return (1);
+}
+
+void
+table_dump_all(void)
+{
+	struct table	*t;
+	void		*iter, *i2;
+	const char 	*key, *sep;
+	char		*value;
+	char		 buf[1024];
+
+	iter = NULL;
+	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t)) {
+		i2 = NULL;
+		sep = "";
+ 		buf[0] = '\0';
+		if (t->t_type & T_DYNAMIC) {
+			strlcat(buf, "DYNAMIC", sizeof(buf));
+			sep = ",";
+		}
+		if (t->t_type & T_LIST) {
+			strlcat(buf, sep, sizeof(buf));
+			strlcat(buf, "LIST", sizeof(buf));
+			sep = ",";
+		}
+		if (t->t_type & T_HASH) {
+			strlcat(buf, sep, sizeof(buf));
+			strlcat(buf, "HASH", sizeof(buf));
+			sep = ",";
+		}
+		log_debug("TABLE \"%s\" type=%s config=\"%s\"",
+		    t->t_name, buf, t->t_config);
+		while(dict_iter(&t->t_dict, &i2, &key, (void**)&value)) {
+			if (value)
+				log_debug("	\"%s\" -> \"%s\"", key, value);
+			else
+				log_debug("	\"%s\"", key);
+		}
+	}
 }
 
 void

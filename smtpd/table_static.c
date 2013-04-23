@@ -1,6 +1,7 @@
 /*	$OpenBSD: table_static.c,v 1.3 2013/02/13 14:34:43 gilles Exp $	*/
 
 /*
+ * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -37,13 +38,14 @@
 #include "log.h"
 
 /* static backend */
-static int table_static_config(struct table *, const char *);
+static int table_static_config(struct table *);
 static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
 static int table_static_lookup(void *, const char *, enum table_service,
     void **);
 static int table_static_fetch(void *, enum table_service, char **);
 static void  table_static_close(void *);
+static int table_static_parse(struct table *, const char *, enum table_type);
 
 static int	table_static_credentials(const char *, char *, size_t, void **);
 static int	table_static_alias(const char *, char *, size_t, void **);
@@ -75,30 +77,99 @@ static struct keycmp {
 
 
 static int
-table_static_config(struct table *table, const char *config)
+table_static_config(struct table *table)
 {
 	/* no config ? ok */
-	if (config == NULL)
+	if (*table->t_config == '\0')
 		return 1;
 
-	return table_config_parse(table, config, T_LIST|T_HASH);
+	return table_static_parse(table, table->t_config, T_LIST|T_HASH);
+}
+
+static int
+table_static_parse(struct table *t, const char *config, enum table_type type)
+{
+	FILE	*fp;
+	char	*buf, *lbuf;
+	size_t	 flen;
+	char	*keyp;
+	char	*valp;
+	size_t	 ret = 0;
+
+	fp = fopen(config, "r");
+	if (fp == NULL)
+		return 0;
+
+	lbuf = NULL;
+	while ((buf = fgetln(fp, &flen))) {
+		if (buf[flen - 1] == '\n')
+			buf[flen - 1] = '\0';
+		else {
+			lbuf = xmalloc(flen + 1, "table_config_parse");
+			memcpy(lbuf, buf, flen);
+			lbuf[flen] = '\0';
+			buf = lbuf;
+		}
+
+		keyp = buf;
+		while (isspace((int)*keyp))
+			++keyp;
+		if (*keyp == '\0' || *keyp == '#')
+			continue;
+		valp = keyp;
+		strsep(&valp, " \t:");
+		if (valp) {
+			while (*valp) {
+				if (!isspace(*valp) &&
+				    !(*valp == ':' && isspace(*(valp + 1))))
+					break;
+				++valp;
+			}
+			if (*valp == '\0')
+				valp = NULL;
+		}
+
+		/**/
+		if (t->t_type == 0)
+			t->t_type = (valp == keyp || valp == NULL) ? T_LIST :
+			    T_HASH;
+
+		if (!(t->t_type & type))
+			goto end;
+
+		if ((valp == keyp || valp == NULL) && t->t_type == T_LIST)
+			table_add(t, keyp, NULL);
+		else if ((valp != keyp && valp != NULL) && t->t_type == T_HASH)
+			table_add(t, keyp, valp);
+		else
+			goto end;
+	}
+	ret = 1;
+end:
+	free(lbuf);
+	fclose(fp);
+	return ret;
 }
 
 static int
 table_static_update(struct table *table)
 {
-	struct table   *t;
+	struct table	*t;
+	void		*p = NULL;
 
 	/* no config ? ok */
 	if (table->t_config[0] == '\0')
 		goto ok;
 
-	t = table_create(table->t_src, NULL, table->t_config);
-	if (! t->t_backend->config(t, table->t_config))
+	t = table_create("static", table->t_name, "update", table->t_config);
+	if (!table_config(t))
 		goto err;
 
 	/* replace former table, frees t */
-	table_replace(table, t);
+	while (dict_poproot(&table->t_dict, NULL, (void **)&p))
+		free(p);
+	dict_merge(&table->t_dict, &t->t_dict);
+	table_destroy(t);
 
 ok:
 	log_info("info: Table \"%s\" successfully updated", table->t_name);

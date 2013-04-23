@@ -294,22 +294,19 @@ enum table_service {
 struct table {
 	char				 t_name[SMTPD_MAXLINESIZE];
 	enum table_type			 t_type;
-	char				 t_src[MAX_TABLE_BACKEND_SIZE];
 	char				 t_config[SMTPD_MAXPATHLEN];
 
 	struct dict			 t_dict;
 
 	void				*t_handle;
 	struct table_backend		*t_backend;
-	void				*t_payload;
 	void				*t_iter;
-	char				 t_cfgtable[SMTPD_MAXPATHLEN];
 };
 
 struct table_backend {
 	const unsigned int	services;
-	int	(*config)(struct table *, const char *);
-	void	*(*open)(struct table *);
+	int	(*config)(struct table *);
+	void   *(*open)(struct table *);
 	int	(*update)(struct table *);
 	void	(*close)(void *);
 	int	(*lookup)(void *, const char *, enum table_service, void **);
@@ -583,6 +580,7 @@ struct smtpd {
 #define	TRACE_RULES	0x0400
 #define	TRACE_IMSGSIZE	0x0800
 #define	TRACE_EXPAND	0x1000
+#define	TRACE_TABLES	0x2000
 
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
@@ -1284,6 +1282,10 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
+struct table *table_find(const char *, const char *);
+struct table *table_create(const char *, const char *, const char *,
+    const char *);
+int	table_config(struct table *);
 int	table_open(struct table *);
 void	table_update(struct table *);
 void	table_close(struct table *);
@@ -1292,28 +1294,16 @@ int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
 int	table_lookup(struct table *, const char *, enum table_service, void **);
 int	table_fetch(struct table *, enum table_service, char **);
-struct table *table_findbyname(const char *);
-struct table *table_create(const char *, const char *, const char *);
 void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
-void table_delete_all(struct table *);
-void table_replace(struct table *, struct table *);
 int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 int table_mailaddr_match(const char *, const char *);
 void	table_open_all(void);
+void	table_dump_all(void);
 void	table_close_all(void);
-void	table_set_payload(struct table *, void *);
-void   *table_get_payload(struct table *);
-void	table_set_configuration(struct table *, struct table *);
-struct table	*table_get_configuration(struct table *);
 const void	*table_get(struct table *, const char *);
-
-void *table_config_create(void);
-const char *table_config_get(void *, const char *);
-void table_config_destroy(void *);
-int table_config_parse(void *, const char *, enum table_type);
 
 
 /* to.c */
