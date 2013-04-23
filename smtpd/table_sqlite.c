@@ -37,7 +37,7 @@
 #include "log.h"
 
 /* sqlite(3) backend */
-static int table_sqlite_config(struct table *, const char *);
+static int table_sqlite_config(struct table *);
 static int table_sqlite_update(struct table *);
 static void *table_sqlite_open(struct table *);
 static int table_sqlite_lookup(void *, const char *, enum table_service,
@@ -65,29 +65,28 @@ static int table_sqlite_credentials(struct table_sqlite_handle *, const char *, 
 static int table_sqlite_netaddr(struct table_sqlite_handle *, const char *, void **);
 
 static int
-table_sqlite_config(struct table *table, const char *config)
+table_sqlite_config(struct table *table)
 {
-	void	*cfg;
+	struct table	*cfg;
 
 	/* no config ? broken */
-	if (config == NULL)
+	if (table->t_config[0] == '\0')
 		return 0;
 
-	cfg = table_config_create();
-	if (! table_config_parse(cfg, config, T_HASH))
+	cfg = table_create("static", table->t_name, "conf", table->t_config);
+	if (!table_config(cfg))
 		goto err;
 
 	/* sanity checks */
-	if (table_config_get(cfg, "dbpath") == NULL) {
+	if (table_get(cfg, "dbpath") == NULL) {
 		log_warnx("table_sqlite: missing 'dbpath' configuration");
 		return 0;
 	}
 
-	table_set_configuration(table, cfg);
 	return 1;
 
 err:
-	table_config_destroy(cfg);
+	table_destroy(cfg);
 	return 0;
 }
 
@@ -102,13 +101,13 @@ static void *
 table_sqlite_open(struct table *table)
 {
 	struct table_sqlite_handle	*tsh;
-	void		*cfg;
+	struct table	*cfg;
 	const char	*dbpath;
 
 	tsh = xcalloc(1, sizeof *tsh, "table_sqlite_open");
 	tsh->table = table;
 
-	cfg = table_get_configuration(table);
+	cfg = table_find(table->t_name, "conf");
 	dbpath = table_get(cfg, "dbpath");
 
 	if (sqlite3_open(dbpath, &tsh->ppDb) != SQLITE_OK) {
@@ -155,7 +154,7 @@ static int
 table_sqlite_alias(struct table_sqlite_handle *tsh, const char *key, void **retp)
 
 {
-	struct table	       *cfg = table_get_configuration(tsh->table);
+	struct table	       *cfg = table_find(tsh->table->t_name, "conf");
 	const char	       *query = table_get(cfg, "query_alias");
 	sqlite3_stmt	       *stmt;
 	struct expand	       *xp = NULL;
@@ -211,7 +210,7 @@ error:
 static int
 table_sqlite_domain(struct table_sqlite_handle *tsh, const char *key, void **retp)
 {
-	struct table	       *cfg = table_get_configuration(tsh->table);
+	struct table	       *cfg = table_find(tsh->table->t_name, "conf");
 	const char	       *query = table_get(cfg, "query_domain");
 	sqlite3_stmt	       *stmt;
 	struct destination     *domain = NULL;
@@ -261,7 +260,7 @@ table_sqlite_domain(struct table_sqlite_handle *tsh, const char *key, void **ret
 static int
 table_sqlite_userinfo(struct table_sqlite_handle *tsh, const char *key, void **retp)
 {
-	struct table	       *cfg = table_get_configuration(tsh->table);
+	struct table	       *cfg = table_find(tsh->table->t_name, "conf");
 	const char	       *query = table_get(cfg, "query_userinfo");
 	sqlite3_stmt	       *stmt;
 	struct userinfo	       *userinfo = NULL;
@@ -323,7 +322,7 @@ error:
 static int
 table_sqlite_credentials(struct table_sqlite_handle *tsh, const char *key, void **retp)
 {
-	struct table	       *cfg = table_get_configuration(tsh->table);
+	struct table	       *cfg = table_find(tsh->table->t_name, "conf");
 	const char	       *query = table_get(cfg, "query_credentials");
 	sqlite3_stmt	       *stmt;
 	struct credentials     *creds = NULL;
@@ -383,7 +382,7 @@ error:
 static int
 table_sqlite_netaddr(struct table_sqlite_handle *tsh, const char *key, void **retp)
 {
-	struct table	       *cfg = table_get_configuration(tsh->table);
+	struct table	       *cfg = table_find(tsh->table->t_name, "conf");
 	const char	       *query = table_get(cfg, "query_netaddr");
 	sqlite3_stmt	       *stmt;
 	struct netaddr	       *netaddr = NULL;
