@@ -489,8 +489,8 @@ table		: TABLE STRING STRING	{
 				free($3);
 				YYERROR;
 			}
-			table = table_create(backend, $2, config);
-			if (! table->t_backend->config(table, config)) {
+			table = table_create(backend, $2, NULL, config);
+			if (!table_config(table)) {
 				yyerror("invalid backend configuration for table %s",
 				    table->t_name);
 				free($2);
@@ -501,7 +501,7 @@ table		: TABLE STRING STRING	{
 			free($3);
 		}
 		| TABLE STRING {
-			table = table_create("static", $2, NULL);
+			table = table_create("static", $2, NULL, NULL);
 			free($2);
 		} '{' tableval_list '}' {
 			table = NULL;
@@ -540,14 +540,14 @@ tableval_list	: string_list			{ }
 tablenew	: STRING			{
 			struct table	*t;
 
-			t = table_create("static", NULL, NULL);
+			t = table_create("static", NULL, NULL, NULL);
 			t->t_type = T_LIST;
 			table_add(t, $1, NULL);
 			free($1);
 			$$ = t;
 		}
 		| '{'				{
-			table = table_create("static", NULL, NULL);
+			table = table_create("static", NULL, NULL, NULL);
 		} tableval_list '}'		{
 			$$ = table;
 		}
@@ -556,7 +556,7 @@ tablenew	: STRING			{
 tableref       	: '<' STRING '>'       		{
 			struct table	*t;
 
-			if ((t = table_findbyname($2)) == NULL) {
+			if ((t = table_find($2, NULL)) == NULL) {
 				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
@@ -621,7 +621,7 @@ userbase	: USERBASE tables	{
 
 			$$ = t;
 		}
-		| /**/	{ $$ = table_findbyname("<getpwnam>"); }
+		| /**/	{ $$ = table_find("<getpwnam>", NULL); }
 		;
 
 		
@@ -638,7 +638,7 @@ destination	: DOMAIN tables			{
 
 			$$ = t;
 		}
-		| LOCAL		{ $$ = table_findbyname("<localnames>"); }
+		| LOCAL		{ $$ = table_find("<localnames>", NULL); }
 		| ANY		{ $$ = 0; }
 		;
 
@@ -832,13 +832,13 @@ from		: FROM tables			{
 			$$ = t;
 		}
 		| FROM ANY			{
-			$$ = table_findbyname("<anyhost>");
+			$$ = table_find("<anyhost>", NULL);
 		}
 		| FROM LOCAL			{
-			$$ = table_findbyname("<localhost>");
+			$$ = table_find("<localhost>", NULL);
 		}
 		| /* empty */			{
-			$$ = table_findbyname("<localhost>");
+			$$ = table_find("<localhost>", NULL);
 		}
 		;
 
@@ -1388,12 +1388,12 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	 */
 	set_localaddrs();
 
-	t = table_create("static", "<localnames>", NULL);
+	t = table_create("static", "<localnames>", NULL, NULL);
 	t->t_type = T_LIST;
 	table_add(t, "localhost", NULL);
 	table_add(t, hostname, NULL);
 
-	table_create("getpwnam", "<getpwnam>", NULL);
+	table_create("getpwnam", "<getpwnam>", NULL, NULL);
 
 	/*
 	 * parse configuration
@@ -1736,7 +1736,7 @@ set_localaddrs(void)
 	struct sockaddr_in6	*sin6;
 	struct table		*t;
 
-	t = table_create("static", "<anyhost>", NULL);
+	t = table_create("static", "<anyhost>", NULL, NULL);
 	table_add(t, "local", NULL);
 	table_add(t, "0.0.0.0/0", NULL);
 	table_add(t, "::/0", NULL);
@@ -1744,7 +1744,7 @@ set_localaddrs(void)
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	t = table_create("static", "<localhost>", NULL);
+	t = table_create("static", "<localhost>", NULL, NULL);
 	table_add(t, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {

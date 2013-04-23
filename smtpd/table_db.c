@@ -40,7 +40,7 @@
 
 
 /* db(3) backend */
-static int table_db_config(struct table *, const char *);
+static int table_db_config(struct table *);
 static int table_db_update(struct table *);
 static void *table_db_open(struct table *);
 static int table_db_lookup(void *, const char *, enum table_service, void **);
@@ -84,7 +84,7 @@ struct dbhandle {
 };
 
 static int
-table_db_config(struct table *table, const char *config)
+table_db_config(struct table *table)
 {
 	struct dbhandle	       *handle;
 
