@@ -316,7 +316,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
 
-			table = table_findbyname(tablename);
+			table = table_find(tablename, NULL);
 
 			m_create(p, IMSG_LKA_SOURCE, 0, 0, -1, 64);
 			m_add_id(p, reqid);
@@ -426,7 +426,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables_dict;
 			env->sc_tables_dict = tables_dict;
-			rule->r_sources = table_findbyname(imsg->data);
+			rule->r_sources = table_find(imsg->data, NULL);
 			if (rule->r_sources == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
@@ -436,7 +436,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables_dict;
 			env->sc_tables_dict = tables_dict;
-			rule->r_senders = table_findbyname(imsg->data);
+			rule->r_senders = table_find(imsg->data, NULL);
 			if (rule->r_senders == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
@@ -446,7 +446,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables_dict;
 			env->sc_tables_dict = tables_dict;
-			rule->r_destination = table_findbyname(imsg->data);
+			rule->r_destination = table_find(imsg->data, NULL);
 			if (rule->r_destination == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
@@ -456,7 +456,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables_dict;
 			env->sc_tables_dict = tables_dict;
-			rule->r_mapping = table_findbyname(imsg->data);
+			rule->r_mapping = table_find(imsg->data, NULL);
 			if (rule->r_mapping == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
@@ -466,7 +466,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			rule = TAILQ_LAST(env->sc_rules_reload, rulelist);
 			tmp = env->sc_tables_dict;
 			env->sc_tables_dict = tables_dict;
-			rule->r_userbase = table_findbyname(imsg->data);
+			rule->r_userbase = table_find(imsg->data, NULL);
 			if (rule->r_userbase == NULL)
 				fatalx("lka: tables inconsistency");
 			env->sc_tables_dict = tmp;
@@ -498,6 +498,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			env->sc_rules = env->sc_rules_reload;
 			env->sc_ssl_dict = ssl_dict;
 			env->sc_tables_dict = tables_dict;
+			if (verbose & TRACE_TABLES)
+				table_dump_all();
 			table_open_all();
 
 			ssl_dict = NULL;
@@ -537,7 +539,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_UPDATE_TABLE:
-			table = table_findbyname(imsg->data);
+			table = table_find(imsg->data, NULL);
 			if (table == NULL) {
 				log_warnx("warn: Lookup table not found: "
 				    "\"%s\"", (char *)imsg->data);
@@ -658,7 +660,7 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	int			 r;
 
 	log_trace(TRACE_LOOKUP, "lookup: authenticating for %s:%s", tablename, user);
-	table = table_findbyname(tablename);
+	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: could not find table %s needed for authentication",
 		    tablename);
@@ -689,7 +691,7 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 	char			*buf;
 	int			 buflen, r;
 
-	table = table_findbyname(tablename);
+	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: credentials table %s missing", tablename);
 		return (LKA_TEMPFAIL);
@@ -734,7 +736,7 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 	struct table	*table;
 
 	log_trace(TRACE_LOOKUP, "lookup: userinfo %s:%s", tablename, username);
-	table = table_findbyname(tablename);
+	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: cannot find user table %s", tablename);
 		return (LKA_TEMPFAIL);
@@ -765,7 +767,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 	source = sa_to_text(sa);
 
 	log_trace(TRACE_LOOKUP, "lookup: helo %s:%s", tablename, source);
-	table = table_findbyname(tablename);
+	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: cannot find helo table %s", tablename);
 		return (LKA_TEMPFAIL);

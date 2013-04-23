@@ -49,7 +49,7 @@
 
 static void			*table_ldap_open(struct table *);
 static int			 table_ldap_update(struct table *);
-static int			 table_ldap_config(struct table *, const char *);
+static int			 table_ldap_config(struct table *);
 static int			 table_ldap_lookup(void *, const  char *, enum table_service, void **);
 static int			 table_ldap_fetch(void *, enum table_service, char **);
 static void			 table_ldap_close(void *);
@@ -81,30 +81,29 @@ static int	table_ldap_userinfo(struct table_ldap_handle *, const char *, void **
 
 
 static int
-table_ldap_config(struct table *table, const char *config)
+table_ldap_config(struct table *table)
 {
-	void	*cfg = NULL;
+	struct table	*cfg = NULL;
 
 	/* no config ? broken */
-	if (config == NULL)
+	if (table->t_config[0] == '\0')
 		return 0;
 
-	cfg = table_config_create();
-	if (! table_config_parse(cfg, config, T_HASH))
+	cfg = table_create("static", table->t_name, "conf", table->t_config);
+	if (!table_config(cfg))
 		goto err;
 
 	/* sanity checks */
-	if (table_config_get(cfg, "url") == NULL) {
+	if (table_get(cfg, "url") == NULL) {
 		log_warnx("table_ldap: missing 'url' configuration");
 		goto err;
 	}
 
-	if (table_config_get(cfg, "basedn") == NULL) {
+	if (table_get(cfg, "basedn") == NULL) {
 		log_warnx("table_ldap: missing 'basedn' configuration");
 		goto err;
 	}
 
-	table_set_configuration(table, cfg);
 	return 1;
 
 err:
@@ -129,7 +128,7 @@ table_ldap_open(struct table *table)
 	char     			*username = NULL;
 	char     			*password = NULL;
 
-	cfg = table_get_configuration(table);
+	cfg = table_find(table->t_name, "conf");
 	if (table_get(cfg, "url") == NULL ||
 	    table_get(cfg, "username") == NULL ||
 	    table_get(cfg, "password") == NULL)
@@ -301,18 +300,18 @@ end:
 static int
 table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **retp)
 {
-	struct aldap		       *aldap = tlh->aldap;
-	struct table		       *cfg = table_get_configuration(tlh->table);
-	const char		       *filter = NULL;
-	const char		       *basedn = NULL;
-	struct credentials		credentials;
-	char			       *expfilter = NULL;
-	char     		       *attributes[4];
-	char     		      **ret_attr[4];
-	const char     		       *attr;
-	char				line[1024];
-	int				ret = -1;
-	size_t				i;
+	struct aldap	       *aldap = tlh->aldap;
+	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
+	const char	       *filter = NULL;
+	const char	       *basedn = NULL;
+	struct credentials	credentials;
+	char		       *expfilter = NULL;
+	char     	       *attributes[4];
+	char     	      **ret_attr[4];
+	const char     	       *attr;
+	char			line[1024];
+	int			ret = -1;
+	size_t			i;
 
 	bzero(&attributes, sizeof attributes);
 	bzero(&ret_attr, sizeof ret_attr);
@@ -373,17 +372,17 @@ end:
 static int
 table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 {
-	struct aldap		       *aldap = tlh->aldap;
-	struct table		       *cfg = table_get_configuration(tlh->table);
-	const char		       *filter = NULL;
-	const char		       *basedn = NULL;
-	struct destination		destination;
-	char			       *expfilter = NULL;
-	char     		       *attributes[1];
-	char     		      **ret_attr[1];
-	const char     		       *attr;
-	int				ret = -1;
-	size_t				i;
+	struct aldap	       *aldap = tlh->aldap;
+	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
+	const char	       *filter = NULL;
+	const char	       *basedn = NULL;
+	struct destination	destination;
+	char		       *expfilter = NULL;
+	char     	       *attributes[1];
+	char     	      **ret_attr[1];
+	const char     	       *attr;
+	int			ret = -1;
+	size_t			i;
 
 	bzero(&attributes, sizeof attributes);
 	bzero(&ret_attr, sizeof ret_attr);
@@ -436,18 +435,18 @@ end:
 static int
 table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 {
-	struct aldap		       *aldap = tlh->aldap;
-	struct table		       *cfg = table_get_configuration(tlh->table);
-	const char		       *filter = NULL;
-	const char		       *basedn = NULL;
-	struct userinfo			userinfo;
-	char			       *expfilter = NULL;
-	char     		       *attributes[4];
-	char     		      **ret_attr[4];
-	const char     		       *attr;
-	char				line[1024];
-	int				ret = -1;
-	size_t				i;
+	struct aldap	       *aldap = tlh->aldap;
+	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
+	const char	       *filter = NULL;
+	const char	       *basedn = NULL;
+	struct userinfo		userinfo;
+	char		       *expfilter = NULL;
+	char     	       *attributes[4];
+	char     	      **ret_attr[4];
+	const char     	       *attr;
+	char			line[1024];
+	int			ret = -1;
+	size_t			i;
 
 	bzero(&attributes, sizeof attributes);
 	bzero(&ret_attr, sizeof ret_attr);
@@ -508,17 +507,17 @@ end:
 static int
 table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 {
-	struct aldap		       *aldap = tlh->aldap;
-	struct table		       *cfg = table_get_configuration(tlh->table);
-	const char		       *filter = NULL;
-	const char		       *basedn = NULL;
-	struct expand		       *xp = NULL;
-	char			       *expfilter = NULL;
-	char     		       *attributes[1];
-	char     		      **ret_attr[1];
-	const char     		       *attr;
-	int				ret = -1;
-	size_t				i;
+	struct aldap	       *aldap = tlh->aldap;
+	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
+	const char	       *filter = NULL;
+	const char	       *basedn = NULL;
+	struct expand	       *xp = NULL;
+	char		       *expfilter = NULL;
+	char     	       *attributes[1];
+	char     	      **ret_attr[1];
+	const char     	       *attr;
+	int			ret = -1;
+	size_t			i;
 
 	bzero(&attributes, sizeof attributes);
 	bzero(&ret_attr, sizeof ret_attr);
