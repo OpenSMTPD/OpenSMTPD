@@ -286,13 +286,14 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &status);
+		m_get_string(&m, &line);
 		m_end(&m);
 		s = tree_xpop(&wait_lka_rcpt, reqid);
 		switch (status) {
 		case LKA_OK:
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
-			smtp_reply(s, "550 Invalid recipient");
+			smtp_reply(s, "%s", line);
 			s->rcptfail += 1;
 			if (s->rcptfail >= SMTP_KICK_RCPTFAIL) {
 				log_info("smtp-in: Ending session %016"PRIx64
@@ -301,7 +302,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			break;
 		case LKA_TEMPFAIL:
-			smtp_reply(s, "451 Temporary failure");
+			smtp_reply(s, "%s", line);
 		}
 		io_reload(&s->io);
 		return;
