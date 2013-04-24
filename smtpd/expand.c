@@ -230,6 +230,9 @@ expandnode_info(struct expandnode *e)
 	case EXPAND_ADDRESS:
 		type = "address";
 		break;
+	case EXPAND_ERROR:
+		type = "error";
+		break;
 	case EXPAND_INVALID:
 	default:
 		return NULL;

@@ -52,7 +52,7 @@
 static void			*table_ldap_open(struct table *);
 static int			 table_ldap_update(struct table *);
 static int			 table_ldap_config(struct table *);
-static int			 table_ldap_lookup(void *, const  char *, enum table_service, void **);
+static int			 table_ldap_lookup(void *, const  char *, enum table_service, union lookup *);
 static int			 table_ldap_fetch(void *, enum table_service, char **);
 static void			 table_ldap_close(void *);
 static struct aldap		*ldap_client_connect(const char *);
@@ -76,10 +76,10 @@ static int	parse_attributes(char **, const char *, size_t);
 static int	table_ldap_internal_query(struct aldap *, const char *,
     const char *, char **, char ***, size_t);
 
-static int	table_ldap_alias(struct table_ldap_handle *, const char *, void **);
-static int	table_ldap_credentials(struct table_ldap_handle *, const char *, void **);
-static int	table_ldap_domain(struct table_ldap_handle *, const char *, void **);
-static int	table_ldap_userinfo(struct table_ldap_handle *, const char *, void **);
+static int	table_ldap_alias(struct table_ldap_handle *, const char *, union lookup *);
+static int	table_ldap_credentials(struct table_ldap_handle *, const char *, union lookup *);
+static int	table_ldap_domain(struct table_ldap_handle *, const char *, union lookup *);
+static int	table_ldap_userinfo(struct table_ldap_handle *, const char *, union lookup *);
 
 
 static int
@@ -194,22 +194,22 @@ table_ldap_close(void *hdl)
 
 static int
 table_ldap_lookup(void *hdl, const char *key, enum table_service service,
-		void **retp)
+    union lookup *lk)
 {
 	struct table_ldap_handle	*tlh = hdl;
 
 	switch (service) {
 	case K_ALIAS:
-		return table_ldap_alias(tlh, key, retp);
+		return table_ldap_alias(tlh, key, lk);
 
 	case K_CREDENTIALS:
-		return table_ldap_credentials(tlh, key, retp);
+		return table_ldap_credentials(tlh, key, lk);
 
 	case K_DOMAIN:
-		return table_ldap_domain(tlh, key, retp);
+		return table_ldap_domain(tlh, key, lk);
 
 	case K_USERINFO:
-		return table_ldap_userinfo(tlh, key, retp);
+		return table_ldap_userinfo(tlh, key, lk);
 
 	default:
 		break;
@@ -300,13 +300,12 @@ end:
 
 
 static int
-table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **retp)
+table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, union lookup *lk)
 {
 	struct aldap	       *aldap = tlh->aldap;
 	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
 	const char	       *filter = NULL;
 	const char	       *basedn = NULL;
-	struct credentials	credentials;
 	char		       *expfilter = NULL;
 	char     	       *attributes[4];
 	char     	      **ret_attr[4];
@@ -343,7 +342,7 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
-	if (retp == NULL)
+	if (lk == NULL)
 		goto end;
 
 	if (! bsnprintf(line, sizeof line, "%s:%s", ret_attr[0][0], ret_attr[0][1])) {
@@ -351,13 +350,9 @@ table_ldap_credentials(struct table_ldap_handle *tlh, const char *key, void **re
 		goto end;
 	}
 
-	bzero(&credentials, sizeof credentials);
-	if (! text_to_credentials(&credentials, line)) {
+	bzero(&lk->creds, sizeof(lk->creds));
+	if (! text_to_credentials(&lk->creds, line))
 		ret = -1;
-		goto end;
-	}
-
-	*retp = xmemdup(&credentials, sizeof credentials, "table_ldap_credentials");
 
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
@@ -372,13 +367,12 @@ end:
 }
 
 static int
-table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
+table_ldap_domain(struct table_ldap_handle *tlh, const char *key, union lookup *lk)
 {
 	struct aldap	       *aldap = tlh->aldap;
 	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
 	const char	       *filter = NULL;
 	const char	       *basedn = NULL;
-	struct destination	destination;
 	char		       *expfilter = NULL;
 	char     	       *attributes[1];
 	char     	      **ret_attr[1];
@@ -415,13 +409,13 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, void **retp)
 		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
-	if (retp == NULL)
+	if (lk == NULL)
 		goto end;
 
-	bzero(&destination, sizeof destination);
-	if (strlcpy(destination.name, ret_attr[0][0], sizeof destination.name)
-	    >= sizeof destination.name);
-	*retp = xmemdup(&destination, sizeof destination, "table_ldap_destination");
+	bzero(&lk->destination, sizeof(lk->destination));
+	if (strlcpy(lk->destination.name, ret_attr[0][0], sizeof(lk->destination.name))
+	    >= sizeof(lk->destination.name))
+		ret = -1;
 
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
@@ -435,13 +429,12 @@ end:
 }
 
 static int
-table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
+table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, union lookup *lk)
 {
 	struct aldap	       *aldap = tlh->aldap;
 	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
 	const char	       *filter = NULL;
 	const char	       *basedn = NULL;
-	struct userinfo		userinfo;
 	char		       *expfilter = NULL;
 	char     	       *attributes[4];
 	char     	      **ret_attr[4];
@@ -478,7 +471,7 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
-	if (retp == NULL)
+	if (lk == NULL)
 		goto end;
 
 	if (! bsnprintf(line, sizeof line, "%s:%s:%s:%s",
@@ -487,13 +480,9 @@ table_ldap_userinfo(struct table_ldap_handle *tlh, const char *key, void **retp)
 		goto end;
 	}
 
-	bzero(&userinfo, sizeof userinfo);
-	if (! text_to_userinfo(&userinfo, line)) {
+	bzero(&lk->userinfo, sizeof(lk->userinfo));
+	if (!text_to_userinfo(&(lk->userinfo), line))
 		ret = -1;
-		goto end;
-	}
-
-	*retp = xmemdup(&userinfo, sizeof userinfo, "table_ldap_userinfo");
 
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
@@ -507,13 +496,12 @@ end:
 }
 
 static int
-table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
+table_ldap_alias(struct table_ldap_handle *tlh, const char *key, union lookup *lk)
 {
 	struct aldap	       *aldap = tlh->aldap;
 	struct table	       *cfg = table_find(tlh->table->t_name, "conf");
 	const char	       *filter = NULL;
 	const char	       *basedn = NULL;
-	struct expand	       *xp = NULL;
 	char		       *expfilter = NULL;
 	char     	       *attributes[1];
 	char     	      **ret_attr[1];
@@ -523,6 +511,8 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 
 	bzero(&attributes, sizeof attributes);
 	bzero(&ret_attr, sizeof ret_attr);
+	if (lk)
+		lk->expand = NULL;
 
 	basedn = table_get(cfg, "basedn");
 	if ((filter = table_get(cfg, "alias_filter")) == NULL) {
@@ -549,17 +539,16 @@ table_ldap_alias(struct table_ldap_handle *tlh, const char *key, void **retp)
 		    ret_attr, nitems(attributes))) <= 0)
 		goto end;
 
-	if (retp == NULL)
+	if (lk == NULL)
 		goto end;
 
-	xp = xcalloc(1, sizeof *xp, "table_ldap_alias");
+	lk->expand = xcalloc(1, sizeof(*lk->expand), "table_ldap_alias");
 	for (i = 0; ret_attr[0][i]; ++i) {
-		if (! expand_line(xp, ret_attr[0][i], 1)) {
+		if (! expand_line(lk->expand, ret_attr[0][i], 1)) {
 			ret = -1;
 			goto end;
 		}
 	}
-	*retp = xp;
 
 end:
 	for (i = 0; i < nitems(attributes); ++i) {
@@ -567,12 +556,9 @@ end:
 		if (ret_attr[i])
 			aldap_free_attr(ret_attr[i]);
 	}
-	if (ret != 1) {
-		if (retp)
-			*retp = NULL;
-		if (xp)
-			expand_free(xp);
-	}
+	if (ret != 1 && lk && lk->expand)
+		expand_free(lk->expand);
+
 	free(expfilter);
 	log_debug("debug: table_ldap_alias: ret=%d", ret);
 	return ret;

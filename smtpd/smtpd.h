@@ -169,6 +169,17 @@ struct addrname {
 	char			name[SMTPD_MAXHOSTNAMELEN];
 };
 
+union lookup {
+	struct expand		*expand;
+	struct credentials	 creds;
+	struct netaddr		 netaddr;
+	struct source		 source;
+	struct destination	 destination;
+	struct userinfo		 userinfo;
+	struct mailaddr		 mailaddr;
+	struct addrname		 addrname;
+};
+
 /* XXX */
 /*
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
@@ -337,7 +348,7 @@ struct table_backend {
 	void   *(*open)(struct table *);
 	int	(*update)(struct table *);
 	void	(*close)(void *);
-	int	(*lookup)(void *, const char *, enum table_service, void **);
+	int	(*lookup)(void *, const char *, enum table_service, union lookup *);
 	int	(*fetch)(void *, enum table_service, char **);
 };
 
@@ -418,7 +429,8 @@ enum expand_type {
 	EXPAND_FILENAME,
 	EXPAND_FILTER,
 	EXPAND_INCLUDE,
-	EXPAND_ADDRESS
+	EXPAND_ADDRESS,
+	EXPAND_ERROR
 };
 
 struct expandnode {
@@ -1218,7 +1230,7 @@ void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
-void mta_delivery(struct mta_envelope *, const char *, int, const char *);
+void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1319,7 +1331,8 @@ void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
-int	table_lookup(struct table *, const char *, enum table_service, void **);
+int	table_lookup(struct table *, const char *, enum table_service,
+    union lookup *);
 int	table_fetch(struct table *, enum table_service, char **);
 void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
@@ -1331,6 +1344,8 @@ void	table_open_all(void);
 void	table_dump_all(void);
 void	table_close_all(void);
 const void	*table_get(struct table *, const char *);
+int table_parse_lookup(enum table_service, const char *, const char *,
+    union lookup *);
 
 
 /* to.c */
