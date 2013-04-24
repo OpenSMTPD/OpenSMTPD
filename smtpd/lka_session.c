@@ -211,7 +211,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		ep;
 	struct expandnode	node;
 	int			r;
-	struct userinfo	       *tu = NULL;
+	union lookup		lk;
 
 	if (xn->depth >= EXPAND_DEPTH) {
 		log_trace(TRACE_EXPAND, "expand: lka_expand: node too deep.");
@@ -316,7 +316,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		r = table_lookup(rule->r_userbase, xn->u.user, K_USERINFO, (void **)&tu);
+		r = table_lookup(rule->r_userbase, xn->u.user, K_USERINFO, &lk);
 		if (r == -1) {
 			log_trace(TRACE_EXPAND, "expand: lka_expand: "
 			    "backend error while searching user");
@@ -334,14 +334,13 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->rule = rule;
 		lks->node = xn;
 		fwreq.id = lks->id;
-		(void)strlcpy(fwreq.user, tu->username, sizeof(fwreq.user));
-		(void)strlcpy(fwreq.directory, tu->directory, sizeof(fwreq.directory));
-		fwreq.uid = tu->uid;
-		fwreq.gid = tu->gid;
+		(void)strlcpy(fwreq.user, lk.userinfo.username, sizeof(fwreq.user));
+		(void)strlcpy(fwreq.directory, lk.userinfo.directory, sizeof(fwreq.directory));
+		fwreq.uid = lk.userinfo.uid;
+		fwreq.gid = lk.userinfo.gid;
 		m_compose(p_parent, IMSG_PARENT_FORWARD_OPEN, 0, 0, -1,
 		    &fwreq, sizeof(fwreq));
 		lks->flags |= F_WAITING;
-		free(tu);
 		break;
 
 	case EXPAND_FILENAME:
@@ -374,7 +373,7 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
-	struct userinfo		*tu;
+	union lookup		 lk;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
 	const char		*tag;
@@ -418,8 +417,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    sizeof(ep->agent.mda.username));
 		}
 
-		r = table_lookup(rule->r_userbase, ep->agent.mda.username, K_USERINFO,
-		    (void **)&tu);
+		r = table_lookup(rule->r_userbase, ep->agent.mda.username,
+		    K_USERINFO, &lk);
 		if (r <= 0) {
 			lks->error = (r == -1) ? LKA_TEMPFAIL : LKA_PERMFAIL;
 			free(ep);
@@ -427,7 +426,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 		strlcpy(ep->agent.mda.usertable, rule->r_userbase->t_name,
 		    sizeof ep->agent.mda.usertable);
-		strlcpy(ep->agent.mda.username, tu->username,
+		strlcpy(ep->agent.mda.username, lk.userinfo.username,
 		    sizeof ep->agent.mda.username);
 
 		if (xn->type == EXPAND_FILENAME) {
@@ -456,8 +455,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			fatalx("lka_deliver: bad node type");
 
 		r = lka_expand_format(ep->agent.mda.buffer,
-		    sizeof(ep->agent.mda.buffer), ep, tu);
-		free(tu);
+		    sizeof(ep->agent.mda.buffer), ep, &lk.userinfo);
 		if (!r) {
 			lks->error = LKA_TEMPFAIL;
 			log_warnx("warn: format string error while"

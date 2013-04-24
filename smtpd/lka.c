@@ -656,8 +656,7 @@ static int
 lka_authenticate(const char *tablename, const char *user, const char *password)
 {
 	struct table		*table;
-	struct credentials	*creds;
-	int			 r;
+	union lookup		 lk;
 
 	log_trace(TRACE_LOOKUP, "lookup: authenticating for %s:%s", tablename, user);
 	table = table_find(tablename, NULL);
@@ -667,7 +666,7 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 		return (LKA_TEMPFAIL);
 	}
 
-	switch (table_lookup(table, user, K_CREDENTIALS, (void **)&creds)) {
+	switch (table_lookup(table, user, K_CREDENTIALS, &lk)) {
 	case -1:
 		log_warnx("warn: user credentials lookup fail for %s:%s",
 		    tablename, user);
@@ -675,9 +674,7 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		r = !strcmp(creds->password, crypt(password, creds->password));
-		free(creds);
-		if (r)
+		if (!strcmp(lk.creds.password, crypt(password, lk.creds.password)))
 			return (LKA_OK);
 		return (LKA_PERMFAIL);
 	}
@@ -687,7 +684,7 @@ static int
 lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 {
 	struct table		*table;
-	struct credentials	*creds;
+	union lookup		 lk;
 	char			*buf;
 	int			 buflen, r;
 
@@ -699,7 +696,7 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 
 	dst[0] = '\0';
 
-	switch(table_lookup(table, label, K_CREDENTIALS, (void **)&creds)) {
+	switch(table_lookup(table, label, K_CREDENTIALS, &lk)) {
 	case -1:
 		log_warnx("warn: credentials lookup fail for %s:%s",
 		    tablename, label);
@@ -710,12 +707,10 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 		return (LKA_PERMFAIL);
 	default:
 		if ((buflen = asprintf(&buf, "%c%s%c%s", '\0',
-		    creds->username, '\0', creds->password)) == -1) {
-			free(creds);
+		    lk.creds.username, '\0', lk.creds.password)) == -1) {
 			log_warn("warn");
 			return (LKA_TEMPFAIL);
 		}
-		free(creds);
 
 		r = __b64_ntop((unsigned char *)buf, buflen, dst, sz);
 		free(buf);
@@ -732,8 +727,8 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 static int
 lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 {
-	struct userinfo *info;
 	struct table	*table;
+	union lookup	 lk;
 
 	log_trace(TRACE_LOOKUP, "lookup: userinfo %s:%s", tablename, username);
 	table = table_find(tablename, NULL);
@@ -742,7 +737,7 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 		return (LKA_TEMPFAIL);
 	}
 
-	switch (table_lookup(table, username, K_USERINFO, (void **)&info)) {
+	switch (table_lookup(table, username, K_USERINFO, &lk)) {
 	case -1:
 		log_warnx("warn: failure during userinfo lookup %s:%s",
 		    tablename, username);
@@ -750,8 +745,7 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		*res = *info;
-		free(info);
+		*res = lk.userinfo;
 		return (LKA_OK);
 	}
 }
@@ -760,8 +754,8 @@ static int
 lka_addrname(const char *tablename, const struct sockaddr *sa,
     struct addrname *res)
 {
-	struct addrname *addrname;
 	struct table	*table;
+	union lookup	 lk;
 	const char	*source;
 
 	source = sa_to_text(sa);
@@ -773,7 +767,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 		return (LKA_TEMPFAIL);
 	}
 
-	switch (table_lookup(table, source, K_ADDRNAME, (void **)&addrname)) {
+	switch (table_lookup(table, source, K_ADDRNAME, &lk)) {
 	case -1:
 		log_warnx("warn: failure during helo lookup %s:%s",
 		    tablename, source);
@@ -781,8 +775,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		*res = *addrname;
-		free(addrname);
+		*res = lk.addrname;
 		return (LKA_OK);
 	}
 }      
