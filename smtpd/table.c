@@ -127,7 +127,8 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 	r = table->t_backend->lookup(table->t_handle, key, kind, lk);
 
 	if (r == 1)
-		log_trace(TRACE_LOOKUP, "lookup: lookup \"%s\" as %s in table %s:%s -> %s%s%s",
+		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %s%s%s",
+		    lk ? "lookup" : "check",
 		    key,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
@@ -136,7 +137,8 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 		    (lk) ? table_dump_lookup(kind, lk): "found",
 		    lk ? "\"" : "");
 	else
-		log_trace(TRACE_LOOKUP, "lookup: lookup \"%s\" as %s in table %s:%s -> %i",
+		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %i",
+		    lk ? "lookup" : "check",
 		    key,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
