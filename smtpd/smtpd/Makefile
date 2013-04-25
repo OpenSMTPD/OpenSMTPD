@@ -23,6 +23,7 @@ SRCS+=		delivery_mda.c
 SRCS+=		delivery_lmtp.c
 SRCS+=		table_db.c
 SRCS+=		table_getpwnam.c
+SRCS+=		table_proc.c
 SRCS+=		table_static.c
 SRCS+=		table_ldap.c
 SRCS+=		table_sqlite.c

@@ -22,6 +22,7 @@ SRCS=	parse.y makemap.c aliases.c expand.c log.c util.c table.c dict.c tree.c to
 SRCS+=	table_static.c
 SRCS+=	table_db.c
 SRCS+=	table_getpwnam.c
+SRCS+=	table_proc.c
 SRCS+=	table_ldap.c
 SRCS+=	table_sqlite.c
 

@@ -1,6 +1,7 @@
 /*	$OpenBSD: smtpd-api.h,v 1.2 2013/02/14 14:34:07 eric Exp $	*/
 
 /*
+ * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -76,6 +77,69 @@ struct filter_connect {
 	const char		*hostname;
 };
 
+#define PROC_QUEUE_API_VERSION	1
+
+enum {
+	PROC_QUEUE_OK,
+	PROC_QUEUE_FAIL,
+	PROC_QUEUE_INIT,
+	PROC_QUEUE_MESSAGE_CREATE,
+	PROC_QUEUE_MESSAGE_DELETE,
+	PROC_QUEUE_MESSAGE_COMMIT,
+	PROC_QUEUE_MESSAGE_FD_R,
+	PROC_QUEUE_MESSAGE_FD_RW,
+	PROC_QUEUE_ENVELOPE_CREATE,
+	PROC_QUEUE_ENVELOPE_DELETE,
+	PROC_QUEUE_ENVELOPE_LOAD,
+	PROC_QUEUE_ENVELOPE_UPDATE,
+	PROC_QUEUE_ENVELOPE_CORRUPT,
+	PROC_QUEUE_ENVELOPE_WALK,
+};
+
+#define PROC_SCHEDULER_API_VERSION	1
+
+enum {
+	PROC_SCHEDULER_OK,
+	PROC_SCHEDULER_FAIL,
+	PROC_SCHEDULER_INIT,
+	PROC_SCHEDULER_INSERT,
+	PROC_SCHEDULER_COMMIT,
+	PROC_SCHEDULER_ROLLBACK,
+	PROC_SCHEDULER_UPDATE,
+	PROC_SCHEDULER_DELETE,
+	PROC_SCHEDULER_BATCH,
+	PROC_SCHEDULER_MESSAGES,
+	PROC_SCHEDULER_ENVELOPES,
+	PROC_SCHEDULER_SCHEDULE,
+	PROC_SCHEDULER_REMOVE,
+};
+
+#define PROC_TABLE_API_VERSION	1
+
+enum table_service {
+	K_NONE		= 0x00,
+	K_ALIAS		= 0x01,	/* returns struct expand	*/
+	K_DOMAIN	= 0x02,	/* returns struct destination	*/
+	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
+	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
+	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
+	K_SOURCE	= 0x20, /* returns struct source	*/
+	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
+};
+#define K_ANY		  0xff
+
+enum {
+	PROC_TABLE_OK,
+	PROC_TABLE_FAIL,
+	PROC_TABLE_OPEN,
+	PROC_TABLE_CLOSE,
+	PROC_TABLE_UPDATE,
+	PROC_TABLE_CHECK,
+	PROC_TABLE_LOOKUP,
+	PROC_TABLE_FETCH,
+};
+
 /* dict.c */
 #define dict_init(d) SPLAY_INIT((d))
 #define dict_empty(d) SPLAY_EMPTY((d))
@@ -110,6 +174,13 @@ void filter_api_on_data(void(*)(uint64_t, uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *), int);
 void filter_api_on_eom(void(*)(uint64_t, uint64_t));
 void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
+
+/* table */
+void table_api_on_update(int(*)(void));
+void table_api_on_check(int(*)(int, const char *));
+void table_api_on_lookup(int(*)(int, const char *, char *, size_t));
+void table_api_on_fetch(int(*)(int, char *, size_t));
+int table_api_dispatch(void);
 
 /* tree.c */
 #define tree_init(t) SPLAY_INIT((t))

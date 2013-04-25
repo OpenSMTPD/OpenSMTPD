@@ -43,6 +43,7 @@ struct table_backend *table_backend_lookup(const char *);
 extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
+extern struct table_backend table_backend_proc;
 extern struct table_backend table_backend_sqlite;
 extern struct table_backend table_backend_ldap;
 
@@ -62,6 +63,8 @@ table_backend_lookup(const char *backend)
 		return &table_backend_db;
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
+	if (!strcmp(backend, "proc"))
+		return &table_backend_proc;
 	if (!strcmp(backend, "sqlite"))
 		return &table_backend_sqlite;
 	if (!strcmp(backend, "ldap"))
@@ -78,6 +81,8 @@ table_backend_name(struct table_backend *backend)
 		return "db";
 	if (backend == &table_backend_getpwnam)
 		return "getpwnam";
+	if (backend == &table_backend_proc)
+		return "proc";
 	if (backend == &table_backend_sqlite)
 		return "sqlite";
 	if (backend == &table_backend_ldap)
