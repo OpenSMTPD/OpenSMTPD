@@ -1322,7 +1322,7 @@ struct table *table_create(const char *, const char *, const char *,
     const char *);
 int	table_config(struct table *);
 int	table_open(struct table *);
-void	table_update(struct table *);
+int	table_update(struct table *);
 void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
