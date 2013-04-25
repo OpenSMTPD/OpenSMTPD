@@ -316,7 +316,7 @@ struct table_backend {
 	int	(*update)(struct table *);
 	void	(*close)(void *);
 	int	(*lookup)(void *, const char *, enum table_service, union lookup *);
-	int	(*fetch)(void *, enum table_service, char **);
+	int	(*fetch)(void *, enum table_service, union lookup *);
 };
 
 
@@ -1301,7 +1301,7 @@ int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
 int	table_lookup(struct table *, const char *, enum table_service,
     union lookup *);
-int	table_fetch(struct table *, enum table_service, char **);
+int	table_fetch(struct table *, enum table_service, union lookup *);
 void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
