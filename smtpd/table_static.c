@@ -43,7 +43,7 @@ static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
 static int table_static_lookup(void *, const char *, enum table_service,
     union lookup *);
-static int table_static_fetch(void *, enum table_service, char **);
+static int table_static_fetch(void *, enum table_service, union lookup *);
 static void  table_static_close(void *);
 static int table_static_parse(struct table *, const char *, enum table_type);
 
@@ -231,11 +231,10 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
-table_static_fetch(void *hdl, enum table_service service, char **retp)
+table_static_fetch(void *hdl, enum table_service service, union lookup *lk)
 {
 	struct table   *t = hdl;
 	const char     *k;
-	char	       *line;
 
 	if (! dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL)) {
 		t->t_iter = NULL;
@@ -243,13 +242,8 @@ table_static_fetch(void *hdl, enum table_service service, char **retp)
 			return 0;
 	}
 
-	if (retp == NULL)
+	if (lk == NULL)
 		return 1;
 
-	if ((line = strdup(k)) == NULL)
-		return -1;
-
-	*retp = line;
-
-	return 1;
+	return table_parse_lookup(service, NULL, k, lk);
 }
