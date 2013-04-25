@@ -29,6 +29,7 @@ makemap_SOURCES=	parse.y makemap.c aliases.c expand.c log.c util.c	\
 makemap_SOURCES+=	table_static.c
 makemap_SOURCES+=	table_db.c
 makemap_SOURCES+=	table_getpwnam.c
+makemap_SOURCES+=	table_proc.c
 if HAVE_LDAP
 makemap_SOURCES+=	table_ldap.c
 makemap_SOURCES+=	aldap.c
@@ -59,6 +60,7 @@ smtpd_SOURCES+=		delivery_lmtp.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
 smtpd_SOURCES+=		table_static.c
+smtpd_SOURCES+=		table_proc.c
 if HAVE_LDAP
 smtpd_SOURCES+=		table_ldap.c
 endif

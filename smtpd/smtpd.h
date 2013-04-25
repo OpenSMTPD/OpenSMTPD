@@ -313,18 +313,6 @@ enum table_type {
 	T_HASH		= 0x04,	/* table holding a hash table	*/
 };
 
-enum table_service {
-	K_NONE		= 0x00,
-	K_ALIAS		= 0x01,	/* returns struct expand	*/
-	K_DOMAIN	= 0x02,	/* returns struct destination	*/
-	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
-	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
-	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x20, /* returns struct source	*/
-	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
-};
-
 struct table {
 	char				 t_name[SMTPD_MAXLINESIZE];
 	enum table_type			 t_type;
