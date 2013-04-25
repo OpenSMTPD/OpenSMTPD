@@ -410,9 +410,9 @@ table_ldap_domain(struct table_ldap_handle *tlh, const char *key, union lookup *
 	if (lk == NULL)
 		goto end;
 
-	bzero(&lk->destination, sizeof(lk->destination));
-	if (strlcpy(lk->destination.name, ret_attr[0][0], sizeof(lk->destination.name))
-	    >= sizeof(lk->destination.name))
+	bzero(&lk->domain, sizeof(lk->domain));
+	if (strlcpy(lk->domain.name, ret_attr[0][0], sizeof(lk->domain.name))
+	    >= sizeof(lk->domain.name))
 		ret = -1;
 
 end:
@@ -422,7 +422,7 @@ end:
 			aldap_free_attr(ret_attr[i]);
 	}
 	free(expfilter);
-	log_debug("debug: table_ldap_destination: ret=%d", ret);
+	log_debug("debug: table_ldap_domain: ret=%d", ret);
 	return ret;
 }
 

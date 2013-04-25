@@ -325,7 +325,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				log_warn("warn: source address table %s missing",
 				    tablename);
 				m_add_int(p, LKA_TEMPFAIL);
-			} 
+			}
 			else {
 				ret = table_fetch(table, K_SOURCE, &src);
 				if (ret == -1)
@@ -658,7 +658,7 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	struct table		*table;
 	union lookup		 lk;
 
-	log_trace(TRACE_LOOKUP, "lookup: authenticating for %s:%s", tablename, user);
+	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
 	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: could not find table %s needed for authentication",
@@ -730,7 +730,7 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 	struct table	*table;
 	union lookup	 lk;
 
-	log_trace(TRACE_LOOKUP, "lookup: userinfo %s:%s", tablename, username);
+	log_debug("debug: lka: userinfo %s:%s", tablename, username);
 	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: cannot find user table %s", tablename);
@@ -760,7 +760,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 
 	source = sa_to_text(sa);
 
-	log_trace(TRACE_LOOKUP, "lookup: helo %s:%s", tablename, source);
+	log_debug("debug: lka: helo %s:%s", tablename, source);
 	table = table_find(tablename, NULL);
 	if (table == NULL) {
 		log_warnx("warn: cannot find helo table %s", tablename);
@@ -819,7 +819,7 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 		}
 	}
 	if (! ca_X509_verify(x509, x509_chain, CAfile, NULL, &errstr))
-		log_trace(TRACE_LOOKUP, "lookup: X509 verify: %s", errstr);
+		log_debug("debug: lka: X509 verify: %s", errstr);
 	else
 		ret = 1;
 

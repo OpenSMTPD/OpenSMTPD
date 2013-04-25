@@ -228,7 +228,7 @@ table_sqlite_domain(struct table_sqlite_handle *tsh, const char *key, union look
 	switch (sqlite3_step(stmt)) {
 	case SQLITE_ROW:
 		if (lk)
-			strlcpy(lk->destination.name, sqlite3_column_text(stmt, 0), sizeof(lk->destination.name));
+			strlcpy(lk->domain.name, sqlite3_column_text(stmt, 0), sizeof(lk->domain.name));
 		sqlite3_finalize(stmt);
 		return 1;
 
