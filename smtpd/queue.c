@@ -550,6 +550,15 @@ queue(void)
 	tv.tv_usec = 10;
 	evtimer_add(&ev_qload, &tv);
 
+	if (env->sc_queue_flags & QUEUE_COMPRESSION)
+		log_info("queue: queue compression enabled");
+
+	if (env->sc_queue_key) {
+		if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
+			fatalx("crypto_setup: invalid key for queue encryption");
+		log_info("queue: queue encryption enabled");
+	}
+
 	if (event_dispatch() <  0)
 		fatal("event_dispatch");
 	queue_shutdown();

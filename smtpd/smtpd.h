@@ -534,7 +534,9 @@ struct smtpd {
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
+#define QUEUE_ENCRYPTION      		0x00000002
 	uint32_t			sc_queue_flags;
+	char			       *sc_queue_key;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
