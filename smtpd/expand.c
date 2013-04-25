@@ -40,6 +40,22 @@ expand_lookup(struct expand *expand, struct expandnode *key)
 	return RB_FIND(expandtree, &expand->tree, key);
 }
 
+int
+expand_to_text(struct expand *expand, char *buf, size_t sz)
+{
+	struct expandnode *xn;
+
+	buf[0] = '\0';
+
+	RB_FOREACH(xn, expandtree, &expand->tree) {
+		if (buf[0])
+			strlcat(buf, ", ", sz);
+		strlcat(buf, expandnode_to_text(xn), sz);
+	}
+
+	return 1;
+}
+
 void
 expand_insert(struct expand *expand, struct expandnode *node)
 {

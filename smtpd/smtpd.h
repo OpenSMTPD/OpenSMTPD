@@ -106,11 +106,6 @@ struct netaddr {
 	int bits;
 };
 
-union sockaddr_any {
-	struct in6_addr		in6;
-	struct in_addr		in4;
-};
-
 struct relayhost {
 	uint8_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
@@ -132,11 +127,11 @@ struct destination {
 };
 
 struct source {
-	union sockaddr_any	addr;
+	struct sockaddr_storage	addr;
 };
 
 struct addrname {
-	union sockaddr_any	addr;
+	struct sockaddr_storage	addr;
 	char			name[SMTPD_MAXHOSTNAMELEN];
 };
 
@@ -145,7 +140,7 @@ union lookup {
 	struct credentials	 creds;
 	struct netaddr		 netaddr;
 	struct source		 source;
-	struct destination	 destination;
+	struct destination	 domain;
 	struct userinfo		 userinfo;
 	struct mailaddr		 mailaddr;
 	struct addrname		 addrname;
@@ -1106,6 +1101,7 @@ struct expandnode *expand_lookup(struct expand *, struct expandnode *);
 void expand_clear(struct expand *);
 void expand_free(struct expand *);
 int expand_line(struct expand *, const char *, int);
+int expand_to_text(struct expand *, char *, size_t);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
