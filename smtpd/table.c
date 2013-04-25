@@ -124,6 +124,9 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 {
 	int	r;
 
+	if (table->t_backend->lookup == NULL)
+		return (-1);
+
 	r = table->t_backend->lookup(table->t_handle, key, kind, lk);
 
 	if (r == 1)
@@ -152,6 +155,9 @@ int
 table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 {
 	int 	r;
+
+	if (table->t_backend->fetch == NULL)
+		return (-1);
 
 	r = table->t_backend->fetch(table->t_handle, kind, lk);
 
@@ -246,6 +252,8 @@ table_destroy(struct table *t)
 int
 table_config(struct table *t)
 {
+	if (t->t_backend->config == NULL)
+		return (1);
 	return (t->t_backend->config(t));
 }
 
@@ -294,22 +302,28 @@ table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
 int
 table_open(struct table *t)
 {
+	t->t_handle = NULL;
+	if (t->t_backend->open == NULL)
+		return (1);
 	t->t_handle = t->t_backend->open(t);
 	if (t->t_handle == NULL)
-		return 0;
-	return 1;
+		return (0);
+	return (1);
 }
 
 void
 table_close(struct table *t)
 {
-	t->t_backend->close(t->t_handle);
+	if (t->t_backend->close)
+		t->t_backend->close(t->t_handle);
 }
 
-void
+int
 table_update(struct table *t)
 {
-	t->t_backend->update(t);
+	if (t->t_backend->update == NULL)
+		return (1);
+	return (t->t_backend->update(t));
 }
 
 int
