@@ -26,6 +26,7 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -51,14 +52,10 @@ extern struct table_backend table_backend_sqlite;
 extern struct table_backend table_backend_ldap;
 #endif
 
-static int table_parse_alias(const char *, const char *, size_t, union lookup *);
-static int table_parse_domain(const char *, const char *, size_t, union lookup *);
-static int table_parse_credentials(const char *, const char *, size_t, union lookup *);
-static int table_parse_netaddr(const char *, const char *, size_t, union lookup *);
-static int table_parse_userinfo(const char *, const char *, size_t, union lookup *);
-static int table_parse_source(const char *, const char *, size_t, union lookup *);
-static int table_parse_mailaddr(const char *, const char *, size_t, union lookup *);
-static int table_parse_addrname(const char *, const char *, size_t, union lookup *);
+static const char * table_service_name(enum table_service);
+static const char * table_backend_name(struct table_backend *);
+static const char * table_dump_lookup(enum table_service, union lookup *);
+static int parse_sockaddr(struct sockaddr *, int, const char *);
 
 static unsigned int last_table_id = 0;
 
@@ -82,6 +79,39 @@ table_backend_lookup(const char *backend)
 	return NULL;
 }
 
+static const char *
+table_backend_name(struct table_backend *backend)
+{
+	if (backend == &table_backend_static)
+		return "static";
+	if (backend == &table_backend_db)
+		return "db";
+	if (backend == &table_backend_getpwnam)
+		return "getpwnam";
+	if (backend == &table_backend_sqlite)
+		return "sqlite";
+	if (backend == &table_backend_ldap)
+		return "ldap";
+	return "???";
+}
+
+static const char *
+table_service_name(enum table_service s)
+{
+	switch (s) {
+	case K_NONE:		return "NONE";
+	case K_ALIAS:		return "ALIAS";
+	case K_DOMAIN:		return "DOMAIN";
+	case K_CREDENTIALS:	return "CREDENTIALS";
+	case K_NETADDR:		return "NETADDR";
+	case K_USERINFO:	return "USERINFO";
+	case K_SOURCE:		return "SOURCE";
+	case K_MAILADDR:	return "MAILADDR";
+	case K_ADDRNAME:	return "ADDRNAME";
+	default:		return "???";
+	}
+}
+
 struct table *
 table_find(const char *name, const char *tag)
 {
@@ -102,7 +132,28 @@ int
 table_lookup(struct table *table, const char *key, enum table_service kind,
     union lookup *lk)
 {
-	return table->t_backend->lookup(table->t_handle, key, kind, lk);
+	int	r;
+
+	r = table->t_backend->lookup(table->t_handle, key, kind, lk);
+
+	if (r == 1)
+		log_trace(TRACE_LOOKUP, "lookup: \"%s\" as %s in table %s:%s -> %s%s%s",
+		    key,
+		    table_service_name(kind),
+		    table_backend_name(table->t_backend),
+		    table->t_name,
+		    lk ? "\"" : "",
+		    (lk) ? table_dump_lookup(kind, lk): "found",
+		    lk ? "\"" : "");
+	else
+		log_trace(TRACE_LOOKUP, "lookup: \"%s\" as %s in table %s:%s -> %i",
+		    key,
+		    table_service_name(kind),
+		    table_backend_name(table->t_backend),
+		    table->t_name,
+		    r);
+
+	return (r);
 }
 
 int
@@ -243,7 +294,6 @@ table_close(struct table *t)
 {
 	t->t_backend->close(t->t_handle);
 }
-
 
 void
 table_update(struct table *t)
@@ -425,134 +475,214 @@ int
 table_parse_lookup(enum table_service service, const char *key,
     const char *line, union lookup *lk)
 {
+	char	buffer[SMTPD_MAXLINESIZE], *p;
 	size_t	len;
 
 	len = strlen(line);
+
 	switch (service) {
 	case K_ALIAS:
-		return table_parse_alias(key, line, len, lk);
+		lk->expand = calloc(1, sizeof(*lk->expand));
+		if (lk->expand == NULL)
+			return (-1);
+		if (!expand_line(lk->expand, line, 1)) {
+			expand_free(lk->expand);
+			return (-1);
+		}
+		return (1);
 
 	case K_DOMAIN:
-		return table_parse_domain(key, line, len, lk);
+		if (strlcpy(lk->domain.name, line, sizeof(lk->domain.name))
+		    >= sizeof(lk->domain.name))
+			return (-1);
+		return (1);
 
 	case K_CREDENTIALS:
-		return table_parse_credentials(key, line, len, lk);
+
+		/* credentials are stored as user:password */
+		if (len < 3)
+			return (-1);
+
+		/* too big to fit in a smtp session line */
+		if (len >= SMTPD_MAXLINESIZE)
+			return (-1);
+
+		p = strchr(line, ':');
+		if (p == NULL || p == line || p == line + len - 1)
+			return (-1);
+
+		memmove(lk->creds.username, line, p - line);
+		lk->creds.username[p - line] = '\0';
+
+		if (strlcpy(lk->creds.password, p+1, sizeof(lk->creds.password))
+		    >= sizeof(lk->creds.password))
+			return (-1);
+
+		return (1);
 
 	case K_NETADDR:
-		return table_parse_netaddr(key, line, len, lk);
+		if (!text_to_netaddr(&lk->netaddr, line))
+			return (-1);
+		return (1);
 
 	case K_USERINFO:
-		return table_parse_userinfo(key, line, len, lk);
+		if (!bsnprintf(buffer, sizeof(buffer), "%s:%s", key, line))
+			return (-1);
+		if (!text_to_userinfo(&lk->userinfo, buffer))
+			return (-1);
+ 		return (1);
 
 	case K_SOURCE:
-		return table_parse_source(key, line, len, lk);
+		if (parse_sockaddr((struct sockaddr *)&lk->source.addr,
+		    PF_UNSPEC, line) == -1)
+			return (-1);
+		return (1);
 
 	case K_MAILADDR:
-		return table_parse_mailaddr(key, line, len, lk);
+		if (!text_to_mailaddr(&lk->mailaddr, line))
+			return (-1);
+		return (1);
 
 	case K_ADDRNAME:
-		return table_parse_addrname(key, line, len, lk);
+		if (parse_sockaddr((struct sockaddr *)&lk->addrname.addr,
+		    PF_UNSPEC, key) == -1)
+			return (-1);
+		if (strlcpy(lk->addrname.name, line, sizeof(lk->addrname.name))
+		    >= sizeof(lk->addrname.name))
+			return (-1);
+		return (1);
 
 	default:
 		return (-1);
 	}
 }
 
-static int
-table_parse_alias(const char *key, const char *line, size_t len, union lookup *lk)
+static const char *
+table_dump_lookup(enum table_service s, union lookup *lk)
 {
-	lk->expand = xcalloc(1, sizeof(*lk->expand), "table_parse_alias");
-	if (!expand_line(lk->expand, line, 1)) {
-		expand_free(lk->expand);
-		return (-1);
+	static char	buf[SMTPD_MAXLINESIZE];
+
+	switch (s) {
+	case K_NONE:
+		break;
+
+	case K_ALIAS:
+		expand_to_text(lk->expand, buf, sizeof(buf));
+		break;
+
+	case K_DOMAIN:
+		snprintf(buf, sizeof(buf), "%s", lk->domain.name);
+		break;
+
+	case K_CREDENTIALS:
+		snprintf(buf, sizeof(buf), "%s:%s",
+		    lk->creds.username, lk->creds.password);
+		break;
+
+	case K_NETADDR:
+		snprintf(buf, sizeof(buf), "%s/%i",
+		    sockaddr_to_text((struct sockaddr *)&lk->netaddr.ss),
+		    lk->netaddr.bits);
+		break;
+
+	case K_USERINFO:
+		snprintf(buf, sizeof(buf), "%s:%i:%i:%s",
+		    lk->userinfo.username,
+		    lk->userinfo.uid,
+		    lk->userinfo.gid,
+		    lk->userinfo.directory);
+		break;
+
+	case K_SOURCE:
+		snprintf(buf, sizeof(buf), "%s",
+		    ss_to_text(&lk->source.addr));
+		break;
+
+	case K_MAILADDR:
+		snprintf(buf, sizeof(buf), "%s@%s",
+		    lk->mailaddr.user,
+		    lk->mailaddr.domain);
+		break;
+
+	case K_ADDRNAME:
+		snprintf(buf, sizeof(buf), "%s",
+		    lk->addrname.name);
+		break;
+
+	default:
+		break;
 	}
-	return (1);
+
+	return (buf);
 }
 
-static int
-table_parse_credentials(const char *key, const char *line, size_t len, union lookup *lk)
-{
-	char			*p;
-
-	/* credentials are stored as user:password */
-	if (len < 3)
-		return (-1);
-
-	/* too big to fit in a smtp session line */
-	if (len >= SMTPD_MAXLINESIZE)
-		return (-1);
-
-	p = strchr(line, ':');
-	if (p == NULL)
-		return (-1);
-
-	if (p == line || p == line + len - 1)
-		return (-1);
-	*p++ = '\0';
-
-	if (strlcpy(lk->creds.password, p, sizeof(lk->creds.password))
-	    >= sizeof(lk->creds.password))
-		return (-1);
-
-	return (1);
-}
 
 static int
-table_parse_netaddr(const char *key, const char *line, size_t len, union lookup *lk)
+parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 {
-	if (!text_to_netaddr(&lk->netaddr, line))
-		return (-1);
-	return (1);
-}
+	struct in_addr		 ina;
+	struct in6_addr		 in6a;
+	struct sockaddr_in	*sin;
+	struct sockaddr_in6	*sin6;
+	char			*cp, *str2;
+	const char		*errstr;
 
-static int
-table_parse_source(const char *key, const char *line, size_t len, union lookup *lk)
-{
-	if (inet_pton(AF_INET6, line, &lk->source.addr.in6) != 1)
-		if (inet_pton(AF_INET, line, &lk->source.addr.in4) != 1)
-			return (-1);
-	return (1);
-}
+	switch (family) {
+	case PF_UNSPEC:
+		if (parse_sockaddr(sa, PF_INET, str) == 0)
+			return (0);
+		return parse_sockaddr(sa, PF_INET6, str);
 
-static int
-table_parse_domain(const char *key, const char *line, size_t len, union lookup *lk)
-{
-	if (strlcpy(lk->destination.name, line, sizeof(lk->destination.name))
-	    >= sizeof(lk->destination.name))
-		return (-1);
-	return (1);
-}
-
-static int
-table_parse_userinfo(const char *key, const char *line, size_t len, union lookup *lk)
-{
-	char	buffer[1024];
-
-	if (!bsnprintf(buffer, sizeof(buffer), "%s:%s", key, line))
-		return (-1);
-	if (!text_to_userinfo(&lk->userinfo, buffer))
-		return (-1);
- 	return (1);
-}
-
-static int
-table_parse_mailaddr(const char *key, const char *line, size_t len, union lookup *lk)
-{
-	if (!text_to_mailaddr(&lk->mailaddr, line))
-		return (-1);
-	return (1);
-}
-
-static int
-table_parse_addrname(const char *key, const char *line, size_t len, union lookup *lk)
-{
-	if (inet_pton(AF_INET6, key, &lk->addrname.addr.in6) != 1)
-		if (inet_pton(AF_INET, key, &lk->addrname.addr.in4) != 1)
+	case PF_INET:
+		if (inet_pton(PF_INET, str, &ina) != 1)
 			return (-1);
 
-	if (strlcpy(lk->addrname.name, line, sizeof(lk->addrname.name))
-	    >= sizeof(lk->addrname.name))
-		return (-1);
+		sin = (struct sockaddr_in *)sa;
+		memset(sin, 0, sizeof *sin);
+		sin->sin_len = sizeof(struct sockaddr_in);
+		sin->sin_family = PF_INET;
+		sin->sin_addr.s_addr = ina.s_addr;
+		return (0);
 
-	return (1);
+	case PF_INET6:
+		cp = strchr(str, SCOPE_DELIMITER);
+		if (cp) {
+			str2 = strdup(str);
+			if (str2 == NULL)
+				return (-1);
+			str2[cp - str] = '\0';
+			if (inet_pton(PF_INET6, str2, &in6a) != 1) {
+				free(str2);
+				return (-1);
+			}
+			cp++;
+			free(str2);
+		} else if (inet_pton(PF_INET6, str, &in6a) != 1)
+			return (-1);
+
+		sin6 = (struct sockaddr_in6 *)sa;
+		memset(sin6, 0, sizeof *sin6);
+		sin6->sin6_len = sizeof(struct sockaddr_in6);
+		sin6->sin6_family = PF_INET6;
+		sin6->sin6_addr = in6a;
+
+		if (cp == NULL)
+			return (0);
+
+		if (IN6_IS_ADDR_LINKLOCAL(&in6a) ||
+		    IN6_IS_ADDR_MC_LINKLOCAL(&in6a) ||
+		    IN6_IS_ADDR_MC_INTFACELOCAL(&in6a))
+			if ((sin6->sin6_scope_id = if_nametoindex(cp)))
+				return (0);
+
+		sin6->sin6_scope_id = strtonum(cp, 0, UINT32_MAX, &errstr);
+		if (errstr)
+			return (-1);
+		return (0);
+
+	default:
+		break;
+	}
+
+	return (-1);
 }
