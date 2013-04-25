@@ -137,7 +137,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 	r = table->t_backend->lookup(table->t_handle, key, kind, lk);
 
 	if (r == 1)
-		log_trace(TRACE_LOOKUP, "lookup: \"%s\" as %s in table %s:%s -> %s%s%s",
+		log_trace(TRACE_LOOKUP, "lookup: lookup \"%s\" as %s in table %s:%s -> %s%s%s",
 		    key,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
@@ -146,7 +146,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 		    (lk) ? table_dump_lookup(kind, lk): "found",
 		    lk ? "\"" : "");
 	else
-		log_trace(TRACE_LOOKUP, "lookup: \"%s\" as %s in table %s:%s -> %i",
+		log_trace(TRACE_LOOKUP, "lookup: lookup \"%s\" as %s in table %s:%s -> %i",
 		    key,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
@@ -157,9 +157,28 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 }
 
 int
-table_fetch(struct table *table, enum table_service kind, char **retp)
+table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 {
-	return table->t_backend->fetch(table->t_handle, kind, retp);
+	int 	r;
+
+	r = table->t_backend->fetch(table->t_handle, kind, lk);
+
+	if (r == 1)
+		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %s%s%s",
+		    table_service_name(kind),
+		    table_backend_name(table->t_backend),
+		    table->t_name,
+		    lk ? "\"" : "",
+		    (lk) ? table_dump_lookup(kind, lk): "found",
+		    lk ? "\"" : "");
+	else
+		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %i",
+		    table_service_name(kind),
+		    table_backend_name(table->t_backend),
+		    table->t_name,
+		    r);
+
+	return (r);
 }
 
 struct table *

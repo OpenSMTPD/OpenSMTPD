@@ -49,13 +49,13 @@
 #define MAX_LDAP_FILTERLEN     	 1024
 #define MAX_LDAP_FIELDLEN      	 128
 
-static void			*table_ldap_open(struct table *);
-static int			 table_ldap_update(struct table *);
-static int			 table_ldap_config(struct table *);
-static int			 table_ldap_lookup(void *, const  char *, enum table_service, union lookup *);
-static int			 table_ldap_fetch(void *, enum table_service, char **);
-static void			 table_ldap_close(void *);
-static struct aldap		*ldap_client_connect(const char *);
+static void	*table_ldap_open(struct table *);
+static int	 table_ldap_update(struct table *);
+static int	 table_ldap_config(struct table *);
+static int	 table_ldap_lookup(void *, const  char *, enum table_service, union lookup *);
+static int	 table_ldap_fetch(void *, enum table_service, union lookup *);
+static void	 table_ldap_close(void *);
+static struct aldap	*ldap_client_connect(const char *);
 
 struct table_backend table_backend_ldap = {
 	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_USERINFO, /* K_NETADDR|K_SOURCE,*/
@@ -219,7 +219,7 @@ table_ldap_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
-table_ldap_fetch(void *hdl, enum table_service service, char **retp)
+table_ldap_fetch(void *hdl, enum table_service service, union lookup *lk)
 {
 	/* fetch not support for LDAP at this point */
 	return -1;

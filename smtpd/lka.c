@@ -68,7 +68,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	void			*tmp;
 	int			 ret;
 	const char		*key, *val;
-	char			*src;
 	struct ssl		*ssl;
 	struct iovec		iov[3];
 	static struct dict	*ssl_dict;
@@ -81,11 +80,11 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct ca_cert_req_msg		*req_ca_cert;
 	struct ca_cert_resp_msg		 resp_ca_cert;
 	struct sockaddr_storage	 ss;
-	struct addrinfo		 hints, *ai;
 	struct userinfo		 userinfo;
 	struct addrname		 addrname;
 	struct envelope		 evp;
 	struct msg		 m;
+	union lookup		 lk;
 	char			 buf[SMTPD_MAXLINESIZE];
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
@@ -331,23 +330,15 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				m_add_int(p, LKA_TEMPFAIL);
 			}
 			else {
-				ret = table_fetch(table, K_SOURCE, &src);
+				ret = table_fetch(table, K_SOURCE, &lk);
 				if (ret == -1)
 					m_add_int(p, LKA_TEMPFAIL);
 				else if (ret == 0)
 					m_add_int(p, LKA_PERMFAIL);
 				else {
-					/* XXX find a nicer way? */
-					bzero(&hints, sizeof hints);
-					hints.ai_flags = AI_NUMERICHOST;
-					if (getaddrinfo(src, NULL, &hints, &ai) != 0)
-						m_add_int(p, LKA_TEMPFAIL);
-					else {
-						m_add_int(p, LKA_OK);
-						m_add_sockaddr(p, ai->ai_addr);
-						freeaddrinfo(ai);
-					}
-					free(src);
+					m_add_int(p, LKA_OK);
+					m_add_sockaddr(p,
+					    (struct sockaddr *)&lk.source.addr);
 				}
 			}
 			m_close(p);
