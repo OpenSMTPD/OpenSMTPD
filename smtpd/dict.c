@@ -63,7 +63,8 @@ dict_set(struct dict *d, const char *k, void *data)
 	if (strlcpy(key.key, k, sizeof key.key) >= sizeof key.key)
 		errx(1, "dict_set(%p, %s): key too large", d, k);
 	if ((entry = SPLAY_FIND(dict, d, &key)) == NULL) {
-		entry = xmalloc(sizeof *entry, "dict_set");
+		if ((entry = malloc(sizeof *entry)) == NULL)
+			err(1, "dict_set: malloc");
 		(void)strlcpy(entry->key, k, sizeof entry->key);
 		SPLAY_INSERT(dict, d, entry);
 		old = NULL;
@@ -80,7 +81,8 @@ dict_xset(struct dict *d, const char * k, void *data)
 {
 	struct dictentry	*entry;
 
-	entry = xmalloc(sizeof *entry, "dict_xset");
+	if ((entry = malloc(sizeof *entry)) == NULL)
+		err(1, "dict_xset: malloc");
 	if (strlcpy(entry->key, k, sizeof entry->key) >= sizeof entry->key)
 		errx(1, "dict_xset(%p, %s): key too large", d, k);
 	entry->data = data;
