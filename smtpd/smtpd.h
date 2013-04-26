@@ -577,6 +577,7 @@ struct smtpd {
 #define	TRACE_IMSGSIZE	0x0800
 #define	TRACE_EXPAND	0x1000
 #define	TRACE_TABLES	0x2000
+#define	TRACE_QUEUE	0x4000
 
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
