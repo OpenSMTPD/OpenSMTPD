@@ -338,7 +338,6 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 	uintptr_t	*n;
 	int		 r;
 	uint32_t	 msgid;
-	struct envelope	 ep;
 
 	if (done)
 		return (-1);
