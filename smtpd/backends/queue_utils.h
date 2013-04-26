@@ -18,6 +18,4 @@
 
 uint32_t queue_generate_msgid(void);
 uint64_t queue_generate_evpid(uint32_t);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t msgid);
 int mktmpfile(const char *);

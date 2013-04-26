@@ -1308,8 +1308,6 @@ int table_parse_lookup(enum table_service, const char *, const char *,
 
 /* to.c */
 int email_to_mailaddr(struct mailaddr *, char *);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_mailaddr(struct mailaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);
