@@ -200,7 +200,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			queue_log(&evp, "Remove", "Removed by administrator");
 			queue_envelope_delete(evpid);
 			return;
@@ -210,7 +210,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -224,7 +224,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			req_bounce = imsg->data;
 			evpid = req_bounce->evpid;
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
 			queue_envelope_update(&evp);
@@ -235,7 +235,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			evp.lasttry = time(NULL);
 			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_mda, &evp);
@@ -261,7 +261,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			evp.lasttry = time(NULL);
 			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, MSZ_EVP);
 			m_add_id(p_mta, batch_id);
@@ -341,7 +341,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &reason);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			envelope_set_errormsg(&evp, "%s", reason);
 			evp.retry++;
 			queue_envelope_update(&evp);
@@ -357,7 +357,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &reason);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -375,7 +375,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
