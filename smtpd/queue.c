@@ -199,6 +199,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
+
+			/* already removed by scheduler */
 			if (queue_envelope_load(evpid, &evp) == 0)
 				return;
 			queue_log(&evp, "Remove", "Removed by administrator");
@@ -209,8 +211,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
+
+			/* already removed by scheduler*/
 			if (queue_envelope_load(evpid, &evp) == 0)
 				return;
+
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -223,8 +228,13 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_BOUNCE:
 			req_bounce = imsg->data;
 			evpid = req_bounce->evpid;
-			if (queue_envelope_load(evpid, &evp) == 0)
+
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				m_add_evpid(p_scheduler, evpid);
+				m_close(p_scheduler);
 				return;
+			}
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
 			queue_envelope_update(&evp);
@@ -234,8 +244,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				m_add_evpid(p_scheduler, evpid);
+				m_close(p_scheduler);
 				return;
+			}
 			evp.lasttry = time(NULL);
 			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_mda, &evp);
@@ -260,8 +274,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				m_add_evpid(p_scheduler, evpid);
+				m_close(p_scheduler);
 				return;
+			}
 			evp.lasttry = time(NULL);
 			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, MSZ_EVP);
 			m_add_id(p_mta, batch_id);
@@ -340,8 +358,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_get_string(&m, &reason);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				m_add_evpid(p_scheduler, evpid);
+				m_close(p_scheduler);
 				return;
+			}
 			envelope_set_errormsg(&evp, "%s", reason);
 			evp.retry++;
 			queue_envelope_update(&evp);
@@ -356,8 +378,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_get_string(&m, &reason);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				m_add_evpid(p_scheduler, evpid);
+				m_close(p_scheduler);
 				return;
+			}
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -374,8 +400,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				m_add_evpid(p_scheduler, evpid);
+				m_close(p_scheduler);
 				return;
+			}
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
