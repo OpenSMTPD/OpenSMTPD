@@ -1133,8 +1133,14 @@ static void
 mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
     const char *relay, const char *status)
 {
+	char session[SMTPD_MAXLINESIZE];
 	char rcpt[SMTPD_MAXLINESIZE];
 	char src[SMTPD_MAXLINESIZE];
+
+	session[0] = '\0';
+	if (evp->session)
+		snprintf(session, sizeof session, "session=%016"PRIx64", ",
+		    evp->session);
 
 	rcpt[0] = '\0';
 	if (evp->rcpt)
@@ -1142,13 +1148,14 @@ mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
 
 	src[0] = '\0';
 	if (source)
-		snprintf(rcpt, sizeof rcpt, "source=%s, ", source);
+		snprintf(src, sizeof src, "source=%s, ", source);
 
 
-	log_info("relay: %s for %016" PRIx64 ": from=<%s>, to=<%s>, "
+	log_info("relay: %s for %016" PRIx64 ": %sfrom=<%s>, to=<%s>, "
 	    "%s%srelay=%s, delay=%s, stat=%s",
 	    prefix,
 	    evp->id,
+	    session,
 	    evp->task->sender,
 	    evp->dest,
 	    src,

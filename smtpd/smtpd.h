@@ -731,6 +731,7 @@ struct mta_relay {
 struct mta_envelope {
 	TAILQ_ENTRY(mta_envelope)	 entry;
 	uint64_t			 id;
+	uint64_t			 session;
 	time_t				 creation;
 	char				*dest;
 	char				*rcpt;

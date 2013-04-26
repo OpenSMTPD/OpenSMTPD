@@ -781,6 +781,9 @@ mta_response(struct mta_session *s, char *line)
 			snprintf(buf, sizeof(buf), "%s",
 			    mta_host_to_text(s->route->dst));
 
+			/* we're about to log, associate session to envelope */
+			e->session = s->id;
+
 			/* XXX */
 			/*
 			 * getsockname() can only fail with ENOBUFS here
@@ -1083,6 +1086,9 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		}
 
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
+
+		/* we're about to log, associate session to envelope */
+		e->session = s->id;
 
 		/* XXX */
 		/*
