@@ -32,10 +32,10 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-static int(*handler_update)(void) = NULL;
-static int(*handler_check)(int, const char *) = NULL;
-static int(*handler_lookup)(int, const char *, char *, size_t) = NULL;
-static int(*handler_fetch)(int, char *, size_t) = NULL;
+static int (*handler_update)(void);
+static int (*handler_check)(int, const char *);
+static int (*handler_lookup)(int, const char *, char *, size_t);
+static int (*handler_fetch)(int, char *, size_t);
 
 static struct imsgbuf	ibuf;
 static struct imsg	imsg;
