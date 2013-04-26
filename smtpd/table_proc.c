@@ -23,7 +23,6 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -96,7 +95,7 @@ table_proc_open(struct table *table)
 		environ = environ_new;
 		execle("/bin/sh", "/bin/sh", "-c", table->t_config, (char *)NULL,
 		    environ_new);
-		err(1, "execl");
+		fatal("execl");
 	}
 
 	/* parent process */
