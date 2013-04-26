@@ -165,6 +165,27 @@ queue_message_commit(uint32_t msgid)
 		}
 	}
 
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+
+		bsnprintf(tmppath, sizeof tmppath, "%s.enc", msgpath);
+		ifp = fopen(msgpath, "r");
+		ofp = fopen(tmppath, "w+");
+		if (ifp == NULL || ofp == NULL)
+			goto err;
+		if (! crypto_encrypt_file(ifp, ofp))
+			goto err;
+		fclose(ifp);
+		fclose(ofp);
+		ifp = NULL;
+		ofp = NULL;
+
+		if (rename(tmppath, msgpath) == -1) {
+			if (errno == ENOSPC)
+				return (0);
+			fatal("queue_message_commit: rename");
+		}
+	}
+
 	r = backend->message(QOP_COMMIT, &msgid);
 	profile_leave();
 
@@ -203,6 +224,26 @@ queue_message_fd_r(uint32_t msgid)
 
 	if (fdin == -1)
 		return (-1);
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		if ((fdout = mktmpfile()) == -1)
+			goto err;
+		if ((fd = dup(fdout)) == -1)
+			goto err;
+		if ((ifp = fdopen(fdin, "r")) == NULL)
+			goto err;
+		fdin = fd;
+		fd = -1;
+		if ((ofp = fdopen(fdout, "w+")) == NULL)
+			goto err;
+
+		if (! crypto_decrypt_file(ifp, ofp))
+			goto err;
+
+		fclose(ifp);
+		fclose(ofp);
+		lseek(fdin, SEEK_SET, 0);
+	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		if ((fdout = mktmpfile()) == -1)
@@ -273,6 +314,14 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evplen = complen;
 	}
 
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		complen = crypto_encrypt_buffer(evp, evplen, compbuf, sizeof compbuf);
+		if (complen == 0)
+			return (0);
+		evp = compbuf;
+		evplen = complen;
+	}
+
 	memmove(evpbuf, evp, evplen);
 
 	return (evplen);
@@ -288,6 +337,14 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 
 	evp = evpbuf;
 	evplen = evpbufsize;
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		complen = crypto_decrypt_buffer(evp, evplen, compbuf, sizeof compbuf);
+		if (complen == 0)
+			return (0);
+		evp = compbuf;
+		evplen = complen;
+	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		complen = uncompress_chunk(evp, evplen, compbuf, sizeof compbuf);
