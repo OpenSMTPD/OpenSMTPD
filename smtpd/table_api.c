@@ -203,6 +203,7 @@ table_api_dispatch(void)
 		}
 		if (n == 0) {
 			log_warnx("warn: table-api: pipe closed");
+			break;
 		}
 	}
 
