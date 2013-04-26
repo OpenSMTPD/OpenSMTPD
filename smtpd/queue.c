@@ -262,7 +262,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0)
 				errx(1, "cannot load evp:%016" PRIx64, evpid);
-			log_debug("########## loaded: %"PRIx64, evpid);
 			evp.lasttry = time(NULL);
 			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, MSZ_EVP);
 			m_add_id(p_mta, batch_id);

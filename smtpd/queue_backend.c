@@ -145,7 +145,6 @@ queue_message_commit(uint32_t msgid)
 	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
-
 		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
 		ifp = fopen(msgpath, "r");
 		ofp = fopen(tmppath, "w+");
@@ -166,7 +165,6 @@ queue_message_commit(uint32_t msgid)
 	}
 
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
-
 		bsnprintf(tmppath, sizeof tmppath, "%s.enc", msgpath);
 		ifp = fopen(msgpath, "r");
 		ofp = fopen(tmppath, "w+");
@@ -300,6 +298,8 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t	evplen;
 	size_t	complen;
 	char	compbuf[sizeof(struct envelope)];
+	size_t	enclen;
+	char	encbuf[sizeof(struct envelope)];
 
 	evp = evpbuf;
 	evplen = envelope_dump_buffer(ep, evpbuf, evpbufsize);
@@ -315,11 +315,11 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	}
 
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
-		complen = crypto_encrypt_buffer(evp, evplen, compbuf, sizeof compbuf);
-		if (complen == 0)
+		enclen = crypto_encrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
+		if (enclen == 0)
 			return (0);
-		evp = compbuf;
-		evplen = complen;
+		evp = encbuf;
+		evplen = enclen;
 	}
 
 	memmove(evpbuf, evp, evplen);
@@ -334,16 +334,18 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t		 evplen;
 	char		 compbuf[sizeof(struct envelope)];
 	size_t		 complen;
+	char		 encbuf[sizeof(struct envelope)];
+	size_t		 enclen;
 
 	evp = evpbuf;
 	evplen = evpbufsize;
 
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
-		complen = crypto_decrypt_buffer(evp, evplen, compbuf, sizeof compbuf);
-		if (complen == 0)
+		enclen = crypto_decrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
+		if (enclen == 0)
 			return (0);
-		evp = compbuf;
-		evplen = complen;
+		evp = encbuf;
+		evplen = enclen;
 	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
