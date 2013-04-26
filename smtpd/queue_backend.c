@@ -413,6 +413,8 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
 		    ep->id, e);
 	}
+
+	(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	return (0);
 }
 
@@ -445,12 +447,10 @@ queue_envelope_walk(struct envelope *ep)
 	profile_enter("queue_envelope_walk");
 	r = backend->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
 	profile_leave();
-	if (r == -1 || r == 0)
+	if (r == -1)
 		return (r);
 
-	log_debug("evpbuf: %s", evpbuf);
-	if (envelope_load_buffer(ep, evpbuf, (size_t)r)) {
-		log_debug("HOORAY !");
+	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
 			return (1);
@@ -458,8 +458,8 @@ queue_envelope_walk(struct envelope *ep)
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
 		    ep->id, e);
 	}
-	else
-		log_debug("FUCK !");
+
+	(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	return (0);
 }
 

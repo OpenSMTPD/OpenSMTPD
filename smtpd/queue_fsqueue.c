@@ -349,11 +349,9 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 	if (fsqueue_qwalk(hdl, evpid)) {
 		r = 0;
 		bzero(buf, len);
-		msgid = evpid_to_msgid(*evpid);
-		if (! queue_envelope_load(*evpid, &ep) ||
-		    (r = envelope_dump_buffer(&ep, buf, len)) == 0)
-			(void)fsqueue_message_corrupt(msgid);
-		else {
+		r = fsqueue_envelope_load(*evpid, buf, len);
+		if (r) {
+			msgid = evpid_to_msgid(*evpid);
 			n = tree_pop(&evpcount, msgid);
 			n += 1;
 			tree_xset(&evpcount, msgid, n);
@@ -522,6 +520,8 @@ again:
 		log_warn("warn: fsqueue_message_corrupt: rename");
 		return 0;
 	}
+
+	tree_pop(&evpcount, msgid);
 
 	return 1;
 }
