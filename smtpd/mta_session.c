@@ -234,12 +234,20 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_end(&m);
-		if (imsg->fd == -1)
-			fatalx("mta: cannot obtain msgfd");
 
 		s = mta_tree_pop(&wait_fd, reqid);
 		if (s == NULL) {
-			close(imsg->fd);
+			if (imsg->fd != -1)
+				close(imsg->fd);
+			return;
+		}
+
+		if (imsg->fd == -1) {
+			log_debug("debug: mta: failed to obtain msg fd");
+			mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
+			    "Could not get message fd", 0);
+			mta_enter_state(s, MTA_READY);
+			io_reload(&s->io);
 			return;
 		}
 
