@@ -1142,7 +1142,7 @@ mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
 
 	src[0] = '\0';
 	if (source)
-		snprintf(rcpt, sizeof rcpt, "source=%s, ", source);
+		snprintf(src, sizeof src, "source=%s, ", source);
 
 
 	log_info("relay: %s for %016" PRIx64 ": from=<%s>, to=<%s>, "
