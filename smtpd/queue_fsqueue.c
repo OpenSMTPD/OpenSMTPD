@@ -347,17 +347,16 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 		hdl = fsqueue_qwalk_new();
 
 	if (fsqueue_qwalk(hdl, evpid)) {
+		r = 0;
 		bzero(buf, len);
-		r = fsqueue_envelope_load(*evpid, buf, len);
-		if (r) {
-			msgid = evpid_to_msgid(*evpid);
-			if (! envelope_load_buffer(&ep, buf, r))
-				(void)fsqueue_message_corrupt(msgid);
-			else {
-				n = tree_pop(&evpcount, msgid);
-				n += 1;
-				tree_xset(&evpcount, msgid, n);
-			}
+		msgid = evpid_to_msgid(*evpid);
+		if (! queue_envelope_load(*evpid, &ep) ||
+		    (r = envelope_dump_buffer(&ep, buf, len)) == 0)
+			(void)fsqueue_message_corrupt(msgid);
+		else {
+			n = tree_pop(&evpcount, msgid);
+			n += 1;
+			tree_xset(&evpcount, msgid, n);
 		}
 		return (r);
 	}

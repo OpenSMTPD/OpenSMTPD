@@ -448,7 +448,9 @@ queue_envelope_walk(struct envelope *ep)
 	if (r == -1 || r == 0)
 		return (r);
 
-	if (queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
+	log_debug("evpbuf: %s", evpbuf);
+	if (envelope_load_buffer(ep, evpbuf, (size_t)r)) {
+		log_debug("HOORAY !");
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
 			return (1);
@@ -456,6 +458,8 @@ queue_envelope_walk(struct envelope *ep)
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
 		    ep->id, e);
 	}
+	else
+		log_debug("FUCK !");
 	return (0);
 }
 
