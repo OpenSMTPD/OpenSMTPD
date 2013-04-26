@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-queue-ram
+PROG=	backend-queue-stub
 
 SRCS+=	queue_api.c
 SRCS+=	queue_stub.c

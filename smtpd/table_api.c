@@ -20,7 +20,6 @@
 #include <sys/queue.h>
 #include <sys/uio.h>
 
-#include <err.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -29,7 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "smtpd.h"
+#include "smtpd-defines.h"
+#include "smtpd-api.h"
+#include "log.h"
 
 static int(*handler_update)(void) = NULL;
 static int(*handler_check)(int, const char *) = NULL;
@@ -43,7 +44,7 @@ static int
 res_fail(const char *reason)
 {
 	if (reason)
-		warn("table_wrapper: %s", reason);
+		log_warnx("warn: table-api: %s", reason);
 	imsg_compose(&ibuf, PROC_TABLE_FAIL, 0, 0, -1, NULL, 0);
 	return (0);
 }
@@ -145,7 +146,7 @@ dispatch(void)
 		return (0);
 
 	default:
-		warn("table_wrapper: bad message %i", imsg.hdr.type);
+		log_warnx("warn: table-api: bad message %i", imsg.hdr.type);
 		return res_fail(NULL);
 	}
 }
@@ -184,7 +185,7 @@ table_api_dispatch(void)
 	while (1) {
 		n = imsg_get(&ibuf, &imsg);
 		if (n == -1) {
-			errx(1, "table-proc-wrapper: imsg_get");
+			log_warn("warn: table-api: imsg_get");
 			break;
 		}
 
@@ -196,10 +197,13 @@ table_api_dispatch(void)
 		}
 
 		n = imsg_read(&ibuf);
-		if (n == -1)
-			err(1, "table-proc-wrapper: imsg_read");
-		if (n == 0)
-			errx(1, "table-proc-wrapper: imsg_read: pipe closed");
+		if (n == -1) {
+			log_warn("warn: table-api: imsg_read");
+			break;
+		}
+		if (n == 0) {
+			log_warnx("warn: table-api: pipe closed");
+		}
 	}
 
 	return (0);

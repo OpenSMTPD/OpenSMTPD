@@ -3,7 +3,7 @@
 CFLAGS	+= -DNO_IO
 CPPFLAGS+= -I../../
 
-QUEUE_SRCS=
+SRCS	+= log.c
 
 LDADD	+= -lutil
 
