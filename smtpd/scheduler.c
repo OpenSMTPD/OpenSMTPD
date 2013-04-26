@@ -114,6 +114,17 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
+	case IMSG_QUEUE_REMOVE:
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_end(&m);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: removing evp:%016" PRIx64, evpid);
+		stat_decrement("scheduler.envelope", 1);
+		backend->remove(evpid);
+		scheduler_reset_events();
+		return;
+
 	case IMSG_DELIVERY_OK:
 		m_msg(&m, imsg);
 		m_get_evpid(&m, &evpid);
