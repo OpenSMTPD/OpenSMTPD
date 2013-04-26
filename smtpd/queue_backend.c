@@ -92,6 +92,8 @@ queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
 int
 queue_init(const char *name, int server)
 {
+	int	r;
+
 	if (!strcmp(name, "fs"))
 		backend = &queue_backend_fs;
 	if (!strcmp(name, "null"))
@@ -104,7 +106,11 @@ queue_init(const char *name, int server)
 		return (0);
 	}
 
-	return backend->init(server);
+	r = backend->init(server);
+
+	log_trace(TRACE_QUEUE, "queue-backend: queue_init(%i) -> %i", server, r);
+
+	return (r);
 }
 
 int
@@ -115,6 +121,10 @@ queue_message_create(uint32_t *msgid)
 	profile_enter("queue_message_create");
 	r = backend->message(QOP_CREATE, msgid);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_create() -> %i (%08"PRIx32")",
+	    r, *msgid);
 
 	return (r);
 }
@@ -127,6 +137,9 @@ queue_message_delete(uint32_t msgid)
 	profile_enter("queue_message_delete");
 	r = backend->message(QOP_DELETE, &msgid);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_delete(%08"PRIx32") -> %i", msgid, r);
 
 	return (r);
 }
@@ -168,6 +181,10 @@ queue_message_commit(uint32_t msgid)
 	r = backend->message(QOP_COMMIT, &msgid);
 	profile_leave();
 
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_commit(%08"PRIx32") -> %i",
+	    msgid, r);
+
 	return (r);
 
 err:
@@ -187,6 +204,9 @@ queue_message_corrupt(uint32_t msgid)
 	r = backend->message(QOP_CORRUPT, &msgid);
 	profile_leave();
 
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_corrupt(%08"PRIx32") -> %i", msgid, r);
+
 	return (r);
 }
 
@@ -200,6 +220,9 @@ queue_message_fd_r(uint32_t msgid)
 	profile_enter("queue_message_fd_r");
 	fdin = backend->message(QOP_FD_R, &msgid);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_fd_r(%08"PRIx32") -> %i", msgid, fdin);
 
 	if (fdin == -1)
 		return (-1);
@@ -248,6 +271,9 @@ queue_message_fd_rw(uint32_t msgid)
 	profile_enter("queue_message_fd_rw");
 	r = backend->message(QOP_FD_RW, &msgid);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_fd_rw(%08"PRIx32") -> %i", msgid, r);
 
 	return (r);
 }
@@ -306,19 +332,28 @@ queue_envelope_create(struct envelope *ep)
 	int		 r;
 	char		 evpbuf[sizeof(struct envelope)];
 	size_t		 evplen;
+	uint64_t	 evpid;
 
 	ep->creation = time(NULL);
 	evplen = queue_envelope_dump_buffer(ep, evpbuf, sizeof evpbuf);
 	if (evplen == 0)
 		return (0);
 
+	evpid = ep->id;
+
 	profile_enter("queue_envelope_create");
 	r = backend->envelope(QOP_CREATE, &ep->id, evpbuf, evplen);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_envelope_create(%016"PRIx64", %zu) -> %i (%016"PRIx64")",
+	    evpid, evplen, r, ep->id);
+
 	if (!r) {
 		ep->creation = 0;
 		ep->id = 0;
 	}
+
 	return (r);
 }
 
@@ -330,6 +365,10 @@ queue_envelope_delete(uint64_t evpid)
 	profile_enter("queue_envelope_delete");
 	r = backend->envelope(QOP_DELETE, &evpid, NULL, 0);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_envelope_delete(%016"PRIx64") -> %i",
+	    evpid, r);
 
 	return (r);
 }
@@ -345,6 +384,11 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	profile_enter("queue_envelope_load");
 	evplen = backend->envelope(QOP_LOAD, &ep->id, evpbuf, sizeof evpbuf);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_envelope_load(%016"PRIx64") -> %zu",
+	    evpid, evplen);
+
 	if (evplen == 0)
 		return (0);
 
@@ -376,6 +420,10 @@ queue_envelope_update(struct envelope *ep)
 	r = backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
 	profile_leave();
 
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_envelope_update(%016"PRIx64") -> %i",
+	    ep->id, r);
+
 	return (r);
 }
 
@@ -390,6 +438,11 @@ queue_envelope_walk(struct envelope *ep)
 	profile_enter("queue_envelope_walk");
 	r = backend->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
 	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_envelope_walk() -> %i (%016"PRIx64")",
+	    r, evpid);
+
 	if (r == -1)
 		return (r);
 
