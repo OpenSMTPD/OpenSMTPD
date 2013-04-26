@@ -1,3 +1,5 @@
+SUBDIR+=	backend-queue-ram
+SUBDIR+=	backend-queue-stub
 SUBDIR+=	backend-table-sqlite
 SUBDIR+=	backend-table-stub
 

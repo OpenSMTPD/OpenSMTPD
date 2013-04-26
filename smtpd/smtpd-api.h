@@ -175,6 +175,20 @@ void filter_api_on_dataline(void(*)(uint64_t, const char *), int);
 void filter_api_on_eom(void(*)(uint64_t, uint64_t));
 void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 
+/* queue */
+void queue_api_on_message_create(int(*)(uint32_t *));
+void queue_api_on_message_commit(int(*)(uint32_t));
+void queue_api_on_message_delete(int(*)(uint32_t));
+void queue_api_on_message_fd_r(int(*)(uint32_t));
+void queue_api_on_message_fd_w(int(*)(uint32_t));
+void queue_api_on_message_corrupt(int(*)(uint32_t));
+void queue_api_on_envelope_create(int(*)(uint32_t, const char *, size_t, uint64_t *));
+void queue_api_on_envelope_delete(int(*)(uint64_t));
+void queue_api_on_envelope_update(int(*)(uint64_t, const char *, size_t));
+void queue_api_on_envelope_load(int(*)(uint64_t, char *, size_t));
+void queue_api_on_envelope_walk(int(*)(uint64_t *));
+int queue_api_dispatch(void);
+
 /* table */
 void table_api_on_update(int(*)(void));
 void table_api_on_check(int(*)(int, const char *));
