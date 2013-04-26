@@ -518,6 +518,15 @@ queue(void)
 
 	config_process(PROC_QUEUE);
 
+	if (env->sc_queue_flags & QUEUE_COMPRESSION)
+		log_info("queue: queue compression enabled");
+
+	if (env->sc_queue_key) {
+		if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
+			fatalx("crypto_setup: invalid key for queue encryption");
+		log_info("queue: queue encryption enabled");
+	}
+
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
@@ -549,15 +558,6 @@ queue(void)
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
 	evtimer_add(&ev_qload, &tv);
-
-	if (env->sc_queue_flags & QUEUE_COMPRESSION)
-		log_info("queue: queue compression enabled");
-
-	if (env->sc_queue_key) {
-		if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
-			fatalx("crypto_setup: invalid key for queue encryption");
-		log_info("queue: queue encryption enabled");
-	}
 
 	if (event_dispatch() <  0)
 		fatal("event_dispatch");
