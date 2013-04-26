@@ -50,13 +50,6 @@ res_fail(const char *reason)
 }
 
 static int
-res_ok(void *data, size_t len)
-{
-	imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, data, len);
-	return (0);
-}
-
-static int
 dispatch(void)
 {
 	uint32_t	 version;
@@ -75,14 +68,18 @@ dispatch(void)
 		memmove(&version, data, len);
 		if (version != PROC_TABLE_API_VERSION)
 			return res_fail("bad API version");
-		return res_ok(NULL, 0);
+
+		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, NULL, 0);
+		return (0);
 
 	case PROC_TABLE_UPDATE:
 		if (handler_update)
 			r = handler_update();
 		else
 			r = 1;
-		return res_ok(&r, sizeof(r));
+
+		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, &r, sizeof(r));
+		return (0);
 
 	case PROC_TABLE_CLOSE:
 		return (-1);
@@ -100,7 +97,9 @@ dispatch(void)
 			r = handler_check(type, key);
 		else
 			r = -1;
-		return res_ok(&r, sizeof(r));
+
+		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, &r, sizeof(r));
+		return (0);
 
 	case PROC_TABLE_LOOKUP:
 		if (len <= sizeof (type))
