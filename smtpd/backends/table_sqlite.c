@@ -117,12 +117,10 @@ static int
 table_sqlite_setup(void)
 {
 	sqlite3_stmt	*stmt;
-	char		*key, *value;
-	int		 i;
-	FILE		*fp;
-	char		*buf, *lbuf;
 	size_t		 flen;
-	int		 ret = 0;
+	FILE		*fp;
+	char		*key, *value, *buf, *lbuf;
+	int		 i, ret = 0;
 
 	fp = fopen(config, "r");
 	if (fp == NULL)
