@@ -88,11 +88,11 @@ enum {
 	PROC_QUEUE_MESSAGE_COMMIT,
 	PROC_QUEUE_MESSAGE_FD_R,
 	PROC_QUEUE_MESSAGE_FD_RW,
+	PROC_QUEUE_MESSAGE_CORRUPT,
 	PROC_QUEUE_ENVELOPE_CREATE,
 	PROC_QUEUE_ENVELOPE_DELETE,
 	PROC_QUEUE_ENVELOPE_LOAD,
 	PROC_QUEUE_ENVELOPE_UPDATE,
-	PROC_QUEUE_ENVELOPE_CORRUPT,
 	PROC_QUEUE_ENVELOPE_WALK,
 };
 
@@ -140,6 +140,18 @@ enum {
 	PROC_TABLE_FETCH,
 };
 
+static inline uint32_t
+evpid_to_msgid(uint64_t evpid)
+{
+	return (evpid >> 32);
+}
+
+static inline uint64_t
+msgid_to_evpid(uint32_t msgid)
+{
+        return ((uint64_t)msgid << 32);
+}
+
 /* dict.c */
 #define dict_init(d) SPLAY_INIT((d))
 #define dict_empty(d) SPLAY_EMPTY((d))
@@ -174,6 +186,20 @@ void filter_api_on_data(void(*)(uint64_t, uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *), int);
 void filter_api_on_eom(void(*)(uint64_t, uint64_t));
 void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
+
+/* queue */
+void queue_api_on_message_create(int(*)(uint32_t *));
+void queue_api_on_message_commit(int(*)(uint32_t));
+void queue_api_on_message_delete(int(*)(uint32_t));
+void queue_api_on_message_fd_r(int(*)(uint32_t));
+void queue_api_on_message_fd_w(int(*)(uint32_t));
+void queue_api_on_message_corrupt(int(*)(uint32_t));
+void queue_api_on_envelope_create(int(*)(uint32_t, const char *, size_t, uint64_t *));
+void queue_api_on_envelope_delete(int(*)(uint64_t));
+void queue_api_on_envelope_update(int(*)(uint64_t, const char *, size_t));
+void queue_api_on_envelope_load(int(*)(uint64_t, char *, size_t));
+void queue_api_on_envelope_walk(int(*)(uint64_t *));
+int queue_api_dispatch(void);
 
 /* table */
 void table_api_on_update(int(*)(void));

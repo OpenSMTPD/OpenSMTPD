@@ -59,7 +59,8 @@ tree_set(struct tree *t, uint64_t id, void *data)
 
 	key.id = id;
 	if ((entry = SPLAY_FIND(tree, t, &key)) == NULL) {
-		entry = xmalloc(sizeof *entry, "tree_set");
+		if ((entry = malloc(sizeof *entry)) == NULL)
+			err(1, "tree_set: malloc");
 		entry->id = id;
 		SPLAY_INSERT(tree, t, entry);
 		old = NULL;
@@ -76,7 +77,8 @@ tree_xset(struct tree *t, uint64_t id, void *data)
 {
 	struct treeentry	*entry;
 
-	entry = xmalloc(sizeof *entry, "tree_xset");
+	if ((entry = malloc(sizeof *entry)) == NULL)
+		err(1, "tree_xset: malloc");
 	entry->id = id;
 	entry->data = data;
 	if (SPLAY_INSERT(tree, t, entry))

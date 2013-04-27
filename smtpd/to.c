@@ -483,18 +483,6 @@ relayhost_to_text(const struct relayhost *relay)
 	return buf;
 }
 
-uint32_t
-evpid_to_msgid(uint64_t evpid)
-{
-	return (evpid >> 32);
-}
-
-uint64_t
-msgid_to_evpid(uint32_t msgid)
-{
-	return ((uint64_t)msgid << 32);
-}
-
 uint64_t
 text_to_evpid(const char *s)
 {

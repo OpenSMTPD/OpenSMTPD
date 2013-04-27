@@ -236,12 +236,20 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_end(&m);
-		if (imsg->fd == -1)
-			fatalx("mta: cannot obtain msgfd");
 
 		s = mta_tree_pop(&wait_fd, reqid);
 		if (s == NULL) {
-			close(imsg->fd);
+			if (imsg->fd != -1)
+				close(imsg->fd);
+			return;
+		}
+
+		if (imsg->fd == -1) {
+			log_debug("debug: mta: failed to obtain msg fd");
+			mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
+			    "Could not get message fd", 0);
+			mta_enter_state(s, MTA_READY);
+			io_reload(&s->io);
 			return;
 		}
 
@@ -783,6 +791,9 @@ mta_response(struct mta_session *s, char *line)
 			snprintf(buf, sizeof(buf), "%s",
 			    mta_host_to_text(s->route->dst));
 
+			/* we're about to log, associate session to envelope */
+			e->session = s->id;
+
 			/* XXX */
 			/*
 			 * getsockname() can only fail with ENOBUFS here
@@ -1085,6 +1096,9 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		}
 
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
+
+		/* we're about to log, associate session to envelope */
+		e->session = s->id;
 
 		/* XXX */
 		/*

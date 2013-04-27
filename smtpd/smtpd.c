@@ -753,6 +753,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_EXPAND;
 			else if (!strcmp(optarg, "tables"))
 				verbose |= TRACE_TABLES;
+			else if (!strcmp(optarg, "queue"))
+				verbose |= TRACE_QUEUE;
 			else if (!strcmp(optarg, "all"))
 				verbose |= ~TRACE_VERBOSE;
 			else if (!strcmp(optarg, "profstat"))

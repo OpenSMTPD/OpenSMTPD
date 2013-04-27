@@ -603,6 +603,7 @@ struct smtpd {
 #define	TRACE_IMSGSIZE	0x0800
 #define	TRACE_EXPAND	0x1000
 #define	TRACE_TABLES	0x2000
+#define	TRACE_QUEUE	0x4000
 
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
@@ -759,6 +760,7 @@ struct mta_relay {
 struct mta_envelope {
 	TAILQ_ENTRY(mta_envelope)	 entry;
 	uint64_t			 id;
+	uint64_t			 session;
 	time_t				 creation;
 	char				*dest;
 	char				*rcpt;
@@ -1334,8 +1336,6 @@ int table_parse_lookup(enum table_service, const char *, const char *,
 
 /* to.c */
 int email_to_mailaddr(struct mailaddr *, char *);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_mailaddr(struct mailaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);

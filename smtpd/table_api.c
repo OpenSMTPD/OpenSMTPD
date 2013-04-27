@@ -20,7 +20,6 @@
 #include <sys/queue.h>
 #include <sys/uio.h>
 
-#include <err.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -29,12 +28,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "smtpd.h"
+#include "smtpd-defines.h"
+#include "smtpd-api.h"
+#include "log.h"
 
-static int(*handler_update)(void) = NULL;
-static int(*handler_check)(int, const char *) = NULL;
-static int(*handler_lookup)(int, const char *, char *, size_t) = NULL;
-static int(*handler_fetch)(int, char *, size_t) = NULL;
+static int (*handler_update)(void);
+static int (*handler_check)(int, const char *);
+static int (*handler_lookup)(int, const char *, char *, size_t);
+static int (*handler_fetch)(int, char *, size_t);
 
 static struct imsgbuf	ibuf;
 static struct imsg	imsg;
@@ -43,15 +44,8 @@ static int
 res_fail(const char *reason)
 {
 	if (reason)
-		warn("table_wrapper: %s", reason);
+		log_warnx("warn: table-api: %s", reason);
 	imsg_compose(&ibuf, PROC_TABLE_FAIL, 0, 0, -1, NULL, 0);
-	return (0);
-}
-
-static int
-res_ok(void *data, size_t len)
-{
-	imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, data, len);
 	return (0);
 }
 
@@ -74,14 +68,18 @@ dispatch(void)
 		memmove(&version, data, len);
 		if (version != PROC_TABLE_API_VERSION)
 			return res_fail("bad API version");
-		return res_ok(NULL, 0);
+
+		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, NULL, 0);
+		return (0);
 
 	case PROC_TABLE_UPDATE:
 		if (handler_update)
 			r = handler_update();
 		else
 			r = 1;
-		return res_ok(&r, sizeof(r));
+
+		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, &r, sizeof(r));
+		return (0);
 
 	case PROC_TABLE_CLOSE:
 		return (-1);
@@ -99,7 +97,9 @@ dispatch(void)
 			r = handler_check(type, key);
 		else
 			r = -1;
-		return res_ok(&r, sizeof(r));
+
+		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, &r, sizeof(r));
+		return (0);
 
 	case PROC_TABLE_LOOKUP:
 		if (len <= sizeof (type))
@@ -145,7 +145,7 @@ dispatch(void)
 		return (0);
 
 	default:
-		warn("table_wrapper: bad message %i", imsg.hdr.type);
+		log_warnx("warn: table-api: bad message %i", imsg.hdr.type);
 		return res_fail(NULL);
 	}
 }
@@ -184,7 +184,7 @@ table_api_dispatch(void)
 	while (1) {
 		n = imsg_get(&ibuf, &imsg);
 		if (n == -1) {
-			errx(1, "table-proc-wrapper: imsg_get");
+			log_warn("warn: table-api: imsg_get");
 			break;
 		}
 
@@ -196,10 +196,14 @@ table_api_dispatch(void)
 		}
 
 		n = imsg_read(&ibuf);
-		if (n == -1)
-			err(1, "table-proc-wrapper: imsg_read");
-		if (n == 0)
-			errx(1, "table-proc-wrapper: imsg_read: pipe closed");
+		if (n == -1) {
+			log_warn("warn: table-api: imsg_read");
+			break;
+		}
+		if (n == 0) {
+			log_warnx("warn: table-api: pipe closed");
+			break;
+		}
 	}
 
 	return (0);

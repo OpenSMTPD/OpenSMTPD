@@ -83,17 +83,17 @@ struct rq_queue {
 	struct evplist		 q_removed;
 };
 
-static void scheduler_ramqueue_init(void);
-static void scheduler_ramqueue_insert(struct scheduler_info *);
-static size_t scheduler_ramqueue_commit(uint32_t);
-static size_t scheduler_ramqueue_rollback(uint32_t);
-static void scheduler_ramqueue_update(struct scheduler_info *);
-static void scheduler_ramqueue_delete(uint64_t);
-static void scheduler_ramqueue_batch(int, struct scheduler_batch *);
-static size_t scheduler_ramqueue_messages(uint32_t, uint32_t *, size_t);
-static size_t scheduler_ramqueue_envelopes(uint64_t, struct evpstate *, size_t);
-static void scheduler_ramqueue_schedule(uint64_t);
-static void scheduler_ramqueue_remove(uint64_t);
+static void scheduler_ram_init(void);
+static void scheduler_ram_insert(struct scheduler_info *);
+static size_t scheduler_ram_commit(uint32_t);
+static size_t scheduler_ram_rollback(uint32_t);
+static void scheduler_ram_update(struct scheduler_info *);
+static void scheduler_ram_delete(uint64_t);
+static void scheduler_ram_batch(int, struct scheduler_batch *);
+static size_t scheduler_ram_messages(uint32_t, uint32_t *, size_t);
+static size_t scheduler_ram_envelopes(uint64_t, struct evpstate *, size_t);
+static void scheduler_ram_schedule(uint64_t);
+static void scheduler_ram_remove(uint64_t);
 
 static void sorted_insert(struct evplist *, struct rq_envelope *);
 static void sorted_merge(struct evplist *, struct evplist *);
@@ -108,21 +108,21 @@ static void rq_envelope_delete(struct rq_queue *, struct rq_envelope *);
 static const char *rq_envelope_to_text(struct rq_envelope *);
 
 struct scheduler_backend scheduler_backend_ramqueue = {
-	scheduler_ramqueue_init,
+	scheduler_ram_init,
 
-	scheduler_ramqueue_insert,
-	scheduler_ramqueue_commit,
-	scheduler_ramqueue_rollback,
+	scheduler_ram_insert,
+	scheduler_ram_commit,
+	scheduler_ram_rollback,
 
-	scheduler_ramqueue_update,
-	scheduler_ramqueue_delete,
+	scheduler_ram_update,
+	scheduler_ram_delete,
 
-	scheduler_ramqueue_batch,
+	scheduler_ram_batch,
 
-	scheduler_ramqueue_messages,
-	scheduler_ramqueue_envelopes,
-	scheduler_ramqueue_schedule,
-	scheduler_ramqueue_remove,
+	scheduler_ram_messages,
+	scheduler_ram_envelopes,
+	scheduler_ram_schedule,
+	scheduler_ram_remove,
 };
 
 static struct rq_queue	ramqueue;
@@ -131,14 +131,14 @@ static struct tree	updates;
 static time_t		currtime;
 
 static void
-scheduler_ramqueue_init(void)
+scheduler_ram_init(void)
 {
 	rq_queue_init(&ramqueue);
 	tree_init(&updates);
 }
 
 static void
-scheduler_ramqueue_insert(struct scheduler_info *si)
+scheduler_ram_insert(struct scheduler_info *si)
 {
 	uint32_t		 msgid;
 	struct rq_queue		*update;
@@ -186,7 +186,7 @@ scheduler_ramqueue_insert(struct scheduler_info *si)
 }
 
 static size_t
-scheduler_ramqueue_commit(uint32_t msgid)
+scheduler_ram_commit(uint32_t msgid)
 {
 	struct rq_queue	*update;
 	size_t		 r;
@@ -213,7 +213,7 @@ scheduler_ramqueue_commit(uint32_t msgid)
 }
 
 static size_t
-scheduler_ramqueue_rollback(uint32_t msgid)
+scheduler_ram_rollback(uint32_t msgid)
 {
 	struct rq_queue		*update;
 	struct rq_envelope	*evp;
@@ -237,7 +237,7 @@ scheduler_ramqueue_rollback(uint32_t msgid)
 }
 
 static void
-scheduler_ramqueue_update(struct scheduler_info *si)
+scheduler_ram_update(struct scheduler_info *si)
 {
 	struct rq_message	*msg;
 	struct rq_envelope	*evp;
@@ -265,7 +265,7 @@ scheduler_ramqueue_update(struct scheduler_info *si)
 }
 
 static void
-scheduler_ramqueue_delete(uint64_t evpid)
+scheduler_ram_delete(uint64_t evpid)
 {
 	struct rq_message	*msg;
 	struct rq_envelope	*evp;
@@ -287,7 +287,7 @@ scheduler_ramqueue_delete(uint64_t evpid)
 }
 
 static void
-scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
+scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 {
 	struct evplist		*q;
 	struct rq_envelope	*evp;
@@ -298,7 +298,7 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 
 	rq_queue_schedule(&ramqueue);
 	if (verbose & TRACE_SCHEDULER)
-		rq_queue_dump(&ramqueue, "scheduler_ramqueue_batch()");
+		rq_queue_dump(&ramqueue, "scheduler_ram_batch()");
 
 	if (typemask & SCHED_REMOVE && TAILQ_FIRST(&ramqueue.q_removed)) {
 		q = &ramqueue.q_removed;
@@ -361,66 +361,8 @@ scheduler_ramqueue_batch(int typemask, struct scheduler_batch *ret)
 	ret->evpcount = n;
 }
 
-static void
-scheduler_ramqueue_schedule(uint64_t evpid)
-{
-	struct rq_message	*msg;
-	struct rq_envelope	*evp;
-	uint32_t		 msgid;
-	void			*i;
-
-	currtime = time(NULL);
-
-	if (evpid > 0xffffffff) {
-		msgid = evpid_to_msgid(evpid);
-		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
-			return;
-		if ((evp = tree_get(&msg->envelopes, evpid)) == NULL)
-			return;
-		if (evp->flags & RQ_ENVELOPE_PENDING)
-			rq_envelope_schedule(&ramqueue, evp);
-	}
-	else {
-		msgid = evpid;
-		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
-			return;
-		i = NULL;
-		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp)))
-			if (evp->flags & RQ_ENVELOPE_PENDING)
-				rq_envelope_schedule(&ramqueue, evp);
-	}
-}
-
-static void
-scheduler_ramqueue_remove(uint64_t evpid)
-{
-	struct rq_message	*msg;
-	struct rq_envelope	*evp;
-	uint32_t		 msgid;
-	void			*i;
-
-	currtime = time(NULL);
-
-	if (evpid > 0xffffffff) {
-		msgid = evpid_to_msgid(evpid);
-		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
-			return;
-		if ((evp = tree_get(&msg->envelopes, evpid)) == NULL)
-			return;
-		rq_envelope_remove(&ramqueue, evp);
-	}
-	else {
-		msgid = evpid;
-		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
-			return;
-		i = NULL;
-		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp)))
-			rq_envelope_remove(&ramqueue, evp);
-	}
-}
-
 static size_t
-scheduler_ramqueue_messages(uint32_t from, uint32_t *dst, size_t size)
+scheduler_ram_messages(uint32_t from, uint32_t *dst, size_t size)
 {
 	uint64_t id;
 	size_t	 n;
@@ -436,7 +378,7 @@ scheduler_ramqueue_messages(uint32_t from, uint32_t *dst, size_t size)
 }
 
 static size_t
-scheduler_ramqueue_envelopes(uint64_t from, struct evpstate *dst, size_t size)
+scheduler_ram_envelopes(uint64_t from, struct evpstate *dst, size_t size)
 {
 	struct rq_message	*msg;
 	struct rq_envelope	*evp;
@@ -473,6 +415,64 @@ scheduler_ramqueue_envelopes(uint64_t from, struct evpstate *dst, size_t size)
 	}
 
 	return (n);
+}
+
+static void
+scheduler_ram_schedule(uint64_t evpid)
+{
+	struct rq_message	*msg;
+	struct rq_envelope	*evp;
+	uint32_t		 msgid;
+	void			*i;
+
+	currtime = time(NULL);
+
+	if (evpid > 0xffffffff) {
+		msgid = evpid_to_msgid(evpid);
+		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
+			return;
+		if ((evp = tree_get(&msg->envelopes, evpid)) == NULL)
+			return;
+		if (evp->flags & RQ_ENVELOPE_PENDING)
+			rq_envelope_schedule(&ramqueue, evp);
+	}
+	else {
+		msgid = evpid;
+		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
+			return;
+		i = NULL;
+		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp)))
+			if (evp->flags & RQ_ENVELOPE_PENDING)
+				rq_envelope_schedule(&ramqueue, evp);
+	}
+}
+
+static void
+scheduler_ram_remove(uint64_t evpid)
+{
+	struct rq_message	*msg;
+	struct rq_envelope	*evp;
+	uint32_t		 msgid;
+	void			*i;
+
+	currtime = time(NULL);
+
+	if (evpid > 0xffffffff) {
+		msgid = evpid_to_msgid(evpid);
+		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
+			return;
+		if ((evp = tree_get(&msg->envelopes, evpid)) == NULL)
+			return;
+		rq_envelope_remove(&ramqueue, evp);
+	}
+	else {
+		msgid = evpid;
+		if ((msg = tree_get(&ramqueue.messages, msgid)) == NULL)
+			return;
+		i = NULL;
+		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp)))
+			rq_envelope_remove(&ramqueue, evp);
+	}
 }
 
 static void

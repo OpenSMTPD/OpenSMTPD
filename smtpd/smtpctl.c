@@ -89,6 +89,7 @@ time_t now;
 
 struct queue_backend queue_backend_null;
 struct queue_backend queue_backend_ram;
+struct queue_backend queue_backend_proc;
 
 __dead void
 usage(void)
