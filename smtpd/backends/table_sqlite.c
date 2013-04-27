@@ -72,6 +72,8 @@ main(int argc, char **argv)
 {
 	int	ch;
 
+	log_init(1);
+
 	config = NULL;
 
 	while ((ch = getopt(argc, argv, "f:")) != -1) {

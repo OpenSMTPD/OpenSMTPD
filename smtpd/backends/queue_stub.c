@@ -97,6 +97,8 @@ main(int argc, char **argv)
 {
 	int	ch;
 
+	log_init(1);
+
 	while ((ch = getopt(argc, argv, "f:")) != -1) {
 		switch (ch) {
 		default:
