@@ -19,7 +19,6 @@
 #include <sys/types.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <fcntl.h>
 #include <sqlite3.h>
 #include <stdio.h>
@@ -28,6 +27,7 @@
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
+#include "log.h"
 
 enum {
 	SQL_ALIAS = 0,
@@ -80,21 +80,28 @@ main(int argc, char **argv)
 			config = optarg;
 			break;
 		default:
-			errx(1, "bad option");
+			log_warnx("warn: backend-table-sqlite: bad option");
+			return (1);
 			/* NOTREACHED */
 		}
 	}
 	argc -= optind;
 	argv += optind;
 
-	if (config == NULL)
-		errx(1, "missing config");
+	if (config == NULL) {
+		log_warnx("warn: backend-table-sqlite: config file not specified");
+		return (1);
+	}
 
-	if (argc != 1)
-		errx(1, "missing dbpath");
+	if (argc != 1) {
+		log_warnx("warn: backend-table-sqlite: dbpath not specified");
+		return (1);
+	}
 
-	if (sqlite3_open(argv[0], &ppDb) != SQLITE_OK)
-		errx(1, "table_sqlite: open: %s", sqlite3_errmsg(ppDb));
+	if (sqlite3_open(argv[0], &ppDb) != SQLITE_OK) {
+		log_warnx("warn: backend-table-sqlite: open: %s", sqlite3_errmsg(ppDb));
+		return (1);
+	}
 
 	table_sqlite_setup();
 
@@ -151,7 +158,7 @@ table_sqlite_setup(void)
 		}
 
 		if (value == NULL) {
-			warnx("missing value for key %s", key);
+			log_warnx("warn: backend-table-sqlite: missing value for key %s", key);
 			continue;
 		}
 
@@ -159,22 +166,23 @@ table_sqlite_setup(void)
 			if (!strcmp(statements[i].name, key))
 				break;
 		if (i == SQL_MAX) {
-			warnx("bogus key %s", key);
+			log_warnx("warn: backend-table-sqlite: bogus key %s", key);
 			continue;
 		}
 		if (statements[i].stmt) {
-			warnx("duplicate key %s", key);
+			log_warnx("warn: backend-table-sqlite: duplicate key %s", key);
 			continue;
 		}
 
 		if (sqlite3_prepare_v2(ppDb, value, -1, &stmt, 0)
 		    != SQLITE_OK) {
-			warnx("table_sqlite: prepare: %s", sqlite3_errmsg(ppDb));
+			log_warnx("warn: backend-table-sqlite: prepare: %s",
+			    sqlite3_errmsg(ppDb));
 			continue;
 		}
 
 		if (sqlite3_column_count(stmt) != statements[i].cols) {
-			warnx("table_sqlite: columns: invalid resultset");
+			log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
 	                sqlite3_finalize(stmt);
 			continue;
 		}

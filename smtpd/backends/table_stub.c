@@ -18,11 +18,11 @@
 
 #include <sys/types.h>
 
-#include <err.h>
 #include <getopt.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
+#include "log.h"
 
 static int table_stub_update(void);
 static int table_stub_check(int, const char *);
@@ -37,7 +37,8 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "f:")) != -1) {
 		switch (ch) {
 		default:
-			errx(1, "bad option");
+			log_warnx("warn: backend-table-stub: bad option");
+			return (1);
 			/* NOTREACHED */
 		}
 	}
