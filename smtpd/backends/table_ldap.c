@@ -51,9 +51,11 @@ enum {
 	LDAP_MAX
 };
 
+#define MAX_ATTRS	6
+
 struct query {
 	char	*filter;
-	char	*attrs[4];
+	char	*attrs[MAX_ATTRS];
 	int	 attrn;
 };
 
@@ -65,7 +67,7 @@ static int table_ldap_fetch(int, char *, size_t);
 static int ldap_config(void);
 static int ldap_open(void);
 static int ldap_query(const char *, char **, char ***, size_t);
-static int ldap_parse_attributes(char **, const char *, size_t);
+static int ldap_parse_attributes(char **, const char *, const char *, size_t);
 static int ldap_run_query(int type, const char *, char *, size_t);
 
 static char *config;
@@ -240,6 +242,44 @@ read_value(char **store, const char *key, const char *value)
 }
 
 static int
+ldap_parse_attributes(char **attributes, const char *key, const char *line,
+    size_t expect)
+{
+	char	buffer[1024];
+	char   *p;
+	size_t	m, n;
+
+	log_debug("debug: backend-table-ldap: parsing attribute \"%s\" (%zu) -> \"%s\"",
+	    key, expect, line);
+
+	if (strlcpy(buffer, line, sizeof buffer) >= sizeof buffer)
+		return (0);
+
+	m = 1;
+	for (p = buffer; *p; ++p) {
+		if (*p == ',') {
+			*p = 0;
+			m++;
+		}
+	}
+	if (expect != m)
+		return (0);
+
+	p = buffer;
+	for (n = 0; n < expect; ++n)
+		attributes[n] = NULL;
+	for (n = 0; n < m; ++n) {
+		attributes[n] = strdup(p);
+		if (attributes[n] == NULL) {
+			log_warnx("warn: backend-table-ldap: strdup");
+			return (0); /* XXX cleanup */
+		}
+		p += strlen(p) + 1;
+	}
+	return (1);
+}
+
+static int
 ldap_config(void)
 {
 	size_t		 flen;
@@ -301,25 +341,25 @@ ldap_config(void)
 			read_value(&queries[LDAP_ALIAS].filter, key, value);
 		else if (!strcmp(key, "alias_attributes"))
 			ldap_parse_attributes(queries[LDAP_ALIAS].attrs,
-			    value, queries[LDAP_ALIAS].attrn);
+			    key, value, 1);
 
 		else if (!strcmp(key, "credentials_filter"))
 			read_value(&queries[LDAP_CREDENTIALS].filter, key, value);
 		else if (!strcmp(key, "credentials_attributes"))
 			ldap_parse_attributes(queries[LDAP_CREDENTIALS].attrs,
-			    value, queries[LDAP_CREDENTIALS].attrn);
+			    key, value, 2);
 
 		else if (!strcmp(key, "domain_filter"))
 			read_value(&queries[LDAP_DOMAIN].filter, key, value);
 		else if (!strcmp(key, "domain_attributes"))
 			ldap_parse_attributes(queries[LDAP_DOMAIN].attrs,
-			    value, queries[LDAP_DOMAIN].attrn);
+			    key, value, 1);
 
 		else if (!strcmp(key, "userinfo_filter"))
 			read_value(&queries[LDAP_USERINFO].filter, key, value);
 		else if (!strcmp(key, "userinfo_attributes"))
 			ldap_parse_attributes(queries[LDAP_USERINFO].attrs,
-			    value, queries[LDAP_USERINFO].attrn);
+			    key, value, 4);
 		else
 			log_warnx("warn: backend-table-ldap: bogus entry \"%s\"",
 			    key);
@@ -435,40 +475,6 @@ end:
 		aldap_freemsg(m);
 	log_debug("debug: table_ldap_internal_query: filter=%s, ret=%d", filter, ret);
 	return ret;
-}
-
-static int
-ldap_parse_attributes(char **attributes, const char *line, size_t expect)
-{
-	char	buffer[1024];
-	char   *p;
-	size_t	m, n;
-
-	if (strlcpy(buffer, line, sizeof buffer) >= sizeof buffer)
-		return (0);
-
-	m = 1;
-	for (p = buffer; *p; ++p) {
-		if (*p == ',') {
-			*p = 0;
-			m++;
-		}
-	}
-	if (expect != m)
-		return (0);
-
-	p = buffer;
-	for (n = 0; n < expect; ++n)
-		attributes[n] = NULL;
-	for (n = 0; n < m; ++n) {
-		attributes[n] = strdup(p);
-		if (attributes[n] == NULL) {
-			log_warnx("warn: backend-table-ldap: strdup");
-			return (0); /* XXX cleanup */
-		}
-		p += strlen(p) + 1;
-	}
-	return (1);
 }
 
 static int
