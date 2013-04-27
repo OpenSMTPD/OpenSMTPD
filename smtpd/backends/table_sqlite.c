@@ -132,6 +132,10 @@ table_sqlite_setup(void)
 			buf[flen - 1] = '\0';
 		else {
 			lbuf = malloc(flen + 1);
+			if (lbuf == NULL) {
+				log_warn("warn: backend-table-sqlite: malloc");
+				return (0);
+			}
 			memcpy(lbuf, buf, flen);
 			lbuf[flen] = '\0';
 			buf = lbuf;
@@ -181,7 +185,7 @@ table_sqlite_setup(void)
 
 		if (sqlite3_column_count(stmt) != statements[i].cols) {
 			log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
-	                sqlite3_finalize(stmt);
+			sqlite3_finalize(stmt);
 			continue;
 		}
 		statements[i].stmt = stmt;
