@@ -67,6 +67,7 @@ endif
 if HAVE_SQLITE
 smtpd_SOURCES+=		table_sqlite.c
 endif
+smtpd_SOURCES+=		queue_proc.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		queue_null.c
 smtpd_SOURCES+=		queue_ram.c

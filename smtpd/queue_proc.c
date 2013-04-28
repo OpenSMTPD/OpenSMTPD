@@ -82,8 +82,7 @@ queue_proc_init(int server)
 	if (pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		execl(path, "queue_ramproc", NULL);
 		err(1, "execl");
