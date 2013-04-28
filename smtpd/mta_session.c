@@ -234,12 +234,20 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_end(&m);
-		if (imsg->fd == -1)
-			fatalx("mta: cannot obtain msgfd");
 
 		s = mta_tree_pop(&wait_fd, reqid);
 		if (s == NULL) {
-			close(imsg->fd);
+			if (imsg->fd != -1)
+				close(imsg->fd);
+			return;
+		}
+
+		if (imsg->fd == -1) {
+			log_debug("debug: mta: failed to obtain msg fd");
+			mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
+			    "Could not get message fd", 0);
+			mta_enter_state(s, MTA_READY);
+			io_reload(&s->io);
 			return;
 		}
 
@@ -683,6 +691,8 @@ mta_response(struct mta_session *s, char *line)
 	struct mta_envelope	*e;
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 delivery;
+	struct sockaddr		 sa;
+	socklen_t		 sa_len;
 
 	switch (s->state) {
 
@@ -778,7 +788,21 @@ mta_response(struct mta_session *s, char *line)
 			TAILQ_REMOVE(&s->task->envelopes, e, entry);
 			snprintf(buf, sizeof(buf), "%s",
 			    mta_host_to_text(s->route->dst));
-			mta_delivery(e, buf, delivery, line);
+
+			/* we're about to log, associate session to envelope */
+			e->session = s->id;
+
+			/* XXX */
+			/*
+			 * getsockname() can only fail with ENOBUFS here
+			 * best effort, don't log source ...
+			 */
+			sa_len = sizeof sa;
+			if (getsockname(s->io.sock, &sa, &sa_len) < 0)
+				mta_delivery(e, NULL, buf, delivery, line);
+			else
+				mta_delivery(e, sa_to_text(&sa),
+				    buf, delivery, line);
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
@@ -1056,6 +1080,8 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 	struct mta_envelope	*e;
 	char			 relay[SMTPD_MAXLINESIZE];
 	size_t			 n;
+	struct sockaddr		 sa;
+	socklen_t		 sa_len;
 
 	snprintf(relay, sizeof relay, "%s", mta_host_to_text(s->route->dst));
 
@@ -1068,7 +1094,22 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		}
 
 		TAILQ_REMOVE(&s->task->envelopes, e, entry);
-		mta_delivery(e, relay, delivery, error);
+
+		/* we're about to log, associate session to envelope */
+		e->session = s->id;
+
+		/* XXX */
+		/*
+		 * getsockname() can only fail with ENOBUFS here
+		 * best effort, don't log source ...
+		 */
+		sa_len = sizeof sa;
+		if (getsockname(s->io.sock, &sa, &sa_len) < 0)
+			mta_delivery(e, NULL, relay, delivery, error);
+		else
+			mta_delivery(e, sa_to_text(&sa),
+			    relay, delivery, error);
+
 		free(e->dest);
 		free(e->rcpt);
 		free(e);

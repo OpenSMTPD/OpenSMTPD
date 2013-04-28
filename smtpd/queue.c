@@ -199,8 +199,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
+
+			/* already removed by scheduler */
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
 			queue_log(&evp, "Remove", "Removed by administrator");
 			queue_envelope_delete(evpid);
 			return;
@@ -209,8 +211,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
+
+			/* already removed by scheduler*/
 			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+				return;
+
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -223,8 +228,15 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_QUEUE_BOUNCE:
 			req_bounce = imsg->data;
 			evpid = req_bounce->evpid;
-			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: bounce: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
+				m_close(p_scheduler);
+				return;
+			}
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
 			queue_envelope_update(&evp);
@@ -234,8 +246,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: deliver: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
+				m_close(p_scheduler);
+				return;
+			}
 			evp.lasttry = time(NULL);
 			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
 			m_add_envelope(p_mda, &evp);
@@ -260,8 +278,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: batch: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
+				m_close(p_scheduler);
+				return;
+			}
 			evp.lasttry = time(NULL);
 			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, MSZ_EVP);
 			m_add_id(p_mta, batch_id);
@@ -340,8 +364,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_get_string(&m, &reason);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: tempfail: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
+				m_close(p_scheduler);
+				return;
+			}
 			envelope_set_errormsg(&evp, "%s", reason);
 			evp.retry++;
 			queue_envelope_update(&evp);
@@ -356,8 +386,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_get_string(&m, &reason);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: permfail: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
+				m_close(p_scheduler);
+				return;
+			}
 			bounce.type = B_ERROR;
 			bounce.delay = 0;
 			bounce.expire = 0;
@@ -374,8 +410,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
-			if (queue_envelope_load(evpid, &evp) == 0)
-				errx(1, "cannot load evp:%016" PRIx64, evpid);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: loop: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
+				m_close(p_scheduler);
+				return;
+			}
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
 			bounce.type = B_ERROR;
 			bounce.delay = 0;

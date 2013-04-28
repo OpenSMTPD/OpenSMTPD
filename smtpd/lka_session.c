@@ -52,6 +52,7 @@ struct lka_session {
 
 	int			 flags;
 	int			 error;
+	const char		*errormsg;
 	struct envelope		 envelope;
 	struct xnodes		 nodes;
 	/* waiting for fwdrq */
@@ -176,6 +177,16 @@ lka_resume(struct lka_session *lks)
 		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 24);
 		m_add_id(p_smtp, lks->id);
 		m_add_int(p_smtp, lks->error);
+
+		if (lks->errormsg)
+			m_add_string(p_smtp, lks->errormsg);
+		else {
+			if (lks->error == LKA_PERMFAIL)
+				m_add_string(p_smtp, "550 Invalid recipient");
+			else if (lks->error == LKA_TEMPFAIL)
+				m_add_string(p_smtp, "451 Temporary failure");
+		}
+
 		m_close(p_smtp);
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
@@ -211,7 +222,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		ep;
 	struct expandnode	node;
 	int			r;
-	struct userinfo	       *tu = NULL;
+	union lookup		lk;
 
 	if (xn->depth >= EXPAND_DEPTH) {
 		log_trace(TRACE_EXPAND, "expand: lka_expand: node too deep.");
@@ -316,7 +327,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		r = table_lookup(rule->r_userbase, xn->u.user, K_USERINFO, (void **)&tu);
+		r = table_lookup(rule->r_userbase, xn->u.user, K_USERINFO, &lk);
 		if (r == -1) {
 			log_trace(TRACE_EXPAND, "expand: lka_expand: "
 			    "backend error while searching user");
@@ -334,20 +345,29 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->rule = rule;
 		lks->node = xn;
 		fwreq.id = lks->id;
-		(void)strlcpy(fwreq.user, tu->username, sizeof(fwreq.user));
-		(void)strlcpy(fwreq.directory, tu->directory, sizeof(fwreq.directory));
-		fwreq.uid = tu->uid;
-		fwreq.gid = tu->gid;
+		(void)strlcpy(fwreq.user, lk.userinfo.username, sizeof(fwreq.user));
+		(void)strlcpy(fwreq.directory, lk.userinfo.directory, sizeof(fwreq.directory));
+		fwreq.uid = lk.userinfo.uid;
+		fwreq.gid = lk.userinfo.gid;
 		m_compose(p_parent, IMSG_PARENT_FORWARD_OPEN, 0, 0, -1,
 		    &fwreq, sizeof(fwreq));
 		lks->flags |= F_WAITING;
-		free(tu);
 		break;
 
 	case EXPAND_FILENAME:
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filename: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
+		break;
+
+	case EXPAND_ERROR:
+		log_trace(TRACE_EXPAND, "expand: lka_expand: error: %s "
+		    "[depth=%d]", xn->u.buffer, xn->depth);
+		if (xn->u.buffer[0] == '4')
+			lks->error = LKA_TEMPFAIL;
+		else if (xn->u.buffer[0] == '5')
+			lks->error = LKA_PERMFAIL;
+		lks->errormsg = xn->u.buffer;
 		break;
 
 	case EXPAND_FILTER:
@@ -374,7 +394,7 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 static void
 lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 {
-	struct userinfo		*tu;
+	union lookup		 lk;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
 	const char		*tag;
@@ -418,8 +438,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    sizeof(ep->agent.mda.username));
 		}
 
-		r = table_lookup(rule->r_userbase, ep->agent.mda.username, K_USERINFO,
-		    (void **)&tu);
+		r = table_lookup(rule->r_userbase, ep->agent.mda.username,
+		    K_USERINFO, &lk);
 		if (r <= 0) {
 			lks->error = (r == -1) ? LKA_TEMPFAIL : LKA_PERMFAIL;
 			free(ep);
@@ -427,7 +447,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 		strlcpy(ep->agent.mda.usertable, rule->r_userbase->t_name,
 		    sizeof ep->agent.mda.usertable);
-		strlcpy(ep->agent.mda.username, tu->username,
+		strlcpy(ep->agent.mda.username, lk.userinfo.username,
 		    sizeof ep->agent.mda.username);
 
 		if (xn->type == EXPAND_FILENAME) {
@@ -456,8 +476,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			fatalx("lka_deliver: bad node type");
 
 		r = lka_expand_format(ep->agent.mda.buffer,
-		    sizeof(ep->agent.mda.buffer), ep, tu);
-		free(tu);
+		    sizeof(ep->agent.mda.buffer), ep, &lk.userinfo);
 		if (!r) {
 			lks->error = LKA_TEMPFAIL;
 			log_warnx("warn: format string error while"

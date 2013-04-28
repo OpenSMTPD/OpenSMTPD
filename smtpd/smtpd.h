@@ -107,11 +107,6 @@ struct netaddr {
 	int bits;
 };
 
-union sockaddr_any {
-	struct in6_addr		in6;
-	struct in_addr		in4;
-};
-
 struct relayhost {
 	uint8_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
@@ -133,12 +128,23 @@ struct destination {
 };
 
 struct source {
-	union sockaddr_any	addr;
+	struct sockaddr_storage	addr;
 };
 
 struct addrname {
-	union sockaddr_any	addr;
+	struct sockaddr_storage	addr;
 	char			name[SMTPD_MAXHOSTNAMELEN];
+};
+
+union lookup {
+	struct expand		*expand;
+	struct credentials	 creds;
+	struct netaddr		 netaddr;
+	struct source		 source;
+	struct destination	 domain;
+	struct userinfo		 userinfo;
+	struct mailaddr		 mailaddr;
+	struct addrname		 addrname;
 };
 
 /* XXX */
@@ -279,41 +285,26 @@ enum table_type {
 	T_HASH		= 0x04,	/* table holding a hash table	*/
 };
 
-enum table_service {
-	K_NONE		= 0x00,
-	K_ALIAS		= 0x01,	/* returns struct expand	*/
-	K_DOMAIN	= 0x02,	/* returns struct destination	*/
-	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
-	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
-	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x20, /* returns struct source	*/
-	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
-};
-
 struct table {
 	char				 t_name[SMTPD_MAXLINESIZE];
 	enum table_type			 t_type;
-	char				 t_src[MAX_TABLE_BACKEND_SIZE];
 	char				 t_config[SMTPD_MAXPATHLEN];
 
 	struct dict			 t_dict;
 
 	void				*t_handle;
 	struct table_backend		*t_backend;
-	void				*t_payload;
 	void				*t_iter;
-	char				 t_cfgtable[SMTPD_MAXPATHLEN];
 };
 
 struct table_backend {
 	const unsigned int	services;
-	int	(*config)(struct table *, const char *);
-	void	*(*open)(struct table *);
+	int	(*config)(struct table *);
+	void   *(*open)(struct table *);
 	int	(*update)(struct table *);
 	void	(*close)(void *);
-	int	(*lookup)(void *, const char *, enum table_service, void **);
-	int	(*fetch)(void *, enum table_service, char **);
+	int	(*lookup)(void *, const char *, enum table_service, union lookup *);
+	int	(*fetch)(void *, enum table_service, union lookup *);
 };
 
 
@@ -404,7 +395,8 @@ enum expand_type {
 	EXPAND_FILENAME,
 	EXPAND_FILTER,
 	EXPAND_INCLUDE,
-	EXPAND_ADDRESS
+	EXPAND_ADDRESS,
+	EXPAND_ERROR
 };
 
 struct expandnode {
@@ -613,6 +605,8 @@ struct smtpd {
 #define	TRACE_RULES	0x0400
 #define	TRACE_IMSGSIZE	0x0800
 #define	TRACE_EXPAND	0x1000
+#define	TRACE_TABLES	0x2000
+#define	TRACE_QUEUE	0x4000
 
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
@@ -769,6 +763,7 @@ struct mta_relay {
 struct mta_envelope {
 	TAILQ_ENTRY(mta_envelope)	 entry;
 	uint64_t			 id;
+	uint64_t			 session;
 	time_t				 creation;
 	char				*dest;
 	char				*rcpt;
@@ -1128,6 +1123,7 @@ struct expandnode *expand_lookup(struct expand *, struct expandnode *);
 void expand_clear(struct expand *);
 void expand_free(struct expand *);
 int expand_line(struct expand *, const char *, int);
+int expand_to_text(struct expand *, char *, size_t);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
@@ -1223,7 +1219,7 @@ void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
-void mta_delivery(struct mta_envelope *, const char *, int, const char *);
+void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1314,42 +1310,35 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
+struct table *table_find(const char *, const char *);
+struct table *table_create(const char *, const char *, const char *,
+    const char *);
+int	table_config(struct table *);
 int	table_open(struct table *);
-void	table_update(struct table *);
+int	table_update(struct table *);
 void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
-int	table_lookup(struct table *, const char *, enum table_service, void **);
-int	table_fetch(struct table *, enum table_service, char **);
-struct table *table_findbyname(const char *);
-struct table *table_create(const char *, const char *, const char *);
+int	table_lookup(struct table *, const char *, enum table_service,
+    union lookup *);
+int	table_fetch(struct table *, enum table_service, union lookup *);
 void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
 void table_delete(struct table *, const char *);
-void table_delete_all(struct table *);
-void table_replace(struct table *, struct table *);
 int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 int table_mailaddr_match(const char *, const char *);
 void	table_open_all(void);
+void	table_dump_all(void);
 void	table_close_all(void);
-void	table_set_payload(struct table *, void *);
-void   *table_get_payload(struct table *);
-void	table_set_configuration(struct table *, struct table *);
-struct table	*table_get_configuration(struct table *);
 const void	*table_get(struct table *, const char *);
-
-void *table_config_create(void);
-const char *table_config_get(void *, const char *);
-void table_config_destroy(void *);
-int table_config_parse(void *, const char *, enum table_type);
+int table_parse_lookup(enum table_service, const char *, const char *,
+    union lookup *);
 
 
 /* to.c */
 int email_to_mailaddr(struct mailaddr *, char *);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_mailaddr(struct mailaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);

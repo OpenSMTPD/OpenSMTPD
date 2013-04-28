@@ -55,6 +55,7 @@ static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
 static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
+static int alias_is_error(struct expandnode *, const char *, size_t);
 
 const char *
 sockaddr_to_text(struct sockaddr *sa)
@@ -456,18 +457,6 @@ relayhost_to_text(const struct relayhost *relay)
 	return buf;
 }
 
-uint32_t
-evpid_to_msgid(uint64_t evpid)
-{
-	return (evpid >> 32);
-}
-
-uint64_t
-msgid_to_evpid(uint32_t msgid)
-{
-	return ((uint64_t)msgid << 32);
-}
-
 uint64_t
 text_to_evpid(const char *s)
 {
@@ -668,7 +657,8 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	size_t	l;
 
 	l = strlen(s);
-	if (alias_is_include(expandnode, s, l) ||
+	if (alias_is_error(expandnode, s, l) ||
+	    alias_is_include(expandnode, s, l) ||
 	    alias_is_filter(expandnode, s, l) ||
 	    alias_is_filename(expandnode, s, l) ||
 	    alias_is_address(expandnode, s, l) ||
@@ -685,6 +675,7 @@ expandnode_to_text(struct expandnode *expandnode)
 	case EXPAND_FILTER:
 	case EXPAND_FILENAME:
 	case EXPAND_INCLUDE:
+	case EXPAND_ERROR:
 		return expandnode->u.buffer;
 	case EXPAND_USERNAME:
 		return expandnode->u.user;
@@ -809,5 +800,36 @@ alias_is_include(struct expandnode *alias, const char *line, size_t len)
 		return 0;
 
 	alias->type = EXPAND_INCLUDE;
+	return 1;
+}
+
+static int
+alias_is_error(struct expandnode *alias, const char *line, size_t len)
+{
+	size_t	skip;
+
+	bzero(alias, sizeof *alias);
+
+	if (strncasecmp(":error:", line, 7) == 0)
+		skip = 7;
+	else if (strncasecmp("error:", line, 6) == 0)
+		skip = 6;
+	else
+		return 0;
+
+	if (strlcpy(alias->u.buffer, line + skip,
+	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+		return 0;
+
+	if (strlen(alias->u.buffer) < 5)
+		return 0;
+
+	/* [45][0-9]{2} [a-zA-Z0-9].* */
+	if (alias->u.buffer[3] != ' ' || !isalnum(alias->u.buffer[4]) ||
+	    (alias->u.buffer[0] != '4' && alias->u.buffer[0] != '5') ||
+	    !isdigit(alias->u.buffer[1]) || !isdigit(alias->u.buffer[2]))
+		return 0;
+
+	alias->type = EXPAND_ERROR;
 	return 1;
 }
