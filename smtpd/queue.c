@@ -230,8 +230,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			evpid = req_bounce->evpid;
 
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				log_warnx("queue: bounce: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
 				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
 				m_close(p_scheduler);
 				return;
 			}
@@ -245,8 +247,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				log_warnx("queue: deliver: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
 				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
 				m_close(p_scheduler);
 				return;
 			}
@@ -275,8 +279,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				log_warnx("queue: batch: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
 				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
 				m_close(p_scheduler);
 				return;
 			}
@@ -359,8 +365,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &reason);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				log_warnx("queue: tempfail: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
 				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
 				return;
 			}
@@ -379,8 +387,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &reason);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				log_warnx("queue: permfail: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
 				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
 				return;
 			}
@@ -401,8 +411,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+				log_warnx("queue: loop: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
 				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
 				return;
 			}
