@@ -74,13 +74,13 @@ table_proc_open(struct table *table)
 	errno = 0;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0) {
-		log_warn("warn: socketpair");
+		log_warn("warn: table-proc: socketpair");
 		return (NULL);
 	}
 	priv = calloc(1, sizeof(*priv));
 
 	if ((priv->pid = fork()) == -1) {
-		log_warn("warn: fork");
+		log_warn("warn: table-proc: fork");
 		goto err;
 	}
 
@@ -123,7 +123,7 @@ table_proc_update(struct table *table)
 	int r;
 
 	if (!priv->running) {
-		log_warnx("warn: proc table is not running");
+		log_warnx("warn: table-proc: not running");
 		return (-1);
 	}
 
@@ -144,7 +144,7 @@ table_proc_close(void *arg)
 	struct table_proc_priv	*priv = arg;
 
 	if (!priv->running) {
-		log_warnx("warn: proc table is not running");
+		log_warnx("warn: table-proc: not running");
 		return;
 	}
 
@@ -163,7 +163,7 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 	int			 r, msg;
 
 	if (!priv->running) {
-		log_warnx("warn: proc table is not running");
+		log_warnx("warn: table-proc: not running");
 		return (-1);
 	}
 
@@ -203,16 +203,16 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 	len -= sizeof(r);
 
 	if (len != 0 && (r != 1 || lk == NULL))
-		log_warnx("warn: unexpected payload in lookup pkt: %zu", len);
+		log_warnx("warn: table-proc: unexpected payload in lookup pkt: %zu", len);
 
 	if (r == 1 && lk) {
 		if (len == 0) {
 			r = -1;
-			log_warnx("warn: empty payload in lookup pkt");
+			log_warnx("warn: table-proc: empty payload in lookup pkt");
 		}
 		else if (data[len-1] != '\0') {
 			r = -1;
-			log_warnx("warn: payload doesn't end with NUL");
+			log_warnx("warn: table-proc: payload doesn't end with NUL");
 		} else
 			r = table_parse_lookup(s, k, data, lk);
 	}
@@ -235,7 +235,7 @@ table_proc_call(struct table_proc_priv *priv, size_t expected)
 	size_t	len;
 
 	if (imsg_flush(&priv->ibuf) == -1) {
-		log_warn("warn: imsg_flush");
+		log_warn("warn: table-proc: imsg_flush");
 		imsg_clear(&priv->ibuf);
 		priv->running = 0;
 		return (0);
@@ -243,7 +243,7 @@ table_proc_call(struct table_proc_priv *priv, size_t expected)
 
 	while (1) {
 		if ((n = imsg_get(&priv->ibuf, &imsg)) == -1) {
-			log_warn("warn: table_proc: imsg_get");
+			log_warn("warn: table-proc: imsg_get");
 			break;
 		}
 		if (n) {
@@ -253,7 +253,7 @@ table_proc_call(struct table_proc_priv *priv, size_t expected)
 				if (expected == (size_t)-1 || len == expected)
 					return (1);
 				imsg_free(&imsg);
-				log_warnx("warn: table_proc: "
+				log_warnx("warn: table-proc: "
 				    "bad msg length (%i/%i)",
 				    (int)len, (int)expected);
 				break;
@@ -263,23 +263,23 @@ table_proc_call(struct table_proc_priv *priv, size_t expected)
 				imsg_free(&imsg);
 				if (len == 0)
 					return (0);
-				log_warnx("warn: table_proc: "
+				log_warnx("warn: table-proc: "
 				    "bad msg length (%i/%i)",
 				    (int)len, (int)expected);
 				break;
 			}
 
-			log_warn("warn: table_proc: bad response");
+			log_warnx("warn: table-proc: bad response");
 			break;
 		}
 
 		if ((n = imsg_read(&priv->ibuf)) == -1) {
-			log_warn("warn: table_proc: imsg_read");
+			log_warn("warn: table-proc: imsg_read");
 			break;
 		}
 
 		if (n == 0) {
-			log_warnx("warn: table_proc: pipe closed");
+			log_warnx("warn: table-proc: pipe closed");
 			break;
 		}
 	}

@@ -140,6 +140,18 @@ enum {
 	PROC_TABLE_FETCH,
 };
 
+static inline uint32_t
+evpid_to_msgid(uint64_t evpid)
+{
+	return (evpid >> 32);
+}
+
+static inline uint64_t
+msgid_to_evpid(uint32_t msgid)
+{
+        return ((uint64_t)msgid << 32);
+}
+
 /* dict.c */
 #define dict_init(d) SPLAY_INIT((d))
 #define dict_empty(d) SPLAY_EMPTY((d))

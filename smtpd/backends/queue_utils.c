@@ -56,18 +56,6 @@ queue_generate_evpid(uint32_t msgid)
 	return evpid;
 }
 
-uint32_t
-evpid_to_msgid(uint64_t evpid)
-{
-	return (evpid >> 32);
-}
-
-uint64_t
-msgid_to_evpid(uint32_t msgid)
-{
-	return ((uint64_t)msgid << 32);
-}
-
 int
 mktmpfile(const char *tempdir)
 {
