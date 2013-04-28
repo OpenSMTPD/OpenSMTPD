@@ -255,6 +255,7 @@ AC_CHECK_HEADERS([ \
 	netdb.h \
 	pam/pam_appl.h \
 	security/pam_appl.h \
+	shadow.h \
 	sys/dir.h \
 	sys/file.h \
 	sys/ndir.h \
@@ -669,6 +670,7 @@ AC_CHECK_FUNCS([ \
 	getnameinfo \
 	getopt \
 	getpeereid \
+	getspnam \
 	memmove \
 	pw_dup \
 	setproctitle \
