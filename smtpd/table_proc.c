@@ -87,8 +87,7 @@ table_proc_open(struct table *table)
 	if (priv->pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		environ_new[0] = "PATH=" _PATH_DEFPATH;
 		environ_new[1] = (char *)NULL;

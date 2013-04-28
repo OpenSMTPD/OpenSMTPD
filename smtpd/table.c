@@ -93,10 +93,14 @@ table_backend_name(struct table_backend *backend)
 		return "getpwnam";
 	if (backend == &table_backend_proc)
 		return "proc";
+#if defined(HAVE_SQLITE)
 	if (backend == &table_backend_sqlite)
 		return "sqlite";
+#endif
+#if defined(HAVE_LDAP)
 	if (backend == &table_backend_ldap)
 		return "ldap";
+#endif
 	return "???";
 }
 

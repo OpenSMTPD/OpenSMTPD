@@ -77,6 +77,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	uint64_t		 evpid, id;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
+	uint32_t       		 inflight;
 	size_t			 n, i;
 	time_t			 timestamp;
 	int			 v;
@@ -114,6 +115,23 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		    msgid);
 		n = backend->rollback(msgid);
 		stat_decrement("scheduler.envelope.incoming", n);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_QUEUE_REMOVE:
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_get_u32(&m, &inflight);
+		m_end(&m);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: queue requested removal of evp:%016" PRIx64,
+		    evpid);
+		stat_decrement("scheduler.envelope", 1);
+		if (! inflight)
+			backend->remove(evpid);
+		else
+			backend->delete(evpid);
+
 		scheduler_reset_events();
 		return;
 
