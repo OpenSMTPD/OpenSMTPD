@@ -227,6 +227,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
+	struct mailaddr		maddr;
 	int			r;
 	union lookup		lk;
 
@@ -271,7 +272,15 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			r = aliases_virtual_get(&lks->expand, &xn->u.mailaddr);
+
+			/* temporary replace the mailaddr with a copy where
+			 * we eventually strip the '+'-part before lookup.
+			 */
+			maddr = xn->u.mailaddr;
+			mailaddr_to_username(&xn->u.mailaddr, maddr.user,
+			    sizeof maddr.user);
+
+			r = aliases_virtual_get(&lks->expand, &maddr);
 			if (r == -1) {
 				lks->error = LKA_TEMPFAIL;
 				log_trace(TRACE_EXPAND, "expand: lka_expand: "
