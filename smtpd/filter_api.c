@@ -211,7 +211,7 @@ filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
 void
 filter_api_data(uint64_t id, const char *line)
 {
-	m_create(&fi.p, IMSG_FILTER_DATA, 0, 0, -1, 1024);
+	m_create(&fi.p, IMSG_FILTER_DATA, 0, 0, -1);
 	m_add_id(&fi.p, id);
 	m_add_string(&fi.p, line);
 	m_close(&fi.p);
@@ -225,7 +225,7 @@ filter_response(uint64_t qid, int status, int code, const char *line, int notify
 	q = tree_xpop(&queries, qid);
 	free(q);
 
-	m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1, 64);
+	m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1);
 	m_add_id(&fi.p, qid);
 	m_add_int(&fi.p, status);
 	m_add_int(&fi.p, code);
@@ -269,7 +269,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		if (v != FILTER_API_VERSION)
 			errx(1, "API version mismatch");
-		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1, 18);
+		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
 		m_add_int(p, fi.hooks);
 		m_add_int(p, fi.flags);
 		m_close(p);
