@@ -81,7 +81,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = queue_message_create(&msgid);
 
-			m_create(p, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1, 24);
+			m_create(p, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1);
 			m_add_id(p, reqid);
 			if (ret == 0)
 				m_add_int(p, 0);
@@ -100,7 +100,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			queue_message_delete(msgid);
 
 			m_create(p_scheduler, IMSG_QUEUE_REMOVE_MESSAGE,
-			    0, 0, -1, 5);
+			    0, 0, -1);
 			m_add_msgid(p_scheduler, msgid);
 			m_close(p_scheduler);
 			return;
@@ -113,14 +113,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = queue_message_commit(msgid);
 
-			m_create(p,  IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 16);
+			m_create(p,  IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, (ret == 0) ? 0 : 1);
 			m_close(p);
 
 			if (ret) {
 				m_create(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE,
-				    0, 0, -1, 5);
+				    0, 0, -1);
 				m_add_msgid(p_scheduler, msgid);
 				m_close(p_scheduler);
 			}
@@ -134,7 +134,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 			fd = queue_message_fd_rw(msgid);
 
-			m_create(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd, 16);
+			m_create(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd);
 			m_add_id(p, reqid);
 			m_add_int(p, (fd == -1) ? 0 : 1);
 			m_close(p);
@@ -160,8 +160,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				log_warnx("warn: imsg_queue_submit_envelope: msgid=0, "
 				    "evpid=%016"PRIx64, evp.id);
 			ret = queue_envelope_create(&evp);
-			m_create(p_smtp, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-			    24);
+			m_create(p_smtp, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1);
 			m_add_id(p_smtp, reqid);
 			if (ret == 0)
 				m_add_int(p_smtp, 0);
@@ -172,8 +171,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p_smtp);
 			if (ret) {
 				m_create(p_scheduler,
-				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-				    MSZ_EVP);
+				    IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1);
 				m_add_envelope(p_scheduler, &evp);
 				m_close(p_scheduler);
 
@@ -184,8 +182,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			m_create(p_smtp, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1,
-			    16);
+			m_create(p_smtp, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1);
 			m_add_id(p_smtp, reqid);
 			m_add_int(p_smtp, 1);
 			m_close(p_smtp);
@@ -231,7 +228,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: bounce: failed to load envelope");
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 0); /* not in-flight */
 				m_close(p_scheduler);
@@ -248,14 +245,14 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: deliver: failed to load envelope");
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
 				return;
 			}
 			evp.lasttry = time(NULL);
-			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1, MSZ_EVP);
+			m_create(p_mda, IMSG_MDA_DELIVER, 0, 0, -1);
 			m_add_envelope(p_mda, &evp);
 			m_close(p_mda);
 			return;
@@ -269,7 +266,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_MTA_BATCH:
 			batch_id = generate_uid();
-			m_create(p_mta, IMSG_MTA_BATCH, 0, 0, -1, 9);
+			m_create(p_mta, IMSG_MTA_BATCH, 0, 0, -1);
 			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
 			return;
@@ -280,21 +277,21 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: batch: failed to load envelope");
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
 				return;
 			}
 			evp.lasttry = time(NULL);
-			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1, MSZ_EVP);
+			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1);
 			m_add_id(p_mta, batch_id);
 			m_add_envelope(p_mta, &evp);
 			m_close(p_mta);
 			return;
 
 		case IMSG_MTA_BATCH_END:
-			m_create(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1, 9);
+			m_create(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1);
 			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
 			return;
@@ -344,7 +341,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_msgid(&m, &msgid);
 			m_end(&m);
 			fd = queue_message_fd_r(msgid);
-			m_create(p, IMSG_QUEUE_MESSAGE_FD, 0, 0, fd, 25);
+			m_create(p, IMSG_QUEUE_MESSAGE_FD, 0, 0, fd);
 			m_add_id(p, reqid);
 			m_close(p);
 			return;
@@ -354,7 +351,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			queue_envelope_delete(evpid);
-			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1, 9);
+			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1);
 			m_add_evpid(p_scheduler, evpid);
 			m_close(p_scheduler);
 			return;
@@ -366,7 +363,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: tempfail: failed to load envelope");
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
@@ -375,8 +372,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			envelope_set_errormsg(&evp, "%s", reason);
 			evp.retry++;
 			queue_envelope_update(&evp);
-			m_create(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
-			    MSZ_EVP);
+			m_create(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
 			return;
@@ -388,7 +384,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: permfail: failed to load envelope");
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
@@ -400,8 +396,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			envelope_set_errormsg(&evp, "%s", reason);
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evpid);
-			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
-			    9);
+			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
 			m_add_evpid(p_scheduler, evpid);
 			m_close(p_scheduler);
 			return;
@@ -412,7 +407,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: loop: failed to load envelope");
-				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1, 14);
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 1); /* in-flight */
 				m_close(p_scheduler);
@@ -424,7 +419,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evp.id);
-			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1, 9);
+			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1);
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
 			return;
@@ -493,12 +488,11 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 		log_debug("debug: queue: bouncing evp:%016" PRIx64
 		    " as evp:%016" PRIx64, e->id, b.id);
 
-		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-		    MSZ_EVP);
+		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1);
 		m_add_envelope(p_scheduler, &b);
 		m_close(p_scheduler);
 
-		m_create(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1, 5);
+		m_create(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1);
 		m_add_msgid(p_scheduler, evpid_to_msgid(b.id));
 		m_close(p_scheduler);
 
@@ -612,7 +606,7 @@ queue_timeout(int fd, short event, void *p)
 	if (r == -1) {
 		if (msgid) {
 			m_create(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE,
-			    0, 0, -1, 5);
+			    0, 0, -1);
 			m_add_msgid(p_scheduler, msgid);
 			m_close(p_scheduler);
 		}
@@ -623,13 +617,12 @@ queue_timeout(int fd, short event, void *p)
 	if (r) {
 		if (msgid && evpid_to_msgid(evp.id) != msgid) {
 			m_create(p_scheduler, IMSG_QUEUE_COMMIT_MESSAGE,
-			    0, 0, -1, 5);
+			    0, 0, -1);
 			m_add_msgid(p_scheduler, msgid);
 			m_close(p_scheduler);
 		}
 		msgid = evpid_to_msgid(evp.id);
-		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-		    MSZ_EVP);
+		m_create(p_scheduler, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1);
 		m_add_envelope(p_scheduler, &evp);
 		m_close(p_scheduler);
 	}
@@ -642,7 +635,7 @@ queue_timeout(int fd, short event, void *p)
 void
 queue_ok(uint64_t evpid)
 {
-	m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1, sizeof(evpid) + 1);
+	m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);
 	m_close(p_queue);
 }
@@ -650,8 +643,7 @@ queue_ok(uint64_t evpid)
 void
 queue_tempfail(uint64_t evpid, const char *reason)
 {
-	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1,
-	    sizeof(evpid) + strlen(reason) + 2);
+	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);
 	m_add_string(p_queue, reason);
 	m_close(p_queue);
@@ -660,8 +652,7 @@ queue_tempfail(uint64_t evpid, const char *reason)
 void
 queue_permfail(uint64_t evpid, const char *reason)
 {
-	m_create(p_queue, IMSG_DELIVERY_PERMFAIL, 0, 0, -1,
-	    sizeof(evpid) + strlen(reason) + 2);
+	m_create(p_queue, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);
 	m_add_string(p_queue, reason);
 	m_close(p_queue);
@@ -670,7 +661,7 @@ queue_permfail(uint64_t evpid, const char *reason)
 void
 queue_loop(uint64_t evpid)
 {
-	m_create(p_queue, IMSG_DELIVERY_LOOP, 0, 0, -1, sizeof(evpid) + 1);
+	m_create(p_queue, IMSG_DELIVERY_LOOP, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);
 	m_close(p_queue);
 }

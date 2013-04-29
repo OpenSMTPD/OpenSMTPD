@@ -127,7 +127,7 @@ bounce_add(uint64_t evpid)
 	bounce_init();
 
 	if (queue_envelope_load(evpid, &evp) == 0) {
-		m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1, 9);
+		m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
 		m_add_evpid(p_scheduler, evpid);
 		m_close(p_scheduler);
 		return;
@@ -504,12 +504,11 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 			evp.lasttry = msg->timeout;
 			envelope_set_errormsg(&evp, "%s", status);
 			queue_envelope_update(&evp);
-			m_create(p_scheduler, delivery, 0, 0, -1, MSZ_EVP);
+			m_create(p_scheduler, delivery, 0, 0, -1);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
 		} else {
-			m_create(p_scheduler, delivery, 0, 0, -1,
-			    sizeof(be->id) + 1);
+			m_create(p_scheduler, delivery, 0, 0, -1);
 			m_add_evpid(p_scheduler, be->id);
 			m_close(p_scheduler);
 			queue_envelope_delete(be->id);

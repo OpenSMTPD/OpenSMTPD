@@ -43,9 +43,6 @@ static void mproc_dispatch(int, short, void *);
 
 static ssize_t msgbuf_write2(struct msgbuf *);
 
-static uint32_t	reqtype;
-static size_t	reqlen;
-
 int
 mproc_fork(struct mproc *p, const char *path, const char *arg)
 {
@@ -309,58 +306,75 @@ m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
 }
 
 void
-m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
-    size_t len)
+m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd)
 {
-	if (p->ibuf)
-		fatal("ibuf already rhere");
+	if (p->m_buf == NULL) {
+		p->m_alloc = 128;
+		log_debug("debug: mproc: %s -> %s: allocating %zu", 
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
+		    p->m_alloc);
+		p->m_buf = malloc(p->m_alloc);
+		if (p->m_buf == NULL)
+			fatal("warn: m_create: malloc");
+	}
 
-	reqtype = type;
-	reqlen = len;
-
-	p->ibuf = imsg_create(&p->imsgbuf, type, peerid, pid, len);
-	if (p->ibuf == NULL)
-		fatal("imsg_create");
-
-	/* Is this a problem with imsg? */
-	p->ibuf->fd = fd;
+	p->m_pos = 0;
+	p->m_type = type;
+	p->m_peerid = peerid;
+	p->m_pid = pid;
+	p->m_fd = fd;
 }
 
 void
 m_add(struct mproc *p, const void *data, size_t len)
 {
-	if (p->ibuferror)
-		return;
+	size_t	 alloc;
+	void	*tmp;
 
-	if (ibuf_add(p->ibuf, data, len) == -1)
-		p->ibuferror = 1;
+	if (p->m_pos + len + IMSG_HEADER_SIZE > MAX_IMSGSIZE) {
+		log_warnx("warn: message to large");
+		fatal(NULL);
+	}
+
+	alloc = p->m_alloc;
+	while (p->m_pos + len > alloc)
+		alloc *= 2;
+	if (alloc != p->m_alloc) {
+		log_debug("debug: mproc: %s -> %s: reallocating %zu -> %zu",
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
+		    p->m_alloc,
+		    alloc);
+
+		tmp = realloc(p->m_buf, alloc);
+		if (tmp == NULL)
+			fatal("realloc");
+		p->m_alloc = alloc;
+		p->m_buf = tmp;
+	}
+
+	memmove(p->m_buf + p->m_pos, data, len);
+	p->m_pos += len;
 }
 
 void
 m_close(struct mproc *p)
 {
-	imsg_close(&p->imsgbuf, p->ibuf);
-
-	if (verbose & TRACE_IMSGSIZE &&
-	    reqlen != p->ibuf->wpos - IMSG_HEADER_SIZE)
-		log_debug("msg-len: too %s %zu -> %zu : %s -> %s : %s",
-		    (reqlen < p->ibuf->wpos - IMSG_HEADER_SIZE) ? "small" : "large",
-		    reqlen, p->ibuf->wpos - IMSG_HEADER_SIZE,
+	if (imsg_compose(&p->imsgbuf, p->m_type, p->m_peerid, p->m_pid, p->m_fd,
+	    p->m_buf, p->m_pos) == -1)
+		fatal("imsg_compose");
+	
+	log_trace(TRACE_IMSGSIZE, "msg-len: %zu : %s -> %s : %s",
+		    p->m_pos,
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
-		    imsg_to_str(reqtype));
-	else if (verbose & TRACE_IMSGSIZE)
-		log_debug("msg-len: ok %zu : %s -> %s : %s",
-		    p->ibuf->wpos - IMSG_HEADER_SIZE,
-		    proc_name(smtpd_process),
-		    proc_name(p->proc),
-		    imsg_to_str(reqtype));
+		    imsg_to_str(p->m_type));
 
 	p->msg_out += 1;
-	p->bytes_queued += p->ibuf->wpos;
+	p->bytes_queued += p->m_pos + IMSG_HEADER_SIZE;
 	if (p->bytes_queued > p->bytes_queued_max)
 		p->bytes_queued_max = p->bytes_queued;
-	p->ibuf = NULL;
 
 	mproc_event_add(p);
 }
@@ -438,24 +452,16 @@ m_get_typed_sized(struct msg *m, uint8_t type, const void **dst, size_t *sz)
 static void
 m_add_typed(struct mproc *p, uint8_t type, const void *data, size_t len)
 {
-	if (p->ibuferror)
-		return;
-
-	if (ibuf_add(p->ibuf, &type, 1) == -1 ||
-	    ibuf_add(p->ibuf, data, len) == -1)
-		p->ibuferror = 1;
+	m_add(p, &type, 1);
+	m_add(p, data, len);
 }
 
 static void
 m_add_typed_sized(struct mproc *p, uint8_t type, const void *data, size_t len)
 {
-	if (p->ibuferror)
-		return;
-
-	if (ibuf_add(p->ibuf, &type, 1) == -1 ||
-	    ibuf_add(p->ibuf, &len, sizeof(len)) == -1 ||
-	    ibuf_add(p->ibuf, data, len) == -1)
-		p->ibuferror = 1;
+	m_add(p, &type, 1);
+	m_add(p, &len, sizeof(len));
+	m_add(p, data, len);
 }
 
 enum {
@@ -636,7 +642,7 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 	m_get_typed_sized(m, M_ENVELOPE, &d, &s);
 
 	if (!envelope_load_buffer(evp, d, s - 1))
-		fatalx("failed to load envelope");
+		fatalx("failed to retreive envelope");
 	evp->id = evpid;
 #endif
 }
