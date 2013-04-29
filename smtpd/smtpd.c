@@ -1461,24 +1461,27 @@ const char *
 proc_title(enum smtp_proc_type proc)
 {
 	switch (proc) {
-	case PROC_CONTROL:
-		return "control";
-	case PROC_LKA:
-		return "lookup";
-	case PROC_MDA:
-		return "delivery";
-	case PROC_MFA:
-		return "filter";
-	case PROC_MTA:
-		return "transfer";
 	case PROC_PARENT:
 		return "[priv]";
-	case PROC_QUEUE:
-		return "queue";
-	case PROC_SCHEDULER:
-		return "scheduler";
 	case PROC_SMTP:
 		return "smtp";
+	case PROC_MFA:
+		return "filter";
+	case PROC_LKA:
+		return "lookup";
+	case PROC_QUEUE:
+		return "queue";
+	case PROC_MDA:
+		return "delivery";
+	case PROC_MTA:
+		return "transfer";
+	case PROC_CONTROL:
+		return "control";
+	case PROC_SCHEDULER:
+		return "scheduler";
+
+	case PROC_FILTER:
+		return "filter-proc";
 	default:
 		return "unknown";
 	}
