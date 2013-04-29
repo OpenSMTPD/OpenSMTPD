@@ -276,6 +276,8 @@ enum smtp_proc_type {
 	PROC_MTA,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
+
+	PROC_FILTER,
 };
 
 enum table_type {
