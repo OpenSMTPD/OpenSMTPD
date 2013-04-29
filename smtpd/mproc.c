@@ -364,12 +364,14 @@ m_close(struct mproc *p)
 	if (imsg_compose(&p->imsgbuf, p->m_type, p->m_peerid, p->m_pid, p->m_fd,
 	    p->m_buf, p->m_pos) == -1)
 		fatal("imsg_compose");
-	
+
+#ifndef BUILD_FILTER
 	log_trace(TRACE_IMSGSIZE, "msg-len: %zu : %s -> %s : %s",
 		    p->m_pos,
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg_to_str(p->m_type));
+#endif
 
 	p->msg_out += 1;
 	p->bytes_queued += p->m_pos + IMSG_HEADER_SIZE;
@@ -538,6 +540,7 @@ m_add_mailaddr(struct mproc *m, const struct mailaddr *maddr)
 	m_add_typed(m, M_MAILADDR, maddr, sizeof(*maddr));
 }
 
+#ifndef BUILD_FILTER
 void
 m_add_envelope(struct mproc *m, const struct envelope *evp)
 {
@@ -551,6 +554,7 @@ m_add_envelope(struct mproc *m, const struct envelope *evp)
 	m_add_typed_sized(m, M_ENVELOPE, buf, strlen(buf) + 1);
 #endif
 }
+#endif
 
 void
 m_get_int(struct msg *m, int *i)
@@ -628,6 +632,7 @@ m_get_mailaddr(struct msg *m, struct mailaddr *maddr)
 	m_get_typed(m, M_MAILADDR, maddr, sizeof(*maddr));
 }
 
+#ifndef BUILD_FILTER
 void
 m_get_envelope(struct msg *m, struct envelope *evp)
 {
@@ -646,3 +651,4 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 	evp->id = evpid;
 #endif
 }
+#endif

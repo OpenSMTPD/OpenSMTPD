@@ -141,7 +141,7 @@ mfa_filter_init(void)
 		f = xcalloc(1, sizeof *f, "mfa_filter_init");
 		p = &f->mproc;
 		p->handler = mfa_filter_imsg;
-		p->proc = -1;
+		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "mfa_filter_init");
 		p->data = f;
 		if (mproc_fork(p, filter->path, filter->name) < 0)

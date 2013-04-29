@@ -72,12 +72,6 @@ static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
 static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
 static void filter_dispatch_rcpt(uint64_t, uint64_t, struct mailaddr *);
 
-const char *
-proc_to_str(int proc)
-{
-	return "PEER";
-}
-
 void
 filter_api_on_notify(void(*cb)(uint64_t, enum filter_status))
 {
@@ -171,6 +165,10 @@ filter_api_loop(void)
 
 	register_done = 1;
 
+	mproc_enable(&fi.p);
+
+	usleep(1000000);
+
 	if (event_dispatch() < 0)
 		errx(1, "event_dispatch");
 }
@@ -245,9 +243,15 @@ filter_api_init(void)
 
 	init = 1;
 
-	bzero(&fi, sizeof(fi));
+	smtpd_process = PROC_FILTER;
+
 	tree_init(&queries);
 	event_init();
+
+	bzero(&fi, sizeof(fi));
+	fi.p.proc = PROC_MFA;
+	fi.p.handler = filter_dispatch;
+
 	mproc_init(&fi.p, 0);
 }
 
@@ -395,4 +399,28 @@ static void
 filter_dispatch_eom(uint64_t id, uint64_t qid)
 {
 	fi.cb.eom(id, qid);
+}
+
+/*
+ * These functions are called from mproc.c
+ */
+
+enum smtp_proc_type smtpd_process;
+
+const char *
+proc_name(enum smtp_proc_type proc)
+{
+	if (proc == PROC_FILTER)
+		return "this-filter";
+	return "filter";
+}
+
+const char *
+imsg_to_str(int imsg)
+{
+	static char buf[32];
+
+	snprintf("buf", sizeof(buf), "%i", imsg);
+
+	return (buf);
 }

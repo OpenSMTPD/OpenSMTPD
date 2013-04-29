@@ -1,7 +1,7 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	filter-trace
-SRCS=	filter_trace.c
+PROG=	filter-stub
+SRCS=	filter_stub.c
 
 NOMAN=	noman
 
