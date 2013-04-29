@@ -179,7 +179,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = parent_auth_user(username, password);
 
-			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			m_close(p);
@@ -538,7 +538,7 @@ parent_sig_handler(int sig, short event, void *p)
 				    "for session %016"PRIx64 ": %s",
 				    child->mda_id, cause);
 				m_create(p_mda, IMSG_MDA_DONE, 0, 0,
-				    child->mda_out, 32 + strlen(cause));
+				    child->mda_out);
 				m_add_id(p_mda, child->mda_id);
 				m_add_string(p_mda, cause);
 				m_close(p_mda);
@@ -967,7 +967,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
 		snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -982,7 +982,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -998,7 +998,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -1013,7 +1013,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -1031,7 +1031,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		child->mda_out = allout;
 		child->mda_id = id;
 		close(pipefd[0]);
-		m_create(p, IMSG_PARENT_FORK_MDA, 0, 0, pipefd[1], 9);
+		m_create(p, IMSG_PARENT_FORK_MDA, 0, 0, pipefd[1]);
 		m_add_id(p, id);
 		m_close(p);
 		return;
@@ -1540,27 +1540,27 @@ parent_auth_user(const char *username, const char *password)
 static void
 parent_broadcast_verbose(uint32_t v)
 {
-	m_create(p_lka, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_lka, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_lka, v);
 	m_close(p_lka);
 	
-	m_create(p_mda, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_mda, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mda, v);
 	m_close(p_mda);
 	
-	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mfa, v);
 	m_close(p_mfa);
 	
-	m_create(p_mta, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_mta, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mta, v);
 	m_close(p_mta);
 	
-	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
 	
-	m_create(p_smtp, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_smtp, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_smtp, v);
 	m_close(p_smtp);
 }
@@ -1568,27 +1568,27 @@ parent_broadcast_verbose(uint32_t v)
 static void
 parent_broadcast_profile(uint32_t v)
 {
-	m_create(p_lka, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_lka, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_lka, v);
 	m_close(p_lka);
 	
-	m_create(p_mda, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_mda, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mda, v);
 	m_close(p_mda);
 	
-	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mfa, v);
 	m_close(p_mfa);
 	
-	m_create(p_mta, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_mta, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mta, v);
 	m_close(p_mta);
 	
-	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
 	
-	m_create(p_smtp, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_smtp, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_smtp, v);
 	m_close(p_smtp);
 }

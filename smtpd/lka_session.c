@@ -181,7 +181,7 @@ lka_resume(struct lka_session *lks)
 	}
     error:
 	if (lks->error) {
-		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 24);
+		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1);
 		m_add_id(p_smtp, lks->id);
 		m_add_int(p_smtp, lks->error);
 
@@ -204,15 +204,14 @@ lka_resume(struct lka_session *lks)
 		/* Process the delivery list and submit envelopes to queue */
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
-			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-			    MSZ_EVP);
+			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1);
 			m_add_id(p_queue, lks->id);
 			m_add_envelope(p_queue, ep);
 			m_close(p_queue);
 			free(ep);
 		}
 
-		m_create(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1);
 		m_add_id(p_queue, lks->id);
 		m_close(p_queue);
 	}
