@@ -104,6 +104,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	struct lka_session     *lks;
 	struct rule	       *rule;
 	struct expandnode      *xn;
+	int			ret;
 
 	lks = tree_xget(&sessions, fwreq->id);
 	xn = lks->node;
@@ -132,10 +133,16 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 			xn->mapping = rule->r_mapping;
 			xn->userbase = rule->r_userbase;
 			/* forwards_get() will close the descriptor no matter what */
-			if (! forwards_get(fd, &lks->expand)) {
+			ret = forwards_get(fd, &lks->expand);
+			if (ret == -1) {
 				log_trace(TRACE_EXPAND, "expand: temporary "
 				    "forward error for user %s", fwreq->user);
 				lks->error = LKA_TEMPFAIL;
+			}
+			else if (ret == 0) {
+				log_trace(TRACE_EXPAND, "expand: empty .forward "
+				    "for user %s, just deliver", fwreq->user);
+				lka_submit(lks, rule, xn);
 			}
 		}
 		break;
