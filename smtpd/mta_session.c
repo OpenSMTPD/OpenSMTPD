@@ -434,7 +434,7 @@ mta_connect(struct mta_session *s)
 
 	if (s->helo == NULL) {
 		if (s->relay->helotable && s->route->src->sa) {
-			m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1, 64);
+			m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1);
 			m_add_id(p_lka, s->id);
 			m_add_string(p_lka, s->relay->helotable);
 			m_add_sockaddr(p_lka, s->route->src->sa);
@@ -617,7 +617,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 		stat_increment("mta.task.running", 1);
 
-		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1);
 		m_add_id(p_queue, s->id);
 		m_add_msgid(p_queue, s->task->msgid);
 		m_close(p_queue);

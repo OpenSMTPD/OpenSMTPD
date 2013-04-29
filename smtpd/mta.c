@@ -643,7 +643,7 @@ mta_query_secret(struct mta_relay *relay)
 	tree_xset(&wait_secret, relay->id, relay);
 	relay->status |= RELAY_WAIT_SECRET;
 
-	m_create(p_lka, IMSG_LKA_SECRET, 0, 0, -1, 128);
+	m_create(p_lka, IMSG_LKA_SECRET, 0, 0, -1);
 	m_add_id(p_lka, relay->id);
 	m_add_string(p_lka, relay->authtable);
 	m_add_string(p_lka, relay->authlabel);
@@ -672,7 +672,7 @@ mta_query_source(struct mta_relay *relay)
 {
 	log_debug("debug: mta_query_source(%s)", mta_relay_to_text(relay));
 
-	m_create(p_lka, IMSG_LKA_SOURCE, 0, 0, -1, 64);
+	m_create(p_lka, IMSG_LKA_SOURCE, 0, 0, -1);
 	m_add_id(p_lka, relay->id);
 	m_add_string(p_lka, relay->sourcetable);
 	m_close(p_lka);

@@ -922,8 +922,6 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
-#define MSZ_EVP		512
-
 
 struct mproc {
 	pid_t		 pid;
@@ -931,8 +929,15 @@ struct mproc {
 	int		 proc;
 	void		(*handler)(struct mproc *, struct imsg *);
 	struct imsgbuf	 imsgbuf;
-	struct ibuf	*ibuf;
-	int		 ibuferror;
+
+	char		*m_buf;
+	size_t		 m_alloc;
+	size_t		 m_pos;
+	uint32_t	 m_type;
+	uint32_t	 m_peerid;
+	pid_t		 m_pid;
+	int		 m_fd;
+
 	int		 enable;
 	short		 events;
 	struct event	 ev;
@@ -1179,7 +1184,7 @@ void m_compose(struct mproc *, uint32_t, uint32_t, pid_t, int, void *, size_t);
 void m_composev(struct mproc *, uint32_t, uint32_t, pid_t, int,
     const struct iovec *, int);
 void m_forward(struct mproc *, struct imsg *);
-void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int, size_t);
+void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int);
 void m_add(struct mproc *, const void *, size_t);
 void m_add_int(struct mproc *, int);
 void m_add_u32(struct mproc *, uint32_t);

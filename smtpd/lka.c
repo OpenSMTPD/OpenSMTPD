@@ -88,7 +88,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	char			 buf[SMTPD_MAXLINESIZE];
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
-	size_t			 i, len;
+	size_t			 i;
 	int			 v;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
@@ -186,7 +186,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			if (!tablename[0]) {
 				m_create(p_parent, IMSG_LKA_AUTHENTICATE,
-				    0, 0, -1, 128);
+				    0, 0, -1);
 				m_add_id(p_parent, reqid);
 				m_add_string(p_parent, username);
 				m_add_string(p_parent, password);
@@ -196,7 +196,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = lka_authenticate(tablename, username, password);
 
-			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			m_close(p);
@@ -214,10 +214,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = lka_userinfo(tablename, username, &userinfo);
 
-			len = 32 + strlen(tablename) + strlen(username);
-			if (ret == LKA_OK)
-				len += sizeof(userinfo);
-			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1, len);
+			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1);
 			m_add_string(p, tablename);
 			m_add_string(p, username);
 			m_add_int(p, ret);
@@ -308,7 +305,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			lka_credentials(tablename, label, buf, sizeof(buf));
 
-			m_create(p, IMSG_LKA_SECRET, 0, 0, -1, 128);
+			m_create(p, IMSG_LKA_SECRET, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_string(p, buf);
 			m_close(p);
@@ -321,7 +318,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			table = table_find(tablename, NULL);
 
-			m_create(p, IMSG_LKA_SOURCE, 0, 0, -1, 64);
+			m_create(p, IMSG_LKA_SOURCE, 0, 0, -1);
 			m_add_id(p, reqid);
 
 			if (table == NULL) {
@@ -354,7 +351,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			ret = lka_addrname(tablename, (struct sockaddr*)&ss,
 			    &addrname);
 
-			m_create(p, IMSG_LKA_HELO, 0, 0, -1, 1024);
+			m_create(p, IMSG_LKA_HELO, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
