@@ -426,7 +426,7 @@ imsg_to_str(int imsg)
 {
 	static char buf[32];
 
-	snprintf("buf", sizeof(buf), "%i", imsg);
+	snprintf(buf, sizeof(buf), "%i", imsg);
 
 	return (buf);
 }
