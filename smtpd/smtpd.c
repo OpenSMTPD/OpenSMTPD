@@ -653,8 +653,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
-			else if (!strcmp(optarg, "imsg-size"))
-				verbose |= TRACE_IMSGSIZE;
+			else if (!strcmp(optarg, "mproc"))
+				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
 			else if (!strcmp(optarg, "tables"))
