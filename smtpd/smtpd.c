@@ -1285,7 +1285,6 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	struct timespec		 t0, t1, dt;
 
 	if (imsg == NULL) {
-		log_warnx("warn: pipe error with %s", p->name);
 		exit(1);
 		return;
 	}

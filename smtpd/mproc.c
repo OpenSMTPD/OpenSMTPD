@@ -151,10 +151,15 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	if (event & EV_READ) {
 
-		if ((n = imsg_read(&p->imsgbuf)) == -1)
-			fatal("imsg_read");
+		if ((n = imsg_read(&p->imsgbuf)) == -1) {
+			log_warn("warn: %s -> %s: imsg_read",
+			    proc_name(smtpd_process),  p->name);
+			fatal("exiting");
+		}
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
+			log_warnx("warn: %s -> %s: pipe closed",
+			    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
 		}
