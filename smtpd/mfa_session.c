@@ -466,6 +466,13 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	int			 status, code, notify;
 
 	f = p->data;
+
+	if (imsg == NULL) {
+		log_warnx("warn: filter \"%s\" closed unexpectedly",
+		    p->name);
+		fatalx("exiting");
+	}
+
 	log_trace(TRACE_MFA, "mfa: imsg %s from filter %s",
 	    filterimsg_to_str(imsg->hdr.type),
 	    mfa_filter_to_text(f));
