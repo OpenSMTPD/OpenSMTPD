@@ -141,7 +141,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &domain);
 		m_end(&m);
 		strlcpy(s->name, domain, sizeof(s->name));
-		as = res_query_async(s->name, C_IN, T_MX, NULL, 0, NULL);
+		as = res_query_async(s->name, C_IN, T_MX, NULL);
 		async_run_event(as, dns_dispatch_mx, s);
 		return;
 
@@ -150,7 +150,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &mx);
 		m_end(&m);
 		strlcpy(s->name, mx, sizeof(s->name));
-		as = res_query_async(domain, C_IN, T_MX, NULL, 0, NULL);
+		as = res_query_async(domain, C_IN, T_MX, NULL);
 		async_run_event(as, dns_dispatch_mx_preference, s);
 		return;
 
