@@ -1368,9 +1368,6 @@ proc_title(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
-
-	case PROC_FILTER:
-		return "filter-proc";
 	default:
 		return "unknown";
 	}
@@ -1398,6 +1395,11 @@ proc_name(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
+
+	case PROC_FILTER:
+		return "filter-proc";
+	case PROC_CLIENT:
+		return "client-proc";
 	default:
 		return "unknown";
 	}

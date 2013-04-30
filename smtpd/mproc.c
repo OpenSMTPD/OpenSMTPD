@@ -158,8 +158,10 @@ mproc_dispatch(int fd, short event, void *arg)
 		}
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
-			log_warnx("warn: %s -> %s: pipe closed",
-			    proc_name(smtpd_process),  p->name);
+			if (smtpd_process != PROC_CONTROL ||
+			    p->proc != PROC_CLIENT)
+				log_warnx("warn: %s -> %s: pipe closed",
+				    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
 		}
