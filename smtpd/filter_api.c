@@ -254,6 +254,7 @@ filter_api_init(void)
 
 	bzero(&fi, sizeof(fi));
 	fi.p.proc = PROC_MFA;
+	fi.p.name = "filter";
 	fi.p.handler = filter_dispatch;
 
 	mproc_init(&fi.p, 0);
