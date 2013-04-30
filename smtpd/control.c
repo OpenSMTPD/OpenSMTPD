@@ -329,6 +329,7 @@ control_accept(int listenfd, short event, void *arg)
 	if (getpeereid(connfd, &c->euid, &c->egid) == -1)
 		fatal("getpeereid");
 	c->id = ++connid;
+	c->mproc.proc = PROC_CLIENT;
 	c->mproc.handler = control_dispatch_ext;
 	c->mproc.data = c;
 	mproc_init(&c->mproc, connfd);

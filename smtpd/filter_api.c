@@ -41,6 +41,8 @@ struct query {
 };
 static int			register_done;
 
+static const char *filter_name;
+
 static struct filter_internals {
 	struct mproc	p;
 
@@ -238,6 +240,7 @@ filter_response(uint64_t qid, int status, int code, const char *line, int notify
 static void
 filter_api_init(void)
 {
+	extern const char *__progname;
 	static int	init = 0;
 
 	if (init)
@@ -246,12 +249,14 @@ filter_api_init(void)
 	init = 1;
 
 	smtpd_process = PROC_FILTER;
+	filter_name = __progname;
 
 	tree_init(&queries);
 	event_init();
 
 	bzero(&fi, sizeof(fi));
 	fi.p.proc = PROC_MFA;
+	fi.p.name = "filter";
 	fi.p.handler = filter_dispatch;
 
 	mproc_init(&fi.p, 0);
@@ -267,6 +272,8 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 	uint32_t		 v;
 	uint64_t		 id, qid;
 	int			 status, event, hook;
+
+	log_debug("debug: %s: imsg %i", filter_name, imsg->hdr.type);
 
 	switch (imsg->hdr.type) {
 	case IMSG_FILTER_REGISTER:
@@ -413,7 +420,7 @@ const char *
 proc_name(enum smtp_proc_type proc)
 {
 	if (proc == PROC_FILTER)
-		return "this-filter";
+		return filter_name;
 	return "filter";
 }
 
@@ -422,7 +429,7 @@ imsg_to_str(int imsg)
 {
 	static char buf[32];
 
-	snprintf("buf", sizeof(buf), "%i", imsg);
+	snprintf(buf, sizeof(buf), "%i", imsg);
 
 	return (buf);
 }

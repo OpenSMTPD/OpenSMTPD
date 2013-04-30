@@ -306,6 +306,7 @@ enum smtp_proc_type {
 	PROC_SCHEDULER,
 
 	PROC_FILTER,
+	PROC_CLIENT,
 };
 
 enum table_type {
@@ -602,7 +603,7 @@ struct smtpd {
 #define	TRACE_LOOKUP	0x0100
 #define	TRACE_STAT	0x0200
 #define	TRACE_RULES	0x0400
-#define	TRACE_IMSGSIZE	0x0800
+#define	TRACE_MPROC	0x0800
 #define	TRACE_EXPAND	0x1000
 #define	TRACE_TABLES	0x2000
 #define	TRACE_QUEUE	0x4000

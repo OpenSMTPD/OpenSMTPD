@@ -750,8 +750,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
-			else if (!strcmp(optarg, "imsg-size"))
-				verbose |= TRACE_IMSGSIZE;
+			else if (!strcmp(optarg, "mproc"))
+				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
 			else if (!strcmp(optarg, "tables"))
@@ -1395,7 +1395,6 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	struct timespec		 t0, t1, dt;
 
 	if (imsg == NULL) {
-		log_warnx("warn: pipe error with %s", p->name);
 		exit(1);
 		return;
 	}
@@ -1479,9 +1478,6 @@ proc_title(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
-
-	case PROC_FILTER:
-		return "filter-proc";
 	default:
 		return "unknown";
 	}
@@ -1509,6 +1505,11 @@ proc_name(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
+
+	case PROC_FILTER:
+		return "filter-proc";
+	case PROC_CLIENT:
+		return "client-proc";
 	default:
 		return "unknown";
 	}
