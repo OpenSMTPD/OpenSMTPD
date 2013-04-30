@@ -310,7 +310,7 @@ main(int argc, char *argv[])
 	case LOG_TRACE_LOOKUP:
 	case LOG_TRACE_STAT:
 	case LOG_TRACE_RULES:
-	case LOG_TRACE_IMSG_SIZE:
+	case LOG_TRACE_MPROC:
 	case LOG_TRACE_EXPAND:
 	case LOG_TRACE_ALL:
 		verb = trace_convert(action);
@@ -329,7 +329,7 @@ main(int argc, char *argv[])
 	case LOG_UNTRACE_LOOKUP:
 	case LOG_UNTRACE_STAT:
 	case LOG_UNTRACE_RULES:
-	case LOG_UNTRACE_IMSG_SIZE:
+	case LOG_UNTRACE_MPROC:
 	case LOG_UNTRACE_EXPAND:
 	case LOG_UNTRACE_ALL:
 		verb = trace_convert(action);
@@ -390,7 +390,7 @@ main(int argc, char *argv[])
 		case LOG_TRACE_LOOKUP:
 		case LOG_TRACE_STAT:
 		case LOG_TRACE_RULES:
-		case LOG_TRACE_IMSG_SIZE:
+		case LOG_TRACE_MPROC:
 		case LOG_TRACE_EXPAND:
 		case LOG_TRACE_ALL:
 		case LOG_UNTRACE_IMSG:
@@ -403,7 +403,7 @@ main(int argc, char *argv[])
 		case LOG_UNTRACE_LOOKUP:
 		case LOG_UNTRACE_STAT:
 		case LOG_UNTRACE_RULES:
-		case LOG_UNTRACE_IMSG_SIZE:
+		case LOG_UNTRACE_MPROC:
 		case LOG_UNTRACE_EXPAND:
 		case LOG_UNTRACE_ALL:
 		case LOG_PROFILE_IMSG:
@@ -888,9 +888,9 @@ trace_convert(uint32_t trace)
 	case LOG_UNTRACE_RULES:
 		return TRACE_RULES;
 
-	case LOG_TRACE_IMSG_SIZE:
-	case LOG_UNTRACE_IMSG_SIZE:
-		return TRACE_IMSGSIZE;
+	case LOG_TRACE_MPROC:
+	case LOG_UNTRACE_MPROC:
+		return TRACE_MPROC;
 
 	case LOG_TRACE_EXPAND:
 	case LOG_UNTRACE_EXPAND:
