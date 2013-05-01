@@ -2748,6 +2748,8 @@ LIBS="$LIBS ${SSHDLIBS}"
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		smtpd/Makefile
+		smtpd/backends/Makefile
+		smtpd/filters/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile

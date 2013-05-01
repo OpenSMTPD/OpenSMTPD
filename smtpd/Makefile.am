@@ -20,6 +20,8 @@
 # /usr/local/sbin/smtpctl
 # /usr/local/sbin/smtpd
 
+SUBDIRS =		backends filters
+
 sbin_PROGRAMS=		smtpd smtpctl
 pkglibexec_PROGRAMS=	makemap
 
