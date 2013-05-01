@@ -217,8 +217,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				strlcpy(u->name, username, sizeof u->name);
 				strlcpy(u->usertable, usertable, sizeof u->usertable);
 				u->flags |= FLAG_USER_WAITINFO;
-				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
-				    32 + strlen(usertable) + strlen(username));
+				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1);
 				m_add_string(p_lka, usertable);
 				m_add_string(p_lka, username);
 				m_close(p_lka);
@@ -377,8 +376,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			    "for session %016"PRIx64 " evpid %016"PRIx64,
 			    s->id, s->evp->id);
 
-			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1,
-			    32 + sizeof(deliver));
+			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1);
 			m_add_id(p_parent, reqid);
 			m_add_data(p_parent, &deliver, sizeof(deliver));
 			m_close(p_parent);
@@ -580,7 +578,7 @@ mda_io(struct io *io, int evt)
 				break;
 			if (iobuf_queue(&s->iobuf, ln, len) == -1) {
 				m_create(p_parent, IMSG_PARENT_KILL_MDA,
-				    0, 0, -1, 128);
+				    0, 0, -1);
 				m_add_id(p_parent, s->id);
 				m_add_string(p_parent, "Out of memory");
 				m_close(p_parent);
@@ -597,7 +595,7 @@ mda_io(struct io *io, int evt)
 		if (ferror(s->datafp)) {
 			log_debug("debug: mda: ferror on session %016"PRIx64,
 			    s->id);
-			m_create(p_parent, IMSG_PARENT_KILL_MDA, 0, 0, -1, 128);
+			m_create(p_parent, IMSG_PARENT_KILL_MDA, 0, 0, -1);
 			m_add_id(p_parent, s->id);
 			m_add_string(p_parent, "Error reading body");
 			m_close(p_parent);
@@ -803,7 +801,7 @@ mda_drain(void)
 		    " for user \"%s\" evpid %016" PRIx64, s->id, u->name,
 		    s->evp->id);
 
-		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1);
 		m_add_id(p_queue, s->id);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp->id));
 		m_close(p_queue);

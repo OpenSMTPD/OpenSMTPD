@@ -104,6 +104,7 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	struct lka_session     *lks;
 	struct rule	       *rule;
 	struct expandnode      *xn;
+	int			ret;
 
 	lks = tree_xget(&sessions, fwreq->id);
 	xn = lks->node;
@@ -132,10 +133,16 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 			xn->mapping = rule->r_mapping;
 			xn->userbase = rule->r_userbase;
 			/* forwards_get() will close the descriptor no matter what */
-			if (! forwards_get(fd, &lks->expand)) {
+			ret = forwards_get(fd, &lks->expand);
+			if (ret == -1) {
 				log_trace(TRACE_EXPAND, "expand: temporary "
 				    "forward error for user %s", fwreq->user);
 				lks->error = LKA_TEMPFAIL;
+			}
+			else if (ret == 0) {
+				log_trace(TRACE_EXPAND, "expand: empty .forward "
+				    "for user %s, just deliver", fwreq->user);
+				lka_submit(lks, rule, xn);
 			}
 		}
 		break;
@@ -174,7 +181,7 @@ lka_resume(struct lka_session *lks)
 	}
     error:
 	if (lks->error) {
-		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1, 24);
+		m_create(p_smtp, IMSG_LKA_EXPAND_RCPT, 0, 0, -1);
 		m_add_id(p_smtp, lks->id);
 		m_add_int(p_smtp, lks->error);
 
@@ -197,15 +204,14 @@ lka_resume(struct lka_session *lks)
 		/* Process the delivery list and submit envelopes to queue */
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
-			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1,
-			    MSZ_EVP);
+			m_create(p_queue, IMSG_QUEUE_SUBMIT_ENVELOPE, 0, 0, -1);
 			m_add_id(p_queue, lks->id);
 			m_add_envelope(p_queue, ep);
 			m_close(p_queue);
 			free(ep);
 		}
 
-		m_create(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_QUEUE_COMMIT_ENVELOPES, 0, 0, -1);
 		m_add_id(p_queue, lks->id);
 		m_close(p_queue);
 	}
@@ -221,6 +227,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct forward_req	fwreq;
 	struct envelope		ep;
 	struct expandnode	node;
+	struct mailaddr		maddr;
 	int			r;
 	union lookup		lk;
 
@@ -265,7 +272,15 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.rule = rule;
 			lks->expand.parent = xn;
 			lks->expand.alias = 1;
-			r = aliases_virtual_get(&lks->expand, &xn->u.mailaddr);
+
+			/* temporary replace the mailaddr with a copy where
+			 * we eventually strip the '+'-part before lookup.
+			 */
+			maddr = xn->u.mailaddr;
+			mailaddr_to_username(&xn->u.mailaddr, maddr.user,
+			    sizeof maddr.user);
+
+			r = aliases_virtual_get(&lks->expand, &maddr);
 			if (r == -1) {
 				lks->error = LKA_TEMPFAIL;
 				log_trace(TRACE_EXPAND, "expand: lka_expand: "

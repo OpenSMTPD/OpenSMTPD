@@ -141,12 +141,12 @@ mfa_filter_init(void)
 		f = xcalloc(1, sizeof *f, "mfa_filter_init");
 		p = &f->mproc;
 		p->handler = mfa_filter_imsg;
-		p->proc = -1;
+		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "mfa_filter_init");
 		p->data = f;
 		if (mproc_fork(p, filter->path, filter->name) < 0)
 			fatalx("mfa_filter_init");
-		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1, 5);
+		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
 		m_add_u32(p, FILTER_API_VERSION);
 		m_close(p);
 		mproc_enable(p);
@@ -260,7 +260,7 @@ mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 	while (f) {
 		if (f->hooks & HOOK_DATALINE) {
 			p = &f->mproc;
-			m_create(p, IMSG_FILTER_DATA, 0, 0, -1, len);
+			m_create(p, IMSG_FILTER_DATA, 0, 0, -1);
 			m_add_id(p, id);
 			m_add_string(p, line);
 			m_close(p);
@@ -284,7 +284,7 @@ mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 	log_trace(TRACE_MFA,
 	    "mfa: sending final data to smtp for %016"PRIx64" on filter %p: %s", id, f, line);
 
-	m_create(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1, len);
+	m_create(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1);
 	m_add_id(p_smtp, id);
 	m_add_string(p_smtp, line);
 	m_close(p_smtp);
@@ -374,7 +374,7 @@ mfa_drain_query(struct mfa_query *q)
 
 		/* Done, notify all listeners and return smtp response */
 		while (tree_poproot(&q->notify, NULL, (void**)&f)) {
-			m_create(&f->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1, 16);
+			m_create(&f->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1);
 			m_add_id(&f->mproc, q->qid);
 			m_add_int(&f->mproc, q->smtp.status);
 			m_close(&f->mproc);
@@ -383,7 +383,7 @@ mfa_drain_query(struct mfa_query *q)
 		len = 48;
 		if (q->smtp.response)
 			len += strlen(q->smtp.response);
-		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1, len);
+		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
 		m_add_id(p_smtp, q->session->id);
 		m_add_int(p_smtp, q->smtp.status);
 		m_add_u32(p_smtp, q->smtp.code);
@@ -418,7 +418,7 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 	    mfa_filter_to_text(f), mfa_query_to_text(q));
 
 	if (q->type == QT_QUERY) {
-		m_create(&f->mproc, IMSG_FILTER_QUERY, 0, 0, -1, 1024);
+		m_create(&f->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
 		m_add_id(&f->mproc, q->session->id);
 		m_add_id(&f->mproc, q->qid);
 		m_add_int(&f->mproc, q->hook);
@@ -448,7 +448,7 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 		q->state = QUERY_RUNNING;
 	}
 	else {
-		m_create(&f->mproc, IMSG_FILTER_EVENT, 0, 0, -1, 16);
+		m_create(&f->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
 		m_add_id(&f->mproc, q->session->id);
 		m_add_int(&f->mproc, q->hook);
 		m_close(&f->mproc);
