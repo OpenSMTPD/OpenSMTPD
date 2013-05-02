@@ -31,8 +31,6 @@
 #include <string.h>
 #include <syslog.h>
 #include <time.h>
-#include <unistd.h> /* getpid */
-
 
 #include "log.h"
 
@@ -80,7 +78,6 @@ vlog(int pri, const char *fmt, va_list ap)
 	char	*nfmt;
 
 	if (debug) {
-		fprintf(stderr, "%d: ", getpid());
 		/* best effort in out of mem situations */
 		if (asprintf(&nfmt, "%s\n", fmt) == -1) {
 			vfprintf(stderr, fmt, ap);
