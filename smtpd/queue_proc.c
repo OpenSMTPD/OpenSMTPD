@@ -216,6 +216,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		if (rlen < sizeof(r)) {
 			log_warnx("warn: queue-proc: XXX");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -225,10 +226,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		if (r != 1) {
 			if (rlen)
 				log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (r);
 		}
 		if (rlen < sizeof(*evpid)) {
 			log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -237,6 +240,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rlen -= sizeof(*evpid);
 		if (rlen)
 			log_warnx("warn: queue-proc: bogus data");
+		imsg_free(&imsg);
 		return (r);
 
 	case QOP_DELETE:
@@ -250,6 +254,8 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 			return (0);
 
 		memmove(&r, rdata, sizeof(r));
+
+		imsg_free(&imsg);
 
 		return (r);
 
@@ -269,6 +275,9 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		}
 		else
 			memmove(buf, rdata, rlen);
+
+		imsg_free(&imsg);
+
 		return (rlen);
 
 	case QOP_UPDATE:
@@ -286,6 +295,8 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		memmove(&r, rdata, sizeof(r));
 
+		imsg_free(&imsg);
+
 		return (r);
 
 	case QOP_WALK:
@@ -299,6 +310,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		if (rlen < sizeof(r)) {
 			log_warnx("warn: queue-proc: XXX");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -308,10 +320,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		if (r != 1) {
 			if (rlen)
 				log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (r);
 		}
 		if (rlen < sizeof(*evpid)) {
 			log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -320,9 +334,13 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rlen -= sizeof(evpid);
 		if (rlen)
 			log_warnx("warn: queue-proc: bogus data");
+		
+		imsg_free(&imsg);
+
 		return (r);
 
 	default:
+		imsg_free(&imsg);
 		log_warnx("warn: queue-proc: unsupported operation.");
 		fatalx("queue-proc: exiting");
 	}
@@ -357,10 +375,12 @@ queue_proc_call(size_t expected)
 				log_warnx("warn: queue-proc: "
 				    "bad msg length (%i/%i)",
 				    (int)rlen, (int)expected);
+				imsg_free(&imsg);
 				break;
 			}
 
 			log_warn("warn: queue-proc: bad response");
+			imsg_free(&imsg);
 			break;
 		}
 

@@ -185,6 +185,7 @@ int
 table_api_dispatch(void)
 {
 	ssize_t	n;
+	int	r;
 
 	imsg_init(&ibuf, 0);
 
@@ -196,7 +197,9 @@ table_api_dispatch(void)
 		}
 
 		if (n) {
-			if (dispatch() == -1)
+			r = dispatch();
+			imsg_free(&imsg);
+			if (r == -1)
 				break;
 			imsg_flush(&ibuf);
 			continue;

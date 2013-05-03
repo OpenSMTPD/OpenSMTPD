@@ -106,8 +106,11 @@ table_proc_open(struct table *table)
 	version = PROC_TABLE_API_VERSION;
 	imsg_compose(&priv->ibuf, PROC_TABLE_OPEN, 0, 0, -1,
 	    &version, sizeof(version));
+
 	if (!table_proc_call(priv, 0))
 		return (NULL); 	/* XXX cleanup */
+
+	imsg_free(&imsg);
 
 	return (priv);
 err:
@@ -133,6 +136,7 @@ table_proc_update(struct table *table)
 		return (-1);
 
 	memmove(&r, imsg.data, sizeof(r));
+
 	imsg_free(&imsg);
 
 	return (r);
