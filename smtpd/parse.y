@@ -905,7 +905,7 @@ rule		: ACCEPT {
 		} tagged from sender FOR destination usermapping {
 			rule->r_decision = R_REJECT;
 			rule->r_sources = $4;
-			rule->r_sources = $5;
+			rule->r_senders = $5;
 			rule->r_destination = $7;
 			rule->r_mapping = $8;
 			if ($3) {
