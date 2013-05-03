@@ -826,21 +826,21 @@ struct scheduler_batch {
 };
 
 struct scheduler_backend {
-	void	(*init)(void);
+	int	(*init)(void);
 
-	void	(*insert)(struct scheduler_info *);
+	int	(*insert)(struct scheduler_info *);
 	size_t	(*commit)(uint32_t);
 	size_t	(*rollback)(uint32_t);
 
-	void	(*update)(struct scheduler_info *);
-	void	(*delete)(uint64_t);
+	int	(*update)(struct scheduler_info *);
+	int	(*delete)(uint64_t);
 
-	void	(*batch)(int, struct scheduler_batch *);
+	int	(*batch)(int, struct scheduler_batch *);
 
 	size_t	(*messages)(uint32_t, uint32_t *, size_t);
 	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);
-	void	(*schedule)(uint64_t);
-	void	(*remove)(uint64_t);
+	int	(*schedule)(uint64_t);
+	int	(*remove)(uint64_t);
 };
 
 
