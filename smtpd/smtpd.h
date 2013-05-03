@@ -546,7 +546,6 @@ struct smtpd {
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
-	struct scheduler_backend       *sc_scheduler;
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
 

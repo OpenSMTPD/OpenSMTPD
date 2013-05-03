@@ -320,6 +320,11 @@ scheduler(void)
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
 
+	backend = scheduler_backend_lookup(backend_scheduler);
+	if (backend == NULL)
+		errx(1, "cannot find scheduler backend \"%s\"",
+		    backend_scheduler);
+
 	switch (pid = fork()) {
 	case -1:
 		fatal("scheduler: cannot fork");
@@ -332,28 +337,22 @@ scheduler(void)
 
 	purge_config(PURGE_EVERYTHING);
 
+	config_process(PROC_SCHEDULER);
+
+	fdlimit(1.0);
+
+	backend->init();
+
 	pw = env->sc_pw;
 	if (chroot(pw->pw_dir) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");
 
-	config_process(PROC_SCHEDULER);
-
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("scheduler: cannot drop privileges");
-
-	fdlimit(1.0);
-
-	env->sc_scheduler = scheduler_backend_lookup(backend_scheduler);
-	if (env->sc_scheduler == NULL)
-		errx(1, "cannot find scheduler backend \"%s\"",
-		    backend_scheduler);
-	backend = env->sc_scheduler;
-
-	backend->init();
 
 	imsg_callback = scheduler_imsg;
 	event_init();
