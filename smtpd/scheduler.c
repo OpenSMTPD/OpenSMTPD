@@ -56,6 +56,7 @@ static void scheduler_process_mda(struct scheduler_batch *);
 static void scheduler_process_mta(struct scheduler_batch *);
 
 static struct scheduler_backend *backend = NULL;
+static struct event		 ev;
 
 extern const char *backend_scheduler;
 
@@ -306,10 +307,10 @@ scheduler_reset_events(void)
 {
 	struct timeval	 tv;
 
-	evtimer_del(&env->sc_ev);
+	evtimer_del(&ev);
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	evtimer_add(&env->sc_ev, &tv);
+	evtimer_add(&ev, &tv);
 }
 
 pid_t
@@ -368,7 +369,7 @@ scheduler(void)
 	config_peer(PROC_QUEUE);
 	config_done();
 
-	evtimer_set(&env->sc_ev, scheduler_timeout, NULL);
+	evtimer_set(&ev, scheduler_timeout, NULL);
 	scheduler_reset_events();
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -447,7 +448,7 @@ scheduler_timeout(int fd, short event, void *p)
 		fatalx("scheduler_timeout: unknown batch type");
 	}
 
-	evtimer_add(&env->sc_ev, &tv);
+	evtimer_add(&ev, &tv);
 }
 
 static void
