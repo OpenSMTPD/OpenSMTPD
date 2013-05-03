@@ -367,7 +367,7 @@ main(int argc, char **argv)
 			break;
 		default:
 			log_warnx("warn: backend-queue-ram: bad option");
-			exit(1);
+			return (1);
 			/* NOTREACHED */
 		}
 	}
