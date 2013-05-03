@@ -506,8 +506,8 @@ nextsub:
 int
 secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 {
-	char		 buf[SMTPD_MAXPATHLEN];
-	char		 homedir[SMTPD_MAXPATHLEN];
+	char		 buf[PATH_MAX];
+	char		 homedir[PATH_MAX];
 	struct stat	 st;
 	char		*cp;
 
