@@ -64,8 +64,7 @@ delivery_lmtp_open(struct deliver *deliver)
 	 char *lbuf;
 	 char lhloname[255];
 	 int s, n;
-	 FILE	*ifp;
-	 FILE	*ofp;
+	 FILE	*fp;
 	 char *hostname, *servname;
 	 struct addrinfo hints;
 	 struct addrinfo *result0, *result;
@@ -76,7 +75,7 @@ delivery_lmtp_open(struct deliver *deliver)
 	 *servname++ = '\0';
 	 hostname = deliver->to;
 	 s = -1;
-	 ifp = ofp = NULL;
+	 fp = NULL;
 
 	 bzero(&hints, sizeof(hints));
 	 hints.ai_family = PF_UNSPEC;
@@ -104,17 +103,11 @@ delivery_lmtp_open(struct deliver *deliver)
 
 	 freeaddrinfo(result0);
 
-	 if (s == -1)
+	 if (s == -1 || (fp = fdopen(s, "r+")) == NULL)
 		 err(1, "couldn't establish connection");
 
-	 if ((ifp = fdopen(s, "r")) == NULL)
-		 err(1, "couldn't open read stream");
-
-	 if ((ofp = fdopen(dup(s), "w")) == NULL)
-		 err(1, "couldn't open write stream");
-
-	 while (!feof(ifp) && !ferror(ifp) && state != LMTP_BYE) {
-		 buffer = lmtp_getline(ifp);
+	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
+		 buffer = lmtp_getline(fp);
 		 if (buffer == NULL)
 			 err(1, "No input received");
 
@@ -123,7 +116,7 @@ delivery_lmtp_open(struct deliver *deliver)
 			 if (strncmp("220 ", buffer, 4) != 0)
 				 errx(1, "Invalid LMTP greeting: %s\n", buffer);
 			 gethostname(lhloname, sizeof lhloname );
-			 fprintf(ofp, "LHLO %s\r\n", lhloname);
+			 fprintf(fp, "LHLO %s\r\n", lhloname);
 			 state = LMTP_LHLO;
 			 break;
 
@@ -134,21 +127,21 @@ delivery_lmtp_open(struct deliver *deliver)
 				 errx(1, "Invalid LMTP LHLO answer: %s\n", buffer);
 			 if (buffer[3] == '-')
 				 continue; /* multi-line */
-			 fprintf(ofp, "MAIL FROM:<%s>\r\n", deliver->from);
+			 fprintf(fp, "MAIL FROM:<%s>\r\n", deliver->from);
 			 state = LMTP_MAIL_FROM;
 			 break;
 
 		 case LMTP_MAIL_FROM:
 			 if (buffer[0] != '2')
 				 errx(1, "MAIL FROM rejected: %s\n", buffer);
-			 fprintf(ofp, "RCPT TO:<%s>\r\n", deliver->user);
+			 fprintf(fp, "RCPT TO:<%s>\r\n", deliver->user);
 			 state = LMTP_RCPT_TO;
 			 break;
 			 
 		 case LMTP_RCPT_TO:
 			 if (buffer[0] != '2')
 				 errx(1, "RCPT TO rejected: %s\n", buffer);
-			 fprintf(ofp, "DATA\r\n");
+			 fprintf(fp, "DATA\r\n");
 			 state = LMTP_DATA;
 			 break;
 			 
@@ -166,18 +159,18 @@ delivery_lmtp_open(struct deliver *deliver)
 					 lbuf[len] = '\0';
 					 buffer = lbuf;
 				 }
-				 fprintf(ofp, "%s%s\r\n",
+				 fprintf(fp, "%s%s\r\n",
 				     *buffer == '.' ? "." : "", buffer);
 			 }
 			 free(lbuf);
-			 fprintf(ofp, ".\r\n");
+			 fprintf(fp, ".\r\n");
 			 state = LMTP_QUIT;
 			 break;
 
 		 case LMTP_QUIT:
 			 if (buffer[0] != '2')
 				 errx(1, "Delivery error: %s\n", buffer);
-			 fprintf(ofp, "QUIT\r\n");
+			 fprintf(fp, "QUIT\r\n");
 			 state = LMTP_BYE;
 			 break;
 
