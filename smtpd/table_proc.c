@@ -259,16 +259,6 @@ table_proc_call(struct table_proc_priv *priv, size_t expected)
 				break;
 			}
 
-			if (imsg.hdr.type == PROC_TABLE_FAIL) {
-				imsg_free(&imsg);
-				if (len == 0)
-					return (0);
-				log_warnx("warn: table-proc: "
-				    "bad msg length (%i/%i)",
-				    (int)len, (int)expected);
-				break;
-			}
-
 			log_warnx("warn: table-proc: bad response");
 			break;
 		}
