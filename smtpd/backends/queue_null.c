@@ -108,11 +108,11 @@ main(int argc, char **argv)
 
 	log_init(1);
 
-	while ((ch = getopt(argc, argv, "f:")) != -1) {
+	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
 			log_warnx("warn: backend-queue-null: bad option");
-			exit(1);
+			return (1);
 			/* NOTREACHED */
 		}
 	}
