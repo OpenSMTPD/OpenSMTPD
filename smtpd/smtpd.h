@@ -542,7 +542,6 @@ struct smtpd {
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
-	struct event			sc_ev;
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
