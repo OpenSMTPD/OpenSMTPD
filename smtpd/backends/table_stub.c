@@ -38,7 +38,7 @@ main(int argc, char **argv)
 
 	log_init(1);
 
-	while ((ch = getopt(argc, argv, "f:")) != -1) {
+	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
 			log_warnx("warn: backend-table-stub: bad option");

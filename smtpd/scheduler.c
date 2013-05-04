@@ -59,6 +59,7 @@ static void scheduler_process_mda(struct scheduler_batch *);
 static void scheduler_process_mta(struct scheduler_batch *);
 
 static struct scheduler_backend *backend = NULL;
+static struct event		 ev;
 
 extern const char *backend_scheduler;
 
@@ -309,10 +310,10 @@ scheduler_reset_events(void)
 {
 	struct timeval	 tv;
 
-	evtimer_del(&env->sc_ev);
+	evtimer_del(&ev);
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	evtimer_add(&env->sc_ev, &tv);
+	evtimer_add(&ev, &tv);
 }
 
 pid_t
@@ -322,6 +323,11 @@ scheduler(void)
 	struct passwd	*pw;
 	struct event	 ev_sigint;
 	struct event	 ev_sigterm;
+
+	backend = scheduler_backend_lookup(backend_scheduler);
+	if (backend == NULL)
+		errx(1, "cannot find scheduler backend \"%s\"",
+		    backend_scheduler);
 
 	switch (pid = fork()) {
 	case -1:
@@ -335,28 +341,22 @@ scheduler(void)
 
 	purge_config(PURGE_EVERYTHING);
 
+	config_process(PROC_SCHEDULER);
+
+	fdlimit(1.0);
+
+	backend->init();
+
 	pw = env->sc_pw;
 	if (chroot(pw->pw_dir) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");
 
-	config_process(PROC_SCHEDULER);
-
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("scheduler: cannot drop privileges");
-
-	fdlimit(1.0);
-
-	env->sc_scheduler = scheduler_backend_lookup(backend_scheduler);
-	if (env->sc_scheduler == NULL)
-		errx(1, "cannot find scheduler backend \"%s\"",
-		    backend_scheduler);
-	backend = env->sc_scheduler;
-
-	backend->init();
 
 	imsg_callback = scheduler_imsg;
 	event_init();
@@ -372,7 +372,7 @@ scheduler(void)
 	config_peer(PROC_QUEUE);
 	config_done();
 
-	evtimer_set(&env->sc_ev, scheduler_timeout, NULL);
+	evtimer_set(&ev, scheduler_timeout, NULL);
 	scheduler_reset_events();
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -451,7 +451,7 @@ scheduler_timeout(int fd, short event, void *p)
 		fatalx("scheduler_timeout: unknown batch type");
 	}
 
-	evtimer_add(&env->sc_ev, &tv);
+	evtimer_add(&ev, &tv);
 }
 
 static void

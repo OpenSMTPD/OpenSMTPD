@@ -227,8 +227,7 @@ dispatch(void)
 
 	return (0);
     fail:
-	imsg_compose(&ibuf, PROC_QUEUE_FAIL, 0, 0, -1, NULL, 0);
-	return (0);
+	return (-1);
 }
 
 void
@@ -301,6 +300,7 @@ int
 queue_api_dispatch(void)
 {
 	ssize_t	n;
+	int	r;
 
 	imsg_init(&ibuf, 0);
 
@@ -312,7 +312,10 @@ queue_api_dispatch(void)
 		}
 
 		if (n) {
-			dispatch();
+			r = dispatch();
+			imsg_free(&imsg);
+			if (r == -1)
+				break;
 			imsg_flush(&ibuf);
 			continue;
 		}
