@@ -31,6 +31,9 @@
 #define	IV_SIZE			12
 #define	KEY_SIZE		32
 
+/* bump if we ever switch from aes-256-gcm to anything else */
+#define	API_VERSION    		1
+
 
 int	crypto_setup(const char *, size_t);
 int	crypto_encrypt_file(FILE *, FILE *);
@@ -66,6 +69,7 @@ crypto_encrypt_file(FILE * in, FILE * out)
 	uint8_t		obuf[CRYPTO_BUFFER_SIZE];
 	uint8_t		iv[IV_SIZE];
 	uint8_t		tag[GCM_TAG_SIZE];
+	uint8_t		version = API_VERSION;
 	size_t		r, w;
 	off_t		sz;
 	int		len;
@@ -79,10 +83,14 @@ crypto_encrypt_file(FILE * in, FILE * out)
 		return 0;
 	sz = sb.st_size;
 
+	/* prepend version byte*/
+	if ((w = fwrite(&version, 1, sizeof version, out)) != sizeof version)
+		return 0;
+
 	/* generate and prepend IV */
 	memset(iv, 0, sizeof iv);
-	arc4random_buf(iv, sizeof (iv));
-	if ((w = fwrite(iv, 1, sizeof (iv), out)) != sizeof (iv))
+	arc4random_buf(iv, sizeof iv);
+	if ((w = fwrite(iv, 1, sizeof iv, out)) != sizeof iv)
 		return 0;
 
 	EVP_CIPHER_CTX_init(&ctx);
@@ -125,6 +133,7 @@ crypto_decrypt_file(FILE * in, FILE * out)
 	uint8_t		obuf[CRYPTO_BUFFER_SIZE];
 	uint8_t		iv[IV_SIZE];
 	uint8_t		tag[GCM_TAG_SIZE];
+	uint8_t		version;
 	size_t		r, w;
 	off_t		sz;
 	int		len;
@@ -134,7 +143,7 @@ crypto_decrypt_file(FILE * in, FILE * out)
 	/* input file too small to be an encrypted file */
 	if (fstat(fileno(in), &sb) < 0)
 		return 0;
-	if (sb.st_size <= (off_t) (sizeof tag + sizeof iv))
+	if (sb.st_size <= (off_t) (sizeof version + sizeof tag + sizeof iv))
 		return 0;
 	sz = sb.st_size;
 
@@ -147,13 +156,20 @@ crypto_decrypt_file(FILE * in, FILE * out)
 	if (fseek(in, 0, SEEK_SET) == -1)
 		return 0;
 
+	/* extract version */
+	if ((r = fread(&version, 1, sizeof version, in)) != sizeof version)
+		return 0;
+	if (version != API_VERSION)
+		return 0;
+
 	/* extract IV */
 	memset(iv, 0, sizeof iv);
-	if ((r = fread(iv, 1, sizeof (iv), in)) != sizeof (iv))
+	if ((r = fread(iv, 1, sizeof iv, in)) != sizeof iv)
 		return 0;
 
 	/* real ciphertext length */
-	sz -= sizeof (iv);
+	sz -= sizeof version;
+	sz -= sizeof iv;
 	sz -= sizeof tag;
 
 
@@ -200,23 +216,28 @@ crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 	EVP_CIPHER_CTX	ctx;
 	uint8_t		iv[IV_SIZE];
 	uint8_t		tag[GCM_TAG_SIZE];
+	uint8_t		version = API_VERSION;
 	int		olen;
 	int		len = 0;
 	int		ret = 0;
 
 	/* output buffer does not have enough room */
-	if (outlen < inlen + sizeof tag + sizeof iv)
+	if (outlen < inlen + sizeof version + sizeof tag + sizeof iv)
 		return 0;
 
 	/* input should not exceed 64GB */
 	if (inlen >= 0x1000000000LL)
 		return 0;
 
+	/* prepend version */
+	*out = version;
+	len++;
+
 	/* generate IV */
 	memset(iv, 0, sizeof iv);
-	arc4random_buf(iv, sizeof (iv));
-	memcpy(out + len, iv, sizeof (iv));
-	len += sizeof (iv);
+	arc4random_buf(iv, sizeof iv);
+	memcpy(out + len, iv, sizeof iv);
+	len += sizeof iv;
 
 	EVP_CIPHER_CTX_init(&ctx);
 	EVP_EncryptInit(&ctx, cp.cipher, cp.key, iv);
@@ -259,11 +280,17 @@ crypto_decrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 	memcpy(tag, in + inlen - sizeof tag, sizeof tag);
 	inlen -= sizeof tag;
 
+	/* check version */
+	if (*in != API_VERSION)
+		return 0;
+	in++;
+	inlen--;
+
 	/* extract IV */
 	memset(iv, 0, sizeof iv);
-	memcpy(iv, in, sizeof (iv));
-	inlen -= sizeof (iv);
-	in += sizeof (iv);
+	memcpy(iv, in, sizeof iv);
+	inlen -= sizeof iv;
+	in += sizeof iv;
 
 	EVP_CIPHER_CTX_init(&ctx);
 	EVP_DecryptInit(&ctx, cp.cipher, cp.key, iv);
@@ -338,6 +365,12 @@ main(int argc, char *argv[])
 		fclose(fpin);
 		fclose(fpout);
 
+		/*
+		fpin = fopen("/tmp/passwd.enc", "a");
+		fprintf(fpin, "borken");
+		fclose(fpin);
+		*/
+
 		fpin = fopen("/tmp/passwd.enc", "r");
 		fpout = fopen("/tmp/passwd.dec", "w");
 		if (!crypto_decrypt_file(fpin, fpout))
@@ -346,7 +379,6 @@ main(int argc, char *argv[])
 			printf("ok\n");
 		fclose(fpin);
 		fclose(fpout);
-
 	}
 
 
