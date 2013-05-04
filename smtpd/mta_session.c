@@ -651,6 +651,10 @@ mta_enter_state(struct mta_session *s, int newstate)
 			s->flags |= MTA_FREE;
 			break;
 		}
+		if (q == 0) {
+			mta_enter_state(s, MTA_BODY);
+			break;
+		}
 
 		log_trace(TRACE_MTA, "mta: %p: >>> [...%zi bytes...]", s, q);
 		break;
