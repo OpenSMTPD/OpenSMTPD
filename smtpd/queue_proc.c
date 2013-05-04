@@ -110,12 +110,12 @@ queue_proc_message(enum queue_op qop, uint32_t *msgid)
 {
 	int	r, msg;
 
+	if (!running)
+		return (qop == QOP_FD_R || qop == QOP_FD_RW) ? -1 : 0;
+
 	switch (qop) {
 
 	case QOP_CREATE:
-		if (!running)
-			return (0);
-
 		log_debug("debug: queue-proc: PROC_QUEUE_MESSAGE_CREATE");
 		imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_CREATE, 0, 0, -1,
 		    NULL, 0);
@@ -147,8 +147,6 @@ queue_proc_message(enum queue_op qop, uint32_t *msgid)
 
 	case QOP_DELETE:
 	case QOP_COMMIT:
-		if (!running)
-			return (0);
 
 		if (qop == QOP_DELETE) {
 			log_debug("debug: queue-proc: PROC_QUEUE_MESSAGE_DELETE");
@@ -169,8 +167,6 @@ queue_proc_message(enum queue_op qop, uint32_t *msgid)
 
 	case QOP_FD_R:
 	case QOP_FD_RW:
-		if (!running)
-			return (-1);
 
 		if (qop == QOP_FD_R) {
 			log_debug("debug: queue-proc: PROC_QUEUE_MESSAGE_FD_R");
@@ -199,11 +195,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 	struct ibuf	*b;
 	uint32_t	 msgid;
 	int		 r;
+	
+	if (!running)
+		return (0);
 
 	switch (qop) {
 	case QOP_CREATE:
-		if (!running)
-			return (0);
 
 		log_debug("debug: queue-proc: PROC_QUEUE_ENVELOPE_CREATE");
 
@@ -219,6 +216,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		if (rlen < sizeof(r)) {
 			log_warnx("warn: queue-proc: XXX");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -228,10 +226,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		if (r != 1) {
 			if (rlen)
 				log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (r);
 		}
 		if (rlen < sizeof(*evpid)) {
 			log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -240,11 +240,10 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rlen -= sizeof(*evpid);
 		if (rlen)
 			log_warnx("warn: queue-proc: bogus data");
+		imsg_free(&imsg);
 		return (r);
 
 	case QOP_DELETE:
-		if (!running)
-			return (0);
 
 		log_debug("debug: queue-proc: PROC_QUEUE_ENVELOPE_DELETE");
 
@@ -256,11 +255,11 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		memmove(&r, rdata, sizeof(r));
 
+		imsg_free(&imsg);
+
 		return (r);
 
 	case QOP_LOAD:
-		if (!running)
-			return (0);
 
 		log_debug("debug: queue-proc: PROC_QUEUE_ENVELOPE_LOAD");
 
@@ -276,11 +275,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		}
 		else
 			memmove(buf, rdata, rlen);
+
+		imsg_free(&imsg);
+
 		return (rlen);
 
 	case QOP_UPDATE:
-		if (!running)
-			return (0);
 
 		log_debug("debug: queue-proc: PROC_QUEUE_ENVELOPE_UPDATE");
 
@@ -295,11 +295,11 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		memmove(&r, rdata, sizeof(r));
 
+		imsg_free(&imsg);
+
 		return (r);
 
 	case QOP_WALK:
-		if (!running)
-			return (0);
 
 		log_debug("debug: queue-proc: PROC_QUEUE_ENVELOPE_WALK");
 
@@ -310,6 +310,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		if (rlen < sizeof(r)) {
 			log_warnx("warn: queue-proc: XXX");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -319,10 +320,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		if (r != 1) {
 			if (rlen)
 				log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (r);
 		}
 		if (rlen < sizeof(*evpid)) {
 			log_warnx("warn: queue-proc: bogus data");
+			imsg_free(&imsg);
 			return (0);
 		}
 
@@ -331,9 +334,13 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rlen -= sizeof(evpid);
 		if (rlen)
 			log_warnx("warn: queue-proc: bogus data");
+		
+		imsg_free(&imsg);
+
 		return (r);
 
 	default:
+		imsg_free(&imsg);
 		log_warnx("warn: queue-proc: unsupported operation.");
 		fatalx("queue-proc: exiting");
 	}
@@ -368,15 +375,12 @@ queue_proc_call(size_t expected)
 				log_warnx("warn: queue-proc: "
 				    "bad msg length (%i/%i)",
 				    (int)rlen, (int)expected);
-				break;
-			}
-
-			if (imsg.hdr.type == PROC_QUEUE_FAIL) {
-				log_warnx("warn: queue-proc: remote call failed");
+				imsg_free(&imsg);
 				break;
 			}
 
 			log_warn("warn: queue-proc: bad response");
+			imsg_free(&imsg);
 			break;
 		}
 

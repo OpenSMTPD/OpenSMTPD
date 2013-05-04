@@ -101,6 +101,7 @@ struct offline {
 static size_t			offline_running = 0;
 TAILQ_HEAD(, offline)		offline_q;
 
+static struct event		config_ev;
 static struct event		offline_ev;
 static struct timeval		offline_timeout;
 
@@ -830,9 +831,9 @@ main(int argc, char *argv[])
 	config_peer(PROC_QUEUE);
 	config_done();
 
-	evtimer_set(&env->sc_ev, parent_send_config, NULL);
+	evtimer_set(&config_ev, parent_send_config, NULL);
 	bzero(&tv, sizeof(tv));
-	evtimer_add(&env->sc_ev, &tv);
+	evtimer_add(&config_ev, &tv);
 
 	/* defer offline scanning for a second */
 	evtimer_set(&offline_ev, offline_scan, NULL);

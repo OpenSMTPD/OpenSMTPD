@@ -106,8 +106,11 @@ table_proc_open(struct table *table)
 	version = PROC_TABLE_API_VERSION;
 	imsg_compose(&priv->ibuf, PROC_TABLE_OPEN, 0, 0, -1,
 	    &version, sizeof(version));
+
 	if (!table_proc_call(priv, 0))
 		return (NULL); 	/* XXX cleanup */
+
+	imsg_free(&imsg);
 
 	return (priv);
 err:
@@ -133,6 +136,7 @@ table_proc_update(struct table *table)
 		return (-1);
 
 	memmove(&r, imsg.data, sizeof(r));
+
 	imsg_free(&imsg);
 
 	return (r);
@@ -253,16 +257,6 @@ table_proc_call(struct table_proc_priv *priv, size_t expected)
 				if (expected == (size_t)-1 || len == expected)
 					return (1);
 				imsg_free(&imsg);
-				log_warnx("warn: table-proc: "
-				    "bad msg length (%i/%i)",
-				    (int)len, (int)expected);
-				break;
-			}
-
-			if (imsg.hdr.type == PROC_TABLE_FAIL) {
-				imsg_free(&imsg);
-				if (len == 0)
-					return (0);
 				log_warnx("warn: table-proc: "
 				    "bad msg length (%i/%i)",
 				    (int)len, (int)expected);
