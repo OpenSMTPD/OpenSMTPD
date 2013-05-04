@@ -565,6 +565,7 @@ mda_io(struct io *io, int evt)
 	case IO_LOWAT:
 
 		/* done */
+	   done:
 		if (s->datafp == NULL) {
 			log_debug("debug: mda: all data sent for session"
 			    " %016"PRIx64 " evpid %016"PRIx64,
@@ -609,6 +610,8 @@ mda_io(struct io *io, int evt)
 			    s->id, s->evp->id);
 			fclose(s->datafp);
 			s->datafp = NULL;
+ 			if (iobuf_queued(&s->iobuf) == 0)
+				goto done;
 		}
 		return;
 
