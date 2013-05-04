@@ -70,12 +70,12 @@ queue_proc_init(int server)
 	errno = 0;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0) {
-		log_warn("warn: socketpair");
+		log_warn("warn: queue-proc: socketpair");
 		return (0);
 	}
 
 	if ((pid = fork()) == -1) {
-		log_warn("warn: fork");
+		log_warn("warn: queue-proc: fork");
 		goto err;
 	}
 
@@ -130,7 +130,7 @@ queue_proc_message(enum queue_op qop, uint32_t *msgid)
 		rlen -= sizeof(r);
 		if (r != 1) {
 			if (rlen)
-				log_warnx("warn: queue_proc_message: bogus data");
+				log_warnx("warn: queue-proc: bogus data");
 			return (r);
 		}
 
@@ -141,7 +141,7 @@ queue_proc_message(enum queue_op qop, uint32_t *msgid)
 		rdata += sizeof(*msgid);
 		rlen -= sizeof(*msgid);
 		if (rlen)
-			log_warnx("warn: queue_proc_message: bogus data");
+			log_warnx("warn: queue-proc: bogus data");
 
 		return (r);
 
@@ -218,7 +218,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 			return (0);
 
 		if (rlen < sizeof(r)) {
-			log_warnx("warn: queue_proc_envelope: XXX");
+			log_warnx("warn: queue-proc: XXX");
 			return (0);
 		}
 
@@ -227,11 +227,11 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rlen -= sizeof(r);
 		if (r != 1) {
 			if (rlen)
-				log_warnx("warn: queue_proc_envelope: bogus data");
+				log_warnx("warn: queue-proc: bogus data");
 			return (r);
 		}
 		if (rlen < sizeof(*evpid)) {
-			log_warnx("warn: queue_proc_envelope: bogus data");
+			log_warnx("warn: queue-proc: bogus data");
 			return (0);
 		}
 
@@ -239,7 +239,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rdata += sizeof(*evpid);
 		rlen -= sizeof(*evpid);
 		if (rlen)
-			log_warnx("warn: queue_proc_message: bogus data");
+			log_warnx("warn: queue-proc: bogus data");
 		return (r);
 
 	case QOP_DELETE:
@@ -271,7 +271,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 			return (0);
 
 		if (rlen > len) {
-			log_warnx("queue_proc_envelope: buf too small");
+			log_warnx("warn: queue-proc: buf too small");
 			memmove(buf, rdata, len);
 		}
 		else
@@ -309,7 +309,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 			return (0);
 
 		if (rlen < sizeof(r)) {
-			log_warnx("warn: queue_proc_envelope: XXX");
+			log_warnx("warn: queue-proc: XXX");
 			return (0);
 		}
 
@@ -318,11 +318,11 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rlen -= sizeof(r);
 		if (r != 1) {
 			if (rlen)
-				log_warnx("warn: queue_proc_envelope: bogus data");
+				log_warnx("warn: queue-proc: bogus data");
 			return (r);
 		}
 		if (rlen < sizeof(*evpid)) {
-			log_warnx("warn: queue_proc_envelope: bogus data");
+			log_warnx("warn: queue-proc: bogus data");
 			return (0);
 		}
 
@@ -330,11 +330,12 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		rdata += sizeof(*evpid);
 		rlen -= sizeof(evpid);
 		if (rlen)
-			log_warnx("warn: queue_proc_message: bogus data");
+			log_warnx("warn: queue-proc: bogus data");
 		return (r);
 
 	default:
-		fatalx("queue_queue_proc_envelope: unsupported operation.");
+		log_warnx("warn: queue-proc: unsupported operation.");
+		fatalx("queue-proc: exiting");
 	}
 
 	return (0);
@@ -346,7 +347,7 @@ queue_proc_call(size_t expected)
 	ssize_t	n;
 
 	if (imsg_flush(&ibuf) == -1) {
-		log_warn("warn: imsg_flush");
+		log_warn("warn: queue-proc: imsg_flush");
 		imsg_clear(&ibuf);
 		running = 0;
 		return (0);
@@ -354,7 +355,7 @@ queue_proc_call(size_t expected)
 
 	while (1) {
 		if ((n = imsg_get(&ibuf, &imsg)) == -1) {
-			log_warn("warn: queue_proc: imsg_get");
+			log_warn("warn: queue-proc: imsg_get");
 			break;
 		}
 		if (n) {
@@ -371,7 +372,7 @@ queue_proc_call(size_t expected)
 			}
 
 			if (imsg.hdr.type == PROC_QUEUE_FAIL) {
-				log_warnx("queue-proc: remote call failed");
+				log_warnx("warn: queue-proc: remote call failed");
 				break;
 			}
 
@@ -390,7 +391,7 @@ queue_proc_call(size_t expected)
 		}
 	}
 
-	log_warnx("queue-proc: not running anymore");
+	log_warnx("warn: queue-proc: not running anymore");
 	imsg_clear(&ibuf);
 	running = 0;
 	return (0);

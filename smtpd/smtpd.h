@@ -276,6 +276,9 @@ enum smtp_proc_type {
 	PROC_MTA,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
+
+	PROC_FILTER,
+	PROC_CLIENT,
 };
 
 enum table_type {
@@ -574,7 +577,7 @@ struct smtpd {
 #define	TRACE_LOOKUP	0x0100
 #define	TRACE_STAT	0x0200
 #define	TRACE_RULES	0x0400
-#define	TRACE_IMSGSIZE	0x0800
+#define	TRACE_MPROC	0x0800
 #define	TRACE_EXPAND	0x1000
 #define	TRACE_TABLES	0x2000
 #define	TRACE_QUEUE	0x4000
@@ -896,8 +899,6 @@ struct stat_digest {
 	size_t			 dlv_loop;
 };
 
-#define MSZ_EVP		512
-
 
 struct mproc {
 	pid_t		 pid;
@@ -905,8 +906,15 @@ struct mproc {
 	int		 proc;
 	void		(*handler)(struct mproc *, struct imsg *);
 	struct imsgbuf	 imsgbuf;
-	struct ibuf	*ibuf;
-	int		 ibuferror;
+
+	char		*m_buf;
+	size_t		 m_alloc;
+	size_t		 m_pos;
+	uint32_t	 m_type;
+	uint32_t	 m_peerid;
+	pid_t		 m_pid;
+	int		 m_fd;
+
 	int		 enable;
 	short		 events;
 	struct event	 ev;
@@ -1161,7 +1169,7 @@ void m_compose(struct mproc *, uint32_t, uint32_t, pid_t, int, void *, size_t);
 void m_composev(struct mproc *, uint32_t, uint32_t, pid_t, int,
     const struct iovec *, int);
 void m_forward(struct mproc *, struct imsg *);
-void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int, size_t);
+void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int);
 void m_add(struct mproc *, const void *, size_t);
 void m_add_int(struct mproc *, int);
 void m_add_u32(struct mproc *, uint32_t);
@@ -1318,8 +1326,6 @@ int table_parse_lookup(enum table_service, const char *, const char *,
 
 /* to.c */
 int email_to_mailaddr(struct mailaddr *, char *);
-uint32_t evpid_to_msgid(uint64_t);
-uint64_t msgid_to_evpid(uint32_t);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_mailaddr(struct mailaddr *, const char *);
 int text_to_relayhost(struct relayhost *, const char *);

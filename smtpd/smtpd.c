@@ -179,7 +179,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = parent_auth_user(username, password);
 
-			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1, 128);
+			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			m_close(p);
@@ -538,7 +538,7 @@ parent_sig_handler(int sig, short event, void *p)
 				    "for session %016"PRIx64 ": %s",
 				    child->mda_id, cause);
 				m_create(p_mda, IMSG_MDA_DONE, 0, 0,
-				    child->mda_out, 32 + strlen(cause));
+				    child->mda_out);
 				m_add_id(p_mda, child->mda_id);
 				m_add_string(p_mda, cause);
 				m_close(p_mda);
@@ -653,8 +653,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
-			else if (!strcmp(optarg, "imsg-size"))
-				verbose |= TRACE_IMSGSIZE;
+			else if (!strcmp(optarg, "mproc"))
+				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
 			else if (!strcmp(optarg, "tables"))
@@ -970,7 +970,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
 		snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -985,7 +985,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -1001,7 +1001,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -1016,7 +1016,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		n = snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
-		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1, 128);
+		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_mda,	id);
 		m_add_string(p_mda, ebuf);
 		m_close(p_mda);
@@ -1034,7 +1034,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		child->mda_out = allout;
 		child->mda_id = id;
 		close(pipefd[0]);
-		m_create(p, IMSG_PARENT_FORK_MDA, 0, 0, pipefd[1], 9);
+		m_create(p, IMSG_PARENT_FORK_MDA, 0, 0, pipefd[1]);
 		m_add_id(p, id);
 		m_close(p);
 		return;
@@ -1288,7 +1288,6 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	struct timespec		 t0, t1, dt;
 
 	if (imsg == NULL) {
-		log_warnx("warn: pipe error with %s", p->name);
 		exit(1);
 		return;
 	}
@@ -1354,24 +1353,24 @@ const char *
 proc_title(enum smtp_proc_type proc)
 {
 	switch (proc) {
-	case PROC_CONTROL:
-		return "control";
-	case PROC_LKA:
-		return "lookup";
-	case PROC_MDA:
-		return "delivery";
-	case PROC_MFA:
-		return "filter";
-	case PROC_MTA:
-		return "transfer";
 	case PROC_PARENT:
 		return "[priv]";
-	case PROC_QUEUE:
-		return "queue";
-	case PROC_SCHEDULER:
-		return "scheduler";
 	case PROC_SMTP:
 		return "smtp";
+	case PROC_MFA:
+		return "filter";
+	case PROC_LKA:
+		return "lookup";
+	case PROC_QUEUE:
+		return "queue";
+	case PROC_MDA:
+		return "delivery";
+	case PROC_MTA:
+		return "transfer";
+	case PROC_CONTROL:
+		return "control";
+	case PROC_SCHEDULER:
+		return "scheduler";
 	default:
 		return "unknown";
 	}
@@ -1399,6 +1398,11 @@ proc_name(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
+
+	case PROC_FILTER:
+		return "filter-proc";
+	case PROC_CLIENT:
+		return "client-proc";
 	default:
 		return "unknown";
 	}
@@ -1543,27 +1547,27 @@ parent_auth_user(const char *username, const char *password)
 static void
 parent_broadcast_verbose(uint32_t v)
 {
-	m_create(p_lka, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_lka, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_lka, v);
 	m_close(p_lka);
 	
-	m_create(p_mda, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_mda, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mda, v);
 	m_close(p_mda);
 	
-	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mfa, v);
 	m_close(p_mfa);
 	
-	m_create(p_mta, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_mta, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mta, v);
 	m_close(p_mta);
 	
-	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
 	
-	m_create(p_smtp, IMSG_CTL_VERBOSE, 0, 0, -1, sizeof v);
+	m_create(p_smtp, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_smtp, v);
 	m_close(p_smtp);
 }
@@ -1571,27 +1575,27 @@ parent_broadcast_verbose(uint32_t v)
 static void
 parent_broadcast_profile(uint32_t v)
 {
-	m_create(p_lka, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_lka, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_lka, v);
 	m_close(p_lka);
 	
-	m_create(p_mda, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_mda, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mda, v);
 	m_close(p_mda);
 	
-	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mfa, v);
 	m_close(p_mfa);
 	
-	m_create(p_mta, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_mta, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mta, v);
 	m_close(p_mta);
 	
-	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
 	
-	m_create(p_smtp, IMSG_CTL_PROFILE, 0, 0, -1, sizeof v);
+	m_create(p_smtp, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_smtp, v);
 	m_close(p_smtp);
 }

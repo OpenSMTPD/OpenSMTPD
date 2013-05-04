@@ -74,6 +74,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	uint64_t		 evpid, id;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
+	uint32_t       		 inflight;
 	size_t			 n, i;
 	time_t			 timestamp;
 	int			 v;
@@ -111,6 +112,23 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		    msgid);
 		n = backend->rollback(msgid);
 		stat_decrement("scheduler.envelope.incoming", n);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_QUEUE_REMOVE:
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_get_u32(&m, &inflight);
+		m_end(&m);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: queue requested removal of evp:%016" PRIx64,
+		    evpid);
+		stat_decrement("scheduler.envelope", 1);
+		if (! inflight)
+			backend->remove(evpid);
+		else
+			backend->delete(evpid);
+
 		scheduler_reset_events();
 		return;
 
@@ -224,7 +242,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		n = backend->envelopes(id, state, EVPBATCHSIZE);
 		for (i = 0; i < n; i++) {
 			m_create(p_queue, IMSG_CTL_LIST_ENVELOPES,
-			    imsg->hdr.peerid, 0, -1, 32);
+			    imsg->hdr.peerid, 0, -1);
 			m_add_evpid(p_queue, state[i].evpid);
 			m_add_int(p_queue, state[i].flags);
 			m_add_time(p_queue, state[i].time);
@@ -441,7 +459,7 @@ scheduler_process_remove(struct scheduler_batch *batch)
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64 " removed",
 		    batch->evpids[i]);
-		m_create(p_queue, IMSG_QUEUE_REMOVE, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_QUEUE_REMOVE, 0, 0, -1);
 		m_add_evpid(p_queue, batch->evpids[i]);
 		m_close(p_queue);
 	}
@@ -458,7 +476,7 @@ scheduler_process_expire(struct scheduler_batch *batch)
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64 " expired",
 		    batch->evpids[i]);
-		m_create(p_queue, IMSG_QUEUE_EXPIRE, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_QUEUE_EXPIRE, 0, 0, -1);
 		m_add_evpid(p_queue, batch->evpids[i]);
 		m_close(p_queue);
 	}
@@ -475,7 +493,7 @@ scheduler_process_bounce(struct scheduler_batch *batch)
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (bounce)", batch->evpids[i]);
-		m_create(p_queue, IMSG_BOUNCE_INJECT, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_BOUNCE_INJECT, 0, 0, -1);
 		m_add_evpid(p_queue, batch->evpids[i]);
 		m_close(p_queue);
 	}
@@ -491,7 +509,7 @@ scheduler_process_mda(struct scheduler_batch *batch)
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mda)", batch->evpids[i]);
-		m_create(p_queue, IMSG_MDA_DELIVER, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_MDA_DELIVER, 0, 0, -1);
 		m_add_evpid(p_queue, batch->evpids[i]);
 		m_close(p_queue);
 	}
@@ -509,7 +527,7 @@ scheduler_process_mta(struct scheduler_batch *batch)
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mta)", batch->evpids[i]);
-		m_create(p_queue, IMSG_MTA_BATCH_ADD, 0, 0, -1, 9);
+		m_create(p_queue, IMSG_MTA_BATCH_ADD, 0, 0, -1);
 		m_add_evpid(p_queue, batch->evpids[i]);
 		m_close(p_queue);
 	}

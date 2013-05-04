@@ -30,17 +30,17 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-int (*handler_message_create)(uint32_t *);
-int (*handler_message_commit)(uint32_t);
-int (*handler_message_delete)(uint32_t);
-int (*handler_message_fd_r)(uint32_t);
-int (*handler_message_fd_w)(uint32_t);
-int (*handler_message_corrupt)(uint32_t);
-int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
-int (*handler_envelope_delete)(uint64_t);
-int (*handler_envelope_update)(uint64_t, const char *, size_t);
-int (*handler_envelope_load)(uint64_t, char *, size_t);
-int (*handler_envelope_walk)(uint64_t *);
+static int (*handler_message_create)(uint32_t *);
+static int (*handler_message_commit)(uint32_t);
+static int (*handler_message_delete)(uint32_t);
+static int (*handler_message_fd_r)(uint32_t);
+static int (*handler_message_fd_w)(uint32_t);
+static int (*handler_message_corrupt)(uint32_t);
+static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
+static int (*handler_envelope_delete)(uint64_t);
+static int (*handler_envelope_update)(uint64_t, const char *, size_t);
+static int (*handler_envelope_load)(uint64_t, char *, size_t);
+static int (*handler_envelope_walk)(uint64_t *);
 
 static struct imsgbuf	ibuf;
 static struct imsg	imsg;

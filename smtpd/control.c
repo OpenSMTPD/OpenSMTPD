@@ -319,6 +319,7 @@ control_accept(int listenfd, short event, void *arg)
 	if (getpeereid(connfd, &c->euid, &c->egid) == -1)
 		fatal("getpeereid");
 	c->id = ++connid;
+	c->mproc.proc = PROC_CLIENT;
 	c->mproc.handler = control_dispatch_ext;
 	c->mproc.data = c;
 	mproc_init(&c->mproc, connfd);
@@ -481,7 +482,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose = v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1, 9);
+		m_create(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1);
 		m_add_int(p_parent, verbose);
 		m_close(p_parent);
 
@@ -499,7 +500,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose |= v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_TRACE, 0, 0, -1, 9);
+		m_create(p_parent, IMSG_CTL_TRACE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
@@ -517,7 +518,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose &= ~v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_UNTRACE, 0, 0, -1, 9);
+		m_create(p_parent, IMSG_CTL_UNTRACE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
@@ -534,7 +535,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling |= v;
 
-		m_create(p_parent, IMSG_CTL_PROFILE, 0, 0, -1, 9);
+		m_create(p_parent, IMSG_CTL_PROFILE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
@@ -551,7 +552,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling &= ~v;
 
-		m_create(p_parent, IMSG_CTL_UNPROFILE, 0, 0, -1, 9);
+		m_create(p_parent, IMSG_CTL_UNPROFILE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 

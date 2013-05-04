@@ -1,7 +1,6 @@
-/*	$OpenBSD: filter_api.c,v 1.4 2012/08/19 14:16:58 chl Exp $	*/
-
+/*	$OpenBSD: asr.h,v 1.5 2011/07/13 14:52:21 eric Exp $	*/
 /*
- * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
+ * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,6 +15,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-uint32_t queue_generate_msgid(void);
-uint64_t queue_generate_evpid(uint32_t);
-int mktmpfile(const char *);
+#include <sys/types.h>
+#include <netinet/in.h>
+
+#include <event.h>
+
+struct async;
+struct async_res;
+
+struct async_event {
+	struct async	*async;
+	struct event	 ev;
+	void		(*callback)(int, struct async_res *, void *);
+	void		*arg;
+};
+
+struct async_event * async_run_event(struct async *,
+	void (*)(int, struct async_res *, void *), void *);
