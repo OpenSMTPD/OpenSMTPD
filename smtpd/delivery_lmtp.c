@@ -41,6 +41,9 @@
 /* mda backend */
 static void delivery_lmtp_open(struct deliver *);
 
+static int inet_socket(char *);
+static char* lmtp_getline(FILE *);
+
 struct delivery_backend delivery_backend_lmtp = {
 	 0, delivery_lmtp_open
 };
@@ -55,27 +58,18 @@ enum lmtp_state {
 	 LMTP_BYE
 };
 
-static char* lmtp_getline(FILE*);
-
-static void
-delivery_lmtp_open(struct deliver *deliver)
+static int
+inet_socket (char *address)
 {
-	 char *buffer;
-	 char *lbuf;
-	 char lhloname[255];
 	 int s, n;
-	 FILE	*fp;
 	 char *hostname, *servname;
 	 struct addrinfo hints;
 	 struct addrinfo *result0, *result;
-	 enum lmtp_state state = LMTP_BANNER;
-	 size_t	len;
 
-	 servname = strchr(deliver->to, ':');
+	 servname = strchr(address, ':');
 	 *servname++ = '\0';
-	 hostname = deliver->to;
+	 hostname = address;
 	 s = -1;
-	 fp = NULL;
 
 	 bzero(&hints, sizeof(hints));
 	 hints.ai_family = PF_UNSPEC;
@@ -102,6 +96,24 @@ delivery_lmtp_open(struct deliver *deliver)
 	 }
 
 	 freeaddrinfo(result0);
+
+	 return s;
+}
+
+static void
+delivery_lmtp_open(struct deliver *deliver)
+{
+	 char *buffer;
+	 char *lbuf;
+	 char lhloname[255];
+	 int s;
+	 FILE	*fp;
+	 enum lmtp_state state = LMTP_BANNER;
+	 size_t	len;
+
+	 fp = NULL;
+
+	 s = inet_socket(deliver->to);
 
 	 if (s == -1 || (fp = fdopen(s, "r+")) == NULL)
 		 err(1, "couldn't establish connection");
