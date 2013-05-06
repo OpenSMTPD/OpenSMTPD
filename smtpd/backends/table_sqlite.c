@@ -42,30 +42,16 @@ enum {
 	SQL_MAX
 };
 
-struct {
-	const char	*name;
-	sqlite3_stmt	*stmt;
-	int		 cols;
-} statements[SQL_MAX] = {
-	{ "query_aliases",	NULL,	1 },
-	{ "query_domain",	NULL,	1 },
-	{ "query_credentials",	NULL,	2 },
-	{ "query_netaddr",	NULL,	1 },
-	{ "query_userinfo",	NULL,	4 },
-	{ "query_source",	NULL,	1 },
-	{ "query_mailaddr",	NULL,	1 },
-	{ "query_addrname",	NULL,	1 },
-};
-
+static int table_sqlite_update(void);
 static int table_sqlite_lookup(int, const char *, char *, size_t);
 static int table_sqlite_check(int, const char *);
 static int table_sqlite_fetch(int, char *, size_t);
 
-static int table_sqlite_setup(void);
 static sqlite3_stmt *table_sqlite_query(const char *, int);
 
-static sqlite3	*ppDb;
-char		*config;
+static char		*config;
+static sqlite3		*db;
+static sqlite3_stmt	*statements[SQL_MAX];
 
 int
 main(int argc, char **argv)
@@ -95,18 +81,17 @@ main(int argc, char **argv)
 		return (1);
 	}
 
-	if (argc != 1) {
-		log_warnx("warn: backend-table-sqlite: dbpath not specified");
+	if (argc != 0) {
+		log_warnx("warn: backend-table-sqlite: bogus argument(s)");
 		return (1);
 	}
 
-	if (sqlite3_open(argv[0], &ppDb) != SQLITE_OK) {
-		log_warnx("warn: backend-table-sqlite: open: %s", sqlite3_errmsg(ppDb));
+	if (table_sqlite_update() == 0) {
+		log_warnx("warn: backend-table-sqlite: error parsing config file");
 		return (1);
 	}
 
-	table_sqlite_setup();
-
+	table_api_on_update(table_sqlite_update);
 	table_api_on_check(table_sqlite_check);
 	table_api_on_lookup(table_sqlite_lookup);
 	table_api_on_fetch(table_sqlite_fetch);
@@ -115,14 +100,59 @@ main(int argc, char **argv)
 	return (0);
 }
 
-static int
-table_sqlite_setup(void)
+static sqlite3_stmt *
+table_sqlite_query(const char *key, int service)
 {
+	int		 i;
 	sqlite3_stmt	*stmt;
+
+	stmt = NULL;
+	for(i = 0; i < SQL_MAX; i++)
+		if (service == 1 << i) {
+			stmt = statements[i];
+			break;
+		}
+
+	if (stmt == NULL)
+		return (NULL);
+
+	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
+
+	return (stmt);
+}
+
+static int
+table_sqlite_update(void)
+{
+	static const struct {
+		const char	*name;
+		int		 cols;
+	} qspec[SQL_MAX] = {
+		{ "query_alias",	1 },
+		{ "query_domain",	1 },
+		{ "query_credentials",	2 },
+		{ "query_netaddr",	1 },
+		{ "query_userinfo",	4 },
+		{ "query_source",	1 },
+		{ "query_mailaddr",	1 },
+		{ "query_addrname",	1 },
+	};
+	sqlite3		*_db;
+	sqlite3_stmt	*_statements[SQL_MAX];
+	char		*queries[SQL_MAX];
 	size_t		 flen;
 	FILE		*fp;
-	char		*key, *value, *buf, *lbuf;
-	int		 i, ret = 0;
+	char		*key, *value, *buf, *lbuf, *dbpath;
+	int		 i, ret;
+
+	dbpath = NULL;
+	_db = NULL;
+	bzero(queries, sizeof(queries));
+	bzero(_statements, sizeof(_statements));
+
+	ret = 0;
+
+	/* Parse configuration */
 
 	fp = fopen(config, "r");
 	if (fp == NULL)
@@ -166,58 +196,94 @@ table_sqlite_setup(void)
 			continue;
 		}
 
+		if (!strcmp("dbpath", key)) {
+			if (dbpath) {
+				log_warnx("warn: backend-table-sqlite: duplicate dbpath %s", value);
+				free(dbpath);
+			}
+			dbpath = strdup(value);
+			if (dbpath == NULL) {
+				log_warn("warn: backend-table-sqlite: strdup");
+				goto end;
+			}
+			continue;
+		}
+
 		for(i = 0; i < SQL_MAX; i++)
-			if (!strcmp(statements[i].name, key))
+			if (!strcmp(qspec[i].name, key))
 				break;
 		if (i == SQL_MAX) {
 			log_warnx("warn: backend-table-sqlite: bogus key %s", key);
 			continue;
 		}
-		if (statements[i].stmt) {
+
+		if (queries[i]) {
 			log_warnx("warn: backend-table-sqlite: duplicate key %s", key);
 			continue;
 		}
 
-		if (sqlite3_prepare_v2(ppDb, value, -1, &stmt, 0)
+		queries[i] = strdup(value);
+		if (queries[i] == NULL) {
+			log_warnx("warn: backend-table-sqlite: strdup");
+			goto end;
+		}
+	}
+
+	/* Setup db */
+
+	log_debug("debug: backend-table-sqlite: opening %s", dbpath);
+
+	if (sqlite3_open(dbpath, &_db) != SQLITE_OK) {
+		log_warnx("warn: backend-table-sqlite: open: %s",
+		    sqlite3_errmsg(_db));
+		goto end;
+	}
+
+	for (i = 0; i < SQL_MAX; i++) {
+		if (queries[i] == NULL)
+			continue;
+		if (sqlite3_prepare_v2(_db, queries[i], -1, &_statements[i], 0)
 		    != SQLITE_OK) {
 			log_warnx("warn: backend-table-sqlite: prepare: %s",
-			    sqlite3_errmsg(ppDb));
-			continue;
+			    sqlite3_errmsg(_db));
+			goto end;
 		}
-
-		if (sqlite3_column_count(stmt) != statements[i].cols) {
+		if (sqlite3_column_count(_statements[i]) != qspec[i].cols) {
 			log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
-			sqlite3_finalize(stmt);
-			continue;
+			goto end;
 		}
-		statements[i].stmt = stmt;
 	}
+
+	/* Replace previous setup */
+
+	for (i = 0; i < SQL_MAX; i++) {
+		if (statements[i])
+			sqlite3_finalize(statements[i]);
+		statements[i] = _statements[i];
+		_statements[i] = NULL;
+	}
+	if (db)
+		sqlite3_close(_db);
+	db = _db;
+	_db = NULL;
+
+	log_debug("debug: backend-table-sqlite: config successfully updated");
 	ret = 1;
+
+    end:
+
+	/* Cleanup */
+	for (i = 0; i < SQL_MAX; i++) {
+		if (_statements[i])
+			sqlite3_finalize(_statements[i]);
+		free(queries[i]);
+	}
+	if (_db)
+		sqlite3_close(_db);
 
 	free(lbuf);
 	fclose(fp);
 	return (ret);
-}
-
-static sqlite3_stmt *
-table_sqlite_query(const char *key, int service)
-{
-	int		 i;
-	sqlite3_stmt	*stmt;
-
-	stmt = NULL;
-	for(i = 0; i < SQL_MAX; i++)
-		if (service == 1 << i) {
-			stmt = statements[i].stmt;
-			break;
-		}
-
-	if (stmt == NULL)
-		return (NULL);
-
-	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
-
-	return (stmt);
 }
 
 static int
