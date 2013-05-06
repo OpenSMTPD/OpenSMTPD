@@ -101,6 +101,7 @@ struct offline {
 static size_t			offline_running = 0;
 TAILQ_HEAD(, offline)		offline_q;
 
+static struct event		config_ev;
 static struct event		offline_ev;
 static struct timeval		offline_timeout;
 
@@ -653,8 +654,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
-			else if (!strcmp(optarg, "imsg-size"))
-				verbose |= TRACE_IMSGSIZE;
+			else if (!strcmp(optarg, "mproc"))
+				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
 			else if (!strcmp(optarg, "tables"))
@@ -830,9 +831,9 @@ main(int argc, char *argv[])
 	config_peer(PROC_QUEUE);
 	config_done();
 
-	evtimer_set(&env->sc_ev, parent_send_config, NULL);
+	evtimer_set(&config_ev, parent_send_config, NULL);
 	bzero(&tv, sizeof(tv));
-	evtimer_add(&env->sc_ev, &tv);
+	evtimer_add(&config_ev, &tv);
 
 	/* defer offline scanning for a second */
 	evtimer_set(&offline_ev, offline_scan, NULL);
@@ -1285,7 +1286,6 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	struct timespec		 t0, t1, dt;
 
 	if (imsg == NULL) {
-		log_warnx("warn: pipe error with %s", p->name);
 		exit(1);
 		return;
 	}
@@ -1369,9 +1369,6 @@ proc_title(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
-
-	case PROC_FILTER:
-		return "filter-proc";
 	default:
 		return "unknown";
 	}
@@ -1399,6 +1396,11 @@ proc_name(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
+
+	case PROC_FILTER:
+		return "filter-proc";
+	case PROC_CLIENT:
+		return "client-proc";
 	default:
 		return "unknown";
 	}

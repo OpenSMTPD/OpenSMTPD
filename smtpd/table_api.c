@@ -41,15 +41,6 @@ static struct imsgbuf	ibuf;
 static struct imsg	imsg;
 
 static int
-res_fail(const char *reason)
-{
-	if (reason)
-		log_warnx("warn: table-api: %s", reason);
-	imsg_compose(&ibuf, PROC_TABLE_FAIL, 0, 0, -1, NULL, 0);
-	return (0);
-}
-
-static int
 dispatch(void)
 {
 	uint32_t	 version;
@@ -63,21 +54,27 @@ dispatch(void)
 
 	switch (imsg.hdr.type) {
 	case PROC_TABLE_OPEN:
-		if (len != sizeof(version))
-			return res_fail("bad message length");
+		if (len != sizeof(version)) {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 		memmove(&version, data, len);
-		if (version != PROC_TABLE_API_VERSION)
-			return res_fail("bad API version");
-
+		if (version != PROC_TABLE_API_VERSION) {
+			log_warnx("warn: table-api: bad API version");
+			return (-1);
+		}
 		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, NULL, 0);
 		return (0);
 
 	case PROC_TABLE_UPDATE:
+		if (len != 0) {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 		if (handler_update)
 			r = handler_update();
 		else
 			r = 1;
-
 		imsg_compose(&ibuf, PROC_TABLE_OK, 0, 0, -1, &r, sizeof(r));
 		return (0);
 
@@ -85,13 +82,17 @@ dispatch(void)
 		return (-1);
 
 	case PROC_TABLE_CHECK:
-		if (len <= sizeof (type))
-			return res_fail("bad message length");
+		if (len <= sizeof (type)) {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 		memmove(&type, data, sizeof(type));
 		key = data + sizeof(type);
 		len -= sizeof(type);
-		if (key[len] != '\0')
-			return res_fail("bad message length");
+		if (key[len] != '\0') {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 
 		if (handler_check)
 			r = handler_check(type, key);
@@ -102,13 +103,17 @@ dispatch(void)
 		return (0);
 
 	case PROC_TABLE_LOOKUP:
-		if (len <= sizeof (type))
-			return res_fail("bad message length");
+		if (len <= sizeof (type)) {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 		memmove(&type, data, sizeof(type));
 		key = data + sizeof(type);
 		len -= sizeof(type);
-		if (key[len] != '\0')
-			return res_fail("bad message length");
+		if (key[len] != '\0') {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 
 		if (handler_lookup)
 			r = handler_lookup(type, key, res, sizeof(res));
@@ -126,8 +131,10 @@ dispatch(void)
 		return (0);
 
 	case PROC_TABLE_FETCH:
-		if (len != sizeof(type))
-			return res_fail("bad message length");
+		if (len != sizeof(type)) {
+			log_warnx("warn: table-api: bad message length");
+			return (-1);
+		}
 		memmove(&type, data, sizeof(type));
 
 		if (handler_fetch)
@@ -146,7 +153,7 @@ dispatch(void)
 
 	default:
 		log_warnx("warn: table-api: bad message %i", imsg.hdr.type);
-		return res_fail(NULL);
+		return (-1);
 	}
 }
 
@@ -178,6 +185,7 @@ int
 table_api_dispatch(void)
 {
 	ssize_t	n;
+	int	r;
 
 	imsg_init(&ibuf, 0);
 
@@ -189,7 +197,9 @@ table_api_dispatch(void)
 		}
 
 		if (n) {
-			if (dispatch() == -1)
+			r = dispatch();
+			imsg_free(&imsg);
+			if (r == -1)
 				break;
 			imsg_flush(&ibuf);
 			continue;

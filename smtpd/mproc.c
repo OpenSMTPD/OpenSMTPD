@@ -97,7 +97,8 @@ void
 mproc_enable(struct mproc *p)
 {
 	if (p->enable == 0) {
-		log_debug("debug: enabling %s -> %s", proc_name(smtpd_process),
+		log_trace(TRACE_MPROC, "mproc: %s -> %s: enabled",
+		    proc_name(smtpd_process),
 		    proc_name(p->proc));
 		p->enable = 1;
 	}
@@ -108,7 +109,8 @@ void
 mproc_disable(struct mproc *p)
 {
 	if (p->enable == 1) {
-		log_debug("debug: disabling %s -> %s", proc_name(smtpd_process),
+		log_trace(TRACE_MPROC, "mproc: %s -> %s: disabled",
+		    proc_name(smtpd_process),
 		    proc_name(p->proc));
 		p->enable = 0;
 	}
@@ -149,10 +151,17 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	if (event & EV_READ) {
 
-		if ((n = imsg_read(&p->imsgbuf)) == -1)
-			fatal("imsg_read");
+		if ((n = imsg_read(&p->imsgbuf)) == -1) {
+			log_warn("warn: %s -> %s: imsg_read",
+			    proc_name(smtpd_process),  p->name);
+			fatal("exiting");
+		}
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
+			if (smtpd_process != PROC_CONTROL ||
+			    p->proc != PROC_CLIENT)
+				log_warnx("warn: %s -> %s: pipe closed",
+				    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
 		}
@@ -310,7 +319,7 @@ m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd)
 {
 	if (p->m_buf == NULL) {
 		p->m_alloc = 128;
-		log_debug("debug: mproc: %s -> %s: allocating %zu", 
+		log_trace(TRACE_MPROC, "mproc: %s -> %s: allocating %zu", 
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    p->m_alloc);
@@ -341,7 +350,7 @@ m_add(struct mproc *p, const void *data, size_t len)
 	while (p->m_pos + len > alloc)
 		alloc *= 2;
 	if (alloc != p->m_alloc) {
-		log_debug("debug: mproc: %s -> %s: reallocating %zu -> %zu",
+		log_trace(TRACE_MPROC, "mproc: %s -> %s: realloc %zu -> %zu",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    p->m_alloc,
@@ -365,13 +374,11 @@ m_close(struct mproc *p)
 	    p->m_buf, p->m_pos) == -1)
 		fatal("imsg_compose");
 
-#ifndef BUILD_FILTER
-	log_trace(TRACE_IMSGSIZE, "msg-len: %zu : %s -> %s : %s",
-		    p->m_pos,
+	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
+		    p->m_pos,
 		    imsg_to_str(p->m_type));
-#endif
 
 	p->msg_out += 1;
 	p->bytes_queued += p->m_pos + IMSG_HEADER_SIZE;

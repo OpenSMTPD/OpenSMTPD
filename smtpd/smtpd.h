@@ -278,6 +278,7 @@ enum smtp_proc_type {
 	PROC_SCHEDULER,
 
 	PROC_FILTER,
+	PROC_CLIENT,
 };
 
 enum table_type {
@@ -572,11 +573,9 @@ struct smtpd {
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
-	struct event			sc_ev;
 	struct passwd		       *sc_pw;
 	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
-	struct scheduler_backend       *sc_scheduler;
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
 
@@ -605,7 +604,7 @@ struct smtpd {
 #define	TRACE_LOOKUP	0x0100
 #define	TRACE_STAT	0x0200
 #define	TRACE_RULES	0x0400
-#define	TRACE_IMSGSIZE	0x0800
+#define	TRACE_MPROC	0x0800
 #define	TRACE_EXPAND	0x1000
 #define	TRACE_TABLES	0x2000
 #define	TRACE_QUEUE	0x4000
@@ -856,21 +855,21 @@ struct scheduler_batch {
 };
 
 struct scheduler_backend {
-	void	(*init)(void);
+	int	(*init)(void);
 
-	void	(*insert)(struct scheduler_info *);
+	int	(*insert)(struct scheduler_info *);
 	size_t	(*commit)(uint32_t);
 	size_t	(*rollback)(uint32_t);
 
-	void	(*update)(struct scheduler_info *);
-	void	(*delete)(uint64_t);
+	int	(*update)(struct scheduler_info *);
+	int	(*delete)(uint64_t);
 
-	void	(*batch)(int, struct scheduler_batch *);
+	int	(*batch)(int, struct scheduler_batch *);
 
 	size_t	(*messages)(uint32_t, uint32_t *, size_t);
 	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);
-	void	(*schedule)(uint64_t);
-	void	(*remove)(uint64_t);
+	int	(*schedule)(uint64_t);
+	int	(*remove)(uint64_t);
 };
 
 
