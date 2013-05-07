@@ -441,7 +441,7 @@ bounce_next(struct bounce_session *s)
 
 		n = iobuf_queued(&s->iobuf);
 
-		while (iobuf_len(&s->iobuf) < BOUNCE_HIWAT) {
+		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
 			line = fgetln(s->msgfp, &len);
 			if (line == NULL)
 				break;
