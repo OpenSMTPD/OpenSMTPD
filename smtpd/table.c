@@ -46,12 +46,6 @@ extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_proc;
-#if defined(HAVE_SQLITE)
-extern struct table_backend table_backend_sqlite;
-#endif
-#if defined(HAVE_LDAP)
-extern struct table_backend table_backend_ldap;
-#endif
 
 static const char * table_service_name(enum table_service);
 static const char * table_backend_name(struct table_backend *);
@@ -71,14 +65,6 @@ table_backend_lookup(const char *backend)
 		return &table_backend_getpwnam;
 	if (!strcmp(backend, "proc"))
 		return &table_backend_proc;
-#if defined(HAVE_SQLITE)
-	if (!strcmp(backend, "sqlite"))
-		return &table_backend_sqlite;
-#endif
-#if defined(HAVE_LDAP)
-	if (!strcmp(backend, "ldap"))
-		return &table_backend_ldap;
-#endif
 	return NULL;
 }
 
@@ -93,14 +79,6 @@ table_backend_name(struct table_backend *backend)
 		return "getpwnam";
 	if (backend == &table_backend_proc)
 		return "proc";
-#if defined(HAVE_SQLITE)
-	if (backend == &table_backend_sqlite)
-		return "sqlite";
-#endif
-#if defined(HAVE_LDAP)
-	if (backend == &table_backend_ldap)
-		return "ldap";
-#endif
 	return "???";
 }
 
