@@ -533,7 +533,11 @@ tcp_write(struct async *as)
 	msg.msg_iovlen = i;
 
     send_again:
-	n = sendmsg(as->as_fd, &msg, MSG_NOSIGNAL);
+/* Mac OS X doesn't have MSG_NOSIGNAL flag. */
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL SO_NOSIGPIPE
+#endif
+ 	n = sendmsg(as->as_fd, &msg, MSG_NOSIGNAL);
 	if (n == -1) {
 		if (errno == EINTR)
 			goto send_again;
