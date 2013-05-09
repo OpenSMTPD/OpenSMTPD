@@ -25,4 +25,5 @@ SRCS+=	to.c expand.c tree.c
 
 LDADD+=	-lutil -lz
 DPADD+=	${LIBUTIL} ${LIBZ}
+
 .include <bsd.prog.mk>

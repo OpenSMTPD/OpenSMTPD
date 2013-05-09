@@ -25,8 +25,6 @@ SRCS+=		table_db.c
 SRCS+=		table_getpwnam.c
 SRCS+=		table_proc.c
 SRCS+=		table_static.c
-SRCS+=		table_ldap.c
-SRCS+=		table_sqlite.c
 SRCS+=		queue_fsqueue.c
 SRCS+=		queue_null.c
 SRCS+=		queue_proc.c
@@ -40,14 +38,11 @@ SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
 		res_send_async.c getaddrinfo_async.c getnameinfo_async.c \
 		res_search_async.c
 
-# ldap backend
-SRCS+=		ber.c aldap.c
-
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
 
-LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz -lsqlite3
-DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ} ${LIBSQLITE3}
+LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
+DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
 CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I/usr/src/lib/libc/asr
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
