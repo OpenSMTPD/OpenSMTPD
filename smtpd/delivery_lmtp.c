@@ -22,6 +22,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -41,6 +42,10 @@
 /* mda backend */
 static void delivery_lmtp_open(struct deliver *);
 
+static int inet_socket(char *);
+static int unix_socket(char *);
+static char* lmtp_getline(FILE *);
+
 struct delivery_backend delivery_backend_lmtp = {
 	 0, delivery_lmtp_open
 };
@@ -55,27 +60,18 @@ enum lmtp_state {
 	 LMTP_BYE
 };
 
-static char* lmtp_getline(FILE*);
-
-static void
-delivery_lmtp_open(struct deliver *deliver)
+static int
+inet_socket (char *address)
 {
-	 char *buffer;
-	 char *lbuf;
-	 char lhloname[255];
 	 int s, n;
-	 FILE	*fp;
 	 char *hostname, *servname;
 	 struct addrinfo hints;
 	 struct addrinfo *result0, *result;
-	 enum lmtp_state state = LMTP_BANNER;
-	 size_t	len;
 
-	 servname = strchr(deliver->to, ':');
+	 servname = strchr(address, ':');
 	 *servname++ = '\0';
-	 hostname = deliver->to;
+	 hostname = address;
 	 s = -1;
-	 fp = NULL;
 
 	 bzero(&hints, sizeof(hints));
 	 hints.ai_family = PF_UNSPEC;
@@ -102,6 +98,51 @@ delivery_lmtp_open(struct deliver *deliver)
 	 }
 
 	 freeaddrinfo(result0);
+
+	 return s;
+}
+
+static int
+unix_socket(char *path) {
+	 struct sockaddr_un addr;
+	 int s;
+
+	 bzero(&addr, sizeof(addr));
+
+	 if ((s = socket(PF_LOCAL, SOCK_STREAM, 0)) == -1) {
+		 warn("socket");
+		 return -1;
+	 }
+
+	 addr.sun_family = AF_UNIX;
+	 strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
+
+	 if (connect(s, (struct sockaddr*) &addr, sizeof(addr)) == -1) {
+		 warn("connect");
+		 close(s);
+		 return -1;
+	 }
+
+	 return s;
+}
+
+static void
+delivery_lmtp_open(struct deliver *deliver)
+{
+	 char *buffer;
+	 char *lbuf;
+	 char lhloname[255];
+	 int s;
+	 FILE	*fp;
+	 enum lmtp_state state = LMTP_BANNER;
+	 size_t	len;
+
+	 fp = NULL;
+
+	 if (deliver->to[0] == '/')
+		 s = unix_socket(deliver->to);
+	 else
+		 s = inet_socket(deliver->to);
 
 	 if (s == -1 || (fp = fdopen(s, "r+")) == NULL)
 		 err(1, "couldn't establish connection");
