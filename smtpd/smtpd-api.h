@@ -163,7 +163,7 @@ msgid_to_evpid(uint32_t msgid)
 }
 
 /* dict.c */
-#define dict_init(d) do { SPLAY_INIT(&((d)->dict)); (t)->count = 0; } while(0)
+#define dict_init(d) do { SPLAY_INIT(&((d)->dict)); (d)->count = 0; } while(0)
 #define dict_empty(d) SPLAY_EMPTY(&((d)->dict))
 #define dict_count(d) ((d)->count)
 int dict_check(struct dict *, const char *);
