@@ -648,27 +648,29 @@ struct mta_source {
 };
 
 struct mta_connector {
-	TAILQ_ENTRY(mta_connector)	 lst_entry;
 	struct mta_source		*source;
 	struct mta_relay		*relay;
-	struct mta_connectors		*queue;
 
-#define CONNECTOR_FAMILY_ERROR	0x01
-#define CONNECTOR_SOURCE_ERROR	0x02
-#define CONNECTOR_MX_ERROR	0x04
-#define CONNECTOR_ERROR		0x0f
+#define CONNECTOR_ERROR_FAMILY	0x0001
+#define CONNECTOR_ERROR_SOURCE	0x0002
+#define CONNECTOR_ERROR_MX	0x0004
+#define CONNECTOR_ERROR		0x000f
 
-#define CONNECTOR_LIMIT_HOST	0x10
-#define CONNECTOR_LIMIT_ROUTE	0x20
-#define CONNECTOR_LIMIT_SOURCE	0x40
-#define CONNECTOR_LIMIT		0xf0
+#define CONNECTOR_LIMIT_HOST	0x0010
+#define CONNECTOR_LIMIT_ROUTE	0x0020
+#define CONNECTOR_LIMIT_SOURCE	0x0040
+#define CONNECTOR_LIMIT_RELAY	0x0080
+#define CONNECTOR_LIMIT_CONN	0x0100
+#define CONNECTOR_LIMIT_DOMAIN	0x0200
+#define CONNECTOR_LIMIT		0x03f0
+
+#define CONNECTOR_NEW		0x1000
+#define CONNECTOR_WAIT		0x2000
 	int				 flags;
 
 	int				 refcount;
 	size_t				 nconn;
 	time_t				 lastconn;
-	time_t				 nextconn;
-	time_t				 clearlimit;
 };
 
 struct mta_route {
@@ -679,8 +681,6 @@ struct mta_route {
 	size_t			 nconn;
 	time_t			 lastconn;
 };
-
-TAILQ_HEAD(mta_connectors, mta_connector);
 
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
@@ -704,14 +704,9 @@ struct mta_relay {
 	TAILQ_HEAD(, mta_task)	 tasks;
 
 	struct tree		 connectors;
-	size_t			 nconnector;
 	size_t			 sourceloop;
-
-	struct mta_connectors	 c_ready;
-	struct mta_connectors	 c_limit;
-	struct mta_connectors	 c_delay;
-	struct mta_connectors	 c_error;
-	struct event		 ev;
+	time_t			 lastsource;
+	time_t			 nextsource;
 
 	int			 fail;
 	char			*failstr;
@@ -720,14 +715,13 @@ struct mta_relay {
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
 #define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAITMASK		0x0f
+#define RELAY_WAIT_CONNECTOR	0x10
+#define RELAY_WAITMASK		0x1f
 	int			 status;
 
 	int			 refcount;
 	size_t			 nconn;
 	time_t			 lastconn;
-
-	size_t			 maxconn;
 };
 
 struct mta_envelope {
@@ -1377,3 +1371,11 @@ int session_socket_error(int);
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
 void waitq_run(void *, void *);
+
+/* runq.c */
+struct runq;
+
+int runq_init(struct runq **, void (*)(struct runq *, void *));
+int runq_schedule(struct runq *, time_t, void (*)(struct runq *, void *), void *);
+int runq_delay(struct runq *, unsigned int, void (*)(struct runq *, void *), void *);
+int runq_cancel(struct runq *, void (*)(struct runq *, void *), void *);
