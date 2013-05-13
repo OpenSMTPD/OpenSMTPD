@@ -522,6 +522,7 @@ mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 	log_debug("debug: mta: route collect %s", mta_route_to_text(route));
 
 	relay->nconn -= 1;
+	relay->domain->nconn -= 1;
 	route->nconn -= 1;
 	route->src->nconn -= 1;
 	route->dst->nconn -= 1;
@@ -890,6 +891,8 @@ mta_connect(struct mta_connector *c)
 
 	c->relay->nconn += 1;
 	c->relay->lastconn = c->lastconn;
+	c->relay->domain->nconn += 1;
+	c->relay->domain->lastconn = c->lastconn;
 	route->nconn += 1;
 	route->lastconn = c->lastconn;
 	route->src->nconn += 1;
