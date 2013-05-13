@@ -118,16 +118,22 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
     union lookup *lk)
 {
 	int	r;
+	char	lkey[1024];
 
 	if (table->t_backend->lookup == NULL)
 		return (-1);
 
-	r = table->t_backend->lookup(table->t_handle, key, kind, lk);
+	if (! lowercase(lkey, key, sizeof lkey)) {
+		log_warnx("warn: lookup key too long: %s", key);
+		return -1;
+	}
+
+	r = table->t_backend->lookup(table->t_handle, lkey, kind, lk);
 
 	if (r == 1)
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %s%s%s",
 		    lk ? "lookup" : "check",
-		    key,
+		    lkey,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
 		    table->t_name,
@@ -137,7 +143,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 	else
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %i",
 		    lk ? "lookup" : "check",
-		    key,
+		    lkey,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
 		    table->t_name,
