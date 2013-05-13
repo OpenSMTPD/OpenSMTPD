@@ -426,12 +426,16 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		ep->type = D_MTA;
 		ep->dest = xn->u.mailaddr;
 		ep->agent.mta.relay = rule->r_value.relayhost;
-		if (rule->r_as && rule->r_as->user[0])
-			strlcpy(ep->sender.user, rule->r_as->user,
-			    sizeof ep->sender.user);
-		if (rule->r_as && rule->r_as->domain[0])
-			strlcpy(ep->sender.domain, rule->r_as->domain,
-			    sizeof ep->sender.domain);
+
+		/* only rewrite if not a bounce */
+		if (e->sender.user[0]) {
+			if (rule->r_as && rule->r_as->user[0])
+				strlcpy(ep->sender.user, rule->r_as->user,
+				    sizeof ep->sender.user);
+			if (rule->r_as && rule->r_as->domain[0])
+				strlcpy(ep->sender.domain, rule->r_as->domain,
+				    sizeof ep->sender.domain);
+		}
 		break;
 	case A_MBOX:
 	case A_MAILDIR:
