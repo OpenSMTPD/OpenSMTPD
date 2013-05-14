@@ -63,21 +63,10 @@ enum lmtp_state {
 static int
 inet_socket (char *address)
 {
-<<<<<<< HEAD
-	 char *buffer;
-	 char *lbuf;
-	 char lhloname[255];
-=======
->>>>>>> branch-opensmtpd-5.3.2
 	 int s, n;
 	 char *hostname, *servname;
 	 struct addrinfo hints;
 	 struct addrinfo *result0, *result;
-<<<<<<< HEAD
-	 enum lmtp_state state = LMTP_BANNER;
-	 size_t	len;
-=======
->>>>>>> branch-opensmtpd-5.3.2
 
 	 servname = strchr(address, ':');
 	 *servname++ = '\0';
@@ -160,11 +149,7 @@ delivery_lmtp_open(struct deliver *deliver)
 
 	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
 		 buffer = lmtp_getline(fp);
-<<<<<<< HEAD
-		 if (!buffer)
-=======
 		 if (buffer == NULL)
->>>>>>> branch-opensmtpd-5.3.2
 			 err(1, "No input received");
 
 		 switch (state) {
@@ -204,10 +189,6 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_DATA:
 			 if (buffer[0] != '3')
 				 errx(1, "DATA rejected: %s\n", buffer);
-<<<<<<< HEAD
-
-=======
->>>>>>> branch-opensmtpd-5.3.2
 			 lbuf = NULL;
 			 while ((buffer = fgetln(stdin, &len))) {
 				 if (buffer[len- 1] == '\n')
@@ -223,10 +204,6 @@ delivery_lmtp_open(struct deliver *deliver)
 				     *buffer == '.' ? "." : "", buffer);
 			 }
 			 free(lbuf);
-<<<<<<< HEAD
-
-=======
->>>>>>> branch-opensmtpd-5.3.2
 			 fprintf(fp, ".\r\n");
 			 state = LMTP_QUIT;
 			 break;

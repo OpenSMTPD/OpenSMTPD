@@ -22,14 +22,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-<<<<<<< HEAD
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
-=======
 #include <sys/queue.h>
 #include <sys/tree.h>
->>>>>>> branch-opensmtpd-5.3.2
 #include <sys/socket.h>
 
 #include <ctype.h>

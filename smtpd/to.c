@@ -842,7 +842,37 @@ alias_is_include(struct expandnode *alias, const char *line, size_t len)
 }
 
 static int
-<<<<<<< HEAD
+alias_is_error(struct expandnode *alias, const char *line, size_t len)
+{
+	size_t	skip;
+
+	bzero(alias, sizeof *alias);
+
+	if (strncasecmp(":error:", line, 7) == 0)
+		skip = 7;
+	else if (strncasecmp("error:", line, 6) == 0)
+		skip = 6;
+	else
+		return 0;
+
+	if (strlcpy(alias->u.buffer, line + skip,
+	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+		return 0;
+
+	if (strlen(alias->u.buffer) < 5)
+		return 0;
+
+	/* [45][0-9]{2} [a-zA-Z0-9].* */
+	if (alias->u.buffer[3] != ' ' || !isalnum(alias->u.buffer[4]) ||
+	    (alias->u.buffer[0] != '4' && alias->u.buffer[0] != '5') ||
+	    !isdigit(alias->u.buffer[1]) || !isdigit(alias->u.buffer[2]))
+		return 0;
+
+	alias->type = EXPAND_ERROR;
+	return 1;
+}
+
+static int
 temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 {
 	int	ret;
@@ -872,34 +902,4 @@ temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 		return (-1);
 
 	return bits;
-=======
-alias_is_error(struct expandnode *alias, const char *line, size_t len)
-{
-	size_t	skip;
-
-	bzero(alias, sizeof *alias);
-
-	if (strncasecmp(":error:", line, 7) == 0)
-		skip = 7;
-	else if (strncasecmp("error:", line, 6) == 0)
-		skip = 6;
-	else
-		return 0;
-
-	if (strlcpy(alias->u.buffer, line + skip,
-	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
-		return 0;
-
-	if (strlen(alias->u.buffer) < 5)
-		return 0;
-
-	/* [45][0-9]{2} [a-zA-Z0-9].* */
-	if (alias->u.buffer[3] != ' ' || !isalnum(alias->u.buffer[4]) ||
-	    (alias->u.buffer[0] != '4' && alias->u.buffer[0] != '5') ||
-	    !isdigit(alias->u.buffer[1]) || !isdigit(alias->u.buffer[2]))
-		return 0;
-
-	alias->type = EXPAND_ERROR;
-	return 1;
->>>>>>> branch-opensmtpd-5.3.2
 }

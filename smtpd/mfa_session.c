@@ -20,14 +20,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-<<<<<<< HEAD
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
-=======
 #include <sys/queue.h>
 #include <sys/tree.h>
->>>>>>> branch-opensmtpd-5.3.2
 #include <sys/socket.h>
 #include <sys/wait.h>
 
@@ -36,11 +30,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
-<<<<<<< HEAD
-#include "imsg.h"
-=======
 #include <imsg.h>
->>>>>>> branch-opensmtpd-5.3.2
 #include <inttypes.h>
 #include <resolv.h>
 #include <signal.h>
