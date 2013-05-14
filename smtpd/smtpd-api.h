@@ -34,8 +34,18 @@ struct mailaddr {
 	char	domain[SMTPD_MAXDOMAINPARTSIZE];
 };
 
-SPLAY_HEAD(dict, dictentry);
-SPLAY_HEAD(tree, treeentry);
+SPLAY_HEAD(_dict, dictentry);
+SPLAY_HEAD(_tree, treeentry);
+
+struct tree {
+	struct _tree	tree;
+	size_t		count;
+};
+
+struct dict {
+	struct _dict	dict;
+	size_t		count;
+};
 
 enum filter_status {
 	FILTER_OK,
@@ -153,8 +163,9 @@ msgid_to_evpid(uint32_t msgid)
 }
 
 /* dict.c */
-#define dict_init(d) SPLAY_INIT((d))
-#define dict_empty(d) SPLAY_EMPTY((d))
+#define dict_init(d) do { SPLAY_INIT(&((d)->dict)); (d)->count = 0; } while(0)
+#define dict_empty(d) SPLAY_EMPTY(&((d)->dict))
+#define dict_count(d) ((d)->count)
 int dict_check(struct dict *, const char *);
 void *dict_set(struct dict *, const char *, void *);
 void dict_xset(struct dict *, const char *, void *);
@@ -209,8 +220,9 @@ void table_api_on_fetch(int(*)(int, char *, size_t));
 int table_api_dispatch(void);
 
 /* tree.c */
-#define tree_init(t) SPLAY_INIT((t))
-#define tree_empty(t) SPLAY_EMPTY((t))
+#define tree_init(t) do { SPLAY_INIT(&((t)->tree)); (t)->count = 0; } while(0)
+#define tree_empty(t) SPLAY_EMPTY(&((t)->tree))
+#define tree_count(t) ((t)->count)
 int tree_check(struct tree *, uint64_t);
 void *tree_set(struct tree *, uint64_t, void *);
 void tree_xset(struct tree *, uint64_t, void *);

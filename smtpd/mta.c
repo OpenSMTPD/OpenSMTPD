@@ -1120,11 +1120,6 @@ mta_find_route(struct mta_connector *c)
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_MX_ERROR;
 	}
-	else if (family_mismatch) {
-		log_info("smtp-out: Address family mismatch on connector %s",
-		    mta_connector_to_text(c));
-		c->flags |= CONNECTOR_FAMILY_ERROR;
-	}
 	else if (limit_route) {
 		log_debug("debug: mta: hit route limit on connector %s",
 		    mta_connector_to_text(c));
@@ -1134,6 +1129,11 @@ mta_find_route(struct mta_connector *c)
 		log_debug("debug: mta: hit host limit on connector %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_LIMIT_HOST;
+	}
+	else if (family_mismatch) {
+		log_info("smtp-out: Address family mismatch on connector %s",
+		    mta_connector_to_text(c));
+		c->flags |= CONNECTOR_FAMILY_ERROR;
 	}
 
 	return (NULL);

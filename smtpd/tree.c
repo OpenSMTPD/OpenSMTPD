@@ -40,7 +40,7 @@ struct treeentry {
 
 static int treeentry_cmp(struct treeentry *, struct treeentry *);
 
-SPLAY_PROTOTYPE(tree, treeentry, entry, treeentry_cmp);
+SPLAY_PROTOTYPE(_tree, treeentry, entry, treeentry_cmp);
 
 int
 tree_check(struct tree *t, uint64_t id)
@@ -48,7 +48,7 @@ tree_check(struct tree *t, uint64_t id)
 	struct treeentry	key;
 
 	key.id = id;
-	return (SPLAY_FIND(tree, t, &key) != NULL);
+	return (SPLAY_FIND(_tree, &t->tree, &key) != NULL);
 }
 
 void *
@@ -58,12 +58,13 @@ tree_set(struct tree *t, uint64_t id, void *data)
 	char			*old;
 
 	key.id = id;
-	if ((entry = SPLAY_FIND(tree, t, &key)) == NULL) {
+	if ((entry = SPLAY_FIND(_tree, &t->tree, &key)) == NULL) {
 		if ((entry = malloc(sizeof *entry)) == NULL)
 			err(1, "tree_set: malloc");
 		entry->id = id;
-		SPLAY_INSERT(tree, t, entry);
+		SPLAY_INSERT(_tree, &t->tree, entry);
 		old = NULL;
+		t->count += 1;
 	} else
 		old = entry->data;
 
@@ -81,8 +82,9 @@ tree_xset(struct tree *t, uint64_t id, void *data)
 		err(1, "tree_xset: malloc");
 	entry->id = id;
 	entry->data = data;
-	if (SPLAY_INSERT(tree, t, entry))
+	if (SPLAY_INSERT(_tree, &t->tree, entry))
 		errx(1, "tree_xset(%p, 0x%016"PRIx64 ")", t, id);
+	t->count += 1;
 }
 
 void *
@@ -91,7 +93,7 @@ tree_get(struct tree *t, uint64_t id)
 	struct treeentry	key, *entry;
 
 	key.id = id;
-	if ((entry = SPLAY_FIND(tree, t, &key)) == NULL)
+	if ((entry = SPLAY_FIND(_tree, &t->tree, &key)) == NULL)
 		return (NULL);
 
 	return (entry->data);
@@ -103,7 +105,7 @@ tree_xget(struct tree *t, uint64_t id)
 	struct treeentry	key, *entry;
 
 	key.id = id;
-	if ((entry = SPLAY_FIND(tree, t, &key)) == NULL)
+	if ((entry = SPLAY_FIND(_tree, &t->tree, &key)) == NULL)
 		errx(1, "tree_get(%p, 0x%016"PRIx64 ")", t, id);
 
 	return (entry->data);
@@ -116,12 +118,13 @@ tree_pop(struct tree *t, uint64_t id)
 	void			*data;
 
 	key.id = id;
-	if ((entry = SPLAY_FIND(tree, t, &key)) == NULL)
+	if ((entry = SPLAY_FIND(_tree, &t->tree, &key)) == NULL)
 		return (NULL);
 
 	data = entry->data;
-	SPLAY_REMOVE(tree, t, entry);
+	SPLAY_REMOVE(_tree, &t->tree, entry);
 	free(entry);
+	t->count -= 1;
 
 	return (data);
 }
@@ -133,12 +136,13 @@ tree_xpop(struct tree *t, uint64_t id)
 	void			*data;
 
 	key.id = id;
-	if ((entry = SPLAY_FIND(tree, t, &key)) == NULL)
+	if ((entry = SPLAY_FIND(_tree, &t->tree, &key)) == NULL)
 		errx(1, "tree_xpop(%p, 0x%016" PRIx64 ")", t, id);
 
 	data = entry->data;
-	SPLAY_REMOVE(tree, t, entry);
+	SPLAY_REMOVE(_tree, &t->tree, entry);
 	free(entry);
+	t->count -= 1;
 
 	return (data);
 }
@@ -148,15 +152,17 @@ tree_poproot(struct tree *t, uint64_t *id, void **data)
 {
 	struct treeentry	*entry;
 
-	entry = SPLAY_ROOT(t);
+	entry = SPLAY_ROOT(&t->tree);
 	if (entry == NULL)
 		return (0);
 	if (id)
 		*id = entry->id;
 	if (data)
 		*data = entry->data;
-	SPLAY_REMOVE(tree, t, entry);
+	SPLAY_REMOVE(_tree, &t->tree, entry);
 	free(entry);
+	t->count -= 1;
+
 	return (1);
 }
 
@@ -165,7 +171,7 @@ tree_root(struct tree *t, uint64_t *id, void **data)
 {
 	struct treeentry	*entry;
 
-	entry = SPLAY_ROOT(t);
+	entry = SPLAY_ROOT(&t->tree);
 	if (entry == NULL)
 		return (0);
 	if (id)
@@ -181,9 +187,9 @@ tree_iter(struct tree *t, void **hdl, uint64_t *id, void **data)
 	struct treeentry *curr = *hdl;
 
 	if (curr == NULL)
-		curr = SPLAY_MIN(tree, t);
+		curr = SPLAY_MIN(_tree, &t->tree);
 	else
-		curr = SPLAY_NEXT(tree, t, curr);
+		curr = SPLAY_NEXT(_tree, &t->tree, curr);
 
 	if (curr) {
 		*hdl = curr;
@@ -204,18 +210,18 @@ tree_iterfrom(struct tree *t, void **hdl, uint64_t k, uint64_t *id, void **data)
 
 	if (curr == NULL) {
 		if (k == 0)
-			curr = SPLAY_MIN(tree, t);
+			curr = SPLAY_MIN(_tree, &t->tree);
 		else {
 			key.id = k;
-			curr = SPLAY_FIND(tree, t, &key);
+			curr = SPLAY_FIND(_tree, &t->tree, &key);
 			if (curr == NULL) {
-				SPLAY_INSERT(tree, t, &key);
-				curr = SPLAY_NEXT(tree, t, &key);
-				SPLAY_REMOVE(tree, t, &key);
+				SPLAY_INSERT(_tree, &t->tree, &key);
+				curr = SPLAY_NEXT(_tree, &t->tree, &key);
+				SPLAY_REMOVE(_tree, &t->tree, &key);
 			}
 		}
 	} else
-		curr = SPLAY_NEXT(tree, t, curr);
+		curr = SPLAY_NEXT(_tree, &t->tree, curr);
 
 	if (curr) {
 		*hdl = curr;
@@ -234,12 +240,14 @@ tree_merge(struct tree *dst, struct tree *src)
 {
 	struct treeentry	*entry;
 
-	while (!SPLAY_EMPTY(src)) {
-		entry = SPLAY_ROOT(src);
-		SPLAY_REMOVE(tree, src, entry);
-		if (SPLAY_INSERT(tree, dst, entry))
+	while (!SPLAY_EMPTY(&src->tree)) {
+		entry = SPLAY_ROOT(&src->tree);
+		SPLAY_REMOVE(_tree, &src->tree, entry);
+		if (SPLAY_INSERT(_tree, &dst->tree, entry))
 			errx(1, "tree_merge: duplicate");
 	}
+	dst->count += src->count;
+	src->count = 0;
 }
 
 static int
@@ -252,4 +260,4 @@ treeentry_cmp(struct treeentry *a, struct treeentry *b)
 	return (0);
 }
 
-SPLAY_GENERATE(tree, treeentry, entry, treeentry_cmp);
+SPLAY_GENERATE(_tree, treeentry, entry, treeentry_cmp);

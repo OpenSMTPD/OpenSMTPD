@@ -299,7 +299,7 @@ main(int argc, char *argv[])
 		}
 		break;
 	case LOG_VERBOSE:
-		verb = TRACE_VERBOSE;
+		verb = TRACE_DEBUG;
 		/* FALLTHROUGH */
 	case LOG_BRIEF:
 		imsg_compose(ibuf, IMSG_CTL_VERBOSE, IMSG_VERSION, 0, -1, &verb,
@@ -906,7 +906,7 @@ trace_convert(uint32_t trace)
 
 	case LOG_TRACE_ALL:
 	case LOG_UNTRACE_ALL:
-		return ~TRACE_VERBOSE;
+		return ~TRACE_DEBUG;
 	}
 
 	return 0;
