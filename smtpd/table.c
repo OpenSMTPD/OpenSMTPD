@@ -365,7 +365,7 @@ table_netaddr_match(const char *s1, const char *s2)
 	struct netaddr n1;
 	struct netaddr n2;
 
-	if (strcmp(s1, s2) == 0)
+	if (strcasecmp(s1, s2) == 0)
 		return 1;
 	if (! text_to_netaddr(&n1, s1))
 		return 0;
