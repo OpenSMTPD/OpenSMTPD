@@ -156,6 +156,7 @@ const char	*backend_stat = "ram";
 int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
+int	foreground = 0;
 
 struct tree	 children;
 
@@ -714,8 +715,7 @@ main(int argc, char *argv[])
 				    optarg);
 			break;
 		case 'd':
-			debug = 2;
-			verbose |= TRACE_VERBOSE;
+			foreground = 1;
 			break;
 		case 'D':
 			if (cmdline_symset(optarg) < 0)
@@ -760,7 +760,7 @@ main(int argc, char *argv[])
 			else if (!strcmp(optarg, "queue"))
 				verbose |= TRACE_QUEUE;
 			else if (!strcmp(optarg, "all"))
-				verbose |= ~TRACE_VERBOSE;
+				verbose |= ~TRACE_DEBUG;
 			else if (!strcmp(optarg, "profstat"))
 				profiling |= PROFILE_TOSTAT;
 			else if (!strcmp(optarg, "profile-imsg"))
@@ -780,15 +780,12 @@ main(int argc, char *argv[])
 				flags |= SMTPD_MDA_PAUSED;
 			break;
 		case 'v':
-			verbose |=  TRACE_VERBOSE;
+			verbose |=  TRACE_DEBUG;
 			break;
 		default:
 			usage();
 		}
 	}
-
-	if (!(verbose & TRACE_VERBOSE))
-		verbose = 0;
 
 	argv += optind;
 	argc -= optind;
@@ -855,12 +852,12 @@ main(int argc, char *argv[])
 	if (env->sc_queue_flags & QUEUE_COMPRESSION)
 		env->sc_comp = compress_backend_lookup("gzip");
 
-	log_init(debug);
+	log_init(foreground);
 	log_verbose(verbose);
 
 	log_info("info: %s %s starting", SMTPD_NAME, SMTPD_VERSION);
 
-	if (!debug)
+	if (! foreground)
 		if (daemon(0, 0) == -1)
 			err(1, "failed to daemonize");
 
@@ -874,7 +871,7 @@ main(int argc, char *argv[])
 	log_debug("debug: using \"%s\" queue backend", backend_queue);
 	log_debug("debug: using \"%s\" scheduler backend", backend_scheduler);
 	log_debug("debug: using \"%s\" stat backend", backend_stat);
-	log_info("info: startup%s", (debug > 1)?" [debug mode]":"");
+	log_info("info: startup%s", (verbose & TRACE_DEBUG)?" [debug mode]":"");
 
 	if (env->sc_hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");

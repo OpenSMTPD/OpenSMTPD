@@ -72,7 +72,8 @@ static size_t lka_expand_format(char *, size_t, const struct envelope *,
 static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
 static const char * mailaddr_tag(const struct mailaddr *);
 
-static struct tree	sessions = SPLAY_INITIALIZER(&sessions);
+static int		init;
+static struct tree	sessions;
 
 #define	MAXTOKENLEN	128
 
@@ -81,6 +82,11 @@ lka_session(uint64_t id, struct envelope *envelope)
 {
 	struct lka_session	*lks;
 	struct expandnode	 xn;
+
+	if (init == 0) {
+		init = 1;
+		tree_init(&sessions);
+	}
 
 	lks = xcalloc(1, sizeof(*lks), "lka_session");
 	lks->id = id;
@@ -433,10 +439,12 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		ep->type = D_MTA;
 		ep->dest = xn->u.mailaddr;
 		ep->agent.mta.relay = rule->r_value.relayhost;
-		if (rule->r_as && rule->r_as->user[0])
+
+		/* only rewrite if not a bounce */
+		if (ep->sender.user[0] && rule->r_as && rule->r_as->user[0])
 			strlcpy(ep->sender.user, rule->r_as->user,
 			    sizeof ep->sender.user);
-		if (rule->r_as && rule->r_as->domain[0])
+		if (ep->sender.user[0] && rule->r_as && rule->r_as->domain[0])
 			strlcpy(ep->sender.domain, rule->r_as->domain,
 			    sizeof ep->sender.domain);
 		break;

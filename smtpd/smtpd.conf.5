@@ -241,9 +241,11 @@ function.
 .Pp
 Finally, the method of delivery is specified:
 .Bl -tag -width Ds
-.It Ic deliver to lmtp Ar host:port
+.It Ic deliver to lmtp Ar [host:port|socket]
 Mail is delivered to
 .Pa host:port
+or to the unix socket
+.Pa socket
 over LMTP.
 .It Ic deliver to maildir Ar path
 Mail is added to a maildir.

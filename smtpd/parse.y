@@ -724,7 +724,7 @@ action		: userbase DELIVER TO MAILDIR			{
 		| userbase DELIVER TO LMTP STRING		{
 			rule->r_userbase = $1;
 			rule->r_action = A_LMTP;
-			if (strchr($5, ':')) {
+			if (strchr($5, ':') || $5[0] == '/') {
 				if (strlcpy(rule->r_value.buffer, $5,
 					sizeof(rule->r_value.buffer))
 					>= sizeof(rule->r_value.buffer))

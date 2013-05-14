@@ -590,7 +590,7 @@ struct smtpd {
 	uint32_t				filtermask;
 };
 
-#define	TRACE_VERBOSE	0x0001
+#define	TRACE_DEBUG	0x0001
 #define	TRACE_IMSG	0x0002
 #define	TRACE_IO	0x0004
 #define	TRACE_SMTP	0x0008

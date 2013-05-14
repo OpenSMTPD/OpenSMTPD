@@ -79,6 +79,7 @@ enum session_flags {
 	SF_KICK			= 0x0020,
 	SF_VERIFIED		= 0x0040,
 	SF_MFACONNSENT		= 0x0080,
+	SF_BADINPUT		= 0x0100,
 };
 
 enum message_flags {
@@ -766,6 +767,7 @@ smtp_io(struct io *io, int evt)
 		line = iobuf_getline(&s->iobuf, &len);
 		if ((line == NULL && iobuf_len(&s->iobuf) >= SMTPD_MAXLINESIZE) ||
 		    (line && len >= SMTPD_MAXLINESIZE)) {
+			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 Line too long");
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
@@ -797,6 +799,7 @@ smtp_io(struct io *io, int evt)
 
 		/* Pipelining not supported */
 		if (iobuf_len(&s->iobuf)) {
+			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 Pipelining not supported");
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
@@ -1421,7 +1424,11 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	switch (buf[0]) {
 	case '5':
 	case '4':
-		if (strstr(s->cmd, "AUTH ") == s->cmd) {
+		if (s->flags & SF_BADINPUT) {
+			log_info("smtp-in: Bad input on session %016"PRIx64
+			    ": %.*s", s->id, n, buf);
+		}
+		else if (strstr(s->cmd, "AUTH ") == s->cmd) {
 			log_info("smtp-in: Failed command on session %016"PRIx64
 			    ": \"AUTH [...]\" => %.*s", s->id, n, buf);
 		}
