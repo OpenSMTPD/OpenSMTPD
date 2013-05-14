@@ -32,7 +32,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>

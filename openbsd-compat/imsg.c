@@ -19,7 +19,7 @@
 #include "includes.h"
 
 #include <sys/param.h>
-#include "sys-queue.h"
+#include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
@@ -35,9 +35,10 @@ int	 imsg_fd_overhead = 0;
 int	 imsg_get_fd(struct imsgbuf *);
 
 int
-available_fds(int n)
+available_fds(unsigned int n)
 {
-	int		i, ret, fds[256];
+	unsigned int	i;
+	int		ret, fds[256];
 
 	if (n > (sizeof(fds)/sizeof(fds[0])))
 		return (1);

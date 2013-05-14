@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.c,v 1.21 2013/04/01 20:41:12 eric Exp $	*/
+/*	$OpenBSD: asr.c,v 1.25 2013/04/30 12:02:39 eric Exp $	*/
 /*
  * Copyright (c) 2010-2012 Eric Faurot <eric@openbsd.org>
  *
@@ -130,6 +130,8 @@ async_resolver(const char *conf)
 	} else {
 		/* Use the given config file */
 		asr->a_path = strdup(conf);
+		if (asr->a_path == NULL)
+			goto fail;
 		asr_check_reload(asr);
 		if (asr->a_ctx == NULL) {
 			if ((asr->a_ctx = asr_ctx_create()) == NULL)
@@ -151,6 +153,7 @@ async_resolver(const char *conf)
 	if (asr) {
 		if (asr->a_ctx)
 			asr_ctx_free(asr->a_ctx);
+		free(asr->a_path);
 		free(asr);
 	}
 
@@ -167,7 +170,7 @@ async_resolver_done(struct asr *asr)
 	struct asr **priv;
 
 	if (asr == NULL) {
-		priv = _THREAD_PRIVATE(_asr, asr, &_asr);
+		priv = _THREAD_PRIVATE(_asr, _asr, &_asr);
 		if (*priv == NULL)
 			return;
 		asr = *priv;
@@ -175,8 +178,7 @@ async_resolver_done(struct asr *asr)
 	}
 
 	asr_ctx_unref(asr->a_ctx);
-	if (asr->a_path)
-		free(asr->a_path);
+	free(asr->a_path);
 	free(asr);
 }
 
@@ -255,8 +257,8 @@ async_new(struct asr_ctx *ac, int type)
 	struct async	*as;
 
 	DPRINT("asr: async_new(ctx=%p) type=%i refcount=%i\n", ac, type,
-	    ac->ac_refcount);
-	if ((as = calloc(1, sizeof(*as))) == NULL)
+	    ac ? ac->ac_refcount : 0);
+	if (ac == NULL || (as = calloc(1, sizeof(*as))) == NULL)
 		return (NULL);
 
 	ac->ac_refcount += 1;
@@ -281,7 +283,7 @@ async_free(struct async *as)
 			close(as->as_fd);
 		if (as->as.dns.obuf && !(as->as.dns.flags & ASYNC_EXTOBUF))
 			free(as->as.dns.obuf);
-		if (as->as.dns.ibuf && !(as->as.dns.flags & ASYNC_EXTIBUF))
+		if (as->as.dns.ibuf)
 			free(as->as.dns.ibuf);
 		if (as->as.dns.dname)
 			free(as->as.dns.dname);
@@ -352,17 +354,19 @@ asr_use_resolver(struct asr *asr)
 
 	if (asr == NULL) {
 		DPRINT("using thread-local resolver\n");
-		priv = _THREAD_PRIVATE(_asr, asr, &_asr);
+		priv = _THREAD_PRIVATE(_asr, _asr, &_asr);
 		if (*priv == NULL) {
 			DPRINT("setting up thread-local resolver\n");
 			*priv = async_resolver(NULL);
 		}
 		asr = *priv;
 	}
-
-	asr_check_reload(asr);
-	asr_ctx_ref(asr->a_ctx);
-	return (asr->a_ctx);
+	if (asr != NULL) {
+		asr_check_reload(asr);
+		asr_ctx_ref(asr->a_ctx);
+		return (asr->a_ctx);
+	}
+	return (NULL);
 }
 
 static void
@@ -379,7 +383,10 @@ asr_ctx_ref(struct asr_ctx *ac)
 void
 asr_ctx_unref(struct asr_ctx *ac)
 {
-	DPRINT("asr: asr_ctx_unref(ctx=%p) refcount=%i\n", ac, ac->ac_refcount);
+	DPRINT("asr: asr_ctx_unref(ctx=%p) refcount=%i\n", ac,
+	    ac ? ac->ac_refcount : 0);
+	if (ac == NULL)
+		return;
 	if (--ac->ac_refcount)
 		return;
 
@@ -410,19 +417,19 @@ asr_check_reload(struct asr *asr)
 	struct asr_ctx	*ac;
 #if ASR_OPT_RELOADCONF
 	struct stat	 st;
-	struct timespec	 tp;
+	struct timespec	 ts;
 #endif
 
 	if (asr->a_path == NULL)
 		return;
 
 #if ASR_OPT_RELOADCONF
-	if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1)
 		return;
 
-	if ((tp.tv_sec - asr->a_rtime) < RELOAD_DELAY && asr->a_rtime != 0)
+	if ((ts.tv_sec - asr->a_rtime) < RELOAD_DELAY && asr->a_rtime != 0)
 		return;
-	asr->a_rtime = tp.tv_sec;
+	asr->a_rtime = ts.tv_sec;
 
 	DPRINT("asr: checking for update of \"%s\"\n", asr->a_path);
 	if (stat(asr->a_path, &st) == -1 ||
@@ -534,8 +541,13 @@ asr_ctx_create(void)
 	ac->ac_options = RES_RECURSE | RES_DEFNAMES | RES_DNSRCH;
 	ac->ac_refcount = 1;
 	ac->ac_ndots = 1;
+#ifndef ASR_IPV4_BEFORE_IPV6
+	ac->ac_family[0] = AF_INET6;
+	ac->ac_family[1] = AF_INET;
+#else
 	ac->ac_family[0] = AF_INET;
 	ac->ac_family[1] = AF_INET6;
+#endif
 	ac->ac_family[2] = -1;
 
 	ac->ac_hostfile = DEFAULT_HOSTFILE;

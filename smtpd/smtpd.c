@@ -51,7 +51,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #ifdef HAVE_LOGIN_CAP_H
 #include <login_cap.h>
@@ -59,6 +59,9 @@
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
+#ifdef HAVE_SHADOW_H
+#include <shadow.h> /* needed for getspnam() */
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -796,6 +799,7 @@ main(int argc, char *argv[])
 		exit(1);
 
 	seed_rng();
+
 	if (strlcpy(env->sc_conffile, conffile, SMTPD_MAXPATHLEN)
 	    >= SMTPD_MAXPATHLEN)
 		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
@@ -1696,6 +1700,30 @@ end:
 }
 #endif
 
+#ifdef HAVE_GETSPNAM
+int
+parent_auth_getspnam(const char *username, const char *password)
+{
+       struct spwd *pw;
+
+       errno = 0;
+       do {
+               pw = getspnam(username);
+       } while (pw == NULL && errno == EINTR);
+
+       if (pw == NULL) {
+               if (errno)
+                       return LKA_TEMPFAIL;
+               return LKA_PERMFAIL;
+       }
+
+       if (strcmp(pw->sp_pwdp, crypt(password, pw->sp_pwdp)) == 0)
+               return LKA_OK;
+
+       return LKA_PERMFAIL;
+}
+#endif
+
 int
 parent_auth_pwd(const char *username, const char *password)
 {
@@ -1725,6 +1753,8 @@ parent_auth_user(const char *username, const char *password)
 	return (parent_auth_bsd(username, password));
 #elif defined(USE_PAM)
 	return (parent_auth_pam(username, password));
+#elif defined(HAVE_GETSPNAM)
+	return (parent_auth_getspnam(username, password));
 #else
 	return (parent_auth_pwd(username, password));
 #endif

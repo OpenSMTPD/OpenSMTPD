@@ -35,7 +35,7 @@
 #include <event.h>
 #include <netdb.h>
 #include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <pwd.h>

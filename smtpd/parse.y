@@ -25,6 +25,7 @@
 #include "includes.h"
 
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
@@ -40,7 +41,7 @@
 #include <errno.h>
 #include <event.h>
 #include <ifaddrs.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
 #include <paths.h>

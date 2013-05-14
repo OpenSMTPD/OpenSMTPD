@@ -20,14 +20,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
 #ifdef HAVE_DB_H
 #include <db.h>
 #elif defined(HAVE_DB1_DB_H)

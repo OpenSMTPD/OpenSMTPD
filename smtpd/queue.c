@@ -30,7 +30,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>

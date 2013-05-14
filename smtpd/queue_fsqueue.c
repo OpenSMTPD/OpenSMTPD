@@ -23,6 +23,9 @@
 #include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
 #include <sys/param.h>
 #include <sys/mount.h>
 
@@ -116,7 +119,11 @@ fsqueue_check_space(void)
 	}
 
 	used = buf.f_files - buf.f_ffree;
+#ifdef HAVE_STRUCT_STATFS_F_FAVAIL
 	total = buf.f_favail + used;
+#else
+	total = buf.f_files;
+#endif
 	if (total != 0)
 		used = (float)used / (float)total * 100;
 	else

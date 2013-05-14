@@ -22,8 +22,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "sys-tree.h"
-#include "sys-queue.h"
+#include <sys/tree.h>
+#include <sys/queue.h>
 #include <sys/uio.h>
 
 #include <netinet/in.h>
@@ -33,7 +33,7 @@
 #include <event.h>
 #include <netdb.h>
 #include <resolv.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -24,7 +24,7 @@
 #include <event2/event_struct.h>
 #endif
 
-#include			 "imsg.h"
+#include			 <imsg.h>
 
 #include			 "openbsd-compat.h"
 
@@ -36,6 +36,7 @@
 #include "smtpd-api.h"
 #include "ioev.h"
 #include "iobuf.h"
+
 
 #ifndef SMTPD_CONFDIR
 #define SMTPD_CONFDIR		 "/etc"
