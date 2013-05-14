@@ -1144,15 +1144,11 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 	if (best)
 		return (best);
 
+	/* Order is important */
 	if (seen == 0) {
 		log_info("smtp-out: No reachable MX for %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_ERROR_MX;
-	}
-	else if (family_mismatch) {
-		log_info("smtp-out: Address family mismatch on %s",
-		    mta_connector_to_text(c));
-		c->flags |= CONNECTOR_ERROR_FAMILY;
 	}
 	else if (limit_route) {
 		log_debug("debug: mta: hit route limit");
@@ -1162,8 +1158,15 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		log_debug("debug: mta: hit host limit");
 		*limits |= CONNECTOR_LIMIT_HOST;
 	}
-	else if (tm > *nextconn)
-		*nextconn = tm;
+	else if (tm) {
+		if (tm > *nextconn)
+			*nextconn = tm;
+	}
+	else if (family_mismatch) {
+		log_info("smtp-out: Address family mismatch on %s",
+		    mta_connector_to_text(c));
+		c->flags |= CONNECTOR_ERROR_FAMILY;
+	}
 
 	return (NULL);
 }
