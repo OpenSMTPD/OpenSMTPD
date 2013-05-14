@@ -24,9 +24,8 @@
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "sys-tree.h"
-#include "sys-queue.h"
-#include <sys/param.h>
+#include <sys/tree.h>
+#include <sys/queue.h>
 #include <sys/socket.h>
 
 #include <ctype.h>
@@ -101,7 +100,7 @@ int
 main(int argc, char *argv[])
 {
 	struct stat	 sb;
-	char		 dbname[MAXPATHLEN];
+	char		 dbname[SMTPD_MAXPATHLEN];
 	char		*opts;
 	char		*conf;
 	int		 ch;
@@ -451,7 +450,7 @@ conf_aliases(char *cfgpath)
 	if (parse_config(env, cfgpath, 0))
 		exit(1);
 
-	table = table_findbyname("aliases");
+	table = table_find("aliases", NULL);
 	if (table == NULL)
 		return (PATH_ALIASES);
 

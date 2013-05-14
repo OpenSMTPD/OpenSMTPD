@@ -28,17 +28,23 @@
 
 #define	FILTER_API_VERSION	 50
 
-#define MAX_LINE_SIZE		 2048
-#define MAX_LOCALPART_SIZE	 (64 + 1)
-#define MAX_DOMAINPART_SIZE	 (255 + 1)
-
 struct mailaddr {
-	char	user[MAX_LOCALPART_SIZE];
-	char	domain[MAX_DOMAINPART_SIZE];
+	char	user[SMTPD_MAXLOCALPARTSIZE];
+	char	domain[SMTPD_MAXDOMAINPARTSIZE];
 };
 
-SPLAY_HEAD(dict, dictentry);
-SPLAY_HEAD(tree, treeentry);
+SPLAY_HEAD(_dict, dictentry);
+SPLAY_HEAD(_tree, treeentry);
+
+struct tree {
+	struct _tree	tree;
+	size_t		count;
+};
+
+struct dict {
+	struct _dict	dict;
+	size_t		count;
+};
 
 enum filter_status {
 	FILTER_OK,
@@ -81,8 +87,9 @@ struct filter_connect {
 };
 
 /* dict.c */
-#define dict_init(d) SPLAY_INIT((d))
-#define dict_empty(d) SPLAY_EMPTY((d))
+#define dict_init(d) do { SPLAY_INIT(&((d)->dict)); (d)->count = 0; } while(0)
+#define dict_empty(d) SPLAY_EMPTY(&((d)->dict))
+#define dict_count(d) ((d)->count)
 int dict_check(struct dict *, const char *);
 void *dict_set(struct dict *, const char *, void *);
 void dict_xset(struct dict *, const char *, void *);
@@ -116,8 +123,9 @@ void filter_api_on_eom(void(*)(uint64_t, uint64_t));
 void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 
 /* tree.c */
-#define tree_init(t) SPLAY_INIT((t))
-#define tree_empty(t) SPLAY_EMPTY((t))
+#define tree_init(t) do { SPLAY_INIT(&((t)->tree)); (t)->count = 0; } while(0)
+#define tree_empty(t) SPLAY_EMPTY(&((t)->tree))
+#define tree_count(t) ((t)->count)
 int tree_check(struct tree *, uint64_t);
 void *tree_set(struct tree *, uint64_t, void *);
 void tree_xset(struct tree *, uint64_t, void *);

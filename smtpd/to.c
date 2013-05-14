@@ -21,9 +21,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include <sys/param.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
@@ -58,6 +57,7 @@ static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
 static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
+static int alias_is_error(struct expandnode *, const char *, size_t);
 
 static int temp_inet_net_pton_ipv6(const char *, void *, size_t);
 
@@ -103,7 +103,7 @@ text_to_mailaddr(struct mailaddr *maddr, const char *email)
 {
 	char *username;
 	char *hostname;
-	char  buffer[MAX_LINE_SIZE];
+	char  buffer[SMTPD_MAXLINESIZE];
 
 	if (strlcpy(buffer, email, sizeof buffer) >= sizeof buffer)
 		return 0;
@@ -140,7 +140,7 @@ text_to_mailaddr(struct mailaddr *maddr, const char *email)
 const char *
 mailaddr_to_text(const struct mailaddr *maddr)
 {
-	static char  buffer[MAX_LINE_SIZE];
+	static char  buffer[SMTPD_MAXLINESIZE];
 
 	strlcpy(buffer, maddr->user, sizeof buffer);
 	strlcat(buffer, "@", sizeof buffer);
@@ -610,7 +610,7 @@ rule_to_text(struct rule *r)
 int
 text_to_userinfo(struct userinfo *userinfo, const char *s)
 {
-	char		buf[MAXPATHLEN];
+	char		buf[SMTPD_MAXPATHLEN];
 	char	       *p;
 	const char     *errstr;
 
@@ -659,7 +659,7 @@ int
 text_to_credentials(struct credentials *creds, const char *s)
 {
 	char   *p;
-	char	buffer[MAX_LINE_SIZE];
+	char	buffer[SMTPD_MAXLINESIZE];
 	size_t	offset;
 
 	p = strchr(s, ':');
@@ -695,7 +695,8 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	size_t	l;
 
 	l = strlen(s);
-	if (alias_is_include(expandnode, s, l) ||
+	if (alias_is_error(expandnode, s, l) ||
+	    alias_is_include(expandnode, s, l) ||
 	    alias_is_filter(expandnode, s, l) ||
 	    alias_is_filename(expandnode, s, l) ||
 	    alias_is_address(expandnode, s, l) ||
@@ -712,6 +713,7 @@ expandnode_to_text(struct expandnode *expandnode)
 	case EXPAND_FILTER:
 	case EXPAND_FILENAME:
 	case EXPAND_INCLUDE:
+	case EXPAND_ERROR:
 		return expandnode->u.buffer;
 	case EXPAND_USERNAME:
 		return expandnode->u.user;
@@ -840,6 +842,7 @@ alias_is_include(struct expandnode *alias, const char *line, size_t len)
 }
 
 static int
+<<<<<<< HEAD
 temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 {
 	int	ret;
@@ -869,4 +872,34 @@ temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 		return (-1);
 
 	return bits;
+=======
+alias_is_error(struct expandnode *alias, const char *line, size_t len)
+{
+	size_t	skip;
+
+	bzero(alias, sizeof *alias);
+
+	if (strncasecmp(":error:", line, 7) == 0)
+		skip = 7;
+	else if (strncasecmp("error:", line, 6) == 0)
+		skip = 6;
+	else
+		return 0;
+
+	if (strlcpy(alias->u.buffer, line + skip,
+	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+		return 0;
+
+	if (strlen(alias->u.buffer) < 5)
+		return 0;
+
+	/* [45][0-9]{2} [a-zA-Z0-9].* */
+	if (alias->u.buffer[3] != ' ' || !isalnum(alias->u.buffer[4]) ||
+	    (alias->u.buffer[0] != '4' && alias->u.buffer[0] != '5') ||
+	    !isdigit(alias->u.buffer[1]) || !isdigit(alias->u.buffer[2]))
+		return 0;
+
+	alias->type = EXPAND_ERROR;
+	return 1;
+>>>>>>> branch-opensmtpd-5.3.2
 }

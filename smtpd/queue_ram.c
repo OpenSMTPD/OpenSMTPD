@@ -19,9 +19,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
@@ -78,7 +77,7 @@ queue_ram_init(int server)
 static int
 queue_ram_message(enum queue_op qop, uint32_t *msgid)
 {
-	char			 path[MAXPATHLEN];
+	char			 path[SMTPD_MAXPATHLEN];
 	uint64_t		 evpid;
 	struct qr_envelope	*evp;
 	struct qr_message	*msg;

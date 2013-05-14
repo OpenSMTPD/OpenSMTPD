@@ -21,9 +21,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 
 #include <err.h>
@@ -122,7 +121,7 @@ bounce_init(void)
 void
 bounce_add(uint64_t evpid)
 {
-	char			 buf[MAX_LINE_SIZE], *line;
+	char			 buf[SMTPD_MAXLINESIZE], *line;
 	struct envelope		 evp;
 	struct bounce_message	 key, *msg;
 	struct bounce_envelope	*be;
@@ -130,7 +129,7 @@ bounce_add(uint64_t evpid)
 	bounce_init();
 
 	if (queue_envelope_load(evpid, &evp) == 0) {
-		m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1, 9);
+		m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
 		m_add_evpid(p_scheduler, evpid);
 		m_close(p_scheduler);
 		return;
@@ -324,7 +323,7 @@ static int
 bounce_next_message(struct bounce_session *s)
 {
 	struct bounce_message	*msg;
-	char			 buf[MAX_LINE_SIZE];
+	char			 buf[SMTPD_MAXLINESIZE];
 	int			 fd;
 
     again:
@@ -442,7 +441,7 @@ bounce_next(struct bounce_session *s)
 
 		n = iobuf_queued(&s->iobuf);
 
-		while (iobuf_len(&s->iobuf) < BOUNCE_HIWAT) {
+		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
 			line = fgetln(s->msgfp, &len);
 			if (line == NULL)
 				break;
@@ -507,12 +506,11 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 			evp.lasttry = msg->timeout;
 			envelope_set_errormsg(&evp, "%s", status);
 			queue_envelope_update(&evp);
-			m_create(p_scheduler, delivery, 0, 0, -1, MSZ_EVP);
+			m_create(p_scheduler, delivery, 0, 0, -1);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
 		} else {
-			m_create(p_scheduler, delivery, 0, 0, -1,
-			    sizeof(be->id) + 1);
+			m_create(p_scheduler, delivery, 0, 0, -1);
 			m_add_evpid(p_scheduler, be->id);
 			m_close(p_scheduler);
 			queue_envelope_delete(be->id);
@@ -589,7 +587,7 @@ bounce_io(struct io *io, int evt)
 	case IO_DATAIN:
 	    nextline:
 		line = iobuf_getline(&s->iobuf, &len);
-		if (line == NULL && iobuf_len(&s->iobuf) >= SMTP_LINE_MAX) {
+		if (line == NULL && iobuf_len(&s->iobuf) >= SMTPD_MAXLINESIZE) {
 			bounce_status(s, "Input too long");
 			bounce_free(s);
 			return;

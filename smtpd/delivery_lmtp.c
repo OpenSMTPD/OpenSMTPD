@@ -19,10 +19,10 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -42,6 +42,10 @@
 /* mda backend */
 static void delivery_lmtp_open(struct deliver *);
 
+static int inet_socket(char *);
+static int unix_socket(char *);
+static char* lmtp_getline(FILE *);
+
 struct delivery_backend delivery_backend_lmtp = {
 	 0, delivery_lmtp_open
 };
@@ -56,27 +60,29 @@ enum lmtp_state {
 	 LMTP_BYE
 };
 
-static char* lmtp_getline(FILE*);
-
-static void
-delivery_lmtp_open(struct deliver *deliver)
+static int
+inet_socket (char *address)
 {
+<<<<<<< HEAD
 	 char *buffer;
 	 char *lbuf;
 	 char lhloname[255];
+=======
+>>>>>>> branch-opensmtpd-5.3.2
 	 int s, n;
-	 FILE* fp;
 	 char *hostname, *servname;
 	 struct addrinfo hints;
 	 struct addrinfo *result0, *result;
+<<<<<<< HEAD
 	 enum lmtp_state state = LMTP_BANNER;
 	 size_t	len;
+=======
+>>>>>>> branch-opensmtpd-5.3.2
 
-	 servname = strchr(deliver->to, ':');
+	 servname = strchr(address, ':');
 	 *servname++ = '\0';
-	 hostname = deliver->to;
+	 hostname = address;
 	 s = -1;
-	 fp = NULL;
 
 	 bzero(&hints, sizeof(hints));
 	 hints.ai_family = PF_UNSPEC;
@@ -87,12 +93,12 @@ delivery_lmtp_open(struct deliver *deliver)
 	 if (n)
 		 errx(1, "%s", gai_strerror(n));
 
-	 for (result = result0, fp = NULL; s < 0 && result; result = result->ai_next) {
-		 if ((s = socket(result->ai_family, result->ai_socktype, result->ai_protocol)) == -1) {
+	 for (result = result0; s < 0 && result; result = result->ai_next) {
+		 if ((s = socket(result->ai_family, result->ai_socktype,
+			     result->ai_protocol)) == -1) {
 			 warn("socket");
 			 continue;
 		 }
-
 		 if (connect(s, result->ai_addr, result->ai_addrlen) == -1) {
 			 warn("connect");
 			 close(s);
@@ -100,27 +106,72 @@ delivery_lmtp_open(struct deliver *deliver)
 			 continue;
 		 }
 		 break;
-
 	 }
 
 	 freeaddrinfo(result0);
+
+	 return s;
+}
+
+static int
+unix_socket(char *path) {
+	 struct sockaddr_un addr;
+	 int s;
+
+	 bzero(&addr, sizeof(addr));
+
+	 if ((s = socket(PF_LOCAL, SOCK_STREAM, 0)) == -1) {
+		 warn("socket");
+		 return -1;
+	 }
+
+	 addr.sun_family = AF_UNIX;
+	 strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
+
+	 if (connect(s, (struct sockaddr*) &addr, sizeof(addr)) == -1) {
+		 warn("connect");
+		 close(s);
+		 return -1;
+	 }
+
+	 return s;
+}
+
+static void
+delivery_lmtp_open(struct deliver *deliver)
+{
+	 char *buffer;
+	 char *lbuf;
+	 char lhloname[255];
+	 int s;
+	 FILE	*fp;
+	 enum lmtp_state state = LMTP_BANNER;
+	 size_t	len;
+
+	 fp = NULL;
+
+	 if (deliver->to[0] == '/')
+		 s = unix_socket(deliver->to);
+	 else
+		 s = inet_socket(deliver->to);
 
 	 if (s == -1 || (fp = fdopen(s, "r+")) == NULL)
 		 err(1, "couldn't establish connection");
 
 	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
 		 buffer = lmtp_getline(fp);
+<<<<<<< HEAD
 		 if (!buffer)
+=======
+		 if (buffer == NULL)
+>>>>>>> branch-opensmtpd-5.3.2
 			 err(1, "No input received");
 
 		 switch (state) {
-
 		 case LMTP_BANNER:
-			 if (! (strlen(buffer) > 3 && buffer[0] == '2' && buffer[1] == '2' && buffer[2] == '0'))
+			 if (strncmp("220 ", buffer, 4) != 0)
 				 errx(1, "Invalid LMTP greeting: %s\n", buffer);
-
-			 gethostname( lhloname, sizeof lhloname );
-
+			 gethostname(lhloname, sizeof lhloname );
 			 fprintf(fp, "LHLO %s\r\n", lhloname);
 			 state = LMTP_LHLO;
 			 break;
@@ -128,7 +179,10 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_LHLO:
 			 if (buffer[0] != '2')
 				 errx(1, "LHLO rejected: %s\n", buffer);
-
+			 if (strlen(buffer) < 4)
+				 errx(1, "Invalid LMTP LHLO answer: %s\n", buffer);
+			 if (buffer[3] == '-')
+				 continue; /* multi-line */
 			 fprintf(fp, "MAIL FROM:<%s>\r\n", deliver->from);
 			 state = LMTP_MAIL_FROM;
 			 break;
@@ -136,7 +190,6 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_MAIL_FROM:
 			 if (buffer[0] != '2')
 				 errx(1, "MAIL FROM rejected: %s\n", buffer);
-
 			 fprintf(fp, "RCPT TO:<%s>\r\n", deliver->user);
 			 state = LMTP_RCPT_TO;
 			 break;
@@ -144,7 +197,6 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_RCPT_TO:
 			 if (buffer[0] != '2')
 				 errx(1, "RCPT TO rejected: %s\n", buffer);
-
 			 fprintf(fp, "DATA\r\n");
 			 state = LMTP_DATA;
 			 break;
@@ -152,7 +204,10 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_DATA:
 			 if (buffer[0] != '3')
 				 errx(1, "DATA rejected: %s\n", buffer);
+<<<<<<< HEAD
 
+=======
+>>>>>>> branch-opensmtpd-5.3.2
 			 lbuf = NULL;
 			 while ((buffer = fgetln(stdin, &len))) {
 				 if (buffer[len- 1] == '\n')
@@ -168,16 +223,17 @@ delivery_lmtp_open(struct deliver *deliver)
 				     *buffer == '.' ? "." : "", buffer);
 			 }
 			 free(lbuf);
+<<<<<<< HEAD
 
+=======
+>>>>>>> branch-opensmtpd-5.3.2
 			 fprintf(fp, ".\r\n");
-
 			 state = LMTP_QUIT;
 			 break;
 
 		 case LMTP_QUIT:
 			 if (buffer[0] != '2')
 				 errx(1, "Delivery error: %s\n", buffer);
-
 			 fprintf(fp, "QUIT\r\n");
 			 state = LMTP_BYE;
 			 break;
@@ -185,26 +241,22 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_BYE:
 			 break;
 		 }
-
-		 fflush(fp);
-
 	 }
 
 	 _exit(0);
 }
 
 static char*
-lmtp_getline(FILE* fp) {
-	 char* buffer;
-	 size_t len;
+lmtp_getline(FILE *fp)
+{
+	char   *buffer;
+	size_t	len;
+	
+	if ((buffer = fgetln(fp, &len)) != NULL) {
+		if (len >= 2 && buffer[len-2] == '\r')
+			buffer[len-2] = '\0';
+		buffer[len-1] = '\0';
+	}
 
-	 buffer = fgetln(fp, &len);
-
-	 if (buffer) {
-		 if (len >= 2 && buffer[len-2] == '\r')
-			 buffer[len-2] = '\0';
-		 buffer[len-1] = '\0';
-	 }
-
-	 return buffer;
+	return buffer;
 }

@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.115 2013/02/17 12:28:30 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.116 2013/03/06 21:42:40 sthen Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -25,10 +25,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include <sys/time.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -114,7 +112,7 @@ int		 is_if_in_group(const char *, const char *);
 typedef struct {
 	union {
 		int64_t		 number;
-		objid_t		 object;
+		struct table	*table;
 		char		*string;
 		struct host	*host;
 		struct mailaddr	*maddr;
@@ -133,8 +131,8 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	port from auth ssl size expire sender
-%type	<v.object>	tables tablenew tableref destination alias virtual usermapping userbase credentials
+%type	<v.number>	port auth ssl size expire
+%type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase credentials from sender
 %type	<v.maddr>	relay_as
 %type	<v.string>	certificate tag tagged relay_source listen_helo relay_helo relay_backup
 %%
@@ -253,11 +251,11 @@ auth		: AUTH				{
 			$$ = F_AUTH;
 		}
 		| AUTH tables  			{
-			strlcpy(l.authtable, table_find($2)->t_name, sizeof l.authtable);
+			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
 			$$ = F_AUTH|F_AUTH_REQUIRE;
 		}
 		| AUTH_OPTIONAL tables 		{
-			strlcpy(l.authtable, table_find($2)->t_name, sizeof l.authtable);
+			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
 			$$ = F_AUTH;
 		}
 		| /* empty */			{ $$ = 0; }
@@ -323,7 +321,7 @@ bouncedelays	: bouncedelays ',' bouncedelay
 		;
 
 credentials	: AUTH tables	{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_CREDENTIALS)) {
 				yyerror("invalid use of table \"%s\" as AUTH parameter",
@@ -331,7 +329,7 @@ credentials	: AUTH tables	{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
 		| /* empty */	{ $$ = 0; }
 		;
@@ -342,6 +340,9 @@ listen_helo	: HOSTNAME STRING	{ $$ = $2; }
 main		: BOUNCEWARN {
 			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
 		} bouncedelays
+		| QUEUE COMPRESSION {
+			conf->sc_queue_flags |= QUEUE_COMPRESSION;
+		}
 		| EXPIRE STRING {
 			conf->sc_qexpire = delaytonum($2);
 			if (conf->sc_qexpire == -1) {
@@ -493,8 +494,8 @@ table		: TABLE STRING STRING	{
 				free($3);
 				YYERROR;
 			}
-			table = table_create(backend, $2, config);
-			if (! table->t_backend->config(table, config)) {
+			table = table_create(backend, $2, NULL, config);
+			if (!table_config(table)) {
 				yyerror("invalid backend configuration for table %s",
 				    table->t_name);
 				free($2);
@@ -505,7 +506,7 @@ table		: TABLE STRING STRING	{
 			free($3);
 		}
 		| TABLE STRING {
-			table = table_create("static", $2, NULL);
+			table = table_create("static", $2, NULL, NULL);
 			free($2);
 		} '{' tableval_list '}' {
 			table = NULL;
@@ -544,30 +545,29 @@ tableval_list	: string_list			{ }
 tablenew	: STRING			{
 			struct table	*t;
 
-			t = table_create("static", NULL, NULL);
+			t = table_create("static", NULL, NULL, NULL);
 			t->t_type = T_LIST;
 			table_add(t, $1, NULL);
 			free($1);
-			$$ = t->t_id;
-			table = table_create("static", NULL, NULL);
+			$$ = t;
 		}
 		| '{'				{
-			table = table_create("static", NULL, NULL);
+			table = table_create("static", NULL, NULL, NULL);
 		} tableval_list '}'		{
-			$$ = table->t_id;
+			$$ = table;
 		}
 		;
 
 tableref       	: '<' STRING '>'       		{
 			struct table	*t;
 
-			if ((t = table_findbyname($2)) == NULL) {
+			if ((t = table_find($2, NULL)) == NULL) {
 				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
 			}
 			free($2);
-			$$ = t->t_id;
+			$$ = t;
 		}
 		;
 
@@ -576,7 +576,7 @@ tables		: tablenew			{ $$ = $1; }
 		;
 
 alias		: ALIAS tables			{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
 				yyerror("invalid use of table \"%s\" as ALIAS parameter",
@@ -584,12 +584,12 @@ alias		: ALIAS tables			{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
 		;
 
 virtual		: VIRTUAL tables		{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_service(t, K_ALIAS)) {
 				yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
@@ -597,7 +597,7 @@ virtual		: VIRTUAL tables		{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
 		;
 
@@ -616,7 +616,7 @@ usermapping	: alias		{
 		;
 
 userbase	: USERBASE tables	{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_USERINFO)) {
 				yyerror("invalid use of table \"%s\" as USERBASE parameter",
@@ -624,16 +624,16 @@ userbase	: USERBASE tables	{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
-		| /**/	{ $$ = table_findbyname("<getpwnam>")->t_id; }
+		| /**/	{ $$ = table_find("<getpwnam>", NULL); }
 		;
 
 		
 
 
 destination	: DOMAIN tables			{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
 				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
@@ -641,14 +641,14 @@ destination	: DOMAIN tables			{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
-		| LOCAL		{ $$ = table_findbyname("<localnames>")->t_id; }
+		| LOCAL		{ $$ = table_find("<localnames>", NULL); }
 		| ANY		{ $$ = 0; }
 		;
 
 relay_source	: SOURCE tables			{
-			struct table	*t = table_find($2);
+			struct table	*t = $2;
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
 				yyerror("invalid use of table \"%s\" as "
 				    "SOURCE parameter", t->t_name);
@@ -660,7 +660,7 @@ relay_source	: SOURCE tables			{
 		;
 
 relay_helo	: HELO tables			{
-			struct table	*t = table_find($2);
+			struct table	*t = $2;
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
 				yyerror("invalid use of table \"%s\" as "
 				    "HELO parameter", t->t_name);
@@ -704,7 +704,7 @@ relay_as     	: AS STRING		{
 		;
 
 action		: userbase DELIVER TO MAILDIR			{
-			rule->r_userbase = table_find($1);
+			rule->r_userbase = $1;
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
@@ -712,7 +712,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 		}
 		| userbase DELIVER TO MAILDIR STRING		{
-			rule->r_userbase = table_find($1);
+			rule->r_userbase = $1;
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer)) >=
@@ -721,9 +721,9 @@ action		: userbase DELIVER TO MAILDIR			{
 			free($5);
 		}
 		| userbase DELIVER TO LMTP STRING		{
-			rule->r_userbase = table_find($1);
+			rule->r_userbase = $1;
 			rule->r_action = A_LMTP;
-			if (strchr($5, ':')) {
+			if (strchr($5, ':') || $5[0] == '/') {
 				if (strlcpy(rule->r_value.buffer, $5,
 					sizeof(rule->r_value.buffer))
 					>= sizeof(rule->r_value.buffer))
@@ -733,7 +733,7 @@ action		: userbase DELIVER TO MAILDIR			{
 			free($5);
 		}
 		| userbase DELIVER TO MBOX			{
-			rule->r_userbase = table_find($1);
+			rule->r_userbase = $1;
 			rule->r_action = A_MBOX;
 			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
 			    sizeof(rule->r_value.buffer))
@@ -741,7 +741,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 		}
 		| userbase DELIVER TO MDA STRING	       	{
-			rule->r_userbase = table_find($1);
+			rule->r_userbase = $1;
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $5,
 			    sizeof(rule->r_value.buffer))
@@ -752,10 +752,6 @@ action		: userbase DELIVER TO MAILDIR			{
 		| RELAY relay_as relay_source relay_helo       	{
 			rule->r_action = A_RELAY;
 			rule->r_as = $2;
-			if ($4 != NULL && $3 == NULL) {
-				yyerror("HELO can only be used with SOURCE");
-				YYERROR;
-			}
 			if ($3)
 				strlcpy(rule->r_value.relayhost.sourcetable, $3,
 				    sizeof rule->r_value.relayhost.sourcetable);
@@ -772,14 +768,11 @@ action		: userbase DELIVER TO MAILDIR			{
 				strlcpy(rule->r_value.relayhost.hostname, $2,
 				    sizeof (rule->r_value.relayhost.hostname));
 			else
-				strlcpy(rule->r_value.relayhost.hostname, env->sc_hostname,
+				strlcpy(rule->r_value.relayhost.hostname,
+				    env->sc_hostname,
 				    sizeof (rule->r_value.relayhost.hostname));
 			free($2);
 
-			if ($5 != NULL && $4 == NULL) {
-				yyerror("HELO can only be used with SOURCE");
-				YYERROR;
-			}
 			if ($4)
 				strlcpy(rule->r_value.relayhost.sourcetable, $4,
 				    sizeof rule->r_value.relayhost.sourcetable);
@@ -810,7 +803,7 @@ action		: userbase DELIVER TO MAILDIR			{
 					free($6);
 					YYERROR;
 				}
-				t = table_find($5);
+				t = $5;
 				strlcpy(rule->r_value.relayhost.authtable, t->t_name,
 				    sizeof(rule->r_value.relayhost.authtable));
 			}
@@ -822,10 +815,7 @@ action		: userbase DELIVER TO MAILDIR			{
 					fatal("certificate path too long");
 			}
 			free($4);
-			if ($8 != NULL && $7 == NULL) {
-				yyerror("HELO can only be used with SOURCE");
-				YYERROR;
-			}
+
 			if ($7)
 				strlcpy(rule->r_value.relayhost.sourcetable, $7,
 				    sizeof rule->r_value.relayhost.sourcetable);
@@ -836,7 +826,7 @@ action		: userbase DELIVER TO MAILDIR			{
 		;
 
 from		: FROM tables			{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
 				yyerror("invalid use of table \"%s\" as FROM parameter",
@@ -844,21 +834,21 @@ from		: FROM tables			{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
 		| FROM ANY			{
-			$$ = table_findbyname("<anyhost>")->t_id;
+			$$ = table_find("<anyhost>", NULL);
 		}
 		| FROM LOCAL			{
-			$$ = table_findbyname("<localhost>")->t_id;
+			$$ = table_find("<localhost>", NULL);
 		}
 		| /* empty */			{
-			$$ = table_findbyname("<localhost>")->t_id;
+			$$ = table_find("<localhost>", NULL);
 		}
 		;
 
 sender		: SENDER tables			{
-			struct table   *t = table_find($2);
+			struct table   *t = $2;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
 				yyerror("invalid use of table \"%s\" as SENDER parameter",
@@ -866,9 +856,9 @@ sender		: SENDER tables			{
 				YYERROR;
 			}
 
-			$$ = t->t_id;
+			$$ = t;
 		}
-		| /* empty */			{ $$ = 0; }
+		| /* empty */			{ $$ = NULL; }
 		;
 
 rule		: ACCEPT {
@@ -876,10 +866,10 @@ rule		: ACCEPT {
 		 } tagged from sender FOR destination usermapping action expire {
 
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = table_find($4);
-			rule->r_senders = table_find($5);
-			rule->r_destination = table_find($7);
-			rule->r_mapping = table_find($8);
+			rule->r_sources = $4;
+			rule->r_senders = $5;
+			rule->r_destination = $7;
+			rule->r_mapping = $8;
 			if ($3) {
 				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
@@ -919,10 +909,10 @@ rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
 		} tagged from sender FOR destination usermapping {
 			rule->r_decision = R_REJECT;
-			rule->r_sources = table_find($4);
-			rule->r_sources = table_find($5);
-			rule->r_destination = table_find($7);
-			rule->r_mapping = table_find($8);
+			rule->r_sources = $4;
+			rule->r_senders = $5;
+			rule->r_destination = $7;
+			rule->r_mapping = $8;
 			if ($3) {
 				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
@@ -979,6 +969,7 @@ lookup(char *s)
 		{ "backup",		BACKUP },
 		{ "bounce-warn",	BOUNCEWARN },
 		{ "certificate",	CERTIFICATE },
+		{ "compression",	COMPRESSION },
 		{ "deliver",		DELIVER },
 		{ "domain",		DOMAIN },
 		{ "expire",		EXPIRE },
@@ -1343,7 +1334,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 {
 	struct sym     *sym, *next;
 	struct table   *t;
-	char		hostname[MAXHOSTNAMELEN];
+	char		hostname[SMTPD_MAXHOSTNAMELEN];
 
 	if (gethostname(hostname, sizeof hostname) == -1) {
 		fprintf(stderr, "invalid hostname: gethostname() failed\n");
@@ -1356,7 +1347,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
 	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
-	conf->sc_tables_tree = calloc(1, sizeof(*conf->sc_tables_tree));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
@@ -1365,13 +1355,11 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_bounce_warn[0] = 3600 * 4;
 
 	if (conf->sc_tables_dict == NULL	||
-	    conf->sc_tables_tree == NULL	||
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
 	    conf->sc_ssl_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
-		free(conf->sc_tables_tree);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_ssl_dict);
@@ -1387,7 +1375,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
-	tree_init(conf->sc_tables_tree);
 
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
@@ -1406,12 +1393,12 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	 */
 	set_localaddrs();
 
-	t = table_create("static", "<localnames>", NULL);
+	t = table_create("static", "<localnames>", NULL, NULL);
 	t->t_type = T_LIST;
 	table_add(t, "localhost", NULL);
 	table_add(t, hostname, NULL);
 
-	table_create("getpwnam", "<getpwnam>", NULL);
+	table_create("getpwnam", "<getpwnam>", NULL, NULL);
 
 	/*
 	 * parse configuration
@@ -1766,7 +1753,7 @@ set_localaddrs(void)
 	struct sockaddr_in6	*sin6;
 	struct table		*t;
 
-	t = table_create("static", "<anyhost>", NULL);
+	t = table_create("static", "<anyhost>", NULL, NULL);
 	table_add(t, "local", NULL);
 	table_add(t, "0.0.0.0/0", NULL);
 	table_add(t, "::/0", NULL);
@@ -1778,7 +1765,7 @@ set_localaddrs(void)
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 
-	t = table_create("static", "<localhost>", NULL);
+	t = table_create("static", "<localhost>", NULL, NULL);
 	table_add(t, "local", NULL);
 
 	for (p = ifap; p != NULL; p = p->ifa_next) {

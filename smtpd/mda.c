@@ -22,9 +22,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 
 #include <ctype.h>
@@ -73,8 +72,8 @@ struct mda_envelope {
 struct mda_user {
 	TAILQ_ENTRY(mda_user)		entry;
 	TAILQ_ENTRY(mda_user)		entry_runnable;
-	char				name[MAXLOGNAME];
-	char				usertable[MAXPATHLEN];
+	char				name[SMTPD_MAXLOGNAME];
+	char				usertable[SMTPD_MAXPATHLEN];
 	size_t				evpcount;
 	TAILQ_HEAD(, mda_envelope)	envelopes;
 	int				flags;
@@ -124,7 +123,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*username, *usertable;
 	uint64_t		 reqid;
 	size_t			 sz;
-	char			 out[256], buf[MAX_LINE_SIZE];
+	char			 out[256], buf[SMTPD_MAXLINESIZE];
 	int			 n, v;
 	enum lka_resp_status	status;
 
@@ -227,8 +226,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				strlcpy(u->name, username, sizeof u->name);
 				strlcpy(u->usertable, usertable, sizeof u->usertable);
 				u->flags |= FLAG_USER_WAITINFO;
-				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1,
-				    32 + strlen(usertable) + strlen(username));
+				m_create(p_lka, IMSG_LKA_USERINFO, 0, 0, -1);
 				m_add_string(p_lka, usertable);
 				m_add_string(p_lka, username);
 				m_close(p_lka);
@@ -387,8 +385,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			    "for session %016"PRIx64 " evpid %016"PRIx64,
 			    s->id, s->evp->id);
 
-			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1,
-			    32 + sizeof(deliver));
+			m_create(p_parent, IMSG_PARENT_FORK_MDA, 0, 0, -1);
 			m_add_id(p_parent, reqid);
 			m_add_data(p_parent, &deliver, sizeof(deliver));
 			m_close(p_parent);
@@ -584,6 +581,7 @@ mda_io(struct io *io, int evt)
 	case IO_LOWAT:
 
 		/* done */
+	   done:
 		if (s->datafp == NULL) {
 			log_debug("debug: mda: all data sent for session"
 			    " %016"PRIx64 " evpid %016"PRIx64,
@@ -597,7 +595,7 @@ mda_io(struct io *io, int evt)
 				break;
 			if (iobuf_queue(&s->iobuf, ln, len) == -1) {
 				m_create(p_parent, IMSG_PARENT_KILL_MDA,
-				    0, 0, -1, 128);
+				    0, 0, -1);
 				m_add_id(p_parent, s->id);
 				m_add_string(p_parent, "Out of memory");
 				m_close(p_parent);
@@ -614,7 +612,7 @@ mda_io(struct io *io, int evt)
 		if (ferror(s->datafp)) {
 			log_debug("debug: mda: ferror on session %016"PRIx64,
 			    s->id);
-			m_create(p_parent, IMSG_PARENT_KILL_MDA, 0, 0, -1, 128);
+			m_create(p_parent, IMSG_PARENT_KILL_MDA, 0, 0, -1);
 			m_add_id(p_parent, s->id);
 			m_add_string(p_parent, "Error reading body");
 			m_close(p_parent);
@@ -628,6 +626,8 @@ mda_io(struct io *io, int evt)
 			    s->id, s->evp->id);
 			fclose(s->datafp);
 			s->datafp = NULL;
+ 			if (iobuf_queued(&s->iobuf) == 0)
+				goto done;
 		}
 		return;
 
@@ -701,7 +701,7 @@ static int
 mda_getlastline(int fd, char *dst, size_t dstsz)
 {
 	FILE	*fp;
-	char	*ln, buf[MAX_LINE_SIZE];
+	char	*ln, buf[SMTPD_MAXLINESIZE];
 	size_t	 len;
 
 	bzero(buf, sizeof buf);
@@ -820,7 +820,7 @@ mda_drain(void)
 		    " for user \"%s\" evpid %016" PRIx64, s->id, u->name,
 		    s->evp->id);
 
-		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1, 18);
+		m_create(p_queue, IMSG_QUEUE_MESSAGE_FD, 0, 0, -1);
 		m_add_id(p_queue, s->id);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp->id));
 		m_close(p_queue);
@@ -879,7 +879,7 @@ mda_done(struct mda_session *s)
 static void
 mda_log(const struct mda_envelope *evp, const char *prefix, const char *status)
 {
-	char rcpt[MAX_LINE_SIZE];
+	char rcpt[SMTPD_MAXLINESIZE];
 	const char *method;
 
 	rcpt[0] = '\0';
