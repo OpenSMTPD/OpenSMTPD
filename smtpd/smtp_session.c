@@ -165,9 +165,6 @@ static int smtp_verify_certificate(struct smtp_session *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
 
-static void smtp_auth_failure_pause(struct smtp_session *);
-static void smtp_auth_failure_resume(int, short, void *);
-
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
 	{ CMD_EHLO,		"EHLO" },
@@ -1610,6 +1607,7 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	evtimer_set(&s->pause, smtp_auth_failure_resume, s);
 	evtimer_add(&s->pause, &tv);
 }
+
 
 #define CASE(x) case x : return #x
 
