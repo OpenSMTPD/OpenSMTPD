@@ -78,8 +78,8 @@ struct tree	evpcount;
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
 
 /* percentage of remaining space / inodes required to accept new messages */
-#define	MINSPACE		10
-#define	MININODES		10
+#define	MINSPACE		5
+#define	MININODES		5
 
 struct queue_backend	queue_backend_fs = {
 	fsqueue_init,
@@ -109,6 +109,7 @@ fsqueue_check_space(void)
 		used = 100;
 	if (100 - used < MINSPACE) {
 		log_warnx("warn: not enough disk space: %llu%% left", 100 - used);
+		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
 
@@ -120,6 +121,7 @@ fsqueue_check_space(void)
 		used = 100;
 	if (100 - used < MININODES) {
 		log_warnx("warn: not enough inodes: %llu%% left", 100 - used);
+		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
 
