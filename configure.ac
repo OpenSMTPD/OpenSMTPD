@@ -415,11 +415,12 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	if test "x$withval" != "xno" ; then
 		need_dash_r=1
 	fi
+	AC_DEFINE([BROKEN_STRNVIS], [1], [NetBSD strnvis has swapped parameters])
 	;;
 *-*-freebsd*)
 	check_for_libcrypt_later=1
 	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
-	AC_DEFINE([BROKEN_STRNVIS], [1], [FreeBSD strnvis does not do what we need])
+	AC_DEFINE([BROKEN_STRNVIS], [1], [FreeBSD strnvis has swapped parameters])
 	;;
 *-*-openbsd*)
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
