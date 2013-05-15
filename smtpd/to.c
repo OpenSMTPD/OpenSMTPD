@@ -276,7 +276,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 	bzero(&ssin, sizeof(struct sockaddr_in));
 	bzero(&ssin6, sizeof(struct sockaddr_in6));
 
-	if (strncmp("IPv6:", s, 5) == 0)
+	if (strncasecmp("IPv6:", s, 5) == 0)
 		s += 5;
 
 	if (strchr(s, '/') != NULL) {
