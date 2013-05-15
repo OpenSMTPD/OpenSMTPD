@@ -274,6 +274,12 @@ m_forward(struct mproc *p, struct imsg *imsg)
 	    imsg->hdr.pid, imsg->fd, imsg->data,
 	    imsg->hdr.len - sizeof(imsg->hdr));
 
+	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s (forward)",
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
+		    imsg->hdr.len - sizeof(imsg->hdr),
+		    imsg_to_str(imsg->hdr.type));
+
 	p->msg_out += 1;
 	p->bytes_queued += imsg->hdr.len;
 	if (p->bytes_queued > p->bytes_queued_max)
@@ -288,6 +294,12 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 {
 	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
 
+	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
+		    len,
+		    imsg_to_str(type));
+
 	p->msg_out += 1;
 	p->bytes_queued += len + IMSG_HEADER_SIZE;
 	if (p->bytes_queued > p->bytes_queued_max)
@@ -300,16 +312,25 @@ void
 m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
     int fd, const struct iovec *iov, int n)
 {
+	size_t	len;
 	int	i;
 
 	imsg_composev(&p->imsgbuf, type, peerid, pid, fd, iov, n);
 
-	p->msg_out += 1;
-	p->bytes_queued += IMSG_HEADER_SIZE;
+	len = 0;
 	for (i = 0; i < n; i++)
-		p->bytes_queued += iov[i].iov_len;
+		len += iov[i].iov_len;
+
+	p->msg_out += 1;
+	p->bytes_queued += IMSG_HEADER_SIZE + len;
 	if (p->bytes_queued > p->bytes_queued_max)
 		p->bytes_queued_max = p->bytes_queued;
+
+	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
+		    proc_name(smtpd_process),
+		    proc_name(p->proc),
+		    len,
+		    imsg_to_str(type));
 
 	mproc_event_add(p);
 }
