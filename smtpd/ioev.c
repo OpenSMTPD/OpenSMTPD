@@ -120,6 +120,7 @@ io_strevent(int evt)
 	switch (evt) {
 	CASE(IO_CONNECTED);
 	CASE(IO_TLSREADY);
+	CASE(IO_TLSVERIFIED);
 	CASE(IO_DATAIN);
 	CASE(IO_LOWAT);
 	CASE(IO_DISCONNECTED);
@@ -855,6 +856,7 @@ io_dispatch_write_ssl(int fd, short event, void *humppa)
 void
 io_reload_ssl(struct io *io)
 {
+	short	ev = EV_READ|EV_WRITE;
 	void	(*dispatch)(int, short, void*) = NULL;
 
 	switch (io->state) {
@@ -865,19 +867,23 @@ io_reload_ssl(struct io *io)
 		dispatch = io_dispatch_accept_ssl;
 		break;
 	case IO_STATE_UP:
-		if ((io->flags & IO_RW) == IO_READ)
+		ev = 0;
+		if (IO_READING(io) && !(io->flags & IO_PAUSE_IN)) {
+			ev = EV_READ;
 			dispatch = io_dispatch_read_ssl;
-		else {
-			if (io_queued(io) == 0)
-				return; /* nothing to write */
+		}
+		else if (IO_WRITING(io) && !(io->flags & IO_PAUSE_OUT) && io_queued(io)) {
+			ev = EV_WRITE;
 			dispatch = io_dispatch_write_ssl;
 		}
+		if (! ev)
+			return; /* paused */
 		break;
 	default:
 		errx(1, "io_reload_ssl(): bad state");
 	}
 
-	io_reset(io, EV_READ | EV_WRITE, dispatch);
+	io_reset(io, ev, dispatch);
 }
 
 #endif /* IO_SSL */
