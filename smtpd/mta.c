@@ -543,7 +543,7 @@ mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 
 	/* First connection failed */
 	if (route->flags & ROUTE_NEW)
-		mta_route_disable(route, 2);
+		mta_route_disable(route, 4);
 
 	c = mta_connector(relay, route->src);
 	c->nconn -= 1;
