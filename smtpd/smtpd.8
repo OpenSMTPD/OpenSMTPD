@@ -101,6 +101,9 @@ makemap		/usr/libexec/smtpd/makemap
 newaliases	/usr/libexec/smtpd/makemap
 .Ed
 .Pp
+Disable the sendmail clientmqueue entry in
+.Xr crontab 1 .
+.Pp
 Rebuild the aliases database,
 and enable the daemon:
 .Bd -literal -offset indent
