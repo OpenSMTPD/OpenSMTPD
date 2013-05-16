@@ -678,11 +678,11 @@ io_start_tls(struct io *io, void *ssl)
 	if (mode == IO_WRITE) {
 		io->state = IO_STATE_CONNECT_SSL;
 		SSL_set_connect_state(io->ssl);
-		io_reset(io, EV_READ | EV_WRITE, io_dispatch_connect_ssl);
+		io_reset(io, EV_WRITE, io_dispatch_connect_ssl);
 	} else {
 		io->state = IO_STATE_ACCEPT_SSL;
 		SSL_set_accept_state(io->ssl);
-		io_reset(io, EV_READ | EV_WRITE, io_dispatch_accept_ssl);
+		io_reset(io, EV_READ, io_dispatch_accept_ssl);
 	}
 
 	return (0);
@@ -856,14 +856,16 @@ io_dispatch_write_ssl(int fd, short event, void *humppa)
 void
 io_reload_ssl(struct io *io)
 {
-	short	ev = EV_READ|EV_WRITE;
+	short	ev = 0;
 	void	(*dispatch)(int, short, void*) = NULL;
 
 	switch (io->state) {
 	case IO_STATE_CONNECT_SSL:
+		ev = EV_WRITE;
 		dispatch = io_dispatch_connect_ssl;
 		break;
 	case IO_STATE_ACCEPT_SSL:
+		ev = EV_READ;
 		dispatch = io_dispatch_accept_ssl;
 		break;
 	case IO_STATE_UP:
