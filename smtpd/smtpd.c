@@ -97,6 +97,7 @@ static int	offline_enqueue(char *);
 static void	purge_task(int, short, void *);
 static void	log_imsg(int, int, struct imsg *);
 static int	parent_auth_user(const char *, const char *);
+static void	load_ssl_trees(void);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -672,9 +673,6 @@ main(int argc, char *argv[])
 	struct event	 ev_sighup;
 	struct timeval	 tv;
 	struct passwd	*pwq;
-	struct listener	*l;
-	struct rule	*r;
-	struct ssl	*ssl;
 
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;
@@ -805,6 +803,7 @@ main(int argc, char *argv[])
 		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
+		load_ssl_trees();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
@@ -877,29 +876,7 @@ main(int argc, char *argv[])
 		errx(1, "machine does not have a hostname set");
 	env->sc_uptime = time(NULL);
 
-	log_debug("debug: init server-ssl tree");
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if (!(l->flags & F_SSL))
-			continue;
-		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
-			l->ssl_cert_name, F_SCERT))
-			errx(1, "cannot load certificate: %s", l->ssl_cert_name);
-		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
-	}
-
-	log_debug("debug: init client-ssl tree");
-	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
-		if (r->r_action != A_RELAY && r->r_action != A_RELAYVIA)
-			continue;
-		if (! r->r_value.relayhost.cert[0])
-			continue;
-		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
-			r->r_value.relayhost.cert, F_CCERT))
-			errx(1, "cannot load certificate: %s", r->r_value.relayhost.cert);
-		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
-	}
+	load_ssl_trees();
 
 	fork_peers();
 
@@ -949,6 +926,40 @@ main(int argc, char *argv[])
 		fatal("smtpd: event_dispatch");
 
 	return (0);
+}
+
+static void
+load_ssl_trees(void)
+{
+	struct listener	*l;
+	struct ssl	*ssl;
+	struct rule	*r;
+
+	log_debug("debug: init server-ssl tree");
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+		if (!(l->flags & F_SSL))
+			continue;
+		ssl = NULL;
+		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+			l->ssl_cert_name, F_SCERT))
+			errx(1, "cannot load certificate: %s",
+			    l->ssl_cert_name);
+		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+	}
+
+	log_debug("debug: init client-ssl tree");
+	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
+		if (r->r_action != A_RELAY && r->r_action != A_RELAYVIA)
+			continue;
+		if (! r->r_value.relayhost.cert[0])
+			continue;
+		ssl = NULL;
+		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+			r->r_value.relayhost.cert, F_CCERT))
+			errx(1, "cannot load certificate: %s",
+			    r->r_value.relayhost.cert);
+		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+	}
 }
 
 static void
