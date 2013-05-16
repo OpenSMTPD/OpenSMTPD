@@ -52,7 +52,7 @@
 #define MAXCONN_PER_DOMAIN	100
 
 #define CONNDELAY_HOST		0
-#define CONNDELAY_ROUTE		1
+#define CONNDELAY_ROUTE		3
 #define CONNDELAY_SOURCE	0
 #define CONNDELAY_CONNECTOR	0
 #define CONNDELAY_RELAY		0
@@ -522,6 +522,12 @@ mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 }
 
 void
+mta_route_down(struct mta_relay *relay, struct mta_route *route)
+{
+	mta_route_disable(route, 2);
+}
+
+void
 mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 {
 	struct mta_connector	*c;
@@ -791,7 +797,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 	}
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
-		relay->failstr = "No MX could be reached";
+		relay->failstr = "No valid route to remote MX";
 	}
 
 	relay->nextsource = relay->lastsource + delay;
@@ -983,6 +989,12 @@ static void
 mta_route_disable(struct mta_route *route, int penalty)
 {
 	int	delay;
+
+	if (route->flags & ROUTE_DISABLED) {
+		route->flags &= ~ROUTE_DISABLED;
+		runq_cancel(runq_route, NULL, route);
+		mta_route_unref(route);
+	}
 
 	route->penalty += penalty;
 	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;

@@ -45,7 +45,8 @@
 #include "log.h"
 #include "ssl.h"
 
-#define MAX_MAIL	100
+#define MAX_MAIL		100
+#define MAX_TRYBEFOREDISABLE	10
 
 #define MTA_HIWAT	65535
 
@@ -108,6 +109,7 @@ struct mta_session {
 	struct io		 io;
 	int			 ext;
 
+	int			 msgtried;
 	int			 msgcount;
 	int			 rcptcount;
 
@@ -589,6 +591,14 @@ mta_enter_state(struct mta_session *s, int newstate)
 			mta_route_ok(s->relay, s->route);
 		}
 
+		if (s->msgtried >= MAX_TRYBEFOREDISABLE) {
+			log_info("smtp-out: Remove host seems to reject all mails on session %"PRIx64,
+			    s->id);
+			mta_route_down(s->relay, s->route);
+			mta_enter_state(s, MTA_QUIT);
+			break;
+		}
+
 		if (s->msgcount >= MAX_MAIL) {
 			log_debug("debug: mta: "
 			    "%p: cannot send more message to relay %s", s,
@@ -620,6 +630,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
+		s->msgtried++;
 		mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
 
@@ -837,6 +848,7 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_EOM:
 		if (line[0] == '2') {
 			delivery = IMSG_DELIVERY_OK;
+			s->msgtried = 0;
 			s->msgcount++;
 		}
 		else if (line[0] == '5')
