@@ -940,7 +940,7 @@ load_ssl_trees(void)
 		if (!(l->flags & F_SSL))
 			continue;
 		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
 			l->ssl_cert_name, F_SCERT))
 			errx(1, "cannot load certificate: %s",
 			    l->ssl_cert_name);
@@ -954,7 +954,7 @@ load_ssl_trees(void)
 		if (! r->r_value.relayhost.cert[0])
 			continue;
 		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
 			r->r_value.relayhost.cert, F_CCERT))
 			errx(1, "cannot load certificate: %s",
 			    r->r_value.relayhost.cert);
