@@ -63,6 +63,9 @@
 #define DELAY_CHECK_SOURCE_FAST 0
 #define DELAY_CHECK_LIMIT	5
 
+#define DELAY_ROUTE_BASE	200
+#define DELAY_ROUTE_MAX		(3600 * 4)
+
 static void mta_imsg(struct mproc *, struct imsg *);
 static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
@@ -77,6 +80,7 @@ static void mta_on_preference(struct mta_relay *, int, int);
 static void mta_on_source(struct mta_relay *, struct mta_source *);
 static void mta_on_timeout(struct runq *, void *);
 static void mta_connect(struct mta_connector *);
+static void mta_route_disable(struct mta_route *, int);
 static void mta_drain(struct mta_relay *);
 static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *, time_t, int*,
@@ -521,7 +525,6 @@ void
 mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 {
 	struct mta_connector	*c;
-	int			 delay;
 
 	log_debug("debug: mta_route_collect(%s)",
 	    mta_route_to_text(route));
@@ -532,14 +535,9 @@ mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 	route->src->nconn -= 1;
 	route->dst->nconn -= 1;
 
-	if (route->flags & ROUTE_NEW) {
-		delay = 30;
-		log_info("smtp-out: Invalidating route %s for %is",
-		    mta_route_to_text(route), delay);
-		route->flags |= ROUTE_DISABLED;
-		runq_schedule(runq_route, time(NULL) + delay, NULL, route);
-		mta_route_ref(route);
-	}
+	/* First connection failed */
+	if (route->flags & ROUTE_NEW)
+		mta_route_disable(route, 2);
 
 	c = mta_connector(relay, route->src);
 	c->nconn -= 1;
@@ -937,6 +935,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 	struct mta_connector	*connector = arg;
 	struct mta_relay	*relay = arg;
 	struct mta_route	*route = arg;
+	int 			 delay;
 
 	if (runq == runq_relay) {
 		log_debug("debug: mta: ... timeout for %s",
@@ -952,12 +951,57 @@ mta_on_timeout(struct runq *runq, void *arg)
 		mta_connect(connector);
 	}
 	else if (runq == runq_route) {
-		log_info("smtp-out: Resuming route %s",
-		    mta_route_to_text(route));
-		route->flags &= ~ROUTE_DISABLED;
-		route->flags |= ROUTE_NEW;
+
+		if (route->flags & ROUTE_DISABLED) {
+			log_info("smtp-out: Enabling route %s",
+			    mta_route_to_text(route));
+			route->flags &= ~ROUTE_DISABLED;
+			route->flags |= ROUTE_NEW;
+		}
+		else {
+			route->flags &= ~ROUTE_KEEPALIVE;
+		}
+
+		route->penalty -= 1;
+		delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
+		if (delay > DELAY_ROUTE_MAX)
+			delay = DELAY_ROUTE_MAX;
+
+		if (delay) {
+			log_debug("mta: keeping route %s alive for %is (penalty %i)",
+			    mta_route_to_text(route), delay, route->penalty);
+			route->flags |= ROUTE_KEEPALIVE;
+			runq_schedule(runq, time(NULL) + delay, NULL, route);
+			return;
+		}
+
 		mta_route_unref(route);
 	}
+}
+
+static void
+mta_route_disable(struct mta_route *route, int penalty)
+{
+	int	delay;
+
+	route->penalty += penalty;
+	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
+	if (delay > DELAY_ROUTE_MAX)
+		delay = DELAY_ROUTE_MAX;
+
+	log_info("smtp-out: Disabling route %s for %is",
+	    mta_route_to_text(route), delay);
+
+	route->flags |= ROUTE_DISABLED;
+
+	if (route->flags & ROUTE_KEEPALIVE) {
+		route->flags &= ~ROUTE_KEEPALIVE;
+		runq_cancel(runq_route, NULL, route);
+		mta_route_unref(route);
+	}
+
+	runq_schedule(runq_route, time(NULL) + delay, NULL, route);
+	mta_route_ref(route);
 }
 
 static void

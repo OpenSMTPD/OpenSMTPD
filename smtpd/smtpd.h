@@ -680,7 +680,9 @@ struct mta_route {
 	struct mta_host		*dst;
 #define ROUTE_NEW		0x01
 #define ROUTE_DISABLED		0x02
+#define ROUTE_KEEPALIVE		0x04
 	int			 flags;
+	int			 penalty;
 	int			 refcount;
 	size_t			 nconn;
 	time_t			 lastconn;
