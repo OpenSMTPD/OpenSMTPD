@@ -623,6 +623,8 @@ void
 io_dispatch_connect(int fd, short ev, void *humppa)
 {
 	struct io	*io = humppa;
+	int		 r, e;
+	socklen_t	 sl;
 
 	io_frame_enter("io_dispatch_connect", io, ev);
 
@@ -631,8 +633,22 @@ io_dispatch_connect(int fd, short ev, void *humppa)
 		io->sock = -1;
 		io_callback(io, IO_TIMEOUT);
 	} else {
-		io->state = IO_STATE_UP;
-		io_callback(io, IO_CONNECTED);
+		sl = sizeof(e);
+		r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &e, &sl);
+		if (r == -1)  {
+			warn("io_dispatch_connect: getsockopt");
+			e = errno;
+		}
+		if (e) {
+			close(fd);
+			io->sock = -1;
+			io->error = strerror(e);
+			io_callback(io, e == ETIMEDOUT ? IO_TIMEOUT : IO_ERROR);
+		}
+		else {
+			io->state = IO_STATE_UP;
+			io_callback(io, IO_CONNECTED);
+		}
 	}
 
 	io_frame_leave(io);
