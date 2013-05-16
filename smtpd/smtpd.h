@@ -654,6 +654,7 @@ struct mta_connector {
 #define CONNECTOR_ERROR_FAMILY	0x0001
 #define CONNECTOR_ERROR_SOURCE	0x0002
 #define CONNECTOR_ERROR_MX	0x0004
+#define CONNECTOR_ERROR_ROUTE	0x0008
 #define CONNECTOR_ERROR		0x000f
 
 #define CONNECTOR_LIMIT_HOST	0x0010
@@ -677,6 +678,9 @@ struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
 	struct mta_source	*src;
 	struct mta_host		*dst;
+#define ROUTE_NEW		0x01
+#define ROUTE_DISABLED		0x02
+	int			 flags;
 	int			 refcount;
 	size_t			 nconn;
 	time_t			 lastconn;

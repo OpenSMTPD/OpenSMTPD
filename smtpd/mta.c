@@ -51,12 +51,12 @@
 #define MAXCONN_PER_RELAY	100
 #define MAXCONN_PER_DOMAIN	100
 
-#define CONNDELAY_HOST		1
-#define CONNDELAY_ROUTE		5
+#define CONNDELAY_HOST		0
+#define CONNDELAY_ROUTE		1
 #define CONNDELAY_SOURCE	0
-#define CONNDELAY_CONNECTOR	1
-#define CONNDELAY_RELAY		1
-#define CONNDELAY_DOMAIN	1
+#define CONNDELAY_CONNECTOR	0
+#define CONNDELAY_RELAY		0
+#define CONNDELAY_DOMAIN	0
 
 #define DELAY_CHECK_SOURCE	1
 #define DELAY_CHECK_SOURCE_SLOW	10
@@ -122,9 +122,7 @@ static const char *mta_connector_to_text(struct mta_connector *);
 
 SPLAY_HEAD(mta_route_tree, mta_route);
 static struct mta_route *mta_route(struct mta_source *, struct mta_host *);
-#if 0
 static void mta_route_ref(struct mta_route *);
-#endif
 static void mta_route_unref(struct mta_route *);
 static const char *mta_route_to_text(struct mta_route *);
 static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
@@ -145,6 +143,7 @@ static struct tree wait_source;
 
 static struct runq *runq_relay;
 static struct runq *runq_connector;
+static struct runq *runq_route;
 
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
@@ -437,6 +436,7 @@ mta(void)
 
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
+	runq_init(&runq_route, mta_on_timeout);
 
 	signal_set(&ev_sigint, SIGINT, mta_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, NULL);
@@ -505,27 +505,41 @@ mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 {
 	struct mta_connector	*c;
 
-	log_debug("debug: mta: route ok %s", mta_route_to_text(route));
+	if (!(route->flags & ROUTE_NEW))
+		return;
 
-	route->dst->nerror = 0;
+	log_debug("debug: mta-routing: route %s is now valid.",
+	    mta_route_to_text(route));
 
-	/* XXX is this ok/useful? */
+	route->flags &= ~ROUTE_NEW;
+
 	c = mta_connector(relay, route->src);
-	c->flags &= ~CONNECTOR_ERROR_SOURCE;
+	mta_connect(c);
 }
 
 void
 mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 {
 	struct mta_connector	*c;
+	int			 delay;
 
-	log_debug("debug: mta: route collect %s", mta_route_to_text(route));
+	log_debug("debug: mta_route_collect(%s)",
+	    mta_route_to_text(route));
 
 	relay->nconn -= 1;
 	relay->domain->nconn -= 1;
 	route->nconn -= 1;
 	route->src->nconn -= 1;
 	route->dst->nconn -= 1;
+
+	if (route->flags & ROUTE_NEW) {
+		delay = 30;
+		log_info("smtp-out: Invalidating route %s for %is",
+		    mta_route_to_text(route), delay);
+		route->flags |= ROUTE_DISABLED;
+		runq_schedule(runq_route, time(NULL) + delay, NULL, route);
+		mta_route_ref(route);
+	}
 
 	c = mta_connector(relay, route->src);
 	c->nconn -= 1;
@@ -871,20 +885,31 @@ mta_connect(struct mta_connector *c)
 
 	/* No route */
 	if (route == NULL) {
+
 		if (c->flags & CONNECTOR_ERROR) {
-			log_debug("debug: mta: connector error on route");
+			/* XXX we might want to clear this flag later */
+			log_debug("debug: mta-routing: no route available for %s: errors on connector",
+			    mta_connector_to_text(c));
 			return;
 		}
-		if (limits) {
-			log_debug("debug: mta: some limits have reached");
+		else if (limits) {
+			log_debug("debug: mta-routing: no route available for %s: limits reached",
+			    mta_connector_to_text(c));
 			nextconn = now + DELAY_CHECK_LIMIT;
 		}
-		log_debug("debug: mta: scheduling %s in %is...",
+		else {
+			log_debug("debug: mta-routing: no route available for %s: must wait a bit",
+			    mta_connector_to_text(c));
+		}
+		log_debug("debug: mta: retrying to connect on %s in %is...",
 		    mta_connector_to_text(c), nextconn - time(NULL));
 		c->flags |= CONNECTOR_WAIT;
 		runq_schedule(runq_connector, nextconn, NULL, c);
 		return;
 	}
+
+	log_debug("debug: mta-routing: spawning new connection on %s",
+		    mta_route_to_text(route));
 
 	c->nconn += 1;
 	c->lastconn = time(NULL);
@@ -909,21 +934,29 @@ mta_connect(struct mta_connector *c)
 static void
 mta_on_timeout(struct runq *runq, void *arg)
 {
-	struct mta_connector	*c = arg;
-	struct mta_relay	*r = arg;
+	struct mta_connector	*connector = arg;
+	struct mta_relay	*relay = arg;
+	struct mta_route	*route = arg;
 
 	if (runq == runq_relay) {
 		log_debug("debug: mta: ... timeout for %s",
-		    mta_relay_to_text(r));
-		r->status &= ~RELAY_WAIT_CONNECTOR;
-		mta_drain(r);
-		mta_relay_unref(r); /* from mta_drain() */
+		    mta_relay_to_text(relay));
+		relay->status &= ~RELAY_WAIT_CONNECTOR;
+		mta_drain(relay);
+		mta_relay_unref(relay); /* from mta_drain() */
 	}
 	else if (runq == runq_connector) {
 		log_debug("debug: mta: ... timeout for %s",
-		    mta_connector_to_text(c));
-		c->flags &= ~CONNECTOR_WAIT;
-		mta_connect(c);
+		    mta_connector_to_text(connector));
+		connector->flags &= ~CONNECTOR_WAIT;
+		mta_connect(connector);
+	}
+	else if (runq == runq_route) {
+		log_info("smtp-out: Resuming route %s",
+		    mta_route_to_text(route));
+		route->flags &= ~ROUTE_DISABLED;
+		route->flags |= ROUTE_NEW;
+		mta_route_unref(route);
 	}
 }
 
@@ -1040,12 +1073,16 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 	struct mta_route	*route, *best;
 	struct mta_mx		*mx;
 	int			 level, limit_host, limit_route;
-	int			 family_mismatch, seen;
+	int			 family_mismatch, seen, suspended_route;
 	time_t			 tm;
+
+	log_debug("debug: mta-routing: searching new route for %s...",
+	    mta_connector_to_text(c));
 
 	tm = 0;
 	limit_host = 0;
 	limit_route = 0;
+	suspended_route = 0;
 	family_mismatch = 0;
 	level = -1;
 	best = NULL;
@@ -1094,17 +1131,21 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 		if (c->source->sa &&
 		    c->source->sa->sa_family != mx->host->sa->sa_family) {
+			log_debug("debug: mta-routing: skipping host %s: AF mismatch",
+			    mta_host_to_text(mx->host));
 			family_mismatch = 1;
 			continue;
 		}
 
 		if (mx->host->nconn >= MAXCONN_PER_HOST) {
+			log_debug("debug: mta-routing: skipping host %s: too many connections",
+			    mta_host_to_text(mx->host));
 			limit_host = 1;
 			continue;
 		}
 
 		if (mx->host->lastconn + CONNDELAY_HOST > now) {
-			log_debug("debug: mta: cannot use host %s before %is",
+			log_debug("debug: mta-routing: skipping host %s: cannot use before %is",
 			    mta_host_to_text(mx->host),
 			    mx->host->lastconn + CONNDELAY_HOST - now);
 			if (tm == 0 || mx->host->lastconn + CONNDELAY_HOST < tm)
@@ -1114,14 +1155,32 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 		route = mta_route(c->source, mx->host);
 
+		if (route->flags & ROUTE_DISABLED) {
+			log_debug("debug: mta-routing: skipping route %s: suspend",
+			    mta_route_to_text(route));
+			suspended_route += 1;
+			mta_route_unref(route); /* from here */
+			continue;
+		}
+
+		if (route->nconn && (route->flags & ROUTE_NEW)) {
+			log_debug("debug: mta-routing: skipping route %s: not validated yet",
+			    mta_route_to_text(route));
+			limit_route = 1;
+			mta_route_unref(route); /* from here */
+			continue;
+		}
+
 		if (route->nconn >= MAXCONN_PER_ROUTE) {
+			log_debug("debug: mta-routing: skipping route %s: too many connections",
+			    mta_route_to_text(route));
 			limit_route = 1;
 			mta_route_unref(route); /* from here */
 			continue;
 		}
 
 		if (route->lastconn + CONNDELAY_ROUTE > now) {
-			log_debug("debug: mta: cannot use route %s before %is",
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %is",
 			    mta_route_to_text(route),
 			    route->lastconn + CONNDELAY_ROUTE - now);
 			if (tm == 0 || route->lastconn + CONNDELAY_ROUTE < tm)
@@ -1132,6 +1191,8 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 		/* Use the route with the lowest number of connections. */
 		if (best && route->nconn >= best->nconn) {
+			log_debug("debug: mta-routing: skipping route %s: current one is better",
+			    mta_route_to_text(route));
 			mta_route_unref(route); /* from here */
 			continue;
 		}
@@ -1139,6 +1200,8 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		if (best)
 			mta_route_unref(best); /* from here */
 		best = route;
+		log_debug("debug: mta-routing: selecting candidate route %s",
+		    mta_route_to_text(route));
 	}
 
 	if (best)
@@ -1146,7 +1209,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 	/* Order is important */
 	if (seen == 0) {
-		log_info("smtp-out: No reachable MX for %s",
+		log_info("smtp-out: No MX found for %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_ERROR_MX;
 	}
@@ -1166,6 +1229,11 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		log_info("smtp-out: Address family mismatch on %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_ERROR_FAMILY;
+	}
+	else if (suspended_route) {
+		log_info("smtp-out: No valid route for %s",
+		    mta_connector_to_text(c));
+		c->flags |= CONNECTOR_ERROR_ROUTE;
 	}
 
 	return (NULL);
@@ -1672,6 +1740,7 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 		r = xcalloc(1, sizeof(*r), "mta_route");
 		r->src = src;
 		r->dst = dst;
+		r->flags |= ROUTE_NEW;
 		SPLAY_INSERT(mta_route_tree, &routes, r);
 		mta_source_ref(src);
 		mta_host_ref(dst);
@@ -1682,13 +1751,11 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 	return (r);
 }
 
-#if 0
 static void
 mta_route_ref(struct mta_route *r)
 {
 	r->refcount++;
 }
-#endif
 
 static void
 mta_route_unref(struct mta_route *r)

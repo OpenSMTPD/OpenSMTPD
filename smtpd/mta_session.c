@@ -467,7 +467,8 @@ mta_connect(struct mta_session *s)
 			break;
 		}
 	default:
-		goto fail;
+		mta_free(s);
+		return;
 	}
 	portno = s->use_smtps ? 465 : 25;
 
@@ -512,12 +513,6 @@ mta_connect(struct mta_session *s)
 			mta_error(s, "Connection failed: %s", s->io.error);
 		mta_free(s);
 	}
-	return;
-
-fail:
-	mta_error(s, "Could not connect");
-	mta_free(s);
-	return;
 }
 
 static void
