@@ -108,10 +108,6 @@ again:
 			n = 0;
 			goto fail;
 		}
-		if (errno == ENOBUFS || errno == ENOMEM) {
-			errno = EAGAIN;
-			goto fail;
-		}
 		if (errno == EMSGSIZE)
 			goto fail;
 		if (errno != EINTR && errno != EAGAIN)
