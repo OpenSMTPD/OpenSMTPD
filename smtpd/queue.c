@@ -644,7 +644,7 @@ queue_ok(uint64_t evpid)
 }
 
 void
-queue_tempfail(uint64_t evpid, const char *reason, uint32_t penalty)
+queue_tempfail(uint64_t evpid, uint32_t penalty, const char *reason)
 {
 	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);

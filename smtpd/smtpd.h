@@ -1216,7 +1216,7 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, const char *, uint32_t);
+void queue_tempfail(uint64_t, uint32_t, const char *);
 void queue_permfail(uint64_t, const char *);
 void queue_loop(uint64_t);
 void queue_flow_control(void);
