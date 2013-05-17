@@ -741,6 +741,7 @@ struct mta_envelope {
 	char				*dest;
 	char				*rcpt;
 	struct mta_task			*task;
+	int				 delivery;
 };
 
 struct mta_task {
@@ -1199,7 +1200,9 @@ void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_down(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
-void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *);
+void mta_delivery_log(struct mta_envelope *, const char *, const char *, int, const char *);
+void mta_delivery_notify(struct mta_envelope *, int, const char *, uint32_t);
+void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *, uint32_t);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);

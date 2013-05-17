@@ -66,7 +66,7 @@
 #define DELAY_CHECK_SOURCE_FAST 0
 #define DELAY_CHECK_LIMIT	5
 
-#define DELAY_ROUTE_BASE	5
+#define DELAY_ROUTE_BASE	400
 #define DELAY_ROUTE_MAX		(3600 * 4)
 
 static void mta_imsg(struct mproc *, struct imsg *);
@@ -571,8 +571,48 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 }
 
 void
-mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
+mta_delivery_log(struct mta_envelope *e, const char *source, const char *relay,
     int delivery, const char *status)
+{
+	if (delivery == IMSG_DELIVERY_OK) {
+		mta_log(e, "Ok", source, relay, status);
+	}
+	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
+		mta_log(e, "TempFail", source, relay, status);
+	}
+	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
+		mta_log(e, "PermFail", source, relay, status);
+	}
+	else if (delivery == IMSG_DELIVERY_LOOP) {
+		mta_log(e, "PermFail", source, relay, "Loop detected");
+	}
+	else
+		errx(1, "bad delivery");
+}
+
+void
+mta_delivery_notify(struct mta_envelope *e, int delivery, const char *status,
+    uint32_t penalty)
+{
+	if (delivery == IMSG_DELIVERY_OK) {
+		queue_ok(e->id);
+	}
+	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
+		queue_tempfail(e->id, penalty, status);
+	}
+	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
+		queue_permfail(e->id, status);
+	}
+	else if (delivery == IMSG_DELIVERY_LOOP) {
+		queue_loop(e->id);
+	}
+	else
+		errx(1, "bad delivery");
+}
+
+void
+mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
+    int delivery, const char *status, uint32_t penalty)
 {
 	if (delivery == IMSG_DELIVERY_OK) {
 		mta_log(e, "Ok", source, relay, status);
@@ -580,7 +620,7 @@ mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
 	}
 	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
 		mta_log(e, "TempFail", source, relay, status);
-		queue_tempfail(e->id, 0, status);
+		queue_tempfail(e->id, penalty, status);
 	}
 	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
 		mta_log(e, "PermFail", source, relay, status);
@@ -1089,7 +1129,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
-			mta_delivery(e, NULL, relay->domain->name, fail, error);
+			mta_delivery(e, NULL, relay->domain->name, fail, error, 0);
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
