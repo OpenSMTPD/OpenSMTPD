@@ -152,7 +152,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		2
+#define	IMSG_VERSION		3
 
 enum imsg_type {
 	IMSG_NONE,
@@ -175,6 +175,8 @@ enum imsg_type {
 	IMSG_CTL_UNTRACE,
 	IMSG_CTL_PROFILE,
 	IMSG_CTL_UNPROFILE,
+
+	IMSG_CTL_MTA_SHOW_ROUTES,
 
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
@@ -1390,3 +1392,5 @@ int runq_init(struct runq **, void (*)(struct runq *, void *));
 int runq_schedule(struct runq *, time_t, void (*)(struct runq *, void *), void *);
 int runq_delay(struct runq *, unsigned int, void (*)(struct runq *, void *), void *);
 int runq_cancel(struct runq *, void (*)(struct runq *, void *), void *);
+int runq_pending(struct runq *, void (*)(struct runq *, void *), void *, time_t *);
+int runq_next(struct runq *, void (**)(struct runq *, void *), void **, time_t *);

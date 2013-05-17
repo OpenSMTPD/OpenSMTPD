@@ -164,3 +164,39 @@ runq_cancel(struct runq *runq, void (*cb)(struct runq *, void *), void *arg)
 
 	return (0);
 }
+
+int
+runq_pending(struct runq *runq, void (*cb)(struct runq *, void *), void *arg,
+    time_t *when)
+{
+	struct job	*job;
+
+	TAILQ_FOREACH(job, &runq->jobs, entry) {
+		if (job->cb == cb && job->arg == arg) {
+			if (when)
+				*when = job->when;
+			return (1);
+		}
+	}
+
+	return (0);
+}
+
+int
+runq_next(struct runq *runq, void (**cb)(struct runq *, void *), void **arg,
+    time_t *when)
+{
+	struct job	*job;
+
+	job = TAILQ_FIRST(&runq->jobs);
+	if (job == NULL)
+		return (0);
+	if (cb)
+		*cb = job->cb;
+	if (arg)
+		*arg = job->arg;
+	if (when)
+		*when = job->when;
+
+	return (1);
+}

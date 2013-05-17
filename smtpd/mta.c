@@ -158,6 +158,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_domain	*domain;
+	struct mta_route	*route;
 	struct mta_mx		*mx, *imx;
 	struct mta_envelope	*e;
 	struct sockaddr_storage	 ss;
@@ -166,6 +167,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*secret;
 	uint64_t		 reqid;
+	time_t			 t;
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 dnserror, preference, v, status;
 
@@ -366,6 +368,31 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_int(&m, &v);
 			m_end(&m);
 			profiling = v;
+			return;
+		}
+	}
+
+	if (p->proc == PROC_CONTROL) {
+		switch (imsg->hdr.type) {
+		case IMSG_CTL_MTA_SHOW_ROUTES:
+			SPLAY_FOREACH(route, mta_route_tree, &routes) {
+				v = runq_pending(runq_route, NULL, route, &t);
+				snprintf(buf, sizeof(buf),
+				    "%s %c%c%c%c nconn=%zu penalty=%i timeout=%s",
+				    mta_route_to_text(route),
+				    route->flags & ROUTE_NEW ? 'N' : '-',
+				    route->flags & ROUTE_DISABLED ? 'D' : '-',
+				    route->flags & ROUTE_RUNQ ? 'Q' : '-',
+				    route->flags & ROUTE_KEEPALIVE ? 'K' : '-',
+				    route->nconn,
+				    route->penalty,
+				    v ? duration_to_text(t - time(NULL)) : "-");
+				m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES,
+				    imsg->hdr.peerid, 0, -1,
+				    buf, strlen(buf) + 1);
+			}
+			m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES, imsg->hdr.peerid,
+			    0, -1, NULL, 0);
 			return;
 		}
 	}
