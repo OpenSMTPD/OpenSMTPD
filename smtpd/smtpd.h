@@ -809,6 +809,7 @@ struct scheduler_info {
 	time_t			lasttry;
 	time_t			lastbounce;
 	time_t			nexttry;
+	uint8_t			penalty;
 };
 
 #define SCHED_NONE		0x00
@@ -1216,7 +1217,7 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, const char *);
+void queue_tempfail(uint64_t, uint32_t, const char *);
 void queue_permfail(uint64_t, const char *);
 void queue_loop(uint64_t);
 void queue_flow_control(void);
@@ -1250,7 +1251,7 @@ pid_t scheduler(void);
 
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
-void scheduler_info(struct scheduler_info *, struct envelope *);
+void scheduler_info(struct scheduler_info *, struct envelope *, uint32_t);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 

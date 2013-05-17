@@ -580,7 +580,7 @@ mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
 	}
 	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
 		mta_log(e, "TempFail", source, relay, status);
-		queue_tempfail(e->id, status);
+		queue_tempfail(e->id, 0, status);
 	}
 	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
 		mta_log(e, "PermFail", source, relay, status);
