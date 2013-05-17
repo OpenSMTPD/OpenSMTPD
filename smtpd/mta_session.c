@@ -297,7 +297,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		if (resp_ca_cert->status == CA_FAIL) {
-			log_info("smtp-out: Disconnecting session %016" PRIx64
+			log_info("smtp-out: Disconnecting session %016"PRIx64
 			    ": CA failure", s->id);
 			mta_free(s);
 			return;
@@ -592,7 +592,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		}
 
 		if (s->msgtried >= MAX_TRYBEFOREDISABLE) {
-			log_info("smtp-out: Remove host seems to reject all mails on session %"PRIx64,
+			log_info("smtp-out: Remote host seems to reject all mails on session %016"PRIx64,
 			    s->id);
 			mta_route_down(s->relay, s->route);
 			mta_enter_state(s, MTA_QUIT);
