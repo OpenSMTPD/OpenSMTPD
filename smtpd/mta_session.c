@@ -592,7 +592,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		}
 
 		if (s->msgtried >= MAX_TRYBEFOREDISABLE) {
-			log_info("smtp-out: Remove host seems to reject all mails on session %016"PRIx64,
+			log_info("smtp-out: Remote host seems to reject all mails on session %016"PRIx64,
 			    s->id);
 			mta_route_down(s->relay, s->route);
 			mta_enter_state(s, MTA_QUIT);
