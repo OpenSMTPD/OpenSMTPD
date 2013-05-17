@@ -48,7 +48,7 @@ scheduler_backend_lookup(const char *name)
 }
 
 void
-scheduler_info(struct scheduler_info *sched, struct envelope *evp)
+scheduler_info(struct scheduler_info *sched, struct envelope *evp, uint32_t penalty)
 {
 	sched->evpid = evp->id;
 	sched->type = evp->type;
@@ -58,7 +58,7 @@ scheduler_info(struct scheduler_info *sched, struct envelope *evp)
 	sched->lasttry = evp->lasttry;
 	sched->lastbounce = evp->lastbounce;
 	sched->nexttry	= 0;
-	sched->penalty = evp->penalty;
+	sched->penalty = penalty;
 }
 
 time_t

@@ -465,8 +465,6 @@ struct envelope {
 	time_t				lasttry;
 	time_t				nexttry;
 	time_t				lastbounce;
-
-	uint8_t				penalty;
 };
 
 enum envelope_field {
@@ -1250,7 +1248,7 @@ pid_t scheduler(void);
 
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
-void scheduler_info(struct scheduler_info *, struct envelope *);
+void scheduler_info(struct scheduler_info *, struct envelope *, uint32_t);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
