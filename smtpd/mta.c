@@ -614,24 +614,8 @@ void
 mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
     int delivery, const char *status, uint32_t penalty)
 {
-	if (delivery == IMSG_DELIVERY_OK) {
-		mta_log(e, "Ok", source, relay, status);
-		queue_ok(e->id);
-	}
-	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
-		mta_log(e, "TempFail", source, relay, status);
-		queue_tempfail(e->id, penalty, status);
-	}
-	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
-		mta_log(e, "PermFail", source, relay, status);
-		queue_permfail(e->id, status);
-	}
-	else if (delivery == IMSG_DELIVERY_LOOP) {
-		mta_log(e, "PermFail", source, relay, "Loop detected");
-		queue_loop(e->id);
-	}
-	else
-		errx(1, "bad delivery");
+	mta_delivery_log(e, source, relay, delivery, status);
+	mta_delivery_notify(e, delivery, status, penalty);
 }
 
 static void
