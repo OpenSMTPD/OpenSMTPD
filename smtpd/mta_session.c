@@ -790,7 +790,6 @@ mta_response(struct mta_session *s, char *line)
 				delivery = IMSG_DELIVERY_PERMFAIL;
 			else
 				delivery = IMSG_DELIVERY_TEMPFAIL;
-			mta_flush_failedqueue(s);
 			mta_flush_task(s, delivery, line, 0);
 			mta_enter_state(s, MTA_RSET);
 			return;
@@ -857,7 +856,6 @@ mta_response(struct mta_session *s, char *line)
 			 * if no more envelopes, flush failed queue
 			 */
 			if (TAILQ_EMPTY(&s->task->envelopes)) {
-				mta_flush_failedqueue(s);
 				mta_flush_task(s, IMSG_DELIVERY_OK,
 				    "No envelope", 0);
 				mta_enter_state(s, MTA_RSET);
@@ -907,6 +905,7 @@ mta_response(struct mta_session *s, char *line)
 		break;
 
 	case MTA_RSET:
+		mta_flush_failedqueue(s);
 		mta_enter_state(s, MTA_READY);
 		break;
 
