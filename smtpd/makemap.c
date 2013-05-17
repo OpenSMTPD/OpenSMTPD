@@ -28,6 +28,7 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
+#include <ctype.h>
 #ifdef HAVE_DB_H
 #include <db.h>
 #elif defined(HAVE_DB1_DB_H)
@@ -35,7 +36,6 @@
 #elif defined(HAVE_DB_185_H)
 #include <db_185.h>
 #endif
-#include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
