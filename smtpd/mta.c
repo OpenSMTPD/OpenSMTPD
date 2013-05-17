@@ -1021,8 +1021,11 @@ mta_on_timeout(struct runq *runq, void *arg)
 		}
 
 		if (route->penalty) {
+#if 0
 			route->penalty -= 1;
 			route->lastpenalty = time(NULL);
+#endif
+			route->penalty = 0;
 		}
 
 		mta_route_unref(route);
@@ -1883,7 +1886,10 @@ mta_route_unref(struct mta_route *r)
 	sched = 0;
 
 	if (r->penalty) {
+#if 0
 		delay = DELAY_ROUTE_BASE * r->penalty * r->penalty;
+#endif
+		delay = 15 * 60;
 		if (delay > DELAY_ROUTE_MAX)
 			delay = DELAY_ROUTE_MAX;
 		sched = r->lastpenalty + delay;
