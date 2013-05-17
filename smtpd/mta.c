@@ -52,18 +52,21 @@
 #define MAXCONN_PER_DOMAIN	100
 
 #define CONNDELAY_HOST		0
-#define CONNDELAY_ROUTE		3
+#define CONNDELAY_ROUTE		5
+#define DISCDELAY_ROUTE		3
 #define CONNDELAY_SOURCE	0
 #define CONNDELAY_CONNECTOR	0
 #define CONNDELAY_RELAY		0
 #define CONNDELAY_DOMAIN	0
+
+
 
 #define DELAY_CHECK_SOURCE	1
 #define DELAY_CHECK_SOURCE_SLOW	10
 #define DELAY_CHECK_SOURCE_FAST 0
 #define DELAY_CHECK_LIMIT	5
 
-#define DELAY_ROUTE_BASE	200
+#define DELAY_ROUTE_BASE	5
 #define DELAY_ROUTE_MAX		(3600 * 4)
 
 static void mta_imsg(struct mproc *, struct imsg *);
@@ -540,6 +543,7 @@ mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 	route->nconn -= 1;
 	route->src->nconn -= 1;
 	route->dst->nconn -= 1;
+	route->lastdisc = time(NULL);
 
 	/* First connection failed */
 	if (route->flags & ROUTE_NEW)
@@ -941,7 +945,6 @@ mta_on_timeout(struct runq *runq, void *arg)
 	struct mta_connector	*connector = arg;
 	struct mta_relay	*relay = arg;
 	struct mta_route	*route = arg;
-	int 			 delay;
 
 	if (runq == runq_relay) {
 		log_debug("debug: mta: ... timeout for %s",
@@ -957,6 +960,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 		mta_connect(connector);
 	}
 	else if (runq == runq_route) {
+		route->flags &= ~ROUTE_RUNQ;
 
 		if (route->flags & ROUTE_DISABLED) {
 			log_info("smtp-out: Enabling route %s",
@@ -964,21 +968,10 @@ mta_on_timeout(struct runq *runq, void *arg)
 			route->flags &= ~ROUTE_DISABLED;
 			route->flags |= ROUTE_NEW;
 		}
-		else {
-			route->flags &= ~ROUTE_KEEPALIVE;
-		}
 
-		route->penalty -= 1;
-		delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
-		if (delay > DELAY_ROUTE_MAX)
-			delay = DELAY_ROUTE_MAX;
-
-		if (delay) {
-			log_debug("mta: keeping route %s alive for %is (penalty %i)",
-			    mta_route_to_text(route), delay, route->penalty);
-			route->flags |= ROUTE_KEEPALIVE;
-			runq_schedule(runq, time(NULL) + delay, NULL, route);
-			return;
+		if (route->penalty) {
+			route->penalty -= 1;
+			route->lastpenalty = time(NULL);
 		}
 
 		mta_route_unref(route);
@@ -990,13 +983,8 @@ mta_route_disable(struct mta_route *route, int penalty)
 {
 	int	delay;
 
-	if (route->flags & ROUTE_DISABLED) {
-		route->flags &= ~ROUTE_DISABLED;
-		runq_cancel(runq_route, NULL, route);
-		mta_route_unref(route);
-	}
-
 	route->penalty += penalty;
+	route->lastpenalty = time(NULL);
 	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
@@ -1004,14 +992,11 @@ mta_route_disable(struct mta_route *route, int penalty)
 	log_info("smtp-out: Disabling route %s for %is",
 	    mta_route_to_text(route), delay);
 
-	route->flags |= ROUTE_DISABLED;
-
-	if (route->flags & ROUTE_KEEPALIVE) {
-		route->flags &= ~ROUTE_KEEPALIVE;
+	if (route->flags & ROUTE_DISABLED) {
 		runq_cancel(runq_route, NULL, route);
-		mta_route_unref(route);
+		mta_route_unref(route); /* from last call to here */
 	}
-
+	route->flags |= ROUTE_DISABLED;
 	runq_schedule(runq_route, time(NULL) + delay, NULL, route);
 	mta_route_ref(route);
 }
@@ -1236,11 +1221,21 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (route->lastconn + CONNDELAY_ROUTE > now) {
-			log_debug("debug: mta-routing: skipping route %s: cannot use before %is",
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %is (delay after connect)",
 			    mta_route_to_text(route),
 			    route->lastconn + CONNDELAY_ROUTE - now);
 			if (tm == 0 || route->lastconn + CONNDELAY_ROUTE < tm)
 				tm = route->lastconn + CONNDELAY_ROUTE;
+			mta_route_unref(route); /* from here */
+			continue;
+		}
+
+		if (route->lastdisc + DISCDELAY_ROUTE > now) {
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %is (delay after disconnect)",
+			    mta_route_to_text(route),
+			    route->lastdisc + DISCDELAY_ROUTE - now);
+			if (tm == 0 || route->lastdisc + DISCDELAY_ROUTE < tm)
+				tm = route->lastdisc + DISCDELAY_ROUTE;
 			mta_route_unref(route); /* from here */
 			continue;
 		}
@@ -1802,6 +1797,13 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 		mta_host_ref(dst);
 		stat_increment("mta.route", 1);
 	}
+	else if (r->flags & ROUTE_RUNQ) {
+		log_debug("debug: mta: mta_route_ref(): canceling runq for route %s",
+		    mta_route_to_text(r));
+		r->flags &= ~(ROUTE_RUNQ | ROUTE_KEEPALIVE);
+		runq_cancel(runq_route, NULL, r);
+		r->refcount--; /* from mta_route_unref() */
+	}
 
 	r->refcount++;
 	return (r);
@@ -1816,8 +1818,47 @@ mta_route_ref(struct mta_route *r)
 static void
 mta_route_unref(struct mta_route *r)
 {
+	time_t	sched, now;
+	int	delay;
+
 	if (--r->refcount)
 		return;
+
+	/*
+	 * Nothing references this route, but we might want to keep it alive
+	 * for a while.
+	 */
+	now = time(NULL);
+	sched = 0;
+
+	if (r->penalty) {
+		delay = DELAY_ROUTE_BASE * r->penalty * r->penalty;
+		if (delay > DELAY_ROUTE_MAX)
+			delay = DELAY_ROUTE_MAX;
+		sched = r->lastpenalty + delay;
+		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %is (penalty %i)",
+		    mta_route_to_text(r), sched - now, r->penalty);
+	} else if (!(r->flags & ROUTE_KEEPALIVE)) {
+		if (r->lastconn + CONNDELAY_ROUTE > now)
+			sched = r->lastconn + CONNDELAY_ROUTE;
+		if (r->lastdisc + DISCDELAY_ROUTE > now &&
+		    r->lastdisc + DISCDELAY_ROUTE < sched)
+			sched = r->lastdisc + DISCDELAY_ROUTE;
+
+		if (sched > now)
+			log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %is (imposed delay)",
+			    mta_route_to_text(r), sched - now);
+	}
+
+	if (sched > now) {
+		r->flags |= ROUTE_RUNQ;
+		runq_schedule(runq_route, sched, NULL, r);
+		r->refcount++;
+		return;
+	}
+
+	log_debug("debug: mta: ma_route_unref(): really discarding route %s",
+	    mta_route_to_text(r));
 
 	SPLAY_REMOVE(mta_route_tree, &routes, r);
 	mta_source_unref(r->src); /* from constructor */
