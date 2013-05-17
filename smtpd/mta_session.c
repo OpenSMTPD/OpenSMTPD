@@ -123,7 +123,7 @@ struct mta_session {
 	struct mta_envelope	*currevp;
 	FILE			*datafp;
 
-#define	MAX_FAILED_ENVELOPES	10
+#define	MAX_FAILED_ENVELOPES	20
 	struct failed_evp	 failed[MAX_FAILED_ENVELOPES];
 	int			 failedcount;
 };
@@ -845,8 +845,6 @@ mta_response(struct mta_session *s, char *line)
 			 * - mark route down
 			 */
 			if (s->failedcount == MAX_FAILED_ENVELOPES) {
-				log_debug("DISABLING");
-				/* draining to scheduler */
 				mta_flush_failedqueue(s);
 				mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
 				    "Host temporarily disabled", 0);
