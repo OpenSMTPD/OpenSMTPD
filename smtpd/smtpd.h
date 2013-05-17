@@ -465,6 +465,8 @@ struct envelope {
 	time_t				lasttry;
 	time_t				nexttry;
 	time_t				lastbounce;
+
+	uint8_t				penalty;
 };
 
 enum envelope_field {
@@ -806,6 +808,7 @@ struct scheduler_info {
 	time_t			lasttry;
 	time_t			lastbounce;
 	time_t			nexttry;
+	uint8_t			penalty;
 };
 
 #define SCHED_NONE		0x00
@@ -1213,7 +1216,7 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, const char *);
+void queue_tempfail(uint64_t, const char *, uint32_t);
 void queue_permfail(uint64_t, const char *);
 void queue_loop(uint64_t);
 void queue_flow_control(void);

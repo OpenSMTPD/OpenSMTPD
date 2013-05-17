@@ -58,19 +58,22 @@ scheduler_info(struct scheduler_info *sched, struct envelope *evp)
 	sched->lasttry = evp->lasttry;
 	sched->lastbounce = evp->lastbounce;
 	sched->nexttry	= 0;
+	sched->penalty = evp->penalty;
 }
 
 time_t
 scheduler_compute_schedule(struct scheduler_info *sched)
 {
-	time_t	delay;
+	time_t		delay;
+	uint32_t	retry;
 
 	if (sched->type == D_MTA)
 		delay = 800;
 	else
 		delay = 10;
 
-	delay = ((delay * sched->retry) * sched->retry) / 2;
+	retry = sched->retry + sched->penalty;
+	delay = ((delay * retry) * retry) / 2;
 
 	return (sched->creation + delay);
 }
