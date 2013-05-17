@@ -119,6 +119,16 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 	}
+	if (p->proc == PROC_MTA) {
+		switch (imsg->hdr.type) {
+		case IMSG_CTL_MTA_SHOW_ROUTES:
+			c = tree_get(&ctl_conns, imsg->hdr.peerid);
+			if (c == NULL)
+				return;
+			m_forward(&c->mproc, imsg);
+			return;
+		}
+	}
 
 	switch (imsg->hdr.type) {
 	case IMSG_STAT_INCREMENT:
@@ -664,6 +674,13 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 		m_compose(p_scheduler, IMSG_CTL_LIST_ENVELOPES, c->id, 0, -1,
+		    imsg->data, imsg->hdr.len - sizeof(imsg->hdr));
+		return;
+
+	case IMSG_CTL_MTA_SHOW_ROUTES:
+		if (c->euid)
+			goto badcred;
+		m_compose(p_mta, IMSG_CTL_MTA_SHOW_ROUTES, c->id, 0, -1,
 		    imsg->data, imsg->hdr.len - sizeof(imsg->hdr));
 		return;
 

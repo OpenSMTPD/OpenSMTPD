@@ -96,6 +96,7 @@ static const struct token t_show[] = {
 	{KEYWORD,	"stats",	SHOW_STATS,	NULL},
 	{KEYWORD,	"envelope",	NONE,		t_show_envelope},
 	{KEYWORD,	"message",	SHOW_MESSAGE,	t_show_message},
+	{KEYWORD,	"routes",	SHOW_ROUTES,	NULL},
 	{ENDTOKEN,	"",		NONE,		NULL}
 };
 
