@@ -90,6 +90,11 @@ enum mta_state {
 #define MTA_EXT_AUTH		0x02
 #define MTA_EXT_PIPELINING	0x04
 
+struct failed_evp {
+	int			 delivery;
+	char			 error[SMTPD_MAXLINESIZE];
+	struct mta_envelope     *evp;
+};
 
 struct mta_session {
 	uint64_t		 id;
@@ -117,6 +122,10 @@ struct mta_session {
 	struct mta_task		*task;
 	struct mta_envelope	*currevp;
 	FILE			*datafp;
+
+#define	MAX_FAILED_ENVELOPES	10
+	struct failed_evp	 failed[MAX_FAILED_ENVELOPES];
+	int			 failedcount;
 };
 
 static void mta_session_init(void);
@@ -136,6 +145,7 @@ static int mta_check_loop(FILE *);
 static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
+static void mta_flush_failedqueue(struct mta_session *);
 
 static struct tree wait_helo;
 static struct tree wait_ptr;
@@ -699,10 +709,11 @@ static void
 mta_response(struct mta_session *s, char *line)
 {
 	struct mta_envelope	*e;
-	char			 buf[SMTPD_MAXLINESIZE];
-	int			 delivery;
+	struct failed_evp	*fevp;
 	struct sockaddr		 sa;
 	socklen_t		 sa_len;
+	char			 buf[SMTPD_MAXLINESIZE];
+	int			 delivery;
 
 	switch (s->state) {
 
@@ -779,6 +790,7 @@ mta_response(struct mta_session *s, char *line)
 				delivery = IMSG_DELIVERY_PERMFAIL;
 			else
 				delivery = IMSG_DELIVERY_TEMPFAIL;
+			mta_flush_failedqueue(s);
 			mta_flush_task(s, delivery, line, 0);
 			mta_enter_state(s, MTA_RSET);
 			return;
@@ -789,19 +801,23 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_RCPT:
 		e = s->currevp;
 		s->currevp = TAILQ_NEXT(s->currevp, entry);
-		if (line[0] != '2') {
+		if (line[0] == '2')
+			mta_flush_failedqueue(s);
+		else {
 			if (line[0] == '5')
 				delivery = IMSG_DELIVERY_PERMFAIL;
 			else
 				delivery = IMSG_DELIVERY_TEMPFAIL;
 
+			/* remove failed envelope from task list */
 			TAILQ_REMOVE(&s->task->envelopes, e, entry);
+			stat_decrement("mta.envelope", 1);
+
+			/* log right away */
 			snprintf(buf, sizeof(buf), "%s",
 			    mta_host_to_text(s->route->dst));
 
-			/* we're about to log, associate session to envelope */
 			e->session = s->id;
-
 			/* XXX */
 			/*
 			 * getsockname() can only fail with ENOBUFS here
@@ -809,22 +825,48 @@ mta_response(struct mta_session *s, char *line)
 			 */
 			sa_len = sizeof sa;
 			if (getsockname(s->io.sock, &sa, &sa_len) < 0)
-				mta_delivery(e, NULL, buf, delivery, line);
+				mta_delivery_log(e, NULL, buf, delivery, line);
 			else
-				mta_delivery(e, sa_to_text(&sa),
+				mta_delivery_log(e, sa_to_text(&sa),
 				    buf, delivery, line);
-			free(e->dest);
-			free(e->rcpt);
-			free(e);
-			stat_decrement("mta.envelope", 1);
 
+			/* push failed envelope to the session fail queue */
+			e->delivery = delivery;
+			fevp = &s->failed[s->failedcount];
+			fevp->delivery = delivery;
+			fevp->evp = e;
+			strlcpy(fevp->error, line, sizeof fevp->error);
+			s->failedcount++;
+
+			/*
+			 * if session fail queue is full:
+			 * - flush failed queue (failure w/ penalty)
+			 * - flush remaining tasks with TempFail
+			 * - mark route down
+			 */
+			if (s->failedcount == MAX_FAILED_ENVELOPES) {
+				log_debug("DISABLING");
+				/* draining to scheduler */
+				mta_flush_failedqueue(s);
+				mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
+				    "Host temporarily disabled", 0);
+				mta_route_down(s->relay, s->route);
+				mta_enter_state(s, MTA_QUIT);
+				break;
+			}
+
+			/*
+			 * if no more envelopes, flush failed queue
+			 */
 			if (TAILQ_EMPTY(&s->task->envelopes)) {
+				mta_flush_failedqueue(s);
 				mta_flush_task(s, IMSG_DELIVERY_OK,
 				    "No envelope", 0);
 				mta_enter_state(s, MTA_RSET);
 				break;
 			}
 		}
+
 		if (s->currevp == NULL)
 			mta_enter_state(s, MTA_DATA);
 		else
@@ -832,6 +874,7 @@ mta_response(struct mta_session *s, char *line)
 		break;
 
 	case MTA_DATA:
+		mta_flush_failedqueue(s);
 		if (line[0] == '2' || line[0] == '3') {
 			mta_enter_state(s, MTA_BODY);
 			break;
@@ -1116,10 +1159,10 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		 */
 		sa_len = sizeof sa;
 		if (getsockname(s->io.sock, &sa, &sa_len) < 0)
-			mta_delivery(e, NULL, relay, delivery, error);
+			mta_delivery(e, NULL, relay, delivery, error, 0);
 		else
 			mta_delivery(e, sa_to_text(&sa),
-			    relay, delivery, error);
+			    relay, delivery, error, 0);
 
 		free(e->dest);
 		free(e->rcpt);
@@ -1139,6 +1182,28 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 	stat_decrement("mta.envelope", n);
 	stat_decrement("mta.task.running", 1);
 	stat_decrement("mta.task", 1);
+}
+
+static void
+mta_flush_failedqueue(struct mta_session *s)
+{
+	int			 i;
+	struct failed_evp	*fevp;
+	struct mta_envelope	*e;
+	uint32_t		 penalty;
+
+	penalty = s->failedcount == MAX_FAILED_ENVELOPES ? 1 : 0;
+
+	for (i = 0; i < s->failedcount; ++i) {
+		fevp = &s->failed[i];
+		e = fevp->evp;
+		mta_delivery_notify(e, fevp->delivery, fevp->error, penalty);
+		free(e->dest);
+		free(e->rcpt);
+		free(e);
+	}
+
+	s->failedcount = 0;
 }
 
 static void
