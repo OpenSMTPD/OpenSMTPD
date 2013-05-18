@@ -173,5 +173,6 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 
 uninstall-hook:
-	rm 	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \
-		$(DESTDIR)$(sbindir)/makemap$(EXEEXT)
+	rm -f	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \
+		$(DESTDIR)$(sbindir)/makemap$(EXEEXT) \
+		$(DESTDIR)$(bindir)/mailq$(EXEEXT)
