@@ -176,3 +176,13 @@ uninstall-hook:
 	rm -f	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \
 		$(DESTDIR)$(sbindir)/makemap$(EXEEXT) \
 		$(DESTDIR)$(bindir)/mailq$(EXEEXT)
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5 \
+		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5 \
+		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5 \
+		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8 \
+		$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8 \
+		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8 \
+		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
+	rmdir	$(DESTDIR)$(pkglibexecdir) \
+		$(DESTDIR)$(mandir)/$(mansubdir)5 \
+		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
