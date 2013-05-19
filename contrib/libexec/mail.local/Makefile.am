@@ -15,3 +15,6 @@ LDADD = 		$(LIBCOMPAT)
 # {v,}asprintf
 # setres{g,u}id
 CFLAGS +=		-D_GNU_SOURCE
+
+uninstall-hook:
+	rmdir	$(DESTDIR)$(libexecdir) 2> /dev/null || /bin/true
