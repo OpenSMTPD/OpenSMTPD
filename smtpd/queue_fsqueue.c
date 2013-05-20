@@ -108,7 +108,8 @@ fsqueue_check_space(void)
 	else
 		used = 100;
 	if (100 - used < MINSPACE) {
-		log_warnx("warn: not enough disk space: %llu%% left", 100 - used);
+		log_warnx("warn: not enough disk space: %llu%% left",
+		    (unsigned long long) 100 - used);
 		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
@@ -120,7 +121,8 @@ fsqueue_check_space(void)
 	else
 		used = 100;
 	if (100 - used < MININODES) {
-		log_warnx("warn: not enough inodes: %llu%% left", 100 - used);
+		log_warnx("warn: not enough inodes: %llu%% left",
+		    (unsigned long long) 100 - used);
 		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
