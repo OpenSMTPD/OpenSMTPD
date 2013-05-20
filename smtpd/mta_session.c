@@ -146,6 +146,7 @@ static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
 static void mta_flush_failedqueue(struct mta_session *);
+void mta_hoststat_update(const char *, const char *, uint64_t);
 
 static struct tree wait_helo;
 static struct tree wait_ptr;
@@ -1133,9 +1134,9 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 	size_t			 n;
 	struct sockaddr		 sa;
 	socklen_t		 sa_len;
+	const char		*domain;
 
 	snprintf(relay, sizeof relay, "%s", mta_host_to_text(s->route->dst));
-
 	n = 0;
 	while ((e = TAILQ_FIRST(&s->task->envelopes))) {
 
@@ -1160,6 +1161,10 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		else
 			mta_delivery(e, sa_to_text(&sa),
 			    relay, delivery, error, 0);
+
+		domain = strchr(e->dest, '@');
+		if (domain)
+			mta_hoststat_update(domain + 1, error, e->id);
 
 		free(e->dest);
 		free(e->rcpt);
@@ -1187,6 +1192,7 @@ mta_flush_failedqueue(struct mta_session *s)
 	int			 i;
 	struct failed_evp	*fevp;
 	struct mta_envelope	*e;
+	const char		*domain;
 	uint32_t		 penalty;
 
 	penalty = s->failedcount == MAX_FAILED_ENVELOPES ? 1 : 0;
@@ -1195,6 +1201,11 @@ mta_flush_failedqueue(struct mta_session *s)
 		fevp = &s->failed[i];
 		e = fevp->evp;
 		mta_delivery_notify(e, fevp->delivery, fevp->error, penalty);
+
+		domain = strchr(e->dest, '@');
+		if (domain)
+			mta_hoststat_update(domain + 1, fevp->error, e->id);
+
 		free(e->dest);
 		free(e->rcpt);
 		free(e);
@@ -1369,6 +1380,7 @@ mta_verify_certificate(struct mta_session *s)
 
 	return 1;
 }
+
 
 #define CASE(x) case x : return #x
 
