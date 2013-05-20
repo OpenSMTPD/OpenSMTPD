@@ -24,4 +24,4 @@ install-exec-hook:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 
 uninstall-hook:
-	rm $(DESTDIR)$(bindir)/smtpscript(EXEEXT)
+	rm -f $(DESTDIR)$(bindir)/smtpscript$(EXEEXT)
