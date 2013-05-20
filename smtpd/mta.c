@@ -903,9 +903,9 @@ mta_connect(struct mta_connector *c)
 	nextconn = now = time(NULL);
 
 	if (c->source->lastconn + CONNDELAY_DOMAIN > nextconn) {
-		log_debug("debug: mta: cannot use domain %s before %is",
+		log_debug("debug: mta: cannot use domain %s before %llus",
 		    c->relay->domain->name,
-		    c->relay->domain->lastconn + CONNDELAY_DOMAIN - now);
+		    (unsigned long long) c->relay->domain->lastconn + CONNDELAY_DOMAIN - now);
 		nextconn = c->relay->domain->lastconn + CONNDELAY_DOMAIN;
 	}
 	if (c->relay->domain->nconn >= MAXCONN_PER_DOMAIN) {
@@ -914,9 +914,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->source->lastconn + CONNDELAY_SOURCE > nextconn) {
-		log_debug("debug: mta: cannot use source %s before %is",
+		log_debug("debug: mta: cannot use source %s before %llus",
 		    mta_source_to_text(c->source),
-		    c->source->lastconn + CONNDELAY_SOURCE - now);
+		    (unsigned long long) c->source->lastconn + CONNDELAY_SOURCE - now);
 		nextconn = c->source->lastconn + CONNDELAY_SOURCE;
 	}
 	if (c->source->nconn >= MAXCONN_PER_SOURCE) {
@@ -925,9 +925,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->lastconn + CONNDELAY_CONNECTOR > nextconn) {
-		log_debug("debug: mta: cannot use %s before %is",
+		log_debug("debug: mta: cannot use %s before %llus",
 		    mta_connector_to_text(c),
-		    c->lastconn + CONNDELAY_CONNECTOR - now);
+		    (unsigned long long) c->lastconn + CONNDELAY_CONNECTOR - now);
 		nextconn = c->lastconn + CONNDELAY_CONNECTOR;
 	}
 	if (c->nconn >= MAXCONN_PER_CONNECTOR) {
@@ -936,9 +936,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->relay->lastconn + CONNDELAY_RELAY > nextconn) {
-		log_debug("debug: mta: cannot use %s before %is",
+		log_debug("debug: mta: cannot use %s before %llus",
 		    mta_relay_to_text(c->relay),
-		    c->relay->lastconn + CONNDELAY_RELAY - now);
+		    (unsigned long long) c->relay->lastconn + CONNDELAY_RELAY - now);
 		nextconn = c->relay->lastconn + CONNDELAY_RELAY;
 	}
 	if (c->relay->nconn >= MAXCONN_PER_RELAY) {
@@ -970,8 +970,9 @@ mta_connect(struct mta_connector *c)
 			log_debug("debug: mta-routing: no route available for %s: must wait a bit",
 			    mta_connector_to_text(c));
 		}
-		log_debug("debug: mta: retrying to connect on %s in %is...",
-		    mta_connector_to_text(c), nextconn - time(NULL));
+		log_debug("debug: mta: retrying to connect on %s in %llus...",
+		    mta_connector_to_text(c),
+		    (unsigned long long) nextconn - time(NULL));
 		c->flags |= CONNECTOR_WAIT;
 		runq_schedule(runq_connector, nextconn, NULL, c);
 		return;
@@ -1045,7 +1046,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 static void
 mta_route_disable(struct mta_route *route, int penalty)
 {
-	int	delay;
+	unsigned long long	delay;
 
 	route->penalty += penalty;
 	route->lastpenalty = time(NULL);
@@ -1053,7 +1054,7 @@ mta_route_disable(struct mta_route *route, int penalty)
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
 
-	log_info("smtp-out: Disabling route %s for %is",
+	log_info("smtp-out: Disabling route %s for %llus",
 	    mta_route_to_text(route), delay);
 
 	if (route->flags & ROUTE_DISABLED) {
@@ -1127,8 +1128,9 @@ mta_drain(struct mta_relay *r)
 	if (r->nextsource <= time(NULL))
 		mta_query_source(r);
 	else {
-		log_debug("debug: mta: scheduling relay %s in %is...",
-		    mta_relay_to_text(r), r->nextsource - time(NULL));
+		log_debug("debug: mta: scheduling relay %s in %llus...",
+		    mta_relay_to_text(r),
+		    (unsigned long long) r->nextsource - time(NULL));
 		runq_schedule(runq_relay, r->nextsource, NULL, r);
 		r->status |= RELAY_WAIT_CONNECTOR;
 		mta_relay_ref(r);
@@ -1250,9 +1252,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (mx->host->lastconn + CONNDELAY_HOST > now) {
-			log_debug("debug: mta-routing: skipping host %s: cannot use before %is",
+			log_debug("debug: mta-routing: skipping host %s: cannot use before %llus",
 			    mta_host_to_text(mx->host),
-			    mx->host->lastconn + CONNDELAY_HOST - now);
+			    (unsigned long long) mx->host->lastconn + CONNDELAY_HOST - now);
 			if (tm == 0 || mx->host->lastconn + CONNDELAY_HOST < tm)
 				tm = mx->host->lastconn + CONNDELAY_HOST;
 			continue;
@@ -1285,9 +1287,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (route->lastconn + CONNDELAY_ROUTE > now) {
-			log_debug("debug: mta-routing: skipping route %s: cannot use before %is (delay after connect)",
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %llus (delay after connect)",
 			    mta_route_to_text(route),
-			    route->lastconn + CONNDELAY_ROUTE - now);
+			    (unsigned long long) route->lastconn + CONNDELAY_ROUTE - now);
 			if (tm == 0 || route->lastconn + CONNDELAY_ROUTE < tm)
 				tm = route->lastconn + CONNDELAY_ROUTE;
 			mta_route_unref(route); /* from here */
@@ -1295,9 +1297,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (route->lastdisc + DISCDELAY_ROUTE > now) {
-			log_debug("debug: mta-routing: skipping route %s: cannot use before %is (delay after disconnect)",
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %llus (delay after disconnect)",
 			    mta_route_to_text(route),
-			    route->lastdisc + DISCDELAY_ROUTE - now);
+			    (unsigned long long) route->lastdisc + DISCDELAY_ROUTE - now);
 			if (tm == 0 || route->lastdisc + DISCDELAY_ROUTE < tm)
 				tm = route->lastdisc + DISCDELAY_ROUTE;
 			mta_route_unref(route); /* from here */
@@ -1903,8 +1905,8 @@ mta_route_unref(struct mta_route *r)
 		if (delay > DELAY_ROUTE_MAX)
 			delay = DELAY_ROUTE_MAX;
 		sched = r->lastpenalty + delay;
-		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %is (penalty %i)",
-		    mta_route_to_text(r), sched - now, r->penalty);
+		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (penalty %i)",
+		    mta_route_to_text(r), (unsigned long long) sched - now, r->penalty);
 	} else if (!(r->flags & ROUTE_KEEPALIVE)) {
 		if (r->lastconn + CONNDELAY_ROUTE > now)
 			sched = r->lastconn + CONNDELAY_ROUTE;
@@ -1913,8 +1915,8 @@ mta_route_unref(struct mta_route *r)
 			sched = r->lastdisc + DISCDELAY_ROUTE;
 
 		if (sched > now)
-			log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %is (imposed delay)",
-			    mta_route_to_text(r), sched - now);
+			log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (imposed delay)",
+			    mta_route_to_text(r), (unsigned long long) sched - now);
 	}
 
 	if (sched > now) {
