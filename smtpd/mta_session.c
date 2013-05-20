@@ -50,6 +50,8 @@
 
 #define MTA_HIWAT	65535
 
+#define MTA_DELAY_HANGON	10
+
 enum mta_state {
 	MTA_INIT,
 	MTA_BANNER,
@@ -117,6 +119,7 @@ struct mta_session {
 	int			 msgtried;
 	int			 msgcount;
 	int			 rcptcount;
+	int			 hangon;
 
 	enum mta_state		 state;
 	struct mta_task		*task;
@@ -133,6 +136,7 @@ static void mta_start(int fd, short ev, void *arg);
 static void mta_io(struct io *, int);
 static void mta_free(struct mta_session *);
 static void mta_on_ptr(void *, void *, void *);
+static void mta_on_timeout(struct runq *, void *);
 static void mta_connect(struct mta_session *);
 static void mta_enter_state(struct mta_session *, int);
 static void mta_flush_task(struct mta_session *, int, const char *, size_t);
@@ -154,6 +158,8 @@ static struct tree wait_fd;
 static struct tree wait_ssl_init;
 static struct tree wait_ssl_verify;
 
+static struct runq *hangon;
+
 static void
 mta_session_init(void)
 {
@@ -165,6 +171,7 @@ mta_session_init(void)
 		tree_init(&wait_fd);
 		tree_init(&wait_ssl_init);
 		tree_init(&wait_ssl_verify);
+		runq_init(&hangon, mta_on_timeout);
 		init = 1;
 	}
 }
@@ -420,6 +427,19 @@ mta_free(struct mta_session *s)
 }
 
 static void
+mta_on_timeout(struct runq *runq, void *arg)
+{
+	struct mta_session *s = arg;
+
+	log_debug("mta: timeout for session hangon");
+
+	s->hangon--;
+
+	mta_enter_state(s, MTA_READY);
+	io_reload(&s->io);
+}
+
+static void
 mta_on_ptr(void *tag, void *arg, void *data)
 {
 	struct mta_session *s = arg;
@@ -622,7 +642,14 @@ mta_enter_state(struct mta_session *s, int newstate)
 		if (s->task == NULL) {
 			log_debug("debug: mta: %p: no task for relay %s",
 			    s, mta_relay_to_text(s->relay));
-			mta_enter_state(s, MTA_QUIT);
+
+			if (s->relay->nconn > 1 || s->hangon == 0) {
+				mta_enter_state(s, MTA_QUIT);
+				break;
+			}
+
+			log_debug("mta: debug: last connection: hanging on for %is", s->hangon);
+			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
 		}
 
@@ -641,6 +668,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
+		s->hangon = MTA_DELAY_HANGON;
 		s->msgtried++;
 		mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;

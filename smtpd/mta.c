@@ -56,7 +56,7 @@
 #define DISCDELAY_ROUTE		3
 #define CONNDELAY_SOURCE	0
 #define CONNDELAY_CONNECTOR	0
-#define CONNDELAY_RELAY		0
+#define CONNDELAY_RELAY		4
 #define CONNDELAY_DOMAIN	0
 
 
@@ -915,6 +915,12 @@ mta_connect(struct mta_connector *c)
 	/* No job. */
 	if (c->relay->ntask == 0) {
 		log_debug("debug: mta: no task for connector");
+		return;
+	}
+
+	/* Do not create more connections than necessay */
+	if (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2) {
+		log_debug("debug: mta: enough connections already");
 		return;
 	}
 
