@@ -48,7 +48,7 @@
 #define MAX_MAIL		100
 #define MAX_TRYBEFOREDISABLE	10
 
-#define MTA_HIWAT	65535
+#define MTA_HIWAT		65535
 
 #define MTA_DELAY_HANGON	10
 
@@ -126,7 +126,7 @@ struct mta_session {
 	struct mta_envelope	*currevp;
 	FILE			*datafp;
 
-#define	MAX_FAILED_ENVELOPES	20
+#define	MAX_FAILED_ENVELOPES	3
 	struct failed_evp	 failed[MAX_FAILED_ENVELOPES];
 	int			 failedcount;
 };
@@ -151,6 +151,7 @@ static int mta_verify_certificate(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
 static void mta_flush_failedqueue(struct mta_session *);
 void mta_hoststat_update(const char *, const char *, uint64_t);
+void mta_hoststat_reschedule(const char *);
 
 static struct tree wait_helo;
 static struct tree wait_ptr;
@@ -740,6 +741,7 @@ mta_response(struct mta_session *s, char *line)
 	struct mta_envelope	*e;
 	struct failed_evp	*fevp;
 	struct sockaddr		 sa;
+	const char		*domain;
 	socklen_t		 sa_len;
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 delivery;
@@ -829,8 +831,14 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_RCPT:
 		e = s->currevp;
 		s->currevp = TAILQ_NEXT(s->currevp, entry);
-		if (line[0] == '2')
+		if (line[0] == '2') {
 			mta_flush_failedqueue(s);
+			domain = strchr(e->dest, '@');
+			if (domain) {
+				domain = domain + 1;
+				mta_hoststat_reschedule(domain);
+			}
+		}
 		else {
 			if (line[0] == '5')
 				delivery = IMSG_DELIVERY_PERMFAIL;
@@ -875,7 +883,7 @@ mta_response(struct mta_session *s, char *line)
 			if (s->failedcount == MAX_FAILED_ENVELOPES) {
 				mta_flush_failedqueue(s);
 				mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
-				    "Host temporarily disabled", 0);
+				    "421 Host temporarily disabled", 0);
 				mta_route_down(s->relay, s->route);
 				mta_enter_state(s, MTA_QUIT);
 				break;
@@ -1224,21 +1232,21 @@ mta_flush_failedqueue(struct mta_session *s)
 	uint32_t		 penalty;
 
 	penalty = s->failedcount == MAX_FAILED_ENVELOPES ? 1 : 0;
-
 	for (i = 0; i < s->failedcount; ++i) {
 		fevp = &s->failed[i];
 		e = fevp->evp;
 		mta_delivery_notify(e, fevp->delivery, fevp->error, penalty);
 
 		domain = strchr(e->dest, '@');
-		if (domain)
-			mta_hoststat_update(domain + 1, fevp->error, e->id);
+		if (domain) {
+			domain = domain + 1;
+			mta_hoststat_update(domain, fevp->error, 0);
+		}
 
 		free(e->dest);
 		free(e->rcpt);
 		free(e);
 	}
-
 	s->failedcount = 0;
 }
 

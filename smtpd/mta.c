@@ -136,7 +136,9 @@ static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
 void mta_hoststat_update(const char *, const char *, uint64_t);
+void mta_hoststat_reschedule(const char *);
 static void mta_hoststat_purge(void);
+
 
 static struct mta_relay_tree		relays;
 static struct mta_domain_tree		domains;
@@ -158,6 +160,7 @@ static struct runq *runq_route;
 struct hoststat {
 	time_t			 tm;
 	char			 error[SMTPD_MAXLINESIZE];
+	struct tree		 deferred;
 };
 static struct dict hoststat;
 
@@ -410,7 +413,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			iter = NULL;
 			while (dict_iter(&hoststat, &iter, &hostname, (void **)&hs)) {
 				snprintf(buf, sizeof(buf),
-				    "%s %llu %s",
+				    "%s|%llu|%s",
 				    hostname, (unsigned long long) hs->tm,
 				    hs->error);
 				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
@@ -878,11 +881,11 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 
 	if (tree_count(&relay->connectors) == 0) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
-		relay->failstr = "Could not retreive source address";
+		relay->failstr = "Could not retrieve source address";
 	}
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
-		relay->failstr = "No valid route to remote MX";
+		relay->failstr = "421 No valid route to remote MX";
 	}
 
 	relay->nextsource = relay->lastsource + delay;
@@ -1079,6 +1082,9 @@ mta_route_disable(struct mta_route *route, int penalty)
 	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
+#if 1
+	delay = 60;
+#endif
 
 	log_info("smtp-out: Disabling route %s for %llus",
 	    mta_route_to_text(route), delay);
@@ -2007,10 +2013,44 @@ mta_hoststat_update(const char *host, const char *error, uint64_t evpid)
 		hs = calloc(1, sizeof *hs);
 		if (hs == NULL)
 			return;
+		tree_init(&hs->deferred);
 	}
 	strlcpy(hs->error, error, sizeof hs->error);
 	hs->tm = time(NULL);
 	dict_set(&hoststat, buf, hs);
+
+	if (! evpid) {
+		if (! strncmp(error, "421 ", 4))
+			tree_set(&hs->deferred, evpid, NULL);
+		else
+			tree_pop(&hs->deferred, evpid);
+	}
+}
+
+void
+mta_hoststat_reschedule(const char *host)
+{
+	struct hoststat	*hs = NULL;
+	char		 buf[SMTPD_MAXHOSTNAMELEN];
+	uint64_t	 evpid;
+
+	log_debug("mta_hoststat_reschedule: %s", host);
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	log_debug("###1");
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	log_debug("###2");
+	if (! hs->deferred.count)
+		return;
+
+	log_debug("###3");
+	while (tree_poproot(&hs->deferred, &evpid, NULL))
+		imsg_compose(&p_scheduler->imsgbuf, IMSG_MTA_SCHEDULE, 0, 0, -1, &evpid,
+		    sizeof (evpid));
 }
 
 static void
@@ -2018,6 +2058,9 @@ mta_hoststat_purge(void)
 {
 	struct hoststat	*hs = NULL;
 
-	while (dict_poproot(&hoststat, NULL, (void **)&hs))
+	while (dict_poproot(&hoststat, NULL, (void **)&hs)) {
+		while (tree_poproot(&hs->deferred, NULL, NULL))
+			;
 		free(hs);
+	}
 }

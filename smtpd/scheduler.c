@@ -267,6 +267,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
+	case IMSG_MTA_SCHEDULE:
+		id = *(uint64_t *)(imsg->data);
+		backend->schedule(id);
+		scheduler_reset_events();
+		return;
+
 	case IMSG_CTL_REMOVE:
 		id = *(uint64_t *)(imsg->data);
 		if (id <= 0xffffffffL)
