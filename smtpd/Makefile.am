@@ -100,7 +100,8 @@ CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\" \
 			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\" \
-			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"
+			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\" \
+			-DPATH_FILTERS=\"$(pkglibexecdir)\"
 
 MANPAGES=		aliases.5.out forward.5.out makemap.8.out		\
 			newaliases.8.out smtpctl.8.out smtpd.8.out		\

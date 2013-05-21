@@ -96,7 +96,9 @@
 #define PATH_INCOMING		"/incoming"
 #define PATH_MESSAGE		"/message"
 
+#ifndef	PATH_FILTERS
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
+#endif
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
