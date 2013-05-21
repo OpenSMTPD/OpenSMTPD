@@ -59,7 +59,7 @@
 #define DISCDELAY_ROUTE		3
 #define CONNDELAY_SOURCE	0
 #define CONNDELAY_CONNECTOR	0
-#define CONNDELAY_RELAY		0
+#define CONNDELAY_RELAY		4
 #define CONNDELAY_DOMAIN	0
 
 
@@ -138,6 +138,9 @@ static const char *mta_route_to_text(struct mta_route *);
 static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
+void mta_hoststat_update(const char *, const char *, uint64_t);
+static void mta_hoststat_purge(void);
+
 static struct mta_relay_tree		relays;
 static struct mta_domain_tree		domains;
 static struct mta_host_tree		hosts;
@@ -155,6 +158,12 @@ static struct runq *runq_relay;
 static struct runq *runq_connector;
 static struct runq *runq_route;
 
+struct hoststat {
+	time_t			 tm;
+	char			 error[SMTPD_MAXLINESIZE];
+};
+static struct dict hoststat;
+
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
 {
@@ -163,16 +172,19 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_domain	*domain;
 	struct mta_route	*route;
 	struct mta_mx		*mx, *imx;
+	struct hoststat		*hs;
 	struct mta_envelope	*e;
 	struct sockaddr_storage	 ss;
 	struct tree		*batch;
 	struct envelope		 evp;
 	struct msg		 m;
 	const char		*secret;
+	const char		*hostname;
 	uint64_t		 reqid;
 	time_t			 t;
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 dnserror, preference, v, status;
+	void			*iter;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -397,6 +409,22 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES, imsg->hdr.peerid,
 			    0, -1, NULL, 0);
 			return;
+		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+			iter = NULL;
+			while (dict_iter(&hoststat, &iter, &hostname, (void **)&hs)) {
+				snprintf(buf, sizeof(buf),
+				    "%s %llu %s",
+				    hostname, hs->tm, hs->error);
+				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
+				    imsg->hdr.peerid, 0, -1,
+				    buf, strlen(buf) + 1);
+			}
+			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS, imsg->hdr.peerid,
+			    0, -1, NULL, 0);
+			return;
+		case IMSG_CTL_MTA_PURGE_HOSTSTATS:
+			mta_hoststat_purge();
+			return;
 		}
 	}
 
@@ -474,6 +502,7 @@ mta(void)
 	tree_init(&wait_mx);
 	tree_init(&wait_preference);
 	tree_init(&wait_source);
+	dict_init(&hoststat);
 
 	imsg_callback = mta_imsg;
 	event_init();
@@ -896,6 +925,12 @@ mta_connect(struct mta_connector *c)
 	/* No job. */
 	if (c->relay->ntask == 0) {
 		log_debug("debug: mta: no task for connector");
+		return;
+	}
+
+	/* Do not create more connections than necessay */
+	if (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2) {
+		log_debug("debug: mta: enough connections already");
 		return;
 	}
 
@@ -1964,3 +1999,34 @@ mta_route_cmp(const struct mta_route *a, const struct mta_route *b)
 }
 
 SPLAY_GENERATE(mta_route_tree, mta_route, entry, mta_route_cmp);
+
+
+/* hoststat errors are not critical, we do best effort */
+void
+mta_hoststat_update(const char *host, const char *error, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (lowercase(buf, host, sizeof buf) >= sizeof buf)
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL) {
+		hs = calloc(1, sizeof *hs);
+		if (hs == NULL)
+			return;
+	}
+	strlcpy(hs->error, error, sizeof hs->error);
+	hs->tm = time(NULL);
+	dict_set(&hoststat, buf, hs);
+}
+
+static void
+mta_hoststat_purge(void)
+{
+	struct hoststat	*hs = NULL;
+
+	while (dict_poproot(&hoststat, NULL, (void **)&hs))
+		free(hs);
+}
