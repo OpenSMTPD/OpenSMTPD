@@ -414,7 +414,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			while (dict_iter(&hoststat, &iter, &hostname, (void **)&hs)) {
 				snprintf(buf, sizeof(buf),
 				    "%s %llu %s",
-				    hostname, hs->tm, hs->error);
+				    hostname, (unsigned long long) hs->tm,
+				    hs->error);
 				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
 				    imsg->hdr.peerid, 0, -1,
 				    buf, strlen(buf) + 1);
@@ -2008,7 +2009,7 @@ mta_hoststat_update(const char *host, const char *error, uint64_t evpid)
 	struct hoststat	*hs = NULL;
 	char buf[SMTPD_MAXHOSTNAMELEN];
 
-	if (lowercase(buf, host, sizeof buf) >= sizeof buf)
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);
