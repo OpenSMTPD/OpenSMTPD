@@ -412,6 +412,9 @@ mta_free(struct mta_session *s)
 
 	log_debug("debug: mta: %p: session done", s);
 
+	if (s->ready)
+		s->relay->nconn_ready -= 1;
+
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
 
@@ -622,6 +625,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/* Ready to send a new mail */
 		if (s->ready == 0) {
 			s->ready = 1;
+			s->relay->nconn_ready += 1;
 			mta_route_ok(s->relay, s->route);
 		}
 
