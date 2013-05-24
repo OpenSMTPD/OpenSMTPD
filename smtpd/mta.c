@@ -167,7 +167,6 @@ void mta_hoststat_cache(const char *, uint64_t);
 void mta_hoststat_uncache(const char *, uint64_t);
 void mta_hoststat_reschedule(const char *);
 static void mta_hoststat_remove_entry(struct hoststat *);
-static void mta_hoststat_purge(void);
 
 
 void
@@ -430,9 +429,6 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
 			    imsg->hdr.peerid,
 			    0, -1, NULL, 0);
-			return;
-		case IMSG_CTL_MTA_PURGE_HOSTSTATS:
-			mta_hoststat_purge();
 			return;
 		}
 	}
@@ -2125,17 +2121,4 @@ mta_hoststat_remove_entry(struct hoststat *hs)
 		;
 	dict_pop(&hoststat, hs->name);
 	runq_cancel(runq_hoststat, NULL, hs);
-}
-
-static void
-mta_hoststat_purge(void)
-{
-	struct hoststat	*hs = NULL;
-
-	while (dict_poproot(&hoststat, NULL, (void **)&hs)) {
-		while (tree_poproot(&hs->deferred, NULL, NULL))
-			;
-		runq_cancel(runq_hoststat, NULL, hs);
-		free(hs);
-	}
 }

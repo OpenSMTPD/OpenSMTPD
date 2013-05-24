@@ -279,10 +279,6 @@ main(int argc, char *argv[])
 		return show_routes();
 	case SHOW_HOSTSTATS:
 		return show_hoststats();
-	case PURGE_HOSTSTATS:
-		imsg_compose(ibuf, IMSG_CTL_MTA_PURGE_HOSTSTATS, IMSG_VERSION,
-		    0, -1, NULL, 0);
-		break;
 	case UPDATE_TABLE:
 		if (strlcpy(name, res->data, sizeof name) >= sizeof name)
 			errx(1, "table name too long.");
@@ -388,7 +384,6 @@ main(int argc, char *argv[])
 		case RESUME_MDA:
 		case RESUME_MTA:
 		case RESUME_SMTP:
-		case PURGE_HOSTSTATS:
 		case LOG_VERBOSE:
 		case LOG_BRIEF:
 		case LOG_TRACE_IMSG:
