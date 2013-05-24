@@ -762,6 +762,7 @@ struct mta_relay {
 
 	int			 refcount;
 	size_t			 nconn;
+	size_t			 nconn_ready;
 	time_t			 lastconn;
 };
 

@@ -937,8 +937,9 @@ mta_connect(struct mta_connector *c)
 		return;
 	}
 
-	/* Do not create more connections than necessay */
-	if (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2) {
+	/* Do not create more connections than necessary */
+	if ((c->relay->nconn_ready >= c->relay->ntask) ||
+	    (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2)) {
 		log_debug("debug: mta: enough connections already");
 		return;
 	}
