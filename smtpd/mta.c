@@ -138,9 +138,6 @@ static const char *mta_route_to_text(struct mta_route *);
 static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-void mta_hoststat_update(const char *, const char *, uint64_t);
-static void mta_hoststat_purge(void);
-
 static struct mta_relay_tree		relays;
 static struct mta_domain_tree		domains;
 static struct mta_host_tree		hosts;
@@ -157,12 +154,23 @@ static struct tree wait_source;
 static struct runq *runq_relay;
 static struct runq *runq_connector;
 static struct runq *runq_route;
+static struct runq *runq_hoststat;
 
+#define	HOSTSTAT_EXPIRE_DELAY	(4 * 3600)
 struct hoststat {
+	char			 name[SMTPD_MAXHOSTNAMELEN];
 	time_t			 tm;
 	char			 error[SMTPD_MAXLINESIZE];
+	struct tree		 deferred;
 };
 static struct dict hoststat;
+
+void mta_hoststat_update(const char *, const char *);
+void mta_hoststat_cache(const char *, uint64_t);
+void mta_hoststat_uncache(const char *, uint64_t);
+void mta_hoststat_reschedule(const char *);
+static void mta_hoststat_remove_entry(struct hoststat *);
+
 
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
@@ -411,20 +419,19 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
 			iter = NULL;
-			while (dict_iter(&hoststat, &iter, &hostname, (void **)&hs)) {
+			while (dict_iter(&hoststat, &iter, &hostname,
+				(void **)&hs)) {
 				snprintf(buf, sizeof(buf),
-				    "%s %llu %s",
+				    "%s|%llu|%s",
 				    hostname, (unsigned long long) hs->tm,
 				    hs->error);
 				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
 				    imsg->hdr.peerid, 0, -1,
 				    buf, strlen(buf) + 1);
 			}
-			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS, imsg->hdr.peerid,
+			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
+			    imsg->hdr.peerid,
 			    0, -1, NULL, 0);
-			return;
-		case IMSG_CTL_MTA_PURGE_HOSTSTATS:
-			mta_hoststat_purge();
 			return;
 		}
 	}
@@ -511,6 +518,7 @@ mta(void)
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
 	runq_init(&runq_route, mta_on_timeout);
+	runq_init(&runq_hoststat, mta_on_timeout);
 
 	signal_set(&ev_sigint, SIGINT, mta_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, NULL);
@@ -888,7 +896,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 
 	if (tree_count(&relay->connectors) == 0) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
-		relay->failstr = "Could not retreive source address";
+		relay->failstr = "Could not retrieve source address";
 	}
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
@@ -1043,6 +1051,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 	struct mta_connector	*connector = arg;
 	struct mta_relay	*relay = arg;
 	struct mta_route	*route = arg;
+	struct hoststat		*hs = arg;
 
 	if (runq == runq_relay) {
 		log_debug("debug: mta: ... timeout for %s",
@@ -1077,6 +1086,12 @@ mta_on_timeout(struct runq *runq, void *arg)
 
 		mta_route_unref(route);
 	}
+	else if (runq == runq_hoststat) {
+		log_debug("debug: mta: ... timeout for hoststat %s",
+			hs->name);
+		mta_hoststat_remove_entry(hs);
+		free(hs);
+	}
 }
 
 static void
@@ -1089,6 +1104,9 @@ mta_route_disable(struct mta_route *route, int penalty)
 	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
+#if 1
+	delay = 60;
+#endif
 
 	log_info("smtp-out: Disabling route %s for %llus",
 	    mta_route_to_text(route), delay);
@@ -1178,7 +1196,11 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 {
 	struct mta_envelope	*e;
 	struct mta_task		*task;
+	const char     		*domain;
+	void			*iter;
+	struct mta_connector	*c;
 	size_t			 n;
+	size_t			 r;
 
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
@@ -1192,6 +1214,25 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			mta_delivery(e, NULL, relay->domain->name, fail, error, 0);
+			
+			/*
+			 * host was suspended, cache envelope id in hoststat tree
+			 * so that it can be retried when a delivery succeeds for
+			 * that domain.
+			 */
+			domain = strchr(e->dest, '@');
+			if (fail == IMSG_DELIVERY_TEMPFAIL && domain) {
+				r = 0;
+				iter = NULL;
+				while (tree_iter(&relay->connectors, &iter,
+					NULL, (void **)&c)) {
+					if (c->flags & CONNECTOR_ERROR_ROUTE)
+						r++;
+				}
+				if (tree_count(&relay->connectors) == r)
+					mta_hoststat_cache(domain+1, e->id);
+			}
+
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
@@ -2004,30 +2045,90 @@ SPLAY_GENERATE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
 /* hoststat errors are not critical, we do best effort */
 void
-mta_hoststat_update(const char *host, const char *error, uint64_t evpid)
+mta_hoststat_update(const char *host, const char *error)
 {
 	struct hoststat	*hs = NULL;
-	char buf[SMTPD_MAXHOSTNAMELEN];
+	char		 buf[SMTPD_MAXHOSTNAMELEN];
+	time_t		 tm;
 
-	if (!lowercase(buf, host, sizeof buf))
+	if (! lowercase(buf, host, sizeof buf))
 		return;
 
+	tm = time(NULL);
 	hs = dict_get(&hoststat, buf);
 	if (hs == NULL) {
 		hs = calloc(1, sizeof *hs);
 		if (hs == NULL)
 			return;
+		tree_init(&hs->deferred);
+		runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);
 	}
+	strlcpy(hs->name, buf, sizeof hs->name);
 	strlcpy(hs->error, error, sizeof hs->error);
 	hs->tm = time(NULL);
 	dict_set(&hoststat, buf, hs);
+
+	runq_cancel(runq_hoststat, NULL, hs);
+	runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);
+}
+
+void
+mta_hoststat_cache(const char *host, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	tree_set(&hs->deferred, evpid, NULL);
+}
+
+void
+mta_hoststat_uncache(const char *host, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	tree_pop(&hs->deferred, evpid);
+}
+
+void
+mta_hoststat_reschedule(const char *host)
+{
+	struct hoststat	*hs = NULL;
+	char		 buf[SMTPD_MAXHOSTNAMELEN];
+	uint64_t	 evpid;
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	while (tree_poproot(&hs->deferred, &evpid, NULL)) {
+		m_compose(p_queue, IMSG_MTA_SCHEDULE, 0, 0, -1,
+		    &evpid, sizeof evpid);
+	}
 }
 
 static void
-mta_hoststat_purge(void)
+mta_hoststat_remove_entry(struct hoststat *hs)
 {
-	struct hoststat	*hs = NULL;
-
-	while (dict_poproot(&hoststat, NULL, (void **)&hs))
-		free(hs);
+	while (tree_poproot(&hs->deferred, NULL, NULL))
+		;
+	dict_pop(&hoststat, hs->name);
+	runq_cancel(runq_hoststat, NULL, hs);
 }

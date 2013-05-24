@@ -55,7 +55,6 @@ static const struct token t_remove[];
 static const struct token t_resume[];
 static const struct token t_schedule[];
 static const struct token t_show[];
-static const struct token t_purge[];
 static const struct token t_show_envelope[];
 static const struct token t_show_message[];
 static const struct token t_update[];
@@ -75,7 +74,6 @@ static const struct token t_main[] = {
 	{KEYWORD,	"stop",		SHUTDOWN,	NULL},
 	{KEYWORD,	"log",		NONE,		t_log},
 	{KEYWORD,	"profile",	NONE,		t_profile},
-	{KEYWORD,	"purge",	NONE,		t_purge},
 	{KEYWORD,	"trace",	NONE,		t_trace},
 	{KEYWORD,	"unprofile",	NONE,		t_unprofile},
 	{KEYWORD,	"untrace",	NONE,		t_untrace},
@@ -111,11 +109,6 @@ static const struct token t_show_envelope[] = {
 static const struct token t_show_message[] = {
 	{VARIABLE,	"evpid",	SHOW_MESSAGE,	NULL},
 	{ENDTOKEN,	"",		NONE,		NULL}
-};
-
-static const struct token t_purge[] = {
-	{KEYWORD,	"hoststats",	PURGE_HOSTSTATS,	NULL},
-	{ENDTOKEN,	"",		NONE,			NULL}
 };
 
 static const struct token t_pause[] = {

@@ -697,13 +697,6 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		    imsg->data, imsg->hdr.len - sizeof(imsg->hdr));
 		return;
 
-	case IMSG_CTL_MTA_PURGE_HOSTSTATS:
-		if (c->euid)
-			goto badcred;
-		m_forward(p_mta, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
-		return;
-
 	case IMSG_CTL_SCHEDULE:
 		if (c->euid)
 			goto badcred;
