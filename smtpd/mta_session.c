@@ -126,7 +126,7 @@ struct mta_session {
 	struct mta_envelope	*currevp;
 	FILE			*datafp;
 
-#define	MAX_FAILED_ENVELOPES	3
+#define	MAX_FAILED_ENVELOPES	15
 	struct failed_evp	 failed[MAX_FAILED_ENVELOPES];
 	int			 failedcount;
 };
