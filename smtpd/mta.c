@@ -135,7 +135,9 @@ static const char *mta_route_to_text(struct mta_route *);
 static int mta_route_cmp(const struct mta_route *, const struct mta_route *);
 SPLAY_PROTOTYPE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
-void mta_hoststat_update(const char *, const char *, uint64_t);
+void mta_hoststat_update(const char *, const char *);
+void mta_hoststat_cache(const char *, uint64_t);
+void mta_hoststat_uncache(const char *, uint64_t);
 void mta_hoststat_reschedule(const char *);
 static void mta_hoststat_purge(void);
 
@@ -885,7 +887,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 	}
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
-		relay->failstr = "421 No valid route to remote MX";
+		relay->failstr = "No valid route to remote MX";
 	}
 
 	relay->nextsource = relay->lastsource + delay;
@@ -1174,7 +1176,11 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 {
 	struct mta_envelope	*e;
 	struct mta_task		*task;
+	const char     		*domain;
+	void			*iter;
+	struct mta_connector	*c;
 	size_t			 n;
+	size_t			 r;
 
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
@@ -1188,6 +1194,25 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			mta_delivery(e, NULL, relay->domain->name, fail, error, 0);
+			
+			/*
+			 * host was suspended, cache envelope id in hoststat tree
+			 * so that it can be retried when a delivery succeeds for
+			 * that domain.
+			 */
+			domain = strchr(e->dest, '@');
+			if (fail == IMSG_DELIVERY_TEMPFAIL && domain) {
+				r = 0;
+				iter = NULL;
+				while (tree_iter(&relay->connectors, &iter,
+					NULL, (void **)&c)) {
+					if (c->flags & CONNECTOR_ERROR_ROUTE)
+						r++;
+				}
+				if (tree_count(&relay->connectors) == r)
+					mta_hoststat_cache(domain+1, e->id);
+			}
+
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
@@ -2000,12 +2025,12 @@ SPLAY_GENERATE(mta_route_tree, mta_route, entry, mta_route_cmp);
 
 /* hoststat errors are not critical, we do best effort */
 void
-mta_hoststat_update(const char *host, const char *error, uint64_t evpid)
+mta_hoststat_update(const char *host, const char *error)
 {
 	struct hoststat	*hs = NULL;
 	char buf[SMTPD_MAXHOSTNAMELEN];
 
-	if (!lowercase(buf, host, sizeof buf))
+	if (! lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);
@@ -2018,13 +2043,38 @@ mta_hoststat_update(const char *host, const char *error, uint64_t evpid)
 	strlcpy(hs->error, error, sizeof hs->error);
 	hs->tm = time(NULL);
 	dict_set(&hoststat, buf, hs);
+}
 
-	if (! evpid) {
-		if (! strncmp(error, "421 ", 4))
-			tree_set(&hs->deferred, evpid, NULL);
-		else
-			tree_pop(&hs->deferred, evpid);
-	}
+void
+mta_hoststat_cache(const char *host, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	tree_set(&hs->deferred, evpid, NULL);
+}
+
+void
+mta_hoststat_uncache(const char *host, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	tree_pop(&hs->deferred, evpid);
 }
 
 void
@@ -2034,23 +2084,20 @@ mta_hoststat_reschedule(const char *host)
 	char		 buf[SMTPD_MAXHOSTNAMELEN];
 	uint64_t	 evpid;
 
-	log_debug("mta_hoststat_reschedule: %s", host);
 	if (! lowercase(buf, host, sizeof buf))
 		return;
 
-	log_debug("###1");
 	hs = dict_get(&hoststat, buf);
 	if (hs == NULL)
 		return;
 
-	log_debug("###2");
 	if (! hs->deferred.count)
 		return;
 
-	log_debug("###3");
-	while (tree_poproot(&hs->deferred, &evpid, NULL))
-		imsg_compose(&p_scheduler->imsgbuf, IMSG_MTA_SCHEDULE, 0, 0, -1, &evpid,
-		    sizeof (evpid));
+	while (tree_poproot(&hs->deferred, &evpid, NULL)) {
+		m_compose(p_queue, IMSG_MTA_SCHEDULE, 0, 0, -1,
+		    &evpid, sizeof evpid);
+	}
 }
 
 static void
