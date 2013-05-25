@@ -59,6 +59,7 @@ static void show_envelope(const char *);
 static void show_message(const char *);
 static void show_monitor(struct stat_digest *);
 static int show_routes(void);
+static int show_hoststats(void);
 
 static int try_connect(void);
 static void flush(void);
@@ -276,6 +277,8 @@ main(int argc, char *argv[])
 		break;
 	case SHOW_ROUTES:
 		return show_routes();
+	case SHOW_HOSTSTATS:
+		return show_hoststats();
 	case UPDATE_TABLE:
 		if (strlcpy(name, res->data, sizeof name) >= sizeof name)
 			errx(1, "table name too long.");
@@ -584,6 +587,30 @@ show_routes(void)
 	while(1) {
 		next_message(&imsg);
 		if (imsg.hdr.type != IMSG_CTL_MTA_SHOW_ROUTES)
+			errx(1, "invalid imsg type");
+		len = imsg.hdr.len - sizeof(imsg.hdr);
+		if (len == 0)
+			break;
+		printf("%s\n", (char*)imsg.data);
+		imsg_free(&imsg);
+	}
+	imsg_free(&imsg);
+
+	return (0);
+}
+
+static int
+show_hoststats(void)
+{
+	struct imsg	 imsg;
+	size_t		 len;
+
+	imsg_compose(ibuf, IMSG_CTL_MTA_SHOW_HOSTSTATS, IMSG_VERSION, 0, -1, NULL, 0);
+	flush();
+
+	while(1) {
+		next_message(&imsg);
+		if (imsg.hdr.type != IMSG_CTL_MTA_SHOW_HOSTSTATS)
 			errx(1, "invalid imsg type");
 		len = imsg.hdr.len - sizeof(imsg.hdr);
 		if (len == 0)

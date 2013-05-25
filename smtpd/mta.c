@@ -56,7 +56,7 @@
 #define DISCDELAY_ROUTE		3
 #define CONNDELAY_SOURCE	0
 #define CONNDELAY_CONNECTOR	0
-#define CONNDELAY_RELAY		0
+#define CONNDELAY_RELAY		2
 #define CONNDELAY_DOMAIN	0
 
 
@@ -151,6 +151,23 @@ static struct tree wait_source;
 static struct runq *runq_relay;
 static struct runq *runq_connector;
 static struct runq *runq_route;
+static struct runq *runq_hoststat;
+
+#define	HOSTSTAT_EXPIRE_DELAY	(4 * 3600)
+struct hoststat {
+	char			 name[SMTPD_MAXHOSTNAMELEN];
+	time_t			 tm;
+	char			 error[SMTPD_MAXLINESIZE];
+	struct tree		 deferred;
+};
+static struct dict hoststat;
+
+void mta_hoststat_update(const char *, const char *);
+void mta_hoststat_cache(const char *, uint64_t);
+void mta_hoststat_uncache(const char *, uint64_t);
+void mta_hoststat_reschedule(const char *);
+static void mta_hoststat_remove_entry(struct hoststat *);
+
 
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
@@ -160,16 +177,19 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_domain	*domain;
 	struct mta_route	*route;
 	struct mta_mx		*mx, *imx;
+	struct hoststat		*hs;
 	struct mta_envelope	*e;
 	struct sockaddr_storage	 ss;
 	struct tree		*batch;
 	struct envelope		 evp;
 	struct msg		 m;
 	const char		*secret;
+	const char		*hostname;
 	uint64_t		 reqid;
 	time_t			 t;
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 dnserror, preference, v, status;
+	void			*iter;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -394,6 +414,22 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES, imsg->hdr.peerid,
 			    0, -1, NULL, 0);
 			return;
+		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+			iter = NULL;
+			while (dict_iter(&hoststat, &iter, &hostname,
+				(void **)&hs)) {
+				snprintf(buf, sizeof(buf),
+				    "%s|%llu|%s",
+				    hostname, (unsigned long long) hs->tm,
+				    hs->error);
+				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
+				    imsg->hdr.peerid, 0, -1,
+				    buf, strlen(buf) + 1);
+			}
+			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTSTATS,
+			    imsg->hdr.peerid,
+			    0, -1, NULL, 0);
+			return;
 		}
 	}
 
@@ -464,6 +500,7 @@ mta(void)
 	tree_init(&wait_mx);
 	tree_init(&wait_preference);
 	tree_init(&wait_source);
+	dict_init(&hoststat);
 
 	imsg_callback = mta_imsg;
 	event_init();
@@ -471,6 +508,7 @@ mta(void)
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
 	runq_init(&runq_route, mta_on_timeout);
+	runq_init(&runq_hoststat, mta_on_timeout);
 
 	signal_set(&ev_sigint, SIGINT, mta_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, NULL);
@@ -848,7 +886,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 
 	if (tree_count(&relay->connectors) == 0) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
-		relay->failstr = "Could not retreive source address";
+		relay->failstr = "Could not retrieve source address";
 	}
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
@@ -889,13 +927,19 @@ mta_connect(struct mta_connector *c)
 		return;
 	}
 
+	/* Do not create more connections than necessay */
+	if (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2) {
+		log_debug("debug: mta: enough connections already");
+		return;
+	}
+
 	limits = 0;
 	nextconn = now = time(NULL);
 
 	if (c->source->lastconn + CONNDELAY_DOMAIN > nextconn) {
-		log_debug("debug: mta: cannot use domain %s before %is",
+		log_debug("debug: mta: cannot use domain %s before %llus",
 		    c->relay->domain->name,
-		    c->relay->domain->lastconn + CONNDELAY_DOMAIN - now);
+		    (unsigned long long) c->relay->domain->lastconn + CONNDELAY_DOMAIN - now);
 		nextconn = c->relay->domain->lastconn + CONNDELAY_DOMAIN;
 	}
 	if (c->relay->domain->nconn >= MAXCONN_PER_DOMAIN) {
@@ -904,9 +948,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->source->lastconn + CONNDELAY_SOURCE > nextconn) {
-		log_debug("debug: mta: cannot use source %s before %is",
+		log_debug("debug: mta: cannot use source %s before %llus",
 		    mta_source_to_text(c->source),
-		    c->source->lastconn + CONNDELAY_SOURCE - now);
+		    (unsigned long long) c->source->lastconn + CONNDELAY_SOURCE - now);
 		nextconn = c->source->lastconn + CONNDELAY_SOURCE;
 	}
 	if (c->source->nconn >= MAXCONN_PER_SOURCE) {
@@ -915,9 +959,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->lastconn + CONNDELAY_CONNECTOR > nextconn) {
-		log_debug("debug: mta: cannot use %s before %is",
+		log_debug("debug: mta: cannot use %s before %llus",
 		    mta_connector_to_text(c),
-		    c->lastconn + CONNDELAY_CONNECTOR - now);
+		    (unsigned long long) c->lastconn + CONNDELAY_CONNECTOR - now);
 		nextconn = c->lastconn + CONNDELAY_CONNECTOR;
 	}
 	if (c->nconn >= MAXCONN_PER_CONNECTOR) {
@@ -926,9 +970,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->relay->lastconn + CONNDELAY_RELAY > nextconn) {
-		log_debug("debug: mta: cannot use %s before %is",
+		log_debug("debug: mta: cannot use %s before %llus",
 		    mta_relay_to_text(c->relay),
-		    c->relay->lastconn + CONNDELAY_RELAY - now);
+		    (unsigned long long) c->relay->lastconn + CONNDELAY_RELAY - now);
 		nextconn = c->relay->lastconn + CONNDELAY_RELAY;
 	}
 	if (c->relay->nconn >= MAXCONN_PER_RELAY) {
@@ -960,8 +1004,9 @@ mta_connect(struct mta_connector *c)
 			log_debug("debug: mta-routing: no route available for %s: must wait a bit",
 			    mta_connector_to_text(c));
 		}
-		log_debug("debug: mta: retrying to connect on %s in %is...",
-		    mta_connector_to_text(c), nextconn - time(NULL));
+		log_debug("debug: mta: retrying to connect on %s in %llus...",
+		    mta_connector_to_text(c),
+		    (unsigned long long) nextconn - time(NULL));
 		c->flags |= CONNECTOR_WAIT;
 		runq_schedule(runq_connector, nextconn, NULL, c);
 		return;
@@ -996,6 +1041,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 	struct mta_connector	*connector = arg;
 	struct mta_relay	*relay = arg;
 	struct mta_route	*route = arg;
+	struct hoststat		*hs = arg;
 
 	if (runq == runq_relay) {
 		log_debug("debug: mta: ... timeout for %s",
@@ -1030,20 +1076,29 @@ mta_on_timeout(struct runq *runq, void *arg)
 
 		mta_route_unref(route);
 	}
+	else if (runq == runq_hoststat) {
+		log_debug("debug: mta: ... timeout for hoststat %s",
+			hs->name);
+		mta_hoststat_remove_entry(hs);
+		free(hs);
+	}
 }
 
 static void
 mta_route_disable(struct mta_route *route, int penalty)
 {
-	int	delay;
+	unsigned long long	delay;
 
 	route->penalty += penalty;
 	route->lastpenalty = time(NULL);
 	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
+#if 1
+	delay = 60;
+#endif
 
-	log_info("smtp-out: Disabling route %s for %is",
+	log_info("smtp-out: Disabling route %s for %llus",
 	    mta_route_to_text(route), delay);
 
 	if (route->flags & ROUTE_DISABLED) {
@@ -1117,8 +1172,9 @@ mta_drain(struct mta_relay *r)
 	if (r->nextsource <= time(NULL))
 		mta_query_source(r);
 	else {
-		log_debug("debug: mta: scheduling relay %s in %is...",
-		    mta_relay_to_text(r), r->nextsource - time(NULL));
+		log_debug("debug: mta: scheduling relay %s in %llus...",
+		    mta_relay_to_text(r),
+		    (unsigned long long) r->nextsource - time(NULL));
 		runq_schedule(runq_relay, r->nextsource, NULL, r);
 		r->status |= RELAY_WAIT_CONNECTOR;
 		mta_relay_ref(r);
@@ -1130,7 +1186,11 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 {
 	struct mta_envelope	*e;
 	struct mta_task		*task;
+	const char     		*domain;
+	void			*iter;
+	struct mta_connector	*c;
 	size_t			 n;
+	size_t			 r;
 
 	log_debug("debug: mta_flush(%s, %i, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
@@ -1144,6 +1204,25 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
 			mta_delivery(e, NULL, relay->domain->name, fail, error, 0);
+			
+			/*
+			 * host was suspended, cache envelope id in hoststat tree
+			 * so that it can be retried when a delivery succeeds for
+			 * that domain.
+			 */
+			domain = strchr(e->dest, '@');
+			if (fail == IMSG_DELIVERY_TEMPFAIL && domain) {
+				r = 0;
+				iter = NULL;
+				while (tree_iter(&relay->connectors, &iter,
+					NULL, (void **)&c)) {
+					if (c->flags & CONNECTOR_ERROR_ROUTE)
+						r++;
+				}
+				if (tree_count(&relay->connectors) == r)
+					mta_hoststat_cache(domain+1, e->id);
+			}
+
 			free(e->dest);
 			free(e->rcpt);
 			free(e);
@@ -1240,9 +1319,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (mx->host->lastconn + CONNDELAY_HOST > now) {
-			log_debug("debug: mta-routing: skipping host %s: cannot use before %is",
+			log_debug("debug: mta-routing: skipping host %s: cannot use before %llus",
 			    mta_host_to_text(mx->host),
-			    mx->host->lastconn + CONNDELAY_HOST - now);
+			    (unsigned long long) mx->host->lastconn + CONNDELAY_HOST - now);
 			if (tm == 0 || mx->host->lastconn + CONNDELAY_HOST < tm)
 				tm = mx->host->lastconn + CONNDELAY_HOST;
 			continue;
@@ -1275,9 +1354,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (route->lastconn + CONNDELAY_ROUTE > now) {
-			log_debug("debug: mta-routing: skipping route %s: cannot use before %is (delay after connect)",
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %llus (delay after connect)",
 			    mta_route_to_text(route),
-			    route->lastconn + CONNDELAY_ROUTE - now);
+			    (unsigned long long) route->lastconn + CONNDELAY_ROUTE - now);
 			if (tm == 0 || route->lastconn + CONNDELAY_ROUTE < tm)
 				tm = route->lastconn + CONNDELAY_ROUTE;
 			mta_route_unref(route); /* from here */
@@ -1285,9 +1364,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		}
 
 		if (route->lastdisc + DISCDELAY_ROUTE > now) {
-			log_debug("debug: mta-routing: skipping route %s: cannot use before %is (delay after disconnect)",
+			log_debug("debug: mta-routing: skipping route %s: cannot use before %llus (delay after disconnect)",
 			    mta_route_to_text(route),
-			    route->lastdisc + DISCDELAY_ROUTE - now);
+			    (unsigned long long) route->lastdisc + DISCDELAY_ROUTE - now);
 			if (tm == 0 || route->lastdisc + DISCDELAY_ROUTE < tm)
 				tm = route->lastdisc + DISCDELAY_ROUTE;
 			mta_route_unref(route); /* from here */
@@ -1893,8 +1972,8 @@ mta_route_unref(struct mta_route *r)
 		if (delay > DELAY_ROUTE_MAX)
 			delay = DELAY_ROUTE_MAX;
 		sched = r->lastpenalty + delay;
-		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %is (penalty %i)",
-		    mta_route_to_text(r), sched - now, r->penalty);
+		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (penalty %i)",
+		    mta_route_to_text(r), (unsigned long long) sched - now, r->penalty);
 	} else if (!(r->flags & ROUTE_KEEPALIVE)) {
 		if (r->lastconn + CONNDELAY_ROUTE > now)
 			sched = r->lastconn + CONNDELAY_ROUTE;
@@ -1903,8 +1982,8 @@ mta_route_unref(struct mta_route *r)
 			sched = r->lastdisc + DISCDELAY_ROUTE;
 
 		if (sched > now)
-			log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %is (imposed delay)",
-			    mta_route_to_text(r), sched - now);
+			log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (imposed delay)",
+			    mta_route_to_text(r), (unsigned long long) sched - now);
 	}
 
 	if (sched > now) {
@@ -1952,3 +2031,94 @@ mta_route_cmp(const struct mta_route *a, const struct mta_route *b)
 }
 
 SPLAY_GENERATE(mta_route_tree, mta_route, entry, mta_route_cmp);
+
+
+/* hoststat errors are not critical, we do best effort */
+void
+mta_hoststat_update(const char *host, const char *error)
+{
+	struct hoststat	*hs = NULL;
+	char		 buf[SMTPD_MAXHOSTNAMELEN];
+	time_t		 tm;
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	tm = time(NULL);
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL) {
+		hs = calloc(1, sizeof *hs);
+		if (hs == NULL)
+			return;
+		tree_init(&hs->deferred);
+		runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);
+	}
+	strlcpy(hs->name, buf, sizeof hs->name);
+	strlcpy(hs->error, error, sizeof hs->error);
+	hs->tm = time(NULL);
+	dict_set(&hoststat, buf, hs);
+
+	runq_cancel(runq_hoststat, NULL, hs);
+	runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);
+}
+
+void
+mta_hoststat_cache(const char *host, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	tree_set(&hs->deferred, evpid, NULL);
+}
+
+void
+mta_hoststat_uncache(const char *host, uint64_t evpid)
+{
+	struct hoststat	*hs = NULL;
+	char buf[SMTPD_MAXHOSTNAMELEN];
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	tree_pop(&hs->deferred, evpid);
+}
+
+void
+mta_hoststat_reschedule(const char *host)
+{
+	struct hoststat	*hs = NULL;
+	char		 buf[SMTPD_MAXHOSTNAMELEN];
+	uint64_t	 evpid;
+
+	if (! lowercase(buf, host, sizeof buf))
+		return;
+
+	hs = dict_get(&hoststat, buf);
+	if (hs == NULL)
+		return;
+
+	while (tree_poproot(&hs->deferred, &evpid, NULL)) {
+		m_compose(p_queue, IMSG_MTA_SCHEDULE, 0, 0, -1,
+		    &evpid, sizeof evpid);
+	}
+}
+
+static void
+mta_hoststat_remove_entry(struct hoststat *hs)
+{
+	while (tree_poproot(&hs->deferred, NULL, NULL))
+		;
+	dict_pop(&hoststat, hs->name);
+	runq_cancel(runq_hoststat, NULL, hs);
+}

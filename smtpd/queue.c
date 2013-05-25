@@ -426,6 +426,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_add_evpid(p_scheduler, evp.id);
 			m_close(p_scheduler);
 			return;
+
+		case IMSG_MTA_SCHEDULE:
+			m_forward(p_scheduler, imsg);
+			return;
 		}
 	}
 
