@@ -100,25 +100,19 @@ main(int argc, char **argv)
 	return (0);
 }
 
-static sqlite3_stmt *
-table_sqlite_query(const char *key, int service)
+static int
+table_sqlite_getconfstr(const char *key, const char *value, char **var)
 {
-	int		 i;
-	sqlite3_stmt	*stmt;
-
-	stmt = NULL;
-	for(i = 0; i < SQL_MAX; i++)
-		if (service == 1 << i) {
-			stmt = statements[i];
-			break;
-		}
-
-	if (stmt == NULL)
-		return (NULL);
-
-	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
-
-	return (stmt);
+	if (*var) {
+		log_warnx("warn: backend-table-sqlite: duplicate %s %s", key, value);
+		free(*var);
+	}
+	*var = strdup(value);
+	if (*var == NULL) {
+		log_warn("warn: backend-table-sqlite: strdup");
+		return (-1);
+	}
+	return (0);
 }
 
 static int
@@ -197,15 +191,8 @@ table_sqlite_update(void)
 		}
 
 		if (!strcmp("dbpath", key)) {
-			if (dbpath) {
-				log_warnx("warn: backend-table-sqlite: duplicate dbpath %s", value);
-				free(dbpath);
-			}
-			dbpath = strdup(value);
-			if (dbpath == NULL) {
-				log_warn("warn: backend-table-sqlite: strdup");
+			if (table_sqlite_getconfstr(key, value, &dbpath) == -1)
 				goto end;
-			}
 			continue;
 		}
 
@@ -281,9 +268,32 @@ table_sqlite_update(void)
 	if (_db)
 		sqlite3_close(_db);
 
+	free(dbpath);
+
 	free(lbuf);
 	fclose(fp);
 	return (ret);
+}
+
+static sqlite3_stmt *
+table_sqlite_query(const char *key, int service)
+{
+	int		 i;
+	sqlite3_stmt	*stmt;
+
+	stmt = NULL;
+	for(i = 0; i < SQL_MAX; i++)
+		if (service == 1 << i) {
+			stmt = statements[i];
+			break;
+		}
+
+	if (stmt == NULL)
+		return (NULL);
+
+	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
+
+	return (stmt);
 }
 
 static int
