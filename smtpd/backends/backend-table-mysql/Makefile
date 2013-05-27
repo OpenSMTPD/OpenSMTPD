@@ -1,0 +1,13 @@
+.PATH: ${.CURDIR}/.. ${.CURDIR}/../..
+
+PROG=	backend-table-mysql
+
+SRCS=	table_mysql.c
+SRCS+=	table_api.c
+
+NOMAN=	noman
+
+CFLAGS+=-I/usr/local/include
+LDADD+=	-L/usr/local/lib -lmysqlclient
+
+.include <bsd.prog.mk>
