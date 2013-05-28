@@ -52,6 +52,13 @@ static sqlite3_stmt *table_sqlite_query(const char *, int);
 static char		*config;
 static sqlite3		*db;
 static sqlite3_stmt	*statements[SQL_MAX];
+static sqlite3_stmt	*stmt_fetch_source;
+static struct dict	 sources;
+static void		*source_iter;
+static size_t		 source_refresh = 1000;
+static size_t		 source_ncall;
+static int		 source_expire = 60;
+static time_t		 source_update;
 
 int
 main(int argc, char **argv)
@@ -59,6 +66,7 @@ main(int argc, char **argv)
 	int	ch;
 
 	log_init(1);
+	log_verbose(~0);
 
 	config = NULL;
 
@@ -86,6 +94,8 @@ main(int argc, char **argv)
 		return (1);
 	}
 
+	dict_init(&sources);
+
 	if (table_sqlite_update() == 0) {
 		log_warnx("warn: backend-table-sqlite: error parsing config file");
 		return (1);
@@ -100,25 +110,40 @@ main(int argc, char **argv)
 	return (0);
 }
 
-static sqlite3_stmt *
-table_sqlite_query(const char *key, int service)
+static int
+table_sqlite_getconfstr(const char *key, const char *value, char **var)
 {
-	int		 i;
+	if (*var) {
+		log_warnx("warn: backend-table-sqlite: duplicate %s %s", key, value);
+		free(*var);
+	}
+	*var = strdup(value);
+	if (*var == NULL) {
+		log_warn("warn: backend-table-sqlite: strdup");
+		return (-1);
+	}
+	return (0);
+}
+
+static sqlite3_stmt *
+table_sqlite_prepare_stmt(sqlite3 *_db, const char *query, int ncols)
+{
 	sqlite3_stmt	*stmt;
 
-	stmt = NULL;
-	for(i = 0; i < SQL_MAX; i++)
-		if (service == 1 << i) {
-			stmt = statements[i];
-			break;
-		}
-
-	if (stmt == NULL)
-		return (NULL);
-
-	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
+	if (sqlite3_prepare_v2(_db, query, -1, &stmt, 0) != SQLITE_OK) {
+		log_warnx("warn: backend-table-sqlite: sqlite3_prepare_v2: %s",
+		    sqlite3_errmsg(_db));
+		goto end;
+	}
+	if (sqlite3_column_count(stmt) != ncols) {
+		log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
+		goto end;
+	}
 
 	return (stmt);
+    end:
+	sqlite3_finalize(stmt);
+	return (NULL);
 }
 
 static int
@@ -139,6 +164,8 @@ table_sqlite_update(void)
 	};
 	sqlite3		*_db;
 	sqlite3_stmt	*_statements[SQL_MAX];
+	sqlite3_stmt	*_stmt_fetch_source;
+	char		*_query_fetch_source;
 	char		*queries[SQL_MAX];
 	size_t		 flen;
 	FILE		*fp;
@@ -149,6 +176,8 @@ table_sqlite_update(void)
 	_db = NULL;
 	bzero(queries, sizeof(queries));
 	bzero(_statements, sizeof(_statements));
+	_query_fetch_source = NULL;
+	_stmt_fetch_source = NULL;
 
 	ret = 0;
 
@@ -197,15 +226,13 @@ table_sqlite_update(void)
 		}
 
 		if (!strcmp("dbpath", key)) {
-			if (dbpath) {
-				log_warnx("warn: backend-table-sqlite: duplicate dbpath %s", value);
-				free(dbpath);
-			}
-			dbpath = strdup(value);
-			if (dbpath == NULL) {
-				log_warn("warn: backend-table-sqlite: strdup");
+			if (table_sqlite_getconfstr(key, value, &dbpath) == -1)
 				goto end;
-			}
+			continue;
+		}
+		if (!strcmp("fetch_source", key)) {
+			if (table_sqlite_getconfstr(key, value, &_query_fetch_source) == -1)
+				goto end;
 			continue;
 		}
 
@@ -242,17 +269,13 @@ table_sqlite_update(void)
 	for (i = 0; i < SQL_MAX; i++) {
 		if (queries[i] == NULL)
 			continue;
-		if (sqlite3_prepare_v2(_db, queries[i], -1, &_statements[i], 0)
-		    != SQLITE_OK) {
-			log_warnx("warn: backend-table-sqlite: prepare: %s",
-			    sqlite3_errmsg(_db));
+		if ((_statements[i] = table_sqlite_prepare_stmt(_db, queries[i], qspec[i].cols)) == NULL)
 			goto end;
-		}
-		if (sqlite3_column_count(_statements[i]) != qspec[i].cols) {
-			log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
-			goto end;
-		}
 	}
+
+	if (_query_fetch_source &&
+	    (_stmt_fetch_source = table_sqlite_prepare_stmt(_db, _query_fetch_source, 1)) == NULL)
+		goto end;
 
 	/* Replace previous setup */
 
@@ -262,10 +285,17 @@ table_sqlite_update(void)
 		statements[i] = _statements[i];
 		_statements[i] = NULL;
 	}
+	if (stmt_fetch_source)
+		sqlite3_finalize(stmt_fetch_source);
+	stmt_fetch_source = _stmt_fetch_source;
+	_stmt_fetch_source = NULL;
+
 	if (db)
 		sqlite3_close(_db);
 	db = _db;
 	_db = NULL;
+
+	source_update = 0; /* force update */
 
 	log_debug("debug: backend-table-sqlite: config successfully updated");
 	ret = 1;
@@ -281,9 +311,37 @@ table_sqlite_update(void)
 	if (_db)
 		sqlite3_close(_db);
 
+	free(dbpath);
+	free(_query_fetch_source);
+
 	free(lbuf);
 	fclose(fp);
 	return (ret);
+}
+
+static sqlite3_stmt *
+table_sqlite_query(const char *key, int service)
+{
+	int		 i;
+	sqlite3_stmt	*stmt;
+
+	stmt = NULL;
+	for(i = 0; i < SQL_MAX; i++)
+		if (service == 1 << i) {
+			stmt = statements[i];
+			break;
+		}
+
+	if (stmt == NULL)
+		return (NULL);
+
+	if (sqlite3_bind_text(stmt, 1, key, strlen(key), NULL) != SQLITE_OK) {
+		log_warnx("backend-table-sqlite: sqlite3_bind_text: %s",
+		    sqlite3_errmsg(db));
+		return (NULL);
+	}
+
+	return (stmt);
 }
 
 static int
@@ -326,6 +384,8 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 	}
 
 	if (s != SQLITE_ROW) {
+		log_warnx("backend-table-sqlite: sqlite3_step: %s",
+		    sqlite3_errmsg(db));
 		sqlite3_reset(stmt);
 		return (-1);
 	}
@@ -334,47 +394,58 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 
 	switch(service) {
 	case K_ALIAS:
-
 		do {
 			value = sqlite3_column_text(stmt, 0);
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
+				log_warnx("warn: backend-table-sqlite: result too large");
 				r = -1;
 				break;
 			}
 			if (strlcat(dst, value, sz) >= sz) {
+				log_warnx("warn: backend-table-sqlite: result too large");
 				r = -1;
 				break;
 			}
 			s = sqlite3_step(stmt);
+		} while (s == SQLITE_ROW);
 
-		} while (s == SQLITE_ROW); 
-
-		if (s != SQLITE_DONE)
+		if (s !=  SQLITE_ROW && s != SQLITE_DONE) {
+			log_warnx("backend-table-sqlite: sqlite3_step: %s",
+			    sqlite3_errmsg(db));
 			r = -1;
+		}
 		break;
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
 		    sqlite3_column_text(stmt, 0),
-		    sqlite3_column_text(stmt, 1)) > (ssize_t)sz)
+		    sqlite3_column_text(stmt, 1)) > (ssize_t)sz) {
+			log_warnx("warn: backend-table-sqlite: result too large");
 			r = -1;
+		}
 		break;
 	case K_USERINFO:
 		if (snprintf(dst, sz, "%s:%i:%i:%s",
 		    sqlite3_column_text(stmt, 0),
 		    sqlite3_column_int(stmt, 1),
 		    sqlite3_column_int(stmt, 2),
-		    sqlite3_column_text(stmt, 3)) > (ssize_t)sz)
+		    sqlite3_column_text(stmt, 3)) > (ssize_t)sz) {
+			log_warnx("warn: backend-table-sqlite: result too large");
 			r = -1;
+		}
 		break;
 	case K_DOMAIN:
 	case K_NETADDR:
 	case K_SOURCE:
 	case K_MAILADDR:
 	case K_ADDRNAME:
-		if (strlcpy(dst, sqlite3_column_text(stmt, 0), sz) >= sz)
+		if (strlcpy(dst, sqlite3_column_text(stmt, 0), sz) >= sz) {
+			log_warnx("warn: backend-table-sqlite: result too large");
 			r = -1;
+		}
 		break;
 	default:
+		log_warnx("warn: backend-table-sqlite: unknown service %i",
+		    service);
 		r = -1;
 	}
 
@@ -384,5 +455,47 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 static int
 table_sqlite_fetch(int service, char *dst, size_t sz)
 {
-	return (-1);
+	const char	*k;
+	int		 s;
+
+	if (service != K_SOURCE)
+		return (-1);
+
+	if (stmt_fetch_source == NULL)
+		return (-1);
+
+	if (source_ncall < source_refresh &&
+	    time(NULL) - source_update < source_expire)
+	    goto fetch;
+
+	source_iter = NULL;
+	while(dict_poproot(&sources, NULL, NULL))
+		;
+
+	while ((s = sqlite3_step(stmt_fetch_source)) == SQLITE_ROW)
+		dict_set(&sources, sqlite3_column_text(stmt_fetch_source, 0), NULL);
+
+	if (s != SQLITE_DONE)
+		log_warnx("backend-table-sqlite: sqlite3_step: %s",
+		    sqlite3_errmsg(db));
+
+	sqlite3_reset(stmt_fetch_source);
+
+	source_update = time(NULL);
+	source_ncall = 0;
+
+    fetch:
+
+	source_ncall += 1;
+
+        if (! dict_iter(&sources, &source_iter, &k, (void **)NULL)) {
+		source_iter = NULL;
+		if (! dict_iter(&sources, &source_iter, &k, (void **)NULL))
+			return (0);
+	}
+
+	if (strlcpy(dst, k, sz) >= sz)
+		return (-1);
+
+	return (1);
 }
