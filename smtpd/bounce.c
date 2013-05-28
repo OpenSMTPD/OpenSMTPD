@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.54 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.56 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -439,7 +439,7 @@ bounce_next(struct bounce_session *s)
 
 		n = iobuf_queued(&s->iobuf);
 
-		while (iobuf_len(&s->iobuf) < BOUNCE_HIWAT) {
+		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
 			line = fgetln(s->msgfp, &len);
 			if (line == NULL)
 				break;

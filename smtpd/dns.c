@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.64 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: dns.c,v 1.66 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

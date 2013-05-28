@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.408 2013/03/06 21:42:40 sthen Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.410 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -152,7 +152,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		2
+#define	IMSG_VERSION		3
 
 enum imsg_type {
 	IMSG_NONE,
@@ -175,6 +175,9 @@ enum imsg_type {
 	IMSG_CTL_UNTRACE,
 	IMSG_CTL_PROFILE,
 	IMSG_CTL_UNPROFILE,
+
+	IMSG_CTL_MTA_SHOW_ROUTES,
+	IMSG_CTL_MTA_SHOW_HOSTSTATS,
 
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
@@ -228,6 +231,7 @@ enum imsg_type {
 	IMSG_MTA_BATCH,
 	IMSG_MTA_BATCH_ADD,
 	IMSG_MTA_BATCH_END,
+	IMSG_MTA_SCHEDULE,
 
 	IMSG_QUEUE_CREATE_MESSAGE,
 	IMSG_QUEUE_SUBMIT_ENVELOPE,
@@ -564,7 +568,7 @@ struct smtpd {
 	uint32_t				filtermask;
 };
 
-#define	TRACE_VERBOSE	0x0001
+#define	TRACE_DEBUG	0x0001
 #define	TRACE_IMSG	0x0002
 #define	TRACE_IO	0x0004
 #define	TRACE_SMTP	0x0008
@@ -650,39 +654,48 @@ struct mta_source {
 };
 
 struct mta_connector {
-	TAILQ_ENTRY(mta_connector)	 lst_entry;
 	struct mta_source		*source;
 	struct mta_relay		*relay;
-	struct mta_connectors		*queue;
 
-#define CONNECTOR_FAMILY_ERROR	0x01
-#define CONNECTOR_SOURCE_ERROR	0x02
-#define CONNECTOR_MX_ERROR	0x04
-#define CONNECTOR_ERROR		0x0f
+#define CONNECTOR_ERROR_FAMILY	0x0001
+#define CONNECTOR_ERROR_SOURCE	0x0002
+#define CONNECTOR_ERROR_MX	0x0004
+#define CONNECTOR_ERROR_ROUTE	0x0008
+#define CONNECTOR_ERROR		0x000f
 
-#define CONNECTOR_LIMIT_HOST	0x10
-#define CONNECTOR_LIMIT_ROUTE	0x20
-#define CONNECTOR_LIMIT_SOURCE	0x40
-#define CONNECTOR_LIMIT		0xf0
+#define CONNECTOR_LIMIT_HOST	0x0010
+#define CONNECTOR_LIMIT_ROUTE	0x0020
+#define CONNECTOR_LIMIT_SOURCE	0x0040
+#define CONNECTOR_LIMIT_RELAY	0x0080
+#define CONNECTOR_LIMIT_CONN	0x0100
+#define CONNECTOR_LIMIT_DOMAIN	0x0200
+#define CONNECTOR_LIMIT		0x03f0
+
+#define CONNECTOR_NEW		0x1000
+#define CONNECTOR_WAIT		0x2000
 	int				 flags;
 
 	int				 refcount;
 	size_t				 nconn;
 	time_t				 lastconn;
-	time_t				 nextconn;
-	time_t				 clearlimit;
 };
 
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
 	struct mta_source	*src;
 	struct mta_host		*dst;
+#define ROUTE_NEW		0x01
+#define ROUTE_RUNQ		0x02
+#define ROUTE_DISABLED		0x04
+#define ROUTE_KEEPALIVE		0x08
+	int			 flags;
+	int			 penalty;
 	int			 refcount;
 	size_t			 nconn;
 	time_t			 lastconn;
+	time_t			 lastdisc;
+	time_t			 lastpenalty;
 };
-
-TAILQ_HEAD(mta_connectors, mta_connector);
 
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
@@ -706,14 +719,9 @@ struct mta_relay {
 	TAILQ_HEAD(, mta_task)	 tasks;
 
 	struct tree		 connectors;
-	size_t			 nconnector;
 	size_t			 sourceloop;
-
-	struct mta_connectors	 c_ready;
-	struct mta_connectors	 c_limit;
-	struct mta_connectors	 c_delay;
-	struct mta_connectors	 c_error;
-	struct event		 ev;
+	time_t			 lastsource;
+	time_t			 nextsource;
 
 	int			 fail;
 	char			*failstr;
@@ -722,14 +730,14 @@ struct mta_relay {
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
 #define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAITMASK		0x0f
+#define RELAY_WAIT_CONNECTOR	0x10
+#define RELAY_WAITMASK		0x1f
 	int			 status;
 
 	int			 refcount;
 	size_t			 nconn;
+	size_t			 nconn_ready;
 	time_t			 lastconn;
-
-	size_t			 maxconn;
 };
 
 struct mta_envelope {
@@ -740,6 +748,7 @@ struct mta_envelope {
 	char				*dest;
 	char				*rcpt;
 	struct mta_task			*task;
+	int				 delivery;
 };
 
 struct mta_task {
@@ -808,6 +817,7 @@ struct scheduler_info {
 	time_t			lasttry;
 	time_t			lastbounce;
 	time_t			nexttry;
+	uint8_t			penalty;
 };
 
 #define SCHED_NONE		0x00
@@ -1202,9 +1212,12 @@ void m_get_envelope(struct msg *, struct envelope *);
 pid_t mta(void);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *);
+void mta_route_down(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
-void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *);
+void mta_delivery_log(struct mta_envelope *, const char *, const char *, int, const char *);
+void mta_delivery_notify(struct mta_envelope *, int, const char *, uint32_t);
+void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *, uint32_t);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1222,7 +1235,7 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, const char *);
+void queue_tempfail(uint64_t, uint32_t, const char *);
 void queue_permfail(uint64_t, const char *);
 void queue_loop(uint64_t);
 void queue_flow_control(void);
@@ -1256,7 +1269,7 @@ pid_t scheduler(void);
 
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
-void scheduler_info(struct scheduler_info *, struct envelope *);
+void scheduler_info(struct scheduler_info *, struct envelope *, uint32_t);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
@@ -1387,3 +1400,13 @@ int session_socket_error(int);
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
 void waitq_run(void *, void *);
+
+/* runq.c */
+struct runq;
+
+int runq_init(struct runq **, void (*)(struct runq *, void *));
+int runq_schedule(struct runq *, time_t, void (*)(struct runq *, void *), void *);
+int runq_delay(struct runq *, unsigned int, void (*)(struct runq *, void *), void *);
+int runq_cancel(struct runq *, void (*)(struct runq *, void *), void *);
+int runq_pending(struct runq *, void (*)(struct runq *, void *), void *, time_t *);
+int runq_next(struct runq *, void (**)(struct runq *, void *), void **, time_t *);

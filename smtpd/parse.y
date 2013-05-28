@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.116 2013/03/06 21:42:40 sthen Exp $	*/
+/*	$OpenBSD: parse.y,v 1.117 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -722,7 +722,7 @@ action		: userbase DELIVER TO MAILDIR			{
 		| userbase DELIVER TO LMTP STRING		{
 			rule->r_userbase = $1;
 			rule->r_action = A_LMTP;
-			if (strchr($5, ':')) {
+			if (strchr($5, ':') || $5[0] == '/') {
 				if (strlcpy(rule->r_value.buffer, $5,
 					sizeof(rule->r_value.buffer))
 					>= sizeof(rule->r_value.buffer))

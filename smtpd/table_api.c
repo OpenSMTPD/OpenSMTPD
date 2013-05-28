@@ -89,7 +89,7 @@ dispatch(void)
 		memmove(&type, data, sizeof(type));
 		key = data + sizeof(type);
 		len -= sizeof(type);
-		if (key[len] != '\0') {
+		if (key[len - 1] != '\0') {
 			log_warnx("warn: table-api: bad message length");
 			return (-1);
 		}
@@ -110,7 +110,7 @@ dispatch(void)
 		memmove(&type, data, sizeof(type));
 		key = data + sizeof(type);
 		len -= sizeof(type);
-		if (key[len] != '\0') {
+		if (key[len - 1] != '\0') {
 			log_warnx("warn: table-api: bad message length");
 			return (-1);
 		}

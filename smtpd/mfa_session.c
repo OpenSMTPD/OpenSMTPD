@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa_session.c,v 1.15 2013/03/26 13:30:29 millert Exp $	*/
+/*	$OpenBSD: mfa_session.c,v 1.17 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -249,12 +249,9 @@ static void
 mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 {
 	struct mproc	*p;
-	size_t		 len;
 
 	log_trace(TRACE_MFA,
 	    "mfa: running data for %016"PRIx64" on filter %p: %s", id, f, line);
-
-	len = 16 + strlen(line);
 
 	/* Send the dataline to the filters that want to see it. */
 	while (f) {
@@ -318,7 +315,6 @@ mfa_drain_query(struct mfa_query *q)
 {
 	struct mfa_filter	*f;
 	struct mfa_query	*prev;
-	size_t			 len;
 
 	log_trace(TRACE_MFA, "mfa: draining query %s", mfa_query_to_text(q));
 
@@ -380,9 +376,6 @@ mfa_drain_query(struct mfa_query *q)
 			m_close(&f->mproc);
 		}
 
-		len = 48;
-		if (q->smtp.response)
-			len += strlen(q->smtp.response);
 		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
 		m_add_id(p_smtp, q->session->id);
 		m_add_int(p_smtp, q->smtp.status);

@@ -1,4 +1,4 @@
-/* $OpenBSD$	 */
+/* $OpenBSD: crypto.c,v 1.1 2013/05/04 13:46:21 gilles Exp $	 */
 
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@openbsd.org>
@@ -338,10 +338,12 @@ main(int argc, char *argv[])
 					       encbuffer, sizeof encbuffer);
 
 		/* uncomment below to provoke integrity check failure */
-		//encbuffer[13] = 0x42;
-		//encbuffer[14] = 0x42;
-		//encbuffer[15] = 0x42;
-		//encbuffer[16] = 0x42;
+		/*
+		 * encbuffer[13] = 0x42;
+		 * encbuffer[14] = 0x42;
+		 * encbuffer[15] = 0x42;
+		 * encbuffer[16] = 0x42;
+		 */
 
 		declen = crypto_decrypt_buffer(encbuffer, enclen,
 					       decbuffer, sizeof decbuffer);
@@ -365,12 +367,12 @@ main(int argc, char *argv[])
 		fclose(fpin);
 		fclose(fpout);
 
+		/* uncomment below to provoke integrity check failure */
 		/*
-		fpin = fopen("/tmp/passwd.enc", "a");
-		fprintf(fpin, "borken");
-		fclose(fpin);
-		*/
-
+		 * fpin = fopen("/tmp/passwd.enc", "a");
+		 * fprintf(fpin, "borken");
+		 * fclose(fpin);
+		 */
 		fpin = fopen("/tmp/passwd.enc", "r");
 		fpout = fopen("/tmp/passwd.dec", "w");
 		if (!crypto_decrypt_file(fpin, fpout))

@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.27 2013/02/10 15:01:16 eric Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.28 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -76,6 +76,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 evpid, id;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
 	uint32_t       		 inflight;
+	uint32_t       		 penalty;
 	size_t			 n, i;
 	time_t			 timestamp;
 	int			 v;
@@ -88,7 +89,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: inserting evp:%016" PRIx64, evp.id);
-		scheduler_info(&si, &evp);
+		scheduler_info(&si, &evp, 0);
 		stat_increment("scheduler.envelope.incoming", 1);
 		backend->insert(&si);
 		return;
@@ -149,10 +150,11 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_DELIVERY_TEMPFAIL:
 		m_msg(&m, imsg);
 		m_get_envelope(&m, &evp);
+		m_get_u32(&m, &penalty);
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: updating evp:%016" PRIx64, evp.id);
-		scheduler_info(&si, &evp);
+		scheduler_info(&si, &evp, penalty);
 		backend->update(&si);
 		stat_increment("scheduler.delivery.tempfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
@@ -261,6 +263,12 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		else
 			log_debug("debug: scheduler: "
 			    "scheduling evp:%016" PRIx64, id);
+		backend->schedule(id);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_MTA_SCHEDULE:
+		id = *(uint64_t *)(imsg->data);
 		backend->schedule(id);
 		scheduler_reset_events();
 		return;

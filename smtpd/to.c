@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.4 2013/02/15 22:43:21 eric Exp $	*/
+/*	$OpenBSD: to.c,v 1.7 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -270,7 +270,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 	bzero(&ssin, sizeof(struct sockaddr_in));
 	bzero(&ssin6, sizeof(struct sockaddr_in6));
 
-	if (strncmp("IPv6:", s, 5) == 0)
+	if (strncasecmp("IPv6:", s, 5) == 0)
 		s += 5;
 
 	if (strchr(s, '/') != NULL) {

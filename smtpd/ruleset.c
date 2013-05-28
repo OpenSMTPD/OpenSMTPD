@@ -1,4 +1,4 @@
-/*	$OpenBSD: ruleset.c,v 1.27 2013/01/26 09:37:23 gilles Exp $ */
+/*	$OpenBSD: ruleset.c,v 1.28 2013/05/24 17:03:14 eric Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>

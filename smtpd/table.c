@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.3 2013/02/05 15:23:40 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.4 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -44,8 +44,6 @@ extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_proc;
-extern struct table_backend table_backend_sqlite;
-extern struct table_backend table_backend_ldap;
 
 static const char * table_service_name(enum table_service);
 static const char * table_backend_name(struct table_backend *);
@@ -65,10 +63,6 @@ table_backend_lookup(const char *backend)
 		return &table_backend_getpwnam;
 	if (!strcmp(backend, "proc"))
 		return &table_backend_proc;
-	if (!strcmp(backend, "sqlite"))
-		return &table_backend_sqlite;
-	if (!strcmp(backend, "ldap"))
-		return &table_backend_ldap;
 	return NULL;
 }
 
@@ -83,10 +77,6 @@ table_backend_name(struct table_backend *backend)
 		return "getpwnam";
 	if (backend == &table_backend_proc)
 		return "proc";
-	if (backend == &table_backend_sqlite)
-		return "sqlite";
-	if (backend == &table_backend_ldap)
-		return "ldap";
 	return "???";
 }
 
@@ -128,16 +118,22 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
     union lookup *lk)
 {
 	int	r;
+	char	lkey[1024];
 
 	if (table->t_backend->lookup == NULL)
 		return (-1);
 
-	r = table->t_backend->lookup(table->t_handle, key, kind, lk);
+	if (! lowercase(lkey, key, sizeof lkey)) {
+		log_warnx("warn: lookup key too long: %s", key);
+		return -1;
+	}
+
+	r = table->t_backend->lookup(table->t_handle, lkey, kind, lk);
 
 	if (r == 1)
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %s%s%s",
 		    lk ? "lookup" : "check",
-		    key,
+		    lkey,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
 		    table->t_name,
@@ -147,7 +143,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 	else
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %i",
 		    lk ? "lookup" : "check",
-		    key,
+		    lkey,
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
 		    table->t_name,
@@ -367,7 +363,7 @@ table_netaddr_match(const char *s1, const char *s2)
 	struct netaddr n1;
 	struct netaddr n2;
 
-	if (strcmp(s1, s2) == 0)
+	if (strcasecmp(s1, s2) == 0)
 		return 1;
 	if (! text_to_netaddr(&n1, s1))
 		return 0;

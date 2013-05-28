@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.101 2013/02/14 12:30:49 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.104 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Gilles Chehade <gilles@poolp.org>
@@ -58,6 +58,8 @@ static void display(const char *);
 static void show_envelope(const char *);
 static void show_message(const char *);
 static void show_monitor(struct stat_digest *);
+static int show_routes(void);
+static int show_hoststats(void);
 
 static int try_connect(void);
 static void flush(void);
@@ -273,6 +275,10 @@ main(int argc, char *argv[])
 	case SHOW_STATS:
 		imsg_compose(ibuf, IMSG_STATS, IMSG_VERSION, 0, -1, NULL, 0);
 		break;
+	case SHOW_ROUTES:
+		return show_routes();
+	case SHOW_HOSTSTATS:
+		return show_hoststats();
 	case UPDATE_TABLE:
 		if (strlcpy(name, res->data, sizeof name) >= sizeof name)
 			errx(1, "table name too long.");
@@ -291,7 +297,7 @@ main(int argc, char *argv[])
 		}
 		break;
 	case LOG_VERBOSE:
-		verb = TRACE_VERBOSE;
+		verb = TRACE_DEBUG;
 		/* FALLTHROUGH */
 	case LOG_BRIEF:
 		imsg_compose(ibuf, IMSG_CTL_VERBOSE, IMSG_VERSION, 0, -1, &verb,
@@ -567,6 +573,54 @@ show_command_output(struct imsg *imsg)
 		errx(1, "wrong message in summary: %u", imsg->hdr.type);
 	}
 	return (1);
+}
+
+static int
+show_routes(void)
+{
+	struct imsg	 imsg;
+	size_t		 len;
+
+	imsg_compose(ibuf, IMSG_CTL_MTA_SHOW_ROUTES, IMSG_VERSION, 0, -1, NULL, 0);
+	flush();
+
+	while(1) {
+		next_message(&imsg);
+		if (imsg.hdr.type != IMSG_CTL_MTA_SHOW_ROUTES)
+			errx(1, "invalid imsg type");
+		len = imsg.hdr.len - sizeof(imsg.hdr);
+		if (len == 0)
+			break;
+		printf("%s\n", (char*)imsg.data);
+		imsg_free(&imsg);
+	}
+	imsg_free(&imsg);
+
+	return (0);
+}
+
+static int
+show_hoststats(void)
+{
+	struct imsg	 imsg;
+	size_t		 len;
+
+	imsg_compose(ibuf, IMSG_CTL_MTA_SHOW_HOSTSTATS, IMSG_VERSION, 0, -1, NULL, 0);
+	flush();
+
+	while(1) {
+		next_message(&imsg);
+		if (imsg.hdr.type != IMSG_CTL_MTA_SHOW_HOSTSTATS)
+			errx(1, "invalid imsg type");
+		len = imsg.hdr.len - sizeof(imsg.hdr);
+		if (len == 0)
+			break;
+		printf("%s\n", (char*)imsg.data);
+		imsg_free(&imsg);
+	}
+	imsg_free(&imsg);
+
+	return (0);
 }
 
 static void
@@ -898,7 +952,7 @@ trace_convert(uint32_t trace)
 
 	case LOG_TRACE_ALL:
 	case LOG_UNTRACE_ALL:
-		return ~TRACE_VERBOSE;
+		return ~TRACE_DEBUG;
 	}
 
 	return 0;
