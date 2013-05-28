@@ -1,8 +1,9 @@
-/*	$OpenBSD: enqueue.c,v 1.65 2012/11/23 10:55:25 eric Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.68 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,11 +18,11 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
-#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -94,7 +95,7 @@ struct {
 #define WSP(c)			(c == ' ' || c == '\t')
 
 int	  verbose = 0;
-char	  host[MAXHOSTNAMELEN];
+char	  host[SMTPD_MAXHOSTNAMELEN];
 char	 *user = NULL;
 time_t	  timestamp;
 
@@ -305,8 +306,8 @@ enqueue(int argc, char *argv[])
 			    "quoted-printable\n");
 	}
 	if (!msg.saw_user_agent)
-		send_line(fout, 0, "User-Agent: OpenSMTPD enqueuer (%s)\n",
-			"Demoosh");
+		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
+		    SMTPD_NAME, "Demoosh");
 
 	/* add separating newline */
 	if (noheader)
@@ -679,6 +680,8 @@ rcpt_add(char *addr)
 		if ((p = strchr(addr, ',')) != NULL)
 			*p++ = '\0';
 		msg.rcpts[msg.rcpt_cnt++] = qualify_addr(addr);
+		if (p == NULL)
+			break;
 		addr = p;
 	}
 }
@@ -690,7 +693,7 @@ open_connection(void)
 	int		fd;
 	int		n;
 
-	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE, 0, 0, -1, NULL, 0);
+	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
 		if (msgbuf_write(&ibuf->w) < 0)
@@ -728,9 +731,10 @@ open_connection(void)
 int
 enqueue_offline(int argc, char *argv[])
 {
-	char	 path[MAXPATHLEN];
+	char	 path[SMTPD_MAXPATHLEN];
 	FILE	*fp;
 	int	 i, fd, ch;
+	mode_t	 omode;
 
 	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 0) == 0)
 		errx(1, "error in offline directory setup");
@@ -739,10 +743,17 @@ enqueue_offline(int argc, char *argv[])
 		PATH_OFFLINE, (long long int) time(NULL)))
 		err(1, "snprintf");
 
+	omode = umask(7077);
 	if ((fd = mkstemp(path)) == -1 || (fp = fdopen(fd, "w+")) == NULL) {
 		warn("cannot create temporary file %s", path);
 		if (fd != -1)
 			unlink(path);
+		exit(1);
+	}
+	umask(omode);
+
+	if (fchmod(fd, 0600) == -1) {
+		unlink(path);
 		exit(1);
 	}
 

@@ -1,7 +1,7 @@
-.\"	$OpenBSD: smtpd.8,v 1.17 2012/10/17 16:39:49 eric Exp $
+.\"	$OpenBSD: smtpd.8,v 1.22 2013/05/24 17:03:14 eric Exp $
 .\"
 .\" Copyright (c) 2012, Eric Faurot <eric@openbsd.org>
-.\" Copyright (c) 2008, Gilles Chehade <gilles@openbsd.org>
+.\" Copyright (c) 2008, Gilles Chehade <gilles@poolp.org>
 .\" Copyright (c) 2008, Pierre-Yves Ritschard <pyr@openbsd.org>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
@@ -16,7 +16,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: October 17 2012 $
+.Dd $Mdocdate: May 24 2013 $
 .Dt SMTPD 8
 .Os
 .Sh NAME
@@ -110,6 +110,9 @@ makemap		/usr/libexec/smtpd/makemap
 newaliases	/usr/libexec/smtpd/makemap
 .Ed
 .Pp
+Disable the sendmail clientmqueue entry in
+.Xr crontab 1 .
+.Pp
 Rebuild the aliases database,
 and enable the daemon:
 .Bd -literal -offset indent
@@ -145,3 +148,17 @@ The
 .Nm
 program first appeared in
 .Ox 4.6 .
+.Sh CAVEATS
+Because
+.Xr sendmail 8
+is still the de facto
+.Ox
+mailer,
+.Nm
+versions of
+.Xr aliases 5 ,
+.Xr forward 5 ,
+.Xr makemap 8 ,
+and
+.Xr newaliases 8
+are not currently installed.

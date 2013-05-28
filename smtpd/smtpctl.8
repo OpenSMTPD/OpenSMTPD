@@ -1,6 +1,7 @@
-.\" $OpenBSD: smtpctl.8,v 1.36 2012/11/20 11:39:51 jmc Exp $
+.\" $OpenBSD: smtpctl.8,v 1.41 2013/05/24 17:03:14 eric Exp $
 .\"
 .\" Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
+.\" Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +15,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: November 20 2012 $
+.Dd $Mdocdate: May 24 2013 $
 .Dt SMTPCTL 8
 .Os
 .Sh NAME
@@ -84,6 +85,17 @@ Temporarily stop relaying and deliveries to
 remote users.
 .It Cm pause smtp
 Temporarily stop accepting incoming sessions.
+.It Cm profile Ar subsystem
+Enables real-time profiling of
+.Ar subsystem .
+Supported subsystems are:
+.Pp
+.Bl -bullet -compact
+.It
+queue, to profile cost of queue IO
+.It
+imsg, to profile cost of event handlers
+.El
 .It Cm remove Ar envelope-id | message-id
 Remove a single envelope, or all envelopes with the same message ID.
 .It Cm resume mda
@@ -92,9 +104,9 @@ Resume deliveries to local users.
 Resume relaying and deliveries to remote users.
 .It Cm resume smtp
 Resume accepting incoming sessions.
-.It Cm schedule-all
+.It Cm schedule all
 Mark all envelopes as ready for immediate delivery.
-.It Cm schedule-id Ar envelope-id | message-id
+.It Cm schedule Ar envelope-id | message-id
 Mark a single envelope, or all envelopes with the same message ID,
 as ready for immediate delivery.
 .It Cm show envelope Ar envelope-id
@@ -147,6 +159,45 @@ Displays runtime statistics concerning
 .Xr smtpd 8 .
 .It Cm stop
 Stop the server.
+.It Cm trace Ar subsystem
+Enables real-time tracing of
+.Ar subsystem .
+Supported subsystems are:
+.Pp
+.Bl -bullet -compact
+.It
+imsg
+.It
+io
+.It
+smtp (incoming sessions)
+.It
+filter
+.It
+transfer (outgoing sessions)
+.It
+bounce
+.It
+scheduler
+.It
+expand (aliases/virtual/forward expansion)
+.It
+lookup (user/credentials lookups)
+.It
+stat
+.It
+rules (matched by incoming sessions)
+.It
+mproc
+.It
+all
+.El
+.It Cm unprofile Ar subsystem
+Disables real-time profiling of
+.Ar subsystem .
+.It Cm untrace Ar subsystem
+Disables real-time tracing of
+.Ar subsystem .
 .It Cm update table Ar name
 For table backends that provide caching, causes
 .Xr smtpd 8

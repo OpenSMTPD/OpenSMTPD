@@ -1,7 +1,7 @@
-/*	$OpenBSD: delivery_filename.c,v 1.7 2012/11/23 10:55:25 eric Exp $	*/
+/*	$OpenBSD: delivery_filename.c,v 1.9 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
- * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,7 +19,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
@@ -92,8 +91,10 @@ delivery_filename_open(struct deliver *deliver)
 	putc('\n', fp);
 	if (fflush(fp) == EOF || ferror(fp))
 		error2("write error");
-	if (fsync(fd) < 0)
-		error2("fsync");
+	if (fsync(fd) == -1) {
+		if (errno != EINVAL)
+			error2("fsync");
+	}
 	if (fclose(fp) == EOF)
 		error2("fclose");
 	_exit(0);

@@ -1,5 +1,7 @@
+/*	$OpenBSD: stat_ramstat.c,v 1.8 2013/05/24 17:03:14 eric Exp $	*/
+
 /*
- * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +20,6 @@
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 
 #include <event.h>
 #include <imsg.h>

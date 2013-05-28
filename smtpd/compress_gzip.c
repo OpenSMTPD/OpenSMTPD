@@ -1,7 +1,7 @@
-/*	$OpenBSD: compress_gzip.c,v 1.5 2012/10/11 21:34:19 gilles Exp $	*/
+/*	$OpenBSD: compress_gzip.c,v 1.7 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
- * Copyright (c) 2012 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
@@ -39,56 +38,128 @@
 #include "smtpd.h"
 #include "log.h"
 
+
 #define	GZIP_BUFFER_SIZE	16384
 
-static int compress_file_gzip(FILE *, FILE *);
-static int uncompress_file_gzip(FILE *, FILE *);
-static size_t compress_buffer_gzip(char *, size_t, char *, size_t);
-static size_t uncompress_buffer_gzip(char *, size_t, char *, size_t);
+
+static size_t	compress_gzip_chunk(void *, size_t, void *, size_t);
+static size_t	uncompress_gzip_chunk(void *, size_t, void *, size_t);
+static int	compress_gzip_file(FILE *, FILE *);
+static int	uncompress_gzip_file(FILE *, FILE *);
+
 
 struct compress_backend	compress_gzip = {
-	compress_file_gzip,
-	uncompress_file_gzip,
-	compress_buffer_gzip,
-	uncompress_buffer_gzip
+	compress_gzip_chunk,
+	uncompress_gzip_chunk,
+
+	compress_gzip_file,
+	uncompress_gzip_file,
 };
 
-static int
-compress_file_gzip(FILE *in, FILE *out)
+static size_t
+compress_gzip_chunk(void *ib, size_t ibsz, void *ob, size_t obsz)
 {
-	gzFile	gzf;
-	char	ibuf[GZIP_BUFFER_SIZE];
-	int	r, w;
-	int	ret = 0;
+	z_stream       *strm;
+	size_t		ret = 0;
 
+	if ((strm = calloc(1, sizeof *strm)) == NULL)
+		return 0;
+	
+	strm->zalloc = Z_NULL;
+	strm->zfree = Z_NULL;
+	strm->opaque = Z_NULL;
+	if (deflateInit2(strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+		(15+16), 8, Z_DEFAULT_STRATEGY) != Z_OK)
+		goto end;
+
+	strm->avail_in  = ibsz;
+	strm->next_in   = (unsigned char *)ib;
+	strm->avail_out = obsz;
+	strm->next_out  = (unsigned char *)ob;
+	if (deflate(strm, Z_FINISH) != Z_STREAM_END)
+		goto end;
+
+	ret = strm->total_out;
+
+end:
+	deflateEnd(strm);
+	free(strm);
+	return ret;
+}
+
+
+static size_t
+uncompress_gzip_chunk(void *ib, size_t ibsz, void *ob, size_t obsz)
+{
+	z_stream       *strm;
+	size_t		ret = 0;
+
+	if ((strm = calloc(1, sizeof *strm)) == NULL)
+		return 0;
+
+	strm->zalloc   = Z_NULL;
+	strm->zfree    = Z_NULL;
+	strm->opaque   = Z_NULL;
+	strm->avail_in = 0;
+	strm->next_in  = Z_NULL;
+
+	if (inflateInit2(strm, (15+16)) != Z_OK)
+		goto end;
+
+	strm->avail_in  = ibsz;
+	strm->next_in   = (unsigned char *)ib;
+	strm->avail_out = obsz;
+	strm->next_out  = (unsigned char *)ob;
+
+	if (inflate(strm, Z_FINISH) != Z_STREAM_END)
+		goto end;
+
+	ret = strm->total_out;
+
+end:
+	deflateEnd(strm);
+	free(strm);
+	return ret;
+}
+
+
+static int
+compress_gzip_file(FILE *in, FILE *out)
+{
+	gzFile  gzf;
+	char  ibuf[GZIP_BUFFER_SIZE];
+	int  r, w;
+	int  ret = 0;
+	
 	if (in == NULL || out == NULL)
 		return (0);
-
+	
 	gzf = gzdopen(fileno(out), "wb");
 	if (gzf == NULL)
 		return (0);
-
+	
 	while ((r = fread(ibuf, 1, GZIP_BUFFER_SIZE, in)) != 0) {
 		if ((w = gzwrite(gzf, ibuf, r)) != r)
 			goto end;
 	}
 	if (! feof(in))
 		goto end;
-
+	
 	ret = 1;
-
+	
 end:
 	gzclose(gzf);
 	return (ret);
 }
 
+
 static int
-uncompress_file_gzip(FILE *in, FILE *out)
+uncompress_gzip_file(FILE *in, FILE *out)
 {
-	gzFile	gzf;
-	char	obuf[GZIP_BUFFER_SIZE];
-	int	r, w;
-	int	ret = 0;
+	gzFile  gzf;
+	char  obuf[GZIP_BUFFER_SIZE];
+	int  r, w;
+	int  ret = 0;
 
 	if (in == NULL || out == NULL)
 		return (0);
@@ -109,67 +180,4 @@ uncompress_file_gzip(FILE *in, FILE *out)
 end:
 	gzclose(gzf);
 	return (ret);
-}
-
-static size_t
-compress_buffer_gzip(char *in, size_t inlen, char *out, size_t outlen)
-{
-	z_stream	strm;
-	size_t		ret = 0;
-
-	strm.zalloc = Z_NULL;
-	strm.zfree = Z_NULL;
-	strm.opaque = Z_NULL;
-
-	ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
-	    (15+16), 8, Z_DEFAULT_STRATEGY);
-	if (ret != Z_OK)
-		return 0;
-
-	strm.avail_in = inlen;
-	strm.next_in = (unsigned char *)in;
-	strm.avail_out = outlen;
-	strm.next_out = (unsigned char *)out;
-
-	ret = deflate(&strm, Z_FINISH);
-	if (ret != Z_STREAM_END)
-		goto end;
-
-	ret = strm.total_out;
-
-end:
-	(void)deflateEnd(&strm);
-	return ret;
-}
-
-static size_t
-uncompress_buffer_gzip(char *in, size_t inlen, char *out, size_t outlen)
-{
-	z_stream	strm;
-	size_t		ret = 0;
-
-	strm.zalloc = Z_NULL;
-	strm.zfree = Z_NULL;
-	strm.opaque = Z_NULL;
-	strm.avail_in = 0;
-	strm.next_in = Z_NULL;
-
-	ret = inflateInit2(&strm, (15+16));
-	if (ret != Z_OK)
-		return ret;
-
-	strm.avail_in = inlen;
-	strm.next_in = (unsigned char *)in;
-	strm.avail_out = outlen;
-	strm.next_out = (unsigned char *)out;
-
-	ret = inflate(&strm, Z_FINISH);
-	if (ret != Z_STREAM_END)
-		goto end;
-
-	ret = strm.total_out;
-
-end:
-	(void)inflateEnd(&strm);
-	return ret;
 }

@@ -1,7 +1,7 @@
-/*	$OpenBSD: auth.c,v 1.1 2011/12/14 22:28:02 eric Exp $	*/
+/*	$OpenBSD: smtpd-defines.h,v 1.1 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
- * Copyright (c) 2011 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,36 +16,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
+#ifndef nitems
+#define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
+#endif
 
-#include <event.h>
-#include <imsg.h>
-#include <stdio.h>
+#define SMTPD_MAXLOCALPARTSIZE	 (255 + 1)
+#define SMTPD_MAXDOMAINPARTSIZE	 (255 + 1)
 
-#include "smtpd.h"
-#include "log.h"
-
-extern struct auth_backend	auth_backend_bsd;
-extern struct auth_backend	auth_backend_pwd;
-
-struct auth_backend *
-auth_backend_lookup(enum auth_type type)
-{
-	switch (type) {
-	case AUTH_BSD:
-		return &auth_backend_bsd;
-
-	case AUTH_PWD:
-		return &auth_backend_pwd;
-
-	default:
-		fatalx("bad auth type");
-	}
-
-	return (NULL);
-}
+#define	SMTPD_MAXLOGNAME	32
+#define	SMTPD_MAXPATHLEN	1024
+#define	SMTPD_MAXHOSTNAMELEN	256
+#define	SMTPD_MAXLINESIZE	2048

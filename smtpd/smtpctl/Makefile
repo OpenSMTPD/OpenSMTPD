@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.29 2012/10/07 15:46:38 chl Exp $
+#	$OpenBSD: Makefile,v 1.31 2013/05/24 17:03:14 eric Exp $
 
 .PATH:		${.CURDIR}/..
 
@@ -21,6 +21,7 @@ SRCS=	enqueue.c parser.c log.c envelope.c
 SRCS+=	queue_backend.c queue_fsqueue.c
 SRCS+=	smtpctl.c util.c
 SRCS+=	compress_backend.c compress_gzip.c
+SRCS+=	to.c expand.c tree.c
 
 LDADD+=	-lutil -lz
 DPADD+=	${LIBUTIL} ${LIBZ}

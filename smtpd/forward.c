@@ -1,7 +1,7 @@
-/*	$OpenBSD: forward.c,v 1.32 2012/11/12 14:58:53 eric Exp $	*/
+/*	$OpenBSD: forward.c,v 1.35 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
- * Copyright (c) 2008 Gilles Chehade <gilles@openbsd.org>
+ * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,7 +19,6 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
@@ -29,74 +28,70 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <util.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
 
+#define	MAX_FORWARD_SIZE	(4 * 1024)
+#define	MAX_EXPAND_NODES	(100)
+
 int
 forwards_get(int fd, struct expand *expand)
 {
-	FILE *fp;
-	char *buf, *lbuf, *p, *cp;
-	size_t len;
-	size_t nbaliases = 0;
-	int quoted;
-	struct expandnode xn;
+	FILE	       *fp = NULL;
+	char	       *line = NULL;
+	size_t		len;
+	size_t		lineno;
+	size_t		save;
+	int		ret;
+	struct stat	sb;
 
-	fp = fdopen(fd, "r");
-	if (fp == NULL)
-		return 0;
+	ret = -1;
+	if (fstat(fd, &sb) == -1)
+		goto end;
 
-	lbuf = NULL;
-	while ((buf = fgetln(fp, &len))) {
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-		else {
-			/* EOF without EOL, copy and add the NUL */
-			lbuf = xmalloc(len + 1, "forwards_get");
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
-
-		/* ignore empty lines and comments */
-		if (buf[0] == '#' || buf[0] == '\0')
-			continue;
-
-		quoted = 0;
-		cp = buf;
-		do {
-			/* skip whitespace */
-			while (isspace((int)*cp))
-				cp++;
-
-			/* parse line */
-			for (p = cp; *p != '\0'; p++) {
-				if (*p == ',' && !quoted) {
-					*p++ = '\0';
-					break;
-				} else if (*p == '"')
-					quoted = !quoted;
-			}
-			buf = cp;
-			cp = p;
-
-			if (! alias_parse(&xn, buf)) {
-				log_debug("debug: bad entry in ~/.forward");
-				continue;
-			}
-
-			if (xn.type == EXPAND_INCLUDE) {
-				log_debug(
-				    "includes are forbidden in ~/.forward");
-				continue;
-			}
-
-			expand_insert(expand, &xn);
-			nbaliases++;
-		} while (*cp != '\0');
+	/* if it's empty just pretend that no expansion took place */
+	if (sb.st_size == 0) {
+		log_info("info: forward file is empty");
+		ret = 0;
+		goto end;
 	}
-	free(lbuf);
-	fclose(fp);
-	return (nbaliases);
+
+	/* over MAX_FORWARD_SIZE, temporarily fail */
+	if (sb.st_size >= MAX_FORWARD_SIZE) {
+		log_info("info: forward file exceeds max size");
+		goto end;
+	}
+
+	if ((fp = fdopen(fd, "r")) == NULL) {
+		log_warn("warn: fdopen failure in forwards_get()");
+		goto end;
+	}
+
+	lineno = 0;
+	save = expand->nb_nodes;
+	while ((line = fparseln(fp, &len, &lineno, NULL, 0)) != NULL) {
+		if (! expand_line(expand, line, 0)) {
+			log_info("info: parse error in forward file");
+			goto end;
+		}
+		if (expand->nb_nodes > MAX_EXPAND_NODES) {
+			log_info("info: forward file expanded too many nodes");
+			goto end;
+		}
+		free(line);
+	}
+	       
+	ret = expand->nb_nodes > save ? 1 : 0;
+
+end:
+	if (line)
+		free(line);
+	if (fp)
+		fclose(fp);
+	else
+		close(fd);
+	return ret;
 }
