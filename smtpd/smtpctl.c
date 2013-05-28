@@ -43,8 +43,8 @@
 #include "parser.h"
 #include "log.h"
 
-#define PATH_CAT	"/bin/cat"
 #define PATH_GZCAT	"/usr/bin/gzcat"
+#define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
 
 void usage(void);
@@ -70,6 +70,8 @@ static int action_show_queue(void);
 static int action_show_queue_message(uint32_t);
 static uint32_t trace_convert(uint32_t);
 static uint32_t profile_convert(uint32_t);
+
+static int	is_gzip(FILE *);
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -781,31 +783,20 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 static void
 display(const char *s)
 {
-	pid_t	pid;
-	arglist args;
-	char	*cmd;
-	int	status;
+	FILE   *fp;
+	int	gzipped;
 
-	pid = fork();
-	if (pid < 0)
-		err(1, "fork");
-	if (pid == 0) {
-		cmd = PATH_GZCAT;
-		bzero(&args, sizeof(args));
-		addargs(&args, "%s", cmd);
-		addargs(&args, "%s", s);
-		execvp(cmd, args.list);
-		err(1, "execvp");
-	}
-	wait(&status);
-	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-		exit(0);
-	cmd = PATH_CAT;
-	bzero(&args, sizeof(args));
-	addargs(&args, "%s", cmd);
-	addargs(&args, "%s", s);
-	execvp(cmd, args.list);
-	err(1, "execvp");
+	if ((fp = fopen(s, "r")) == NULL)
+		err(1, "fopen");
+	gzipped = is_gzip(fp);
+	fclose(fp);
+	
+	if (gzipped)
+		execl(PATH_GZCAT, "gzcat", s, NULL);
+	else
+		execl(PATH_CAT, "cat", s, NULL);
+	err(1, "execl");
+
 }
 
 static void
@@ -972,4 +963,21 @@ profile_convert(uint32_t prof)
 	}
 
 	return 0;
+}
+
+static int
+is_gzip(FILE *fp)
+{
+	uint16_t	magic;
+	int		ret = 0;
+
+	if (fread(&magic, 1, sizeof magic, fp) != sizeof magic)
+		goto end;
+
+#define	GZIP_MAGIC	0x8b1f
+	ret = (magic == GZIP_MAGIC);
+
+end:
+	fseek(fp, SEEK_SET, 0);
+	return ret;
 }
