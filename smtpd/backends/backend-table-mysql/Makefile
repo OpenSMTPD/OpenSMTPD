@@ -4,6 +4,7 @@ PROG=	backend-table-mysql
 
 SRCS=	table_mysql.c
 SRCS+=	table_api.c
+SRCS+=	dict.c
 
 NOMAN=	noman
 

@@ -4,6 +4,7 @@ PROG=	backend-table-sqlite
 
 SRCS=	table_sqlite.c
 SRCS+=	table_api.c
+SRCS+=	dict.c
 
 NOMAN=	noman
 

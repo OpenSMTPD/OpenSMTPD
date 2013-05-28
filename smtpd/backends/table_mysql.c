@@ -49,14 +49,21 @@ static int table_mysql_fetch(int, char *, size_t);
 
 static MYSQL_STMT *table_mysql_query(const char *, int);
 
+#define SQL_MAX_RESULT	5
+
 static char		*config;
 static MYSQL		*db;
 static MYSQL_STMT	*statements[SQL_MAX];
-
-#define SQL_MAX_RESULT	5
-
+static MYSQL_STMT	*stmt_fetch_source;
 static MYSQL_BIND	results[SQL_MAX_RESULT];
 static char		results_buffer[SQL_MAX_RESULT][SMTPD_MAXLINESIZE];
+
+static struct dict	 sources;
+static void		*source_iter;
+static size_t		 source_refresh = 1000;
+static size_t		 source_ncall;
+static int		 source_expire = 60;
+static time_t		 source_update;
 
 int
 main(int argc, char **argv)
@@ -90,6 +97,8 @@ main(int argc, char **argv)
 		log_warnx("warn: backend-table-mysql: bogus argument(s)");
 		return (1);
 	}
+
+	dict_init(&sources);
 
 	for (i = 0; i < SQL_MAX_RESULT; i++) {
 		results[i].buffer_type = MYSQL_TYPE_STRING;
@@ -147,6 +156,8 @@ table_mysql_update(void)
 	MYSQL_STMT	*_statements[SQL_MAX];
 	MYSQL_RES	*metadata;
 	char		*queries[SQL_MAX];
+	MYSQL_STMT	*_stmt_fetch_source;
+	char		*_query_fetch_source;
 	size_t		 flen;
 	FILE		*fp;
 	char		*key, *value, *buf, *lbuf;
@@ -160,6 +171,8 @@ table_mysql_update(void)
 	_db = NULL;
 	bzero(queries, sizeof(queries));
 	bzero(_statements, sizeof(_statements));
+	_query_fetch_source = NULL;
+	_stmt_fetch_source = NULL;
 
 	ret = 0;
 
@@ -224,6 +237,11 @@ table_mysql_update(void)
 		}
 		if (!strcmp("database", key)) {
 			if (table_mysql_getconfstr(key, value, &database) == -1)
+				goto end;
+			continue;
+		}
+		if (!strcmp("fetch_source", key)) {
+			if (table_mysql_getconfstr(key, value, &_query_fetch_source) == -1)
 				goto end;
 			continue;
 		}
@@ -296,6 +314,36 @@ table_mysql_update(void)
 		}
 	}
 
+	if (_query_fetch_source) {
+		if ((_stmt_fetch_source = mysql_stmt_init(_db)) == NULL) {
+			log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+			goto end;
+		}
+		if (mysql_stmt_prepare(_stmt_fetch_source, _query_fetch_source, strlen(_query_fetch_source))) {
+			log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+			goto end;
+		}
+		if (mysql_stmt_param_count(_stmt_fetch_source) != 1) {
+			log_warnx("warn: backend-table-mysql: columns: invalid query");
+			goto end;
+		}
+		metadata = mysql_stmt_result_metadata(_stmt_fetch_source);
+		if (metadata == NULL) {
+			log_warnx("warn: backend-table-mysql: mysql_stmt_result_metadata() failed");
+			goto end;
+		}
+		count = mysql_num_fields(metadata);
+		mysql_free_result(metadata);
+		if (count != 1) {
+			log_warnx("warn: backend-table-mysql: invalid number of columns in resultset");
+			goto end;
+		}
+		if (mysql_stmt_bind_result(_stmt_fetch_source, results)) {
+			log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results() failed");
+			goto end;
+		}
+	}
+
 	/* Replace previous setup */
 
 	for (i = 0; i < SQL_MAX; i++) {
@@ -304,10 +352,18 @@ table_mysql_update(void)
 		statements[i] = _statements[i];
 		_statements[i] = NULL;
 	}
+
+	if (stmt_fetch_source)
+		mysql_stmt_close(stmt_fetch_source);
+	stmt_fetch_source = _stmt_fetch_source;
+	_stmt_fetch_source = NULL;
+
 	if (db)
 		mysql_close(_db);
 	db = _db;
 	_db = NULL;
+
+	source_update = 0;
 
 	log_debug("debug: backend-table-mysql: config successfully updated");
 	ret = 1;
@@ -327,6 +383,7 @@ table_mysql_update(void)
 	free(username);
 	free(password);
 	free(database);
+	free(_query_fetch_source);
 
 	free(lbuf);
 	fclose(fp);
@@ -481,5 +538,46 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 static int
 table_mysql_fetch(int service, char *dst, size_t sz)
 {
-	return (-1);
+	const char	*k;
+	int		 s;
+
+	if (service != K_SOURCE)
+		return (-1);
+
+	if (stmt_fetch_source == NULL)
+		return (-1);
+
+	if (source_ncall < source_refresh &&
+	    time(NULL) - source_update < source_expire)
+	    goto fetch;
+
+	source_iter = NULL;
+	while(dict_poproot(&sources, NULL, NULL))
+		;
+
+	if (mysql_stmt_execute(stmt_fetch_source))
+		return (-1);
+
+	while ((s = mysql_stmt_fetch(stmt_fetch_source)) == 0)
+		dict_set(&sources, results[0].buffer, NULL);
+	mysql_stmt_free_result(stmt_fetch_source);
+
+	source_update = time(NULL);
+	source_ncall = 0;
+
+    fetch:
+
+	source_ncall += 1;
+
+        if (! dict_iter(&sources, &source_iter, &k, (void **)NULL)) {
+		source_iter = NULL;
+		if (! dict_iter(&sources, &source_iter, &k, (void **)NULL))
+			return (0);
+	}
+
+	if (strlcpy(dst, k, sz) >= sz)
+		return (-1);
+
+	return (1);
 }
+
