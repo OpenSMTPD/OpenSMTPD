@@ -136,6 +136,50 @@ table_mysql_getconfstr(const char *key, const char *value, char **var)
 	return (0);
 }
 
+static MYSQL_STMT *
+table_mysql_prepare_stmt(MYSQL *_db, const char *query, int ncols)
+{
+	MYSQL_STMT	*stmt;
+	MYSQL_RES	*metadata;
+	int		 count;
+
+	if ((stmt = mysql_stmt_init(_db)) == NULL) {
+		log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+		goto end;
+	}
+	if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+		log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+		goto end;
+	}
+	if (mysql_stmt_param_count(stmt) != 1) {
+		log_warnx("warn: backend-table-mysql: columns: invalid query");
+		goto end;
+	}
+	metadata = mysql_stmt_result_metadata(stmt);
+	if (metadata == NULL) {
+		log_warnx("warn: backend-table-mysql: mysql_stmt_result_metadata() failed");
+		goto end;
+	}
+	count = mysql_num_fields(metadata);
+	mysql_free_result(metadata);
+	if (count != ncols) {
+		log_warnx("warn: backend-table-mysql: invalid number of columns in resultset");
+		goto end;
+	}
+	if (mysql_stmt_bind_result(stmt, results)) {
+		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results() failed");
+		goto end;
+	}
+
+	return (stmt);
+
+    end:
+	if (stmt)
+		mysql_stmt_close(stmt);
+
+	return (NULL);
+}
+
 static int
 table_mysql_update(void)
 {
@@ -154,7 +198,6 @@ table_mysql_update(void)
 	};
 	MYSQL		*_db;
 	MYSQL_STMT	*_statements[SQL_MAX];
-	MYSQL_RES	*metadata;
 	char		*queries[SQL_MAX];
 	MYSQL_STMT	*_stmt_fetch_source;
 	char		*_query_fetch_source;
@@ -162,7 +205,7 @@ table_mysql_update(void)
 	FILE		*fp;
 	char		*key, *value, *buf, *lbuf;
 	char		*host, *username, *password, *database;
-	int		 i, ret, count;
+	int		 i, ret;
 
 	host = NULL;
 	username = NULL;
@@ -285,64 +328,13 @@ table_mysql_update(void)
 	for (i = 0; i < SQL_MAX; i++) {
 		if (queries[i] == NULL)
 			continue;
-		if ((_statements[i] = mysql_stmt_init(_db)) == NULL) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+		if ((_statements[i] = table_mysql_prepare_stmt(_db, queries[i], qspec[i].cols)) == NULL)
 			goto end;
-		}
-		if (mysql_stmt_prepare(_statements[i], queries[i], strlen(queries[i]))) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
-			goto end;
-		}
-		if (mysql_stmt_param_count(_statements[i]) != 1) {
-			log_warnx("warn: backend-table-mysql: columns: invalid query");
-			goto end;
-		}
-		metadata = mysql_stmt_result_metadata(_statements[i]);
-		if (metadata == NULL) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_result_metadata() failed");
-			goto end;
-		}
-		count = mysql_num_fields(metadata);
-		mysql_free_result(metadata);
-		if (count != qspec[i].cols) {
-			log_warnx("warn: backend-table-mysql: invalid number of columns in resultset");
-			goto end;
-		}
-		if (mysql_stmt_bind_result(_statements[i], results)) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results() failed");
-			goto end;
-		}
 	}
 
-	if (_query_fetch_source) {
-		if ((_stmt_fetch_source = mysql_stmt_init(_db)) == NULL) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
-			goto end;
-		}
-		if (mysql_stmt_prepare(_stmt_fetch_source, _query_fetch_source, strlen(_query_fetch_source))) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
-			goto end;
-		}
-		if (mysql_stmt_param_count(_stmt_fetch_source) != 1) {
-			log_warnx("warn: backend-table-mysql: columns: invalid query");
-			goto end;
-		}
-		metadata = mysql_stmt_result_metadata(_stmt_fetch_source);
-		if (metadata == NULL) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_result_metadata() failed");
-			goto end;
-		}
-		count = mysql_num_fields(metadata);
-		mysql_free_result(metadata);
-		if (count != 1) {
-			log_warnx("warn: backend-table-mysql: invalid number of columns in resultset");
-			goto end;
-		}
-		if (mysql_stmt_bind_result(_stmt_fetch_source, results)) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results() failed");
-			goto end;
-		}
-	}
+	if (_query_fetch_source &&
+	    (_stmt_fetch_source = table_mysql_prepare_stmt(_db, _query_fetch_source, 1)) == NULL)
+		goto end;
 
 	/* Replace previous setup */
 
@@ -352,7 +344,6 @@ table_mysql_update(void)
 		statements[i] = _statements[i];
 		_statements[i] = NULL;
 	}
-
 	if (stmt_fetch_source)
 		mysql_stmt_close(stmt_fetch_source);
 	stmt_fetch_source = _stmt_fetch_source;
@@ -363,7 +354,7 @@ table_mysql_update(void)
 	db = _db;
 	_db = NULL;
 
-	source_update = 0;
+	source_update = 0; /* force update */
 
 	log_debug("debug: backend-table-mysql: config successfully updated");
 	ret = 1;
@@ -559,7 +550,7 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 		return (-1);
 
 	while ((s = mysql_stmt_fetch(stmt_fetch_source)) == 0)
-		dict_set(&sources, results[0].buffer, NULL);
+		dict_set(&sources, results_buffer[0], NULL);
 	mysql_stmt_free_result(stmt_fetch_source);
 
 	source_update = time(NULL);

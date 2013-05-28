@@ -124,6 +124,27 @@ table_sqlite_getconfstr(const char *key, const char *value, char **var)
 	return (0);
 }
 
+static sqlite3_stmt *
+table_sqlite_prepare_stmt(sqlite3 *_db, const char *query, int ncols)
+{
+	sqlite3_stmt	*stmt;
+
+	if (sqlite3_prepare_v2(_db, query, -1, &stmt, 0) != SQLITE_OK) {
+		log_warnx("warn: backend-table-sqlite: prepare: %s",
+		    sqlite3_errmsg(_db));
+		goto end;
+	}
+	if (sqlite3_column_count(stmt) != ncols) {
+		log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
+		goto end;
+	}
+
+	return (stmt);
+    end:
+	sqlite3_finalize(stmt);
+	return (NULL);
+}
+
 static int
 table_sqlite_update(void)
 {
@@ -247,30 +268,13 @@ table_sqlite_update(void)
 	for (i = 0; i < SQL_MAX; i++) {
 		if (queries[i] == NULL)
 			continue;
-		if (sqlite3_prepare_v2(_db, queries[i], -1, &_statements[i], 0)
-		    != SQLITE_OK) {
-			log_warnx("warn: backend-table-sqlite: prepare: %s",
-			    sqlite3_errmsg(_db));
+		if ((_statements[i] = table_sqlite_prepare_stmt(_db, queries[i], qspec[i].cols)) == NULL)
 			goto end;
-		}
-		if (sqlite3_column_count(_statements[i]) != qspec[i].cols) {
-			log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
-			goto end;
-		}
 	}
 
-	if (_query_fetch_source) {
-		if (sqlite3_prepare_v2(_db, _query_fetch_source, -1, &_stmt_fetch_source, 0)
-		    != SQLITE_OK) {
-			log_warnx("warn: backend-table-sqlite: prepare: %s",
-			    sqlite3_errmsg(_db));
-			goto end;
-		}
-		if (sqlite3_column_count(_stmt_fetch_source) != 1) {
-			log_warnx("warn: backend-table-sqlite: columns: invalid resultset");
-			goto end;
-		}
-	}
+	if (_query_fetch_source &&
+	    (_stmt_fetch_source = table_sqlite_prepare_stmt(_db, _query_fetch_source, 1)) == NULL)
+		goto end;
 
 	/* Replace previous setup */
 
@@ -383,7 +387,6 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 
 	switch(service) {
 	case K_ALIAS:
-
 		do {
 			value = sqlite3_column_text(stmt, 0);
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
@@ -395,7 +398,6 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 				break;
 			}
 			s = sqlite3_step(stmt);
-
 		} while (s == SQLITE_ROW);
 
 		if (s != SQLITE_DONE)
