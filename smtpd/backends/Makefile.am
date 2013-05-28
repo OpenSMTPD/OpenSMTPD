@@ -35,7 +35,7 @@ LDADD+=-lmysqlclient
 endif
 
 if HAVE_SQLITE
-backend_table_sqlite_SOURCES=$(SRCS) table_sqlite.c ../table_api.c
+backend_table_sqlite_SOURCES=$(SRCS) table_sqlite.c ../table_api.c ../dict.c
 endif
 
 backend_table_stub_SOURCES=$(SRCS) table_stub.c ../table_api.c
