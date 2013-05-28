@@ -2434,6 +2434,20 @@ AC_ARG_WITH([experimental-mysql],
 )
 AM_CONDITIONAL([HAVE_MYSQL], [test $EXPERIMENTAL_MYSQL = yes])
 
+# Whether to enable *experimental* PostgreSQL support
+EXPERIMENTAL_POSTGRES=no
+AC_ARG_WITH([experimental-postgres],
+	[  --with-experimental-postgres	Enable experimental PostgreSQL support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_POSTGRES], [1],
+				[Define if you have experimental PostgreSQL support])
+			EXPERIMENTAL_POSTGRES=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_POSTGRES], [test $EXPERIMENTAL_POSTGRES = yes])
+
 # Whether to enable *experimental* SQLite support
 EXPERIMENTAL_SQLITE=no
 AC_ARG_WITH([experimental-sqlite],

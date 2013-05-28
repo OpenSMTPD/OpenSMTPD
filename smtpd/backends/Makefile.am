@@ -5,6 +5,9 @@ endif
 if HAVE_MYSQL
 pkglibexec_PROGRAMS+=	backend-table-mysql
 endif
+if HAVE_POSTGRES
+pkglibexec_PROGRAMS+=	backend-table-postgres
+endif
 if HAVE_SQLITE
 pkglibexec_PROGRAMS+=	backend-table-sqlite
 endif
@@ -32,6 +35,11 @@ endif
 if HAVE_MYSQL
 backend_table_mysql_SOURCES=$(SRCS) table_mysql.c ../table_api.c ../dict.c
 LDADD+=-lmysqlclient
+endif
+
+if HAVE_POSTGRES
+backend_table_postgres_SOURCES=$(SRCS) table_postgres.c ../table_api.c ../dict.c
+LDADD+=-lpq
 endif
 
 if HAVE_SQLITE
