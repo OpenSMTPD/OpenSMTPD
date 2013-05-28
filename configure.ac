@@ -267,63 +267,6 @@ AC_CHECK_HEADERS([ \
 	vis.h
 ])
 
-##chl
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file]) ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
-				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
-])])])
-
-AC_MSG_CHECKING([if dbopen will link])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
-				]], [[
-	dbopen (0, 0, 0, 0, 0);
-				]])],
-		    AC_MSG_RESULT([yes]),
-		   [AC_MSG_RESULT([no])
-		    saved_LIBS="$LIBS"
-		    LIBS="$LIBS -ldb"
-		    AC_MSG_CHECKING([for dbopen in -ldb])
-		    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
-				]], [[
-	dbopen (0, 0, 0, 0, 0);
-				]])],
-			[AC_MSG_RESULT([yes])],
-			[AC_MSG_RESULT([no])
-			LIBS="$saved_LIBS -ldb1"
-			AC_MSG_CHECKING([for dbopen in -ldb1])
-			AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
-				]], [[
-	dbopen (0, 0, 0, 0, 0);
-				]])],
-			[AC_MSG_RESULT([yes])],
-			[LIBS="$saved_LIBS"
-			 AC_MSG_RESULT([no])])
-			])
-		    ])
-##end of chl
-
 #l374
 # login_cap.h requires sys/types.h on NetBSD
 AC_CHECK_HEADERS([login_cap.h], [], [], [
@@ -2759,6 +2702,61 @@ AC_LINK_IFELSE(
 
 AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
 
+# Search for libdb
+AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
+AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
+AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
+				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
+])])])
+
+AC_MSG_CHECKING([if programs using libdb functions will link])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_DB_H
+#include <db.h>
+#elif defined(HAVE_DB1_DB_H)
+#include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
+				]], [[
+	dbopen (0, 0, 0, 0, 0);
+				]])],
+		    AC_MSG_RESULT([yes]),
+		   [AC_MSG_RESULT([no])
+		    saved_LIBS="$LIBS"
+		    LIBS="$LIBS -ldb"
+		    AC_MSG_CHECKING([for dbopen in -ldb])
+		    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_DB_H
+#include <db.h>
+#elif defined(HAVE_DB1_DB_H)
+#include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
+				]], [[
+	dbopen (0, 0, 0, 0, 0);
+				]])],
+			[AC_MSG_RESULT([yes])],
+			[AC_MSG_RESULT([no])
+			LIBS="$saved_LIBS -ldb1"
+			AC_MSG_CHECKING([for dbopen in -ldb1])
+			AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_DB_H
+#include <db.h>
+#elif defined(HAVE_DB1_DB_H)
+#include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
+				]], [[
+	dbopen (0, 0, 0, 0, 0);
+				]])],
+			[AC_MSG_RESULT([yes])],
+			[LIBS="$saved_LIBS"
+			 AC_MSG_RESULT([no])])
+			])
+		    ])
 
 LIBS="$LIBS ${SSHDLIBS}"
 ##end of chl
