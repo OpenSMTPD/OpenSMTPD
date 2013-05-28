@@ -71,6 +71,7 @@ main(int argc, char **argv)
 	int	ch, i;
 
 	log_init(1);
+	log_verbose(~0);
 
 	config = NULL;
 
@@ -137,37 +138,32 @@ table_mysql_getconfstr(const char *key, const char *value, char **var)
 }
 
 static MYSQL_STMT *
-table_mysql_prepare_stmt(MYSQL *_db, const char *query, int ncols)
+table_mysql_prepare_stmt(MYSQL *_db, const char *query, unsigned long nparams,
+    unsigned int nfields)
 {
 	MYSQL_STMT	*stmt;
-	MYSQL_RES	*metadata;
-	int		 count;
 
 	if ((stmt = mysql_stmt_init(_db)) == NULL) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+		log_warnx("warn: backend-table-mysql: mysql_stmt_init: %s",
+		    mysql_error(_db));
 		goto end;
 	}
 	if (mysql_stmt_prepare(stmt, query, strlen(query))) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_init() failed");
+		log_warnx("warn: backend-table-mysql: mysql_stmt_prepare: %s",
+		    mysql_error(_db));
 		goto end;
 	}
-	if (mysql_stmt_param_count(stmt) != 1) {
-		log_warnx("warn: backend-table-mysql: columns: invalid query");
+	if (mysql_stmt_param_count(stmt) != nparams) {
+		log_warnx("warn: backend-table-mysql: wrong number of params for %s", query);
 		goto end;
 	}
-	metadata = mysql_stmt_result_metadata(stmt);
-	if (metadata == NULL) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_result_metadata() failed");
-		goto end;
-	}
-	count = mysql_num_fields(metadata);
-	mysql_free_result(metadata);
-	if (count != ncols) {
-		log_warnx("warn: backend-table-mysql: invalid number of columns in resultset");
+	if (mysql_stmt_field_count(stmt) != nfields) {
+		log_warnx("warn: backend-table-mysql: wrong number of columns in resultset");
 		goto end;
 	}
 	if (mysql_stmt_bind_result(stmt, results)) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results() failed");
+		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results: %s",
+		    mysql_error(_db));
 		goto end;
 	}
 
@@ -316,24 +312,25 @@ table_mysql_update(void)
 
 	_db = mysql_init(NULL);
 	if (_db == NULL) {
-		log_warnx("warn: backend-table-mysql: mysql_init() failed");
+		log_warnx("warn: backend-table-mysql: mysql_init failed");
 		goto end;
 	}
 
-	if (mysql_real_connect(_db, host, username, password, database, 0, NULL, 0)) {
-		log_warnx("warn: backend-table-mysql: could not connect");
+	if (!mysql_real_connect(_db, host, username, password, database, 0, NULL, 0)) {
+		log_warnx("warn: backend-table-mysql: mysql_real_connect: %s",
+		    mysql_error(_db));
 		goto end;
 	}
 
 	for (i = 0; i < SQL_MAX; i++) {
 		if (queries[i] == NULL)
 			continue;
-		if ((_statements[i] = table_mysql_prepare_stmt(_db, queries[i], qspec[i].cols)) == NULL)
+		if ((_statements[i] = table_mysql_prepare_stmt(_db, queries[i], 1, qspec[i].cols)) == NULL)
 			goto end;
 	}
 
 	if (_query_fetch_source &&
-	    (_stmt_fetch_source = table_mysql_prepare_stmt(_db, _query_fetch_source, 1)) == NULL)
+	    (_stmt_fetch_source = table_mysql_prepare_stmt(_db, _query_fetch_source, 0, 1)) == NULL)
 		goto end;
 
 	/* Replace previous setup */
@@ -414,12 +411,14 @@ table_mysql_query(const char *key, int service)
 	param[0].length = &keylen;
 
 	if (mysql_stmt_bind_param(stmt, param)) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_param() failed");
+		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_param: %s",
+		    mysql_error(db));
 		return (NULL);
 	}
 
 	if (mysql_stmt_execute(stmt)) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_execute() failed");
+		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
+		    mysql_error(db));
 		return (NULL);
 	}
 
@@ -429,36 +428,36 @@ table_mysql_query(const char *key, int service)
 static int
 table_mysql_check(int service, const char *key)
 {
-	MYSQL_STMT		*stmt;
-	unsigned long long	r;
+	MYSQL_STMT	*stmt;
+	int		 r, s;
 
 	stmt = table_mysql_query(key, service);
 	if (stmt == NULL)
 		return (-1);
 
-	r = mysql_stmt_fetch(stmt);
-	if (mysql_stmt_free_result(stmt)) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result() failed");
-		return (-1);
-	}
+	r = -1;
+	s = mysql_stmt_fetch(stmt);
 
-	if (r == 0)
-		return (1);
+	if (s == 0)
+		r = 1;
+	else if (s == MYSQL_NO_DATA)
+		r = 0;
+	else
+		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+		    mysql_error(db));
 
-	if (r == MYSQL_NO_DATA)
-		return (0);
+	if (mysql_stmt_free_result(stmt))
+		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
+		    mysql_error(db));
 
-	log_warnx("warn: backend-table-mysql: mysql_stmt_fetch() failed with %llu", r);
-
-	return (-1);
+	return (r);
 }
 
 static int
 table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 {
-	MYSQL_STMT		*stmt;
-	unsigned long long	 s;
-	int			 r;
+	MYSQL_STMT	*stmt;
+	int		 r, s;
 
 	stmt = table_mysql_query(key, service);
 	if (stmt == NULL)
@@ -472,6 +471,8 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	
 	if (s != 0) {
 		r = -1;
+		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+		    mysql_error(db));
 		goto end;
 	}
 
@@ -481,47 +482,62 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_ALIAS:
 		do {
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
+				log_warnx("warn: backend-table-mysql: result too large");
 				r = -1;
 				break;
 			}
 			if (strlcat(dst, results_buffer[0], sz) >= sz) {
+				log_warnx("warn: backend-table-mysql: result too large");
 				r = -1;
 				break;
 			}
 			s = mysql_stmt_fetch(stmt);
 		} while (s == 0);
 
-		if (s != MYSQL_NO_DATA)
+		if (s && s != MYSQL_NO_DATA) {
+			log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+			    mysql_error(db));
 			r = -1;
+		}
 		break;
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
 		    results_buffer[0],
-		    results_buffer[1]) > (ssize_t)sz)
+		    results_buffer[1]) > (ssize_t)sz) {
+			log_warnx("warn: backend-table-mysql: result too large");
 			r = -1;
+		}
 		break;
 	case K_USERINFO:
 		if (snprintf(dst, sz, "%s:%s:%s:%s",
 		    results_buffer[0],
 		    results_buffer[1],
 		    results_buffer[2],
-		    results_buffer[3]) > (ssize_t)sz)
+		    results_buffer[3]) > (ssize_t)sz) {
+			log_warnx("warn: backend-table-mysql: result too large");
 			r = -1;
+		}
 		break;
 	case K_DOMAIN:
 	case K_NETADDR:
 	case K_SOURCE:
 	case K_MAILADDR:
 	case K_ADDRNAME:
-		if (strlcpy(dst, results_buffer[0], sz) >= sz)
+		if (strlcpy(dst, results_buffer[0], sz) >= sz) {
+			log_warnx("warn: backend-table-mysql: result too large");
 			r = -1;
+		}
 		break;
 	default:
+		log_warnx("warn: backend-table-mysql: unknown service %i",
+		    service);
 		r = -1;
 	}
 
     end:
-	
+	if (mysql_stmt_free_result(stmt))
+		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
+		    mysql_error(db));
 
 	return (r);
 }
@@ -542,16 +558,26 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 	    time(NULL) - source_update < source_expire)
 	    goto fetch;
 
+	if (mysql_stmt_execute(stmt_fetch_source)) {
+		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
+		    mysql_error(db));
+		return (-1);
+	}
+
 	source_iter = NULL;
 	while(dict_poproot(&sources, NULL, NULL))
 		;
 
-	if (mysql_stmt_execute(stmt_fetch_source))
-		return (-1);
-
 	while ((s = mysql_stmt_fetch(stmt_fetch_source)) == 0)
 		dict_set(&sources, results_buffer[0], NULL);
-	mysql_stmt_free_result(stmt_fetch_source);
+
+	if (s && s != MYSQL_NO_DATA)
+		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+		    mysql_error(db));
+
+	if (mysql_stmt_free_result(stmt_fetch_source))
+		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
+		    mysql_error(db));
 
 	source_update = time(NULL);
 	source_ncall = 0;
