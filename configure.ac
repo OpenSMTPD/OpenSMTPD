@@ -2502,11 +2502,11 @@ AC_ARG_WITH([experimental-sqlite],
 						[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
 						)
 
+				save_LIBS="$LIBS"
+				saved_CPPFLAGS="$CPPFLAGS"
+				saved_LDFLAGS="$LDFLAGS"
 				AC_CHECK_LIB([sqlite3], [sqlite3_open], ,
 					[
-						saved_CPPFLAGS="$CPPFLAGS"
-						saved_LDFLAGS="$LDFLAGS"
-						save_LIBS="$LIBS"
 						dnl Check default sqlite install dir
 						if test -n "${need_dash_r}"; then
 							LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
@@ -2522,6 +2522,9 @@ AC_ARG_WITH([experimental-sqlite],
 						)
 					]
 				)
+				CPPFLAGS="$saved_CPPFLAGS"
+				LDFLAGS="$saved_LDFLAGS"
+				LIBS="$save_LIBS"
 			EXPERIMENTAL_SQLITE=yes
 		fi
 	]
