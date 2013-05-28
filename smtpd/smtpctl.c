@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.101 2013/02/14 12:30:49 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.104 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2006 Gilles Chehade <gilles@poolp.org>

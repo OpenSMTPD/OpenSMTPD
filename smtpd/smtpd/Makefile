@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.57 2012/10/14 11:58:23 gilles Exp $
+#	$OpenBSD: Makefile,v 1.61 2013/05/27 17:25:00 eric Exp $
 
 .PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_mbox.c,v 1.8 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: delivery_mbox.c,v 1.9 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>

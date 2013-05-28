@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.3 2013/02/05 15:23:40 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.4 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
