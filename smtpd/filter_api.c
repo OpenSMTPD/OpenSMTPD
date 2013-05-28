@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter_api.c,v 1.6 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: filter_api.c,v 1.7 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>

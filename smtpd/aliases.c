@@ -1,4 +1,4 @@
-/*	$OpenBSD: aliases.c,v 1.61 2013/02/14 12:30:49 gilles Exp $	*/
+/*	$OpenBSD: aliases.c,v 1.64 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

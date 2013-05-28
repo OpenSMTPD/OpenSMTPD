@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.43 2013/01/31 18:34:43 eric Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.45 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

@@ -1,4 +1,4 @@
-/* $OpenBSD$ */
+/* $OpenBSD: delivery_lmtp.c,v 1.1 2013/05/24 17:03:14 eric Exp $ */
 
 /*
  * Copyright (c) 2013 Ashish SHUKLA <ashish.is@lostca.se>

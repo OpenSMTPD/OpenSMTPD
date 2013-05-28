@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa.c,v 1.75 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD: mfa.c,v 1.76 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
