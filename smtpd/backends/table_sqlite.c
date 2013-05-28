@@ -66,6 +66,7 @@ main(int argc, char **argv)
 	int	ch;
 
 	log_init(1);
+	log_verbose(~0);
 
 	config = NULL;
 
@@ -130,7 +131,7 @@ table_sqlite_prepare_stmt(sqlite3 *_db, const char *query, int ncols)
 	sqlite3_stmt	*stmt;
 
 	if (sqlite3_prepare_v2(_db, query, -1, &stmt, 0) != SQLITE_OK) {
-		log_warnx("warn: backend-table-sqlite: prepare: %s",
+		log_warnx("warn: backend-table-sqlite: sqlite3_prepare_v2: %s",
 		    sqlite3_errmsg(_db));
 		goto end;
 	}
@@ -334,7 +335,11 @@ table_sqlite_query(const char *key, int service)
 	if (stmt == NULL)
 		return (NULL);
 
-	sqlite3_bind_text(stmt, 1, key, strlen(key), NULL);
+	if (sqlite3_bind_text(stmt, 1, key, strlen(key), NULL) != SQLITE_OK) {
+		log_warnx("backend-table-sqlite: sqlite3_bind_text: %s",
+		    sqlite3_errmsg(db));
+		return (NULL);
+	}
 
 	return (stmt);
 }
@@ -379,6 +384,8 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 	}
 
 	if (s != SQLITE_ROW) {
+		log_warnx("backend-table-sqlite: sqlite3_step: %s",
+		    sqlite3_errmsg(db));
 		sqlite3_reset(stmt);
 		return (-1);
 	}
@@ -390,42 +397,55 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 		do {
 			value = sqlite3_column_text(stmt, 0);
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
+				log_warnx("warn: backend-table-sqlite: result too large");
 				r = -1;
 				break;
 			}
 			if (strlcat(dst, value, sz) >= sz) {
+				log_warnx("warn: backend-table-sqlite: result too large");
 				r = -1;
 				break;
 			}
 			s = sqlite3_step(stmt);
 		} while (s == SQLITE_ROW);
 
-		if (s != SQLITE_DONE)
+		if (s !=  SQLITE_ROW && s != SQLITE_DONE) {
+			log_warnx("backend-table-sqlite: sqlite3_step: %s",
+			    sqlite3_errmsg(db));
 			r = -1;
+		}
 		break;
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
 		    sqlite3_column_text(stmt, 0),
-		    sqlite3_column_text(stmt, 1)) > (ssize_t)sz)
+		    sqlite3_column_text(stmt, 1)) > (ssize_t)sz) {
+			log_warnx("warn: backend-table-sqlite: result too large");
 			r = -1;
+		}
 		break;
 	case K_USERINFO:
 		if (snprintf(dst, sz, "%s:%i:%i:%s",
 		    sqlite3_column_text(stmt, 0),
 		    sqlite3_column_int(stmt, 1),
 		    sqlite3_column_int(stmt, 2),
-		    sqlite3_column_text(stmt, 3)) > (ssize_t)sz)
+		    sqlite3_column_text(stmt, 3)) > (ssize_t)sz) {
+			log_warnx("warn: backend-table-sqlite: result too large");
 			r = -1;
+		}
 		break;
 	case K_DOMAIN:
 	case K_NETADDR:
 	case K_SOURCE:
 	case K_MAILADDR:
 	case K_ADDRNAME:
-		if (strlcpy(dst, sqlite3_column_text(stmt, 0), sz) >= sz)
+		if (strlcpy(dst, sqlite3_column_text(stmt, 0), sz) >= sz) {
+			log_warnx("warn: backend-table-sqlite: result too large");
 			r = -1;
+		}
 		break;
 	default:
+		log_warnx("warn: backend-table-sqlite: unknown service %i",
+		    service);
 		r = -1;
 	}
 
@@ -454,6 +474,11 @@ table_sqlite_fetch(int service, char *dst, size_t sz)
 
 	while ((s = sqlite3_step(stmt_fetch_source)) == SQLITE_ROW)
 		dict_set(&sources, sqlite3_column_text(stmt_fetch_source, 0), NULL);
+
+	if (s != SQLITE_DONE)
+		log_warnx("backend-table-sqlite: sqlite3_step: %s",
+		    sqlite3_errmsg(db));
+
 	sqlite3_reset(stmt_fetch_source);
 
 	source_update = time(NULL);
