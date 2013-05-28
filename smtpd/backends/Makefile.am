@@ -2,6 +2,9 @@ pkglibexec_PROGRAMS=	backend-queue-null backend-queue-ram backend-queue-stub
 if HAVE_LDAP
 pkglibexec_PROGRAMS+=	backend-table-ldap
 endif
+if HAVE_MYSQL
+pkglibexec_PROGRAMS+=	backend-table-mysql
+endif
 if HAVE_SQLITE
 pkglibexec_PROGRAMS+=	backend-table-sqlite
 endif
@@ -24,6 +27,11 @@ backend_queue_stub_SOURCES=$(SRCS) ../queue_api.c queue_stub.c
 
 if HAVE_LDAP
 backend_table_ldap_SOURCES=$(SRCS) table_ldap.c ../table_api.c ../aldap.c ../ber.c
+endif
+
+if HAVE_MYSQL
+backend_table_mysql_SOURCES=$(SRCS) table_mysql.c ../table_api.c ../dict.c
+LDADD+=-lmysqlclient
 endif
 
 if HAVE_SQLITE

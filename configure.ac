@@ -2475,6 +2475,20 @@ AC_ARG_WITH([experimental-ldap],
 )
 AM_CONDITIONAL([HAVE_LDAP], [test $EXPERIMENTAL_LDAP = yes])
 
+# Whether to enable *experimental* MySQL support
+EXPERIMENTAL_MYSQL=no
+AC_ARG_WITH([experimental-mysql],
+	[  --with-experimental-mysql	Enable experimental MySQL support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_MYSQL], [1],
+				[Define if you have experimental MySQL support])
+			EXPERIMENTAL_MYSQL=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_MYSQL], [test $EXPERIMENTAL_MYSQL = yes])
+
 # Whether to enable *experimental* SQLite support
 EXPERIMENTAL_SQLITE=no
 AC_ARG_WITH([experimental-sqlite],
@@ -2482,7 +2496,7 @@ AC_ARG_WITH([experimental-sqlite],
 	[
 		if test "x$withval" != "xno" ; then
 			AC_DEFINE([HAVE_SQLITE], [1],
-				[Define if you have experimental SQLITE support])
+				[Define if you have experimental SQLite support])
 				AC_CHECK_HEADER([sqlite3.h],
 						[AC_DEFINE([HAVE_SQLITE3_H], [], [if you have the <sqlite3.h> header file]) ],
 						[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
