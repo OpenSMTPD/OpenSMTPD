@@ -83,6 +83,7 @@ smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			to.c tree.c expand.c
 
 smtpctl_CFLAGS=		-DNO_IO
+smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\"
 
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr

@@ -52,7 +52,9 @@
 #include "log.h"
 
 #define PATH_CAT	"/bin/cat"
+#ifndef PATH_GZCAT
 #define PATH_GZCAT	"/usr/bin/gzcat"
+#endif
 #define PATH_QUEUE	"/queue"
 
 void usage(void);
