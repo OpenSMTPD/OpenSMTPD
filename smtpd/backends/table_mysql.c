@@ -20,10 +20,12 @@
 
 #include <ctype.h>
 #include <fcntl.h>
-#include <mysql/mysql.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#include <mysql/mysql.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
