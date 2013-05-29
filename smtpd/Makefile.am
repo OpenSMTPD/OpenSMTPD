@@ -36,13 +36,14 @@ makemap_SOURCES+=	table_proc.c
 makemap_CFLAGS=		-DNO_IO
 
 smtpd_SOURCES=		aliases.c bounce.c ca.c compress_backend.c config.c	\
-			control.c delivery.c dict.c dns.c envelope.c		\
-			expand.c forward.c iobuf.c ioev.c lka.c			\
-			lka_session.c log.c mda.c mfa.c mfa_session.c mproc.c	\
+			control.c crypto.c delivery.c dict.c dns.c envelope.c	\
+			expand.c forward.c iobuf.c ioev.c lka.c	lka_session.c	\
+			log.c mda.c mfa.c mfa_session.c mproc.c			\
 			mta.c mta_session.c parse.y queue.c queue_backend.c	\
-			ruleset.c runq.c scheduler.c scheduler_backend.c smtp.c	\
-			smtp_session.c smtpd.c ssl.c ssl_privsep.c ssl_smtpd.c	\
-			stat_backend.c table.c to.c tree.c util.c waitq.c
+			ruleset.c runq.c scheduler.c scheduler_backend.c	\
+			smtp.c smtp_session.c smtpd.c ssl.c ssl_privsep.c	\
+			ssl_smtpd.c stat_backend.c table.c to.c tree.c util.c	\
+			waitq.c
 
 # backends
 smtpd_SOURCES+=		compress_gzip.c
@@ -53,11 +54,11 @@ smtpd_SOURCES+=		delivery_mda.c
 smtpd_SOURCES+=		delivery_lmtp.c
 smtpd_SOURCES+=		table_db.c
 smtpd_SOURCES+=		table_getpwnam.c
-smtpd_SOURCES+=		table_static.c
 smtpd_SOURCES+=		table_proc.c
-smtpd_SOURCES+=		queue_proc.c
+smtpd_SOURCES+=		table_static.c
 smtpd_SOURCES+=		queue_fsqueue.c
 smtpd_SOURCES+=		queue_null.c
+smtpd_SOURCES+=		queue_proc.c
 smtpd_SOURCES+=		queue_ram.c
 smtpd_SOURCES+=		scheduler_ramqueue.c
 smtpd_SOURCES+=		scheduler_null.c
@@ -76,11 +77,11 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
-smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
+smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c crypto.c		\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c util.c					\
 			compress_backend.c compress_gzip.c			\
-			to.c tree.c expand.c
+			to.c expand.c tree.c
 
 smtpctl_CFLAGS=		-DNO_IO
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\"
