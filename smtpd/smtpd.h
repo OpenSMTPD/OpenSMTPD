@@ -569,7 +569,9 @@ struct smtpd {
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
+#define QUEUE_ENCRYPTION      		0x00000002
 	uint32_t			sc_queue_flags;
+	char			       *sc_queue_key;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
@@ -1100,6 +1102,14 @@ void config_done(void);
 
 /* control.c */
 pid_t control(void);
+
+
+/* crypto.c */
+int	crypto_setup(const char *, size_t);
+int	crypto_encrypt_file(FILE *, FILE *);
+int	crypto_decrypt_file(FILE *, FILE *);
+size_t	crypto_encrypt_buffer(const char *, size_t, char *, size_t);
+size_t	crypto_decrypt_buffer(const char *, size_t, char *, size_t);
 
 
 /* delivery.c */

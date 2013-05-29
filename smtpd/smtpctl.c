@@ -82,6 +82,7 @@ static uint32_t trace_convert(uint32_t);
 static uint32_t profile_convert(uint32_t);
 
 static int	is_gzip(FILE *);
+static int	is_encrypted(FILE *);
 
 int proctype;
 struct imsgbuf	*ibuf;
@@ -794,19 +795,53 @@ static void
 display(const char *s)
 {
 	FILE   *fp;
+	char   *key;
 	int	gzipped;
 
 	if ((fp = fopen(s, "r")) == NULL)
 		err(1, "fopen");
-	gzipped = is_gzip(fp);
-	fclose(fp);
-	
-	if (gzipped)
-		execl(PATH_GZCAT, "gzcat", s, NULL);
-	else
-		execl(PATH_CAT, "cat", s, NULL);
-	err(1, "execl");
 
+	if (is_encrypted(fp)) {
+		int	i;
+		int	fd;
+		FILE   *ofp;
+		char	sfn[] = "/tmp/smtpd.XXXXXXXXXX";
+
+		if ((fd = mkstemp(sfn)) == -1 ||
+		    (ofp = fdopen(fd, "w+")) == NULL) {
+			if (fd != -1) {
+				unlink(sfn);
+				close(fd);
+			}
+			err(1, "mkstemp");
+		}
+		unlink(sfn);
+
+		for (i = 0; i < 3; i++) {
+			key = getpass("key> ");
+			if (crypto_setup(key, strlen(key)))
+				break;
+		}
+		if (i == 3)
+			errx(1, "crypto-setup: invalid key");
+
+		if (! crypto_decrypt_file(fp, ofp)) {
+			printf("object is encrypted: %s\n", key);
+			exit(1);
+		}
+
+		fclose(fp);
+		fp = ofp;
+		fseek(fp, SEEK_SET, 0);
+	}
+	gzipped = is_gzip(fp);
+
+	(void)dup2(fileno(fp), STDIN_FILENO);
+	if (gzipped)
+		execl(PATH_GZCAT, "gzcat", NULL);
+	else
+		execl(PATH_CAT, "cat", NULL);
+	err(1, "execl");
 }
 
 static void
@@ -986,6 +1021,30 @@ is_gzip(FILE *fp)
 
 #define	GZIP_MAGIC	0x8b1f
 	ret = (magic == GZIP_MAGIC);
+
+end:
+	fseek(fp, SEEK_SET, 0);
+	return ret;
+}
+
+/* XXX */
+/*
+ * queue supports transparent encryption.
+ * encrypted chunks are prefixed with an API version byte
+ * which we ensure is unambiguous with gzipped / plain
+ * objects.
+ */
+static int
+is_encrypted(FILE *fp)
+{
+	uint8_t	magic;
+	int    	ret = 0;
+
+	if (fread(&magic, 1, sizeof magic, fp) != sizeof magic)
+		goto end;
+
+#define	ENCRYPTION_MAGIC	0x1
+	ret = (magic == ENCRYPTION_MAGIC);
 
 end:
 	fseek(fp, SEEK_SET, 0);

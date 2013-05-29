@@ -163,7 +163,6 @@ queue_message_commit(uint32_t msgid)
 	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
-
 		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
 		ifp = fopen(msgpath, "r");
 		ofp = fopen(tmppath, "w+");
@@ -179,7 +178,31 @@ queue_message_commit(uint32_t msgid)
 		if (rename(tmppath, msgpath) == -1) {
 			if (errno == ENOSPC)
 				return (0);
-			fatal("queue_message_commit: rename");
+			unlink(tmppath);
+			log_warn("rename");
+			return (0);
+		}
+	}
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		bsnprintf(tmppath, sizeof tmppath, "%s.enc", msgpath);
+		ifp = fopen(msgpath, "r");
+		ofp = fopen(tmppath, "w+");
+		if (ifp == NULL || ofp == NULL)
+			goto err;
+		if (! crypto_encrypt_file(ifp, ofp))
+			goto err;
+		fclose(ifp);
+		fclose(ofp);
+		ifp = NULL;
+		ofp = NULL;
+
+		if (rename(tmppath, msgpath) == -1) {
+			if (errno == ENOSPC)
+				return (0);
+			unlink(tmppath);
+			log_warn("rename");
+			return (0);
 		}
 	}
 
@@ -231,6 +254,26 @@ queue_message_fd_r(uint32_t msgid)
 
 	if (fdin == -1)
 		return (-1);
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		if ((fdout = mktmpfile()) == -1)
+			goto err;
+		if ((fd = dup(fdout)) == -1)
+			goto err;
+		if ((ifp = fdopen(fdin, "r")) == NULL)
+			goto err;
+		fdin = fd;
+		fd = -1;
+		if ((ofp = fdopen(fdout, "w+")) == NULL)
+			goto err;
+
+		if (! crypto_decrypt_file(ifp, ofp))
+			goto err;
+
+		fclose(ifp);
+		fclose(ofp);
+		lseek(fdin, SEEK_SET, 0);
+	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		if ((fdout = mktmpfile()) == -1)
@@ -290,6 +333,8 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t	evplen;
 	size_t	complen;
 	char	compbuf[sizeof(struct envelope)];
+	size_t	enclen;
+	char	encbuf[sizeof(struct envelope)];
 
 	evp = evpbuf;
 	evplen = envelope_dump_buffer(ep, evpbuf, evpbufsize);
@@ -304,6 +349,14 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evplen = complen;
 	}
 
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		enclen = crypto_encrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
+		if (enclen == 0)
+			return (0);
+		evp = encbuf;
+		evplen = enclen;
+	}
+
 	memmove(evpbuf, evp, evplen);
 
 	return (evplen);
@@ -316,9 +369,19 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t		 evplen;
 	char		 compbuf[sizeof(struct envelope)];
 	size_t		 complen;
+	char		 encbuf[sizeof(struct envelope)];
+	size_t		 enclen;
 
 	evp = evpbuf;
 	evplen = evpbufsize;
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		enclen = crypto_decrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
+		if (enclen == 0)
+			return (0);
+		evp = encbuf;
+		evplen = enclen;
+	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		complen = uncompress_chunk(evp, evplen, compbuf, sizeof compbuf);

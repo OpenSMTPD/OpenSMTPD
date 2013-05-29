@@ -373,7 +373,6 @@ main(int argc, char *argv[])
 		 * fprintf(fpin, "borken");
 		 * fclose(fpin);
 		 */
-
 		fpin = fopen("/tmp/passwd.enc", "r");
 		fpout = fopen("/tmp/passwd.dec", "w");
 		if (!crypto_decrypt_file(fpin, fpout))

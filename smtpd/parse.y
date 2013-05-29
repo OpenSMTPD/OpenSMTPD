@@ -123,7 +123,7 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
+%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
@@ -343,6 +343,10 @@ main		: BOUNCEWARN {
 		} bouncedelays
 		| QUEUE COMPRESSION {
 			conf->sc_queue_flags |= QUEUE_COMPRESSION;
+		}
+		| QUEUE ENCRYPTION KEY STRING {
+			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
+			conf->sc_queue_key = $4;
 		}
 		| EXPIRE STRING {
 			conf->sc_qexpire = delaytonum($2);
@@ -973,6 +977,7 @@ lookup(char *s)
 		{ "compression",	COMPRESSION },
 		{ "deliver",		DELIVER },
 		{ "domain",		DOMAIN },
+		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
