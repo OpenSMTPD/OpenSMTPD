@@ -71,7 +71,6 @@ crypto_encrypt_file(FILE * in, FILE * out)
 	uint8_t		tag[GCM_TAG_SIZE];
 	uint8_t		version = API_VERSION;
 	size_t		r, w;
-	off_t		sz;
 	int		len;
 	int		ret = 0;
 	struct stat	sb;
@@ -81,7 +80,6 @@ crypto_encrypt_file(FILE * in, FILE * out)
 		return 0;
 	if (sb.st_size >= 0x1000000000LL)
 		return 0;
-	sz = sb.st_size;
 
 	/* prepend version byte*/
 	if ((w = fwrite(&version, 1, sizeof version, out)) != sizeof version)
