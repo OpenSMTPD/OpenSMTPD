@@ -1070,7 +1070,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	struct delivery_backend	*db;
 	struct child	*child;
 	pid_t		 pid;
-	int		 n, allout, pipefd[2];
+	int		 allout, pipefd[2];
 	mode_t		 omode;
 
 	log_debug("debug: smtpd: forking mda for session %016"PRIx64
@@ -1095,7 +1095,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		fatal("smtpd: forkmda: cannot lower privileges");
 
 	if (pipe(pipefd) < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1111,7 +1111,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	allout = mkstemp(sfn);
 	umask(omode);
 	if (allout < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1126,7 +1126,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	pid = fork();
 	if (pid < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
