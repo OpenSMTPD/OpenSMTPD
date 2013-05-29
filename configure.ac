@@ -1199,6 +1199,25 @@ AC_LINK_IFELSE(
 )
 #l2263
 
+##chl
+EXPERIMENTAL_GCM_CRYPTO=no
+AC_MSG_CHECKING([if programs using OpenSSL EVP_aes_256_gcm() will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ EVP_aes_256_gcm(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
+			[Define if you want to use GCM crypto support])
+		EXPERIMENTAL_GCM_CRYPTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
+##chl
+
 #l2373
 # Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
 # because the system crypt() is more featureful.

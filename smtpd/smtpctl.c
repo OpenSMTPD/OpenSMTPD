@@ -803,6 +803,7 @@ display(const char *s)
 		err(1, "fopen");
 
 	if (is_encrypted(fp)) {
+#ifdef HAVE_GCM_CRYPTO
 		int	i;
 		int	fd;
 		FILE   *ofp;
@@ -834,6 +835,10 @@ display(const char *s)
 		fclose(fp);
 		fp = ofp;
 		fseek(fp, SEEK_SET, 0);
+#else
+	       	printf("GCM crypto not supported!\n");
+       		exit(1);
+#endif
 	}
 	gzipped = is_gzip(fp);
 

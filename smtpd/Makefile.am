@@ -36,7 +36,7 @@ makemap_SOURCES+=	table_proc.c
 makemap_CFLAGS=		-DNO_IO
 
 smtpd_SOURCES=		aliases.c bounce.c ca.c compress_backend.c config.c	\
-			control.c crypto.c delivery.c dict.c dns.c envelope.c	\
+			control.c delivery.c dict.c dns.c envelope.c		\
 			expand.c forward.c iobuf.c ioev.c lka.c	lka_session.c	\
 			log.c mda.c mfa.c mfa_session.c mproc.c			\
 			mta.c mta_session.c parse.y queue.c queue_backend.c	\
@@ -46,6 +46,9 @@ smtpd_SOURCES=		aliases.c bounce.c ca.c compress_backend.c config.c	\
 			waitq.c
 
 # backends
+if HAVE_GCM_CRYPTO
+smtpd_SOURCES+=		crypto.c
+endif
 smtpd_SOURCES+=		compress_gzip.c
 smtpd_SOURCES+=		delivery_filename.c
 smtpd_SOURCES+=		delivery_maildir.c
