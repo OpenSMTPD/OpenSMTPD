@@ -87,7 +87,7 @@ smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			to.c expand.c tree.c
 
 if HAVE_GCM_CRYPTO
-smtpd_SOURCES+=		crypto.c
+smtpctl_SOURCES+=	crypto.c
 endif
 
 smtpctl_CFLAGS=		-DNO_IO
