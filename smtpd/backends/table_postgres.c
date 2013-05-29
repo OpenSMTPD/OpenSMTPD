@@ -73,13 +73,8 @@ main(int argc, char **argv)
 	log_init(1);
 	log_verbose(~0);
 
-	config = NULL;
-
-	while ((ch = getopt(argc, argv, "f:")) != -1) {
+	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
-		case 'f':
-			config = optarg;
-			break;
 		default:
 			log_warnx("warn: backend-table-postgres: bad option");
 			return (1);
@@ -89,15 +84,12 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (config == NULL) {
-		log_warnx("warn: backend-table-postgres: config file not specified");
-		return (1);
-	}
-
-	if (argc != 0) {
+	if (argc != 1) {
 		log_warnx("warn: backend-table-postgres: bogus argument(s)");
 		return (1);
 	}
+
+	config = argv[0];
 
 	dict_init(&sources);
 
