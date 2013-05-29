@@ -71,6 +71,7 @@
 #define PATH_MESSAGE		"/message"
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
+#define	PATH_TABLES		"/usr/libexec/smtpd"
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
