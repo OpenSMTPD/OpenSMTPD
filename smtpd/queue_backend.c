@@ -176,7 +176,9 @@ queue_message_commit(uint32_t msgid)
 		if (rename(tmppath, msgpath) == -1) {
 			if (errno == ENOSPC)
 				return (0);
-			fatal("queue_message_commit: rename");
+			unlink(tmppath);
+			log_warn("rename");
+			return (0);
 		}
 	}
 
@@ -196,7 +198,9 @@ queue_message_commit(uint32_t msgid)
 		if (rename(tmppath, msgpath) == -1) {
 			if (errno == ENOSPC)
 				return (0);
-			fatal("queue_message_commit: rename");
+			unlink(tmppath);
+			log_warn("rename");
+			return (0);
 		}
 	}
 
