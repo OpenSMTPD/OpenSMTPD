@@ -350,7 +350,6 @@ fsqueue_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 		hdl = fsqueue_qwalk_new();
 
 	if (fsqueue_qwalk(hdl, evpid)) {
-		r = 0;
 		bzero(buf, len);
 		r = fsqueue_envelope_load(*evpid, buf, len);
 		if (r) {
