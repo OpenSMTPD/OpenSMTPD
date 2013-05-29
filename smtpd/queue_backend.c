@@ -184,6 +184,7 @@ queue_message_commit(uint32_t msgid)
 		}
 	}
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		bsnprintf(tmppath, sizeof tmppath, "%s.enc", msgpath);
 		ifp = fopen(msgpath, "r");
@@ -205,6 +206,7 @@ queue_message_commit(uint32_t msgid)
 			return (0);
 		}
 	}
+#endif
 
 	r = backend->message(QOP_COMMIT, &msgid);
 	profile_leave();
@@ -255,6 +257,7 @@ queue_message_fd_r(uint32_t msgid)
 	if (fdin == -1)
 		return (-1);
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		if ((fdout = mktmpfile()) == -1)
 			goto err;
@@ -274,6 +277,7 @@ queue_message_fd_r(uint32_t msgid)
 		fclose(ofp);
 		lseek(fdin, SEEK_SET, 0);
 	}
+#endif
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		if ((fdout = mktmpfile()) == -1)
@@ -349,6 +353,7 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evplen = complen;
 	}
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		enclen = crypto_encrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
 		if (enclen == 0)
@@ -356,6 +361,7 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evp = encbuf;
 		evplen = enclen;
 	}
+#endif
 
 	memmove(evpbuf, evp, evplen);
 
@@ -375,6 +381,7 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	evp = evpbuf;
 	evplen = evpbufsize;
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		enclen = crypto_decrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
 		if (enclen == 0)
@@ -382,6 +389,7 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evp = encbuf;
 		evplen = enclen;
 	}
+#endif
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		complen = uncompress_chunk(evp, evplen, compbuf, sizeof compbuf);
