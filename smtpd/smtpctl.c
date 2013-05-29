@@ -797,6 +797,7 @@ display(const char *s)
 	FILE   *fp;
 	char   *key;
 	int	gzipped;
+	char   *gzcat_argv0 = strrchr(PATH_GZCAT, '/') + 1;
 
 	if ((fp = fopen(s, "r")) == NULL)
 		err(1, "fopen");
@@ -838,7 +839,7 @@ display(const char *s)
 
 	(void)dup2(fileno(fp), STDIN_FILENO);
 	if (gzipped)
-		execl(PATH_GZCAT, strrchr(PATH_GZCAT, '/') + 1, NULL);
+		execl(PATH_GZCAT, gzcat_argv0, NULL);
 	else
 		execl(PATH_CAT, "cat", NULL);
 	err(1, "execl");
