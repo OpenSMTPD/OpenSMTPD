@@ -115,9 +115,8 @@ MANPAGES_IN=		aliases.5     forward.5     makemap.8			\
 CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		smtpd.conf
 
-EXTRA_DIST=		filter_api.h iobuf.h ioev.h log.h parser.h smtpd.h	\
-			../contrib/lib/libc/asr/asr.h				\
-			../contrib/lib/libc/asr/asr_private.h			\
+EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
+			smtpd-defines.h	ssl.h					\
 			$(CONFIGFILES_IN) $(MANPAGES_IN)
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
@@ -173,18 +172,21 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
 	$(INSTALL) -m 644 smtpd.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	$(INSTALL) -m 644 smtpd.conf.5.out	$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5
-
+	rm	aliases.5.out forward.5.out makemap.8.out newaliases.8.out	\
+		smtpctl.8.out smtpd.8.out smtpd.conf.5.out smtpd.conf.out
 
 uninstall-hook:
+# XXX to make "make distcheck" happy we need to rm smtpd.conf
+#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
 	rm -f	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \
 		$(DESTDIR)$(sbindir)/makemap$(EXEEXT) \
 		$(DESTDIR)$(bindir)/mailq$(EXEEXT)
-	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5 \
-		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5 \
-		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5 \
-		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8 \
-		$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8 \
-		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8 \
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
 		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	rmdir	$(DESTDIR)$(pkglibexecdir) \
 		$(DESTDIR)$(mandir)/$(mansubdir)5 \

@@ -9,6 +9,6 @@ libopenbsd_compat_a_SOURCES =							\
 		strsep.c vis.c xmalloc.c
 
 EXTRA_DIST =	base64.h bsd-waitpid.h defines.h entropy.h imsg.h includes.h	\
-		openbsd-compat.h sys-queue.h sys-tree.h vis.h xmalloc.h
+		log.h openbsd-compat.h sys/queue.h sys/tree.h vis.h xmalloc.h
 
 INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/openbsd-compat

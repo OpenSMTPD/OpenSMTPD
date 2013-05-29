@@ -25,3 +25,5 @@ install-exec-hook:
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/smtpscript$(EXEEXT)
+
+EXTRA_DIST=		iobuf.h smtpscript.h

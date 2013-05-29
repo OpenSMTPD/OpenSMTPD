@@ -48,3 +48,5 @@ LDADD+=-lsqlite3
 endif
 
 backend_table_stub_SOURCES=$(SRCS) table_stub.c ../table_api.c
+
+EXTRA_DIST=		queue_utils.h
