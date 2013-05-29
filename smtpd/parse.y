@@ -1850,11 +1850,7 @@ bad:
 int
 is_if_in_group(const char *ifname, const char *groupname)
 {
-#ifndef OpenBSD
-	if (strcmp(groupname, "all") == 0)
-		return (1);
-	return (0);
-#else
+#ifdef HAVE_STRUCT_IFGROUPREQ
         unsigned int		 len;
         struct ifgroupreq        ifgr;
         struct ifg_req          *ifg;
@@ -1892,5 +1888,7 @@ is_if_in_group(const char *ifname, const char *groupname)
 end:
 	close(s);
 	return ret;
+#else
+	return (0);
 #endif
 }
