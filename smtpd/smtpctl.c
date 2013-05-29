@@ -650,7 +650,7 @@ show_stats_output(void)
 
 		if (strcmp(kvp->key, "uptime") == 0) {
 			duration = time(NULL) - kvp->val.u.counter;
-			printf("uptime=%zd\n", (size_t)duration);
+			printf("uptime=%lld\n", (long long)duration);
 			printf("uptime.human=%s\n",
 			    duration_to_text(duration));
 		}
@@ -665,14 +665,14 @@ show_stats_output(void)
 				    kvp->key, (int64_t)kvp->val.u.timestamp);
 				break;
 			case STAT_TIMEVAL:
-				printf("%s=%zd.%zd\n",
-				    kvp->key, kvp->val.u.tv.tv_sec,
-				    kvp->val.u.tv.tv_usec);
+				printf("%s=%lld.%lld\n",
+				    kvp->key, (long long)kvp->val.u.tv.tv_sec,
+				    (long long)kvp->val.u.tv.tv_usec);
 				break;
 			case STAT_TIMESPEC:
-				printf("%s=%li.%06li\n",
+				printf("%s=%lli.%06li\n",
 				    kvp->key,
-				    kvp->val.u.ts.tv_sec * 1000000 +
+				    (long long)kvp->val.u.ts.tv_sec * 1000000 +
 				    kvp->val.u.ts.tv_nsec / 1000000,
 				    kvp->val.u.ts.tv_nsec % 1000000);
 				break;
