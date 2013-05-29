@@ -88,12 +88,10 @@ main(int argc, char **argv)
 	int	ch;
 
 	log_init(1);
+	log_verbose(~0);
 
-	while ((ch = getopt(argc, argv, "f:")) != -1) {
+	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
-		case 'f':
-			config = optarg;
-			break;
 		default:
 			log_warnx("warn: backend-table-ldap: bad option");
 			return (1);
@@ -102,6 +100,13 @@ main(int argc, char **argv)
 	}
 	argc -= optind;
 	argv += optind;
+
+	if (argc != 1) {
+		log_warnx("warn: backend-table-ldap: bogus argument(s)");
+		return (1);
+	}
+
+	config = argv[0];
 
 	if (!ldap_config()) {
 		log_warnx("warn: backend-table-ldap: could not parse config");

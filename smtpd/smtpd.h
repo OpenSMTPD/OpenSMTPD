@@ -99,6 +99,9 @@
 #ifndef	PATH_FILTERS
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
 #endif
+#ifndef	PATH_TABLES
+#define	PATH_TABLES		"/usr/libexec/smtpd"
+#endif
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02

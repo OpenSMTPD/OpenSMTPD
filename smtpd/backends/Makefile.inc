@@ -1,7 +1,7 @@
 #	$OpenBSD: Makefile,v 1.3 2012/08/02 13:38:39 okan Exp $
 
 CFLAGS	+= -DNO_IO
-CPPFLAGS+= -I../../
+CPPFLAGS+= -I${.CURDIR}/../../
 
 SRCS	+= log.c
 

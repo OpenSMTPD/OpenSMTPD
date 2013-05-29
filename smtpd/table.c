@@ -23,6 +23,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -36,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -189,7 +191,9 @@ table_create(const char *backend, const char *name, const char *tag,
 	struct table		*t;
 	struct table_backend	*tb;
 	char			 buf[SMTPD_MAXLINESIZE];
+	char			 path[SMTPD_MAXLINESIZE];
 	size_t			 n;
+	struct stat		 sb;
 
 	if (name && tag) {
 		if (snprintf(buf, sizeof(buf), "%s#%s", name, tag)
@@ -202,7 +206,23 @@ table_create(const char *backend, const char *name, const char *tag,
 	if (name && table_find(name, NULL))
 		errx(1, "table_create: table \"%s\" already defined", name);
 
-	if ((tb = table_backend_lookup(backend)) == NULL)
+	if ((tb = table_backend_lookup(backend)) == NULL) {
+		if (snprintf(path, sizeof(path), PATH_TABLES "/backend-table-%s",
+		    backend) >= (int)sizeof(path)) {
+			errx(1, "table_create: path too long \""
+			    PATH_TABLES "/backend-table-%s\"", backend);
+		}
+		if (stat(path, &sb) == 0) {
+			tb = table_backend_lookup("proc");
+			if (config) {
+				strlcat(path, " ", sizeof(path));
+				strlcat(path, config, sizeof(path));
+			}
+			config = path;
+		}
+	}
+
+	if (tb == NULL)
 		errx(1, "table_create: backend \"%s\" does not exist", backend);
 
 	t = xcalloc(1, sizeof(*t), "table_create");

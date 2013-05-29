@@ -49,6 +49,11 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
+	if (argc != 0) {
+		log_warnx("warn: backend-table-stub: bogus argument(s)");
+		return (1);
+	}
+
 	table_api_on_update(table_stub_update);
 	table_api_on_check(table_stub_check);
 	table_api_on_lookup(table_stub_lookup);
