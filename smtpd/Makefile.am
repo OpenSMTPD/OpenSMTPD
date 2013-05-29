@@ -80,11 +80,15 @@ smtpd_SOURCES+=		../contrib/lib/libc/asr/asr.c				\
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
-smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c crypto.c		\
+smtpctl_SOURCES=	enqueue.c parser.c log.c envelope.c			\
 			queue_backend.c queue_fsqueue.c				\
 			smtpctl.c util.c					\
 			compress_backend.c compress_gzip.c			\
 			to.c expand.c tree.c
+
+if HAVE_GCM_CRYPTO
+smtpd_SOURCES+=		crypto.c
+endif
 
 smtpctl_CFLAGS=		-DNO_IO
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\"
