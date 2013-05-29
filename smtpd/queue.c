@@ -686,23 +686,23 @@ queue_loop(uint64_t evpid)
 static void
 queue_log(const struct envelope *e, const char *prefix, const char *status)
 {
-       char rcpt[SMTPD_MAXLINESIZE];
-
-       rcpt[0] = '\0';
-       if (strcmp(e->rcpt.user, e->dest.user) ||
-           strcmp(e->rcpt.domain, e->dest.domain))
-               snprintf(rcpt, sizeof rcpt, "rcpt=<%s@%s>, ",
-                   e->rcpt.user, e->rcpt.domain);
-
-       log_info("%s: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
-           "%sdelay=%s, stat=%s",
-           e->type == D_MDA ? "delivery" : "relay",
-           prefix,
-           e->id, e->sender.user, e->sender.domain,
-           e->dest.user, e->dest.domain,
-           rcpt,
-           duration_to_text(time(NULL) - e->creation),
-           status);
+	char rcpt[SMTPD_MAXLINESIZE];
+	
+	strlcpy(rcpt, "-", sizeof rcpt);
+	if (strcmp(e->rcpt.user, e->dest.user) ||
+	    strcmp(e->rcpt.domain, e->dest.domain))
+		snprintf(rcpt, sizeof rcpt, "%s@%s",
+		    e->rcpt.user, e->rcpt.domain);
+	
+	log_info("%s: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
+	    "rcpt=<%s>, delay=%s, stat=%s",
+	    e->type == D_MDA ? "delivery" : "relay",
+	    prefix,
+	    e->id, e->sender.user, e->sender.domain,
+	    e->dest.user, e->dest.domain,
+	    rcpt,
+	    duration_to_text(time(NULL) - e->creation),
+	    status);
 }
 
 void
