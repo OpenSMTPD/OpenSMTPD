@@ -838,7 +838,7 @@ display(const char *s)
 
 	(void)dup2(fileno(fp), STDIN_FILENO);
 	if (gzipped)
-		execl(PATH_GZCAT, "gzcat", NULL);
+		execl(PATH_GZCAT, strrchr(PATH_GZCAT, '/') + 1, NULL);
 	else
 		execl(PATH_CAT, "cat", NULL);
 	err(1, "execl");
