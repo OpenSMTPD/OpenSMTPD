@@ -111,6 +111,19 @@ Mark a single envelope, or all envelopes with the same message ID,
 as ready for immediate delivery.
 .It Cm show envelope Ar envelope-id
 Display envelope content for the given ID.
+.It Cm show hoststats
+Display status of last delivery for domains that have been active in the
+last 4 hours.
+It consists of the following fields, separated by a "|":
+.Pp
+.Bl -bullet -compact
+.It
+domain.
+.It
+Unix timestamp of last delivery.
+.It
+Status of last delivery.
+.El
 .It Cm show message Ar envelope-id
 Display message content for the given ID.
 .It Cm show queue
