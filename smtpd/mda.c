@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.89 2013/02/05 11:45:18 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

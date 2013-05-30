@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.150 2013/02/14 12:30:49 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

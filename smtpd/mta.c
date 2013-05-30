@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.155 2013/02/18 13:37:14 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

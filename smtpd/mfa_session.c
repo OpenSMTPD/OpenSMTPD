@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa_session.c,v 1.15 2013/03/26 13:30:29 millert Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
