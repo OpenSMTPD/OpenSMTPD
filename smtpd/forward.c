@@ -1,4 +1,4 @@
-/*	$OpenBSD: forward.c,v 1.34 2013/01/31 18:34:43 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.3 2012/08/02 13:38:39 okan Exp $
+#	$OpenBSD$
 
 CFLAGS	+= -DNO_IO -DBUILD_FILTER
 CPPFLAGS+= -I../../

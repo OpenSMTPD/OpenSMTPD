@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.124 2013/03/11 17:40:11 deraadt Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

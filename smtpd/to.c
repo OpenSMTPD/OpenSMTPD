@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.4 2013/02/15 22:43:21 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
