@@ -421,6 +421,8 @@ mta_free(struct mta_session *s)
 		runq_cancel(hangon, NULL, s);
 	}
 
+	mta_flush_failedqueue(s);
+
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
 
