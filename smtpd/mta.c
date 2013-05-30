@@ -1439,7 +1439,7 @@ mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
     const char *relay, const char *status)
 {
 	log_info("relay: %s for %016" PRIx64 ": session=%016"PRIx64", "
-	    "from=<%s>, to=<%s>, rcpt=<%s>, source=%s"
+	    "from=<%s>, to=<%s>, rcpt=<%s>, source=%s, "
 	    "relay=%s, delay=%s, stat=%s",
 	    prefix,
 	    evp->id,
