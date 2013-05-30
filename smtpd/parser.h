@@ -1,4 +1,4 @@
-/*	$OpenBSD: parser.h,v 1.27 2013/05/24 17:03:14 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>

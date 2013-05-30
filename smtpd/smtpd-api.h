@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd-api.h,v 1.4 2013/05/24 17:03:14 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>

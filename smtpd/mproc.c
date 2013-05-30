@@ -1,4 +1,4 @@
-/*	$OpenBSD: mproc.c,v 1.3 2013/05/24 17:03:14 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>

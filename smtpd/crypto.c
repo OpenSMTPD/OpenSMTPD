@@ -1,4 +1,4 @@
-/* $OpenBSD: crypto.c,v 1.1 2013/05/04 13:46:21 gilles Exp $	 */
+/* $OpenBSD$	 */
 
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@openbsd.org>
