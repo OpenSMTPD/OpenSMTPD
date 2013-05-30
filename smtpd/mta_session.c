@@ -87,6 +87,7 @@ enum mta_state {
 #define MTA_FREE		0x0400
 #define MTA_LMTP		0x0800
 #define MTA_WAIT		0x1000
+#define MTA_HANGON		0x2000
 
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
@@ -415,6 +416,11 @@ mta_free(struct mta_session *s)
 	if (s->ready)
 		s->relay->nconn_ready -= 1;
 
+	if (s->flags & MTA_HANGON) {
+		log_debug("debug: mta: %p: cancelling hangon timer", s);
+		runq_cancel(hangon, NULL, s);
+	}
+
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
 
@@ -439,6 +445,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 
 	log_debug("mta: timeout for session hangon");
 
+	s->flags &= ~MTA_HANGON;
 	s->hangon--;
 
 	mta_enter_state(s, MTA_READY);
@@ -656,6 +663,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 
 			log_debug("mta: debug: last connection: hanging on for %is", s->hangon);
+			s->flags |= MTA_HANGON;
 			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
 		}
