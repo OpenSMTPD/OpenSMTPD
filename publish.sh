@@ -47,7 +47,8 @@ build_tarball()
 	TARGET=opensmtpd-${V}${P}
 	git archive --format=tar --prefix=${TARGET}/ ${1} | \
 	    (cd ${T} && tar xf -)
-	rm -f ${T}/${TARGET}/Makefile ${T}/${TARGET}/smtpd/Makefile
+	find ${T}/${TARGET} -name Makefile -exec rm \{\} \;
+	find ${T}/${TARGET} -depth -type d -empty -exec rmdir \{\} \;
     fi
     (cd ${T} && tar cfz ${FILES}/${TARGET}.tar.gz ${TARGET})
     rm -rf ${T}

@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.20 2013/05/24 17:03:14 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
