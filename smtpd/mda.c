@@ -526,7 +526,7 @@ mda(void)
 
 	pw = env->sc_pw;
 
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("mda: chroot");
 	if (chdir("/") == -1)
 		fatal("mda: chdir(\"/\")");

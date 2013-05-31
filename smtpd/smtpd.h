@@ -64,12 +64,6 @@
 #ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
 #endif
-#ifndef SMTPD_LOOKUP_USER
-#define SMTPD_LOOKUP_USER	 "_smtpl"
-#endif
-#ifndef SMTPD_FILTER_USER
-#define SMTPD_FILTER_USER	 "_smtpf"
-#endif
 #ifndef SMTPD_QUEUE_USER
 #define SMTPD_QUEUE_USER	 "_smtpq"
 #endif
@@ -89,6 +83,7 @@
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 #endif
 
+#define PATH_CHROOT		"/var/empty"
 #define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"

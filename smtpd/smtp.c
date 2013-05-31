@@ -260,7 +260,7 @@ smtp(void)
 
 	pw = env->sc_pw;
 
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("smtp: chroot");
 	if (chdir("/") == -1)
 		fatal("smtp: chdir(\"/\")");

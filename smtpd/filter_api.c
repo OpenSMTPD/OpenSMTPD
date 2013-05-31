@@ -26,6 +26,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,10 @@ static struct filter_internals {
 
 	uint32_t	hooks;
 	uint32_t	flags;
+
+	uid_t		uid;
+	gid_t		gid;
+	const char     *rootpath;
 
 	struct {
 		void (*notify)(uint64_t, enum filter_status);
@@ -173,6 +178,18 @@ filter_api_loop(void)
 
 	usleep(1000000);
 
+	if (fi.rootpath) {
+		if (chroot(fi.rootpath) == -1)
+			err(1, "chroot");
+		if (chdir("/") == -1)
+			err(1, "chdir");
+	}
+
+	if (setgroups(1, &fi.gid) ||
+            setresgid(fi.gid, fi.gid, fi.gid) ||
+            setresuid(fi.uid, fi.uid, fi.uid))
+                err(1, "cannot drop privileges");
+
 	if (event_dispatch() < 0)
 		errx(1, "event_dispatch");
 }
@@ -237,16 +254,50 @@ filter_response(uint64_t qid, int status, int code, const char *line, int notify
 	m_close(&fi.p);
 }
 
+void
+filter_api_setugid(uid_t uid, gid_t gid)
+{
+	filter_api_init();
+
+	if (! uid)
+		errx(1, "filter_api_setugid: can't set uid=0");
+	if (! gid)
+		errx(1, "filter_api_setugid: can't set gid=0");
+	fi.uid = uid;
+	fi.gid = gid;
+}
+
+void
+filter_api_no_chroot(void)
+{
+	filter_api_init();
+
+	fi.rootpath = NULL;
+}
+
+void
+filter_api_set_chroot(const char *rootpath)
+{
+	filter_api_init();
+
+	fi.rootpath = rootpath;
+}
+
 static void
 filter_api_init(void)
 {
 	extern const char *__progname;
+	struct passwd  *pw;
 	static int	init = 0;
 
 	if (init)
 		return;
 
 	init = 1;
+
+	pw = getpwnam(SMTPD_USER);
+	if (pw == NULL)
+		err(1, "getpwnam");
 
 	smtpd_process = PROC_FILTER;
 	filter_name = __progname;
@@ -258,7 +309,10 @@ filter_api_init(void)
 	fi.p.proc = PROC_MFA;
 	fi.p.name = "filter";
 	fi.p.handler = filter_dispatch;
-
+	fi.uid = pw->pw_uid;
+	fi.gid = pw->pw_gid;
+	fi.rootpath = PATH_CHROOT;
+	
 	mproc_init(&fi.p, 0);
 }
 

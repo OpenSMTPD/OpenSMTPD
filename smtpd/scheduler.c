@@ -356,7 +356,7 @@ scheduler(void)
 	backend->init();
 
 	pw = env->sc_pw;
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");

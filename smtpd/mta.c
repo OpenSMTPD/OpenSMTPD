@@ -487,7 +487,7 @@ mta(void)
 	purge_config(PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("mta: chroot");
 	if (chdir("/") == -1)
 		fatal("mta: chdir(\"/\")");
