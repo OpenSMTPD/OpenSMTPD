@@ -1,6 +1,6 @@
 #	$OpenBSD$
 
-.PATH:		${.CURDIR}/..
+.PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
 
 PROG=		smtpd
 
@@ -33,6 +33,11 @@ SRCS+=		scheduler_ramqueue.c
 SRCS+=		scheduler_null.c
 SRCS+=		stat_ramstat.c
 
+# resolver
+SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
+		res_send_async.c getaddrinfo_async.c getnameinfo_async.c \
+		res_search_async.c
+
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
 
@@ -46,6 +51,8 @@ CFLAGS+=	-Wsign-compare -Wbounded
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
 CFLAGS+=	-DQUEUE_PROFILING
+CFLAGS+=	-DASR_OPT_THREADSAFE=0
 YFLAGS=
 
 .include <bsd.prog.mk>
+
