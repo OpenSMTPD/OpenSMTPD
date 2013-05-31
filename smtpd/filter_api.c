@@ -252,9 +252,11 @@ filter_response(uint64_t qid, int status, int code, const char *line, int notify
 	m_close(&fi.p);
 }
 
-static void
+void
 filter_api_setugid(uid_t uid, gid_t gid)
 {
+	filter_api_init();
+
 	if (! uid)
 		errx(1, "filter_api_setugid: can't set uid=0");
 	if (! gid)
@@ -263,15 +265,19 @@ filter_api_setugid(uid_t uid, gid_t gid)
 	fi.gid = gid;
 }
 
-static void
+void
 filter_api_no_chroot(void)
 {
+	filter_api_init();
+
 	fi.rootpath = NULL;
 }
 
-static void
+void
 filter_api_set_chroot(const char *rootpath)
 {
+	filter_api_init();
+
 	fi.rootpath = rootpath;
 }
 

@@ -119,20 +119,17 @@ struct tree	sessions;
 struct tree	queries;
 
 void
-mfa_filter_init(void)
+mfa_filter_prepare(void)
 {
-	static int		 init = 0;
+	static int		 prepare = 0;
 	struct filter		*filter;
 	void			*iter;
 	struct mfa_filter	*f;
 	struct mproc		*p;
 
-	if (init)
+	if (prepare)
 		return;
-	init = 1;
-
-	tree_init(&sessions);
-	tree_init(&queries);
+	prepare = 1;
 
 	TAILQ_INIT(&chain.filters);
 
@@ -146,11 +143,30 @@ mfa_filter_init(void)
 		p->data = f;
 		if (mproc_fork(p, filter->path, filter->name) < 0)
 			fatalx("mfa_filter_init");
+		TAILQ_INSERT_TAIL(&chain.filters, f, entry);
+	}
+}
+
+void
+mfa_filter_init(void)
+{
+	static int		 init = 0;
+	struct mfa_filter	*f;
+	struct mproc		*p;
+
+	if (init)
+		return;
+	init = 1;
+
+	tree_init(&sessions);
+	tree_init(&queries);
+
+	TAILQ_FOREACH(f, &chain.filters, entry) {
+		p = &f->mproc;
 		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
 		m_add_u32(p, FILTER_API_VERSION);
 		m_close(p);
 		mproc_enable(p);
-		TAILQ_INSERT_TAIL(&chain.filters, f, entry);
 	}
 
 	if (TAILQ_FIRST(&chain.filters) == NULL)

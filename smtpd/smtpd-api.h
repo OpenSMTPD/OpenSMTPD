@@ -180,6 +180,10 @@ int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
 void dict_merge(struct dict *, struct dict *);
 
 /* filter_api.c */
+void filter_api_setugid(uid_t, gid_t);
+void filter_api_set_chroot(const char *);
+void filter_api_no_chroot(void);
+
 void filter_api_loop(void);
 void filter_api_accept(uint64_t);
 void filter_api_accept_notify(uint64_t);
