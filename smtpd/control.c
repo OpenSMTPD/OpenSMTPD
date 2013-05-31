@@ -242,7 +242,7 @@ control(void)
 	stat_backend = env->sc_stat;
 	stat_backend->init();
 
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("control: chroot");
 	if (chdir("/") == -1)
 		fatal("control: chdir(\"/\")");
