@@ -1431,6 +1431,7 @@ mta_host_unref(struct mta_host *h)
 	SPLAY_REMOVE(mta_host_tree, &hosts, h);
 	free(h->sa);
 	free(h->ptrname);
+	free(h);
 	stat_decrement("mta.host", 1);
 }
 
@@ -1506,6 +1507,7 @@ mta_domain_unref(struct mta_domain *d)
 
 	SPLAY_REMOVE(mta_domain_tree, &domains, d);
 	free(d->name);
+	free(d);
 	stat_decrement("mta.domain", 1);
 }
 
@@ -1560,6 +1562,7 @@ mta_source_unref(struct mta_source *s)
 
 	SPLAY_REMOVE(mta_source_tree, &sources, s);
 	free(s->sa);
+	free(s);
 	stat_decrement("mta.source", 1);
 }
 
@@ -1619,6 +1622,7 @@ mta_connector_free(struct mta_connector *c)
 	c->relay->nconnector--;
 	TAILQ_REMOVE(c->queue, c, lst_entry);
 	mta_source_unref(c->source);
+	feee(c);
 	stat_decrement("mta.connector", 1);
 }
 
@@ -1673,6 +1677,7 @@ mta_route_unref(struct mta_route *r)
 	SPLAY_REMOVE(mta_route_tree, &routes, r);
 	mta_source_unref(r->src); /* from constructor */
 	mta_host_unref(r->dst); /* from constructor */
+	free(r);
 	stat_decrement("mta.route", 1);
 }
 
