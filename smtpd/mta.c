@@ -1622,7 +1622,7 @@ mta_connector_free(struct mta_connector *c)
 	c->relay->nconnector--;
 	TAILQ_REMOVE(c->queue, c, lst_entry);
 	mta_source_unref(c->source);
-	feee(c);
+	free(c);
 	stat_decrement("mta.connector", 1);
 }
 
