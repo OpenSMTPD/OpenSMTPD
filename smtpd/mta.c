@@ -1535,12 +1535,11 @@ mta_relay_unref(struct mta_relay *relay)
 
 	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
-	if (relay->cert)
-		free(relay->cert);
-	if (relay->authtable)
-		free(relay->authtable);
-	if (relay->authlabel)
-		free(relay->authlabel);
+	
+	free(relay->cert);
+	free(relay->authtable);
+	free(relay->authlabel);
+	free(relay->secret);
 
 	while ((tree_poproot(&relay->connectors, NULL, (void**)&c)))
 		mta_connector_free(c);
