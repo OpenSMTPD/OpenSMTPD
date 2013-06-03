@@ -321,6 +321,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		bzero(resp_ca_cert->key, resp_ca_cert->key_len);
+		free(resp_ca_cert->cert);
+		free(resp_ca_cert->key);
 		free(resp_ca_cert);
 
 		return;
