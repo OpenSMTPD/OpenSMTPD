@@ -283,9 +283,22 @@ table_config(struct table *t)
 void
 table_add(struct table *t, const char *key, const char *val)
 {
+	char	lkey[1024], *old;
+
 	if (t->t_type & T_DYNAMIC)
 		errx(1, "table_add: cannot add to table");
-	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
+
+	if (! lowercase(lkey, key, sizeof lkey)) {
+		log_warnx("warn: lookup key too long: %s", key);
+		return;
+	}
+
+	old = dict_set(&t->t_dict, lkey, val ? xstrdup(val, "table_add") : NULL);
+	if (old) {
+		log_warnx("warn: duplicate key \"%s\" in static table \"%s\"",
+		    lkey, t->t_name);
+		free(old);
+	}
 }
 
 const void *
