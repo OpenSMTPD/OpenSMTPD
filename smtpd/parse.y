@@ -478,7 +478,6 @@ table		: TABLE STRING STRING	{
 					;
 				if (*p == ':') {
 					*p = '\0';
-					backend = $3;
 					config  = p+1;
 				}
 			}
