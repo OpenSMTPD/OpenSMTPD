@@ -1265,6 +1265,9 @@ mta_relay_unref(struct mta_relay *relay)
 	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
 
+	while ((tree_poproot(&relay->connectors, NULL, (void**)&c)))
+		mta_connector_free(c);
+
 	free(relay->authlabel);
 	free(relay->authtable);
 	free(relay->backupname);
@@ -1272,9 +1275,6 @@ mta_relay_unref(struct mta_relay *relay)
 	free(relay->helotable);
 	free(relay->secret);
 	free(relay->sourcetable);
-
-	while ((tree_poproot(&relay->connectors, NULL, (void**)&c)))
-		mta_connector_free(c);
 
 	if (evtimer_pending(&relay->ev, NULL))
 		evtimer_del(&relay->ev);
