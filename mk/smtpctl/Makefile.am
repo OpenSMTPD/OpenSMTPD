@@ -1,0 +1,152 @@
+# In OpenBSD, smtpd's files are installed this way:
+#
+# /etc/mail/smtpd.conf
+# /usr/bin/mailq      --> /usr/sbin/mailwrapper --> /usr/sbin/smtpctl
+# /usr/bin/newaliases --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
+# /usr/libexec/mail.local
+# /usr/sbin/makemap   --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
+# /usr/sbin/smtpctl
+# /usr/sbin/smtpd
+#
+#
+# For OpenSMTPD portable, here's where files are installed:
+# (assuming PREFIX=/usr/local)
+#
+# /usr/local/etc/smtpd.conf
+# /usr/local/bin/mailq      --> /usr/sbin/smtpctl
+# /usr/local/bin/newaliases --> /usr/local/libexec/opensmtpd-portable/makemap
+# /usr/local/libexec/mail.local
+# /usr/local/sbin/makemap   --> /usr/local/libexec/opensmtpd-portable/makemap
+# /usr/local/sbin/smtpctl
+# /usr/local/sbin/smtpd
+
+sbin_PROGRAMS=		smtpctl
+
+smtpctl_SOURCES=	$(top_srcdir)/smtpd/enqueue.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/parser.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/log.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/envelope.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/queue_backend.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/queue_fsqueue.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/smtpctl.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/util.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/compress_backend.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/compress_gzip.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/to.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/expand.c
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/tree.c
+
+if HAVE_GCM_CRYPTO
+smtpctl_SOURCES+=	$(top_srcdir)/smtpd/crypto.c
+endif
+
+smtpctl_CFLAGS=		-DNO_IO
+smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\"
+
+INCLUDES=		-I$(top_srcdir)/smtpd			\
+			-I$(top_srcdir)/openbsd-compat		\
+			-I$(top_srcdir)/contrib/lib/libc/asr
+
+LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
+
+LDADD=			$(LIBCOMPAT)
+
+# need to define _GNU_SOURCE to get:
+# EAI_NODATA defined
+# {v,}asprintf
+# setres{g,u}id
+CFLAGS+=		-D_GNU_SOURCE
+CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+
+PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
+			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\"			\
+			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"		\
+			-DPATH_FILTERS=\"$(pkglibexecdir)\"			\
+			-DPATH_TABLES=\"$(pkglibexecdir)\"
+
+MANPAGES=		aliases.5.out forward.5.out makemap.8.out		\
+			newaliases.8.out smtpctl.8.out smtpd.8.out		\
+			smtpd.conf.5.out
+MANPAGES_IN=		aliases.5     forward.5     makemap.8			\
+			newaliases.8     smtpctl.8     smtpd.8			\
+			smtpd.conf.5
+
+CONFIGFILES=		smtpd.conf.out
+CONFIGFILES_IN=		smtpd.conf
+
+EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
+			smtpd-defines.h	ssl.h					\
+			$(CONFIGFILES_IN) $(MANPAGES_IN)
+
+PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
+			-e 's|/usr/libexec|$(libexecdir)|g'			\
+			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
+
+FIXPATHSCMD=		$(SED) $(PATHSUBS)
+
+$(MANPAGES): $(MANPAGES_IN)
+	if test "$(MANTYPE)" = "cat"; then \
+		manpage=$(srcdir)/`echo $@ | sed 's/\.[1-9]\.out$$/\.0/'`; \
+	else \
+		manpage=$(srcdir)/`echo $@ | sed 's/\.out$$//'`; \
+	fi; \
+	if test "$(MANTYPE)" = "man"; then \
+		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/mdoc2man.awk > $@; \
+	else \
+		$(FIXPATHSCMD) $${manpage} > $@; \
+	fi
+
+$(CONFIGFILES): $(CONFIGFILES_IN)
+	conffile=`echo $@ | sed 's/.out$$//'`; \
+	$(FIXPATHSCMD) $(srcdir)/$${conffile} > $@
+
+
+# smtpd.conf
+# newaliases makemap
+install-exec-hook: $(CONFIGFILES) $(MANPAGES)
+	$(MKDIR_P) $(DESTDIR)$(sysconfdir)
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)5
+	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
+
+	@if [ ! -f $(DESTDIR)$(sysconfdir)/smtpd.conf ]; then			\
+		$(INSTALL) -m 644 smtpd.conf.out $(DESTDIR)$(sysconfdir)/smtpd.conf; \
+	else									\
+		echo "$(DESTDIR)$(sysconfdir)/smtpd.conf already exists, install will not overwrite"; \
+	fi
+
+	ln -f $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
+		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
+
+	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
+
+	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+		$(DESTDIR)$(sbindir)/makemap$(EXEEXT);
+
+	$(INSTALL) -m 644 aliases.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5
+	$(INSTALL) -m 644 forward.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5
+	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
+	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
+	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
+	$(INSTALL) -m 644 smtpd.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
+	$(INSTALL) -m 644 smtpd.conf.5.out	$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5
+	rm	aliases.5.out forward.5.out makemap.8.out newaliases.8.out	\
+		smtpctl.8.out smtpd.8.out smtpd.conf.5.out smtpd.conf.out
+
+uninstall-hook:
+# XXX to make "make distcheck" happy we need to rm smtpd.conf
+#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
+	rm -f	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \
+		$(DESTDIR)$(sbindir)/makemap$(EXEEXT) \
+		$(DESTDIR)$(bindir)/mailq$(EXEEXT)
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
+		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
+	rmdir	$(DESTDIR)$(pkglibexecdir) \
+		$(DESTDIR)$(mandir)/$(mansubdir)5 \
+		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
