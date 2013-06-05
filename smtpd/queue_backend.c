@@ -48,6 +48,14 @@ extern struct queue_backend	queue_backend_null;
 extern struct queue_backend	queue_backend_proc;
 extern struct queue_backend	queue_backend_ram;
 
+static void queue_envelope_cache_add(struct envelope *);
+static void queue_envelope_cache_update(struct envelope *);
+static void queue_envelope_cache_del(uint64_t evpid);
+
+TAILQ_HEAD(evplst, envelope);
+
+static struct tree		evpcache_tree;
+static struct evplst		evpcache_list;
 static struct queue_backend	*backend;
 
 #ifdef QUEUE_PROFILING
@@ -96,6 +104,9 @@ int
 queue_init(const char *name, int server)
 {
 	int	r;
+
+	tree_init(&evpcache_tree);
+	TAILQ_INIT(&evpcache_list);
 
 	if (!strcmp(name, "fs"))
 		backend = &queue_backend_fs;
@@ -402,6 +413,50 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	return (envelope_load_buffer(ep, evp, evplen));
 }
 
+static void
+queue_envelope_cache_add(struct envelope *e)
+{
+	struct envelope *cached;
+
+	while (tree_count(&evpcache_tree) >= env->sc_queue_evpcache_size)
+		queue_envelope_cache_del(TAILQ_LAST(&evpcache_list, evplst)->id);
+
+	cached = xcalloc(1, sizeof *cached, "queue_envelope_cache_add");
+	*cached = *e;
+	TAILQ_INSERT_HEAD(&evpcache_list, cached, entry);
+	tree_xset(&evpcache_tree, e->id, cached);
+	stat_increment("queue.evpcache.size", 1);
+}
+
+static void
+queue_envelope_cache_update(struct envelope *e)
+{
+	struct envelope *cached;
+
+	if ((cached = tree_pop(&evpcache_tree, e->id)) == NULL) {
+		queue_envelope_cache_add(e);
+		stat_increment("queue.evpcache.update.missed", 1);
+	} else {
+		TAILQ_REMOVE(&evpcache_list, cached, entry);
+		*cached = *e;
+		TAILQ_INSERT_HEAD(&evpcache_list, cached, entry);
+		stat_increment("queue.evpcache.update.hit", 1);
+	}
+}
+
+static void
+queue_envelope_cache_del(uint64_t evpid)
+{
+	struct envelope *cached;
+
+	if ((cached = tree_pop(&evpcache_tree, evpid)) == NULL)
+		return;
+
+	TAILQ_REMOVE(&evpcache_list, cached, entry);
+	free(cached);
+	stat_decrement("queue.evpcache.size", 1);
+}
+
 int
 queue_envelope_create(struct envelope *ep)
 {
@@ -430,6 +485,9 @@ queue_envelope_create(struct envelope *ep)
 		ep->id = 0;
 	}
 
+	if (r && env->sc_queue_flags & QUEUE_EVPCACHE)
+		queue_envelope_cache_add(ep);
+
 	return (r);
 }
 
@@ -437,6 +495,9 @@ int
 queue_envelope_delete(uint64_t evpid)
 {
 	int	r;
+
+	if (env->sc_queue_flags & QUEUE_EVPCACHE)
+		queue_envelope_cache_del(evpid);
 
 	profile_enter("queue_envelope_delete");
 	r = backend->envelope(QOP_DELETE, &evpid, NULL, 0);
@@ -455,6 +516,14 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	const char	*e;
 	char		 evpbuf[sizeof(struct envelope)];
 	size_t		 evplen;
+	struct envelope	*cached;
+
+	if ((env->sc_queue_flags & QUEUE_EVPCACHE) &&
+	    (cached = tree_get(&evpcache_tree, evpid))) {
+		*ep = *cached;
+		stat_increment("queue.evpcache.load.hit", 1);
+		return (1);
+	}
 
 	ep->id = evpid;
 	profile_enter("queue_envelope_load");
@@ -471,6 +540,10 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	if (queue_envelope_load_buffer(ep, evpbuf, evplen)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
+			if (env->sc_queue_flags & QUEUE_EVPCACHE) {
+				queue_envelope_cache_add(ep);
+				stat_increment("queue.evpcache.load.missed", 1);
+			}
 			return (1);
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
@@ -495,6 +568,9 @@ queue_envelope_update(struct envelope *ep)
 	profile_enter("queue_envelope_update");
 	r = backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
 	profile_leave();
+
+	if (r && env->sc_queue_flags & QUEUE_EVPCACHE)
+		queue_envelope_cache_update(ep);
 
 	log_trace(TRACE_QUEUE,
 	    "queue-backend: queue_envelope_update(%016"PRIx64") -> %i",
@@ -525,6 +601,8 @@ queue_envelope_walk(struct envelope *ep)
 	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
+			if (env->sc_queue_flags & QUEUE_EVPCACHE)
+				queue_envelope_cache_add(ep);
 			return (1);
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",

@@ -98,6 +98,16 @@ struct queue_backend queue_backend_null;
 struct queue_backend queue_backend_ram;
 struct queue_backend queue_backend_proc;
 
+void
+stat_increment(const char *name, size_t count)
+{
+}
+
+void
+stat_decrement(const char *name, size_t count)
+{
+}
+
 __dead void
 usage(void)
 {
