@@ -386,7 +386,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_dispatch_eom(id, qid);
 			break;
 		default:
-			errx(1, "bad query hook", hook);
+			errx(1, "bad query hook: %d", hook);
 		}
 		break;
 
