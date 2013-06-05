@@ -1,3 +1,3 @@
-SUBDIRS =		openbsd-compat smtpd contrib regress
+SUBDIRS =		openbsd-compat mk contrib regress
 
 ACLOCAL_AMFLAGS =	-I m4
