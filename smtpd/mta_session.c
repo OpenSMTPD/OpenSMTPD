@@ -528,7 +528,11 @@ mta_connect(struct mta_session *s)
 
 	memmove(&ss, s->route->dst->sa, s->route->dst->sa->sa_len);
 	sa = (struct sockaddr *)&ss;
-	sa_set_port(sa, portno);
+
+	if (sa->sa_family == AF_INET)
+		((struct sockaddr_in *)sa)->sin_port = htons(portno);
+	else if (sa->sa_family == AF_INET6)
+		((struct sockaddr_in6 *)sa)->sin6_port = htons(portno);
 
 	s->attempt += 1;
 

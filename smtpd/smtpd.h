@@ -1374,7 +1374,6 @@ int valid_domainpart(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
-void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);
