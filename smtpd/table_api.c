@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter_api.c,v 1.4 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -89,7 +89,7 @@ dispatch(void)
 		memmove(&type, data, sizeof(type));
 		key = data + sizeof(type);
 		len -= sizeof(type);
-		if (key[len] != '\0') {
+		if (key[len - 1] != '\0') {
 			log_warnx("warn: table-api: bad message length");
 			return (-1);
 		}
@@ -110,7 +110,7 @@ dispatch(void)
 		memmove(&type, data, sizeof(type));
 		key = data + sizeof(type);
 		len -= sizeof(type);
-		if (key[len] != '\0') {
+		if (key[len - 1] != '\0') {
 			log_warnx("warn: table-api: bad message length");
 			return (-1);
 		}
@@ -124,9 +124,15 @@ dispatch(void)
 		if (r == 1)
 			len += strlen(res) + 1;
 		buf = imsg_create(&ibuf, PROC_TABLE_OK, 0, 0, len);
-		imsg_add(buf, &r, sizeof(r));
+		if (imsg_add(buf, &r, sizeof(r)) == -1) {
+			log_warnx("warn: table-api: imsg_add failure");
+			return (-1);
+		}
 		if (r == 1)
-			imsg_add(buf, res, strlen(res) + 1);
+			if (imsg_add(buf, res, strlen(res) + 1) == -1) {
+				log_warnx("warn: table-api: imsg_add failure");
+				return (-1);
+			}
 		imsg_close(&ibuf, buf);
 		return (0);
 

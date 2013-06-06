@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.124 2013/03/11 17:40:11 deraadt Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -250,7 +250,7 @@ smtp(void)
 
 	pw = env->sc_pw;
 
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("smtp: chroot");
 	if (chdir("/") == -1)
 		fatal("smtp: chdir(\"/\")");

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.188 2013/02/14 13:11:40 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -404,8 +404,6 @@ parent_send_config_lka()
 
 	iter_dict = NULL;
 	while (dict_iter(env->sc_ssl_dict, &iter_dict, NULL, (void **)&s)) {
-		if (!(s->flags & F_SCERT))
-			continue;
 		iov[0].iov_base = s;
 		iov[0].iov_len = sizeof(*s);
 		iov[1].iov_base = s->ssl_cert;
@@ -838,12 +836,15 @@ load_ssl_trees(void)
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		if (!(l->flags & F_SSL))
 			continue;
-		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
-			l->ssl_cert_name, F_SCERT))
-			errx(1, "cannot load certificate: %s",
-			    l->ssl_cert_name);
-		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+
+		ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name);
+		if (ssl == NULL) {
+			if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+				l->ssl_cert_name, F_SCERT))
+				errx(1, "cannot load certificate: %s",
+				    l->ssl_cert_name);
+			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+		}
 	}
 
 	log_debug("debug: init client-ssl tree");
@@ -852,12 +853,17 @@ load_ssl_trees(void)
 			continue;
 		if (! r->r_value.relayhost.cert[0])
 			continue;
-		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
-			r->r_value.relayhost.cert, F_CCERT))
-			errx(1, "cannot load certificate: %s",
-			    r->r_value.relayhost.cert);
-		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+
+		ssl = dict_get(env->sc_ssl_dict, r->r_value.relayhost.cert);
+		if (ssl)
+			ssl->flags |= F_CCERT;
+		else {
+			if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
+				r->r_value.relayhost.cert, F_CCERT))
+				errx(1, "cannot load certificate: %s",
+				    r->r_value.relayhost.cert);
+			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+		}
 	}
 }
 
@@ -883,12 +889,15 @@ fork_peers(void)
 
 	init_pipes();
 
+	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
+	if (env->sc_queue_key)
+		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+
 	child_add(control(), CHILD_DAEMON, proc_title(PROC_CONTROL));
 	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
 	child_add(mda(), CHILD_DAEMON, proc_title(PROC_MDA));
 	child_add(mfa(), CHILD_DAEMON, proc_title(PROC_MFA));
 	child_add(mta(), CHILD_DAEMON, proc_title(PROC_MTA));
-	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
 	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
 	child_add(smtp(), CHILD_DAEMON, proc_title(PROC_SMTP));
 }
@@ -963,7 +972,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	struct delivery_backend	*db;
 	struct child	*child;
 	pid_t		 pid;
-	int		 n, allout, pipefd[2];
+	int		 allout, pipefd[2];
 	mode_t		 omode;
 
 	log_debug("debug: smtpd: forking mda for session %016"PRIx64
@@ -988,7 +997,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		fatal("smtpd: forkmda: cannot lower privileges");
 
 	if (pipe(pipefd) < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1004,7 +1013,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	allout = mkstemp(sfn);
 	umask(omode);
 	if (allout < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1019,7 +1028,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	pid = fork();
 	if (pid < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1309,12 +1318,12 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 		timespecsub(&t1, &t0, &dt);
 
-		log_debug("profile-imsg: %s %s %s %i %li.%06li",
+		log_debug("profile-imsg: %s %s %s %i %lld.%06li",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg_to_str(imsg->hdr.type),
 		    (int)imsg->hdr.len,
-		    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
+		    (long long)dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 		    dt.tv_nsec % 1000000);
 
 		if (profiling & PROFILE_TOSTAT) {

@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fsqueue.c,v 1.53 2012/08/30 18:19:50 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -207,8 +207,9 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		msgid = evpid_to_msgid(*evpid);
 		b = imsg_create(&ibuf, PROC_QUEUE_ENVELOPE_CREATE, 0, 0,
 		    sizeof(msgid) + len);
-		imsg_add(b, &msgid, sizeof(msgid));
-		imsg_add(b, buf, len);
+		if (imsg_add(b, &msgid, sizeof(msgid)) == -1 ||
+		    imsg_add(b, buf, len) == -1)
+			return (0);
 		imsg_close(&ibuf, b);
 
 		if (!queue_proc_call(-1))

@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter_api.c,v 1.4 2012/08/19 14:16:58 chl Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -122,6 +122,7 @@ queue_ram_message_commit(uint32_t msgid)
 	msg->buf = malloc(msg->len);
 	if (msg->buf == NULL) {
 		log_warn("warn: backend-queue-ram: malloc");
+		fclose(f);
 		return (0);
 	}
 

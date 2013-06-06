@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.h,v 1.5 2011/07/13 14:52:21 eric Exp $	*/
+/*	$OpenBSD$	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

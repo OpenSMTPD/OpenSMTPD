@@ -1,14 +1,14 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-sqlite
+PROG=	backend-table-postgres
 
-SRCS=	table_sqlite.c
+SRCS=	table_postgres.c
 SRCS+=	table_api.c
 SRCS+=	dict.c
 
 NOMAN=	noman
 
-DPADD+=	${LIBSQLITE3}
-LDADD+=	-lsqlite3
+CFLAGS+=-I/usr/local/include
+LDADD+=	-L/usr/local/lib -lpq
 
 .include <bsd.prog.mk>

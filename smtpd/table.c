@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.3 2013/02/05 15:23:40 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -21,6 +21,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -34,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -187,7 +189,9 @@ table_create(const char *backend, const char *name, const char *tag,
 	struct table		*t;
 	struct table_backend	*tb;
 	char			 buf[SMTPD_MAXLINESIZE];
+	char			 path[SMTPD_MAXLINESIZE];
 	size_t			 n;
+	struct stat		 sb;
 
 	if (name && tag) {
 		if (snprintf(buf, sizeof(buf), "%s#%s", name, tag)
@@ -200,7 +204,23 @@ table_create(const char *backend, const char *name, const char *tag,
 	if (name && table_find(name, NULL))
 		errx(1, "table_create: table \"%s\" already defined", name);
 
-	if ((tb = table_backend_lookup(backend)) == NULL)
+	if ((tb = table_backend_lookup(backend)) == NULL) {
+		if (snprintf(path, sizeof(path), PATH_TABLES "/backend-table-%s",
+		    backend) >= (int)sizeof(path)) {
+			errx(1, "table_create: path too long \""
+			    PATH_TABLES "/backend-table-%s\"", backend);
+		}
+		if (stat(path, &sb) == 0) {
+			tb = table_backend_lookup("proc");
+			if (config) {
+				strlcat(path, " ", sizeof(path));
+				strlcat(path, config, sizeof(path));
+			}
+			config = path;
+		}
+	}
+
+	if (tb == NULL)
 		errx(1, "table_create: backend \"%s\" does not exist", backend);
 
 	t = xcalloc(1, sizeof(*t), "table_create");
@@ -261,9 +281,22 @@ table_config(struct table *t)
 void
 table_add(struct table *t, const char *key, const char *val)
 {
+	char	lkey[1024], *old;
+
 	if (t->t_type & T_DYNAMIC)
 		errx(1, "table_add: cannot add to table");
-	dict_set(&t->t_dict, key, val ? xstrdup(val, "table_add") : NULL);
+
+	if (! lowercase(lkey, key, sizeof lkey)) {
+		log_warnx("warn: lookup key too long: %s", key);
+		return;
+	}
+
+	old = dict_set(&t->t_dict, lkey, val ? xstrdup(val, "table_add") : NULL);
+	if (old) {
+		log_warnx("warn: duplicate key \"%s\" in static table \"%s\"",
+		    lkey, t->t_name);
+		free(old);
+	}
 }
 
 const void *

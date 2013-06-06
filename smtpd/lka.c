@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.150 2013/02/14 12:30:49 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -590,9 +590,8 @@ lka(void)
 
 	purge_config(PURGE_EVERYTHING);
 
-	if ((env->sc_pw =  getpwnam(SMTPD_LOOKUP_USER)) == NULL)
-		if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
-			fatalx("unknown user " SMTPD_USER);
+	if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
+		fatalx("unknown user " SMTPD_USER);
 	pw = env->sc_pw;
 
 	config_process(PROC_LKA);

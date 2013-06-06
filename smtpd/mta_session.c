@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.34 2013/02/21 16:25:21 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -87,6 +87,7 @@ enum mta_state {
 #define MTA_FREE		0x0400
 #define MTA_LMTP		0x0800
 #define MTA_WAIT		0x1000
+#define MTA_HANGON		0x2000
 
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
@@ -342,6 +343,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		bzero(resp_ca_cert->key, resp_ca_cert->key_len);
+		free(resp_ca_cert->cert);
+		free(resp_ca_cert->key);
 		free(resp_ca_cert);
 
 		return;
@@ -412,6 +415,16 @@ mta_free(struct mta_session *s)
 
 	log_debug("debug: mta: %p: session done", s);
 
+	if (s->ready)
+		s->relay->nconn_ready -= 1;
+
+	if (s->flags & MTA_HANGON) {
+		log_debug("debug: mta: %p: cancelling hangon timer", s);
+		runq_cancel(hangon, NULL, s);
+	}
+
+	mta_flush_failedqueue(s);
+
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
 
@@ -436,6 +449,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 
 	log_debug("mta: timeout for session hangon");
 
+	s->flags &= ~MTA_HANGON;
 	s->hangon--;
 
 	mta_enter_state(s, MTA_READY);
@@ -514,7 +528,11 @@ mta_connect(struct mta_session *s)
 
 	memmove(&ss, s->route->dst->sa, s->route->dst->sa->sa_len);
 	sa = (struct sockaddr *)&ss;
-	sa_set_port(sa, portno);
+
+	if (sa->sa_family == AF_INET)
+		((struct sockaddr_in *)sa)->sin_port = htons(portno);
+	else if (sa->sa_family == AF_INET6)
+		((struct sockaddr_in6 *)sa)->sin6_port = htons(portno);
 
 	s->attempt += 1;
 
@@ -622,6 +640,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		/* Ready to send a new mail */
 		if (s->ready == 0) {
 			s->ready = 1;
+			s->relay->nconn_ready += 1;
 			mta_route_ok(s->relay, s->route);
 		}
 
@@ -652,6 +671,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			}
 
 			log_debug("mta: debug: last connection: hanging on for %is", s->hangon);
+			s->flags |= MTA_HANGON;
 			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
 		}

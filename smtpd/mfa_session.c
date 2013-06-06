@@ -1,4 +1,4 @@
-/*	$OpenBSD: mfa_session.c,v 1.15 2013/03/26 13:30:29 millert Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -119,20 +119,17 @@ struct tree	sessions;
 struct tree	queries;
 
 void
-mfa_filter_init(void)
+mfa_filter_prepare(void)
 {
-	static int		 init = 0;
+	static int		 prepare = 0;
 	struct filter		*filter;
 	void			*iter;
 	struct mfa_filter	*f;
 	struct mproc		*p;
 
-	if (init)
+	if (prepare)
 		return;
-	init = 1;
-
-	tree_init(&sessions);
-	tree_init(&queries);
+	prepare = 1;
 
 	TAILQ_INIT(&chain.filters);
 
@@ -146,11 +143,30 @@ mfa_filter_init(void)
 		p->data = f;
 		if (mproc_fork(p, filter->path, filter->name) < 0)
 			fatalx("mfa_filter_init");
+		TAILQ_INSERT_TAIL(&chain.filters, f, entry);
+	}
+}
+
+void
+mfa_filter_init(void)
+{
+	static int		 init = 0;
+	struct mfa_filter	*f;
+	struct mproc		*p;
+
+	if (init)
+		return;
+	init = 1;
+
+	tree_init(&sessions);
+	tree_init(&queries);
+
+	TAILQ_FOREACH(f, &chain.filters, entry) {
+		p = &f->mproc;
 		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
 		m_add_u32(p, FILTER_API_VERSION);
 		m_close(p);
 		mproc_enable(p);
-		TAILQ_INSERT_TAIL(&chain.filters, f, entry);
 	}
 
 	if (TAILQ_FIRST(&chain.filters) == NULL)
@@ -249,12 +265,9 @@ static void
 mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
 {
 	struct mproc	*p;
-	size_t		 len;
 
 	log_trace(TRACE_MFA,
 	    "mfa: running data for %016"PRIx64" on filter %p: %s", id, f, line);
-
-	len = 16 + strlen(line);
 
 	/* Send the dataline to the filters that want to see it. */
 	while (f) {
@@ -318,7 +331,6 @@ mfa_drain_query(struct mfa_query *q)
 {
 	struct mfa_filter	*f;
 	struct mfa_query	*prev;
-	size_t			 len;
 
 	log_trace(TRACE_MFA, "mfa: draining query %s", mfa_query_to_text(q));
 
@@ -380,9 +392,6 @@ mfa_drain_query(struct mfa_query *q)
 			m_close(&f->mproc);
 		}
 
-		len = 48;
-		if (q->smtp.response)
-			len += strlen(q->smtp.response);
 		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
 		m_add_id(p_smtp, q->session->id);
 		m_add_int(p_smtp, q->smtp.status);

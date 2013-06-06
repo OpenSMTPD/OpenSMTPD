@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.h,v 1.1 2013/01/26 09:37:24 gilles Exp $	*/
+/*	$OpenBSD$	*/
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
  *

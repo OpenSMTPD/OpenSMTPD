@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.408 2013/03/06 21:42:40 sthen Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -49,20 +49,19 @@
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_USER		 "_smtpd"
-#define SMTPD_LOOKUP_USER	 "_smtpl"
-#define SMTPD_FILTER_USER	 "_smtpf"
 #define SMTPD_QUEUE_USER	 "_smtpq"
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#define	SMTPD_VERSION		 "5.3"
+#define	SMTPD_VERSION		 "master"
 #define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 
+#define PATH_CHROOT		"/var/empty"
 #define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
@@ -71,6 +70,7 @@
 #define PATH_MESSAGE		"/message"
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
+#define	PATH_TABLES		"/usr/libexec/smtpd"
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
@@ -572,7 +572,11 @@ struct smtpd {
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
+#define QUEUE_ENCRYPTION      		0x00000002
+#define QUEUE_EVPCACHE			0x00000004
 	uint32_t			sc_queue_flags;
+	char			       *sc_queue_key;
+	size_t				sc_queue_evpcache_size;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
@@ -765,6 +769,7 @@ struct mta_relay {
 
 	int			 refcount;
 	size_t			 nconn;
+	size_t			 nconn_ready;
 	time_t			 lastconn;
 };
 
@@ -1104,6 +1109,14 @@ void config_done(void);
 pid_t control(void);
 
 
+/* crypto.c */
+int	crypto_setup(const char *, size_t);
+int	crypto_encrypt_file(FILE *, FILE *);
+int	crypto_decrypt_file(FILE *, FILE *);
+size_t	crypto_encrypt_buffer(const char *, size_t, char *, size_t);
+size_t	crypto_decrypt_buffer(const char *, size_t, char *, size_t);
+
+
 /* delivery.c */
 struct delivery_backend *delivery_backend_lookup(enum action_type);
 
@@ -1394,7 +1407,6 @@ int valid_domainpart(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
-void sa_set_port(struct sockaddr *, int);
 uint64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);

@@ -1,4 +1,4 @@
-.\" $OpenBSD: smtpctl.8,v 1.40 2013/02/14 13:21:16 gilles Exp $
+.\" $OpenBSD$
 .\"
 .\" Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
 .\" Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -15,7 +15,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: February 14 2013 $
+.Dd $Mdocdate: May 24 2013 $
 .Dt SMTPCTL 8
 .Os
 .Sh NAME
@@ -111,6 +111,19 @@ Mark a single envelope, or all envelopes with the same message ID,
 as ready for immediate delivery.
 .It Cm show envelope Ar envelope-id
 Display envelope content for the given ID.
+.It Cm show hoststats
+Display status of last delivery for domains that have been active in the
+last 4 hours.
+It consists of the following fields, separated by a "|":
+.Pp
+.Bl -bullet -compact
+.It
+domain.
+.It
+Unix timestamp of last delivery.
+.It
+Status of last delivery.
+.El
 .It Cm show message Ar envelope-id
 Display message content for the given ID.
 .It Cm show queue

@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_filename.c,v 1.8 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>

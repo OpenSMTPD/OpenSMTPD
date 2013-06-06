@@ -1,5 +1,4 @@
-/*	$Id: aldap.c,v 1.4 2013/01/31 18:34:43 eric Exp $ */
-/*	$OpenBSD: aldap.c,v 1.4 2013/01/31 18:34:43 eric Exp $ */
+/*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2008 Alexander Schrijver <aschrijver@openbsd.org>

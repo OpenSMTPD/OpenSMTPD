@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_sqlite.c,v 1.2 2013/01/31 18:34:43 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -46,6 +46,11 @@ main(int argc, char **argv)
 	}
 	argc -= optind;
 	argv += optind;
+
+	if (argc != 0) {
+		log_warnx("warn: backend-table-stub: bogus argument(s)");
+		return (1);
+	}
 
 	table_api_on_update(table_stub_update);
 	table_api_on_check(table_stub_check);

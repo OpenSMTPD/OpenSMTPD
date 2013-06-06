@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.155 2013/02/18 13:37:14 eric Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -477,7 +477,7 @@ mta(void)
 	purge_config(PURGE_EVERYTHING);
 
 	pw = env->sc_pw;
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("mta: chroot");
 	if (chdir("/") == -1)
 		fatal("mta: chdir(\"/\")");
@@ -838,16 +838,16 @@ mta_on_secret(struct mta_relay *relay, const char *secret)
 static void
 mta_on_preference(struct mta_relay *relay, int dnserror, int preference)
 {
-	log_debug("debug: mta: ... got preference for %s: %i, %i",
-	    mta_relay_to_text(relay), dnserror, preference);
-
 	if (dnserror) {
 		log_warnx("warn: Couldn't find backup preference for %s",
 		    mta_relay_to_text(relay));
 		relay->backuppref = INT_MAX;
 	}
-	else
+	else {
+		log_debug("debug: mta: ... got preference for %s: %i, %i",
+		    mta_relay_to_text(relay), dnserror, preference);
 		relay->backuppref = preference;
+	}
 
 	relay->status &= ~RELAY_WAIT_PREFERENCE;
 	mta_drain(relay);
@@ -927,8 +927,9 @@ mta_connect(struct mta_connector *c)
 		return;
 	}
 
-	/* Do not create more connections than necessay */
-	if (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2) {
+	/* Do not create more connections than necessary */
+	if ((c->relay->nconn_ready >= c->relay->ntask) ||
+	    (c->relay->nconn > 2 && c->relay->nconn >= c->relay->ntask / 2)) {
 		log_debug("debug: mta: enough connections already");
 		return;
 	}
@@ -1091,7 +1092,7 @@ mta_route_disable(struct mta_route *route, int penalty)
 
 	route->penalty += penalty;
 	route->lastpenalty = time(NULL);
-	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
+	delay = (unsigned long long)DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
 #if 1
@@ -1427,33 +1428,16 @@ static void
 mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
     const char *relay, const char *status)
 {
-	char session[SMTPD_MAXLINESIZE];
-	char rcpt[SMTPD_MAXLINESIZE];
-	char src[SMTPD_MAXLINESIZE];
-
-	session[0] = '\0';
-	if (evp->session)
-		snprintf(session, sizeof session, "session=%016"PRIx64", ",
-		    evp->session);
-
-	rcpt[0] = '\0';
-	if (evp->rcpt)
-		snprintf(rcpt, sizeof rcpt, "rcpt=<%s>, ", evp->rcpt);
-
-	src[0] = '\0';
-	if (source)
-		snprintf(src, sizeof src, "source=%s, ", source);
-
-
-	log_info("relay: %s for %016" PRIx64 ": %sfrom=<%s>, to=<%s>, "
-	    "%s%srelay=%s, delay=%s, stat=%s",
+	log_info("relay: %s for %016" PRIx64 ": session=%016"PRIx64", "
+	    "from=<%s>, to=<%s>, rcpt=<%s>, source=%s, "
+	    "relay=%s, delay=%s, stat=%s",
 	    prefix,
 	    evp->id,
-	    session,
+	    evp->session,
 	    evp->task->sender,
 	    evp->dest,
-	    src,
-	    rcpt,
+	    evp->rcpt ? evp->rcpt : "-",
+	    source ? source : "-",
 	    relay,
 	    duration_to_text(time(NULL) - evp->creation),
 	    status);
@@ -1541,15 +1525,17 @@ mta_relay_unref(struct mta_relay *relay)
 
 	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
-	if (relay->cert)
-		free(relay->cert);
-	if (relay->authtable)
-		free(relay->authtable);
-	if (relay->authlabel)
-		free(relay->authlabel);
 
 	while ((tree_poproot(&relay->connectors, NULL, (void**)&c)))
 		mta_connector_free(c);
+
+	free(relay->authlabel);
+	free(relay->authtable);
+	free(relay->backupname);
+	free(relay->cert);
+	free(relay->helotable);
+	free(relay->secret);
+	free(relay->sourcetable);
 
 	mta_domain_unref(relay->domain); /* from constructor */
 	free(relay);
@@ -1703,6 +1689,7 @@ mta_host_unref(struct mta_host *h)
 	SPLAY_REMOVE(mta_host_tree, &hosts, h);
 	free(h->sa);
 	free(h->ptrname);
+	free(h);
 	stat_decrement("mta.host", 1);
 }
 
@@ -1778,6 +1765,7 @@ mta_domain_unref(struct mta_domain *d)
 
 	SPLAY_REMOVE(mta_domain_tree, &domains, d);
 	free(d->name);
+	free(d);
 	stat_decrement("mta.domain", 1);
 }
 
@@ -1832,6 +1820,7 @@ mta_source_unref(struct mta_source *s)
 
 	SPLAY_REMOVE(mta_source_tree, &sources, s);
 	free(s->sa);
+	free(s);
 	stat_decrement("mta.source", 1);
 }
 
@@ -1894,9 +1883,9 @@ mta_connector_free(struct mta_connector *c)
 		runq_cancel(runq_connector, NULL, c);
 	}
 	mta_source_unref(c->source); /* from constructor */
-	stat_decrement("mta.connector", 1);
-
 	free(c);
+
+	stat_decrement("mta.connector", 1);
 }
 
 static const char *
@@ -1999,6 +1988,7 @@ mta_route_unref(struct mta_route *r)
 	SPLAY_REMOVE(mta_route_tree, &routes, r);
 	mta_source_unref(r->src); /* from constructor */
 	mta_host_unref(r->dst); /* from constructor */
+	free(r);
 	stat_decrement("mta.route", 1);
 }
 

@@ -1,11 +1,11 @@
-#	$OpenBSD: Makefile,v 1.57 2012/10/14 11:58:23 gilles Exp $
+#	$OpenBSD$
 
 .PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
 
 PROG=		smtpd
 
 SRCS=		aliases.c bounce.c ca.c compress_backend.c config.c	\
-		control.c delivery.c dict.c dns.c envelope.c		\
+		control.c crypto.c delivery.c dict.c dns.c envelope.c	\
 		expand.c forward.c iobuf.c ioev.c lka.c	lka_session.c	\
 		log.c mda.c mfa.c mfa_session.c mproc.c			\
 		mta.c mta_session.c parse.y queue.c queue_backend.c	\
@@ -33,10 +33,11 @@ SRCS+=		scheduler_ramqueue.c
 SRCS+=		scheduler_null.c
 SRCS+=		stat_ramstat.c
 
-# resolver
+.ifdef NEED_ASR
 SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
 		res_send_async.c getaddrinfo_async.c getnameinfo_async.c \
 		res_search_async.c
+.endif
 
 MAN=		smtpd.8 smtpd.conf.5
 BINDIR=		/usr/sbin
@@ -51,8 +52,9 @@ CFLAGS+=	-Wsign-compare -Wbounded
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
 CFLAGS+=	-DQUEUE_PROFILING
+.ifdef NEED_ASR
 CFLAGS+=	-DASR_OPT_THREADSAFE=0
+.endif
 YFLAGS=
 
 .include <bsd.prog.mk>
-

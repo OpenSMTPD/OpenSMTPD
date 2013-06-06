@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.101 2013/02/14 12:30:49 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2006 Gilles Chehade <gilles@poolp.org>
@@ -43,8 +43,8 @@
 #include "parser.h"
 #include "log.h"
 
-#define PATH_CAT	"/bin/cat"
 #define PATH_GZCAT	"/usr/bin/gzcat"
+#define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
 
 void usage(void);
@@ -71,6 +71,9 @@ static int action_show_queue_message(uint32_t);
 static uint32_t trace_convert(uint32_t);
 static uint32_t profile_convert(uint32_t);
 
+static int	is_gzip(FILE *);
+static int	is_encrypted(FILE *);
+
 int proctype;
 struct imsgbuf	*ibuf;
 
@@ -84,6 +87,16 @@ time_t now;
 struct queue_backend queue_backend_null;
 struct queue_backend queue_backend_ram;
 struct queue_backend queue_backend_proc;
+
+void
+stat_increment(const char *name, size_t count)
+{
+}
+
+void
+stat_decrement(const char *name, size_t count)
+{
+}
 
 __dead void
 usage(void)
@@ -647,7 +660,7 @@ show_stats_output(void)
 
 		if (strcmp(kvp->key, "uptime") == 0) {
 			duration = time(NULL) - kvp->val.u.counter;
-			printf("uptime=%zd\n", (size_t)duration);
+			printf("uptime=%lld\n", (long long)duration);
 			printf("uptime.human=%s\n",
 			    duration_to_text(duration));
 		}
@@ -662,14 +675,14 @@ show_stats_output(void)
 				    kvp->key, (int64_t)kvp->val.u.timestamp);
 				break;
 			case STAT_TIMEVAL:
-				printf("%s=%zd.%zd\n",
-				    kvp->key, kvp->val.u.tv.tv_sec,
-				    kvp->val.u.tv.tv_usec);
+				printf("%s=%lld.%lld\n",
+				    kvp->key, (long long)kvp->val.u.tv.tv_sec,
+				    (long long)kvp->val.u.tv.tv_usec);
 				break;
 			case STAT_TIMESPEC:
-				printf("%s=%li.%06li\n",
+				printf("%s=%lli.%06li\n",
 				    kvp->key,
-				    kvp->val.u.ts.tv_sec * 1000000 +
+				    (long long)kvp->val.u.ts.tv_sec * 1000000 +
 				    kvp->val.u.ts.tv_nsec / 1000000,
 				    kvp->val.u.ts.tv_nsec % 1000000);
 				break;
@@ -781,31 +794,55 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 static void
 display(const char *s)
 {
-	pid_t	pid;
-	arglist args;
-	char	*cmd;
-	int	status;
+	FILE   *fp;
+	char   *key;
+	int	gzipped;
+	char   *gzcat_argv0 = strrchr(PATH_GZCAT, '/') + 1;
 
-	pid = fork();
-	if (pid < 0)
-		err(1, "fork");
-	if (pid == 0) {
-		cmd = PATH_GZCAT;
-		bzero(&args, sizeof(args));
-		addargs(&args, "%s", cmd);
-		addargs(&args, "%s", s);
-		execvp(cmd, args.list);
-		err(1, "execvp");
+	if ((fp = fopen(s, "r")) == NULL)
+		err(1, "fopen");
+
+	if (is_encrypted(fp)) {
+		int	i;
+		int	fd;
+		FILE   *ofp;
+		char	sfn[] = "/tmp/smtpd.XXXXXXXXXX";
+
+		if ((fd = mkstemp(sfn)) == -1 ||
+		    (ofp = fdopen(fd, "w+")) == NULL) {
+			if (fd != -1) {
+				unlink(sfn);
+				close(fd);
+			}
+			err(1, "mkstemp");
+		}
+		unlink(sfn);
+
+		for (i = 0; i < 3; i++) {
+			key = getpass("key> ");
+			if (crypto_setup(key, strlen(key)))
+				break;
+		}
+		if (i == 3)
+			errx(1, "crypto-setup: invalid key");
+
+		if (! crypto_decrypt_file(fp, ofp)) {
+			printf("object is encrypted: %s\n", key);
+			exit(1);
+		}
+
+		fclose(fp);
+		fp = ofp;
+		fseek(fp, SEEK_SET, 0);
 	}
-	wait(&status);
-	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-		exit(0);
-	cmd = PATH_CAT;
-	bzero(&args, sizeof(args));
-	addargs(&args, "%s", cmd);
-	addargs(&args, "%s", s);
-	execvp(cmd, args.list);
-	err(1, "execvp");
+	gzipped = is_gzip(fp);
+
+	(void)dup2(fileno(fp), STDIN_FILENO);
+	if (gzipped)
+		execl(PATH_GZCAT, gzcat_argv0, NULL);
+	else
+		execl(PATH_CAT, "cat", NULL);
+	err(1, "execl");
 }
 
 static void
@@ -972,4 +1009,45 @@ profile_convert(uint32_t prof)
 	}
 
 	return 0;
+}
+
+static int
+is_gzip(FILE *fp)
+{
+	uint16_t	magic;
+	int		ret = 0;
+
+	if (fread(&magic, 1, sizeof magic, fp) != sizeof magic)
+		goto end;
+
+#define	GZIP_MAGIC	0x8b1f
+	ret = (magic == GZIP_MAGIC);
+
+end:
+	fseek(fp, SEEK_SET, 0);
+	return ret;
+}
+
+/* XXX */
+/*
+ * queue supports transparent encryption.
+ * encrypted chunks are prefixed with an API version byte
+ * which we ensure is unambiguous with gzipped / plain
+ * objects.
+ */
+static int
+is_encrypted(FILE *fp)
+{
+	uint8_t	magic;
+	int    	ret = 0;
+
+	if (fread(&magic, 1, sizeof magic, fp) != sizeof magic)
+		goto end;
+
+#define	ENCRYPTION_MAGIC	0x1
+	ret = (magic == ENCRYPTION_MAGIC);
+
+end:
+	fseek(fp, SEEK_SET, 0);
+	return ret;
 }

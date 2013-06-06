@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.42 2013/01/26 09:37:23 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -46,6 +46,14 @@ extern struct queue_backend	queue_backend_null;
 extern struct queue_backend	queue_backend_proc;
 extern struct queue_backend	queue_backend_ram;
 
+static void queue_envelope_cache_add(struct envelope *);
+static void queue_envelope_cache_update(struct envelope *);
+static void queue_envelope_cache_del(uint64_t evpid);
+
+TAILQ_HEAD(evplst, envelope);
+
+static struct tree		evpcache_tree;
+static struct evplst		evpcache_list;
 static struct queue_backend	*backend;
 
 #ifdef QUEUE_PROFILING
@@ -73,8 +81,8 @@ static inline void profile_leave(void)
 
 	clock_gettime(CLOCK_MONOTONIC, &t1);
 	timespecsub(&t1, &profile.t0, &dt);
-	log_debug("profile-queue: %s %li.%06li", profile.name,
-	    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
+	log_debug("profile-queue: %s %lld.%06li", profile.name,
+	    (long long)dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 	    dt.tv_nsec % 1000000);
 }
 #else
@@ -94,6 +102,9 @@ int
 queue_init(const char *name, int server)
 {
 	int	r;
+
+	tree_init(&evpcache_tree);
+	TAILQ_INIT(&evpcache_list);
 
 	if (!strcmp(name, "fs"))
 		backend = &queue_backend_fs;
@@ -161,7 +172,6 @@ queue_message_commit(uint32_t msgid)
 	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
-
 		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
 		ifp = fopen(msgpath, "r");
 		ofp = fopen(tmppath, "w+");
@@ -177,7 +187,31 @@ queue_message_commit(uint32_t msgid)
 		if (rename(tmppath, msgpath) == -1) {
 			if (errno == ENOSPC)
 				return (0);
-			fatal("queue_message_commit: rename");
+			unlink(tmppath);
+			log_warn("rename");
+			return (0);
+		}
+	}
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		bsnprintf(tmppath, sizeof tmppath, "%s.enc", msgpath);
+		ifp = fopen(msgpath, "r");
+		ofp = fopen(tmppath, "w+");
+		if (ifp == NULL || ofp == NULL)
+			goto err;
+		if (! crypto_encrypt_file(ifp, ofp))
+			goto err;
+		fclose(ifp);
+		fclose(ofp);
+		ifp = NULL;
+		ofp = NULL;
+
+		if (rename(tmppath, msgpath) == -1) {
+			if (errno == ENOSPC)
+				return (0);
+			unlink(tmppath);
+			log_warn("rename");
+			return (0);
 		}
 	}
 
@@ -229,6 +263,26 @@ queue_message_fd_r(uint32_t msgid)
 
 	if (fdin == -1)
 		return (-1);
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		if ((fdout = mktmpfile()) == -1)
+			goto err;
+		if ((fd = dup(fdout)) == -1)
+			goto err;
+		if ((ifp = fdopen(fdin, "r")) == NULL)
+			goto err;
+		fdin = fd;
+		fd = -1;
+		if ((ofp = fdopen(fdout, "w+")) == NULL)
+			goto err;
+
+		if (! crypto_decrypt_file(ifp, ofp))
+			goto err;
+
+		fclose(ifp);
+		fclose(ofp);
+		lseek(fdin, SEEK_SET, 0);
+	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		if ((fdout = mktmpfile()) == -1)
@@ -288,6 +342,8 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t	evplen;
 	size_t	complen;
 	char	compbuf[sizeof(struct envelope)];
+	size_t	enclen;
+	char	encbuf[sizeof(struct envelope)];
 
 	evp = evpbuf;
 	evplen = envelope_dump_buffer(ep, evpbuf, evpbufsize);
@@ -302,6 +358,14 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evplen = complen;
 	}
 
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		enclen = crypto_encrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
+		if (enclen == 0)
+			return (0);
+		evp = encbuf;
+		evplen = enclen;
+	}
+
 	memmove(evpbuf, evp, evplen);
 
 	return (evplen);
@@ -314,9 +378,19 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t		 evplen;
 	char		 compbuf[sizeof(struct envelope)];
 	size_t		 complen;
+	char		 encbuf[sizeof(struct envelope)];
+	size_t		 enclen;
 
 	evp = evpbuf;
 	evplen = evpbufsize;
+
+	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
+		enclen = crypto_decrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
+		if (enclen == 0)
+			return (0);
+		evp = encbuf;
+		evplen = enclen;
+	}
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		complen = uncompress_chunk(evp, evplen, compbuf, sizeof compbuf);
@@ -327,6 +401,50 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	}
 
 	return (envelope_load_buffer(ep, evp, evplen));
+}
+
+static void
+queue_envelope_cache_add(struct envelope *e)
+{
+	struct envelope *cached;
+
+	while (tree_count(&evpcache_tree) >= env->sc_queue_evpcache_size)
+		queue_envelope_cache_del(TAILQ_LAST(&evpcache_list, evplst)->id);
+
+	cached = xcalloc(1, sizeof *cached, "queue_envelope_cache_add");
+	*cached = *e;
+	TAILQ_INSERT_HEAD(&evpcache_list, cached, entry);
+	tree_xset(&evpcache_tree, e->id, cached);
+	stat_increment("queue.evpcache.size", 1);
+}
+
+static void
+queue_envelope_cache_update(struct envelope *e)
+{
+	struct envelope *cached;
+
+	if ((cached = tree_pop(&evpcache_tree, e->id)) == NULL) {
+		queue_envelope_cache_add(e);
+		stat_increment("queue.evpcache.update.missed", 1);
+	} else {
+		TAILQ_REMOVE(&evpcache_list, cached, entry);
+		*cached = *e;
+		TAILQ_INSERT_HEAD(&evpcache_list, cached, entry);
+		stat_increment("queue.evpcache.update.hit", 1);
+	}
+}
+
+static void
+queue_envelope_cache_del(uint64_t evpid)
+{
+	struct envelope *cached;
+
+	if ((cached = tree_pop(&evpcache_tree, evpid)) == NULL)
+		return;
+
+	TAILQ_REMOVE(&evpcache_list, cached, entry);
+	free(cached);
+	stat_decrement("queue.evpcache.size", 1);
 }
 
 int
@@ -357,6 +475,9 @@ queue_envelope_create(struct envelope *ep)
 		ep->id = 0;
 	}
 
+	if (r && env->sc_queue_flags & QUEUE_EVPCACHE)
+		queue_envelope_cache_add(ep);
+
 	return (r);
 }
 
@@ -364,6 +485,9 @@ int
 queue_envelope_delete(uint64_t evpid)
 {
 	int	r;
+
+	if (env->sc_queue_flags & QUEUE_EVPCACHE)
+		queue_envelope_cache_del(evpid);
 
 	profile_enter("queue_envelope_delete");
 	r = backend->envelope(QOP_DELETE, &evpid, NULL, 0);
@@ -382,6 +506,14 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	const char	*e;
 	char		 evpbuf[sizeof(struct envelope)];
 	size_t		 evplen;
+	struct envelope	*cached;
+
+	if ((env->sc_queue_flags & QUEUE_EVPCACHE) &&
+	    (cached = tree_get(&evpcache_tree, evpid))) {
+		*ep = *cached;
+		stat_increment("queue.evpcache.load.hit", 1);
+		return (1);
+	}
 
 	ep->id = evpid;
 	profile_enter("queue_envelope_load");
@@ -398,6 +530,10 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 	if (queue_envelope_load_buffer(ep, evpbuf, evplen)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
+			if (env->sc_queue_flags & QUEUE_EVPCACHE) {
+				queue_envelope_cache_add(ep);
+				stat_increment("queue.evpcache.load.missed", 1);
+			}
 			return (1);
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
@@ -422,6 +558,9 @@ queue_envelope_update(struct envelope *ep)
 	profile_enter("queue_envelope_update");
 	r = backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
 	profile_leave();
+
+	if (r && env->sc_queue_flags & QUEUE_EVPCACHE)
+		queue_envelope_cache_update(ep);
 
 	log_trace(TRACE_QUEUE,
 	    "queue-backend: queue_envelope_update(%016"PRIx64") -> %i",
@@ -452,6 +591,8 @@ queue_envelope_walk(struct envelope *ep)
 	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
+			if (env->sc_queue_flags & QUEUE_EVPCACHE)
+				queue_envelope_cache_add(ep);
 			return (1);
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
