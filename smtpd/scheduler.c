@@ -99,7 +99,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_msgid(&m, &msgid);
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: commiting msg:%08" PRIx32, msgid);
+		    "scheduler: committing msg:%08" PRIx32, msgid);
 		n = backend->commit(msgid);
 		stat_decrement("scheduler.envelope.incoming", n);
 		stat_increment("scheduler.envelope", n);
