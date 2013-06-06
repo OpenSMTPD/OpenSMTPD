@@ -147,7 +147,7 @@ $(MANPAGES): $(MANPAGES_IN)
 	fi
 
 $(CONFIGFILES): $(CONFIGFILES_IN)
-	conffile=$(smtpd_srcdr)/`echo $@ | sed 's/.out$$//'`; \
+	conffile=$(smtpd_srcdir)/`echo $@ | sed 's/.out$$//'`; \
 	$(FIXPATHSCMD) $(srcdir)/$${conffile} > $@
 
 
