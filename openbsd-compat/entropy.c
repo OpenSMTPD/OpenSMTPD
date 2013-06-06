@@ -48,7 +48,7 @@
 //#include "xmalloc.h"
 //#include "atomicio.h"
 //#include "pathnames.h"
-//#include "log.h"
+#include "log.h"
 //#include "buffer.h"
 
 /* wrapper for signal interface */
