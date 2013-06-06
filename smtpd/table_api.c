@@ -124,9 +124,15 @@ dispatch(void)
 		if (r == 1)
 			len += strlen(res) + 1;
 		buf = imsg_create(&ibuf, PROC_TABLE_OK, 0, 0, len);
-		imsg_add(buf, &r, sizeof(r));
+		if (imsg_add(buf, &r, sizeof(r)) == -1) {
+			log_warnx("warn: table-api: imsg_add failure");
+			return (-1);
+		}
 		if (r == 1)
-			imsg_add(buf, res, strlen(res) + 1);
+			if (imsg_add(buf, res, strlen(res) + 1) == -1) {
+				log_warnx("warn: table-api: imsg_add failure");
+				return (-1);
+			}
 		imsg_close(&ibuf, buf);
 		return (0);
 
