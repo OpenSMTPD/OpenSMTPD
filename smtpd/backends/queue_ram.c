@@ -122,6 +122,7 @@ queue_ram_message_commit(uint32_t msgid)
 	msg->buf = malloc(msg->len);
 	if (msg->buf == NULL) {
 		log_warn("warn: backend-queue-ram: malloc");
+		fclose(f);
 		return (0);
 	}
 
