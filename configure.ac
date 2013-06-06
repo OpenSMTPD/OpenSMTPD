@@ -2743,8 +2743,8 @@ AC_CONFIG_FILES([Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
 		mk/makemap/Makefile
-		smtpd/backends/Makefile
-		smtpd/filters/Makefile
+		mk/backends/Makefile
+		mk/filters/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile

@@ -1,8 +1,17 @@
-SRCS    = ../filter_api.c ../mproc.c ../log.c ../tree.c ../util.c
+asr_srcdir=		$(top_srcdir)/contrib/lib/libc/asr
+smtpd_srcdir=		$(top_srcdir)/smtpd
+compat_srcdir=		$(top_srcdir)/openbsd-compat
+filters_srcdir=		$(smtpd_srcdir)/filters
 
-INCLUDES=		-I$(top_srcdir)/smtpd					\
-			-I$(top_srcdir)/openbsd-compat				\
-			-I$(top_srcdir)/contrib/lib/libc/asr
+SRCS=			$(smtpd_srcdir)/filter_api.c
+SRCS+=			$(smtpd_srcdir)/mproc.c
+SRCS+=			$(smtpd_srcdir)/log.c
+SRCS+=			$(smtpd_srcdir)/tree.c
+SRCS+=			$(smtpd_srcdir)/util.c
+
+INCLUDES=		-I$(smtpd_srcdir)	\
+			-I$(compat_srcdir)	\
+			-I$(asr_srcdir)
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
@@ -13,11 +22,10 @@ CFLAGS=			-DNO_IO -DBUILD_FILTER
 pkglibexec_PROGRAMS=filter-dnsbl filter-monkey filter-stub filter-trace
 
 filter_dnsbl_SOURCES = $(SRCS)
-filter_dnsbl_SOURCES+= filter_dnsbl.c asr_event.c
+filter_dnsbl_SOURCES+= $(filters_srcdir)/filter_dnsbl.c
+filter_dnsbl_SOURCES+= $(filters_srcdir)/asr_event.c
 
 # resolver
-asr_srcdir=		$(top_srcdir)/contrib/lib/libc/asr
-
 filter_dnsbl_SOURCES+=	$(asr_srcdir)/asr.c					\
 			$(asr_srcdir)/asr_debug.c				\
 			$(asr_srcdir)/asr_utils.c				\
@@ -30,14 +38,14 @@ filter_dnsbl_SOURCES+=	$(asr_srcdir)/asr.c					\
 filter_dnsbl_CFLAGS=	-DASR_OPT_THREADSAFE=0
 
 filter_monkey_SOURCES=	$(SRCS)
-filter_monkey_SOURCES+=	filter_monkey.c
+filter_monkey_SOURCES+=	$(filters_srcdir)/filter_monkey.c
 
 filter_stub_SOURCES=	$(SRCS)
-filter_stub_SOURCES+=	filter_stub.c
+filter_stub_SOURCES+=	$(filters_srcdir)/filter_stub.c
 
 filter_trace_SOURCES=	$(SRCS)
-filter_trace_SOURCES+=	filter_trace.c
+filter_trace_SOURCES+=	$(filters_srcdir)/filter_trace.c
 
-EXTRA_DIST=		asr_event.h						\
+EXTRA_DIST=		$(filters_srcdir)/asr_event.h				\
 			$(asr_srcdir)/asr.h					\
 			$(asr_srcdir)/asr_private.h

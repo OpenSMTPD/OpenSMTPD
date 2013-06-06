@@ -20,7 +20,7 @@
 # /usr/local/sbin/smtpctl
 # /usr/local/sbin/smtpd
 
-SUBDIRS =		smtpd smtpctl makemap
+SUBDIRS =		smtpd smtpctl makemap backends filters
 
 INCLUDES=		-I$(top_srcdir)/openbsd-compat				\
 			-I$(top_srcdir)/contrib/lib/libc/asr
