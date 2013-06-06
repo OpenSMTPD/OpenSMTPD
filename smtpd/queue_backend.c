@@ -348,8 +348,10 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t	evplen;
 	size_t	complen;
 	char	compbuf[sizeof(struct envelope)];
+#ifdef HAVE_GCM_CRYPTO
 	size_t	enclen;
 	char	encbuf[sizeof(struct envelope)];
+#endif
 
 	evp = evpbuf;
 	evplen = envelope_dump_buffer(ep, evpbuf, evpbufsize);
@@ -386,8 +388,10 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t		 evplen;
 	char		 compbuf[sizeof(struct envelope)];
 	size_t		 complen;
+#ifdef HAVE_GCM_CRYPTO
 	char		 encbuf[sizeof(struct envelope)];
 	size_t		 enclen;
+#endif
 
 	evp = evpbuf;
 	evplen = evpbufsize;
