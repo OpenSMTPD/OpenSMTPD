@@ -675,7 +675,7 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 	m_get_typed_sized(m, M_ENVELOPE, &d, &s);
 
 	if (!envelope_load_buffer(evp, d, s - 1))
-		fatalx("failed to retreive envelope");
+		fatalx("failed to retrieve envelope");
 	evp->id = evpid;
 #endif
 }
