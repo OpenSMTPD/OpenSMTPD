@@ -838,16 +838,16 @@ mta_on_secret(struct mta_relay *relay, const char *secret)
 static void
 mta_on_preference(struct mta_relay *relay, int dnserror, int preference)
 {
-	log_debug("debug: mta: ... got preference for %s: %i, %i",
-	    mta_relay_to_text(relay), dnserror, preference);
-
 	if (dnserror) {
 		log_warnx("warn: Couldn't find backup preference for %s",
 		    mta_relay_to_text(relay));
 		relay->backuppref = INT_MAX;
 	}
-	else
+	else {
+		log_debug("debug: mta: ... got preference for %s: %i, %i",
+		    mta_relay_to_text(relay), dnserror, preference);
 		relay->backuppref = preference;
+	}
 
 	relay->status &= ~RELAY_WAIT_PREFERENCE;
 	mta_drain(relay);
