@@ -16,7 +16,7 @@
 
 dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
 dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([OpenSMTPD], [5.3.2p-current], [bugs@opensmtpd.org])
+AC_INIT([OpenSMTPD], [portable], [bugs@opensmtpd.org])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -370,7 +370,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-openbsd*)
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
-	echo "Please use -current or http://www.opensmtpd.org/archives/opensmtpd-5.3.1.tar.gz"
+	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
 	;;
 *-*-solaris*)
 	if test "x$withval" != "xno" ; then
