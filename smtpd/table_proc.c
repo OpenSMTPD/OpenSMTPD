@@ -107,8 +107,10 @@ table_proc_open(struct table *table)
 	imsg_compose(&priv->ibuf, PROC_TABLE_OPEN, 0, 0, -1,
 	    &version, sizeof(version));
 
-	if (!table_proc_call(priv, 0))
+	if (!table_proc_call(priv, 0)) {
+		free(priv);
 		return (NULL); 	/* XXX cleanup */
+	}
 
 	imsg_free(&imsg);
 
