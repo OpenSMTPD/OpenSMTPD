@@ -805,7 +805,9 @@ static void
 display(const char *s)
 {
 	FILE   *fp;
+#ifdef HAVE_GCM_CRYPTO
 	char   *key;
+#endif
 	int	gzipped;
 	char   *gzcat_argv0 = strrchr(PATH_GZCAT, '/') + 1;
 
