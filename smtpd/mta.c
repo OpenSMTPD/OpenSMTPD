@@ -1102,7 +1102,7 @@ mta_route_disable(struct mta_route *route, int penalty)
 
 	route->penalty += penalty;
 	route->lastpenalty = time(NULL);
-	delay = DELAY_ROUTE_BASE * route->penalty * route->penalty;
+	delay = (unsigned long long)DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
 #if 1
