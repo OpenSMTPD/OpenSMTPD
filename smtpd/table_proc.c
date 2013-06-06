@@ -186,9 +186,11 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 	}
 
 	buf = imsg_create(&priv->ibuf, msg, 0, 0, len);
-	imsg_add(buf, &s, sizeof(s));
+	if (imsg_add(buf, &s, sizeof(s)) == -1)
+		return (-1);
 	if (k)
-		imsg_add(buf, k, strlen(k) + 1);
+		if (imsg_add(buf, k, strlen(k) + 1) == -1)
+			return (-1);
 	imsg_close(&priv->ibuf, buf);
 
 	if (!table_proc_call(priv, -1))
