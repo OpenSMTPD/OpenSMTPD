@@ -57,7 +57,7 @@ Build
 -----
 
     cd opensmtpd*
-    ./bootstrap  
+    ./bootstrap  # Only if you build from git sources
     ./configure  
     make  
     sudo make install  
