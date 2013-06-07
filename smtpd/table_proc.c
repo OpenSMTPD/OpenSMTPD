@@ -114,7 +114,9 @@ table_proc_open(struct table *table)
 	imsg_free(&imsg);
 
 	return (priv);
+
 err:
+	free(priv);
 	close(sp[0]);
 	close(sp[1]);
 	return (NULL);
