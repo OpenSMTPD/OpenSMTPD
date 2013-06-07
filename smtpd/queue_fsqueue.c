@@ -274,6 +274,8 @@ fsqueue_envelope_create(uint64_t *evpid, char *buf, size_t len)
 done:
 	if (r) {
 		n = tree_pop(&evpcount, msgid);
+		if (n == NULL)
+			n = 0;
 		n += 1;
 		tree_xset(&evpcount, msgid, n);
 	}
@@ -335,7 +337,8 @@ fsqueue_envelope_delete(uint64_t evpid)
 	msgid = evpid_to_msgid(evpid);
 	n = tree_pop(&evpcount, msgid);
 	n -= 1;
-	if (n == NULL)
+
+	if ((uintptr_t)n == 0)
 		fsqueue_message_delete(msgid);
 	else
 		tree_xset(&evpcount, msgid, n);
