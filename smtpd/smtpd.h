@@ -361,7 +361,6 @@ enum delivery_type {
 	D_MDA,
 	D_MTA,
 	D_BOUNCE,
-	D_DSN
 };
 
 struct delivery_mda {
@@ -376,9 +375,9 @@ struct delivery_mta {
 };
 
 enum dsn_type {
-	D_SUCCESS,
-	D_FAILURE,
-	D_DELAY
+	DSN_SUCCESS,
+	DSN_FAILURE,
+	DSN_DELAY
 };
 
 struct delivery_dsn {
