@@ -691,6 +691,8 @@ ascii_load_bounce_type(enum bounce_type *dest, char *buf)
 		*dest = B_ERROR;
 	else if (strcasecmp(buf, "warn") == 0)
 		*dest = B_WARNING;
+	else if (strcasecmp(buf, "dsn") == 0)
+		*dest = B_DSN;
 	else
 		return 0;
 	return 1;
@@ -835,6 +837,9 @@ ascii_dump_bounce_type(enum bounce_type type, char *dest, size_t len)
 		break;
 	case B_WARNING:
 		p = "warn";
+		break;
+	case B_DSN:
+		p = "dsn";
 		break;
 	default:
 		return 0;

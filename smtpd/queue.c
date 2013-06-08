@@ -351,6 +351,20 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: permfail: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 1); /* in-flight */
+				m_close(p_scheduler);
+				return;
+			}
+			if (evp.dsn_notify & DSN_SUCCESS) {
+				bounce.type = B_DSN;
+				bounce.delay = 0;
+				bounce.expire = 0;
+				queue_bounce(&evp, &bounce);
+			}
 			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1);
 			m_add_evpid(p_scheduler, evpid);

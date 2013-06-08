@@ -387,6 +387,7 @@ struct delivery_dsn {
 enum bounce_type {
 	B_ERROR,
 	B_WARNING,
+	B_DSN
 };
 
 struct delivery_bounce {
