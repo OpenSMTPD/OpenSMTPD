@@ -287,8 +287,9 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 
 		b = imsg_create(&ibuf, PROC_QUEUE_ENVELOPE_UPDATE, 0, 0,
 		    len + sizeof(*evpid));
-		imsg_add(b, evpid, sizeof(*evpid));
-		imsg_add(b, buf, len);
+		if (imsg_add(b, evpid, sizeof(*evpid)) == -1 ||
+		    imsg_add(b, buf, len) == -1)
+			return (0);
 		imsg_close(&ibuf, b);
 
 		if  (!queue_proc_call(sizeof(r)))
