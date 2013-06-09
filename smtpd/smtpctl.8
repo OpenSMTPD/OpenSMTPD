@@ -25,6 +25,7 @@
 .Nm
 .Ar command
 .Op Ar argument ...
+.Nm mailq
 .Sh DESCRIPTION
 The
 .Nm
@@ -35,7 +36,15 @@ Commands may be abbreviated to the minimum unambiguous prefix; for example,
 for
 .Cm show stats .
 .Pp
-The following commands are available:
+The
+.Nm mailq
+program is an abbreviation for
+.Nm
+.Cm show queue .
+.Pp
+The following
+.Nm
+commands are available:
 .Bl -tag -width Ds
 .It Cm log brief
 Disable verbose debug logging.
