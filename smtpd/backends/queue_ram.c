@@ -185,7 +185,7 @@ queue_ram_message_fd_r(uint32_t msgid)
 	}
 
 	queue_message_incoming_path(msgid, path, sizeof(path));
-	fd = open(path, O_CREAT | O_RDWR | O_EXCL);
+	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
 	if (fd == -1) {
 		log_warn("warn: queue-ram: open");
 		return (-1);
