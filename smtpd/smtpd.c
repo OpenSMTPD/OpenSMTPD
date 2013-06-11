@@ -66,6 +66,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <util.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
@@ -917,6 +918,9 @@ main(int argc, char *argv[])
 	purge_timeout.tv_sec = 10;
 	purge_timeout.tv_usec = 0;
 	evtimer_add(&purge_ev, &purge_timeout);
+
+	if (pidfile(NULL) < 0)
+		err(1, "pidfile");
 
 	log_debug("libevent %s (%s)", event_get_version(), event_get_method());
 
