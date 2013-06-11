@@ -1160,6 +1160,7 @@ pid_t mfa(void);
 void mfa_ready(void);
 
 /* mfa_session.c */
+void mfa_filter_prepare(void);
 void mfa_filter_init(void);
 void mfa_filter_connect(uint64_t, const struct sockaddr *,
     const struct sockaddr *, const char *);
