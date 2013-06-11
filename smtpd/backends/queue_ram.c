@@ -31,6 +31,9 @@
 #include "queue_utils.h"
 #include "log.h"
 
+#define stat_increment(a, b)	do {} while(0)
+#define stat_decrement(a, b)	do {} while(0)
+
 struct qr_envelope {
 	char		*buf;
 	size_t		 len;
@@ -44,17 +47,12 @@ struct qr_message {
 };
 
 static struct tree messages;
-/*
-static char *tempdir = "/var/spool/smtpd/temporary";
-static char *incomingdir = "/var/spool/smtpd/incoming";
-*/
-static char *tempdir = "/tmp/ramqueue/temporary";
-static char *incomingdir = "/tmp/ramqueue/incoming";
+static const char *tempdir = "/var/spool/smtpd/temporary";
 
 static int
 queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
 {
-	if ((size_t)snprintf(buf, len, "%s/%08x", incomingdir, msgid) >= len)
+	if ((size_t)snprintf(buf, len, "%s/%08x", tempdir, msgid) >= len)
 		return (0);
 	return (1);
 }
@@ -66,7 +64,7 @@ get_message(uint32_t msgid)
 
         msg = tree_get(&messages, msgid);
         if (msg == NULL)
-                log_warn("warn: backend-queue-ram: message not found");
+                log_warn("warn: queue-ram: message not found");
 
 	return (msg);
 }
@@ -78,7 +76,7 @@ queue_ram_message_create(uint32_t *msgid)
 
 	msg = calloc(1, sizeof(*msg));
 	if (msg == NULL) {
-		log_warn("warn: backend-queue-ram: calloc");
+		log_warn("warn: queue-ram: calloc");
 		return (0);
 	}
 	tree_init(&msg->envelopes);
@@ -103,17 +101,17 @@ queue_ram_message_commit(uint32_t msgid)
 	int			 ret;
 
 	if ((msg = tree_get(&messages, msgid)) == NULL) {
-		log_warnx("warn: backend-queue-ram: msgid not found");
+		log_warnx("warn: queue-ram: msgid not found");
 		return (0);
 	}
 	queue_message_incoming_path(msgid, path, sizeof(path));
 	f = fopen(path, "rb");
 	if (f == NULL) {
-		log_warn("warn: backend-queue-ram: fopen");
+		log_warn("warn: queue-ram: fopen");
 		return (0);
 	}
 	if (fstat(fileno(f), &sb) == -1) {
-		log_warn("warn: backend-queue-ram: fstat");
+		log_warn("warn: queue-ram: fstat");
 		fclose(f);
 		return (0);
 	}
@@ -121,7 +119,7 @@ queue_ram_message_commit(uint32_t msgid)
 	msg->len = sb.st_size;
 	msg->buf = malloc(msg->len);
 	if (msg->buf == NULL) {
-		log_warn("warn: backend-queue-ram: malloc");
+		log_warn("warn: queue-ram: malloc");
 		fclose(f);
 		return (0);
 	}
@@ -129,16 +127,16 @@ queue_ram_message_commit(uint32_t msgid)
 	ret = 0;
 	n = fread(msg->buf, 1, msg->len, f);
 	if (ferror(f))
-		log_warn("warn: backend-queue-ram: fread");
+		log_warn("warn: queue-ram: fread");
 	else if ((off_t)n != sb.st_size)
-		log_warnx("warn: backend-queue-ram: bad read");
+		log_warnx("warn: queue-ram: bad read");
 	else {
 		ret = 1;
-		/* stat_increment("queue.ram.message.size", msg->len); */
+		stat_increment("queue.ram.message.size", msg->len);
 	}
 	fclose(f);
 	if (unlink(path) == -1)
-		log_warn("warn: backend-queue-ram: unlink");
+		log_warn("warn: queue-ram: unlink");
 	msg->hasfile = 0;
 
 	return (ret);
@@ -153,20 +151,20 @@ queue_ram_message_delete(uint32_t msgid)
 	char			 path[SMTPD_MAXPATHLEN];
 
 	if ((msg = tree_pop(&messages, msgid)) == NULL) {
-		log_warnx("warn: backend-queue-ram: not found");
+		log_warnx("warn: queue-ram: not found");
 		return (0);
 	}
 	while (tree_poproot(&messages, &evpid, (void**)&evp)) {
-		/* stat_decrement("queue.ram.envelope.size", evp->len); */
+		stat_decrement("queue.ram.envelope.size", evp->len);
 		free(evp->buf);
 		free(evp);
 	}
-	/* stat_decrement("queue.ram.message.size", msg->len); */
+	stat_decrement("queue.ram.message.size", msg->len);
 	free(msg->buf);
 	if (msg->hasfile) {
 		queue_message_incoming_path(msgid, path, sizeof(path));
 		if (unlink(path) == -1)
-			log_warn("warn: backend-queue-ram: unlink");
+			log_warn("warn: queue-ram: unlink");
 	}
 	free(msg);
 	return (0);
@@ -178,32 +176,40 @@ queue_ram_message_fd_r(uint32_t msgid)
 	struct qr_message	*msg;
 	size_t			 n;
 	FILE			*f;
+	char			 path[SMTPD_MAXPATHLEN];
 	int			 fd, fd2;
 
 	if ((msg = tree_get(&messages, msgid)) == NULL) {
-		log_warnx("warn: backend-queue-ram: not found");
+		log_warnx("warn: queue-ram: not found");
 		return (-1);
 	}
-	fd = mktmpfile(tempdir);
-	if (fd == -1)
+
+	queue_message_incoming_path(msgid, path, sizeof(path));
+	fd = open(path, O_CREAT | O_RDWR | O_EXCL);
+	if (fd == -1) {
+		log_warn("warn: queue-ram: open");
 		return (-1);
+	}
+
+	if (unlink(path) == -1)
+		log_warn("warn: queue-ram: unlink");
 
 	fd2 = dup(fd);
 	if (fd2 == -1) {
-		log_warn("warn: backend-queue-ram: dup");
+		log_warn("warn: queue-ram: dup");
 		close(fd);
 		return (-1);
 	}
 	f = fdopen(fd2, "w");
 	if (f == NULL) {
-		log_warn("warn: backend-queue-ram: fdopen");
+		log_warn("warn: queue-ram: fdopen");
 		close(fd);
 		close(fd2);
 		return (-1);
 	}
 	n = fwrite(msg->buf, 1, msg->len, f);
 	if (n != msg->len) {
-		log_warn("warn: backend-queue-ram: write");
+		log_warn("warn: queue-ram: write");
 		close(fd);
 		fclose(f);
 		return (-1);
@@ -221,13 +227,13 @@ queue_ram_message_fd_w(uint32_t msgid)
 	int			 fd;
 
 	if ((msg = tree_get(&messages, msgid)) == NULL) {
-		log_warnx("warn: backend-queue-ram: not found");
+		log_warnx("warn: queue-ram: not found");
 		return (-1);
 	}
 	queue_message_incoming_path(msgid, path, sizeof(path));
 	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
 	if (fd == -1) {
-		log_warn("warn: backend-queue-ram: open");
+		log_warn("warn: queue-ram: open");
 		return (-1);
 	}
 	msg->hasfile = 1;
@@ -255,19 +261,19 @@ queue_ram_envelope_create(uint32_t msgid, const char *buf, size_t len,
 	} while (tree_check(&msg->envelopes, *evpid));
 	evp = calloc(1, sizeof *evp);
 	if (evp == NULL) {
-		log_warn("warn: backend-queue-ram: calloc");
+		log_warn("warn: queue-ram: calloc");
 		return (0);
 	}
 	evp->len = len;
 	evp->buf = malloc(len);
 	if (evp->buf == NULL) {
-		log_warn("warn: backend-queue-ram: malloc");
+		log_warn("warn: queue-ram: malloc");
 		free(evp);
 		return (0);
 	}
 	memmove(evp->buf, buf, len);
 	tree_xset(&msg->envelopes, *evpid, evp);
-	/* stat_increment("queue.ram.envelope.size", len); */
+	stat_increment("queue.ram.envelope.size", len);
 	return (1);
 }
 
@@ -281,15 +287,15 @@ queue_ram_envelope_delete(uint64_t evpid)
 		return (0);
 
 	if ((evp = tree_pop(&msg->envelopes, evpid)) == NULL) {
-		log_warnx("warn: backend-queue-ram: not found");
+		log_warnx("warn: queue-ram: not found");
 		return (0);
 	}
-	/* stat_decrement("queue.ram.envelope.size", evp->len); */
+	stat_decrement("queue.ram.envelope.size", evp->len);
 	free(evp->buf);
 	free(evp);
 	if (tree_empty(&msg->envelopes)) {
 		tree_xpop(&messages, evpid_to_msgid(evpid));
-		/* stat_decrement("queue.ram.message.size", msg->len); */
+		stat_decrement("queue.ram.message.size", msg->len);
 		free(msg->buf);
 		free(msg);
 	}
@@ -307,20 +313,20 @@ queue_ram_envelope_update(uint64_t evpid, const char *buf, size_t len)
 		return (0);
 
 	if ((evp = tree_get(&msg->envelopes, evpid)) == NULL) {
-		log_warn("warn: backend-queue-ram: not found");
+		log_warn("warn: queue-ram: not found");
 		return (0);
 	}
 	tmp = malloc(len);
 	if (tmp == NULL) {
-		log_warn("warn: backend-queue-ram: malloc");
+		log_warn("warn: queue-ram: malloc");
 		return (0);
 	}
 	memmove(tmp, buf, len);
 	free(evp->buf);
 	evp->len = len;
 	evp->buf = tmp;
-	/*stat_decrement("queue.ram.envelope.size", evp->len);
-	stat_increment("queue.ram.envelope.size", len); */
+	stat_decrement("queue.ram.envelope.size", evp->len);
+	stat_increment("queue.ram.envelope.size", len);
 	return (1);
 }
 
@@ -334,11 +340,11 @@ queue_ram_envelope_load(uint64_t evpid, char *buf, size_t len)
 		return (0);
 
 	if ((evp = tree_get(&msg->envelopes, evpid)) == NULL) {
-		log_warn("warn: backend-queue-ram: not found");
+		log_warn("warn: queue-ram: not found");
 		return (0);
 	}
 	if (len < evp->len) {
-		log_warnx("warn: backend-queue-ram: buffer too small");
+		log_warnx("warn: queue-ram: buffer too small");
 		return (0);
 	}
 	memmove(buf, evp->buf, evp->len);
@@ -358,16 +364,13 @@ main(int argc, char **argv)
 
 	log_init(1);
 
-	while ((ch = getopt(argc, argv, "t:i:")) != -1) {
+	while ((ch = getopt(argc, argv, "t:")) != -1) {
 		switch (ch) {
-		case 'i':
-			incomingdir = optarg;
-			break;
 		case 't':
 			tempdir = optarg;
 			break;
 		default:
-			log_warnx("warn: backend-queue-ram: bad option");
+			log_warnx("warn: queue-ram: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
