@@ -40,7 +40,7 @@ static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *
 static int (*handler_envelope_delete)(uint64_t);
 static int (*handler_envelope_update)(uint64_t, const char *, size_t);
 static int (*handler_envelope_load)(uint64_t, char *, size_t);
-static int (*handler_envelope_walk)(uint64_t *);
+static int (*handler_envelope_walk)(uint64_t *, char *, size_t);
 
 static struct imsgbuf	ibuf;
 static struct imsg	imsg;
@@ -208,15 +208,17 @@ dispatch(void)
 			goto fail;
 		}
 
-		r = handler_envelope_walk(&evpid);
+		r = handler_envelope_walk(&evpid, buffer, sizeof(buffer));
 
 		len = sizeof(r);
-		if (r == 1)
-			len += sizeof(evpid);
+		if (r > 0)
+			len += sizeof(evpid) + r;
 		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, len);
 		imsg_add(buf, &r, sizeof(r));
-		if (r == 1)
+		if (r > 0) {
 			imsg_add(buf, &evpid, sizeof(evpid));
+			imsg_add(buf, buffer, r);
+		}
 		imsg_close(&ibuf, buf);
 		return (r);
 
@@ -291,7 +293,7 @@ queue_api_on_envelope_load(int(*cb)(uint64_t, char *, size_t))
 }
 
 void
-queue_api_on_envelope_walk(int(*cb)(uint64_t *))
+queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 {
 	handler_envelope_walk = cb;
 }

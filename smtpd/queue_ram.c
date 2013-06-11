@@ -351,7 +351,7 @@ queue_ram_envelope_load(uint64_t evpid, char *buf, size_t len)
 }
 
 static int
-queue_ram_envelope_walk(uint64_t *evpid)
+queue_ram_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 {
 	return (-1);
 }
@@ -415,7 +415,7 @@ queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 	case QOP_UPDATE:
 		return queue_ram_envelope_update(*evpid, buf, len);
 	case QOP_WALK:
-		return queue_ram_envelope_walk(evpid);
+		return queue_ram_envelope_walk(evpid, buf, len);
 	default:
 		fatalx("queue_ram_envelope: unsupported operation.");
 	}
