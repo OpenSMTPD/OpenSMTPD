@@ -18,7 +18,7 @@ CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DNO_IO
 
 SRCS=	enqueue.c parser.c log.c envelope.c crypto.c
-SRCS+=	queue_backend.c queue_fsqueue.c
+SRCS+=	queue_backend.c queue_fs.c
 SRCS+=	smtpctl.c util.c
 SRCS+=	compress_backend.c compress_gzip.c
 SRCS+=	to.c expand.c tree.c
