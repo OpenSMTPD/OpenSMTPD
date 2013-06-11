@@ -111,7 +111,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: backend-queue-null: bad option");
+			log_warnx("warn: queue-null: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -121,7 +121,7 @@ main(int argc, char **argv)
 
 	devnull = open("/dev/null", O_WRONLY, 0777);
 	if (devnull == -1) {
-		log_warn("warn: backend-queue-null: open");
+		log_warn("warn: queue-null: open");
 		return (0);
 	}
 
