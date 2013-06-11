@@ -618,6 +618,7 @@ AC_CHECK_FUNCS([ \
 	getpeereid \
 	getspnam \
 	memmove \
+	pidfile \
 	pw_dup \
 	setproctitle \
 	setregid \

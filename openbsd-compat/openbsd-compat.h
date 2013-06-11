@@ -177,4 +177,8 @@ int scan_scaled(char *scaled, long long *result);
 int fmt_scaled(long long number, char *result);
 #endif
 
+#ifndef HAVE_PIDFILE
+int pidfile(const char *basename);
+#endif
+
 #endif /* _OPENBSD_COMPAT_H */

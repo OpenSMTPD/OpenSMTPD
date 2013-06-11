@@ -6,7 +6,7 @@ libopenbsd_compat_a_SOURCES =							\
 		dirname.c entropy.c fgetln.c getopt.c fmt_scaled.c fparseln.c	\
 		imsg.c imsg-buffer.c mktemp.c pw_dup.c setresguid.c		\
 		setproctitle.c strlcat.c strlcpy.c strmode.c strtonum.c		\
-		strsep.c vis.c xmalloc.c
+		strsep.c vis.c xmalloc.c pidfile.c
 
 EXTRA_DIST =	base64.h bsd-waitpid.h defines.h entropy.h imsg.h includes.h	\
 		log.h openbsd-compat.h sys/queue.h sys/tree.h vis.h xmalloc.h

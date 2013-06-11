@@ -66,7 +66,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef HAVE_UTIL_H
 #include <util.h>
+#endif
 #include <unistd.h>
 
 #include <openssl/ssl.h>
