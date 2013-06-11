@@ -319,7 +319,7 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		memmove(&r, rdata, sizeof(r));
 		rdata += sizeof(r);
 		rlen -= sizeof(r);
-		if (r != 1) {
+		if (r <= 0) {
 			if (rlen)
 				log_warnx("warn: queue-proc: bogus data");
 			imsg_free(&imsg);
@@ -334,12 +334,17 @@ queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
 		memmove(evpid, rdata, sizeof(*evpid));
 		rdata += sizeof(*evpid);
 		rlen -= sizeof(evpid);
-		if (rlen)
-			log_warnx("warn: queue-proc: bogus data");
-		
+
+		if (rlen > len) {
+			log_warnx("warn: queue-proc: buf too small");
+			memmove(buf, rdata, len);
+		}
+		else
+			memmove(buf, rdata, rlen);
+
 		imsg_free(&imsg);
 
-		return (r);
+		return (rlen);
 
 	default:
 		imsg_free(&imsg);
