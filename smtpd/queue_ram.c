@@ -354,69 +354,26 @@ queue_ram_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 	return (-1);
 }
 
-static int queue_ram_init(int);
-static int queue_ram_message(enum queue_op, uint32_t *);
-static int queue_ram_envelope(enum queue_op , uint64_t *, char *, size_t);
-
-struct queue_backend	queue_backend_ram = {
-	queue_ram_init,
-	queue_ram_message,
-	queue_ram_envelope,
-};
-
-static struct tree messages;
-
 static int
 queue_ram_init(int server)
 {
 	tree_init(&messages);
 
+	queue_api_on_message_create(queue_ram_message_create);
+	queue_api_on_message_commit(queue_ram_message_commit);
+	queue_api_on_message_delete(queue_ram_message_delete);
+	queue_api_on_message_fd_r(queue_ram_message_fd_r);
+	queue_api_on_message_fd_w(queue_ram_message_fd_w);
+	queue_api_on_message_corrupt(queue_ram_message_corrupt);
+	queue_api_on_envelope_create(queue_ram_envelope_create);
+	queue_api_on_envelope_delete(queue_ram_envelope_delete);
+	queue_api_on_envelope_update(queue_ram_envelope_update);
+	queue_api_on_envelope_load(queue_ram_envelope_load);
+	queue_api_on_envelope_walk(queue_ram_envelope_walk);
+
 	return (1);
 }
 
-static int
-queue_ram_message(enum queue_op qop, uint32_t *msgid)
-{
-	switch (qop) {
-	case QOP_CREATE:
-		return queue_ram_message_create(msgid);
-	case QOP_DELETE:
-		return queue_ram_message_delete(*msgid);
-	case QOP_COMMIT:
-		return queue_ram_message_commit(*msgid);
-	case QOP_FD_R:
-		return queue_ram_message_fd_r(*msgid);
-	case QOP_FD_RW:
-		return queue_ram_message_fd_w(*msgid);
-	case QOP_CORRUPT:
-		return queue_ram_message_corrupt(*msgid);
-	default:
-		fatalx("queue_ram_message: unsupported operation.");
-	}
-
-	return (0);
-}
-
-static int
-queue_ram_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
-{
-	uint32_t	msgid;
-
-	switch (qop) {
-	case QOP_CREATE:
-		msgid = evpid_to_msgid(*evpid);
-		return queue_ram_envelope_create(msgid, buf, len, evpid);
-	case QOP_DELETE:
-		return queue_ram_envelope_delete(*evpid);
-	case QOP_LOAD:
-		return queue_ram_envelope_load(*evpid, buf, len);
-	case QOP_UPDATE:
-		return queue_ram_envelope_update(*evpid, buf, len);
-	case QOP_WALK:
-		return queue_ram_envelope_walk(evpid, buf, len);
-	default:
-		fatalx("queue_ram_envelope: unsupported operation.");
-	}
-
-	return (0);
-}
+struct queue_backend	queue_backend_ram = {
+	queue_ram_init,
+};

@@ -402,16 +402,6 @@ queue_proc_call(size_t expected)
 	return (0);
 }
 
-static int queue_proc_init(int);
-static int queue_proc_message(enum queue_op, uint32_t *);
-static int queue_proc_envelope(enum queue_op , uint64_t *, char *, size_t);
-
-struct queue_backend	queue_backend_proc = {
-	queue_proc_init,
-	queue_proc_message,
-	queue_proc_envelope,
-};
-
 static int
 queue_proc_init(int server)
 {
@@ -448,6 +438,19 @@ queue_proc_init(int server)
 	version = PROC_QUEUE_API_VERSION;
 	imsg_compose(&ibuf, PROC_QUEUE_INIT, 0, 0, -1,
 	    &version, sizeof(version));
+
+	queue_api_on_message_create(queue_proc_message_create);
+	queue_api_on_message_commit(queue_proc_message_commit);
+	queue_api_on_message_delete(queue_proc_message_delete);
+	queue_api_on_message_fd_r(queue_proc_message_fd_r);
+	queue_api_on_message_fd_w(queue_proc_message_fd_w);
+	queue_api_on_message_corrupt(queue_proc_message_corrupt);
+	queue_api_on_envelope_create(queue_proc_envelope_create);
+	queue_api_on_envelope_delete(queue_proc_envelope_delete);
+	queue_api_on_envelope_update(queue_proc_envelope_update);
+	queue_api_on_envelope_load(queue_proc_envelope_load);
+	queue_api_on_envelope_walk(queue_proc_envelope_walk);
+
 	return (queue_proc_call(0));
 
 err:
@@ -456,49 +459,6 @@ err:
 	return (0);
 }
 
-static int
-queue_proc_message(enum queue_op qop, uint32_t *msgid)
-{
-	switch (qop) {
-	case QOP_CREATE:
-		return queue_proc_message_create(msgid);
-	case QOP_DELETE:
-		return queue_proc_message_delete(*msgid);
-	case QOP_COMMIT:
-		return queue_proc_message_commit(*msgid);
-	case QOP_FD_R:
-		return queue_proc_message_fd_r(*msgid);
-	case QOP_FD_RW:
-		return queue_proc_message_fd_w(*msgid);
-	case QOP_CORRUPT:
-		return queue_proc_message_corrupt(*msgid);
-	default:
-		fatalx("queue_proc_message: unsupported operation.");
-	}
-
-	return (0);
-}
-
-static int
-queue_proc_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
-{
-	uint32_t	msgid;
-
-	switch (qop) {
-	case QOP_CREATE:
-		msgid = evpid_to_msgid(*evpid);
-		return queue_proc_envelope_create(msgid, buf, len, evpid);
-	case QOP_DELETE:
-		return queue_proc_envelope_delete(*evpid);
-	case QOP_LOAD:
-		return queue_proc_envelope_load(*evpid, buf, len);
-	case QOP_UPDATE:
-		return queue_proc_envelope_update(*evpid, buf, len);
-	case QOP_WALK:
-		return queue_proc_envelope_walk(evpid, buf, len);
-	default:
-		fatalx("queue_proc_envelope: unsupported operation.");
-	}
-
-	return (0);
-}
+struct queue_backend	queue_backend_proc = {
+	queue_proc_init,
+};
