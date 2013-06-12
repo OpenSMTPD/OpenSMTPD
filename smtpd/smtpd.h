@@ -523,8 +523,6 @@ struct smtpd {
 	char				sc_conffile[SMTPD_MAXPATHLEN];
 	size_t				sc_maxsize;
 
-	pid_t				sc_pid;
-
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
