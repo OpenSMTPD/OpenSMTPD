@@ -94,32 +94,17 @@ queue_null_envelope_load(uint64_t evpid, char *buf, size_t len)
 }
 
 static int
-queue_null_envelope_walk(uint64_t *evpid)
+queue_null_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 {
 	return (-1);
 }
 
-int
-main(int argc, char **argv)
+static int
+queue_null_init(int server)
 {
-	int	ch;
-
-	log_init(1);
-
-	while ((ch = getopt(argc, argv, "")) != -1) {
-		switch (ch) {
-		default:
-			log_warnx("warn: backend-queue-null: bad option");
-			return (1);
-			/* NOTREACHED */
-		}
-	}
-	argc -= optind;
-	argv += optind;
-
 	devnull = open("/dev/null", O_WRONLY, 0777);
 	if (devnull == -1) {
-		log_warn("warn: backend-queue-null: open");
+		log_warn("warn: queue-null: open");
 		return (0);
 	}
 
@@ -135,6 +120,28 @@ main(int argc, char **argv)
 	queue_api_on_envelope_load(queue_null_envelope_load);
 	queue_api_on_envelope_walk(queue_null_envelope_walk);
 
+	return (1);
+}
+
+int
+main(int argc, char **argv)
+{
+	int	ch;
+
+	log_init(1);
+
+	while ((ch = getopt(argc, argv, "")) != -1) {
+		switch (ch) {
+		default:
+			log_warnx("warn: queue-null: bad option");
+			return (1);
+			/* NOTREACHED */
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	queue_null_init(1);
 	queue_api_dispatch();
 
 	return (0);

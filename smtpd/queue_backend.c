@@ -56,6 +56,18 @@ static struct tree		evpcache_tree;
 static struct evplst		evpcache_list;
 static struct queue_backend	*backend;
 
+static int (*handler_message_create)(uint32_t *);
+static int (*handler_message_commit)(uint32_t);
+static int (*handler_message_delete)(uint32_t);
+static int (*handler_message_fd_r)(uint32_t);
+static int (*handler_message_fd_w)(uint32_t);
+static int (*handler_message_corrupt)(uint32_t);
+static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
+static int (*handler_envelope_delete)(uint64_t);
+static int (*handler_envelope_update)(uint64_t, const char *, size_t);
+static int (*handler_envelope_load)(uint64_t, char *, size_t);
+static int (*handler_envelope_walk)(uint64_t *, char *, size_t);
+
 #ifdef QUEUE_PROFILING
 
 static struct {
@@ -133,7 +145,7 @@ queue_message_create(uint32_t *msgid)
 	int	r;
 
 	profile_enter("queue_message_create");
-	r = backend->message(QOP_CREATE, msgid);
+	r = handler_message_create(msgid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -149,7 +161,7 @@ queue_message_delete(uint32_t msgid)
 	int	r;
 
 	profile_enter("queue_message_delete");
-	r = backend->message(QOP_DELETE, &msgid);
+	r = handler_message_delete(msgid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -215,7 +227,7 @@ queue_message_commit(uint32_t msgid)
 		}
 	}
 
-	r = backend->message(QOP_COMMIT, &msgid);
+	r = handler_message_commit(msgid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -238,7 +250,7 @@ queue_message_corrupt(uint32_t msgid)
 	int	r;
 
 	profile_enter("queue_message_corrupt");
-	r = backend->message(QOP_CORRUPT, &msgid);
+	r = handler_message_corrupt(msgid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -255,7 +267,7 @@ queue_message_fd_r(uint32_t msgid)
 	FILE	*ofp = NULL;
 
 	profile_enter("queue_message_fd_r");
-	fdin = backend->message(QOP_FD_R, &msgid);
+	fdin = handler_message_fd_r(msgid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -326,7 +338,7 @@ queue_message_fd_rw(uint32_t msgid)
 	int	r;
 
 	profile_enter("queue_message_fd_rw");
-	r = backend->message(QOP_FD_RW, &msgid);
+	r = handler_message_fd_w(msgid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -454,6 +466,7 @@ queue_envelope_create(struct envelope *ep)
 	char		 evpbuf[sizeof(struct envelope)];
 	size_t		 evplen;
 	uint64_t	 evpid;
+	uint32_t	 msgid;
 
 	ep->creation = time(NULL);
 	evplen = queue_envelope_dump_buffer(ep, evpbuf, sizeof evpbuf);
@@ -461,9 +474,10 @@ queue_envelope_create(struct envelope *ep)
 		return (0);
 
 	evpid = ep->id;
+	msgid = evpid_to_msgid(evpid);
 
 	profile_enter("queue_envelope_create");
-	r = backend->envelope(QOP_CREATE, &ep->id, evpbuf, evplen);
+	r = handler_envelope_create(msgid, evpbuf, evplen, &ep->id);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -490,7 +504,7 @@ queue_envelope_delete(uint64_t evpid)
 		queue_envelope_cache_del(evpid);
 
 	profile_enter("queue_envelope_delete");
-	r = backend->envelope(QOP_DELETE, &evpid, NULL, 0);
+	r = handler_envelope_delete(evpid);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -517,7 +531,7 @@ queue_envelope_load(uint64_t evpid, struct envelope *ep)
 
 	ep->id = evpid;
 	profile_enter("queue_envelope_load");
-	evplen = backend->envelope(QOP_LOAD, &ep->id, evpbuf, sizeof evpbuf);
+	evplen = handler_envelope_load(ep->id, evpbuf, sizeof evpbuf);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -556,7 +570,7 @@ queue_envelope_update(struct envelope *ep)
 		return (0);
 
 	profile_enter("queue_envelope_update");
-	r = backend->envelope(QOP_UPDATE, &ep->id, evpbuf, evplen);
+	r = handler_envelope_update(ep->id, evpbuf, evplen);
 	profile_leave();
 
 	if (r && env->sc_queue_flags & QUEUE_EVPCACHE)
@@ -578,7 +592,7 @@ queue_envelope_walk(struct envelope *ep)
 	int		 r;
 
 	profile_enter("queue_envelope_walk");
-	r = backend->envelope(QOP_WALK, &evpid, evpbuf, sizeof evpbuf);
+	r = handler_envelope_walk(&evpid, evpbuf, sizeof evpbuf);
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
@@ -650,4 +664,70 @@ envelope_validate(struct envelope *ep)
 		return "invalid error line";
 
 	return NULL;
+}
+
+void
+queue_api_on_message_create(int(*cb)(uint32_t *))
+{
+	handler_message_create = cb;
+}
+
+void
+queue_api_on_message_commit(int(*cb)(uint32_t))
+{
+	handler_message_commit = cb;
+}
+
+void
+queue_api_on_message_delete(int(*cb)(uint32_t))
+{
+	handler_message_delete = cb;
+}
+
+void
+queue_api_on_message_fd_r(int(*cb)(uint32_t))
+{
+	handler_message_fd_r = cb;
+}
+
+void
+queue_api_on_message_fd_w(int(*cb)(uint32_t))
+{
+	handler_message_fd_w = cb;
+}
+
+void
+queue_api_on_message_corrupt(int(*cb)(uint32_t))
+{
+	handler_message_corrupt = cb;
+}
+
+void
+queue_api_on_envelope_create(int(*cb)(uint32_t, const char *, size_t, uint64_t *))
+{
+	handler_envelope_create = cb;
+}
+
+void
+queue_api_on_envelope_delete(int(*cb)(uint64_t))
+{
+	handler_envelope_delete = cb;
+}
+
+void
+queue_api_on_envelope_update(int(*cb)(uint64_t, const char *, size_t))
+{
+	handler_envelope_update = cb;
+}
+
+void
+queue_api_on_envelope_load(int(*cb)(uint64_t, char *, size_t))
+{
+	handler_envelope_load = cb;
+}
+
+void
+queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
+{
+	handler_envelope_walk = cb;
 }

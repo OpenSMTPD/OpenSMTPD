@@ -500,7 +500,6 @@ mda(void)
 	case -1:
 		fatal("mda: cannot fork");
 	case 0:
-		env->sc_pid = getpid();
 		break;
 	default:
 		return (pid);
