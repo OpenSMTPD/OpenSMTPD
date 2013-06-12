@@ -93,6 +93,24 @@ queue_stub_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 	return (0);
 }
 
+static int
+queue_stub_init(int server)
+{
+	queue_api_on_message_create(queue_stub_message_create);
+	queue_api_on_message_commit(queue_stub_message_commit);
+	queue_api_on_message_delete(queue_stub_message_delete);
+	queue_api_on_message_fd_r(queue_stub_message_fd_r);
+	queue_api_on_message_fd_w(queue_stub_message_fd_w);
+	queue_api_on_message_corrupt(queue_stub_message_corrupt);
+	queue_api_on_envelope_create(queue_stub_envelope_create);
+	queue_api_on_envelope_delete(queue_stub_envelope_delete);
+	queue_api_on_envelope_update(queue_stub_envelope_update);
+	queue_api_on_envelope_load(queue_stub_envelope_load);
+	queue_api_on_envelope_walk(queue_stub_envelope_walk);
+
+	return (1);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -111,17 +129,7 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	queue_api_on_message_create(queue_stub_message_create);
-	queue_api_on_message_commit(queue_stub_message_commit);
-	queue_api_on_message_delete(queue_stub_message_delete);
-	queue_api_on_message_fd_r(queue_stub_message_fd_r);
-	queue_api_on_message_fd_w(queue_stub_message_fd_w);
-	queue_api_on_message_corrupt(queue_stub_message_corrupt);
-	queue_api_on_envelope_create(queue_stub_envelope_create);
-	queue_api_on_envelope_delete(queue_stub_envelope_delete);
-	queue_api_on_envelope_update(queue_stub_envelope_update);
-	queue_api_on_envelope_load(queue_stub_envelope_load);
-	queue_api_on_envelope_walk(queue_stub_envelope_walk);
+	queue_stub_init(1);
 
 	queue_api_dispatch();
 

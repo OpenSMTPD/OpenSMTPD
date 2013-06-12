@@ -787,22 +787,8 @@ struct mta_task {
 	char				*sender;
 };
 
-enum queue_op {
-	QOP_CREATE,
-	QOP_DELETE,
-	QOP_UPDATE,
-	QOP_WALK,
-	QOP_COMMIT,
-	QOP_LOAD,
-	QOP_FD_RW,
-	QOP_FD_R,
-	QOP_CORRUPT,
-};
-
 struct queue_backend {
 	int	(*init)(int);
-	int	(*message)(enum queue_op, uint32_t *);
-	int	(*envelope)(enum queue_op, uint64_t *, char *, size_t);
 };
 
 struct compress_backend {

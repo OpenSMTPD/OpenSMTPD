@@ -65,7 +65,7 @@ struct qwalk {
 static int	fsqueue_check_space(void);
 static void	fsqueue_envelope_path(uint64_t, char *, size_t);
 static void	fsqueue_envelope_incoming_path(uint64_t, char *, size_t);
-static int	fsqueue_envelope_dump(char *, char *, size_t, int, int);
+static int	fsqueue_envelope_dump(char *, const char *, size_t, int, int);
 static void	fsqueue_message_path(uint32_t, char *, size_t);
 static void	fsqueue_message_corrupt_path(uint32_t, char *, size_t);
 static void    *fsqueue_qwalk_new(void);
@@ -238,7 +238,8 @@ again:
 }
 
 static int
-queue_fs_envelope_create(uint32_t msgid, char *buf, size_t len, uint64_t *evpid)
+queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
+    uint64_t *evpid)
 {
 	char		path[SMTPD_MAXPATHLEN];
 	int		queued = 0, i, r = 0;
@@ -311,7 +312,7 @@ queue_fs_envelope_load(uint64_t evpid, char *buf, size_t len)
 }
 
 static int
-queue_fs_envelope_update(uint64_t evpid, char *buf, size_t len)
+queue_fs_envelope_update(uint64_t evpid, const char *buf, size_t len)
 {
 	char dest[SMTPD_MAXPATHLEN];
 
@@ -443,7 +444,8 @@ fsqueue_envelope_incoming_path(uint64_t evpid, char *buf, size_t len)
 }
 
 static int
-fsqueue_envelope_dump(char *dest, char *evpbuf, size_t evplen, int do_atomic, int do_sync)
+fsqueue_envelope_dump(char *dest, const char *evpbuf, size_t evplen,
+    int do_atomic, int do_sync)
 {
 	const char     *path = do_atomic ? PATH_EVPTMP : dest;
 	FILE	       *fp = NULL;
@@ -604,16 +606,6 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 	return (0);
 }
 
-static int	queue_fs_init(int);
-static int	queue_fs_message(enum queue_op, uint32_t *);
-static int	queue_fs_envelope(enum queue_op , uint64_t *, char *, size_t);
-
-struct queue_backend	queue_backend_fs = {
-	queue_fs_init,
-	queue_fs_message,
-	queue_fs_envelope,
-};
-
 static int
 queue_fs_init(int server)
 {
@@ -641,50 +633,21 @@ queue_fs_init(int server)
 
 	tree_init(&evpcount);
 
-	return ret;
+	queue_api_on_message_create(queue_fs_message_create);
+	queue_api_on_message_commit(queue_fs_message_commit);
+	queue_api_on_message_delete(queue_fs_message_delete);
+	queue_api_on_message_fd_r(queue_fs_message_fd_r);
+	queue_api_on_message_fd_w(queue_fs_message_fd_w);
+	queue_api_on_message_corrupt(queue_fs_message_corrupt);
+	queue_api_on_envelope_create(queue_fs_envelope_create);
+	queue_api_on_envelope_delete(queue_fs_envelope_delete);
+	queue_api_on_envelope_update(queue_fs_envelope_update);
+	queue_api_on_envelope_load(queue_fs_envelope_load);
+	queue_api_on_envelope_walk(queue_fs_envelope_walk);
+
+	return (ret);
 }
 
-static int
-queue_fs_message(enum queue_op qop, uint32_t *msgid)
-{
-	switch (qop) {
-	case QOP_CREATE:
-		return queue_fs_message_create(msgid);
-	case QOP_DELETE:
-		return queue_fs_message_delete(*msgid);
-	case QOP_COMMIT:
-		return queue_fs_message_commit(*msgid);
-	case QOP_FD_R:
-		return queue_fs_message_fd_r(*msgid);
-	case QOP_FD_RW:
-		return queue_fs_message_fd_w(*msgid);
-	case QOP_CORRUPT:
-		return queue_fs_message_corrupt(*msgid);
-	default:
-		fatalx("queue_queue_fs_message: unsupported operation.");
-	}
-	return 0;
-}
-
-static int
-queue_fs_envelope(enum queue_op qop, uint64_t *evpid, char *buf, size_t len)
-{
-	uint32_t	msgid;
-
-	switch (qop) {
-	case QOP_CREATE:
-		msgid = evpid_to_msgid(*evpid);
-		return queue_fs_envelope_create(msgid, buf, len, evpid);
-	case QOP_DELETE:
-		return queue_fs_envelope_delete(*evpid);
-	case QOP_LOAD:
-		return queue_fs_envelope_load(*evpid, buf, len);
-	case QOP_UPDATE:
-		return queue_fs_envelope_update(*evpid, buf, len);
-	case QOP_WALK:
-		return queue_fs_envelope_walk(evpid, buf, len);
-	default:
-		fatalx("queue_queue_fs_envelope: unsupported operation.");
-	}
-	return 0;
-}
+struct queue_backend	queue_backend_fs = {
+	queue_fs_init,
+};
