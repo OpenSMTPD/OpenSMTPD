@@ -552,7 +552,6 @@ queue(void)
 	case -1:
 		fatal("queue: cannot fork");
 	case 0:
-		env->sc_pid = getpid();
 		break;
 	default:
 		return (pid);

@@ -592,7 +592,6 @@ lka(void)
 	case -1:
 		fatal("lka: cannot fork");
 	case 0:
-		env->sc_pid = getpid();
 		break;
 	default:
 		return (pid);
