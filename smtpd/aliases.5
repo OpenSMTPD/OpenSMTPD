@@ -80,6 +80,10 @@ will only use the part that precedes
 .Sq +
 as a
 .Em key .
+.It Ar error : Ns Ar code Ar message
+A status code and message to return.
+The code must be in either 400 (TempFail) or 500 (PermFail) ranges.
+The message must be present and can be freely chosen.
 .El
 .Sh FILES
 .Bl -tag -width "/etc/mail/aliasesXXX"
