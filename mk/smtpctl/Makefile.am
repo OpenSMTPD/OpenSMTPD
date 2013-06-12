@@ -1,4 +1,4 @@
-smtpd_srcdir=		$(top_srcdir)/smtpd
+include	$(top_srcdir)/mk/pathnames
 
 sbin_PROGRAMS=		smtpctl
 

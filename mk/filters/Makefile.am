@@ -1,7 +1,4 @@
-asr_srcdir=		$(top_srcdir)/contrib/lib/libc/asr
-smtpd_srcdir=		$(top_srcdir)/smtpd
-compat_srcdir=		$(top_srcdir)/openbsd-compat
-filters_srcdir=		$(smtpd_srcdir)/filters
+include $(top_srcdir)/mk/pathnames
 
 SRCS=			$(smtpd_srcdir)/filter_api.c
 SRCS+=			$(smtpd_srcdir)/mproc.c

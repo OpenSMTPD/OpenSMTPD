@@ -10,9 +10,7 @@
 # /usr/local/etc/smtpd.conf
 # /usr/local/sbin/smtpd
 
-smtpd_srcdir=		$(top_srcdir)/smtpd
-asr_srcdir=		$(top_srcdir)/contrib/lib/libc/asr
-compat_srcdir=		$(top_srcdir)/openbsd-compat
+include $(top_srcdir)/mk/pathnames
 
 sbin_PROGRAMS=		smtpd
 

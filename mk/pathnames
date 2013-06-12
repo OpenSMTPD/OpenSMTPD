@@ -1,0 +1,6 @@
+smtpd_srcdir	= $(top_srcdir)/smtpd
+asr_srcdir	= $(top_srcdir)/contrib/lib/libc/asr
+compat_srcdir	= $(top_srcdir)/openbsd-compat
+
+filters_srcdir	= $(smtpd_srcdir)/filters
+backends_srcdir	= $(smtpd_srcdir)/backends
