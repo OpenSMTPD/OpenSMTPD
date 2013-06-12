@@ -1,7 +1,4 @@
-asr_srcdir=		$(top_srcdir)/contrib/lib/libc/asr
-smtpd_srcdir=		$(top_srcdir)/smtpd
-compat_srcdir=		$(top_srcdir)/openbsd-compat
-backends_srcdir=	$(smtpd_srcdir)/backends
+include	$(top_srcdir)/mk/pathnames
 
 pkglibexec_PROGRAMS=	backend-queue-null
 pkglibexec_PROGRAMS+=	backend-queue-ram

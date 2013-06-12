@@ -11,9 +11,7 @@
 # /usr/local/sbin/makemap   --> /usr/local/libexec/opensmtpd-portable/makemap
 #
 
-smtpd_srcdir=		$(top_srcdir)/smtpd
-compat_srcdir=		$(top_srcdir)/openbsd-compat
-asr_srcdir=		$(top_srcdir)/contrib/lib/libc/asr
+include	$(top_srcdir)/mk/pathnames
 
 pkglibexec_PROGRAMS=	makemap
 

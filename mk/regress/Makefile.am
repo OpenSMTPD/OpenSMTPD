@@ -1,6 +1,4 @@
-smtpd_srcdir=		$(top_srcdir)/smtpd
-compat_srcdir=		$(top_srcdir)/openbsd-compat
-regress_srcdir=		$(top_srcdir)/regress/bin
+include	$(top_srcdir)/mk/pathnames
 
 bin_PROGRAMS=		smtpscript
 
