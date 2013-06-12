@@ -42,8 +42,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int devnull;
-
 static int
 queue_null_message_create(uint32_t *msgid)
 {
@@ -67,12 +65,6 @@ static int
 queue_null_message_fd_r(uint32_t msgid)
 {
 	return (-1);
-}
-
-static int
-queue_null_message_fd_w(uint32_t msgid)
-{
-	return dup(devnull);
 }
 
 static int
@@ -116,17 +108,10 @@ queue_null_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 static int
 queue_null_init(int server)
 {
-	devnull = open("/dev/null", O_WRONLY, 0777);
-	if (devnull == -1) {
-		log_warn("warn: queue-null: open");
-		return (0);
-	}
-
 	queue_api_on_message_create(queue_null_message_create);
 	queue_api_on_message_commit(queue_null_message_commit);
 	queue_api_on_message_delete(queue_null_message_delete);
 	queue_api_on_message_fd_r(queue_null_message_fd_r);
-	queue_api_on_message_fd_w(queue_null_message_fd_w);
 	queue_api_on_message_corrupt(queue_null_message_corrupt);
 	queue_api_on_envelope_create(queue_null_envelope_create);
 	queue_api_on_envelope_delete(queue_null_envelope_delete);

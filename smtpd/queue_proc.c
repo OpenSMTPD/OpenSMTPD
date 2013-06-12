@@ -145,21 +145,6 @@ queue_proc_message_fd_r(uint32_t msgid)
 }
 
 static int
-queue_proc_message_fd_w(uint32_t msgid)
-{
-	if (!running)
-		return (-1);
-
-	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_FD_RW, 0, 0, -1, &msgid,
-	    sizeof(msgid));
-
-	if (!queue_proc_call(0))
-		return (-1);
-
-	return (imsg.fd);
-}
-
-static int
 queue_proc_message_corrupt(uint32_t msgid)
 {
 	int	r;
@@ -444,7 +429,6 @@ queue_proc_init(int server)
 	queue_api_on_message_commit(queue_proc_message_commit);
 	queue_api_on_message_delete(queue_proc_message_delete);
 	queue_api_on_message_fd_r(queue_proc_message_fd_r);
-	queue_api_on_message_fd_w(queue_proc_message_fd_w);
 	queue_api_on_message_corrupt(queue_proc_message_corrupt);
 	queue_api_on_envelope_create(queue_proc_envelope_create);
 	queue_api_on_envelope_delete(queue_proc_envelope_delete);
