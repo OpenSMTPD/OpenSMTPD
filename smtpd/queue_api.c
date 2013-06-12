@@ -34,7 +34,6 @@ static int (*handler_message_create)(uint32_t *);
 static int (*handler_message_commit)(uint32_t);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
-static int (*handler_message_fd_w)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
 static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
 static int (*handler_envelope_delete)(uint64_t);
@@ -107,7 +106,6 @@ dispatch(void)
 		break;
 
 	case PROC_QUEUE_MESSAGE_FD_R:
-	case PROC_QUEUE_MESSAGE_FD_RW:
 		if (len != sizeof(msgid)) {
 			log_warnx("warn: queue-api: bad message length");
 			goto fail;
@@ -115,10 +113,7 @@ dispatch(void)
 
 		memmove(&msgid, data, len);
 
-		if (imsg.hdr.type == PROC_QUEUE_MESSAGE_FD_R)
-			fd = handler_message_fd_r(msgid);
-		else
-			fd = handler_message_fd_w(msgid);
+		fd = handler_message_fd_r(msgid);
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, fd, NULL, 0);
 		break;
@@ -254,12 +249,6 @@ void
 queue_api_on_message_fd_r(int(*cb)(uint32_t))
 {
 	handler_message_fd_r = cb;
-}
-
-void
-queue_api_on_message_fd_w(int(*cb)(uint32_t))
-{
-	handler_message_fd_w = cb;
 }
 
 void

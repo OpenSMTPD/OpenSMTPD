@@ -220,27 +220,6 @@ queue_ram_message_fd_r(uint32_t msgid)
 }
 
 static int
-queue_ram_message_fd_w(uint32_t msgid)
-{
-	struct qr_message	*msg;
-	char			 path[SMTPD_MAXPATHLEN];
-	int			 fd;
-
-	if ((msg = tree_get(&messages, msgid)) == NULL) {
-		log_warnx("warn: queue-ram: not found");
-		return (-1);
-	}
-	queue_message_incoming_path(msgid, path, sizeof(path));
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
-	if (fd == -1) {
-		log_warn("warn: queue-ram: open");
-		return (-1);
-	}
-	msg->hasfile = 1;
-	return (fd);
-}
-
-static int
 queue_ram_message_corrupt(uint32_t msgid)
 {
 	return (queue_ram_message_delete(msgid));
@@ -366,7 +345,6 @@ queue_ram_init(int server)
 	queue_api_on_message_commit(queue_ram_message_commit);
 	queue_api_on_message_delete(queue_ram_message_delete);
 	queue_api_on_message_fd_r(queue_ram_message_fd_r);
-	queue_api_on_message_fd_w(queue_ram_message_fd_w);
 	queue_api_on_message_corrupt(queue_ram_message_corrupt);
 	queue_api_on_envelope_create(queue_ram_envelope_create);
 	queue_api_on_envelope_delete(queue_ram_envelope_delete);
