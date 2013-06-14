@@ -1861,7 +1861,7 @@ end:
 int
 getmailname(char *hostname, size_t len)
 {
-	struct addrinfo	hints, *res;
+	struct addrinfo	hints, *res = NULL;
 	FILE   *fp;
 	char   *buf, *lbuf = NULL;
 	size_t	buflen;
@@ -1897,23 +1897,23 @@ nomailname:
 		goto end;
 	}
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-	hints.ai_flags = AI_CANONNAME;
-	error = getaddrinfo(hostname, NULL, &hints, &res);
-	if (error) {
-		fprintf(stderr, "invalid hostname: getaddrinfo() failed: %s\n",
-		    gai_strerror(error));
-		goto end;
-	}
-
-	if (strlcpy(hostname, res->ai_canonname, len) >= len)
-		fprintf(stderr, "hostname too long");
-	else {
-		ret = 1;
-		goto end;
+	if (strchr(hostname, '.') == NULL) {
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_protocol = IPPROTO_TCP;
+		hints.ai_flags = AI_CANONNAME;
+		error = getaddrinfo(hostname, NULL, &hints, &res);
+		if (error) {
+			fprintf(stderr, "invalid hostname: getaddrinfo() failed: %s\n",
+			    gai_strerror(error));
+			goto end;
+		}
+		
+		if (strlcpy(hostname, res->ai_canonname, len) >= len) {
+			fprintf(stderr, "hostname too long");
+			goto end;
+		}
 	}
 
 	ret = 1;
