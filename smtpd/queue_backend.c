@@ -62,7 +62,6 @@ static int (*handler_message_create)(uint32_t *);
 static int (*handler_message_commit)(uint32_t);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
-static int (*handler_message_fd_w)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
 static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
 static int (*handler_envelope_delete)(uint64_t);
@@ -341,16 +340,12 @@ err:
 int
 queue_message_fd_rw(uint32_t msgid)
 {
-	int	r;
+	char msgpath[SMTPD_MAXPATHLEN];
 
-	profile_enter("queue_message_fd_rw");
-	r = handler_message_fd_w(msgid);
-	profile_leave();
+	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
+	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
 
-	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_fd_rw(%08"PRIx32") -> %i", msgid, r);
-
-	return (r);
+	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
 }
 
 static int
@@ -702,12 +697,6 @@ void
 queue_api_on_message_fd_r(int(*cb)(uint32_t))
 {
 	handler_message_fd_r = cb;
-}
-
-void
-queue_api_on_message_fd_w(int(*cb)(uint32_t))
-{
-	handler_message_fd_w = cb;
 }
 
 void

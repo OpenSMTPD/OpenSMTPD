@@ -177,17 +177,6 @@ queue_fs_message_fd_r(uint32_t msgid)
 }
 
 static int
-queue_fs_message_fd_w(uint32_t msgid)
-{
-	char msgpath[SMTPD_MAXPATHLEN];
-
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
-
-	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
-}
-
-static int
 queue_fs_message_delete(uint32_t msgid)
 {
 	char		path[SMTPD_MAXPATHLEN];
@@ -637,7 +626,6 @@ queue_fs_init(int server)
 	queue_api_on_message_commit(queue_fs_message_commit);
 	queue_api_on_message_delete(queue_fs_message_delete);
 	queue_api_on_message_fd_r(queue_fs_message_fd_r);
-	queue_api_on_message_fd_w(queue_fs_message_fd_w);
 	queue_api_on_message_corrupt(queue_fs_message_corrupt);
 	queue_api_on_envelope_create(queue_fs_envelope_create);
 	queue_api_on_envelope_delete(queue_fs_envelope_delete);
