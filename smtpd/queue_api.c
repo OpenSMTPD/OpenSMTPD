@@ -31,7 +31,7 @@
 #include "log.h"
 
 static int (*handler_message_create)(uint32_t *);
-static int (*handler_message_commit)(uint32_t);
+static int (*handler_message_commit)(uint32_t, const char *);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
@@ -50,9 +50,10 @@ dispatch(void)
 	struct ibuf	*buf;
 	uint64_t	 evpid;
 	uint32_t	 msgid, version;
-	size_t		 len;
-	char		*data, buffer[8192];
+	size_t		 len, n;
+	char		*data, buffer[8192], path[SMTPD_MAXPATHLEN];
 	int		 r, fd;
+	FILE		*ifile, *ofile;
 
 	data = imsg.data;
 	len = imsg.hdr.len - IMSG_HEADER_SIZE;
@@ -81,7 +82,7 @@ dispatch(void)
 		len = sizeof(r);
 		if (r == 1)
 			len += sizeof(msgid);
-		buf = imsg_create(&ibuf, PROC_TABLE_OK, 0, 0, len);
+		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, len);
 		imsg_add(buf, &r, sizeof(r));
 		if (r == 1)
 			imsg_add(buf, &msgid, sizeof(msgid));
@@ -89,6 +90,18 @@ dispatch(void)
 		break;
 
 	case PROC_QUEUE_MESSAGE_DELETE:
+		if (len != sizeof(msgid)) {
+			log_warnx("warn: queue-api: bad message length");
+			goto fail;
+		}
+
+		memmove(&msgid, data, len);
+
+		r = handler_message_delete(msgid);
+
+		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
+		break;
+
 	case PROC_QUEUE_MESSAGE_COMMIT:
 		if (len != sizeof(msgid)) {
 			log_warnx("warn: queue-api: bad message length");
@@ -97,10 +110,32 @@ dispatch(void)
 
 		memmove(&msgid, data, len);
 
-		if (imsg.hdr.type == PROC_QUEUE_MESSAGE_DELETE)
-			r = handler_message_delete(msgid);
-		else
-			r = handler_message_commit(msgid);
+		/* XXX needs more love *
+
+		r = -1;
+
+		fd = mkstemp(path);
+		if (fd == -1) {
+			log_warn("warn: queue-api: mkstemp");
+		}
+		else {
+			ifile = fdopen(imsg.fd, "r");
+			ofile = fdopen(fd, "w");
+			if (ifile && ofile) {
+				while (!feof(ifile)) {
+					n = fread(buffer, 1, sizeof(buffer),
+					    ifile);
+					fwrite(buffer, 1, n, ofile);
+				}
+				r = handler_message_commit(msgid, path);
+			}
+			if (ifile)
+				fclose(ifile);
+			if (ofile)
+				fclose(ofile);
+		}
+
+		unlink(path);
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
 		break;
@@ -234,7 +269,7 @@ queue_api_on_message_create(int(*cb)(uint32_t *))
 }
 
 void
-queue_api_on_message_commit(int(*cb)(uint32_t))
+queue_api_on_message_commit(int(*cb)(uint32_t, const char *))
 {
 	handler_message_commit = cb;
 }

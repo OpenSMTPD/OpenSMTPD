@@ -203,7 +203,7 @@ void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 
 /* queue */
 void queue_api_on_message_create(int(*)(uint32_t *));
-void queue_api_on_message_commit(int(*)(uint32_t));
+void queue_api_on_message_commit(int(*)(uint32_t, const char*));
 void queue_api_on_message_delete(int(*)(uint32_t));
 void queue_api_on_message_fd_r(int(*)(uint32_t));
 void queue_api_on_message_corrupt(int(*)(uint32_t));
