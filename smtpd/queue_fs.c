@@ -373,6 +373,19 @@ fsqueue_check_space(void)
 		return 0;
 	}
 
+
+	/* XXX */
+	/*
+	 * Queue does not run as root so these can't be == 0.
+	 *
+	 * Also, <= 0 means "undefined for this filesystem",
+	 * the tests should be skipped. Remaining code can
+	 * cope with shortage anyway...
+	 *
+	 */
+	if (buf.f_bfree <= 0 || buf.f_ffree <= 0)
+		return 1;
+
 	used = buf.f_blocks - buf.f_bfree;
 	total = buf.f_bavail + used;
 	if (total != 0)
