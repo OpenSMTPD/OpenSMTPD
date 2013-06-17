@@ -373,14 +373,10 @@ fsqueue_check_space(void)
 		return 0;
 	}
 
-
 	/* XXX */
 	/*
-	 * Queue does not run as root so these can't be == 0.
-	 *
-	 * Also, <= 0 means "undefined for this filesystem",
-	 * the tests should be skipped. Remaining code can
-	 * cope with shortage anyway...
+	 * f_bfree and f_ffree is not set on all filesystems.
+	 * Some systems will set them to 0, others will set them to -1.
 	 *
 	 */
 	if (buf.f_bfree <= 0 || buf.f_ffree <= 0)
