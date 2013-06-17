@@ -66,6 +66,7 @@
 #define DELAY_CHECK_SOURCE_FAST 0
 #define DELAY_CHECK_LIMIT	5
 
+#define	DELAY_QUADRATIC		1
 #define DELAY_ROUTE_BASE	400
 #define DELAY_ROUTE_MAX		(3600 * 4)
 
@@ -1067,7 +1068,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 		}
 
 		if (route->penalty) {
-#if 1
+#if DELAY_QUADRATIC
 			route->penalty -= 1;
 			route->lastpenalty = time(NULL);
 #else
@@ -1095,7 +1096,7 @@ mta_route_disable(struct mta_route *route, int penalty)
 	delay = (unsigned long long)DELAY_ROUTE_BASE * route->penalty * route->penalty;
 	if (delay > DELAY_ROUTE_MAX)
 		delay = DELAY_ROUTE_MAX;
-#if 1
+#if 0
 	delay = 60;
 #endif
 
@@ -1954,7 +1955,7 @@ mta_route_unref(struct mta_route *r)
 	sched = 0;
 
 	if (r->penalty) {
-#if 1
+#if DELAY_QUADRATIC
 		delay = DELAY_ROUTE_BASE * r->penalty * r->penalty;
 #else
 		delay = 15 * 60;
