@@ -409,6 +409,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				if (u64 && route->id != u64)
 					continue;
 				mta_route_enable(route);
+				if (u64)
+					break;
 			}
 			return;
 
