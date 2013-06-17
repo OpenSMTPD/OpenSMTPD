@@ -190,6 +190,7 @@ next_message(struct imsg *imsg)
 int
 main(int argc, char *argv[])
 {
+	const char		*errstr;
 	struct parse_result	*res = NULL;
 	struct imsg		imsg;
 	struct smtpd		smtpd;
@@ -284,6 +285,17 @@ main(int argc, char *argv[])
 		break;
 	case RESUME_SMTP:
 		imsg_compose(ibuf, IMSG_CTL_RESUME_SMTP, IMSG_VERSION, 0, -1, NULL, 0);
+		break;
+	case RESUME_ROUTE:
+		if (strcasecmp(res->data, "all") == 0)
+			ulval = 0;
+		else {
+			ulval = strtonum(res->data, 1, LLONG_MAX, &errstr);
+			if (errstr)
+				errx(1, "invalid route id");
+		}
+		imsg_compose(ibuf, IMSG_CTL_RESUME_ROUTE, IMSG_VERSION, 0, -1, &ulval,
+		    sizeof ulval);
 		break;
 	case SHOW_STATS:
 		imsg_compose(ibuf, IMSG_STATS, IMSG_VERSION, 0, -1, NULL, 0);
@@ -397,6 +409,7 @@ main(int argc, char *argv[])
 		case RESUME_MDA:
 		case RESUME_MTA:
 		case RESUME_SMTP:
+		case RESUME_ROUTE:
 		case LOG_VERBOSE:
 		case LOG_BRIEF:
 		case LOG_TRACE_IMSG:

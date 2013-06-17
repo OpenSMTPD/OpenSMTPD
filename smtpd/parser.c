@@ -51,6 +51,7 @@ static const struct token t_main[];
 static const struct token t_pause[];
 static const struct token t_remove[];
 static const struct token t_resume[];
+static const struct token t_resume_route[];
 static const struct token t_schedule[];
 static const struct token t_show[];
 static const struct token t_show_envelope[];
@@ -120,6 +121,12 @@ static const struct token t_resume[] = {
 	{KEYWORD,	"mda",			RESUME_MDA,	NULL},
 	{KEYWORD,	"mta",		        RESUME_MTA,	NULL},
 	{KEYWORD,	"smtp",		        RESUME_SMTP,	NULL},
+	{KEYWORD,	"route",       	        RESUME_ROUTE,	t_resume_route},
+	{ENDTOKEN,	"",			NONE,		NULL}
+};
+
+static const struct token t_resume_route[] = {
+	{VARIABLE,	"id",			RESUME_ROUTE,	NULL},
 	{ENDTOKEN,	"",			NONE,		NULL}
 };
 

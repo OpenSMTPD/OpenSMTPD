@@ -84,6 +84,7 @@ static void mta_on_preference(struct mta_relay *, int, int);
 static void mta_on_source(struct mta_relay *, struct mta_source *);
 static void mta_on_timeout(struct runq *, void *);
 static void mta_connect(struct mta_connector *);
+static void mta_route_enable(struct mta_route *);
 static void mta_route_disable(struct mta_route *, int);
 static void mta_drain(struct mta_relay *);
 static void mta_flush(struct mta_relay *, int, const char *);
@@ -191,6 +192,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 dnserror, preference, v, status;
 	void			*iter;
+	uint64_t		 u64;
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
@@ -395,11 +397,27 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
+			
+		case IMSG_CTL_RESUME_ROUTE:
+			u64 = *((uint64_t *)imsg->data);
+			if (u64)
+				log_debug("resuming route: %llu",
+				    (unsigned long long)u64);
+			else
+				log_debug("resuming all routes");
+			SPLAY_FOREACH(route, mta_route_tree, &routes) {
+				if (u64 && route->id != u64)
+					continue;
+				mta_route_enable(route);
+			}
+			return;
+
 		case IMSG_CTL_MTA_SHOW_ROUTES:
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				v = runq_pending(runq_route, NULL, route, &t);
 				snprintf(buf, sizeof(buf),
-				    "%s %c%c%c%c nconn=%zu penalty=%i timeout=%s",
+				    "%llu. %s %c%c%c%c nconn=%zu penalty=%i timeout=%s",
+				    (unsigned long long)route->id,
 				    mta_route_to_text(route),
 				    route->flags & ROUTE_NEW ? 'N' : '-',
 				    route->flags & ROUTE_DISABLED ? 'D' : '-',
@@ -1059,23 +1077,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 	}
 	else if (runq == runq_route) {
 		route->flags &= ~ROUTE_RUNQ;
-
-		if (route->flags & ROUTE_DISABLED) {
-			log_info("smtp-out: Enabling route %s",
-			    mta_route_to_text(route));
-			route->flags &= ~ROUTE_DISABLED;
-			route->flags |= ROUTE_NEW;
-		}
-
-		if (route->penalty) {
-#if DELAY_QUADRATIC
-			route->penalty -= 1;
-			route->lastpenalty = time(NULL);
-#else
-			route->penalty = 0;
-#endif
-		}
-
+		mta_route_enable(route);
 		mta_route_unref(route);
 	}
 	else if (runq == runq_hoststat) {
@@ -1110,6 +1112,26 @@ mta_route_disable(struct mta_route *route, int penalty)
 	route->flags |= ROUTE_DISABLED;
 	runq_schedule(runq_route, time(NULL) + delay, NULL, route);
 	mta_route_ref(route);
+}
+
+static void
+mta_route_enable(struct mta_route *route)
+{
+	if (route->flags & ROUTE_DISABLED) {
+		log_info("smtp-out: Enabling route %s",
+		    mta_route_to_text(route));
+		route->flags &= ~ROUTE_DISABLED;
+		route->flags |= ROUTE_NEW;
+	}
+	
+	if (route->penalty) {
+#if DELAY_QUADRATIC
+		route->penalty -= 1;
+		route->lastpenalty = time(NULL);
+#else
+		route->penalty = 0;
+#endif
+	}
 }
 
 static void
@@ -1905,6 +1927,7 @@ static struct mta_route *
 mta_route(struct mta_source *src, struct mta_host *dst)
 {
 	struct mta_route	key, *r;
+	static uint64_t		rid = 0;
 
 	key.src = src;
 	key.dst = dst;
@@ -1915,6 +1938,7 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 		r->src = src;
 		r->dst = dst;
 		r->flags |= ROUTE_NEW;
+		r->id = ++rid;
 		SPLAY_INSERT(mta_route_tree, &routes, r);
 		mta_source_ref(src);
 		mta_host_ref(dst);
