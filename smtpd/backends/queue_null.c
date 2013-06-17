@@ -36,7 +36,7 @@ queue_null_message_create(uint32_t *msgid)
 }
 
 static int
-queue_null_message_commit(uint32_t msgid)
+queue_null_message_commit(uint32_t msgid, const char *path)
 {
 	return (1);
 }

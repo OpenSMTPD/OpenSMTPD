@@ -57,11 +57,12 @@ queue_generate_evpid(uint32_t msgid)
 }
 
 int
-mktmpfile(const char *tempdir)
+mktmpfile(void)
 {
-	char		path[SMTPD_MAXPATHLEN];
-	int		fd;
-	mode_t		omode;
+	static char	*tempdir = "/tmp";
+	char		 path[SMTPD_MAXPATHLEN];
+	int		 fd;
+	mode_t		 omode;
 
 	if (snprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX", tempdir)
 	    >= (int)sizeof(path)) {
