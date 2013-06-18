@@ -128,7 +128,7 @@ typedef struct {
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
-%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
+%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
 %token	<v.string>	STRING
@@ -372,17 +372,20 @@ main		: BOUNCEWARN {
 		| MAXMESSAGESIZE size {
 			conf->sc_maxsize = $2;
 		}
-		| LIMIT FOR DOMAIN STRING {
+		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
 
-			limits = dict_get(conf->sc_limits_dict, $4);
+			limits = dict_get(conf->sc_limits_dict, $5);
 			if (limits == NULL) {
 				limits = xcalloc(1, sizeof(*limits), "mta_limits");
-				dict_xset(conf->sc_limits_dict, $4, limits);
+				dict_xset(conf->sc_limits_dict, $5, limits);
 				d = dict_xget(conf->sc_limits_dict, "default");
 				memmove(limits, d, sizeof(*limits));
 			}
-			free($4);
+			free($5);
+		} limits
+		| LIMIT MTA {
+			limits = dict_get(conf->sc_limits_dict, "default");
 		} limits
 		| LISTEN {
 			bzero(&l, sizeof l);
@@ -1018,6 +1021,7 @@ lookup(char *s)
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
+		{ "mta",		MTA },
 		{ "on",			ON },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
