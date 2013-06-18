@@ -28,6 +28,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ioev.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/limit.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/log.c

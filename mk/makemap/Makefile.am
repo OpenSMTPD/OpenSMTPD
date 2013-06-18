@@ -19,6 +19,7 @@ makemap_SOURCES=	$(smtpd_srcdir)/parse.y
 makemap_SOURCES+=	$(smtpd_srcdir)/makemap.c
 makemap_SOURCES+=	$(smtpd_srcdir)/aliases.c
 makemap_SOURCES+=	$(smtpd_srcdir)/expand.c
+makemap_SOURCES+=	$(smtpd_srcdir)/limit.c
 makemap_SOURCES+=	$(smtpd_srcdir)/log.c
 makemap_SOURCES+=	$(smtpd_srcdir)/util.c
 makemap_SOURCES+=	$(smtpd_srcdir)/table.c
