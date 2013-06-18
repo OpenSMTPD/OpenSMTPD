@@ -110,7 +110,7 @@ dispatch(void)
 
 		memmove(&msgid, data, len);
 
-		/* XXX needs more love *
+		/* XXX needs more love */
 
 		r = -1;
 
