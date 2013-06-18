@@ -563,6 +563,8 @@ struct smtpd {
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 
+	struct dict			       *sc_limits_dict;
+
 	struct dict				sc_filters;
 	uint32_t				filtermask;
 };
@@ -697,11 +699,34 @@ struct mta_route {
 	time_t			 lastpenalty;
 };
 
+struct mta_limits {
+	size_t	maxconn_per_host;
+	size_t	maxconn_per_route;
+	size_t	maxconn_per_source;
+	size_t	maxconn_per_connector;
+	size_t	maxconn_per_relay;
+	size_t	maxconn_per_domain;
+
+	time_t	conndelay_host;
+	time_t	conndelay_route;
+	time_t	conndelay_source;
+	time_t	conndelay_connector;
+	time_t	conndelay_relay;
+	time_t	conndelay_domain;
+
+	time_t	discdelay_route;
+
+	size_t	max_mail_per_session;
+	time_t	sessdelay_transaction;
+	time_t	sessdelay_keepalive;
+};
+
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
 	uint64_t		 id;
 
 	struct mta_domain	*domain;
+	struct mta_limits	*limits;
 	int			 flags;
 	char			*backupname;
 	int			 backuppref;
@@ -712,7 +737,6 @@ struct mta_relay {
 	char			*authlabel;
 	char			*helotable;
 	char			*heloname;
-
 	char			*secret;
 
 	size_t			 ntask;
@@ -729,9 +753,10 @@ struct mta_relay {
 #define RELAY_WAIT_MX		0x01
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
-#define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAIT_CONNECTOR	0x10
-#define RELAY_WAITMASK		0x1f
+#define RELAY_WAIT_LIMITS	0x08
+#define RELAY_WAIT_SOURCE	0x10
+#define RELAY_WAIT_CONNECTOR	0x20
+#define RELAY_WAITMASK		0x3f
 	int			 status;
 
 	int			 refcount;
@@ -1121,6 +1146,9 @@ void imsgproc_set_write(struct imsgproc *);
 void imsgproc_set_read_write(struct imsgproc *);
 void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
+/* limit.c */
+void limit_mta_set_defaults(struct mta_limits *);
+int limit_mta_set(struct mta_limits *, const char*, int64_t);
 
 /* lka.c */
 pid_t lka(void);

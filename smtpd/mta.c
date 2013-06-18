@@ -44,23 +44,6 @@
 
 #define MAXERROR_PER_HOST	4
 
-#define MAXCONN_PER_HOST	10
-#define MAXCONN_PER_ROUTE	5
-#define MAXCONN_PER_SOURCE	50
-#define MAXCONN_PER_CONNECTOR	20
-#define MAXCONN_PER_RELAY	100
-#define MAXCONN_PER_DOMAIN	100
-
-#define CONNDELAY_HOST		0
-#define CONNDELAY_ROUTE		5
-#define DISCDELAY_ROUTE		3
-#define CONNDELAY_SOURCE	0
-#define CONNDELAY_CONNECTOR	0
-#define CONNDELAY_RELAY		2
-#define CONNDELAY_DOMAIN	0
-
-
-
 #define DELAY_CHECK_SOURCE	1
 #define DELAY_CHECK_SOURCE_SLOW	10
 #define DELAY_CHECK_SOURCE_FAST 0
@@ -154,6 +137,9 @@ static struct runq *runq_relay;
 static struct runq *runq_connector;
 static struct runq *runq_route;
 static struct runq *runq_hoststat;
+
+static time_t	max_seen_conndelay_route;
+static time_t	max_seen_discdelay_route;
 
 #define	HOSTSTAT_EXPIRE_DELAY	(4 * 3600)
 struct hoststat {
@@ -728,6 +714,22 @@ mta_query_mx(struct mta_relay *relay)
 }
 
 static void
+mta_query_limits(struct mta_relay *relay)
+{
+	if (relay->status & RELAY_WAIT_LIMITS)
+		return;
+
+	relay->limits = dict_get(env->sc_limits_dict, relay->domain->name);
+	if (relay->limits == NULL)
+		relay->limits = dict_get(env->sc_limits_dict, "default");
+
+	if (max_seen_conndelay_route < relay->limits->conndelay_route)
+		max_seen_conndelay_route = relay->limits->conndelay_route;
+	if (max_seen_discdelay_route < relay->limits->discdelay_route)
+		max_seen_discdelay_route = relay->limits->discdelay_route;
+}
+
+static void
 mta_query_secret(struct mta_relay *relay)
 {
 	if (relay->status & RELAY_WAIT_SECRET)
@@ -923,6 +925,7 @@ static void
 mta_connect(struct mta_connector *c)
 {
 	struct mta_route	*route;
+	struct mta_limits	*l = c->relay->limits;
 	int			 limits;
 	time_t			 nextconn, now;
 
@@ -957,46 +960,46 @@ mta_connect(struct mta_connector *c)
 	limits = 0;
 	nextconn = now = time(NULL);
 
-	if (c->source->lastconn + CONNDELAY_DOMAIN > nextconn) {
+	if (c->relay->domain->lastconn + l->conndelay_domain > nextconn) {
 		log_debug("debug: mta: cannot use domain %s before %llus",
 		    c->relay->domain->name,
-		    (unsigned long long) c->relay->domain->lastconn + CONNDELAY_DOMAIN - now);
-		nextconn = c->relay->domain->lastconn + CONNDELAY_DOMAIN;
+		    (unsigned long long) c->relay->domain->lastconn + l->conndelay_domain - now);
+		nextconn = c->relay->domain->lastconn + l->conndelay_domain;
 	}
-	if (c->relay->domain->nconn >= MAXCONN_PER_DOMAIN) {
+	if (c->relay->domain->nconn >= l->maxconn_per_domain) {
 		log_debug("debug: mta: hit domain limit");
 		limits |= CONNECTOR_LIMIT_DOMAIN;
 	}
 
-	if (c->source->lastconn + CONNDELAY_SOURCE > nextconn) {
+	if (c->source->lastconn + l->conndelay_source > nextconn) {
 		log_debug("debug: mta: cannot use source %s before %llus",
 		    mta_source_to_text(c->source),
-		    (unsigned long long) c->source->lastconn + CONNDELAY_SOURCE - now);
-		nextconn = c->source->lastconn + CONNDELAY_SOURCE;
+		    (unsigned long long) c->source->lastconn + l->conndelay_source - now);
+		nextconn = c->source->lastconn + l->conndelay_source;
 	}
-	if (c->source->nconn >= MAXCONN_PER_SOURCE) {
+	if (c->source->nconn >= l->maxconn_per_source) {
 		log_debug("debug: mta: hit source limit");
 		limits |= CONNECTOR_LIMIT_SOURCE;
 	}
 
-	if (c->lastconn + CONNDELAY_CONNECTOR > nextconn) {
+	if (c->lastconn + l->conndelay_connector > nextconn) {
 		log_debug("debug: mta: cannot use %s before %llus",
 		    mta_connector_to_text(c),
-		    (unsigned long long) c->lastconn + CONNDELAY_CONNECTOR - now);
-		nextconn = c->lastconn + CONNDELAY_CONNECTOR;
+		    (unsigned long long) c->lastconn + l->conndelay_connector - now);
+		nextconn = c->lastconn + l->conndelay_connector;
 	}
-	if (c->nconn >= MAXCONN_PER_CONNECTOR) {
+	if (c->nconn >= l->maxconn_per_connector) {
 		log_debug("debug: mta: hit connector limit");
 		limits |= CONNECTOR_LIMIT_CONN;
 	}
 
-	if (c->relay->lastconn + CONNDELAY_RELAY > nextconn) {
+	if (c->relay->lastconn + l->conndelay_relay > nextconn) {
 		log_debug("debug: mta: cannot use %s before %llus",
 		    mta_relay_to_text(c->relay),
-		    (unsigned long long) c->relay->lastconn + CONNDELAY_RELAY - now);
-		nextconn = c->relay->lastconn + CONNDELAY_RELAY;
+		    (unsigned long long) c->relay->lastconn + l->conndelay_relay - now);
+		nextconn = c->relay->lastconn + l->conndelay_relay;
 	}
-	if (c->relay->nconn >= MAXCONN_PER_RELAY) {
+	if (c->relay->nconn >= l->maxconn_per_relay) {
 		log_debug("debug: mta: hit relay limit");
 		limits |= CONNECTOR_LIMIT_RELAY;
 	}
@@ -1174,6 +1177,10 @@ mta_drain(struct mta_relay *r)
 	if (r->domain->lastmxquery == 0)
 		mta_query_mx(r);
 
+	/* Query the limits if needed. */
+	if (r->limits == NULL)
+		mta_query_limits(r);
+
 	/* Wait until we are ready to proceed. */
 	if (r->status & RELAY_WAITMASK) {
 		buf[0] = '\0';
@@ -1271,6 +1278,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
     time_t *nextconn)
 {
 	struct mta_route	*route, *best;
+	struct mta_limits	*l = c->relay->limits;
 	struct mta_mx		*mx;
 	int			 level, limit_host, limit_route;
 	int			 family_mismatch, seen, suspended_route;
@@ -1337,19 +1345,19 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 			continue;
 		}
 
-		if (mx->host->nconn >= MAXCONN_PER_HOST) {
+		if (mx->host->nconn >= l->maxconn_per_host) {
 			log_debug("debug: mta-routing: skipping host %s: too many connections",
 			    mta_host_to_text(mx->host));
 			limit_host = 1;
 			continue;
 		}
 
-		if (mx->host->lastconn + CONNDELAY_HOST > now) {
+		if (mx->host->lastconn + l->conndelay_host > now) {
 			log_debug("debug: mta-routing: skipping host %s: cannot use before %llus",
 			    mta_host_to_text(mx->host),
-			    (unsigned long long) mx->host->lastconn + CONNDELAY_HOST - now);
-			if (tm == 0 || mx->host->lastconn + CONNDELAY_HOST < tm)
-				tm = mx->host->lastconn + CONNDELAY_HOST;
+			    (unsigned long long) mx->host->lastconn + l->conndelay_host - now);
+			if (tm == 0 || mx->host->lastconn + l->conndelay_host < tm)
+				tm = mx->host->lastconn + l->conndelay_host;
 			continue;
 		}
 
@@ -1371,7 +1379,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 			continue;
 		}
 
-		if (route->nconn >= MAXCONN_PER_ROUTE) {
+		if (route->nconn >= l->maxconn_per_route) {
 			log_debug("debug: mta-routing: skipping route %s: too many connections",
 			    mta_route_to_text(route));
 			limit_route = 1;
@@ -1379,22 +1387,22 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 			continue;
 		}
 
-		if (route->lastconn + CONNDELAY_ROUTE > now) {
+		if (route->lastconn + l->conndelay_route > now) {
 			log_debug("debug: mta-routing: skipping route %s: cannot use before %llus (delay after connect)",
 			    mta_route_to_text(route),
-			    (unsigned long long) route->lastconn + CONNDELAY_ROUTE - now);
-			if (tm == 0 || route->lastconn + CONNDELAY_ROUTE < tm)
-				tm = route->lastconn + CONNDELAY_ROUTE;
+			    (unsigned long long) route->lastconn + l->conndelay_route - now);
+			if (tm == 0 || route->lastconn + l->conndelay_route < tm)
+				tm = route->lastconn + l->conndelay_route;
 			mta_route_unref(route); /* from here */
 			continue;
 		}
 
-		if (route->lastdisc + DISCDELAY_ROUTE > now) {
+		if (route->lastdisc + l->discdelay_route > now) {
 			log_debug("debug: mta-routing: skipping route %s: cannot use before %llus (delay after disconnect)",
 			    mta_route_to_text(route),
-			    (unsigned long long) route->lastdisc + DISCDELAY_ROUTE - now);
-			if (tm == 0 || route->lastdisc + DISCDELAY_ROUTE < tm)
-				tm = route->lastdisc + DISCDELAY_ROUTE;
+			    (unsigned long long) route->lastdisc + l->discdelay_route - now);
+			if (tm == 0 || route->lastdisc + l->discdelay_route < tm)
+				tm = route->lastdisc + l->discdelay_route;
 			mta_route_unref(route); /* from here */
 			continue;
 		}
@@ -1992,11 +2000,11 @@ mta_route_unref(struct mta_route *r)
 		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (penalty %i)",
 		    mta_route_to_text(r), (unsigned long long) sched - now, r->penalty);
 	} else if (!(r->flags & ROUTE_KEEPALIVE)) {
-		if (r->lastconn + CONNDELAY_ROUTE > now)
-			sched = r->lastconn + CONNDELAY_ROUTE;
-		if (r->lastdisc + DISCDELAY_ROUTE > now &&
-		    r->lastdisc + DISCDELAY_ROUTE < sched)
-			sched = r->lastdisc + DISCDELAY_ROUTE;
+		if (r->lastconn + max_seen_conndelay_route > now)
+			sched = r->lastconn + max_seen_conndelay_route;
+		if (r->lastdisc + max_seen_discdelay_route > now &&
+		    r->lastdisc + max_seen_discdelay_route < sched)
+			sched = r->lastdisc + max_seen_discdelay_route;
 
 		if (sched > now)
 			log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (imposed delay)",
