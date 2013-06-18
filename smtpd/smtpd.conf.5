@@ -656,7 +656,7 @@ In this second example,
 the aim is to permit mail relaying for any user that can authenticate
 using their normal login credentials.
 An RSA certificate must be provided to prove the server's identity.
-The mail server has an external interface bnx0.
+The mail server listens on all interfaces the default route(s) point to.
 Mail with a local destination should be sent to an external mda.
 First, the RSA certificate is created:
 .Bd -literal -offset indent

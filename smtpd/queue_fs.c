@@ -378,6 +378,15 @@ fsqueue_check_space(void)
 		return 0;
 	}
 
+	/*
+	 * f_bfree and f_ffree is not set on all filesystems.
+	 * They could be signed or unsigned integers.
+	 * Some systems will set them to 0, others will set them to -1.
+	 */
+	if (buf.f_bfree == 0 || buf.f_ffree == 0 ||
+	    buf.f_bfree == -1 || buf.f_ffree == -1)
+		return 1;
+
 	used = buf.f_blocks - buf.f_bfree;
 	total = buf.f_bavail + used;
 	if (total != 0)
