@@ -88,8 +88,6 @@
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
-#define PATH_INCOMING		"/incoming"
-#define PATH_MESSAGE		"/message"
 
 #ifndef	PATH_FILTERS
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
@@ -178,7 +176,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		3
+#define	IMSG_VERSION		4
 
 enum imsg_type {
 	IMSG_NONE,
@@ -192,6 +190,7 @@ enum imsg_type {
 	IMSG_CTL_RESUME_MDA,
 	IMSG_CTL_RESUME_MTA,
 	IMSG_CTL_RESUME_SMTP,
+	IMSG_CTL_RESUME_ROUTE,
 	IMSG_CTL_LIST_MESSAGES,
 	IMSG_CTL_LIST_ENVELOPES,
 	IMSG_CTL_REMOVE,
@@ -590,6 +589,8 @@ struct smtpd {
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 
+	struct dict			       *sc_limits_dict;
+
 	struct dict				sc_filters;
 	uint32_t				filtermask;
 };
@@ -708,6 +709,7 @@ struct mta_connector {
 
 struct mta_route {
 	SPLAY_ENTRY(mta_route)	 entry;
+	uint64_t		 id;
 	struct mta_source	*src;
 	struct mta_host		*dst;
 #define ROUTE_NEW		0x01
@@ -723,11 +725,34 @@ struct mta_route {
 	time_t			 lastpenalty;
 };
 
+struct mta_limits {
+	size_t	maxconn_per_host;
+	size_t	maxconn_per_route;
+	size_t	maxconn_per_source;
+	size_t	maxconn_per_connector;
+	size_t	maxconn_per_relay;
+	size_t	maxconn_per_domain;
+
+	time_t	conndelay_host;
+	time_t	conndelay_route;
+	time_t	conndelay_source;
+	time_t	conndelay_connector;
+	time_t	conndelay_relay;
+	time_t	conndelay_domain;
+
+	time_t	discdelay_route;
+
+	size_t	max_mail_per_session;
+	time_t	sessdelay_transaction;
+	time_t	sessdelay_keepalive;
+};
+
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
 	uint64_t		 id;
 
 	struct mta_domain	*domain;
+	struct mta_limits	*limits;
 	int			 flags;
 	char			*backupname;
 	int			 backuppref;
@@ -738,7 +763,6 @@ struct mta_relay {
 	char			*authlabel;
 	char			*helotable;
 	char			*heloname;
-
 	char			*secret;
 
 	size_t			 ntask;
@@ -755,9 +779,10 @@ struct mta_relay {
 #define RELAY_WAIT_MX		0x01
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
-#define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAIT_CONNECTOR	0x10
-#define RELAY_WAITMASK		0x1f
+#define RELAY_WAIT_LIMITS	0x08
+#define RELAY_WAIT_SOURCE	0x10
+#define RELAY_WAIT_CONNECTOR	0x20
+#define RELAY_WAITMASK		0x3f
 	int			 status;
 
 	int			 refcount;
@@ -1147,6 +1172,9 @@ void imsgproc_set_write(struct imsgproc *);
 void imsgproc_set_read_write(struct imsgproc *);
 void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
+/* limit.c */
+void limit_mta_set_defaults(struct mta_limits *);
+int limit_mta_set(struct mta_limits *, const char*, int64_t);
 
 /* lka.c */
 pid_t lka(void);
@@ -1258,7 +1286,6 @@ void queue_flow_control(void);
 uint32_t queue_generate_msgid(void);
 uint64_t queue_generate_evpid(uint32_t);
 int queue_init(const char *, int);
-int queue_message_incoming_path(uint32_t, char *, size_t);
 int queue_message_create(uint32_t *);
 int queue_message_delete(uint32_t);
 int queue_message_commit(uint32_t);

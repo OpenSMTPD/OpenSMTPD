@@ -33,7 +33,7 @@ queue_stub_message_create(uint32_t *msgid)
 }
 
 static int
-queue_stub_message_commit(uint32_t msgid)
+queue_stub_message_commit(uint32_t msgid, const char * path)
 {
 	return (0);
 }

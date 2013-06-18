@@ -47,12 +47,9 @@
 #include "log.h"
 #include "ssl.h"
 
-#define MAX_MAIL		100
 #define MAX_TRYBEFOREDISABLE	10
 
 #define MTA_HIWAT		65535
-
-#define MTA_DELAY_HANGON	10
 
 enum mta_state {
 	MTA_INIT,
@@ -119,9 +116,9 @@ struct mta_session {
 	struct io		 io;
 	int			 ext;
 
-	int			 msgtried;
-	int			 msgcount;
-	int			 rcptcount;
+	size_t			 msgtried;
+	size_t			 msgcount;
+	size_t			 rcptcount;
 	int			 hangon;
 
 	enum mta_state		 state;
@@ -654,7 +651,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			break;
 		}
 
-		if (s->msgcount >= MAX_MAIL) {
+		if (s->msgcount >= s->relay->limits->max_mail_per_session) {
 			log_debug("debug: mta: "
 			    "%p: cannot send more message to relay %s", s,
 			    mta_relay_to_text(s->relay));
@@ -693,7 +690,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
-		s->hangon = MTA_DELAY_HANGON;
+		s->hangon = s->relay->limits->sessdelay_keepalive;
 		s->msgtried++;
 		mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
@@ -969,7 +966,17 @@ mta_response(struct mta_session *s, char *line)
 			mta_enter_state(s, MTA_LMTP_EOM);
 		} else {
 			s->rcptcount = 0;
-			mta_enter_state(s, MTA_READY);
+			if (s->relay->limits->sessdelay_transaction) {
+				log_debug("debug: mta: waiting for %llis before next transaction",
+				    (long long int)s->relay->limits->sessdelay_transaction);
+				s->hangon = 1;
+				s->flags |= MTA_HANGON;
+				runq_schedule(hangon, time(NULL)
+				    + s->relay->limits->sessdelay_transaction,
+				    NULL, s);
+			}
+			else
+				mta_enter_state(s, MTA_READY);
 		}
 		break;
 
@@ -1071,7 +1078,7 @@ mta_io(struct io *io, int evt)
 
 		if (s->state == MTA_QUIT) {
 			log_info("smtp-out: Closing session %016"PRIx64
-			    ": %i message%s sent.", s->id, s->msgcount,
+			    ": %zu message%s sent.", s->id, s->msgcount,
 			    (s->msgcount > 1) ? "s" : "");
 			mta_free(s);
 			return;
@@ -1298,7 +1305,7 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 
 	if (s->msgcount)
 		log_info("smtp-out: Error on session %016"PRIx64
-		    " after %i message%s sent: %s", s->id, s->msgcount,
+		    " after %zu message%s sent: %s", s->id, s->msgcount,
 		    (s->msgcount > 1) ? "s" : "", error);
 	else
 		log_info("smtp-out: Error on session %016"PRIx64 ": %s",

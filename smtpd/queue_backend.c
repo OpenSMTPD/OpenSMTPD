@@ -59,7 +59,7 @@ static struct evplst		evpcache_list;
 static struct queue_backend	*backend;
 
 static int (*handler_message_create)(uint32_t *);
-static int (*handler_message_commit)(uint32_t);
+static int (*handler_message_commit)(uint32_t, const char*);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
@@ -103,12 +103,10 @@ static inline void profile_leave(void)
 #define profile_leave()		do {} while (0)
 #endif
 
-int
-queue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
+static int
+queue_message_path(uint32_t msgid, char *buf, size_t len)
 {
-	return bsnprintf(buf, len, "%s/%08x",
-	    PATH_INCOMING,
-	    msgid);
+	return bsnprintf(buf, len, "%s/%08"PRIx32, PATH_TEMPORARY, msgid);
 }
 
 int
@@ -159,11 +157,16 @@ queue_message_create(uint32_t *msgid)
 int
 queue_message_delete(uint32_t msgid)
 {
+	char	msgpath[MAXPATHLEN];
 	int	r;
 
 	profile_enter("queue_message_delete");
 	r = handler_message_delete(msgid);
 	profile_leave();
+
+	/* in case the emessage is incoming */
+	queue_message_path(msgid, msgpath, sizeof(msgpath));
+	unlink(msgpath);
 
 	log_trace(TRACE_QUEUE,
 	    "queue-backend: queue_message_delete(%08"PRIx32") -> %i", msgid, r);
@@ -181,8 +184,8 @@ queue_message_commit(uint32_t msgid)
 	FILE	*ofp = NULL;
 
 	profile_enter("queue_message_commit");
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+
+	queue_message_path(msgid, msgpath, sizeof(msgpath));
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		bsnprintf(tmppath, sizeof tmppath, "%s.comp", msgpath);
@@ -230,8 +233,11 @@ queue_message_commit(uint32_t msgid)
 	}
 #endif
 
-	r = handler_message_commit(msgid);
+	r = handler_message_commit(msgid, msgpath);
 	profile_leave();
+
+	/* in case it's not done by the backend */
+	unlink(msgpath);
 
 	log_trace(TRACE_QUEUE,
 	    "queue-backend: queue_message_commit(%08"PRIx32") -> %i",
@@ -340,12 +346,11 @@ err:
 int
 queue_message_fd_rw(uint32_t msgid)
 {
-	char msgpath[SMTPD_MAXPATHLEN];
+	char buf[SMTPD_MAXPATHLEN];
 
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+	queue_message_path(msgid, buf, sizeof(buf));
 
-	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
+	return open(buf, O_RDWR | O_CREAT | O_EXCL, 0600);
 }
 
 static int
@@ -682,7 +687,7 @@ queue_api_on_message_create(int(*cb)(uint32_t *))
 }
 
 void
-queue_api_on_message_commit(int(*cb)(uint32_t))
+queue_api_on_message_commit(int(*cb)(uint32_t, const char *))
 {
 	handler_message_commit = cb;
 }

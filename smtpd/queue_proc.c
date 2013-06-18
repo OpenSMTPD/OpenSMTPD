@@ -92,7 +92,7 @@ queue_proc_message_create(uint32_t *msgid)
 }
 
 static int
-queue_proc_message_commit(uint32_t msgid)
+queue_proc_message_commit(uint32_t msgid, const char *path)
 {
 	int	r;
 
