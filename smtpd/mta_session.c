@@ -449,7 +449,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 	log_debug("mta: timeout for session hangon");
 
 	s->flags &= ~MTA_HANGON;
-	s->hangon--;
+	s->hangon++;
 
 	mta_enter_state(s, MTA_READY);
 	io_reload(&s->io);
@@ -664,12 +664,14 @@ mta_enter_state(struct mta_session *s, int newstate)
 			log_debug("debug: mta: %p: no task for relay %s",
 			    s, mta_relay_to_text(s->relay));
 
-			if (s->relay->nconn > 1 || s->hangon == 0) {
+			if (s->relay->nconn > 1 ||
+			    s->hangon >= s->relay->limits->sessdelay_keepalive) {
 				mta_enter_state(s, MTA_QUIT);
 				break;
 			}
 
-			log_debug("mta: debug: last connection: hanging on for %is", s->hangon);
+			log_debug("mta: debug: last connection: hanging on for %is",
+			    s->relay->limits->sessdelay_keepalive - s->hangon);
 			s->flags |= MTA_HANGON;
 			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
@@ -690,7 +692,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
-		s->hangon = s->relay->limits->sessdelay_keepalive;
+		s->hangon = 0;
 		s->msgtried++;
 		mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
@@ -969,7 +971,7 @@ mta_response(struct mta_session *s, char *line)
 			if (s->relay->limits->sessdelay_transaction) {
 				log_debug("debug: mta: waiting for %llis before next transaction",
 				    (long long int)s->relay->limits->sessdelay_transaction);
-				s->hangon = 1;
+				s->hangon = s->relay->limits->sessdelay_transaction -1;
 				s->flags |= MTA_HANGON;
 				runq_schedule(hangon, time(NULL)
 				    + s->relay->limits->sessdelay_transaction,
