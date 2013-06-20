@@ -563,8 +563,10 @@ queue(void)
 		env->sc_pw = env->sc_pwqueue;
 	}
 
+#if 0
 	env->sc_queue_flags |= QUEUE_EVPCACHE;
 	env->sc_queue_evpcache_size = 1024;
+#endif
 
 	pw = env->sc_pw;
 	if (chroot(PATH_SPOOL) == -1)

@@ -623,7 +623,7 @@ alias		: ALIAS tables			{
 virtual		: VIRTUAL tables		{
 			struct table   *t = $2;
 
-			if (! table_check_service(t, K_ALIAS)) {
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
 				yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
 				    t->t_name);
 				YYERROR;
