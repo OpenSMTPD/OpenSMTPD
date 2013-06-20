@@ -31,6 +31,7 @@ SRCS+=		queue_proc.c
 SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		scheduler_null.c
+SRCS+=		scheduler_proc.c
 SRCS+=		stat_ramstat.c
 
 .ifdef NEED_ASR
