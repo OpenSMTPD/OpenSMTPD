@@ -41,10 +41,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void queue_proc_call(void);
-static void queue_proc_read(void *, size_t);
-static void queue_proc_end(void);
-
 static pid_t		 pid;
 static struct imsgbuf	 ibuf;
 static struct imsg	 imsg;
@@ -52,6 +48,73 @@ static size_t		 rlen;
 static char		*rdata;
 
 static const char *execpath = "/usr/libexec/smtpd/backend-queue";
+
+static void
+queue_proc_call(void)
+{
+	ssize_t	n;
+
+	if (imsg_flush(&ibuf) == -1) {
+		log_warn("warn: queue-proc: imsg_flush");
+		fatalx("queue-proc: exiting");
+	}
+
+	while (1) {
+		if ((n = imsg_get(&ibuf, &imsg)) == -1) {
+			log_warn("warn: queue-proc: imsg_get");
+			break;
+		}
+		if (n) {
+			rlen = imsg.hdr.len - IMSG_HEADER_SIZE;
+			rdata = imsg.data;
+
+			if (imsg.hdr.type != PROC_QUEUE_OK) {
+				log_warnx("warn: queue-proc: bad response");
+				break;
+			}
+			return;
+		}
+
+		if ((n = imsg_read(&ibuf)) == -1) {
+			log_warn("warn: queue-proc: imsg_read");
+			break;
+		}
+
+		if (n == 0) {
+			log_warnx("warn: queue-proc: pipe closed");
+			break;
+		}
+	}
+
+	fatalx("queue-proc: exiting");
+}
+
+static void
+queue_proc_read(void *dst, size_t len)
+{
+	if (len > rlen) {
+		log_warnx("warn: queue-proc: bad msg len");
+		fatalx("queue-proc: exiting");
+	}
+
+	memmove(dst, rdata, len);
+	rlen -= len;
+	rdata += len;
+}
+
+static void
+queue_proc_end(void)
+{
+	if (rlen) {
+		log_warnx("warn: queue-proc: bogus data");
+		fatalx("queue-proc: exiting");
+	}
+	imsg_free(&imsg);
+}
+
+/*
+ * API
+ */
 
 static int
 queue_proc_message_create(uint32_t *msgid)
@@ -238,69 +301,6 @@ queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 	queue_proc_end();
 
 	return (r);
-}
-
-static void
-queue_proc_call()
-{
-	ssize_t	n;
-
-	if (imsg_flush(&ibuf) == -1) {
-		log_warn("warn: queue-proc: imsg_flush");
-		fatalx("queue-proc: exiting");
-	}
-
-	while (1) {
-		if ((n = imsg_get(&ibuf, &imsg)) == -1) {
-			log_warn("warn: queue-proc: imsg_get");
-			break;
-		}
-		if (n) {
-			rlen = imsg.hdr.len - IMSG_HEADER_SIZE;
-			rdata = imsg.data;
-
-			if (imsg.hdr.type != PROC_QUEUE_OK) {
-				log_warnx("warn: queue-proc: bad response");
-				break;
-			}
-			return;
-		}
-
-		if ((n = imsg_read(&ibuf)) == -1) {
-			log_warn("warn: queue-proc: imsg_read");
-			break;
-		}
-
-		if (n == 0) {
-			log_warnx("warn: queue-proc: pipe closed");
-			break;
-		}
-	}
-
-	fatalx("queue-proc: exiting");
-}
-
-static void
-queue_proc_read(void *dst, size_t len)
-{
-	if (len > rlen) {
-		log_warnx("warn: queue-proc: bad msg len");
-		fatalx("queue-proc: exiting");
-	}
-
-	memmove(dst, rdata, len);
-	rlen -= len;
-	rdata += len;
-}
-
-static void
-queue_proc_end(void)
-{
-	if (rlen) {
-		log_warnx("warn: queue-proc: bogus data");
-		fatalx("queue-proc: exiting");
-	}
-	imsg_free(&imsg);
 }
 
 static int
