@@ -4,6 +4,9 @@ pkglibexec_PROGRAMS=	backend-queue-null
 pkglibexec_PROGRAMS+=	backend-queue-ram
 pkglibexec_PROGRAMS+=	backend-queue-stub
 
+pkglibexec_PROGRAMS+=	backend-scheduler-ram
+pkglibexec_PROGRAMS+=	backend-scheduler-stub
+
 if HAVE_LDAP
 pkglibexec_PROGRAMS+=	backend-table-ldap
 endif
@@ -30,10 +33,11 @@ QUEUE_SRCS=		$(smtpd_srcdir)/log.c
 QUEUE_SRCS+=		$(backends_srcdir)/queue_utils.c
 QUEUE_SRCS+=		$(smtpd_srcdir)/queue_api.c
 
+SCHEDULER_SRCS=		$(smtpd_srcdir)/log.c
+SCHEDULER_SRCS+=	$(smtpd_srcdir)/scheduler_api.c
 
 TABLE_SRCS=		$(smtpd_srcdir)/log.c
 TABLE_SRCS+=		$(smtpd_srcdir)/table_api.c
-
 
 # queue backends
 #
@@ -48,6 +52,15 @@ backend_queue_ram_SOURCES+=	$(smtpd_srcdir)/tree.c
 backend_queue_stub_SOURCES=	$(QUEUE_SRCS)
 backend_queue_stub_SOURCES+=	$(backends_srcdir)/queue_stub.c
 
+# scheduler backends
+#
+
+backend_scheduler_ram_SOURCES=	$(SCHEDULER_SRCS)
+backend_scheduler_ram_SOURCES+=	$(backends_srcdir)/scheduler_ram.c
+backend_scheduler_ram_SOURCES+=	$(smtpd_srcdir)/tree.c
+
+backend_scheduler_stub_SOURCES=	$(SCHEDULER_SRCS)
+backend_scheduler_stub_SOURCES+=$(backends_srcdir)/scheduler_stub.c
 
 # table backends
 #

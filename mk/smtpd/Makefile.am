@@ -76,8 +76,9 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/queue_fs.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue_null.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue_proc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue_ram.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_ramqueue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_null.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_proc.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_ramqueue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 
 # resolver
