@@ -460,8 +460,6 @@ fsqueue_envelope_dump(char *dest, const char *evpbuf, size_t evplen,
 	size_t		w;
 
 	if ((fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
-		if (errno == EEXIST)
-			return -1;
 		log_warn("warn: queue-fs: open");
 		goto tempfail;
 	}

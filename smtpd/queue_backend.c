@@ -164,7 +164,7 @@ queue_message_delete(uint32_t msgid)
 	r = handler_message_delete(msgid);
 	profile_leave();
 
-	/* in case the emessage is incoming */
+	/* in case the message is incoming */
 	queue_message_path(msgid, msgpath, sizeof(msgpath));
 	unlink(msgpath);
 

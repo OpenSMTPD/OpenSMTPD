@@ -43,309 +43,22 @@
 #include "smtpd.h"
 #include "log.h"
 
-static int queue_proc_call(size_t);
-
-static int		 running;
 static pid_t		 pid;
 static struct imsgbuf	 ibuf;
 static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 
-static const char *path = "/usr/libexec/smtpd/backend-queue";
+static const char *execpath = "/usr/libexec/smtpd/backend-queue";
 
-
-static int
-queue_proc_message_create(uint32_t *msgid)
-{
-	int	r;
-
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_CREATE, 0, 0, -1, NULL, 0);
-
-	if (!queue_proc_call(-1))
-		return (0);
-	if (rlen < sizeof(r)) {
-		return (0);
-	}
-	memmove(&r, rdata, sizeof(r));
-	rdata += sizeof(r);
-	rlen -= sizeof(r);
-	if (r != 1) {
-		if (rlen)
-			log_warnx("warn: queue-proc: bogus data");
-		return (r);
-	}
-
-	if (rlen < sizeof(*msgid)) {
-		return (0);
-	}
-	memmove(msgid, rdata, sizeof(*msgid));
-	rdata += sizeof(*msgid);
-	rlen -= sizeof(*msgid);
-	if (rlen)
-		log_warnx("warn: queue-proc: bogus data");
-
-	return (r);
-}
-
-static int
-queue_proc_message_commit(uint32_t msgid, const char *path)
-{
-	int	r;
-
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_COMMIT, 0, 0, -1, &msgid,
-	    sizeof(msgid));
-
-	if (!queue_proc_call(sizeof(r)))
-		return (0);
-
-	memmove(&r, rdata, sizeof(r));
-
-	return (r);
-}
-
-static int
-queue_proc_message_delete(uint32_t msgid)
-{
-	int	r;
-
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_DELETE, 0, 0, -1, &msgid,
-	    sizeof(msgid));
-
-	if (!queue_proc_call(sizeof(r)))
-		return (0);
-
-	memmove(&r, rdata, sizeof(r));
-
-	return (r);
-}
-
-static int
-queue_proc_message_fd_r(uint32_t msgid)
-{
-	if (!running)
-		return (-1);
-
-	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_FD_R, 0, 0, -1, &msgid,
-	    sizeof(msgid));
-
-	if (!queue_proc_call(0))
-		return (-1);
-
-	return (imsg.fd);
-}
-
-static int
-queue_proc_message_corrupt(uint32_t msgid)
-{
-	int	r;
-
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_CORRUPT, 0, 0, -1, &msgid,
-	    sizeof(msgid));
-
-	if (!queue_proc_call(sizeof(r)))
-		return (0);
-
-	memmove(&r, rdata, sizeof(r));
-
-	return (r);
-}
-
-static int
-queue_proc_envelope_create(uint32_t msgid, const char *buf, size_t len,
-    uint64_t *evpid)
-{
-	struct ibuf	*b;
-	int		 r;
-
-	if (!running)
-		return (0);
-
-	msgid = evpid_to_msgid(*evpid);
-	b = imsg_create(&ibuf, PROC_QUEUE_ENVELOPE_CREATE, 0, 0,
-	    sizeof(msgid) + len);
-	if (imsg_add(b, &msgid, sizeof(msgid)) == -1 ||
-	    imsg_add(b, buf, len) == -1)
-		return (0);
-	imsg_close(&ibuf, b);
-
-	if (!queue_proc_call(-1))
-		return (0);
-
-	if (rlen < sizeof(r)) {
-		log_warnx("warn: queue-proc: XXX");
-		imsg_free(&imsg);
-		return (0);
-	}
-
-	memmove(&r, rdata, sizeof(r));
-	rdata += sizeof(r);
-	rlen -= sizeof(r);
-	if (r != 1) {
-		if (rlen)
-			log_warnx("warn: queue-proc: bogus data");
-		imsg_free(&imsg);
-		return (r);
-	}
-	if (rlen < sizeof(*evpid)) {
-		log_warnx("warn: queue-proc: bogus data");
-		imsg_free(&imsg);
-		return (0);
-	}
-
-	memmove(evpid, rdata, sizeof(*evpid));
-	rdata += sizeof(*evpid);
-	rlen -= sizeof(*evpid);
-	if (rlen)
-		log_warnx("warn: queue-proc: bogus data");
-	imsg_free(&imsg);
-
-	return (r);
-}
-
-static int
-queue_proc_envelope_delete(uint64_t evpid)
-{
-	int	r;
-
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_ENVELOPE_DELETE, 0, 0, -1, &evpid,
-	    sizeof(evpid));
-
-	if (! queue_proc_call(sizeof(r)))
-		return (0);
-
-	memmove(&r, rdata, sizeof(r));
-
-	imsg_free(&imsg);
-
-	return (r);
-}
-
-static int
-queue_proc_envelope_update(uint64_t evpid, const char *buf, size_t len)
-{
-	struct ibuf	*b;
-	int		 r;
-
-	if (!running)
-		return (0);
-
-	b = imsg_create(&ibuf, PROC_QUEUE_ENVELOPE_UPDATE, 0, 0,
-	    len + sizeof(evpid));
-	if (imsg_add(b, &evpid, sizeof(evpid)) == -1 ||
-	    imsg_add(b, buf, len) == -1)
-		return (0);
-	imsg_close(&ibuf, b);
-
-	if  (!queue_proc_call(sizeof(r)))
-		return (0);
-
-	memmove(&r, rdata, sizeof(r));
-
-	imsg_free(&imsg);
-
-	return (r);
-}
-
-static int
-queue_proc_envelope_load(uint64_t evpid, char *buf, size_t len)
-{
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_ENVELOPE_LOAD, 0, 0, -1, &evpid,
-	    sizeof(evpid));
-
-	if (!queue_proc_call(-1))
-		return (0);
-
-	if (rlen > len) {
-		log_warnx("warn: queue-proc: buf too small");
-		memmove(buf, rdata, len);
-	}
-	else
-		memmove(buf, rdata, rlen);
-
-	imsg_free(&imsg);
-
-	return (rlen);
-}
-
-static int
-queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
-{
-	int	r;
-
-	if (!running)
-		return (0);
-
-	imsg_compose(&ibuf, PROC_QUEUE_ENVELOPE_WALK, 0, 0, -1, NULL, 0);
-
-	if (!queue_proc_call(-1))
-		return (0);
-
-	if (rlen < sizeof(r)) {
-		log_warnx("warn: queue-proc: XXX");
-		imsg_free(&imsg);
-		return (0);
-	}
-
-	memmove(&r, rdata, sizeof(r));
-	rdata += sizeof(r);
-	rlen -= sizeof(r);
-	if (r <= 0) {
-		if (rlen)
-			log_warnx("warn: queue-proc: bogus data");
-		imsg_free(&imsg);
-		return (r);
-	}
-	if (rlen < sizeof(*evpid)) {
-		log_warnx("warn: queue-proc: bogus data");
-		imsg_free(&imsg);
-		return (0);
-	}
-
-	memmove(evpid, rdata, sizeof(*evpid));
-	rdata += sizeof(*evpid);
-	rlen -= sizeof(evpid);
-
-	if (rlen > len) {
-		log_warnx("warn: queue-proc: buf too small");
-		memmove(buf, rdata, len);
-	}
-	else
-		memmove(buf, rdata, rlen);
-
-	imsg_free(&imsg);
-
-	return (rlen);
-}
-
-static int
-queue_proc_call(size_t expected)
+static void
+queue_proc_call(void)
 {
 	ssize_t	n;
 
 	if (imsg_flush(&ibuf) == -1) {
 		log_warn("warn: queue-proc: imsg_flush");
-		imsg_clear(&ibuf);
-		running = 0;
-		return (0);
+		fatalx("queue-proc: exiting");
 	}
 
 	while (1) {
@@ -357,19 +70,11 @@ queue_proc_call(size_t expected)
 			rlen = imsg.hdr.len - IMSG_HEADER_SIZE;
 			rdata = imsg.data;
 
-			if (imsg.hdr.type == PROC_QUEUE_OK) {
-				if (expected == (size_t)-1 || rlen == expected)
-					return (1);
-				log_warnx("warn: queue-proc: "
-				    "bad msg length (%i/%i)",
-				    (int)rlen, (int)expected);
-				imsg_free(&imsg);
+			if (imsg.hdr.type != PROC_QUEUE_OK) {
+				log_warnx("warn: queue-proc: bad response");
 				break;
 			}
-
-			log_warn("warn: queue-proc: bad response");
-			imsg_free(&imsg);
-			break;
+			return;
 		}
 
 		if ((n = imsg_read(&ibuf)) == -1) {
@@ -383,10 +88,221 @@ queue_proc_call(size_t expected)
 		}
 	}
 
-	log_warnx("warn: queue-proc: not running anymore");
-	imsg_clear(&ibuf);
-	running = 0;
-	return (0);
+	fatalx("queue-proc: exiting");
+}
+
+static void
+queue_proc_read(void *dst, size_t len)
+{
+	if (len > rlen) {
+		log_warnx("warn: queue-proc: bad msg len");
+		fatalx("queue-proc: exiting");
+	}
+
+	memmove(dst, rdata, len);
+	rlen -= len;
+	rdata += len;
+}
+
+static void
+queue_proc_end(void)
+{
+	if (rlen) {
+		log_warnx("warn: queue-proc: bogus data");
+		fatalx("queue-proc: exiting");
+	}
+	imsg_free(&imsg);
+}
+
+/*
+ * API
+ */
+
+static int
+queue_proc_message_create(uint32_t *msgid)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_CREATE, 0, 0, -1, NULL, 0);
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	if (r == 1)
+		queue_proc_read(msgid, sizeof(msgid));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_message_commit(uint32_t msgid, const char *path)
+{
+	int	r, fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		log_warn("queue-proc: open: %s", path);
+		return (0);
+	}
+
+	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_COMMIT, 0, 0, fd, &msgid,
+	    sizeof(msgid));
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_message_delete(uint32_t msgid)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_DELETE, 0, 0, -1, &msgid,
+	    sizeof(msgid));
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_message_fd_r(uint32_t msgid)
+{
+	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_FD_R, 0, 0, -1, &msgid,
+	    sizeof(msgid));
+
+	queue_proc_call();
+	queue_proc_end();
+
+	return (imsg.fd);
+}
+
+static int
+queue_proc_message_corrupt(uint32_t msgid)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_CORRUPT, 0, 0, -1, &msgid,
+	    sizeof(msgid));
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_envelope_create(uint32_t msgid, const char *buf, size_t len,
+    uint64_t *evpid)
+{
+	struct ibuf	*b;
+	int		 r;
+
+	msgid = evpid_to_msgid(*evpid);
+	b = imsg_create(&ibuf, PROC_QUEUE_ENVELOPE_CREATE, 0, 0,
+	    sizeof(msgid) + len);
+	if (imsg_add(b, &msgid, sizeof(msgid)) == -1 ||
+	    imsg_add(b, buf, len) == -1)
+		return (0);
+	imsg_close(&ibuf, b);
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	if (r == 1)
+		queue_proc_read(evpid, sizeof(*evpid));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_envelope_delete(uint64_t evpid)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_ENVELOPE_DELETE, 0, 0, -1, &evpid,
+	    sizeof(evpid));
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_envelope_update(uint64_t evpid, const char *buf, size_t len)
+{
+	struct ibuf	*b;
+	int		 r;
+
+	b = imsg_create(&ibuf, PROC_QUEUE_ENVELOPE_UPDATE, 0, 0,
+	    len + sizeof(evpid));
+	if (imsg_add(b, &evpid, sizeof(evpid)) == -1 ||
+	    imsg_add(b, buf, len) == -1)
+		return (0);
+	imsg_close(&ibuf, b);
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_envelope_load(uint64_t evpid, char *buf, size_t len)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_ENVELOPE_LOAD, 0, 0, -1, &evpid,
+	    sizeof(evpid));
+
+	queue_proc_call();
+
+	if (rlen > len) {
+		log_warnx("warn: queue-proc: buf too small");
+		fatalx("queue-proc: exiting");
+	}
+
+	r = rlen;
+	queue_proc_read(&buf, rlen);
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
+queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_ENVELOPE_WALK, 0, 0, -1, NULL, 0);
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+
+	if (r > 0) {
+		queue_proc_read(evpid, sizeof(*evpid));
+		if (rlen > len) {
+			log_warnx("warn: queue-proc: buf too small");
+			fatalx("queue-proc: exiting");
+		}
+		if (r != (int)rlen) {
+			log_warnx("warn: queue-proc: len mismatch");
+			fatalx("queue-proc: exiting");
+		}
+		queue_proc_read(&buf, rlen);
+	}
+	queue_proc_end();
+
+	return (r);
 }
 
 static int
@@ -412,14 +328,13 @@ queue_proc_init(int server)
 		dup2(sp[0], STDIN_FILENO);
 		closefrom(STDERR_FILENO + 1);
 
-		execl(path, "queue_ramproc", NULL);
+		execl(execpath, "queue_ramproc", NULL);
 		err(1, "execl");
 	}
 
 	/* parent process */
 	close(sp[0]);
 	imsg_init(&ibuf, sp[1]);
-	running = 1;
 
 	version = PROC_QUEUE_API_VERSION;
 	imsg_compose(&ibuf, PROC_QUEUE_INIT, 0, 0, -1,
@@ -436,7 +351,10 @@ queue_proc_init(int server)
 	queue_api_on_envelope_load(queue_proc_envelope_load);
 	queue_api_on_envelope_walk(queue_proc_envelope_walk);
 
-	return (queue_proc_call(0));
+	queue_proc_call();
+	queue_proc_end();
+
+	return (1);
 
 err:
 	close(sp[0]);

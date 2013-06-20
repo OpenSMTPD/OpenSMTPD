@@ -38,30 +38,81 @@
 
 struct table_proc_priv {
 	pid_t		pid;
-	int		running;
 	struct imsgbuf	ibuf;
 };
 
-static void *table_proc_open(struct table *);
-static int table_proc_update(struct table *);
-static void table_proc_close(void *);
-static int table_proc_lookup(void *, const char *, enum table_service, union lookup *);
-static int table_proc_fetch(void *, enum table_service, union lookup *);
-static int table_proc_call(struct table_proc_priv *, size_t);
-
-struct table_backend table_backend_proc = {
-	K_ANY,
-	NULL,
-	table_proc_open,
-	table_proc_update,
-	table_proc_close,
-	table_proc_lookup,
-	table_proc_fetch,
-};
-
-static struct imsg imsg;
+static struct imsg	 imsg;
+static size_t		 rlen;
+static char		*rdata;
 
 extern char	**environ;
+
+static void
+table_proc_call(struct table_proc_priv *p)
+{
+	ssize_t	n;
+
+	if (imsg_flush(&p->ibuf) == -1) {
+		log_warn("warn: table-proc: imsg_flush");
+		fatalx("table-proc: exiting");
+	}
+
+	while (1) {
+		if ((n = imsg_get(&p->ibuf, &imsg)) == -1) {
+			log_warn("warn: table-proc: imsg_get");
+			break;
+		}
+		if (n) {
+			rlen = imsg.hdr.len - IMSG_HEADER_SIZE;
+			rdata = imsg.data;
+
+			if (imsg.hdr.type != PROC_TABLE_OK) {
+				log_warnx("warn: table-proc: bad response");
+				break;
+			}
+			return;
+		}
+
+		if ((n = imsg_read(&p->ibuf)) == -1) {
+			log_warn("warn: table-proc: imsg_read");
+			break;
+		}
+
+		if (n == 0) {
+			log_warnx("warn: table-proc: pipe closed");
+			break;
+		}
+	}
+
+	fatalx("table-proc: exiting");
+}
+
+static void
+table_proc_read(void *dst, size_t len)
+{
+	if (len > rlen) {
+		log_warnx("warn: table-proc: bad msg len");
+		fatalx("table-proc: exiting");
+	}
+
+	memmove(dst, rdata, len);
+	rlen -= len;
+	rdata += len;
+}
+
+static void
+table_proc_end(void)
+{
+	if (rlen) {
+		log_warnx("warn: table-proc: bogus data");
+		fatalx("table-proc: exiting");
+	}
+	imsg_free(&imsg);
+}
+
+/*
+ * API
+ */
 
 static void *
 table_proc_open(struct table *table)
@@ -100,21 +151,15 @@ table_proc_open(struct table *table)
 	/* parent process */
 	close(sp[0]);
 	imsg_init(&priv->ibuf, sp[1]);
-	priv->running = 1;
 
 	version = PROC_TABLE_API_VERSION;
 	imsg_compose(&priv->ibuf, PROC_TABLE_OPEN, 0, 0, -1,
 	    &version, sizeof(version));
 
-	if (!table_proc_call(priv, 0)) {
-		free(priv);
-		return (NULL); 	/* XXX cleanup */
-	}
-
-	imsg_free(&imsg);
+	table_proc_call(priv);
+	table_proc_end();
 
 	return (priv);
-
 err:
 	free(priv);
 	close(sp[0]);
@@ -128,19 +173,11 @@ table_proc_update(struct table *table)
 	struct table_proc_priv	*priv = table->t_handle;
 	int r;
 
-	if (!priv->running) {
-		log_warnx("warn: table-proc: not running");
-		return (-1);
-	}
-
 	imsg_compose(&priv->ibuf, PROC_TABLE_UPDATE, 0, 0, -1, NULL, 0);
 
-	if (!table_proc_call(priv, sizeof(r)))
-		return (-1);
-
-	memmove(&r, imsg.data, sizeof(r));
-
-	imsg_free(&imsg);
+	table_proc_call(priv);
+	table_proc_read(&r, sizeof(r));
+	table_proc_end();
 
 	return (r);
 }
@@ -149,11 +186,6 @@ static void
 table_proc_close(void *arg)
 {
 	struct table_proc_priv	*priv = arg;
-
-	if (!priv->running) {
-		log_warnx("warn: table-proc: not running");
-		return;
-	}
 
 	imsg_compose(&priv->ibuf, PROC_TABLE_CLOSE, 0, 0, -1, NULL, 0);
 	imsg_flush(&priv->ibuf);
@@ -165,126 +197,76 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 {
 	struct table_proc_priv	*priv = arg;
 	struct ibuf		*buf;
-	size_t			 len;
-	char			*data;
-	int			 r, msg;
+	int			 r;
 
-	if (!priv->running) {
-		log_warnx("warn: table-proc: not running");
+	buf = imsg_create(&priv->ibuf,
+	    lk ? PROC_TABLE_LOOKUP : PROC_TABLE_CHECK, 0, 0,
+	    sizeof(s) + strlen(k) + 1);
+
+	if (buf == NULL)
 		return (-1);
-	}
-
-	len = sizeof(s);
-	if (k) {
-		len += strlen(k) + 1;
-		if (lk)
-			msg = PROC_TABLE_LOOKUP;
-		else
-			msg = PROC_TABLE_CHECK;
-	}
-	else {
-		if (!lk)
-			return (-1);
-		msg = PROC_TABLE_FETCH;
-	}
-
-	buf = imsg_create(&priv->ibuf, msg, 0, 0, len);
 	if (imsg_add(buf, &s, sizeof(s)) == -1)
 		return (-1);
-	if (k)
-		if (imsg_add(buf, k, strlen(k) + 1) == -1)
-			return (-1);
+	if (imsg_add(buf, k, strlen(k) + 1) == -1)
+		return (-1);
 	imsg_close(&priv->ibuf, buf);
 
-	if (!table_proc_call(priv, -1))
-		return (-1);
-
-	len = imsg.hdr.len - IMSG_HEADER_SIZE;
-	data = imsg.data;
-
-	if (len < sizeof(r)) {
-		r = -1;
-		goto end;
-	}
-
-	memmove(&r, data, sizeof(r));
-	data += sizeof(r);
-	len -= sizeof(r);
-
-	if (len != 0 && (r != 1 || lk == NULL))
-		log_warnx("warn: table-proc: unexpected payload in lookup pkt: %zu", len);
-
+	table_proc_call(priv);
+	table_proc_read(&r, sizeof(r));
+	
 	if (r == 1 && lk) {
-		if (len == 0) {
-			r = -1;
-			log_warnx("warn: table-proc: empty payload in lookup pkt");
+		if (rlen == 0) {
+			log_warnx("warn: table-proc: empty response");
+			fatalx("table-proc: exiting");
 		}
-		else if (data[len-1] != '\0') {
-			r = -1;
-			log_warnx("warn: table-proc: payload doesn't end with NUL");
-		} else
-			r = table_parse_lookup(s, k, data, lk);
+		if (rdata[rlen - 1] != '\0') {
+			log_warnx("warn: table-proc: not NUL-terminated");
+			fatalx("table-proc: exiting");
+		}
+		r = table_parse_lookup(s, k, rdata, lk);
 	}
 
-    end:
-	imsg_free(&imsg);
 	return (r);
 }
 
 static int
 table_proc_fetch(void *arg, enum table_service s, union lookup *lk)
 {
-	return table_proc_lookup(arg, NULL, s, lk);
-}
+	struct table_proc_priv	*priv = arg;
+	struct ibuf		*buf;
+	int			 r;
 
-static int
-table_proc_call(struct table_proc_priv *priv, size_t expected)
-{
-	ssize_t	n;
-	size_t	len;
+	buf = imsg_create(&priv->ibuf, PROC_TABLE_FETCH, 0, 0, sizeof(s));
+	if (buf == NULL)
+		return (-1);
+	if (imsg_add(buf, &s, sizeof(s)) == -1)
+		return (-1);
+	imsg_close(&priv->ibuf, buf);
 
-	if (imsg_flush(&priv->ibuf) == -1) {
-		log_warn("warn: table-proc: imsg_flush");
-		imsg_clear(&priv->ibuf);
-		priv->running = 0;
-		return (0);
+	table_proc_call(priv);
+	table_proc_read(&r, sizeof(r));
+
+	if (rlen == 0) {
+		log_warnx("warn: table-proc: empty response");
+		fatalx("table-proc: exiting");
+	}
+	if (rdata[rlen - 1] != '\0') {
+		log_warnx("warn: table-proc: not NUL-terminated");
+		fatalx("table-proc: exiting");
 	}
 
-	while (1) {
-		if ((n = imsg_get(&priv->ibuf, &imsg)) == -1) {
-			log_warn("warn: table-proc: imsg_get");
-			break;
-		}
-		if (n) {
-			len = imsg.hdr.len - IMSG_HEADER_SIZE;
+	if (r == 1)
+		r = table_parse_lookup(s, NULL, rdata, lk);
 
-			if (imsg.hdr.type == PROC_TABLE_OK) {
-				if (expected == (size_t)-1 || len == expected)
-					return (1);
-				imsg_free(&imsg);
-				log_warnx("warn: table-proc: "
-				    "bad msg length (%i/%i)",
-				    (int)len, (int)expected);
-				break;
-			}
-
-			log_warnx("warn: table-proc: bad response");
-			break;
-		}
-
-		if ((n = imsg_read(&priv->ibuf)) == -1) {
-			log_warn("warn: table-proc: imsg_read");
-			break;
-		}
-
-		if (n == 0) {
-			log_warnx("warn: table-proc: pipe closed");
-			break;
-		}
-	}
-
-	log_warnx("table-proc: not running anymore");
-	imsg_clear(&priv->ibuf);
-	priv->running = 0;
-	return (0);
+	return (r);
 }
+
+struct table_backend table_backend_proc = {
+	K_ANY,
+	NULL,
+	table_proc_open,
+	table_proc_update,
+	table_proc_close,
+	table_proc_lookup,
+	table_proc_fetch,
+};
