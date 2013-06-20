@@ -45,6 +45,7 @@ static struct imsgbuf	 ibuf;
 static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
+static struct ibuf	*buf;
 
 static void
 queue_msg_get(void *dst, size_t len)
@@ -75,9 +76,31 @@ queue_msg_end(void)
 }
 
 static void
+queue_msg_add(const void *data, size_t len)
+{
+	if (buf == NULL)
+		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, 1024);
+	if (buf == NULL) {
+		log_warnx("warn: table-api: imsg_create failed");
+		fatalx("table-api: exiting");
+	}
+	if (imsg_add(buf, data, len) == -1) {
+		log_warnx("warn: table-api: imsg_add failed");
+		fatalx("table-api: exiting");
+	}
+}
+
+static void
+queue_msg_close(void)
+{
+
+	imsg_close(&ibuf, buf);
+	buf = NULL;
+}
+
+static void
 queue_msg_dispatch(void)
 {
-	struct ibuf	*buf;
 	uint64_t	 evpid;
 	uint32_t	 msgid, version;
 	size_t		 n;
@@ -103,14 +126,10 @@ queue_msg_dispatch(void)
 
 		r = handler_message_create(&msgid);
 
-		n = sizeof(r);
+		queue_msg_add(&r, sizeof(r));
 		if (r == 1)
-			n += sizeof(msgid);
-		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, n);
-		imsg_add(buf, &r, sizeof(r));
-		if (r == 1)
-			imsg_add(buf, &msgid, sizeof(msgid));
-		imsg_close(&ibuf, buf);
+			queue_msg_add(&msgid, sizeof(msgid));
+		queue_msg_close();
 		break;
 
 	case PROC_QUEUE_MESSAGE_DELETE:
@@ -176,14 +195,10 @@ queue_msg_dispatch(void)
 		queue_msg_get(NULL, rlen);
 		queue_msg_end();
 
-		n = sizeof(r);
+		queue_msg_add(&r, sizeof(r));
 		if (r == 1)
-			n += sizeof(evpid);
-		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, n);
-		imsg_add(buf, &r, sizeof(r));
-		if (r == 1)
-			imsg_add(buf, &evpid, sizeof(evpid));
-		imsg_close(&ibuf, buf);
+			queue_msg_add(&evpid, sizeof(evpid));
+		queue_msg_close();
 		break;
 
 	case PROC_QUEUE_ENVELOPE_DELETE:
@@ -218,16 +233,12 @@ queue_msg_dispatch(void)
 
 		r = handler_envelope_walk(&evpid, buffer, sizeof(buffer));
 
-		n = sizeof(r);
-		if (r > 0)
-			n += sizeof(evpid) + r;
-		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, n);
-		imsg_add(buf, &r, sizeof(r));
+		queue_msg_add(&r, sizeof(r));
 		if (r > 0) {
-			imsg_add(buf, &evpid, sizeof(evpid));
-			imsg_add(buf, buffer, r);
+			queue_msg_add(&evpid, sizeof(evpid));
+			queue_msg_add(buffer, r);
 		}
-		imsg_close(&ibuf, buf);
+		queue_msg_close();
 
 	default:
 		log_warnx("warn: queue-api: bad message %i", imsg.hdr.type);
@@ -323,7 +334,7 @@ queue_api_dispatch(void)
 			break;
 		}
 		if (n == 0) {
-			log_warn("warn: queue-api: pipe closed");
+			log_warnx("warn: queue-api: pipe closed");
 			break;
 		}
 	}
