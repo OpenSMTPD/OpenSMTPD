@@ -237,7 +237,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			queue_bounce(&evp, &req_bounce->bounce);
 			evp.lastbounce = req_bounce->timestamp;
-			queue_envelope_update(&evp);
+			if (!queue_envelope_update(&evp))
+				log_warnx("warn: could not update envelope %016"PRIx64, evpid);
 			return;
 
 		case IMSG_MDA_DELIVER:
@@ -373,7 +374,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			envelope_set_errormsg(&evp, "%s", reason);
 			evp.retry++;
-			queue_envelope_update(&evp);
+			if (!queue_envelope_update(&evp))
+				log_warnx("warn: could not update envelope %016"PRIx64, evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1);
 			m_add_envelope(p_scheduler, &evp);
 			m_add_u32(p_scheduler, penalty);
