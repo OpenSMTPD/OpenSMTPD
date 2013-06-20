@@ -81,19 +81,18 @@ queue_msg_add(const void *data, size_t len)
 	if (buf == NULL)
 		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, 1024);
 	if (buf == NULL) {
-		log_warnx("warn: table-api: imsg_create failed");
-		fatalx("table-api: exiting");
+		log_warnx("warn: queue-api: imsg_create failed");
+		fatalx("queue-api: exiting");
 	}
 	if (imsg_add(buf, data, len) == -1) {
-		log_warnx("warn: table-api: imsg_add failed");
-		fatalx("table-api: exiting");
+		log_warnx("warn: queue-api: imsg_add failed");
+		fatalx("queue-api: exiting");
 	}
 }
 
 static void
 queue_msg_close(void)
 {
-
 	imsg_close(&ibuf, buf);
 	buf = NULL;
 }
