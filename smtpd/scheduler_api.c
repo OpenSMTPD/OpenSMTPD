@@ -24,6 +24,7 @@
 
 #include <imsg.h>
 #include <pwd.h>
+#include <grp.h> /* needed for setgroups */
 #include <string.h>
 #include <unistd.h>
 
