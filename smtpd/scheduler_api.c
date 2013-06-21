@@ -21,7 +21,9 @@
 #include <sys/uio.h>
 
 #include <imsg.h>
+#include <pwd.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
@@ -46,6 +48,8 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
+static char		*rootpath = PATH_CHROOT;
+static char		*user = SMTPD_USER;
 
 static void
 scheduler_msg_get(void *dst, size_t len)
@@ -319,7 +323,32 @@ scheduler_api_on_remove(int(*cb)(uint64_t))
 int
 scheduler_api_dispatch(void)
 {
-	ssize_t	n;
+	struct passwd	*pw;
+	ssize_t		 n;
+
+	pw = getpwnam(user);
+	if (pw == NULL) {
+		log_warn("scheduler-api: getpwnam");
+		fatalx("scheduler-api: exiting");
+	}
+
+	if (rootpath) {
+		if (chroot(rootpath) == -1) {
+			log_warn("scheduler-api: chroot");
+			fatalx("scheduler-api: exiting");
+		}
+		if (chdir("/") == -1) {
+			log_warn("scheduler-api: chdir");
+			fatalx("scheduler-api: exiting");
+		}
+	}
+
+	if (setgroups(1, &pw->pw_gid) ||
+	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
+		log_warn("scheduler-api: cannot drop privileges");
+		fatalx("scheduler-api: exiting");
+	}
 
 	imsg_init(&ibuf, 0);
 
