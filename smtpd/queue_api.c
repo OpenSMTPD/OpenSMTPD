@@ -21,6 +21,7 @@
 #include <sys/uio.h>
 
 #include <imsg.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,61 +42,101 @@ static int (*handler_envelope_update)(uint64_t, const char *, size_t);
 static int (*handler_envelope_load)(uint64_t, char *, size_t);
 static int (*handler_envelope_walk)(uint64_t *, char *, size_t);
 
-static struct imsgbuf	ibuf;
-static struct imsg	imsg;
+static struct imsgbuf	 ibuf;
+static struct imsg	 imsg;
+static size_t		 rlen;
+static char		*rdata;
+static struct ibuf	*buf;
+static char		*rootpath = PATH_SPOOL;
+static char		*user = SMTPD_QUEUE_USER;
 
-static int
-dispatch(void)
+static void
+queue_msg_get(void *dst, size_t len)
 {
-	struct ibuf	*buf;
+	if (len > rlen) {
+		log_warnx("warn: queue-proc: bad msg len");
+		fatalx("queue-proc: exiting");
+	}
+
+	if (len == 0)
+		return;
+
+	if (dst)
+		memmove(dst, rdata, len);
+
+	rlen -= len;
+	rdata += len;
+}
+
+static void
+queue_msg_end(void)
+{
+	if (rlen) {
+		log_warnx("warn: queue-proc: bogus data");
+		fatalx("queue-proc: exiting");
+	}
+	imsg_free(&imsg);
+}
+
+static void
+queue_msg_add(const void *data, size_t len)
+{
+	if (buf == NULL)
+		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, 1024);
+	if (buf == NULL) {
+		log_warnx("warn: queue-api: imsg_create failed");
+		fatalx("queue-api: exiting");
+	}
+	if (imsg_add(buf, data, len) == -1) {
+		log_warnx("warn: queue-api: imsg_add failed");
+		fatalx("queue-api: exiting");
+	}
+}
+
+static void
+queue_msg_close(void)
+{
+	imsg_close(&ibuf, buf);
+	buf = NULL;
+}
+
+static void
+queue_msg_dispatch(void)
+{
 	uint64_t	 evpid;
 	uint32_t	 msgid, version;
-	size_t		 len, n;
-	char		*data, buffer[8192], path[SMTPD_MAXPATHLEN];
+	size_t		 n;
+	char		 buffer[8192], path[SMTPD_MAXPATHLEN];
 	int		 r, fd;
 	FILE		*ifile, *ofile;
 
-	data = imsg.data;
-	len = imsg.hdr.len - IMSG_HEADER_SIZE;
-
 	switch (imsg.hdr.type) {
 	case PROC_QUEUE_INIT:
-		if (len != sizeof(version)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-		memmove(&version, data, len);
+		queue_msg_get(&version, sizeof(version));
+		queue_msg_end();
+
 		if (version != PROC_QUEUE_API_VERSION) {
 			log_warnx("warn: queue-api: bad API version");
-			goto fail;
+			fatalx("queue-api: exiting");
 		}
+
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, NULL, 0);
 		break;
 
 	case PROC_QUEUE_MESSAGE_CREATE:
-		if (len != 0) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
+		queue_msg_end();
 
 		r = handler_message_create(&msgid);
-		len = sizeof(r);
+
+		queue_msg_add(&r, sizeof(r));
 		if (r == 1)
-			len += sizeof(msgid);
-		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, len);
-		imsg_add(buf, &r, sizeof(r));
-		if (r == 1)
-			imsg_add(buf, &msgid, sizeof(msgid));
-		imsg_close(&ibuf, buf);
+			queue_msg_add(&msgid, sizeof(msgid));
+		queue_msg_close();
 		break;
 
 	case PROC_QUEUE_MESSAGE_DELETE:
-		if (len != sizeof(msgid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-
-		memmove(&msgid, data, len);
+		queue_msg_get(&msgid, sizeof(msgid));
+		queue_msg_end();
 
 		r = handler_message_delete(msgid);
 
@@ -103,17 +144,11 @@ dispatch(void)
 		break;
 
 	case PROC_QUEUE_MESSAGE_COMMIT:
-		if (len != sizeof(msgid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
+		queue_msg_get(&msgid, sizeof(msgid));
+		queue_msg_end();
 
-		memmove(&msgid, data, len);
-
-		/* XXX needs more love *
-
+		/* XXX needs more love */
 		r = -1;
-
 		fd = mkstemp(path);
 		if (fd == -1) {
 			log_warn("warn: queue-api: mkstemp");
@@ -135,18 +170,12 @@ dispatch(void)
 				fclose(ofile);
 		}
 
-		unlink(path);
-
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
 		break;
 
 	case PROC_QUEUE_MESSAGE_FD_R:
-		if (len != sizeof(msgid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-
-		memmove(&msgid, data, len);
+		queue_msg_get(&msgid, sizeof(msgid));
+		queue_msg_end();
 
 		fd = handler_message_fd_r(msgid);
 
@@ -154,12 +183,8 @@ dispatch(void)
 		break;
 
 	case PROC_QUEUE_MESSAGE_CORRUPT:
-		if (len != sizeof(msgid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-
-		memmove(&msgid, data, len);
+		queue_msg_get(&msgid, sizeof(msgid));
+		queue_msg_end();
 
 		r = handler_message_corrupt(msgid);
 
@@ -167,35 +192,20 @@ dispatch(void)
 		break;
 
 	case PROC_QUEUE_ENVELOPE_CREATE:
-		if (len <= sizeof(msgid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
+		queue_msg_get(&msgid, sizeof(msgid));
+		r = handler_envelope_create(msgid, rdata, rlen, &evpid);
+		queue_msg_get(NULL, rlen);
+		queue_msg_end();
 
-		memmove(&msgid, data, len);
-		data += sizeof(msgid);
-		len -= sizeof(msgid);
-
-		r = handler_envelope_create(msgid, data, len, &evpid);
-
-		len = sizeof(r);
+		queue_msg_add(&r, sizeof(r));
 		if (r == 1)
-			len += sizeof(evpid);
-
-		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, len);
-		imsg_add(buf, &r, sizeof(r));
-		if (r == 1)
-			imsg_add(buf, &evpid, sizeof(evpid));
-		imsg_close(&ibuf, buf);
+			queue_msg_add(&evpid, sizeof(evpid));
+		queue_msg_close();
 		break;
 
 	case PROC_QUEUE_ENVELOPE_DELETE:
-		if (len != sizeof(evpid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-
-		memmove(&evpid, data, len);
+		queue_msg_get(&evpid, sizeof(evpid));
+		queue_msg_end();
 
 		r = handler_envelope_delete(evpid);
 
@@ -203,63 +213,39 @@ dispatch(void)
 		break;
 
 	case PROC_QUEUE_ENVELOPE_LOAD:
-		if (len != sizeof(evpid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-
-		memmove(&evpid, data, len);
+		queue_msg_get(&evpid, sizeof(evpid));
+		queue_msg_end();
 
 		r = handler_envelope_load(evpid, buffer, sizeof(buffer));
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, buffer, r);
-
 		break;
 
-
 	case PROC_QUEUE_ENVELOPE_UPDATE:
-		if (len <= sizeof(evpid)) {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
-
-		memmove(&evpid, data, len);
-		data += sizeof(evpid);
-		len -= sizeof(evpid);
-
-		r = handler_envelope_update(evpid, data, len);
+		queue_msg_get(&evpid, sizeof(evpid));
+		r = handler_envelope_update(evpid, rdata, rlen);
+		queue_msg_get(NULL, rlen);
+		queue_msg_end();
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
 		break;
 
 	case PROC_QUEUE_ENVELOPE_WALK:
-		if (len != 0)  {
-			log_warnx("warn: queue-api: bad message length");
-			goto fail;
-		}
+		queue_msg_end();
 
 		r = handler_envelope_walk(&evpid, buffer, sizeof(buffer));
 
-		len = sizeof(r);
-		if (r > 0)
-			len += sizeof(evpid) + r;
-		buf = imsg_create(&ibuf, PROC_QUEUE_OK, 0, 0, len);
-		imsg_add(buf, &r, sizeof(r));
+		queue_msg_add(&r, sizeof(r));
 		if (r > 0) {
-			imsg_add(buf, &evpid, sizeof(evpid));
-			imsg_add(buf, buffer, r);
+			queue_msg_add(&evpid, sizeof(evpid));
+			queue_msg_add(buffer, r);
 		}
-		imsg_close(&ibuf, buf);
-		return (r);
+		queue_msg_close();
 
 	default:
 		log_warnx("warn: queue-api: bad message %i", imsg.hdr.type);
-		goto fail;
+		fatalx("queue-api: exiting");
 	}
-
-	return (0);
-    fail:
-	return (-1);
 }
 
 void
@@ -325,8 +311,32 @@ queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 int
 queue_api_dispatch(void)
 {
-	ssize_t	n;
-	int	r;
+	struct passwd	*pw;
+	ssize_t		 n;
+
+	pw = getpwnam(user);
+	if (pw == NULL) {
+		log_warn("queue-api: getpwnam");
+		fatalx("queue-api: exiting");
+	}
+
+	if (rootpath) {
+		if (chroot(rootpath) == -1) {
+			log_warn("queue-api: chroot");
+			fatalx("queue-api: exiting");
+		}
+		if (chdir("/") == -1) {
+			log_warn("queue-api: chdir");
+			fatalx("queue-api: exiting");
+		}
+	}
+
+	if (setgroups(1, &pw->pw_gid) ||
+	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
+		log_warn("queue-api: cannot drop privileges");
+		fatalx("queue-api: exiting");
+	}
 
 	imsg_init(&ibuf, 0);
 
@@ -338,10 +348,9 @@ queue_api_dispatch(void)
 		}
 
 		if (n) {
-			r = dispatch();
-			imsg_free(&imsg);
-			if (r == -1)
-				break;
+			rdata = imsg.data;
+			rlen = imsg.hdr.len - IMSG_HEADER_SIZE;
+			queue_msg_dispatch();
 			imsg_flush(&ibuf);
 			continue;
 		}
@@ -352,7 +361,7 @@ queue_api_dispatch(void)
 			break;
 		}
 		if (n == 0) {
-			log_warn("warn: queue-api: pipe closed");
+			log_warnx("warn: queue-api: pipe closed");
 			break;
 		}
 	}

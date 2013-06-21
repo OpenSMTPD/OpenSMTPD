@@ -48,8 +48,6 @@
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
-#define SMTPD_USER		 "_smtpd"
-#define SMTPD_QUEUE_USER	 "_smtpq"
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
@@ -61,8 +59,6 @@
 
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 
-#define PATH_CHROOT		"/var/empty"
-#define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
@@ -356,12 +352,6 @@ struct rule {
 	time_t				r_qexpire;
 };
 
-enum delivery_type {
-	D_MDA,
-	D_MTA,
-	D_BOUNCE,
-};
-
 struct delivery_mda {
 	enum action_type	method;
 	char			usertable[SMTPD_MAXPATHLEN];
@@ -423,17 +413,6 @@ struct expand {
 	size_t				 nb_nodes;
 	struct rule			*rule;
 	struct expandnode		*parent;
-};
-
-enum envelope_flags {
-	EF_AUTHENTICATED	= 0x01,
-	EF_BOUNCE		= 0x02,
-	EF_INTERNAL		= 0x04, /* Internal expansion forward */
-
-	/* runstate, not saved on disk */
-
-	EF_PENDING		= 0x10,
-	EF_INFLIGHT		= 0x20,
 };
 
 #define	SMTPD_ENVELOPE_VERSION		1
@@ -562,6 +541,8 @@ struct smtpd {
 	struct dict			       *sc_ssl_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
+
+	struct dict			       *sc_limits_dict;
 
 	struct dict				sc_filters;
 	uint32_t				filtermask;
@@ -697,11 +678,34 @@ struct mta_route {
 	time_t			 lastpenalty;
 };
 
+struct mta_limits {
+	size_t	maxconn_per_host;
+	size_t	maxconn_per_route;
+	size_t	maxconn_per_source;
+	size_t	maxconn_per_connector;
+	size_t	maxconn_per_relay;
+	size_t	maxconn_per_domain;
+
+	time_t	conndelay_host;
+	time_t	conndelay_route;
+	time_t	conndelay_source;
+	time_t	conndelay_connector;
+	time_t	conndelay_relay;
+	time_t	conndelay_domain;
+
+	time_t	discdelay_route;
+
+	size_t	max_mail_per_session;
+	time_t	sessdelay_transaction;
+	time_t	sessdelay_keepalive;
+};
+
 struct mta_relay {
 	SPLAY_ENTRY(mta_relay)	 entry;
 	uint64_t		 id;
 
 	struct mta_domain	*domain;
+	struct mta_limits	*limits;
 	int			 flags;
 	char			*backupname;
 	int			 backuppref;
@@ -712,7 +716,6 @@ struct mta_relay {
 	char			*authlabel;
 	char			*helotable;
 	char			*heloname;
-
 	char			*secret;
 
 	size_t			 ntask;
@@ -729,9 +732,10 @@ struct mta_relay {
 #define RELAY_WAIT_MX		0x01
 #define RELAY_WAIT_PREFERENCE	0x02
 #define RELAY_WAIT_SECRET	0x04
-#define RELAY_WAIT_SOURCE	0x08
-#define RELAY_WAIT_CONNECTOR	0x10
-#define RELAY_WAITMASK		0x1f
+#define RELAY_WAIT_LIMITS	0x08
+#define RELAY_WAIT_SOURCE	0x10
+#define RELAY_WAIT_CONNECTOR	0x20
+#define RELAY_WAITMASK		0x3f
 	int			 status;
 
 	int			 refcount;
@@ -785,40 +789,6 @@ struct auth_backend {
 struct delivery_backend {
 	int	allow_root;
 	void	(*open)(struct deliver *);
-};
-
-struct evpstate {
-	uint64_t		evpid;
-	uint16_t		flags;
-	uint16_t		retry;
-	time_t			time;
-};
-
-struct scheduler_info {
-	uint64_t		evpid;
-	enum delivery_type	type;
-	uint16_t		retry;
-	time_t			creation;
-	time_t			expire;
-	time_t			lasttry;
-	time_t			lastbounce;
-	time_t			nexttry;
-	uint8_t			penalty;
-};
-
-#define SCHED_NONE		0x00
-#define SCHED_DELAY		0x01
-#define SCHED_REMOVE		0x02
-#define SCHED_EXPIRE		0x04
-#define SCHED_BOUNCE		0x08
-#define SCHED_MDA		0x10
-#define SCHED_MTA		0x20
-
-struct scheduler_batch {
-	int		 type;
-	time_t		 delay;
-	size_t		 evpcount;
-	uint64_t	*evpids;
 };
 
 struct scheduler_backend {
@@ -1121,6 +1091,9 @@ void imsgproc_set_write(struct imsgproc *);
 void imsgproc_set_read_write(struct imsgproc *);
 void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
+/* limit.c */
+void limit_mta_set_defaults(struct mta_limits *);
+int limit_mta_set(struct mta_limits *, const char*, int64_t);
 
 /* lka.c */
 pid_t lka(void);
