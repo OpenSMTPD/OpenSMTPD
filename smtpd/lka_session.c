@@ -636,10 +636,15 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		do {
 			if ((sep = strchr(mods, ',')) != NULL)
 				*sep++ = '\0';
-			for (i = 0; i < (ssize_t)nitems(token_modifiers); ++i)
-				if (! strcmp(token_modifiers[i].name, mods))
+			for (i = 0; i < (ssize_t)nitems(token_modifiers); ++i) {
+				if (! strcmp(token_modifiers[i].name, mods)) {
 					if (! token_modifiers[i].f(tmp, sizeof tmp))
 						return 0; /* modifier error */
+					break;
+				}
+			}
+			if (i == (ssize_t)nitems(token_modifiers))
+				return 0; /* modifier not found */
 		} while ((mods = sep) != NULL);
 	}
 		
