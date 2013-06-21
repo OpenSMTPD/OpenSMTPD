@@ -16,11 +16,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/uio.h>
 
 #include <imsg.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +49,8 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
+static char		*rootpath = PATH_SPOOL;
+static char		*user = SMTPD_QUEUE_USER;
 
 static void
 queue_msg_get(void *dst, size_t len)
@@ -308,7 +313,32 @@ queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 int
 queue_api_dispatch(void)
 {
-	ssize_t	n;
+	struct passwd	*pw;
+	ssize_t		 n;
+
+	pw = getpwnam(user);
+	if (pw == NULL) {
+		log_warn("queue-api: getpwnam");
+		fatalx("queue-api: exiting");
+	}
+
+	if (rootpath) {
+		if (chroot(rootpath) == -1) {
+			log_warn("queue-api: chroot");
+			fatalx("queue-api: exiting");
+		}
+		if (chdir("/") == -1) {
+			log_warn("queue-api: chdir");
+			fatalx("queue-api: exiting");
+		}
+	}
+
+	if (setgroups(1, &pw->pw_gid) ||
+	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
+		log_warn("queue-api: cannot drop privileges");
+		fatalx("queue-api: exiting");
+	}
 
 	imsg_init(&ibuf, 0);
 

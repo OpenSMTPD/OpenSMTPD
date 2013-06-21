@@ -27,3 +27,12 @@
 #define	SMTPD_MAXPATHLEN	1024
 #define	SMTPD_MAXHOSTNAMELEN	256
 #define	SMTPD_MAXLINESIZE	2048
+
+#ifndef SMTPD_USER
+#define SMTPD_USER		 "_smtpd"
+#endif
+#define PATH_CHROOT		"/var/empty"
+#ifndef SMTPD_QUEUE_USER
+#define SMTPD_QUEUE_USER	 "_smtpq"
+#endif
+#define PATH_SPOOL		"/var/spool/smtpd"

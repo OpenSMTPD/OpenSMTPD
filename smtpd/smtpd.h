@@ -83,8 +83,6 @@
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 #endif
 
-#define PATH_CHROOT		"/var/empty"
-#define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
