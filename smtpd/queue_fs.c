@@ -45,8 +45,9 @@
 
 #define PATH_QUEUE		"/queue"
 #define PATH_CORRUPT		"/corrupt"
-
+#define PATH_INCOMING		"/incoming"
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
+#define PATH_MESSAGE		"/message"
 
 /* percentage of remaining space / inodes required to accept new messages */
 #define	MINSPACE		5
@@ -63,6 +64,7 @@ static void	fsqueue_envelope_incoming_path(uint64_t, char *, size_t);
 static int	fsqueue_envelope_dump(char *, const char *, size_t, int, int);
 static void	fsqueue_message_path(uint32_t, char *, size_t);
 static void	fsqueue_message_corrupt_path(uint32_t, char *, size_t);
+static void	fsqueue_message_incoming_path(uint32_t, char *, size_t);
 static void    *fsqueue_qwalk_new(void);
 static int	fsqueue_qwalk(void *, uint64_t *);
 static void	fsqueue_qwalk_close(void *);
@@ -93,7 +95,7 @@ again:
 		return 0;
 	}
 
-	queue_message_incoming_path(*msgid, rootdir, sizeof(rootdir));
+	fsqueue_message_incoming_path(*msgid, rootdir, sizeof(rootdir));
 	if (mkdir(rootdir, 0700) == -1) {
 		if (errno == EEXIST)
 			goto again;
@@ -112,13 +114,20 @@ again:
 }
 
 static int
-queue_fs_message_commit(uint32_t msgid)
+queue_fs_message_commit(uint32_t msgid, const char *path)
 {
 	char incomingdir[SMTPD_MAXPATHLEN];
 	char queuedir[SMTPD_MAXPATHLEN];
 	char msgdir[SMTPD_MAXPATHLEN];
+	char msgpath[SMTPD_MAXPATHLEN];
 
-	queue_message_incoming_path(msgid, incomingdir, sizeof(incomingdir));
+	/* before-first, move the message content in the incoming directory */
+	fsqueue_message_incoming_path(msgid, msgpath, sizeof(msgpath));
+	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+	if (rename(path, msgpath) == -1)
+		return (0);
+
+	fsqueue_message_incoming_path(msgid, incomingdir, sizeof(incomingdir));
 	fsqueue_message_path(msgid, msgdir, sizeof(msgdir));
 	strlcpy(queuedir, msgdir, sizeof(queuedir));
 
@@ -172,23 +181,12 @@ queue_fs_message_fd_r(uint32_t msgid)
 }
 
 static int
-queue_fs_message_fd_w(uint32_t msgid)
-{
-	char msgpath[SMTPD_MAXPATHLEN];
-
-	queue_message_incoming_path(msgid, msgpath, sizeof msgpath);
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
-
-	return open(msgpath, O_RDWR | O_CREAT | O_EXCL, 0600);
-}
-
-static int
 queue_fs_message_delete(uint32_t msgid)
 {
 	char		path[SMTPD_MAXPATHLEN];
 	struct stat	sb;
 
-	queue_message_incoming_path(msgid, path, sizeof(path));
+	fsqueue_message_incoming_path(msgid, path, sizeof(path));
 	if (stat(path, &sb) == -1)
 		fsqueue_message_path(msgid, path, sizeof(path));
 
@@ -246,7 +244,7 @@ queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
 		goto done;
 	}
 	
-	queue_message_incoming_path(msgid, path, sizeof(path));
+	fsqueue_message_incoming_path(msgid, path, sizeof(path));
 	if (stat(path, &sb) == -1)
 		queued = 1;
 
@@ -384,6 +382,15 @@ fsqueue_check_space(void)
 		return 0;
 	}
 
+	/*
+	 * f_bfree and f_ffree is not set on all filesystems.
+	 * They could be signed or unsigned integers.
+	 * Some systems will set them to 0, others will set them to -1.
+	 */
+	if (buf.f_bfree == 0 || buf.f_ffree == 0 ||
+	    buf.f_bfree == -1 || buf.f_ffree == -1)
+		return 1;
+
 	used = buf.f_blocks - buf.f_bfree;
 	total = buf.f_bavail + used;
 	if (total != 0)
@@ -444,8 +451,6 @@ fsqueue_envelope_dump(char *dest, const char *evpbuf, size_t evplen,
 	size_t		w;
 
 	if ((fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600)) == -1) {
-		if (errno == EEXIST)
-			return -1;
 		log_warn("warn: queue-fs: open");
 		goto tempfail;
 	}
@@ -509,6 +514,15 @@ fsqueue_message_corrupt_path(uint32_t msgid, char *buf, size_t len)
 		PATH_CORRUPT,
 		msgid))
 		fatalx("fsqueue_message_corrupt_path: path does not fit buffer");
+}
+
+static void
+fsqueue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
+{
+	if (! bsnprintf(buf, len, "%s/%08x",
+		PATH_INCOMING,
+		msgid))
+		fatalx("fsqueue_message_incoming_path: path does not fit buffer");
 }
 
 static void *
@@ -596,10 +610,13 @@ static int
 queue_fs_init(int server)
 {
 	unsigned int	 n;
-	char		*paths[] = { PATH_QUEUE, PATH_CORRUPT };
+	char		*paths[] = { PATH_QUEUE, PATH_CORRUPT, PATH_INCOMING };
 	char		 path[SMTPD_MAXPATHLEN];
 	int		 ret;
 	struct timeval	 tv;
+
+	/* remove incoming if it exists */
+	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
 	fsqueue_envelope_path(0, path, sizeof(path));
 
@@ -623,7 +640,6 @@ queue_fs_init(int server)
 	queue_api_on_message_commit(queue_fs_message_commit);
 	queue_api_on_message_delete(queue_fs_message_delete);
 	queue_api_on_message_fd_r(queue_fs_message_fd_r);
-	queue_api_on_message_fd_w(queue_fs_message_fd_w);
 	queue_api_on_message_corrupt(queue_fs_message_corrupt);
 	queue_api_on_envelope_create(queue_fs_envelope_create);
 	queue_api_on_envelope_delete(queue_fs_envelope_delete);

@@ -91,6 +91,7 @@ static int		 errors = 0;
 struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
+struct mta_limits	*limits;
 
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
@@ -103,6 +104,7 @@ int		 interface(const char *, const char *, const char *,
 void		 set_localaddrs(void);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
+int		 getmailname(char *, size_t);
 
 typedef struct {
 	union {
@@ -118,9 +120,9 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
-%token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN
+%token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
-%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE
+%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
 %token	<v.string>	STRING
@@ -332,6 +334,16 @@ credentials	: AUTH tables	{
 listen_helo	: HOSTNAME STRING	{ $$ = $2; }
 		| /* empty */		{ $$ = NULL; }
 
+limits		: STRING NUMBER {
+			if (!limit_mta_set(limits, $1, $2)) {
+				yyerror("invalid limit keyword");
+				free($1);
+				YYERROR;
+			}
+			free($1);
+		} limits
+		| /* empty */
+
 main		: BOUNCEWARN {
 			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
 		} bouncedelays
@@ -354,6 +366,21 @@ main		: BOUNCEWARN {
 		| MAXMESSAGESIZE size {
 			conf->sc_maxsize = $2;
 		}
+		| LIMIT MTA FOR DOMAIN STRING {
+			struct mta_limits	*d;
+
+			limits = dict_get(conf->sc_limits_dict, $5);
+			if (limits == NULL) {
+				limits = xcalloc(1, sizeof(*limits), "mta_limits");
+				dict_xset(conf->sc_limits_dict, $5, limits);
+				d = dict_xget(conf->sc_limits_dict, "default");
+				memmove(limits, d, sizeof(*limits));
+			}
+			free($5);
+		} limits
+		| LIMIT MTA {
+			limits = dict_get(conf->sc_limits_dict, "default");
+		} limits
 		| LISTEN {
 			bzero(&l, sizeof l);
 		} ON STRING port ssl certificate auth tag listen_helo {
@@ -590,7 +617,7 @@ alias		: ALIAS tables			{
 virtual		: VIRTUAL tables		{
 			struct table   *t = $2;
 
-			if (! table_check_service(t, K_ALIAS)) {
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ALIAS)) {
 				yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
 				    t->t_name);
 				YYERROR;
@@ -980,6 +1007,7 @@ lookup(char *s)
 		{ "hostname",		HOSTNAME },
 		{ "include",		INCLUDE },
 		{ "key",		KEY },
+		{ "limit",		LIMIT },
 		{ "listen",		LISTEN },
 		{ "lmtp",		LMTP },
 		{ "local",		LOCAL },
@@ -987,6 +1015,7 @@ lookup(char *s)
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
+		{ "mta",		MTA },
 		{ "on",			ON },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
@@ -1336,8 +1365,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	struct table   *t;
 	char		hostname[SMTPD_MAXHOSTNAMELEN];
 
-	if (gethostname(hostname, sizeof hostname) == -1) {
-		fprintf(stderr, "invalid hostname: gethostname() failed\n");
+	if (! getmailname(hostname, sizeof hostname)) {
 		return (-1);
 	}
 
@@ -1350,6 +1378,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
+	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
 
 	/* Report mails delayed for more than 4 hours */
 	conf->sc_bounce_warn[0] = 3600 * 4;
@@ -1357,12 +1386,14 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	if (conf->sc_tables_dict == NULL	||
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
-	    conf->sc_ssl_dict == NULL) {
+	    conf->sc_ssl_dict == NULL		||
+	    conf->sc_limits_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_ssl_dict);
+		free(conf->sc_limits_dict);
 		return (-1);
 	}
 
@@ -1375,6 +1406,11 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
+
+	dict_init(conf->sc_limits_dict);
+	limits = xcalloc(1, sizeof(*limits), "mta_limits");
+	limit_mta_set_defaults(limits);
+	dict_xset(conf->sc_limits_dict, "default", limits);
 
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
@@ -1429,12 +1465,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	}
 
 	if (strlen(conf->sc_hostname) == 0)
-		if (gethostname(conf->sc_hostname,
-		    sizeof(conf->sc_hostname)) == -1) {
-			log_warn("warn: could not determine host name");
-			bzero(conf->sc_hostname, sizeof(conf->sc_hostname));
-			errors++;
-		}
+		strlcpy(conf->sc_hostname, hostname, sizeof conf->sc_hostname);
 
 	if (errors) {
 		purge_config(PURGE_EVERYTHING);
@@ -1860,5 +1891,74 @@ is_if_in_group(const char *ifname, const char *groupname)
 
 end:
 	close(s);
+	return ret;
+}
+
+int
+getmailname(char *hostname, size_t len)
+{
+	struct addrinfo	hints, *res = NULL;
+	FILE   *fp;
+	char   *buf, *lbuf = NULL;
+	size_t	buflen;
+	int	error;
+	int	ret = 0;
+
+	/* First, check if we have "/etc/mailname" */
+	if ((fp = fopen("/etc/mailname", "r")) == NULL)
+		goto nomailname;
+
+	if ((buf = fgetln(fp, &buflen)) == NULL)
+		goto end;
+
+	if (buf[buflen-1] == '\n')
+		buf[buflen - 1] = '\0';
+	else {
+		if ((lbuf = calloc(buflen + 1, 1)) == NULL)
+			err(1, "calloc");
+		memcpy(lbuf, buf, buflen);
+	}
+
+	if (strlcpy(hostname, buf, len) >= len)
+		fprintf(stderr, "/etc/mailname entry too long");
+	else {
+		ret = 1;
+		goto end;
+	}
+	
+
+nomailname:
+	if (gethostname(hostname, len) == -1) {
+		fprintf(stderr, "invalid hostname: gethostname() failed\n");
+		goto end;
+	}
+
+	if (strchr(hostname, '.') == NULL) {
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_protocol = IPPROTO_TCP;
+		hints.ai_flags = AI_CANONNAME;
+		error = getaddrinfo(hostname, NULL, &hints, &res);
+		if (error) {
+			fprintf(stderr, "invalid hostname: getaddrinfo() failed: %s\n",
+			    gai_strerror(error));
+			goto end;
+		}
+		
+		if (strlcpy(hostname, res->ai_canonname, len) >= len) {
+			fprintf(stderr, "hostname too long");
+			goto end;
+		}
+	}
+
+	ret = 1;
+
+end:
+	free(lbuf);
+	if (res)
+		freeaddrinfo(res);
+	if (fp)
+		fclose(fp);
 	return ret;
 }

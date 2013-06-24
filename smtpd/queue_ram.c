@@ -46,7 +46,6 @@ struct qr_envelope {
 };
 
 struct qr_message {
-	int		 hasfile;
 	char		*buf;
 	size_t		 len;
 	struct tree	 envelopes;
@@ -88,23 +87,22 @@ queue_ram_message_create(uint32_t *msgid)
 }
 
 static int
-queue_ram_message_commit(uint32_t msgid)
+queue_ram_message_commit(uint32_t msgid, const char *path)
 {
 	struct qr_message	*msg;
 	struct stat		 sb;
 	size_t			 n;
 	FILE			*f;
-	char			 path[SMTPD_MAXPATHLEN];
 	int			 ret;
 
 	if ((msg = tree_get(&messages, msgid)) == NULL) {
 		log_warnx("warn: queue-ram: msgid not found");
 		return (0);
 	}
-	queue_message_incoming_path(msgid, path, sizeof(path));
+
 	f = fopen(path, "rb");
 	if (f == NULL) {
-		log_warn("warn: queue-ram: fopen");
+		log_warn("warn: queue-ram: fopen: %s", path);
 		return (0);
 	}
 	if (fstat(fileno(f), &sb) == -1) {
@@ -132,9 +130,6 @@ queue_ram_message_commit(uint32_t msgid)
 		stat_increment("queue.ram.message.size", msg->len);
 	}
 	fclose(f);
-	if (unlink(path) == -1)
-		log_warn("warn: queue-ram: unlink");
-	msg->hasfile = 0;
 
 	return (ret);
 }
@@ -145,7 +140,6 @@ queue_ram_message_delete(uint32_t msgid)
 	struct qr_message	*msg;
 	struct qr_envelope	*evp;
 	uint64_t		 evpid;
-	char			 path[SMTPD_MAXPATHLEN];
 
 	if ((msg = tree_pop(&messages, msgid)) == NULL) {
 		log_warnx("warn: queue-ram: not found");
@@ -158,11 +152,6 @@ queue_ram_message_delete(uint32_t msgid)
 	}
 	stat_decrement("queue.ram.message.size", msg->len);
 	free(msg->buf);
-	if (msg->hasfile) {
-		queue_message_incoming_path(msgid, path, sizeof(path));
-		if (unlink(path) == -1)
-			log_warn("warn: queue-ram: unlink");
-	}
 	free(msg);
 	return (0);
 }
@@ -173,7 +162,6 @@ queue_ram_message_fd_r(uint32_t msgid)
 	struct qr_message	*msg;
 	size_t			 n;
 	FILE			*f;
-	char			 path[SMTPD_MAXPATHLEN];
 	int			 fd, fd2;
 
 	if ((msg = tree_get(&messages, msgid)) == NULL) {
@@ -181,15 +169,11 @@ queue_ram_message_fd_r(uint32_t msgid)
 		return (-1);
 	}
 
-	queue_message_incoming_path(msgid, path, sizeof(path));
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
+	fd = mktmpfile();
 	if (fd == -1) {
-		log_warn("warn: queue-ram: open");
+		log_warn("warn: queue-ram: mktmpfile");
 		return (-1);
 	}
-
-	if (unlink(path) == -1)
-		log_warn("warn: queue-ram: unlink");
 
 	fd2 = dup(fd);
 	if (fd2 == -1) {
@@ -213,27 +197,6 @@ queue_ram_message_fd_r(uint32_t msgid)
 	}
 	fclose(f);
 	lseek(fd, 0, SEEK_SET);
-	return (fd);
-}
-
-static int
-queue_ram_message_fd_w(uint32_t msgid)
-{
-	struct qr_message	*msg;
-	char			 path[SMTPD_MAXPATHLEN];
-	int			 fd;
-
-	if ((msg = tree_get(&messages, msgid)) == NULL) {
-		log_warnx("warn: queue-ram: not found");
-		return (-1);
-	}
-	queue_message_incoming_path(msgid, path, sizeof(path));
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
-	if (fd == -1) {
-		log_warn("warn: queue-ram: open");
-		return (-1);
-	}
-	msg->hasfile = 1;
 	return (fd);
 }
 
@@ -363,7 +326,6 @@ queue_ram_init(int server)
 	queue_api_on_message_commit(queue_ram_message_commit);
 	queue_api_on_message_delete(queue_ram_message_delete);
 	queue_api_on_message_fd_r(queue_ram_message_fd_r);
-	queue_api_on_message_fd_w(queue_ram_message_fd_w);
 	queue_api_on_message_corrupt(queue_ram_message_corrupt);
 	queue_api_on_envelope_create(queue_ram_envelope_create);
 	queue_api_on_envelope_delete(queue_ram_envelope_delete);

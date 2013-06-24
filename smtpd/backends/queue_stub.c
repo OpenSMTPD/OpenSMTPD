@@ -31,7 +31,7 @@ queue_stub_message_create(uint32_t *msgid)
 }
 
 static int
-queue_stub_message_commit(uint32_t msgid)
+queue_stub_message_commit(uint32_t msgid, const char * path)
 {
 	return (0);
 }
@@ -44,12 +44,6 @@ queue_stub_message_delete(uint32_t msgid)
 
 static int
 queue_stub_message_fd_r(uint32_t msgid)
-{
-	return (-1);
-}
-
-static int
-queue_stub_message_fd_w(uint32_t msgid)
 {
 	return (-1);
 }
@@ -98,7 +92,6 @@ queue_stub_init(int server)
 	queue_api_on_message_commit(queue_stub_message_commit);
 	queue_api_on_message_delete(queue_stub_message_delete);
 	queue_api_on_message_fd_r(queue_stub_message_fd_r);
-	queue_api_on_message_fd_w(queue_stub_message_fd_w);
 	queue_api_on_message_corrupt(queue_stub_message_corrupt);
 	queue_api_on_envelope_create(queue_stub_envelope_create);
 	queue_api_on_envelope_delete(queue_stub_envelope_delete);

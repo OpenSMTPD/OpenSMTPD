@@ -27,3 +27,6 @@
 #define	SMTPD_MAXPATHLEN	1024
 #define	SMTPD_MAXHOSTNAMELEN	256
 #define	SMTPD_MAXLINESIZE	2048
+
+#define SMTPD_USER		"_smtpd"
+#define PATH_CHROOT		"/var/empty"
