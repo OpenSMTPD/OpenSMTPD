@@ -2,6 +2,12 @@
 
 .PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
 
+# detect if asr is built in libc
+TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T getaddrinfo_async" | cut -d ' ' -f 3
+.if ${TESTASR} != "getaddrinfo_async"
+NEED_ASR=	Yes
+.endif
+
 PROG=		smtpd
 
 SRCS=		aliases.c bounce.c ca.c compress_backend.c config.c		\
