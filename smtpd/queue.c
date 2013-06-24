@@ -63,7 +63,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	struct delivery_bounce	 bounce;
 	struct bounce_req_msg	*req_bounce;
 	struct envelope		 evp;
-	static uint64_t		 batch_id;
 	struct msg		 m;
 	const char		*reason;
 	uint64_t		 reqid, evpid;
@@ -266,19 +265,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			bounce_add(evpid);
 			return;
 
-		case IMSG_MTA_BATCH:
-			batch_id = generate_uid();
-			m_create(p_mta, IMSG_MTA_BATCH, 0, 0, -1);
-			m_add_id(p_mta, batch_id);
-			m_close(p_mta);
-			return;
-
-		case IMSG_MTA_BATCH_ADD:
+		case IMSG_MTA_TRANSFER:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
-				log_warnx("queue: batch: failed to load envelope");
+				log_warnx("queue: failed to load envelope");
 				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
 				m_add_evpid(p_scheduler, evpid);
 				m_add_u32(p_scheduler, 1); /* in-flight */
@@ -286,15 +278,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			evp.lasttry = time(NULL);
-			m_create(p_mta, IMSG_MTA_BATCH_ADD, 0, 0, -1);
-			m_add_id(p_mta, batch_id);
+			m_create(p_mta, IMSG_MTA_TRANSFER, 0, 0, -1);
 			m_add_envelope(p_mta, &evp);
-			m_close(p_mta);
-			return;
-
-		case IMSG_MTA_BATCH_END:
-			m_create(p_mta, IMSG_MTA_BATCH_END, 0, 0, -1);
-			m_add_id(p_mta, batch_id);
 			m_close(p_mta);
 			return;
 
