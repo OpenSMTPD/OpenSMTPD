@@ -726,6 +726,8 @@ struct mta_limits {
 	size_t	max_mail_per_session;
 	time_t	sessdelay_transaction;
 	time_t	sessdelay_keepalive;
+
+	int	family;
 };
 
 struct mta_relay {

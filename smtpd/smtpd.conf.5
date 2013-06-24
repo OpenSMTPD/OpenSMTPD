@@ -442,7 +442,28 @@ expire 10h	# expire after 10 hours
 .Ed
 .It Xo
 .Bk -words
+.Ic limit mta
+.Op Ic for Ic domain Ar domain
+.Ar family
+.Ek
+.Xc
+Instruct
+.Xr smtpd 8
+to only use the specified address
+.Ar family
+for out-going connections.
+Accepted values are
+.Ic inet4
+and
+.Ic inet6 .
+If a
+.Ar domain
+is specified, the restriction only applies when connecting
+to MXs for this domain.
+.It Xo
+.Bk -words
 .Ic listen on Ar interface
+.Op Ar family
 .Op Ic port Ar port
 .Op Ic tls | tls-require | smtps
 .Op Ic certificate Ar name
@@ -459,6 +480,13 @@ to listen on.
 An interface group, an IP address or a domain name may
 be used in place of
 .Ar interface .
+The
+.Ar family
+parameter can be used to listen only on specific address family.
+Accepted values are
+.Ic inet4
+and
+.Ic inet6 .
 .Pp
 Secured connections are provided either using STARTTLS
 .Pq Ic tls ,

@@ -57,6 +57,8 @@ limit_mta_set_defaults(struct mta_limits *limits)
 	limits->max_mail_per_session = 100;
 	limits->sessdelay_transaction = 1;
 	limits->sessdelay_keepalive = 10;
+
+	limits->family = AF_UNSPEC;
 }
 
 int

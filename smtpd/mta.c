@@ -1347,8 +1347,9 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		/* Found a possibly valid mx */
 		seen++;
 
-		if (c->source->sa &&
-		    c->source->sa->sa_family != mx->host->sa->sa_family) {
+		if ((c->source->sa &&
+		     c->source->sa->sa_family != mx->host->sa->sa_family) ||
+		    (l->family && l->family != mx->host->sa->sa_family)) {
 			log_debug("debug: mta-routing: skipping host %s: AF mismatch",
 			    mta_host_to_text(mx->host));
 			family_mismatch = 1;
