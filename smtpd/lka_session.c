@@ -581,9 +581,9 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		 /* token:mod_1,mod_2,mod_n -> extract modifiers */
 		 mods = strchr(rbracket + 1, ':');
 	} else {
-		 if ((mods = strchr(rtoken, ':')) != NULL)
+		if ((mods = strchr(rtoken, ':')) != NULL)
 			*mods++ = '\0';
-	}		
+	}
 
 	/* token -> expanded token */
 	if (! strcasecmp("sender", rtoken)) {
@@ -633,17 +633,18 @@ lka_expand_token(char *dest, size_t len, const char *token,
 				return 0;
 			string = tmp;
 		}
+
 		do {
-			if ((sep = strchr(mods, ',')) != NULL)
+			if ((sep = strchr(mods, '|')) != NULL)
 				*sep++ = '\0';
-			for (i = 0; i < (ssize_t)nitems(token_modifiers); ++i) {
+			for (i = 0; (size_t)i < nitems(token_modifiers); ++i) {
 				if (! strcmp(token_modifiers[i].name, mods)) {
 					if (! token_modifiers[i].f(tmp, sizeof tmp))
 						return 0; /* modifier error */
 					break;
 				}
 			}
-			if (i == (ssize_t)nitems(token_modifiers))
+			if ((size_t)i == nitems(token_modifiers))
 				return 0; /* modifier not found */
 		} while ((mods = sep) != NULL);
 	}

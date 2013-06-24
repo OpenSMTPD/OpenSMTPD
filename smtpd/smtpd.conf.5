@@ -90,6 +90,15 @@ For example, with recipient domain "example.org":
 %{rcpt.domain[0:-4]}	expands to "example"
 .Ed
 .Pp
+In addition, modifiers may be applied to the token.
+For example, with recipient "User+Tag@Example.org":
+.Bd -literal -offset indent
+%{rcpt:lowercase}	expands to "user+tag@example.org"
+%{rcpt:uppercase}	expands to "USER+TAG@EXAMPLE.ORG"
+%{rcpt:strip}		expands to "User@Example.org"
+%{rcpt:lowercase|strip}	expands to "user@example.org"
+.Ed
+.Pp
 Additional configuration files can be included with the
 .Ic include
 keyword, for example:
