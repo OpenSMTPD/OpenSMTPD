@@ -55,6 +55,8 @@ static const struct token t_remove[];
 static const struct token t_resume[];
 static const struct token t_resume_route[];
 static const struct token t_schedule[];
+static const struct token t_pause_evp[];
+static const struct token t_resume_evp[];
 static const struct token t_show[];
 static const struct token t_show_envelope[];
 static const struct token t_show_message[];
@@ -116,6 +118,7 @@ static const struct token t_pause[] = {
 	{KEYWORD,	"mda",			PAUSE_MDA,	NULL},
 	{KEYWORD,	"mta",		        PAUSE_MTA,	NULL},
 	{KEYWORD,	"smtp",		        PAUSE_SMTP,	NULL},
+	{KEYWORD,	"envelope",		PAUSE_EVP,	t_pause_evp},
 	{ENDTOKEN,	"",			NONE,		NULL}
 };
 
@@ -123,7 +126,18 @@ static const struct token t_resume[] = {
 	{KEYWORD,	"mda",			RESUME_MDA,	NULL},
 	{KEYWORD,	"mta",		        RESUME_MTA,	NULL},
 	{KEYWORD,	"smtp",		        RESUME_SMTP,	NULL},
+	{KEYWORD,	"envelope",		RESUME_EVP,	t_resume_evp},
 	{KEYWORD,	"route",       	        RESUME_ROUTE,	t_resume_route},
+	{ENDTOKEN,	"",			NONE,		NULL}
+};
+
+static const struct token t_pause_evp[] = {
+	{VARIABLE,	"id",			PAUSE_EVP,	NULL},
+	{ENDTOKEN,	"",			NONE,		NULL}
+};
+
+static const struct token t_resume_evp[] = {
+	{VARIABLE,	"id",			RESUME_EVP,	NULL},
 	{ENDTOKEN,	"",			NONE,		NULL}
 };
 

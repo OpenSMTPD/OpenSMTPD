@@ -449,7 +449,7 @@ queue_envelope_cache_update(struct envelope *e)
 {
 	struct envelope *cached;
 
-	if ((cached = tree_pop(&evpcache_tree, e->id)) == NULL) {
+	if ((cached = tree_get(&evpcache_tree, e->id)) == NULL) {
 		queue_envelope_cache_add(e);
 		stat_increment("queue.evpcache.update.missed", 1);
 	} else {

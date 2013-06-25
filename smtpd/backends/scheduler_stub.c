@@ -95,6 +95,18 @@ scheduler_stub_remove(uint64_t evpid)
 	return (0);
 }
 
+static int
+scheduler_stub_suspend(uint64_t evpid)
+{
+	return (0);
+}
+
+static int
+scheduler_stub_resume(uint64_t evpid)
+{
+	return (0);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -124,6 +136,8 @@ main(int argc, char **argv)
 	scheduler_api_on_envelopes(scheduler_stub_envelopes);
 	scheduler_api_on_schedule(scheduler_stub_schedule);
 	scheduler_api_on_remove(scheduler_stub_remove);
+	scheduler_api_on_suspend(scheduler_stub_suspend);
+	scheduler_api_on_resume(scheduler_stub_resume);
 
 	scheduler_api_dispatch();
 

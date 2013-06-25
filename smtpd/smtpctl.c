@@ -278,6 +278,12 @@ main(int argc, char *argv[])
 	case SHUTDOWN:
 		imsg_compose(ibuf, IMSG_CTL_SHUTDOWN, IMSG_VERSION, 0, -1, NULL, 0);
 		break;
+	case PAUSE_EVP:
+		if ((ulval = text_to_evpid(res->data)) == 0)
+			errx(1, "invalid msgid/evpid");
+		imsg_compose(ibuf, IMSG_CTL_PAUSE_EVP, IMSG_VERSION, 0, -1, &ulval,
+		    sizeof(ulval));
+		break;
 	case PAUSE_MDA:
 		imsg_compose(ibuf, IMSG_CTL_PAUSE_MDA, IMSG_VERSION, 0, -1, NULL, 0);
 		break;
@@ -286,6 +292,12 @@ main(int argc, char *argv[])
 		break;
 	case PAUSE_SMTP:
 		imsg_compose(ibuf, IMSG_CTL_PAUSE_SMTP, IMSG_VERSION, 0, -1, NULL, 0);
+		break;
+	case RESUME_EVP:
+		if ((ulval = text_to_evpid(res->data)) == 0)
+			errx(1, "invalid msgid/evpid");
+		imsg_compose(ibuf, IMSG_CTL_RESUME_EVP, IMSG_VERSION, 0, -1, &ulval,
+		    sizeof(ulval));
 		break;
 	case RESUME_MDA:
 		imsg_compose(ibuf, IMSG_CTL_RESUME_MDA, IMSG_VERSION, 0, -1, NULL, 0);
@@ -413,9 +425,11 @@ main(int argc, char *argv[])
 		case REMOVE:
 		case SCHEDULE:
 		case SHUTDOWN:
+		case PAUSE_EVP:
 		case PAUSE_MDA:
 		case PAUSE_MTA:
 		case PAUSE_SMTP:
+		case RESUME_EVP:
 		case RESUME_MDA:
 		case RESUME_MTA:
 		case RESUME_SMTP:
@@ -741,12 +755,10 @@ show_queue_envelope(struct envelope *e, int online)
 
 	status[0] = '\0';
 
-	getflag(&e->flags, EF_BOUNCE, "bounce",
-	    status, sizeof(status));
-	getflag(&e->flags, EF_AUTHENTICATED, "auth",
-	    status, sizeof(status));
-	getflag(&e->flags, EF_INTERNAL, "internal",
-	    status, sizeof(status));
+	getflag(&e->flags, EF_BOUNCE, "bounce", status, sizeof(status));
+	getflag(&e->flags, EF_AUTHENTICATED, "auth", status, sizeof(status));
+	getflag(&e->flags, EF_INTERNAL, "internal", status, sizeof(status));
+	getflag(&e->flags, EF_SUSPEND, "suspend", status, sizeof(status));
 
 	if (online) {
 		if (e->flags & EF_PENDING)
