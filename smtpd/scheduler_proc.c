@@ -370,6 +370,42 @@ scheduler_proc_remove(uint64_t evpid)
 	return (r);
 }
 
+static int
+scheduler_proc_suspend(uint64_t evpid)
+{
+	int	r;
+
+	log_debug("debug: scheduler-proc: PROC_SCHEDULER_SUSPEND");
+
+	imsg_compose(&ibuf, PROC_SCHEDULER_SUSPEND, 0, 0, -1,
+	    &evpid, sizeof(evpid));
+
+	scheduler_proc_call();
+
+	scheduler_proc_read(&r, sizeof(r));
+	scheduler_proc_end();
+
+	return (r);
+}
+
+static int
+scheduler_proc_resume(uint64_t evpid)
+{
+	int	r;
+
+	log_debug("debug: scheduler-proc: PROC_SCHEDULER_RESUME");
+
+	imsg_compose(&ibuf, PROC_SCHEDULER_RESUME, 0, 0, -1,
+	    &evpid, sizeof(evpid));
+
+	scheduler_proc_call();
+
+	scheduler_proc_read(&r, sizeof(r));
+	scheduler_proc_end();
+
+	return (r);
+}
+
 struct scheduler_backend scheduler_backend_proc = {
 	scheduler_proc_init,
 	scheduler_proc_insert,
@@ -382,4 +418,6 @@ struct scheduler_backend scheduler_backend_proc = {
 	scheduler_proc_envelopes,
 	scheduler_proc_schedule,
 	scheduler_proc_remove,
+	scheduler_proc_suspend,
+	scheduler_proc_resume,
 };

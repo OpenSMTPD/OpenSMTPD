@@ -306,7 +306,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			evp.flags |= flags;
 			/* In the past if running or runnable */
 			evp.nexttry = nexttry;
-			if (flags == EF_INFLIGHT) {
+			if (flags & EF_INFLIGHT) {
 				/*
 				 * Not exactly correct but pretty close: The
 				 * value is not recorded on the envelope unless

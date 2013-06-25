@@ -40,6 +40,8 @@ static size_t (*handler_messages)(uint32_t, uint32_t *, size_t);
 static size_t (*handler_envelopes)(uint64_t, struct evpstate *, size_t);
 static int (*handler_schedule)(uint64_t);
 static int (*handler_remove)(uint64_t);
+static int (*handler_suspend)(uint64_t);
+static int (*handler_resume)(uint64_t);
 
 #define MAX_BATCH_SIZE	1024
 
@@ -248,6 +250,26 @@ scheduler_msg_dispatch(void)
 		imsg_compose(&ibuf, PROC_SCHEDULER_OK, 0, 0, -1, &r, sizeof(r));
 		break;
 
+	case PROC_SCHEDULER_SUSPEND:
+		log_debug("scheduler-api:  PROC_SCHEDULER_SUSPEND");
+		scheduler_msg_get(&evpid, sizeof(evpid));
+		scheduler_msg_end();
+
+		r = handler_suspend(evpid);
+
+		imsg_compose(&ibuf, PROC_SCHEDULER_OK, 0, 0, -1, &r, sizeof(r));
+		break;
+
+	case PROC_SCHEDULER_RESUME:
+		log_debug("scheduler-api:  PROC_SCHEDULER_RESUME");
+		scheduler_msg_get(&evpid, sizeof(evpid));
+		scheduler_msg_end();
+
+		r = handler_resume(evpid);
+
+		imsg_compose(&ibuf, PROC_SCHEDULER_OK, 0, 0, -1, &r, sizeof(r));
+		break;
+
 	default:
 		log_warnx("warn: scheduler-api: bad message %i", imsg.hdr.type);
 		fatalx("scheduler-api: exiting");
@@ -318,6 +340,18 @@ void
 scheduler_api_on_remove(int(*cb)(uint64_t))
 {
 	handler_remove = cb;
+}
+
+void
+scheduler_api_on_suspend(int(*cb)(uint64_t))
+{
+	handler_suspend = cb;
+}
+
+void
+scheduler_api_on_resume(int(*cb)(uint64_t))
+{
+	handler_resume = cb;
 }
 
 int

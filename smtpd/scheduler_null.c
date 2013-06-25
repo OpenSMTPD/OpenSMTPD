@@ -41,6 +41,8 @@ static size_t scheduler_null_messages(uint32_t, uint32_t *, size_t);
 static size_t scheduler_null_envelopes(uint64_t, struct evpstate *, size_t);
 static int scheduler_null_schedule(uint64_t);
 static int scheduler_null_remove(uint64_t);
+static int scheduler_null_suspend(uint64_t);
+static int scheduler_null_resume(uint64_t);
 
 struct scheduler_backend scheduler_backend_null = {
 	scheduler_null_init,
@@ -58,6 +60,8 @@ struct scheduler_backend scheduler_backend_null = {
 	scheduler_null_envelopes,
 	scheduler_null_schedule,
 	scheduler_null_remove,
+	scheduler_null_suspend,
+	scheduler_null_resume,
 };
 
 static int
@@ -113,6 +117,18 @@ scheduler_null_schedule(uint64_t evpid)
 
 static int
 scheduler_null_remove(uint64_t evpid)
+{
+	return (0);
+}
+
+static int
+scheduler_null_suspend(uint64_t evpid)
+{
+	return (0);
+}
+
+static int
+scheduler_null_resume(uint64_t evpid)
 {
 	return (0);
 }

@@ -284,6 +284,30 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		backend->remove(id);
 		scheduler_reset_events();
 		return;
+
+	case IMSG_CTL_PAUSE_EVP:
+		id = *(uint64_t *)(imsg->data);
+		if (id <= 0xffffffffL)
+			log_debug("debug: scheduler: "
+			    "suspending msg:%08" PRIx64, id);
+		else
+			log_debug("debug: scheduler: "
+			    "suspending evp:%016" PRIx64, id);
+		backend->suspend(id);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_CTL_RESUME_EVP:
+		id = *(uint64_t *)(imsg->data);
+		if (id <= 0xffffffffL)
+			log_debug("debug: scheduler: "
+			    "resuming msg:%08" PRIx64, id);
+		else
+			log_debug("debug: scheduler: "
+			    "resuming evp:%016" PRIx64, id);
+		backend->resume(id);
+		scheduler_reset_events();
+		return;
 	}
 
 	errx(1, "scheduler_imsg: unexpected %s imsg",

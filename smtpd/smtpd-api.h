@@ -124,6 +124,8 @@ enum {
 	PROC_SCHEDULER_ENVELOPES,
 	PROC_SCHEDULER_SCHEDULE,
 	PROC_SCHEDULER_REMOVE,
+	PROC_SCHEDULER_SUSPEND,
+	PROC_SCHEDULER_RESUME,
 };
 
 enum envelope_flags {
@@ -135,6 +137,7 @@ enum envelope_flags {
 
 	EF_PENDING		= 0x10,
 	EF_INFLIGHT		= 0x20,
+	EF_SUSPEND		= 0x40,
 };
 
 struct evpstate {
@@ -280,6 +283,8 @@ void scheduler_api_on_messages(size_t(*)(uint32_t, uint32_t *, size_t));
 void scheduler_api_on_envelopes(size_t(*)(uint64_t, struct evpstate *, size_t));
 void scheduler_api_on_schedule(int(*)(uint64_t));
 void scheduler_api_on_remove(int(*)(uint64_t));
+void scheduler_api_on_suspend(int(*)(uint64_t));
+void scheduler_api_on_resume(int(*)(uint64_t));
 int scheduler_api_dispatch(void);
 
 /* table */
