@@ -126,8 +126,6 @@ static struct mta_host_tree		hosts;
 static struct mta_source_tree		sources;
 static struct mta_route_tree		routes;
 
-static struct tree batches;
-
 static struct tree wait_mx;
 static struct tree wait_preference;
 static struct tree wait_secret;
@@ -168,7 +166,6 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct hoststat		*hs;
 	struct mta_envelope	*e;
 	struct sockaddr_storage	 ss;
-	struct tree		*batch;
 	struct envelope		 evp;
 	struct msg		 m;
 	const char		*secret;
@@ -183,29 +180,23 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_MTA_BATCH:
+		case IMSG_MTA_TRANSFER:
 			m_msg(&m, imsg);
-			m_get_id(&m, &reqid);
-			m_end(&m);
-			batch = xmalloc(sizeof *batch, "mta_batch");
-			tree_init(batch);
-			tree_xset(&batches, reqid, batch);
-			return;
-
-		case IMSG_MTA_BATCH_ADD:
-			m_msg(&m, imsg);
-			m_get_id(&m, &reqid);
 			m_get_envelope(&m, &evp);
 			m_end(&m);
 
 			relay = mta_relay(&evp);
-			batch = tree_xget(&batches, reqid);
 
-			if ((task = tree_get(batch, relay->id)) == NULL) {
+			TAILQ_FOREACH(task, &relay->tasks, entry)
+				if (task->msgid == evpid_to_msgid(evp.id))
+					break;
+
+			if (task == NULL) {
 				task = xmalloc(sizeof *task, "mta_task");
 				TAILQ_INIT(&task->envelopes);
 				task->relay = relay;
-				tree_xset(batch, relay->id, task);
+				relay->ntask += 1;
+				TAILQ_INSERT_TAIL(&relay->tasks, task, entry);
 				task->msgid = evpid_to_msgid(evp.id);
 				if (evp.sender.user[0] || evp.sender.domain[0])
 					snprintf(buf, sizeof buf, "%s@%s",
@@ -213,16 +204,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				else
 					buf[0] = '\0';
 				task->sender = xstrdup(buf, "mta_task:sender");
-			} else
-				mta_relay_unref(relay); /* from here */
-
-			/*
-			 * Technically, we could handle that by adding a msg
-			 * level, but the batch sent by the scheduler should
-			 * be valid.
-			 */
-			if (task->msgid != evpid_to_msgid(evp.id))
-				errx(1, "msgid mismatch in batch");
+				stat_increment("mta.task", 1);
+			}
 
 			e = xcalloc(1, sizeof *e, "mta_envelope");
 			e->id = evp.id;
@@ -235,30 +218,15 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (strcmp(buf, e->dest))
 				e->rcpt = xstrdup(buf, "mta_envelope:rcpt");
 			e->task = task;
-			/* XXX honour relay->maxrcpt */
+
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
-			stat_increment("mta.envelope", 1);
 			log_debug("debug: mta: received evp:%016" PRIx64
 			    " for <%s>", e->id, e->dest);
-			return;
 
-		case IMSG_MTA_BATCH_END:
-			m_msg(&m, imsg);
-			m_get_id(&m, &reqid);
-			m_end(&m);
-			batch = tree_xpop(&batches, reqid);
-			/* For all tasks, queue them on its relay */
-			while (tree_poproot(batch, &reqid, (void**)&task)) {
-				if (reqid != task->relay->id)
-					errx(1, "relay id mismatch!");
-				relay = task->relay;
-				relay->ntask += 1;
-				TAILQ_INSERT_TAIL(&relay->tasks, task, entry);
-				stat_increment("mta.task", 1);
-				mta_drain(relay);
-				mta_relay_unref(relay); /* from BATCH_APPEND */
-			}
-			free(batch);
+			stat_increment("mta.envelope", 1);
+
+			mta_drain(relay);
+			mta_relay_unref(relay); /* from here */
 			return;
 
 		case IMSG_QUEUE_MESSAGE_FD:
@@ -501,7 +469,6 @@ mta(void)
 	SPLAY_INIT(&sources);
 	SPLAY_INIT(&routes);
 
-	tree_init(&batches);
 	tree_init(&wait_secret);
 	tree_init(&wait_mx);
 	tree_init(&wait_preference);

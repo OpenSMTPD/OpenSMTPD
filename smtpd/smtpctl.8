@@ -78,6 +78,9 @@ Envelopes removed by the administrator.
 .It
 Generated bounces.
 .El
+.It Cm pause envelope Ar envelope-id | message-id
+Temporarily suspend scheduling for the envelope with the given ID,
+or all envelopes with the given message ID.
 .It Cm pause mda
 Temporarily stop deliveries to local users.
 .It Cm pause mta
@@ -98,6 +101,9 @@ imsg, to profile cost of event handlers
 .El
 .It Cm remove Ar envelope-id | message-id
 Remove a single envelope, or all envelopes with the same message ID.
+.It Cm resume envelope Ar envelope-id | message-id
+Resume scheduling for the envelope with the given ID,
+or all envelopes with the given message ID.
 .It Cm resume mda
 Resume deliveries to local users.
 .It Cm resume mta

@@ -284,6 +284,30 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		backend->remove(id);
 		scheduler_reset_events();
 		return;
+
+	case IMSG_CTL_PAUSE_EVP:
+		id = *(uint64_t *)(imsg->data);
+		if (id <= 0xffffffffL)
+			log_debug("debug: scheduler: "
+			    "suspending msg:%08" PRIx64, id);
+		else
+			log_debug("debug: scheduler: "
+			    "suspending evp:%016" PRIx64, id);
+		backend->suspend(id);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_CTL_RESUME_EVP:
+		id = *(uint64_t *)(imsg->data);
+		if (id <= 0xffffffffL)
+			log_debug("debug: scheduler: "
+			    "resuming msg:%08" PRIx64, id);
+		else
+			log_debug("debug: scheduler: "
+			    "resuming evp:%016" PRIx64, id);
+		backend->resume(id);
+		scheduler_reset_events();
+		return;
 	}
 
 	errx(1, "scheduler_imsg: unexpected %s imsg",
@@ -529,17 +553,13 @@ scheduler_process_mta(struct scheduler_batch *batch)
 {
 	size_t	i;
 
-	m_compose(p_queue, IMSG_MTA_BATCH, 0, 0, -1, NULL, 0);
-
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (mta)", batch->evpids[i]);
-		m_create(p_queue, IMSG_MTA_BATCH_ADD, 0, 0, -1);
+		m_create(p_queue, IMSG_MTA_TRANSFER, 0, 0, -1);
 		m_add_evpid(p_queue, batch->evpids[i]);
 		m_close(p_queue);
 	}
-
-	m_compose(p_queue, IMSG_MTA_BATCH_END, 0, 0, -1, NULL, 0);
 
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 }
