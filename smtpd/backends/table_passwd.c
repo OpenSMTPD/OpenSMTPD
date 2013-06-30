@@ -18,6 +18,7 @@
 
 #include <sys/types.h>
 
+#include <err.h>
 #include <getopt.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -35,7 +36,7 @@ static int table_passwd_fetch(int, char *, size_t);
 static int parse_passwd_entry(struct passwd *, const char *);
 
 static char	       *config;
-static struct dict	passwd;
+static struct dict     *passwd;
 
 int
 main(int argc, char **argv)
@@ -61,7 +62,11 @@ main(int argc, char **argv)
 	}
 
 	config = argv[0];
-	dict_init(&passwd);
+
+	if (table_passwd_update() == 0) {
+		log_warnx("warn: backend-table-passwd: error parsing config file");
+		return (1);
+	}
 
 	table_api_on_update(table_passwd_update);
 	table_api_on_check(table_passwd_check);
@@ -75,17 +80,24 @@ main(int argc, char **argv)
 static int
 table_passwd_update(void)
 {
-	FILE   *fp;
-	char   *buf, *lbuf;
-	size_t	len;
-	int	ret = 0;
+	FILE	       *fp;
+	char	       *buf, *lbuf;
+	size_t		len;
+	char	       *line;
 	struct passwd	pw;
-	char   *line;
+	struct dict    *npasswd;
+
 
 	/* Parse configuration */
 	fp = fopen(config, "r");
 	if (fp == NULL)
 		return (0);
+
+	npasswd = calloc(1, sizeof *passwd);
+	if (npasswd == NULL)
+		goto err;
+
+	dict_init(npasswd);
 
 	lbuf = NULL;
 	while ((buf = fgetln(fp, &len))) {
@@ -100,16 +112,29 @@ table_passwd_update(void)
 			buf = lbuf;
 		}
 		if (! parse_passwd_entry(&pw, buf)) {
-			ret = 0;
-			break;
+			log_warnx("warn: backend-table-passwd: invalid entry");
+			goto err;
 		}
 		if ((line = strdup(buf)) == NULL)
 			err(1, NULL);
-		dict_set(&passwd, pw.pw_name, line);
+		dict_set(npasswd, pw.pw_name, line);
 	}
 	free(lbuf);
 
-	return (ret);
+	/* swap passwd table and release old one*/
+	if (passwd)
+		while (dict_poproot(passwd, NULL, &buf))
+			free(buf);
+	passwd = npasswd;
+
+	return (1);
+
+err:
+	/* release passwd table */
+	if (npasswd)
+		while (dict_poproot(npasswd, NULL, &buf))
+			free(buf);
+	return (0);
 }
 
 static int
@@ -125,10 +150,16 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 	struct passwd	pw;
 	char	       *line;
 
-	line = dict_get(&passwd, key);
+	line = dict_get(passwd, key);
 	if (line == NULL)
 		return 0;
 
+	if (! parse_passwd_entry(&pw, line)) {
+		log_warnx("warn: backend-table-passwd: invalid entry");
+		return -1;
+	}
+
+	r = 1;
 	switch (service) {
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
@@ -138,8 +169,8 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_USERINFO:
-		if (snprintf(dst, sz, "%s:%i:%i:%s",
-			pw.pw_name, pw.pw_uid, pw.pw_gid, pw.pw_dir)
+		if (snprintf(dst, sz, "%i:%i:%s",
+			pw.pw_uid, pw.pw_gid, pw.pw_dir)
 		    > (ssize_t)sz) {
 			log_warnx("warn: backend-table-passwd: result too large");
 			r = -1;
@@ -165,7 +196,7 @@ parse_passwd_entry(struct passwd *pw, const char *line)
 {
 	const char     *errstr;
 	char	       *p, *q;
-	char		buf[1024];
+	char		buf[LINE_MAX];
 
 	if (strlcpy(buf, line, sizeof buf) >= sizeof buf)
 		return 0;
@@ -190,7 +221,7 @@ parse_passwd_entry(struct passwd *pw, const char *line)
 	if ((p = strchr(q, ':')) == NULL)
 		return 0;
 	*p++ = 0;
-	pw->pw_uid = strtonum(q, 1, 1024, &errstr);
+	pw->pw_uid = strtonum(q, 1, UID_MAX, &errstr);
 	if (errstr)
 		return 0;
 
@@ -199,7 +230,7 @@ parse_passwd_entry(struct passwd *pw, const char *line)
 	if ((p = strchr(q, ':')) == NULL)
 		return 0;
 	*p++ = 0;
-	pw->pw_gid = strtonum(q, 1, 1024, &errstr);
+	pw->pw_gid = strtonum(q, 1, GID_MAX, &errstr);
 	if (errstr)
 		return 0;
 
