@@ -55,6 +55,9 @@ static MYSQL_STMT *table_mysql_query(const char *, int);
 
 #define SQL_MAX_RESULT	5
 
+#define	DEFAULT_EXPIRE	60
+#define	DEFAULT_REFRESH	1000
+
 static char		*config;
 static MYSQL		*db;
 static MYSQL_STMT	*statements[SQL_MAX];
@@ -64,9 +67,9 @@ static char		results_buffer[SQL_MAX_RESULT][SMTPD_MAXLINESIZE];
 
 static struct dict	 sources;
 static void		*source_iter;
-static size_t		 source_refresh = 1000;
+static size_t		 source_refresh;
 static size_t		 source_ncall;
-static int		 source_expire = 60;
+static int		 source_expire;
 static time_t		 source_update;
 
 int
@@ -194,10 +197,14 @@ table_mysql_update(void)
 	MYSQL_STMT	*_stmt_fetch_source;
 	char		*_query_fetch_source;
 	size_t		 flen;
+	size_t		 _source_refresh;
+	int		 _source_expire;
 	FILE		*fp;
 	char		*key, *value, *buf, *lbuf;
 	char		*host, *username, *password, *database;
+	const char	*e;
 	int		 i, ret;
+	long long	 ll;
 
 	host = NULL;
 	username = NULL;
@@ -208,6 +215,9 @@ table_mysql_update(void)
 	bzero(_statements, sizeof(_statements));
 	_query_fetch_source = NULL;
 	_stmt_fetch_source = NULL;
+
+	_source_refresh = DEFAULT_REFRESH;
+	_source_expire = DEFAULT_EXPIRE;
 
 	ret = 0;
 
@@ -280,6 +290,26 @@ table_mysql_update(void)
 				goto end;
 			continue;
 		}
+		if (!strcmp("fetch_source_expire", key)) {
+			e = NULL;
+			ll = strtonum(value, 0, INT_MAX, &e);
+			if (e) {
+				log_warnx("warn: backend-table-mysql: bad value for %s: %s", key, e);
+				goto end;
+			}
+			_source_expire = ll;
+			continue;
+		}
+		if (!strcmp("fetch_source_refresh", key)) {
+			e = NULL;
+			ll = strtonum(value, 0, INT_MAX, &e);
+			if (e) {
+				log_warnx("warn: backend-table-mysql: bad value for %s: %s", key, e);
+				goto end;
+			}
+			_source_refresh = ll;
+			continue;
+		}
 
 		for(i = 0; i < SQL_MAX; i++)
 			if (!strcmp(qspec[i].name, key))
@@ -348,6 +378,8 @@ table_mysql_update(void)
 	_db = NULL;
 
 	source_update = 0; /* force update */
+	source_expire = _source_expire;
+	source_refresh = _source_refresh;
 
 	log_debug("debug: backend-table-mysql: config successfully updated");
 	ret = 1;
