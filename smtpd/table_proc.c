@@ -97,7 +97,9 @@ table_proc_read(void *dst, size_t len)
 		fatalx("table-proc: exiting");
 	}
 
-	memmove(dst, rdata, len);
+	if (dst)
+		memmove(dst, rdata, len);
+
 	rlen -= len;
 	rdata += len;
 }
@@ -215,7 +217,7 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 
 	table_proc_call(priv);
 	table_proc_read(&r, sizeof(r));
-	
+
 	if (r == 1 && lk) {
 		if (rlen == 0) {
 			log_warnx("warn: table-proc: empty response");
@@ -226,7 +228,10 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 			fatalx("table-proc: exiting");
 		}
 		r = table_parse_lookup(s, k, rdata, lk);
+		table_proc_read(NULL, rlen);
 	}
+
+	table_proc_end();
 
 	return (r);
 }
@@ -248,17 +253,20 @@ table_proc_fetch(void *arg, enum table_service s, union lookup *lk)
 	table_proc_call(priv);
 	table_proc_read(&r, sizeof(r));
 
-	if (rlen == 0) {
-		log_warnx("warn: table-proc: empty response");
-		fatalx("table-proc: exiting");
-	}
-	if (rdata[rlen - 1] != '\0') {
-		log_warnx("warn: table-proc: not NUL-terminated");
-		fatalx("table-proc: exiting");
+	if (r == 1) {
+		if (rlen == 0) {
+			log_warnx("warn: table-proc: empty response");
+			fatalx("table-proc: exiting");
+		}
+		if (rdata[rlen - 1] != '\0') {
+			log_warnx("warn: table-proc: not NUL-terminated");
+			fatalx("table-proc: exiting");
+		}
+		r = table_parse_lookup(s, NULL, rdata, lk);
+		table_proc_read(NULL, rlen);
 	}
 
-	if (r == 1)
-		r = table_parse_lookup(s, NULL, rdata, lk);
+	table_proc_end();
 
 	return (r);
 }
