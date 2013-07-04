@@ -1450,7 +1450,8 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 				"profiling.imsg.%s.%s.%s",
 				proc_name(smtpd_process),
 				proc_name(p->proc),
-				imsg_to_str(imsg->hdr.type)));
+				imsg_to_str(imsg->hdr.type)))
+				return;
 			stat_set(key, stat_timespec(&dt));
 		}
 	}
