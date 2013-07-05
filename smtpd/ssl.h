@@ -15,7 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define SSL_CIPHERS		"HIGH"
+#define SSL_CIPHERS		"HIGH:!aNULL:!MD5"
+#define	SSL_ECDH_CURVE		"prime256v1"
 #define	SSL_SESSION_TIMEOUT	300
 
 struct ssl {
@@ -42,6 +43,7 @@ int	        ssl_cmp(struct ssl *, struct ssl *);
 DH	       *get_dh1024(void);
 DH	       *get_dh_from_memory(char *, size_t);
 void		ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
+void		ssl_set_ecdh_curve(SSL_CTX *);
 extern int	ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
 char	       *ssl_load_file(const char *, off_t *, mode_t);
 char	       *ssl_load_key(const char *, off_t *, char *);

@@ -48,7 +48,6 @@
 #define SMTPD_QUEUE_INTERVAL	 (15 * 60)
 #define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
-#define SMTPD_QUEUE_USER	 "_smtpq"
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
@@ -60,7 +59,6 @@
 
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
 
-#define PATH_SPOOL		"/var/spool/smtpd"
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
@@ -148,7 +146,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		4
+#define	IMSG_VERSION		5
 
 enum imsg_type {
 	IMSG_NONE,
@@ -156,9 +154,11 @@ enum imsg_type {
 	IMSG_CTL_FAIL,
 	IMSG_CTL_SHUTDOWN,
 	IMSG_CTL_VERBOSE,
+	IMSG_CTL_PAUSE_EVP,
 	IMSG_CTL_PAUSE_MDA,
 	IMSG_CTL_PAUSE_MTA,
 	IMSG_CTL_PAUSE_SMTP,
+	IMSG_CTL_RESUME_EVP,
 	IMSG_CTL_RESUME_MDA,
 	IMSG_CTL_RESUME_MTA,
 	IMSG_CTL_RESUME_SMTP,
@@ -225,9 +225,7 @@ enum imsg_type {
 	IMSG_MFA_SMTP_DATA,
 	IMSG_MFA_SMTP_RESPONSE,
 
-	IMSG_MTA_BATCH,
-	IMSG_MTA_BATCH_ADD,
-	IMSG_MTA_BATCH_END,
+	IMSG_MTA_TRANSFER,
 	IMSG_MTA_SCHEDULE,
 
 	IMSG_QUEUE_CREATE_MESSAGE,
@@ -731,6 +729,8 @@ struct mta_limits {
 	size_t	max_mail_per_session;
 	time_t	sessdelay_transaction;
 	time_t	sessdelay_keepalive;
+
+	int	family;
 };
 
 struct mta_relay {
@@ -840,8 +840,9 @@ struct scheduler_backend {
 	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);
 	int	(*schedule)(uint64_t);
 	int	(*remove)(uint64_t);
+	int	(*suspend)(uint64_t);
+	int	(*resume)(uint64_t);
 };
-
 
 enum stat_type {
 	STAT_COUNTER,
@@ -1366,6 +1367,7 @@ int valid_domainpart(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
+int  uppercase(char *, const char *, size_t);
 uint64_t generate_uid(void);
 void fdlimit(double);
 int availdesc(void);

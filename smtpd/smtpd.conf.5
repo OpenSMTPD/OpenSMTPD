@@ -90,6 +90,15 @@ For example, with recipient domain "example.org":
 %{rcpt.domain[0:-4]}	expands to "example"
 .Ed
 .Pp
+In addition, modifiers may be applied to the token.
+For example, with recipient "User+Tag@Example.org":
+.Bd -literal -offset indent
+%{rcpt:lowercase}	expands to "user+tag@example.org"
+%{rcpt:uppercase}	expands to "USER+TAG@EXAMPLE.ORG"
+%{rcpt:strip}		expands to "User@Example.org"
+%{rcpt:lowercase|strip}	expands to "user@example.org"
+.Ed
+.Pp
 Additional configuration files can be included with the
 .Ic include
 keyword, for example:
@@ -214,15 +223,11 @@ table, see
 .It Ic for local Op Ic alias Aq Ar aliases
 This rule applies to mail destined to
 .Dq localhost
-and to the server's fully qualified domain name,
-as returned by
-.Xr hostname 1 .
+and to the default server name (see below).
 .It Ic for local virtual Aq Ar vmap
 This rule applies to mail destined to
 .Dq localhost
-and to the server's fully qualified domain name,
-as returned by
-.Xr hostname 1 .
+and to the default server name (see below).
 The
 .Ar vmap
 table will be used as the virtual domain mapping.
@@ -287,7 +292,7 @@ value in the MX record for the domain than the one specified in
 .Ar mx .
 If
 .Ar mx
-is not specified, local hostname will be assumed.
+is not specified, default server name (see below) will be assumed.
 .Pp
 If the
 .Ic as
@@ -312,9 +317,9 @@ when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
 time a new connection is opened.
 .Pp
-By default,
+By default, when connecting to a remote server,
 .Xr smtpd 8
-advertises its local hostname when connecting to a remote server.
+advertises its default server name (see below).
 A
 .Ic helo
 parameter may be specified to advertise an alternate hostname.
@@ -405,6 +410,11 @@ will explicitly bind to an address found in the table referenced by
 when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
 time a new connection is opened.
+.Pp
+By default, when connecting to a remote server,
+.Xr smtpd 8
+advertises its default server name (see below).
+A
 .Ic helo
 parameter may be specified to advertise an alternate hostname.
 Table
@@ -441,7 +451,28 @@ expire 10h	# expire after 10 hours
 .Ed
 .It Xo
 .Bk -words
+.Ic limit mta
+.Op Ic for Ic domain Ar domain
+.Ar family
+.Ek
+.Xc
+Instruct
+.Xr smtpd 8
+to only use the specified address
+.Ar family
+for out-going connections.
+Accepted values are
+.Ic inet4
+and
+.Ic inet6 .
+If a
+.Ar domain
+is specified, the restriction only applies when connecting
+to MXs for this domain.
+.It Xo
+.Bk -words
 .Ic listen on Ar interface
+.Op Ar family
 .Op Ic port Ar port
 .Op Ic tls | tls-require | smtps
 .Op Ic certificate Ar name
@@ -458,6 +489,13 @@ to listen on.
 An interface group, an IP address or a domain name may
 be used in place of
 .Ar interface .
+The
+.Ar family
+parameter can be used to listen only on specific address family.
+Accepted values are
+.Ic inet4
+and
+.Ic inet6 .
 .Pp
 Secured connections are provided either using STARTTLS
 .Pq Ic tls ,
@@ -524,7 +562,8 @@ tagged
 .Pp
 If the
 .Ic hostname
-parameter is used, then it will be used in the greeting banner.
+parameter is used, then it will be used in the greeting banner
+instead of the default server name (see below).
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
@@ -613,12 +652,28 @@ many mappings as a list of comma separated
 .Ar key Ns = Ns Ar value
 descriptions.
 .El
+.Sh DEFAULT SERVER NAME
+The default server name is the hostname that
+.Xr smtpd 8
+operates as, which is used at various places.
+It is determined at startup as follows.
+.Pp
+If a
+.Pa /etc/mailname
+file exists, then the first line is read and used as the server name.
+Otherwise, the server name is derived from the local hostname returned by
+.Xr gethostname 3 ,
+either directly if it is a fully-qualified domain name,
+or by retreiving the associated canonical name through
+.Xr getaddrinfo 3 .
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX" -compact
 .It Pa /etc/mail/smtpd.conf
 Default
 .Xr smtpd 8
 configuration file.
+.It Pa /etc/mailname
+Alternate server name to use.
 .It Pa /var/spool/smtpd/
 Spool directories for mail during processing.
 .El

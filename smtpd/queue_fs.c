@@ -616,7 +616,8 @@ queue_fs_init(int server)
 	struct timeval	 tv;
 
 	/* remove incoming if it exists */
-	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
+	if (server)
+		mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
 	fsqueue_envelope_path(0, path, sizeof(path));
 

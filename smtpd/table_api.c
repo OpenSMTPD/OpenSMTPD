@@ -23,6 +23,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +44,8 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
+static char		*rootpath;
+static char		*user = SMTPD_USER;
 
 static void
 table_msg_get(void *dst, size_t len)
@@ -226,7 +229,34 @@ table_api_on_fetch(int(*cb)(int, char *, size_t))
 int
 table_api_dispatch(void)
 {
-	ssize_t	n;
+	struct passwd	*pw;
+	ssize_t		 n;
+
+#if 0
+	pw = getpwnam(user);
+	if (pw == NULL) {
+		log_warn("table-api: getpwnam");
+		fatalx("table-api: exiting");
+	}
+
+	if (rootpath) {
+		if (chroot(rootpath) == -1) {
+			log_warn("table-api: chroot");
+			fatalx("table-api: exiting");
+		}
+		if (chdir("/") == -1) {
+			log_warn("table-api: chdir");
+			fatalx("table-api: exiting");
+		}
+	}
+
+	if (setgroups(1, &pw->pw_gid) ||
+	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
+		log_warn("table-api: cannot drop privileges");
+		fatalx("table-api: exiting");
+	}
+#endif
 
 	imsg_init(&ibuf, 0);
 

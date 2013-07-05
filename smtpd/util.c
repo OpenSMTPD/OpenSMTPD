@@ -596,6 +596,23 @@ lowercase(char *buf, const char *s, size_t len)
 	return 1;
 }
 
+int
+uppercase(char *buf, const char *s, size_t len)
+{
+	if (len == 0)
+		return 0;
+
+	if (strlcpy(buf, s, len) >= len)
+		return 0;
+
+	while (*buf != '\0') {
+		*buf = toupper((int)*buf);
+		buf++;
+	}
+
+	return 1;
+}
+
 void
 xlowercase(char *buf, const char *s, size_t len)
 {

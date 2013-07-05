@@ -30,3 +30,5 @@
 
 #define SMTPD_USER		"_smtpd"
 #define PATH_CHROOT		"/var/empty"
+#define SMTPD_QUEUE_USER	 "_smtpq"
+#define PATH_SPOOL		"/var/spool/smtpd"
