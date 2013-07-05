@@ -394,6 +394,7 @@ parent_shutdown(void)
 	clean_setproctitle();
 	event_base_free(NULL);
 #endif
+	unlink(SMTPD_SOCKET);
 
 	log_warnx("warn: parent terminating");
 	exit(0);
