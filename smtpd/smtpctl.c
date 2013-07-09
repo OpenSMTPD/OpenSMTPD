@@ -706,7 +706,7 @@ do_show_stats(int argc, struct parameter *argv)
 }
 
 static int
-do_shutdown(int argc, struct parameter *argv)
+do_stop(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_SHUTDOWN, NULL, 0);
 	return srv_check_result();
@@ -797,7 +797,7 @@ main(int argc, char **argv)
 	cmd_install("show queue <msgid>",	do_show_queue);
 	cmd_install("show routes",		do_show_routes);
 	cmd_install("show stats",		do_show_stats);
-	cmd_install("shutdown",			do_shutdown);
+	cmd_install("stop",			do_stop);
 	cmd_install("trace <str>",		do_trace);
 	cmd_install("unprofile <str>",		do_unprofile);
 	cmd_install("untrace <str>",		do_untrace);
