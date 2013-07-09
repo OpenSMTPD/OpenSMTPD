@@ -53,6 +53,9 @@ static PGresult *table_postgres_query(const char *, int);
 
 #define SQL_MAX_RESULT	5
 
+#define	DEFAULT_EXPIRE	60
+#define	DEFAULT_REFRESH	1000
+
 static char		*config;
 static PGconn		*db;
 static char		*statements[SQL_MAX];
@@ -163,16 +166,20 @@ table_postgres_update(void)
 		{ "query_mailaddr",	1 },
 		{ "query_addrname",	1 },
 	};
-	PGconn	*_db;
-	char	*_statements[SQL_MAX];
-	char	*queries[SQL_MAX];
-	char	*_stmt_fetch_source;
-	char	*_query_fetch_source;
-	size_t	 flen;
-	FILE	*fp;
-	char	*key, *value, *buf, *lbuf;
-	char	*conninfo;
-	int	 i, ret;
+	PGconn		*_db;
+	char		*_statements[SQL_MAX];
+	char		*queries[SQL_MAX];
+	char		*_stmt_fetch_source;
+	char		*_query_fetch_source;
+	size_t		 flen;
+	size_t		 _source_refresh;
+	int		 _source_expire;
+	FILE		*fp;
+	char		*key, *value, *buf, *lbuf;
+	const char	*e;
+	char		*conninfo;
+	int		 i, ret;
+	long long	 ll;
 
 	conninfo = NULL;
 	_db = NULL;
@@ -180,6 +187,9 @@ table_postgres_update(void)
 	bzero(_statements, sizeof(_statements));
 	_query_fetch_source = NULL;
 	_stmt_fetch_source = NULL;
+
+	_source_refresh = DEFAULT_REFRESH;
+	_source_expire = DEFAULT_EXPIRE;
 
 	ret = 0;
 
@@ -235,6 +245,26 @@ table_postgres_update(void)
 		if (!strcmp("fetch_source", key)) {
 			if (table_postgres_getconfstr(key, value, &_query_fetch_source) == -1)
 				goto end;
+			continue;
+		}
+		if (!strcmp("fetch_source_expire", key)) {
+			e = NULL;
+			ll = strtonum(value, 0, INT_MAX, &e);
+			if (e) {
+				log_warnx("warn: backend-table-postgres: bad value for %s: %s", key, e);
+				goto end;
+			}
+			_source_expire = ll;
+			continue;
+		}
+		if (!strcmp("fetch_source_refresh", key)) {
+			e = NULL;
+			ll = strtonum(value, 0, INT_MAX, &e);
+			if (e) {
+				log_warnx("warn: backend-table-postgres: bad value for %s: %s", key, e);
+				goto end;
+			}
+			_source_refresh = ll;
 			continue;
 		}
 
@@ -301,6 +331,8 @@ table_postgres_update(void)
 	_db = NULL;
 
 	source_update = 0; /* force update */
+	source_expire = _source_expire;
+	source_refresh = _source_refresh;
 
 	log_debug("debug: backend-table-postgres: config successfully updated");
 	ret = 1;

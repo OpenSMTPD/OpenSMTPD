@@ -544,15 +544,14 @@ queue(void)
 	}
 
 	purge_config(PURGE_EVERYTHING);
-	if (env->sc_pwqueue) {
-		free(env->sc_pw);
-		env->sc_pw = env->sc_pwqueue;
-	}
+
+	if ((pw = getpwnam(SMTPD_QUEUE_USER)) == NULL)
+		if ((pw = getpwnam(SMTPD_USER)) == NULL)
+			fatalx("unknown user " SMTPD_USER);
 
 	env->sc_queue_flags |= QUEUE_EVPCACHE;
 	env->sc_queue_evpcache_size = 1024;
 
-	pw = env->sc_pw;
 	if (chroot(PATH_SPOOL) == -1)
 		fatal("queue: chroot");
 	if (chdir("/") == -1)
