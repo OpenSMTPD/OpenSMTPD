@@ -234,12 +234,11 @@ mfa(void)
 
 	purge_config(PURGE_EVERYTHING);
 
-	if ((env->sc_pw =  getpwnam(SMTPD_USER)) == NULL)
+	if ((pw =  getpwnam(SMTPD_USER)) == NULL)
 		fatalx("unknown user " SMTPD_USER);
 
 	config_process(PROC_MFA);
 
-	pw = env->sc_pw;
 	if (chroot(PATH_CHROOT) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)

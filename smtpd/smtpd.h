@@ -554,8 +554,6 @@ struct smtpd {
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
-	struct passwd		       *sc_pw;
-	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
@@ -793,8 +791,10 @@ struct mta_task {
 	char				*sender;
 };
 
+struct passwd;
+
 struct queue_backend {
-	int	(*init)(int);
+	int	(*init)(struct passwd *, int);
 };
 
 struct compress_backend {

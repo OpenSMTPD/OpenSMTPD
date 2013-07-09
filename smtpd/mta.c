@@ -460,7 +460,9 @@ mta(void)
 
 	purge_config(PURGE_EVERYTHING);
 
-	pw = env->sc_pw;
+	if ((pw = getpwnam(SMTPD_USER)) == NULL)
+		fatalx("unknown user " SMTPD_USER);
+
 	if (chroot(PATH_CHROOT) == -1)
 		fatal("mta: chroot");
 	if (chdir("/") == -1)

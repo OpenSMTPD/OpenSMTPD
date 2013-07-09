@@ -372,13 +372,15 @@ scheduler(void)
 
 	purge_config(PURGE_EVERYTHING);
 
+	if ((pw = getpwnam(SMTPD_USER)) == NULL)
+		fatalx("unknown user " SMTPD_USER);
+
 	config_process(PROC_SCHEDULER);
 
 	fdlimit(1.0);
 
 	backend->init();
 
-	pw = env->sc_pw;
 	if (chroot(PATH_CHROOT) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)

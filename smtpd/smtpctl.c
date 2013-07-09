@@ -616,6 +616,7 @@ do_show_queue(int argc, struct parameter *argv)
 
 	if (!srv_connect()) {
 		log_init(1);
+		queue_init("fs", 0);
 		if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
 			err(1, "%s", PATH_SPOOL);
 		while ((r = queue_envelope_walk(&evp)) != -1)
