@@ -984,7 +984,18 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_RSET:
 		mta_flush_failedqueue(s);
-		mta_enter_state(s, MTA_READY);
+		s->rcptcount = 0;
+		if (s->relay->limits->sessdelay_transaction) {
+			log_debug("debug: mta: waiting for %llis after reset",
+			    (long long int)s->relay->limits->sessdelay_transaction);
+			s->hangon = s->relay->limits->sessdelay_transaction -1;
+			s->flags |= MTA_HANGON;
+			runq_schedule(hangon, time(NULL)
+			    + s->relay->limits->sessdelay_transaction,
+			    NULL, s);
+		}
+		else
+			mta_enter_state(s, MTA_READY);
 		break;
 
 	default:
