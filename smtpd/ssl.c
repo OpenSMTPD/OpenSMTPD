@@ -420,6 +420,8 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 void
 ssl_set_ecdh_curve(SSL_CTX *ctx)
 {
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
 	int	nid;
 	EC_KEY *ecdh;
 
@@ -438,4 +440,6 @@ ssl_set_ecdh_curve(SSL_CTX *ctx)
 	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
 	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
 	EC_KEY_free(ecdh);
+#endif
+#endif
 }
