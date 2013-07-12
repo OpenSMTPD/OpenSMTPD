@@ -1383,10 +1383,10 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	struct sym     *sym, *next;
 	struct table   *t;
 	char		hostname[SMTPD_MAXHOSTNAMELEN];
+	char		hostname_copy[SMTPD_MAXHOSTNAMELEN];
 
-	if (! getmailname(hostname, sizeof hostname)) {
+	if (! getmailname(hostname, sizeof hostname))
 		return (-1);
-	}
 
 	conf = x_conf;
 	bzero(conf, sizeof(*conf));
@@ -1452,6 +1452,13 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	t->t_type = T_LIST;
 	table_add(t, "localhost", NULL);
 	table_add(t, hostname, NULL);
+
+	/* can't truncate here */
+	(void)strlcpy(hostname_copy, hostname, sizeof hostname_copy);
+
+	hostname_copy[strcspn(hostname_copy, ".")] = '\0';
+	if (strcmp(hostname, hostname_copy) != 0)
+		table_add(t, hostname_copy, NULL);
 
 	table_create("getpwnam", "<getpwnam>", NULL, NULL);
 
