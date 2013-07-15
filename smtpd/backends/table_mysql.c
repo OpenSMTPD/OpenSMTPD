@@ -203,6 +203,7 @@ table_mysql_update(void)
 	const char	*e;
 	int		 i, ret;
 	long long	 ll;
+	my_bool		 reconn;
 
 	host = NULL;
 	username = NULL;
@@ -216,6 +217,7 @@ table_mysql_update(void)
 
 	_source_refresh = DEFAULT_REFRESH;
 	_source_expire = DEFAULT_EXPIRE;
+	reconn = 1;
 
 	ret = 0;
 
@@ -337,6 +339,12 @@ table_mysql_update(void)
 	_db = mysql_init(NULL);
 	if (_db == NULL) {
 		log_warnx("warn: backend-table-mysql: mysql_init failed");
+		goto end;
+	}
+
+	if (mysql_options(_db, MYSQL_OPT_RECONNECT, &reconn) != 0) {
+		log_warnx("warn: backend-table-mysql: mysql_options: %s",
+		    mysql_error(_db));
 		goto end;
 	}
 
