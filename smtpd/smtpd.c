@@ -736,17 +736,22 @@ main(int argc, char *argv[])
 				verbose |= TRACE_IO;
 			else if (!strcmp(optarg, "smtp"))
 				verbose |= TRACE_SMTP;
-			else if (!strcmp(optarg, "mfa"))
+			else if (!strcmp(optarg, "mfa") ||
+			    !strcmp(optarg, "filter") ||
+			    !strcmp(optarg, "filters"))
 				verbose |= TRACE_MFA;
-			else if (!strcmp(optarg, "mta"))
+			else if (!strcmp(optarg, "mta") ||
+			    !strcmp(optarg, "transfer"))
 				verbose |= TRACE_MTA;
-			else if (!strcmp(optarg, "bounce"))
+			else if (!strcmp(optarg, "bounce") ||
+			    !strcmp(optarg, "bounces"))
 				verbose |= TRACE_BOUNCE;
 			else if (!strcmp(optarg, "scheduler"))
 				verbose |= TRACE_SCHEDULER;
 			else if (!strcmp(optarg, "lookup"))
 				verbose |= TRACE_LOOKUP;
-			else if (!strcmp(optarg, "stat"))
+			else if (!strcmp(optarg, "stat") ||
+			    !strcmp(optarg, "stats"))
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
@@ -754,7 +759,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
-			else if (!strcmp(optarg, "tables"))
+			else if (!strcmp(optarg, "table") ||
+			    !strcmp(optarg, "tables"))
 				verbose |= TRACE_TABLES;
 			else if (!strcmp(optarg, "queue"))
 				verbose |= TRACE_QUEUE;
