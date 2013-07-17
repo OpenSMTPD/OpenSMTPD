@@ -240,13 +240,13 @@ dns_dispatch_mx(int ev, struct async_res *ar, void *arg)
 		return;
 	}
 
-	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	unpack_header(&pack, &h);
-	unpack_query(&pack, &q);
+	asr_unpack_init(&pack, ar->ar_data, ar->ar_datalen);
+	asr_unpack_header(&pack, &h);
+	asr_unpack_query(&pack, &q);
 
 	found = 0;
 	for (; h.ancount; h.ancount--) {
-		unpack_rr(&pack, &rr);
+		asr_unpack_rr(&pack, &rr);
 		if (rr.rr_type != T_MX)
 			continue;
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
@@ -283,11 +283,11 @@ dns_dispatch_mx_preference(int ev, struct async_res *ar, void *arg)
 	}
 	else {
 		error = DNS_ENOTFOUND;
-		unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-		unpack_header(&pack, &h);
-		unpack_query(&pack, &q);
+		asr_unpack_init(&pack, ar->ar_data, ar->ar_datalen);
+		asr_unpack_header(&pack, &h);
+		asr_unpack_query(&pack, &q);
 		for (; h.ancount; h.ancount--) {
-			unpack_rr(&pack, &rr);
+			asr_unpack_rr(&pack, &rr);
 			if (rr.rr_type != T_MX)
 				continue;
 			print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
@@ -368,7 +368,7 @@ async_event_dispatch(int fd, short ev, void *arg)
 	int			 r;
 	struct timeval		 tv;
 
-	while ((r = async_run(aev->async, &ar)) == ASYNC_YIELD)
+	while ((r = asr_async_run(aev->async, &ar)) == ASYNC_YIELD)
 		aev->callback(r, &ar, aev->arg);
 
 	event_del(&aev->ev);

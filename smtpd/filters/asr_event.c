@@ -52,7 +52,7 @@ async_event_dispatch(int fd, short ev, void *arg)
 	int			 r;
 	struct timeval		 tv;
 
-	while ((r = async_run(aev->async, &ar)) == ASYNC_YIELD)
+	while ((r = asr_async_run(aev->async, &ar)) == ASYNC_YIELD)
 		aev->callback(r, &ar, aev->arg);
 
 	event_del(&aev->ev);
