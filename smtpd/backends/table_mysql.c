@@ -316,7 +316,6 @@ config_connect(struct config *conf)
 	if (conf->db)
 		mysql_close(conf->db);
 
-
 	host = dict_get(&conf->conf, "host");
 	username = dict_get(&conf->conf, "username");
 	database = dict_get(&conf->conf, "database");
@@ -344,15 +343,17 @@ config_connect(struct config *conf)
 
 	for (i = 0; i < SQL_MAX; i++) {
 		q = dict_get(&conf->conf, qspec[i].name);
-		if ((conf->statements[i] = table_mysql_prepare_stmt(conf->db,
-		    q, 1, qspec[i].cols)) == NULL)
+		if (q && (conf->statements[i] = table_mysql_prepare_stmt(
+		    conf->db, q, 1, qspec[i].cols)) == NULL)
 			goto end;
 	}
 
 	q = dict_get(&conf->conf, "fetch_source");
-	if ((conf->stmt_fetch_source = table_mysql_prepare_stmt(conf->db,
+	if (q && (conf->stmt_fetch_source = table_mysql_prepare_stmt(conf->db,
 	    q, 0, 1)) == NULL)
 		goto end;
+
+	log_debug("debug: backend-table-mysql: connected");
 
 	return (1);
 
