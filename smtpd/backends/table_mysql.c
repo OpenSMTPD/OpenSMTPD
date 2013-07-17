@@ -28,6 +28,7 @@
 #include <time.h>
 
 #include <mysql/mysql.h>
+#include <mysql/errmsg.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
@@ -420,6 +421,8 @@ table_mysql_query(const char *key, int service)
 	char		 buffer[SMTPD_MAXLINESIZE];
 	int		 i;
 
+    retry:
+
 	stmt = NULL;
 	for(i = 0; i < SQL_MAX; i++)
 		if (service == 1 << i) {
@@ -450,6 +453,15 @@ table_mysql_query(const char *key, int service)
 	}
 
 	if (mysql_stmt_execute(stmt)) {
+		if (mysql_stmt_errno(stmt) == CR_SERVER_LOST ||
+		    mysql_stmt_errno(stmt) == CR_SERVER_GONE_ERROR ||
+		    mysql_stmt_errno(stmt) == CR_COMMANDS_OUT_OF_SYNC) {
+			log_warnx("warn: backend-table-mysql: trying to reconnect after mysql error: %s",
+			    mysql_stmt_error(stmt));
+			if (config_connect(config))
+				goto retry;
+			return (NULL);
+		}
 		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
 		    mysql_stmt_error(stmt));
 		return (NULL);
@@ -578,22 +590,36 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 static int
 table_mysql_fetch(int service, char *dst, size_t sz)
 {
+	MYSQL_STMT	*stmt;
 	const char	*k;
 	int		 s;
+
+    retry:
 
 	if (service != K_SOURCE)
 		return (-1);
 
-	if (config->stmt_fetch_source == NULL)
+	stmt = config->stmt_fetch_source;
+
+	if (stmt == NULL)
 		return (-1);
 
 	if (config->source_ncall < config->source_refresh &&
 	    time(NULL) - config->source_update < config->source_expire)
 	    goto fetch;
 
-	if (mysql_stmt_execute(config->stmt_fetch_source)) {
+	if (mysql_stmt_execute(stmt)) {
+		if (mysql_stmt_errno(stmt) == CR_SERVER_LOST ||
+		    mysql_stmt_errno(stmt) == CR_SERVER_GONE_ERROR ||
+		    mysql_stmt_errno(stmt) == CR_COMMANDS_OUT_OF_SYNC) {
+			log_warnx("warn: backend-table-mysql: trying to reconnect after mysql error: %s",
+			    mysql_stmt_error(stmt));
+			if (config_connect(config))
+				goto retry;
+			return (-1);
+		}
 		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
-		    mysql_stmt_error(config->stmt_fetch_source));
+		    mysql_stmt_error(stmt));
 		return (-1);
 	}
 
@@ -601,16 +627,16 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 	while(dict_poproot(&config->sources, NULL, NULL))
 		;
 
-	while ((s = mysql_stmt_fetch(config->stmt_fetch_source)) == 0)
+	while ((s = mysql_stmt_fetch(stmt)) == 0)
 		dict_set(&config->sources, results_buffer[0], NULL);
 
 	if (s && s != MYSQL_NO_DATA)
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_stmt_error(config->stmt_fetch_source));
+		    mysql_stmt_error(stmt));
 
-	if (mysql_stmt_free_result(config->stmt_fetch_source))
+	if (mysql_stmt_free_result(stmt))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_stmt_error(config->stmt_fetch_source));
+		    mysql_stmt_error(stmt));
 
 	config->source_update = time(NULL);
 	config->source_ncall = 0;
