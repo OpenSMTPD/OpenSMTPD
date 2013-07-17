@@ -44,6 +44,19 @@ enum {
 	SQL_MAX
 };
 
+struct config {
+	struct dict	 conf;
+	MYSQL		*db;
+	MYSQL_STMT	*statements[SQL_MAX];
+	MYSQL_STMT	*stmt_fetch_source;
+	struct dict	 sources;
+	void		*source_iter;
+	size_t		 source_refresh;
+	size_t		 source_ncall;
+	int		 source_expire;
+	time_t		 source_update;
+};
+
 static int table_mysql_update(void);
 static int table_mysql_lookup(int, const char *, char *, size_t);
 static int table_mysql_check(int, const char *);
@@ -51,24 +64,19 @@ static int table_mysql_fetch(int, char *, size_t);
 
 static MYSQL_STMT *table_mysql_query(const char *, int);
 
+static struct config 	*config_load(const char *);
+static int		 config_connect(struct config *);
+static void		 config_free(struct config *);
+
 #define SQL_MAX_RESULT	5
 
 #define	DEFAULT_EXPIRE	60
 #define	DEFAULT_REFRESH	1000
 
-static char		*config;
-static MYSQL		*db;
-static MYSQL_STMT	*statements[SQL_MAX];
-static MYSQL_STMT	*stmt_fetch_source;
-static MYSQL_BIND	results[SQL_MAX_RESULT];
-static char		results_buffer[SQL_MAX_RESULT][SMTPD_MAXLINESIZE];
-
-static struct dict	 sources;
-static void		*source_iter;
-static size_t		 source_refresh;
-static size_t		 source_ncall;
-static int		 source_expire;
-static time_t		 source_update;
+static MYSQL_BIND	 results[SQL_MAX_RESULT];
+static char		 results_buffer[SQL_MAX_RESULT][SMTPD_MAXLINESIZE];
+static char		*conffile;
+static struct config	*config;
 
 int
 main(int argc, char **argv)
@@ -94,9 +102,7 @@ main(int argc, char **argv)
 		return (1);
 	}
 
-	config = argv[0];
-
-	dict_init(&sources);
+	conffile = argv[0];
 
 	for (i = 0; i < SQL_MAX_RESULT; i++) {
 		results[i].buffer_type = MYSQL_TYPE_STRING;
@@ -105,8 +111,13 @@ main(int argc, char **argv)
 		results[i].is_null = 0;
 	}
 
-	if (table_mysql_update() == 0) {
+	config = config_load(conffile);
+	if (config == NULL) {
 		log_warnx("warn: backend-table-mysql: error parsing config file");
+		return (1);
+	}
+	if (config_connect(config) == 0) {
+		log_warnx("warn: backend-table-mysql: could not connect");
 		return (1);
 	}
 
@@ -116,21 +127,6 @@ main(int argc, char **argv)
 	table_api_on_fetch(table_mysql_fetch);
 	table_api_dispatch();
 
-	return (0);
-}
-
-static int
-table_mysql_getconfstr(const char *key, const char *value, char **var)
-{
-	if (*var) {
-		log_warnx("warn: backend-table-mysql: duplicate %s %s", key, value);
-		free(*var);
-	}
-	*var = strdup(value);
-	if (*var == NULL) {
-		log_warn("warn: backend-table-mysql: strdup");
-		return (-1);
-	}
 	return (0);
 }
 
@@ -173,61 +169,37 @@ table_mysql_prepare_stmt(MYSQL *_db, const char *query, unsigned long nparams,
 	return (NULL);
 }
 
-static int
-table_mysql_update(void)
+static struct config *
+config_load(const char *path)
 {
-	static const struct {
-		const char	*name;
-		int		 cols;
-	} qspec[SQL_MAX] = {
-		{ "query_alias",	1 },
-		{ "query_domain",	1 },
-		{ "query_credentials",	2 },
-		{ "query_netaddr",	1 },
-		{ "query_userinfo",	4 },
-		{ "query_source",	1 },
-		{ "query_mailaddr",	1 },
-		{ "query_addrname",	1 },
-	};
-	MYSQL		*_db;
-	MYSQL_STMT	*_statements[SQL_MAX];
-	char		*queries[SQL_MAX];
-	MYSQL_STMT	*_stmt_fetch_source;
-	char		*_query_fetch_source;
-	size_t		 flen;
-	size_t		 _source_refresh;
-	int		 _source_expire;
+	struct config	*conf;
 	FILE		*fp;
+	size_t		 flen;
 	char		*key, *value, *buf, *lbuf;
-	char		*host, *username, *password, *database;
 	const char	*e;
-	int		 i, ret;
 	long long	 ll;
-	my_bool		 reconn;
-
-	host = NULL;
-	username = NULL;
-	password = NULL;
-	database = NULL;
-	_db = NULL;
-	bzero(queries, sizeof(queries));
-	bzero(_statements, sizeof(_statements));
-	_query_fetch_source = NULL;
-	_stmt_fetch_source = NULL;
-
-	_source_refresh = DEFAULT_REFRESH;
-	_source_expire = DEFAULT_EXPIRE;
-	reconn = 1;
-
-	ret = 0;
-
-	/* Parse configuration */
-
-	fp = fopen(config, "r");
-	if (fp == NULL)
-		return (0);
 
 	lbuf = NULL;
+
+	conf = calloc(1, sizeof(*conf));
+	if (conf == NULL) {
+		log_warn("warn: backend-table-mysql: calloc");
+		return (NULL);
+	}
+
+	dict_init(&conf->conf);
+	dict_init(&conf->sources);
+
+
+	conf->source_refresh = DEFAULT_REFRESH;
+	conf->source_expire = DEFAULT_EXPIRE;
+
+	fp = fopen(path, "r");
+	if (fp == NULL) {
+		log_warn("warn: backend-table-mysql: fopen");
+		goto end;
+	}
+
 	while ((buf = fgetln(fp, &flen))) {
 		if (buf[flen - 1] == '\n')
 			buf[flen - 1] = '\0';
@@ -235,7 +207,7 @@ table_mysql_update(void)
 			lbuf = malloc(flen + 1);
 			if (lbuf == NULL) {
 				log_warn("warn: backend-table-mysql: malloc");
-				return (0);
+				goto end;
 			}
 			memcpy(lbuf, buf, flen);
 			lbuf[flen] = '\0';
@@ -262,154 +234,178 @@ table_mysql_update(void)
 
 		if (value == NULL) {
 			log_warnx("warn: backend-table-mysql: missing value for key %s", key);
-			continue;
-		}
-
-		if (!strcmp("host", key)) {
-			if (table_mysql_getconfstr(key, value, &host) == -1)
-				goto end;
-			continue;
-		}
-		if (!strcmp("username", key)) {
-			if (table_mysql_getconfstr(key, value, &username) == -1)
-				goto end;
-			continue;
-		}
-		if (!strcmp("password", key)) {
-			if (table_mysql_getconfstr(key, value, &password) == -1)
-				goto end;
-			continue;
-		}
-		if (!strcmp("database", key)) {
-			if (table_mysql_getconfstr(key, value, &database) == -1)
-				goto end;
-			continue;
-		}
-		if (!strcmp("fetch_source", key)) {
-			if (table_mysql_getconfstr(key, value, &_query_fetch_source) == -1)
-				goto end;
-			continue;
-		}
-		if (!strcmp("fetch_source_expire", key)) {
-			e = NULL;
-			ll = strtonum(value, 0, INT_MAX, &e);
-			if (e) {
-				log_warnx("warn: backend-table-mysql: bad value for %s: %s", key, e);
-				goto end;
-			}
-			_source_expire = ll;
-			continue;
-		}
-		if (!strcmp("fetch_source_refresh", key)) {
-			e = NULL;
-			ll = strtonum(value, 0, INT_MAX, &e);
-			if (e) {
-				log_warnx("warn: backend-table-mysql: bad value for %s: %s", key, e);
-				goto end;
-			}
-			_source_refresh = ll;
-			continue;
-		}
-
-		for(i = 0; i < SQL_MAX; i++)
-			if (!strcmp(qspec[i].name, key))
-				break;
-		if (i == SQL_MAX) {
-			log_warnx("warn: backend-table-mysql: bogus key %s", key);
-			continue;
-		}
-
-		if (queries[i]) {
-			log_warnx("warn: backend-table-mysql: duplicate key %s", key);
-			continue;
-		}
-
-		queries[i] = strdup(value);
-		if (queries[i] == NULL) {
-			log_warnx("warn: backend-table-mysql: strdup");
 			goto end;
 		}
+
+		if (dict_check(&conf->conf, key)) {
+			log_warnx("warn: backend-table-mysql: duplicate key %s", key);
+			goto end;
+		}
+		
+		value = strdup(value);
+		if (value == NULL) {
+			log_warn("warn: backend-table-mysql: malloc");
+			goto end;
+		}
+
+		dict_set(&conf->conf, key, value);
 	}
 
-	/* Setup db */
+	if ((value = dict_get(&conf->conf, "fetch_source_expire"))) {
+		e = NULL;
+		ll = strtonum(value, 0, INT_MAX, &e);
+		if (e) {
+			log_warnx("warn: backend-table-mysql: bad value for fetch_source_expire: %s", e);
+			goto end;
+		}
+		conf->source_expire = ll;
+	}
+	if ((value = dict_get(&conf->conf, "fetch_source_refresh"))) {
+		e = NULL;
+		ll = strtonum(value, 0, INT_MAX, &e);
+		if (e) {
+			log_warnx("warn: backend-table-mysql: bad value for fetch_source_refresh: %s", e);
+			goto end;
+		}
+		conf->source_refresh = ll;
+	}
 
-	log_debug("debug: backend-table-mysql: opening mysql://%s@%s/%s",
-	    username, host, database);
+	free(lbuf);
+	fclose(fp);
+	return (conf);
 
-	_db = mysql_init(NULL);
-	if (_db == NULL) {
+    end:
+	free(lbuf);
+	if (fp)
+		fclose(fp);
+	config_free(conf);
+	return (NULL);
+}
+
+static int
+config_connect(struct config *conf)
+{
+	static const struct {
+		const char	*name;
+		int		 cols;
+	} qspec[SQL_MAX] = {
+		{ "query_alias",	1 },
+		{ "query_domain",	1 },
+		{ "query_credentials",	2 },
+		{ "query_netaddr",	1 },
+		{ "query_userinfo",	4 },
+		{ "query_source",	1 },
+		{ "query_mailaddr",	1 },
+		{ "query_addrname",	1 },
+	};
+	my_bool	 reconn;
+	size_t	 i;
+	char	*host, *username, *password, *database, *q;
+
+	log_debug("debug: backend-table-mysql: (re)connecting");
+
+	/* Disconnect first, if needed */
+
+	for (i = 0; i < SQL_MAX; i++)
+		if (conf->statements[i])
+			mysql_stmt_close(conf->statements[i]);
+	if (conf->stmt_fetch_source)
+		mysql_stmt_close(conf->stmt_fetch_source);
+	if (conf->db)
+		mysql_close(conf->db);
+
+
+	host = dict_get(&conf->conf, "host");
+	username = dict_get(&conf->conf, "username");
+	database = dict_get(&conf->conf, "database");
+	password = dict_get(&conf->conf, "password");
+
+	conf->db = mysql_init(NULL);
+	if (conf->db == NULL) {
 		log_warnx("warn: backend-table-mysql: mysql_init failed");
 		goto end;
 	}
 
-	if (mysql_options(_db, MYSQL_OPT_RECONNECT, &reconn) != 0) {
+	reconn = 1;
+	if (mysql_options(conf->db, MYSQL_OPT_RECONNECT, &reconn) != 0) {
 		log_warnx("warn: backend-table-mysql: mysql_options: %s",
-		    mysql_error(_db));
+		    mysql_error(conf->db));
 		goto end;
 	}
 
-	if (!mysql_real_connect(_db, host, username, password, database, 0, NULL, 0)) {
+	if (!mysql_real_connect(conf->db, host, username, password, database,
+	    0, NULL, 0)) {
 		log_warnx("warn: backend-table-mysql: mysql_real_connect: %s",
-		    mysql_error(_db));
+		    mysql_error(conf->db));
 		goto end;
 	}
 
 	for (i = 0; i < SQL_MAX; i++) {
-		if (queries[i] == NULL)
-			continue;
-		if ((_statements[i] = table_mysql_prepare_stmt(_db, queries[i], 1, qspec[i].cols)) == NULL)
+		q = dict_get(&conf->conf, qspec[i].name);
+		if ((conf->statements[i] = table_mysql_prepare_stmt(conf->db,
+		    q, 1, qspec[i].cols)) == NULL)
 			goto end;
 	}
 
-	if (_query_fetch_source &&
-	    (_stmt_fetch_source = table_mysql_prepare_stmt(_db, _query_fetch_source, 0, 1)) == NULL)
+	q = dict_get(&conf->conf, "fetch_source");
+	if ((conf->stmt_fetch_source = table_mysql_prepare_stmt(conf->db,
+	    q, 0, 1)) == NULL)
 		goto end;
 
-	/* Replace previous setup */
-
-	for (i = 0; i < SQL_MAX; i++) {
-		if (statements[i])
-			mysql_stmt_close(statements[i]);
-		statements[i] = _statements[i];
-		_statements[i] = NULL;
-	}
-	if (stmt_fetch_source)
-		mysql_stmt_close(stmt_fetch_source);
-	stmt_fetch_source = _stmt_fetch_source;
-	_stmt_fetch_source = NULL;
-
-	if (db)
-		mysql_close(_db);
-	db = _db;
-	_db = NULL;
-
-	source_update = 0; /* force update */
-	source_expire = _source_expire;
-	source_refresh = _source_refresh;
-
-	log_debug("debug: backend-table-mysql: config successfully updated");
-	ret = 1;
+	return (1);
 
     end:
+	for (i = 0; i < SQL_MAX; i++)
+		if (conf->statements[i])
+			mysql_stmt_close(conf->statements[i]);
+	if (conf->stmt_fetch_source)
+		mysql_stmt_close(conf->stmt_fetch_source);
+	if (conf->db)
+		mysql_close(conf->db);
+	return (0);
+}
 
-	/* Cleanup */
-	for (i = 0; i < SQL_MAX; i++) {
-		if (_statements[i])
-			mysql_stmt_close(_statements[i]);
-		free(queries[i]);
+static void
+config_free(struct config *conf)
+{
+	size_t	 i;
+	void	*value;
+
+	while(dict_poproot(&conf->conf, NULL, &value))
+		free(value);
+
+	while(dict_poproot(&conf->sources, NULL, NULL))
+		;
+
+	for (i = 0; i < SQL_MAX; i++)
+		if (conf->statements[i])
+			mysql_stmt_close(conf->statements[i]);
+
+	if (conf->stmt_fetch_source)
+		mysql_stmt_close(conf->stmt_fetch_source);
+
+	if (conf->db)
+		mysql_close(conf->db);
+
+	free(conf);
+}
+
+static int
+table_mysql_update(void)
+{
+	struct config	*c;
+
+	if ((c = config_load(conffile)) == NULL)
+		return (0);
+	if (config_connect(c) == 0) {
+		config_free(c);
+		return (0);
 	}
-	if (_db)
-		mysql_close(_db);
 
-	free(host);
-	free(username);
-	free(password);
-	free(database);
-	free(_query_fetch_source);
+	config_free(config);
+	config = c;
 
-	free(lbuf);
-	fclose(fp);
-	return (ret);
+	return (1);
 }
 
 static MYSQL_STMT *
@@ -424,7 +420,7 @@ table_mysql_query(const char *key, int service)
 	stmt = NULL;
 	for(i = 0; i < SQL_MAX; i++)
 		if (service == 1 << i) {
-			stmt = statements[i];
+			stmt = config->statements[i];
 			break;
 		}
 
@@ -446,13 +442,13 @@ table_mysql_query(const char *key, int service)
 
 	if (mysql_stmt_bind_param(stmt, param)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_param: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 		return (NULL);
 	}
 
 	if (mysql_stmt_execute(stmt)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 		return (NULL);
 	}
 
@@ -478,11 +474,11 @@ table_mysql_check(int service, const char *key)
 		r = 0;
 	else
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 
 	if (mysql_stmt_free_result(stmt))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 
 	return (r);
 }
@@ -506,7 +502,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	if (s != 0) {
 		r = -1;
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 		goto end;
 	}
 
@@ -530,7 +526,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 
 		if (s && s != MYSQL_NO_DATA) {
 			log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-			    mysql_error(db));
+			    mysql_error(config->db));
 			r = -1;
 		}
 		break;
@@ -571,7 +567,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
     end:
 	if (mysql_stmt_free_result(stmt))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 
 	return (r);
 }
@@ -585,44 +581,44 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 	if (service != K_SOURCE)
 		return (-1);
 
-	if (stmt_fetch_source == NULL)
+	if (config->stmt_fetch_source == NULL)
 		return (-1);
 
-	if (source_ncall < source_refresh &&
-	    time(NULL) - source_update < source_expire)
+	if (config->source_ncall < config->source_refresh &&
+	    time(NULL) - config->source_update < config->source_expire)
 	    goto fetch;
 
-	if (mysql_stmt_execute(stmt_fetch_source)) {
+	if (mysql_stmt_execute(config->stmt_fetch_source)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 		return (-1);
 	}
 
-	source_iter = NULL;
-	while(dict_poproot(&sources, NULL, NULL))
+	config->source_iter = NULL;
+	while(dict_poproot(&config->sources, NULL, NULL))
 		;
 
-	while ((s = mysql_stmt_fetch(stmt_fetch_source)) == 0)
-		dict_set(&sources, results_buffer[0], NULL);
+	while ((s = mysql_stmt_fetch(config->stmt_fetch_source)) == 0)
+		dict_set(&config->sources, results_buffer[0], NULL);
 
 	if (s && s != MYSQL_NO_DATA)
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 
-	if (mysql_stmt_free_result(stmt_fetch_source))
+	if (mysql_stmt_free_result(config->stmt_fetch_source))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_error(db));
+		    mysql_error(config->db));
 
-	source_update = time(NULL);
-	source_ncall = 0;
+	config->source_update = time(NULL);
+	config->source_ncall = 0;
 
     fetch:
 
-	source_ncall += 1;
+	config->source_ncall += 1;
 
-        if (! dict_iter(&sources, &source_iter, &k, (void **)NULL)) {
-		source_iter = NULL;
-		if (! dict_iter(&sources, &source_iter, &k, (void **)NULL))
+        if (! dict_iter(&config->sources, &config->source_iter, &k, (void **)NULL)) {
+		config->source_iter = NULL;
+		if (! dict_iter(&config->sources, &config->source_iter, &k, (void **)NULL))
 			return (0);
 	}
 
@@ -631,4 +627,3 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 
 	return (1);
 }
-
