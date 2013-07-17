@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send_async.c,v 1.17 2013/04/30 12:02:39 eric Exp $	*/
+/*	$OpenBSD: res_send_async.c,v 1.19 2013/07/12 14:36:22 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -45,9 +45,9 @@ static int tcp_read(struct async *);
 static int validate_packet(struct async *);
 static int setup_query(struct async *, const char *, const char *, int, int);
 static int ensure_ibuf(struct async *, size_t);
+static int iter_ns(struct async *);
 
-
-#define AS_NS_SA(p) ((p)->as_ctx->ac_ns[(p)->as_ns_idx - 1])
+#define AS_NS_SA(p) ((p)->as_ctx->ac_ns[(p)->as.dns.nsidx - 1])
 
 
 struct async *
@@ -62,7 +62,7 @@ res_send_async(const unsigned char *buf, int buflen, struct asr *asr)
 	DPRINT_PACKET("asr: res_send_async()", buf, buflen);
 
 	ac = asr_use_resolver(asr);
-	if ((as = async_new(ac, ASR_SEND)) == NULL) {
+	if ((as = asr_async_new(ac, ASR_SEND)) == NULL) {
 		asr_ctx_unref(ac);
 		return (NULL); /* errno set */
 	}
@@ -73,9 +73,9 @@ res_send_async(const unsigned char *buf, int buflen, struct asr *asr)
 	as->as.dns.obuflen = buflen;
 	as->as.dns.obufsize = buflen;
 
-	unpack_init(&p, buf, buflen);
-	unpack_header(&p, &h);
-	unpack_query(&p, &q);
+	asr_unpack_init(&p, buf, buflen);
+	asr_unpack_header(&p, &h);
+	asr_unpack_query(&p, &q);
 	if (p.err) {
 		errno = EINVAL;
 		goto err;
@@ -91,7 +91,7 @@ res_send_async(const unsigned char *buf, int buflen, struct asr *asr)
 	return (as);
     err:
 	if (as)
-		async_free(as);
+		asr_async_free(as);
 	asr_ctx_unref(ac);
 	return (NULL);
 }
@@ -124,7 +124,7 @@ res_query_async_ctx(const char *name, int class, int type, struct asr_ctx *a_ctx
 
 	DPRINT("asr: res_query_async_ctx(\"%s\", %i, %i)\n", name, class, type);
 
-	if ((as = async_new(a_ctx, ASR_SEND)) == NULL)
+	if ((as = asr_async_new(a_ctx, ASR_SEND)) == NULL)
 		return (NULL); /* errno set */
 	as->as_run = res_send_async_run;
 
@@ -138,7 +138,7 @@ res_query_async_ctx(const char *name, int class, int type, struct asr_ctx *a_ctx
 
     err:
 	if (as)
-		async_free(as);
+		asr_async_free(as);
 
 	return (NULL);
 }
@@ -162,7 +162,7 @@ res_send_async_run(struct async *as, struct async_res *ar)
 
 	case ASR_STATE_NEXT_NS:
 
-		if (asr_iter_ns(as) == -1) {
+		if (iter_ns(as) == -1) {
 			ar->ar_errno = ETIMEDOUT;
 			async_set_state(as, ASR_STATE_HALT);
 			break;
@@ -365,9 +365,9 @@ setup_query(struct async *as, const char *name, const char *dom,
 		return (-1);
 	}
 
-	if (dname_from_fqdn(fqdn, dname, sizeof(dname)) == -1) {
+	if (asr_dname_from_fqdn(fqdn, dname, sizeof(dname)) == -1) {
 		errno = EINVAL;
-		DPRINT("dname_from_fqdn: invalid\n");
+		DPRINT("asr_dname_from_fqdn: invalid\n");
 		return (-1);
 	}
 
@@ -385,9 +385,9 @@ setup_query(struct async *as, const char *name, const char *dom,
 		h.flags |= RD_MASK;
 	h.qdcount = 1;
 
-	pack_init(&p, as->as.dns.obuf, as->as.dns.obufsize);
-	pack_header(&p, &h);
-	pack_query(&p, type, class, dname);
+	asr_pack_init(&p, as->as.dns.obuf, as->as.dns.obufsize);
+	asr_pack_header(&p, &h);
+	asr_pack_query(&p, type, class, dname);
 	if (p.err) {
 		DPRINT("error packing query");
 		errno = EINVAL;
@@ -684,9 +684,9 @@ validate_packet(struct async *as)
 	struct rr	 rr;
 	int		 r;
 
-	unpack_init(&p, as->as.dns.ibuf, as->as.dns.ibuflen);
+	asr_unpack_init(&p, as->as.dns.ibuf, as->as.dns.ibuflen);
 
-	unpack_header(&p, &h);
+	asr_unpack_header(&p, &h);
 	if (p.err)
 		goto inval;
 
@@ -709,7 +709,7 @@ validate_packet(struct async *as)
 	as->as.dns.rcode = RCODE(h.flags);
 	as->as.dns.ancount = h.ancount;
 
-	unpack_query(&p, &q);
+	asr_unpack_query(&p, &q);
 	if (p.err)
 		goto inval;
 
@@ -729,7 +729,7 @@ validate_packet(struct async *as)
 
 	/* Validate the rest of the packet */
 	for (r = h.ancount + h.nscount + h.arcount; r; r--)
-		unpack_rr(&p, &rr);
+		asr_unpack_rr(&p, &rr);
 
 	if (p.err || (p.offset != as->as.dns.ibuflen))
 		goto inval;
@@ -739,4 +739,33 @@ validate_packet(struct async *as)
     inval:
 	errno = EINVAL;
 	return (-1);
+}
+
+/*
+ * Set the async context nameserver index to the next nameserver, cycling
+ * over the list until the maximum retry counter is reached.  Return 0 on
+ * success, or -1 if all nameservers were used.
+ */
+static int
+iter_ns(struct async *as)
+{
+	for (;;) {
+		if (as->as.dns.nsloop >= as->as_ctx->ac_nsretries)
+			return (-1);
+
+		as->as.dns.nsidx += 1;
+		if (as->as.dns.nsidx <= as->as_ctx->ac_nscount)
+			break;
+		as->as.dns.nsidx = 0;
+		as->as.dns.nsloop++;
+		DPRINT("asr: iter_ns(): cycle %i\n", as->as.dns.nsloop);
+	}
+
+	as->as_timeout = 1000 * (as->as_ctx->ac_nstimeout << as->as.dns.nsloop);
+	if (as->as.dns.nsloop > 0)
+		as->as_timeout /= as->as_ctx->ac_nscount;
+	if (as->as_timeout < 1000)
+		as->as_timeout = 1000;
+
+	return (0);
 }

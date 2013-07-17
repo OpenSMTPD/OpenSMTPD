@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_search_async.c,v 1.7 2013/04/30 12:02:39 eric Exp $	*/
+/*	$OpenBSD: res_search_async.c,v 1.10 2013/07/12 14:36:22 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -31,6 +31,8 @@
 #include "asr_private.h"
 
 static int res_search_async_run(struct async *, struct async_res *);
+static size_t domcat(const char *, const char *, char *, size_t);
+static int iter_domain(struct async *, const char *, char *, size_t);
 
 /*
  * Unlike res_query_async(), this function returns a valid packet only if
@@ -55,11 +57,15 @@ struct async *
 res_search_async_ctx(const char *name, int class, int type, struct asr_ctx *ac)
 {
 	struct async	*as;
+	char		 alias[MAXDNAME];
 
 	DPRINT("asr: res_search_async_ctx(\"%s\", %i, %i)\n", name, class,
 	    type);
 
-	if ((as = async_new(ac, ASR_SEARCH)) == NULL)
+	if (asr_hostalias(ac, name, alias, sizeof(alias)))
+		return res_query_async_ctx(alias, class, type, ac);
+
+	if ((as = asr_async_new(ac, ASR_SEARCH)) == NULL)
 		goto err; /* errno set */
 	as->as_run  = res_search_async_run;
 	if ((as->as.search.name = strdup(name)) == NULL)
@@ -71,7 +77,7 @@ res_search_async_ctx(const char *name, int class, int type, struct asr_ctx *ac)
 	return (as);
     err:
 	if (as)
-		async_free(as);
+		asr_async_free(as);
 	return (NULL);
 }
 
@@ -99,7 +105,7 @@ res_search_async_run(struct async *as, struct async_res *ar)
 		 */
 		as->as_dom_flags = 0;
 
-		r = asr_iter_domain(as, as->as.search.name, fqdn, sizeof(fqdn));
+		r = iter_domain(as, as->as.search.name, fqdn, sizeof(fqdn));
 		if (r == -1) {
 			async_set_state(as, ASR_STATE_NOT_FOUND);
 			break;
@@ -130,7 +136,7 @@ res_search_async_run(struct async *as, struct async_res *ar)
 
 	case ASR_STATE_SUBQUERY:
 
-		if ((r = async_run(as->as.search.subq, ar)) == ASYNC_COND)
+		if ((r = asr_async_run(as->as.search.subq, ar)) == ASYNC_COND)
 			return (ASYNC_COND);
 		as->as.search.subq = NULL;
 
@@ -197,4 +203,117 @@ res_search_async_run(struct async *as, struct async_res *ar)
 		break;
 	}
 	goto next;
+}
+
+/*
+ * Concatenate a name and a domain name. The result has no trailing dot.
+ * Return the resulting string length, or 0 in case of error.
+ */
+static size_t
+domcat(const char *name, const char *domain, char *buf, size_t buflen)
+{
+	size_t	r;
+
+	r = asr_make_fqdn(name, domain, buf, buflen);
+	if (r == 0)
+		return (0);
+	buf[r - 1] = '\0';
+
+	return (r - 1);
+}
+
+enum {
+	DOM_INIT,
+	DOM_DOMAIN,
+	DOM_DONE
+};
+
+/*
+ * Implement the search domain strategy.
+ *
+ * This function works as a generator that constructs complete domains in
+ * buffer "buf" of size "len" for the given host name "name", according to the
+ * search rules defined by the resolving context.  It is supposed to be called
+ * multiple times (with the same name) to generate the next possible domain
+ * name, if any.
+ *
+ * It returns -1 if all possibilities have been exhausted, 0 if there was an
+ * error generating the next name, or the resulting name length.
+ */
+int
+iter_domain(struct async *as, const char *name, char * buf, size_t len)
+{
+	const char	*c;
+	int		 dots;
+
+	switch (as->as_dom_step) {
+
+	case DOM_INIT:
+		/* First call */
+
+		/*
+		 * If "name" is an FQDN, that's the only result and we
+		 * don't try anything else.
+		 */
+		if (strlen(name) && name[strlen(name) - 1] ==  '.') {
+			DPRINT("asr: iter_domain(\"%s\") fqdn\n", name);
+			as->as_dom_flags |= ASYNC_DOM_FQDN;
+			as->as_dom_step = DOM_DONE;
+			return (domcat(name, NULL, buf, len));
+		}
+
+		/*
+		 * Otherwise, we iterate through the specified search domains.
+		 */
+		as->as_dom_step = DOM_DOMAIN;
+		as->as_dom_idx = 0;
+
+		/*
+		 * If "name" as enough dots, use it as-is first, as indicated
+		 * in resolv.conf(5).
+		 */
+		dots = 0;
+		for (c = name; *c; c++)
+			dots += (*c == '.');
+		if (dots >= as->as_ctx->ac_ndots) {
+			DPRINT("asr: iter_domain(\"%s\") ndots\n", name);
+			as->as_dom_flags |= ASYNC_DOM_NDOTS;
+			if (strlcpy(buf, name, len) >= len)
+				return (0);
+			return (strlen(buf));
+		}
+		/* Otherwise, starts using the search domains */
+		/* FALLTHROUGH */
+
+	case DOM_DOMAIN:
+		if (as->as_dom_idx < as->as_ctx->ac_domcount) {
+			DPRINT("asr: iter_domain(\"%s\") domain \"%s\"\n",
+			    name, as->as_ctx->ac_dom[as->as_dom_idx]);
+			as->as_dom_flags |= ASYNC_DOM_DOMAIN;
+			return (domcat(name,
+			    as->as_ctx->ac_dom[as->as_dom_idx++], buf, len));
+		}
+
+		/* No more domain to try. */
+
+		as->as_dom_step = DOM_DONE;
+
+		/*
+		 * If the name was not tried as an absolute name before,
+		 * do it now.
+		 */
+		if (!(as->as_dom_flags & ASYNC_DOM_NDOTS)) {
+			DPRINT("asr: iter_domain(\"%s\") as is\n", name);
+			as->as_dom_flags |= ASYNC_DOM_ASIS;
+			if (strlcpy(buf, name, len) >= len)
+				return (0);
+			return (strlen(buf));
+		}
+		/* Otherwise, we are done. */
+
+	case DOM_DONE:
+	default:
+		DPRINT("asr: iter_domain(\"%s\") done\n", name);
+		return (-1);
+	}
 }
