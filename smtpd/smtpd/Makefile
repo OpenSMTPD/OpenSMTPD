@@ -3,8 +3,8 @@
 .PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
 
 # detect if asr is built in libc
-TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T getaddrinfo_async" | cut -d ' ' -f 3
-.if ${TESTASR} != "getaddrinfo_async"
+TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T asr_unpack_rr" | cut -d ' ' -f 3
+.if ${TESTASR} != "asr_unpack_rr"
 NEED_ASR=	Yes
 .endif
 
