@@ -145,7 +145,7 @@ table_mysql_prepare_stmt(MYSQL *_db, const char *query, unsigned long nparams,
 	}
 	if (mysql_stmt_prepare(stmt, query, strlen(query))) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_prepare: %s",
-		    mysql_error(_db));
+		    mysql_stmt_error(stmt));
 		goto end;
 	}
 	if (mysql_stmt_param_count(stmt) != nparams) {
@@ -158,7 +158,7 @@ table_mysql_prepare_stmt(MYSQL *_db, const char *query, unsigned long nparams,
 	}
 	if (mysql_stmt_bind_result(stmt, results)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results: %s",
-		    mysql_error(_db));
+		    mysql_stmt_error(stmt));
 		goto end;
 	}
 
@@ -445,13 +445,13 @@ table_mysql_query(const char *key, int service)
 
 	if (mysql_stmt_bind_param(stmt, param)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_param: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(stmt));
 		return (NULL);
 	}
 
 	if (mysql_stmt_execute(stmt)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(stmt));
 		return (NULL);
 	}
 
@@ -477,11 +477,11 @@ table_mysql_check(int service, const char *key)
 		r = 0;
 	else
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(stmt));
 
 	if (mysql_stmt_free_result(stmt))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(stmt));
 
 	return (r);
 }
@@ -505,7 +505,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	if (s != 0) {
 		r = -1;
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(stmt));
 		goto end;
 	}
 
@@ -529,7 +529,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 
 		if (s && s != MYSQL_NO_DATA) {
 			log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-			    mysql_error(config->db));
+			    mysql_stmt_error(stmt));
 			r = -1;
 		}
 		break;
@@ -570,7 +570,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
     end:
 	if (mysql_stmt_free_result(stmt))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(stmt));
 
 	return (r);
 }
@@ -593,7 +593,7 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 
 	if (mysql_stmt_execute(config->stmt_fetch_source)) {
 		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(config->stmt_fetch_source));
 		return (-1);
 	}
 
@@ -606,11 +606,11 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 
 	if (s && s != MYSQL_NO_DATA)
 		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(config->stmt_fetch_source));
 
 	if (mysql_stmt_free_result(config->stmt_fetch_source))
 		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
-		    mysql_error(config->db));
+		    mysql_stmt_error(config->stmt_fetch_source));
 
 	config->source_update = time(NULL);
 	config->source_ncall = 0;
