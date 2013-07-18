@@ -68,7 +68,7 @@ static void mta_on_source(struct mta_relay *, struct mta_source *);
 static void mta_on_timeout(struct runq *, void *);
 static void mta_connect(struct mta_connector *);
 static void mta_route_enable(struct mta_route *);
-static void mta_route_disable(struct mta_route *, int);
+static void mta_route_disable(struct mta_route *, int, int);
 static void mta_drain(struct mta_relay *);
 static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *, time_t, int*,
@@ -567,7 +567,7 @@ mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 void
 mta_route_down(struct mta_relay *relay, struct mta_route *route)
 {
-	mta_route_disable(route, 2);
+	mta_route_disable(route, 2, ROUTE_DISABLED_SMTP);
 }
 
 void
@@ -587,7 +587,7 @@ mta_route_collect(struct mta_relay *relay, struct mta_route *route)
 
 	/* First connection failed */
 	if (route->flags & ROUTE_NEW)
-		mta_route_disable(route, 2);
+		mta_route_disable(route, 2, ROUTE_DISABLED_NET);
 
 	c = mta_connector(relay, route->src);
 	c->nconn -= 1;
@@ -849,7 +849,8 @@ static void
 mta_on_source(struct mta_relay *relay, struct mta_source *source)
 {
 	struct mta_connector	*c;
-	int			 delay;
+	void			*iter;
+	int			 delay, errmask;
 
 	log_debug("debug: mta: ... got source for %s: %s",
 	    mta_relay_to_text(relay), source ? mta_source_to_text(source) : "NULL");
@@ -882,6 +883,22 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
 		relay->fail = IMSG_DELIVERY_TEMPFAIL;
 		relay->failstr = "No valid route to remote MX";
+
+		errmask = 0;
+		iter = NULL;
+		while (tree_iter(&relay->connectors, &iter, NULL, (void **)&c))
+			errmask |= c->flags;
+
+		if (errmask & CONNECTOR_ERROR_ROUTE_SMTP)
+			relay->failstr = "Destination seem to reject all mails";
+		else if (errmask & CONNECTOR_ERROR_ROUTE_NET)
+			relay->failstr = "Network error on destination MXs";
+		else if (errmask & CONNECTOR_ERROR_MX)
+			relay->failstr = "No MX found for destination";
+		else if (errmask & CONNECTOR_ERROR_FAMILY)
+			relay->failstr = "Address family mismatch on destination MXs";
+		else
+			relay->failstr = "No valid route to destination";	
 	}
 
 	relay->nextsource = relay->lastsource + delay;
@@ -1063,7 +1080,7 @@ mta_on_timeout(struct runq *runq, void *arg)
 }
 
 static void
-mta_route_disable(struct mta_route *route, int penalty)
+mta_route_disable(struct mta_route *route, int penalty, int reason)
 {
 	unsigned long long	delay;
 
@@ -1083,7 +1100,7 @@ mta_route_disable(struct mta_route *route, int penalty)
 		runq_cancel(runq_route, NULL, route);
 		mta_route_unref(route); /* from last call to here */
 	}
-	route->flags |= ROUTE_DISABLED;
+	route->flags |= reason & ROUTE_DISABLED;
 	runq_schedule(runq_route, time(NULL) + delay, NULL, route);
 	mta_route_ref(route);
 }
@@ -1336,7 +1353,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 		if (route->flags & ROUTE_DISABLED) {
 			log_debug("debug: mta-routing: skipping route %s: suspend",
 			    mta_route_to_text(route));
-			suspended_route += 1;
+			suspended_route |= route->flags & ROUTE_DISABLED;
 			mta_route_unref(route); /* from here */
 			continue;
 		}
@@ -1421,7 +1438,10 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 	else if (suspended_route) {
 		log_info("smtp-out: No valid route for %s",
 		    mta_connector_to_text(c));
-		c->flags |= CONNECTOR_ERROR_ROUTE;
+		if (suspended_route & ROUTE_DISABLED_NET)
+			c->flags |= CONNECTOR_ERROR_ROUTE_NET;
+		if (suspended_route & ROUTE_DISABLED_SMTP)
+			c->flags |= CONNECTOR_ERROR_ROUTE_SMTP;
 	}
 
 	return (NULL);
