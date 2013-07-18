@@ -217,6 +217,8 @@ delivery_lmtp_open(struct deliver *deliver)
 			 fprintf(fp, "QUIT\r\n");
 			 state = LMTP_BYE;
 			 break;
+		 default:
+			 _exit(0);
 		 }
 	 }
 

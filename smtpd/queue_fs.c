@@ -393,7 +393,7 @@ fsqueue_check_space(void)
 	 * Some systems will set them to 0, others will set them to -1.
 	 */
 	if (buf.f_bfree == 0 || buf.f_ffree == 0 ||
-	    buf.f_bfree == -1 || buf.f_ffree == -1)
+	    (int64_t)buf.f_bfree == -1 || (int64_t)buf.f_ffree == -1)
 		return 1;
 
 	used = buf.f_blocks - buf.f_bfree;
