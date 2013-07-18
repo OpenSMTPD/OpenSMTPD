@@ -173,6 +173,24 @@ is not running.
 .It
 Error string for the last failed delivery or relay attempt.
 .El
+.It Cm show routes
+Display status of routes currently known by
+.Xr smtpd 8 .
+Each line consists in a route number, a source address, a destination
+address, a set of flags, the number of connections on this
+route, the current penalty level which determines the amount of time
+the route is disabled if an error occurs, and the delay before it
+gets re-activated. The following flags are defined:
+.Pp
+.Bl -tag -width xx -compact
+.It N
+The route is new. No SMTP session has been established yet.
+.It D
+The route is currently disabled.
+.It Q
+The route as a timeout registered to lower its penality level and possibly
+re-activate or discard it.
+.El
 .It Cm show stats
 Displays runtime statistics concerning
 .Xr smtpd 8 .
