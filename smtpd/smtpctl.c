@@ -803,7 +803,7 @@ main(int argc, char **argv)
 	cmd_install("resume envelope <evpid>",	do_resume_envelope);
 	cmd_install("resume mda",		do_resume_mda);
 	cmd_install("resume mta",		do_resume_mta);
-	cmd_install("resume route",		do_resume_route);
+	cmd_install("resume route <routeid>",	do_resume_route);
 	cmd_install("resume smtp",		do_resume_smtp);
 	cmd_install("schedule <msgid>",		do_schedule);
 	cmd_install("schedule <evpid>",		do_schedule);
