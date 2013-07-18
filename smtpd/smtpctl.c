@@ -568,8 +568,10 @@ do_show_hoststats(int argc, struct parameter *argv)
 
 	do {
 		srv_recv(IMSG_CTL_MTA_SHOW_HOSTSTATS);
-		if (rlen)
+		if (rlen) {
 			printf("%s\n", rdata);
+			srv_read(NULL, rlen);
+		}
 		srv_end();
 	} while (rlen);
 
@@ -664,8 +666,10 @@ do_show_routes(int argc, struct parameter *argv)
 
 	do {
 		srv_recv(IMSG_CTL_MTA_SHOW_ROUTES);
-		if (rlen)
+		if (rlen) {
 			printf("%s\n", rdata);
+			srv_read(NULL, rlen);
+		}
 		srv_end();
 	} while (rlen);
 
