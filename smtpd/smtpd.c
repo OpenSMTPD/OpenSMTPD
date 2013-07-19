@@ -43,8 +43,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <util.h>
 #include <unistd.h>
+#include <util.h>
 
 #include <openssl/ssl.h>
 
