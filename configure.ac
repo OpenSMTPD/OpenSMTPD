@@ -1219,6 +1219,21 @@ AC_LINK_IFELSE(
 AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
 ##chl
 
+AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
+AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
+#include <openssl/ssl.h>
+#ifdef SSL_OP_NO_TICKET
+HAVE_SSL_OP_NO_TICKET
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by OpenSSL.])
+])
+
+
+
 #l2373
 # Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
 # because the system crypt() is more featureful.
@@ -2737,6 +2752,40 @@ LIBS="$LIBS -l$DB_LIB"
 
 LIBS="$LIBS ${SSHDLIBS}"
 ##end of chl
+
+AC_MSG_CHECKING([if RES_USE_EDNS0 is defined in resolv.h])
+AC_EGREP_CPP(HAVE_RES_USE_EDNS0, [
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+#ifdef RES_USE_EDNS0
+HAVE_RES_USE_EDNS0
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([RES_USE_EDNS0], [0], [Defined to 0 if RES_USE_EDNS0 isn't a supported resolver flag.])
+])
+
+
+AC_MSG_CHECKING([if RES_USE_DNSSEC is defined in resolv.h])
+AC_EGREP_CPP(HAVE_RES_USE_DNSSEC, [
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+#ifdef RES_USE_DNSSEC
+HAVE_RES_USE_DNSSEC
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([RES_USE_DNSSEC], [0], [Defined to 0 if RES_USE_DNSSEC isn't a supported resolver flag.])
+])
+
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
