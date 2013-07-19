@@ -176,7 +176,7 @@ int
 cmd_run(int argc, char **argv)
 {
 	struct parameter param[ARGVMAX];
-	struct node	*node, *tmp, *stack[ARGVMAX];
+	struct node	*node, *tmp, *stack[ARGVMAX], *best;
 	int		 i, j, np;
 
 	node = root;
@@ -193,8 +193,25 @@ cmd_run(int argc, char **argv)
 				break;
 			}
 		}
-		if (tmp == NULL)
-			goto fail;
+		if (tmp == NULL) {
+			best = NULL;
+			TAILQ_FOREACH(tmp, &node->children, entry) {
+				if (tmp->type != P_TOKEN)
+					continue;
+				if (strstr(tmp->token, argv[i]) != tmp->token)
+					continue;
+				if (best)
+					goto fail;
+				best = tmp;
+			}
+			if (best == NULL)
+				goto fail;
+			stack[i] = best;
+			node = best;
+			param[np].type = node->type;
+			if (node->type != P_TOKEN)
+				np++;
+		}
 	}
 
 	if (node->cmd == NULL)
