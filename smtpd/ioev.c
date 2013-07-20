@@ -1,5 +1,4 @@
 /*	$OpenBSD$	*/
-
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
