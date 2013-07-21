@@ -123,7 +123,7 @@ table_passwd_update(void)
 
 	/* swap passwd table and release old one*/
 	if (passwd)
-		while (dict_poproot(passwd, NULL, &buf))
+		while (dict_poproot(passwd, NULL, (void**)&buf))
 			free(buf);
 	passwd = npasswd;
 
@@ -132,7 +132,7 @@ table_passwd_update(void)
 err:
 	/* release passwd table */
 	if (npasswd)
-		while (dict_poproot(npasswd, NULL, &buf))
+		while (dict_poproot(npasswd, NULL, (void**)&buf))
 			free(buf);
 	return (0);
 }
