@@ -48,7 +48,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: backend-table-passwd: bad option");
+			log_warnx("warn: table-passwd: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -57,14 +57,14 @@ main(int argc, char **argv)
 	argv += optind;
 
 	if (argc != 1) {
-		log_warnx("warn: backend-table-passwd: bogus argument(s)");
+		log_warnx("warn: table-passwd: bogus argument(s)");
 		return (1);
 	}
 
 	config = argv[0];
 
 	if (table_passwd_update() == 0) {
-		log_warnx("warn: backend-table-passwd: error parsing config file");
+		log_warnx("warn: table-passwd: error parsing config file");
 		return (1);
 	}
 
@@ -112,7 +112,7 @@ table_passwd_update(void)
 			buf = lbuf;
 		}
 		if (! parse_passwd_entry(&pw, buf)) {
-			log_warnx("warn: backend-table-passwd: invalid entry");
+			log_warnx("warn: table-passwd: invalid entry");
 			goto err;
 		}
 		if ((line = strdup(buf)) == NULL)
@@ -155,7 +155,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		return 0;
 
 	if (! parse_passwd_entry(&pw, line)) {
-		log_warnx("warn: backend-table-passwd: invalid entry");
+		log_warnx("warn: table-passwd: invalid entry");
 		return -1;
 	}
 
@@ -164,7 +164,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
 			pw.pw_name, pw.pw_passwd) > (ssize_t)sz) {
-			log_warnx("warn: backend-table-passwd: result too large");
+			log_warnx("warn: table-passwd: result too large");
 			r = -1;
 		}
 		break;
@@ -172,12 +172,12 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		if (snprintf(dst, sz, "%i:%i:%s",
 			pw.pw_uid, pw.pw_gid, pw.pw_dir)
 		    > (ssize_t)sz) {
-			log_warnx("warn: backend-table-passwd: result too large");
+			log_warnx("warn: table-passwd: result too large");
 			r = -1;
 		}
 		break;
 	default:
-		log_warnx("warn: backend-table-passwd: unknown service %i",
+		log_warnx("warn: table-passwd: unknown service %i",
 		    service);
 		r = -1;
 	}

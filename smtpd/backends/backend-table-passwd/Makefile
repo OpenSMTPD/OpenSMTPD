@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-passwd
+PROG=	table-passwd
 
 SRCS=	table_passwd.c
 SRCS+=	table_api.c

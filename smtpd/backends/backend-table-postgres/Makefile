@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-postgres
+PROG=	table-postgres
 
 SRCS=	table_postgres.c
 SRCS+=	table_api.c
