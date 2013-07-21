@@ -66,10 +66,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #ifdef HAVE_UTIL_H
 #include <util.h>
 #endif
-#include <unistd.h>
 
 #include <openssl/ssl.h>
 
@@ -926,7 +926,7 @@ load_ssl_trees(void)
 		ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name);
 		if (ssl == NULL) {
 			if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
-				l->ssl_cert_name, F_SCERT))
+			    l->ssl_cert_name, F_SCERT))
 				errx(1, "cannot load certificate: %s",
 				    l->ssl_cert_name);
 			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
@@ -945,7 +945,7 @@ load_ssl_trees(void)
 			ssl->flags |= F_CCERT;
 		else {
 			if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
-				r->r_value.relayhost.cert, F_CCERT))
+			    r->r_value.relayhost.cert, F_CCERT))
 				errx(1, "cannot load certificate: %s",
 				    r->r_value.relayhost.cert);
 			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);

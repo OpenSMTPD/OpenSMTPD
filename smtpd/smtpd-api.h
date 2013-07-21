@@ -29,9 +29,6 @@
 
 #define	FILTER_API_VERSION	 50
 
-struct scheduler_info;
-struct scheduler_batch;
-
 struct mailaddr {
 	char	user[SMTPD_MAXLOCALPARTSIZE];
 	char	domain[SMTPD_MAXDOMAINPARTSIZE];
@@ -109,6 +106,9 @@ enum {
 };
 
 #define PROC_SCHEDULER_API_VERSION	1
+
+struct scheduler_info;
+struct scheduler_batch;
 
 enum {
 	PROC_SCHEDULER_OK,

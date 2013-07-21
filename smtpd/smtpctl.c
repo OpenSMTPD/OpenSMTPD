@@ -807,7 +807,7 @@ main(int argc, char **argv)
 	cmd_install("log verbose",		do_log_verbose);
 	cmd_install("monitor",			do_monitor);
 	cmd_install("pause envelope <evpid>",	do_pause_envelope);
-	cmd_install("pause message <msgid>",	do_pause_envelope);
+	cmd_install("pause envelope <msgid>",	do_pause_envelope);
 	cmd_install("pause mda",		do_pause_mda);
 	cmd_install("pause mta",		do_pause_mta);
 	cmd_install("pause smtp",		do_pause_smtp);
@@ -815,6 +815,7 @@ main(int argc, char **argv)
 	cmd_install("remove <evpid>",		do_remove);
 	cmd_install("remove <msgid>",		do_remove);
 	cmd_install("resume envelope <evpid>",	do_resume_envelope);
+	cmd_install("resume envelope <msgid>",	do_resume_envelope);
 	cmd_install("resume mda",		do_resume_mda);
 	cmd_install("resume mta",		do_resume_mta);
 	cmd_install("resume route <routeid>",	do_resume_route);

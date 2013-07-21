@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-mysql
+PROG=	table-mysql
 
 SRCS=	table_mysql.c
 SRCS+=	table_api.c

@@ -207,10 +207,10 @@ table_create(const char *backend, const char *name, const char *tag,
 		errx(1, "table_create: table \"%s\" already defined", name);
 
 	if ((tb = table_backend_lookup(backend)) == NULL) {
-		if (snprintf(path, sizeof(path), PATH_TABLES "/backend-table-%s",
+		if (snprintf(path, sizeof(path), PATH_TABLES "/table-%s",
 		    backend) >= (int)sizeof(path)) {
 			errx(1, "table_create: path too long \""
-			    PATH_TABLES "/backend-table-%s\"", backend);
+			    PATH_TABLES "/table-%s\"", backend);
 		}
 		if (stat(path, &sb) == 0) {
 			tb = table_backend_lookup("proc");

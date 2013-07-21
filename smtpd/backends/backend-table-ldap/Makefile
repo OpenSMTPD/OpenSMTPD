@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-ldap
+PROG=	table-ldap
 
 SRCS=	table_ldap.c
 SRCS+=	table_api.c

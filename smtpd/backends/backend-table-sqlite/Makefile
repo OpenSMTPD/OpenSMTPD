@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-sqlite
+PROG=	table-sqlite
 
 SRCS=	table_sqlite.c
 SRCS+=	table_api.c

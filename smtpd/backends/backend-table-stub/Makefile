@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-table-stub
+PROG=	table-stub
 
 SRCS=	table_stub.c
 SRCS+=	table_api.c

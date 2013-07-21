@@ -93,7 +93,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: backend-table-ldap: bad option");
+			log_warnx("warn: table-ldap: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -102,25 +102,25 @@ main(int argc, char **argv)
 	argv += optind;
 
 	if (argc != 1) {
-		log_warnx("warn: backend-table-ldap: bogus argument(s)");
+		log_warnx("warn: table-ldap: bogus argument(s)");
 		return (1);
 	}
 
 	config = argv[0];
 
 	if (!ldap_config()) {
-		log_warnx("warn: backend-table-ldap: could not parse config");
+		log_warnx("warn: table-ldap: could not parse config");
 		return (1);
 	}
 
-	log_debug("debug: backend-table-ldap: done reading config");
+	log_debug("debug: table-ldap: done reading config");
 
 	if (!ldap_open()) {
-		log_warnx("warn: backend-table-ldap: failed to connect");
+		log_warnx("warn: table-ldap: failed to connect");
 		return (1);
 	}
 
-	log_debug("debug: backend-table-ldap: connected");
+	log_debug("debug: table-ldap: connected");
 
 	table_api_on_update(table_ldap_update);
 	table_api_on_check(table_ldap_check);
@@ -185,7 +185,7 @@ ldap_connect(const char *addr)
 	/* XXX buf leak */
 
 	if (aldap_parse_url(buf, &lu) != 1) {
-		log_warnx("warn: backend-table-ldap: ldap_parse_url fail");
+		log_warnx("warn: table-ldap: ldap_parse_url fail");
 		return (NULL);
 	}
 
@@ -196,7 +196,7 @@ ldap_connect(const char *addr)
 	if (error == EAI_AGAIN || error == EAI_NODATA || error == EAI_NONAME)
 		return (NULL);
 	if (error) {
-		log_warnx("warn: backend-table-ldap: could not parse \"%s\": %s",
+		log_warnx("warn: table-ldap: could not parse \"%s\": %s",
 		    lu.host, gai_strerror(error));
 		return (NULL);
 	}
@@ -232,16 +232,16 @@ ldap_connect(const char *addr)
 static int
 read_value(char **store, const char *key, const char *value)
 {
-	log_debug("debug: backend-table-ldap: reading key \"%s\" -> \"%s\"",
+	log_debug("debug: table-ldap: reading key \"%s\" -> \"%s\"",
 	    key, value);
 
 	if (*store) {
-		log_warnx("warn: backend-table-ldap: duplicate key %s", key);
+		log_warnx("warn: table-ldap: duplicate key %s", key);
 		return (0);
 	}
 	
 	if ((*store = strdup(value)) == NULL) {
-		log_warn("warn: backend-table-ldap: strdup");
+		log_warn("warn: table-ldap: strdup");
 		return (0);
 	}
 
@@ -256,7 +256,7 @@ ldap_parse_attributes(char **attributes, const char *key, const char *line,
 	char   *p;
 	size_t	m, n;
 
-	log_debug("debug: backend-table-ldap: parsing attribute \"%s\" (%zu) -> \"%s\"",
+	log_debug("debug: table-ldap: parsing attribute \"%s\" (%zu) -> \"%s\"",
 	    key, expect, line);
 
 	if (strlcpy(buffer, line, sizeof buffer) >= sizeof buffer)
@@ -278,7 +278,7 @@ ldap_parse_attributes(char **attributes, const char *key, const char *line,
 	for (n = 0; n < m; ++n) {
 		attributes[n] = strdup(p);
 		if (attributes[n] == NULL) {
-			log_warnx("warn: backend-table-ldap: strdup");
+			log_warnx("warn: table-ldap: strdup");
 			return (0); /* XXX cleanup */
 		}
 		p += strlen(p) + 1;
@@ -304,7 +304,7 @@ ldap_config(void)
 		else {
 			lbuf = malloc(flen + 1);
 			if (lbuf == NULL) {
-				log_warn("warn: backend-table-ldap: malloc");
+				log_warn("warn: table-ldap: malloc");
 				return (0);
 			}
 			memcpy(lbuf, buf, flen);
@@ -331,7 +331,7 @@ ldap_config(void)
 		}
 
 		if (value == NULL) {
-			log_warnx("warn: backend-table-ldap: missing value for key %s", key);
+			log_warnx("warn: table-ldap: missing value for key %s", key);
 			continue;
 		}
 
@@ -368,8 +368,7 @@ ldap_config(void)
 			ldap_parse_attributes(queries[LDAP_USERINFO].attrs,
 			    key, value, 4);
 		else
-			log_warnx("warn: backend-table-ldap: bogus entry \"%s\"",
-			    key);
+			log_warnx("warn: table-ldap: bogus entry \"%s\"", key);
 	}
 
 	free(lbuf);
@@ -384,29 +383,29 @@ ldap_open(void)
 
 	aldap = ldap_connect(url);
 	if (aldap == NULL) {
-		log_warnx("warn: backend-table-ldap: ldap_connect error");
+		log_warnx("warn: table-ldap: ldap_connect error");
 		goto err;
 	}
 
 	if (aldap_bind(aldap, username, password) == -1) {
-		log_warnx("warn: backend-table-ldap: aldap_bind error");
+		log_warnx("warn: table-ldap: aldap_bind error");
 		goto err;
 	}
 
 	if ((amsg = aldap_parse(aldap)) == NULL) {
-		log_warnx("warn: backend-table-ldap: aldap_parse");
+		log_warnx("warn: table-ldap: aldap_parse");
 		goto err;
 	}
 
 	switch (aldap_get_resultcode(amsg)) {
 	case LDAP_SUCCESS:
-		log_debug("debug: backend-table-ldap: ldap server accepted credentials");
+		log_debug("debug: table-ldap: ldap server accepted credentials");
 		break;
 	case LDAP_INVALID_CREDENTIALS:
-		log_warnx("warn: backend-table-ldap: ldap server refused credentials");
+		log_warnx("warn: table-ldap: ldap server refused credentials");
 		goto err;
 	default:
-		log_warnx("warn: backend-table-ldap: failed to bind, result #%d",
+		log_warnx("warn: table-ldap: failed to bind, result #%d",
 		    aldap_get_resultcode(amsg));
 		goto err;
 	}
@@ -506,7 +505,7 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 
 	if (snprintf(filter, sizeof(filter), q->filter, key)
 	    >= (int)sizeof(filter)) {
-		log_warnx("warn: backend-table-ldap: filter too large");
+		log_warnx("warn: table-ldap: filter too large");
 		return (-1);
 	}
 
@@ -545,7 +544,7 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 	}
 
 	if (ret == -1)
-		log_warnx("warn: backend-table-ldap: could not format result");
+		log_warnx("warn: table-ldap: could not format result");
 
 end:
 	for (i = 0; i < q->attrn; ++i)

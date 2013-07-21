@@ -8,18 +8,18 @@ pkglibexec_PROGRAMS+=	backend-scheduler-ram
 pkglibexec_PROGRAMS+=	backend-scheduler-stub
 
 if HAVE_LDAP
-pkglibexec_PROGRAMS+=	backend-table-ldap
+pkglibexec_PROGRAMS+=	table-ldap
 endif
 if HAVE_MYSQL
-pkglibexec_PROGRAMS+=	backend-table-mysql
+pkglibexec_PROGRAMS+=	table-mysql
 endif
 if HAVE_POSTGRES
-pkglibexec_PROGRAMS+=	backend-table-postgres
+pkglibexec_PROGRAMS+=	table-postgres
 endif
 if HAVE_SQLITE
-pkglibexec_PROGRAMS+=	backend-table-sqlite
+pkglibexec_PROGRAMS+=	table-sqlite
 endif
-pkglibexec_PROGRAMS+=	backend-table-stub
+pkglibexec_PROGRAMS+=	table-stub
 
 
 INCLUDES=		-I$(smtpd_srcdir)	\
@@ -66,34 +66,34 @@ backend_scheduler_stub_SOURCES+=$(backends_srcdir)/scheduler_stub.c
 #
 
 if HAVE_LDAP
-backend_table_ldap_SOURCES=	$(TABLE_SRCS)
-backend_table_ldap_SOURCES+=	$(backends_srcdir)/table_ldap.c
-backend_table_ldap_SOURCES+=	$(smtpd_srcdir)/aldap.c
-backend_table_ldap_SOURCES+=	$(smtpd_srcdir)/ber.c
+table_ldap_SOURCES=	$(TABLE_SRCS)
+table_ldap_SOURCES+=	$(backends_srcdir)/table_ldap.c
+table_ldap_SOURCES+=	$(smtpd_srcdir)/aldap.c
+table_ldap_SOURCES+=	$(smtpd_srcdir)/ber.c
 endif
 
 if HAVE_MYSQL
-backend_table_mysql_SOURCES=	$(TABLE_SRCS)
-backend_table_mysql_SOURCES+=	$(backends_srcdir)/table_mysql.c
-backend_table_mysql_SOURCES+=	$(smtpd_srcdir)/dict.c
+table_mysql_SOURCES=	$(TABLE_SRCS)
+table_mysql_SOURCES+=	$(backends_srcdir)/table_mysql.c
+table_mysql_SOURCES+=	$(smtpd_srcdir)/dict.c
 LDADD+=-lmysqlclient
 endif
 
 if HAVE_POSTGRES
-backend_table_postgres_SOURCES=		$(TABLE_SRCS)
-backend_table_postgres_SOURCES+=	$(backends_srcdir)/table_postgres.c
-backend_table_postgres_SOURCES+=	$(smtpd_srcdir)/dict.c
+table_postgres_SOURCES=		$(TABLE_SRCS)
+table_postgres_SOURCES+=	$(backends_srcdir)/table_postgres.c
+table_postgres_SOURCES+=	$(smtpd_srcdir)/dict.c
 LDADD+=-lpq
 endif
 
 if HAVE_SQLITE
-backend_table_sqlite_SOURCES=	$(TABLE_SRCS)
-backend_table_sqlite_SOURCES+=	$(backends_srcdir)/table_sqlite.c
-backend_table_sqlite_SOURCES+=	$(smtpd_srcdir)/dict.c
+table_sqlite_SOURCES=	$(TABLE_SRCS)
+table_sqlite_SOURCES+=	$(backends_srcdir)/table_sqlite.c
+table_sqlite_SOURCES+=	$(smtpd_srcdir)/dict.c
 LDADD+=-lsqlite3
 endif
 
-backend_table_stub_SOURCES=	$(TABLE_SRCS)
-backend_table_stub_SOURCES+=	$(backends_srcdir)/table_stub.c
+table_stub_SOURCES=	$(TABLE_SRCS)
+table_stub_SOURCES+=	$(backends_srcdir)/table_stub.c
 
 EXTRA_DIST=		$(backends_srcdir)/queue_utils.h

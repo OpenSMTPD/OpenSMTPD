@@ -92,7 +92,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: backend-table-mysql: bad option");
+			log_warnx("warn: table-mysql: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -101,7 +101,7 @@ main(int argc, char **argv)
 	argv += optind;
 
 	if (argc != 1) {
-		log_warnx("warn: backend-table-mysql: bogus argument(s)");
+		log_warnx("warn: table-mysql: bogus argument(s)");
 		return (1);
 	}
 
@@ -116,11 +116,11 @@ main(int argc, char **argv)
 
 	config = config_load(conffile);
 	if (config == NULL) {
-		log_warnx("warn: backend-table-mysql: error parsing config file");
+		log_warnx("warn: table-mysql: error parsing config file");
 		return (1);
 	}
 	if (config_connect(config) == 0) {
-		log_warnx("warn: backend-table-mysql: could not connect");
+		log_warnx("warn: table-mysql: could not connect");
 		return (1);
 	}
 
@@ -140,25 +140,25 @@ table_mysql_prepare_stmt(MYSQL *_db, const char *query, unsigned long nparams,
 	MYSQL_STMT	*stmt;
 
 	if ((stmt = mysql_stmt_init(_db)) == NULL) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_init: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_init: %s",
 		    mysql_error(_db));
 		goto end;
 	}
 	if (mysql_stmt_prepare(stmt, query, strlen(query))) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_prepare: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_prepare: %s",
 		    mysql_stmt_error(stmt));
 		goto end;
 	}
 	if (mysql_stmt_param_count(stmt) != nparams) {
-		log_warnx("warn: backend-table-mysql: wrong number of params for %s", query);
+		log_warnx("warn: table-mysql: wrong number of params for %s", query);
 		goto end;
 	}
 	if (mysql_stmt_field_count(stmt) != nfields) {
-		log_warnx("warn: backend-table-mysql: wrong number of columns in resultset");
+		log_warnx("warn: table-mysql: wrong number of columns in resultset");
 		goto end;
 	}
 	if (mysql_stmt_bind_result(stmt, results)) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_results: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_bind_results: %s",
 		    mysql_stmt_error(stmt));
 		goto end;
 	}
@@ -186,7 +186,7 @@ config_load(const char *path)
 
 	conf = calloc(1, sizeof(*conf));
 	if (conf == NULL) {
-		log_warn("warn: backend-table-mysql: calloc");
+		log_warn("warn: table-mysql: calloc");
 		return (NULL);
 	}
 
@@ -199,7 +199,7 @@ config_load(const char *path)
 
 	fp = fopen(path, "r");
 	if (fp == NULL) {
-		log_warn("warn: backend-table-mysql: fopen");
+		log_warn("warn: table-mysql: fopen");
 		goto end;
 	}
 
@@ -209,7 +209,7 @@ config_load(const char *path)
 		else {
 			lbuf = malloc(flen + 1);
 			if (lbuf == NULL) {
-				log_warn("warn: backend-table-mysql: malloc");
+				log_warn("warn: table-mysql: malloc");
 				goto end;
 			}
 			memcpy(lbuf, buf, flen);
@@ -236,18 +236,18 @@ config_load(const char *path)
 		}
 
 		if (value == NULL) {
-			log_warnx("warn: backend-table-mysql: missing value for key %s", key);
+			log_warnx("warn: table-mysql: missing value for key %s", key);
 			goto end;
 		}
 
 		if (dict_check(&conf->conf, key)) {
-			log_warnx("warn: backend-table-mysql: duplicate key %s", key);
+			log_warnx("warn: table-mysql: duplicate key %s", key);
 			goto end;
 		}
 		
 		value = strdup(value);
 		if (value == NULL) {
-			log_warn("warn: backend-table-mysql: malloc");
+			log_warn("warn: table-mysql: malloc");
 			goto end;
 		}
 
@@ -258,7 +258,7 @@ config_load(const char *path)
 		e = NULL;
 		ll = strtonum(value, 0, INT_MAX, &e);
 		if (e) {
-			log_warnx("warn: backend-table-mysql: bad value for fetch_source_expire: %s", e);
+			log_warnx("warn: table-mysql: bad value for fetch_source_expire: %s", e);
 			goto end;
 		}
 		conf->source_expire = ll;
@@ -267,7 +267,7 @@ config_load(const char *path)
 		e = NULL;
 		ll = strtonum(value, 0, INT_MAX, &e);
 		if (e) {
-			log_warnx("warn: backend-table-mysql: bad value for fetch_source_refresh: %s", e);
+			log_warnx("warn: table-mysql: bad value for fetch_source_refresh: %s", e);
 			goto end;
 		}
 		conf->source_refresh = ll;
@@ -305,7 +305,7 @@ config_connect(struct config *conf)
 	size_t	 i;
 	char	*host, *username, *password, *database, *q;
 
-	log_debug("debug: backend-table-mysql: (re)connecting");
+	log_debug("debug: table-mysql: (re)connecting");
 
 	/* Disconnect first, if needed */
 
@@ -324,20 +324,20 @@ config_connect(struct config *conf)
 
 	conf->db = mysql_init(NULL);
 	if (conf->db == NULL) {
-		log_warnx("warn: backend-table-mysql: mysql_init failed");
+		log_warnx("warn: table-mysql: mysql_init failed");
 		goto end;
 	}
 
 	reconn = 1;
 	if (mysql_options(conf->db, MYSQL_OPT_RECONNECT, &reconn) != 0) {
-		log_warnx("warn: backend-table-mysql: mysql_options: %s",
+		log_warnx("warn: table-mysql: mysql_options: %s",
 		    mysql_error(conf->db));
 		goto end;
 	}
 
 	if (!mysql_real_connect(conf->db, host, username, password, database,
 	    0, NULL, 0)) {
-		log_warnx("warn: backend-table-mysql: mysql_real_connect: %s",
+		log_warnx("warn: table-mysql: mysql_real_connect: %s",
 		    mysql_error(conf->db));
 		goto end;
 	}
@@ -354,7 +354,7 @@ config_connect(struct config *conf)
 	    q, 0, 1)) == NULL)
 		goto end;
 
-	log_debug("debug: backend-table-mysql: connected");
+	log_debug("debug: table-mysql: connected");
 
 	return (1);
 
@@ -434,7 +434,7 @@ table_mysql_query(const char *key, int service)
 		return (NULL);
 
 	if (strlcpy(buffer, key, sizeof(buffer)) >= sizeof(buffer)) {
-		log_warnx("warn: backend-table-mysql: key too long: \"%s\"", key);
+		log_warnx("warn: table-mysql: key too long: \"%s\"", key);
 		return (NULL);
 	}
 
@@ -447,7 +447,7 @@ table_mysql_query(const char *key, int service)
 	param[0].length = &keylen;
 
 	if (mysql_stmt_bind_param(stmt, param)) {
-		log_warnx("warn: backend-table-mysql: mysql_stmt_bind_param: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_bind_param: %s",
 		    mysql_stmt_error(stmt));
 		return (NULL);
 	}
@@ -456,13 +456,13 @@ table_mysql_query(const char *key, int service)
 		if (mysql_stmt_errno(stmt) == CR_SERVER_LOST ||
 		    mysql_stmt_errno(stmt) == CR_SERVER_GONE_ERROR ||
 		    mysql_stmt_errno(stmt) == CR_COMMANDS_OUT_OF_SYNC) {
-			log_warnx("warn: backend-table-mysql: trying to reconnect after mysql error: %s",
+			log_warnx("warn: table-mysql: trying to reconnect after mysql error: %s",
 			    mysql_stmt_error(stmt));
 			if (config_connect(config))
 				goto retry;
 			return (NULL);
 		}
-		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_execute: %s",
 		    mysql_stmt_error(stmt));
 		return (NULL);
 	}
@@ -488,11 +488,11 @@ table_mysql_check(int service, const char *key)
 	else if (s == MYSQL_NO_DATA)
 		r = 0;
 	else
-		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_fetch: %s",
 		    mysql_stmt_error(stmt));
 
 	if (mysql_stmt_free_result(stmt))
-		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_free_result: %s",
 		    mysql_stmt_error(stmt));
 
 	return (r);
@@ -516,7 +516,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	
 	if (s != 0) {
 		r = -1;
-		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_fetch: %s",
 		    mysql_stmt_error(stmt));
 		goto end;
 	}
@@ -527,12 +527,12 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_ALIAS:
 		do {
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
-				log_warnx("warn: backend-table-mysql: result too large");
+				log_warnx("warn: table-mysql: result too large");
 				r = -1;
 				break;
 			}
 			if (strlcat(dst, results_buffer[0], sz) >= sz) {
-				log_warnx("warn: backend-table-mysql: result too large");
+				log_warnx("warn: table-mysql: result too large");
 				r = -1;
 				break;
 			}
@@ -540,7 +540,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 		} while (s == 0);
 
 		if (s && s != MYSQL_NO_DATA) {
-			log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+			log_warnx("warn: table-mysql: mysql_stmt_fetch: %s",
 			    mysql_stmt_error(stmt));
 			r = -1;
 		}
@@ -549,7 +549,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 		if (snprintf(dst, sz, "%s:%s",
 		    results_buffer[0],
 		    results_buffer[1]) > (ssize_t)sz) {
-			log_warnx("warn: backend-table-mysql: result too large");
+			log_warnx("warn: table-mysql: result too large");
 			r = -1;
 		}
 		break;
@@ -559,7 +559,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 		    results_buffer[1],
 		    results_buffer[2],
 		    results_buffer[3]) > (ssize_t)sz) {
-			log_warnx("warn: backend-table-mysql: result too large");
+			log_warnx("warn: table-mysql: result too large");
 			r = -1;
 		}
 		break;
@@ -569,19 +569,19 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_MAILADDR:
 	case K_ADDRNAME:
 		if (strlcpy(dst, results_buffer[0], sz) >= sz) {
-			log_warnx("warn: backend-table-mysql: result too large");
+			log_warnx("warn: table-mysql: result too large");
 			r = -1;
 		}
 		break;
 	default:
-		log_warnx("warn: backend-table-mysql: unknown service %i",
+		log_warnx("warn: table-mysql: unknown service %i",
 		    service);
 		r = -1;
 	}
 
     end:
 	if (mysql_stmt_free_result(stmt))
-		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_free_result: %s",
 		    mysql_stmt_error(stmt));
 
 	return (r);
@@ -612,13 +612,13 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 		if (mysql_stmt_errno(stmt) == CR_SERVER_LOST ||
 		    mysql_stmt_errno(stmt) == CR_SERVER_GONE_ERROR ||
 		    mysql_stmt_errno(stmt) == CR_COMMANDS_OUT_OF_SYNC) {
-			log_warnx("warn: backend-table-mysql: trying to reconnect after mysql error: %s",
+			log_warnx("warn: table-mysql: trying to reconnect after mysql error: %s",
 			    mysql_stmt_error(stmt));
 			if (config_connect(config))
 				goto retry;
 			return (-1);
 		}
-		log_warnx("warn: backend-table-mysql: mysql_stmt_execute: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_execute: %s",
 		    mysql_stmt_error(stmt));
 		return (-1);
 	}
@@ -631,11 +631,11 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 		dict_set(&config->sources, results_buffer[0], NULL);
 
 	if (s && s != MYSQL_NO_DATA)
-		log_warnx("warn: backend-table-mysql: mysql_stmt_fetch: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_fetch: %s",
 		    mysql_stmt_error(stmt));
 
 	if (mysql_stmt_free_result(stmt))
-		log_warnx("warn: backend-table-mysql: mysql_stmt_free_result: %s",
+		log_warnx("warn: table-mysql: mysql_stmt_free_result: %s",
 		    mysql_stmt_error(stmt));
 
 	config->source_update = time(NULL);
