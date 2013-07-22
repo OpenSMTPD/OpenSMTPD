@@ -16,7 +16,7 @@ BINDIR=	/usr/libexec/smtpd
 DPADD=	${LIBUTIL}
 LDADD=	-lutil -L/usr/local/lib -lpq
 
-CFLAGS+=	-I/usr/local/include
+CFLAGS+=	-I/usr/local/include/postgresql
 CFLAGS+=	-g3 -ggdb -I${.CURDIR}/..
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
