@@ -217,6 +217,7 @@ crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 	uint8_t		iv[IV_SIZE];
 	uint8_t		tag[GCM_TAG_SIZE];
 	uint8_t		version = API_VERSION;
+	off_t		sz;
 	int		olen;
 	int		len = 0;
 	int		ret = 0;
@@ -226,7 +227,8 @@ crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 		return 0;
 
 	/* input should not exceed 64GB */
-	if (inlen >= 0x1000000000LL)
+	sz = inlen;
+	if (sz >= 0x1000000000LL)
 		return 0;
 
 	/* prepend version */
