@@ -26,7 +26,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <postgresql/libpq-fe.h>
+#include <libpq-fe.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
