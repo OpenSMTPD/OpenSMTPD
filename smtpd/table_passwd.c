@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 
 #include <err.h>
@@ -28,6 +30,13 @@
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "log.h"
+
+#ifndef UID_MAX
+#define	UID_MAX	UINT_MAX
+#endif
+#ifndef GID_MAX
+#define	GID_MAX	UINT_MAX
+#endif
 
 static int table_passwd_update(void);
 static int table_passwd_check(int, const char *);

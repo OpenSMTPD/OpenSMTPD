@@ -82,6 +82,7 @@ endif
 
 table_passwd_SOURCES=	$(TABLE_SRCS)
 table_passwd_SOURCES+=	$(smtpd_srcdir)/table_passwd.c
+table_passwd_SOURCES+=	$(smtpd_srcdir)/dict.c
 
 if HAVE_POSTGRES
 table_postgres_SOURCES=		$(TABLE_SRCS)
