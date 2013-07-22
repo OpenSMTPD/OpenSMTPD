@@ -13,6 +13,7 @@ endif
 if HAVE_MYSQL
 pkglibexec_PROGRAMS+=	table-mysql
 endif
+pkglibexec_PROGRAMS+=	table-passwd
 if HAVE_POSTGRES
 pkglibexec_PROGRAMS+=	table-postgres
 endif
@@ -67,33 +68,36 @@ backend_scheduler_stub_SOURCES+=$(backends_srcdir)/scheduler_stub.c
 
 if HAVE_LDAP
 table_ldap_SOURCES=	$(TABLE_SRCS)
-table_ldap_SOURCES+=	$(backends_srcdir)/table_ldap.c
+table_ldap_SOURCES+=	$(smtpd_srcdir)/table_ldap.c
 table_ldap_SOURCES+=	$(smtpd_srcdir)/aldap.c
 table_ldap_SOURCES+=	$(smtpd_srcdir)/ber.c
 endif
 
 if HAVE_MYSQL
 table_mysql_SOURCES=	$(TABLE_SRCS)
-table_mysql_SOURCES+=	$(backends_srcdir)/table_mysql.c
+table_mysql_SOURCES+=	$(smtpd_srcdir)/table_mysql.c
 table_mysql_SOURCES+=	$(smtpd_srcdir)/dict.c
 LDADD+=-lmysqlclient
 endif
 
+table_passwd_SOURCES=	$(TABLE_SRCS)
+table_passwd_SOURCES+=	$(smtpd_srcdir)/table_passwd.c
+
 if HAVE_POSTGRES
 table_postgres_SOURCES=		$(TABLE_SRCS)
-table_postgres_SOURCES+=	$(backends_srcdir)/table_postgres.c
+table_postgres_SOURCES+=	$(smtpd_srcdir)/table_postgres.c
 table_postgres_SOURCES+=	$(smtpd_srcdir)/dict.c
 LDADD+=-lpq
 endif
 
 if HAVE_SQLITE
 table_sqlite_SOURCES=	$(TABLE_SRCS)
-table_sqlite_SOURCES+=	$(backends_srcdir)/table_sqlite.c
+table_sqlite_SOURCES+=	$(smtpd_srcdir)/table_sqlite.c
 table_sqlite_SOURCES+=	$(smtpd_srcdir)/dict.c
 LDADD+=-lsqlite3
 endif
 
 table_stub_SOURCES=	$(TABLE_SRCS)
-table_stub_SOURCES+=	$(backends_srcdir)/table_stub.c
+table_stub_SOURCES+=	$(smtpd_srcdir)/table_stub.c
 
 EXTRA_DIST=		$(backends_srcdir)/queue_utils.h
