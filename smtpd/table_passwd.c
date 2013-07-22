@@ -19,11 +19,11 @@
 #include <sys/types.h>
 
 #include <err.h>
-#include <getopt.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
