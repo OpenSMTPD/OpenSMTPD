@@ -21,7 +21,6 @@
 #include <sys/types.h>
 
 #include <ctype.h>
-#include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
