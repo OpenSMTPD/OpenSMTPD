@@ -69,6 +69,7 @@ static int table_mysql_fetch(int, char *, size_t);
 static MYSQL_STMT *table_mysql_query(const char *, int);
 
 static struct config 	*config_load(const char *);
+static void		 config_reset(struct config *);
 static int		 config_connect(struct config *);
 static void		 config_free(struct config *);
 
@@ -194,7 +195,6 @@ config_load(const char *path)
 	dict_init(&conf->conf);
 	dict_init(&conf->sources);
 
-
 	conf->source_refresh = DEFAULT_REFRESH;
 	conf->source_expire = DEFAULT_EXPIRE;
 
@@ -286,6 +286,26 @@ config_load(const char *path)
 	return (NULL);
 }
 
+static void
+config_reset(struct config *conf)
+{
+	size_t	i;
+
+	for (i = 0; i < SQL_MAX; i++)
+		if (conf->statements[i]) {
+			mysql_stmt_close(conf->statements[i]);
+			conf->statements[i] = NULL;
+		}
+	if (conf->stmt_fetch_source) {
+		mysql_stmt_close(conf->stmt_fetch_source);
+		conf->stmt_fetch_source = NULL;
+	}
+	if (conf->db) {
+		mysql_close(conf->db);
+		conf->db = NULL;
+	}
+}
+
 static int
 config_connect(struct config *conf)
 {
@@ -309,14 +329,7 @@ config_connect(struct config *conf)
 	log_debug("debug: table-mysql: (re)connecting");
 
 	/* Disconnect first, if needed */
-
-	for (i = 0; i < SQL_MAX; i++)
-		if (conf->statements[i])
-			mysql_stmt_close(conf->statements[i]);
-	if (conf->stmt_fetch_source)
-		mysql_stmt_close(conf->stmt_fetch_source);
-	if (conf->db)
-		mysql_close(conf->db);
+	config_reset(conf);
 
 	host = dict_get(&conf->conf, "host");
 	username = dict_get(&conf->conf, "username");
@@ -360,37 +373,22 @@ config_connect(struct config *conf)
 	return (1);
 
     end:
-	for (i = 0; i < SQL_MAX; i++)
-		if (conf->statements[i])
-			mysql_stmt_close(conf->statements[i]);
-	if (conf->stmt_fetch_source)
-		mysql_stmt_close(conf->stmt_fetch_source);
-	if (conf->db)
-		mysql_close(conf->db);
+	config_reset(conf);
 	return (0);
 }
 
 static void
 config_free(struct config *conf)
 {
-	size_t	 i;
 	void	*value;
+
+	config_reset(conf);
 
 	while(dict_poproot(&conf->conf, NULL, &value))
 		free(value);
 
 	while(dict_poproot(&conf->sources, NULL, NULL))
 		;
-
-	for (i = 0; i < SQL_MAX; i++)
-		if (conf->statements[i])
-			mysql_stmt_close(conf->statements[i]);
-
-	if (conf->stmt_fetch_source)
-		mysql_stmt_close(conf->stmt_fetch_source);
-
-	if (conf->db)
-		mysql_close(conf->db);
 
 	free(conf);
 }
@@ -457,7 +455,7 @@ table_mysql_query(const char *key, int service)
 		if (mysql_stmt_errno(stmt) == CR_SERVER_LOST ||
 		    mysql_stmt_errno(stmt) == CR_SERVER_GONE_ERROR ||
 		    mysql_stmt_errno(stmt) == CR_COMMANDS_OUT_OF_SYNC) {
-			log_warnx("warn: table-mysql: trying to reconnect after mysql error: %s",
+			log_warnx("warn: table-mysql: trying to reconnect after error: %s",
 			    mysql_stmt_error(stmt));
 			if (config_connect(config))
 				goto retry;
@@ -613,7 +611,7 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 		if (mysql_stmt_errno(stmt) == CR_SERVER_LOST ||
 		    mysql_stmt_errno(stmt) == CR_SERVER_GONE_ERROR ||
 		    mysql_stmt_errno(stmt) == CR_COMMANDS_OUT_OF_SYNC) {
-			log_warnx("warn: table-mysql: trying to reconnect after mysql error: %s",
+			log_warnx("warn: table-mysql: trying to reconnect after error: %s",
 			    mysql_stmt_error(stmt));
 			if (config_connect(config))
 				goto retry;
@@ -646,7 +644,7 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 
 	config->source_ncall += 1;
 
-        if (! dict_iter(&config->sources, &config->source_iter, &k, (void **)NULL)) {
+	if (! dict_iter(&config->sources, &config->source_iter, &k, (void **)NULL)) {
 		config->source_iter = NULL;
 		if (! dict_iter(&config->sources, &config->source_iter, &k, (void **)NULL))
 			return (0);
