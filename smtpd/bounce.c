@@ -318,6 +318,7 @@ const char *notice_warning2 =
     "    The message is kept in the queue for up to %s.\n"
     "    You DO NOT NEED to re-send the message to these recipients.\n\n";
 
+/* XXX move dsn related stuff to dsn.c */
 const char *dsn_notice =
     "    Delivery Status Notification.\n\n";
 
