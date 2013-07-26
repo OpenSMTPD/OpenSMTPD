@@ -18,10 +18,10 @@
  
 #include <sys/types.h>
 
-#include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
-        
+#include <unistd.h>
+
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "log.h"

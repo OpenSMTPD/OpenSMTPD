@@ -31,6 +31,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <fts.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -54,8 +55,11 @@ static void getflag(uint *, int, char *, char *, size_t);
 static void display(const char *);
 static int str_to_trace(const char *);
 static int str_to_profile(const char *);
-static int is_gzip(FILE *);
-static int is_encrypted(FILE *);
+static void show_offline_envelope(uint64_t);
+static int is_gzip_fp(FILE *);
+static int is_encrypted_fp(FILE *);
+static int is_encrypted_buffer(const char *);
+static int is_gzip_buffer(const char *);
 
 extern char	*__progname;
 int		 sendmail;
@@ -564,8 +568,10 @@ do_show_hoststats(int argc, struct parameter *argv)
 
 	do {
 		srv_recv(IMSG_CTL_MTA_SHOW_HOSTSTATS);
-		if (rlen)
+		if (rlen) {
 			printf("%s\n", rdata);
+			srv_read(NULL, rlen);
+		}
 		srv_end();
 	} while (rlen);
 
@@ -600,7 +606,11 @@ do_show_queue(int argc, struct parameter *argv)
 {
 	struct envelope	 evp;
 	uint32_t	 msgid;
-	int		 r;
+	FTS		*fts;
+	FTSENT		*ftse;
+	char		*qpath[] = {"/queue", NULL};
+	char		*tmp;
+	uint64_t	 evpid;
 
 	now = time(NULL);
 
@@ -609,9 +619,30 @@ do_show_queue(int argc, struct parameter *argv)
 		queue_init("fs", 0);
 		if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
 			err(1, "%s", PATH_SPOOL);
+		fts = fts_open(qpath, FTS_PHYSICAL|FTS_NOCHDIR, NULL);
+		if (fts == NULL)
+			err(1, "%s/queue", PATH_SPOOL);
+
+		while ((ftse = fts_read(fts)) != NULL) {
+			switch (ftse->fts_info) {
+			case FTS_DP:
+			case FTS_DNR:
+				break;
+			case FTS_F:
+				tmp = NULL;
+				evpid = strtoull(ftse->fts_name, &tmp, 16);
+				if (tmp && *tmp != '\0')
+					break;
+				show_offline_envelope(evpid);
+			}
+		}
+
+		fts_close(fts);
+		/*
 		while ((r = queue_envelope_walk(&evp)) != -1)
 			if (r)
 				show_queue_envelope(&evp, 0);
+		*/
 		return (0);
 	}
 
@@ -635,8 +666,10 @@ do_show_routes(int argc, struct parameter *argv)
 
 	do {
 		srv_recv(IMSG_CTL_MTA_SHOW_ROUTES);
-		if (rlen)
+		if (rlen) {
 			printf("%s\n", rdata);
+			srv_read(NULL, rlen);
+		}
 		srv_end();
 	} while (rlen);
 
@@ -696,7 +729,7 @@ do_show_stats(int argc, struct parameter *argv)
 }
 
 static int
-do_shutdown(int argc, struct parameter *argv)
+do_stop(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_SHUTDOWN, NULL, 0);
 	return srv_check_result();
@@ -764,7 +797,7 @@ main(int argc, char **argv)
 	cmd_install("log verbose",		do_log_verbose);
 	cmd_install("monitor",			do_monitor);
 	cmd_install("pause envelope <evpid>",	do_pause_envelope);
-	cmd_install("pause message <msgid>",	do_pause_envelope);
+	cmd_install("pause envelope <msgid>",	do_pause_envelope);
 	cmd_install("pause mda",		do_pause_mda);
 	cmd_install("pause mta",		do_pause_mta);
 	cmd_install("pause smtp",		do_pause_smtp);
@@ -772,9 +805,10 @@ main(int argc, char **argv)
 	cmd_install("remove <evpid>",		do_remove);
 	cmd_install("remove <msgid>",		do_remove);
 	cmd_install("resume envelope <evpid>",	do_resume_envelope);
+	cmd_install("resume envelope <msgid>",	do_resume_envelope);
 	cmd_install("resume mda",		do_resume_mda);
 	cmd_install("resume mta",		do_resume_mta);
-	cmd_install("resume route",		do_resume_route);
+	cmd_install("resume route <routeid>",	do_resume_route);
 	cmd_install("resume smtp",		do_resume_smtp);
 	cmd_install("schedule <msgid>",		do_schedule);
 	cmd_install("schedule <evpid>",		do_schedule);
@@ -787,7 +821,7 @@ main(int argc, char **argv)
 	cmd_install("show queue <msgid>",	do_show_queue);
 	cmd_install("show routes",		do_show_routes);
 	cmd_install("show stats",		do_show_stats);
-	cmd_install("shutdown",			do_shutdown);
+	cmd_install("stop",			do_stop);
 	cmd_install("trace <str>",		do_trace);
 	cmd_install("unprofile <str>",		do_unprofile);
 	cmd_install("untrace <str>",		do_untrace);
@@ -883,6 +917,51 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 }
 
 static void
+show_offline_envelope(uint64_t evpid)
+{
+	FILE   *fp = NULL;
+	char	pathname[SMTPD_MAXPATHLEN];
+	size_t	plen;
+	char   *p;
+	size_t	buflen;
+	char	buffer[sizeof(struct envelope)];
+
+	struct envelope	evp;
+
+	if (! bsnprintf(pathname, sizeof pathname,
+		"/queue/%02x/%08x/%016"PRIx64,
+		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
+		evpid_to_msgid(evpid), evpid))
+		goto end;
+	fp = fopen(pathname, "r");
+	if (fp == NULL)
+		goto end;
+
+	buflen = fread(buffer, 1, sizeof buffer, fp);
+	p = buffer;
+	plen = buflen;
+
+	if (is_encrypted_buffer(p)) {
+		warnx("offline encrypted queue is not supported yet");
+		goto end;
+	}
+
+	if (is_gzip_buffer(p)) {
+		warnx("offline compressed queue is not supported yet");
+		goto end;
+	}
+
+	if (! envelope_load_buffer(&evp, p, plen))
+		goto end;
+	evp.id = evpid;
+	show_queue_envelope(&evp, 0);
+
+end:
+	if (fp)
+		fclose(fp);
+}
+
+static void
 display(const char *s)
 {
 	FILE   *fp;
@@ -893,7 +972,7 @@ display(const char *s)
 	if ((fp = fopen(s, "r")) == NULL)
 		err(1, "fopen");
 
-	if (is_encrypted(fp)) {
+	if (is_encrypted_fp(fp)) {
 		int	i;
 		int	fd;
 		FILE   *ofp;
@@ -926,7 +1005,7 @@ display(const char *s)
 		fp = ofp;
 		fseek(fp, SEEK_SET, 0);
 	}
-	gzipped = is_gzip(fp);
+	gzipped = is_gzip_fp(fp);
 
 	(void)dup2(fileno(fp), STDIN_FILENO);
 	if (gzipped)
@@ -981,21 +1060,30 @@ str_to_profile(const char *str)
 }
 
 static int
-is_gzip(FILE *fp)
+is_gzip_buffer(const char *buffer)
 {
 	uint16_t	magic;
+
+	memcpy(&magic, buffer, sizeof magic);
+#define	GZIP_MAGIC	0x8b1f
+	return (magic == GZIP_MAGIC);
+}
+
+static int
+is_gzip_fp(FILE *fp)
+{
+	uint8_t		magic[2];
 	int		ret = 0;
 
 	if (fread(&magic, 1, sizeof magic, fp) != sizeof magic)
 		goto end;
 
-#define	GZIP_MAGIC	0x8b1f
-	ret = (magic == GZIP_MAGIC);
-
+	ret = is_gzip_buffer((const char *)&magic);
 end:
 	fseek(fp, SEEK_SET, 0);
 	return ret;
 }
+
 
 /* XXX */
 /*
@@ -1004,8 +1092,19 @@ end:
  * which we ensure is unambiguous with gzipped / plain
  * objects.
  */
+
 static int
-is_encrypted(FILE *fp)
+is_encrypted_buffer(const char *buffer)
+{
+	uint8_t	magic;
+
+	magic = *buffer;
+#define	ENCRYPTION_MAGIC	0x1
+	return (magic == ENCRYPTION_MAGIC);
+}
+
+static int
+is_encrypted_fp(FILE *fp)
 {
 	uint8_t	magic;
 	int    	ret = 0;
@@ -1013,9 +1112,7 @@ is_encrypted(FILE *fp)
 	if (fread(&magic, 1, sizeof magic, fp) != sizeof magic)
 		goto end;
 
-#define	ENCRYPTION_MAGIC	0x1
-	ret = (magic == ENCRYPTION_MAGIC);
-
+	ret = is_encrypted_buffer((const char *)&magic);
 end:
 	fseek(fp, SEEK_SET, 0);
 	return ret;
