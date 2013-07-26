@@ -304,7 +304,7 @@ queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 }
 
 static int
-queue_proc_init(int server)
+queue_proc_init(struct passwd *pw, int server)
 {
 	int		sp[2];
 	uint32_t	version;

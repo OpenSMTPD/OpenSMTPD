@@ -24,8 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
-#include <postgresql/libpq-fe.h>
+#include <libpq-fe.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
@@ -53,6 +54,9 @@ static PGresult *table_postgres_query(const char *, int);
 
 #define SQL_MAX_RESULT	5
 
+#define	DEFAULT_EXPIRE	60
+#define	DEFAULT_REFRESH	1000
+
 static char		*config;
 static PGconn		*db;
 static char		*statements[SQL_MAX];
@@ -76,7 +80,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: backend-table-postgres: bad option");
+			log_warnx("warn: table-postgres: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -85,7 +89,7 @@ main(int argc, char **argv)
 	argv += optind;
 
 	if (argc != 1) {
-		log_warnx("warn: backend-table-postgres: bogus argument(s)");
+		log_warnx("warn: table-postgres: bogus argument(s)");
 		return (1);
 	}
 
@@ -94,7 +98,7 @@ main(int argc, char **argv)
 	dict_init(&sources);
 
 	if (table_postgres_update() == 0) {
-		log_warnx("warn: backend-table-postgres: error parsing config file");
+		log_warnx("warn: table-postgres: error parsing config file");
 		return (1);
 	}
 
@@ -111,12 +115,12 @@ static int
 table_postgres_getconfstr(const char *key, const char *value, char **var)
 {
 	if (*var) {
-		log_warnx("warn: backend-table-postgres: duplicate %s %s", key, value);
+		log_warnx("warn: table-postgres: duplicate %s %s", key, value);
 		free(*var);
 	}
 	*var = strdup(value);
 	if (*var == NULL) {
-		log_warn("warn: backend-table-postgres: strdup");
+		log_warn("warn: table-postgres: strdup");
 		return (-1);
 	}
 	return (0);
@@ -131,13 +135,13 @@ table_postgres_prepare_stmt(PGconn *_db, const char *query, int nparams,
 	char			*stmt;
 	
 	if (asprintf(&stmt, "stmt%u", n++) == -1) {
-		log_warn("warn: backend-table-postgres: asprintf");
+		log_warn("warn: table-postgres: asprintf");
 		return (NULL);
 	}
 
 	res = PQprepare(_db, stmt, query, nparams, NULL);
 	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-		log_warnx("warn: backend-table-postgres: PQprepare: %s",
+		log_warnx("warn: table-postgres: PQprepare: %s",
 		    PQerrorMessage(_db));
 		free(stmt);
 		stmt = NULL;
@@ -163,16 +167,20 @@ table_postgres_update(void)
 		{ "query_mailaddr",	1 },
 		{ "query_addrname",	1 },
 	};
-	PGconn	*_db;
-	char	*_statements[SQL_MAX];
-	char	*queries[SQL_MAX];
-	char	*_stmt_fetch_source;
-	char	*_query_fetch_source;
-	size_t	 flen;
-	FILE	*fp;
-	char	*key, *value, *buf, *lbuf;
-	char	*conninfo;
-	int	 i, ret;
+	PGconn		*_db;
+	char		*_statements[SQL_MAX];
+	char		*queries[SQL_MAX];
+	char		*_stmt_fetch_source;
+	char		*_query_fetch_source;
+	size_t		 flen;
+	size_t		 _source_refresh;
+	int		 _source_expire;
+	FILE		*fp;
+	char		*key, *value, *buf, *lbuf;
+	const char	*e;
+	char		*conninfo;
+	int		 i, ret;
+	long long	 ll;
 
 	conninfo = NULL;
 	_db = NULL;
@@ -180,6 +188,9 @@ table_postgres_update(void)
 	bzero(_statements, sizeof(_statements));
 	_query_fetch_source = NULL;
 	_stmt_fetch_source = NULL;
+
+	_source_refresh = DEFAULT_REFRESH;
+	_source_expire = DEFAULT_EXPIRE;
 
 	ret = 0;
 
@@ -196,7 +207,7 @@ table_postgres_update(void)
 		else {
 			lbuf = malloc(flen + 1);
 			if (lbuf == NULL) {
-				log_warn("warn: backend-table-postgres: malloc");
+				log_warn("warn: table-postgres: malloc");
 				return (0);
 			}
 			memcpy(lbuf, buf, flen);
@@ -223,7 +234,7 @@ table_postgres_update(void)
 		}
 
 		if (value == NULL) {
-			log_warnx("warn: backend-table-postgres: missing value for key %s", key);
+			log_warnx("warn: table-postgres: missing value for key %s", key);
 			continue;
 		}
 
@@ -237,38 +248,58 @@ table_postgres_update(void)
 				goto end;
 			continue;
 		}
+		if (!strcmp("fetch_source_expire", key)) {
+			e = NULL;
+			ll = strtonum(value, 0, INT_MAX, &e);
+			if (e) {
+				log_warnx("warn: table-postgres: bad value for %s: %s", key, e);
+				goto end;
+			}
+			_source_expire = ll;
+			continue;
+		}
+		if (!strcmp("fetch_source_refresh", key)) {
+			e = NULL;
+			ll = strtonum(value, 0, INT_MAX, &e);
+			if (e) {
+				log_warnx("warn: table-postgres: bad value for %s: %s", key, e);
+				goto end;
+			}
+			_source_refresh = ll;
+			continue;
+		}
 
 		for(i = 0; i < SQL_MAX; i++)
 			if (!strcmp(qspec[i].name, key))
 				break;
 		if (i == SQL_MAX) {
-			log_warnx("warn: backend-table-postgres: bogus key %s", key);
+			log_warnx("warn: table-postgres: bogus key %s", key);
 			continue;
 		}
 
 		if (queries[i]) {
-			log_warnx("warn: backend-table-postgres: duplicate key %s", key);
+			log_warnx("warn: table-postgres: duplicate key %s", key);
 			continue;
 		}
 
 		queries[i] = strdup(value);
 		if (queries[i] == NULL) {
-			log_warnx("warn: backend-table-postgres: strdup");
+			log_warnx("warn: table-postgres: strdup");
 			goto end;
 		}
 	}
 
 	/* Setup db */
 
-	log_debug("debug: backend-table-postgres: opening %s", conninfo);
+	log_debug("debug: table-postgres: opening %s", conninfo);
 
 	_db = PQconnectdb(conninfo);
 	if (_db == NULL) {
-		log_warnx("warn: backend-table-postgres: PQconnectdb return NULL");
+		log_warnx("warn: table-postgres: PQconnectdb return NULL");
 		goto end;
 	}
 	if (PQstatus(_db) != CONNECTION_OK) {
-		log_warnx("warn: backend-table-postgres: PQconnectdb: %s",
+		log_warnx("warn: table-postgres: PQconnectdb: %s",
 		    PQerrorMessage(_db));
 		goto end;
 	}
@@ -301,8 +332,10 @@ table_postgres_update(void)
 	_db = NULL;
 
 	source_update = 0; /* force update */
+	source_expire = _source_expire;
+	source_refresh = _source_refresh;
 
-	log_debug("debug: backend-table-postgres: config successfully updated");
+	log_debug("debug: table-postgres: config successfully updated");
 	ret = 1;
 
     end:
@@ -343,7 +376,7 @@ table_postgres_query(const char *key, int service)
 	res = PQexecPrepared(db, stmt, 1, &key, NULL, NULL, 0);
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-		log_warnx("warn: backend-table-postgres: PQexecPrepared: %s",
+		log_warnx("warn: table-postgres: PQexecPrepared: %s",
 		    PQerrorMessage(db));
 		PQclear(res);
 		return (NULL);
@@ -389,12 +422,12 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_ALIAS:
 		for (i = 0; i < PQntuples(res); i++) {
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
-				log_warnx("warn: backend-table-postgres: result too large");
+				log_warnx("warn: table-postgres: result too large");
 				r = -1;
 				break;
 			}
 			if (strlcat(dst, PQgetvalue(res, i, 0), sz) >= sz) {
-				log_warnx("warn: backend-table-postgres: result too large");
+				log_warnx("warn: table-postgres: result too large");
 				r = -1;
 				break;
 			}
@@ -404,7 +437,7 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 		if (snprintf(dst, sz, "%s:%s",
 		    PQgetvalue(res, 0, 0),
  		    PQgetvalue(res, 0, 1)) > (ssize_t)sz) {
-			log_warnx("warn: backend-table-postgres: result too large");
+			log_warnx("warn: table-postgres: result too large");
 			r = -1;
 		}
 		break;
@@ -414,7 +447,7 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 		    PQgetvalue(res, 0, 1),
 		    PQgetvalue(res, 0, 2),
 		    PQgetvalue(res, 0, 3)) > (ssize_t)sz) {
-			log_warnx("warn: backend-table-postgres: result too large");
+			log_warnx("warn: table-postgres: result too large");
 			r = -1;
 		}
 		break;
@@ -424,12 +457,12 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_MAILADDR:
 	case K_ADDRNAME:
 		if (strlcpy(dst, PQgetvalue(res, 0, 0), sz) >= sz) {
-			log_warnx("warn: backend-table-postgres: result too large");
+			log_warnx("warn: table-postgres: result too large");
 			r = -1;
 		}
 		break;
 	default:
-		log_warnx("warn: backend-table-postgres: unknown service %i",
+		log_warnx("warn: table-postgres: unknown service %i",
 		    service);
 		r = -1;
 	}
@@ -460,7 +493,7 @@ table_postgres_fetch(int service, char *dst, size_t sz)
 	res = PQexecPrepared(db, stmt_fetch_source, 0, NULL, NULL, NULL, 0);
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-		log_warnx("warn: backend-table-postgres: PQexecPrepared: %s",
+		log_warnx("warn: table-postgres: PQexecPrepared: %s",
 		    PQerrorMessage(db));
 		PQclear(res);
 		return (-1);

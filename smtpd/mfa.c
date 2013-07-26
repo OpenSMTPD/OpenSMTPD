@@ -213,7 +213,7 @@ mfa(void)
 
 	switch (pid = fork()) {
 	case -1:
-		fatal("mfa: cannot fork");
+		fatal("filter: cannot fork");
 	case 0:
 		break;
 	default:
@@ -224,12 +224,11 @@ mfa(void)
 
 	purge_config(PURGE_EVERYTHING);
 
-	if ((env->sc_pw =  getpwnam(SMTPD_USER)) == NULL)
+	if ((pw =  getpwnam(SMTPD_USER)) == NULL)
 		fatalx("unknown user " SMTPD_USER);
 
 	config_process(PROC_MFA);
 
-	pw = env->sc_pw;
 	if (chroot(PATH_CHROOT) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
@@ -238,7 +237,7 @@ mfa(void)
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("mfa: cannot drop privileges");
+		fatal("filter: cannot drop privileges");
 
 	imsg_callback = mfa_imsg;
 	event_init();

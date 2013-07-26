@@ -18,7 +18,7 @@
 
 #include <sys/types.h>
 
-#include <getopt.h>
+#include <unistd.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
@@ -39,7 +39,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: backend-table-stub: bad option");
+			log_warnx("warn: table-stub: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -48,7 +48,7 @@ main(int argc, char **argv)
 	argv += optind;
 
 	if (argc != 0) {
-		log_warnx("warn: backend-table-stub: bogus argument(s)");
+		log_warnx("warn: table-stub: bogus argument(s)");
 		return (1);
 	}
 

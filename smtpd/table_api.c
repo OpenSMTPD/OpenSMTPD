@@ -44,8 +44,10 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
+#if 0
 static char		*rootpath;
 static char		*user = SMTPD_USER;
+#endif
 
 static void
 table_msg_get(void *dst, size_t len)
@@ -229,7 +231,9 @@ table_api_on_fetch(int(*cb)(int, char *, size_t))
 int
 table_api_dispatch(void)
 {
+#if 0
 	struct passwd	*pw;
+#endif
 	ssize_t		 n;
 
 #if 0

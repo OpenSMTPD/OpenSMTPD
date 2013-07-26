@@ -761,7 +761,8 @@ mta_response(struct mta_session *s, char *line)
 {
 	struct mta_envelope	*e;
 	struct failed_evp	*fevp;
-	struct sockaddr		 sa;
+	struct sockaddr_storage	 ss;
+	struct sockaddr		*sa;
 	const char		*domain;
 	socklen_t		 sa_len;
 	char			 buf[SMTPD_MAXLINESIZE];
@@ -888,11 +889,12 @@ mta_response(struct mta_session *s, char *line)
 			 * getsockname() can only fail with ENOBUFS here
 			 * best effort, don't log source ...
 			 */
-			sa_len = sizeof sa;
-			if (getsockname(s->io.sock, &sa, &sa_len) < 0)
+			sa_len = sizeof(ss);
+			sa = (struct sockaddr *)&ss;
+			if (getsockname(s->io.sock, sa, &sa_len) < 0)
 				mta_delivery_log(e, NULL, buf, delivery, line);
 			else
-				mta_delivery_log(e, sa_to_text(&sa),
+				mta_delivery_log(e, sa_to_text(sa),
 				    buf, delivery, line);
 
 			/* push failed envelope to the session fail queue */
@@ -982,7 +984,18 @@ mta_response(struct mta_session *s, char *line)
 
 	case MTA_RSET:
 		mta_flush_failedqueue(s);
-		mta_enter_state(s, MTA_READY);
+		s->rcptcount = 0;
+		if (s->relay->limits->sessdelay_transaction) {
+			log_debug("debug: mta: waiting for %llis after reset",
+			    (long long int)s->relay->limits->sessdelay_transaction);
+			s->hangon = s->relay->limits->sessdelay_transaction -1;
+			s->flags |= MTA_HANGON;
+			runq_schedule(hangon, time(NULL)
+			    + s->relay->limits->sessdelay_transaction,
+			    NULL, s);
+		}
+		else
+			mta_enter_state(s, MTA_READY);
 		break;
 
 	default:
@@ -1208,7 +1221,8 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 	struct mta_envelope	*e;
 	char			 relay[SMTPD_MAXLINESIZE];
 	size_t			 n;
-	struct sockaddr		 sa;
+	struct sockaddr_storage	 ss;
+	struct sockaddr		*sa;
 	socklen_t		 sa_len;
 	const char		*domain;
 
@@ -1231,11 +1245,12 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		 * getsockname() can only fail with ENOBUFS here
 		 * best effort, don't log source ...
 		 */
-		sa_len = sizeof sa;
-		if (getsockname(s->io.sock, &sa, &sa_len) < 0)
+		sa = (struct sockaddr *)&ss;
+		sa_len = sizeof(ss);
+		if (getsockname(s->io.sock, sa, &sa_len) < 0)
 			mta_delivery(e, NULL, relay, delivery, error, 0);
 		else
-			mta_delivery(e, sa_to_text(&sa),
+			mta_delivery(e, sa_to_text(sa),
 			    relay, delivery, error, 0);
 
 		domain = strchr(e->dest, '@');

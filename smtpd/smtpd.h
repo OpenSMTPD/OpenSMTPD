@@ -557,8 +557,6 @@ struct smtpd {
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
-	struct passwd		       *sc_pw;
-	struct passwd		       *sc_pwqueue;
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
@@ -668,22 +666,24 @@ struct mta_connector {
 	struct mta_source		*source;
 	struct mta_relay		*relay;
 
-#define CONNECTOR_ERROR_FAMILY	0x0001
-#define CONNECTOR_ERROR_SOURCE	0x0002
-#define CONNECTOR_ERROR_MX	0x0004
-#define CONNECTOR_ERROR_ROUTE	0x0008
-#define CONNECTOR_ERROR		0x000f
+#define CONNECTOR_ERROR_FAMILY		0x0001
+#define CONNECTOR_ERROR_SOURCE		0x0002
+#define CONNECTOR_ERROR_MX		0x0004
+#define CONNECTOR_ERROR_ROUTE_NET	0x0008
+#define CONNECTOR_ERROR_ROUTE_SMTP	0x0010
+#define CONNECTOR_ERROR_ROUTE		0x0018
+#define CONNECTOR_ERROR			0x00ff
 
-#define CONNECTOR_LIMIT_HOST	0x0010
-#define CONNECTOR_LIMIT_ROUTE	0x0020
-#define CONNECTOR_LIMIT_SOURCE	0x0040
-#define CONNECTOR_LIMIT_RELAY	0x0080
-#define CONNECTOR_LIMIT_CONN	0x0100
-#define CONNECTOR_LIMIT_DOMAIN	0x0200
-#define CONNECTOR_LIMIT		0x03f0
+#define CONNECTOR_LIMIT_HOST		0x0100
+#define CONNECTOR_LIMIT_ROUTE		0x0200
+#define CONNECTOR_LIMIT_SOURCE		0x0400
+#define CONNECTOR_LIMIT_RELAY		0x0800
+#define CONNECTOR_LIMIT_CONN		0x1000
+#define CONNECTOR_LIMIT_DOMAIN		0x2000
+#define CONNECTOR_LIMIT			0xff00
 
-#define CONNECTOR_NEW		0x1000
-#define CONNECTOR_WAIT		0x2000
+#define CONNECTOR_NEW			0x10000
+#define CONNECTOR_WAIT			0x20000
 	int				 flags;
 
 	int				 refcount;
@@ -698,8 +698,10 @@ struct mta_route {
 	struct mta_host		*dst;
 #define ROUTE_NEW		0x01
 #define ROUTE_RUNQ		0x02
-#define ROUTE_DISABLED		0x04
-#define ROUTE_KEEPALIVE		0x08
+#define ROUTE_KEEPALIVE		0x04
+#define ROUTE_DISABLED		0xf0
+#define ROUTE_DISABLED_NET	0x10
+#define ROUTE_DISABLED_SMTP	0x20
 	int			 flags;
 	int			 penalty;
 	int			 refcount;
@@ -796,8 +798,10 @@ struct mta_task {
 	char				*sender;
 };
 
+struct passwd;
+
 struct queue_backend {
-	int	(*init)(int);
+	int	(*init)(struct passwd *, int);
 };
 
 struct compress_backend {

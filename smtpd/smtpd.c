@@ -43,8 +43,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <util.h>
 #include <unistd.h>
+#include <util.h>
 
 #include <openssl/ssl.h>
 
@@ -313,6 +313,8 @@ parent_shutdown(void)
 	do {
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
+
+	unlink(SMTPD_SOCKET);
 
 	log_warnx("warn: parent terminating");
 	exit(0);
@@ -587,7 +589,6 @@ main(int argc, char *argv[])
 	struct event	 ev_sigchld;
 	struct event	 ev_sighup;
 	struct timeval	 tv;
-	struct passwd	*pwq;
 
 	env = &smtpd;
 
@@ -637,17 +638,22 @@ main(int argc, char *argv[])
 				verbose |= TRACE_IO;
 			else if (!strcmp(optarg, "smtp"))
 				verbose |= TRACE_SMTP;
-			else if (!strcmp(optarg, "mfa"))
+			else if (!strcmp(optarg, "mfa") ||
+			    !strcmp(optarg, "filter") ||
+			    !strcmp(optarg, "filters"))
 				verbose |= TRACE_MFA;
-			else if (!strcmp(optarg, "mta"))
+			else if (!strcmp(optarg, "mta") ||
+			    !strcmp(optarg, "transfer"))
 				verbose |= TRACE_MTA;
-			else if (!strcmp(optarg, "bounce"))
+			else if (!strcmp(optarg, "bounce") ||
+			    !strcmp(optarg, "bounces"))
 				verbose |= TRACE_BOUNCE;
 			else if (!strcmp(optarg, "scheduler"))
 				verbose |= TRACE_SCHEDULER;
 			else if (!strcmp(optarg, "lookup"))
 				verbose |= TRACE_LOOKUP;
-			else if (!strcmp(optarg, "stat"))
+			else if (!strcmp(optarg, "stat") ||
+			    !strcmp(optarg, "stats"))
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
@@ -655,7 +661,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
-			else if (!strcmp(optarg, "tables"))
+			else if (!strcmp(optarg, "table") ||
+			    !strcmp(optarg, "tables"))
 				verbose |= TRACE_TABLES;
 			else if (!strcmp(optarg, "queue"))
 				verbose |= TRACE_QUEUE;
@@ -713,31 +720,6 @@ main(int argc, char *argv[])
 	/* check for root privileges */
 	if (geteuid())
 		errx(1, "need root privileges");
-
-	if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
-		errx(1, "unknown user %s", SMTPD_USER);
-	if ((env->sc_pw = pw_dup(env->sc_pw)) == NULL)
-		err(1, NULL);
-
-	env->sc_pwqueue = getpwnam(SMTPD_QUEUE_USER);
-	if (env->sc_pwqueue)
-		pwq = env->sc_pwqueue = pw_dup(env->sc_pwqueue);
-	else
-		pwq = env->sc_pwqueue = pw_dup(env->sc_pw);
-	if (env->sc_pwqueue == NULL)
-		err(1, NULL);
-
-	if (ckdir(PATH_SPOOL, 0711, 0, 0, 1) == 0)
-		errx(1, "error in spool directory setup");
-	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 1) == 0)
-		errx(1, "error in offline directory setup");
-	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
-		errx(1, "error in purge directory setup");
-
-	mvpurge(PATH_SPOOL PATH_TEMPORARY, PATH_SPOOL PATH_PURGE);
-
-	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, pwq->pw_uid, 0, 1) == 0)
-		errx(1, "error in purge directory setup");
 
 	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
@@ -842,7 +824,7 @@ load_ssl_trees(void)
 		ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name);
 		if (ssl == NULL) {
 			if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
-				l->ssl_cert_name, F_SCERT))
+			    l->ssl_cert_name, F_SCERT))
 				errx(1, "cannot load certificate: %s",
 				    l->ssl_cert_name);
 			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
@@ -861,7 +843,7 @@ load_ssl_trees(void)
 			ssl->flags |= F_CCERT;
 		else {
 			if (! ssl_load_certfile(&ssl, "/etc/mail/certs",
-				r->r_value.relayhost.cert, F_CCERT))
+			    r->r_value.relayhost.cert, F_CCERT))
 				errx(1, "cannot load certificate: %s",
 				    r->r_value.relayhost.cert);
 			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
@@ -924,6 +906,7 @@ child_add(pid_t pid, int type, const char *title)
 static void
 purge_task(int fd, short ev, void *arg)
 {
+	struct passwd	*pw;
 	DIR		*d;
 	int		 n;
 	uid_t		 uid;
@@ -945,12 +928,14 @@ purge_task(int fd, short ev, void *arg)
 				log_warn("warn: purge_task: fork");
 				break;
 			case 0:
+				if ((pw = getpwnam(SMTPD_USER)) == NULL)
+					fatalx("unknown user " SMTPD_USER);
 				if (chroot(PATH_SPOOL PATH_PURGE) == -1)
 					fatal("smtpd: chroot");
 				if (chdir("/") == -1)
 					fatal("smtpd: chdir");
-				uid = env->sc_pw->pw_uid;
-				gid = env->sc_pw->pw_gid;
+				uid = pw->pw_uid;
+				gid = pw->pw_gid;
 				if (setgroups(1, &gid) ||
 				    setresgid(gid, gid, gid) ||
 				    setresuid(uid, uid, uid))
@@ -1338,7 +1323,8 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 				"profiling.imsg.%s.%s.%s",
 				proc_name(smtpd_process),
 				proc_name(p->proc),
-				imsg_to_str(imsg->hdr.type)));
+				imsg_to_str(imsg->hdr.type)))
+				return;
 			stat_set(key, stat_timespec(&dt));
 		}
 	}

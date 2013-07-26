@@ -388,7 +388,7 @@ fsqueue_check_space(void)
 	 * Some systems will set them to 0, others will set them to -1.
 	 */
 	if (buf.f_bfree == 0 || buf.f_ffree == 0 ||
-	    buf.f_bfree == -1 || buf.f_ffree == -1)
+	    (int64_t)buf.f_bfree == -1 || (int64_t)buf.f_ffree == -1)
 		return 1;
 
 	used = buf.f_blocks - buf.f_bfree;
@@ -607,7 +607,7 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 }
 
 static int
-queue_fs_init(int server)
+queue_fs_init(struct passwd *pw, int server)
 {
 	unsigned int	 n;
 	char		*paths[] = { PATH_QUEUE, PATH_CORRUPT, PATH_INCOMING };
@@ -615,7 +615,7 @@ queue_fs_init(int server)
 	int		 ret;
 	struct timeval	 tv;
 
-	/* remove incoming if it exists */
+	/* remove incoming/ if it exists */
 	if (server)
 		mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
 
@@ -626,8 +626,7 @@ queue_fs_init(int server)
 		strlcpy(path, PATH_SPOOL, sizeof(path));
 		if (strlcat(path, paths[n], sizeof(path)) >= sizeof(path))
 			errx(1, "path too long %s%s", PATH_SPOOL, paths[n]);
-
-		if (ckdir(path, 0700, env->sc_pwqueue->pw_uid, 0, server) == 0)
+		if (ckdir(path, 0700, pw->pw_uid, 0, server) == 0)
 			ret = 0;
 	}
 
