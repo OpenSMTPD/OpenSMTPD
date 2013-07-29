@@ -356,7 +356,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 			return 0;
 
 		/* no schema, default to smtp+tls:// */
-		i = 1;
+		i = 2;
 		p = buffer;
 	}
 	else
