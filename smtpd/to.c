@@ -323,6 +323,10 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		const char	*name;
 		uint8_t		 flags;
 	} schemas [] = {
+		/*
+		 * new schemas should be *appended* otherwise the default
+		 * schema index needs to be updated later in this function.
+		 */
 		{ "smtp://",		0				},
 		{ "lmtp://",		F_LMTP				},
 		{ "smtp+tls://",       	F_TLS_OPTIONAL 			},
