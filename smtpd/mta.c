@@ -1491,9 +1491,10 @@ mta_relay(struct envelope *e)
 		key.flags |= RELAY_MX;
 	} else {
 		key.domain = mta_domain(e->dest.domain, 0);
+		key.flags |= RELAY_TLS_OPTIONAL;
 	}
 
-	key.flags = e->agent.mta.relay.flags;
+	key.flags |= e->agent.mta.relay.flags;
 	key.port = e->agent.mta.relay.port;
 	key.cert = e->agent.mta.relay.cert;
 	if (!key.cert[0])
