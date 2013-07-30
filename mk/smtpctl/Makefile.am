@@ -38,8 +38,8 @@ LDADD=			$(LIBCOMPAT)
 CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-MANPAGES=		smtpctl.8.out
-MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8
+MANPAGES=		smtpctl.8.out sendmail.8.out
+MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8
 
 EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
 			smtpd-defines.h	ssl.h					\
@@ -75,11 +75,13 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
 
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
-	rm	smtpctl.8.out
+	$(INSTALL) -m 644 sendmail.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
+	rm	smtpctl.8.out sendmail.8.out
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
 #	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
 	rm -f	$(DESTDIR)$(bindir)/mailq$(EXEEXT)
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8			\
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
