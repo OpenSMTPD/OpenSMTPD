@@ -163,10 +163,8 @@ filter_api_on_event(void(*cb)(uint64_t, enum filter_hook))
 void
 filter_api_loop(void)
 {
-	if (register_done) {
+	if (register_done)
 		errx(1, "filter_api_loop already called");
-		return;
-	}
 
 	filter_api_init();
 
