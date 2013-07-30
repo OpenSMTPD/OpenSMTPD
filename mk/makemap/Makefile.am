@@ -60,13 +60,9 @@ PATHSUBS=		-e 's|/usr/libexec|$(libexecdir)|g'
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 $(MANPAGES): $(MANPAGES_IN)
-	if test "$(MANTYPE)" = "cat"; then \
-		manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.[1-9]\.out$$/\.0/'`; \
-	else \
-		manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
-	fi; \
+	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
 	if test "$(MANTYPE)" = "man"; then \
-		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/mdoc2man.awk > $@; \
+		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/../mdoc2man.awk > $@; \
 	else \
 		$(FIXPATHSCMD) $${manpage} > $@; \
 	fi
