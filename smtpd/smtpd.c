@@ -1269,6 +1269,7 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 	if (sb.st_mode & S_ISVTX) {
 		log_warnx("warn: smtpd: parent_forward_open: %s is sticky",
 		    directory);
+		errno = EAGAIN;
 		return -1;
 	}
 
