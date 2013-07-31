@@ -2787,6 +2787,16 @@ HAVE_RES_USE_DNSSEC
 ])
 
 
+use_mailwrapper=0
+AC_ARG_WITH([mailwrapper],
+	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
+	[ if test "x$withval" = "xyes"; then
+	     use_mailwrapper=1
+	  fi
+	]
+)
+AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
+
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		mk/Makefile

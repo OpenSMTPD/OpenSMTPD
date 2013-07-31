@@ -1,19 +1,12 @@
-# In OpenBSD, smtpd's files are installed this way:
-#
-# /usr/bin/newaliases --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
-# /usr/sbin/makemap   --> /usr/sbin/mailwrapper --> /usr/libexec/smtpd/makemap
-#
-#
-# For OpenSMTPD portable, here's where files are installed:
-# (assuming PREFIX=/usr/local)
-#
-# /usr/local/bin/newaliases --> /usr/local/libexec/opensmtpd-portable/makemap
-# /usr/local/sbin/makemap   --> /usr/local/libexec/opensmtpd-portable/makemap
-#
-
 include	$(top_srcdir)/mk/pathnames
 
+if HAVE_MAILWRAPPER
+USE_MAILWRAPPER=1
 pkglibexec_PROGRAMS=	makemap
+else
+USE_MAILWRAPPER=0
+sbin_PROGRAMS=	makemap
+endif
 
 makemap_SOURCES=	$(smtpd_srcdir)/parse.y
 makemap_SOURCES+=	$(smtpd_srcdir)/makemap.c
@@ -32,6 +25,7 @@ makemap_SOURCES+=	$(smtpd_srcdir)/table_getpwnam.c
 makemap_SOURCES+=	$(smtpd_srcdir)/table_proc.c
 
 makemap_CFLAGS=		-DNO_IO
+
 
 INCLUDES=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)	\
@@ -69,14 +63,10 @@ $(MANPAGES): $(MANPAGES_IN)
 
 # newaliases makemap
 install-exec-hook: $(MANPAGES)
-	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
-
-	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
-		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
-
-	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
-		$(DESTDIR)$(sbindir)/makemap$(EXEEXT);
+	if test "$(USE_MAILWRAPPER)" = "0"; then \
+		ln -s $(DESTDIR)$(sbindir)/makemap $(DESTDIR)$(sbindir)/newaliases;\
+	fi
 
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
 	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
