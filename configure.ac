@@ -321,7 +321,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		supported by bsd-setproctitle.c])
 	;;
 *-*-dragonfly*)
-	SSHDLIBS="$SSHDLIBS -lcrypt"
+	SMTPDLIBS="$SMTPDLIBS -lcrypt"
 	;;
 *-*-hpux*)
 	# first we define all of the options common to all HP-UX releases
@@ -1381,7 +1381,7 @@ AC_ARG_WITH([pam],
 
 			PAM_MSG="yes"
 
-			SSHDLIBS="$SSHDLIBS -lpam"
+			SMTPDLIBS="$SMTPDLIBS -lpam"
 			AC_DEFINE([USE_PAM], [1],
 				[Define if you want to enable PAM support])
 
@@ -1391,7 +1391,7 @@ AC_ARG_WITH([pam],
 					# libdl already in LIBS
 					;;
 				*)
-					SSHDLIBS="$SSHDLIBS -ldl"
+					SMTPDLIBS="$SMTPDLIBS -ldl"
 					;;
 				esac
 			fi
@@ -2750,7 +2750,7 @@ fi
 
 LIBS="$LIBS -l$DB_LIB"
 
-LIBS="$LIBS ${SSHDLIBS}"
+LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
 
 AC_MSG_CHECKING([if RES_USE_EDNS0 is defined in resolv.h])
@@ -2852,17 +2852,6 @@ echo "         smtpd superuser user PATH: $J"
 fi
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
-#echo "                   OSF SIA support: $SIA_MSG"
-#echo "                 KerberosV support: $KRB5_MSG"
-#echo "                   SELinux support: $SELINUX_MSG"
-#echo "                 Smartcard support: $SCARD_MSG"
-#echo "                     S/KEY support: $SKEY_MSG"
-#echo "              TCP Wrappers support: $TCPW_MSG"
-#echo "              MD5 password support: $MD5_MSG"
-#echo "                   libedit support: $LIBEDIT_MSG"
-#echo "  Solaris process contract support: $SPC_MSG"
-#echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
-#echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
 echo "              Random number source: $RAND_MSG"
 
@@ -2898,9 +2887,4 @@ fi
 #	echo "user can connect to your agent."
 #	echo ""
 #fi
-
-if test "$AUDIT_MODULE" = "bsm" ; then
-	echo "WARNING: BSM audit support is currently considered EXPERIMENTAL."
-	echo "See the Solaris section in README.platform for details."
-fi
 #l4463
