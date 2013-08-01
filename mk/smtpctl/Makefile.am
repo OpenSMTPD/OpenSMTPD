@@ -71,7 +71,7 @@ $(CONFIGFILES): $(CONFIGFILES_IN)
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 	if test "$(USE_MAILWRAPPER)" = "0"; then \
-		ln -s $(DESTDIR)$(sbindir)/smtpctl  $(DESTDIR)$(sbindir)/mailq;\
+		ln -s $(DESTDIR)$(sbindir)/smtpctl  $(DESTDIR)$(bindir)/mailq;\
 		ln -s $(DESTDIR)$(sbindir)/smtpctl  $(DESTDIR)$(sbindir)/sendmail;\
 	fi
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
