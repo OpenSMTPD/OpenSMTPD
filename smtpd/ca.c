@@ -21,6 +21,8 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
+#include "log.h"
+
 int	ca_X509_verify(X509 *, STACK_OF(X509) *, const char *, const char *, const char **);
 
 static int
@@ -30,8 +32,7 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 	case X509_V_OK:
 		break;
         case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
-		log_warnx("warn: unable to get issuer cert [issuer=%s]",
-		    X509_get_issuer_name(X509_STORE_CTX_get_current_cert(ctx)));
+		log_warnx("warn: unable to get issuer cert");
 		break;
         case X509_V_ERR_CERT_NOT_YET_VALID:
         case X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD:
