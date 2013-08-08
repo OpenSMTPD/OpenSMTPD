@@ -1,4 +1,4 @@
-libexec_PROGRAMS =	mail.local
+pkglibexec_PROGRAMS =	mail.local
 
 mail_local_SOURCES =	mail.local.c locking.c $(top_srcdir)/smtpd/log.c
 
@@ -17,4 +17,4 @@ LDADD = 		$(LIBCOMPAT)
 CFLAGS +=		-D_GNU_SOURCE
 
 uninstall-hook:
-	rmdir	$(DESTDIR)$(libexecdir) 2> /dev/null || /bin/true
+	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || /bin/true

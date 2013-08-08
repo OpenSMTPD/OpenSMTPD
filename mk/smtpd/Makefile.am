@@ -111,7 +111,7 @@ CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
 			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\"			\
-			-DPATH_MAILLOCAL=\"$(libexecdir)/mail.local\"		\
+			-DPATH_MAILLOCAL=\"$(pkglibexecdir)/mail.local\"	\
 			-DPATH_FILTERS=\"$(pkglibexecdir)\"			\
 			-DPATH_TABLES=\"$(pkglibexecdir)\"
 
