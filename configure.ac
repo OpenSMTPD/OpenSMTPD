@@ -2416,6 +2416,36 @@ AC_ARG_WITH([ca-file],
 AC_SUBST([CA_FILE])
 
 
+# Where to place spooler
+spooldir=/var/spool/smtpd
+# make sure the directory exists
+if test ! -d $spooldir ; then
+	spooldir=`eval echo ${sysconfdir}`
+	case $spooldir in
+		NONE/*) spooldir=`echo $spooldir | sed "s~NONE~$ac_default_prefix~"` ;;
+	esac
+fi
+
+AC_ARG_WITH([spooldir],
+	[  --with-spooldir=PATH		Specify location of spooler directory],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			spooldir=$withval
+			if test ! -d $pooldir ; then
+			AC_MSG_WARN([** no $spooldir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
+AC_SUBST([spooldir])
+
+
+
+
 # Whether to enable *experimental* LDAP support
 EXPERIMENTAL_LDAP=no
 AC_ARG_WITH([experimental-ldap],
