@@ -65,7 +65,7 @@ $(MANPAGES): $(MANPAGES_IN)
 install-exec-hook: $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 	if test "$(USE_MAILWRAPPER)" = "0"; then \
-		ln -s $(DESTDIR)$(sbindir)/makemap $(DESTDIR)$(sbindir)/newaliases;\
+		ln -s $(sbindir)/makemap $(DESTDIR)$(sbindir)/newaliases;\
 	fi
 
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
