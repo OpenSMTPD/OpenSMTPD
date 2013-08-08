@@ -50,7 +50,9 @@ EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
 			smtpd-defines.h	ssl.h					\
 			$(CONFIGFILES_IN) $(MANPAGES_IN)
 
-PATHSUBS=		-e 's|/usr/libexec|$(libexecdir)|g'
+PATHSUBS=		-e 's|/usr/libexec|$(libexecdir)|g'			\
+			-e 's|/etc/mail/|$(sysconfdir)/|g'
+
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 $(MANPAGES): $(MANPAGES_IN)
