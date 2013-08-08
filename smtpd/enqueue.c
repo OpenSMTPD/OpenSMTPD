@@ -267,11 +267,11 @@ enqueue(int argc, char *argv[])
 	send_line(fout, verbose, "EHLO localhost\n");
 	get_responses(fout, 1);
 
-	send_line(fout, verbose, "MAIL FROM: <%s>\n", msg.from);
+	send_line(fout, verbose, "MAIL FROM:<%s>\n", msg.from);
 	get_responses(fout, 1);
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
-		send_line(fout, verbose, "RCPT TO: <%s>\n", msg.rcpts[i]);
+		send_line(fout, verbose, "RCPT TO:<%s>\n", msg.rcpts[i]);
 		get_responses(fout, 1);
 	}
 
