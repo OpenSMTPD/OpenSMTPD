@@ -35,4 +35,6 @@
 #ifndef SMTPD_QUEUE_USER
 #define SMTPD_QUEUE_USER	 "_smtpq"
 #endif
+#ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
+#endif
