@@ -275,6 +275,7 @@ enqueue(int argc, char *argv[])
 	send_line(fout, verbose, "EHLO localhost\n");
 	get_responses(fout, 1);
 
+<<<<<<< HEAD
 	send_line(fout, verbose, "MAIL FROM: <%s> %s%s %s%s\n",
 	    msg.from,
 	    msg.dsn_ret ? "RET=" : "",
