@@ -1550,6 +1550,16 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 		    maddr->user[0] == '\0' &&
 		    maddr->domain[0] == '\0')
 			return (1);
+
+		/* We accept empty domain for RCPT TO if user is postmaster */
+		if (!mailfrom &&
+		    strcasecmp(maddr->user, "postmaster") == 0 &&
+		    maddr->domain[0] == '\0') {
+			(void)strlcpy(maddr->domain, env->sc_hostname,
+			    sizeof maddr->domain);
+			return (1);
+		}
+			
 		return (0);
 	}
 
