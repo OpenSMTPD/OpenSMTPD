@@ -1016,7 +1016,7 @@ display(const char *s)
 
 		fclose(fp);
 		fp = ofp;
-		fseek(fp, SEEK_SET, 0);
+		fseek(fp, 0, SEEK_SET);
 #else
 	       	printf("GCM crypto not supported!\n");
        		exit(1);
@@ -1024,6 +1024,7 @@ display(const char *s)
 	}
 	gzipped = is_gzip_fp(fp);
 
+	lseek(fileno(fp), 0, SEEK_SET);
 	(void)dup2(fileno(fp), STDIN_FILENO);
 	if (gzipped)
 		execl(PATH_GZCAT, gzcat_argv0, NULL);
@@ -1097,7 +1098,7 @@ is_gzip_fp(FILE *fp)
 
 	ret = is_gzip_buffer((const char *)&magic);
 end:
-	fseek(fp, SEEK_SET, 0);
+	fseek(fp, 0, SEEK_SET);
 	return ret;
 }
 
@@ -1131,6 +1132,6 @@ is_encrypted_fp(FILE *fp)
 
 	ret = is_encrypted_buffer((const char *)&magic);
 end:
-	fseek(fp, SEEK_SET, 0);
+	fseek(fp, 0, SEEK_SET);
 	return ret;
 }
