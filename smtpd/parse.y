@@ -99,10 +99,13 @@ struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
 
+static void config_listener(struct listener *,  const char *, const char *,
+    const char *, in_port_t, const char *, uint8_t, const char *);
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(const char *, const char *, const char *,
-		    struct listenerlist *, int, in_port_t, uint8_t);
+		    struct listenerlist *, int, in_port_t, const char *,
+		    uint8_t, const char *);
 int		 host(const char *, const char *, const char *,
     struct listenerlist *, int, in_port_t, const char *, uint8_t, const char *);
 int		 interface(const char *, int, const char *, const char *,
@@ -817,7 +820,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				    sizeof (rule->r_value.relayhost.hostname));
 			else
 				strlcpy(rule->r_value.relayhost.hostname,
-				    env->sc_hostname,
+				    conf->sc_hostname,
 				    sizeof (rule->r_value.relayhost.hostname));
 			free($2);
 
@@ -1396,6 +1399,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf = x_conf;
 	bzero(conf, sizeof(*conf));
 
+	strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
+
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
 	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
@@ -1495,9 +1500,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 		errors++;
 	}
 
-	if (strlen(conf->sc_hostname) == 0)
-		strlcpy(conf->sc_hostname, hostname, sizeof conf->sc_hostname);
-
 	if (errors) {
 		purge_config(PURGE_EVERYTHING);
 		return (-1);
@@ -1580,6 +1582,34 @@ symget(const char *nam)
 	return (NULL);
 }
 
+static void
+config_listener(struct listener *h,  const char *name, const char *tag,
+    const char *cert, in_port_t port, const char *authtable, uint8_t flags,
+    const char *helo)
+{
+	h->fd = -1;
+	h->port = port;
+	h->flags = flags;
+	if (h->flags & F_SSL)
+		if (cert == NULL)
+			cert = name;
+
+	if (helo == NULL)
+		helo = conf->sc_hostname;
+
+	h->ssl = NULL;
+	h->ssl_cert_name[0] = '\0';
+
+	if (authtable != NULL)
+		(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
+	if (cert != NULL)
+		(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
+	if (tag != NULL)
+		(void)strlcpy(h->tag, tag, sizeof(h->tag));
+
+	(void)strlcpy(h->helo, helo, sizeof(h->helo));
+}
+
 struct listener *
 host_v4(const char *s, in_port_t port)
 {
@@ -1628,7 +1658,8 @@ host_v6(const char *s, in_port_t port)
 
 int
 host_dns(const char *s, const char *tag, const char *cert,
-    struct listenerlist *al, int max, in_port_t port, uint8_t flags)
+    struct listenerlist *al, int max, in_port_t port, const char *authtable,
+    uint8_t flags, const char *helo)
 {
 	struct addrinfo		 hints, *res0, *res;
 	int			 error, cnt = 0;
@@ -1654,16 +1685,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 			continue;
 		h = xcalloc(1, sizeof(*h), "host_dns");
 
-		h->port = port;
-		h->flags = flags;
 		h->ss.ss_family = res->ai_family;
-		h->ssl = NULL;
-		h->ssl_cert_name[0] = '\0';
-		if (cert != NULL)
-			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
-		if (tag != NULL)
-			(void)strlcpy(h->tag, tag, sizeof(h->tag));
-
 		if (res->ai_family == AF_INET) {
 			sain = (struct sockaddr_in *)&h->ss;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -1681,6 +1703,8 @@ host_dns(const char *s, const char *tag, const char *cert,
 			    res->ai_addr)->sin6_addr, sizeof(struct in6_addr));
 			sin6->sin6_port = port;
 		}
+
+		config_listener(h, s, tag, cert, port, authtable, flags, helo);
 
 		TAILQ_INSERT_HEAD(al, h, entry);
 		cnt++;
@@ -1709,33 +1733,18 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 		h = host_v6(s, port);
 
 	if (h != NULL) {
-		h->port = port;
-		h->flags = flags;
-		if (h->flags & F_SSL)
-			if (cert == NULL)
-				cert = s;
-		h->ssl = NULL;
-		h->ssl_cert_name[0] = '\0';
-		if (authtable != NULL)
-			(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
-		if (cert != NULL)
-			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
-		if (tag != NULL)
-			(void)strlcpy(h->tag, tag, sizeof(h->tag));
-		if (helo != NULL)
-			(void)strlcpy(h->helo, helo, sizeof(h->helo));
-
+		config_listener(h, s, tag, cert, port, authtable, flags, helo);
 		TAILQ_INSERT_HEAD(al, h, entry);
 		return (1);
 	}
 
-	return (host_dns(s, tag, cert, al, max, port, flags));
+	return (host_dns(s, tag, cert, al, max, port, authtable, flags, helo));
 }
 
 int
 interface(const char *s, int family, const char *tag, const char *cert,
-    struct listenerlist *al, int max, in_port_t port, const char *authtable, uint8_t flags,
-    const char *helo)
+    struct listenerlist *al, int max, in_port_t port, const char *authtable,
+    uint8_t flags, const char *helo)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_in	*sain;
@@ -1783,22 +1792,7 @@ interface(const char *s, int family, const char *tag, const char *cert,
 			continue;
 		}
 
-		h->fd = -1;
-		h->port = port;
-		h->flags = flags;
-		if (h->flags & F_SSL)
-			if (cert == NULL)
-				cert = s;
-		h->ssl = NULL;
-		h->ssl_cert_name[0] = '\0';
-		if (authtable != NULL)
-			(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
-		if (cert != NULL)
-			(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
-		if (tag != NULL)
-			(void)strlcpy(h->tag, tag, sizeof(h->tag));
-		if (helo != NULL)
-			(void)strlcpy(h->helo, helo, sizeof(h->helo));
+		config_listener(h, s, tag, cert, port, authtable, flags, helo);
 		ret = 1;
 		TAILQ_INSERT_HEAD(al, h, entry);
 	}
