@@ -151,7 +151,7 @@ struct smtp_session {
 	((s)->listener->flags & F_AUTH && (s)->flags & SF_SECURE && \
 	 !((s)->flags & SF_AUTHENTICATED))
 
-static int smtp_mailaddr(struct mailaddr *, char *, int, char **);
+static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
 static void smtp_connected(struct smtp_session *);
 static void smtp_mfa_response(struct smtp_session *, int, uint32_t,
@@ -383,7 +383,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    s->evp.helo,
 		    s->hostname,
 		    ss_to_text(&s->ss),
-		    s->listener->helo[0] ? s->listener->helo : env->sc_hostname,
+		    s->listener->helo,
 		    SMTPD_NAME,
 		    s->flags & SF_EHLO ? "E" : "",
 		    s->flags & SF_SECURE ? "S" : "",
@@ -625,10 +625,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			tree_xset(&wait_ssl_init, s->id, s);
 			return;
 		}
-		if (s->listener->helo[0])
-			smtp_reply(s, SMTPD_BANNER, s->listener->helo, SMTPD_NAME);
-		else
-			smtp_reply(s, SMTPD_BANNER, env->sc_hostname, SMTPD_NAME);
+		smtp_reply(s, SMTPD_BANNER, s->listener->helo, SMTPD_NAME);
 		io_reload(&s->io);
 		return;
 
@@ -644,7 +641,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 		smtp_enter_state(s, STATE_HELO);
 		smtp_reply(s, "250%c%s Hello %s [%s], pleased to meet you",
 		    (s->flags & SF_EHLO) ? '-' : ' ',
-		    env->sc_hostname,
+		    s->listener->helo,
 		    s->evp.helo,
 		    ss_to_text(&s->ss));
 
@@ -769,7 +766,8 @@ smtp_io(struct io *io, int evt)
 
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
-			smtp_reply(s, SMTPD_BANNER, env->sc_hostname, SMTPD_NAME);
+			smtp_reply(s, SMTPD_BANNER, s->listener->helo,
+			    SMTPD_NAME);
 			io_set_write(&s->io);
 		}
 		else {
@@ -1065,7 +1063,8 @@ smtp_command(struct smtp_session *s, char *line)
 
 		smtp_message_reset(s, 1);
 
-		if (smtp_mailaddr(&s->evp.sender, args, 1, &args) == 0) {
+		if (smtp_mailaddr(&s->evp.sender, args, 1, &args,
+		    s->listener->helo) == 0) {
 			smtp_reply(s, "553 Sender address syntax error");
 			break;
 		}
@@ -1092,7 +1091,8 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (smtp_mailaddr(&s->evp.rcpt, args, 0, &args) == 0) {
+		if (smtp_mailaddr(&s->evp.rcpt, args, 0, &args,
+		    s->listener->helo) == 0) {
 			smtp_reply(s,
 			    "553 Recipient address syntax error");
 			break;
@@ -1514,7 +1514,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 }
 
 static int
-smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
+smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args,
+    const char *domain)
 {
 	char   *p, *e;
 
@@ -1553,8 +1554,8 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args)
 		if (!mailfrom &&
 		    strcasecmp(maddr->user, "postmaster") == 0 &&
 		    maddr->domain[0] == '\0') {
-			(void)strlcpy(maddr->domain, env->sc_hostname,
-			    sizeof maddr->domain);
+			(void)strlcpy(maddr->domain, domain,
+			    sizeof(maddr->domain));
 			return (1);
 		}
 			
