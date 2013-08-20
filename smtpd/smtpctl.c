@@ -356,11 +356,10 @@ srv_foreach_envelope(struct parameter *argv, int ctl, size_t *total, size_t *ok)
 			srv_send(ctl, &evpid, sizeof(evpid));
 			if (srv_check_result(0) == 0)
 				*ok += 1;
-			srv_check_result(0);
 		}
 	} else {
 		*total += 1;
-		srv_send(ctl, &argv[0].u.u_evpid, sizeof(evpid));
+		srv_send(ctl, &argv->u.u_evpid, sizeof(evpid));
 		if (srv_check_result(0) == 0)
 			*ok += 1;
 	}
