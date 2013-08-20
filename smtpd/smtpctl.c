@@ -578,6 +578,8 @@ do_show_envelope(int argc, struct parameter *argv)
 static int
 do_show_hoststats(int argc, struct parameter *argv)
 {
+	int	done = 0;
+
 	srv_send(IMSG_CTL_MTA_SHOW_HOSTSTATS, NULL, 0);
 
 	do {
@@ -586,8 +588,10 @@ do_show_hoststats(int argc, struct parameter *argv)
 			printf("%s\n", rdata);
 			srv_read(NULL, rlen);
 		}
+		else
+			done = 1;
 		srv_end();
-	} while (rlen);
+	} while (!done);
 
 	return (0);
 }
@@ -676,6 +680,8 @@ do_show_queue(int argc, struct parameter *argv)
 static int
 do_show_routes(int argc, struct parameter *argv)
 {
+	int	done = 0;
+
 	srv_send(IMSG_CTL_MTA_SHOW_ROUTES, NULL, 0);
 
 	do {
@@ -684,8 +690,10 @@ do_show_routes(int argc, struct parameter *argv)
 			printf("%s\n", rdata);
 			srv_read(NULL, rlen);
 		}
+		else
+			done = 1;
 		srv_end();
-	} while (rlen);
+	} while (!done);
 
 	return (0);
 }
