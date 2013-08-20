@@ -83,6 +83,7 @@ SPLAY_HEAD(mta_relay_tree, mta_relay);
 static struct mta_relay *mta_relay(struct envelope *);
 static void mta_relay_ref(struct mta_relay *);
 static void mta_relay_unref(struct mta_relay *);
+static void mta_relay_show(struct mta_relay *, struct mproc *, uint32_t, time_t);
 static int mta_relay_cmp(const struct mta_relay *, const struct mta_relay *);
 SPLAY_PROTOTYPE(mta_relay_tree, mta_relay, entry, mta_relay_cmp);
 
@@ -389,6 +390,14 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				    buf, strlen(buf) + 1);
 			}
 			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS, imsg->hdr.peerid,
+			    0, -1, NULL, 0);
+			return;
+
+		case IMSG_CTL_MTA_SHOW_RELAYS:
+			t = time(NULL);
+			SPLAY_FOREACH(relay, mta_relay_tree, &relays)
+				mta_relay_show(relay, p, imsg->hdr.peerid, t);
+			m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, imsg->hdr.peerid,
 			    0, -1, NULL, 0);
 			return;
 
@@ -1657,6 +1666,84 @@ mta_relay_to_text(struct mta_relay *relay)
 	strlcat(buf, "]", sizeof buf);
 
 	return (buf);
+}
+
+static void
+mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
+{
+	struct mta_connector	*c;
+	void			*iter;
+	char			 buf[1024], flags[1024];
+
+	flags[0] = '\0';
+
+#define SHOWSTATUS(f, n) do {						\
+		if (r->status & (f)) {					\
+			if (flags[0])					\
+				strlcat(flags, ",", sizeof(flags));	\
+			strlcat(flags, (n), sizeof(flags));		\
+		} 							\
+	} while(0)
+
+	SHOWSTATUS(RELAY_WAIT_MX, "MX");
+	SHOWSTATUS(RELAY_WAIT_PREFERENCE, "preference");
+	SHOWSTATUS(RELAY_WAIT_SECRET, "secret");
+	SHOWSTATUS(RELAY_WAIT_LIMITS, "limits");
+	SHOWSTATUS(RELAY_WAIT_SOURCE, "source");
+	SHOWSTATUS(RELAY_WAIT_CONNECTOR, "connector");
+#undef SHOWSTATUS
+
+	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s wait=%s",
+	    mta_relay_to_text(r),
+	    r->refcount,
+	    r->ntask,
+	    r->nconn,
+	    r->lastconn ? duration_to_text(t - r->lastconn) : "-",
+	    flags);
+	m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf, strlen(buf) + 1);
+
+	iter = NULL;
+	while (tree_iter(&r->connectors, &iter, NULL, (void **)&c)) {
+
+		flags[0] = '\0';
+
+#define SHOWFLAG(f, n) do {						\
+		if (c->flags & (f)) {					\
+			if (flags[0])					\
+				strlcat(flags, ",", sizeof(flags));	\
+			strlcat(flags, (n), sizeof(flags));		\
+		} 							\
+	} while(0)
+
+		SHOWFLAG(CONNECTOR_NEW,		"NEW");
+		SHOWFLAG(CONNECTOR_WAIT,	"WAIT");
+
+		SHOWFLAG(CONNECTOR_ERROR_FAMILY,	"ERROR_FAMILY");
+		SHOWFLAG(CONNECTOR_ERROR_SOURCE,	"ERROR_SOURCE");
+		SHOWFLAG(CONNECTOR_ERROR_MX,		"ERROR_MX");
+		SHOWFLAG(CONNECTOR_ERROR_ROUTE_NET,	"ERROR_ROUTE_NET");
+		SHOWFLAG(CONNECTOR_ERROR_ROUTE_SMTP,	"ERROR_ROUTE_SMTP");
+
+		SHOWFLAG(CONNECTOR_LIMIT_HOST,		"LIMIT_HOST");
+		SHOWFLAG(CONNECTOR_LIMIT_ROUTE,		"LIMIT_ROUTE");
+		SHOWFLAG(CONNECTOR_LIMIT_SOURCE,	"LIMIT_SOURCE");
+		SHOWFLAG(CONNECTOR_LIMIT_RELAY,		"LIMIT_RELAY");
+		SHOWFLAG(CONNECTOR_LIMIT_CONN,		"LIMIT_CONN");
+		SHOWFLAG(CONNECTOR_LIMIT_DOMAIN,	"LIMIT_DOMAIN");
+#undef SHOWFLAG
+
+		snprintf(buf, sizeof(buf),
+		    "  connector %s refcount=%i nconn=%zu lastconn=%s flags=%s",
+		    mta_source_to_text(c->source),
+		    c->refcount,
+		    c->nconn,
+		    c->lastconn ? duration_to_text(t - c->lastconn) : "-",
+		    flags);
+		m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf,
+		    strlen(buf) + 1);
+		
+
+	}
 }
 
 static int
