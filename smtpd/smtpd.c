@@ -1457,7 +1457,7 @@ static void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 
-	if (to == PROC_CONTROL)
+	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
 		return;
 
 	if (imsg->fd != -1)
