@@ -372,6 +372,25 @@ srv_foreach_envelope(struct parameter *argv, int ctl, size_t *total, size_t *ok)
 	}
 }
 
+static void
+srv_show_cmd(int cmd, const void *data, size_t len)
+{
+	int	done = 0;
+
+	srv_send(cmd, data, len);
+
+	do {
+		srv_recv(cmd);
+		if (rlen) {
+			printf("%s\n", rdata);
+			srv_read(NULL, rlen);
+		}
+		else
+			done = 1;
+		srv_end();
+	} while (!done);
+}
+
 static int
 do_log_brief(int argc, struct parameter *argv)
 {
@@ -578,20 +597,7 @@ do_show_envelope(int argc, struct parameter *argv)
 static int
 do_show_hoststats(int argc, struct parameter *argv)
 {
-	int	done = 0;
-
-	srv_send(IMSG_CTL_MTA_SHOW_HOSTSTATS, NULL, 0);
-
-	do {
-		srv_recv(IMSG_CTL_MTA_SHOW_HOSTSTATS);
-		if (rlen) {
-			printf("%s\n", rdata);
-			srv_read(NULL, rlen);
-		}
-		else
-			done = 1;
-		srv_end();
-	} while (!done);
+	srv_show_cmd(IMSG_CTL_MTA_SHOW_HOSTSTATS, NULL, 0);
 
 	return (0);
 }
@@ -680,20 +686,15 @@ do_show_queue(int argc, struct parameter *argv)
 static int
 do_show_hosts(int argc, struct parameter *argv)
 {
-	int	done = 0;
+	srv_show_cmd(IMSG_CTL_MTA_SHOW_HOSTS, NULL, 0);
 
-	srv_send(IMSG_CTL_MTA_SHOW_HOSTS, NULL, 0);
+	return (0);
+}
 
-	do {
-		srv_recv(IMSG_CTL_MTA_SHOW_HOSTS);
-		if (rlen) {
-			printf("%s\n", rdata);
-			srv_read(NULL, rlen);
-		}
-		else
-			done = 1;
-		srv_end();
-	} while (!done);
+static int
+do_show_relays(int argc, struct parameter *argv)
+{
+	srv_show_cmd(IMSG_CTL_MTA_SHOW_RELAYS, NULL, 0);
 
 	return (0);
 }
@@ -701,20 +702,7 @@ do_show_hosts(int argc, struct parameter *argv)
 static int
 do_show_routes(int argc, struct parameter *argv)
 {
-	int	done = 0;
-
-	srv_send(IMSG_CTL_MTA_SHOW_ROUTES, NULL, 0);
-
-	do {
-		srv_recv(IMSG_CTL_MTA_SHOW_ROUTES);
-		if (rlen) {
-			printf("%s\n", rdata);
-			srv_read(NULL, rlen);
-		}
-		else
-			done = 1;
-		srv_end();
-	} while (!done);
+	srv_show_cmd(IMSG_CTL_MTA_SHOW_ROUTES, NULL, 0);
 
 	return (0);
 }
@@ -863,6 +851,7 @@ main(int argc, char **argv)
 	cmd_install("show queue",		do_show_queue);
 	cmd_install("show queue <msgid>",	do_show_queue);
 	cmd_install("show hosts",		do_show_hosts);
+	cmd_install("show relays",		do_show_relays);
 	cmd_install("show routes",		do_show_routes);
 	cmd_install("show stats",		do_show_stats);
 	cmd_install("stop",			do_stop);
