@@ -1673,7 +1673,8 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 {
 	struct mta_connector	*c;
 	void			*iter;
-	char			 buf[1024], flags[1024];
+	char			 buf[1024], flags[1024], dur[64];
+	time_t			 to;
 
 	flags[0] = '\0';
 
@@ -1693,17 +1694,28 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 	SHOWSTATUS(RELAY_WAIT_CONNECTOR, "connector");
 #undef SHOWSTATUS
 
-	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s wait=%s",
+	if (runq_pending(runq_relay, NULL, r, &to))
+		snprintf(dur, sizeof(dur), duration_to_text(to - t));
+	else
+		strlcpy(dur, "-", sizeof(dur));
+
+	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s",
 	    mta_relay_to_text(r),
 	    r->refcount,
 	    r->ntask,
 	    r->nconn,
 	    r->lastconn ? duration_to_text(t - r->lastconn) : "-",
+	    dur,
 	    flags);
 	m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf, strlen(buf) + 1);
 
 	iter = NULL;
 	while (tree_iter(&r->connectors, &iter, NULL, (void **)&c)) {
+
+		if (runq_pending(runq_connector, NULL, c, &to))
+			snprintf(dur, sizeof(dur), duration_to_text(to - t));
+		else
+			strlcpy(dur, "-", sizeof(dur));
 
 		flags[0] = '\0';
 
@@ -1733,11 +1745,12 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 #undef SHOWFLAG
 
 		snprintf(buf, sizeof(buf),
-		    "  connector %s refcount=%i nconn=%zu lastconn=%s flags=%s",
+		    "  connector %s refcount=%i nconn=%zu lastconn=%s timeout=%s flags=%s",
 		    mta_source_to_text(c->source),
 		    c->refcount,
 		    c->nconn,
 		    c->lastconn ? duration_to_text(t - c->lastconn) : "-",
+		    dur,
 		    flags);
 		m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf,
 		    strlen(buf) + 1);
