@@ -215,7 +215,7 @@ cmd_run(int argc, char **argv)
 	if (node->cmd == NULL)
 		goto fail;
 
-	return (node->cmd(np, param));
+	return (node->cmd(np, np ? param : NULL));
 
 fail:
 	fprintf(stderr, "possibilities are:\n");

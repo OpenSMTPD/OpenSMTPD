@@ -189,20 +189,23 @@ srv_end(void)
 }
 
 static int
-srv_check_result(void)
+srv_check_result(int verbose_)
 {
 	srv_recv(-1);
 	srv_end();
 
 	switch (imsg.hdr.type) {
 	case IMSG_CTL_OK:
-		printf("command succeeded\n");
+		if (verbose_)
+			printf("command succeeded\n");
 		return (0);
 	case IMSG_CTL_FAIL:
-		if (rlen)
-			printf("command failed: %s\n", rdata);
-		else
-			printf("command failed\n");
+		if (verbose_) {
+			if (rlen)
+				printf("command failed: %s\n", rdata);
+			else
+				printf("command failed\n");
+		}
 		return (1);
 	default:
 		errx(1, "wrong message in response: %u", imsg.hdr.type);
@@ -294,12 +297,82 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 }
 
 static int
+srv_iter_evpids(uint32_t msgid, uint64_t *evpid, int *offset)
+{
+	static uint64_t	*evpids = NULL;
+	static int	 n, alloc = 0;
+	struct envelope	 evp;
+
+	if (evpids == NULL) {
+		alloc = 1000;
+		evpids = malloc(alloc * sizeof(*evpids));
+		if (evpids == NULL)
+			err(1, "malloc");
+	}
+
+	if (*offset == 0) {
+		n = 0;
+		while (srv_iter_envelopes(msgid, &evp)) {
+			if (n == alloc) {
+				alloc += 256;
+				evpids = realloc(evpids, alloc * sizeof(*evpids));
+				if (evpids == NULL)
+					err(1, "realloc");
+			}
+			evpids[n++] = evp.id;
+		}
+	}
+
+	if (*offset >= n)
+		return (0);
+	*evpid = evpids[*offset];
+	*offset += 1;
+	return (1);
+}
+
+static void
+srv_foreach_envelope(struct parameter *argv, int ctl, size_t *total, size_t *ok)
+{
+	uint32_t	msgid;
+	uint64_t	evpid;
+	int		i;
+
+	*total = 0;
+	*ok = 0;
+
+	if (argv == NULL) {
+		while (srv_iter_messages(&msgid)) {
+			i = 0;
+			while (srv_iter_evpids(msgid, &evpid, &i)) {
+				*total += 1;
+				srv_send(ctl, &evpid, sizeof(evpid));
+				if (srv_check_result(0) == 0)
+					*ok += 1;
+			}
+		}
+	} else if (argv->type == P_MSGID) {
+		i = 0;
+		while (srv_iter_evpids(argv->u.u_msgid, &evpid, &i)) {
+			srv_send(ctl, &evpid, sizeof(evpid));
+			if (srv_check_result(0) == 0)
+				*ok += 1;
+			srv_check_result(0);
+		}
+	} else {
+		*total += 1;
+		srv_send(ctl, &argv[0].u.u_evpid, sizeof(evpid));
+		if (srv_check_result(0) == 0)
+			*ok += 1;
+	}
+}
+
+static int
 do_log_brief(int argc, struct parameter *argv)
 {
 	int	v = 0;
 
 	srv_send(IMSG_CTL_VERBOSE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -308,7 +381,7 @@ do_log_verbose(int argc, struct parameter *argv)
 	int	v = TRACE_DEBUG;
 
 	srv_send(IMSG_CTL_VERBOSE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -370,26 +443,10 @@ do_monitor(int argc, struct parameter *argv)
 static int
 do_pause_envelope(int argc, struct parameter *argv)
 {
-	struct envelope	 evp;
-	uint32_t	 msgid;
+	size_t	total, ok;
 
-	if (argc == 0) {
-		while (srv_iter_messages(&msgid)) {
-			while (srv_iter_envelopes(msgid, &evp)) {
-				srv_send(IMSG_CTL_PAUSE_EVP, &evp.id,
-				    sizeof(evp.id));
-				srv_check_result();
-			}
-		}
-	} else if (argv[0].type == P_MSGID) {
-		while (srv_iter_envelopes(argv[0].u.u_msgid, &evp)) {
-			srv_send(IMSG_CTL_PAUSE_EVP, &evp.id, sizeof(evp.id));
-			srv_check_result();
-		}
-	} else {
-		srv_send(IMSG_CTL_PAUSE_EVP, &argv[0].u.u_evpid, sizeof(evp.id));
-		srv_check_result();
-	}
+	srv_foreach_envelope(argv, IMSG_CTL_PAUSE_EVP, &total, &ok);
+	printf("%zu envelope%s paused\n", ok, (ok > 1) ? "s" : "");
 
 	return (0);
 }
@@ -398,21 +455,21 @@ static int
 do_pause_mda(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_PAUSE_MDA, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
 do_pause_mta(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_PAUSE_MTA, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
 do_pause_smtp(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_PAUSE_SMTP, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -423,32 +480,16 @@ do_profile(int argc, struct parameter *argv)
 	v = str_to_profile(argv[0].u.u_str);
 
 	srv_send(IMSG_CTL_PROFILE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
 do_remove(int argc, struct parameter *argv)
 {
-	struct envelope	 evp;
-	uint32_t	 msgid;
+	size_t	total, ok;
 
-	if (argc == 0) {
-		while (srv_iter_messages(&msgid)) {
-			while (srv_iter_envelopes(msgid, &evp)) {
-				srv_send(IMSG_CTL_REMOVE, &evp.id,
-				    sizeof(evp.id));
-				srv_check_result();
-			}
-		}
-	} else if (argv[0].type == P_MSGID) {
-		while (srv_iter_envelopes(argv[0].u.u_msgid, &evp)) {
-			srv_send(IMSG_CTL_REMOVE, &evp.id, sizeof(evp.id));
-			srv_check_result();
-		}
-	} else {
-		srv_send(IMSG_CTL_REMOVE, &argv[0].u.u_evpid, sizeof(evp.id));
-		srv_check_result();
-	}
+	srv_foreach_envelope(argv, IMSG_CTL_REMOVE, &total, &ok);
+	printf("%zu envelope%s removed\n", ok, (ok > 1) ? "s" : "");
 
 	return (0);
 }
@@ -456,26 +497,10 @@ do_remove(int argc, struct parameter *argv)
 static int
 do_resume_envelope(int argc, struct parameter *argv)
 {
-	struct envelope	 evp;
-	uint32_t	 msgid;
+	size_t	total, ok;
 
-	if (argc == 0) {
-		while (srv_iter_messages(&msgid)) {
-			while (srv_iter_envelopes(msgid, &evp)) {
-				srv_send(IMSG_CTL_RESUME_EVP, &evp.id,
-				    sizeof(evp.id));
-				srv_check_result();
-			}
-		}
-	} else if (argv[0].type == P_MSGID) {
-		while (srv_iter_envelopes(argv[0].u.u_msgid, &evp)) {
-			srv_send(IMSG_CTL_RESUME_EVP, &evp.id, sizeof(evp.id));
-			srv_check_result();
-		}
-	} else {
-		srv_send(IMSG_CTL_RESUME_EVP, &argv[0].u.u_evpid, sizeof(evp.id));
-		srv_check_result();
-	}
+	srv_foreach_envelope(argv, IMSG_CTL_RESUME_EVP, &total, &ok);
+	printf("%zu envelope%s resumed\n", ok, (ok > 1) ? "s" : "");
 
 	return (0);
 }
@@ -484,14 +509,14 @@ static int
 do_resume_mda(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_RESUME_MDA, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
 do_resume_mta(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_RESUME_MTA, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -505,40 +530,23 @@ do_resume_route(int argc, struct parameter *argv)
 		v = argv[0].u.u_routeid;
 
 	srv_send(IMSG_CTL_RESUME_ROUTE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
 do_resume_smtp(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_RESUME_SMTP, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
 do_schedule(int argc, struct parameter *argv)
 {
-	struct envelope	 evp;
-	uint32_t	 msgid;
+	size_t	total, ok;
 
-	if (argc == 0) {
-		while (srv_iter_messages(&msgid)) {
-			while (srv_iter_envelopes(msgid, &evp)) {
-				srv_send(IMSG_CTL_SCHEDULE, &evp.id,
-				    sizeof(evp.id));
-				srv_check_result();
-			}
-		}
-
-	} else if (argv[0].type == P_MSGID) {
-		while (srv_iter_envelopes(argv[0].u.u_msgid, &evp)) {
-			srv_send(IMSG_CTL_SCHEDULE, &evp.id, sizeof(evp.id));
-			srv_check_result();
-		}
-	} else {
-		srv_send(IMSG_CTL_SCHEDULE, &argv[0].u.u_evpid, sizeof(evp.id));
-		srv_check_result();
-	}
+	srv_foreach_envelope(argv, IMSG_CTL_SCHEDULE, &total, &ok);
+	printf("%zu envelope%s scheduled\n", ok, (ok > 1) ? "s" : "");
 
 	return (0);
 }
@@ -732,7 +740,7 @@ static int
 do_stop(int argc, struct parameter *argv)
 {
 	srv_send(IMSG_CTL_SHUTDOWN, NULL, 0);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -743,7 +751,7 @@ do_trace(int argc, struct parameter *argv)
 	v = str_to_trace(argv[0].u.u_str);
 
 	srv_send(IMSG_CTL_TRACE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -754,7 +762,7 @@ do_unprofile(int argc, struct parameter *argv)
 	v = str_to_profile(argv[0].u.u_str);
 
 	srv_send(IMSG_CTL_UNPROFILE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -765,7 +773,7 @@ do_untrace(int argc, struct parameter *argv)
 	v = str_to_trace(argv[0].u.u_str);
 
 	srv_send(IMSG_CTL_UNTRACE, &v, sizeof(v));
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 static int
@@ -774,7 +782,7 @@ do_update_table(int argc, struct parameter *argv)
 	const char	*name = argv[0].u.u_str;
 
 	srv_send(IMSG_LKA_UPDATE_TABLE, name, strlen(name) + 1);
-	return srv_check_result();
+	return srv_check_result(1);
 }
 
 int
