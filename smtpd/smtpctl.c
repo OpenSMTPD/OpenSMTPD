@@ -588,6 +588,8 @@ do_show_envelope(int argc, struct parameter *argv)
 static int
 do_show_hoststats(int argc, struct parameter *argv)
 {
+	int	done = 0;
+
 	srv_send(IMSG_CTL_MTA_SHOW_HOSTSTATS, NULL, 0);
 
 	do {
@@ -596,8 +598,10 @@ do_show_hoststats(int argc, struct parameter *argv)
 			printf("%s\n", rdata);
 			srv_read(NULL, rlen);
 		}
+		else
+			done = 1;
 		srv_end();
-	} while (rlen);
+	} while (!done);
 
 	return (0);
 }
@@ -684,8 +688,31 @@ do_show_queue(int argc, struct parameter *argv)
 }
 
 static int
+do_show_hosts(int argc, struct parameter *argv)
+{
+	int	done = 0;
+
+	srv_send(IMSG_CTL_MTA_SHOW_HOSTS, NULL, 0);
+
+	do {
+		srv_recv(IMSG_CTL_MTA_SHOW_HOSTS);
+		if (rlen) {
+			printf("%s\n", rdata);
+			srv_read(NULL, rlen);
+		}
+		else
+			done = 1;
+		srv_end();
+	} while (!done);
+
+	return (0);
+}
+
+static int
 do_show_routes(int argc, struct parameter *argv)
 {
+	int	done = 0;
+
 	srv_send(IMSG_CTL_MTA_SHOW_ROUTES, NULL, 0);
 
 	do {
@@ -694,8 +721,10 @@ do_show_routes(int argc, struct parameter *argv)
 			printf("%s\n", rdata);
 			srv_read(NULL, rlen);
 		}
+		else
+			done = 1;
 		srv_end();
-	} while (rlen);
+	} while (!done);
 
 	return (0);
 }
@@ -843,6 +872,7 @@ main(int argc, char **argv)
 	cmd_install("show message <evpid>",	do_show_message);
 	cmd_install("show queue",		do_show_queue);
 	cmd_install("show queue <msgid>",	do_show_queue);
+	cmd_install("show hosts",		do_show_hosts);
 	cmd_install("show routes",		do_show_routes);
 	cmd_install("show stats",		do_show_stats);
 	cmd_install("stop",			do_stop);

@@ -169,12 +169,11 @@ union lookup {
 	struct addrname		 addrname;
 };
 
-/* XXX */
 /*
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		5
+#define	IMSG_VERSION		6
 
 enum imsg_type {
 	IMSG_NONE,
@@ -201,6 +200,7 @@ enum imsg_type {
 	IMSG_CTL_PROFILE,
 	IMSG_CTL_UNPROFILE,
 
+	IMSG_CTL_MTA_SHOW_HOSTS,
 	IMSG_CTL_MTA_SHOW_ROUTES,
 	IMSG_CTL_MTA_SHOW_HOSTSTATS,
 
