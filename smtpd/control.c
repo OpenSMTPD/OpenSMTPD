@@ -98,10 +98,13 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	}
 	if (p->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
+		case IMSG_CTL_OK:
+		case IMSG_CTL_FAIL:
 		case IMSG_CTL_LIST_MESSAGES:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
+			imsg->hdr.peerid = 0;
 			m_forward(&c->mproc, imsg);
 			return;
 		}
@@ -579,8 +582,8 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
+		imsg->hdr.peerid = c->id;
 		m_forward(p_scheduler, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_CTL_PAUSE_MDA:
@@ -629,8 +632,8 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
+		imsg->hdr.peerid = c->id;
 		m_forward(p_scheduler, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_CTL_RESUME_MDA:
@@ -716,16 +719,16 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
+		imsg->hdr.peerid = c->id;
 		m_forward(p_scheduler, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_CTL_REMOVE:
 		if (c->euid)
 			goto badcred;
 
+		imsg->hdr.peerid = c->id;
 		m_forward(p_scheduler, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_LKA_UPDATE_TABLE:

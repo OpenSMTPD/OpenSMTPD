@@ -133,6 +133,9 @@ srv_flush(void)
 static void
 srv_send(int msg, const void *data, size_t len)
 {
+#if 0
+	printf("SEND: %i (%zu)\n", msg, len);
+#endif
 	if (ibuf == NULL && !srv_connect())
 		errx(1, "smtpd doesn't seem to be running");
 	imsg_compose(ibuf, msg, IMSG_VERSION, 0, -1, data, len);
@@ -149,6 +152,10 @@ srv_recv(int type)
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
 			errx(1, "imsg_get error");
 		if (n) {
+#if 0
+			printf("RECV: %i (%zu)\n", imsg.hdr.type,
+			    imsg.hdr.len - sizeof(imsg.hdr));
+#endif
 			if (imsg.hdr.type == IMSG_CTL_FAIL &&
 			    imsg.hdr.peerid != 0 &&
 			    imsg.hdr.peerid != IMSG_VERSION)
