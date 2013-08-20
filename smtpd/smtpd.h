@@ -1393,6 +1393,7 @@ void log_envelope(const struct envelope *, const char *, const char *,
 void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
+int getmailname(char *, size_t);
 
 
 /* waitq.c */
