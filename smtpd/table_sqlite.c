@@ -355,7 +355,7 @@ table_sqlite_query(const char *key, int service)
 
 	stmt = NULL;
 	for(i = 0; i < SQL_MAX; i++)
-		if (service == 1 << i) {
+		if (service == (1 << i)) {
 			stmt = statements[i];
 			break;
 		}
@@ -452,11 +452,10 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_USERINFO:
-		if (snprintf(dst, sz, "%s:%i:%i:%s",
-		    sqlite3_column_text(stmt, 0),
+		if (snprintf(dst, sz, "%i:%i:%s",
+		    sqlite3_column_int(stmt, 0),
 		    sqlite3_column_int(stmt, 1),
-		    sqlite3_column_int(stmt, 2),
-		    sqlite3_column_text(stmt, 3)) > (ssize_t)sz) {
+		    sqlite3_column_text(stmt, 2)) > (ssize_t)sz) {
 			log_warnx("warn: table-sqlite: result too large");
 			r = -1;
 		}
@@ -476,6 +475,7 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 		r = -1;
 	}
 
+	sqlite3_reset(stmt);
 	return (r);
 }
 
