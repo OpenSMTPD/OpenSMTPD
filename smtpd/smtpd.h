@@ -788,6 +788,7 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
+	int			 	 ext;
 };
 
 struct mta_task {

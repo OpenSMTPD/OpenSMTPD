@@ -635,7 +635,10 @@ mta_delivery_notify(struct mta_envelope *e, int delivery, const char *status,
     uint32_t penalty)
 {
 	if (delivery == IMSG_DELIVERY_OK) {
-		queue_ok(e->id);
+		m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
+		m_add_evpid(p_queue, e->id);
+		m_add_int(p_queue, e->ext);
+		m_close(p_queue);
 	}
 	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
 		queue_tempfail(e->id, penalty, status);
