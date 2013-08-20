@@ -69,7 +69,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t		 msgid;
 	uint32_t		 penalty;
 	time_t			 nexttry;
-	int			 fd, ret, v, flags;
+	int			 fd, mta_ext, ret, v, flags;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -336,6 +336,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DELIVERY_OK:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
+			if (p->proc == PROC_MTA)
+				m_get_int(&m, &mta_ext);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warn("queue: dsn: failed to load envelope");

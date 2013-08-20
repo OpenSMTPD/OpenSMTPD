@@ -89,6 +89,7 @@ enum mta_state {
 #define MTA_EXT_STARTTLS	0x01
 #define MTA_EXT_AUTH		0x02
 #define MTA_EXT_PIPELINING	0x04
+#define MTA_EXT_DSN		0x08
 
 struct failed_evp {
 	int			 delivery;
@@ -112,7 +113,6 @@ struct mta_session {
 
 	struct iobuf		 iobuf;
 	struct io		 io;
-	int			 ext;
 
 	size_t			 msgtried;
 	size_t			 msgcount;
@@ -590,24 +590,24 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_EHLO:
-		s->ext = 0;
+		s->currevp->ext = 0;
 		mta_send(s, "EHLO %s", s->helo);
 		break;
 
 	case MTA_HELO:
-		s->ext = 0;
+		s->currevp->ext = 0;
 		mta_send(s, "HELO %s", s->helo);
 		break;
 
 	case MTA_LHLO:
-		s->ext = 0;
+		s->currevp->ext = 0;
 		mta_send(s, "LHLO %s", s->helo);
 		break;
 
 	case MTA_STARTTLS:
 		if (s->flags & MTA_TLS) /* already started */
 			mta_enter_state(s, MTA_AUTH);
-		else if ((s->ext & MTA_EXT_STARTTLS) == 0) {
+		else if ((s->currevp->ext & MTA_EXT_STARTTLS) == 0) {
 			if (s->flags & MTA_FORCE_TLS || s->flags & MTA_WANT_SECURE) {
 				mta_error(s, "TLS required but not supported by remote host");
 				mta_connect(s);
@@ -1079,11 +1079,13 @@ mta_io(struct io *io, int evt)
 		/* read extensions */
 		if (s->state == MTA_EHLO) {
 			if (strcmp(msg, "STARTTLS") == 0)
-				s->ext |= MTA_EXT_STARTTLS;
+				s->currevp->ext |= MTA_EXT_STARTTLS;
 			else if (strncmp(msg, "AUTH", 4) == 0)
-				s->ext |= MTA_EXT_AUTH;
+				s->currevp->ext |= MTA_EXT_AUTH;
 			else if (strcmp(msg, "PIPELINING") == 0)
-				s->ext |= MTA_EXT_PIPELINING;
+				s->currevp->ext |= MTA_EXT_PIPELINING;
+			else if (strcmp(msg, "DSN") == 0)
+				s->currevp->ext |= MTA_EXT_DSN;
 		}
 
 		if (cont)
