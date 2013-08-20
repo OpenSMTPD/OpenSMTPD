@@ -1365,12 +1365,24 @@ offline_done(void)
 static int
 parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 {
-	char pathname[SMTPD_MAXPATHLEN];
-	int	fd;
+	char		pathname[SMTPD_MAXPATHLEN];
+	int		fd;
+	struct stat	sb;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
 		directory))
 		fatal("smtpd: parent_forward_open: snprintf");
+
+	if (stat(directory, &sb) < 0) {
+		log_warn("warn: smtpd: parent_forward_open: %s", directory);
+		return -1;
+	}
+	if (sb.st_mode & S_ISVTX) {
+		log_warnx("warn: smtpd: parent_forward_open: %s is sticky",
+		    directory);
+		errno = EAGAIN;
+		return -1;
+	}
 
 	do {
 		fd = open(pathname, O_RDONLY);
@@ -1445,7 +1457,7 @@ static void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 
-	if (to == PROC_CONTROL)
+	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
 		return;
 
 	if (imsg->fd != -1)
@@ -1554,6 +1566,8 @@ imsg_to_str(int type)
 	CASE(IMSG_CTL_PROFILE);
 	CASE(IMSG_CTL_UNPROFILE);
 
+	CASE(IMSG_CTL_MTA_SHOW_HOSTS);
+	CASE(IMSG_CTL_MTA_SHOW_RELAYS);
 	CASE(IMSG_CTL_MTA_SHOW_ROUTES);
 	CASE(IMSG_CTL_MTA_SHOW_HOSTSTATS);
 

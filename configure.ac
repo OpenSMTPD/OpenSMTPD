@@ -321,7 +321,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		supported by bsd-setproctitle.c])
 	;;
 *-*-dragonfly*)
-	SSHDLIBS="$SSHDLIBS -lcrypt"
+	SMTPDLIBS="$SMTPDLIBS -lcrypt"
 	;;
 *-*-hpux*)
 	# first we define all of the options common to all HP-UX releases
@@ -1381,7 +1381,7 @@ AC_ARG_WITH([pam],
 
 			PAM_MSG="yes"
 
-			SSHDLIBS="$SSHDLIBS -lpam"
+			SMTPDLIBS="$SMTPDLIBS -lpam"
 			AC_DEFINE([USE_PAM], [1],
 				[Define if you want to enable PAM support])
 
@@ -1391,7 +1391,7 @@ AC_ARG_WITH([pam],
 					# libdl already in LIBS
 					;;
 				*)
-					SSHDLIBS="$SSHDLIBS -ldl"
+					SMTPDLIBS="$SMTPDLIBS -ldl"
 					;;
 				esac
 			fi
@@ -2416,6 +2416,28 @@ AC_ARG_WITH([ca-file],
 AC_SUBST([CA_FILE])
 
 
+# Where to place spooler
+spooldir=/var/spool/smtpd
+AC_ARG_WITH([spooldir],
+	[  --with-spooldir=PATH		Specify location of spooler directory],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			spooldir=$withval
+			if test ! -d $spooldir ; then
+			AC_MSG_WARN([** no $spooldir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
+AC_SUBST([spooldir])
+
+
+
+
 # Whether to enable *experimental* LDAP support
 EXPERIMENTAL_LDAP=no
 AC_ARG_WITH([experimental-ldap],
@@ -2750,7 +2772,7 @@ fi
 
 LIBS="$LIBS -l$DB_LIB"
 
-LIBS="$LIBS ${SSHDLIBS}"
+LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
 
 AC_MSG_CHECKING([if RES_USE_EDNS0 is defined in resolv.h])
@@ -2787,6 +2809,16 @@ HAVE_RES_USE_DNSSEC
 ])
 
 
+use_mailwrapper=0
+AC_ARG_WITH([mailwrapper],
+	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
+	[ if test "x$withval" = "xyes"; then
+	     use_mailwrapper=1
+	  fi
+	]
+)
+AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
+
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		mk/Makefile
@@ -2811,7 +2843,7 @@ A=`eval echo ${prefix}` ; A=`eval echo ${A}`
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
 C=`eval echo ${sbindir}` ; C=`eval echo ${C}`
 D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
-E=`eval echo ${libexecdir}/mail.local` ; E=`eval echo ${E}`
+E=`eval echo ${pkglibexecdir}/mail.local` ; E=`eval echo ${E}`
 F=`eval echo ${mandir}/${mansubdir}X` ; F=`eval echo ${F}`
 G=`eval echo ${sockdir}` ; G=`eval echo ${G}`
 H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
@@ -2842,17 +2874,6 @@ echo "         smtpd superuser user PATH: $J"
 fi
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
-#echo "                   OSF SIA support: $SIA_MSG"
-#echo "                 KerberosV support: $KRB5_MSG"
-#echo "                   SELinux support: $SELINUX_MSG"
-#echo "                 Smartcard support: $SCARD_MSG"
-#echo "                     S/KEY support: $SKEY_MSG"
-#echo "              TCP Wrappers support: $TCPW_MSG"
-#echo "              MD5 password support: $MD5_MSG"
-#echo "                   libedit support: $LIBEDIT_MSG"
-#echo "  Solaris process contract support: $SPC_MSG"
-#echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
-#echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
 echo "              Random number source: $RAND_MSG"
 
@@ -2888,9 +2909,4 @@ fi
 #	echo "user can connect to your agent."
 #	echo ""
 #fi
-
-if test "$AUDIT_MODULE" = "bsm" ; then
-	echo "WARNING: BSM audit support is currently considered EXPERIMENTAL."
-	echo "See the Solaris section in README.platform for details."
-fi
 #l4463

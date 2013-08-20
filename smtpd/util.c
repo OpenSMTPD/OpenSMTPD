@@ -432,7 +432,7 @@ valid_localpart(const char *s)
  * RFC 5322 defines theses characters as valid: !#$%&'*+-/=?^_`{|}~
  * some of them are potentially dangerous, and not so used after all.
  */
-#define IS_ATEXT(c)     (isalnum((int)(c)) || strchr("!%+-/=_", (c)))
+#define IS_ATEXT(c)     (isalnum((int)(c)) || strchr("*!%+-/=_", (c)))
 nextatom:
 	if (! IS_ATEXT(*s) || *s == '\0')
 		return 0;
@@ -725,4 +725,73 @@ parse_smtp_response(char *line, size_t len, char **msg, int *cont)
 			return "non-printable character in reply";
 
 	return NULL;
+}
+
+int
+getmailname(char *hostname, size_t len)
+{
+        struct addrinfo hints, *res = NULL;
+        FILE   *fp;
+        char   *buf, *lbuf = NULL;
+        size_t  buflen;
+        int     error;
+        int     ret = 0;
+
+        /* First, check if we have SMTPD_CONFDIR "/mailname" */
+        if ((fp = fopen(SMTPD_CONFDIR "/mailname", "r")) == NULL)
+                goto nomailname;
+
+        if ((buf = fgetln(fp, &buflen)) == NULL)
+                goto end;
+
+        if (buf[buflen-1] == '\n')
+                buf[buflen - 1] = '\0';
+        else {
+                if ((lbuf = calloc(buflen + 1, 1)) == NULL)
+                        err(1, "calloc");
+                memcpy(lbuf, buf, buflen);
+        }
+
+        if (strlcpy(hostname, buf, len) >= len)
+                fprintf(stderr, SMTPD_CONFDIR "/mailname entry too long");
+        else {
+                ret = 1;
+                goto end;
+        }
+
+
+nomailname:
+        if (gethostname(hostname, len) == -1) {
+                fprintf(stderr, "invalid hostname: gethostname() failed\n");
+                goto end;
+        }
+
+        if (strchr(hostname, '.') == NULL) {
+                memset(&hints, 0, sizeof hints);
+                hints.ai_family = PF_UNSPEC;
+                hints.ai_socktype = SOCK_STREAM;
+                hints.ai_protocol = IPPROTO_TCP;
+                hints.ai_flags = AI_CANONNAME;
+                error = getaddrinfo(hostname, NULL, &hints, &res);
+                if (error) {
+                        fprintf(stderr, "invalid hostname: getaddrinfo() failed: %s\n",
+                            gai_strerror(error));
+                        goto end;
+                }
+
+                if (strlcpy(hostname, res->ai_canonname, len) >= len) {
+                        fprintf(stderr, "hostname too long");
+                        goto end;
+                }
+        }
+
+        ret = 1;
+
+end:
+        free(lbuf);
+        if (res)
+                freeaddrinfo(res);
+        if (fp)
+                fclose(fp);
+        return ret;
 }

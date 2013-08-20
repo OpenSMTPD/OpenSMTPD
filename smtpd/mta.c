@@ -83,6 +83,7 @@ SPLAY_HEAD(mta_relay_tree, mta_relay);
 static struct mta_relay *mta_relay(struct envelope *);
 static void mta_relay_ref(struct mta_relay *);
 static void mta_relay_unref(struct mta_relay *);
+static void mta_relay_show(struct mta_relay *, struct mproc *, uint32_t, time_t);
 static int mta_relay_cmp(const struct mta_relay *, const struct mta_relay *);
 SPLAY_PROTOTYPE(mta_relay_tree, mta_relay, entry, mta_relay_cmp);
 
@@ -164,6 +165,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_domain	*domain;
+	struct mta_host	*host;
 	struct mta_route	*route;
 	struct mta_mx		*mx, *imx;
 	struct hoststat		*hs;
@@ -371,6 +373,34 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			return;
 
+		case IMSG_CTL_MTA_SHOW_HOSTS:
+			t = time(NULL);
+			SPLAY_FOREACH(host, mta_host_tree, &hosts) {
+				snprintf(buf, sizeof(buf),
+				    "%s %s refcount=%i nconn=%zu lastconn=%s nerror=%i flags=0x%x",
+				    sockaddr_to_text(host->sa),
+				    host->ptrname,
+				    host->refcount,
+				    host->nconn,
+				    host->lastconn ? duration_to_text(t - host->lastconn) : "-",
+				    host->nerror,
+				    host->flags);
+				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS,
+				    imsg->hdr.peerid, 0, -1,
+				    buf, strlen(buf) + 1);
+			}
+			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS, imsg->hdr.peerid,
+			    0, -1, NULL, 0);
+			return;
+
+		case IMSG_CTL_MTA_SHOW_RELAYS:
+			t = time(NULL);
+			SPLAY_FOREACH(relay, mta_relay_tree, &relays)
+				mta_relay_show(relay, p, imsg->hdr.peerid, t);
+			m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, imsg->hdr.peerid,
+			    0, -1, NULL, 0);
+			return;
+
 		case IMSG_CTL_MTA_SHOW_ROUTES:
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				v = runq_pending(runq_route, NULL, route, &t);
@@ -392,6 +422,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES, imsg->hdr.peerid,
 			    0, -1, NULL, 0);
 			return;
+
 		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
 			iter = NULL;
 			while (dict_iter(&hoststat, &iter, &hostname,
@@ -1491,9 +1522,10 @@ mta_relay(struct envelope *e)
 		key.flags |= RELAY_MX;
 	} else {
 		key.domain = mta_domain(e->dest.domain, 0);
+		key.flags |= RELAY_TLS_OPTIONAL;
 	}
 
-	key.flags = e->agent.mta.relay.flags;
+	key.flags |= e->agent.mta.relay.flags;
 	key.port = e->agent.mta.relay.port;
 	key.cert = e->agent.mta.relay.cert;
 	if (!key.cert[0])
@@ -1634,6 +1666,97 @@ mta_relay_to_text(struct mta_relay *relay)
 	strlcat(buf, "]", sizeof buf);
 
 	return (buf);
+}
+
+static void
+mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
+{
+	struct mta_connector	*c;
+	void			*iter;
+	char			 buf[1024], flags[1024], dur[64];
+	time_t			 to;
+
+	flags[0] = '\0';
+
+#define SHOWSTATUS(f, n) do {						\
+		if (r->status & (f)) {					\
+			if (flags[0])					\
+				strlcat(flags, ",", sizeof(flags));	\
+			strlcat(flags, (n), sizeof(flags));		\
+		} 							\
+	} while(0)
+
+	SHOWSTATUS(RELAY_WAIT_MX, "MX");
+	SHOWSTATUS(RELAY_WAIT_PREFERENCE, "preference");
+	SHOWSTATUS(RELAY_WAIT_SECRET, "secret");
+	SHOWSTATUS(RELAY_WAIT_LIMITS, "limits");
+	SHOWSTATUS(RELAY_WAIT_SOURCE, "source");
+	SHOWSTATUS(RELAY_WAIT_CONNECTOR, "connector");
+#undef SHOWSTATUS
+
+	if (runq_pending(runq_relay, NULL, r, &to))
+		snprintf(dur, sizeof(dur), duration_to_text(to - t));
+	else
+		strlcpy(dur, "-", sizeof(dur));
+
+	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s",
+	    mta_relay_to_text(r),
+	    r->refcount,
+	    r->ntask,
+	    r->nconn,
+	    r->lastconn ? duration_to_text(t - r->lastconn) : "-",
+	    dur,
+	    flags);
+	m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf, strlen(buf) + 1);
+
+	iter = NULL;
+	while (tree_iter(&r->connectors, &iter, NULL, (void **)&c)) {
+
+		if (runq_pending(runq_connector, NULL, c, &to))
+			snprintf(dur, sizeof(dur), duration_to_text(to - t));
+		else
+			strlcpy(dur, "-", sizeof(dur));
+
+		flags[0] = '\0';
+
+#define SHOWFLAG(f, n) do {						\
+		if (c->flags & (f)) {					\
+			if (flags[0])					\
+				strlcat(flags, ",", sizeof(flags));	\
+			strlcat(flags, (n), sizeof(flags));		\
+		} 							\
+	} while(0)
+
+		SHOWFLAG(CONNECTOR_NEW,		"NEW");
+		SHOWFLAG(CONNECTOR_WAIT,	"WAIT");
+
+		SHOWFLAG(CONNECTOR_ERROR_FAMILY,	"ERROR_FAMILY");
+		SHOWFLAG(CONNECTOR_ERROR_SOURCE,	"ERROR_SOURCE");
+		SHOWFLAG(CONNECTOR_ERROR_MX,		"ERROR_MX");
+		SHOWFLAG(CONNECTOR_ERROR_ROUTE_NET,	"ERROR_ROUTE_NET");
+		SHOWFLAG(CONNECTOR_ERROR_ROUTE_SMTP,	"ERROR_ROUTE_SMTP");
+
+		SHOWFLAG(CONNECTOR_LIMIT_HOST,		"LIMIT_HOST");
+		SHOWFLAG(CONNECTOR_LIMIT_ROUTE,		"LIMIT_ROUTE");
+		SHOWFLAG(CONNECTOR_LIMIT_SOURCE,	"LIMIT_SOURCE");
+		SHOWFLAG(CONNECTOR_LIMIT_RELAY,		"LIMIT_RELAY");
+		SHOWFLAG(CONNECTOR_LIMIT_CONN,		"LIMIT_CONN");
+		SHOWFLAG(CONNECTOR_LIMIT_DOMAIN,	"LIMIT_DOMAIN");
+#undef SHOWFLAG
+
+		snprintf(buf, sizeof(buf),
+		    "  connector %s refcount=%i nconn=%zu lastconn=%s timeout=%s flags=%s",
+		    mta_source_to_text(c->source),
+		    c->refcount,
+		    c->nconn,
+		    c->lastconn ? duration_to_text(t - c->lastconn) : "-",
+		    dur,
+		    flags);
+		m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf,
+		    strlen(buf) + 1);
+		
+
+	}
 }
 
 static int

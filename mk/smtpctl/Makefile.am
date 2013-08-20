@@ -2,6 +2,12 @@ include	$(top_srcdir)/mk/pathnames
 
 sbin_PROGRAMS=		smtpctl
 
+if HAVE_MAILWRAPPER
+USE_MAILWRAPPER=1
+else
+USE_MAILWRAPPER=0
+endif
+
 smtpctl_SOURCES=	$(smtpd_srcdir)/enqueue.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/parser.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/log.c
@@ -38,8 +44,8 @@ LDADD=			$(LIBCOMPAT)
 CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-MANPAGES=		smtpctl.8.out
-MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8
+MANPAGES=		smtpctl.8.out sendmail.8.out
+MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8
 
 EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
 			smtpd-defines.h	ssl.h					\
@@ -48,14 +54,11 @@ EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
 PATHSUBS=		-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
+
 $(MANPAGES): $(MANPAGES_IN)
-	if test "$(MANTYPE)" = "cat"; then \
-		manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.[1-9]\.out$$/\.0/'`; \
-	else \
-		manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
-	fi; \
+	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
 	if test "$(MANTYPE)" = "man"; then \
-		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/mdoc2man.awk > $@; \
+		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/../mdoc2man.awk > $@; \
 	else \
 		$(FIXPATHSCMD) $${manpage} > $@; \
 	fi
@@ -65,21 +68,18 @@ $(CONFIGFILES): $(CONFIGFILES_IN)
 	$(FIXPATHSCMD) $(srcdir)/$${conffile} > $@
 
 
-# smtpd.conf
-# newaliases makemap
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
-	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
-
-	ln -f $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
-		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
-
+	if test "$(USE_MAILWRAPPER)" = "0"; then \
+		ln -s $(sbindir)/smtpctl  $(DESTDIR)$(sbindir)/mailq;\
+		ln -s $(sbindir)/smtpctl  $(DESTDIR)$(bindir)/sendmail;\
+	fi
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
-	rm	smtpctl.8.out
+	$(INSTALL) -m 644 sendmail.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
+	rm	smtpctl.8.out sendmail.8.out
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
-#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
-	rm -f	$(DESTDIR)$(bindir)/mailq$(EXEEXT)
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8			\
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
