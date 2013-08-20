@@ -161,6 +161,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_domain	*domain;
+	struct mta_host	*host;
 	struct mta_route	*route;
 	struct mta_mx		*mx, *imx;
 	struct hoststat		*hs;
@@ -368,6 +369,26 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			return;
 
+		case IMSG_CTL_MTA_SHOW_HOSTS:
+			t = time(NULL);
+			SPLAY_FOREACH(host, mta_host_tree, &hosts) {
+				snprintf(buf, sizeof(buf),
+				    "%s %s refcount=%i nconn=%zu lastconn=%s nerror=%i flags=0x%x",
+				    sockaddr_to_text(host->sa),
+				    host->ptrname,
+				    host->refcount,
+				    host->nconn,
+				    host->lastconn ? duration_to_text(t - host->lastconn) : "-",
+				    host->nerror,
+				    host->flags);
+				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS,
+				    imsg->hdr.peerid, 0, -1,
+				    buf, strlen(buf) + 1);
+			}
+			m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS, imsg->hdr.peerid,
+			    0, -1, NULL, 0);
+			return;
+
 		case IMSG_CTL_MTA_SHOW_ROUTES:
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				v = runq_pending(runq_route, NULL, route, &t);
@@ -389,6 +410,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES, imsg->hdr.peerid,
 			    0, -1, NULL, 0);
 			return;
+
 		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
 			iter = NULL;
 			while (dict_iter(&hoststat, &iter, &hostname,
