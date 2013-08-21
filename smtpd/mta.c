@@ -218,6 +218,13 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (strcmp(buf, e->dest))
 				e->rcpt = xstrdup(buf, "mta_envelope:rcpt");
 			e->task = task;
+			snprintf(buf, sizeof buf, "%s@%s",
+			    evp.dsn_orcpt.user, evp.dsn_orcpt.domain);
+			e->dsn_orcpt = xstrdup(buf, "mta_envelope:dsn_orcpt");
+			strlcpy(e->dsn_envid, evp.dsn_envid,
+			    sizeof e->dsn_envid);
+			e->dsn_notify = evp.dsn_notify;
+			e->dsn_ret = evp.dsn_ret;
 
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
 			log_debug("debug: mta: received evp:%016" PRIx64
@@ -1247,6 +1254,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 
 			free(e->dest);
 			free(e->rcpt);
+			free(e->dsn_orcpt);
 			free(e);
 			n++;
 		}

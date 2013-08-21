@@ -789,6 +789,10 @@ struct mta_envelope {
 	struct mta_task			*task;
 	int				 delivery;
 	int			 	 ext;
+	char				*dsn_orcpt;
+	char				dsn_envid[101];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
 };
 
 struct mta_task {

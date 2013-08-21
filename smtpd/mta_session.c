@@ -148,6 +148,8 @@ static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
 static void mta_flush_failedqueue(struct mta_session *);
+static const char * dsn_strret(enum dsn_ret);
+static const char * dsn_strnotify(uint8_t);
 void mta_hoststat_update(const char *, const char *);
 void mta_hoststat_reschedule(const char *);
 void mta_hoststat_cache(const char *, uint64_t);
@@ -692,13 +694,24 @@ mta_enter_state(struct mta_session *s, int newstate)
 	case MTA_MAIL:
 		s->hangon = 0;
 		s->msgtried++;
-		mta_send(s, "MAIL FROM:<%s>", s->task->sender);
+		if (s->currevp->ext & MTA_EXT_DSN) {
+			mta_send(s, "MAIL FROM:<%s> RET=%s ENVID=%s",
+			    s->task->sender, dsn_strret(s->currevp->dsn_ret),
+			    s->currevp->dsn_envid);
+		} else
+			mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
 
 	case MTA_RCPT:
 		if (s->currevp == NULL)
 			s->currevp = TAILQ_FIRST(&s->task->envelopes);
-		mta_send(s, "RCPT TO:<%s>", s->currevp->dest);
+		if (s->currevp->ext & MTA_EXT_DSN) {
+			mta_send(s, "RCPT TO:<%s> NOTIFY=%s ORCPT=%s",
+			    s->currevp->dest,
+			    dsn_strnotify(s->currevp->dsn_notify),
+			    s->currevp->dsn_orcpt);
+		} else
+			mta_send(s, "RCPT TO:<%s>", s->currevp->dest);
 		s->rcptcount++;
 		break;
 
@@ -1475,6 +1488,35 @@ mta_verify_certificate(struct mta_session *s)
 	return 1;
 }
 
+static const char *
+dsn_strret(enum dsn_ret ret)
+{
+	if (ret == DSN_RETHDRS)
+		return "HDRS";
+	else if (ret == DSN_RETFULL)
+		return "FULL";
+	else {
+		log_debug("mta: invalid ret %d", ret);
+		return "???";
+	}
+}
+
+static const char *
+dsn_strnotify(uint8_t arg)
+{
+	if (arg & DSN_SUCCESS)
+		return "SUCCESS";
+	else if (arg & DSN_FAILURE)
+		return "FAILURE";
+	else if (arg & DSN_DELAY)
+		return "DELAY";
+	else if (arg & DSN_NEVER)
+		return "NEVER";
+	else {
+		log_debug("mta: invalid notify %u", arg);
+		return "???";
+	}
+}
 
 #define CASE(x) case x : return #x
 
