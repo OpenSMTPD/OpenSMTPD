@@ -603,7 +603,6 @@ struct mta_host {
 
 #define HOST_IGNORE	0x01
 	int			 flags;
-	int			 nerror;
 };
 
 struct mta_mx {
@@ -673,6 +672,7 @@ struct mta_route {
 #define ROUTE_DISABLED_NET	0x10
 #define ROUTE_DISABLED_SMTP	0x20
 	int			 flags;
+	int			 nerror;
 	int			 penalty;
 	int			 refcount;
 	size_t			 nconn;
