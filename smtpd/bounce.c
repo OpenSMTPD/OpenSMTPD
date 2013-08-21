@@ -93,7 +93,7 @@ static void bounce_status(struct bounce_session *, const char *, ...);
 static void bounce_io(struct io *, int);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce_session *);
-static const char *bounce_type_str(enum bounce_type);
+static const char *bounce_strtype(enum bounce_type);
 
 static struct tree			wait_fd;
 static struct bounce_message_tree	messages;
@@ -405,7 +405,7 @@ bounce_next(struct bounce_session *s)
 		    "\n"
 		    NOTICE_INTRO
 		    "\n",
-		    bounce_type_str(s->msg->bounce.type),
+		    bounce_strtype(s->msg->bounce.type),
 		    env->sc_hostname,
 		    s->msg->to,
 		    time_to_text(time(NULL)));
@@ -671,7 +671,7 @@ bounce_message_cmp(const struct bounce_message *a,
 }
 
 static const char *
-bounce_type_str(enum bounce_type t)
+bounce_strtype(enum bounce_type t)
 {
 	switch (t) {
 	case B_ERROR:
