@@ -634,7 +634,6 @@ struct mta_host {
 
 #define HOST_IGNORE	0x01
 	int			 flags;
-	int			 nerror;
 };
 
 struct mta_mx {
@@ -704,6 +703,7 @@ struct mta_route {
 #define ROUTE_DISABLED_NET	0x10
 #define ROUTE_DISABLED_SMTP	0x20
 	int			 flags;
+	int			 nerror;
 	int			 penalty;
 	int			 refcount;
 	size_t			 nconn;
@@ -790,6 +790,10 @@ struct mta_envelope {
 	struct mta_task			*task;
 	int				 delivery;
 	int			 	 ext;
+	char				*dsn_orcpt;
+	char				dsn_envid[101];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
 };
 
 struct mta_task {

@@ -42,7 +42,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define MAXERROR_PER_HOST	4
+#define MAXERROR_PER_ROUTE	4
 
 #define DELAY_CHECK_SOURCE	1
 #define DELAY_CHECK_SOURCE_SLOW	10
@@ -220,6 +220,13 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (strcmp(buf, e->dest))
 				e->rcpt = xstrdup(buf, "mta_envelope:rcpt");
 			e->task = task;
+			snprintf(buf, sizeof buf, "%s@%s",
+			    evp.dsn_orcpt.user, evp.dsn_orcpt.domain);
+			e->dsn_orcpt = xstrdup(buf, "mta_envelope:dsn_orcpt");
+			strlcpy(e->dsn_envid, evp.dsn_envid,
+			    sizeof e->dsn_envid);
+			e->dsn_notify = evp.dsn_notify;
+			e->dsn_ret = evp.dsn_ret;
 
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
 			log_debug("debug: mta: received evp:%016" PRIx64
@@ -374,13 +381,12 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			t = time(NULL);
 			SPLAY_FOREACH(host, mta_host_tree, &hosts) {
 				snprintf(buf, sizeof(buf),
-				    "%s %s refcount=%i nconn=%zu lastconn=%s nerror=%i flags=0x%x",
+				    "%s %s refcount=%i nconn=%zu lastconn=%s flags=0x%x",
 				    sockaddr_to_text(host->sa),
 				    host->ptrname,
 				    host->refcount,
 				    host->nconn,
 				    host->lastconn ? duration_to_text(t - host->lastconn) : "-",
-				    host->nerror,
 				    host->flags);
 				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS,
 				    imsg->hdr.peerid, 0, -1,
@@ -402,7 +408,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				v = runq_pending(runq_route, NULL, route, &t);
 				snprintf(buf, sizeof(buf),
-				    "%llu. %s %c%c%c%c nconn=%zu penalty=%i timeout=%s",
+				    "%llu. %s %c%c%c%c nconn=%zu nerror=%i penalty=%i timeout=%s",
 				    (unsigned long long)route->id,
 				    mta_route_to_text(route),
 				    route->flags & ROUTE_NEW ? 'N' : '-',
@@ -410,6 +416,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				    route->flags & ROUTE_RUNQ ? 'Q' : '-',
 				    route->flags & ROUTE_KEEPALIVE ? 'K' : '-',
 				    route->nconn,
+				    route->nerror,
 				    route->penalty,
 				    v ? duration_to_text(t - time(NULL)) : "-");
 				m_compose(p, IMSG_CTL_MTA_SHOW_ROUTES,
@@ -554,27 +561,15 @@ mta_source_error(struct mta_relay *relay, struct mta_route *route, const char *e
 	c->flags |= CONNECTOR_ERROR_SOURCE;
 }
 
-/*
- * TODO:
- * Currently all errors are reported on the host itself.  Technically,
- * it should depend on the error, and it would be probably better to report
- * it at the connector level.  But we would need to have persistent routes
- * for that.  Hosts are "naturally" persisted, as they are referenced from
- * the MX list on the domain.
- * Also, we need a timeout on that.
- */
 void
 mta_route_error(struct mta_relay *relay, struct mta_route *route)
 {
-	route->dst->nerror++;
+	route->nerror += 1;
 
-	if (route->dst->flags & HOST_IGNORE)
-		return;
-
-	if (route->dst->nerror > MAXERROR_PER_HOST) {
-		log_info("smtp-out: Too many errors on host %s: ignoring this MX",
-		    mta_host_to_text(route->dst));
-		route->dst->flags |= HOST_IGNORE;
+	if (route->nerror > MAXERROR_PER_ROUTE) {
+		log_info("smtp-out: Too many errors on %s: "
+		    "disabling for a while", mta_route_to_text(route));
+		mta_route_disable(route, 2, ROUTE_DISABLED_SMTP);
 	}
 }
 
@@ -589,6 +584,7 @@ mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 	log_debug("debug: mta-routing: route %s is now valid.",
 	    mta_route_to_text(route));
 
+	route->nerror = 0;
 	route->flags &= ~ROUTE_NEW;
 
 	c = mta_connector(relay, route->src);
@@ -1147,8 +1143,9 @@ mta_route_enable(struct mta_route *route)
 		    mta_route_to_text(route));
 		route->flags &= ~ROUTE_DISABLED;
 		route->flags |= ROUTE_NEW;
+		route->nerror = 0;
 	}
-	
+
 	if (route->penalty) {
 #if DELAY_QUADRATIC
 		route->penalty -= 1;
@@ -1278,6 +1275,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 
 			free(e->dest);
 			free(e->rcpt);
+			free(e->dsn_orcpt);
 			free(e);
 			n++;
 		}
