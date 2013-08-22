@@ -343,11 +343,13 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				log_warn("queue: dsn: failed to load envelope");
 				return;
 			}
-			if (evp.dsn_notify & DSN_SUCCESS) {
-				bounce.type = B_DSN;
-				bounce.delay = 0;
-				bounce.expire = 0;
-				queue_bounce(&evp, &bounce);
+			if (p->proc == PROC_MDA) { /* XXX */
+				if (evp.dsn_notify & DSN_SUCCESS) {
+					bounce.type = B_DSN;
+					bounce.delay = 0;
+					bounce.expire = 0;
+					queue_bounce(&evp, &bounce);
+				}
 			}
 			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1);
