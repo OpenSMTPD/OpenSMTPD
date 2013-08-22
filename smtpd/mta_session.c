@@ -571,6 +571,7 @@ mta_connect(struct mta_session *s)
 static void
 mta_enter_state(struct mta_session *s, int newstate)
 {
+	struct mta_envelope	*e;
 	int			 oldstate;
 	ssize_t			 q;
 
@@ -694,24 +695,31 @@ mta_enter_state(struct mta_session *s, int newstate)
 	case MTA_MAIL:
 		s->hangon = 0;
 		s->msgtried++;
-		if (s->currevp->ext & MTA_EXT_DSN) {
-			mta_send(s, "MAIL FROM:<%s> RET=%s ENVID=%s",
-			    s->task->sender, dsn_strret(s->currevp->dsn_ret),
-			    s->currevp->dsn_envid);
+		e = s->currevp;
+		if (e->ext & MTA_EXT_DSN) {
+			mta_send(s, "MAIL FROM:<%s> %s%s %s%s",
+			    s->task->sender,
+			    e->dsn_ret ? "RET=" : "",
+			    e->dsn_ret ? dsn_strret(e->dsn_ret) : "",
+			    e->dsn_envid ? "ENVID=" : "",
+			    e->dsn_envid ? e->dsn_envid : "");
 		} else
 			mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
 
 	case MTA_RCPT:
-		if (s->currevp == NULL)
-			s->currevp = TAILQ_FIRST(&s->task->envelopes);
-		if (s->currevp->ext & MTA_EXT_DSN) {
-			mta_send(s, "RCPT TO:<%s> NOTIFY=%s ORCPT=%s",
-			    s->currevp->dest,
-			    dsn_strnotify(s->currevp->dsn_notify),
-			    s->currevp->dsn_orcpt);
+		e = s->currevp;
+		if (e == NULL)
+			e = TAILQ_FIRST(&s->task->envelopes);
+		if (e->ext & MTA_EXT_DSN) {
+			mta_send(s, "RCPT TO:<%s> %s%s %s%s",
+			    e->dest,
+			    e->dsn_notify ? "NOTIFY=" : "",
+			    e->dsn_notify ? dsn_strnotify(e->dsn_notify) : "",
+			    e->dsn_orcpt ? "ORCPT=" : "",
+			    e->dsn_orcpt ? e->dsn_orcpt : "");
 		} else
-			mta_send(s, "RCPT TO:<%s>", s->currevp->dest);
+			mta_send(s, "RCPT TO:<%s>", e->dest);
 		s->rcptcount++;
 		break;
 
