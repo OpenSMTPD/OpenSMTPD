@@ -318,9 +318,8 @@ const char *notice_warning2 =
     "    The message is kept in the queue for up to %s.\n"
     "    You DO NOT NEED to re-send the message to these recipients.\n\n";
 
-/* XXX move dsn related stuff to dsn.c */
-const char *dsn_notice =
-    "    Delivery Status Notification.\n\n";
+const char *notice_success =
+    "    Your message was successfully delivered to\n\n";
 
 static int
 bounce_next_message(struct bounce_session *s)
@@ -422,7 +421,7 @@ bounce_next(struct bounce_session *s)
 			break;
 		case B_DSN:
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-			    dsn_notice);
+			    notice_success);
 			break;
 		default:
 			log_warn("warn: bounce: unknown bounce_type");
