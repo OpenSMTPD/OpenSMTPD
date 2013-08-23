@@ -68,6 +68,7 @@ static void control_close(struct ctl_conn *);
 static void control_sig_handler(int, short, void *);
 static void control_dispatch_ext(struct mproc *, struct imsg *);
 static void control_digest_update(const char *, size_t, int);
+static int  control_create_socket(void);
 
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
@@ -75,6 +76,7 @@ extern const char *backend_stat;
 static uint32_t			connid = 0;
 static struct tree		ctl_conns;
 static struct stat_digest	digest;
+extern int     			can_remove_socket;
 
 #define	CONTROL_FD_RESERVE	5
 
@@ -186,30 +188,12 @@ control_sig_handler(int sig, short event, void *p)
 	}
 }
 
-pid_t
-control(void)
+static int
+control_create_socket(void)
 {
-	struct sockaddr_un	 sun;
-	int			 fd;
-	mode_t			 old_umask;
-	pid_t			 pid;
-	struct passwd		*pw;
-	struct event		 ev_sigint;
-	struct event		 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("control: cannot fork");
-	case 0:
-		break;
-	default:
-		return (pid);
-	}
-
-	purge_config(PURGE_EVERYTHING);
-
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
+	struct sockaddr_un	sun;
+	int			fd;
+	mode_t			old_umask;
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("control: socket");
@@ -242,6 +226,36 @@ control(void)
 
 	session_socket_blockmode(fd, BM_NONBLOCK);
 	control_state.fd = fd;
+
+	return fd;
+}
+
+pid_t
+control(void)
+{
+	int			 fd;
+	pid_t			 pid;
+	struct passwd		*pw;
+	struct event		 ev_sigint;
+	struct event		 ev_sigterm;
+
+	fd = control_create_socket();
+
+	switch (pid = fork()) {
+	case -1:
+		fatal("control: cannot fork");
+	case 0:
+		break;
+	default:
+		close(fd);
+		can_remove_socket = 1;
+		return (pid);
+	}
+
+	purge_config(PURGE_EVERYTHING);
+
+	if ((pw = getpwnam(SMTPD_USER)) == NULL)
+		fatalx("unknown user " SMTPD_USER);
 
 	stat_backend = env->sc_stat;
 	stat_backend->init();
