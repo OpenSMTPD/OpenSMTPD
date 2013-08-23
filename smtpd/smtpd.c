@@ -136,6 +136,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
+int     can_remove_socket = 0;
 
 struct tree	 children;
 
@@ -314,7 +315,9 @@ parent_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-	unlink(SMTPD_SOCKET);
+	/* set by control.c:control() */
+	if (can_remove_socket)
+		unlink(SMTPD_SOCKET);
 
 	log_warnx("warn: parent terminating");
 	exit(0);
