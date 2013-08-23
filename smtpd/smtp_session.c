@@ -651,6 +651,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			smtp_reply(s, "250-8BITMIME");
 			smtp_reply(s, "250-ENHANCEDSTATUSCODES");
 			smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
+			smtp_reply(s, "250-DSN");
 			if (ADVERTISE_TLS(s))
 				smtp_reply(s, "250-STARTTLS");
 			if (ADVERTISE_AUTH(s))
