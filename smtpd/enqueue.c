@@ -275,7 +275,7 @@ enqueue(int argc, char *argv[])
 	send_line(fout, verbose, "EHLO localhost\n");
 	get_responses(fout, 1);
 
-	send_line(fout, verbose, "MAIL FROM: <%s> %s%s %s%s\n",
+	send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\n",
 	    msg.from,
 	    msg.dsn_ret ? "RET=" : "",
 	    msg.dsn_ret ? msg.dsn_ret : "",
@@ -284,7 +284,7 @@ enqueue(int argc, char *argv[])
 	get_responses(fout, 1);
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
-		send_line(fout, verbose, "RCPT TO: <%s> %s%s\n",
+		send_line(fout, verbose, "RCPT TO:<%s> %s%s\n",
 		    msg.rcpts[i],
 		    msg.dsn_notify ? "NOTIFY=" : "",
 		    msg.dsn_notify ? msg.dsn_notify : "");
