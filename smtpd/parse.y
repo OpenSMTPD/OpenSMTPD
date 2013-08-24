@@ -126,11 +126,11 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SSL_STRICT
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	port auth ssl size expire address_family
+%type	<v.number>	port auth ssl size expire address_family relay_checkssl
 %type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase credentials from sender
 %type	<v.maddr>	relay_as
 %type	<v.string>	certificate tag tagged relay_source listen_helo relay_helo relay_backup
@@ -728,6 +728,10 @@ destination	: DOMAIN tables			{
 		| ANY		{ $$ = 0; }
 		;
 
+relay_checkssl	: SSL_STRICT		{ $$ = 1; }
+		|			{ $$ = 0; }
+		;
+
 relay_source	: SOURCE tables			{
 			struct table	*t = $2;
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
@@ -830,7 +834,7 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("command too long");
 			free($5);
 		}
-		| RELAY relay_as relay_source relay_helo	{
+		| RELAY relay_as relay_source relay_helo relay_checkssl	{
 			rule->r_action = A_RELAY;
 			rule->r_as = $2;
 			if ($3)
@@ -839,6 +843,8 @@ action		: userbase DELIVER TO MAILDIR			{
 			if ($4)
 				strlcpy(rule->r_value.relayhost.helotable, $4,
 				    sizeof rule->r_value.relayhost.helotable);
+			if ($5)
+				rule->r_value.relayhost.flags |= F_SSL_STRICT_CHECK;
 		}
 		| RELAY relay_backup relay_as relay_source relay_helo	{
 			rule->r_action = A_RELAY;
@@ -1082,6 +1088,7 @@ lookup(char *s)
 		{ "smtps",		SMTPS },
 		{ "source",		SOURCE },
 		{ "ssl",		SSL },
+		{ "ssl-strict",		SSL_STRICT },
 		{ "table",		TABLE },
 		{ "tag",		TAG },
 		{ "tagged",		TAGGED },

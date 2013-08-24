@@ -75,6 +75,7 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
+#define	F_SSL_STRICT_CHECK	0x100
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -88,6 +89,7 @@
 #define RELAY_BACKUP		0x10	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
+#define	RELAY_SSL_STRICT_CHECK	0x100
 
 struct userinfo {
 	char username[SMTPD_MAXLOGNAME];
@@ -102,7 +104,7 @@ struct netaddr {
 };
 
 struct relayhost {
-	uint8_t flags;
+	uint16_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
 	uint16_t port;
 	char cert[SMTPD_MAXPATHLEN];
@@ -477,6 +479,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
 	EVP_MTA_RELAY_HELO,
+	EVP_MTA_RELAY_FLAGS,
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,
