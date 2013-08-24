@@ -103,6 +103,7 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
+#define	F_MASK_SOURCE  		0x100
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -511,7 +512,7 @@ enum envelope_field {
 };
 
 struct listener {
-	uint8_t			 flags;
+	uint16_t       		 flags;
 	int			 fd;
 	struct sockaddr_storage	 ss;
 	in_port_t		 port;
@@ -1090,7 +1091,6 @@ void dns_imsg(struct mproc *, struct imsg *);
 
 /* enqueue.c */
 int		 enqueue(int, char **);
-int		 enqueue_offline(int, char **);
 
 
 /* envelope.c */
