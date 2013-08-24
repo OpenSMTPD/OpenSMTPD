@@ -1090,7 +1090,6 @@ void dns_imsg(struct mproc *, struct imsg *);
 
 /* enqueue.c */
 int		 enqueue(int, char **);
-int		 enqueue_offline(int, char **);
 
 
 /* envelope.c */

@@ -32,7 +32,6 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
-#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +44,6 @@
 extern struct imsgbuf	*ibuf;
 
 void usage(void);
-static void sighdlr(int);
 static void build_from(char *, struct passwd *);
 static int parse_message(FILE *, int, int, FILE *);
 static void parse_addr(char *, size_t, int);
@@ -55,6 +53,9 @@ static void rcpt_add(char *);
 static int open_connection(void);
 static void get_responses(FILE *, int);
 static int send_line(FILE *, int, char *, ...);
+static int enqueue_offline(int, char *[], FILE *);
+
+extern int srv_connect(void);
 
 enum headerfields {
 	HDR_NONE,
@@ -128,15 +129,6 @@ struct {
 } pstate;
 
 static void
-sighdlr(int sig)
-{
-	if (sig == SIGALRM) {
-		write(STDERR_FILENO, TIMEOUTMSG, sizeof(TIMEOUTMSG));
-		_exit(2);
-	}
-}
-
-static void
 qp_encoded_write(FILE *fp, char *buf, size_t len)
 {
 	while (len) {
@@ -175,9 +167,14 @@ enqueue(int argc, char *argv[])
 	char			*line;
 	int			 dotted;
 	int			 inheaders = 0;
+	int			 save_argc;
+	char			**save_argv;
 
 	bzero(&msg, sizeof(msg));
 	time(&timestamp);
+
+	save_argc = argc;
+	save_argv = argv;
 
 	while ((ch = getopt(argc, argv,
 	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qR:tvx")) != -1) {
@@ -235,9 +232,6 @@ enqueue(int argc, char *argv[])
 		argc--;
 	}
 
-	signal(SIGALRM, sighdlr);
-	alarm(300);
-
 	fp = tmpfile();
 	if (fp == NULL)
 		err(1, "tmpfile");
@@ -248,6 +242,12 @@ enqueue(int argc, char *argv[])
 
 	/* init session */
 	rewind(fp);
+
+	/* try to connect */
+	/* If the server is not running, enqueue the message offline */
+
+	if (!srv_connect())
+		return (enqueue_offline(save_argc, save_argv, fp));
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(1, "server too busy");
@@ -730,8 +730,8 @@ open_connection(void)
 	return fd;
 }
 
-int
-enqueue_offline(int argc, char *argv[])
+static int
+enqueue_offline(int argc, char *argv[], FILE *ifile)
 {
 	char	 path[SMTPD_MAXPATHLEN];
 	FILE	*fp;
@@ -770,14 +770,14 @@ enqueue_offline(int argc, char *argv[])
 
 	fprintf(fp, "\n");
 
-	while ((ch = fgetc(stdin)) != EOF)
+	while ((ch = fgetc(ifile)) != EOF)
 		if (fputc(ch, fp) == EOF) {
 			warn("write error");
 			unlink(path);
 			exit(1);
 		}
 
-	if (ferror(stdin)) {
+	if (ferror(ifile)) {
 		warn("read error");
 		unlink(path);
 		exit(1);

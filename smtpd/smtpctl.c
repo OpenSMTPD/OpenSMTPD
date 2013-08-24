@@ -59,6 +59,8 @@
 #define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
 
+int srv_connect(void);
+
 void usage(void);
 static void show_queue_envelope(struct envelope *, int);
 static void getflag(uint *, int, char *, char *, size_t);
@@ -106,7 +108,7 @@ void stat_decrement(const char *k, size_t v)
 {
 }
 
-static int
+int
 srv_connect(void)
 {
 	struct sockaddr_un	sun;
@@ -826,9 +828,7 @@ main(int argc, char **argv)
 	if (strcmp(__progname, "sendmail") == 0 ||
 	    strcmp(__progname, "send-mail") == 0) {
 		sendmail = 1;
-		if (srv_connect())
-			return (enqueue(argc, argv));
-		return (enqueue_offline(argc, argv));
+		return (enqueue(argc, argv));
 	}
 
 	if (geteuid())
