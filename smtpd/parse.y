@@ -94,16 +94,16 @@ struct listener		 l;
 struct mta_limits	*limits;
 
 static void config_listener(struct listener *,  const char *, const char *,
-    const char *, in_port_t, const char *, uint8_t, const char *);
+    const char *, in_port_t, const char *, uint16_t, const char *);
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(const char *, const char *, const char *,
 		    struct listenerlist *, int, in_port_t, const char *,
-		    uint8_t, const char *);
+		    uint16_t, const char *);
 int		 host(const char *, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint8_t, const char *);
+    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *);
 int		 interface(const char *, int, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint8_t, const char *);
+    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *);
 void		 set_localaddrs(void);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
@@ -126,11 +126,11 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	port auth ssl size expire address_family
+%type	<v.number>	port auth ssl size expire address_family mask_source
 %type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase credentials from sender
 %type	<v.maddr>	relay_as
 %type	<v.string>	certificate tag tagged relay_source listen_helo relay_helo relay_backup
@@ -362,6 +362,10 @@ limits		: opt_limit limits
 		| /* empty */
 		;
 
+mask_source	: MASK_SOURCE	{ $$ = F_MASK_SOURCE; }
+		|		{ $$ = 0; }
+		;
+
 main		: BOUNCEWARN {
 			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
 		} bouncedelays
@@ -437,15 +441,17 @@ main		: BOUNCEWARN {
 		} limits
 		| LISTEN {
 			bzero(&l, sizeof l);
-		} ON STRING address_family port ssl certificate auth tag listen_helo {
+		} ON STRING address_family port ssl certificate auth tag listen_helo mask_source {
 			char	       *ifx  = $4;
 			int		family = $5;
 			in_port_t	port = $6;
 			uint8_t		ssl  = $7;
 			char	       *cert = $8;
-			uint8_t		auth = $9;
+			uint16_t       	auth = $9;
 			char	       *tag  = $10;
 			char	       *helo = $11;
+			uint16_t       	masksrc = $12;
+			uint16_t	flags;
 
 			if (port != 0 && ssl == F_SSL) {
 				yyerror("invalid listen option: tls/smtps on same port");
@@ -457,12 +463,14 @@ main		: BOUNCEWARN {
 				YYERROR;
 			}
 
+			flags = auth|masksrc;
+
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
 					if (! interface(ifx, family, tag, cert, conf->sc_listeners,
-						MAX_LISTEN, 465, l.authtable, F_SMTPS|auth, helo)) {
+						MAX_LISTEN, 465, l.authtable, F_SMTPS|flags, helo)) {
 						if (host(ifx, tag, cert, conf->sc_listeners,
-							MAX_LISTEN, 465, l.authtable, ssl|auth, helo) <= 0) {
+							MAX_LISTEN, 465, l.authtable, ssl|flags, helo) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -470,9 +478,9 @@ main		: BOUNCEWARN {
 				}
 				if (! ssl || (ssl & ~F_SMTPS)) {
 					if (! interface(ifx, family, tag, cert, conf->sc_listeners,
-						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|auth, helo)) {
+						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|flags, helo)) {
 						if (host(ifx, tag, cert, conf->sc_listeners,
-							MAX_LISTEN, 25, l.authtable, ssl|auth, helo) <= 0) {
+							MAX_LISTEN, 25, l.authtable, ssl|auth|flags, helo) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -483,7 +491,7 @@ main		: BOUNCEWARN {
 				if (! interface(ifx, family, tag, cert, conf->sc_listeners,
 					MAX_LISTEN, port, l.authtable, ssl|auth, helo)) {
 					if (host(ifx, tag, cert, conf->sc_listeners,
-						MAX_LISTEN, port, l.authtable, ssl|auth, helo) <= 0) {
+						MAX_LISTEN, port, l.authtable, ssl|flags, helo) <= 0) {
 						yyerror("invalid virtual ip or interface: %s", ifx);
 						YYERROR;
 					}
@@ -1069,6 +1077,7 @@ lookup(char *s)
 		{ "lmtp",		LMTP },
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
+		{ "mask-source",	MASK_SOURCE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
@@ -1614,7 +1623,7 @@ symget(const char *nam)
 
 static void
 config_listener(struct listener *h,  const char *name, const char *tag,
-    const char *cert, in_port_t port, const char *authtable, uint8_t flags,
+    const char *cert, in_port_t port, const char *authtable, uint16_t flags,
     const char *helo)
 {
 	h->fd = -1;
@@ -1685,7 +1694,7 @@ host_v6(const char *s, in_port_t port)
 int
 host_dns(const char *s, const char *tag, const char *cert,
     struct listenerlist *al, int max, in_port_t port, const char *authtable,
-    uint8_t flags, const char *helo)
+    uint16_t flags, const char *helo)
 {
 	struct addrinfo		 hints, *res0, *res;
 	int			 error, cnt = 0;
@@ -1741,7 +1750,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 
 int
 host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
-    int max, in_port_t port, const char *authtable, uint8_t flags,
+    int max, in_port_t port, const char *authtable, uint16_t flags,
     const char *helo)
 {
 	struct listener *h;
@@ -1766,7 +1775,7 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 int
 interface(const char *s, int family, const char *tag, const char *cert,
     struct listenerlist *al, int max, in_port_t port, const char *authtable,
-    uint8_t flags, const char *helo)
+    uint16_t flags, const char *helo)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_in	*sain;
