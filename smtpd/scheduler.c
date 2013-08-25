@@ -370,6 +370,7 @@ scheduler(void)
 	case -1:
 		fatal("scheduler: cannot fork");
 	case 0:
+		post_fork(PROC_SCHEDULER);
 		break;
 	default:
 		return (pid);

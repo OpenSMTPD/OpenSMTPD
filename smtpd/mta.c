@@ -474,6 +474,7 @@ mta(void)
 	case -1:
 		fatal("mta: cannot fork");
 	case 0:
+		post_fork(PROC_MTA);
 		break;
 	default:
 		return (pid);

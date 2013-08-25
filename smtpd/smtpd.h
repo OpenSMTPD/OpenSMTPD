@@ -1039,6 +1039,7 @@ void config_done(void);
 
 /* control.c */
 pid_t control(void);
+int control_create_socket(void);
 
 
 /* crypto.c */
@@ -1253,6 +1254,7 @@ void smtp_session_imsg(struct mproc *, struct imsg *);
 
 /* smtpd.c */
 void imsg_dispatch(struct mproc *, struct imsg *);
+void post_fork(int);
 const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);
