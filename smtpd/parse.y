@@ -127,7 +127,7 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE LISTEN ON ANY PORT EXPIRE
+%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
@@ -387,7 +387,7 @@ main		: BOUNCEWARN {
 				YYERROR;
 			}
 			conf->sc_queue_key = strdup(password);
-			bzero(password, _PASSWORD_LEN);
+			bzero(password, strlen(password));
 			if (conf->sc_queue_key == NULL) {
 				yyerror("memory exhausted");
 				YYERROR;
@@ -430,6 +430,9 @@ main		: BOUNCEWARN {
 		| MAXMESSAGESIZE size {
 			conf->sc_maxsize = $2;
 		}
+		| MAXMTADEFERRED NUMBER  {
+			conf->sc_mta_max_deferred = $2;
+		} 
 		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
 
@@ -1085,6 +1088,7 @@ lookup(char *s)
 		{ "maildir",		MAILDIR },
 		{ "mask-source",	MASK_SOURCE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
+		{ "max-mta-deferred",  	MAXMTADEFERRED },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
@@ -1491,6 +1495,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;
+
+	conf->sc_mta_max_deferred = 5000;
 
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);

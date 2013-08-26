@@ -553,6 +553,8 @@ struct smtpd {
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
 
+	size_t				sc_mta_max_deferred;
+
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
