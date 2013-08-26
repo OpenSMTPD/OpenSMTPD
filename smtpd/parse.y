@@ -381,7 +381,7 @@ main		: BOUNCEWARN {
 				YYERROR;
 			}
 			conf->sc_queue_key = strdup(password);
-			bzero(password, _PASSWORD_LEN);
+			bzero(password, strlen(password));
 			if (conf->sc_queue_key == NULL) {
 				yyerror("memory exhausted");
 				YYERROR;
