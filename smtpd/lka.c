@@ -592,6 +592,7 @@ lka(void)
 	case -1:
 		fatal("lka: cannot fork");
 	case 0:
+		post_fork(PROC_LKA);
 		break;
 	default:
 		return (pid);

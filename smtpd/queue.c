@@ -539,6 +539,7 @@ queue(void)
 	case -1:
 		fatal("queue: cannot fork");
 	case 0:
+		post_fork(PROC_QUEUE);
 		break;
 	default:
 		return (pid);

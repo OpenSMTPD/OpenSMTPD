@@ -225,6 +225,7 @@ mfa(void)
 	case -1:
 		fatal("filter: cannot fork");
 	case 0:
+		post_fork(PROC_MFA);
 		break;
 	default:
 		return (pid);

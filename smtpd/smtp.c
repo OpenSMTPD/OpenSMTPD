@@ -250,6 +250,7 @@ smtp(void)
 	case -1:
 		fatal("smtp: cannot fork");
 	case 0:
+		post_fork(PROC_SMTP);
 		break;
 	default:
 		return (pid);

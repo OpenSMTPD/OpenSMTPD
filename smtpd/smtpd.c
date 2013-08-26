@@ -161,7 +161,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
-int     can_remove_socket = 0;
+int     control_socket = -1;
 
 struct tree	 children;
 
@@ -396,9 +396,7 @@ parent_shutdown(void)
 	event_base_free(NULL);
 #endif
 
-	/* set by control.c:control() */
-	if (can_remove_socket)
-		unlink(SMTPD_SOCKET);
+	unlink(SMTPD_SOCKET);
 
 	log_warnx("warn: parent terminating");
 	exit(0);
@@ -825,6 +823,9 @@ main(int argc, char *argv[])
 	if (geteuid())
 		errx(1, "need root privileges");
 
+	/* the control socket ensures that only one smtpd instance is running */
+	control_socket = control_create_socket();
+
 	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
 
@@ -980,9 +981,6 @@ fork_peers(void)
 	init_pipes();
 
 	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
-	if (env->sc_queue_key)
-		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
-
 	child_add(control(), CHILD_DAEMON, proc_title(PROC_CONTROL));
 	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
 	child_add(mda(), CHILD_DAEMON, proc_title(PROC_MDA));
@@ -990,6 +988,19 @@ fork_peers(void)
 	child_add(mta(), CHILD_DAEMON, proc_title(PROC_MTA));
 	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
 	child_add(smtp(), CHILD_DAEMON, proc_title(PROC_SMTP));
+
+	post_fork(PROC_PARENT);
+}
+
+void
+post_fork(int proc)
+{
+	if (proc != PROC_QUEUE && env->sc_queue_key)
+		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+	if (proc != PROC_CONTROL) {
+		close(control_socket);
+		control_socket = -1;
+	}
 }
 
 struct child *
