@@ -318,22 +318,30 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		if (resp_ca_cert->status == CA_FAIL) {
-			log_info("smtp-out: Disconnecting session %016"PRIx64
-			    ": CA failure", s->id);
-			mta_free(s);
-			return;
+			if (s->relay->cert) {
+				log_info("smtp-out: Disconnecting session %016"PRIx64
+				    ": CA failure", s->id);
+				mta_free(s);
+				return;
+			}
+			else {
+				ssl = ssl_mta_init(NULL, 0, NULL, 0);
+				if (ssl == NULL)
+					fatal("mta: ssl_mta_init");
+				io_start_tls(&s->io, ssl);
+				return;
+			}
 		}
 
-		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "mta:ca_cert");
+		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert,
+		    "mta:ca_cert");
 		if (resp_ca_cert == NULL)
 			fatal(NULL);
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "mta:ca_cert");
-
 		resp_ca_cert->key = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert + resp_ca_cert->cert_len,
 		    "mta:ca_key");
-
 		ssl = ssl_mta_init(resp_ca_cert->cert, resp_ca_cert->cert_len,
 		    resp_ca_cert->key, resp_ca_cert->key_len);
 		if (ssl == NULL)
@@ -345,7 +353,6 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		free(resp_ca_cert->cert);
 		free(resp_ca_cert->key);
 		free(resp_ca_cert);
-
 		return;
 
 	case IMSG_LKA_SSL_VERIFY:
@@ -1413,22 +1420,20 @@ static void
 mta_start_tls(struct mta_session *s)
 {
 	struct ca_cert_req_msg	req_ca_cert;
-	void		       *ssl;
+	const char	       *certname;
 
-	if (s->relay->cert) {
-		req_ca_cert.reqid = s->id;
-		strlcpy(req_ca_cert.name, s->relay->cert,
-		    sizeof req_ca_cert.name);
-		m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
-		    &req_ca_cert, sizeof(req_ca_cert));
-		tree_xset(&wait_ssl_init, s->id, s);
-		s->flags |= MTA_WAIT;
-		return;
-	}
-	ssl = ssl_mta_init(NULL, 0, NULL, 0);
-	if (ssl == NULL)
-		fatal("mta: ssl_mta_init");
-	io_start_tls(&s->io, ssl);
+	if (s->relay->cert)
+		certname = s->relay->cert;
+	else
+		certname = s->helo;
+
+	req_ca_cert.reqid = s->id;
+	strlcpy(req_ca_cert.name, certname, sizeof req_ca_cert.name);
+	m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
+	    &req_ca_cert, sizeof(req_ca_cert));
+	tree_xset(&wait_ssl_init, s->id, s);
+	s->flags |= MTA_WAIT;
+	return;
 }
 
 static int

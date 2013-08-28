@@ -379,12 +379,14 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		fprintf(s->ofile,
-		    "Received: from %s (%s [%s]);\n"
-		    "\tby %s (%s) with %sSMTP%s%s id %08x;\n",
-		    s->evp.helo,
-		    s->hostname,
-		    ss_to_text(&s->ss),
+		fprintf(s->ofile, "Received: ");
+		if (! (s->listener->flags & F_MASK_SOURCE)) {
+			fprintf(s->ofile, "from %s (%s [%s]);\n\t",
+			    s->evp.helo,
+			    s->hostname,
+			    ss_to_text(&s->ss));
+		}
+		fprintf(s->ofile, "by %s (%s) with %sSMTP%s%s id %08x;\n",
 		    s->listener->helo,
 		    SMTPD_NAME,
 		    s->flags & SF_EHLO ? "E" : "",

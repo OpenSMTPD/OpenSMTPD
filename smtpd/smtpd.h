@@ -75,6 +75,7 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
+#define	F_MASK_SOURCE  		0x100
 
 #define F_SCERT			0x01
 #define F_CCERT			0x02
@@ -514,7 +515,7 @@ enum envelope_field {
 };
 
 struct listener {
-	uint8_t			 flags;
+	uint16_t       		 flags;
 	int			 fd;
 	struct sockaddr_storage	 ss;
 	in_port_t		 port;
@@ -554,6 +555,8 @@ struct smtpd {
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
+
+	size_t				sc_mta_max_deferred;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
@@ -1074,6 +1077,7 @@ void config_done(void);
 
 /* control.c */
 pid_t control(void);
+int control_create_socket(void);
 
 
 /* crypto.c */
@@ -1098,7 +1102,6 @@ void dns_imsg(struct mproc *, struct imsg *);
 
 /* enqueue.c */
 int		 enqueue(int, char **);
-int		 enqueue_offline(int, char **);
 
 
 /* envelope.c */
@@ -1289,6 +1292,7 @@ void smtp_session_imsg(struct mproc *, struct imsg *);
 
 /* smtpd.c */
 void imsg_dispatch(struct mproc *, struct imsg *);
+void post_fork(int);
 const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);

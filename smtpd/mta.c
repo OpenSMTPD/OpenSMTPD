@@ -481,6 +481,7 @@ mta(void)
 	case -1:
 		fatal("mta: cannot fork");
 	case 0:
+		post_fork(PROC_MTA);
 		break;
 	default:
 		return (pid);
@@ -2213,6 +2214,9 @@ mta_hoststat_cache(const char *host, uint64_t evpid)
 
 	hs = dict_get(&hoststat, buf);
 	if (hs == NULL)
+		return;
+
+	if (tree_count(&hs->deferred) >= env->sc_mta_max_deferred)
 		return;
 
 	tree_set(&hs->deferred, evpid, NULL);
