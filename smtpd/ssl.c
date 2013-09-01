@@ -9,7 +9,7 @@
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES755
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
@@ -251,7 +251,7 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 	    path ? path : "/etc/ssl", name);
 	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
+	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0400);
 	if (s->ssl_cert == NULL)
 		goto err;
 
@@ -259,7 +259,7 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 	    path ? path : "/etc/ssl/private", name);
 	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0700);
+	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0400);
 	if (s->ssl_key == NULL)
 		goto err;
 
@@ -267,7 +267,7 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 	    path ? path : "/etc/ssl", name);
 	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
+	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0400);
 	if (s->ssl_ca == NULL) {
 		if (errno == EACCES)
 			goto err;
@@ -278,7 +278,7 @@ ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t f
 	    path ? path : "/etc/ssl", name);
 	if (ret == -1 || (size_t)ret >= sizeof pathname)
 		goto err;
-	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
+	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0400);
 	if (s->ssl_dhparams == NULL) {
 		if (errno == EACCES)
 			goto err;
