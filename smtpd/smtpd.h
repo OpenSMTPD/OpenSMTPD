@@ -104,9 +104,7 @@
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
 #define	F_MASK_SOURCE  		0x100
-
-#define F_SCERT			0x01
-#define F_CCERT			0x02
+#define	F_TLS_VERIFY		0x200
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
@@ -117,6 +115,7 @@
 #define RELAY_BACKUP		0x10	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
+#define	RELAY_TLS_VERIFY	0x200
 
 struct userinfo {
 	char username[SMTPD_MAXLOGNAME];
@@ -131,7 +130,7 @@ struct netaddr {
 };
 
 struct relayhost {
-	uint8_t flags;
+	uint16_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
 	uint16_t port;
 	char cert[SMTPD_MAXPATHLEN];
@@ -447,7 +446,7 @@ struct expand {
 	struct expandnode		*parent;
 };
 
-#define	SMTPD_ENVELOPE_VERSION		1
+#define	SMTPD_ENVELOPE_VERSION		2
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
@@ -508,6 +507,7 @@ enum envelope_field {
 	EVP_MTA_RELAY_CERT,
 	EVP_MTA_RELAY_SOURCE,
 	EVP_MTA_RELAY_HELO,
+	EVP_MTA_RELAY_FLAGS,
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,

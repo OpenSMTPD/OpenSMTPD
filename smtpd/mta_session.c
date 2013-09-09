@@ -193,6 +193,8 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 	s->route = route;
 	s->io.sock = -1;
 
+	warnx("FLAGS #2: %d", relay->flags);
+
 	if (relay->flags & RELAY_SSL && relay->flags & RELAY_AUTH)
 		s->flags |= MTA_USE_AUTH;
 	if (relay->cert)
@@ -363,6 +365,12 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= MTA_VERIFIED;
+		else if (s->relay->flags & F_TLS_VERIFY) {
+			errno = 0;
+			mta_error(s, "SSL certificate check failed");
+			mta_free(s);
+			return;
+		}
 
 		mta_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
