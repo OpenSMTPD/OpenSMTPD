@@ -56,6 +56,8 @@
 #define DELAY_ROUTE_BASE	200
 #define DELAY_ROUTE_MAX		(3600 * 4)
 
+#define RELAY_ONHOLD		0x01
+
 static void mta_imsg(struct mproc *, struct imsg *);
 static void mta_shutdown(void);
 static void mta_sig_handler(int, short, void *);
@@ -191,6 +193,28 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 
 			relay = mta_relay(&evp);
+			/* ignore if we don't know the limits yet */
+			if (relay->limits && 
+			    relay->ntask >= (size_t)relay->limits->task_hiwat) {
+				if (!(relay->state & RELAY_ONHOLD)) {
+					log_info("smtp-out: hiwat reached on %s: holding envelopes",
+					    mta_relay_to_text(relay));
+					relay->state |= RELAY_ONHOLD;
+				}
+			}
+
+			/*
+			 * If the relay has too many pending tasks, tell the
+			 * scheduler to hold it until further notice
+			 */
+			if (relay->state & RELAY_ONHOLD) {
+				m_create(p_queue, IMSG_DELIVERY_HOLD, 0, 0, -1);
+				m_add_evpid(p_queue, evp.id);
+				m_add_id(p_queue, relay->id);
+				m_close(p_queue);
+				mta_relay_unref(relay);
+				return;
+			}
 
 			TAILQ_FOREACH(task, &relay->tasks, entry)
 				if (task->msgid == evpid_to_msgid(evp.id))
@@ -636,6 +660,25 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		relay->ntask -= 1;
 		task->relay = NULL;
+
+		/* When the number of tasks is down to lowat, query some evp */
+		if (relay->ntask == (size_t)relay->limits->task_lowat) {
+			if (relay->state & RELAY_ONHOLD) {
+				log_info("smtp-out: back to lowat on %s: releasing",
+				    mta_relay_to_text(relay));
+				relay->state &= ~RELAY_ONHOLD;
+			}
+			m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+			m_add_id(p_queue, relay->id);
+			m_add_int(p_queue, relay->limits->task_release);
+			m_close(p_queue);
+		}
+		else if (relay->ntask == 0) {
+			m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+			m_add_id(p_queue, relay->id);
+			m_add_int(p_queue, 0);
+			m_close(p_queue);
+		}
 	}
 
 	return (task);
@@ -1286,6 +1329,12 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	stat_decrement("mta.task", relay->ntask);
 	stat_decrement("mta.envelope", n);
 	relay->ntask = 0;
+
+	/* release all waiting envelopes for the relay */
+	m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+	m_add_id(p_queue, relay->id);
+	m_add_int(p_queue, 0);
+	m_close(p_queue);
 }
 
 /*
@@ -1690,14 +1739,15 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 	else
 		strlcpy(dur, "-", sizeof(dur));
 
-	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s",
+	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s%s",
 	    mta_relay_to_text(r),
 	    r->refcount,
 	    r->ntask,
 	    r->nconn,
 	    r->lastconn ? duration_to_text(t - r->lastconn) : "-",
 	    dur,
-	    flags);
+	    flags,
+	    (r->state & RELAY_ONHOLD) ? "ONHOLD" : "");
 	m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf, strlen(buf) + 1);
 
 	iter = NULL;

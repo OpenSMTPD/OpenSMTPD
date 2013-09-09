@@ -60,6 +60,7 @@ static void scheduler_process_mta(struct scheduler_batch *);
 
 static struct scheduler_backend *backend = NULL;
 static struct event		 ev;
+static size_t			 ninflight;
 
 extern const char *backend_scheduler;
 
@@ -76,7 +77,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	struct envelope		 evp;
 	struct scheduler_info	 si;
 	struct msg		 m;
-	uint64_t		 evpid, id;
+	uint64_t		 evpid, id, holdq;
 	uint32_t		 msgid, msgids[MSGBATCHSIZE];
 	uint32_t       		 inflight;
 	uint32_t       		 penalty;
@@ -131,8 +132,11 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		stat_decrement("scheduler.envelope", 1);
 		if (! inflight)
 			backend->remove(evpid);
-		else
+		else {
 			backend->delete(evpid);
+			inflight -= 1;
+			stat_decrement("scheduler.envelope.inflight", 1);
+		}
 
 		scheduler_reset_events();
 		return;
@@ -144,6 +148,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (ok)", evpid);
 		backend->delete(evpid);
+		ninflight -= 1;
 		stat_increment("scheduler.delivery.ok", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_decrement("scheduler.envelope", 1);
@@ -159,6 +164,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		    "scheduler: updating evp:%016" PRIx64, evp.id);
 		scheduler_info(&si, &evp, penalty);
 		backend->update(&si);
+		ninflight -= 1;
 		stat_increment("scheduler.delivery.tempfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 
@@ -188,6 +194,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (fail)", evpid);
 		backend->delete(evpid);
+		ninflight -= 1;
 		stat_increment("scheduler.delivery.permfail", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_decrement("scheduler.envelope", 1);
@@ -201,9 +208,36 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: deleting evp:%016" PRIx64 " (loop)", evpid);
 		backend->delete(evpid);
+		ninflight -= 1;
 		stat_increment("scheduler.delivery.loop", 1);
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_decrement("scheduler.envelope", 1);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_DELIVERY_HOLD:
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_get_id(&m, &holdq);
+		m_end(&m);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: holding evp:%016" PRIx64 " on %016" PRIx64,
+		    evpid, holdq);
+		backend->hold(evpid, holdq);
+		stat_decrement("scheduler.envelope.inflight", 1);
+		stat_increment("scheduler.envelope.hold", 1);
+		scheduler_reset_events();
+		return;
+
+	case IMSG_DELIVERY_RELEASE:
+		m_msg(&m, imsg);
+		m_get_id(&m, &holdq);
+		m_get_int(&m, &r);
+		m_end(&m);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: releasing %i on holdq %016" PRIx64, r, holdq);
+		r = backend->release(holdq, r);
+		stat_decrement("scheduler.envelope.hold", r);
 		scheduler_reset_events();
 		return;
 
@@ -437,9 +471,11 @@ scheduler_timeout(int fd, short event, void *p)
 	tv.tv_usec = 0;
 
 	typemask = SCHED_REMOVE | SCHED_EXPIRE | SCHED_BOUNCE;
-	if (!(env->sc_flags & SMTPD_MDA_PAUSED))
+	if (ninflight < env->sc_scheduler_max_inflight &&
+	    !(env->sc_flags & SMTPD_MDA_PAUSED))
 		typemask |= SCHED_MDA;
-	if (!(env->sc_flags & SMTPD_MTA_PAUSED))
+	if (ninflight < env->sc_scheduler_max_inflight &&
+	    !(env->sc_flags & SMTPD_MTA_PAUSED))
 		typemask |= SCHED_MTA;
 
 	bzero(&batch, sizeof (batch));
@@ -543,6 +579,7 @@ scheduler_process_bounce(struct scheduler_batch *batch)
 		m_close(p_queue);
 	}
 
+	ninflight += batch->evpcount;
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 }
 
@@ -559,6 +596,7 @@ scheduler_process_mda(struct scheduler_batch *batch)
 		m_close(p_queue);
 	}
 
+	ninflight += batch->evpcount;
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 }
 
@@ -575,5 +613,6 @@ scheduler_process_mta(struct scheduler_batch *batch)
 		m_close(p_queue);
 	}
 
+	ninflight += batch->evpcount;
 	stat_increment("scheduler.envelope.inflight", batch->evpcount);
 }

@@ -127,7 +127,7 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
+%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED MAXSCHEDULERINFLIGHT LISTEN ON ANY PORT EXPIRE
 %token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
@@ -432,6 +432,9 @@ main		: BOUNCEWARN {
 		}
 		| MAXMTADEFERRED NUMBER  {
 			conf->sc_mta_max_deferred = $2;
+		} 
+		| MAXSCHEDULERINFLIGHT NUMBER  {
+			conf->sc_scheduler_max_inflight = $2;
 		} 
 		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
@@ -1089,6 +1092,7 @@ lookup(char *s)
 		{ "mask-source",	MASK_SOURCE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "max-mta-deferred",  	MAXMTADEFERRED },
+		{ "max-scheduler-inflight",  	MAXSCHEDULERINFLIGHT },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
@@ -1496,7 +1500,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;
 
-	conf->sc_mta_max_deferred = 5000;
+	conf->sc_mta_max_deferred = 100;
+	conf->sc_scheduler_max_inflight = 5000;
 
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);

@@ -892,6 +892,7 @@ show_queue_envelope(struct envelope *e, int online)
 	getflag(&e->flags, EF_AUTHENTICATED, "auth", status, sizeof(status));
 	getflag(&e->flags, EF_INTERNAL, "internal", status, sizeof(status));
 	getflag(&e->flags, EF_SUSPEND, "suspend", status, sizeof(status));
+	getflag(&e->flags, EF_HOLD, "hold", status, sizeof(status));
 
 	if (online) {
 		if (e->flags & EF_PENDING)

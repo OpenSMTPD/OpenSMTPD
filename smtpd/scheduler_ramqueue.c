@@ -58,7 +58,8 @@ struct rq_envelope {
 #define	RQ_ENVELOPE_EXPIRED	 0x04
 #define	RQ_ENVELOPE_REMOVED	 0x08
 #define	RQ_ENVELOPE_INFLIGHT	 0x10
-#define	RQ_ENVELOPE_SUSPEND	 0x20
+#define	RQ_ENVELOPE_HOLD	 0x20
+#define	RQ_ENVELOPE_SUSPEND	 0x40
 	uint8_t			 flags;
 
 	time_t			 sched;
@@ -68,6 +69,10 @@ struct rq_envelope {
 
 	time_t			 t_inflight;
 	time_t			 t_scheduled;
+};
+
+struct rq_holdq {
+	struct evplist		 q;
 };
 
 struct rq_queue {
@@ -90,6 +95,8 @@ static size_t scheduler_ram_commit(uint32_t);
 static size_t scheduler_ram_rollback(uint32_t);
 static int scheduler_ram_update(struct scheduler_info *);
 static int scheduler_ram_delete(uint64_t);
+static int scheduler_ram_hold(uint64_t, uint64_t);
+static int scheduler_ram_release(uint64_t, int);
 static int scheduler_ram_batch(int, struct scheduler_batch *);
 static size_t scheduler_ram_messages(uint32_t, uint32_t *, size_t);
 static size_t scheduler_ram_envelopes(uint64_t, struct evpstate *, size_t);
@@ -122,6 +129,8 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 
 	scheduler_ram_update,
 	scheduler_ram_delete,
+	scheduler_ram_hold,
+	scheduler_ram_release,
 
 	scheduler_ram_batch,
 
@@ -135,6 +144,7 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 
 static struct rq_queue	ramqueue;
 static struct tree	updates;
+static struct tree	holdqs;
 
 static time_t		currtime;
 
@@ -143,6 +153,7 @@ scheduler_ram_init(void)
 {
 	rq_queue_init(&ramqueue);
 	tree_init(&updates);
+	tree_init(&holdqs);
 
 	return (1);
 }
@@ -304,6 +315,88 @@ scheduler_ram_delete(uint64_t evpid)
 }
 
 static int
+scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
+{
+	struct rq_holdq		*hq;
+	struct rq_message	*msg;
+	struct rq_envelope	*evp;
+	uint32_t		 msgid;
+
+	currtime = time(NULL);
+
+	msgid = evpid_to_msgid(evpid);
+	msg = tree_xget(&ramqueue.messages, msgid);
+	evp = tree_xget(&msg->envelopes, evpid);
+
+	/* it *must* be in-flight */
+	if (!(evp->flags & RQ_ENVELOPE_INFLIGHT))
+		errx(1, "evp:%016" PRIx64 " not in-flight", evpid);
+
+	TAILQ_REMOVE(&ramqueue.q_inflight, evp, entry);
+	evp->flags &= ~RQ_ENVELOPE_INFLIGHT;
+
+	/* If the envelope is suspended, just mark it as pending */
+	if (evp->flags & RQ_ENVELOPE_SUSPEND) {
+		evp->flags |= RQ_ENVELOPE_PENDING;
+		return;
+	}
+
+	hq = tree_get(&holdqs, holdq);
+	if (hq == NULL) {
+		hq = xcalloc(1, sizeof(*hq), "scheduler_hold");
+		TAILQ_INIT(&hq->q);
+		tree_xset(&holdqs, holdq, hq);
+	}
+
+	evp->flags |= RQ_ENVELOPE_HOLD;
+	/* This is an optimization: upon release, the envelopes will be
+	 * inserted in the pending queue from the first element to the last.
+	 * Since elements already in the queue were received first, they
+	 * were scheduled first, so they will be reinserted before the
+	 * current element.
+	 */
+	TAILQ_INSERT_HEAD(&hq->q, evp, entry);
+
+	return (1);
+}
+
+static int
+scheduler_ram_release(uint64_t holdq, int n)
+{
+	struct rq_holdq		*hq;
+	struct rq_envelope	*evp;
+	int			 i;
+
+	currtime = time(NULL);
+
+	hq = tree_get(&holdqs, holdq);
+	if (hq == NULL)
+		return (0);
+
+	for (i = 0; n == 0 || i < n; i++) {
+		evp = TAILQ_FIRST(&hq->q);
+		if (evp == NULL)
+			break;
+
+		TAILQ_REMOVE(&hq->q, evp, entry);
+		evp->flags &= ~RQ_ENVELOPE_HOLD;
+
+		/* When released, all envelopes are put in the pending queue
+		 * and will be rescheduled immediatly.  As an optimization,
+		 * we could just schedule them directly.
+		 */
+		evp->flags |= RQ_ENVELOPE_PENDING;
+		if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
+			sorted_insert(&ramqueue.q_pending, evp);
+	}
+
+	if (TAILQ_EMPTY(&hq->q))
+		tree_xpop(&holdqs, holdq);
+
+	return (i);
+}
+
+static int
 scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 {
 	struct evplist		*q;
@@ -432,6 +525,8 @@ scheduler_ram_envelopes(uint64_t from, struct evpstate *dst, size_t size)
 		}
 		if (evp->flags & RQ_ENVELOPE_SUSPEND)
 			dst[n].flags |= EF_SUSPEND;
+		if (evp->flags & RQ_ENVELOPE_HOLD)
+			dst[n].flags |= EF_HOLD;
 		n++;
 	}
 
@@ -772,7 +867,7 @@ rq_envelope_suspend(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->flags & RQ_ENVELOPE_SUSPEND)
 		return (0);
 
-	if (!(evp->flags & RQ_ENVELOPE_INFLIGHT))
+	if (!(evp->flags & (RQ_ENVELOPE_INFLIGHT | RQ_ENVELOPE_HOLD)))
 		TAILQ_REMOVE(rq_envelope_list(rq, evp), evp, entry);
 
 	evp->flags |= RQ_ENVELOPE_SUSPEND;
