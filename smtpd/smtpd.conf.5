@@ -440,6 +440,7 @@ to MXs for this domain.
 .Op Ic auth | auth-optional
 .Op Ic tag Ar tag
 .Op Ic hostname Ar hostname
+.Op Ic mask-source
 .Ek
 .Xc
 Specify an
@@ -525,6 +526,11 @@ If the
 .Ic hostname
 parameter is used, then it will be used in the greeting banner
 instead of the default server name.
+.Pp
+If the
+.Ic mask-source
+parameter is used, then the listener will skip the "from" part
+when prepending the "Received" header.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n

@@ -32,7 +32,7 @@
 
 #include "smtpd.h"
 
-#define	MAX_DICTKEY_SIZE	64
+#define	MAX_DICTKEY_SIZE	1024
 struct dictentry {
 	SPLAY_ENTRY(dictentry)	entry;
 	char			key[MAX_DICTKEY_SIZE];

@@ -75,10 +75,8 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
-#define	F_SSL_STRICT_CHECK	0x100
-
-#define F_SCERT			0x01
-#define F_CCERT			0x02
+#define	F_MASK_SOURCE  		0x100
+#define	F_SSL_STRICT_CHECK	0x200
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
@@ -209,6 +207,8 @@ enum imsg_type {
 	IMSG_DELIVERY_TEMPFAIL,
 	IMSG_DELIVERY_PERMFAIL,
 	IMSG_DELIVERY_LOOP,
+	IMSG_DELIVERY_HOLD,
+	IMSG_DELIVERY_RELEASE,
 
 	IMSG_BOUNCE_INJECT,
 
@@ -486,7 +486,7 @@ enum envelope_field {
 };
 
 struct listener {
-	uint8_t			 flags;
+	uint16_t       		 flags;
 	int			 fd;
 	struct sockaddr_storage	 ss;
 	in_port_t		 port;
@@ -526,6 +526,10 @@ struct smtpd {
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
+
+	size_t				sc_mta_max_deferred;
+
+	size_t				sc_scheduler_max_inflight;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
@@ -706,6 +710,10 @@ struct mta_limits {
 	time_t	sessdelay_keepalive;
 
 	int	family;
+
+	int	task_hiwat;
+	int	task_lowat;
+	int	task_release;
 };
 
 struct mta_relay {
@@ -726,6 +734,7 @@ struct mta_relay {
 	char			*heloname;
 	char			*secret;
 
+	int			 state;
 	size_t			 ntask;
 	TAILQ_HEAD(, mta_task)	 tasks;
 
@@ -810,6 +819,8 @@ struct scheduler_backend {
 
 	int	(*update)(struct scheduler_info *);
 	int	(*delete)(uint64_t);
+	int	(*hold)(uint64_t, uint64_t);
+	int	(*release)(uint64_t, int);
 
 	int	(*batch)(int, struct scheduler_batch *);
 
@@ -1041,6 +1052,7 @@ void config_done(void);
 
 /* control.c */
 pid_t control(void);
+int control_create_socket(void);
 
 
 /* crypto.c */
@@ -1255,6 +1267,7 @@ void smtp_session_imsg(struct mproc *, struct imsg *);
 
 /* smtpd.c */
 void imsg_dispatch(struct mproc *, struct imsg *);
+void post_fork(int);
 const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);

@@ -500,6 +500,7 @@ mda(void)
 	case -1:
 		fatal("mda: cannot fork");
 	case 0:
+		post_fork(PROC_MDA);
 		break;
 	default:
 		return (pid);
