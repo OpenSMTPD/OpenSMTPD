@@ -130,8 +130,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -241,9 +240,11 @@ pkiname		: PKI STRING	{
 		;
 
 ssl		: SMTPS				{ $$ = F_SMTPS; }
+		| SMTPS VERIFY 			{ $$ = F_SMTPS|F_TLS_VERIFY; }
 		| TLS				{ $$ = F_STARTTLS; }
 		| SSL				{ $$ = F_SSL; }
 		| TLS_REQUIRE			{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE; }
+		| TLS_REQUIRE VERIFY   		{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
 		| /* Empty */			{ $$ = 0; }
 		;
 
@@ -436,6 +437,12 @@ opt_relay	: BACKUP STRING			{
 			    conf->sc_hostname,
 			    sizeof (rule->r_value.relayhost.hostname));
 		}
+		| TLS       			{
+			rule->r_value.relayhost.flags |= F_STARTTLS;
+		}
+		| TLS VERIFY			{
+			rule->r_value.relayhost.flags |= F_STARTTLS|F_TLS_VERIFY;
+		}
 		;
 
 relay		: opt_relay_common relay
@@ -453,6 +460,13 @@ opt_relay_via	: AUTH tables {
 			}
 			strlcpy(rule->r_value.relayhost.authtable, t->t_name,
 			    sizeof(rule->r_value.relayhost.authtable));
+		}
+		| VERIFY {
+			if (!(rule->r_value.relayhost.flags & F_SSL)) {
+				yyerror("cannot \"verify\" with insecure protocol");
+				YYERROR;
+			}
+			rule->r_value.relayhost.flags |= F_TLS_VERIFY;
 		}
 		;
 
@@ -550,7 +564,7 @@ main		: BOUNCEWARN {
 			char	       *ifx  = $4;
 			int		family = $5;
 			in_port_t	port = $6;
-			uint8_t		ssl  = $7;
+			uint16_t       	ssl  = $7;
 			char	       *pki = $8;
 			uint16_t       	auth = $9;
 			char	       *tag  = $10;
@@ -909,16 +923,15 @@ action		: userbase DELIVER TO MAILDIR			{
 		| RELAY relay {
 			rule->r_action = A_RELAY;
 		}
-		| RELAY VIA STRING relay_via {
+		| RELAY VIA STRING {
 			rule->r_action = A_RELAYVIA;
-
 			if (! text_to_relayhost(&rule->r_value.relayhost, $3)) {
 				yyerror("error: invalid url: %s", $3);
 				free($3);
 				YYERROR;
 			}
 			free($3);
-
+		} relay_via {
 			/* no worries, F_AUTH cant be set without SSL */
 			if (rule->r_value.relayhost.flags & F_AUTH) {
 				if (rule->r_value.relayhost.authtable[0] == '\0') {
@@ -926,6 +939,7 @@ action		: userbase DELIVER TO MAILDIR			{
 					YYERROR;
 				}
 			}
+			log_warnx("relayhost flags: %d", rule->r_value.relayhost.flags);
 		}
 		;
 
@@ -1118,6 +1132,7 @@ lookup(char *s)
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
 		{ "userbase",		USERBASE },
+		{ "verify",		VERIFY },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};
