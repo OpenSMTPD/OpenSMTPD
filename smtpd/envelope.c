@@ -651,8 +651,10 @@ ascii_load_mta_relay_flags(uint16_t *dest, char *buf)
 	char *flag;
 
 	while ((flag = strsep(&buf, " ,|")) != NULL) {
-		if (strcasecmp(flag, "ssl-strict-check") == 0)
-			*dest |= F_SSL_STRICT_CHECK;
+		if (strcasecmp(flag, "verify") == 0)
+			*dest |= F_TLS_VERIFY;
+		else if (strcasecmp(flag, "tls") == 0)
+			*dest |= F_STARTTLS;
 		else
 			return 0;
 	}
@@ -789,8 +791,16 @@ ascii_dump_mta_relay_flags(uint16_t flags, char *buf, size_t len)
 
 	buf[0] = '\0';
 	if (flags) {
-		if (flags & F_SSL_STRICT_CHECK)
-			cpylen = strlcat(buf, "ssl-strict-check", len);
+		if (flags & F_TLS_VERIFY) {
+			if (buf[0] != '\0')
+				strlcat(buf, " ", len);
+			cpylen = strlcat(buf, "verify", len);
+		}
+		if (flags & F_STARTTLS) {
+			if (buf[0] != '\0')
+				strlcat(buf, " ", len);
+			cpylen = strlcat(buf, "tls", len);
+		}
 	}
 
 	return cpylen < len ? 1 : 0;

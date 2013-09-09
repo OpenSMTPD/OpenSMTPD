@@ -321,7 +321,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 {
 	static const struct schema {
 		const char	*name;
-		uint8_t		 flags;
+		uint16_t       	 flags;
 	} schemas [] = {
 		/*
 		 * new schemas should be *appended* otherwise the default
@@ -429,10 +429,16 @@ relayhost_to_text(const struct relayhost *relay)
 	case F_SMTPS|F_AUTH:
 		strlcat(buf, "smtps+auth://", sizeof buf);
 		break;
+	case F_STARTTLS|F_TLS_VERIFY:
+		strlcat(buf, "tls://", sizeof buf);
+		break;
 	case F_STARTTLS:
 		strlcat(buf, "tls://", sizeof buf);
 		break;
 	case F_SMTPS:
+		strlcat(buf, "smtps://", sizeof buf);
+		break;
+	case F_SMTPS|F_TLS_VERIFY:
 		strlcat(buf, "smtps://", sizeof buf);
 		break;
 	case F_BACKUP:
