@@ -403,8 +403,15 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		    sizeof ep->agent.mta.relay.helotable);
 	case EVP_MTA_RELAY_FLAGS:
 		return ascii_load_mta_relay_flags(&ep->agent.mta.relay.flags, buf);
-	case EVP_MTA_RELAY:
-		return ascii_load_mta_relay_url(&ep->agent.mta.relay, buf);
+	case EVP_MTA_RELAY: {
+		int ret;
+		uint16_t flags = ep->agent.mta.relay.flags;
+		ret = ascii_load_mta_relay_url(&ep->agent.mta.relay, buf);
+		if (! ret)
+			break;
+		ep->agent.mta.relay.flags |= flags;
+		return ret;
+	}
 	case EVP_CTIME:
 		return ascii_load_time(&ep->creation, buf);
 	case EVP_EXPIRE:
@@ -658,6 +665,7 @@ ascii_load_mta_relay_flags(uint16_t *dest, char *buf)
 		else
 			return 0;
 	}
+
 	return 1;
 }
 

@@ -240,9 +240,11 @@ pkiname		: PKI STRING	{
 		;
 
 ssl		: SMTPS				{ $$ = F_SMTPS; }
+		| SMTPS VERIFY 			{ $$ = F_SMTPS|F_TLS_VERIFY; }
 		| TLS				{ $$ = F_STARTTLS; }
 		| SSL				{ $$ = F_SSL; }
 		| TLS_REQUIRE			{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE; }
+		| TLS_REQUIRE VERIFY   		{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
 		| /* Empty */			{ $$ = 0; }
 		;
 
@@ -562,7 +564,7 @@ main		: BOUNCEWARN {
 			char	       *ifx  = $4;
 			int		family = $5;
 			in_port_t	port = $6;
-			uint8_t		ssl  = $7;
+			uint16_t       	ssl  = $7;
 			char	       *pki = $8;
 			uint16_t       	auth = $9;
 			char	       *tag  = $10;
@@ -937,6 +939,7 @@ action		: userbase DELIVER TO MAILDIR			{
 					YYERROR;
 				}
 			}
+			log_warnx("relayhost flags: %d", rule->r_value.relayhost.flags);
 		}
 		;
 
