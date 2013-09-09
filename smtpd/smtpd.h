@@ -77,9 +77,6 @@
 #define	F_LMTP			0x80
 #define	F_MASK_SOURCE  		0x100
 
-#define F_SCERT			0x01
-#define F_CCERT			0x02
-
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
 #define RELAY_SMTPS		0x02
