@@ -529,6 +529,8 @@ struct smtpd {
 
 	size_t				sc_mta_max_deferred;
 
+	size_t				sc_scheduler_max_inflight;
+
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
