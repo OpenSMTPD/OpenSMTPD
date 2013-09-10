@@ -939,7 +939,6 @@ action		: userbase DELIVER TO MAILDIR			{
 					YYERROR;
 				}
 			}
-			log_warnx("relayhost flags: %d", rule->r_value.relayhost.flags);
 		}
 		;
 
