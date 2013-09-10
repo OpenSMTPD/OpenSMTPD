@@ -27,7 +27,9 @@
 #include <sys/statfs.h>
 #endif
 #include <sys/param.h>
+#if HAVE_SYS_MOUNT_H
 #include <sys/mount.h>
+#endif
 
 #include <ctype.h>
 #include <err.h>
