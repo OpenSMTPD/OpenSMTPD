@@ -345,7 +345,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		;;
 	esac
 	;;
-*-*-linux*)
+*-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	check_for_libcrypt_later=1
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	case `uname -r` in
