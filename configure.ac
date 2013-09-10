@@ -263,6 +263,7 @@ AC_CHECK_HEADERS([ \
 	sys/ndir.h \
 	sys/pstat.h \
 	sys/statfs.h \
+	sys/mount.h \
 	sys/un.h \
 	ucred.h \
 	util.h \
