@@ -191,8 +191,6 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 	s->route = route;
 	s->io.sock = -1;
 
-	warnx("FLAGS #2: %d", relay->flags);
-
 	if (relay->flags & RELAY_SSL && relay->flags & RELAY_AUTH)
 		s->flags |= MTA_USE_AUTH;
 	if (relay->cert)

@@ -46,7 +46,6 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 		log_warnx("warn: no explicit policy");
 		break;
 	}
-
 	return ok;
 }
 

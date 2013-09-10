@@ -48,6 +48,10 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 {
 	SSL_CTX		*ctx;
 	SSL		*ssl = NULL;
+	X509		*x509 = NULL;
+	ASN1_TIME	*notBefore;
+	ASN1_TIME	*notAfter;
+	time_t		 now;
 
 	ctx = ssl_ctx_create();
 
@@ -64,6 +68,17 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 		goto err;
 	if (!SSL_set_ssl_method(ssl, SSLv23_client_method()))
 		goto err;
+
+	x509 = SSL_get_certificate(ssl);
+	now = time(NULL);
+	notBefore = X509_get_notBefore(x509);
+	notAfter = X509_get_notAfter(x509);
+
+	if (notBefore && X509_cmp_time(notBefore, &now) < 0)
+		log_warnx("smtp-out: certificate is not valid yet");
+
+	if (notAfter && X509_cmp_time(notAfter, &now) < 0)
+		log_warnx("smtp-out: certificate has expired");
 
 	return (void *)(ssl);
 
@@ -89,7 +104,11 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 void *
 ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
 {
-	SSL *ssl = NULL;
+	SSL		*ssl = NULL;
+	X509		*x509 = NULL;
+	ASN1_TIME	*notBefore;
+	ASN1_TIME	*notAfter;
+	time_t		 now;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
 
@@ -106,6 +125,18 @@ ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_le
 		goto err;
 	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
 		goto err;
+
+	x509 = SSL_get_certificate(ssl);
+	now = time(NULL);
+	notBefore = X509_get_notBefore(x509);
+	notAfter = X509_get_notAfter(x509);
+
+	if (notBefore && X509_cmp_time(notBefore, &now) < 0)
+		log_warnx("smtp-in: certificate is not valid yet");
+
+	if (notAfter && X509_cmp_time(notAfter, &now) > 0)
+		log_warnx("smtp-in: certificate has expired");
+
 
 	return (void *)(ssl);
 
