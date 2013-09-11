@@ -76,7 +76,7 @@ install-exec-hook: $(MANPAGES)
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
-	rm -f	$(DESTDIR)$(bindir)/newaliases$(EXEEXT) \
+	rm -f	$(DESTDIR)$(sbindir)/newaliases$(EXEEXT) \
 		$(DESTDIR)$(sbindir)/makemap$(EXEEXT)
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8			\
 		$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
