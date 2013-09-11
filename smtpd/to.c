@@ -360,8 +360,8 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		{ "tls://",		F_STARTTLS			},
 		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
 		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
-		{ "ssl://",		F_SMTPS|F_STARTTLS		},
-		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	},
+		{ "secure://",		F_SMTPS|F_STARTTLS		},
+		{ "secure+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	},
 		{ "backup://",		F_BACKUP       			}
 	};
 	const char     *errstr = NULL;
@@ -444,10 +444,10 @@ relayhost_to_text(const struct relayhost *relay)
 	bzero(buf, sizeof buf);
 	switch (relay->flags) {
 	case F_SMTPS|F_STARTTLS|F_AUTH:
-		strlcat(buf, "ssl+auth://", sizeof buf);
+		strlcat(buf, "secure+auth://", sizeof buf);
 		break;
 	case F_SMTPS|F_STARTTLS:
-		strlcat(buf, "ssl://", sizeof buf);
+		strlcat(buf, "secure://", sizeof buf);
 		break;
 	case F_STARTTLS|F_AUTH:
 		strlcat(buf, "tls+auth://", sizeof buf);
