@@ -380,6 +380,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		/* no aliases found, query forward file */
 		lks->rule = rule;
 		lks->node = xn;
+
+		bzero(&fwreq, sizeof (fwreq));
 		fwreq.id = lks->id;
 		(void)strlcpy(fwreq.user, lk.userinfo.username, sizeof(fwreq.user));
 		(void)strlcpy(fwreq.directory, lk.userinfo.directory, sizeof(fwreq.directory));
