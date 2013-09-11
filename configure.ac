@@ -16,7 +16,7 @@
 
 dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
 dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([OpenSMTPD], [portable], [bugs@opensmtpd.org])
+AC_INIT([smtpd], [portable], [bugs@opensmtpd.org])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -2900,14 +2900,3 @@ if test "x$PAM_MSG" = "xyes" ; then
 #	echo "subdirectory"
 	echo ""
 fi
-
-#if test ! -z "$NO_PEERCHECK" ; then
-#	echo "WARNING: the operating system that you are using does not"
-#	echo "appear to support getpeereid(), getpeerucred() or the"
-#	echo "SO_PEERCRED getsockopt() option. These facilities are used to"
-#	echo "enforce security checks to prevent unauthorised connections to"
-#	echo "ssh-agent. Their absence increases the risk that a malicious"
-#	echo "user can connect to your agent."
-#	echo ""
-#fi
-#l4463
