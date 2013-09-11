@@ -321,7 +321,7 @@ For example:
 .Bd -literal -offset indent
 tls://mx1.example.org		# use TLS
 smtps://mx1.example.org		# use SMTPS
-ssl://mx1.example.org		# try SMTPS and \e
+secure://mx1.example.org	# try SMTPS and \e
 				# fallback to TLS
 .Ed
 .Pp
@@ -329,10 +329,10 @@ In addition, credentials for authenticated relaying may be provided
 when using a secure schema.
 For example:
 .Bd -literal -offset indent
-tls+auth://label@mx.example.org	  # over TLS
-smtps+auth://label@mx.example.org # over SMTPS
-ssl+auth://label@mx.example.org	  # over either \e
-				  # SMTPS or TLS
+tls+auth://label@mx.example.org		 # over TLS
+smtps+auth://label@mx.example.org   	 # over SMTPS
+secure+auth://label@mx.example.org	 # over either \e
+				  	 # SMTPS or TLS
 .Ed
 .Pp
 If a certificate
@@ -437,7 +437,7 @@ to MXs for this domain.
 .Ic listen on Ar interface
 .Op Ar family
 .Op Ic port Ar port
-.Op Ic tls | tls-require | smtps
+.Op Ic tls | tls-require | smtps | secure
 .Op Ic certificate Ar name
 .Op Ic auth | auth-optional
 .Op Ic tag Ar tag
@@ -470,6 +470,8 @@ by default on port 465.
 .Ic tls-require
 may be used to force clients to establish a secure connection
 before being allowed to start an SMTP transaction.
+.Ic secure
+may be specified to provide both STARTTLS and SMTPS services.
 Host certificates may be used for these connections,
 and are searched for in the
 .Pa /etc/mail/certs
