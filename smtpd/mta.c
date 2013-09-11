@@ -1726,7 +1726,7 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 #undef SHOWSTATUS
 
 	if (runq_pending(runq_relay, NULL, r, &to))
-		snprintf(dur, sizeof(dur), duration_to_text(to - t));
+		snprintf(dur, sizeof(dur), "%s", duration_to_text(to - t));
 	else
 		strlcpy(dur, "-", sizeof(dur));
 
@@ -1745,7 +1745,7 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 	while (tree_iter(&r->connectors, &iter, NULL, (void **)&c)) {
 
 		if (runq_pending(runq_connector, NULL, c, &to))
-			snprintf(dur, sizeof(dur), duration_to_text(to - t));
+			snprintf(dur, sizeof(dur), "%s", duration_to_text(to - t));
 		else
 			strlcpy(dur, "-", sizeof(dur));
 
