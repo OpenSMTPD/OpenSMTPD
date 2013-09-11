@@ -485,13 +485,6 @@ mta_sig_handler(int sig, short event, void *p)
 static void
 mta_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: mail transfer agent exiting");
 	_exit(0);
 }

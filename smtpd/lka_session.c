@@ -383,10 +383,6 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->rule = rule;
 		lks->node = xn;
 
-#ifdef VALGRIND
-		bzero(&fwreq, sizeof(fwreq));
-#endif
-
 		fwreq.id = lks->id;
 		(void)strlcpy(fwreq.user, lk.userinfo.username, sizeof(fwreq.user));
 		(void)strlcpy(fwreq.directory, lk.userinfo.directory, sizeof(fwreq.directory));

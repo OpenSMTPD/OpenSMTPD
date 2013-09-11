@@ -201,13 +201,6 @@ mfa_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: mail filter exiting");
 	_exit(0);
 }

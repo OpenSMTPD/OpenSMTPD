@@ -303,13 +303,6 @@ control(void)
 static void
 control_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: control process exiting");
 	unlink(SMTPD_SOCKET);
 	_exit(0);

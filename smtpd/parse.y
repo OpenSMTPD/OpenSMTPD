@@ -1895,10 +1895,6 @@ set_localaddrs(void)
 	table_add(t, "0.0.0.0/0", NULL);
 	table_add(t, "::/0", NULL);
 
-#ifdef VALGRIND
-	bzero(&ss, sizeof(ss));
-#endif
-
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
 

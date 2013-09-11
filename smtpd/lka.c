@@ -569,12 +569,6 @@ lka_sig_handler(int sig, short event, void *p)
 void
 lka_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
 	log_info("info: lookup agent exiting");
 	_exit(0);
 }

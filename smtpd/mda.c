@@ -162,10 +162,6 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-#ifdef VALGRIND
-	bzero(&deliver, sizeof(deliver));
-#endif
-
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
@@ -493,13 +489,6 @@ mda_sig_handler(int sig, short event, void *p)
 static void
 mda_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: mail delivery agent exiting");
 	_exit(0);
 }

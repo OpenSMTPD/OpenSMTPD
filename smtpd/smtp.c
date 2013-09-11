@@ -227,13 +227,6 @@ smtp_sig_handler(int sig, short event, void *p)
 static void
 smtp_shutdown(void)
 {
-#ifdef VALGRIND
-//	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: smtp server exiting");
 	_exit(0);
 }
