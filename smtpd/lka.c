@@ -105,6 +105,24 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			lka_session(reqid, &evp);
 			return;
 
+		case IMSG_LKA_HELO:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_string(&m, &tablename);
+			m_get_sockaddr(&m, (struct sockaddr *)&ss);
+			m_end(&m);
+
+			ret = lka_addrname(tablename, (struct sockaddr*)&ss,
+			    &addrname);
+
+			m_create(p, IMSG_LKA_HELO, 0, 0, -1);
+			m_add_id(p, reqid);
+			m_add_int(p, ret);
+			if (ret == LKA_OK)
+				m_add_string(p, addrname.name);
+			m_close(p);
+			return;
+
 		case IMSG_LKA_SSL_INIT:
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;

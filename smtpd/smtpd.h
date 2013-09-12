@@ -497,7 +497,8 @@ struct listener {
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
-	char			 helo[SMTPD_MAXHOSTNAMELEN];
+	char			 hostname[SMTPD_MAXHOSTNAMELEN];
+	char			 hostnametable[SMTPD_MAXPATHLEN];
 	TAILQ_ENTRY(listener)	 entry;
 };
 
