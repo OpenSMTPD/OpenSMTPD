@@ -428,6 +428,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p_scheduler);
 			return;
 
+		case IMSG_DELIVERY_HOLD:
+		case IMSG_DELIVERY_RELEASE:
 		case IMSG_MTA_SCHEDULE:
 			m_forward(p_scheduler, imsg);
 			return;

@@ -313,6 +313,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			/* request parent to fork a helper process */
 			userinfo = &s->user->userinfo;
+			bzero(&deliver, sizeof deliver);
 			switch (e->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;

@@ -50,7 +50,10 @@
 #include <unistd.h>
 #include <util.h>
 
+#include <openssl/ssl.h>
+
 #include "smtpd.h"
+#include "ssl.h"
 #include "log.h"
 
 TAILQ_HEAD(files, file)		 files = TAILQ_HEAD_INITIALIZER(files);
@@ -92,6 +95,7 @@ struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
+static struct ssl      	*pki_ssl;
 
 static void config_listener(struct listener *,  const char *, const char *,
     const char *, in_port_t, const char *, uint16_t, const char *);
@@ -121,19 +125,18 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
-%token	TABLE SSL SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
+%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED MAXSCHEDULERINFLIGHT LISTEN ON ANY PORT EXPIRE
+%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
-%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA
-%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE
+%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
 %type	<v.number>	port auth ssl size expire address_family mask_source
-%type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase credentials from sender
-%type	<v.maddr>	relay_as
-%type	<v.string>	certificate tag tagged relay_source listen_helo relay_helo relay_backup
+%type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
+%type	<v.string>	pkiname tag tagged listen_helo
 %%
 
 grammar		: /* empty */
@@ -225,7 +228,7 @@ port		: PORT STRING			{
 		}
 		;
 
-certificate	: CERTIFICATE STRING	{
+pkiname		: PKI STRING	{
 			if (($$ = strdup($2)) == NULL) {
 				yyerror("strdup");
 				free($2);
@@ -237,9 +240,11 @@ certificate	: CERTIFICATE STRING	{
 		;
 
 ssl		: SMTPS				{ $$ = F_SMTPS; }
+		| SMTPS VERIFY 			{ $$ = F_SMTPS|F_TLS_VERIFY; }
 		| TLS				{ $$ = F_STARTTLS; }
-		| SSL				{ $$ = F_SSL; }
+		| SECURE       			{ $$ = F_SSL; }
 		| TLS_REQUIRE			{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE; }
+		| TLS_REQUIRE VERIFY   		{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
 		| /* Empty */			{ $$ = 0; }
 		;
 
@@ -319,20 +324,6 @@ bouncedelays	: bouncedelays ',' bouncedelay
 		| /* EMPTY */
 		;
 
-credentials	: AUTH tables	{
-			struct table   *t = $2;
-
-			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_CREDENTIALS)) {
-				yyerror("invalid use of table \"%s\" as AUTH parameter",
-				    t->t_name);
-				YYERROR;
-			}
-
-			$$ = t;
-		}
-		| /* empty */	{ $$ = 0; }
-		;
-
 address_family	: INET4			{ $$ = AF_INET; }
 		| INET6			{ $$ = AF_INET6; }
 		| /* empty */		{ $$ = AF_UNSPEC; }
@@ -359,6 +350,128 @@ opt_limit	: INET4 {
 		;
 
 limits		: opt_limit limits
+		| /* empty */
+		;
+
+opt_pki		: CERTIFICATE STRING {
+			pki_ssl->ssl_cert_file = $2;
+		}
+		| KEY STRING {
+			pki_ssl->ssl_key_file = $2;
+		}
+		| CA STRING {
+			pki_ssl->ssl_ca_file = $2;
+		}
+		| DHPARAMS STRING {
+			pki_ssl->ssl_dhparams_file = $2;
+		}
+		;
+
+pki		: opt_pki pki
+		|
+		;
+
+
+opt_relay_common: AS STRING	{
+			struct mailaddr maddr, *maddrp;
+
+			if (! text_to_mailaddr(&maddr, $2)) {
+				yyerror("invalid parameter to AS: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
+
+			if (maddr.user[0] == '\0' && maddr.domain[0] == '\0') {
+				yyerror("invalid empty parameter to AS");
+				YYERROR;
+			}
+			else if (maddr.domain[0] == '\0') {
+				if (strlcpy(maddr.domain, conf->sc_hostname,
+					sizeof (maddr.domain))
+				    >= sizeof (maddr.domain)) {
+					yyerror("hostname too long for AS parameter: %s",
+					    conf->sc_hostname);
+					YYERROR;
+				}
+			}
+			rule->r_as = xmemdup(&maddr, sizeof (*maddrp), "parse relay_as: AS");
+		}
+		| SOURCE tables			{
+			struct table	*t = $2;
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "SOURCE parameter", t->t_name);
+				YYERROR;
+			}
+			strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
+			    sizeof rule->r_value.relayhost.sourcetable);
+		}
+		| HELO tables			{
+			struct table	*t = $2;
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "HELO parameter", t->t_name);
+				YYERROR;
+			}
+			strlcpy(rule->r_value.relayhost.helotable, t->t_name,
+			    sizeof rule->r_value.relayhost.helotable);
+		}
+		| PKI STRING {
+			if (strlcpy(rule->r_value.relayhost.cert, $2,
+				sizeof(rule->r_value.relayhost.cert))
+			    >= sizeof(rule->r_value.relayhost.cert))
+				fatal("certificate path too long");
+			free($2);
+		}
+		;
+
+opt_relay	: BACKUP STRING			{
+			rule->r_value.relayhost.flags |= F_BACKUP;
+			strlcpy(rule->r_value.relayhost.hostname, $2,
+			    sizeof (rule->r_value.relayhost.hostname));
+		}
+		| BACKUP       			{
+			rule->r_value.relayhost.flags |= F_BACKUP;
+			strlcpy(rule->r_value.relayhost.hostname,
+			    conf->sc_hostname,
+			    sizeof (rule->r_value.relayhost.hostname));
+		}
+		| TLS       			{
+			rule->r_value.relayhost.flags |= F_STARTTLS;
+		}
+		| TLS VERIFY			{
+			rule->r_value.relayhost.flags |= F_STARTTLS|F_TLS_VERIFY;
+		}
+		;
+
+relay		: opt_relay_common relay
+		| opt_relay relay
+		| /* empty */
+		;
+
+opt_relay_via	: AUTH tables {
+			struct table   *t = $2;
+
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_CREDENTIALS)) {
+				yyerror("invalid use of table \"%s\" as AUTH parameter",
+				    t->t_name);
+				YYERROR;
+			}
+			strlcpy(rule->r_value.relayhost.authtable, t->t_name,
+			    sizeof(rule->r_value.relayhost.authtable));
+		}
+		| VERIFY {
+			if (!(rule->r_value.relayhost.flags & F_SSL)) {
+				yyerror("cannot \"verify\" with insecure protocol");
+				YYERROR;
+			}
+			rule->r_value.relayhost.flags |= F_TLS_VERIFY;
+		}
+		;
+
+relay_via	: opt_relay_common relay_via
+		| opt_relay_via relay_via
 		| /* empty */
 		;
 
@@ -427,6 +540,9 @@ main		: BOUNCEWARN {
 		| MAXMTADEFERRED NUMBER  {
 			conf->sc_mta_max_deferred = $2;
 		} 
+		| MAXSCHEDULERINFLIGHT NUMBER  {
+			conf->sc_scheduler_max_inflight = $2;
+		} 
 		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
 
@@ -444,12 +560,12 @@ main		: BOUNCEWARN {
 		} limits
 		| LISTEN {
 			bzero(&l, sizeof l);
-		} ON STRING address_family port ssl certificate auth tag listen_helo mask_source {
+		} ON STRING address_family port ssl pkiname auth tag listen_helo mask_source {
 			char	       *ifx  = $4;
 			int		family = $5;
 			in_port_t	port = $6;
-			uint8_t		ssl  = $7;
-			char	       *cert = $8;
+			uint16_t       	ssl  = $7;
+			char	       *pki = $8;
 			uint16_t       	auth = $9;
 			char	       *tag  = $10;
 			char	       *helo = $11;
@@ -466,13 +582,22 @@ main		: BOUNCEWARN {
 				YYERROR;
 			}
 
-			flags = auth|masksrc;
+			if (pki && !ssl) {
+				yyerror("invalid listen option: pki requires tls/smtps");
+				YYERROR;
+			}
 
+			if (ssl && !pki) {
+				yyerror("invalid listen option: tls/smtps requires pki");
+				YYERROR;
+			}
+
+			flags = auth|masksrc;
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
-					if (! interface(ifx, family, tag, cert, conf->sc_listeners,
+					if (! interface(ifx, family, tag, pki, conf->sc_listeners,
 						MAX_LISTEN, 465, l.authtable, F_SMTPS|flags, helo)) {
-						if (host(ifx, tag, cert, conf->sc_listeners,
+						if (host(ifx, tag, pki, conf->sc_listeners,
 							MAX_LISTEN, 465, l.authtable, ssl|flags, helo) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
@@ -480,10 +605,10 @@ main		: BOUNCEWARN {
 					}
 				}
 				if (! ssl || (ssl & ~F_SMTPS)) {
-					if (! interface(ifx, family, tag, cert, conf->sc_listeners,
+					if (! interface(ifx, family, tag, pki, conf->sc_listeners,
 						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|flags, helo)) {
-						if (host(ifx, tag, cert, conf->sc_listeners,
-							MAX_LISTEN, 25, l.authtable, ssl|auth|flags, helo) <= 0) {
+						if (host(ifx, tag, pki, conf->sc_listeners,
+							MAX_LISTEN, 25, l.authtable, ssl|flags, helo) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -491,9 +616,9 @@ main		: BOUNCEWARN {
 				}
 			}
 			else {
-				if (! interface(ifx, family, tag, cert, conf->sc_listeners,
+				if (! interface(ifx, family, tag, pki, conf->sc_listeners,
 					MAX_LISTEN, port, l.authtable, ssl|auth, helo)) {
-					if (host(ifx, tag, cert, conf->sc_listeners,
+					if (host(ifx, tag, pki, conf->sc_listeners,
 						MAX_LISTEN, port, l.authtable, ssl|flags, helo) <= 0) {
 						yyerror("invalid virtual ip or interface: %s", ifx);
 						YYERROR;
@@ -558,6 +683,15 @@ main		: BOUNCEWARN {
 			free($2);
 			free($3);
 		}
+		| PKI STRING	{
+			pki_ssl = dict_get(conf->sc_ssl_dict, $2);
+			if (pki_ssl == NULL) {
+				pki_ssl = xcalloc(1, sizeof *pki_ssl, "parse:pki");
+				xlowercase(pki_ssl->ssl_name, $2, sizeof pki_ssl->ssl_name);
+				dict_set(conf->sc_ssl_dict, pki_ssl->ssl_name, pki_ssl);
+			}
+			free($2);
+		} pki
 		;
 
 table		: TABLE STRING STRING	{
@@ -739,61 +873,6 @@ destination	: DOMAIN tables			{
 		| ANY		{ $$ = 0; }
 		;
 
-relay_source	: SOURCE tables			{
-			struct table	*t = $2;
-			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
-				yyerror("invalid use of table \"%s\" as "
-				    "SOURCE parameter", t->t_name);
-				YYERROR;
-			}
-			$$ = t->t_name;
-		}
-		| { $$ = NULL; }
-		;
-
-relay_helo	: HELO tables			{
-			struct table	*t = $2;
-			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
-				yyerror("invalid use of table \"%s\" as "
-				    "HELO parameter", t->t_name);
-				YYERROR;
-			}
-			$$ = t->t_name;
-		}
-		| { $$ = NULL; }
-		;
-
-relay_backup	: BACKUP STRING			{ $$ = $2; }
-		| BACKUP       			{ $$ = NULL; }
-		;
-
-relay_as     	: AS STRING		{
-			struct mailaddr maddr, *maddrp;
-
-			if (! text_to_mailaddr(&maddr, $2)) {
-				yyerror("invalid parameter to AS: %s", $2);
-				free($2);
-				YYERROR;
-			}
-			free($2);
-
-			if (maddr.user[0] == '\0' && maddr.domain[0] == '\0') {
-				yyerror("invalid empty parameter to AS");
-				YYERROR;
-			}
-			else if (maddr.domain[0] == '\0') {
-				if (strlcpy(maddr.domain, conf->sc_hostname,
-					sizeof (maddr.domain))
-				    >= sizeof (maddr.domain)) {
-					yyerror("hostname too long for AS parameter: %s",
-					    conf->sc_hostname);
-					YYERROR;
-				}
-			}
-			$$ = xmemdup(&maddr, sizeof (*maddrp), "parse relay_as: AS");
-		}
-		| /* empty */		{ $$ = NULL; }
-		;
 
 action		: userbase DELIVER TO MAILDIR			{
 			rule->r_userbase = $1;
@@ -841,79 +920,25 @@ action		: userbase DELIVER TO MAILDIR			{
 				fatal("command too long");
 			free($5);
 		}
-		| RELAY relay_as relay_source relay_helo	{
+		| RELAY relay {
 			rule->r_action = A_RELAY;
-			rule->r_as = $2;
-			if ($3)
-				strlcpy(rule->r_value.relayhost.sourcetable, $3,
-				    sizeof rule->r_value.relayhost.sourcetable);
-			if ($4)
-				strlcpy(rule->r_value.relayhost.helotable, $4,
-				    sizeof rule->r_value.relayhost.helotable);
 		}
-		| RELAY relay_backup relay_as relay_source relay_helo	{
-			rule->r_action = A_RELAY;
-			rule->r_as = $3;
-			rule->r_value.relayhost.flags |= F_BACKUP;
-
-			if ($2)
-				strlcpy(rule->r_value.relayhost.hostname, $2,
-				    sizeof (rule->r_value.relayhost.hostname));
-			else
-				strlcpy(rule->r_value.relayhost.hostname,
-				    conf->sc_hostname,
-				    sizeof (rule->r_value.relayhost.hostname));
-			free($2);
-
-			if ($4)
-				strlcpy(rule->r_value.relayhost.sourcetable, $4,
-				    sizeof rule->r_value.relayhost.sourcetable);
-			if ($5)
-				strlcpy(rule->r_value.relayhost.helotable, $5,
-				    sizeof rule->r_value.relayhost.helotable);
-		}
-		| RELAY VIA STRING certificate credentials relay_as relay_source relay_helo {
-			struct table	*t;
-
+		| RELAY VIA STRING {
 			rule->r_action = A_RELAYVIA;
-			rule->r_as = $6;
-
 			if (! text_to_relayhost(&rule->r_value.relayhost, $3)) {
 				yyerror("error: invalid url: %s", $3);
 				free($3);
-				free($4);
-				free($6);
 				YYERROR;
 			}
 			free($3);
-
+		} relay_via {
 			/* no worries, F_AUTH cant be set without SSL */
 			if (rule->r_value.relayhost.flags & F_AUTH) {
-				if (! $5) {
+				if (rule->r_value.relayhost.authtable[0] == '\0') {
 					yyerror("error: auth without auth table");
-					free($4);
-					free($6);
 					YYERROR;
 				}
-				t = $5;
-				strlcpy(rule->r_value.relayhost.authtable, t->t_name,
-				    sizeof(rule->r_value.relayhost.authtable));
 			}
-
-			if ($4 != NULL) {
-				if (strlcpy(rule->r_value.relayhost.cert, $4,
-					sizeof(rule->r_value.relayhost.cert))
-				    >= sizeof(rule->r_value.relayhost.cert))
-					fatal("certificate path too long");
-			}
-			free($4);
-
-			if ($7)
-				strlcpy(rule->r_value.relayhost.sourcetable, $7,
-				    sizeof rule->r_value.relayhost.sourcetable);
-			if ($8)
-				strlcpy(rule->r_value.relayhost.helotable, $8,
-				    sizeof rule->r_value.relayhost.helotable);
 		}
 		;
 
@@ -1060,9 +1085,11 @@ lookup(char *s)
 		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
 		{ "bounce-warn",	BOUNCEWARN },
+		{ "ca",			CA },
 		{ "certificate",	CERTIFICATE },
 		{ "compression",	COMPRESSION },
 		{ "deliver",		DELIVER },
+		{ "dh-params",		DHPARAMS },
 		{ "domain",		DOMAIN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
@@ -1083,18 +1110,20 @@ lookup(char *s)
 		{ "mask-source",	MASK_SOURCE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "max-mta-deferred",  	MAXMTADEFERRED },
+		{ "max-scheduler-inflight",  	MAXSCHEDULERINFLIGHT },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
 		{ "on",			ON },
+		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "secure",		SECURE },
 		{ "sender",    		SENDER },
 		{ "smtps",		SMTPS },
 		{ "source",		SOURCE },
-		{ "ssl",		SSL },
 		{ "table",		TABLE },
 		{ "tag",		TAG },
 		{ "tagged",		TAGGED },
@@ -1102,6 +1131,7 @@ lookup(char *s)
 		{ "tls-require",       	TLS_REQUIRE },
 		{ "to",			TO },
 		{ "userbase",		USERBASE },
+		{ "verify",		VERIFY },
 		{ "via",		VIA },
 		{ "virtual",		VIRTUAL },
 	};
@@ -1490,7 +1520,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;
 
-	conf->sc_mta_max_deferred = 5000;
+	conf->sc_mta_max_deferred = 100;
+	conf->sc_scheduler_max_inflight = 5000;
 
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);
@@ -1629,15 +1660,12 @@ symget(const char *nam)
 
 static void
 config_listener(struct listener *h,  const char *name, const char *tag,
-    const char *cert, in_port_t port, const char *authtable, uint16_t flags,
+    const char *pki, in_port_t port, const char *authtable, uint16_t flags,
     const char *helo)
 {
 	h->fd = -1;
 	h->port = port;
 	h->flags = flags;
-	if (h->flags & F_SSL)
-		if (cert == NULL)
-			cert = name;
 
 	if (helo == NULL)
 		helo = conf->sc_hostname;
@@ -1647,8 +1675,8 @@ config_listener(struct listener *h,  const char *name, const char *tag,
 
 	if (authtable != NULL)
 		(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
-	if (cert != NULL)
-		(void)strlcpy(h->ssl_cert_name, cert, sizeof(h->ssl_cert_name));
+	if (pki != NULL)
+		(void)strlcpy(h->ssl_cert_name, pki, sizeof(h->ssl_cert_name));
 	if (tag != NULL)
 		(void)strlcpy(h->tag, tag, sizeof(h->tag));
 
@@ -1698,7 +1726,7 @@ host_v6(const char *s, in_port_t port)
 }
 
 int
-host_dns(const char *s, const char *tag, const char *cert,
+host_dns(const char *s, const char *tag, const char *pki,
     struct listenerlist *al, int max, in_port_t port, const char *authtable,
     uint16_t flags, const char *helo)
 {
@@ -1741,7 +1769,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 			sin6->sin6_port = port;
 		}
 
-		config_listener(h, s, tag, cert, port, authtable, flags, helo);
+		config_listener(h, s, tag, pki, port, authtable, flags, helo);
 
 		TAILQ_INSERT_HEAD(al, h, entry);
 		cnt++;
@@ -1755,7 +1783,7 @@ host_dns(const char *s, const char *tag, const char *cert,
 }
 
 int
-host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
+host(const char *s, const char *tag, const char *pki, struct listenerlist *al,
     int max, in_port_t port, const char *authtable, uint16_t flags,
     const char *helo)
 {
@@ -1770,16 +1798,16 @@ host(const char *s, const char *tag, const char *cert, struct listenerlist *al,
 		h = host_v6(s, port);
 
 	if (h != NULL) {
-		config_listener(h, s, tag, cert, port, authtable, flags, helo);
+		config_listener(h, s, tag, pki, port, authtable, flags, helo);
 		TAILQ_INSERT_HEAD(al, h, entry);
 		return (1);
 	}
 
-	return (host_dns(s, tag, cert, al, max, port, authtable, flags, helo));
+	return (host_dns(s, tag, pki, al, max, port, authtable, flags, helo));
 }
 
 int
-interface(const char *s, int family, const char *tag, const char *cert,
+interface(const char *s, int family, const char *tag, const char *pki,
     struct listenerlist *al, int max, in_port_t port, const char *authtable,
     uint16_t flags, const char *helo)
 {
@@ -1825,7 +1853,7 @@ interface(const char *s, int family, const char *tag, const char *cert,
 			continue;
 		}
 
-		config_listener(h, s, tag, cert, port, authtable, flags, helo);
+		config_listener(h, s, tag, pki, port, authtable, flags, helo);
 		ret = 1;
 		TAILQ_INSERT_HEAD(al, h, entry);
 	}

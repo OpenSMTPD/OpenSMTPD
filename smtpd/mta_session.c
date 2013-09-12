@@ -363,6 +363,12 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= MTA_VERIFIED;
+		else if (s->relay->flags & F_TLS_VERIFY) {
+			errno = 0;
+			mta_error(s, "SSL certificate check failed");
+			mta_free(s);
+			return;
+		}
 
 		mta_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);

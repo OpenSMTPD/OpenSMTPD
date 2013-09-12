@@ -584,6 +584,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= SF_VERIFIED;
+		else if (s->listener->flags & F_TLS_VERIFY) {
+			log_info("smtp-in: Disconnecting session %016" PRIx64
+			    ": SSL certificate check failed", s->id);
+			smtp_free(s, "SSL certificate check failed");	
+			return;
+		}
 
 		smtp_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
@@ -758,6 +764,13 @@ smtp_io(struct io *io, int evt)
 		if (smtp_verify_certificate(s)) {
 			io_pause(&s->io, IO_PAUSE_IN);
 			break;
+		}
+
+		if (s->listener->flags & F_TLS_VERIFY) {
+			log_info("smtp-in: Disconnecting session %016" PRIx64
+			    ": client did not present certificate", s->id);
+			smtp_free(s, "client did not present certificate");	
+			return;
 		}
 
 		/* No verification required, cascade */
