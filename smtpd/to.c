@@ -537,19 +537,26 @@ rule_to_text(struct rule *r)
 	bzero(buf, sizeof buf);
 	strlcpy(buf, r->r_decision == R_ACCEPT  ? "accept" : "reject", sizeof buf);
 	if (r->r_tag[0]) {
-		strlcat(buf, " on ", sizeof buf);
+		strlcat(buf, " tagged ", sizeof buf);
+		if (r->r_nottag)
+			strlcat(buf, "! ", sizeof buf);
 		strlcat(buf, r->r_tag, sizeof buf);
 	}
 	strlcat(buf, " from ", sizeof buf);
+	if (r->r_notsources)
+		strlcat(buf, "! ", sizeof buf);
 	strlcat(buf, r->r_sources->t_name, sizeof buf);
 
+	strlcat(buf, " for ", sizeof buf);
+	if (r->r_notdestination)
+		strlcat(buf, "! ", sizeof buf);
 	switch (r->r_desttype) {
 	case DEST_DOM:
 		if (r->r_destination == NULL) {
-			strlcat(buf, " for any", sizeof buf);
+			strlcat(buf, " any", sizeof buf);
 			break;
 		}
-		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, " domain ", sizeof buf);
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		if (r->r_mapping) {
 			strlcat(buf, " alias ", sizeof buf);
@@ -558,11 +565,11 @@ rule_to_text(struct rule *r)
 		break;
 	case DEST_VDOM:
 		if (r->r_destination == NULL) {
-			strlcat(buf, " for any virtual ", sizeof buf);
+			strlcat(buf, " any virtual ", sizeof buf);
 			strlcat(buf, r->r_mapping->t_name, sizeof buf);
 			break;
 		}
-		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, " domain ", sizeof buf);
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		strlcat(buf, " virtual ", sizeof buf);
 		strlcat(buf, r->r_mapping->t_name, sizeof buf);
