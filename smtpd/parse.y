@@ -134,7 +134,7 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	port auth ssl size expire address_family mask_source
+%type	<v.number>	port auth ssl size expire address_family mask_source negation
 %type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
 %type	<v.string>	pkiname tag tagged listen_helo
 %%
@@ -277,13 +277,14 @@ tag		: TAG STRING			{
 		| /* empty */			{ $$ = NULL; }
 		;
 
-tagged		: TAGGED STRING			{
-			if (($$ = strdup($2)) == NULL) {
+tagged		: TAGGED negation STRING       		{
+			if (($$ = strdup($3)) == NULL) {
        				yyerror("strdup");
-				free($2);
+				free($3);
 				YYERROR;
 			}
-			free($2);
+			free($3);
+			rule->r_nottag = $2;
 		}
 		| /* empty */			{ $$ = NULL; }
 		;
@@ -858,19 +859,25 @@ userbase	: USERBASE tables	{
 		
 
 
-destination	: DOMAIN tables			{
-			struct table   *t = $2;
+destination	: negation DOMAIN tables	       	{
+			struct table   *t = $3;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
 				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
+			rule->r_notdestination = $1;
 			$$ = t;
 		}
-		| LOCAL		{ $$ = table_find("<localnames>", NULL); }
-		| ANY		{ $$ = 0; }
+		| negation LOCAL		{
+			rule->r_notdestination = $1;
+			$$ = table_find("<localnames>", NULL);
+		}
+		| negation ANY		{
+			rule->r_notdestination = $1;
+			$$ = 0;
+		}
 		;
 
 
@@ -942,37 +949,43 @@ action		: userbase DELIVER TO MAILDIR			{
 		}
 		;
 
-from		: FROM tables			{
-			struct table   *t = $2;
+negation	: '!'		{ $$ = 1; }
+		| /* empty */	{ $$ = 0; }
+		;
+
+from		: FROM negation tables			{
+			struct table   *t = $3;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
 				yyerror("invalid use of table \"%s\" as FROM parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
+			rule->r_notsources = $2;
 			$$ = t;
 		}
-		| FROM ANY			{
+		| FROM negation ANY    		{
 			$$ = table_find("<anyhost>", NULL);
+			rule->r_notsources = $2;
 		}
-		| FROM LOCAL			{
+		| FROM negation LOCAL  		{
 			$$ = table_find("<localhost>", NULL);
+			rule->r_notsources = $2;
 		}
 		| /* empty */			{
 			$$ = table_find("<localhost>", NULL);
 		}
 		;
 
-sender		: SENDER tables			{
-			struct table   *t = $2;
+sender		: SENDER negation tables			{
+			struct table   *t = $3;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
 				yyerror("invalid use of table \"%s\" as SENDER parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
+			rule->r_notsenders = $2;
 			$$ = t;
 		}
 		| /* empty */			{ $$ = NULL; }
