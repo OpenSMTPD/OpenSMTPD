@@ -80,33 +80,57 @@ The first matching rule decides what action is taken.
 If no rule matches the message,
 the default action is to reject the message.
 .Pp
+Whenever \! is used, it will performe a reverse match.
+.Pp
 Following the accept/reject
-decision comes the client's IP address filter:
+decision comes the optional tag matching:
+.Bl -tag -width Ds
+.It Xo
+.Ic tagged
+.Op Ic \!
+.Ic tag
+.Xc
+If specified, the rule will only be matched if the client session was tagged
+.Ar tag .
+.El
+.Pp
+Then, comes the client's IP address filter:
 .Bl -tag -width Ds
 .It Ic from any
 Make the rule match regardless of the IP of connecting client.
-.It Ic from local
+.It Xo
+.Ic from
+.Op Ic \!
+.Ic local
+.Xc
 The rule matches only locally originating connections.
 This is the default,
 and may be omitted.
-.It Ic from Ar network
+.It Xo
+.Ic from
+.Op Ic \!
+.Ic network
+.Xc
 The rule matches if the connection is made from the specified
 .Ar network ,
 specified in CIDR notation.
-.It Ic from Aq Ar table
+.It Xo
+.Ic from
+.Op Ic \!
+.Ic table
+.Xc
 The rule matches if the connection is made from a client whose address
 is declared in the table
 .Ar table .
-.It Ic tagged Ar tag
-If specified, the rule will only be matched if the client session was tagged
-.Ar tag .
-Mails enqueued via the local socket are tagged
-.Qq local .
 .El
 .Pp
 In addition, finer filtering may be achieved on the sender if desired:
 .Bl -tag -width Ds
-.It Ic sender Ar senders
+.It Xo
+.Ic sender
+.Op Ic \!
+.Ic senders
+.Xc
 If specified, the rule will only be matched if the sender email address
 is found in the table
 .Ar senders .
@@ -126,7 +150,13 @@ Make the rule match regardless of the domain it is sent to.
 The
 .Ar vmap
 table will be used as the virtual domain mapping.
-.It Ic for domain Ar domain Op Ic alias Aq Ar aliases
+.It Xo
+.Ic for
+.Op Ic \!
+.Ic domain
+.Ar domain
+.Op Ic alias Aq Ar aliases
+.Xc
 This rule applies to mail destined for the specified
 .Ar domain .
 This parameter supports the
@@ -141,7 +171,13 @@ If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for addresses in this
 .Ar domain .
-.It Ic for domain Aq Ar domains Op Ic alias Aq Ar aliases
+.It Xo
+.Ic for
+.Op Ic \!
+.Ic domain
+.Aq Ar domains
+.Op Ic alias Aq Ar aliases
+.Xc
 This rule applies to mail destined to domains which are part of the table
 .Ar domains .
 .Pp
@@ -149,7 +185,13 @@ If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for addresses in these
 .Ar domains .
-.It Ic for domain Ar domain Ic virtual Aq Ar users
+.It Xo
+.Ic for
+.Op Ic \!
+.Ic domain
+.Ar domain
+.Ic virtual Aq Ar users
+.Xc
 This rule applies to mail destined for the specified virtual
 .Ar domain .
 This parameter supports the
@@ -168,7 +210,13 @@ For an example of how to configure the
 .Ar users
 table, see
 .Xr makemap 8 .
-.It Ic for domain Ao Ar domains Ac Ic virtual Aq Ar users
+.It Xo
+.Ic for
+.Op Ic \!
+.Ic domain
+.Ao Ar domains
+.Ac Ic virtual Aq Ar users
+.Xc
 This rule applies to mail destined for the virtual domains specified
 in the table
 .Ar domains .
@@ -180,7 +228,12 @@ For an example of how to configure the
 .Ar users
 table, see
 .Xr makemap 8 .
-.It Ic for local Op Ic alias Aq Ar aliases
+.It Xo
+.Ic for
+.Op Ic \!
+.Ic local
+.Op Ic alias Aq Ar aliases
+.Xc
 This rule applies to mail destined to
 .Dq localhost
 and to the default server name.
@@ -189,7 +242,12 @@ See the
 entry for
 .Pa /etc/mail/mailname
 below for details of how the server name is determined.
-.It Ic for local virtual Aq Ar vmap
+.It Xo
+.Ic for
+.Op Ic \!
+.Ic local
+.Ic virtual Aq Ar vmap
+.Xc
 This rule applies to mail destined to
 .Dq localhost
 and to the default server name.
@@ -277,7 +335,7 @@ If the
 parameter is specified,
 .Xr smtpd 8
 will explicitly bind to an address found in the table referenced by
-.Ar table
+.Ar source
 when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
 time a new connection is opened.
@@ -487,8 +545,9 @@ a key
 and Diffie-Hellman parameters
 .Ao Ar name Ac Ns .dh
 are searched for.
-A certificate authority may be appended to the .crt
-file to create a certificate chain.
+A certificate chain, which may include an intermediate
+and/or Certificate Authority certificate, may be appended to
+the .crt file to create a certificate chain.
 If no
 .Ic certificate
 is specified,
@@ -501,8 +560,12 @@ and
 .Pa fxp0.dh .
 If no DH parameters are provided, smtpd will use
 built-in parameters.
+A Certificate Authority certificate can be placed in a .ca file
+to have it available to OpenSMTPD.
 Creation of certificates is documented in
-.Xr starttls 8 .
+.Xr starttls 8 ,
+and creation of Diffie-Hellman parameters is documented in
+.Xr openssl 1 .
 .Pp
 If the
 .Ic auth
