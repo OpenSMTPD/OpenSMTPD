@@ -47,15 +47,20 @@ ruleset_match(const struct envelope *evp)
 
 	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
 
-		if (r->r_tag[0] != '\0' && strcmp(r->r_tag, evp->tag) != 0)
-			continue;
+		if (r->r_tag[0] != '\0') {
+			ret = strcmp(r->r_tag, evp->tag);
+			if (ret != 0 && !r->r_nottag)
+				continue;
+			if (ret == 0 && r->r_nottag)
+				continue;
+		}
 
 		ret = ruleset_check_source(r->r_sources, ss, evp->flags);
 		if (ret == -1) {
 			errno = EAGAIN;
 			return (NULL);
 		}
-		if (ret == 0)
+		if ((ret == 0 && !r->r_notsources) || (ret != 0 && r->r_notsources))
 			continue;
 
 		if (r->r_senders) {
@@ -64,7 +69,7 @@ ruleset_match(const struct envelope *evp)
 				errno = EAGAIN;
 				return (NULL);
 			}
-			if (ret == 0)
+			if ((ret == 0 && !r->r_notsenders) || (ret != 0 && r->r_notsenders))
 				continue;
 		}
 
@@ -75,19 +80,21 @@ ruleset_match(const struct envelope *evp)
 			errno = EAGAIN;
 			return NULL;
 		}
-		if (ret) {
-			if (r->r_desttype == DEST_VDOM &&
-			    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
-				if (! aliases_virtual_check(r->r_mapping,
-					&evp->rcpt)) {
-					return NULL;
-				}
+		if ((ret == 0 && !r->r_notdestination) || (ret != 0 && r->r_notdestination))
+			continue;
+
+		if (r->r_desttype == DEST_VDOM &&
+		    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
+			if (! aliases_virtual_check(r->r_mapping,
+				&evp->rcpt)) {
+				return NULL;
 			}
-			goto matched;
 		}
+		goto matched;
 	}
 
 	errno = 0;
+	log_trace(TRACE_RULES, "no rule matched");
 	return (NULL);
 
 matched:

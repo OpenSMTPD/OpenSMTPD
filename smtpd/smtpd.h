@@ -336,10 +336,16 @@ enum decision {
 struct rule {
 	TAILQ_ENTRY(rule)		r_entry;
 	enum decision			r_decision;
+	uint8_t				r_nottag;
 	char				r_tag[MAX_TAG_SIZE];
+
+	uint8_t				r_notsources;
 	struct table		       *r_sources;
+
+	uint8_t				r_notsenders;
 	struct table		       *r_senders;
 
+	uint8_t				r_notdestination;
 	enum dest_type			r_desttype;
 	struct table		       *r_destination;
 
@@ -528,7 +534,8 @@ struct listener {
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
-	char			 helo[SMTPD_MAXHOSTNAMELEN];
+	char			 hostname[SMTPD_MAXHOSTNAMELEN];
+	char			 hostnametable[SMTPD_MAXPATHLEN];
 	TAILQ_ENTRY(listener)	 entry;
 };
 

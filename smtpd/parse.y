@@ -98,16 +98,16 @@ struct mta_limits	*limits;
 static struct ssl      	*pki_ssl;
 
 static void config_listener(struct listener *,  const char *, const char *,
-    const char *, in_port_t, const char *, uint16_t, const char *);
+    const char *, in_port_t, const char *, uint16_t, const char *, struct table *);
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(const char *, const char *, const char *,
 		    struct listenerlist *, int, in_port_t, const char *,
-		    uint16_t, const char *);
+		    uint16_t, const char *, struct table *);
 int		 host(const char *, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *);
+    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *, struct table *);
 int		 interface(const char *, int, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *);
+    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *, struct table *);
 void		 set_localaddrs(void);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
@@ -127,16 +127,16 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED MAXSCHEDULERINFLIGHT LISTEN ON ANY PORT EXPIRE
 %token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
-%token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HELO
+%token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.table>	table
-%type	<v.number>	port auth ssl size expire address_family mask_source
+%type	<v.table>	table listen_hostnames
+%type	<v.number>	port auth ssl size expire address_family mask_source negation
 %type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
-%type	<v.string>	pkiname tag tagged listen_helo
+%type	<v.string>	pkiname tag tagged listen_hostname
 %%
 
 grammar		: /* empty */
@@ -277,13 +277,14 @@ tag		: TAG STRING			{
 		| /* empty */			{ $$ = NULL; }
 		;
 
-tagged		: TAGGED STRING			{
-			if (($$ = strdup($2)) == NULL) {
+tagged		: TAGGED negation STRING       		{
+			if (($$ = strdup($3)) == NULL) {
        				yyerror("strdup");
-				free($2);
+				free($3);
 				YYERROR;
 			}
-			free($2);
+			free($3);
+			rule->r_nottag = $2;
 		}
 		| /* empty */			{ $$ = NULL; }
 		;
@@ -329,7 +330,19 @@ address_family	: INET4			{ $$ = AF_INET; }
 		| /* empty */		{ $$ = AF_UNSPEC; }
 		;
 
-listen_helo	: HOSTNAME STRING	{ $$ = $2; }
+listen_hostname	: HOSTNAME STRING	{ $$ = $2; }
+		| /* empty */		{ $$ = NULL; }
+		;
+
+listen_hostnames: HOSTNAMES tables		{
+			struct table	*t = $2;
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "HOSTNAMES parameter", t->t_name);
+				YYERROR;
+			}
+			$$ = t;
+		}
 		| /* empty */		{ $$ = NULL; }
 		;
 
@@ -407,11 +420,11 @@ opt_relay_common: AS STRING	{
 			strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
 			    sizeof rule->r_value.relayhost.sourcetable);
 		}
-		| HELO tables			{
+		| HOSTNAMES tables		{
 			struct table	*t = $2;
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
 				yyerror("invalid use of table \"%s\" as "
-				    "HELO parameter", t->t_name);
+				    "HOSTNAMES parameter", t->t_name);
 				YYERROR;
 			}
 			strlcpy(rule->r_value.relayhost.helotable, t->t_name,
@@ -560,7 +573,7 @@ main		: BOUNCEWARN {
 		} limits
 		| LISTEN {
 			bzero(&l, sizeof l);
-		} ON STRING address_family port ssl pkiname auth tag listen_helo mask_source {
+		} ON STRING address_family port ssl pkiname auth tag listen_hostname listen_hostnames mask_source {
 			char	       *ifx  = $4;
 			int		family = $5;
 			in_port_t	port = $6;
@@ -568,8 +581,9 @@ main		: BOUNCEWARN {
 			char	       *pki = $8;
 			uint16_t       	auth = $9;
 			char	       *tag  = $10;
-			char	       *helo = $11;
-			uint16_t       	masksrc = $12;
+			char	       *hostname = $11;
+			struct table   *hostnametable = $12;
+			uint16_t       	masksrc = $13;
 			uint16_t	flags;
 
 			if (port != 0 && ssl == F_SSL) {
@@ -596,9 +610,9 @@ main		: BOUNCEWARN {
 			if (port == 0) {
 				if (ssl & F_SMTPS) {
 					if (! interface(ifx, family, tag, pki, conf->sc_listeners,
-						MAX_LISTEN, 465, l.authtable, F_SMTPS|flags, helo)) {
+						MAX_LISTEN, 465, l.authtable, F_SMTPS|flags, hostname, hostnametable)) {
 						if (host(ifx, tag, pki, conf->sc_listeners,
-							MAX_LISTEN, 465, l.authtable, ssl|flags, helo) <= 0) {
+							MAX_LISTEN, 465, l.authtable, ssl|flags, hostname, hostnametable) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -606,9 +620,9 @@ main		: BOUNCEWARN {
 				}
 				if (! ssl || (ssl & ~F_SMTPS)) {
 					if (! interface(ifx, family, tag, pki, conf->sc_listeners,
-						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|flags, helo)) {
+						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|flags, hostname, hostnametable)) {
 						if (host(ifx, tag, pki, conf->sc_listeners,
-							MAX_LISTEN, 25, l.authtable, ssl|flags, helo) <= 0) {
+							MAX_LISTEN, 25, l.authtable, ssl|flags, hostname, hostnametable) <= 0) {
 							yyerror("invalid virtual ip or interface: %s", ifx);
 							YYERROR;
 						}
@@ -617,9 +631,9 @@ main		: BOUNCEWARN {
 			}
 			else {
 				if (! interface(ifx, family, tag, pki, conf->sc_listeners,
-					MAX_LISTEN, port, l.authtable, ssl|auth, helo)) {
+					MAX_LISTEN, port, l.authtable, ssl|auth, hostname, hostnametable)) {
 					if (host(ifx, tag, pki, conf->sc_listeners,
-						MAX_LISTEN, port, l.authtable, ssl|flags, helo) <= 0) {
+						MAX_LISTEN, port, l.authtable, ssl|flags, hostname, hostnametable) <= 0) {
 						yyerror("invalid virtual ip or interface: %s", ifx);
 						YYERROR;
 					}
@@ -858,19 +872,25 @@ userbase	: USERBASE tables	{
 		
 
 
-destination	: DOMAIN tables			{
-			struct table   *t = $2;
+destination	: negation DOMAIN tables	       	{
+			struct table   *t = $3;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
 				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
+			rule->r_notdestination = $1;
 			$$ = t;
 		}
-		| LOCAL		{ $$ = table_find("<localnames>", NULL); }
-		| ANY		{ $$ = 0; }
+		| negation LOCAL		{
+			rule->r_notdestination = $1;
+			$$ = table_find("<localnames>", NULL);
+		}
+		| negation ANY		{
+			rule->r_notdestination = $1;
+			$$ = 0;
+		}
 		;
 
 
@@ -942,37 +962,43 @@ action		: userbase DELIVER TO MAILDIR			{
 		}
 		;
 
-from		: FROM tables			{
-			struct table   *t = $2;
+negation	: '!'		{ $$ = 1; }
+		| /* empty */	{ $$ = 0; }
+		;
+
+from		: FROM negation tables			{
+			struct table   *t = $3;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
 				yyerror("invalid use of table \"%s\" as FROM parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
+			rule->r_notsources = $2;
 			$$ = t;
 		}
-		| FROM ANY			{
+		| FROM negation ANY    		{
 			$$ = table_find("<anyhost>", NULL);
+			rule->r_notsources = $2;
 		}
-		| FROM LOCAL			{
+		| FROM negation LOCAL  		{
 			$$ = table_find("<localhost>", NULL);
+			rule->r_notsources = $2;
 		}
 		| /* empty */			{
 			$$ = table_find("<localhost>", NULL);
 		}
 		;
 
-sender		: SENDER tables			{
-			struct table   *t = $2;
+sender		: SENDER negation tables			{
+			struct table   *t = $3;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
 				yyerror("invalid use of table \"%s\" as SENDER parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
+			rule->r_notsenders = $2;
 			$$ = t;
 		}
 		| /* empty */			{ $$ = NULL; }
@@ -1096,8 +1122,8 @@ lookup(char *s)
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "from",		FROM },
-		{ "helo",		HELO },
 		{ "hostname",		HOSTNAME },
+		{ "hostnames",		HOSTNAMES },
 		{ "include",		INCLUDE },
 		{ "inet4",		INET4 },
 		{ "inet6",		INET6 },
@@ -1661,14 +1687,14 @@ symget(const char *nam)
 static void
 config_listener(struct listener *h,  const char *name, const char *tag,
     const char *pki, in_port_t port, const char *authtable, uint16_t flags,
-    const char *helo)
+    const char *hostname, struct table *hostnametable)
 {
 	h->fd = -1;
 	h->port = port;
 	h->flags = flags;
 
-	if (helo == NULL)
-		helo = conf->sc_hostname;
+	if (hostname == NULL)
+		hostname = conf->sc_hostname;
 
 	h->ssl = NULL;
 	h->ssl_cert_name[0] = '\0';
@@ -1680,7 +1706,9 @@ config_listener(struct listener *h,  const char *name, const char *tag,
 	if (tag != NULL)
 		(void)strlcpy(h->tag, tag, sizeof(h->tag));
 
-	(void)strlcpy(h->helo, helo, sizeof(h->helo));
+	(void)strlcpy(h->hostname, hostname, sizeof(h->hostname));
+	if (hostnametable)
+		(void)strlcpy(h->hostnametable, hostnametable->t_name, sizeof(h->hostnametable));
 }
 
 struct listener *
@@ -1728,7 +1756,7 @@ host_v6(const char *s, in_port_t port)
 int
 host_dns(const char *s, const char *tag, const char *pki,
     struct listenerlist *al, int max, in_port_t port, const char *authtable,
-    uint16_t flags, const char *helo)
+    uint16_t flags, const char *hostname, struct table *hostnametable)
 {
 	struct addrinfo		 hints, *res0, *res;
 	int			 error, cnt = 0;
@@ -1769,7 +1797,7 @@ host_dns(const char *s, const char *tag, const char *pki,
 			sin6->sin6_port = port;
 		}
 
-		config_listener(h, s, tag, pki, port, authtable, flags, helo);
+		config_listener(h, s, tag, pki, port, authtable, flags, hostname, hostnametable);
 
 		TAILQ_INSERT_HEAD(al, h, entry);
 		cnt++;
@@ -1785,7 +1813,7 @@ host_dns(const char *s, const char *tag, const char *pki,
 int
 host(const char *s, const char *tag, const char *pki, struct listenerlist *al,
     int max, in_port_t port, const char *authtable, uint16_t flags,
-    const char *helo)
+    const char *hostname, struct table *hostnametable)
 {
 	struct listener *h;
 
@@ -1798,18 +1826,18 @@ host(const char *s, const char *tag, const char *pki, struct listenerlist *al,
 		h = host_v6(s, port);
 
 	if (h != NULL) {
-		config_listener(h, s, tag, pki, port, authtable, flags, helo);
+		config_listener(h, s, tag, pki, port, authtable, flags, hostname, hostnametable);
 		TAILQ_INSERT_HEAD(al, h, entry);
 		return (1);
 	}
 
-	return (host_dns(s, tag, pki, al, max, port, authtable, flags, helo));
+	return (host_dns(s, tag, pki, al, max, port, authtable, flags, hostname, hostnametable));
 }
 
 int
 interface(const char *s, int family, const char *tag, const char *pki,
     struct listenerlist *al, int max, in_port_t port, const char *authtable,
-    uint16_t flags, const char *helo)
+    uint16_t flags, const char *hostname, struct table *hostnametable)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_in	*sain;
@@ -1853,7 +1881,7 @@ interface(const char *s, int family, const char *tag, const char *pki,
 			continue;
 		}
 
-		config_listener(h, s, tag, pki, port, authtable, flags, helo);
+		config_listener(h, s, tag, pki, port, authtable, flags, hostname, hostnametable);
 		ret = 1;
 		TAILQ_INSERT_HEAD(al, h, entry);
 	}

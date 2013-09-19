@@ -66,6 +66,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
 		case IMSG_LKA_EXPAND_RCPT:
+		case IMSG_LKA_HELO:
 		case IMSG_LKA_AUTHENTICATE:
 		case IMSG_LKA_SSL_INIT:
 		case IMSG_LKA_SSL_VERIFY:

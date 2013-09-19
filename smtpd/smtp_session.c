@@ -114,6 +114,7 @@ struct smtp_session {
 	struct listener		*listener;
 	struct sockaddr_storage	 ss;
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
+	char			 smtpname[SMTPD_MAXHOSTNAMELEN];
 
 	int			 flags;
 	int			 phase;
@@ -154,6 +155,7 @@ struct smtp_session {
 static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
 static void smtp_connected(struct smtp_session *);
+static void smtp_send_banner(struct smtp_session *);
 static void smtp_mfa_response(struct smtp_session *, int, uint32_t,
     const char *);
 static void smtp_io(struct io *, int);
@@ -191,6 +193,7 @@ static struct { int code; const char *cmd; } commands[] = {
 };
 
 static struct tree wait_lka_ptr;
+static struct tree wait_lka_helo;
 static struct tree wait_lka_rcpt;
 static struct tree wait_mfa_response;
 static struct tree wait_mfa_data;
@@ -208,6 +211,7 @@ smtp_session_init(void)
 
 	if (!init) {
 		tree_init(&wait_lka_ptr);
+		tree_init(&wait_lka_helo);
 		tree_init(&wait_lka_rcpt);
 		tree_init(&wait_mfa_response);
 		tree_init(&wait_mfa_data);
@@ -249,6 +253,8 @@ smtp_session(struct listener *listener, int sock,
 	s->state = STATE_NEW;
 	s->phase = PHASE_INIT;
 
+	strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));
+
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
 		s->flags |= SF_AUTHENTICATED;
@@ -275,7 +281,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	void				*ssl;
 	char				 user[SMTPD_MAXLOGNAME];
 	struct msg			 m;
-	const char			*line;
+	const char			*line, *helo;
 	uint64_t			 reqid, evpid;
 	uint32_t			 code, msgid;
 	int				 status, success, dnserror;
@@ -317,6 +323,20 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		case LKA_TEMPFAIL:
 			smtp_reply(s, "%s", line);
 		}
+		io_reload(&s->io);
+		return;
+
+	case IMSG_LKA_HELO:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		s = tree_xpop(&wait_lka_helo, reqid);
+		m_get_int(&m, &status);
+		if (status == LKA_OK) {
+			m_get_string(&m, &helo);
+			strlcpy(s->smtpname, helo, sizeof(s->smtpname));
+		}
+		m_end(&m);
+		smtp_reply(s, SMTPD_BANNER, s->smtpname, SMTPD_NAME);
 		io_reload(&s->io);
 		return;
 
@@ -387,7 +407,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    ss_to_text(&s->ss));
 		}
 		fprintf(s->ofile, "by %s (%s) with %sSMTP%s%s id %08x;\n",
-		    s->listener->helo,
+		    s->smtpname,
 		    SMTPD_NAME,
 		    s->flags & SF_EHLO ? "E" : "",
 		    s->flags & SF_SECURE ? "S" : "",
@@ -635,8 +655,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			tree_xset(&wait_ssl_init, s->id, s);
 			return;
 		}
-		smtp_reply(s, SMTPD_BANNER, s->listener->helo, SMTPD_NAME);
-		io_reload(&s->io);
+		smtp_send_banner(s);
 		return;
 
 	case IMSG_MFA_REQ_HELO:
@@ -651,7 +670,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 		smtp_enter_state(s, STATE_HELO);
 		smtp_reply(s, "250%c%s Hello %s [%s], pleased to meet you",
 		    (s->flags & SF_EHLO) ? '-' : ' ',
-		    s->listener->helo,
+		    s->smtpname,
 		    s->evp.helo,
 		    ss_to_text(&s->ss));
 
@@ -784,9 +803,8 @@ smtp_io(struct io *io, int evt)
 
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
-			smtp_reply(s, SMTPD_BANNER, s->listener->helo,
-			    SMTPD_NAME);
 			io_set_write(&s->io);
+			smtp_send_banner(s);
 		}
 		else {
 			stat_increment("smtp.tls", 1);
@@ -1082,7 +1100,7 @@ smtp_command(struct smtp_session *s, char *line)
 		smtp_message_reset(s, 1);
 
 		if (smtp_mailaddr(&s->evp.sender, args, 1, &args,
-		    s->listener->helo) == 0) {
+		    s->smtpname) == 0) {
 			smtp_reply(s, "553 Sender address syntax error");
 			break;
 		}
@@ -1110,7 +1128,7 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 
 		if (smtp_mailaddr(&s->evp.rcpt, args, 0, &args,
-		    s->listener->helo) == 0) {
+		    s->smtpname) == 0) {
 			smtp_reply(s,
 			    "553 Recipient address syntax error");
 			break;
@@ -1404,6 +1422,34 @@ smtp_connected(struct smtp_session *s)
 	m_close(p_mfa);
 	s->flags |= SF_MFACONNSENT;
 	smtp_wait_mfa(s, IMSG_MFA_REQ_CONNECT);
+}
+
+static void
+smtp_send_banner(struct smtp_session *s)
+{
+	struct sockaddr_storage	 ss;
+	struct sockaddr		*sa;
+	socklen_t		 sa_len;
+
+	if (s->listener->hostnametable[0]) {
+		sa_len = sizeof(ss);
+		sa = (struct sockaddr *)&ss;
+		if (getsockname(s->io.sock, sa, &sa_len) == -1) {
+			log_warn("warn: getsockname()");
+		}
+		else {
+			m_create(p_lka, IMSG_LKA_HELO, 0, 0, -1);
+			m_add_id(p_lka, s->id);
+			m_add_string(p_lka, s->listener->hostnametable);
+			m_add_sockaddr(p_lka, sa);
+			m_close(p_lka);
+			tree_xset(&wait_lka_helo, s->id, s);
+			return;
+		}
+	}
+
+	smtp_reply(s, SMTPD_BANNER, s->smtpname, SMTPD_NAME);
+	io_reload(&s->io);
 }
 
 void
