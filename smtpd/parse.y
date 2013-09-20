@@ -97,6 +97,20 @@ struct listener		 l;
 struct mta_limits	*limits;
 static struct ssl      	*pki_ssl;
 
+static struct listen_opts {
+	char	       *ifx;
+	int		family;
+	in_port_t	port;
+	uint16_t	ssl;
+	char	       *pki;
+	uint16_t       	auth;
+	char	       *tag;
+	char	       *hostname;
+	struct table   *hostnametable;
+	uint16_t       	masksrc;
+	uint16_t	flags;	
+} listen_opts;
+
 static void config_listener(struct listener *,  const char *, const char *,
     const char *, in_port_t, const char *, uint16_t, const char *, struct table *);
 struct listener	*host_v4(const char *, in_port_t);
@@ -133,10 +147,10 @@ typedef struct {
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.table>	table listen_hostnames
-%type	<v.number>	port auth ssl size expire address_family mask_source negation
+%type	<v.table>	table
+%type	<v.number>	size expire negation
 %type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
-%type	<v.string>	pkiname tag tagged listen_hostname
+%type	<v.string>	tagged
 %%
 
 grammar		: /* empty */
@@ -204,79 +218,6 @@ size		: NUMBER		{
 		}
 		;
 
-port		: PORT STRING			{
-			struct servent	*servent;
-
-			servent = getservbyname($2, "tcp");
-			if (servent == NULL) {
-				yyerror("invalid port: %s", $2);
-				free($2);
-				YYERROR;
-			}
-			free($2);
-			$$ = ntohs(servent->s_port);
-		}
-		| PORT NUMBER			{
-			if ($2 <= 0 || $2 >= (int)USHRT_MAX) {
-				yyerror("invalid port: %" PRId64, $2);
-				YYERROR;
-			}
-			$$ = $2;
-		}
-		| /* empty */			{
-			$$ = 0;
-		}
-		;
-
-pkiname		: PKI STRING	{
-			if (($$ = strdup($2)) == NULL) {
-				yyerror("strdup");
-				free($2);
-				YYERROR;
-			}
-			free($2);
-		}
-		| /* empty */			{ $$ = NULL; }
-		;
-
-ssl		: SMTPS				{ $$ = F_SMTPS; }
-		| SMTPS VERIFY 			{ $$ = F_SMTPS|F_TLS_VERIFY; }
-		| TLS				{ $$ = F_STARTTLS; }
-		| SECURE       			{ $$ = F_SSL; }
-		| TLS_REQUIRE			{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE; }
-		| TLS_REQUIRE VERIFY   		{ $$ = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
-		| /* Empty */			{ $$ = 0; }
-		;
-
-auth		: AUTH				{
-			$$ = F_AUTH|F_AUTH_REQUIRE;
-		}
-		| AUTH_OPTIONAL			{
-			$$ = F_AUTH;
-		}
-		| AUTH tables  			{
-			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
-			$$ = F_AUTH|F_AUTH_REQUIRE;
-		}
-		| AUTH_OPTIONAL tables 		{
-			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
-			$$ = F_AUTH;
-		}
-		| /* empty */			{ $$ = 0; }
-		;
-
-tag		: TAG STRING			{
-       			if (strlen($2) >= MAX_TAG_SIZE) {
-       				yyerror("tag name too long");
-				free($2);
-				YYERROR;
-			}
-
-			$$ = $2;
-		}
-		| /* empty */			{ $$ = NULL; }
-		;
-
 tagged		: TAGGED negation STRING       		{
 			if (($$ = strdup($3)) == NULL) {
        				yyerror("strdup");
@@ -325,27 +266,6 @@ bouncedelays	: bouncedelays ',' bouncedelay
 		| /* EMPTY */
 		;
 
-address_family	: INET4			{ $$ = AF_INET; }
-		| INET6			{ $$ = AF_INET6; }
-		| /* empty */		{ $$ = AF_UNSPEC; }
-		;
-
-listen_hostname	: HOSTNAME STRING	{ $$ = $2; }
-		| /* empty */		{ $$ = NULL; }
-		;
-
-listen_hostnames: HOSTNAMES tables		{
-			struct table	*t = $2;
-			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
-				yyerror("invalid use of table \"%s\" as "
-				    "HOSTNAMES parameter", t->t_name);
-				YYERROR;
-			}
-			$$ = t;
-		}
-		| /* empty */		{ $$ = NULL; }
-		;
-
 opt_limit	: INET4 {
 			limits->family = AF_INET;
 		}
@@ -381,9 +301,71 @@ opt_pki		: CERTIFICATE STRING {
 		;
 
 pki		: opt_pki pki
-		|
+		| /* empty */
 		;
 
+opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
+		| INET6			{ listen_opts.family = AF_INET6; }
+		| PORT STRING			{
+			struct servent	*servent;
+
+			servent = getservbyname($2, "tcp");
+			if (servent == NULL) {
+				yyerror("invalid port: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
+			listen_opts.port = ntohs(servent->s_port);
+		}
+		| PORT NUMBER			{
+			if ($2 <= 0 || $2 >= (int)USHRT_MAX) {
+				yyerror("invalid port: %" PRId64, $2);
+				YYERROR;
+			}
+			listen_opts.port = $2;
+		}
+		| SMTPS				{ listen_opts.ssl = F_SMTPS; }
+		| SMTPS VERIFY 			{ listen_opts.ssl = F_SMTPS|F_TLS_VERIFY; }
+		| TLS				{ listen_opts.ssl = F_STARTTLS; }
+		| SECURE       			{ listen_opts.ssl = F_SSL; }
+		| TLS_REQUIRE			{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE; }
+		| TLS_REQUIRE VERIFY   		{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
+		| PKI STRING			{ listen_opts.pki = $2; }
+		| AUTH				{ listen_opts.auth = F_AUTH|F_AUTH_REQUIRE; }
+		| AUTH_OPTIONAL			{ listen_opts.auth = F_AUTH; }
+		| AUTH tables  			{
+			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
+			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
+		}
+		| AUTH_OPTIONAL tables 		{
+			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
+			listen_opts.auth = F_AUTH;
+		}
+		| TAG STRING			{
+       			if (strlen($2) >= MAX_TAG_SIZE) {
+       				yyerror("tag name too long");
+				free($2);
+				YYERROR;
+			}
+			listen_opts.tag = $2;
+		}
+		| HOSTNAME STRING	{ listen_opts.hostname = $2; }
+		| HOSTNAMES tables	{
+			struct table	*t = $2;
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "HOSTNAMES parameter", t->t_name);
+				YYERROR;
+			}
+			listen_opts.hostnametable = t;
+		}
+		| MASK_SOURCE	{ listen_opts.masksrc = F_MASK_SOURCE; }
+		;
+
+listen		: opt_listen listen
+		| /* empty */
+		;
 
 opt_relay_common: AS STRING	{
 			struct mailaddr maddr, *maddrp;
@@ -488,10 +470,6 @@ relay_via	: opt_relay_common relay_via
 		| /* empty */
 		;
 
-mask_source	: MASK_SOURCE	{ $$ = F_MASK_SOURCE; }
-		|		{ $$ = 0; }
-		;
-
 main		: BOUNCEWARN {
 			bzero(conf->sc_bounce_warn, sizeof conf->sc_bounce_warn);
 		} bouncedelays
@@ -573,68 +551,82 @@ main		: BOUNCEWARN {
 		} limits
 		| LISTEN {
 			bzero(&l, sizeof l);
-		} ON STRING address_family port ssl pkiname auth tag listen_hostname listen_hostnames mask_source {
-			char	       *ifx  = $4;
-			int		family = $5;
-			in_port_t	port = $6;
-			uint16_t       	ssl  = $7;
-			char	       *pki = $8;
-			uint16_t       	auth = $9;
-			char	       *tag  = $10;
-			char	       *hostname = $11;
-			struct table   *hostnametable = $12;
-			uint16_t       	masksrc = $13;
+			bzero(&listen_opts, sizeof listen_opts);
+			listen_opts.family = AF_UNSPEC;
+		} ON STRING listen {
 			uint16_t	flags;
 
-			if (port != 0 && ssl == F_SSL) {
+			listen_opts.ifx = $4;
+
+			if (listen_opts.port != 0 && listen_opts.ssl == F_SSL) {
 				yyerror("invalid listen option: tls/smtps on same port");
 				YYERROR;
 			}
 
-			if (auth != 0 && !ssl) {
+			if (listen_opts.auth != 0 && !listen_opts.ssl) {
 				yyerror("invalid listen option: auth requires tls/smtps");
 				YYERROR;
 			}
 
-			if (pki && !ssl) {
+			if (listen_opts.pki && !listen_opts.ssl) {
 				yyerror("invalid listen option: pki requires tls/smtps");
 				YYERROR;
 			}
 
-			if (ssl && !pki) {
+			if (listen_opts.ssl && !listen_opts.pki) {
 				yyerror("invalid listen option: tls/smtps requires pki");
 				YYERROR;
 			}
 
-			flags = auth|masksrc;
-			if (port == 0) {
-				if (ssl & F_SMTPS) {
-					if (! interface(ifx, family, tag, pki, conf->sc_listeners,
-						MAX_LISTEN, 465, l.authtable, F_SMTPS|flags, hostname, hostnametable)) {
-						if (host(ifx, tag, pki, conf->sc_listeners,
-							MAX_LISTEN, 465, l.authtable, ssl|flags, hostname, hostnametable) <= 0) {
-							yyerror("invalid virtual ip or interface: %s", ifx);
+			flags = listen_opts.auth|listen_opts.masksrc;
+			if (listen_opts.port == 0) {
+				if (listen_opts.ssl & F_SMTPS) {
+					if (! interface(listen_opts.ifx, listen_opts.family,
+						listen_opts.tag, listen_opts.pki, conf->sc_listeners,
+						MAX_LISTEN, 465, l.authtable, F_SMTPS|listen_opts.flags,
+						listen_opts.hostname, listen_opts.hostnametable)) {
+						if (host(listen_opts.ifx, listen_opts.tag, listen_opts.pki,
+							conf->sc_listeners,
+							MAX_LISTEN, 465, l.authtable,
+							listen_opts.ssl|listen_opts.flags,
+							listen_opts.hostname, listen_opts.hostnametable) <= 0) {
+							yyerror("invalid virtual ip or interface: %s",
+							    listen_opts.ifx);
 							YYERROR;
 						}
 					}
 				}
-				if (! ssl || (ssl & ~F_SMTPS)) {
-					if (! interface(ifx, family, tag, pki, conf->sc_listeners,
-						MAX_LISTEN, 25, l.authtable, (ssl&~F_SMTPS)|flags, hostname, hostnametable)) {
-						if (host(ifx, tag, pki, conf->sc_listeners,
-							MAX_LISTEN, 25, l.authtable, ssl|flags, hostname, hostnametable) <= 0) {
-							yyerror("invalid virtual ip or interface: %s", ifx);
+				if (! listen_opts.ssl || (listen_opts.ssl & ~F_SMTPS)) {
+					if (! interface(listen_opts.ifx, listen_opts.family, listen_opts.tag,
+						listen_opts.pki, conf->sc_listeners,
+						MAX_LISTEN, 25, l.authtable,
+						(listen_opts.ssl&~F_SMTPS)|listen_opts.flags,
+						listen_opts.hostname, listen_opts.hostnametable)) {
+						if (host(listen_opts.ifx, listen_opts.tag, listen_opts.pki,
+							conf->sc_listeners,
+							MAX_LISTEN, 25, l.authtable,
+							listen_opts.ssl|listen_opts.flags,
+							listen_opts.hostname, listen_opts.hostnametable) <= 0) {
+							yyerror("invalid virtual ip or interface: %s",
+							    listen_opts.ifx);
 							YYERROR;
 						}
 					}
 				}
 			}
 			else {
-				if (! interface(ifx, family, tag, pki, conf->sc_listeners,
-					MAX_LISTEN, port, l.authtable, ssl|auth, hostname, hostnametable)) {
-					if (host(ifx, tag, pki, conf->sc_listeners,
-						MAX_LISTEN, port, l.authtable, ssl|flags, hostname, hostnametable) <= 0) {
-						yyerror("invalid virtual ip or interface: %s", ifx);
+				if (! interface(listen_opts.ifx, listen_opts.family, listen_opts.tag,
+					listen_opts.pki, conf->sc_listeners,
+					MAX_LISTEN, listen_opts.port, l.authtable,
+					listen_opts.ssl|listen_opts.auth,
+					listen_opts.hostname, listen_opts.hostnametable)) {
+					if (host(listen_opts.ifx, listen_opts.tag, listen_opts.pki,
+						conf->sc_listeners,
+						MAX_LISTEN, listen_opts.port, l.authtable,
+						listen_opts.ssl|listen_opts.flags,
+						listen_opts.hostname, listen_opts.hostnametable) <= 0) {
+						yyerror("invalid virtual ip or interface: %s",
+						    listen_opts.ifx);
 						YYERROR;
 					}
 				}
