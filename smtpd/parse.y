@@ -104,24 +104,21 @@ static struct listen_opts {
 	uint16_t	ssl;
 	char	       *pki;
 	uint16_t       	auth;
+	char	        authtable[SMTPD_MAXLINESIZE];
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
-	uint16_t       	masksrc;
 	uint16_t	flags;	
 } listen_opts;
 
-static void config_listener(struct listener *,  const char *, const char *,
-    const char *, in_port_t, const char *, uint16_t, const char *, struct table *);
+static void	create_listener(struct listenerlist *,  struct listen_opts *);
+static void	config_listener(struct listener *,  struct listen_opts *);
+
 struct listener	*host_v4(const char *, in_port_t);
 struct listener	*host_v6(const char *, in_port_t);
-int		 host_dns(const char *, const char *, const char *,
-		    struct listenerlist *, int, in_port_t, const char *,
-		    uint16_t, const char *, struct table *);
-int		 host(const char *, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *, struct table *);
-int		 interface(const char *, int, const char *, const char *,
-    struct listenerlist *, int, in_port_t, const char *, uint16_t, const char *, struct table *);
+int		 host_dns(struct listenerlist *, struct listen_opts *);
+int		 host(struct listenerlist *, struct listen_opts *);
+int		 interface(struct listenerlist *, struct listen_opts *);
 void		 set_localaddrs(void);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
@@ -335,11 +332,11 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 		| AUTH				{ listen_opts.auth = F_AUTH|F_AUTH_REQUIRE; }
 		| AUTH_OPTIONAL			{ listen_opts.auth = F_AUTH; }
 		| AUTH tables  			{
-			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
+			strlcpy(listen_opts.authtable, ($2)->t_name, sizeof listen_opts.authtable);
 			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
 		}
 		| AUTH_OPTIONAL tables 		{
-			strlcpy(l.authtable, ($2)->t_name, sizeof l.authtable);
+			strlcpy(listen_opts.authtable, ($2)->t_name, sizeof listen_opts.authtable);
 			listen_opts.auth = F_AUTH;
 		}
 		| TAG STRING			{
@@ -360,7 +357,7 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			}
 			listen_opts.hostnametable = t;
 		}
-		| MASK_SOURCE	{ listen_opts.masksrc = F_MASK_SOURCE; }
+		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
 		;
 
 listen		: opt_listen listen
@@ -554,83 +551,8 @@ main		: BOUNCEWARN {
 			bzero(&listen_opts, sizeof listen_opts);
 			listen_opts.family = AF_UNSPEC;
 		} ON STRING listen {
-			uint16_t	flags;
-
 			listen_opts.ifx = $4;
-
-			if (listen_opts.port != 0 && listen_opts.ssl == F_SSL) {
-				yyerror("invalid listen option: tls/smtps on same port");
-				YYERROR;
-			}
-
-			if (listen_opts.auth != 0 && !listen_opts.ssl) {
-				yyerror("invalid listen option: auth requires tls/smtps");
-				YYERROR;
-			}
-
-			if (listen_opts.pki && !listen_opts.ssl) {
-				yyerror("invalid listen option: pki requires tls/smtps");
-				YYERROR;
-			}
-
-			if (listen_opts.ssl && !listen_opts.pki) {
-				yyerror("invalid listen option: tls/smtps requires pki");
-				YYERROR;
-			}
-
-			flags = listen_opts.auth|listen_opts.masksrc;
-			if (listen_opts.port == 0) {
-				if (listen_opts.ssl & F_SMTPS) {
-					if (! interface(listen_opts.ifx, listen_opts.family,
-						listen_opts.tag, listen_opts.pki, conf->sc_listeners,
-						MAX_LISTEN, 465, l.authtable, F_SMTPS|listen_opts.flags,
-						listen_opts.hostname, listen_opts.hostnametable)) {
-						if (host(listen_opts.ifx, listen_opts.tag, listen_opts.pki,
-							conf->sc_listeners,
-							MAX_LISTEN, 465, l.authtable,
-							listen_opts.ssl|listen_opts.flags,
-							listen_opts.hostname, listen_opts.hostnametable) <= 0) {
-							yyerror("invalid virtual ip or interface: %s",
-							    listen_opts.ifx);
-							YYERROR;
-						}
-					}
-				}
-				if (! listen_opts.ssl || (listen_opts.ssl & ~F_SMTPS)) {
-					if (! interface(listen_opts.ifx, listen_opts.family, listen_opts.tag,
-						listen_opts.pki, conf->sc_listeners,
-						MAX_LISTEN, 25, l.authtable,
-						(listen_opts.ssl&~F_SMTPS)|listen_opts.flags,
-						listen_opts.hostname, listen_opts.hostnametable)) {
-						if (host(listen_opts.ifx, listen_opts.tag, listen_opts.pki,
-							conf->sc_listeners,
-							MAX_LISTEN, 25, l.authtable,
-							listen_opts.ssl|listen_opts.flags,
-							listen_opts.hostname, listen_opts.hostnametable) <= 0) {
-							yyerror("invalid virtual ip or interface: %s",
-							    listen_opts.ifx);
-							YYERROR;
-						}
-					}
-				}
-			}
-			else {
-				if (! interface(listen_opts.ifx, listen_opts.family, listen_opts.tag,
-					listen_opts.pki, conf->sc_listeners,
-					MAX_LISTEN, listen_opts.port, l.authtable,
-					listen_opts.ssl|listen_opts.auth,
-					listen_opts.hostname, listen_opts.hostnametable)) {
-					if (host(listen_opts.ifx, listen_opts.tag, listen_opts.pki,
-						conf->sc_listeners,
-						MAX_LISTEN, listen_opts.port, l.authtable,
-						listen_opts.ssl|listen_opts.flags,
-						listen_opts.hostname, listen_opts.hostnametable) <= 0) {
-						yyerror("invalid virtual ip or interface: %s",
-						    listen_opts.ifx);
-						YYERROR;
-					}
-				}
-			}
+			create_listener(conf->sc_listeners, &listen_opts);
 		}
 		| FILTER STRING			{
 			struct filter *filter;
@@ -1677,30 +1599,76 @@ symget(const char *nam)
 }
 
 static void
-config_listener(struct listener *h,  const char *name, const char *tag,
-    const char *pki, in_port_t port, const char *authtable, uint16_t flags,
-    const char *hostname, struct table *hostnametable)
+create_listener(struct listenerlist *ll,  struct listen_opts *lo)
+{
+	uint16_t	flags;
+
+	if (lo->port != 0 && lo->ssl == F_SSL)
+		errx(1, "invalid listen option: tls/smtps on same port");
+	
+	if (lo->auth != 0 && !lo->ssl)
+		errx(1, "invalid listen option: auth requires tls/smtps");
+	
+	if (lo->pki && !lo->ssl)
+		errx(1, "invalid listen option: pki requires tls/smtps");
+	
+	if (lo->ssl && !lo->pki)
+		errx(1, "invalid listen option: tls/smtps requires pki");
+
+	flags = lo->flags;
+
+
+	if (lo->port) {
+		lo->flags = lo->ssl|lo->auth|flags;
+		lo->port = htons(lo->port);
+		if (! interface(ll, lo))
+			if (host(ll, lo) <= 0)
+				errx(1, "invalid virtual ip or interface: %s", lo->ifx);
+	}
+	else {
+		if (lo->ssl & F_SMTPS) {
+			lo->port = htons(465);
+			lo->flags = F_SMTPS|lo->auth|flags;
+			if (! interface(ll, lo))
+				if (host(ll, lo) <= 0)
+					errx(1, "invalid virtual ip or interface: %s", lo->ifx);
+		}
+
+		if (! lo->ssl || (lo->ssl & F_STARTTLS)) {
+			lo->port = htons(25);
+			lo->flags = lo->auth|flags;
+			if (lo->ssl & F_STARTTLS)
+				lo->flags |= F_STARTTLS;
+			if (! interface(ll, lo))
+				if (host(ll, lo) <= 0)
+					errx(1, "invalid virtual ip or interface: %s", lo->ifx);
+		}
+	}
+}
+
+static void
+config_listener(struct listener *h,  struct listen_opts *lo)
 {
 	h->fd = -1;
-	h->port = port;
-	h->flags = flags;
+	h->port = lo->port;
+	h->flags = lo->flags;
 
-	if (hostname == NULL)
-		hostname = conf->sc_hostname;
+	if (lo->hostname == NULL)
+		lo->hostname = conf->sc_hostname;
 
 	h->ssl = NULL;
 	h->ssl_cert_name[0] = '\0';
 
-	if (authtable != NULL)
-		(void)strlcpy(h->authtable, authtable, sizeof(h->authtable));
-	if (pki != NULL)
-		(void)strlcpy(h->ssl_cert_name, pki, sizeof(h->ssl_cert_name));
-	if (tag != NULL)
-		(void)strlcpy(h->tag, tag, sizeof(h->tag));
+	if (lo->authtable != NULL)
+		(void)strlcpy(h->authtable, lo->authtable, sizeof(h->authtable));
+	if (lo->pki != NULL)
+		(void)strlcpy(h->ssl_cert_name, lo->pki, sizeof(h->ssl_cert_name));
+	if (lo->tag != NULL)
+		(void)strlcpy(h->tag, lo->tag, sizeof(h->tag));
 
-	(void)strlcpy(h->hostname, hostname, sizeof(h->hostname));
-	if (hostnametable)
-		(void)strlcpy(h->hostnametable, hostnametable->t_name, sizeof(h->hostnametable));
+	(void)strlcpy(h->hostname, lo->hostname, sizeof(h->hostname));
+	if (lo->hostnametable)
+		(void)strlcpy(h->hostnametable, lo->hostnametable->t_name, sizeof(h->hostnametable));
 }
 
 struct listener *
@@ -1746,9 +1714,7 @@ host_v6(const char *s, in_port_t port)
 }
 
 int
-host_dns(const char *s, const char *tag, const char *pki,
-    struct listenerlist *al, int max, in_port_t port, const char *authtable,
-    uint16_t flags, const char *hostname, struct table *hostnametable)
+host_dns(struct listenerlist *al, struct listen_opts *lo)
 {
 	struct addrinfo		 hints, *res0, *res;
 	int			 error, cnt = 0;
@@ -1759,16 +1725,16 @@ host_dns(const char *s, const char *tag, const char *pki,
 	bzero(&hints, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM; /* DUMMY */
-	error = getaddrinfo(s, NULL, &hints, &res0);
+	error = getaddrinfo(lo->ifx, NULL, &hints, &res0);
 	if (error == EAI_AGAIN || error == EAI_NODATA || error == EAI_NONAME)
 		return (0);
 	if (error) {
-		log_warnx("warn: host_dns: could not parse \"%s\": %s", s,
+		log_warnx("warn: host_dns: could not parse \"%s\": %s", lo->ifx,
 		    gai_strerror(error));
 		return (-1);
 	}
 
-	for (res = res0; res && cnt < max; res = res->ai_next) {
+	for (res = res0; res; res = res->ai_next) {
 		if (res->ai_family != AF_INET &&
 		    res->ai_family != AF_INET6)
 			continue;
@@ -1780,64 +1746,53 @@ host_dns(const char *s, const char *tag, const char *pki,
 			sain->sin_len = sizeof(struct sockaddr_in);
 			sain->sin_addr.s_addr = ((struct sockaddr_in *)
 			    res->ai_addr)->sin_addr.s_addr;
-			sain->sin_port = port;
+			sain->sin_port = lo->port;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 			memcpy(&sin6->sin6_addr, &((struct sockaddr_in6 *)
 			    res->ai_addr)->sin6_addr, sizeof(struct in6_addr));
-			sin6->sin6_port = port;
+			sin6->sin6_port = lo->port;
 		}
 
-		config_listener(h, s, tag, pki, port, authtable, flags, hostname, hostnametable);
+		config_listener(h, lo);
 
 		TAILQ_INSERT_HEAD(al, h, entry);
 		cnt++;
 	}
-	if (cnt == max && res) {
-		log_warnx("warn: host_dns: %s resolves to more than %d hosts",
-		    s, max);
-	}
+
 	freeaddrinfo(res0);
 	return (cnt);
 }
 
 int
-host(const char *s, const char *tag, const char *pki, struct listenerlist *al,
-    int max, in_port_t port, const char *authtable, uint16_t flags,
-    const char *hostname, struct table *hostnametable)
+host(struct listenerlist *al, struct listen_opts *lo)
 {
 	struct listener *h;
 
-	port = htons(port);
-
-	h = host_v4(s, port);
+	h = host_v4(lo->ifx, lo->port);
 
 	/* IPv6 address? */
 	if (h == NULL)
-		h = host_v6(s, port);
+		h = host_v6(lo->ifx, lo->port);
 
 	if (h != NULL) {
-		config_listener(h, s, tag, pki, port, authtable, flags, hostname, hostnametable);
+		config_listener(h, lo);
 		TAILQ_INSERT_HEAD(al, h, entry);
 		return (1);
 	}
 
-	return (host_dns(s, tag, pki, al, max, port, authtable, flags, hostname, hostnametable));
+	return (host_dns(al, lo));
 }
 
 int
-interface(const char *s, int family, const char *tag, const char *pki,
-    struct listenerlist *al, int max, in_port_t port, const char *authtable,
-    uint16_t flags, const char *hostname, struct table *hostnametable)
+interface(struct listenerlist *al, struct listen_opts *lo)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
 	struct listener		*h;
-	int ret = 0;
-
-	port = htons(port);
+	int			ret = 0;
 
 	if (getifaddrs(&ifap) == -1)
 		fatal("getifaddrs");
@@ -1845,10 +1800,10 @@ interface(const char *s, int family, const char *tag, const char *pki,
 	for (p = ifap; p != NULL; p = p->ifa_next) {
 		if (p->ifa_addr == NULL)
 			continue;
-		if (strcmp(p->ifa_name, s) != 0 &&
-		    ! is_if_in_group(p->ifa_name, s))
+		if (strcmp(p->ifa_name, lo->ifx) != 0 &&
+		    ! is_if_in_group(p->ifa_name, lo->ifx))
 			continue;
-		if (family != AF_UNSPEC && family != p->ifa_addr->sa_family)
+		if (lo->family != AF_UNSPEC && lo->family != p->ifa_addr->sa_family)
 			continue;
 
 		h = xcalloc(1, sizeof(*h), "interface");
@@ -1858,14 +1813,14 @@ interface(const char *s, int family, const char *tag, const char *pki,
 			sain = (struct sockaddr_in *)&h->ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
-			sain->sin_port = port;
+			sain->sin_port = lo->port;
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
-			sin6->sin6_port = port;
+			sin6->sin6_port = lo->port;
 			break;
 
 		default:
@@ -1873,7 +1828,7 @@ interface(const char *s, int family, const char *tag, const char *pki,
 			continue;
 		}
 
-		config_listener(h, s, tag, pki, port, authtable, flags, hostname, hostnametable);
+		config_listener(h, lo);
 		ret = 1;
 		TAILQ_INSERT_HEAD(al, h, entry);
 	}
