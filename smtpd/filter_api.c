@@ -138,7 +138,7 @@ filter_api_on_dataline(void(*cb)(uint64_t, const char *), int flags)
 	filter_api_init();
 
 	fi.hooks |= HOOK_DATALINE;
-	fi.flags |= flags & FILTER_ALTERDATA;
+	fi.flags |= flags;
 	fi.cb.dataline = cb;
 }
 
@@ -226,10 +226,7 @@ filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
 void
 filter_api_data(uint64_t id, const char *line)
 {
-	m_create(&fi.p, IMSG_FILTER_DATA, 0, 0, -1);
-	m_add_id(&fi.p, id);
-	m_add_string(&fi.p, line);
-	m_close(&fi.p);
+	/* XXX write data on the outgoing socket */
 }
 
 static void
@@ -396,13 +393,6 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		filter_dispatch_notify(qid, status);
 		break;
 
-	case IMSG_FILTER_DATA:
-		m_msg(&m, imsg);
-		m_get_id(&m, &id);
-		m_get_string(&m, &line);
-		m_end(&m);
-		filter_dispatch_dataline(id, line);
-		break;
 	}
 }
 

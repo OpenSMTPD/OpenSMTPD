@@ -134,10 +134,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 			fd = queue_message_fd_rw(msgid);
 
-			m_create(p, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd);
-			m_add_id(p, reqid);
-			m_add_int(p, (fd == -1) ? 0 : 1);
-			m_close(p);
+			m_create(p_mfa, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fd);
+			m_add_id(p_mfa, reqid);
+			m_add_int(p_mfa, (fd == -1) ? 0 : 1);
+			m_close(p_mfa);
 			return;
 
 		case IMSG_SMTP_ENQUEUE_FD:
@@ -582,6 +582,7 @@ queue(void)
 	config_peer(PROC_CONTROL);
 	config_peer(PROC_SMTP);
 	config_peer(PROC_MDA);
+	config_peer(PROC_MFA);
 	config_peer(PROC_MTA);
 	config_peer(PROC_LKA);
 	config_peer(PROC_SCHEDULER);
