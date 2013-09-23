@@ -142,9 +142,16 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 		break;
 	case 1:
 		if (fd == -1) {
-			log_trace(TRACE_EXPAND, "expand: no .forward for "
-			    "user %s, just deliver", fwreq->user);
-			lka_submit(lks, rule, xn);
+			if (lks->expand.rule->r_forwardonly) {
+				log_trace(TRACE_EXPAND, "expand: no .forward "
+				    "for user %s on forward-only rule", fwreq->user);
+				lks->error = LKA_TEMPFAIL;
+			}
+			else {
+				log_trace(TRACE_EXPAND, "expand: no .forward for "
+				    "user %s, just deliver", fwreq->user);
+				lka_submit(lks, rule, xn);
+			}
 		}
 		else {
 			/* expand for the current user and rule */
@@ -161,9 +168,16 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 				lks->error = LKA_TEMPFAIL;
 			}
 			else if (ret == 0) {
-				log_trace(TRACE_EXPAND, "expand: empty .forward "
-				    "for user %s, just deliver", fwreq->user);
-				lka_submit(lks, rule, xn);
+				if (lks->expand.rule->r_forwardonly) {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s on forward-only rule", fwreq->user);
+					lks->error = LKA_TEMPFAIL;
+				}
+				else {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s, just deliver", fwreq->user);
+					lka_submit(lks, rule, xn);
+				}
 			}
 		}
 		break;
