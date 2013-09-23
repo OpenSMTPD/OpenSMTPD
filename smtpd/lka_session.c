@@ -147,6 +147,11 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 				    "for user %s on forward-only rule", fwreq->user);
 				lks->error = LKA_TEMPFAIL;
 			}
+			else if (lks->expand.rule->r_action == A_NONE) {
+				log_trace(TRACE_EXPAND, "expand: no .forward "
+				    "for user %s and no default action on rule", fwreq->user);
+				lks->error = LKA_PERMFAIL;
+			}
 			else {
 				log_trace(TRACE_EXPAND, "expand: no .forward for "
 				    "user %s, just deliver", fwreq->user);
@@ -172,6 +177,11 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 					log_trace(TRACE_EXPAND, "expand: empty .forward "
 					    "for user %s on forward-only rule", fwreq->user);
 					lks->error = LKA_TEMPFAIL;
+				}
+				else if (lks->expand.rule->r_action == A_NONE) {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s and no default action on rule", fwreq->user);
+					lks->error = LKA_PERMFAIL;
 				}
 				else {
 					log_trace(TRACE_EXPAND, "expand: empty .forward "
@@ -407,12 +417,24 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILENAME:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: filename expanded "
+			    "on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filename: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 
 	case EXPAND_ERROR:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: error expanded "
+			    "on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: error: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		if (xn->u.buffer[0] == '4')
@@ -423,6 +445,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILTER:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: filter expanded "
+			    "on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filter: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);

@@ -319,6 +319,7 @@ enum dest_type {
 };
 
 enum action_type {
+	A_NONE,
 	A_RELAY,
 	A_RELAYVIA,
 	A_MAILDIR,
