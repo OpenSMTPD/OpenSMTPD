@@ -418,8 +418,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 	case EXPAND_FILENAME:
 		if (rule->r_forwardonly) {
-			log_trace(TRACE_EXPAND, "expand: filename expanded "
-			    "on forward-only rule");
+			log_trace(TRACE_EXPAND, "expand: filename matched on forward-only rule");
 			lks->error = LKA_TEMPFAIL;
 			break;
 		}
@@ -430,8 +429,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 	case EXPAND_ERROR:
 		if (rule->r_forwardonly) {
-			log_trace(TRACE_EXPAND, "expand: error expanded "
-			    "on forward-only rule");
+			log_trace(TRACE_EXPAND, "expand: error matched on forward-only rule");
 			lks->error = LKA_TEMPFAIL;
 			break;
 		}
@@ -446,8 +444,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 	case EXPAND_FILTER:
 		if (rule->r_forwardonly) {
-			log_trace(TRACE_EXPAND, "expand: filter expanded "
-			    "on forward-only rule");
+			log_trace(TRACE_EXPAND, "expand: filter matched on forward-only rule");
 			lks->error = LKA_TEMPFAIL;
 			break;
 		}
