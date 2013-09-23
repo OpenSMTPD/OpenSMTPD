@@ -498,6 +498,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			strlcpy(ep->sender.domain, rule->r_as->domain,
 			    sizeof ep->sender.domain);
 		break;
+	case A_NONE:
 	case A_MBOX:
 	case A_MAILDIR:
 	case A_FILENAME:
