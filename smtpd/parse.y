@@ -141,11 +141,11 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	size expire negation
+%type	<v.number>	size expire negation forwardonly
 %type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
 %type	<v.string>	tagged
 %%
@@ -918,9 +918,13 @@ sender		: SENDER negation tables			{
 		| /* empty */			{ $$ = NULL; }
 		;
 
+forwardonly    	: FORWARDONLY			{ $$ = 1; }
+		| /* empty */			{ $$ = 0; }
+		;
+
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		 } tagged from sender FOR destination usermapping action expire {
+		 } tagged from sender FOR destination usermapping action expire forwardonly {
 
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = $4;
@@ -957,6 +961,8 @@ rule		: ACCEPT {
 					YYERROR;
 				}
 			}
+
+			rule->r_forwardonly = $11;
 
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 
@@ -1035,6 +1041,7 @@ lookup(char *s)
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
+		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
 		{ "hostname",		HOSTNAME },
 		{ "hostnames",		HOSTNAMES },

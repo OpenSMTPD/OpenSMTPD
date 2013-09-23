@@ -359,6 +359,7 @@ struct rule {
 	struct table		       *r_mapping;
 	struct table		       *r_userbase;
 	time_t				r_qexpire;
+	uint8_t				r_forwardonly;
 };
 
 struct delivery_mda {
