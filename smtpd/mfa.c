@@ -67,7 +67,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*line, *hostname;
 	uint64_t		 reqid;
 	uint32_t		 datalen; /* XXX make it off_t ? */
-	int			 v, success;
+	int			 v, success, fdout;
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
@@ -173,9 +173,9 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_int(&m, &success);
 			m_end(&m);
-			if (imsg->fd != -1)
-				imsg->fd = mfa_tx(reqid, imsg->fd);
-			m_forward(p_smtp, imsg);
+
+			fdout = mfa_tx(reqid, imsg->fd);
+			mfa_build_fd_chain(reqid, fdout);
 			return;
 		}
 	}
@@ -320,7 +320,7 @@ mfa_tx(uint64_t reqid, int ofd)
 	struct mfa_tx	*tx;
 	int		 sp[2];
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0) {
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1) {
 		log_warn("warn: mfa: socketpair");
 		return (-1);
 	}
@@ -339,7 +339,6 @@ mfa_tx(uint64_t reqid, int ofd)
 	io_init(&tx->io, sp[0], tx, mfa_tx_io, &tx->iobuf);
 	io_set_read(&tx->io);
 	tx->reqid = reqid;
-
 	tree_xset(&tx_tree, reqid, tx);
 
 	return (sp[1]);

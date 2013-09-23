@@ -57,6 +57,7 @@ enum filter_imsg {
 	IMSG_FILTER_REGISTER,
 	IMSG_FILTER_EVENT,
 	IMSG_FILTER_QUERY,
+	IMSG_FILTER_MESSAGE_FD,
 	IMSG_FILTER_NOTIFY,
 	IMSG_FILTER_RESPONSE,
 };
@@ -246,7 +247,7 @@ void filter_api_accept_notify(uint64_t, uint64_t *);
 void filter_api_reject(uint64_t, enum filter_status);
 void filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
-void filter_api_data(uint64_t, const char *);
+void filter_api_writeln(uint64_t, const char *);
 
 void filter_api_on_notify(void(*)(uint64_t, enum filter_status));
 void filter_api_on_connect(void(*)(uint64_t, struct filter_connect *));

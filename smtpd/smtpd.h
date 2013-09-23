@@ -600,7 +600,6 @@ struct deliver {
 };
 
 struct filter {
-	struct imsgproc	       *process;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
 };
@@ -1153,6 +1152,7 @@ void mfa_filter_mailaddr(uint64_t, int, const struct mailaddr *);
 void mfa_filter_line(uint64_t, int, const char *);
 void mfa_filter(uint64_t, int);
 void mfa_filter_event(uint64_t, int);
+void mfa_build_fd_chain(uint64_t, int);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);

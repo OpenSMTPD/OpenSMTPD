@@ -928,38 +928,7 @@ smtp_io(struct io *io, int evt)
 static void
 smtp_data_io(struct io *io, int evt)
 {
-	struct smtp_session    *s = io->arg;
 
-	log_trace(TRACE_IO, "smtp: %p (data): %s %s", s, io_strevent(evt),
-	    io_strio(io));
-
-	switch (evt) {
-
-	case IO_TIMEOUT:
-	case IO_DISCONNECTED:
-	case IO_ERROR:
-		log_debug("debug: smtp: %p: io error on mfa", s);
-		io_clear(&s->dataio);
-		iobuf_clear(&s->dataiobuf);
-		s->msgflags |= MF_ERROR_IO;
-		if (s->io.flags & IO_PAUSE_IN) {
-			log_debug("debug: smtp: %p: resuming session after mfa error", s);
-			io_resume(&s->io, IO_PAUSE_IN);
-		}
-		break;
-
-	case IO_LOWAT:
-		if (s->dataeom && iobuf_queued(&s->dataiobuf) == 0) {
-			smtp_data_io_done(s);
-		} else if (s->io.flags & IO_PAUSE_IN) {
-			log_debug("debug: smtp: %p: mfa congestion over: resuming session", s);
-			io_resume(&s->io, IO_PAUSE_IN);
-		}
-		break;
-
-	default:
-		fatalx("smtp_data_io()");
-	}
 }
 
 static void
