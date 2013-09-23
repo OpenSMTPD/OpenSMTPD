@@ -27,55 +27,55 @@
 #include "log.h"
 
 static void
-monkey(uint64_t qid)
+monkey(uint64_t id)
 {
 	uint32_t r;
 
 	r = arc4random_uniform(100);
 	if (r < 70)
-		filter_api_accept(qid);
+		filter_api_accept(id);
 	else if (r < 90)
-		filter_api_reject_code(qid, FILTER_FAIL, 666,
+		filter_api_reject_code(id, FILTER_FAIL, 666,
 		    "I am a monkey!");
 	else
-		filter_api_reject_code(qid, FILTER_CLOSE, 666,
+		filter_api_reject_code(id, FILTER_CLOSE, 666,
 		    "I am a funny monkey!");
 }
 
 static void
-on_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
+on_connect(uint64_t id, struct filter_connect *conn)
 {
-	monkey(qid);
+	monkey(id);
 }
 
 static void
-on_helo(uint64_t id, uint64_t qid, const char *helo)
+on_helo(uint64_t id, const char *helo)
 {
-	monkey(qid);
+	monkey(id);
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
+on_mail(uint64_t id, struct mailaddr *mail)
 {
-	monkey(qid);
+	monkey(id);
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	monkey(qid);
+	monkey(id);
 }
 
 static void
-on_data(uint64_t id, uint64_t qid)
+on_data(uint64_t id)
 {
-	monkey(qid);
+	monkey(id);
 }
 
 static void
-on_eom(uint64_t id, uint64_t qid)
+on_eom(uint64_t id)
 {
-	monkey(qid);
+	monkey(id);
 }
 
 int
