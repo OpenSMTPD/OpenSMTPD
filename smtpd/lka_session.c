@@ -407,12 +407,22 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILENAME:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: filename matched on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filename: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 
 	case EXPAND_ERROR:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: error matched on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: error: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		if (xn->u.buffer[0] == '4')
@@ -423,6 +433,11 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILTER:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: filter matched on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filter: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
