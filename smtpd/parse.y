@@ -967,6 +967,10 @@ rule		: ACCEPT {
 			}
 
 			rule->r_forwardonly = $11;
+			if (rule->r_forwardonly && rule->r_action != A_NONE) {
+				yyerror("forward-only may not be used with a default action");
+				YYERROR;
+			}
 
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 
