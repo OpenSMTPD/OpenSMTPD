@@ -131,9 +131,10 @@ on_eom(uint64_t id)
 }
 
 static void
-on_dataline(uint64_t id, const char *data)
+on_dataline(uint64_t id, const char *line)
 {
-	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, data);
+	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, line);
+	filter_api_writeln(id, line);
 }
 
 int

@@ -20,7 +20,6 @@
 #include <sys/queue.h>
 #include <sys/uio.h>
 
-#include <err.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -31,6 +30,7 @@
 #include <unistd.h>
 
 #include "smtpd.h"
+#include "log.h"
 
 #define FILTER_HIWAT 65536
 
@@ -95,6 +95,7 @@ static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
 static void filter_dispatch_rcpt(uint64_t, uint64_t, struct mailaddr *);
 static void filter_io_in(struct io *, int);
 static void filter_io_out(struct io *, int);
+static const char *filter_imsg_to_str(int);
 
 void
 filter_api_on_notify(void(*cb)(uint64_t, enum filter_status))
@@ -180,8 +181,10 @@ filter_api_on_event(void(*cb)(uint64_t, enum filter_hook))
 void
 filter_api_loop(void)
 {
-	if (register_done)
-		errx(1, "filter:%s: filter_api_loop() already called", filter_name);
+	if (register_done) {
+		log_warnx("warn: filter-api:%s: filter_api_loop() already called", filter_name);
+		fatalx("filter-api: exiting");
+	}
 
 	filter_api_init();
 
@@ -189,22 +192,28 @@ filter_api_loop(void)
 
 	mproc_enable(&fi.p);
 
-	usleep(1000000);
-
 	if (fi.rootpath) {
-		if (chroot(fi.rootpath) == -1)
-			err(1, "filter:%s: chroot", filter_name);
-		if (chdir("/") == -1)
-			err(1, "filter:%s: chdir", filter_name);
+		if (chroot(fi.rootpath) == -1) {
+			log_warn("warn: filter-api:%s: chroot", filter_name);
+			fatalx("filter-api: exiting");
+		}
+		if (chdir("/") == -1) {
+			log_warn("warn: filter-api:%s: chdir", filter_name);
+			fatalx("filter-api: exiting");
+		}
 	}
 
 	if (setgroups(1, &fi.gid) ||
             setresgid(fi.gid, fi.gid, fi.gid) ||
-            setresuid(fi.uid, fi.uid, fi.uid))
-                err(1, "filter:%s: cannot drop privileges", filter_name);
+            setresuid(fi.uid, fi.uid, fi.uid)) {
+		log_warn("warn: filter-api:%s: cannot drop provileges", filter_name);
+		fatalx("filter-api: exiting");
+	}
 
-	if (event_dispatch() < 0)
-		errx(1, "filter:%s: event_dispatch", filter_name);
+	if (event_dispatch() < 0) {
+		log_warn("warn: filter-api:%s: event_dispatch", filter_name);
+		fatalx("filter-api: exiting");
+	}
 }
 
 void
@@ -297,10 +306,14 @@ filter_api_setugid(uid_t uid, gid_t gid)
 {
 	filter_api_init();
 
-	if (! uid)
-		errx(1, "filter:%s: _api_setugid: can't set uid=0", filter_name);
-	if (! gid)
-		errx(1, "filter:%s: _api_setugid: can't set gid=0", filter_name);
+	if (! uid) {
+		log_warn("warn: filter-api:%s: can't set uid 0", filter_name);
+		fatalx("filter-api: exiting");
+	}
+	if (! gid) {
+		log_warn("warn: filter-api:%s: can't set gid 0", filter_name);
+		fatalx("filter-api: exiting");
+	}
 	fi.uid = uid;
 	fi.gid = gid;
 }
@@ -333,9 +346,14 @@ filter_api_init(void)
 
 	init = 1;
 
+	log_init(-1);
+	log_verbose(1);
+
 	pw = getpwnam(SMTPD_USER);
-	if (pw == NULL)
-		err(1, "filter:%s: getpwnam", filter_name);
+	if (pw == NULL) {
+		log_warn("warn: filter-api:%s: getpwnam", filter_name);
+		fatalx("filter-api: exiting");
+	}
 
 	smtpd_process = PROC_FILTER;
 	filter_name = __progname;
@@ -368,7 +386,8 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 	int			 status, event, hook;
 	int			 fds[2], fdin, fdout;
 
-	log_debug("debug: %s: imsg %i", filter_name, imsg->hdr.type);
+	log_debug("debug: filter-api:%s: imsg %s", filter_name,
+	    filter_imsg_to_str(imsg->hdr.type));
 
 	switch (imsg->hdr.type) {
 	case IMSG_FILTER_REGISTER:
@@ -377,8 +396,10 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &name);
 		filter_name = strdup(name);
 		m_end(&m);
-		if (v != FILTER_API_VERSION)
-			errx(1, "filter:%s: API version mismatch", filter_name);
+		if (v != FILTER_API_VERSION) {
+			log_warnx("warn: filter-api:%s: API mismatch", filter_name);
+			fatalx("filter-api: exiting");
+		}
 		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
 		m_add_int(p, fi.hooks);
 		m_add_int(p, fi.flags);
@@ -402,7 +423,6 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &id);
 		m_get_id(&m, &qid);
 		m_get_int(&m, &hook);
-		tree_xset(&queries, qid, NULL);
 		switch(hook) {
 		case HOOK_CONNECT:
 			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.local);
@@ -412,6 +432,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			s = xcalloc(1, sizeof(*s), "filter_dispatch");
 			s->id = id;
 			tree_xset(&sessions, id, s);
+			log_debug("debug: filter-api:%s: FOO", filter_name);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_connect(id, qid, &q_connect);
 			break;
@@ -444,7 +465,8 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_dispatch_eom(id, qid);
 			break;
 		default:
-			errx(1, "filter:%s: bad query hook: %d", filter_name, hook);
+			log_warnx("warn: filter-api:%s: bad hook %d", filter_name, hook);
+			fatalx("filter-api: exiting");
 		}
 		break;
 
@@ -457,13 +479,14 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		fdin = -1;
 
 		if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fds) == -1) {
+			log_warn("warn: filter-api:%s: socketpair", filter_name);
 			close(fdout);
-			log_warn("warn: mfa: socketpair");
 		}
 		else {
+			s = tree_xget(&sessions, id);
 			iobuf_init(&s->obuf, 0, 0);
 			io_init(&s->oev, fdout, s, filter_io_out, &s->obuf);
-			io_set_read(&s->oev);
+			io_set_write(&s->oev);
 
 			iobuf_init(&s->ibuf, 0, 0);
 			io_init(&s->iev, fds[0], s, filter_io_in, &s->ibuf);
@@ -471,7 +494,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 
 			fdin = fds[1];
 		}
-
+		log_debug("debug: filter-api:%s: pipe %i -> %i", filter_name, fdin, fdout);
 		m_create(&fi.p, IMSG_FILTER_MESSAGE_FD, 0, 0, fdin);
 		m_add_id(&fi.p, id);
 		m_close(&fi.p);
@@ -494,8 +517,11 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 	struct filter_session	*s;
 
 	s = tree_xget(&sessions, id);
-	if (s->qid)
-		errx(1, "filter:%s: query already in progress", filter_name);
+	if (s->qid) {
+		log_warn("warn: filter-api:%s: query already in progess",
+		    filter_name);
+		fatalx("filter-api: exiting");
+	}
 	s->qid = qid;
 	tree_xset(&queries, qid, s);
 }
@@ -515,36 +541,18 @@ filter_dispatch_notify(uint64_t qid, enum filter_status status)
 static void
 filter_dispatch_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
 {
-	struct filter_session	*s;
-
-	s->qid = qid;
-	tree_xset(&sessions, id, s);
-	tree_xset(&queries, qid, s);
-
 	fi.cb.connect(id, conn);
 }
 
 static void
 filter_dispatch_helo(uint64_t id, uint64_t qid, const char *helo)
 {
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-	s->qid = qid;
-	tree_xset(&queries, qid, s);
-
 	fi.cb.helo(id, helo);
 }
 
 static void
 filter_dispatch_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
 {
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-	s->qid = qid;
-	tree_xset(&queries, qid, s);
-
 	fi.cb.mail(id, mail);
 }
 
@@ -578,6 +586,9 @@ filter_io_in(struct io *io, int evt)
 	struct filter_session	*s = io->arg;
 	char			*line;
 	size_t			 len;
+
+	log_debug("debug: filter-api:%s: filter_io_in(%p, %s)",
+	    filter_name, s, io_strevent(evt));
 
 	switch (evt) {
 	case IO_DATAIN:
@@ -619,12 +630,16 @@ filter_io_out(struct io *io, int evt)
 {
 	struct filter_session    *s = io->arg;
 
+	log_debug("debug: filtera-api:%s: filter_io_out(%p, %s)",
+	    filter_name, s, io_strevent(evt));
+
 	switch (evt) {
 
 	case IO_TIMEOUT:
 	case IO_DISCONNECTED:
 	case IO_ERROR:
-		log_debug("debug: filter:%s: io error on output pipe", s, filter_name);
+		log_debug("debug: filter-api:%s: io error on output pipe",
+		    filter_name);
 		s->ioerror = 1;
 		io_clear(&s->oev);
 		iobuf_clear(&s->obuf);
@@ -642,6 +657,27 @@ filter_io_out(struct io *io, int evt)
 
 	default:
 		fatalx("filter_io_out()");
+	}
+}
+
+static const char *
+filter_imsg_to_str(int imsg)
+{
+	switch(imsg) {
+	case IMSG_FILTER_REGISTER:
+		return "IMSG_FILTER_REGISTER";
+	case IMSG_FILTER_EVENT:
+		return "IMSG_FILTER_EVENT";
+	case IMSG_FILTER_QUERY:
+		return "IMSG_FILTER_QUERY";
+	case IMSG_FILTER_MESSAGE_FD:
+		return "IMSG_FILTER_MESSAGE_FD";
+	case IMSG_FILTER_NOTIFY:
+		return "IMSG_FILTER_NOTIFY";
+	case IMSG_FILTER_RESPONSE:
+		return "IMSG_FILTER_RESPONSE";
+	default:
+		return "???";
 	}
 }
 

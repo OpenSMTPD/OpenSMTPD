@@ -282,6 +282,7 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 
 	while(s->fcurr) {
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
+			log_trace(TRACE_MFA, "mfa: sending fd %i to %s", fdout, mfa_filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
 			m_create(p, IMSG_FILTER_MESSAGE_FD, 0, 0, fdout);
 			m_add_id(p, s->id);
@@ -291,9 +292,11 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 		s->fcurr = TAILQ_PREV(s->fcurr, mfa_filters, entry);
 	}
 
+	log_trace(TRACE_MFA, "mfa: chain input is %i", fdout);
+
 	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
 	m_add_id(p_smtp, s->id);
-	m_add_int(p_smtp, MFA_OK);
+	m_add_int(p_smtp, 1);
 	m_close(p_smtp);
 	return;
 }
