@@ -27,39 +27,39 @@
 #include "log.h"
 
 static void
-on_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
+on_connect(uint64_t id, struct filter_connect *conn)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_helo(uint64_t id, uint64_t qid, const char *helo)
+on_helo(uint64_t id, const char *helo)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
+on_mail(uint64_t id, struct mailaddr *mail)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_data(uint64_t id, uint64_t qid)
+on_data(uint64_t id)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_eom(uint64_t id, uint64_t qid)
+on_eom(uint64_t id)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 int
