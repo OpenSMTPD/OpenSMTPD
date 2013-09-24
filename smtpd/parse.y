@@ -145,8 +145,8 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	size expire negation forwardonly
-%type	<v.table>	tables tablenew tableref alias virtual usermapping userbase for from sender
+%type	<v.number>	size negation
+%type	<v.table>	tables tablenew tableref alias virtual userbase
 %type	<v.string>	tagged
 %%
 
@@ -216,27 +216,15 @@ size		: NUMBER		{
 		;
 
 tagged		: TAGGED negation STRING       		{
-			if (($$ = strdup($3)) == NULL) {
-       				yyerror("strdup");
+			if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
+			    >= sizeof rule->r_tag) {
+				yyerror("tag name too long: %s", $3);
 				free($3);
 				YYERROR;
 			}
 			free($3);
 			rule->r_nottag = $2;
 		}
-		| /* empty */			{ $$ = NULL; }
-		;
-
-expire		: EXPIRE STRING {
-			$$ = delaytonum($2);
-			if ($$ == -1) {
-				yyerror("invalid expire delay: %s", $2);
-				free($2);
-				YYERROR;
-			}
-			free($2);
-		}
-		| /* empty */	{ $$ = conf->sc_qexpire; }
 		;
 
 bouncedelay	: STRING {
@@ -750,22 +738,17 @@ virtual		: VIRTUAL tables		{
 				    t->t_name);
 				YYERROR;
 			}
-
 			$$ = t;
 		}
 		;
 
 usermapping	: alias		{
 			rule->r_desttype = DEST_DOM;
-			$$ = $1;
+			rule->r_mapping = $1;
 		}
 		| virtual	{
 			rule->r_desttype = DEST_VDOM;
-			$$ = $1;
-		}
-		| /**/		{
-			rule->r_desttype = DEST_DOM;
-			$$ = 0;
+			rule->r_mapping = $1;
 		}
 		;
 
@@ -782,9 +765,6 @@ userbase	: USERBASE tables	{
 		}
 		| /**/	{ $$ = table_find("<getpwnam>", NULL); }
 		;
-
-		
-
 
 action		: userbase DELIVER TO MAILDIR			{
 			rule->r_userbase = $1;
@@ -854,7 +834,6 @@ action		: userbase DELIVER TO MAILDIR			{
 		}
 		| userbase	{
 			rule->r_userbase = $1;
-			rule->r_action = A_NONE;
 		}
 		;
 
@@ -870,19 +849,16 @@ from		: FROM negation SOURCE tables       		{
 				    t->t_name);
 				YYERROR;
 			}
-			rule->r_notsources = $2;
-			$$ = t;
+			rule->r_notsources = $3;
+			rule->r_sources = t;
 		}
 		| FROM negation ANY    		{
-			$$ = table_find("<anyhost>", NULL);
+			rule->r_sources = table_find("<anyhost>", NULL);
 			rule->r_notsources = $2;
 		}
 		| FROM negation LOCAL  		{
-			$$ = table_find("<localhost>", NULL);
+			rule->r_sources = table_find("<localhost>", NULL);
 			rule->r_notsources = $2;
-		}
-		| /* empty */			{
-			$$ = table_find("<localhost>", NULL);
 		}
 		;
 
@@ -895,18 +871,15 @@ for		: FOR negation DOMAIN tables {
 				YYERROR;
 			}
 			rule->r_notdestination = $2;
-			$$ = t;
+			rule->r_destination = t;
 		}
 		| FOR negation ANY    		{
-			$$ = 0;
-			rule->r_notsources = $2;
+			rule->r_notdestination = $2;
+			rule->r_destination = 0;
 		}
 		| FOR negation LOCAL  		{
-			$$ = table_find("<localnames>", NULL);
-			rule->r_notsources = $2;
-		}
-		| /* empty */			{
-			$$ = table_find("<localnames>", NULL);
+			rule->r_notdestination = $2;
+			rule->r_destination = table_find("<localnames>", NULL);
 		}
 		;
 
@@ -919,34 +892,53 @@ sender		: SENDER negation tables			{
 				YYERROR;
 			}
 			rule->r_notsenders = $2;
-			$$ = t;
+			rule->r_senders = t;
 		}
-		| /* empty */			{ $$ = NULL; }
 		;
 
-forwardonly    	: FORWARDONLY			{ $$ = 1; }
-		| /* empty */			{ $$ = 0; }
+opt_accept     	: sender
+		| from
+		| for
+		| tagged
+		| usermapping
+		| FORWARDONLY	{
+			rule->r_forwardonly = 1;
+		}
+		| EXPIRE STRING {
+			rule->r_qexpire = delaytonum($2);
+			if (rule->r_qexpire == -1) {
+				yyerror("invalid expire delay: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
+		}
+		;
+
+opt_reject     	: sender
+		| from
+		| for
+		| tagged
+		| usermapping
+		;
+
+accept_params	: opt_accept accept_params
+		| /**/
+		;
+
+reject_params	: opt_reject reject_params
+		| /**/
 		;
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		} tagged from sender for usermapping action expire forwardonly {
+			rule->r_action = A_NONE;
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = $4;
-			rule->r_senders = $5;
-			rule->r_destination = $6;
-			rule->r_mapping = $7;
-			if ($3) {
-				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
-				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $3);
-					free($3);
-					YYERROR;
-				}
-				free($3);
-			}
-			rule->r_qexpire = $9;
-
+			rule->r_desttype = DEST_DOM;
+			rule->r_sources = table_find("<localhost>", NULL);
+			rule->r_destination = table_find("<localnames>", NULL);
+			rule->r_qexpire = conf->sc_qexpire;
+		} accept_params action {
 			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
 				enum table_type type;
 
@@ -967,33 +959,21 @@ rule		: ACCEPT {
 				}
 			}
 
-			rule->r_forwardonly = $10;
 			if (rule->r_forwardonly && rule->r_action != A_NONE) {
 				yyerror("forward-only may not be used with a default action");
 				YYERROR;
 			}
 
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
-
 			rule = NULL;
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} tagged from sender for usermapping {
 			rule->r_decision = R_REJECT;
-			rule->r_sources = $4;
-			rule->r_senders = $5;
-			rule->r_destination = $6;
-			rule->r_mapping = $7;
-			if ($3) {
-				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
-				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $3);
-					free($3);
-					YYERROR;
-				}
-				free($3);
-			}
+			rule->r_desttype = DEST_DOM;
+			rule->r_sources = table_find("<localhost>", NULL);
+			rule->r_destination = table_find("<localnames>", NULL);
+		} reject_params {
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
