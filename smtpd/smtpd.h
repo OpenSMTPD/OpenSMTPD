@@ -186,6 +186,7 @@ enum imsg_type {
 	IMSG_CONF_RULE_SOURCE,
 	IMSG_CONF_RULE_SENDER,
 	IMSG_CONF_RULE_DESTINATION,
+	IMSG_CONF_RULE_RECIPIENT,
 	IMSG_CONF_RULE_MAPPING,
 	IMSG_CONF_RULE_USERS,
 	IMSG_CONF_FILTER,
@@ -345,6 +346,9 @@ struct rule {
 
 	uint8_t				r_notsenders;
 	struct table		       *r_senders;
+
+	uint8_t				r_notrecipients;
+	struct table		       *r_recipients;
 
 	uint8_t				r_notdestination;
 	enum dest_type			r_desttype;

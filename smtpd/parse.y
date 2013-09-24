@@ -141,7 +141,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -891,13 +891,27 @@ sender		: SENDER negation tables			{
 		}
 		;
 
+recipient      	: RECIPIENT negation tables			{
+			struct table   *t = $3;
+
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+				yyerror("invalid use of table \"%s\" as RECIPIENT parameter",
+				    t->t_name);
+				YYERROR;
+			}
+			rule->r_notrecipients = $2;
+			rule->r_recipients = t;
+		}
+		;
+
 opt_accept     	: sender
+		| recipient
 		| from
 		| for
 		| tagged
+		| action
 		| usermapping
 		| userbase
-		| action
 		| FORWARDONLY	{
 			rule->r_forwardonly = 1;
 		}
@@ -913,10 +927,10 @@ opt_accept     	: sender
 		;
 
 opt_reject     	: sender
+		| recipient
 		| from
 		| for
 		| tagged
-		| usermapping
 		;
 
 accept_params	: opt_accept accept_params
@@ -937,25 +951,6 @@ rule		: ACCEPT {
 			rule->r_userbase = table_find("<getpwnam>", NULL);
 			rule->r_qexpire = conf->sc_qexpire;
 		} accept_params {
-			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
-				enum table_type type;
-
-				switch (rule->r_action) {
-				case A_RELAY:
-				case A_RELAYVIA:
-					type = T_LIST;
-					break;
-				default:
-					type = T_HASH;
-					break;
-				}
-				if (! table_check_service(rule->r_mapping, K_ALIAS) &&
-				    ! table_check_type(rule->r_mapping, type)) {
-					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
-					    rule->r_mapping->t_name);
-					YYERROR;
-				}
-			}
 
 			if (rule->r_forwardonly && rule->r_action != A_NONE) {
 				yyerror("forward-only may not be used with a default action");
@@ -1052,6 +1047,7 @@ lookup(char *s)
 		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
+		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
 		{ "secure",		SECURE },
