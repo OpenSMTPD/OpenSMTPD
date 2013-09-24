@@ -109,14 +109,7 @@ and may be omitted.
 .It Xo
 .Ic from
 .Op Ic \!
-.Ic network
-.Xc
-The rule matches if the connection is made from the specified
-.Ar network ,
-specified in CIDR notation.
-.It Xo
-.Ic from
-.Op Ic \!
+.Ic source
 .Ic table
 .Xc
 The rule matches if the connection is made from a client whose address
@@ -256,6 +249,20 @@ The
 table will be used as the virtual domain mapping.
 .El
 .Pp
+Further filtering may be achieved on specific recipients if desired:
+.Bl -tag -width Ds
+.It Xo
+.Ic recipient
+.Op Ic \!
+.Ic recipients
+.Xc
+If specified, the rule will only be matched if the recipient email address
+is found in the table
+.Ar recipients .
+The table may contain complete email addresses or apply to an entire
+domain if prefixed with @.
+.El
+.Pp
 If the method of delivery is local, a user database may be
 specified to override the system database:
 .Bl -tag -width Ds
@@ -302,6 +309,8 @@ This parameter may use conversion specifiers that are expanded before use
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Op Ic hostnames Ar names
+.Op Ic pki Ar pkiname
+.Op Ic tls | verify
 .Xc
 Mail is relayed.
 The routing decision is based on the DNS system.
@@ -352,14 +361,39 @@ contains a mapping of IP addresses to hostnames and
 .Xr smtpd 8
 will automatically select the name that matches its source address
 when connected to the remote server.
+.Pp
+When relaying, STARTTLS is always attempted if available on remote host
+and OpenSMTPD will try to present a certificate matching the outgoing
+hostname if one is registered in the pki. If
+.Ic pki
+is specified, the certificate registered for
+.Ar pkiname
+is used instead.
+.Pp
+If
+.Ic tls
+is specified, OpenSMTPD will refuse to relay unless remote host provides
+STARTTLS.
+.Pp
+If
+.Ic verify
+is specified, OpenSMTPD will refuse to relay unless remote host provides
+STARTTLS and the certificate it presented has been verified.
+.Pp
+Note that the
+.Ic tls
+and
+.Ic verify
+options are mutually exclusive and should only be used in private networks
+as they will prevent proper relaying on the Internet.
 .It Xo
 .Ic relay via
 .Ar host
-.Op Ic certificate Ar name
 .Op Ic auth Aq Ar auth
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Op Ic hostnames Ar names
+.Op Ic pki Ar pkiname
 .Xc
 Mail is relayed through the specified
 .Ar host
@@ -393,14 +427,10 @@ secure+auth://label@mx.example.org	 # over either \e
 				  	 # SMTPS or TLS
 .Ed
 .Pp
-If a certificate
-.Ar name
-is specified and exists in the
-.Pa /etc/mail/certs
-directory with a .crt extension, it will be used if the remote server
-requests a client certificate.
-Creation of certificates is documented in
-.Xr starttls 8 .
+If a pki entry exists for the outgoing hostname, or one is provided
+with
+.Ar pkiname ,
+the associated certificate will be sent to the remote server.
 .Pp
 If an SMTPAUTH session with
 .Ar host
@@ -496,12 +526,13 @@ to MXs for this domain.
 .Op Ar family
 .Op Ic port Ar port
 .Op Ic tls | tls-require | smtps | secure
-.Op Ic certificate Ar name
+.Op Ic pki Ar pkiname
 .Op Ic auth | auth-optional
 .Op Ic tag Ar tag
 .Op Ic hostname Ar hostname
 .Op Ic hostnames Ar names
 .Op Ic mask-source
+.Op Ic verify
 .Ek
 .Xc
 Specify an
@@ -531,41 +562,15 @@ may be used to force clients to establish a secure connection
 before being allowed to start an SMTP transaction.
 .Ic secure
 may be specified to provide both STARTTLS and SMTPS services.
+
 Host certificates may be used for these connections,
-and are searched for in the
-.Pa /etc/mail/certs
-directory.
+and must be priorly declared using the pki directive.
 If
-.Ic certificate
+.Ic pki
 is specified,
-a certificate
-.Ao Ar name Ac Ns .crt ,
-a key
-.Ao Ar name Ac Ns .key
-and Diffie-Hellman parameters
-.Ao Ar name Ac Ns .dh
-are searched for.
-A certificate chain, which may include an intermediate
-and/or Certificate Authority certificate, may be appended to
-the .crt file to create a certificate chain.
-If no
-.Ic certificate
-is specified,
-the default interface name is instead used,
-for example
-.Pa fxp0.crt ,
-.Pa fxp0.key ,
-.Pa fxp0.ca ,
-and
-.Pa fxp0.dh .
-If no DH parameters are provided, smtpd will use
-built-in parameters.
-A Certificate Authority certificate can be placed in a .ca file
-to have it available to OpenSMTPD.
-Creation of certificates is documented in
-.Xr starttls 8 ,
-and creation of Diffie-Hellman parameters is documented in
-.Xr openssl 1 .
+a certificate matching
+.Ic name
+is searched for.
 .Pp
 If the
 .Ic auth
@@ -609,6 +614,12 @@ If the
 .Ic mask-source
 parameter is used, then the listener will skip the "from" part
 when prepending the "Received" header.
+.Pp
+If the listener is configured to provide SMTPS or STARTTLS and the
+.Ic verify
+parameter is used, then clients will be required to present a
+certificate than can be verified before a SMTP session can be
+initiated.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
@@ -616,6 +627,35 @@ bytes.
 The argument may contain a multiplier, as documented in
 .Xr scan_scaled 3 .
 The default maximum message size is 35MB if none is specified.
+.It Ic pki Ar hostname Ic certificate Ar certfile
+Associate certificate located in
+.Ar certfile
+to
+.Ar hostname .
+.Pp
+A certificate chain may be created by appending one or many
+certificates, including a Certificate Authority certificate,
+to
+.Ar certfile .
+.Pp
+Creation of certificates is documented in
+.Xr starttls 8 .
+.It Ic pki Ar hostname Ic key Ar keyfile
+Associate key located in
+.Ar keyfile
+to
+.Ar hostname .
+.It Ic pki Ar hostname Ic dhparams Ar dhfile
+Associate Diffie-Hellman parameters located in
+.Ar dhfile
+to
+.Ar hostname .
+.Pp
+The parameters are used for ephemeral key exchange.
+If not specified, OpenSMTPD will use safely generated builtin parameters.
+.Pp
+Creation of Diffie-Hellman parameters is documented in
+.Xr openssl 1 .
 .It Ic queue compression
 Enable transparent compression of envelopes and messages.
 The only supported algorithm at the moment is gzip.
@@ -805,19 +845,25 @@ The mail server listens on all interfaces the default route(s) point to.
 Mail with a local destination should be sent to an external mda.
 First, the RSA certificate is created:
 .Bd -literal -offset indent
-# openssl genrsa -out /etc/mail/certs/mail.example.com.key 4096
-# openssl req -new -x509 -key /etc/mail/certs/mail.example.com.key \e
-	-out /etc/mail/certs/mail.example.com.crt -days 365
-# chmod 600 /etc/mail/certs/mail.example.com.*
+# openssl genrsa -out /etc/ssl/private/mail.example.com.key 4096
+# openssl req -new -x509 -key /etc/ssl/private/mail.example.com.key \e
+	-out /etc/ssl/mail.example.com.crt -days 365
+# chmod 600 /etc/ssl/mail.example.com.crt
+# chmod 600 /etc/ssl/private/mail.example.com.key
 .Ed
 .Pp
 In the example above,
 a certificate valid for one year was created.
 The configuration file would look like this:
 .Bd -literal -offset indent
+pki mail.example.com certificate "/etc/ssl/mail.example.com.crt"
+pki mail.example.com key "/etc/ssl/private/mail.example.com.key"
+
 listen on lo0
-listen on egress tls certificate mail.example.com auth
+listen on egress tls pki mail.example.com auth
+
 table aliases db:/etc/mail/aliases.db
+
 accept for local alias <aliases> deliver to mda "/path/to/mda -f -"
 accept from any for domain example.org \e
 	deliver to mda "/path/to/mda -f -"
