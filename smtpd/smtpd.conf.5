@@ -249,6 +249,20 @@ The
 table will be used as the virtual domain mapping.
 .El
 .Pp
+Further filtering may be achieved on specific recipients if desired:
+.Bl -tag -width Ds
+.It Xo
+.Ic recipient
+.Op Ic \!
+.Ic recipients
+.Xc
+If specified, the rule will only be matched if the recipient email address
+is found in the table
+.Ar recipients .
+The table may contain complete email addresses or apply to an entire
+domain if prefixed with @.
+.El
+.Pp
 If the method of delivery is local, a user database may be
 specified to override the system database:
 .Bl -tag -width Ds
@@ -295,6 +309,8 @@ This parameter may use conversion specifiers that are expanded before use
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Op Ic hostnames Ar names
+.Op Ic pki Ar pkiname
+.Op Ic tls | verify
 .Xc
 Mail is relayed.
 The routing decision is based on the DNS system.
@@ -345,14 +361,39 @@ contains a mapping of IP addresses to hostnames and
 .Xr smtpd 8
 will automatically select the name that matches its source address
 when connected to the remote server.
+.Pp
+When relaying, STARTTLS is always attempted if available on remote host
+and OpenSMTPD will try to present a certificate matching the outgoing
+hostname if one is registered in the pki. If
+.Ic pki
+is specified, the certificate registered for
+.Ar pkiname
+is used instead.
+.Pp
+If
+.Ic tls
+is specified, OpenSMTPD will refuse to relay unless remote host provides
+STARTTLS.
+.Pp
+If
+.Ic verify
+is specified, OpenSMTPD will refuse to relay unless remote host provides
+STARTTLS and the certificate it presented has been verified.
+.Pp
+Note that the
+.Ic tls
+and
+.Ic verify
+options are mutually exclusive and should only be used in private networks
+as they will prevent proper relaying on the Internet.
 .It Xo
 .Ic relay via
 .Ar host
-.Op Ic pki Ar pkiname
 .Op Ic auth Aq Ar auth
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Op Ic hostnames Ar names
+.Op Ic pki Ar pkiname
 .Xc
 Mail is relayed through the specified
 .Ar host
@@ -491,6 +532,7 @@ to MXs for this domain.
 .Op Ic hostname Ar hostname
 .Op Ic hostnames Ar names
 .Op Ic mask-source
+.Op Ic verify
 .Ek
 .Xc
 Specify an
@@ -572,6 +614,12 @@ If the
 .Ic mask-source
 parameter is used, then the listener will skip the "from" part
 when prepending the "Received" header.
+.Pp
+If the listener is configured to provide SMTPS or STARTTLS and the
+.Ic verify
+parameter is used, then clients will be required to present a
+certificate than can be verified before a SMTP session can be
+initiated.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
