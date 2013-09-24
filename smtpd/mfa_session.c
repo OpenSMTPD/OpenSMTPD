@@ -239,8 +239,14 @@ mfa_filter_prepare(void)
 			dict_xset(&chains, filter->name, fchain);
 		}
 	}
-
 	log_debug("mfa: done building complex chains");
+
+	if (dict_get(&chains, "default") == NULL) {
+		log_debug("mfa: done building default chain");
+		fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+		TAILQ_INIT(fchain);
+		dict_xset(&chains, "default", fchain);
+	}
 }
 
 void
