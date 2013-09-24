@@ -141,12 +141,12 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	size expire negation
-%type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
+%type	<v.number>	size negation
+%type	<v.table>	tables tablenew tableref alias virtual userbase
 %type	<v.string>	tagged
 %%
 
@@ -216,27 +216,15 @@ size		: NUMBER		{
 		;
 
 tagged		: TAGGED negation STRING       		{
-			if (($$ = strdup($3)) == NULL) {
-       				yyerror("strdup");
+			if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
+			    >= sizeof rule->r_tag) {
+				yyerror("tag name too long: %s", $3);
 				free($3);
 				YYERROR;
 			}
 			free($3);
 			rule->r_nottag = $2;
 		}
-		| /* empty */			{ $$ = NULL; }
-		;
-
-expire		: EXPIRE STRING {
-			$$ = delaytonum($2);
-			if ($$ == -1) {
-				yyerror("invalid expire delay: %s", $2);
-				free($2);
-				YYERROR;
-			}
-			free($2);
-		}
-		| /* empty */	{ $$ = conf->sc_qexpire; }
 		;
 
 bouncedelay	: STRING {
@@ -750,111 +738,88 @@ virtual		: VIRTUAL tables		{
 				    t->t_name);
 				YYERROR;
 			}
-
 			$$ = t;
 		}
 		;
 
 usermapping	: alias		{
+			if (rule->r_mapping) {
+				yyerror("alias specified multiple times");
+				YYERROR;
+			}
 			rule->r_desttype = DEST_DOM;
-			$$ = $1;
+			rule->r_mapping = $1;
 		}
 		| virtual	{
+			if (rule->r_mapping) {
+				yyerror("virtual specified multiple times");
+				YYERROR;
+			}
 			rule->r_desttype = DEST_VDOM;
-			$$ = $1;
-		}
-		| /**/		{
-			rule->r_desttype = DEST_DOM;
-			$$ = 0;
+			rule->r_mapping = $1;
 		}
 		;
 
 userbase	: USERBASE tables	{
 			struct table   *t = $2;
 
+			if (rule->r_userbase) {
+				yyerror("userbase specified multiple times");
+				YYERROR;
+			}
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_USERINFO)) {
 				yyerror("invalid use of table \"%s\" as USERBASE parameter",
 				    t->t_name);
 				YYERROR;
 			}
-
-			$$ = t;
-		}
-		| /**/	{ $$ = table_find("<getpwnam>", NULL); }
-		;
-
-		
-
-
-destination	: negation DOMAIN tables	       	{
-			struct table   *t = $3;
-
-			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
-				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
-				    t->t_name);
-				YYERROR;
-			}
-			rule->r_notdestination = $1;
-			$$ = t;
-		}
-		| negation LOCAL		{
-			rule->r_notdestination = $1;
-			$$ = table_find("<localnames>", NULL);
-		}
-		| negation ANY		{
-			rule->r_notdestination = $1;
-			$$ = 0;
+			rule->r_userbase = t;
 		}
 		;
 
-
-action		: userbase DELIVER TO MAILDIR			{
-			rule->r_userbase = $1;
+deliver_action	: DELIVER TO MAILDIR			{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| userbase DELIVER TO MAILDIR STRING		{
-			rule->r_userbase = $1;
+		| DELIVER TO MAILDIR STRING		{
 			rule->r_action = A_MAILDIR;
-			if (strlcpy(rule->r_value.buffer, $5,
+			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
-			free($5);
+			free($4);
 		}
-		| userbase DELIVER TO LMTP STRING		{
-			rule->r_userbase = $1;
+		| DELIVER TO LMTP STRING		{
 			rule->r_action = A_LMTP;
-			if (strchr($5, ':') || $5[0] == '/') {
-				if (strlcpy(rule->r_value.buffer, $5,
+			if (strchr($4, ':') || $4[0] == '/') {
+				if (strlcpy(rule->r_value.buffer, $4,
 					sizeof(rule->r_value.buffer))
 					>= sizeof(rule->r_value.buffer))
 					fatal("lmtp destination too long");
 			} else
 				fatal("invalid lmtp destination");
-			free($5);
+			free($4);
 		}
-		| userbase DELIVER TO MBOX			{
-			rule->r_userbase = $1;
+		| DELIVER TO MBOX			{
 			rule->r_action = A_MBOX;
 			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| userbase DELIVER TO MDA STRING	       	{
-			rule->r_userbase = $1;
+		| DELIVER TO MDA STRING	       	{
 			rule->r_action = A_MDA;
-			if (strlcpy(rule->r_value.buffer, $5,
+			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
 				fatal("command too long");
-			free($5);
+			free($4);
 		}
-		| RELAY relay {
+		;
+
+relay_action   	: RELAY relay {
 			rule->r_action = A_RELAY;
 		}
 		| RELAY VIA STRING {
@@ -880,32 +845,79 @@ negation	: '!'		{ $$ = 1; }
 		| /* empty */	{ $$ = 0; }
 		;
 
-from		: FROM negation tables			{
-			struct table   *t = $3;
+from		: FROM negation SOURCE tables       		{
+			struct table   *t = $4;
 
+			if (rule->r_sources) {
+				yyerror("from specified multiple times");
+				YYERROR;
+			}
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
 				yyerror("invalid use of table \"%s\" as FROM parameter",
 				    t->t_name);
 				YYERROR;
 			}
 			rule->r_notsources = $2;
-			$$ = t;
+			rule->r_sources = t;
 		}
 		| FROM negation ANY    		{
-			$$ = table_find("<anyhost>", NULL);
+			if (rule->r_sources) {
+				yyerror("from specified multiple times");
+				YYERROR;
+			}
+			rule->r_sources = table_find("<anyhost>", NULL);
 			rule->r_notsources = $2;
 		}
 		| FROM negation LOCAL  		{
-			$$ = table_find("<localhost>", NULL);
+			if (rule->r_sources) {
+				yyerror("from specified multiple times");
+				YYERROR;
+			}
+			rule->r_sources = table_find("<localhost>", NULL);
 			rule->r_notsources = $2;
 		}
-		| /* empty */			{
-			$$ = table_find("<localhost>", NULL);
+		;
+
+for		: FOR negation DOMAIN tables {
+			struct table   *t = $4;
+
+			if (rule->r_destination) {
+				yyerror("for specified multiple times");
+				YYERROR;
+			}
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
+				    t->t_name);
+				YYERROR;
+			}
+			rule->r_notdestination = $2;
+			rule->r_destination = t;
+		}
+		| FOR negation ANY    		{
+			if (rule->r_destination) {
+				yyerror("for specified multiple times");
+				YYERROR;
+			}
+			rule->r_notdestination = $2;
+			rule->r_destination = 0;
+		}
+		| FOR negation LOCAL  		{
+			if (rule->r_destination) {
+				yyerror("for specified multiple times");
+				YYERROR;
+			}
+			rule->r_notdestination = $2;
+			rule->r_destination = table_find("<localnames>", NULL);
 		}
 		;
 
 sender		: SENDER negation tables			{
 			struct table   *t = $3;
+
+			if (rule->r_senders) {
+				yyerror("sender specified multiple times");
+				YYERROR;
+			}
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
 				yyerror("invalid use of table \"%s\" as SENDER parameter",
@@ -913,72 +925,122 @@ sender		: SENDER negation tables			{
 				YYERROR;
 			}
 			rule->r_notsenders = $2;
-			$$ = t;
+			rule->r_senders = t;
 		}
-		| /* empty */			{ $$ = NULL; }
+		;
+
+recipient      	: RECIPIENT negation tables			{
+			struct table   *t = $3;
+
+			if (rule->r_recipients) {
+				yyerror("recipient specified multiple times");
+				YYERROR;
+			}
+
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+				yyerror("invalid use of table \"%s\" as RECIPIENT parameter",
+				    t->t_name);
+				YYERROR;
+			}
+			rule->r_notrecipients = $2;
+			rule->r_recipients = t;
+		}
+		;
+
+forwardonly	: FORWARDONLY {
+			if (rule->r_forwardonly) {
+				yyerror("forward-only specified multiple times");
+				YYERROR;
+			}
+			rule->r_forwardonly = 1;
+		}
+		;
+
+expire		: EXPIRE STRING {
+			if (rule->r_qexpire != -1) {
+				yyerror("expire specified multiple times");
+				YYERROR;
+			}
+			rule->r_qexpire = delaytonum($2);
+			if (rule->r_qexpire == -1) {
+				yyerror("invalid expire delay: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
+		}
+		;
+
+opt_decision	: sender
+		| recipient
+		| from
+		| for
+		| tagged
+		;
+decision	: opt_decision decision
+		|
+		;
+
+opt_lookup	: userbase
+		| usermapping
+		;
+lookup		: opt_lookup lookup
+		|
+		;
+
+action		: deliver_action
+		| relay_action
+		|
+		;
+
+opt_accept	: expire
+		| forwardonly
+		;
+
+accept_params	: opt_accept accept_params
+		|
 		;
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		 } tagged from sender FOR destination usermapping action expire {
-
+			rule->r_action = A_NONE;
 			rule->r_decision = R_ACCEPT;
-			rule->r_sources = $4;
-			rule->r_senders = $5;
-			rule->r_destination = $7;
-			rule->r_mapping = $8;
-			if ($3) {
-				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
-				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $3);
-					free($3);
+			rule->r_desttype = DEST_DOM;
+		} decision lookup action accept_params {
+			if (! rule->r_sources)
+				rule->r_sources = table_find("<localhost>", NULL);
+			if (! rule->r_destination)
+				rule->r_destination = table_find("<localnames>", NULL);
+			if (! rule->r_userbase)
+				rule->r_userbase = table_find("<getpwnam>", NULL);
+			if (rule->r_qexpire == -1)
+				rule->r_qexpire = conf->sc_qexpire;
+			if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
+				if (rule->r_userbase != table_find("<getpwnam>", NULL)) {
+					yyerror("userbase may not be used with a relay rule");
 					YYERROR;
 				}
-				free($3);
-			}
-			rule->r_qexpire = $10;
-
-			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
-				enum table_type type;
-
-				switch (rule->r_action) {
-				case A_RELAY:
-				case A_RELAYVIA:
-					type = T_LIST;
-					break;
-				default:
-					type = T_HASH;
-					break;
-				}
-				if (! table_check_service(rule->r_mapping, K_ALIAS) &&
-				    ! table_check_type(rule->r_mapping, type)) {
-					yyerror("invalid use of table \"%s\" as VIRTUAL parameter",
-					    rule->r_mapping->t_name);
+				if (rule->r_mapping) {
+					yyerror("aliases/virtual may not be used with a relay rule");
 					YYERROR;
 				}
 			}
-
+			if (rule->r_forwardonly && rule->r_action != A_NONE) {
+				yyerror("forward-only may not be used with a default action");
+				YYERROR;
+			}
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
-
 			rule = NULL;
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} tagged from sender FOR destination usermapping {
 			rule->r_decision = R_REJECT;
-			rule->r_sources = $4;
-			rule->r_senders = $5;
-			rule->r_destination = $7;
-			rule->r_mapping = $8;
-			if ($3) {
-				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
-				    >= sizeof rule->r_tag) {
-					yyerror("tag name too long: %s", $3);
-					free($3);
-					YYERROR;
-				}
-				free($3);
-			}
+			rule->r_desttype = DEST_DOM;
+		} decision {
+			if (! rule->r_sources)
+				rule->r_sources = table_find("<localhost>", NULL);
+			if (! rule->r_destination)
+				rule->r_destination = table_find("<localnames>", NULL);
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
@@ -1035,6 +1097,7 @@ lookup(char *s)
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
+		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
 		{ "hostname",		HOSTNAME },
 		{ "hostnames",		HOSTNAMES },
@@ -1058,6 +1121,7 @@ lookup(char *s)
 		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
+		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
 		{ "secure",		SECURE },
