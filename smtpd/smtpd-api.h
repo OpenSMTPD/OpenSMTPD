@@ -57,10 +57,10 @@ enum filter_imsg {
 	IMSG_FILTER_REGISTER,
 	IMSG_FILTER_EVENT,
 	IMSG_FILTER_QUERY,
-	IMSG_FILTER_MESSAGE_FD,
+	IMSG_FILTER_PIPE_SETUP,
+	IMSG_FILTER_PIPE_ABORT,
 	IMSG_FILTER_NOTIFY,
-	IMSG_FILTER_RESPONSE,
-	IMSG_FILTER_RESPONSE_EOM
+	IMSG_FILTER_RESPONSE
 };
 
 /* XXX - server side requires mfa_session.c update on filter_hook changes */
@@ -256,7 +256,7 @@ void filter_api_on_helo(void(*)(uint64_t, const char *));
 void filter_api_on_mail(void(*)(uint64_t, struct mailaddr *));
 void filter_api_on_rcpt(void(*)(uint64_t, struct mailaddr *));
 void filter_api_on_data(void(*)(uint64_t));
-void filter_api_on_dataline(void(*)(uint64_t, const char *), int);
+void filter_api_on_dataline(void(*)(uint64_t, const char *));
 void filter_api_on_eom(void(*)(uint64_t));
 void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 

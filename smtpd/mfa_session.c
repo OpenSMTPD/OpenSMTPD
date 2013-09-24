@@ -298,7 +298,7 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
 			log_trace(TRACE_MFA, "mfa: sending fd %i to %s", fdout, mfa_filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
-			m_create(p, IMSG_FILTER_MESSAGE_FD, 0, 0, fdout);
+			m_create(p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdout);
 			m_add_id(p, s->id);
 			m_close(p);
 			return;
@@ -470,12 +470,12 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
 			break;
 		case HOOK_EOM:
-			m_add_u32(&f->proc->mproc, q->u.datalen);
+			if (f->proc->hooks & HOOK_DATALINE)
+				m_add_u32(&f->proc->mproc, q->u.datalen);
 			break;
 		default:
 			break;
 		}
-
 		m_close(&f->proc->mproc);
 
 		tree_xset(&queries, q->qid, q);
@@ -499,7 +499,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*line;
 	uint64_t		 qid;
 	uint32_t		 datalen;
-	int			 status, code, notify;
+	int			 qhook, status, code, notify;
 
 	if (imsg == NULL) {
 		log_warnx("warn: filter \"%s\" closed unexpectedly", p->name);
@@ -535,14 +535,14 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		break;
 
 	case IMSG_FILTER_RESPONSE:
-	case IMSG_FILTER_RESPONSE_EOM:
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
+		m_get_int(&m, &qhook);
+		if ((qhook == HOOK_EOM) && (proc->hooks & HOOK_DATALINE))
+			m_get_u32(&m, &datalen);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
 		m_get_int(&m, &notify);
-		if (imsg->hdr.type == IMSG_FILTER_RESPONSE_EOM)
-			m_get_u32(&m, &datalen);
 		if (m_is_eom(&m))
 			line = NULL;
 		else
@@ -550,6 +550,10 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		q = tree_xpop(&queries, qid);
+		if (q->hook != qhook) {
+			log_warnx("warn: mfa: hook mismatch %i != %i", q->hook, qhook);
+			fatalx("exiting");
+		}
 		q->smtp.status = status;
 		if (code)
 			q->smtp.code = code;
@@ -561,8 +565,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		if (notify)
 			tree_xset(&q->notify, (uintptr_t)(proc), proc);
 
-		if (imsg->hdr.type == IMSG_FILTER_RESPONSE_EOM &&
-		    proc->hooks & HOOK_DATALINE);
+		if (qhook == HOOK_EOM && proc->hooks & HOOK_DATALINE)
 			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
@@ -576,7 +579,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_drain_query(next);
 		break;
 
-	case IMSG_FILTER_MESSAGE_FD:
+	case IMSG_FILTER_PIPE_SETUP:
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
 		m_end(&m);
@@ -663,10 +666,10 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_REGISTER);
 	CASE(IMSG_FILTER_EVENT);
 	CASE(IMSG_FILTER_QUERY);
-	CASE(IMSG_FILTER_MESSAGE_FD);
+	CASE(IMSG_FILTER_PIPE_SETUP);
+	CASE(IMSG_FILTER_PIPE_ABORT);
 	CASE(IMSG_FILTER_NOTIFY);
 	CASE(IMSG_FILTER_RESPONSE);
-	CASE(IMSG_FILTER_RESPONSE_EOM);
 	default:
 		return "IMSG_FILTER_???";
 	}

@@ -59,7 +59,14 @@ on_data(uint64_t id)
 static void
 on_eom(uint64_t id)
 {
+	filter_api_writeln(id, "end of message");
 	filter_api_accept(id);
+}
+
+static void
+on_dataline(uint64_t id, const char *line)
+{
+	filter_api_writeln(id, line);
 }
 
 int
@@ -88,6 +95,7 @@ main(int argc, char **argv)
 	filter_api_on_rcpt(on_rcpt);
 	filter_api_on_data(on_data);
 	filter_api_on_eom(on_eom);
+	filter_api_on_dataline(on_dataline);
 	filter_api_loop();
 
 	log_debug("debug: filter-stub: exiting");

@@ -42,22 +42,28 @@ struct filter_session {
 	uint64_t	qid;
 	int		qhook;
 
-	size_t		datalen;
-	int		eom;
-	int		ioerror;
+	struct {
+		size_t		datalen;
+		int		error;
+		struct io	iev;
+		struct iobuf	ibuf;
+		size_t		idatalen;
+		struct io	oev;
+		struct iobuf	obuf;
+		size_t		odatalen;
+	} pipe;
 
-	struct io	iev;
-	struct iobuf	ibuf;
-	size_t		idatalen;
-
-	struct io	oev;
-	struct iobuf	obuf;
-	size_t		odatalen;
+	struct {
+		int		 ready;
+		int		 status;
+		int		 code;
+		int		 notify;
+		char		*line;
+	} response;
 };
 
-static int		register_done;
-
-static const char *filter_name;
+static int		 register_done;
+static const char	*filter_name;
 
 static struct filter_internals {
 	struct mproc	p;
@@ -85,6 +91,7 @@ static struct filter_internals {
 
 static void filter_api_init(void);
 static void filter_response(struct filter_session *, int, int, const char *line, int);
+static void filter_send_response(struct filter_session *);
 static void filter_register_query(uint64_t, uint64_t, enum filter_hook);
 static void filter_dispatch(struct mproc *, struct imsg *);
 static void filter_dispatch_event(uint64_t, enum filter_hook);
@@ -156,12 +163,11 @@ filter_api_on_data(void(*cb)(uint64_t))
 }
 
 void
-filter_api_on_dataline(void(*cb)(uint64_t, const char *), int flags)
+filter_api_on_dataline(void(*cb)(uint64_t, const char *))
 {
 	filter_api_init();
 
 	fi.hooks |= HOOK_DATALINE | HOOK_EOM;
-	fi.flags |= flags;
 	fi.cb.dataline = cb;
 }
 
@@ -275,38 +281,66 @@ filter_api_writeln(uint64_t id, const char *line)
 	struct filter_session	*s;
 
 	s = tree_xget(&sessions, id);
+	
+	if (s->pipe.oev.sock == -1) {
+		log_warnx("warn: filter:%s: cannot write at this point", filter_name);
+		fatalx("exiting");
+	}
 
-	/* XXX assert can write */
-
-	s->odatalen += strlen(line) + 1;
-	iobuf_fqueue(&s->obuf, "%s\n", line);
-	io_reload(&s->oev);
+	s->pipe.odatalen += strlen(line) + 1;
+	iobuf_fqueue(&s->pipe.obuf, "%s\n", line);
+	io_reload(&s->pipe.oev);
 }
 
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line, int notify)
 {
+	s->response.ready = 1;
+	s->response.status = status;
+	s->response.code = code;
+	s->response.notify = notify;
+	if (line)
+		s->response.line = strdup(line);
+	else
+		s->response.line = NULL;
+
+	/* For HOOK_EOM, wait until the obuf is drained before sending the  */
+	if (s->qhook == HOOK_EOM &&
+	    fi.hooks & HOOK_DATALINE &&
+	    s->pipe.oev.sock != -1)
+		return;
+
+	filter_send_response(s);
+}
+
+static void
+filter_send_response(struct filter_session *s)
+{
+	log_debug("debug: filter-api:%s: response %s for %016"PRIu64" %i %i %s",
+	    filter_name, hook_to_str(s->qhook), s->id,
+	    s->response.status,
+	    s->response.code,
+	    s->response.line);
+
 	tree_xpop(&queries, s->qid);
 
-	log_debug("debug: filter-api:%s: response %s for %016"PRIu64" %i %i %s",
-		filter_name, hook_to_str(s->qhook), s->id, status, code, line);
-
-	if (s->qhook == HOOK_EOM)
-		m_create(&fi.p, IMSG_FILTER_RESPONSE_EOM, 0, 0, -1);
-	else
-		m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1);
-
+	m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1);
 	m_add_id(&fi.p, s->qid);
-	m_add_int(&fi.p, status);
-	m_add_int(&fi.p, code);
-	m_add_int(&fi.p, notify);
-	if (s->qhook == HOOK_EOM)
-		m_add_u32(&fi.p, s->odatalen);
-	if (line)
-		m_add_string(&fi.p, line);
+	m_add_int(&fi.p, s->qhook);
+	if (s->qhook == HOOK_EOM && fi.hooks & HOOK_DATALINE)
+		m_add_u32(&fi.p, s->pipe.odatalen);
+	m_add_int(&fi.p, s->response.status);
+	m_add_int(&fi.p, s->response.code);
+	m_add_int(&fi.p, s->response.notify);
+	if (s->response.line) {
+		m_add_string(&fi.p, s->response.line);
+		free(s->response.line);
+		s->response.line = NULL;
+	}
 	m_close(&fi.p);
 
 	s->qid = 0;
+	s->response.ready = 0;
 }
 
 void
@@ -439,8 +473,8 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			s = xcalloc(1, sizeof(*s), "filter_dispatch");
 			s->id = id;
-			s->iev.sock = -1;
-			s->oev.sock = -1;
+			s->pipe.iev.sock = -1;
+			s->pipe.oev.sock = -1;
 			tree_xset(&sessions, id, s);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_connect(id, qid, &q_connect);
@@ -469,7 +503,10 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_dispatch_data(id, qid);
 			break;
 		case HOOK_EOM:
-			m_get_u32(&m, &datalen);
+			if (fi.hooks & HOOK_DATALINE)
+				m_get_u32(&m, &datalen);
+			else
+				datalen = 0;
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_eom(id, qid, datalen);
@@ -480,7 +517,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		}
 		break;
 
-	case IMSG_FILTER_MESSAGE_FD:
+	case IMSG_FILTER_PIPE_SETUP:
 		m_msg(&m, imsg);
 		m_get_id(&m, &id);
 		m_end(&m);
@@ -494,20 +531,37 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		}
 		else {
 			s = tree_xget(&sessions, id);
-			iobuf_init(&s->obuf, 0, 0);
-			io_init(&s->oev, fdout, s, filter_io_out, &s->obuf);
-			io_set_write(&s->oev);
+			iobuf_init(&s->pipe.obuf, 0, 0);
+			io_init(&s->pipe.oev, fdout, s, filter_io_out, &s->pipe.obuf);
+			io_set_write(&s->pipe.oev);
 
-			iobuf_init(&s->ibuf, 0, 0);
-			io_init(&s->iev, fds[0], s, filter_io_in, &s->ibuf);
-			io_set_read(&s->iev);
+			iobuf_init(&s->pipe.ibuf, 0, 0);
+			io_init(&s->pipe.iev, fds[0], s, filter_io_in, &s->pipe.ibuf);
+			io_set_read(&s->pipe.iev);
 
 			fdin = fds[1];
+			/* XXX notify? */
 		}
 		log_debug("debug: filter-api:%s: tx pipe %i -> %i for %016"PRIu64, filter_name, fdin, fdout, id);
-		m_create(&fi.p, IMSG_FILTER_MESSAGE_FD, 0, 0, fdin);
+		m_create(&fi.p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdin);
 		m_add_id(&fi.p, id);
 		m_close(&fi.p);
+		break;
+
+	case IMSG_FILTER_PIPE_ABORT:
+		m_msg(&m, imsg);
+		m_get_id(&m, &id);
+		m_end(&m);
+		s = tree_xget(&sessions, id);
+		if (s->pipe.iev.sock != -1) {
+			io_clear(&s->pipe.iev);
+			iobuf_clear(&s->pipe.ibuf);
+		}
+		if (s->pipe.oev.sock != -1) {
+			io_clear(&s->pipe.oev);
+			iobuf_clear(&s->pipe.obuf);
+		}
+		/* XXX notify? */
 		break;
 
 	case IMSG_FILTER_NOTIFY:
@@ -526,8 +580,8 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s: filter_register_query(%016"PRIu64", %s)",
-		filter_name, id, hook_to_str(hook));
+	log_debug("debug: filter-api:%s: query %s for %016"PRIu64,
+		filter_name, hook_to_str(hook), id);
 
 	s = tree_xget(&sessions, id);
 	if (s->qid) {
@@ -537,6 +591,8 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 	}
 	s->qid = qid;
 	s->qhook = hook;
+	s->response.ready = 0;
+
 	tree_xset(&queries, qid, s);
 }
 
@@ -587,15 +643,18 @@ filter_dispatch_eom(uint64_t id, uint64_t qid, size_t datalen)
 {
 	struct filter_session	*s;
 
-	s = tree_get(&sessions, id);
-	s->eom = 1;
-	s->datalen = datalen;
+	s = tree_xget(&sessions, id);
+	s->pipe.datalen = datalen;
 
-	if (!(fi.hooks & HOOK_DATALINE)) {
-		fi.cb.eom(s->id);
-	}
-	else if (s->iev.sock == -1 && (s->oev.sock == -1 || iobuf_queued(&s->obuf) == 0))
+	if (fi.hooks & HOOK_DATALINE) {
+		/* wait for the io to be done  */
+		if (s->pipe.iev.sock != -1)
+			return;
 		filter_trigger_eom(s);
+		return;
+	}
+
+	fi.cb.eom(s->id);
 }
 
 static void
@@ -607,24 +666,27 @@ filter_dispatch_dataline(uint64_t id, const char *data)
 static void
 filter_trigger_eom(struct filter_session *s)
 {
-	log_debug("debug: filter-api:%s: tx eom (%zu) for %p", filter_name, s->datalen, s->id);
+	log_debug("debug: filter-api:%s: tx eom (%zu) for %p", filter_name, s->pipe.datalen, s->id);
 
-	if (s->oev.sock != -1) {
-		io_clear(&s->oev);
-		iobuf_clear(&s->obuf);
-	}
-	if (!s->ioerror && s->idatalen != s->datalen) {
+	if (!s->pipe.error && s->pipe.idatalen != s->pipe.datalen) {
 		log_debug("debug: filter-api:%s: tx datalen mismatch: %zu/%zu",
-		    filter_name, s->idatalen != s->datalen);
-		s->ioerror = 1;
+		    filter_name, s->pipe.idatalen != s->pipe.datalen);
+		s->pipe.error = 1;
 	}
-	if (s->ioerror) {
-		log_debug("debug: filter-api:%s: tx ioerror", filter_name);
+	if (s->pipe.error) {
+		log_debug("debug: filter-api:%s: tx pipe.error", filter_name);
+		/* XXX error? */
 	}
+
+	/* if the filter has no eom callback, we accept the message */
 	if (fi.cb.eom)
 		fi.cb.eom(s->id);
 	else
 		filter_api_accept(s->id);
+
+	/* if the output is done and the response is ready, send it */
+	if (s->pipe.oev.sock == -1 && s->response.ready)
+		filter_send_response(s);
 }
 
 static void
@@ -640,37 +702,37 @@ filter_io_in(struct io *io, int evt)
 	switch (evt) {
 	case IO_DATAIN:
 	    nextline:
-		line = iobuf_getline(&s->ibuf, &len);
-		if ((line == NULL && iobuf_len(&s->ibuf) >= SMTPD_MAXLINESIZE) ||
+		line = iobuf_getline(&s->pipe.ibuf, &len);
+		if ((line == NULL && iobuf_len(&s->pipe.ibuf) >= SMTPD_MAXLINESIZE) ||
 		    (line && len >= SMTPD_MAXLINESIZE)) {
-			s->ioerror = 1;
-			io_clear(&s->oev);
-			iobuf_clear(&s->obuf);
+			s->pipe.error = 1;
+			io_clear(&s->pipe.oev);
+			iobuf_clear(&s->pipe.obuf);
 			break;
 		}
 		/* No complete line received */
 		if (line == NULL) {
-			iobuf_normalize(&s->ibuf);
+			iobuf_normalize(&s->pipe.ibuf);
 			/* flow control */
-			if (iobuf_queued(&s->obuf) >= FILTER_HIWAT)
-				io_pause(&s->oev, IO_PAUSE_IN);
+			if (iobuf_queued(&s->pipe.obuf) >= FILTER_HIWAT)
+				io_pause(&s->pipe.oev, IO_PAUSE_IN);
 			return;
 		}
-		s->idatalen += len + 1;
+		s->pipe.idatalen += len + 1;
 		filter_dispatch_dataline(s->id, line);
 		goto nextline;
 
 	case IO_DISCONNECTED:
+		if (s->qhook == HOOK_EOM)
+			filter_trigger_eom(s);
 		break;
 	default:
-		s->ioerror = 1;
-		io_clear(&s->oev);
-		iobuf_clear(&s->obuf);
+		s->pipe.error = 1;
+		io_clear(&s->pipe.oev);
+		iobuf_clear(&s->pipe.obuf);
 	}
-	io_clear(&s->iev);
-	iobuf_clear(&s->ibuf);
-	if (s->eom && s->iev.sock == -1 && (s->oev.sock == -1 || iobuf_queued(&s->obuf) == 0))
-		filter_trigger_eom(s);
+	io_clear(&s->pipe.iev);
+	iobuf_clear(&s->pipe.ibuf);
 }
 
 static void
@@ -687,27 +749,31 @@ filter_io_out(struct io *io, int evt)
 	case IO_ERROR:
 		log_debug("debug: filter-api:%s: io error on output pipe",
 		    filter_name);
-		s->ioerror = 1;
-		io_clear(&s->oev);
-		iobuf_clear(&s->obuf);
-		if (s->iev.sock != -1) {
-			io_clear(&s->iev);
-			iobuf_clear(&s->ibuf);
+		s->pipe.error = 1;
+		io_clear(&s->pipe.oev);
+		iobuf_clear(&s->pipe.obuf);
+		if (s->pipe.iev.sock != -1) {
+			io_clear(&s->pipe.iev);
+			iobuf_clear(&s->pipe.ibuf);
 		}
 		break;
 
 	case IO_LOWAT:
 		/* flow control */
-		if (s->iev.sock != -1 && s->iev.flags & IO_PAUSE_IN)
-			io_resume(&s->iev, IO_PAUSE_IN);
+		if (s->pipe.iev.sock != -1 && s->pipe.iev.flags & IO_PAUSE_IN)
+			io_resume(&s->pipe.iev, IO_PAUSE_IN);
+
+		/* if the input is done and there is a response, send it */
+		if (s->pipe.iev.sock == -1 && s->response.ready) {
+			io_clear(&s->pipe.oev);
+			iobuf_clear(&s->pipe.obuf);
+			filter_send_response(s);
+		}
 		break;
 	default:
 		fatalx("filter_io_out()");
 	}
-	if (s->eom && s->iev.sock == -1 && (s->oev.sock == -1 || iobuf_queued(&s->obuf) == 0))
-		filter_trigger_eom(s);
 }
-
 
 #define CASE(x) case x : return #x
 
@@ -718,10 +784,10 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_REGISTER);
 	CASE(IMSG_FILTER_EVENT);
 	CASE(IMSG_FILTER_QUERY);
-	CASE(IMSG_FILTER_MESSAGE_FD);
+	CASE(IMSG_FILTER_PIPE_SETUP);
+	CASE(IMSG_FILTER_PIPE_ABORT);
 	CASE(IMSG_FILTER_NOTIFY);
 	CASE(IMSG_FILTER_RESPONSE);
-	CASE(IMSG_FILTER_RESPONSE_EOM);
 	default:
 		return "IMSG_FILTER_???";
 	}
