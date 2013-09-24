@@ -809,7 +809,7 @@ a certificate valid for one year was created.
 The configuration file would look like this:
 .Bd -literal -offset indent
 pki mail.example.com certificate "/etc/ssl/mail.example.com.crt"
-pki mail.example.com key "/etc/ssl/mail.example.com.key"
+pki mail.example.com key "/etc/ssl/private/mail.example.com.key"
 
 listen on lo0
 listen on egress tls pki mail.example.com auth
