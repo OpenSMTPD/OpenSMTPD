@@ -99,6 +99,7 @@ struct mfa_query {
 		} connect;
 		char			line[SMTPD_MAXLINESIZE];
 		struct mailaddr		maddr;
+		size_t			datalen;
 	} u;
 
 	/* current response */
@@ -259,6 +260,19 @@ mfa_filter_line(uint64_t id, int hook, const char *line)
 	q = mfa_query(s, QT_QUERY, hook);
 
 	strlcpy(q->u.line, line, sizeof(q->u.line));
+
+	mfa_drain_query(q);
+}
+
+void
+mfa_filter_eom(uint64_t id, int hook, size_t datalen)
+{
+	struct mfa_session	*s;
+	struct mfa_query	*q;
+
+	s = tree_xget(&sessions, id);
+	q = mfa_query(s, QT_QUERY, hook);
+	q->u.datalen = datalen;
 
 	mfa_drain_query(q);
 }
@@ -455,6 +469,9 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 		case HOOK_RCPT:
 			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
 			break;
+		case HOOK_EOM:
+			m_add_u32(&f->proc->mproc, q->u.datalen);
+			break;
 		default:
 			break;
 		}
@@ -481,6 +498,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*line;
 	uint64_t		 qid;
+	uint32_t		 datalen;
 	int			 status, code, notify;
 
 	if (imsg == NULL) {
@@ -517,16 +535,18 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		break;
 
 	case IMSG_FILTER_RESPONSE:
+	case IMSG_FILTER_RESPONSE_EOM:
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
 		m_get_int(&m, &notify);
+		if (imsg->hdr.type == IMSG_FILTER_RESPONSE_EOM)
+			m_get_u32(&m, &datalen);
 		if (m_is_eom(&m))
 			line = NULL;
 		else
 			m_get_string(&m, &line);
-		
 		m_end(&m);
 
 		q = tree_xpop(&queries, qid);
@@ -540,6 +560,10 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 		if (notify)
 			tree_xset(&q->notify, (uintptr_t)(proc), proc);
+
+		if (imsg->hdr.type == IMSG_FILTER_RESPONSE_EOM &&
+		    proc->hooks & HOOK_DATALINE);
+			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
 		mfa_drain_query(q);
@@ -563,7 +587,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		break;
 
 	default:
-		log_warnx("bad imsg from filter %s", p->name);
+		log_warnx("warn: bad imsg from filter %s", p->name);
 		exit(1);
 	}
 }
@@ -630,7 +654,6 @@ mfa_filterproc_to_text(struct mfa_filterproc *proc)
 	return (buf);
 }
 
-
 #define CASE(x) case x : return #x
 
 static const char *
@@ -643,6 +666,7 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_MESSAGE_FD);
 	CASE(IMSG_FILTER_NOTIFY);
 	CASE(IMSG_FILTER_RESPONSE);
+	CASE(IMSG_FILTER_RESPONSE_EOM);
 	default:
 		return "IMSG_FILTER_???";
 	}

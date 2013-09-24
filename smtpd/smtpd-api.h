@@ -60,6 +60,7 @@ enum filter_imsg {
 	IMSG_FILTER_MESSAGE_FD,
 	IMSG_FILTER_NOTIFY,
 	IMSG_FILTER_RESPONSE,
+	IMSG_FILTER_RESPONSE_EOM
 };
 
 /* XXX - server side requires mfa_session.c update on filter_hook changes */

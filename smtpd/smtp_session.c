@@ -863,7 +863,7 @@ smtp_io(struct io *io, int evt)
 
 		/* End of body */
 		if (s->state == STATE_BODY) {
-			log_debug("debug: smtp: %p: EOM", s);
+			log_debug("debug: smtp: %p: eom", s);
 			iobuf_normalize(&s->iobuf);
 			io_set_write(io);
 			s->dataeom = 1;
