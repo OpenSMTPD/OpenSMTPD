@@ -743,10 +743,18 @@ virtual		: VIRTUAL tables		{
 		;
 
 usermapping	: alias		{
+			if (rule->r_mapping) {
+				yyerror("alias specified multiple times");
+				YYERROR;
+			}
 			rule->r_desttype = DEST_DOM;
 			rule->r_mapping = $1;
 		}
 		| virtual	{
+			if (rule->r_mapping) {
+				yyerror("virtual specified multiple times");
+				YYERROR;
+			}
 			rule->r_desttype = DEST_VDOM;
 			rule->r_mapping = $1;
 		}
@@ -755,6 +763,10 @@ usermapping	: alias		{
 userbase	: USERBASE tables	{
 			struct table   *t = $2;
 
+			if (rule->r_userbase) {
+				yyerror("userbase specified multiple times");
+				YYERROR;
+			}
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_USERINFO)) {
 				yyerror("invalid use of table \"%s\" as USERBASE parameter",
 				    t->t_name);
@@ -836,19 +848,31 @@ negation	: '!'		{ $$ = 1; }
 from		: FROM negation SOURCE tables       		{
 			struct table   *t = $4;
 
+			if (rule->r_sources) {
+				yyerror("from specified multiple times");
+				YYERROR;
+			}
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
 				yyerror("invalid use of table \"%s\" as FROM parameter",
 				    t->t_name);
 				YYERROR;
 			}
-			rule->r_notsources = $3;
+			rule->r_notsources = $2;
 			rule->r_sources = t;
 		}
 		| FROM negation ANY    		{
+			if (rule->r_sources) {
+				yyerror("from specified multiple times");
+				YYERROR;
+			}
 			rule->r_sources = table_find("<anyhost>", NULL);
 			rule->r_notsources = $2;
 		}
 		| FROM negation LOCAL  		{
+			if (rule->r_sources) {
+				yyerror("from specified multiple times");
+				YYERROR;
+			}
 			rule->r_sources = table_find("<localhost>", NULL);
 			rule->r_notsources = $2;
 		}
@@ -857,6 +881,10 @@ from		: FROM negation SOURCE tables       		{
 for		: FOR negation DOMAIN tables {
 			struct table   *t = $4;
 
+			if (rule->r_destination) {
+				yyerror("for specified multiple times");
+				YYERROR;
+			}
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
 				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
 				    t->t_name);
@@ -866,10 +894,18 @@ for		: FOR negation DOMAIN tables {
 			rule->r_destination = t;
 		}
 		| FOR negation ANY    		{
+			if (rule->r_destination) {
+				yyerror("for specified multiple times");
+				YYERROR;
+			}
 			rule->r_notdestination = $2;
 			rule->r_destination = 0;
 		}
 		| FOR negation LOCAL  		{
+			if (rule->r_destination) {
+				yyerror("for specified multiple times");
+				YYERROR;
+			}
 			rule->r_notdestination = $2;
 			rule->r_destination = table_find("<localnames>", NULL);
 		}
@@ -921,6 +957,10 @@ forwardonly	: FORWARDONLY {
 		;
 
 expire		: EXPIRE STRING {
+			if (rule->r_qexpire != -1) {
+				yyerror("expire specified multiple times");
+				YYERROR;
+			}
 			rule->r_qexpire = delaytonum($2);
 			if (rule->r_qexpire == -1) {
 				yyerror("invalid expire delay: %s", $2);
@@ -966,11 +1006,15 @@ rule		: ACCEPT {
 			rule->r_action = A_NONE;
 			rule->r_decision = R_ACCEPT;
 			rule->r_desttype = DEST_DOM;
-			rule->r_sources = table_find("<localhost>", NULL);
-			rule->r_destination = table_find("<localnames>", NULL);
-			rule->r_userbase = table_find("<getpwnam>", NULL);
-			rule->r_qexpire = conf->sc_qexpire;
 		} decision lookup action accept_params {
+			if (! rule->r_sources)
+				rule->r_sources = table_find("<localhost>", NULL);
+			if (! rule->r_destination)
+				rule->r_destination = table_find("<localnames>", NULL);
+			if (! rule->r_userbase)
+				rule->r_userbase = table_find("<getpwnam>", NULL);
+			if (rule->r_qexpire == -1)
+				rule->r_qexpire = conf->sc_qexpire;
 			if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 				if (rule->r_userbase != table_find("<getpwnam>", NULL)) {
 					yyerror("userbase may not be used with a relay rule");
@@ -992,9 +1036,11 @@ rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
 			rule->r_decision = R_REJECT;
 			rule->r_desttype = DEST_DOM;
-			rule->r_sources = table_find("<localhost>", NULL);
-			rule->r_destination = table_find("<localnames>", NULL);
 		} decision {
+			if (! rule->r_sources)
+				rule->r_sources = table_find("<localhost>", NULL);
+			if (! rule->r_destination)
+				rule->r_destination = table_find("<localnames>", NULL);
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
