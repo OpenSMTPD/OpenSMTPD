@@ -862,7 +862,7 @@ negation	: '!'		{ $$ = 1; }
 		| /* empty */	{ $$ = 0; }
 		;
 
-from		: FROM SOURCE negation tables       		{
+from		: FROM negation SOURCE tables       		{
 			struct table   *t = $4;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
@@ -870,7 +870,7 @@ from		: FROM SOURCE negation tables       		{
 				    t->t_name);
 				YYERROR;
 			}
-			rule->r_notsources = $3;
+			rule->r_notsources = $2;
 			$$ = t;
 		}
 		| FROM negation ANY    		{
@@ -886,7 +886,7 @@ from		: FROM SOURCE negation tables       		{
 		}
 		;
 
-for		: FOR negation SOURCE tables {
+for		: FOR negation DOMAIN tables {
 			struct table   *t = $4;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
