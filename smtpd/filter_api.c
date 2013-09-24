@@ -1,6 +1,7 @@
 /*	$OpenBSD$	*/
 
 /*
+ * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -54,11 +55,11 @@ struct filter_session {
 	} pipe;
 
 	struct {
-		int		 ready;
-		int		 status;
-		int		 code;
-		int		 notify;
-		char		*line;
+		int		ready;
+		int		status;
+		int		code;
+		int		notify;
+		char	       *line;
 	} response;
 };
 
@@ -86,7 +87,6 @@ static struct filter_internals {
 		void (*eom)(uint64_t);
 		void (*event)(uint64_t, enum filter_hook);
 	} cb;
-
 } fi;
 
 static void filter_api_init(void);
@@ -295,6 +295,12 @@ filter_api_writeln(uint64_t id, const char *line)
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line, int notify)
 {
+	log_debug("debug: filter-api:%s: got response %s for %016"PRIu64" %i %i %s",
+	    filter_name, hook_to_str(s->qhook), s->id,
+	    s->response.status,
+	    s->response.code,
+	    s->response.line);
+
 	s->response.ready = 1;
 	s->response.status = status;
 	s->response.code = code;
@@ -307,8 +313,10 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 	/* For HOOK_EOM, wait until the obuf is drained before sending the  */
 	if (s->qhook == HOOK_EOM &&
 	    fi.hooks & HOOK_DATALINE &&
-	    s->pipe.oev.sock != -1)
+	    s->pipe.oev.sock != -1) {
+		log_debug("debug: filter-api:%s: got response, waiting for opipe to be closed", filter_name);
 		return;
+	}
 
 	filter_send_response(s);
 }
@@ -316,7 +324,7 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 static void
 filter_send_response(struct filter_session *s)
 {
-	log_debug("debug: filter-api:%s: response %s for %016"PRIu64" %i %i %s",
+	log_debug("debug: filter-api:%s: sending response %s for %016"PRIu64" %i %i %s",
 	    filter_name, hook_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
@@ -648,8 +656,11 @@ filter_dispatch_eom(uint64_t id, uint64_t qid, size_t datalen)
 
 	if (fi.hooks & HOOK_DATALINE) {
 		/* wait for the io to be done  */
-		if (s->pipe.iev.sock != -1)
+		if (s->pipe.iev.sock != -1) {
+			log_debug("debug: filter-api:%s: eom received for %016"PRIu64", waiting for io to end",
+			    filter_name, id);
 			return;
+		}
 		filter_trigger_eom(s);
 		return;
 	}
@@ -679,14 +690,27 @@ filter_trigger_eom(struct filter_session *s)
 	}
 
 	/* if the filter has no eom callback, we accept the message */
-	if (fi.cb.eom)
+	if (fi.cb.eom) {
+		log_debug("debug: filter-api:%s: calling eom callback", filter_name);
 		fi.cb.eom(s->id);
-	else
+	} else {
+		log_debug("debug: filter-api:%s: accepting by default", filter_name);
 		filter_api_accept(s->id);
+	}
 
 	/* if the output is done and the response is ready, send it */
-	if (s->pipe.oev.sock == -1 && s->response.ready)
+	if ((s->pipe.oev.sock == -1 || iobuf_queued(&s->pipe.obuf) == 0) &&
+	    s->response.ready) {
+		log_debug("debug: filter-api:%s: sending response", filter_name);
+		if (s->pipe.oev.sock != -1) {
+			io_clear(&s->pipe.oev);
+			iobuf_clear(&s->pipe.obuf);
+		}
 		filter_send_response(s);
+	}
+	else {
+		log_debug("debug: filter-api:%s: waiting for obuf to drain", filter_name);
+	}
 }
 
 static void
@@ -725,6 +749,10 @@ filter_io_in(struct io *io, int evt)
 	case IO_DISCONNECTED:
 		if (s->qhook == HOOK_EOM)
 			filter_trigger_eom(s);
+		else {
+			log_debug("debug: filter-api:%s: datain closed, for %016"PRIu64", waiting for eom",
+		    filter_name, s->id);
+		}
 		break;
 	default:
 		s->pipe.error = 1;
