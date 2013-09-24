@@ -146,7 +146,7 @@ typedef struct {
 %token  <v.number>	NUMBER
 %type	<v.table>	table
 %type	<v.number>	size expire negation forwardonly
-%type	<v.table>	tables tablenew tableref destination alias virtual usermapping userbase from sender
+%type	<v.table>	tables tablenew tableref alias virtual usermapping userbase for from sender
 %type	<v.string>	tagged
 %%
 
@@ -786,28 +786,6 @@ userbase	: USERBASE tables	{
 		
 
 
-destination	: negation DOMAIN tables	       	{
-			struct table   *t = $3;
-
-			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
-				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
-				    t->t_name);
-				YYERROR;
-			}
-			rule->r_notdestination = $1;
-			$$ = t;
-		}
-		| negation LOCAL		{
-			rule->r_notdestination = $1;
-			$$ = table_find("<localnames>", NULL);
-		}
-		| negation ANY		{
-			rule->r_notdestination = $1;
-			$$ = 0;
-		}
-		;
-
-
 action		: userbase DELIVER TO MAILDIR			{
 			rule->r_userbase = $1;
 			rule->r_action = A_MAILDIR;
@@ -884,15 +862,15 @@ negation	: '!'		{ $$ = 1; }
 		| /* empty */	{ $$ = 0; }
 		;
 
-from		: FROM negation tables			{
-			struct table   *t = $3;
+from		: FROM SOURCE negation tables       		{
+			struct table   *t = $4;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_NETADDR)) {
 				yyerror("invalid use of table \"%s\" as FROM parameter",
 				    t->t_name);
 				YYERROR;
 			}
-			rule->r_notsources = $2;
+			rule->r_notsources = $3;
 			$$ = t;
 		}
 		| FROM negation ANY    		{
@@ -905,6 +883,30 @@ from		: FROM negation tables			{
 		}
 		| /* empty */			{
 			$$ = table_find("<localhost>", NULL);
+		}
+		;
+
+for		: FOR negation SOURCE tables {
+			struct table   *t = $4;
+
+			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+				yyerror("invalid use of table \"%s\" as DOMAIN parameter",
+				    t->t_name);
+				YYERROR;
+			}
+			rule->r_notdestination = $2;
+			$$ = t;
+		}
+		| FOR negation ANY    		{
+			$$ = 0;
+			rule->r_notsources = $2;
+		}
+		| FOR negation LOCAL  		{
+			$$ = table_find("<localnames>", NULL);
+			rule->r_notsources = $2;
+		}
+		| /* empty */			{
+			$$ = table_find("<localnames>", NULL);
 		}
 		;
 
@@ -928,13 +930,12 @@ forwardonly    	: FORWARDONLY			{ $$ = 1; }
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		} tagged from sender FOR destination usermapping action expire forwardonly {
-
+		} tagged from sender for usermapping action expire forwardonly {
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = $4;
 			rule->r_senders = $5;
-			rule->r_destination = $7;
-			rule->r_mapping = $8;
+			rule->r_destination = $6;
+			rule->r_mapping = $7;
 			if ($3) {
 				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
@@ -944,7 +945,7 @@ rule		: ACCEPT {
 				}
 				free($3);
 			}
-			rule->r_qexpire = $10;
+			rule->r_qexpire = $9;
 
 			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
 				enum table_type type;
@@ -966,7 +967,7 @@ rule		: ACCEPT {
 				}
 			}
 
-			rule->r_forwardonly = $11;
+			rule->r_forwardonly = $10;
 			if (rule->r_forwardonly && rule->r_action != A_NONE) {
 				yyerror("forward-only may not be used with a default action");
 				YYERROR;
@@ -978,12 +979,12 @@ rule		: ACCEPT {
 		}
 		| REJECT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: REJECT");
-		} tagged from sender FOR destination usermapping {
+		} tagged from sender for usermapping {
 			rule->r_decision = R_REJECT;
 			rule->r_sources = $4;
 			rule->r_senders = $5;
-			rule->r_destination = $7;
-			rule->r_mapping = $8;
+			rule->r_destination = $6;
+			rule->r_mapping = $7;
 			if ($3) {
 				if (strlcpy(rule->r_tag, $3, sizeof rule->r_tag)
 				    >= sizeof rule->r_tag) {
