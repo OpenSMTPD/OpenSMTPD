@@ -581,6 +581,8 @@ rule_to_text(struct rule *r)
 		strlcat(buf, r->r_value.buffer, sizeof buf);
 		strlcat(buf, "\"", sizeof buf);
 		break;
+	case A_NONE:
+		break;
 	}
 	    
 	return buf;

@@ -35,7 +35,7 @@
 
 static int ruleset_check_source(struct table *,
     const struct sockaddr_storage *, int);
-static int ruleset_check_sender(struct table *, const struct mailaddr *);
+static int ruleset_check_mailaddr(struct table *, const struct mailaddr *);
 
 struct rule *
 ruleset_match(const struct envelope *evp)
@@ -64,12 +64,22 @@ ruleset_match(const struct envelope *evp)
 			continue;
 
 		if (r->r_senders) {
-			ret = ruleset_check_sender(r->r_senders, &evp->sender);
+			ret = ruleset_check_mailaddr(r->r_senders, &evp->sender);
 			if (ret == -1) {
 				errno = EAGAIN;
 				return (NULL);
 			}
 			if ((ret == 0 && !r->r_notsenders) || (ret != 0 && r->r_notsenders))
+				continue;
+		}
+
+		if (r->r_recipients) {
+			ret = ruleset_check_mailaddr(r->r_recipients, &evp->dest);
+			if (ret == -1) {
+				errno = EAGAIN;
+				return (NULL);
+			}
+			if ((ret == 0 && !r->r_notrecipients) || (ret != 0 && r->r_notrecipients))
 				continue;
 		}
 
@@ -127,7 +137,7 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss,
 }
 
 static int
-ruleset_check_sender(struct table *table, const struct mailaddr *maddr)
+ruleset_check_mailaddr(struct table *table, const struct mailaddr *maddr)
 {
 	const char	*key;
 
@@ -145,6 +155,5 @@ ruleset_check_sender(struct table *table, const struct mailaddr *maddr)
 	default:
 		break;
 	}
-
 	return 0;
 }
