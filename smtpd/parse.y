@@ -1012,6 +1012,7 @@ rule		: ACCEPT {
 			rule->r_action = A_NONE;
 			rule->r_decision = R_ACCEPT;
 			rule->r_desttype = DEST_DOM;
+			rule->r_qexpire = -1;
 		} decision lookup action accept_params {
 			if (! rule->r_sources)
 				rule->r_sources = table_find("<localhost>", NULL);
