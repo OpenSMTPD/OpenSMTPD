@@ -1009,9 +1009,11 @@ rule		: ACCEPT {
 			rule->r_qexpire = -1;
 		} decision lookup action accept_params {
 			if (! rule->r_sources)
-				rule->r_sources = table_find("<localhost>", NULL);
-			if (! rule->r_destination)
-				rule->r_destination = table_find("<localnames>", NULL);
+				rule->r_sources = table_find("<localhost>", NULL);			
+			/*
+			 * if (! rule->r_destination)
+			 *	rule->r_destination = table_find("<localnames>", NULL);
+			 */
 			if (! rule->r_userbase)
 				rule->r_userbase = table_find("<getpwnam>", NULL);
 			if (rule->r_qexpire == -1)
