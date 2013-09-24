@@ -886,7 +886,7 @@ from		: FROM SOURCE negation tables       		{
 		}
 		;
 
-for		: FOR negation DOMAIN tables {
+for		: FOR negation SOURCE tables {
 			struct table   *t = $4;
 
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
