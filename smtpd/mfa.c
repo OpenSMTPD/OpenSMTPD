@@ -119,6 +119,8 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_u32(&m, &datalen);
 			m_end(&m);
 
+			log_debug("debug: mfa: EOM for %016"PRIu64, reqid);
+
 			tx = tree_xpop(&tx_tree, reqid);
 			tx->datalen = datalen;
 			tx->eom = 1;
@@ -355,6 +357,8 @@ mfa_tx_io(struct io *io, int evt)
 	case IO_DATAIN:
 		data = iobuf_data(&tx->iobuf);
 		len = iobuf_len(&tx->iobuf);
+		log_debug("debug: mfa: tx data (%zu) for req %016"PRIu64,
+		    len, tx->reqid);
 		n = fwrite(data, 1, len, tx->ofile);
 		if (n != len) {
 			tx->error = 1;
@@ -366,9 +370,13 @@ mfa_tx_io(struct io *io, int evt)
 		return;
 
 	case IO_DISCONNECTED:
+		log_debug("debug: mfa: tx done for req %016"PRIu64,
+		    tx->reqid);
 		break;
 
 	default:
+		log_debug("debug: mfa: tx error for req %016"PRIu64,
+		    tx->reqid);
 		tx->error = 1;
 		break;
 	}
@@ -384,8 +392,8 @@ mfa_tx_io(struct io *io, int evt)
 static void
 mfa_tx_done(struct mfa_tx *tx)
 {
-	log_debug("debug: mfa: tx done for req %p: %zu/%zu",
-	    tx, tx->datain, tx->datalen);
+	log_debug("debug: mfa: tx done for req %016"PRIu64": %zu/%zu",
+	    tx->reqid, tx->datain, tx->datalen);
 
 	if (tx->datain != tx->datalen)
 		tx->error = 1;

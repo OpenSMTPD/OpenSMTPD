@@ -40,7 +40,11 @@ static struct tree	sessions;
 struct filter_session {
 	uint64_t	id;
 	uint64_t	qid;
-	
+
+	size_t		datalen;
+	int		eom;
+	int		ioerror;
+
 	struct io	iev;
 	struct iobuf	ibuf;
 	size_t		idatalen;
@@ -48,8 +52,6 @@ struct filter_session {
 	struct io	oev;
 	struct iobuf	obuf;
 	size_t		odatalen;
-
-	int		ioerror;
 };
 
 static int		register_done;
@@ -87,7 +89,7 @@ static void filter_dispatch(struct mproc *, struct imsg *);
 static void filter_dispatch_event(uint64_t, enum filter_hook);
 static void filter_dispatch_dataline(uint64_t, const char *);
 static void filter_dispatch_data(uint64_t, uint64_t);
-static void filter_dispatch_eom(uint64_t, uint64_t);
+static void filter_dispatch_eom(uint64_t, uint64_t, size_t);
 static void filter_dispatch_notify(uint64_t, enum filter_status);
 static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *);
 static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
@@ -381,7 +383,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 	struct mailaddr		 maddr;
 	struct msg		 m;
 	const char		*line, *name;
-	uint32_t		 v;
+	uint32_t		 v, datalen;
 	uint64_t		 id, qid;
 	int			 status, event, hook;
 	int			 fds[2], fdin, fdout;
@@ -460,9 +462,10 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_dispatch_data(id, qid);
 			break;
 		case HOOK_EOM:
+			m_get_u32(&m, &datalen);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_eom(id, qid);
+			filter_dispatch_eom(id, qid, datalen);
 			break;
 		default:
 			log_warnx("warn: filter-api:%s: bad hook %d", filter_name, hook);
@@ -569,8 +572,18 @@ filter_dispatch_data(uint64_t id, uint64_t qid)
 }
 
 static void
-filter_dispatch_eom(uint64_t id, uint64_t qid)
+filter_dispatch_eom(uint64_t id, uint64_t qid, size_t datalen)
 {
+	struct filter_session	*s;
+
+	s = tree_get(&sessions, id);
+	if (s) {
+		s->eom = 1;
+		s->datalen = datalen;
+		if (s->iev.sock != -1)
+			return;
+	}
+
 	fi.cb.eom(id);
 }
 
@@ -654,7 +667,6 @@ filter_io_out(struct io *io, int evt)
 		if (s->iev.sock != -1 && s->iev.flags & IO_PAUSE_IN)
 			io_resume(&s->iev, IO_PAUSE_IN);
 		break;
-
 	default:
 		fatalx("filter_io_out()");
 	}
