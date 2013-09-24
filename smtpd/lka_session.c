@@ -147,6 +147,11 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 				    "for user %s on forward-only rule", fwreq->user);
 				lks->error = LKA_TEMPFAIL;
 			}
+			else if (lks->expand.rule->r_action == A_NONE) {
+				log_trace(TRACE_EXPAND, "expand: no .forward "
+				    "for user %s and no default action on rule", fwreq->user);
+				lks->error = LKA_PERMFAIL;
+			}
 			else {
 				log_trace(TRACE_EXPAND, "expand: no .forward for "
 				    "user %s, just deliver", fwreq->user);
@@ -172,6 +177,11 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 					log_trace(TRACE_EXPAND, "expand: empty .forward "
 					    "for user %s on forward-only rule", fwreq->user);
 					lks->error = LKA_TEMPFAIL;
+				}
+				else if (lks->expand.rule->r_action == A_NONE) {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s and no default action on rule", fwreq->user);
+					lks->error = LKA_PERMFAIL;
 				}
 				else {
 					log_trace(TRACE_EXPAND, "expand: empty .forward "
@@ -401,6 +411,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		(void)strlcpy(fwreq.directory, lk.userinfo.directory, sizeof(fwreq.directory));
 		fwreq.uid = lk.userinfo.uid;
 		fwreq.gid = lk.userinfo.gid;
+
 		m_compose(p_parent, IMSG_PARENT_FORWARD_OPEN, 0, 0, -1,
 		    &fwreq, sizeof(fwreq));
 		lks->flags |= F_WAITING;
@@ -487,6 +498,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			strlcpy(ep->sender.domain, rule->r_as->domain,
 			    sizeof ep->sender.domain);
 		break;
+	case A_NONE:
 	case A_MBOX:
 	case A_MAILDIR:
 	case A_FILENAME:

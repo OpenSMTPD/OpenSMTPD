@@ -874,6 +874,10 @@ action		: userbase DELIVER TO MAILDIR			{
 				}
 			}
 		}
+		| userbase	{
+			rule->r_userbase = $1;
+			rule->r_action = A_NONE;
+		}
 		;
 
 negation	: '!'		{ $$ = 1; }
@@ -924,7 +928,7 @@ forwardonly    	: FORWARDONLY			{ $$ = 1; }
 
 rule		: ACCEPT {
 			rule = xcalloc(1, sizeof(*rule), "parse rule: ACCEPT");
-		 } tagged from sender FOR destination usermapping action expire forwardonly {
+		} tagged from sender FOR destination usermapping action expire forwardonly {
 
 			rule->r_decision = R_ACCEPT;
 			rule->r_sources = $4;
@@ -963,6 +967,10 @@ rule		: ACCEPT {
 			}
 
 			rule->r_forwardonly = $11;
+			if (rule->r_forwardonly && rule->r_action != A_NONE) {
+				yyerror("forward-only may not be used with a default action");
+				YYERROR;
+			}
 
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 
