@@ -763,56 +763,52 @@ userbase	: USERBASE tables	{
 
 			$$ = t;
 		}
-		| /**/	{ $$ = table_find("<getpwnam>", NULL); }
 		;
 
-action		: userbase DELIVER TO MAILDIR			{
-			rule->r_userbase = $1;
+deliver_action	: DELIVER TO MAILDIR			{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| userbase DELIVER TO MAILDIR STRING		{
-			rule->r_userbase = $1;
+		| DELIVER TO MAILDIR STRING		{
 			rule->r_action = A_MAILDIR;
-			if (strlcpy(rule->r_value.buffer, $5,
+			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer)) >=
 			    sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
-			free($5);
+			free($4);
 		}
-		| userbase DELIVER TO LMTP STRING		{
-			rule->r_userbase = $1;
+		| DELIVER TO LMTP STRING		{
 			rule->r_action = A_LMTP;
-			if (strchr($5, ':') || $5[0] == '/') {
-				if (strlcpy(rule->r_value.buffer, $5,
+			if (strchr($4, ':') || $4[0] == '/') {
+				if (strlcpy(rule->r_value.buffer, $4,
 					sizeof(rule->r_value.buffer))
 					>= sizeof(rule->r_value.buffer))
 					fatal("lmtp destination too long");
 			} else
 				fatal("invalid lmtp destination");
-			free($5);
+			free($4);
 		}
-		| userbase DELIVER TO MBOX			{
-			rule->r_userbase = $1;
+		| DELIVER TO MBOX			{
 			rule->r_action = A_MBOX;
 			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
 				fatal("pathname too long");
 		}
-		| userbase DELIVER TO MDA STRING	       	{
-			rule->r_userbase = $1;
+		| DELIVER TO MDA STRING	       	{
 			rule->r_action = A_MDA;
-			if (strlcpy(rule->r_value.buffer, $5,
+			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
 			    >= sizeof(rule->r_value.buffer))
 				fatal("command too long");
-			free($5);
+			free($4);
 		}
-		| RELAY relay {
+		;
+
+relay_action   	: RELAY relay {
 			rule->r_action = A_RELAY;
 		}
 		| RELAY VIA STRING {
@@ -832,10 +828,9 @@ action		: userbase DELIVER TO MAILDIR			{
 				}
 			}
 		}
-		| userbase	{
-			rule->r_userbase = $1;
-		}
 		;
+
+action		: deliver_action | relay_action;
 
 negation	: '!'		{ $$ = 1; }
 		| /* empty */	{ $$ = 0; }
@@ -901,6 +896,8 @@ opt_accept     	: sender
 		| for
 		| tagged
 		| usermapping
+		| userbase
+		| action
 		| FORWARDONLY	{
 			rule->r_forwardonly = 1;
 		}
@@ -937,8 +934,9 @@ rule		: ACCEPT {
 			rule->r_desttype = DEST_DOM;
 			rule->r_sources = table_find("<localhost>", NULL);
 			rule->r_destination = table_find("<localnames>", NULL);
+			rule->r_userbase = table_find("<getpwnam>", NULL);
 			rule->r_qexpire = conf->sc_qexpire;
-		} accept_params action {
+		} accept_params {
 			if (rule->r_mapping && rule->r_desttype == DEST_VDOM) {
 				enum table_type type;
 
