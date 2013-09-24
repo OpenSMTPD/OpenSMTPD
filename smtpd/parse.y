@@ -760,8 +760,7 @@ userbase	: USERBASE tables	{
 				    t->t_name);
 				YYERROR;
 			}
-
-			$$ = t;
+			rule->r_userbase = t;
 		}
 		;
 
@@ -830,8 +829,6 @@ relay_action   	: RELAY relay {
 		}
 		;
 
-action		: deliver_action | relay_action;
-
 negation	: '!'		{ $$ = 1; }
 		| /* empty */	{ $$ = 0; }
 		;
@@ -881,6 +878,11 @@ for		: FOR negation SOURCE tables {
 sender		: SENDER negation tables			{
 			struct table   *t = $3;
 
+			if (rule->r_senders) {
+				yyerror("sender specified multiple times");
+				YYERROR;
+			}
+
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
 				yyerror("invalid use of table \"%s\" as SENDER parameter",
 				    t->t_name);
@@ -894,6 +896,11 @@ sender		: SENDER negation tables			{
 recipient      	: RECIPIENT negation tables			{
 			struct table   *t = $3;
 
+			if (rule->r_recipients) {
+				yyerror("recipient specified multiple times");
+				YYERROR;
+			}
+
 			if (! table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
 				yyerror("invalid use of table \"%s\" as RECIPIENT parameter",
 				    t->t_name);
@@ -904,18 +911,16 @@ recipient      	: RECIPIENT negation tables			{
 		}
 		;
 
-opt_accept     	: sender
-		| recipient
-		| from
-		| for
-		| tagged
-		| action
-		| usermapping
-		| userbase
-		| FORWARDONLY	{
+forwardonly	: FORWARDONLY {
+			if (rule->r_forwardonly) {
+				yyerror("forward-only specified multiple times");
+				YYERROR;
+			}
 			rule->r_forwardonly = 1;
 		}
-		| EXPIRE STRING {
+		;
+
+expire		: EXPIRE STRING {
 			rule->r_qexpire = delaytonum($2);
 			if (rule->r_qexpire == -1) {
 				yyerror("invalid expire delay: %s", $2);
@@ -926,19 +931,34 @@ opt_accept     	: sender
 		}
 		;
 
-opt_reject     	: sender
+opt_decision	: sender
 		| recipient
 		| from
 		| for
 		| tagged
 		;
-
-accept_params	: opt_accept accept_params
-		| /**/
+decision	: opt_decision decision
+		|
 		;
 
-reject_params	: opt_reject reject_params
-		| /**/
+opt_lookup	: userbase
+		| usermapping
+		;
+lookup		: opt_lookup lookup
+		|
+		;
+
+action		: deliver_action
+		| relay_action
+		|
+		;
+
+opt_accept	: expire
+		| forwardonly
+		;
+
+accept_params	: opt_accept accept_params
+		|
 		;
 
 rule		: ACCEPT {
@@ -950,13 +970,21 @@ rule		: ACCEPT {
 			rule->r_destination = table_find("<localnames>", NULL);
 			rule->r_userbase = table_find("<getpwnam>", NULL);
 			rule->r_qexpire = conf->sc_qexpire;
-		} accept_params {
-
+		} decision lookup action accept_params {
+			if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
+				if (rule->r_userbase != table_find("<getpwnam>", NULL)) {
+					yyerror("userbase may not be used with a relay rule");
+					YYERROR;
+				}
+				if (rule->r_mapping) {
+					yyerror("aliases/virtual may not be used with a relay rule");
+					YYERROR;
+				}
+			}
 			if (rule->r_forwardonly && rule->r_action != A_NONE) {
 				yyerror("forward-only may not be used with a default action");
 				YYERROR;
 			}
-
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
@@ -966,7 +994,7 @@ rule		: ACCEPT {
 			rule->r_desttype = DEST_DOM;
 			rule->r_sources = table_find("<localhost>", NULL);
 			rule->r_destination = table_find("<localnames>", NULL);
-		} reject_params {
+		} decision {
 			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 			rule = NULL;
 		}
