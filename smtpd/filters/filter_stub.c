@@ -59,7 +59,6 @@ on_data(uint64_t id)
 static void
 on_eom(uint64_t id)
 {
-	filter_api_writeln(id, "end of message");
 	filter_api_accept(id);
 }
 

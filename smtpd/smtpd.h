@@ -605,9 +605,13 @@ struct deliver {
 	struct userinfo		userinfo;
 };
 
+#define MAX_FILTER_PER_CHAIN	16
 struct filter {
+	int			chain;
+	int			done;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
+	char		        filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
 };
 
 struct mta_host {
