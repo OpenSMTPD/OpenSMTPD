@@ -75,55 +75,67 @@ on_notify(uint64_t qid, enum filter_status status)
 }
 
 static void
-on_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
+on_connect(uint64_t id, struct filter_connect *conn)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter-connect: id=%016"PRIx64", qid=%016"PRIx64" hostname=%s\n",
 	    id, qid, conn->hostname);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_helo(uint64_t id, uint64_t qid, const char *helo)
+on_helo(uint64_t id, const char *helo)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: HELO id=%016"PRIx64", qid=%016"PRIx64" %s\n",
 	    id, qid, helo);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
+on_mail(uint64_t id, struct mailaddr *mail)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: MAIL id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
 	    id, qid, mail->user, mail->domain);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: RCPT id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
 	    id, qid, rcpt->user, rcpt->domain);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_data(uint64_t id, uint64_t qid)
+on_data(uint64_t id)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: DATA id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
-	filter_api_accept_notify(qid);
+}
+
+static void
+on_eom(uint64_t id)
+{
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
+	printf("filter-eom: id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
 }
 
 static void
 on_dataline(uint64_t id, const char *data)
 {
 	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, data);
-}
-
-static void
-on_eom(uint64_t id, uint64_t qid)
-{
-	printf("filter-eom: id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
-	filter_api_accept_notify(qid);
 }
 
 int

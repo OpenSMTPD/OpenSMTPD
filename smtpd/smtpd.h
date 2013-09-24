@@ -214,6 +214,7 @@ enum imsg_type {
 	IMSG_CONF_RULE_SOURCE,
 	IMSG_CONF_RULE_SENDER,
 	IMSG_CONF_RULE_DESTINATION,
+	IMSG_CONF_RULE_RECIPIENT,
 	IMSG_CONF_RULE_MAPPING,
 	IMSG_CONF_RULE_USERS,
 	IMSG_CONF_FILTER,
@@ -347,6 +348,7 @@ enum dest_type {
 };
 
 enum action_type {
+	A_NONE,
 	A_RELAY,
 	A_RELAYVIA,
 	A_MAILDIR,
@@ -373,6 +375,9 @@ struct rule {
 	uint8_t				r_notsenders;
 	struct table		       *r_senders;
 
+	uint8_t				r_notrecipients;
+	struct table		       *r_recipients;
+
 	uint8_t				r_notdestination;
 	enum dest_type			r_desttype;
 	struct table		       *r_destination;
@@ -387,6 +392,7 @@ struct rule {
 	struct table		       *r_mapping;
 	struct table		       *r_userbase;
 	time_t				r_qexpire;
+	uint8_t				r_forwardonly;
 };
 
 struct delivery_mda {
