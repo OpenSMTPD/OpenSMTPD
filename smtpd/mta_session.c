@@ -1024,7 +1024,8 @@ mta_io(struct io *io, int evt)
 	size_t			 len;
 	const char		*error;
 	int			 cont;
-
+	X509			*x;
+	
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
 
@@ -1054,11 +1055,14 @@ mta_io(struct io *io, int evt)
 		}
 
 	case IO_TLSVERIFIED:
-		if (SSL_get_peer_certificate(s->io.ssl))
+		x = SSL_get_peer_certificate(s->io.ssl);
+		if (x) {
 			log_info("smtp-out: Server certificate verification %s "
 			    "on session %016"PRIx64,
 			    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
 			    s->id);
+			X509_free(x);
+		}
 
 		if (s->use_smtps) {
 			mta_enter_state(s, MTA_BANNER);
@@ -1457,6 +1461,7 @@ mta_verify_certificate(struct mta_session *s)
 	m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CERT, 0, 0, -1,
 	    iov, nitems(iov));
 	free(req_ca_vrfy.cert);
+	X509_free(x);
 
 	if (xchain) {		
 		/* Send the chain, one cert at a time */
