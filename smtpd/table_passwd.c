@@ -251,7 +251,7 @@ parse_passwd_entry(struct passwd *pw, const char *line)
 
 	/* shell */
 	q = p;
-	if ((p = strchr(q, ':')) != NULL)
+	if (strchr(q, ':') != NULL)
 		return 0;
 	pw->pw_shell = q;
 
