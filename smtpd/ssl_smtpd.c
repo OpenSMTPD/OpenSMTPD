@@ -77,7 +77,7 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 		notBefore = X509_get_notBefore(x509);
 		notAfter = X509_get_notAfter(x509);
 
-		if (notBefore && X509_cmp_time(notBefore, &now) < 0)
+		if (notBefore && X509_cmp_time(notBefore, &now) > 0)
 			log_warnx("smtp-out: certificate is not valid yet");
 
 		if (notAfter && X509_cmp_time(notAfter, &now) < 0)
