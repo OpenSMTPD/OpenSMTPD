@@ -46,7 +46,7 @@
 void *
 ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 {
-	SSL_CTX		*ctx;
+	SSL_CTX		*ctx = NULL;
 	SSL		*ssl = NULL;
 	X509		*x509 = NULL;
 	ASN1_TIME	*notBefore;
@@ -75,18 +75,21 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 		notBefore = X509_get_notBefore(x509);
 		notAfter = X509_get_notAfter(x509);
 
-		if (notBefore && X509_cmp_time(notBefore, &now) < 0)
+		if (notBefore && X509_cmp_time(notBefore, &now) > 0)
 			log_warnx("smtp-out: certificate is not valid yet");
 
 		if (notAfter && X509_cmp_time(notAfter, &now) < 0)
 			log_warnx("smtp-out: certificate has expired");
 	}
 
+	SSL_CTX_free(ctx);
 	return (void *)(ssl);
 
 err:
 	if (ssl != NULL)
 		SSL_free(ssl);
+	if (ctx != NULL)
+		SSL_CTX_free(ctx);
 	ssl_error("ssl_mta_init");
 	return (NULL);
 }

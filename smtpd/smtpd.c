@@ -453,6 +453,12 @@ parent_send_config_lka()
 			    &r->r_senders->t_name,
 			    sizeof(r->r_senders->t_name));
 		}
+		if (r->r_recipients) {
+			m_compose(p_lka, IMSG_CONF_RULE_RECIPIENT,
+			    0, 0, -1,
+			    &r->r_recipients->t_name,
+			    sizeof(r->r_recipients->t_name));
+		}
 		if (r->r_destination) {
 			m_compose(p_lka, IMSG_CONF_RULE_DESTINATION,
 			    0, 0, -1,
@@ -837,7 +843,7 @@ load_ssl_tree(void)
 			if (! ssl_load_cafile(ssl, ssl->ssl_ca_file))
 				errx(1, "load_ssl_tree: failed to load CA file for %s", k);
 		if (ssl->ssl_dhparams_file)
-			if (! ssl_load_dhparams(ssl, ssl->ssl_ca_file))
+			if (! ssl_load_dhparams(ssl, ssl->ssl_dhparams_file))
 				errx(1, "load_ssl_tree: failed to load dhparams file for %s", k);
 	}
 }
