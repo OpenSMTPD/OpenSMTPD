@@ -90,7 +90,7 @@ static int
 table_passwd_update(void)
 {
 	FILE	       *fp;
-	char	       *buf, *lbuf;
+	char	       *buf, *lbuf = NULL;
 	size_t		len;
 	char	       *line;
 	struct passwd	pw;
@@ -108,7 +108,6 @@ table_passwd_update(void)
 
 	dict_init(npasswd);
 
-	lbuf = NULL;
 	while ((buf = fgetln(fp, &len))) {
 		if (buf[len - 1] == '\n')
 			buf[len - 1] = '\0';
@@ -139,6 +138,8 @@ table_passwd_update(void)
 	return (1);
 
 err:
+	free(lbuf);
+
 	/* release passwd table */
 	if (npasswd)
 		while (dict_poproot(npasswd, NULL, (void**)&buf))
@@ -259,7 +260,7 @@ parse_passwd_entry(struct passwd *pw, const char *line)
 
 	/* shell */
 	q = p;
-	if ((p = strchr(q, ':')) != NULL)
+	if (strchr(q, ':') != NULL)
 		return 0;
 	pw->pw_shell = q;
 

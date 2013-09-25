@@ -894,7 +894,7 @@ load_ssl_tree(void)
 			if (! ssl_load_cafile(ssl, ssl->ssl_ca_file))
 				errx(1, "load_ssl_tree: failed to load CA file for %s", k);
 		if (ssl->ssl_dhparams_file)
-			if (! ssl_load_dhparams(ssl, ssl->ssl_ca_file))
+			if (! ssl_load_dhparams(ssl, ssl->ssl_dhparams_file))
 				errx(1, "load_ssl_tree: failed to load dhparams file for %s", k);
 	}
 }
