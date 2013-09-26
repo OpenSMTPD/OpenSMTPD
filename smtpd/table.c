@@ -704,6 +704,8 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 		return (0);
 
 	case PF_INET6:
+		if (strncasecmp("ipv6:", str, 5) == 0)
+			str += 5;
 		cp = strchr(str, SCOPE_DELIMITER);
 		if (cp) {
 			str2 = strdup(str);

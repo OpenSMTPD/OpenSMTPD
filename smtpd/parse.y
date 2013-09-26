@@ -1092,7 +1092,7 @@ lookup(char *s)
 		{ "certificate",	CERTIFICATE },
 		{ "compression",	COMPRESSION },
 		{ "deliver",		DELIVER },
-		{ "dh-params",		DHPARAMS },
+		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
