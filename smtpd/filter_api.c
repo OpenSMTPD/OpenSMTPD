@@ -473,7 +473,7 @@ filter_dispatch_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
 {
 	struct session	*s;
 
-
+	s = tree_xget(&sessions, id);
 	s->qid = qid;
 	tree_xset(&sessions, id, s);
 	tree_xset(&queries, qid, s);
