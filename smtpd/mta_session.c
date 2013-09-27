@@ -120,6 +120,7 @@ struct mta_session {
 
 	struct iobuf		 iobuf;
 	struct io		 io;
+	int			 ext;
 
 	size_t			 msgtried;
 	size_t			 msgcount;
@@ -591,7 +592,6 @@ mta_connect(struct mta_session *s)
 static void
 mta_enter_state(struct mta_session *s, int newstate)
 {
-	struct mta_envelope	*e;
 	int			 oldstate;
 	ssize_t			 q;
 	char			 ibuf[SMTPD_MAXLINESIZE];
@@ -616,24 +616,24 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_EHLO:
-		s->currevp->ext = 0;
+		s->ext = 0;
 		mta_send(s, "EHLO %s", s->helo);
 		break;
 
 	case MTA_HELO:
-		s->currevp->ext = 0;
+		s->ext = 0;
 		mta_send(s, "HELO %s", s->helo);
 		break;
 
 	case MTA_LHLO:
-		s->currevp->ext = 0;
+		s->ext = 0;
 		mta_send(s, "LHLO %s", s->helo);
 		break;
 
 	case MTA_STARTTLS:
 		if (s->flags & MTA_TLS) /* already started */
 			mta_enter_state(s, MTA_AUTH);
-		else if ((s->currevp->ext & MTA_EXT_STARTTLS) == 0) {
+		else if ((s->ext & MTA_EXT_STARTTLS) == 0) {
 			if (s->flags & MTA_FORCE_TLS || s->flags & MTA_WANT_SECURE) {
 				mta_error(s, "TLS required but not supported by remote host");
 				mta_connect(s);
@@ -775,7 +775,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 	case MTA_MAIL:
 		s->hangon = 0;
 		s->msgtried++;
-		e = s->currevp;
+#ifdef DSN
 		if (e->ext & MTA_EXT_DSN) {
 			mta_send(s, "MAIL FROM:<%s> %s%s %s%s",
 			    s->task->sender,
@@ -784,13 +784,14 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    e->dsn_envid ? "ENVID=" : "",
 			    e->dsn_envid ? e->dsn_envid : "");
 		} else
+#endif
 			mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
 
 	case MTA_RCPT:
-		e = s->currevp;
-		if (e == NULL)
-			e = TAILQ_FIRST(&s->task->envelopes);
+		if (s->currevp == NULL)
+			s->currevp = TAILQ_FIRST(&s->task->envelopes);
+#ifdef DSN
 		if (e->ext & MTA_EXT_DSN) {
 			mta_send(s, "RCPT TO:<%s> %s%s %s%s",
 			    e->dest,
@@ -799,7 +800,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 			    e->dsn_orcpt ? "ORCPT=" : "",
 			    e->dsn_orcpt ? e->dsn_orcpt : "");
 		} else
-			mta_send(s, "RCPT TO:<%s>", e->dest);
+#endif
+			mta_send(s, "RCPT TO:<%s>", s->currevp->dest);
 		s->rcptcount++;
 		break;
 
@@ -1211,11 +1213,6 @@ mta_io(struct io *io, int evt)
 		/* read extensions */
 		if (s->state == MTA_EHLO) {
 			if (strcmp(msg, "STARTTLS") == 0)
-<<<<<<< HEAD
-				s->currevp->ext |= MTA_EXT_STARTTLS;
-			else if (strncmp(msg, "AUTH", 4) == 0)
-				s->currevp->ext |= MTA_EXT_AUTH;
-=======
 				s->ext |= MTA_EXT_STARTTLS;
 			else if (strncmp(msg, "AUTH ", 5) == 0) {
                                 s->ext |= MTA_EXT_AUTH;
@@ -1226,11 +1223,10 @@ mta_io(struct io *io, int evt)
 				    (*(p+6) == '\0' || *(p+6) == ' '))
                                         s->ext |= MTA_EXT_AUTH_LOGIN;
 			}
->>>>>>> upstream/master
 			else if (strcmp(msg, "PIPELINING") == 0)
-				s->currevp->ext |= MTA_EXT_PIPELINING;
+				s->ext |= MTA_EXT_PIPELINING;
 			else if (strcmp(msg, "DSN") == 0)
-				s->currevp->ext |= MTA_EXT_DSN;
+				s->ext |= MTA_EXT_DSN;
 		}
 
 		if (cont)
