@@ -48,10 +48,6 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 {
 	SSL_CTX		*ctx = NULL;
 	SSL		*ssl = NULL;
-	X509		*x509 = NULL;
-	ASN1_TIME	*notBefore;
-	ASN1_TIME	*notAfter;
-	time_t		 now;
 
 	ctx = ssl_ctx_create();
 
@@ -97,10 +93,6 @@ void *
 ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
 {
 	SSL		*ssl = NULL;
-	X509		*x509 = NULL;
-	ASN1_TIME	*notBefore;
-	ASN1_TIME	*notAfter;
-	time_t		 now;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
 
