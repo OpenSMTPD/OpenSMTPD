@@ -981,7 +981,7 @@ show_offline_envelope(uint64_t evpid)
 	if (fp == NULL)
 		goto end;
 
-	buflen = fread(buffer, 1, sizeof buffer - 1, fp);
+	buflen = fread(buffer, 1, sizeof (buffer) - 1, fp);
 	p = buffer;
 	plen = buflen;
 	buffer[buflen] = '\0';
