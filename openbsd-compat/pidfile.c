@@ -79,7 +79,7 @@ pidfile(const char *basename)
 
 	pid = getpid();
 	if (fprintf(f, "%ld\n", (long)pid) <= 0) {
-		fclose(fp);
+		fclose(f);
 		save_errno = errno;
 		(void) unlink(pidfile_path);
 		free(pidfile_path);
@@ -88,7 +88,7 @@ pidfile(const char *basename)
 		return (-1);
 	}
 
-	fclose(fp);
+	fclose(f);
 	pidfile_pid = pid;
 	if (atexit(pidfile_cleanup) < 0) {
 		save_errno = errno;
