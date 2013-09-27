@@ -51,7 +51,7 @@ struct rq_envelope {
 	TAILQ_ENTRY(rq_envelope) entry;
 
 	uint64_t		 evpid;
-	int			 type;
+	enum delivery_type	 type;
 
 #define	RQ_ENVELOPE_PENDING	 0x01
 #define	RQ_ENVELOPE_SCHEDULED	 0x02
@@ -338,7 +338,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	/* If the envelope is suspended, just mark it as pending */
 	if (evp->flags & RQ_ENVELOPE_SUSPEND) {
 		evp->flags |= RQ_ENVELOPE_PENDING;
-		return;
+		return (1);
 	}
 
 	hq = tree_get(&holdqs, holdq);
@@ -798,17 +798,21 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 {
 	struct evplist	*q = NULL;
 
-	if (evp->type == D_MTA) {
+	switch (evp->type) {
+	case D_MTA:
 		if (TAILQ_EMPTY(&evp->message->q_mta)) {
 			evp->message->q_next = rq->q_mtabatch;
 			rq->q_mtabatch = evp->message;
 		}
 		q = &evp->message->q_mta;
-	}
-	else if (evp->type == D_MDA)
+		break;
+	case D_MDA:
 		q = &rq->q_mda;
-	else if (evp->type == D_BOUNCE)
+		break;
+	case D_BOUNCE:
 		q = &rq->q_bounce;
+		break;
+	}
 
 	TAILQ_REMOVE(&rq->q_pending, evp, entry);
 	TAILQ_INSERT_TAIL(q, evp, entry);
