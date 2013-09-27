@@ -336,7 +336,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	/* If the envelope is suspended, just mark it as pending */
 	if (evp->flags & RQ_ENVELOPE_SUSPEND) {
 		evp->flags |= RQ_ENVELOPE_PENDING;
-		return;
+		return (1);
 	}
 
 	hq = tree_get(&holdqs, holdq);
