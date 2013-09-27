@@ -161,6 +161,8 @@ enqueue(int argc, char *argv[])
 	char			*fake_from = NULL, *buf;
 	struct passwd		*pw;
 	FILE			*fp, *fout;
+	int			 fd;
+	char			 sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 	size_t			 len;
 	char			*line;
 	int			 dotted;
@@ -230,9 +232,16 @@ enqueue(int argc, char *argv[])
 		argc--;
 	}
 
-	fp = tmpfile();
-	if (fp == NULL)
-		err(1, "tmpfile");
+	fd = mkstemp(sfn);
+	if ((fd = mkstemp(sfn)) == -1 ||
+	    (fp = fdopen(fd, "w+")) == NULL) {
+		if (fd != -1) {
+			unlink(sfn);
+			close(fd);
+		}
+		err(1, "mkstemp");
+	}
+	unlink(sfn);
 	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
 
 	if (msg.rcpt_cnt == 0)
