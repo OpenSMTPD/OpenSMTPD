@@ -152,7 +152,7 @@ queue_msg_dispatch(void)
 
 		/* XXX needs more love */
 		r = -1;
-		bsnprintf(path, sizeof path, "/tmp/message.XXXXXXXXXX");
+		snprintf(path, sizeof path, "/tmp/message.XXXXXXXXXX");
 		fd = mkstemp(path);
 		if (fd == -1) {
 			log_warn("warn: queue-api: mkstemp");
