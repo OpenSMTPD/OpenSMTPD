@@ -87,7 +87,6 @@ table_passwd_update(void)
 	struct passwd	pw;
 	struct dict    *npasswd;
 
-
 	/* Parse configuration */
 	fp = fopen(config, "r");
 	if (fp == NULL)
@@ -119,6 +118,7 @@ table_passwd_update(void)
 		dict_set(npasswd, pw.pw_name, line);
 	}
 	free(lbuf);
+	fclose(fp);
 
 	/* swap passwd table and release old one*/
 	if (passwd)
@@ -129,6 +129,8 @@ table_passwd_update(void)
 	return (1);
 
 err:
+	if (fp)
+		fclose(fp);
 	free(lbuf);
 
 	/* release passwd table */
