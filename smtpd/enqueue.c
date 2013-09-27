@@ -232,7 +232,6 @@ enqueue(int argc, char *argv[])
 		argc--;
 	}
 
-	fd = mkstemp(sfn);
 	if ((fd = mkstemp(sfn)) == -1 ||
 	    (fp = fdopen(fd, "w+")) == NULL) {
 		if (fd != -1) {
