@@ -1683,9 +1683,11 @@ mta_relay_to_text(struct mta_relay *relay)
 	}
 
 	if (relay->flags & RELAY_BACKUP) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "backup=", sizeof buf);
-		strlcat(buf, relay->backupname, sizeof buf);
+		if (relay->backupname) {
+			strlcat(buf, sep, sizeof buf);
+			strlcat(buf, "backup=", sizeof buf);
+			strlcat(buf, relay->backupname, sizeof buf);
+		}
 	}
 
 	if (relay->sourcetable) {
