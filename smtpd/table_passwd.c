@@ -137,7 +137,7 @@ err:
 	if (npasswd) {
 		while (dict_poproot(npasswd, NULL, (void**)&buf))
 			free(buf);
-		free(npwasswd);
+		free(npasswd);
 	}
 	return (0);
 }
