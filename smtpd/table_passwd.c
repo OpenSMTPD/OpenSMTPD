@@ -132,9 +132,11 @@ err:
 	free(lbuf);
 
 	/* release passwd table */
-	if (npasswd)
+	if (npasswd) {
 		while (dict_poproot(npasswd, NULL, (void**)&buf))
 			free(buf);
+		free(npwasswd);
+	}
 	return (0);
 }
 
