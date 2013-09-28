@@ -708,9 +708,7 @@ mta_delivery_notify(struct mta_envelope *e, int delivery, const char *status,
 	if (delivery == IMSG_DELIVERY_OK) {
 		m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
 		m_add_evpid(p_queue, e->id);
-#ifdef DSN
 		m_add_int(p_queue, e->ext);
-#endif
 		m_close(p_queue);
 	}
 	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
