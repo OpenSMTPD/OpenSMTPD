@@ -593,6 +593,7 @@ static void
 mta_enter_state(struct mta_session *s, int newstate)
 {
 	struct mta_envelope	 *e;
+	size_t			 envid_sz;
 	int			 oldstate;
 	ssize_t			 q;
 	char			 ibuf[SMTPD_MAXLINESIZE];
@@ -775,26 +776,31 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_MAIL:
 		e = s->currevp;
+		if (e == NULL)
+			s->currevp = e = TAILQ_FIRST(&s->task->envelopes);
+
 		s->hangon = 0;
 		s->msgtried++;
-		if (e->ext & MTA_EXT_DSN) {
+		envid_sz = strlen(e->dsn_envid);
+		if (s->ext & MTA_EXT_DSN) {
 			mta_send(s, "MAIL FROM:<%s> %s%s %s%s",
 			    s->task->sender,
 			    e->dsn_ret ? "RET=" : "",
 			    e->dsn_ret ? dsn_strret(e->dsn_ret) : "",
-			    e->dsn_envid ? "ENVID=" : "",
-			    e->dsn_envid ? e->dsn_envid : "");
+			    envid_sz ? "ENVID=" : "",
+			    envid_sz ? e->dsn_envid : "");
 		} else
 			mta_send(s, "MAIL FROM:<%s>", s->task->sender);
 		break;
 
 	case MTA_RCPT:
 		e = s->currevp;
-		if (e == NULL)
-			if ((e = TAILQ_FIRST(&s->task->envelopes)) != NULL)
-				e->ext = s->ext;
+		if (e == NULL) {
+			s->currevp = e = TAILQ_FIRST(&s->task->envelopes);
+			e->ext = s->ext;
+		}
 
-		if (e->ext & MTA_EXT_DSN) {
+		if (s->ext & MTA_EXT_DSN) {
 			mta_send(s, "RCPT TO:<%s> %s%s %s%s",
 			    e->dest,
 			    e->dsn_notify ? "NOTIFY=" : "",
@@ -994,7 +1000,6 @@ mta_response(struct mta_session *s, char *line)
 		s->currevp = TAILQ_NEXT(s->currevp, entry);
 		if (s->currevp != NULL)
 			s->currevp->ext = s->ext;
-
 		if (line[0] == '2') {
 			mta_flush_failedqueue(s);
 			/*

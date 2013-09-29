@@ -164,7 +164,7 @@ enqueue(int argc, char *argv[])
 	char			*fake_from = NULL, *buf;
 	struct passwd		*pw;
 	FILE			*fp, *fout;
-	size_t			 len;
+	size_t			 len, envid_sz;
 	char			*line;
 	int			 dotted;
 	int			 inheaders = 0;
@@ -275,12 +275,13 @@ enqueue(int argc, char *argv[])
 	send_line(fout, verbose, "EHLO localhost\n");
 	get_responses(fout, 1);
 
+	envid_sz = strlen(msg.dsn_envid);
 	send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\n",
 	    msg.from,
 	    msg.dsn_ret ? "RET=" : "",
 	    msg.dsn_ret ? msg.dsn_ret : "",
-	    msg.dsn_envid ? "ENVID=" : "",
-	    msg.dsn_envid ? msg.dsn_envid : "");
+	    envid_sz ? "ENVID=" : "",
+	    envid_sz ? msg.dsn_envid : "");
 	get_responses(fout, 1);
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
