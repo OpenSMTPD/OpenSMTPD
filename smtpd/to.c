@@ -638,7 +638,7 @@ text_to_userinfo(struct userinfo *userinfo, const char *s)
 		*p++ = *s++;
 	if (*s++ != ':')
 		goto error;
-	userinfo->uid = strtonum(buf, 0, UINT_MAX, &errstr);
+	userinfo->uid = strtonum(buf, 0, UID_MAX, &errstr);
 	if (errstr)
 		goto error;
 
@@ -648,7 +648,7 @@ text_to_userinfo(struct userinfo *userinfo, const char *s)
 		*p++ = *s++;
 	if (*s++ != ':')
 		goto error;
-	userinfo->gid = strtonum(buf, 0, UINT_MAX, &errstr);
+	userinfo->gid = strtonum(buf, 0, GID_MAX, &errstr);
 	if (errstr)
 		goto error;
 

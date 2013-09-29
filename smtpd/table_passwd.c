@@ -31,13 +31,6 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-#ifndef UID_MAX
-#define	UID_MAX	UINT_MAX
-#endif
-#ifndef GID_MAX
-#define	GID_MAX	UINT_MAX
-#endif
-
 static int table_passwd_update(void);
 static int table_passwd_check(int, const char *);
 static int table_passwd_lookup(int, const char *, char *, size_t);
