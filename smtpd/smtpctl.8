@@ -120,6 +120,11 @@ Mark a single envelope, or all envelopes with the same message ID,
 as ready for immediate delivery.
 .It Cm show envelope Ar envelope-id
 Display envelope content for the given ID.
+.It Cm show hosts
+Display the list of known remote MX hosts. For each of them, it shows
+the IP address, the canonical hostname, a reference count, the number
+of active connections to this host, the elapsed time since the last
+connection.
 .It Cm show hoststats
 Display status of last delivery for domains that have been active in the
 last 4 hours.
@@ -177,6 +182,11 @@ is not running.
 .It
 Error string for the last failed delivery or relay attempt.
 .El
+.It Cm show relays
+Display the list of currently active relays and associated connectors.
+For each relay, it shows a number of counters and information on its
+internal state on a single line.  Then comes the list of connectors
+(source addresses to connect from for this relay).
 .It Cm show routes
 Display status of routes currently known by
 .Xr smtpd 8 .
