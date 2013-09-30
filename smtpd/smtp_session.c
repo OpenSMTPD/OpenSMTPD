@@ -1482,6 +1482,7 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 	if (prepare) {
 		s->evp.ss = s->ss;
 		strlcpy(s->evp.tag, s->listener->tag, sizeof(s->evp.tag));
+		strlcpy(s->evp.smtpname, s->smtpname, sizeof(s->evp.smtpname));
 		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
 		strlcpy(s->evp.helo, s->helo, sizeof s->evp.helo);
 

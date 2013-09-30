@@ -440,6 +440,7 @@ struct envelope {
 	uint64_t			id;
 	enum envelope_flags		flags;
 
+	char				smtpname[SMTPD_MAXHOSTNAMELEN];
 	char				helo[SMTPD_MAXHOSTNAMELEN];
 	char				hostname[SMTPD_MAXHOSTNAMELEN];
 	char				errorline[SMTPD_MAXLINESIZE];
@@ -469,6 +470,7 @@ enum envelope_field {
 	EVP_TAG,
 	EVP_MSGID,
 	EVP_TYPE,
+	EVP_SMTPNAME,
 	EVP_HELO,
 	EVP_HOSTNAME,
 	EVP_ERRORLINE,
