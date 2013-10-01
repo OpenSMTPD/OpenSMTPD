@@ -69,7 +69,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t		 msgid;
 	uint32_t		 penalty;
 	time_t			 nexttry;
-	int			 fd, ret, v, flags;
+	int			 fd, mta_ext, ret, v, flags;
 
 	if (p->proc == PROC_SMTP) {
 
@@ -336,7 +336,24 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DELIVERY_OK:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
+			/* XXX gather relay's ext capability to modify dsn
+			 * message. (relayed vs successful delivery)
+			 */
+			if (p->proc == PROC_MTA)
+				m_get_int(&m, &mta_ext);
 			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warn("queue: dsn: failed to load envelope");
+				return;
+			}
+			if (p->proc == PROC_MDA) { /* XXX */
+				if (evp.dsn_notify & DSN_SUCCESS) {
+					bounce.type = B_DSN;
+					bounce.delay = 0;
+					bounce.expire = 0;
+					queue_bounce(&evp, &bounce);
+				}
+			}
 			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1);
 			m_add_evpid(p_scheduler, evpid);
