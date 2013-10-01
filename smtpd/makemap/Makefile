@@ -19,7 +19,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DNO_IO
 
-SRCS=	aliases.c dict.c expand.c limit.c log.c makemap.c parse.y \
+SRCS=	aliases.c csprng.c dict.c expand.c limit.c log.c makemap.c parse.y \
 	table.c to.c tree.c util.c
 
 SRCS+=	table_static.c
