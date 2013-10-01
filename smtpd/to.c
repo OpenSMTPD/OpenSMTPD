@@ -738,10 +738,20 @@ expandnode_to_text(struct expandnode *expandnode)
 static int
 alias_is_filter(struct expandnode *alias, const char *line, size_t len)
 {
-	if (*line == '|') {
-		if (strlcpy(alias->u.buffer, line + 1,
+	int	v = 0;
+
+	if (*line == '"')
+		v = 1;
+	if (*(line+v) == '|') {
+		if (strlcpy(alias->u.buffer, line + v + 1,
 			sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
 			return 0;
+		if (v) {
+			v = strlen(alias->u.buffer);
+			if (alias->u.buffer[v-1] != '"')
+				return 0;
+			alias->u.buffer[v-1] = '\0';
+		}
 		alias->type = EXPAND_FILTER;
 		return 1;
 	}
