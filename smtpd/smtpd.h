@@ -378,9 +378,20 @@ struct delivery_mta {
 	struct relayhost	relay;
 };
 
+enum dsn_type {
+	DSN_SUCCESS,
+	DSN_FAILURE,
+	DSN_DELAY
+};
+
+struct delivery_dsn {
+	enum dsn_type		type;
+};
+
 enum bounce_type {
 	B_ERROR,
 	B_WARNING,
+	B_DSN
 };
 
 struct delivery_bounce {
@@ -430,6 +441,16 @@ struct expand {
 	struct expandnode		*parent;
 };
 
+#define DSN_SUCCESS 0x01
+#define DSN_FAILURE 0x02
+#define DSN_DELAY   0x04
+#define DSN_NEVER   0x08
+
+enum dsn_ret {
+	DSN_RETFULL = 1,
+	DSN_RETHDRS
+};
+
 #define	SMTPD_ENVELOPE_VERSION		2
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -455,6 +476,7 @@ struct envelope {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
 		struct delivery_bounce	bounce;
+		struct delivery_dsn	dsn;
 	}				agent;
 
 	uint16_t			retry;
@@ -463,6 +485,11 @@ struct envelope {
 	time_t				lasttry;
 	time_t				nexttry;
 	time_t				lastbounce;
+
+	struct mailaddr			dsn_orcpt;
+	char				dsn_envid[101];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
 };
 
 enum envelope_field {
@@ -497,6 +524,10 @@ enum envelope_field {
 	EVP_BOUNCE_TYPE,
 	EVP_BOUNCE_DELAY,
 	EVP_BOUNCE_EXPIRE,
+	EVP_DSN_ENVID,
+	EVP_DSN_NOTIFY,
+	EVP_DSN_ORCPT,
+	EVP_DSN_RET,
 };
 
 struct listener {
@@ -785,6 +816,11 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
+	int				 ext;
+	char				*dsn_orcpt;
+	char				dsn_envid[101];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
 };
 
 struct mta_task {

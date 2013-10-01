@@ -244,6 +244,16 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			if (strcmp(buf, e->dest))
 				e->rcpt = xstrdup(buf, "mta_envelope:rcpt");
 			e->task = task;
+			if (evp.dsn_orcpt.user[0] && evp.dsn_orcpt.domain[0]) {
+				snprintf(buf, sizeof buf, "%s@%s",
+			    	    evp.dsn_orcpt.user, evp.dsn_orcpt.domain);
+				e->dsn_orcpt = xstrdup(buf,
+				    "mta_envelope:dsn_orcpt");
+			}
+			strlcpy(e->dsn_envid, evp.dsn_envid,
+			    sizeof e->dsn_envid);
+			e->dsn_notify = evp.dsn_notify;
+			e->dsn_ret = evp.dsn_ret;
 
 			TAILQ_INSERT_TAIL(&task->envelopes, e, entry);
 			log_debug("debug: mta: received evp:%016" PRIx64
@@ -698,7 +708,10 @@ mta_delivery_notify(struct mta_envelope *e, int delivery, const char *status,
     uint32_t penalty)
 {
 	if (delivery == IMSG_DELIVERY_OK) {
-		queue_ok(e->id);
+		m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
+		m_add_evpid(p_queue, e->id);
+		m_add_int(p_queue, e->ext);
+		m_close(p_queue);
 	}
 	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
 		queue_tempfail(e->id, penalty, status);
@@ -1308,6 +1321,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 
 			free(e->dest);
 			free(e->rcpt);
+			free(e->dsn_orcpt);
 			free(e);
 			n++;
 		}
