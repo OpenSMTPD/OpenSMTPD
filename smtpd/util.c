@@ -799,13 +799,13 @@ csprng_random(void)
 }
 
 void
-csprng_random_buf(void *buf, size_t nbytes)
+csprng_buffer(void *buf, size_t nbytes)
 {
 	arc4random_buf(buf, nbytes);
 }
 
 uint32_t
-csprng_random_uniform(uint32_t upper_bound)
+csprng_uniform(uint32_t upper_bound)
 {
 	return arc4random_uniform(upper_bound);
 }

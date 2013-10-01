@@ -644,7 +644,7 @@ queue_generate_msgid(void)
 {
 	uint32_t msgid;
 
-	while ((msgid = csprng_random_uniform(0xffffffff)) == 0)
+	while ((msgid = csprng_uniform(0xffffffff)) == 0)
 		;
 
 	return msgid;
@@ -656,7 +656,7 @@ queue_generate_evpid(uint32_t msgid)
 	uint32_t rnd;
 	uint64_t evpid;
 
-	while ((rnd = csprng_random_uniform(0xffffffff)) == 0)
+	while ((rnd = csprng_uniform(0xffffffff)) == 0)
 		;
 
 	evpid = msgid;

@@ -41,7 +41,7 @@ int	crypto_decrypt_file(FILE *, FILE *);
 size_t	crypto_encrypt_buffer(const char *, size_t, char *, size_t);
 size_t	crypto_decrypt_buffer(const char *, size_t, char *, size_t);
 
-void	csprng_random_buf(void *, size_t);
+void	csprng_buffer(void *, size_t);
 
 static struct crypto_ctx {
 	const EVP_CIPHER       *cipher;
@@ -89,7 +89,7 @@ crypto_encrypt_file(FILE * in, FILE * out)
 
 	/* generate and prepend IV */
 	memset(iv, 0, sizeof iv);
-	csprng_random_buf(iv, sizeof iv);
+	csprng_buffer(iv, sizeof iv);
 	if ((w = fwrite(iv, 1, sizeof iv, out)) != sizeof iv)
 		return 0;
 
@@ -237,7 +237,7 @@ crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 
 	/* generate IV */
 	memset(iv, 0, sizeof iv);
-	csprng_random_buf(iv, sizeof iv);
+	csprng_buffer(iv, sizeof iv);
 	memcpy(out + len, iv, sizeof iv);
 	len += sizeof iv;
 
