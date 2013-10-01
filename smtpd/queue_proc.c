@@ -126,7 +126,7 @@ queue_proc_message_create(uint32_t *msgid)
 	queue_proc_call();
 	queue_proc_read(&r, sizeof(r));
 	if (r == 1)
-		queue_proc_read(msgid, sizeof(msgid));
+		queue_proc_read(msgid, sizeof(*msgid));
 	queue_proc_end();
 
 	return (r);

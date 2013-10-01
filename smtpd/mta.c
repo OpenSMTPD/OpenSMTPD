@@ -408,13 +408,12 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			t = time(NULL);
 			SPLAY_FOREACH(host, mta_host_tree, &hosts) {
 				snprintf(buf, sizeof(buf),
-				    "%s %s refcount=%i nconn=%zu lastconn=%s flags=0x%x",
+				    "%s %s refcount=%i nconn=%zu lastconn=%s",
 				    sockaddr_to_text(host->sa),
 				    host->ptrname,
 				    host->refcount,
 				    host->nconn,
-				    host->lastconn ? duration_to_text(t - host->lastconn) : "-",
-				    host->flags);
+				    host->lastconn ? duration_to_text(t - host->lastconn) : "-");
 				m_compose(p, IMSG_CTL_MTA_SHOW_HOSTS,
 				    imsg->hdr.peerid, 0, -1,
 				    buf, strlen(buf) + 1);
@@ -1697,9 +1696,11 @@ mta_relay_to_text(struct mta_relay *relay)
 	}
 
 	if (relay->flags & RELAY_BACKUP) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "backup=", sizeof buf);
-		strlcat(buf, relay->backupname, sizeof buf);
+		if (relay->backupname) {
+			strlcat(buf, sep, sizeof buf);
+			strlcat(buf, "backup=", sizeof buf);
+			strlcat(buf, relay->backupname, sizeof buf);
+		}
 	}
 
 	if (relay->sourcetable) {

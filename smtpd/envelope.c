@@ -97,6 +97,7 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 		EVP_VERSION,
 		EVP_TAG,
 		EVP_MSGID,
+		EVP_SMTPNAME,
 		EVP_HOSTNAME,
 		EVP_SOCKADDR,
 		EVP_HELO,
@@ -179,6 +180,11 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 		if (i == n)
 			goto err;
 	}
+
+	/* Transition for old envelopes */
+	if (ep->smtpname[0] == 0)
+		strlcpy(ep->smtpname, env->sc_hostname, sizeof(ep->smtpname));
+
 	return (1);
 
 err:
@@ -194,6 +200,7 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		EVP_VERSION,
 		EVP_TAG,
 		EVP_TYPE,
+		EVP_SMTPNAME,
 		EVP_HELO,
 		EVP_HOSTNAME,
 		EVP_ERRORLINE,
@@ -305,6 +312,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "msgid";
 	case EVP_TYPE:
 		return "type";
+	case EVP_SMTPNAME:
+		return "smtpname";
 	case EVP_HELO:
 		return "helo";
 	case EVP_HOSTNAME:
@@ -382,6 +391,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return 1;
 	case EVP_TYPE:
 		return ascii_load_type(&ep->type, buf);
+	case EVP_SMTPNAME:
+		return ascii_load_string(ep->smtpname, buf, sizeof(ep->smtpname));
 	case EVP_HELO:
 		return ascii_load_string(ep->helo, buf, sizeof ep->helo);
 	case EVP_HOSTNAME:
@@ -476,6 +487,8 @@ envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
 		return 1;
 	case EVP_TYPE:
 		return ascii_dump_type(ep->type, buf, len);
+	case EVP_SMTPNAME:
+		return ascii_dump_string(ep->smtpname, buf, len);
 	case EVP_HELO:
 		return ascii_dump_string(ep->helo, buf, len);
 	case EVP_HOSTNAME:

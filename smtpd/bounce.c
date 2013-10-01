@@ -65,12 +65,14 @@ struct bounce_message {
 	TAILQ_ENTRY(bounce_message)	 entry;
 	uint32_t			 msgid;
 	struct delivery_bounce		 bounce;
+	char				*smtpname;
 	char				*to;
 	time_t				 timeout;
 	TAILQ_HEAD(, bounce_envelope)	 envelopes;
 };
 
 struct bounce_session {
+	char				*smtpname;
 	struct bounce_message		*msg;
 	FILE				*msgfp;
 	int				 state;
@@ -140,6 +142,7 @@ bounce_add(uint64_t evpid)
 
 	key.msgid = evpid_to_msgid(evpid);
 	key.bounce = evp.agent.bounce;
+	key.smtpname = evp.smtpname;
 	msg = SPLAY_FIND(bounce_message_tree, &messages, &key);
 	if (msg == NULL) {
 		msg = xcalloc(1, sizeof(*msg), "bounce_add");
@@ -149,6 +152,7 @@ bounce_add(uint64_t evpid)
 
 		TAILQ_INIT(&msg->envelopes);
 
+		msg->smtpname = xstrdup(evp.smtpname, "bounce_add");
 		snprintf(buf, sizeof(buf), "%s@%s", evp.sender.user,
 		    evp.sender.domain);
 		msg->to = xstrdup(buf, "bounce_add");
@@ -183,16 +187,23 @@ void
 bounce_fd(int fd)
 {
 	struct bounce_session	*s;
+	struct bounce_message	*msg;
 
 	log_debug("debug: bounce: got enqueue socket %i", fd);
 
-	if (fd == -1) {
+	if (fd == -1 || TAILQ_EMPTY(&pending)) {
+		log_debug("debug: bounce: cancelling");
+		if (fd != -1)
+			close(fd);
 		running -= 1;
 		bounce_drain();
 		return;
 	}
 
+	msg = TAILQ_FIRST(&pending);
+
 	s = xcalloc(1, sizeof(*s), "bounce_fd");
+	s->smtpname = xstrdup(msg->smtpname, "bounce_fd");
 	s->state = BOUNCE_EHLO;
 	iobuf_xinit(&s->iobuf, 0, 0, "bounce_run");
 	io_init(&s->io, fd, s, bounce_io, &s->iobuf);
@@ -327,11 +338,20 @@ bounce_next_message(struct bounce_session *s)
 	struct bounce_message	*msg;
 	char			 buf[SMTPD_MAXLINESIZE];
 	int			 fd;
+	time_t			 now;
 
     again:
 
-	msg = TAILQ_FIRST(&pending);
-	if (msg == NULL || msg->timeout > time(NULL))
+	now = time(NULL);
+
+	TAILQ_FOREACH(msg, &pending, entry) {
+		if (msg->timeout > now)
+			continue;
+		if (strcmp(msg->smtpname, s->smtpname))
+			continue;
+		break;
+	}
+	if (msg == NULL)
 		return (0);
 
 	TAILQ_REMOVE(&pending, msg, entry);
@@ -364,7 +384,7 @@ bounce_next(struct bounce_session *s)
 
 	switch (s->state) {
 	case BOUNCE_EHLO:
-		bounce_send(s, "EHLO %s", env->sc_hostname);
+		bounce_send(s, "EHLO %s", s->smtpname);
 		s->state = BOUNCE_MAIL;
 		break;
 
@@ -405,7 +425,7 @@ bounce_next(struct bounce_session *s)
 		    NOTICE_INTRO
 		    "\n",
 		    bounce_strtype(s->msg->bounce.type),
-		    env->sc_hostname,
+		    s->smtpname,
 		    s->msg->to,
 		    time_to_text(time(NULL)));
 
@@ -529,6 +549,7 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 			queue_envelope_delete(be->id);
 		}
 		TAILQ_REMOVE(&msg->envelopes, be, entry);
+		free(be->report);
 		free(be);
 		n += 1;
 	}
@@ -536,6 +557,8 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 	nmessage -= 1;
 	stat_decrement("bounce.message", 1);
 	stat_decrement("bounce.envelope", n);
+	free(msg->smtpname);
+	free(msg->to);
 	free(msg);
 }
 
@@ -577,6 +600,8 @@ bounce_free(struct bounce_session *s)
 
 	iobuf_clear(&s->iobuf);
 	io_clear(&s->io);
+
+	free(s->smtpname);
 	free(s);
 
 	running -= 1;
@@ -662,10 +687,15 @@ static int
 bounce_message_cmp(const struct bounce_message *a,
     const struct bounce_message *b)
 {
+	int r;
+
 	if (a->msgid < b->msgid)
 		return (-1);
 	if (a->msgid > b->msgid)
 		return (1);
+	if ((r = strcmp(a->smtpname, b->smtpname)))
+		return (r);
+
 	return memcmp(&a->bounce, &b->bounce, sizeof (a->bounce));
 }
 

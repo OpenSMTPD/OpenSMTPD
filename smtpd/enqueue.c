@@ -164,7 +164,9 @@ enqueue(int argc, char *argv[])
 	char			*fake_from = NULL, *buf;
 	struct passwd		*pw;
 	FILE			*fp, *fout;
-	size_t			 len, envid_sz;
+	size_t			 len, envid_sz = 0;
+	int			 fd;
+	char			 sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 	char			*line;
 	int			 dotted;
 	int			 inheaders = 0;
@@ -240,9 +242,15 @@ enqueue(int argc, char *argv[])
 		argc--;
 	}
 
-	fp = tmpfile();
-	if (fp == NULL)
-		err(1, "tmpfile");
+	if ((fd = mkstemp(sfn)) == -1 ||
+	    (fp = fdopen(fd, "w+")) == NULL) {
+		if (fd != -1) {
+			unlink(sfn);
+			close(fd);
+		}
+		err(1, "mkstemp");
+	}
+	unlink(sfn);
 	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
 
 	if (msg.rcpt_cnt == 0)
@@ -275,7 +283,9 @@ enqueue(int argc, char *argv[])
 	send_line(fout, verbose, "EHLO localhost\n");
 	get_responses(fout, 1);
 
-	envid_sz = strlen(msg.dsn_envid);
+	if (msg.dsn_envid != NULL)
+		envid_sz = strlen(msg.dsn_envid);
+
 	send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\n",
 	    msg.from,
 	    msg.dsn_ret ? "RET=" : "",
