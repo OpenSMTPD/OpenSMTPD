@@ -16,9 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 
 #include <stdlib.h>
+#include <stdint.h>
 
 uint32_t	csprng_random(void);
 void		csprng_buffer(void *, size_t);
@@ -27,17 +30,17 @@ uint32_t	csprng_uniform(uint32_t);
 uint32_t
 csprng_random(void)
 {
-	return arc4random();
+	return chacha_random();
 }
 
 void
 csprng_buffer(void *buf, size_t nbytes)
 {
-	arc4random_buf(buf, nbytes);
+	chacha_buffer(buf, nbytes);
 }
 
 uint32_t
 csprng_uniform(uint32_t upper_bound)
 {
-	return arc4random_uniform(upper_bound);
+	return chacha_uniform(upper_bound);
 }

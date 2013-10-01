@@ -33,7 +33,7 @@ monkey(uint64_t id)
 {
 	uint32_t r;
 
-	r = arc4random_uniform(100);
+	r = csprng_uniform(100);
 	if (r < 70)
 		filter_api_accept(id);
 	else if (r < 90)

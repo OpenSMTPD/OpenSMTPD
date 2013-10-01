@@ -33,6 +33,7 @@ LDADD=			$(LIBCOMPAT)
 QUEUE_SRCS=		$(smtpd_srcdir)/log.c
 QUEUE_SRCS+=		$(backends_srcdir)/queue_utils.c
 QUEUE_SRCS+=		$(smtpd_srcdir)/queue_api.c
+QUEUE_SRCS+=		$(smtpd_srcdir)/csprng.c
 
 SCHEDULER_SRCS=		$(smtpd_srcdir)/log.c
 SCHEDULER_SRCS+=	$(smtpd_srcdir)/scheduler_api.c

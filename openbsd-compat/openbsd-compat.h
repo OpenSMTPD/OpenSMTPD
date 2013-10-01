@@ -181,4 +181,8 @@ int fmt_scaled(long long number, char *result);
 int pidfile(const char *basename);
 #endif
 
+uint32_t chacha_random(void);
+uint32_t chacha_uniform(uint32_t);
+void chacha_buffer(void *, size_t);
+
 #endif /* _OPENBSD_COMPAT_H */

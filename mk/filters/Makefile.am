@@ -5,6 +5,7 @@ SRCS+=			$(smtpd_srcdir)/mproc.c
 SRCS+=			$(smtpd_srcdir)/log.c
 SRCS+=			$(smtpd_srcdir)/tree.c
 SRCS+=			$(smtpd_srcdir)/util.c
+SRCS+=			$(smtpd_srcdir)/csprng.c
 
 INCLUDES=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)	\
