@@ -336,6 +336,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DELIVERY_OK:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
+			/* XXX gather relay's ext capability to modify dsn
+			 * message. (relayed vs successful delivery)
+			 */
 			if (p->proc == PROC_MTA)
 				m_get_int(&m, &mta_ext);
 			m_end(&m);
