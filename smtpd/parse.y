@@ -872,7 +872,7 @@ for		: FOR negation DOMAIN tables {
 				YYERROR;
 			}
 			rule->r_notdestination = $2;
-			rule->r_destination = 0;
+			rule->r_destination = table_find("<anydestination>", NULL);
 		}
 		| FOR negation LOCAL  		{
 			if (rule->r_destination) {
@@ -983,10 +983,8 @@ rule		: ACCEPT {
 		} decision lookup action accept_params {
 			if (! rule->r_sources)
 				rule->r_sources = table_find("<localhost>", NULL);			
-			/*
-			 * if (! rule->r_destination)
-			 *	rule->r_destination = table_find("<localnames>", NULL);
-			 */
+			if (! rule->r_destination)
+			 	rule->r_destination = table_find("<localnames>", NULL);
 			if (! rule->r_userbase)
 				rule->r_userbase = table_find("<getpwnam>", NULL);
 			if (rule->r_qexpire == -1)
@@ -1067,7 +1065,7 @@ lookup(char *s)
 		{ "certificate",	CERTIFICATE },
 		{ "compression",	COMPRESSION },
 		{ "deliver",		DELIVER },
-		{ "dh-params",		DHPARAMS },
+		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
@@ -1519,6 +1517,10 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	t->t_type = T_LIST;
 	table_add(t, "localhost", NULL);
 	table_add(t, hostname, NULL);
+
+	t = table_create("static", "<anydestination>", NULL, NULL);
+	t->t_type = T_LIST;
+	table_add(t, "*", NULL);
 
 	/* can't truncate here */
 	(void)strlcpy(hostname_copy, hostname, sizeof hostname_copy);

@@ -283,6 +283,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t			 reqid, evpid;
 	uint32_t			 code, msgid;
 	int				 status, success, dnserror;
+	X509				*x;
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
@@ -406,13 +407,14 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    evpid_to_msgid(s->evp.id));
 
 		if (s->flags & SF_SECURE) {
+			x = SSL_get_peer_certificate(s->io.ssl);
 			iobuf_fqueue(&s->dataiobuf,
 			    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 			    SSL_get_cipher_version(s->io.ssl),
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
-			    (s->flags & SF_VERIFIED) ? "YES" :
-			    (SSL_get_peer_certificate(s->io.ssl) ? "FAIL" : "NO"));
+			    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
+			X509_free(x);
 		}
 
 		if (s->rcptcount == 1) {
@@ -771,6 +773,7 @@ smtp_io(struct io *io, int evt)
 	struct smtp_session    *s = io->arg;
 	char		       *line;
 	size_t			len, i;
+	X509		       *x;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -800,11 +803,14 @@ smtp_io(struct io *io, int evt)
 		/* No verification required, cascade */
 
 	case IO_TLSVERIFIED:
-		if (SSL_get_peer_certificate(s->io.ssl))
+		x = SSL_get_peer_certificate(s->io.ssl);
+		if (x) {
 			log_info("smtp-in: Client certificate verification %s "
 			    "on session %016"PRIx64,
 			    (s->flags & SF_VERIFIED) ? "succeeded" : "failed",
 			    s->id);
+			X509_free(x);
+		}
 
 		if (s->listener->flags & F_SMTPS) {
 			stat_increment("smtp.smtps", 1);
@@ -1526,6 +1532,7 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 	if (prepare) {
 		s->evp.ss = s->ss;
 		strlcpy(s->evp.tag, s->listener->tag, sizeof(s->evp.tag));
+		strlcpy(s->evp.smtpname, s->smtpname, sizeof(s->evp.smtpname));
 		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
 		strlcpy(s->evp.helo, s->helo, sizeof s->evp.helo);
 
@@ -1712,6 +1719,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	m_composev(p_lka, IMSG_LKA_SSL_VERIFY_CERT, 0, 0, -1,
 	    iov, nitems(iov));
 	free(req_ca_vrfy.cert);
+	X509_free(x);
 
 	if (xchain) {		
 		/* Send the chain, one cert at a time */
