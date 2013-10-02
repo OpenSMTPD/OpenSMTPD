@@ -71,9 +71,10 @@ table name file:/path/to/file
 table name db:/path/to/file.db
 .Ed
 .Ss Aliasing tables
-Aliasing tables are mappings that associate a recipient to one or many destinations.
-They can be used in two contexts: primary domain aliases and virtual domain mapping.
-.Pp
+Aliasing tables are mappings that associate a recipient to one or many
+destinations.
+They can be used in two contexts: primary domain aliases and virtual domain
+mapping.
 .Bd -literal -offset indent
 accept for domain example.org alias <myaliases> deliver to mbox
 accept for domain example.org virtual <myaliases> deliver to mbox
@@ -88,8 +89,8 @@ user2	otheruser1,otheruser2
 user3	otheruser@example.com
 .Ed
 .Pp
-In a virtual domain context, the key is either a user-part, a full email address or
-a catch all, following selection rules described in
+In a virtual domain context, the key is either a user-part, a full email
+address or a catch all, following selection rules described in
 .Xr smtpd.conf 5 ,
 and the value is one or many recipients as described in
 .Xr aliases 5 :
@@ -102,12 +103,12 @@ user2@example.org	otheruser1,otheruser2
 .Ss Domain tables
 Domain tables are simple lists of domains.
 They can only be used in one context:
-.Pp
 .Bd -literal -offset indent
 accept for domain <mydomains> deliver to mbox
 .Ed
 .Pp
-In that context, the list of domains will be matched against the recipient domain.
+In that context, the list of domains will be matched against the recipient
+domain.
 For
 .Ql static ,
 .Ql file
@@ -121,13 +122,13 @@ example.org
 .Ss Credentials tables
 Credentials tables are mappings of credentials.
 They can be used in two contexts:
-.Pp
 .Bd -literal -offset indent
 listen on tls [...] auth <credentials>
 accept for any relay tls+auth://label@host auth <credentials>
 .Ed
 .Pp
-In a listener context, the credentials are a mapping of username and encrypted passwords:
+In a listener context, the credentials are a mapping of username and encrypted
+passwords:
 .Bd -literal -offset indent
 user1	$2a$06$hIJ4QfMcp.90nJwKqGbKM.MybArjHOTpEtoTV.DgLYAiThuoYmTSe
 user2	$2a$06$bwSmUOBGcZGamIfRuXGTvuTo3VLbPG9k5yeKNMBtULBhksV5KdGsK
@@ -142,7 +143,8 @@ utility may be used, on other systems the
 .Ql mkpasswd
 utility is the most common method for obtaining a proper password.
 .Pp
-In a relay context, the credentials are a mapping of labels and username:password pairs,
+In a relay context, the credentials are a mapping of labels and
+username:password pairs,
 where the username may be omitted if identical to the label:
 .Bd -literal -offset indent
 label1	user:password
@@ -150,12 +152,11 @@ label2	password
 .Ed
 .Pp
 The label must be unique and is used as a selector for the proper credentials
-when multiple credentials are valid for a single destination. The password is
-not encrypted as it must be provided to the remote host.
+when multiple credentials are valid for a single destination.
+The password is not encrypted as it must be provided to the remote host.
 .Ss Netaddr tables
 Netaddr tables are lists of network addresses.
 They can be used in two contexts:
-.Pp
 .Bd -literal -offset indent
 accept from source <netaddr> for domain example.org deliver to mbox
 accept for domain example.org relay source <netaddr>
@@ -164,8 +165,9 @@ accept for domain example.org relay source <netaddr>
 When used as a "from source", the address of a client is compared to the list
 of addresses in the table until a match is found.
 .Pp
-When used as a "relay source", the table will contain a list of IP addresses that can
-be used as a source address when relaying. The IP addresses are used in sequence.
+When used as a "relay source", the table will contain a list of IP addresses
+that can be used as a source address when relaying.
+The IP addresses are used in sequence.
 .Pp
 A netaddr table looks as follow:
 .Bd -literal -offset indent
@@ -174,8 +176,26 @@ A netaddr table looks as follow:
 ipv6:::1
 192.168.1.0/24
 .Ed
-.Ss Userinfo
-Bla bla
+.Ss Userinfo tables
+User info tables are used to described virtual system users.
+They are used in rule context to specify an alternate user base, mapping
+virtual users to local system uid, gid and home directory.
+.Bd -literal -offset indent
+accept for domain example.org userbase <userinfo> deliver to maildir
+.Ed
+.Pp
+The userinfo table is a mapping from virtual user names to a set of system user
+id, group id and path to home directory.
+.Pp
+A userinfo table looks as follows:
+.Bd -literal -offset indent
+joe	joe:1000:1000:/home/virtual/joe
+jack	jack:1000:1000:/home/virtual/jack
+.Ed
+.Pp
+In this example, both joe and jack are virtual users mapped to the local
+system user with uid and gid 1000, but different home directories.
+These directories may contain a .forward file.
 .Ss Source tables
 Bla bla
 .Ss Mailaddr tables
