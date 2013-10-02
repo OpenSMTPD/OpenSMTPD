@@ -201,7 +201,25 @@ Bla bla
 .Ss Mailaddr tables
 Bla bla
 .Ss Addrname tables
-Bla bla
+Addrname tables are user to map IP addresses to hostnames.
+They can be used in both listen context and relay context:
+.Bd -literal -offset indent
+listen on 0.0.0.0 hostnames <addrname>
+accept for any relay hostnames <addrname>
+.Ed
+.Pp
+In listen context, the table is used to lookup the server name to advertise
+depending on the local address of the socket on which a connection is accepted.
+In relay context, the table is used to determine the host name for the HELO
+sequence of the SMTP protocol, depending on the local address used for the
+outgoing connection.
+.Pp
+The format is a mapping from inet4 or inet6 addresses to hostnames:
+.Bd -literal -offset indent
+::1		localhost
+127.0.0.1	localhost
+88.190.23.165	www.opensmtpd.org
+.Ed
 .Sh SEE ALSO
 .Xr smtpd.conf 5
 .Xr makemap 8 ,
