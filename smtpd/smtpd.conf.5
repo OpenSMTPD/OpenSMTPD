@@ -695,6 +695,10 @@ perform compression before encryption.
 Tables are used to provide additional configuration information for
 .Xr smtpd 8
 in the form of lists or key-value mappings.
+The format of the entries depends on what the table is used for.
+Refer to
+.Xr table 5
+for the exhaustive documentation.
 .Pp
 The table is identified using table name
 .Ar name ;
@@ -872,7 +876,8 @@ accept for any relay
 .Sh SEE ALSO
 .Xr mailer.conf 5 ,
 .Xr makemap 8 ,
-.Xr smtpd 8
+.Xr smtpd 8 ,
+.Xr table 5
 .Sh HISTORY
 .Xr smtpd 8
 first appeared in
