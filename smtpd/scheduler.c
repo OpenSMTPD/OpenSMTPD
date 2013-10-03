@@ -131,7 +131,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 			backend->remove(evpid);
 		else {
 			backend->delete(evpid);
-			inflight -= 1;
+			ninflight -= 1;
 			stat_decrement("scheduler.envelope.inflight", 1);
 		}
 
@@ -221,6 +221,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		    "scheduler: holding evp:%016" PRIx64 " on %016" PRIx64,
 		    evpid, holdq);
 		backend->hold(evpid, holdq);
+		ninflight -= 1;
 		stat_decrement("scheduler.envelope.inflight", 1);
 		stat_increment("scheduler.envelope.hold", 1);
 		scheduler_reset_events();
