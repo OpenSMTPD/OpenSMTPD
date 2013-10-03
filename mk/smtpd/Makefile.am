@@ -117,11 +117,12 @@ PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
 			-DPATH_TABLES=\"$(pkglibexecdir)\"
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out			\
-			smtpd.conf.5.out
+			smtpd.conf.5.out table.5.out
 MANPAGES_IN=		$(smtpd_srcdir)/aliases.5
 MANPAGES_IN+=		$(smtpd_srcdir)/forward.5
 MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.8
 MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.conf.5
+MANPAGES_IN+=		$(smtpd_srcdir)/table.5
 
 CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		$(smtpd_srcdir)/smtpd.conf
