@@ -189,12 +189,12 @@ id, group id and path to home directory.
 .Pp
 A userinfo table looks as follows:
 .Bd -literal -offset indent
-joe	joe:1000:1000:/home/virtual/joe
-jack	jack:1000:1000:/home/virtual/jack
+joe	1000:100:/home/virtual/joe
+jack	1000:100:/home/virtual/jack
 .Ed
 .Pp
 In this example, both joe and jack are virtual users mapped to the local
-system user with uid and gid 1000, but different home directories.
+system user with uid 1000 and gid 100, but different home directories.
 These directories may contain a .forward file.
 .Ss Source tables
 Bla bla
