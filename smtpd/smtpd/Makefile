@@ -46,7 +46,7 @@ SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
 		res_search_async.c
 .endif
 
-MAN=		smtpd.8 smtpd.conf.5
+MAN=		smtpd.8 smtpd.conf.5 table.5
 BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
