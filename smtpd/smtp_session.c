@@ -1349,7 +1349,9 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 
 				s->evp.dsn_notify |= flag;
 			}
-			if (s->evp.dsn_notify > DSN_NEVER) {
+			if (s->evp.dsn_notify & DSN_NEVER &&
+			    s->evp.dsn_notify & (DSN_SUCCESS | DSN_FAILURE |
+			    DSN_DELAY)) {
 				smtp_reply(s,
 				    "553 NOTIFY option NEVER cannot be \
 				    combined with other options");
