@@ -388,8 +388,10 @@ scheduler_ram_release(uint64_t holdq, int n)
 			sorted_insert(&ramqueue.q_pending, evp);
 	}
 
-	if (TAILQ_EMPTY(&hq->q))
+	if (TAILQ_EMPTY(&hq->q)) {
 		tree_xpop(&holdqs, holdq);
+		free(hq);
+	}
 
 	return (i);
 }
