@@ -509,8 +509,10 @@ scheduler_ram_envelopes(uint64_t from, struct evpstate *dst, size_t size)
 		if (evp->flags & (RQ_ENVELOPE_REMOVED | RQ_ENVELOPE_EXPIRED))
 			continue;
 
-		dst[n].retry = 0;
 		dst[n].evpid = evp->evpid;
+		dst[n].flags = 0;
+		dst[n].retry = 0;
+		dst[n].time = 0;
 		if (evp->flags & RQ_ENVELOPE_PENDING) {
 			dst[n].time = evp->sched;
 			dst[n].flags = EF_PENDING;

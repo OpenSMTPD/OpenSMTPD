@@ -1618,6 +1618,12 @@ mta_relay_unref(struct mta_relay *relay)
 	if (--relay->refcount)
 		return;
 
+	/* Make sure they are no envelopes held for this relay */
+	m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+	m_add_id(p_queue, relay->id);
+	m_add_int(p_queue, 0);
+	m_close(p_queue);
+
 	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
 
