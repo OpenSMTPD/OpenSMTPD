@@ -165,9 +165,10 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 	$(INSTALL) -m 644 aliases.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5
 	$(INSTALL) -m 644 forward.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5
+	$(INSTALL) -m 644 table.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5
 	$(INSTALL) -m 644 smtpd.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	$(INSTALL) -m 644 smtpd.conf.5.out	$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5
-	rm	aliases.5.out forward.5.out \
+	rm	aliases.5.out forward.5.out table.5.out \
 		smtpd.8.out smtpd.conf.5.out smtpd.conf.out
 
 uninstall-hook:
@@ -175,6 +176,7 @@ uninstall-hook:
 #	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)5 \
