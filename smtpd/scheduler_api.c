@@ -388,7 +388,7 @@ scheduler_api_on_hold(int(*cb)(uint64_t, uint64_t))
 }
 
 void
-scheduler_api_on_release(int(*cb)(uint64_t))
+scheduler_api_on_release(int(*cb)(uint64_t, int))
 {
 	handler_release = cb;
 }
