@@ -545,11 +545,10 @@ scheduler_ram_schedule(uint64_t evpid)
 			return (0);
 		if ((evp = tree_get(&msg->envelopes, evpid)) == NULL)
 			return (0);
-		if (evp->flags & RQ_ENVELOPE_PENDING) {
-			rq_envelope_schedule(&ramqueue, evp);
-			return (1);
-		}
-		return (0);
+		if (evp->flags & RQ_ENVELOPE_INFLIGHT)
+			return (0);
+		rq_envelope_schedule(&ramqueue, evp);
+		return (1);
 	}
 	else {
 		msgid = evpid;
@@ -557,11 +556,12 @@ scheduler_ram_schedule(uint64_t evpid)
 			return (0);
 		i = NULL;
 		r = 0;
-		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp)))
-			if (evp->flags & RQ_ENVELOPE_PENDING) {
-				rq_envelope_schedule(&ramqueue, evp);
-				r++;
-			}
+		while (tree_iter(&msg->envelopes, &i, NULL, (void*)(&evp))) {
+			if (evp->flags & RQ_ENVELOPE_INFLIGHT)
+				continue;
+			rq_envelope_schedule(&ramqueue, evp);
+			r++;
+		}
 		return (r);
 	}
 }
@@ -806,7 +806,8 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 		break;
 	}
 
-	TAILQ_REMOVE(&rq->q_pending, evp, entry);
+	if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
+		TAILQ_REMOVE(&rq->q_pending, evp, entry);
 	TAILQ_INSERT_TAIL(q, evp, entry);
 	evp->flags &= ~RQ_ENVELOPE_PENDING;
 	evp->flags |= RQ_ENVELOPE_SCHEDULED;
@@ -827,9 +828,10 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->flags & (RQ_ENVELOPE_INFLIGHT))
 		return (0);
 
-	q = rq_envelope_list(rq, evp);
-
-	TAILQ_REMOVE(q, evp, entry);
+	if (!(evp->flags & RQ_ENVELOPE_SUSPEND)) {
+		q = rq_envelope_list(rq, evp);
+		TAILQ_REMOVE(q, evp, entry);
+	}
 	TAILQ_INSERT_TAIL(&rq->q_removed, evp, entry);
 	evp->flags &= ~RQ_ENVELOPE_PENDING;
 	evp->flags |= RQ_ENVELOPE_REMOVED;
@@ -921,6 +923,8 @@ rq_envelope_to_text(struct rq_envelope *e)
 		strlcat(buf, ",expired", sizeof buf);
 	if (e->flags & RQ_ENVELOPE_SUSPEND)
 		strlcat(buf, ",suspended", sizeof buf);
+	if (e->flags & RQ_ENVELOPE_HOLD)
+		strlcat(buf, ",held", sizeof buf);
 
 	strlcat(buf, "]", sizeof buf);
 
