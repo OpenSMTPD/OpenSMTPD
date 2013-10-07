@@ -569,7 +569,17 @@ table_parse_lookup(enum table_service service, const char *key,
 			return (-1);
 
 		p = strchr(line, ':');
-		if (p == NULL || p == line || p == line + len - 1)
+		if (p == NULL) {
+			if (strlcpy(lk->creds.username, key, sizeof (lk->creds.username))
+			    >= sizeof (lk->creds.username))
+				return (-1);
+			if (strlcpy(lk->creds.password, line, sizeof(lk->creds.password))
+			    >= sizeof(lk->creds.password))
+				return (-1);
+			return (1);
+		}
+
+		if (p == line || p == line + len - 1)
 			return (-1);
 
 		memmove(lk->creds.username, line, p - line);

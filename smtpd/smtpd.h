@@ -1421,7 +1421,9 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 int getmailname(char *, size_t);
-
+uint32_t csprng_random(void);
+void csprng_buffer(void *, size_t);
+uint32_t csprng_uniform(uint32_t);
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

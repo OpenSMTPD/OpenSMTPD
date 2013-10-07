@@ -9,6 +9,7 @@ sbin_PROGRAMS=	makemap
 endif
 
 makemap_SOURCES=	$(smtpd_srcdir)/parse.y
+makemap_SOURCES+=	$(smtpd_srcdir)/csprng.c
 makemap_SOURCES+=	$(smtpd_srcdir)/makemap.c
 makemap_SOURCES+=	$(smtpd_srcdir)/aliases.c
 makemap_SOURCES+=	$(smtpd_srcdir)/expand.c

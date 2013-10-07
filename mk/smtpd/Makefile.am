@@ -20,6 +20,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/ca.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/compress_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/config.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/control.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/csprng.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
@@ -116,11 +117,12 @@ PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
 			-DPATH_TABLES=\"$(pkglibexecdir)\"
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out			\
-			smtpd.conf.5.out
+			smtpd.conf.5.out table.5.out
 MANPAGES_IN=		$(smtpd_srcdir)/aliases.5
 MANPAGES_IN+=		$(smtpd_srcdir)/forward.5
 MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.8
 MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.conf.5
+MANPAGES_IN+=		$(smtpd_srcdir)/table.5
 
 CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		$(smtpd_srcdir)/smtpd.conf
@@ -163,9 +165,10 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 	$(INSTALL) -m 644 aliases.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5
 	$(INSTALL) -m 644 forward.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5
+	$(INSTALL) -m 644 table.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5
 	$(INSTALL) -m 644 smtpd.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	$(INSTALL) -m 644 smtpd.conf.5.out	$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5
-	rm	aliases.5.out forward.5.out \
+	rm	aliases.5.out forward.5.out table.5.out \
 		smtpd.8.out smtpd.conf.5.out smtpd.conf.out
 
 uninstall-hook:
@@ -173,6 +176,7 @@ uninstall-hook:
 #	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)5 \

@@ -343,7 +343,7 @@ mvpurge(char *from, char *to)
 	retry = 0;
 
 again:
-	snprintf(buf, sizeof buf, "%s%s%u", to, sep, arc4random());
+	snprintf(buf, sizeof buf, "%s%s%u", to, sep, csprng_random());
 	if (rename(from, buf) == -1) {
 		/* ENOTDIR has actually 2 meanings, and incorrect input
 		 * could lead to an infinite loop. Consider that after
@@ -629,9 +629,14 @@ uint64_t
 generate_uid(void)
 {
 	static uint32_t id;
+	static uint8_t	inited;
 	uint64_t	uid;
 
-	while ((uid = ((uint64_t)(id++) << 32 | arc4random())) == 0)
+	if (!inited) {
+		id = csprng_random();
+		inited = 1;
+	}
+	while ((uid = ((uint64_t)(id++) << 32 | csprng_random())) == 0)
 		;
 
 	return (uid);
@@ -795,3 +800,4 @@ end:
                 fclose(fp);
         return ret;
 }
+
