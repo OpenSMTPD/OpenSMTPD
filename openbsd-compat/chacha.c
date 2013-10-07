@@ -70,8 +70,6 @@ _rs_init(u_char *buf, size_t n)
 static void
 _rs_stir(void)
 {
-	int	i;
-        size_t  len;
         u_char rnd[KEYSZ + IVSZ];
 
 	if (RAND_bytes(rnd, sizeof(rnd)) <= 0)
