@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include <openssl/rand.h>
 #include <openssl/rc4.h>
