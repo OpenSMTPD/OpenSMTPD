@@ -41,8 +41,6 @@ TAILQ_HEAD(evplist, rq_envelope);
 struct rq_message {
 	uint32_t		 msgid;
 	struct tree		 envelopes;
-	struct rq_message	*q_next;
-	struct evplist		 q_mta;
 };
 
 struct rq_envelope {
@@ -80,7 +78,7 @@ struct rq_queue {
 	struct evplist		 q_pending;
 	struct evplist		 q_inflight;
 
-	struct rq_message	*q_mtabatch;
+	struct evplist		 q_mta;
 	struct evplist		 q_mda;
 	struct evplist		 q_bounce;
 	struct evplist		 q_expired;
@@ -180,7 +178,6 @@ scheduler_ram_insert(struct scheduler_info *si)
 	if ((message = tree_get(&update->messages, msgid)) == NULL) {
 		message = xcalloc(1, sizeof *message, "scheduler_insert");
 		message->msgid = msgid;
-		TAILQ_INIT(&message->q_mta);
 		tree_init(&message->envelopes);
 		tree_xset(&update->messages, msgid, message);
 		stat_increment("scheduler.ramqueue.message", 1);
@@ -401,7 +398,6 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 {
 	struct evplist		*q;
 	struct rq_envelope	*evp;
-	struct rq_message	*msg;
 	size_t			 n;
 
 	currtime = time(NULL);
@@ -426,11 +422,8 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 		q = &ramqueue.q_mda;
 		ret->type = SCHED_MDA;
 	}
-	else if (typemask & SCHED_MTA && ramqueue.q_mtabatch) {
-		msg = ramqueue.q_mtabatch;
-		ramqueue.q_mtabatch = msg->q_next;
-		msg->q_next = NULL;
-		q = &msg->q_mta;
+	else if (typemask & SCHED_MTA && TAILQ_FIRST(&ramqueue.q_mta)) {
+		q = &ramqueue.q_mta;
 		ret->type = SCHED_MTA;
 	}
 	else if ((evp = TAILQ_FIRST(&ramqueue.q_pending))) {
@@ -710,6 +703,7 @@ rq_queue_init(struct rq_queue *rq)
 	tree_init(&rq->messages);
 	TAILQ_INIT(&rq->q_pending);
 	TAILQ_INIT(&rq->q_inflight);
+	TAILQ_INIT(&rq->q_mta);
 	TAILQ_INIT(&rq->q_mda);
 	TAILQ_INIT(&rq->q_bounce);
 	TAILQ_INIT(&rq->q_expired);
@@ -779,7 +773,7 @@ rq_envelope_list(struct rq_queue *rq, struct rq_envelope *evp)
 		if (evp->flags & RQ_ENVELOPE_REMOVED)
 			return &rq->q_removed;
 		if (evp->type == D_MTA)
-			return &evp->message->q_mta;
+			return &rq->q_mta;
 		if (evp->type == D_MDA)
 			return &rq->q_mda;
 		if (evp->type == D_BOUNCE)
@@ -802,11 +796,7 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 
 	switch (evp->type) {
 	case D_MTA:
-		if (TAILQ_EMPTY(&evp->message->q_mta)) {
-			evp->message->q_next = rq->q_mtabatch;
-			rq->q_mtabatch = evp->message;
-		}
-		q = &evp->message->q_mta;
+		q = &rq->q_mta;
 		break;
 	case D_MDA:
 		q = &rq->q_mda;
@@ -826,7 +816,6 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 static int
 rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 {
-	struct rq_message	*m;
 	struct evplist		*q = NULL;
 
 	if (evp->flags & (RQ_ENVELOPE_REMOVED | RQ_ENVELOPE_EXPIRED))
@@ -846,23 +835,6 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 	evp->flags |= RQ_ENVELOPE_REMOVED;
 	evp->flags |= RQ_ENVELOPE_SCHEDULED;
 	evp->t_scheduled = currtime;
-
-	/*
-	 * We might need to unschedule the message if it was the only
-	 * scheduled envelope
-	 */
-	if (q == &evp->message->q_mta && TAILQ_EMPTY(q)) {
-		if (rq->q_mtabatch == evp->message)
-			rq->q_mtabatch = evp->message->q_next;
-		else {
-			for (m = rq->q_mtabatch; m->q_next; m = m->q_next)
-				if (m->q_next == evp->message) {
-					m->q_next = evp->message->q_next;
-					break;
-				}
-		}
-		evp->message->q_next = NULL;
-	}
 
 	return (1);
 }
