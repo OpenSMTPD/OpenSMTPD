@@ -99,12 +99,12 @@ void	 imsg_init(struct imsgbuf *, int);
 ssize_t	 imsg_read(struct imsgbuf *);
 ssize_t	 imsg_get(struct imsgbuf *, struct imsg *);
 int	 imsg_compose(struct imsgbuf *, u_int32_t, u_int32_t, pid_t,
-	    int, void *, u_int16_t);
+	    int, const void *, u_int16_t);
 int	 imsg_composev(struct imsgbuf *, u_int32_t, u_int32_t,  pid_t,
 	    int, const struct iovec *, int);
 struct ibuf *imsg_create(struct imsgbuf *, u_int32_t, u_int32_t, pid_t,
 	    u_int16_t);
-int	 imsg_add(struct ibuf *, void *, u_int16_t);
+int	 imsg_add(struct ibuf *, const void *, u_int16_t);
 void	 imsg_close(struct imsgbuf *, struct ibuf *);
 void	 imsg_free(struct imsg *);
 int	 imsg_flush(struct imsgbuf *);
