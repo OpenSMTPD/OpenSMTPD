@@ -282,7 +282,7 @@ void scheduler_api_on_rollback(size_t(*)(uint32_t));
 void scheduler_api_on_update(int(*)(struct scheduler_info *));
 void scheduler_api_on_delete(int(*)(uint64_t));
 void scheduler_api_on_hold(int(*)(uint64_t, uint64_t));
-void scheduler_api_on_release(int(*)(uint64_t));
+void scheduler_api_on_release(int(*)(uint64_t, int));
 void scheduler_api_on_batch(int(*)(int, struct scheduler_batch *));
 void scheduler_api_on_messages(size_t(*)(uint32_t, uint32_t *, size_t));
 void scheduler_api_on_envelopes(size_t(*)(uint64_t, struct evpstate *, size_t));
