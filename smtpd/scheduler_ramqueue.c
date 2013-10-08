@@ -346,7 +346,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	/* If the envelope is suspended, just mark it as pending */
 	if (evp->flags & RQ_ENVELOPE_SUSPEND) {
 		evp->state = RQ_EVPSTATE_PENDING;
-		return (1);
+		return (0);
 	}
 
 	hq = tree_get(&holdqs, holdq);
@@ -365,6 +365,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	 * current element.
 	 */
 	TAILQ_INSERT_HEAD(&hq->q, evp, entry);
+	stat_increment("scheduler.ramqueue.hold", 1);
 
 	return (1);
 }
@@ -395,8 +396,7 @@ scheduler_ram_release(uint64_t holdq, int n)
 		 * we could just schedule them directly.
 		 */
 		evp->state = RQ_EVPSTATE_PENDING;
-		if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
-			sorted_insert(&ramqueue.q_pending, evp);
+		sorted_insert(&ramqueue.q_pending, evp);
 	}
 
 	if (TAILQ_EMPTY(&hq->q)) {
@@ -816,6 +816,7 @@ rq_envelope_list(struct rq_queue *rq, struct rq_envelope *evp)
 static void
 rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 {
+	struct rq_holdq	*hq;
 	struct evplist	*q = NULL;
 
 	switch (evp->type) {
@@ -830,7 +831,17 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 		break;
 	}
 
-	if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
+	if (evp->state == RQ_EVPSTATE_HELD) {
+		hq = tree_xget(&holdqs, evp->holdq);
+		TAILQ_REMOVE(&hq->q, evp, entry);
+		if (TAILQ_EMPTY(&hq->q)) {
+			tree_xpop(&holdqs, evp->holdq);
+			free(hq);
+		}
+		evp->holdq = 0;
+		stat_decrement("scheduler.ramqueue.hold", 1);
+	}
+	else if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
 		TAILQ_REMOVE(&rq->q_pending, evp, entry);
 
 	TAILQ_INSERT_TAIL(q, evp, entry);
@@ -841,21 +852,30 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 static int
 rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 {
-	struct evplist		*q = NULL;
+	struct rq_holdq		*hq;
 
 	if (evp->flags & (RQ_ENVELOPE_REMOVED | RQ_ENVELOPE_EXPIRED))
 		return (0);
 	/*
-	 * Mark the envelope for removal.
+	 * If envelope is inflight, mark it envelope for removal.
 	 */
 	if (evp->state == RQ_EVPSTATE_INFLIGHT) {
 		evp->flags |= RQ_ENVELOPE_REMOVED;
 		return (1);
 	}
 
-	if (!(evp->flags & RQ_ENVELOPE_SUSPEND)) {
-		q = rq_envelope_list(rq, evp);
-		TAILQ_REMOVE(q, evp, entry);
+	if (evp->state == RQ_EVPSTATE_HELD) {
+		hq = tree_xget(&holdqs, evp->holdq);
+		TAILQ_REMOVE(&hq->q, evp, entry);
+		if (TAILQ_EMPTY(&hq->q)) {
+			tree_xpop(&holdqs, evp->holdq);
+			free(hq);
+		}
+		evp->holdq = 0;
+		stat_decrement("scheduler.ramqueue.hold", 1);
+	}
+	else if (!(evp->flags & RQ_ENVELOPE_SUSPEND)) {
+		TAILQ_REMOVE(rq_envelope_list(rq, evp), evp, entry);
 	}
 
 	TAILQ_INSERT_TAIL(&rq->q_removed, evp, entry);
@@ -869,12 +889,25 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 static int
 rq_envelope_suspend(struct rq_queue *rq, struct rq_envelope *evp)
 {
+	struct rq_holdq	*hq;
+
 	if (evp->flags & RQ_ENVELOPE_SUSPEND)
 		return (0);
 
-	if (evp->state != RQ_EVPSTATE_INFLIGHT &&
-	    evp->state != RQ_EVPSTATE_HELD)
+	if (evp->state == RQ_EVPSTATE_HELD) {
+		hq = tree_xget(&holdqs, evp->holdq);
+		TAILQ_REMOVE(&hq->q, evp, entry);
+		if (TAILQ_EMPTY(&hq->q)) {
+			tree_xpop(&holdqs, evp->holdq);
+			free(hq);
+		}
+		evp->holdq = 0;
+		evp->state = RQ_EVPSTATE_PENDING;
+		stat_decrement("scheduler.ramqueue.hold", 1);
+	}
+	else if (evp->state != RQ_EVPSTATE_INFLIGHT) {
 		TAILQ_REMOVE(rq_envelope_list(rq, evp), evp, entry);
+	}
 
 	evp->flags |= RQ_ENVELOPE_SUSPEND;
 

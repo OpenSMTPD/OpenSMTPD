@@ -223,7 +223,6 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		backend->hold(evpid, holdq);
 		ninflight -= 1;
 		stat_decrement("scheduler.envelope.inflight", 1);
-		stat_increment("scheduler.envelope.hold", 1);
 		scheduler_reset_events();
 		return;
 
@@ -234,8 +233,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: releasing %i on holdq %016" PRIx64, r, holdq);
-		r = backend->release(holdq, r);
-		stat_decrement("scheduler.envelope.hold", r);
+		backend->release(holdq, r);
 		scheduler_reset_events();
 		return;
 
