@@ -486,6 +486,9 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	b.creation = time(NULL);
 	b.expire = 3600 * 24 * 7;
 
+	if (e->dsn_notify & DSN_NEVER)
+		return;
+
 	if (b.id == 0)
 		log_warnx("warn: queue_bounce: evpid=0");
 	if (evpid_to_msgid(b.id) == 0)
