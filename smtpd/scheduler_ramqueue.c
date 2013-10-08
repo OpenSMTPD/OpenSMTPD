@@ -271,11 +271,23 @@ scheduler_ram_update(struct scheduler_info *si)
 	if (!(evp->flags & RQ_ENVELOPE_INFLIGHT))
 		errx(1, "evp:%016" PRIx64 " not in-flight", si->evpid);
 
+	TAILQ_REMOVE(&ramqueue.q_inflight, evp, entry);
+	evp->flags &= ~RQ_ENVELOPE_INFLIGHT;
+
+	/*
+	 * If the envelope was removed while inflight,  schedule it for
+	 * removal immediatly.
+	 */
+	if (evp->flags & RQ_ENVELOPE_REMOVED) {
+		TAILQ_INSERT_TAIL(&ramqueue.q_removed, evp, entry);
+		evp->flags |= RQ_ENVELOPE_SCHEDULED;
+		evp->t_scheduled = currtime;
+		return (1);
+	}
+
 	while ((evp->sched = scheduler_compute_schedule(si)) <= currtime)
 		si->retry += 1;
 
-	TAILQ_REMOVE(&ramqueue.q_inflight, evp, entry);
-	evp->flags &= ~RQ_ENVELOPE_INFLIGHT;
 	evp->flags |= RQ_ENVELOPE_PENDING;
 	if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
 		sorted_insert(&ramqueue.q_pending, evp);
@@ -822,11 +834,12 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->flags & (RQ_ENVELOPE_REMOVED | RQ_ENVELOPE_EXPIRED))
 		return (0);
 	/*
-	 * For now we just ignore it, but we could mark the envelope for
-	 * removal and possibly send a cancellation to the agent.
+	 * Mark the envelope for removal.
 	 */
-	if (evp->flags & (RQ_ENVELOPE_INFLIGHT))
-		return (0);
+	if (evp->flags & (RQ_ENVELOPE_INFLIGHT)) {
+		evp->flags |= RQ_ENVELOPE_REMOVED;
+		return (1);
+	}
 
 	if (!(evp->flags & RQ_ENVELOPE_SUSPEND)) {
 		q = rq_envelope_list(rq, evp);
