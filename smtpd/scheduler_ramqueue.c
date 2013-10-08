@@ -47,6 +47,7 @@ struct rq_envelope {
 	TAILQ_ENTRY(rq_envelope) entry;
 
 	uint64_t		 evpid;
+	uint64_t		 holdq;
 	enum delivery_type	 type;
 
 #define	RQ_ENVELOPE_PENDING	 0x01
@@ -356,6 +357,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	}
 
 	evp->flags |= RQ_ENVELOPE_HOLD;
+	evp->holdq = holdq;
 	/* This is an optimization: upon release, the envelopes will be
 	 * inserted in the pending queue from the first element to the last.
 	 * Since elements already in the queue were received first, they
@@ -387,6 +389,7 @@ scheduler_ram_release(uint64_t holdq, int n)
 
 		TAILQ_REMOVE(&hq->q, evp, entry);
 		evp->flags &= ~RQ_ENVELOPE_HOLD;
+		evp->holdq = 0;
 
 		/* When released, all envelopes are put in the pending queue
 		 * and will be rescheduled immediatly.  As an optimization,
