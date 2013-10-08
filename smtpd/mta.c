@@ -1701,6 +1701,12 @@ mta_relay_to_text(struct mta_relay *relay)
 		strlcat(buf, relay->sourcetable, sizeof buf);
 	}
 
+	if (relay->helotable) {
+		strlcat(buf, sep, sizeof buf);
+		strlcat(buf, "helotable=", sizeof buf);
+		strlcat(buf, relay->helotable, sizeof buf);
+	}
+
 	strlcat(buf, "]", sizeof buf);
 
 	return (buf);
@@ -1831,6 +1837,12 @@ mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 	if (a->sourcetable && b->sourcetable == NULL)
 		return (1);
 	if (a->sourcetable && ((r = strcmp(a->sourcetable, b->sourcetable))))
+		return (r);
+	if (a->helotable == NULL && b->helotable)
+		return (-1);
+	if (a->helotable && b->helotable == NULL)
+		return (1);
+	if (a->helotable && ((r = strcmp(a->helotable, b->helotable))))
 		return (r);
 
 	if (a->cert == NULL && b->cert)
