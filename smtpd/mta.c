@@ -331,6 +331,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: Failed MX query for %s:",
 				    domain->name);
 			}
+			domain->lastmxquery = time(NULL);
 			waitq_run(&domain->mxs, domain);
 			return;
 
@@ -742,7 +743,6 @@ mta_query_mx(struct mta_relay *relay)
 			dns_query_host(id, relay->domain->name);
 		else
 			dns_query_mx(id, relay->domain->name);
-		relay->domain->lastmxquery = time(NULL);
 	}
 	relay->status |= RELAY_WAIT_MX;
 	mta_relay_ref(relay);
