@@ -51,16 +51,16 @@ or if the file is not owned by the user.
 .Pp
 Users should avoid editing directly the
 .Nm .forward
-file to prevent delivery failures from occuring if a message
+file to prevent delivery failures from occurring if a message
 arrives while the file is not fully written.
 The best option is to use a temporary file and use the
 .Xr mv 1
 command to atomically overwrite the former
-.Nm .forward.
+.Nm .forward .
 Alternatively, setting the
 .Xr sticky 8
 bit on the home directory will cause the
-.Xr .forward
+.Nm .forward
 lookup to return a temporary failure, causing mails to be deferred.
 .Sh FILES
 .Bl -tag -width "~/.forwardXXX" -compact

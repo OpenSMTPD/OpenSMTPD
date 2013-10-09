@@ -627,8 +627,13 @@ uint64_t
 generate_uid(void)
 {
 	static uint32_t id;
+	static uint8_t	inited;
 	uint64_t	uid;
 
+	if (!inited) {
+		id = csprng_random();
+		inited = 1;
+	}
 	while ((uid = ((uint64_t)(id++) << 32 | csprng_random())) == 0)
 		;
 
@@ -792,20 +797,3 @@ end:
         return ret;
 }
 
-uint32_t
-csprng_random(void)
-{
-	return arc4random();
-}
-
-void
-csprng_buffer(void *buf, size_t nbytes)
-{
-	arc4random_buf(buf, nbytes);
-}
-
-uint32_t
-csprng_uniform(uint32_t upper_bound)
-{
-	return arc4random_uniform(upper_bound);
-}
