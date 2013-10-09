@@ -403,6 +403,7 @@ scheduler_ram_release(uint64_t holdq, int n)
 		tree_xpop(&holdqs, holdq);
 		free(hq);
 	}
+	stat_decrement("scheduler.ramqueue.hold", i);
 
 	return (i);
 }
