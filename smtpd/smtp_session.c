@@ -1349,7 +1349,9 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 
 				s->evp.dsn_notify |= flag;
 			}
-			if (s->evp.dsn_notify > DSN_NEVER) {
+			if (s->evp.dsn_notify & DSN_NEVER &&
+			    s->evp.dsn_notify & (DSN_SUCCESS | DSN_FAILURE |
+			    DSN_DELAY)) {
 				smtp_reply(s,
 				    "553 NOTIFY option NEVER cannot be \
 				    combined with other options");
@@ -1357,7 +1359,10 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 			}
 		} else if (strncasecmp(b, "ORCPT=", 6) == 0) {
 			b += 6;
-			/* XXX */
+			if (!text_to_mailaddr(&s->evp.dsn_orcpt, b)) {
+				smtp_reply(s, "553 ORCPT address syntax error");
+				return (-1);
+			}
 		} else {
 			smtp_reply(s, "503 Unsupported option %s", b);
 			return (-1);

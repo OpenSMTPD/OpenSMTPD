@@ -378,16 +378,6 @@ struct delivery_mta {
 	struct relayhost	relay;
 };
 
-enum dsn_type {
-	DSN_SUCCESS,
-	DSN_FAILURE,
-	DSN_DELAY
-};
-
-struct delivery_dsn {
-	enum dsn_type		type;
-};
-
 enum bounce_type {
 	B_ERROR,
 	B_WARNING,
@@ -476,7 +466,6 @@ struct envelope {
 		struct delivery_mda	mda;
 		struct delivery_mta	mta;
 		struct delivery_bounce	bounce;
-		struct delivery_dsn	dsn;
 	}				agent;
 
 	uint16_t			retry;
