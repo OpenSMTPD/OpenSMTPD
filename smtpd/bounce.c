@@ -477,6 +477,15 @@ bounce_next(struct bounce_session *s)
 			line = fgetln(s->msgfp, &len);
 			if (line == NULL)
 				break;
+			if (len == 1 && line[0] == '\n' && /* end of headers */
+			    s->msg->bounce.type == B_DSN &&
+			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
+				fclose(s->msgfp);
+				s->msgfp = NULL;
+				bounce_send(s, ".");
+				s->state = BOUNCE_DATA_END;
+				return (0);
+			}
 			line[len - 1] = '\0';
 			iobuf_xfqueue(&s->iobuf,
 			    "bounce_next: DATA_MESSAGE", "%s%s\n",

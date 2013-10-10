@@ -351,6 +351,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 					bounce.type = B_DSN;
 					bounce.delay = 0;
 					bounce.expire = 0;
+					bounce.dsn_ret = evp.dsn_ret;
 					queue_bounce(&evp, &bounce);
 				}
 			}
