@@ -117,7 +117,9 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 		EVP_MTA_RELAY_SOURCE,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
-		EVP_MTA_RELAY_HELO,
+		EVP_MTA_RELAY_HELONAME,
+		EVP_MTA_RELAY_HELOTABLE,
+		EVP_MTA_RELAY_HELOTABLEOLD,
 		EVP_MTA_RELAY_FLAGS,
 		EVP_MTA_RELAY,
 		EVP_BOUNCE_TYPE,
@@ -219,7 +221,8 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		EVP_MTA_RELAY_SOURCE,
 		EVP_MTA_RELAY_CERT,
 		EVP_MTA_RELAY_AUTH,
-		EVP_MTA_RELAY_HELO,
+		EVP_MTA_RELAY_HELONAME,
+		EVP_MTA_RELAY_HELOTABLE,
 		EVP_MTA_RELAY_FLAGS,
 		EVP_MTA_RELAY,
 	};
@@ -348,7 +351,11 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "mta-relay-flags";
 	case EVP_MTA_RELAY_SOURCE:
 		return "mta-relay-source";
-	case EVP_MTA_RELAY_HELO:
+	case EVP_MTA_RELAY_HELONAME:
+		return "mta-relay-heloname";
+	case EVP_MTA_RELAY_HELOTABLE:
+		return "mta-relay-helotable";
+	case EVP_MTA_RELAY_HELOTABLEOLD:
 		return "mta-relay-helo";
 	case EVP_BOUNCE_TYPE:
 		return "bounce-type";
@@ -411,7 +418,11 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 	case EVP_MTA_RELAY_AUTH:
 		return ascii_load_string(ep->agent.mta.relay.authtable, buf,
 		    sizeof ep->agent.mta.relay.authtable);
-	case EVP_MTA_RELAY_HELO:
+	case EVP_MTA_RELAY_HELONAME:
+		return ascii_load_string(ep->agent.mta.relay.heloname, buf,
+		    sizeof ep->agent.mta.relay.heloname);
+	case EVP_MTA_RELAY_HELOTABLEOLD:
+	case EVP_MTA_RELAY_HELOTABLE:
 		return ascii_load_string(ep->agent.mta.relay.helotable, buf,
 		    sizeof ep->agent.mta.relay.helotable);
 	case EVP_MTA_RELAY_FLAGS:
@@ -493,7 +504,10 @@ envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
 	case EVP_MTA_RELAY_AUTH:
 		return ascii_dump_string(ep->agent.mta.relay.authtable,
 		    buf, len);
-	case EVP_MTA_RELAY_HELO:
+	case EVP_MTA_RELAY_HELONAME:
+		return ascii_dump_string(ep->agent.mta.relay.heloname,
+		    buf, len);
+	case EVP_MTA_RELAY_HELOTABLE:
 		return ascii_dump_string(ep->agent.mta.relay.helotable,
 		    buf, len);
 	case EVP_MTA_RELAY_FLAGS:

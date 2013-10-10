@@ -1575,6 +1575,9 @@ mta_relay(struct envelope *e)
 	key.helotable = e->agent.mta.relay.helotable;
 	if (!key.helotable[0])
 		key.helotable = NULL;
+	key.heloname = e->agent.mta.relay.heloname;
+	if (!key.heloname[0])
+		key.heloname = NULL;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r, "mta_relay");
@@ -1597,6 +1600,9 @@ mta_relay(struct envelope *e)
 		if (key.helotable)
 			r->helotable = xstrdup(key.helotable,
 			    "mta: helotable");
+		if (key.heloname)
+			r->heloname = xstrdup(key.heloname,
+			    "mta: heloname");
 		SPLAY_INSERT(mta_relay_tree, &relays, r);
 		stat_increment("mta.relay", 1);
 	} else {
@@ -1638,6 +1644,7 @@ mta_relay_unref(struct mta_relay *relay)
 	free(relay->backupname);
 	free(relay->cert);
 	free(relay->helotable);
+	free(relay->heloname);
 	free(relay->secret);
 	free(relay->sourcetable);
 
@@ -1708,6 +1715,12 @@ mta_relay_to_text(struct mta_relay *relay)
 		strlcat(buf, sep, sizeof buf);
 		strlcat(buf, "helotable=", sizeof buf);
 		strlcat(buf, relay->helotable, sizeof buf);
+	}
+
+	if (relay->heloname) {
+		strlcat(buf, sep, sizeof buf);
+		strlcat(buf, "heloname=", sizeof buf);
+		strlcat(buf, relay->heloname, sizeof buf);
 	}
 
 	strlcat(buf, "]", sizeof buf);
@@ -1846,6 +1859,12 @@ mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 	if (a->helotable && b->helotable == NULL)
 		return (1);
 	if (a->helotable && ((r = strcmp(a->helotable, b->helotable))))
+		return (r);
+	if (a->heloname == NULL && b->heloname)
+		return (-1);
+	if (a->heloname && b->heloname == NULL)
+		return (1);
+	if (a->heloname && ((r = strcmp(a->heloname, b->heloname))))
 		return (r);
 
 	if (a->cert == NULL && b->cert)
