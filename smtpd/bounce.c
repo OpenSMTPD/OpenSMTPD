@@ -459,6 +459,13 @@ bounce_next(struct bounce_session *s)
 			    notice_warning2,
 			    bounce_duration(s->msg->bounce.expire));
 
+		if (s->msg->bounce.type == B_DSN &&
+		    s->msg->bounce.dsn_ret == DSN_RETHDRS) {
+			bounce_send(s, ".");
+			s->state= BOUNCE_DATA_END;
+			break;
+		}
+
 		iobuf_xfqueue(&s->iobuf, "bounce_next: DATA_NOTICE",
 		    "    Below is a copy of the original message:\n"
 		    "\n");
