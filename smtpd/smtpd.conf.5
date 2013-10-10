@@ -309,6 +309,7 @@ This parameter may use conversion specifiers that are expanded before use
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Bk -words
+.Op Ic hostname Ar name
 .Op Ic hostnames Ar names
 .Ek
 .Op Ic pki Ar pkiname
@@ -355,14 +356,26 @@ By default, when connecting to a remote server,
 .Xr smtpd 8
 advertises its default server name.
 A
+.Ic hostname
+parameter may be specified to advertise the alternate hostname
+.Ar name .
+If the
+.Ic source
+parameter is used, the
 .Ic hostnames
-parameter may be specified to advertise an alternate hostname.
+parameter may be specified to advertise a hostname based on
+the source address.
 Table
 .Ar names
 contains a mapping of IP addresses to hostnames and
 .Xr smtpd 8
 will automatically select the name that matches its source address
 when connected to the remote server.
+The
+.Ic hostname
+and
+.Ic hostnames
+parameters are mutually exclusive.
 .Pp
 When relaying, STARTTLS is always attempted if available on remote host
 and OpenSMTPD will try to present a certificate matching the outgoing
@@ -395,6 +408,7 @@ as they will prevent proper relaying on the Internet.
 .Op Ic auth Aq Ar auth
 .Op Ic as Ar address
 .Op Ic source Ar source
+.Op Ic hostname Ar name
 .Op Ic hostnames Ar names
 .Op Ic pki Ar pkiname
 .Xc
@@ -471,14 +485,26 @@ By default, when connecting to a remote server,
 .Xr smtpd 8
 advertises its default server name.
 A
+.Ic hostname
+parameter may be specified to advertise the alternate hostname
+.Ar name .
+If the
+.Ic source
+parameter is used, the
 .Ic hostnames
-parameter may be specified to advertise an alternate hostname.
+parameter may be specified to advertise a hostname based on
+the source address.
 Table
 .Ar names
 contains a mapping of IP addresses to hostnames and
 .Xr smtpd 8
 will automatically select the name that matches its source address
 when connected to the remote server.
+The
+.Ic hostname
+and
+.Ic hostnames
+parameters are mutually exclusive.
 .El
 .Pp
 Additional per-rule adjustments available:

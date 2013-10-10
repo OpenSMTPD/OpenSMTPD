@@ -387,6 +387,11 @@ opt_relay_common: AS STRING	{
 			strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
 			    sizeof rule->r_value.relayhost.sourcetable);
 		}
+		| HOSTNAME STRING {
+			strlcat(rule->r_value.relayhost.heloname, $2,
+			    sizeof rule->r_value.relayhost.heloname);
+			free($2);
+		}
 		| HOSTNAMES tables		{
 			struct table	*t = $2;
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {

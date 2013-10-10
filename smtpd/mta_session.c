@@ -509,7 +509,7 @@ mta_connect(struct mta_session *s)
 			s->flags |= MTA_WAIT;
 			return;
 		}
-		if (s->relay->heloname)
+		else if (s->relay->heloname)
 			s->helo = xstrdup(s->relay->heloname, "mta_connect");
 		else
 			s->helo = xstrdup(env->sc_hostname, "mta_connect");
