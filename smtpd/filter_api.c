@@ -281,7 +281,7 @@ filter_api_writeln(uint64_t id, const char *line)
 	struct filter_session	*s;
 
 	s = tree_xget(&sessions, id);
-	
+
 	if (s->pipe.oev.sock == -1) {
 		log_warnx("warn: filter:%s: cannot write at this point", filter_name);
 		fatalx("exiting");
