@@ -44,22 +44,22 @@ struct filter_session {
 	int		qhook;
 
 	struct {
-		size_t		datalen;
-		int		error;
-		struct io	iev;
-		struct iobuf	ibuf;
-		size_t		idatalen;
-		struct io	oev;
-		struct iobuf	obuf;
-		size_t		odatalen;
+		size_t		 datalen;
+		int		 error;
+		struct io	 iev;
+		struct iobuf	 ibuf;
+		size_t		 idatalen;
+		struct io	 oev;
+		struct iobuf	 obuf;
+		size_t		 odatalen;
 	} pipe;
 
 	struct {
-		int		ready;
-		int		status;
-		int		code;
-		int		notify;
-		char	       *line;
+		int		 ready;
+		int		 status;
+		int		 code;
+		int		 notify;
+		char		*line;
 	} response;
 };
 
@@ -215,9 +215,9 @@ filter_api_loop(void)
 	}
 
 	if (setgroups(1, &fi.gid) ||
-            setresgid(fi.gid, fi.gid, fi.gid) ||
-            setresuid(fi.uid, fi.uid, fi.uid)) {
-		log_warn("warn: filter-api:%s: cannot drop provileges", filter_name);
+	    setresgid(fi.gid, fi.gid, fi.gid) ||
+	    setresuid(fi.uid, fi.uid, fi.uid)) {
+		log_warn("warn: filter-api:%s: cannot drop privileges", filter_name);
 		fatalx("filter-api: exiting");
 	}
 
