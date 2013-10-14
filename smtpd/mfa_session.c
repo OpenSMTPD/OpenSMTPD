@@ -105,7 +105,6 @@ static void mfa_filter_imsg(struct mproc *, struct imsg *);
 static struct mfa_query *mfa_query(struct mfa_session *, int, int);
 static void mfa_drain_query(struct mfa_query *);
 static void mfa_run_query(struct mfa_filter *, struct mfa_query *);
-static void mfa_run_data(struct mfa_filter *, uint64_t, const char *);
 static struct mfa_filter_chain	chain;
 
 static const char * mfa_query_to_text(struct mfa_query *);
@@ -253,54 +252,6 @@ mfa_filter(uint64_t id, int hook)
 	q = mfa_query(s, QT_QUERY, hook);
 
 	mfa_drain_query(q);
-}
-
-void
-mfa_filter_data(uint64_t id, const char *line)
-{
-	mfa_run_data(TAILQ_FIRST(&chain.filters), id, line);
-}
-
-static void
-mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
-{
-	struct mproc	*p;
-
-	log_trace(TRACE_MFA,
-	    "filter: running data for %016"PRIx64" on filter %p: %s", id, f, line);
-
-	/* Send the dataline to the filters that want to see it. */
-	while (f) {
-		if (f->hooks & HOOK_DATALINE) {
-			p = &f->mproc;
-			m_create(p, IMSG_FILTER_DATA, 0, 0, -1);
-			m_add_id(p, id);
-			m_add_string(p, line);
-			m_close(p);
-
-			/*
-			 * If this filter wants to alter data, we stop
-			 * iterating here, and the filter becomes responsible
-			 * for sending datalines back.
-			 */
-			if (f->flags & FILTER_ALTERDATA) {
-				log_trace(TRACE_MFA,
-	 			   "filter: expect datalines from filter %s",
-				   mfa_filter_to_text(f));
-				return;
-			}
-		}
-		f = TAILQ_NEXT(f, entry);
-	}
-
-	/* When all filters are done, send the line back to the smtp process. */
-	log_trace(TRACE_MFA,
-	    "filter: sending final data to smtp for %016"PRIx64" on filter %p: %s", id, f, line);
-
-	m_create(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1);
-	m_add_id(p_smtp, id);
-	m_add_string(p_smtp, line);
-	m_close(p_smtp);
 }
 
 static struct mfa_query *
@@ -471,7 +422,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	struct mfa_query	*q, *next;
 	struct msg		 m;
 	const char		*line;
-	uint64_t		 id, qid;
+	uint64_t		 qid;
 	int			 status, code, notify;
 
 	f = p->data;
@@ -508,14 +459,6 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			if (!f->ready)
 				return;
 		mfa_ready();
-		break;
-
-	case IMSG_FILTER_DATA:
-		m_msg(&m, imsg);
-		m_get_id(&m, &id);
-		m_get_string(&m, &line);
-		m_end(&m);
-		mfa_run_data(TAILQ_NEXT(f, entry), id, line);
 		break;
 
 	case IMSG_FILTER_RESPONSE:
@@ -623,7 +566,6 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_EVENT);
 	CASE(IMSG_FILTER_QUERY);
 	CASE(IMSG_FILTER_NOTIFY);
-	CASE(IMSG_FILTER_DATA);
 	CASE(IMSG_FILTER_RESPONSE);
 	default:
 		return "IMSG_FILTER_???";

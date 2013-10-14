@@ -58,8 +58,7 @@ enum filter_imsg {
 	IMSG_FILTER_EVENT,
 	IMSG_FILTER_QUERY,
 	IMSG_FILTER_NOTIFY,
-	IMSG_FILTER_DATA,
-	IMSG_FILTER_RESPONSE,
+	IMSG_FILTER_RESPONSE
 };
 
 #define	FILTER_ALTERDATA	0x01 /* The filter wants to alter the message */

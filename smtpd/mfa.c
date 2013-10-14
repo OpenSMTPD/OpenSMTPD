@@ -102,14 +102,6 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_filter(reqid, HOOK_EOM);
 			return;
 
-		case IMSG_MFA_SMTP_DATA:
-			m_msg(&m, imsg);
-			m_get_id(&m, &reqid);
-			m_get_string(&m, &line);
-			m_end(&m);
-			mfa_filter_data(reqid, line);
-			return;
-
 		case IMSG_MFA_EVENT_RSET:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);

@@ -227,7 +227,7 @@ enum imsg_type {
 	IMSG_MFA_EVENT_COMMIT,
 	IMSG_MFA_EVENT_ROLLBACK,
 	IMSG_MFA_EVENT_DISCONNECT,
-	IMSG_MFA_SMTP_DATA,
+	IMSG_MFA_SMTP_DATA, /* XXX remove and bump */
 	IMSG_MFA_SMTP_RESPONSE,
 
 	IMSG_MTA_TRANSFER,
@@ -1165,7 +1165,6 @@ void mfa_filter_mailaddr(uint64_t, int, const struct mailaddr *);
 void mfa_filter_line(uint64_t, int, const char *);
 void mfa_filter(uint64_t, int);
 void mfa_filter_event(uint64_t, int);
-void mfa_filter_data(uint64_t, const char *);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);
