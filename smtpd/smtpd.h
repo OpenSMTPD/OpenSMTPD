@@ -611,10 +611,13 @@ struct deliver {
 	struct userinfo		userinfo;
 };
 
+#define MAX_FILTER_PER_CHAIN	16
 struct filter {
-	struct imsgproc	       *process;
+	int			chain;
+	int			done;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
+	char		        filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
 };
 
 struct mta_host {
@@ -1166,6 +1169,7 @@ void mfa_filter_line(uint64_t, int, const char *);
 void mfa_filter_eom(uint64_t, int, size_t);
 void mfa_filter(uint64_t, int);
 void mfa_filter_event(uint64_t, int);
+void mfa_build_fd_chain(uint64_t, int);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);
