@@ -645,7 +645,6 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 		if (notify)
 			tree_xset(&q->notify, (uintptr_t)(proc), proc);
-
 		if (qhook == HOOK_EOM && proc->hooks & HOOK_DATALINE)
 			q->u.datalen = datalen;
 
