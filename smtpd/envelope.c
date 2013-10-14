@@ -125,6 +125,7 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 		EVP_BOUNCE_TYPE,
 		EVP_BOUNCE_DELAY,
 		EVP_BOUNCE_EXPIRE,
+		EVP_BOUNCE_DSN_RET,
 		EVP_DSN_ENVID,
 		EVP_DSN_NOTIFY,
 		EVP_DSN_ORCPT,
@@ -237,6 +238,7 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		EVP_BOUNCE_TYPE,
 		EVP_BOUNCE_DELAY,
 		EVP_BOUNCE_EXPIRE,
+		EVP_BOUNCE_DSN_RET,
 	};
 	enum envelope_field *pfields = NULL;
 	int	 i, n, l;
@@ -366,6 +368,8 @@ envelope_ascii_field_name(enum envelope_field field)
 		return "bounce-delay";
 	case EVP_BOUNCE_EXPIRE:
 		return "bounce-expire";
+	case EVP_BOUNCE_DSN_RET:
+		return "bounce-dsn-ret";
 	case EVP_DSN_ENVID:
 		return "dsn-envid";
 	case EVP_DSN_NOTIFY:
@@ -461,6 +465,8 @@ envelope_ascii_load(enum envelope_field field, struct envelope *ep, char *buf)
 		return ascii_load_time(&ep->agent.bounce.delay, buf);
 	case EVP_BOUNCE_EXPIRE:
 		return ascii_load_time(&ep->agent.bounce.expire, buf);
+	case EVP_BOUNCE_DSN_RET:
+		return ascii_load_dsn_ret(&ep->agent.bounce.dsn_ret, buf);
 	case EVP_DSN_NOTIFY:
 		return ascii_load_uint8(&ep->dsn_notify, buf);
 	case EVP_DSN_ORCPT:
@@ -552,6 +558,10 @@ envelope_ascii_dump(enum envelope_field field, const struct envelope *ep,
 		if (ep->agent.bounce.type != B_WARNING)
 			return (1);
 		return ascii_dump_time(ep->agent.bounce.expire, buf, len);
+	case EVP_BOUNCE_DSN_RET:
+		if (ep->agent.bounce.type != B_DSN)
+			return (1);
+		return ascii_dump_dsn_ret(ep->agent.bounce.dsn_ret, buf, len);
 	case EVP_DSN_NOTIFY:
 		return ascii_dump_uint8(ep->dsn_notify, buf, len);
 	case EVP_DSN_RET:
