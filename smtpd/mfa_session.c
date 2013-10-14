@@ -164,6 +164,7 @@ mfa_filter_init(void)
 		p = &f->mproc;
 		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
 		m_add_u32(p, FILTER_API_VERSION);
+		m_add_string(p, p->name);
 		m_close(p);
 		mproc_enable(p);
 	}
