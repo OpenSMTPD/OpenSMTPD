@@ -30,8 +30,8 @@ The format described here applies to tables as defined in
 .Xr smtpd.conf 5 .
 .Sh TABLE TYPES
 There are two types of tables: lists and mappings.
-A list consists of a serie of values while a mapping consists of a serie
-of keys and their associated values.
+A list consists of a series of values,
+while a mapping consists of a seriesof keys and their associated values.
 The following illustrates how to declare them as static tables:
 .Bd -literal -offset indent
 table mylist { value1, value2, value3 }
@@ -57,7 +57,7 @@ key3	value3
 .Pp
 A file table can be converted to a
 .Xr db 3
-databases using the
+database using the
 .Xr makemap 8
 utility with no syntax change.
 .Pp
@@ -80,8 +80,8 @@ accept for domain example.org alias <myaliases> deliver to mbox
 accept for domain example.org virtual <myaliases> deliver to mbox
 .Ed
 .Pp
-In a primary domain context, the key is the user-part of the recipient address,
-the value is one or many recipients as described in
+In a primary domain context, the key is the user part of the recipient address,
+whilst the value is one or many recipients as described in
 .Xr aliases 5 :
 .Bd -literal -offset indent
 user1	otheruser
@@ -89,7 +89,7 @@ user2	otheruser1,otheruser2
 user3	otheruser@example.com
 .Ed
 .Pp
-In a virtual domain context, the key is either a user-part, a full email
+In a virtual domain context, the key is either a user part, a full email
 address or a catch all, following selection rules described in
 .Xr smtpd.conf 5 ,
 and the value is one or many recipients as described in
@@ -137,9 +137,12 @@ user2	$2a$06$bwSmUOBGcZGamIfRuXGTvuTo3VLbPG9k5yeKNMBtULBhksV5KdGsK
 The passwords are encrypted using the
 .Xr crypt 3
 function provided by the host.
-On OpenBSD, the
+On
+.Ox ,
+the
 .Xr encrypt 1
-utility may be used, on other systems the
+utility may be used;
+on other systems the
 .Ql mkpasswd
 utility is the most common method for obtaining a proper password.
 .Pp
@@ -164,7 +167,7 @@ accept from source <netaddr> for domain example.org deliver to mbox
 When used as a "from source", the address of a client is compared to the list
 of addresses in the table until a match is found.
 .Pp
-A netaddr table can contain exact addresses or netmasks, it looks as follow:
+A netaddr table can contain exact addresses or netmasks, and looks as follow:
 .Bd -literal -offset indent
 192.168.1.1
 ::1
@@ -174,13 +177,13 @@ ipv6:::1
 .Ss Userinfo tables
 User info tables are used to described virtual system users.
 They are used in rule context to specify an alternate user base, mapping
-virtual users to local system uid, gid and home directory.
+virtual users to local system UID, GID and home directory.
 .Bd -literal -offset indent
 accept for domain example.org userbase <userinfo> deliver to maildir
 .Ed
 .Pp
 The userinfo table is a mapping from virtual user names to a set of system user
-id, group id and path to home directory.
+ID, group ID and path to home directory.
 .Pp
 A userinfo table looks as follows:
 .Bd -literal -offset indent
@@ -189,8 +192,10 @@ jack	1000:100:/home/virtual/jack
 .Ed
 .Pp
 In this example, both joe and jack are virtual users mapped to the local
-system user with uid 1000 and gid 100, but different home directories.
-These directories may contain a .forward file.
+system user with UID 1000 and GID 100, but different home directories.
+These directories may contain a
+.Xr forward 5
+file.
 .Ss Source tables
 Source tables are lists of IPv4 and IPv6 addresses.
 They can only be used in the following context:
@@ -209,7 +214,6 @@ A source table looks as follow:
 ipv6:::3
 ipv6:::4
 .Ed
-
 .Ss Mailaddr tables
 Mailaddr tables are lists of email addresses.
 They can be used in the following contexts:
@@ -228,16 +232,16 @@ user
 user@domain
 .Ed
 .Ss Addrname tables
-Addrname tables are user to map IP addresses to hostnames.
+Addrname tables are used to map IP addresses to hostnames.
 They can be used in both listen context and relay context:
 .Bd -literal -offset indent
 listen on 0.0.0.0 hostnames <addrname>
 accept for any relay hostnames <addrname>
 .Ed
 .Pp
-In listen context, the table is used to lookup the server name to advertise
+In listen context, the table is used to look up the server name to advertise
 depending on the local address of the socket on which a connection is accepted.
-In relay context, the table is used to determine the host name for the HELO
+In relay context, the table is used to determine the hostname for the HELO
 sequence of the SMTP protocol, depending on the local address used for the
 outgoing connection.
 .Pp
@@ -248,6 +252,6 @@ The format is a mapping from inet4 or inet6 addresses to hostnames:
 88.190.23.165	www.opensmtpd.org
 .Ed
 .Sh SEE ALSO
-.Xr smtpd.conf 5
+.Xr smtpd.conf 5 ,
 .Xr makemap 8 ,
 .Xr smtpd 8

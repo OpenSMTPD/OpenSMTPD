@@ -328,6 +328,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: Failed MX query for %s:",
 				    domain->name);
 			}
+			domain->lastmxquery = time(NULL);
 			waitq_run(&domain->mxs, domain);
 			return;
 
@@ -739,7 +740,6 @@ mta_query_mx(struct mta_relay *relay)
 			dns_query_host(id, relay->domain->name);
 		else
 			dns_query_mx(id, relay->domain->name);
-		relay->domain->lastmxquery = time(NULL);
 	}
 	relay->status |= RELAY_WAIT_MX;
 	mta_relay_ref(relay);
@@ -1572,6 +1572,9 @@ mta_relay(struct envelope *e)
 	key.helotable = e->agent.mta.relay.helotable;
 	if (!key.helotable[0])
 		key.helotable = NULL;
+	key.heloname = e->agent.mta.relay.heloname;
+	if (!key.heloname[0])
+		key.heloname = NULL;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r, "mta_relay");
@@ -1594,6 +1597,9 @@ mta_relay(struct envelope *e)
 		if (key.helotable)
 			r->helotable = xstrdup(key.helotable,
 			    "mta: helotable");
+		if (key.heloname)
+			r->heloname = xstrdup(key.heloname,
+			    "mta: heloname");
 		SPLAY_INSERT(mta_relay_tree, &relays, r);
 		stat_increment("mta.relay", 1);
 	} else {
@@ -1618,6 +1624,12 @@ mta_relay_unref(struct mta_relay *relay)
 	if (--relay->refcount)
 		return;
 
+	/* Make sure they are no envelopes held for this relay */
+	m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+	m_add_id(p_queue, relay->id);
+	m_add_int(p_queue, 0);
+	m_close(p_queue);
+
 	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
 
@@ -1629,6 +1641,7 @@ mta_relay_unref(struct mta_relay *relay)
 	free(relay->backupname);
 	free(relay->cert);
 	free(relay->helotable);
+	free(relay->heloname);
 	free(relay->secret);
 	free(relay->sourcetable);
 
@@ -1693,6 +1706,18 @@ mta_relay_to_text(struct mta_relay *relay)
 		strlcat(buf, sep, sizeof buf);
 		strlcat(buf, "sourcetable=", sizeof buf);
 		strlcat(buf, relay->sourcetable, sizeof buf);
+	}
+
+	if (relay->helotable) {
+		strlcat(buf, sep, sizeof buf);
+		strlcat(buf, "helotable=", sizeof buf);
+		strlcat(buf, relay->helotable, sizeof buf);
+	}
+
+	if (relay->heloname) {
+		strlcat(buf, sep, sizeof buf);
+		strlcat(buf, "heloname=", sizeof buf);
+		strlcat(buf, relay->heloname, sizeof buf);
 	}
 
 	strlcat(buf, "]", sizeof buf);
@@ -1825,6 +1850,18 @@ mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 	if (a->sourcetable && b->sourcetable == NULL)
 		return (1);
 	if (a->sourcetable && ((r = strcmp(a->sourcetable, b->sourcetable))))
+		return (r);
+	if (a->helotable == NULL && b->helotable)
+		return (-1);
+	if (a->helotable && b->helotable == NULL)
+		return (1);
+	if (a->helotable && ((r = strcmp(a->helotable, b->helotable))))
+		return (r);
+	if (a->heloname == NULL && b->heloname)
+		return (-1);
+	if (a->heloname && b->heloname == NULL)
+		return (1);
+	if (a->heloname && ((r = strcmp(a->heloname, b->heloname))))
 		return (r);
 
 	if (a->cert == NULL && b->cert)
