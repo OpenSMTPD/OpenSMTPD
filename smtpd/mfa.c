@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -339,7 +340,7 @@ mfa_tx_io(struct io *io, int evt)
 	case IO_DATAIN:
 		data = iobuf_data(&tx->iobuf);
 		len = iobuf_len(&tx->iobuf);
-		log_debug("debug: mfa: tx data (%zu) for req %016"PRIu64,
+		log_debug("debug: mfa: tx data (%zu) for req %016"PRIx64,
 		    len, tx->reqid);
 		n = fwrite(data, 1, len, tx->ofile);
 		if (n != len) {
@@ -352,12 +353,12 @@ mfa_tx_io(struct io *io, int evt)
 		return;
 
 	case IO_DISCONNECTED:
-		log_debug("debug: mfa: tx done for req %016"PRIu64,
+		log_debug("debug: mfa: tx done for req %016"PRIx64,
 		    tx->reqid);
 		break;
 
 	default:
-		log_debug("debug: mfa: tx error for req %016"PRIu64,
+		log_debug("debug: mfa: tx error for req %016"PRIx64,
 		    tx->reqid);
 		tx->error = 1;
 		break;
@@ -374,7 +375,7 @@ mfa_tx_io(struct io *io, int evt)
 static void
 mfa_tx_done(struct mfa_tx *tx)
 {
-	log_debug("debug: mfa: tx done for %016"PRIu64, tx->reqid);
+	log_debug("debug: mfa: tx done for %016"PRIx64, tx->reqid);
 
 	if (!tx->error && tx->datain != tx->datalen) {
 		log_debug("debug: mfa: tx datalen mismatch: %zu/%zu",
