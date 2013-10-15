@@ -54,22 +54,27 @@ enum {
 	QUERY_DONE
 };
 
-struct mfa_filter {
-	TAILQ_ENTRY(mfa_filter)		 entry;
+
+struct mfa_filterproc {
+	TAILQ_ENTRY(mfa_filterproc)	 entry;
 	struct mproc			 mproc;
 	int				 hooks;
 	int				 flags;
 	int				 ready;
 };
 
-struct mfa_filter_chain {
-	TAILQ_HEAD(, mfa_filter)	filters;
+struct mfa_filter {
+	TAILQ_ENTRY(mfa_filter)		 entry;
+	struct mfa_filterproc		*proc;
 };
+TAILQ_HEAD(mfa_filters, mfa_filter);
 
 struct mfa_session {
-	uint64_t				id;
-	int					terminate;
-	TAILQ_HEAD(mfa_queries, mfa_query)	queries;
+	uint64_t				 id;
+	int					 terminate;
+	TAILQ_HEAD(mfa_queries, mfa_query)	 queries;
+	struct mfa_filters			*filters;
+	struct mfa_filter			*fcurr;
 };
 
 struct mfa_query {
@@ -107,11 +112,13 @@ static void mfa_filter_imsg(struct mproc *, struct imsg *);
 static struct mfa_query *mfa_query(struct mfa_session *, int, int);
 static void mfa_drain_query(struct mfa_query *);
 static void mfa_run_query(struct mfa_filter *, struct mfa_query *);
-static void mfa_run_data(struct mfa_filter *, uint64_t, const char *);
-static struct mfa_filter_chain	chain;
+
+static TAILQ_HEAD(, mfa_filterproc)	procs;
+struct dict				chains;
 
 static const char * mfa_query_to_text(struct mfa_query *);
 static const char * mfa_filter_to_text(struct mfa_filter *);
+static const char * mfa_filterproc_to_text(struct mfa_filterproc *);
 static const char * type_to_str(int);
 static const char * hook_to_str(int);
 static const char * status_to_str(int);
@@ -120,32 +127,125 @@ static const char * filterimsg_to_str(int);
 struct tree	sessions;
 struct tree	queries;
 
+
+static void
+mfa_extend_chain(struct mfa_filters *chain, const char *name)
+{
+	struct mfa_filter	*n;
+	struct mfa_filters	*fchain;
+	struct filter		*fconf;
+	int			 i;
+
+	fconf = dict_xget(&env->sc_filters, name);
+	if (fconf->chain) {
+		log_debug("mfa:     extending with \"%s\"", name);
+		for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
+			if (!fconf->filters[i][0])
+				break;
+			mfa_extend_chain(chain, fconf->filters[i]);
+		}
+	}
+	else {
+		log_debug("mfa:     adding filter \"%s\"", name);
+		n = xcalloc(1, sizeof(*n), "mfa_extend_chain");
+		fchain = dict_get(&chains, name);
+		n->proc = TAILQ_FIRST(fchain)->proc;
+		TAILQ_INSERT_TAIL(chain, n, entry);
+	}
+}
+
 void
 mfa_filter_prepare(void)
 {
 	static int		 prepare = 0;
 	struct filter		*filter;
 	void			*iter;
+	struct mfa_filterproc	*proc;
+	struct mfa_filters	*fchain;
 	struct mfa_filter	*f;
 	struct mproc		*p;
+	int			 done, i;
 
 	if (prepare)
 		return;
 	prepare = 1;
 
-	TAILQ_INIT(&chain.filters);
+	TAILQ_INIT(&procs);
+	dict_init(&chains);
 
+	log_debug("mfa: building simple chains...");
+
+	/* create all filter proc and associated chains */
 	iter = NULL;
 	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
-		f = xcalloc(1, sizeof *f, "mfa_filter_init");
-		p = &f->mproc;
+		if (filter->chain)
+			continue;
+
+		log_debug("mfa: building simple chain \"%s\"", filter->name);
+
+		proc = xcalloc(1, sizeof(*proc), "mfa_filter_init");
+		p = &proc->mproc;
 		p->handler = mfa_filter_imsg;
 		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "mfa_filter_init");
-		p->data = f;
+		p->data = proc;
 		if (mproc_fork(p, filter->path, filter->name) < 0)
 			fatalx("mfa_filter_init");
-		TAILQ_INSERT_TAIL(&chain.filters, f, entry);
+
+		log_debug("mfa: registering proc \"%s\"", filter->name);
+
+		f = xcalloc(1, sizeof(*f), "mfa_filter_init");
+		f->proc = proc;
+
+		TAILQ_INSERT_TAIL(&procs, proc, entry);
+		fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+		TAILQ_INIT(fchain);
+		TAILQ_INSERT_TAIL(fchain, f, entry);
+		dict_xset(&chains, filter->name, fchain);
+		filter->done = 1;
+	}
+
+	log_debug("mfa: building complex chains...");
+
+	/* resolve all chains */
+	done = 0;
+	while (!done) {
+		done = 1;
+		iter = NULL;
+		while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
+			if (filter->done)
+				continue;
+			done = 0;
+			filter->done = 1;
+			for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
+				if (!filter->filters[i][0])
+					break;
+				if (!dict_get(&chains, filter->filters[i])) {
+					filter->done = 0;
+					break;
+				}
+			}
+			if (filter->done == 0)
+				continue;
+			fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+			TAILQ_INIT(fchain);
+			log_debug("mfa: building chain \"%s\"...", filter->name);
+			for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
+				if (!filter->filters[i][0])
+					break;
+				mfa_extend_chain(fchain, filter->filters[i]);
+			}
+			log_debug("mfa: done building chain \"%s\"", filter->name);
+			dict_xset(&chains, filter->name, fchain);
+		}
+	}
+	log_debug("mfa: done building complex chains");
+
+	if (dict_get(&chains, "default") == NULL) {
+		log_debug("mfa: done building default chain");
+		fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+		TAILQ_INIT(fchain);
+		dict_xset(&chains, "default", fchain);
 	}
 }
 
@@ -153,8 +253,7 @@ void
 mfa_filter_init(void)
 {
 	static int		 init = 0;
-	struct mfa_filter	*f;
-	struct mproc		*p;
+	struct mfa_filterproc	*p;
 
 	if (init)
 		return;
@@ -163,15 +262,15 @@ mfa_filter_init(void)
 	tree_init(&sessions);
 	tree_init(&queries);
 
-	TAILQ_FOREACH(f, &chain.filters, entry) {
-		p = &f->mproc;
-		m_create(p, IMSG_FILTER_REGISTER, 0, 0, -1);
-		m_add_u32(p, FILTER_API_VERSION);
-		m_close(p);
-		mproc_enable(p);
+	TAILQ_FOREACH(p, &procs, entry) {
+		m_create(&p->mproc, IMSG_FILTER_REGISTER, 0, 0, -1);
+		m_add_u32(&p->mproc, FILTER_API_VERSION);
+		m_add_string(&p->mproc, p->mproc.name);
+		m_close(&p->mproc);
+		mproc_enable(&p->mproc);
 	}
 
-	if (TAILQ_FIRST(&chain.filters) == NULL)
+	if (TAILQ_FIRST(&procs) == NULL)
 		mfa_ready();
 }
 
@@ -184,6 +283,7 @@ mfa_filter_connect(uint64_t id, const struct sockaddr *local,
 
 	s = xcalloc(1, sizeof(*s), "mfa_query_connect");
 	s->id = id;
+	s->filters = dict_xget(&chains, "default");
 	TAILQ_INIT(&s->queries);
 	tree_xset(&sessions, s->id, s);
 
@@ -257,54 +357,6 @@ mfa_filter(uint64_t id, int hook)
 	mfa_drain_query(q);
 }
 
-void
-mfa_filter_data(uint64_t id, const char *line)
-{
-	mfa_run_data(TAILQ_FIRST(&chain.filters), id, line);
-}
-
-static void
-mfa_run_data(struct mfa_filter *f, uint64_t id, const char *line)
-{
-	struct mproc	*p;
-
-	log_trace(TRACE_MFA,
-	    "filter: running data for %016"PRIx64" on filter %p: %s", id, f, line);
-
-	/* Send the dataline to the filters that want to see it. */
-	while (f) {
-		if (f->hooks & HOOK_DATALINE) {
-			p = &f->mproc;
-			m_create(p, IMSG_FILTER_DATA, 0, 0, -1);
-			m_add_id(p, id);
-			m_add_string(p, line);
-			m_close(p);
-
-			/*
-			 * If this filter wants to alter data, we stop
-			 * iterating here, and the filter becomes responsible
-			 * for sending datalines back.
-			 */
-			if (f->flags & FILTER_ALTERDATA) {
-				log_trace(TRACE_MFA,
-	 			   "filter: expect datalines from filter %s",
-				   mfa_filter_to_text(f));
-				return;
-			}
-		}
-		f = TAILQ_NEXT(f, entry);
-	}
-
-	/* When all filters are done, send the line back to the smtp process. */
-	log_trace(TRACE_MFA,
-	    "filter: sending final data to smtp for %016"PRIx64" on filter %p: %s", id, f, line);
-
-	m_create(p_smtp, IMSG_MFA_SMTP_DATA, 0, 0, -1);
-	m_add_id(p_smtp, id);
-	m_add_string(p_smtp, line);
-	m_close(p_smtp);
-}
-
 static struct mfa_query *
 mfa_query(struct mfa_session *s, int type, int hook)
 {
@@ -319,7 +371,7 @@ mfa_query(struct mfa_session *s, int type, int hook)
 	TAILQ_INSERT_TAIL(&s->queries, q, entry);
 
 	q->state = QUERY_READY;
-	q->current = TAILQ_FIRST(&chain.filters);
+	q->current = TAILQ_FIRST(s->filters);
 	q->hasrun = 0;
 
 	log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
@@ -331,7 +383,7 @@ mfa_query(struct mfa_session *s, int type, int hook)
 static void
 mfa_drain_query(struct mfa_query *q)
 {
-	struct mfa_filter	*f;
+	struct mfa_filterproc	*proc;
 	struct mfa_query	*prev;
 
 	log_trace(TRACE_MFA, "filter: draining query %s", mfa_query_to_text(q));
@@ -387,11 +439,11 @@ mfa_drain_query(struct mfa_query *q)
 		    q->smtp.response);
 
 		/* Done, notify all listeners and return smtp response */
-		while (tree_poproot(&q->notify, NULL, (void**)&f)) {
-			m_create(&f->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1);
-			m_add_id(&f->mproc, q->qid);
-			m_add_int(&f->mproc, q->smtp.status);
-			m_close(&f->mproc);
+		while (tree_poproot(&q->notify, NULL, (void**)&proc)) {
+			m_create(&proc->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1);
+			m_add_id(&proc->mproc, q->qid);
+			m_add_int(&proc->mproc, q->smtp.status);
+			m_close(&proc->mproc);
 		}
 
 		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
@@ -419,7 +471,7 @@ mfa_drain_query(struct mfa_query *q)
 static void
 mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 {
-	if ((f->hooks & q->hook) == 0) {
+	if ((f->proc->hooks & q->hook) == 0) {
 		log_trace(TRACE_MFA, "filter: skipping filter %s for query %s",
 		    mfa_filter_to_text(f), mfa_query_to_text(q));
 		return;
@@ -429,95 +481,83 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 	    mfa_filter_to_text(f), mfa_query_to_text(q));
 
 	if (q->type == QT_QUERY) {
-		m_create(&f->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
-		m_add_id(&f->mproc, q->session->id);
-		m_add_id(&f->mproc, q->qid);
-		m_add_int(&f->mproc, q->hook);
+		m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
+		m_add_id(&f->proc->mproc, q->session->id);
+		m_add_id(&f->proc->mproc, q->qid);
+		m_add_int(&f->proc->mproc, q->hook);
 
 		switch (q->hook) {
 		case HOOK_CONNECT:
-			m_add_sockaddr(&f->mproc,
+			m_add_sockaddr(&f->proc->mproc,
 			    (struct sockaddr *)&q->u.connect.local);
-			m_add_sockaddr(&f->mproc,
+			m_add_sockaddr(&f->proc->mproc,
 			    (struct sockaddr *)&q->u.connect.remote);
-			m_add_string(&f->mproc, q->u.connect.hostname);
+			m_add_string(&f->proc->mproc, q->u.connect.hostname);
 			break;
 		case HOOK_HELO:
-			m_add_string(&f->mproc, q->u.line);
+			m_add_string(&f->proc->mproc, q->u.line);
 			break;
 		case HOOK_MAIL:
 		case HOOK_RCPT:
-			m_add_mailaddr(&f->mproc, &q->u.maddr);
+			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
 			break;
 		default:
 			break;
 		}
-
-		m_close(&f->mproc);
+		m_close(&f->proc->mproc);
 
 		tree_xset(&queries, q->qid, q);
 		q->state = QUERY_RUNNING;
 	}
 	else {
-		m_create(&f->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
-		m_add_id(&f->mproc, q->session->id);
-		m_add_int(&f->mproc, q->hook);
-		m_close(&f->mproc);
+		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
+		m_add_id(&f->proc->mproc, q->session->id);
+		m_add_int(&f->proc->mproc, q->hook);
+		m_close(&f->proc->mproc);
  	}
 }
 
 static void
 mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct mfa_filter	*f;
+	struct mfa_filterproc	*proc = p->data;
 	struct mfa_query	*q, *next;
 	struct msg		 m;
 	const char		*line;
-	uint64_t		 id, qid;
+	uint64_t		 qid;
 	int			 status, code, notify;
 
-	f = p->data;
-
 	if (imsg == NULL) {
-		log_warnx("warn: filter \"%s\" closed unexpectedly",
-		    p->name);
+		log_warnx("warn: filter \"%s\" closed unexpectedly", p->name);
 		fatalx("exiting");
 	}
 
-	log_trace(TRACE_MFA, "filter: imsg %s from filter %s",
+	log_trace(TRACE_MFA, "filter: imsg %s from procfilter %s",
 	    filterimsg_to_str(imsg->hdr.type),
-	    mfa_filter_to_text(f));
+	    mfa_filterproc_to_text(proc));
 
 	switch (imsg->hdr.type) {
 
 	case IMSG_FILTER_REGISTER:
-		if (f->ready) {
+		if (proc->ready) {
 			log_warnx("warn: filter \"%s\" already registered",
-			    f->mproc.name);
+			    proc->mproc.name);
 			exit(1);
 		}
 		
 		m_msg(&m, imsg);
-		m_get_int(&m, &f->hooks);
-		m_get_int(&m, &f->flags);
+		m_get_int(&m, &proc->hooks);
+		m_get_int(&m, &proc->flags);
 		m_end(&m);
-		f->ready = 1;
+		proc->ready = 1;
 
 		log_debug("debug: filter \"%s\": hooks 0x%08x flags 0x%04x",
-		    f->mproc.name, f->hooks, f->flags);
+		    proc->mproc.name, proc->hooks, proc->flags);
 
-		TAILQ_FOREACH(f, &chain.filters, entry)
-			if (!f->ready)
+		TAILQ_FOREACH(proc, &procs, entry)
+			if (!proc->ready)
 				return;
 		mfa_ready();
-		break;
-
-	case IMSG_FILTER_DATA:
-		m_msg(&m, imsg);
-		m_get_id(&m, &id);
-		m_get_string(&m, &line);
-		m_end(&m);
-		mfa_run_data(TAILQ_NEXT(f, entry), id, line);
 		break;
 
 	case IMSG_FILTER_RESPONSE:
@@ -530,7 +570,6 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			line = NULL;
 		else
 			m_get_string(&m, &line);
-		
 		m_end(&m);
 
 		q = tree_xpop(&queries, qid);
@@ -543,7 +582,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		}
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 		if (notify)
-			tree_xset(&q->notify, (uintptr_t)(f), f);
+			tree_xset(&q->notify, (uintptr_t)(proc), proc);
 
 		next = TAILQ_NEXT(q, entry);
 		mfa_drain_query(q);
@@ -557,7 +596,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		break;
 
 	default:
-		log_warnx("bad imsg from filter %s", p->name);
+		log_warnx("warn: bad imsg from filter %s", p->name);
 		exit(1);
 	}
 }
@@ -608,12 +647,21 @@ mfa_filter_to_text(struct mfa_filter *f)
 {
 	static char buf[1024];
 
-	snprintf(buf, sizeof buf, "%s[hooks=0x%04x,flags=0x%x]",
-	    f->mproc.name, f->hooks, f->flags);
+	snprintf(buf, sizeof buf, "filter:%s", mfa_filterproc_to_text(f->proc));
 
 	return (buf);
 }
 
+static const char *
+mfa_filterproc_to_text(struct mfa_filterproc *proc)
+{
+	static char buf[1024];
+
+	snprintf(buf, sizeof buf, "%s[hooks=0x%04x,flags=0x%x]",
+	    proc->mproc.name, proc->hooks, proc->flags);
+
+	return (buf);
+}
 
 #define CASE(x) case x : return #x
 
@@ -625,7 +673,6 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_EVENT);
 	CASE(IMSG_FILTER_QUERY);
 	CASE(IMSG_FILTER_NOTIFY);
-	CASE(IMSG_FILTER_DATA);
 	CASE(IMSG_FILTER_RESPONSE);
 	default:
 		return "IMSG_FILTER_???";

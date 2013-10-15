@@ -80,7 +80,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_SMTP_DATA:
 		case IMSG_MFA_SMTP_RESPONSE:
 			smtp_session_imsg(p, imsg);
 			return;

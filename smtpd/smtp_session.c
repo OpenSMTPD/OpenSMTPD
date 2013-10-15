@@ -341,15 +341,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
-	case IMSG_MFA_SMTP_DATA:
-		m_msg(&m, imsg);
-		m_get_id(&m, &reqid);
-		m_get_string(&m, &line);
-		m_end(&m);
-		if ((s = tree_get(&wait_mfa_data, reqid)))
-			smtp_message_write(s, line);
-		return;
-
 	case IMSG_MFA_SMTP_RESPONSE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
