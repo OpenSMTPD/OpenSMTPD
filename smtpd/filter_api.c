@@ -24,6 +24,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
