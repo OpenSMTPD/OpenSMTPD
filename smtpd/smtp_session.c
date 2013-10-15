@@ -857,6 +857,7 @@ smtp_io(struct io *io, int evt)
 
 			m_create(p_mfa, IMSG_MFA_REQ_EOM, 0, 0, -1);
 			m_add_id(p_mfa, s->id);
+			m_add_u32(p_mfa, s->datalen);
 			m_close(p_mfa);
 			smtp_wait_mfa(s, IMSG_MFA_REQ_EOM);
 			return;

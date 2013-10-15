@@ -49,6 +49,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*line, *hostname;
 	uint64_t		 reqid;
+	uint32_t		 datalen; /* XXX maike it off_t? */
 	int			 v;
 
 	if (p->proc == PROC_SMTP) {
@@ -98,8 +99,9 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_MFA_REQ_EOM:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
+			m_get_u32(&m, &datalen);
 			m_end(&m);
-			mfa_filter(reqid, HOOK_EOM);
+			mfa_filter_eom(reqid, HOOK_EOM, datalen);
 			return;
 
 		case IMSG_MFA_EVENT_RSET:
