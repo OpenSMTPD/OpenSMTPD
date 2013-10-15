@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <imsg.h>
 #include <pwd.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
