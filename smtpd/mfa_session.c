@@ -96,6 +96,7 @@ struct mfa_query {
 		} connect;
 		char			line[SMTPD_MAXLINESIZE];
 		struct mailaddr		maddr;
+		size_t			datalen;
 	} u;
 
 	/* current response */
@@ -344,6 +345,19 @@ mfa_filter_line(uint64_t id, int hook, const char *line)
 }
 
 void
+mfa_filter_eom(uint64_t id, int hook, size_t datalen)
+{
+	struct mfa_session	*s;
+	struct mfa_query	*q;
+
+	s = tree_xget(&sessions, id);
+	q = mfa_query(s, QT_QUERY, hook);
+	q->u.datalen = datalen;
+
+	mfa_drain_query(q);
+}
+
+void
 mfa_filter(uint64_t id, int hook)
 {
 	struct mfa_session	*s;
@@ -499,6 +513,9 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 		case HOOK_RCPT:
 			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
 			break;
+		case HOOK_EOM:
+			m_add_u32(&f->proc->mproc, q->u.datalen);
+			break;
 		default:
 			break;
 		}
@@ -523,7 +540,8 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*line;
 	uint64_t		 qid;
-	int			 status, code, notify;
+	uint32_t		 datalen;
+	int			 qhook, status, code, notify;
 
 	if (imsg == NULL) {
 		log_warnx("warn: filter \"%s\" closed unexpectedly", p->name);
@@ -561,6 +579,9 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_FILTER_RESPONSE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
+		m_get_int(&m, &qhook);
+		if (qhook == HOOK_EOM)
+			m_get_u32(&m, &datalen);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
 		m_get_int(&m, &notify);
@@ -571,6 +592,10 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		q = tree_xpop(&queries, qid);
+		if (q->hook != qhook) {
+			log_warnx("warn: mfa: hook mismatch %i != %i", q->hook, qhook);
+			fatalx("exiting");
+		}
 		q->smtp.status = status;
 		if (code)
 			q->smtp.code = code;
@@ -581,6 +606,8 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 		if (notify)
 			tree_xset(&q->notify, (uintptr_t)(proc), proc);
+		if (qhook == HOOK_EOM)
+			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
 		mfa_drain_query(q);
