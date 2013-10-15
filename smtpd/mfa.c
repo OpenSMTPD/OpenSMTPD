@@ -65,7 +65,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*line, *hostname;
 	uint64_t		 reqid;
-	uint32_t		 datalen; /* XXX make it off_t ? */
+	uint32_t		 datalen; /* XXX make it off_t? */
 	int			 v, success, fdout;
 
 	if (p->proc == PROC_SMTP) {
