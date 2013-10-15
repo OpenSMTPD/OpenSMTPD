@@ -296,7 +296,7 @@ filter_api_writeln(uint64_t id, const char *line)
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line, int notify)
 {
-	log_debug("debug: filter-api:%s: got response %s for %016"PRIu64" %i %i %s",
+	log_debug("debug: filter-api:%s: got response %s for %016"PRIx64" %i %i %s",
 	    filter_name, hook_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
@@ -325,7 +325,7 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 static void
 filter_send_response(struct filter_session *s)
 {
-	log_debug("debug: filter-api:%s: sending response %s for %016"PRIu64" %i %i %s",
+	log_debug("debug: filter-api:%s: sending response %s for %016"PRIx64" %i %i %s",
 	    filter_name, hook_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
@@ -336,8 +336,9 @@ filter_send_response(struct filter_session *s)
 	m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1);
 	m_add_id(&fi.p, s->qid);
 	m_add_int(&fi.p, s->qhook);
-	if (s->qhook == HOOK_EOM && fi.hooks & HOOK_DATALINE)
-		m_add_u32(&fi.p, s->pipe.odatalen);
+	if (s->qhook == HOOK_EOM)
+		m_add_u32(&fi.p, (s->qhook & HOOK_DATALINE) ?
+		    s->pipe.odatalen : s->pipe.datalen);
 	m_add_int(&fi.p, s->response.status);
 	m_add_int(&fi.p, s->response.code);
 	m_add_int(&fi.p, s->response.notify);
@@ -512,10 +513,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_dispatch_data(id, qid);
 			break;
 		case HOOK_EOM:
-			if (fi.hooks & HOOK_DATALINE)
-				m_get_u32(&m, &datalen);
-			else
-				datalen = 0;
+			m_get_u32(&m, &datalen);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_eom(id, qid, datalen);
@@ -551,7 +549,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			fdin = fds[1];
 			/* XXX notify? */
 		}
-		log_debug("debug: filter-api:%s: tx pipe %i -> %i for %016"PRIu64, filter_name, fdin, fdout, id);
+		log_debug("debug: filter-api:%s: tx pipe %i -> %i for %016"PRIx64, filter_name, fdin, fdout, id);
 		m_create(&fi.p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdin);
 		m_add_id(&fi.p, id);
 		m_close(&fi.p);
@@ -589,7 +587,7 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s: query %s for %016"PRIu64,
+	log_debug("debug: filter-api:%s: query %s for %016"PRIx64,
 		filter_name, hook_to_str(hook), id);
 
 	s = tree_xget(&sessions, id);
@@ -658,7 +656,7 @@ filter_dispatch_eom(uint64_t id, uint64_t qid, size_t datalen)
 	if (fi.hooks & HOOK_DATALINE) {
 		/* wait for the io to be done  */
 		if (s->pipe.iev.sock != -1) {
-			log_debug("debug: filter-api:%s: eom received for %016"PRIu64", waiting for io to end",
+			log_debug("debug: filter-api:%s: eom received for %016"PRIx64", waiting for io to end",
 			    filter_name, id);
 			return;
 		}
@@ -751,7 +749,7 @@ filter_io_in(struct io *io, int evt)
 		if (s->qhook == HOOK_EOM)
 			filter_trigger_eom(s);
 		else {
-			log_debug("debug: filter-api:%s: datain closed, for %016"PRIu64", waiting for eom",
+			log_debug("debug: filter-api:%s: datain closed, for %016"PRIx64", waiting for eom",
 		    filter_name, s->id);
 		}
 		break;

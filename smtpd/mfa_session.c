@@ -551,8 +551,7 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
 			break;
 		case HOOK_EOM:
-			if (f->proc->hooks & HOOK_DATALINE)
-				m_add_u32(&f->proc->mproc, q->u.datalen);
+			m_add_u32(&f->proc->mproc, q->u.datalen);
 			break;
 		default:
 			break;
@@ -619,7 +618,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
 		m_get_int(&m, &qhook);
-		if ((qhook == HOOK_EOM) && (proc->hooks & HOOK_DATALINE))
+		if (qhook == HOOK_EOM)
 			m_get_u32(&m, &datalen);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
@@ -645,7 +644,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 		if (notify)
 			tree_xset(&q->notify, (uintptr_t)(proc), proc);
-		if (qhook == HOOK_EOM && proc->hooks & HOOK_DATALINE)
+		if (qhook == HOOK_EOM)
 			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
