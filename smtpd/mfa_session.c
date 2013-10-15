@@ -111,6 +111,7 @@ static void mfa_filter_imsg(struct mproc *, struct imsg *);
 static struct mfa_query *mfa_query(struct mfa_session *, int, int);
 static void mfa_drain_query(struct mfa_query *);
 static void mfa_run_query(struct mfa_filter *, struct mfa_query *);
+static void mfa_set_fdout(struct mfa_session *, int);
 
 static TAILQ_HEAD(, mfa_filterproc)	procs;
 struct dict				chains;
@@ -369,6 +370,42 @@ mfa_filter(uint64_t id, int hook)
 	mfa_drain_query(q);
 }
 
+static void
+mfa_set_fdout(struct mfa_session *s, int fdout)
+{
+	struct mproc	*p;
+
+	while(s->fcurr) {
+		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
+			log_trace(TRACE_MFA, "mfa: sending fd %i to %s", fdout, mfa_filter_to_text(s->fcurr));
+			p = &s->fcurr->proc->mproc;
+			m_create(p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdout);
+			m_add_id(p, s->id);
+			m_close(p);
+			return;
+		}
+		s->fcurr = TAILQ_PREV(s->fcurr, mfa_filters, entry);
+	}
+
+	log_trace(TRACE_MFA, "mfa: chain input is %i", fdout);
+
+	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
+	m_add_id(p_smtp, s->id);
+	m_add_int(p_smtp, 1);
+	m_close(p_smtp);
+	return;
+}
+
+void
+mfa_build_fd_chain(uint64_t id, int fdout)
+{
+	struct mfa_session	*s;
+
+	s = tree_xget(&sessions, id);
+	s->fcurr = TAILQ_LAST(s->filters, mfa_filters);
+	mfa_set_fdout(s, fdout);
+}
+
 static struct mfa_query *
 mfa_query(struct mfa_session *s, int type, int hook)
 {
@@ -536,6 +573,7 @@ static void
 mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct mfa_filterproc	*proc = p->data;
+	struct mfa_session	*s;
 	struct mfa_query	*q, *next;
 	struct msg		 m;
 	const char		*line;
@@ -620,6 +658,16 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_drain_query(next);
 		break;
 
+	case IMSG_FILTER_PIPE_SETUP:
+		m_msg(&m, imsg);
+		m_get_id(&m, &qid);
+		m_end(&m);
+
+		s = tree_xget(&sessions, qid);
+		s->fcurr = TAILQ_PREV(s->fcurr, mfa_filters, entry);
+		mfa_set_fdout(s, imsg->fd);
+		break;
+
 	default:
 		log_warnx("warn: bad imsg from filter %s", p->name);
 		exit(1);
@@ -697,6 +745,8 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_REGISTER);
 	CASE(IMSG_FILTER_EVENT);
 	CASE(IMSG_FILTER_QUERY);
+	CASE(IMSG_FILTER_PIPE_SETUP);
+	CASE(IMSG_FILTER_PIPE_ABORT);
 	CASE(IMSG_FILTER_NOTIFY);
 	CASE(IMSG_FILTER_RESPONSE);
 	default:
