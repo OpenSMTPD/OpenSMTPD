@@ -807,7 +807,6 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
-	int				 ext;
 	char				*dsn_orcpt;
 	char				dsn_envid[101];
 	uint8_t				dsn_notify;

@@ -776,9 +776,6 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_MAIL:
 		e = s->currevp;
-		if (e == NULL)
-			s->currevp = e = TAILQ_FIRST(&s->task->envelopes);
-
 		s->hangon = 0;
 		s->msgtried++;
 		envid_sz = strlen(e->dsn_envid);
@@ -794,12 +791,10 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_RCPT:
-		e = s->currevp;
-		if (e == NULL) {
-			s->currevp = e = TAILQ_FIRST(&s->task->envelopes);
-			e->ext = s->ext;
-		}
+		if (s->currevp == NULL)
+			s->currevp = TAILQ_FIRST(&s->task->envelopes);
 
+		e = s->currevp;
 		if (s->ext & MTA_EXT_DSN) {
 			mta_send(s, "RCPT TO:<%s> %s%s %s%s",
 			    e->dest,
@@ -998,8 +993,6 @@ mta_response(struct mta_session *s, char *line)
 		}
 
 		s->currevp = TAILQ_NEXT(s->currevp, entry);
-		if (s->currevp != NULL)
-			s->currevp->ext = s->ext;
 		if (line[0] == '2') {
 			mta_flush_failedqueue(s);
 			/*
