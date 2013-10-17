@@ -96,7 +96,6 @@ enum mta_state {
 #define MTA_EXT_AUTH		0x04
 #define MTA_EXT_AUTH_PLAIN     	0x08
 #define MTA_EXT_AUTH_LOGIN     	0x10
-#define MTA_EXT_DSN		0x20
 
 struct failed_evp {
 	int			 delivery;
@@ -775,6 +774,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
+		if (s->currevp == NULL)
+			s->currevp = TAILQ_FIRST(&s->task->envelopes);
+
 		e = s->currevp;
 		s->hangon = 0;
 		s->msgtried++;
@@ -1385,6 +1387,7 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 
 		/* we're about to log, associate session to envelope */
 		e->session = s->id;
+		e->ext = s->ext;
 
 		/* XXX */
 		/*
