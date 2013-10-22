@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -210,7 +211,7 @@ enqueue(int argc, char *argv[])
 			break;
 		case 'q':
 			/* XXX: implement "process all now" */
-			return (0);
+			return (EX_SOFTWARE);
 		default:
 			usage();
 		}
@@ -220,7 +221,7 @@ enqueue(int argc, char *argv[])
 	argv += optind;
 
 	if (getmailname(host, sizeof(host)) == -1)
-		err(1, "getmailname");
+		err(EX_NOHOST, "getmailname");
 	if ((pw = getpwuid(getuid())) == NULL)
 		user = "anonymous";
 	if (pw != NULL)
@@ -240,13 +241,13 @@ enqueue(int argc, char *argv[])
 			unlink(sfn);
 			close(fd);
 		}
-		err(1, "mkstemp");
+		err(EX_UNAVAILABLE, "mkstemp");
 	}
 	unlink(sfn);
 	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
 
 	if (msg.rcpt_cnt == 0)
-		errx(1, "no recipients");
+		errx(EX_SOFTWARE, "no recipients");
 
 	/* init session */
 	rewind(fp);
@@ -258,11 +259,11 @@ enqueue(int argc, char *argv[])
 		return (enqueue_offline(save_argc, save_argv, fp));
 
 	if ((msg.fd = open_connection()) == -1)
-		errx(1, "server too busy");
+		errx(EX_UNAVAILABLE, "server too busy");
 
 	fout = fdopen(msg.fd, "a+");
 	if (fout == NULL)
-		err(1, "fdopen");
+		err(EX_UNAVAILABLE, "fdopen");
 
 	/* 
 	 * We need to call get_responses after every command because we don't
@@ -328,12 +329,12 @@ enqueue(int argc, char *argv[])
 	for (;;) {
 		buf = fgetln(fp, &len);
 		if (buf == NULL && ferror(fp))
-			err(1, "fgetln");
+			err(EX_UNAVAILABLE, "fgetln");
 		if (buf == NULL && feof(fp))
 			break;
 		/* newlines have been normalized on first parsing */
 		if (buf[len-1] != '\n')
-			errx(1, "expect EOL");
+			errx(EX_SOFTWARE, "expect EOL");
 
 		dotted = 0;
 		if (buf[0] == '.') {
@@ -375,7 +376,7 @@ enqueue(int argc, char *argv[])
 	fclose(fp);
 	fclose(fout);
 
-	exit(0);
+	exit(EX_OK);
 }
 
 static void
@@ -747,31 +748,31 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 	mode_t	 omode;
 
 	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 0) == 0)
-		errx(1, "error in offline directory setup");
+		errx(EX_UNAVAILABLE, "error in offline directory setup");
 
 	if (! bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
 		PATH_OFFLINE, (long long int) time(NULL)))
-		err(1, "snprintf");
+		err(EX_UNAVAILABLE, "snprintf");
 
 	omode = umask(7077);
 	if ((fd = mkstemp(path)) == -1 || (fp = fdopen(fd, "w+")) == NULL) {
 		warn("cannot create temporary file %s", path);
 		if (fd != -1)
 			unlink(path);
-		exit(1);
+		exit(EX_UNAVAILABLE);
 	}
 	umask(omode);
 
 	if (fchmod(fd, 0600) == -1) {
 		unlink(path);
-		exit(1);
+		exit(EX_SOFTWARE);
 	}
 
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {
 			warnx("%s contains illegal character", argv[i]);
 			unlink(path);
-			exit(1);
+			exit(EX_SOFTWARE);
 		}
 		fprintf(fp, "%s%s", i == 1 ? "" : "|", argv[i]);
 	}
@@ -782,16 +783,16 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 		if (fputc(ch, fp) == EOF) {
 			warn("write error");
 			unlink(path);
-			exit(1);
+			exit(EX_UNAVAILABLE);
 		}
 
 	if (ferror(ifile)) {
 		warn("read error");
 		unlink(path);
-		exit(1);
+		exit(EX_UNAVAILABLE);
 	}
 
 	fclose(fp);
 
-	return (0);
+	return (EX_TEMPFAIL);
 }
