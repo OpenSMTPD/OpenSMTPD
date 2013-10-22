@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -791,5 +792,5 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 
 	fclose(fp);
 
-	return (0);
+	return (EX_TEMPFAIL);
 }
