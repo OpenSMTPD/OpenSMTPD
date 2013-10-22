@@ -320,17 +320,14 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_LKA_SSL_INIT:
 		resp_ca_cert = imsg->data;
 		s = mta_tree_pop(&wait_ssl_init, resp_ca_cert->reqid);
-		if (s == NULL) {
-			free(resp_ca_cert);
+		if (s == NULL)
 			return;
-		}
 
 		if (resp_ca_cert->status == CA_FAIL) {
 			if (s->relay->cert) {
 				log_info("smtp-out: Disconnecting session %016"PRIx64
 				    ": CA failure", s->id);
 				mta_free(s);
-				free(resp_ca_cert);
 				return;
 			}
 			else {
@@ -338,7 +335,6 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 				if (ssl == NULL)
 					fatal("mta: ssl_mta_init");
 				io_start_tls(&s->io, ssl);
-				free(resp_ca_cert);
 				return;
 			}
 		}
@@ -368,10 +364,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_LKA_SSL_VERIFY:
 		resp_ca_vrfy = imsg->data;
 		s = mta_tree_pop(&wait_ssl_verify, resp_ca_vrfy->reqid);
-		if (s == NULL) {
-			free(resp_ca_vrfy);
+		if (s == NULL)
 			return;
-		}
 
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= MTA_VERIFIED;
@@ -379,14 +373,12 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			errno = 0;
 			mta_error(s, "SSL certificate check failed");
 			mta_free(s);
-			free(resp_ca_vrfy);
 			return;
 		}
 
 		mta_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
 		io_reload(&s->io);
-		free(resp_ca_vrfy);
 		return;
 
 	case IMSG_LKA_HELO:

@@ -565,7 +565,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": CA failure", s->id);
 			smtp_free(s, "CA failure");
-			free(resp_ca_cert);
 			return;
 		}
 
@@ -602,12 +601,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": SSL certificate check failed", s->id);
 			smtp_free(s, "SSL certificate check failed");	
-			free(resp_ca_vrfy);
 			return;
 		}
 		smtp_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
-		free(resp_ca_vrfy);
 		return;
 	}
 
