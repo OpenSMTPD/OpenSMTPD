@@ -333,6 +333,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
+			m_end(&m);
 
 			table = table_find(tablename, NULL);
 
