@@ -482,7 +482,7 @@ mfa_drain_query(struct mfa_query *q)
 	if (q->type == QT_QUERY) {
 
 		log_trace(TRACE_MFA,
-		    "filter: query 0x%016"PRIx64" done: "
+		    "filter: query %016"PRIx64" done: "
 		    "status=%s code=%i response=\"%s\"",
 		    q->qid,
 		    status_to_str(q->smtp.status),
@@ -510,8 +510,9 @@ mfa_drain_query(struct mfa_query *q)
 
 	TAILQ_REMOVE(&q->session->queries, q, entry);
 	/* If the query was a disconnect event, the session can be freed */
-	if (q->type == HOOK_DISCONNECT) {
+	if (q->hook == HOOK_DISCONNECT) {
 		/* XXX assert prev == NULL */
+		log_trace(TRACE_MFA, "filter: freeing session %016" PRIx64, q->session->id);
 		free(q->session);
 	}
 
@@ -732,7 +733,7 @@ mfa_filterproc_to_text(struct mfa_filterproc *proc)
 {
 	static char buf[1024];
 
-	snprintf(buf, sizeof buf, "%s[hooks=0x%04x,flags=0x%x]",
+	snprintf(buf, sizeof buf, "%s[hooks=0x%08x,flags=0x%04x]",
 	    proc->mproc.name, proc->hooks, proc->flags);
 
 	return (buf);
