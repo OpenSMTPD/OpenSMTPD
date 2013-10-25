@@ -12,6 +12,7 @@ PROG=		smtpd
 
 SRCS=		aliases.c bounce.c ca.c compress_backend.c config.c		\
 		control.c crypto.c csprng.c delivery.c dict.c dns.c envelope.c	\
+		envelope_v2.c							\
 		expand.c forward.c iobuf.c ioev.c limit.c lka.c	lka_session.c	\
 		log.c mda.c mfa.c mfa_session.c mproc.c				\
 		mta.c mta_session.c parse.y queue.c queue_backend.c		\
