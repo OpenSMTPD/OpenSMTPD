@@ -247,7 +247,7 @@ queue_msg_dispatch(void)
 		queue_msg_close();
 
 	default:
-		log_warnx("warn: queue-api: bad message %i", imsg.hdr.type);
+		log_warnx("warn: queue-api: bad message %d", imsg.hdr.type);
 		fatalx("queue-api: exiting");
 	}
 }

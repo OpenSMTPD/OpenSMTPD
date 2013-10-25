@@ -491,7 +491,7 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	default:
-		log_warnx("warn: table-postgres: unknown service %i",
+		log_warnx("warn: table-postgres: unknown service %d",
 		    service);
 		r = -1;
 	}

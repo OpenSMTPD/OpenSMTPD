@@ -1445,7 +1445,7 @@ smtp_message_end(struct smtp_session *s)
 		if (s->msgflags & MF_ERROR_SIZE)
 			smtp_reply(s, "554 Message too big");
 		else
-			smtp_reply(s, "%i Message rejected", s->msgcode);
+			smtp_reply(s, "%d Message rejected", s->msgcode);
 		smtp_message_reset(s, 0);
 		smtp_enter_state(s, STATE_HELO);
 		return;

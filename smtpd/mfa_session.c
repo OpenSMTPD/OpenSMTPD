@@ -379,7 +379,7 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 
 	while(s->fcurr) {
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
-			log_trace(TRACE_MFA, "mfa: sending fd %i to %s", fdout, mfa_filter_to_text(s->fcurr));
+			log_trace(TRACE_MFA, "mfa: sending fd %d to %s", fdout, mfa_filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
 			m_create(p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdout);
 			m_add_id(p, s->id);
@@ -389,7 +389,7 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 		s->fcurr = TAILQ_PREV(s->fcurr, mfa_filters, entry);
 	}
 
-	log_trace(TRACE_MFA, "mfa: chain input is %i", fdout);
+	log_trace(TRACE_MFA, "mfa: chain input is %d", fdout);
 
 	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
 	m_add_id(p_smtp, s->id);
@@ -483,7 +483,7 @@ mfa_drain_query(struct mfa_query *q)
 
 		log_trace(TRACE_MFA,
 		    "filter: query %016"PRIx64" done: "
-		    "status=%s code=%i response=\"%s\"",
+		    "status=%s code=%d response=\"%s\"",
 		    q->qid,
 		    status_to_str(q->smtp.status),
 		    q->smtp.code,
@@ -634,7 +634,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 
 		q = tree_xpop(&queries, qid);
 		if (q->hook != qhook) {
-			log_warnx("warn: mfa: hook mismatch %i != %i", q->hook, qhook);
+			log_warnx("warn: mfa: hook mismatch %d != %d", q->hook, qhook);
 			fatalx("exiting");
 		}
 		q->smtp.status = status;

@@ -803,7 +803,7 @@ rq_envelope_list(struct rq_queue *rq, struct rq_envelope *evp)
 			return &rq->q_mda;
 		if (evp->type == D_BOUNCE)
 			return &rq->q_bounce;
-		errx(1, "%016" PRIx64 " bad evp type %i", evp->evpid, evp->type);
+		errx(1, "%016" PRIx64 " bad evp type %d", evp->evpid, evp->type);
 
 	case RQ_EVPSTATE_INFLIGHT:
 		return &rq->q_inflight;
@@ -812,7 +812,7 @@ rq_envelope_list(struct rq_queue *rq, struct rq_envelope *evp)
 		return (NULL);
 	}
 
-	errx(1, "%016" PRIx64 " bad state %i", evp->evpid, evp->state);
+	errx(1, "%016" PRIx64 " bad state %d", evp->evpid, evp->state);
 	return (NULL);
 }
 
@@ -991,7 +991,7 @@ rq_envelope_to_text(struct rq_envelope *e)
 		strlcat(buf, t, sizeof buf);
 		break;
 	default:
-		errx(1, "%016" PRIx64 " bad state %i", e->evpid, e->state);
+		errx(1, "%016" PRIx64 " bad state %d", e->evpid, e->state);
 	}
 
 	if (e->flags & RQ_ENVELOPE_REMOVED)

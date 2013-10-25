@@ -388,7 +388,7 @@ get_responses(FILE *fin, int n)
 
 	fflush(fin);
 	if ((e = ferror(fin)))
-		errx(1, "ferror: %i", e);
+		errx(1, "ferror: %d", e);
 
 	while (n) {
 		buf = fgetln(fin, &len);

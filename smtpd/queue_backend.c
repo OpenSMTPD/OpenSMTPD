@@ -95,7 +95,7 @@ static inline void profile_leave(void)
 
 	clock_gettime(CLOCK_MONOTONIC, &t1);
 	timespecsub(&t1, &profile.t0, &dt);
-	log_debug("profile-queue: %s %lld.%06li", profile.name,
+	log_debug("profile-queue: %s %lld.%06ld", profile.name,
 	    (long long)dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 	    dt.tv_nsec % 1000000);
 }
@@ -155,7 +155,7 @@ queue_init(const char *name, int server)
 
 	r = backend->init(pwq, server);
 
-	log_trace(TRACE_QUEUE, "queue-backend: queue_init(%i) -> %i", server, r);
+	log_trace(TRACE_QUEUE, "queue-backend: queue_init(%d) -> %d", server, r);
 
 	return (r);
 }
@@ -170,7 +170,7 @@ queue_message_create(uint32_t *msgid)
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_create() -> %i (%08"PRIx32")",
+	    "queue-backend: queue_message_create() -> %d (%08"PRIx32")",
 	    r, *msgid);
 
 	return (r);
@@ -191,7 +191,7 @@ queue_message_delete(uint32_t msgid)
 	unlink(msgpath);
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_delete(%08"PRIx32") -> %i", msgid, r);
+	    "queue-backend: queue_message_delete(%08"PRIx32") -> %d", msgid, r);
 
 	return (r);
 }
@@ -262,7 +262,7 @@ queue_message_commit(uint32_t msgid)
 	unlink(msgpath);
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_commit(%08"PRIx32") -> %i",
+	    "queue-backend: queue_message_commit(%08"PRIx32") -> %d",
 	    msgid, r);
 
 	return (r);
@@ -285,7 +285,7 @@ queue_message_corrupt(uint32_t msgid)
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_corrupt(%08"PRIx32") -> %i", msgid, r);
+	    "queue-backend: queue_message_corrupt(%08"PRIx32") -> %d", msgid, r);
 
 	return (r);
 }
@@ -302,7 +302,7 @@ queue_message_fd_r(uint32_t msgid)
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_fd_r(%08"PRIx32") -> %i", msgid, fdin);
+	    "queue-backend: queue_message_fd_r(%08"PRIx32") -> %d", msgid, fdin);
 
 	if (fdin == -1)
 		return (-1);
@@ -517,7 +517,7 @@ queue_envelope_create(struct envelope *ep)
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_envelope_create(%016"PRIx64", %zu) -> %i (%016"PRIx64")",
+	    "queue-backend: queue_envelope_create(%016"PRIx64", %zu) -> %d (%016"PRIx64")",
 	    evpid, evplen, r, ep->id);
 
 	if (!r) {
@@ -544,7 +544,7 @@ queue_envelope_delete(uint64_t evpid)
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_envelope_delete(%016"PRIx64") -> %i",
+	    "queue-backend: queue_envelope_delete(%016"PRIx64") -> %d",
 	    evpid, r);
 
 	return (r);
@@ -613,7 +613,7 @@ queue_envelope_update(struct envelope *ep)
 		queue_envelope_cache_update(ep);
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_envelope_update(%016"PRIx64") -> %i",
+	    "queue-backend: queue_envelope_update(%016"PRIx64") -> %d",
 	    ep->id, r);
 
 	return (r);
@@ -632,7 +632,7 @@ queue_envelope_walk(struct envelope *ep)
 	profile_leave();
 
 	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_envelope_walk() -> %i (%016"PRIx64")",
+	    "queue-backend: queue_envelope_walk() -> %d (%016"PRIx64")",
 	    r, evpid);
 
 	if (r == -1)

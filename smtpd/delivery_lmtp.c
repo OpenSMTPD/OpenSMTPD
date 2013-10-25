@@ -219,7 +219,7 @@ delivery_lmtp_open(struct deliver *deliver)
 			 break;
 
 		 default:
-			errx(1, "Bogus state %i", state);
+			errx(1, "Bogus state %d", state);
 		 }
 	 }
 

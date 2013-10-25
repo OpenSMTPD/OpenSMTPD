@@ -246,19 +246,19 @@ duration_to_text(time_t t)
 	d = t / 24;
 
 	if (d) {
-		snprintf(buf, sizeof buf, "%llid", d);
+		snprintf(buf, sizeof buf, "%lldd", d);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (h) {
-		snprintf(buf, sizeof buf, "%ih", h);
+		snprintf(buf, sizeof buf, "%dh", h);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (m) {
-		snprintf(buf, sizeof buf, "%im", m);
+		snprintf(buf, sizeof buf, "%dm", m);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (s) {
-		snprintf(buf, sizeof buf, "%is", s);
+		snprintf(buf, sizeof buf, "%ds", s);
 		strlcat(dst, buf, sizeof dst);
 	}
 
