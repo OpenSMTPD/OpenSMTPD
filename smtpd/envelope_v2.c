@@ -129,7 +129,7 @@ envelope_ascii_field_id(const char *field)
 
 	n = sizeof(field_ids) / sizeof(struct field_id);
 	for (i = 0; i < n; ++i)
-		if (strcasecmp(field, field_ids[i].field) == 0)
+ 		if (strcasecmp(field, field_ids[i].field) == 0)
 			return field_ids[i].id;
 	return 0;
 }
@@ -162,6 +162,7 @@ envelope_load_buffer_v2(struct envelope *ep, struct dict *d)
 			goto err;
 		if (! envelope_ascii_load_v2(id, ep, value))
 			goto err;
+		log_debug("%s=[%s]", field, value);
 	}
 	return (1);
 

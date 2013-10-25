@@ -140,6 +140,7 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 	if (i == n)
 		goto end;
 
+	bzero(ep, sizeof *ep);
 	ret = loaders[i].loader(ep, &d);
 
 end:
