@@ -174,7 +174,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_USERINFO:
-		if (snprintf(dst, sz, "%i:%i:%s",
+		if (snprintf(dst, sz, "%d:%d:%s",
 			pw.pw_uid, pw.pw_gid, pw.pw_dir)
 		    > (ssize_t)sz) {
 			log_warnx("warn: table-passwd: result too large");
@@ -182,7 +182,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	default:
-		log_warnx("warn: table-passwd: unknown service %i",
+		log_warnx("warn: table-passwd: unknown service %d",
 		    service);
 		r = -1;
 	}

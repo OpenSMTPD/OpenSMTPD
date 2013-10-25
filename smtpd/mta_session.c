@@ -565,7 +565,7 @@ mta_connect(struct mta_session *s)
 	else
 		schema = "smtp://";
 
-	log_info("smtp-out: Connecting to %s%s:%i (%s) on session"
+	log_info("smtp-out: Connecting to %s%s:%d (%s) on session"
 	    " %016"PRIx64"...", schema, sa_to_text(s->route->dst->sa),
 	    portno, s->route->dst->ptrname, s->id);
 

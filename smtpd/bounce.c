@@ -189,7 +189,7 @@ bounce_fd(int fd)
 	struct bounce_session	*s;
 	struct bounce_message	*msg;
 
-	log_debug("debug: bounce: got enqueue socket %i", fd);
+	log_debug("debug: bounce: got enqueue socket %d", fd);
 
 	if (fd == -1 || TAILQ_EMPTY(&pending)) {
 		log_debug("debug: bounce: cancelling");
@@ -229,7 +229,7 @@ bounce_drain()
 	struct timeval		 tv;
 	time_t			 t;
 
-	log_debug("debug: bounce: drain: nmessage=%i running=%i",
+	log_debug("debug: bounce: drain: nmessage=%d running=%d",
 	    nmessage, running);
 
 	while (1) {
@@ -664,7 +664,7 @@ bounce_io(struct io *io, int evt)
 		break;
 
 	default:
-		bounce_status(s, "442 i/o error %i", evt);
+		bounce_status(s, "442 i/o error %d", evt);
 		bounce_free(s);
 		break;
 	}

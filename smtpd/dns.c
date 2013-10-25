@@ -155,7 +155,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 	default:
-		log_warnx("warn: bad dns request %i", s->type);
+		log_warnx("warn: bad dns request %d", s->type);
 		fatal(NULL);
 	}
 }

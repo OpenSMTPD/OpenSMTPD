@@ -215,7 +215,7 @@ again:
 	if (stat(corruptdir, &sb) != -1 || errno != ENOENT) {
 		fsqueue_message_corrupt_path(msgid, corruptdir,
 		    sizeof(corruptdir));
-		snprintf(buf, sizeof(buf), ".%i", retry++);
+		snprintf(buf, sizeof(buf), ".%d", retry++);
 		strlcat(corruptdir, buf, sizeof(corruptdir));
 		goto again;
 	}
