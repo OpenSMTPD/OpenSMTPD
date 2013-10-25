@@ -147,7 +147,6 @@ bounce_add(uint64_t evpid)
 		msg = xcalloc(1, sizeof(*msg), "bounce_add");
 		msg->msgid = key.msgid;
 		msg->bounce = key.bounce;
-		SPLAY_INSERT(bounce_message_tree, &messages, msg);
 
 		TAILQ_INIT(&msg->envelopes);
 
@@ -156,6 +155,7 @@ bounce_add(uint64_t evpid)
 		    evp.sender.domain);
 		msg->to = xstrdup(buf, "bounce_add");
 		nmessage += 1;
+		SPLAY_INSERT(bounce_message_tree, &messages, msg);
 		log_debug("debug: bounce: new message %08" PRIx32,
 		    msg->msgid);
 		stat_increment("bounce.message", 1);
@@ -172,6 +172,7 @@ bounce_add(uint64_t evpid)
 	be->id = evpid;
 	be->report = xstrdup(buf, "bounce_add");
 	TAILQ_INSERT_TAIL(&msg->envelopes, be, entry);
+	be->report[strcspn(be->report, "\n")] = '\0';
 	log_debug("debug: bounce: adding report %16"PRIx64": %s", be->id,
 	    be->report);
 
@@ -188,7 +189,7 @@ bounce_fd(int fd)
 	struct bounce_session	*s;
 	struct bounce_message	*msg;
 
-	log_debug("debug: bounce: got enqueue socket %i", fd);
+	log_debug("debug: bounce: got enqueue socket %d", fd);
 
 	if (fd == -1 || TAILQ_EMPTY(&pending)) {
 		log_debug("debug: bounce: cancelling");
@@ -228,7 +229,7 @@ bounce_drain()
 	struct timeval		 tv;
 	time_t			 t;
 
-	log_debug("debug: bounce: drain: nmessage=%i running=%i",
+	log_debug("debug: bounce: drain: nmessage=%d running=%d",
 	    nmessage, running);
 
 	while (1) {
@@ -295,18 +296,18 @@ bounce_duration(long long int d) {
 	static char buf[32];
 
 	if (d < 60) {
-		snprintf(buf, sizeof buf, "%lli second%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld second%s", d, (d == 1)?"":"s");
 	} else if (d < 3600) {
 		d = d / 60;
-		snprintf(buf, sizeof buf, "%lli minute%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld minute%s", d, (d == 1)?"":"s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
-		snprintf(buf, sizeof buf, "%lli hour%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld hour%s", d, (d == 1)?"":"s");
 	}
 	else {
 		d = d / (3600 * 24);
-		snprintf(buf, sizeof buf, "%lli day%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
 	}
 	return (buf);
 };
@@ -663,7 +664,7 @@ bounce_io(struct io *io, int evt)
 		break;
 
 	default:
-		bounce_status(s, "442 i/o error %i", evt);
+		bounce_status(s, "442 i/o error %d", evt);
 		bounce_free(s);
 		break;
 	}

@@ -270,7 +270,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
-			log_debug("debug: mda: got message fd %i "
+			log_debug("debug: mda: got message fd %d "
 			    "for session %016"PRIx64 " evpid %016"PRIx64,
 			    imsg->fd, s->id, e->id);
 
@@ -402,7 +402,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
-			log_debug("debug: mda: got mda fd %i "
+			log_debug("debug: mda: got mda fd %d "
 			    "for session %016"PRIx64 " evpid %016"PRIx64,
 			    imsg->fd, s->id, s->evp->id);
 

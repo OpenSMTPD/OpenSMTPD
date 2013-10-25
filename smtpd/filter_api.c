@@ -296,7 +296,7 @@ filter_api_writeln(uint64_t id, const char *line)
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line, int notify)
 {
-	log_debug("debug: filter-api:%s: got response %s for %016"PRIx64" %i %i %s",
+	log_debug("debug: filter-api:%s: got response %s for %016"PRIx64" %d %d %s",
 	    filter_name, hook_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
@@ -325,7 +325,7 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 static void
 filter_send_response(struct filter_session *s)
 {
-	log_debug("debug: filter-api:%s: sending response %s for %016"PRIx64" %i %i %s",
+	log_debug("debug: filter-api:%s: sending response %s for %016"PRIx64" %d %d %s",
 	    filter_name, hook_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
@@ -549,7 +549,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			fdin = fds[1];
 			/* XXX notify? */
 		}
-		log_debug("debug: filter-api:%s: tx pipe %i -> %i for %016"PRIx64, filter_name, fdin, fdout, id);
+		log_debug("debug: filter-api:%s: tx pipe %d -> %d for %016"PRIx64, filter_name, fdin, fdout, id);
 		m_create(&fi.p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdin);
 		m_add_id(&fi.p, id);
 		m_close(&fi.p);
@@ -859,7 +859,7 @@ imsg_to_str(int imsg)
 {
 	static char buf[32];
 
-	snprintf(buf, sizeof(buf), "%i", imsg);
+	snprintf(buf, sizeof(buf), "%d", imsg);
 
 	return (buf);
 }

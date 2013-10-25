@@ -295,7 +295,7 @@ scheduler_msg_dispatch(void)
 		break;
 
 	default:
-		log_warnx("warn: scheduler-api: bad message %i", imsg.hdr.type);
+		log_warnx("warn: scheduler-api: bad message %d", imsg.hdr.type);
 		fatalx("scheduler-api: exiting");
 	}
 }

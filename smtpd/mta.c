@@ -320,7 +320,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				log_debug("debug: MXs for domain %s:",
 				    domain->name);
 				TAILQ_FOREACH(mx, &domain->mxs, entry)
-					log_debug("	%s preference %i",
+					log_debug("	%s preference %d",
 					    sa_to_text(mx->host->sa),
 					    mx->preference);
 			}
@@ -399,7 +399,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			t = time(NULL);
 			SPLAY_FOREACH(host, mta_host_tree, &hosts) {
 				snprintf(buf, sizeof(buf),
-				    "%s %s refcount=%i nconn=%zu lastconn=%s",
+				    "%s %s refcount=%d nconn=%zu lastconn=%s",
 				    sockaddr_to_text(host->sa),
 				    host->ptrname,
 				    host->refcount,
@@ -425,7 +425,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				v = runq_pending(runq_route, NULL, route, &t);
 				snprintf(buf, sizeof(buf),
-				    "%llu. %s %c%c%c%c nconn=%zu nerror=%i penalty=%i timeout=%s",
+				    "%llu. %s %c%c%c%c nconn=%zu nerror=%d penalty=%d timeout=%s",
 				    (unsigned long long)route->id,
 				    mta_route_to_text(route),
 				    route->flags & ROUTE_NEW ? 'N' : '-',
@@ -898,7 +898,7 @@ mta_on_preference(struct mta_relay *relay, int dnserror, int preference)
 		relay->backuppref = INT_MAX;
 	}
 	else {
-		log_debug("debug: mta: ... got preference for %s: %i, %i",
+		log_debug("debug: mta: ... got preference for %s: %d, %d",
 		    mta_relay_to_text(relay), dnserror, preference);
 		relay->backuppref = preference;
 	}
@@ -1195,7 +1195,7 @@ mta_drain(struct mta_relay *r)
 	char			 buf[64];
 
 	log_debug("debug: mta: draining %s "
-	    "refcount=%i, ntask=%zu, nconnector=%zu, nconn=%zu", 
+	    "refcount=%d, ntask=%zu, nconnector=%zu, nconn=%zu", 
 	    mta_relay_to_text(r),
 	    r->refcount, r->ntask, tree_count(&r->connectors), r->nconn);
 
@@ -1275,11 +1275,11 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	size_t			 n;
 	size_t			 r;
 
-	log_debug("debug: mta_flush(%s, %i, \"%s\")",
+	log_debug("debug: mta_flush(%s, %d, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
 
 	if (fail != IMSG_DELIVERY_TEMPFAIL && fail != IMSG_DELIVERY_PERMFAIL)
-		errx(1, "unexpected delivery status %i", fail);
+		errx(1, "unexpected delivery status %d", fail);
 
 	n = 0;
 	while ((task = TAILQ_FIRST(&relay->tasks))) {
@@ -1661,7 +1661,7 @@ mta_relay_to_text(struct mta_relay *relay)
 
 	if (relay->port) {
 		strlcat(buf, sep, sizeof buf);
-		snprintf(tmp, sizeof tmp, "port=%i", (int)relay->port);
+		snprintf(tmp, sizeof tmp, "port=%d", (int)relay->port);
 		strlcat(buf, tmp, sizeof buf);
 	}
 
@@ -1756,7 +1756,7 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 	else
 		strlcpy(dur, "-", sizeof(dur));
 
-	snprintf(buf, sizeof(buf), "%s refcount=%i ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s%s",
+	snprintf(buf, sizeof(buf), "%s refcount=%d ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s%s",
 	    mta_relay_to_text(r),
 	    r->refcount,
 	    r->ntask,
@@ -1803,7 +1803,7 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 #undef SHOWFLAG
 
 		snprintf(buf, sizeof(buf),
-		    "  connector %s refcount=%i nconn=%zu lastconn=%s timeout=%s flags=%s",
+		    "  connector %s refcount=%d nconn=%zu lastconn=%s timeout=%s flags=%s",
 		    mta_source_to_text(c->source),
 		    c->refcount,
 		    c->nconn,
@@ -2190,7 +2190,7 @@ mta_route_unref(struct mta_route *r)
 		if (delay > DELAY_ROUTE_MAX)
 			delay = DELAY_ROUTE_MAX;
 		sched = r->lastpenalty + delay;
-		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (penalty %i)",
+		log_debug("debug: mta: mta_route_unref(): keeping route %s alive for %llus (penalty %d)",
 		    mta_route_to_text(r), (unsigned long long) sched - now, r->penalty);
 	} else if (!(r->flags & ROUTE_KEEPALIVE)) {
 		if (r->lastconn + max_seen_conndelay_route > now)

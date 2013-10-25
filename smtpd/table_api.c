@@ -199,7 +199,7 @@ table_msg_dispatch(void)
 		break;
 
 	default:
-		log_warnx("warn: table-api: bad message %i", imsg.hdr.type);
+		log_warnx("warn: table-api: bad message %d", imsg.hdr.type);
 		fatalx("table-api: exiting");
 	}
 }

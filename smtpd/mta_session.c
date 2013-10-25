@@ -565,7 +565,7 @@ mta_connect(struct mta_session *s)
 	else
 		schema = "smtp://";
 
-	log_info("smtp-out: Connecting to %s%s:%i (%s) on session"
+	log_info("smtp-out: Connecting to %s%s:%d (%s) on session"
 	    " %016"PRIx64"...", schema, sa_to_text(s->route->dst->sa),
 	    portno, s->route->dst->ptrname, s->id);
 
@@ -749,8 +749,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 				break;
 			}
 
-			log_debug("mta: debug: last connection: hanging on for %is",
-			    (int)(s->relay->limits->sessdelay_keepalive - s->hangon));
+			log_debug("mta: debug: last connection: hanging on for %llds",
+			    (long long)(s->relay->limits->sessdelay_keepalive -
+			    s->hangon));
 			s->flags |= MTA_HANGON;
 			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
@@ -1077,7 +1078,7 @@ mta_response(struct mta_session *s, char *line)
 		} else {
 			s->rcptcount = 0;
 			if (s->relay->limits->sessdelay_transaction) {
-				log_debug("debug: mta: waiting for %llis before next transaction",
+				log_debug("debug: mta: waiting for %llds before next transaction",
 				    (long long int)s->relay->limits->sessdelay_transaction);
 				s->hangon = s->relay->limits->sessdelay_transaction -1;
 				s->flags |= MTA_HANGON;
@@ -1094,7 +1095,7 @@ mta_response(struct mta_session *s, char *line)
 		mta_flush_failedqueue(s);
 		s->rcptcount = 0;
 		if (s->relay->limits->sessdelay_transaction) {
-			log_debug("debug: mta: waiting for %llis after reset",
+			log_debug("debug: mta: waiting for %llds after reset",
 			    (long long int)s->relay->limits->sessdelay_transaction);
 			s->hangon = s->relay->limits->sessdelay_transaction -1;
 			s->flags |= MTA_HANGON;

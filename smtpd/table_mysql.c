@@ -315,7 +315,7 @@ config_connect(struct config *conf)
 		{ "query_domain",	1 },
 		{ "query_credentials",	2 },
 		{ "query_netaddr",	1 },
-		{ "query_userinfo",	4 },
+		{ "query_userinfo",	3 },
 		{ "query_source",	1 },
 		{ "query_mailaddr",	1 },
 		{ "query_addrname",	1 },
@@ -551,11 +551,10 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_USERINFO:
-		if (snprintf(dst, sz, "%s:%s:%s:%s",
+		if (snprintf(dst, sz, "%s:%s:%s",
 		    results_buffer[0],
 		    results_buffer[1],
-		    results_buffer[2],
-		    results_buffer[3]) > (ssize_t)sz) {
+		    results_buffer[2]) > (ssize_t)sz) {
 			log_warnx("warn: table-mysql: result too large");
 			r = -1;
 		}
@@ -571,7 +570,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	default:
-		log_warnx("warn: table-mysql: unknown service %i",
+		log_warnx("warn: table-mysql: unknown service %d",
 		    service);
 		r = -1;
 	}
