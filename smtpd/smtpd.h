@@ -1082,18 +1082,6 @@ int envelope_ascii_load_mta_relay_url(struct relayhost *, char *);
 int envelope_ascii_load_mta_relay_flags(uint16_t *, char *);
 int envelope_ascii_load_bounce_type(enum bounce_type *, char *);
 
-int envelope_ascii_dump_uint16(uint16_t, char *, size_t);
-int envelope_ascii_dump_uint32(uint32_t, char *, size_t);
-int envelope_ascii_dump_time(time_t, char *, size_t);
-int envelope_ascii_dump_string(const char *, char *, size_t);
-int envelope_ascii_dump_type(enum delivery_type, char *, size_t);
-int envelope_ascii_dump_mda_method(enum action_type, char *, size_t);
-int envelope_ascii_dump_mailaddr(const struct mailaddr *, char *, size_t);
-int envelope_ascii_dump_flags(enum envelope_flags, char *, size_t);
-int envelope_ascii_dump_mta_relay_url(const struct relayhost *, char *, size_t);
-int envelope_ascii_dump_mta_relay_flags(uint16_t, char *, size_t);
-int envelope_ascii_dump_bounce_type(enum bounce_type, char *, size_t);
-
 
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
