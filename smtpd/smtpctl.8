@@ -37,9 +37,21 @@ for
 .Pp
 The following commands are available:
 .Bl -tag -width Ds
-.It Cm encrypt Ar string
-Encrypt the given
+.It Cm encrypt Op Ar string
+If
 .Ar string
+is not provided, read cleartext passwords from standard input and encrypt
+them to a representation suitable for user credentials.
+If
+.Ar string
+is provided, encrypt it instead.
+.Pp
+It is advised to avoid providing the password as a parameter as it will be
+visible from
+.Xr top 1
+and
+.Xr ps 1
+output.
 .It Cm log brief
 Disable verbose debug logging.
 .It Cm log verbose
