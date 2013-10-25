@@ -237,7 +237,7 @@ envelope_ascii_load_time(time_t *dest, char *buf)
 {
 	const char *errstr;
 
-	*dest = (time_t) strtonum(buf, 0, 0x7fffffff, &errstr);
+	*dest = strtonum(buf, 0, 0x7fffffff, &errstr);
 	if (errstr)
 		return 0;
 	return 1;
