@@ -43,7 +43,9 @@
 #include "smtpd.h"
 #include "log.h"
 
+int envelope_load_buffer_v1(struct envelope *, struct dict *);
 int envelope_load_buffer_v2(struct envelope *, struct dict *);
+
 int envelope_dump_buffer_v2(const struct envelope *, char *, size_t);
 
 void
@@ -118,7 +120,8 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 		const char	*version;
 		int	       (*loader)(struct envelope *, struct dict *);
 	} loaders[] = {
-		{ "2",		envelope_load_buffer_v2 }
+		{ "1",		envelope_load_buffer_v1 },
+		{ "2",		envelope_load_buffer_v2 },
 	};
 	const char		*version;
 	int	 i;
