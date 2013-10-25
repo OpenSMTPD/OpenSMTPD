@@ -32,7 +32,6 @@
 #include <arpa/inet.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -60,8 +59,10 @@ xmalloc(size_t size, const char *where)
 {
 	void	*r;
 
-	if ((r = malloc(size)) == NULL)
-		errx(1, "%s: malloc(%zu)", where, size);
+	if ((r = malloc(size)) == NULL) {
+		log_warnx("%s: malloc(%zu)", where, size);
+		fatalx("exiting");
+	}
 
 	return (r);
 }
@@ -71,8 +72,10 @@ xcalloc(size_t nmemb, size_t size, const char *where)
 {
 	void	*r;
 
-	if ((r = calloc(nmemb, size)) == NULL)
-		errx(1, "%s: calloc(%zu, %zu)", where, nmemb, size);
+	if ((r = calloc(nmemb, size)) == NULL) {
+		log_warnx("%s: calloc(%zu, %zu)", where, nmemb, size);
+		fatalx("exiting");
+	}
 
 	return (r);
 }
@@ -82,8 +85,10 @@ xstrdup(const char *str, const char *where)
 {
 	char	*r;
 
-	if ((r = strdup(str)) == NULL)
-		errx(1, "%s: strdup(%p)", where, str);
+	if ((r = strdup(str)) == NULL) {
+		log_warnx("%s: strdup(%p)", where, str);
+		fatalx("exiting");
+	}
 
 	return (r);
 }
@@ -93,8 +98,10 @@ xmemdup(const void *ptr, size_t size, const char *where)
 {
 	void	*r;
 
-	if ((r = malloc(size)) == NULL)
-		errx(1, "%s: malloc(%zu)", where, size);
+	if ((r = malloc(size)) == NULL) {
+		log_warnx("%s: malloc(%zu)", where, size);
+		fatalx("exiting");
+	}
 	memmove(r, ptr, size);
 
 	return (r);
@@ -104,8 +111,10 @@ xmemdup(const void *ptr, size_t size, const char *where)
 void
 iobuf_xinit(struct iobuf *io, size_t size, size_t max, const char *where)
 {
-	if (iobuf_init(io, size, max) == -1)
-		errx(1, "%s: iobuf_init(%p, %zu, %zu)", where, io, size, max);
+	if (iobuf_init(io, size, max) == -1) {
+		log_warnx("%s: iobuf_init(%p, %zu, %zu)", where, io, size, max);
+		fatalx("exiting");
+	}
 }
 
 void
@@ -118,8 +127,10 @@ iobuf_xfqueue(struct iobuf *io, const char *where, const char *fmt, ...)
 	len = iobuf_vfqueue(io, fmt, ap);
 	va_end(ap);
 
-	if (len == -1)
-		errx(1, "%s: iobuf_xfqueue(%p, %s, ...)", where, io, fmt);
+	if (len == -1) {
+		log_warnx("%s: iobuf_xfqueue(%p, %s, ...)", where, io, fmt);
+		fatalx("exiting");
+	}
 }
 #endif
 
@@ -225,28 +236,28 @@ ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
 
 	if (stat(path, &sb) == -1) {
 		if (errno != ENOENT || create == 0) {
-			warn("stat: %s", path);
+			log_warn("stat: %s", path);
 			return (0);
 		}
 
 		/* chmod is deferred to avoid umask effect */
 		if (mkdir(path, 0) == -1) {
-			warn("mkdir: %s", path);
+			log_warn("mkdir: %s", path);
 			return (0);
 		}
 
 		if (chown(path, owner, group) == -1) {
-			warn("chown: %s", path);
+			log_warn("chown: %s", path);
 			return (0);
 		}
 
 		if (chmod(path, mode) == -1) {
-			warn("chmod: %s", path);
+			log_warn("chmod: %s", path);
 			return (0);
 		}
 
 		if (stat(path, &sb) == -1) {
-			warn("stat: %s", path);
+			log_warn("stat: %s", path);
 			return (0);
 		}
 	}
@@ -256,17 +267,17 @@ ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
 	/* check if it's a directory */
 	if (!S_ISDIR(sb.st_mode)) {
 		ret = 0;
-		warnx("%s is not a directory", path);
+		log_warnx("%s is not a directory", path);
 	}
 
 	/* check that it is owned by owner/group */
 	if (sb.st_uid != owner) {
 		ret = 0;
-		warnx("%s is not owned by uid %d", path, owner);
+		log_warnx("%s is not owned by uid %d", path, owner);
 	}
 	if (sb.st_gid != group) {
 		ret = 0;
-		warnx("%s is not owned by gid %d", path, group);
+		log_warnx("%s is not owned by gid %d", path, group);
 	}
 
 	/* check permission */
@@ -274,7 +285,7 @@ ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
 		ret = 0;
 		strmode(mode, mode_str);
 		mode_str[10] = '\0';
-		warnx("%s must be %s (%o)", path, mode_str + 1, mode);
+		log_warnx("%s must be %s (%o)", path, mode_str + 1, mode);
 	}
 
 	return ret;
@@ -295,7 +306,7 @@ rmtree(char *path, int keepdir)
 
 	fts = fts_open(path_argv, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
 	if (fts == NULL) {
-		warn("fts_open: %s", path);
+		log_warn("fts_open: %s", path);
 		return (-1);
 	}
 
@@ -310,14 +321,14 @@ rmtree(char *path, int keepdir)
 			if (keepdir && depth == 0)
 				continue;
 			if (rmdir(e->fts_path) == -1) {
-				warn("rmdir: %s", e->fts_path);
+				log_warn("rmdir: %s", e->fts_path);
 				ret = -1;
 			}
 			break;
 
 		case FTS_F:
 			if (unlink(e->fts_path) == -1) {
-				warn("unlink: %s", e->fts_path);
+				log_warn("unlink: %s", e->fts_path);
 				ret = -1;
 			}
 		}
@@ -369,12 +380,16 @@ mktmpfile(void)
 	mode_t		omode;
 
 	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
-		PATH_TEMPORARY))
-		err(1, "snprintf");
+		PATH_TEMPORARY)) {
+		log_warn("snprintf");
+		fatal("exiting");
+	}
 
 	omode = umask(7077);
-	if ((fd = mkstemp(path)) == -1)
-		err(1, "cannot create temporary file %s", path);
+	if ((fd = mkstemp(path)) == -1) {
+		log_warn("cannot create temporary file %s", path);
+		fatal("exiting");
+	}
 	umask(omode);
 	unlink(path);
 	return (fd);
@@ -752,8 +767,10 @@ getmailname(char *hostname, size_t len)
         if (buf[buflen-1] == '\n')
                 buf[buflen - 1] = '\0';
         else {
-                if ((lbuf = calloc(buflen + 1, 1)) == NULL)
-                        err(1, "calloc");
+                if ((lbuf = calloc(buflen + 1, 1)) == NULL) {
+			log_warn("calloc");
+			fatal("exiting");
+		}
                 memcpy(lbuf, buf, buflen);
         }
 
