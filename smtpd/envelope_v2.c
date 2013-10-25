@@ -163,6 +163,11 @@ envelope_load_buffer_v2(struct envelope *ep, struct dict *d)
 		if (! envelope_ascii_load_v2(id, ep, value))
 			goto err;
 	}
+
+	/* Transition for old envelopes */
+        if (ep->smtpname[0] == 0)
+                strlcpy(ep->smtpname, env->sc_hostname, sizeof(ep->smtpname));
+
 	return (1);
 
 err:
