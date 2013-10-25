@@ -147,7 +147,6 @@ bounce_add(uint64_t evpid)
 		msg = xcalloc(1, sizeof(*msg), "bounce_add");
 		msg->msgid = key.msgid;
 		msg->bounce = key.bounce;
-		SPLAY_INSERT(bounce_message_tree, &messages, msg);
 
 		TAILQ_INIT(&msg->envelopes);
 
@@ -156,6 +155,7 @@ bounce_add(uint64_t evpid)
 		    evp.sender.domain);
 		msg->to = xstrdup(buf, "bounce_add");
 		nmessage += 1;
+		SPLAY_INSERT(bounce_message_tree, &messages, msg);
 		log_debug("debug: bounce: new message %08" PRIx32,
 		    msg->msgid);
 		stat_increment("bounce.message", 1);
