@@ -749,8 +749,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 				break;
 			}
 
-			log_debug("mta: debug: last connection: hanging on for %is",
-			    (int)(s->relay->limits->sessdelay_keepalive - s->hangon));
+			log_debug("mta: debug: last connection: hanging on for %llds",
+			    (long long)(s->relay->limits->sessdelay_keepalive -
+			    s->hangon));
 			s->flags |= MTA_HANGON;
 			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
