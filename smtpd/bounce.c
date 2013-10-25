@@ -296,18 +296,18 @@ bounce_duration(long long int d) {
 	static char buf[32];
 
 	if (d < 60) {
-		snprintf(buf, sizeof buf, "%lli second%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld second%s", d, (d == 1)?"":"s");
 	} else if (d < 3600) {
 		d = d / 60;
-		snprintf(buf, sizeof buf, "%lli minute%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld minute%s", d, (d == 1)?"":"s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
-		snprintf(buf, sizeof buf, "%lli hour%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld hour%s", d, (d == 1)?"":"s");
 	}
 	else {
 		d = d / (3600 * 24);
-		snprintf(buf, sizeof buf, "%lli day%s", d, (d == 1)?"":"s");
+		snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
 	}
 	return (buf);
 };
