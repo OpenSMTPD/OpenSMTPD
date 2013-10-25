@@ -369,6 +369,8 @@ smtp_enqueue(uid_t *euid)
 #ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 #endif
+		strlcpy(listener->hostname, "localhost",
+		    sizeof(listener->hostname));
 	}
 
 	/*
