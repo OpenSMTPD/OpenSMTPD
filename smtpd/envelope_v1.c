@@ -43,6 +43,7 @@
 #include "smtpd.h"
 #include "log.h"
 
+static int envelope_ascii_load_mta_relay_url_v1(struct relayhost *, char *);
 static int envelope_ascii_load_v1(const char *, struct envelope *, char *);
 int envelope_load_buffer_v1(struct envelope *, struct dict *);
 
@@ -57,6 +58,11 @@ envelope_load_buffer_v1(struct envelope *ep, struct dict *d)
 	while (dict_iter(d, &hdl, &field, (void **)&value))
 		if (! envelope_ascii_load_v1(field, ep, value))
 			goto err;
+
+	/* Transition for old envelopes */
+        if (ep->smtpname[0] == 0)
+                strlcpy(ep->smtpname, env->sc_hostname, sizeof(ep->smtpname));
+
 	return (1);
 
 err:
@@ -133,7 +139,7 @@ envelope_ascii_load_v1(const char *field, struct envelope *ep, char *buf)
                     sizeof ep->agent.mta.relay.helotable);
 
 	if (strcasecmp("mta-relay", field)  == 0)
-                return envelope_ascii_load_mta_relay_url(&ep->agent.mta.relay, buf);
+                return envelope_ascii_load_mta_relay_url_v1(&ep->agent.mta.relay, buf);
 
 	if (strcasecmp("ctime", field)  == 0)
                 return envelope_ascii_load_time(&ep->creation, buf);
@@ -163,4 +169,22 @@ envelope_ascii_load_v1(const char *field, struct envelope *ep, char *buf)
                 return envelope_ascii_load_time(&ep->agent.bounce.expire, buf);
 
 	return 0;
+}
+
+static int
+envelope_ascii_load_mta_relay_url_v1(struct relayhost *relay, char *buf)
+{
+	char		buffer[1024];
+
+	if (strncasecmp("ssl://", buf, 6) == 0) {
+		if (! bsnprintf(buffer, sizeof buffer, "secure://%s", buf+6))
+			return 0;
+		buf = buffer;
+	}
+	else if (strncasecmp("ssl+auth://", buf, 11) == 0) {
+		if (! bsnprintf(buffer, sizeof buffer, "secure+auth://%s", buf+11))
+			return 0;
+		buf = buffer;
+	}
+	return envelope_ascii_load_mta_relay_url(relay, buf);
 }

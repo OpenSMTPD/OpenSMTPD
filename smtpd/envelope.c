@@ -143,9 +143,12 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 	if (i == n)
 		goto end;
 
+	if (loaders[i].loader != envelope_load_buffer_v2)
+		log_debug("debug: using envelope loader v%s", loaders[i].version);
 	bzero(ep, sizeof *ep);
 	ret = loaders[i].loader(ep, &d);
-
+	if (ret)
+		ep->version = SMTPD_ENVELOPE_VERSION;
 end:
 	while (dict_poproot(&d, NULL, NULL))
 		;
