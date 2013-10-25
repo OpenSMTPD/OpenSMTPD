@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2013 Sunil Nimmagadda <sunil@sunilnimmagadda.com>
  *
@@ -16,6 +15,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "openbsd-compat.h"
@@ -26,26 +26,43 @@ static unsigned char itoa64[] =	 /* 0 ... 63 => ascii - 64 */
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static void to64(char *, long int, int);
+static void print_passwd(const char *);
 
 int
 main(int argc, char *argv[])
 {
-	char *c, salt[PASSWORD_LEN];
+	char	*s;
+	size_t	len;
 
-	if (argc != 2) {
-		fprintf(stderr, "usage: encrypt string");
+	if (argc == 2) {
+		print_passwd(argv[1]);
+		return (0);
+	} else if (argc > 2) {
+		fprintf(stderr, "usage: encrypt string\n");
 		return (1);
 	}
+
+	while ((s = fgetln(stdin, &len)) != NULL) {
+		s[len - 1] = '\0';
+		print_passwd(s);
+	}
+
+	return (0);
+}
+
+void
+print_passwd(const char *string)
+{
+	char *c, salt[PASSWORD_LEN];
 
 	to64(&salt[0], chacha_random(), 2);
 	salt[2] = '\0';
-	if ((c = crypt(argv[1], salt)) == NULL) {
+	if ((c = crypt(string, salt)) == NULL) {
 		fprintf(stderr, "crypt failed");
-		return (1);
+		exit(1);
 	}
 
 	printf("%s\n", c);
-	return (0);
 }
 
 void
