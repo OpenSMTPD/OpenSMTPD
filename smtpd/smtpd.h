@@ -494,42 +494,6 @@ struct envelope {
 	time_t				lastbounce;
 };
 
-enum envelope_field {
-	EVP_VERSION,
-	EVP_TAG,
-	EVP_MSGID,
-	EVP_TYPE,
-	EVP_SMTPNAME,
-	EVP_HELO,
-	EVP_HOSTNAME,
-	EVP_ERRORLINE,
-	EVP_SOCKADDR,
-	EVP_SENDER,
-	EVP_RCPT,
-	EVP_DEST,
-	EVP_CTIME,
-	EVP_EXPIRE,
-	EVP_RETRY,
-	EVP_LASTTRY,
-	EVP_LASTBOUNCE,
-	EVP_FLAGS,
-	EVP_MDA_METHOD,
-	EVP_MDA_BUFFER,
-	EVP_MDA_USER,
-	EVP_MDA_USERTABLE,
-	EVP_MTA_RELAY,
-	EVP_MTA_RELAY_AUTH,
-	EVP_MTA_RELAY_CERT,
-	EVP_MTA_RELAY_SOURCE,
-	EVP_MTA_RELAY_HELONAME,
-	EVP_MTA_RELAY_HELOTABLE,
-	EVP_MTA_RELAY_HELOTABLEOLD,
-	EVP_MTA_RELAY_FLAGS,
-	EVP_BOUNCE_TYPE,
-	EVP_BOUNCE_DELAY,
-	EVP_BOUNCE_EXPIRE,
-};
-
 struct listener {
 	uint16_t       		 flags;
 	int			 fd;
@@ -1130,12 +1094,21 @@ int		 enqueue(int, char **);
 
 /* envelope.c */
 void envelope_set_errormsg(struct envelope *, char *, ...);
-char *envelope_ascii_field_name(enum envelope_field);
-int envelope_ascii_load(enum envelope_field, struct envelope *, char *);
-int envelope_ascii_dump(enum envelope_field, const struct envelope *, char *,
-    size_t);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
+
+int envelope_ascii_load_uint16(uint16_t *, char *);
+int envelope_ascii_load_uint32(uint32_t *, char *);
+int envelope_ascii_load_time(time_t *, char *);
+int envelope_ascii_load_type(enum delivery_type *, char *);
+int envelope_ascii_load_string(char *, char *, size_t);
+int envelope_ascii_load_sockaddr(struct sockaddr_storage *, char *);
+int envelope_ascii_load_mda_method(enum action_type *, char *);
+int envelope_ascii_load_mailaddr(struct mailaddr *, char *);
+int envelope_ascii_load_flags(enum envelope_flags *, char *);
+int envelope_ascii_load_mta_relay_url(struct relayhost *, char *);
+int envelope_ascii_load_mta_relay_flags(uint16_t *, char *);
+int envelope_ascii_load_bounce_type(enum bounce_type *, char *);
 
 
 /* expand.c */

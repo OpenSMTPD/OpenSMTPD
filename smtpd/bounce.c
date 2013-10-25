@@ -174,6 +174,7 @@ bounce_add(uint64_t evpid)
 	be->id = evpid;
 	be->report = xstrdup(buf, "bounce_add");
 	TAILQ_INSERT_TAIL(&msg->envelopes, be, entry);
+	be->report[strcspn(be->report, "\n")] = '\0';
 	log_debug("debug: bounce: adding report %16"PRIx64": %s", be->id,
 	    be->report);
 
