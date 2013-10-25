@@ -162,7 +162,6 @@ envelope_load_buffer_v2(struct envelope *ep, struct dict *d)
 			goto err;
 		if (! envelope_ascii_load_v2(id, ep, value))
 			goto err;
-		log_debug("%s=[%s]", field, value);
 	}
 	return (1);
 
