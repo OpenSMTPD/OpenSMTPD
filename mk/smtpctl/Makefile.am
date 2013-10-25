@@ -13,6 +13,8 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/csprng.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/parser.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/log.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope_v1.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope_v2.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_backend.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_fs.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/smtpctl.c
@@ -22,6 +24,7 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_gzip.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/to.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/expand.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/tree.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/dict.c
 
 if HAVE_GCM_CRYPTO
 smtpctl_SOURCES+=	$(smtpd_srcdir)/crypto.c
