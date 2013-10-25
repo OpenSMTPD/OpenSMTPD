@@ -45,6 +45,7 @@
 
 static int envelope_ascii_load_v2(const char *, struct envelope *, char *);
 static int envelope_ascii_dump_v2(const char *, const struct envelope *, char *, size_t);
+static void envelope_dump2(const struct envelope *, char **, size_t *, const char *);
 int envelope_load_buffer_v2(struct envelope *, struct dict *);
 int envelope_dump_buffer_v2(const struct envelope *, char *, size_t);
 
@@ -75,106 +76,83 @@ err:
 int
 envelope_dump_buffer_v2(const struct envelope *ep, char *dest, size_t len)
 {
-	char	buf[8192];
-	const char	*fields[] = {
-		"version",
-		"tag",
-		"type",
-		"smtpname",
-		"helo",
-		"hostname",
-		"errorline",
-		"sockaddr",
-		"sender",
-		"rcpt",
-		"dest",
-		"ctime",
-		"last-try",
-		"last-bounce",
-		"expire",
-		"retry",
-		"flags",
-	};
-	const char	*mda_fields[] = {
-		"mda-method",
-		"mda-usertable",
-		"mda-buffer",
-		"mda-user",
-	};
-	const char	*mta_fields[] = {
-		"mta-relay-source",
-		"mta-relay-cert",
-		"mta-relay-auth",
-		"mta-relay-heloname",
-		"mta-relay-helotable",
-		"mta-relay-flags",
-		"mta-relay",
-	};
-	const char	*bounce_fields[] = {
-		"bounce-type",
-		"bounce-delay",
-		"bounce-expire",
-	};
-	const char **pfields;
-	int	 i, n, l;
-	char	*p;
+	char	*p = dest;
 
-	p = dest;
-	n = sizeof(fields) / sizeof(const char *);
-	for (i = 0; i < n; ++i) {
-		bzero(buf, sizeof buf);
-		if (! envelope_ascii_dump_v2(fields[i], ep, buf, sizeof buf))
-			goto err;
-		if (buf[0] == '\0')
-			continue;
-
-		l = snprintf(dest, len, "%s: %s\n", fields[i], buf);
-		if (l == -1 || (size_t) l >= len)
-			goto err;
-		dest += l;
-		len -= l;
-	}
+	envelope_dump2(ep, &dest, &len, "version");
+	envelope_dump2(ep, &dest, &len, "tag");
+	envelope_dump2(ep, &dest, &len, "type");
+	envelope_dump2(ep, &dest, &len, "smtpname");
+	envelope_dump2(ep, &dest, &len, "helo");
+	envelope_dump2(ep, &dest, &len, "hostname");
+	envelope_dump2(ep, &dest, &len, "errorline");
+	envelope_dump2(ep, &dest, &len, "sockaddr");
+	envelope_dump2(ep, &dest, &len, "sender");
+	envelope_dump2(ep, &dest, &len, "rcpt");
+	envelope_dump2(ep, &dest, &len, "dest");
+	envelope_dump2(ep, &dest, &len, "ctime");
+	envelope_dump2(ep, &dest, &len, "last-try");
+	envelope_dump2(ep, &dest, &len, "last-bounce");
+	envelope_dump2(ep, &dest, &len, "expire");
+	envelope_dump2(ep, &dest, &len, "retry");
+	envelope_dump2(ep, &dest, &len, "flags");
 
 	switch (ep->type) {
 	case D_MDA:
-		pfields = mda_fields;
-		n = sizeof(mda_fields) / sizeof(const char *);
+		envelope_dump2(ep, &dest, &len, "mda-method");
+		envelope_dump2(ep, &dest, &len, "mda-usertable");
+		envelope_dump2(ep, &dest, &len, "mda-buffer");
+		envelope_dump2(ep, &dest, &len, "mda-user");
 		break;
 	case D_MTA:
-		pfields = mta_fields;
-		n = sizeof(mta_fields) / sizeof(const char *);
+		envelope_dump2(ep, &dest, &len, "mta-relay");
+		envelope_dump2(ep, &dest, &len, "mta-relay-source");
+		envelope_dump2(ep, &dest, &len, "mta-relay-cert");
+		envelope_dump2(ep, &dest, &len, "mta-relay-auth");
+		envelope_dump2(ep, &dest, &len, "mta-relay-heloname");
+		envelope_dump2(ep, &dest, &len, "mta-relay-helotable");
+		envelope_dump2(ep, &dest, &len, "mta-relay-flags");
 		break;
 	case D_BOUNCE:
-		pfields = bounce_fields;
-		n = sizeof(bounce_fields) / sizeof(const char *);
+		envelope_dump2(ep, &dest, &len, "bounce-type");
+		envelope_dump2(ep, &dest, &len, "bounce-delay");
+		envelope_dump2(ep, &dest, &len, "bounce-expire");
 		break;
 	default:
-		goto err;
+		return (0);
 	}
 
-	if (pfields) {
-		for (i = 0; i < n; ++i) {
-			bzero(buf, sizeof buf);
-			if (! envelope_ascii_dump_v2(pfields[i], ep, buf,
-				sizeof buf))
-				goto err;
-			if (buf[0] == '\0')
-				continue;
-
-			l = snprintf(dest, len, "%s: %s\n", pfields[i], buf);
-			if (l == -1 || (size_t) l >= len)
-				goto err;
-			dest += l;
-			len -= l;
-		}
-	}
+	if (dest == NULL)
+		return (0);
 
 	return (dest - p);
-
-err:
-	return (0);
 }
 
+
+static void
+envelope_dump2(const struct envelope *ep, char **dest, size_t *len, const char *field)
+{
+	char	buf[8192];
+	int	l;
+
+	if (*dest == NULL)
+		return;
+
+	bzero(buf, sizeof buf);
+	if (! envelope_ascii_dump_v2(field, ep, buf, sizeof buf))
+		goto err;
+	if (buf[0] == '\0')
+		return;
+
+	l = snprintf(*dest, *len, "%s: %s\n", field, buf);
+	if (l == -1 || (size_t) l >= *len)
+		goto err;
+	*dest += l;
+	*len -= l;
+
+	return;
+err:
+	*dest = NULL;
+}
 
 static int
 envelope_ascii_load_v2(const char *field, struct envelope *ep, char *buf)
