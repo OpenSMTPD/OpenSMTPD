@@ -44,6 +44,7 @@ AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 #AC_PATH_PROG(BYACC, byacc)
 AC_PATH_PROG(MAIL_LOCAL, mail.local)
+AC_PATH_PROG(ENCRYPT, encrypt)
 
 AM_INIT_AUTOMAKE
 AM_CONDITIONAL(HAVE_MAIL_LOCAL, [test -n "$MAIL_LOCAL"])
@@ -2832,6 +2833,7 @@ AC_CONFIG_FILES([Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
+		contrib/libexec/encrypt/Makefile
 		])
 
 #l4530
@@ -2845,11 +2847,12 @@ B=`eval echo ${bindir}` ; B=`eval echo ${B}`
 C=`eval echo ${sbindir}` ; C=`eval echo ${C}`
 D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
 E=`eval echo ${pkglibexecdir}/mail.local` ; E=`eval echo ${E}`
-F=`eval echo ${mandir}/${mansubdir}X` ; F=`eval echo ${F}`
-G=`eval echo ${sockdir}` ; G=`eval echo ${G}`
-H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
-I=`eval echo ${user_path}` ; I=`eval echo ${I}`
-J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
+F=`eval echo ${pkglibexecdir}/encrypt` ; F=`eval echo ${F}`
+G=`eval echo ${mandir}/${mansubdir}X` ; G=`eval echo ${G}`
+H=`eval echo ${sockdir}` ; H=`eval echo ${H}`
+I=`eval echo ${PRIVSEP_PATH}` ; I=`eval echo ${I}`
+J=`eval echo ${user_path}` ; J=`eval echo ${J}`
+K=`eval echo ${superuser_path}` ; K=`eval echo ${K}`
 
 echo ""
 echo "OpenSMTPD has been configured with the following options:"
@@ -2857,21 +2860,22 @@ echo "                     User binaries: $B"
 echo "                   System binaries: $C"
 echo "               Configuration files: $D"
 echo "                mail.local program: $E"
-echo "                      Manual pages: $F"
-echo "                    smtpd.sock dir: $G"
-echo "  Privilege separation chroot path: $H"
+echo "                   encrypt program: $F"
+echo "                      Manual pages: $G"
+echo "                    smtpd.sock dir: $H"
+echo "  Privilege separation chroot path: $I"
 if test "x$external_path_file" = "x/etc/login.conf" ; then
 echo "   At runtime, smtpd will use the path defined in $external_path_file"
 echo "   Make sure the path to scp is present, otherwise scp will not work"
 else
-echo "           smtpd default user PATH: $I"
+echo "           smtpd default user PATH: $J"
 	if test ! -z "$external_path_file"; then
 echo "   (If PATH is set in $external_path_file it will be used instead. If"
 echo "   used, ensure the path to scp is present, otherwise scp will not work.)"
 	fi
 fi
 if test ! -z "$superuser_path" ; then
-echo "         smtpd superuser user PATH: $J"
+echo "         smtpd superuser user PATH: $K"
 fi
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
