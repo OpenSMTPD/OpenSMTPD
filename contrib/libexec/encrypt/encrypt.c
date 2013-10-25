@@ -16,8 +16,9 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
+
+#include "openbsd-compat.h"
 
 #define PASSWORD_LEN	128
 
@@ -36,7 +37,7 @@ main(int argc, char *argv[])
 		return (1);
 	}
 
-	to64(&salt[0], random(), 2);
+	to64(&salt[0], chacha_random(), 2);
 	salt[2] = '\0';
 	if ((c = crypt(argv[1], salt)) == NULL) {
 		fprintf(stderr, "crypt failed");
