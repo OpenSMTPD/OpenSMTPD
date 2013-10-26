@@ -247,7 +247,7 @@ ascii_load_time(time_t *dest, char *buf)
 {
 	const char *errstr;
 
-	*dest = strtonum(buf, 0, 0x7fffffff, &errstr);
+	*dest = strtonum(buf, 0, LLONG_MAX, &errstr);
 	if (errstr)
 		return 0;
 	return 1;
