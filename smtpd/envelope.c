@@ -443,9 +443,6 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
 
-	if (strcasecmp("msgid", field) == 0)
-		return (1);
-
 	if (strcasecmp("mta-relay", field) == 0) {
 		int ret;
 		uint16_t flags = ep->agent.mta.relay.flags;
@@ -821,6 +818,11 @@ envelope_upgrade_v1(struct dict *d)
 {
 	static char	 buf_relay[1024];
 	char		*val;
+
+	/*
+	 * very very old envelopes had a "msgid" field
+	 */
+	dict_pop(d, "msgid");
 
 	/*
 	 * rename "mta-relay-helo" field to "mta-relay-helotable"
