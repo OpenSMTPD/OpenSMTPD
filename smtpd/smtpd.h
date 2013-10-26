@@ -1069,19 +1069,6 @@ void envelope_set_errormsg(struct envelope *, char *, ...);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
 
-int envelope_ascii_load_uint16(uint16_t *, char *);
-int envelope_ascii_load_uint32(uint32_t *, char *);
-int envelope_ascii_load_time(time_t *, char *);
-int envelope_ascii_load_type(enum delivery_type *, char *);
-int envelope_ascii_load_string(char *, char *, size_t);
-int envelope_ascii_load_sockaddr(struct sockaddr_storage *, char *);
-int envelope_ascii_load_mda_method(enum action_type *, char *);
-int envelope_ascii_load_mailaddr(struct mailaddr *, char *);
-int envelope_ascii_load_flags(enum envelope_flags *, char *);
-int envelope_ascii_load_mta_relay_url(struct relayhost *, char *);
-int envelope_ascii_load_mta_relay_flags(uint16_t *, char *);
-int envelope_ascii_load_bounce_type(enum bounce_type *, char *);
-
 
 /* expand.c */
 int expand_cmp(struct expandnode *, struct expandnode *);
