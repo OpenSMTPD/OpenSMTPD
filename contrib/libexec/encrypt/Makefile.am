@@ -1,6 +1,6 @@
 pkglibexec_PROGRAMS =	encrypt	
 
-encrypt_SOURCES =	encrypt.c
+encrypt_SOURCES =	encrypt.c $(top_srcdir)/smtpd/log.c
 
 INCLUDES = 		-I$(top_srcdir)/openbsd-compat
 
