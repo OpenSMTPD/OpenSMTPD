@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "openbsd-compat.h"
@@ -69,7 +70,7 @@ main(int argc, char *argv[])
 void
 print_passwd(const char *string)
 {
-	const char     *ids[] = { "2a", "6", "5", "1", NULL };
+	const char     *ids[] = { "2a", "6", "5", "3", "2", "1", NULL };
 	const char     *id;
 	char		salt[SALT_LEN+1];
 	char		buffer[PASSWORD_LEN];
@@ -84,6 +85,8 @@ print_passwd(const char *string)
 		id = ids[n];
 		(void)snprintf(buffer, sizeof buffer, "$%s$%s$", id, salt);
 		if ((p = crypt(string, buffer)) == NULL)
+			continue;
+		if (strncmp(p, buffer, strlen(buffer)) != 0)
 			continue;
 		printf("%s\n", p);
 		return;
