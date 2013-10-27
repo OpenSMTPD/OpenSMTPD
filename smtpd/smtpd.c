@@ -136,7 +136,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
-int     control_socket = -1;
+int	control_socket = -1;
 
 struct tree	 children;
 
