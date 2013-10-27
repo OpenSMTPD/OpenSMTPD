@@ -581,7 +581,7 @@ struct filter {
 	int			done;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
-	char		        filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
+	char			filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
 };
 
 struct mta_host {
