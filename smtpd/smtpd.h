@@ -28,7 +28,9 @@
 #include "iobuf.h"
 
 #define CONF_FILE		 "/etc/mail/smtpd.conf"
+#define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
+
 #define MAX_LISTEN		 16
 #define PROC_COUNT		 10
 #define MAX_NAME_SIZE		 64
