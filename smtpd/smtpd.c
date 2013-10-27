@@ -136,7 +136,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
-int     control_socket = -1;
+int	control_socket = -1;
 
 struct tree	 children;
 
@@ -887,6 +887,7 @@ post_fork(int proc)
 {
 	if (proc != PROC_QUEUE && env->sc_queue_key)
 		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
 		control_socket = -1;
