@@ -58,7 +58,9 @@
 #endif
 #define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
-#define PATH_ENCRYPT	"/libexec/smtpd/encrypt"
+#ifndef PATH_ENCRYPT
+#define PATH_ENCRYPT	"/usr/bin/encrypt"
+#endif
 
 int srv_connect(void);
 
