@@ -29,7 +29,8 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/crypto.c
 endif
 
 smtpctl_CFLAGS=		-DNO_IO
-smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\"
+smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
+			-DPATH_ENCRYPT=\"$(ENCRYPT)\"
 
 INCLUDES=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat		\
