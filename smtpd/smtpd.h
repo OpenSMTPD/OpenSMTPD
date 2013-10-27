@@ -31,24 +31,15 @@
 #define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
 
-#define MAX_LISTEN		 16
 #define PROC_COUNT		 10
-#define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
-
 #define MAX_TAG_SIZE		 32
-
-#define	MAX_TABLE_BACKEND_SIZE	 32
-
-/* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 
 #define	EXPAND_BUFFER		 1024
 
-#define SMTPD_QUEUE_INTERVAL	 (15 * 60)
-#define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #ifndef SMTPD_NAME
