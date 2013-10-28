@@ -42,24 +42,17 @@
 #define SMTPD_CONFDIR		 "/etc"
 #endif
 #define CONF_FILE		 SMTPD_CONFDIR "/smtpd.conf"
-#define MAX_LISTEN		 16
+#define MAILNAME_FILE		 SMTPD_CONFDIR "/mailname"
+
 #define PROC_COUNT		 10
-#define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
-
 #define MAX_TAG_SIZE		 32
-
-#define	MAX_TABLE_BACKEND_SIZE	 32
-
-/* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 
 #define	EXPAND_BUFFER		 1024
 
-#define SMTPD_QUEUE_INTERVAL	 (15 * 60)
-#define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #ifndef SMTPD_USER
 #define SMTPD_USER		 "_smtpd"
@@ -255,7 +248,6 @@ enum imsg_type {
 	IMSG_MFA_EVENT_COMMIT,
 	IMSG_MFA_EVENT_ROLLBACK,
 	IMSG_MFA_EVENT_DISCONNECT,
-	IMSG_MFA_SMTP_DATA, /* XXX remove and bump */
 	IMSG_MFA_SMTP_RESPONSE,
 
 	IMSG_MTA_TRANSFER,
@@ -609,7 +601,7 @@ struct filter {
 	int			done;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
-	char		        filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
+	char			filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
 };
 
 struct mta_host {

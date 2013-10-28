@@ -60,9 +60,9 @@ limit_mta_set_defaults(struct mta_limits *limits)
 
 	limits->family = AF_UNSPEC;
 
-	limits->task_hiwat = 300;
-	limits->task_lowat = 200;
-	limits->task_release = 50;
+	limits->task_hiwat = 50;
+	limits->task_lowat = 30;
+	limits->task_release = 10;
 }
 
 int

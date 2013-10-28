@@ -756,8 +756,8 @@ getmailname(char *hostname, size_t len)
 	size_t	 buflen;
 	int	 error, ret = 0;
 
-	/* First, check if we have SMTPD_CONFDIR "/mailname" */
-	if ((fp = fopen(SMTPD_CONFDIR "/mailname", "r")) == NULL)
+	/* First, check if we have MAILNAME_FILE */
+	if ((fp = fopen(MAILNAME_FILE, "r")) == NULL)
 		goto nomailname;
 
 	if ((buf = fgetln(fp, &buflen)) == NULL)
@@ -774,7 +774,7 @@ getmailname(char *hostname, size_t len)
 	}
 
 	if (strlcpy(hostname, buf, len) >= len)
-		fprintf(stderr, SMTPD_CONFDIR "/mailname entry too long");
+		fprintf(stderr, MAILNAME_FILE " entry too long");
 	else {
 		ret = 1;
 		goto end;

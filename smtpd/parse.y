@@ -111,7 +111,7 @@ static struct listen_opts {
 	uint16_t	ssl;
 	char	       *pki;
 	uint16_t       	auth;
-	char	        authtable[SMTPD_MAXLINESIZE];
+	struct table   *authtable;
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
@@ -331,11 +331,11 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 		| AUTH				{ listen_opts.auth = F_AUTH|F_AUTH_REQUIRE; }
 		| AUTH_OPTIONAL			{ listen_opts.auth = F_AUTH; }
 		| AUTH tables  			{
-			strlcpy(listen_opts.authtable, ($2)->t_name, sizeof listen_opts.authtable);
+			listen_opts.authtable = $2;
 			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
 		}
 		| AUTH_OPTIONAL tables 		{
-			strlcpy(listen_opts.authtable, ($2)->t_name, sizeof listen_opts.authtable);
+			listen_opts.authtable = $2;
 			listen_opts.auth = F_AUTH;
 		}
 		| TAG STRING			{
@@ -1714,7 +1714,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	h->ssl_cert_name[0] = '\0';
 
 	if (lo->authtable != NULL)
-		(void)strlcpy(h->authtable, lo->authtable, sizeof(h->authtable));
+		(void)strlcpy(h->authtable, lo->authtable->t_name, sizeof(h->authtable));
 	if (lo->pki != NULL)
 		(void)strlcpy(h->ssl_cert_name, lo->pki, sizeof(h->ssl_cert_name));
 	if (lo->tag != NULL)

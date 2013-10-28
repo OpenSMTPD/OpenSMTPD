@@ -161,7 +161,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
-int     control_socket = -1;
+int	control_socket = -1;
 
 struct tree	 children;
 
@@ -938,6 +938,7 @@ post_fork(int proc)
 {
 	if (proc != PROC_QUEUE && env->sc_queue_key)
 		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
 		control_socket = -1;
@@ -1529,6 +1530,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_RULE_SOURCE);
 	CASE(IMSG_CONF_RULE_SENDER);
 	CASE(IMSG_CONF_RULE_DESTINATION);
+	CASE(IMSG_CONF_RULE_RECIPIENT);
 	CASE(IMSG_CONF_RULE_MAPPING);
 	CASE(IMSG_CONF_RULE_USERS);
 	CASE(IMSG_CONF_FILTER);
