@@ -23,8 +23,8 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
-#include <db.h>
 #include <ctype.h>
+#include <db.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
