@@ -34,6 +34,8 @@
 #include <fts.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <libgen.h>
+#include <paths.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -591,6 +593,29 @@ do_show_envelope(int argc, struct parameter *argv)
 }
 
 static int
+do_edit_envelope(int argc, struct parameter *argv)
+{
+	char	 buf[SMTPD_MAXPATHLEN], *e;
+
+	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/%016" PRIx64,
+	    PATH_SPOOL,
+	    PATH_QUEUE,
+	    (evpid_to_msgid(argv[0].u.u_evpid) & 0xff000000) >> 24,
+	    evpid_to_msgid(argv[0].u.u_evpid),
+	    argv[0].u.u_evpid))
+		errx(1, "unable to retrieve envelope");
+
+	e = getenv("VISUAL");
+	if (e == NULL || e[0] == '\0')
+		e = getenv("EDITOR");
+	if (e == NULL || e[0] == '\0')
+		e = _PATH_VI;
+
+	execl(e, basename(e), buf, NULL);
+	errx(1, "execl");
+}
+
+static int
 do_show_hoststats(int argc, struct parameter *argv)
 {
 	srv_show_cmd(IMSG_CTL_MTA_SHOW_HOSTSTATS, NULL, 0);
@@ -829,6 +854,8 @@ main(int argc, char **argv)
 	if (geteuid())
 		errx(1, "need root privileges");
 
+	cmd_install("edit envelope <evpid>",	do_edit_envelope);
+	cmd_install("edit envelope <msgid>",	do_edit_envelope);
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("log brief",		do_log_brief);
