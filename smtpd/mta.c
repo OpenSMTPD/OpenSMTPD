@@ -164,7 +164,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	struct mta_relay	*relay;
 	struct mta_task		*task;
 	struct mta_domain	*domain;
-	struct mta_host	*host;
+	struct mta_host		*host;
 	struct mta_route	*route;
 	struct mta_mx		*mx, *imx;
 	struct hoststat		*hs;
@@ -1694,12 +1694,10 @@ mta_relay_to_text(struct mta_relay *relay)
 		strlcat(buf, "mx", sizeof buf);
 	}
 
-	if (relay->flags & RELAY_BACKUP) {
-		if (relay->backupname) {
-			strlcat(buf, sep, sizeof buf);
-			strlcat(buf, "backup=", sizeof buf);
-			strlcat(buf, relay->backupname, sizeof buf);
-		}
+	if (relay->backupname) {
+		strlcat(buf, sep, sizeof buf);
+		strlcat(buf, "backup=", sizeof buf);
+		strlcat(buf, relay->backupname, sizeof buf);
 	}
 
 	if (relay->sourcetable) {
