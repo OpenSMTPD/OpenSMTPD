@@ -101,7 +101,6 @@ main(int argc, char *argv[])
 {
 	struct stat	 sb;
 	char		 dbname[SMTPD_MAXPATHLEN];
-	char		 typename[SMTPD_MAXPATHLEN];
 	char		*opts;
 	char		*conf;
 	int		 ch;
@@ -156,9 +155,6 @@ main(int argc, char *argv[])
 		if (oflag)
 			usage();
 
-		if (! bsnprintf(typename, sizeof typename, "%s", argv[0]))
-			errx(1, "type name too long");
-
 		p = strstr(argv[1], ".db");
 		if (p == NULL || strcmp(p, ".db") != 0) {
 			if (! bsnprintf(dbname, sizeof dbname, "%s.db",
@@ -171,8 +167,8 @@ main(int argc, char *argv[])
 				errx(1, "database name too long");
 		}
 
-		execlp("makemap", "makemap", "-d", typename,
-		    "-o", dbname, "-", NULL);
+		execlp("makemap", "makemap", "-d", argv[0], "-o", dbname, "-",
+		    NULL);
 		err(1, "execlp");
 	}
 

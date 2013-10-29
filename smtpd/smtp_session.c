@@ -414,7 +414,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
 			    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
-			X509_free(x);
+			if (x)
+				X509_free(x);
 		}
 
 		if (s->rcptcount == 1) {
