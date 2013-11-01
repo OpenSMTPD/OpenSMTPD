@@ -54,14 +54,17 @@ struct passwd *
 pw_dup(const struct passwd *pw)
 {
 	char		*cp;
-	size_t		 nsize, psize, csize, gsize, dsize, ssize, total;
+	size_t		 nsize, psize, gsize, dsize, ssize, total;
+#if HAVE_STRUCT_PASSWD_PW_CLASS
+	size_t		 csize; 
+#endif
 	struct passwd	*newpw;
 
 	/* Allocate in one big chunk for easy freeing */
 	total = sizeof(struct passwd);
 	PW_SIZE(pw_name, nsize);
 	PW_SIZE(pw_passwd, psize);
-#if HAVE_PW_CLASS_IN_PASSWD
+#if HAVE_STRUCT_PASSWD_PW_CLASS
 	PW_SIZE(pw_class, csize);
 #endif
 	PW_SIZE(pw_gecos, gsize);
@@ -81,7 +84,7 @@ pw_dup(const struct passwd *pw)
 
 	PW_COPY(pw_name, nsize);
 	PW_COPY(pw_passwd, psize);
-#if HAVE_PW_CLASS_IN_PASSWD
+#if HAVE_STRUCT_PASSWD_PW_CLASS
 	PW_COPY(pw_class, csize);
 #endif
 	PW_COPY(pw_gecos, gsize);
