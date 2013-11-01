@@ -2845,8 +2845,8 @@ A=`eval echo ${prefix}` ; A=`eval echo ${A}`
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
 C=`eval echo ${sbindir}` ; C=`eval echo ${C}`
 D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
-E=`eval echo ${pkglibexecdir}/mail.local` ; E=`eval echo ${E}`
-F=`eval echo ${pkglibexecdir}/encrypt` ; F=`eval echo ${F}`
+E=`eval echo ${libexecdir}/${PACKAGE}/mail.local` ; E=`eval echo ${E}`
+F=`eval echo ${libexecdir}/${PACKAGE}/encrypt` ; F=`eval echo ${F}`
 G=`eval echo ${mandir}/${mansubdir}X` ; G=`eval echo ${G}`
 H=`eval echo ${sockdir}` ; H=`eval echo ${H}`
 I=`eval echo ${PRIVSEP_PATH}` ; I=`eval echo ${I}`
