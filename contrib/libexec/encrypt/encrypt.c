@@ -15,6 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <crypt.h> /* needed for crypt() */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
