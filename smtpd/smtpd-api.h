@@ -220,6 +220,11 @@ msgid_to_evpid(uint32_t msgid)
         return ((uint64_t)msgid << 32);
 }
 
+/* csprng.c */
+uint32_t csprng_random(void);
+void csprng_buffer(void *, size_t);
+uint32_t csprng_uniform(uint32_t);
+
 /* dict.c */
 #define dict_init(d) do { SPLAY_INIT(&((d)->dict)); (d)->count = 0; } while(0)
 #define dict_empty(d) SPLAY_EMPTY(&((d)->dict))

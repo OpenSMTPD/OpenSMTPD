@@ -451,7 +451,7 @@ run_testcase(struct procedure *proc)
 
 	if (rundelay) {
 		if (randomdelay)
-			rdelay = arc4random_uniform(rundelay);
+			rdelay = csprng_uniform(rundelay);
 		else
 			rdelay = rundelay;
 		usleep(rdelay);
@@ -710,7 +710,7 @@ process_op(struct ctx *ctx, struct op *op)
 
 		ctx->lvl += 1;
 
-		i = arc4random_uniform(op->u.random.block->u.block.count);
+		i = csprng_uniform(op->u.random.block->u.block.count);
 		for (o = op->u.random.block->u.block.start; i; i--, o = o->next)
 			;
 		process_op(ctx, o);

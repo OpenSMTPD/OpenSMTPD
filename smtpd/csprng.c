@@ -29,17 +29,17 @@ uint32_t	csprng_uniform(uint32_t);
 uint32_t
 csprng_random(void)
 {
-	return arc4random();
+	return chacha_random();
 }
 
 void
 csprng_buffer(void *buf, size_t nbytes)
 {
-	arc4random_buf(buf, nbytes);
+	chacha_buf(buf, nbytes);
 }
 
 uint32_t
 csprng_uniform(uint32_t upper_bound)
 {
-	return arc4random_uniform(upper_bound);
+	return chacha_uniform(upper_bound);
 }
