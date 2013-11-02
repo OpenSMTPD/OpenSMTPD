@@ -77,6 +77,8 @@
 #include "log.h"
 #include "ssl.h"
 
+extern char *__progname;
+
 static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
 static void parent_shutdown(void);
@@ -628,6 +630,8 @@ main(int argc, char *argv[])
 	struct event	 ev_sigchld;
 	struct event	 ev_sighup;
 	struct timeval	 tv;
+
+	__progname = ssh_get_progname(argv[0]);
 
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;

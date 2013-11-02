@@ -64,9 +64,6 @@ static size_t argv_env_len = 0;
 
 #endif /* HAVE_SETPROCTITLE */
 
-static char altprogname[1024];
-extern char *__progname;
-
 void
 compat_init_setproctitle(int argc, char *argv[])
 {
@@ -75,9 +72,6 @@ compat_init_setproctitle(int argc, char *argv[])
 	char *lastargv = NULL;
 	char **envp = environ;
 	int i;
-
-	strlcpy(altprogname, __progname, sizeof(altprogname));
-	__progname = altprogname;
 
 	/*
 	 * NB: This assumes that argv has already been copied out of the
@@ -132,6 +126,7 @@ setproctitle(const char *fmt, ...)
 	char buf[1024], ptitle[1024];
 	size_t len;
 	int r;
+	extern char *__progname;
 #if SPT_TYPE == SPT_PSTAT
 	union pstun pst;
 #endif

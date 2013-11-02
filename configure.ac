@@ -257,21 +257,28 @@ AC_CHECK_HEADERS([ \
 	crypt.h \
 	dirent.h \
 	fcntl.h \
-	ndir.h \
+	getopt.h \
+	limits.h \
+	maillock.h \
 	mach/mach_time.h \
+	ndir.h \
 	netdb.h \
 	pam/pam_appl.h \
+	paths.h \
 	security/pam_appl.h \
 	shadow.h \
 	sys/dir.h \
 	sys/file.h \
+	sys/mount.h \
 	sys/ndir.h \
 	sys/pstat.h \
 	sys/statfs.h \
-	sys/mount.h \
+	sys/time.h \
 	sys/un.h \
+	time.h \
 	ucred.h \
 	util.h \
+	utime.h \
 	vis.h
 ])
 
@@ -554,9 +561,11 @@ dnl UnixWare 2.x
 AC_CHECK_FUNC([strcasecmp],
 	[], [ AC_CHECK_LIB([resolv], [strcasecmp], [LIBS="$LIBS -lresolv"]) ]
 )
-#l1177
+AC_CHECK_FUNCS([utimes],
+	[], [ AC_CHECK_LIB([c89], [utimes], [AC_DEFINE([HAVE_UTIMES])
+					LIBS="$LIBS -lc89"]) ]
+)
 
-#l1183 (customized)
 dnl    Checks for libutil functions
 AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 AC_SEARCH_LIBS([fmt_scaled], [util bsd])
@@ -618,6 +627,7 @@ AC_CHECK_FUNCS([ \
 	closefrom \
 	dirfd \
 	dirname \
+	endgrent \
 	fgetln \
 	freeaddrinfo \
 	getaddrinfo \
@@ -629,11 +639,16 @@ AC_CHECK_FUNCS([ \
 	inet_ntoa \
 	inet_ntop \
 	memmove \
+	nsleep \
 	pidfile \
 	pw_dup \
+	setenv \
+	setlinebuf \
 	setproctitle \
 	setregid \
 	setreuid \
+	setsid \
+	sigaction \
 	socketpair \
 	strdup \
 	strerror \
@@ -643,6 +658,8 @@ AC_CHECK_FUNCS([ \
 	strmode \
 	strtonum \
 	sysconf \
+	tcgetpgrp \
+	truncate \
 	vasprintf \
 	vsnprintf \
 	waitpid \
@@ -667,7 +684,10 @@ const char *gai_strerror(int);
 		[Define if gai_strerror() returns const char *])], [])])
 #l1659
 
-#l1664 (cheers!)
+#l1661
+AC_SEARCH_LIBS([nanosleep], [rt posix4], [AC_DEFINE([HAVE_NANOSLEEP], [1],
+	[Some systems put nanosleep outside of libc])])
+
 AC_SEARCH_LIBS([clock_gettime], [rt],
 	[AC_DEFINE([HAVE_CLOCK_GETTIME], [1], [Have clock_gettime])])
 #l1665

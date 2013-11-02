@@ -150,7 +150,7 @@ int	BSDoptind;		/* index into parent argv vector */
 #endif
 
 /* Home grown routines */
-/* #include "bsd-misc.h" */
+#include "bsd-misc.h"
 /* #include "bsd-setres_id.h" */
 /* #include "bsd-statvfs.h" */
 #include "bsd-waitpid.h"
