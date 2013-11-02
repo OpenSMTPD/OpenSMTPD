@@ -131,10 +131,7 @@ EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
 			smtpd-defines.h	ssl.h					\
 			$(CONFIGFILES_IN) $(MANPAGES_IN)
 
-PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
-			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
-
-FIXPATHSCMD=		$(SED) $(PATHSUBS)
+FIXPATHSCMD=		$(CAT)
 
 $(MANPAGES): $(MANPAGES_IN)
 	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
