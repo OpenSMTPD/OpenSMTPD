@@ -15,13 +15,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <crypt.h> /* needed for crypt() */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "openbsd-compat.h"
 
 #define PASSWORD_LEN	128
 #define SALT_LEN	16
