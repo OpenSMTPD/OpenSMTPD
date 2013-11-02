@@ -21,6 +21,7 @@ includes.h		portable openssh
 log.h			portable openssh
 mktemp.c		portable openssh
 openbsd-compat.h	portable openssh
+pidfile.c		/usr/src/lib/libutil/pidfile.c
 pw_dup.c		/usr/src/lib/libc/gen/pw_dup.c
 setproctitle.c		portable openssh
 strlcat.c		portable openssh

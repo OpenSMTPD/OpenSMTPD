@@ -97,6 +97,10 @@
 #endif
 
 
+#ifndef HAVE_BASENAME
+char *basename(const char *path);
+#endif
+
 #ifndef HAVE_CLOSEFROM
 void closefrom(int);
 #endif
@@ -113,8 +117,21 @@ size_t strlcat(char *dst, const char *src, size_t size);
 void strmode(int mode, char *p);
 #endif
 
+#ifndef HAVE_DAEMON
+int daemon(int nochdir, int noclose);
+#endif 
+
 #ifndef HAVE_DIRNAME
 char *dirname(const char *path);
+#endif
+
+#ifndef HAVE_FMT_SCALED
+#define	FMT_SCALED_STRSIZE	7
+int	fmt_scaled(long long number, char *result);
+#endif
+
+#ifndef HAVE_SCAN_SCALED
+int	scan_scaled(char *, long long *);
 #endif
 
 #ifndef HAVE_STRSEP
@@ -131,6 +148,13 @@ int BSDgetopt(int argc, char * const *argv, const char *opts);
 char	*BSDoptarg;		/* argument associated with option */
 int	BSDoptind;		/* index into parent argv vector */
 #endif
+
+/* Home grown routines */
+/* #include "bsd-misc.h" */
+/* #include "bsd-setres_id.h" */
+/* #include "bsd-statvfs.h" */
+#include "bsd-waitpid.h"
+/* #include "bsd-poll.h" */
 
 #ifndef HAVE_GETPEEREID
 int getpeereid(int , uid_t *, gid_t *);
@@ -149,6 +173,12 @@ void arc4random_buf(void *, size_t);
 u_int32_t arc4random_uniform(u_int32_t);
 #endif
 
+#ifndef HAVE_STRTONUM
+long long strtonum(const char *nptr, long long minval, long long maxval, const char **errstr);
+#endif
+
+/* OpenSMTPD-portable specific entries */
+
 #ifndef HAVE_FGETLN
 #include <stdio.h>
 #include <string.h>
@@ -159,26 +189,12 @@ char * fgetln(FILE *stream, size_t *len);
 char * fparseln(FILE *fp, size_t *size, size_t *lineno, const char str[3], int flags);
 #endif
 
-#ifndef HAVE_PW_DUP
-struct passwd *pw_dup(const struct passwd *);
-#endif
-
-#ifndef HAVE_STRTONUM
-long long strtonum(const char *nptr, long long minval, long long maxval, const char **errstr);
-#endif
-
-#ifndef HAVE_STRMODE
-void strmode(int mode, char *p);
-#endif
-
-#ifndef HAVE_FMT_SCALED
-#define	FMT_SCALED_STRSIZE	7
-int scan_scaled(char *scaled, long long *result);
-int fmt_scaled(long long number, char *result);
-#endif
-
 #ifndef HAVE_PIDFILE
 int pidfile(const char *basename);
+#endif
+
+#ifndef HAVE_PW_DUP
+struct passwd *pw_dup(const struct passwd *);
 #endif
 
 #endif /* _OPENBSD_COMPAT_H */
