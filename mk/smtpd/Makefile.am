@@ -121,9 +121,7 @@ MANPAGES_IN+=		$(smtpd_srcdir)/table.5
 CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		$(smtpd_srcdir)/smtpd.conf
 
-EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
-			smtpd-defines.h	ssl.h					\
-			$(CONFIGFILES_IN) $(MANPAGES_IN)
+EXTRA_DIST+=		$(CONFIGFILES_IN) $(MANPAGES_IN)
 
 FIXPATHSCMD=		$(CAT)
 

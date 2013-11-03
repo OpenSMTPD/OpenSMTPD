@@ -47,9 +47,7 @@ MANPAGES=		makemap.8.out newaliases.8.out
 MANPAGES_IN=		$(smtpd_srcdir)/makemap.8
 MANPAGES_IN+=		$(smtpd_srcdir)/newaliases.8
 
-EXTRA_DIST=		iobuf.h ioev.h log.h parser.h smtpd.h smtpd-api.h	\
-			smtpd-defines.h	ssl.h					\
-			$(CONFIGFILES_IN) $(MANPAGES_IN)
+EXTRA_DIST+=		$(MANPAGES_IN)
 
 FIXPATHSCMD=		$(CAT)
 
@@ -73,7 +71,6 @@ install-exec-hook: $(MANPAGES)
 	rm makemap.8.out newaliases.8.out
 
 uninstall-hook:
-# XXX to make "make distcheck" happy we need to rm smtpd.conf
 	rm -f	$(DESTDIR)$(sbindir)/newaliases$(EXEEXT) \
 		$(DESTDIR)$(sbindir)/makemap$(EXEEXT)
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8			\
