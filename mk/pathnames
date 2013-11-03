@@ -4,3 +4,11 @@ compat_srcdir	= $(top_srcdir)/openbsd-compat
 
 filters_srcdir	= $(smtpd_srcdir)/filters
 backends_srcdir	= $(smtpd_srcdir)/backends
+
+PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
+			-DPATH_CHROOT=\"$(PRIVSEP_PATH)\"			\
+			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\"			\
+			-DPATH_MAILLOCAL=\"$(pkglibexecdir)/mail.local\"	\
+			-DPATH_FILTERS=\"$(pkglibexecdir)\"			\
+			-DPATH_TABLES=\"$(pkglibexecdir)\"
+

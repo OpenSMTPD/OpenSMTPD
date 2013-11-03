@@ -29,11 +29,13 @@
 #define	SMTPD_MAXLINESIZE	2048
 
 #ifndef SMTPD_USER
-#define SMTPD_USER		 "_smtpd"
+#define SMTPD_USER		"_smtpd"
 #endif
+#ifndef PATH_CHROOT
 #define PATH_CHROOT		"/var/empty"
+#endif
 #ifndef SMTPD_QUEUE_USER
-#define SMTPD_QUEUE_USER	 "_smtpq"
+#define SMTPD_QUEUE_USER	"_smtpq"
 #endif
 #ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"

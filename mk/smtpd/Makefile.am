@@ -110,12 +110,6 @@ LDADD=			$(LIBCOMPAT)
 CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-PATHS=			-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
-			-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\"			\
-			-DPATH_MAILLOCAL=\"$(pkglibexecdir)/mail.local\"	\
-			-DPATH_FILTERS=\"$(pkglibexecdir)\"			\
-			-DPATH_TABLES=\"$(pkglibexecdir)\"
-
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out			\
 			smtpd.conf.5.out table.5.out
 MANPAGES_IN=		$(smtpd_srcdir)/aliases.5
