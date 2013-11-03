@@ -15,6 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/queue.h>
@@ -451,7 +453,7 @@ run_testcase(struct procedure *proc)
 
 	if (rundelay) {
 		if (randomdelay)
-			rdelay = csprng_uniform(rundelay);
+			rdelay = chacha_uniform(rundelay);
 		else
 			rdelay = rundelay;
 		usleep(rdelay);
@@ -710,7 +712,7 @@ process_op(struct ctx *ctx, struct op *op)
 
 		ctx->lvl += 1;
 
-		i = csprng_uniform(op->u.random.block->u.block.count);
+		i = chacha_uniform(op->u.random.block->u.block.count);
 		for (o = op->u.random.block->u.block.start; i; i--, o = o->next)
 			;
 		process_op(ctx, o);
