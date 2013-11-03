@@ -2873,7 +2873,6 @@ AC_CONFIG_FILES([Makefile
 		mk/makemap/Makefile
 		mk/backends/Makefile
 		mk/filters/Makefile
-		mk/regress/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile

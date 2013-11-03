@@ -1,1 +1,1 @@
-SUBDIRS =		smtpd smtpctl makemap backends filters regress
+SUBDIRS =		smtpd smtpctl makemap backends filters
