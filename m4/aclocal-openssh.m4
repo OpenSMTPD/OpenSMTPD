@@ -1,4 +1,4 @@
-dnl $Id: aclocal.m4,v 1.8 2011/05/20 01:45:25 djm Exp $
+dnl $Id: aclocal.m4,v 1.9 2013/06/02 21:31:27 tim Exp $
 dnl
 dnl OpenSSH-specific autoconf macros
 dnl
@@ -14,8 +14,15 @@ AC_DEFUN([OSSH_CHECK_CFLAG_COMPILE], [{
 	_define_flag="$2"
 	test "x$_define_flag" = "x" && _define_flag="$1"
 	AC_COMPILE_IFELSE([AC_LANG_SOURCE([[int main(void) { return 0; }]])],
-		[ AC_MSG_RESULT([yes])
-		  CFLAGS="$saved_CFLAGS $_define_flag"],
+		[
+if `grep -i "unrecognized option" conftest.err >/dev/null`
+then
+		AC_MSG_RESULT([no])
+		CFLAGS="$saved_CFLAGS"
+else
+		AC_MSG_RESULT([yes])
+		 CFLAGS="$saved_CFLAGS $_define_flag"
+fi],
 		[ AC_MSG_RESULT([no])
 		  CFLAGS="$saved_CFLAGS" ]
 	)
@@ -26,7 +33,7 @@ dnl OSSH_CHECK_HEADER_FOR_FIELD(field, header, symbol)
 dnl Does AC_EGREP_HEADER on 'header' for the string 'field'
 dnl If found, set 'symbol' to be defined. Cache the result.
 dnl TODO: This is not foolproof, better to compile and read from there
-AC_DEFUN([OSSH_CHECK_HEADER_FOR_FIELD], [
+AC_DEFUN(OSSH_CHECK_HEADER_FOR_FIELD, [
 # look for field '$1' in header '$2'
 	dnl This strips characters illegal to m4 from the header filename
 	ossh_safe=`echo "$2" | sed 'y%./+-%__p_%'`
