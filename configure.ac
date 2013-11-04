@@ -50,6 +50,12 @@ AM_INIT_AUTOMAKE
 
 LT_INIT
 
+#here we should test for variables set by libtool detection
+if test "x$with_pic" != "xno" ; then
+	CFLAGS="$CFLAGS ${pic_flag}"
+fi
+
+
 #from here everything comes from portable openssh configure.ac script
 
 #l50
