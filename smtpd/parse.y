@@ -102,7 +102,7 @@ struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
-static struct ssl      	*pki_ssl;
+static struct ssl	*pki_ssl;
 
 static struct listen_opts {
 	char	       *ifx;

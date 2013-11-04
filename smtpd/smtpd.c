@@ -818,6 +818,7 @@ main(int argc, char *argv[])
 	env->sc_uptime = time(NULL);
 
 	load_ssl_tree();
+
 	fork_peers();
 
 	config_process(PROC_PARENT);
@@ -877,7 +878,6 @@ load_ssl_tree(void)
 	struct ssl	*ssl;
 	void		*iter_dict;
 	const char	*k;
-	
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
