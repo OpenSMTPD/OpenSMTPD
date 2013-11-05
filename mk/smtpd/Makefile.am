@@ -179,7 +179,7 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
-	#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
+#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5			\
