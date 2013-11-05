@@ -2800,8 +2800,6 @@ AC_LINK_IFELSE(
 	]
 )
 
-AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
-
 # Search for libdb
 AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
 AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [

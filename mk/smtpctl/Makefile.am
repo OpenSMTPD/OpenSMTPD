@@ -32,7 +32,7 @@ smtpctl_CFLAGS=		-DNO_IO
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
 
-INCLUDES=		-I$(top_srcdir)/smtpd			\
+AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat		\
 			-I$(top_srcdir)/contrib/lib/libc/asr
 

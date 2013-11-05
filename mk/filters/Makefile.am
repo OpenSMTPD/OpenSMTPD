@@ -9,7 +9,7 @@ SRCS+=			$(smtpd_srcdir)/csprng.c
 SRCS+=			$(smtpd_srcdir)/iobuf.c
 SRCS+=			$(smtpd_srcdir)/ioev.c
 
-INCLUDES=		-I$(smtpd_srcdir)	\
+AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)	\
 			-I$(asr_srcdir)
 

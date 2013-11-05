@@ -28,7 +28,7 @@ makemap_SOURCES+=	$(smtpd_srcdir)/table_proc.c
 makemap_CFLAGS=		-DNO_IO
 
 
-INCLUDES=		-I$(smtpd_srcdir)	\
+AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)	\
 			-I$(asr_srcdir)
 
