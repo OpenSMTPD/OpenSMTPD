@@ -50,7 +50,7 @@ CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 MANPAGES=		smtpctl.8.out sendmail.8.out
 MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8
 
-EXTRA_DIST+=		$(MANPAGES_IN)
+EXTRA_DIST=		$(MANPAGES_IN)
 
 FIXPATHSCMD=		$(CAT)
 

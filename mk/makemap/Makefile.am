@@ -47,7 +47,7 @@ MANPAGES=		makemap.8.out newaliases.8.out
 MANPAGES_IN=		$(smtpd_srcdir)/makemap.8
 MANPAGES_IN+=		$(smtpd_srcdir)/newaliases.8
 
-EXTRA_DIST+=		$(MANPAGES_IN)
+EXTRA_DIST=		$(MANPAGES_IN)
 
 FIXPATHSCMD=		$(CAT)
 

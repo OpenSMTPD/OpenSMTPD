@@ -12,12 +12,12 @@ PATHS=		-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
 		-DPATH_FILTERS=\"$(pkglibexecdir)\"			\
 		-DPATH_TABLES=\"$(pkglibexecdir)\"
 
-EXTRA_DIST =	$(smtpd_srcdir)/iobuf.h
-EXTRA_DIST+=	$(smtpd_srcdir)/ioev.h
-EXTRA_DIST+=	$(smtpd_srcdir)/log.h
-EXTRA_DIST+=	$(smtpd_srcdir)/parser.h
-EXTRA_DIST+=	$(smtpd_srcdir)/smtpd.h
-EXTRA_DIST+=	$(smtpd_srcdir)/smtpd-api.h
-EXTRA_DIST+=	$(smtpd_srcdir)/smtpd-defines.h
-EXTRA_DIST+=	$(smtpd_srcdir)/ssl.h
+#EXTRA_DIST =	$(smtpd_srcdir)/iobuf.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/ioev.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/log.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/parser.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/smtpd.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/smtpd-api.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/smtpd-defines.h
+#EXTRA_DIST+=	$(smtpd_srcdir)/ssl.h
 

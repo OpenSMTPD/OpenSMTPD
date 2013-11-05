@@ -45,7 +45,3 @@ filter_stub_SOURCES+=	$(filters_srcdir)/filter_stub.c
 
 filter_trace_SOURCES=	$(SRCS)
 filter_trace_SOURCES+=	$(filters_srcdir)/filter_trace.c
-
-#EXTRA_DIST=		$(filters_srcdir)/asr_event.h				\
-			$(asr_srcdir)/asr.h					\
-			$(asr_srcdir)/asr_private.h

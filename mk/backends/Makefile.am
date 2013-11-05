@@ -101,5 +101,3 @@ endif
 
 table_stub_SOURCES=	$(TABLE_SRCS)
 table_stub_SOURCES+=	$(smtpd_srcdir)/table_stub.c
-
-#EXTRA_DIST=		$(backends_srcdir)/queue_utils.h
