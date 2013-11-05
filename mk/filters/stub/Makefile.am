@@ -1,5 +1,5 @@
 include $(top_srcdir)/mk/pathnames
-include $(top_srcdir)/mk/filters/filter.mk
+include $(top_srcdir)/mk/filter.mk
 
 pkglibexec_PROGRAMS	 = filter-stub
 

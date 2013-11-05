@@ -1,5 +1,5 @@
 include	$(top_srcdir)/mk/pathnames
-include	$(top_srcdir)/mk/backends/scheduler.mk
+include	$(top_srcdir)/mk/scheduler.mk
 
 pkglibexec_PROGRAMS	 = scheduler-stub
 

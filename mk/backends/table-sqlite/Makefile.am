@@ -1,5 +1,5 @@
 include	$(top_srcdir)/mk/pathnames
-include	$(top_srcdir)/mk/backends/table.mk
+include	$(top_srcdir)/mk/table.mk
 
 pkglibexec_PROGRAMS	 = table-sqlite
 

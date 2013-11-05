@@ -1,5 +1,5 @@
 include	$(top_srcdir)/mk/pathnames
-include	$(top_srcdir)/mk/backends/queue.mk
+include	$(top_srcdir)/mk/queue.mk
 
 pkglibexec_PROGRAMS	 = queue-stub
 
