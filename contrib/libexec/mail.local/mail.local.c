@@ -264,7 +264,7 @@ retry:
 	}
 
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
-		for (off = 0; off < nr;  off += nw)
+		for (off = 0; off < (size_t)nr;  off += nw)
 			if ((nw = write(mbfd, buf + off, nr - off)) < 0) {
 				merr(NOTFATAL, "%s: %s", path, strerror(errno));
 				(void)ftruncate(mbfd, curoff);
@@ -324,7 +324,7 @@ notifybiff(char *msg)
 	}
 	len = strlen(msg) + 1;
 	if (sendto(f, msg, len, 0, (struct sockaddr *)&addr, sizeof(addr))
-	    != len)
+	    != (ssize_t)len)
 		merr(NOTFATAL, "sendto biff: %s", strerror(errno));
 }
 
