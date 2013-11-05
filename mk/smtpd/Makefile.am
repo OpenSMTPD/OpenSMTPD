@@ -110,8 +110,9 @@ LDADD=			$(LIBCOMPAT)
 CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-MANPAGES=		aliases.5.out forward.5.out smtpd.8.out			\
+MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
 			smtpd.conf.5.out table.5.out
+
 MANPAGES_IN=		$(smtpd_srcdir)/aliases.5
 MANPAGES_IN+=		$(smtpd_srcdir)/forward.5
 MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.8
@@ -122,6 +123,22 @@ CONFIGFILES=		smtpd.conf.out
 CONFIGFILES_IN=		$(smtpd_srcdir)/smtpd.conf
 
 EXTRA_DIST=		$(CONFIGFILES_IN) $(MANPAGES_IN)
+
+
+EXTRA_DIST+=		$(smtpd_srcdir)/smtpd.h
+EXTRA_DIST+=		$(smtpd_srcdir)/smtpd-api.h
+EXTRA_DIST+=		$(smtpd_srcdir)/smtpd-defines.h
+EXTRA_DIST+=		$(smtpd_srcdir)/ioev.h
+EXTRA_DIST+=		$(smtpd_srcdir)/iobuf.h
+EXTRA_DIST+=		$(smtpd_srcdir)/log.h
+EXTRA_DIST+=		$(smtpd_srcdir)/ssl.h
+EXTRA_DIST+=		$(smtpd_srcdir)/parser.h
+
+EXTRA_DIST+=		$(backends_srcdir)/queue_utils.h
+EXTRA_DIST+=		$(filters_srcdir)/asr_event.h
+
+EXTRA_DIST+=		$(asr_srcdir)/asr.h
+EXTRA_DIST+=		$(asr_srcdir)/asr_private.h
 
 FIXPATHSCMD=		$(CAT)
 
@@ -162,7 +179,7 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
-#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
+	#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5			\
