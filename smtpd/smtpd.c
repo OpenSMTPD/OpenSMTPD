@@ -136,7 +136,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
-int     control_socket = -1;
+int	control_socket = -1;
 
 struct tree	 children;
 
@@ -765,6 +765,7 @@ main(int argc, char *argv[])
 	env->sc_uptime = time(NULL);
 
 	load_ssl_tree();
+
 	fork_peers();
 
 	config_process(PROC_PARENT);
@@ -822,7 +823,6 @@ load_ssl_tree(void)
 	struct ssl	*ssl;
 	void		*iter_dict;
 	const char	*k;
-	
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
@@ -887,6 +887,7 @@ post_fork(int proc)
 {
 	if (proc != PROC_QUEUE && env->sc_queue_key)
 		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
 		control_socket = -1;
@@ -1476,6 +1477,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_RULE_SOURCE);
 	CASE(IMSG_CONF_RULE_SENDER);
 	CASE(IMSG_CONF_RULE_DESTINATION);
+	CASE(IMSG_CONF_RULE_RECIPIENT);
 	CASE(IMSG_CONF_RULE_MAPPING);
 	CASE(IMSG_CONF_RULE_USERS);
 	CASE(IMSG_CONF_FILTER);

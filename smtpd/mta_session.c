@@ -1121,7 +1121,7 @@ mta_io(struct io *io, int evt)
 	const char		*error;
 	int			 cont;
 	X509			*x;
-	
+
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
 

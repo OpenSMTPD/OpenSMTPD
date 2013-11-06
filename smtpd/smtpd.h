@@ -28,25 +28,18 @@
 #include "iobuf.h"
 
 #define CONF_FILE		 "/etc/mail/smtpd.conf"
+#define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
-#define MAX_LISTEN		 16
+
 #define PROC_COUNT		 10
-#define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
-
 #define MAX_TAG_SIZE		 32
-
-#define	MAX_TABLE_BACKEND_SIZE	 32
-
-/* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 
 #define	EXPAND_BUFFER		 1024
 
-#define SMTPD_QUEUE_INTERVAL	 (15 * 60)
-#define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #ifndef SMTPD_NAME
@@ -75,7 +68,7 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
-#define	F_MASK_SOURCE  		0x100
+#define	F_MASK_SOURCE		0x100
 #define	F_TLS_VERIFY		0x200
 
 /* must match F_* for mta */
@@ -227,7 +220,6 @@ enum imsg_type {
 	IMSG_MFA_EVENT_COMMIT,
 	IMSG_MFA_EVENT_ROLLBACK,
 	IMSG_MFA_EVENT_DISCONNECT,
-	IMSG_MFA_SMTP_DATA, /* XXX remove and bump */
 	IMSG_MFA_SMTP_RESPONSE,
 
 	IMSG_MTA_TRANSFER,
@@ -581,7 +573,7 @@ struct filter {
 	int			done;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
-	char		        filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
+	char			filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
 };
 
 struct mta_host {
@@ -1068,19 +1060,6 @@ int		 enqueue(int, char **);
 void envelope_set_errormsg(struct envelope *, char *, ...);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
-
-int envelope_ascii_load_uint16(uint16_t *, char *);
-int envelope_ascii_load_uint32(uint32_t *, char *);
-int envelope_ascii_load_time(time_t *, char *);
-int envelope_ascii_load_type(enum delivery_type *, char *);
-int envelope_ascii_load_string(char *, char *, size_t);
-int envelope_ascii_load_sockaddr(struct sockaddr_storage *, char *);
-int envelope_ascii_load_mda_method(enum action_type *, char *);
-int envelope_ascii_load_mailaddr(struct mailaddr *, char *);
-int envelope_ascii_load_flags(enum envelope_flags *, char *);
-int envelope_ascii_load_mta_relay_url(struct relayhost *, char *);
-int envelope_ascii_load_mta_relay_flags(uint16_t *, char *);
-int envelope_ascii_load_bounce_type(enum bounce_type *, char *);
 
 
 /* expand.c */

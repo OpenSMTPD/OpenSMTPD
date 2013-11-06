@@ -38,13 +38,13 @@ for
 The following commands are available:
 .Bl -tag -width Ds
 .It Cm encrypt Op Ar string
+Encrypt the password
+.Ar string
+to a representation suitable for user credentials and print it to the
+standard output.
 If
 .Ar string
-is not provided, read cleartext passwords from standard input and encrypt
-them to a representation suitable for user credentials.
-If
-.Ar string
-is provided, encrypt it instead.
+is not provided, cleartext passwords are read from standard input.
 .Pp
 It is advised to avoid providing the password as a parameter as it will be
 visible from

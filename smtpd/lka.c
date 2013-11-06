@@ -801,7 +801,6 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 {
 	X509			*x509;
 	X509			*x509_tmp;
-	X509			*x509_tmp2;
 	STACK_OF(X509)		*x509_chain;
 	const unsigned char    	*d2i;
 	size_t			i;
@@ -822,15 +821,10 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 		x509_chain = sk_X509_new_null();
 		for (i = 0; i < vrfy->n_chain; ++i) {
 			d2i = vrfy->chain_cert[i];
-			if (d2i_X509(&x509_tmp, &d2i, vrfy->chain_cert_len[i]) == NULL) {
-				x509_tmp = NULL;
+			if (d2i_X509(&x509_tmp, &d2i, vrfy->chain_cert_len[i]) == NULL)
 				goto end;
-			}
-
-			if ((x509_tmp2 = X509_dup(x509_tmp)) == NULL)
-				goto end;
-			sk_X509_insert(x509_chain, x509_tmp2, i);
-			x509_tmp = x509_tmp2 = NULL;
+			sk_X509_insert(x509_chain, x509_tmp, i);
+			x509_tmp = NULL;
 		}
 	}
 	if (! ca_X509_verify(x509, x509_chain, CAfile, NULL, &errstr))
