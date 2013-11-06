@@ -96,7 +96,7 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
-#define	F_MASK_SOURCE  		0x100
+#define	F_MASK_SOURCE		0x100
 #define	F_TLS_VERIFY		0x200
 
 /* must match F_* for mta */
