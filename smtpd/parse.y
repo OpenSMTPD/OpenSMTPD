@@ -408,10 +408,18 @@ opt_relay_common: AS STRING	{
 			    sizeof rule->r_value.relayhost.helotable);
 		}
 		| PKI STRING {
-			if (strlcpy(rule->r_value.relayhost.cert, $2,
-				sizeof(rule->r_value.relayhost.cert))
-			    >= sizeof(rule->r_value.relayhost.cert))
-				fatal("certificate path too long");
+			if (! lowercase(rule->r_value.relayhost.cert, $2,
+				sizeof(rule->r_value.relayhost.cert))) {
+				yyerror("pki name too long: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			if (dict_get(conf->sc_ssl_dict,
+			    rule->r_value.relayhost.cert) == NULL) {
+				log_warnx("pki name not found: %s", $2);
+				free($2);
+				YYERROR;
+			}
 			free($2);
 		}
 		;
@@ -569,13 +577,15 @@ main		: BOUNCEWARN {
 		} filter_list
 		;
 		| PKI STRING	{
-			pki_ssl = dict_get(conf->sc_ssl_dict, $2);
+			char buf[MAXHOSTNAMELEN];
+			xlowercase(buf, $2, sizeof(buf));
+			free($2);
+			pki_ssl = dict_get(conf->sc_ssl_dict, buf);
 			if (pki_ssl == NULL) {
 				pki_ssl = xcalloc(1, sizeof *pki_ssl, "parse:pki");
-				xlowercase(pki_ssl->ssl_name, $2, sizeof pki_ssl->ssl_name);
+				strlcpy(pki_ssl->ssl_name, buf, sizeof(pki_ssl->ssl_name));
 				dict_set(conf->sc_ssl_dict, pki_ssl->ssl_name, pki_ssl);
 			}
-			free($2);
 		} pki
 		;
 
@@ -1709,8 +1719,17 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->authtable != NULL)
 		(void)strlcpy(h->authtable, lo->authtable->t_name, sizeof(h->authtable));
-	if (lo->pki != NULL)
-		(void)strlcpy(h->ssl_cert_name, lo->pki, sizeof(h->ssl_cert_name));
+	if (lo->pki != NULL) {
+		if (! lowercase(h->ssl_cert_name, lo->pki,
+		    sizeof(h->ssl_cert_name))) {
+			log_warnx("pki name too long: %s", lo->pki);
+			fatalx(NULL);
+		}
+		if (dict_get(conf->sc_ssl_dict, h->ssl_cert_name) == NULL) {
+			log_warnx("pki name not found: %s", lo->pki);
+			fatalx(NULL);
+		}
+	}
 	if (lo->tag != NULL)
 		(void)strlcpy(h->tag, lo->tag, sizeof(h->tag));
 
