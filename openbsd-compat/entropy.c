@@ -51,14 +51,6 @@
 #include "log.h"
 //#include "buffer.h"
 
-/* wrapper for signal interface */
-typedef void (*mysig_t)(int);
-mysig_t mysignal(int sig, mysig_t act);
-
-#define signal(a,b) mysignal(a,b)
-
-#include <sys/wait.h>
-
 /*
  * Portable OpenSSH PRNG seeding:
  * If OpenSSL has not "internally seeded" itself (e.g. pulled data from
