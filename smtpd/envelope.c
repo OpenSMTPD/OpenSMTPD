@@ -591,10 +591,10 @@ envelope_ascii_load(struct envelope *ep, struct dict *d)
 	const char	       *field;
 	char		       *value;
 	void		       *hdl;
-
+#if 0
 	if (! envelope_check_dict(d))
 		goto err;
-
+#endif
 	hdl = NULL;
 	while (dict_iter(d, &hdl, &field, (void **)&value))
 		if (! ascii_load_field(field, ep, value))
