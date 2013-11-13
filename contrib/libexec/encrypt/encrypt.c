@@ -17,7 +17,9 @@
 
 #include "includes.h"
 
+#ifdef HAVE_CRYPT_H
 #include <crypt.h> /* needed for crypt() */
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
