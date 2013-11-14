@@ -64,11 +64,6 @@ $(MANPAGES): $(MANPAGES_IN)
 		$(FIXPATHSCMD) $${manpage} > $@; \
 	fi
 
-$(CONFIGFILES): $(CONFIGFILES_IN)
-	conffile=`echo $@ | sed 's/.out$$//'`; \
-	$(CAT) $(srcdir)/$${conffile} > $@
-
-
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 	if test "$(USE_MAILWRAPPER)" = "0"; then \
