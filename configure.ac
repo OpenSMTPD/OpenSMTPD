@@ -105,7 +105,7 @@ if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	OSSH_CHECK_CFLAG_COMPILE([-Wpointer-sign], [-Wno-pointer-sign])
 	OSSH_CHECK_CFLAG_COMPILE([-Wunused-result], [-Wno-unused-result])
 	OSSH_CHECK_CFLAG_COMPILE([-fno-strict-aliasing])
-	OSSH_CHECK_CFLAG_COMPILE([-D_FORTIFY_SOURCE=2])
+#	OSSH_CHECK_CFLAG_COMPILE([-D_FORTIFY_SOURCE=2])
 	AC_MSG_CHECKING([gcc version])
 	GCC_VER=`$CC -v 2>&1 | $AWK '/gcc version /{print $3}'`
 	case $GCC_VER in
