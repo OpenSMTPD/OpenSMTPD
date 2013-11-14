@@ -496,7 +496,7 @@ table_sqlite_fetch(int service, char *dst, size_t sz)
 	    goto fetch;
 
 	source_iter = NULL;
-	while(dict_poproot(&sources, NULL, NULL))
+	while (dict_poproot(&sources, NULL))
 		;
 
 	while ((s = sqlite3_step(stmt_fetch_source)) == SQLITE_ROW)
