@@ -155,7 +155,7 @@ $(MANPAGES): $(MANPAGES_IN)
 
 $(CONFIGFILES): $(CONFIGFILES_IN)
 	conffile=$(smtpd_srcdir)/`echo $@ | sed 's/.out$$//'`; \
-	$(FIXPATHSCMD) $(srcdir)/$${conffile} > $@
+	$(CAT) $(srcdir)/$${conffile} > $@
 
 
 # smtpd.conf

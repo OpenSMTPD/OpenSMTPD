@@ -66,7 +66,7 @@ $(MANPAGES): $(MANPAGES_IN)
 
 $(CONFIGFILES): $(CONFIGFILES_IN)
 	conffile=`echo $@ | sed 's/.out$$//'`; \
-	$(FIXPATHSCMD) $(srcdir)/$${conffile} > $@
+	$(CAT) $(srcdir)/$${conffile} > $@
 
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
