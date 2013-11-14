@@ -49,7 +49,10 @@ MANPAGES_IN+=		$(smtpd_srcdir)/newaliases.8
 
 EXTRA_DIST=		$(MANPAGES_IN)
 
-FIXPATHSCMD=		$(CAT)
+PATHSUBS=		-e 's|/usr/libexec|$(libexecdir)|g'			\
+			-e 's|/etc/mail/|$(sysconfdir)/|g'
+
+FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 $(MANPAGES): $(MANPAGES_IN)
 	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \

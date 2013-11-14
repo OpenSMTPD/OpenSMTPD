@@ -52,7 +52,8 @@ MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8
 
 EXTRA_DIST=		$(MANPAGES_IN)
 
-FIXPATHSCMD=		$(CAT)
+PATHSUBS=		-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
+FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 
 $(MANPAGES): $(MANPAGES_IN)

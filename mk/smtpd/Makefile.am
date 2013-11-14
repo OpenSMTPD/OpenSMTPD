@@ -140,7 +140,10 @@ EXTRA_DIST+=		$(filters_srcdir)/asr_event.h
 EXTRA_DIST+=		$(asr_srcdir)/asr.h
 EXTRA_DIST+=		$(asr_srcdir)/asr_private.h
 
-FIXPATHSCMD=		$(CAT)
+PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
+			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
+
+FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 $(MANPAGES): $(MANPAGES_IN)
 	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
