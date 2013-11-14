@@ -162,7 +162,7 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 	if (ret)
 		ep->version = SMTPD_ENVELOPE_VERSION;
 end:
-	while (dict_poproot(&d, NULL, NULL))
+	while (dict_poproot(&d, NULL))
 		;
 	return (ret);
 }

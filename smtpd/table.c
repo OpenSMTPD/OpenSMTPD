@@ -263,7 +263,7 @@ table_destroy(struct table *t)
 {
 	void	*p = NULL;
 
-	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
+	while (dict_poproot(&t->t_dict, (void **)&p))
 		free(p);
 
 	dict_xpop(env->sc_tables_dict, t->t_name);
