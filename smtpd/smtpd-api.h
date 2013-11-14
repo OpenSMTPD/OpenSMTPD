@@ -236,7 +236,7 @@ void *dict_get(struct dict *, const char *);
 void *dict_xget(struct dict *, const char *);
 void *dict_pop(struct dict *, const char *);
 void *dict_xpop(struct dict *, const char *);
-int dict_poproot(struct dict *, const char * *, void **);
+int dict_poproot(struct dict *, void **);
 int dict_root(struct dict *, const char * *, void **);
 int dict_iter(struct dict *, void **, const char * *, void **);
 int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
