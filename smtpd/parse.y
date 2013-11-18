@@ -147,10 +147,10 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED MAXSCHEDULERINFLIGHT LISTEN ON ANY PORT EXPIRE
+%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
 %token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
-%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
+%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER FILTERCHAIN KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	<v.string>	STRING
@@ -262,7 +262,7 @@ bouncedelays	: bouncedelays ',' bouncedelay
 		| /* EMPTY */
 		;
 
-opt_limit	: INET4 {
+opt_limit_mta	: INET4 {
 			limits->family = AF_INET;
 		}
 		| INET6 {
@@ -270,7 +270,7 @@ opt_limit	: INET4 {
 		}
 		| STRING NUMBER {
 			if (!limit_mta_set(limits, $1, $2)) {
-				yyerror("invalid limit keyword");
+				yyerror("invalid mta limit keyword: %s", $1);
 				free($1);
 				YYERROR;
 			}
@@ -278,7 +278,24 @@ opt_limit	: INET4 {
 		}
 		;
 
-limits		: opt_limit limits
+limits_mta	: opt_limit_mta limits_mta
+		| /* empty */
+		;
+
+opt_limit_scheduler : STRING NUMBER {
+			if (!strcmp($1, "max-inflight")) {
+				conf->sc_scheduler_max_inflight = $2;
+			}
+			else {
+				yyerror("invalid scheduler limit keyword: %s", $1);
+				free($1);
+				YYERROR;
+			}
+			free($1);
+		}
+		;
+
+limits_scheduler: opt_limit_scheduler limits_scheduler
 		| /* empty */
 		;
 
@@ -540,9 +557,6 @@ main		: BOUNCEWARN {
 		| MAXMTADEFERRED NUMBER  {
 			conf->sc_mta_max_deferred = $2;
 		} 
-		| MAXSCHEDULERINFLIGHT NUMBER  {
-			conf->sc_scheduler_max_inflight = $2;
-		} 
 		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
 
@@ -554,10 +568,12 @@ main		: BOUNCEWARN {
 				memmove(limits, d, sizeof(*limits));
 			}
 			free($5);
-		} limits
+		} limits_mta
 		| LIMIT MTA {
 			limits = dict_get(conf->sc_limits_dict, "default");
-		} limits
+		} limits_mta
+		| LIMIT SCHEDULER {
+		} limits_scheduler
 		| LISTEN {
 			bzero(&l, sizeof l);
 			bzero(&listen_opts, sizeof listen_opts);
@@ -1109,7 +1125,6 @@ lookup(char *s)
 		{ "mask-source",	MASK_SOURCE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "max-mta-deferred",  	MAXMTADEFERRED },
-		{ "max-scheduler-inflight",  	MAXSCHEDULERINFLIGHT },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
@@ -1120,6 +1135,7 @@ lookup(char *s)
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "scheduler",		SCHEDULER },
 		{ "secure",		SECURE },
 		{ "sender",    		SENDER },
 		{ "smtps",		SMTPS },

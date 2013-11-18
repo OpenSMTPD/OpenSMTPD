@@ -825,7 +825,7 @@ struct scheduler_backend {
 	int	(*update)(struct scheduler_info *);
 	int	(*delete)(uint64_t);
 	int	(*hold)(uint64_t, uint64_t);
-	int	(*release)(uint64_t, int);
+	int	(*release)(int, uint64_t, int);
 
 	int	(*batch)(int, struct scheduler_batch *);
 
@@ -1000,8 +1000,8 @@ struct ca_cert_resp_msg {
 };
 
 struct ca_vrfy_req_msg {
-	char			pkiname[SMTPD_MAXHOSTNAMELEN];
 	uint64_t		reqid;
+	char			pkiname[SMTPD_MAXHOSTNAMELEN];
 	unsigned char  	       *cert;
 	off_t			cert_len;
 	size_t			n_chain;
