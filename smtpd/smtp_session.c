@@ -1653,6 +1653,10 @@ smtp_verify_certificate(struct smtp_session *s)
 
 	/* Send the client certificate */
 	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	if (strlcpy(req_ca_vrfy.pkiname, s->listener->ssl_cert_name, sizeof req_ca_vrfy.pkiname)
+	    >= sizeof req_ca_vrfy.pkiname)
+		return 0;
+
 	req_ca_vrfy.reqid = s->id;
 	req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
 	if (xchain)
