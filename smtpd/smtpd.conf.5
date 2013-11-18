@@ -550,6 +550,14 @@ If a
 is specified, the restriction only applies when connecting
 to MXs for this domain.
 .It Xo
+.Ic limit scheduler max-inflight
+.Ar num
+.Xc
+Suspend the scheduling of envelopes for deliver/relay until the number
+of inflight envelopes falls below
+.Ar num .
+Changing the default value might degrade performances.
+.It Xo
 .Bk -words
 .Ic listen on Ar interface
 .Op Ar family
