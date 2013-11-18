@@ -80,7 +80,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t       		 penalty;
 	size_t			 n, i;
 	time_t			 timestamp;
-	int			 v, r;
+	int			 v, r, type;
 
 	switch (imsg->hdr.type) {
 
@@ -228,12 +228,14 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_DELIVERY_RELEASE:
 		m_msg(&m, imsg);
+		m_get_int(&m, &type);
 		m_get_id(&m, &holdq);
 		m_get_int(&m, &r);
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: releasing %d on holdq %016" PRIx64, r, holdq);
-		backend->release(holdq, r);
+		    "scheduler: releasing %d on holdq (%i, %016" PRIx64 ")",
+		    r, type, holdq);
+		backend->release(type, holdq, r);
 		scheduler_reset_events();
 		return;
 

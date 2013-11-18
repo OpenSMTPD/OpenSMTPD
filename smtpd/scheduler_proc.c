@@ -273,7 +273,7 @@ scheduler_proc_hold(uint64_t evpid, uint64_t holdq)
 }
 
 static int
-scheduler_proc_release(uint64_t holdq, int n)
+scheduler_proc_release(int type, uint64_t holdq, int n)
 {
 	struct ibuf	*buf;
 	int		 r;
@@ -283,6 +283,8 @@ scheduler_proc_release(uint64_t holdq, int n)
 	buf = imsg_create(&ibuf, PROC_SCHEDULER_RELEASE, 0, 0,
 	    sizeof(holdq) + sizeof(n));
 	if (buf == NULL)
+		return (-1);
+	if (imsg_add(buf, &type, sizeof(type)) == -1)
 		return (-1);
 	if (imsg_add(buf, &holdq, sizeof(holdq)) == -1)
 		return (-1);
