@@ -203,7 +203,7 @@ scheduler_msg_dispatch(void)
 		scheduler_msg_get(&r, sizeof(r));
 		scheduler_msg_end();
 
-		r = handler_release(i, u64, r);
+		r = handler_release(type, u64, r);
 
 		imsg_compose(&ibuf, PROC_SCHEDULER_OK, 0, 0, -1, &r, sizeof(r));
 		break;
@@ -386,7 +386,7 @@ scheduler_api_on_hold(int(*cb)(uint64_t, uint64_t))
 }
 
 void
-scheduler_api_on_release(int(*cb)(uint64_t, int))
+scheduler_api_on_release(int(*cb)(int, uint64_t, int))
 {
 	handler_release = cb;
 }
