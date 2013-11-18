@@ -972,8 +972,8 @@ struct ca_cert_resp_msg {
 };
 
 struct ca_vrfy_req_msg {
-	char			pkiname[SMTPD_MAXHOSTNAMELEN];
 	uint64_t		reqid;
+	char			pkiname[SMTPD_MAXHOSTNAMELEN];
 	unsigned char  	       *cert;
 	off_t			cert_len;
 	size_t			n_chain;
