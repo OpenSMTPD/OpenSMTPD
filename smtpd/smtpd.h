@@ -797,7 +797,7 @@ struct scheduler_backend {
 	int	(*update)(struct scheduler_info *);
 	int	(*delete)(uint64_t);
 	int	(*hold)(uint64_t, uint64_t);
-	int	(*release)(uint64_t, int);
+	int	(*release)(int, uint64_t, int);
 
 	int	(*batch)(int, struct scheduler_batch *);
 
