@@ -228,6 +228,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_USERINFO:
 			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
 			m_get_string(&m, &username);
 			m_end(&m);
@@ -235,8 +236,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			ret = lka_userinfo(tablename, username, &userinfo);
 
 			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1);
-			m_add_string(p, tablename);
-			m_add_string(p, username);
+			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
 				m_add_data(p, &userinfo, sizeof(userinfo));
