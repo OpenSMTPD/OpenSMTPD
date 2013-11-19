@@ -262,6 +262,35 @@ bouncedelays	: bouncedelays ',' bouncedelay
 		| /* EMPTY */
 		;
 
+opt_limit_mda	: STRING NUMBER {
+			if (!strcmp($1, "max-session")) {
+				conf->sc_mda_max_session = $2;
+			}
+			else if (!strcmp($1, "max-session-per-user")) {
+				conf->sc_mda_max_user_session = $2;
+			}
+			else if (!strcmp($1, "task-lowat")) {
+				conf->sc_mda_task_lowat = $2;
+			}
+			else if (!strcmp($1, "task-hiwat")) {
+				conf->sc_mda_task_hiwat = $2;
+			}
+			else if (!strcmp($1, "task-release")) {
+				conf->sc_mda_task_release = $2;
+			}
+			else {
+				yyerror("invalid scheduler limit keyword: %s", $1);
+				free($1);
+				YYERROR;
+			}
+			free($1);
+		}
+		;
+
+limits_mda	: opt_limit_mda limits_mda
+		| /* empty */
+		;
+
 opt_limit_mta	: INET4 {
 			limits->family = AF_INET;
 		}
@@ -556,7 +585,8 @@ main		: BOUNCEWARN {
 		}
 		| MAXMTADEFERRED NUMBER  {
 			conf->sc_mta_max_deferred = $2;
-		} 
+		}
+		| LIMIT MDA limits_mda
 		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
 
@@ -572,8 +602,7 @@ main		: BOUNCEWARN {
 		| LIMIT MTA {
 			limits = dict_get(conf->sc_limits_dict, "default");
 		} limits_mta
-		| LIMIT SCHEDULER {
-		} limits_scheduler
+		| LIMIT SCHEDULER limits_scheduler
 		| LISTEN {
 			bzero(&l, sizeof l);
 			bzero(&listen_opts, sizeof listen_opts);
@@ -1538,6 +1567,12 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	conf->sc_mta_max_deferred = 100;
 	conf->sc_scheduler_max_inflight = 5000;
+
+	conf->sc_mda_max_session = 50;
+	conf->sc_mda_max_user_session = 7;
+	conf->sc_mda_task_hiwat = 50;
+	conf->sc_mda_task_lowat = 30;
+	conf->sc_mda_task_release = 10;
 
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);

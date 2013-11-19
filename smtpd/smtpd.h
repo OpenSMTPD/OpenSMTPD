@@ -529,6 +529,12 @@ struct smtpd {
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
 
+	size_t				sc_mda_max_session;
+	size_t				sc_mda_max_user_session;
+	size_t				sc_mda_task_hiwat;
+	size_t				sc_mda_task_lowat;
+	size_t				sc_mda_task_release;
+
 	size_t				sc_mta_max_deferred;
 
 	size_t				sc_scheduler_max_inflight;
