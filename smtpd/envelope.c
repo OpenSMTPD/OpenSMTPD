@@ -48,7 +48,9 @@ static int envelope_upgrade_v1(struct dict *);
 static int envelope_ascii_load(struct envelope *, struct dict *);
 static void envelope_ascii_dump(const struct envelope *, char **, size_t *,
     const char *);
+#if 0
 static int envelope_check_dict(struct dict *);
+#endif
 
 void
 envelope_set_errormsg(struct envelope *e, char *fmt, ...)
@@ -221,6 +223,7 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 	return (dest - p);
 }
 
+#if 0
 static int
 envelope_check_dict(struct dict *d)
 {
@@ -301,6 +304,7 @@ envelope_check_dict(struct dict *d)
 err:
 	return 0;
 }
+#endif
 
 static int
 ascii_load_uint16(uint16_t *dest, char *buf)
