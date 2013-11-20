@@ -1732,7 +1732,6 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 
 	flags = lo->flags;
 
-
 	if (lo->port) {
 		lo->flags = lo->ssl|lo->auth|flags;
 		lo->port = htons(lo->port);
@@ -1793,6 +1792,9 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	(void)strlcpy(h->hostname, lo->hostname, sizeof(h->hostname));
 	if (lo->hostnametable)
 		(void)strlcpy(h->hostnametable, lo->hostnametable->t_name, sizeof(h->hostnametable));
+
+	if (lo->ssl & F_TLS_VERIFY)
+		h->flags |= F_TLS_VERIFY;
 }
 
 struct listener *
