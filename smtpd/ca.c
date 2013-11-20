@@ -63,7 +63,7 @@ ca_X509_verify(X509 *certificate, STACK_OF(X509) *chain, const char *CAfile,
 		goto end;
 
 	if (! X509_STORE_load_locations(store, CAfile, NULL)) {
-		log_warn("warn: unable to load CA file");
+		log_warn("warn: unable to load CA file %s", CAfile);
 		goto end;
 	}
 	X509_STORE_set_default_paths(store);
