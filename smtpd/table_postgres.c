@@ -345,10 +345,10 @@ config_free(struct config *conf)
 
 	config_reset(conf);
 
-	while(dict_poproot(&conf->conf, NULL, &value))
+	while (dict_poproot(&conf->conf, &value))
 		free(value);
 
-	while(dict_poproot(&conf->sources, NULL, NULL))
+	while (dict_poproot(&conf->sources, NULL))
 		;
 
 	free(conf);
@@ -541,7 +541,7 @@ table_postgres_fetch(int service, char *dst, size_t sz)
 	}
 
 	config->source_iter = NULL;
-	while(dict_poproot(&config->sources, NULL, NULL))
+	while (dict_poproot(&config->sources, NULL))
 		;
 
 	for (i = 0; i < PQntuples(res); i++)

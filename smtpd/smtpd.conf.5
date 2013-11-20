@@ -550,6 +550,14 @@ If a
 is specified, the restriction only applies when connecting
 to MXs for this domain.
 .It Xo
+.Ic limit scheduler max-inflight
+.Ar num
+.Xc
+Suspend the scheduling of envelopes for deliver/relay until the number
+of inflight envelopes falls below
+.Ar num .
+Changing the default value might degrade performances.
+.It Xo
 .Bk -words
 .Ic listen on Ar interface
 .Op Ar family
@@ -671,6 +679,11 @@ Creation of certificates is documented in
 .It Ic pki Ar hostname Ic key Ar keyfile
 Associate the key located in
 .Ar keyfile
+with
+.Ar hostname .
+.It Ic pki Ar hostname Ic ca Ar cafile
+Associate a custom CA certificate
+.Ar cafile
 with
 .Ar hostname .
 .It Ic pki Ar hostname Ic dhparams Ar dhfile
@@ -819,6 +832,15 @@ For example, with recipient "User+Tag@Example.org":
 %{rcpt:uppercase}	expands to "USER+TAG@EXAMPLE.ORG"
 %{rcpt:strip}		expands to "User@Example.org"
 %{rcpt:lowercase|strip}	expands to "user@example.org"
+.Ed
+.Pp
+For security concerns, expanded values are sanitized and potentially
+dangerous characters are replaced with ":".
+In situations where they are desirable, the "raw" modifier may be applied.
+For example, with recipient "user+t?g@example.org":
+.Bd -literal -offset indent
+%{rcpt}		expands to "user+t:g@example.org"
+%{rcpt:raw}	expands to "user+t?g@example.org"
 .Ed
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX"

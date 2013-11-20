@@ -141,10 +141,10 @@ typedef struct {
 
 %}
 
-%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED MAXSCHEDULERINFLIGHT LISTEN ON ANY PORT EXPIRE
+%token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
 %token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
-%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI
+%token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER FILTERCHAIN KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	<v.string>	STRING
@@ -256,15 +256,24 @@ bouncedelays	: bouncedelays ',' bouncedelay
 		| /* EMPTY */
 		;
 
-opt_limit	: INET4 {
-			limits->family = AF_INET;
-		}
-		| INET6 {
-			limits->family = AF_INET6;
-		}
-		| STRING NUMBER {
-			if (!limit_mta_set(limits, $1, $2)) {
-				yyerror("invalid limit keyword");
+opt_limit_mda	: STRING NUMBER {
+			if (!strcmp($1, "max-session")) {
+				conf->sc_mda_max_session = $2;
+			}
+			else if (!strcmp($1, "max-session-per-user")) {
+				conf->sc_mda_max_user_session = $2;
+			}
+			else if (!strcmp($1, "task-lowat")) {
+				conf->sc_mda_task_lowat = $2;
+			}
+			else if (!strcmp($1, "task-hiwat")) {
+				conf->sc_mda_task_hiwat = $2;
+			}
+			else if (!strcmp($1, "task-release")) {
+				conf->sc_mda_task_release = $2;
+			}
+			else {
+				yyerror("invalid scheduler limit keyword: %s", $1);
 				free($1);
 				YYERROR;
 			}
@@ -272,7 +281,44 @@ opt_limit	: INET4 {
 		}
 		;
 
-limits		: opt_limit limits
+limits_mda	: opt_limit_mda limits_mda
+		| /* empty */
+		;
+
+opt_limit_mta	: INET4 {
+			limits->family = AF_INET;
+		}
+		| INET6 {
+			limits->family = AF_INET6;
+		}
+		| STRING NUMBER {
+			if (!limit_mta_set(limits, $1, $2)) {
+				yyerror("invalid mta limit keyword: %s", $1);
+				free($1);
+				YYERROR;
+			}
+			free($1);
+		}
+		;
+
+limits_mta	: opt_limit_mta limits_mta
+		| /* empty */
+		;
+
+opt_limit_scheduler : STRING NUMBER {
+			if (!strcmp($1, "max-inflight")) {
+				conf->sc_scheduler_max_inflight = $2;
+			}
+			else {
+				yyerror("invalid scheduler limit keyword: %s", $1);
+				free($1);
+				YYERROR;
+			}
+			free($1);
+		}
+		;
+
+limits_scheduler: opt_limit_scheduler limits_scheduler
 		| /* empty */
 		;
 
@@ -408,10 +454,18 @@ opt_relay_common: AS STRING	{
 			    sizeof rule->r_value.relayhost.helotable);
 		}
 		| PKI STRING {
-			if (strlcpy(rule->r_value.relayhost.cert, $2,
-				sizeof(rule->r_value.relayhost.cert))
-			    >= sizeof(rule->r_value.relayhost.cert))
-				fatal("certificate path too long");
+			if (! lowercase(rule->r_value.relayhost.cert, $2,
+				sizeof(rule->r_value.relayhost.cert))) {
+				yyerror("pki name too long: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			if (dict_get(conf->sc_ssl_dict,
+			    rule->r_value.relayhost.cert) == NULL) {
+				log_warnx("pki name not found: %s", $2);
+				free($2);
+				YYERROR;
+			}
 			free($2);
 		}
 		;
@@ -525,10 +579,8 @@ main		: BOUNCEWARN {
 		}
 		| MAXMTADEFERRED NUMBER  {
 			conf->sc_mta_max_deferred = $2;
-		} 
-		| MAXSCHEDULERINFLIGHT NUMBER  {
-			conf->sc_scheduler_max_inflight = $2;
-		} 
+		}
+		| LIMIT MDA limits_mda
 		| LIMIT MTA FOR DOMAIN STRING {
 			struct mta_limits	*d;
 
@@ -540,10 +592,11 @@ main		: BOUNCEWARN {
 				memmove(limits, d, sizeof(*limits));
 			}
 			free($5);
-		} limits
+		} limits_mta
 		| LIMIT MTA {
 			limits = dict_get(conf->sc_limits_dict, "default");
-		} limits
+		} limits_mta
+		| LIMIT SCHEDULER limits_scheduler
 		| LISTEN {
 			bzero(&l, sizeof l);
 			bzero(&listen_opts, sizeof listen_opts);
@@ -569,13 +622,15 @@ main		: BOUNCEWARN {
 		} filter_list
 		;
 		| PKI STRING	{
-			pki_ssl = dict_get(conf->sc_ssl_dict, $2);
+			char buf[MAXHOSTNAMELEN];
+			xlowercase(buf, $2, sizeof(buf));
+			free($2);
+			pki_ssl = dict_get(conf->sc_ssl_dict, buf);
 			if (pki_ssl == NULL) {
 				pki_ssl = xcalloc(1, sizeof *pki_ssl, "parse:pki");
-				xlowercase(pki_ssl->ssl_name, $2, sizeof pki_ssl->ssl_name);
+				strlcpy(pki_ssl->ssl_name, buf, sizeof(pki_ssl->ssl_name));
 				dict_set(conf->sc_ssl_dict, pki_ssl->ssl_name, pki_ssl);
 			}
-			free($2);
 		} pki
 		;
 
@@ -1093,7 +1148,6 @@ lookup(char *s)
 		{ "mask-source",	MASK_SOURCE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "max-mta-deferred",  	MAXMTADEFERRED },
-		{ "max-scheduler-inflight",  	MAXSCHEDULERINFLIGHT },
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
@@ -1104,6 +1158,7 @@ lookup(char *s)
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "scheduler",		SCHEDULER },
 		{ "secure",		SECURE },
 		{ "sender",    		SENDER },
 		{ "smtps",		SMTPS },
@@ -1507,6 +1562,12 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_mta_max_deferred = 100;
 	conf->sc_scheduler_max_inflight = 5000;
 
+	conf->sc_mda_max_session = 50;
+	conf->sc_mda_max_user_session = 7;
+	conf->sc_mda_task_hiwat = 50;
+	conf->sc_mda_task_lowat = 30;
+	conf->sc_mda_task_release = 10;
+
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);
 		return (-1);
@@ -1709,8 +1770,17 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->authtable != NULL)
 		(void)strlcpy(h->authtable, lo->authtable->t_name, sizeof(h->authtable));
-	if (lo->pki != NULL)
-		(void)strlcpy(h->ssl_cert_name, lo->pki, sizeof(h->ssl_cert_name));
+	if (lo->pki != NULL) {
+		if (! lowercase(h->ssl_cert_name, lo->pki,
+		    sizeof(h->ssl_cert_name))) {
+			log_warnx("pki name too long: %s", lo->pki);
+			fatalx(NULL);
+		}
+		if (dict_get(conf->sc_ssl_dict, h->ssl_cert_name) == NULL) {
+			log_warnx("pki name not found: %s", lo->pki);
+			fatalx(NULL);
+		}
+	}
 	if (lo->tag != NULL)
 		(void)strlcpy(h->tag, lo->tag, sizeof(h->tag));
 
