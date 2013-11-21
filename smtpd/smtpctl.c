@@ -48,6 +48,7 @@
 #define PATH_GZCAT	"/usr/bin/gzcat"
 #define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
+#define PATH_ENCRYPT	"/usr/bin/encrypt"
 
 int srv_connect(void);
 
@@ -135,9 +136,6 @@ srv_flush(void)
 static void
 srv_send(int msg, const void *data, size_t len)
 {
-#if 0
-	printf("SEND: %i (%zu)\n", msg, len);
-#endif
 	if (ibuf == NULL && !srv_connect())
 		errx(1, "smtpd doesn't seem to be running");
 	imsg_compose(ibuf, msg, IMSG_VERSION, 0, -1, data, len);
@@ -154,10 +152,6 @@ srv_recv(int type)
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
 			errx(1, "imsg_get error");
 		if (n) {
-#if 0
-			printf("RECV: %i (%zu)\n", imsg.hdr.type,
-			    imsg.hdr.len - sizeof(imsg.hdr));
-#endif
 			if (imsg.hdr.type == IMSG_CTL_FAIL &&
 			    imsg.hdr.peerid != 0 &&
 			    imsg.hdr.peerid != IMSG_VERSION)
@@ -748,7 +742,7 @@ do_show_stats(int argc, struct parameter *argv)
 				    (long long)kv.val.u.tv.tv_usec);
 				break;
 			case STAT_TIMESPEC:
-				printf("%s=%lli.%06li\n",
+				printf("%s=%lld.%06ld\n",
 				    kv.key,
 				    (long long)kv.val.u.ts.tv_sec * 1000000 +
 				    kv.val.u.ts.tv_nsec / 1000000,
@@ -810,6 +804,17 @@ do_update_table(int argc, struct parameter *argv)
 	return srv_check_result(1);
 }
 
+static int
+do_encrypt(int argc, struct parameter *argv)
+{
+	const char *p = NULL;
+
+	if (argv)
+		p = argv[0].u.u_str;
+	execl(PATH_ENCRYPT, "encrypt", p, NULL);
+	errx(1, "execl");
+}
+
 int
 main(int argc, char **argv)
 {
@@ -824,6 +829,8 @@ main(int argc, char **argv)
 	if (geteuid())
 		errx(1, "need root privileges");
 
+	cmd_install("encrypt",			do_encrypt);
+	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("log brief",		do_log_brief);
 	cmd_install("log verbose",		do_log_verbose);
 	cmd_install("monitor",			do_monitor);

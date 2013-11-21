@@ -28,25 +28,18 @@
 #include "iobuf.h"
 
 #define CONF_FILE		 "/etc/mail/smtpd.conf"
+#define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
-#define MAX_LISTEN		 16
+
 #define PROC_COUNT		 10
-#define MAX_NAME_SIZE		 64
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
-
 #define MAX_TAG_SIZE		 32
-
-#define	MAX_TABLE_BACKEND_SIZE	 32
-
-/* return and forward path size */
 #define	MAX_FILTER_NAME		 32
 
 #define	EXPAND_BUFFER		 1024
 
-#define SMTPD_QUEUE_INTERVAL	 (15 * 60)
-#define SMTPD_QUEUE_MAXINTERVAL	 (4 * 60 * 60)
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #ifndef SMTPD_NAME
@@ -75,7 +68,7 @@
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
 #define	F_LMTP			0x80
-#define	F_MASK_SOURCE  		0x100
+#define	F_MASK_SOURCE		0x100
 #define	F_TLS_VERIFY		0x200
 
 /* must match F_* for mta */
@@ -109,6 +102,7 @@ struct relayhost {
 	char authtable[SMTPD_MAXPATHLEN];
 	char authlabel[SMTPD_MAXPATHLEN];
 	char sourcetable[SMTPD_MAXPATHLEN];
+	char heloname[SMTPD_MAXHOSTNAMELEN];
 	char helotable[SMTPD_MAXPATHLEN];
 };
 
@@ -226,7 +220,6 @@ enum imsg_type {
 	IMSG_MFA_EVENT_COMMIT,
 	IMSG_MFA_EVENT_ROLLBACK,
 	IMSG_MFA_EVENT_DISCONNECT,
-	IMSG_MFA_SMTP_DATA,
 	IMSG_MFA_SMTP_RESPONSE,
 
 	IMSG_MTA_TRANSFER,
@@ -481,44 +474,6 @@ struct envelope {
 	enum dsn_ret			dsn_ret;
 };
 
-enum envelope_field {
-	EVP_VERSION,
-	EVP_TAG,
-	EVP_MSGID,
-	EVP_TYPE,
-	EVP_SMTPNAME,
-	EVP_HELO,
-	EVP_HOSTNAME,
-	EVP_ERRORLINE,
-	EVP_SOCKADDR,
-	EVP_SENDER,
-	EVP_RCPT,
-	EVP_DEST,
-	EVP_CTIME,
-	EVP_EXPIRE,
-	EVP_RETRY,
-	EVP_LASTTRY,
-	EVP_LASTBOUNCE,
-	EVP_FLAGS,
-	EVP_MDA_METHOD,
-	EVP_MDA_BUFFER,
-	EVP_MDA_USER,
-	EVP_MDA_USERTABLE,
-	EVP_MTA_RELAY,
-	EVP_MTA_RELAY_AUTH,
-	EVP_MTA_RELAY_CERT,
-	EVP_MTA_RELAY_SOURCE,
-	EVP_MTA_RELAY_HELO,
-	EVP_MTA_RELAY_FLAGS,
-	EVP_BOUNCE_TYPE,
-	EVP_BOUNCE_DELAY,
-	EVP_BOUNCE_EXPIRE,
-	EVP_DSN_ENVID,
-	EVP_DSN_NOTIFY,
-	EVP_DSN_ORCPT,
-	EVP_DSN_RET,
-};
-
 struct listener {
 	uint16_t       		 flags;
 	int			 fd;
@@ -561,6 +516,12 @@ struct smtpd {
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
+
+	size_t				sc_mda_max_session;
+	size_t				sc_mda_max_user_session;
+	size_t				sc_mda_task_hiwat;
+	size_t				sc_mda_task_lowat;
+	size_t				sc_mda_task_release;
 
 	size_t				sc_mta_max_deferred;
 
@@ -628,10 +589,13 @@ struct deliver {
 	struct userinfo		userinfo;
 };
 
+#define MAX_FILTER_PER_CHAIN	16
 struct filter {
-	struct imsgproc	       *process;
+	int			chain;
+	int			done;
 	char			name[MAX_FILTER_NAME];
 	char			path[SMTPD_MAXPATHLEN];
+	char			filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
 };
 
 struct mta_host {
@@ -860,7 +824,7 @@ struct scheduler_backend {
 	int	(*update)(struct scheduler_info *);
 	int	(*delete)(uint64_t);
 	int	(*hold)(uint64_t, uint64_t);
-	int	(*release)(uint64_t, int);
+	int	(*release)(int, uint64_t, int);
 
 	int	(*batch)(int, struct scheduler_batch *);
 
@@ -1036,6 +1000,7 @@ struct ca_cert_resp_msg {
 
 struct ca_vrfy_req_msg {
 	uint64_t		reqid;
+	char			pkiname[SMTPD_MAXHOSTNAMELEN];
 	unsigned char  	       *cert;
 	off_t			cert_len;
 	size_t			n_chain;
@@ -1121,10 +1086,6 @@ int		 enqueue(int, char **);
 
 /* envelope.c */
 void envelope_set_errormsg(struct envelope *, char *, ...);
-char *envelope_ascii_field_name(enum envelope_field);
-int envelope_ascii_load(enum envelope_field, struct envelope *, char *);
-int envelope_ascii_dump(enum envelope_field, const struct envelope *, char *,
-    size_t);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
 
@@ -1185,9 +1146,10 @@ void mfa_filter_connect(uint64_t, const struct sockaddr *,
     const struct sockaddr *, const char *);
 void mfa_filter_mailaddr(uint64_t, int, const struct mailaddr *);
 void mfa_filter_line(uint64_t, int, const char *);
+void mfa_filter_eom(uint64_t, int, size_t);
 void mfa_filter(uint64_t, int);
 void mfa_filter_event(uint64_t, int);
-void mfa_filter_data(uint64_t, const char *);
+void mfa_build_fd_chain(uint64_t, int);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);

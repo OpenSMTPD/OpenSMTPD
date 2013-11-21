@@ -291,7 +291,7 @@ config_connect(struct config *conf)
 		{ "query_domain",	1 },
 		{ "query_credentials",	2 },
 		{ "query_netaddr",	1 },
-		{ "query_userinfo",	4 },
+		{ "query_userinfo",	3 },
 		{ "query_source",	1 },
 		{ "query_mailaddr",	1 },
 		{ "query_addrname",	1 },
@@ -345,10 +345,10 @@ config_free(struct config *conf)
 
 	config_reset(conf);
 
-	while(dict_poproot(&conf->conf, NULL, &value))
+	while (dict_poproot(&conf->conf, &value))
 		free(value);
 
-	while(dict_poproot(&conf->sources, NULL, NULL))
+	while (dict_poproot(&conf->sources, NULL))
 		;
 
 	free(conf);
@@ -470,11 +470,10 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_USERINFO:
-		if (snprintf(dst, sz, "%s:%s:%s:%s",
+		if (snprintf(dst, sz, "%s:%s:%s",
 		    PQgetvalue(res, 0, 0),
 		    PQgetvalue(res, 0, 1),
-		    PQgetvalue(res, 0, 2),
-		    PQgetvalue(res, 0, 3)) > (ssize_t)sz) {
+		    PQgetvalue(res, 0, 2)) > (ssize_t)sz) {
 			log_warnx("warn: table-postgres: result too large");
 			r = -1;
 		}
@@ -490,7 +489,7 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	default:
-		log_warnx("warn: table-postgres: unknown service %i",
+		log_warnx("warn: table-postgres: unknown service %d",
 		    service);
 		r = -1;
 	}
@@ -542,7 +541,7 @@ table_postgres_fetch(int service, char *dst, size_t sz)
 	}
 
 	config->source_iter = NULL;
-	while(dict_poproot(&config->sources, NULL, NULL))
+	while (dict_poproot(&config->sources, NULL))
 		;
 
 	for (i = 0; i < PQntuples(res); i++)

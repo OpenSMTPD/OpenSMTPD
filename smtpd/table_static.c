@@ -161,7 +161,7 @@ table_static_update(struct table *table)
 		goto err;
 
 	/* replace former table, frees t */
-	while (dict_poproot(&table->t_dict, NULL, (void **)&p))
+	while (dict_poproot(&table->t_dict, (void **)&p))
 		free(p);
 	dict_merge(&table->t_dict, &t->t_dict);
 	table_destroy(t);

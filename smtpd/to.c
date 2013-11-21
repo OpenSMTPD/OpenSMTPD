@@ -240,19 +240,19 @@ duration_to_text(time_t t)
 	d = t / 24;
 
 	if (d) {
-		snprintf(buf, sizeof buf, "%llid", d);
+		snprintf(buf, sizeof buf, "%lldd", d);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (h) {
-		snprintf(buf, sizeof buf, "%ih", h);
+		snprintf(buf, sizeof buf, "%dh", h);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (m) {
-		snprintf(buf, sizeof buf, "%im", m);
+		snprintf(buf, sizeof buf, "%dm", m);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (s) {
-		snprintf(buf, sizeof buf, "%is", s);
+		snprintf(buf, sizeof buf, "%ds", s);
 		strlcat(dst, buf, sizeof dst);
 	}
 
@@ -718,18 +718,20 @@ alias_is_filter(struct expandnode *alias, const char *line, size_t len)
 		v = 1;
 	if (*(line+v) == '|') {
 		if (strlcpy(alias->u.buffer, line + v + 1,
-			sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+		    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
 			return 0;
 		if (v) {
 			v = strlen(alias->u.buffer);
+			if (v == 0)
+				return (0);
 			if (alias->u.buffer[v-1] != '"')
-				return 0;
+				return (0);
 			alias->u.buffer[v-1] = '\0';
 		}
 		alias->type = EXPAND_FILTER;
-		return 1;
+		return (1);
 	}
-	return 0;
+	return (0);
 }
 
 static int

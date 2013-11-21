@@ -122,7 +122,7 @@ table_passwd_update(void)
 
 	/* swap passwd table and release old one*/
 	if (passwd)
-		while (dict_poproot(passwd, NULL, (void**)&buf))
+		while (dict_poproot(passwd, (void**)&buf))
 			free(buf);
 	passwd = npasswd;
 
@@ -135,7 +135,7 @@ err:
 
 	/* release passwd table */
 	if (npasswd) {
-		while (dict_poproot(npasswd, NULL, (void**)&buf))
+		while (dict_poproot(npasswd, (void**)&buf))
 			free(buf);
 		free(npasswd);
 	}
@@ -174,7 +174,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_USERINFO:
-		if (snprintf(dst, sz, "%i:%i:%s",
+		if (snprintf(dst, sz, "%d:%d:%s",
 			pw.pw_uid, pw.pw_gid, pw.pw_dir)
 		    > (ssize_t)sz) {
 			log_warnx("warn: table-passwd: result too large");
@@ -182,7 +182,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 		}
 		break;
 	default:
-		log_warnx("warn: table-passwd: unknown service %i",
+		log_warnx("warn: table-passwd: unknown service %d",
 		    service);
 		r = -1;
 	}

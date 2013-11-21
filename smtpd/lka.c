@@ -86,6 +86,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	size_t			 i;
 	int			 v;
+	const char	        *cafile = NULL;
 
 	if (imsg->hdr.type == IMSG_DNS_HOST ||
 	    imsg->hdr.type == IMSG_DNS_PTR ||
@@ -127,7 +128,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;
 
-			ssl = dict_get(env->sc_ssl_dict, req_ca_cert->name);
+			xlowercase(buf, req_ca_cert->name, sizeof(buf));
+			log_debug("debug: lka: looking up pki \"%s\"", buf);
+			ssl = dict_get(env->sc_ssl_dict, buf);
 			if (ssl == NULL) {
 				resp_ca_cert.status = CA_FAIL;
 				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
@@ -173,8 +176,11 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
-
-			if (! lka_X509_verify(req_ca_vrfy_smtp, CA_FILE, NULL))
+			ssl = dict_xget(env->sc_ssl_dict, req_ca_vrfy_smtp->pkiname);
+			cafile = CA_FILE;
+			if (ssl->ssl_ca_file)
+				cafile = ssl->ssl_ca_file;
+			if (! lka_X509_verify(req_ca_vrfy_smtp, cafile, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
@@ -222,6 +228,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_USERINFO:
 			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
 			m_get_string(&m, &username);
 			m_end(&m);
@@ -229,8 +236,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			ret = lka_userinfo(tablename, username, &userinfo);
 
 			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1);
-			m_add_string(p, tablename);
-			m_add_string(p, username);
+			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
 				m_add_data(p, &userinfo, sizeof(userinfo));
@@ -246,7 +252,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;
 
-			ssl = dict_get(env->sc_ssl_dict, req_ca_cert->name);
+			xlowercase(buf, req_ca_cert->name, sizeof(buf));
+			log_debug("debug: lka: looking up pki \"%s\"", buf);
+			ssl = dict_get(env->sc_ssl_dict, buf);
 			if (ssl == NULL) {
 				resp_ca_cert.status = CA_FAIL;
 				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
@@ -293,8 +301,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
+			ssl = dict_get(env->sc_ssl_dict, req_ca_vrfy_mta->pkiname);
 
-			if (! lka_X509_verify(req_ca_vrfy_mta, CA_FILE, NULL))
+			cafile = CA_FILE;
+			if (ssl && ssl->ssl_ca_file)
+				cafile = ssl->ssl_ca_file;
+			if (! lka_X509_verify(req_ca_vrfy_mta, cafile, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
 				resp_ca_vrfy.status = CA_OK;
@@ -329,6 +341,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
+			m_end(&m);
 
 			table = table_find(tablename, NULL);
 
@@ -800,7 +813,6 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 {
 	X509			*x509;
 	X509			*x509_tmp;
-	X509			*x509_tmp2;
 	STACK_OF(X509)		*x509_chain;
 	const unsigned char    	*d2i;
 	size_t			i;
@@ -821,15 +833,10 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 		x509_chain = sk_X509_new_null();
 		for (i = 0; i < vrfy->n_chain; ++i) {
 			d2i = vrfy->chain_cert[i];
-			if (d2i_X509(&x509_tmp, &d2i, vrfy->chain_cert_len[i]) == NULL) {
-				x509_tmp = NULL;
+			if (d2i_X509(&x509_tmp, &d2i, vrfy->chain_cert_len[i]) == NULL)
 				goto end;
-			}
-
-			if ((x509_tmp2 = X509_dup(x509_tmp)) == NULL)
-				goto end;
-			sk_X509_insert(x509_chain, x509_tmp2, i);
-			x509_tmp = x509_tmp2 = NULL;
+			sk_X509_insert(x509_chain, x509_tmp, i);
+			x509_tmp = NULL;
 		}
 	}
 	if (! ca_X509_verify(x509, x509_chain, CAfile, NULL, &errstr))

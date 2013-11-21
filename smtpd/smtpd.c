@@ -54,7 +54,7 @@
 
 static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
-static void parent_shutdown(void);
+static void parent_shutdown(int);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
 static void parent_send_config_mfa(void);
@@ -136,7 +136,7 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
-int     control_socket = -1;
+int	control_socket = -1;
 
 struct tree	 children;
 
@@ -281,7 +281,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_CTL_SHUTDOWN:
-			parent_shutdown();
+			parent_shutdown(0);
 			return;
 		}
 	}
@@ -300,7 +300,7 @@ usage(void)
 }
 
 static void
-parent_shutdown(void)
+parent_shutdown(int ret)
 {
 	void		*iter;
 	struct child	*child;
@@ -318,7 +318,7 @@ parent_shutdown(void)
 	unlink(SMTPD_SOCKET);
 
 	log_warnx("warn: parent terminating");
-	exit(0);
+	exit(ret);
 }
 
 static void
@@ -575,7 +575,7 @@ parent_sig_handler(int sig, short event, void *p)
 		} while (pid > 0 || (pid == -1 && errno == EINTR));
 
 		if (die)
-			parent_shutdown();
+			parent_shutdown(1);
 		break;
 	default:
 		fatalx("smtpd: unexpected signal");
@@ -765,6 +765,7 @@ main(int argc, char *argv[])
 	env->sc_uptime = time(NULL);
 
 	load_ssl_tree();
+
 	fork_peers();
 
 	config_process(PROC_PARENT);
@@ -822,7 +823,6 @@ load_ssl_tree(void)
 	struct ssl	*ssl;
 	void		*iter_dict;
 	const char	*k;
-	
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
@@ -887,6 +887,7 @@ post_fork(int proc)
 {
 	if (proc != PROC_QUEUE && env->sc_queue_key)
 		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
 		control_socket = -1;
@@ -1324,7 +1325,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 		timespecsub(&t1, &t0, &dt);
 
-		log_debug("profile-imsg: %s %s %s %i %lld.%06li",
+		log_debug("profile-imsg: %s %s %s %d %lld.%06ld",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg_to_str(imsg->hdr.type),
@@ -1357,7 +1358,7 @@ log_imsg(int to, int from, struct imsg *imsg)
 		return;
 
 	if (imsg->fd != -1)
-		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%i)",
+		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%d)",
 		    proc_name(to),
 		    proc_name(from),
 		    imsg_to_str(imsg->hdr.type),
@@ -1476,6 +1477,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_RULE_SOURCE);
 	CASE(IMSG_CONF_RULE_SENDER);
 	CASE(IMSG_CONF_RULE_DESTINATION);
+	CASE(IMSG_CONF_RULE_RECIPIENT);
 	CASE(IMSG_CONF_RULE_MAPPING);
 	CASE(IMSG_CONF_RULE_USERS);
 	CASE(IMSG_CONF_FILTER);
@@ -1515,7 +1517,6 @@ imsg_to_str(int type)
 	CASE(IMSG_MFA_EVENT_COMMIT);
 	CASE(IMSG_MFA_EVENT_ROLLBACK);
 	CASE(IMSG_MFA_EVENT_DISCONNECT);
-	CASE(IMSG_MFA_SMTP_DATA);
 	CASE(IMSG_MFA_SMTP_RESPONSE);
 
 	CASE(IMSG_MTA_TRANSFER);

@@ -72,6 +72,8 @@ static void	fsqueue_qwalk_close(void *);
 struct tree evpcount;
 static struct timespec startup;
 
+#define REF	(int*)0xf00
+
 static int
 queue_fs_message_create(uint32_t *msgid)
 {
@@ -215,7 +217,7 @@ again:
 	if (stat(corruptdir, &sb) != -1 || errno != ENOENT) {
 		fsqueue_message_corrupt_path(msgid, corruptdir,
 		    sizeof(corruptdir));
-		snprintf(buf, sizeof(buf), ".%i", retry++);
+		snprintf(buf, sizeof(buf), ".%d", retry++);
 		strlcat(corruptdir, buf, sizeof(corruptdir));
 		goto again;
 	}
@@ -235,9 +237,8 @@ queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
     uint64_t *evpid)
 {
 	char		path[SMTPD_MAXPATHLEN];
-	int		queued = 0, i, r = 0;
+	int		queued = 0, i, r = 0, *n;
 	struct stat	sb;
-	uintptr_t	*n;
 
 	if (msgid == 0) {
 		log_warnx("warn: queue-fs: msgid=0, evpid=%016"PRIx64, *evpid);
@@ -267,7 +268,7 @@ done:
 	if (r) {
 		n = tree_pop(&evpcount, msgid);
 		if (n == NULL)
-			n = 0;
+			n = REF;
 		n += 1;
 		tree_xset(&evpcount, msgid, n);
 	}
@@ -319,7 +320,7 @@ queue_fs_envelope_delete(uint64_t evpid)
 {
 	char		pathname[SMTPD_MAXPATHLEN];
 	uint32_t	msgid;
-	uintptr_t	*n;
+	int		*n;
 
 	fsqueue_envelope_path(evpid, pathname, sizeof(pathname));
 	if (unlink(pathname) == -1)
@@ -330,7 +331,7 @@ queue_fs_envelope_delete(uint64_t evpid)
 	n = tree_pop(&evpcount, msgid);
 	n -= 1;
 
-	if ((uintptr_t)n == 0)
+	if (n - REF == 0)
 		queue_fs_message_delete(msgid);
 	else
 		tree_xset(&evpcount, msgid, n);
@@ -343,8 +344,7 @@ queue_fs_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 {
 	static int	 done = 0;
 	static void	*hdl = NULL;
-	uintptr_t	*n;
-	int		 r;
+	int		 r, *n;
 	uint32_t	 msgid;
 
 	if (done)
@@ -359,6 +359,8 @@ queue_fs_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 		if (r) {
 			msgid = evpid_to_msgid(*evpid);
 			n = tree_pop(&evpcount, msgid);
+			if (n == NULL)
+				n = REF;
 			n += 1;
 			tree_xset(&evpcount, msgid, n);
 		}

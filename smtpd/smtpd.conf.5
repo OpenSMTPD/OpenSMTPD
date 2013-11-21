@@ -309,6 +309,7 @@ This parameter may use conversion specifiers that are expanded before use
 .Op Ic as Ar address
 .Op Ic source Ar source
 .Bk -words
+.Op Ic hostname Ar name
 .Op Ic hostnames Ar names
 .Ek
 .Op Ic pki Ar pkiname
@@ -355,14 +356,26 @@ By default, when connecting to a remote server,
 .Xr smtpd 8
 advertises its default server name.
 A
+.Ic hostname
+parameter may be specified to advertise the alternate hostname
+.Ar name .
+If the
+.Ic source
+parameter is used, the
 .Ic hostnames
-parameter may be specified to advertise an alternate hostname.
+parameter may be specified to advertise a hostname based on
+the source address.
 Table
 .Ar names
 contains a mapping of IP addresses to hostnames and
 .Xr smtpd 8
 will automatically select the name that matches its source address
 when connected to the remote server.
+The
+.Ic hostname
+and
+.Ic hostnames
+parameters are mutually exclusive.
 .Pp
 When relaying, STARTTLS is always attempted if available on remote host
 and OpenSMTPD will try to present a certificate matching the outgoing
@@ -395,6 +408,7 @@ as they will prevent proper relaying on the Internet.
 .Op Ic auth Aq Ar auth
 .Op Ic as Ar address
 .Op Ic source Ar source
+.Op Ic hostname Ar name
 .Op Ic hostnames Ar names
 .Op Ic pki Ar pkiname
 .Xc
@@ -471,14 +485,26 @@ By default, when connecting to a remote server,
 .Xr smtpd 8
 advertises its default server name.
 A
+.Ic hostname
+parameter may be specified to advertise the alternate hostname
+.Ar name .
+If the
+.Ic source
+parameter is used, the
 .Ic hostnames
-parameter may be specified to advertise an alternate hostname.
+parameter may be specified to advertise a hostname based on
+the source address.
 Table
 .Ar names
 contains a mapping of IP addresses to hostnames and
 .Xr smtpd 8
 will automatically select the name that matches its source address
 when connected to the remote server.
+The
+.Ic hostname
+and
+.Ic hostnames
+parameters are mutually exclusive.
 .El
 .Pp
 Additional per-rule adjustments available:
@@ -523,6 +549,14 @@ If a
 .Ar domain
 is specified, the restriction only applies when connecting
 to MXs for this domain.
+.It Xo
+.Ic limit scheduler max-inflight
+.Ar num
+.Xc
+Suspend the scheduling of envelopes for deliver/relay until the number
+of inflight envelopes falls below
+.Ar num .
+Changing the default value might degrade performances.
 .It Xo
 .Bk -words
 .Ic listen on Ar interface
@@ -645,6 +679,11 @@ Creation of certificates is documented in
 .It Ic pki Ar hostname Ic key Ar keyfile
 Associate the key located in
 .Ar keyfile
+with
+.Ar hostname .
+.It Ic pki Ar hostname Ic ca Ar cafile
+Associate a custom CA certificate
+.Ar cafile
 with
 .Ar hostname .
 .It Ic pki Ar hostname Ic dhparams Ar dhfile
@@ -793,6 +832,15 @@ For example, with recipient "User+Tag@Example.org":
 %{rcpt:uppercase}	expands to "USER+TAG@EXAMPLE.ORG"
 %{rcpt:strip}		expands to "User@Example.org"
 %{rcpt:lowercase|strip}	expands to "user@example.org"
+.Ed
+.Pp
+For security concerns, expanded values are sanitized and potentially
+dangerous characters are replaced with ":".
+In situations where they are desirable, the "raw" modifier may be applied.
+For example, with recipient "user+t?g@example.org":
+.Bd -literal -offset indent
+%{rcpt}		expands to "user+t:g@example.org"
+%{rcpt:raw}	expands to "user+t?g@example.org"
 .Ed
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX"

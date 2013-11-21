@@ -341,15 +341,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
-	case IMSG_MFA_SMTP_DATA:
-		m_msg(&m, imsg);
-		m_get_id(&m, &reqid);
-		m_get_string(&m, &line);
-		m_end(&m);
-		if ((s = tree_get(&wait_mfa_data, reqid)))
-			smtp_message_write(s, line);
-		return;
-
 	case IMSG_MFA_SMTP_RESPONSE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
@@ -423,7 +414,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    SSL_get_cipher_name(s->io.ssl),
 			    SSL_get_cipher_bits(s->io.ssl, NULL),
 			    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
-			X509_free(x);
+			if (x)
+				X509_free(x);
 		}
 
 		if (s->rcptcount == 1) {
@@ -575,7 +567,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (resp_ca_cert->status == CA_FAIL) {
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": CA failure", s->id);
-			smtp_free(s, "CA failure");	
+			smtp_free(s, "CA failure");
 			return;
 		}
 
@@ -597,6 +589,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		bzero(resp_ca_cert->key, resp_ca_cert->key_len);
+		free(resp_ca_cert->cert);
+		free(resp_ca_cert->key);
 		free(resp_ca_cert);
 		return;
 
@@ -612,7 +606,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			smtp_free(s, "SSL certificate check failed");	
 			return;
 		}
-
 		smtp_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
 		return;
@@ -869,6 +862,7 @@ smtp_io(struct io *io, int evt)
 
 			m_create(p_mfa, IMSG_MFA_REQ_EOM, 0, 0, -1);
 			m_add_id(p_mfa, s->id);
+			m_add_u32(p_mfa, s->datalen);
 			m_close(p_mfa);
 			smtp_wait_mfa(s, IMSG_MFA_REQ_EOM);
 			return;
@@ -1518,7 +1512,7 @@ smtp_message_end(struct smtp_session *s)
 		if (s->msgflags & MF_ERROR_SIZE)
 			smtp_reply(s, "554 Message too big");
 		else
-			smtp_reply(s, "%i Message rejected", s->msgcode);
+			smtp_reply(s, "%d Message rejected", s->msgcode);
 		smtp_message_reset(s, 0);
 		smtp_enter_state(s, STATE_HELO);
 		return;
@@ -1727,6 +1721,10 @@ smtp_verify_certificate(struct smtp_session *s)
 
 	/* Send the client certificate */
 	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	if (strlcpy(req_ca_vrfy.pkiname, s->listener->ssl_cert_name, sizeof req_ca_vrfy.pkiname)
+	    >= sizeof req_ca_vrfy.pkiname)
+		return 0;
+
 	req_ca_vrfy.reqid = s->id;
 	req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
 	if (xchain)

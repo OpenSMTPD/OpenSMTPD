@@ -21,7 +21,7 @@ SRCS=	enqueue.c parser.c log.c envelope.c crypto.c csprng.c
 SRCS+=	queue_backend.c queue_fs.c
 SRCS+=	smtpctl.c util.c
 SRCS+=	compress_backend.c compress_gzip.c
-SRCS+=	to.c expand.c tree.c
+SRCS+=	to.c expand.c tree.c dict.c
 
 LDADD+=	-lutil -lz -lcrypto
 DPADD+=	${LIBUTIL} ${LIBZ} ${LIBCRYPTO}

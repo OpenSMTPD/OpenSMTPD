@@ -511,7 +511,7 @@ mta_connect(struct mta_session *s)
 			s->flags |= MTA_WAIT;
 			return;
 		}
-		if (s->relay->heloname)
+		else if (s->relay->heloname)
 			s->helo = xstrdup(s->relay->heloname, "mta_connect");
 		else
 			s->helo = xstrdup(env->sc_hostname, "mta_connect");
@@ -567,7 +567,7 @@ mta_connect(struct mta_session *s)
 	else
 		schema = "smtp://";
 
-	log_info("smtp-out: Connecting to %s%s:%i (%s) on session"
+	log_info("smtp-out: Connecting to %s%s:%d (%s) on session"
 	    " %016"PRIx64"...", schema, sa_to_text(s->route->dst->sa),
 	    portno, s->route->dst->ptrname, s->id);
 
@@ -753,8 +753,9 @@ mta_enter_state(struct mta_session *s, int newstate)
 				break;
 			}
 
-			log_debug("mta: debug: last connection: hanging on for %is",
-			    (int)(s->relay->limits->sessdelay_keepalive - s->hangon));
+			log_debug("mta: debug: last connection: hanging on for %llds",
+			    (long long)(s->relay->limits->sessdelay_keepalive -
+			    s->hangon));
 			s->flags |= MTA_HANGON;
 			runq_schedule(hangon, time(NULL) + 1, NULL, s);
 			break;
@@ -1109,7 +1110,7 @@ mta_response(struct mta_session *s, char *line)
 		} else {
 			s->rcptcount = 0;
 			if (s->relay->limits->sessdelay_transaction) {
-				log_debug("debug: mta: waiting for %llis before next transaction",
+				log_debug("debug: mta: waiting for %llds before next transaction",
 				    (long long int)s->relay->limits->sessdelay_transaction);
 				s->hangon = s->relay->limits->sessdelay_transaction -1;
 				s->flags |= MTA_HANGON;
@@ -1126,7 +1127,7 @@ mta_response(struct mta_session *s, char *line)
 		mta_flush_failedqueue(s);
 		s->rcptcount = 0;
 		if (s->relay->limits->sessdelay_transaction) {
-			log_debug("debug: mta: waiting for %llis after reset",
+			log_debug("debug: mta: waiting for %llds after reset",
 			    (long long int)s->relay->limits->sessdelay_transaction);
 			s->hangon = s->relay->limits->sessdelay_transaction -1;
 			s->flags |= MTA_HANGON;
@@ -1152,7 +1153,7 @@ mta_io(struct io *io, int evt)
 	const char		*error;
 	int			 cont;
 	X509			*x;
-	
+
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
 
@@ -1567,6 +1568,7 @@ mta_verify_certificate(struct mta_session *s)
 	X509		       *x;
 	STACK_OF(X509)	       *xchain;
 	int			i;
+	const char	       *pkiname;
 
 	x = SSL_get_peer_certificate(s->io.ssl);
 	if (x == NULL)
@@ -1586,6 +1588,14 @@ mta_verify_certificate(struct mta_session *s)
 
 	/* Send the client certificate */
 	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
+	if (s->relay->cert)
+		pkiname = s->relay->cert;
+	else
+		pkiname = s->helo;
+	if (strlcpy(req_ca_vrfy.pkiname, pkiname, sizeof req_ca_vrfy.pkiname)
+	    >= sizeof req_ca_vrfy.pkiname)
+		return 0;
+
 	req_ca_vrfy.reqid = s->id;
 	req_ca_vrfy.cert_len = i2d_X509(x, &req_ca_vrfy.cert);
 	if (xchain)

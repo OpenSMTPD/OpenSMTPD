@@ -46,8 +46,8 @@
 void *
 ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 {
-	SSL_CTX		*ctx = NULL;
-	SSL		*ssl = NULL;
+	SSL_CTX	*ctx = NULL;
+	SSL	*ssl = NULL;
 
 	ctx = ssl_ctx_create();
 
@@ -92,7 +92,7 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 void *
 ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
 {
-	SSL		*ssl = NULL;
+	SSL	*ssl = NULL;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
 

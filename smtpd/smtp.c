@@ -77,7 +77,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_SMTP_DATA:
 		case IMSG_MFA_SMTP_RESPONSE:
 			smtp_session_imsg(p, imsg);
 			return;
@@ -363,6 +362,8 @@ smtp_enqueue(uid_t *euid)
 		strlcpy(listener->tag, "local", sizeof(listener->tag));
 		listener->ss.ss_family = AF_LOCAL;
 		listener->ss.ss_len = sizeof(struct sockaddr *);
+		strlcpy(listener->hostname, "localhost",
+		    sizeof(listener->hostname));
 	}
 
 	/*
