@@ -336,9 +336,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DELIVERY_OK:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
-			/* XXX gather relay's ext capability to modify dsn
-			 * message. (relayed vs successful delivery)
-			 */
 			if (p->proc == PROC_MTA)
 				m_get_int(&m, &mta_ext);
 			m_end(&m);
@@ -346,12 +343,20 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				log_warn("queue: dsn: failed to load envelope");
 				return;
 			}
-			if (p->proc == PROC_MDA) { /* XXX */
-				if (evp.dsn_notify & DSN_SUCCESS) {
-					bounce.type = B_DSN;
-					bounce.delay = 0;
-					bounce.expire = 0;
+			if (evp.dsn_notify & DSN_SUCCESS) {
+				bounce.type = B_DSN;
+				bounce.delay = 0;
+				bounce.expire = 0;
+				bounce.mta_nodsn = 0;
+				bounce.dsn_ret = evp.dsn_ret;
+
+				if (p->proc == PROC_MDA)
 					queue_bounce(&evp, &bounce);
+				else if (p->proc == PROC_MTA &&
+				    (mta_ext & MTA_EXT_DSN) == 0) {
+					bounce.mta_nodsn = 1;
+					queue_bounce(&evp, &bounce);
+
 				}
 			}
 			queue_envelope_delete(evpid);

@@ -332,6 +332,9 @@ const char *notice_warning2 =
 const char *notice_success =
     "    Your message was successfully delivered to these recipients.\n\n";
 
+const char *notice_relay =
+    "    Your message was relayed to these recipients.\n\n";
+
 static int
 bounce_next_message(struct bounce_session *s)
 {
@@ -441,7 +444,8 @@ bounce_next(struct bounce_session *s)
 			break;
 		case B_DSN:
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-			    notice_success);
+			    s->msg->bounce.mta_nodsn ?
+			    notice_relay : notice_success);
 			break;
 		default:
 			log_warn("warn: bounce: unknown bounce_type");
@@ -477,6 +481,15 @@ bounce_next(struct bounce_session *s)
 			line = fgetln(s->msgfp, &len);
 			if (line == NULL)
 				break;
+			if (len == 1 && line[0] == '\n' && /* end of headers */
+			    s->msg->bounce.type == B_DSN &&
+			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
+				fclose(s->msgfp);
+				s->msgfp = NULL;
+				bounce_send(s, ".");
+				s->state = BOUNCE_DATA_END;
+				return (0);
+			}
 			line[len - 1] = '\0';
 			iobuf_xfqueue(&s->iobuf,
 			    "bounce_next: DATA_MESSAGE", "%s%s\n",

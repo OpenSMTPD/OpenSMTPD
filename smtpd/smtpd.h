@@ -82,6 +82,8 @@
 #define RELAY_LMTP		0x80
 #define	RELAY_TLS_VERIFY	0x200
 
+#define MTA_EXT_DSN		0x400
+
 struct userinfo {
 	char username[SMTPD_MAXLOGNAME];
 	char directory[SMTPD_MAXPATHLEN];
@@ -378,8 +380,8 @@ enum bounce_type {
 };
 
 enum dsn_ret {
-        DSN_RETFULL = 1,
-        DSN_RETHDRS
+	DSN_RETFULL = 1,
+	DSN_RETHDRS
 };
 
 struct delivery_bounce {
