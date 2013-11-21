@@ -431,10 +431,10 @@ struct expand {
 	struct expandnode		*parent;
 };
 
-//#define DSN_SUCCESS 0x01
-//#define DSN_FAILURE 0x02
-//#define DSN_DELAY   0x04
-//#define DSN_NEVER   0x08
+#define DSN_SUCCESS 0x01
+#define DSN_FAILURE 0x02
+#define DSN_DELAY   0x04
+#define DSN_NEVER   0x08
 
 #define	SMTPD_ENVELOPE_VERSION		2
 struct envelope {
