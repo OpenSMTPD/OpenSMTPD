@@ -377,10 +377,17 @@ enum bounce_type {
 	B_DSN
 };
 
+enum dsn_ret {
+        DSN_RETFULL = 1,
+        DSN_RETHDRS
+};
+
 struct delivery_bounce {
 	enum bounce_type	type;
 	time_t			delay;
 	time_t			expire;
+	enum dsn_ret		dsn_ret;
+        int			mta_nodsn;
 };
 
 enum expand_type {
@@ -424,15 +431,10 @@ struct expand {
 	struct expandnode		*parent;
 };
 
-#define DSN_SUCCESS 0x01
-#define DSN_FAILURE 0x02
-#define DSN_DELAY   0x04
-#define DSN_NEVER   0x08
-
-enum dsn_ret {
-	DSN_RETFULL = 1,
-	DSN_RETHDRS
-};
+//#define DSN_SUCCESS 0x01
+//#define DSN_FAILURE 0x02
+//#define DSN_DELAY   0x04
+//#define DSN_NEVER   0x08
 
 #define	SMTPD_ENVELOPE_VERSION		2
 struct envelope {

@@ -624,7 +624,7 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 		return ascii_load_dsn_ret(&ep->dsn_ret, buf);
 
 	if (strcasecmp("dsn-envid", field) == 0)
-		return ascii_load_dsn_ret(&ep->dsn_envid, buf);
+		return ascii_load_string(ep->dsn_envid, buf, sizeof buf);
 
 	return (0);
 }
@@ -651,6 +651,12 @@ err:
 	return (0);
 }
 
+
+static int
+ascii_dump_uint8(uint8_t src, char *dest, size_t len)
+{
+	return bsnprintf(dest, len, "%d", src);
+}
 
 static int
 ascii_dump_uint16(uint16_t src, char *dest, size_t len)
@@ -805,6 +811,21 @@ ascii_dump_bounce_type(enum bounce_type type, char *dest, size_t len)
 	return bsnprintf(dest, len, "%s", p);
 }
 
+
+static int
+ascii_dump_dsn_ret(enum dsn_ret flag, char *dest, size_t len)
+{
+        size_t cpylen = 0;
+
+        dest[0] = '\0';
+        if (flag == DSN_RETFULL)
+                cpylen = strlcat(dest, "FULL", len);
+        else if (flag == DSN_RETHDRS)
+                cpylen = strlcat(dest, "HDRS", len);
+
+        return cpylen < len ? 1 : 0;
+}
+
 static int
 ascii_dump_field(const char *field, const struct envelope *ep,
     char *buf, size_t len)
@@ -931,12 +952,12 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "dsn-orcpt") == 0) {
 		if (ep->dsn_orcpt.user[0] && ep->dsn_orcpt.domain[0])
-			return ascii_dump_mailaddr(ep->dsn_orcpt, buf, len);
+			return ascii_dump_mailaddr(&ep->dsn_orcpt, buf, len);
 		return 1;
 	}
 
 	if (strcasecmp(field, "dsn-envid") == 0)
-		return ascii_dump_uint32(SMTPD_ENVELOPE_VERSION, buf, len);
+		return ascii_dump_string(ep->dsn_envid, buf, len);
 
 	return (0);
 }
@@ -965,20 +986,6 @@ envelope_ascii_dump(const struct envelope *ep, char **dest, size_t *len, const c
 	return;
 err:
 	*dest = NULL;
-}
-
-static int
-ascii_dump_dsn_ret(enum dsn_ret flag, char *dest, size_t len)
-{
-        size_t cpylen = 0;
-
-        dest[0] = '\0';
-        if (flag == DSN_RETFULL)
-                cpylen = strlcat(dest, "FULL", len);
-        else if (flag == DSN_RETHDRS)
-                cpylen = strlcat(dest, "HDRS", len);
-
-        return cpylen < len ? 1 : 0;
 }
 
 static int
