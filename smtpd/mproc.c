@@ -178,7 +178,7 @@ mproc_dispatch(int fd, short event, void *arg)
 				    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
-		} else if (n) {
+		} else if (n != -1) {
 			p->bytes_out += n;
 			p->bytes_queued -= n;
 		}
