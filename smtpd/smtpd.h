@@ -438,6 +438,8 @@ struct expand {
 #define DSN_DELAY   0x04
 #define DSN_NEVER   0x08
 
+#define	DSN_ENVID_LEN	100
+
 #define	SMTPD_ENVELOPE_VERSION		2
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -473,7 +475,7 @@ struct envelope {
 	time_t				lastbounce;
 
 	struct mailaddr			dsn_orcpt;
-	char				dsn_envid[101];
+	char				dsn_envid[DSN_ENVID_LEN+1];
 	uint8_t				dsn_notify;
 	enum dsn_ret			dsn_ret;
 };
@@ -775,7 +777,7 @@ struct mta_envelope {
 	int				 delivery;
 	int				 ext;
 	char				*dsn_orcpt;
-	char				dsn_envid[101];
+	char				dsn_envid[DSN_ENVID_LEN+1];
 	uint8_t				dsn_notify;
 	enum dsn_ret			dsn_ret;
 };
