@@ -224,12 +224,14 @@ accept for domain example.org recipient <recipients> deliver to mbox
 .Pp
 A mailaddr entry is used to match an email address against a username,
 a domain or a full email address.
+A "*" wildcard may be used in part of the domain name.
 .Pp
 A mailaddr table looks as follow:
 .Bd -literal -offset indent
 user
 @domain
 user@domain
+user@*.domain
 .Ed
 .Ss Addrname tables
 Addrname tables are used to map IP addresses to hostnames.
