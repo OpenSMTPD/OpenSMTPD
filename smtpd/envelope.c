@@ -191,6 +191,10 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 	envelope_ascii_dump(ep, &dest, &len, "expire");
 	envelope_ascii_dump(ep, &dest, &len, "retry");
 	envelope_ascii_dump(ep, &dest, &len, "flags");
+	envelope_ascii_dump(ep, &dest, &len, "dsn-notify");
+	envelope_ascii_dump(ep, &dest, &len, "dsn-ret");
+	envelope_ascii_dump(ep, &dest, &len, "dsn-envid");
+	envelope_ascii_dump(ep, &dest, &len, "dsn-orcpt");
 
 	switch (ep->type) {
 	case D_MDA:
