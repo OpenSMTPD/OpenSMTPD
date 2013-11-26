@@ -28,6 +28,7 @@
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
