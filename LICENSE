@@ -6,11 +6,12 @@ are under a BSD licence, or a licence more free than that.
 
 OpenSMTPD contains no GPL code.
 
-Portable OpenSMTPD is divided in 4 parts:
+Portable OpenSMTPD is divided in 5 parts:
 - Original OpenSMTPD
 - asr
 - mail.local
 - openbsd-compat
+- smtpctl encrypt sub command
 
 
 
@@ -36,6 +37,7 @@ OpenSMTPD
 	Alexander Schrijver
 	Marc Balmer
 	Ashish Shukla
+	Ryan Kavanagh
 	Charles Longeau
 
 
@@ -108,11 +110,13 @@ OpenSMTPD
 asr
 ===
 
+
 1) Almost all code is licensed under an ISC-style license, to the following
    copyright holders:
 
 	Eric Faurot
 	Internet Software Consortium
+
 
 2) last part of getrrsetbyname_async.c is covered by 2-clause BSD license
 
@@ -192,8 +196,10 @@ Portable OpenSSH.
    copyright holders:
 
 	Internet Software Consortium.
-	Todd C. Miller
+	David Mazieres
 	Damien Miller
+	Markus Friedl
+	Todd C. Miller
 	Henning Brauer
 	Pierre-Yves Ritschard
 	Reyk Floeter
@@ -214,7 +220,7 @@ Portable OpenSSH.
      * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 
-2) base64.c in addition to beeing covered by an ISC-style licence, is also
+2) base64.{c,h} in addition to beeing covered by an ISC-style licence, is also
    covered by this one:
 
      * Portions Copyright (c) 1995 by International Business Machines, Inc.
@@ -248,6 +254,8 @@ Portable OpenSSH.
 	Damien Miller
 	Marc Espie
 	Tim Rice
+	The NetBSD Foundation, Inc.
+	Jason R. Thorpe?
 	Niels Provos
 
      * Redistribution and use in source and binary forms, with or without
@@ -274,10 +282,10 @@ Portable OpenSSH.
 4)  Some code is under a 3-clause BSD license, from the
     following copyright holders:
 
-        The Regents of the University of California.
-        Ian F. Darwin
-	Eric P. Allman
+	The Regents of the University of California.
+	Ian F. Darwin
 	Damien Miller
+	Eric P. Allman
 
      * Redistribution and use in source and binary forms, with or without
      * modification, are permitted provided that the following conditions
@@ -347,7 +355,13 @@ Portable OpenSSH.
      * called by a name other than "ssh" or "Secure Shell".
 
 
-7) bootstrap
+7) chacha_private.h
+
+D. J. Bernstein
+Public domain.
+
+
+8) bootstrap (only there in the git repository)
 
      # Copyright (c) 2002-2011 Sam Hocevar <sam@hocevar.net>
      #
@@ -356,3 +370,15 @@ Portable OpenSSH.
      #    and/or modify it under the terms of the Do What The Fuck You Want
      #    To Public License, Version 2, as published by Sam Hocevar. See
      #    http://sam.zoy.org/wtfpl/COPYING for more details.
+
+
+
+smtpctl encrypt sub command
+===========================
+
+
+smtpctl encrypt sub command is licensed under an ISC-style license, to the
+following copyright holders:
+
+	Sunil Nimmagadda
+	Gilles Chehade
