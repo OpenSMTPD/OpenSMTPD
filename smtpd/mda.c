@@ -599,7 +599,7 @@ mda_check_loop(FILE *fp, struct mda_envelope *e)
 			buf = lbuf;
 		}
 
-		if (strchr(buf, ':') == NULL && !isspace((int)*buf))
+		if (strchr(buf, ':') == NULL && !isspace((unsigned char)*buf))
 			break;
 
 		if (strncasecmp("Delivered-To: ", buf, 14) == 0) {

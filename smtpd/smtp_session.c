@@ -959,7 +959,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 	if (args) {
 		*args++ = '\0';
-		while (isspace((int)*args))
+		while (isspace((unsigned char)*args))
 			args++;
 	}
 
