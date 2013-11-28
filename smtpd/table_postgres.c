@@ -195,7 +195,7 @@ config_load(const char *path)
 		}
 
 		key = buf;
-		while (isspace((int)*key))
+		while (isspace((unsigned char)*key))
 			++key;
 		if (*key == '\0' || *key == '#')
 			continue;
@@ -203,8 +203,8 @@ config_load(const char *path)
 		strsep(&value, " \t:");
 		if (value) {
 			while (*value) {
-				if (!isspace(*value) &&
-				    !(*value == ':' && isspace(*(value + 1))))
+				if (!isspace((unsigned char)*value) &&
+				    !(*value == ':' && isspace((unsigned char)*(value + 1))))
 					break;
 				++value;
 			}

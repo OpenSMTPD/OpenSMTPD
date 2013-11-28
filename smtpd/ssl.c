@@ -238,12 +238,12 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 		goto fail;
 	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
 		goto fail;
-	if ((buf = calloc(1, size)) == NULL)
+	if ((buf = calloc(1, size + 1)) == NULL)
 		goto fail;
 	memcpy(buf, data, size);
 
 	BIO_free_all(bio);
-	*len = (off_t)size;
+	*len = (off_t)size + 1;
 	return (buf);
 
 fail:

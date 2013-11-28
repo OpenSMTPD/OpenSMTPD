@@ -1486,7 +1486,7 @@ mta_check_loop(FILE *fp)
 			buf = lbuf;
 		}
 
-		if (strchr(buf, ':') == NULL && !isspace((int)*buf))
+		if (strchr(buf, ':') == NULL && !isspace((unsigned char)*buf))
 			break;
 
 		if (strncasecmp("Received: ", buf, 10) == 0) {
