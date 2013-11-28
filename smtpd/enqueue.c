@@ -706,7 +706,7 @@ open_connection(void)
 	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0)
+		if (msgbuf_write(&ibuf->w) < 0 && errno != EAGAIN)
 			err(1, "write error");
 
 	while (1) {
