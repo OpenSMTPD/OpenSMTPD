@@ -935,8 +935,8 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 		mta_source_unref(source); /* from constructor */
 	}
 	else {
-		log_warnx("warn: Failed to get source address"
-			    "for %s", mta_relay_to_text(relay));
+		log_warnx("warn: Failed to get source address for %s",
+		    mta_relay_to_text(relay));
 	}
 
 	if (tree_count(&relay->connectors) == 0) {
