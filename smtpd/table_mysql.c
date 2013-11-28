@@ -475,6 +475,9 @@ table_mysql_check(int service, const char *key)
 	MYSQL_STMT	*stmt;
 	int		 r, s;
 
+	if (config->db == NULL && config_connect(config) == 0)
+		return (-1);
+
 	stmt = table_mysql_query(key, service);
 	if (stmt == NULL)
 		return (-1);
@@ -502,6 +505,9 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 {
 	MYSQL_STMT	*stmt;
 	int		 r, s;
+
+	if (config->db == NULL && config_connect(config) == 0)
+		return (-1);
 
 	stmt = table_mysql_query(key, service);
 	if (stmt == NULL)
@@ -591,6 +597,9 @@ table_mysql_fetch(int service, char *dst, size_t sz)
 	MYSQL_STMT	*stmt;
 	const char	*k;
 	int		 s;
+
+	if (config->db == NULL && config_connect(config) == 0)
+		return (-1);
 
     retry:
 
