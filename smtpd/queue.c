@@ -240,6 +240,24 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				log_warnx("warn: could not update envelope %016"PRIx64, evpid);
 			return;
 
+		case IMSG_DELIVERY_TEMPFAIL:
+			/* tempfail from the scheduler */
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: tempfail: failed to load envelope");
+				m_create(p_scheduler, IMSG_QUEUE_REMOVE, 0, 0, -1);
+				m_add_evpid(p_scheduler, evpid);
+				m_add_u32(p_scheduler, 0); /* not in-flight */
+				m_close(p_scheduler);
+				return;
+			}
+			evp.retry++;
+			if (!queue_envelope_update(&evp))
+				log_warnx("warn: could not update envelope %016"PRIx64, evpid);
+			return;
+
 		case IMSG_MDA_DELIVER:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
