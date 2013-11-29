@@ -538,6 +538,9 @@ struct smtpd {
 	size_t				sc_mta_max_deferred;
 
 	size_t				sc_scheduler_max_inflight;
+	size_t				sc_scheduler_max_evp_batch_size;
+	size_t				sc_scheduler_max_msg_batch_size;
+	size_t				sc_scheduler_max_schedule;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
