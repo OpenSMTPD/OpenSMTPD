@@ -577,11 +577,6 @@ scheduler_process_update(struct scheduler_batch *batch)
 	for (i = 0; i < batch->evpcount; i++) {
 		log_debug("debug: scheduler: evp:%016" PRIx64
 		    " scheduled (update)", batch->evpids[i]);
-#if 0
-		m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1);
-		m_add_evpid(p_queue, batch->evpids[i]);
-		m_close(p_queue);
-#endif
 	}
 
 	stat_increment("scheduler.envelope.update", batch->evpcount);
