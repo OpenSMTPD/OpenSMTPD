@@ -706,7 +706,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 			fatalx("aborting");
 		}
 
-		log_info("flush: for %016"PRIx64" (-> %s)", e->id, e->dest);
+		log_debug("debug: mta: flush for %016"PRIx64" (-> %s)", e->id, e->dest);
 
 		free(e->dest);
 		free(e->rcpt);
