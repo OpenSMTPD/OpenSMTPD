@@ -137,7 +137,6 @@ static void mta_io(struct io *, int);
 static void mta_free(struct mta_session *);
 static void mta_on_ptr(void *, void *, void *);
 static void mta_on_timeout(struct runq *, void *);
-static void mta_notify_event(int, short, void *);
 static void mta_connect(struct mta_session *);
 static void mta_enter_state(struct mta_session *, int);
 static void mta_flush_task(struct mta_session *, int, const char *, size_t, int);
@@ -161,8 +160,6 @@ static struct tree wait_ptr;
 static struct tree wait_fd;
 static struct tree wait_ssl_init;
 static struct tree wait_ssl_verify;
-static struct tree evp_notify;
-static struct event ev_notify;
 
 static struct runq *hangon;
 
@@ -177,9 +174,7 @@ mta_session_init(void)
 		tree_init(&wait_fd);
 		tree_init(&wait_ssl_init);
 		tree_init(&wait_ssl_verify);
-		tree_init(&evp_notify);
 		runq_init(&hangon, mta_on_timeout);
-		evtimer_set(&ev_notify, mta_notify_event, NULL);
 		init = 1;
 	}
 }
@@ -471,23 +466,6 @@ mta_on_timeout(struct runq *runq, void *arg)
 
 	mta_enter_state(s, MTA_READY);
 	io_reload(&s->io);
-}
-
-static void
-mta_notify_event(int fd, short event, void *arg)
-{
-	struct mta_envelope	*e;
-	struct timeval		 tv;
-
-	if (tree_poproot(&evp_notify, NULL, (void**)(&e))) {
-		mta_delivery_notify(e);
-		free(e->dest);
-		free(e->rcpt);
-		free(e);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		evtimer_add(&ev_notify, &tv);
-	}
 }
 
 static void
@@ -1022,8 +1000,6 @@ mta_response(struct mta_session *s, char *line)
 				    buf, delivery, line);
 
 			/* push failed envelope to the session fail queue */
-			e->delivery = delivery;
-			strlcpy(e->status, line, sizeof e->status);
 			s->failed[s->failedcount] = e;
 			s->failedcount++;
 
@@ -1381,10 +1357,12 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		sa = (struct sockaddr *)&ss;
 		sa_len = sizeof(ss);
 		if (getsockname(s->io.sock, sa, &sa_len) < 0)
-			mta_delivery(e, NULL, relay, delivery, error, 0);
+			mta_delivery_log(e, NULL, relay, delivery, error);
 		else
-			mta_delivery(e, sa_to_text(sa),
-			    relay, delivery, error, 0);
+			mta_delivery_log(e, sa_to_text(sa),
+			    relay, delivery, error);
+
+		mta_delivery_notify(e, 0);
 
 		domain = strchr(e->dest, '@');
 		if (domain) {
@@ -1393,9 +1371,6 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 				mta_hoststat_cache(domain + 1, e->id);
 		}
 
-		free(e->dest);
-		free(e->rcpt);
-		free(e);
 		n++;
 	}
 
@@ -1416,30 +1391,21 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 static void
 mta_flush_failedqueue(struct mta_session *s)
 {
-	int			 i, notify;
+	int			 i;
 	struct mta_envelope	*e;
 	const char		*domain;
 	uint32_t		 penalty;
 
-	if (tree_count(&evp_notify) == 0)
-		notify = 1;
-	else
-		notify = 0;
-
 	penalty = s->failedcount == MAX_FAILED_ENVELOPES ? 1 : 0;
 	for (i = 0; i < s->failedcount; ++i) {
 		e = s->failed[i];
-		e->penalty = penalty;
-
-		tree_xset(&evp_notify, e->id, e);
 
 		domain = strchr(e->dest, '@');
 		if (domain)
 			mta_hoststat_update(domain + 1, e->status);
-	}
 
-	if (notify)
-		mta_notify_event(-1, 0, NULL);
+		mta_delivery_notify(e, penalty);
+	}
 
 	s->failedcount = 0;
 }
