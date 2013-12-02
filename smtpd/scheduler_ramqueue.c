@@ -1091,7 +1091,7 @@ rq_envelope_cmp(struct rq_envelope *e1, struct rq_envelope *e2)
 		return (ref1 < ref2) ? -1 : 1;
 
 	if (e1->evpid != e2->evpid)
-		return (e1->evpid < e2->evpid) ? -1 : 0;
+		return (e1->evpid < e2->evpid) ? -1 : 1;
 
 	return 0;
 }
