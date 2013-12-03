@@ -76,7 +76,7 @@ static void mta_connect(struct mta_connector *);
 static void mta_route_enable(struct mta_route *);
 static void mta_route_disable(struct mta_route *, int, int);
 static void mta_drain(struct mta_relay *);
-static void mta_flush_event(int, short, void *);
+static void mta_delivery_flush_event(int, short, void *);
 static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *, time_t, int*,
     time_t*);
@@ -138,8 +138,8 @@ static struct tree wait_mx;
 static struct tree wait_preference;
 static struct tree wait_secret;
 static struct tree wait_source;
-static struct tree evp_flush;
-static struct event ev_flush;
+static struct tree flush_evp;
+static struct event ev_flush_evp;
 
 static struct runq *runq_relay;
 static struct runq *runq_connector;
@@ -539,13 +539,13 @@ mta(void)
 	tree_init(&wait_mx);
 	tree_init(&wait_preference);
 	tree_init(&wait_source);
-	tree_init(&evp_flush);
+	tree_init(&flush_evp);
 	dict_init(&hoststat);
 
 	imsg_callback = mta_imsg;
 	event_init();
 
-	evtimer_set(&ev_flush, mta_flush_event, NULL);
+	evtimer_set(&ev_flush_evp, mta_delivery_flush_event, NULL);
 
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
@@ -687,54 +687,75 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 	return (task);
 }
 
+static void
+mta_delivery_flush_event(int fd, short event, void *arg)
+{
+	struct mta_envelope	*e;
+	struct timeval		 tv;
+
+	if (tree_poproot(&flush_evp, NULL, (void**)(&e))) {
+
+		if (e->delivery == IMSG_DELIVERY_OK)
+			queue_ok(e->id);
+		else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
+			queue_tempfail(e->id, e->penalty, e->status);
+		else if (e->delivery == IMSG_DELIVERY_PERMFAIL)
+			queue_permfail(e->id, e->status);
+		else if (e->delivery == IMSG_DELIVERY_LOOP)
+			queue_loop(e->id);
+		else {
+			log_warnx("warn: bad delivery type %i for %016" PRIx64,
+			    e->delivery, e->id);
+			fatalx("aborting");
+		}
+
+		log_debug("debug: mta: flush for %016"PRIx64" (-> %s)", e->id, e->dest);
+
+		free(e->dest);
+		free(e->rcpt);
+		free(e);
+
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		evtimer_add(&ev_flush_evp, &tv);
+	}
+}
+
 void
 mta_delivery_log(struct mta_envelope *e, const char *source, const char *relay,
     int delivery, const char *status)
 {
-	if (delivery == IMSG_DELIVERY_OK) {
+	if (delivery == IMSG_DELIVERY_OK)
 		mta_log(e, "Ok", source, relay, status);
-	}
-	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
+	else if (delivery == IMSG_DELIVERY_TEMPFAIL)
 		mta_log(e, "TempFail", source, relay, status);
-	}
-	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
+	else if (delivery == IMSG_DELIVERY_PERMFAIL)
 		mta_log(e, "PermFail", source, relay, status);
-	}
-	else if (delivery == IMSG_DELIVERY_LOOP) {
+	else if (delivery == IMSG_DELIVERY_LOOP)
 		mta_log(e, "PermFail", source, relay, "Loop detected");
+	else {
+		log_warnx("warn: bad delivery type %i for %016" PRIx64,
+		    delivery, e->id);
+		fatalx("aborting");
 	}
-	else
-		errx(1, "bad delivery");
-}
 
-void
-mta_delivery_notify(struct mta_envelope *e)
-{
-	if (e->delivery == IMSG_DELIVERY_OK) {
-		queue_ok(e->id);
-	}
-	else if (e->delivery == IMSG_DELIVERY_TEMPFAIL) {
-		queue_tempfail(e->id, e->penalty, e->status);
-	}
-	else if (e->delivery == IMSG_DELIVERY_PERMFAIL) {
-		queue_permfail(e->id, e->status);
-	}
-	else if (e->delivery == IMSG_DELIVERY_LOOP) {
-		queue_loop(e->id);
-	}
-	else
-		errx(1, "bad delivery");
-}
-
-void
-mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
-    int delivery, const char *status, uint32_t penalty)
-{
-	mta_delivery_log(e, source, relay, delivery, status);
 	e->delivery = delivery;
-	strlcpy(e->status, status, sizeof e->status);
+	if (status)
+		strlcpy(e->status, status, sizeof(e->status));
+}
+
+void
+mta_delivery_notify(struct mta_envelope *e, uint32_t penalty)
+{
+	struct timeval	tv;
+
 	e->penalty = penalty;
-	mta_delivery_notify(e);
+	tree_xset(&flush_evp, e->id, e);
+	if (tree_count(&flush_evp) == 1) {
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		evtimer_add(&ev_flush_evp, &tv);
+	}
 }
 
 static void
@@ -1280,23 +1301,6 @@ mta_drain(struct mta_relay *r)
 }
 
 static void
-mta_flush_event(int fd, short event, void *arg)
-{
-	struct mta_envelope	*e;
-	struct timeval		 tv;
-
-	if (tree_poproot(&evp_flush, NULL, (void**)(&e))) {
-		mta_delivery_notify(e);
-		free(e->dest);
-		free(e->rcpt);
-		free(e);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		evtimer_add(&ev_flush, &tv);
-	}
-}
-
-static void
 mta_flush(struct mta_relay *relay, int fail, const char *error)
 {
 	struct mta_envelope	*e;
@@ -1305,7 +1309,6 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	void			*iter;
 	struct mta_connector	*c;
 	size_t			 n, r;
-	int			 notify;
 
 	log_debug("debug: mta_flush(%s, %d, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
@@ -1313,18 +1316,12 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	if (fail != IMSG_DELIVERY_TEMPFAIL && fail != IMSG_DELIVERY_PERMFAIL)
 		errx(1, "unexpected delivery status %d", fail);
 
-	if (tree_count(&evp_flush) == 0)
-		notify = 1;
-	else
-		notify = 0;
-
 	n = 0;
 	while ((task = TAILQ_FIRST(&relay->tasks))) {
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
-			mta_delivery_log(e, NULL, relay->domain->name, fail, error);
-			
+
 			/*
 			 * host was suspended, cache envelope id in hoststat tree
 			 * so that it can be retried when a delivery succeeds for
@@ -1343,18 +1340,14 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 					mta_hoststat_cache(domain+1, e->id);
 			}
 
-			e->delivery = fail;
-			e->penalty = 0;
-			strlcpy(e->status, error, sizeof e->status);
-			tree_xset(&evp_flush, e->id, e);
+			mta_delivery_log(e, NULL, relay->domain->name, fail, error);
+			mta_delivery_notify(e, 0);
+
 			n++;
 		}
 		free(task->sender);
 		free(task);
 	}
-
-	if (notify)
-		mta_flush_event(-1, 0, NULL);
 
 	stat_decrement("mta.task", relay->ntask);
 	stat_decrement("mta.envelope", n);
