@@ -620,10 +620,11 @@ fi
 #l1527 (customized)
 dnl    Checks for library functions. Please keep in alphabetical order
 AC_CHECK_FUNCS([ \
-	asprintf \
 	arc4random \
-	arc4random_buf \
-	arc4random_uniform \
+        arc4random_buf \
+        arc4random_stir \
+        arc4random_uniform \
+	asprintf \
 	b64_ntop \
 	__b64_ntop \
 	b64_pton \
