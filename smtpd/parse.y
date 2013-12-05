@@ -633,7 +633,6 @@ main		: BOUNCEWARN {
 				YYERROR;
 			}
 		} filter_list
-		;
 		| PKI STRING	{
 			char buf[MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
