@@ -89,7 +89,7 @@ crypto_encrypt_file(FILE * in, FILE * out)
 
 	/* generate and prepend IV */
 	memset(iv, 0, sizeof iv);
-	arc4random_buffer(iv, sizeof iv);
+	arc4random_buf(iv, sizeof iv);
 	if ((w = fwrite(iv, 1, sizeof iv, out)) != sizeof iv)
 		return 0;
 
@@ -237,7 +237,7 @@ crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 
 	/* generate IV */
 	memset(iv, 0, sizeof iv);
-	arc4random_buffer(iv, sizeof iv);
+	arc4random_buf(iv, sizeof iv);
 	memcpy(out + len, iv, sizeof iv);
 	len += sizeof iv;
 
