@@ -9,7 +9,6 @@ USE_MAILWRAPPER=0
 endif
 
 smtpctl_SOURCES=	$(smtpd_srcdir)/enqueue.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/csprng.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/parser.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/log.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope.c

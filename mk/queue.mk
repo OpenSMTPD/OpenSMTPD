@@ -7,6 +7,5 @@ LDADD		 = $(LIBCOMPAT)
 SRCS 	 = $(smtpd_srcdir)/log.c
 SRCS	+= $(backends_srcdir)/queue_utils.c
 SRCS	+= $(smtpd_srcdir)/queue_api.c
-SRCS	+= $(smtpd_srcdir)/csprng.c
 SRCS	+= $(smtpd_srcdir)/tree.c
 SRCS	+= $(smtpd_srcdir)/dict.c

@@ -187,7 +187,7 @@ arc4random_addrandom(u_char *dat, int datlen)
 }
 
 u_int32_t
-chacha_random(void)
+arc4random(void)
 {
 	u_int32_t val;
 
@@ -202,7 +202,7 @@ chacha_random(void)
  * arc4random_buf().
  */
 void
-chacha_buf(void *buf, size_t n)
+arc4random_buf(void *buf, size_t n)
 {
 	_ARC4_LOCK();
 	_rs_random_buf(buf, n);
@@ -239,7 +239,7 @@ arc4random_buf(void *_buf, size_t n)
  * after reduction modulo upper_bound.
  */
 u_int32_t
-chacha_uniform(u_int32_t upper_bound)
+arc4random_uniform(u_int32_t upper_bound)
 {
 	u_int32_t r, min;
 
@@ -256,7 +256,7 @@ chacha_uniform(u_int32_t upper_bound)
 	 * to re-roll.
 	 */
 	for (;;) {
-		r = chacha_random();
+		r = arc4random();
 		if (r >= min)
 			break;
 	}
