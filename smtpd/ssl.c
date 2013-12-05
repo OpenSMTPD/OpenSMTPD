@@ -62,12 +62,12 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct ssl *ssl, const char *ciphers)
+ssl_setup(SSL_CTX **ctxp, struct ssl *ssl, const char *ciphers, const char *curve)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
 	
-	ctx = ssl_ctx_create(ciphers);
+	ctx = ssl_ctx_create(ciphers, curve);
 
 	if (!ssl_ctx_use_certificate_chain(ctx,
 		ssl->ssl_cert, ssl->ssl_cert_len))
@@ -91,7 +91,7 @@ ssl_setup(SSL_CTX **ctxp, struct ssl *ssl, const char *ciphers)
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx);
+	ssl_set_ecdh_curve(ctx, curve);
 
 	*ctxp = ctx;
 	return 1;
@@ -248,7 +248,7 @@ fail:
 }
 
 SSL_CTX *
-ssl_ctx_create(const char *ciphers)
+ssl_ctx_create(const char *ciphers, const char *curve)
 {
 	SSL_CTX	*ctx;
 
@@ -424,12 +424,14 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 }
 
 void
-ssl_set_ecdh_curve(SSL_CTX *ctx)
+ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 {
 	int	nid;
 	EC_KEY *ecdh;
 
-	if ((nid = OBJ_sn2nid(SSL_ECDH_CURVE)) == 0) {
+	if (curve == NULL)
+		curve = SSL_ECDH_CURVE;
+	if ((nid = OBJ_sn2nid(curve)) == 0) {
 		ssl_error("ssl_set_ecdh_curve");
 		fatal("ssl_set_ecdh_curve: unknown curve name "
 		    SSL_ECDH_CURVE);

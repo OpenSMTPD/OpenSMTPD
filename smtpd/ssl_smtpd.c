@@ -49,7 +49,7 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 	SSL_CTX	*ctx = NULL;
 	SSL	*ssl = NULL;
 
-	ctx = ssl_ctx_create(NULL);
+	ctx = ssl_ctx_create(NULL, NULL);
 
 	if (cert != NULL && key != NULL) {
 		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 

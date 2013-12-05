@@ -111,6 +111,7 @@ static struct listen_opts {
 	struct table   *hostnametable;
 	uint16_t	flags;	
 	const char     *ciphers;
+	const char     *curve;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -147,7 +148,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER FILTERCHAIN KEY CA DHPARAMS
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT CIPHERS
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT CIPHERS CURVE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -378,6 +379,7 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 		| TLS_REQUIRE			{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE; }
 		| TLS_REQUIRE VERIFY   		{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
 		| CIPHERS STRING       		{ listen_opts.ciphers = $2; }
+		| CURVE STRING       		{ listen_opts.curve = $2; }
 		| PKI STRING			{ listen_opts.pki = $2; }
 		| AUTH				{ listen_opts.auth = F_AUTH|F_AUTH_REQUIRE; }
 		| AUTH_OPTIONAL			{ listen_opts.auth = F_AUTH; }
@@ -1136,6 +1138,7 @@ lookup(char *s)
 		{ "certificate",	CERTIFICATE },
 		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
+		{ "curve",		CURVE },
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
@@ -1742,6 +1745,9 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 	if (lo->ciphers && !lo->ssl)
 		errx(1, "invalid listen option: ciphers requires tls/smtps");
 
+	if (lo->curve && !lo->ssl)
+		errx(1, "invalid listen option: curve requires tls/smtps");
+
 	flags = lo->flags;
 
 	if (lo->port) {
@@ -1808,6 +1814,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	if (lo->ssl & F_TLS_VERIFY)
 		h->flags |= F_TLS_VERIFY;
 	h->ssl_ciphers = lo->ciphers;
+	h->ssl_curve = lo->curve;
 }
 
 struct listener *

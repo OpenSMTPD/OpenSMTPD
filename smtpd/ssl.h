@@ -41,15 +41,15 @@ struct ssl {
 
 /* ssl.c */
 void		ssl_init(void);
-int		ssl_setup(SSL_CTX **, struct ssl *, const char *);
-SSL_CTX	       *ssl_ctx_create(const char *);
+int		ssl_setup(SSL_CTX **, struct ssl *, const char *, const char *);
+SSL_CTX	       *ssl_ctx_create(const char *, const char *);
 void	       *ssl_mta_init(char *, off_t, char *, off_t);
 void	       *ssl_smtp_init(void *, char *, off_t, char *, off_t);
 int	        ssl_cmp(struct ssl *, struct ssl *);
 DH	       *get_dh1024(void);
 DH	       *get_dh_from_memory(char *, size_t);
 void		ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
-void		ssl_set_ecdh_curve(SSL_CTX *);
+void		ssl_set_ecdh_curve(SSL_CTX *, const char *);
 extern int	ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
 char	       *ssl_load_file(const char *, off_t *, mode_t);
 char	       *ssl_load_key(const char *, off_t *, char *, mode_t, const char *);
