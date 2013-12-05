@@ -31,6 +31,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#ifndef HAVE_ARC4RANDOM
+
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
@@ -201,6 +203,7 @@ arc4random(void)
  * If we are providing arc4random, then we can provide a more efficient 
  * arc4random_buf().
  */
+# ifndef HAVE_ARC4RANDOM_BUF
 void
 arc4random_buf(void *buf, size_t n)
 {
@@ -208,9 +211,11 @@ arc4random_buf(void *buf, size_t n)
 	_rs_random_buf(buf, n);
 	_ARC4_UNLOCK();
 }
+# endif /* !HAVE_ARC4RANDOM_BUF */
+#endif /* !HAVE_ARC4RANDOM */
 
 /* arc4random_buf() that uses platform arc4random() */
-#if 0
+#if !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM)
 void
 arc4random_buf(void *_buf, size_t n)
 {
@@ -228,6 +233,7 @@ arc4random_buf(void *_buf, size_t n)
 }
 #endif /* !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM) */
 
+#ifndef HAVE_ARC4RANDOM_UNIFORM
 /*
  * Calculate a uniformly distributed random number less than upper_bound
  * avoiding "modulo bias".
@@ -263,6 +269,7 @@ arc4random_uniform(u_int32_t upper_bound)
 
 	return r % upper_bound;
 }
+#endif /* !HAVE_ARC4RANDOM_UNIFORM */
 
 #if 0
 /*-------- Test code for i386 --------*/
