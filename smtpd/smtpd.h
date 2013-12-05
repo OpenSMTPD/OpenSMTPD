@@ -494,6 +494,8 @@ struct listener {
 	struct timeval		 timeout;
 	struct event		 ev;
 	char			 ssl_cert_name[SMTPD_MAXPATHLEN];
+	const char		*ssl_ciphers;
+	const char		*ssl_curve;
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
