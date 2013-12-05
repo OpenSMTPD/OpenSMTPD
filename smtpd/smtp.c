@@ -115,6 +115,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			env->sc_ssl_dict = calloc(1, sizeof *env->sc_ssl_dict);
 			if (env->sc_ssl_dict == NULL)
 				fatal(NULL);
+			dict_init(env->sc_ssl_dict);
 			TAILQ_INIT(env->sc_listeners);
 			return;
 
