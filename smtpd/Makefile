@@ -4,7 +4,7 @@
 
 SUBDIR =	smtpd smtpctl
 SUBDIR+=	makemap
-SUBDIR+=	filters
+#SUBDIR+=	filters
 SUBDIR+=	table-ldap
 #SUBDIR+=	table-mysql
 SUBDIR+=	table-passwd
