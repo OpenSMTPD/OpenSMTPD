@@ -62,12 +62,12 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct ssl *ssl)
+ssl_setup(SSL_CTX **ctxp, struct ssl *ssl, const char *ciphers)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
 	
-	ctx = ssl_ctx_create();
+	ctx = ssl_ctx_create(ciphers);
 
 	if (!ssl_ctx_use_certificate_chain(ctx,
 		ssl->ssl_cert, ssl->ssl_cert_len))
@@ -248,7 +248,7 @@ fail:
 }
 
 SSL_CTX *
-ssl_ctx_create(void)
+ssl_ctx_create(const char *ciphers)
 {
 	SSL_CTX	*ctx;
 
@@ -265,7 +265,9 @@ ssl_ctx_create(void)
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
-	if (!SSL_CTX_set_cipher_list(ctx, SSL_CIPHERS)) {
+	if (ciphers == NULL)
+		ciphers = SSL_CIPHERS;
+	if (!SSL_CTX_set_cipher_list(ctx, ciphers)) {
 		ssl_error("ssl_ctx_create");
 		fatal("ssl_ctx_create: could not set cipher list");
 	}

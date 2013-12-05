@@ -41,8 +41,8 @@ struct ssl {
 
 /* ssl.c */
 void		ssl_init(void);
-int		ssl_setup(SSL_CTX **, struct ssl *);
-SSL_CTX	       *ssl_ctx_create(void);
+int		ssl_setup(SSL_CTX **, struct ssl *, const char *);
+SSL_CTX	       *ssl_ctx_create(const char *);
 void	       *ssl_mta_init(char *, off_t, char *, off_t);
 void	       *ssl_smtp_init(void *, char *, off_t, char *, off_t);
 int	        ssl_cmp(struct ssl *, struct ssl *);
