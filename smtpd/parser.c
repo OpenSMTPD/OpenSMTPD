@@ -159,7 +159,7 @@ cmd_check(const char *str, struct node *node, struct parameter *res)
 		return (1);
 
 	case P_ROUTEID:
-		res->u.u_int = strtonum(str, 1, LLONG_MAX, &e);
+		res->u.u_routeid = strtonum(str, 1, LLONG_MAX, &e);
 		if (e)
 			return (0);
 		return (1);
