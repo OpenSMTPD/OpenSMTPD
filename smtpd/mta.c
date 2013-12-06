@@ -2313,8 +2313,7 @@ mta_hoststat_update(const char *host, const char *error)
 	tm = time(NULL);
 	hs = dict_get(&hoststat, buf);
 	if (hs == NULL) {
-		hs = calloc(1, sizeof *hs);
-		if (hs == NULL)
+		if ((hs = calloc(1, sizeof *hs)) == NULL)
 			return;
 		tree_init(&hs->deferred);
 		runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);
