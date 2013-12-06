@@ -104,16 +104,10 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 
 		case IMSG_CONF_START:
-			if (env->sc_flags & SMTPD_CONFIGURING)
-				return;
-			env->sc_flags |= SMTPD_CONFIGURING;
 			return;
 
 		case IMSG_CONF_END:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
 			smtp_setup_events();
-			env->sc_flags &= ~SMTPD_CONFIGURING;
 			return;
 
 		case IMSG_CTL_VERBOSE:
