@@ -256,7 +256,7 @@ smtp_setup_listeners(void)
 			sizeof(opt)) < 0)
 			fatal("smtpd: setsockopt");
 #endif
-		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
+		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
 			fatal("smtpd: bind");
 	}
 }
