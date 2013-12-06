@@ -126,7 +126,7 @@ struct relayhost {
 	uint16_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
 	uint16_t port;
-	char cert[SMTPD_MAXPATHLEN];
+	char pki_name[SMTPD_MAXPATHLEN];
 	char authtable[SMTPD_MAXPATHLEN];
 	char authlabel[SMTPD_MAXPATHLEN];
 	char sourcetable[SMTPD_MAXPATHLEN];
@@ -742,7 +742,7 @@ struct mta_relay {
 	int			 backuppref;
 	char			*sourcetable;
 	uint16_t		 port;
-	char			*cert;
+	char			*pki_name;
 	char			*authtable;
 	char			*authlabel;
 	char			*helotable;
