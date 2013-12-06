@@ -160,9 +160,18 @@ int	BSDoptind;		/* index into parent argv vector */
 int getpeereid(int , uid_t *, gid_t *);
 #endif 
 
-unsigned int chacha_random(void);
-void chacha_buf(void *, size_t);
-u_int32_t chacha_uniform(u_int32_t);
+#ifndef HAVE_ARC4RANDOM
+unsigned int arc4random(void);
+void arc4random_stir(void);
+#endif /* !HAVE_ARC4RANDOM */
+
+#ifndef HAVE_ARC4RANDOM_BUF
+void arc4random_buf(void *, size_t);
+#endif
+
+#ifndef HAVE_ARC4RANDOM_UNIFORM
+u_int32_t arc4random_uniform(u_int32_t);
+#endif
 
 #ifndef HAVE_STRTONUM
 long long strtonum(const char *nptr, long long minval, long long maxval, const char **errstr);
