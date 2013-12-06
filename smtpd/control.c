@@ -448,8 +448,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_ENQUEUE_FD:
-		if (env->sc_flags & (SMTPD_SMTP_PAUSED |
-		    SMTPD_CONFIGURING | SMTPD_EXITING)) {
+		if (env->sc_flags & (SMTPD_SMTP_PAUSED | SMTPD_EXITING)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
@@ -691,7 +690,6 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		log_info("info: route resumed");
 		m_forward(p_mta, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;

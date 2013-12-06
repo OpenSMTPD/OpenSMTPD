@@ -31,6 +31,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#ifndef HAVE_ARC4RANDOM
+
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
@@ -187,7 +189,7 @@ arc4random_addrandom(u_char *dat, int datlen)
 }
 
 u_int32_t
-chacha_random(void)
+arc4random(void)
 {
 	u_int32_t val;
 
@@ -201,16 +203,19 @@ chacha_random(void)
  * If we are providing arc4random, then we can provide a more efficient 
  * arc4random_buf().
  */
+# ifndef HAVE_ARC4RANDOM_BUF
 void
-chacha_buf(void *buf, size_t n)
+arc4random_buf(void *buf, size_t n)
 {
 	_ARC4_LOCK();
 	_rs_random_buf(buf, n);
 	_ARC4_UNLOCK();
 }
+# endif /* !HAVE_ARC4RANDOM_BUF */
+#endif /* !HAVE_ARC4RANDOM */
 
 /* arc4random_buf() that uses platform arc4random() */
-#if 0
+#if !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM)
 void
 arc4random_buf(void *_buf, size_t n)
 {
@@ -228,6 +233,7 @@ arc4random_buf(void *_buf, size_t n)
 }
 #endif /* !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM) */
 
+#ifndef HAVE_ARC4RANDOM_UNIFORM
 /*
  * Calculate a uniformly distributed random number less than upper_bound
  * avoiding "modulo bias".
@@ -239,7 +245,7 @@ arc4random_buf(void *_buf, size_t n)
  * after reduction modulo upper_bound.
  */
 u_int32_t
-chacha_uniform(u_int32_t upper_bound)
+arc4random_uniform(u_int32_t upper_bound)
 {
 	u_int32_t r, min;
 
@@ -256,13 +262,14 @@ chacha_uniform(u_int32_t upper_bound)
 	 * to re-roll.
 	 */
 	for (;;) {
-		r = chacha_random();
+		r = arc4random();
 		if (r >= min)
 			break;
 	}
 
 	return r % upper_bound;
 }
+#endif /* !HAVE_ARC4RANDOM_UNIFORM */
 
 #if 0
 /*-------- Test code for i386 --------*/

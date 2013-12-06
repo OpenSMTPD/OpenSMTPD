@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.105 2013/08/08 07:08:34 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.112 2013/12/05 10:27:30 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: August 8 2013 $
+.Dd $Mdocdate: December 5 2013 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -388,12 +388,12 @@ is used instead.
 .Pp
 If
 .Ic tls
-is specified, OpenSMTPD will refuse to relay unless remote host provides
+is specified, OpenSMTPD will refuse to relay unless the remote host provides
 STARTTLS.
 .Pp
 If
 .Ic verify
-is specified, OpenSMTPD will refuse to relay unless remote host provides
+is specified, OpenSMTPD will refuse to relay unless the remote host provides
 STARTTLS and the certificate it presented has been verified.
 .Pp
 Note that the
@@ -411,6 +411,7 @@ as they will prevent proper relaying on the Internet.
 .Op Ic hostname Ar name
 .Op Ic hostnames Ar names
 .Op Ic pki Ar pkiname
+.Op Ic verify
 .Xc
 Mail is relayed through the specified
 .Ar host
@@ -507,6 +508,12 @@ and
 parameters are mutually exclusive.
 .El
 .Pp
+If
+.Ic verify
+is specified, OpenSMTPD will refuse to relay unless the remote host provides
+STARTTLS and the certificate it presented has been verified.
+The relay URL must specify TLS for this option to be valid.
+.Pp
 Additional per-rule adjustments available:
 .Bl -tag -width Ds
 .It Ic expire Ar n Brq Ar s\*(Bam\*(Bah\*(Bad
@@ -562,14 +569,15 @@ Changing the default value might degrade performances.
 .Ic listen on Ar interface
 .Op Ar family
 .Op Ic port Ar port
-.Op Ic tls | tls-require | smtps | secure
+.Op Ic tls | tls-require | tls-require verify | smtps | secure
 .Op Ic pki Ar pkiname
-.Op Ic auth | auth-optional
+.Op Ic auth | auth-optional | auth Ar authtable | Ic auth-optional Ar authtable
 .Op Ic tag Ar tag
 .Op Ic hostname Ar hostname
 .Op Ic hostnames Ar names
 .Op Ic mask-source
-.Op Ic verify
+.Op Ic ciphers Ar ciphersuite
+.Op Ic curve Ar curvename
 .Ek
 .Xc
 Specify an
@@ -597,6 +605,12 @@ by default on port 465.
 .Ic tls-require
 may be used to force clients to establish a secure connection
 before being allowed to start an SMTP transaction.
+.Pp
+If
+.Ic tls-require verify
+is specified, the client must provide a valid certificate to be
+able to establish an SMTP session.
+.Pp
 .Ic secure
 may be specified to provide both STARTTLS and SMTPS services.
 Host certificates may be used for these connections,
@@ -625,6 +639,15 @@ untrusted senders and outgoing mail from authenticated users in
 situations where it is not possible to listen on the submission
 port.
 .Pp
+Both
+.Ic auth
+and
+.Ic auth-optional
+accept a table as parameter.
+When provided, credentials are looked up in this table.
+Credentials format is described in
+.Xr table 5 .
+.Pp
 If the
 .Ic tag
 parameter is used, then clients connecting to the listener will be
@@ -651,11 +674,19 @@ If the
 parameter is used, then the listener will skip the "from" part
 when prepending the "Received" header.
 .Pp
-If the listener is configured to provide SMTPS or STARTTLS and the
-.Ic verify
-parameter is used, then clients will be required to present a
-certificate that can be verified before a SMTP session can be
-initiated.
+If the
+.Ic ciphers
+parameter is used, it will override the default cipher suite used
+by OpenSMTPD for negotiating TLS sessions.
+By default, OpenSMTPD uses a strong cipher suite, using this option
+sometimes needed but strongly discouraged.
+.Pp
+If the
+.Ic curve
+parameter is used, it will override the default curve used by OpenSMTPD
+for Perfect Forward Secrecy.
+By default, OpenSMTPD uses a reliable curve, using this option is strongly
+discouraged.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n

@@ -494,6 +494,8 @@ struct listener {
 	struct timeval		 timeout;
 	struct event		 ev;
 	char			 ssl_cert_name[SMTPD_MAXPATHLEN];
+	const char		*ssl_ciphers;
+	const char		*ssl_curve;
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
@@ -511,15 +513,14 @@ struct smtpd {
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
 
-#define SMTPD_CONFIGURING		0x00000001
-#define SMTPD_EXITING			0x00000002
-#define SMTPD_MDA_PAUSED		0x00000004
-#define SMTPD_MTA_PAUSED		0x00000008
-#define SMTPD_SMTP_PAUSED		0x00000010
-#define SMTPD_MDA_BUSY			0x00000020
-#define SMTPD_MTA_BUSY			0x00000040
-#define SMTPD_BOUNCE_BUSY		0x00000080
-#define SMTPD_SMTP_DISABLED		0x00000100
+#define SMTPD_EXITING			0x00000001
+#define SMTPD_MDA_PAUSED		0x00000002
+#define SMTPD_MTA_PAUSED		0x00000004
+#define SMTPD_SMTP_PAUSED		0x00000008
+#define SMTPD_MDA_BUSY			0x00000010
+#define SMTPD_MTA_BUSY			0x00000020
+#define SMTPD_BOUNCE_BUSY		0x00000040
+#define SMTPD_SMTP_DISABLED		0x00000080
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
@@ -553,7 +554,7 @@ struct smtpd {
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
-	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
+	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
 	struct dict			       *sc_ssl_dict;
 
@@ -784,6 +785,8 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
+	int				 penalty;
+	char				 status[SMTPD_MAXLINESIZE];
 };
 
 struct mta_task {
@@ -1210,8 +1213,7 @@ void mta_route_down(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_delivery_log(struct mta_envelope *, const char *, const char *, int, const char *);
-void mta_delivery_notify(struct mta_envelope *, int, const char *, uint32_t);
-void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *, uint32_t);
+void mta_delivery_notify(struct mta_envelope *, uint32_t);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);

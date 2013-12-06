@@ -69,7 +69,7 @@ mktemp_internal(char *path, int slen, int mode)
 
 	do {
 		for (cp = start; cp != ep; cp++) {
-			r = chacha_uniform(NUM_CHARS);
+			r = arc4random_uniform(NUM_CHARS);
 			*cp = tempchars[r];
 		}
 

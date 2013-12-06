@@ -53,6 +53,7 @@ static void smtp_resume(void);
 static void smtp_accept(int, short, void *);
 static int smtp_enqueue(uid_t *);
 static int smtp_can_accept(void);
+static void smtp_setup_listeners(void);
 
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
@@ -60,8 +61,6 @@ static size_t	sessions;
 static void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct listener	*l;
-	struct ssl	*ssl;
 	struct msg	 m;
 	int		 v;
 
@@ -108,67 +107,10 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 
 		case IMSG_CONF_START:
-			if (env->sc_flags & SMTPD_CONFIGURING)
-				return;
-			env->sc_flags |= SMTPD_CONFIGURING;
-			env->sc_listeners = calloc(1,
-			    sizeof *env->sc_listeners);
-			if (env->sc_listeners == NULL)
-				fatal(NULL);
-			env->sc_ssl_dict = calloc(1, sizeof *env->sc_ssl_dict);
-			if (env->sc_ssl_dict == NULL)
-				fatal(NULL);
-			TAILQ_INIT(env->sc_listeners);
-			return;
-
-		case IMSG_CONF_SSL:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
-			ssl = calloc(1, sizeof *ssl);
-			if (ssl == NULL)
-				fatal(NULL);
-			*ssl = *(struct ssl *)imsg->data;
-			ssl->ssl_cert = xstrdup((char *)imsg->data +
-			    sizeof *ssl, "smtp:ssl_cert");
-			ssl->ssl_key = xstrdup((char *)imsg->data +
-			    sizeof *ssl + ssl->ssl_cert_len, "smtp:ssl_key");
-			if (ssl->ssl_dhparams_len) {
-				ssl->ssl_dhparams = xstrdup((char *)imsg->data
-				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len, "smtp:ssl_dhparams");
-			}
-			if (ssl->ssl_ca_len) {
-				ssl->ssl_ca = xstrdup((char *)imsg->data
-				    + sizeof *ssl + ssl->ssl_cert_len +
-				    ssl->ssl_key_len + ssl->ssl_dhparams_len,
-				    "smtp:ssl_ca");
-			}
-			dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
-			return;
-
-		case IMSG_CONF_LISTENER:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
-			l = calloc(1, sizeof *l);
-			if (l == NULL)
-				fatal(NULL);
-			*l = *(struct listener *)imsg->data;
-			l->fd = imsg->fd;
-			if (l->fd < 0)
-				fatalx("smtp: listener pass failed");
-                        if (l->flags & F_SSL) {
-				l->ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name);
-                                if (l->ssl == NULL)
-                                        fatalx("smtp: ssltree out of sync");
-                        }
-			TAILQ_INSERT_TAIL(env->sc_listeners, l, entry);
 			return;
 
 		case IMSG_CONF_END:
-			if (!(env->sc_flags & SMTPD_CONFIGURING))
-				return;
 			smtp_setup_events();
-			env->sc_flags &= ~SMTPD_CONFIGURING;
 			return;
 
 		case IMSG_CTL_VERBOSE:
@@ -249,7 +191,10 @@ smtp(void)
 		return (pid);
 	}
 
-	purge_config(PURGE_EVERYTHING);
+	smtp_setup_listeners();
+
+	/* SSL will be purged later */
+	purge_config(PURGE_TABLES|PURGE_RULES);
 
 	if ((pw = getpwnam(SMTPD_USER)) == NULL)
 		fatalx("unknown user " SMTPD_USER);
@@ -293,6 +238,30 @@ smtp(void)
 }
 
 static void
+smtp_setup_listeners(void)
+{
+	struct listener	       *l;
+	int			opt;
+
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1)
+			fatal("smtpd: socket");
+		opt = 1;
+#ifdef SO_REUSEADDR
+		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
+			sizeof(opt)) < 0)
+			fatal("smtpd: setsockopt");
+#else
+		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEPORT, &opt,
+			sizeof(opt)) < 0)
+			fatal("smtpd: setsockopt");
+#endif
+		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
+			fatal("smtpd: bind");
+	}
+}
+
+static void
 smtp_setup_events(void)
 {
 	struct listener *l;
@@ -319,7 +288,7 @@ smtp_setup_events(void)
 			fatal("smtp_setup_events: certificate name truncated");
 		if ((ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
 			fatal("smtp_setup_events: certificate tree corrupted");
-		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, ssl))
+		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, ssl, l->ssl_ciphers, l->ssl_curve))
 			fatal("smtp_setup_events: ssl_setup failure");
 	}
 

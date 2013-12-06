@@ -81,7 +81,7 @@ print_passwd(const char *string)
 	const char     *p;
 
 	for (n = 0; n < SALT_LEN; ++n)
-		to64(&salt[n], chacha_uniform(0xff), 1);
+		to64(&salt[n], arc4random_uniform(0xff), 1);
 	salt[SALT_LEN] = '\0';
 
 	for (n = 0; ids[n]; n++) {

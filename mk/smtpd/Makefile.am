@@ -20,7 +20,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/ca.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/compress_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/config.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/control.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/csprng.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
