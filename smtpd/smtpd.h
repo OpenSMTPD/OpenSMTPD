@@ -465,7 +465,7 @@ struct listener {
 	in_port_t		 port;
 	struct timeval		 timeout;
 	struct event		 ev;
-	char			 ssl_cert_name[SMTPD_MAXPATHLEN];
+	char			 pki_name[SMTPD_MAXPATHLEN];
 	const char		*ssl_ciphers;
 	const char		*ssl_curve;
 	struct ssl		*ssl;

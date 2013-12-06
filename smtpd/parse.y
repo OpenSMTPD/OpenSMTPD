@@ -1788,17 +1788,16 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 		lo->hostname = conf->sc_hostname;
 
 	h->ssl = NULL;
-	h->ssl_cert_name[0] = '\0';
+	h->pki_name[0] = '\0';
 
 	if (lo->authtable != NULL)
 		(void)strlcpy(h->authtable, lo->authtable->t_name, sizeof(h->authtable));
 	if (lo->pki != NULL) {
-		if (! lowercase(h->ssl_cert_name, lo->pki,
-		    sizeof(h->ssl_cert_name))) {
+		if (! lowercase(h->pki_name, lo->pki, sizeof(h->pki_name))) {
 			log_warnx("pki name too long: %s", lo->pki);
 			fatalx(NULL);
 		}
-		if (dict_get(conf->sc_pki_dict, h->ssl_cert_name) == NULL) {
+		if (dict_get(conf->sc_pki_dict, h->pki_name) == NULL) {
 			log_warnx("pki name not found: %s", lo->pki);
 			fatalx(NULL);
 		}
