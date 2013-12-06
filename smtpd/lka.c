@@ -65,7 +65,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct table		*table;
 	int			 ret;
-	struct ssl		*ssl;
+	struct pki		*pki;
 	struct iovec		iov[3];
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_smtp = NULL;
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_mta = NULL;
@@ -128,22 +128,22 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			xlowercase(buf, req_ca_cert->name, sizeof(buf));
 			log_debug("debug: lka: looking up pki \"%s\"", buf);
-			ssl = dict_get(env->sc_pki_dict, buf);
-			if (ssl == NULL) {
+			pki = dict_get(env->sc_pki_dict, buf);
+			if (pki == NULL) {
 				resp_ca_cert.status = CA_FAIL;
 				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
 				    sizeof(resp_ca_cert));
 				return;
 			}
 			resp_ca_cert.status = CA_OK;
-			resp_ca_cert.cert_len = ssl->ssl_cert_len;
-			resp_ca_cert.key_len = ssl->ssl_key_len;
+			resp_ca_cert.cert_len = pki->pki_cert_len;
+			resp_ca_cert.key_len = pki->pki_key_len;
 			iov[0].iov_base = &resp_ca_cert;
 			iov[0].iov_len = sizeof(resp_ca_cert);
-			iov[1].iov_base = ssl->ssl_cert;
-			iov[1].iov_len = ssl->ssl_cert_len;
-			iov[2].iov_base = ssl->ssl_key;
-			iov[2].iov_len = ssl->ssl_key_len;
+			iov[1].iov_base = pki->pki_cert;
+			iov[1].iov_len = pki->pki_cert_len;
+			iov[2].iov_base = pki->pki_key;
+			iov[2].iov_len = pki->pki_key_len;
 			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 
@@ -174,10 +174,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
-			ssl = dict_xget(env->sc_pki_dict, req_ca_vrfy_smtp->pkiname);
+			pki = dict_xget(env->sc_pki_dict, req_ca_vrfy_smtp->pkiname);
 			cafile = CA_FILE;
-			if (ssl->ssl_ca_file)
-				cafile = ssl->ssl_ca_file;
+			if (pki->pki_ca_file)
+				cafile = pki->pki_ca_file;
 			if (! lka_X509_verify(req_ca_vrfy_smtp, cafile, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else
@@ -252,22 +252,22 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			xlowercase(buf, req_ca_cert->name, sizeof(buf));
 			log_debug("debug: lka: looking up pki \"%s\"", buf);
-			ssl = dict_get(env->sc_pki_dict, buf);
-			if (ssl == NULL) {
+			pki = dict_get(env->sc_pki_dict, buf);
+			if (pki == NULL) {
 				resp_ca_cert.status = CA_FAIL;
 				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
 				    sizeof(resp_ca_cert));
 				return;
 			}
 			resp_ca_cert.status = CA_OK;
-			resp_ca_cert.cert_len = ssl->ssl_cert_len;
-			resp_ca_cert.key_len = ssl->ssl_key_len;
+			resp_ca_cert.cert_len = pki->pki_cert_len;
+			resp_ca_cert.key_len = pki->pki_key_len;
 			iov[0].iov_base = &resp_ca_cert;
 			iov[0].iov_len = sizeof(resp_ca_cert);
-			iov[1].iov_base = ssl->ssl_cert;
-			iov[1].iov_len = ssl->ssl_cert_len;
-			iov[2].iov_base = ssl->ssl_key;
-			iov[2].iov_len = ssl->ssl_key_len;
+			iov[1].iov_base = pki->pki_cert;
+			iov[1].iov_len = pki->pki_cert_len;
+			iov[2].iov_base = pki->pki_key;
+			iov[2].iov_len = pki->pki_key_len;
 			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 
@@ -299,11 +299,11 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
-			ssl = dict_get(env->sc_pki_dict, req_ca_vrfy_mta->pkiname);
+			pki = dict_get(env->sc_pki_dict, req_ca_vrfy_mta->pkiname);
 
 			cafile = CA_FILE;
-			if (ssl && ssl->ssl_ca_file)
-				cafile = ssl->ssl_ca_file;
+			if (pki && pki->pki_ca_file)
+				cafile = pki->pki_ca_file;
 			if (! lka_X509_verify(req_ca_vrfy_mta, cafile, NULL))
 				resp_ca_vrfy.status = CA_FAIL;
 			else

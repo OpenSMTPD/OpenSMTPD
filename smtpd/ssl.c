@@ -69,7 +69,7 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct ssl *ssl, const char *ciphers, const char *curve)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curve)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
@@ -77,24 +77,24 @@ ssl_setup(SSL_CTX **ctxp, struct ssl *ssl, const char *ciphers, const char *curv
 	ctx = ssl_ctx_create(ciphers, curve);
 
 	if (!ssl_ctx_use_certificate_chain(ctx,
-		ssl->ssl_cert, ssl->ssl_cert_len))
+		pki->pki_cert, pki->pki_cert_len))
 		goto err;
 	if (!ssl_ctx_use_private_key(ctx,
-		ssl->ssl_key, ssl->ssl_key_len))
+		pki->pki_key, pki->pki_key_len))
 		goto err;
 
 	if (!SSL_CTX_check_private_key(ctx))
 		goto err;
 	if (!SSL_CTX_set_session_id_context(ctx,
-		(const unsigned char *)ssl->ssl_name,
-		strlen(ssl->ssl_name) + 1))
+		(const unsigned char *)pki->pki_name,
+		strlen(pki->pki_name) + 1))
 		goto err;
 
-	if (ssl->ssl_dhparams_len == 0)
+	if (pki->pki_dhparams_len == 0)
 		dh = get_dh1024();
 	else
-		dh = get_dh_from_memory(ssl->ssl_dhparams,
-		    ssl->ssl_dhparams_len);
+		dh = get_dh_from_memory(pki->pki_dhparams,
+		    pki->pki_dhparams_len);
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
@@ -283,39 +283,39 @@ ssl_ctx_create(const char *ciphers, const char *curve)
 }
 
 int
-ssl_load_certificate(struct ssl *s, const char *pathname)
+ssl_load_certificate(struct pki *p, const char *pathname)
 {
-	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
-	if (s->ssl_cert == NULL)
+	p->pki_cert = ssl_load_file(pathname, &p->pki_cert_len, 0755);
+	if (p->pki_cert == NULL)
 		return 0;
 	return 1;
 }
 
 int
-ssl_load_keyfile(struct ssl *s, const char *pathname, const char *pkiname)
+ssl_load_keyfile(struct pki *p, const char *pathname, const char *pkiname)
 {
 	char	pass[1024];
 
-	s->ssl_key = ssl_load_key(pathname, &s->ssl_key_len, pass, 0700, pkiname);
-	if (s->ssl_key == NULL)
+	p->pki_key = ssl_load_key(pathname, &p->pki_key_len, pass, 0700, pkiname);
+	if (p->pki_key == NULL)
 		return 0;
 	return 1;
 }
 
 int
-ssl_load_cafile(struct ssl *s, const char *pathname)
+ssl_load_cafile(struct pki *p, const char *pathname)
 {
-	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL)
+	p->pki_ca = ssl_load_file(pathname, &p->pki_ca_len, 0755);
+	if (p->pki_ca == NULL)
 		return 0;
 	return 1;
 }
 
 int
-ssl_load_dhparams(struct ssl *s, const char *pathname)
+ssl_load_dhparams(struct pki *p, const char *pathname)
 {
-	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
-	if (s->ssl_dhparams == NULL) {
+	p->pki_dhparams = ssl_load_file(pathname, &p->pki_dhparams_len, 0755);
+	if (p->pki_dhparams == NULL) {
 		if (errno == EACCES)
 			return 0;
 		log_info("info: No DH parameters found in %s: "
