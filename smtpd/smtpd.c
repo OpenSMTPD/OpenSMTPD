@@ -364,47 +364,8 @@ parent_send_config(int fd, short event, void *p)
 static void
 parent_send_config_smtp(void)
 {
-	struct listener		*l;
-	struct ssl		*s;
-	void			*iter = NULL;
-	struct iovec		 iov[5];
-	int			 opt;
-
 	log_debug("debug: parent_send_config: configuring smtp");
 	m_compose(p_smtp, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-
-	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
-		iov[0].iov_base = s;
-		iov[0].iov_len = sizeof(*s);
-		iov[1].iov_base = s->ssl_cert;
-		iov[1].iov_len = s->ssl_cert_len;
-		iov[2].iov_base = s->ssl_key;
-		iov[2].iov_len = s->ssl_key_len;
-		iov[3].iov_base = s->ssl_dhparams;
-		iov[3].iov_len = s->ssl_dhparams_len;
-		iov[4].iov_base = s->ssl_ca;
-		iov[4].iov_len = s->ssl_ca_len;
-		m_composev(p_smtp, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
-	}
-
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1)
-			fatal("smtpd: socket");
-		opt = 1;
-#ifdef SO_REUSEADDR
-		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
-			sizeof(opt)) < 0)
-#else
-		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEPORT, &opt,
-			sizeof(opt)) < 0)
-#endif
-			fatal("smtpd: setsockopt");
-		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
-			fatal("smtpd: bind");
-		m_compose(p_smtp, IMSG_CONF_LISTENER, 0, 0, l->fd,
-		    l, sizeof(*l));
-	}
-
 	m_compose(p_smtp, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
@@ -426,93 +387,8 @@ parent_send_config_mfa()
 void
 parent_send_config_lka()
 {
-	struct rule	       *r;
-	struct table	       *t;
-	void		       *iter_tree;
-	void		       *iter_dict;
-	const char	       *k;
-	char		       *v;
-	char		       *buffer;
-	size_t			buflen;
-	struct ssl	       *s;
-	struct iovec		iov[5];
-
 	log_debug("debug: parent_send_config_ruleset: reloading");
 	m_compose(p_lka, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-
-	iter_dict = NULL;
-	while (dict_iter(env->sc_ssl_dict, &iter_dict, NULL, (void **)&s)) {
-		iov[0].iov_base = s;
-		iov[0].iov_len = sizeof(*s);
-		iov[1].iov_base = s->ssl_cert;
-		iov[1].iov_len = s->ssl_cert_len;
-		iov[2].iov_base = s->ssl_key;
-		iov[2].iov_len = s->ssl_key_len;
-		iov[3].iov_base = s->ssl_dhparams;
-		iov[3].iov_len = s->ssl_dhparams_len;
-		iov[4].iov_base = s->ssl_ca;
-		iov[4].iov_len = s->ssl_ca_len;
-		m_composev(p_lka, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
-	}
-
-	iter_tree = NULL;
-	while (dict_iter(env->sc_tables_dict, &iter_tree, NULL,
-		(void **)&t)) {
-		m_compose(p_lka, IMSG_CONF_TABLE, 0, 0, -1, t, sizeof(*t));
-
-		iter_dict = NULL;
-		while (dict_iter(&t->t_dict, &iter_dict, &k,
-			(void **)&v)) {
-			buflen = strlen(k) + 1;
-			if (v)
-				buflen += strlen(v) + 1;
-			buffer = xcalloc(1, buflen,
-			    "parent_send_config_ruleset");
-			memcpy(buffer, k, strlen(k) + 1);
-			if (v)
-				memcpy(buffer + strlen(k) + 1, v,
-				    strlen(v) + 1);
-			m_compose(p_lka, IMSG_CONF_TABLE_CONTENT, 0, 0, -1,
-			    buffer, buflen);
-			free(buffer);
-		}
-	}
-
-	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
-		m_compose(p_lka, IMSG_CONF_RULE, 0, 0, -1, r, sizeof(*r));
-		m_compose(p_lka, IMSG_CONF_RULE_SOURCE, 0, 0, -1,
-		    &r->r_sources->t_name,
-		    sizeof(r->r_sources->t_name));
-		if (r->r_senders) {
-			m_compose(p_lka, IMSG_CONF_RULE_SENDER,
-			    0, 0, -1,
-			    &r->r_senders->t_name,
-			    sizeof(r->r_senders->t_name));
-		}
-		if (r->r_recipients) {
-			m_compose(p_lka, IMSG_CONF_RULE_RECIPIENT,
-			    0, 0, -1,
-			    &r->r_recipients->t_name,
-			    sizeof(r->r_recipients->t_name));
-		}
-		if (r->r_destination) {
-			m_compose(p_lka, IMSG_CONF_RULE_DESTINATION,
-			    0, 0, -1,
-			    &r->r_destination->t_name,
-			    sizeof(r->r_destination->t_name));
-		}
-		if (r->r_mapping) {
-			m_compose(p_lka, IMSG_CONF_RULE_MAPPING, 0, 0, -1,
-			    &r->r_mapping->t_name,
-			    sizeof(r->r_mapping->t_name));
-		}
-		if (r->r_userbase) {
-			m_compose(p_lka, IMSG_CONF_RULE_USERS, 0, 0, -1,
-			    &r->r_userbase->t_name,
-			    sizeof(r->r_userbase->t_name));
-		}
-	}
-
 	m_compose(p_lka, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 

@@ -513,15 +513,14 @@ struct smtpd {
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
 
-#define SMTPD_CONFIGURING		0x00000001
-#define SMTPD_EXITING			0x00000002
-#define SMTPD_MDA_PAUSED		0x00000004
-#define SMTPD_MTA_PAUSED		0x00000008
-#define SMTPD_SMTP_PAUSED		0x00000010
-#define SMTPD_MDA_BUSY			0x00000020
-#define SMTPD_MTA_BUSY			0x00000040
-#define SMTPD_BOUNCE_BUSY		0x00000080
-#define SMTPD_SMTP_DISABLED		0x00000100
+#define SMTPD_EXITING			0x00000001
+#define SMTPD_MDA_PAUSED		0x00000002
+#define SMTPD_MTA_PAUSED		0x00000004
+#define SMTPD_SMTP_PAUSED		0x00000008
+#define SMTPD_MDA_BUSY			0x00000010
+#define SMTPD_MTA_BUSY			0x00000020
+#define SMTPD_BOUNCE_BUSY		0x00000040
+#define SMTPD_SMTP_DISABLED		0x00000080
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
@@ -555,7 +554,7 @@ struct smtpd {
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
-	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
+	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
 	struct dict			       *sc_ssl_dict;
 
