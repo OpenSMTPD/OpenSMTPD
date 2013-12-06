@@ -97,12 +97,6 @@ enum mta_state {
 #define MTA_EXT_AUTH_PLAIN     	0x08
 #define MTA_EXT_AUTH_LOGIN     	0x10
 
-struct failed_evp {
-	int			 delivery;
-	char			 error[SMTPD_MAXLINESIZE];
-	struct mta_envelope     *evp;
-};
-
 struct mta_session {
 	uint64_t		 id;
 	struct mta_relay	*relay;
@@ -132,7 +126,7 @@ struct mta_session {
 	FILE			*datafp;
 
 #define	MAX_FAILED_ENVELOPES	15
-	struct failed_evp	 failed[MAX_FAILED_ENVELOPES];
+	struct mta_envelope	*failed[MAX_FAILED_ENVELOPES];
 	int			 failedcount;
 };
 
@@ -202,7 +196,7 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 
 	if (relay->flags & RELAY_SSL && relay->flags & RELAY_AUTH)
 		s->flags |= MTA_USE_AUTH;
-	if (relay->cert)
+	if (relay->pki_name)
 		s->flags |= MTA_USE_CERT;
 	if (relay->flags & RELAY_LMTP)
 		s->flags |= MTA_LMTP;
@@ -325,7 +319,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		if (resp_ca_cert->status == CA_FAIL) {
-			if (s->relay->cert) {
+			if (s->relay->pki_name) {
 				log_info("smtp-out: Disconnecting session %016"PRIx64
 				    ": CA failure", s->id);
 				mta_free(s);
@@ -869,7 +863,6 @@ static void
 mta_response(struct mta_session *s, char *line)
 {
 	struct mta_envelope	*e;
-	struct failed_evp	*fevp;
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;
 	const char		*domain;
@@ -1034,11 +1027,7 @@ mta_response(struct mta_session *s, char *line)
 				    buf, delivery, line);
 
 			/* push failed envelope to the session fail queue */
-			e->delivery = delivery;
-			fevp = &s->failed[s->failedcount];
-			fevp->delivery = delivery;
-			fevp->evp = e;
-			strlcpy(fevp->error, line, sizeof fevp->error);
+			s->failed[s->failedcount] = e;
 			s->failedcount++;
 
 			/*
@@ -1398,10 +1387,12 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 		sa = (struct sockaddr *)&ss;
 		sa_len = sizeof(ss);
 		if (getsockname(s->io.sock, sa, &sa_len) < 0)
-			mta_delivery(e, NULL, relay, delivery, error, 0);
+			mta_delivery_log(e, NULL, relay, delivery, error);
 		else
-			mta_delivery(e, sa_to_text(sa),
-			    relay, delivery, error, 0);
+			mta_delivery_log(e, sa_to_text(sa),
+			    relay, delivery, error);
+
+		mta_delivery_notify(e, 0);
 
 		domain = strchr(e->dest, '@');
 		if (domain) {
@@ -1410,9 +1401,6 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 				mta_hoststat_cache(domain + 1, e->id);
 		}
 
-		free(e->dest);
-		free(e->rcpt);
-		free(e);
 		n++;
 	}
 
@@ -1434,25 +1422,21 @@ static void
 mta_flush_failedqueue(struct mta_session *s)
 {
 	int			 i;
-	struct failed_evp	*fevp;
 	struct mta_envelope	*e;
 	const char		*domain;
 	uint32_t		 penalty;
 
 	penalty = s->failedcount == MAX_FAILED_ENVELOPES ? 1 : 0;
 	for (i = 0; i < s->failedcount; ++i) {
-		fevp = &s->failed[i];
-		e = fevp->evp;
-		mta_delivery_notify(e, fevp->delivery, fevp->error, penalty);
+		e = s->failed[i];
 
 		domain = strchr(e->dest, '@');
 		if (domain)
-			mta_hoststat_update(domain + 1, fevp->error);
+			mta_hoststat_update(domain + 1, e->status);
 
-		free(e->dest);
-		free(e->rcpt);
-		free(e);
+		mta_delivery_notify(e, penalty);
 	}
+
 	s->failedcount = 0;
 }
 
@@ -1514,7 +1498,7 @@ mta_check_loop(FILE *fp)
 			buf = lbuf;
 		}
 
-		if (strchr(buf, ':') == NULL && !isspace((int)*buf))
+		if (strchr(buf, ':') == NULL && !isspace((unsigned char)*buf))
 			break;
 
 		if (strncasecmp("Received: ", buf, 10) == 0) {
@@ -1542,8 +1526,8 @@ mta_start_tls(struct mta_session *s)
 	struct ca_cert_req_msg	req_ca_cert;
 	const char	       *certname;
 
-	if (s->relay->cert)
-		certname = s->relay->cert;
+	if (s->relay->pki_name)
+		certname = s->relay->pki_name;
 	else
 		certname = s->helo;
 
@@ -1584,8 +1568,8 @@ mta_verify_certificate(struct mta_session *s)
 
 	/* Send the client certificate */
 	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
-	if (s->relay->cert)
-		pkiname = s->relay->cert;
+	if (s->relay->pki_name)
+		pkiname = s->relay->pki_name;
 	else
 		pkiname = s->helo;
 	if (strlcpy(req_ca_vrfy.pkiname, pkiname, sizeof req_ca_vrfy.pkiname)

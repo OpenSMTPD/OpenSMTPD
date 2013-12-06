@@ -26,6 +26,7 @@
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
@@ -149,7 +150,7 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 			else
 				fprintf(fp, "%c", *buf & 0xff);
 		}
-		else if (! isprint(*buf) && *buf != '\n')
+		else if (! isprint((unsigned char)*buf) && *buf != '\n')
 			fprintf(fp, "=%2X", *buf & 0xff);
 		else
 			fprintf(fp, "%c", *buf);
@@ -487,7 +488,7 @@ build_from(char *fake_from, struct passwd *pw)
 			    pw->pw_name,
 			    len - apos - 1, p + 1) == -1)
 				err(1, NULL);
-			msg.fromname[apos] = toupper(msg.fromname[apos]);
+			msg.fromname[apos] = toupper((unsigned char)msg.fromname[apos]);
 		} else {
 			if (asprintf(&msg.fromname, "%.*s", len,
 			    pw->pw_gecos) == -1)
@@ -726,7 +727,7 @@ open_connection(void)
 	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0)
+		if (msgbuf_write(&ibuf->w) < 0 && errno != EAGAIN)
 			err(1, "write error");
 
 	while (1) {

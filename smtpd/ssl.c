@@ -62,36 +62,36 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct ssl *ssl)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curve)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
 	
-	ctx = ssl_ctx_create();
+	ctx = ssl_ctx_create(ciphers, curve);
 
 	if (!ssl_ctx_use_certificate_chain(ctx,
-		ssl->ssl_cert, ssl->ssl_cert_len))
+		pki->pki_cert, pki->pki_cert_len))
 		goto err;
 	if (!ssl_ctx_use_private_key(ctx,
-		ssl->ssl_key, ssl->ssl_key_len))
+		pki->pki_key, pki->pki_key_len))
 		goto err;
 
 	if (!SSL_CTX_check_private_key(ctx))
 		goto err;
 	if (!SSL_CTX_set_session_id_context(ctx,
-		(const unsigned char *)ssl->ssl_name,
-		strlen(ssl->ssl_name) + 1))
+		(const unsigned char *)pki->pki_name,
+		strlen(pki->pki_name) + 1))
 		goto err;
 
-	if (ssl->ssl_dhparams_len == 0)
+	if (pki->pki_dhparams_len == 0)
 		dh = get_dh1024();
 	else
-		dh = get_dh_from_memory(ssl->ssl_dhparams,
-		    ssl->ssl_dhparams_len);
+		dh = get_dh_from_memory(pki->pki_dhparams,
+		    pki->pki_dhparams_len);
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx);
+	ssl_set_ecdh_curve(ctx, curve);
 
 	*ctxp = ctx;
 	return 1;
@@ -146,6 +146,7 @@ fail:
 	return (NULL);
 }
 
+#if 0
 static int
 ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
@@ -158,15 +159,39 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 		return (0);
 	return (len);
 }
+#endif
+
+static int
+ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
+{
+	int	ret = 0;
+	size_t	len;
+	char	*pass;
+
+	pass = getpass((const char *)u);
+	if (pass == NULL)
+		return 0;
+	len = strlen(pass);
+	if (strlcpy(buf, pass, size) >= (size_t)size)
+		goto end;
+	ret = len;
+end:
+	if (len)
+		bzero(pass, len);
+	return ret;
+}
 
 char *
-ssl_load_key(const char *name, off_t *len, char *pass)
+ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *pkiname)
 {
 	FILE		*fp;
 	EVP_PKEY	*key = NULL;
 	BIO		*bio = NULL;
 	long		 size;
 	char		*data, *buf = NULL;
+	struct stat	 st;
+	char		 mode[12];
+	char		 prompt[2048];
 
 	/* Initialize SSL library once */
 	ssl_init();
@@ -177,11 +202,26 @@ ssl_load_key(const char *name, off_t *len, char *pass)
 	if ((fp = fopen(name, "r")) == NULL)
 		return (NULL);
 
-	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, pass);
+	if (fstat(fileno(fp), &st) != 0)
+		goto fail;
+	if (st.st_uid != 0) {
+		log_warnx("warn:  %s: not owned by uid 0", name);
+		errno = EACCES;
+		goto fail;
+	}
+	if (st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & ~perm) {
+		strmode(perm, mode);
+		log_warnx("warn:  %s: insecure permissions: must be at most %s",
+		    name, &mode[1]);
+		errno = EACCES;
+		goto fail;
+	}
+
+	(void)snprintf(prompt, sizeof prompt, "passphrase for %s: ", pkiname);
+	key = PEM_read_PrivateKey(fp, NULL, ssl_getpass_cb, prompt);
 	fclose(fp);
 	if (key == NULL)
 		goto fail;
-
 	/*
 	 * Write unencrypted key to memory buffer
 	 */
@@ -191,17 +231,16 @@ ssl_load_key(const char *name, off_t *len, char *pass)
 		goto fail;
 	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
 		goto fail;
-	if ((buf = calloc(1, size)) == NULL)
+	if ((buf = calloc(1, size + 1)) == NULL)
 		goto fail;
 	memcpy(buf, data, size);
 
 	BIO_free_all(bio);
-	*len = (off_t)size;
+	*len = (off_t)size + 1;
 	return (buf);
 
 fail:
 	ssl_error("ssl_load_key");
-
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
@@ -209,7 +248,7 @@ fail:
 }
 
 SSL_CTX *
-ssl_ctx_create(void)
+ssl_ctx_create(const char *ciphers, const char *curve)
 {
 	SSL_CTX	*ctx;
 
@@ -226,7 +265,9 @@ ssl_ctx_create(void)
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
-	if (!SSL_CTX_set_cipher_list(ctx, SSL_CIPHERS)) {
+	if (ciphers == NULL)
+		ciphers = SSL_CIPHERS;
+	if (!SSL_CTX_set_cipher_list(ctx, ciphers)) {
 		ssl_error("ssl_ctx_create");
 		fatal("ssl_ctx_create: could not set cipher list");
 	}
@@ -235,37 +276,39 @@ ssl_ctx_create(void)
 }
 
 int
-ssl_load_certificate(struct ssl *s, const char *pathname)
+ssl_load_certificate(struct pki *p, const char *pathname)
 {
-	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
-	if (s->ssl_cert == NULL)
+	p->pki_cert = ssl_load_file(pathname, &p->pki_cert_len, 0755);
+	if (p->pki_cert == NULL)
 		return 0;
 	return 1;
 }
 
 int
-ssl_load_keyfile(struct ssl *s, const char *pathname)
+ssl_load_keyfile(struct pki *p, const char *pathname, const char *pkiname)
 {
-	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0700);
-	if (s->ssl_key == NULL)
+	char	pass[1024];
+
+	p->pki_key = ssl_load_key(pathname, &p->pki_key_len, pass, 0700, pkiname);
+	if (p->pki_key == NULL)
 		return 0;
 	return 1;
 }
 
 int
-ssl_load_cafile(struct ssl *s, const char *pathname)
+ssl_load_cafile(struct pki *p, const char *pathname)
 {
-	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL)
+	p->pki_ca = ssl_load_file(pathname, &p->pki_ca_len, 0755);
+	if (p->pki_ca == NULL)
 		return 0;
 	return 1;
 }
 
 int
-ssl_load_dhparams(struct ssl *s, const char *pathname)
+ssl_load_dhparams(struct pki *p, const char *pathname)
 {
-	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
-	if (s->ssl_dhparams == NULL) {
+	p->pki_dhparams = ssl_load_file(pathname, &p->pki_dhparams_len, 0755);
+	if (p->pki_dhparams == NULL) {
 		if (errno == EACCES)
 			return 0;
 		log_info("info: No DH parameters found in %s: "
@@ -381,12 +424,14 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 }
 
 void
-ssl_set_ecdh_curve(SSL_CTX *ctx)
+ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 {
 	int	nid;
 	EC_KEY *ecdh;
 
-	if ((nid = OBJ_sn2nid(SSL_ECDH_CURVE)) == 0) {
+	if (curve == NULL)
+		curve = SSL_ECDH_CURVE;
+	if ((nid = OBJ_sn2nid(curve)) == 0) {
 		ssl_error("ssl_set_ecdh_curve");
 		fatal("ssl_set_ecdh_curve: unknown curve name "
 		    SSL_ECDH_CURVE);

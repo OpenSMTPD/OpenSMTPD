@@ -193,7 +193,7 @@ config_load(const char *path)
 		}
 
 		key = buf;
-		while (isspace((int)*key))
+		while (isspace((unsigned char)*key))
 			++key;
 		if (*key == '\0' || *key == '#')
 			continue;
@@ -201,8 +201,8 @@ config_load(const char *path)
 		strsep(&value, " \t:");
 		if (value) {
 			while (*value) {
-				if (!isspace(*value) &&
-				    !(*value == ':' && isspace(*(value + 1))))
+				if (!isspace((unsigned char)*value) &&
+				    !(*value == ':' && isspace((unsigned char)*(value + 1))))
 					break;
 				++value;
 			}
@@ -419,6 +419,9 @@ table_postgres_check(int service, const char *key)
 	PGresult	*res;
 	int		 r;
 
+	if (config->db == NULL && config_connect(config) == 0)
+		return (-1);
+
 	res = table_postgres_query(key, service);
 	if (res == NULL)
 		return (-1);
@@ -435,6 +438,9 @@ table_postgres_lookup(int service, const char *key, char *dst, size_t sz)
 {
 	PGresult	*res;
 	int		 r, i;
+
+	if (config->db == NULL && config_connect(config) == 0)
+		return (-1);
 
 	res = table_postgres_query(key, service);
 	if (res == NULL)
@@ -507,6 +513,9 @@ table_postgres_fetch(int service, char *dst, size_t sz)
 	PGresult	*res;
 	const char	*k, *errfld;
 	int		 i;
+
+	if (config->db == NULL && config_connect(config) == 0)
+		return (-1);
 
     retry:
 

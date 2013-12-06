@@ -54,6 +54,7 @@
 #define DELAY_ROUTE_MAX		(3600 * 4)
 
 #define RELAY_ONHOLD		0x01
+#define RELAY_HOLDQ		0x02
 
 static void mta_imsg(struct mproc *, struct imsg *);
 static void mta_shutdown(void);
@@ -72,6 +73,7 @@ static void mta_connect(struct mta_connector *);
 static void mta_route_enable(struct mta_route *);
 static void mta_route_disable(struct mta_route *, int, int);
 static void mta_drain(struct mta_relay *);
+static void mta_delivery_flush_event(int, short, void *);
 static void mta_flush(struct mta_relay *, int, const char *);
 static struct mta_route *mta_find_route(struct mta_connector *, time_t, int*,
     time_t*);
@@ -133,6 +135,8 @@ static struct tree wait_mx;
 static struct tree wait_preference;
 static struct tree wait_secret;
 static struct tree wait_source;
+static struct tree flush_evp;
+static struct event ev_flush_evp;
 
 static struct runq *runq_relay;
 static struct runq *runq_connector;
@@ -205,6 +209,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			 * scheduler to hold it until further notice
 			 */
 			if (relay->state & RELAY_ONHOLD) {
+				relay->state |= RELAY_HOLDQ;
 				m_create(p_queue, IMSG_DELIVERY_HOLD, 0, 0, -1);
 				m_add_evpid(p_queue, evp.id);
 				m_add_id(p_queue, relay->id);
@@ -399,7 +404,21 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				if (u64 && route->id != u64)
 					continue;
-				mta_route_enable(route);
+
+				if (route->flags & ROUTE_DISABLED) {
+					log_info("smtp-out: Enabling route %s per admin request",
+					    mta_route_to_text(route));
+					if (!runq_cancel(runq_route, NULL, route)) {
+						log_warnx("warn: route not on runq");
+						fatalx("exiting");
+					}
+					route->flags &= ~ROUTE_DISABLED;
+					route->flags |= ROUTE_NEW;
+					route->nerror = 0;
+					route->penalty = 0;
+					mta_route_unref(route); /* from mta_route_disable */
+				}
+
 				if (u64)
 					break;
 			}
@@ -541,10 +560,13 @@ mta(void)
 	tree_init(&wait_mx);
 	tree_init(&wait_preference);
 	tree_init(&wait_source);
+	tree_init(&flush_evp);
 	dict_init(&hoststat);
 
 	imsg_callback = mta_imsg;
 	event_init();
+
+	evtimer_set(&ev_flush_evp, mta_delivery_flush_event, NULL);
 
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
@@ -668,12 +690,14 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 				    mta_relay_to_text(relay));
 				relay->state &= ~RELAY_ONHOLD;
 			}
-			m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
-			m_add_id(p_queue, relay->id);
-			m_add_int(p_queue, relay->limits->task_release);
-			m_close(p_queue);
+			if (relay->state & RELAY_HOLDQ) {
+				m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+				m_add_id(p_queue, relay->id);
+				m_add_int(p_queue, relay->limits->task_release);
+				m_close(p_queue);
+			}
 		}
-		else if (relay->ntask == 0) {
+		else if (relay->ntask == 0 && relay->state & RELAY_HOLDQ) {
 			m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
 			m_add_id(p_queue, relay->id);
 			m_add_int(p_queue, 0);
@@ -684,55 +708,75 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 	return (task);
 }
 
+static void
+mta_delivery_flush_event(int fd, short event, void *arg)
+{
+	struct mta_envelope	*e;
+	struct timeval		 tv;
+
+	if (tree_poproot(&flush_evp, NULL, (void**)(&e))) {
+
+		if (e->delivery == IMSG_DELIVERY_OK)
+			queue_ok(e->id);
+		else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
+			queue_tempfail(e->id, e->penalty, e->status);
+		else if (e->delivery == IMSG_DELIVERY_PERMFAIL)
+			queue_permfail(e->id, e->status);
+		else if (e->delivery == IMSG_DELIVERY_LOOP)
+			queue_loop(e->id);
+		else {
+			log_warnx("warn: bad delivery type %i for %016" PRIx64,
+			    e->delivery, e->id);
+			fatalx("aborting");
+		}
+
+		log_debug("debug: mta: flush for %016"PRIx64" (-> %s)", e->id, e->dest);
+
+		free(e->dest);
+		free(e->rcpt);
+		free(e);
+
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		evtimer_add(&ev_flush_evp, &tv);
+	}
+}
+
 void
 mta_delivery_log(struct mta_envelope *e, const char *source, const char *relay,
     int delivery, const char *status)
 {
-	if (delivery == IMSG_DELIVERY_OK) {
+	if (delivery == IMSG_DELIVERY_OK)
 		mta_log(e, "Ok", source, relay, status);
-	}
-	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
+	else if (delivery == IMSG_DELIVERY_TEMPFAIL)
 		mta_log(e, "TempFail", source, relay, status);
-	}
-	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
+	else if (delivery == IMSG_DELIVERY_PERMFAIL)
 		mta_log(e, "PermFail", source, relay, status);
-	}
-	else if (delivery == IMSG_DELIVERY_LOOP) {
+	else if (delivery == IMSG_DELIVERY_LOOP)
 		mta_log(e, "PermFail", source, relay, "Loop detected");
+	else {
+		log_warnx("warn: bad delivery type %i for %016" PRIx64,
+		    delivery, e->id);
+		fatalx("aborting");
 	}
-	else
-		errx(1, "bad delivery");
+
+	e->delivery = delivery;
+	if (status)
+		strlcpy(e->status, status, sizeof(e->status));
 }
 
 void
-mta_delivery_notify(struct mta_envelope *e, int delivery, const char *status,
-    uint32_t penalty)
+mta_delivery_notify(struct mta_envelope *e, uint32_t penalty)
 {
-	if (delivery == IMSG_DELIVERY_OK) {
-		m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
-		m_add_evpid(p_queue, e->id);
-		m_add_int(p_queue, e->ext);
-		m_close(p_queue);
-	}
-	else if (delivery == IMSG_DELIVERY_TEMPFAIL) {
-		queue_tempfail(e->id, penalty, status);
-	}
-	else if (delivery == IMSG_DELIVERY_PERMFAIL) {
-		queue_permfail(e->id, status);
-	}
-	else if (delivery == IMSG_DELIVERY_LOOP) {
-		queue_loop(e->id);
-	}
-	else
-		errx(1, "bad delivery");
-}
+	struct timeval	tv;
 
-void
-mta_delivery(struct mta_envelope *e, const char *source, const char *relay,
-    int delivery, const char *status, uint32_t penalty)
-{
-	mta_delivery_log(e, source, relay, delivery, status);
-	mta_delivery_notify(e, delivery, status, penalty);
+	e->penalty = penalty;
+	tree_xset(&flush_evp, e->id, e);
+	if (tree_count(&flush_evp) == 1) {
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		evtimer_add(&ev_flush_evp, &tv);
+	}
 }
 
 static void
@@ -948,8 +992,8 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 		mta_source_unref(source); /* from constructor */
 	}
 	else {
-		log_warnx("warn: Failed to get source address"
-			    "for %s", mta_relay_to_text(relay));
+		log_warnx("warn: Failed to get source address for %s",
+		    mta_relay_to_text(relay));
 	}
 
 	if (tree_count(&relay->connectors) == 0) {
@@ -1285,8 +1329,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	const char     		*domain;
 	void			*iter;
 	struct mta_connector	*c;
-	size_t			 n;
-	size_t			 r;
+	size_t			 n, r;
 
 	log_debug("debug: mta_flush(%s, %d, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
@@ -1299,8 +1342,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 		TAILQ_REMOVE(&relay->tasks, task, entry);
 		while ((e = TAILQ_FIRST(&task->envelopes))) {
 			TAILQ_REMOVE(&task->envelopes, e, entry);
-			mta_delivery(e, NULL, relay->domain->name, fail, error, 0);
-			
+
 			/*
 			 * host was suspended, cache envelope id in hoststat tree
 			 * so that it can be retried when a delivery succeeds for
@@ -1319,10 +1361,16 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 					mta_hoststat_cache(domain+1, e->id);
 			}
 
+<<<<<<< HEAD
 			free(e->dest);
 			free(e->rcpt);
 			free(e->dsn_orcpt);
 			free(e);
+=======
+			mta_delivery_log(e, NULL, relay->domain->name, fail, error);
+			mta_delivery_notify(e, 0);
+
+>>>>>>> master
 			n++;
 		}
 		free(task->sender);
@@ -1334,10 +1382,12 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	relay->ntask = 0;
 
 	/* release all waiting envelopes for the relay */
-	m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
-	m_add_id(p_queue, relay->id);
-	m_add_int(p_queue, 0);
-	m_close(p_queue);
+	if (relay->state & RELAY_HOLDQ) {
+		m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+		m_add_id(p_queue, relay->id);
+		m_add_int(p_queue, -1);
+		m_close(p_queue);
+	}
 }
 
 /*
@@ -1571,9 +1621,9 @@ mta_relay(struct envelope *e)
 
 	key.flags |= e->agent.mta.relay.flags;
 	key.port = e->agent.mta.relay.port;
-	key.cert = e->agent.mta.relay.cert;
-	if (!key.cert[0])
-		key.cert = NULL;
+	key.pki_name = e->agent.mta.relay.pki_name;
+	if (!key.pki_name[0])
+		key.pki_name = NULL;
 	key.authtable = e->agent.mta.relay.authtable;
 	if (!key.authtable[0])
 		key.authtable = NULL;
@@ -1600,7 +1650,7 @@ mta_relay(struct envelope *e)
 		    xstrdup(key.backupname, "mta: backupname") : NULL;
 		r->backuppref = -1;
 		r->port = key.port;
-		r->cert = key.cert ? xstrdup(key.cert, "mta: cert") : NULL;
+		r->pki_name = key.pki_name ? xstrdup(key.pki_name, "mta: pki_name") : NULL;
 		if (key.authtable)
 			r->authtable = xstrdup(key.authtable, "mta: authtable");
 		if (key.authlabel)
@@ -1639,10 +1689,12 @@ mta_relay_unref(struct mta_relay *relay)
 		return;
 
 	/* Make sure they are no envelopes held for this relay */
-	m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
-	m_add_id(p_queue, relay->id);
-	m_add_int(p_queue, 0);
-	m_close(p_queue);
+	if (relay->state & RELAY_HOLDQ) {
+		m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+		m_add_id(p_queue, relay->id);
+		m_add_int(p_queue, 0);
+		m_close(p_queue);
+	}
 
 	log_debug("debug: mta: freeing %s", mta_relay_to_text(relay));
 	SPLAY_REMOVE(mta_relay_tree, &relays, relay);
@@ -1653,7 +1705,7 @@ mta_relay_unref(struct mta_relay *relay)
 	free(relay->authlabel);
 	free(relay->authtable);
 	free(relay->backupname);
-	free(relay->cert);
+	free(relay->pki_name);
 	free(relay->helotable);
 	free(relay->heloname);
 	free(relay->secret);
@@ -1697,10 +1749,10 @@ mta_relay_to_text(struct mta_relay *relay)
 		strlcat(buf, relay->authlabel, sizeof buf);
 	}
 
-	if (relay->cert) {
+	if (relay->pki_name) {
 		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "cert=", sizeof buf);
-		strlcat(buf, relay->cert, sizeof buf);
+		strlcat(buf, "pki_name=", sizeof buf);
+		strlcat(buf, relay->pki_name, sizeof buf);
 	}
 
 	if (relay->flags & RELAY_MX) {
@@ -1876,11 +1928,11 @@ mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 	if (a->heloname && ((r = strcmp(a->heloname, b->heloname))))
 		return (r);
 
-	if (a->cert == NULL && b->cert)
+	if (a->pki_name == NULL && b->pki_name)
 		return (-1);
-	if (a->cert && b->cert == NULL)
+	if (a->pki_name && b->pki_name == NULL)
 		return (1);
-	if (a->cert && ((r = strcmp(a->cert, b->cert))))
+	if (a->pki_name && ((r = strcmp(a->pki_name, b->pki_name))))
 		return (r);
 
 	if (a->backupname && ((r = strcmp(a->backupname, b->backupname))))
@@ -2278,8 +2330,7 @@ mta_hoststat_update(const char *host, const char *error)
 	tm = time(NULL);
 	hs = dict_get(&hoststat, buf);
 	if (hs == NULL) {
-		hs = calloc(1, sizeof *hs);
-		if (hs == NULL)
+		if ((hs = calloc(1, sizeof *hs)) == NULL)
 			return;
 		tree_init(&hs->deferred);
 		runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);

@@ -130,7 +130,7 @@ table_proc_open(struct table *table)
 		log_warn("warn: table-proc: socketpair");
 		return (NULL);
 	}
-	priv = calloc(1, sizeof(*priv));
+	priv = xcalloc(1, sizeof(*priv), "table_proc_open");
 
 	if ((priv->pid = fork()) == -1) {
 		log_warn("warn: table-proc: fork");

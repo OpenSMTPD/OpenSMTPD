@@ -89,13 +89,13 @@ envelope_buffer_to_dict(struct dict *d,  const char *ibuf, size_t buflen)
 		buflen -= (nextline - buf);
 
 		field = buf;
-		while (*buf && (isalnum(*buf) || *buf == '-'))
+		while (*buf && (isalnum((unsigned char)*buf) || *buf == '-'))
 			buf++;
 		if (! *buf)
 			goto err;
 
 		/* skip whitespaces before separator */
-		while (*buf && isspace(*buf))
+		while (*buf && isspace((unsigned char)*buf))
 			*buf++ = 0;
 
 		/* we *want* ':' */
@@ -104,7 +104,7 @@ envelope_buffer_to_dict(struct dict *d,  const char *ibuf, size_t buflen)
 		*buf++ = 0;
 
 		/* skip whitespaces after separator */
-		while (*buf && isspace(*buf))
+		while (*buf && isspace((unsigned char)*buf))
 			*buf++ = 0;
 		dict_set(d, field, buf);
 		buf = nextline;
@@ -573,8 +573,8 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 		    sizeof ep->agent.mta.relay.authtable);
 
 	if (strcasecmp("mta-relay-cert", field) == 0)
-		return ascii_load_string(ep->agent.mta.relay.cert, buf,
-		    sizeof ep->agent.mta.relay.cert);
+		return ascii_load_string(ep->agent.mta.relay.pki_name, buf,
+		    sizeof ep->agent.mta.relay.pki_name);
 
 	if (strcasecmp("mta-relay-flags", field) == 0)
 		return ascii_load_mta_relay_flags(&ep->agent.mta.relay.flags, buf);
@@ -896,7 +896,7 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 		    buf, len);
 
 	if (strcasecmp(field, "mta-relay-cert") == 0)
-		return ascii_dump_string(ep->agent.mta.relay.cert,
+		return ascii_dump_string(ep->agent.mta.relay.pki_name,
 		    buf, len);
 
 	if (strcasecmp(field, "mta-relay-flags") == 0)
