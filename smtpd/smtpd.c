@@ -606,7 +606,7 @@ main(int argc, char *argv[])
 
 	TAILQ_INIT(&offline_q);
 
-	while ((c = getopt(argc, argv, "B:dD:nP:f:T:v")) != -1) {
+	while ((c = getopt(argc, argv, "B:dD:hnP:f:T:v")) != -1) {
 		switch (c) {
 		case 'B':
 			if (strstr(optarg, "queue=") == optarg)
@@ -628,6 +628,10 @@ main(int argc, char *argv[])
 				log_warnx("warn: "
 				    "could not parse macro definition %s",
 				    optarg);
+			break;
+		case 'h':
+			log_info("version: OpenSMTPD " SMTPD_VERSION);
+			usage();
 			break;
 		case 'n':
 			debug = 2;
