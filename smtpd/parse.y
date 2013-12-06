@@ -467,14 +467,14 @@ opt_relay_common: AS STRING	{
 			    sizeof rule->r_value.relayhost.helotable);
 		}
 		| PKI STRING {
-			if (! lowercase(rule->r_value.relayhost.cert, $2,
-				sizeof(rule->r_value.relayhost.cert))) {
+			if (! lowercase(rule->r_value.relayhost.pki_name, $2,
+				sizeof(rule->r_value.relayhost.pki_name))) {
 				yyerror("pki name too long: %s", $2);
 				free($2);
 				YYERROR;
 			}
 			if (dict_get(conf->sc_pki_dict,
-			    rule->r_value.relayhost.cert) == NULL) {
+			    rule->r_value.relayhost.pki_name) == NULL) {
 				log_warnx("pki name not found: %s", $2);
 				free($2);
 				YYERROR;
