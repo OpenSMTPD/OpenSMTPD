@@ -333,42 +333,8 @@ parent_send_config(int fd, short event, void *p)
 static void
 parent_send_config_smtp(void)
 {
-	struct listener		*l;
-	struct ssl		*s;
-	void			*iter = NULL;
-	struct iovec		 iov[5];
-	int			 opt;
-
 	log_debug("debug: parent_send_config: configuring smtp");
 	m_compose(p_smtp, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-
-	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
-		iov[0].iov_base = s;
-		iov[0].iov_len = sizeof(*s);
-		iov[1].iov_base = s->ssl_cert;
-		iov[1].iov_len = s->ssl_cert_len;
-		iov[2].iov_base = s->ssl_key;
-		iov[2].iov_len = s->ssl_key_len;
-		iov[3].iov_base = s->ssl_dhparams;
-		iov[3].iov_len = s->ssl_dhparams_len;
-		iov[4].iov_base = s->ssl_ca;
-		iov[4].iov_len = s->ssl_ca_len;
-		m_composev(p_smtp, IMSG_CONF_SSL, 0, 0, -1, iov, nitems(iov));
-	}
-
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1)
-			fatal("smtpd: socket");
-		opt = 1;
-		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
-			sizeof(opt)) < 0)
-			fatal("smtpd: setsockopt");
-		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
-			fatal("smtpd: bind");
-		m_compose(p_smtp, IMSG_CONF_LISTENER, 0, 0, l->fd,
-		    l, sizeof(*l));
-	}
-
 	m_compose(p_smtp, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
