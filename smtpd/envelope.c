@@ -615,9 +615,6 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 	if (strcasecmp("version", field) == 0)
 		return ascii_load_uint32(&ep->version, buf);
 
-	if (strcasecmp("bounce-dsn-ret", field) == 0)
-		return ascii_load_dsn_ret(&ep->agent.bounce.dsn_ret, buf);
-
 	if (strcasecmp("dsn-notify", field) == 0)
 		return ascii_load_uint8(&ep->dsn_notify, buf);
 
@@ -941,12 +938,6 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "version") == 0)
 		return ascii_dump_uint32(SMTPD_ENVELOPE_VERSION, buf, len);
-
-	if (strcasecmp(field, "bounce-dsn-ret") == 0) {
-                if (ep->agent.bounce.type != B_DSN)
-                        return (1);
-                return ascii_dump_dsn_ret(ep->agent.bounce.dsn_ret, buf, len);
-	}
 
 	if (strcasecmp(field, "dsn-notify") == 0)
 		return ascii_dump_uint8(ep->dsn_notify, buf, len);
