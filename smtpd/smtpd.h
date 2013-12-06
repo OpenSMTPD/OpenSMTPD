@@ -528,7 +528,7 @@ struct smtpd {
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
-	struct dict			       *sc_ssl_dict;
+	struct dict			       *sc_pki_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 
@@ -1031,7 +1031,7 @@ int	uncompress_file(FILE *, FILE *);
 #define PURGE_LISTENERS		0x01
 #define PURGE_TABLES		0x02
 #define PURGE_RULES		0x04
-#define PURGE_SSL		0x08
+#define PURGE_PKI		0x08
 #define PURGE_EVERYTHING	0xff
 void purge_config(uint8_t);
 void init_pipes(void);

@@ -277,13 +277,13 @@ smtp_setup_events(void)
 		if (strlcpy(key.ssl_name, l->ssl_cert_name, sizeof(key.ssl_name))
 		    >= sizeof(key.ssl_name))
 			fatal("smtp_setup_events: certificate name truncated");
-		if ((ssl = dict_get(env->sc_ssl_dict, l->ssl_cert_name)) == NULL)
+		if ((ssl = dict_get(env->sc_pki_dict, l->ssl_cert_name)) == NULL)
 			fatal("smtp_setup_events: certificate tree corrupted");
 		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, ssl, l->ssl_ciphers, l->ssl_curve))
 			fatal("smtp_setup_events: ssl_setup failure");
 	}
 
-	purge_config(PURGE_SSL);
+	purge_config(PURGE_PKI);
 
 	log_debug("debug: smtp: will accept at most %d clients",
 	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);

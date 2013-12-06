@@ -66,16 +66,16 @@ purge_config(uint8_t what)
 		free(env->sc_rules);
 		env->sc_rules = NULL;
 	}
-	if (what & PURGE_SSL) {
-		while (dict_poproot(env->sc_ssl_dict, (void **)&s)) {
+	if (what & PURGE_PKI) {
+		while (dict_poproot(env->sc_pki_dict, (void **)&s)) {
 			bzero(s->ssl_cert, s->ssl_cert_len);
 			bzero(s->ssl_key, s->ssl_key_len);
 			free(s->ssl_cert);
 			free(s->ssl_key);
 			free(s);
 		}
-		free(env->sc_ssl_dict);
-		env->sc_ssl_dict = NULL;
+		free(env->sc_pki_dict);
+		env->sc_pki_dict = NULL;
 	}
 }
 
