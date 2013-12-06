@@ -358,7 +358,7 @@ parent_send_config(int fd, short event, void *p)
 	parent_send_config_lka();
 	parent_send_config_mfa();
 	parent_send_config_smtp();
-	purge_config(PURGE_SSL);
+	purge_config(PURGE_PKI);
 }
 
 static void
@@ -761,7 +761,7 @@ load_ssl_tree(void)
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
-	while (dict_iter(env->sc_ssl_dict, &iter_dict, &k, (void **)&ssl)) {
+	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&ssl)) {
 		log_debug("info: loading pki information for %s", k);
 		if (ssl->ssl_cert_file == NULL)
 			fatalx("load_ssl_tree: missing certificate file");
