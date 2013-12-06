@@ -96,7 +96,7 @@ struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
-static struct ssl	*pki_ssl;
+static struct pki	*pki;
 
 static struct listen_opts {
 	char	       *ifx;
@@ -334,16 +334,16 @@ limits_scheduler: opt_limit_scheduler limits_scheduler
 		;
 
 opt_pki		: CERTIFICATE STRING {
-			pki_ssl->ssl_cert_file = $2;
+			pki->pki_cert_file = $2;
 		}
 		| KEY STRING {
-			pki_ssl->ssl_key_file = $2;
+			pki->pki_key_file = $2;
 		}
 		| CA STRING {
-			pki_ssl->ssl_ca_file = $2;
+			pki->pki_ca_file = $2;
 		}
 		| DHPARAMS STRING {
-			pki_ssl->ssl_dhparams_file = $2;
+			pki->pki_dhparams_file = $2;
 		}
 		;
 
@@ -637,11 +637,11 @@ main		: BOUNCEWARN {
 			char buf[MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
 			free($2);
-			pki_ssl = dict_get(conf->sc_pki_dict, buf);
-			if (pki_ssl == NULL) {
-				pki_ssl = xcalloc(1, sizeof *pki_ssl, "parse:pki");
-				strlcpy(pki_ssl->ssl_name, buf, sizeof(pki_ssl->ssl_name));
-				dict_set(conf->sc_pki_dict, pki_ssl->ssl_name, pki_ssl);
+			pki = dict_get(conf->sc_pki_dict, buf);
+			if (pki == NULL) {
+				pki = xcalloc(1, sizeof *pki, "parse:pki");
+				strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
+				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
 		;

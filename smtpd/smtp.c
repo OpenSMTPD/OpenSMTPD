@@ -256,7 +256,7 @@ static void
 smtp_setup_events(void)
 {
 	struct listener *l;
-	struct ssl	*ssl, key;
+	struct pki	*pki, pkey;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
@@ -274,12 +274,12 @@ smtp_setup_events(void)
 		if (!(l->flags & F_SSL))
 			continue;
 
-		if (strlcpy(key.ssl_name, l->pki_name, sizeof(key.ssl_name))
-		    >= sizeof(key.ssl_name))
+		if (strlcpy(pkey.pki_name, l->pki_name, sizeof(pkey.pki_name))
+		    >= sizeof(pkey.pki_name))
 			fatal("smtp_setup_events: certificate name truncated");
-		if ((ssl = dict_get(env->sc_pki_dict, l->pki_name)) == NULL)
+		if ((pki = dict_get(env->sc_pki_dict, l->pki_name)) == NULL)
 			fatal("smtp_setup_events: certificate tree corrupted");
-		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, ssl, l->ssl_ciphers, l->ssl_curve))
+		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, pki, l->ssl_ciphers, l->ssl_curve))
 			fatal("smtp_setup_events: ssl_setup failure");
 	}
 
