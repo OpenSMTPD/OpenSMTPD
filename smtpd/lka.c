@@ -149,8 +149,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_LKA_SSL_VERIFY_CERT:
 			req_ca_vrfy_smtp = xmemdup(imsg->data, sizeof *req_ca_vrfy_smtp, "lka:ca_vrfy");
-			if (req_ca_vrfy_smtp == NULL)
-				fatal(NULL);
 			req_ca_vrfy_smtp->cert = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_smtp, req_ca_vrfy_smtp->cert_len, "lka:ca_vrfy");
 			req_ca_vrfy_smtp->chain_cert = xcalloc(req_ca_vrfy_smtp->n_chain,
@@ -273,8 +271,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_LKA_SSL_VERIFY_CERT:
 			req_ca_vrfy_mta = xmemdup(imsg->data, sizeof *req_ca_vrfy_mta, "lka:ca_vrfy");
-			if (req_ca_vrfy_mta == NULL)
-				fatal(NULL);
 			req_ca_vrfy_mta->cert = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_mta, req_ca_vrfy_mta->cert_len, "lka:ca_vrfy");
 			req_ca_vrfy_mta->chain_cert = xcalloc(req_ca_vrfy_mta->n_chain,
