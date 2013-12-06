@@ -102,7 +102,7 @@ static int	offline_enqueue(char *);
 static void	purge_task(int, short, void *);
 static void	log_imsg(int, int, struct imsg *);
 static int	parent_auth_user(const char *, const char *);
-static void	load_ssl_tree(void);
+static void	load_pki_tree(void);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -358,7 +358,7 @@ parent_send_config(int fd, short event, void *p)
 	parent_send_config_lka();
 	parent_send_config_mfa();
 	parent_send_config_smtp();
-	purge_config(PURGE_SSL);
+	purge_config(PURGE_PKI);
 }
 
 static void
@@ -648,7 +648,7 @@ main(int argc, char *argv[])
 		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
-		load_ssl_tree();
+		load_pki_tree();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
@@ -675,7 +675,7 @@ main(int argc, char *argv[])
 	log_init(foreground);
 	log_verbose(verbose);
 
-	load_ssl_tree();
+	load_pki_tree();
 
 	log_info("info: %s %s starting", SMTPD_NAME, SMTPD_VERSION);
 
@@ -753,32 +753,32 @@ main(int argc, char *argv[])
 }
 
 static void
-load_ssl_tree(void)
+load_pki_tree(void)
 {
-	struct ssl	*ssl;
-	void		*iter_dict;
+	struct pki	*pki;
 	const char	*k;
+	void		*iter_dict;
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
-	while (dict_iter(env->sc_ssl_dict, &iter_dict, &k, (void **)&ssl)) {
+	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
 		log_debug("info: loading pki information for %s", k);
-		if (ssl->ssl_cert_file == NULL)
-			fatalx("load_ssl_tree: missing certificate file");
-		if (ssl->ssl_key_file == NULL)
-			fatalx("load_ssl_tree: missing key file");
+		if (pki->pki_cert_file == NULL)
+			fatalx("load_pki_tree: missing certificate file");
+		if (pki->pki_key_file == NULL)
+			fatalx("load_pki_tree: missing key file");
 
-		if (! ssl_load_certificate(ssl, ssl->ssl_cert_file))
-			fatalx("load_ssl_tree: failed to load certificate file");
-		if (! ssl_load_keyfile(ssl, ssl->ssl_key_file, k))
-			fatalx("load_ssl_tree: failed to load key file");
+		if (! ssl_load_certificate(pki, pki->pki_cert_file))
+			fatalx("load_pki_tree: failed to load certificate file");
+		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
+			fatalx("load_pki_tree: failed to load key file");
 
-		if (ssl->ssl_ca_file)
-			if (! ssl_load_cafile(ssl, ssl->ssl_ca_file))
-				fatalx("load_ssl_tree: failed to load CA file");
-		if (ssl->ssl_dhparams_file)
-			if (! ssl_load_dhparams(ssl, ssl->ssl_dhparams_file))
-				fatalx("load_ssl_tree: failed to load dhparams file");
+		if (pki->pki_ca_file)
+			if (! ssl_load_cafile(pki, pki->pki_ca_file))
+				fatalx("load_pki_tree: failed to load CA file");
+		if (pki->pki_dhparams_file)
+			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
+				fatalx("load_pki_tree: failed to load dhparams file");
 	}
 }
 
