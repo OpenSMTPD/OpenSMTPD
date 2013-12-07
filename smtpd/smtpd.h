@@ -1372,7 +1372,6 @@ int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
 int  uppercase(char *, const char *, size_t);
 uint64_t generate_uid(void);
-void fdlimit(double);
 int availdesc(void);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);

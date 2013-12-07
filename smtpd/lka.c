@@ -511,12 +511,6 @@ lka(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	/*
-	 * lka opens all kinds of files and sockets, so bump the limit to max.
-	 * XXX: need to analyse the exact hard limit.
-	 */
-	fdlimit(1.0);
-
 	config_peer(PROC_PARENT);
 	config_peer(PROC_QUEUE);
 	config_peer(PROC_SMTP);

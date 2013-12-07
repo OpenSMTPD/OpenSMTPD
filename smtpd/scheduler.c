@@ -419,8 +419,6 @@ scheduler(void)
 
 	config_process(PROC_SCHEDULER);
 
-	fdlimit(1.0);
-
 	backend->init();
 
 	if (chroot(PATH_CHROOT) == -1)
