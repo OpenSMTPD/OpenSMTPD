@@ -716,9 +716,12 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 
 	if (tree_poproot(&flush_evp, NULL, (void**)(&e))) {
 
-		if (e->delivery == IMSG_DELIVERY_OK)
-			queue_ok(e->id);
-		else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
+		if (e->delivery == IMSG_DELIVERY_OK) {
+			m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
+			m_add_evpid(p_queue, e->id);
+			m_add_int(p_queue, e->ext);
+			m_close(p_queue);
+		} else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
 			queue_tempfail(e->id, e->penalty, e->status);
 		else if (e->delivery == IMSG_DELIVERY_PERMFAIL)
 			queue_permfail(e->id, e->status);
@@ -734,6 +737,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 
 		free(e->dest);
 		free(e->rcpt);
+		free(e->dsn_orcpt);
 		free(e);
 
 		tv.tv_sec = 0;
@@ -1361,16 +1365,9 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 					mta_hoststat_cache(domain+1, e->id);
 			}
 
-<<<<<<< HEAD
-			free(e->dest);
-			free(e->rcpt);
-			free(e->dsn_orcpt);
-			free(e);
-=======
 			mta_delivery_log(e, NULL, relay->domain->name, fail, error);
 			mta_delivery_notify(e, 0);
 
->>>>>>> master
 			n++;
 		}
 		free(task->sender);
