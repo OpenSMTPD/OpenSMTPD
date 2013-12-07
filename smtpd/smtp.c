@@ -218,8 +218,6 @@ smtp(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-	fdlimit(1.0);
-
 	config_peer(PROC_CONTROL);
 	config_peer(PROC_PARENT);
 	config_peer(PROC_LKA);
