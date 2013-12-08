@@ -414,9 +414,10 @@ relayhost_to_text(const struct relayhost *relay)
 {
 	static char	buf[4096];
 	char		port[4096];
+	uint16_t	mask = F_SMTPS|F_STARTTLS|F_AUTH|F_TLS_OPTIONAL|F_LMTP;
 
 	bzero(buf, sizeof buf);
-	switch (relay->flags) {
+	switch (relay->flags & mask) {
 	case F_SMTPS|F_STARTTLS|F_AUTH:
 		strlcat(buf, "secure+auth://", sizeof buf);
 		break;
@@ -429,16 +430,10 @@ relayhost_to_text(const struct relayhost *relay)
 	case F_SMTPS|F_AUTH:
 		strlcat(buf, "smtps+auth://", sizeof buf);
 		break;
-	case F_STARTTLS|F_TLS_VERIFY:
-		strlcat(buf, "tls://", sizeof buf);
-		break;
 	case F_STARTTLS:
 		strlcat(buf, "tls://", sizeof buf);
 		break;
 	case F_SMTPS:
-		strlcat(buf, "smtps://", sizeof buf);
-		break;
-	case F_SMTPS|F_TLS_VERIFY:
 		strlcat(buf, "smtps://", sizeof buf);
 		break;
 	case F_BACKUP:
