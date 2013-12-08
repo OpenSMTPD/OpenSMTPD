@@ -277,7 +277,7 @@ smtp_setup_events(void)
 			fatal("smtp_setup_events: certificate name truncated");
 		if ((pki = dict_get(env->sc_pki_dict, l->pki_name)) == NULL)
 			fatal("smtp_setup_events: certificate tree corrupted");
-		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, pki, l->ssl_ciphers, l->ssl_curve))
+		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, pki))
 			fatal("smtp_setup_events: ssl_setup failure");
 	}
 
