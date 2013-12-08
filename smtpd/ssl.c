@@ -69,12 +69,12 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curve)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
 	
-	ctx = ssl_ctx_create(ciphers, curve);
+	ctx = ssl_ctx_create();
 
 	if (!ssl_ctx_use_certificate_chain(ctx,
 		pki->pki_cert, pki->pki_cert_len))
@@ -98,7 +98,7 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curv
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx, curve);
+	ssl_set_ecdh_curve(ctx, SSL_ECDH_CURVE);
 
 	*ctxp = ctx;
 	return 1;
@@ -255,7 +255,7 @@ fail:
 }
 
 SSL_CTX *
-ssl_ctx_create(const char *ciphers, const char *curve)
+ssl_ctx_create()
 {
 	SSL_CTX	*ctx;
 
@@ -272,9 +272,7 @@ ssl_ctx_create(const char *ciphers, const char *curve)
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
-	if (ciphers == NULL)
-		ciphers = SSL_CIPHERS;
-	if (!SSL_CTX_set_cipher_list(ctx, ciphers)) {
+	if (!SSL_CTX_set_cipher_list(ctx, SSL_CIPHERS)) {
 		ssl_error("ssl_ctx_create");
 		fatal("ssl_ctx_create: could not set cipher list");
 	}
