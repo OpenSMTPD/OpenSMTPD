@@ -467,7 +467,6 @@ struct listener {
 	struct event		 ev;
 	char			 pki_name[SMTPD_MAXPATHLEN];
 	struct ssl		*ssl;
-	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];

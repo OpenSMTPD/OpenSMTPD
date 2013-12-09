@@ -280,13 +280,6 @@ smtp_setup_events(void)
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
 
-	// temporary
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if (!(l->flags & F_SSL))
-			continue;
-		l->ssl_ctx = dict_get(env->sc_ssl_dict, l->pki_name);
-	}
-
 	purge_config(PURGE_PKI);
 
 	log_debug("debug: smtp: will accept at most %d clients",

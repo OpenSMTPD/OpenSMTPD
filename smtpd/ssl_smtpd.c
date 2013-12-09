@@ -89,13 +89,23 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 	return 1;
 }
 
+static int
+servername_cb(SSL *s, int *ad, void *arg)
+{
+	const char	*sn;
+
+	sn = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
+	if (sn == NULL)
+		return SSL_TLSEXT_ERR_NOACK;
+	return SSL_TLSEXT_ERR_OK;
+}
+
 void *
 ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len)
 {
 	SSL	*ssl = NULL;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
-
 	if (!ssl_ctx_use_certificate_chain(ssl_ctx, cert, cert_len))
 		goto err;
 	else if (!ssl_ctx_use_private_key(ssl_ctx, key, key_len))
@@ -104,6 +114,7 @@ ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_le
 		goto err;
 
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
+	SSL_CTX_set_tlsext_servername_callback(ssl_ctx, servername_cb);
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;

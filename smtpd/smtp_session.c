@@ -245,7 +245,6 @@ smtp_session(struct listener *listener, int sock,
 
 	s->id = generate_uid();
 	s->listener = listener;
-	s->ssl_ctx = listener->ssl_ctx;
 	memmove(&s->ss, ss, sizeof(*ss));
 	io_init(&s->io, sock, s, smtp_io, &s->iobuf);
 	io_set_timeout(&s->io, SMTPD_SESSION_TIMEOUT * 1000);
@@ -584,11 +583,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    sizeof *resp_ca_cert + resp_ca_cert->cert_len,
 		    "smtp:ca_key");
 
-		//log_debug("name: %s", s->smtpname);
-		//ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
-		//log_debug("ssl_ctx: %p\n", ssl_ctx);
-
-		ssl = ssl_smtp_init(s->listener->ssl_ctx,
+		if (s->listener->pki_name[0])
+			ssl_ctx = dict_get(env->sc_ssl_dict, s->listener->pki_name);
+		else
+			ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
+		ssl = ssl_smtp_init(ssl_ctx,
 		    resp_ca_cert->cert, resp_ca_cert->cert_len,
 		    resp_ca_cert->key, resp_ca_cert->key_len);
 		io_set_read(&s->io);
@@ -628,7 +627,6 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
     const char *line)
 {
 	struct ca_cert_req_msg		 req_ca_cert;
-	void				*ssl_ctx;
 
 	if (status == MFA_CLOSE) {
 		code = code ? code : 421;
@@ -1649,6 +1647,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	X509		       *x;
 	STACK_OF(X509)	       *xchain;
 	int			i;
+	const char	       *pkiname;
 
 	x = SSL_get_peer_certificate(s->io.ssl);
 	if (x == NULL)
@@ -1667,7 +1666,12 @@ smtp_verify_certificate(struct smtp_session *s)
 
 	/* Send the client certificate */
 	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
-	if (strlcpy(req_ca_vrfy.pkiname, s->listener->pki_name, sizeof req_ca_vrfy.pkiname)
+	if (s->listener->pki_name[0])
+		pkiname = s->listener->pki_name;
+	else
+		pkiname = s->smtpname;
+
+	if (strlcpy(req_ca_vrfy.pkiname, pkiname, sizeof req_ca_vrfy.pkiname)
 	    >= sizeof req_ca_vrfy.pkiname)
 		return 0;
 
