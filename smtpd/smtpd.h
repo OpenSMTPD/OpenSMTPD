@@ -1259,7 +1259,7 @@ const char *imsg_to_str(int);
 
 /* ssl_smtpd.c */
 void   *ssl_mta_init(char *, off_t, char *, off_t);
-void   *ssl_smtp_init(void *, char *, off_t, char *, off_t);
+void   *ssl_smtp_init(void *, char *, off_t, char *, off_t, void *, void *);
 
 
 /* stat_backend.c */

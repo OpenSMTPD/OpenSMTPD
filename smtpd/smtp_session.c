@@ -116,6 +116,7 @@ struct smtp_session {
 	struct sockaddr_storage	 ss;
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
 	char			 smtpname[SMTPD_MAXHOSTNAMELEN];
+	char			 sni[SMTPD_MAXHOSTNAMELEN];
 
 	int			 flags;
 	int			 phase;
@@ -176,6 +177,7 @@ static const char *smtp_strstate(int);
 static int smtp_verify_certificate(struct smtp_session *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
+static int smtp_sni_callback(SSL *, int *, void *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -587,9 +589,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			ssl_ctx = dict_get(env->sc_ssl_dict, s->listener->pki_name);
 		else
 			ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
+
 		ssl = ssl_smtp_init(ssl_ctx,
 		    resp_ca_cert->cert, resp_ca_cert->cert_len,
-		    resp_ca_cert->key, resp_ca_cert->key_len);
+		    resp_ca_cert->key, resp_ca_cert->key_len,
+		    smtp_sni_callback, s);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
@@ -1735,6 +1739,29 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	    "will defer answer for %lu microseconds", tv.tv_usec);
 	evtimer_set(&s->pause, smtp_auth_failure_resume, s);
 	evtimer_add(&s->pause, &tv);
+}
+
+static int
+smtp_sni_callback(SSL *ssl, int *ad, void *arg)
+{
+	const char		*sn;
+	struct smtp_session	*s = arg;
+	void			*ssl_ctx;
+
+	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+	if (sn == NULL)
+		return SSL_TLSEXT_ERR_NOACK;
+	if (strlcpy(s->sni, sn, sizeof s->sni) >= sizeof s->sni) {
+		log_warnx("warn: client SNI exceeds max hostname length");
+		return SSL_TLSEXT_ERR_NOACK;
+	}
+	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
+	if (ssl_ctx == NULL) {
+		log_warnx("warn: SNI name not found in PKI");
+		return SSL_TLSEXT_ERR_NOACK;
+	}
+	SSL_set_SSL_CTX(ssl, ssl_ctx);
+	return SSL_TLSEXT_ERR_OK;
 }
 
 
