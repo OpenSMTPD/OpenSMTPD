@@ -352,7 +352,7 @@ mvpurge(char *from, char *to)
 	retry = 0;
 
 again:
-	snprintf(buf, sizeof buf, "%s%s%u", to, sep, csprng_random());
+	snprintf(buf, sizeof buf, "%s%s%u", to, sep, arc4random());
 	if (rename(from, buf) == -1) {
 		/* ENOTDIR has actually 2 meanings, and incorrect input
 		 * could lead to an infinite loop. Consider that after
@@ -424,12 +424,14 @@ hostname_match(const char *hostname, const char *pattern)
 			while (*pattern == '*')
 				pattern++;
 			while (*hostname != '\0' &&
-			    tolower((int)*hostname) != tolower((int)*pattern))
+			    tolower((unsigned char)*hostname) !=
+			    tolower((unsigned char)*pattern))
 				hostname++;
 			continue;
 		}
 
-		if (tolower((int)*pattern) != tolower((int)*hostname))
+		if (tolower((unsigned char)*pattern) !=
+		    tolower((unsigned char)*hostname))
 			return 0;
 		pattern++;
 		hostname++;
@@ -445,7 +447,7 @@ valid_localpart(const char *s)
  * RFC 5322 defines theses characters as valid: !#$%&'*+-/=?^_`{|}~
  * some of them are potentially dangerous, and not so used after all.
  */
-#define IS_ATEXT(c)     (isalnum((int)(c)) || strchr("*!%+-/=_", (c)))
+#define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr("*!%+-/=_", (c)))
 nextatom:
 	if (! IS_ATEXT(*s) || *s == '\0')
 		return 0;
@@ -495,12 +497,12 @@ valid_domainpart(const char *s)
 	}
 	
 nextsub:
-	if (!isalnum((int)*s))
+	if (!isalnum((unsigned char)*s))
 		return 0;
 	while (*(++s) != '\0') {
 		if (*s == '.')
 			break;
-		if (isalnum((int)*s) || *s == '-')
+		if (isalnum((unsigned char)*s) || *s == '-')
 			continue;
 		return 0;
 	}
@@ -604,7 +606,7 @@ lowercase(char *buf, const char *s, size_t len)
 		return 0;
 
 	while (*buf != '\0') {
-		*buf = tolower((int)*buf);
+		*buf = tolower((unsigned char)*buf);
 		buf++;
 	}
 
@@ -621,7 +623,7 @@ uppercase(char *buf, const char *s, size_t len)
 		return 0;
 
 	while (*buf != '\0') {
-		*buf = toupper((int)*buf);
+		*buf = toupper((unsigned char)*buf);
 		buf++;
 	}
 
@@ -646,27 +648,13 @@ generate_uid(void)
 	uint64_t	uid;
 
 	if (!inited) {
-		id = csprng_random();
+		id = arc4random();
 		inited = 1;
 	}
-	while ((uid = ((uint64_t)(id++) << 32 | csprng_random())) == 0)
+	while ((uid = ((uint64_t)(id++) << 32 | arc4random())) == 0)
 		;
 
 	return (uid);
-}
-
-void
-fdlimit(double percent)
-{
-	struct rlimit rl;
-
-	if (percent < 0 || percent > 1)
-		fatalx("fdlimit: parameter out of range");
-	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
-		fatal("fdlimit: getrlimit");
-	rl.rlim_cur = percent * rl.rlim_max;
-	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
-		fatal("fdlimit: setrlimit");
 }
 
 void
@@ -737,7 +725,7 @@ parse_smtp_response(char *line, size_t len, char **msg, int *cont)
 
 	/* validate reply message */
 	for (i = 0; i < len; i++)
-		if (!isprint(line[i]))
+		if (!isprint((unsigned char)line[i]))
 			return "non-printable character in reply";
 
 	return NULL;

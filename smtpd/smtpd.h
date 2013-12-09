@@ -98,7 +98,7 @@ struct relayhost {
 	uint16_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
 	uint16_t port;
-	char cert[SMTPD_MAXPATHLEN];
+	char pki_name[SMTPD_MAXPATHLEN];
 	char authtable[SMTPD_MAXPATHLEN];
 	char authlabel[SMTPD_MAXPATHLEN];
 	char sourcetable[SMTPD_MAXPATHLEN];
@@ -465,7 +465,7 @@ struct listener {
 	in_port_t		 port;
 	struct timeval		 timeout;
 	struct event		 ev;
-	char			 ssl_cert_name[SMTPD_MAXPATHLEN];
+	char			 pki_name[SMTPD_MAXPATHLEN];
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
@@ -483,15 +483,14 @@ struct smtpd {
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
 
-#define SMTPD_CONFIGURING		0x00000001
-#define SMTPD_EXITING			0x00000002
-#define SMTPD_MDA_PAUSED		0x00000004
-#define SMTPD_MTA_PAUSED		0x00000008
-#define SMTPD_SMTP_PAUSED		0x00000010
-#define SMTPD_MDA_BUSY			0x00000020
-#define SMTPD_MTA_BUSY			0x00000040
-#define SMTPD_BOUNCE_BUSY		0x00000080
-#define SMTPD_SMTP_DISABLED		0x00000100
+#define SMTPD_EXITING			0x00000001
+#define SMTPD_MDA_PAUSED		0x00000002
+#define SMTPD_MTA_PAUSED		0x00000004
+#define SMTPD_SMTP_PAUSED		0x00000008
+#define SMTPD_MDA_BUSY			0x00000010
+#define SMTPD_MTA_BUSY			0x00000020
+#define SMTPD_BOUNCE_BUSY		0x00000040
+#define SMTPD_SMTP_DISABLED		0x00000080
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
@@ -510,6 +509,9 @@ struct smtpd {
 	size_t				sc_mta_max_deferred;
 
 	size_t				sc_scheduler_max_inflight;
+	size_t				sc_scheduler_max_evp_batch_size;
+	size_t				sc_scheduler_max_msg_batch_size;
+	size_t				sc_scheduler_max_schedule;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
@@ -522,9 +524,9 @@ struct smtpd {
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
-	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
+	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
-	struct dict			       *sc_ssl_dict;
+	struct dict			       *sc_pki_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 
@@ -710,7 +712,7 @@ struct mta_relay {
 	int			 backuppref;
 	char			*sourcetable;
 	uint16_t		 port;
-	char			*cert;
+	char			*pki_name;
 	char			*authtable;
 	char			*authlabel;
 	char			*helotable;
@@ -753,6 +755,8 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
+	int				 penalty;
+	char				 status[SMTPD_MAXLINESIZE];
 };
 
 struct mta_task {
@@ -1025,7 +1029,7 @@ int	uncompress_file(FILE *, FILE *);
 #define PURGE_LISTENERS		0x01
 #define PURGE_TABLES		0x02
 #define PURGE_RULES		0x04
-#define PURGE_SSL		0x08
+#define PURGE_PKI		0x08
 #define PURGE_EVERYTHING	0xff
 void purge_config(uint8_t);
 void init_pipes(void);
@@ -1179,8 +1183,7 @@ void mta_route_down(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_delivery_log(struct mta_envelope *, const char *, const char *, int, const char *);
-void mta_delivery_notify(struct mta_envelope *, int, const char *, uint32_t);
-void mta_delivery(struct mta_envelope *, const char *, const char *, int, const char *, uint32_t);
+void mta_delivery_notify(struct mta_envelope *, uint32_t);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1339,7 +1342,6 @@ int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
 int  uppercase(char *, const char *, size_t);
 uint64_t generate_uid(void);
-void fdlimit(double);
 int availdesc(void);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
@@ -1359,9 +1361,7 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 int getmailname(char *, size_t);
-uint32_t csprng_random(void);
-void csprng_buffer(void *, size_t);
-uint32_t csprng_uniform(uint32_t);
+
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);

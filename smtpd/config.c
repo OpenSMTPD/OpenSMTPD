@@ -20,6 +20,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 
 #include <event.h>
 #include <imsg.h>
@@ -42,7 +43,7 @@ purge_config(uint8_t what)
 	struct listener	*l;
 	struct table	*t;
 	struct rule	*r;
-	struct ssl	*s;
+	struct pki	*p;
 
 	if (what & PURGE_LISTENERS) {
 		while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
@@ -66,16 +67,16 @@ purge_config(uint8_t what)
 		free(env->sc_rules);
 		env->sc_rules = NULL;
 	}
-	if (what & PURGE_SSL) {
-		while (dict_poproot(env->sc_ssl_dict, (void **)&s)) {
-			bzero(s->ssl_cert, s->ssl_cert_len);
-			bzero(s->ssl_key, s->ssl_key_len);
-			free(s->ssl_cert);
-			free(s->ssl_key);
-			free(s);
+	if (what & PURGE_PKI) {
+		while (dict_poproot(env->sc_pki_dict, (void **)&p)) {
+			bzero(p->pki_cert, p->pki_cert_len);
+			bzero(p->pki_key, p->pki_key_len);
+			free(p->pki_cert);
+			free(p->pki_key);
+			free(p);
 		}
-		free(env->sc_ssl_dict);
-		env->sc_ssl_dict = NULL;
+		free(env->sc_pki_dict);
+		env->sc_pki_dict = NULL;
 	}
 }
 
@@ -99,8 +100,16 @@ init_pipes(void)
 void
 config_process(enum smtp_proc_type proc)
 {
+	struct rlimit rl;
+
 	smtpd_process = proc;
 	setproctitle("%s", proc_title(proc));
+
+	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: getrlimit");
+	rl.rlim_cur = rl.rlim_max;
+	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: setrlimit");
 }
 
 void

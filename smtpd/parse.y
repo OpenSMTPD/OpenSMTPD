@@ -96,7 +96,7 @@ struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
-static struct ssl	*pki_ssl;
+static struct pki	*pki;
 
 static struct listen_opts {
 	char	       *ifx;
@@ -110,6 +110,8 @@ static struct listen_opts {
 	char	       *hostname;
 	struct table   *hostnametable;
 	uint16_t	flags;	
+	const char     *ciphers;
+	const char     *curve;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -309,6 +311,15 @@ opt_limit_scheduler : STRING NUMBER {
 			if (!strcmp($1, "max-inflight")) {
 				conf->sc_scheduler_max_inflight = $2;
 			}
+			else if (!strcmp($1, "max-evp-batch-size")) {
+				conf->sc_scheduler_max_evp_batch_size = $2;
+			}
+			else if (!strcmp($1, "max-msg-batch-size")) {
+				conf->sc_scheduler_max_msg_batch_size = $2;
+			}
+			else if (!strcmp($1, "max-schedule")) {
+				conf->sc_scheduler_max_schedule = $2;
+			}
 			else {
 				yyerror("invalid scheduler limit keyword: %s", $1);
 				free($1);
@@ -323,16 +334,16 @@ limits_scheduler: opt_limit_scheduler limits_scheduler
 		;
 
 opt_pki		: CERTIFICATE STRING {
-			pki_ssl->ssl_cert_file = $2;
+			pki->pki_cert_file = $2;
 		}
 		| KEY STRING {
-			pki_ssl->ssl_key_file = $2;
+			pki->pki_key_file = $2;
 		}
 		| CA STRING {
-			pki_ssl->ssl_ca_file = $2;
+			pki->pki_ca_file = $2;
 		}
 		| DHPARAMS STRING {
-			pki_ssl->ssl_dhparams_file = $2;
+			pki->pki_dhparams_file = $2;
 		}
 		;
 
@@ -454,14 +465,14 @@ opt_relay_common: AS STRING	{
 			    sizeof rule->r_value.relayhost.helotable);
 		}
 		| PKI STRING {
-			if (! lowercase(rule->r_value.relayhost.cert, $2,
-				sizeof(rule->r_value.relayhost.cert))) {
+			if (! lowercase(rule->r_value.relayhost.pki_name, $2,
+				sizeof(rule->r_value.relayhost.pki_name))) {
 				yyerror("pki name too long: %s", $2);
 				free($2);
 				YYERROR;
 			}
-			if (dict_get(conf->sc_ssl_dict,
-			    rule->r_value.relayhost.cert) == NULL) {
+			if (dict_get(conf->sc_pki_dict,
+			    rule->r_value.relayhost.pki_name) == NULL) {
 				log_warnx("pki name not found: %s", $2);
 				free($2);
 				YYERROR;
@@ -620,16 +631,15 @@ main		: BOUNCEWARN {
 				YYERROR;
 			}
 		} filter_list
-		;
 		| PKI STRING	{
 			char buf[MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
 			free($2);
-			pki_ssl = dict_get(conf->sc_ssl_dict, buf);
-			if (pki_ssl == NULL) {
-				pki_ssl = xcalloc(1, sizeof *pki_ssl, "parse:pki");
-				strlcpy(pki_ssl->ssl_name, buf, sizeof(pki_ssl->ssl_name));
-				dict_set(conf->sc_ssl_dict, pki_ssl->ssl_name, pki_ssl);
+			pki = dict_get(conf->sc_pki_dict, buf);
+			if (pki == NULL) {
+				pki = xcalloc(1, sizeof *pki, "parse:pki");
+				strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
+				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
 		;
@@ -1518,7 +1528,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
-	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
+	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
 
 	/* Report mails delayed for more than 4 hours */
@@ -1527,13 +1537,13 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	if (conf->sc_tables_dict == NULL	||
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
-	    conf->sc_ssl_dict == NULL		||
+	    conf->sc_pki_dict == NULL		||
 	    conf->sc_limits_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
-		free(conf->sc_ssl_dict);
+		free(conf->sc_pki_dict);
 		free(conf->sc_limits_dict);
 		return (-1);
 	}
@@ -1545,7 +1555,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	dict_init(&conf->sc_filters);
 
-	dict_init(conf->sc_ssl_dict);
+	dict_init(conf->sc_pki_dict);
 	dict_init(conf->sc_tables_dict);
 
 	dict_init(conf->sc_limits_dict);
@@ -1561,6 +1571,9 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	conf->sc_mta_max_deferred = 100;
 	conf->sc_scheduler_max_inflight = 5000;
+	conf->sc_scheduler_max_schedule = 10;
+	conf->sc_scheduler_max_evp_batch_size = 256;
+	conf->sc_scheduler_max_msg_batch_size = 1024;
 
 	conf->sc_mda_max_session = 50;
 	conf->sc_mda_max_user_session = 7;
@@ -1724,6 +1737,12 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 	if (lo->ssl && !lo->pki)
 		errx(1, "invalid listen option: tls/smtps requires pki");
 
+	if (lo->ciphers && !lo->ssl)
+		errx(1, "invalid listen option: ciphers requires tls/smtps");
+
+	if (lo->curve && !lo->ssl)
+		errx(1, "invalid listen option: curve requires tls/smtps");
+
 	flags = lo->flags;
 
 	if (lo->port) {
@@ -1765,17 +1784,16 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 		lo->hostname = conf->sc_hostname;
 
 	h->ssl = NULL;
-	h->ssl_cert_name[0] = '\0';
+	h->pki_name[0] = '\0';
 
 	if (lo->authtable != NULL)
 		(void)strlcpy(h->authtable, lo->authtable->t_name, sizeof(h->authtable));
 	if (lo->pki != NULL) {
-		if (! lowercase(h->ssl_cert_name, lo->pki,
-		    sizeof(h->ssl_cert_name))) {
+		if (! lowercase(h->pki_name, lo->pki, sizeof(h->pki_name))) {
 			log_warnx("pki name too long: %s", lo->pki);
 			fatalx(NULL);
 		}
-		if (dict_get(conf->sc_ssl_dict, h->ssl_cert_name) == NULL) {
+		if (dict_get(conf->sc_pki_dict, h->pki_name) == NULL) {
 			log_warnx("pki name not found: %s", lo->pki);
 			fatalx(NULL);
 		}

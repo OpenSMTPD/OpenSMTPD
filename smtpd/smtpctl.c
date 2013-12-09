@@ -119,8 +119,7 @@ srv_connect(void)
 		return (0);
 	}
 
-	if ((ibuf = calloc(1, sizeof(struct imsgbuf))) == NULL)
-		err(1, "calloc");
+	ibuf = xcalloc(1, sizeof(struct imsgbuf), "smtpctl:srv_connect");
 	imsg_init(ibuf, ctl_sock);
 
 	return (1);

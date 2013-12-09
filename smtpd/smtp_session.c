@@ -650,7 +650,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 
 		if (s->listener->flags & F_SMTPS) {
 			req_ca_cert.reqid = s->id;
-			strlcpy(req_ca_cert.name, s->listener->ssl_cert_name,
+			strlcpy(req_ca_cert.name, s->listener->pki_name,
 			    sizeof req_ca_cert.name);
 			m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
@@ -900,7 +900,7 @@ smtp_io(struct io *io, int evt)
 		/* Wait for the client to start tls */
 		if (s->state == STATE_TLS) {
 			req_ca_cert.reqid = s->id;
-			strlcpy(req_ca_cert.name, s->listener->ssl_cert_name,
+			strlcpy(req_ca_cert.name, s->listener->pki_name,
 			    sizeof req_ca_cert.name);
 			m_compose(p_lka, IMSG_LKA_SSL_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
@@ -1044,7 +1044,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 	if (args) {
 		*args++ = '\0';
-		while (isspace((int)*args))
+		while (isspace((unsigned char)*args))
 			args++;
 	}
 
@@ -1067,7 +1067,7 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 
 		if (args == NULL) {
-			smtp_reply(s, "501 %s requires domain address",
+			smtp_reply(s, "501 %s requires domain name",
 			    (cmd == CMD_HELO) ? "HELO" : "EHLO");
 			break;
 		}
@@ -1710,7 +1710,7 @@ smtp_verify_certificate(struct smtp_session *s)
 
 	/* Send the client certificate */
 	bzero(&req_ca_vrfy, sizeof req_ca_vrfy);
-	if (strlcpy(req_ca_vrfy.pkiname, s->listener->ssl_cert_name, sizeof req_ca_vrfy.pkiname)
+	if (strlcpy(req_ca_vrfy.pkiname, s->listener->pki_name, sizeof req_ca_vrfy.pkiname)
 	    >= sizeof req_ca_vrfy.pkiname)
 		return 0;
 
@@ -1769,7 +1769,7 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	struct timeval	tv;
 
 	tv.tv_sec = 0;
-	tv.tv_usec = csprng_uniform(1000000);
+	tv.tv_usec = arc4random_uniform(1000000);
 	log_trace(TRACE_SMTP, "smtp: timing-attack protection triggered, "
 	    "will defer answer for %lu microseconds", tv.tv_usec);
 	evtimer_set(&s->pause, smtp_auth_failure_resume, s);
