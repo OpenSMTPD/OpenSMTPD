@@ -334,10 +334,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			}
 		}
 
-		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert,
-		    "mta:ca_cert");
-		if (resp_ca_cert == NULL)
-			fatal(NULL);
+		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "mta:ca_cert");
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "mta:ca_cert");
 		resp_ca_cert->key = xstrdup((char *)imsg->data +

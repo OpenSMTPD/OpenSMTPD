@@ -20,6 +20,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 
 #include <event.h>
 #include <imsg.h>
@@ -99,8 +100,16 @@ init_pipes(void)
 void
 config_process(enum smtp_proc_type proc)
 {
+	struct rlimit rl;
+
 	smtpd_process = proc;
 	setproctitle("%s", proc_title(proc));
+
+	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: getrlimit");
+	rl.rlim_cur = rl.rlim_max;
+	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
+		fatal("fdlimit: setrlimit");
 }
 
 void

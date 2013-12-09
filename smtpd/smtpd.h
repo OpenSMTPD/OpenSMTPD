@@ -488,8 +488,6 @@ struct listener {
 	struct timeval		 timeout;
 	struct event		 ev;
 	char			 pki_name[SMTPD_MAXPATHLEN];
-	const char		*ssl_ciphers;
-	const char		*ssl_curve;
 	struct ssl		*ssl;
 	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
@@ -1371,7 +1369,6 @@ int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
 int  uppercase(char *, const char *, size_t);
 uint64_t generate_uid(void);
-void fdlimit(double);
 int availdesc(void);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
