@@ -254,7 +254,10 @@ static void
 smtp_setup_events(void)
 {
 	struct listener *l;
-	struct pki	*pki, pkey;
+	struct pki	*pki;
+	SSL_CTX		*ssl_ctx;
+	void		*iter;
+	const char	*k;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
@@ -268,17 +271,20 @@ smtp_setup_events(void)
 
 		if (!(env->sc_flags & SMTPD_SMTP_PAUSED))
 			event_add(&l->ev, NULL);
+	}
 
+	iter = NULL;
+	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
+		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki))
+			fatal("smtp_setup_events: ssl_setup failure");
+		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
+	}
+
+	// temporary
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		if (!(l->flags & F_SSL))
 			continue;
-
-		if (strlcpy(pkey.pki_name, l->pki_name, sizeof(pkey.pki_name))
-		    >= sizeof(pkey.pki_name))
-			fatal("smtp_setup_events: certificate name truncated");
-		if ((pki = dict_get(env->sc_pki_dict, l->pki_name)) == NULL)
-			fatal("smtp_setup_events: certificate tree corrupted");
-		if (! ssl_setup((SSL_CTX **)&l->ssl_ctx, pki))
-			fatal("smtp_setup_events: ssl_setup failure");
+		l->ssl_ctx = dict_get(env->sc_ssl_dict, l->pki_name);
 	}
 
 	purge_config(PURGE_PKI);

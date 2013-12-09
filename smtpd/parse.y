@@ -1529,6 +1529,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
+	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
 
 	/* Report mails delayed for more than 4 hours */
@@ -1544,6 +1545,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_pki_dict);
+		free(conf->sc_ssl_dict);
 		free(conf->sc_limits_dict);
 		return (-1);
 	}
@@ -1556,6 +1558,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	dict_init(&conf->sc_filters);
 
 	dict_init(conf->sc_pki_dict);
+	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
 
 	dict_init(conf->sc_limits_dict);
