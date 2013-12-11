@@ -276,7 +276,7 @@ ber_add_nstring(struct ber_element *prev, const char *string0, size_t len)
 		return NULL;
 	}
 
-	bcopy(string0, string, len);
+	memmove(string0, string, len);
 	elm->be_val = string;
 	elm->be_len = len;
 	elm->be_free = 1;		/* free string on cleanup */
@@ -320,7 +320,7 @@ ber_add_bitstring(struct ber_element *prev, const void *v0, size_t len)
 		return NULL;
 	}
 
-	bcopy(v0, v, len);
+	memmove(v0, v, len);
 	elm->be_val = v;
 	elm->be_len = len;
 	elm->be_free = 1;		/* free string on cleanup */
@@ -474,7 +474,7 @@ ber_add_noid(struct ber_element *prev, struct ber_oid *o, int n)
 	if (n > BER_MAX_OID_LEN)
 		return (NULL);
 	no.bo_n = n;
-	bcopy(&o->bo_id, &no.bo_id, sizeof(no.bo_id));
+	memmove(&o->bo_id, &no.bo_id, sizeof(no.bo_id));
 
 	return (ber_add_oid(prev, &no));
 }
@@ -958,7 +958,8 @@ static void
 ber_write(struct ber *ber, void *buf, size_t len)
 {
 	if (ber->br_wptr + len <= ber->br_wend)
-		bcopy(buf, ber->br_wptr, len);
+		memmove(buf, ber->br_wptr, len);
+	
 	ber->br_wptr += len;
 }
 
@@ -1169,7 +1170,7 @@ ber_readbuf(struct ber *b, void *buf, size_t nbytes)
 		return (-1);	/* end of buffer and parser wants more data */
 	}
 
-	bcopy(b->br_rptr, buf, len);
+	memmove(b->br_rptr, buf, len);
 	b->br_rptr += len;
 
 	return (len);
