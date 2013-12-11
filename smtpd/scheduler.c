@@ -478,7 +478,7 @@ scheduler_timeout(int fd, short event, void *p)
 	    !(env->sc_flags & SMTPD_MTA_PAUSED))
 		typemask |= SCHED_MTA;
 
-	bzero(&batch, sizeof (batch));
+	memset(&batch, 0, sizeof (batch));
 	batch.evpids = evpids;
 	batch.evpcount = env->sc_scheduler_max_schedule;
 	backend->batch(typemask, &batch);

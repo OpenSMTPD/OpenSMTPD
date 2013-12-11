@@ -71,8 +71,8 @@ purge_config(uint8_t what)
 	}
 	if (what & PURGE_PKI) {
 		while (dict_poproot(env->sc_pki_dict, (void **)&p)) {
-			bzero(p->pki_cert, p->pki_cert_len);
-			bzero(p->pki_key, p->pki_key_len);
+			memset(p->pki_cert, 0, p->pki_cert_len);
+			memset(p->pki_key, 0, p->pki_key_len);
 			free(p->pki_cert);
 			free(p->pki_key);
 			free(p);

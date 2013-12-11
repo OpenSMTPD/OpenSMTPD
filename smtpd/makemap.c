@@ -93,7 +93,7 @@ enum output_type {
 void
 purge_config(uint8_t what)
 {
-	bzero(env, sizeof(struct smtpd));
+	memset(env, 0, sizeof(struct smtpd));
 }
 
 int

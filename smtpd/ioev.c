@@ -154,7 +154,7 @@ io_set_linger(int fd, int linger)
 {
 	struct linger    l;
 
-	bzero(&l, sizeof(l));
+	memset(&l, 0, sizeof(l));
 	l.l_onoff = linger ? 1 : 0;
 	l.l_linger = linger;
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l)) == -1)

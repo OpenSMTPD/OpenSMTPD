@@ -743,7 +743,7 @@ sorted_insert(struct rq_queue *rq, struct rq_envelope *evp)
 static void
 rq_queue_init(struct rq_queue *rq)
 {
-	bzero(rq, sizeof *rq);
+	memset(rq, 0, sizeof *rq);
 	tree_init(&rq->messages);
 	TAILQ_INIT(&rq->q_pending);
 	TAILQ_INIT(&rq->q_inflight);

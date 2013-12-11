@@ -451,7 +451,7 @@ table_inet6_match(struct sockaddr_in6 *ss, struct netaddr *ssmask)
 	struct in6_addr	 mask;
 	int		 i;
 
-	bzero(&mask, sizeof(mask));
+	memset(&mask, 0, sizeof(mask));
 	for (i = 0; i < ssmask->bits / 8; i++)
 		mask.s6_addr[i] = 0xff;
 	i = ssmask->bits % 8;

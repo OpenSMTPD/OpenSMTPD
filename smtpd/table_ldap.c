@@ -188,7 +188,7 @@ ldap_connect(const char *addr)
 		return (NULL);
 	}
 
-	bzero(&hints, sizeof(hints));
+	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM; /* DUMMY */
 	error = getaddrinfo(lu.host, NULL, &hints, &res0);
@@ -508,7 +508,7 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 		return (-1);
 	}
 
-	bzero(res, sizeof(res));
+	memset(res, 0, sizeof(res));
 	ret = ldap_query(filter, q->attrs, res, q->attrn);
 	if (ret <= 0 || dst == NULL)
 		goto end;

@@ -177,8 +177,8 @@ table_sqlite_update(void)
 
 	dbpath = NULL;
 	_db = NULL;
-	bzero(queries, sizeof(queries));
-	bzero(_statements, sizeof(_statements));
+	memset(queries, 0, sizeof(queries));
+	memset(_statements, 0, sizeof(_statements));
 	_query_fetch_source = NULL;
 	_stmt_fetch_source = NULL;
 

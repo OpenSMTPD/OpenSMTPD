@@ -54,7 +54,7 @@ crypto_setup(const char *key, size_t len)
 	if (len != KEY_SIZE)
 		return 0;
 
-	bzero(&cp, sizeof cp);
+	memcpy(&cp, 0, sizeof cp);
 	cp.cipher = EVP_aes_256_gcm();
 
 	/* openssl rand -hex 16 */
