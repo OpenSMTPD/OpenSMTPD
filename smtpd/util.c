@@ -198,7 +198,7 @@ mkdirs(char *path, mode_t mode)
 	if (strlen(path) >= sizeof buf)
 		return 0;
 
-	bzero(buf, sizeof buf);
+	memset(buf, 0, sizeof buf);
 	for (p = path; *p; p++) {
 		if (*p == '/') {
 			if (buf[0] != '\0')
@@ -679,7 +679,7 @@ session_socket_no_linger(int fd)
 {
 	struct linger	 lng;
 
-	bzero(&lng, sizeof(lng));
+	memset(&lng, 0, sizeof(lng));
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1)
 		fatal("session_socket_no_linger");
 }
