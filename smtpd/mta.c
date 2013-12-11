@@ -1588,7 +1588,7 @@ mta_relay(struct envelope *e)
 {
 	struct mta_relay	 key, *r;
 
-	bzero(&key, sizeof key);
+	memset(&key, 0, sizeof key);
 
 	if (e->agent.mta.relay.flags & RELAY_BACKUP) {
 		key.domain = mta_domain(e->dest.domain, 0);
