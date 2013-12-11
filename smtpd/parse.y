@@ -110,8 +110,6 @@ static struct listen_opts {
 	char	       *hostname;
 	struct table   *hostnametable;
 	uint16_t	flags;	
-	const char     *ciphers;
-	const char     *curve;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -1736,12 +1734,6 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 	
 	if (lo->ssl && !lo->pki)
 		errx(1, "invalid listen option: tls/smtps requires pki");
-
-	if (lo->ciphers && !lo->ssl)
-		errx(1, "invalid listen option: ciphers requires tls/smtps");
-
-	if (lo->curve && !lo->ssl)
-		errx(1, "invalid listen option: curve requires tls/smtps");
 
 	flags = lo->flags;
 
