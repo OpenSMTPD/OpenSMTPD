@@ -678,7 +678,7 @@ main(int argc, char *argv[])
 	config_done();
 
 	evtimer_set(&config_ev, parent_send_config, NULL);
-	bzero(&tv, sizeof(tv));
+	memset(&tv, 0, sizeof(tv));
 	evtimer_add(&config_ev, &tv);
 
 	/* defer offline scanning for a second */
@@ -1021,7 +1021,7 @@ offline_enqueue(char *name)
 		size_t	 len;
 		arglist	 args;
 
-		bzero(&args, sizeof(args));
+		memset(&args, 0, sizeof(args));
 
 		if (lstat(path, &sb) == -1) {
 			log_warn("warn: smtpd: lstat: %s", path);
