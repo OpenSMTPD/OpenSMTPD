@@ -495,7 +495,6 @@ struct listener {
 	struct event		 ev;
 	char			 pki_name[SMTPD_MAXPATHLEN];
 	struct ssl		*ssl;
-	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
@@ -555,6 +554,7 @@ struct smtpd {
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
 	struct dict			       *sc_pki_dict;
+	struct dict			       *sc_ssl_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 
@@ -1287,7 +1287,7 @@ const char *imsg_to_str(int);
 
 /* ssl_smtpd.c */
 void   *ssl_mta_init(char *, off_t, char *, off_t);
-void   *ssl_smtp_init(void *, char *, off_t, char *, off_t);
+void   *ssl_smtp_init(void *, char *, off_t, char *, off_t, void *, void *);
 
 
 /* stat_backend.c */
