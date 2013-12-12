@@ -604,6 +604,7 @@ mta_source_error(struct mta_relay *relay, struct mta_route *route, const char *e
 void
 mta_route_error(struct mta_relay *relay, struct mta_route *route)
 {
+#if 0
 	route->nerror += 1;
 
 	if (route->nerror > MAXERROR_PER_ROUTE) {
@@ -611,6 +612,7 @@ mta_route_error(struct mta_relay *relay, struct mta_route *route)
 		    "disabling for a while", mta_route_to_text(route));
 		mta_route_disable(route, 2, ROUTE_DISABLED_SMTP);
 	}
+#endif
 }
 
 void
@@ -634,7 +636,9 @@ mta_route_ok(struct mta_relay *relay, struct mta_route *route)
 void
 mta_route_down(struct mta_relay *relay, struct mta_route *route)
 {
+#if 0
 	mta_route_disable(route, 2, ROUTE_DISABLED_SMTP);
+#endif
 }
 
 void
