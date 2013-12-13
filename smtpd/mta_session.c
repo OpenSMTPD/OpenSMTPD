@@ -996,11 +996,10 @@ mta_response(struct mta_session *s, char *line)
 				mta_hoststat_update(domain + 1, e->status);
 			mta_delivery_notify(e);
 
-			if (s->relay->limits->max_failures_per_session)
-				if (s->failures == s->relay->limits->max_failures_per_session) {
+			if (s->relay->limits->max_failures_per_session &&
+			    s->failures == s->relay->limits->max_failures_per_session) {
 					mta_flush_task(s, IMSG_DELIVERY_TEMPFAIL,
 					    "Too many consecutive errors, closing connection", 0, 1);
-					mta_route_down(s->relay, s->route);
 					mta_enter_state(s, MTA_QUIT);
 					break;
 				}

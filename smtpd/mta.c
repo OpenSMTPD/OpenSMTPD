@@ -713,7 +713,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 		if (e->delivery == IMSG_DELIVERY_OK)
 			queue_ok(e->id);
 		else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
-			queue_tempfail(e->id, e->penalty, e->status);
+			queue_tempfail(e->id, e->status);
 		else if (e->delivery == IMSG_DELIVERY_PERMFAIL)
 			queue_permfail(e->id, e->status);
 		else if (e->delivery == IMSG_DELIVERY_LOOP)
