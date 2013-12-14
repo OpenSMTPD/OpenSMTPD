@@ -107,10 +107,12 @@ ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_le
 
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
+#if defined HAVE_TLSEXT_SERVERNAME
 	if (cb) {
 		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, cb);
 		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, arg);
 	}
+#endif
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;

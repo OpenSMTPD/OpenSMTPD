@@ -1294,6 +1294,25 @@ AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
 ##chl
 
 ##gilles
+OPENSSL_SUPPORTS_SNI=no
+AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
+			[Define if you want to enable TLS extension SERVERNAME])
+		OPENSSL_SUPPORTS_SNI=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
+##gilles
+
+##gilles
 AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
 AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
 #include <openssl/ssl.h>
