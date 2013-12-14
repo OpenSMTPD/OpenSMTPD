@@ -179,7 +179,9 @@ static const char *smtp_strstate(int);
 static int smtp_verify_certificate(struct smtp_session *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
+#if defined(HAVE_TLSEXT_SERVERNAME)
 static int smtp_sni_callback(SSL *, int *, void *);
+#endif
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -292,6 +294,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	int				 status, success, dnserror;
 	X509				*x;
 	void				*ssl_ctx;
+	void				*sni = NULL;
 
 	switch (imsg->hdr.type) {
 	case IMSG_DNS_PTR:
@@ -592,10 +595,14 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else
 			ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
 
+#if defined(HAVE_TLSEXT_SERVERNAME)
+		sni = smtp_sni_callback;
+#endif
+
 		ssl = ssl_smtp_init(ssl_ctx,
 		    resp_ca_cert->cert, resp_ca_cert->cert_len,
 		    resp_ca_cert->key, resp_ca_cert->key_len,
-		    smtp_sni_callback, s);
+		    sni, s);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
@@ -1743,6 +1750,7 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	evtimer_add(&s->pause, &tv);
 }
 
+#if defined(HAVE_TLSEXT_SERVERNAME)
 static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
@@ -1765,7 +1773,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
 }
-
+#endif
 
 #define CASE(x) case x : return #x
 
