@@ -164,7 +164,6 @@ struct scheduler_info {
 	time_t			lasttry;
 	time_t			lastbounce;
 	time_t			nexttry;
-	uint8_t			penalty;
 };
 
 #define SCHED_NONE		0x00

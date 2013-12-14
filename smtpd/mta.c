@@ -716,7 +716,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 		if (e->delivery == IMSG_DELIVERY_OK)
 			queue_ok(e->id);
 		else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
-			queue_tempfail(e->id, e->penalty, e->status);
+			queue_tempfail(e->id, e->status);
 		else if (e->delivery == IMSG_DELIVERY_PERMFAIL)
 			queue_permfail(e->id, e->status);
 		else if (e->delivery == IMSG_DELIVERY_LOOP)
@@ -763,11 +763,10 @@ mta_delivery_log(struct mta_envelope *e, const char *source, const char *relay,
 }
 
 void
-mta_delivery_notify(struct mta_envelope *e, uint32_t penalty)
+mta_delivery_notify(struct mta_envelope *e)
 {
 	struct timeval	tv;
 
-	e->penalty = penalty;
 	tree_xset(&flush_evp, e->id, e);
 	if (tree_count(&flush_evp) == 1) {
 		tv.tv_sec = 0;
@@ -1359,7 +1358,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 			}
 
 			mta_delivery_log(e, NULL, relay->domain->name, fail, error);
-			mta_delivery_notify(e, 0);
+			mta_delivery_notify(e);
 
 			n++;
 		}
