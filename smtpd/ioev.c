@@ -408,7 +408,8 @@ io_reset(struct io *io, short events, void (*dispatch)(int, short, void*))
 	 */
 	io->flags |= IO_RESET;
 
-	event_del(&io->ev);
+	if (event_initialized(&io->ev))
+		event_del(&io->ev);
 
 	/*
 	 * The io is paused by the user, so we don't want the timeout to be
