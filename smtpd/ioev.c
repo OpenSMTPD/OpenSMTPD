@@ -265,7 +265,8 @@ io_clear(struct io *io)
 	}
 #endif
 
-	event_del(&io->ev);
+	if (event_initialized(&io->ev))
+		event_del(&io->ev);
 	if (io->sock != -1) {
 		close(io->sock);
 		io->sock = -1;
