@@ -1,4 +1,4 @@
-/*	$OpenBSD: imsg.c,v 1.2 2012/06/02 21:46:53 gilles Exp $	*/
+/*	$OpenBSD: imsg.c,v 1.5 2013/12/26 17:32:33 eric Exp $	*/
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -104,10 +104,6 @@ again:
 	}
 	
 	if ((n = recvmsg(ibuf->fd, &msg, 0)) == -1) {
-		if (errno == ECONNRESET || errno == ETIMEDOUT) {
-			n = 0;
-			goto fail;
-		}
 		if (errno == EMSGSIZE)
 			goto fail;
 		if (errno != EINTR && errno != EAGAIN)
