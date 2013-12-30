@@ -193,7 +193,7 @@ control_create_socket(void)
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("control: socket");
 
-	bzero(&sun, sizeof(sun));
+	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
 	if (strlcpy(sun.sun_path, SMTPD_SOCKET,
 	    sizeof(sun.sun_path)) >= sizeof(sun.sun_path))
@@ -275,7 +275,7 @@ control(void)
 
 	tree_init(&ctl_conns);
 
-	bzero(&digest, sizeof digest);
+	memset(&digest, 0, sizeof digest);
 	digest.startup = time(NULL);
 
 	config_peer(PROC_SCHEDULER);

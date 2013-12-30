@@ -75,7 +75,6 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 evpid, id, holdq;
 	uint32_t		 msgid;
 	uint32_t       		 inflight;
-	uint32_t       		 penalty;
 	size_t			 n, i;
 	time_t			 timestamp;
 	int			 v, r, type;
@@ -88,7 +87,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: inserting evp:%016" PRIx64, evp.id);
-		scheduler_info(&si, &evp, 0);
+		scheduler_info(&si, &evp);
 		stat_increment("scheduler.envelope.incoming", 1);
 		backend->insert(&si);
 		return;
@@ -153,11 +152,10 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_DELIVERY_TEMPFAIL:
 		m_msg(&m, imsg);
 		m_get_envelope(&m, &evp);
-		m_get_u32(&m, &penalty);
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
 		    "scheduler: updating evp:%016" PRIx64, evp.id);
-		scheduler_info(&si, &evp, penalty);
+		scheduler_info(&si, &evp);
 		backend->update(&si);
 		ninflight -= 1;
 		stat_increment("scheduler.delivery.tempfail", 1);
@@ -475,7 +473,7 @@ scheduler_timeout(int fd, short event, void *p)
 	    !(env->sc_flags & SMTPD_MTA_PAUSED))
 		typemask |= SCHED_MTA;
 
-	bzero(&batch, sizeof (batch));
+	memset(&batch, 0, sizeof (batch));
 	batch.evpids = evpids;
 	batch.evpcount = env->sc_scheduler_max_schedule;
 	backend->batch(typemask, &batch);

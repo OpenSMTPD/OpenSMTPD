@@ -204,7 +204,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			if (imsg->fd == -1) {
 				log_debug("debug: mda: cannot get message fd");
-				queue_tempfail(e->id, 0, "Cannot get message fd");
+				queue_tempfail(e->id, "Cannot get message fd");
 				mda_log(e, "TempFail", "Cannot get message fd");
 				mda_done(s);
 				return;
@@ -217,7 +217,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if ((s->datafp = fdopen(imsg->fd, "r")) == NULL) {
 				log_warn("warn: mda: fdopen");
 				close(imsg->fd);
-				queue_tempfail(e->id, 0, "fdopen failed");
+				queue_tempfail(e->id, "fdopen failed");
 				mda_log(e, "TempFail", "fdopen failed");
 				mda_done(s);
 				return;
@@ -245,7 +245,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (n == -1) {
 				log_warn("warn: mda: "
 				    "fail to write delivery info");
-				queue_tempfail(e->id, 0, "Out of memory");
+				queue_tempfail(e->id, "Out of memory");
 				mda_log(e, "TempFail", "Out of memory");
 				mda_done(s);
 				return;
@@ -253,7 +253,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			/* request parent to fork a helper process */
 			userinfo = &s->user->userinfo;
-			bzero(&deliver, sizeof deliver);
+			memset(&deliver, 0, sizeof deliver);
 			switch (e->method) {
 			case A_MDA:
 				deliver.mode = A_MDA;
@@ -336,7 +336,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			e = s->evp;
 			if (imsg->fd == -1) {
 				log_warn("warn: mda: fail to retrieve mda fd");
-				queue_tempfail(e->id, 0, "Cannot get mda fd");
+				queue_tempfail(e->id, "Cannot get mda fd");
 				mda_log(e, "TempFail", "Cannot get mda fd");
 				mda_done(s);
 				return;
@@ -379,7 +379,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			/* update queue entry */
 			if (error) {
-				queue_tempfail(e->id, 0, error);
+				queue_tempfail(e->id, error);
 				snprintf(buf, sizeof buf, "Error (%s)", error);
 				mda_log(e, "TempFail", buf);
 			}
@@ -628,7 +628,7 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	char	*ln, buf[SMTPD_MAXLINESIZE];
 	size_t	 len;
 
-	bzero(buf, sizeof buf);
+	memset(buf, 0, sizeof buf);
 	if (lseek(fd, 0, SEEK_SET) < 0) {
 		log_warn("warn: mda: lseek");
 		close(fd);
@@ -674,7 +674,7 @@ mda_fail(struct mda_user *user, int permfail, const char *error)
 		}
 		else {
 			mda_log(e, "TempFail", error);
-			queue_tempfail(e->id, 0, error);
+			queue_tempfail(e->id, error);
 		}
 		mda_envelope_free(e);
 	}

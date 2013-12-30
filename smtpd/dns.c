@@ -123,7 +123,7 @@ domainname_is_addr(const char *s, struct sockaddr *sa, socklen_t *sl)
 		return (0);
 
 	buf[l - 1] = '\0';
-	bzero(&hints, sizeof(hints));
+	memset(&hints, 0, sizeof(hints));
 	hints.ai_flags = AI_NUMERICHOST;
 	hints.ai_socktype = SOCK_STREAM;
 	if (i6)

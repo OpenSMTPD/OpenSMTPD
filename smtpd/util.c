@@ -39,6 +39,7 @@
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
+#include <resolv.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -198,7 +199,7 @@ mkdirs(char *path, mode_t mode)
 	if (strlen(path) >= sizeof buf)
 		return 0;
 
-	bzero(buf, sizeof buf);
+	memset(buf, 0, sizeof buf);
 	for (p = path; *p; p++) {
 		if (*p == '/') {
 			if (buf[0] != '\0')
@@ -679,7 +680,7 @@ session_socket_no_linger(int fd)
 {
 	struct linger	 lng;
 
-	bzero(&lng, sizeof(lng));
+	memset(&lng, 0, sizeof(lng));
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1)
 		fatal("session_socket_no_linger");
 }
@@ -798,4 +799,17 @@ end:
 	if (fp)
 		fclose(fp);
 	return ret;
+}
+
+int
+base64_encode(unsigned char const *src, size_t srclen,
+	      char *dest, size_t destsize)
+{
+	return __b64_ntop(src, srclen, dest, destsize);
+}
+
+int
+base64_decode(char const *src, unsigned char *dest, size_t destsize)
+{
+	return __b64_pton(src, dest, destsize);
 }

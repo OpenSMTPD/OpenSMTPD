@@ -175,7 +175,7 @@ enqueue(int argc, char *argv[])
 	int			 save_argc;
 	char			**save_argv;
 
-	bzero(&msg, sizeof(msg));
+	memset(&msg, 0, sizeof(msg));
 	time(&timestamp);
 
 	save_argc = argc;
@@ -505,7 +505,7 @@ parse_message(FILE *fin, int get_from, int tflag, FILE *fout)
 	uint	 i, cur = HDR_NONE;
 	uint	 header_seen = 0, header_done = 0;
 
-	bzero(&pstate, sizeof(pstate));
+	memset(&pstate, 0, sizeof(pstate));
 	for (;;) {
 		buf = fgetln(fin, &len);
 		if (buf == NULL && ferror(fin))

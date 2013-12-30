@@ -489,7 +489,6 @@ struct listener {
 	struct event		 ev;
 	char			 pki_name[SMTPD_MAXPATHLEN];
 	struct ssl		*ssl;
-	void			*ssl_ctx;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
@@ -549,6 +548,7 @@ struct smtpd {
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
 	struct dict			       *sc_pki_dict;
+	struct dict			       *sc_ssl_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 
@@ -716,6 +716,8 @@ struct mta_limits {
 	time_t	sessdelay_transaction;
 	time_t	sessdelay_keepalive;
 
+	size_t	max_failures_per_session;
+
 	int	family;
 
 	int	task_hiwat;
@@ -777,12 +779,13 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
+
 	int				 ext;
 	char				*dsn_orcpt;
 	char				dsn_envid[DSN_ENVID_LEN+1];
 	uint8_t				dsn_notify;
 	enum dsn_ret			dsn_ret;
-	int				 penalty;
+
 	char				 status[SMTPD_MAXLINESIZE];
 };
 
@@ -1210,7 +1213,7 @@ void mta_route_down(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_delivery_log(struct mta_envelope *, const char *, const char *, int, const char *);
-void mta_delivery_notify(struct mta_envelope *, uint32_t);
+void mta_delivery_notify(struct mta_envelope *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1228,7 +1231,7 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, uint32_t, const char *);
+void queue_tempfail(uint64_t, const char *);
 void queue_permfail(uint64_t, const char *);
 void queue_loop(uint64_t);
 void queue_flow_control(void);
@@ -1261,7 +1264,7 @@ pid_t scheduler(void);
 
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
-void scheduler_info(struct scheduler_info *, struct envelope *, uint32_t);
+void scheduler_info(struct scheduler_info *, struct envelope *);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
@@ -1286,7 +1289,7 @@ const char *imsg_to_str(int);
 
 /* ssl_smtpd.c */
 void   *ssl_mta_init(char *, off_t, char *, off_t);
-void   *ssl_smtp_init(void *, char *, off_t, char *, off_t);
+void   *ssl_smtp_init(void *, char *, off_t, char *, off_t, void *, void *);
 
 
 /* stat_backend.c */
@@ -1388,6 +1391,8 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 int getmailname(char *, size_t);
+int base64_encode(unsigned char const *, size_t, char *, size_t);
+int base64_decode(char const *, unsigned char *, size_t);
 
 
 /* waitq.c */
