@@ -110,8 +110,6 @@ static struct listen_opts {
 	char	       *hostname;
 	struct table   *hostnametable;
 	uint16_t	flags;	
-	const char     *ciphers;
-	const char     *curve;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -1529,6 +1527,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
+	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
 
 	/* Report mails delayed for more than 4 hours */
@@ -1544,6 +1543,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
 		free(conf->sc_pki_dict);
+		free(conf->sc_ssl_dict);
 		free(conf->sc_limits_dict);
 		return (-1);
 	}
@@ -1556,6 +1556,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	dict_init(&conf->sc_filters);
 
 	dict_init(conf->sc_pki_dict);
+	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
 
 	dict_init(conf->sc_limits_dict);
@@ -1734,15 +1735,6 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 	if (lo->pki && !lo->ssl)
 		errx(1, "invalid listen option: pki requires tls/smtps");
 	
-	if (lo->ssl && !lo->pki)
-		errx(1, "invalid listen option: tls/smtps requires pki");
-
-	if (lo->ciphers && !lo->ssl)
-		errx(1, "invalid listen option: ciphers requires tls/smtps");
-
-	if (lo->curve && !lo->ssl)
-		errx(1, "invalid listen option: curve requires tls/smtps");
-
 	flags = lo->flags;
 
 	if (lo->port) {

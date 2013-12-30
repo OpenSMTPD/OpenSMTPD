@@ -263,7 +263,8 @@ io_clear(struct io *io)
 	}
 #endif
 
-	event_del(&io->ev);
+	if (event_initialized(&io->ev))
+		event_del(&io->ev);
 	if (io->sock != -1) {
 		close(io->sock);
 		io->sock = -1;
@@ -408,7 +409,8 @@ io_reset(struct io *io, short events, void (*dispatch)(int, short, void*))
 	 */
 	io->flags |= IO_RESET;
 
-	event_del(&io->ev);
+	if (event_initialized(&io->ev))
+		event_del(&io->ev);
 
 	/*
 	 * The io is paused by the user, so we don't want the timeout to be
