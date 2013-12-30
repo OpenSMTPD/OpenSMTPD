@@ -587,7 +587,7 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 			return (LKA_TEMPFAIL);
 		}
 
-		r = __b64_ntop((unsigned char *)buf, buflen, dst, sz);
+		r = base64_encode((unsigned char *)buf, buflen, dst, sz);
 		free(buf);
 		
 		if (r == -1) {
