@@ -414,20 +414,6 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 	if (reply == NULL)
 		return (-1);
 
-	switch (reply->type) {
-		case REDIS_REPLY_NIL:
-			r = 0;
-			goto end;
-			break;
-
-		case REDIS_REPLY_STATUS:
-		case REDIS_REPLY_ERROR:
-		default:
-			r = -1;
-			goto end;
-			break;
-	}
-
 	r = 1;
 	switch(service) {
 	case K_ALIAS:
@@ -442,6 +428,10 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 			}
 		}
 		else if (reply->type == REDIS_REPLY_ARRAY) {
+			if (reply->elements == 0) {
+				r = 0;
+			}
+				
 			for (i = 0; i < reply->elements; i++) {
 				elmt = reply->element[i];
 				if (elmt == NULL ||
