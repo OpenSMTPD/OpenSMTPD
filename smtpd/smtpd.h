@@ -59,6 +59,15 @@
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
 #define	PATH_TABLES		"/usr/libexec/smtpd"
 
+
+/*
+ * RFC 5322 defines these characters as valid, some of them are
+ * potentially dangerous and need to be escaped.
+ */
+#define	MAILADDR_ALLOWED       	"!#$%&'*/?^`{|}~+-=_"
+#define	MAILADDR_ESCAPE		"!#$%&'*/?^`{|}~"
+
+
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
 #define	F_TLS_OPTIONAL		0x04

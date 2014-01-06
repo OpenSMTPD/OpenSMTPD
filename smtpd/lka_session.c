@@ -85,7 +85,7 @@ struct modifiers {
 	{ "strip",	mod_strip },
 	{ "raw",	NULL },		/* special case, must stay last */
 };
-static const char	*unsafe = "*?";
+static const char	*unsafe = MAILADDR_ESCAPE;
 
 
 static int		init;
