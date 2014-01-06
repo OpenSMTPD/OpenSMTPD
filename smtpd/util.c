@@ -446,11 +446,7 @@ hostname_match(const char *hostname, const char *pattern)
 int
 valid_localpart(const char *s)
 {
-/*
- * RFC 5322 defines theses characters as valid: !#$%&'*+-/=?^_`{|}~
- * some of them are potentially dangerous, and not so used after all.
- */
-#define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr("*!%+-/=_", (c)))
+#define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr(MAILADDR_ALLOWED, (c)))
 nextatom:
 	if (! IS_ATEXT(*s) || *s == '\0')
 		return 0;
