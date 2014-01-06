@@ -444,7 +444,7 @@ bounce_next(struct bounce_session *s)
 			break;
 		case B_DSN:
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-			    s->msg->bounce.mta_nodsn ?
+			    s->msg->bounce.mta_without_dsn ?
 			    notice_relay : notice_success);
 			break;
 		default:

@@ -346,16 +346,15 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				bounce.type = B_DSN;
 				bounce.delay = 0;
 				bounce.expire = 0;
-				bounce.mta_nodsn = 0;
+				bounce.mta_without_dsn = 0;
 				bounce.dsn_ret = evp.dsn_ret;
 
 				if (p->proc == PROC_MDA)
 					queue_bounce(&evp, &bounce);
 				else if (p->proc == PROC_MTA &&
 				    (mta_ext & MTA_EXT_DSN) == 0) {
-					bounce.mta_nodsn = 1;
+					bounce.mta_without_dsn = 1;
 					queue_bounce(&evp, &bounce);
-
 				}
 			}
 			queue_envelope_delete(evpid);

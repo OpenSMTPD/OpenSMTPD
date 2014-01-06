@@ -389,7 +389,7 @@ struct delivery_bounce {
 	time_t			delay;
 	time_t			expire;
 	enum dsn_ret		dsn_ret;
-        int			mta_nodsn;
+        int			mta_without_dsn;
 };
 
 enum expand_type {
