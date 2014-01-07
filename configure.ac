@@ -644,6 +644,7 @@ AC_CHECK_FUNCS([ \
 	inet_aton \
 	inet_ntoa \
 	inet_ntop \
+	isblank \
 	memmove \
 	nsleep \
 	pidfile \
