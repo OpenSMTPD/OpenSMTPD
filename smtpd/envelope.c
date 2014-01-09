@@ -625,7 +625,7 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 		return ascii_load_dsn_ret(&ep->dsn_ret, buf);
 
 	if (strcasecmp("dsn-envid", field) == 0)
-		return ascii_load_string(ep->dsn_envid, buf, sizeof buf);
+		return ascii_load_string(ep->dsn_envid, buf, sizeof(ep->dsn_envid));
 
 	return (0);
 }
