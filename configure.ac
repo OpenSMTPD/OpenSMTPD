@@ -2596,6 +2596,20 @@ AC_ARG_WITH([experimental-sqlite],
 )
 AM_CONDITIONAL([HAVE_SQLITE], [test $EXPERIMENTAL_SQLITE = yes])
 
+# Whether to enable *experimental* Redis support
+EXPERIMENTAL_REDIS=no
+AC_ARG_WITH([experimental-redis],
+	[  --with-experimental-redis	Enable experimental Redis support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_REDIS], [1],
+				[Define if you have experimental Redis support])
+			EXPERIMENTAL_REDIS=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_REDIS], [test $EXPERIMENTAL_REDIS = yes])
+
 
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
 
@@ -2910,6 +2924,7 @@ AC_CONFIG_FILES([Makefile
 		mk/backends/table-postgres/Makefile
 		mk/backends/table-sqlite/Makefile
 		mk/backends/table-stub/Makefile
+		mk/backends/table-redis/Makefile
 		mk/filters/Makefile
 		mk/filters/dnsbl/Makefile
 		mk/filters/stub/Makefile
