@@ -150,7 +150,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		7
+#define	IMSG_VERSION		8
 
 enum imsg_type {
 	IMSG_NONE,
@@ -181,6 +181,9 @@ enum imsg_type {
 	IMSG_CTL_MTA_SHOW_RELAYS,
 	IMSG_CTL_MTA_SHOW_ROUTES,
 	IMSG_CTL_MTA_SHOW_HOSTSTATS,
+	IMSG_CTL_MTA_BLOCK,
+	IMSG_CTL_MTA_UNBLOCK,
+	IMSG_CTL_MTA_SHOW_BLOCK,
 
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
@@ -664,6 +667,7 @@ struct mta_connector {
 #define CONNECTOR_ERROR_ROUTE_NET	0x0008
 #define CONNECTOR_ERROR_ROUTE_SMTP	0x0010
 #define CONNECTOR_ERROR_ROUTE		0x0018
+#define CONNECTOR_ERROR_BLOCKED		0x0020
 #define CONNECTOR_ERROR			0x00ff
 
 #define CONNECTOR_LIMIT_HOST		0x0100

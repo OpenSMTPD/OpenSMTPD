@@ -23,6 +23,7 @@ enum {
 	P_MSGID,
 	P_EVPID,
 	P_ROUTEID,
+	P_ADDR,
 };
 
 struct parameter {
@@ -33,6 +34,7 @@ struct parameter {
 		uint32_t	 u_msgid;
 		uint64_t	 u_evpid;
 		uint64_t	 u_routeid;
+		struct sockaddr_storage u_ss;
 	} u;
 };
 
