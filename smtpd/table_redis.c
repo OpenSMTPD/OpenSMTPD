@@ -191,7 +191,7 @@ config_load(const char *path)
 	fclose(fp);
 	return (conf);
 
-    end:
+end:
 	free(lbuf);
 	if (fp)
 		fclose(fp);
@@ -251,9 +251,8 @@ config_connect(struct config *conf)
 	/* Disconnect first, if needed */
 	config_reset(conf);
 
-	if ((value = dict_get(&conf->conf, "host"))) {
+	if ((value = dict_get(&conf->conf, "host")))
 		host = value;
-	}
 
 	if ((value = dict_get(&conf->conf, "port"))) {
 		e = NULL;
@@ -273,19 +272,17 @@ config_connect(struct config *conf)
 
 	for (i = 0; i < SQL_MAX; i++) {
 		q = dict_get(&conf->conf, qspec[i].name);
-		if (q) {
+		if (q)
 			conf->statements[i] = strdup(q);
-		}
-		else {
+		else
 			conf->statements[i] = strdup(qspec[i].default_query);
-		}
 	}
 
 	log_debug("debug: table-redis: connected");
 
 	return (1);
 
-    end:
+end:
 	config_reset(conf);
 	return (0);
 }
@@ -330,7 +327,7 @@ table_redis_query(const char *key, int service)
 
 	retry_times = 3;
 
-    retry:
+retry:
 	--retry_times;
 	if (retry_times < 0) {
 		log_warnx("warn: table-redis: giving up: too many retries");
@@ -348,14 +345,13 @@ table_redis_query(const char *key, int service)
 		return (NULL);
 
 	res = redisCommand(config->db, stmt, key);
-
 	if (res == NULL) {
 		log_warnx("warn: table-redis: redisCommand: %s",
 		    config->db->errstr);
 
-		if (config_connect(config)) {
+		if (config_connect(config))
 			goto retry;
-		}
+
 		return (NULL);
 	}
 
@@ -426,10 +422,9 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 			}
 		}
 		else if (reply->type == REDIS_REPLY_ARRAY) {
-			if (reply->elements == 0) {
+			if (reply->elements == 0)
 				r = 0;
-			}
-				
+			
 			for (i = 0; i < reply->elements; i++) {
 				elmt = reply->element[i];
 				if (elmt == NULL ||
@@ -447,9 +442,8 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 				}
 			}
 		}
-		else {
+		else
 			r = -1;
-		}
 		break;
 	case K_CREDENTIALS:
 	case K_USERINFO:
@@ -464,9 +458,8 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 				r = -1;
 			}
 		}
-		else {
+		else
 			r = -1;
-		}
 		break;
 	default:
 		log_warnx("warn: table-redis: unknown service %d",
@@ -474,9 +467,8 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 		r = -1;
 	}
 
-    end:
+end:
 	freeReplyObject(reply);
-
 	return (r);
 }
 
