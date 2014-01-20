@@ -147,7 +147,7 @@ static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
 static const char * dsn_strret(enum dsn_ret);
-static const char * dsn_strnotify(uint8_t);
+static char * dsn_strnotify(uint8_t);
 
 void mta_hoststat_update(const char *, const char *);
 void mta_hoststat_reschedule(const char *);
@@ -583,7 +583,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 	int			 oldstate;
 	ssize_t			 q;
 	char			 ibuf[SMTPD_MAXLINESIZE];
-	char			 obuf[SMTPD_MAXLINESIZE];
+	char			 obuf[SMTPD_MAXLINESIZE], *sn = NULL;
 	int			 offset;
 
     again:
@@ -788,12 +788,16 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 		e = s->currevp;
 		if (s->ext & MTA_EXT_DSN) {
+			if (e->dsn_notify)
+				sn = dsn_strnotify(e->dsn_notify);
+
 			mta_send(s, "RCPT TO:<%s> %s%s %s%s",
 			    e->dest,
 			    e->dsn_notify ? "NOTIFY=" : "",
-			    e->dsn_notify ? dsn_strnotify(e->dsn_notify) : "",
+			    e->dsn_notify ? sn : "",
 			    e->dsn_orcpt ? "ORCPT=" : "",
 			    e->dsn_orcpt ? e->dsn_orcpt : "");
+			free(sn);
 		} else
 			mta_send(s, "RCPT TO:<%s>", e->dest);
 
@@ -1593,21 +1597,32 @@ dsn_strret(enum dsn_ret ret)
 	}
 }
 
-static const char *
+static char *
 dsn_strnotify(uint8_t arg)
 {
+	size_t	sz;
+	char	*buf;
+
+	buf = xmalloc(SMTPD_MAXLINESIZE * sizeof(char), "dsn_strnotify");
+	buf[0] = '\0';
 	if (arg & DSN_SUCCESS)
-		return "SUCCESS";
-	else if (arg & DSN_FAILURE)
-		return "FAILURE";
-	else if (arg & DSN_DELAY)
-		return "DELAY";
-	else if (arg & DSN_NEVER)
-		return "NEVER";
-	else {
-		log_debug("mta: invalid notify %u", arg);
-		return "???";
-	}
+		strlcat(buf, "SUCCESS,", sizeof(buf));
+
+	if (arg & DSN_FAILURE)
+		strlcat(buf, "FAILURE,", sizeof(buf));
+
+	if (arg & DSN_DELAY)
+		strlcat(buf, "DELAY,", sizeof(buf));
+
+	if (arg & DSN_NEVER)
+		strlcat(buf, "NEVER,", sizeof(buf));
+
+	/* strip trailing comma */
+	sz = strlen(buf);
+	if (sz)
+		buf[sz - 1] = '\0';
+
+	return (buf);
 }
 
 #define CASE(x) case x : return #x
