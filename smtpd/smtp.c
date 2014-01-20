@@ -242,8 +242,13 @@ smtp_setup_listeners(void)
 	int			opt;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1)
+		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
+			if (errno == EAFNOSUPPORT) {
+				log_warn("smtpd: socket");
+				continue;
+			}
 			fatal("smtpd: socket");
+		}
 		opt = 1;
 #ifdef SO_REUSEADDR
 		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
