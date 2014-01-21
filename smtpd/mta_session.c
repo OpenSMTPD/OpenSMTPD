@@ -1596,18 +1596,27 @@ dsn_strret(enum dsn_ret ret)
 static const char *
 dsn_strnotify(uint8_t arg)
 {
+	static char	buf[32];
+	size_t		sz;
+
 	if (arg & DSN_SUCCESS)
-		return "SUCCESS";
-	else if (arg & DSN_FAILURE)
-		return "FAILURE";
-	else if (arg & DSN_DELAY)
-		return "DELAY";
-	else if (arg & DSN_NEVER)
-		return "NEVER";
-	else {
-		log_debug("mta: invalid notify %u", arg);
-		return "???";
-	}
+		strlcat(buf, "SUCCESS,", sizeof(buf));
+
+	if (arg & DSN_FAILURE)
+		strlcat(buf, "FAILURE,", sizeof(buf));
+
+	if (arg & DSN_DELAY)
+		strlcat(buf, "DELAY,", sizeof(buf));
+
+	if (arg & DSN_NEVER)
+		strlcat(buf, "NEVER,", sizeof(buf));
+
+	/* trim trailing comma */
+	sz = strlen(buf);
+	if (sz)
+		buf[sz - 1] = '\0';
+
+	return (buf);
 }
 
 #define CASE(x) case x : return #x
