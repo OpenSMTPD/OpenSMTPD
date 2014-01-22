@@ -70,6 +70,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	time_t			 nexttry;
 	int			 fd, mta_ext, ret, v, flags;
 
+	memset(&bounce, 0, sizeof(struct delivery_bounce));
 	if (p->proc == PROC_SMTP) {
 
 		switch (imsg->hdr.type) {
@@ -213,8 +214,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 
 			bounce.type = B_ERROR;
-			bounce.delay = 0;
-			bounce.expire = 0;
 			envelope_set_errormsg(&evp, "Envelope expired");
 			queue_bounce(&evp, &bounce);
 			queue_log(&evp, "Expire", "Envelope expired");
@@ -344,9 +343,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			if (evp.dsn_notify & DSN_SUCCESS) {
 				bounce.type = B_DSN;
-				bounce.delay = 0;
-				bounce.expire = 0;
-				bounce.mta_without_dsn = 0;
 				bounce.dsn_ret = evp.dsn_ret;
 
 				if (p->proc == PROC_MDA)
@@ -399,8 +395,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			bounce.type = B_ERROR;
-			bounce.delay = 0;
-			bounce.expire = 0;
 			envelope_set_errormsg(&evp, "%s", reason);
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evpid);
@@ -423,8 +417,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
 			bounce.type = B_ERROR;
-			bounce.delay = 0;
-			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evp.id);
 			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1);
