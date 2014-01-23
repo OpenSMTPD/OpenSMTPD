@@ -176,6 +176,7 @@ struct scheduler_info {
 #define SCHED_MTA		0x40
 
 struct scheduler_batch {
+	int		 mask;
 	int		 type;
 	time_t		 delay;
 	size_t		 evpcount;
