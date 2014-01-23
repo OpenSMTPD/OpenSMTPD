@@ -268,6 +268,8 @@ mfa(void)
 	imsg_callback = mfa_imsg;
 	event_init();
 
+	tree_init(&tx_tree);
+
 	signal_set(&ev_sigint, SIGINT, mfa_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mfa_sig_handler, NULL);
 	signal_set(&ev_sigchld, SIGCHLD, mfa_sig_handler, NULL);
@@ -375,7 +377,6 @@ static void
 mfa_tx_done(struct mfa_tx *tx)
 {
 	log_debug("debug: mfa: tx done for %016"PRIx64, tx->reqid);
-
 	tree_xpop(&tx_tree, tx->reqid);
 	if (!tx->error && tx->datain != tx->datalen) {
 		log_debug("debug: mfa: tx datalen mismatch: %zu/%zu",
