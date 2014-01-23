@@ -1527,8 +1527,8 @@ parent_auth_pam(const char *username, const char *password)
 	int rc;
 	pam_handle_t *pamh = NULL;
 	struct pam_conv conv = { pam_conv_password, password };
-	
-	if ((rc = pam_start("smtpd", username, &conv, &pamh)) != PAM_SUCCESS)
+
+	if ((rc = pam_start(USE_PAM_SERVICE, username, &conv, &pamh)) != PAM_SUCCESS)
 		goto end;
 	if ((rc = pam_authenticate(pamh, 0)) != PAM_SUCCESS)
 		goto end;

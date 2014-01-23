@@ -1516,6 +1516,21 @@ if test "x$PAM_MSG" = "xyes" ; then
 	])
 fi
 
+
+USE_PAM_SERVICE=smtpd
+AC_ARG_WITH([pam-service],
+	[  --with-pam-service=service Specify PAM service],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			USE_PAM_SERVICE=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
+AC_SUBST([USE_PAM_SERVICE])
+
+
 SMTPD_USER=_smtpd
 AC_ARG_WITH([privsep-user],
 	[  --with-privsep-user=user Specify non-privileged user for privilege separation],
