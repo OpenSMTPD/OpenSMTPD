@@ -535,16 +535,15 @@ scheduler_timeout(int fd, short event, void *p)
 		goto again;
 
 	/* We can schedule in the next event frame */
-	if (batch.mask & typemask) {
+	if (batch.mask & typemask ||
+	    (batch.mask & SCHED_DELAY && batch.type != SCHED_DELAY)) {
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
 		evtimer_add(&ev, &tv);
 		return;
 	}
 
-	if (batch.mask & SCHED_DELAY) {
-		if (batch.type != SCHED_DELAY)
-			errx(1, "expect SCHED_DELAY, got 0x%x", batch.type);
+	if (batch.type == SCHED_DELAY) {
 		tv.tv_sec = batch.delay;
 		tv.tv_usec = 0;
 		log_trace(TRACE_SCHEDULER,
