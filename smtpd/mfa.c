@@ -325,7 +325,6 @@ mfa_tx(uint64_t reqid, int fdout)
 	io_set_read(&tx->io);
 	tx->reqid = reqid;
 	tree_xset(&tx_tree, reqid, tx);
-
 	return (sp[1]);
 }
 
@@ -377,6 +376,7 @@ mfa_tx_done(struct mfa_tx *tx)
 {
 	log_debug("debug: mfa: tx done for %016"PRIx64, tx->reqid);
 
+	tree_xpop(&tx_tree, reqid);
 	if (!tx->error && tx->datain != tx->datalen) {
 		log_debug("debug: mfa: tx datalen mismatch: %zu/%zu",
 		    tx->datain, tx->datalen);
