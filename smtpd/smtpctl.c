@@ -821,12 +821,12 @@ do_block_mta(int argc, struct parameter *argv)
 
 	if (ibuf == NULL && !srv_connect())
 		errx(1, "smtpd doesn't seem to be running");
-
 	m = imsg_create(ibuf, IMSG_CTL_MTA_BLOCK, IMSG_VERSION, 0,
 	    sizeof(argv[0].u.u_ss) + strlen(argv[1].u.u_str) + 1);
-
-	imsg_add(m, &argv[0].u.u_ss, sizeof(argv[0].u.u_ss));
-	imsg_add(m, argv[1].u.u_str, strlen(argv[1].u.u_str) + 1);
+	if (imsg_add(m, &argv[0].u.u_ss, sizeof(argv[0].u.u_ss)) == -1)
+		errx(1, "imsg_add");
+	if (imsg_add(m, argv[1].u.u_str, strlen(argv[1].u.u_str) + 1) == -1)
+		errx(1, "imsg_add");
 	imsg_close(ibuf, m);
 
 	return srv_check_result(1);
@@ -842,9 +842,10 @@ do_unblock_mta(int argc, struct parameter *argv)
 
 	m = imsg_create(ibuf, IMSG_CTL_MTA_UNBLOCK, IMSG_VERSION, 0,
 	    sizeof(argv[0].u.u_ss) + strlen(argv[1].u.u_str) + 1);
-
-	imsg_add(m, &argv[0].u.u_ss, sizeof(argv[0].u.u_ss));
-	imsg_add(m, argv[1].u.u_str, strlen(argv[1].u.u_str) + 1);
+	if (imsg_add(m, &argv[0].u.u_ss, sizeof(argv[0].u.u_ss)) == -1)
+		errx(1, "imsg_add");
+	if (imsg_add(m, argv[1].u.u_str, strlen(argv[1].u.u_str) + 1) == -1)
+		errx(1, "imsg_add");
 	imsg_close(ibuf, m);
 
 	return srv_check_result(1);
