@@ -2450,6 +2450,12 @@ mta_block_cmp(const struct mta_block *a, const struct mta_block *b)
 		return (-1);
 	if (a->source > b->source)
 		return (1);
+	if (!a->domain && b->domain)
+		return (-1);
+	if (a->domain && !b->domain)
+		return (1);
+	if (a->domain == b->domain)
+		return (0);
 	return (strcmp(a->domain, b->domain));
 }
 
