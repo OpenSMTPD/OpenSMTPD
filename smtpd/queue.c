@@ -68,8 +68,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid, evpid, holdq;
 	uint32_t		 msgid;
 	time_t			 nexttry;
-	int			 fd, ret, v, flags;
+	int			 fd, mta_ext, ret, v, flags;
 
+	memset(&bounce, 0, sizeof(struct delivery_bounce));
 	if (p->proc == PROC_SMTP) {
 
 		switch (imsg->hdr.type) {
@@ -213,8 +214,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 
 			bounce.type = B_ERROR;
-			bounce.delay = 0;
-			bounce.expire = 0;
 			envelope_set_errormsg(&evp, "Envelope expired");
 			queue_bounce(&evp, &bounce);
 			queue_log(&evp, "Expire", "Envelope expired");
@@ -335,7 +334,25 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_DELIVERY_OK:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
+			if (p->proc == PROC_MTA)
+				m_get_int(&m, &mta_ext);
 			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warn("queue: dsn: failed to load envelope");
+				return;
+			}
+			if (evp.dsn_notify & DSN_SUCCESS) {
+				bounce.type = B_DSN;
+				bounce.dsn_ret = evp.dsn_ret;
+
+				if (p->proc == PROC_MDA)
+					queue_bounce(&evp, &bounce);
+				else if (p->proc == PROC_MTA &&
+				    (mta_ext & MTA_EXT_DSN) == 0) {
+					bounce.mta_without_dsn = 1;
+					queue_bounce(&evp, &bounce);
+				}
+			}
 			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_OK, 0, 0, -1);
 			m_add_evpid(p_scheduler, evpid);
@@ -378,8 +395,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			bounce.type = B_ERROR;
-			bounce.delay = 0;
-			bounce.expire = 0;
 			envelope_set_errormsg(&evp, "%s", reason);
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evpid);
@@ -402,8 +417,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
 			bounce.type = B_ERROR;
-			bounce.delay = 0;
-			bounce.expire = 0;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evp.id);
 			m_create(p_scheduler, IMSG_DELIVERY_LOOP, 0, 0, -1);
@@ -479,6 +492,9 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	b.lasttry = 0;
 	b.creation = time(NULL);
 	b.expire = 3600 * 24 * 7;
+
+	if (e->dsn_notify & DSN_NEVER)
+		return;
 
 	if (b.id == 0)
 		log_warnx("warn: queue_bounce: evpid=0");

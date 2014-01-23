@@ -11,5 +11,6 @@ SUBDIR+=	table-passwd
 #SUBDIR+=	table-postgres
 SUBDIR+=	table-sqlite
 SUBDIR+=	table-stub
+#SUBDIR+=	table-redis
 
 .include <bsd.subdir.mk>

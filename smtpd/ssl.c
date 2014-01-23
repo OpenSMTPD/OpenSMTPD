@@ -184,7 +184,7 @@ end:
 char *
 ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *pkiname)
 {
-	FILE		*fp;
+	FILE		*fp = NULL;
 	EVP_PKEY	*key = NULL;
 	BIO		*bio = NULL;
 	long		 size;
@@ -220,6 +220,7 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	(void)snprintf(prompt, sizeof prompt, "passphrase for %s: ", pkiname);
 	key = PEM_read_PrivateKey(fp, NULL, ssl_getpass_cb, prompt);
 	fclose(fp);
+	fp = NULL;
 	if (key == NULL)
 		goto fail;
 	/*
@@ -244,6 +245,7 @@ fail:
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
+	fclose(fp);
 	return (NULL);
 }
 
