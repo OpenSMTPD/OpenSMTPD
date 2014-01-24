@@ -77,6 +77,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_SMTP_RESPONSE:
+		case IMSG_QUEUE_MESSAGE_FILE:
 			smtp_session_imsg(p, imsg);
 			return;
 		}
@@ -85,7 +86,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_QUEUE_CREATE_MESSAGE:
-		case IMSG_QUEUE_MESSAGE_FILE:
 		case IMSG_QUEUE_SUBMIT_ENVELOPE:
 		case IMSG_QUEUE_COMMIT_ENVELOPES:
 		case IMSG_QUEUE_COMMIT_MESSAGE:

@@ -487,7 +487,7 @@ mfa_drain_query(struct mfa_query *q)
 		    q->smtp.code,
 		    q->smtp.response);
 
-		/* Done, notify all listeners and return smtp response */
+		/* Done, notify all listeners... */
 		while (tree_poproot(&q->notify, NULL, (void**)&proc)) {
 			m_create(&proc->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1);
 			m_add_id(&proc->mproc, q->qid);
@@ -495,14 +495,19 @@ mfa_drain_query(struct mfa_query *q)
 			m_close(&proc->mproc);
 		}
 
-		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-		m_add_id(p_smtp, q->session->id);
-		m_add_int(p_smtp, q->smtp.status);
-		m_add_u32(p_smtp, q->smtp.code);
-		if (q->smtp.response)
-			m_add_string(p_smtp, q->smtp.response);
-		m_close(p_smtp);
-
+		/* ...and send the SMTP response */
+		if (q->hook == HOOK_EOM) {
+			mfa_report_eom(q->session->id, q->u.datalen);
+		}
+		else {
+			m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+			m_add_id(p_smtp, q->session->id);
+			m_add_int(p_smtp, q->smtp.status);
+			m_add_u32(p_smtp, q->smtp.code);
+			if (q->smtp.response)
+				m_add_string(p_smtp, q->smtp.response);
+			m_close(p_smtp);
+		}
 		free(q->smtp.response);
 	}
 

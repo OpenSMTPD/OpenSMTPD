@@ -63,6 +63,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct sockaddr_storage	 local, remote;
 	struct mailaddr		 maddr;
+	struct mfa_tx		*tx;
 	struct msg		 m;
 	const char		*line, *hostname;
 	uint64_t		 reqid;
@@ -268,6 +269,8 @@ mfa(void)
 	imsg_callback = mfa_imsg;
 	event_init();
 
+	tree_init(&tx_tree);
+
 	signal_set(&ev_sigint, SIGINT, mfa_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mfa_sig_handler, NULL);
 	signal_set(&ev_sigchld, SIGCHLD, mfa_sig_handler, NULL);
@@ -279,6 +282,7 @@ mfa(void)
 
 	config_peer(PROC_PARENT);
 	config_peer(PROC_SMTP);
+	config_peer(PROC_QUEUE);
 	config_peer(PROC_CONTROL);
 	config_done();
 
@@ -376,6 +380,8 @@ mfa_tx_done(struct mfa_tx *tx)
 {
 	log_debug("debug: mfa: tx done for %016"PRIx64, tx->reqid);
 
+	tree_xpop(&tx_tree, tx->reqid);
+
 	if (!tx->error && tx->datain != tx->datalen) {
 		log_debug("debug: mfa: tx datalen mismatch: %zu/%zu",
 		    tx->datain, tx->datalen);
@@ -392,9 +398,29 @@ mfa_tx_done(struct mfa_tx *tx)
 		m_add_string(p_smtp, "Internal server error");
 		m_close(p_smtp);
 	}
-#if 0
-	else
-		mfa_filter(tx->reqid, HOOK_EOM);
-#endif
+	else {
+		/* XXX we could send the commit message here directly */
+		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+		m_add_id(p_smtp, tx->reqid);
+		m_add_int(p_smtp, MFA_OK);
+		m_add_u32(p_smtp, 300);
+		m_add_string(p_smtp, "This is not to be sent to the client");
+		m_close(p_smtp);
+	}
+
 	free(tx);
+}
+
+void
+mfa_report_eom(uint64_t reqid, size_t size)
+{
+	struct mfa_tx	*tx;
+
+	tx = tree_xget(&tx_tree, reqid);
+
+	tx->datalen = size;
+	tx->eom = 1;
+
+	if (tx->ofile == NULL)
+		mfa_tx_done(tx);
 }
