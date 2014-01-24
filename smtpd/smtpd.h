@@ -1106,6 +1106,11 @@ void dns_query_mx_preference(uint64_t, const char *, const char *);
 void dns_imsg(struct mproc *, struct imsg *);
 
 
+/* enhancedstatus.c */
+const char *enhancedstatus_code(enum enhanced_status_class, enum enhanced_status_code);
+const char *enhancedstatus_description(enum enhanced_status_code);
+
+
 /* enqueue.c */
 int		 enqueue(int, char **);
 
