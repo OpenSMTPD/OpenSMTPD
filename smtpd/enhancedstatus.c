@@ -68,7 +68,7 @@ static struct escode {
 	{ ESC_MAILBOX_FULL,				"Mailbox full" },
 	{ ESC_MESSAGE_LENGTH_TOO_LARGE,			"Message length exceeds administrative limit" },
 	{ ESC_MAILING_LIST_EXPANSION_PROBLEM,		"Mailing list expansion problem" },
-	
+
 	/* 3.x */
 	{ ESC_OTHER_MAIL_SYSTEM_STATUS,			"Other/Undefined mail system status" },
 	{ ESC_MAIL_SYSTEM_FULL,				"Mail system full" },
