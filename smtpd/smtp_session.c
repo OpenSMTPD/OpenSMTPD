@@ -371,7 +371,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->evp.id = msgid_to_evpid(msgid);
 			s->rcptcount = 0;
 			s->phase = PHASE_TRANSACTION;
-			smtp_reply(s, "220 %s: Ok",
+			smtp_reply(s, "250 %s: Ok",
 			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		} else {
 			smtp_reply(s, "421 %s: Temporary Error",
