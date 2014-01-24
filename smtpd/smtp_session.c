@@ -556,7 +556,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->flags |= SF_AUTHENTICATED;
 			smtp_reply(s, "235 %s: Authentication succeeded",
 			    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
-
 		}
 		else if (success == LKA_PERMFAIL) {
 			log_info("smtp-in: Authentication failed for user %s "
