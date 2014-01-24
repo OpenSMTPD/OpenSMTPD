@@ -70,6 +70,18 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 		strlcpy(e->errorline + (sizeof(e->errorline) - 4), "...", 4);
 }
 
+void
+envelope_set_status_class(struct envelope *e, enum enhanced_status_class class)
+{
+	e->status_class = class;
+}
+
+void
+envelope_set_status_code(struct envelope *e, enum enhanced_status_code code)
+{
+	e->status_code = code;
+}
+
 static int
 envelope_buffer_to_dict(struct dict *d,  const char *ibuf, size_t buflen)
 {

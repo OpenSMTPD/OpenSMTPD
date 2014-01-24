@@ -49,7 +49,7 @@ static struct escode {
 	const char		       *description;
 } esc[] = {
 	/* 0.0 */
-	{ ESC_OTHER_ADDRESS_STATUS,			"Other/Undefined" },
+	{ ESC_OTHER_STATUS,				"Other/Undefined" },
 
 	/* 1.x */
 	{ ESC_OTHER_ADDRESS_STATUS,			"Other/Undefined address status" },

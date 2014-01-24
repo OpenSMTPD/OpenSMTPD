@@ -68,7 +68,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid, evpid, holdq;
 	uint32_t		 msgid;
 	time_t			 nexttry;
-	int			 fd, mta_ext, ret, v, flags;
+	int			 fd, mta_ext, ret, v, flags, code;
 
 	memset(&bounce, 0, sizeof(struct delivery_bounce));
 	if (p->proc == PROC_SMTP) {
@@ -363,6 +363,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_get_string(&m, &reason);
+			m_get_int(&m, &code);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: tempfail: failed to load envelope");
@@ -373,6 +374,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			envelope_set_errormsg(&evp, "%s", reason);
+			envelope_set_status_class(&evp, ESC_STATUS_TEMPFAIL);
+			envelope_set_status_code(&evp, code);
 			evp.retry++;
 			if (!queue_envelope_update(&evp))
 				log_warnx("warn: could not update envelope %016"PRIx64, evpid);
@@ -385,6 +388,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
 			m_get_string(&m, &reason);
+			m_get_int(&m, &code);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
 				log_warnx("queue: permfail: failed to load envelope");
@@ -396,6 +400,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			bounce.type = B_ERROR;
 			envelope_set_errormsg(&evp, "%s", reason);
+			envelope_set_status_class(&evp, ESC_STATUS_PERMFAIL);
+			envelope_set_status_code(&evp, code);
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
@@ -416,6 +422,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
+			envelope_set_status_class(&evp, ESC_ROUTING_LOOP_DETECTED);
+			envelope_set_status_code(&evp, code);
 			bounce.type = B_ERROR;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evp.id);
@@ -673,20 +681,22 @@ queue_ok(uint64_t evpid)
 }
 
 void
-queue_tempfail(uint64_t evpid, const char *reason)
+queue_tempfail(uint64_t evpid, const char *reason, enum enhanced_status_code code)
 {
 	m_create(p_queue, IMSG_DELIVERY_TEMPFAIL, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);
 	m_add_string(p_queue, reason);
+	m_add_int(p_queue, (int)code);
 	m_close(p_queue);
 }
 
 void
-queue_permfail(uint64_t evpid, const char *reason)
+queue_permfail(uint64_t evpid, const char *reason, enum enhanced_status_code code)
 {
 	m_create(p_queue, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
 	m_add_evpid(p_queue, evpid);
 	m_add_string(p_queue, reason);
+	m_add_int(p_queue, (int)code);
 	m_close(p_queue);
 }
 

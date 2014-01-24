@@ -951,8 +951,6 @@ smtp_command(struct smtp_session *s, char *line)
 {
 	char			       *args, *eom, *method;
 	int				cmd, i;
-	enum enhanced_status_code	esc;
-	enum enhanced_status_class     	esc_status;
 
 	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
 
