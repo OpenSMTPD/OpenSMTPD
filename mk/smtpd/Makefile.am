@@ -23,6 +23,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/control.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/envelope.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
