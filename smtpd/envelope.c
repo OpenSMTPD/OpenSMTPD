@@ -70,6 +70,18 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 		strlcpy(e->errorline + (sizeof(e->errorline) - 4), "...", 4);
 }
 
+void
+envelope_set_esc_class(struct envelope *e, enum enhanced_status_class class)
+{
+	e->esc_class = class;
+}
+
+void
+envelope_set_esc_code(struct envelope *e, enum enhanced_status_code code)
+{
+	e->esc_code = code;
+}
+
 static int
 envelope_buffer_to_dict(struct dict *d,  const char *ibuf, size_t buflen)
 {
@@ -195,6 +207,8 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 	envelope_ascii_dump(ep, &dest, &len, "dsn-ret");
 	envelope_ascii_dump(ep, &dest, &len, "dsn-envid");
 	envelope_ascii_dump(ep, &dest, &len, "dsn-orcpt");
+	envelope_ascii_dump(ep, &dest, &len, "esc-class");
+	envelope_ascii_dump(ep, &dest, &len, "esc-code");
 
 	switch (ep->type) {
 	case D_MDA:
@@ -627,6 +641,12 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 	if (strcasecmp("dsn-envid", field) == 0)
 		return ascii_load_string(ep->dsn_envid, buf, sizeof(ep->dsn_envid));
 
+	if (strcasecmp("esc-class", field) == 0)
+		return ascii_load_uint8(&ep->esc_class, buf);
+
+	if (strcasecmp("esc-code", field) == 0)
+		return ascii_load_uint8(&ep->esc_code, buf);
+
 	return (0);
 }
 
@@ -953,6 +973,18 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "dsn-envid") == 0)
 		return ascii_dump_string(ep->dsn_envid, buf, len);
+
+	if (strcasecmp(field, "esc-class") == 0) {
+		if (ep->esc_class)
+			return ascii_dump_uint8(ep->esc_class, buf, len);
+		return 1;
+	}
+
+	if (strcasecmp(field, "esc-code") == 0) {
+		if (ep->esc_class)
+			return ascii_dump_uint8(ep->esc_code, buf, len);
+		return 1;
+	}
 
 	return (0);
 }
