@@ -71,13 +71,13 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 }
 
 void
-envelope_set_status_class(struct envelope *e, enum enhanced_status_class class)
+envelope_set_esc_class(struct envelope *e, enum enhanced_status_class class)
 {
 	e->status_class = class;
 }
 
 void
-envelope_set_status_code(struct envelope *e, enum enhanced_status_code code)
+envelope_set_esc_code(struct envelope *e, enum enhanced_status_code code)
 {
 	e->status_code = code;
 }

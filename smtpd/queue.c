@@ -215,6 +215,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 			bounce.type = B_ERROR;
 			envelope_set_errormsg(&evp, "Envelope expired");
+			envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
+			envelope_set_esc_code(&evp, ESC_DELIVERY_TIME_EXPIRED);
 			queue_bounce(&evp, &bounce);
 			queue_log(&evp, "Expire", "Envelope expired");
 			queue_envelope_delete(evpid);
@@ -374,8 +376,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			envelope_set_errormsg(&evp, "%s", reason);
-			envelope_set_status_class(&evp, ESC_STATUS_TEMPFAIL);
-			envelope_set_status_code(&evp, code);
+			envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
+			envelope_set_esc_code(&evp, code);
 			evp.retry++;
 			if (!queue_envelope_update(&evp))
 				log_warnx("warn: could not update envelope %016"PRIx64, evpid);
@@ -400,8 +402,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			bounce.type = B_ERROR;
 			envelope_set_errormsg(&evp, "%s", reason);
-			envelope_set_status_class(&evp, ESC_STATUS_PERMFAIL);
-			envelope_set_status_code(&evp, code);
+			envelope_set_esc_class(&evp, ESC_STATUS_PERMFAIL);
+			envelope_set_esc_code(&evp, code);
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evpid);
 			m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
@@ -422,8 +424,8 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			envelope_set_errormsg(&evp, "%s", "Loop detected");
-			envelope_set_status_class(&evp, ESC_ROUTING_LOOP_DETECTED);
-			envelope_set_status_code(&evp, code);
+			envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
+			envelope_set_esc_code(&evp, ESC_ROUTING_LOOP_DETECTED);
 			bounce.type = B_ERROR;
 			queue_bounce(&evp, &bounce);
 			queue_envelope_delete(evp.id);

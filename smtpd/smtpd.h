@@ -1115,8 +1115,8 @@ int		 enqueue(int, char **);
 
 /* envelope.c */
 void envelope_set_errormsg(struct envelope *, char *, ...);
-void envelope_set_status_class(struct envelope *, enum enhanced_status_class);
-void envelope_set_status_code(struct envelope *, enum enhanced_status_code);
+void envelope_set_esc_class(struct envelope *, enum enhanced_status_class);
+void envelope_set_esc_code(struct envelope *, enum enhanced_status_code);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
 
