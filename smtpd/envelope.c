@@ -207,6 +207,8 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 	envelope_ascii_dump(ep, &dest, &len, "dsn-ret");
 	envelope_ascii_dump(ep, &dest, &len, "dsn-envid");
 	envelope_ascii_dump(ep, &dest, &len, "dsn-orcpt");
+	envelope_ascii_dump(ep, &dest, &len, "status-class");
+	envelope_ascii_dump(ep, &dest, &len, "status-code");
 
 	switch (ep->type) {
 	case D_MDA:
@@ -639,6 +641,12 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 	if (strcasecmp("dsn-envid", field) == 0)
 		return ascii_load_string(ep->dsn_envid, buf, sizeof(ep->dsn_envid));
 
+	if (strcasecmp("status-class", field) == 0)
+		return ascii_load_uint8(&ep->status_class, buf);
+
+	if (strcasecmp("status-code", field) == 0)
+		return ascii_load_uint8(&ep->status_code, buf);
+
 	return (0);
 }
 
@@ -965,6 +973,12 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "dsn-envid") == 0)
 		return ascii_dump_string(ep->dsn_envid, buf, len);
+
+	if (strcasecmp(field, "status-class") == 0)
+		return ascii_dump_uint8(ep->status_class, buf, len);
+
+	if (strcasecmp(field, "status-code") == 0)
+		return ascii_dump_uint8(ep->status_code, buf, len);
 
 	return (0);
 }

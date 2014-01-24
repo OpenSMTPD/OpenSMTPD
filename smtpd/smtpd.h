@@ -491,8 +491,8 @@ struct envelope {
 	uint8_t				dsn_notify;
 	enum dsn_ret			dsn_ret;
 
-	enum enhanced_status_class	status_class;
-	enum enhanced_status_code	status_code;
+	uint8_t				status_class;
+	uint8_t				status_code;
 };
 
 struct listener {
