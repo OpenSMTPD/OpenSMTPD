@@ -1197,6 +1197,7 @@ pid_t mda(void);
 /* mfa.c */
 pid_t mfa(void);
 void mfa_ready(void);
+void mfa_report_eom(uint64_t, size_t);
 
 /* mfa_session.c */
 void mfa_filter_prepare(void);
