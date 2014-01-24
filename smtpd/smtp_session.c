@@ -1186,7 +1186,7 @@ smtp_command(struct smtp_session *s, char *line)
 		}
 
 		if (s->rcptcount >= SMTP_LIMIT_RCPT) {
-			smtp_reply(s, "452 %s %s: Too many recipients",
+			smtp_reply(s, "451 %s %s: Too many recipients",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
 			    esc_description(ESC_TOO_MANY_RECIPIENTS));
 			break;
@@ -1195,8 +1195,8 @@ smtp_command(struct smtp_session *s, char *line)
 		if (smtp_mailaddr(&s->evp.rcpt, args, 0, &args,
 		    s->smtpname) == 0) {
 			smtp_reply(s,
-			    "553 %s: Recipient address syntax error",
-			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
+			    "501 %s: Recipient address syntax error",
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_BAD_DESTINATION_MAILBOX_ADDRESS_SYNTAX));
 			break;
 		}
 		if (args && smtp_parse_rcpt_args(s, args) == -1)
@@ -1600,7 +1600,9 @@ smtp_message_end(struct smtp_session *s)
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
 		if (s->msgflags & MF_ERROR_SIZE)
-			smtp_reply(s, "554 Message too big");
+			smtp_reply(s, "554 %s %s: Transaction failed, message too big",
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_MESSAGE_TOO_BIG_FOR_SYSTEM),
+			    esc_description(ESC_MESSAGE_TOO_BIG_FOR_SYSTEM));
 		else
 			smtp_reply(s, "%d Message rejected", s->msgcode);
 		smtp_message_reset(s, 0);
