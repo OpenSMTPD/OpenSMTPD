@@ -312,9 +312,9 @@ int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
 void dict_merge(struct dict *, struct dict *);
 
 
-/* enhancedstatus.c */
-const char *enhancedstatus_code(enum enhanced_status_class, enum enhanced_status_code);
-const char *enhancedstatus_description(enum enhanced_status_code);
+/* esc.c */
+const char *esc_code(enum enhanced_status_class, enum enhanced_status_code);
+const char *esc_description(enum enhanced_status_code);
 
 
 /* filter_api.c */

@@ -116,7 +116,7 @@ static struct esc_map esc_subclass[] = {
 #endif
 
 const char *
-enhancedstatus_code(enum enhanced_status_class class, enum enhanced_status_code code)
+esc_code(enum enhanced_status_class class, enum enhanced_status_code code)
 {
 	static char buffer[6];
 
@@ -126,7 +126,7 @@ enhancedstatus_code(enum enhanced_status_class class, enum enhanced_status_code 
 }
 
 const char *
-enhancedstatus_description(enum enhanced_status_code code)
+esc_description(enum enhanced_status_code code)
 {
 	uint32_t	i;
 

@@ -372,10 +372,10 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->rcptcount = 0;
 			s->phase = PHASE_TRANSACTION;
 			smtp_reply(s, "220 %s: Ok",
-			    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		} else {
 			smtp_reply(s, "421 %s: Temporary Error",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 		}
 		m_end(&m);
@@ -394,7 +394,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			if (imsg->fd != -1)
 				close(imsg->fd);
 			smtp_reply(s, "421 %s: Temporary Error",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
 			return;
@@ -472,7 +472,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			 * and close the connection.
 			 */
 			smtp_reply(s, "421 %s: Temporary failure",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 		}
 		else {
@@ -485,8 +485,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->rcptcount++;
 			s->kickcount--;
 			smtp_reply(s, "250 %s %s: Recipient ok",
-			    enhancedstatus_code(ESC_STATUS_OK, ESC_DESTINATION_ADDRESS_VALID),
-			    enhancedstatus_description(ESC_DESTINATION_ADDRESS_VALID));
+			    esc_code(ESC_STATUS_OK, ESC_DESTINATION_ADDRESS_VALID),
+			    esc_description(ESC_DESTINATION_ADDRESS_VALID));
 		}
 		io_reload(&s->io);
 		return;
@@ -502,7 +502,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			m_add_id(p_mfa, s->id);
 			m_close(p_mfa);
 			smtp_reply(s, "421 %s: Temporary failure",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			io_reload(&s->io);
 			return;
@@ -513,7 +513,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_close(p_mfa);
 
 		smtp_reply(s, "250 %s: %08x Message accepted for delivery",
-		    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS),
+		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS),
 		    evpid_to_msgid(s->evp.id));
 
 		TAILQ_FOREACH(rcpt, &s->rcpts, entry) {
@@ -555,7 +555,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->kickcount = 0;
 			s->flags |= SF_AUTHENTICATED;
 			smtp_reply(s, "235 %s: Authentication succeeded",
-			    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		}
 		else if (success == LKA_PERMFAIL) {
 			log_info("smtp-in: Authentication failed for user %s "
@@ -567,7 +567,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			log_info("smtp-in: Authentication temporarily failed "
 			    "for user %s on session %016"PRIx64, user, s->id);
 			smtp_reply(s, "421 %s: Temporary failure",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 		}
 		else
 			fatalx("bad lka response");
@@ -840,7 +840,7 @@ smtp_io(struct io *io, int evt)
 		    (line && len >= SMTPD_MAXLINESIZE)) {
 			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 %s: Line too long",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
 			return;
@@ -873,8 +873,8 @@ smtp_io(struct io *io, int evt)
 		if (iobuf_len(&s->iobuf)) {
 			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 %s %s: Pipelining not supported",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
 			return;
@@ -1005,15 +1005,15 @@ smtp_command(struct smtp_session *s, char *line)
 	case CMD_EHLO:
 		if (s->phase != PHASE_INIT) {
 			smtp_reply(s, "503 %s %s: Already indentified",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (args == NULL) {
 			smtp_reply(s, "501 %s %s: %s requires domain name",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND),
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND),
 			    (cmd == CMD_HELO) ? "HELO" : "EHLO");
 
 			break;
@@ -1021,8 +1021,8 @@ smtp_command(struct smtp_session *s, char *line)
 
 		if (!valid_domainpart(args)) {
 			smtp_reply(s, "501 %s %s: Invalid domain name",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
-			    enhancedstatus_description(ESC_INVALID_COMMAND_ARGUMENTS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
 			break;
 		}
 		strlcpy(s->helo, args, sizeof(s->helo));
@@ -1047,61 +1047,61 @@ smtp_command(struct smtp_session *s, char *line)
 	case CMD_STARTTLS:
 		if (s->phase != PHASE_SETUP) {
 			smtp_reply(s, "503 %s %s: Command not allowed at this point.",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (!(s->listener->flags & F_STARTTLS)) {
 			smtp_reply(s, "503 %s %s: Command not supported",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (s->flags & SF_SECURE) {
 			smtp_reply(s, "503 %s %s: Channel already secured",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 		if (args != NULL) {
 			smtp_reply(s, "501 %s %s: No parameters allowed",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
-			    enhancedstatus_description(ESC_INVALID_COMMAND_ARGUMENTS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
 			break;
 		}
 		smtp_reply(s, "220 %s: Ready to start TLS",
-		    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		smtp_enter_state(s, STATE_TLS);
 		break;
 
 	case CMD_AUTH:
 		if (s->phase != PHASE_SETUP) {
 			smtp_reply(s, "503 %s %s: Command not allowed at this point.",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (s->flags & SF_AUTHENTICATED) {
 			smtp_reply(s, "503 %s %s: Already authenticated",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (!ADVERTISE_AUTH(s)) {
 			smtp_reply(s, "503 %s %s: Command not supported",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (args == NULL) {
 			smtp_reply(s, "501 %s %s: No parameters given",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
-			    enhancedstatus_description(ESC_INVALID_COMMAND_ARGUMENTS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
 			break;
 		}
 
@@ -1117,16 +1117,16 @@ smtp_command(struct smtp_session *s, char *line)
 			smtp_rfc4954_auth_login(s, eom);
 		else
 			smtp_reply(s, "504 %s %s: AUTH method \"%s\" not supported",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_SECURITY_FEATURES_NOT_SUPPORTED),
-			    enhancedstatus_description(ESC_SECURITY_FEATURES_NOT_SUPPORTED),
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_SECURITY_FEATURES_NOT_SUPPORTED),
+			    esc_description(ESC_SECURITY_FEATURES_NOT_SUPPORTED),
 			    method);
 		break;
 
 	case CMD_MAIL_FROM:
 		if (s->phase != PHASE_SETUP) {
 			smtp_reply(s, "503 %s %s: Command not allowed at this point.",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 
 			break;
 		}
@@ -1135,8 +1135,8 @@ smtp_command(struct smtp_session *s, char *line)
 		    !(s->flags & SF_SECURE)) {
 			smtp_reply(s,
 			    "530 %s %s: Must issue a STARTTLS command first",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
@@ -1144,16 +1144,16 @@ smtp_command(struct smtp_session *s, char *line)
 		    !(s->flags & SF_AUTHENTICATED)) {
 			smtp_reply(s,
 			    "530 %s %s: Must issue an AUTH command first",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (s->mailcount >= SMTP_LIMIT_MAIL) {
 			/* we can pretend we had too many recipients */
 			smtp_reply(s, "452 %s %s: Too many messages sent",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
-			    enhancedstatus_description(ESC_TOO_MANY_RECIPIENTS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
+			    esc_description(ESC_TOO_MANY_RECIPIENTS));
 			break;
 		}
 
@@ -1162,7 +1162,7 @@ smtp_command(struct smtp_session *s, char *line)
 		if (smtp_mailaddr(&s->evp.sender, args, 1, &args,
 			s->smtpname) == 0) {
 			smtp_reply(s, "553 %s: Sender address syntax error",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
 			break;
 		}
 		if (args && smtp_parse_mail_args(s, args) == -1)
@@ -1180,15 +1180,15 @@ smtp_command(struct smtp_session *s, char *line)
 	case CMD_RCPT_TO:
 		if (s->phase != PHASE_TRANSACTION) {
 			smtp_reply(s, "503 %s %s: Command not allowed at this point.",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
 		if (s->rcptcount >= SMTP_LIMIT_RCPT) {
 			smtp_reply(s, "452 %s %s: Too many recipients",
-			    enhancedstatus_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
-			    enhancedstatus_description(ESC_TOO_MANY_RECIPIENTS));
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
+			    esc_description(ESC_TOO_MANY_RECIPIENTS));
 			break;
 		}
 
@@ -1196,7 +1196,7 @@ smtp_command(struct smtp_session *s, char *line)
 		    s->smtpname) == 0) {
 			smtp_reply(s,
 			    "553 %s: Recipient address syntax error",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
 			break;
 		}
 		if (args && smtp_parse_rcpt_args(s, args) == -1)
@@ -1212,8 +1212,8 @@ smtp_command(struct smtp_session *s, char *line)
 	case CMD_RSET:
 		if (s->phase != PHASE_TRANSACTION && s->phase != PHASE_SETUP) {
 			smtp_reply(s, "503 %s %s: Command not allowed at this point.",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 
@@ -1230,20 +1230,20 @@ smtp_command(struct smtp_session *s, char *line)
 		s->phase = PHASE_SETUP;
 		smtp_message_reset(s, 0);
 		smtp_reply(s, "250 %s: Reset state",
-		    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		break;
 
 	case CMD_DATA:
 		if (s->phase != PHASE_TRANSACTION) {
 			smtp_reply(s, "503 %s %s: Command not allowed at this point.",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 			break;
 		}
 		if (s->rcptcount == 0) {
 			smtp_reply(s, "503 %s %s: No recipient specified",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
-			    enhancedstatus_description(ESC_INVALID_COMMAND_ARGUMENTS));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
 			break;
 		}
 
@@ -1257,13 +1257,13 @@ smtp_command(struct smtp_session *s, char *line)
 	 */
 	case CMD_QUIT:
 		smtp_reply(s, "221 %s: Bye",
-		    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		smtp_enter_state(s, STATE_QUIT);
 		break;
 
 	case CMD_NOOP:
 		smtp_reply(s, "250 %s: Ok",
-		    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		break;
 
 	case CMD_HELP:
@@ -1272,13 +1272,13 @@ smtp_command(struct smtp_session *s, char *line)
 		    "please contact bugs@openbsd.org");
 		smtp_reply(s, "214- with full details");
 		smtp_reply(s, "214 %s: End of HELP info",
-		    enhancedstatus_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		break;
 
 	default:
 		smtp_reply(s, "500 %s %s: Command unrecognized",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    enhancedstatus_description(ESC_INVALID_COMMAND));
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 		break;
 	}
 }
@@ -1338,8 +1338,8 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 
 abort:
 	smtp_reply(s, "501 %s %s: Syntax error",
-	    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_SYNTAX_ERROR),
-	    enhancedstatus_description(ESC_SYNTAX_ERROR));
+	    esc_code(ESC_STATUS_PERMFAIL, ESC_SYNTAX_ERROR),
+	    esc_description(ESC_SYNTAX_ERROR));
 	smtp_enter_state(s, STATE_HELO);
 }
 
@@ -1385,8 +1385,8 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 
 abort:
 	smtp_reply(s, "501 %s %s: Syntax error",
-	    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_SYNTAX_ERROR),
-	    enhancedstatus_description(ESC_SYNTAX_ERROR));
+	    esc_code(ESC_STATUS_PERMFAIL, ESC_SYNTAX_ERROR),
+	    esc_description(ESC_SYNTAX_ERROR));
 	smtp_enter_state(s, STATE_HELO);
 }
 
@@ -1478,8 +1478,8 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 			strlcpy(s->evp.dsn_envid, b, sizeof(s->evp.dsn_envid));
 		} else {
 			smtp_reply(s, "503 %s %s: Unsupported option %s",
-			    enhancedstatus_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
-			    enhancedstatus_description(ESC_INVALID_COMMAND_ARGUMENTS), b);
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS), b);
 			return (-1);
 		}
 	}

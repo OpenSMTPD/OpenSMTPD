@@ -974,11 +974,17 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	if (strcasecmp(field, "dsn-envid") == 0)
 		return ascii_dump_string(ep->dsn_envid, buf, len);
 
-	if (strcasecmp(field, "status-class") == 0)
-		return ascii_dump_uint8(ep->status_class, buf, len);
+	if (strcasecmp(field, "status-class") == 0) {
+		if (ep->status_class)
+			return ascii_dump_uint8(ep->status_class, buf, len);
+		return 1;
+	}
 
-	if (strcasecmp(field, "status-code") == 0)
-		return ascii_dump_uint8(ep->status_code, buf, len);
+	if (strcasecmp(field, "status-code") == 0) {
+		if (ep->status_class)
+			return ascii_dump_uint8(ep->status_code, buf, len);
+		return 1;
+	}
 
 	return (0);
 }
