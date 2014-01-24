@@ -10,15 +10,52 @@ NEED_ASR=	Yes
 
 PROG=		smtpd
 
-SRCS=		aliases.c bounce.c ca.c compress_backend.c config.c		\
-		control.c crypto.c delivery.c dict.c dns.c envelope.c esc.c	\
-		expand.c forward.c iobuf.c ioev.c limit.c lka.c	lka_session.c	\
-		log.c mda.c mfa.c mfa_session.c mproc.c				\
-		mta.c mta_session.c parse.y queue.c queue_backend.c		\
-		ruleset.c runq.c scheduler.c scheduler_backend.c		\
-		smtp.c smtp_session.c smtpd.c ssl.c ssl_privsep.c		\
-		ssl_smtpd.c stat_backend.c table.c to.c tree.c util.c		\
-		waitq.c
+SRCS=		aliases.c
+SRCS+=		bounce.c
+SRCS+=		ca.c
+SRCS+=		compress_backend.c
+SRCS+=		config.c
+SRCS+=		control.c
+SRCS+=		crypto.c
+SRCS+=		delivery.c
+SRCS+=		dict.c
+SRCS+=		dns.c
+SRCS+=		envelope.c
+SRCS+=		esc.c
+SRCS+=		expand.c
+SRCS+=		forward.c
+SRCS+=		iobuf.c
+SRCS+=		ioev.c
+SRCS+=		limit.c
+SRCS+=		lka.c
+SRCS+=		lka_session.c
+SRCS+=		log.c
+SRCS+=		mda.c
+SRCS+=		mfa.c
+SRCS+=		mfa_session.c
+SRCS+=		mproc.c
+SRCS+=		mta.c
+SRCS+=		mta_session.c
+SRCS+=		parse.y
+SRCS+=		queue.c
+SRCS+=		queue_backend.c
+SRCS+=		ruleset.c
+SRCS+=		runq.c
+SRCS+=		scheduler.c
+SRCS+=		scheduler_backend.c
+SRCS+=		smtp.c
+SRCS+=		smtp_session.c
+SRCS+=		smtpd.c
+SRCS+=		ssl.c
+SRCS+=		ssl_privsep.c
+SRCS+=		ssl_smtpd.c
+SRCS+=		stat_backend.c
+SRCS+=		table.c
+SRCS+=		to.c
+SRCS+=		tree.c
+SRCS+=		util.c
+SRCS+=		waitq.c
+
 
 # backends
 SRCS+=		compress_gzip.c
@@ -41,9 +78,14 @@ SRCS+=		scheduler_proc.c
 SRCS+=		stat_ramstat.c
 
 .ifdef NEED_ASR
-SRCS+=		asr.c asr_debug.c asr_utils.c gethostnamadr_async.c	\
-		res_send_async.c getaddrinfo_async.c getnameinfo_async.c \
-		res_search_async.c
+SRCS+=		asr.c
+SRCS+=		asr_debug.c
+SRCS+=		asr_utils.c
+SRCS+=		gethostnamadr_async.c
+SRCS+=		res_send_async.c
+SRCS+=		getaddrinfo_async.c
+SRCS+=		getnameinfo_async.c
+SRCS+=		res_search_async.c
 .endif
 
 MAN=		smtpd.8 smtpd.conf.5 table.5
