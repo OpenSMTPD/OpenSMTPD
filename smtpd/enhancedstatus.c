@@ -16,33 +16,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <sys/uio.h>
-
-#include <netinet/in.h>
-
-#include <ctype.h>
-#include <err.h>
-#include <errno.h>
-#include <event.h>
-#include <imsg.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-#include <pwd.h>
-#include <resolv.h>
-#include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
-#include "smtpd.h"
-#include "log.h"
-#include "ssl.h"
+#include "smtpd-defines.h"
+#include "smtpd-api.h"
 
 static struct escode {
 	enum enhanced_status_code	code;
@@ -151,7 +128,7 @@ enhancedstatus_code(enum enhanced_status_class class, enum enhanced_status_code 
 const char *
 enhancedstatus_description(enum enhanced_status_code code)
 {
-	int	i;
+	uint32_t	i;
 
 	for (i = 0; i < nitems(esc); ++i)
 		if (code == esc[i].code)

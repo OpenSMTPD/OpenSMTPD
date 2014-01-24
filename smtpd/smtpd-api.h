@@ -311,6 +311,12 @@ int dict_iter(struct dict *, void **, const char **, void **);
 int dict_iterfrom(struct dict *, void **, const char *, const char **, void **);
 void dict_merge(struct dict *, struct dict *);
 
+
+/* enhancedstatus.c */
+const char *enhancedstatus_code(enum enhanced_status_class, enum enhanced_status_code);
+const char *enhancedstatus_description(enum enhanced_status_code);
+
+
 /* filter_api.c */
 void filter_api_setugid(uid_t, gid_t);
 void filter_api_set_chroot(const char *);
