@@ -518,6 +518,9 @@ struct envelope {
 	char				dsn_envid[DSN_ENVID_LEN+1];
 	uint8_t				dsn_notify;
 	enum dsn_ret			dsn_ret;
+
+	uint8_t				esc_class;
+	uint8_t				esc_code;
 };
 
 struct listener {
@@ -1140,6 +1143,8 @@ int		 enqueue(int, char **);
 
 /* envelope.c */
 void envelope_set_errormsg(struct envelope *, char *, ...);
+void envelope_set_esc_class(struct envelope *, enum enhanced_status_class);
+void envelope_set_esc_code(struct envelope *, enum enhanced_status_code);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
 
@@ -1272,8 +1277,8 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, const char *);
-void queue_permfail(uint64_t, const char *);
+void queue_tempfail(uint64_t, const char *, enum enhanced_status_code);
+void queue_permfail(uint64_t, const char *, enum enhanced_status_code);
 void queue_loop(uint64_t);
 void queue_flow_control(void);
 
