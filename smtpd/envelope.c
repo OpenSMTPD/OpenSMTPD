@@ -981,7 +981,7 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	}
 
 	if (strcasecmp(field, "esc-code") == 0) {
-		if (ep->esc_code)
+		if (ep->esc_class)
 			return ascii_dump_uint8(ep->esc_code, buf, len);
 		return 1;
 	}
