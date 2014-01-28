@@ -59,15 +59,18 @@ SRCS+=		waitq.c
 
 # backends
 SRCS+=		compress_gzip.c
+
 SRCS+=		delivery_filename.c
 SRCS+=		delivery_maildir.c
 SRCS+=		delivery_mbox.c
 SRCS+=		delivery_mda.c
 SRCS+=		delivery_lmtp.c
+
 SRCS+=		table_db.c
 SRCS+=		table_getpwnam.c
 SRCS+=		table_proc.c
 SRCS+=		table_static.c
+
 SRCS+=		queue_fs.c
 SRCS+=		queue_null.c
 SRCS+=		queue_proc.c
@@ -75,6 +78,7 @@ SRCS+=		queue_ram.c
 SRCS+=		scheduler_ramqueue.c
 SRCS+=		scheduler_null.c
 SRCS+=		scheduler_proc.c
+
 SRCS+=		stat_ramstat.c
 
 .ifdef NEED_ASR

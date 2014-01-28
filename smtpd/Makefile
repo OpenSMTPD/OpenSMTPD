@@ -10,6 +10,7 @@ SUBDIR+=	table-ldap
 SUBDIR+=	table-passwd
 #SUBDIR+=	table-postgres
 SUBDIR+=	table-sqlite
+SUBDIR+=	table-socketmap
 SUBDIR+=	table-stub
 #SUBDIR+=	table-redis
 
