@@ -98,6 +98,7 @@ enum smtp_command {
 	CMD_RSET,
 	CMD_QUIT,
 	CMD_HELP,
+	CMD_WIZ,
 	CMD_NOOP,
 };
 
@@ -192,6 +193,7 @@ static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_RSET,		"RSET" },
 	{ CMD_QUIT,		"QUIT" },
 	{ CMD_HELP,		"HELP" },
+	{ CMD_WIZ,		"WIZ" },
 	{ CMD_NOOP,		"NOOP" },
 	{ -1, NULL },
 };
@@ -1273,6 +1275,12 @@ smtp_command(struct smtp_session *s, char *line)
 		smtp_reply(s, "214- with full details");
 		smtp_reply(s, "214 %s: End of HELP info",
 		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+		break;
+
+	case CMD_WIZ:
+		smtp_reply(s, "500 %s %s: this feature is not supported yet ;-)",
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+			    esc_description(ESC_INVALID_COMMAND));
 		break;
 
 	default:
