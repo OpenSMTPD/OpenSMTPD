@@ -809,9 +809,3 @@ base64_decode(char const *src, unsigned char *dest, size_t destsize)
 {
 	return __b64_pton(src, dest, destsize);
 }
-
-void
-explicit_bzero(void *b, size_t len)
-{
-	bzero(b, len);
-}
