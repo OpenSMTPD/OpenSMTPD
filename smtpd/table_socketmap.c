@@ -224,41 +224,29 @@ table_socketmap_lookup(int service, const char *key, char *dst, size_t sz)
 	int			r;
 	enum socketmap_reply	rep;
 
+	rep = table_socketmap_query("foobar", key);
+	if (rep == SM_NOTFOUND)
+		return 0;
+	if (rep != SM_OK) {
+		log_warnx("warn: table-socketmap: %s", repbuffer);
+		return -1;
+	}
+	if (strlcpy(dst, repbuffer, sz) >= sz) {
+		log_warnx("warn: table-socketmap: result too large");
+		return -1;
+	}
+
+	r = 1;
 	switch(service) {
 	case K_ALIAS:
-		rep = table_socketmap_query("foobar", key);
-		log_debug("socketmap rep: %d, %s", rep, repbuffer);
-		if (rep == SM_NOTFOUND)
-			return 0;
-		if (rep == SM_OK) {
-			log_debug("FOUND !");
-			if (strlcpy(dst, repbuffer, sz) >= sz) {
-				log_warnx("warn: table-socketmap: result too large");
-				r = -1;
-				break;
-			}
-			r = 1;
-			break;
-		}
-		r = -1;
-		break;
-
 	case K_CREDENTIALS:
-		r = -1;
-		break;
-
 	case K_USERINFO:
-		r = -1;
-		break;
-
 	case K_DOMAIN:
 	case K_NETADDR:
 	case K_SOURCE:
 	case K_MAILADDR:
 	case K_ADDRNAME:
-		r = -1;
 		break;
-
 	default:
 		log_warnx("warn: table-socketmap: unknown service %d", service);
 		r = -1;
