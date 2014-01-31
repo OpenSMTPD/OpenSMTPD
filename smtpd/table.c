@@ -216,6 +216,9 @@ table_create(const char *backend, const char *name, const char *tag,
 			tb = table_backend_lookup("proc");
 			if (config) {
 				strlcat(path, " ", sizeof(path));
+				strlcat(path, "-n", sizeof(path));
+				strlcat(path, name, sizeof(path));
+				strlcat(path, " ", sizeof(path));
 				strlcat(path, config, sizeof(path));
 			}
 			config = path;
