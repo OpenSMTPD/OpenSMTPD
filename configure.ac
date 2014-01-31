@@ -2625,6 +2625,20 @@ AC_ARG_WITH([experimental-redis],
 )
 AM_CONDITIONAL([HAVE_REDIS], [test $EXPERIMENTAL_REDIS = yes])
 
+# Whether to enable *experimental* Redis support
+EXPERIMENTAL_SOCKETMAP=no
+AC_ARG_WITH([experimental-socketmap],
+	[  --with-experimental-socketmap	Enable experimental socketmap support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_SOCKETMAP], [1],
+				[Define if you have experimental socketmap support])
+			EXPERIMENTAL_SOCKETMAP=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_SOCKETMAP], [test $EXPERIMENTAL_SOCKETMAP = yes])
+
 
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
 
