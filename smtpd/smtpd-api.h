@@ -185,6 +185,11 @@ struct scheduler_batch {
 
 #define PROC_TABLE_API_VERSION	1
 
+struct table_open_params {
+	uint32_t	version;
+	char		name[SMTPD_MAXLINESIZE];
+};
+
 enum table_service {
 	K_NONE		= 0x00,
 	K_ALIAS		= 0x01,	/* returns struct expand	*/
@@ -377,6 +382,7 @@ void table_api_on_check(int(*)(int, const char *));
 void table_api_on_lookup(int(*)(int, const char *, char *, size_t));
 void table_api_on_fetch(int(*)(int, char *, size_t));
 int table_api_dispatch(void);
+const char *table_api_get_name(void);
 
 /* tree.c */
 #define tree_init(t) do { SPLAY_INIT(&((t)->tree)); (t)->count = 0; } while(0)
