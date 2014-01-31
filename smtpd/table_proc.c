@@ -120,9 +120,9 @@ static void *
 table_proc_open(struct table *table)
 {
 	int			 sp[2];
-	uint32_t		 version;
 	struct table_proc_priv	*priv;
 	char			*environ_new[2];
+	struct table_open_params op;
 
 	errno = 0;
 
@@ -155,9 +155,10 @@ table_proc_open(struct table *table)
 	close(sp[0]);
 	imsg_init(&priv->ibuf, sp[1]);
 
-	version = PROC_TABLE_API_VERSION;
-	imsg_compose(&priv->ibuf, PROC_TABLE_OPEN, 0, 0, -1,
-	    &version, sizeof(version));
+	memset(&op, 0, sizeof op);
+	op.version = PROC_TABLE_API_VERSION;
+	(void)strlcpy(op.name, table->t_name, sizeof op.name);
+	imsg_compose(&priv->ibuf, PROC_TABLE_OPEN, 0, 0, -1, &op, sizeof op);
 
 	table_proc_call(priv);
 	table_proc_end();
