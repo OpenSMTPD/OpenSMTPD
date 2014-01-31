@@ -36,6 +36,49 @@ static PyObject	*py_on_data;
 static PyObject	*py_on_eom;
 static PyObject	*py_on_dataline;
 
+
+static PyObject *
+py_filter_accept(PyObject *self, PyObject *args)
+{
+	uint64_t	id;
+
+	if (! PyArg_ParseTuple(args, "K", &id))
+		return NULL;
+	filter_api_accept(id);
+	Py_RETURN_TRUE;
+}
+
+static PyObject *
+py_filter_reject(PyObject *self, PyObject *args)
+{
+	uint64_t	id;
+
+	if (! PyArg_ParseTuple(args, "K", &id))
+		return NULL;
+	filter_api_reject(id, FILTER_FAIL);
+	Py_RETURN_TRUE;
+}
+
+static PyObject *
+py_filter_writeln(PyObject *self, PyObject *args)
+{
+	uint64_t	id;
+	const char     *line;
+
+	if (! PyArg_ParseTuple(args, "Ks", &id, &line))
+		return NULL;
+	filter_api_writeln(id, line);
+	Py_RETURN_TRUE;
+}
+
+static PyMethodDef py_methods[] = {
+	{ "accept", py_filter_accept, METH_VARARGS, "accept" },
+	{ "reject", py_filter_reject, METH_VARARGS, "reject" },
+	{ "writeln", py_filter_writeln, METH_VARARGS, "writeln" },
+	{ NULL, NULL, 0, NULL }
+};
+
+
 static void
 on_connect(uint64_t id, struct filter_connect *conn)
 {
@@ -65,8 +108,6 @@ on_helo(uint64_t id, const char *helo)
 		log_warnx("warn: filter-python2.7: call to on_helo handler failed");
 		exit(1);
 	}
-
-	filter_api_accept(id);
 }
 
 static void
@@ -102,7 +143,10 @@ on_data(uint64_t id)
 
 	log_warnx("warn: filter-python2.7: GOT DATA");
 
-	filter_api_accept(id);
+	if (PyObject_IsTrue(py_ret))
+		filter_api_accept(id);
+	else
+		filter_api_reject(id, FILTER_FAIL);
 }
 
 static void
@@ -126,7 +170,10 @@ on_eom(uint64_t id)
 
 	log_warnx("warn: filter-python2.7: GOT EOM");
 
-	filter_api_accept(id);
+	if (PyObject_IsTrue(py_ret))
+		filter_api_accept(id);
+	else
+		filter_api_reject(id, FILTER_FAIL);
 }
 
 static void
@@ -152,8 +199,6 @@ on_dataline(uint64_t id, const char *line)
 		log_warnx("warn: filter-python2.7: call to on_dataline handler failed");
 		exit(1);
 	}
-
-	filter_api_writeln(id, line);
 }
 
 int
@@ -179,6 +224,8 @@ main(int argc, char **argv)
 
 	setenv("PYTHONPATH", "/tmp", 1);
 	Py_Initialize();
+	Py_InitModule("filter", py_methods);
+
 	name   = PyString_FromString("test");
 	module = PyImport_Import(name);
 	Py_DECREF(name);
