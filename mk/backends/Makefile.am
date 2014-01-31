@@ -27,3 +27,7 @@ endif
 if HAVE_REDIS
 SUBDIRS+=	table-redis
 endif
+
+if HAVE_SOCKETMAP
+SUBDIRS+=	table-socketmap
+endif
