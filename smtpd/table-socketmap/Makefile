@@ -22,6 +22,6 @@ CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wbounded
 CFLAGS+=	-DNO_IO
-#CFLAGS+=	-Werror # during development phase (breaks some archs) 
+#CFLAGS+=	-Werror # during development phase (breaks some archs)
 
 .include <bsd.prog.mk>

@@ -187,7 +187,7 @@ struct scheduler_batch {
 
 struct table_open_params {
 	uint32_t	version;
-	char		name[SMTPD_MAXLINESIZE];	
+	char		name[SMTPD_MAXLINESIZE];
 };
 
 enum table_service {
