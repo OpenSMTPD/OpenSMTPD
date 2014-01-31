@@ -45,7 +45,6 @@ static int		sock = -1;
 static FILE	       *sockstream;
 #define	REPLYBUFFERSIZE	100000
 static char		repbuffer[REPLYBUFFERSIZE+1];
-static const char      *tablename = "socketmap";
 
 enum socketmap_reply{
 	SM_OK = 0,
@@ -63,11 +62,8 @@ main(int argc, char **argv)
 	log_init(1);
 	log_verbose(~0);
 
-	while ((ch = getopt(argc, argv, "n:")) != -1) {
+	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
-		case 'n':
-			tablename = optarg;
-			break;
 		default:
 			log_warnx("warn: table-socketmap: bad option");
 			return (1);
@@ -227,7 +223,7 @@ table_socketmap_lookup(int service, const char *key, char *dst, size_t sz)
 	int			r;
 	enum socketmap_reply	rep;
 
-	rep = table_socketmap_query(tablename, key);
+	rep = table_socketmap_query(table_api_get_name(), key);
 	if (rep == SM_NOTFOUND)
 		return 0;
 	if (rep != SM_OK) {
