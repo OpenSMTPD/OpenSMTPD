@@ -403,6 +403,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		iobuf_init(&s->dataiobuf, 0, 0);
 		io_init(&s->dataio, imsg->fd, s, smtp_data_io, &s->dataiobuf);
+		s->dataeom = 0;
 
 		iobuf_fqueue(&s->dataiobuf, "Received: ");
 		if (! (s->listener->flags & F_MASK_SOURCE)) {
