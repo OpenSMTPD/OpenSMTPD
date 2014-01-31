@@ -516,10 +516,10 @@ The relay URL must specify TLS for this option to be valid.
 .Pp
 Additional per-rule adjustments available:
 .Bl -tag -width Ds
-.It Ic expire Ar n Brq Ar s\*(Bam\*(Bah\*(Bad
+.It Ic expire Ar n Brq Ar s|m|h|d
 Specify how long a message that matched this rule can stay in the queue.
 .El
-.It Ic bounce-warn Ar n Bro Ar s\*(Bam\*(Bah\*(Bad Brc Bq , Ar ...
+.It Ic bounce-warn Ar n Bro Ar s|m|h|d Brc Bq , Ar ...
 Specify the delays for which temporary failure reports must be generated
 when messages are stuck in the queue.
 For example:
@@ -530,7 +530,7 @@ bounce-warn	1h, 6h, 2d
 will generate a failure report when an envelope is in the queue for more
 than one hour, six hours and two days.
 The default is 4h.
-.It Ic expire Ar n Brq Ar s\*(Bam\*(Bah\*(Bad
+.It Ic expire Ar n Brq Ar s|m|h|d
 Specify how long a message can stay in the queue.
 The default value is 4 days.
 For example:
