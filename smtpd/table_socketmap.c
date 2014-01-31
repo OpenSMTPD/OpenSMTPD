@@ -116,7 +116,7 @@ table_socketmap_connect(const char *s)
 		log_warn("warn: table-socketmap");
 		goto err;
 	}
-	
+
 	if ((sockstream = fdopen(sock, "w+")) == NULL) {
 		log_warn("warn: table-socketmap");
 		goto err;
