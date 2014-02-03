@@ -63,6 +63,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct sockaddr_storage	 local, remote;
 	struct mailaddr		 maddr;
+	struct mfa_tx		*tx;
 	struct msg		 m;
 	const char		*line, *hostname;
 	uint64_t		 reqid;
