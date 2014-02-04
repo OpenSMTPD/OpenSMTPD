@@ -352,7 +352,7 @@ filter_send_response(struct filter_session *s)
 	m_add_id(&fi.p, s->qid);
 	m_add_int(&fi.p, s->qhook);
 	if (s->qhook == HOOK_EOM)
-		m_add_u32(&fi.p, (s->qhook & HOOK_DATALINE) ?
+		m_add_u32(&fi.p, (fi.hooks & HOOK_DATALINE) ?
 		    s->pipe.odatalen : s->pipe.datalen);
 	m_add_int(&fi.p, s->response.status);
 	m_add_int(&fi.p, s->response.code);
