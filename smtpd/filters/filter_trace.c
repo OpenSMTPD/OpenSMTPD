@@ -59,13 +59,6 @@ status_to_str(int status)
 }
 
 static void
-on_event(uint64_t id,  enum filter_hook event)
-{
-	printf("filter-event: id=%016"PRIx64", event=%s\n",
-	    id, event_to_str(event));
-}
-
-static void
 on_notify(uint64_t qid, enum filter_status status)
 {
 	printf("filter-notify: qid=%016"PRIx64", status=%s\n",
@@ -157,7 +150,6 @@ main(int argc, char **argv)
 
 	log_debug("debug: filter-trace: starting...");
 
-	filter_api_on_event(on_event);
 	filter_api_on_notify(on_notify);
 	filter_api_on_connect(on_connect);
 	filter_api_on_helo(on_helo);

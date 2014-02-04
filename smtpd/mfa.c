@@ -79,6 +79,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_sockaddr(&m, (struct sockaddr *)&remote);
 			m_get_string(&m, &hostname);
 			m_end(&m);
+			mfa_filter_event(reqid, EVENT_CONNECT);
 			mfa_filter_connect(reqid, (struct sockaddr *)&local,
 			    (struct sockaddr *)&remote, hostname);
 			return;
@@ -126,28 +127,32 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, HOOK_RESET);
+			mfa_filter(reqid, HOOK_RESET);
+			mfa_filter_event(reqid, EVENT_RESET);
 			return;
 
 		case IMSG_MFA_EVENT_COMMIT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, HOOK_COMMIT);
+			mfa_filter(reqid, HOOK_COMMIT);
+			mfa_filter_event(reqid, EVENT_COMMIT);
 			return;
 
 		case IMSG_MFA_EVENT_ROLLBACK:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, HOOK_ROLLBACK);
+			mfa_filter(reqid, HOOK_ROLLBACK);
+			mfa_filter_event(reqid, EVENT_ROLLBACK);
 			return;
 
 		case IMSG_MFA_EVENT_DISCONNECT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, HOOK_DISCONNECT);
+			mfa_filter(reqid, HOOK_DISCONNECT);
+			mfa_filter_event(reqid, EVENT_DISCONNECT);
 			return;
 		}
 	}

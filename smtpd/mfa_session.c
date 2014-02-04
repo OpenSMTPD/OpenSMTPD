@@ -275,18 +275,36 @@ mfa_filter_init(void)
 }
 
 void
+mfa_filter_event(uint64_t id, int hook)
+{
+	struct mfa_session	*s;
+	struct mfa_query	*q;
+
+	if (hook == EVENT_CONNECT) {
+		s = xcalloc(1, sizeof(*s), "mfa_filter_event");
+		s->id = id;
+		s->filters = dict_xget(&chains, "default");
+		TAILQ_INIT(&s->queries);
+		tree_xset(&sessions, s->id, s);
+	}
+	else if (hook == EVENT_DISCONNECT)
+		/* On disconnect, the session is virtualy dead */
+		s = tree_xpop(&sessions, id);
+	else
+		s = tree_xget(&sessions, id);
+	q = mfa_query(s, QT_EVENT, hook);
+
+	mfa_drain_query(q);
+}
+
+void
 mfa_filter_connect(uint64_t id, const struct sockaddr *local,
 	const struct sockaddr *remote, const char *host)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
 
-	s = xcalloc(1, sizeof(*s), "mfa_query_connect");
-	s->id = id;
-	s->filters = dict_xget(&chains, "default");
-	TAILQ_INIT(&s->queries);
-	tree_xset(&sessions, s->id, s);
-
+	s = tree_xget(&sessions, id);
 	q = mfa_query(s, QT_QUERY, HOOK_CONNECT);
 
 	memmove(&q->u.connect.local, local, local->sa_len);
@@ -296,22 +314,6 @@ mfa_filter_connect(uint64_t id, const struct sockaddr *local,
 	q->smtp.status = MFA_OK;
 	q->smtp.code = 0;
 	q->smtp.response = NULL;
-
-	mfa_drain_query(q);
-}
-
-void
-mfa_filter_event(uint64_t id, int hook)
-{
-	struct mfa_session	*s;
-	struct mfa_query	*q;
-
-	/* On disconnect, the session is virtualy dead */
-	if (hook == HOOK_DISCONNECT)
-		s = tree_xpop(&sessions, id);
-	else
-		s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_EVENT, hook);
 
 	mfa_drain_query(q);
 }
@@ -526,16 +528,15 @@ mfa_drain_query(struct mfa_query *q)
 static void
 mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 {
-	if ((f->proc->hooks & q->hook) == 0) {
-		log_trace(TRACE_MFA, "filter: skipping filter %s for query %s",
-		    mfa_filter_to_text(f), mfa_query_to_text(q));
-		return;
-	}
-
-	log_trace(TRACE_MFA, "filter: running filter %s for query %s",
-	    mfa_filter_to_text(f), mfa_query_to_text(q));
-
 	if (q->type == QT_QUERY) {
+		if ((f->proc->hooks & q->hook) == 0) {
+			log_trace(TRACE_MFA, "filter: skipping filter %s for query %s",
+			    mfa_filter_to_text(f), mfa_query_to_text(q));
+			return;
+		}
+		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
+		    mfa_filter_to_text(f), mfa_query_to_text(q));
+
 		m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
 		m_add_id(&f->proc->mproc, q->session->id);
 		m_add_id(&f->proc->mproc, q->qid);
@@ -568,6 +569,9 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 		q->state = QUERY_RUNNING;
 	}
 	else {
+		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
+		    mfa_filter_to_text(f), mfa_query_to_text(q));
+
 		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
 		m_add_id(&f->proc->mproc, q->session->id);
 		m_add_int(&f->proc->mproc, q->hook);
@@ -777,6 +781,20 @@ hook_to_str(int hook)
 	CASE(HOOK_DATALINE);
 	default:
 		return "HOOK_???";
+	}
+}
+
+static const char *
+event_to_str(int event)
+{
+	switch (event) {
+	CASE(EVENT_CONNECT);
+	CASE(EVENT_RESET);
+	CASE(EVENT_DISCONNECT);
+	CASE(EVENT_COMMIT);
+	CASE(EVENT_ROLLBACK);
+	default:
+		return "EVENT_???";
 	}
 }
 
