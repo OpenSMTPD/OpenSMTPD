@@ -63,21 +63,29 @@ enum filter_imsg {
 	IMSG_FILTER_RESPONSE
 };
 
+/* XXX - server side requires mfa_session.c update on filter_event */
+enum filter_event {
+	EVENT_CONNECT		= 1 << 0,
+	EVENT_RESET		= 1 << 1,
+	EVENT_DISCONNECT       	= 1 << 2,
+	EVENT_COMMIT		= 1 << 3,
+	EVENT_ROLLBACK		= 1 << 4,
+};
+
+
 /* XXX - server side requires mfa_session.c update on filter_hook changes */
 enum filter_hook {
-	HOOK_CONNECT		= 1 << 0,	/* req */
-	HOOK_HELO		= 1 << 1,	/* req */
-	HOOK_MAIL		= 1 << 2,	/* req */
-	HOOK_RCPT		= 1 << 3,	/* req */
-	HOOK_DATA		= 1 << 4,	/* req */
-	HOOK_EOM		= 1 << 5,	/* req */
-
-	HOOK_RESET		= 1 << 6,	/* evt */
-	HOOK_DISCONNECT		= 1 << 7,	/* evt */
-	HOOK_COMMIT		= 1 << 8,	/* evt */
-	HOOK_ROLLBACK		= 1 << 9,	/* evt */
-
-	HOOK_DATALINE		= 1 << 10,	/* data */
+	HOOK_CONNECT		= 1 << 0,
+	HOOK_HELO		= 1 << 1,
+	HOOK_MAIL		= 1 << 2,
+	HOOK_RCPT		= 1 << 3,
+	HOOK_DATA		= 1 << 4,
+	HOOK_EOM		= 1 << 5,
+	HOOK_RESET		= 1 << 6,
+	HOOK_DISCONNECT		= 1 << 7,
+	HOOK_COMMIT		= 1 << 8,
+	HOOK_ROLLBACK		= 1 << 9,
+	HOOK_DATALINE		= 1 << 10,
 };
 
 struct filter_connect {
@@ -328,22 +336,22 @@ void filter_api_set_chroot(const char *);
 void filter_api_no_chroot(void);
 
 void filter_api_loop(void);
-void filter_api_accept(uint64_t);
-void filter_api_accept_notify(uint64_t, uint64_t *);
-void filter_api_reject(uint64_t, enum filter_status);
-void filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
+int filter_api_accept(uint64_t);
+int filter_api_accept_notify(uint64_t, uint64_t *);
+int filter_api_reject(uint64_t, enum filter_status);
+int filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
 void filter_api_writeln(uint64_t, const char *);
 
-void filter_api_on_notify(void(*)(uint64_t, enum filter_status));
-void filter_api_on_connect(void(*)(uint64_t, struct filter_connect *));
-void filter_api_on_helo(void(*)(uint64_t, const char *));
-void filter_api_on_mail(void(*)(uint64_t, struct mailaddr *));
-void filter_api_on_rcpt(void(*)(uint64_t, struct mailaddr *));
-void filter_api_on_data(void(*)(uint64_t));
+//void filter_api_on_notify(void(*)(uint64_t, enum filter_status));
+void filter_api_on_connect(int(*)(uint64_t, struct filter_connect *));
+void filter_api_on_helo(int(*)(uint64_t, const char *));
+void filter_api_on_mail(int(*)(uint64_t, struct mailaddr *));
+void filter_api_on_rcpt(int(*)(uint64_t, struct mailaddr *));
+void filter_api_on_data(int(*)(uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *));
-void filter_api_on_eom(void(*)(uint64_t));
-void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
+void filter_api_on_eom(int(*)(uint64_t));
+//void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 
 /* queue */
 void queue_api_on_message_create(int(*)(uint32_t *));
