@@ -1117,7 +1117,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 		strlcpy(s->helo, args, sizeof(s->helo));
-		s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
+		s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED | SF_MFACONNSENT;
 		if (cmd == CMD_EHLO) {
 			s->flags |= SF_EHLO;
 			s->flags |= SF_8BITMIME;
@@ -1779,12 +1779,14 @@ smtp_free(struct smtp_session *s, const char * reason)
 		m_close(p_queue);
 	}
 
+	log_debug("#1");
 	if (s->flags & SF_MFACONNSENT) {
+		log_debug("#1.1");
 		m_create(p_mfa, IMSG_MFA_EVENT_DISCONNECT, 0, 0, -1);
 		m_add_id(p_mfa, s->id);
 		m_close(p_mfa);
 	}
-
+	log_debug("#2");
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
 		stat_decrement("smtp.smtps", 1);
 	if (s->flags & SF_SECURE && s->listener->flags & F_STARTTLS)
