@@ -163,7 +163,7 @@ scheduler_compute_schedule(struct scheduler_info *sched)
 	else
 		delay = 10;
 
-	retry = sched->retry + sched->penalty;
+	retry = sched->retry;
 	delay = ((delay * retry) * retry) / 2;
 
 	return (sched->creation + delay);
