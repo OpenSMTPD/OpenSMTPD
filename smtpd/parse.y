@@ -1781,7 +1781,6 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	if (lo->hostname == NULL)
 		lo->hostname = conf->sc_hostname;
 
-	h->ssl = NULL;
 	h->pki_name[0] = '\0';
 
 	if (lo->authtable != NULL)
