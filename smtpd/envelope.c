@@ -48,9 +48,6 @@ static int envelope_upgrade_v1(struct dict *);
 static int envelope_ascii_load(struct envelope *, struct dict *);
 static void envelope_ascii_dump(const struct envelope *, char **, size_t *,
     const char *);
-#if 0
-static int envelope_check_dict(struct dict *);
-#endif
 
 void
 envelope_set_errormsg(struct envelope *e, char *fmt, ...)
@@ -240,89 +237,6 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 
 	return (dest - p);
 }
-
-#if 0
-static int
-envelope_check_dict(struct dict *d)
-{
-	struct field_desc {
-		const char	       *name;
-		uint8_t			optional;
-		const char	       *type;
-	} fields_desc[] = {
-		{ "version",			0,	NULL },
-		{ "type",			0,	NULL },
-		{ "smtpname",			0,	NULL },
-		{ "helo",			0,	NULL },
-		{ "hostname",			0,	NULL },
-		{ "sockaddr",			0,	NULL },
-		{ "sender",			0,	NULL },
-		{ "rcpt",			0,	NULL },
-		{ "dest",			0,	NULL },
-		{ "ctime",			0,	NULL },
-		{ "expire",			0,	NULL },
-		{ "tag",			1,	NULL },
-		{ "last-try",			1,	NULL },
-		{ "last-bounce",		1,	NULL },
-		{ "retry",			1,	NULL },
-		{ "flags",			1,	NULL },
-
-		{ "mda-buffer",			0,	"mda" },
-		{ "mda-method",			0,	"mda" },
-		{ "mda-user",			0,	"mda" },
-		{ "mda-usertable",		1,	"mda" },
-
-		{ "mta-relay",			0,	"mta" },
-		{ "mta-relay-auth",		1,	"mta" },
-		{ "mta-relay-cert",		1,	"mta" },
-		{ "mta-relay-flags",		1,	"mta" },
-		{ "mta-relay-heloname",		1,	"mta" },
-		{ "mta-relay-helotable",	1,	"mta" },
-		{ "mta-relay-source",		1,	"mta" },
-
-		{ "bounce-type",       		0,	"bounce" },
-		{ "bounce-expire",     		1,	"bounce" },
-		{ "bounce-delay",      		1,	"bounce" },
-	};
-	const char	       *type;
-	const char	       *p;
-	int			i, n;
-
-	if ((p = dict_get(d, "type")) == NULL)
-		goto err;
-
-	n = sizeof fields_desc / sizeof (struct field_desc);
-	for (i = 0; i < n; ++i) {
-		p = dict_get(d, fields_desc[i].name);
-
-		if (fields_desc[i].type == NULL) {
-			if (p == NULL && !fields_desc[i].optional) {
-				log_warnx("envelope: mandatory field \"%s\" is missing",
-				    fields_desc[i].name);
-				goto err;
-			}
-			continue;
-		}
-
-		if (p != NULL && strcmp(fields_desc[i].type, type) != 0) {
-			log_warnx("envelope: field \"%s\" only valid for %s envelopes",
-			    fields_desc[i].name, fields_desc[i].type);
-			goto err;
-		}
-
-		if (p == NULL && strcmp(fields_desc[i].type, type) == 0 && !fields_desc[i].optional) {
-			log_warnx("envelope: mandatory field \"%s\" is missing",
-			    fields_desc[i].name);
-			goto err;
-		}
-	}
-
-	return 1;
-
-err:
-	return 0;
-}
-#endif
 
 static int
 ascii_load_uint8(uint8_t *dest, char *buf)
