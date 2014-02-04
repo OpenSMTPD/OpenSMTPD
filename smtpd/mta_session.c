@@ -692,7 +692,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 
 	case MTA_AUTH_LOGIN_PASS:
 		memset(ibuf, 0, sizeof ibuf);
-		if (base64_decode(s->relay->secret, (unsigned char *)ibuf,\
+		if (base64_decode(s->relay->secret, (unsigned char *)ibuf,
 				  sizeof(ibuf)-1) == -1) {
 			log_debug("debug: mta: %p: credentials too large on session", s);
 			mta_error(s, "Credentials too large");

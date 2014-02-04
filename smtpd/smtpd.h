@@ -531,7 +531,6 @@ struct listener {
 	struct timeval		 timeout;
 	struct event		 ev;
 	char			 pki_name[SMTPD_MAXPATHLEN];
-	struct ssl		*ssl;
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
