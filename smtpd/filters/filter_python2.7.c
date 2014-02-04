@@ -39,6 +39,7 @@ static PyObject	*py_on_dataline;
 
 static PyObject	*py_on_commit;
 static PyObject	*py_on_rollback;
+static PyObject	*py_on_disconnect;
 
 
 static PyObject *
@@ -297,6 +298,29 @@ on_rollback(uint64_t id)
 }
 
 static void
+on_disconnect(uint64_t id)
+{
+	PyObject *py_args;
+	PyObject *py_ret;
+	PyObject *py_id;
+
+	py_args = PyTuple_New(1);
+	py_id   = PyLong_FromUnsignedLongLong(id);
+	PyTuple_SetItem(py_args, 0, py_id);
+	py_ret = PyObject_CallObject(py_on_disconnect, py_args);
+	Py_DECREF(py_args);
+
+	if (py_ret == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python2.7: call to on_disconnect handler failed");
+		exit(1);
+	}
+
+	log_warnx("warn: filter-python2.7: GOT DISCONNECT");
+	return;
+}
+
+static void
 on_dataline(uint64_t id, const char *line)
 {
 	PyObject *py_args;
@@ -395,6 +419,10 @@ main(int argc, char **argv)
 	py_on_dataline = PyObject_GetAttrString(module, "on_dataline");
 	if (py_on_dataline && PyCallable_Check(py_on_dataline))
 		filter_api_on_dataline(on_dataline);
+
+	py_on_disconnect = PyObject_GetAttrString(module, "on_disconnect");
+	if (py_on_disconnect && PyCallable_Check(py_on_disconnect))
+		filter_api_on_disconnect(on_disconnect);
 
 	filter_api_loop();
 
