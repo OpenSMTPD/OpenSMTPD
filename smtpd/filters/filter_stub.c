@@ -30,42 +30,42 @@ static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
 	log_debug("ON CONNECT");
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
 static int
 on_helo(uint64_t id, const char *helo)
 {
 	log_debug("ON HELO");
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
 static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
 	log_debug("ON MAIL");
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
 static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
 	log_debug("ON RCPT");
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
 static int
 on_data(uint64_t id)
 {
 	log_debug("ON DATA");
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
 static int
 on_eom(uint64_t id)
 {
 	log_debug("ON EOM");
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
 static void
