@@ -389,7 +389,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &success);
 		m_end(&m);
-
 		s = tree_xpop(&wait_queue_fd, reqid);
 		if (!success || imsg->fd == -1) {
 			if (imsg->fd != -1)
