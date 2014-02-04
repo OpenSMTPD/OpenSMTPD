@@ -59,7 +59,6 @@ struct filter_session {
 		int		 ready;
 		int		 status;
 		int		 code;
-		int		 notify;
 		char		*line;
 	} response;
 };
@@ -78,33 +77,29 @@ static struct filter_internals {
 	const char     *rootpath;
 
 	struct {
-		void (*notify)(uint64_t, enum filter_status);
-		void (*connect)(uint64_t, struct filter_connect *);
-		void (*helo)(uint64_t, const char *);
-		void (*mail)(uint64_t, struct mailaddr *);
-		void (*rcpt)(uint64_t, struct mailaddr *);
-		void (*data)(uint64_t);
+		int  (*connect)(uint64_t, struct filter_connect *);
+		int  (*helo)(uint64_t, const char *);
+		int  (*mail)(uint64_t, struct mailaddr *);
+		int  (*rcpt)(uint64_t, struct mailaddr *);
+		int  (*data)(uint64_t);
 		void (*dataline)(uint64_t, const char *);
-		void (*eom)(uint64_t);
+		int  (*eom)(uint64_t);
 
 		void (*disconnect)(uint64_t);
 		void (*reset)(uint64_t);
 		void (*commit)(uint64_t);
 		void (*rollback)(uint64_t);
-
-
 	} cb;
 } fi;
 
 static void filter_api_init(void);
-static void filter_response(struct filter_session *, int, int, const char *line, int);
+static void filter_response(struct filter_session *, int, int, const char *line);
 static void filter_send_response(struct filter_session *);
 static void filter_register_query(uint64_t, uint64_t, enum filter_hook);
 static void filter_dispatch(struct mproc *, struct imsg *);
 static void filter_dispatch_dataline(uint64_t, const char *);
 static void filter_dispatch_data(uint64_t, uint64_t);
 static void filter_dispatch_eom(uint64_t, uint64_t, size_t);
-static void filter_dispatch_notify(uint64_t, enum filter_status);
 static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *);
 static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
 static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
@@ -116,15 +111,7 @@ static const char *filterimsg_to_str(int);
 static const char *hook_to_str(int);
 
 void
-filter_api_on_notify(void(*cb)(uint64_t, enum filter_status))
-{
-	filter_api_init();
-
-	fi.cb.notify = cb;
-}
-
-void
-filter_api_on_connect(void(*cb)(uint64_t, struct filter_connect *))
+filter_api_on_connect(int(*cb)(uint64_t, struct filter_connect *))
 {
 	filter_api_init();
 
@@ -133,7 +120,7 @@ filter_api_on_connect(void(*cb)(uint64_t, struct filter_connect *))
 }
 
 void
-filter_api_on_helo(void(*cb)(uint64_t, const char *))
+filter_api_on_helo(int(*cb)(uint64_t, const char *))
 {
 	filter_api_init();
 
@@ -142,7 +129,7 @@ filter_api_on_helo(void(*cb)(uint64_t, const char *))
 }
 
 void
-filter_api_on_mail(void(*cb)(uint64_t, struct mailaddr *))
+filter_api_on_mail(int(*cb)(uint64_t, struct mailaddr *))
 {
 	filter_api_init();
 
@@ -151,7 +138,7 @@ filter_api_on_mail(void(*cb)(uint64_t, struct mailaddr *))
 }
 
 void
-filter_api_on_rcpt(void(*cb)(uint64_t, struct mailaddr *))
+filter_api_on_rcpt(int(*cb)(uint64_t, struct mailaddr *))
 {
 	filter_api_init();
 
@@ -160,7 +147,7 @@ filter_api_on_rcpt(void(*cb)(uint64_t, struct mailaddr *))
 }
 
 void
-filter_api_on_data(void(*cb)(uint64_t))
+filter_api_on_data(int(*cb)(uint64_t))
 {
 	filter_api_init();
 
@@ -178,7 +165,7 @@ filter_api_on_dataline(void(*cb)(uint64_t, const char *))
 }
 
 void
-filter_api_on_eom(void(*cb)(uint64_t))
+filter_api_on_eom(int(*cb)(uint64_t))
 {
 	filter_api_init();
 
@@ -260,26 +247,17 @@ filter_api_loop(void)
 	}
 }
 
-void
+int
 filter_api_accept(uint64_t id)
 {
 	struct filter_session	*s;
 
 	s = tree_xget(&sessions, id);
-	filter_response(s, FILTER_OK, 0, NULL, 0);
+	filter_response(s, FILTER_OK, 0, NULL);
+	return 1;
 }
 
-void
-filter_api_accept_notify(uint64_t id, uint64_t *qid)
-{
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-	*qid = s->qid;
-	filter_response(s, FILTER_OK, 0, NULL, 1);
-}
-
-void
+int
 filter_api_reject(uint64_t id, enum filter_status status)
 {
 	struct filter_session	*s;
@@ -290,10 +268,11 @@ filter_api_reject(uint64_t id, enum filter_status status)
 	if (status == FILTER_OK)
 		status = FILTER_FAIL;
 
-	filter_response(s, status, 0, NULL, 0);
+	filter_response(s, status, 0, NULL);
+	return 1;
 }
 
-void
+int
 filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
     const char *line)
 {
@@ -305,7 +284,8 @@ filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
 	if (status == FILTER_OK)
 		status = FILTER_FAIL;
 
-	filter_response(s, status, code, line, 0);
+	filter_response(s, status, code, line);
+	return 1;
 }
 
 void
@@ -326,7 +306,7 @@ filter_api_writeln(uint64_t id, const char *line)
 }
 
 static void
-filter_response(struct filter_session *s, int status, int code, const char *line, int notify)
+filter_response(struct filter_session *s, int status, int code, const char *line)
 {
 	log_debug("debug: filter-api:%s: got response %s for %016"PRIx64" %d %d %s",
 	    filter_name, hook_to_str(s->qhook), s->id,
@@ -337,7 +317,6 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 	s->response.ready = 1;
 	s->response.status = status;
 	s->response.code = code;
-	s->response.notify = notify;
 	if (line)
 		s->response.line = strdup(line);
 	else
@@ -373,7 +352,6 @@ filter_send_response(struct filter_session *s)
 		    s->pipe.odatalen : s->pipe.datalen);
 	m_add_int(&fi.p, s->response.status);
 	m_add_int(&fi.p, s->response.code);
-	m_add_int(&fi.p, s->response.notify);
 	if (s->response.line) {
 		m_add_string(&fi.p, s->response.line);
 		free(s->response.line);
@@ -605,15 +583,6 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		}
 		/* XXX notify? */
 		break;
-
-	case IMSG_FILTER_NOTIFY:
-		m_msg(&m, imsg);
-		m_get_id(&m, &qid);
-		m_get_int(&m, &status);
-		m_end(&m);
-		filter_dispatch_notify(qid, status);
-		break;
-
 	}
 }
 
@@ -636,12 +605,6 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 	s->response.ready = 0;
 
 	tree_xset(&queries, qid, s);
-}
-
-static void
-filter_dispatch_notify(uint64_t qid, enum filter_status status)
-{
-	fi.cb.notify(qid, status);
 }
 
 static void

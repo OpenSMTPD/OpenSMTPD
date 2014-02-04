@@ -85,7 +85,6 @@ struct mfa_query {
 	int			 state;
 	int			 hasrun;
 	struct mfa_filter	*current;
-	struct tree		 notify;  /* list of filters to notify */
 
 	/* current data */
 	union {
@@ -418,7 +417,6 @@ mfa_query(struct mfa_session *s, int type, int hook)
 	q->session = s;
 	q->type = type;
 	q->hook = hook;
-	tree_init(&q->notify);
 	TAILQ_INSERT_TAIL(&s->queries, q, entry);
 
 	q->state = QUERY_READY;
@@ -488,14 +486,6 @@ mfa_drain_query(struct mfa_query *q)
 		    status_to_str(q->smtp.status),
 		    q->smtp.code,
 		    q->smtp.response);
-
-		/* Done, notify all listeners... */
-		while (tree_poproot(&q->notify, NULL, (void**)&proc)) {
-			m_create(&proc->mproc, IMSG_FILTER_NOTIFY, 0, 0, -1);
-			m_add_id(&proc->mproc, q->qid);
-			m_add_int(&proc->mproc, q->smtp.status);
-			m_close(&proc->mproc);
-		}
 
 		/* ...and send the SMTP response */
 		if (q->hook == HOOK_EOM) {
@@ -589,7 +579,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*line;
 	uint64_t		 qid;
 	uint32_t		 datalen;
-	int			 qhook, status, code, notify;
+	int			 qhook, status, code;
 
 	if (imsg == NULL) {
 		log_warnx("warn: filter \"%s\" closed unexpectedly", p->name);
@@ -632,7 +622,6 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_u32(&m, &datalen);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
-		m_get_int(&m, &notify);
 		if (m_is_eom(&m))
 			line = NULL;
 		else
@@ -652,8 +641,6 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			q->smtp.response = xstrdup(line, "mfa_filter_imsg");
 		}
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
-		if (notify)
-			tree_xset(&q->notify, (uintptr_t)(proc), proc);
 		if (qhook == HOOK_EOM)
 			q->u.datalen = datalen;
 

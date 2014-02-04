@@ -26,47 +26,79 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-static void
+static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
+	log_debug("ON CONNECT");
 	filter_api_accept(id);
 }
 
-static void
+static int
 on_helo(uint64_t id, const char *helo)
 {
+	log_debug("ON HELO");
 	filter_api_accept(id);
 }
 
-static void
+static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
+	log_debug("ON MAIL");
 	filter_api_accept(id);
 }
 
-static void
+static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
+	log_debug("ON RCPT");
 	filter_api_accept(id);
 }
 
-static void
+static int
 on_data(uint64_t id)
 {
+	log_debug("ON DATA");
 	filter_api_accept(id);
 }
 
-static void
+static int
 on_eom(uint64_t id)
 {
+	log_debug("ON EOM");
 	filter_api_accept(id);
 }
 
 static void
 on_dataline(uint64_t id, const char *line)
 {
+	log_debug("ON DATALINE");
 	filter_api_writeln(id, line);
 }
+
+static void
+on_reset(uint64_t id)
+{
+	log_debug("ON RESET");
+}
+
+static void
+on_commit(uint64_t id)
+{
+	log_debug("ON COMMIT");
+}
+
+static void
+on_rollback(uint64_t id)
+{
+	log_debug("ON ROLLBACK");
+}
+
+static void
+on_disconnect(uint64_t id)
+{
+	log_debug("ON DISCONNECT");
+}
+
 
 int
 main(int argc, char **argv)

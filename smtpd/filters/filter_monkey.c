@@ -26,56 +26,56 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-static void
+static int
 monkey(uint64_t id)
 {
 	uint32_t r;
 
 	r = arc4random_uniform(100);
 	if (r < 70)
-		filter_api_accept(id);
+		return filter_api_accept(id);
 	else if (r < 90)
-		filter_api_reject_code(id, FILTER_FAIL, 666,
+		return filter_api_reject_code(id, FILTER_FAIL, 666,
 		    "I am a monkey!");
 	else
-		filter_api_reject_code(id, FILTER_CLOSE, 666,
+		return filter_api_reject_code(id, FILTER_CLOSE, 666,
 		    "I am a funny monkey!");
 }
 
-static void
+static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
-	monkey(id);
+	return monkey(id);
 }
 
-static void
+static int
 on_helo(uint64_t id, const char *helo)
 {
-	monkey(id);
+	return monkey(id);
 }
 
-static void
+static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
-	monkey(id);
+	return monkey(id);
 }
 
-static void
+static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	monkey(id);
+	return monkey(id);
 }
 
-static void
+static int
 on_data(uint64_t id)
 {
-	monkey(id);
+	return monkey(id);
 }
 
-static void
+static int
 on_eom(uint64_t id)
 {
-	monkey(id);
+	return monkey(id);
 }
 
 int
