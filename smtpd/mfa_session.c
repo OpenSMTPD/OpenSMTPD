@@ -115,11 +115,13 @@ static void mfa_set_fdout(struct mfa_session *, int);
 static TAILQ_HEAD(, mfa_filterproc)	procs;
 struct dict				chains;
 
+static const char * mfa_event_to_text(struct mfa_query *);
 static const char * mfa_query_to_text(struct mfa_query *);
 static const char * mfa_filter_to_text(struct mfa_filter *);
 static const char * mfa_filterproc_to_text(struct mfa_filterproc *);
 static const char * type_to_str(int);
 static const char * hook_to_str(int);
+static const char * event_to_str(int);
 static const char * status_to_str(int);
 static const char * filterimsg_to_str(int);
 
@@ -423,8 +425,12 @@ mfa_query(struct mfa_session *s, int type, int hook)
 	q->current = TAILQ_FIRST(s->filters);
 	q->hasrun = 0;
 
-	log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
-	    hook_to_str(hook));
+	if (type == QT_QUERY)
+		log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
+		    hook_to_str(hook));
+	else
+		log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
+		    event_to_str(hook));
 
 	return (q);
 }
@@ -491,7 +497,7 @@ mfa_drain_query(struct mfa_query *q)
 		if (q->hook == HOOK_EOM) {
 			mfa_report_eom(q->session->id, q->u.datalen);
 		}
-		else {
+		else if (q->hook != HOOK_DISCONNECT) {
 			m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
 			m_add_id(p_smtp, q->session->id);
 			m_add_int(p_smtp, q->smtp.status);
@@ -504,13 +510,6 @@ mfa_drain_query(struct mfa_query *q)
 	}
 
 	TAILQ_REMOVE(&q->session->queries, q, entry);
-	/* If the query was a disconnect event, the session can be freed */
-	if (q->hook == HOOK_DISCONNECT) {
-		/* XXX assert prev == NULL */
-		log_trace(TRACE_MFA, "filter: freeing session %016" PRIx64, q->session->id);
-		free(q->session);
-	}
-
 	log_trace(TRACE_MFA, "filter: freeing query %016" PRIx64, q->qid);
 	free(q);
 }
@@ -671,7 +670,6 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 	}
 }
 
-
 static const char *
 mfa_query_to_text(struct mfa_query *q)
 {
@@ -680,34 +678,35 @@ mfa_query_to_text(struct mfa_query *q)
 
 	tmp[0] = '\0';
 
-	switch(q->hook) {
-
-	case HOOK_CONNECT:
-		strlcat(tmp, "=", sizeof tmp);
-		strlcat(tmp, ss_to_text(&q->u.connect.local), sizeof tmp);
-		strlcat(tmp, " <-> ", sizeof tmp);
-		strlcat(tmp, ss_to_text(&q->u.connect.remote), sizeof tmp);
-		strlcat(tmp, "(", sizeof tmp);
-		strlcat(tmp, q->u.connect.hostname, sizeof tmp);
-		strlcat(tmp, ")", sizeof tmp);
-		break;
-
-	case HOOK_MAIL:
-	case HOOK_RCPT:
-		snprintf(tmp, sizeof tmp, "=%s@%s",
-		    q->u.maddr.user, q->u.maddr.domain);
-		break;
-
-	case HOOK_HELO:
-		snprintf(tmp, sizeof tmp, "=%s", q->u.line);
-		break;
-
-	default:
-		break;
+	if (q->type == QT_QUERY) {
+		switch(q->hook) {
+		case HOOK_CONNECT:
+			strlcat(tmp, "=", sizeof tmp);
+			strlcat(tmp, ss_to_text(&q->u.connect.local), sizeof tmp);
+			strlcat(tmp, " <-> ", sizeof tmp);
+			strlcat(tmp, ss_to_text(&q->u.connect.remote), sizeof tmp);
+			strlcat(tmp, "(", sizeof tmp);
+			strlcat(tmp, q->u.connect.hostname, sizeof tmp);
+			strlcat(tmp, ")", sizeof tmp);
+			break;
+		case HOOK_MAIL:
+		case HOOK_RCPT:
+			snprintf(tmp, sizeof tmp, "=%s@%s",
+			    q->u.maddr.user, q->u.maddr.domain);
+			break;
+		case HOOK_HELO:
+			snprintf(tmp, sizeof tmp, "=%s", q->u.line);
+			break;
+		default:
+			break;
+		}
+		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
+		    q->qid, type_to_str(q->type), hook_to_str(q->hook), tmp);
 	}
-
-	snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
-	    q->qid, type_to_str(q->type), hook_to_str(q->hook), tmp);
+	else {
+		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
+		    q->qid, type_to_str(q->type), event_to_str(q->hook), tmp);
+	}
 
 	return (buf);
 }

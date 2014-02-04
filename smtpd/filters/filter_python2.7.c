@@ -17,6 +17,7 @@
  */
  
 #include <sys/types.h>
+#include <sys/socket.h>
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -35,6 +36,9 @@ static PyObject	*py_on_rcpt;
 static PyObject	*py_on_data;
 static PyObject	*py_on_eom;
 static PyObject	*py_on_dataline;
+
+static PyObject	*py_on_commit;
+static PyObject	*py_on_rollback;
 
 
 static PyObject *
@@ -82,7 +86,34 @@ static PyMethodDef py_methods[] = {
 static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
-	return filter_api_accept(id);
+	PyObject *py_args;
+	PyObject *py_ret;
+	PyObject *py_id;
+	PyObject *py_local;
+	PyObject *py_remote;
+	PyObject *py_hostname;
+
+	py_args     = PyTuple_New(4);
+	py_id       = PyLong_FromUnsignedLongLong(id);
+	py_local    = PyString_FromString("test");
+	py_remote   = PyString_FromString("test");
+	py_hostname = PyString_FromString(conn->hostname);
+
+	PyTuple_SetItem(py_args, 0, py_id);
+	PyTuple_SetItem(py_args, 1, py_local);
+	PyTuple_SetItem(py_args, 2, py_remote);
+	PyTuple_SetItem(py_args, 3, py_hostname);
+
+	py_ret = PyObject_CallObject(py_on_connect, py_args);
+	Py_DECREF(py_args);
+
+	if (py_ret == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python2.7: call to on_connect handler failed");
+		exit(1);
+	}
+
+	return 1;
 }
 
 static int
@@ -102,26 +133,75 @@ on_helo(uint64_t id, const char *helo)
 
 	py_ret = PyObject_CallObject(py_on_helo, py_args);
 	Py_DECREF(py_args);
-
 	if (py_ret == NULL) {
 		PyErr_Print();
 		log_warnx("warn: filter-python2.7: call to on_helo handler failed");
 		exit(1);
 	}
-
-	return filter_api_accept(id);
+	return 1;
 }
 
 static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
-	return filter_api_accept(id);
+	PyObject *py_args;
+	PyObject *py_ret;
+	PyObject *py_id;
+	PyObject *py_sender;
+	char	mailaddr[SMTPD_MAXLINESIZE];
+
+	(void)snprintf(mailaddr, sizeof mailaddr, "%s%s%s",
+	    mail->user, mail->user[0] && mail->domain[0] ? "@" : "", mail->domain);
+
+	py_args   = PyTuple_New(2);
+	py_id     = PyLong_FromUnsignedLongLong(id);
+	py_sender = PyString_FromString(mailaddr);
+
+	PyTuple_SetItem(py_args, 0, py_id);
+	PyTuple_SetItem(py_args, 1, py_sender);
+
+	py_ret = PyObject_CallObject(py_on_mail, py_args);
+	Py_DECREF(py_args);
+
+	if (py_ret == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python2.7: call to on_mail handler failed");
+		exit(1);
+	}
+
+
+	return 1;
 }
 
 static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	return filter_api_accept(id);
+	PyObject *py_args;
+	PyObject *py_ret;
+	PyObject *py_id;
+	PyObject *py_rcpt;
+	char	mailaddr[SMTPD_MAXLINESIZE];
+
+	(void)snprintf(mailaddr, sizeof mailaddr, "%s%s%s",
+	    rcpt->user, rcpt->user[0] && rcpt->domain[0] ? "@" : "", rcpt->domain);
+
+	py_args  = PyTuple_New(2);
+	py_id    = PyLong_FromUnsignedLongLong(id);
+	py_rcpt  = PyString_FromString(mailaddr);
+
+	PyTuple_SetItem(py_args, 0, py_id);
+	PyTuple_SetItem(py_args, 1, py_rcpt);
+
+	py_ret = PyObject_CallObject(py_on_rcpt, py_args);
+	Py_DECREF(py_args);
+
+	if (py_ret == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python2.7: call to on_rcpt handler failed");
+		exit(1);
+	}
+
+	return 1;
 }
 
 static int
@@ -144,8 +224,7 @@ on_data(uint64_t id)
 	}
 
 	log_warnx("warn: filter-python2.7: GOT DATA");
-
-	return filter_api_accept(id);
+	return 1;
 }
 
 static int
@@ -168,8 +247,53 @@ on_eom(uint64_t id)
 	}
 
 	log_warnx("warn: filter-python2.7: GOT EOM");
+	return 1;
+}
 
-	return filter_api_accept(id);
+static void
+on_commit(uint64_t id)
+{
+	PyObject *py_args;
+	PyObject *py_ret;
+	PyObject *py_id;
+
+	py_args = PyTuple_New(1);
+	py_id   = PyLong_FromUnsignedLongLong(id);
+	PyTuple_SetItem(py_args, 0, py_id);
+	py_ret = PyObject_CallObject(py_on_commit, py_args);
+	Py_DECREF(py_args);
+
+	if (py_ret == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python2.7: call to on_commit handler failed");
+		exit(1);
+	}
+
+	log_warnx("warn: filter-python2.7: GOT COMMIT");
+	return;
+}
+
+static void
+on_rollback(uint64_t id)
+{
+	PyObject *py_args;
+	PyObject *py_ret;
+	PyObject *py_id;
+
+	py_args = PyTuple_New(1);
+	py_id   = PyLong_FromUnsignedLongLong(id);
+	PyTuple_SetItem(py_args, 0, py_id);
+	py_ret = PyObject_CallObject(py_on_rollback, py_args);
+	Py_DECREF(py_args);
+
+	if (py_ret == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python2.7: call to on_rollback handler failed");
+		exit(1);
+	}
+
+	log_warnx("warn: filter-python2.7: GOT ROLLBACK");
+	return;
 }
 
 static void
@@ -259,6 +383,14 @@ main(int argc, char **argv)
 	py_on_eom = PyObject_GetAttrString(module, "on_eom");
 	if (py_on_eom && PyCallable_Check(py_on_eom))
 		filter_api_on_eom(on_eom);
+
+	py_on_commit = PyObject_GetAttrString(module, "on_commit");
+	if (py_on_commit && PyCallable_Check(py_on_commit))
+		filter_api_on_commit(on_commit);
+
+	py_on_rollback = PyObject_GetAttrString(module, "on_rollback");
+	if (py_on_rollback && PyCallable_Check(py_on_rollback))
+		filter_api_on_rollback(on_rollback);
 
 	py_on_dataline = PyObject_GetAttrString(module, "on_dataline");
 	if (py_on_dataline && PyCallable_Check(py_on_dataline))

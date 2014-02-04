@@ -104,6 +104,10 @@ static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *)
 static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
 static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
 static void filter_dispatch_rcpt(uint64_t, uint64_t, struct mailaddr *);
+static void filter_dispatch_commit(uint64_t, uint64_t);
+static void filter_dispatch_rollback(uint64_t, uint64_t);
+static void filter_dispatch_disconnect(uint64_t, uint64_t);
+
 static void filter_trigger_eom(struct filter_session *);
 static void filter_io_in(struct io *, int);
 static void filter_io_out(struct io *, int);
@@ -531,6 +535,21 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_register_query(id, qid, hook);
 			filter_dispatch_eom(id, qid, datalen);
 			break;
+		case HOOK_COMMIT:
+			m_end(&m);
+			filter_register_query(id, qid, hook);
+			filter_dispatch_commit(id, qid);
+			break;
+		case HOOK_ROLLBACK:
+			m_end(&m);
+			filter_register_query(id, qid, hook);
+			filter_dispatch_rollback(id, qid);
+			break;
+		case HOOK_DISCONNECT:
+			m_end(&m);
+			filter_register_query(id, qid, hook);
+			filter_dispatch_disconnect(id, qid);
+			break;
 		default:
 			log_warnx("warn: filter-api:%s: bad hook %d", filter_name, hook);
 			fatalx("filter-api: exiting");
@@ -636,6 +655,25 @@ filter_dispatch_data(uint64_t id, uint64_t qid)
 {
 	fi.cb.data(id);
 }
+
+static void
+filter_dispatch_commit(uint64_t id, uint64_t qid)
+{
+	fi.cb.commit(id);
+}
+
+static void
+filter_dispatch_rollback(uint64_t id, uint64_t qid)
+{
+	fi.cb.rollback(id);
+}
+
+static void
+filter_dispatch_disconnect(uint64_t id, uint64_t qid)
+{
+	fi.cb.disconnect(id);
+}
+
 
 static void
 filter_dispatch_eom(uint64_t id, uint64_t qid, size_t datalen)
