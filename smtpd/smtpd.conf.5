@@ -576,8 +576,6 @@ Changing the default value might degrade performances.
 .Op Ic hostname Ar hostname
 .Op Ic hostnames Ar names
 .Op Ic mask-source
-.Op Ic ciphers Ar ciphersuite
-.Op Ic curve Ar curvename
 .Ek
 .Xc
 Specify an
@@ -673,20 +671,6 @@ If the
 .Ic mask-source
 parameter is used, then the listener will skip the "from" part
 when prepending the "Received" header.
-.Pp
-If the
-.Ic ciphers
-parameter is used, it will override the default cipher suite used
-by OpenSMTPD for negotiating TLS sessions.
-By default, OpenSMTPD uses a strong cipher suite, using this option
-sometimes needed but strongly discouraged.
-.Pp
-If the
-.Ic curve
-parameter is used, it will override the default curve used by OpenSMTPD
-for Perfect Forward Secrecy.
-By default, OpenSMTPD uses a reliable curve, using this option is strongly
-discouraged.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
