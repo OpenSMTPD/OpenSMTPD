@@ -79,13 +79,13 @@ static PyMethodDef py_methods[] = {
 };
 
 
-static void
+static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_helo(uint64_t id, const char *helo)
 {
 	PyObject *py_args;
@@ -108,21 +108,23 @@ on_helo(uint64_t id, const char *helo)
 		log_warnx("warn: filter-python2.7: call to on_helo handler failed");
 		exit(1);
 	}
+
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	filter_api_accept(id);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_data(uint64_t id)
 {
 	PyObject *py_args;
@@ -143,13 +145,10 @@ on_data(uint64_t id)
 
 	log_warnx("warn: filter-python2.7: GOT DATA");
 
-	if (PyObject_IsTrue(py_ret))
-		filter_api_accept(id);
-	else
-		filter_api_reject(id, FILTER_FAIL);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_eom(uint64_t id)
 {
 	PyObject *py_args;
@@ -170,10 +169,7 @@ on_eom(uint64_t id)
 
 	log_warnx("warn: filter-python2.7: GOT EOM");
 
-	if (PyObject_IsTrue(py_ret))
-		filter_api_accept(id);
-	else
-		filter_api_reject(id, FILTER_FAIL);
+	return filter_api_accept(id);
 }
 
 static void
