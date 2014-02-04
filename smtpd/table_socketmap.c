@@ -132,11 +132,7 @@ err:
 	return 0;
 }
 
-<<<<<<< HEAD
-enum socketmap_reply
-=======
 static enum socketmap_reply
->>>>>>> branch-opensmtpd-5.4.2
 table_socketmap_query(const char *name, const char *key)
 {
 	char   *buf, *lbuf = NULL;
@@ -171,15 +167,9 @@ table_socketmap_query(const char *name, const char *key)
 	lbuf = NULL;
 
 	if (strlcpy(repbuffer, buf, sizeof repbuffer) >= sizeof repbuffer) {
-<<<<<<< HEAD
-		log_warnx("warn: table-socketmap: socketmap reply too large (>%d bytes)",
-			sizeof repbuffer);
-		strlcpy(repbuffer, "socketmap reply too large (>%d bytes)", sizeof repbuffer);
-=======
 		log_warnx("warn: table-socketmap: socketmap reply too large (>%zu bytes)",
 			sizeof repbuffer);
 		strlcpy(repbuffer, "socketmap reply too large", sizeof repbuffer);
->>>>>>> branch-opensmtpd-5.4.2
 		ret = SM_PERM;
 		goto err;
 	}
