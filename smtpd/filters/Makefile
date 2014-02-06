@@ -2,6 +2,6 @@ SUBDIR=		filter-dnsbl
 SUBDIR+=	filter-monkey
 SUBDIR+=	filter-stub
 SUBDIR+=	filter-trace
-SUBDIR+=	filter-python2.7
+#SUBDIR+=	filter-python
 
 .include <bsd.subdir.mk>
