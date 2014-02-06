@@ -110,7 +110,7 @@ on_connect(uint64_t id, struct filter_connect *conn)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_connect handler failed");
+		log_warnx("warn: filter-python: call to on_connect handler failed");
 		exit(1);
 	}
 
@@ -136,7 +136,7 @@ on_helo(uint64_t id, const char *helo)
 	Py_DECREF(py_args);
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_helo handler failed");
+		log_warnx("warn: filter-python: call to on_helo handler failed");
 		exit(1);
 	}
 	return 1;
@@ -166,7 +166,7 @@ on_mail(uint64_t id, struct mailaddr *mail)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_mail handler failed");
+		log_warnx("warn: filter-python: call to on_mail handler failed");
 		exit(1);
 	}
 
@@ -197,7 +197,7 @@ on_rcpt(uint64_t id, struct mailaddr *rcpt)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_rcpt handler failed");
+		log_warnx("warn: filter-python: call to on_rcpt handler failed");
 		exit(1);
 	}
 
@@ -219,11 +219,11 @@ on_data(uint64_t id)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_datra handler failed");
+		log_warnx("warn: filter-python: call to on_datra handler failed");
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python2.7: GOT DATA");
+	log_warnx("warn: filter-python: GOT DATA");
 	return 1;
 }
 
@@ -242,11 +242,11 @@ on_eom(uint64_t id)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_eom handler failed");
+		log_warnx("warn: filter-python: call to on_eom handler failed");
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python2.7: GOT EOM");
+	log_warnx("warn: filter-python: GOT EOM");
 	return 1;
 }
 
@@ -265,11 +265,11 @@ on_commit(uint64_t id)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_commit handler failed");
+		log_warnx("warn: filter-python: call to on_commit handler failed");
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python2.7: GOT COMMIT");
+	log_warnx("warn: filter-python: GOT COMMIT");
 	return;
 }
 
@@ -288,11 +288,11 @@ on_rollback(uint64_t id)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_rollback handler failed");
+		log_warnx("warn: filter-python: call to on_rollback handler failed");
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python2.7: GOT ROLLBACK");
+	log_warnx("warn: filter-python: GOT ROLLBACK");
 	return;
 }
 
@@ -311,11 +311,11 @@ on_disconnect(uint64_t id)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_disconnect handler failed");
+		log_warnx("warn: filter-python: call to on_disconnect handler failed");
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python2.7: GOT DISCONNECT");
+	log_warnx("warn: filter-python: GOT DISCONNECT");
 	return;
 }
 
@@ -339,7 +339,7 @@ on_dataline(uint64_t id, const char *line)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: call to on_dataline handler failed");
+		log_warnx("warn: filter-python: call to on_dataline handler failed");
 		exit(1);
 	}
 }
@@ -357,7 +357,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: filter-python2.7: bad option");
+			log_warnx("warn: filter-python: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -375,11 +375,11 @@ main(int argc, char **argv)
 
 	if (module == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python2.7: failed to load %s", scriptpath);
+		log_warnx("warn: filter-python: failed to load %s", scriptpath);
 		return 1;
 	}
 
-	log_debug("debug: filter-python2.7: starting...");
+	log_debug("debug: filter-python: starting...");
 
 	filter_api_on_connect(on_connect);
 
@@ -425,7 +425,7 @@ main(int argc, char **argv)
 
 	filter_api_loop();
 
-	log_debug("debug: filter-python2.7: exiting");
+	log_debug("debug: filter-python: exiting");
 	Py_Finalize();
 
 	return (1);
