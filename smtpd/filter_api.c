@@ -880,7 +880,7 @@ event_to_str(int event)
 	CASE(EVENT_COMMIT);
 	CASE(EVENT_ROLLBACK);
 	default:
-		return "HOOK_???";
+		return "EVENT_???";
 	}
 }
 

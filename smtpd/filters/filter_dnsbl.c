@@ -38,11 +38,12 @@ dnsbl_event_dispatch(int ret, struct async_res *ar, void *arg)
 
 	if (ar->ar_addrinfo)
 		freeaddrinfo(ar->ar_addrinfo);
-	
+
 	if (ar->ar_gai_errno != EAI_NODATA)
 		filter_api_reject(*q, FILTER_CLOSE);
 	else
 		filter_api_accept(*q);
+
 	free(q);
 }
 
