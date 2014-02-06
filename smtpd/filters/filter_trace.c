@@ -60,76 +60,49 @@ status_to_str(int status)
 	}
 }
 
-static void
-on_event(uint64_t id,  enum filter_hook event)
-{
-	printf("filter-event: id=%016"PRIx64", event=%s\n",
-	    id, event_to_str(event));
-}
-
-static void
-on_notify(uint64_t qid, enum filter_status status)
-{
-	printf("filter-notify: qid=%016"PRIx64", status=%s\n",
-	    qid, status_to_str(status));
-}
-
-static void
+static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
-	uint64_t	qid;
-
-	filter_api_accept_notify(id, &qid);
-	printf("filter-connect: id=%016"PRIx64", qid=%016"PRIx64" hostname=%s\n",
-	    id, qid, conn->hostname);
+	printf("filter-trace: id=%016"PRIx64", hostname=%s\n",
+	    id, conn->hostname);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_helo(uint64_t id, const char *helo)
 {
-	uint64_t	qid;
-
-	filter_api_accept_notify(id, &qid);
-	printf("filter: HELO id=%016"PRIx64", qid=%016"PRIx64" %s\n",
-	    id, qid, helo);
+	printf("filter: HELO id=%016"PRIx64", %s\n", id, helo);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
-	uint64_t	qid;
-
-	filter_api_accept_notify(id, &qid);
-	printf("filter: MAIL id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
-	    id, qid, mail->user, mail->domain);
+	printf("filter: MAIL id=%016"PRIx64", %s@%s\n",
+	    id, mail->user, mail->domain);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	uint64_t	qid;
-
-	filter_api_accept_notify(id, &qid);
-	printf("filter: RCPT id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
-	    id, qid, rcpt->user, rcpt->domain);
+	printf("filter: RCPT id=%016"PRIx64", %s@%s\n",
+	    id, rcpt->user, rcpt->domain);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_data(uint64_t id)
 {
-	uint64_t	qid;
-
-	filter_api_accept_notify(id, &qid);
-	printf("filter: DATA id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
+	printf("filter: RCPT id=%016"PRIx64, id);
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_eom(uint64_t id)
 {
-	uint64_t	qid;
-
-	filter_api_accept_notify(id, &qid);
-	printf("filter-eom: id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
+	printf("filter: EOMid=%016"PRIx64, id);
+	return filter_api_accept(id);
 }
 
 static void
@@ -159,8 +132,6 @@ main(int argc, char **argv)
 
 	log_debug("debug: filter-trace: starting...");
 
-	filter_api_on_event(on_event);
-	filter_api_on_notify(on_notify);
 	filter_api_on_connect(on_connect);
 	filter_api_on_helo(on_helo);
 	filter_api_on_mail(on_mail);

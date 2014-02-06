@@ -28,47 +28,79 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-static void
+static int
 on_connect(uint64_t id, struct filter_connect *conn)
 {
-	filter_api_accept(id);
+	log_debug("ON CONNECT");
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_helo(uint64_t id, const char *helo)
 {
-	filter_api_accept(id);
+	log_debug("ON HELO");
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
-	filter_api_accept(id);
+	log_debug("ON MAIL");
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	filter_api_accept(id);
+	log_debug("ON RCPT");
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_data(uint64_t id)
 {
-	filter_api_accept(id);
+	log_debug("ON DATA");
+	return filter_api_accept(id);
 }
 
-static void
+static int
 on_eom(uint64_t id)
 {
-	filter_api_accept(id);
+	log_debug("ON EOM");
+	return filter_api_accept(id);
 }
 
 static void
 on_dataline(uint64_t id, const char *line)
 {
+	log_debug("ON DATALINE");
 	filter_api_writeln(id, line);
 }
+
+static void
+on_reset(uint64_t id)
+{
+	log_debug("ON RESET");
+}
+
+static void
+on_commit(uint64_t id)
+{
+	log_debug("ON COMMIT");
+}
+
+static void
+on_rollback(uint64_t id)
+{
+	log_debug("ON ROLLBACK");
+}
+
+static void
+on_disconnect(uint64_t id)
+{
+	log_debug("ON DISCONNECT");
+}
+
 
 int
 main(int argc, char **argv)
@@ -97,8 +129,8 @@ main(int argc, char **argv)
 	filter_api_on_data(on_data);
 	filter_api_on_eom(on_eom);
 	filter_api_on_dataline(on_dataline);
-	filter_api_loop();
 
+	filter_api_loop();
 	log_debug("debug: filter-stub: exiting");
 
 	return (1);
