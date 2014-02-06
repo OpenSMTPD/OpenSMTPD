@@ -247,11 +247,8 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		switch(hook) {
 		case QUERY_CONNECT:
 			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.local);
-			log_debug("filter-api: 0");
 			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.remote);
-			log_debug("filter-api: 1");
 			m_get_string(&m, &q_connect.hostname);
-			log_debug("filter-api: 2");
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_connect(id, &q_connect);
