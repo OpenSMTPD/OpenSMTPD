@@ -120,7 +120,6 @@ main(int argc, char **argv)
 
 	log_debug("debug: filter-stub: starting...");
 
-	/*
 	filter_api_on_connect(on_connect);
 	filter_api_on_helo(on_helo);
 	filter_api_on_mail(on_mail);
@@ -128,7 +127,6 @@ main(int argc, char **argv)
 	filter_api_on_data(on_data);
 	filter_api_on_eom(on_eom);
 	filter_api_on_dataline(on_dataline);
-	*/
 
 	filter_api_loop();
 	log_debug("debug: filter-stub: exiting");
