@@ -1,1 +1,1 @@
-SUBDIRS =		stub trace dnsbl monkey
+SUBDIRS =		dnsbl monkey stub trace void
