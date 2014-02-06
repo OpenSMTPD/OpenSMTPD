@@ -170,7 +170,6 @@ on_mail(uint64_t id, struct mailaddr *mail)
 		exit(1);
 	}
 
-
 	return 1;
 }
 
