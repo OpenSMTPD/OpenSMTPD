@@ -2956,9 +2956,10 @@ AC_CONFIG_FILES([Makefile
 		mk/backends/table-redis/Makefile
 		mk/filters/Makefile
 		mk/filters/dnsbl/Makefile
+		mk/filters/monkey/Makefile
 		mk/filters/stub/Makefile
 		mk/filters/trace/Makefile
-		mk/filters/monkey/Makefile
+		mk/filters/void/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
