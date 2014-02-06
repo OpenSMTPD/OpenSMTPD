@@ -39,7 +39,7 @@ monkey(uint64_t id)
 		    "I am a monkey!");
 	else
 		return filter_api_reject_code(id, FILTER_CLOSE, 666,
-		    "I am a funny monkey!");
+		    "I am a not so funny monkey!");
 }
 
 static int

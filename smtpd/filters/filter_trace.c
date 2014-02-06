@@ -69,8 +69,6 @@ on_connect(uint64_t id, struct filter_connect *conn)
 static int
 on_helo(uint64_t id, const char *helo)
 {
-	uint64_t	qid;
-
 	printf("filter: HELO id=%016"PRIx64", %s\n", id, helo);
 	return filter_api_accept(id);
 }
