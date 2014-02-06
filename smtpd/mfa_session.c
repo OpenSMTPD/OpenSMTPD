@@ -472,7 +472,7 @@ mfa_drain_query(struct mfa_query *q)
 			if (prev && prev->current == q->current) {
 				q->state = QUERY_WAITING;
 				log_trace(TRACE_MFA,
-				    "filter: query blocked by previoius query %s",
+				    "filter: query blocked by previous query %s",
 				    mfa_query_to_text(prev));
 				return;
 			}
@@ -498,18 +498,13 @@ mfa_drain_query(struct mfa_query *q)
 			mfa_report_eom(q->session->id, q->u.datalen);
 		}
 		else {
-			if (q->hook != HOOK_DISCONNECT &&
-			    q->hook != HOOK_COMMIT &&
-			    q->hook != HOOK_ROLLBACK &&
-			    q->hook != HOOK_RESET) {
-				m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-				m_add_id(p_smtp, q->session->id);
-				m_add_int(p_smtp, q->smtp.status);
-				m_add_u32(p_smtp, q->smtp.code);
-				if (q->smtp.response)
-					m_add_string(p_smtp, q->smtp.response);
-				m_close(p_smtp);
-			}
+			m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+			m_add_id(p_smtp, q->session->id);
+			m_add_int(p_smtp, q->smtp.status);
+			m_add_u32(p_smtp, q->smtp.code);
+			if (q->smtp.response)
+				m_add_string(p_smtp, q->smtp.response);
+			m_close(p_smtp);
 		}
 		free(q->smtp.response);
 	}

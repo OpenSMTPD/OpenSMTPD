@@ -104,6 +104,7 @@ static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *)
 static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
 static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
 static void filter_dispatch_rcpt(uint64_t, uint64_t, struct mailaddr *);
+static void filter_dispatch_reset(uint64_t, uint64_t);
 static void filter_dispatch_commit(uint64_t, uint64_t);
 static void filter_dispatch_rollback(uint64_t, uint64_t);
 static void filter_dispatch_disconnect(uint64_t, uint64_t);
@@ -114,200 +115,6 @@ static void filter_io_out(struct io *, int);
 static const char *filterimsg_to_str(int);
 static const char *hook_to_str(int);
 
-void
-filter_api_on_connect(int(*cb)(uint64_t, struct filter_connect *))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_CONNECT;
-	fi.cb.connect = cb;
-}
-
-void
-filter_api_on_helo(int(*cb)(uint64_t, const char *))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_HELO;
-	fi.cb.helo = cb;
-}
-
-void
-filter_api_on_mail(int(*cb)(uint64_t, struct mailaddr *))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_MAIL;
-	fi.cb.mail = cb;
-}
-
-void
-filter_api_on_rcpt(int(*cb)(uint64_t, struct mailaddr *))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_RCPT;
-	fi.cb.rcpt = cb;
-}
-
-void
-filter_api_on_data(int(*cb)(uint64_t))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_DATA;
-	fi.cb.data = cb;
-}
-
-void
-filter_api_on_dataline(void(*cb)(uint64_t, const char *))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_DATALINE | HOOK_EOM;
-	fi.cb.dataline = cb;
-}
-
-void
-filter_api_on_eom(int(*cb)(uint64_t))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_EOM;
-	fi.cb.eom = cb;
-}
-
-void
-filter_api_on_reset(void(*cb)(uint64_t))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_RESET;
-	fi.cb.reset = cb;
-}
-
-void
-filter_api_on_disconnect(void(*cb)(uint64_t))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_DISCONNECT;
-	fi.cb.disconnect = cb;
-}
-
-
-filter_api_on_commit(void(*cb)(uint64_t))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_COMMIT;
-	fi.cb.commit = cb;
-}
-
-
-filter_api_on_rollback(void(*cb)(uint64_t))
-{
-	filter_api_init();
-
-	fi.hooks |= HOOK_ROLLBACK;
-	fi.cb.rollback = cb;
-}
-
-void
-filter_api_loop(void)
-{
-	if (register_done) {
-		log_warnx("warn: filter-api:%s: filter_api_loop() already called", filter_name);
-		fatalx("filter-api: exiting");
-	}
-
-	filter_api_init();
-
-	register_done = 1;
-
-	mproc_enable(&fi.p);
-
-	if (fi.rootpath) {
-		if (chroot(fi.rootpath) == -1) {
-			log_warn("warn: filter-api:%s: chroot", filter_name);
-			fatalx("filter-api: exiting");
-		}
-		if (chdir("/") == -1) {
-			log_warn("warn: filter-api:%s: chdir", filter_name);
-			fatalx("filter-api: exiting");
-		}
-	}
-
-	if (setgroups(1, &fi.gid) ||
-	    setresgid(fi.gid, fi.gid, fi.gid) ||
-	    setresuid(fi.uid, fi.uid, fi.uid)) {
-		log_warn("warn: filter-api:%s: cannot drop privileges", filter_name);
-		fatalx("filter-api: exiting");
-	}
-
-	if (event_dispatch() < 0) {
-		log_warn("warn: filter-api:%s: event_dispatch", filter_name);
-		fatalx("filter-api: exiting");
-	}
-}
-
-int
-filter_api_accept(uint64_t id)
-{
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-	filter_response(s, FILTER_OK, 0, NULL);
-	return 1;
-}
-
-int
-filter_api_reject(uint64_t id, enum filter_status status)
-{
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-
-	/* This is NOT an acceptable status for a failure */
-	if (status == FILTER_OK)
-		status = FILTER_FAIL;
-
-	filter_response(s, status, 0, NULL);
-	return 1;
-}
-
-int
-filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
-    const char *line)
-{
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-
-	/* This is NOT an acceptable status for a failure */
-	if (status == FILTER_OK)
-		status = FILTER_FAIL;
-
-	filter_response(s, status, code, line);
-	return 1;
-}
-
-void
-filter_api_writeln(uint64_t id, const char *line)
-{
-	struct filter_session	*s;
-
-	s = tree_xget(&sessions, id);
-
-	if (s->pipe.oev.sock == -1) {
-		log_warnx("warn: filter:%s: cannot write at this point", filter_name);
-		fatalx("exiting");
-	}
-
-	s->pipe.odatalen += strlen(line) + 1;
-	iobuf_fqueue(&s->pipe.obuf, "%s\n", line);
-	io_reload(&s->pipe.oev);
-}
 
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line)
@@ -365,78 +172,6 @@ filter_send_response(struct filter_session *s)
 
 	s->qid = 0;
 	s->response.ready = 0;
-}
-
-void
-filter_api_setugid(uid_t uid, gid_t gid)
-{
-	filter_api_init();
-
-	if (! uid) {
-		log_warn("warn: filter-api:%s: can't set uid 0", filter_name);
-		fatalx("filter-api: exiting");
-	}
-	if (! gid) {
-		log_warn("warn: filter-api:%s: can't set gid 0", filter_name);
-		fatalx("filter-api: exiting");
-	}
-	fi.uid = uid;
-	fi.gid = gid;
-}
-
-void
-filter_api_no_chroot(void)
-{
-	filter_api_init();
-
-	fi.rootpath = NULL;
-}
-
-void
-filter_api_set_chroot(const char *rootpath)
-{
-	filter_api_init();
-
-	fi.rootpath = rootpath;
-}
-
-static void
-filter_api_init(void)
-{
-	extern const char *__progname;
-	struct passwd  *pw;
-	static int	init = 0;
-
-	if (init)
-		return;
-
-	init = 1;
-
-	log_init(-1);
-	log_verbose(1);
-
-	pw = getpwnam(SMTPD_USER);
-	if (pw == NULL) {
-		log_warn("warn: filter-api:%s: getpwnam", filter_name);
-		fatalx("filter-api: exiting");
-	}
-
-	smtpd_process = PROC_FILTER;
-	filter_name = __progname;
-
-	tree_init(&queries);
-	tree_init(&sessions);
-	event_init();
-
-	memset(&fi, 0, sizeof(fi));
-	fi.p.proc = PROC_MFA;
-	fi.p.name = "filter";
-	fi.p.handler = filter_dispatch;
-	fi.uid = pw->pw_uid;
-	fi.gid = pw->pw_gid;
-	fi.rootpath = PATH_CHROOT;
-	
-	mproc_init(&fi.p, 0);
 }
 
 static void
@@ -535,19 +270,20 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			filter_register_query(id, qid, hook);
 			filter_dispatch_eom(id, qid, datalen);
 			break;
+		case HOOK_RESET:
+			m_end(&m);
+			filter_dispatch_reset(id, qid);
+			break;
 		case HOOK_COMMIT:
 			m_end(&m);
-			filter_register_query(id, qid, hook);
 			filter_dispatch_commit(id, qid);
 			break;
 		case HOOK_ROLLBACK:
 			m_end(&m);
-			filter_register_query(id, qid, hook);
 			filter_dispatch_rollback(id, qid);
 			break;
 		case HOOK_DISCONNECT:
 			m_end(&m);
-			filter_register_query(id, qid, hook);
 			filter_dispatch_disconnect(id, qid);
 			break;
 		default:
@@ -615,7 +351,7 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 
 	s = tree_xget(&sessions, id);
 	if (s->qid) {
-		log_warn("warn: filter-api:%s: query already in progess",
+		log_warnx("warn: filter-api:%s: query already in progess",
 		    filter_name);
 		fatalx("filter-api: exiting");
 	}
@@ -654,6 +390,12 @@ static void
 filter_dispatch_data(uint64_t id, uint64_t qid)
 {
 	fi.cb.data(id);
+}
+
+static void
+filter_dispatch_reset(uint64_t id, uint64_t qid)
+{
+	fi.cb.reset(id);
 }
 
 static void
@@ -906,4 +648,276 @@ imsg_to_str(int imsg)
 	snprintf(buf, sizeof(buf), "%d", imsg);
 
 	return (buf);
+}
+
+
+/*
+ * These functions are callable by filters
+ */
+
+void
+filter_api_setugid(uid_t uid, gid_t gid)
+{
+	filter_api_init();
+
+	if (! uid) {
+		log_warn("warn: filter-api:%s: can't set uid 0", filter_name);
+		fatalx("filter-api: exiting");
+	}
+	if (! gid) {
+		log_warn("warn: filter-api:%s: can't set gid 0", filter_name);
+		fatalx("filter-api: exiting");
+	}
+	fi.uid = uid;
+	fi.gid = gid;
+}
+
+void
+filter_api_no_chroot(void)
+{
+	filter_api_init();
+
+	fi.rootpath = NULL;
+}
+
+void
+filter_api_set_chroot(const char *rootpath)
+{
+	filter_api_init();
+
+	fi.rootpath = rootpath;
+}
+
+static void
+filter_api_init(void)
+{
+	extern const char *__progname;
+	struct passwd  *pw;
+	static int	init = 0;
+
+	if (init)
+		return;
+
+	init = 1;
+
+	log_init(-1);
+	log_verbose(1);
+
+	pw = getpwnam(SMTPD_USER);
+	if (pw == NULL) {
+		log_warn("warn: filter-api:%s: getpwnam", filter_name);
+		fatalx("filter-api: exiting");
+	}
+
+	smtpd_process = PROC_FILTER;
+	filter_name = __progname;
+
+	tree_init(&queries);
+	tree_init(&sessions);
+	event_init();
+
+	memset(&fi, 0, sizeof(fi));
+	fi.p.proc = PROC_MFA;
+	fi.p.name = "filter";
+	fi.p.handler = filter_dispatch;
+	fi.uid = pw->pw_uid;
+	fi.gid = pw->pw_gid;
+	fi.rootpath = PATH_CHROOT;
+	
+	mproc_init(&fi.p, 0);
+}
+
+void
+filter_api_on_connect(int(*cb)(uint64_t, struct filter_connect *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_CONNECT;
+	fi.cb.connect = cb;
+}
+
+void
+filter_api_on_helo(int(*cb)(uint64_t, const char *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_HELO;
+	fi.cb.helo = cb;
+}
+
+void
+filter_api_on_mail(int(*cb)(uint64_t, struct mailaddr *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_MAIL;
+	fi.cb.mail = cb;
+}
+
+void
+filter_api_on_rcpt(int(*cb)(uint64_t, struct mailaddr *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_RCPT;
+	fi.cb.rcpt = cb;
+}
+
+void
+filter_api_on_data(int(*cb)(uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_DATA;
+	fi.cb.data = cb;
+}
+
+void
+filter_api_on_dataline(void(*cb)(uint64_t, const char *))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_DATALINE | HOOK_EOM;
+	fi.cb.dataline = cb;
+}
+
+void
+filter_api_on_eom(int(*cb)(uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_EOM;
+	fi.cb.eom = cb;
+}
+
+void
+filter_api_on_reset(void(*cb)(uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_RESET;
+	fi.cb.reset = cb;
+}
+
+void
+filter_api_on_disconnect(void(*cb)(uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_DISCONNECT;
+	fi.cb.disconnect = cb;
+}
+
+
+filter_api_on_commit(void(*cb)(uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_COMMIT;
+	fi.cb.commit = cb;
+}
+
+
+filter_api_on_rollback(void(*cb)(uint64_t))
+{
+	filter_api_init();
+
+	fi.hooks |= HOOK_ROLLBACK;
+	fi.cb.rollback = cb;
+}
+
+void
+filter_api_loop(void)
+{
+	if (register_done) {
+		log_warnx("warn: filter-api:%s: filter_api_loop() already called", filter_name);
+		fatalx("filter-api: exiting");
+	}
+
+	filter_api_init();
+
+	register_done = 1;
+
+	mproc_enable(&fi.p);
+
+	if (fi.rootpath) {
+		if (chroot(fi.rootpath) == -1) {
+			log_warn("warn: filter-api:%s: chroot", filter_name);
+			fatalx("filter-api: exiting");
+		}
+		if (chdir("/") == -1) {
+			log_warn("warn: filter-api:%s: chdir", filter_name);
+			fatalx("filter-api: exiting");
+		}
+	}
+
+	if (setgroups(1, &fi.gid) ||
+	    setresgid(fi.gid, fi.gid, fi.gid) ||
+	    setresuid(fi.uid, fi.uid, fi.uid)) {
+		log_warn("warn: filter-api:%s: cannot drop privileges", filter_name);
+		fatalx("filter-api: exiting");
+	}
+
+	if (event_dispatch() < 0) {
+		log_warn("warn: filter-api:%s: event_dispatch", filter_name);
+		fatalx("filter-api: exiting");
+	}
+}
+
+int
+filter_api_accept(uint64_t id)
+{
+	struct filter_session	*s;
+
+	s = tree_xget(&sessions, id);
+	filter_response(s, FILTER_OK, 0, NULL);
+	return 1;
+}
+
+int
+filter_api_reject(uint64_t id, enum filter_status status)
+{
+	struct filter_session	*s;
+
+	s = tree_xget(&sessions, id);
+
+	/* This is NOT an acceptable status for a failure */
+	if (status == FILTER_OK)
+		status = FILTER_FAIL;
+
+	filter_response(s, status, 0, NULL);
+	return 1;
+}
+
+int
+filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
+    const char *line)
+{
+	struct filter_session	*s;
+
+	s = tree_xget(&sessions, id);
+
+	/* This is NOT an acceptable status for a failure */
+	if (status == FILTER_OK)
+		status = FILTER_FAIL;
+
+	filter_response(s, status, code, line);
+	return 1;
+}
+
+void
+filter_api_writeln(uint64_t id, const char *line)
+{
+	struct filter_session	*s;
+
+	s = tree_xget(&sessions, id);
+
+	if (s->pipe.oev.sock == -1) {
+		log_warnx("warn: filter:%s: cannot write at this point", filter_name);
+		fatalx("exiting");
+	}
+
+	s->pipe.odatalen += strlen(line) + 1;
+	iobuf_fqueue(&s->pipe.obuf, "%s\n", line);
+	io_reload(&s->pipe.oev);
 }
