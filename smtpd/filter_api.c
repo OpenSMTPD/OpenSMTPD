@@ -98,16 +98,16 @@ static void filter_send_response(struct filter_session *);
 static void filter_register_query(uint64_t, uint64_t, enum filter_hook);
 static void filter_dispatch(struct mproc *, struct imsg *);
 static void filter_dispatch_dataline(uint64_t, const char *);
-static void filter_dispatch_data(uint64_t, uint64_t);
-static void filter_dispatch_eom(uint64_t, uint64_t, size_t);
-static void filter_dispatch_connect(uint64_t, uint64_t, struct filter_connect *);
-static void filter_dispatch_helo(uint64_t, uint64_t, const char *);
-static void filter_dispatch_mail(uint64_t, uint64_t, struct mailaddr *);
-static void filter_dispatch_rcpt(uint64_t, uint64_t, struct mailaddr *);
-static void filter_dispatch_reset(uint64_t, uint64_t);
-static void filter_dispatch_commit(uint64_t, uint64_t);
-static void filter_dispatch_rollback(uint64_t, uint64_t);
-static void filter_dispatch_disconnect(uint64_t, uint64_t);
+static void filter_dispatch_data(uint64_t);
+static void filter_dispatch_eom(uint64_t, size_t);
+static void filter_dispatch_connect(uint64_t, struct filter_connect *);
+static void filter_dispatch_helo(uint64_t, const char *);
+static void filter_dispatch_mail(uint64_t, struct mailaddr *);
+static void filter_dispatch_rcpt(uint64_t, struct mailaddr *);
+static void filter_dispatch_reset(uint64_t);
+static void filter_dispatch_commit(uint64_t);
+static void filter_dispatch_rollback(uint64_t);
+static void filter_dispatch_disconnect(uint64_t);
 
 static void filter_trigger_eom(struct filter_session *);
 static void filter_io_in(struct io *, int);
@@ -239,52 +239,52 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &q_connect.hostname);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_connect(id, qid, &q_connect);
+			filter_dispatch_connect(id, &q_connect);
 			break;
 		case HOOK_HELO:
 			m_get_string(&m, &line);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_helo(id, qid, line);
+			filter_dispatch_helo(id, line);
 			break;
 		case HOOK_MAIL:
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_mail(id, qid, &maddr);
+			filter_dispatch_mail(id, &maddr);
 			break;
 		case HOOK_RCPT:
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_rcpt(id, qid, &maddr);
+			filter_dispatch_rcpt(id, &maddr);
 			break;
 		case HOOK_DATA:
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_data(id, qid);
+			filter_dispatch_data(id);
 			break;
 		case HOOK_EOM:
 			m_get_u32(&m, &datalen);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_eom(id, qid, datalen);
+			filter_dispatch_eom(id, datalen);
 			break;
 		case HOOK_RESET:
 			m_end(&m);
-			filter_dispatch_reset(id, qid);
+			filter_dispatch_reset(id);
 			break;
 		case HOOK_COMMIT:
 			m_end(&m);
-			filter_dispatch_commit(id, qid);
+			filter_dispatch_commit(id);
 			break;
 		case HOOK_ROLLBACK:
 			m_end(&m);
-			filter_dispatch_rollback(id, qid);
+			filter_dispatch_rollback(id);
 			break;
 		case HOOK_DISCONNECT:
 			m_end(&m);
-			filter_dispatch_disconnect(id, qid);
+			filter_dispatch_disconnect(id);
 			break;
 		default:
 			log_warnx("warn: filter-api:%s: bad hook %d", filter_name, hook);
@@ -363,62 +363,62 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 }
 
 static void
-filter_dispatch_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
+filter_dispatch_connect(uint64_t id, struct filter_connect *conn)
 {
 	fi.cb.connect(id, conn);
 }
 
 static void
-filter_dispatch_helo(uint64_t id, uint64_t qid, const char *helo)
+filter_dispatch_helo(uint64_t id, const char *helo)
 {
 	fi.cb.helo(id, helo);
 }
 
 static void
-filter_dispatch_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
+filter_dispatch_mail(uint64_t id, struct mailaddr *mail)
 {
 	fi.cb.mail(id, mail);
 }
 
 static void
-filter_dispatch_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
+filter_dispatch_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
 	fi.cb.rcpt(id, rcpt);
 }
 
 static void
-filter_dispatch_data(uint64_t id, uint64_t qid)
+filter_dispatch_data(uint64_t id)
 {
 	fi.cb.data(id);
 }
 
 static void
-filter_dispatch_reset(uint64_t id, uint64_t qid)
+filter_dispatch_reset(uint64_t id)
 {
 	fi.cb.reset(id);
 }
 
 static void
-filter_dispatch_commit(uint64_t id, uint64_t qid)
+filter_dispatch_commit(uint64_t id)
 {
 	fi.cb.commit(id);
 }
 
 static void
-filter_dispatch_rollback(uint64_t id, uint64_t qid)
+filter_dispatch_rollback(uint64_t id)
 {
 	fi.cb.rollback(id);
 }
 
 static void
-filter_dispatch_disconnect(uint64_t id, uint64_t qid)
+filter_dispatch_disconnect(uint64_t id)
 {
 	fi.cb.disconnect(id);
 }
 
 
 static void
-filter_dispatch_eom(uint64_t id, uint64_t qid, size_t datalen)
+filter_dispatch_eom(uint64_t id, size_t datalen)
 {
 	struct filter_session	*s;
 
