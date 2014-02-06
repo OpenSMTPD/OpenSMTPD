@@ -43,7 +43,6 @@ dnsbl_event_dispatch(int ret, struct async_res *ar, void *arg)
 		filter_api_reject(*q, FILTER_CLOSE);
 	else
 		filter_api_accept(*q);
-
 	free(q);
 }
 
