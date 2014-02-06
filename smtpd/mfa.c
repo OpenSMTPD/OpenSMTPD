@@ -88,7 +88,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &line);
 			m_end(&m);
-			mfa_filter_line(reqid, HOOK_HELO, line);
+			mfa_filter_line(reqid, QUERY_HELO, line);
 			return;
 
 		case IMSG_MFA_REQ_MAIL:
@@ -96,7 +96,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
-			mfa_filter_mailaddr(reqid, HOOK_MAIL, &maddr);
+			mfa_filter_mailaddr(reqid, QUERY_MAIL, &maddr);
 			return;
 
 		case IMSG_MFA_REQ_RCPT:
@@ -104,14 +104,14 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
-			mfa_filter_mailaddr(reqid, HOOK_RCPT, &maddr);
+			mfa_filter_mailaddr(reqid, QUERY_RCPT, &maddr);
 			return;
 
 		case IMSG_MFA_REQ_DATA:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter(reqid, HOOK_DATA);
+			mfa_filter(reqid, QUERY_DATA);
 			return;
 
 		case IMSG_MFA_REQ_EOM:
@@ -119,14 +119,13 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_u32(&m, &datalen);
 			m_end(&m);
-			mfa_filter_eom(reqid, HOOK_EOM, datalen);
+			mfa_filter_eom(reqid, QUERY_EOM, datalen);
 			return;
 
 		case IMSG_MFA_EVENT_RSET:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter(reqid, HOOK_RESET);
 			mfa_filter_event(reqid, EVENT_RESET);
 			return;
 
@@ -134,7 +133,6 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter(reqid, HOOK_COMMIT);
 			mfa_filter_event(reqid, EVENT_COMMIT);
 			return;
 
@@ -142,7 +140,6 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter(reqid, HOOK_ROLLBACK);
 			mfa_filter_event(reqid, EVENT_ROLLBACK);
 			return;
 
@@ -150,7 +147,6 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter(reqid, HOOK_DISCONNECT);
 			mfa_filter_event(reqid, EVENT_DISCONNECT);
 			return;
 		}

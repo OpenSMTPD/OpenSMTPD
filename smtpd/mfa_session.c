@@ -115,12 +115,12 @@ static void mfa_set_fdout(struct mfa_session *, int);
 static TAILQ_HEAD(, mfa_filterproc)	procs;
 struct dict				chains;
 
-static const char * mfa_event_to_text(struct mfa_query *);
 static const char * mfa_query_to_text(struct mfa_query *);
 static const char * mfa_filter_to_text(struct mfa_filter *);
 static const char * mfa_filterproc_to_text(struct mfa_filterproc *);
 static const char * type_to_str(int);
 static const char * hook_to_str(int);
+static const char * query_to_str(int);
 static const char * event_to_str(int);
 static const char * status_to_str(int);
 static const char * filterimsg_to_str(int);
@@ -276,24 +276,24 @@ mfa_filter_init(void)
 }
 
 void
-mfa_filter_event(uint64_t id, int hook)
+mfa_filter_event(uint64_t id, int event)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
 
-	if (hook == EVENT_CONNECT) {
+	if (event == EVENT_CONNECT) {
 		s = xcalloc(1, sizeof(*s), "mfa_filter_event");
 		s->id = id;
 		s->filters = dict_xget(&chains, "default");
 		TAILQ_INIT(&s->queries);
 		tree_xset(&sessions, s->id, s);
 	}
-	else if (hook == EVENT_DISCONNECT)
+	else if (event == EVENT_DISCONNECT)
 		/* On disconnect, the session is virtualy dead */
 		s = tree_xpop(&sessions, id);
 	else
 		s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_EVENT, hook);
+	q = mfa_query(s, QT_EVENT, event);
 
 	mfa_drain_query(q);
 }
@@ -306,7 +306,7 @@ mfa_filter_connect(uint64_t id, const struct sockaddr *local,
 	struct mfa_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, HOOK_CONNECT);
+	q = mfa_query(s, QT_QUERY, QUERY_CONNECT);
 
 	memmove(&q->u.connect.local, local, local->sa_len);
 	memmove(&q->u.connect.remote, remote, remote->sa_len);
@@ -320,13 +320,13 @@ mfa_filter_connect(uint64_t id, const struct sockaddr *local,
 }
 
 void
-mfa_filter_mailaddr(uint64_t id, int hook, const struct mailaddr *maddr)
+mfa_filter_mailaddr(uint64_t id, int qhook, const struct mailaddr *maddr)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, hook);
+	q = mfa_query(s, QT_QUERY, qhook);
 
 	strlcpy(q->u.maddr.user, maddr->user, sizeof(q->u.maddr.user));
 	strlcpy(q->u.maddr.domain, maddr->domain, sizeof(q->u.maddr.domain));
@@ -335,13 +335,13 @@ mfa_filter_mailaddr(uint64_t id, int hook, const struct mailaddr *maddr)
 }
 
 void
-mfa_filter_line(uint64_t id, int hook, const char *line)
+mfa_filter_line(uint64_t id, int qhook, const char *line)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, hook);
+	q = mfa_query(s, QT_QUERY, qhook);
 
 	strlcpy(q->u.line, line, sizeof(q->u.line));
 
@@ -349,26 +349,26 @@ mfa_filter_line(uint64_t id, int hook, const char *line)
 }
 
 void
-mfa_filter_eom(uint64_t id, int hook, size_t datalen)
+mfa_filter_eom(uint64_t id, int qhook, size_t datalen)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, hook);
+	q = mfa_query(s, QT_QUERY, qhook);
 	q->u.datalen = datalen;
 
 	mfa_drain_query(q);
 }
 
 void
-mfa_filter(uint64_t id, int hook)
+mfa_filter(uint64_t id, int qhook)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, hook);
+	q = mfa_query(s, QT_QUERY, qhook);
 
 	mfa_drain_query(q);
 }
@@ -410,7 +410,7 @@ mfa_build_fd_chain(uint64_t id, int fdout)
 }
 
 static struct mfa_query *
-mfa_query(struct mfa_session *s, int type, int hook)
+mfa_query(struct mfa_session *s, int type, int qhook)
 {
 	struct mfa_query	*q;
 
@@ -418,7 +418,7 @@ mfa_query(struct mfa_session *s, int type, int hook)
 	q->qid = generate_uid();
 	q->session = s;
 	q->type = type;
-	q->hook = hook;
+	q->hook = qhook;
 	TAILQ_INSERT_TAIL(&s->queries, q, entry);
 
 	q->state = QUERY_READY;
@@ -427,10 +427,10 @@ mfa_query(struct mfa_session *s, int type, int hook)
 
 	if (type == QT_QUERY)
 		log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
-		    hook_to_str(hook));
+		    query_to_str(qhook));
 	else
 		log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
-		    event_to_str(hook));
+		    event_to_str(qhook));
 
 	return (q);
 }
@@ -438,7 +438,6 @@ mfa_query(struct mfa_session *s, int type, int hook)
 static void
 mfa_drain_query(struct mfa_query *q)
 {
-	struct mfa_filterproc	*proc;
 	struct mfa_query	*prev;
 
 	log_trace(TRACE_MFA, "filter: draining query %s", mfa_query_to_text(q));
@@ -484,7 +483,6 @@ mfa_drain_query(struct mfa_query *q)
 	}
 
 	if (q->type == QT_QUERY) {
-
 		log_trace(TRACE_MFA,
 		    "filter: query %016"PRIx64" done: "
 		    "status=%s code=%d response=\"%s\"",
@@ -494,7 +492,7 @@ mfa_drain_query(struct mfa_query *q)
 		    q->smtp.response);
 
 		/* ...and send the SMTP response */
-		if (q->hook == HOOK_EOM) {
+		if (q->hook == QUERY_EOM) {
 			mfa_report_eom(q->session->id, q->u.datalen);
 		}
 		else {
@@ -518,11 +516,7 @@ static void
 mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 {
 	if (q->type == QT_QUERY) {
-		if ((f->proc->hooks & q->hook) == 0) {
-			log_trace(TRACE_MFA, "filter: skipping filter %s for query %s",
-			    mfa_filter_to_text(f), mfa_query_to_text(q));
-			return;
-		}
+
 		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
 		    mfa_filter_to_text(f), mfa_query_to_text(q));
 
@@ -532,21 +526,21 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 		m_add_int(&f->proc->mproc, q->hook);
 
 		switch (q->hook) {
-		case HOOK_CONNECT:
+		case QUERY_CONNECT:
 			m_add_sockaddr(&f->proc->mproc,
 			    (struct sockaddr *)&q->u.connect.local);
 			m_add_sockaddr(&f->proc->mproc,
 			    (struct sockaddr *)&q->u.connect.remote);
 			m_add_string(&f->proc->mproc, q->u.connect.hostname);
 			break;
-		case HOOK_HELO:
+		case QUERY_HELO:
 			m_add_string(&f->proc->mproc, q->u.line);
 			break;
-		case HOOK_MAIL:
-		case HOOK_RCPT:
+		case QUERY_MAIL:
+		case QUERY_RCPT:
 			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
 			break;
-		case HOOK_EOM:
+		case QUERY_EOM:
 			m_add_u32(&f->proc->mproc, q->u.datalen);
 			break;
 		default:
@@ -617,7 +611,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
 		m_get_int(&m, &qhook);
-		if (qhook == HOOK_EOM)
+		if (qhook == QUERY_EOM)
 			m_get_u32(&m, &datalen);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
@@ -640,7 +634,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			q->smtp.response = xstrdup(line, "mfa_filter_imsg");
 		}
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
-		if (qhook == HOOK_EOM)
+		if (qhook == QUERY_EOM)
 			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
@@ -680,7 +674,7 @@ mfa_query_to_text(struct mfa_query *q)
 
 	if (q->type == QT_QUERY) {
 		switch(q->hook) {
-		case HOOK_CONNECT:
+		case QUERY_CONNECT:
 			strlcat(tmp, "=", sizeof tmp);
 			strlcat(tmp, ss_to_text(&q->u.connect.local), sizeof tmp);
 			strlcat(tmp, " <-> ", sizeof tmp);
@@ -689,19 +683,19 @@ mfa_query_to_text(struct mfa_query *q)
 			strlcat(tmp, q->u.connect.hostname, sizeof tmp);
 			strlcat(tmp, ")", sizeof tmp);
 			break;
-		case HOOK_MAIL:
-		case HOOK_RCPT:
+		case QUERY_MAIL:
+		case QUERY_RCPT:
 			snprintf(tmp, sizeof tmp, "=%s@%s",
 			    q->u.maddr.user, q->u.maddr.domain);
 			break;
-		case HOOK_HELO:
+		case QUERY_HELO:
 			snprintf(tmp, sizeof tmp, "=%s", q->u.line);
 			break;
 		default:
 			break;
 		}
 		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
-		    q->qid, type_to_str(q->type), hook_to_str(q->hook), tmp);
+		    q->qid, type_to_str(q->type), query_to_str(q->hook), tmp);
 	}
 	else {
 		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
@@ -767,6 +761,22 @@ hook_to_str(int hook)
 	CASE(HOOK_DATALINE);
 	default:
 		return "HOOK_???";
+	}
+}
+
+static const char *
+query_to_str(int query)
+{
+	switch (query) {
+	CASE(QUERY_CONNECT);
+	CASE(QUERY_HELO);
+	CASE(QUERY_MAIL);
+	CASE(QUERY_RCPT);
+	CASE(QUERY_DATA);
+	CASE(QUERY_EOM);
+	CASE(QUERY_DATALINE);
+	default:
+		return "QUERY_???";
 	}
 }
 

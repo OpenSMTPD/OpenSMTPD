@@ -65,13 +65,23 @@ enum filter_imsg {
 
 /* XXX - server side requires mfa_session.c update on filter_event */
 enum filter_event {
-	EVENT_CONNECT		= 1 << 0,
-	EVENT_RESET		= 1 << 1,
-	EVENT_DISCONNECT       	= 1 << 2,
-	EVENT_COMMIT		= 1 << 3,
-	EVENT_ROLLBACK		= 1 << 4,
+	EVENT_CONNECT,
+	EVENT_RESET,
+	EVENT_DISCONNECT,
+	EVENT_COMMIT,
+	EVENT_ROLLBACK,
 };
 
+/* XXX - server side requires mfa_session.c update on filter_hook changes */
+enum filter_query {
+	QUERY_CONNECT,
+	QUERY_HELO,
+	QUERY_MAIL,
+	QUERY_RCPT,
+	QUERY_DATA,
+	QUERY_EOM,
+	QUERY_DATALINE,
+};
 
 /* XXX - server side requires mfa_session.c update on filter_hook changes */
 enum filter_hook {

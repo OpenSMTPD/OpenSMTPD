@@ -114,13 +114,15 @@ static void filter_io_in(struct io *, int);
 static void filter_io_out(struct io *, int);
 static const char *filterimsg_to_str(int);
 static const char *hook_to_str(int);
+static const char *query_to_str(int);
+static const char *event_to_str(int);
 
 
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line)
 {
 	log_debug("debug: filter-api:%s: got response %s for %016"PRIx64" %d %d %s",
-	    filter_name, hook_to_str(s->qhook), s->id,
+	    filter_name, query_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
 	    s->response.line);
@@ -134,7 +136,7 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 		s->response.line = NULL;
 
 	/* For HOOK_EOM, wait until the obuf is drained before sending the  */
-	if (s->qhook == HOOK_EOM &&
+	if (s->qhook == QUERY_EOM &&
 	    fi.hooks & HOOK_DATALINE &&
 	    s->pipe.oev.sock != -1) {
 		log_debug("debug: filter-api:%s: got response, waiting for opipe to be closed", filter_name);
@@ -148,7 +150,7 @@ static void
 filter_send_response(struct filter_session *s)
 {
 	log_debug("debug: filter-api:%s: sending response %s for %016"PRIx64" %d %d %s",
-	    filter_name, hook_to_str(s->qhook), s->id,
+	    filter_name, query_to_str(s->qhook), s->id,
 	    s->response.status,
 	    s->response.code,
 	    s->response.line);
@@ -158,7 +160,7 @@ filter_send_response(struct filter_session *s)
 	m_create(&fi.p, IMSG_FILTER_RESPONSE, 0, 0, -1);
 	m_add_id(&fi.p, s->qid);
 	m_add_int(&fi.p, s->qhook);
-	if (s->qhook == HOOK_EOM)
+	if (s->qhook == QUERY_EOM)
 		m_add_u32(&fi.p, (fi.hooks & HOOK_DATALINE) ?
 		    s->pipe.odatalen : s->pipe.datalen);
 	m_add_int(&fi.p, s->response.status);
@@ -221,8 +223,18 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			tree_xset(&sessions, id, s);
 			break;
 		case EVENT_DISCONNECT:
+			filter_dispatch_disconnect(id);
 			s = tree_xpop(&sessions, id);
 			free(s);
+			break;
+		case EVENT_RESET:
+			filter_dispatch_reset(id);
+			break;
+		case EVENT_COMMIT:
+			filter_dispatch_commit(id);
+			break;
+		case EVENT_ROLLBACK:
+			filter_dispatch_rollback(id);
 			break;
 		}
 		break;
@@ -233,58 +245,45 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &qid);
 		m_get_int(&m, &hook);
 		switch(hook) {
-		case HOOK_CONNECT:
+		case QUERY_CONNECT:
 			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.local);
+			log_debug("filter-api: 0");
 			m_get_sockaddr(&m, (struct sockaddr*)&q_connect.remote);
+			log_debug("filter-api: 1");
 			m_get_string(&m, &q_connect.hostname);
+			log_debug("filter-api: 2");
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_connect(id, &q_connect);
 			break;
-		case HOOK_HELO:
+		case QUERY_HELO:
 			m_get_string(&m, &line);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_helo(id, line);
 			break;
-		case HOOK_MAIL:
+		case QUERY_MAIL:
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_mail(id, &maddr);
 			break;
-		case HOOK_RCPT:
+		case QUERY_RCPT:
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_rcpt(id, &maddr);
 			break;
-		case HOOK_DATA:
+		case QUERY_DATA:
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_data(id);
 			break;
-		case HOOK_EOM:
+		case QUERY_EOM:
 			m_get_u32(&m, &datalen);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
 			filter_dispatch_eom(id, datalen);
-			break;
-		case HOOK_RESET:
-			m_end(&m);
-			filter_dispatch_reset(id);
-			break;
-		case HOOK_COMMIT:
-			m_end(&m);
-			filter_dispatch_commit(id);
-			break;
-		case HOOK_ROLLBACK:
-			m_end(&m);
-			filter_dispatch_rollback(id);
-			break;
-		case HOOK_DISCONNECT:
-			m_end(&m);
-			filter_dispatch_disconnect(id);
 			break;
 		default:
 			log_warnx("warn: filter-api:%s: bad hook %d", filter_name, hook);
@@ -347,7 +346,7 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 	struct filter_session	*s;
 
 	log_debug("debug: filter-api:%s: query %s for %016"PRIx64,
-		filter_name, hook_to_str(hook), id);
+		filter_name, query_to_str(hook), id);
 
 	s = tree_xget(&sessions, id);
 	if (s->qid) {
@@ -365,55 +364,74 @@ filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
 static void
 filter_dispatch_connect(uint64_t id, struct filter_connect *conn)
 {
-	fi.cb.connect(id, conn);
+	if (fi.cb.connect)
+		fi.cb.connect(id, conn);
+	else
+		filter_api_accept(id);
 }
 
 static void
 filter_dispatch_helo(uint64_t id, const char *helo)
 {
-	fi.cb.helo(id, helo);
+	if (fi.cb.helo)
+		fi.cb.helo(id, helo);
+	else
+		filter_api_accept(id);
 }
 
 static void
 filter_dispatch_mail(uint64_t id, struct mailaddr *mail)
 {
-	fi.cb.mail(id, mail);
+	if (fi.cb.mail)
+		fi.cb.mail(id, mail);
+	else
+		filter_api_accept(id);
 }
 
 static void
 filter_dispatch_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	fi.cb.rcpt(id, rcpt);
+	if (fi.cb.rcpt)
+		fi.cb.rcpt(id, rcpt);
+	else
+		filter_api_accept(id);
 }
 
 static void
 filter_dispatch_data(uint64_t id)
 {
-	fi.cb.data(id);
+	if (fi.cb.data)
+		fi.cb.data(id);
+	else
+		filter_api_accept(id);
 }
 
 static void
 filter_dispatch_reset(uint64_t id)
 {
-	fi.cb.reset(id);
+	if (fi.cb.reset)
+		fi.cb.reset(id);
 }
 
 static void
 filter_dispatch_commit(uint64_t id)
 {
-	fi.cb.commit(id);
+	if (fi.cb.commit)
+		fi.cb.commit(id);
 }
 
 static void
 filter_dispatch_rollback(uint64_t id)
 {
-	fi.cb.rollback(id);
+	if (fi.cb.rollback)
+		fi.cb.rollback(id);
 }
 
 static void
 filter_dispatch_disconnect(uint64_t id)
 {
-	fi.cb.disconnect(id);
+	if (fi.cb.disconnect)
+		fi.cb.disconnect(id);
 }
 
 
@@ -436,13 +454,19 @@ filter_dispatch_eom(uint64_t id, size_t datalen)
 		return;
 	}
 
-	fi.cb.eom(s->id);
+	if (fi.cb.eom)
+		fi.cb.eom(s->id);
+	else
+		filter_api_accept(id);
 }
 
 static void
 filter_dispatch_dataline(uint64_t id, const char *data)
 {
-	fi.cb.dataline(id, data);
+	if (fi.cb.dataline)
+		fi.cb.dataline(id, data);
+	else
+		filter_api_writeln(id, data);
 }
 
 static void
@@ -518,11 +542,11 @@ filter_io_in(struct io *io, int evt)
 		goto nextline;
 
 	case IO_DISCONNECTED:
-		if (s->qhook == HOOK_EOM)
+		if (s->qhook == QUERY_EOM)
 			filter_trigger_eom(s);
 		else {
 			log_debug("debug: filter-api:%s: datain closed, for %016"PRIx64", waiting for eom",
-		    filter_name, s->id);
+			    filter_name, s->id);
 		}
 		break;
 	default:
@@ -609,6 +633,22 @@ hook_to_str(int hook)
 	CASE(HOOK_DATALINE);
 	default:
 		return "HOOK_???";
+	}
+}
+
+static const char *
+query_to_str(int query)
+{
+	switch (query) {
+	CASE(QUERY_CONNECT);
+	CASE(QUERY_HELO);
+	CASE(QUERY_MAIL);
+	CASE(QUERY_RCPT);
+	CASE(QUERY_DATA);
+	CASE(QUERY_EOM);
+	CASE(QUERY_DATALINE);
+	default:
+		return "QUERY_???";
 	}
 }
 
@@ -723,7 +763,10 @@ filter_api_init(void)
 	fi.uid = pw->pw_uid;
 	fi.gid = pw->pw_gid;
 	fi.rootpath = PATH_CHROOT;
-	
+
+	/* XXX just for now */
+	fi.hooks = ~0;
+
 	mproc_init(&fi.p, 0);
 }
 
