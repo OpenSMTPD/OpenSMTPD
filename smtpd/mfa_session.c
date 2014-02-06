@@ -119,7 +119,6 @@ static const char * mfa_query_to_text(struct mfa_query *);
 static const char * mfa_filter_to_text(struct mfa_filter *);
 static const char * mfa_filterproc_to_text(struct mfa_filterproc *);
 static const char * type_to_str(int);
-static const char * hook_to_str(int);
 static const char * query_to_str(int);
 static const char * event_to_str(int);
 static const char * status_to_str(int);
@@ -741,26 +740,6 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_RESPONSE);
 	default:
 		return "IMSG_FILTER_???";
-	}
-}
-
-static const char *
-hook_to_str(int hook)
-{
-	switch (hook) {
-	CASE(HOOK_CONNECT);
-	CASE(HOOK_HELO);
-	CASE(HOOK_MAIL);
-	CASE(HOOK_RCPT);
-	CASE(HOOK_DATA);
-	CASE(HOOK_EOM);
-	CASE(HOOK_RESET);
-	CASE(HOOK_DISCONNECT);
-	CASE(HOOK_COMMIT);
-	CASE(HOOK_ROLLBACK);
-	CASE(HOOK_DATALINE);
-	default:
-		return "HOOK_???";
 	}
 }
 
