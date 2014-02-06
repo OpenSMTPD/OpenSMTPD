@@ -71,14 +71,14 @@ on_connect(uint64_t id, struct filter_connect *conn)
 static int
 on_helo(uint64_t id, const char *helo)
 {
-	printf("filter: HELO id=%016"PRIx64", %s\n", id, helo);
+	printf("filter-trace: HELO id=%016"PRIx64", %s\n", id, helo);
 	return filter_api_accept(id);
 }
 
 static int
 on_mail(uint64_t id, struct mailaddr *mail)
 {
-	printf("filter: MAIL id=%016"PRIx64", %s@%s\n",
+	printf("filter-trace: MAIL id=%016"PRIx64", %s@%s\n",
 	    id, mail->user, mail->domain);
 	return filter_api_accept(id);
 }
@@ -86,7 +86,7 @@ on_mail(uint64_t id, struct mailaddr *mail)
 static int
 on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	printf("filter: RCPT id=%016"PRIx64", %s@%s\n",
+	printf("filter-trace: RCPT id=%016"PRIx64", %s@%s\n",
 	    id, rcpt->user, rcpt->domain);
 	return filter_api_accept(id);
 }
@@ -94,21 +94,21 @@ on_rcpt(uint64_t id, struct mailaddr *rcpt)
 static int
 on_data(uint64_t id)
 {
-	printf("filter: RCPT id=%016"PRIx64, id);
+	printf("filter-trace: RCPT id=%016"PRIx64, id);
 	return filter_api_accept(id);
 }
 
 static int
 on_eom(uint64_t id)
 {
-	printf("filter: EOMid=%016"PRIx64, id);
+	printf("filter-trace: EOM id=%016"PRIx64, id);
 	return filter_api_accept(id);
 }
 
 static void
 on_dataline(uint64_t id, const char *line)
 {
-	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, line);
+	printf("filter-trace: [dataline] id=%016"PRIx64", \"%s\"\n", id, line);
 	filter_api_writeln(id, line);
 }
 

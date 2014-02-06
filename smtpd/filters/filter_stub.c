@@ -127,8 +127,12 @@ main(int argc, char **argv)
 	filter_api_on_mail(on_mail);
 	filter_api_on_rcpt(on_rcpt);
 	filter_api_on_data(on_data);
+	filter_api_on_reset(on_reset);
 	filter_api_on_eom(on_eom);
 	filter_api_on_dataline(on_dataline);
+	filter_api_on_commit(on_commit);
+	filter_api_on_rollback(on_rollback);
+	filter_api_on_disconnect(on_disconnect);
 
 	filter_api_loop();
 	log_debug("debug: filter-stub: exiting");
