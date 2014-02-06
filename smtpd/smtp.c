@@ -397,6 +397,7 @@ smtp_accept(int fd, short event, void *p)
 		return;
 	}
 	io_set_blocking(sock, 0);
+	session_socket_no_linger(sock);
 
 	sessions++;
 	stat_increment("smtp.session", 1);
