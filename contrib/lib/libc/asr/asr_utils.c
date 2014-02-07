@@ -56,10 +56,6 @@ dname_check_label(const char *s, size_t l)
 	if (l == 0 || l > 63)
 		return (-1);
 
-	for (l--; l; l--, s++)
-		if (!(isalnum((unsigned char)*s) || *s == '_' || *s == '-'))
-			return (-1);
-
 	return (0);
 }
 
