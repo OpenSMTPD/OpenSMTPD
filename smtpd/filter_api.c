@@ -95,7 +95,7 @@ static struct filter_internals {
 } fi;
 
 static void filter_api_init(void);
-static void filter_response(struct filter_session *, int, int, const char *line);
+static void filter_response(struct filter_session *, int, int, const char *);
 static void filter_send_response(struct filter_session *);
 static void filter_register_query(uint64_t, uint64_t, enum filter_hook);
 static void filter_dispatch(struct mproc *, struct imsg *);
@@ -962,4 +962,29 @@ filter_api_writeln(uint64_t id, const char *line)
 	s->pipe.odatalen += strlen(line) + 1;
 	iobuf_fqueue(&s->pipe.obuf, "%s\n", line);
 	io_reload(&s->pipe.oev);
+}
+
+const char *
+filter_api_sockaddr_to_text(const struct sockaddr *sa)
+{
+	static char	buf[NI_MAXHOST];
+
+	if (getnameinfo(sa, sa->sa_len, buf, sizeof(buf), NULL, 0,
+		NI_NUMERICHOST))
+		return ("(unknown)");
+	else
+		return (buf);
+}
+
+const char *
+filter_api_mailaddr_to_text(const struct mailaddr *maddr)
+{
+	static char  buffer[SMTPD_MAXLINESIZE];
+
+	strlcpy(buffer, maddr->user, sizeof buffer);
+	strlcat(buffer, "@", sizeof buffer);
+	if (strlcat(buffer, maddr->domain, sizeof buffer) >= sizeof buffer)
+		return NULL;
+
+	return buffer;
 }

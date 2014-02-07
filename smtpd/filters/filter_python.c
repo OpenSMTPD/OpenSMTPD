@@ -1,7 +1,7 @@
 /*      $OpenBSD$   */
 
 /*
- * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
+ * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -57,11 +57,40 @@ static PyObject *
 py_filter_reject(PyObject *self, PyObject *args)
 {
 	uint64_t	id;
+	uint32_t	action;
 
-	if (! PyArg_ParseTuple(args, "K", &id))
+	if (! PyArg_ParseTuple(args, "Ki", &id, &action))
 		return NULL;
-	filter_api_reject(id, FILTER_FAIL);
-	Py_RETURN_TRUE;
+
+	switch (action) {
+	case FILTER_FAIL:
+	case FILTER_CLOSE:
+		filter_api_reject(id, action);
+		Py_RETURN_TRUE;
+		break;
+	}
+	Py_RETURN_FALSE;
+}
+
+static PyObject *
+py_filter_reject_code(PyObject *self, PyObject *args)
+{
+	uint64_t	id;
+	uint32_t	action;
+	uint32_t	code;
+	const char    *line;
+
+	if (! PyArg_ParseTuple(args, "Kiis", &id, &action, &code, &line))
+		return NULL;
+
+	switch (action) {
+	case FILTER_FAIL:
+	case FILTER_CLOSE:
+		filter_api_reject_code(id, action, code, line);
+		Py_RETURN_TRUE;
+		break;
+	}
+	Py_RETURN_FALSE;
 }
 
 static PyObject *
@@ -79,6 +108,7 @@ py_filter_writeln(PyObject *self, PyObject *args)
 static PyMethodDef py_methods[] = {
 	{ "accept", py_filter_accept, METH_VARARGS, "accept" },
 	{ "reject", py_filter_reject, METH_VARARGS, "reject" },
+	{ "reject_code", py_filter_reject_code, METH_VARARGS, "reject_code" },
 	{ "writeln", py_filter_writeln, METH_VARARGS, "writeln" },
 	{ NULL, NULL, 0, NULL }
 };
@@ -96,8 +126,8 @@ on_connect(uint64_t id, struct filter_connect *conn)
 
 	py_args     = PyTuple_New(4);
 	py_id       = PyLong_FromUnsignedLongLong(id);
-	py_local    = PyString_FromString("test");
-	py_remote   = PyString_FromString("test");
+	py_local    = PyString_FromString(filter_api_sockaddr_to_text((struct sockaddr *)&conn->local));
+	py_remote   = PyString_FromString(filter_api_sockaddr_to_text((struct sockaddr *)&conn->remote));
 	py_hostname = PyString_FromString(conn->hostname);
 
 	PyTuple_SetItem(py_args, 0, py_id);
@@ -149,14 +179,10 @@ on_mail(uint64_t id, struct mailaddr *mail)
 	PyObject *py_ret;
 	PyObject *py_id;
 	PyObject *py_sender;
-	char	mailaddr[SMTPD_MAXLINESIZE];
-
-	(void)snprintf(mailaddr, sizeof mailaddr, "%s%s%s",
-	    mail->user, mail->user[0] && mail->domain[0] ? "@" : "", mail->domain);
 
 	py_args   = PyTuple_New(2);
 	py_id     = PyLong_FromUnsignedLongLong(id);
-	py_sender = PyString_FromString(mailaddr);
+	py_sender = PyString_FromString(filter_api_mailaddr_to_text(mail));
 
 	PyTuple_SetItem(py_args, 0, py_id);
 	PyTuple_SetItem(py_args, 1, py_sender);
@@ -180,14 +206,10 @@ on_rcpt(uint64_t id, struct mailaddr *rcpt)
 	PyObject *py_ret;
 	PyObject *py_id;
 	PyObject *py_rcpt;
-	char	mailaddr[SMTPD_MAXLINESIZE];
-
-	(void)snprintf(mailaddr, sizeof mailaddr, "%s%s%s",
-	    rcpt->user, rcpt->user[0] && rcpt->domain[0] ? "@" : "", rcpt->domain);
 
 	py_args  = PyTuple_New(2);
 	py_id    = PyLong_FromUnsignedLongLong(id);
-	py_rcpt  = PyString_FromString(mailaddr);
+	py_rcpt  = PyString_FromString(filter_api_mailaddr_to_text(rcpt));
 
 	PyTuple_SetItem(py_args, 0, py_id);
 	PyTuple_SetItem(py_args, 1, py_rcpt);
@@ -350,6 +372,7 @@ main(int argc, char **argv)
 	int	ch;
 	const char	*scriptpath = "/tmp/test.py";
 	PyObject	*name;
+	PyObject	*self;
 	PyObject	*module;
 
 	log_init(-1);
@@ -367,7 +390,10 @@ main(int argc, char **argv)
 
 	setenv("PYTHONPATH", "/tmp", 1);
 	Py_Initialize();
-	Py_InitModule("filter", py_methods);
+	self = Py_InitModule("smtpd", py_methods);
+	PyModule_AddIntConstant(self, "FILTER_OK", FILTER_OK);
+	PyModule_AddIntConstant(self, "FILTER_FAIL", FILTER_FAIL);
+	PyModule_AddIntConstant(self, "FILTER_CLOSE", FILTER_CLOSE);
 
 	name   = PyString_FromString("test");
 	module = PyImport_Import(name);
