@@ -352,8 +352,9 @@ int filter_api_reject(uint64_t, enum filter_status);
 int filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
 void filter_api_writeln(uint64_t, const char *);
+const char *filter_api_sockaddr_to_text(const struct sockaddr *);
+const char *filter_api_mailaddr_to_text(const struct mailaddr *);
 
-//void filter_api_on_notify(void(*)(uint64_t, enum filter_status));
 void filter_api_on_connect(int(*)(uint64_t, struct filter_connect *));
 void filter_api_on_helo(int(*)(uint64_t, const char *));
 void filter_api_on_mail(int(*)(uint64_t, struct mailaddr *));
@@ -361,7 +362,6 @@ void filter_api_on_rcpt(int(*)(uint64_t, struct mailaddr *));
 void filter_api_on_data(int(*)(uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *));
 void filter_api_on_eom(int(*)(uint64_t));
-//void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
 
 /* queue */
 void queue_api_on_message_create(int(*)(uint32_t *));
