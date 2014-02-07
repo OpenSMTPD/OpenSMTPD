@@ -373,6 +373,8 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_int(&m, &dnserror);
 			if (dnserror == 0)
 				m_get_int(&m, &preference);
+			else
+				preference = -1;
 			m_end(&m);
 
 			relay = tree_xpop(&wait_preference, reqid);
