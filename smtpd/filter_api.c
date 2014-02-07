@@ -850,7 +850,7 @@ filter_api_on_disconnect(void(*cb)(uint64_t))
 	fi.cb.disconnect = cb;
 }
 
-
+void
 filter_api_on_commit(void(*cb)(uint64_t))
 {
 	filter_api_init();
@@ -859,7 +859,7 @@ filter_api_on_commit(void(*cb)(uint64_t))
 	fi.cb.commit = cb;
 }
 
-
+void
 filter_api_on_rollback(void(*cb)(uint64_t))
 {
 	filter_api_init();
