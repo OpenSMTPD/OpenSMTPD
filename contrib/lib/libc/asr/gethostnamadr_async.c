@@ -507,8 +507,7 @@ hostent_from_packet(int reqtype, int family, char *pkt, size_t pktlen)
 			if (strcasecmp(rr.rr_dname, dname) != 0)
 				continue;
 			if (hostent_set_cname(h, rr.rr.ptr.ptrname, 1) == -1)
-				goto fail;
-			/* XXX See if we need MULTI_PTRS_ARE_ALIASES */
+				hostent_add_alias(h, rr.rr.ptr.ptrname, 1);
 			break;
 
 		case T_A:
