@@ -404,6 +404,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_init(&s->dataio, imsg->fd, s, smtp_data_io, &s->dataiobuf);
 		s->dataeom = 0;
 
+		stat_increment("smtp.datapipe", 1);
+
 		iobuf_fqueue(&s->dataiobuf, "Received: ");
 		if (! (s->listener->flags & F_MASK_SOURCE)) {
 			iobuf_fqueue(&s->dataiobuf, "from %s (%s [%s]);\n\t",
@@ -976,6 +978,7 @@ smtp_data_io(struct io *io, int evt)
 	case IO_DISCONNECTED:
 	case IO_ERROR:
 		log_debug("debug: smtp: %p: io error on mfa", s);
+		stat_decrement("smtp.datapipe", 1);
 		io_clear(&s->dataio);
 		iobuf_clear(&s->dataiobuf);
 		s->msgflags |= MF_ERROR_IO;
@@ -1003,6 +1006,9 @@ static void
 smtp_data_io_done(struct smtp_session *s)
 {
 	log_debug("debug: smtp: %p: data io done (%zu bytes)", s, s->datalen);
+
+	if (s->dataio.sock != -1)
+		stat_decrement("smtp.datapipe", 1);
 	io_clear(&s->dataio);
 	iobuf_clear(&s->dataiobuf);
 
@@ -1770,6 +1776,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 
 	tree_pop(&wait_mfa_response, s->id);
 
+	if (s->dataio.sock != -1)
+		stat_decrement("smtp.datapipe", 1);
 	io_clear(&s->dataio);
 	iobuf_clear(&s->dataiobuf);
 
