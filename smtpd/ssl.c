@@ -252,7 +252,8 @@ fail:
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
-	fclose(fp);
+	if (fp)
+		fclose(fp);
 	return (NULL);
 }
 
