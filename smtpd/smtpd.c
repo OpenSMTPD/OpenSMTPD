@@ -294,8 +294,8 @@ usage(void)
 {
 	extern char	*__progname;
 
-	fprintf(stderr, "usage: %s [-dnv] [-D macro=value] "
-	    "[-f file] [-P system]\n", __progname);
+	fprintf(stderr, "usage: %s [-dhnv] [-D macro=value] "
+	    "[-f file] [-P system] [-T trace]\n", __progname);
 	exit(1);
 }
 
