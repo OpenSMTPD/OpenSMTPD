@@ -721,6 +721,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_forward(p_mta, imsg);
 		return;
 
+	case IMSG_CTL_SHOW_STATUS:
+		if (c->euid)
+			goto badcred;
+
+		m_compose(p, IMSG_CTL_SHOW_STATUS, 0, 0, -1, &env->sc_flags,
+		    sizeof(env->sc_flags));
+		return;
+
 	case IMSG_CTL_MTA_BLOCK:
 	case IMSG_CTL_MTA_UNBLOCK:
 		if (c->euid)
