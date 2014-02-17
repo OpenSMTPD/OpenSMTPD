@@ -150,7 +150,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		8
+#define	IMSG_VERSION		9
 
 enum imsg_type {
 	IMSG_NONE,
