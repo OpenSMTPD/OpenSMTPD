@@ -2458,7 +2458,7 @@ mta_block_cmp(const struct mta_block *a, const struct mta_block *b)
 		return (1);
 	if (a->domain == b->domain)
 		return (0);
-	return (strcmp(a->domain, b->domain));
+	return (strcasecmp(a->domain, b->domain));
 }
 
 SPLAY_GENERATE(mta_block_tree, mta_block, entry, mta_block_cmp);
