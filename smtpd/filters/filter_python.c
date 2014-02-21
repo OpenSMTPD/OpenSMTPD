@@ -241,7 +241,7 @@ on_data(uint64_t id)
 
 	if (py_ret == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python: call to on_datra handler failed");
+		log_warnx("warn: filter-python: call to on_data handler failed");
 		exit(1);
 	}
 
