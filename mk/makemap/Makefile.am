@@ -78,4 +78,4 @@ uninstall-hook:
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8			\
 		$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
 	rmdir	$(DESTDIR)$(pkglibexecdir) \
-		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
+		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || $(which true)
