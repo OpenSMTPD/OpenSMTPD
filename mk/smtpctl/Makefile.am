@@ -76,7 +76,7 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 uninstall-hook:
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8			\
-	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
+	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || $(which true)
 	if test "$(USE_MAILWRAPPER)" = "0"; then \
 		rm -f $(DESTDIR)$(sbindir)/mailq;\
 		rm -f $(DESTDIR)$(bindir)/sendmail;\

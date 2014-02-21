@@ -189,4 +189,4 @@ uninstall-hook:
 		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)5 \
-		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
+		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || $(which true)
