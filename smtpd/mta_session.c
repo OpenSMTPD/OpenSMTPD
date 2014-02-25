@@ -764,8 +764,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		break;
 
 	case MTA_MAIL:
-		if (s->currevp == NULL)
-			s->currevp = TAILQ_FIRST(&s->task->envelopes);
+		s->currevp = TAILQ_FIRST(&s->task->envelopes);
 
 		e = s->currevp;
 		s->hangon = 0;
