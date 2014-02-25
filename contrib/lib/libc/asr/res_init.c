@@ -37,6 +37,7 @@ res_init(void)
 {
 	_THREAD_PRIVATE_MUTEX(init);
 	struct asr_ctx	*ac;
+	int i;
 
 	ac = asr_use_resolver(NULL);
 
@@ -55,6 +56,10 @@ res_init(void)
 			strlcpy(_res.lookups, ac->ac_db, sizeof(_res.lookups));
 
 		_res.nscount = ac->ac_nscount;
+		for (i = 0; i < ac->ac_nscount; i++) {
+			memcpy(&_res.nsaddr_list[i], ac->ac_ns[i],
+			    SA_LEN(ac->ac_ns[i]));
+		}
 		_res.options |= RES_INIT;
 	}
 	_THREAD_PRIVATE_MUTEX_UNLOCK(init);

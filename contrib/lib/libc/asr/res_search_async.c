@@ -162,7 +162,7 @@ res_search_async_run(struct async *as, struct async_res *ar)
 		/*
 		 * The original resolver does something like this.
 		 */
-		if (as->as_dom_flags & (ASYNC_DOM_NDOTS | ASYNC_DOM_ASIS))
+		if (as->as_dom_flags & ASYNC_DOM_NDOTS)
 			as->as.search.saved_h_errno = ar->ar_h_errno;
 
 		if (as->as_dom_flags & ASYNC_DOM_DOMAIN) {
