@@ -32,6 +32,7 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <resolv.h> /* for res_hnok */
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -507,8 +508,7 @@ hostent_from_packet(int reqtype, int family, char *pkt, size_t pktlen)
 			if (strcasecmp(rr.rr_dname, dname) != 0)
 				continue;
 			if (hostent_set_cname(h, rr.rr.ptr.ptrname, 1) == -1)
-				goto fail;
-			/* XXX See if we need MULTI_PTRS_ARE_ALIASES */
+				hostent_add_alias(h, rr.rr.ptr.ptrname, 1);
 			break;
 
 		case T_A:
@@ -573,6 +573,8 @@ hostent_set_cname(struct hostent_ext *h, const char *name, int isdname)
 	if (isdname) {
 		asr_strdname(name, buf, sizeof buf);
 		buf[strlen(buf) - 1] = '\0';
+		if (!res_hnok(buf))
+			return (-1);
 		name = buf;
 	}
 
@@ -601,6 +603,8 @@ hostent_add_alias(struct hostent_ext *h, const char *name, int isdname)
 	if (isdname) {
 		asr_strdname(name, buf, sizeof buf);
 		buf[strlen(buf)-1] = '\0';
+		if (!res_hnok(buf))
+			return (-1);
 		name = buf;
 	}
 
