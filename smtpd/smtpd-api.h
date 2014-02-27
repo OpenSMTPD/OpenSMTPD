@@ -347,7 +347,7 @@ void filter_api_no_chroot(void);
 
 void filter_api_loop(void);
 int filter_api_accept(uint64_t);
-int filter_api_accept_notify(uint64_t, uint64_t *);
+int filter_api_accept_replace(uint64_t, const char *);
 int filter_api_reject(uint64_t, enum filter_status);
 int filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
@@ -357,8 +357,8 @@ const char *filter_api_mailaddr_to_text(const struct mailaddr *);
 
 void filter_api_on_connect(int(*)(uint64_t, struct filter_connect *));
 void filter_api_on_helo(int(*)(uint64_t, const char *));
-void filter_api_on_mail(int(*)(uint64_t, struct mailaddr *));
-void filter_api_on_rcpt(int(*)(uint64_t, struct mailaddr *));
+void filter_api_on_mail(int(*)(uint64_t, const char *));
+void filter_api_on_rcpt(int(*)(uint64_t, const char *));
 void filter_api_on_data(int(*)(uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *));
 void filter_api_on_eom(int(*)(uint64_t));

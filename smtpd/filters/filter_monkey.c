@@ -57,13 +57,13 @@ on_helo(uint64_t id, const char *helo)
 }
 
 static int
-on_mail(uint64_t id, struct mailaddr *mail)
+on_mail(uint64_t id, const char *addr)
 {
 	return monkey(id);
 }
 
 static int
-on_rcpt(uint64_t id, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, const char *addr)
 {
 	return monkey(id);
 }

@@ -744,6 +744,11 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			return;
 		}
 
+		if (line) {
+			log_debug("smtp: %p: MAIL FROM changed to \"%s\" by mfa", s, line);
+			text_to_mailaddr(&s->evp.sender, line);
+		}
+
 		m_create(p_queue, IMSG_QUEUE_CREATE_MESSAGE, 0, 0, -1);
 		m_add_id(p_queue, s->id);
 		m_close(p_queue);
@@ -764,6 +769,11 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 			}
 			io_reload(&s->io);
 			return;
+		}
+
+		if (line) {
+			log_debug("smtp: %p: RCPT TO changed to \"%s\" by mfa", s, line);
+			text_to_mailaddr(&s->evp.rcpt, line);
 		}
 
 		m_create(p_lka, IMSG_LKA_EXPAND_RCPT, 0, 0, -1);
