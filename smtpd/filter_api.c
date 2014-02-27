@@ -923,7 +923,6 @@ filter_api_accept_replace(uint64_t id, const char *line)
 	struct filter_session	*s;
 
 	s = tree_xget(&sessions, id);
-	/* XXX validate line depending on the query */
 	filter_response(s, FILTER_OK, 0, line);
 	return 1;
 }
