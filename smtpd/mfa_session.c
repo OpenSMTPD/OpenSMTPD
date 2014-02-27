@@ -629,6 +629,14 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		if (code)
 			q->smtp.code = code;
 		if (line) {
+			if (status == FILTER_OK) {
+				if ((qhook == QUERY_MAIL) || (qhook == QUERY_RCPT))
+					text_to_mailaddr(&q->u.maddr, line);
+				else if (qhook == QUERY_HELO)
+					strlcpy(q->u.line, line, sizeof(q->u.line));
+				else
+					log_warn("mfa: unexpected line in reponse");
+			}
 			free(q->smtp.response);
 			q->smtp.response = xstrdup(line, "mfa_filter_imsg");
 		}
