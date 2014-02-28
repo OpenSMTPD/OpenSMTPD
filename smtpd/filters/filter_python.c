@@ -173,7 +173,7 @@ on_helo(uint64_t id, const char *helo)
 }
 
 static int
-on_mail(uint64_t id, struct mailaddr *mail)
+on_mail(uint64_t id, const char *mail)
 {
 	PyObject *py_args;
 	PyObject *py_ret;
@@ -182,7 +182,7 @@ on_mail(uint64_t id, struct mailaddr *mail)
 
 	py_args   = PyTuple_New(2);
 	py_id     = PyLong_FromUnsignedLongLong(id);
-	py_sender = PyString_FromString(filter_api_mailaddr_to_text(mail));
+	py_sender = PyString_FromString(mail);
 
 	PyTuple_SetItem(py_args, 0, py_id);
 	PyTuple_SetItem(py_args, 1, py_sender);
@@ -200,7 +200,7 @@ on_mail(uint64_t id, struct mailaddr *mail)
 }
 
 static int
-on_rcpt(uint64_t id, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, const char *rcpt)
 {
 	PyObject *py_args;
 	PyObject *py_ret;
@@ -209,7 +209,7 @@ on_rcpt(uint64_t id, struct mailaddr *rcpt)
 
 	py_args  = PyTuple_New(2);
 	py_id    = PyLong_FromUnsignedLongLong(id);
-	py_rcpt  = PyString_FromString(filter_api_mailaddr_to_text(rcpt));
+	py_rcpt  = PyString_FromString(rcpt);
 
 	PyTuple_SetItem(py_args, 0, py_id);
 	PyTuple_SetItem(py_args, 1, py_rcpt);
