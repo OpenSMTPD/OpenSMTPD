@@ -707,7 +707,7 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		} while ((mods = sep) != NULL);
 	}
 	
-	if (! raw)
+	if (! raw && replace)
 		for (i = 0; (size_t)i < strlen(tmp); ++i)
 			if (strchr(unsafe, tmp[i]))
 				tmp[i] = ':';
