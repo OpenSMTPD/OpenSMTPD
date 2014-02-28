@@ -338,7 +338,7 @@ enqueue(int argc, char *argv[])
 	}
 	if (!msg.saw_user_agent)
 		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
-		    SMTPD_NAME, "Demoostik");
+		    SMTPD_NAME, "Detetaar");
 
 	/* add separating newline */
 	if (noheader)
