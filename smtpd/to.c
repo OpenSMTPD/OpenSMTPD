@@ -414,7 +414,7 @@ relayhost_to_text(const struct relayhost *relay)
 {
 	static char	buf[4096];
 	char		port[4096];
-	uint16_t	mask = F_SMTPS|F_STARTTLS|F_AUTH|F_TLS_OPTIONAL|F_LMTP;
+	uint16_t	mask = F_SMTPS|F_STARTTLS|F_AUTH|F_TLS_OPTIONAL|F_LMTP|F_BACKUP;
 
 	memset(buf, 0, sizeof buf);
 	switch (relay->flags & mask) {
