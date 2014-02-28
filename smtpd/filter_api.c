@@ -79,8 +79,8 @@ static struct filter_internals {
 	struct {
 		int  (*connect)(uint64_t, struct filter_connect *);
 		int  (*helo)(uint64_t, const char *);
-		int  (*mail)(uint64_t, struct mailaddr *);
-		int  (*rcpt)(uint64_t, struct mailaddr *);
+		int  (*mail)(uint64_t, const char *);
+		int  (*rcpt)(uint64_t, const char *);
 		int  (*data)(uint64_t);
 		void (*dataline)(uint64_t, const char *);
 		int  (*eom)(uint64_t);
@@ -102,8 +102,8 @@ static void filter_dispatch_data(uint64_t);
 static void filter_dispatch_eom(uint64_t, size_t);
 static void filter_dispatch_connect(uint64_t, struct filter_connect *);
 static void filter_dispatch_helo(uint64_t, const char *);
-static void filter_dispatch_mail(uint64_t, struct mailaddr *);
-static void filter_dispatch_rcpt(uint64_t, struct mailaddr *);
+static void filter_dispatch_mail(uint64_t, const char *);
+static void filter_dispatch_rcpt(uint64_t, const char *);
 static void filter_dispatch_reset(uint64_t);
 static void filter_dispatch_commit(uint64_t);
 static void filter_dispatch_rollback(uint64_t);
@@ -186,6 +186,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 	const char		*line, *name;
 	uint32_t		 v, datalen;
 	uint64_t		 id, qid;
+	char			 buf[SMTPD_MAXLINESIZE];
 	int			 status, event, hook;
 	int			 fds[2], fdin, fdout;
 
@@ -263,13 +264,15 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_mail(id, &maddr);
+			snprintf(buf, sizeof(buf), "%s@%s", maddr.user, maddr.domain);
+			filter_dispatch_mail(id, buf);
 			break;
 		case QUERY_RCPT:
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
 			filter_register_query(id, qid, hook);
-			filter_dispatch_rcpt(id, &maddr);
+			snprintf(buf, sizeof(buf), "%s@%s", maddr.user, maddr.domain);
+			filter_dispatch_rcpt(id, buf);
 			break;
 		case QUERY_DATA:
 			m_end(&m);
@@ -377,7 +380,7 @@ filter_dispatch_helo(uint64_t id, const char *helo)
 }
 
 static void
-filter_dispatch_mail(uint64_t id, struct mailaddr *mail)
+filter_dispatch_mail(uint64_t id, const char *mail)
 {
 	if (fi.cb.mail)
 		fi.cb.mail(id, mail);
@@ -386,7 +389,7 @@ filter_dispatch_mail(uint64_t id, struct mailaddr *mail)
 }
 
 static void
-filter_dispatch_rcpt(uint64_t id, struct mailaddr *rcpt)
+filter_dispatch_rcpt(uint64_t id, const char *rcpt)
 {
 	if (fi.cb.rcpt)
 		fi.cb.rcpt(id, rcpt);
@@ -786,7 +789,7 @@ filter_api_on_helo(int(*cb)(uint64_t, const char *))
 }
 
 void
-filter_api_on_mail(int(*cb)(uint64_t, struct mailaddr *))
+filter_api_on_mail(int(*cb)(uint64_t, const char *))
 {
 	filter_api_init();
 
@@ -795,7 +798,7 @@ filter_api_on_mail(int(*cb)(uint64_t, struct mailaddr *))
 }
 
 void
-filter_api_on_rcpt(int(*cb)(uint64_t, struct mailaddr *))
+filter_api_on_rcpt(int(*cb)(uint64_t, const char *))
 {
 	filter_api_init();
 
@@ -911,6 +914,16 @@ filter_api_accept(uint64_t id)
 
 	s = tree_xget(&sessions, id);
 	filter_response(s, FILTER_OK, 0, NULL);
+	return 1;
+}
+
+int
+filter_api_accept_replace(uint64_t id, const char *line)
+{
+	struct filter_session	*s;
+
+	s = tree_xget(&sessions, id);
+	filter_response(s, FILTER_OK, 0, line);
 	return 1;
 }
 
