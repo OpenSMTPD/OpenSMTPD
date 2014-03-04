@@ -19,6 +19,8 @@
 
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/nameser.h>
 #ifdef YP
 #include <rpc/rpc.h>
@@ -82,14 +84,19 @@ getaddrinfo_async(const char *hostname, const char *servname,
 {
 	struct asr_ctx	*ac;
 	struct async	*as;
+	char		 alias[MAXDNAME];
 
 	ac = asr_use_resolver(asr);
 	if ((as = asr_async_new(ac, ASR_GETADDRINFO)) == NULL)
 		goto abort; /* errno set */
 	as->as_run = getaddrinfo_async_run;
 
-	if (hostname && (as->as.ai.hostname = strdup(hostname)) == NULL)
-		goto abort; /* errno set */
+	if (hostname) {
+		if (asr_hostalias(ac, hostname, alias, sizeof(alias)))
+			hostname = alias;
+		if ((as->as.ai.hostname = strdup(hostname)) == NULL)
+			goto abort; /* errno set */
+	}
 	if (servname && (as->as.ai.servname = strdup(servname)) == NULL)
 		goto abort; /* errno set */
 	if (hints)
@@ -115,7 +122,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 	static char	*domain = NULL;
 	char		*res;
 	int		 len;
-	char		 alias[MAXDNAME], *name;
+	char		 *name;
 #endif
 	char		 fqdn[MAXDNAME];
 	const char	*str;
@@ -394,10 +401,7 @@ getaddrinfo_async_run(struct async *as, struct async_res *ar)
 			family = (as->as.ai.hints.ai_family == AF_UNSPEC) ?
 			    AS_FAMILY(as) : as->as.ai.hints.ai_family;
 
-			name = asr_hostalias(as->as_ctx, as->as.ai.hostname,
-			    alias, sizeof(alias));
-			if (name == NULL)
-				name = as->as.ai.hostname;
+			name = as->as.ai.hostname;
 
 			/* XXX
 			 * ipnodes.byname could also contain IPv4 address
@@ -736,7 +740,7 @@ asr_freeaddrinfo(struct addrinfo *ai)
 static int
 addrinfo_from_file(struct async *as, int family, FILE *f)
 {
-	char		*tokens[MAXTOKEN], buf[MAXDNAME], *name, *c;
+	char		*tokens[MAXTOKEN], *c;
 	int		 n, i;
 	union {
 		struct sockaddr		sa;
@@ -744,17 +748,13 @@ addrinfo_from_file(struct async *as, int family, FILE *f)
 		struct sockaddr_in6	sain6;
 	} u;
 
-	name = asr_hostalias(as->as_ctx, as->as.ai.hostname, buf, sizeof(buf));
-	if (name == NULL)
-		name = as->as.ai.hostname;
-
 	for (;;) {
 		n = asr_parse_namedb_line(f, tokens, MAXTOKEN);
 		if (n == -1)
 			break; /* ignore errors reading the file */
 
 		for (i = 1; i < n; i++) {
-			if (strcasecmp(name, tokens[i]))
+			if (strcasecmp(as->as.ai.hostname, tokens[i]))
 				continue;
 			if (asr_sockaddr_from_str(&u.sa, family, tokens[0]) == -1)
 				continue;
