@@ -8,6 +8,9 @@ TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T asr_unpack_rr" |
 NEED_ASR=	Yes
 .endif
 
+# we're in a transitional phase, we *always* need the shipped in ASR for now
+NEED_ASR=	Yes
+
 PROG=		smtpd
 
 SRCS=		aliases.c
