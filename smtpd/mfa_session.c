@@ -241,11 +241,12 @@ mfa_filter_prepare(void)
 	}
 	log_debug("mfa: done building complex chains");
 
-	if (dict_get(&chains, "default") == NULL) {
+	/* XXX - we should get rid of this later */
+	if (dict_get(&chains, "") == NULL) {
 		log_debug("mfa: done building default chain");
 		fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
 		TAILQ_INIT(fchain);
-		dict_xset(&chains, "default", fchain);
+		dict_xset(&chains, "", fchain);
 	}
 }
 
@@ -275,7 +276,7 @@ mfa_filter_init(void)
 }
 
 void
-mfa_filter_event(uint64_t id, int event)
+mfa_filter_event(uint64_t id, int event, const char *filterchain)
 {
 	struct mfa_session	*s;
 	struct mfa_query	*q;
@@ -283,7 +284,7 @@ mfa_filter_event(uint64_t id, int event)
 	if (event == EVENT_CONNECT) {
 		s = xcalloc(1, sizeof(*s), "mfa_filter_event");
 		s->id = id;
-		s->filters = dict_xget(&chains, "default");
+		s->filters = dict_xget(&chains, filterchain);
 		TAILQ_INIT(&s->queries);
 		tree_xset(&sessions, s->id, s);
 	}

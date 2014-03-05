@@ -64,7 +64,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	struct sockaddr_storage	 local, remote;
 	struct mailaddr		 maddr;
 	struct msg		 m;
-	const char		*line, *hostname;
+	const char		*line, *hostname, *filterchain;
 	uint64_t		 reqid;
 	uint32_t		 datalen; /* XXX make it off_t? */
 	int			 v, success, fdout;
@@ -77,8 +77,9 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_sockaddr(&m, (struct sockaddr *)&local);
 			m_get_sockaddr(&m, (struct sockaddr *)&remote);
 			m_get_string(&m, &hostname);
+			m_get_string(&m, &filterchain);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_CONNECT);
+			mfa_filter_event(reqid, EVENT_CONNECT, filterchain);
 			mfa_filter_connect(reqid, (struct sockaddr *)&local,
 			    (struct sockaddr *)&remote, hostname);
 			return;
@@ -126,28 +127,28 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_RESET);
+			mfa_filter_event(reqid, EVENT_RESET, NULL);
 			return;
 
 		case IMSG_MFA_EVENT_COMMIT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_COMMIT);
+			mfa_filter_event(reqid, EVENT_COMMIT, NULL);
 			return;
 
 		case IMSG_MFA_EVENT_ROLLBACK:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_ROLLBACK);
+			mfa_filter_event(reqid, EVENT_ROLLBACK, NULL);
 			return;
 
 		case IMSG_MFA_EVENT_DISCONNECT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_DISCONNECT);
+			mfa_filter_event(reqid, EVENT_DISCONNECT, NULL);
 			return;
 		}
 	}

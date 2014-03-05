@@ -109,7 +109,8 @@ static struct listen_opts {
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
-	uint16_t	flags;	
+	uint16_t	flags;
+	char	       *filterchain;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -406,6 +407,14 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			listen_opts.hostnametable = t;
 		}
 		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
+		| FILTER STRING	{
+			if (dict_get(&conf->sc_filters, $2) == NULL) {
+				yyerror("filter \"%s\" is not defined", $2);
+				free($2);
+				YYERROR;
+			}
+			listen_opts.filterchain = $2;
+		}
 		;
 
 listen		: opt_listen listen
@@ -1798,6 +1807,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->ssl & F_TLS_VERIFY)
 		h->flags |= F_TLS_VERIFY;
+	h->filterchain = lo->filterchain;
 }
 
 struct listener *
