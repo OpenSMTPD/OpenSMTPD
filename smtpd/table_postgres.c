@@ -305,6 +305,10 @@ config_connect(struct config *conf)
 	config_reset(conf);
 
 	conninfo = dict_get(&conf->conf, "conninfo");
+	if (conninfo == NULL) {
+		log_warnx("warn: table-postgres: missing \"conninfo\" configuration directive");
+		goto end;
+	}
 
 	conf->db = PQconnectdb(conninfo);
 	if (conf->db == NULL) {
