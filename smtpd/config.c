@@ -50,6 +50,8 @@ purge_config(uint8_t what)
 			TAILQ_REMOVE(env->sc_listeners, l, entry);
 			free(l);
 		}
+		free(env->enqueue);
+		free(env->bounces);
 		free(env->sc_listeners);
 		env->sc_listeners = NULL;
 	}

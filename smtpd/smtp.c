@@ -318,18 +318,14 @@ smtp_resume(void)
 static int
 smtp_enqueue(uid_t *euid)
 {
-	static struct listener	 local, *listener = NULL;
+	struct listener		*listener;
 	char			 buf[SMTPD_MAXHOSTNAMELEN], *hostname;
 	int			 fd[2];
 
-	if (listener == NULL) {
-		listener = &local;
-		strlcpy(listener->tag, "local", sizeof(listener->tag));
-		listener->ss.ss_family = AF_LOCAL;
-		listener->ss.ss_len = sizeof(struct sockaddr *);
-		strlcpy(listener->hostname, "localhost",
-		    sizeof(listener->hostname));
-	}
+	if (euid == NULL)
+		listener = env->bounces;
+	else
+		listener = env->enqueue;
 
 	/*
 	 * Some enqueue requests buffered in IMSG may still arrive even after
