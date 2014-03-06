@@ -1671,6 +1671,12 @@ smtp_connected(struct smtp_session *s)
 	m_add_sockaddr(p_mfa, (struct sockaddr *)&ss);
 	m_add_sockaddr(p_mfa, (struct sockaddr *)&s->ss);
 	m_add_string(p_mfa, s->hostname);
+
+	if (s->listener->filterchain)
+		m_add_string(p_mfa, s->listener->filterchain);
+	else
+		m_add_string(p_mfa, "");
+
 	m_close(p_mfa);
 	s->flags |= SF_MFACONNSENT;
 	smtp_wait_mfa(s, IMSG_MFA_REQ_CONNECT);

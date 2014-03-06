@@ -115,7 +115,8 @@ static struct listen_opts {
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
-	uint16_t	flags;	
+	uint16_t	flags;
+	char	       *filterchain;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -149,7 +150,7 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
-%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
+%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6 ENQUEUE
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER FILTERCHAIN KEY CA DHPARAMS
@@ -413,6 +414,14 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			listen_opts.hostnametable = t;
 		}
 		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
+		| FILTER STRING	{
+			if (dict_get(&conf->sc_filters, $2) == NULL) {
+				yyerror("filter \"%s\" is not defined", $2);
+				free($2);
+				YYERROR;
+			}
+			listen_opts.filterchain = $2;
+		}
 		;
 
 listen		: opt_listen listen
@@ -647,6 +656,14 @@ main		: BOUNCEWARN {
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
+		| ENQUEUE FILTER STRING {
+			if (dict_get(&conf->sc_filters, $3) == NULL) {
+				yyerror("filter \"%s\" is not defined", $3);
+				free($3);
+				YYERROR;
+			}
+			conf->enqueue->filterchain = $3;
+		}
 		;
 
 table		: TABLE STRING STRING	{
@@ -1143,6 +1160,7 @@ lookup(char *s)
 		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
 		{ "encryption",		ENCRYPTION },
+		{ "enqueue",		ENQUEUE },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "filterchain",	FILTERCHAIN },
@@ -1589,6 +1607,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_mda_task_lowat = 30;
 	conf->sc_mda_task_release = 10;
 
+	create_internal_listeners();
+
 	if ((file = pushfile(filename, 0)) == NULL) {
 		purge_config(PURGE_EVERYTHING);
 		return (-1);
@@ -1640,8 +1660,6 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 			free(sym);
 		}
 	}
-
-	create_internal_listeners();
 
 	if (TAILQ_EMPTY(conf->sc_rules)) {
 		log_warnx("warn: no rules, nothing to do");
@@ -1831,6 +1849,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->ssl & F_TLS_VERIFY)
 		h->flags |= F_TLS_VERIFY;
+	h->filterchain = lo->filterchain;
 }
 
 struct listener *
