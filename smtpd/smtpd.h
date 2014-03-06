@@ -588,6 +588,9 @@ struct smtpd {
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
+	struct listener				*enqueue;
+	struct listener				*bounces;
+
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
 	struct dict			       *sc_pki_dict;
