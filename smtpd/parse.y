@@ -630,6 +630,13 @@ main		: BOUNCEWARN {
 			listen_opts.ifx = $4;
 			create_listener(conf->sc_listeners, &listen_opts);
 		}
+		| FILTER STRING {
+			if (!create_filter($2, NULL)) {
+				free($2);
+				YYERROR;
+			}
+			free($2);
+		}
 		| FILTER STRING STRING {
 			if (!create_filter($2, $3)) {
 				free($2);
@@ -2182,7 +2189,10 @@ create_filter(const char *name, const char *path)
 
 	f = xcalloc(1, sizeof(*f), "create_filter");
 	strlcpy(f->name, name, sizeof(f->name));
-	strlcpy(f->path, path, sizeof(f->path));
+	if (path == NULL)
+		snprintf(f->path, sizeof f->path, "%s/filter-%s", PATH_FILTERS, name);
+	else
+		strlcpy(f->path, path, sizeof(f->path));
 
 	dict_xset(&conf->sc_filters, name, f);
 
