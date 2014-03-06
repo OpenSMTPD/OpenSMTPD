@@ -114,6 +114,7 @@ static struct listen_opts {
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
+static void	create_internal_listeners(void);
 static void	config_listener(struct listener *,  struct listen_opts *);
 
 struct listener	*host_v4(const char *, in_port_t);
@@ -1643,6 +1644,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 		}
 	}
 
+	create_internal_listeners();
+
 	if (TAILQ_EMPTY(conf->sc_rules)) {
 		log_warnx("warn: no rules, nothing to do");
 		errors++;
@@ -1728,6 +1731,26 @@ symget(const char *nam)
 			return (sym->val);
 		}
 	return (NULL);
+}
+
+static void
+create_internal_listeners(void)
+{
+	struct listener	*h;
+
+	h = xcalloc(1, sizeof(*h), "create_internal_listener");
+	strlcpy(h->tag, "local", sizeof(h->tag));
+	h->ss.ss_family = AF_LOCAL;
+	h->ss.ss_len = sizeof(struct sockaddr *);
+	strlcpy(h->hostname, "localhost", sizeof(h->hostname));
+	conf->enqueue = h;
+
+	h = xcalloc(1, sizeof(*h), "create_internal_listener");
+	strlcpy(h->tag, "bounce", sizeof(h->tag));
+	h->ss.ss_family = AF_LOCAL;
+	h->ss.ss_len = sizeof(struct sockaddr *);
+	strlcpy(h->hostname, "localhost", sizeof(h->hostname));
+	conf->bounces = h;
 }
 
 static void
