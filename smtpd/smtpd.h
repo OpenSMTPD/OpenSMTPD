@@ -559,12 +559,12 @@ struct smtpd {
 
 	time_t					 sc_uptime;
 
-	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
+	TAILQ_HEAD(listenerlist, listener)	*listeners;
+	TAILQ_HEAD(rulelist, rule)		*ruleset;
 
 	struct listener				*enqueue;
 	struct listener				*bounces;
 
-	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
 	struct dict			       *sc_pki_dict;
 	struct dict			       *sc_ssl_dict;

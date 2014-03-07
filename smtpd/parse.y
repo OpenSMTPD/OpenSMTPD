@@ -622,7 +622,7 @@ main		: BOUNCEWARN {
 			listen_opts.family = AF_UNSPEC;
 		} ON STRING listen {
 			listen_opts.ifx = $4;
-			create_listener(conf->sc_listeners, &listen_opts);
+			create_listener(conf->listeners, &listen_opts);
 		}
 		| FILTER STRING {
 			if (!create_filter($2, NULL)) {
@@ -1096,7 +1096,7 @@ rule		: ACCEPT {
 				yyerror("forward-only may not be used with a default action");
 				YYERROR;
 			}
-			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
+			TAILQ_INSERT_TAIL(conf->ruleset, rule, r_entry);
 			rule = NULL;
 		}
 		| REJECT {
@@ -1108,7 +1108,7 @@ rule		: ACCEPT {
 				rule->r_sources = table_find("<localhost>", NULL);
 			if (! rule->r_destination)
 				rule->r_destination = table_find("<localnames>", NULL);
-			TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
+			TAILQ_INSERT_TAIL(conf->ruleset, rule, r_entry);
 			rule = NULL;
 		}
 		;
@@ -1550,8 +1550,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
 	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
-	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
-	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
+	conf->ruleset = calloc(1, sizeof(*conf->ruleset));
+	conf->listeners = calloc(1, sizeof(*conf->listeners));
 	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
 	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
@@ -1561,15 +1561,15 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_bounce_warn[0] = 3600 * 4;
 
 	if (conf->sc_tables_dict == NULL	||
-	    conf->sc_rules == NULL		||
-	    conf->sc_listeners == NULL		||
+	    conf->ruleset == NULL		||
+	    conf->listeners == NULL		||
 	    conf->sc_pki_dict == NULL		||
 	    conf->sc_filters == NULL		||
 	    conf->sc_limits_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
-		free(conf->sc_rules);
-		free(conf->sc_listeners);
+		free(conf->ruleset);
+		free(conf->listeners);
 		free(conf->sc_pki_dict);
 		free(conf->sc_ssl_dict);
 		free(conf->sc_filters);
@@ -1592,8 +1592,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	limit_mta_set_defaults(limits);
 	dict_xset(conf->sc_limits_dict, "default", limits);
 
-	TAILQ_INIT(conf->sc_listeners);
-	TAILQ_INIT(conf->sc_rules);
+	TAILQ_INIT(conf->listeners);
+	TAILQ_INIT(conf->ruleset);
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
 	conf->sc_opts = opts;
@@ -1664,7 +1664,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 		}
 	}
 
-	if (TAILQ_EMPTY(conf->sc_rules)) {
+	if (TAILQ_EMPTY(conf->ruleset)) {
 		log_warnx("warn: no rules, nothing to do");
 		errors++;
 	}

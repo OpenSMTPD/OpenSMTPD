@@ -238,7 +238,7 @@ smtp_setup_listeners(void)
 	struct listener	       *l;
 	int			opt;
 
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+	TAILQ_FOREACH(l, env->listeners, entry) {
 		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
@@ -264,7 +264,7 @@ smtp_setup_events(void)
 	void		*iter;
 	const char	*k;
 
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+	TAILQ_FOREACH(l, env->listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
 		    " pki \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->pki_name);
@@ -299,7 +299,7 @@ smtp_pause(void)
 	if (env->sc_flags & (SMTPD_SMTP_DISABLED|SMTPD_SMTP_PAUSED))
 		return;
 
-	TAILQ_FOREACH(l, env->sc_listeners, entry)
+	TAILQ_FOREACH(l, env->listeners, entry)
 		event_del(&l->ev);
 }
 
@@ -311,7 +311,7 @@ smtp_resume(void)
 	if (env->sc_flags & (SMTPD_SMTP_DISABLED|SMTPD_SMTP_PAUSED))
 		return;
 
-	TAILQ_FOREACH(l, env->sc_listeners, entry)
+	TAILQ_FOREACH(l, env->listeners, entry)
 		event_add(&l->ev, NULL);
 }
 
