@@ -595,10 +595,6 @@ main(int argc, char *argv[])
 	if (parse_config(&smtpd, conffile, opts))
 		exit(1);
 
-	if (strlcpy(env->sc_conffile, conffile, SMTPD_MAXPATHLEN)
-	    >= SMTPD_MAXPATHLEN)
-		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
-
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
 		load_pki_tree();
 		fprintf(stderr, "configuration OK\n");
