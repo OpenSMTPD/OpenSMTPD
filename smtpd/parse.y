@@ -409,7 +409,7 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 		}
 		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
 		| FILTER STRING	{
-			if (dict_get(&conf->sc_filters, $2) == NULL) {
+			if (dict_get(conf->sc_filters, $2) == NULL) {
 				yyerror("filter \"%s\" is not defined", $2);
 				free($2);
 				YYERROR;
@@ -658,7 +658,7 @@ main		: BOUNCEWARN {
 			}
 		} pki
 		| ENQUEUE FILTER STRING {
-			if (dict_get(&conf->sc_filters, $3) == NULL) {
+			if (dict_get(conf->sc_filters, $3) == NULL) {
 				yyerror("filter \"%s\" is not defined", $3);
 				free($3);
 				YYERROR;
@@ -1555,6 +1555,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
 	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
+	conf->sc_filters = calloc(1, sizeof(*conf->sc_filters));
 
 	/* Report mails delayed for more than 4 hours */
 	conf->sc_bounce_warn[0] = 3600 * 4;
@@ -1563,6 +1564,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
 	    conf->sc_pki_dict == NULL		||
+	    conf->sc_filters == NULL		||
 	    conf->sc_limits_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
@@ -1570,6 +1572,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 		free(conf->sc_listeners);
 		free(conf->sc_pki_dict);
 		free(conf->sc_ssl_dict);
+		free(conf->sc_filters);
 		free(conf->sc_limits_dict);
 		return (-1);
 	}
@@ -1579,8 +1582,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	table = NULL;
 	rule = NULL;
 
-	dict_init(&conf->sc_filters);
-
+	dict_init(conf->sc_filters);
 	dict_init(conf->sc_pki_dict);
 	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
@@ -2152,7 +2154,7 @@ create_filter(const char *name, const char *path)
 {
 	struct filter	*f;
 
-	if (dict_get(&conf->sc_filters, name)) {
+	if (dict_get(conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
@@ -2164,7 +2166,7 @@ create_filter(const char *name, const char *path)
 	else
 		strlcpy(f->path, path, sizeof(f->path));
 
-	dict_xset(&conf->sc_filters, name, f);
+	dict_xset(conf->sc_filters, name, f);
 
 	return (f);
 }
@@ -2174,7 +2176,7 @@ create_filter_chain(const char *name)
 {
 	struct filter	*f;
 
-	if (dict_get(&conf->sc_filters, name)) {
+	if (dict_get(conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
@@ -2182,7 +2184,7 @@ create_filter_chain(const char *name)
 	strlcpy(f->name, name, sizeof(f->name));
 	f->chain = 1;
 
-	dict_xset(&conf->sc_filters, name, f);
+	dict_xset(conf->sc_filters, name, f);
 
 	return (f);
 }
@@ -2197,11 +2199,11 @@ extend_filter_chain(struct filter *f, const char *name)
 		return (0);
 	}
 
-	if (dict_get(&conf->sc_filters, name) == NULL) {
+	if (dict_get(conf->sc_filters, name) == NULL) {
 		yyerror("undefined filter \"%s\"", name);
 		return (0);
 	}
-	if (dict_get(&conf->sc_filters, name) == f) {
+	if (dict_get(conf->sc_filters, name) == f) {
 		yyerror("filter chain cannot contain itself");
 		return (0);
 	}

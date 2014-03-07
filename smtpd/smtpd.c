@@ -347,7 +347,7 @@ parent_send_config_mfa()
 	log_debug("debug: parent_send_config_mfa: reloading");
 	m_compose(p_mfa, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 
-	while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
+	while (dict_iter(env->sc_filters, &iter_dict, NULL, (void **)&f))
 		m_compose(p_mfa, IMSG_CONF_FILTER, 0, 0, -1, f, sizeof(*f));
 
 	m_compose(p_mfa, IMSG_CONF_END, 0, 0, -1, NULL, 0);

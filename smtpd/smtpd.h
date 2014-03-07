@@ -568,13 +568,9 @@ struct smtpd {
 	
 	struct dict			       *sc_pki_dict;
 	struct dict			       *sc_ssl_dict;
-
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
-
 	struct dict			       *sc_limits_dict;
-
-	struct dict				sc_filters;
-	uint32_t				filtermask;
+	struct dict			       *sc_filters;
 };
 
 #define	TRACE_DEBUG	0x0001
