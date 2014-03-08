@@ -138,7 +138,7 @@ mfa_extend_chain(struct mfa_filters *chain, const char *name)
 	struct filter		*fconf;
 	int			 i;
 
-	fconf = dict_xget(&env->sc_filters, name);
+	fconf = dict_xget(env->filters_dict, name);
 	if (fconf->chain) {
 		log_debug("mfa:     extending with \"%s\"", name);
 		for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
@@ -179,7 +179,7 @@ mfa_filter_prepare(void)
 
 	/* create all filter proc and associated chains */
 	iter = NULL;
-	while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
+	while (dict_iter(env->filters_dict, &iter, NULL, (void **)&filter)) {
 		if (filter->chain)
 			continue;
 
@@ -214,7 +214,7 @@ mfa_filter_prepare(void)
 	while (!done) {
 		done = 1;
 		iter = NULL;
-		while (dict_iter(&env->sc_filters, &iter, NULL, (void **)&filter)) {
+		while (dict_iter(env->filters_dict, &iter, NULL, (void **)&filter)) {
 			if (filter->done)
 				continue;
 			done = 0;

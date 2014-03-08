@@ -128,7 +128,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			xlowercase(buf, req_ca_cert->name, sizeof(buf));
 			log_debug("debug: lka: looking up pki \"%s\"", buf);
-			pki = dict_get(env->sc_pki_dict, buf);
+			pki = dict_get(env->pki_dict, buf);
 			if (pki == NULL) {
 				resp_ca_cert.status = CA_FAIL;
 				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
@@ -172,7 +172,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_smtp->reqid;
-			pki = dict_xget(env->sc_pki_dict, req_ca_vrfy_smtp->pkiname);
+			pki = dict_xget(env->pki_dict, req_ca_vrfy_smtp->pkiname);
 			cafile = CA_FILE;
 			if (pki->pki_ca_file)
 				cafile = pki->pki_ca_file;
@@ -250,7 +250,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			xlowercase(buf, req_ca_cert->name, sizeof(buf));
 			log_debug("debug: lka: looking up pki \"%s\"", buf);
-			pki = dict_get(env->sc_pki_dict, buf);
+			pki = dict_get(env->pki_dict, buf);
 			if (pki == NULL) {
 				resp_ca_cert.status = CA_FAIL;
 				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
@@ -295,7 +295,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
 			resp_ca_vrfy.reqid = req_ca_vrfy_mta->reqid;
-			pki = dict_get(env->sc_pki_dict, req_ca_vrfy_mta->pkiname);
+			pki = dict_get(env->pki_dict, req_ca_vrfy_mta->pkiname);
 
 			cafile = CA_FILE;
 			if (pki && pki->pki_ca_file)

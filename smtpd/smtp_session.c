@@ -618,9 +618,9 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    "smtp:ca_key");
 
 		if (s->listener->pki_name[0])
-			ssl_ctx = dict_get(env->sc_ssl_dict, s->listener->pki_name);
+			ssl_ctx = dict_get(env->ssl_dict, s->listener->pki_name);
 		else
-			ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
+			ssl_ctx = dict_get(env->ssl_dict, s->smtpname);
 
 #if defined(HAVE_TLSEXT_SERVERNAME)
 		sni = smtp_sni_callback;
@@ -1685,7 +1685,7 @@ smtp_connected(struct smtp_session *s)
 static void
 smtp_send_banner(struct smtp_session *s)
 {
-	smtp_reply(s, SMTPD_BANNER, s->smtpname, SMTPD_NAME);
+	smtp_reply(s, "220 %s ESMTP %s", s->smtpname, SMTPD_NAME);
 	io_reload(&s->io);
 }
 
@@ -2012,7 +2012,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 		log_warnx("warn: client SNI exceeds max hostname length");
 		return SSL_TLSEXT_ERR_NOACK;
 	}
-	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
+	ssl_ctx = dict_get(env->ssl_dict, sn);
 	if (ssl_ctx == NULL) {
 		log_warnx("warn: SNI name not found in PKI");
 		return SSL_TLSEXT_ERR_NOACK;

@@ -378,7 +378,7 @@ parent_send_config_mfa()
 	log_debug("debug: parent_send_config_mfa: reloading");
 	m_compose(p_mfa, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 
-	while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
+	while (dict_iter(env->filters_dict, &iter_dict, NULL, (void **)&f))
 		m_compose(p_mfa, IMSG_CONF_FILTER, 0, 0, -1, f, sizeof(*f));
 
 	m_compose(p_mfa, IMSG_CONF_END, 0, 0, -1, NULL, 0);
@@ -642,18 +642,13 @@ main(int argc, char *argv[])
 		exit(1);
 
 	seed_rng();
-
-	if (strlcpy(env->sc_conffile, conffile, SMTPD_MAXPATHLEN)
-	    >= SMTPD_MAXPATHLEN)
-		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
-
-	if (env->sc_opts & SMTPD_OPT_NOACTION) {
+	if (env->opts & SMTPD_OPT_NOACTION) {
 		load_pki_tree();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
 
-	env->sc_flags |= flags;
+	env->flags |= flags;
 
 	/* check for root privileges */
 	if (geteuid())
@@ -697,7 +692,7 @@ main(int argc, char *argv[])
 
 	if (env->sc_hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");
-	env->sc_uptime = time(NULL);
+	env->uptime = time(NULL);
 
 	fork_peers();
 
@@ -761,7 +756,7 @@ load_pki_tree(void)
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
-	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
+	while (dict_iter(env->pki_dict, &iter_dict, &k, (void **)&pki)) {
 		log_debug("info: loading pki information for %s", k);
 		if (pki->pki_cert_file == NULL)
 			fatalx("load_pki_tree: missing certificate file");

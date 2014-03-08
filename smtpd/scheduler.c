@@ -240,23 +240,23 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_CTL_PAUSE_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mda");
-		env->sc_flags |= SMTPD_MDA_PAUSED;
+		env->flags |= SMTPD_MDA_PAUSED;
 		return;
 
 	case IMSG_CTL_RESUME_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: resuming mda");
-		env->sc_flags &= ~SMTPD_MDA_PAUSED;
+		env->flags &= ~SMTPD_MDA_PAUSED;
 		scheduler_reset_events();
 		return;
 
 	case IMSG_CTL_PAUSE_MTA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mta");
-		env->sc_flags |= SMTPD_MTA_PAUSED;
+		env->flags |= SMTPD_MTA_PAUSED;
 		return;
 
 	case IMSG_CTL_RESUME_MTA:
 		log_trace(TRACE_SCHEDULER, "scheduler: resuming mta");
-		env->sc_flags &= ~SMTPD_MTA_PAUSED;
+		env->flags &= ~SMTPD_MTA_PAUSED;
 		scheduler_reset_events();
 		return;
 
@@ -470,10 +470,10 @@ scheduler_timeout(int fd, short event, void *p)
 
 	typemask = SCHED_REMOVE | SCHED_EXPIRE | SCHED_UPDATE | SCHED_BOUNCE;
 	if (ninflight < env->sc_scheduler_max_inflight &&
-	    !(env->sc_flags & SMTPD_MDA_PAUSED))
+	    !(env->flags & SMTPD_MDA_PAUSED))
 		typemask |= SCHED_MDA;
 	if (ninflight < env->sc_scheduler_max_inflight &&
-	    !(env->sc_flags & SMTPD_MTA_PAUSED))
+	    !(env->flags & SMTPD_MTA_PAUSED))
 		typemask |= SCHED_MTA;
 
 	left = typemask;

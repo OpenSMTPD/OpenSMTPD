@@ -48,39 +48,39 @@ purge_config(uint8_t what)
 	struct pki	*p;
 
 	if (what & PURGE_LISTENERS) {
-		while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
-			TAILQ_REMOVE(env->sc_listeners, l, entry);
+		while ((l = TAILQ_FIRST(env->listeners)) != NULL) {
+			TAILQ_REMOVE(env->listeners, l, entry);
 			free(l);
 		}
 		free(env->enqueue);
 		free(env->bounces);
-		free(env->sc_listeners);
-		env->sc_listeners = NULL;
+		free(env->listeners);
+		env->listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while (dict_root(env->sc_tables_dict, NULL, (void **)&t))
+		while (dict_root(env->tables_dict, NULL, (void **)&t))
 			table_destroy(t);
-		free(env->sc_tables_dict);
-		env->sc_tables_dict = NULL;
+		free(env->tables_dict);
+		env->tables_dict = NULL;
 	}
 	if (what & PURGE_RULES) {
-		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {
-			TAILQ_REMOVE(env->sc_rules, r, r_entry);
+		while ((r = TAILQ_FIRST(env->ruleset)) != NULL) {
+			TAILQ_REMOVE(env->ruleset, r, r_entry);
 			free(r);
 		}
-		free(env->sc_rules);
-		env->sc_rules = NULL;
+		free(env->ruleset);
+		env->ruleset = NULL;
 	}
 	if (what & PURGE_PKI) {
-		while (dict_poproot(env->sc_pki_dict, (void **)&p)) {
+		while (dict_poproot(env->pki_dict, (void **)&p)) {
 			memset(p->pki_cert, 0, p->pki_cert_len);
 			memset(p->pki_key, 0, p->pki_key_len);
 			free(p->pki_cert);
 			free(p->pki_key);
 			free(p);
 		}
-		free(env->sc_pki_dict);
-		env->sc_pki_dict = NULL;
+		free(env->pki_dict);
+		env->pki_dict = NULL;
 	}
 }
 

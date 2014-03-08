@@ -769,18 +769,18 @@ do_show_stats(int argc, struct parameter *argv)
 static int
 do_show_status(int argc, struct parameter *argv)
 {
-	uint32_t	sc_flags;
+	uint32_t	flags;
 
 	srv_send(IMSG_CTL_SHOW_STATUS, NULL, 0);
 	srv_recv(IMSG_CTL_SHOW_STATUS);
-	srv_read(&sc_flags, sizeof(sc_flags));
+	srv_read(&flags, sizeof(flags));
 	srv_end();
 	printf("MDA %s\n",
-	    (sc_flags & SMTPD_MDA_PAUSED) ? "paused" : "running");
+	    (flags & SMTPD_MDA_PAUSED) ? "paused" : "running");
 	printf("MTA %s\n",
-	    (sc_flags & SMTPD_MTA_PAUSED) ? "paused" : "running");
+	    (flags & SMTPD_MTA_PAUSED) ? "paused" : "running");
 	printf("SMTP %s\n",
-	    (sc_flags & SMTPD_SMTP_PAUSED) ? "paused" : "running");
+	    (flags & SMTPD_SMTP_PAUSED) ? "paused" : "running");
 	return (0);
 }
 

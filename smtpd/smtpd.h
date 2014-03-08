@@ -68,7 +68,6 @@
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
 #define	SMTPD_VERSION		 "portable"
-#define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -542,12 +541,11 @@ struct listener {
 };
 
 struct smtpd {
-	char				sc_conffile[SMTPD_MAXPATHLEN];
 	size_t				sc_maxsize;
 
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
-	uint32_t			sc_opts;
+	uint32_t			opts;
 
 #define SMTPD_EXITING			0x00000001
 #define SMTPD_MDA_PAUSED		0x00000002
@@ -557,7 +555,7 @@ struct smtpd {
 #define SMTPD_MTA_BUSY			0x00000020
 #define SMTPD_BOUNCE_BUSY		0x00000040
 #define SMTPD_SMTP_DISABLED		0x00000080
-	uint32_t			sc_flags;
+	uint32_t			flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
 #define QUEUE_ENCRYPTION      		0x00000002
@@ -586,24 +584,20 @@ struct smtpd {
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
 
-	time_t					 sc_uptime;
+	time_t					 uptime;
 
-	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
+	TAILQ_HEAD(listenerlist, listener)	*listeners;
+	TAILQ_HEAD(rulelist, rule)		*ruleset;
 
 	struct listener				*enqueue;
 	struct listener				*bounces;
 
-	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
-	struct dict			       *sc_pki_dict;
-	struct dict			       *sc_ssl_dict;
-
-	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
-
-	struct dict			       *sc_limits_dict;
-
-	struct dict				sc_filters;
-	uint32_t				filtermask;
+	struct dict			       *pki_dict;
+	struct dict			       *ssl_dict;
+	struct dict			       *tables_dict;		/* keyed lookup	*/
+	struct dict			       *limits_dict;
+	struct dict			       *filters_dict;
 };
 
 #define	TRACE_DEBUG	0x0001
