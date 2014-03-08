@@ -449,7 +449,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_ENQUEUE_FD:
-		if (env->sc_flags & (SMTPD_SMTP_PAUSED | SMTPD_EXITING)) {
+		if (env->flags & (SMTPD_SMTP_PAUSED | SMTPD_EXITING)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
@@ -490,11 +490,11 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (env->sc_flags & SMTPD_EXITING) {
+		if (env->flags & SMTPD_EXITING) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
-		env->sc_flags |= SMTPD_EXITING;
+		env->flags |= SMTPD_EXITING;
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		m_compose(p_parent, IMSG_CTL_SHUTDOWN, 0, 0, -1, NULL, 0);
 		return;
@@ -599,12 +599,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (env->sc_flags & SMTPD_MDA_PAUSED) {
+		if (env->flags & SMTPD_MDA_PAUSED) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
 		log_info("info: mda paused");
-		env->sc_flags |= SMTPD_MDA_PAUSED;
+		env->flags |= SMTPD_MDA_PAUSED;
 		m_compose(p_queue, IMSG_CTL_PAUSE_MDA, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -613,12 +613,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (env->sc_flags & SMTPD_MTA_PAUSED) {
+		if (env->flags & SMTPD_MTA_PAUSED) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
 		log_info("info: mta paused");
-		env->sc_flags |= SMTPD_MTA_PAUSED;
+		env->flags |= SMTPD_MTA_PAUSED;
 		m_compose(p_queue, IMSG_CTL_PAUSE_MTA, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -627,12 +627,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (env->sc_flags & SMTPD_SMTP_PAUSED) {
+		if (env->flags & SMTPD_SMTP_PAUSED) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
 		log_info("info: smtp paused");
-		env->sc_flags |= SMTPD_SMTP_PAUSED;
+		env->flags |= SMTPD_SMTP_PAUSED;
 		m_compose(p_smtp, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -649,12 +649,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (! (env->sc_flags & SMTPD_MDA_PAUSED)) {
+		if (! (env->flags & SMTPD_MDA_PAUSED)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
 		log_info("info: mda resumed");
-		env->sc_flags &= ~SMTPD_MDA_PAUSED;
+		env->flags &= ~SMTPD_MDA_PAUSED;
 		m_compose(p_queue, IMSG_CTL_RESUME_MDA, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -663,12 +663,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (!(env->sc_flags & SMTPD_MTA_PAUSED)) {
+		if (!(env->flags & SMTPD_MTA_PAUSED)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
 		log_info("info: mta resumed");
-		env->sc_flags &= ~SMTPD_MTA_PAUSED;
+		env->flags &= ~SMTPD_MTA_PAUSED;
 		m_compose(p_queue, IMSG_CTL_RESUME_MTA, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -677,12 +677,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (!(env->sc_flags & SMTPD_SMTP_PAUSED)) {
+		if (!(env->flags & SMTPD_SMTP_PAUSED)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
 		log_info("info: smtp resumed");
-		env->sc_flags &= ~SMTPD_SMTP_PAUSED;
+		env->flags &= ~SMTPD_SMTP_PAUSED;
 		m_forward(p_smtp, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -725,8 +725,8 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		m_compose(p, IMSG_CTL_SHOW_STATUS, 0, 0, -1, &env->sc_flags,
-		    sizeof(env->sc_flags));
+		m_compose(p, IMSG_CTL_SHOW_STATUS, 0, 0, -1, &env->flags,
+		    sizeof(env->flags));
 		return;
 
 	case IMSG_CTL_MTA_BLOCK:

@@ -56,10 +56,10 @@ purge_config(uint8_t what)
 		env->listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while (dict_root(env->sc_tables_dict, NULL, (void **)&t))
+		while (dict_root(env->tables_dict, NULL, (void **)&t))
 			table_destroy(t);
-		free(env->sc_tables_dict);
-		env->sc_tables_dict = NULL;
+		free(env->tables_dict);
+		env->tables_dict = NULL;
 	}
 	if (what & PURGE_RULES) {
 		while ((r = TAILQ_FIRST(env->ruleset)) != NULL) {
@@ -70,15 +70,15 @@ purge_config(uint8_t what)
 		env->ruleset = NULL;
 	}
 	if (what & PURGE_PKI) {
-		while (dict_poproot(env->sc_pki_dict, (void **)&p)) {
+		while (dict_poproot(env->pki_dict, (void **)&p)) {
 			memset(p->pki_cert, 0, p->pki_cert_len);
 			memset(p->pki_key, 0, p->pki_key_len);
 			free(p->pki_cert);
 			free(p->pki_key);
 			free(p);
 		}
-		free(env->sc_pki_dict);
-		env->sc_pki_dict = NULL;
+		free(env->pki_dict);
+		env->pki_dict = NULL;
 	}
 }
 

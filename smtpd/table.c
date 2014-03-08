@@ -105,14 +105,14 @@ table_find(const char *name, const char *tag)
 	char buf[SMTPD_MAXLINESIZE];
 
 	if (tag == NULL)
-		return dict_get(env->sc_tables_dict, name);
+		return dict_get(env->tables_dict, name);
 
 	if (snprintf(buf, sizeof(buf), "%s#%s", name, tag) >= (int)sizeof(buf)) {
 		log_warnx("warn: table name too long: %s#%s", name, tag);
 		return (NULL);
 	}
 
-	return dict_get(env->sc_tables_dict, buf);
+	return dict_get(env->tables_dict, buf);
 }
 
 int
@@ -253,7 +253,7 @@ table_create(const char *backend, const char *name, const char *tag,
 	}
 
 	dict_init(&t->t_dict);
-	dict_set(env->sc_tables_dict, t->t_name, t);
+	dict_set(env->tables_dict, t->t_name, t);
 
 	return (t);
 }
@@ -266,7 +266,7 @@ table_destroy(struct table *t)
 	while (dict_poproot(&t->t_dict, (void **)&p))
 		free(p);
 
-	dict_xpop(env->sc_tables_dict, t->t_name);
+	dict_xpop(env->tables_dict, t->t_name);
 	free(t);
 }
 
@@ -478,7 +478,7 @@ table_dump_all(void)
 	char		 buf[1024];
 
 	iter = NULL;
-	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t)) {
+	while (dict_iter(env->tables_dict, &iter, NULL, (void **)&t)) {
 		i2 = NULL;
 		sep = "";
  		buf[0] = '\0';
@@ -514,7 +514,7 @@ table_open_all(void)
 	void		*iter;
 
 	iter = NULL;
-	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
+	while (dict_iter(env->tables_dict, &iter, NULL, (void **)&t))
 		if (! table_open(t))
 			errx(1, "failed to open table %s", t->t_name);
 }
@@ -526,7 +526,7 @@ table_close_all(void)
 	void		*iter;
 
 	iter = NULL;
-	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
+	while (dict_iter(env->tables_dict, &iter, NULL, (void **)&t))
 		table_close(t);
 }
 

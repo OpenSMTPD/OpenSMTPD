@@ -883,9 +883,9 @@ mta_query_limits(struct mta_relay *relay)
 	if (relay->status & RELAY_WAIT_LIMITS)
 		return;
 
-	relay->limits = dict_get(env->sc_limits_dict, relay->domain->name);
+	relay->limits = dict_get(env->limits_dict, relay->domain->name);
 	if (relay->limits == NULL)
-		relay->limits = dict_get(env->sc_limits_dict, "default");
+		relay->limits = dict_get(env->limits_dict, "default");
 
 	if (max_seen_conndelay_route < relay->limits->conndelay_route)
 		max_seen_conndelay_route = relay->limits->conndelay_route;

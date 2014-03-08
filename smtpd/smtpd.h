@@ -527,7 +527,7 @@ struct smtpd {
 #define SMTPD_MTA_BUSY			0x00000020
 #define SMTPD_BOUNCE_BUSY		0x00000040
 #define SMTPD_SMTP_DISABLED		0x00000080
-	uint32_t			sc_flags;
+	uint32_t			flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
 #define QUEUE_ENCRYPTION      		0x00000002
@@ -556,7 +556,7 @@ struct smtpd {
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
 
-	time_t					 sc_uptime;
+	time_t					 uptime;
 
 	TAILQ_HEAD(listenerlist, listener)	*listeners;
 	TAILQ_HEAD(rulelist, rule)		*ruleset;
@@ -565,11 +565,11 @@ struct smtpd {
 	struct listener				*bounces;
 
 	
-	struct dict			       *sc_pki_dict;
-	struct dict			       *sc_ssl_dict;
-	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
-	struct dict			       *sc_limits_dict;
-	struct dict			       *sc_filters;
+	struct dict			       *pki_dict;
+	struct dict			       *ssl_dict;
+	struct dict			       *tables_dict;		/* keyed lookup	*/
+	struct dict			       *limits_dict;
+	struct dict			       *filters_dict;
 };
 
 #define	TRACE_DEBUG	0x0001

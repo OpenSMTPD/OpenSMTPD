@@ -65,7 +65,7 @@ ramstat_init(void)
 	/* ramstat_set() should be called for each key we want
 	 * to have displayed by smtpctl show stats at startup.
 	 */
-	ramstat_set("uptime", stat_timestamp(env->sc_uptime));
+	ramstat_set("uptime", stat_timestamp(env->uptime));
 }
 
 static void

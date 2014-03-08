@@ -613,9 +613,9 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    "smtp:ca_key");
 
 		if (s->listener->pki_name[0])
-			ssl_ctx = dict_get(env->sc_ssl_dict, s->listener->pki_name);
+			ssl_ctx = dict_get(env->ssl_dict, s->listener->pki_name);
 		else
-			ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
+			ssl_ctx = dict_get(env->ssl_dict, s->smtpname);
 
 		ssl = ssl_smtp_init(ssl_ctx,
 		    resp_ca_cert->cert, resp_ca_cert->cert_len,
@@ -2002,7 +2002,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 		log_warnx("warn: client SNI exceeds max hostname length");
 		return SSL_TLSEXT_ERR_NOACK;
 	}
-	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
+	ssl_ctx = dict_get(env->ssl_dict, sn);
 	if (ssl_ctx == NULL) {
 		log_warnx("warn: SNI name not found in PKI");
 		return SSL_TLSEXT_ERR_NOACK;
