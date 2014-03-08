@@ -1676,7 +1676,7 @@ smtp_connected(struct smtp_session *s)
 static void
 smtp_send_banner(struct smtp_session *s)
 {
-	smtp_reply(s, SMTPD_BANNER, s->smtpname, SMTPD_NAME);
+	smtp_reply(s, "220 %s ESMTP %s", s->smtpname, SMTPD_NAME);
 	io_reload(&s->io);
 }
 
