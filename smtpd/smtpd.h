@@ -517,7 +517,7 @@ struct smtpd {
 
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
-	uint32_t			sc_opts;
+	uint32_t			opts;
 
 #define SMTPD_EXITING			0x00000001
 #define SMTPD_MDA_PAUSED		0x00000002

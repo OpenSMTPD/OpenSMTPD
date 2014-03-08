@@ -595,7 +595,7 @@ main(int argc, char *argv[])
 	if (parse_config(&smtpd, conffile, opts))
 		exit(1);
 
-	if (env->sc_opts & SMTPD_OPT_NOACTION) {
+	if (env->opts & SMTPD_OPT_NOACTION) {
 		load_pki_tree();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);

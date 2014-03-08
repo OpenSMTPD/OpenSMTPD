@@ -1596,7 +1596,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	TAILQ_INIT(conf->ruleset);
 
 	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
-	conf->sc_opts = opts;
+	conf->opts = opts;
 
 	conf->sc_mta_max_deferred = 100;
 	conf->sc_scheduler_max_inflight = 5000;
@@ -1653,7 +1653,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	/* Free macros and check which have not been used. */
 	for (sym = TAILQ_FIRST(&symhead); sym != NULL; sym = next) {
 		next = TAILQ_NEXT(sym, entry);
-		if ((conf->sc_opts & SMTPD_OPT_VERBOSE) && !sym->used)
+		if ((conf->opts & SMTPD_OPT_VERBOSE) && !sym->used)
 			fprintf(stderr, "warning: macro '%s' not "
 			    "used\n", sym->nam);
 		if (!sym->persist) {
