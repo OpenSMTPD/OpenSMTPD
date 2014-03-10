@@ -437,11 +437,11 @@ opt_relay_common: AS STRING	{
 				YYERROR;
 			}
 			else if (maddr.domain[0] == '\0') {
-				if (strlcpy(maddr.domain, conf->sc_hostname,
+				if (strlcpy(maddr.domain, conf->hostname,
 					sizeof (maddr.domain))
 				    >= sizeof (maddr.domain)) {
 					yyerror("hostname too long for AS parameter: %s",
-					    conf->sc_hostname);
+					    conf->hostname);
 					YYERROR;
 				}
 			}
@@ -497,7 +497,7 @@ opt_relay	: BACKUP STRING			{
 		| BACKUP       			{
 			rule->r_value.relayhost.flags |= F_BACKUP;
 			strlcpy(rule->r_value.relayhost.hostname,
-			    conf->sc_hostname,
+			    conf->hostname,
 			    sizeof (rule->r_value.relayhost.hostname));
 		}
 		| TLS       			{
@@ -1545,7 +1545,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf = x_conf;
 	memset(conf, 0, sizeof(*conf));
 
-	strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
+	strlcpy(conf->hostname, hostname, sizeof(conf->hostname));
 
 	conf->smtp_limits.max_data_size = DEFAULT_MAX_BODY_SIZE;
 
@@ -1823,7 +1823,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	h->flags = lo->flags;
 
 	if (lo->hostname == NULL)
-		lo->hostname = conf->sc_hostname;
+		lo->hostname = conf->hostname;
 
 	h->pki_name[0] = '\0';
 

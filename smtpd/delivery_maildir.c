@@ -73,7 +73,7 @@ delivery_maildir_open(struct deliver *deliver)
 		error("mkdir new failed");
 	snprintf(tmp, sizeof tmp, "tmp/%lld.%d.%s",
 	    (long long int) time(NULL),
-	    getpid(), env->sc_hostname);
+	    getpid(), env->hostname);
 	fd = open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0600);
 	if (fd < 0)
 		error("cannot open tmp file");

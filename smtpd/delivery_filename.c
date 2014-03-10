@@ -75,7 +75,7 @@ delivery_filename_open(struct deliver *deliver)
 	if (fp == NULL)
 		error("fdopen");
 	time(&now);
-	fprintf(fp, "From %s@%s %s", SMTPD_USER, env->sc_hostname,
+	fprintf(fp, "From %s@%s %s", SMTPD_USER, env->hostname,
 	    ctime(&now));
 	while ((ln = fgetln(stdin, &len)) != NULL) {
 		if (ln[len - 1] == '\n')
