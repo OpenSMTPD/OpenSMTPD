@@ -340,6 +340,11 @@ struct smtp_limits {
 	size_t				max_data_size;
 };
 
+struct queue_limits {
+	size_t				evpcache_size;
+	int				expire;
+};
+
 enum table_type {
 	T_NONE		= 0,
 	T_DYNAMIC	= 0x01,	/* table with external source	*/
@@ -583,15 +588,14 @@ struct smtpd {
 #define QUEUE_EVPCACHE			0x00000004
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
-	size_t				sc_queue_evpcache_size;
 
 	struct mda_limits		mda_limits;
 	struct scheduler_limits		scheduler_limits;
 	struct smtp_limits		smtp_limits;
+	struct queue_limits		queue_limits;
 
 	size_t				sc_mta_max_deferred;
 
-	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];

@@ -580,7 +580,7 @@ queue(void)
 			fatalx("unknown user " SMTPD_USER);
 
 	env->sc_queue_flags |= QUEUE_EVPCACHE;
-	env->sc_queue_evpcache_size = 1024;
+	env->queue_limits.evpcache_size = 1024;
 
 	if (chroot(PATH_SPOOL) == -1)
 		fatal("queue: chroot");

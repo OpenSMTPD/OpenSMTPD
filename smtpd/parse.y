@@ -585,8 +585,8 @@ main		: BOUNCEWARN {
 			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
 		}
 		| EXPIRE STRING {
-			conf->sc_qexpire = delaytonum($2);
-			if (conf->sc_qexpire == -1) {
+			conf->queue_limits.expire = delaytonum($2);
+			if (conf->queue_limits.expire == -1) {
 				yyerror("invalid expire delay: %s", $2);
 				free($2);
 				YYERROR;
@@ -1081,7 +1081,7 @@ rule		: ACCEPT {
 			if (! rule->r_userbase)
 				rule->r_userbase = table_find("<getpwnam>", NULL);
 			if (rule->r_qexpire == -1)
-				rule->r_qexpire = conf->sc_qexpire;
+				rule->r_qexpire = conf->queue_limits.expire;
 			if (rule->r_action == A_RELAY || rule->r_action == A_RELAYVIA) {
 				if (rule->r_userbase != table_find("<getpwnam>", NULL)) {
 					yyerror("userbase may not be used with a relay rule");
@@ -1595,7 +1595,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	TAILQ_INIT(conf->listeners);
 	TAILQ_INIT(conf->ruleset);
 
-	conf->sc_qexpire = SMTPD_QUEUE_EXPIRY;
+	conf->queue_limits.expire = SMTPD_QUEUE_EXPIRY;
 	conf->opts = opts;
 
 	conf->sc_mta_max_deferred = 100;
