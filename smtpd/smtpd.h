@@ -319,6 +319,60 @@ enum smtp_proc_type {
 	PROC_CLIENT,
 };
 
+struct mda_limits {
+	size_t				max_session;
+	size_t				max_user_session;
+	size_t				task_hiwat;
+	size_t				task_lowat;
+	size_t				task_release;
+};
+
+struct mta_limits {
+	size_t	maxconn_per_host;
+	size_t	maxconn_per_route;
+	size_t	maxconn_per_source;
+	size_t	maxconn_per_connector;
+	size_t	maxconn_per_relay;
+	size_t	maxconn_per_domain;
+
+	time_t	conndelay_host;
+	time_t	conndelay_route;
+	time_t	conndelay_source;
+	time_t	conndelay_connector;
+	time_t	conndelay_relay;
+	time_t	conndelay_domain;
+
+	time_t	discdelay_route;
+
+	size_t	max_mail_per_session;
+	time_t	sessdelay_transaction;
+	time_t	sessdelay_keepalive;
+
+	size_t	max_failures_per_session;
+
+	int	family;
+
+	int	task_hiwat;
+	int	task_lowat;
+	int	task_release;
+};
+
+struct scheduler_limits {
+	size_t				max_inflight;
+	size_t				max_evp_batch_size;
+	size_t				max_msg_batch_size;
+	size_t				max_schedule;
+};
+
+struct smtp_limits {
+	size_t				max_data_size;
+};
+
+struct queue_limits {
+	size_t				evpcache_size;
+	int				expire;
+};
+
 enum table_type {
 	T_NONE		= 0,
 	T_DYNAMIC	= 0x01,	/* table with external source	*/
@@ -408,6 +462,7 @@ struct delivery_mda {
 	char			username[SMTPD_MAXLOGNAME];
 	char			buffer[EXPAND_BUFFER];
 };
+
 
 struct delivery_mta {
 	struct relayhost	relay;
@@ -541,7 +596,6 @@ struct listener {
 };
 
 struct smtpd {
-	size_t				sc_maxsize;
 
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
@@ -562,22 +616,14 @@ struct smtpd {
 #define QUEUE_EVPCACHE			0x00000004
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
-	size_t				sc_queue_evpcache_size;
 
-	size_t				sc_mda_max_session;
-	size_t				sc_mda_max_user_session;
-	size_t				sc_mda_task_hiwat;
-	size_t				sc_mda_task_lowat;
-	size_t				sc_mda_task_release;
+	struct mda_limits		mda_limits;
+	struct scheduler_limits		scheduler_limits;
+	struct smtp_limits		smtp_limits;
+	struct queue_limits		queue_limits;
 
 	size_t				sc_mta_max_deferred;
 
-	size_t				sc_scheduler_max_inflight;
-	size_t				sc_scheduler_max_evp_batch_size;
-	size_t				sc_scheduler_max_msg_batch_size;
-	size_t				sc_scheduler_max_schedule;
-
-	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
 	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
@@ -736,36 +782,6 @@ struct mta_route {
 	time_t			 lastconn;
 	time_t			 lastdisc;
 	time_t			 lastpenalty;
-};
-
-struct mta_limits {
-	size_t	maxconn_per_host;
-	size_t	maxconn_per_route;
-	size_t	maxconn_per_source;
-	size_t	maxconn_per_connector;
-	size_t	maxconn_per_relay;
-	size_t	maxconn_per_domain;
-
-	time_t	conndelay_host;
-	time_t	conndelay_route;
-	time_t	conndelay_source;
-	time_t	conndelay_connector;
-	time_t	conndelay_relay;
-	time_t	conndelay_domain;
-
-	time_t	discdelay_route;
-
-	size_t	max_mail_per_session;
-	time_t	sessdelay_transaction;
-	time_t	sessdelay_keepalive;
-
-	size_t	max_failures_per_session;
-
-	int	family;
-
-	int	task_hiwat;
-	int	task_lowat;
-	int	task_release;
 };
 
 struct mta_relay {

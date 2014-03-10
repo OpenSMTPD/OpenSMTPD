@@ -169,7 +169,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			u = mda_user(&evp);
 
-			if (u->evpcount >= env->sc_mda_task_hiwat) {
+			if (u->evpcount >= env->mda_limits.task_hiwat) {
 				if (!(u->flags & USER_ONHOLD)) {
 					log_debug("debug: mda: hiwat reached for "
 					    "user \"%s\": holding envelopes",
@@ -717,7 +717,7 @@ mda_drain(void)
 			continue;
 		}
 
-		if (u->running >= env->sc_mda_max_user_session) {
+		if (u->running >= env->mda_limits.max_user_session) {
 			log_debug("debug: mda: "
 			    "maximum number of session reached for user \"%s\"",
 			    mda_user_to_text(u));
@@ -725,7 +725,7 @@ mda_drain(void)
 			continue;
 		}
 
-		if (tree_count(&sessions) >= env->sc_mda_max_session) {
+		if (tree_count(&sessions) >= env->mda_limits.max_session) {
 			log_debug("debug: mda: "
 			    "maximum number of session reached");
 			TAILQ_INSERT_HEAD(&runnable, u, entry_runnable);
@@ -734,7 +734,7 @@ mda_drain(void)
 
 		mda_session(u);
 
-		if (u->evpcount == env->sc_mda_task_lowat) {
+		if (u->evpcount == env->mda_limits.task_lowat) {
 			if (u->flags & USER_ONHOLD) {
 				log_debug("debug: mda: down to lowat for user \"%s\": releasing",
 				    mda_user_to_text(u));
@@ -743,7 +743,7 @@ mda_drain(void)
 			if (u->flags & USER_HOLDQ) {
 				m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
 				m_add_id(p_queue, u->id);
-				m_add_int(p_queue, env->sc_mda_task_release);
+				m_add_int(p_queue, env->mda_limits.task_release);
 				m_close(p_queue);
 			}
 		}

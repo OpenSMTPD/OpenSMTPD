@@ -456,7 +456,7 @@ queue_envelope_cache_add(struct envelope *e)
 {
 	struct envelope *cached;
 
-	while (tree_count(&evpcache_tree) >= env->sc_queue_evpcache_size)
+	while (tree_count(&evpcache_tree) >= env->queue_limits.evpcache_size)
 		queue_envelope_cache_del(TAILQ_LAST(&evpcache_list, evplst)->id);
 
 	cached = xcalloc(1, sizeof *cached, "queue_envelope_cache_add");
