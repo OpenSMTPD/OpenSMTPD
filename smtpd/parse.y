@@ -260,19 +260,19 @@ bouncedelays	: bouncedelays ',' bouncedelay
 
 opt_limit_mda	: STRING NUMBER {
 			if (!strcmp($1, "max-session")) {
-				conf->sc_mda_max_session = $2;
+				conf->mda_limits.max_session = $2;
 			}
 			else if (!strcmp($1, "max-session-per-user")) {
-				conf->sc_mda_max_user_session = $2;
+				conf->mda_limits.max_user_session = $2;
 			}
 			else if (!strcmp($1, "task-lowat")) {
-				conf->sc_mda_task_lowat = $2;
+				conf->mda_limits.task_lowat = $2;
 			}
 			else if (!strcmp($1, "task-hiwat")) {
-				conf->sc_mda_task_hiwat = $2;
+				conf->mda_limits.task_hiwat = $2;
 			}
 			else if (!strcmp($1, "task-release")) {
-				conf->sc_mda_task_release = $2;
+				conf->mda_limits.task_release = $2;
 			}
 			else {
 				yyerror("invalid scheduler limit keyword: %s", $1);
@@ -1604,11 +1604,11 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_scheduler_max_evp_batch_size = 256;
 	conf->sc_scheduler_max_msg_batch_size = 1024;
 
-	conf->sc_mda_max_session = 50;
-	conf->sc_mda_max_user_session = 7;
-	conf->sc_mda_task_hiwat = 50;
-	conf->sc_mda_task_lowat = 30;
-	conf->sc_mda_task_release = 10;
+	conf->mda_limits.max_session = 50;
+	conf->mda_limits.max_user_session = 7;
+	conf->mda_limits.task_hiwat = 50;
+	conf->mda_limits.task_lowat = 30;
+	conf->mda_limits.task_release = 10;
 
 	create_internal_listeners();
 

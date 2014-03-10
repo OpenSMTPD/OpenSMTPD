@@ -381,6 +381,14 @@ struct delivery_mda {
 	char			buffer[EXPAND_BUFFER];
 };
 
+struct mda_limits {
+	size_t				max_session;
+	size_t				max_user_session;
+	size_t				task_hiwat;
+	size_t				task_lowat;
+	size_t				task_release;
+};
+
 struct delivery_mta {
 	struct relayhost	relay;
 };
@@ -536,11 +544,7 @@ struct smtpd {
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
 
-	size_t				sc_mda_max_session;
-	size_t				sc_mda_max_user_session;
-	size_t				sc_mda_task_hiwat;
-	size_t				sc_mda_task_lowat;
-	size_t				sc_mda_task_release;
+	struct mda_limits		mda_limits;
 
 	size_t				sc_mta_max_deferred;
 
