@@ -336,6 +336,10 @@ struct scheduler_limits {
 	size_t				max_schedule;
 };
 
+struct smtp_limits {
+	size_t				max_data_size;
+};
+
 enum table_type {
 	T_NONE		= 0,
 	T_DYNAMIC	= 0x01,	/* table with external source	*/
@@ -559,7 +563,6 @@ struct listener {
 };
 
 struct smtpd {
-	size_t				sc_maxsize;
 
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
@@ -584,6 +587,7 @@ struct smtpd {
 
 	struct mda_limits		mda_limits;
 	struct scheduler_limits		scheduler_limits;
+	struct smtp_limits		smtp_limits;
 
 	size_t				sc_mta_max_deferred;
 

@@ -713,7 +713,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 		if (s->flags & SF_EHLO) {
 			smtp_reply(s, "250-8BITMIME");
 			smtp_reply(s, "250-ENHANCEDSTATUSCODES");
-			smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
+			smtp_reply(s, "250-SIZE %zu", env->smtp_limits.max_data_size);
 			smtp_reply(s, "250-DSN");
 			if (ADVERTISE_TLS(s))
 				smtp_reply(s, "250-STARTTLS");
@@ -1703,7 +1703,7 @@ smtp_message_line(struct smtp_session *s, const char *line)
 
 	len = strlen(line) + 1;
 
-	if (s->datalen + len > env->sc_maxsize) {
+	if (s->datalen + len > env->smtp_limits.max_data_size) {
 		s->msgflags |= MF_ERROR_SIZE;
 		return;
 	}

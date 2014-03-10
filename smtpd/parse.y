@@ -594,7 +594,7 @@ main		: BOUNCEWARN {
 			free($2);
 		}
 		| MAXMESSAGESIZE size {
-			conf->sc_maxsize = $2;
+			conf->smtp_limits.max_data_size = $2;
 		}
 		| MAXMTADEFERRED NUMBER  {
 			conf->sc_mta_max_deferred = $2;
@@ -1547,7 +1547,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
 
-	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
+	conf->smtp_limits.max_data_size = DEFAULT_MAX_BODY_SIZE;
 
 	conf->tables_dict = calloc(1, sizeof(*conf->tables_dict));
 	conf->ruleset = calloc(1, sizeof(*conf->ruleset));
