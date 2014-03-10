@@ -291,6 +291,51 @@ enum smtp_proc_type {
 	PROC_CLIENT,
 };
 
+struct mda_limits {
+	size_t				max_session;
+	size_t				max_user_session;
+	size_t				task_hiwat;
+	size_t				task_lowat;
+	size_t				task_release;
+};
+
+struct mta_limits {
+	size_t	maxconn_per_host;
+	size_t	maxconn_per_route;
+	size_t	maxconn_per_source;
+	size_t	maxconn_per_connector;
+	size_t	maxconn_per_relay;
+	size_t	maxconn_per_domain;
+
+	time_t	conndelay_host;
+	time_t	conndelay_route;
+	time_t	conndelay_source;
+	time_t	conndelay_connector;
+	time_t	conndelay_relay;
+	time_t	conndelay_domain;
+
+	time_t	discdelay_route;
+
+	size_t	max_mail_per_session;
+	time_t	sessdelay_transaction;
+	time_t	sessdelay_keepalive;
+
+	size_t	max_failures_per_session;
+
+	int	family;
+
+	int	task_hiwat;
+	int	task_lowat;
+	int	task_release;
+};
+
+struct scheduler_limits {
+	size_t				max_inflight;
+	size_t				max_evp_batch_size;
+	size_t				max_msg_batch_size;
+	size_t				max_schedule;
+};
+
 enum table_type {
 	T_NONE		= 0,
 	T_DYNAMIC	= 0x01,	/* table with external source	*/
@@ -381,13 +426,6 @@ struct delivery_mda {
 	char			buffer[EXPAND_BUFFER];
 };
 
-struct mda_limits {
-	size_t				max_session;
-	size_t				max_user_session;
-	size_t				task_hiwat;
-	size_t				task_lowat;
-	size_t				task_release;
-};
 
 struct delivery_mta {
 	struct relayhost	relay;
@@ -545,13 +583,9 @@ struct smtpd {
 	size_t				sc_queue_evpcache_size;
 
 	struct mda_limits		mda_limits;
+	struct scheduler_limits		scheduler_limits;
 
 	size_t				sc_mta_max_deferred;
-
-	size_t				sc_scheduler_max_inflight;
-	size_t				sc_scheduler_max_evp_batch_size;
-	size_t				sc_scheduler_max_msg_batch_size;
-	size_t				sc_scheduler_max_schedule;
 
 	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
@@ -712,36 +746,6 @@ struct mta_route {
 	time_t			 lastconn;
 	time_t			 lastdisc;
 	time_t			 lastpenalty;
-};
-
-struct mta_limits {
-	size_t	maxconn_per_host;
-	size_t	maxconn_per_route;
-	size_t	maxconn_per_source;
-	size_t	maxconn_per_connector;
-	size_t	maxconn_per_relay;
-	size_t	maxconn_per_domain;
-
-	time_t	conndelay_host;
-	time_t	conndelay_route;
-	time_t	conndelay_source;
-	time_t	conndelay_connector;
-	time_t	conndelay_relay;
-	time_t	conndelay_domain;
-
-	time_t	discdelay_route;
-
-	size_t	max_mail_per_session;
-	time_t	sessdelay_transaction;
-	time_t	sessdelay_keepalive;
-
-	size_t	max_failures_per_session;
-
-	int	family;
-
-	int	task_hiwat;
-	int	task_lowat;
-	int	task_release;
 };
 
 struct mta_relay {
