@@ -163,7 +163,7 @@ envelope_load_buffer(struct envelope *ep, const char *ibuf, size_t buflen)
 	case 2:
 		/* Can be missing in some v2 envelopes */
 		if (dict_get(&d, "smtpname") == NULL)
-			dict_xset(&d, "smtpname", env->sc_hostname);
+			dict_xset(&d, "smtpname", env->hostname);
 		break;
 	default:
 		log_debug("debug: bad envelope version %lld", version);

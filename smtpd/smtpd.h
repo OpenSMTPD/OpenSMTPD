@@ -596,6 +596,8 @@ struct listener {
 };
 
 struct smtpd {
+	char				hostname[SMTPD_MAXHOSTNAMELEN];
+	time_t				uptime;
 
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
@@ -617,33 +619,30 @@ struct smtpd {
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
 
+	size_t				sc_mta_max_deferred;
+
+#define MAX_BOUNCE_WARN			4
+	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
+	struct stat_backend	       *sc_stat;
+	struct compress_backend	       *sc_comp;
+
+
 	struct mda_limits		mda_limits;
 	struct scheduler_limits		scheduler_limits;
 	struct smtp_limits		smtp_limits;
 	struct queue_limits		queue_limits;
 
-	size_t				sc_mta_max_deferred;
-
-#define MAX_BOUNCE_WARN			4
-	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
-	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
-	struct stat_backend	       *sc_stat;
-	struct compress_backend	       *sc_comp;
-
-	time_t					 uptime;
+	struct listener			*enqueue;
+	struct listener			*bounces;
+	
+	struct dict			*pki_dict;
+	struct dict			*ssl_dict;
+	struct dict			*tables_dict;
+	struct dict			*limits_dict;
+	struct dict			*filters_dict;
 
 	TAILQ_HEAD(listenerlist, listener)	*listeners;
 	TAILQ_HEAD(rulelist, rule)		*ruleset;
-
-	struct listener				*enqueue;
-	struct listener				*bounces;
-
-	
-	struct dict			       *pki_dict;
-	struct dict			       *ssl_dict;
-	struct dict			       *tables_dict;		/* keyed lookup	*/
-	struct dict			       *limits_dict;
-	struct dict			       *filters_dict;
 };
 
 #define	TRACE_DEBUG	0x0001

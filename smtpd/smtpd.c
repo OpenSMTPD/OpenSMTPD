@@ -690,7 +690,7 @@ main(int argc, char *argv[])
 	log_debug("debug: using \"%s\" stat backend", backend_stat);
 	log_info("info: startup%s", (verbose & TRACE_DEBUG)?" [debug mode]":"");
 
-	if (env->sc_hostname[0] == '\0')
+	if (env->hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");
 	env->uptime = time(NULL);
 
