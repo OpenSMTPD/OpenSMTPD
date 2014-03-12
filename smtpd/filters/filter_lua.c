@@ -123,7 +123,6 @@ l_filter_writeln(lua_State *L)
 	filter_api_writeln(id, line);
 
 	return (0);
-	
 }
 
 static const luaL_Reg l_filter [] = {
@@ -321,13 +320,37 @@ main(int argc, char **argv)
 		return (1);
 	}
 
-	filter_api_on_connect(on_connect);
-	filter_api_on_helo(on_helo);
-	filter_api_on_mail(on_mail);
-	filter_api_on_rcpt(on_rcpt);
-	filter_api_on_data(on_data);
-	filter_api_on_eom(on_eom);
-	/* filter_api_on_disconnect(on_disconnect); */
+	lua_getglobal(L, "on_connect");
+	if (lua_isfunction(L, 1)) {
+		log_debug("debug: filter-lua: on_connect is present");
+		filter_api_on_connect(on_connect);
+	}
+	lua_getglobal(L, "on_helo");
+	if (lua_isfunction(L, 1)) {
+		log_debug("debug: filter-lua: on_helo is present");
+		filter_api_on_helo(on_helo);
+	}
+	lua_getglobal(L, "on_mail");
+	if (lua_isfunction(L, 1)) {
+		log_debug("debug: filter-lua: on_mail is present");
+		filter_api_on_mail(on_mail);
+	}
+	lua_getglobal(L, "on_rcpt");
+	if (lua_isfunction(L, 1)) {
+		log_debug("debug: filter-lua: on_rcpt is present");
+		filter_api_on_rcpt(on_rcpt);
+	}
+	lua_getglobal(L, "on_data");
+	if (lua_isfunction(L, 1)) {
+		log_debug("debug: filter-lua: on_data is present");
+		filter_api_on_data(on_data);
+	}
+	lua_getglobal(L, "on_eom");
+	if (lua_isfunction(L, 1)) {
+		log_debug("debug: filter-lua: on_eom is present");
+		filter_api_on_eom(on_eom);
+	}
+
 	filter_api_loop();
 
 	log_debug("debug: filter-lua: exiting");
