@@ -1,1 +1,1 @@
-SUBDIRS =		dnsbl lua monkey stub trace void
+SUBDIRS =		dnsbl monkey stub trace void
