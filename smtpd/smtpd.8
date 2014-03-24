@@ -87,29 +87,6 @@ Do not listen on SMTP sockets.
 .It Fl v
 Produce more verbose output.
 .El
-.Pp
-If you are running a BSD Operating System,
-you should use and modify 
-.Xr mailwrapper 8
-settings by editing
-.Pa /etc/mailer.conf :
-.Bd -literal -offset indent
-sendmail	/usr/sbin/smtpctl
-send-mail	/usr/sbin/smtpctl
-mailq		/usr/sbin/smtpctl
-makemap		/usr/libexec/smtpd/makemap
-newaliases	/usr/libexec/smtpd/makemap
-.Ed
-.Pp
-Disable the sendmail clientmqueue entry in
-.Xr crontab 1 .
-.Pp
-Rebuild the aliases database,
-and enable the daemon:
-.Bd -literal -offset indent
-# newaliases
-# /etc/rc.d/smtpd start
-.Ed
 .Sh FILES
 .Bl -tag -width "/var/run/smtpd.sockXXX" -compact
 .It Pa /etc/mail/mailname

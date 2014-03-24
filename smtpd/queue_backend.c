@@ -118,9 +118,7 @@ queue_init(const char *name, int server)
 
 	pwq = getpwnam(SMTPD_QUEUE_USER);
 	if (pwq == NULL)
-		pwq = getpwnam(SMTPD_USER);
-	if (pwq == NULL)
-		errx(1, "unknown user %s", SMTPD_USER);
+		errx(1, "unknown user %s", SMTPD_QUEUE_USER);
 
 	tree_init(&evpcache_tree);
 	TAILQ_INIT(&evpcache_list);

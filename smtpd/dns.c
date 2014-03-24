@@ -306,10 +306,10 @@ static void
 dns_dispatch_mx(int ev, struct async_res *ar, void *arg)
 {
 	struct dns_session	*s = arg;
-	struct unpack		 pack;
-	struct header		 h;
-	struct query		 q;
-	struct rr		 rr;
+	struct asr_unpack	 pack;
+	struct asr_dns_header	 h;
+	struct asr_dns_query	 q;
+	struct asr_dns_rr	 rr;
 	char			 buf[512];
 	size_t			 found;
 
@@ -354,10 +354,10 @@ static void
 dns_dispatch_mx_preference(int ev, struct async_res *ar, void *arg)
 {
 	struct dns_session	*s = arg;
-	struct unpack		 pack;
-	struct header		 h;
-	struct query		 q;
-	struct rr		 rr;
+	struct asr_unpack	 pack;
+	struct asr_dns_header	 h;
+	struct asr_dns_query	 q;
+	struct asr_dns_rr	 rr;
 	char			 buf[512];
 	int			 error;
 
