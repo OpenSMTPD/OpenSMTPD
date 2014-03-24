@@ -35,6 +35,8 @@
 #include "log.h"
 #include "ssl.h"
 
+extern int profiling;
+
 static int pipes[PROC_COUNT][PROC_COUNT];
 
 void
@@ -172,6 +174,9 @@ config_done(void)
 	}
 
 	if (smtpd_process == PROC_CONTROL)
+		return;
+
+	if (!(profiling & PROFILE_BUFFERS))
 		return;
 
 	evtimer_set(&ev, process_stat_event, &ev);

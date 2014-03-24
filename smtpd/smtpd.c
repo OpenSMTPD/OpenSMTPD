@@ -564,6 +564,8 @@ main(int argc, char *argv[])
 				profiling |= PROFILE_IMSG;
 			else if (!strcmp(optarg, "profile-queue"))
 				profiling |= PROFILE_QUEUE;
+			else if (!strcmp(optarg, "profile-buffers"))
+				profiling |= PROFILE_BUFFERS;
 			else
 				log_warnx("warn: unknown trace flag \"%s\"",
 				    optarg);
