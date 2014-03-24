@@ -336,9 +336,12 @@ enqueue(int argc, char *argv[])
 			send_line(fout, 0, "Content-Transfer-Encoding: "
 			    "quoted-printable\n");
 	}
+<<<<<<< HEAD
 	if (!msg.saw_user_agent)
 		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
 		    SMTPD_NAME, "Demoostik");
+=======
+>>>>>>> 873d6ac... do not add a user-agent
 
 	/* add separating newline */
 	if (noheader)
