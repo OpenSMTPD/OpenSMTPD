@@ -336,9 +336,6 @@ enqueue(int argc, char *argv[])
 			send_line(fout, 0, "Content-Transfer-Encoding: "
 			    "quoted-printable\n");
 	}
-	if (!msg.saw_user_agent)
-		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
-		    SMTPD_NAME, "Detetaar");
 
 	/* add separating newline */
 	if (noheader)
