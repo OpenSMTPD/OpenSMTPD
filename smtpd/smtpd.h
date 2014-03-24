@@ -592,6 +592,7 @@ struct smtpd {
 #define PROFILE_TOSTAT	0x0001
 #define PROFILE_IMSG	0x0002
 #define PROFILE_QUEUE	0x0004
+#define PROFILE_BUFFERS	0x0008
 
 struct forward_req {
 	uint64_t			id;
