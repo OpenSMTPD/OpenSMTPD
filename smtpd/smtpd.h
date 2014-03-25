@@ -426,6 +426,7 @@ struct rule {
 	struct table		       *r_userbase;
 	time_t				r_qexpire;
 	uint8_t				r_forwardonly;
+	char				r_delivery_user[SMTPD_MAXLOGNAME];
 };
 
 struct delivery_mda {
@@ -433,6 +434,7 @@ struct delivery_mda {
 	char			usertable[SMTPD_MAXPATHLEN];
 	char			username[SMTPD_MAXLOGNAME];
 	char			buffer[EXPAND_BUFFER];
+	char			delivery_user[SMTPD_MAXLOGNAME];
 };
 
 

@@ -213,6 +213,7 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		envelope_ascii_dump(ep, &dest, &len, "mda-method");
 		envelope_ascii_dump(ep, &dest, &len, "mda-user");
 		envelope_ascii_dump(ep, &dest, &len, "mda-usertable");
+		envelope_ascii_dump(ep, &dest, &len, "mda-delivery-user");
 		break;
 	case D_MTA:
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay");
@@ -485,6 +486,10 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 	if (strcasecmp("mda-usertable", field) == 0)
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
+
+	if (strcasecmp("mda-delivery-user", field) == 0)
+		return ascii_load_string(ep->agent.mda.delivery_user, buf,
+		    sizeof ep->agent.mda.delivery_user);
 
 	if (strcasecmp("mta-relay", field) == 0) {
 		int ret;
@@ -812,6 +817,9 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "mda-user") == 0)
 		return ascii_dump_string(ep->agent.mda.username, buf, len);
+
+	if (strcasecmp(field, "mda-delivery-user") == 0)
+		return ascii_dump_string(ep->agent.mda.delivery_user, buf, len);
 
 	if (strcasecmp(field, "mda-usertable") == 0)
 		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
