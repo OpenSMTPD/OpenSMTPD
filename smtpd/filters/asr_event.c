@@ -25,8 +25,8 @@
 void async_event_dispatch(int, short, void *);
 
 struct async_event *
-async_run_event(struct async * async,
-    void (*cb)(int, struct async_res *, void *), void *arg)
+async_run_event(struct asr_query * async,
+    void (*cb)(struct asr_result *, void *), void *arg)
 {
 	struct async_event	*aev;
 	struct timeval		 tv;
@@ -46,23 +46,19 @@ void
 async_event_dispatch(int fd, short ev, void *arg)
 {
 	struct async_event	*aev = arg;
-	struct async_res	 ar;
-	int			 r;
+	struct asr_result	 ar;
 	struct timeval		 tv;
 
-	while ((r = asr_async_run(aev->async, &ar)) == ASYNC_YIELD)
-		aev->callback(r, &ar, aev->arg);
-
 	event_del(&aev->ev);
-	if (r == ASYNC_COND) {
+	if (asr_run(aev->async, &ar) == 0) {
 		event_set(&aev->ev, ar.ar_fd,
-			  ar.ar_cond == ASYNC_READ ? EV_READ : EV_WRITE,
-			  async_event_dispatch, aev);
+		    ar.ar_cond == ASR_WANT_READ ? EV_READ : EV_WRITE,
+		    async_event_dispatch, aev);
 		tv.tv_sec = ar.ar_timeout / 1000;
 		tv.tv_usec = (ar.ar_timeout % 1000) * 1000;
 		event_add(&aev->ev, &tv);
-	} else { /* ASYNC_DONE */
-		aev->callback(r, &ar, aev->arg);
+	} else { /* done */
+		aev->callback(&ar, aev->arg);
 		free(aev);
 	}
 }
