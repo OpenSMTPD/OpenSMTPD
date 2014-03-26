@@ -34,7 +34,7 @@
 const char * dnsbl_host = "dnsbl.sorbs.net";
 
 static void
-dnsbl_event_dispatch(int ret, struct async_res *ar, void *arg)
+dnsbl_event_dispatch(struct asr_result *ar, void *arg)
 {
 	uint64_t *q = arg;
 
@@ -54,7 +54,7 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	struct addrinfo		 hints;
 	struct sockaddr_in	*sain;
 	in_addr_t		 in_addr;
-	struct async		*as;
+	struct asr_query	*as;
 	uint64_t		*q;
 	char			 buf[512];
 
