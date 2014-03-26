@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_init.c,v 1.2 2013/05/27 17:31:01 eric Exp $	*/
+/*	$OpenBSD: res_init.c,v 1.3 2014/01/15 02:25:34 sthen Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

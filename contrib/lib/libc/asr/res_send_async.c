@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send_async.c,v 1.19 2013/07/12 14:36:22 eric Exp $	*/
+/*	$OpenBSD: res_send_async.c,v 1.21 2014/03/25 19:48:11 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -36,28 +36,28 @@
 
 #define OP_QUERY    (0)
 
-static int res_send_async_run(struct async *, struct async_res *);
+static int res_send_async_run(struct asr_query *, struct asr_result *);
 static int sockaddr_connect(const struct sockaddr *, int);
-static int udp_send(struct async *);
-static int udp_recv(struct async *);
-static int tcp_write(struct async *);
-static int tcp_read(struct async *);
-static int validate_packet(struct async *);
-static int setup_query(struct async *, const char *, const char *, int, int);
-static int ensure_ibuf(struct async *, size_t);
-static int iter_ns(struct async *);
+static int udp_send(struct asr_query *);
+static int udp_recv(struct asr_query *);
+static int tcp_write(struct asr_query *);
+static int tcp_read(struct asr_query *);
+static int validate_packet(struct asr_query *);
+static int setup_query(struct asr_query *, const char *, const char *, int, int);
+static int ensure_ibuf(struct asr_query *, size_t);
+static int iter_ns(struct asr_query *);
 
 #define AS_NS_SA(p) ((p)->as_ctx->ac_ns[(p)->as.dns.nsidx - 1])
 
 
-struct async *
-res_send_async(const unsigned char *buf, int buflen, struct asr *asr)
+struct asr_query *
+res_send_async(const unsigned char *buf, int buflen, void *asr)
 {
-	struct asr_ctx  *ac;
-	struct async	*as;
-	struct unpack	 p;
-	struct header	 h;
-	struct query	 q;
+	struct asr_ctx		*ac;
+	struct asr_query	*as;
+	struct asr_unpack	 p;
+	struct asr_dns_header	 h;
+	struct asr_dns_query	 q;
 
 	DPRINT_PACKET("asr: res_send_async()", buf, buflen);
 
@@ -99,14 +99,13 @@ res_send_async(const unsigned char *buf, int buflen, struct asr *asr)
 /*
  * Unlike res_query(), this version will actually return the packet
  * if it has received a valid one (errno == 0) even if h_errno is
- * not NETDB_SUCCESS. So the packet *must* be freed if necessary
- * (ans == NULL).
+ * not NETDB_SUCCESS. So the packet *must* be freed if necessary.
  */
-struct async *
-res_query_async(const char *name, int class, int type, struct asr *asr)
+struct asr_query *
+res_query_async(const char *name, int class, int type, void *asr)
 {
-	struct asr_ctx	*ac;
-	struct async	*as;
+	struct asr_ctx	 *ac;
+	struct asr_query *as;
 
 	DPRINT("asr: res_query_async(\"%s\", %i, %i)\n", name, class, type);
 
@@ -117,10 +116,10 @@ res_query_async(const char *name, int class, int type, struct asr *asr)
 	return (as);
 }
 
-struct async *
+struct asr_query *
 res_query_async_ctx(const char *name, int class, int type, struct asr_ctx *a_ctx)
 {
-	struct async	*as;
+	struct asr_query	*as;
 
 	DPRINT("asr: res_query_async_ctx(\"%s\", %i, %i)\n", name, class, type);
 
@@ -144,7 +143,7 @@ res_query_async_ctx(const char *name, int class, int type, struct asr_ctx *a_ctx
 }
 
 static int
-res_send_async_run(struct async *as, struct async_res *ar)
+res_send_async_run(struct asr_query *as, struct asr_result *ar)
 {
     next:
 	switch (as->as_state) {
@@ -182,7 +181,7 @@ res_send_async_run(struct async *as, struct async_res *ar)
 			break;
 		}
 		async_set_state(as, ASR_STATE_UDP_RECV);
-		ar->ar_cond = ASYNC_READ;
+		ar->ar_cond = ASR_WANT_READ;
 		ar->ar_fd = as->as_fd;
 		ar->ar_timeout = as->as_timeout;
 		return (ASYNC_COND);
@@ -217,12 +216,12 @@ res_send_async_run(struct async *as, struct async_res *ar)
 			break;
 		case 0:
 			async_set_state(as, ASR_STATE_TCP_READ);
-			ar->ar_cond = ASYNC_READ;
+			ar->ar_cond = ASR_WANT_READ;
 			ar->ar_fd = as->as_fd;
 			ar->ar_timeout = as->as_timeout;
 			return (ASYNC_COND);
 		case 1:
-			ar->ar_cond = ASYNC_WRITE;
+			ar->ar_cond = ASR_WANT_WRITE;
 			ar->ar_fd = as->as_fd;
 			ar->ar_timeout = as->as_timeout;
 			return (ASYNC_COND);
@@ -243,7 +242,7 @@ res_send_async_run(struct async *as, struct async_res *ar)
 			async_set_state(as, ASR_STATE_PACKET);
 			break;
 		case 1:
-			ar->ar_cond = ASYNC_READ;
+			ar->ar_cond = ASR_WANT_READ;
 			ar->ar_fd = as->as_fd;
 			ar->ar_timeout = as->as_timeout;
 			return (ASYNC_COND);
@@ -252,7 +251,7 @@ res_send_async_run(struct async *as, struct async_res *ar)
 
 	case ASR_STATE_PACKET:
 
-		memmove(&ar->ar_sa.sa, AS_NS_SA(as), SA_LEN(AS_NS_SA(as)));
+		memmove(&ar->ar_ns, AS_NS_SA(as), SA_LEN(AS_NS_SA(as)));
 		ar->ar_datalen = as->as.dns.ibuflen;
 		ar->ar_data = as->as.dns.ibuf;
 		as->as.dns.ibuf = NULL;
@@ -345,13 +344,13 @@ sockaddr_connect(const struct sockaddr *sa, int socktype)
  * Return 0 on success, set errno and return -1 on error.
  */
 static int
-setup_query(struct async *as, const char *name, const char *dom,
+setup_query(struct asr_query *as, const char *name, const char *dom,
 	int class, int type)
 {
-	struct pack	 p;
-	struct header	 h;
-	char		 fqdn[MAXDNAME];
-	char		 dname[MAXDNAME];
+	struct asr_pack		p;
+	struct asr_dns_header	h;
+	char			fqdn[MAXDNAME];
+	char			dname[MAXDNAME];
 
 	if (as->as.dns.flags & ASYNC_EXTOBUF) {
 		errno = EINVAL;
@@ -418,7 +417,7 @@ setup_query(struct async *as, const char *name, const char *dom,
  * Return 0 on success, or -1 on error (errno set).
  */
 static int
-udp_send(struct async *as)
+udp_send(struct asr_query *as)
 {
 	ssize_t	n;
 	int	save_errno;
@@ -451,7 +450,7 @@ udp_send(struct async *as)
  * Return 0 if a full packet could be read, or -1 on error (errno set).
  */
 static int
-udp_recv(struct async *as)
+udp_recv(struct asr_query *as)
 {
 	ssize_t		 n;
 	int		 save_errno;
@@ -489,7 +488,7 @@ udp_recv(struct async *as)
  * socket or it is not connected yet, or -1 on error (errno set).
  */
 static int
-tcp_write(struct async *as)
+tcp_write(struct asr_query *as)
 {
 	struct msghdr	msg;
 	struct iovec	iov[2];
@@ -537,7 +536,7 @@ tcp_write(struct async *as)
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL SO_NOSIGPIPE
 #endif
- 	n = sendmsg(as->as_fd, &msg, MSG_NOSIGNAL);
+	n = sendmsg(as->as_fd, &msg, MSG_NOSIGNAL);
 	if (n == -1) {
 		if (errno == EINTR)
 			goto send_again;
@@ -568,7 +567,7 @@ close:
  * socket must be read again, or -1 on error (errno set).
  */
 static int
-tcp_read(struct async *as)
+tcp_read(struct asr_query *as)
 {
 	ssize_t		 n;
 	size_t		 offset, len;
@@ -647,7 +646,7 @@ close:
  * extend it if necessary. Return 0 on success, or set errno and return -1.
  */
 static int
-ensure_ibuf(struct async *as, size_t n)
+ensure_ibuf(struct asr_query *as, size_t n)
 {
 	char	*t;
 
@@ -676,13 +675,13 @@ ensure_ibuf(struct async *as, size_t n)
  * Return 0 on success, or set errno and return -1.
  */
 static int
-validate_packet(struct async *as)
+validate_packet(struct asr_query *as)
 {
-	struct unpack	 p;
-	struct header	 h;
-	struct query	 q;
-	struct rr	 rr;
-	int		 r;
+	struct asr_unpack	 p;
+	struct asr_dns_header	 h;
+	struct asr_dns_query	 q;
+	struct asr_dns_rr	 rr;
+	int			 r;
 
 	asr_unpack_init(&p, as->as.dns.ibuf, as->as.dns.ibuflen);
 
@@ -747,7 +746,7 @@ validate_packet(struct async *as)
  * success, or -1 if all nameservers were used.
  */
 static int
-iter_ns(struct async *as)
+iter_ns(struct asr_query *as)
 {
 	for (;;) {
 		if (as->as.dns.nsloop >= as->as_ctx->ac_nsretries)

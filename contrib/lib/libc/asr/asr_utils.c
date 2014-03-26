@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_utils.c,v 1.9 2013/11/24 23:51:29 deraadt Exp $	*/
+/*	$OpenBSD: asr_utils.c,v 1.11 2014/03/14 11:07:33 eric Exp $	*/
 /*
  * Copyright (c) 2009-2012	Eric Faurot	<eric@faurot.net>
  *
@@ -39,16 +39,16 @@ static int dname_check_label(const char *, size_t);
 static ssize_t dname_expand(const unsigned char *, size_t, size_t, size_t *,
     char *, size_t);
 
-static int unpack_data(struct unpack *, void *, size_t);
-static int unpack_u16(struct unpack *, uint16_t *);
-static int unpack_u32(struct unpack *, uint32_t *);
-static int unpack_inaddr(struct unpack *, struct in_addr *);
-static int unpack_in6addr(struct unpack *, struct in6_addr *);
-static int unpack_dname(struct unpack *, char *, size_t);
+static int unpack_data(struct asr_unpack *, void *, size_t);
+static int unpack_u16(struct asr_unpack *, uint16_t *);
+static int unpack_u32(struct asr_unpack *, uint32_t *);
+static int unpack_inaddr(struct asr_unpack *, struct in_addr *);
+static int unpack_in6addr(struct asr_unpack *, struct in6_addr *);
+static int unpack_dname(struct asr_unpack *, char *, size_t);
 
-static int pack_data(struct pack *, const void *, size_t);
-static int pack_u16(struct pack *, uint16_t);
-static int pack_dname(struct pack *, const char *);
+static int pack_data(struct asr_pack *, const void *, size_t);
+static int pack_u16(struct asr_pack *, uint16_t);
+static int pack_dname(struct asr_pack *, const char *);
 
 static int
 dname_check_label(const char *s, size_t l)
@@ -163,7 +163,7 @@ dname_expand(const unsigned char *data, size_t len, size_t offset,
 }
 
 void
-asr_pack_init(struct pack *pack, char *buf, size_t len)
+asr_pack_init(struct asr_pack *pack, char *buf, size_t len)
 {
 	pack->buf = buf;
 	pack->len = len;
@@ -172,7 +172,7 @@ asr_pack_init(struct pack *pack, char *buf, size_t len)
 }
 
 void
-asr_unpack_init(struct unpack *unpack, const char *buf, size_t len)
+asr_unpack_init(struct asr_unpack *unpack, const char *buf, size_t len)
 {
 	unpack->buf = buf;
 	unpack->len = len;
@@ -181,7 +181,7 @@ asr_unpack_init(struct unpack *unpack, const char *buf, size_t len)
 }
 
 static int
-unpack_data(struct unpack *p, void *data, size_t len)
+unpack_data(struct asr_unpack *p, void *data, size_t len)
 {
 	if (p->err)
 		return (-1);
@@ -198,7 +198,7 @@ unpack_data(struct unpack *p, void *data, size_t len)
 }
 
 static int
-unpack_u16(struct unpack *p, uint16_t *u16)
+unpack_u16(struct asr_unpack *p, uint16_t *u16)
 {
 	if (unpack_data(p, u16, 2) == -1)
 		return (-1);
@@ -209,7 +209,7 @@ unpack_u16(struct unpack *p, uint16_t *u16)
 }
 
 static int
-unpack_u32(struct unpack *p, uint32_t *u32)
+unpack_u32(struct asr_unpack *p, uint32_t *u32)
 {
 	if (unpack_data(p, u32, 4) == -1)
 		return (-1);
@@ -220,19 +220,19 @@ unpack_u32(struct unpack *p, uint32_t *u32)
 }
 
 static int
-unpack_inaddr(struct unpack *p, struct in_addr *a)
+unpack_inaddr(struct asr_unpack *p, struct in_addr *a)
 {
 	return (unpack_data(p, a, 4));
 }
 
 static int
-unpack_in6addr(struct unpack *p, struct in6_addr *a6)
+unpack_in6addr(struct asr_unpack *p, struct in6_addr *a6)
 {
 	return (unpack_data(p, a6, 16));
 }
 
 static int
-unpack_dname(struct unpack *p, char *dst, size_t max)
+unpack_dname(struct asr_unpack *p, char *dst, size_t max)
 {
 	ssize_t e;
 
@@ -253,7 +253,7 @@ unpack_dname(struct unpack *p, char *dst, size_t max)
 }
 
 int
-asr_unpack_header(struct unpack *p, struct header *h)
+asr_unpack_header(struct asr_unpack *p, struct asr_dns_header *h)
 {
 	if (unpack_data(p, h, HFIXEDSZ) == -1)
 		return (-1);
@@ -268,7 +268,7 @@ asr_unpack_header(struct unpack *p, struct header *h)
 }
 
 int
-asr_unpack_query(struct unpack *p, struct query *q)
+asr_unpack_query(struct asr_unpack *p, struct asr_dns_query *q)
 {
 	unpack_dname(p, q->q_dname, sizeof(q->q_dname));
 	unpack_u16(p, &q->q_type);
@@ -278,7 +278,7 @@ asr_unpack_query(struct unpack *p, struct query *q)
 }
 
 int
-asr_unpack_rr(struct unpack *p, struct rr *rr)
+asr_unpack_rr(struct asr_unpack *p, struct asr_dns_rr *rr)
 {
 	uint16_t	rdlen;
 	size_t		save_offset;
@@ -357,7 +357,7 @@ asr_unpack_rr(struct unpack *p, struct rr *rr)
 }
 
 static int
-pack_data(struct pack *p, const void *data, size_t len)
+pack_data(struct asr_pack *p, const void *data, size_t len)
 {
 	if (p->err)
 		return (-1);
@@ -374,7 +374,7 @@ pack_data(struct pack *p, const void *data, size_t len)
 }
 
 static int
-pack_u16(struct pack *p, uint16_t v)
+pack_u16(struct asr_pack *p, uint16_t v)
 {
 	v = htons(v);
 
@@ -382,7 +382,7 @@ pack_u16(struct pack *p, uint16_t v)
 }
 
 static int
-pack_dname(struct pack *p, const char *dname)
+pack_dname(struct asr_pack *p, const char *dname)
 {
 	/* dname compression would be nice to have here.
 	 * need additionnal context.
@@ -391,9 +391,9 @@ pack_dname(struct pack *p, const char *dname)
 }
 
 int
-asr_pack_header(struct pack *p, const struct header *h)
+asr_pack_header(struct asr_pack *p, const struct asr_dns_header *h)
 {
-	struct header c;
+	struct asr_dns_header c;
 
 	c.id = h->id;
 	c.flags = htons(h->flags);
@@ -406,7 +406,7 @@ asr_pack_header(struct pack *p, const struct header *h)
 }
 
 int
-asr_pack_query(struct pack *p, uint16_t type, uint16_t class, const char *dname)
+asr_pack_query(struct asr_pack *p, uint16_t type, uint16_t class, const char *dname)
 {
 	pack_dname(p, dname);
 	pack_u16(p, type);
