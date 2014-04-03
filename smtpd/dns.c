@@ -60,6 +60,13 @@ static void dns_dispatch_ptr(struct asr_result *, void *);
 static void dns_dispatch_mx(struct asr_result *, void *);
 static void dns_dispatch_mx_preference(struct asr_result *, void *);
 
+#if NEED_EVENT_ASR_RUN
+struct event_asr;
+struct event_asr * event_asr_run(struct asr_query *,
+    void (*)(struct asr_result *, void *), void *);
+void event_asr_abort(struct event_asr *);
+#endif
+
 struct unpack {
 	const char	*buf;
 	size_t		 len;
