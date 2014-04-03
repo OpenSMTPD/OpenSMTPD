@@ -8,8 +8,6 @@ NEED_ASR=	Yes
 
 PROG=	filter-dnsbl
 SRCS=	filter_dnsbl.c
-SRCS+=	asr_event.c
-
 
 .ifdef NEED_ASR
 SRCS+=		asr.c asr_debug.c asr_utils.c getaddrinfo_async.c	\

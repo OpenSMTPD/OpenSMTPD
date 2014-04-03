@@ -17,22 +17,23 @@
  */
  
 #include <sys/types.h>
+#include <sys/socket.h>
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <event.h>
+#include <asr.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "log.h"
-#include "asr_event.h"
-#include "asr.h"
 
 const char * dnsbl_host = "dnsbl.sorbs.net";
 
 static void
-dnsbl_event_dispatch(int ret, struct async_res *ar, void *arg)
+dnsbl_event_dispatch(int ret, struct asr_result *ar, void *arg)
 {
 	uint64_t *q = arg;
 
@@ -53,7 +54,7 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	struct addrinfo		 hints;
 	struct sockaddr_in	*sain;
 	in_addr_t		 in_addr;
-	struct async		*as;
+	struct asr_query	*aq;
 	uint64_t		*q;
 	char			 buf[512];
 
@@ -86,8 +87,8 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	as = getaddrinfo_async(buf, NULL, &hints, NULL);
-	if (as == NULL) {
+	aq = getaddrinfo_async(buf, NULL, &hints, NULL);
+	if (aq == NULL) {
 		log_warn("filter-dnsbl: getaddrinfo_async");
 		filter_api_reject(id, FILTER_FAIL);
 		free(q);
@@ -96,7 +97,7 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 
 	log_debug("debug: filter-dnsbl: checking %s", buf);
 
-	async_run_event(as, dnsbl_event_dispatch, q);
+	event_asr_run(aq, dnsbl_event_dispatch, q);
 }
 
 int
