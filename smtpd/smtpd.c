@@ -154,7 +154,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
-		case IMSG_PARENT_FORWARD_OPEN:
+		case IMSG_LKA_OPEN_FORWARD:
 			fwreq = imsg->data;
 			fd = parent_forward_open(fwreq->user, fwreq->directory,
 			    fwreq->uid, fwreq->gid);
@@ -165,7 +165,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			else
 				fwreq->status = 1;
-			m_compose(p, IMSG_PARENT_FORWARD_OPEN, 0, 0, fd,
+			m_compose(p, IMSG_LKA_OPEN_FORWARD, 0, 0, fd,
 			    fwreq, sizeof *fwreq);
 			return;
 
@@ -192,7 +192,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MDA) {
 		switch (imsg->hdr.type) {
-		case IMSG_PARENT_FORK_MDA:
+		case IMSG_MDA_FORK:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_data(&m, &data, &sz);
@@ -203,7 +203,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			forkmda(p, reqid, &deliver);
 			return;
 
-		case IMSG_PARENT_KILL_MDA:
+		case IMSG_MDA_KILL:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &cause);
@@ -244,7 +244,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_forward(p_smtp, imsg);
 			return;
 
-		case IMSG_CTL_TRACE:
+		case IMSG_CTL_TRACE_ENABLE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);
 			m_end(&m);
@@ -253,7 +253,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			parent_broadcast_verbose(verbose);
 			return;
 
-		case IMSG_CTL_UNTRACE:
+		case IMSG_CTL_TRACE_DISABLE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);
 			m_end(&m);
@@ -262,7 +262,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			parent_broadcast_verbose(verbose);
 			return;
 
-		case IMSG_CTL_PROFILE:
+		case IMSG_CTL_PROFILE_ENABLE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);
 			m_end(&m);
@@ -270,7 +270,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			parent_broadcast_profile(profiling);
 			return;
 
-		case IMSG_CTL_UNPROFILE:
+		case IMSG_CTL_PROFILE_DISABLE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);
 			m_end(&m);
@@ -339,15 +339,8 @@ parent_send_config_smtp(void)
 void
 parent_send_config_mfa()
 {
-	struct filter	       *f;
-	void		       *iter_dict = NULL;
-
 	log_debug("debug: parent_send_config_mfa: reloading");
 	m_compose(p_mfa, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-
-	while (dict_iter(&env->sc_filters, &iter_dict, NULL, (void **)&f))
-		m_compose(p_mfa, IMSG_CONF_FILTER, 0, 0, -1, f, sizeof(*f));
-
 	m_compose(p_mfa, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
@@ -897,7 +890,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		child->mda_out = allout;
 		child->mda_id = id;
 		close(pipefd[0]);
-		m_create(p, IMSG_PARENT_FORK_MDA, 0, 0, pipefd[1]);
+		m_create(p, IMSG_MDA_FORK, 0, 0, pipefd[1]);
 		m_add_id(p, id);
 		m_close(p);
 		return;
@@ -1286,124 +1279,6 @@ imsg_to_str(int type)
 	static char	 buf[32];
 
 	switch (type) {
-	CASE(IMSG_NONE);
-	CASE(IMSG_CTL_OK);
-	CASE(IMSG_CTL_FAIL);
-	CASE(IMSG_CTL_SHUTDOWN);
-	CASE(IMSG_CTL_VERBOSE);
-	CASE(IMSG_CTL_PAUSE_EVP);
-	CASE(IMSG_CTL_PAUSE_MDA);
-	CASE(IMSG_CTL_PAUSE_MTA);
-	CASE(IMSG_CTL_PAUSE_SMTP);
-	CASE(IMSG_CTL_RESUME_EVP);
-	CASE(IMSG_CTL_RESUME_MDA);
-	CASE(IMSG_CTL_RESUME_MTA);
-	CASE(IMSG_CTL_RESUME_SMTP);
-	CASE(IMSG_CTL_RESUME_ROUTE);
-	CASE(IMSG_CTL_LIST_MESSAGES);
-	CASE(IMSG_CTL_LIST_ENVELOPES);
-	CASE(IMSG_CTL_REMOVE);
-	CASE(IMSG_CTL_SCHEDULE);
-	CASE(IMSG_CTL_SHOW_STATUS);
-
-	CASE(IMSG_CTL_TRACE);
-	CASE(IMSG_CTL_UNTRACE);
-	CASE(IMSG_CTL_PROFILE);
-	CASE(IMSG_CTL_UNPROFILE);
-
-	CASE(IMSG_CTL_MTA_SHOW_HOSTS);
-	CASE(IMSG_CTL_MTA_SHOW_RELAYS);
-	CASE(IMSG_CTL_MTA_SHOW_ROUTES);
-	CASE(IMSG_CTL_MTA_SHOW_HOSTSTATS);
-	CASE(IMSG_CTL_MTA_BLOCK);
-	CASE(IMSG_CTL_MTA_UNBLOCK);
-	CASE(IMSG_CTL_MTA_SHOW_BLOCK);
-
-	CASE(IMSG_CONF_START);
-	CASE(IMSG_CONF_SSL);
-	CASE(IMSG_CONF_LISTENER);
-	CASE(IMSG_CONF_TABLE);
-	CASE(IMSG_CONF_TABLE_CONTENT);
-	CASE(IMSG_CONF_RULE);
-	CASE(IMSG_CONF_RULE_SOURCE);
-	CASE(IMSG_CONF_RULE_SENDER);
-	CASE(IMSG_CONF_RULE_DESTINATION);
-	CASE(IMSG_CONF_RULE_RECIPIENT);
-	CASE(IMSG_CONF_RULE_MAPPING);
-	CASE(IMSG_CONF_RULE_USERS);
-	CASE(IMSG_CONF_FILTER);
-	CASE(IMSG_CONF_END);
-
-	CASE(IMSG_LKA_UPDATE_TABLE);
-	CASE(IMSG_LKA_EXPAND_RCPT);
-	CASE(IMSG_LKA_SECRET);
-	CASE(IMSG_LKA_SOURCE);
-	CASE(IMSG_LKA_HELO);
-	CASE(IMSG_LKA_USERINFO);
-	CASE(IMSG_LKA_AUTHENTICATE);
-	CASE(IMSG_LKA_SSL_INIT);
-	CASE(IMSG_LKA_SSL_VERIFY_CERT);
-	CASE(IMSG_LKA_SSL_VERIFY_CHAIN);
-	CASE(IMSG_LKA_SSL_VERIFY);
-
-	CASE(IMSG_DELIVERY_OK);
-	CASE(IMSG_DELIVERY_TEMPFAIL);
-	CASE(IMSG_DELIVERY_PERMFAIL);
-	CASE(IMSG_DELIVERY_LOOP);
-	CASE(IMSG_DELIVERY_HOLD);
-	CASE(IMSG_DELIVERY_RELEASE);
-
-	CASE(IMSG_BOUNCE_INJECT);
-
-	CASE(IMSG_MDA_DELIVER);
-	CASE(IMSG_MDA_DONE);
-
-	CASE(IMSG_MFA_REQ_CONNECT);
-	CASE(IMSG_MFA_REQ_HELO);
-	CASE(IMSG_MFA_REQ_MAIL);
-	CASE(IMSG_MFA_REQ_RCPT);
-	CASE(IMSG_MFA_REQ_DATA);
-	CASE(IMSG_MFA_REQ_EOM);
-	CASE(IMSG_MFA_EVENT_RSET);
-	CASE(IMSG_MFA_EVENT_COMMIT);
-	CASE(IMSG_MFA_EVENT_ROLLBACK);
-	CASE(IMSG_MFA_EVENT_DISCONNECT);
-	CASE(IMSG_MFA_SMTP_RESPONSE);
-
-	CASE(IMSG_MTA_TRANSFER);
-	CASE(IMSG_MTA_SCHEDULE);
-
-	CASE(IMSG_QUEUE_CREATE_MESSAGE);
-	CASE(IMSG_QUEUE_SUBMIT_ENVELOPE);
-	CASE(IMSG_QUEUE_COMMIT_ENVELOPES);
-	CASE(IMSG_QUEUE_REMOVE_MESSAGE);
-	CASE(IMSG_QUEUE_COMMIT_MESSAGE);
-	CASE(IMSG_QUEUE_MESSAGE_FD);
-	CASE(IMSG_QUEUE_MESSAGE_FILE);
-	CASE(IMSG_QUEUE_REMOVE);
-	CASE(IMSG_QUEUE_EXPIRE);
-	CASE(IMSG_QUEUE_BOUNCE);
-
-	CASE(IMSG_PARENT_FORWARD_OPEN);
-	CASE(IMSG_PARENT_FORK_MDA);
-	CASE(IMSG_PARENT_KILL_MDA);
-
-	CASE(IMSG_SMTP_ENQUEUE_FD);
-
-	CASE(IMSG_DNS_HOST);
-	CASE(IMSG_DNS_HOST_END);
-	CASE(IMSG_DNS_PTR);
-	CASE(IMSG_DNS_MX);
-	CASE(IMSG_DNS_MX_PREFERENCE);
-
-	CASE(IMSG_STAT_INCREMENT);
-	CASE(IMSG_STAT_DECREMENT);
-	CASE(IMSG_STAT_SET);
-
-	CASE(IMSG_DIGEST);
-	CASE(IMSG_STATS);
-	CASE(IMSG_STATS_GET);
-
 	default:
 		snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 

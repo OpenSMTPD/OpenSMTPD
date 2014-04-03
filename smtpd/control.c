@@ -87,7 +87,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_SMTP) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE_FD:
+		case IMSG_CTL_SMTP_SESSION:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -448,29 +448,23 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 	}
 
 	switch (imsg->hdr.type) {
-	case IMSG_SMTP_ENQUEUE_FD:
+	case IMSG_CTL_SMTP_SESSION:
 		if (env->sc_flags & (SMTPD_SMTP_PAUSED | SMTPD_EXITING)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
-		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, c->id, 0, -1,
+		m_compose(p_smtp, IMSG_CTL_SMTP_SESSION, c->id, 0, -1,
 		    &c->euid, sizeof(c->euid));
 		return;
 
-	case IMSG_STATS:
-		if (c->euid)
-			goto badcred;
-		m_compose(p, IMSG_STATS, 0, 0, -1, NULL, 0);
-		return;
-
-	case IMSG_DIGEST:
+	case IMSG_CTL_GET_DIGEST:
 		if (c->euid)
 			goto badcred;
 		digest.timestamp = time(NULL);
-		m_compose(p, IMSG_DIGEST, 0, 0, -1, &digest, sizeof digest);
+		m_compose(p, IMSG_CTL_GET_DIGEST, 0, 0, -1, &digest, sizeof digest);
 		return;
 
-	case IMSG_STATS_GET:
+	case IMSG_CTL_GET_STATS:
 		if (c->euid)
 			goto badcred;
 		kvp = imsg->data;
@@ -480,7 +474,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			strlcpy(kvp->key, key, sizeof kvp->key);
 			kvp->val = val;
 		}
-		m_compose(p, IMSG_STATS_GET, 0, 0, -1, kvp, sizeof *kvp);
+		m_compose(p, IMSG_CTL_GET_STATS, 0, 0, -1, kvp, sizeof *kvp);
 		return;
 
 	case IMSG_CTL_SHUTDOWN:
@@ -517,7 +511,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_TRACE:
+	case IMSG_CTL_TRACE_ENABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -528,14 +522,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose |= v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_TRACE, 0, 0, -1);
+		m_create(p_parent, IMSG_CTL_TRACE_ENABLE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_UNTRACE:
+	case IMSG_CTL_TRACE_DISABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -546,14 +540,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose &= ~v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_UNTRACE, 0, 0, -1);
+		m_create(p_parent, IMSG_CTL_TRACE_DISABLE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_PROFILE:
+	case IMSG_CTL_PROFILE_ENABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -563,14 +557,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling |= v;
 
-		m_create(p_parent, IMSG_CTL_PROFILE, 0, 0, -1);
+		m_create(p_parent, IMSG_CTL_PROFILE_ENABLE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_UNPROFILE:
+	case IMSG_CTL_PROFILE_DISABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -580,7 +574,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling &= ~v;
 
-		m_create(p_parent, IMSG_CTL_UNPROFILE, 0, 0, -1);
+		m_create(p_parent, IMSG_CTL_PROFILE_DISABLE, 0, 0, -1);
 		m_add_int(p_parent, v);
 		m_close(p_parent);
 
@@ -759,7 +753,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_forward(p_scheduler, imsg);
 		return;
 
-	case IMSG_LKA_UPDATE_TABLE:
+	case IMSG_CTL_UPDATE_TABLE:
 		if (c->euid)
 			goto badcred;
 

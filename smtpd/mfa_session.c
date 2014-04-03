@@ -389,7 +389,7 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 
 	log_trace(TRACE_MFA, "mfa: chain input is %d", fdout);
 
-	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
+	m_create(p_smtp, IMSG_SMTP_MESSAGE_OPEN, 0, 0, fdout); /* XXX bogus */
 	m_add_id(p_smtp, s->id);
 	m_add_int(p_smtp, 1);
 	m_close(p_smtp);

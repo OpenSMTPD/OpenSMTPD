@@ -63,12 +63,12 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
-		case IMSG_DNS_PTR:
-		case IMSG_LKA_EXPAND_RCPT:
-		case IMSG_LKA_HELO:
-		case IMSG_LKA_AUTHENTICATE:
-		case IMSG_LKA_SSL_INIT:
-		case IMSG_LKA_SSL_VERIFY:
+		case IMSG_SMTP_DNS_PTR:
+		case IMSG_SMTP_EXPAND_RCPT:
+		case IMSG_SMTP_LOOKUP_HELO:
+		case IMSG_SMTP_AUTHENTICATE:
+		case IMSG_SMTP_SSL_INIT:
+		case IMSG_SMTP_SSL_VERIFY:
 			smtp_session_imsg(p, imsg);
 			return;
 		}
@@ -84,16 +84,16 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
-		case IMSG_QUEUE_CREATE_MESSAGE:
-		case IMSG_QUEUE_MESSAGE_FILE:
-		case IMSG_QUEUE_SUBMIT_ENVELOPE:
-		case IMSG_QUEUE_COMMIT_ENVELOPES:
-		case IMSG_QUEUE_COMMIT_MESSAGE:
+		case IMSG_SMTP_MESSAGE_CREATE:
+		case IMSG_SMTP_MESSAGE_OPEN:
+		case IMSG_QUEUE_ENVELOPE_SUBMIT:
+		case IMSG_QUEUE_ENVELOPE_COMMIT:
+		case IMSG_QUEUE_MESSAGE_COMMIT:
 			smtp_session_imsg(p, imsg);
 			return;
 
-		case IMSG_SMTP_ENQUEUE_FD:
-			m_compose(p, IMSG_SMTP_ENQUEUE_FD, 0, 0,
+		case IMSG_QUEUE_SMTP_SESSION:
+			m_compose(p, IMSG_QUEUE_SMTP_SESSION, 0, 0,
 			    smtp_enqueue(NULL), imsg->data,
 			    imsg->hdr.len - sizeof imsg->hdr);
 			return;
@@ -128,8 +128,8 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE_FD:
-			m_compose(p, IMSG_SMTP_ENQUEUE_FD, imsg->hdr.peerid, 0,
+		case IMSG_CTL_SMTP_SESSION:
+			m_compose(p, IMSG_CTL_SMTP_SESSION, imsg->hdr.peerid, 0,
 			    smtp_enqueue(imsg->data), NULL, 0);
 			return;
 
