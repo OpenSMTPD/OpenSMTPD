@@ -33,7 +33,7 @@
 const char * dnsbl_host = "dnsbl.sorbs.net";
 
 static void
-dnsbl_event_dispatch(int ret, struct asr_result *ar, void *arg)
+dnsbl_event_dispatch(struct asr_result *ar, void *arg)
 {
 	uint64_t *q = arg;
 
