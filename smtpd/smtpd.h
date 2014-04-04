@@ -31,7 +31,7 @@
 #define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
 
-#define PROC_COUNT		 10
+#define PROC_COUNT		 8
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
@@ -294,14 +294,12 @@ enum blockmodes {
 
 enum smtp_proc_type {
 	PROC_PARENT = 0,
-	PROC_SMTP,
 	PROC_MFA,
 	PROC_LKA,
 	PROC_QUEUE,
-	PROC_MDA,
-	PROC_MTA,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
+	PROC_SESSIONS,
 
 	PROC_FILTER,
 	PROC_CLIENT,
@@ -976,12 +974,10 @@ extern int profiling;
 extern struct mproc *p_control;
 extern struct mproc *p_parent;
 extern struct mproc *p_lka;
-extern struct mproc *p_mda;
 extern struct mproc *p_mfa;
-extern struct mproc *p_mta;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
-extern struct mproc *p_smtp;
+extern struct mproc *p_sessions;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);
@@ -1175,7 +1171,8 @@ void vlog(int, const char *, va_list);
 
 
 /* mda.c */
-pid_t mda(void);
+void mda_postfork(void);
+void mda_postprivdrop(void);
 
 
 /* mfa.c */
@@ -1236,7 +1233,8 @@ void m_get_envelope(struct msg *, struct envelope *);
 
 
 /* mta.c */
-pid_t mta(void);
+void mta_postfork(void);
+void mta_postprivdrop(void);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_down(struct mta_relay *, struct mta_route *);
@@ -1294,8 +1292,13 @@ void scheduler_info(struct scheduler_info *, struct envelope *);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
+/* sessions.c */
+pid_t sessions_process(void);
+
+
 /* smtp.c */
-pid_t smtp(void);
+void smtp_postfork(void);
+void smtp_postprivdrop(void);
 void smtp_collect(void);
 
 

@@ -91,7 +91,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 	}
 
-	if (p->proc == PROC_SMTP) {
+	if (p->proc == PROC_SESSIONS) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_EXPAND_RCPT:
 			m_msg(&m, imsg);
@@ -217,7 +217,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_MDA) {
+	if (p->proc == PROC_SESSIONS) {
 		switch (imsg->hdr.type) {
 		case IMSG_MDA_LOOKUP_USERINFO:
 			m_msg(&m, imsg);
@@ -238,7 +238,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_MTA) {
+	if (p->proc == PROC_SESSIONS) {
 		switch (imsg->hdr.type) {
 
 		case IMSG_MTA_SSL_INIT:
@@ -391,9 +391,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			table_open_all();
 
 			/* Start fulfilling requests */
-			mproc_enable(p_mda);
-			mproc_enable(p_mta);
-			mproc_enable(p_smtp);
+			mproc_enable(p_sessions);
 			return;
 
 		case IMSG_CTL_VERBOSE:
@@ -415,7 +413,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
-			m_forward(p_smtp, imsg);
+			m_forward(p_sessions, imsg);
 			return;
 		}
 	}
@@ -510,16 +508,12 @@ lka(void)
 
 	config_peer(PROC_PARENT);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_SMTP);
-	config_peer(PROC_MDA);
-	config_peer(PROC_MTA);
 	config_peer(PROC_CONTROL);
+	config_peer(PROC_SESSIONS);
 	config_done();
 
 	/* Ignore them until we get our config */
-	mproc_disable(p_mda);
-	mproc_disable(p_mta);
-	mproc_disable(p_smtp);
+	mproc_disable(p_sessions);
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");

@@ -150,86 +150,15 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	errx(1, "smtp_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
-static void
-smtp_sig_handler(int sig, short event, void *p)
+void
+smtp_postfork(void)
 {
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		smtp_shutdown();
-		break;
-	default:
-		fatalx("smtp_sig_handler: unexpected signal");
-	}
-}
-
-static void
-smtp_shutdown(void)
-{
-	log_info("info: smtp server exiting");
-	_exit(0);
-}
-
-pid_t
-smtp(void)
-{
-	pid_t		 pid;
-	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("smtp: cannot fork");
-	case 0:
-		post_fork(PROC_SMTP);
-		break;
-	default:
-		return (pid);
-	}
-
 	smtp_setup_listeners();
+}
 
-	/* SSL will be purged later */
-	purge_config(PURGE_TABLES|PURGE_RULES);
-
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
-
-	if (chroot(PATH_CHROOT) == -1)
-		fatal("smtp: chroot");
-	if (chdir("/") == -1)
-		fatal("smtp: chdir(\"/\")");
-
-	config_process(PROC_SMTP);
-
-	if (setgroups(1, &pw->pw_gid) ||
-	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("smtp: cannot drop privileges");
-
-	imsg_callback = smtp_imsg;
-	event_init();
-
-	signal_set(&ev_sigint, SIGINT, smtp_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, smtp_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
-
-	config_peer(PROC_CONTROL);
-	config_peer(PROC_PARENT);
-	config_peer(PROC_LKA);
-	config_peer(PROC_MFA);
-	config_peer(PROC_QUEUE);
-	config_done();
-
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	smtp_shutdown();
-
-	return (0);
+void
+smtp_postprivdrop(void)
+{
 }
 
 static void

@@ -50,6 +50,7 @@ SRCS+=		ruleset.c
 SRCS+=		runq.c
 SRCS+=		scheduler.c
 SRCS+=		scheduler_backend.c
+SRCS+=		sessions.c
 SRCS+=		smtp.c
 SRCS+=		smtp_session.c
 SRCS+=		smtpd.c

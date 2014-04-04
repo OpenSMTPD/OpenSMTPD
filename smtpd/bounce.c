@@ -266,7 +266,7 @@ bounce_drain()
 		}
 
 		log_debug("debug: bounce: requesting new enqueue socket...");
-		m_compose(p_smtp, IMSG_QUEUE_SMTP_SESSION, 0, 0, -1, NULL, 0);
+		m_compose(p_sessions, IMSG_QUEUE_SMTP_SESSION, 0, 0, -1, NULL, 0);
 
 		running += 1;
 	}

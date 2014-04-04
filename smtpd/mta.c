@@ -56,10 +56,6 @@
 #define RELAY_ONHOLD		0x01
 #define RELAY_HOLDQ		0x02
 
-static void mta_imsg(struct mproc *, struct imsg *);
-static void mta_shutdown(void);
-static void mta_sig_handler(int, short, void *);
-
 static void mta_query_mx(struct mta_relay *);
 static void mta_query_secret(struct mta_relay *);
 static void mta_query_preference(struct mta_relay *);
@@ -562,61 +558,14 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	errx(1, "mta_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
-static void
-mta_sig_handler(int sig, short event, void *p)
+void
+mta_postfork(void)
 {
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		mta_shutdown();
-		break;
-	default:
-		fatalx("mta_sig_handler: unexpected signal");
-	}
 }
 
-static void
-mta_shutdown(void)
+void
+mta_postprivdrop(void)
 {
-	log_info("info: mail transfer agent exiting");
-	_exit(0);
-}
-
-pid_t
-mta(void)
-{
-	pid_t		 pid;
-	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("mta: cannot fork");
-	case 0:
-		post_fork(PROC_MTA);
-		break;
-	default:
-		return (pid);
-	}
-
-	purge_config(PURGE_EVERYTHING);
-
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
-
-	if (chroot(PATH_CHROOT) == -1)
-		fatal("mta: chroot");
-	if (chdir("/") == -1)
-		fatal("mta: chdir(\"/\")");
-
-	config_process(PROC_MTA);
-
-	if (setgroups(1, &pw->pw_gid) ||
-	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("mta: cannot drop privileges");
-
 	SPLAY_INIT(&relays);
 	SPLAY_INIT(&domains);
 	SPLAY_INIT(&hosts);
@@ -631,35 +580,14 @@ mta(void)
 	tree_init(&flush_evp);
 	dict_init(&hoststat);
 
-	imsg_callback = mta_imsg;
-	event_init();
-
 	evtimer_set(&ev_flush_evp, mta_delivery_flush_event, NULL);
 
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
 	runq_init(&runq_route, mta_on_timeout);
 	runq_init(&runq_hoststat, mta_on_timeout);
-
-	signal_set(&ev_sigint, SIGINT, mta_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
-
-	config_peer(PROC_PARENT);
-	config_peer(PROC_QUEUE);
-	config_peer(PROC_LKA);
-	config_peer(PROC_CONTROL);
-	config_done();
-
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	mta_shutdown();
-
-	return (0);
 }
+
 
 /*
  * Local error on the given source.
