@@ -185,10 +185,6 @@ sessions_process(void)
 
 	config_process(PROC_SESSIONS);
 
-	mda_postprivdrop();
-	smtp_postprivdrop();
-	mta_postprivdrop();
-
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
@@ -196,6 +192,10 @@ sessions_process(void)
 
 	imsg_callback = sessions_imsg;
 	event_init();
+
+	mda_postprivdrop();
+	smtp_postprivdrop();
+	mta_postprivdrop();
 
 	signal_set(&ev_sigint, SIGINT, sessions_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, sessions_sig_handler, NULL);
