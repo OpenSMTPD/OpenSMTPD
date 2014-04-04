@@ -43,17 +43,90 @@ static void sessions_imsg(struct mproc *, struct imsg *);
 static void sessions_shutdown(void);
 static void sessions_sig_handler(int, short, void *);
 
+void	mda_imsg(struct mproc *, struct imsg *);
+void	mta_imsg(struct mproc *, struct imsg *);
+void	smtp_imsg(struct mproc *, struct imsg *);
+
 static void
 sessions_imsg(struct mproc *p, struct imsg *imsg)
 {
+	struct msg	m;
+	int		v;
+
 	switch (imsg->hdr.type) {
 	case IMSG_CONF_START:
 		return;
 	case IMSG_CONF_END:
+		smtp_configure();
+		return;
+	case IMSG_CTL_VERBOSE:
+		m_msg(&m, imsg);
+		m_get_int(&m, &v);
+		m_end(&m);
+		log_verbose(v);
+		return;
+	case IMSG_CTL_PROFILE:
+		m_msg(&m, imsg);
+		m_get_int(&m, &v);
+		m_end(&m);
+		profiling = v;
+		return;
+
+	/* smtp imsg */
+	case IMSG_SMTP_DNS_PTR:
+	case IMSG_SMTP_EXPAND_RCPT:
+	case IMSG_SMTP_LOOKUP_HELO:
+	case IMSG_SMTP_AUTHENTICATE:
+	case IMSG_SMTP_SSL_INIT:
+	case IMSG_SMTP_SSL_VERIFY:
+	case IMSG_MFA_SMTP_RESPONSE:
+	case IMSG_SMTP_MESSAGE_COMMIT:
+	case IMSG_SMTP_MESSAGE_CREATE:
+	case IMSG_SMTP_MESSAGE_OPEN:
+	case IMSG_QUEUE_ENVELOPE_SUBMIT:
+	case IMSG_QUEUE_ENVELOPE_COMMIT:
+	case IMSG_QUEUE_SMTP_SESSION:
+	case IMSG_CTL_SMTP_SESSION:
+	case IMSG_CTL_PAUSE_SMTP:
+	case IMSG_CTL_RESUME_SMTP:
+		smtp_imsg(p, imsg);
+		return;
+
+        /* mta imsg */
+	case IMSG_QUEUE_TRANSFER:
+	case IMSG_MTA_OPEN_MESSAGE:
+	case IMSG_MTA_LOOKUP_CREDENTIALS:
+	case IMSG_MTA_LOOKUP_SOURCE:
+	case IMSG_MTA_LOOKUP_HELO:
+	case IMSG_MTA_DNS_HOST:
+	case IMSG_MTA_DNS_HOST_END:
+	case IMSG_MTA_DNS_MX_PREFERENCE:
+	case IMSG_MTA_DNS_PTR:
+	case IMSG_MTA_SSL_INIT:
+	case IMSG_MTA_SSL_VERIFY:
+	case IMSG_CTL_RESUME_ROUTE:
+	case IMSG_CTL_MTA_SHOW_HOSTS:
+	case IMSG_CTL_MTA_SHOW_RELAYS:
+	case IMSG_CTL_MTA_SHOW_ROUTES:
+	case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+	case IMSG_CTL_MTA_BLOCK:
+	case IMSG_CTL_MTA_UNBLOCK:
+	case IMSG_CTL_MTA_SHOW_BLOCK:
+		mta_imsg(p, imsg);
+		return;
+
+        /* mda imsg */
+	case IMSG_MDA_LOOKUP_USERINFO:
+	case IMSG_QUEUE_DELIVER:
+	case IMSG_MDA_OPEN_MESSAGE:
+	case IMSG_MDA_FORK:
+	case IMSG_MDA_DONE:
+		mta_imsg(p, imsg);
 		return;
 	default:
 		break;
 	}
+
 	errx(1, "session_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
@@ -135,6 +208,7 @@ sessions_process(void)
 	config_peer(PROC_QUEUE);
 	config_peer(PROC_LKA);
 	config_peer(PROC_CONTROL);
+	config_peer(PROC_MFA);
 	config_done();
 
 	if (event_dispatch() < 0)

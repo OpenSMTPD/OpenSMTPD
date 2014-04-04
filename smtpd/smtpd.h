@@ -1173,11 +1173,13 @@ void vlog(int, const char *, va_list);
 /* mda.c */
 void mda_postfork(void);
 void mda_postprivdrop(void);
+void mda_imsg(struct mproc *, struct imsg *);
 
 
 /* mfa.c */
 pid_t mfa(void);
 void mfa_ready(void);
+
 
 /* mfa_session.c */
 void mfa_filter_prepare(void);
@@ -1190,6 +1192,7 @@ void mfa_filter_eom(uint64_t, int, size_t);
 void mfa_filter(uint64_t, int);
 void mfa_filter_event(uint64_t, int);
 void mfa_build_fd_chain(uint64_t, int);
+
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);
@@ -1235,6 +1238,7 @@ void m_get_envelope(struct msg *, struct envelope *);
 /* mta.c */
 void mta_postfork(void);
 void mta_postprivdrop(void);
+void mta_imsg(struct mproc *, struct imsg *);
 void mta_route_ok(struct mta_relay *, struct mta_route *);
 void mta_route_error(struct mta_relay *, struct mta_route *);
 void mta_route_down(struct mta_relay *, struct mta_route *);
@@ -1299,6 +1303,8 @@ pid_t sessions_process(void);
 /* smtp.c */
 void smtp_postfork(void);
 void smtp_postprivdrop(void);
+void smtp_imsg(struct mproc *, struct imsg *);
+void smtp_configure(void);
 void smtp_collect(void);
 
 

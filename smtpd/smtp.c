@@ -41,9 +41,6 @@
 #include "log.h"
 #include "ssl.h"
 
-static void smtp_imsg(struct mproc *, struct imsg *);
-static void smtp_shutdown(void);
-static void smtp_sig_handler(int, short, void *);
 static void smtp_setup_events(void);
 static void smtp_pause(void);
 static void smtp_resume(void);
@@ -55,7 +52,7 @@ static void smtp_setup_listeners(void);
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
 
-static void
+void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct msg	 m;
@@ -159,6 +156,12 @@ smtp_postfork(void)
 void
 smtp_postprivdrop(void)
 {
+}
+
+void
+smtp_configure(void)
+{
+	smtp_setup_events();
 }
 
 static void

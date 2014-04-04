@@ -83,7 +83,6 @@ struct mda_session {
 	FILE			*datafp;
 };
 
-static void mda_imsg(struct mproc *, struct imsg *);
 static void mda_io(struct io *, int);
 static int mda_check_loop(FILE *, struct mda_envelope *);
 static int mda_getlastline(int, char *, size_t);
@@ -107,7 +106,7 @@ static struct tree	users;
 
 static TAILQ_HEAD(, mda_user)	runnable;
 
-static void
+void
 mda_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct mda_session	*s;
@@ -122,7 +121,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	size_t			 sz;
 	char			 out[256], buf[SMTPD_MAXLINESIZE];
-	int			 n, v;
+	int			 n;
 	enum lka_resp_status	status;
 
 	if (p->proc == PROC_LKA) {
@@ -397,20 +396,6 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				mda_log(e, "Ok", "Delivered");
 			}
 			mda_done(s);
-			return;
-
-		case IMSG_CTL_VERBOSE:
-			m_msg(&m, imsg);
-			m_get_int(&m, &v);
-			m_end(&m);
-			log_verbose(v);
-			return;
-
-		case IMSG_CTL_PROFILE:
-			m_msg(&m, imsg);
-			m_get_int(&m, &v);
-			m_end(&m);
-			profiling = v;
 			return;
 		}
 	}
