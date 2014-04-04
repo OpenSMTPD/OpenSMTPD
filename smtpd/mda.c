@@ -83,10 +83,7 @@ struct mda_session {
 	FILE			*datafp;
 };
 
-static void mda_imsg(struct mproc *, struct imsg *);
 static void mda_io(struct io *, int);
-static void mda_shutdown(void);
-static void mda_sig_handler(int, short, void *);
 static int mda_check_loop(FILE *, struct mda_envelope *);
 static int mda_getlastline(int, char *, size_t);
 static void mda_done(struct mda_session *);
@@ -109,7 +106,7 @@ static struct tree	users;
 
 static TAILQ_HEAD(, mda_user)	runnable;
 
-static void
+void
 mda_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct mda_session	*s;
@@ -124,7 +121,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	size_t			 sz;
 	char			 out[256], buf[SMTPD_MAXLINESIZE];
-	int			 n, v;
+	int			 n;
 	enum lka_resp_status	status;
 
 	if (p->proc == PROC_LKA) {
@@ -400,106 +397,23 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			mda_done(s);
 			return;
-
-		case IMSG_CTL_VERBOSE:
-			m_msg(&m, imsg);
-			m_get_int(&m, &v);
-			m_end(&m);
-			log_verbose(v);
-			return;
-
-		case IMSG_CTL_PROFILE:
-			m_msg(&m, imsg);
-			m_get_int(&m, &v);
-			m_end(&m);
-			profiling = v;
-			return;
 		}
 	}
 
 	errx(1, "mda_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
-static void
-mda_sig_handler(int sig, short event, void *p)
+void
+mda_postfork()
 {
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		mda_shutdown();
-		break;
-	default:
-		fatalx("mda_sig_handler: unexpected signal");
-	}
 }
 
-static void
-mda_shutdown(void)
+void
+mda_postprivdrop()
 {
-	log_info("info: mail delivery agent exiting");
-	_exit(0);
-}
-
-pid_t
-mda(void)
-{
-	pid_t		 pid;
-	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("mda: cannot fork");
-	case 0:
-		post_fork(PROC_MDA);
-		break;
-	default:
-		return (pid);
-	}
-
-	purge_config(PURGE_EVERYTHING);
-
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
-
-	if (chroot(PATH_CHROOT) == -1)
-		fatal("mda: chroot");
-	if (chdir("/") == -1)
-		fatal("mda: chdir(\"/\")");
-
-	config_process(PROC_MDA);
-
-	if (setgroups(1, &pw->pw_gid) ||
-	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("mda: cannot drop privileges");
-
 	tree_init(&sessions);
 	tree_init(&users);
 	TAILQ_INIT(&runnable);
-
-	imsg_callback = mda_imsg;
-	event_init();
-
-	signal_set(&ev_sigint, SIGINT, mda_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, mda_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
-
-	config_peer(PROC_PARENT);
-	config_peer(PROC_QUEUE);
-	config_peer(PROC_LKA);
-	config_peer(PROC_CONTROL);
-	config_done();
-
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	mda_shutdown();
-
-	return (0);
 }
 
 static void

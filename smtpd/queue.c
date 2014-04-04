@@ -71,7 +71,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	int			 fd, mta_ext, ret, v, flags, code;
 
 	memset(&bounce, 0, sizeof(struct delivery_bounce));
-	if (p->proc == PROC_SMTP) {
+	if (p->proc == PROC_PONY) {
 
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_MESSAGE_CREATE:
@@ -160,15 +160,15 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				log_warnx("warn: imsg_queue_submit_envelope: msgid=0, "
 				    "evpid=%016"PRIx64, evp.id);
 			ret = queue_envelope_create(&evp);
-			m_create(p_smtp, IMSG_QUEUE_ENVELOPE_SUBMIT, 0, 0, -1);
-			m_add_id(p_smtp, reqid);
+			m_create(p_pony, IMSG_QUEUE_ENVELOPE_SUBMIT, 0, 0, -1);
+			m_add_id(p_pony, reqid);
 			if (ret == 0)
-				m_add_int(p_smtp, 0);
+				m_add_int(p_pony, 0);
 			else {
-				m_add_int(p_smtp, 1);
-				m_add_evpid(p_smtp, evp.id);
+				m_add_int(p_pony, 1);
+				m_add_evpid(p_pony, evp.id);
 			}
-			m_close(p_smtp);
+			m_close(p_pony);
 			if (ret) {
 				m_create(p_scheduler,
 				    IMSG_QUEUE_ENVELOPE_SUBMIT, 0, 0, -1);
@@ -182,10 +182,10 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			m_create(p_smtp, IMSG_QUEUE_ENVELOPE_COMMIT, 0, 0, -1);
-			m_add_id(p_smtp, reqid);
-			m_add_int(p_smtp, 1);
-			m_close(p_smtp);
+			m_create(p_pony, IMSG_QUEUE_ENVELOPE_COMMIT, 0, 0, -1);
+			m_add_id(p_pony, reqid);
+			m_add_int(p_pony, 1);
+			m_close(p_pony);
 			return;
 		}
 	}
@@ -253,9 +253,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			evp.lasttry = time(NULL);
-			m_create(p_mda, IMSG_QUEUE_DELIVER, 0, 0, -1);
-			m_add_envelope(p_mda, &evp);
-			m_close(p_mda);
+			m_create(p_pony, IMSG_QUEUE_DELIVER, 0, 0, -1);
+			m_add_envelope(p_pony, &evp);
+			m_close(p_pony);
 			return;
 
 		case IMSG_SCHED_ENVELOPE_INJECT:
@@ -278,9 +278,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			evp.lasttry = time(NULL);
-			m_create(p_mta, IMSG_QUEUE_TRANSFER, 0, 0, -1);
-			m_add_envelope(p_mta, &evp);
-			m_close(p_mta);
+			m_create(p_pony, IMSG_QUEUE_TRANSFER, 0, 0, -1);
+			m_add_envelope(p_pony, &evp);
+			m_close(p_pony);
 			return;
 
 		case IMSG_CTL_LIST_ENVELOPES:
@@ -320,7 +320,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_MTA || p->proc == PROC_MDA) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 		case IMSG_MDA_OPEN_MESSAGE:
 		case IMSG_MTA_OPEN_MESSAGE:
@@ -338,7 +338,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_MTA_DELIVERY_OK:
 			m_msg(&m, imsg);
 			m_get_evpid(&m, &evpid);
-			if (p->proc == PROC_MTA)
+			if (imsg->hdr.type == IMSG_MTA_DELIVERY_OK)
 				m_get_int(&m, &mta_ext);
 			m_end(&m);
 			if (queue_envelope_load(evpid, &evp) == 0) {
@@ -349,9 +349,9 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				bounce.type = B_DSN;
 				bounce.dsn_ret = evp.dsn_ret;
 
-				if (p->proc == PROC_MDA)
+				if (imsg->hdr.type == IMSG_MDA_DELIVERY_OK)
 					queue_bounce(&evp, &bounce);
-				else if (p->proc == PROC_MTA &&
+				else if (imsg->hdr.type == IMSG_MTA_DELIVERY_OK &&
 				    (mta_ext & MTA_EXT_DSN) == 0) {
 					bounce.mta_without_dsn = 1;
 					queue_bounce(&evp, &bounce);
@@ -457,7 +457,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_int(&m, &v);
 			m_end(&m);
 			m_create(p_scheduler, IMSG_QUEUE_HOLDQ_RELEASE, 0, 0, -1);
-			if (p->proc == PROC_MTA)
+			if (imsg->hdr.type == IMSG_MTA_HOLDQ_RELEASE)
 				m_add_int(p_scheduler, D_MTA);
 			else
 				m_add_int(p_scheduler, D_MDA);
@@ -626,11 +626,9 @@ queue(void)
 
 	config_peer(PROC_PARENT);
 	config_peer(PROC_CONTROL);
-	config_peer(PROC_SMTP);
-	config_peer(PROC_MDA);
-	config_peer(PROC_MTA);
 	config_peer(PROC_LKA);
 	config_peer(PROC_SCHEDULER);
+	config_peer(PROC_PONY);
 	config_done();
 
 	/* setup queue loading task */
@@ -714,7 +712,7 @@ queue_flow_control(void)
 	int	oldlimit = limit;
 	int	set, unset;
 
-	bufsz = p_mda->bytes_queued + p_mta->bytes_queued;
+	bufsz = p_pony->bytes_queued;
 	if (bufsz <= flow_agent_lowat)
 		limit &= ~LIMIT_AGENT;
 	else if (bufsz > flow_agent_hiwat)
@@ -731,15 +729,13 @@ queue_flow_control(void)
 	if (set & LIMIT_SCHEDULER) {
 		log_warnx("warn: queue: Hiwat reached on scheduler buffer: "
 		    "suspending transfer, delivery and lookup input");
-		mproc_disable(p_mta);
-		mproc_disable(p_mda);
+		mproc_disable(p_pony);
 		mproc_disable(p_lka);
 	}
 	else if (unset & LIMIT_SCHEDULER) {
 		log_warnx("warn: queue: Down to lowat on scheduler buffer: "
 		    "resuming transfer, delivery and lookup input");
-		mproc_enable(p_mta);
-		mproc_enable(p_mda);
+		mproc_enable(p_pony);
 		mproc_enable(p_lka);
 	}
 

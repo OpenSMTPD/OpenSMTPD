@@ -85,7 +85,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	const void		*data;
 	size_t			 sz;
 
-	if (p->proc == PROC_SMTP) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_SMTP_SESSION:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
@@ -119,7 +119,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 	}
-	if (p->proc == PROC_MTA) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_OK:
 		case IMSG_CTL_FAIL:
@@ -283,12 +283,10 @@ control(void)
 
 	config_peer(PROC_SCHEDULER);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_SMTP);
 	config_peer(PROC_MFA);
 	config_peer(PROC_PARENT);
 	config_peer(PROC_LKA);
-	config_peer(PROC_MDA);
-	config_peer(PROC_MTA);
+	config_peer(PROC_PONY);
 	config_done();
 
 	control_listen();
@@ -453,7 +451,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
-		m_compose(p_smtp, IMSG_CTL_SMTP_SESSION, c->id, 0, -1,
+		m_compose(p_pony, IMSG_CTL_SMTP_SESSION, c->id, 0, -1,
 		    &c->euid, sizeof(c->euid));
 		return;
 
@@ -627,7 +625,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		}
 		log_info("info: smtp paused");
 		env->sc_flags |= SMTPD_SMTP_PAUSED;
-		m_compose(p_smtp, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
+		m_compose(p_pony, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
@@ -677,7 +675,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		}
 		log_info("info: smtp resumed");
 		env->sc_flags &= ~SMTPD_SMTP_PAUSED;
-		m_forward(p_smtp, imsg);
+		m_forward(p_pony, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
@@ -685,7 +683,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		m_forward(p_mta, imsg);
+		m_forward(p_pony, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
@@ -712,7 +710,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			goto badcred;
 
 		imsg->hdr.peerid = c->id;
-		m_forward(p_mta, imsg);
+		m_forward(p_pony, imsg);
 		return;
 
 	case IMSG_CTL_SHOW_STATUS:
@@ -731,10 +729,10 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (imsg->hdr.len - IMSG_HEADER_SIZE <= sizeof(ss))
 			goto invalid;
 		memmove(&ss, imsg->data, sizeof(ss));
-		m_create(p_mta, imsg->hdr.type, c->id, 0, -1);
-		m_add_sockaddr(p_mta, (struct sockaddr *)&ss);
-		m_add_string(p_mta, (char *)imsg->data + sizeof(ss));
-		m_close(p_mta);
+		m_create(p_pony, imsg->hdr.type, c->id, 0, -1);
+		m_add_sockaddr(p_pony, (struct sockaddr *)&ss);
+		m_add_string(p_pony, (char *)imsg->data + sizeof(ss));
+		m_close(p_pony);
 		return;
 
 	case IMSG_CTL_SCHEDULE:
