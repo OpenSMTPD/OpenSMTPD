@@ -39,16 +39,16 @@
 #include "smtpd.h"
 #include "log.h"
 
-static void sessions_imsg(struct mproc *, struct imsg *);
-static void sessions_shutdown(void);
-static void sessions_sig_handler(int, short, void *);
+static void pony_imsg(struct mproc *, struct imsg *);
+static void pony_shutdown(void);
+static void pony_sig_handler(int, short, void *);
 
 void	mda_imsg(struct mproc *, struct imsg *);
 void	mta_imsg(struct mproc *, struct imsg *);
 void	smtp_imsg(struct mproc *, struct imsg *);
 
 static void
-sessions_imsg(struct mproc *p, struct imsg *imsg)
+pony_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct msg	m;
 	int		v;
@@ -131,27 +131,27 @@ sessions_imsg(struct mproc *p, struct imsg *imsg)
 }
 
 static void
-sessions_sig_handler(int sig, short event, void *p)
+pony_sig_handler(int sig, short event, void *p)
 {
 	switch (sig) {
 	case SIGINT:
 	case SIGTERM:
-		sessions_shutdown();
+		pony_shutdown();
 		break;
 	default:
-		fatalx("sessions_sig_handler: unexpected signal");
+		fatalx("pony_sig_handler: unexpected signal");
 	}
 }
 
 static void
-sessions_shutdown(void)
+pony_shutdown(void)
 {
-	log_info("info: sessions agent exiting");
+	log_info("info: pony agent exiting");
 	_exit(0);
 }
 
 pid_t
-sessions_process(void)
+pony(void)
 {
 	pid_t		 pid;
 	struct passwd	*pw;
@@ -160,45 +160,48 @@ sessions_process(void)
 
 	switch (pid = fork()) {
 	case -1:
-		fatal("sessions: cannot fork");
+		fatal("pony: cannot fork");
 	case 0:
-		post_fork(PROC_SESSIONS);
+		post_fork(PROC_PONY);
 		break;
 	default:
 		return (pid);
 	}
 
-	//
-	// purge_config(PURGE_EVERYTHING);
-	//
 	mda_postfork();
 	smtp_postfork();
 	mta_postfork();
+
+	/* do not purge listeners and pki, they are purged
+	 * in smtp_configure()
+	 */
+	purge_config(PURGE_TABLES|PURGE_RULES);
 
 	if ((pw = getpwnam(SMTPD_USER)) == NULL)
 		fatalx("unknown user " SMTPD_USER);
 
 	if (chroot(PATH_CHROOT) == -1)
-		fatal("sessions: chroot");
+		fatal("pony: chroot");
 	if (chdir("/") == -1)
-		fatal("sessions: chdir(\"/\")");
+		fatal("pony: chdir(\"/\")");
 
-	config_process(PROC_SESSIONS);
+	config_process(PROC_PONY);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("sessions: cannot drop privileges");
+		fatal("pony: cannot drop privileges");
 
-	imsg_callback = sessions_imsg;
+
+	imsg_callback = pony_imsg;
 	event_init();
 
 	mda_postprivdrop();
 	smtp_postprivdrop();
 	mta_postprivdrop();
 
-	signal_set(&ev_sigint, SIGINT, sessions_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, sessions_sig_handler, NULL);
+	signal_set(&ev_sigint, SIGINT, pony_sig_handler, NULL);
+	signal_set(&ev_sigterm, SIGTERM, pony_sig_handler, NULL);
 	signal_add(&ev_sigint, NULL);
 	signal_add(&ev_sigterm, NULL);
 	signal(SIGPIPE, SIG_IGN);
@@ -213,7 +216,7 @@ sessions_process(void)
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
-	sessions_shutdown();
+	pony_shutdown();
 
 	return (0);
 }

@@ -299,7 +299,7 @@ enum smtp_proc_type {
 	PROC_QUEUE,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
-	PROC_SESSIONS,
+	PROC_PONY,
 
 	PROC_FILTER,
 	PROC_CLIENT,
@@ -977,7 +977,7 @@ extern struct mproc *p_lka;
 extern struct mproc *p_mfa;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
-extern struct mproc *p_sessions;
+extern struct mproc *p_pony;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);
@@ -1296,8 +1296,8 @@ void scheduler_info(struct scheduler_info *, struct envelope *);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
-/* sessions.c */
-pid_t sessions_process(void);
+/* pony.c */
+pid_t pony(void);
 
 
 /* smtp.c */

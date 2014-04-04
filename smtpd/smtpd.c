@@ -122,7 +122,7 @@ struct mproc	*p_mfa = NULL;
 struct mproc	*p_parent = NULL;
 struct mproc	*p_queue = NULL;
 struct mproc	*p_scheduler = NULL;
-struct mproc	*p_sessions = NULL;
+struct mproc	*p_pony = NULL;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
@@ -188,7 +188,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_SESSIONS) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 		case IMSG_MDA_FORK:
 			m_msg(&m, imsg);
@@ -237,7 +237,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_forward(p_lka, imsg);
 			m_forward(p_mfa, imsg);
 			m_forward(p_queue, imsg);
-			m_forward(p_sessions, imsg);
+			m_forward(p_pony, imsg);
 			return;
 
 		case IMSG_CTL_TRACE_ENABLE:
@@ -328,8 +328,8 @@ static void
 parent_send_config_sessions(void)
 {
 	log_debug("debug: parent_send_config: configuring sessions process");
-	m_compose(p_sessions, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-	m_compose(p_sessions, IMSG_CONF_END, 0, 0, -1, NULL, 0);
+	m_compose(p_pony, IMSG_CONF_START, 0, 0, -1, NULL, 0);
+	m_compose(p_pony, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
 void
@@ -414,11 +414,11 @@ parent_sig_handler(int sig, short event, void *p)
 				log_debug("debug: smtpd: mda process done "
 				    "for session %016"PRIx64 ": %s",
 				    child->mda_id, cause);
-				m_create(p_sessions, IMSG_MDA_DONE, 0, 0,
+				m_create(p_pony, IMSG_MDA_DONE, 0, 0,
 				    child->mda_out);
-				m_add_id(p_sessions, child->mda_id);
-				m_add_string(p_sessions, cause);
-				m_close(p_sessions);
+				m_add_id(p_pony, child->mda_id);
+				m_add_string(p_pony, cause);
+				m_close(p_pony);
 				/* free(cause); */
 				break;
 
@@ -661,7 +661,7 @@ main(int argc, char *argv[])
 	config_peer(PROC_LKA);
 	config_peer(PROC_MFA);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_SESSIONS);
+	config_peer(PROC_PONY);
 	config_done();
 
 	evtimer_set(&config_ev, parent_send_config, NULL);
@@ -727,7 +727,7 @@ fork_peers(void)
 	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
 	child_add(mfa(), CHILD_DAEMON, proc_title(PROC_MFA));
 	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
-	child_add(sessions_process(), CHILD_DAEMON, proc_title(PROC_SESSIONS));
+	child_add(pony(), CHILD_DAEMON, proc_title(PROC_PONY));
 	post_fork(PROC_PARENT);
 }
 
@@ -820,29 +820,29 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL) {
 		snprintf(ebuf, sizeof ebuf, "could not find delivery backend");
-		m_create(p_sessions, IMSG_MDA_DONE, 0, 0, -1);
-		m_add_id(p_sessions, id);
-		m_add_string(p_sessions, ebuf);
-		m_close(p_sessions);
+		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
+		m_add_id(p_pony, id);
+		m_add_string(p_pony, ebuf);
+		m_close(p_pony);
 		return;
 	}
 
 	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
 		snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
-		m_create(p_sessions, IMSG_MDA_DONE, 0, 0, -1);
-		m_add_id(p_sessions, id);
-		m_add_string(p_sessions, ebuf);
-		m_close(p_sessions);
+		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
+		m_add_id(p_pony, id);
+		m_add_string(p_pony, ebuf);
+		m_close(p_pony);
 		return;
 	}
 
 	if (pipe(pipefd) < 0) {
 		snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
-		m_create(p_sessions, IMSG_MDA_DONE, 0, 0, -1);
-		m_add_id(p_sessions, id);
-		m_add_string(p_sessions, ebuf);
-		m_close(p_sessions);
+		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
+		m_add_id(p_pony, id);
+		m_add_string(p_pony, ebuf);
+		m_close(p_pony);
 		return;
 	}
 
@@ -853,10 +853,10 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	umask(omode);
 	if (allout < 0) {
 		snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
-		m_create(p_sessions, IMSG_MDA_DONE, 0, 0, -1);
-		m_add_id(p_sessions, id);
-		m_add_string(p_sessions, ebuf);
-		m_close(p_sessions);
+		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
+		m_add_id(p_pony, id);
+		m_add_string(p_pony, ebuf);
+		m_close(p_pony);
 		close(pipefd[0]);
 		close(pipefd[1]);
 		return;
@@ -866,10 +866,10 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	pid = fork();
 	if (pid < 0) {
 		snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
-		m_create(p_sessions, IMSG_MDA_DONE, 0, 0, -1);
-		m_add_id(p_sessions, id);
-		m_add_string(p_sessions, ebuf);
-		m_close(p_sessions);
+		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
+		m_add_id(p_pony, id);
+		m_add_string(p_pony, ebuf);
+		m_close(p_pony);
 		close(pipefd[0]);
 		close(pipefd[1]);
 		close(allout);
@@ -1220,8 +1220,8 @@ proc_title(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
-	case PROC_SESSIONS:
-		return "sessions";
+	case PROC_PONY:
+		return "pony express";
 	default:
 		return "unknown";
 	}
@@ -1243,8 +1243,8 @@ proc_name(enum smtp_proc_type proc)
 		return "control";
 	case PROC_SCHEDULER:
 		return "scheduler";
-	case PROC_SESSIONS:
-		return "sessions";
+	case PROC_PONY:
+		return "pony";
 	case PROC_FILTER:
 		return "filter-proc";
 	case PROC_CLIENT:
@@ -1424,9 +1424,9 @@ parent_broadcast_verbose(uint32_t v)
 	m_add_int(p_lka, v);
 	m_close(p_lka);
 	
-	m_create(p_sessions, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_sessions, v);
-	m_close(p_sessions);
+	m_create(p_pony, IMSG_CTL_VERBOSE, 0, 0, -1);
+	m_add_int(p_pony, v);
+	m_close(p_pony);
 	
 	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_mfa, v);
@@ -1444,9 +1444,9 @@ parent_broadcast_profile(uint32_t v)
 	m_add_int(p_lka, v);
 	m_close(p_lka);
 	
-	m_create(p_sessions, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_sessions, v);
-	m_close(p_sessions);
+	m_create(p_pony, IMSG_CTL_PROFILE, 0, 0, -1);
+	m_add_int(p_pony, v);
+	m_close(p_pony);
 	
 	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_mfa, v);
