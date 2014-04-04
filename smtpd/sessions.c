@@ -121,7 +121,7 @@ sessions_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_MDA_OPEN_MESSAGE:
 	case IMSG_MDA_FORK:
 	case IMSG_MDA_DONE:
-		mta_imsg(p, imsg);
+		mda_imsg(p, imsg);
 		return;
 	default:
 		break;
