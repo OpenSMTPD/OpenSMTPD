@@ -7,9 +7,6 @@ ASRDIR=		/usr/src/lib/libc/asr
 TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T asr_run_sync" | cut -d ' ' -f 3
 .if ${TESTASR} != "asr_run_sync"
 NEED_ASR=	Yes
-ASRFLAGS=	-I${ASRDIR} -DASR_OPT_THREADSAFE=0
-.else
-ASRFLAGS=
 .endif
 
 # detect if libevent has event_asr_run
@@ -17,7 +14,6 @@ TESTEVENTASRRUN!=	nm `ls /usr/lib/libevent.so.* | sort | tail -1` | grep "T even
 .if ${TESTEVENTASRRUN} != "event_asr_run"
 NEED_EVENT_ASR_RUN=	Yes
 .endif
-
 
 PROG=		smtpd
 
@@ -101,6 +97,8 @@ SRCS+=		res_send_async.c
 SRCS+=		getaddrinfo_async.c
 SRCS+=		getnameinfo_async.c
 SRCS+=		res_search_async.c
+CFLAGS+=	-I${ASRDIR}
+CFLGAS+=	-DASR_OPT_THREADSAFE=0
 .endif
 
 .ifdef NEED_EVENT_ASR_RUN
@@ -113,7 +111,7 @@ BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
 DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
-CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. ${ASRFLAGS}
+CFLAGS+=	-g3 -ggdb -I${.CURDIR}/..
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
