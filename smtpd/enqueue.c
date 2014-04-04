@@ -187,9 +187,16 @@ send_header(FILE *fout, const char *line, size_t len)
 	pstate.wpos = len - 1;
 	msg.rcpts = NULL;
 	msg.rcpt_cnt = 0;
-	parse_addr_terminal(0);
-	for (i = 0; i < msg.rcpt_cnt; ++i)
-		send_line(fout, 0, "%s%s\n", msg.rcpts[i], i < msg.rcpt_cnt - 1 ? "," : "");
+
+	if (strncasecmp("From:", line, 5) == 0) {
+		parse_addr_terminal(1);
+		send_line(fout, 0, "%s\n", msg.from);
+	}
+	else {
+		parse_addr_terminal(0);
+		for (i = 0; i < msg.rcpt_cnt; ++i)
+			send_line(fout, 0, "%s%s\n", msg.rcpts[i], i < msg.rcpt_cnt - 1 ? "," : "");
+	}
 }
 
 int
