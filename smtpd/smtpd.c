@@ -609,7 +609,6 @@ main(int argc, char *argv[])
 
 	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
-	purge_task();
 
 	env->sc_stat = stat_backend_lookup(backend_stat);
 	if (env->sc_stat == NULL)
@@ -683,6 +682,8 @@ main(int argc, char *argv[])
 
 	if (pidfile(NULL) < 0)
 		err(1, "pidfile");
+
+	purge_task();
 
 	if (event_dispatch() < 0)
 		fatal("smtpd: event_dispatch");
