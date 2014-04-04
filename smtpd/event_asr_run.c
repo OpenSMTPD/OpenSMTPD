@@ -30,7 +30,7 @@ struct event_asr {
 };
 
 struct event_asr * event_asr_run(struct asr_query *,
-    void (*)(struct asr_result *, void *), void *)
+    void (*)(struct asr_result *, void *), void *);
 void event_asr_abort(struct event_asr *);
 
 static void
