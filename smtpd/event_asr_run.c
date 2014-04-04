@@ -29,6 +29,10 @@ struct event_asr {
 	void		*arg;
 };
 
+struct event_asr * event_asr_run(struct asr_query *,
+    void (*)(struct asr_result *, void *), void *)
+void event_asr_abort(struct event_asr *);
+
 static void
 event_asr_dispatch(int fd __attribute__((__unused__)),
     short ev __attribute__((__unused__)), void *arg)
