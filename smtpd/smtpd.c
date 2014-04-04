@@ -58,7 +58,7 @@ static void parent_shutdown(int);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
 static void parent_send_config_mfa(void);
-static void parent_send_config_sessions(void);
+static void parent_send_config_pony(void);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct mproc *, uint64_t, struct deliver *);
 static int parent_forward_open(char *, char *, uid_t, gid_t);
@@ -320,14 +320,14 @@ parent_send_config(int fd, short event, void *p)
 {
 	parent_send_config_lka();
 	parent_send_config_mfa();
-	parent_send_config_sessions();
+	parent_send_config_pony();
 	purge_config(PURGE_PKI);
 }
 
 static void
-parent_send_config_sessions(void)
+parent_send_config_pony(void)
 {
-	log_debug("debug: parent_send_config: configuring sessions process");
+	log_debug("debug: parent_send_config: configuring pony process");
 	m_compose(p_pony, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 	m_compose(p_pony, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }

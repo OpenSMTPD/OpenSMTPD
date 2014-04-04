@@ -31,7 +31,7 @@
 #define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
 
-#define PROC_COUNT		 8
+#define PROC_COUNT		 7
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
