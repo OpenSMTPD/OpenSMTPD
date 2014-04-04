@@ -740,7 +740,7 @@ mda_drain(void)
 				u->flags &= ~USER_ONHOLD;
 			}
 			if (u->flags & USER_HOLDQ) {
-				m_create(p_queue, IMSG_MDA_DELIVERY_RELEASE, 0, 0, -1);
+				m_create(p_queue, IMSG_MDA_HOLDQ_RELEASE, 0, 0, -1);
 				m_add_id(p_queue, u->id);
 				m_add_int(p_queue, env->sc_mda_task_release);
 				m_close(p_queue);
@@ -895,7 +895,7 @@ mda_user_free(struct mda_user *u)
 	tree_xpop(&users, u->id);
 
 	if (u->flags & USER_HOLDQ) {
-		m_create(p_queue, IMSG_MDA_DELIVERY_RELEASE, 0, 0, -1);
+		m_create(p_queue, IMSG_MDA_HOLDQ_RELEASE, 0, 0, -1);
 		m_add_id(p_queue, u->id);
 		m_add_int(p_queue, 0);
 		m_close(p_queue);

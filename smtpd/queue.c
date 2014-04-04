@@ -441,12 +441,17 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_MTA_DELIVERY_HOLD:
 		case IMSG_MDA_DELIVERY_HOLD:
-		case IMSG_MTA_SCHEDULE:
-			m_forward(p_scheduler, imsg); /* XXX  bogus */
+			imsg->hdr.type = IMSG_QUEUE_HOLDQ_RELEASE;
+			m_forward(p_scheduler, imsg);
 			return;
 
-		case IMSG_MTA_DELIVERY_RELEASE:
-		case IMSG_MDA_DELIVERY_RELEASE:
+		case IMSG_MTA_SCHEDULE:
+			imsg->hdr.type = IMSG_QUEUE_ENVELOPE_SCHEDULE;
+			m_forward(p_scheduler, imsg);
+			return;
+
+		case IMSG_MTA_HOLDQ_RELEASE:
+		case IMSG_MDA_HOLDQ_RELEASE:
 			m_msg(&m, imsg);
 			m_get_id(&m, &holdq);
 			m_get_int(&m, &v);

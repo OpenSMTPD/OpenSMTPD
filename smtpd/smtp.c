@@ -84,11 +84,11 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
+		case IMSG_SMTP_MESSAGE_COMMIT:
 		case IMSG_SMTP_MESSAGE_CREATE:
 		case IMSG_SMTP_MESSAGE_OPEN:
 		case IMSG_QUEUE_ENVELOPE_SUBMIT:
 		case IMSG_QUEUE_ENVELOPE_COMMIT:
-		case IMSG_QUEUE_MESSAGE_COMMIT:
 			smtp_session_imsg(p, imsg);
 			return;
 

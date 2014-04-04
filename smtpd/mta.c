@@ -763,14 +763,14 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 				relay->state &= ~RELAY_ONHOLD;
 			}
 			if (relay->state & RELAY_HOLDQ) {
-				m_create(p_queue, IMSG_MTA_DELIVERY_RELEASE, 0, 0, -1);
+				m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 				m_add_id(p_queue, relay->id);
 				m_add_int(p_queue, relay->limits->task_release);
 				m_close(p_queue);
 			}
 		}
 		else if (relay->ntask == 0 && relay->state & RELAY_HOLDQ) {
-			m_create(p_queue, IMSG_MTA_DELIVERY_RELEASE, 0, 0, -1);
+			m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 			m_add_id(p_queue, relay->id);
 			m_add_int(p_queue, 0);
 			m_close(p_queue);
@@ -1474,7 +1474,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 
 	/* release all waiting envelopes for the relay */
 	if (relay->state & RELAY_HOLDQ) {
-		m_create(p_queue, IMSG_MTA_DELIVERY_RELEASE, 0, 0, -1);
+		m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 		m_add_id(p_queue, relay->id);
 		m_add_int(p_queue, -1);
 		m_close(p_queue);
@@ -1781,7 +1781,7 @@ mta_relay_unref(struct mta_relay *relay)
 
 	/* Make sure they are no envelopes held for this relay */
 	if (relay->state & RELAY_HOLDQ) {
-		m_create(p_queue, IMSG_MTA_DELIVERY_RELEASE, 0, 0, -1);
+		m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 		m_add_id(p_queue, relay->id);
 		m_add_int(p_queue, 0);
 		m_close(p_queue);

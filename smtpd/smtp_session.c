@@ -496,7 +496,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
-	case IMSG_QUEUE_MESSAGE_COMMIT:
+	case IMSG_SMTP_MESSAGE_COMMIT:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &success);
