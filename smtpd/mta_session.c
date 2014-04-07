@@ -1604,6 +1604,7 @@ dsn_strnotify(uint8_t arg)
 	static char	buf[32];
 	size_t		sz;
 
+	buf[0] = '\0';
 	if (arg & DSN_SUCCESS)
 		strlcat(buf, "SUCCESS,", sizeof(buf));
 
