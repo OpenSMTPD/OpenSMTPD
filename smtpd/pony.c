@@ -39,13 +39,13 @@
 #include "smtpd.h"
 #include "log.h"
 
+void mda_imsg(struct mproc *, struct imsg *);
+void mta_imsg(struct mproc *, struct imsg *);
+void smtp_imsg(struct mproc *, struct imsg *);
+
 static void pony_imsg(struct mproc *, struct imsg *);
 static void pony_shutdown(void);
 static void pony_sig_handler(int, short, void *);
-
-void	mda_imsg(struct mproc *, struct imsg *);
-void	mta_imsg(struct mproc *, struct imsg *);
-void	smtp_imsg(struct mproc *, struct imsg *);
 
 static void
 pony_imsg(struct mproc *p, struct imsg *imsg)
@@ -169,8 +169,8 @@ pony(void)
 	}
 
 	mda_postfork();
-	smtp_postfork();
 	mta_postfork();
+	smtp_postfork();
 
 	/* do not purge listeners and pki, they are purged
 	 * in smtp_configure()
@@ -197,8 +197,8 @@ pony(void)
 	event_init();
 
 	mda_postprivdrop();
-	smtp_postprivdrop();
 	mta_postprivdrop();
+	smtp_postprivdrop();
 
 	signal_set(&ev_sigint, SIGINT, pony_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, pony_sig_handler, NULL);
