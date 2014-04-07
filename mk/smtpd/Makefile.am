@@ -85,12 +85,13 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 
 # resolver
 smtpd_SOURCES+=		$(asr_srcdir)/asr.c			\
-			$(asr_srcdir)/asr_debug.c			\
-			$(asr_srcdir)/asr_utils.c			\
+			$(asr_srcdir)/asr_debug.c		\
+			$(asr_srcdir)/asr_utils.c		\
+			$(asr_srcdir)/event_asr_run.c		\
 			$(asr_srcdir)/gethostnamadr_async.c	\
 			$(asr_srcdir)/res_send_async.c		\
-			$(asr_srcdir)/getaddrinfo_async.c		\
-			$(asr_srcdir)/getnameinfo_async.c		\
+			$(asr_srcdir)/getaddrinfo_async.c	\
+			$(asr_srcdir)/getnameinfo_async.c	\
 			$(asr_srcdir)/res_search_async.c
 
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
