@@ -676,8 +676,8 @@ table		: TABLE STRING STRING	{
 			}
 			table = table_create(backend, $2, NULL, config);
 			if (!table_config(table)) {
-				yyerror("invalid backend configuration for table %s",
-				    table->t_name);
+				yyerror("invalid configuration file %s for table %s",
+				    config, table->t_name);
 				free($2);
 				free($3);
 				YYERROR;

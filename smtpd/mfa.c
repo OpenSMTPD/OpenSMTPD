@@ -72,9 +72,9 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t		 datalen; /* XXX make it off_t? */
 	int			 v, success, fdout;
 
-	if (p->proc == PROC_SMTP) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_REQ_CONNECT:
+		case IMSG_SMTP_REQ_CONNECT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_sockaddr(&m, (struct sockaddr *)&local);
@@ -85,7 +85,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			    (struct sockaddr *)&remote, hostname);
 			return;
 
-		case IMSG_MFA_REQ_HELO:
+		case IMSG_SMTP_REQ_HELO:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &line);
@@ -93,7 +93,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_filter_line(reqid, HOOK_HELO, line);
 			return;
 
-		case IMSG_MFA_REQ_MAIL:
+		case IMSG_SMTP_REQ_MAIL:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_mailaddr(&m, &maddr);
@@ -101,7 +101,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_filter_mailaddr(reqid, HOOK_MAIL, &maddr);
 			return;
 
-		case IMSG_MFA_REQ_RCPT:
+		case IMSG_SMTP_REQ_RCPT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_mailaddr(&m, &maddr);
@@ -109,14 +109,14 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_filter_mailaddr(reqid, HOOK_RCPT, &maddr);
 			return;
 
-		case IMSG_MFA_REQ_DATA:
+		case IMSG_SMTP_REQ_DATA:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
 			mfa_filter(reqid, HOOK_DATA);
 			return;
 
-		case IMSG_MFA_REQ_EOM:
+		case IMSG_SMTP_REQ_EOM:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_u32(&m, &datalen);
@@ -124,28 +124,28 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			mfa_filter_eom(reqid, HOOK_EOM, datalen);
 			return;
 
-		case IMSG_MFA_EVENT_RSET:
+		case IMSG_SMTP_EVENT_RSET:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
 			mfa_filter_event(reqid, HOOK_RESET);
 			return;
 
-		case IMSG_MFA_EVENT_COMMIT:
+		case IMSG_SMTP_EVENT_COMMIT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
 			mfa_filter_event(reqid, HOOK_COMMIT);
 			return;
 
-		case IMSG_MFA_EVENT_ROLLBACK:
+		case IMSG_SMTP_EVENT_ROLLBACK:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
 			mfa_filter_event(reqid, HOOK_ROLLBACK);
 			return;
 
-		case IMSG_MFA_EVENT_DISCONNECT:
+		case IMSG_SMTP_EVENT_DISCONNECT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
@@ -156,7 +156,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
-		case IMSG_QUEUE_MESSAGE_FILE:
+		case IMSG_SMTP_MESSAGE_OPEN: /* XXX bogus */
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_int(&m, &success);
@@ -171,9 +171,6 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
-			return;
-
-		case IMSG_CONF_FILTER:
 			return;
 
 		case IMSG_CONF_END:
@@ -281,11 +278,11 @@ mfa(void)
 	signal(SIGHUP, SIG_IGN);
 
 	config_peer(PROC_PARENT);
-	config_peer(PROC_SMTP);
 	config_peer(PROC_CONTROL);
+	config_peer(PROC_PONY);
 	config_done();
 
-	mproc_disable(p_smtp);
+	mproc_disable(p_pony);
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -298,7 +295,7 @@ void
 mfa_ready(void)
 {
 	log_debug("debug: mfa ready");
-	mproc_enable(p_smtp);
+	mproc_enable(p_pony);
 }
 
 static int
@@ -388,12 +385,12 @@ mfa_tx_done(struct mfa_tx *tx)
 	if (tx->error) {
 		log_debug("debug: mfa: tx error");
 
-		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-		m_add_id(p_smtp, tx->reqid);
-		m_add_int(p_smtp, MFA_FAIL);
-		m_add_u32(p_smtp, 0);
-		m_add_string(p_smtp, "Internal server error");
-		m_close(p_smtp);
+		m_create(p_pony, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+		m_add_id(p_pony, tx->reqid);
+		m_add_int(p_pony, MFA_FAIL);
+		m_add_u32(p_pony, 0);
+		m_add_string(p_pony, "Internal server error");
+		m_close(p_pony);
 	}
 #if 0
 	else

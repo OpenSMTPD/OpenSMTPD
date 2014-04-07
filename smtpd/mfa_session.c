@@ -391,10 +391,10 @@ mfa_set_fdout(struct mfa_session *s, int fdout)
 
 	log_trace(TRACE_MFA, "mfa: chain input is %d", fdout);
 
-	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
-	m_add_id(p_smtp, s->id);
-	m_add_int(p_smtp, 1);
-	m_close(p_smtp);
+	m_create(p_pony, IMSG_SMTP_MESSAGE_OPEN, 0, 0, fdout); /* XXX bogus */
+	m_add_id(p_pony, s->id);
+	m_add_int(p_pony, 1);
+	m_close(p_pony);
 	return;
 }
 
@@ -497,13 +497,13 @@ mfa_drain_query(struct mfa_query *q)
 			m_close(&proc->mproc);
 		}
 
-		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-		m_add_id(p_smtp, q->session->id);
-		m_add_int(p_smtp, q->smtp.status);
-		m_add_u32(p_smtp, q->smtp.code);
+		m_create(p_pony, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+		m_add_id(p_pony, q->session->id);
+		m_add_int(p_pony, q->smtp.status);
+		m_add_u32(p_pony, q->smtp.code);
 		if (q->smtp.response)
-			m_add_string(p_smtp, q->smtp.response);
-		m_close(p_smtp);
+			m_add_string(p_pony, q->smtp.response);
+		m_close(p_pony);
 
 		free(q->smtp.response);
 	}
