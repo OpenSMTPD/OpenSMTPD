@@ -25,6 +25,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/envelope.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/event_asr_run.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
@@ -87,7 +88,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 smtpd_SOURCES+=		$(asr_srcdir)/asr.c			\
 			$(asr_srcdir)/asr_debug.c		\
 			$(asr_srcdir)/asr_utils.c		\
-			$(asr_srcdir)/event_asr_run.c		\
 			$(asr_srcdir)/gethostnamadr_async.c	\
 			$(asr_srcdir)/res_send_async.c		\
 			$(asr_srcdir)/getaddrinfo_async.c	\
