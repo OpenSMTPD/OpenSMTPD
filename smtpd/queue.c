@@ -441,7 +441,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_MTA_DELIVERY_HOLD:
 		case IMSG_MDA_DELIVERY_HOLD:
-			imsg->hdr.type = IMSG_QUEUE_HOLDQ_RELEASE;
+			imsg->hdr.type = IMSG_QUEUE_HOLDQ_HOLD;
 			m_forward(p_scheduler, imsg);
 			return;
 
