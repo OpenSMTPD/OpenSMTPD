@@ -5,7 +5,7 @@ pkglibexec_PROGRAMS	 = filter-dnsbl
 
 filter_dnsbl_SOURCES	 = $(SRCS)
 filter_dnsbl_SOURCES	+= $(filters_srcdir)/filter_dnsbl.c
-filter_dnsbl_SOURCES	+= $(filters_srcdir)/asr_event.c
+filter_dnsbl_SOURCES	+= $(smtpd_srcdir)/event_asr_run.c
 
 filter_dnsbl_SOURCES	+= $(asr_srcdir)/asr.c
 filter_dnsbl_SOURCES	+= $(asr_srcdir)/asr_debug.c
