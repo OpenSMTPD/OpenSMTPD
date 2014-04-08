@@ -17,17 +17,25 @@
  */
  
 #include <sys/types.h>
+#include <sys/socket.h>
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <event.h>
+#include <asr.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "log.h"
-#include "asr_event.h"
-#include "asr.h"
+
+#if NEED_EVENT_ASR_RUN
+struct event_asr;
+struct event_asr * event_asr_run(struct asr_query *,
+    void (*)(struct asr_result *, void *), void *);
+void event_asr_abort(struct event_asr *);
+#endif
 
 const char * dnsbl_host = "dnsbl.sorbs.net";
 
@@ -81,8 +89,8 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	as = getaddrinfo_async(buf, NULL, &hints, NULL);
-	if (as == NULL) {
+	aq = getaddrinfo_async(buf, NULL, &hints, NULL);
+	if (aq == NULL) {
 		log_warn("filter-dnsbl: getaddrinfo_async");
 		free(q);
 		return filter_api_reject(id, FILTER_FAIL);

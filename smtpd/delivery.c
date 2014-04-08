@@ -54,8 +54,7 @@ delivery_backend_lookup(enum action_type type)
 	case A_LMTP:
 		return &delivery_backend_lmtp;
 	default:
-		fatal("unsupported delivery_backend type");
+		break;
 	}
-
 	return NULL;
 }
