@@ -415,7 +415,7 @@ filter_api_init(void)
 	event_init();
 
 	memset(&fi, 0, sizeof(fi));
-	fi.p.proc = PROC_MFA;
+	fi.p.proc = PROC_PONY;
 	fi.p.name = "filter";
 	fi.p.handler = filter_dispatch;
 	fi.uid = pw->pw_uid;

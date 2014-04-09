@@ -283,7 +283,6 @@ control(void)
 
 	config_peer(PROC_SCHEDULER);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_MFA);
 	config_peer(PROC_PARENT);
 	config_peer(PROC_LKA);
 	config_peer(PROC_PONY);
