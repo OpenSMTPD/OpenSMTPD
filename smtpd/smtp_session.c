@@ -1041,7 +1041,7 @@ smtp_data_io_done(struct smtp_session *s)
 		m_add_id(p_mfa, s->id);
 		m_close(p_mfa);
 
-		m_create(p_queue, IMSG_QUEUE_REMOVE_MESSAGE, 0, 0, -1);
+		m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
 		if (s->msgflags & MF_ERROR_SIZE)
@@ -1057,11 +1057,11 @@ smtp_data_io_done(struct smtp_session *s)
 		io_reload(&s->io);
 	}
 	else {
-		m_create(p_mfa, IMSG_MFA_REQ_EOM, 0, 0, -1);
+		m_create(p_mfa, IMSG_SMTP_REQ_EOM, 0, 0, -1);
 		m_add_id(p_mfa, s->id);
 		m_add_u32(p_mfa, s->datalen);
 		m_close(p_mfa);
-		smtp_wait_mfa(s, IMSG_MFA_REQ_EOM);
+		smtp_wait_mfa(s, IMSG_SMTP_REQ_EOM);
 	}
 }
 

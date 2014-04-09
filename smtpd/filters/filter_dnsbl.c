@@ -60,7 +60,7 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	struct addrinfo		 hints;
 	struct sockaddr_in	*sain;
 	in_addr_t		 in_addr;
-	struct asr_query	*as;
+	struct asr_query	*aq;
 	uint64_t		*q;
 	char			 buf[512];
 
@@ -98,7 +98,7 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 
 	log_debug("debug: filter-dnsbl: checking %s", buf);
 
-	async_run_event(as, dnsbl_event_dispatch, q);
+	event_asr_run(aq, dnsbl_event_dispatch, q);
 	return 1;
 }
 
