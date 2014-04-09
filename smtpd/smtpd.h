@@ -46,7 +46,6 @@
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
 #define	SMTPD_VERSION		 "5.4.3"
-#define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
