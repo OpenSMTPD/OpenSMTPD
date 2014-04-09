@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.80 2014/04/05 13:43:16 gilles Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
