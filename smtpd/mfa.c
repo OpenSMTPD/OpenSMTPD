@@ -397,12 +397,12 @@ mfa_tx_done(struct mfa_tx *tx)
 	}
 	else {
 		/* XXX we could send the commit message here directly */
-		m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-		m_add_id(p_smtp, tx->reqid);
-		m_add_int(p_smtp, MFA_OK);
-		m_add_u32(p_smtp, 300);
-		m_add_string(p_smtp, "This is not to be sent to the client");
-		m_close(p_smtp);
+		m_create(p_pony, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+		m_add_id(p_pony, tx->reqid);
+		m_add_int(p_pony, MFA_OK);
+		m_add_u32(p_pony, 300);
+		m_add_string(p_pony, "This is not to be sent to the client");
+		m_close(p_pony);
 	}
 
 	free(tx);

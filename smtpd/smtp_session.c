@@ -803,7 +803,7 @@ smtp_mfa_response(struct smtp_session *s, int status, uint32_t code,
 		}
 
 		s->phase = PHASE_SETUP;
-		m_create(p_queue, IMSG_QUEUE_COMMIT_MESSAGE, 0, 0, -1);
+		m_create(p_queue, IMSG_SMTP_MESSAGE_COMMIT, 0, 0, -1);
 		m_add_id(p_queue, s->id);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
@@ -1037,7 +1037,7 @@ smtp_data_io_done(struct smtp_session *s)
 	if (s->msgflags & MF_ERROR) {
 
 		/* Notify the mfa */
-		m_create(p_mfa, IMSG_MFA_EVENT_ROLLBACK, 0, 0, -1);
+		m_create(p_mfa, IMSG_SMTP_EVENT_ROLLBACK, 0, 0, -1);
 		m_add_id(p_mfa, s->id);
 		m_close(p_mfa);
 

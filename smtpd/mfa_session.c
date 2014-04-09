@@ -496,13 +496,13 @@ mfa_drain_query(struct mfa_query *q)
 			mfa_report_eom(q->session->id, q->u.datalen);
 		}
 		else {
-			m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-			m_add_id(p_smtp, q->session->id);
-			m_add_int(p_smtp, q->smtp.status);
-			m_add_u32(p_smtp, q->smtp.code);
+			m_create(p_pony, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
+			m_add_id(p_pony, q->session->id);
+			m_add_int(p_pony, q->smtp.status);
+			m_add_u32(p_pony, q->smtp.code);
 			if (q->smtp.response)
-				m_add_string(p_smtp, q->smtp.response);
-			m_close(p_smtp);
+				m_add_string(p_pony, q->smtp.response);
+			m_close(p_pony);
 		}
 		free(q->smtp.response);
 	}
