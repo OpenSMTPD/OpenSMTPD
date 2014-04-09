@@ -139,20 +139,16 @@ config_peer(enum smtp_proc_type proc)
 		p_control = p;
 	else if (proc == PROC_LKA)
 		p_lka = p;
-	else if (proc == PROC_MDA)
-		p_mda = p;
 	else if (proc == PROC_MFA)
 		p_mfa = p;
-	else if (proc == PROC_MTA)
-		p_mta = p;
 	else if (proc == PROC_PARENT)
 		p_parent = p;
 	else if (proc == PROC_QUEUE)
 		p_queue = p;
 	else if (proc == PROC_SCHEDULER)
 		p_scheduler = p;
-	else if (proc == PROC_SMTP)
-		p_smtp = p;
+	else if (proc == PROC_PONY)
+		p_pony = p;
 	else
 		fatalx("bad peer");
 }
@@ -213,13 +209,11 @@ process_stat_event(int fd, short ev, void *arg)
 
 	process_stat(p_control);
 	process_stat(p_lka);
-	process_stat(p_mda);
 	process_stat(p_mfa);
-	process_stat(p_mda);
 	process_stat(p_parent);
 	process_stat(p_queue);
 	process_stat(p_scheduler);
-	process_stat(p_smtp);
+	process_stat(p_pony);
 
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;

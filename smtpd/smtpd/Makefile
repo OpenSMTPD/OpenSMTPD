@@ -1,11 +1,18 @@
 #	$OpenBSD$
 
-.PATH:		${.CURDIR}/.. /usr/src/lib/libc/asr
+ASRDIR=		/usr/src/lib/libc/asr
+.PATH:		${.CURDIR}/.. ${ASRDIR}
 
 # detect if asr is built in libc
-TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T asr_unpack_rr" | cut -d ' ' -f 3
-.if ${TESTASR} != "asr_unpack_rr"
+TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T asr_run_sync" | cut -d ' ' -f 3
+.if ${TESTASR} != "asr_run_sync"
 NEED_ASR=	Yes
+.endif
+
+# detect if libevent has event_asr_run
+TESTEVENTASRRUN!=	nm `ls /usr/lib/libevent.so.* | sort | tail -1` | grep "T event_asr_run" | cut -d ' ' -f 3
+.if ${TESTEVENTASRRUN} != "event_asr_run"
+NEED_EVENT_ASR_RUN=	Yes
 .endif
 
 PROG=		smtpd
@@ -22,6 +29,7 @@ SRCS+=		dict.c
 SRCS+=		dns.c
 SRCS+=		envelope.c
 SRCS+=		esc.c
+SRCS+=		event_asr_run.c
 SRCS+=		expand.c
 SRCS+=		forward.c
 SRCS+=		iobuf.c
@@ -37,6 +45,7 @@ SRCS+=		mproc.c
 SRCS+=		mta.c
 SRCS+=		mta_session.c
 SRCS+=		parse.y
+SRCS+=		pony.c
 SRCS+=		queue.c
 SRCS+=		queue_backend.c
 SRCS+=		ruleset.c
@@ -90,6 +99,13 @@ SRCS+=		res_send_async.c
 SRCS+=		getaddrinfo_async.c
 SRCS+=		getnameinfo_async.c
 SRCS+=		res_search_async.c
+CFLAGS+=	-I${ASRDIR}
+CFLAGS+=	-DASR_OPT_THREADSAFE=0
+.endif
+
+.ifdef NEED_EVENT_ASR_RUN
+SRCS+=		event_asr_run.c
+CFLAGS+=	-DNEED_EVENT_ASR_RUN
 .endif
 
 MAN=		smtpd.8 smtpd.conf.5 table.5
@@ -97,7 +113,7 @@ BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
 DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
-CFLAGS+=	-g3 -ggdb -I${.CURDIR}/.. -I/usr/src/lib/libc/asr
+CFLAGS+=	-g3 -ggdb -I${.CURDIR}/..
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
@@ -105,9 +121,6 @@ CFLAGS+=	-Wsign-compare -Wbounded
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
 CFLAGS+=	-DQUEUE_PROFILING
-.ifdef NEED_ASR
-CFLAGS+=	-DASR_OPT_THREADSAFE=0
-.endif
 YFLAGS=
 
 .include <bsd.prog.mk>
