@@ -534,13 +534,8 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 			ret = -1;
 		break;
 	case K_USERINFO:
-<<<<<<< HEAD
 		if (snprintf(dst, sz, "%s:%s:%s", res[0][0], res[1][0],
-		    res[2][0]) >= (int)sz)
-=======
-		if (snprintf(dst, sz, "%d:%d:%s", res[0][0], res[1][0],
 			res[2][0]) >= (int)sz)
->>>>>>> 7b10ce7... since format change, do not go one step beyond result
 			ret = -1;
 		break;
 	}
