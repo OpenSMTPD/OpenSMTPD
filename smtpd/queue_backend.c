@@ -322,7 +322,9 @@ queue_message_fd_r(uint32_t msgid)
 			goto err;
 
 		fclose(ifp);
+		ifp = NULL;
 		fclose(ofp);
+		ofp = NULL;
 		lseek(fdin, SEEK_SET, 0);
 	}
 #endif
@@ -343,7 +345,9 @@ queue_message_fd_r(uint32_t msgid)
 			goto err;
 
 		fclose(ifp);
+		ifp = NULL;
 		fclose(ofp);
+		ofp = NULL;
 		lseek(fdin, SEEK_SET, 0);
 	}
 
