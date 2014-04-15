@@ -71,6 +71,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
+<<<<<<< HEAD
 	if (p->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
 		case IMSG_MFA_SMTP_RESPONSE:
@@ -80,6 +81,8 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
+=======
+>>>>>>> branch-opensmtpd-5.4.3
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_MESSAGE_COMMIT:

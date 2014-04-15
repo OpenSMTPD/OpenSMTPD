@@ -209,7 +209,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = lka_authenticate(tablename, username, password);
 
-			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1);
+			m_create(p, IMSG_SMTP_AUTHENTICATE, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			m_close(p);
@@ -413,6 +413,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
+			imsg->hdr.type = IMSG_SMTP_AUTHENTICATE;
 			m_forward(p_pony, imsg);
 			return;
 		}

@@ -176,6 +176,81 @@ filter_send_response(struct filter_session *s)
 	s->response.ready = 0;
 }
 
+<<<<<<< HEAD
+=======
+void
+filter_api_setugid(uid_t uid, gid_t gid)
+{
+	filter_api_init();
+
+	if (! uid) {
+		log_warn("warn: filter-api:%s: can't set uid 0", filter_name);
+		fatalx("filter-api: exiting");
+	}
+	if (! gid) {
+		log_warn("warn: filter-api:%s: can't set gid 0", filter_name);
+		fatalx("filter-api: exiting");
+	}
+	fi.uid = uid;
+	fi.gid = gid;
+}
+
+void
+filter_api_no_chroot(void)
+{
+	filter_api_init();
+
+	fi.rootpath = NULL;
+}
+
+void
+filter_api_set_chroot(const char *rootpath)
+{
+	filter_api_init();
+
+	fi.rootpath = rootpath;
+}
+
+static void
+filter_api_init(void)
+{
+	extern const char *__progname;
+	struct passwd  *pw;
+	static int	init = 0;
+
+	if (init)
+		return;
+
+	init = 1;
+
+	log_init(-1);
+	log_verbose(1);
+
+	pw = getpwnam(SMTPD_USER);
+	if (pw == NULL) {
+		log_warn("warn: filter-api:%s: getpwnam", filter_name);
+		fatalx("filter-api: exiting");
+	}
+
+	smtpd_process = PROC_FILTER;
+	filter_name = __progname;
+
+	tree_init(&queries);
+	tree_init(&sessions);
+	event_init();
+
+	memset(&fi, 0, sizeof(fi));
+	fi.p.proc = PROC_PONY;
+	fi.p.name = "filter";
+	fi.p.handler = filter_dispatch;
+	fi.uid = pw->pw_uid;
+	fi.gid = pw->pw_gid;
+	fi.rootpath = PATH_CHROOT;
+	
+	mproc_init(&fi.p, 0);
+}
+
+>>>>>>> branch-opensmtpd-5.4.3
 static void
 filter_dispatch(struct mproc *p, struct imsg *imsg)
 {
