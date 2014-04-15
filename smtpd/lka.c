@@ -413,6 +413,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_LKA_AUTHENTICATE:
+			imsg->hdr.type = IMSG_SMTP_AUTHENTICATE;
 			m_forward(p_pony, imsg);
 			return;
 		}

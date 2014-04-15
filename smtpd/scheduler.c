@@ -300,7 +300,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		    0, -1, NULL, 0);
 		return;
 
-	case IMSG_MTA_SCHEDULE:
+	case IMSG_QUEUE_ENVELOPE_SCHEDULE:
 		id = *(uint64_t *)(imsg->data);
 		backend->schedule(id);
 		scheduler_reset_events();

@@ -31,7 +31,7 @@
 #define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
 
-#define PROC_COUNT		 7
+#define PROC_COUNT		 6
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
@@ -46,7 +46,6 @@
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
 #define	SMTPD_VERSION		 "5.4.3"
-#define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -294,7 +293,6 @@ enum blockmodes {
 
 enum smtp_proc_type {
 	PROC_PARENT = 0,
-	PROC_MFA,
 	PROC_LKA,
 	PROC_QUEUE,
 	PROC_CONTROL,
@@ -974,7 +972,6 @@ extern int profiling;
 extern struct mproc *p_control;
 extern struct mproc *p_parent;
 extern struct mproc *p_lka;
-extern struct mproc *p_mfa;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_pony;
