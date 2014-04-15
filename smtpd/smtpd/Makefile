@@ -29,6 +29,7 @@ SRCS+=		dict.c
 SRCS+=		dns.c
 SRCS+=		envelope.c
 SRCS+=		esc.c
+SRCS+=		event_asr_run.c
 SRCS+=		expand.c
 SRCS+=		forward.c
 SRCS+=		iobuf.c

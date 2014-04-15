@@ -67,7 +67,7 @@
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#define	SMTPD_VERSION		 "5.4.3p1"
+#define	SMTPD_VERSION		 "portable"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -412,6 +412,7 @@ struct rule {
 	struct table		       *r_userbase;
 	time_t				r_qexpire;
 	uint8_t				r_forwardonly;
+	char				r_delivery_user[SMTPD_MAXLOGNAME];
 };
 
 struct delivery_mda {
@@ -419,6 +420,7 @@ struct delivery_mda {
 	char			usertable[SMTPD_MAXPATHLEN];
 	char			username[SMTPD_MAXLOGNAME];
 	char			buffer[EXPAND_BUFFER];
+	char			delivery_user[SMTPD_MAXLOGNAME];
 };
 
 struct delivery_mta {

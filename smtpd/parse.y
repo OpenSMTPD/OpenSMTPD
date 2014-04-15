@@ -823,6 +823,15 @@ userbase	: USERBASE tables	{
 		}
 		;
 
+deliver_as	: AS STRING		{
+			if (strlcpy(rule->r_delivery_user, $2, sizeof(rule->r_delivery_user))
+			    >= sizeof(rule->r_delivery_user))
+				fatal("username too long");
+			free($2);
+		}
+		| /* empty */		{ }
+		;
+
 deliver_action	: DELIVER TO MAILDIR			{
 			rule->r_action = A_MAILDIR;
 			if (strlcpy(rule->r_value.buffer, "~/Maildir",
@@ -838,7 +847,14 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 			free($4);
 		}
-		| DELIVER TO LMTP STRING		{
+		| DELIVER TO MBOX			{
+			rule->r_action = A_MBOX;
+			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
+			    sizeof(rule->r_value.buffer))
+			    >= sizeof(rule->r_value.buffer))
+				fatal("pathname too long");
+		}
+		| DELIVER TO LMTP STRING deliver_as	{
 			rule->r_action = A_LMTP;
 			if (strchr($4, ':') || $4[0] == '/') {
 				if (strlcpy(rule->r_value.buffer, $4,
@@ -849,14 +865,7 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("invalid lmtp destination");
 			free($4);
 		}
-		| DELIVER TO MBOX			{
-			rule->r_action = A_MBOX;
-			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
-			    sizeof(rule->r_value.buffer))
-			    >= sizeof(rule->r_value.buffer))
-				fatal("pathname too long");
-		}
-		| DELIVER TO MDA STRING	       	{
+		| DELIVER TO MDA STRING deliver_as   	{
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))

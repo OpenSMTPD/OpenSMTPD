@@ -276,13 +276,22 @@ function.
 .Pp
 Finally, the method of delivery is specified:
 .Bl -tag -width Ds
-.It Ic deliver to lmtp Op Ar host : Ns Ar port | socket
+.It Xo
+.Ic deliver to lmtp
+.Op Ar host : Ns Ar port | socket
+.Op Ic as Ar user
+.Xc
 Mail is delivered to
 .Ar host : Ns Ar port ,
 or to the
 .Ux
 .Ar socket
 over LMTP.
+.Pp
+If
+.Ar as
+is specified, the delivery will be performed by the specified unprivileged
+.Ar user .
 .It Ic deliver to maildir Ar path
 Mail is added to a maildir.
 Its location,
@@ -297,12 +306,21 @@ is assumed.
 .It Ic deliver to mbox
 Mail is delivered to the local user's system mailbox in
 .Pa /var/mail .
-.It Ic deliver to mda Ar program
+.It Xo
+.Ic deliver to mda
+.Ar program
+.Op Ic as Ar user
+.Xc
 Mail is piped to the specified
 .Ar program ,
 which is run with the privileges of the user the message is destined to.
 This parameter may use conversion specifiers that are expanded before use
 .Pq see Sx FORMAT SPECIFIERS .
+.Pp
+If
+.Ar as
+is specified, the delivery will be performed by the specified unprivileged
+.Ar user .
 .It Xo
 .Ic relay
 .Op Ic backup Op Ar mx
