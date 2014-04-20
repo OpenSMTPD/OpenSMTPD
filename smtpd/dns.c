@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: dns.c,v 1.78 2014/04/19 12:26:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -63,13 +63,6 @@ static void dns_dispatch_host(struct asr_result *, void *);
 static void dns_dispatch_ptr(struct asr_result *, void *);
 static void dns_dispatch_mx(struct asr_result *, void *);
 static void dns_dispatch_mx_preference(struct asr_result *, void *);
-
-#if NEED_EVENT_ASR_RUN
-struct event_asr;
-struct event_asr * event_asr_run(struct asr_query *,
-    void (*)(struct asr_result *, void *), void *);
-void event_asr_abort(struct event_asr *);
-#endif
 
 struct unpack {
 	const char	*buf;
@@ -234,7 +227,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_MTA_DNS_MX:
 		m_get_string(&m, &domain);
 		m_end(&m);
-		strlcpy(s->name, domain, sizeof(s->name));
+		(void)strlcpy(s->name, domain, sizeof(s->name));
 
 		sa = (struct sockaddr *)&ss;
 		sl = sizeof(ss);
@@ -272,7 +265,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &domain);
 		m_get_string(&m, &mx);
 		m_end(&m);
-		strlcpy(s->name, mx, sizeof(s->name));
+		(void)strlcpy(s->name, mx, sizeof(s->name));
 
 		sa = (struct sockaddr *)&ss;
 		sl = sizeof(ss);
@@ -469,7 +462,7 @@ print_dname(const char *_dname, char *buf, size_t max)
 	size_t   left, n, count;
 
 	if (_dname[0] == 0) {
-		strlcpy(buf, ".", max);
+		(void)strlcpy(buf, ".", max);
 		return buf;
 	}
 
