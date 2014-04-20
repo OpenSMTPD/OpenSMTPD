@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtp_session.c,v 1.207 2014/04/19 17:04:42 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -265,7 +265,7 @@ smtp_session(struct listener *listener, int sock,
 	s->state = STATE_NEW;
 	s->phase = PHASE_INIT;
 
-	strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));
+	(void)strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));
 
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
@@ -273,7 +273,7 @@ smtp_session(struct listener *listener, int sock,
 		/* A bit of a hack */
 		if (!strcmp(hostname, "localhost"))
 			s->flags |= SF_BOUNCE;
-		strlcpy(s->hostname, hostname, sizeof(s->hostname));
+		(void)strlcpy(s->hostname, hostname, sizeof(s->hostname));
 		if (smtp_lookup_servername(s))
 			smtp_connected(s);
 	} else {
@@ -315,7 +315,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &line);
 		m_end(&m);
 		s = tree_xpop(&wait_lka_ptr, reqid);
-		strlcpy(s->hostname, line, sizeof s->hostname);
+		(void)strlcpy(s->hostname, line, sizeof s->hostname);
 		if (smtp_lookup_servername(s))
 			smtp_connected(s);
 		return;
@@ -352,7 +352,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_int(&m, &status);
 		if (status == LKA_OK) {
 			m_get_string(&m, &helo);
-			strlcpy(s->smtpname, helo, sizeof(s->smtpname));
+			(void)strlcpy(s->smtpname, helo, sizeof(s->smtpname));
 		}
 		m_end(&m);
 		smtp_connected(s);
@@ -658,10 +658,10 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		if (s->listener->flags & F_SMTPS) {
 			req_ca_cert.reqid = s->id;
 			if (s->listener->pki_name[0])
-				strlcpy(req_ca_cert.name, s->listener->pki_name,
+				(void)strlcpy(req_ca_cert.name, s->listener->pki_name,
 				    sizeof req_ca_cert.name);
 			else
-				strlcpy(req_ca_cert.name, s->smtpname,
+				(void)strlcpy(req_ca_cert.name, s->smtpname,
 				    sizeof req_ca_cert.name);
 			m_compose(p_lka, IMSG_SMTP_SSL_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
@@ -886,7 +886,7 @@ smtp_io(struct io *io, int evt)
 		}
 
 		/* Must be a command */
-		strlcpy(s->cmd, line, sizeof s->cmd);
+		(void)strlcpy(s->cmd, line, sizeof s->cmd);
 		io_set_write(io);
 		smtp_command(s, line);
 		iobuf_normalize(&s->iobuf);
@@ -905,10 +905,10 @@ smtp_io(struct io *io, int evt)
 		if (s->state == STATE_TLS) {
 			req_ca_cert.reqid = s->id;
 			if (s->listener->pki_name[0])
-				strlcpy(req_ca_cert.name, s->listener->pki_name,
+				(void)strlcpy(req_ca_cert.name, s->listener->pki_name,
 				    sizeof req_ca_cert.name);
 			else
-				strlcpy(req_ca_cert.name, s->smtpname,
+				(void)strlcpy(req_ca_cert.name, s->smtpname,
 				    sizeof req_ca_cert.name);
 			m_compose(p_lka, IMSG_SMTP_SSL_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
@@ -1021,7 +1021,7 @@ smtp_command(struct smtp_session *s, char *line)
 			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
 			break;
 		}
-		strlcpy(s->helo, args, sizeof(s->helo));
+		(void)strlcpy(s->helo, args, sizeof(s->helo));
 		s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
 		if (cmd == CMD_EHLO) {
 			s->flags |= SF_EHLO;
@@ -1459,7 +1459,13 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 				s->evp.dsn_ret = DSN_RETFULL;
 		} else if (strncasecmp(b, "ENVID=", 6) == 0) {
 			b += 6;
-			strlcpy(s->evp.dsn_envid, b, sizeof(s->evp.dsn_envid));
+			if (strlcpy(s->evp.dsn_envid, b, sizeof(s->evp.dsn_envid))
+			    >= sizeof(s->evp.dsn_envid)) {
+				smtp_reply(s, "503 %s %s: option too large, truncated: %s",
+				    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+				    esc_description(ESC_INVALID_COMMAND_ARGUMENTS), b);
+				return (-1);
+			}
 		} else {
 			smtp_reply(s, "503 %s %s: Unsupported option %s",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
@@ -1613,10 +1619,10 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 
 	if (prepare) {
 		s->evp.ss = s->ss;
-		strlcpy(s->evp.tag, s->listener->tag, sizeof(s->evp.tag));
-		strlcpy(s->evp.smtpname, s->smtpname, sizeof(s->evp.smtpname));
-		strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
-		strlcpy(s->evp.helo, s->helo, sizeof s->evp.helo);
+		(void)strlcpy(s->evp.tag, s->listener->tag, sizeof(s->evp.tag));
+		(void)strlcpy(s->evp.smtpname, s->smtpname, sizeof(s->evp.smtpname));
+		(void)strlcpy(s->evp.hostname, s->hostname, sizeof s->evp.hostname);
+		(void)strlcpy(s->evp.helo, s->helo, sizeof s->evp.helo);
 
 		if (s->flags & SF_BOUNCE)
 			s->evp.flags |= EF_BOUNCE;
@@ -1951,7 +1957,7 @@ smtp_strstate(int state)
 	CASE(STATE_BODY);
 	CASE(STATE_QUIT);
 	default:
-		snprintf(buf, sizeof(buf), "STATE_??? (%d)", state);
+		(void)snprintf(buf, sizeof(buf), "STATE_??? (%d)", state);
 		return (buf);
 	}
 }
