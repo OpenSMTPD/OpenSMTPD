@@ -319,9 +319,9 @@ srv_iter_evpids(uint32_t msgid, uint64_t *evpid, int *offset)
 
 	if (evpids == NULL) {
 		alloc = 1000;
-		evpids = malloc(alloc * sizeof(*evpids));
+		evpids = calloc(alloc, sizeof(*evpids));
 		if (evpids == NULL)
-			err(1, "malloc");
+			err(1, "calloc");
 	}
 
 	if (*offset == 0) {
