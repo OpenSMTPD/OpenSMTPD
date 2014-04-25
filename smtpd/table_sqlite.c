@@ -389,7 +389,6 @@ table_sqlite_check(int service, const char *key)
 	if (r == SQLITE_DONE)
 		return (0);
 
-	return (-1);
 }
 
 static int
