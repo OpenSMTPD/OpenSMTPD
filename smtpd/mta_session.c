@@ -872,6 +872,11 @@ mta_response(struct mta_session *s, char *line)
 	switch (s->state) {
 
 	case MTA_BANNER:
+		if (line[0] != '2') {
+			mta_error(s, "BANNER rejected: %s", line);
+			s->flags |= MTA_FREE;
+			return;
+		}
 		if (s->flags & MTA_LMTP)
 			mta_enter_state(s, MTA_LHLO);
 		else
