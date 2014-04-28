@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: mta_session.c,v 1.60 2014/04/19 13:35:51 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -503,7 +503,7 @@ mta_connect(struct mta_session *s)
 		else if (s->relay->heloname)
 			s->helo = xstrdup(s->relay->heloname, "mta_connect");
 		else
-			s->helo = xstrdup(env->hostname, "mta_connect");
+			s->helo = xstrdup(env->sc_hostname, "mta_connect");
 	}
 
 	io_clear(&s->io);
@@ -870,6 +870,11 @@ mta_response(struct mta_session *s, char *line)
 	switch (s->state) {
 
 	case MTA_BANNER:
+		if (line[0] != '2') {
+			mta_error(s, "BANNER rejected: %s", line);
+			s->flags |= MTA_FREE;
+			return;
+		}
 		if (s->flags & MTA_LMTP)
 			mta_enter_state(s, MTA_LHLO);
 		else
@@ -1007,7 +1012,7 @@ mta_response(struct mta_session *s, char *line)
 			stat_decrement("mta.envelope", 1);
 
 			/* log right away */
-			snprintf(buf, sizeof(buf), "%s",
+			(void)snprintf(buf, sizeof(buf), "%s",
 			    mta_host_to_text(s->route->dst));
 
 			e->session = s->id;
@@ -1353,7 +1358,7 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 	socklen_t		 sa_len;
 	const char		*domain;
 
-	snprintf(relay, sizeof relay, "%s", mta_host_to_text(s->route->dst));
+	(void)snprintf(relay, sizeof relay, "%s", mta_host_to_text(s->route->dst));
 	n = 0;
 	while ((e = TAILQ_FIRST(&s->task->envelopes))) {
 
@@ -1500,7 +1505,7 @@ mta_start_tls(struct mta_session *s)
 		certname = s->helo;
 
 	req_ca_cert.reqid = s->id;
-	strlcpy(req_ca_cert.name, certname, sizeof req_ca_cert.name);
+	(void)strlcpy(req_ca_cert.name, certname, sizeof req_ca_cert.name);
 	m_compose(p_lka, IMSG_MTA_SSL_INIT, 0, 0, -1,
 	    &req_ca_cert, sizeof(req_ca_cert));
 	tree_xset(&wait_ssl_init, s->id, s);
@@ -1604,16 +1609,16 @@ dsn_strnotify(uint8_t arg)
 
 	buf[0] = '\0';
 	if (arg & DSN_SUCCESS)
-		strlcat(buf, "SUCCESS,", sizeof(buf));
+		(void)strlcat(buf, "SUCCESS,", sizeof(buf));
 
 	if (arg & DSN_FAILURE)
-		strlcat(buf, "FAILURE,", sizeof(buf));
+		(void)strlcat(buf, "FAILURE,", sizeof(buf));
 
 	if (arg & DSN_DELAY)
-		strlcat(buf, "DELAY,", sizeof(buf));
+		(void)strlcat(buf, "DELAY,", sizeof(buf));
 
 	if (arg & DSN_NEVER)
-		strlcat(buf, "NEVER,", sizeof(buf));
+		(void)strlcat(buf, "NEVER,", sizeof(buf));
 
 	/* trim trailing comma */
 	sz = strlen(buf);

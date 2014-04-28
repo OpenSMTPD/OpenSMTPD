@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: mda.c,v 1.105 2014/04/19 17:42:18 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -165,7 +165,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 			u = mda_user(&evp);
 
-			if (u->evpcount >= env->mda_limits.task_hiwat) {
+			if (u->evpcount >= env->sc_mda_task_hiwat) {
 				if (!(u->flags & USER_ONHOLD)) {
 					log_debug("debug: mda: hiwat reached for "
 					    "user \"%s\": holding envelopes",
@@ -264,9 +264,9 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			case A_MDA:
 				deliver.mode = A_MDA;
 				deliver.userinfo = *userinfo;
-				strlcpy(deliver.user, userinfo->username,
+				(void)strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
-				strlcpy(deliver.to, e->buffer,
+				(void)strlcpy(deliver.to, e->buffer,
 				    sizeof(deliver.to));
 				break;
 
@@ -277,41 +277,74 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				deliver.mode = A_MBOX;
 				deliver.userinfo = *userinfo;
 				deliver.userinfo.uid = 0;
-				strlcpy(deliver.user, "root",
+				(void)strlcpy(deliver.user, "root",
 				    sizeof(deliver.user));
-				strlcpy(deliver.to, userinfo->username,
-				    sizeof(deliver.to));
-				strlcpy(deliver.from, e->sender,
+				(void)strlcpy(deliver.from, e->sender,
 				    sizeof(deliver.from));
+				(void)strlcpy(deliver.to, userinfo->username,
+				    sizeof(deliver.to));
 				break;
 
 			case A_MAILDIR:
 				deliver.mode = A_MAILDIR;
 				deliver.userinfo = *userinfo;
-				strlcpy(deliver.user, userinfo->username,
+				(void)strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
-				strlcpy(deliver.to, e->buffer,
-				    sizeof(deliver.to));
+				if (strlcpy(deliver.to, e->buffer,
+					sizeof(deliver.to))
+				    >= sizeof(deliver.to)) {
+					log_warn("warn: mda: "
+					    "deliver buffer too large");
+					mda_queue_tempfail(e->id,
+					    "Maildir path too long",
+					    ESC_OTHER_MAIL_SYSTEM_STATUS);
+					mda_log(e, "TempFail",
+					    "Maildir path too long");
+					mda_done(s);
+					return;
+				}
 				break;
 
 			case A_FILENAME:
 				deliver.mode = A_FILENAME;
 				deliver.userinfo = *userinfo;
-				strlcpy(deliver.user, userinfo->username,
+				(void)strlcpy(deliver.user, userinfo->username,
 				    sizeof deliver.user);
-				strlcpy(deliver.to, e->buffer,
-				    sizeof deliver.to);
+				if (strlcpy(deliver.to, e->buffer,
+					sizeof(deliver.to))
+				    >= sizeof(deliver.to)) {
+					log_warn("warn: mda: "
+					    "deliver buffer too large");
+					mda_queue_tempfail(e->id,
+					    "filename path too long",
+					    ESC_OTHER_MAIL_SYSTEM_STATUS);
+					mda_log(e, "TempFail",
+					    "filename path too long");
+					mda_done(s);
+					return;
+				}
 				break;
 
 			case A_LMTP:
 				deliver.mode = A_LMTP;
 				deliver.userinfo = *userinfo;
-				strlcpy(deliver.user, userinfo->username,
+				(void)strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
-				strlcpy(deliver.to, e->buffer,
-				    sizeof(deliver.to));
-				strlcpy(deliver.from, e->sender,
+				(void)strlcpy(deliver.from, e->sender,
 				    sizeof(deliver.from));
+				if (strlcpy(deliver.to, e->buffer,
+					sizeof(deliver.to))
+				    >= sizeof(deliver.to)) {
+					log_warn("warn: mda: "
+					    "deliver buffer too large");
+					mda_queue_tempfail(e->id,
+					    "socket path too long",
+					    ESC_OTHER_MAIL_SYSTEM_STATUS);
+					mda_log(e, "TempFail",
+					    "socket path too long");
+					mda_done(s);
+					return;
+				}
 				break;
 
 			default:
@@ -388,7 +421,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			if (error) {
 				mda_queue_tempfail(e->id, error,
 				    ESC_OTHER_MAIL_SYSTEM_STATUS);
-				snprintf(buf, sizeof buf, "Error (%s)", error);
+				(void)snprintf(buf, sizeof buf, "Error (%s)", error);
 				mda_log(e, "TempFail", buf);
 			}
 			else {
@@ -578,9 +611,9 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	fclose(fp);
 
 	if (buf[0]) {
-		strlcpy(dst, "\"", dstsz);
-		strnvis(dst + 1, buf, dstsz - 2, VIS_SAFE | VIS_CSTYLE);
-		strlcat(dst, "\"", dstsz);
+		(void)strlcpy(dst, "\"", dstsz);
+		(void)strnvis(dst + 1, buf, dstsz - 2, VIS_SAFE | VIS_CSTYLE);
+		(void)strlcat(dst, "\"", dstsz);
 	}
 
 	return (0);
@@ -630,7 +663,7 @@ mda_drain(void)
 			continue;
 		}
 
-		if (u->running >= env->mda_limits.max_user_session) {
+		if (u->running >= env->sc_mda_max_user_session) {
 			log_debug("debug: mda: "
 			    "maximum number of session reached for user \"%s\"",
 			    mda_user_to_text(u));
@@ -638,7 +671,7 @@ mda_drain(void)
 			continue;
 		}
 
-		if (tree_count(&sessions) >= env->mda_limits.max_session) {
+		if (tree_count(&sessions) >= env->sc_mda_max_session) {
 			log_debug("debug: mda: "
 			    "maximum number of session reached");
 			TAILQ_INSERT_HEAD(&runnable, u, entry_runnable);
@@ -647,7 +680,7 @@ mda_drain(void)
 
 		mda_session(u);
 
-		if (u->evpcount == env->mda_limits.task_lowat) {
+		if (u->evpcount == env->sc_mda_task_lowat) {
 			if (u->flags & USER_ONHOLD) {
 				log_debug("debug: mda: down to lowat for user \"%s\": releasing",
 				    mda_user_to_text(u));
@@ -656,7 +689,7 @@ mda_drain(void)
 			if (u->flags & USER_HOLDQ) {
 				m_create(p_queue, IMSG_MDA_HOLDQ_RELEASE, 0, 0, -1);
 				m_add_id(p_queue, u->id);
-				m_add_int(p_queue, env->mda_limits.task_release);
+				m_add_int(p_queue, env->sc_mda_task_release);
 				m_close(p_queue);
 			}
 		}
@@ -703,7 +736,7 @@ mda_log(const struct mda_envelope *evp, const char *prefix, const char *status)
 
 	rcpt[0] = '\0';
 	if (evp->rcpt)
-		snprintf(rcpt, sizeof rcpt, "rcpt=<%s>, ", evp->rcpt);
+		(void)snprintf(rcpt, sizeof rcpt, "rcpt=<%s>, ", evp->rcpt);
 
 	if (evp->method == A_MAILDIR)
 		method = "maildir";
@@ -783,8 +816,8 @@ mda_user(const struct envelope *evp)
 	u = xcalloc(1, sizeof *u, "mda_user");
 	u->id = generate_uid();
 	TAILQ_INIT(&u->envelopes);
-	strlcpy(u->name, evp->agent.mda.username, sizeof(u->name));
-	strlcpy(u->usertable, evp->agent.mda.usertable,
+	(void)strlcpy(u->name, evp->agent.mda.username, sizeof(u->name));
+	(void)strlcpy(u->usertable, evp->agent.mda.usertable,
 	    sizeof(u->usertable));
 
 	tree_xset(&users, u->id, u);
@@ -831,7 +864,7 @@ mda_user_to_text(const struct mda_user *u)
 {
 	static char buf[1024];
 
-	snprintf(buf, sizeof(buf), "%s:%s", u->usertable, u->name);
+	(void)snprintf(buf, sizeof(buf), "%s:%s", u->usertable, u->name);
 
 	return (buf);
 }
@@ -847,12 +880,12 @@ mda_envelope(const struct envelope *evp)
 	e->creation = evp->creation;
 	buf[0] = '\0';
 	if (evp->sender.user[0] && evp->sender.domain[0])
-		snprintf(buf, sizeof buf, "%s@%s",
+		(void)snprintf(buf, sizeof buf, "%s@%s",
 		    evp->sender.user, evp->sender.domain);
 	e->sender = xstrdup(buf, "mda_envelope:sender");
-	snprintf(buf, sizeof buf, "%s@%s", evp->dest.user, evp->dest.domain);
+	(void)snprintf(buf, sizeof buf, "%s@%s", evp->dest.user, evp->dest.domain);
 	e->dest = xstrdup(buf, "mda_envelope:dest");
-	snprintf(buf, sizeof buf, "%s@%s", evp->rcpt.user, evp->rcpt.domain);
+	(void)snprintf(buf, sizeof buf, "%s@%s", evp->rcpt.user, evp->rcpt.domain);
 	if (strcmp(buf, e->dest))
 		e->rcpt = xstrdup(buf, "mda_envelope:rcpt");
 	e->method = evp->agent.mda.method;

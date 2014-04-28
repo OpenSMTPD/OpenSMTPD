@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtpd.c,v 1.221 2014/04/19 14:00:45 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -57,7 +57,6 @@ static void usage(void);
 static void parent_shutdown(int);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
-static void parent_send_config_mfa(void);
 static void parent_send_config_pony(void);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct mproc *, uint64_t, struct deliver *);
@@ -118,7 +117,6 @@ struct smtpd	*env = NULL;
 
 struct mproc	*p_control = NULL;
 struct mproc	*p_lka = NULL;
-struct mproc	*p_mfa = NULL;
 struct mproc	*p_parent = NULL;
 struct mproc	*p_queue = NULL;
 struct mproc	*p_scheduler = NULL;
@@ -235,7 +233,6 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			log_verbose(v);
 			m_forward(p_lka, imsg);
-			m_forward(p_mfa, imsg);
 			m_forward(p_queue, imsg);
 			m_forward(p_pony, imsg);
 			return;
@@ -319,7 +316,6 @@ static void
 parent_send_config(int fd, short event, void *p)
 {
 	parent_send_config_lka();
-	parent_send_config_mfa();
 	parent_send_config_pony();
 	purge_config(PURGE_PKI);
 }
@@ -330,14 +326,6 @@ parent_send_config_pony(void)
 	log_debug("debug: parent_send_config: configuring pony process");
 	m_compose(p_pony, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 	m_compose(p_pony, IMSG_CONF_END, 0, 0, -1, NULL, 0);
-}
-
-void
-parent_send_config_mfa()
-{
-	log_debug("debug: parent_send_config_mfa: reloading");
-	m_compose(p_mfa, IMSG_CONF_START, 0, 0, -1, NULL, 0);
-	m_compose(p_mfa, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
 void
@@ -584,13 +572,17 @@ main(int argc, char *argv[])
 	if (parse_config(&smtpd, conffile, opts))
 		exit(1);
 
-	if (env->opts & SMTPD_OPT_NOACTION) {
+	if (strlcpy(env->sc_conffile, conffile, SMTPD_MAXPATHLEN)
+	    >= SMTPD_MAXPATHLEN)
+		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
+
+	if (env->sc_opts & SMTPD_OPT_NOACTION) {
 		load_pki_tree();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
 
-	env->flags |= flags;
+	env->sc_flags |= flags;
 
 	/* check for root privileges */
 	if (geteuid())
@@ -601,7 +593,6 @@ main(int argc, char *argv[])
 
 	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
-	purge_task();
 
 	env->sc_stat = stat_backend_lookup(backend_stat);
 	if (env->sc_stat == NULL)
@@ -633,9 +624,9 @@ main(int argc, char *argv[])
 	log_debug("debug: using \"%s\" stat backend", backend_stat);
 	log_info("info: startup%s", (verbose & TRACE_DEBUG)?" [debug mode]":"");
 
-	if (env->hostname[0] == '\0')
+	if (env->sc_hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");
-	env->uptime = time(NULL);
+	env->sc_uptime = time(NULL);
 
 	fork_peers();
 
@@ -656,7 +647,6 @@ main(int argc, char *argv[])
 
 	config_peer(PROC_CONTROL);
 	config_peer(PROC_LKA);
-	config_peer(PROC_MFA);
 	config_peer(PROC_QUEUE);
 	config_peer(PROC_PONY);
 	config_done();
@@ -691,7 +681,7 @@ load_pki_tree(void)
 
 	log_debug("debug: init ssl-tree");
 	iter_dict = NULL;
-	while (dict_iter(env->pki_dict, &iter_dict, &k, (void **)&pki)) {
+	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
 		log_debug("info: loading pki information for %s", k);
 		if (pki->pki_cert_file == NULL)
 			fatalx("load_pki_tree: missing certificate file");
@@ -722,7 +712,6 @@ fork_peers(void)
 	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
 	child_add(control(), CHILD_DAEMON, proc_title(PROC_CONTROL));
 	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
-	child_add(mfa(), CHILD_DAEMON, proc_title(PROC_MFA));
 	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
 	child_add(pony(), CHILD_DAEMON, proc_title(PROC_PONY));
 	post_fork(PROC_PARENT);
@@ -773,7 +762,7 @@ purge_task(void)
 		closedir(d);
 	} else
 		log_warn("warn: purge_task: opendir");
-
+	
 	if (n > 2) {
 		switch (purge_pid = fork()) {
 		case -1:
@@ -816,7 +805,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	db = delivery_backend_lookup(deliver->mode);
 	if (db == NULL) {
-		snprintf(ebuf, sizeof ebuf, "could not find delivery backend");
+		(void)snprintf(ebuf, sizeof ebuf, "could not find delivery backend");
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
 		m_add_string(p_pony, ebuf);
@@ -825,7 +814,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	}
 
 	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
-		snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
+		(void)snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
@@ -835,7 +824,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	}
 
 	if (pipe(pipefd) < 0) {
-		snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
+		(void)snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
 		m_add_string(p_pony, ebuf);
@@ -844,12 +833,12 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	}
 
 	/* prepare file which captures stdout and stderr */
-	strlcpy(sfn, "/tmp/smtpd.out.XXXXXXXXXXX", sizeof(sfn));
+	(void)strlcpy(sfn, "/tmp/smtpd.out.XXXXXXXXXXX", sizeof(sfn));
 	omode = umask(7077);
 	allout = mkstemp(sfn);
 	umask(omode);
 	if (allout < 0) {
-		snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
+		(void)snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
 		m_add_string(p_pony, ebuf);
@@ -862,7 +851,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	pid = fork();
 	if (pid < 0) {
-		snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
+		(void)snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
 		m_add_string(p_pony, ebuf);
@@ -1136,7 +1125,8 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 void
 imsg_dispatch(struct mproc *p, struct imsg *imsg)
 {
-	struct timespec		 t0, t1, dt;
+	struct timespec	t0, t1, dt;
+	int		msg;
 
 	if (imsg == NULL) {
 		exit(1);
@@ -1148,6 +1138,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	if (profiling & PROFILE_IMSG)
 		clock_gettime(CLOCK_MONOTONIC, &t0);
 
+	msg = imsg->hdr.type;
 	imsg_callback(p, imsg);
 
 	if (profiling & PROFILE_IMSG) {
@@ -1157,7 +1148,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 		log_debug("profile-imsg: %s %s %s %d %lld.%06ld",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
-		    imsg_to_str(imsg->hdr.type),
+		    imsg_to_str(msg),
 		    (int)imsg->hdr.len,
 		    (long long)dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 		    dt.tv_nsec % 1000000);
@@ -1172,7 +1163,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 				"profiling.imsg.%s.%s.%s",
 				proc_name(smtpd_process),
 				proc_name(p->proc),
-				imsg_to_str(imsg->hdr.type)))
+				imsg_to_str(msg)))
 				return;
 			stat_set(key, stat_timespec(&dt));
 		}
@@ -1207,8 +1198,6 @@ proc_title(enum smtp_proc_type proc)
 	switch (proc) {
 	case PROC_PARENT:
 		return "[priv]";
-	case PROC_MFA:
-		return "filter";
 	case PROC_LKA:
 		return "lookup";
 	case PROC_QUEUE:
@@ -1230,8 +1219,6 @@ proc_name(enum smtp_proc_type proc)
 	switch (proc) {
 	case PROC_PARENT:
 		return "parent";
-	case PROC_MFA:
-		return "mfa";
 	case PROC_LKA:
 		return "lka";
 	case PROC_QUEUE:
@@ -1392,7 +1379,7 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_EVENT_ROLLBACK);
 	CASE(IMSG_SMTP_EVENT_DISCONNECT);
 	default:
-		snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
+		(void)snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 
 		return buf;
 	}
@@ -1405,8 +1392,8 @@ parent_auth_user(const char *username, const char *password)
 	char	pass[SMTPD_MAXLINESIZE];
 	int	ret;
 
-	strlcpy(user, username, sizeof(user));
-	strlcpy(pass, password, sizeof(pass));
+	(void)strlcpy(user, username, sizeof(user));
+	(void)strlcpy(pass, password, sizeof(pass));
 
 	ret = auth_userokay(user, NULL, "auth-smtp", pass);
 	if (ret)
@@ -1425,10 +1412,6 @@ parent_broadcast_verbose(uint32_t v)
 	m_add_int(p_pony, v);
 	m_close(p_pony);
 	
-	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_mfa, v);
-	m_close(p_mfa);
-	
 	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
@@ -1444,10 +1427,6 @@ parent_broadcast_profile(uint32_t v)
 	m_create(p_pony, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_pony, v);
 	m_close(p_pony);
-	
-	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_mfa, v);
-	m_close(p_mfa);
 	
 	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_queue, v);

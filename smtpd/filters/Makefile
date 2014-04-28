@@ -1,8 +1,6 @@
-SUBDIR=		filter-dnsbl
-SUBDIR+=	filter-monkey
-#SUBDIR+=	filter-python
-SUBDIR+=	filter-stub
-SUBDIR+=	filter-trace
-SUBDIR+=	filter-void
+#SUBDIR=		filter-dnsbl
+#SUBDIR+=	filter-monkey
+#SUBDIR+=	filter-stub
+#SUBDIR+=	filter-trace
 
 .include <bsd.subdir.mk>

@@ -211,7 +211,6 @@ pony(void)
 	config_peer(PROC_QUEUE);
 	config_peer(PROC_LKA);
 	config_peer(PROC_CONTROL);
-	config_peer(PROC_MFA);
 	config_done();
 
 	if (event_dispatch() < 0)

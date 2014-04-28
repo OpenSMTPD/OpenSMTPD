@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: table.c,v 1.15 2014/04/19 18:01:01 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -105,14 +105,14 @@ table_find(const char *name, const char *tag)
 	char buf[SMTPD_MAXLINESIZE];
 
 	if (tag == NULL)
-		return dict_get(env->tables_dict, name);
+		return dict_get(env->sc_tables_dict, name);
 
 	if (snprintf(buf, sizeof(buf), "%s#%s", name, tag) >= (int)sizeof(buf)) {
 		log_warnx("warn: table name too long: %s#%s", name, tag);
 		return (NULL);
 	}
 
-	return dict_get(env->tables_dict, buf);
+	return dict_get(env->sc_tables_dict, buf);
 }
 
 int
@@ -213,8 +213,10 @@ table_create(const char *backend, const char *name, const char *tag,
 		if (stat(path, &sb) == 0) {
 			tb = table_backend_lookup("proc");
 			if (config) {
-				strlcat(path, " ", sizeof(path));
-				strlcat(path, config, sizeof(path));
+				(void)strlcat(path, " ", sizeof(path));
+				if (strlcat(path, config, sizeof(path))
+				    >= sizeof(path))
+					errx(1, "table_create: config file path too long");
 			}
 			config = path;
 		}
@@ -244,7 +246,7 @@ table_create(const char *backend, const char *name, const char *tag,
 		t->t_type = T_DYNAMIC;
 
 	if (name == NULL)
-		snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>",
+		(void)snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>",
 		    last_table_id++);
 	else {
 		n = strlcpy(t->t_name, name, sizeof(t->t_name));
@@ -253,7 +255,7 @@ table_create(const char *backend, const char *name, const char *tag,
 	}
 
 	dict_init(&t->t_dict);
-	dict_set(env->tables_dict, t->t_name, t);
+	dict_set(env->sc_tables_dict, t->t_name, t);
 
 	return (t);
 }
@@ -266,7 +268,7 @@ table_destroy(struct table *t)
 	while (dict_poproot(&t->t_dict, (void **)&p))
 		free(p);
 
-	dict_xpop(env->tables_dict, t->t_name);
+	dict_xpop(env->sc_tables_dict, t->t_name);
 	free(t);
 }
 
@@ -478,22 +480,22 @@ table_dump_all(void)
 	char		 buf[1024];
 
 	iter = NULL;
-	while (dict_iter(env->tables_dict, &iter, NULL, (void **)&t)) {
+	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t)) {
 		i2 = NULL;
 		sep = "";
  		buf[0] = '\0';
 		if (t->t_type & T_DYNAMIC) {
-			strlcat(buf, "DYNAMIC", sizeof(buf));
+			(void)strlcat(buf, "DYNAMIC", sizeof(buf));
 			sep = ",";
 		}
 		if (t->t_type & T_LIST) {
-			strlcat(buf, sep, sizeof(buf));
-			strlcat(buf, "LIST", sizeof(buf));
+			(void)strlcat(buf, sep, sizeof(buf));
+			(void)strlcat(buf, "LIST", sizeof(buf));
 			sep = ",";
 		}
 		if (t->t_type & T_HASH) {
-			strlcat(buf, sep, sizeof(buf));
-			strlcat(buf, "HASH", sizeof(buf));
+			(void)strlcat(buf, sep, sizeof(buf));
+			(void)strlcat(buf, "HASH", sizeof(buf));
 			sep = ",";
 		}
 		log_debug("TABLE \"%s\" type=%s config=\"%s\"",
@@ -514,7 +516,7 @@ table_open_all(void)
 	void		*iter;
 
 	iter = NULL;
-	while (dict_iter(env->tables_dict, &iter, NULL, (void **)&t))
+	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
 		if (! table_open(t))
 			errx(1, "failed to open table %s", t->t_name);
 }
@@ -526,7 +528,7 @@ table_close_all(void)
 	void		*iter;
 
 	iter = NULL;
-	while (dict_iter(env->tables_dict, &iter, NULL, (void **)&t))
+	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
 		table_close(t);
 }
 
@@ -630,6 +632,7 @@ static const char *
 table_dump_lookup(enum table_service s, union lookup *lk)
 {
 	static char	buf[SMTPD_MAXLINESIZE];
+	int		ret;
 
 	switch (s) {
 	case K_NONE:
@@ -640,42 +643,56 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	case K_DOMAIN:
-		snprintf(buf, sizeof(buf), "%s", lk->domain.name);
+		ret = snprintf(buf, sizeof(buf), "%s", lk->domain.name);
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	case K_CREDENTIALS:
-		snprintf(buf, sizeof(buf), "%s:%s",
+		ret = snprintf(buf, sizeof(buf), "%s:%s",
 		    lk->creds.username, lk->creds.password);
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	case K_NETADDR:
-		snprintf(buf, sizeof(buf), "%s/%d",
+		ret = snprintf(buf, sizeof(buf), "%s/%d",
 		    sockaddr_to_text((struct sockaddr *)&lk->netaddr.ss),
 		    lk->netaddr.bits);
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	case K_USERINFO:
-		snprintf(buf, sizeof(buf), "%s:%d:%d:%s",
+		ret = snprintf(buf, sizeof(buf), "%s:%d:%d:%s",
 		    lk->userinfo.username,
 		    lk->userinfo.uid,
 		    lk->userinfo.gid,
 		    lk->userinfo.directory);
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	case K_SOURCE:
-		snprintf(buf, sizeof(buf), "%s",
+		ret = snprintf(buf, sizeof(buf), "%s",
 		    ss_to_text(&lk->source.addr));
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	case K_MAILADDR:
-		snprintf(buf, sizeof(buf), "%s@%s",
+		ret = snprintf(buf, sizeof(buf), "%s@%s",
 		    lk->mailaddr.user,
 		    lk->mailaddr.domain);
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	case K_ADDRNAME:
-		snprintf(buf, sizeof(buf), "%s",
+		ret = snprintf(buf, sizeof(buf), "%s",
 		    lk->addrname.name);
+		if (ret == -1 || ret >= (int)sizeof (buf))
+			goto err;
 		break;
 
 	default:
@@ -683,6 +700,9 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 	}
 
 	return (buf);
+
+err:
+	return (NULL);
 }
 
 

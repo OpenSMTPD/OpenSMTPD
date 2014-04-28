@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtp.c,v 1.136 2014/04/19 13:52:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -71,15 +71,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_MFA) {
-		switch (imsg->hdr.type) {
-		case IMSG_MFA_SMTP_RESPONSE:
-		case IMSG_SMTP_MESSAGE_OPEN:
-			smtp_session_imsg(p, imsg);
-			return;
-		}
-	}
-
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_MESSAGE_COMMIT:
@@ -134,12 +125,12 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_CTL_PAUSE_SMTP:
 			log_debug("debug: smtp: pausing listening sockets");
 			smtp_pause();
-			env->flags |= SMTPD_SMTP_PAUSED;
+			env->sc_flags |= SMTPD_SMTP_PAUSED;
 			return;
 
 		case IMSG_CTL_RESUME_SMTP:
 			log_debug("debug: smtp: resuming listening sockets");
-			env->flags &= ~SMTPD_SMTP_PAUSED;
+			env->sc_flags &= ~SMTPD_SMTP_PAUSED;
 			smtp_resume();
 			return;
 		}
@@ -171,7 +162,7 @@ smtp_setup_listeners(void)
 	struct listener	       *l;
 	int			opt;
 
-	TAILQ_FOREACH(l, env->listeners, entry) {
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
@@ -197,7 +188,7 @@ smtp_setup_events(void)
 	void		*iter;
 	const char	*k;
 
-	TAILQ_FOREACH(l, env->listeners, entry) {
+	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
 		    " pki \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->pki_name);
@@ -207,15 +198,15 @@ smtp_setup_events(void)
 			fatal("listen");
 		event_set(&l->ev, l->fd, EV_READ|EV_PERSIST, smtp_accept, l);
 
-		if (!(env->flags & SMTPD_SMTP_PAUSED))
+		if (!(env->sc_flags & SMTPD_SMTP_PAUSED))
 			event_add(&l->ev, NULL);
 	}
 
 	iter = NULL;
-	while (dict_iter(env->pki_dict, &iter, &k, (void **)&pki)) {
+	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
 		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki))
 			fatal("smtp_setup_events: ssl_setup failure");
-		dict_xset(env->ssl_dict, k, ssl_ctx);
+		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
 
 	purge_config(PURGE_PKI);
@@ -229,10 +220,10 @@ smtp_pause(void)
 {
 	struct listener *l;
 
-	if (env->flags & (SMTPD_SMTP_DISABLED|SMTPD_SMTP_PAUSED))
+	if (env->sc_flags & (SMTPD_SMTP_DISABLED|SMTPD_SMTP_PAUSED))
 		return;
 
-	TAILQ_FOREACH(l, env->listeners, entry)
+	TAILQ_FOREACH(l, env->sc_listeners, entry)
 		event_del(&l->ev);
 }
 
@@ -241,31 +232,35 @@ smtp_resume(void)
 {
 	struct listener *l;
 
-	if (env->flags & (SMTPD_SMTP_DISABLED|SMTPD_SMTP_PAUSED))
+	if (env->sc_flags & (SMTPD_SMTP_DISABLED|SMTPD_SMTP_PAUSED))
 		return;
 
-	TAILQ_FOREACH(l, env->listeners, entry)
+	TAILQ_FOREACH(l, env->sc_listeners, entry)
 		event_add(&l->ev, NULL);
 }
 
 static int
 smtp_enqueue(uid_t *euid)
 {
-	struct listener		*listener;
+	static struct listener	 local, *listener = NULL;
 	char			 buf[SMTPD_MAXHOSTNAMELEN], *hostname;
 	int			 fd[2];
 
-	if (euid == NULL)
-		listener = env->bounces;
-	else
-		listener = env->enqueue;
+	if (listener == NULL) {
+		listener = &local;
+		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
+		listener->ss.ss_family = AF_LOCAL;
+		listener->ss.ss_len = sizeof(struct sockaddr *);
+		(void)strlcpy(listener->hostname, "localhost",
+		    sizeof(listener->hostname));
+	}
 
 	/*
 	 * Some enqueue requests buffered in IMSG may still arrive even after
 	 * call to smtp_pause() because enqueue listener is not a real socket
 	 * and thus cannot be paused properly.
 	 */
-	if (env->flags & SMTPD_SMTP_PAUSED)
+	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		return (-1);
 
 	/* XXX dont' fatal here */
@@ -274,7 +269,7 @@ smtp_enqueue(uid_t *euid)
 
 	hostname = "localhost";
 	if (euid) {
-		snprintf(buf, sizeof(buf), "%d@localhost", *euid);
+		(void)snprintf(buf, sizeof(buf), "%d@localhost", *euid);
 		hostname = buf;
 	}
 
@@ -299,7 +294,7 @@ smtp_accept(int fd, short event, void *p)
 	socklen_t		 len;
 	int			 sock;
 
-	if (env->flags & SMTPD_SMTP_PAUSED)
+	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_session: unexpected client");
 
 	if (! smtp_can_accept()) {
@@ -340,7 +335,7 @@ smtp_accept(int fd, short event, void *p)
 
 pause:
 	smtp_pause();
-	env->flags |= SMTPD_SMTP_DISABLED;
+	env->sc_flags |= SMTPD_SMTP_DISABLED;
 	return;
 }
 
@@ -363,10 +358,10 @@ smtp_collect(void)
 	if (!smtp_can_accept())
 		return;
 
-	if (env->flags & SMTPD_SMTP_DISABLED) {
+	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
 		log_warnx("warn: smtp: "
 		    "fd exaustion over, re-enabling incoming connections");
-		env->flags &= ~SMTPD_SMTP_DISABLED;
+		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}
 }

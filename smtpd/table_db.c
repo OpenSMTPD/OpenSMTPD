@@ -52,7 +52,7 @@ static char *table_db_get_entry_match(void *, const char *, size_t *,
     int(*)(const char *, const char *));
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_ADDRNAME,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -66,7 +66,8 @@ static struct keycmp {
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
 	{ K_DOMAIN, table_domain_match },
-	{ K_NETADDR, table_netaddr_match }
+	{ K_NETADDR, table_netaddr_match },
+	{ K_MAILADDR, table_mailaddr_match }
 };
 
 struct dbhandle {

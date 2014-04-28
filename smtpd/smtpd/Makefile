@@ -39,8 +39,8 @@ SRCS+=		lka.c
 SRCS+=		lka_session.c
 SRCS+=		log.c
 SRCS+=		mda.c
-SRCS+=		mfa.c
-SRCS+=		mfa_session.c
+#SRCS+=		mfa.c
+#SRCS+=		mfa_session.c
 SRCS+=		mproc.c
 SRCS+=		mta.c
 SRCS+=		mta_session.c
@@ -100,7 +100,7 @@ SRCS+=		getaddrinfo_async.c
 SRCS+=		getnameinfo_async.c
 SRCS+=		res_search_async.c
 CFLAGS+=	-I${ASRDIR}
-CFLAGS+=	-DASR_OPT_THREADSAFE=0
+CFLGAS+=	-DASR_OPT_THREADSAFE=0
 .endif
 
 .ifdef NEED_EVENT_ASR_RUN

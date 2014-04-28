@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtpctl.c,v 1.118 2014/04/19 13:57:17 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -111,7 +111,7 @@ srv_connect(void)
 
 	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
-	strlcpy(sun.sun_path, SMTPD_SOCKET, sizeof(sun.sun_path));
+	(void)strlcpy(sun.sun_path, SMTPD_SOCKET, sizeof(sun.sun_path));
 	if (connect(ctl_sock, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
 		saved_errno = errno;
 		close(ctl_sock);
@@ -307,9 +307,9 @@ srv_iter_evpids(uint32_t msgid, uint64_t *evpid, int *offset)
 
 	if (evpids == NULL) {
 		alloc = 1000;
-		evpids = malloc(alloc * sizeof(*evpids));
+		evpids = calloc(alloc, sizeof(*evpids));
 		if (evpids == NULL)
-			err(1, "malloc");
+			err(1, "calloc");
 	}
 
 	if (*offset == 0) {
@@ -757,18 +757,18 @@ do_show_stats(int argc, struct parameter *argv)
 static int
 do_show_status(int argc, struct parameter *argv)
 {
-	uint32_t	flags;
+	uint32_t	sc_flags;
 
 	srv_send(IMSG_CTL_SHOW_STATUS, NULL, 0);
 	srv_recv(IMSG_CTL_SHOW_STATUS);
-	srv_read(&flags, sizeof(flags));
+	srv_read(&sc_flags, sizeof(sc_flags));
 	srv_end();
 	printf("MDA %s\n",
-	    (flags & SMTPD_MDA_PAUSED) ? "paused" : "running");
+	    (sc_flags & SMTPD_MDA_PAUSED) ? "paused" : "running");
 	printf("MTA %s\n",
-	    (flags & SMTPD_MTA_PAUSED) ? "paused" : "running");
+	    (sc_flags & SMTPD_MTA_PAUSED) ? "paused" : "running");
 	printf("SMTP %s\n",
-	    (flags & SMTPD_SMTP_PAUSED) ? "paused" : "running");
+	    (sc_flags & SMTPD_SMTP_PAUSED) ? "paused" : "running");
 	return (0);
 }
 
@@ -959,17 +959,17 @@ show_queue_envelope(struct envelope *e, int online)
 
 	if (online) {
 		if (e->flags & EF_PENDING)
-			snprintf(runstate, sizeof runstate, "pending|%zi",
+			(void)snprintf(runstate, sizeof runstate, "pending|%zi",
 			    (ssize_t)(e->nexttry - now));
 		else if (e->flags & EF_INFLIGHT)
-			snprintf(runstate, sizeof runstate, "inflight|%zi",
+			(void)snprintf(runstate, sizeof runstate, "inflight|%zi",
 			    (ssize_t)(now - e->lasttry));
 		else
-			snprintf(runstate, sizeof runstate, "invalid|");
+			(void)snprintf(runstate, sizeof runstate, "invalid|");
 		e->flags &= ~(EF_PENDING|EF_INFLIGHT);
 	}
 	else
-		strlcpy(runstate, "offline|", sizeof runstate);
+		(void)strlcpy(runstate, "offline|", sizeof runstate);
 
 	if (e->flags)
 		errx(1, "%016" PRIx64 ": unexpected flags 0x%04x", e->id,
@@ -1018,8 +1018,8 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 {
 	if (*bitmap & bit) {
 		*bitmap &= ~bit;
-		strlcat(buf, bitstr, len);
-		strlcat(buf, ",", len);
+		(void)strlcat(buf, bitstr, len);
+		(void)strlcat(buf, ",", len);
 	}
 }
 

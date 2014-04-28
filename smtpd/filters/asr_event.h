@@ -20,15 +20,15 @@
 
 #include <event.h>
 
-struct asr_query;
-struct asr_result;
+struct async;
+struct async_res;
 
 struct async_event {
-	struct asr_query *async;
+	struct async	*async;
 	struct event	 ev;
-	void		(*callback)(struct asr_result *, void *);
+	void		(*callback)(int, struct async_res *, void *);
 	void		*arg;
 };
 
-struct async_event * async_run_event(struct asr_query *,
-	void (*)(struct asr_result *, void *), void *);
+struct async_event * async_run_event(struct async *,
+	void (*)(int, struct async_res *, void *), void *);

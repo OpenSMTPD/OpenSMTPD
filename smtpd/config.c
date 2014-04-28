@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: config.c,v 1.28 2014/04/19 17:29:56 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -48,39 +48,37 @@ purge_config(uint8_t what)
 	struct pki	*p;
 
 	if (what & PURGE_LISTENERS) {
-		while ((l = TAILQ_FIRST(env->listeners)) != NULL) {
-			TAILQ_REMOVE(env->listeners, l, entry);
+		while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
+			TAILQ_REMOVE(env->sc_listeners, l, entry);
 			free(l);
 		}
-		free(env->enqueue);
-		free(env->bounces);
-		free(env->listeners);
-		env->listeners = NULL;
+		free(env->sc_listeners);
+		env->sc_listeners = NULL;
 	}
 	if (what & PURGE_TABLES) {
-		while (dict_root(env->tables_dict, NULL, (void **)&t))
+		while (dict_root(env->sc_tables_dict, NULL, (void **)&t))
 			table_destroy(t);
-		free(env->tables_dict);
-		env->tables_dict = NULL;
+		free(env->sc_tables_dict);
+		env->sc_tables_dict = NULL;
 	}
 	if (what & PURGE_RULES) {
-		while ((r = TAILQ_FIRST(env->ruleset)) != NULL) {
-			TAILQ_REMOVE(env->ruleset, r, r_entry);
+		while ((r = TAILQ_FIRST(env->sc_rules)) != NULL) {
+			TAILQ_REMOVE(env->sc_rules, r, r_entry);
 			free(r);
 		}
-		free(env->ruleset);
-		env->ruleset = NULL;
+		free(env->sc_rules);
+		env->sc_rules = NULL;
 	}
 	if (what & PURGE_PKI) {
-		while (dict_poproot(env->pki_dict, (void **)&p)) {
+		while (dict_poproot(env->sc_pki_dict, (void **)&p)) {
 			memset(p->pki_cert, 0, p->pki_cert_len);
 			memset(p->pki_key, 0, p->pki_key_len);
 			free(p->pki_cert);
 			free(p->pki_key);
 			free(p);
 		}
-		free(env->pki_dict);
-		env->pki_dict = NULL;
+		free(env->sc_pki_dict);
+		env->sc_pki_dict = NULL;
 	}
 }
 
@@ -137,8 +135,6 @@ config_peer(enum smtp_proc_type proc)
 		p_control = p;
 	else if (proc == PROC_LKA)
 		p_lka = p;
-	else if (proc == PROC_MFA)
-		p_mfa = p;
 	else if (proc == PROC_PARENT)
 		p_parent = p;
 	else if (proc == PROC_QUEUE)
@@ -191,7 +187,7 @@ process_stat(struct mproc *p)
 		return;
 
 	value.type = STAT_COUNTER;
-	snprintf(buf, sizeof buf, "buffer.%s.%s",
+	(void)snprintf(buf, sizeof buf, "buffer.%s.%s",
 	    proc_name(smtpd_process),
 	    proc_name(p->proc));
 	value.u.counter = p->bytes_queued_max;
@@ -207,7 +203,6 @@ process_stat_event(int fd, short ev, void *arg)
 
 	process_stat(p_control);
 	process_stat(p_lka);
-	process_stat(p_mfa);
 	process_stat(p_parent);
 	process_stat(p_queue);
 	process_stat(p_scheduler);

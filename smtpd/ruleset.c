@@ -45,7 +45,7 @@ ruleset_match(const struct envelope *evp)
 	struct rule			*r;
 	int				 ret;
 
-	TAILQ_FOREACH(r, env->ruleset, r_entry) {
+	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
 
 		if (r->r_tag[0] != '\0') {
 			ret = strcmp(r->r_tag, evp->tag);

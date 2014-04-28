@@ -237,23 +237,23 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_CTL_PAUSE_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mda");
-		env->flags |= SMTPD_MDA_PAUSED;
+		env->sc_flags |= SMTPD_MDA_PAUSED;
 		return;
 
 	case IMSG_CTL_RESUME_MDA:
 		log_trace(TRACE_SCHEDULER, "scheduler: resuming mda");
-		env->flags &= ~SMTPD_MDA_PAUSED;
+		env->sc_flags &= ~SMTPD_MDA_PAUSED;
 		scheduler_reset_events();
 		return;
 
 	case IMSG_CTL_PAUSE_MTA:
 		log_trace(TRACE_SCHEDULER, "scheduler: pausing mta");
-		env->flags |= SMTPD_MTA_PAUSED;
+		env->sc_flags |= SMTPD_MTA_PAUSED;
 		return;
 
 	case IMSG_CTL_RESUME_MTA:
 		log_trace(TRACE_SCHEDULER, "scheduler: resuming mta");
-		env->flags &= ~SMTPD_MTA_PAUSED;
+		env->sc_flags &= ~SMTPD_MTA_PAUSED;
 		scheduler_reset_events();
 		return;
 
@@ -266,14 +266,14 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_CTL_LIST_MESSAGES:
 		msgid = *(uint32_t *)(imsg->data);
-		n = backend->messages(msgid, msgids, env->scheduler_limits.max_msg_batch_size);
+		n = backend->messages(msgid, msgids, env->sc_scheduler_max_msg_batch_size);
 		m_compose(p, IMSG_CTL_LIST_MESSAGES, imsg->hdr.peerid, 0, -1,
 		    msgids, n * sizeof (*msgids));
 		return;
 
 	case IMSG_CTL_LIST_ENVELOPES:
 		id = *(uint64_t *)(imsg->data);
-		n = backend->envelopes(id, state, env->scheduler_limits.max_evp_batch_size);
+		n = backend->envelopes(id, state, env->sc_scheduler_max_evp_batch_size);
 		for (i = 0; i < n; i++) {
 			m_create(p_queue, IMSG_CTL_LIST_ENVELOPES,
 			    imsg->hdr.peerid, 0, -1);
@@ -426,9 +426,9 @@ scheduler(void)
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		fatal("scheduler: cannot drop privileges");
 
-	evpids = xcalloc(env->scheduler_limits.max_schedule, sizeof *evpids, "scheduler: init evpids");
-	msgids = xcalloc(env->scheduler_limits.max_msg_batch_size, sizeof *msgids, "scheduler: list msg");
-	state = xcalloc(env->scheduler_limits.max_evp_batch_size, sizeof *state, "scheduler: list evp");
+	evpids = xcalloc(env->sc_scheduler_max_schedule, sizeof *evpids, "scheduler: init evpids");
+	msgids = xcalloc(env->sc_scheduler_max_msg_batch_size, sizeof *msgids, "scheduler: list msg");
+	state = xcalloc(env->sc_scheduler_max_evp_batch_size, sizeof *state, "scheduler: list evp");
 
 	imsg_callback = scheduler_imsg;
 	event_init();
@@ -466,11 +466,11 @@ scheduler_timeout(int fd, short event, void *p)
 	tv.tv_usec = 0;
 
 	typemask = SCHED_REMOVE | SCHED_EXPIRE | SCHED_UPDATE | SCHED_BOUNCE;
-	if (ninflight < env->scheduler_limits.max_inflight &&
-	    !(env->flags & SMTPD_MDA_PAUSED))
+	if (ninflight < env->sc_scheduler_max_inflight &&
+	    !(env->sc_flags & SMTPD_MDA_PAUSED))
 		typemask |= SCHED_MDA;
-	if (ninflight < env->scheduler_limits.max_inflight &&
-	    !(env->flags & SMTPD_MTA_PAUSED))
+	if (ninflight < env->sc_scheduler_max_inflight &&
+	    !(env->sc_flags & SMTPD_MTA_PAUSED))
 		typemask |= SCHED_MTA;
 
 	left = typemask;
@@ -481,7 +481,7 @@ scheduler_timeout(int fd, short event, void *p)
 
 	memset(&batch, 0, sizeof (batch));
 	batch.evpids = evpids;
-	batch.evpcount = env->scheduler_limits.max_schedule;
+	batch.evpcount = env->sc_scheduler_max_schedule;
 	backend->batch(left, &batch);
 
 	switch (batch.type) {

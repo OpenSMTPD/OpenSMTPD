@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: queue.c,v 1.162 2014/04/19 13:40:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -591,7 +591,7 @@ queue(void)
 			fatalx("unknown user " SMTPD_USER);
 
 	env->sc_queue_flags |= QUEUE_EVPCACHE;
-	env->queue_limits.evpcache_size = 1024;
+	env->sc_queue_evpcache_size = 1024;
 
 	if (chroot(PATH_SPOOL) == -1)
 		fatal("queue: chroot");
@@ -688,10 +688,10 @@ queue_log(const struct envelope *e, const char *prefix, const char *status)
 {
 	char rcpt[SMTPD_MAXLINESIZE];
 	
-	strlcpy(rcpt, "-", sizeof rcpt);
+	(void)strlcpy(rcpt, "-", sizeof rcpt);
 	if (strcmp(e->rcpt.user, e->dest.user) ||
 	    strcmp(e->rcpt.domain, e->dest.domain))
-		snprintf(rcpt, sizeof rcpt, "%s@%s",
+		(void)snprintf(rcpt, sizeof rcpt, "%s@%s",
 		    e->rcpt.user, e->rcpt.domain);
 	
 	log_info("%s: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "

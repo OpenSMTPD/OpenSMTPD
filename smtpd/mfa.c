@@ -64,7 +64,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 	struct sockaddr_storage	 local, remote;
 	struct mailaddr		 maddr;
 	struct msg		 m;
-	const char		*line, *hostname, *filterchain;
+	const char		*line, *hostname;
 	uint64_t		 reqid;
 	uint32_t		 datalen; /* XXX make it off_t? */
 	int			 v, success, fdout;
@@ -77,9 +77,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_sockaddr(&m, (struct sockaddr *)&local);
 			m_get_sockaddr(&m, (struct sockaddr *)&remote);
 			m_get_string(&m, &hostname);
-			m_get_string(&m, &filterchain);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_CONNECT, filterchain);
 			mfa_filter_connect(reqid, (struct sockaddr *)&local,
 			    (struct sockaddr *)&remote, hostname);
 			return;
@@ -89,7 +87,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &line);
 			m_end(&m);
-			mfa_filter_line(reqid, QUERY_HELO, line);
+			mfa_filter_line(reqid, HOOK_HELO, line);
 			return;
 
 		case IMSG_SMTP_REQ_MAIL:
@@ -97,7 +95,7 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
-			mfa_filter_mailaddr(reqid, QUERY_MAIL, &maddr);
+			mfa_filter_mailaddr(reqid, HOOK_MAIL, &maddr);
 			return;
 
 		case IMSG_SMTP_REQ_RCPT:
@@ -105,14 +103,14 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_mailaddr(&m, &maddr);
 			m_end(&m);
-			mfa_filter_mailaddr(reqid, QUERY_RCPT, &maddr);
+			mfa_filter_mailaddr(reqid, HOOK_RCPT, &maddr);
 			return;
 
 		case IMSG_SMTP_REQ_DATA:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter(reqid, QUERY_DATA);
+			mfa_filter(reqid, HOOK_DATA);
 			return;
 
 		case IMSG_SMTP_REQ_EOM:
@@ -120,35 +118,35 @@ mfa_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_u32(&m, &datalen);
 			m_end(&m);
-			mfa_filter_eom(reqid, QUERY_EOM, datalen);
+			mfa_filter_eom(reqid, HOOK_EOM, datalen);
 			return;
 
 		case IMSG_SMTP_EVENT_RSET:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_RESET, NULL);
+			mfa_filter_event(reqid, HOOK_RESET);
 			return;
 
 		case IMSG_SMTP_EVENT_COMMIT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_COMMIT, NULL);
+			mfa_filter_event(reqid, HOOK_COMMIT);
 			return;
 
 		case IMSG_SMTP_EVENT_ROLLBACK:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_ROLLBACK, NULL);
+			mfa_filter_event(reqid, HOOK_ROLLBACK);
 			return;
 
 		case IMSG_SMTP_EVENT_DISCONNECT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_end(&m);
-			mfa_filter_event(reqid, EVENT_DISCONNECT, NULL);
+			mfa_filter_event(reqid, HOOK_DISCONNECT);
 			return;
 		}
 	}
@@ -267,8 +265,6 @@ mfa(void)
 	imsg_callback = mfa_imsg;
 	event_init();
 
-	tree_init(&tx_tree);
-
 	signal_set(&ev_sigint, SIGINT, mfa_sig_handler, NULL);
 	signal_set(&ev_sigterm, SIGTERM, mfa_sig_handler, NULL);
 	signal_set(&ev_sigchld, SIGCHLD, mfa_sig_handler, NULL);
@@ -377,8 +373,6 @@ mfa_tx_done(struct mfa_tx *tx)
 {
 	log_debug("debug: mfa: tx done for %016"PRIx64, tx->reqid);
 
-	tree_xpop(&tx_tree, tx->reqid);
-
 	if (!tx->error && tx->datain != tx->datalen) {
 		log_debug("debug: mfa: tx datalen mismatch: %zu/%zu",
 		    tx->datain, tx->datalen);
@@ -395,29 +389,9 @@ mfa_tx_done(struct mfa_tx *tx)
 		m_add_string(p_pony, "Internal server error");
 		m_close(p_pony);
 	}
-	else {
-		/* XXX we could send the commit message here directly */
-		m_create(p_pony, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-		m_add_id(p_pony, tx->reqid);
-		m_add_int(p_pony, MFA_OK);
-		m_add_u32(p_pony, 300);
-		m_add_string(p_pony, "This is not to be sent to the client");
-		m_close(p_pony);
-	}
-
+#if 0
+	else
+		mfa_filter(tx->reqid, HOOK_EOM);
+#endif
 	free(tx);
-}
-
-void
-mfa_report_eom(uint64_t reqid, size_t size)
-{
-	struct mfa_tx	*tx;
-
-	tx = tree_xget(&tx_tree, reqid);
-
-	tx->datalen = size;
-	tx->eom = 1;
-
-	if (tx->ofile == NULL)
-		mfa_tx_done(tx);
 }

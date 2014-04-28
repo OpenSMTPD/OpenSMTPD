@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtpd.h,v 1.455 2014/04/19 16:55:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -31,7 +31,7 @@
 #define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
 
-#define PROC_COUNT		 7
+#define PROC_COUNT		 6
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
@@ -293,7 +293,6 @@ enum blockmodes {
 
 enum smtp_proc_type {
 	PROC_PARENT = 0,
-	PROC_MFA,
 	PROC_LKA,
 	PROC_QUEUE,
 	PROC_CONTROL,
@@ -302,60 +301,6 @@ enum smtp_proc_type {
 
 	PROC_FILTER,
 	PROC_CLIENT,
-};
-
-struct mda_limits {
-	size_t				max_session;
-	size_t				max_user_session;
-	size_t				task_hiwat;
-	size_t				task_lowat;
-	size_t				task_release;
-};
-
-struct mta_limits {
-	size_t	maxconn_per_host;
-	size_t	maxconn_per_route;
-	size_t	maxconn_per_source;
-	size_t	maxconn_per_connector;
-	size_t	maxconn_per_relay;
-	size_t	maxconn_per_domain;
-
-	time_t	conndelay_host;
-	time_t	conndelay_route;
-	time_t	conndelay_source;
-	time_t	conndelay_connector;
-	time_t	conndelay_relay;
-	time_t	conndelay_domain;
-
-	time_t	discdelay_route;
-
-	size_t	max_mail_per_session;
-	time_t	sessdelay_transaction;
-	time_t	sessdelay_keepalive;
-
-	size_t	max_failures_per_session;
-
-	int	family;
-
-	int	task_hiwat;
-	int	task_lowat;
-	int	task_release;
-};
-
-struct scheduler_limits {
-	size_t				max_inflight;
-	size_t				max_evp_batch_size;
-	size_t				max_msg_batch_size;
-	size_t				max_schedule;
-};
-
-struct smtp_limits {
-	size_t				max_data_size;
-};
-
-struct queue_limits {
-	size_t				evpcache_size;
-	int				expire;
 };
 
 enum table_type {
@@ -449,7 +394,6 @@ struct delivery_mda {
 	char			buffer[EXPAND_BUFFER];
 	char			delivery_user[SMTPD_MAXLOGNAME];
 };
-
 
 struct delivery_mta {
 	struct relayhost	relay;
@@ -577,18 +521,16 @@ struct listener {
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
 	char			 hostnametable[SMTPD_MAXPATHLEN];
-
-	char			*filterchain;
 	TAILQ_ENTRY(listener)	 entry;
 };
 
 struct smtpd {
-	char				hostname[SMTPD_MAXHOSTNAMELEN];
-	time_t				uptime;
+	char				sc_conffile[SMTPD_MAXPATHLEN];
+	size_t				sc_maxsize;
 
 #define SMTPD_OPT_VERBOSE		0x00000001
 #define SMTPD_OPT_NOACTION		0x00000002
-	uint32_t			opts;
+	uint32_t			sc_opts;
 
 #define SMTPD_EXITING			0x00000001
 #define SMTPD_MDA_PAUSED		0x00000002
@@ -598,38 +540,50 @@ struct smtpd {
 #define SMTPD_MTA_BUSY			0x00000020
 #define SMTPD_BOUNCE_BUSY		0x00000040
 #define SMTPD_SMTP_DISABLED		0x00000080
-	uint32_t			flags;
+	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
 #define QUEUE_ENCRYPTION      		0x00000002
 #define QUEUE_EVPCACHE			0x00000004
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
+	size_t				sc_queue_evpcache_size;
+
+	size_t				sc_mda_max_session;
+	size_t				sc_mda_max_user_session;
+	size_t				sc_mda_task_hiwat;
+	size_t				sc_mda_task_lowat;
+	size_t				sc_mda_task_release;
 
 	size_t				sc_mta_max_deferred;
 
+	size_t				sc_scheduler_max_inflight;
+	size_t				sc_scheduler_max_evp_batch_size;
+	size_t				sc_scheduler_max_msg_batch_size;
+	size_t				sc_scheduler_max_schedule;
+
+	int				sc_qexpire;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
+	char				sc_hostname[SMTPD_MAXHOSTNAMELEN];
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
 
+	time_t					 sc_uptime;
 
-	struct mda_limits		mda_limits;
-	struct scheduler_limits		scheduler_limits;
-	struct smtp_limits		smtp_limits;
-	struct queue_limits		queue_limits;
+	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
-	struct listener			*enqueue;
-	struct listener			*bounces;
+	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
-	struct dict			*pki_dict;
-	struct dict			*ssl_dict;
-	struct dict			*tables_dict;
-	struct dict			*limits_dict;
-	struct dict			*filters_dict;
+	struct dict			       *sc_pki_dict;
+	struct dict			       *sc_ssl_dict;
 
-	TAILQ_HEAD(listenerlist, listener)	*listeners;
-	TAILQ_HEAD(rulelist, rule)		*ruleset;
+	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
+
+	struct dict			       *sc_limits_dict;
+
+	struct dict				sc_filters;
+	uint32_t				filtermask;
 };
 
 #define	TRACE_DEBUG	0x0001
@@ -769,6 +723,36 @@ struct mta_route {
 	time_t			 lastconn;
 	time_t			 lastdisc;
 	time_t			 lastpenalty;
+};
+
+struct mta_limits {
+	size_t	maxconn_per_host;
+	size_t	maxconn_per_route;
+	size_t	maxconn_per_source;
+	size_t	maxconn_per_connector;
+	size_t	maxconn_per_relay;
+	size_t	maxconn_per_domain;
+
+	time_t	conndelay_host;
+	time_t	conndelay_route;
+	time_t	conndelay_source;
+	time_t	conndelay_connector;
+	time_t	conndelay_relay;
+	time_t	conndelay_domain;
+
+	time_t	discdelay_route;
+
+	size_t	max_mail_per_session;
+	time_t	sessdelay_transaction;
+	time_t	sessdelay_keepalive;
+
+	size_t	max_failures_per_session;
+
+	int	family;
+
+	int	task_hiwat;
+	int	task_lowat;
+	int	task_release;
 };
 
 struct mta_relay {
@@ -990,7 +974,6 @@ extern int profiling;
 extern struct mproc *p_control;
 extern struct mproc *p_parent;
 extern struct mproc *p_lka;
-extern struct mproc *p_mfa;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_pony;
@@ -1043,7 +1026,7 @@ enum ca_resp_status {
 
 struct ca_cert_req_msg {
 	uint64_t		reqid;
-	char			name[SMTPD_MAXPATHLEN];
+	char			name[SMTPD_MAXHOSTNAMELEN];
 };
 
 struct ca_cert_resp_msg {
@@ -1195,7 +1178,6 @@ void mda_imsg(struct mproc *, struct imsg *);
 /* mfa.c */
 pid_t mfa(void);
 void mfa_ready(void);
-void mfa_report_eom(uint64_t, size_t);
 
 
 /* mfa_session.c */
@@ -1207,7 +1189,7 @@ void mfa_filter_mailaddr(uint64_t, int, const struct mailaddr *);
 void mfa_filter_line(uint64_t, int, const char *);
 void mfa_filter_eom(uint64_t, int, size_t);
 void mfa_filter(uint64_t, int);
-void mfa_filter_event(uint64_t, int, const char *);
+void mfa_filter_event(uint64_t, int);
 void mfa_build_fd_chain(uint64_t, int);
 
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: delivery_filename.c,v 1.9 2013/05/24 17:03:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -75,7 +75,7 @@ delivery_filename_open(struct deliver *deliver)
 	if (fp == NULL)
 		error("fdopen");
 	time(&now);
-	fprintf(fp, "From %s@%s %s", SMTPD_USER, env->hostname,
+	fprintf(fp, "From %s@%s %s", SMTPD_USER, env->sc_hostname,
 	    ctime(&now));
 	while ((ln = fgetln(stdin, &len)) != NULL) {
 		if (ln[len - 1] == '\n')

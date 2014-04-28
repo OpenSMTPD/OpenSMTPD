@@ -51,10 +51,11 @@ dnsbl_event_dispatch(struct asr_result *ar, void *arg)
 		filter_api_reject(*q, FILTER_CLOSE);
 	else
 		filter_api_accept(*q);
+
 	free(q);
 }
 
-static int
+static void
 dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 {
 	struct addrinfo		 hints;
@@ -64,8 +65,10 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	uint64_t		*q;
 	char			 buf[512];
 
-	if (conn->remote.ss_family != AF_INET)
-		return filter_api_accept(id);
+	if (conn->remote.ss_family != AF_INET) {
+		filter_api_accept(id);
+		return;
+	}
 	
 	in_addr = ((const struct sockaddr_in *)&conn->remote)->sin_addr.s_addr;
 
@@ -77,13 +80,15 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	    (in_addr >> 24) & 0xff,
 	    dnsbl_host) >= sizeof(buf)) {
 		log_warnx("filter-dnsbl: host name too long: %s", buf);
-		return filter_api_reject(id, FILTER_FAIL);
+		filter_api_reject(id, FILTER_FAIL);
+		return;
 	}
 
 	q = calloc(1, sizeof *q);
 	if (q == NULL) {
 		log_warn("filter-dnsbl: calloc");
-		return filter_api_reject(id, FILTER_FAIL);
+		filter_api_reject(id, FILTER_FAIL);
+		return;
 	}
 	*q = id;
 
@@ -92,14 +97,14 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	aq = getaddrinfo_async(buf, NULL, &hints, NULL);
 	if (aq == NULL) {
 		log_warn("filter-dnsbl: getaddrinfo_async");
+		filter_api_reject(id, FILTER_FAIL);
 		free(q);
-		return filter_api_reject(id, FILTER_FAIL);
+		return;
 	}
 
 	log_debug("debug: filter-dnsbl: checking %s", buf);
 
 	event_asr_run(aq, dnsbl_event_dispatch, q);
-	return 1;
 }
 
 int
