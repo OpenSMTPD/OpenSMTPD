@@ -634,6 +634,7 @@ AC_CHECK_FUNCS([ \
 	dirfd \
 	dirname \
 	endgrent \
+	explicit_bzero \
 	fgetln \
 	freeaddrinfo \
 	getaddrinfo \
