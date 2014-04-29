@@ -42,7 +42,7 @@ struct pki {
 /* ssl.c */
 void		ssl_init(void);
 int		ssl_setup(SSL_CTX **, struct pki *);
-SSL_CTX	       *ssl_ctx_create(void);
+SSL_CTX	       *ssl_ctx_create(char *, off_t, char *, off_t);
 int	        ssl_cmp(struct pki *, struct pki *);
 DH	       *get_dh1024(void);
 DH	       *get_dh_from_memory(char *, size_t);
