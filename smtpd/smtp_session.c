@@ -603,10 +603,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		sni = smtp_sni_callback;
 #endif
 
-		ssl = ssl_smtp_init(ssl_ctx,
-		    resp_ca_cert->cert, resp_ca_cert->cert_len,
-		    resp_ca_cert->key, resp_ca_cert->key_len,
-		    sni, s);
+		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback, s);
+
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
