@@ -126,7 +126,8 @@ struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(struct listenerlist *, struct listen_opts *);
 int		 host(struct listenerlist *, struct listen_opts *);
 int		 interface(struct listenerlist *, struct listen_opts *);
-void		 set_localaddrs(void);
+void		 set_local(const char *);
+void		 set_localaddrs(struct table *);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
 
@@ -1606,12 +1607,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	/*
 	 * declare special "localhost", "anyhost" and "localnames" tables
 	 */
-	set_localaddrs();
-
-	t = table_create("static", "<localnames>", NULL, NULL);
-	t->t_type = T_LIST;
-	table_add(t, "localhost", NULL);
-	table_add(t, hostname, NULL);
+	set_local(hostname);
 
 	t = table_create("static", "<anydestination>", NULL, NULL);
 	t->t_type = T_LIST;
@@ -1995,13 +1991,27 @@ interface(struct listenerlist *al, struct listen_opts *lo)
 }
 
 void
-set_localaddrs(void)
+set_local(const char *hostname)
+{
+	struct table	*t;
+
+	t = table_create("static", "<localnames>", NULL, NULL);
+	t->t_type = T_LIST;
+	table_add(t, "localhost", NULL);
+	table_add(t, hostname, NULL);
+
+	set_localaddrs(t);
+}
+
+void
+set_localaddrs(struct table *localnames)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_storage ss;
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
 	struct table		*t;
+	char buf[NI_MAXHOST + 5];
 
 	t = table_create("static", "<anyhost>", NULL, NULL);
 	table_add(t, "local", NULL);
@@ -2025,6 +2035,9 @@ set_localaddrs(void)
 			sain->sin_len = sizeof(struct sockaddr_in);
 #endif
 			table_add(t, ss_to_text(&ss), NULL);
+			table_add(localnames, ss_to_text(&ss), NULL);
+			(void)snprintf(buf, sizeof buf, "[%s]", ss_to_text(&ss));
+			table_add(localnames, buf, NULL);
 			break;
 
 		case AF_INET6:
@@ -2034,6 +2047,11 @@ set_localaddrs(void)
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
 			table_add(t, ss_to_text(&ss), NULL);
+			table_add(localnames, ss_to_text(&ss), NULL);
+			(void)snprintf(buf, sizeof buf, "[%s]", ss_to_text(&ss));
+			table_add(localnames, buf, NULL);
+			(void)snprintf(buf, sizeof buf, "[ipv6:%s]", ss_to_text(&ss));
+			table_add(localnames, buf, NULL);
 			break;
 		}
 	}
