@@ -770,7 +770,7 @@ void
 post_fork(int proc)
 {
 	if (proc != PROC_QUEUE && env->sc_queue_key)
-		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+		explicit_bzero(env->sc_queue_key, strlen(env->sc_queue_key));
 
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
