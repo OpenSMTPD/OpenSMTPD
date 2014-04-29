@@ -51,16 +51,7 @@ ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
 	SSL_CTX	*ctx = NULL;
 	SSL	*ssl = NULL;
 
-	ctx = ssl_ctx_create();
-
-	if (cert != NULL && key != NULL) {
-		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 
-			goto err;
-		else if (!ssl_ctx_use_private_key(ctx, key, key_len))
-			goto err;
-		else if (!SSL_CTX_check_private_key(ctx))
-			goto err;
-	}
+	ctx = ssl_ctx_create(cert, cert_len, key, key_len);
 
 	if ((ssl = SSL_new(ctx)) == NULL)
 		goto err;
@@ -98,12 +89,6 @@ ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_le
 	int	(*cb)(SSL *,int *,void *) = sni;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
-	if (!ssl_ctx_use_certificate_chain(ssl_ctx, cert, cert_len))
-		goto err;
-	else if (!ssl_ctx_use_private_key(ssl_ctx, key, key_len))
-		goto err;
-	else if (!SSL_CTX_check_private_key(ssl_ctx))
-		goto err;
 
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
