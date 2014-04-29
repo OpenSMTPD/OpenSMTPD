@@ -133,7 +133,7 @@ table_sqlite_prepare_stmt(sqlite3 *_db, const char *query, int ncols)
 		goto end;
 	}
 	if (sqlite3_column_count(stmt) != ncols) {
-		log_warnx("warn: table-sqlite: columns: invalid resultset");
+		log_warnx("warn: table-sqlite: columns: invalid columns count for query: %s", query);
 		goto end;
 	}
 
@@ -420,6 +420,7 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 
 	switch(service) {
 	case K_ALIAS:
+		memset(dst, 0, sz);
 		do {
 			value = sqlite3_column_text(stmt, 0);
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
@@ -434,7 +435,6 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 			}
 			s = sqlite3_step(stmt);
 		} while (s == SQLITE_ROW);
-
 		if (s !=  SQLITE_ROW && s != SQLITE_DONE) {
 			log_warnx("warn: table-sqlite: sqlite3_step: %s",
 			    sqlite3_errmsg(db));
