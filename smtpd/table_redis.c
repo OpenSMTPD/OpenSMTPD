@@ -413,6 +413,7 @@ table_redis_lookup(int service, const char *key, char *dst, size_t sz)
 	r = 1;
 	switch(service) {
 	case K_ALIAS:
+		memset(dst, 0, sz);
 		if (reply->type == REDIS_REPLY_STRING) {
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
 				log_warnx("warn: table-redis: result too large");

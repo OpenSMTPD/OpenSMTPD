@@ -530,6 +530,7 @@ table_mysql_lookup(int service, const char *key, char *dst, size_t sz)
 
 	switch(service) {
 	case K_ALIAS:
+		memset(dst, 0, sz);
 		do {
 			if (dst[0] && strlcat(dst, ", ", sz) >= sz) {
 				log_warnx("warn: table-mysql: result too large");

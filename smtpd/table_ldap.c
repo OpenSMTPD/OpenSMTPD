@@ -516,6 +516,7 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 	switch (type) {
 
 	case K_ALIAS:
+		memset(dst, 0, sz);
 		for (i = 0; res[0][i]; i++) {
 			if (i && strlcat(dst, ", ", sz) >= sz) {
 				ret = -1;
