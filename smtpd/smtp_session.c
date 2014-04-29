@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.207 2014/04/19 17:04:42 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.209 2014/04/29 12:18:27 reyk Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -86,8 +86,8 @@ enum message_flags {
 	MF_QUEUE_ENVELOPE_FAIL	= 0x0001,
 	MF_ERROR_SIZE		= 0x1000,
 	MF_ERROR_IO		= 0x2000,
-	MF_ERROR_MFA		= 0x4000,
 };
+#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO)
 
 enum smtp_command {
 	CMD_HELO = 0,
@@ -170,7 +170,6 @@ static int smtp_parse_mail_args(struct smtp_session *, char *);
 static int smtp_parse_rcpt_args(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_plain(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_login(struct smtp_session *, char *);
-static void smtp_message_write(struct smtp_session *, const char *);
 static void smtp_message_end(struct smtp_session *);
 static void smtp_message_reset(struct smtp_session *, int);
 static void smtp_free(struct smtp_session *, const char *);
@@ -190,9 +189,10 @@ static void smtp_filter_commit(struct smtp_session *);
 static void smtp_filter_rollback(struct smtp_session *);
 static void smtp_filter_eom(struct smtp_session *);
 static void smtp_filter_helo(struct smtp_session *);
-static void smtp_filter_mail(struct smtp_session *s);
-static void smtp_filter_rcpt(struct smtp_session *s);
-static void smtp_filter_data(struct smtp_session *s);
+static void smtp_filter_mail(struct smtp_session *);
+static void smtp_filter_rcpt(struct smtp_session *);
+static void smtp_filter_data(struct smtp_session *);
+static void smtp_filter_dataline(struct smtp_session *, const char *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -868,7 +868,7 @@ smtp_io(struct io *io, int evt)
 					if (line[i] & 0x80)
 						line[i] = line[i] & 0x7f;
 
-			smtp_message_write(s, line);
+			smtp_filter_dataline(s, line);
 			goto nextline;
 		}
 
@@ -1549,32 +1549,6 @@ smtp_enter_state(struct smtp_session *s, int newstate)
 }
 
 static void
-smtp_message_write(struct smtp_session *s, const char *line)
-{
-	size_t	len;
-
-	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
-
-	/* Don't waste resources on message if it's going to bin anyway. */
-	if (s->msgflags & (MF_ERROR_IO | MF_ERROR_SIZE | MF_ERROR_MFA))
-		return;
-
-	len = strlen(line) + 1;
-
-	if (s->datalen + len > env->sc_maxsize) {
-		s->msgflags |= MF_ERROR_SIZE;
-		return;
-	}
-
-	if (fprintf(s->ofile, "%s\n", line) != (int)len) {
-		s->msgflags |= MF_ERROR_IO;
-		return;
-	}
-
-	s->datalen += len;
-}
-
-static void
 smtp_message_end(struct smtp_session *s)
 {
 	log_debug("debug: %p: end of message, msgflags=0x%04x", s, s->msgflags);
@@ -1586,7 +1560,7 @@ smtp_message_end(struct smtp_session *s)
 	fclose(s->ofile);
 	s->ofile = NULL;
 
-	if (s->msgflags & (MF_ERROR_SIZE | MF_ERROR_MFA | MF_ERROR_IO)) {
+	if (s->msgflags & MF_ERROR) {
 		m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
@@ -1945,6 +1919,31 @@ static void
 smtp_filter_data(struct smtp_session *s)
 {
 	smtp_mfa_response(s, IMSG_SMTP_REQ_DATA, MFA_OK, 0, NULL);
+}
+
+static void
+smtp_filter_dataline(struct smtp_session *s, const char *line)
+{
+	size_t	len;
+
+	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
+
+	/* Don't waste resources on message if it's going to bin anyway. */
+	if (s->msgflags & MF_ERROR)
+		return;
+
+	len = strlen(line) + 1;
+
+	if (s->datalen + len > env->sc_maxsize) {
+		s->msgflags |= MF_ERROR_SIZE;
+		return;
+	}
+	s->datalen += len;
+
+	if (fprintf(s->ofile, "%s\n", line) != (int)len) {
+		s->msgflags |= MF_ERROR_IO;
+		return;
+	}
 }
 
 #define CASE(x) case x : return #x
