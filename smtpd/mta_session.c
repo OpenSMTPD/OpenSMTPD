@@ -80,6 +80,7 @@ enum mta_state {
 #define MTA_WANT_SECURE		0x0010
 #define MTA_USE_AUTH		0x0020
 #define MTA_USE_CERT		0x0040
+#define MTA_DOWNGRADE_PLAIN    	0x0080
 
 #define MTA_TLS_TRIED		0x0080
 
@@ -525,6 +526,10 @@ mta_connect(struct mta_session *s)
 			s->use_smtps = 1;	/* tls+smtps */
 			break;
 		}
+		else if (s->flags & MTA_DOWNGRADE_PLAIN) {
+			/* smtp+tls, with tls failure */
+			break;
+		}
 	default:
 		mta_free(s);
 		return;
@@ -544,7 +549,6 @@ mta_connect(struct mta_session *s)
 		((struct sockaddr_in6 *)sa)->sin6_port = htons(portno);
 
 	s->attempt += 1;
-
 	if (s->use_smtp_tls)
 		schema = "smtp+tls://";
 	else if (s->use_starttls)
@@ -1274,6 +1278,11 @@ mta_io(struct io *io, int evt)
 		mta_error(s, "IO Error: %s", io->error);
 		if (!s->ready)
 			mta_connect(s);
+		else if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
+			/* error in non-strict SSL negotiation, downgrade to plain */
+				s->flags |= MTA_DOWNGRADE_PLAIN;
+				mta_connect(s);
+		}
 		else
 			mta_free(s);
 		break;
