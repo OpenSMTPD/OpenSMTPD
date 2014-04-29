@@ -601,8 +601,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
-		memset(resp_ca_cert->cert, 0, resp_ca_cert->cert_len);
-		memset(resp_ca_cert->key, 0, resp_ca_cert->key_len);
+		explicit_bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
+		explicit_bzero(resp_ca_cert->key, resp_ca_cert->key_len);
 		free(resp_ca_cert->cert);
 		free(resp_ca_cert->key);
 		free(resp_ca_cert);
