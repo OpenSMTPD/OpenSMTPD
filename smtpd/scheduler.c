@@ -456,7 +456,9 @@ scheduler(void)
 static void
 scheduler_timeout(int fd, short event, void *p)
 {
-	struct timeval		tv;
+#define EXPIRE_DELAY	(250 * 1000)
+	static struct timeval	tv_sched = { 0, 0 };
+	struct timeval		tv, tv_delta, tv_now;
 	struct scheduler_batch	batch;
 	int			typemask, left;
 
@@ -465,13 +467,23 @@ scheduler_timeout(int fd, short event, void *p)
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-	typemask = SCHED_REMOVE | SCHED_EXPIRE | SCHED_UPDATE | SCHED_BOUNCE;
+	typemask = SCHED_REMOVE | SCHED_UPDATE | SCHED_BOUNCE;
 	if (ninflight < env->sc_scheduler_max_inflight &&
 	    !(env->sc_flags & SMTPD_MDA_PAUSED))
 		typemask |= SCHED_MDA;
 	if (ninflight < env->sc_scheduler_max_inflight &&
 	    !(env->sc_flags & SMTPD_MTA_PAUSED))
 		typemask |= SCHED_MTA;
+
+	/*
+	 * This is a bit of a hack.
+	 */
+	gettimeofday(&tv_now, NULL);
+	timersub(&tv_now, &tv_sched, &tv_delta);
+	if (tv_delta.tv_sec > 1 || tv_delta.tv_usec > EXPIRE_DELAY)
+		typemask |= SCHED_EXPIRE;
+	else
+		log_debug("scheduler: rate-limiting expire");
 
 	left = typemask;
 
@@ -494,6 +506,7 @@ scheduler_timeout(int fd, short event, void *p)
 	case SCHED_EXPIRE:
 		log_trace(TRACE_SCHEDULER, "scheduler: SCHED_EXPIRE %zu",
 		    batch.evpcount);
+		tv_sched = tv_now;
 		scheduler_process_expire(&batch);
 		break;
 
@@ -539,6 +552,15 @@ scheduler_timeout(int fd, short event, void *p)
 	    (batch.mask & SCHED_DELAY && batch.type != SCHED_DELAY)) {
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
+		evtimer_add(&ev, &tv);
+		return;
+	}
+
+	if (!(typemask & SCHED_EXPIRE)) {
+		tv.tv_sec = 0;
+		tv.tv_usec = EXPIRE_DELAY;
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: SCHED_DELAY %s", duration_to_text(tv.tv_sec));
 		evtimer_add(&ev, &tv);
 		return;
 	}
