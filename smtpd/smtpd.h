@@ -651,6 +651,7 @@ struct forward_req {
 struct deliver {
 	char			to[SMTPD_MAXPATHLEN];
 	char			from[SMTPD_MAXPATHLEN];
+	char			dest[SMTPD_MAXLINESIZE];
 	char			user[SMTPD_MAXLOGNAME];
 	short			mode;
 
