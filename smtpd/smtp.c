@@ -218,7 +218,7 @@ smtp_setup_events(void)
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
 
-	purge_config(PURGE_PKI);
+	purge_config(PURGE_PKI_KEYS);
 
 	/* XXX chl */
 	log_debug("debug: smtp: will accept at most %d clients",

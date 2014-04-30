@@ -72,6 +72,7 @@
 #endif
 
 #include <openssl/ssl.h>
+#include <openssl/evp.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -99,9 +100,9 @@ static void	offline_done(void);
 static int	offline_enqueue(char *);
 
 static void	purge_task(void);
-static void	log_imsg(int, int, struct imsg *);
 static int	parent_auth_user(const char *, const char *);
 static void	load_pki_tree(void);
+static void	load_pki_keys(void);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -626,6 +627,7 @@ main(int argc, char *argv[])
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
 		load_pki_tree();
+		load_pki_keys();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
@@ -739,8 +741,6 @@ load_pki_tree(void)
 
 		if (! ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
-		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
-			fatalx("load_pki_tree: failed to load key file");
 
 		if (pki->pki_ca_file)
 			if (! ssl_load_cafile(pki, pki->pki_ca_file))
@@ -748,6 +748,23 @@ load_pki_tree(void)
 		if (pki->pki_dhparams_file)
 			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
 				fatalx("load_pki_tree: failed to load dhparams file");
+	}
+}
+
+void
+load_pki_keys(void)
+{
+	struct pki	*pki;
+	const char	*k;
+	void		*iter_dict;
+
+	log_debug("debug: init ssl-tree");
+	iter_dict = NULL;
+	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
+		log_debug("info: loading pki keys for %s", k);
+
+		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
+			fatalx("load_pki_keys: failed to load key file");
 	}
 }
 
@@ -775,6 +792,10 @@ post_fork(int proc)
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
 		control_socket = -1;
+	}
+
+	if (proc == PROC_LKA) {
+		load_pki_keys();
 	}
 }
 
@@ -1221,7 +1242,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	}
 }
 
-static void
+void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 
@@ -1429,6 +1450,9 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_EVENT_COMMIT);
 	CASE(IMSG_SMTP_EVENT_ROLLBACK);
 	CASE(IMSG_SMTP_EVENT_DISCONNECT);
+
+	CASE(IMSG_CA_PRIVENC);
+	CASE(IMSG_CA_PRIVDEC);
 	default:
 		(void)snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 

@@ -299,6 +299,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct smtp_session		*s;
 	struct smtp_rcpt		*rcpt;
 	void				*ssl;
+	char				*pkiname;
 	char				 user[SMTPD_MAXLOGNAME];
 	struct msg			 m;
 	const char			*line, *helo;
@@ -589,15 +590,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			fatal(NULL);
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "smtp:ca_cert");
-
-		resp_ca_cert->key = xstrdup((char *)imsg->data +
-		    sizeof *resp_ca_cert + resp_ca_cert->cert_len,
-		    "smtp:ca_key");
-
 		if (s->listener->pki_name[0])
-			ssl_ctx = dict_get(env->sc_ssl_dict, s->listener->pki_name);
+			pkiname = s->listener->pki_name;
 		else
-			ssl_ctx = dict_get(env->sc_ssl_dict, s->smtpname);
+			pkiname = s->smtpname;
+		ssl_ctx = dict_get(env->sc_ssl_dict, pkiname);
 
 #if defined(HAVE_TLSEXT_SERVERNAME)
 		sni = smtp_sni_callback;
@@ -609,9 +606,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_start_tls(&s->io, ssl);
 
 		explicit_bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
-		explicit_bzero(resp_ca_cert->key, resp_ca_cert->key_len);
 		free(resp_ca_cert->cert);
-		free(resp_ca_cert->key);
 		free(resp_ca_cert);
 		return;
 

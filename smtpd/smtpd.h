@@ -312,6 +312,9 @@ enum imsg_type {
 	IMSG_SMTP_EVENT_COMMIT,
 	IMSG_SMTP_EVENT_ROLLBACK,
 	IMSG_SMTP_EVENT_DISCONNECT,
+
+	IMSG_CA_PRIVENC,
+	IMSG_CA_PRIVDEC
 };
 
 enum blockmodes {
@@ -1062,8 +1065,6 @@ struct ca_cert_resp_msg {
 	enum ca_resp_status	status;
 	char		       *cert;
 	off_t			cert_len;
-	char		       *key;
-	off_t			key_len;
 };
 
 struct ca_vrfy_req_msg {
@@ -1100,8 +1101,10 @@ void bounce_fd(int);
 
 
 /* ca.c */
-int	ca_X509_verify(void *, void *, const char *, const char *, const char **);
-
+int	 ca_X509_verify(void *, void *, const char *, const char *, const char **);
+void	 ca_imsg(struct mproc *, struct imsg *);
+void	 ca_init(void);
+int	 ca_engine_init(void);
 
 /* compress_backend.c */
 struct compress_backend *compress_backend_lookup(const char *);
@@ -1115,7 +1118,8 @@ int	uncompress_file(FILE *, FILE *);
 #define PURGE_TABLES		0x02
 #define PURGE_RULES		0x04
 #define PURGE_PKI		0x08
-#define PURGE_EVERYTHING	0xff
+#define PURGE_PKI_KEYS		0x10
+#define PURGE_EVERYTHING	0x0f
 void purge_config(uint8_t);
 void init_pipes(void);
 void config_process(enum smtp_proc_type);
@@ -1227,6 +1231,7 @@ void mproc_init(struct mproc *, int);
 void mproc_clear(struct mproc *);
 void mproc_enable(struct mproc *);
 void mproc_disable(struct mproc *);
+void mproc_event_add(struct mproc *);
 void m_compose(struct mproc *, uint32_t, uint32_t, pid_t, int, void *, size_t);
 void m_composev(struct mproc *, uint32_t, uint32_t, pid_t, int,
     const struct iovec *, int);
@@ -1235,6 +1240,7 @@ void m_create(struct mproc *, uint32_t, uint32_t, pid_t, int);
 void m_add(struct mproc *, const void *, size_t);
 void m_add_int(struct mproc *, int);
 void m_add_u32(struct mproc *, uint32_t);
+void m_add_size(struct mproc *, size_t);
 void m_add_time(struct mproc *, time_t);
 void m_add_string(struct mproc *, const char *);
 void m_add_data(struct mproc *, const void *, size_t);
@@ -1245,11 +1251,13 @@ void m_add_sockaddr(struct mproc *, const struct sockaddr *);
 void m_add_mailaddr(struct mproc *, const struct mailaddr *);
 void m_add_envelope(struct mproc *, const struct envelope *);
 void m_close(struct mproc *);
+void m_flush(struct mproc *);
 
 void m_msg(struct msg *, struct imsg *);
 int  m_is_eom(struct msg *);
 void m_end(struct msg *);
 void m_get_int(struct msg *, int *);
+void m_get_size(struct msg *, size_t *);
 void m_get_u32(struct msg *, uint32_t *);
 void m_get_time(struct msg *, time_t *);
 void m_get_string(struct msg *, const char **);
@@ -1325,6 +1333,7 @@ time_t scheduler_compute_schedule(struct scheduler_info *);
 
 /* pony.c */
 pid_t pony(void);
+void pony_imsg(struct mproc *, struct imsg *);
 
 
 /* smtp.c */
@@ -1347,10 +1356,11 @@ void post_fork(int);
 const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);
+void log_imsg(int, int, struct imsg *);
 
 
 /* ssl_smtpd.c */
-void   *ssl_mta_init(char *, off_t, char *, off_t);
+void   *ssl_mta_init(void *, char *, off_t);
 void   *ssl_smtp_init(void *, void *, void *);
 
 
