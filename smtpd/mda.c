@@ -290,6 +290,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				deliver.userinfo = *userinfo;
 				(void)strlcpy(deliver.user, userinfo->username,
 				    sizeof(deliver.user));
+				(void)strlcpy(deliver.dest, e->dest,
+				    sizeof(deliver.dest));
 				if (strlcpy(deliver.to, e->buffer,
 					sizeof(deliver.to))
 				    >= sizeof(deliver.to)) {
