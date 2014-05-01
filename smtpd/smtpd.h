@@ -31,7 +31,7 @@
 #define MAILNAME_FILE		 "/etc/mail/mailname"
 #define CA_FILE			 "/etc/ssl/cert.pem"
 
-#define PROC_COUNT		 6
+#define PROC_COUNT		 7
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
@@ -301,6 +301,7 @@ enum smtp_proc_type {
 	PROC_CONTROL,
 	PROC_SCHEDULER,
 	PROC_PONY,
+	PROC_CA,
 
 	PROC_FILTER,
 	PROC_CLIENT,
@@ -981,6 +982,7 @@ extern struct mproc *p_lka;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
 extern struct mproc *p_pony;
+extern struct mproc *p_ca;
 
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);
@@ -1074,6 +1076,7 @@ void bounce_fd(int);
 
 
 /* ca.c */
+pid_t	 ca(void);
 int	 ca_X509_verify(void *, void *, const char *, const char *, const char **);
 void	 ca_imsg(struct mproc *, struct imsg *);
 void	 ca_init(void);
