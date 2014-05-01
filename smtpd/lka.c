@@ -95,12 +95,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 	}
 
-	if (imsg->hdr.type == IMSG_CA_PRIVENC ||
-	    imsg->hdr.type == IMSG_CA_PRIVDEC) {
-		ca_imsg(p, imsg);
-		return;
-	}
-
 	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_EXPAND_RCPT:
@@ -393,7 +387,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			if (verbose & TRACE_TABLES)
 				table_dump_all();
 			table_open_all();
-			ca_init();
 
 			/* Start fulfilling requests */
 			mproc_enable(p_pony);

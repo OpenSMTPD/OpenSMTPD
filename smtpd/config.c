@@ -167,6 +167,8 @@ config_peer(enum smtp_proc_type proc)
 		p_scheduler = p;
 	else if (proc == PROC_PONY)
 		p_pony = p;
+	else if (proc == PROC_CA)
+		p_ca = p;
 	else
 		fatalx("bad peer");
 }
@@ -231,6 +233,7 @@ process_stat_event(int fd, short ev, void *arg)
 	process_stat(p_queue);
 	process_stat(p_scheduler);
 	process_stat(p_pony);
+	process_stat(p_ca);
 
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
