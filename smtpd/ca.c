@@ -523,16 +523,34 @@ rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
 	return (rsa_default->rsa_keygen(rsa, bits, e, cb));
 }
 
-int
+void
 ca_engine_init(void)
 {
-	ENGINE	*e;
+	ENGINE		*e;
+	const char	*errstr, *name;
 
-	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	if ((e = ENGINE_get_default_RSA()) == NULL) {
+		if ((e = ENGINE_new()) == NULL) {
+			errstr = "ENGINE_new";
+			goto fail;
+		}
+		if (!ENGINE_set_name(e, rsae_method.name)) {
+			errstr = "ENGINE_set_name";
+			goto fail;
+		}
+		if ((rsa_default = RSA_get_default_method()) == NULL) {
+			errstr = "RSA_get_default_method";
+			goto fail;
+		}
+	} else if ((rsa_default = ENGINE_get_RSA(e)) == NULL) {
+		errstr = "ENGINE_get_RSA";
+		goto fail;
+	}
 
-	if ((e = ENGINE_get_default_RSA()) == NULL ||
-	    (rsa_default = ENGINE_get_RSA(e)) == NULL)
-		return (-1);
+	if ((name = ENGINE_get_name(e)) == NULL)
+		name = "unknown RSA engine";
+
+	log_debug("debug: %s: using %s", __func__, name);
 
 	if (rsa_default->flags & RSA_FLAG_SIGN_VER)
 		fatalx("unsupported RSA engine");
@@ -549,9 +567,18 @@ ca_engine_init(void)
 	    RSA_METHOD_FLAG_NO_CHECK;
 	rsae_method.app_data = rsa_default->app_data;
 
-	if (!ENGINE_set_RSA(e, &rsae_method) ||
-	    !ENGINE_set_default_RSA(e))
-		return (-1);
+	if (!ENGINE_set_RSA(e, &rsae_method)) {
+		errstr = "ENGINE_set_RSA";
+		goto fail;
+	}
+	if (!ENGINE_set_default_RSA(e)) {
+		errstr = "ENGINE_set_default_RSA";
+		goto fail;
+	}
 
-	return (0);
+	return;
+
+ fail:
+	ssl_error(errstr);
+	fatalx(errstr);
 }

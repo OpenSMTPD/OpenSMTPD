@@ -1108,7 +1108,7 @@ pid_t	 ca(void);
 int	 ca_X509_verify(void *, void *, const char *, const char *, const char **);
 void	 ca_imsg(struct mproc *, struct imsg *);
 void	 ca_init(void);
-int	 ca_engine_init(void);
+void	 ca_engine_init(void);
 
 /* compress_backend.c */
 struct compress_backend *compress_backend_lookup(const char *);
