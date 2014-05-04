@@ -42,9 +42,6 @@ AC_PATH_PROG([GROFF], [groff])
 AC_PATH_PROG([NROFF], [nroff])
 AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
-#AC_PATH_PROG(BYACC, byacc)
-#AC_PATH_PROG(MAIL_LOCAL, mail.local)
-#AC_PATH_PROG(ENCRYPT, encrypt)
 
 AM_INIT_AUTOMAKE
 
@@ -105,7 +102,6 @@ if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	OSSH_CHECK_CFLAG_COMPILE([-Wpointer-sign], [-Wno-pointer-sign])
 	OSSH_CHECK_CFLAG_COMPILE([-Wunused-result], [-Wno-unused-result])
 	OSSH_CHECK_CFLAG_COMPILE([-fno-strict-aliasing])
-#	OSSH_CHECK_CFLAG_COMPILE([-D_FORTIFY_SOURCE=2])
 	AC_MSG_CHECKING([gcc version])
 	GCC_VER=`$CC -v 2>&1 | $AWK '/gcc version /{print $3}'`
 	case $GCC_VER in
@@ -419,7 +415,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
 
 dnl Checks for header files.
 # Checks for libraries.
-#AC_CHECK_FUNC([yp_match], , [AC_CHECK_LIB([nsl], [yp_match])])
 AC_CHECK_FUNC([setsockopt], , [AC_CHECK_LIB([socket], [setsockopt])])
 
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
@@ -576,12 +571,6 @@ dnl    Checks for libutil functions
 AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 AC_SEARCH_LIBS([fmt_scaled], [util bsd])
 AC_SEARCH_LIBS([scan_scaled], [util bsd])
-#AC_SEARCH_LIBS([login], [util bsd])
-#AC_SEARCH_LIBS([logout], [util bsd])
-#AC_SEARCH_LIBS([logwtmp], [util bsd])
-#AC_SEARCH_LIBS([openpty], [util bsd])
-#AC_SEARCH_LIBS([updwtmp], [util bsd])
-#AC_CHECK_FUNCS([fmt_scaled login logout openpty updwtmp logwtmp])
 AC_CHECK_FUNCS([fmt_scaled scan_scaled])
 #l1192
 
@@ -2994,19 +2983,6 @@ echo "                   encrypt program: $F"
 echo "                      Manual pages: $G"
 echo "                    smtpd.sock dir: $H"
 echo "  Privilege separation chroot path: $I"
-if test "x$external_path_file" = "x/etc/login.conf" ; then
-echo "   At runtime, smtpd will use the path defined in $external_path_file"
-echo "   Make sure the path to scp is present, otherwise scp will not work"
-else
-echo "           smtpd default user PATH: $J"
-	if test ! -z "$external_path_file"; then
-echo "   (If PATH is set in $external_path_file it will be used instead. If"
-echo "   used, ensure the path to scp is present, otherwise scp will not work.)"
-	fi
-fi
-if test ! -z "$superuser_path" ; then
-echo "         smtpd superuser user PATH: $K"
-fi
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
