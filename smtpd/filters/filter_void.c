@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*      $OpenBSD$   */
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -15,9 +15,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#include "includes.h"
-
+ 
 #include <sys/types.h>
 
 #include <inttypes.h>
@@ -27,58 +25,6 @@
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "log.h"
-
-static int
-monkey(uint64_t id)
-{
-	uint32_t r;
-
-	r = arc4random_uniform(100);
-	if (r < 70)
-		return filter_api_accept(id);
-	else if (r < 90)
-		return filter_api_reject_code(id, FILTER_FAIL, 666,
-		    "I am a monkey!");
-	else
-		return filter_api_reject_code(id, FILTER_CLOSE, 666,
-		    "I am a not so funny monkey!");
-}
-
-static int
-on_connect(uint64_t id, struct filter_connect *conn)
-{
-	return monkey(id);
-}
-
-static int
-on_helo(uint64_t id, const char *helo)
-{
-	return monkey(id);
-}
-
-static int
-on_mail(uint64_t id, struct mailaddr *mail)
-{
-	return monkey(id);
-}
-
-static int
-on_rcpt(uint64_t id, struct mailaddr *rcpt)
-{
-	return monkey(id);
-}
-
-static int
-on_data(uint64_t id)
-{
-	return monkey(id);
-}
-
-static int
-on_eom(uint64_t id)
-{
-	return monkey(id);
-}
 
 int
 main(int argc, char **argv)
@@ -90,7 +36,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
 		default:
-			log_warnx("warn: filter-monkey: bad option");
+			log_warnx("warn: filter-void: bad option");
 			return (1);
 			/* NOTREACHED */
 		}
@@ -98,17 +44,10 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	log_debug("debug: filter-monkey: starting...");
+	log_debug("debug: filter-void: starting...");
 
-	filter_api_on_connect(on_connect);
-	filter_api_on_helo(on_helo);
-	filter_api_on_mail(on_mail);
-	filter_api_on_rcpt(on_rcpt);
-	filter_api_on_data(on_data);
-	filter_api_on_eom(on_eom);
 	filter_api_loop();
+	log_debug("debug: filter-void: exiting");
 
-	log_debug("debug: filter-monkey: exiting");
-
-	return (0);
+	return (1);
 }

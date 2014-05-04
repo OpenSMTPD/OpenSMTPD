@@ -138,13 +138,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			resp_ca_cert.status = CA_OK;
 			resp_ca_cert.cert_len = pki->pki_cert_len;
-			resp_ca_cert.key_len = pki->pki_key_len;
 			iov[0].iov_base = &resp_ca_cert;
 			iov[0].iov_len = sizeof(resp_ca_cert);
 			iov[1].iov_base = pki->pki_cert;
 			iov[1].iov_len = pki->pki_cert_len;
-			iov[2].iov_base = pki->pki_key;
-			iov[2].iov_len = pki->pki_key_len;
 			m_composev(p, IMSG_SMTP_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 
@@ -260,13 +257,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			}
 			resp_ca_cert.status = CA_OK;
 			resp_ca_cert.cert_len = pki->pki_cert_len;
-			resp_ca_cert.key_len = pki->pki_key_len;
 			iov[0].iov_base = &resp_ca_cert;
 			iov[0].iov_len = sizeof(resp_ca_cert);
 			iov[1].iov_base = pki->pki_cert;
 			iov[1].iov_len = pki->pki_cert_len;
-			iov[2].iov_base = pki->pki_key;
-			iov[2].iov_len = pki->pki_key_len;
 			m_composev(p, IMSG_MTA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 

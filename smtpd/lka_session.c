@@ -42,8 +42,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define TAG_CHAR	'+'	/* gilles+tag@ */
-
 #define	EXPAND_DEPTH	10
 
 #define	F_WAITING	0x01
@@ -72,7 +70,6 @@ static void lka_resume(struct lka_session *);
 static size_t lka_expand_format(char *, size_t, const struct envelope *,
     const struct userinfo *);
 static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
-static int mailaddr_tag(const struct mailaddr *, char *, size_t);
 
 static int mod_lowercase(char *, size_t);
 static int mod_uppercase(char *, size_t);
@@ -87,8 +84,6 @@ struct modifiers {
 	{ "strip",	mod_strip },
 	{ "raw",	NULL },		/* special case, must stay last */
 };
-static const char	*unsafe = MAILADDR_ESCAPE;
-
 
 static int		init;
 static struct tree	sessions;
@@ -481,7 +476,6 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		*ep;
 	struct expandnode	*xn2;
 	int			 r;
-	char			 tag[EXPAND_BUFFER];
 
 	ep = xmemdup(&lks->envelope, sizeof *ep, "lka_submit");
 	ep->expire = rule->r_qexpire;
@@ -552,24 +546,6 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			ep->agent.mda.method = rule->r_action;
 			(void)strlcpy(ep->agent.mda.buffer, rule->r_value.buffer,
 			    sizeof ep->agent.mda.buffer);
-
-			memset(tag, 0, sizeof tag);
-			if (! mailaddr_tag(&ep->dest, tag, sizeof tag)) {
-				lks->error = LKA_PERMFAIL;
-				free(ep);
-				return;
-			}
-			if (rule->r_action == A_MAILDIR && tag[0]) {
-				(void)strlcat(ep->agent.mda.buffer, "/.",
-				    sizeof(ep->agent.mda.buffer));
-				if (strlcat(ep->agent.mda.buffer, tag,
-					sizeof(ep->agent.mda.buffer))
-				    >= sizeof(ep->agent.mda.buffer)) {
-					lks->error = LKA_TEMPFAIL;
-					free(ep);
-					return;
-				}
-			}
 		}
 		else
 			fatalx("lka_deliver: bad node type");
@@ -716,7 +692,7 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	
 	if (! raw && replace)
 		for (i = 0; (size_t)i < strlen(tmp); ++i)
-			if (strchr(unsafe, tmp[i]))
+			if (strchr(MAILADDR_ESCAPE, tmp[i]))
 				tmp[i] = ':';
 
 	/* expanded string is empty */
@@ -851,28 +827,6 @@ mailaddr_to_username(const struct mailaddr *maddr, char *dst, size_t len)
 	/* gilles+hackers@ -> gilles@ */
 	if ((tag = strchr(dst, TAG_CHAR)) != NULL)
 		*tag++ = '\0';
-}
-
-static int
-mailaddr_tag(const struct mailaddr *maddr, char *dest, size_t len)
-{
-	char		*tag;
-	char		*sanitized;
-
-	if ((tag = strchr(maddr->user, TAG_CHAR))) {
-		tag++;
-		while (*tag == '.')
-			tag++;
-	}
-	if (tag == NULL)
-		return 1;
-
-	if (strlcpy(dest, tag, len) >= len)
-		return 0;
-	for (sanitized = dest; *sanitized; sanitized++)
-		if (strchr(unsafe, *sanitized))
-			*sanitized = ':';
-	return 1;
 }
 
 static int 

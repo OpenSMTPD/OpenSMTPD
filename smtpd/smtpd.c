@@ -72,6 +72,7 @@
 #endif
 
 #include <openssl/ssl.h>
+#include <openssl/evp.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -85,6 +86,7 @@ static void parent_shutdown(int);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
 static void parent_send_config_pony(void);
+static void parent_send_config_ca(void);
 static void parent_sig_handler(int, short, void *);
 static void forkmda(struct mproc *, uint64_t, struct deliver *);
 static int parent_forward_open(char *, char *, uid_t, gid_t);
@@ -99,9 +101,9 @@ static void	offline_done(void);
 static int	offline_enqueue(char *);
 
 static void	purge_task(void);
-static void	log_imsg(int, int, struct imsg *);
 static int	parent_auth_user(const char *, const char *);
 static void	load_pki_tree(void);
+static void	load_pki_keys(void);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -148,6 +150,7 @@ struct mproc	*p_parent = NULL;
 struct mproc	*p_queue = NULL;
 struct mproc	*p_scheduler = NULL;
 struct mproc	*p_pony = NULL;
+struct mproc	*p_ca = NULL;
 
 const char	*backend_queue = "fs";
 const char	*backend_scheduler = "ramqueue";
@@ -266,6 +269,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_forward(p_lka, imsg);
 			m_forward(p_queue, imsg);
 			m_forward(p_pony, imsg);
+			m_forward(p_ca, imsg);
 			return;
 
 		case IMSG_CTL_TRACE_ENABLE:
@@ -308,7 +312,8 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	errx(1, "parent_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
+	errx(1, "parent_imsg: unexpected %s imsg from %s",
+	    imsg_to_str(imsg->hdr.type), proc_title(p->proc));
 }
 
 static void
@@ -348,6 +353,7 @@ parent_send_config(int fd, short event, void *p)
 {
 	parent_send_config_lka();
 	parent_send_config_pony();
+	parent_send_config_ca();
 	purge_config(PURGE_PKI);
 }
 
@@ -365,6 +371,14 @@ parent_send_config_lka()
 	log_debug("debug: parent_send_config_ruleset: reloading");
 	m_compose(p_lka, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 	m_compose(p_lka, IMSG_CONF_END, 0, 0, -1, NULL, 0);
+}
+
+static void
+parent_send_config_ca(void)
+{
+	log_debug("debug: parent_send_config: configuring ca process");
+	m_compose(p_ca, IMSG_CONF_START, 0, 0, -1, NULL, 0);
+	m_compose(p_ca, IMSG_CONF_END, 0, 0, -1, NULL, 0);
 }
 
 static void
@@ -626,6 +640,7 @@ main(int argc, char *argv[])
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
 		load_pki_tree();
+		load_pki_keys();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
@@ -696,6 +711,7 @@ main(int argc, char *argv[])
 	config_peer(PROC_CONTROL);
 	config_peer(PROC_LKA);
 	config_peer(PROC_QUEUE);
+	config_peer(PROC_CA);
 	config_peer(PROC_PONY);
 	config_done();
 
@@ -739,8 +755,6 @@ load_pki_tree(void)
 
 		if (! ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
-		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
-			fatalx("load_pki_tree: failed to load key file");
 
 		if (pki->pki_ca_file)
 			if (! ssl_load_cafile(pki, pki->pki_ca_file))
@@ -748,6 +762,23 @@ load_pki_tree(void)
 		if (pki->pki_dhparams_file)
 			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
 				fatalx("load_pki_tree: failed to load dhparams file");
+	}
+}
+
+void
+load_pki_keys(void)
+{
+	struct pki	*pki;
+	const char	*k;
+	void		*iter_dict;
+
+	log_debug("debug: init ssl-tree");
+	iter_dict = NULL;
+	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
+		log_debug("info: loading pki keys for %s", k);
+
+		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
+			fatalx("load_pki_keys: failed to load key file");
 	}
 }
 
@@ -763,6 +794,7 @@ fork_peers(void)
 	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
 	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
 	child_add(pony(), CHILD_DAEMON, proc_title(PROC_PONY));
+	child_add(ca(), CHILD_DAEMON, proc_title(PROC_CA));
 	post_fork(PROC_PARENT);
 }
 
@@ -775,6 +807,10 @@ post_fork(int proc)
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
 		control_socket = -1;
+	}
+
+	if (proc == PROC_CA) {
+		load_pki_keys();
 	}
 }
 
@@ -1221,7 +1257,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	}
 }
 
-static void
+void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 
@@ -1259,6 +1295,8 @@ proc_title(enum smtp_proc_type proc)
 		return "scheduler";
 	case PROC_PONY:
 		return "pony express";
+	case PROC_CA:
+		return "klondike";
 	default:
 		return "unknown";
 	}
@@ -1280,6 +1318,8 @@ proc_name(enum smtp_proc_type proc)
 		return "scheduler";
 	case PROC_PONY:
 		return "pony";
+	case PROC_CA:
+		return "ca";
 	case PROC_FILTER:
 		return "filter-proc";
 	case PROC_CLIENT:
@@ -1429,6 +1469,9 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_EVENT_COMMIT);
 	CASE(IMSG_SMTP_EVENT_ROLLBACK);
 	CASE(IMSG_SMTP_EVENT_DISCONNECT);
+
+	CASE(IMSG_CA_PRIVENC);
+	CASE(IMSG_CA_PRIVDEC);
 	default:
 		(void)snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 
@@ -1577,6 +1620,10 @@ parent_broadcast_verbose(uint32_t v)
 	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
+
+	m_create(p_ca, IMSG_CTL_VERBOSE, 0, 0, -1);
+	m_add_int(p_ca, v);
+	m_close(p_ca);
 }
 
 static void
@@ -1593,4 +1640,8 @@ parent_broadcast_profile(uint32_t v)
 	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_queue, v);
 	m_close(p_queue);
+
+	m_create(p_ca, IMSG_CTL_VERBOSE, 0, 0, -1);
+	m_add_int(p_ca, v);
+	m_close(p_ca);
 }

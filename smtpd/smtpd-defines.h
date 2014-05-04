@@ -40,3 +40,6 @@
 #ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
 #endif
+
+#define TAG_CHAR	'+'	/* gilles+tag@ */
+

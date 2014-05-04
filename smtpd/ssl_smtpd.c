@@ -46,12 +46,12 @@
 
 
 void *
-ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
+ssl_mta_init(void *pkiname, char *cert, off_t cert_len)
 {
 	SSL_CTX	*ctx = NULL;
 	SSL	*ssl = NULL;
 
-	ctx = ssl_ctx_create(cert, cert_len, key, key_len);
+	ctx = ssl_ctx_create(pkiname, cert, cert_len);
 
 	if ((ssl = SSL_new(ctx)) == NULL)
 		goto err;
@@ -83,7 +83,7 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 }
 
 void *
-ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len, void *sni, void *arg)
+ssl_smtp_init(void *ssl_ctx, void *sni, void *arg)
 {
 	SSL	*ssl = NULL;
 	int	(*cb)(SSL *,int *,void *) = sni;
