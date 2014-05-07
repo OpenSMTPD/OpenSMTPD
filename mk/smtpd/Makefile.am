@@ -25,7 +25,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/envelope.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/event_asr_run.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
@@ -90,7 +89,8 @@ smtpd_SOURCES+=		$(asr_srcdir)/asr.c			\
 			$(asr_srcdir)/res_send_async.c		\
 			$(asr_srcdir)/getaddrinfo_async.c	\
 			$(asr_srcdir)/getnameinfo_async.c	\
-			$(asr_srcdir)/res_search_async.c
+			$(asr_srcdir)/res_search_async.c	\
+			$(asr_srcdir)/event_asr_run.c
 
 smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
