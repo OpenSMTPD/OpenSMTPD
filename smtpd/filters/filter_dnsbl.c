@@ -30,13 +30,6 @@
 #include "smtpd-api.h"
 #include "log.h"
 
-#if NEED_EVENT_ASR_RUN
-struct event_asr;
-struct event_asr * event_asr_run(struct asr_query *,
-    void (*)(struct asr_result *, void *), void *);
-void event_asr_abort(struct event_asr *);
-#endif
-
 const char * dnsbl_host = "dnsbl.sorbs.net";
 
 static void
