@@ -53,38 +53,38 @@ enum {
 };
 
 
-struct mfa_filterproc {
-	TAILQ_ENTRY(mfa_filterproc)	 entry;
+struct filter_proc {
+	TAILQ_ENTRY(filter_proc)	 entry;
 	struct mproc			 mproc;
 	int				 hooks;
 	int				 flags;
 	int				 ready;
 };
 
-struct mfa_filter {
-	TAILQ_ENTRY(mfa_filter)		 entry;
-	struct mfa_filterproc		*proc;
+struct filter {
+	TAILQ_ENTRY(filter)		 entry;
+	struct filter_proc		*proc;
 };
-TAILQ_HEAD(mfa_filters, mfa_filter);
+TAILQ_HEAD(filter_lst, filter);
 
-struct mfa_session {
+struct filter_session {
 	uint64_t				 id;
 	int					 terminate;
-	TAILQ_HEAD(mfa_queries, mfa_query)	 queries;
-	struct mfa_filters			*filters;
-	struct mfa_filter			*fcurr;
+	TAILQ_HEAD(filter_queries, filter_query) queries;
+	struct filter_lst			*filters;
+	struct filter				*fcurr;
 };
 
-struct mfa_query {
-	uint64_t		 qid;
-	int			 type;
-	int			 hook;
-	struct mfa_session	*session;
-	TAILQ_ENTRY(mfa_query)	 entry;
+struct filter_query {
+	uint64_t			 qid;
+	int				 type;
+	int				 hook;
+	struct filter_session		*session;
+	TAILQ_ENTRY(filter_query)	 entry;
 
-	int			 state;
-	int			 hasrun;
-	struct mfa_filter	*current;
+	int				 state;
+	int				 hasrun;
+	struct filter			*current;
 
 	/* current data */
 	union {
@@ -106,18 +106,18 @@ struct mfa_query {
 	} smtp;
 };
 
-static void mfa_filter_imsg(struct mproc *, struct imsg *);
-static struct mfa_query *mfa_query(struct mfa_session *, int, int);
-static void mfa_drain_query(struct mfa_query *);
-static void mfa_run_query(struct mfa_filter *, struct mfa_query *);
-static void mfa_set_fdout(struct mfa_session *, int);
+static void filter_imsg(struct mproc *, struct imsg *);
+static struct filter_query *filter_query(struct filter_session *, int, int);
+static void filter_drain_query(struct filter_query *);
+static void filter_run_query(struct filter *, struct filter_query *);
+static void filter_set_fdout(struct filter_session *, int);
 
-static TAILQ_HEAD(, mfa_filterproc)	procs;
+static TAILQ_HEAD(, filter_proc)	procs;
 struct dict				chains;
 
-static const char * mfa_query_to_text(struct mfa_query *);
-static const char * mfa_filter_to_text(struct mfa_filter *);
-static const char * mfa_filterproc_to_text(struct mfa_filterproc *);
+static const char * filter_query_to_text(struct filter_query *);
+static const char * filter_to_text(struct filter *);
+static const char * filter_proc_to_text(struct filter_proc *);
 static const char * type_to_str(int);
 static const char * query_to_str(int);
 static const char * event_to_str(int);
@@ -129,11 +129,11 @@ struct tree	queries;
 
 
 static void
-mfa_extend_chain(struct mfa_filters *chain, const char *name)
+filter_extend_chain(struct filter_lst *chain, const char *name)
 {
-	struct mfa_filter	*n;
-	struct mfa_filters	*fchain;
-	struct filter		*fconf;
+	struct filter		*n;
+	struct filter_lst	*fchain;
+	struct filter_conf	*fconf;
 	int			 i;
 
 	fconf = dict_xget(&env->sc_filters, name);
@@ -142,12 +142,12 @@ mfa_extend_chain(struct mfa_filters *chain, const char *name)
 		for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
 			if (!fconf->filters[i][0])
 				break;
-			mfa_extend_chain(chain, fconf->filters[i]);
+			filter_extend_chain(chain, fconf->filters[i]);
 		}
 	}
 	else {
 		log_debug("mfa:     adding filter \"%s\"", name);
-		n = xcalloc(1, sizeof(*n), "mfa_extend_chain");
+		n = xcalloc(1, sizeof(*n), "filter_extend_chain");
 		fchain = dict_get(&chains, name);
 		n->proc = TAILQ_FIRST(fchain)->proc;
 		TAILQ_INSERT_TAIL(chain, n, entry);
@@ -155,14 +155,14 @@ mfa_extend_chain(struct mfa_filters *chain, const char *name)
 }
 
 void
-mfa_filter_prepare(void)
+filter_postfork(void)
 {
 	static int		 prepare = 0;
-	struct filter		*filter;
+	struct filter_conf	*filter;
 	void			*iter;
-	struct mfa_filterproc	*proc;
-	struct mfa_filters	*fchain;
-	struct mfa_filter	*f;
+	struct filter_proc	*proc;
+	struct filter_lst	*fchain;
+	struct filter		*f;
 	struct mproc		*p;
 	int			 done, i;
 
@@ -183,22 +183,22 @@ mfa_filter_prepare(void)
 
 		log_debug("mfa: building simple chain \"%s\"", filter->name);
 
-		proc = xcalloc(1, sizeof(*proc), "mfa_filter_init");
+		proc = xcalloc(1, sizeof(*proc), "filter_postfork");
 		p = &proc->mproc;
-		p->handler = mfa_filter_imsg;
+		p->handler = filter_imsg;
 		p->proc = PROC_FILTER;
-		p->name = xstrdup(filter->name, "mfa_filter_init");
+		p->name = xstrdup(filter->name, "filter_postfork");
 		p->data = proc;
 		if (mproc_fork(p, filter->path, filter->name) < 0)
-			fatalx("mfa_filter_init");
+			fatalx("filter_postfork");
 
 		log_debug("mfa: registering proc \"%s\"", filter->name);
 
-		f = xcalloc(1, sizeof(*f), "mfa_filter_init");
+		f = xcalloc(1, sizeof(*f), "filter_postfork");
 		f->proc = proc;
 
 		TAILQ_INSERT_TAIL(&procs, proc, entry);
-		fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+		fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
 		TAILQ_INIT(fchain);
 		TAILQ_INSERT_TAIL(fchain, f, entry);
 		dict_xset(&chains, filter->name, fchain);
@@ -227,13 +227,13 @@ mfa_filter_prepare(void)
 			}
 			if (filter->done == 0)
 				continue;
-			fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+			fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
 			TAILQ_INIT(fchain);
 			log_debug("mfa: building chain \"%s\"...", filter->name);
 			for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
 				if (!filter->filters[i][0])
 					break;
-				mfa_extend_chain(fchain, filter->filters[i]);
+				filter_extend_chain(fchain, filter->filters[i]);
 			}
 			log_debug("mfa: done building chain \"%s\"", filter->name);
 			dict_xset(&chains, filter->name, fchain);
@@ -243,17 +243,17 @@ mfa_filter_prepare(void)
 
 	if (dict_get(&chains, "default") == NULL) {
 		log_debug("mfa: done building default chain");
-		fchain = xcalloc(1, sizeof(*fchain), "mfa_filter_prepare");
+		fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
 		TAILQ_INIT(fchain);
 		dict_xset(&chains, "default", fchain);
 	}
 }
 
 void
-mfa_filter_init(void)
+filter_configure(void)
 {
 	static int		 init = 0;
-	struct mfa_filterproc	*p;
+	struct filter_proc	*p;
 
 	if (init)
 		return;
@@ -271,17 +271,17 @@ mfa_filter_init(void)
 	}
 
 	if (TAILQ_FIRST(&procs) == NULL)
-		mfa_ready();
+		smtp_configure();
 }
 
 void
-mfa_filter_event(uint64_t id, int event)
+filter_event(uint64_t id, int event)
 {
-	struct mfa_session	*s;
-	struct mfa_query	*q;
+	struct filter_session	*s;
+	struct filter_query	*q;
 
 	if (event == EVENT_CONNECT) {
-		s = xcalloc(1, sizeof(*s), "mfa_filter_event");
+		s = xcalloc(1, sizeof(*s), "filter_event");
 		s->id = id;
 		s->filters = dict_xget(&chains, "default");
 		TAILQ_INIT(&s->queries);
@@ -292,128 +292,122 @@ mfa_filter_event(uint64_t id, int event)
 		s = tree_xpop(&sessions, id);
 	else
 		s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_EVENT, event);
+	q = filter_query(s, QT_EVENT, event);
 
-	mfa_drain_query(q);
+	filter_drain_query(q);
 }
 
 void
-mfa_filter_connect(uint64_t id, const struct sockaddr *local,
+filter_connect(uint64_t id, const struct sockaddr *local,
 	const struct sockaddr *remote, const char *host)
 {
-	struct mfa_session	*s;
-	struct mfa_query	*q;
+	struct filter_session	*s;
+	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, QUERY_CONNECT);
+	q = filter_query(s, QT_QUERY, QUERY_CONNECT);
 
 	memmove(&q->u.connect.local, local, local->sa_len);
 	memmove(&q->u.connect.remote, remote, remote->sa_len);
 	strlcpy(q->u.connect.hostname, host, sizeof(q->u.connect.hostname));
 
-	q->smtp.status = MFA_OK;
+	q->smtp.status = FILTER_OK;
 	q->smtp.code = 0;
 	q->smtp.response = NULL;
 
-	mfa_drain_query(q);
+	filter_drain_query(q);
 }
 
 void
-mfa_filter_mailaddr(uint64_t id, int qhook, const struct mailaddr *maddr)
+filter_mailaddr(uint64_t id, int qhook, const struct mailaddr *maddr)
 {
-	struct mfa_session	*s;
-	struct mfa_query	*q;
+	struct filter_session	*s;
+	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, qhook);
+	q = filter_query(s, QT_QUERY, qhook);
 
 	strlcpy(q->u.maddr.user, maddr->user, sizeof(q->u.maddr.user));
 	strlcpy(q->u.maddr.domain, maddr->domain, sizeof(q->u.maddr.domain));
 
-	mfa_drain_query(q);
+	filter_drain_query(q);
 }
 
 void
-mfa_filter_line(uint64_t id, int qhook, const char *line)
+filter_line(uint64_t id, int qhook, const char *line)
 {
-	struct mfa_session	*s;
-	struct mfa_query	*q;
+	struct filter_session	*s;
+	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, qhook);
+	q = filter_query(s, QT_QUERY, qhook);
 
-	strlcpy(q->u.line, line, sizeof(q->u.line));
+	if (line)
+		strlcpy(q->u.line, line, sizeof(q->u.line));
 
-	mfa_drain_query(q);
+	filter_drain_query(q);
 }
 
 void
-mfa_filter_eom(uint64_t id, int qhook, size_t datalen)
+filter_eom(uint64_t id, int qhook, size_t datalen)
 {
-	struct mfa_session	*s;
-	struct mfa_query	*q;
+	struct filter_session	*s;
+	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, qhook);
+	q = filter_query(s, QT_QUERY, qhook);
 	q->u.datalen = datalen;
 
-	mfa_drain_query(q);
-}
-
-void
-mfa_filter(uint64_t id, int qhook)
-{
-	struct mfa_session	*s;
-	struct mfa_query	*q;
-
-	s = tree_xget(&sessions, id);
-	q = mfa_query(s, QT_QUERY, qhook);
-
-	mfa_drain_query(q);
+	filter_drain_query(q);
 }
 
 static void
-mfa_set_fdout(struct mfa_session *s, int fdout)
+filter_set_fdout(struct filter_session *s, int fdout)
 {
 	struct mproc	*p;
 
 	while(s->fcurr) {
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
-			log_trace(TRACE_MFA, "mfa: sending fd %d to %s", fdout, mfa_filter_to_text(s->fcurr));
+			log_trace(TRACE_MFA, "mfa: sending fd %d to %s", fdout, filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
 			m_create(p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdout);
 			m_add_id(p, s->id);
 			m_close(p);
 			return;
 		}
-		s->fcurr = TAILQ_PREV(s->fcurr, mfa_filters, entry);
+		s->fcurr = TAILQ_PREV(s->fcurr, filter_lst, entry);
 	}
 
 	log_trace(TRACE_MFA, "mfa: chain input is %d", fdout);
+
+
+#if 0
+	XXX finish
 
 	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
 	m_add_id(p_smtp, s->id);
 	m_add_int(p_smtp, 1);
 	m_close(p_smtp);
 	return;
+#endif
 }
 
 void
-mfa_build_fd_chain(uint64_t id, int fdout)
+filter_build_fd_chain(uint64_t id, int fdout)
 {
-	struct mfa_session	*s;
+	struct filter_session	*s;
 
 	s = tree_xget(&sessions, id);
-	s->fcurr = TAILQ_LAST(s->filters, mfa_filters);
-	mfa_set_fdout(s, fdout);
+	s->fcurr = TAILQ_LAST(s->filters, filter_lst);
+	filter_set_fdout(s, fdout);
 }
 
-static struct mfa_query *
-mfa_query(struct mfa_session *s, int type, int qhook)
+static struct filter_query *
+filter_query(struct filter_session *s, int type, int qhook)
 {
-	struct mfa_query	*q;
+	struct filter_query	*q;
 
-	q = xcalloc(1, sizeof *q, "mfa_query");
+	q = xcalloc(1, sizeof *q, "filter_query");
 	q->qid = generate_uid();
 	q->session = s;
 	q->type = type;
@@ -435,11 +429,11 @@ mfa_query(struct mfa_session *s, int type, int qhook)
 }
 
 static void
-mfa_drain_query(struct mfa_query *q)
+filter_drain_query(struct filter_query *q)
 {
-	struct mfa_query	*prev;
+	struct filter_query	*prev;
 
-	log_trace(TRACE_MFA, "filter: draining query %s", mfa_query_to_text(q));
+	log_trace(TRACE_MFA, "filter: draining query %s", filter_query_to_text(q));
 
 	/*
 	 * The query must be passed through all filters that registered
@@ -452,13 +446,13 @@ mfa_drain_query(struct mfa_query *q)
 
 			/* Trigger the current filter if not done yet. */
 			if (!q->hasrun) {
-				mfa_run_query(q->current, q);
+				filter_run_query(q->current, q);
 				q->hasrun = 1;
 			}
 			if (q->state == QUERY_RUNNING) {
 				log_trace(TRACE_MFA,
 				    "filter: waiting for running query %s",
-				    mfa_query_to_text(q));
+				    filter_query_to_text(q));
 				return;
 			}
 
@@ -466,12 +460,12 @@ mfa_drain_query(struct mfa_query *q)
 			 * Do not move forward if the query ahead of us is
 			 * waiting on this filter.
 			 */
-			prev = TAILQ_PREV(q, mfa_queries, entry);
+			prev = TAILQ_PREV(q, filter_queries, entry);
 			if (prev && prev->current == q->current) {
 				q->state = QUERY_WAITING;
 				log_trace(TRACE_MFA,
 				    "filter: query blocked by previous query %s",
-				    mfa_query_to_text(prev));
+				    filter_query_to_text(prev));
 				return;
 			}
 
@@ -480,6 +474,8 @@ mfa_drain_query(struct mfa_query *q)
 		}
 		q->state = QUERY_DONE;
 	}
+
+	TAILQ_REMOVE(&q->session->queries, q, entry);
 
 	if (q->type == QT_QUERY) {
 		log_trace(TRACE_MFA,
@@ -492,32 +488,30 @@ mfa_drain_query(struct mfa_query *q)
 
 		/* ...and send the SMTP response */
 		if (q->hook == QUERY_EOM) {
-			mfa_report_eom(q->session->id, q->u.datalen);
+/*
+			smtp_filter_eom(q->session->id, q->u.datalen);
+*/
+			smtp_filter_response(q->session->id, q->hook,
+			    q->smtp.status, q->smtp.code, q->smtp.response);
 		}
 		else {
-			m_create(p_smtp, IMSG_MFA_SMTP_RESPONSE, 0, 0, -1);
-			m_add_id(p_smtp, q->session->id);
-			m_add_int(p_smtp, q->smtp.status);
-			m_add_u32(p_smtp, q->smtp.code);
-			if (q->smtp.response)
-				m_add_string(p_smtp, q->smtp.response);
-			m_close(p_smtp);
+			smtp_filter_response(q->session->id, q->hook,
+			    q->smtp.status, q->smtp.code, q->smtp.response);
 		}
 		free(q->smtp.response);
 	}
 
-	TAILQ_REMOVE(&q->session->queries, q, entry);
 	log_trace(TRACE_MFA, "filter: freeing query %016" PRIx64, q->qid);
 	free(q);
 }
 
 static void
-mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
+filter_run_query(struct filter *f, struct filter_query *q)
 {
 	if (q->type == QT_QUERY) {
 
 		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
-		    mfa_filter_to_text(f), mfa_query_to_text(q));
+		    filter_to_text(f), filter_query_to_text(q));
 
 		m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
 		m_add_id(&f->proc->mproc, q->session->id);
@@ -552,7 +546,7 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 	}
 	else {
 		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
-		    mfa_filter_to_text(f), mfa_query_to_text(q));
+		    filter_to_text(f), filter_query_to_text(q));
 
 		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
 		m_add_id(&f->proc->mproc, q->session->id);
@@ -562,11 +556,11 @@ mfa_run_query(struct mfa_filter *f, struct mfa_query *q)
 }
 
 static void
-mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
+filter_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct mfa_filterproc	*proc = p->data;
-	struct mfa_session	*s;
-	struct mfa_query	*q, *next;
+	struct filter_proc	*proc = p->data;
+	struct filter_session	*s;
+	struct filter_query	*q, *next;
 	struct msg		 m;
 	const char		*line;
 	uint64_t		 qid;
@@ -580,7 +574,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 
 	log_trace(TRACE_MFA, "filter: imsg %s from procfilter %s",
 	    filterimsg_to_str(imsg->hdr.type),
-	    mfa_filterproc_to_text(proc));
+	    filter_proc_to_text(proc));
 
 	switch (imsg->hdr.type) {
 
@@ -603,7 +597,8 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		TAILQ_FOREACH(proc, &procs, entry)
 			if (!proc->ready)
 				return;
-		mfa_ready();
+
+		smtp_configure();
 		break;
 
 	case IMSG_FILTER_RESPONSE:
@@ -630,21 +625,21 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 			q->smtp.code = code;
 		if (line) {
 			free(q->smtp.response);
-			q->smtp.response = xstrdup(line, "mfa_filter_imsg");
+			q->smtp.response = xstrdup(line, "filter_imsg");
 		}
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
 		if (qhook == QUERY_EOM)
 			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
-		mfa_drain_query(q);
+		filter_drain_query(q);
 
 		/*
 		 * If there is another query after this one which is waiting,
 		 * make it move forward.
 		 */
 		if (next && next->state == QUERY_WAITING)
-			mfa_drain_query(next);
+			filter_drain_query(next);
 		break;
 
 	case IMSG_FILTER_PIPE_SETUP:
@@ -653,8 +648,8 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		s = tree_xget(&sessions, qid);
-		s->fcurr = TAILQ_PREV(s->fcurr, mfa_filters, entry);
-		mfa_set_fdout(s, imsg->fd);
+		s->fcurr = TAILQ_PREV(s->fcurr, filter_lst, entry);
+		filter_set_fdout(s, imsg->fd);
 		break;
 
 	default:
@@ -664,7 +659,7 @@ mfa_filter_imsg(struct mproc *p, struct imsg *imsg)
 }
 
 static const char *
-mfa_query_to_text(struct mfa_query *q)
+filter_query_to_text(struct filter_query *q)
 {
 	static char buf[1024];
 	char tmp[1024];
@@ -705,17 +700,17 @@ mfa_query_to_text(struct mfa_query *q)
 }
 
 static const char *
-mfa_filter_to_text(struct mfa_filter *f)
+filter_to_text(struct filter *f)
 {
 	static char buf[1024];
 
-	snprintf(buf, sizeof buf, "filter:%s", mfa_filterproc_to_text(f->proc));
+	snprintf(buf, sizeof buf, "filter:%s", filter_proc_to_text(f->proc));
 
 	return (buf);
 }
 
 static const char *
-mfa_filterproc_to_text(struct mfa_filterproc *proc)
+filter_proc_to_text(struct filter_proc *proc)
 {
 	static char buf[1024];
 
@@ -788,10 +783,10 @@ static const char *
 status_to_str(int status)
 {
 	switch (status) {
-	CASE(MFA_OK);
-	CASE(MFA_FAIL);
-	CASE(MFA_CLOSE);
+	CASE(FILTER_OK);
+	CASE(FILTER_FAIL);
+	CASE(FILTER_CLOSE);
 	default:
-		return "MFA_???";
+		return "FILTER_???";
 	}
 }

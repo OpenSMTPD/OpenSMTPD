@@ -63,7 +63,7 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 			exit(1);
 
 		execl(path, arg, NULL);
-		err(1, "execl");
+		err(1, "execl: %s", path);
 	}
 
 	/* parent process */

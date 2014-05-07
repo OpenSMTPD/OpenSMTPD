@@ -632,7 +632,7 @@ struct deliver {
 };
 
 #define MAX_FILTER_PER_CHAIN	16
-struct filter {
+struct filter_conf {
 	int			chain;
 	int			done;
 	char			name[MAX_FILTER_NAME];
@@ -1005,12 +1005,6 @@ struct bounce_req_msg {
 	struct delivery_bounce	bounce;
 };
 
-enum mfa_resp_status {
-	MFA_OK,
-	MFA_FAIL,
-	MFA_CLOSE,
-};
-
 enum dns_error {
 	DNS_OK = 0,
 	DNS_RETRY,
@@ -1183,23 +1177,16 @@ void mda_postprivdrop(void);
 void mda_imsg(struct mproc *, struct imsg *);
 
 
-/* mfa.c */
-pid_t mfa(void);
-void mfa_ready(void);
-
-
-/* mfa_session.c */
-void mfa_filter_prepare(void);
-void mfa_filter_init(void);
-void mfa_filter_connect(uint64_t, const struct sockaddr *,
+/* filter.c */
+void filter_postfork(void);
+void filter_configure(void);
+void filter_connect(uint64_t, const struct sockaddr *,
     const struct sockaddr *, const char *);
-void mfa_filter_mailaddr(uint64_t, int, const struct mailaddr *);
-void mfa_filter_line(uint64_t, int, const char *);
-void mfa_filter_eom(uint64_t, int, size_t);
-void mfa_filter(uint64_t, int);
-void mfa_filter_event(uint64_t, int);
-void mfa_build_fd_chain(uint64_t, int);
-
+void filter_mailaddr(uint64_t, int, const struct mailaddr *);
+void filter_line(uint64_t, int, const char *);
+void filter_eom(uint64_t, int, size_t);
+void filter_event(uint64_t, int);
+void filter_build_fd_chain(uint64_t, int);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, const char *);
@@ -1324,7 +1311,7 @@ void smtp_collect(void);
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
     const char *);
 void smtp_session_imsg(struct mproc *, struct imsg *);
-
+void smtp_filter_response(uint64_t, int, int, uint32_t, const char *);
 
 /* smtpd.c */
 void imsg_dispatch(struct mproc *, struct imsg *);
