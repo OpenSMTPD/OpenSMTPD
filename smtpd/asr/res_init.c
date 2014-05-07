@@ -26,6 +26,8 @@
 #include <string.h>
 
 #include "asr_private.h"
+#include "thread_private.h"
+
 
 struct __res_state _res;
 struct __res_state_ext _res_ext;
@@ -35,6 +37,7 @@ int h_errno;
 int
 res_init(void)
 {
+	_THREAD_PRIVATE_MUTEX(init);
 	struct asr_ctx	*ac;
 	int i;
 
@@ -45,7 +48,7 @@ res_init(void)
 	 * structure from the async context, not overriding fields set early
 	 * by the user.
 	 */
-
+	_THREAD_PRIVATE_MUTEX_LOCK(init);
 	if (!(_res.options & RES_INIT)) {
 		if (_res.retry == 0)
 			_res.retry = ac->ac_nsretries;
@@ -61,6 +64,7 @@ res_init(void)
 		}
 		_res.options |= RES_INIT;
 	}
+	_THREAD_PRIVATE_MUTEX_UNLOCK(init);
 
 	/*
 	 * If the program is not threaded, we want to reflect (some) changes
@@ -71,7 +75,7 @@ res_init(void)
 	 * If needed we could consider cloning the context if there is
 	 * a running query.
 	 */
-	if (1) {
+	if (!__isthreaded) {
 		ac->ac_nsretries = _res.retry;
 		ac->ac_options = _res.options;
 		strlcpy(ac->ac_db, _res.lookups, sizeof(ac->ac_db));

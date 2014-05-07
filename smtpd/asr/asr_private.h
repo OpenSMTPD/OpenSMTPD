@@ -15,6 +15,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/* tweaks */
+#define	DEBUG			1
+#define	ASR_OPT_THREADSAFE	0
+#define	AI_ADDRCONFIG		64
+
 #include <stdio.h>
 
 #define QR_MASK		(0x1 << 15)
@@ -326,8 +331,6 @@ struct asr_query *res_query_async_ctx(const char *, int, int, struct asr_ctx *);
 struct asr_query *res_search_async_ctx(const char *, int, int, struct asr_ctx *);
 struct asr_query *gethostbyaddr_async_ctx(const void *, socklen_t, int,
     struct asr_ctx *);
-
-#define DEBUG 1
 
 #ifdef DEBUG
 

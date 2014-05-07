@@ -37,7 +37,7 @@
 #include "asr_private.h"
 
 #ifndef ASR_OPT_THREADSAFE
-#define ASR_OPT_THREADSAFE 0
+#define ASR_OPT_THREADSAFE 1
 #endif
 #ifndef ASR_OPT_HOSTALIASES
 #define ASR_OPT_HOSTALIASES 1

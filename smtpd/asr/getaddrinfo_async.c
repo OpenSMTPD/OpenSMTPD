@@ -41,8 +41,6 @@
 
 #include "asr_private.h"
 
-#define AI_ADDRCONFIG	64
-
 struct match {
 	int family;
 	int socktype;
