@@ -78,7 +78,6 @@ pony_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_SMTP_AUTHENTICATE:
 	case IMSG_SMTP_SSL_INIT:
 	case IMSG_SMTP_SSL_VERIFY:
-	case IMSG_MFA_SMTP_RESPONSE:
 	case IMSG_SMTP_MESSAGE_COMMIT:
 	case IMSG_SMTP_MESSAGE_CREATE:
 	case IMSG_SMTP_MESSAGE_OPEN:
