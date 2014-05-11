@@ -26,6 +26,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/envelope.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/filter.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ioev.c

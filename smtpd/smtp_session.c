@@ -78,7 +78,7 @@ enum session_flags {
 	SF_BOUNCE		= 0x0010,
 	SF_KICK			= 0x0020,
 	SF_VERIFIED		= 0x0040,
-	SF_MFACONNSENT		= 0x0080,
+	SF_FILTERCONN		= 0x0080,
 	SF_BADINPUT		= 0x0100,
 };
 
@@ -160,8 +160,6 @@ static void smtp_session_init(void);
 static int smtp_lookup_servername(struct smtp_session *);
 static void smtp_connected(struct smtp_session *);
 static void smtp_send_banner(struct smtp_session *);
-static void smtp_mfa_response(struct smtp_session *, int, int, uint32_t,
-    const char *);
 static void smtp_io(struct io *, int);
 static void smtp_enter_state(struct smtp_session *, int);
 static void smtp_reply(struct smtp_session *, char *, ...);
@@ -213,6 +211,7 @@ static struct { int code; const char *cmd; } commands[] = {
 static struct tree wait_lka_ptr;
 static struct tree wait_lka_helo;
 static struct tree wait_lka_rcpt;
+static struct tree wait_mfa;
 static struct tree wait_mfa_data;
 static struct tree wait_parent_auth;
 static struct tree wait_queue_msg;
@@ -230,6 +229,7 @@ smtp_session_init(void)
 		tree_init(&wait_lka_ptr);
 		tree_init(&wait_lka_helo);
 		tree_init(&wait_lka_rcpt);
+		tree_init(&wait_mfa);
 		tree_init(&wait_mfa_data);
 		tree_init(&wait_parent_auth);
 		tree_init(&wait_queue_msg);
@@ -632,13 +632,16 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	fatalx(NULL);
 }
 
-static void
-smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
+void
+smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
     const char *line)
 {
-	struct ca_cert_req_msg		 req_ca_cert;
+	struct smtp_session	*s;
+	struct ca_cert_req_msg	 req_ca_cert;
 
-	if (status == MFA_CLOSE) {
+	s = tree_xpop(&wait_mfa, id);
+
+	if (status == FILTER_CLOSE) {
 		code = code ? code : 421;
 		line = line ? line : "Temporary failure";
 		smtp_reply(s, "%d %s", code, line);
@@ -647,10 +650,10 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		return;
 	}
 
-	switch (msg) {
+	switch (query) {
 
-	case IMSG_SMTP_REQ_CONNECT:
-		if (status != MFA_OK) {
+	case QUERY_CONNECT:
+		if (status != FILTER_OK) {
 			log_info("smtp-in: Disconnecting session %016" PRIx64
 			    ": rejected by filter", s->id);
 			smtp_free(s, "rejected by filter");
@@ -673,8 +676,8 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		smtp_send_banner(s);
 		return;
 
-	case IMSG_SMTP_REQ_HELO:
-		if (status != MFA_OK) {
+	case QUERY_HELO:
+		if (status != FILTER_OK) {
 			code = code ? code : 530;
 			line = line ? line : "Hello rejected";
 			smtp_reply(s, "%d %s", code, line);
@@ -705,8 +708,8 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		io_reload(&s->io);
 		return;
 
-	case IMSG_SMTP_REQ_MAIL:
-		if (status != MFA_OK) {
+	case QUERY_MAIL:
+		if (status != FILTER_OK) {
 			code = code ? code : 530;
 			line = line ? line : "Sender rejected";
 			smtp_reply(s, "%d %s", code, line);
@@ -720,8 +723,8 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		tree_xset(&wait_queue_msg, s->id, s);
 		return;
 
-	case IMSG_SMTP_REQ_RCPT:
-		if (status != MFA_OK) {
+	case QUERY_RCPT:
+		if (status != FILTER_OK) {
 			code = code ? code : 530;
 			line = line ? line : "Recipient rejected";
 			smtp_reply(s, "%d %s", code, line);
@@ -743,8 +746,8 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		tree_xset(&wait_lka_rcpt, s->id, s);
 		return;
 
-	case IMSG_SMTP_REQ_DATA:
-		if (status != MFA_OK) {
+	case QUERY_DATA:
+		if (status != FILTER_OK) {
 			code = code ? code : 530;
 			line = line ? line : "Message rejected";
 			smtp_reply(s, "%d %s", code, line);
@@ -758,8 +761,8 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		tree_xset(&wait_queue_fd, s->id, s);
 		return;
 
-	case IMSG_SMTP_REQ_EOM:
-		if (status != MFA_OK) {
+	case QUERY_EOM:
+		if (status != FILTER_OK) {
 			code = code ? code : 530;
 			line = line ? line : "Message rejected";
 			smtp_reply(s, "%d %s", code, line);
@@ -770,7 +773,7 @@ smtp_mfa_response(struct smtp_session *s, int msg, int status, uint32_t code,
 		return;
 
 	default:
-		fatal("bad mfa_imsg");
+		log_warn("smtp: bad mfa query type %d", query);
 	}
 }
 
@@ -1522,7 +1525,7 @@ smtp_connected(struct smtp_session *s)
 		return;
 	}
 
-	s->flags |= SF_MFACONNSENT;
+	s->flags |= SF_FILTERCONN;
 	smtp_filter_connect(s, (struct sockaddr *)&ss);
 }
 
@@ -1664,7 +1667,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 		m_close(p_queue);
 	}
 
-	if (s->flags & SF_MFACONNSENT)
+	if (s->flags & SF_FILTERCONN)
 		smtp_filter_disconnect(s);
 
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
@@ -1863,57 +1866,69 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 static void
 smtp_filter_rset(struct smtp_session *s)
 {
+	filter_event(s->id, EVENT_RESET);
 }
 
 static void
 smtp_filter_commit(struct smtp_session *s)
 {
+	filter_event(s->id, EVENT_COMMIT);
 }
 
 static void
 smtp_filter_rollback(struct smtp_session *s)
 {
+	filter_event(s->id, EVENT_ROLLBACK);
 }
 
 static void
 smtp_filter_disconnect(struct smtp_session *s)
 {
+	filter_event(s->id, EVENT_DISCONNECT);
 }
 
 static void
 smtp_filter_connect(struct smtp_session *s, struct sockaddr *sa)
 {
-	smtp_mfa_response(s, IMSG_SMTP_REQ_CONNECT, MFA_OK, 0, NULL);
+	filter_event(s->id, EVENT_CONNECT);
+
+	tree_xset(&wait_mfa, s->id, s);
+	filter_connect(s->id, sa, (struct sockaddr *)&s->ss, s->hostname);
 }
 
 static void
 smtp_filter_eom(struct smtp_session *s)
 {
-	smtp_mfa_response(s, IMSG_SMTP_REQ_EOM, MFA_OK, 0, NULL);
+	tree_xset(&wait_mfa, s->id, s);
+	filter_eom(s->id, QUERY_EOM, s->datalen);
 }
 
 static void
 smtp_filter_helo(struct smtp_session *s)
 {
-	smtp_mfa_response(s, IMSG_SMTP_REQ_HELO, MFA_OK, 0, NULL);
+	tree_xset(&wait_mfa, s->id, s);
+	filter_line(s->id, QUERY_HELO, s->helo);
 }
 
 static void
 smtp_filter_mail(struct smtp_session *s)
 {
-	smtp_mfa_response(s, IMSG_SMTP_REQ_MAIL, MFA_OK, 0, NULL);
+	tree_xset(&wait_mfa, s->id, s);
+	filter_mailaddr(s->id, QUERY_MAIL, &s->evp.sender);
 }
 
 static void
 smtp_filter_rcpt(struct smtp_session *s)
 {
-	smtp_mfa_response(s, IMSG_SMTP_REQ_RCPT, MFA_OK, 0, NULL);
+	tree_xset(&wait_mfa, s->id, s);
+	filter_mailaddr(s->id, QUERY_RCPT, &s->evp.rcpt);
 }
 
 static void
 smtp_filter_data(struct smtp_session *s)
 {
-	smtp_mfa_response(s, IMSG_SMTP_REQ_DATA, MFA_OK, 0, NULL);
+	tree_xset(&wait_mfa, s->id, s);
+	filter_line(s->id, QUERY_DATA, NULL);
 }
 
 static void

@@ -56,7 +56,7 @@ pony_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_CONF_START:
 		return;
 	case IMSG_CONF_END:
-		smtp_configure();
+		filter_configure();
 		return;
 	case IMSG_CTL_VERBOSE:
 		m_msg(&m, imsg);
@@ -78,7 +78,6 @@ pony_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_SMTP_AUTHENTICATE:
 	case IMSG_SMTP_SSL_INIT:
 	case IMSG_SMTP_SSL_VERIFY:
-	case IMSG_MFA_SMTP_RESPONSE:
 	case IMSG_SMTP_MESSAGE_COMMIT:
 	case IMSG_SMTP_MESSAGE_CREATE:
 	case IMSG_SMTP_MESSAGE_OPEN:
@@ -170,6 +169,7 @@ pony(void)
 	mda_postfork();
 	mta_postfork();
 	smtp_postfork();
+	filter_postfork();
 
 	/* do not purge listeners and pki, they are purged
 	 * in smtp_configure()

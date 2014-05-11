@@ -44,7 +44,7 @@ extern char	**environ;
 
 /* maildir backend */
 static void delivery_maildir_open(struct deliver *);
-static int maildir_tag(const struct mailaddr *, char *, size_t);
+static int mailaddr_tag(const struct mailaddr *, char *, size_t);
 
 struct delivery_backend delivery_backend_maildir = {
 	1, delivery_maildir_open

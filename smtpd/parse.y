@@ -97,7 +97,7 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct filter		*filter = NULL;
+struct filter_conf	*filter = NULL;
 struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
@@ -131,9 +131,9 @@ void		 set_localaddrs(struct table *);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
 
-static struct filter	*create_filter(const char *, const char *);
-static struct filter	*create_filter_chain(const char *);
-static int		 extend_filter_chain(struct filter *, const char *);
+static struct filter_conf *create_filter(const char *, const char *);
+static struct filter_conf *create_filter_chain(const char *);
+static int extend_filter_chain(struct filter_conf *, const char *);
 
 typedef struct {
 	union {
@@ -2151,10 +2151,10 @@ end:
 #endif
 }
 
-struct filter *
+struct filter_conf *
 create_filter(const char *name, const char *path)
 {
-	struct filter	*f;
+	struct filter_conf	*f;
 
 	if (dict_get(&conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
@@ -2163,17 +2163,19 @@ create_filter(const char *name, const char *path)
 
 	f = xcalloc(1, sizeof(*f), "create_filter");
 	strlcpy(f->name, name, sizeof(f->name));
-	strlcpy(f->path, path, sizeof(f->path));
+	strlcpy(f->path, PATH_FILTERS, sizeof(f->path));
+	strlcat(f->path, "/filter-", sizeof(f->path));
+	strlcat(f->path, path, sizeof(f->path));
 
 	dict_xset(&conf->sc_filters, name, f);
 
 	return (f);
 }
 
-static struct filter *
+static struct filter_conf *
 create_filter_chain(const char *name)
 {
-	struct filter	*f;
+	struct filter_conf	*f;
 
 	if (dict_get(&conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
@@ -2189,7 +2191,7 @@ create_filter_chain(const char *name)
 }
 
 static int
-extend_filter_chain(struct filter *f, const char *name)
+extend_filter_chain(struct filter_conf *f, const char *name)
 {
 	int	i;
 

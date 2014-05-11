@@ -97,7 +97,7 @@ static struct filter_internals {
 static void filter_api_init(void);
 static void filter_response(struct filter_session *, int, int, const char *);
 static void filter_send_response(struct filter_session *);
-static void filter_register_query(uint64_t, uint64_t, enum filter_hook);
+static void filter_register_query(uint64_t, uint64_t, enum filter_hook_type);
 static void filter_dispatch(struct mproc *, struct imsg *);
 static void filter_dispatch_dataline(uint64_t, const char *);
 static void filter_dispatch_data(uint64_t);
@@ -340,7 +340,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 }
 
 static void
-filter_register_query(uint64_t id, uint64_t qid, enum filter_hook hook)
+filter_register_query(uint64_t id, uint64_t qid, enum filter_hook_type hook)
 {
 	struct filter_session	*s;
 
