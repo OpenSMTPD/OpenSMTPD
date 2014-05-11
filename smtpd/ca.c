@@ -23,6 +23,7 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
+#include <grp.h> /* needed for setgroups */
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
