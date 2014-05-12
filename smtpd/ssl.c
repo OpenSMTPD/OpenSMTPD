@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.61 2014/04/19 14:09:19 gilles Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.65 2014/05/10 21:34:07 reyk Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -235,6 +235,8 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	memcpy(buf, data, size);
 
 	BIO_free_all(bio);
+	EVP_PKEY_free(key);
+
 	*len = (off_t)size + 1;
 	return (buf);
 
@@ -243,6 +245,8 @@ fail:
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
+	if (key != NULL)
+		EVP_PKEY_free(key);
 	if (fp)
 		fclose(fp);
 	return (NULL);
@@ -333,20 +337,10 @@ ssl_load_dhparams(struct pki *p, const char *pathname)
 const char *
 ssl_to_text(const SSL *ssl)
 {
-	static char	buf[256];
-	static char	description[128];
-	char	       *tls_version = NULL;
+	static char buf[256];
 
-	/*
-	 *  SSL_get_cipher_version() does not know about the exact TLS version ...
-	 * ... you have to pick it up from the second field of the SSL cipher description !
-	 */
-	SSL_CIPHER_description(SSL_get_current_cipher(ssl), description, sizeof description);
-	tls_version = strchr(description, ' ') + 1;
-	tls_version[strcspn(tls_version, " ")] = '\0';
-	(void)snprintf(buf, sizeof buf, "version=%s (%s), cipher=%s, bits=%d",
+	(void)snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
 	    SSL_get_cipher_version(ssl),
-	    tls_version,
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
 
@@ -479,7 +473,7 @@ int
 ssl_ctx_load_pkey(SSL_CTX *ctx, void *data, char *buf, off_t len,
     X509 **x509ptr, EVP_PKEY **pkeyptr)
 {
-	int		 ret = 0;
+	int		 ret = 1;
 	BIO		*in;
 	X509		*x509 = NULL;
 	EVP_PKEY	*pkey = NULL;
@@ -501,18 +495,19 @@ ssl_ctx_load_pkey(SSL_CTX *ctx, void *data, char *buf, off_t len,
 		goto fail;
 	}
 
+	*x509ptr = x509;
+	*pkeyptr = pkey;
+
+	if (data == NULL)
+		goto done;
+
 	if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL) {
 		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_EVP_LIB);
 		goto fail;
 	}
 
-	if (data)
-		RSA_set_ex_data(rsa, 0, data);
-
-	*x509ptr = x509;
-	*pkeyptr = pkey;
-	ret = 1;
-
+	RSA_set_ex_data(rsa, 0, data);
+	RSA_free(rsa); /* dereference, will be cleaned up with pkey */
 	goto done;
 
  fail:
@@ -522,6 +517,7 @@ ssl_ctx_load_pkey(SSL_CTX *ctx, void *data, char *buf, off_t len,
 		EVP_PKEY_free(pkey);
 	if (x509 != NULL)
 		X509_free(x509);
+	ret = 0;
 
  done:
 	if (in != NULL)
