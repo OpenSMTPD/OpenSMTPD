@@ -67,12 +67,22 @@ struct filter {
 };
 TAILQ_HEAD(filter_lst, filter);
 
+TAILQ_HEAD(filter_query_lst, filter_query);
 struct filter_session {
-	uint64_t				 id;
-	int					 terminate;
-	TAILQ_HEAD(filter_queries, filter_query) queries;
-	struct filter_lst			*filters;
-	struct filter				*fcurr;
+	uint64_t		 id;
+	int			 terminate;
+	struct filter_lst	*filters;
+	struct filter		*fcurr;
+
+	struct filter_query_lst	 queries;
+
+	struct io		 io;
+	struct iobuf		 iobuf;
+	FILE			*ofile;
+	size_t			 datain;
+	size_t			 datalen;
+	int			 error;
+	struct filter_query	*eom;
 };
 
 struct filter_query {
@@ -110,7 +120,10 @@ static void filter_imsg(struct mproc *, struct imsg *);
 static struct filter_query *filter_query(struct filter_session *, int, int);
 static void filter_drain_query(struct filter_query *);
 static void filter_run_query(struct filter *, struct filter_query *);
+static void filter_end_query(struct filter_query *);
 static void filter_set_fdout(struct filter_session *, int);
+static int filter_tx(struct filter_session *, int);
+static void filter_tx_io(struct io *, int);
 
 static TAILQ_HEAD(, filter_proc)	procs;
 struct dict				chains;
@@ -127,7 +140,6 @@ static const char * filterimsg_to_str(int);
 struct tree	sessions;
 struct tree	queries;
 
-
 static void
 filter_extend_chain(struct filter_lst *chain, const char *name)
 {
@@ -138,7 +150,7 @@ filter_extend_chain(struct filter_lst *chain, const char *name)
 
 	fconf = dict_xget(&env->sc_filters, name);
 	if (fconf->chain) {
-		log_debug("mfa:     extending with \"%s\"", name);
+		log_debug("filter:     extending with \"%s\"", name);
 		for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
 			if (!fconf->filters[i][0])
 				break;
@@ -146,7 +158,7 @@ filter_extend_chain(struct filter_lst *chain, const char *name)
 		}
 	}
 	else {
-		log_debug("mfa:     adding filter \"%s\"", name);
+		log_debug("filter:     adding filter \"%s\"", name);
 		n = xcalloc(1, sizeof(*n), "filter_extend_chain");
 		fchain = dict_get(&chains, name);
 		n->proc = TAILQ_FIRST(fchain)->proc;
@@ -173,7 +185,7 @@ filter_postfork(void)
 	TAILQ_INIT(&procs);
 	dict_init(&chains);
 
-	log_debug("mfa: building simple chains...");
+	log_debug("filter: building simple chains...");
 
 	/* create all filter proc and associated chains */
 	iter = NULL;
@@ -181,7 +193,7 @@ filter_postfork(void)
 		if (filter->chain)
 			continue;
 
-		log_debug("mfa: building simple chain \"%s\"", filter->name);
+		log_debug("filter: building simple chain \"%s\"", filter->name);
 
 		proc = xcalloc(1, sizeof(*proc), "filter_postfork");
 		p = &proc->mproc;
@@ -192,7 +204,7 @@ filter_postfork(void)
 		if (mproc_fork(p, filter->path, filter->name) < 0)
 			fatalx("filter_postfork");
 
-		log_debug("mfa: registering proc \"%s\"", filter->name);
+		log_debug("filter: registering proc \"%s\"", filter->name);
 
 		f = xcalloc(1, sizeof(*f), "filter_postfork");
 		f->proc = proc;
@@ -205,7 +217,7 @@ filter_postfork(void)
 		filter->done = 1;
 	}
 
-	log_debug("mfa: building complex chains...");
+	log_debug("filter: building complex chains...");
 
 	/* resolve all chains */
 	done = 0;
@@ -229,20 +241,20 @@ filter_postfork(void)
 				continue;
 			fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
 			TAILQ_INIT(fchain);
-			log_debug("mfa: building chain \"%s\"...", filter->name);
+			log_debug("filter: building chain \"%s\"...", filter->name);
 			for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
 				if (!filter->filters[i][0])
 					break;
 				filter_extend_chain(fchain, filter->filters[i]);
 			}
-			log_debug("mfa: done building chain \"%s\"", filter->name);
+			log_debug("filter: done building chain \"%s\"", filter->name);
 			dict_xset(&chains, filter->name, fchain);
 		}
 	}
-	log_debug("mfa: done building complex chains");
+	log_debug("filter: done building complex chains");
 
 	if (dict_get(&chains, "default") == NULL) {
-		log_debug("mfa: done building default chain");
+		log_debug("filter: done building default chain");
 		fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
 		TAILQ_INIT(fchain);
 		dict_xset(&chains, "default", fchain);
@@ -284,6 +296,7 @@ filter_event(uint64_t id, int event)
 		s = xcalloc(1, sizeof(*s), "filter_event");
 		s->id = id;
 		s->filters = dict_xget(&chains, "default");
+		s->io.sock = -1;
 		TAILQ_INIT(&s->queries);
 		tree_xset(&sessions, s->id, s);
 	}
@@ -365,10 +378,11 @@ static void
 filter_set_fdout(struct filter_session *s, int fdout)
 {
 	struct mproc	*p;
+	int		 fd;
 
 	while(s->fcurr) {
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
-			log_trace(TRACE_MFA, "mfa: sending fd %d to %s", fdout, filter_to_text(s->fcurr));
+			log_trace(TRACE_MFA, "filter: sending fd %d to %s", fdout, filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
 			m_create(p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdout);
 			m_add_id(p, s->id);
@@ -378,18 +392,10 @@ filter_set_fdout(struct filter_session *s, int fdout)
 		s->fcurr = TAILQ_PREV(s->fcurr, filter_lst, entry);
 	}
 
-	log_trace(TRACE_MFA, "mfa: chain input is %d", fdout);
+	log_trace(TRACE_MFA, "filter: chain input is %d", fdout);
 
-
-#if 0
-	XXX finish
-
-	m_create(p_smtp, IMSG_QUEUE_MESSAGE_FILE, 0, 0, fdout);
-	m_add_id(p_smtp, s->id);
-	m_add_int(p_smtp, 1);
-	m_close(p_smtp);
-	return;
-#endif
+	fd = filter_tx(s, fdout);
+	smtp_filter_fd(s->id, fd);
 }
 
 void
@@ -399,6 +405,7 @@ filter_build_fd_chain(uint64_t id, int fdout)
 
 	s = tree_xget(&sessions, id);
 	s->fcurr = TAILQ_LAST(s->filters, filter_lst);
+
 	filter_set_fdout(s, fdout);
 }
 
@@ -460,7 +467,7 @@ filter_drain_query(struct filter_query *q)
 			 * Do not move forward if the query ahead of us is
 			 * waiting on this filter.
 			 */
-			prev = TAILQ_PREV(q, filter_queries, entry);
+			prev = TAILQ_PREV(q, filter_query_lst, entry);
 			if (prev && prev->current == q->current) {
 				q->state = QUERY_WAITING;
 				log_trace(TRACE_MFA,
@@ -475,34 +482,13 @@ filter_drain_query(struct filter_query *q)
 		q->state = QUERY_DONE;
 	}
 
-	TAILQ_REMOVE(&q->session->queries, q, entry);
-
-	if (q->type == QT_QUERY) {
-		log_trace(TRACE_MFA,
-		    "filter: query %016"PRIx64" done: "
-		    "status=%s code=%d response=\"%s\"",
-		    q->qid,
-		    status_to_str(q->smtp.status),
-		    q->smtp.code,
-		    q->smtp.response);
-
-		/* ...and send the SMTP response */
-		if (q->hook == QUERY_EOM) {
-/*
-			smtp_filter_eom(q->session->id, q->u.datalen);
-*/
-			smtp_filter_response(q->session->id, q->hook,
-			    q->smtp.status, q->smtp.code, q->smtp.response);
-		}
-		else {
-			smtp_filter_response(q->session->id, q->hook,
-			    q->smtp.status, q->smtp.code, q->smtp.response);
-		}
-		free(q->smtp.response);
+	/* Defer the response if the file is not closed yet. */
+	if (q->hook == HOOK_EOM && q->session->ofile) {
+		q->session->eom = q;
+		return;
 	}
 
-	log_trace(TRACE_MFA, "filter: freeing query %016" PRIx64, q->qid);
-	free(q);
+	filter_end_query(q);
 }
 
 static void
@@ -553,6 +539,45 @@ filter_run_query(struct filter *f, struct filter_query *q)
 		m_add_int(&f->proc->mproc, q->hook);
 		m_close(&f->proc->mproc);
  	}
+}
+
+static void
+filter_end_query(struct filter_query *q)
+{
+	struct filter_session *s = q->session;
+
+	if (q->type == QT_EVENT)
+		goto done;
+
+	if (q->hook == QUERY_EOM) {
+		if (s->error) {
+			smtp_filter_response(s->id, QUERY_EOM, FILTER_FAIL, 0, NULL);
+			free(q->smtp.response);
+			goto done;
+		}
+		else if (q->u.datalen != s->datain) {
+			log_warn("filter: datalen mismatch on session %" PRIx64
+			    ": %zu/%zu", s->id, s->datain, q->u.datalen);
+			smtp_filter_response(s->id, QUERY_EOM, FILTER_FAIL, 0, NULL);
+			free(q->smtp.response);
+			goto done;
+		}
+	}
+
+	log_trace(TRACE_MFA,
+	    "filter: query %016"PRIx64" done: "
+	    "status=%s code=%d response=\"%s\"",
+	    q->qid,
+	    status_to_str(q->smtp.status),
+	    q->smtp.code,
+	    q->smtp.response);
+	smtp_filter_response(s->id, q->hook, q->smtp.status, q->smtp.code,
+	    q->smtp.response);
+	free(q->smtp.response);
+
+    done:
+	TAILQ_REMOVE(&s->queries, q, entry);
+	free(q);
 }
 
 static void
@@ -617,7 +642,7 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 
 		q = tree_xpop(&queries, qid);
 		if (q->hook != qhook) {
-			log_warnx("warn: mfa: hook mismatch %d != %d", q->hook, qhook);
+			log_warnx("warn: filter: hook mismatch %d != %d", q->hook, qhook);
 			fatalx("exiting");
 		}
 		q->smtp.status = status;
@@ -656,6 +681,80 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 		log_warnx("warn: bad imsg from filter %s", p->name);
 		exit(1);
 	}
+}
+
+static int
+filter_tx(struct filter_session *s, int fdout)
+{
+	int			 sp[2];
+
+	/* reset */
+	s->datain = 0;
+	s->datalen = 0;
+	s->eom = NULL;
+	s->error = 0;
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1) {
+		log_warn("warn: filter: socketpair");
+		return (-1);
+	}
+
+	if ((s->ofile = fdopen(fdout, "w")) == NULL) {
+		log_warn("warn: filter: fdopen");
+		close(sp[0]);
+		close(sp[1]);
+		return (-1);
+	}
+
+	iobuf_init(&s->iobuf, 0, 0);
+	io_init(&s->io, sp[0], s, filter_tx_io, &s->iobuf);
+	io_set_read(&s->io);
+
+	return (sp[1]);
+}
+
+static void
+filter_tx_io(struct io *io, int evt)
+{
+	struct filter_session	*s = io->arg;
+	size_t			 len, n;
+	char			*data;
+
+	switch (evt) {
+	case IO_DATAIN:
+		data = iobuf_data(&s->iobuf);
+		len = iobuf_len(&s->iobuf);
+		log_debug("debug: filter: tx data (%zu) for req %016"PRIx64,
+		    len, s->id);
+		n = fwrite(data, 1, len, s->ofile);
+		if (n != len) {
+			log_warnx("warn: filter_tx_io: fwrite %zu/%zu", n, len);
+			s->error = 1;
+			break;
+		}
+		s->datain += n;
+		iobuf_drop(&s->iobuf, n);
+		iobuf_normalize(&s->iobuf);
+		return;
+
+	case IO_DISCONNECTED:
+		log_debug("debug: filter: tx done for req %016"PRIx64, s->id);
+		break;
+
+	default:
+		log_warn("warn: filter_tx_io: bad evt (%i) for req %016"PRIx64, evt, s->id);
+		s->error = 1;
+		break;
+	}
+
+	io_clear(&s->io);
+	iobuf_clear(&s->iobuf);
+	fclose(s->ofile);
+	s->ofile = NULL;
+
+	/* deferred eom request */
+	if (s->eom)
+		filter_end_query(s->eom);
 }
 
 static const char *
