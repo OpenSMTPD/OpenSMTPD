@@ -128,6 +128,7 @@ static void filter_tx_io(struct io *, int);
 static TAILQ_HEAD(, filter_proc)	procs;
 struct dict				chains;
 
+static const char * filter_session_to_text(struct filter_session *);
 static const char * filter_query_to_text(struct filter_query *);
 static const char * filter_to_text(struct filter *);
 static const char * filter_proc_to_text(struct filter_proc *);
@@ -440,7 +441,7 @@ filter_drain_query(struct filter_query *q)
 {
 	struct filter_query	*prev;
 
-	log_trace(TRACE_MFA, "filter: draining query %s", filter_query_to_text(q));
+	log_trace(TRACE_MFA, "filter: filter_drain_query %s", filter_query_to_text(q));
 
 	/*
 	 * The query must be passed through all filters that registered
@@ -483,7 +484,8 @@ filter_drain_query(struct filter_query *q)
 	}
 
 	/* Defer the response if the file is not closed yet. */
-	if (q->hook == HOOK_EOM && q->session->ofile) {
+	if (q->type == QT_QUERY && q->hook == QUERY_EOM && q->session->ofile) {
+		log_debug("filter: deferring eom query...");
 		q->session->eom = q;
 		return;
 	}
@@ -546,6 +548,8 @@ filter_end_query(struct filter_query *q)
 {
 	struct filter_session *s = q->session;
 
+	log_trace(TRACE_MFA, "filter: filter_end_query %s", filter_query_to_text(q));
+
 	if (q->type == QT_EVENT)
 		goto done;
 
@@ -556,7 +560,7 @@ filter_end_query(struct filter_query *q)
 			goto done;
 		}
 		else if (q->u.datalen != s->datain) {
-			log_warn("filter: datalen mismatch on session %" PRIx64
+			log_warnx("filter: datalen mismatch on session %" PRIx64
 			    ": %zu/%zu", s->id, s->datain, q->u.datalen);
 			smtp_filter_response(s->id, QUERY_EOM, FILTER_FAIL, 0, NULL);
 			free(q->smtp.response);
@@ -753,8 +757,12 @@ filter_tx_io(struct io *io, int evt)
 	s->ofile = NULL;
 
 	/* deferred eom request */
-	if (s->eom)
+	if (s->eom) {
+		log_debug("filter: running eom query...");
 		filter_end_query(s->eom);
+	} else {
+		log_debug("filter: eom not received yet");
+	}
 }
 
 static const char *
@@ -787,15 +795,31 @@ filter_query_to_text(struct filter_query *q)
 		default:
 			break;
 		}
-		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
-		    q->qid, type_to_str(q->type), query_to_str(q->hook), tmp);
+		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s,%s]",
+		    q->qid, type_to_str(q->type), query_to_str(q->hook), tmp,
+		    filter_session_to_text(q->session));
 	}
 	else {
-		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s]",
-		    q->qid, type_to_str(q->type), event_to_str(q->hook), tmp);
+		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s,%s]",
+		    q->qid, type_to_str(q->type), event_to_str(q->hook), tmp,
+		    filter_session_to_text(q->session));
 	}
 
 	return (buf);
+}
+
+static const char *
+filter_session_to_text(struct filter_session *s)
+{
+	static char buf[1024];
+
+	if (s == NULL)
+		return "filter_session@NULL";
+
+	snprintf(buf, sizeof(buf), "filter_session@%p[datalen=%zu,eom=%p,ofile=%p]",
+	    s, s->datalen, s->eom, s->ofile);
+
+	return buf;
 }
 
 static const char *
