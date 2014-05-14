@@ -2004,7 +2004,6 @@ smtp_filter_connect(struct smtp_session *s, struct sockaddr *sa)
 static void
 smtp_filter_eom(struct smtp_session *s)
 {
-	log_debug("smtp: %p: eom. datalen=%zu", s, s->datalen);
 	tree_xset(&wait_filter, s->id, s);
 	filter_eom(s->id, QUERY_EOM, s->datalen);
 }
@@ -2051,7 +2050,9 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 		/* XXX */
 		fatalx("iobuf_fqueue");
 	}
-	s->datalen += n;
+
+	s->datalen += strlen(line) +1;
+
 	if (iobuf_queued(&s->dataiobuf) > DATA_HIWAT && !(s->io.flags & IO_PAUSE_IN)) {
 		log_debug("debug: smtp: %p: filter congestion over: pausing session", s);
 		io_pause(&s->io, IO_PAUSE_IN);
