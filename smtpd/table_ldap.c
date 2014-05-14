@@ -363,7 +363,7 @@ ldap_config(void)
 			read_value(&queries[LDAP_USERINFO].filter, key, value);
 		else if (!strcmp(key, "userinfo_attributes"))
 			ldap_parse_attributes(queries[LDAP_USERINFO].attrs,
-			    key, value, 4);
+			    key, value, 3);
 		else
 			log_warnx("warn: table-ldap: bogus entry \"%s\"", key);
 	}
