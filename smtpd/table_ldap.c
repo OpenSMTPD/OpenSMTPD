@@ -343,27 +343,35 @@ ldap_config(void)
 
 		else if (!strcmp(key, "alias_filter"))
 			read_value(&queries[LDAP_ALIAS].filter, key, value);
-		else if (!strcmp(key, "alias_attributes"))
+		else if (!strcmp(key, "alias_attributes")) {
 			ldap_parse_attributes(queries[LDAP_ALIAS].attrs,
 			    key, value, 1);
+			queries[LDAP_ALIAS].attrn = 1;
+		}
 
 		else if (!strcmp(key, "credentials_filter"))
 			read_value(&queries[LDAP_CREDENTIALS].filter, key, value);
-		else if (!strcmp(key, "credentials_attributes"))
+		else if (!strcmp(key, "credentials_attributes")) {
 			ldap_parse_attributes(queries[LDAP_CREDENTIALS].attrs,
 			    key, value, 2);
+			queries[LDAP_CREDENTIALS].attrn = 2;
+		}
 
 		else if (!strcmp(key, "domain_filter"))
 			read_value(&queries[LDAP_DOMAIN].filter, key, value);
-		else if (!strcmp(key, "domain_attributes"))
+		else if (!strcmp(key, "domain_attributes")) {
 			ldap_parse_attributes(queries[LDAP_DOMAIN].attrs,
 			    key, value, 1);
+			queries[LDAP_DOMAIN].attrn = 1;
+		}
 
 		else if (!strcmp(key, "userinfo_filter"))
 			read_value(&queries[LDAP_USERINFO].filter, key, value);
-		else if (!strcmp(key, "userinfo_attributes"))
+		else if (!strcmp(key, "userinfo_attributes")) {
 			ldap_parse_attributes(queries[LDAP_USERINFO].attrs,
 			    key, value, 3);
+			queries[LDAP_USERINFO].attrn = 3;
+		}
 		else
 			log_warnx("warn: table-ldap: bogus entry \"%s\"", key);
 	}
