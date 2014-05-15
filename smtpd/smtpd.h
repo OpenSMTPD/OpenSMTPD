@@ -37,6 +37,7 @@
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
 #define MAX_TAG_SIZE		 32
 #define	MAX_FILTER_NAME		 32
+#define	MAX_FILTER_ARGS		 255
 
 #define	EXPAND_BUFFER		 1024
 
@@ -633,11 +634,12 @@ struct deliver {
 
 #define MAX_FILTER_PER_CHAIN	16
 struct filter_conf {
-	int			chain;
-	int			done;
-	char			name[MAX_FILTER_NAME];
-	char			path[SMTPD_MAXPATHLEN];
-	char			filters[MAX_FILTER_NAME][MAX_FILTER_PER_CHAIN];
+	int		 chain;
+	int		 done;
+	int		 argc;
+	char		*name;
+	char		*argv[MAX_FILTER_ARGS + 1];
+	char		*path;
 };
 
 struct mta_host {
@@ -1189,7 +1191,7 @@ void filter_event(uint64_t, int);
 void filter_build_fd_chain(uint64_t, int);
 
 /* mproc.c */
-int mproc_fork(struct mproc *, const char*, const char *);
+int mproc_fork(struct mproc *, const char*, char **);
 void mproc_init(struct mproc *, int);
 void mproc_clear(struct mproc *);
 void mproc_enable(struct mproc *);
