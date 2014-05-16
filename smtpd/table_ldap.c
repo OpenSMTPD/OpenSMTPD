@@ -544,6 +544,9 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 			res[2][0]) >= (int)sz)
 			ret = -1;
 		break;
+	default:
+		log_warnx("warn: table-ldap: unsupported lookup kind");
+		ret = -1;
 	}
 
 	if (ret == -1)
