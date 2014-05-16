@@ -154,11 +154,8 @@ filter_extend_chain(struct filter_lst *chain, const char *name)
 	fconf = dict_xget(&env->sc_filters, name);
 	if (fconf->chain) {
 		log_debug("filter:     extending with \"%s\"", name);
-		for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
-			if (!fconf->filters[i][0])
-				break;
-			filter_extend_chain(chain, fconf->filters[i]);
-		}
+		for (i = 0; i < fconf->argc; i++)
+			filter_extend_chain(chain, fconf->argv[i]);
 	}
 	else {
 		log_debug("filter:     adding filter \"%s\"", name);
@@ -204,7 +201,7 @@ filter_postfork(void)
 		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "filter_postfork");
 		p->data = proc;
-		if (mproc_fork(p, filter->path, filter->name) < 0)
+		if (mproc_fork(p, filter->path, filter->argv) < 0)
 			fatalx("filter_postfork");
 
 		log_debug("filter: registering proc \"%s\"", filter->name);
@@ -232,10 +229,8 @@ filter_postfork(void)
 				continue;
 			done = 0;
 			filter->done = 1;
-			for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
-				if (!filter->filters[i][0])
-					break;
-				if (!dict_get(&chains, filter->filters[i])) {
+			for (i = 0; i < filter->argc; i++) {
+				if (!dict_get(&chains, filter->argv[i])) {
 					filter->done = 0;
 					break;
 				}
@@ -245,11 +240,8 @@ filter_postfork(void)
 			fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
 			TAILQ_INIT(fchain);
 			log_debug("filter: building chain \"%s\"...", filter->name);
-			for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
-				if (!filter->filters[i][0])
-					break;
-				filter_extend_chain(fchain, filter->filters[i]);
-			}
+			for (i = 0; i < filter->argc; i++)
+				filter_extend_chain(fchain, filter->argv[i]);
 			log_debug("filter: done building chain \"%s\"", filter->name);
 			dict_xset(&chains, filter->name, fchain);
 		}

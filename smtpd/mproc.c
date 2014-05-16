@@ -45,7 +45,7 @@ static void mproc_dispatch(int, short, void *);
 static ssize_t msgbuf_write2(struct msgbuf *);
 
 int
-mproc_fork(struct mproc *p, const char *path, const char *arg)
+mproc_fork(struct mproc *p, const char *path, char *argv[])
 {
 	int sp[2];
 
@@ -62,8 +62,8 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
 		closefrom(STDERR_FILENO + 1);
-		execl(path, arg, NULL);
-		err(1, "execl: %s", path);
+		execv(path, argv);
+		err(1, "execv: %s", path);
 	}
 
 	/* parent process */
@@ -72,7 +72,7 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 	return (0);
 
 err:
-	log_warn("warn: Failed to start process %s, instance of %s", arg, path);
+	log_warn("warn: Failed to start process %s, instance of %s", argv[0], path);
 	close(sp[0]);
 	close(sp[1]);
 	return (-1);

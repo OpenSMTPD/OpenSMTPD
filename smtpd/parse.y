@@ -131,9 +131,9 @@ void		 set_localaddrs(struct table *);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
 
-static struct filter_conf *create_filter(const char *, const char *);
-static struct filter_conf *create_filter_chain(const char *);
-static int extend_filter_chain(struct filter_conf *, const char *);
+static struct filter_conf *create_filter_proc(char *, char *);
+static struct filter_conf *create_filter_chain(char *);
+static int add_filter_arg(struct filter_conf *, char *);
 
 typedef struct {
 	union {
@@ -152,7 +152,7 @@ typedef struct {
 %token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
-%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER FILTERCHAIN KEY CA DHPARAMS
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
@@ -622,20 +622,21 @@ main		: BOUNCEWARN {
 			create_listener(conf->sc_listeners, &listen_opts);
 		}
 		| FILTER STRING STRING {
-			if (!create_filter($2, $3)) {
-				free($2);
+			if (!strcmp($3, "chain")) {
 				free($3);
-				YYERROR;
+				if ((filter = create_filter_chain($2)) == NULL) {
+					free($2);
+					YYERROR;
+				}
 			}
-			free($2);
-			free($3);
-		}
-		| FILTERCHAIN STRING {
-			if ((filter = create_filter_chain($2)) == NULL) {
-				free($2);
-				YYERROR;
+			else {
+				if ((filter = create_filter_proc($2, $3)) == NULL) {
+					free($2);
+					free($3);
+					YYERROR;
+				}
 			}
-		} filter_list
+		} filter_args;
 		| PKI STRING	{
 			char buf[MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
@@ -647,6 +648,15 @@ main		: BOUNCEWARN {
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
+		;
+
+filter_args	:
+		| STRING {
+			if (!add_filter_arg(filter, $1)) {
+				free($1);
+				YYERROR;
+			}
+		} filter_args
 		;
 
 table		: TABLE STRING STRING	{
@@ -717,15 +727,6 @@ stringel	: STRING			{
 
 string_list	: stringel
 		| stringel comma string_list
-		;
-
-filter_list	:
-		| STRING {
-			if (!extend_filter_chain(filter, $1)) {
-				free($1);
-				YYERROR;
-			}
-		} filter_list
 		;
 
 tableval_list	: string_list			{ }
@@ -1154,7 +1155,6 @@ lookup(char *s)
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
-		{ "filterchain",	FILTERCHAIN },
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
@@ -2152,20 +2152,25 @@ end:
 }
 
 struct filter_conf *
-create_filter(const char *name, const char *path)
+create_filter_proc(char *name, char *prog)
 {
 	struct filter_conf	*f;
+	char			*path;
 
 	if (dict_get(&conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
 
+	if (asprintf(&path, "%s/filter-%s", PATH_FILTERS, prog) == -1) {
+		yyerror("filter \"%s\" asprintf failed", name);
+		return (0);
+	}
+
 	f = xcalloc(1, sizeof(*f), "create_filter");
-	strlcpy(f->name, name, sizeof(f->name));
-	strlcpy(f->path, PATH_FILTERS, sizeof(f->path));
-	strlcat(f->path, "/filter-", sizeof(f->path));
-	strlcat(f->path, path, sizeof(f->path));
+	f->path = path;
+	f->name = name;
+	f->argv[f->argc++] = name;
 
 	dict_xset(&conf->sc_filters, name, f);
 
@@ -2173,7 +2178,7 @@ create_filter(const char *name, const char *path)
 }
 
 static struct filter_conf *
-create_filter_chain(const char *name)
+create_filter_chain(char *name)
 {
 	struct filter_conf	*f;
 
@@ -2181,9 +2186,10 @@ create_filter_chain(const char *name)
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
+
 	f = xcalloc(1, sizeof(*f), "create_filter_chain");
-	strlcpy(f->name, name, sizeof(f->name));
 	f->chain = 1;
+	f->name = name;
 
 	dict_xset(&conf->sc_filters, name, f);
 
@@ -2191,30 +2197,25 @@ create_filter_chain(const char *name)
 }
 
 static int
-extend_filter_chain(struct filter_conf *f, const char *name)
+add_filter_arg(struct filter_conf *f, char *arg)
 {
-	int	i;
-
-	if (!f->chain) {
-		yyerror("filter \"%s\" is not a chain", f->name);
+	if (f->argc == MAX_FILTER_ARGS) {
+		yyerror("filter \"%s\" is full", f->name);
 		return (0);
 	}
 
-	if (dict_get(&conf->sc_filters, name) == NULL) {
-		yyerror("undefined filter \"%s\"", name);
-		return (0);
-	}
-	if (dict_get(&conf->sc_filters, name) == f) {
-		yyerror("filter chain cannot contain itself");
-		return (0);
-	}
-
-	for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
-		if (f->filters[i][0] == '\0') {
-			strlcpy(f->filters[i], name, sizeof(f->filters[i]));
-			return (1);
+	if (f->chain) {
+		if (dict_get(&conf->sc_filters, arg) == NULL) {
+			yyerror("undefined filter \"%s\"", arg);
+			return (0);
+		}
+		if (dict_get(&conf->sc_filters, arg) == f) {
+			yyerror("filter chain cannot contain itself");
+			return (0);
 		}
 	}
-	yyerror("filter chain \"%s\" is full", f->name);
-	return (0);
+
+	f->argv[f->argc++] = arg;
+
+	return (1);
 }
