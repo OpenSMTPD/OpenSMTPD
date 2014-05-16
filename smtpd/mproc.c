@@ -62,6 +62,7 @@ mproc_fork(struct mproc *p, const char *path, char *argv[])
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
 		closefrom(STDERR_FILENO + 1);
+
 		execv(path, argv);
 		err(1, "execv: %s", path);
 	}
