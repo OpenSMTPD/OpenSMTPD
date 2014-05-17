@@ -144,7 +144,7 @@ on_connect(uint64_t id, struct filter_connect *conn)
 		exit(1);
 	}
 
-	return 1;
+	return (1);
 }
 
 static int
@@ -196,7 +196,7 @@ on_mail(uint64_t id, struct mailaddr *mail)
 		exit(1);
 	}
 
-	return 1;
+	return (1);
 }
 
 static int
@@ -223,7 +223,7 @@ on_rcpt(uint64_t id, struct mailaddr *rcpt)
 		exit(1);
 	}
 
-	return 1;
+	return (1);
 }
 
 static int
@@ -245,20 +245,22 @@ on_data(uint64_t id)
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python: GOT DATA");
-	return 1;
+	return (1);
 }
 
 static int
-on_eom(uint64_t id)
+on_eom(uint64_t id, size_t sz)
 {
 	PyObject *py_args;
 	PyObject *py_ret;
 	PyObject *py_id;
+	PyObject *py_sz;
 
-	py_args = PyTuple_New(1);
+	py_args = PyTuple_New(2);
 	py_id   = PyLong_FromUnsignedLongLong(id);
+	py_sz   = PyLong_FromSize_t(sz);
 	PyTuple_SetItem(py_args, 0, py_id);
+	PyTuple_SetItem(py_args, 1, py_sz);
 	py_ret = PyObject_CallObject(py_on_eom, py_args);
 	Py_DECREF(py_args);
 
@@ -268,8 +270,7 @@ on_eom(uint64_t id)
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python: GOT EOM");
-	return 1;
+	return (1);
 }
 
 static void
@@ -290,9 +291,6 @@ on_commit(uint64_t id)
 		log_warnx("warn: filter-python: call to on_commit handler failed");
 		exit(1);
 	}
-
-	log_warnx("warn: filter-python: GOT COMMIT");
-	return;
 }
 
 static void
@@ -313,9 +311,6 @@ on_rollback(uint64_t id)
 		log_warnx("warn: filter-python: call to on_rollback handler failed");
 		exit(1);
 	}
-
-	log_warnx("warn: filter-python: GOT ROLLBACK");
-	return;
 }
 
 static void
@@ -336,9 +331,6 @@ on_disconnect(uint64_t id)
 		log_warnx("warn: filter-python: call to on_disconnect handler failed");
 		exit(1);
 	}
-
-	log_warnx("warn: filter-python: GOT DISCONNECT");
-	return;
 }
 
 static void

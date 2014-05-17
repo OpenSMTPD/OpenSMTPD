@@ -97,9 +97,9 @@ on_data(uint64_t id)
 }
 
 static int
-on_eom(uint64_t id)
+on_eom(uint64_t id, size_t size)
 {
-	printf("filter-trace: EOM id=%016"PRIx64, id);
+	printf("filter-trace: EOM id=%016"PRIx64", size=%zu", id, size);
 	return filter_api_accept(id);
 }
 

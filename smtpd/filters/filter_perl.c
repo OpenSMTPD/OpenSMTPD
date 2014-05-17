@@ -170,7 +170,7 @@ on_data(uint64_t id)
 }
 
 static int
-on_eom(uint64_t id)
+on_eom(uint64_t id, size_t size)
 {
 	call_sub_sv((SV *)pl_on_eom, "%i", id);
 	return filter_api_accept(id);

@@ -142,9 +142,9 @@ struct smtp_session {
 	size_t			 rcptfail;
 	TAILQ_HEAD(, smtp_rcpt)	 rcpts;
 
-	size_t			 datalen;
-	struct iobuf		 dataiobuf;
-	struct io		 dataio;
+	size_t			 odatalen;
+	struct iobuf		 obuf;
+	struct io		 oev;
 	int			 dataeom;
 
 	struct event		 pause;
@@ -488,7 +488,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    rcpt->maddr.user,
 			    rcpt->maddr.user[0] == '\0' ? "" : "@",
 			    rcpt->maddr.domain,
-			    s->datalen,
+			    s->odatalen,
 			    rcpt->destcount,
 			    s->flags & SF_EHLO ? "ESMTP" : "SMTP");
 		}
@@ -752,17 +752,17 @@ smtp_filter_fd(uint64_t id, int fd)
 		return;
 	}
 
-	iobuf_init(&s->dataiobuf, 0, 0);
-	io_init(&s->dataio, fd, s, smtp_data_io, &s->dataiobuf);
+	iobuf_init(&s->obuf, 0, 0);
+	io_init(&s->oev, fd, s, smtp_data_io, &s->obuf);
 
-	iobuf_fqueue(&s->dataiobuf, "Received: ");
+	iobuf_fqueue(&s->obuf, "Received: ");
 	if (! (s->listener->flags & F_MASK_SOURCE)) {
-		iobuf_fqueue(&s->dataiobuf, "from %s (%s [%s]);\n\t",
+		iobuf_fqueue(&s->obuf, "from %s (%s [%s]);\n\t",
 		    s->evp.helo,
 		    s->hostname,
 		    ss_to_text(&s->ss));
 	}
-	iobuf_fqueue(&s->dataiobuf, "by %s (%s) with %sSMTP%s%s id %08x;\n",
+	iobuf_fqueue(&s->obuf, "by %s (%s) with %sSMTP%s%s id %08x;\n",
 	    s->smtpname,
 	    SMTPD_NAME,
 	    s->flags & SF_EHLO ? "E" : "",
@@ -772,7 +772,7 @@ smtp_filter_fd(uint64_t id, int fd)
 
 	if (s->flags & SF_SECURE) {
 		x = SSL_get_peer_certificate(s->io.ssl);
-		iobuf_fqueue(&s->dataiobuf,
+		iobuf_fqueue(&s->obuf,
 		    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 		    SSL_get_cipher_version(s->io.ssl),
 		    SSL_get_cipher_name(s->io.ssl),
@@ -783,20 +783,20 @@ smtp_filter_fd(uint64_t id, int fd)
 	}
 
 	if (s->rcptcount == 1) {
-		iobuf_fqueue(&s->dataiobuf, "\tfor <%s@%s>;\n",
+		iobuf_fqueue(&s->obuf, "\tfor <%s@%s>;\n",
 		    s->evp.rcpt.user,
 		    s->evp.rcpt.domain);
 	}
 
-	iobuf_fqueue(&s->dataiobuf, "\t%s\n", time_to_text(time(NULL)));
+	iobuf_fqueue(&s->obuf, "\t%s\n", time_to_text(time(NULL)));
 
 	/*
 	 * XXX This is not exactly fair, since this is not really
 	 * user data.
 	 */
-	s->datalen = iobuf_queued(&s->dataiobuf);
+	s->odatalen = iobuf_queued(&s->obuf);
 
-	io_set_write(&s->dataio);
+	io_set_write(&s->oev);
 
 	smtp_enter_state(s, STATE_BODY);
 	smtp_reply(s, "354 Enter mail, end with \".\""
@@ -918,7 +918,7 @@ smtp_io(struct io *io, int evt)
 			io_set_write(io);
 
 			s->dataeom = 1;
-			if (iobuf_queued(&s->dataiobuf) == 0)
+			if (iobuf_queued(&s->obuf) == 0)
 				smtp_data_io_done(s);
 			return;
 		}
@@ -993,8 +993,8 @@ smtp_data_io(struct io *io, int evt)
 	case IO_DISCONNECTED:
 	case IO_ERROR:
 		log_debug("debug: smtp: %p: io error on mfa", s);
-		io_clear(&s->dataio);
-		iobuf_clear(&s->dataiobuf);
+		io_clear(&s->oev);
+		iobuf_clear(&s->obuf);
 		s->msgflags |= MF_ERROR_IO;
 		if (s->io.flags & IO_PAUSE_IN) {
 			log_debug("debug: smtp: %p: resuming session after mfa error", s);
@@ -1003,7 +1003,7 @@ smtp_data_io(struct io *io, int evt)
 		break;
 
 	case IO_LOWAT:
-		if (s->dataeom && iobuf_queued(&s->dataiobuf) == 0) {
+		if (s->dataeom && iobuf_queued(&s->obuf) == 0) {
 			smtp_data_io_done(s);
 		} else if (s->io.flags & IO_PAUSE_IN) {
 			log_debug("debug: smtp: %p: filter congestion over: resuming session", s);
@@ -1019,9 +1019,9 @@ smtp_data_io(struct io *io, int evt)
 static void
 smtp_data_io_done(struct smtp_session *s)
 {
-	log_debug("debug: smtp: %p: data io done (%zu bytes)", s, s->datalen);
-	io_clear(&s->dataio);
-	iobuf_clear(&s->dataiobuf);
+	log_debug("debug: smtp: %p: data io done (%zu bytes)", s, s->odatalen);
+	io_clear(&s->oev);
+	iobuf_clear(&s->obuf);
 
 	if (s->msgflags & MF_ERROR) {
 
@@ -1687,7 +1687,7 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 	s->msgflags = 0;
 	s->destcount = 0;
 	s->rcptcount = 0;
-	s->datalen = 0;
+	s->odatalen = 0;
 
 	if (prepare) {
 		s->evp.ss = s->ss;
@@ -1993,7 +1993,7 @@ static void
 smtp_filter_eom(struct smtp_session *s)
 {
 	tree_xset(&wait_filter, s->id, s);
-	filter_eom(s->id, QUERY_EOM, s->datalen);
+	filter_eom(s->id, QUERY_EOM, s->odatalen);
 }
 
 static void
@@ -2033,19 +2033,19 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 	if (s->msgflags & MF_ERROR)
 		return;
 
-	n = iobuf_fqueue(&s->dataiobuf, "%s\n", line);
+	n = iobuf_fqueue(&s->obuf, "%s\n", line);
 	if (n == -1) {
 		/* XXX */
 		fatalx("iobuf_fqueue");
 	}
 
-	s->datalen += strlen(line) +1;
+	s->odatalen += strlen(line) +1;
 
-	if (iobuf_queued(&s->dataiobuf) > DATA_HIWAT && !(s->io.flags & IO_PAUSE_IN)) {
+	if (iobuf_queued(&s->obuf) > DATA_HIWAT && !(s->io.flags & IO_PAUSE_IN)) {
 		log_debug("debug: smtp: %p: filter congestion over: pausing session", s);
 		io_pause(&s->io, IO_PAUSE_IN);
 	}
-	io_reload(&s->dataio);
+	io_reload(&s->oev);
 }
 
 #define CASE(x) case x : return #x
