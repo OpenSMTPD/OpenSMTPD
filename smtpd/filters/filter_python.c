@@ -144,7 +144,7 @@ on_connect(uint64_t id, struct filter_connect *conn)
 		exit(1);
 	}
 
-	return 1;
+	return (1);
 }
 
 static int
@@ -196,7 +196,7 @@ on_mail(uint64_t id, struct mailaddr *mail)
 		exit(1);
 	}
 
-	return 1;
+	return (1);
 }
 
 static int
@@ -223,7 +223,7 @@ on_rcpt(uint64_t id, struct mailaddr *rcpt)
 		exit(1);
 	}
 
-	return 1;
+	return (1);
 }
 
 static int
@@ -245,20 +245,22 @@ on_data(uint64_t id)
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python: GOT DATA");
-	return 1;
+	return (1);
 }
 
 static int
-on_eom(uint64_t id)
+on_eom(uint64_t id, size_t sz)
 {
 	PyObject *py_args;
 	PyObject *py_ret;
 	PyObject *py_id;
+	PyObject *py_sz;
 
-	py_args = PyTuple_New(1);
+	py_args = PyTuple_New(2);
 	py_id   = PyLong_FromUnsignedLongLong(id);
+	py_sz   = PyLong_FromSize_t(sz);
 	PyTuple_SetItem(py_args, 0, py_id);
+	PyTuple_SetItem(py_args, 1, py_sz);
 	py_ret = PyObject_CallObject(py_on_eom, py_args);
 	Py_DECREF(py_args);
 
@@ -268,8 +270,7 @@ on_eom(uint64_t id)
 		exit(1);
 	}
 
-	log_warnx("warn: filter-python: GOT EOM");
-	return 1;
+	return (1);
 }
 
 static void
@@ -290,9 +291,6 @@ on_commit(uint64_t id)
 		log_warnx("warn: filter-python: call to on_commit handler failed");
 		exit(1);
 	}
-
-	log_warnx("warn: filter-python: GOT COMMIT");
-	return;
 }
 
 static void
@@ -313,9 +311,6 @@ on_rollback(uint64_t id)
 		log_warnx("warn: filter-python: call to on_rollback handler failed");
 		exit(1);
 	}
-
-	log_warnx("warn: filter-python: GOT ROLLBACK");
-	return;
 }
 
 static void
@@ -336,9 +331,6 @@ on_disconnect(uint64_t id)
 		log_warnx("warn: filter-python: call to on_disconnect handler failed");
 		exit(1);
 	}
-
-	log_warnx("warn: filter-python: GOT DISCONNECT");
-	return;
 }
 
 static void
@@ -366,14 +358,50 @@ on_dataline(uint64_t id, const char *line)
 	}
 }
 
+static char *
+loadfile(const char * path)
+{
+	FILE	*f;
+	off_t	 oz;
+	size_t	 sz;
+	char	*buf;
+
+	if ((f = fopen(path, "r")) == NULL)
+		err(1, "fopen");
+
+	if (fseek(f, 0, SEEK_END) == -1)
+		err(1, "fseek");
+
+	oz = ftello(f);
+
+	if (fseek(f, 0, SEEK_SET) == -1)
+		err(1, "fseek");
+
+	if (oz >= SIZE_MAX)
+		errx(1, "too big");
+
+	sz = oz;
+
+	if ((buf = malloc(sz + 1)) == NULL)
+		err(1, "malloc");
+
+	if (fread(buf, 1, sz, f) != sz)
+		err(1, "fread");
+
+	buf[sz] = '\0';
+
+	fclose(f);
+
+	return (buf);
+}
+
 int
 main(int argc, char **argv)
 {
-	int	ch;
-	const char	*scriptpath = "/tmp/test.py";
-	PyObject	*name;
-	PyObject	*self;
-	PyObject	*module;
+	int		 ch;
+	char		*path;
+	char		*buf;
+	PyObject	*self, *code, *module;
 
 	log_init(-1);
 
@@ -388,21 +416,32 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	setenv("PYTHONPATH", "/tmp", 1);
+	if (argc == 0)
+		errx(1, "missing path");
+	path = argv[0];
+
 	Py_Initialize();
-	self = Py_InitModule("smtpd", py_methods);
+	self = Py_InitModule("filter", py_methods);
 	PyModule_AddIntConstant(self, "FILTER_OK", FILTER_OK);
 	PyModule_AddIntConstant(self, "FILTER_FAIL", FILTER_FAIL);
 	PyModule_AddIntConstant(self, "FILTER_CLOSE", FILTER_CLOSE);
 
-	name   = PyString_FromString("test");
-	module = PyImport_Import(name);
-	Py_DECREF(name);
+	buf = loadfile(path);
+	code = Py_CompileString(buf, path, Py_file_input);
+	free(buf);
+
+	if (code == NULL) {
+		PyErr_Print();
+		log_warnx("warn: filter-python: failed to compile %s", path);
+		return (1);
+	}
+
+	module = PyImport_ExecCodeModuleEx("myfilter", code, path);
 
 	if (module == NULL) {
 		PyErr_Print();
-		log_warnx("warn: filter-python: failed to load %s", scriptpath);
-		return 1;
+		log_warnx("warn: filter-python: failed to install module %s", path);
+		return (1);
 	}
 
 	log_debug("debug: filter-python: starting...");

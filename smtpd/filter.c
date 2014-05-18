@@ -43,8 +43,8 @@
 #include "log.h"
 
 enum {
-	QT_QUERY,
-	QT_EVENT,
+	QK_QUERY,
+	QK_EVENT,
 };
 
 enum {
@@ -78,19 +78,19 @@ struct filter_session {
 
 	struct filter_query_lst	 queries;
 
-	struct io		 io;
-	struct iobuf		 iobuf;
-	FILE			*ofile;
-	size_t			 datain;
-	size_t			 datalen;
 	int			 error;
+	struct io		 iev;
+	struct iobuf		 ibuf;
+	size_t			 idatalen;
+	FILE			*ofile;
+
 	struct filter_query	*eom;
 };
 
 struct filter_query {
 	uint64_t			 qid;
+	int				 kind;
 	int				 type;
-	int				 hook;
 	struct filter_session		*session;
 	TAILQ_ENTRY(filter_query)	 entry;
 
@@ -123,7 +123,7 @@ static struct filter_query *filter_query(struct filter_session *, int, int);
 static void filter_drain_query(struct filter_query *);
 static void filter_run_query(struct filter *, struct filter_query *);
 static void filter_end_query(struct filter_query *);
-static void filter_set_fdout(struct filter_session *, int);
+static void filter_set_sink(struct filter_session *, int);
 static int filter_tx(struct filter_session *, int);
 static void filter_tx_io(struct io *, int);
 
@@ -134,7 +134,7 @@ static const char * filter_session_to_text(struct filter_session *);
 static const char * filter_query_to_text(struct filter_query *);
 static const char * filter_to_text(struct filter *);
 static const char * filter_proc_to_text(struct filter_proc *);
-static const char * type_to_str(int);
+static const char * kind_to_str(int);
 static const char * query_to_str(int);
 static const char * event_to_str(int);
 static const char * status_to_str(int);
@@ -291,7 +291,7 @@ filter_event(uint64_t id, int event)
 		s = xcalloc(1, sizeof(*s), "filter_event");
 		s->id = id;
 		s->filters = dict_xget(&chains, "default");
-		s->io.sock = -1;
+		s->iev.sock = -1;
 		TAILQ_INIT(&s->queries);
 		tree_xset(&sessions, s->id, s);
 	}
@@ -300,7 +300,7 @@ filter_event(uint64_t id, int event)
 		s = tree_xpop(&sessions, id);
 	else
 		s = tree_xget(&sessions, id);
-	q = filter_query(s, QT_EVENT, event);
+	q = filter_query(s, QK_EVENT, event);
 
 	filter_drain_query(q);
 }
@@ -313,7 +313,7 @@ filter_connect(uint64_t id, const struct sockaddr *local,
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QT_QUERY, QUERY_CONNECT);
+	q = filter_query(s, QK_QUERY, QUERY_CONNECT);
 
 	memmove(&q->u.connect.local, local, SA_LEN(local));
 	memmove(&q->u.connect.remote, remote, SA_LEN(remote));
@@ -327,13 +327,13 @@ filter_connect(uint64_t id, const struct sockaddr *local,
 }
 
 void
-filter_mailaddr(uint64_t id, int qhook, const struct mailaddr *maddr)
+filter_mailaddr(uint64_t id, int type, const struct mailaddr *maddr)
 {
 	struct filter_session	*s;
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QT_QUERY, qhook);
+	q = filter_query(s, QK_QUERY, type);
 
 	strlcpy(q->u.maddr.user, maddr->user, sizeof(q->u.maddr.user));
 	strlcpy(q->u.maddr.domain, maddr->domain, sizeof(q->u.maddr.domain));
@@ -342,13 +342,13 @@ filter_mailaddr(uint64_t id, int qhook, const struct mailaddr *maddr)
 }
 
 void
-filter_line(uint64_t id, int qhook, const char *line)
+filter_line(uint64_t id, int type, const char *line)
 {
 	struct filter_session	*s;
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QT_QUERY, qhook);
+	q = filter_query(s, QK_QUERY, type);
 
 	if (line)
 		strlcpy(q->u.line, line, sizeof(q->u.line));
@@ -357,29 +357,28 @@ filter_line(uint64_t id, int qhook, const char *line)
 }
 
 void
-filter_eom(uint64_t id, int qhook, size_t datalen)
+filter_eom(uint64_t id, int type, size_t datalen)
 {
 	struct filter_session	*s;
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QT_QUERY, qhook);
+	q = filter_query(s, QK_QUERY, type);
 	q->u.datalen = datalen;
 
 	filter_drain_query(q);
 }
 
 static void
-filter_set_fdout(struct filter_session *s, int fdout)
+filter_set_sink(struct filter_session *s, int sink)
 {
 	struct mproc	*p;
-	int		 fd;
 
 	while(s->fcurr) {
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
-			log_trace(TRACE_MFA, "filter: sending fd %d to %s", fdout, filter_to_text(s->fcurr));
+			log_trace(TRACE_MFA, "filter: sending fd %d to %s", sink, filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
-			m_create(p, IMSG_FILTER_PIPE_SETUP, 0, 0, fdout);
+			m_create(p, IMSG_FILTER_PIPE, 0, 0, sink);
 			m_add_id(p, s->id);
 			m_close(p);
 			return;
@@ -387,45 +386,46 @@ filter_set_fdout(struct filter_session *s, int fdout)
 		s->fcurr = TAILQ_PREV(s->fcurr, filter_lst, entry);
 	}
 
-	log_trace(TRACE_MFA, "filter: chain input is %d", fdout);
+	log_trace(TRACE_MFA, "filter: chain input is %d", sink);
 
-	fd = filter_tx(s, fdout);
-	smtp_filter_fd(s->id, fd);
+	smtp_filter_fd(s->id, sink);
 }
 
 void
-filter_build_fd_chain(uint64_t id, int fdout)
+filter_build_fd_chain(uint64_t id, int sink)
 {
 	struct filter_session	*s;
+	int			 fd;
 
 	s = tree_xget(&sessions, id);
 	s->fcurr = TAILQ_LAST(s->filters, filter_lst);
 
-	filter_set_fdout(s, fdout);
+	fd = filter_tx(s, sink);
+	filter_set_sink(s, fd);
 }
 
 static struct filter_query *
-filter_query(struct filter_session *s, int type, int qhook)
+filter_query(struct filter_session *s, int kind, int type)
 {
 	struct filter_query	*q;
 
 	q = xcalloc(1, sizeof *q, "filter_query");
 	q->qid = generate_uid();
 	q->session = s;
+	q->kind = kind;
 	q->type = type;
-	q->hook = qhook;
 	TAILQ_INSERT_TAIL(&s->queries, q, entry);
 
 	q->state = QUERY_READY;
 	q->current = TAILQ_FIRST(s->filters);
 	q->hasrun = 0;
 
-	if (type == QT_QUERY)
-		log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
-		    query_to_str(qhook));
+	if (kind == QK_QUERY)
+		log_trace(TRACE_MFA, "filter: new query %s %s", kind_to_str(kind),
+		    query_to_str(type));
 	else
-		log_trace(TRACE_MFA, "filter: new query %s %s", type_to_str(type),
-		    event_to_str(qhook));
+		log_trace(TRACE_MFA, "filter: new query %s %s", kind_to_str(kind),
+		    event_to_str(type));
 
 	return (q);
 }
@@ -478,7 +478,7 @@ filter_drain_query(struct filter_query *q)
 	}
 
 	/* Defer the response if the file is not closed yet. */
-	if (q->type == QT_QUERY && q->hook == QUERY_EOM && q->session->ofile) {
+	if (q->kind == QK_QUERY && q->type == QUERY_EOM && q->session->ofile) {
 		log_debug("filter: deferring eom query...");
 		q->session->eom = q;
 		return;
@@ -490,7 +490,7 @@ filter_drain_query(struct filter_query *q)
 static void
 filter_run_query(struct filter *f, struct filter_query *q)
 {
-	if (q->type == QT_QUERY) {
+	if (q->kind == QK_QUERY) {
 
 		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
 		    filter_to_text(f), filter_query_to_text(q));
@@ -498,9 +498,9 @@ filter_run_query(struct filter *f, struct filter_query *q)
 		m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
 		m_add_id(&f->proc->mproc, q->session->id);
 		m_add_id(&f->proc->mproc, q->qid);
-		m_add_int(&f->proc->mproc, q->hook);
+		m_add_int(&f->proc->mproc, q->type);
 
-		switch (q->hook) {
+		switch (q->type) {
 		case QUERY_CONNECT:
 			m_add_sockaddr(&f->proc->mproc,
 			    (struct sockaddr *)&q->u.connect.local);
@@ -532,7 +532,7 @@ filter_run_query(struct filter *f, struct filter_query *q)
 
 		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
 		m_add_id(&f->proc->mproc, q->session->id);
-		m_add_int(&f->proc->mproc, q->hook);
+		m_add_int(&f->proc->mproc, q->type);
 		m_close(&f->proc->mproc);
  	}
 }
@@ -544,18 +544,22 @@ filter_end_query(struct filter_query *q)
 
 	log_trace(TRACE_MFA, "filter: filter_end_query %s", filter_query_to_text(q));
 
-	if (q->type == QT_EVENT)
+	if (q->kind == QK_EVENT)
 		goto done;
 
-	if (q->hook == QUERY_EOM) {
+	if (q->type == QUERY_EOM) {
+
+		log_debug("debug: filter: filter_end_query(%d, %zu, %zu)", s->iev.sock,
+		    s->idatalen, q->u.datalen);
+
 		if (s->error) {
 			smtp_filter_response(s->id, QUERY_EOM, FILTER_FAIL, 0, NULL);
 			free(q->smtp.response);
 			goto done;
 		}
-		else if (q->u.datalen != s->datain) {
+		else if (q->u.datalen != s->idatalen) {
 			log_warnx("filter: datalen mismatch on session %" PRIx64
-			    ": %zu/%zu", s->id, s->datain, q->u.datalen);
+			    ": %zu/%zu", s->id, s->idatalen, q->u.datalen);
 			smtp_filter_response(s->id, QUERY_EOM, FILTER_FAIL, 0, NULL);
 			free(q->smtp.response);
 			goto done;
@@ -569,7 +573,7 @@ filter_end_query(struct filter_query *q)
 	    status_to_str(q->smtp.status),
 	    q->smtp.code,
 	    q->smtp.response);
-	smtp_filter_response(s->id, q->hook, q->smtp.status, q->smtp.code,
+	smtp_filter_response(s->id, q->type, q->smtp.status, q->smtp.code,
 	    q->smtp.response);
 	free(q->smtp.response);
 
@@ -588,7 +592,7 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*line;
 	uint64_t		 qid;
 	uint32_t		 datalen;
-	int			 qhook, status, code;
+	int			 type, status, code;
 
 	if (imsg == NULL) {
 		log_warnx("warn: filter \"%s\" closed unexpectedly", p->name);
@@ -627,8 +631,8 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_FILTER_RESPONSE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
-		m_get_int(&m, &qhook);
-		if (qhook == QUERY_EOM)
+		m_get_int(&m, &type);
+		if (type == QUERY_EOM)
 			m_get_u32(&m, &datalen);
 		m_get_int(&m, &status);
 		m_get_int(&m, &code);
@@ -639,8 +643,8 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		q = tree_xpop(&queries, qid);
-		if (q->hook != qhook) {
-			log_warnx("warn: filter: hook mismatch %d != %d", q->hook, qhook);
+		if (q->type != type) {
+			log_warnx("warn: filter: type mismatch %d != %d", q->type, type);
 			fatalx("exiting");
 		}
 		q->smtp.status = status;
@@ -651,7 +655,7 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 			q->smtp.response = xstrdup(line, "filter_imsg");
 		}
 		q->state = (status == FILTER_OK) ? QUERY_READY : QUERY_DONE;
-		if (qhook == QUERY_EOM)
+		if (type == QUERY_EOM)
 			q->u.datalen = datalen;
 
 		next = TAILQ_NEXT(q, entry);
@@ -665,14 +669,14 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 			filter_drain_query(next);
 		break;
 
-	case IMSG_FILTER_PIPE_SETUP:
+	case IMSG_FILTER_PIPE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &qid);
 		m_end(&m);
 
 		s = tree_xget(&sessions, qid);
 		s->fcurr = TAILQ_PREV(s->fcurr, filter_lst, entry);
-		filter_set_fdout(s, imsg->fd);
+		filter_set_sink(s, imsg->fd);
 		break;
 
 	default:
@@ -682,13 +686,11 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 }
 
 static int
-filter_tx(struct filter_session *s, int fdout)
+filter_tx(struct filter_session *s, int sink)
 {
-	int			 sp[2];
+	int	sp[2];
 
-	/* reset */
-	s->datain = 0;
-	s->datalen = 0;
+	s->idatalen = 0;
 	s->eom = NULL;
 	s->error = 0;
 
@@ -697,16 +699,16 @@ filter_tx(struct filter_session *s, int fdout)
 		return (-1);
 	}
 
-	if ((s->ofile = fdopen(fdout, "w")) == NULL) {
+	if ((s->ofile = fdopen(sink, "w")) == NULL) {
 		log_warn("warn: filter: fdopen");
 		close(sp[0]);
 		close(sp[1]);
 		return (-1);
 	}
 
-	iobuf_init(&s->iobuf, 0, 0);
-	io_init(&s->io, sp[0], s, filter_tx_io, &s->iobuf);
-	io_set_read(&s->io);
+	iobuf_init(&s->ibuf, 0, 0);
+	io_init(&s->iev, sp[0], s, filter_tx_io, &s->ibuf);
+	io_set_read(&s->iev);
 
 	return (sp[1]);
 }
@@ -717,26 +719,32 @@ filter_tx_io(struct io *io, int evt)
 	struct filter_session	*s = io->arg;
 	size_t			 len, n;
 	char			*data;
+	char			buf[65535];
+
+	log_debug("filter: filter_tx_io(%p, %s)", s, io_strevent(evt));
 
 	switch (evt) {
 	case IO_DATAIN:
-		data = iobuf_data(&s->iobuf);
-		len = iobuf_len(&s->iobuf);
-		log_debug("debug: filter: tx data (%zu) for req %016"PRIx64,
-		    len, s->id);
+		data = iobuf_data(&s->ibuf);
+		len = iobuf_len(&s->ibuf);
+		memmove(buf, data, len);
+		buf[len] = 0;
+		log_debug("filter: filter_tx_io: datain (%zu) for req %016"PRIx64": %s",
+		    len, s->id, buf);
+
 		n = fwrite(data, 1, len, s->ofile);
 		if (n != len) {
 			log_warnx("warn: filter_tx_io: fwrite %zu/%zu", n, len);
 			s->error = 1;
 			break;
 		}
-		s->datain += n;
-		iobuf_drop(&s->iobuf, n);
-		iobuf_normalize(&s->iobuf);
+		s->idatalen += n;
+		iobuf_drop(&s->ibuf, n);
+		iobuf_normalize(&s->ibuf);
 		return;
 
 	case IO_DISCONNECTED:
-		log_debug("debug: filter: tx done for req %016"PRIx64, s->id);
+		log_debug("debug: filter: tx done (%zu) for req %016"PRIx64, s->idatalen, s->id);
 		break;
 
 	default:
@@ -745,8 +753,8 @@ filter_tx_io(struct io *io, int evt)
 		break;
 	}
 
-	io_clear(&s->io);
-	iobuf_clear(&s->iobuf);
+	io_clear(&s->iev);
+	iobuf_clear(&s->ibuf);
 	fclose(s->ofile);
 	s->ofile = NULL;
 
@@ -767,8 +775,8 @@ filter_query_to_text(struct filter_query *q)
 
 	tmp[0] = '\0';
 
-	if (q->type == QT_QUERY) {
-		switch(q->hook) {
+	if (q->kind == QK_QUERY) {
+		switch(q->type) {
 		case QUERY_CONNECT:
 			strlcat(tmp, "=", sizeof tmp);
 			strlcat(tmp, ss_to_text(&q->u.connect.local), sizeof tmp);
@@ -790,12 +798,12 @@ filter_query_to_text(struct filter_query *q)
 			break;
 		}
 		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s,%s]",
-		    q->qid, type_to_str(q->type), query_to_str(q->hook), tmp,
+		    q->qid, kind_to_str(q->kind), query_to_str(q->type), tmp,
 		    filter_session_to_text(q->session));
 	}
 	else {
 		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s,%s]",
-		    q->qid, type_to_str(q->type), event_to_str(q->hook), tmp,
+		    q->qid, kind_to_str(q->kind), event_to_str(q->type), tmp,
 		    filter_session_to_text(q->session));
 	}
 
@@ -811,7 +819,7 @@ filter_session_to_text(struct filter_session *s)
 		return "filter_session@NULL";
 
 	snprintf(buf, sizeof(buf), "filter_session@%p[datalen=%zu,eom=%p,ofile=%p]",
-	    s, s->datalen, s->eom, s->ofile);
+	    s, s->idatalen, s->eom, s->ofile);
 
 	return buf;
 }
@@ -846,9 +854,7 @@ filterimsg_to_str(int imsg)
 	CASE(IMSG_FILTER_REGISTER);
 	CASE(IMSG_FILTER_EVENT);
 	CASE(IMSG_FILTER_QUERY);
-	CASE(IMSG_FILTER_PIPE_SETUP);
-	CASE(IMSG_FILTER_PIPE_ABORT);
-	CASE(IMSG_FILTER_NOTIFY);
+	CASE(IMSG_FILTER_PIPE);
 	CASE(IMSG_FILTER_RESPONSE);
 	default:
 		return "IMSG_FILTER_???";
@@ -886,13 +892,13 @@ event_to_str(int event)
 }
 
 static const char *
-type_to_str(int type)
+kind_to_str(int type)
 {
 	switch (type) {
-	CASE(QT_QUERY);
-	CASE(QT_EVENT);
+	CASE(QK_QUERY);
+	CASE(QK_EVENT);
 	default:
-		return "QT_???";
+		return "QK_???";
 	}
 }
 

@@ -75,7 +75,7 @@ on_data(uint64_t id)
 }
 
 static int
-on_eom(uint64_t id)
+on_eom(uint64_t id, size_t size)
 {
 	return monkey(id);
 }
