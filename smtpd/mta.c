@@ -746,7 +746,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 			m_close(p_queue);
 		}
 		else {
-			log_warnx("warn: bad delivery type %i for %016" PRIx64,
+			log_warnx("warn: bad delivery type %d for %016" PRIx64,
 			    e->delivery, e->id);
 			fatalx("aborting");
 		}
@@ -777,7 +777,7 @@ mta_delivery_log(struct mta_envelope *e, const char *source, const char *relay,
 	else if (delivery == IMSG_MTA_DELIVERY_LOOP)
 		mta_log(e, "PermFail", source, relay, "Loop detected");
 	else {
-		log_warnx("warn: bad delivery type %i for %016" PRIx64,
+		log_warnx("warn: bad delivery type %d for %016" PRIx64,
 		    delivery, e->id);
 		fatalx("aborting");
 	}

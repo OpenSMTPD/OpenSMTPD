@@ -232,7 +232,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_int(&m, &r);
 		m_end(&m);
 		log_trace(TRACE_SCHEDULER,
-		    "scheduler: releasing %d on holdq (%i, %016" PRIx64 ")",
+		    "scheduler: releasing %d on holdq (%d, %016" PRIx64 ")",
 		    r, type, holdq);
 		backend->release(type, holdq, r);
 		scheduler_reset_events();

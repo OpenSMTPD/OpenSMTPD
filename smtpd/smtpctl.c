@@ -971,10 +971,10 @@ show_queue_envelope(struct envelope *e, int online)
 
 	if (online) {
 		if (e->flags & EF_PENDING)
-			(void)snprintf(runstate, sizeof runstate, "pending|%zi",
+			(void)snprintf(runstate, sizeof runstate, "pending|%zd",
 			    (ssize_t)(e->nexttry - now));
 		else if (e->flags & EF_INFLIGHT)
-			(void)snprintf(runstate, sizeof runstate, "inflight|%zi",
+			(void)snprintf(runstate, sizeof runstate, "inflight|%zd",
 			    (ssize_t)(now - e->lasttry));
 		else
 			(void)snprintf(runstate, sizeof runstate, "invalid|");

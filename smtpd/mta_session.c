@@ -842,7 +842,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 			break;
 		}
 
-		log_trace(TRACE_MTA, "mta: %p: >>> [...%zi bytes...]", s, q);
+		log_trace(TRACE_MTA, "mta: %p: >>> [...%zd bytes...]", s, q);
 		break;
 
 	case MTA_EOM:
