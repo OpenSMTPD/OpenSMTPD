@@ -109,6 +109,7 @@ static struct listen_opts {
 	int		family;
 	in_port_t	port;
 	uint16_t	ssl;
+	char	       *filtername;
 	char	       *pki;
 	uint16_t       	auth;
 	struct table   *authtable;
@@ -377,6 +378,7 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			}
 			listen_opts.port = $2;
 		}
+		| FILTER STRING			{ listen_opts.filtername = $2; }
 		| SMTPS				{ listen_opts.ssl = F_SMTPS; }
 		| SMTPS VERIFY 			{ listen_opts.ssl = F_SMTPS|F_TLS_VERIFY; }
 		| TLS				{ listen_opts.ssl = F_STARTTLS; }
@@ -1785,6 +1787,14 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->hostname == NULL)
 		lo->hostname = conf->sc_hostname;
+
+	if (lo->filtername) {
+		if (dict_get(&conf->sc_filters, lo->filtername) == NULL) {
+			log_warnx("undefined filter: %s", lo->filtername);
+			fatalx(NULL);
+		}
+		(void)strlcpy(h->filter, lo->filtername, sizeof(h->filter));
+	}
 
 	h->pki_name[0] = '\0';
 
