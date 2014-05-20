@@ -746,7 +746,7 @@ filter_tx_io(struct io *io, int evt)
 		break;
 
 	default:
-		log_warn("warn: filter_tx_io: bad evt (%i) for req %016"PRIx64, evt, s->id);
+		log_warn("warn: filter_tx_io: bad evt (%d) for req %016"PRIx64, evt, s->id);
 		s->error = 1;
 		break;
 	}
