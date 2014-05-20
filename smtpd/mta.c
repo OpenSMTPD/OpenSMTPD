@@ -1076,6 +1076,7 @@ mta_connect(struct mta_connector *c)
 	if (c->flags & CONNECTOR_WAIT) {
 		log_debug("debug: mta: cancelling connector timeout");
 		runq_cancel(runq_connector, NULL, c);
+		c->flags &= ~CONNECTOR_WAIT;
 	}
 
 	/* No job. */
