@@ -246,12 +246,9 @@ filter_postfork(void)
 	}
 	log_debug("filter: done building complex chains");
 
-	if (dict_get(&chains, "default") == NULL) {
-		log_debug("filter: done building default chain");
-		fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
-		TAILQ_INIT(fchain);
-		dict_xset(&chains, "default", fchain);
-	}
+	fchain = xcalloc(1, sizeof(*fchain), "filter_postfork");
+	TAILQ_INIT(fchain);
+	dict_xset(&chains, "<no-filter>", fchain);
 }
 
 void
@@ -285,19 +282,12 @@ filter_event(uint64_t id, int event)
 	struct filter_session	*s;
 	struct filter_query	*q;
 
-	if (event == EVENT_CONNECT) {
-		s = xcalloc(1, sizeof(*s), "filter_event");
-		s->id = id;
-		s->filters = dict_xget(&chains, "default");
-		s->iev.sock = -1;
-		TAILQ_INIT(&s->queries);
-		tree_xset(&sessions, s->id, s);
-	}
-	else if (event == EVENT_DISCONNECT)
+	if (event == EVENT_DISCONNECT)
 		/* On disconnect, the session is virtualy dead */
 		s = tree_xpop(&sessions, id);
 	else
 		s = tree_xget(&sessions, id);
+
 	q = filter_query(s, QK_EVENT, event);
 
 	filter_drain_query(q);
@@ -305,12 +295,22 @@ filter_event(uint64_t id, int event)
 
 void
 filter_connect(uint64_t id, const struct sockaddr *local,
-	const struct sockaddr *remote, const char *host)
+    const struct sockaddr *remote, const char *host, const char *filter)
 {
 	struct filter_session	*s;
 	struct filter_query	*q;
 
-	s = tree_xget(&sessions, id);
+	s = xcalloc(1, sizeof(*s), "filter_event");
+	s->id = id;
+	if (filter == NULL)
+		filter = "<no-filter>";
+	s->filters = dict_xget(&chains, filter);
+	s->iev.sock = -1;
+	TAILQ_INIT(&s->queries);
+	tree_xset(&sessions, s->id, s);
+
+	filter_event(id, EVENT_CONNECT);
+
 	q = filter_query(s, QK_QUERY, QUERY_CONNECT);
 
 	memmove(&q->u.connect.local, local, local->sa_len);

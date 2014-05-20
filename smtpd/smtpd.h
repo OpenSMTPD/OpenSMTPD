@@ -523,6 +523,7 @@ struct listener {
 	struct event		 ev;
 	char			 pki_name[SMTPD_MAXPATHLEN];
 	char			 tag[MAX_TAG_SIZE];
+	char			 filter[SMTPD_MAXPATHLEN];
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
 	char			 hostnametable[SMTPD_MAXPATHLEN];
@@ -1183,7 +1184,7 @@ void mda_imsg(struct mproc *, struct imsg *);
 void filter_postfork(void);
 void filter_configure(void);
 void filter_connect(uint64_t, const struct sockaddr *,
-    const struct sockaddr *, const char *);
+    const struct sockaddr *, const char *, const char *);
 void filter_mailaddr(uint64_t, int, const struct mailaddr *);
 void filter_line(uint64_t, int, const char *);
 void filter_eom(uint64_t, int, size_t);

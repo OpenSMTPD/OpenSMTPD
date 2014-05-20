@@ -1984,10 +1984,13 @@ smtp_filter_disconnect(struct smtp_session *s)
 static void
 smtp_filter_connect(struct smtp_session *s, struct sockaddr *sa)
 {
-	filter_event(s->id, EVENT_CONNECT);
+	char	*filter;
 
 	tree_xset(&wait_filter, s->id, s);
-	filter_connect(s->id, sa, (struct sockaddr *)&s->ss, s->hostname);
+
+	filter = s->listener->filter[0] ? s->listener->filter : NULL;
+
+	filter_connect(s->id, sa, (struct sockaddr *)&s->ss, s->hostname, filter);
 }
 
 static void
