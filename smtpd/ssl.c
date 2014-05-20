@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.65 2014/05/10 21:34:07 reyk Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.67 2014/05/20 17:33:36 reyk Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -153,7 +153,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 #endif
 
 static int
-ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
+ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	int	ret = 0;
 	size_t	len;
@@ -209,7 +209,7 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	}
 
 	(void)snprintf(prompt, sizeof prompt, "passphrase for %s: ", pkiname);
-	key = PEM_read_PrivateKey(fp, NULL, ssl_getpass_cb, prompt);
+	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, prompt);
 	fclose(fp);
 	fp = NULL;
 	if (key == NULL)
@@ -246,9 +246,10 @@ fail:
 }
 
 SSL_CTX *
-ssl_ctx_create(void *pkiname, char *cert, off_t cert_len)
+ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len)
 {
 	SSL_CTX	*ctx;
+	size_t	 pkinamelen = 0;
 
 	ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
@@ -269,11 +270,13 @@ ssl_ctx_create(void *pkiname, char *cert, off_t cert_len)
 	}
 
 	if (cert != NULL) {
+		if (pkiname != NULL)
+			pkinamelen = strlen(pkiname) + 1;
 		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) {
 			ssl_error("ssl_ctx_create");
 			fatal("ssl_ctx_create: invalid certificate chain");
 		} else if (!ssl_ctx_fake_private_key(ctx,
-		    pkiname, cert, cert_len)) {
+		    pkiname, pkinamelen, cert, cert_len, NULL, NULL)) {
 			ssl_error("ssl_ctx_create");
 			fatal("ssl_ctx_create: could not fake private key");
 		} else if (!SSL_CTX_check_private_key(ctx)) {
@@ -459,14 +462,14 @@ ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 }
 
 int
-ssl_ctx_load_pkey(SSL_CTX *ctx, void *data, char *buf, off_t len,
+ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
     X509 **x509ptr, EVP_PKEY **pkeyptr)
 {
-	int		 ret = 1;
 	BIO		*in;
 	X509		*x509 = NULL;
 	EVP_PKEY	*pkey = NULL;
 	RSA		*rsa = NULL;
+	void		*exdata = NULL;
 
 	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
 		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_BUF_LIB);
@@ -474,7 +477,7 @@ ssl_ctx_load_pkey(SSL_CTX *ctx, void *data, char *buf, off_t len,
 	}
 
 	if ((x509 = PEM_read_bio_X509(in, NULL,
-	    ssl_getpass_cb, NULL)) == NULL) {
+	    ssl_password_cb, NULL)) == NULL) {
 		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_PEM_LIB);
 		goto fail;
 	}
@@ -484,45 +487,47 @@ ssl_ctx_load_pkey(SSL_CTX *ctx, void *data, char *buf, off_t len,
 		goto fail;
 	}
 
+	BIO_free(in);
+
+	if (data != NULL && datalen) {
+		if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL ||
+		    (exdata = malloc(datalen)) == NULL) {
+			SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_EVP_LIB);
+			goto fail;
+		}
+
+		memcpy(exdata, data, datalen);
+		RSA_set_ex_data(rsa, 0, exdata);
+		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
+	}
+
 	*x509ptr = x509;
 	*pkeyptr = pkey;
 
-	if (data == NULL)
-		goto done;
-
-	if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL) {
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_EVP_LIB);
-		goto fail;
-	}
-
-	RSA_set_ex_data(rsa, 0, data);
-	RSA_free(rsa); /* dereference, will be cleaned up with pkey */
-	goto done;
+	return (1);
 
  fail:
-	ssl_error("ssl_ctx_load_pkey");
-
+	if (rsa != NULL)
+		RSA_free(rsa);
+	if (in != NULL)
+		BIO_free(in);
 	if (pkey != NULL)
 		EVP_PKEY_free(pkey);
 	if (x509 != NULL)
 		X509_free(x509);
-	ret = 0;
 
- done:
-	if (in != NULL)
-		BIO_free(in);
-
-	return ret;
+	return (0);
 }
 
 int
-ssl_ctx_fake_private_key(SSL_CTX *ctx, void *data, char *buf, off_t len)
+ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
+    char *buf, off_t len, X509 **x509ptr, EVP_PKEY **pkeyptr)
 {
 	int		 ret = 0;
 	EVP_PKEY	*pkey = NULL;
 	X509		*x509 = NULL;
 
-	if (!ssl_ctx_load_pkey(ctx, data, buf, len, &x509, &pkey))
+	if (!ssl_load_pkey(data, datalen, buf, len, &x509, &pkey))
 		return (0);
 
 	/*
@@ -532,14 +537,17 @@ ssl_ctx_fake_private_key(SSL_CTX *ctx, void *data, char *buf, off_t len)
 	 * least the public key parameters in the current process.
 	 */
 	ret = SSL_CTX_use_PrivateKey(ctx, pkey);
-	if (!ret) {
+	if (!ret)
 		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_SSL_LIB);
-		ssl_error("ssl_ctx_fake_private_key");
-	}
 
-	if (pkey != NULL)
+	if (pkeyptr != NULL)
+		*pkeyptr = pkey;
+	else if (pkey != NULL)
 		EVP_PKEY_free(pkey);
-	if (x509 != NULL)
+
+	if (x509ptr != NULL)
+		*x509ptr = x509;
+	else if (x509 != NULL)
 		X509_free(x509);
 
 	return (ret);
