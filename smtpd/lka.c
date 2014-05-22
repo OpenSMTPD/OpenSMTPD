@@ -62,7 +62,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct table		*table;
 	int			 ret;
 	struct pki		*pki;
-	struct iovec		iov[3];
+	struct iovec		iov[2];
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_smtp = NULL;
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_mta = NULL;
 	struct ca_vrfy_req_msg		*req_ca_vrfy_chain;
