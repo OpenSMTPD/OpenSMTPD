@@ -107,6 +107,7 @@
 #define	F_LMTP			0x80
 #define	F_MASK_SOURCE		0x100
 #define	F_TLS_VERIFY		0x200
+#define F_EXT_DSN		0x400
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
