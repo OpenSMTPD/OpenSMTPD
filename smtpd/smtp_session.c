@@ -161,6 +161,9 @@ struct smtp_session {
 	((s)->listener->flags & F_AUTH && (s)->flags & SF_SECURE && \
 	 !((s)->flags & SF_AUTHENTICATED))
 
+#define ADVERTISE_EXT_DSN(s) \
+  ((s)->listener->flags & F_EXT_DSN)
+
 static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
 static int smtp_lookup_servername(struct smtp_session *);
@@ -657,7 +660,8 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 			smtp_reply(s, "250-8BITMIME");
 			smtp_reply(s, "250-ENHANCEDSTATUSCODES");
 			smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
-			smtp_reply(s, "250-DSN");
+			if (ADVERTISE_EXT_DSN(s))
+				smtp_reply(s, "250-DSN");
 			if (ADVERTISE_TLS(s))
 				smtp_reply(s, "250-STARTTLS");
 			if (ADVERTISE_AUTH(s))
@@ -1553,7 +1557,7 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 			s->flags &= ~SF_8BITMIME;
 		else if (strcasecmp(b, "BODY=8BITMIME") == 0)
 			;
-		else if (strncasecmp(b, "RET=", 4) == 0) {
+		else if (ADVERTISE_EXT_DSN(s) && strncasecmp(b, "RET=", 4) == 0) {
 			b += 4;
 			if (strcasecmp(b, "HDRS") == 0)
 				s->evp.dsn_ret = DSN_RETHDRS;
