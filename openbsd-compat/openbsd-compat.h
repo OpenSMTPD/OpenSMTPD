@@ -197,6 +197,10 @@ int pidfile(const char *basename);
 struct passwd *pw_dup(const struct passwd *);
 #endif
 
+#ifndef HAVE_REALLOCARRAY
+void *reallocarray(void *, size_t, size_t);
+#endif
+
 #ifndef HAVE_EXPLICIT_BZERO
 void explicit_bzero(void *b, size_t len);
 #endif

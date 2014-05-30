@@ -23,6 +23,7 @@ mktemp.c		portable openssh
 openbsd-compat.h	portable openssh
 pidfile.c		/usr/src/lib/libutil/pidfile.c
 pw_dup.c		/usr/src/lib/libc/gen/pw_dup.c
+reallocarray.c		/usr/src/lib/libc/stdlib/reallocarray.c
 setproctitle.c		portable openssh
 strlcat.c		portable openssh
 strlcpy.c		portable openssh

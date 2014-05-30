@@ -639,6 +639,7 @@ AC_CHECK_FUNCS([ \
 	nsleep \
 	pidfile \
 	pw_dup \
+	reallocarray \
 	setenv \
 	setlinebuf \
 	setproctitle \
