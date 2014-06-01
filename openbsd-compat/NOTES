@@ -1,5 +1,6 @@
 List of files and where they come from
 
+asr.h	      	  	/usr/src/include/asr.h
 arc4random.c		portable openssh
 base64.{c,h}  	  	portable openssh
 basename.c		portable openssh
