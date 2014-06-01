@@ -91,6 +91,9 @@ struct asr_query *getaddrinfo_async(const char *, const char *,
 struct asr_query *getnameinfo_async(const struct sockaddr *, socklen_t, char *,
     size_t, char *, size_t, int, void *);
 
+/* only there for -portable */
+void asr_freeaddrinfo(struct addrinfo *);
+
 /* from in event.h */
 struct event_asr * event_asr_run(struct asr_query *,
     void (*)(struct asr_result *, void *), void *);
