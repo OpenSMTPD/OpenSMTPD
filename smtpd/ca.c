@@ -251,8 +251,6 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 id;
 	int			 v;
 
-	log_imsg(smtpd_process, p->proc, imsg);
-
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {
 		case IMSG_CONF_START:
