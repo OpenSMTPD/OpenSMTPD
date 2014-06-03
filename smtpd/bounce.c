@@ -311,7 +311,7 @@ bounce_duration(long long int d)
 		(void)snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
 	}
 	return (buf);
-};
+}
 
 #define NOTICE_INTRO							    \
 	"    Hi!\n\n"							    \
