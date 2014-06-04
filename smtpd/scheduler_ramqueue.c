@@ -75,6 +75,7 @@ struct rq_envelope {
 
 struct rq_holdq {
 	struct evplist		 q;
+	size_t			 count;
 };
 
 struct rq_queue {
@@ -375,6 +376,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	 * current element.
 	 */
 	TAILQ_INSERT_HEAD(&hq->q, evp, entry);
+	hq->count += 1;
 	stat_increment("scheduler.ramqueue.hold", 1);
 
 	return (1);
@@ -406,6 +408,7 @@ scheduler_ram_release(int type, uint64_t holdq, int n)
 			break;
 
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		evp->holdq = 0;
 
 		/* When released, all envelopes are put in the pending queue
@@ -888,6 +891,7 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->state == RQ_EVPSTATE_HELD) {
 		hq = tree_xget(&holdqs[evp->type], evp->holdq);
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		if (TAILQ_EMPTY(&hq->q)) {
 			tree_xpop(&holdqs[evp->type], evp->holdq);
 			free(hq);
@@ -924,6 +928,7 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->state == RQ_EVPSTATE_HELD) {
 		hq = tree_xget(&holdqs[evp->type], evp->holdq);
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		if (TAILQ_EMPTY(&hq->q)) {
 			tree_xpop(&holdqs[evp->type], evp->holdq);
 			free(hq);
@@ -958,6 +963,7 @@ rq_envelope_suspend(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->state == RQ_EVPSTATE_HELD) {
 		hq = tree_xget(&holdqs[evp->type], evp->holdq);
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		if (TAILQ_EMPTY(&hq->q)) {
 			tree_xpop(&holdqs[evp->type], evp->holdq);
 			free(hq);
