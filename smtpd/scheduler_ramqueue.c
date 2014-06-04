@@ -334,6 +334,8 @@ scheduler_ram_delete(uint64_t evpid)
 	return (1);
 }
 
+#define HOLDQ_MAXSIZE	1000
+
 static int
 scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 {
@@ -365,6 +367,16 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 		hq = xcalloc(1, sizeof(*hq), "scheduler_hold");
 		TAILQ_INIT(&hq->q);
 		tree_xset(&holdqs[evp->type], holdq, hq);
+		stat_increment("scheduler.ramqueue.holdq", 1);
+	}
+
+	/* If the holdq is full, just "tempfail" the envelope */
+	if (hq->count >= HOLDQ_MAXSIZE) {
+		evp->state = RQ_EVPSTATE_PENDING;
+		evp->flags |= RQ_ENVELOPE_UPDATE;
+		sorted_insert(&ramqueue, evp);
+		stat_increment("scheduler.ramqueue.hold-overflow", 1);
+		return (0);
 	}
 
 	evp->state = RQ_EVPSTATE_HELD;
@@ -424,6 +436,7 @@ scheduler_ram_release(int type, uint64_t holdq, int n)
 	if (TAILQ_EMPTY(&hq->q)) {
 		tree_xpop(&holdqs[type], holdq);
 		free(hq);
+		stat_decrement("scheduler.ramqueue.holdq", 1);
 	}
 	stat_decrement("scheduler.ramqueue.hold", i);
 
