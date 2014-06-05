@@ -81,6 +81,7 @@ dnsbl_on_connect(uint64_t id, struct filter_connect *conn)
 	}
 	*q = id;
 
+	memset(&hints, 0, sizeof (hints));
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	aq = getaddrinfo_async(buf, NULL, &hints, NULL);
