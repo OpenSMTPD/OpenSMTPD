@@ -836,7 +836,7 @@ rq_queue_schedule(struct rq_queue *rq)
 		if (evp->sched > currtime && evp->expire > currtime)
 			break;
 
-		if (n == SCHED_SCHEDULEMAX)
+		if (n == SCHEDULEMAX)
 			break;
 
 		if (evp->state != RQ_EVPSTATE_PENDING)
