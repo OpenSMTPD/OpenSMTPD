@@ -1101,13 +1101,6 @@ smtp_command(struct smtp_session *s, char *line)
 	 */
 	case CMD_HELO:
 	case CMD_EHLO:
-		if (s->phase != PHASE_INIT) {
-			smtp_reply(s, "503 %s %s: Already indentified",
-			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-			    esc_description(ESC_INVALID_COMMAND));
-			break;
-		}
-
 		if (args == NULL) {
 			smtp_reply(s, "501 %s %s: %s requires domain name",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
