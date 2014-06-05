@@ -1,4 +1,4 @@
-/*	$OpenBSD: gethostnamadr_async.c,v 1.27 2014/03/25 19:48:11 eric Exp $	*/
+/*	$OpenBSD: gethostnamadr_async.c,v 1.29 2014/05/13 11:57:35 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -28,7 +28,9 @@
 #include <rpcsvc/ypclnt.h>
 #include "ypinternal.h"
 #endif
+#include <netdb.h>
 
+#include <asr.h>
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -37,7 +39,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "asr.h"
 #include "asr_private.h"
 
 #define MAXALIASES	16
@@ -432,6 +433,10 @@ hostent_file_match(FILE *f, int reqtype, int family, const char *data,
 			errno = 0; /* ignore errors reading the file */
 			return (NULL);
 		}
+
+		/* there must be an address and at least one name */
+		if (n < 2)
+			continue;
 
 		if (reqtype == ASR_GETHOSTBYNAME) {
 			for (i = 1; i < n; i++) {

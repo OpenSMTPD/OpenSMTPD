@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.h,v 1.8 2014/03/25 19:48:11 eric Exp $	*/
+/*	$OpenBSD: asr.h,v 1.1 2014/03/26 18:13:15 eric Exp $	*/
 /*
  * Copyright (c) 2012-2014 Eric Faurot <eric@openbsd.org>
  *
@@ -15,9 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
+
+#include "includes.h"
 
 /*
  * Expected fd conditions
@@ -90,6 +89,9 @@ struct asr_query *getaddrinfo_async(const char *, const char *,
     const struct addrinfo *, void *);
 struct asr_query *getnameinfo_async(const struct sockaddr *, socklen_t, char *,
     size_t, char *, size_t, int, void *);
+
+/* only there for -portable */
+void asr_freeaddrinfo(struct addrinfo *);
 
 /* from in event.h */
 struct event_asr * event_asr_run(struct asr_query *,

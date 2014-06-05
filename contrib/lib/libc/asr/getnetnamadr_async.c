@@ -1,4 +1,4 @@
-/*	$OpenBSD: getnetnamadr_async.c,v 1.13 2014/03/25 19:48:11 eric Exp $	*/
+/*	$OpenBSD: getnetnamadr_async.c,v 1.15 2014/05/13 11:57:35 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -22,7 +22,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#include <netdb.h>
 
+#include <asr.h>
 #include <err.h>
 #include <errno.h>
 #include <resolv.h> /* for res_hnok */
@@ -30,7 +32,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "asr.h"
 #include "asr_private.h"
 
 #define MAXALIASES	16
@@ -287,6 +288,10 @@ netent_file_match(FILE *f, int reqtype, const char *data)
 			errno = 0; /* ignore errors reading the file */
 			return (NULL);
 		}
+
+		/* there must be an address and at least one name */
+		if (n < 2)
+			continue;
 
 		if (reqtype == ASR_GETNETBYADDR) {
 			net = inet_network(tokens[1]);

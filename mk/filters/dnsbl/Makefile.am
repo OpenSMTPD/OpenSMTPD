@@ -14,6 +14,5 @@ filter_dnsbl_SOURCES	+= $(asr_srcdir)/res_send_async.c
 filter_dnsbl_SOURCES	+= $(asr_srcdir)/getaddrinfo_async.c
 filter_dnsbl_SOURCES	+= $(asr_srcdir)/getnameinfo_async.c
 filter_dnsbl_SOURCES	+= $(asr_srcdir)/res_search_async.c
-filter_dnsbl_SOURCES	+= $(asr_srcdir)/event_asr_run.c
 
 filter_dnsbl_CFLAGS	= -DASR_OPT_THREADSAFE=0
