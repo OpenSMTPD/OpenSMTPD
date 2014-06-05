@@ -166,6 +166,9 @@ queue_fs_message_commit(uint32_t msgid, const char *path)
 		return 0;
 	}
 
+	/* best effort */
+	sync();
+
 	return 1;
 }
 
@@ -263,7 +266,7 @@ queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
 			fsqueue_envelope_incoming_path(*evpid, path,
 			    sizeof(path));
 
-		r = fsqueue_envelope_dump(path, buf, len, 0, 1);
+		r = fsqueue_envelope_dump(path, buf, len, 0, 0);
 		if (r >= 0)
 			goto done;
 	}
