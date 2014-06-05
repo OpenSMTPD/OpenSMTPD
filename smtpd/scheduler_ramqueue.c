@@ -450,6 +450,7 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 	struct rq_envelope	*evp;
 	size_t			 n;
 	int			 retry;
+	time_t			 t;
 
 	currtime = time(NULL);
 
@@ -485,9 +486,10 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 		ret->type = SCHED_DELAY;
 		ret->evpcount = 0;
 		if (evp->sched < evp->expire)
-			ret->delay = evp->sched - currtime;
+			t = evp->sched;
 		else
-			ret->delay = evp->expire - currtime;
+			t = evp->expire;
+		ret->delay = (t < currtime) ? 0 : (t - currtime);
 		goto done;
 	}
 	else {
@@ -821,13 +823,20 @@ rq_queue_merge(struct rq_queue *rq, struct rq_queue *update)
 	rq->evpcount += update->evpcount;
 }
 
+#define SCHEDULEMAX	1024
+
 static void
 rq_queue_schedule(struct rq_queue *rq)
 {
 	struct rq_envelope	*evp;
+	size_t			 n;
 
+	n = 0;
 	while ((evp = TAILQ_FIRST(&rq->q_pending))) {
 		if (evp->sched > currtime && evp->expire > currtime)
+			break;
+
+		if (n == SCHED_SCHEDULEMAX)
 			break;
 
 		if (evp->state != RQ_EVPSTATE_PENDING)
@@ -844,6 +853,7 @@ rq_queue_schedule(struct rq_queue *rq)
 			continue;
 		}
 		rq_envelope_schedule(rq, evp);
+		n += 1;
 	}
 }
 
