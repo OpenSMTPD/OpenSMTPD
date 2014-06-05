@@ -19,6 +19,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -158,6 +160,9 @@ struct smtp_session {
 	((s)->listener->flags & F_AUTH && (s)->flags & SF_SECURE && \
 	 !((s)->flags & SF_AUTHENTICATED))
 
+#define ADVERTISE_EXT_DSN(s) \
+  ((s)->listener->flags & F_EXT_DSN)
+
 static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
 static int smtp_lookup_servername(struct smtp_session *);
@@ -181,7 +186,9 @@ static int smtp_verify_certificate(struct smtp_session *);
 static uint8_t dsn_notify_str_to_uint8(const char *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
+#if defined(HAVE_TLSEXT_SERVERNAME)
 static int smtp_sni_callback(SSL *, int *, void *);
+#endif
 
 static void smtp_filter_connect(struct smtp_session *, struct sockaddr *);
 static void smtp_filter_rset(struct smtp_session *);
@@ -310,6 +317,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t			 msgid;
 	int				 status, success, dnserror;
 	void				*ssl_ctx;
+	void				*sni = NULL;
 
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_DNS_PTR:
@@ -559,7 +567,12 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			pkiname = s->smtpname;
 		ssl_ctx = dict_get(env->sc_ssl_dict, pkiname);
 
+#if defined(HAVE_TLSEXT_SERVERNAME)
+		sni = smtp_sni_callback;
+#endif
+
 		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback, s);
+
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
@@ -654,7 +667,8 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 			smtp_reply(s, "250-8BITMIME");
 			smtp_reply(s, "250-ENHANCEDSTATUSCODES");
 			smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
-			smtp_reply(s, "250-DSN");
+			if (ADVERTISE_EXT_DSN(s))
+				smtp_reply(s, "250-DSN");
 			if (ADVERTISE_TLS(s))
 				smtp_reply(s, "250-STARTTLS");
 			if (ADVERTISE_AUTH(s))
@@ -1546,7 +1560,7 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 			s->flags &= ~SF_8BITMIME;
 		else if (strcasecmp(b, "BODY=8BITMIME") == 0)
 			;
-		else if (strncasecmp(b, "RET=", 4) == 0) {
+		else if (ADVERTISE_EXT_DSN(s) && strncasecmp(b, "RET=", 4) == 0) {
 			b += 4;
 			if (strcasecmp(b, "HDRS") == 0)
 				s->evp.dsn_ret = DSN_RETHDRS;
@@ -1926,6 +1940,7 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	evtimer_add(&s->pause, &tv);
 }
 
+#if defined(HAVE_TLSEXT_SERVERNAME)
 static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
@@ -1949,6 +1964,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
 }
+#endif
 
 static void
 smtp_filter_rset(struct smtp_session *s)

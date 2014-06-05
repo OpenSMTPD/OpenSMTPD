@@ -22,7 +22,10 @@
  */
 
 %{
+#include "includes.h"
+
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
@@ -43,12 +46,15 @@
 #include <netdb.h>
 #include <paths.h>
 #include <pwd.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#ifdef HAVE_UTIL_H
 #include <util.h>
+#endif
 
 #include <openssl/ssl.h>
 
@@ -149,6 +155,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
+%token	DSN
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -409,6 +416,7 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			listen_opts.hostnametable = t;
 		}
 		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
+		| DSN	{ listen_opts.flags |= F_EXT_DSN; }
 		;
 
 listen		: opt_listen listen
@@ -1148,6 +1156,7 @@ lookup(char *s)
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
+		{ "dsn",		DSN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
@@ -1828,7 +1837,9 @@ host_v4(const char *s, in_port_t port)
 
 	h = xcalloc(1, sizeof(*h), "host_v4");
 	sain = (struct sockaddr_in *)&h->ss;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sain->sin_len = sizeof(struct sockaddr_in);
+#endif
 	sain->sin_family = AF_INET;
 	sain->sin_addr.s_addr = ina.s_addr;
 	sain->sin_port = port;
@@ -1849,7 +1860,9 @@ host_v6(const char *s, in_port_t port)
 
 	h = xcalloc(1, sizeof(*h), "host_v6");
 	sin6 = (struct sockaddr_in6 *)&h->ss;
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 	sin6->sin6_family = AF_INET6;
 	sin6->sin6_port = port;
 	memcpy(&sin6->sin6_addr, &ina6, sizeof(ina6));
@@ -1887,13 +1900,17 @@ host_dns(struct listenerlist *al, struct listen_opts *lo)
 		h->ss.ss_family = res->ai_family;
 		if (res->ai_family == AF_INET) {
 			sain = (struct sockaddr_in *)&h->ss;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 			sain->sin_len = sizeof(struct sockaddr_in);
+#endif
 			sain->sin_addr.s_addr = ((struct sockaddr_in *)
 			    res->ai_addr)->sin_addr.s_addr;
 			sain->sin_port = lo->port;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 			memcpy(&sin6->sin6_addr, &((struct sockaddr_in6 *)
 			    res->ai_addr)->sin6_addr, sizeof(struct in6_addr));
 			sin6->sin6_port = lo->port;
@@ -1956,14 +1973,18 @@ interface(struct listenerlist *al, struct listen_opts *lo)
 		case AF_INET:
 			sain = (struct sockaddr_in *)&h->ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 			sain->sin_len = sizeof(struct sockaddr_in);
+#endif
 			sain->sin_port = lo->port;
 			break;
 
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 			sin6->sin6_port = lo->port;
 			break;
 
@@ -2023,7 +2044,9 @@ set_localaddrs(struct table *localnames)
 		case AF_INET:
 			sain = (struct sockaddr_in *)&ss;
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 			sain->sin_len = sizeof(struct sockaddr_in);
+#endif
 			table_add(t, ss_to_text(&ss), NULL);
 			table_add(localnames, ss_to_text(&ss), NULL);
 			(void)snprintf(buf, sizeof buf, "[%s]", ss_to_text(&ss));
@@ -2033,7 +2056,9 @@ set_localaddrs(struct table *localnames)
 		case AF_INET6:
 			sin6 = (struct sockaddr_in6 *)&ss;
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 			table_add(t, ss_to_text(&ss), NULL);
 			table_add(localnames, ss_to_text(&ss), NULL);
 			(void)snprintf(buf, sizeof buf, "[%s]", ss_to_text(&ss));
@@ -2096,6 +2121,7 @@ bad:
 int
 is_if_in_group(const char *ifname, const char *groupname)
 {
+#ifdef HAVE_STRUCT_IFGROUPREQ
         unsigned int		 len;
         struct ifgroupreq        ifgr;
         struct ifg_req          *ifg;
@@ -2133,6 +2159,9 @@ is_if_in_group(const char *ifname, const char *groupname)
 end:
 	close(s);
 	return ret;
+#else
+	return (0);
+#endif
 }
 
 struct filter_conf *

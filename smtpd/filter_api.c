@@ -17,6 +17,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/uio.h>
@@ -977,7 +979,7 @@ filter_api_sockaddr_to_text(const struct sockaddr *sa)
 {
 	static char	buf[NI_MAXHOST];
 
-	if (getnameinfo(sa, sa->sa_len, buf, sizeof(buf), NULL, 0,
+	if (getnameinfo(sa, SA_LEN(sa), buf, sizeof(buf), NULL, 0,
 		NI_NUMERICHOST))
 		return ("(unknown)");
 	else

@@ -17,10 +17,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 
+#include <grp.h> /* needed for setgroups */
+#include <signal.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>

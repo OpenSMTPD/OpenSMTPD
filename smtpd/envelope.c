@@ -17,6 +17,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -322,14 +324,18 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 			return 0;
 		ssin6.sin6_family = AF_INET6;
 		memcpy(ss, &ssin6, sizeof(ssin6));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		ss->ss_len = sizeof(struct sockaddr_in6);
+#endif
 	}
 	else {
 		if (inet_pton(AF_INET, buf, &ssin.sin_addr) != 1)
 			return 0;
 		ssin.sin_family = AF_INET;
 		memcpy(ss, &ssin, sizeof(ssin));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		ss->ss_len = sizeof(struct sockaddr_in);
+#endif
 	}
 	return 1;
 }

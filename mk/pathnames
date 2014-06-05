@@ -1,0 +1,15 @@
+smtpd_srcdir	= $(top_srcdir)/smtpd
+asr_srcdir	= $(top_srcdir)/contrib/lib/libc/asr
+compat_srcdir	= $(top_srcdir)/openbsd-compat
+regress_srcdir	= $(top_srcdir)/regress/bin
+filters_srcdir	= $(smtpd_srcdir)/filters
+backends_srcdir	= $(smtpd_srcdir)/backends
+
+PATHS=		-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
+		-DPATH_CHROOT=\"$(PRIVSEP_PATH)\"			\
+		-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\"			\
+		-DPATH_MAILLOCAL=\"$(pkglibexecdir)/mail.local\"	\
+		-DPATH_FILTERS=\"$(pkglibexecdir)\"			\
+		-DPATH_TABLES=\"$(pkglibexecdir)\"
+
+

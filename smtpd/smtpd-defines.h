@@ -28,9 +28,18 @@
 #define	SMTPD_MAXHOSTNAMELEN	256
 #define	SMTPD_MAXLINESIZE	2048
 
+#ifndef SMTPD_USER
 #define SMTPD_USER		"_smtpd"
+#endif
+#ifndef PATH_CHROOT
 #define PATH_CHROOT		"/var/empty"
-#define SMTPD_QUEUE_USER	 "_smtpq"
+#endif
+#ifndef SMTPD_QUEUE_USER
+#define SMTPD_QUEUE_USER	"_smtpq"
+#endif
+#ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
+#endif
 
 #define TAG_CHAR	'+'	/* gilles+tag@ */
+

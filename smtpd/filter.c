@@ -17,6 +17,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -313,8 +315,8 @@ filter_connect(uint64_t id, const struct sockaddr *local,
 
 	q = filter_query(s, QK_QUERY, QUERY_CONNECT);
 
-	memmove(&q->u.connect.local, local, local->sa_len);
-	memmove(&q->u.connect.remote, remote, remote->sa_len);
+	memmove(&q->u.connect.local, local, SA_LEN(local));
+	memmove(&q->u.connect.remote, remote, SA_LEN(remote));
 	strlcpy(q->u.connect.hostname, host, sizeof(q->u.connect.hostname));
 
 	q->smtp.status = FILTER_OK;

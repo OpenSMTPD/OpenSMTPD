@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -57,12 +59,14 @@ static int alias_is_filename(struct expandnode *, const char *, size_t);
 static int alias_is_include(struct expandnode *, const char *, size_t);
 static int alias_is_error(struct expandnode *, const char *, size_t);
 
+static int temp_inet_net_pton_ipv6(const char *, void *, size_t);
+
 const char *
 sockaddr_to_text(struct sockaddr *sa)
 {
 	static char	buf[NI_MAXHOST];
 
-	if (getnameinfo(sa, sa->sa_len, buf, sizeof(buf), NULL, 0,
+	if (getnameinfo(sa, SA_LEN(sa), buf, sizeof(buf), NULL, 0,
 	    NI_NUMERICHOST))
 		return ("(unknown)");
 	else
@@ -76,7 +80,9 @@ in6addr_to_text(const struct in6_addr *addr)
 	uint16_t		tmp16;
 
 	memset(&sa_in6, 0, sizeof(sa_in6));
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sa_in6.sin6_len = sizeof(sa_in6);
+#endif
 	sa_in6.sin6_family = AF_INET6;
 	memcpy(&sa_in6.sin6_addr, addr, sizeof(sa_in6.sin6_addr));
 
@@ -280,18 +286,34 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 		if (bits != -1) {
 			ssin.sin_family = AF_INET;
 			memcpy(&ss, &ssin, sizeof(ssin));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in);
+#endif
 		}
 		else {
 			bits = inet_net_pton(AF_INET6, s, &ssin6.sin6_addr,
 			    sizeof(struct in6_addr));
+			if (bits == -1) {
+
+				/* XXX - some systems don't support
+				   inet_net_pton(AF_INET6, ...); */
+				if (errno != EAFNOSUPPORT) {
+					log_warn("inet_net_pton");
+					return 0;
+				}
+				bits = temp_inet_net_pton_ipv6(s,
+				    &ssin6.sin6_addr,
+				    sizeof(struct in6_addr));
+			}
 			if (bits == -1) {
 				log_warn("warn: inet_net_pton");
 				return 0;
 			}
 			ssin6.sin6_family = AF_INET6;
 			memcpy(&ss, &ssin6, sizeof(ssin6));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in6);
+#endif
 		}
 	}
 	else {
@@ -300,13 +322,17 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 			ssin.sin_family = AF_INET;
 			bits = 32;
 			memcpy(&ss, &ssin, sizeof(ssin));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in);
+#endif
 		}
 		else if (inet_pton(AF_INET6, s, &ssin6.sin6_addr) == 1) {
 			ssin6.sin6_family = AF_INET6;
 			bits = 128;
 			memcpy(&ss, &ssin6, sizeof(ssin6));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 			ss.ss_len = sizeof(struct sockaddr_in6);
+#endif
 		}
 		else return 0;
 	}
@@ -860,4 +886,36 @@ alias_is_error(struct expandnode *alias, const char *line, size_t len)
 
 	alias->type = EXPAND_ERROR;
 	return 1;
+}
+
+static int
+temp_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
+{
+	int	ret;
+	int	bits;
+	char	buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255:255:255:255/128")];
+	char		*sep;
+	const char	*errstr;
+
+	if (strlcpy(buf, src, sizeof buf) >= sizeof buf) {
+		errno = EMSGSIZE;
+		return (-1);
+	}
+
+	sep = strchr(buf, '/');
+	if (sep != NULL)
+		*sep++ = '\0';
+
+	ret = inet_pton(AF_INET6, buf, dst);
+	if (ret != 1)
+		return (-1);
+
+	if (sep == NULL)
+		return 128;
+
+	bits = strtonum(sep, 0, 128, &errstr);
+	if (errstr)
+		return (-1);
+
+	return bits;
 }

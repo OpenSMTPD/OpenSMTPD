@@ -19,6 +19,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -31,6 +33,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
+#include <grp.h> /* needed for setgroups */
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -1972,13 +1975,13 @@ mta_host(const struct sockaddr *sa)
 	struct mta_host		key, *h;
 	struct sockaddr_storage	ss;
 
-	memmove(&ss, sa, sa->sa_len);
+	memmove(&ss, sa, SA_LEN(sa));
 	key.sa = (struct sockaddr*)&ss;
 	h = SPLAY_FIND(mta_host_tree, &hosts, &key);
 
 	if (h == NULL) {
 		h = xcalloc(1, sizeof(*h), "mta_host");
-		h->sa = xmemdup(sa, sa->sa_len, "mta_host");
+		h->sa = xmemdup(sa, SA_LEN(sa), "mta_host");
 		SPLAY_INSERT(mta_host_tree, &hosts, h);
 		stat_increment("mta.host", 1);
 	}
@@ -2023,11 +2026,11 @@ mta_host_to_text(struct mta_host *h)
 static int
 mta_host_cmp(const struct mta_host *a, const struct mta_host *b)
 {
-	if (a->sa->sa_len < b->sa->sa_len)
+	if (SA_LEN(a->sa) < SA_LEN(b->sa))
 		return (-1);
-	if (a->sa->sa_len > b->sa->sa_len)
+	if (SA_LEN(a->sa) > SA_LEN(b->sa))
 		return (1);
-	return (memcmp(a->sa, b->sa, a->sa->sa_len));
+	return (memcmp(a->sa, b->sa, SA_LEN(a->sa)));
 }
 
 SPLAY_GENERATE(mta_host_tree, mta_host, entry, mta_host_cmp);
@@ -2101,7 +2104,7 @@ mta_source(const struct sockaddr *sa)
 	struct sockaddr_storage	ss;
 
 	if (sa) {
-		memmove(&ss, sa, sa->sa_len);
+		memmove(&ss, sa, SA_LEN(sa));
 		key.sa = (struct sockaddr*)&ss;
 	} else
 		key.sa = NULL;
@@ -2110,7 +2113,7 @@ mta_source(const struct sockaddr *sa)
 	if (s == NULL) {
 		s = xcalloc(1, sizeof(*s), "mta_source");
 		if (sa)
-			s->sa = xmemdup(sa, sa->sa_len, "mta_source");
+			s->sa = xmemdup(sa, SA_LEN(sa), "mta_source");
 		SPLAY_INSERT(mta_source_tree, &sources, s);
 		stat_increment("mta.source", 1);
 	}
@@ -2155,11 +2158,11 @@ mta_source_cmp(const struct mta_source *a, const struct mta_source *b)
 		return ((b->sa == NULL) ? 0 : -1);
 	if (b->sa == NULL)
 		return (1);
-	if (a->sa->sa_len < b->sa->sa_len)
+	if (SA_LEN(a->sa) < SA_LEN(b->sa))
 		return (-1);
-	if (a->sa->sa_len > b->sa->sa_len)
+	if (SA_LEN(a->sa) > SA_LEN(b->sa))
 		return (1);
-	return (memcmp(a->sa, b->sa, a->sa->sa_len));
+	return (memcmp(a->sa, b->sa, SA_LEN(a->sa)));
 }
 
 SPLAY_GENERATE(mta_source_tree, mta_source, entry, mta_source_cmp);

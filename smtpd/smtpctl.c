@@ -21,12 +21,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+
+#include <net/if.h>
+/* #include <net/if_media.h> */
+/* #include <net/if_types.h> */
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <err.h>
 #include <errno.h>
@@ -45,10 +53,14 @@
 #include "parser.h"
 #include "log.h"
 
+#ifndef PATH_GZCAT
 #define PATH_GZCAT	"/usr/bin/gzcat"
+#endif
 #define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
+#ifndef PATH_ENCRYPT
 #define PATH_ENCRYPT	"/usr/bin/encrypt"
+#endif
 
 int srv_connect(void);
 
@@ -1074,7 +1086,9 @@ static void
 display(const char *s)
 {
 	FILE   *fp;
+#ifdef HAVE_GCM_CRYPTO
 	char   *key;
+#endif
 	int	gzipped;
 	char   *gzcat_argv0 = strrchr(PATH_GZCAT, '/') + 1;
 
@@ -1082,6 +1096,7 @@ display(const char *s)
 		err(1, "fopen");
 
 	if (is_encrypted_fp(fp)) {
+#ifdef HAVE_GCM_CRYPTO
 		int	i;
 		int	fd;
 		FILE   *ofp;
@@ -1113,6 +1128,10 @@ display(const char *s)
 		fclose(fp);
 		fp = ofp;
 		fseek(fp, 0, SEEK_SET);
+#else
+	       	printf("GCM crypto not supported!\n");
+       		exit(1);
+#endif
 	}
 	gzipped = is_gzip_fp(fp);
 

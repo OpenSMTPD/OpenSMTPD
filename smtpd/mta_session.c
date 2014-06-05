@@ -19,6 +19,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -541,7 +543,7 @@ mta_connect(struct mta_session *s)
 	if (s->relay->port)
 		portno = s->relay->port;
 
-	memmove(&ss, s->route->dst->sa, s->route->dst->sa->sa_len);
+	memmove(&ss, s->route->dst->sa, SA_LEN(s->route->dst->sa));
 	sa = (struct sockaddr *)&ss;
 
 	if (sa->sa_family == AF_INET)

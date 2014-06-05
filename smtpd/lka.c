@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -31,6 +33,8 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <netdb.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>

@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -29,6 +31,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <pwd.h>
 #include <signal.h>
@@ -325,7 +328,7 @@ control_accept(int listenfd, short event, void *arg)
 	struct sockaddr_un	 sun;
 	struct ctl_conn		*c;
 
-	if (getdtablesize() - getdtablecount() < CONTROL_FD_RESERVE)
+	if (available_fds(CONTROL_FD_RESERVE))
 		goto pause;
 
 	len = sizeof(sun);
@@ -368,7 +371,7 @@ control_close(struct ctl_conn *c)
 
 	stat_backend->decrement("control.session", 1);
 
-	if (getdtablesize() - getdtablecount() < CONTROL_FD_RESERVE)
+	if (available_fds(CONTROL_FD_RESERVE))
 		return;
 
 	if (!event_pending(&control_state.ev, EV_READ, NULL)) {

@@ -19,6 +19,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -28,6 +30,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -37,7 +40,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
 #include <vis.h>
+#endif
 
 #include "smtpd.h"
 #include "log.h"

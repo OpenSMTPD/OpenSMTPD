@@ -16,13 +16,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
 #include <sys/param.h>
+#if HAVE_SYS_MOUNT_H
 #include <sys/mount.h>
+#endif
 
 #include <ctype.h>
 #include <err.h>
@@ -416,7 +423,11 @@ fsqueue_check_space(void)
 	}
 
 	used = buf.f_files - buf.f_ffree;
+#ifdef HAVE_STRUCT_STATFS_F_FAVAIL
 	total = buf.f_favail + used;
+#else
+	total = buf.f_files;
+#endif
 	if (total != 0)
 		used = (float)used / (float)total * 100;
 	else
@@ -599,7 +610,12 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 				break;
 			if (e->fts_namelen != 16)
 				break;
+#if HAVE_STRUCT_STAT_ST_MTIM
 			if (timespeccmp(&e->fts_statp->st_mtim, &startup, >))
+#endif
+#if HAVE_STRUCT_STAT_ST_MTIMSPEC
+			if (timespeccmp(&e->fts_statp->st_mtimspec, &startup, >))
+#endif
 				break;
 			tmp = NULL;
 			*evpid = strtoull(e->fts_name, &tmp, 16);

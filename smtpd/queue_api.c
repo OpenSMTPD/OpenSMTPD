@@ -16,12 +16,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/uio.h>
 
 #include <imsg.h>
 #include <pwd.h>
+#include <grp.h> /* needed for setgroups */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

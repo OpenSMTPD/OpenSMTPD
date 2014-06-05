@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
@@ -295,7 +297,9 @@ text_to_sockaddr(struct sockaddr *sa, int family, const char *str)
 
 		sin = (struct sockaddr_in *)sa;
 		memset(sin, 0, sizeof *sin);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sin->sin_len = sizeof(struct sockaddr_in);
+#endif
 		sin->sin_family = PF_INET;
 		sin->sin_addr.s_addr = ina.s_addr;
 		return (0);
@@ -318,7 +322,9 @@ text_to_sockaddr(struct sockaddr *sa, int family, const char *str)
 
 		sin6 = (struct sockaddr_in6 *)sa;
 		memset(sin6, 0, sizeof *sin6);
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 		sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 		sin6->sin6_family = PF_INET6;
 		sin6->sin6_addr = in6a;
 
@@ -327,7 +333,7 @@ text_to_sockaddr(struct sockaddr *sa, int family, const char *str)
 
 		if (IN6_IS_ADDR_LINKLOCAL(&in6a) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(&in6a) ||
-		    IN6_IS_ADDR_MC_INTFACELOCAL(&in6a))
+		    IN6_IS_ADDR_MC_NODELOCAL(&in6a))
 			if ((sin6->sin6_scope_id = if_nametoindex(cp)))
 				return (0);
 

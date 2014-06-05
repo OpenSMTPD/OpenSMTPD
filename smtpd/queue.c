@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -26,6 +28,8 @@
 
 #include <err.h>
 #include <event.h>
+#include <fcntl.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
@@ -603,11 +607,13 @@ queue(void)
 	if (env->sc_queue_flags & QUEUE_COMPRESSION)
 		log_info("queue: queue compression enabled");
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_key) {
 		if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
 			fatalx("crypto_setup: invalid key for queue encryption");
 		log_info("queue: queue encryption enabled");
 	}
+#endif
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||

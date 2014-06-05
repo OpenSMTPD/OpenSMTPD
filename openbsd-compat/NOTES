@@ -1,0 +1,38 @@
+List of files and where they come from
+
+asr.h	      	  	/usr/src/include/asr.h
+arc4random.c		portable openssh
+base64.{c,h}  	  	portable openssh
+basename.c		portable openssh
+bsd-closefrom.c		portable openssh
+bsd-getpeereid.c	portable openssh
+bsd-waitpid.{c,h}	portable openssh
+clock_gettime.c		handmade
+daemon.c		portable openssh
+defines.h		portable openssh
+dirname.c		portable openssh
+entropy.{c,h}		portable openssh
+event_asr_run.c		end of /usr/src/lib/libevent/event.c
+fgetln.c		part of /usr/src/usr.bin/make/util.c
+fmt_scaled.c		portable openssh
+fparseln.c		part of /usr/src/lib/libutil/fparseln.c
+getopt.c	  	portable openssh
+imsg-buffer.c		part of /usr/src/libutil/imsg-buffer.c
+imsg.{c,h}		part of /usr/src/libutil/imsg.c
+includes.h		portable openssh
+log.h			portable openssh
+mktemp.c		portable openssh
+openbsd-compat.h	portable openssh
+pidfile.c		/usr/src/lib/libutil/pidfile.c
+pw_dup.c		/usr/src/lib/libc/gen/pw_dup.c
+reallocarray.c		/usr/src/lib/libc/stdlib/reallocarray.c
+setproctitle.c		portable openssh
+strlcat.c		portable openssh
+strlcpy.c		portable openssh
+strmode.c		portable openssh
+strsep.c		portable openssh
+strtonum.c		portable openssh
+sys/queue.h		portable openssh
+sys/tree.h		portable openssh
+vis.{c,h}		portable openssh
+xmalloc.{c,h}		portable openssh

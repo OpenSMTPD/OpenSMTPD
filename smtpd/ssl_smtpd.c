@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -90,10 +92,12 @@ ssl_smtp_init(void *ssl_ctx, void *sni, void *arg)
 
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
+#if defined HAVE_TLSEXT_SERVERNAME
 	if (cb) {
 		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, cb);
 		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, arg);
 	}
+#endif
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;

@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -26,6 +28,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -142,10 +145,16 @@ smtp_setup_listeners(void)
 			fatal("smtpd: socket");
 		}
 		opt = 1;
+#ifdef SO_REUSEADDR
 		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
 			sizeof(opt)) < 0)
 			fatal("smtpd: setsockopt");
-		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
+#else
+		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEPORT, &opt,
+			sizeof(opt)) < 0)
+			fatal("smtpd: setsockopt");
+#endif
+		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
 			fatal("smtpd: bind");
 	}
 }
@@ -182,8 +191,10 @@ smtp_setup_events(void)
 
 	purge_config(PURGE_PKI_KEYS);
 
+	/* XXX chl */
 	log_debug("debug: smtp: will accept at most %d clients",
-	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
+	    /* (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE); */
+	    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE);
 }
 
 static void
@@ -221,7 +232,9 @@ smtp_enqueue(uid_t *euid)
 		listener = &local;
 		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
 		listener->ss.ss_family = AF_LOCAL;
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		listener->ss.ss_len = sizeof(struct sockaddr *);
+#endif
 		(void)strlcpy(listener->hostname, "localhost",
 		    sizeof(listener->hostname));
 	}
@@ -315,7 +328,9 @@ smtp_can_accept(void)
 {
 	size_t max;
 
-	max = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
+	/* XXX chl */
+	/* max = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE; */
+	max =    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE;
 
 	return (sessions < max);
 }

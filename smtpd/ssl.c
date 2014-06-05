@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -25,7 +27,12 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
+#if LIBEVENT_MAJOR_VERSION < 2
 #include <event.h>
+#else
+#include <event2/event.h>
+#include <event2/bufferevent_ssl.h>
+#endif
 #include <fcntl.h>
 #include <imsg.h>
 #include <limits.h>
@@ -439,6 +446,8 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 void
 ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 {
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
 	int	nid;
 	EC_KEY *ecdh;
 
@@ -459,6 +468,8 @@ ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
 	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
 	EC_KEY_free(ecdh);
+#endif
+#endif
 }
 
 int
