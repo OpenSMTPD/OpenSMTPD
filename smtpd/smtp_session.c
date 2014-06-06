@@ -1692,6 +1692,7 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 	s->destcount = 0;
 	s->rcptcount = 0;
 	s->odatalen = 0;
+	s->dataeom = 0;
 
 	if (prepare) {
 		s->evp.ss = s->ss;
