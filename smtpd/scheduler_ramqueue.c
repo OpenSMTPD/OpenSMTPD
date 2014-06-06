@@ -77,6 +77,7 @@ struct rq_envelope {
 
 struct rq_holdq {
 	struct evplist		 q;
+	size_t			 count;
 };
 
 struct rq_queue {
@@ -335,6 +336,8 @@ scheduler_ram_delete(uint64_t evpid)
 	return (1);
 }
 
+#define HOLDQ_MAXSIZE	1000
+
 static int
 scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 {
@@ -366,6 +369,16 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 		hq = xcalloc(1, sizeof(*hq), "scheduler_hold");
 		TAILQ_INIT(&hq->q);
 		tree_xset(&holdqs[evp->type], holdq, hq);
+		stat_increment("scheduler.ramqueue.holdq", 1);
+	}
+
+	/* If the holdq is full, just "tempfail" the envelope */
+	if (hq->count >= HOLDQ_MAXSIZE) {
+		evp->state = RQ_EVPSTATE_PENDING;
+		evp->flags |= RQ_ENVELOPE_UPDATE;
+		sorted_insert(&ramqueue, evp);
+		stat_increment("scheduler.ramqueue.hold-overflow", 1);
+		return (0);
 	}
 
 	evp->state = RQ_EVPSTATE_HELD;
@@ -377,6 +390,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	 * current element.
 	 */
 	TAILQ_INSERT_HEAD(&hq->q, evp, entry);
+	hq->count += 1;
 	stat_increment("scheduler.ramqueue.hold", 1);
 
 	return (1);
@@ -408,6 +422,7 @@ scheduler_ram_release(int type, uint64_t holdq, int n)
 			break;
 
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		evp->holdq = 0;
 
 		/* When released, all envelopes are put in the pending queue
@@ -423,6 +438,7 @@ scheduler_ram_release(int type, uint64_t holdq, int n)
 	if (TAILQ_EMPTY(&hq->q)) {
 		tree_xpop(&holdqs[type], holdq);
 		free(hq);
+		stat_decrement("scheduler.ramqueue.holdq", 1);
 	}
 	stat_decrement("scheduler.ramqueue.hold", i);
 
@@ -436,6 +452,7 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 	struct rq_envelope	*evp;
 	size_t			 n;
 	int			 retry;
+	time_t			 t;
 
 	currtime = time(NULL);
 
@@ -471,9 +488,10 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 		ret->type = SCHED_DELAY;
 		ret->evpcount = 0;
 		if (evp->sched < evp->expire)
-			ret->delay = evp->sched - currtime;
+			t = evp->sched;
 		else
-			ret->delay = evp->expire - currtime;
+			t = evp->expire;
+		ret->delay = (t < currtime) ? 0 : (t - currtime);
 		goto done;
 	}
 	else {
@@ -807,13 +825,20 @@ rq_queue_merge(struct rq_queue *rq, struct rq_queue *update)
 	rq->evpcount += update->evpcount;
 }
 
+#define SCHEDULEMAX	1024
+
 static void
 rq_queue_schedule(struct rq_queue *rq)
 {
 	struct rq_envelope	*evp;
+	size_t			 n;
 
+	n = 0;
 	while ((evp = TAILQ_FIRST(&rq->q_pending))) {
 		if (evp->sched > currtime && evp->expire > currtime)
+			break;
+
+		if (n == SCHEDULEMAX)
 			break;
 
 		if (evp->state != RQ_EVPSTATE_PENDING)
@@ -830,6 +855,7 @@ rq_queue_schedule(struct rq_queue *rq)
 			continue;
 		}
 		rq_envelope_schedule(rq, evp);
+		n += 1;
 	}
 }
 
@@ -890,6 +916,7 @@ rq_envelope_schedule(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->state == RQ_EVPSTATE_HELD) {
 		hq = tree_xget(&holdqs[evp->type], evp->holdq);
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		if (TAILQ_EMPTY(&hq->q)) {
 			tree_xpop(&holdqs[evp->type], evp->holdq);
 			free(hq);
@@ -926,6 +953,7 @@ rq_envelope_remove(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->state == RQ_EVPSTATE_HELD) {
 		hq = tree_xget(&holdqs[evp->type], evp->holdq);
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		if (TAILQ_EMPTY(&hq->q)) {
 			tree_xpop(&holdqs[evp->type], evp->holdq);
 			free(hq);
@@ -960,6 +988,7 @@ rq_envelope_suspend(struct rq_queue *rq, struct rq_envelope *evp)
 	if (evp->state == RQ_EVPSTATE_HELD) {
 		hq = tree_xget(&holdqs[evp->type], evp->holdq);
 		TAILQ_REMOVE(&hq->q, evp, entry);
+		hq->count -= 1;
 		if (TAILQ_EMPTY(&hq->q)) {
 			tree_xpop(&holdqs[evp->type], evp->holdq);
 			free(hq);
