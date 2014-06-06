@@ -90,8 +90,9 @@ enum message_flags {
 	MF_QUEUE_ENVELOPE_FAIL	= 0x0001,
 	MF_ERROR_SIZE		= 0x1000,
 	MF_ERROR_IO		= 0x2000,
+	MF_ERROR_LOOP		= 0x4000,
 };
-#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO)
+#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO | MF_ERROR_LOOP)
 
 enum smtp_command {
 	CMD_HELO = 0,
@@ -148,6 +149,8 @@ struct smtp_session {
 	size_t			 odatalen;
 	struct iobuf		 obuf;
 	struct io		 oev;
+	int			 hdrdone;
+	int			 rcvcount;
 	int			 dataeom;
 
 	struct event		 pause;
@@ -1043,6 +1046,10 @@ smtp_data_io_done(struct smtp_session *s)
 		m_close(p_queue);
 		if (s->msgflags & MF_ERROR_SIZE)
 			smtp_reply(s, "554 Message too big");
+		else if (s->msgflags & MF_ERROR_LOOP)
+			smtp_reply(s, "500 %s %s: Loop detected",
+				esc_code(ESC_STATUS_PERMFAIL, ESC_ROUTING_LOOP_DETECTED),
+				esc_description(ESC_ROUTING_LOOP_DETECTED));
 		else if (s->msgflags)
 			smtp_reply(s, "421 Internal server error");
 		smtp_message_reset(s, 0);
@@ -1693,6 +1700,8 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 	s->rcptcount = 0;
 	s->odatalen = 0;
 	s->dataeom = 0;
+	s->rcvcount = 0;
+	s->hdrdone = 0;
 
 	if (prepare) {
 		s->evp.ss = s->ss;
@@ -2042,6 +2051,20 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 	/* ignore data line if an error flag is set */
 	if (s->msgflags & MF_ERROR)
 		return;
+
+	if (*line == '\0')
+		s->hdrdone = 1;
+
+	/* check for loops */
+	if (!s->hdrdone) {
+		if (strncasecmp("Received: ", line, 10) == 0)
+			s->rcvcount++;
+		if (s->rcvcount == MAX_HOPS_COUNT) {
+			s->msgflags |= MF_ERROR_LOOP;
+			log_warn("warn: loop detected");
+			return;
+		}
+	}
 
 	n = iobuf_fqueue(&s->obuf, "%s\n", line);
 	if (n == -1) {
