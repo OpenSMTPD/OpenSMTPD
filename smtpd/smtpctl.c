@@ -512,7 +512,7 @@ do_profile(int argc, struct parameter *argv)
 
 	v = str_to_profile(argv[0].u.u_str);
 
-	srv_send(IMSG_CTL_PROFILE, &v, sizeof(v));
+	srv_send(IMSG_CTL_PROFILE_ENABLE, &v, sizeof(v));
 	return srv_check_result(1);
 }
 
