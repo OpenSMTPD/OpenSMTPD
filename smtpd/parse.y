@@ -149,7 +149,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	DSN
+%token	NODSN
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -410,7 +410,7 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			listen_opts.hostnametable = t;
 		}
 		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
-		| DSN	{ listen_opts.flags |= F_EXT_DSN; }
+		| NODSN	{ listen_opts.flags &= ~F_EXT_DSN; }
 		;
 
 listen		: opt_listen listen
@@ -615,6 +615,7 @@ main		: BOUNCEWARN {
 			memset(&l, 0, sizeof l);
 			memset(&listen_opts, 0, sizeof listen_opts);
 			listen_opts.family = AF_UNSPEC;
+			listen_opts.flags |= F_EXT_DSN;
 		} ON STRING listen {
 			listen_opts.ifx = $4;
 			create_listener(conf->sc_listeners, &listen_opts);
@@ -1150,7 +1151,6 @@ lookup(char *s)
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
-		{ "dsn",		DSN },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
@@ -1174,6 +1174,7 @@ lookup(char *s)
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
+		{ "no-dsn",		NODSN },
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
