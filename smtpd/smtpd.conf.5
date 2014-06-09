@@ -599,6 +599,7 @@ Changing the default value might degrade performances.
 .Op Ic hostname Ar hostname
 .Op Ic hostnames Aq Ar names
 .Op Ic mask-source
+.Op Ic no-dsn
 .Ek
 .Xc
 .Pp
@@ -695,6 +696,11 @@ If the
 .Ic mask-source
 parameter is used, then the listener will skip the "from" part
 when prepending the "Received" header.
+.Pp
+If the
+.Ic no-dsn
+parameter is used, DSN (Delivery Status Notification) extention will not
+be activated.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
