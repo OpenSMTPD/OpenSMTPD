@@ -1515,7 +1515,7 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 		if (*b == '\0')
 			continue;
 		
-		if (strncasecmp(b, "NOTIFY=", 7) == 0) {
+		if (ADVERTISE_EXT_DSN(s) && strncasecmp(b, "NOTIFY=", 7) == 0) {
 			b += 7;
 			while ((p = strsep(&b, ","))) {
 				if (*p == '\0')
@@ -1534,7 +1534,7 @@ smtp_parse_rcpt_args(struct smtp_session *s, char *args)
 				    combined with other options");
 				return (-1);
 			}
-		} else if (strncasecmp(b, "ORCPT=", 6) == 0) {
+		} else if (ADVERTISE_EXT_DSN(s) && strncasecmp(b, "ORCPT=", 6) == 0) {
 			b += 6;
 			if (!text_to_mailaddr(&s->evp.dsn_orcpt, b)) {
 				smtp_reply(s, "553 ORCPT address syntax error");
