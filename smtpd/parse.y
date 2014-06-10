@@ -540,43 +540,9 @@ main		: BOUNCEWARN {
 			conf->sc_queue_flags |= QUEUE_COMPRESSION;
 		}
 		| QUEUE ENCRYPTION {
-			char	*password;
-
-			password = getpass("queue key: ");
-			if (password == NULL) {
-				yyerror("getpass() error");
-				YYERROR;
-			}
-			conf->sc_queue_key = strdup(password);
-			memset(password, 0, strlen(password));
-			if (conf->sc_queue_key == NULL) {
-				yyerror("memory exhausted");
-				YYERROR;
-			}
 			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
-
 		}
 		| QUEUE ENCRYPTION KEY STRING {
-			char   *buf;
-			char   *lbuf;
-			size_t	len;
-
-			if (strcasecmp($4, "stdin") == 0 ||
-			    strcasecmp($4, "-") == 0) {
-				lbuf = NULL;
-				buf = fgetln(stdin, &len);
-				if (buf[len - 1] == '\n') {
-					lbuf = calloc(len, 1);
-					memcpy(lbuf, buf, len-1);
-				}
-				else {
-					lbuf = calloc(len+1, 1);
-					memcpy(lbuf, buf, len);
-				}
-				conf->sc_queue_key = lbuf;
-			}
-			else
-				conf->sc_queue_key = $4;
 			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
 		}
 		| EXPIRE STRING {
