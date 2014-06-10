@@ -56,10 +56,7 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
-#define	PATH_FILTERS		"/usr/libexec/smtpd"
-#define	PATH_TABLES		"/usr/libexec/smtpd"
 #define	PATH_LIBEXEC		"/usr/libexec/smtpd"
-
 
 /*
  * RFC 5322 defines these characters as valid, some of them are
