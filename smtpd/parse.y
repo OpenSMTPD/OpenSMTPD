@@ -98,6 +98,20 @@ struct listener		 l;
 struct mta_limits	*limits;
 static struct pki	*pki;
 
+enum listen_options {
+	LO_FAMILY	= 0x01,
+	LO_PORT		= 0x02,
+	LO_SSL		= 0x04,
+	LO_FILTER      	= 0x08,
+	LO_PKI      	= 0x10,
+	LO_AUTH      	= 0x20,
+	LO_TAG      	= 0x40,
+	LO_HOSTNAME   	= 0x80,
+	LO_HOSTNAMES   	= 0x100,
+	LO_MASKSOURCE  	= 0x200,
+	LO_NODSN   	= 0x400,
+};
+
 static struct listen_opts {
 	char	       *ifx;
 	int		family;
@@ -110,7 +124,9 @@ static struct listen_opts {
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
-	uint16_t	flags;	
+	uint16_t	flags;
+
+	uint16_t       	options;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -352,10 +368,30 @@ pki		: opt_pki pki
 		| /* empty */
 		;
 
-opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
-		| INET6			{ listen_opts.family = AF_INET6; }
+opt_listen     	: INET4			{
+			if (listen_opts.options & LO_FAMILY) {
+				yyerror("address family already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_FAMILY;
+			listen_opts.family = AF_INET;
+		}
+		| INET6			{
+			if (listen_opts.options & LO_FAMILY) {
+				yyerror("address family already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_FAMILY;
+			listen_opts.family = AF_INET6;
+		}
 		| PORT STRING			{
 			struct servent	*servent;
+
+			if (listen_opts.options & LO_PORT) {
+				yyerror("port already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_PORT;
 
 			servent = getservbyname($2, "tcp");
 			if (servent == NULL) {
@@ -367,31 +403,123 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			listen_opts.port = ntohs(servent->s_port);
 		}
 		| PORT NUMBER			{
+			if (listen_opts.options & LO_PORT) {
+				yyerror("port already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_PORT;
+
 			if ($2 <= 0 || $2 >= (int)USHRT_MAX) {
 				yyerror("invalid port: %" PRId64, $2);
 				YYERROR;
 			}
 			listen_opts.port = $2;
 		}
-		| FILTER STRING			{ listen_opts.filtername = $2; }
-		| SMTPS				{ listen_opts.ssl = F_SMTPS; }
-		| SMTPS VERIFY 			{ listen_opts.ssl = F_SMTPS|F_TLS_VERIFY; }
-		| TLS				{ listen_opts.ssl = F_STARTTLS; }
-		| SECURE       			{ listen_opts.ssl = F_SSL; }
-		| TLS_REQUIRE			{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE; }
-		| TLS_REQUIRE VERIFY   		{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
-		| PKI STRING			{ listen_opts.pki = $2; }
-		| AUTH				{ listen_opts.auth = F_AUTH|F_AUTH_REQUIRE; }
-		| AUTH_OPTIONAL			{ listen_opts.auth = F_AUTH; }
+		| FILTER STRING			{
+			if (listen_opts.options & LO_FILTER) {
+				yyerror("filter already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_FILTER;
+			listen_opts.filtername = $2;
+		}
+		| SMTPS				{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_SMTPS;
+		}
+		| SMTPS VERIFY 			{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
+		}
+		| TLS				{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_STARTTLS;
+		}
+		| SECURE       			{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_SSL;
+		}
+		| TLS_REQUIRE			{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
+		}
+		| TLS_REQUIRE VERIFY   		{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
+		}
+		| PKI STRING			{
+			if (listen_opts.options & LO_PKI) {
+				yyerror("pki already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_PKI;
+			listen_opts.pki = $2;
+		}
+		| AUTH				{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
+			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
+		}
+		| AUTH_OPTIONAL			{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
+			listen_opts.auth = F_AUTH;
+		}
 		| AUTH tables  			{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
 			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
 		}
 		| AUTH_OPTIONAL tables 		{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
 			listen_opts.auth = F_AUTH;
 		}
 		| TAG STRING			{
+			if (listen_opts.options & LO_TAG) {
+				yyerror("tag already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_TAG;
+
        			if (strlen($2) >= MAX_TAG_SIZE) {
        				yyerror("tag name too long");
 				free($2);
@@ -399,9 +527,24 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			}
 			listen_opts.tag = $2;
 		}
-		| HOSTNAME STRING	{ listen_opts.hostname = $2; }
+		| HOSTNAME STRING	{
+			if (listen_opts.options & LO_HOSTNAME) {
+				yyerror("hostname already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_HOSTNAME;
+
+			listen_opts.hostname = $2;
+		}
 		| HOSTNAMES tables	{
 			struct table	*t = $2;
+
+			if (listen_opts.options & LO_HOSTNAMES) {
+				yyerror("hostnames already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_HOSTNAMES;
+
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
 				yyerror("invalid use of table \"%s\" as "
 				    "HOSTNAMES parameter", t->t_name);
@@ -409,8 +552,22 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			}
 			listen_opts.hostnametable = t;
 		}
-		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
-		| NODSN	{ listen_opts.flags &= ~F_EXT_DSN; }
+		| MASK_SOURCE	{
+			if (listen_opts.options & LO_MASKSOURCE) {
+				yyerror("mask-source already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_MASKSOURCE;
+			listen_opts.flags |= F_MASK_SOURCE;
+		}
+		| NODSN	{
+			if (listen_opts.options & LO_NODSN) {
+				yyerror("no-dsn already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_NODSN;
+			listen_opts.flags &= ~F_EXT_DSN;
+		}
 		;
 
 listen		: opt_listen listen
