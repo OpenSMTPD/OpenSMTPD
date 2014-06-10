@@ -2150,7 +2150,7 @@ create_filter_proc(char *name, char *prog)
 		return (NULL);
 	}
 
-	if (asprintf(&path, "%s/filter-%s", PATH_FILTERS, prog) == -1) {
+	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC, prog) == -1) {
 		yyerror("filter \"%s\" asprintf failed", name);
 		return (0);
 	}
