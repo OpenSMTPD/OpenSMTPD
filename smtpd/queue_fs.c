@@ -56,9 +56,8 @@
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
 #define PATH_MESSAGE		"/message"
 
-/* percentage of remaining space / inodes required to accept new messages */
-#define	MINSPACE		5
-#define	MININODES		5
+/* minimum number of free blocks on filesystem */
+#define	MINFREEBLOCKS		100
 
 struct qwalk {
 	FTS	*fts;
@@ -392,8 +391,6 @@ static int
 fsqueue_check_space(void)
 {
 	struct statfs	buf;
-	uint64_t	used;
-	uint64_t	total;
 
 	if (statfs(PATH_QUEUE, &buf) < 0) {
 		log_warn("warn: queue-fs: statfs");
@@ -409,33 +406,8 @@ fsqueue_check_space(void)
 	    (int64_t)buf.f_bfree == -1 || (int64_t)buf.f_ffree == -1)
 		return 1;
 
-	used = buf.f_blocks - buf.f_bfree;
-	total = buf.f_bavail + used;
-	if (total != 0)
-		used = (float)used / (float)total * 100;
-	else
-		used = 100;
-	if (100 - used < MINSPACE) {
-		log_warnx("warn: not enough disk space: %llu%% left",
-		    (unsigned long long) 100 - used);
-		log_warnx("warn: temporarily rejecting messages");
-		return 0;
-	}
-
-	used = buf.f_files - buf.f_ffree;
-#ifdef HAVE_STRUCT_STATFS_F_FAVAIL
-	total = buf.f_favail + used;
-#else
-	total = buf.f_files;
-#endif
-	if (total != 0)
-		used = (float)used / (float)total * 100;
-	else
-		used = 100;
-	if (100 - used < MININODES) {
-		log_warnx("warn: not enough inodes: %llu%% left",
-		    (unsigned long long) 100 - used);
-		log_warnx("warn: temporarily rejecting messages");
+	if (buf.f_bavail < MINFREEBLOCKS) {
+		log_warnx("warn: disk space running low, temporarily rejecting messages");
 		return 0;
 	}
 
