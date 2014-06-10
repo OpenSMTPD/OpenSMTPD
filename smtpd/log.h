@@ -30,5 +30,7 @@ void		log_debug(const char *, ...)
     __attribute__((format (printf, 1, 2)));
 void		log_trace(int, const char *, ...)
     __attribute__((format (printf, 2, 3)));
-__dead void	fatal(const char *);
-__dead void	fatalx(const char *);
+__dead void	fatal(const char *, ...)
+    __attribute__((format (printf, 1, 2)));
+__dead void	fatalx(const char *, ...)
+    __attribute__((format (printf, 1, 2)));
