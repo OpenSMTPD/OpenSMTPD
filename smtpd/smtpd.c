@@ -679,8 +679,7 @@ main(int argc, char *argv[])
 			char   *lbuf;
 			size_t	len;
 
-			if (strcasecmp(env->sc_queue_key, "stdin") == 0 ||
-			    strcasecmp(env->sc_queue_key, "-") == 0) {
+			if (strcasecmp(env->sc_queue_key, "stdin") == 0) {
 				lbuf = NULL;
 				buf = fgetln(stdin, &len);
 				if (buf[len - 1] == '\n') {
@@ -697,11 +696,6 @@ main(int argc, char *argv[])
 				}
 				env->sc_queue_key = lbuf;
 			}
-			else
-				env->sc_queue_key = $4;
-			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
-		}
-
 		}
 	}
 
