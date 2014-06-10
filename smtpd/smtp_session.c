@@ -1956,7 +1956,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 	}
 	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
 	if (ssl_ctx == NULL) {
-		log_info("No 'pki' entry configured for requested SNI \"%s\""
+		log_info("smtp-in: no 'pki' entry configured for requested SNI \"%s\""
 		    " on session %016"PRIx64, sn, s->id);
 		return SSL_TLSEXT_ERR_NOACK;
 	}
