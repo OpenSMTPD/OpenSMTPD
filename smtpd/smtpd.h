@@ -80,16 +80,9 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
-#ifndef	PATH_FILTERS
-#define	PATH_FILTERS		"/usr/libexec/smtpd"
-#endif
-#ifndef	PATH_TABLES
-#define	PATH_TABLES		"/usr/libexec/smtpd"
-#endif
 #ifndef	PATH_LIBEXEC
 #define	PATH_LIBEXEC		"/usr/libexec/smtpd"
 #endif
-
 
 /*
  * RFC 5322 defines these characters as valid, some of them are
