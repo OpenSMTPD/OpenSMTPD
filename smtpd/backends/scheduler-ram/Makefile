@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-scheduler-ram
+PROG=	scheduler-ram
 
 SRCS+=	scheduler_api.c
 SRCS+=	scheduler_ram.c
