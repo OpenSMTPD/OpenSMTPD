@@ -49,8 +49,6 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 
-static const char *execpath = "/usr/libexec/smtpd/backend-queue";
-
 static void
 queue_proc_call(void)
 {
@@ -306,10 +304,24 @@ queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 }
 
 static int
-queue_proc_init(struct passwd *pw, int server)
+queue_proc_init(struct passwd *pw, int server, const char *conf)
 {
 	int		sp[2];
 	uint32_t	version;
+	char		path[SMTPD_MAXPATHLEN];
+	char		name[SMTPD_MAXPATHLEN];
+	char		*arg;
+
+	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
+		log_warnx("warn: queue-proc: conf too long");
+		return (0);
+	}
+
+	arg = strchr(name, ':');
+	if (arg)
+		*arg++ = '\0';
+
+	snprintf(path, sizeof(path), PATH_LIBEXEC "/queue-%s", name);
 
 	errno = 0;
 
@@ -328,8 +340,8 @@ queue_proc_init(struct passwd *pw, int server)
 		dup2(sp[0], STDIN_FILENO);
 		closefrom(STDERR_FILENO + 1);
 
-		execl(execpath, "queue_ramproc", NULL);
-		err(1, "execl");
+		execl(path, name, arg, NULL);
+		err(1, "execl: %s", path);
 	}
 
 	/* parent process */

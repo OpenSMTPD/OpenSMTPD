@@ -124,17 +124,12 @@ queue_init(const char *name, int server)
 
 	if (!strcmp(name, "fs"))
 		backend = &queue_backend_fs;
-	if (!strcmp(name, "null"))
+	else if (!strcmp(name, "null"))
 		backend = &queue_backend_null;
-	if (!strcmp(name, "proc"))
-		backend = &queue_backend_proc;
-	if (!strcmp(name, "ram"))
+	else if (!strcmp(name, "ram"))
 		backend = &queue_backend_ram;
-
-	if (backend == NULL) {
-		log_warn("could not find queue backend \"%s\"", name);
-		return (0);
-	}
+	else
+		backend = &queue_backend_proc;
 
 	if (server) {
 		if (ckdir(PATH_SPOOL, 0711, 0, 0, 1) == 0)
@@ -150,7 +145,7 @@ queue_init(const char *name, int server)
 			errx(1, "error in purge directory setup");
 	}
 
-	r = backend->init(pwq, server);
+	r = backend->init(pwq, server, name);
 
 	log_trace(TRACE_QUEUE, "queue-backend: queue_init(%d) -> %d", server, r);
 

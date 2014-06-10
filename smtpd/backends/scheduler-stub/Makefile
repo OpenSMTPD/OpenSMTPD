@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-scheduler-stub
+PROG=	scheduler-stub
 
 SRCS=	scheduler_stub.c
 SRCS+=	scheduler_api.c
