@@ -59,7 +59,7 @@ queue_generate_evpid(uint32_t msgid)
 int
 mktmpfile(void)
 {
-	static char	*tempdir = "/tmp";
+	static char	*tempdir = "/temporary";
 	char		 path[SMTPD_MAXPATHLEN];
 	int		 fd;
 	mode_t		 omode;

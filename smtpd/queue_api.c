@@ -50,8 +50,8 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
-static char		*rootpath = PATH_SPOOL;
-static char		*user = SMTPD_QUEUE_USER;
+static const char	*rootpath = PATH_SPOOL;
+static const char	*user = SMTPD_QUEUE_USER;
 
 static void
 queue_msg_get(void *dst, size_t len)
@@ -313,16 +313,36 @@ queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 	handler_envelope_walk = cb;
 }
 
+void
+queue_api_no_chroot(void)
+{
+	rootpath = NULL;
+}
+
+void
+queue_api_set_chroot(const char *path)
+{
+	rootpath = path;
+}
+
+void
+queue_api_set_user(const char *username)
+{
+	user = username;
+}
+
 int
 queue_api_dispatch(void)
 {
-	struct passwd	*pw;
+	struct passwd	*pw = NULL;
 	ssize_t		 n;
 
-	pw = getpwnam(user);
-	if (pw == NULL) {
-		log_warn("queue-api: getpwnam");
-		fatalx("queue-api: exiting");
+	if (user) {
+		pw = getpwnam(user);
+		if (pw == NULL) {
+			log_warn("queue-api: getpwnam");
+			fatalx("queue-api: exiting");
+		}
 	}
 
 	if (rootpath) {
@@ -336,9 +356,10 @@ queue_api_dispatch(void)
 		}
 	}
 
-	if (setgroups(1, &pw->pw_gid) ||
+	if (pw &&
+	   (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))) {
 		log_warn("queue-api: cannot drop privileges");
 		fatalx("queue-api: exiting");
 	}
