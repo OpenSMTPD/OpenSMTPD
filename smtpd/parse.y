@@ -549,11 +549,12 @@ main		: BOUNCEWARN {
 			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
 		}
 		| QUEUE ENCRYPTION KEY STRING {
-			if (strcasecmp(env->sc_queue_key, "stdin") == 0 ||
-			    strcasecmp(env->sc_queue_key, "-") == 0)
-				env->sc_queue_key = "stdin";
+			if (strcasecmp($4, "stdin") == 0 || strcasecmp($4, "-") == 0) {
+				conf->sc_queue_key = "stdin";
+				free($4);
+			}
 			else
-				env->sc_queue_key = $4;
+				conf->sc_queue_key = $4;
 			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
 		}
 		| EXPIRE STRING {
