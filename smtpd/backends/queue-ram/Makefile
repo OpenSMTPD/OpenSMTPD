@@ -1,10 +1,11 @@
 .PATH: ${.CURDIR}/.. ${.CURDIR}/../..
 
-PROG=	backend-queue-null
+PROG=	queue-ram
 
 SRCS+=	queue_api.c
 SRCS+=	queue_utils.c
-SRCS+=	queue_null.c
+SRCS+=	queue_ram.c
+SRCS+=	tree.c
 
 NOMAN=	noman
 

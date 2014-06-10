@@ -594,7 +594,7 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 }
 
 static int
-queue_fs_init(struct passwd *pw, int server)
+queue_fs_init(struct passwd *pw, int server, const char *conf)
 {
 	unsigned int	 n;
 	char		*paths[] = { PATH_QUEUE, PATH_CORRUPT, PATH_INCOMING };

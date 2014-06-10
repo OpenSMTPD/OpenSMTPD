@@ -318,7 +318,7 @@ queue_ram_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 }
 
 static int
-queue_ram_init(struct passwd *pw, int server)
+queue_ram_init(struct passwd *pw, int server, const char * conf)
 {
 	tree_init(&messages);
 

@@ -242,6 +242,7 @@ queue_msg_dispatch(void)
 			queue_msg_add(buffer, r);
 		}
 		queue_msg_close();
+		break;
 
 	default:
 		log_warnx("warn: queue-api: bad message %d", imsg.hdr.type);

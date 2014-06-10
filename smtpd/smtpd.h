@@ -58,6 +58,7 @@
 
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
 #define	PATH_TABLES		"/usr/libexec/smtpd"
+#define	PATH_LIBEXEC		"/usr/libexec/smtpd"
 
 
 /*
@@ -839,7 +840,7 @@ struct mta_task {
 struct passwd;
 
 struct queue_backend {
-	int	(*init)(struct passwd *, int);
+	int	(*init)(struct passwd *, int, const char *);
 };
 
 struct compress_backend {
