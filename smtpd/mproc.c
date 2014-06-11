@@ -447,7 +447,7 @@ m_error(const char *error)
 	    proc_name(smtpd_process),
 	    imsg_to_str(current->hdr.type),
 	    error);
-	fatalx(buf);
+	fatalx("%s", buf);
 }
 
 void
