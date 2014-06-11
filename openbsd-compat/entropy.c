@@ -209,6 +209,9 @@ seed_rng(void)
 #ifndef OPENSSL_PRNG_ONLY
 	unsigned char buf[RANDOM_SEED_SIZE];
 #endif
+	u_long	mask;
+	int	error;
+
 	/*
 	 * OpenSSL version numbers: MNNFFPPS: major minor fix patch status
 	 * We match major, minor, fix and status (not patch) for <1.0.0.
@@ -216,11 +219,17 @@ seed_rng(void)
 	 * allow 1.0.1 to work with 1.0.0). Going backwards is only allowed
 	 * within a patch series.
 	 */
-	u_long version_mask = SSLeay() >= 0x1000000f ?  ~0xffff0L : ~0xff0L;
-	if (((SSLeay() ^ OPENSSL_VERSION_NUMBER) & version_mask) ||
-	    (SSLeay() >> 12) < (OPENSSL_VERSION_NUMBER >> 12))
-		fatal("OpenSSL version mismatch. Built against %lx, you "
-		    "have %lx", (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
+	error = 0;
+	mask = SSLeay() >= 0x1000000f ?  0xfff00000L : 0xfffff00fL;
+	if (SSLeay() >= 0x1000000f)
+		if ((SSLeay() & 0xfffffff0L) < (OPENSSL_VERSION_NUMBER & 0xfffffff0L))
+			error = 1;
+	if ((SSLeay() ^ OPENSSL_VERSION_NUMBER) & mask || (SSLeay() >> 12) < (OPENSSL_VERSION_NUMBER >> 12))
+		error = 1;
+	if (error)
+		fatalx("OpenSSL version mismatch. Built against %lx, you have %lx\n",
+		    (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
+
 
 #ifndef OPENSSL_PRNG_ONLY
 	if (RAND_status() == 1) {
