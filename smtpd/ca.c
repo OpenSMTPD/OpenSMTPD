@@ -576,5 +576,5 @@ ca_engine_init(void)
 
  fail:
 	ssl_error(errstr);
-	fatalx(errstr);
+	fatalx("%s", errstr);
 }
