@@ -574,7 +574,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		sni = smtp_sni_callback;
 #endif
 
-		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback, s);
+		ssl = ssl_smtp_init(ssl_ctx, sni, s);
 
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
