@@ -1350,7 +1350,7 @@ if test "x$check_for_libcrypt_later" = "x1"; then
 fi
 #l2504
 
-#l2645 (customized s/SSH/SMTP/)
+#l2645
 ### Configure cryptographic random number support
 
 # Check wheter OpenSSL seeds itself
@@ -1376,93 +1376,9 @@ AC_RUN_IFELSE(
 		OPENSSL_SEEDS_ITSELF=yes
 	]
 )
+#l2669
 
-# PRNGD TCP socket
-AC_ARG_WITH([prngd-port],
-	[  --with-prngd-port=PORT  read entropy from PRNGD/EGD TCP localhost:PORT],
-	[
-		case "$withval" in
-		no)
-			withval=""
-			;;
-		[[0-9]]*)
-			;;
-		*)
-			AC_MSG_ERROR([You must specify a numeric port number for --with-prngd-port])
-			;;
-		esac
-		if test ! -z "$withval" ; then
-			PRNGD_PORT="$withval"
-			AC_DEFINE_UNQUOTED([PRNGD_PORT], [$PRNGD_PORT],
-				[Port number of PRNGD/EGD random number socket])
-		fi
-	]
-)
-
-# PRNGD Unix domain socket
-AC_ARG_WITH([prngd-socket],
-	[  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)],
-	[
-		case "$withval" in
-		yes)
-			withval="/var/run/egd-pool"
-			;;
-		no)
-			withval=""
-			;;
-		/*)
-			;;
-		*)
-			AC_MSG_ERROR([You must specify an absolute path to the entropy socket])
-			;;
-		esac
-
-		if test ! -z "$withval" ; then
-			if test ! -z "$PRNGD_PORT" ; then
-				AC_MSG_ERROR([You may not specify both a PRNGD/EGD port and socket])
-			fi
-			if test ! -r "$withval" ; then
-				AC_MSG_WARN([Entropy socket is not readable])
-			fi
-			PRNGD_SOCKET="$withval"
-			AC_DEFINE_UNQUOTED([PRNGD_SOCKET], ["$PRNGD_SOCKET"],
-				[Location of PRNGD/EGD random number socket])
-		fi
-	],
-	[
-		# Check for existing socket only if we don't have a random device already
-		if test "x$OPENSSL_SEEDS_ITSELF" != "xyes" ; then
-			AC_MSG_CHECKING([for PRNGD/EGD socket])
-			# Insert other locations here
-			for sock in /var/run/egd-pool /dev/egd-pool /etc/entropy; do
-				if test -r $sock && $TEST_MINUS_S_SH -c "test -S $sock -o -p $sock" ; then
-					PRNGD_SOCKET="$sock"
-					AC_DEFINE_UNQUOTED([PRNGD_SOCKET], ["$PRNGD_SOCKET"])
-					break;
-				fi
-			done
-			if test ! -z "$PRNGD_SOCKET" ; then
-				AC_MSG_RESULT([$PRNGD_SOCKET])
-			else
-				AC_MSG_RESULT([not found])
-			fi
-		fi
-	]
-)
-
-# Which randomness source do we use?
-if test ! -z "$PRNGD_PORT" ; then
-	RAND_MSG="PRNGd port $PRNGD_PORT"
-elif test ! -z "$PRNGD_SOCKET" ; then
-	RAND_MSG="PRNGd socket $PRNGD_SOCKET"
-elif test ! -z "$OPENSSL_SEEDS_ITSELF" ; then
-	AC_DEFINE([OPENSSL_PRNG_ONLY], [1],
-		[Define if you want OpenSSL's internally seeded PRNG only])
-	RAND_MSG="OpenSSL internal ONLY"
-else
-	AC_MSG_ERROR([OpenSMTPD has no source of random numbers. Please configure OpenSSL with an entropy source or re-run configure using one of the --with-prngd-port or --with-prngd-socket options])
-fi
-
+#l2757
 # Check for PAM libs
 PAM_MSG="no"
 AC_ARG_WITH([pam],
@@ -3027,7 +2943,6 @@ echo "  Privilege separation chroot path: $I"
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
-echo "              Random number source: $RAND_MSG"
 
 echo ""
 
