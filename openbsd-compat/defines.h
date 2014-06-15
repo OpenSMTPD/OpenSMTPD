@@ -604,18 +604,9 @@ struct winsize {
 # define memmove(s1, s2, n) bcopy((s2), (s1), (n))
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
 
-#if defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX)
-#  define USE_VHANGUP
-#endif /* defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX) */
-
 #ifdef USE_BSM_AUDIT
 # define SSH_AUDIT_EVENTS
 # define CUSTOM_SSH_AUDIT_EVENTS
-#endif
-
-/* OPENSSL_free() is Free() in versions before OpenSSL 0.9.6 */
-#if !defined(OPENSSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x0090600f)
-# define OPENSSL_free(x) Free(x)
 #endif
 
 #if !defined(HAVE___func__) && defined(HAVE___FUNCTION__)
@@ -746,7 +737,7 @@ struct winsize {
 # define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
 
-#if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID)
+#if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(HAVE_SECUREWARE)
 # define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
 #if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(BROKEN_LIBIAF)
@@ -779,6 +770,31 @@ struct winsize {
 #  define	IOV_MAX		DEF_IOV_MAX
 # else
 #  define	IOV_MAX		16
+# endif
+#endif
+
+#ifndef EWOULDBLOCK
+# define EWOULDBLOCK EAGAIN
+#endif
+
+#ifndef INET6_ADDRSTRLEN	/* for non IPv6 machines */
+#define INET6_ADDRSTRLEN 46
+#endif
+
+/*
+ * Platforms that have arc4random_uniform() and not arc4random_stir()
+ * shouldn't need the latter.
+ */
+#if defined(HAVE_ARC4RANDOM) && defined(HAVE_ARC4RANDOM_UNIFORM) && \
+    !defined(HAVE_ARC4RANDOM_STIR)
+# define arc4random_stir()
+#endif
+
+#ifndef HAVE_VA_COPY
+# ifdef HAVE___VA_COPY
+#  define va_copy(dest, src) __va_copy(dest, src)
+# else
+#  define va_copy(dest, src) (dest) = (src)
 # endif
 #endif
 
