@@ -142,6 +142,7 @@ table_ldap_check(int service, const char *key)
 	case K_DOMAIN:
 	case K_CREDENTIALS:
 	case K_USERINFO:
+	case K_MAILADDR:
 		return ldap_run_query(service, key, NULL, 0);
 	default:
 		return (-1);
@@ -156,6 +157,7 @@ table_ldap_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_DOMAIN:
 	case K_CREDENTIALS:
 	case K_USERINFO:
+	case K_MAILADDR:
 		return ldap_run_query(service, key, dst, sz);
 	default:
 		return (-1);
@@ -369,6 +371,13 @@ ldap_config(void)
 			ldap_parse_attributes(&queries[LDAP_USERINFO],
 			    key, value, 3);
 		}
+
+		else if (!strcmp(key, "mailaddr_filter"))
+			read_value(&queries[LDAP_MAILADDR].filter, key, value);
+		else if (!strcmp(key, "mailaddr_attributes")) {
+			ldap_parse_attributes(&queries[LDAP_MAILADDR],
+			    key, value, 1);
+		}
 		else
 			log_warnx("warn: table-ldap: bogus entry \"%s\"", key);
 	}
@@ -532,6 +541,7 @@ ldap_run_query(int type, const char *key, char *dst, size_t sz)
 		}
 		break;
 	case K_DOMAIN:
+	case K_MAILADDR:
 		if (strlcpy(dst, res[0][0], sz) >= sz)
 			ret = -1;
 		break;
