@@ -2901,9 +2901,10 @@ AC_CONFIG_FILES([Makefile
 		mk/backends/table-mysql/Makefile
 		mk/backends/table-passwd/Makefile
 		mk/backends/table-postgres/Makefile
+		mk/backends/table-redis/Makefile
+		mk/backends/table-socketmap/Makefile
 		mk/backends/table-sqlite/Makefile
 		mk/backends/table-stub/Makefile
-		mk/backends/table-redis/Makefile
 		mk/filters/Makefile
 		mk/filters/dnsbl/Makefile
 		mk/filters/stub/Makefile
