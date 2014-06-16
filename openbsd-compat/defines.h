@@ -792,6 +792,54 @@ struct winsize {
 # endif
 #endif
 
+/* ASR specific entries */
+
+#ifndef AI_MASK
+/* valid flags for addrinfo */
+#define AI_MASK \
+	    (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV)
+#ifdef AI_FQDN
+#define AI_MASK (AI_MASK | AI_FQDN)
+#endif
+#endif
+
+#ifndef AI_FQDN
+#define AI_FQDN AI_CANONNAME
+#endif
+
+/* OpenSMTPD-portable specific entries */
+
+/* From OpenNTPD portable */
+#if !defined(SA_LEN)
+# if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
+#  define SA_LEN(x)	((x)->sa_len)
+# else
+#  define SA_LEN(x)     ((x)->sa_family == AF_INET6 ? \
+			sizeof(struct sockaddr_in6) : \
+			sizeof(struct sockaddr_in))
+# endif
+#endif
+
+/* From OpenBGPD portable */
+#if !defined(SS_LEN)
+# if defined(HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN)
+#  define SS_LEN(x)  ((x)->ss_len)
+# else
+#  define SS_LEN(x)  SA_LEN((struct sockaddr *)(x))
+# endif
+#endif
+
+#ifdef HAVE_SS_LEN
+# define STORAGE_LEN(X) ((X).ss_len)
+# define SET_STORAGE_LEN(X, Y) do { STORAGE_LEN(X) = (Y); } while(0)
+#elif defined(HAVE___SS_LEN)
+# define STORAGE_LEN(X) ((X).__ss_len)
+# define SET_STORAGE_LEN(X, Y) do { STORAGE_LEN(X) = (Y); } while(0)
+#else
+# define STORAGE_LEN(X) (STORAGE_FAMILY(X) == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+# define SET_STORAGE_LEN(X, Y) (void) 0
+#endif
+
 /* chl parts */
 #ifndef EAI_NODATA
 # ifdef EAI_NONAME
