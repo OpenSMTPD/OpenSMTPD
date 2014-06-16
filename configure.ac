@@ -2833,7 +2833,10 @@ if test -z "$DB_LIB" ; then
     AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
 fi
 
-LIBS="$LIBS -l$DB_LIB"
+DB_LIB="-l$DB_LIB"
+AC_SUBST([DB_LIB])
+
+LIBS="$save_LIBS"
 
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
@@ -2952,6 +2955,7 @@ echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
 echo "         Libraries: ${LIBS}"
+echo "      DB Libraries: ${DB_LIB}"
 if test ! -z "${SMTPDLIBS}"; then
 echo "         +for sshd: ${SMTPDLIBS}"
 fi
