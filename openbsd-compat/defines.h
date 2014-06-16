@@ -25,7 +25,7 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.145 2007/09/26 21:03:20 dtucker Exp $ */
+/* $Id: defines.h,v 1.181 2014/06/11 19:22:50 dtucker Exp $ */
 
 
 /* Constants */
@@ -42,41 +42,32 @@ enum
 # define SHUT_RDWR SHUT_RDWR
 #endif
 
-#ifndef IPTOS_LOWDELAY
-# define IPTOS_LOWDELAY          0x10
-# define IPTOS_THROUGHPUT        0x08
-# define IPTOS_RELIABILITY       0x04
-# define IPTOS_LOWCOST           0x02
-# define IPTOS_MINCOST           IPTOS_LOWCOST
-#endif /* IPTOS_LOWDELAY */
-
-#ifndef MAXHOSTNAMELEN
-# define MAXHOSTNAMELEN  64
-#endif
-
-#ifndef LOGIN_NAME_MAX
-# define LOGIN_NAME_MAX 9
-#endif
-
 #ifndef PATH_MAX
 # ifdef _POSIX_PATH_MAX
 # define PATH_MAX _POSIX_PATH_MAX
-# else
-# define PATH_MAX 64
 # endif
 #endif
+
+#ifndef MAXPATHLEN
+# ifdef PATH_MAX
+#  define MAXPATHLEN PATH_MAX
+# else /* PATH_MAX */
+#  define MAXPATHLEN 64
+#  define PATH_MAX 64
+/* realpath uses a fixed buffer of size MAXPATHLEN, so force use of ours */
+#  ifndef BROKEN_REALPATH
+#   define BROKEN_REALPATH 1
+#  endif /* BROKEN_REALPATH */
+# endif /* PATH_MAX */
+#endif /* MAXPATHLEN */
 
 /*
  * Looks like ugly, but MAX_IMSGSIZE equals 16384,
  * and if we don't care it will overflow for some struct
  */
 #if PATH_MAX > 1024
-#  undef    PATH_MAX
+#  undef  PATH_MAX
 #  define PATH_MAX 1024
-#endif
-
-#ifndef MAXPATHLEN
-#  define MAXPATHLEN PATH_MAX
 #endif
 
 #if MAXPATHLEN > 1024
@@ -84,8 +75,12 @@ enum
 #  define MAXPATHLEN 1024
 #endif
 
-#if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
-# define MAXSYMLINKS 5
+#ifndef MAXHOSTNAMELEN
+# define MAXHOSTNAMELEN  64
+#endif
+
+#ifndef LOGIN_NAME_MAX
+# define LOGIN_NAME_MAX 9
 #endif
 
 #ifndef MAXLOGNAME
@@ -97,6 +92,10 @@ enum
 #endif
 #ifndef GID_MAX
 #define	GID_MAX	UINT_MAX
+#endif
+
+#if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
+# define MAXSYMLINKS 5
 #endif
 
 #ifndef STDIN_FILENO
@@ -157,11 +156,6 @@ enum
 # define MAP_FAILED ((void *)-1)
 #endif
 
-/* *-*-nto-qnx doesn't define this constant in the system headers */
-#ifdef MISSING_NFDBITS
-# define	NFDBITS (8 * sizeof(unsigned long))
-#endif
-
 /*
 SCO Open Server 3 has INADDR_LOOPBACK defined in rpc/rpc.h but
 including rpc/rpc.h breaks Solaris 6
@@ -180,11 +174,7 @@ typedef unsigned int u_int;
 #endif
 
 #ifndef HAVE_INTXX_T
-# if (SIZEOF_CHAR == 1)
-typedef char int8_t;
-# else
-#  error "8 bit int type not found."
-# endif
+typedef signed char int8_t;
 # if (SIZEOF_SHORT_INT == 2)
 typedef short int int16_t;
 # else
@@ -217,11 +207,7 @@ typedef uint16_t u_int16_t;
 typedef uint32_t u_int32_t;
 # define HAVE_U_INTXX_T 1
 # else
-#  if (SIZEOF_CHAR == 1)
 typedef unsigned char u_int8_t;
-#  else
-#   error "8 bit int type not found."
-#  endif
 #  if (SIZEOF_SHORT_INT == 2)
 typedef unsigned short int u_int16_t;
 #  else
@@ -268,10 +254,29 @@ typedef unsigned long long int u_int64_t;
 # endif
 #endif
 
+#ifndef HAVE_UINTXX_T
+typedef u_int8_t uint8_t;
+typedef u_int16_t uint16_t;
+typedef u_int32_t uint32_t;
+typedef u_int64_t uint64_t;
+#endif
+
+#ifndef HAVE_INTMAX_T
+typedef long long intmax_t;
+#endif
+
+#ifndef HAVE_UINTMAX_T
+typedef unsigned long long uintmax_t;
+#endif
+
 #ifndef HAVE_U_CHAR
 typedef unsigned char u_char;
 # define HAVE_U_CHAR
 #endif /* HAVE_U_CHAR */
+
+#ifndef ULLONG_MAX
+# define ULLONG_MAX ((unsigned long long)-1)
+#endif
 
 #ifndef SIZE_T_MAX
 #define SIZE_T_MAX ULONG_MAX
@@ -282,6 +287,10 @@ typedef unsigned int size_t;
 # define HAVE_SIZE_T
 # define SIZE_T_MAX UINT_MAX
 #endif /* HAVE_SIZE_T */
+
+#ifndef SIZE_MAX
+#define SIZE_MAX SIZE_T_MAX
+#endif
 
 #ifndef HAVE_SSIZE_T
 typedef int ssize_t;
@@ -342,9 +351,17 @@ struct winsize {
 };
 #endif
 
-/* *-*-nto-qnx does not define this type in the system headers */
-#ifdef MISSING_FD_MASK
+/* bits needed for select that may not be in the system headers */
+#ifndef HAVE_FD_MASK
  typedef unsigned long int	fd_mask;
+#endif
+
+#if defined(HAVE_DECL_NFDBITS) && HAVE_DECL_NFDBITS == 0
+# define	NFDBITS (8 * sizeof(unsigned long))
+#endif
+
+#if defined(HAVE_DECL_HOWMANY) && HAVE_DECL_HOWMANY == 0
+# define howmany(x,y)	(((x)+((y)-1))/(y))
 #endif
 
 /* Paths */
@@ -498,11 +515,6 @@ struct winsize {
 # define __nonnull__(x)
 #endif
 
-/* *-*-nto-qnx doesn't define this macro in the system headers */
-#ifdef MISSING_HOWMANY
-# define howmany(x,y)	(((x)+((y)-1))/(y))
-#endif
-
 #ifndef OSSH_ALIGNBYTES
 #define OSSH_ALIGNBYTES	(sizeof(int) - 1)
 #endif
@@ -632,24 +644,6 @@ struct winsize {
 # else
 #  define OPEN_MAX	256
 # endif
-#endif
-
-#if defined(__Lynx__)
- /*
-  * LynxOS defines these in param.h which we do not want to include since
-  * it will also pull in a bunch of kernel definitions.
-  */
-# define ALIGNBYTES (sizeof(int) - 1)
-# define ALIGN(p) (((unsigned)p + ALIGNBYTES) & ~ALIGNBYTES)
-  /* Missing prototypes on LynxOS */
-  int snprintf (char *, size_t, const char *, ...);
-  int mkstemp (char *);
-  char *crypt (const char *, const char *);
-  int seteuid (uid_t);
-  int setegid (gid_t);
-  char *mkdtemp (char *);
-  int rresvport_af (int *, sa_family_t);
-  int innetgr (const char *, const char *, const char *, const char *);
 #endif
 
 /*
