@@ -390,13 +390,13 @@ struct winsize {
 #endif
 
 /* user may have set a different path */
-#if !defined(_PATH_MAILDIR) && defined(MAILDIR)
-# define _PATH_MAILDIR MAILDIR
-#endif /* !defined(_PATH_MAILDIR) && defined(MAILDIR) */
+#if defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
+# undef _PATH_MAILDIR
+#endif /* defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
 
-#if !defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
+#ifdef MAIL_DIRECTORY
 # define _PATH_MAILDIR MAIL_DIRECTORY
-#endif /* !defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
+#endif
 
 #ifdef MAILDIR
 # undef MAILDIR
