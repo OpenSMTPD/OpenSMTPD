@@ -549,7 +549,7 @@ filter_end_query(struct filter_query *q)
 
 	if (q->type == QUERY_EOM) {
 
-		log_debug("debug: filter: filter_end_query(%d, %zu, %zu)", s->iev.sock,
+		log_trace(TRACE_FILTERS, "filter: filter_end_query(%d, %zu, %zu)", s->iev.sock,
 		    s->idatalen, q->u.datalen);
 
 		if (s->error) {
@@ -721,7 +721,7 @@ filter_tx_io(struct io *io, int evt)
 	char			*data;
 	char			buf[65535];
 
-	log_debug("filter: filter_tx_io(%p, %s)", s, io_strevent(evt));
+	log_trace(TRACE_FILTERS, "filter: filter_tx_io(%p, %s)", s, io_strevent(evt));
 
 	switch (evt) {
 	case IO_DATAIN:
@@ -729,7 +729,7 @@ filter_tx_io(struct io *io, int evt)
 		len = iobuf_len(&s->ibuf);
 		memmove(buf, data, len);
 		buf[len] = 0;
-		log_debug("filter: filter_tx_io: datain (%zu) for req %016"PRIx64": %s",
+		log_trace(TRACE_FILTERS, "filter: filter_tx_io: datain (%zu) for req %016"PRIx64": %s",
 		    len, s->id, buf);
 
 		n = fwrite(data, 1, len, s->ofile);
@@ -744,7 +744,7 @@ filter_tx_io(struct io *io, int evt)
 		return;
 
 	case IO_DISCONNECTED:
-		log_debug("debug: filter: tx done (%zu) for req %016"PRIx64, s->idatalen, s->id);
+		log_trace(TRACE_FILTERS, "debug: filter: tx done (%zu) for req %016"PRIx64, s->idatalen, s->id);
 		break;
 
 	default:
