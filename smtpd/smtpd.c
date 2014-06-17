@@ -566,7 +566,7 @@ main(int argc, char *argv[])
 			else if (!strcmp(optarg, "mfa") ||
 			    !strcmp(optarg, "filter") ||
 			    !strcmp(optarg, "filters"))
-				verbose |= TRACE_MFA;
+				verbose |= TRACE_FILTERS;
 			else if (!strcmp(optarg, "mta") ||
 			    !strcmp(optarg, "transfer"))
 				verbose |= TRACE_MTA;

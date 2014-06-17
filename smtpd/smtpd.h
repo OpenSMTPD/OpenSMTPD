@@ -621,7 +621,7 @@ struct smtpd {
 #define	TRACE_IMSG	0x0002
 #define	TRACE_IO	0x0004
 #define	TRACE_SMTP	0x0008
-#define	TRACE_MFA	0x0010
+#define	TRACE_FILTERS	0x0010
 #define	TRACE_MTA	0x0020
 #define	TRACE_BOUNCE	0x0040
 #define	TRACE_SCHEDULER	0x0080

@@ -125,7 +125,7 @@ static const char *event_to_str(int);
 static void
 filter_response(struct filter_session *s, int status, int code, const char *line)
 {
-	log_debug("debug: filter-api:%s %016"PRIx64" %s filter_response(%d, %d, %s)",
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" %s filter_response(%d, %d, %s)",
 	    filter_name, s->id, query_to_str(s->qtype), status, code, line);
 
 	s->response.ready = 1;
@@ -146,7 +146,7 @@ filter_response(struct filter_session *s, int status, int code, const char *line
 static void
 filter_send_response(struct filter_session *s)
 {
-	log_debug("debug: filter-api:%s %016"PRIx64" %s filter_send_response() -> %d, %d, %s",
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" %s filter_send_response() -> %d, %d, %s",
 	    filter_name, s->id, query_to_str(s->qtype),
 	    s->response.status,
 	    s->response.code,
@@ -185,7 +185,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 	int			 status, type;
 	int			 fds[2], fdin, fdout;
 
-	log_debug("debug: filter-api:%s imsg %s", filter_name,
+	log_trace(TRACE_FILTERS, "filter-api:%s imsg %s", filter_name,
 	    filterimsg_to_str(imsg->hdr.type));
 
 	switch (imsg->hdr.type) {
@@ -318,7 +318,7 @@ filter_dispatch(struct mproc *p, struct imsg *imsg)
 			fdin = fds[1];
 		}
 
-		log_debug("debug: filter-api:%s %016"PRIx64" tx pipe %d -> %d",
+		log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" tx pipe %d -> %d",
 		    filter_name, id, fdin, fdout);
 
 		m_create(&fi.p, IMSG_FILTER_PIPE, 0, 0, fdin);
@@ -334,7 +334,7 @@ filter_register_query(uint64_t id, uint64_t qid, int type)
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s %016"PRIx64" %s", filter_name, id, query_to_str(type));
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" %s", filter_name, id, query_to_str(type));
 
 	s = tree_xget(&sessions, id);
 	if (s->qid) {
@@ -445,7 +445,7 @@ filter_dispatch_eom(uint64_t id, size_t datalen)
 static void
 filter_trigger_eom(struct filter_session *s)
 {
-	log_debug("debug: filter-api:%s %016"PRIx64" filter_trigger_eom(%d, %d, %zu, %zu, %zu)",
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" filter_trigger_eom(%d, %d, %zu, %zu, %zu)",
 	    filter_name, s->id, s->pipe.iev.sock, s->pipe.oev.sock,
 	    s->datalen, s->pipe.idatalen, s->pipe.odatalen);
 
@@ -464,7 +464,7 @@ filter_trigger_eom(struct filter_session *s)
 
 	/* if size don't match, error out */
 	if (s->pipe.idatalen != s->datalen) {
-		log_debug("debug: filter-api:%s tx datalen mismatch: %zu/%zu",
+		log_trace(TRACE_FILTERS, "filter-api:%s tx datalen mismatch: %zu/%zu",
 		    filter_name, s->pipe.idatalen, s->datalen);
 		s->pipe.error = 1;
 		goto fail;
@@ -502,7 +502,7 @@ filter_io_in(struct io *io, int evt)
 	char			*line;
 	size_t			 len;
 
-	log_debug("debug: filter-api:%s filter_io_in(%p, %s)",
+	log_trace(TRACE_FILTERS, "filter-api:%s filter_io_in(%p, %s)",
 	    filter_name, s, io_strevent(evt));
 
 	switch (evt) {
@@ -533,7 +533,7 @@ filter_io_in(struct io *io, int evt)
 			log_warn("warn: filter-api:%s %016"PRIx64" incomplete input",
 			    filter_name, s->id);
 		}
-		log_debug("debug: filter-api:%s %016"PRIx64" input done (%zu bytes)",
+		log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" input done (%zu bytes)",
 		    filter_name, s->id, s->pipe.idatalen);
 		break;
 
@@ -557,14 +557,14 @@ filter_io_out(struct io *io, int evt)
 {
 	struct filter_session    *s = io->arg;
 
-	log_debug("debug: filter-api:%s %016"PRIx64" filter_io_out(%s)",
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" filter_io_out(%s)",
 	    filter_name, s->id, io_strevent(evt));
 
 	switch (evt) {
 	case IO_TIMEOUT:
 	case IO_DISCONNECTED:
 	case IO_ERROR:
-		log_debug("debug: filter-api:%s %016"PRIx64" io error on output pipe",
+		log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" io error on output pipe",
 		    filter_name, s->id);
 		s->pipe.error = 1;
 		break;
@@ -908,7 +908,7 @@ filter_api_accept(uint64_t id)
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s %016"PRIx64" filter_api_accept()", filter_name, id);
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" filter_api_accept()", filter_name, id);
 
 	s = tree_xget(&sessions, id);
 	filter_response(s, FILTER_OK, 0, NULL);
@@ -921,7 +921,7 @@ filter_api_reject(uint64_t id, enum filter_status status)
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s %016"PRIx64" filter_api_reject(%d)",
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" filter_api_reject(%d)",
 	    filter_name, id, status);
 
 	s = tree_xget(&sessions, id);
@@ -941,7 +941,7 @@ filter_api_reject_code(uint64_t id, enum filter_status status, uint32_t code,
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s %016"PRIx64" filter_api_reject_code(%d, %u, %s)",
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" filter_api_reject_code(%d, %u, %s)",
 	    filter_name, id, status, code, line);
 
 	s = tree_xget(&sessions, id);
@@ -960,7 +960,7 @@ filter_api_writeln(uint64_t id, const char *line)
 {
 	struct filter_session	*s;
 
-	log_debug("debug: filter-api:%s %016"PRIx64" filter_api_writeln(%s)", filter_name, id, line);
+	log_trace(TRACE_FILTERS, "filter-api:%s %016"PRIx64" filter_api_writeln(%s)", filter_name, id, line);
 
 	s = tree_xget(&sessions, id);
 
