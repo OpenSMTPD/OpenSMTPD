@@ -109,9 +109,6 @@ queue_python_message_fd_r(uint32_t msgid)
 	PyObject *py_args;
 	PyObject *py_ret;
 	PyObject *py_msgid;
-	int	  fd;
-
-	fd = -1;
 
 	py_args  = PyTuple_New(1);
 	py_msgid = PyLong_FromUnsignedLong(msgid);
@@ -119,6 +116,7 @@ queue_python_message_fd_r(uint32_t msgid)
 	PyTuple_SetItem(py_args, 0, py_msgid);
 
 	py_ret = PyObject_CallObject(py_message_fd_r, py_args);
+
 	Py_DECREF(py_args);
 	if (py_ret == NULL) {
 		PyErr_Print();
@@ -231,8 +229,6 @@ queue_python_envelope_load(uint64_t evpid, char *buf, size_t len)
 	PyObject *py_evpid;
 	PyObject *py_buffer;
 	Py_buffer view;
-
-	log_warnx("evp: ##########################################");
 
 	py_args   = PyTuple_New(1);
 	py_evpid  = PyLong_FromUnsignedLongLong(evpid);

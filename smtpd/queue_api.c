@@ -105,7 +105,7 @@ queue_msg_dispatch(void)
 {
 	uint64_t	 evpid;
 	uint32_t	 msgid, version;
-	size_t		 n;
+	size_t		 n, m;
 	char		 buffer[8192], path[SMTPD_MAXPATHLEN];
 	int		 r, fd;
 	FILE		*ifile, *ofile;
@@ -161,9 +161,15 @@ queue_msg_dispatch(void)
 				while (!feof(ifile)) {
 					n = fread(buffer, 1, sizeof(buffer),
 					    ifile);
-					fwrite(buffer, 1, n, ofile);
+					m = fwrite(buffer, 1, n, ofile);
+					if (m != n)
+						break;
+					fflush(ofile);
 				}
-				r = handler_message_commit(msgid, path);
+				if (m != n)
+					r = 0;
+				else
+					r = handler_message_commit(msgid, path);
 			}
 			if (ifile)
 				fclose(ifile);
