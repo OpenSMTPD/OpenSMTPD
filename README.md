@@ -45,7 +45,7 @@ Portable OpenSMTPD relies on:
 Get the source
 --------------
 
-    git clone -b portable git://github.com/poolpOrg/OpenSMTPD.git opensmtpd
+    git clone -b portable git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
 
 or
 
