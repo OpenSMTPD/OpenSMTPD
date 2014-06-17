@@ -9,7 +9,8 @@ SRCS+=	table_api.c
 SRCS+=	dict.c
 SRCS+=	log.c
 
-NOMAN=	noman
+#NOMAN=	noman
+MAN = table_sqlite.5
 
 BINDIR=	/usr/libexec/smtpd
 
