@@ -35,7 +35,7 @@ Dependencies
 Portable OpenSMTPD relies on:
 * [autoconf](http://www.gnu.org/software/autoconf/)
 * [automake](http://www.gnu.org/software/automake/)
-* [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html)
+* [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html) to be built with --enable-compat185 configure flag
 * [bison](http://www.gnu.org/software/bison/) (or [byacc](http://invisible-island.net/byacc/byacc.html))
 * [libevent](http://libevent.org/)
 * [libtool](http://www.gnu.org/software/libtool/)
@@ -57,7 +57,7 @@ Build
 -----
 
     cd opensmtpd*
-    ./bootstrap  
+    ./bootstrap  # Only if you build from git sources
     ./configure  
     make  
     sudo make install  
@@ -96,11 +96,15 @@ Add OpenSMTPD users
 -------------------
 
 To operate, OpenSMTPD requires at least one user, by default _smtpd; and
-preferably three users, by default _smtpd, _smtpq and _smtpf.
+preferably two users, by default _smtpd and _smtpq.
+
+Using two users instead of one will increase security by a large factor so...
+unless you want to voluntarily reduce security or you have absolute more faith in our code than we do, by all means use two.
+
 
 The instructions below assume the default users however, the configure
 script allows overriding these using the options:
---with-privsep-user, --with-queue-user and --with-filter-user.
+--with-privsep-user, --with-queue-user.
 
 
 ### NetBSD, Linux (Debian, ArchLinux, ...)
@@ -108,13 +112,11 @@ script allows overriding these using the options:
     mkdir /var/empty  
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
     useradd -c "SMTP queue user" -d /var/empty -s /sbin/nologin _smtpq
-    useradd -c "SMTP filter user" -d /var/empty -s /sbin/nologin _smtpf
 
 ### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
     pw useradd _smtpq -c "SMTP queue user" -d /var/empty -s /sbin/nologin
-    pw useradd _smtpf -c "SMTP filter user" -d /var/empty -s /sbin/nologin
 
 ### Mac OS X
 
@@ -143,7 +145,7 @@ Add a user - here we have picked 444:
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
-repeat for the _smtpq and _smtpf users.
+repeat for the _smtpq user.
 
 
 Launch smtpd
