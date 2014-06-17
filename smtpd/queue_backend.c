@@ -643,9 +643,9 @@ queue_envelope_walk(struct envelope *ep)
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
 		    ep->id, e);
+		(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	}
 
-	(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	return (0);
 }
 
