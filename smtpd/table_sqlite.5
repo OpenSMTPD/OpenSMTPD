@@ -1,0 +1,82 @@
+.\" $OpenBSD: table_sqlite.5,v 1 2014/06/17 14:44:00 kusuriya $
+.\"
+.\" Copyright (c) 2014 Jason Barbier <kusuriya@serversave.us>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.\"
+.Dd $Mdocdate: June 17 2014 $
+.Dt TABLE_SQLITE 5
+.Os
+.Sh NAME
+.Nm table_sqlite
+.Nd format description for smtpd sqlite tables
+.Sh DESCRIPTION
+This manual page documents the file format of sqlite tables used by the
+.Xr smtpd 8
+mail daemon.
+.Pp
+The format described here applies to tables as defined in
+.Xr smtpd.conf 5 .
+.Sh SQLITE TABLE
+A SQLite table allows the storing of usernames, passwords, aliases, and domains
+in a format that is shareable across various machines that support SQLite3
+.Pp
+The table is used by
+.Xr smtpd 8
+when authenticating a user, when user information such as user-id and/or
+home directory is required for a delivery, when a domain lookup may be required,
+and/or when looking for an alias.
+.Pp
+A SQLite table consists of one or more SQLite3 Databases with one or more tables.
+.Pp
+If the table is used for authentication, the password should be 
+encrypted using the
+.Xr crypt 3
+function.
+Such passwords can be generated using the
+.Xr encrypt 1
+utility or
+.Xr smtpctl 8
+encrypt command.
+.Sh SQLITE TABLE CONFIG FILE
+.Cd dbpath
+.Dl This is the path to where the DB is located with the dbname.
+.Cd query_alias
+.Dl This is used to provide a query to look up aliases. All the question marks are replaced
+.Dl with the appropriate data, in this case it would be the left hand side of the SMTP address.
+.Dl This expects one varchar to be returned with the user name the alias resolves to.
+.Cd query_domain
+.Dl This is used to provide a query for a domain query call. All the question marks are replaced
+.Dl with the appropriate data, in this case it would be the right hand side of the SMTP address.
+.Dl This expects one varchar to be returned with a matching domain name.
+.Cd query_userinfo
+.Dl This is used to provide a query for looking up user information.
+.Dl All the question marks are replaced with the appropriate data, in this case it
+.Dl would be the left hand side of the SMTP address.
+.Dl This expects three fields to be returned an int containing a UID, an int containing a GID
+.Dl and a varchar containing the home directory for the user.
+.Cd query_credentials
+.Dl This is used to provide a query for looking up credentials. All the question marks are replaced
+.Dl with the appropriate data, in this case it would be the left hand side of the SMTP address.
+.Dl the query expects that there are two varchars returned one with a 
+.Dl user name one with a password in
+.Xr encrypt 3
+.Dl format.
+.Pp
+
+.Sh SEE ALSO
+.Xr encrypt 1 ,
+.Xr smtpd.conf 5 ,
+.Xr smtpctl 8 ,
+.Xr smtpd 8
