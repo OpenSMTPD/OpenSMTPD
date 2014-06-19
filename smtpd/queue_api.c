@@ -157,6 +157,7 @@ queue_msg_dispatch(void)
 		else {
 			ifile = fdopen(imsg.fd, "r");
 			ofile = fdopen(fd, "w");
+			m = n = 0;
 			if (ifile && ofile) {
 				while (!feof(ifile)) {
 					n = fread(buffer, 1, sizeof(buffer),
