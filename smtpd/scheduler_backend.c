@@ -42,12 +42,10 @@ scheduler_backend_lookup(const char *name)
 {
 	if (!strcmp(name, "null"))
 		return &scheduler_backend_null;
-	if (!strcmp(name, "proc"))
-		return &scheduler_backend_proc;
 	if (!strcmp(name, "ramqueue"))
 		return &scheduler_backend_ramqueue;
 
-	return NULL;
+	return &scheduler_backend_proc;
 }
 
 void
