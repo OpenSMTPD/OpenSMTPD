@@ -382,6 +382,9 @@ void scheduler_api_on_schedule(int(*)(uint64_t));
 void scheduler_api_on_remove(int(*)(uint64_t));
 void scheduler_api_on_suspend(int(*)(uint64_t));
 void scheduler_api_on_resume(int(*)(uint64_t));
+void scheduler_api_no_chroot(void);
+void scheduler_api_set_chroot(const char *);
+void scheduler_api_set_user(const char *);
 int scheduler_api_dispatch(void);
 
 /* table */
