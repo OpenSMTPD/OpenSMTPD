@@ -55,8 +55,8 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
-static char		*rootpath = PATH_CHROOT;
-static char		*user = SMTPD_USER;
+static const char	*rootpath = PATH_CHROOT;
+static const char	*user = SMTPD_USER;
 
 static void
 scheduler_msg_get(void *dst, size_t len)
@@ -397,34 +397,55 @@ scheduler_api_on_release(int(*cb)(int, uint64_t, int))
 	handler_release = cb;
 }
 
+void
+scheduler_api_no_chroot(void)
+{
+	rootpath = NULL;
+}
+
+void
+scheduler_api_set_chroot(const char *path)
+{
+	rootpath = path;
+}
+
+void
+scheduler_api_set_user(const char *username)
+{
+	user = username;
+}
+
 int
 scheduler_api_dispatch(void)
 {
-	struct passwd	*pw;
+	struct passwd	*pw = NULL;
 	ssize_t		 n;
 
-	pw = getpwnam(user);
-	if (pw == NULL) {
-		log_warn("scheduler-api: getpwnam");
-		fatalx("scheduler-api: exiting");
+	if (user) {
+		pw = getpwnam(user);
+		if (pw == NULL) {
+			log_warn("queue-api: getpwnam");
+			fatalx("queue-api: exiting");
+		}
 	}
 
 	if (rootpath) {
 		if (chroot(rootpath) == -1) {
-			log_warn("scheduler-api: chroot");
-			fatalx("scheduler-api: exiting");
+			log_warn("queue-api: chroot");
+			fatalx("queue-api: exiting");
 		}
 		if (chdir("/") == -1) {
-			log_warn("scheduler-api: chdir");
-			fatalx("scheduler-api: exiting");
+			log_warn("queue-api: chdir");
+			fatalx("queue-api: exiting");
 		}
 	}
 
-	if (setgroups(1, &pw->pw_gid) ||
+	if (pw &&
+	   (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
-		log_warn("scheduler-api: cannot drop privileges");
-		fatalx("scheduler-api: exiting");
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))) {
+		log_warn("queue-api: cannot drop privileges");
+		fatalx("queue-api: exiting");
 	}
 
 	imsg_init(&ibuf, 0);
