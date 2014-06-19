@@ -2,13 +2,12 @@
 
 .include <bsd.own.mk>
 
-SUBDIR =	smtpd smtpctl
+SUBDIR =	smtpd
+SUBDIR+=	smtpctl
 SUBDIR+=	makemap
 SUBDIR+=	filters
 SUBDIR+=	table-passwd
 SUBDIR+=	table-sqlite
-SUBDIR+=	table-socketmap
 SUBDIR+=	table-stub
-#SUBDIR+=	table-redis
 
 .include <bsd.subdir.mk>
