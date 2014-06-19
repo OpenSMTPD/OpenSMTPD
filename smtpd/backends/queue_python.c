@@ -18,6 +18,7 @@
 
 #include <sys/types.h>
 
+#include <err.h>
 #include <unistd.h>
 
 #include <Python.h>
@@ -43,8 +44,6 @@ queue_python_message_create(uint32_t *msgid)
 {
 	PyObject *py_args;
 	PyObject *py_ret;
-	PyObject *py_msgid;
-	PyObject *py_path;
 
 	py_args  = PyTuple_New(0);
 	py_ret = PyObject_CallObject(py_message_create, py_args);
@@ -157,10 +156,18 @@ queue_python_envelope_create(uint32_t msgid, const char *buf, size_t len,
 	PyObject *py_ret;
 	PyObject *py_msgid;
 	PyObject *py_buffer;
+	char	 *copy;
+
+	copy = calloc(len, 1);
+	if (copy == NULL) {
+		log_warn("queue_python");
+		return 0;
+	}
+	memcpy(copy, buf, len);
 
 	py_args   = PyTuple_New(2);
 	py_msgid  = PyLong_FromUnsignedLong(msgid);
-	py_buffer = PyBuffer_FromMemory(buf, len);
+	py_buffer = PyBuffer_FromMemory(copy, len);
 
 	PyTuple_SetItem(py_args, 0, py_msgid);
 	PyTuple_SetItem(py_args, 1, py_buffer);
@@ -169,10 +176,12 @@ queue_python_envelope_create(uint32_t msgid, const char *buf, size_t len,
 	Py_DECREF(py_args);
 	if (py_ret == NULL) {
 		PyErr_Print();
+		free(copy);
 		return (0);
 	}
 
 	*evpid = PyLong_AsUnsignedLongLong(py_ret);
+	free(copy);
 	return (*evpid ? 1 : 0);
 }
 
@@ -204,10 +213,18 @@ queue_python_envelope_update(uint64_t evpid, const char *buf, size_t len)
 	PyObject *py_ret;
 	PyObject *py_evpid;
 	PyObject *py_buffer;
+	char	 *copy;
+
+	copy = calloc(len, 1);
+	if (copy == NULL) {
+		log_warn("queue_python");
+		return 0;
+	}
+	memcpy(copy, buf, len);
 
 	py_args   = PyTuple_New(2);
 	py_evpid  = PyLong_FromUnsignedLongLong(evpid);
-	py_buffer = PyBuffer_FromMemory(buf, len);
+	py_buffer = PyBuffer_FromMemory(copy, len);
 
 	PyTuple_SetItem(py_args, 0, py_evpid);
 	PyTuple_SetItem(py_args, 1, py_buffer);
@@ -216,8 +233,10 @@ queue_python_envelope_update(uint64_t evpid, const char *buf, size_t len)
 	Py_DECREF(py_args);
 	if (py_ret == NULL) {
 		PyErr_Print();
+		free(copy);
 		return (0);
 	}
+	free(copy);
 	return (PyLong_AsUnsignedLongLong(py_ret) == 0 ? 0 : 1);
 }
 
@@ -227,7 +246,6 @@ queue_python_envelope_load(uint64_t evpid, char *buf, size_t len)
 	PyObject *py_args;
 	PyObject *py_ret;
 	PyObject *py_evpid;
-	PyObject *py_buffer;
 	Py_buffer view;
 
 	py_args   = PyTuple_New(1);
@@ -247,7 +265,7 @@ queue_python_envelope_load(uint64_t evpid, char *buf, size_t len)
 		return (0);
 	}
 
-	if (view.len >= len) {
+	if ((size_t)view.len >= len) {
 		PyErr_Print();
 		PyBuffer_Release(&view);
 		return (0);
@@ -307,7 +325,7 @@ loadfile(const char * path)
 	if (fseek(f, 0, SEEK_SET) == -1)
 		err(1, "fseek");
 
-	if (oz >= SIZE_MAX)
+	if (oz >= (off_t)SIZE_MAX)
 		errx(1, "too big");
 
 	sz = oz;
