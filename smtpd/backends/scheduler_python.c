@@ -55,6 +55,24 @@ check_err(const char *name)
 	}
 }
 
+static PyObject *
+dispatch(PyObject *handler, PyObject *args)
+{
+	PyObject *ret;
+
+	ret = PyObject_CallObject(handler, args);
+	Py_DECREF(args);
+
+	if (PyErr_Occurred()) {
+		PyErr_Print();
+		fatalx("warn: scheduler-python: exception");
+	}
+
+	return (ret);
+}
+
+
+
 static int
 get_int(PyObject *o)
 {
@@ -106,29 +124,25 @@ get_time_t(PyObject *o)
 static int
 scheduler_python_init(void)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args  = PyTuple_New(0);
-	py_ret = PyObject_CallObject(py_on_init, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_init, PyTuple_New(0));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("init");
-
 	return (r);
 }
 
 static int
 scheduler_python_insert(struct scheduler_info *info)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("KllLLLLL",
+	py_ret = dispatch(py_on_insert, Py_BuildValue("KllLLLLL",
 	    (unsigned long long)info->evpid,
 	    (long)info->type,
 	    (long)info->retry,
@@ -136,67 +150,54 @@ scheduler_python_insert(struct scheduler_info *info)
 	    (long long)info->expire,
 	    (long long)info->lasttry,
 	    (long long)info->lastbounce,
-	    (long long)info->nexttry);
-
-	py_ret = PyObject_CallObject(py_on_insert, py_args);
-	Py_DECREF(py_args);
+	    (long long)info->nexttry));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("insert");
-
 	return (r);
 }
 
 static size_t
 scheduler_python_commit(uint32_t msgid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	size_t r;
 
-	py_args = Py_BuildValue("(k)", (unsigned long)msgid);
-
-	py_ret = PyObject_CallObject(py_on_commit, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_commit, Py_BuildValue("(k)",
+	    (unsigned long)msgid));
 
 	r = get_size_t(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("commit");
-
 	return (r);
 }
 
 static size_t
 scheduler_python_rollback(uint32_t msgid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	size_t r;
 
-	py_args = Py_BuildValue("(k)", (unsigned long)msgid);
-
-	py_ret = PyObject_CallObject(py_on_rollback, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_rollback, Py_BuildValue("(k)",
+	    (unsigned long)msgid));
 
 	r = get_size_t(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("rollback");
-
 	return (r);
 }
 
 static int
 scheduler_python_update(struct scheduler_info *info)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	time_t nexttry;
 
-	py_args = Py_BuildValue("KllLLLLL",
+	py_ret = dispatch(py_on_update, Py_BuildValue("KllLLLLL",
 	    (unsigned long long)info->evpid,
 	    (long)info->type,
 	    (long)info->retry,
@@ -204,15 +205,10 @@ scheduler_python_update(struct scheduler_info *info)
 	    (long long)info->expire,
 	    (long long)info->lasttry,
 	    (long long)info->lastbounce,
-	    (long long)info->nexttry);
-
-	py_ret = PyObject_CallObject(py_on_update, py_args);
-	Py_DECREF(py_args);
+	    (long long)info->nexttry));
 
 	nexttry = get_time_t(py_ret);
-
 	Py_DECREF(py_ret);
-
 	check_err("update");
 
 	if (nexttry == -1)
@@ -221,79 +217,64 @@ scheduler_python_update(struct scheduler_info *info)
 		return (0);
 
 	info->nexttry = nexttry;
-
 	return (1);
 }
 
 static int
 scheduler_python_delete(uint64_t evpid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("(K)", (unsigned long long)evpid);
-
-	py_ret = PyObject_CallObject(py_on_delete, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_delete, Py_BuildValue("(K)",
+	    (unsigned long long)evpid));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("delete");
-
 	return (r);
 }
 
 static int
 scheduler_python_hold(uint64_t evpid, uint64_t holdq)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("KK",
+	py_ret = dispatch(py_on_hold, Py_BuildValue("KK",
 	    (unsigned long long)evpid,
-	    (unsigned long long)holdq);
-
-	py_ret = PyObject_CallObject(py_on_hold, py_args);
-	Py_DECREF(py_args);
+	    (unsigned long long)holdq));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("hold");
-
 	return (r);
 }
 
 static int
 scheduler_python_release(int type, uint64_t holdq, int count)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("lKl",
+	py_ret = dispatch(py_on_release, Py_BuildValue("lKl",
 	    (long)type,
 	    (unsigned long long)holdq,
-	    (long)count);
-
-	py_ret = PyObject_CallObject(py_on_release, py_args);
-	Py_DECREF(py_args);
+	    (long)count));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("release");
-
 	return (r);
 }
 
 static int
 scheduler_python_batch(int mask, int *delay, size_t *count, uint64_t *evpids, int *types)
 {
-	PyObject *py_args, *py_ret, *o;
+	PyObject *py_ret, *o;
 	int type;
 	unsigned long long evpid;
 	size_t n, i;
@@ -301,25 +282,18 @@ scheduler_python_batch(int mask, int *delay, size_t *count, uint64_t *evpids, in
 
 	n = *count;
 
-	py_args = Py_BuildValue("lK",
+	py_ret = dispatch(py_on_batch,  Py_BuildValue("lK",
 	    (long)mask,
-	    (unsigned long long)n);
-
-	py_ret = PyObject_CallObject(py_on_batch, py_args);
-
-	Py_DECREF(py_args);
-
+	    (unsigned long long)n));
 
 	if (PyInt_Check(py_ret)) {
 		*delay = PyInt_AsLong(py_ret);
-		log_info("PYTHON DELAY %d", *delay);
 		*count = 0;
 		Py_DECREF(py_ret);
 		return (0);
 	}
 	if (PyLong_Check(py_ret)) {
 		*delay = PyLong_AsLong(py_ret);
-		log_info("PYTHON DELAY %d", *delay);
 		*count = 0;
 		Py_DECREF(py_ret);
 		return (0);
@@ -327,8 +301,6 @@ scheduler_python_batch(int mask, int *delay, size_t *count, uint64_t *evpids, in
 
 	*delay = 0;
 	r = PySequence_Length(py_ret);
-
-	log_info("PYTHON EVPS %zd", r);
 
 	check_err("batch1");
 
@@ -353,16 +325,13 @@ scheduler_python_batch(int mask, int *delay, size_t *count, uint64_t *evpids, in
 static size_t
 scheduler_python_messages(uint32_t msgid, uint32_t *dst, size_t sz)
 {
-	PyObject *py_args, *py_ret, *o;
+	PyObject *py_ret, *o;
 	ssize_t r;
 	size_t i;
 
-	py_args = Py_BuildValue("kK",
+	py_ret = dispatch(py_on_messages, Py_BuildValue("kK",
 	    (unsigned long)msgid,
-	    (unsigned long long)sz);
-
-	py_ret = PyObject_CallObject(py_on_messages, py_args);
-	Py_DECREF(py_args);
+	    (unsigned long long)sz));
 
 	r = PySequence_Length(py_ret);
 
@@ -385,33 +354,40 @@ scheduler_python_messages(uint32_t msgid, uint32_t *dst, size_t sz)
 static size_t
 scheduler_python_envelopes(uint64_t evpid, struct evpstate *dst, size_t sz)
 {
-	PyObject *py_args, *py_ret, *o;
+	PyObject *py_ret, *o;
 	unsigned int flags, retry;
 	unsigned long long tevpid;
 	long long timestamp;
 	ssize_t r;
 	size_t i;
 
-	py_args = Py_BuildValue("KK",
+	py_ret = dispatch(py_on_envelopes, Py_BuildValue("KK",
 	    (unsigned long long)evpid,
-	    (unsigned long long)sz);
+	    (unsigned long long)sz));
 
-	py_ret = PyObject_CallObject(py_on_envelopes, py_args);
-	Py_DECREF(py_args);
+	check_err("envelopes");
 
 	r = PySequence_Length(py_ret);
 
 	if (r < 0 || (size_t)r > sz)
 		fatalx("bad length");
 
+	check_err("envelopes");
+
 	for (i = 0; i < (size_t)r; i++) {
 		o = PySequence_ITEM(py_ret, i);
 
+		check_err("envelopes");
+
 		PyArg_ParseTuple(o, "KIIL", &tevpid, &flags, &retry, &timestamp);
+		check_err("envelopes");
+
 		dst[i].evpid = tevpid;
 		dst[i].flags = flags;
 		dst[i].retry = retry;
 		dst[i].time = timestamp;
+
+		check_err("envelopes");
 
 		Py_DECREF(o);
 	}
@@ -426,80 +402,64 @@ scheduler_python_envelopes(uint64_t evpid, struct evpstate *dst, size_t sz)
 static int
 scheduler_python_schedule(uint64_t evpid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("(K)", (unsigned long long)evpid);
-
-	py_ret = PyObject_CallObject(py_on_schedule, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_schedule, Py_BuildValue("(K)",
+	    (unsigned long long)evpid));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("schedule");
-
 	return (r);
 }
 
 static int
 scheduler_python_remove(uint64_t evpid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("(K)", (unsigned long long)evpid);
-
-	py_ret = PyObject_CallObject(py_on_remove, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_remove, Py_BuildValue("(K)",
+	    (unsigned long long)evpid));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("remove");
-
 	return (r);
 }
 
 static int
 scheduler_python_suspend(uint64_t evpid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("(K)", (unsigned long long)evpid);
-
-	py_ret = PyObject_CallObject(py_on_suspend, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_suspend, Py_BuildValue("(K)",
+	    (unsigned long long)evpid));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("suspend");
-
 	return (r);
 }
 
 static int
 scheduler_python_resume(uint64_t evpid)
 {
-	PyObject *py_args, *py_ret;
+	PyObject *py_ret;
 	int r;
 
-	py_args = Py_BuildValue("(K)", (unsigned long long)evpid);
-
-	py_ret = PyObject_CallObject(py_on_resume, py_args);
-	Py_DECREF(py_args);
+	py_ret = dispatch(py_on_resume, Py_BuildValue("(K)",
+	    (unsigned long long)evpid));
 
 	r = get_int(py_ret);
-
 	Py_DECREF(py_ret);
 
 	check_err("resume");
-
 	return (r);
 }
 
@@ -579,6 +539,15 @@ main(int argc, char **argv)
 	PyModule_AddIntConstant(self, "SCHED_MDA", SCHED_MDA);
 	PyModule_AddIntConstant(self, "SCHED_MTA", SCHED_MTA);
 
+	PyModule_AddIntConstant(self, "D_BOUNCE", D_BOUNCE);
+	PyModule_AddIntConstant(self, "D_MDA", D_MDA);
+	PyModule_AddIntConstant(self, "D_MTA", D_MTA);
+
+	PyModule_AddIntConstant(self, "EF_PENDING", EF_PENDING);
+	PyModule_AddIntConstant(self, "EF_INFLIGHT", EF_INFLIGHT);
+	PyModule_AddIntConstant(self, "EF_SUSPEND", EF_SUSPEND);
+	PyModule_AddIntConstant(self, "EF_HOLD", EF_HOLD);
+
 	buf = loadfile(path);
 	code = Py_CompileString(buf, path, Py_file_input);
 	free(buf);
@@ -631,6 +600,7 @@ main(int argc, char **argv)
 	scheduler_api_on_suspend(scheduler_python_suspend);
 	scheduler_api_on_resume(scheduler_python_resume);
 
+	scheduler_api_no_chroot();
 	scheduler_api_dispatch();
 
 	log_debug("debug: scheduler-python: exiting");
