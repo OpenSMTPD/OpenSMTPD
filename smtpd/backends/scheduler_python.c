@@ -91,18 +91,6 @@ get_uint32_t(PyObject *o)
 	return (0);
 }
 
-static uint64_t
-get_uint64_t(PyObject *o)
-{
-	if (PyLong_Check(o))
-		return (PyLong_AsUnsignedLongLong(o));
-	if (PyInt_Check(o))
-		return (PyInt_AsUnsignedLongLongMask(o));
-
-	PyErr_SetString(PyExc_TypeError, "int type expected");
-	return (0);
-}
-
 static time_t
 get_time_t(PyObject *o)
 {
