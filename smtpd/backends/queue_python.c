@@ -42,27 +42,37 @@ static PyObject	*py_envelope_walk;
 static int
 queue_python_message_create(uint32_t *msgid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(0);
 	py_ret = PyObject_CallObject(py_message_create, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
+	if (py_ret == NULL)
+		goto err;
+
 	*msgid = PyLong_AsUnsignedLong(py_ret);
-	return (*msgid ? 1 : 0);
+	ret = *msgid ? 1 : 0;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	return (ret);
 }
 
 static int
 queue_python_message_commit(uint32_t msgid, const char * path)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_msgid;
-	PyObject *py_path;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_msgid = NULL;
+	PyObject       *py_path = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(2);
 	py_msgid = PyLong_FromUnsignedLong(msgid);
@@ -72,21 +82,33 @@ queue_python_message_commit(uint32_t msgid, const char * path)
 	PyTuple_SetItem(py_args, 1, py_path);
 
 	py_ret = PyObject_CallObject(py_message_commit, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
+	if (py_ret == NULL)
+		goto err;
 
-	return (PyLong_AsUnsignedLong(py_ret) == 0 ? 0 : 1);
+	ret = PyLong_AsUnsignedLong(py_ret) == 0 ? 0 : 1;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_msgid)
+		Py_DECREF(py_msgid);
+	if (py_path)
+		Py_DECREF(py_path);
+	return (ret);
 }
 
 static int
 queue_python_message_delete(uint32_t msgid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_msgid;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_msgid = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(1);
 	py_msgid = PyLong_FromUnsignedLong(msgid);
@@ -94,20 +116,31 @@ queue_python_message_delete(uint32_t msgid)
 	PyTuple_SetItem(py_args, 0, py_msgid);
 
 	py_ret = PyObject_CallObject(py_message_delete, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
-	return (1);
+	if (py_ret == NULL)
+		goto err;
+
+	ret = 1;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_msgid)
+		Py_DECREF(py_msgid);
+	return (ret);
 }
 
 static int
 queue_python_message_fd_r(uint32_t msgid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_msgid;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_msgid = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(1);
 	py_msgid = PyLong_FromUnsignedLong(msgid);
@@ -115,22 +148,31 @@ queue_python_message_fd_r(uint32_t msgid)
 	PyTuple_SetItem(py_args, 0, py_msgid);
 
 	py_ret = PyObject_CallObject(py_message_fd_r, py_args);
+	if (py_ret == NULL)
+		goto err;
 
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (-1);
-	}
+	ret = PyLong_AsLong(py_ret);
+	goto end;
 
-	return PyLong_AsLong(py_ret);
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_msgid)
+		Py_DECREF(py_msgid);
+	return (ret);
 }
 
 static int
 queue_python_message_corrupt(uint32_t msgid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_msgid;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_msgid = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(1);
 	py_msgid = PyLong_FromUnsignedLong(msgid);
@@ -138,30 +180,39 @@ queue_python_message_corrupt(uint32_t msgid)
 	PyTuple_SetItem(py_args, 0, py_msgid);
 
 	py_ret = PyObject_CallObject(py_message_corrupt, py_args);
+	if (py_ret == NULL)
+		goto err;
 
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
+	ret = 1;
+	goto end;
 
-	return (1);
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_msgid)
+		Py_DECREF(py_msgid);
+	return (ret);
 }
 
 static int
 queue_python_envelope_create(uint32_t msgid, const char *buf, size_t len,
     uint64_t *evpid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_msgid;
-	PyObject *py_buffer;
-	char	 *copy;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_msgid = NULL;
+	PyObject       *py_buffer = NULL;
+	char	       *copy = NULL;
+	int		ret = 0;
 
 	copy = calloc(len, 1);
-	if (copy == NULL) {
+	if ((copy = calloc(len, 1)) == NULL) {
 		log_warn("queue_python");
-		return 0;
+		goto end;
 	}
 	memcpy(copy, buf, len);
 
@@ -173,24 +224,35 @@ queue_python_envelope_create(uint32_t msgid, const char *buf, size_t len,
 	PyTuple_SetItem(py_args, 1, py_buffer);
 
 	py_ret = PyObject_CallObject(py_envelope_create, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		free(copy);
-		return (0);
-	}
+	if (py_ret == NULL)
+		goto err;
 
 	*evpid = PyLong_AsUnsignedLongLong(py_ret);
+	ret = *evpid ? 1 : 0;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
 	free(copy);
-	return (*evpid ? 1 : 0);
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_msgid)
+		Py_DECREF(py_msgid);
+	if (py_buffer)
+		Py_DECREF(py_buffer);
+	return (ret);
 }
 
 static int
 queue_python_envelope_delete(uint64_t evpid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_evpid;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_evpid = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(1);
 	py_evpid = PyLong_FromUnsignedLongLong(evpid);
@@ -198,27 +260,38 @@ queue_python_envelope_delete(uint64_t evpid)
 	PyTuple_SetItem(py_args, 0, py_evpid);
 
 	py_ret = PyObject_CallObject(py_envelope_delete, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
-	return (1);
+	if (py_ret == NULL)
+		goto err;
+
+	ret = 1;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_evpid)
+		Py_DECREF(py_evpid);
+	return (ret);
 }
 
 static int
 queue_python_envelope_update(uint64_t evpid, const char *buf, size_t len)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_evpid;
-	PyObject *py_buffer;
-	char	 *copy;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_evpid = NULL;
+	PyObject       *py_buffer = NULL;
+	char	       *copy;
+	int		ret = 0;
 
 	copy = calloc(len, 1);
 	if (copy == NULL) {
 		log_warn("queue_python");
-		return 0;
+		goto end;
 	}
 	memcpy(copy, buf, len);
 
@@ -230,23 +303,33 @@ queue_python_envelope_update(uint64_t evpid, const char *buf, size_t len)
 	PyTuple_SetItem(py_args, 1, py_buffer);
 
 	py_ret = PyObject_CallObject(py_envelope_update, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		free(copy);
-		return (0);
-	}
+	if (py_ret == NULL)
+		goto err;
+
+	ret = PyLong_AsUnsignedLongLong(py_ret) == 0 ? 0 : 1;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
 	free(copy);
-	return (PyLong_AsUnsignedLongLong(py_ret) == 0 ? 0 : 1);
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_evpid)
+		Py_DECREF(py_evpid);
+	return (ret);
 }
 
 static int
 queue_python_envelope_load(uint64_t evpid, char *buf, size_t len)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
-	PyObject *py_evpid;
-	Py_buffer view;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	PyObject       *py_evpid = NULL;
+	Py_buffer	view;
+	int		ret = 0;
 
 	py_args   = PyTuple_New(1);
 	py_evpid  = PyLong_FromUnsignedLongLong(evpid);
@@ -254,29 +337,33 @@ queue_python_envelope_load(uint64_t evpid, char *buf, size_t len)
 	PyTuple_SetItem(py_args, 0, py_evpid);
 
 	py_ret = PyObject_CallObject(py_envelope_load, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
+	if (py_ret == NULL)
+		goto err;
 
-	if (PyObject_GetBuffer(py_ret, &view, PyBUF_SIMPLE) != 0) {
-		PyErr_Print();
-		return (0);
-	}
+	if (PyObject_GetBuffer(py_ret, &view, PyBUF_SIMPLE) != 0)
+		goto err2;
 
-	if ((size_t)view.len >= len) {
-		PyErr_Print();
-		PyBuffer_Release(&view);
-		return (0);
-	}
+	if ((size_t)view.len >= len)
+		goto err2;
+
 	memset(buf, 0, len);
 	memcpy(buf, view.buf, view.len);
 	PyBuffer_Release(&view);
+	ret = 1;
+	goto end;
 
-	log_warnx("evp: %s", buf);
-
-	return (1);
+err2:
+	PyBuffer_Release(&view);
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	if (py_evpid)
+		Py_DECREF(py_evpid);
+	return (ret);
 }
 
 static int
