@@ -40,7 +40,7 @@ static int (*handler_update)(struct scheduler_info *);
 static int (*handler_delete)(uint64_t);
 static int (*handler_hold)(uint64_t, uint64_t);
 static int (*handler_release)(int, uint64_t, int);
-static int (*handler_batch)(int, struct scheduler_batch *);
+static int (*handler_batch)(int, int *, size_t *, uint64_t *, int *);
 static size_t (*handler_messages)(uint32_t, uint32_t *, size_t);
 static size_t (*handler_envelopes)(uint64_t, struct evpstate *, size_t);
 static int (*handler_schedule)(uint64_t);
@@ -111,13 +111,13 @@ scheduler_msg_close(void)
 static void
 scheduler_msg_dispatch(void)
 {
-	size_t			 n, sz;
+	size_t			 n, sz, count;
 	struct evpstate		 evpstates[MAX_BATCH_SIZE];
 	uint64_t		 evpid, evpids[MAX_BATCH_SIZE], u64;
 	uint32_t		 msgids[MAX_BATCH_SIZE], version, msgid;
 	struct scheduler_info	 info;
-	struct scheduler_batch	 batch;
-	int			 typemask, r, type;
+	int			 typemask, r, type, types[MAX_BATCH_SIZE];
+	int			 delay;
 
 	switch (imsg.hdr.type) {
 	case PROC_SCHEDULER_INIT:
@@ -214,17 +214,20 @@ scheduler_msg_dispatch(void)
 	case PROC_SCHEDULER_BATCH:
 		log_debug("scheduler-api:  PROC_SCHEDULER_BATCH");
 		scheduler_msg_get(&typemask, sizeof(typemask));
-		scheduler_msg_get(&batch.evpcount, sizeof(batch.evpcount));
+		scheduler_msg_get(&count, sizeof(count));
 		scheduler_msg_end();
 
-		if (batch.evpcount > MAX_BATCH_SIZE)
-			batch.evpcount = MAX_BATCH_SIZE;
-		batch.evpids = evpids;
+		if (count > MAX_BATCH_SIZE)
+			count = MAX_BATCH_SIZE;
 
-		handler_batch(typemask, &batch);
-
-		scheduler_msg_add(&batch, sizeof(batch));
-		scheduler_msg_add(evpids, sizeof(*evpids) * batch.evpcount);
+		r = handler_batch(typemask, &delay, &count, evpids, types);
+		scheduler_msg_add(&r, sizeof(r));
+		scheduler_msg_add(&delay, sizeof(delay));
+		scheduler_msg_add(&count, sizeof(count));
+		if (r > 0) {
+			scheduler_msg_add(evpids, sizeof(*evpids) * count);
+			scheduler_msg_add(types, sizeof(*types) * count);
+		}
 		scheduler_msg_close();
 		break;
 
@@ -341,7 +344,7 @@ scheduler_api_on_delete(int(*cb)(uint64_t))
 }
 
 void
-scheduler_api_on_batch(int(*cb)(int, struct scheduler_batch *))
+scheduler_api_on_batch(int(*cb)(int, int *, size_t *, uint64_t *, int *))
 {
 	handler_batch = cb;
 }

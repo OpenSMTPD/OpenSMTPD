@@ -62,10 +62,9 @@ scheduler_stub_delete(uint64_t evpid)
 }
 
 static int
-scheduler_stub_batch(int mask, struct scheduler_batch *batch)
+scheduler_stub_batch(int mask, int *delay, size_t *count, uint64_t *evpids, int *types)
 {
-	batch->type = SCHED_NONE;
-	batch->evpcount = 0;
+	*delay = -1;
 	return (0);
 }
 

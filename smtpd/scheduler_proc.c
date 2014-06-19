@@ -44,8 +44,6 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 
-static const char *execpath = "/usr/libexec/smtpd/backend-scheduler";
-
 static void
 scheduler_proc_call(void)
 {
@@ -114,10 +112,24 @@ scheduler_proc_end(void)
  */
 
 static int
-scheduler_proc_init(void)
+scheduler_proc_init(const char *conf)
 {
 	int		sp[2], r;
 	uint32_t	version;
+	char		path[SMTPD_MAXPATHLEN];
+	char		name[SMTPD_MAXPATHLEN];
+	char		*arg;
+
+	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
+		log_warnx("warn: scheduler-proc: conf too long");
+		return (0);
+	}
+
+	arg = strchr(name, ':');
+	if (arg)
+		*arg++ = '\0';
+
+	snprintf(path, sizeof(path), PATH_LIBEXEC "/scheduler-%s", name);
 
 	errno = 0;
 
@@ -136,8 +148,8 @@ scheduler_proc_init(void)
 		dup2(sp[0], STDIN_FILENO);
 		closefrom(STDERR_FILENO + 1);
 
-		execl(execpath, "scheduler-proc", NULL);
-		err(1, "execl");
+		execl(path, name, arg, NULL);
+		err(1, "execl: %s", path);
 	}
 
 	/* parent process */
@@ -302,37 +314,34 @@ scheduler_proc_release(int type, uint64_t holdq, int n)
 }
 
 static int
-scheduler_proc_batch(int typemask, struct scheduler_batch *ret)
+scheduler_proc_batch(int typemask, int *delay, size_t *count, uint64_t *evpids, int *types)
 {
 	struct ibuf	*buf;
-	uint64_t	*evpids;
+	int		 r;
 
 	log_debug("debug: scheduler-proc: PROC_SCHEDULER_BATCH");
 
 	buf = imsg_create(&ibuf, PROC_SCHEDULER_BATCH, 0, 0,
-	    sizeof(typemask) + sizeof(ret->evpcount));
+	    sizeof(typemask) + sizeof(*count));
 	if (buf == NULL)
 		return (-1);
 	if (imsg_add(buf, &typemask, sizeof(typemask)) == -1)
 		return (-1);
-	if (imsg_add(buf, &ret->evpcount, sizeof(ret->evpcount)) == -1)
+	if (imsg_add(buf, count, sizeof(*count)) == -1)
 		return (-1);
 	imsg_close(&ibuf, buf);
 
-	evpids = ret->evpids;
-
 	scheduler_proc_call();
-
-	scheduler_proc_read(ret, sizeof(*ret));
-	scheduler_proc_read(evpids, sizeof(*evpids) * ret->evpcount);
+	scheduler_proc_read(&r, sizeof(r));
+	scheduler_proc_read(delay, sizeof(*delay));
+	scheduler_proc_read(count, sizeof(*count));
+	if (r > 0) {
+		scheduler_proc_read(evpids, sizeof(*evpids) * (*count));
+		scheduler_proc_read(types, sizeof(*types) * (*count));
+	}
 	scheduler_proc_end();
 
-	ret->evpids = evpids;
-
-	if (ret->type == SCHED_NONE)
-		return (0);
-
-	return (1);
+	return (r);
 }
 
 static size_t
