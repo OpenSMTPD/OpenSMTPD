@@ -5,9 +5,7 @@
 SUBDIR =	smtpd smtpctl
 SUBDIR+=	makemap
 SUBDIR+=	filters
-SUBDIR+=	table-ldap
 SUBDIR+=	table-passwd
-#SUBDIR+=	table-postgres
 SUBDIR+=	table-sqlite
 SUBDIR+=	table-socketmap
 SUBDIR+=	table-stub
