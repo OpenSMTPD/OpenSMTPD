@@ -865,7 +865,7 @@ struct delivery_backend {
 };
 
 struct scheduler_backend {
-	int	(*init)(void);
+	int	(*init)(const char *);
 
 	int	(*insert)(struct scheduler_info *);
 	size_t	(*commit)(uint32_t);
@@ -876,7 +876,7 @@ struct scheduler_backend {
 	int	(*hold)(uint64_t, uint64_t);
 	int	(*release)(int, uint64_t, int);
 
-	int	(*batch)(int, struct scheduler_batch *);
+	int	(*batch)(int, int*, size_t*, uint64_t*, int*);
 
 	size_t	(*messages)(uint32_t, uint32_t *, size_t);
 	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);

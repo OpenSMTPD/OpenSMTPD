@@ -97,7 +97,7 @@ struct rq_queue {
 static int rq_envelope_cmp(struct rq_envelope *, struct rq_envelope *);
 
 SPLAY_PROTOTYPE(prioqtree, rq_envelope, t_entry, rq_envelope_cmp);
-static int scheduler_ram_init(void);
+static int scheduler_ram_init(const char *);
 static int scheduler_ram_insert(struct scheduler_info *);
 static size_t scheduler_ram_commit(uint32_t);
 static size_t scheduler_ram_rollback(uint32_t);
@@ -105,7 +105,7 @@ static int scheduler_ram_update(struct scheduler_info *);
 static int scheduler_ram_delete(uint64_t);
 static int scheduler_ram_hold(uint64_t, uint64_t);
 static int scheduler_ram_release(int, uint64_t, int);
-static int scheduler_ram_batch(int, struct scheduler_batch *);
+static int scheduler_ram_batch(int, int *, size_t *, uint64_t *, int *);
 static size_t scheduler_ram_messages(uint32_t, uint32_t *, size_t);
 static size_t scheduler_ram_envelopes(uint64_t, struct evpstate *, size_t);
 static int scheduler_ram_schedule(uint64_t);
@@ -156,7 +156,7 @@ static struct tree	holdqs[3]; /* delivery type */
 static time_t		currtime;
 
 static int
-scheduler_ram_init(void)
+scheduler_ram_init(const char *arg)
 {
 	rq_queue_init(&ramqueue);
 	tree_init(&updates);
@@ -444,11 +444,10 @@ scheduler_ram_release(int type, uint64_t holdq, int n)
 }
 
 static int
-scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
+scheduler_ram_batch(int mask, int *delay, size_t *count, uint64_t *evpids, int *types)
 {
-	struct evplist		*q;
 	struct rq_envelope	*evp;
-	size_t			 n;
+	size_t			 i, n;
 	int			 retry;
 	time_t			 t;
 
@@ -458,59 +457,35 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 	if (verbose & TRACE_SCHEDULER)
 		rq_queue_dump(&ramqueue, "scheduler_ram_batch()");
 
-	if (typemask & SCHED_REMOVE && TAILQ_FIRST(&ramqueue.q_removed)) {
-		q = &ramqueue.q_removed;
-		ret->type = SCHED_REMOVE;
-	}
-	else if (typemask & SCHED_EXPIRE && TAILQ_FIRST(&ramqueue.q_expired)) {
-		q = &ramqueue.q_expired;
-		ret->type = SCHED_EXPIRE;
-	}
-	else if (typemask & SCHED_UPDATE && TAILQ_FIRST(&ramqueue.q_update)) {
-		q = &ramqueue.q_update;
-		ret->type = SCHED_UPDATE;
-	}
-	else if (typemask & SCHED_BOUNCE && TAILQ_FIRST(&ramqueue.q_bounce)) {
-		q = &ramqueue.q_bounce;
-		ret->type = SCHED_BOUNCE;
-	}
-	else if (typemask & SCHED_MDA && TAILQ_FIRST(&ramqueue.q_mda)) {
-		q = &ramqueue.q_mda;
-		ret->type = SCHED_MDA;
-	}
-	else if (typemask & SCHED_MTA && TAILQ_FIRST(&ramqueue.q_mta)) {
-		q = &ramqueue.q_mta;
-		ret->type = SCHED_MTA;
-	}
-	else if ((evp = TAILQ_FIRST(&ramqueue.q_pending))) {
-		ret->type = SCHED_DELAY;
-		ret->evpcount = 0;
-		if (evp->sched < evp->expire)
-			t = evp->sched;
-		else
-			t = evp->expire;
-		ret->delay = (t < currtime) ? 0 : (t - currtime);
-		goto done;
-	}
-	else {
-		ret->type = SCHED_NONE;
-		ret->evpcount = 0;
-		goto done;
-	}
+	i = 0;
+	n = 0;
 
-	for (n = 0; (evp = TAILQ_FIRST(q)) && n < ret->evpcount; n++) {
+	for (;;) {
 
-		TAILQ_REMOVE(q, evp, entry);
-
-		/* consistency check */
-		if (evp->state != RQ_EVPSTATE_SCHEDULED)
-			errx(1, "evp:%016" PRIx64 " not scheduled", evp->evpid);
-
-		ret->evpids[n] = evp->evpid;
-
-		if (ret->type == SCHED_REMOVE || ret->type == SCHED_EXPIRE)
+		if (mask & SCHED_REMOVE && (evp = TAILQ_FIRST(&ramqueue.q_removed))) {
+			TAILQ_REMOVE(&ramqueue.q_removed, evp, entry);
+			types[i] = SCHED_REMOVE;
+			evpids[i] = evp->evpid;
 			rq_envelope_delete(&ramqueue, evp);
-		else if (ret->type == SCHED_UPDATE) {
+
+			if (++i == *count)
+				break;
+		}
+
+		if (mask & SCHED_EXPIRE && (evp = TAILQ_FIRST(&ramqueue.q_expired))) {
+			TAILQ_REMOVE(&ramqueue.q_expired, evp, entry);
+			types[i] = SCHED_EXPIRE;
+			evpids[i] = evp->evpid;
+			rq_envelope_delete(&ramqueue, evp);
+
+			if (++i == *count)
+				break;
+		}
+
+		if (mask & SCHED_UPDATE && (evp = TAILQ_FIRST(&ramqueue.q_update))) {
+			TAILQ_REMOVE(&ramqueue.q_update, evp, entry);
+			types[i] = SCHED_UPDATE;
+			evpids[i] = evp->evpid;
 
 			evp->flags &= ~RQ_ENVELOPE_UPDATE;
 
@@ -522,35 +497,73 @@ scheduler_ram_batch(int typemask, struct scheduler_batch *ret)
 			evp->state = RQ_EVPSTATE_PENDING;
 			if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
 				sorted_insert(&ramqueue, evp);
+
+			if (++i == *count)
+				break;
 		}
-		else {
+
+		if (mask & SCHED_BOUNCE && (evp = TAILQ_FIRST(&ramqueue.q_bounce))) {
+			TAILQ_REMOVE(&ramqueue.q_bounce, evp, entry);
+			types[i] = SCHED_BOUNCE;
+			evpids[i] = evp->evpid;
+
 			TAILQ_INSERT_TAIL(&ramqueue.q_inflight, evp, entry);
 			evp->state = RQ_EVPSTATE_INFLIGHT;
 			evp->t_inflight = currtime;
+
+			if (++i == *count)
+				break;
 		}
+
+		if (mask & SCHED_MDA && (evp = TAILQ_FIRST(&ramqueue.q_mda))) {
+			TAILQ_REMOVE(&ramqueue.q_mda, evp, entry);
+			types[i] = SCHED_MDA;
+			evpids[i] = evp->evpid;
+
+			TAILQ_INSERT_TAIL(&ramqueue.q_inflight, evp, entry);
+			evp->state = RQ_EVPSTATE_INFLIGHT;
+			evp->t_inflight = currtime;
+
+			if (++i == *count)
+				break;
+		}
+
+		if (mask & SCHED_MTA && (evp = TAILQ_FIRST(&ramqueue.q_mta))) {
+			TAILQ_REMOVE(&ramqueue.q_mta, evp, entry);
+			types[i] = SCHED_MTA;
+			evpids[i] = evp->evpid;
+
+			TAILQ_INSERT_TAIL(&ramqueue.q_inflight, evp, entry);
+			evp->state = RQ_EVPSTATE_INFLIGHT;
+			evp->t_inflight = currtime;
+
+			if (++i == *count)
+				break;
+		}
+
+		/* nothing seen this round */
+		if (i == n)
+			break;
+
+		n = i;
 	}
 
-	ret->evpcount = n;
+	if (i) {
+		*count = i;
+		return (1);
+	}
 
-   done:
+	if ((evp = TAILQ_FIRST(&ramqueue.q_pending))) {
+		if (evp->sched < evp->expire)
+			t = evp->sched;
+		else
+			t = evp->expire;
+		*delay = (t < currtime) ? 0 : (t - currtime);
+	}
+	else
+		*delay = -1;
 
-	ret->mask = 0;
-	if (TAILQ_FIRST(&ramqueue.q_removed))
-		ret->mask |= SCHED_REMOVE;
-	if (TAILQ_FIRST(&ramqueue.q_expired))
-		ret->mask |= SCHED_EXPIRE;
-	if (TAILQ_FIRST(&ramqueue.q_update))
-		ret->mask |= SCHED_UPDATE;
-	if (TAILQ_FIRST(&ramqueue.q_bounce))
-		ret->mask |= SCHED_BOUNCE;
-	if (TAILQ_FIRST(&ramqueue.q_mda))
-		ret->mask |= SCHED_MDA;
-	if (TAILQ_FIRST(&ramqueue.q_mta))
-		ret->mask |= SCHED_MTA;
-	if (TAILQ_FIRST(&ramqueue.q_pending))
-		ret->mask |= SCHED_DELAY;
-
-	return ((ret->type == SCHED_NONE) ? 0 : 1);
+	return (0);
 }
 
 static size_t
