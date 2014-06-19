@@ -1,1 +1,1 @@
-SUBDIRS =		smtpd smtpctl makemap
+SUBDIRS =		smtpd smtpctl makemap backends
