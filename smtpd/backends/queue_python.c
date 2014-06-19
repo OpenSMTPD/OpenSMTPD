@@ -42,18 +42,27 @@ static PyObject	*py_envelope_walk;
 static int
 queue_python_message_create(uint32_t *msgid)
 {
-	PyObject *py_args;
-	PyObject *py_ret;
+	PyObject       *py_args = NULL;
+	PyObject       *py_ret = NULL;
+	int		ret = 0;
 
 	py_args  = PyTuple_New(0);
 	py_ret = PyObject_CallObject(py_message_create, py_args);
-	Py_DECREF(py_args);
-	if (py_ret == NULL) {
-		PyErr_Print();
-		return (0);
-	}
+	if (py_ret == NULL)
+		goto err;
+
 	*msgid = PyLong_AsUnsignedLong(py_ret);
-	return (*msgid ? 1 : 0);
+	ret = *msgid ? 1 : 0;
+	goto end;
+
+err:
+	PyErr_Print();
+end:
+	if (py_args)
+		Py_DECREF(py_args);
+	if (py_ret)
+		Py_DECREF(py_ret);
+	return (ret);	
 }
 
 static int
