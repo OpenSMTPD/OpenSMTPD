@@ -130,6 +130,18 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 		scheduler_reset_events();
 		return;
 
+	case IMSG_QUEUE_ENVELOPE_ACK:
+		m_msg(&m, imsg);
+		m_get_evpid(&m, &evpid);
+		m_end(&m);
+		log_trace(TRACE_SCHEDULER,
+		    "scheduler: queue ack removal of evp:%016" PRIx64,
+		    evpid);
+		ninflight -= 1;
+		stat_decrement("scheduler.envelope.inflight", 1);
+		scheduler_reset_events();
+		return;
+
 	case IMSG_QUEUE_DELIVERY_OK:
 		m_msg(&m, imsg);
 		m_get_evpid(&m, &evpid);
@@ -452,9 +464,7 @@ scheduler(void)
 static void
 scheduler_timeout(int fd, short event, void *p)
 {
-#define EXPIRE_DELAY	(250 * 1000)
-	static struct timeval	tv_sched = { 0, 0 };
-	struct timeval		tv, tv_delta, tv_now;
+	struct timeval		tv;
 	size_t			i;
 	size_t			d_inflight;
 	size_t			d_envelope;
@@ -464,30 +474,22 @@ scheduler_timeout(int fd, short event, void *p)
 	size_t			count;
 	int			mask, r, delay;
 
-	log_trace(TRACE_SCHEDULER, "scheduler: getting next batch");
-
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-	mask = SCHED_REMOVE | SCHED_UPDATE | SCHED_BOUNCE;
-	if (ninflight < env->sc_scheduler_max_inflight &&
-	    !(env->sc_flags & SMTPD_MDA_PAUSED))
-		mask |= SCHED_MDA;
-	if (ninflight < env->sc_scheduler_max_inflight &&
-	    !(env->sc_flags & SMTPD_MTA_PAUSED))
-		mask |= SCHED_MTA;
+	mask = SCHED_UPDATE;
 
-	/* This is a bit of a hack. */
-	gettimeofday(&tv_now, NULL);
-	timersub(&tv_now, &tv_sched, &tv_delta);
-	if (tv_delta.tv_sec > 1 || tv_delta.tv_usec > EXPIRE_DELAY)
-		mask |= SCHED_EXPIRE;
-	else
-		log_debug("scheduler: rate-limiting expire");
+	if (ninflight <  env->sc_scheduler_max_inflight) {
+		mask |= SCHED_EXPIRE | SCHED_REMOVE | SCHED_BOUNCE;
+		if (!(env->sc_flags & SMTPD_MDA_PAUSED))
+			mask |= SCHED_MDA;
+		if (!(env->sc_flags & SMTPD_MTA_PAUSED))
+			mask |= SCHED_MTA;
+	}
 
 	count = env->sc_scheduler_max_schedule;
 
-	log_trace(TRACE_SCHEDULER, "scheduler: mask=0x%x, count=%zu", mask, count);
+	log_trace(TRACE_SCHEDULER, "scheduler: getting batch: mask=0x%x, count=%zu", mask, count);
 
 	r = backend->batch(mask, &delay, &count, evpids, types);
 
@@ -530,6 +532,7 @@ scheduler_timeout(int fd, short event, void *p)
 			m_close(p_queue);
 			d_envelope += 1;
 			d_removed += 1;
+			d_inflight += 1;
 			break;
 
 		case SCHED_EXPIRE:
@@ -540,6 +543,7 @@ scheduler_timeout(int fd, short event, void *p)
 			m_close(p_queue);
 			d_envelope += 1;
 			d_expired += 1;
+			d_inflight += 1;
 			break;
 
 		case SCHED_UPDATE:
