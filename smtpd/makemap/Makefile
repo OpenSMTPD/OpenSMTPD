@@ -1,6 +1,7 @@
 #	$OpenBSD$
 
 .PATH:		${.CURDIR}/..
+NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
 
 PROG=	makemap
 BINOWN=	root
@@ -30,6 +31,9 @@ SRCS+=		table.c
 SRCS+=		to.c
 SRCS+=		tree.c
 SRCS+=		util.c
+.if ${NEED_REALLOCARRAY} == "Yes"
+SRCS+=		reallocarray.c
+.endif
 
 SRCS+=		table_static.c
 SRCS+=		table_db.c
