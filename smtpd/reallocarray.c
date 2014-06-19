@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+void *reallocarray(void *, size_t, size_t);
+
 /*
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
  * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW

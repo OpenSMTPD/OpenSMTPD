@@ -63,6 +63,7 @@ struct rq_envelope {
 #define	RQ_ENVELOPE_REMOVED	 0x02
 #define	RQ_ENVELOPE_SUSPEND	 0x04
 #define	RQ_ENVELOPE_UPDATE	 0x08
+#define	RQ_ENVELOPE_OVERFLOW	 0x10
 	uint8_t			 flags;
 
 	time_t			 ctime;
@@ -157,6 +158,28 @@ static struct tree	holdqs[3]; /* delivery type */
 
 static time_t		currtime;
 
+#define BACKOFF_TRANSFER	400
+#define BACKOFF_DELIVERY	10
+#define BACKOFF_OVERFLOW	3
+
+static time_t
+scheduler_backoff(time_t t0, time_t base, uint32_t step)
+{
+	return (t0 + base * step * step);
+}
+
+static time_t
+scheduler_next(time_t t0, time_t base, uint32_t step)
+{
+	time_t t;
+
+	/* XXX be more efficient */
+	while ((t = scheduler_backoff(t0, base, step)) <= currtime)
+		step++;
+
+	return (t);
+}
+
 static int
 scheduler_ram_init(const char *arg)
 {
@@ -172,10 +195,10 @@ scheduler_ram_init(const char *arg)
 static int
 scheduler_ram_insert(struct scheduler_info *si)
 {
-	uint32_t		 msgid;
 	struct rq_queue		*update;
 	struct rq_message	*message;
 	struct rq_envelope	*envelope;
+	uint32_t		 msgid;
 
 	currtime = time(NULL);
 
@@ -205,7 +228,8 @@ scheduler_ram_insert(struct scheduler_info *si)
 	envelope->message = message;
 	envelope->ctime = si->creation;
 	envelope->expire = si->creation + si->expire;
-	envelope->sched = scheduler_compute_schedule(si);
+	envelope->sched = scheduler_backoff(si->creation,
+	    (si->type == D_MTA) ? BACKOFF_TRANSFER : BACKOFF_DELIVERY, si->retry);
 	tree_xset(&message->envelopes, envelope->evpid, envelope);
 
 	update->evpcount++;
@@ -300,8 +324,8 @@ scheduler_ram_update(struct scheduler_info *si)
 		return (1);
 	}
 
-	while ((evp->sched = scheduler_compute_schedule(si)) <= currtime)
-		si->retry += 1;
+	evp->sched = scheduler_next(evp->ctime,
+	    (si->type == D_MTA) ? BACKOFF_TRANSFER : BACKOFF_DELIVERY, si->retry);
 
 	evp->state = RQ_EVPSTATE_PENDING;
 	if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
@@ -376,6 +400,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 	if (hq->count >= HOLDQ_MAXSIZE) {
 		evp->state = RQ_EVPSTATE_PENDING;
 		evp->flags |= RQ_ENVELOPE_UPDATE;
+		evp->flags |= RQ_ENVELOPE_OVERFLOW;
 		sorted_insert(&ramqueue, evp);
 		stat_increment("scheduler.ramqueue.hold-overflow", 1);
 		return (0);
@@ -450,7 +475,6 @@ scheduler_ram_batch(int mask, int *delay, size_t *count, uint64_t *evpids, int *
 {
 	struct rq_envelope	*evp;
 	size_t			 i, n;
-	int			 retry;
 	time_t			 t;
 
 	currtime = time(NULL);
@@ -489,13 +513,15 @@ scheduler_ram_batch(int mask, int *delay, size_t *count, uint64_t *evpids, int *
 			types[i] = SCHED_UPDATE;
 			evpids[i] = evp->evpid;
 
-			evp->flags &= ~RQ_ENVELOPE_UPDATE;
+			if (evp->flags & RQ_ENVELOPE_OVERFLOW)
+				t = BACKOFF_OVERFLOW;
+			else if (evp->type == D_MTA)
+				t = BACKOFF_TRANSFER;
+			else
+				t = BACKOFF_DELIVERY;
 
-			/* XXX we can't really use scheduler_compute_schedule */
-			retry = 0;
-			while ((evp->sched = evp->ctime + 800 * retry * retry / 2) <= currtime)
-				retry += 1;
-
+			evp->sched = scheduler_next(evp->ctime, t, 0);
+			evp->flags &= ~(RQ_ENVELOPE_UPDATE|RQ_ENVELOPE_OVERFLOW);
 			evp->state = RQ_EVPSTATE_PENDING;
 			if (!(evp->flags & RQ_ENVELOPE_SUSPEND))
 				sorted_insert(&ramqueue, evp);

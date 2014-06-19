@@ -1324,7 +1324,6 @@ pid_t scheduler(void);
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
 void scheduler_info(struct scheduler_info *, struct envelope *);
-time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
 /* pony.c */

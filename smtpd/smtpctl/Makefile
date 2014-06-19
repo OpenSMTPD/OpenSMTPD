@@ -2,6 +2,8 @@
 
 .PATH:		${.CURDIR}/..
 
+NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
+
 PROG=	smtpctl
 BINOWN=	root
 
@@ -31,6 +33,9 @@ SRCS+=		to.c
 SRCS+=		expand.c
 SRCS+=		tree.c
 SRCS+=		dict.c
+.if ${NEED_REALLOCARRAY} == "Yes"
+SRCS+=		reallocarray.c
+.endif
 
 LDADD+=	-lutil -lz -lcrypto
 DPADD+=	${LIBUTIL} ${LIBZ} ${LIBCRYPTO}
