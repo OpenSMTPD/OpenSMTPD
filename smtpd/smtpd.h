@@ -1283,6 +1283,10 @@ int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);
 
 
+/* reallocarray.c */
+void *reallocarray(void *, size_t, size_t);
+
+
 /* ruleset.c */
 struct rule *ruleset_match(const struct envelope *);
 

@@ -1,5 +1,4 @@
 SUBDIR+=	queue-null
-SUBDIR+=	queue-python
 SUBDIR+=	queue-ram
 SUBDIR+=	queue-stub
 SUBDIR+=	scheduler-python
