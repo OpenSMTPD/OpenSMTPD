@@ -1134,8 +1134,8 @@ str_to_trace(const char *str)
 		return TRACE_IO;
 	if (!strcmp(str, "smtp"))
 		return TRACE_SMTP;
-	if (!strcmp(str, "mfa"))
-		return TRACE_MFA;
+	if (!strcmp(str, "filters"))
+		return TRACE_FILTERS;
 	if (!strcmp(str, "mta"))
 		return TRACE_MTA;
 	if (!strcmp(str, "bounce"))

@@ -212,8 +212,9 @@ table_create(const char *backend, const char *name, const char *tag,
 		}
 		if (stat(path, &sb) == 0) {
 			tb = table_backend_lookup("proc");
+			(void)strlcpy(path, backend, sizeof(path));
 			if (config) {
-				(void)strlcat(path, " ", sizeof(path));
+				(void)strlcat(path, ":", sizeof(path));
 				if (strlcat(path, config, sizeof(path))
 				    >= sizeof(path))
 					fatalx("table_create: config file path too long");

@@ -149,7 +149,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		10
+#define	IMSG_VERSION		11
 
 enum imsg_type {
 	IMSG_NONE,
@@ -208,6 +208,7 @@ enum imsg_type {
 	IMSG_QUEUE_DELIVERY_TEMPFAIL,
 	IMSG_QUEUE_DELIVERY_PERMFAIL,
 	IMSG_QUEUE_DELIVERY_LOOP,
+	IMSG_QUEUE_ENVELOPE_ACK,
 	IMSG_QUEUE_ENVELOPE_COMMIT,
 	IMSG_QUEUE_ENVELOPE_REMOVE,
 	IMSG_QUEUE_ENVELOPE_SCHEDULE,
@@ -595,7 +596,7 @@ struct smtpd {
 #define	TRACE_IMSG	0x0002
 #define	TRACE_IO	0x0004
 #define	TRACE_SMTP	0x0008
-#define	TRACE_MFA	0x0010
+#define	TRACE_FILTERS	0x0010
 #define	TRACE_MTA	0x0020
 #define	TRACE_BOUNCE	0x0040
 #define	TRACE_SCHEDULER	0x0080
@@ -865,7 +866,7 @@ struct delivery_backend {
 };
 
 struct scheduler_backend {
-	int	(*init)(void);
+	int	(*init)(const char *);
 
 	int	(*insert)(struct scheduler_info *);
 	size_t	(*commit)(uint32_t);
@@ -876,7 +877,7 @@ struct scheduler_backend {
 	int	(*hold)(uint64_t, uint64_t);
 	int	(*release)(int, uint64_t, int);
 
-	int	(*batch)(int, struct scheduler_batch *);
+	int	(*batch)(int, int*, size_t*, uint64_t*, int*);
 
 	size_t	(*messages)(uint32_t, uint32_t *, size_t);
 	size_t	(*envelopes)(uint64_t, struct evpstate *, size_t);
@@ -1282,6 +1283,10 @@ int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);
 
 
+/* reallocarray.c */
+void *reallocarray(void *, size_t, size_t);
+
+
 /* ruleset.c */
 struct rule *ruleset_match(const struct envelope *);
 
@@ -1293,7 +1298,6 @@ pid_t scheduler(void);
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
 void scheduler_info(struct scheduler_info *, struct envelope *);
-time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
 /* pony.c */
@@ -1323,6 +1327,7 @@ const char *proc_name(enum smtp_proc_type);
 const char *proc_title(enum smtp_proc_type);
 const char *imsg_to_str(int);
 void log_imsg(int, int, struct imsg *);
+int fork_proc_backend(const char *, const char *, const char *);
 
 
 /* ssl_smtpd.c */

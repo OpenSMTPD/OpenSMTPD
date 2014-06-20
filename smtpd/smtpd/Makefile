@@ -4,6 +4,7 @@ ASRDIR=		${.CURDIR}/../asr
 .PATH:		${.CURDIR}/.. ${ASRDIR}
 
 NEED_ASR!=	grep -q event_asr_run /usr/include/event.h && echo No || echo Yes
+NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
 
 PROG=		smtpd
 
@@ -36,6 +37,9 @@ SRCS+=		parse.y
 SRCS+=		pony.c
 SRCS+=		queue.c
 SRCS+=		queue_backend.c
+.if ${NEED_REALLOCARRAY} == "Yes"
+SRCS+=		reallocarray.c
+.endif
 SRCS+=		ruleset.c
 SRCS+=		runq.c
 SRCS+=		scheduler.c

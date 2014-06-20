@@ -1,7 +1,6 @@
-/*      $OpenBSD$   */
-
+/*	$OpenBSD: reallocarray.c,v 1.1 2014/05/08 21:43:49 deraadt Exp $	*/
 /*
- * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
+ * Copyright (c) 2008 Otto Moerbeek <otto@drijf.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,39 +14,27 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
- 
+
 #include <sys/types.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-#include <inttypes.h>
-#include <stdio.h>
-#include <unistd.h>
+void *reallocarray(void *, size_t, size_t);
 
-#include "smtpd-defines.h"
-#include "smtpd-api.h"
-#include "log.h"
+/*
+ * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
+ * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW
+ */
+#define MUL_NO_OVERFLOW	(1UL << (sizeof(size_t) * 4))
 
-int
-main(int argc, char **argv)
+void *
+reallocarray(void *optr, size_t nmemb, size_t size)
 {
-	int	ch;
-
-	log_init(-1);
-
-	while ((ch = getopt(argc, argv, "")) != -1) {
-		switch (ch) {
-		default:
-			log_warnx("warn: filter-void: bad option");
-			return (1);
-			/* NOTREACHED */
-		}
+	if ((nmemb >= MUL_NO_OVERFLOW || size >= MUL_NO_OVERFLOW) &&
+	    nmemb > 0 && SIZE_MAX / nmemb < size) {
+		errno = ENOMEM;
+		return NULL;
 	}
-	argc -= optind;
-	argv += optind;
-
-	log_debug("debug: filter-void: starting...");
-
-	filter_api_loop();
-	log_debug("debug: filter-void: exiting");
-
-	return (1);
+	return realloc(optr, size * nmemb);
 }

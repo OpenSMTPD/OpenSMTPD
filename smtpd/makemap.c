@@ -81,6 +81,12 @@ purge_config(uint8_t what)
 }
 
 int
+fork_proc_backend(const char *backend, const char *conf, const char *procname)
+{
+	return (-1);
+}
+
+int
 main(int argc, char *argv[])
 {
 	struct stat	 sb;

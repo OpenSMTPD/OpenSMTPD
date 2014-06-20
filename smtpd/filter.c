@@ -374,7 +374,7 @@ filter_set_sink(struct filter_session *s, int sink)
 
 	while(s->fcurr) {
 		if (s->fcurr->proc->hooks & HOOK_DATALINE) {
-			log_trace(TRACE_MFA, "filter: sending fd %d to %s", sink, filter_to_text(s->fcurr));
+			log_trace(TRACE_FILTERS, "filter: sending fd %d to %s", sink, filter_to_text(s->fcurr));
 			p = &s->fcurr->proc->mproc;
 			m_create(p, IMSG_FILTER_PIPE, 0, 0, sink);
 			m_add_id(p, s->id);
@@ -384,7 +384,7 @@ filter_set_sink(struct filter_session *s, int sink)
 		s->fcurr = TAILQ_PREV(s->fcurr, filter_lst, entry);
 	}
 
-	log_trace(TRACE_MFA, "filter: chain input is %d", sink);
+	log_trace(TRACE_FILTERS, "filter: chain input is %d", sink);
 
 	smtp_filter_fd(s->id, sink);
 }
@@ -419,10 +419,10 @@ filter_query(struct filter_session *s, int kind, int type)
 	q->hasrun = 0;
 
 	if (kind == QK_QUERY)
-		log_trace(TRACE_MFA, "filter: new query %s %s", kind_to_str(kind),
+		log_trace(TRACE_FILTERS, "filter: new query %s %s", kind_to_str(kind),
 		    query_to_str(type));
 	else
-		log_trace(TRACE_MFA, "filter: new query %s %s", kind_to_str(kind),
+		log_trace(TRACE_FILTERS, "filter: new query %s %s", kind_to_str(kind),
 		    event_to_str(type));
 
 	return (q);
@@ -433,7 +433,7 @@ filter_drain_query(struct filter_query *q)
 {
 	struct filter_query	*prev;
 
-	log_trace(TRACE_MFA, "filter: filter_drain_query %s", filter_query_to_text(q));
+	log_trace(TRACE_FILTERS, "filter: filter_drain_query %s", filter_query_to_text(q));
 
 	/*
 	 * The query must be passed through all filters that registered
@@ -450,7 +450,7 @@ filter_drain_query(struct filter_query *q)
 				q->hasrun = 1;
 			}
 			if (q->state == QUERY_RUNNING) {
-				log_trace(TRACE_MFA,
+				log_trace(TRACE_FILTERS,
 				    "filter: waiting for running query %s",
 				    filter_query_to_text(q));
 				return;
@@ -463,7 +463,7 @@ filter_drain_query(struct filter_query *q)
 			prev = TAILQ_PREV(q, filter_query_lst, entry);
 			if (prev && prev->current == q->current) {
 				q->state = QUERY_WAITING;
-				log_trace(TRACE_MFA,
+				log_trace(TRACE_FILTERS,
 				    "filter: query blocked by previous query %s",
 				    filter_query_to_text(prev));
 				return;
@@ -490,7 +490,7 @@ filter_run_query(struct filter *f, struct filter_query *q)
 {
 	if (q->kind == QK_QUERY) {
 
-		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
+		log_trace(TRACE_FILTERS, "filter: running filter %s for query %s",
 		    filter_to_text(f), filter_query_to_text(q));
 
 		m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
@@ -525,7 +525,7 @@ filter_run_query(struct filter *f, struct filter_query *q)
 		q->state = QUERY_RUNNING;
 	}
 	else {
-		log_trace(TRACE_MFA, "filter: running filter %s for query %s",
+		log_trace(TRACE_FILTERS, "filter: running filter %s for query %s",
 		    filter_to_text(f), filter_query_to_text(q));
 
 		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
@@ -540,14 +540,14 @@ filter_end_query(struct filter_query *q)
 {
 	struct filter_session *s = q->session;
 
-	log_trace(TRACE_MFA, "filter: filter_end_query %s", filter_query_to_text(q));
+	log_trace(TRACE_FILTERS, "filter: filter_end_query %s", filter_query_to_text(q));
 
 	if (q->kind == QK_EVENT)
 		goto done;
 
 	if (q->type == QUERY_EOM) {
 
-		log_debug("debug: filter: filter_end_query(%d, %zu, %zu)", s->iev.sock,
+		log_trace(TRACE_FILTERS, "filter: filter_end_query(%d, %zu, %zu)", s->iev.sock,
 		    s->idatalen, q->u.datalen);
 
 		if (s->error) {
@@ -564,7 +564,7 @@ filter_end_query(struct filter_query *q)
 		}
 	}
 
-	log_trace(TRACE_MFA,
+	log_trace(TRACE_FILTERS,
 	    "filter: query %016"PRIx64" done: "
 	    "status=%s code=%d response=\"%s\"",
 	    q->qid,
@@ -597,7 +597,7 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 		fatalx("exiting");
 	}
 
-	log_trace(TRACE_MFA, "filter: imsg %s from procfilter %s",
+	log_trace(TRACE_FILTERS, "filter: imsg %s from procfilter %s",
 	    filterimsg_to_str(imsg->hdr.type),
 	    filter_proc_to_text(proc));
 
@@ -704,6 +704,9 @@ filter_tx(struct filter_session *s, int sink)
 		return (-1);
 	}
 
+	io_set_blocking(sp[0], 0);
+	io_set_blocking(sp[1], 0);
+
 	iobuf_init(&s->ibuf, 0, 0);
 	io_init(&s->iev, sp[0], s, filter_tx_io, &s->ibuf);
 	io_set_read(&s->iev);
@@ -719,7 +722,7 @@ filter_tx_io(struct io *io, int evt)
 	char			*data;
 	char			buf[65535];
 
-	log_debug("filter: filter_tx_io(%p, %s)", s, io_strevent(evt));
+	log_trace(TRACE_FILTERS, "filter: filter_tx_io(%p, %s)", s, io_strevent(evt));
 
 	switch (evt) {
 	case IO_DATAIN:
@@ -727,7 +730,7 @@ filter_tx_io(struct io *io, int evt)
 		len = iobuf_len(&s->ibuf);
 		memmove(buf, data, len);
 		buf[len] = 0;
-		log_debug("filter: filter_tx_io: datain (%zu) for req %016"PRIx64": %s",
+		log_trace(TRACE_FILTERS, "filter: filter_tx_io: datain (%zu) for req %016"PRIx64": %s",
 		    len, s->id, buf);
 
 		n = fwrite(data, 1, len, s->ofile);
@@ -742,7 +745,7 @@ filter_tx_io(struct io *io, int evt)
 		return;
 
 	case IO_DISCONNECTED:
-		log_debug("debug: filter: tx done (%zu) for req %016"PRIx64, s->idatalen, s->id);
+		log_trace(TRACE_FILTERS, "debug: filter: tx done (%zu) for req %016"PRIx64, s->idatalen, s->id);
 		break;
 
 	default:

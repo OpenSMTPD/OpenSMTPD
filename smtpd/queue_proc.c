@@ -24,8 +24,6 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
-#include <err.h>
-#include <errno.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -41,7 +39,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-static pid_t		 pid;
 static struct imsgbuf	 ibuf;
 static struct imsg	 imsg;
 static size_t		 rlen;
@@ -304,48 +301,14 @@ queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 static int
 queue_proc_init(struct passwd *pw, int server, const char *conf)
 {
-	int		sp[2];
 	uint32_t	version;
-	char		path[SMTPD_MAXPATHLEN];
-	char		name[SMTPD_MAXPATHLEN];
-	char		*arg;
+	int		fd;
 
-	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
-		log_warnx("warn: queue-proc: conf too long");
-		return (0);
-	}
+	fd = fork_proc_backend("queue", conf, "queue-proc");
+	if (fd == -1)
+		fatalx("queue-proc: exiting");
 
-	arg = strchr(name, ':');
-	if (arg)
-		*arg++ = '\0';
-
-	snprintf(path, sizeof(path), PATH_LIBEXEC "/queue-%s", name);
-
-	errno = 0;
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0) {
-		log_warn("warn: queue-proc: socketpair");
-		return (0);
-	}
-
-	if ((pid = fork()) == -1) {
-		log_warn("warn: queue-proc: fork");
-		goto err;
-	}
-
-	if (pid == 0) {
-		/* child process */
-		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
-
-		execl(path, name, arg, NULL);
-		err(1, "execl: %s", path);
-	}
-
-	/* parent process */
-	close(sp[0]);
-	imsg_init(&ibuf, sp[1]);
+	imsg_init(&ibuf, fd);
 
 	version = PROC_QUEUE_API_VERSION;
 	imsg_compose(&ibuf, PROC_QUEUE_INIT, 0, 0, -1,
@@ -366,11 +329,6 @@ queue_proc_init(struct passwd *pw, int server, const char *conf)
 	queue_proc_end();
 
 	return (1);
-
-err:
-	close(sp[0]);
-	close(sp[1]);
-	return (0);
 }
 
 struct queue_backend	queue_backend_proc = {
