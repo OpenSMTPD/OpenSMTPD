@@ -119,41 +119,17 @@ table_proc_end(void)
 static void *
 table_proc_open(struct table *table)
 {
-	int			 sp[2];
 	struct table_proc_priv	*priv;
-	char			*environ_new[2];
 	struct table_open_params op;
+	int			 fd;
 
-	errno = 0;
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0) {
-		log_warn("warn: table-proc: socketpair");
-		return (NULL);
-	}
 	priv = xcalloc(1, sizeof(*priv), "table_proc_open");
 
-	if ((priv->pid = fork()) == -1) {
-		log_warn("warn: table-proc: fork");
-		goto err;
-	}
+	fd = fork_proc_backend("table", table->t_config, table->t_name);
+	if (fd == -1)
+		fatal("table-proc: exiting");
 
-	if (priv->pid == 0) {
-		/* child process */
-		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
-
-		environ_new[0] = "PATH=" _PATH_DEFPATH;
-		environ_new[1] = (char *)NULL;
-		environ = environ_new;
-		execle("/bin/sh", "/bin/sh", "-c", table->t_config, (char *)NULL,
-		    environ_new);
-		fatal("execl");
-	}
-
-	/* parent process */
-	close(sp[0]);
-	imsg_init(&priv->ibuf, sp[1]);
+	imsg_init(&priv->ibuf, fd);
 
 	memset(&op, 0, sizeof op);
 	op.version = PROC_TABLE_API_VERSION;
@@ -164,11 +140,6 @@ table_proc_open(struct table *table)
 	table_proc_end();
 
 	return (priv);
-err:
-	free(priv);
-	close(sp[0]);
-	close(sp[1]);
-	return (NULL);
 }
 
 static int
