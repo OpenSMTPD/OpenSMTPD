@@ -28,6 +28,7 @@
 #include <pwd.h>
 #include <err.h>
 
+#include <openssl/ssl.h>
 #include <openssl/pem.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
