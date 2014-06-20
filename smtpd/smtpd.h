@@ -1098,6 +1098,7 @@ void init_pipes(void);
 void config_process(enum smtp_proc_type);
 void config_peer(enum smtp_proc_type);
 void config_done(void);
+int fork_proc_backend(const char *, const char *, const char *);
 
 
 /* control.c */

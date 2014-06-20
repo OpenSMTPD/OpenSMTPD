@@ -23,8 +23,6 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
-#include <err.h>
-#include <errno.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -36,7 +34,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-static pid_t		 pid;
 static struct imsgbuf	 ibuf;
 static struct imsg	 imsg;
 static size_t		 rlen;
@@ -112,65 +109,23 @@ scheduler_proc_end(void)
 static int
 scheduler_proc_init(const char *conf)
 {
-	int		sp[2], r;
+	int		fd, r;
 	uint32_t	version;
-	char		path[SMTPD_MAXPATHLEN];
-	char		name[SMTPD_MAXPATHLEN];
-	char		*arg;
 
-	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
-		log_warnx("warn: scheduler-proc: conf too long");
-		return (0);
-	}
+	fd = fork_proc_backend("scheduler", conf, "scheduler-proc");
+	if (fd == -1)
+		fatalx("scheduler-proc: exiting");
 
-	arg = strchr(name, ':');
-	if (arg)
-		*arg++ = '\0';
-
-	snprintf(path, sizeof(path), PATH_LIBEXEC "/scheduler-%s", name);
-
-	errno = 0;
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0) {
-		log_warn("warn: scheduler-proc: socketpair");
-		goto err;
-	}
-
-	if ((pid = fork()) == -1) {
-		log_warn("warn: scheduler-proc: fork");
-		goto err;
-	}
-
-	if (pid == 0) {
-		/* child process */
-		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
-
-		execl(path, name, arg, NULL);
-		err(1, "execl: %s", path);
-	}
-
-	/* parent process */
-	close(sp[0]);
-	imsg_init(&ibuf, sp[1]);
+	imsg_init(&ibuf, fd);
 
 	version = PROC_SCHEDULER_API_VERSION;
 	imsg_compose(&ibuf, PROC_SCHEDULER_INIT, 0, 0, -1,
 	    &version, sizeof(version));
-
 	scheduler_proc_call();
 	scheduler_proc_read(&r, sizeof(r));
 	scheduler_proc_end();
 
-	return (r);
-
-err:
-	close(sp[0]);
-	close(sp[1]);
-	fatalx("scheduler-proc: exiting");
-
-	return (0);
+	return (1);
 }
 
 static int
