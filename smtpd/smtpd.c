@@ -852,6 +852,57 @@ post_fork(int proc)
 	}
 }
 
+int
+fork_proc_backend(const char *key, const char *conf, const char *procname)
+{
+	pid_t		pid;
+	int		sp[2];
+	char		path[SMTPD_MAXPATHLEN];
+	char		name[SMTPD_MAXPATHLEN];
+	char		*arg;
+
+	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
+		log_warnx("warn: %s-proc: conf too long", key);
+		return (0);
+	}
+
+	arg = strchr(name, ':');
+	if (arg)
+		*arg++ = '\0';
+
+	snprintf(path, sizeof(path), PATH_LIBEXEC "/%s-%s", key, name);
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1) {
+		log_warn("warn: %s-proc: socketpair", key);
+		return (-1);
+	}
+
+	if ((pid = fork()) == -1) {
+		log_warn("warn: %s-proc: fork", key);
+		close(sp[0]);
+		close(sp[1]);
+		return (-1);
+	}
+
+	if (pid == 0) {
+		/* child process */
+		dup2(sp[0], STDIN_FILENO);
+		if (closefrom(STDERR_FILENO + 1) < 0)
+			exit(1);
+
+		if (procname == NULL)
+			procname = name;
+
+		execl(path, procname, arg, NULL);
+		err(1, "execl: %s", path);
+	}
+
+	/* parent process */
+	close(sp[0]);
+
+	return (sp[1]);
+}
+
 struct child *
 child_add(pid_t pid, int type, const char *title)
 {
