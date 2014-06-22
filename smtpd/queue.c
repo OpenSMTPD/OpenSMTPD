@@ -574,6 +574,7 @@ static void
 queue_shutdown(void)
 {
 	log_info("info: queue handler exiting");
+	queue_close();
 	_exit(0);
 }
 

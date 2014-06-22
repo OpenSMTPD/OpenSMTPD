@@ -114,6 +114,20 @@ queue_proc_end(void)
  */
 
 static int
+queue_proc_close(void)
+{
+	int	r;
+
+	imsg_compose(&ibuf, PROC_QUEUE_MESSAGE_CORRUPT, 0, 0, -1, NULL, 0);
+
+	queue_proc_call();
+	queue_proc_read(&r, sizeof(r));
+	queue_proc_end();
+
+	return (r);
+}
+
+static int
 queue_proc_message_create(uint32_t *msgid)
 {
 	int	r;
@@ -316,6 +330,7 @@ queue_proc_init(struct passwd *pw, int server, const char *conf)
 	imsg_compose(&ibuf, PROC_QUEUE_INIT, 0, 0, -1,
 	    &version, sizeof(version));
 
+	queue_api_on_close(queue_proc_close);
 	queue_api_on_message_create(queue_proc_message_create);
 	queue_api_on_message_commit(queue_proc_message_commit);
 	queue_api_on_message_delete(queue_proc_message_delete);

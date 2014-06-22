@@ -1296,6 +1296,7 @@ void queue_flow_control(void);
 uint32_t queue_generate_msgid(void);
 uint64_t queue_generate_evpid(uint32_t);
 int queue_init(const char *, int);
+int queue_close(void);
 int queue_message_create(uint32_t *);
 int queue_message_delete(uint32_t);
 int queue_message_commit(uint32_t);

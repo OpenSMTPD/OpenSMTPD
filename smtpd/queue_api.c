@@ -34,6 +34,7 @@
 #include "smtpd-api.h"
 #include "log.h"
 
+static int (*handler_close)(void);
 static int (*handler_message_create)(uint32_t *);
 static int (*handler_message_commit)(uint32_t, const char *);
 static int (*handler_message_delete)(uint32_t);
@@ -124,6 +125,17 @@ queue_msg_dispatch(void)
 		}
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, NULL, 0);
+		break;
+
+	case PROC_QUEUE_CLOSE:
+		queue_msg_end();
+
+		if (handler_close)
+			r = handler_close();
+		else
+			r = 1;
+
+		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
 		break;
 
 	case PROC_QUEUE_MESSAGE_CREATE:
@@ -258,6 +270,12 @@ queue_msg_dispatch(void)
 		log_warnx("warn: queue-api: bad message %d", imsg.hdr.type);
 		fatalx("queue-api: exiting");
 	}
+}
+
+void
+queue_api_on_close(int(*cb)(void))
+{
+	handler_close = cb;
 }
 
 void
