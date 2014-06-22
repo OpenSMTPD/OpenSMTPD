@@ -57,6 +57,7 @@ static struct tree		evpcache_tree;
 static struct evplst		evpcache_list;
 static struct queue_backend	*backend;
 
+static int (*handler_close)(void);
 static int (*handler_message_create)(uint32_t *);
 static int (*handler_message_commit)(uint32_t, const char*);
 static int (*handler_message_delete)(uint32_t);
@@ -148,6 +149,15 @@ queue_init(const char *name, int server)
 	log_trace(TRACE_QUEUE, "queue-backend: queue_init(%d) -> %d", server, r);
 
 	return (r);
+}
+
+int
+queue_close(void)
+{
+	if (handler_close)
+		return (handler_close());
+
+	return (1);
 }
 
 int
@@ -682,6 +692,12 @@ envelope_validate(struct envelope *ep)
 		return "invalid error line";
 
 	return NULL;
+}
+
+void
+queue_api_on_close(int(*cb)(void))
+{
+	handler_close = cb;
 }
 
 void
