@@ -280,6 +280,7 @@ AC_CHECK_HEADERS([ \
 	paths.h \
 	security/pam_appl.h \
 	shadow.h \
+	sys/cdefs.h \
 	sys/dir.h \
 	sys/file.h \
 	sys/mount.h \
