@@ -1567,7 +1567,7 @@ parent_broadcast_profile(uint32_t v)
 	m_add_int(p_queue, v);
 	m_close(p_queue);
 
-	m_create(p_ca, IMSG_CTL_VERBOSE, 0, 0, -1);
+	m_create(p_ca, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_ca, v);
 	m_close(p_ca);
 }
