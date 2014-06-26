@@ -101,6 +101,35 @@ table_msg_close(void)
 	buf = NULL;
 }
 
+static int
+table_read_params(struct dict *params)
+{
+	size_t	count;
+	char	*key;
+	char	*value;
+
+	dict_init(params);
+
+	table_msg_get(&count, sizeof(count));
+
+	for (;count; count--) {
+		key = rdata;
+		table_msg_get(NULL, strlen(key) + 1);
+		value = rdata;
+		table_msg_get(NULL, strlen(value) + 1);
+		dict_set(params, key, value);
+	}
+
+	return (0);
+}
+
+static void
+table_clear_params(struct dict *params)
+{
+	while (dict_poproot(params, NULL))
+		;
+}
+
 static void
 table_msg_dispatch(void)
 {
@@ -143,6 +172,7 @@ table_msg_dispatch(void)
 
 	case PROC_TABLE_CHECK:
 		table_msg_get(&type, sizeof(type));
+		table_read_params(&params);
 		if (rlen == 0) {
 			log_warnx("warn: table-api: no key");
 			fatalx("table-api: exiting");
@@ -156,6 +186,7 @@ table_msg_dispatch(void)
 			r = handler_check(type, &params, rdata);
 		else
 			r = -1;
+		table_clear_params(&params);
 		table_msg_get(NULL, rlen);
 		table_msg_end();
 
@@ -165,7 +196,7 @@ table_msg_dispatch(void)
 
 	case PROC_TABLE_LOOKUP:
 		table_msg_get(&type, sizeof(type));
-
+		table_read_params(&params);
 		if (rlen == 0) {
 			log_warnx("warn: table-api: no key");
 			fatalx("table-api: exiting");
@@ -179,7 +210,7 @@ table_msg_dispatch(void)
 			r = handler_lookup(type, &params, rdata, res, sizeof(res));
 		else
 			r = -1;
-
+		table_clear_params(&params);
 		table_msg_get(NULL, rlen);
 		table_msg_end();
 
@@ -192,12 +223,13 @@ table_msg_dispatch(void)
 
 	case PROC_TABLE_FETCH:
 		table_msg_get(&type, sizeof(type));
-		table_msg_end();
-
+		table_read_params(&params);
 		if (handler_fetch)
 			r = handler_fetch(type, &params, res, sizeof(res));
 		else
 			r = -1;
+		table_clear_params(&params);
+		table_msg_end();
 
 		table_msg_add(&r, sizeof(r));
 		if (r == 1)
