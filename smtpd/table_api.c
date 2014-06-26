@@ -34,9 +34,9 @@
 #include "log.h"
 
 static int (*handler_update)(void);
-static int (*handler_check)(int, const char *);
-static int (*handler_lookup)(int, const char *, char *, size_t);
-static int (*handler_fetch)(int, char *, size_t);
+static int (*handler_check)(int, struct dict *, const char *);
+static int (*handler_lookup)(int, struct dict *, const char *, char *, size_t);
+static int (*handler_fetch)(int, struct dict *, char *, size_t);
 
 static int		 quit;
 static struct imsgbuf	 ibuf;
@@ -105,6 +105,7 @@ static void
 table_msg_dispatch(void)
 {
 	struct table_open_params op;
+	struct dict	 params;
 	char		 res[4096];
 	int		 type, r;
 
@@ -152,7 +153,7 @@ table_msg_dispatch(void)
 		}
 
 		if (handler_check)
-			r = handler_check(type, rdata);
+			r = handler_check(type, &params, rdata);
 		else
 			r = -1;
 		table_msg_get(NULL, rlen);
@@ -175,7 +176,7 @@ table_msg_dispatch(void)
 		}
 
 		if (handler_lookup)
-			r = handler_lookup(type, rdata, res, sizeof(res));
+			r = handler_lookup(type, &params, rdata, res, sizeof(res));
 		else
 			r = -1;
 
@@ -194,7 +195,7 @@ table_msg_dispatch(void)
 		table_msg_end();
 
 		if (handler_fetch)
-			r = handler_fetch(type, res, sizeof(res));
+			r = handler_fetch(type, &params, res, sizeof(res));
 		else
 			r = -1;
 
@@ -217,19 +218,19 @@ table_api_on_update(int(*cb)(void))
 }
 
 void
-table_api_on_check(int(*cb)(int, const char *))
+table_api_on_check(int(*cb)(int, struct dict *, const char *))
 {
 	handler_check = cb;
 }
 
 void
-table_api_on_lookup(int(*cb)(int, const char *, char *, size_t))
+table_api_on_lookup(int(*cb)(int, struct dict  *, const char *, char *, size_t))
 {
 	handler_lookup = cb;
 }
 
 void
-table_api_on_fetch(int(*cb)(int, char *, size_t))
+table_api_on_fetch(int(*cb)(int, struct dict *, char *, size_t))
 {
 	handler_fetch = cb;
 }

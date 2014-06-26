@@ -167,7 +167,7 @@ table_proc_close(void *arg)
 }
 
 static int
-table_proc_lookup(void *arg, const char *k, enum table_service s,
+table_proc_lookup(void *arg, struct dict *params, const char *k, enum table_service s,
     union lookup *lk)
 {
 	struct table_proc_priv	*priv = arg;
@@ -208,7 +208,7 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 }
 
 static int
-table_proc_fetch(void *arg, enum table_service s, union lookup *lk)
+table_proc_fetch(void *arg, struct dict *params, enum table_service s, union lookup *lk)
 {
 	struct table_proc_priv	*priv = arg;
 	struct ibuf		*buf;

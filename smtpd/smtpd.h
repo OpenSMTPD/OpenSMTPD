@@ -333,8 +333,8 @@ struct table_backend {
 	void   *(*open)(struct table *);
 	int	(*update)(struct table *);
 	void	(*close)(void *);
-	int	(*lookup)(void *, const char *, enum table_service, union lookup *);
-	int	(*fetch)(void *, enum table_service, union lookup *);
+	int	(*lookup)(void *, struct dict *, const char *, enum table_service, union lookup *);
+	int	(*fetch)(void *, struct dict *, enum table_service, union lookup *);
 };
 
 
@@ -1358,19 +1358,17 @@ void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
-int	table_lookup(struct table *, const char *, enum table_service,
+int	table_lookup(struct table *, struct dict *, const char *, enum table_service,
     union lookup *);
-int	table_fetch(struct table *, enum table_service, union lookup *);
+int	table_fetch(struct table *, struct dict *, enum table_service, union lookup *);
 void table_destroy(struct table *);
 void table_add(struct table *, const char *, const char *);
-void table_delete(struct table *, const char *);
 int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 int table_mailaddr_match(const char *, const char *);
 void	table_open_all(void);
 void	table_dump_all(void);
 void	table_close_all(void);
-const void	*table_get(struct table *, const char *);
 int table_parse_lookup(enum table_service, const char *, const char *,
     union lookup *);
 

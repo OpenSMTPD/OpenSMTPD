@@ -45,9 +45,9 @@ enum {
 };
 
 static int table_sqlite_update(void);
-static int table_sqlite_lookup(int, const char *, char *, size_t);
-static int table_sqlite_check(int, const char *);
-static int table_sqlite_fetch(int, char *, size_t);
+static int table_sqlite_lookup(int, struct dict *, const char *, char *, size_t);
+static int table_sqlite_check(int, struct dict *, const char *);
+static int table_sqlite_fetch(int, struct dict *, char *, size_t);
 
 static sqlite3_stmt *table_sqlite_query(const char *, int);
 
@@ -371,7 +371,7 @@ table_sqlite_query(const char *key, int service)
 }
 
 static int
-table_sqlite_check(int service, const char *key)
+table_sqlite_check(int service, struct dict *params, const char *key)
 {
 	sqlite3_stmt	*stmt;
 	int		 r;
@@ -393,7 +393,7 @@ table_sqlite_check(int service, const char *key)
 }
 
 static int
-table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
+table_sqlite_lookup(int service, struct dict *params, const char *key, char *dst, size_t sz)
 {
 	sqlite3_stmt	*stmt;
 	const char	*value;
@@ -478,7 +478,7 @@ table_sqlite_lookup(int service, const char *key, char *dst, size_t sz)
 }
 
 static int
-table_sqlite_fetch(int service, char *dst, size_t sz)
+table_sqlite_fetch(int service, struct dict *params, char *dst, size_t sz)
 {
 	const char	*k;
 	int		 s;

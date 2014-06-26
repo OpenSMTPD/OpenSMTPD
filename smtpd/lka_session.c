@@ -385,7 +385,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			break;
 		}
 
-		r = table_lookup(rule->r_userbase, xn->u.user, K_USERINFO, &lk);
+		r = table_lookup(rule->r_userbase, NULL, xn->u.user, K_USERINFO, &lk);
 		if (r == -1) {
 			log_trace(TRACE_EXPAND, "expand: lka_expand: "
 			    "backend error while searching user");
@@ -516,7 +516,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			    sizeof(ep->agent.mda.username));
 		}
 
-		r = table_lookup(rule->r_userbase, ep->agent.mda.username,
+		r = table_lookup(rule->r_userbase, NULL, ep->agent.mda.username,
 		    K_USERINFO, &lk);
 		if (r <= 0) {
 			lks->error = (r == -1) ? LKA_TEMPFAIL : LKA_PERMFAIL;

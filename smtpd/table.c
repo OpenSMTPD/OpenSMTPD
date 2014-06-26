@@ -116,7 +116,7 @@ table_find(const char *name, const char *tag)
 }
 
 int
-table_lookup(struct table *table, const char *key, enum table_service kind,
+table_lookup(struct table *table, struct dict *params, const char *key, enum table_service kind,
     union lookup *lk)
 {
 	int	r;
@@ -130,7 +130,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 		return -1;
 	}
 
-	r = table->t_backend->lookup(table->t_handle, lkey, kind, lk);
+	r = table->t_backend->lookup(table->t_handle, params, lkey, kind, lk);
 
 	if (r == 1)
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %s%s%s",
@@ -155,14 +155,14 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 }
 
 int
-table_fetch(struct table *table, enum table_service kind, union lookup *lk)
+table_fetch(struct table *table, struct dict *params, enum table_service kind, union lookup *lk)
 {
 	int 	r;
 
 	if (table->t_backend->fetch == NULL)
 		return (-1);
 
-	r = table->t_backend->fetch(table->t_handle, kind, lk);
+	r = table->t_backend->fetch(table->t_handle, params, kind, lk);
 
 	if (r == 1)
 		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %s%s%s",
@@ -300,22 +300,6 @@ table_add(struct table *t, const char *key, const char *val)
 		    lkey, t->t_name);
 		free(old);
 	}
-}
-
-const void *
-table_get(struct table *t, const char *key)
-{
-	if (t->t_type & T_DYNAMIC)
-		fatalx("table_get: cannot get from table");
-	return dict_get(&t->t_dict, key);
-}
-
-void
-table_delete(struct table *t, const char *key)
-{
-	if (t->t_type & T_DYNAMIC)
-		fatalx("table_delete: cannot delete from table");
-	free(dict_pop(&t->t_dict, key));
 }
 
 int
