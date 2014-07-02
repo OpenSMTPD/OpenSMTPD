@@ -297,18 +297,22 @@ bounce_duration(long long int d)
 	static char buf[32];
 
 	if (d < 60) {
-		(void)snprintf(buf, sizeof buf, "%lld second%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld second%s", d,
+		    (d == 1)?"":"s");
 	} else if (d < 3600) {
 		d = d / 60;
-		(void)snprintf(buf, sizeof buf, "%lld minute%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld minute%s", d,
+		    (d == 1)?"":"s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
-		(void)snprintf(buf, sizeof buf, "%lld hour%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld hour%s", d,
+		    (d == 1)?"":"s");
 	}
 	else {
 		d = d / (3600 * 24);
-		(void)snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld day%s", d,
+		    (d == 1)?"":"s");
 	}
 	return (buf);
 }
@@ -572,8 +576,8 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 		f = NULL;
 
 	if (f)
-		log_warnx("warn: %s injecting failure report on message %08"PRIx32
-		    " to <%s> for %zu envelope%s: %s",
+		log_warnx("warn: %s injecting failure report on message %08"
+		    PRIx32 " to <%s> for %zu envelope%s: %s",
 		    f, msg->msgid, msg->to, n, n > 1 ? "s":"", status);
 
 	nmessage -= 1;
