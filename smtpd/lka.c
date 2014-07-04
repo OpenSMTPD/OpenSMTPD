@@ -74,11 +74,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct addrname		 addrname;
 	struct envelope		 evp;
 	struct msg		 m;
-	struct dict		 params;
 	union lookup		 lk;
 	char			 buf[SMTPD_MAXLINESIZE];
 	const char		*tablename, *username, *password, *label;
-	const char		*domain;
 	uint64_t		 reqid;
 	size_t			 i;
 	int			 v;
@@ -328,7 +326,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
-			m_get_string(&m, &domain);
 			m_end(&m);
 
 			table = table_find(tablename, NULL);
@@ -342,11 +339,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				m_add_int(p, LKA_TEMPFAIL);
 			}
 			else {
-				dict_init(&params);
-				dict_set(&params, "domain", domain);
-				ret = table_fetch(table, &params, K_SOURCE, &lk);
-				while (dict_poproot(&params, NULL))
-					;
+				ret = table_fetch(table, NULL, K_SOURCE, &lk);
 				if (ret == -1)
 					m_add_int(p, LKA_TEMPFAIL);
 				else if (ret == 0)
