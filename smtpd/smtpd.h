@@ -1216,6 +1216,7 @@ void m_add_id(struct mproc *, uint64_t);
 void m_add_sockaddr(struct mproc *, const struct sockaddr *);
 void m_add_mailaddr(struct mproc *, const struct mailaddr *);
 void m_add_envelope(struct mproc *, const struct envelope *);
+void m_add_params(struct mproc *, struct dict *);
 void m_close(struct mproc *);
 void m_flush(struct mproc *);
 
@@ -1234,6 +1235,7 @@ void m_get_id(struct msg *, uint64_t *);
 void m_get_sockaddr(struct msg *, struct sockaddr *);
 void m_get_mailaddr(struct msg *, struct mailaddr *);
 void m_get_envelope(struct msg *, struct envelope *);
+void m_get_params(struct msg *, struct dict *);
 
 
 /* mta.c */

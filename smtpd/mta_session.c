@@ -219,6 +219,9 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 			s->flags |= MTA_FORCE_PLAIN;
 	}
 
+	if (relay->flags & RELAY_BACKUP)
+		s->flags &= ~MTA_FORCE_PLAIN;
+
 	log_debug("debug: mta: %p: spawned for relay %s", s,
 	    mta_relay_to_text(relay));
 	stat_increment("mta.session", 1);

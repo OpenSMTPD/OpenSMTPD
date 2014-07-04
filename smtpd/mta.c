@@ -902,6 +902,7 @@ mta_query_source(struct mta_relay *relay)
 	m_create(p_lka, IMSG_MTA_LOOKUP_SOURCE, 0, 0, -1);
 	m_add_id(p_lka, relay->id);
 	m_add_string(p_lka, relay->sourcetable);
+	m_add_string(p_lka, relay->domain->name);
 	m_close(p_lka);
 
 	tree_xset(&wait_source, relay->id, relay);
