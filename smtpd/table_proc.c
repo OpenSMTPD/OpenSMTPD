@@ -169,7 +169,36 @@ table_proc_close(void *arg)
 }
 
 static int
-table_proc_lookup(void *arg, const char *k, enum table_service s,
+imsg_add_params(struct ibuf *buf, struct dict *params)
+{
+	size_t count;
+	const char *key;
+	char *value;
+	void *iter;
+
+	count = 0;
+	if (params)
+		count = dict_count(params);
+
+	if (imsg_add(buf, &count, sizeof(count)) == -1)
+		return (-1);
+
+	if (count == 0)
+		return (0);
+
+	iter = NULL;
+	while (dict_iter(params, &iter, &key, (void **)&value)) {
+		if (imsg_add(buf, key, strlen(key) + 1) == -1)
+			return (-1);
+		if (imsg_add(buf, value, strlen(value) + 1) == -1)
+			return (-1);
+	}
+
+	return (0);
+}
+
+static int
+table_proc_lookup(void *arg, struct dict *params, const char *k, enum table_service s,
     union lookup *lk)
 {
 	struct table_proc_priv	*priv = arg;
@@ -183,6 +212,8 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 	if (buf == NULL)
 		return (-1);
 	if (imsg_add(buf, &s, sizeof(s)) == -1)
+		return (-1);
+	if (imsg_add_params(buf, params) == -1)
 		return (-1);
 	if (imsg_add(buf, k, strlen(k) + 1) == -1)
 		return (-1);
@@ -210,7 +241,7 @@ table_proc_lookup(void *arg, const char *k, enum table_service s,
 }
 
 static int
-table_proc_fetch(void *arg, enum table_service s, union lookup *lk)
+table_proc_fetch(void *arg, struct dict *params, enum table_service s, union lookup *lk)
 {
 	struct table_proc_priv	*priv = arg;
 	struct ibuf		*buf;
@@ -220,6 +251,8 @@ table_proc_fetch(void *arg, enum table_service s, union lookup *lk)
 	if (buf == NULL)
 		return (-1);
 	if (imsg_add(buf, &s, sizeof(s)) == -1)
+		return (-1);
+	if (imsg_add_params(buf, params) == -1)
 		return (-1);
 	imsg_close(&priv->ibuf, buf);
 

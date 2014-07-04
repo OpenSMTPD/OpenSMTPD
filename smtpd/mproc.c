@@ -619,6 +619,25 @@ m_add_envelope(struct mproc *m, const struct envelope *evp)
 #endif
 
 void
+m_add_params(struct mproc *m, struct dict *d)
+{
+	const char *key;
+	char *value;
+	void *iter;
+
+	if (d == NULL) {
+		m_add_size(m, 0);
+		return;
+	}
+	m_add_size(m, dict_count(d));
+	iter = NULL;
+	while (dict_iter(d, &iter, &key, (void **)&value)) {
+		m_add_string(m, key);
+		m_add_string(m, value);
+	}
+}
+
+void
 m_get_int(struct msg *m, int *i)
 {
 	m_get_typed(m, M_INT, i, sizeof(*i));
@@ -720,3 +739,33 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 #endif
 }
 #endif
+
+void
+m_get_params(struct msg *m, struct dict *d)
+{
+	size_t	c;
+	const char *key;
+	const char *value;
+	char *tmp;
+
+	dict_init(d);
+
+	m_get_size(m, &c);
+
+	for (; c; c--) {
+		m_get_string(m, &key);
+		m_get_string(m, &value);
+		if ((tmp = strdup(value)) == NULL)
+			fatal("m_get_params");
+		dict_set(d, key, tmp);
+	}
+}
+
+void
+m_clear_params(struct dict *d)
+{
+	char *value;
+
+	while (dict_poproot(d, (void **)&value))
+		free(value);
+}

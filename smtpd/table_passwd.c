@@ -32,9 +32,9 @@
 #include "log.h"
 
 static int table_passwd_update(void);
-static int table_passwd_check(int, const char *);
-static int table_passwd_lookup(int, const char *, char *, size_t);
-static int table_passwd_fetch(int, char *, size_t);
+static int table_passwd_check(int, struct dict *, const char *);
+static int table_passwd_lookup(int, struct dict *, const char *, char *, size_t);
+static int table_passwd_fetch(int, struct dict *, char *, size_t);
 static int parse_passwd_entry(struct passwd *, const char *);
 
 static char	       *config;
@@ -145,13 +145,13 @@ err:
 }
 
 static int
-table_passwd_check(int service, const char *key)
+table_passwd_check(int service, struct dict *params, const char *key)
 {
 	return (-1);
 }
 
 static int
-table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
+table_passwd_lookup(int service, struct dict *params, const char *key, char *dst, size_t sz)
 {
 	int		r;
 	struct passwd	pw;
@@ -193,7 +193,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 }
 
 static int
-table_passwd_fetch(int service, char *dst, size_t sz)
+table_passwd_fetch(int service, struct dict *params, char *dst, size_t sz)
 {
 	return (-1);
 }
