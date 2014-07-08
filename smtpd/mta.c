@@ -895,7 +895,7 @@ mta_query_source(struct mta_relay *relay)
 	if (relay->sourcetable == NULL) {
 		/*
 		 * This is a recursive call, but it only happens once, since
-		 * another source will not be queried immediatly.
+		 * another source will not be queried immediately.
 		 */
 		mta_relay_ref(relay);
 		mta_on_source(relay, mta_source(NULL));

@@ -170,7 +170,7 @@ table_passwd_lookup(int service, struct dict *params, const char *key, char *dst
 	switch (service) {
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
-			pw.pw_name, pw.pw_passwd) > (ssize_t)sz) {
+			pw.pw_name, pw.pw_passwd) >= (ssize_t)sz) {
 			log_warnx("warn: table-passwd: result too large");
 			r = -1;
 		}
@@ -178,7 +178,7 @@ table_passwd_lookup(int service, struct dict *params, const char *key, char *dst
 	case K_USERINFO:
 		if (snprintf(dst, sz, "%d:%d:%s",
 			pw.pw_uid, pw.pw_gid, pw.pw_dir)
-		    > (ssize_t)sz) {
+		    >= (ssize_t)sz) {
 			log_warnx("warn: table-passwd: result too large");
 			r = -1;
 		}

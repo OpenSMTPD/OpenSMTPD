@@ -446,7 +446,7 @@ table_sqlite_lookup(int service, struct dict *params, const char *key, char *dst
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
 		    sqlite3_column_text(stmt, 0),
-		    sqlite3_column_text(stmt, 1)) > (ssize_t)sz) {
+		    sqlite3_column_text(stmt, 1)) >= (ssize_t)sz) {
 			log_warnx("warn: table-sqlite: result too large");
 			r = -1;
 		}
@@ -455,7 +455,7 @@ table_sqlite_lookup(int service, struct dict *params, const char *key, char *dst
 		if (snprintf(dst, sz, "%d:%d:%s",
 		    sqlite3_column_int(stmt, 0),
 		    sqlite3_column_int(stmt, 1),
-		    sqlite3_column_text(stmt, 2)) > (ssize_t)sz) {
+		    sqlite3_column_text(stmt, 2)) >= (ssize_t)sz) {
 			log_warnx("warn: table-sqlite: result too large");
 			r = -1;
 		}

@@ -871,7 +871,11 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	if (arg)
 		*arg++ = '\0';
 
-	snprintf(path, sizeof(path), PATH_LIBEXEC "/%s-%s", key, name);
+	if (snprintf(path, sizeof(path), PATH_LIBEXEC "/%s-%s", key, name) >=
+	    (ssize_t)sizeof(path)) {
+		log_warn("warn: %s-proc: exec path too long", key);
+		return (-1);
+	}
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1) {
 		log_warn("warn: %s-proc: socketpair", key);

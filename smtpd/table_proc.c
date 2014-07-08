@@ -129,7 +129,7 @@ table_proc_open(struct table *table)
 
 	fd = fork_proc_backend("table", table->t_config, table->t_name);
 	if (fd == -1)
-		fatal("table-proc: exiting");
+		fatalx("table-proc: exiting");
 
 	imsg_init(&priv->ibuf, fd);
 
