@@ -606,11 +606,11 @@ opt_relay_common: AS STRING	{
 				    "SOURCE parameter", t->t_name);
 				YYERROR;
 			}
-			strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
+			(void)strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
 			    sizeof rule->r_value.relayhost.sourcetable);
 		}
 		| HOSTNAME STRING {
-			strlcat(rule->r_value.relayhost.heloname, $2,
+			(void)strlcpy(rule->r_value.relayhost.heloname, $2,
 			    sizeof rule->r_value.relayhost.heloname);
 			free($2);
 		}
@@ -621,7 +621,7 @@ opt_relay_common: AS STRING	{
 				    "HOSTNAMES parameter", t->t_name);
 				YYERROR;
 			}
-			strlcpy(rule->r_value.relayhost.helotable, t->t_name,
+			(void)strlcpy(rule->r_value.relayhost.helotable, t->t_name,
 			    sizeof rule->r_value.relayhost.helotable);
 		}
 		| PKI STRING {
@@ -643,12 +643,18 @@ opt_relay_common: AS STRING	{
 
 opt_relay	: BACKUP STRING			{
 			rule->r_value.relayhost.flags |= F_BACKUP;
-			strlcpy(rule->r_value.relayhost.hostname, $2,
-			    sizeof (rule->r_value.relayhost.hostname));
+			if (strlcpy(rule->r_value.relayhost.hostname, $2,
+				sizeof (rule->r_value.relayhost.hostname))
+			    >= sizeof (rule->r_value.relayhost.hostname)) {
+				log_warnx("hostname too long: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
 		}
 		| BACKUP       			{
 			rule->r_value.relayhost.flags |= F_BACKUP;
-			strlcpy(rule->r_value.relayhost.hostname,
+			(void)strlcpy(rule->r_value.relayhost.hostname,
 			    conf->sc_hostname,
 			    sizeof (rule->r_value.relayhost.hostname));
 		}
@@ -673,7 +679,7 @@ opt_relay_via	: AUTH tables {
 				    t->t_name);
 				YYERROR;
 			}
-			strlcpy(rule->r_value.relayhost.authtable, t->t_name,
+			(void)strlcpy(rule->r_value.relayhost.authtable, t->t_name,
 			    sizeof(rule->r_value.relayhost.authtable));
 		}
 		| VERIFY {
@@ -772,7 +778,7 @@ main		: BOUNCEWARN {
 			pki = dict_get(conf->sc_pki_dict, buf);
 			if (pki == NULL) {
 				pki = xcalloc(1, sizeof *pki, "parse:pki");
-				strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
+				(void)strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
@@ -1664,7 +1670,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf = x_conf;
 	memset(conf, 0, sizeof(*conf));
 
-	strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
+	(void)strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
 
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
@@ -2239,7 +2245,9 @@ is_if_in_group(const char *ifname, const char *groupname)
 		err(1, "socket");
 
         memset(&ifgr, 0, sizeof(ifgr));
-        strlcpy(ifgr.ifgr_name, ifname, IFNAMSIZ);
+        if (strlcpy(ifgr.ifgr_name, ifname, IFNAMSIZ) >= IFNAMSIZ)
+		errx(1, "interface name too large");
+
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1) {
                 if (errno == EINVAL || errno == ENOTTY)
 			goto end;
