@@ -58,6 +58,7 @@
 
 #define	PATH_LIBEXEC		"/usr/libexec/smtpd"
 
+
 /*
  * RFC 5322 defines these characters as valid, some of them are
  * potentially dangerous and need to be escaped.
@@ -1238,6 +1239,7 @@ void m_get_envelope(struct msg *, struct envelope *);
 void m_get_params(struct msg *, struct dict *);
 void m_clear_params(struct dict *);
 
+
 /* mta.c */
 void mta_postfork(void);
 void mta_postprivdrop(void);
@@ -1322,6 +1324,7 @@ int smtp_session(struct listener *, int, const struct sockaddr_storage *,
 void smtp_session_imsg(struct mproc *, struct imsg *);
 void smtp_filter_response(uint64_t, int, int, uint32_t, const char *);
 void smtp_filter_fd(uint64_t, int);
+
 
 /* smtpd.c */
 void imsg_dispatch(struct mproc *, struct imsg *);
