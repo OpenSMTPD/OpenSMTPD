@@ -594,7 +594,7 @@ Changing the default value might degrade performances.
 .Op Ic port Ar port
 .Op Ic tls | tls-require | tls-require verify | smtps | secure
 .Op Ic pki Ar pkiname
-.Op Ic auth | auth-optional Aq Ar authtable
+.Op Ic auth | auth-optional Op Aq Ar authtable
 .Op Ic tag Ar tag
 .Op Ic hostname Ar hostname
 .Op Ic hostnames Aq Ar names
@@ -899,7 +899,7 @@ the first line is used as the server name.
 Otherwise, the server name is derived from the local hostname returned by
 .Xr gethostname 3 ,
 either directly if it is a fully qualified domain name,
-or by retreiving the associated canonical name through
+or by retrieving the associated canonical name through
 .Xr getaddrinfo 3 .
 .It Pa /var/spool/smtpd/
 Spool directories for mail during processing.

@@ -281,7 +281,7 @@ queue_proc_envelope_load(uint64_t evpid, char *buf, size_t len)
 	}
 
 	r = rlen;
-	queue_proc_read(&buf, rlen);
+	queue_proc_read(buf, rlen);
 	queue_proc_end();
 
 	return (r);
@@ -307,7 +307,7 @@ queue_proc_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 			log_warnx("warn: queue-proc: len mismatch");
 			fatalx("queue-proc: exiting");
 		}
-		queue_proc_read(&buf, rlen);
+		queue_proc_read(buf, rlen);
 	}
 	queue_proc_end();
 

@@ -346,7 +346,7 @@ smtp_collect(void)
 
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
 		log_warnx("warn: smtp: "
-		    "fd exaustion over, re-enabling incoming connections");
+		    "fd exhaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}
