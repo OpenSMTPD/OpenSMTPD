@@ -1718,8 +1718,8 @@ parent_broadcast_verbose(uint32_t v)
 	m_close(p_ca);
 
 	m_create(p_scheduler, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_ca, v);
-	m_close(p_ca);
+	m_add_int(p_scheduler, v);
+	m_close(p_scheduler);
 }
 
 static void
@@ -1740,4 +1740,8 @@ parent_broadcast_profile(uint32_t v)
 	m_create(p_ca, IMSG_CTL_PROFILE, 0, 0, -1);
 	m_add_int(p_ca, v);
 	m_close(p_ca);
+
+	m_create(p_scheduler, IMSG_CTL_PROFILE, 0, 0, -1);
+	m_add_int(p_scheduler, v);
+	m_close(p_scheduler);
 }
