@@ -2302,7 +2302,7 @@ end:
 #endif
 }
 
-struct filter_conf *
+static struct filter_conf *
 create_filter_proc(char *name, char *prog)
 {
 	struct filter_conf	*f;
