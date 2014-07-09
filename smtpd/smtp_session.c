@@ -162,7 +162,7 @@ struct smtp_session {
 	 !((s)->flags & SF_AUTHENTICATED))
 
 #define ADVERTISE_EXT_DSN(s) \
-  ((s)->listener->flags & F_EXT_DSN)
+	((s)->listener->flags & F_EXT_DSN)
 
 static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
@@ -1566,7 +1566,7 @@ smtp_parse_mail_args(struct smtp_session *s, char *args)
 				s->evp.dsn_ret = DSN_RETHDRS;
 			else if (strcasecmp(b, "FULL") == 0)
 				s->evp.dsn_ret = DSN_RETFULL;
-		} else if (strncasecmp(b, "ENVID=", 6) == 0) {
+		} else if (ADVERTISE_EXT_DSN(s) && strncasecmp(b, "ENVID=", 6) == 0) {
 			b += 6;
 			if (strlcpy(s->evp.dsn_envid, b, sizeof(s->evp.dsn_envid))
 			    >= sizeof(s->evp.dsn_envid)) {
