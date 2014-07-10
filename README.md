@@ -111,12 +111,12 @@ script allows overriding these using the options:
 
     mkdir /var/empty  
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
-    useradd -c "SMTP queue user" -d /var/empty -s /sbin/nologin _smtpq
+    useradd -c "SMTPD Queue" -d /var/empty -s /sbin/nologin _smtpq
 
 ### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
-    pw useradd _smtpq -c "SMTP queue user" -d /var/empty -s /sbin/nologin
+    pw useradd _smtpq -c "SMTPD Queue" -d /var/empty -s /sbin/nologin
 
 ### Mac OS X
 
@@ -155,7 +155,7 @@ First, kill any running sendmail/exim/qmail/postfix or other.
 
 Then:
 
-    smtpd &
+    smtpd
 
 or in debug and verbose mode
 
