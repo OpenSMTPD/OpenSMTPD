@@ -2818,10 +2818,6 @@ AC_CONFIG_FILES([Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
 		mk/makemap/Makefile
-		mk/backends/Makefile
-		mk/backends/table-passwd/Makefile
-		mk/backends/table-sqlite/Makefile
-		mk/backends/table-stub/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
