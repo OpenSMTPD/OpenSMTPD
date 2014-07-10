@@ -124,6 +124,7 @@ ca(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
+	config_peer(PROC_CONTROL);
 	config_peer(PROC_PARENT);
 	config_peer(PROC_PONY);
 	config_done();
@@ -262,6 +263,11 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 			/* Start fulfilling requests */
 			mproc_enable(p_pony);
 			return;
+		}
+	}
+
+	if (p->proc == PROC_CONTROL) {
+		switch (imsg->hdr.type) {
 		case IMSG_CTL_VERBOSE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);

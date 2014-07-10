@@ -485,17 +485,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_CTL_RESUME_MTA:
 			m_forward(p_scheduler, imsg);
 			return;
-		}
-	}
 
-	if (p->proc == PROC_PARENT) {
-		switch (imsg->hdr.type) {
 		case IMSG_CTL_VERBOSE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);
 			m_end(&m);
 			log_verbose(v);
-			m_forward(p_scheduler, imsg);
 			return;
 
 		case IMSG_CTL_PROFILE:
