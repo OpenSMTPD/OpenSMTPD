@@ -392,6 +392,20 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			mproc_enable(p_pony);
 			return;
 
+		case IMSG_LKA_OPEN_FORWARD:
+			lka_session_forward_reply(imsg->data, imsg->fd);
+			return;
+
+		case IMSG_LKA_AUTHENTICATE:
+			imsg->hdr.type = IMSG_SMTP_AUTHENTICATE;
+			m_forward(p_pony, imsg);
+			return;
+		}
+	}
+
+	if (p->proc == PROC_CONTROL) {
+		switch (imsg->hdr.type) {
+
 		case IMSG_CTL_VERBOSE:
 			m_msg(&m, imsg);
 			m_get_int(&m, &v);
@@ -406,19 +420,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			profiling = v;
 			return;
 
-		case IMSG_LKA_OPEN_FORWARD:
-			lka_session_forward_reply(imsg->data, imsg->fd);
-			return;
-
-		case IMSG_LKA_AUTHENTICATE:
-			imsg->hdr.type = IMSG_SMTP_AUTHENTICATE;
-			m_forward(p_pony, imsg);
-			return;
-		}
-	}
-
-	if (p->proc == PROC_CONTROL) {
-		switch (imsg->hdr.type) {
 		case IMSG_CTL_UPDATE_TABLE:
 			table = table_find(imsg->data, NULL);
 			if (table == NULL) {

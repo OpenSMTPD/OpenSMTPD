@@ -68,6 +68,7 @@ static void control_close(struct ctl_conn *);
 static void control_sig_handler(int, short, void *);
 static void control_dispatch_ext(struct mproc *, struct imsg *);
 static void control_digest_update(const char *, size_t, int);
+static void control_broadcast_verbose(int, int);
 
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
@@ -289,6 +290,7 @@ control(void)
 	config_peer(PROC_PARENT);
 	config_peer(PROC_LKA);
 	config_peer(PROC_PONY);
+	config_peer(PROC_CA);
 	config_done();
 
 	control_listen();
@@ -504,9 +506,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose = v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1);
-		m_add_int(p_parent, verbose);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_VERBOSE, verbose);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -522,9 +522,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose |= v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_TRACE_ENABLE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_VERBOSE, verbose);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -540,9 +538,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose &= ~v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_TRACE_DISABLE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_VERBOSE, verbose);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -557,9 +553,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling |= v;
 
-		m_create(p_parent, IMSG_CTL_PROFILE_ENABLE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_PROFILE, profiling);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -574,9 +568,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling &= ~v;
 
-		m_create(p_parent, IMSG_CTL_PROFILE_DISABLE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_PROFILE, profiling);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -775,4 +767,32 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 badcred:
 invalid:
 	m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
+}
+
+static void
+control_broadcast_verbose(int msg, int v)
+{
+	m_create(p_lka, msg, 0, 0, -1);
+	m_add_int(p_lka, v);
+	m_close(p_lka);
+
+	m_create(p_pony, msg, 0, 0, -1);
+	m_add_int(p_pony, v);
+	m_close(p_pony);
+
+	m_create(p_queue, msg, 0, 0, -1);
+	m_add_int(p_queue, v);
+	m_close(p_queue);
+
+	m_create(p_ca, msg, 0, 0, -1);
+	m_add_int(p_ca, v);
+	m_close(p_ca);
+
+	m_create(p_scheduler, msg, 0, 0, -1);
+	m_add_int(p_scheduler, v);
+	m_close(p_scheduler);
+
+	m_create(p_parent, msg, 0, 0, -1);
+	m_add_int(p_parent, v);
+	m_close(p_parent);
 }
