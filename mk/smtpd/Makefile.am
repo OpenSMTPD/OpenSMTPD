@@ -82,26 +82,16 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_proc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_ramqueue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 
-# resolver
-smtpd_SOURCES+=		$(asr_srcdir)/asr.c			\
-			$(asr_srcdir)/asr_debug.c		\
-			$(asr_srcdir)/asr_utils.c		\
-			$(asr_srcdir)/gethostnamadr_async.c	\
-			$(asr_srcdir)/res_send_async.c		\
-			$(asr_srcdir)/getaddrinfo_async.c	\
-			$(asr_srcdir)/getnameinfo_async.c	\
-			$(asr_srcdir)/res_search_async.c
 
-smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
+smtpd_CFLAGS=		-DIO_SSL
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
 AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
-			-I$(compat_srcdir)	\
-			-I$(asr_srcdir)
+			-I$(compat_srcdir)
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD=			$(LIBCOMPAT) $(DB_LIB)
+LDADD=			$(LIBCOMPAT) $(DB_LIB) -lasr
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
@@ -136,9 +126,6 @@ EXTRA_DIST+=		$(smtpd_srcdir)/parser.h
 
 EXTRA_DIST+=		$(backends_srcdir)/queue_utils.h
 EXTRA_DIST+=		$(filters_srcdir)/asr_event.h
-
-EXTRA_DIST+=		$(asr_srcdir)/asr.h
-EXTRA_DIST+=		$(asr_srcdir)/asr_private.h
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
 			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
