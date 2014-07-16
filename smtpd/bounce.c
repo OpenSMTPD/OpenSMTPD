@@ -57,7 +57,10 @@ enum {
 struct bounce_envelope {
 	TAILQ_ENTRY(bounce_envelope)	 entry;
 	uint64_t			 id;
+	struct mailaddr			 dest;
 	char				*report;
+	uint8_t				 esc_class;
+	uint8_t				 esc_code;
 };
 
 struct bounce_message {
@@ -78,6 +81,7 @@ struct bounce_session {
 	int				 state;
 	struct iobuf			 iobuf;
 	struct io			 io;
+	uint32_t			 boundary;
 };
 
 SPLAY_HEAD(bounce_message_tree, bounce_message);
@@ -172,6 +176,11 @@ bounce_add(uint64_t evpid)
 	be = xmalloc(sizeof *be, "bounce_add");
 	be->id = evpid;
 	be->report = xstrdup(buf, "bounce_add");
+	(void)strlcpy(be->dest.user, evp.dest.user, sizeof(be->dest.user));
+	(void)strlcpy(be->dest.domain, evp.dest.domain,
+	    sizeof(be->dest.domain));
+	be->esc_class = evp.esc_class;
+	be->esc_code = evp.esc_code;
 	TAILQ_INSERT_TAIL(&msg->envelopes, be, entry);
 	buf[strcspn(buf, "\n")] = '\0';
 	log_debug("debug: bounce: adding report %16"PRIx64": %s", be->id, buf);
@@ -209,6 +218,7 @@ bounce_fd(int fd)
 	io_init(&s->io, fd, s, bounce_io, &s->iobuf);
 	io_set_timeout(&s->io, 30000);
 	io_set_read(&s->io);
+	s->boundary = arc4random();
 
 	log_debug("debug: bounce: new session %p", s);
 	stat_increment("bounce.session", 1);
@@ -430,12 +440,21 @@ bounce_next(struct bounce_session *s)
 		    "To: %s\n"
 		    "Date: %s\n"
 		    "\n"
-		    NOTICE_INTRO
+		    "This is a MIME-encapsulated message.\n"
 		    "\n",
 		    bounce_strtype(s->msg->bounce.type),
 		    s->smtpname,
 		    s->msg->to,
 		    time_to_text(time(NULL)));
+
+		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+		    "--%u/%s\n"
+		    "Content-Description: Notification\n"
+		    "Content-Type: text/plain; charset=us-ascii\n"
+		    "\n"
+		    NOTICE_INTRO
+		    "\n",
+		    s->boundary, s->smtpname);
 
 		switch (s->msg->bounce.type) {
 		case B_ERROR:
@@ -472,6 +491,34 @@ bounce_next(struct bounce_session *s)
 		    "    Below is a copy of the original message:\n"
 		    "\n");
 
+		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+		    "--%u/%s\n"
+		    "Content-Description: Delivery Report\n"
+		    "Content-Type: message/delivery-status\n"
+		    "\n",
+		    s->boundary, s->smtpname);
+
+		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+	    	    "Reporting-MTA: dns; %s\n"
+	    	    "Arrival-Date: %s\n"
+		    "\n",
+	    	    s->smtpname,
+	    	    time_to_text(time(NULL)));
+
+		TAILQ_FOREACH(evp, &s->msg->envelopes, entry) {
+			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+	    	    	    "Final-Recipient: rfc822; %s@%s\n"
+	    	    	    "Status: %s\n"
+	    	    	    "Remote-MTA: dns; %s\n"
+	    	    	    "Diagnostic-Code: smtp; %s\n"
+	    	    	    "\n",
+			    evp->dest.user,
+			    evp->dest.domain,
+	    	    	    esc_code(evp->esc_class, evp->esc_code),
+	    	    	    s->msg->smtpname,
+	    	    	    esc_description(evp->esc_code));
+		}
+
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
 		    s, iobuf_queued(&s->iobuf));
 
@@ -479,9 +526,14 @@ bounce_next(struct bounce_session *s)
 		break;
 
 	case BOUNCE_DATA_MESSAGE:
+		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+	    	    "--%u/%s\n"
+	    	    "Content-Description: %s\n"
+	    	    "Content-Type: message/rfc822\n"
+	    	    "\n",
+	    	    s->boundary, s->smtpname, "TODO");
 
 		n = iobuf_queued(&s->iobuf);
-
 		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
 			line = fgetln(s->msgfp, &len);
 			if (line == NULL)
@@ -509,6 +561,9 @@ bounce_next(struct bounce_session *s)
 			s->msg = NULL;
 			return (-1);
 		}
+
+		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+	    	    "\n--%u/%s--\n", s->boundary, s->smtpname);
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
 		    s, iobuf_queued(&s->iobuf) - n);
