@@ -509,13 +509,11 @@ bounce_next(struct bounce_session *s)
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    	    "Final-Recipient: rfc822; %s@%s\n"
 	    	    	    "Status: %s\n"
-	    	    	    "Remote-MTA: dns; %s\n"
 	    	    	    "Diagnostic-Code: smtp; %s\n"
 	    	    	    "\n",
 			    evp->dest.user,
 			    evp->dest.domain,
 	    	    	    esc_code(evp->esc_class, evp->esc_code),
-	    	    	    s->msg->smtpname,
 	    	    	    esc_description(evp->esc_code));
 		}
 
