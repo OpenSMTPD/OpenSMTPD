@@ -528,10 +528,9 @@ bounce_next(struct bounce_session *s)
 	case BOUNCE_DATA_MESSAGE:
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    "--%u/%s\n"
-	    	    "Content-Description: %s\n"
 	    	    "Content-Type: message/rfc822\n"
 	    	    "\n",
-	    	    s->boundary, s->smtpname, "TODO");
+	    	    s->boundary, s->smtpname);
 
 		n = iobuf_queued(&s->iobuf);
 		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
