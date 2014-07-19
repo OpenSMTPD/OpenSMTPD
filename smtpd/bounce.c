@@ -81,7 +81,7 @@ struct bounce_session {
 	int				 state;
 	struct iobuf			 iobuf;
 	struct io			 io;
-	uint32_t			 boundary;
+	uint64_t			 boundary;
 };
 
 SPLAY_HEAD(bounce_message_tree, bounce_message);
@@ -218,7 +218,7 @@ bounce_fd(int fd)
 	io_init(&s->io, fd, s, bounce_io, &s->iobuf);
 	io_set_timeout(&s->io, 30000);
 	io_set_read(&s->io);
-	s->boundary = arc4random();
+	s->boundary = generate_uid();
 
 	log_debug("debug: bounce: new session %p", s);
 	stat_increment("bounce.session", 1);
@@ -448,7 +448,7 @@ bounce_next(struct bounce_session *s)
 		    time_to_text(time(NULL)));
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-		    "--%u/%s\n"
+		    "--%16" PRIu64 "/%s\n"
 		    "Content-Description: Notification\n"
 		    "Content-Type: text/plain; charset=us-ascii\n"
 		    "\n"
@@ -492,7 +492,7 @@ bounce_next(struct bounce_session *s)
 		    "\n");
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-		    "--%u/%s\n"
+		    "--%16" PRIu64 "/%s\n"
 		    "Content-Description: Delivery Report\n"
 		    "Content-Type: message/delivery-status\n"
 		    "\n",
@@ -525,7 +525,7 @@ bounce_next(struct bounce_session *s)
 
 	case BOUNCE_DATA_MESSAGE:
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    "--%u/%s\n"
+		    "--%16" PRIu64 "/%s\n"
 	    	    "Content-Type: message/rfc822\n"
 	    	    "\n",
 	    	    s->boundary, s->smtpname);
@@ -560,7 +560,7 @@ bounce_next(struct bounce_session *s)
 		}
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    "\n--%u/%s--\n", s->boundary, s->smtpname);
+	    	    "\n--%16" PRIu64 "/%s--\n", s->boundary, s->smtpname);
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
 		    s, iobuf_queued(&s->iobuf) - n);
