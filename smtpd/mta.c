@@ -734,7 +734,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 			m_create(p_queue, IMSG_MTA_DELIVERY_PERMFAIL, 0, 0, -1);
 			m_add_evpid(p_queue, e->id);
 			m_add_string(p_queue, e->status);
-			m_add_int(p_queue, ESC_OTHER_STATUS);
+			m_add_int(p_queue, ESC_INVALID_RECIPIENT);
 			m_close(p_queue);
 		}
 		else if (e->delivery == IMSG_MTA_DELIVERY_LOOP) {
