@@ -261,7 +261,7 @@ enum enhanced_status_code {
 	ESC_DELIVERY_TIME_EXPIRED   	      	    	= 47,
 
 	/* 5.x */
-	ESC_OTHER_PROTOCOL_STATUS   	      	    	= 50,
+	ESC_INVALID_RECIPIENT				= 50,
 	ESC_INVALID_COMMAND	   	      	    	= 51,
 	ESC_SYNTAX_ERROR	   	      	    	= 52,
 	ESC_TOO_MANY_RECIPIENTS	   	      	    	= 53,
