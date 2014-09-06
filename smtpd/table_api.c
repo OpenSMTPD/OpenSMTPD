@@ -141,6 +141,7 @@ table_msg_dispatch(void)
 	char		 res[4096];
 	int		 type, r;
 
+	memset(res, 0, sizeof res);
 	switch (imsg.hdr.type) {
 	case PROC_TABLE_OPEN:
 		table_msg_get(&op, sizeof op);
