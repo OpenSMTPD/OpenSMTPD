@@ -156,7 +156,7 @@ delivery_lmtp_open(struct deliver *deliver)
 	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
 		 buffer = lmtp_getline(fp);
 		 if (buffer == NULL)
-			 err(1, "No input received");
+			 errx(1, "No input received");
 
 		 switch (state) {
 		 case LMTP_BANNER:
