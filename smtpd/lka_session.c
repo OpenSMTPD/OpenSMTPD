@@ -273,6 +273,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct mailaddr		maddr;
 	int			r;
 	union lookup		lk;
+	char		       *tag;
 
 	if (xn->depth >= EXPAND_DEPTH) {
 		log_trace(TRACE_EXPAND, "expand: lka_expand: node too deep.");
@@ -376,6 +377,10 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			if (r)
 				break;
 		}
+
+		/* gilles+hackers@ -> gilles@ */
+		if ((tag = strchr(xn->u.user, TAG_CHAR)) != NULL)
+			*tag++ = '\0';
 
 		/* A username should not exceed the size of a system user */
 		if (strlen(xn->u.user) >= sizeof fwreq.user) {
@@ -818,13 +823,7 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep,
 static void
 mailaddr_to_username(const struct mailaddr *maddr, char *dst, size_t len)
 {
-	char	*tag;
-
 	xlowercase(dst, maddr->user, len);
-
-	/* gilles+hackers@ -> gilles@ */
-	if ((tag = strchr(dst, TAG_CHAR)) != NULL)
-		*tag++ = '\0';
 }
 
 static int 
