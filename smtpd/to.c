@@ -740,7 +740,7 @@ alias_is_username(struct expandnode *alias, const char *line, size_t len)
 
 	while (*line) {
 		if (!isalnum((unsigned char)*line) &&
-		    *line != '_' && *line != '.' && *line != '-')
+		    *line != '_' && *line != '.' && *line != '-' && *line != '+')
 			return 0;
 		++line;
 	}
