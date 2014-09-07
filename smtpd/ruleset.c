@@ -95,6 +95,7 @@ ruleset_match(const struct envelope *evp)
 		if ((ret == 0 && !r->r_notdestination) || (ret != 0 && r->r_notdestination))
 			continue;
 
+		/*
 		if (r->r_desttype == DEST_VDOM &&
 		    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
 			if (! aliases_virtual_check(r->r_mapping,
@@ -102,6 +103,7 @@ ruleset_match(const struct envelope *evp)
 				return NULL;
 			}
 		}
+		*/
 		goto matched;
 	}
 
