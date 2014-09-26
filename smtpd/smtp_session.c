@@ -274,6 +274,7 @@ smtp_session(struct listener *listener, int sock,
 	io_init(&s->io, sock, s, smtp_io, &s->iobuf);
 	io_set_timeout(&s->io, SMTPD_SESSION_TIMEOUT * 1000);
 	io_set_write(&s->io);
+	io_init(&s->oev, -1, s, NULL, NULL); /* initialise 'sock', but not to 0 */
 
 	s->state = STATE_NEW;
 	s->phase = PHASE_INIT;
