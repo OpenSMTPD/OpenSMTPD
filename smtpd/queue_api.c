@@ -186,8 +186,12 @@ queue_msg_dispatch(void)
 			}
 			if (ifile)
 				fclose(ifile);
+			else
+				close(imsg.fd);
 			if (ofile)
 				fclose(ofile);
+			else
+				close(fd);
 		}
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
