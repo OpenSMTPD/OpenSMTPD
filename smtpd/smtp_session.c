@@ -278,6 +278,7 @@ smtp_session(struct listener *listener, int sock,
 	io_init(&s->io, sock, s, smtp_io, &s->iobuf);
 	io_set_timeout(&s->io, SMTPD_SESSION_TIMEOUT * 1000);
 	io_set_write(&s->io);
+	io_init(&s->oev, -1, s, NULL, NULL); /* initialise 'sock', but not to 0 */
 
 	s->state = STATE_NEW;
 	s->phase = PHASE_INIT;
@@ -1778,6 +1779,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 		m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
 		m_close(p_queue);
+		io_clear(&s->oev);
+		iobuf_clear(&s->obuf);
 	}
 
 	if (s->flags & SF_FILTERCONN)
