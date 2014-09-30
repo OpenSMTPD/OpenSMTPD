@@ -775,7 +775,7 @@ main		: BOUNCEWARN {
 					YYERROR;
 				}
 			}
-		} filter_args;
+		} filter_args
 		| PKI STRING	{
 			char buf[MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
