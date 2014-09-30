@@ -312,7 +312,7 @@ ssl_load_keyfile(struct pki *p, const char *pathname, const char *pkiname)
 {
 	char	pass[1024];
 
-	p->pki_key = ssl_load_key(pathname, &p->pki_key_len, pass, 0700, pkiname);
+	p->pki_key = ssl_load_key(pathname, &p->pki_key_len, pass, 0740, pkiname);
 	if (p->pki_key == NULL)
 		return 0;
 	return 1;
