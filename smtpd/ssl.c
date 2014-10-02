@@ -491,6 +491,7 @@ ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
 	}
 
 	BIO_free(in);
+	in = NULL;
 
 	if (data != NULL && datalen) {
 		if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL ||
