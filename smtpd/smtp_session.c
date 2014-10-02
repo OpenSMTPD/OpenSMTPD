@@ -1824,21 +1824,20 @@ smtp_mailaddr(struct mailaddr *maddr, char *line, int mailfrom, char **args,
 
 	if (!valid_localpart(maddr->user) ||
 	    !valid_domainpart(maddr->domain)) {
-		/* We accept empty sender for MAIL FROM */
-		if (mailfrom &&
-		    maddr->user[0] == '\0' &&
-		    maddr->domain[0] == '\0')
+		/* accept empty return-path in MAIL FROM, required for bounces */
+		if (mailfrom && maddr->user[0] == '\0' && maddr->domain[0] == '\0')
 			return (1);
 
-		/* We accept empty domain for RCPT TO if user is postmaster */
-		if (!mailfrom &&
-		    strcasecmp(maddr->user, "postmaster") == 0 &&
-		    maddr->domain[0] == '\0') {
+		/* no user-part, reject */
+		if (maddr->user[0] == '\0')
+			return (0);
+
+		/* no domain, local user */
+		if (maddr->domain[0] == '\0') {
 			(void)strlcpy(maddr->domain, domain,
 			    sizeof(maddr->domain));
 			return (1);
 		}
-			
 		return (0);
 	}
 
