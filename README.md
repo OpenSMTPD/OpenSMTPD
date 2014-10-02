@@ -23,7 +23,9 @@ list: [http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
 
 and to join the IRC channel: #OpenSMTPD @ irc.freenode.net
 
-Cheers !
+Also note that we have a [wiki](https://github.com/OpenSMTPD/OpenSMTPD/wiki) that you are encouraged to contribute to.
+
+Cheers!
 
 
 How to build, configure and use Portable OpenSMTPD
@@ -107,7 +109,7 @@ script allows overriding these using the options:
 --with-privsep-user, --with-queue-user.
 
 
-### NetBSD, Linux (Debian, ArchLinux, ...)
+### NetBSD, Linux (Debian, Arch Linux, ...)
 
     mkdir /var/empty  
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
