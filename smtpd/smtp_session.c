@@ -46,9 +46,6 @@
 #include "log.h"
 #include "ssl.h"
 
-#define SMTP_LIMIT_MAIL		100
-#define SMTP_LIMIT_RCPT		1000
-
 #define SMTP_KICK_CMD		5
 #define SMTP_KICK_RCPTFAIL	50
 
@@ -1257,7 +1254,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (s->mailcount >= SMTP_LIMIT_MAIL) {
+		if (s->mailcount >= env->sc_session_max_mails) {
 			/* we can pretend we had too many recipients */
 			smtp_reply(s, "452 %s %s: Too many messages sent",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
@@ -1289,7 +1286,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
-		if (s->rcptcount >= SMTP_LIMIT_RCPT) {
+		if (s->rcptcount >= env->sc_session_max_rcpt) {
 			smtp_reply(s, "451 %s %s: Too many recipients",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_TOO_MANY_RECIPIENTS),
 			    esc_description(ESC_TOO_MANY_RECIPIENTS));
