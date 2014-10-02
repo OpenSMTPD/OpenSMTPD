@@ -562,6 +562,17 @@ expire 4d	# expire after 4 days
 expire 10h	# expire after 10 hours
 .Ed
 .It Xo
+.Ic limit session
+.Brq Cm max-rcpt | max-mails
+.Ar num
+.Xc
+Instruct   
+.Xr smtpd 8
+to accept a maximum number of recipients or emails at once in the receiving queue. Defaults are 100 for 
+.Ic max-mails 
+and 1000 for 
+.Ic max-rcpt .
+.It Xo
 .Ic limit mta
 .Op Ic for Ic domain Ar domain
 .Ar family
