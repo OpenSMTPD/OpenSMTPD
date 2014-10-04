@@ -275,10 +275,11 @@ enqueue(int argc, char *argv[])
 
 	if (getmailname(host, sizeof(host)) == -1)
 		err(EX_NOHOST, "getmailname");
-	if ((pw = getpwuid(getuid())) == NULL)
+	if ((user = getlogin()) != NULL && *user != '\0')
+		pw = getpwnam(user);
+	else if ((pw = getpwuid(getuid())) == NULL)
 		user = "anonymous";
-	if (pw != NULL)
-		user = xstrdup(pw->pw_name, "enqueue");
+	user = xstrdup(pw ? pw->pw_name : user, "enqueue");
 
 	build_from(fake_from, pw);
 
@@ -294,7 +295,7 @@ enqueue(int argc, char *argv[])
 			unlink(sfn);
 			close(fd);
 		}
-		err(EX_UNAVAILABLE, "mkstemp");
+		errc(EX_UNAVAILABLE, saved_errno, "mkstemp");
 	}
 	unlink(sfn);
 	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
@@ -771,7 +772,7 @@ open_connection(void)
 	imsg_compose(ibuf, IMSG_CTL_SMTP_SESSION, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0 && errno != EAGAIN)
+		if (msgbuf_write(&ibuf->w) <= 0 && errno != EAGAIN)
 			err(1, "write error");
 
 	while (1) {
