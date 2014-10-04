@@ -273,10 +273,11 @@ enqueue(int argc, char *argv[])
 
 	if (getmailname(host, sizeof(host)) == -1)
 		err(EX_NOHOST, "getmailname");
-	if ((pw = getpwuid(getuid())) == NULL)
+	if ((user = getlogin()) != NULL && *user != '\0')
+		pw = getpwnam(user);
+	else if ((pw = getpwuid(getuid())) == NULL)
 		user = "anonymous";
-	if (pw != NULL)
-		user = xstrdup(pw->pw_name, "enqueue");
+	user = xstrdup(pw ? pw->pw_name : user, "enqueue");
 
 	build_from(fake_from, pw);
 
