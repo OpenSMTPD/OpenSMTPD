@@ -289,6 +289,7 @@ enqueue(int argc, char *argv[])
 
 	if ((fd = mkstemp(sfn)) == -1 ||
 	    (fp = fdopen(fd, "w+")) == NULL) {
+		int saved_errno = errno;
 		if (fd != -1) {
 			unlink(sfn);
 			close(fd);
