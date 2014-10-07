@@ -540,6 +540,9 @@ bounce_next(struct bounce_session *s)
 			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
 				fclose(s->msgfp);
 				s->msgfp = NULL;
+				iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+	    	    		    "\n--%16" PRIu64 "/%s--\n", s->boundary,
+				    s->smtpname);
 				bounce_send(s, ".");
 				s->state = BOUNCE_DATA_END;
 				return (0);
