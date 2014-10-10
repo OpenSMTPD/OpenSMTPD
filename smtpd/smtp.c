@@ -222,7 +222,7 @@ smtp_enqueue(uid_t *euid)
 		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
 		listener->ss.ss_family = AF_LOCAL;
 		listener->ss.ss_len = sizeof(struct sockaddr *);
-		(void)strlcpy(listener->hostname, "localhost",
+		(void)strlcpy(listener->hostname, env->sc_hostname,
 		    sizeof(listener->hostname));
 	}
 
@@ -238,9 +238,9 @@ smtp_enqueue(uid_t *euid)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		fatal("socketpair");
 
-	hostname = "localhost";
+	hostname = env->sc_hostname;
 	if (euid) {
-		(void)snprintf(buf, sizeof(buf), "%d@localhost", *euid);
+		(void)snprintf(buf, sizeof(buf), "%d@%s", *euid, hostname);
 		hostname = buf;
 	}
 
