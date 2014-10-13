@@ -210,6 +210,6 @@ void *reallocarray(void *, size_t, size_t);
 
 #ifndef HAVE_ERRC
 void errc(int, int, const char *, ...);
-#enddif
+#endif
 
 #endif /* _OPENBSD_COMPAT_H */
