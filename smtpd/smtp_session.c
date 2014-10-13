@@ -82,12 +82,14 @@ enum session_flags {
 };
 
 enum message_flags {
-	MF_QUEUE_ENVELOPE_FAIL	= 0x0001,
-	MF_ERROR_SIZE		= 0x1000,
-	MF_ERROR_IO		= 0x2000,
-	MF_ERROR_LOOP		= 0x4000,
+	MF_QUEUE_ENVELOPE_FAIL	= 0x00001,
+	MF_ERROR_SIZE		= 0x01000,
+	MF_ERROR_IO		= 0x02000,
+	MF_ERROR_LOOP		= 0x04000,
+	MF_ERROR_MALFORMED      = 0x08000,
+	MF_ERROR_RESOURCES      = 0x10000,
 };
-#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO | MF_ERROR_LOOP)
+#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO | MF_ERROR_LOOP | MF_ERROR_MALFORMED | MF_ERROR_RESOURCES)
 
 enum smtp_command {
 	CMD_HELO = 0,
@@ -228,6 +230,60 @@ static struct tree wait_queue_fd;
 static struct tree wait_queue_commit;
 static struct tree wait_ssl_init;
 static struct tree wait_ssl_verify;
+
+static void
+header_default_callback(const struct rfc2822_header *hdr, void *arg)
+{
+	/*
+        struct smtp_session    *s = arg;
+        struct rfc2822_line    *l;
+        size_t                  len;
+
+        len = strlen(hdr->name) + 1;
+        if (fprintf(s->ofile, "%s:", hdr->name) != (int)len) {
+                s->msgflags |= MF_ERROR_IO;
+                return;
+        }
+        s->datalen += len;
+
+        TAILQ_FOREACH(l, &hdr->lines, next) {
+                len = strlen(l->buffer) + 1;
+                if (fprintf(s->ofile, "%s\n", l->buffer) != (int)len) {
+                        s->msgflags |= MF_ERROR_IO;
+                        return;
+                }
+                s->datalen += len;
+        }
+	*/
+}
+
+static void
+dataline_callback(const char *line, void *arg)
+{
+	/*
+        struct smtp_session     *s = arg;
+        size_t                  len;
+
+        len = strlen(line) + 1;
+
+        if (s->datalen + len > env->sc_maxsize) {
+                s->msgflags |= MF_ERROR_SIZE;
+                return;
+        }
+
+        if (fprintf(s->ofile, "%s\n", line) != (int)len) {
+                s->msgflags |= MF_ERROR_IO;
+                return;
+        }
+
+        s->datalen += len;
+	*/
+}
+
+static void
+header_bcc_callback(const struct rfc2822_header *hdr, void *arg)
+{
+}
 
 static void
 smtp_session_init(void)
@@ -1061,6 +1117,14 @@ smtp_data_io_done(struct smtp_session *s)
 			smtp_reply(s, "500 %s %s: Loop detected",
 				esc_code(ESC_STATUS_PERMFAIL, ESC_ROUTING_LOOP_DETECTED),
 				esc_description(ESC_ROUTING_LOOP_DETECTED));
+                else if (s->msgflags & MF_ERROR_RESOURCES)
+                        smtp_reply(s, "421 %s: Temporary Error",
+                            esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+                else if (s->msgflags & MF_ERROR_MALFORMED)
+                        smtp_reply(s, "550 %s %s: Message is not RFC 2822 compliant",
+                            esc_code(ESC_STATUS_PERMFAIL,
+				ESC_DELIVERY_NOT_AUTHORIZED_MESSAGE_REFUSED),
+                            esc_description(ESC_DELIVERY_NOT_AUTHORIZED_MESSAGE_REFUSED));
 		else if (s->msgflags)
 			smtp_reply(s, "421 Internal server error");
 		smtp_message_reset(s, 0);
@@ -2061,6 +2125,7 @@ static void
 smtp_filter_dataline(struct smtp_session *s, const char *line)
 {
 	int	n;
+	int	ret;
 
 	/* ignore data line if an error flag is set */
 	if (s->msgflags & MF_ERROR)
@@ -2078,6 +2143,17 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 			log_warn("warn: loop detected");
 			return;
 		}
+	}
+
+	ret = rfc2822_parser_feed(&s->rfc2822_parser, line);
+	if (ret == -1) {
+		s->msgflags |= MF_ERROR_RESOURCES;
+		return;
+	}
+
+	if (ret == 0) {
+		s->msgflags |= MF_ERROR_MALFORMED;
+		return;
 	}
 
 	n = iobuf_fqueue(&s->obuf, "%s\n", line);
