@@ -282,6 +282,74 @@ header_bcc_callback(const struct rfc2822_header *hdr, void *arg)
 }
 
 static void
+header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
+{
+        struct smtp_session    *s = arg;
+        struct rfc822_parser    rp;
+        struct rfc2822_line    *l;
+        struct rfc822_address  *ra;
+        size_t                  len;
+        char                    buf[SMTPD_MAXLINESIZE];
+        int                     ret;
+
+        rfc822_parser_init(&rp);
+        TAILQ_FOREACH(l, &hdr->lines, next)
+            if (! rfc822_parser_feed(&rp, l->buffer))
+                    goto fail;
+
+        len = strlen(hdr->name) + 1;
+	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len) {
+                s->msgflags |= MF_ERROR_IO;
+                rfc822_parser_reset(&rp);
+                return;
+	}
+        s->odatalen += len;
+
+        TAILQ_FOREACH(ra, &rp.addresses, next) {
+                /* no address provided, append local host */
+                if (strchr(ra->address, '@') == NULL) {
+                        (void)strlcat(ra->address, "@", sizeof ra->address);
+                        if (strlcat(ra->address, s->listener->hostname,
+                                sizeof ra->address) >= sizeof ra->address)
+                                goto fail;
+                }
+
+                if (ra->name[0] == '\0') {
+                        ret = snprintf(buf, sizeof buf, "%s%s%s",
+                            TAILQ_FIRST(&rp.addresses) == ra ? " " : "\t",
+                            ra->address,
+                            TAILQ_LAST(&rp.addresses, addresses) == ra ? "" : ",");
+                }
+                else {
+                        ret = snprintf(buf, sizeof buf, "%s%s <%s>%s",
+                            TAILQ_FIRST(&rp.addresses) == ra ? " " : "\t",
+                            ra->name,
+                            ra->address,
+                            TAILQ_LAST(&rp.addresses, addresses) == ra ? "" : ",");
+                }
+                if (ret == -1 || ret >= (int)sizeof buf) {
+			s->msgflags |= MF_ERROR_MALFORMED;
+			rfc822_parser_reset(&rp);
+			return;
+		}
+
+		len = strlen(buf) + 1;
+		if (iobuf_fqueue(&s->obuf, "%s\n", buf) != (int)len) {
+			s->msgflags |= MF_ERROR_IO;
+			rfc822_parser_reset(&rp);
+			return;
+		}
+		s->odatalen += len;
+        }
+        rfc822_parser_reset(&rp);
+        return;
+
+fail:
+        rfc822_parser_reset(&rp);
+        header_default_callback(hdr, arg);
+}
+
+static void
 smtp_session_init(void)
 {
 	static int	init = 0;
@@ -355,6 +423,12 @@ smtp_session(struct listener *listener, int sock,
 	    header_default_callback, s);
 	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
             header_bcc_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "from",
+            header_masquerade_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "to",
+            header_masquerade_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "cc",
+            header_masquerade_callback, s);
 	rfc2822_body_callback(&s->rfc2822_parser,
 	    dataline_callback, s);
 	return (0);
