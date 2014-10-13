@@ -208,4 +208,8 @@ struct passwd *pw_dup(const struct passwd *);
 void *reallocarray(void *, size_t, size_t);
 #endif
 
+#ifndef HAVE_ERRC
+void errc(int, int, const char *, ...);
+#enddif
+
 #endif /* _OPENBSD_COMPAT_H */
