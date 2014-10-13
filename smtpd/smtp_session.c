@@ -234,50 +234,46 @@ static struct tree wait_ssl_verify;
 static void
 header_default_callback(const struct rfc2822_header *hdr, void *arg)
 {
-	/*
         struct smtp_session    *s = arg;
         struct rfc2822_line    *l;
         size_t                  len;
 
         len = strlen(hdr->name) + 1;
-        if (fprintf(s->ofile, "%s:", hdr->name) != (int)len) {
+	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len) {
                 s->msgflags |= MF_ERROR_IO;
                 return;
-        }
-        s->datalen += len;
+	}
+	s->odatalen += len;
 
         TAILQ_FOREACH(l, &hdr->lines, next) {
                 len = strlen(l->buffer) + 1;
-                if (fprintf(s->ofile, "%s\n", l->buffer) != (int)len) {
-                        s->msgflags |= MF_ERROR_IO;
-                        return;
-                }
-                s->datalen += len;
-        }
-	*/
+		if (iobuf_fqueue(&s->obuf, "%s\n", l->buffer) != (int)len) {
+			s->msgflags |= MF_ERROR_IO;
+			return;
+		}
+		s->odatalen += len;
+	}
 }
 
 static void
 dataline_callback(const char *line, void *arg)
 {
-	/*
         struct smtp_session     *s = arg;
         size_t                  len;
 
-        len = strlen(line) + 1;
+	len = strlen(line) + 1;
 
-        if (s->datalen + len > env->sc_maxsize) {
+        if (s->odatalen + len > env->sc_maxsize) {
                 s->msgflags |= MF_ERROR_SIZE;
                 return;
         }
 
-        if (fprintf(s->ofile, "%s\n", line) != (int)len) {
+	if (iobuf_fqueue(&s->obuf, "%s\n", line) != (int)len) {
                 s->msgflags |= MF_ERROR_IO;
                 return;
-        }
+	}
 
-        s->datalen += len;
-	*/
+        s->odatalen += len;
 }
 
 static void
@@ -355,6 +351,12 @@ smtp_session(struct listener *listener, int sock,
 	}
 
 	rfc2822_parser_init(&s->rfc2822_parser);
+	rfc2822_header_default_callback(&s->rfc2822_parser,
+	    header_default_callback, s);
+	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
+            header_bcc_callback, s);
+	rfc2822_body_callback(&s->rfc2822_parser,
+	    dataline_callback, s);
 	return (0);
 }
 
@@ -2124,7 +2126,6 @@ smtp_filter_data(struct smtp_session *s)
 static void
 smtp_filter_dataline(struct smtp_session *s, const char *line)
 {
-	int	n;
 	int	ret;
 
 	/* ignore data line if an error flag is set */
@@ -2155,14 +2156,6 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 		s->msgflags |= MF_ERROR_MALFORMED;
 		return;
 	}
-
-	n = iobuf_fqueue(&s->obuf, "%s\n", line);
-	if (n == -1) {
-		/* XXX */
-		fatalx("iobuf_fqueue");
-	}
-
-	s->odatalen += strlen(line) +1;
 
 	if (iobuf_queued(&s->obuf) > DATA_HIWAT && !(s->io.flags & IO_PAUSE_IN)) {
 		log_debug("debug: smtp: %p: filter congestion over: pausing session", s);
