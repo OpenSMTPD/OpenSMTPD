@@ -289,7 +289,7 @@ iobuf_queue(struct iobuf *io, const void *data, size_t len)
 
 	memmove(buf, data, len);
 
-	return (0);
+	return (len);
 }
 
 int

@@ -84,12 +84,14 @@ enum session_flags {
 };
 
 enum message_flags {
-	MF_QUEUE_ENVELOPE_FAIL	= 0x0001,
-	MF_ERROR_SIZE		= 0x1000,
-	MF_ERROR_IO		= 0x2000,
-	MF_ERROR_LOOP		= 0x4000,
+	MF_QUEUE_ENVELOPE_FAIL	= 0x00001,
+	MF_ERROR_SIZE		= 0x01000,
+	MF_ERROR_IO		= 0x02000,
+	MF_ERROR_LOOP		= 0x04000,
+	MF_ERROR_MALFORMED      = 0x08000,
+	MF_ERROR_RESOURCES      = 0x10000,
 };
-#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO | MF_ERROR_LOOP)
+#define MF_ERROR	(MF_ERROR_SIZE | MF_ERROR_IO | MF_ERROR_LOOP | MF_ERROR_MALFORMED | MF_ERROR_RESOURCES)
 
 enum smtp_command {
 	CMD_HELO = 0,
@@ -152,6 +154,8 @@ struct smtp_session {
 
 	int			 skiphdr;
 	struct event		 pause;
+
+	struct rfc2822_parser	 rfc2822_parser;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -232,6 +236,124 @@ static struct tree wait_ssl_init;
 static struct tree wait_ssl_verify;
 
 static void
+header_default_callback(const struct rfc2822_header *hdr, void *arg)
+{
+        struct smtp_session    *s = arg;
+        struct rfc2822_line    *l;
+        size_t                  len;
+
+        len = strlen(hdr->name) + 1;
+	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len) {
+                s->msgflags |= MF_ERROR_IO;
+                return;
+	}
+	s->odatalen += len;
+
+        TAILQ_FOREACH(l, &hdr->lines, next) {
+                len = strlen(l->buffer) + 1;
+		if (iobuf_fqueue(&s->obuf, "%s\n", l->buffer) != (int)len) {
+			s->msgflags |= MF_ERROR_IO;
+			return;
+		}
+		s->odatalen += len;
+	}
+}
+
+static void
+dataline_callback(const char *line, void *arg)
+{
+        struct smtp_session     *s = arg;
+        size_t                  len;
+
+	len = strlen(line) + 1;
+
+        if (s->odatalen + len > env->sc_maxsize) {
+                s->msgflags |= MF_ERROR_SIZE;
+                return;
+        }
+
+	if (iobuf_fqueue(&s->obuf, "%s\n", line) != (int)len) {
+                s->msgflags |= MF_ERROR_IO;
+                return;
+	}
+
+        s->odatalen += len;
+}
+
+static void
+header_bcc_callback(const struct rfc2822_header *hdr, void *arg)
+{
+}
+
+static void
+header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
+{
+        struct smtp_session    *s = arg;
+        struct rfc822_parser    rp;
+        struct rfc2822_line    *l;
+        struct rfc822_address  *ra;
+        size_t                  len;
+        char                    buf[SMTPD_MAXLINESIZE];
+        int                     ret;
+
+        rfc822_parser_init(&rp);
+        TAILQ_FOREACH(l, &hdr->lines, next)
+            if (! rfc822_parser_feed(&rp, l->buffer))
+                    goto fail;
+
+        len = strlen(hdr->name) + 1;
+	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len) {
+                s->msgflags |= MF_ERROR_IO;
+                rfc822_parser_reset(&rp);
+                return;
+	}
+        s->odatalen += len;
+
+        TAILQ_FOREACH(ra, &rp.addresses, next) {
+                /* no address provided, append local host */
+                if (strchr(ra->address, '@') == NULL) {
+                        (void)strlcat(ra->address, "@", sizeof ra->address);
+                        if (strlcat(ra->address, s->listener->hostname,
+                                sizeof ra->address) >= sizeof ra->address)
+                                goto fail;
+                }
+
+                if (ra->name[0] == '\0') {
+                        ret = snprintf(buf, sizeof buf, "%s%s%s",
+                            TAILQ_FIRST(&rp.addresses) == ra ? " " : "\t",
+                            ra->address,
+                            TAILQ_LAST(&rp.addresses, addresses) == ra ? "" : ",");
+                }
+                else {
+                        ret = snprintf(buf, sizeof buf, "%s%s <%s>%s",
+                            TAILQ_FIRST(&rp.addresses) == ra ? " " : "\t",
+                            ra->name,
+                            ra->address,
+                            TAILQ_LAST(&rp.addresses, addresses) == ra ? "" : ",");
+                }
+                if (ret == -1 || ret >= (int)sizeof buf) {
+			s->msgflags |= MF_ERROR_MALFORMED;
+			rfc822_parser_reset(&rp);
+			return;
+		}
+
+		len = strlen(buf) + 1;
+		if (iobuf_fqueue(&s->obuf, "%s\n", buf) != (int)len) {
+			s->msgflags |= MF_ERROR_IO;
+			rfc822_parser_reset(&rp);
+			return;
+		}
+		s->odatalen += len;
+        }
+        rfc822_parser_reset(&rp);
+        return;
+
+fail:
+        rfc822_parser_reset(&rp);
+        header_default_callback(hdr, arg);
+}
+
+static void
 smtp_session_init(void)
 {
 	static int	init = 0;
@@ -300,6 +422,19 @@ smtp_session(struct listener *listener, int sock,
 		tree_xset(&wait_lka_ptr, s->id, s);
 	}
 
+	rfc2822_parser_init(&s->rfc2822_parser);
+	rfc2822_header_default_callback(&s->rfc2822_parser,
+	    header_default_callback, s);
+	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
+            header_bcc_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "from",
+            header_masquerade_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "to",
+            header_masquerade_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "cc",
+            header_masquerade_callback, s);
+	rfc2822_body_callback(&s->rfc2822_parser,
+	    dataline_callback, s);
 	return (0);
 }
 
@@ -1065,6 +1200,14 @@ smtp_data_io_done(struct smtp_session *s)
 			smtp_reply(s, "500 %s %s: Loop detected",
 				esc_code(ESC_STATUS_PERMFAIL, ESC_ROUTING_LOOP_DETECTED),
 				esc_description(ESC_ROUTING_LOOP_DETECTED));
+                else if (s->msgflags & MF_ERROR_RESOURCES)
+                        smtp_reply(s, "421 %s: Temporary Error",
+                            esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+                else if (s->msgflags & MF_ERROR_MALFORMED)
+                        smtp_reply(s, "550 %s %s: Message is not RFC 2822 compliant",
+                            esc_code(ESC_STATUS_PERMFAIL,
+				ESC_DELIVERY_NOT_AUTHORIZED_MESSAGE_REFUSED),
+                            esc_description(ESC_DELIVERY_NOT_AUTHORIZED_MESSAGE_REFUSED));
 		else if (s->msgflags)
 			smtp_reply(s, "421 Internal server error");
 		smtp_message_reset(s, 0);
@@ -1354,6 +1497,8 @@ smtp_command(struct smtp_session *s, char *line)
 			    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
 			break;
 		}
+
+		rfc2822_parser_reset(&s->rfc2822_parser);
 
 		smtp_filter_data(s);
 		break;
@@ -1806,6 +1951,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 		free(rcpt);
 	}
 
+	rfc2822_parser_release(&s->rfc2822_parser);
+
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);
 	free(s);
@@ -2062,7 +2209,7 @@ smtp_filter_data(struct smtp_session *s)
 static void
 smtp_filter_dataline(struct smtp_session *s, const char *line)
 {
-	int	n;
+	int	ret;
 
 	/* ignore data line if an error flag is set */
 	if (s->msgflags & MF_ERROR)
@@ -2082,13 +2229,16 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 		}
 	}
 
-	n = iobuf_fqueue(&s->obuf, "%s\n", line);
-	if (n == -1) {
-		/* XXX */
-		fatalx("iobuf_fqueue");
+	ret = rfc2822_parser_feed(&s->rfc2822_parser, line);
+	if (ret == -1) {
+		s->msgflags |= MF_ERROR_RESOURCES;
+		return;
 	}
 
-	s->odatalen += strlen(line) +1;
+	if (ret == 0) {
+		s->msgflags |= MF_ERROR_MALFORMED;
+		return;
+	}
 
 	if (iobuf_queued(&s->obuf) > DATA_HIWAT && !(s->io.flags & IO_PAUSE_IN)) {
 		log_debug("debug: smtp: %p: filter congestion over: pausing session", s);
