@@ -150,6 +150,8 @@ struct smtp_session {
 
 	int			 skiphdr;
 	struct event		 pause;
+
+	struct rfc2822_parser	 rfc2822_parser;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -296,6 +298,7 @@ smtp_session(struct listener *listener, int sock,
 		tree_xset(&wait_lka_ptr, s->id, s);
 	}
 
+	rfc2822_parser_init(&s->rfc2822_parser);
 	return (0);
 }
 
@@ -1348,6 +1351,8 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
+		rfc2822_parser_reset(&s->rfc2822_parser);
+
 		smtp_filter_data(s);
 		break;
 	/*
@@ -1798,6 +1803,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 		TAILQ_REMOVE(&s->rcpts, rcpt, entry);
 		free(rcpt);
 	}
+
+	rfc2822_parser_release(&s->rfc2822_parser);
 
 	io_clear(&s->io);
 	iobuf_clear(&s->iobuf);

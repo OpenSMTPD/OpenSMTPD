@@ -40,6 +40,8 @@ SRCS+=		queue_backend.c
 .if ${NEED_REALLOCARRAY} == "Yes"
 SRCS+=		reallocarray.c
 .endif
+SRCS+=		rfc2822.c
+SRCS+=		rfc822.c
 SRCS+=		ruleset.c
 SRCS+=		runq.c
 SRCS+=		scheduler.c
