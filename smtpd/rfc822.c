@@ -84,12 +84,16 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 	}
 
 	/* some flags still set, malformed header */
-	if (rp->escape || rp->comment || rp->quote || rp->bracket)
+	if (rp->escape || rp->comment || rp->quote || rp->bracket) {
+		free(ra);
 		return 0;
+	}
 
 	/* no value, malformed header */
-	if (ra->name[0] == '\0' && ra->address[0] == '\0')
+	if (ra->name[0] == '\0' && ra->address[0] == '\0') {
+		free(ra);
 		return 0;
+	}
 
 	/* no <>, use name as address */
 	if (ra->address[0] == '\0') {
