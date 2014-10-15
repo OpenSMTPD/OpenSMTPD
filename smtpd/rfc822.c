@@ -34,7 +34,7 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 {
 	const char		*s;
 	char			*wptr;
-	struct rfc822_address	*ra;
+	struct rfc822_address	*ra = NULL;
 
 	s = buffer;
 
@@ -57,10 +57,14 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 		if (*s == '"' && !rp->escape && !rp->comment)
 			rp->quote = !rp->quote;
 		if (!rp->comment && !rp->quote && !rp->escape) {
-			if (*s == '<' && rp->bracket)
+			if (*s == '<' && rp->bracket) {
+				free(ra);
 				return 0;
-			if (*s == '>' && !rp->bracket)
+			}
+			if (*s == '>' && !rp->bracket) {
+				free(ra);
 				return 0;
+			}
 
 			if (*s == '<') {
 				wptr = ra->address;
