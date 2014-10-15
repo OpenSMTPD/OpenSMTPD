@@ -76,7 +76,7 @@ parser_feed_header(struct rfc2822_parser *rp, char *line)
 	char			*pos;
 
 	/* new header */	
-	if (! isspace(*line)) {
+	if (! isspace(*line) && *line != '\0') {
 		rp->in_hdr = 1;
 		if ((pos = strchr(line, ':')) == NULL)
 			return 0;
