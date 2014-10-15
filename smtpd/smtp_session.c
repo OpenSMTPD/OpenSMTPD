@@ -314,8 +314,11 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
                 if (strchr(ra->address, '@') == NULL) {
                         (void)strlcat(ra->address, "@", sizeof ra->address);
                         if (strlcat(ra->address, s->listener->hostname,
-                                sizeof ra->address) >= sizeof ra->address)
-                                goto fail;
+                                sizeof ra->address) >= sizeof ra->address) {
+				s->msgflags |= MF_ERROR_MALFORMED;
+				rfc822_parser_reset(&rp);
+				return;
+			}
                 }
 
                 if (ra->name[0] == '\0') {
