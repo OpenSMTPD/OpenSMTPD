@@ -263,7 +263,7 @@ ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len)
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 	SSL_CTX_set_timeout(ctx, SSL_SESSION_TIMEOUT);
 	SSL_CTX_set_options(ctx,
-	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_TICKET);
+	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TICKET);
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
