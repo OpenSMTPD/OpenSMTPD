@@ -1,4 +1,4 @@
-/*	$OpenBSD: rfc822.c,v 1.2 2014/10/12 18:58:57 gilles Exp $	*/
+/*	$OpenBSD: rfc822.c,v 1.4 2014/10/15 08:04:41 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -36,7 +36,7 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 {
 	const char		*s;
 	char			*wptr;
-	struct rfc822_address	*ra = NULL;
+	struct rfc822_address	*ra;
 
 	s = buffer;
 
@@ -116,6 +116,7 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 	}
 
 	TAILQ_INSERT_TAIL(&rp->addresses, ra, next);
+	rp->count++;
 
 	/* do we have more to process ? */
 	for (; *s; ++s, --len)
@@ -158,5 +159,7 @@ rfc822_parser_reset(struct rfc822_parser *rp)
 int
 rfc822_parser_feed(struct rfc822_parser *rp, const char *line)
 {
+	if (rp->count >= RFC822_MAX_BUFFERS)
+		return -1;
 	return parse_addresses(rp, line, strlen(line));
 }
