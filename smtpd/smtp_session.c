@@ -301,6 +301,8 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
             if (! rfc822_parser_feed(&rp, l->buffer))
                     goto fail;
 
+	rfc822_parser_finish(&rp);
+
         len = strlen(hdr->name) + 1;
 	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len) {
                 s->msgflags |= MF_ERROR_IO;

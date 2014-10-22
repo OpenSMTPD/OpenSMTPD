@@ -32,6 +32,8 @@ struct rfc822_parser {
 	size_t					count;
 	TAILQ_HEAD(addresses, rfc822_address)	addresses;
 
+	struct rfc822_address		*ra;
+
 	uint8_t				quote;
 	uint8_t				comment;
 	uint8_t				escape;
@@ -40,6 +42,7 @@ struct rfc822_parser {
 
 void	rfc822_parser_init(struct rfc822_parser *);
 void	rfc822_parser_reset(struct rfc822_parser *);
+void	rfc822_parser_finish(struct rfc822_parser *);
 int	rfc822_parser_feed(struct rfc822_parser *, const char *);
 
 #endif
