@@ -30,11 +30,48 @@
 #include "rfc822.h"
 
 static int
+parse_addresses_finish(struct rfc822_parser *rp)
+{
+	char			*wptr;
+
+	/* some flags still set, malformed header */
+	if (rp->escape || rp->comment || rp->quote || rp->bracket) {
+		free(rp->ra);
+		return 0;
+	}
+
+	/* no value, malformed header */
+	if (rp->ra->name[0] == '\0' && rp->ra->address[0] == '\0') {
+		free(rp->ra);
+		return 0;
+	}
+
+	/* no <>, use name as address */
+	if (rp->ra->address[0] == '\0') {
+		memcpy(rp->ra->address, rp->ra->name, sizeof rp->ra->address);
+		memset(rp->ra->name, 0, sizeof rp->ra->name);
+	}
+
+	/* strip first trailing whitespace from name */
+	wptr = &rp->ra->name[0] + strlen(rp->ra->name);
+	while (wptr != &rp->ra->name[0]) {
+		if (*wptr && ! isspace(*wptr))
+			break;
+		*wptr-- = '\0';
+	}
+
+	TAILQ_INSERT_TAIL(&rp->addresses, rp->ra, next);
+	rp->count++;
+	rp->ra = NULL;
+
+	return 1;
+}
+
+static int
 parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 {
 	const char		*s;
 	char			*wptr;
-	struct rfc822_address	*ra;
 
 	s = buffer;
 
@@ -46,11 +83,13 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 	if (*s == '\0')
 		return 0;
 
-	ra = calloc(1, sizeof *ra);
-	if (ra == NULL)
-		return -1;
+	if (rp->ra == NULL) {
+		rp->ra = calloc(1, sizeof *(rp->ra));
+		if (rp->ra == NULL)
+			return -1;
+	}
 
-	wptr = ra->name;
+	wptr = rp->ra->name;
 	for (; len; s++, len--) {
 		if (*s == '(' && !rp->escape && !rp->quote)
 			rp->comment++;
@@ -58,16 +97,16 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 			rp->quote = !rp->quote;
 		if (!rp->comment && !rp->quote && !rp->escape) {
 			if (*s == '<' && rp->bracket) {
-				free(ra);
+				free(rp->ra);
 				return 0;
 			}
 			if (*s == '>' && !rp->bracket) {
-				free(ra);
+				free(rp->ra);
 				return 0;
 			}
 
 			if (*s == '<') {
-				wptr = ra->address;
+				wptr = rp->ra->address;
 				rp->bracket++;
 				continue;
 			}
@@ -87,34 +126,11 @@ parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 		*wptr++ = *s;
 	}
 
-	/* some flags still set, malformed header */
-	if (rp->escape || rp->comment || rp->quote || rp->bracket) {
-		free(ra);
+	if (*s == '\0')
+		return 1;
+
+	if (!parse_addresses_finish(rp))
 		return 0;
-	}
-
-	/* no value, malformed header */
-	if (ra->name[0] == '\0' && ra->address[0] == '\0') {
-		free(ra);
-		return 0;
-	}
-
-	/* no <>, use name as address */
-	if (ra->address[0] == '\0') {
-		memcpy(ra->address, ra->name, sizeof ra->address);
-		memset(ra->name, 0, sizeof ra->name);
-	}
-
-	/* strip first trailing whitespace from name */
-	wptr = &ra->name[0] + strlen(ra->name);
-	while (wptr != &ra->name[0]) {
-		if (*wptr && ! isspace(*wptr))
-			break;
-		*wptr-- = '\0';
-	}
-
-	TAILQ_INSERT_TAIL(&rp->addresses, ra, next);
-	rp->count++;
 
 	/* do we have more to process ? */
 	for (; *s; ++s, --len)
@@ -152,6 +168,15 @@ rfc822_parser_reset(struct rfc822_parser *rp)
 		free(ra);
 	}
 	memset(rp, 0, sizeof *rp);
+}
+
+void
+rfc822_parser_finish(struct rfc822_parser *rp)
+{
+	if (!rp->ra)
+		return;
+
+	parse_addresses_finish(rp);
 }
 
 int
