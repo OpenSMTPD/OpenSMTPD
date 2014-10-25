@@ -102,6 +102,7 @@ static void bounce_io(struct io *, int);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce_session *);
 static const char *bounce_strtype(enum bounce_type);
+static const char *action_str(const struct delivery_bounce *);
 
 static struct tree			wait_fd;
 static struct bounce_message_tree	messages;
@@ -510,11 +511,13 @@ bounce_next(struct bounce_session *s)
 		TAILQ_FOREACH(evp, &s->msg->envelopes, entry) {
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    	    "Final-Recipient: rfc822; %s@%s\n"
+			    "Action: %s\n"
 	    	    	    "Status: %s\n"
 	    	    	    "Diagnostic-Code: smtp; %s\n"
 	    	    	    "\n",
 			    evp->dest.user,
 			    evp->dest.domain,
+			    action_str(&s->msg->bounce),
 	    	    	    esc_code(evp->esc_class, evp->esc_code),
 	    	    	    esc_description(evp->esc_code));
 		}
@@ -542,6 +545,9 @@ bounce_next(struct bounce_session *s)
 			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
 				fclose(s->msgfp);
 				s->msgfp = NULL;
+				iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
+	    	    		    "\n--%16" PRIu64 "/%s--\n", s->boundary,
+				    s->smtpname);
 				bounce_send(s, ".");
 				s->state = BOUNCE_DATA_END;
 				return (0);
@@ -777,6 +783,25 @@ bounce_message_cmp(const struct bounce_message *a,
 		return (r);
 
 	return memcmp(&a->bounce, &b->bounce, sizeof (a->bounce));
+}
+
+static const char *
+action_str(const struct delivery_bounce *b)
+{
+	switch (b->type) {
+	case B_ERROR:
+		return ("failed");
+	case B_WARNING:
+		return ("delayed");
+	case B_DSN:
+		if (b->mta_without_dsn)
+			return ("relayed");
+		
+		return ("delivered");
+	default:
+		log_warn("warn: bounce: unknown bounce_type");
+		return ("");
+	}
 }
 
 static const char *
