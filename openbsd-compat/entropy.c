@@ -48,7 +48,7 @@
 //#include "xmalloc.h"
 //#include "atomicio.h"
 //#include "pathnames.h"
-#include "log.h"
+#include "smtpd/log.h"
 //#include "buffer.h"
 
 void
