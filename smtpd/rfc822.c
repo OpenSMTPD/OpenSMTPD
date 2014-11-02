@@ -75,6 +75,44 @@ parse_addresses_finish(struct rfc822_parser *rp)
 }
 
 static int
+parse_addresses_finish(struct rfc822_parser *rp)
+{
+	char			*wptr;
+
+	/* some flags still set, malformed header */
+	if (rp->escape || rp->comment || rp->quote || rp->bracket) {
+		free(rp->ra);
+		return 0;
+	}
+
+	/* no value, malformed header */
+	if (rp->ra->name[0] == '\0' && rp->ra->address[0] == '\0') {
+		free(rp->ra);
+		return 0;
+	}
+
+	/* no <>, use name as address */
+	if (rp->ra->address[0] == '\0') {
+		memcpy(rp->ra->address, rp->ra->name, sizeof rp->ra->address);
+		memset(rp->ra->name, 0, sizeof rp->ra->name);
+	}
+
+	/* strip first trailing whitespace from name */
+	wptr = &rp->ra->name[0] + strlen(rp->ra->name);
+	while (wptr != &rp->ra->name[0]) {
+		if (*wptr && ! isspace(*wptr))
+			break;
+		*wptr-- = '\0';
+	}
+
+	TAILQ_INSERT_TAIL(&rp->addresses, rp->ra, next);
+	rp->count++;
+	rp->ra = NULL;
+
+	return 1;
+}
+
+static int
 parse_addresses(struct rfc822_parser *rp, const char *buffer, size_t len)
 {
 	const char		*s;
