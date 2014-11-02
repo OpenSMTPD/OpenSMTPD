@@ -38,7 +38,6 @@
 #include "iobuf.h"
 
 #include "rfc2822.h"
-#include "rfc822.h"
 
 #ifndef SMTPD_CONFDIR
 #define SMTPD_CONFDIR		 "/etc"

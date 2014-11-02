@@ -41,7 +41,6 @@ SRCS+=		queue_backend.c
 SRCS+=		reallocarray.c
 .endif
 SRCS+=		rfc2822.c
-SRCS+=		rfc822.c
 SRCS+=		ruleset.c
 SRCS+=		runq.c
 SRCS+=		scheduler.c
