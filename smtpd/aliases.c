@@ -167,7 +167,7 @@ aliases_virtual_get(struct expand *expand, const struct mailaddr *maddr)
 	if (! bsnprintf(buf, sizeof(buf), "@%s", domain))
 		return 0;
 	/* Failed ? We lookup for catch all for virtual domain */
-	ret = table_lookup(mapping, NULL, pbuf, K_ALIAS, &lk);
+	ret = table_lookup(mapping, NULL, buf, K_ALIAS, &lk);
 	if (ret < 0)
 		return (-1);
 	if (ret)
