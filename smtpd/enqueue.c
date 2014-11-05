@@ -161,48 +161,6 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 	}
 }
 
-static void
-send_header(FILE *fout, const char *line, size_t len)
-{
-	int	i;
-
-	if (strncasecmp("To:", line, 3) != 0 &&
-	    strncasecmp("Cc:", line, 3) != 0 &&
-	    strncasecmp("Bcc:", line, 4) != 0 &&
-	    strncasecmp("From:", line, 5) != 0) {
-		send_line(fout, 0, "%.*s", (int)len, line);
-		return;
-	}
-	if (len >= sizeof pstate.buf) {
-		send_line(fout, 0, "%.*s", (int)len, line);
-		return;
-	}
-
-	/* XXX
-	 * To, Cc and Bcc may need rewrite, we can reuse the
-	 * msg recipients field since former content has already
-	 * been used at this point.
-	 */
-	memset(&pstate, 0, sizeof(pstate));
-	memcpy(pstate.buf, line, len);
-	pstate.buf[len] = 0;
-	pstate.wpos = len - 1;
-	msg.rcpts = NULL;
-	msg.rcpt_cnt = 0;
-
-	if (strncasecmp("From:", line, 5) == 0) {
-		parse_addr_terminal(1);
-		send_line(fout, 0, "%s\n", msg.from);
-	}
-	else {
-		parse_addr_terminal(0);
-		for (i = 0; i < msg.rcpt_cnt; ++i)
-			if (*msg.rcpts[i] != '\0')
-				send_line(fout, 0, "%s%s%s\n", i > 0 ? "\t" : "",
-				    msg.rcpts[i], i < msg.rcpt_cnt - 1 ? "," : "");
-	}
-}
-
 int
 enqueue(int argc, char *argv[])
 {
@@ -409,10 +367,7 @@ enqueue(int argc, char *argv[])
 
 		if (msg.saw_content_transfer_encoding || noheader ||
 		    inheaders || !msg.need_linesplit) {
-			if (inheaders)
-				send_header(fout, line, len);
-			else
-				send_line(fout, 0, "%.*s", (int)len, line);
+			send_line(fout, 0, "%.*s", (int)len, line);
 			if (inheaders && buf[0] == '\n')
 				inheaders = 0;
 			continue;
