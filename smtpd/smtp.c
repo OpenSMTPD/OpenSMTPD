@@ -240,7 +240,7 @@ smtp_enqueue(uid_t *euid)
 
 	hostname = env->sc_hostname;
 	if (euid) {
-		(void)snprintf(buf, sizeof(buf), "%d@%s", *euid, hostname);
+		(void)snprintf(buf, sizeof(buf), "%s", hostname);
 		hostname = buf;
 	}
 
