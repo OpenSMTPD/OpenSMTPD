@@ -530,6 +530,7 @@ struct listener {
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
 	char			 hostnametable[SMTPD_MAXPATHLEN];
+
 	TAILQ_ENTRY(listener)	 entry;
 };
 
@@ -596,6 +597,9 @@ struct smtpd {
 
 	struct dict				sc_filters;
 	uint32_t				filtermask;
+
+	char			       *sc_tls_ciphers;
+	char			       *sc_tls_curve;
 };
 
 #define	TRACE_DEBUG	0x0001
@@ -1342,7 +1346,7 @@ int fork_proc_backend(const char *, const char *, const char *);
 
 
 /* ssl_smtpd.c */
-void   *ssl_mta_init(void *, char *, off_t);
+void   *ssl_mta_init(void *, char *, off_t, const char *);
 void   *ssl_smtp_init(void *, void *, void *);
 
 

@@ -99,17 +99,17 @@ struct mta_limits	*limits;
 static struct pki	*pki;
 
 enum listen_options {
-	LO_FAMILY	= 0x01,
-	LO_PORT		= 0x02,
-	LO_SSL		= 0x04,
-	LO_FILTER      	= 0x08,
-	LO_PKI      	= 0x10,
-	LO_AUTH      	= 0x20,
-	LO_TAG      	= 0x40,
-	LO_HOSTNAME   	= 0x80,
-	LO_HOSTNAMES   	= 0x100,
-	LO_MASKSOURCE  	= 0x200,
-	LO_NODSN	= 0x400,
+	LO_FAMILY	= 0x0001,
+	LO_PORT		= 0x0002,
+	LO_SSL		= 0x0004,
+	LO_FILTER      	= 0x0008,
+	LO_PKI      	= 0x0010,
+	LO_AUTH      	= 0x0020,
+	LO_TAG      	= 0x0040,
+	LO_HOSTNAME   	= 0x0080,
+	LO_HOSTNAMES   	= 0x0100,
+	LO_MASKSOURCE  	= 0x0200,
+	LO_NODSN	= 0x0400,
 };
 
 static struct listen_opts {
@@ -165,6 +165,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
+%token	CIPHERS CURVE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -802,6 +803,12 @@ main		: BOUNCEWARN {
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
+		| CIPHERS STRING {
+			env->sc_tls_ciphers = $2;
+		}
+		| CURVE STRING {
+			env->sc_tls_curve = $2;
+		}
 		;
 
 filter_args	:
@@ -1302,7 +1309,9 @@ lookup(char *s)
 		{ "bounce-warn",	BOUNCEWARN },
 		{ "ca",			CA },
 		{ "certificate",	CERTIFICATE },
+		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
+		{ "curve",		CURVE },
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
@@ -1904,7 +1913,7 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 	
 	if (lo->pki && !lo->ssl)
 		errx(1, "invalid listen option: pki requires tls/smtps");
-	
+
 	flags = lo->flags;
 
 	if (lo->port) {
