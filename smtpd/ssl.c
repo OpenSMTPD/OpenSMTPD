@@ -72,12 +72,12 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct pki *pki)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curve)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
 
-	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len);
+	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
 
 	if (!SSL_CTX_set_session_id_context(ctx,
 		(const unsigned char *)pki->pki_name,
@@ -92,7 +92,7 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki)
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx, SSL_ECDH_CURVE);
+	ssl_set_ecdh_curve(ctx, curve);
 
 	*ctxp = ctx;
 	return 1;
@@ -256,10 +256,10 @@ fail:
 }
 
 SSL_CTX *
-ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len)
+ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len, const char *ciphers)
 {
-	SSL_CTX	*ctx;
-	size_t	 pkinamelen = 0;
+	SSL_CTX	       *ctx;
+	size_t		pkinamelen = 0;
 
 	ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
@@ -274,7 +274,9 @@ ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len)
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
-	if (!SSL_CTX_set_cipher_list(ctx, SSL_CIPHERS)) {
+	if (ciphers == NULL)
+		ciphers = SSL_CIPHERS;
+	if (!SSL_CTX_set_cipher_list(ctx, ciphers)) {
 		ssl_error("ssl_ctx_create");
 		fatal("ssl_ctx_create: could not set cipher list");
 	}
@@ -458,14 +460,12 @@ ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 		curve = SSL_ECDH_CURVE;
 	if ((nid = OBJ_sn2nid(curve)) == 0) {
 		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unknown curve name "
-		    SSL_ECDH_CURVE);
+		fatal("ssl_set_ecdh_curve: unknown curve name %s", curve);
 	}
 
 	if ((ecdh = EC_KEY_new_by_curve_name(nid)) == NULL) {
 		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unable to create curve "
-		    SSL_ECDH_CURVE);
+		fatal("ssl_set_ecdh_curve: unable to create curve %s", curve);
 	}
 
 	SSL_CTX_set_tmp_ecdh(ctx, ecdh);

@@ -184,7 +184,7 @@ smtp_setup_events(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
-		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki))
+		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki, env->sc_tls_ciphers, env->sc_tls_curve))
 			fatal("smtp_setup_events: ssl_setup failure");
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}

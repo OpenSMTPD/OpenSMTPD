@@ -46,12 +46,12 @@
 
 
 void *
-ssl_mta_init(void *pkiname, char *cert, off_t cert_len)
+ssl_mta_init(void *pkiname, char *cert, off_t cert_len, const char *ciphers)
 {
 	SSL_CTX	*ctx = NULL;
 	SSL	*ssl = NULL;
 
-	ctx = ssl_ctx_create(pkiname, cert, cert_len);
+	ctx = ssl_ctx_create(pkiname, cert, cert_len, ciphers);
 
 	if ((ssl = SSL_new(ctx)) == NULL)
 		goto err;

@@ -325,7 +325,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 			else {
-				ssl = ssl_mta_init(NULL, NULL, 0);
+				ssl = ssl_mta_init(NULL, NULL, 0, env->sc_tls_ciphers);
 				if (ssl == NULL)
 					fatal("mta: ssl_mta_init");
 				io_start_tls(&s->io, ssl);
@@ -341,7 +341,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		else
 			pkiname = s->helo;
 		ssl = ssl_mta_init(pkiname,
-		    resp_ca_cert->cert, resp_ca_cert->cert_len);
+		    resp_ca_cert->cert, resp_ca_cert->cert_len, env->sc_tls_ciphers);
 		if (ssl == NULL)
 			fatal("mta: ssl_mta_init");
 		io_start_tls(&s->io, ssl);
