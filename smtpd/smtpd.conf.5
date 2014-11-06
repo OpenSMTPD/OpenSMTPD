@@ -548,6 +548,19 @@ will generate a failure report when an envelope is in the queue for more
 than one hour, six hours and two days.
 The default is 4h.
 .It Xo
+.Ic ciphers Ar cipher-list
+.Xc
+Specify an alternate ciphers list to use when establishing TLS sessions.
+It is highly recommanded to avoid making use of this option unless there
+is a good understanding of the implications.
+.Pp
+When not specified, only ciphers considered safe are chosen.
+.It Xo
+.Ic curve Ar curve-name
+.Xc
+Specify an alternate curve for ECDHE-based cipher suites.
+If no curve is specified, the default curve prime256v1 will be used.
+.It Xo
 .Ic expire
 .Sm off
 .Ar n
