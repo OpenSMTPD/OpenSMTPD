@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: bounce.c,v 1.65 2014/05/28 10:34:16 daniel Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -132,7 +132,7 @@ bounce_add(uint64_t evpid)
 	bounce_init();
 
 	if (queue_envelope_load(evpid, &evp) == 0) {
-		m_create(p_scheduler, IMSG_DELIVERY_PERMFAIL, 0, 0, -1);
+		m_create(p_scheduler, IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1);
 		m_add_evpid(p_scheduler, evpid);
 		m_close(p_scheduler);
 		return;
@@ -154,7 +154,7 @@ bounce_add(uint64_t evpid)
 		TAILQ_INIT(&msg->envelopes);
 
 		msg->smtpname = xstrdup(evp.smtpname, "bounce_add");
-		snprintf(buf, sizeof(buf), "%s@%s", evp.sender.user,
+		(void)snprintf(buf, sizeof(buf), "%s@%s", evp.sender.user,
 		    evp.sender.domain);
 		msg->to = xstrdup(buf, "bounce_add");
 		nmessage += 1;
@@ -168,7 +168,7 @@ bounce_add(uint64_t evpid)
 	line = evp.errorline;
 	if (strlen(line) > 4 && (*line == '1' || *line == '6'))
 		line += 4;
-	snprintf(buf, sizeof(buf), "%s@%s: %s\n", evp.dest.user,
+	(void)snprintf(buf, sizeof(buf), "%s@%s: %s\n", evp.dest.user,
 	    evp.dest.domain, line);
 
 	be = xmalloc(sizeof *be, "bounce_add");
@@ -268,7 +268,7 @@ bounce_drain()
 		}
 
 		log_debug("debug: bounce: requesting new enqueue socket...");
-		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, 0, 0, -1, NULL, 0);
+		m_compose(p_pony, IMSG_QUEUE_SMTP_SESSION, 0, 0, -1, NULL, 0);
 
 		running += 1;
 	}
@@ -294,25 +294,26 @@ bounce_send(struct bounce_session *s, const char *fmt, ...)
 }
 
 static const char *
-bounce_duration(long long int d) {
+bounce_duration(long long int d)
+{
 	static char buf[32];
 
 	if (d < 60) {
-		snprintf(buf, sizeof buf, "%lld second%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld second%s", d, (d == 1)?"":"s");
 	} else if (d < 3600) {
 		d = d / 60;
-		snprintf(buf, sizeof buf, "%lld minute%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld minute%s", d, (d == 1)?"":"s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
-		snprintf(buf, sizeof buf, "%lld hour%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld hour%s", d, (d == 1)?"":"s");
 	}
 	else {
 		d = d / (3600 * 24);
-		snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
 	}
 	return (buf);
-};
+}
 
 #define NOTICE_INTRO							    \
 	"    Hi!\n\n"							    \
@@ -363,16 +364,16 @@ bounce_next_message(struct bounce_session *s)
 	SPLAY_REMOVE(bounce_message_tree, &messages, msg);
 
 	if ((fd = queue_message_fd_r(msg->msgid)) == -1) {
-		bounce_delivery(msg, IMSG_DELIVERY_TEMPFAIL,
+		bounce_delivery(msg, IMSG_QUEUE_DELIVERY_TEMPFAIL,
 		    "Could not open message fd");
 		goto again;		
 	}
 
 	if ((s->msgfp = fdopen(fd, "r")) == NULL) {
-		snprintf(buf, sizeof(buf), "fdopen: %s", strerror(errno));
+		(void)snprintf(buf, sizeof(buf), "fdopen: %s", strerror(errno));
 		log_warn("warn: bounce: fdopen");
 		close(fd);
-		bounce_delivery(msg, IMSG_DELIVERY_TEMPFAIL, buf);
+		bounce_delivery(msg, IMSG_QUEUE_DELIVERY_TEMPFAIL, buf);
 		goto again;
 	}
 
@@ -501,7 +502,7 @@ bounce_next(struct bounce_session *s)
 		if (ferror(s->msgfp)) {
 			fclose(s->msgfp);
 			s->msgfp = NULL;
-			bounce_delivery(s->msg, IMSG_DELIVERY_TEMPFAIL,
+			bounce_delivery(s->msg, IMSG_QUEUE_DELIVERY_TEMPFAIL,
 			    "Error reading message");
 			s->msg = NULL;
 			return (-1);
@@ -541,7 +542,7 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 
 	n = 0;
 	while ((be = TAILQ_FIRST(&msg->envelopes))) {
-		if (delivery == IMSG_DELIVERY_TEMPFAIL) {
+		if (delivery == IMSG_QUEUE_DELIVERY_TEMPFAIL) {
 			if (queue_envelope_load(be->id, &evp) == 0) {
 				fatalx("could not reload envelope!");
 			}
@@ -565,9 +566,9 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 	}
 
 
-	if (delivery == IMSG_DELIVERY_TEMPFAIL)
+	if (delivery == IMSG_QUEUE_DELIVERY_TEMPFAIL)
 		f = "TempFail";
-	else if (delivery == IMSG_DELIVERY_PERMFAIL)
+	else if (delivery == IMSG_QUEUE_DELIVERY_PERMFAIL)
 		f = "PermFail";
 	else
 		f = NULL;
@@ -602,11 +603,11 @@ bounce_status(struct bounce_session *s, const char *fmt, ...)
 	va_end(ap);
 
 	if (*status == '2')
-		delivery = IMSG_DELIVERY_OK;
+		delivery = IMSG_QUEUE_DELIVERY_OK;
 	else if (*status == '5' || *status == '6')
-		delivery = IMSG_DELIVERY_PERMFAIL;
+		delivery = IMSG_QUEUE_DELIVERY_PERMFAIL;
 	else
-		delivery = IMSG_DELIVERY_TEMPFAIL;
+		delivery = IMSG_QUEUE_DELIVERY_TEMPFAIL;
 
 	bounce_delivery(s->msg, delivery, status);
 	s->msg = NULL;

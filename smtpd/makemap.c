@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: makemap.c,v 1.50 2014/10/25 18:48:30 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -94,6 +94,12 @@ void
 purge_config(uint8_t what)
 {
 	memset(env, 0, sizeof(struct smtpd));
+}
+
+int
+fork_proc_backend(const char *backend, const char *conf, const char *procname)
+{
+	return (-1);
 }
 
 int
@@ -253,7 +259,7 @@ parse_map(char *filename)
 	char	*line;
 	size_t	 len;
 	size_t	 lineno = 0;
-	char	 delim[] = { '\\', 0, 0 };
+	char	 delim[] = { '\\', '\\', '#' };
 
 	if (strcmp(filename, "-") == 0)
 		fp = fdopen(0, "r");

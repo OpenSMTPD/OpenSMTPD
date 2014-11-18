@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: ssl.c,v 1.72 2014/10/16 09:40:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -45,6 +45,9 @@
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
 #include <openssl/err.h>
+#include <openssl/rsa.h>
+#include <openssl/dh.h>
+#include <openssl/bn.h>
 
 #include "log.h"
 #include "ssl.h"
@@ -73,18 +76,9 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
-	
-	ctx = ssl_ctx_create();
 
-	if (!ssl_ctx_use_certificate_chain(ctx,
-		pki->pki_cert, pki->pki_cert_len))
-		goto err;
-	if (!ssl_ctx_use_private_key(ctx,
-		pki->pki_key, pki->pki_key_len))
-		goto err;
+	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len);
 
-	if (!SSL_CTX_check_private_key(ctx))
-		goto err;
 	if (!SSL_CTX_set_session_id_context(ctx,
 		(const unsigned char *)pki->pki_name,
 		strlen(pki->pki_name) + 1))
@@ -159,7 +153,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	size_t	len;
 	if (u == NULL) {
-		memset(buf, 0, size);
+		explicit_bzero(buf, size);
 		return (0);
 	}
 	if ((len = strlcpy(buf, u, size)) >= (size_t)size)
@@ -169,7 +163,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 #endif
 
 static int
-ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
+ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	int	ret = 0;
 	size_t	len;
@@ -184,7 +178,7 @@ ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
 	ret = len;
 end:
 	if (len)
-		memset(pass, 0, len);
+		explicit_bzero(pass, len);
 	return ret;
 }
 
@@ -225,7 +219,7 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	}
 
 	(void)snprintf(prompt, sizeof prompt, "passphrase for %s: ", pkiname);
-	key = PEM_read_PrivateKey(fp, NULL, ssl_getpass_cb, prompt);
+	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, prompt);
 	fclose(fp);
 	fp = NULL;
 	if (key == NULL)
@@ -244,6 +238,8 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	memcpy(buf, data, size);
 
 	BIO_free_all(bio);
+	EVP_PKEY_free(key);
+
 	*len = (off_t)size + 1;
 	return (buf);
 
@@ -252,15 +248,18 @@ fail:
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
+	if (key != NULL)
+		EVP_PKEY_free(key);
 	if (fp)
 		fclose(fp);
 	return (NULL);
 }
 
 SSL_CTX *
-ssl_ctx_create()
+ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len)
 {
 	SSL_CTX	*ctx;
+	size_t	 pkinamelen = 0;
 
 	ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
@@ -271,13 +270,29 @@ ssl_ctx_create()
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 	SSL_CTX_set_timeout(ctx, SSL_SESSION_TIMEOUT);
 	SSL_CTX_set_options(ctx,
-	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_TICKET);
+	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TICKET);
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
 	if (!SSL_CTX_set_cipher_list(ctx, SSL_CIPHERS)) {
 		ssl_error("ssl_ctx_create");
 		fatal("ssl_ctx_create: could not set cipher list");
+	}
+
+	if (cert != NULL) {
+		if (pkiname != NULL)
+			pkinamelen = strlen(pkiname) + 1;
+		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) {
+			ssl_error("ssl_ctx_create");
+			fatal("ssl_ctx_create: invalid certificate chain");
+		} else if (!ssl_ctx_fake_private_key(ctx,
+		    pkiname, pkinamelen, cert, cert_len, NULL, NULL)) {
+			ssl_error("ssl_ctx_create");
+			fatal("ssl_ctx_create: could not fake private key");
+		} else if (!SSL_CTX_check_private_key(ctx)) {
+			ssl_error("ssl_ctx_create");
+			fatal("ssl_ctx_create: invalid private key");
+		}
 	}
 
 	return (ctx);
@@ -330,7 +345,7 @@ ssl_to_text(const SSL *ssl)
 {
 	static char buf[256];
 
-	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
+	(void)snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
 	    SSL_get_cipher_version(ssl),
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
@@ -458,4 +473,97 @@ ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 	EC_KEY_free(ecdh);
 #endif
 #endif
+}
+
+int
+ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
+    X509 **x509ptr, EVP_PKEY **pkeyptr)
+{
+	BIO		*in;
+	X509		*x509 = NULL;
+	EVP_PKEY	*pkey = NULL;
+	RSA		*rsa = NULL;
+	void		*exdata = NULL;
+
+	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_BUF_LIB);
+		return (0);
+	}
+
+	if ((x509 = PEM_read_bio_X509(in, NULL,
+	    ssl_password_cb, NULL)) == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_PEM_LIB);
+		goto fail;
+	}
+
+	if ((pkey = X509_get_pubkey(x509)) == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_X509_LIB);
+		goto fail;
+	}
+
+	BIO_free(in);
+	in = NULL;
+
+	if (data != NULL && datalen) {
+		if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL ||
+		    (exdata = malloc(datalen)) == NULL) {
+			SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_EVP_LIB);
+			goto fail;
+		}
+
+		memcpy(exdata, data, datalen);
+		RSA_set_ex_data(rsa, 0, exdata);
+		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
+	}
+
+	*x509ptr = x509;
+	*pkeyptr = pkey;
+
+	return (1);
+
+ fail:
+	if (rsa != NULL)
+		RSA_free(rsa);
+	if (in != NULL)
+		BIO_free(in);
+	if (pkey != NULL)
+		EVP_PKEY_free(pkey);
+	if (x509 != NULL)
+		X509_free(x509);
+
+	return (0);
+}
+
+int
+ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
+    char *buf, off_t len, X509 **x509ptr, EVP_PKEY **pkeyptr)
+{
+	int		 ret = 0;
+	EVP_PKEY	*pkey = NULL;
+	X509		*x509 = NULL;
+
+	if (!ssl_load_pkey(data, datalen, buf, len, &x509, &pkey))
+		return (0);
+
+	/*
+	 * Use the public key as the "private" key - the secret key
+	 * parameters are hidden in an extra process that will be
+	 * contacted by the RSA engine.  The SSL/TLS library needs at
+	 * least the public key parameters in the current process.
+	 */
+	ret = SSL_CTX_use_PrivateKey(ctx, pkey);
+	if (!ret)
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_SSL_LIB);
+
+	if (pkeyptr != NULL)
+		*pkeyptr = pkey;
+	else if (pkey != NULL)
+		EVP_PKEY_free(pkey);
+
+	if (x509ptr != NULL)
+		*x509ptr = x509;
+	else if (x509 != NULL)
+		X509_free(x509);
+
+	return (ret);
 }

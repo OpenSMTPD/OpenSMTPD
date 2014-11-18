@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: delivery_maildir.c,v 1.15 2014/05/10 21:50:40 chl Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -44,28 +44,70 @@ extern char	**environ;
 
 /* maildir backend */
 static void delivery_maildir_open(struct deliver *);
+static int mailaddr_tag(const struct mailaddr *, char *, size_t);
 
 struct delivery_backend delivery_backend_maildir = {
 	1, delivery_maildir_open
 };
 
+static int
+mailaddr_tag(const struct mailaddr *maddr, char *dest, size_t len)
+{
+	char		*tag;
+	char		*sanitized;
+
+	if ((tag = strchr(maddr->user, TAG_CHAR))) {
+		tag++;
+		while (*tag == '.')
+			tag++;
+	}
+	if (tag == NULL)
+		return 1;
+
+	if (strlcpy(dest, tag, len) >= len)
+		return 0;
+	for (sanitized = dest; *sanitized; sanitized++)
+		if (strchr(MAILADDR_ESCAPE, *sanitized))
+			*sanitized = ':';
+	return 1;
+}
 
 static void
 delivery_maildir_open(struct deliver *deliver)
 {
-	char	 tmp[SMTPD_MAXPATHLEN], new[SMTPD_MAXPATHLEN];
+	char	 tmp[SMTPD_MAXPATHLEN], new[SMTPD_MAXPATHLEN], tag[SMTPD_MAXPATHLEN];
 	int	 ch, fd;
 	FILE	*fp;
 	char	*msg;
 	int	 n;
+	const char	*chd;
+	struct mailaddr	maddr;
+	struct stat	sb;
 
 #define error(m)	{ msg = m; goto err; }
 #define error2(m)	{ msg = m; goto err2; }
 
 	setproctitle("maildir delivery");
+
+	memset(&maddr, 0, sizeof maddr);
+	if (! text_to_mailaddr(&maddr, deliver->dest))
+		error("cannot parse destination address");
+
+	memset(tag, 0, sizeof tag);
+	if (! mailaddr_tag(&maddr, tag, sizeof tag))
+		error("cannot extract tag from destination address");
+
 	if (mkdirs(deliver->to, 0700) < 0 && errno != EEXIST)
 		error("cannot mkdir maildir");
-	if (chdir(deliver->to) < 0)
+	chd = deliver->to;
+
+	if (tag[0]) {
+		(void)snprintf(tmp, sizeof tmp, "%s/.%s", deliver->to, tag);
+		if (stat(tmp, &sb) != -1)
+			chd = tmp;
+	}
+
+	if (chdir(chd) < 0)
 		error("cannot cd to maildir");
 	if (mkdir("cur", 0700) < 0 && errno != EEXIST)
 		error("mkdir cur failed");
@@ -73,7 +115,7 @@ delivery_maildir_open(struct deliver *deliver)
 		error("mkdir tmp failed");
 	if (mkdir("new", 0700) < 0 && errno != EEXIST)
 		error("mkdir new failed");
-	snprintf(tmp, sizeof tmp, "tmp/%lld.%d.%s",
+	(void)snprintf(tmp, sizeof tmp, "tmp/%lld.%d.%s",
 	    (long long int) time(NULL),
 	    getpid(), env->sc_hostname);
 	fd = open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0600);
@@ -93,7 +135,7 @@ delivery_maildir_open(struct deliver *deliver)
 		error2("fsync");
 	if (fclose(fp) == EOF)
 		error2("fclose");
-	snprintf(new, sizeof new, "new/%s", tmp + 4);
+	(void)snprintf(new, sizeof new, "new/%s", tmp + 4);
 	if (rename(tmp, new) < 0)
 		error2("cannot rename tmp->new");
 	_exit(0);

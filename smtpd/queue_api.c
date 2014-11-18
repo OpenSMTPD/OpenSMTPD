@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: queue_api.c,v 1.6 2014/09/01 20:58:42 doug Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -34,6 +34,7 @@
 #include "smtpd-api.h"
 #include "log.h"
 
+static int (*handler_close)(void);
 static int (*handler_message_create)(uint32_t *);
 static int (*handler_message_commit)(uint32_t, const char *);
 static int (*handler_message_delete)(uint32_t);
@@ -50,8 +51,8 @@ static struct imsg	 imsg;
 static size_t		 rlen;
 static char		*rdata;
 static struct ibuf	*buf;
-static char		*rootpath = PATH_SPOOL;
-static char		*user = SMTPD_QUEUE_USER;
+static const char	*rootpath = PATH_SPOOL;
+static const char	*user = SMTPD_QUEUE_USER;
 
 static void
 queue_msg_get(void *dst, size_t len)
@@ -108,7 +109,7 @@ queue_msg_dispatch(void)
 {
 	uint64_t	 evpid;
 	uint32_t	 msgid, version;
-	size_t		 n;
+	size_t		 n, m;
 	char		 buffer[8192], path[SMTPD_MAXPATHLEN];
 	int		 r, fd;
 	FILE		*ifile, *ofile;
@@ -124,6 +125,17 @@ queue_msg_dispatch(void)
 		}
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, NULL, 0);
+		break;
+
+	case PROC_QUEUE_CLOSE:
+		queue_msg_end();
+
+		if (handler_close)
+			r = handler_close();
+		else
+			r = 1;
+
+		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
 		break;
 
 	case PROC_QUEUE_MESSAGE_CREATE:
@@ -152,7 +164,7 @@ queue_msg_dispatch(void)
 
 		/* XXX needs more love */
 		r = -1;
-		snprintf(path, sizeof path, "/tmp/message.XXXXXXXXXX");
+		(void)snprintf(path, sizeof path, "/tmp/message.XXXXXXXXXX");
 		fd = mkstemp(path);
 		if (fd == -1) {
 			log_warn("warn: queue-api: mkstemp");
@@ -160,18 +172,29 @@ queue_msg_dispatch(void)
 		else {
 			ifile = fdopen(imsg.fd, "r");
 			ofile = fdopen(fd, "w");
+			m = n = 0;
 			if (ifile && ofile) {
 				while (!feof(ifile)) {
 					n = fread(buffer, 1, sizeof(buffer),
 					    ifile);
-					fwrite(buffer, 1, n, ofile);
+					m = fwrite(buffer, 1, n, ofile);
+					if (m != n)
+						break;
+					fflush(ofile);
 				}
-				r = handler_message_commit(msgid, path);
+				if (m != n)
+					r = 0;
+				else
+					r = handler_message_commit(msgid, path);
 			}
 			if (ifile)
 				fclose(ifile);
+			else
+				close(imsg.fd);
 			if (ofile)
 				fclose(ofile);
+			else
+				close(fd);
 		}
 
 		imsg_compose(&ibuf, PROC_QUEUE_OK, 0, 0, -1, &r, sizeof(r));
@@ -245,11 +268,18 @@ queue_msg_dispatch(void)
 			queue_msg_add(buffer, r);
 		}
 		queue_msg_close();
+		break;
 
 	default:
 		log_warnx("warn: queue-api: bad message %d", imsg.hdr.type);
 		fatalx("queue-api: exiting");
 	}
+}
+
+void
+queue_api_on_close(int(*cb)(void))
+{
+	handler_close = cb;
 }
 
 void
@@ -312,16 +342,36 @@ queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 	handler_envelope_walk = cb;
 }
 
+void
+queue_api_no_chroot(void)
+{
+	rootpath = NULL;
+}
+
+void
+queue_api_set_chroot(const char *path)
+{
+	rootpath = path;
+}
+
+void
+queue_api_set_user(const char *username)
+{
+	user = username;
+}
+
 int
 queue_api_dispatch(void)
 {
-	struct passwd	*pw;
+	struct passwd	*pw = NULL;
 	ssize_t		 n;
 
-	pw = getpwnam(user);
-	if (pw == NULL) {
-		log_warn("queue-api: getpwnam");
-		fatalx("queue-api: exiting");
+	if (user) {
+		pw = getpwnam(user);
+		if (pw == NULL) {
+			log_warn("queue-api: getpwnam");
+			fatalx("queue-api: exiting");
+		}
 	}
 
 	if (rootpath) {
@@ -335,9 +385,10 @@ queue_api_dispatch(void)
 		}
 	}
 
-	if (setgroups(1, &pw->pw_gid) ||
+	if (pw &&
+	   (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid)) {
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))) {
 		log_warn("queue-api: cannot drop privileges");
 		fatalx("queue-api: exiting");
 	}

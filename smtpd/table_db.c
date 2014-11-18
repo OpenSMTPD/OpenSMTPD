@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: table_db.c,v 1.7 2014/07/08 13:49:09 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -50,8 +50,8 @@
 static int table_db_config(struct table *);
 static int table_db_update(struct table *);
 static void *table_db_open(struct table *);
-static int table_db_lookup(void *, const char *, enum table_service, union lookup *);
-static int table_db_fetch(void *, enum table_service, union lookup *);
+static int table_db_lookup(void *, struct dict *, const char *, enum table_service, union lookup *);
+static int table_db_fetch(void *, struct dict *, enum table_service, union lookup *);
 static void  table_db_close(void *);
 
 static char *table_db_get_entry(void *, const char *, size_t *);
@@ -59,7 +59,7 @@ static char *table_db_get_entry_match(void *, const char *, size_t *,
     int(*)(const char *, const char *));
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_ADDRNAME,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME,
 	table_db_config,
 	table_db_open,
 	table_db_update,
@@ -73,7 +73,8 @@ static struct keycmp {
 	int		       (*func)(const char *, const char *);
 } keycmp[] = {
 	{ K_DOMAIN, table_domain_match },
-	{ K_NETADDR, table_netaddr_match }
+	{ K_NETADDR, table_netaddr_match },
+	{ K_MAILADDR, table_mailaddr_match }
 };
 
 struct dbhandle {
@@ -148,7 +149,7 @@ table_db_close(void *hdl)
 }
 
 static int
-table_db_lookup(void *hdl, const char *key, enum table_service service,
+table_db_lookup(void *hdl, struct dict *params, const char *key, enum table_service service,
     union lookup *lk)
 {
 	struct dbhandle	*handle = hdl;
@@ -190,7 +191,7 @@ table_db_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
-table_db_fetch(void *hdl, enum table_service service, union lookup *lk)
+table_db_fetch(void *hdl, struct dict *params, enum table_service service, union lookup *lk)
 {
 	struct dbhandle	*handle = hdl;
 	struct table	*table  = handle->table;

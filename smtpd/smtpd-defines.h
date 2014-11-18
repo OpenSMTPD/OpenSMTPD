@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtpd-defines.h,v 1.3 2014/04/30 09:17:29 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
@@ -40,3 +40,5 @@
 #ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
 #endif
+
+#define TAG_CHAR		'+'

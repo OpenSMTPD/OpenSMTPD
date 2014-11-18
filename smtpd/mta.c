@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: mta.c,v 1.189 2014/07/08 13:02:42 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -59,17 +59,13 @@
 #define RELAY_ONHOLD		0x01
 #define RELAY_HOLDQ		0x02
 
-static void mta_imsg(struct mproc *, struct imsg *);
-static void mta_shutdown(void);
-static void mta_sig_handler(int, short, void *);
-
 static void mta_query_mx(struct mta_relay *);
 static void mta_query_secret(struct mta_relay *);
 static void mta_query_preference(struct mta_relay *);
 static void mta_query_source(struct mta_relay *);
 static void mta_on_mx(void *, void *, void *);
 static void mta_on_secret(struct mta_relay *, const char *);
-static void mta_on_preference(struct mta_relay *, int, int);
+static void mta_on_preference(struct mta_relay *, int);
 static void mta_on_source(struct mta_relay *, struct mta_source *);
 static void mta_on_timeout(struct runq *, void *);
 static void mta_connect(struct mta_connector *);
@@ -208,7 +204,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_MTA_TRANSFER:
+		case IMSG_QUEUE_TRANSFER:
 			m_msg(&m, imsg);
 			m_get_envelope(&m, &evp);
 			m_end(&m);
@@ -230,11 +226,11 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			 */
 			if (relay->state & RELAY_ONHOLD) {
 				relay->state |= RELAY_HOLDQ;
-				m_create(p_queue, IMSG_DELIVERY_HOLD, 0, 0, -1);
+				m_create(p_queue, IMSG_MTA_DELIVERY_HOLD, 0, 0, -1);
 				m_add_evpid(p_queue, evp.id);
 				m_add_id(p_queue, relay->id);
 				m_close(p_queue);
-				mta_relay_unref(relay);
+				mta_relay_unref(relay); /* from here */
 				return;
 			}
 
@@ -250,7 +246,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				TAILQ_INSERT_TAIL(&relay->tasks, task, entry);
 				task->msgid = evpid_to_msgid(evp.id);
 				if (evp.sender.user[0] || evp.sender.domain[0])
-					snprintf(buf, sizeof buf, "%s@%s",
+					(void)snprintf(buf, sizeof buf, "%s@%s",
 					    evp.sender.user, evp.sender.domain);
 				else
 					buf[0] = '\0';
@@ -261,21 +257,21 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			e = xcalloc(1, sizeof *e, "mta_envelope");
 			e->id = evp.id;
 			e->creation = evp.creation;
-			snprintf(buf, sizeof buf, "%s@%s",
+			(void)snprintf(buf, sizeof buf, "%s@%s",
 			    evp.dest.user, evp.dest.domain);
 			e->dest = xstrdup(buf, "mta_envelope:dest");
-			snprintf(buf, sizeof buf, "%s@%s",
+			(void)snprintf(buf, sizeof buf, "%s@%s",
 			    evp.rcpt.user, evp.rcpt.domain);
 			if (strcmp(buf, e->dest))
 				e->rcpt = xstrdup(buf, "mta_envelope:rcpt");
 			e->task = task;
 			if (evp.dsn_orcpt.user[0] && evp.dsn_orcpt.domain[0]) {
-				snprintf(buf, sizeof buf, "%s@%s",
+				(void)snprintf(buf, sizeof buf, "%s@%s",
 			    	    evp.dsn_orcpt.user, evp.dsn_orcpt.domain);
 				e->dsn_orcpt = xstrdup(buf,
 				    "mta_envelope:dsn_orcpt");
 			}
-			strlcpy(e->dsn_envid, evp.dsn_envid,
+			(void)strlcpy(e->dsn_envid, evp.dsn_envid,
 			    sizeof e->dsn_envid);
 			e->dsn_notify = evp.dsn_notify;
 			e->dsn_ret = evp.dsn_ret;
@@ -290,7 +286,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			mta_relay_unref(relay); /* from here */
 			return;
 
-		case IMSG_QUEUE_MESSAGE_FD:
+		case IMSG_MTA_OPEN_MESSAGE:
 			mta_session_imsg(p, imsg);
 			return;
 		}
@@ -299,7 +295,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_LKA_SECRET:
+		case IMSG_MTA_LOOKUP_CREDENTIALS:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &secret);
@@ -308,7 +304,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			mta_on_secret(relay, secret[0] ? secret : NULL);
 			return;
 
-		case IMSG_LKA_SOURCE:
+		case IMSG_MTA_LOOKUP_SOURCE:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_int(&m, &status);
@@ -321,11 +317,11 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			    mta_source((struct sockaddr *)&ss) : NULL);
 			return;
 
-		case IMSG_LKA_HELO:
+		case IMSG_MTA_LOOKUP_HELO:
 			mta_session_imsg(p, imsg);
 			return;
 
-		case IMSG_DNS_HOST:
+		case IMSG_MTA_DNS_HOST:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_sockaddr(&m, (struct sockaddr*)&ss);
@@ -344,7 +340,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			TAILQ_INSERT_TAIL(&domain->mxs, mx, entry);
 			return;
 
-		case IMSG_DNS_HOST_END:
+		case IMSG_MTA_DNS_HOST_END:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_int(&m, &dnserror);
@@ -367,7 +363,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			waitq_run(&domain->mxs, domain);
 			return;
 
-		case IMSG_DNS_MX_PREFERENCE:
+		case IMSG_MTA_DNS_MX_PREFERENCE:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_int(&m, &dnserror);
@@ -376,18 +372,24 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 
 			relay = tree_xpop(&wait_preference, reqid);
-			mta_on_preference(relay, dnserror, preference);
+			if (dnserror) {
+				log_warnx("warn: Couldn't find backup "
+				    "preference for %s: error %d",
+				    mta_relay_to_text(relay), dnserror);
+				preference = INT_MAX;
+			}
+			mta_on_preference(relay, preference);
 			return;
 
-		case IMSG_DNS_PTR:
+		case IMSG_MTA_DNS_PTR:
 			mta_session_imsg(p, imsg);
 			return;
 
-		case IMSG_LKA_SSL_INIT:
+		case IMSG_MTA_SSL_INIT:
 			mta_session_imsg(p, imsg);
 			return;
 
-		case IMSG_LKA_SSL_VERIFY:
+		case IMSG_MTA_SSL_VERIFY:
 			mta_session_imsg(p, imsg);
 			return;
 		}
@@ -447,7 +449,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_CTL_MTA_SHOW_HOSTS:
 			t = time(NULL);
 			SPLAY_FOREACH(host, mta_host_tree, &hosts) {
-				snprintf(buf, sizeof(buf),
+				(void)snprintf(buf, sizeof(buf),
 				    "%s %s refcount=%d nconn=%zu lastconn=%s",
 				    sockaddr_to_text(host->sa),
 				    host->ptrname,
@@ -473,7 +475,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_CTL_MTA_SHOW_ROUTES:
 			SPLAY_FOREACH(route, mta_route_tree, &routes) {
 				v = runq_pending(runq_route, NULL, route, &t);
-				snprintf(buf, sizeof(buf),
+				(void)snprintf(buf, sizeof(buf),
 				    "%llu. %s %c%c%c%c nconn=%zu nerror=%d penalty=%d timeout=%s",
 				    (unsigned long long)route->id,
 				    mta_route_to_text(route),
@@ -497,7 +499,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			iter = NULL;
 			while (dict_iter(&hoststat, &iter, &hostname,
 				(void **)&hs)) {
-				snprintf(buf, sizeof(buf),
+				(void)snprintf(buf, sizeof(buf),
 				    "%s|%llu|%s",
 				    hostname, (unsigned long long) hs->tm,
 				    hs->error);
@@ -517,8 +519,9 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			source = mta_source((struct sockaddr*)&ss);
 			if (strlen(dom)) {
-				strlcpy(buf, dom, sizeof(buf));
-				mta_block(source, buf);
+				if (!(strlcpy(buf, dom, sizeof(buf))
+					>= sizeof(buf)))
+					mta_block(source, buf);
 			}
 			else
 				mta_block(source, NULL);
@@ -533,8 +536,9 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			source = mta_source((struct sockaddr*)&ss);
 			if (strlen(dom)) {
-				strlcpy(buf, dom, sizeof(buf));
-				mta_unblock(source, buf);
+				if (!(strlcpy(buf, dom, sizeof(buf))
+					>= sizeof(buf)))
+					mta_unblock(source, buf);
 			}
 			else
 				mta_unblock(source, NULL);
@@ -544,7 +548,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_CTL_MTA_SHOW_BLOCK:
 			SPLAY_FOREACH(block, mta_block_tree, &blocks) {
-				snprintf(buf, sizeof(buf), "%s -> %s",
+				(void)snprintf(buf, sizeof(buf), "%s -> %s",
 				    mta_source_to_text(block->source),
 				    block->domain ? block->domain : "*");
 				m_compose(p, IMSG_CTL_MTA_SHOW_BLOCK,
@@ -559,61 +563,14 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 	errx(1, "mta_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
-static void
-mta_sig_handler(int sig, short event, void *p)
+void
+mta_postfork(void)
 {
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		mta_shutdown();
-		break;
-	default:
-		fatalx("mta_sig_handler: unexpected signal");
-	}
 }
 
-static void
-mta_shutdown(void)
+void
+mta_postprivdrop(void)
 {
-	log_info("info: mail transfer agent exiting");
-	_exit(0);
-}
-
-pid_t
-mta(void)
-{
-	pid_t		 pid;
-	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("mta: cannot fork");
-	case 0:
-		post_fork(PROC_MTA);
-		break;
-	default:
-		return (pid);
-	}
-
-	purge_config(PURGE_EVERYTHING);
-
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
-
-	if (chroot(PATH_CHROOT) == -1)
-		fatal("mta: chroot");
-	if (chdir("/") == -1)
-		fatal("mta: chdir(\"/\")");
-
-	config_process(PROC_MTA);
-
-	if (setgroups(1, &pw->pw_gid) ||
-	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("mta: cannot drop privileges");
-
 	SPLAY_INIT(&relays);
 	SPLAY_INIT(&domains);
 	SPLAY_INIT(&hosts);
@@ -628,35 +585,14 @@ mta(void)
 	tree_init(&flush_evp);
 	dict_init(&hoststat);
 
-	imsg_callback = mta_imsg;
-	event_init();
-
 	evtimer_set(&ev_flush_evp, mta_delivery_flush_event, NULL);
 
 	runq_init(&runq_relay, mta_on_timeout);
 	runq_init(&runq_connector, mta_on_timeout);
 	runq_init(&runq_route, mta_on_timeout);
 	runq_init(&runq_hoststat, mta_on_timeout);
-
-	signal_set(&ev_sigint, SIGINT, mta_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, mta_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
-
-	config_peer(PROC_PARENT);
-	config_peer(PROC_QUEUE);
-	config_peer(PROC_LKA);
-	config_peer(PROC_CONTROL);
-	config_done();
-
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	mta_shutdown();
-
-	return (0);
 }
+
 
 /*
  * Local error on the given source.
@@ -760,14 +696,14 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 				relay->state &= ~RELAY_ONHOLD;
 			}
 			if (relay->state & RELAY_HOLDQ) {
-				m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+				m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 				m_add_id(p_queue, relay->id);
 				m_add_int(p_queue, relay->limits->task_release);
 				m_close(p_queue);
 			}
 		}
 		else if (relay->ntask == 0 && relay->state & RELAY_HOLDQ) {
-			m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+			m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 			m_add_id(p_queue, relay->id);
 			m_add_int(p_queue, 0);
 			m_close(p_queue);
@@ -785,19 +721,32 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 
 	if (tree_poproot(&flush_evp, NULL, (void**)(&e))) {
 
-		if (e->delivery == IMSG_DELIVERY_OK) {
-			m_create(p_queue, IMSG_DELIVERY_OK, 0, 0, -1);
+		if (e->delivery == IMSG_MTA_DELIVERY_OK) {
+			m_create(p_queue, IMSG_MTA_DELIVERY_OK, 0, 0, -1);
 			m_add_evpid(p_queue, e->id);
 			m_add_int(p_queue, e->ext);
 			m_close(p_queue);
-		} else if (e->delivery == IMSG_DELIVERY_TEMPFAIL)
-			queue_tempfail(e->id, e->status, ESC_OTHER_STATUS);
-		else if (e->delivery == IMSG_DELIVERY_PERMFAIL)
-			queue_permfail(e->id, e->status, ESC_OTHER_STATUS);
-		else if (e->delivery == IMSG_DELIVERY_LOOP)
-			queue_loop(e->id);
+		} else if (e->delivery == IMSG_MTA_DELIVERY_TEMPFAIL) {
+			m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
+			m_add_evpid(p_queue, e->id);
+			m_add_string(p_queue, e->status);
+			m_add_int(p_queue, ESC_OTHER_STATUS);
+			m_close(p_queue);
+		}
+		else if (e->delivery == IMSG_MTA_DELIVERY_PERMFAIL) {
+			m_create(p_queue, IMSG_MTA_DELIVERY_PERMFAIL, 0, 0, -1);
+			m_add_evpid(p_queue, e->id);
+			m_add_string(p_queue, e->status);
+			m_add_int(p_queue, ESC_OTHER_STATUS);
+			m_close(p_queue);
+		}
+		else if (e->delivery == IMSG_MTA_DELIVERY_LOOP) {
+			m_create(p_queue, IMSG_MTA_DELIVERY_LOOP, 0, 0, -1);
+			m_add_evpid(p_queue, e->id);
+			m_close(p_queue);
+		}
 		else {
-			log_warnx("warn: bad delivery type %i for %016" PRIx64,
+			log_warnx("warn: bad delivery type %d for %016" PRIx64,
 			    e->delivery, e->id);
 			fatalx("aborting");
 		}
@@ -819,23 +768,23 @@ void
 mta_delivery_log(struct mta_envelope *e, const char *source, const char *relay,
     int delivery, const char *status)
 {
-	if (delivery == IMSG_DELIVERY_OK)
+	if (delivery == IMSG_MTA_DELIVERY_OK)
 		mta_log(e, "Ok", source, relay, status);
-	else if (delivery == IMSG_DELIVERY_TEMPFAIL)
+	else if (delivery == IMSG_MTA_DELIVERY_TEMPFAIL)
 		mta_log(e, "TempFail", source, relay, status);
-	else if (delivery == IMSG_DELIVERY_PERMFAIL)
+	else if (delivery == IMSG_MTA_DELIVERY_PERMFAIL)
 		mta_log(e, "PermFail", source, relay, status);
-	else if (delivery == IMSG_DELIVERY_LOOP)
+	else if (delivery == IMSG_MTA_DELIVERY_LOOP)
 		mta_log(e, "PermFail", source, relay, "Loop detected");
 	else {
-		log_warnx("warn: bad delivery type %i for %016" PRIx64,
+		log_warnx("warn: bad delivery type %d for %016" PRIx64,
 		    delivery, e->id);
 		fatalx("aborting");
 	}
 
 	e->delivery = delivery;
 	if (status)
-		strlcpy(e->status, status, sizeof(e->status));
+		(void)strlcpy(e->status, status, sizeof(e->status));
 }
 
 void
@@ -866,9 +815,12 @@ mta_query_mx(struct mta_relay *relay)
 		id = generate_uid();
 		tree_xset(&wait_mx, id, relay->domain);
 		if (relay->domain->flags)
-			dns_query_host(id, relay->domain->name);
+			m_create(p_lka,  IMSG_MTA_DNS_HOST, 0, 0, -1);
 		else
-			dns_query_mx(id, relay->domain->name);
+			m_create(p_lka,  IMSG_MTA_DNS_MX, 0, 0, -1);
+		m_add_id(p_lka, id);
+		m_add_string(p_lka, relay->domain->name);
+		m_close(p_lka);
 	}
 	relay->status |= RELAY_WAIT_MX;
 	mta_relay_ref(relay);
@@ -902,7 +854,7 @@ mta_query_secret(struct mta_relay *relay)
 	tree_xset(&wait_secret, relay->id, relay);
 	relay->status |= RELAY_WAIT_SECRET;
 
-	m_create(p_lka, IMSG_LKA_SECRET, 0, 0, -1);
+	m_create(p_lka, IMSG_MTA_LOOKUP_CREDENTIALS, 0, 0, -1);
 	m_add_id(p_lka, relay->id);
 	m_add_string(p_lka, relay->authtable);
 	m_add_string(p_lka, relay->authlabel);
@@ -922,8 +874,13 @@ mta_query_preference(struct mta_relay *relay)
 
 	tree_xset(&wait_preference, relay->id, relay);
 	relay->status |= RELAY_WAIT_PREFERENCE;
-	dns_query_mx_preference(relay->id, relay->domain->name,
-		relay->backupname);
+
+	m_create(p_lka,  IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
+	m_add_id(p_lka, relay->id);
+	m_add_string(p_lka, relay->domain->name);
+	m_add_string(p_lka, relay->backupname);
+	m_close(p_lka);
+
 	mta_relay_ref(relay);
 }
 
@@ -938,14 +895,14 @@ mta_query_source(struct mta_relay *relay)
 	if (relay->sourcetable == NULL) {
 		/*
 		 * This is a recursive call, but it only happens once, since
-		 * another source will not be queried immediatly.
+		 * another source will not be queried immediately.
 		 */
 		mta_relay_ref(relay);
 		mta_on_source(relay, mta_source(NULL));
 		return;
 	}
 
-	m_create(p_lka, IMSG_LKA_SOURCE, 0, 0, -1);
+	m_create(p_lka, IMSG_MTA_LOOKUP_SOURCE, 0, 0, -1);
 	m_add_id(p_lka, relay->id);
 	m_add_string(p_lka, relay->sourcetable);
 	m_close(p_lka);
@@ -968,19 +925,19 @@ mta_on_mx(void *tag, void *arg, void *data)
 	case DNS_OK:
 		break;
 	case DNS_RETRY:
-		relay->fail = IMSG_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_TEMPFAIL;
 		relay->failstr = "Temporary failure in MX lookup";
 		break;
 	case DNS_EINVAL:
-		relay->fail = IMSG_DELIVERY_PERMFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_PERMFAIL;
 		relay->failstr = "Invalid domain name";
 		break;
 	case DNS_ENONAME:
-		relay->fail = IMSG_DELIVERY_PERMFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_PERMFAIL;
 		relay->failstr = "Domain does not exist";
 		break;
 	case DNS_ENOTFOUND:
-		relay->fail = IMSG_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_TEMPFAIL;
 		relay->failstr = "No MX found for domain";
 		break;
 	default:
@@ -1009,7 +966,7 @@ mta_on_secret(struct mta_relay *relay, const char *secret)
 	if (relay->secret == NULL) {
 		log_warnx("warn: Failed to retrieve secret "
 			    "for %s", mta_relay_to_text(relay));
-		relay->fail = IMSG_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_TEMPFAIL;
 		relay->failstr = "Could not retrieve credentials";
 	}
 
@@ -1019,18 +976,12 @@ mta_on_secret(struct mta_relay *relay, const char *secret)
 }
 
 static void
-mta_on_preference(struct mta_relay *relay, int dnserror, int preference)
+mta_on_preference(struct mta_relay *relay, int preference)
 {
-	if (dnserror) {
-		log_warnx("warn: Couldn't find backup preference for %s",
-		    mta_relay_to_text(relay));
-		relay->backuppref = INT_MAX;
-	}
-	else {
-		log_debug("debug: mta: ... got preference for %s: %d, %d",
-		    mta_relay_to_text(relay), dnserror, preference);
-		relay->backuppref = preference;
-	}
+	log_debug("debug: mta: ... got preference for %s: %d",
+	    mta_relay_to_text(relay), preference);
+
+	relay->backuppref = preference;
 
 	relay->status &= ~RELAY_WAIT_PREFERENCE;
 	mta_drain(relay);
@@ -1069,11 +1020,11 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 	}
 
 	if (tree_count(&relay->connectors) == 0) {
-		relay->fail = IMSG_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_TEMPFAIL;
 		relay->failstr = "Could not retrieve source address";
 	}
 	if (tree_count(&relay->connectors) < relay->sourceloop) {
-		relay->fail = IMSG_DELIVERY_TEMPFAIL;
+		relay->fail = IMSG_MTA_DELIVERY_TEMPFAIL;
 		relay->failstr = "No valid route to remote MX";
 
 		errmask = 0;
@@ -1126,8 +1077,9 @@ mta_connect(struct mta_connector *c)
 	}
 
 	if (c->flags & CONNECTOR_WAIT) {
-		log_debug("debug: mta: canceling connector timeout");
+		log_debug("debug: mta: cancelling connector timeout");
 		runq_cancel(runq_connector, NULL, c);
+		c->flags &= ~CONNECTOR_WAIT;
 	}
 
 	/* No job. */
@@ -1372,15 +1324,15 @@ mta_drain(struct mta_relay *r)
 	if (r->status & RELAY_WAITMASK) {
 		buf[0] = '\0';
 		if (r->status & RELAY_WAIT_MX)
-			strlcat(buf, " MX", sizeof buf);
+			(void)strlcat(buf, " MX", sizeof buf);
 		if (r->status & RELAY_WAIT_PREFERENCE)
-			strlcat(buf, " preference", sizeof buf);
+			(void)strlcat(buf, " preference", sizeof buf);
 		if (r->status & RELAY_WAIT_SECRET)
-			strlcat(buf, " secret", sizeof buf);
+			(void)strlcat(buf, " secret", sizeof buf);
 		if (r->status & RELAY_WAIT_SOURCE)
-			strlcat(buf, " source", sizeof buf);
+			(void)strlcat(buf, " source", sizeof buf);
 		if (r->status & RELAY_WAIT_CONNECTOR)
-			strlcat(buf, " connector", sizeof buf);
+			(void)strlcat(buf, " connector", sizeof buf);
 		log_debug("debug: mta: %s waiting for%s",
 		    mta_relay_to_text(r), buf);
 		return;
@@ -1414,7 +1366,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 	log_debug("debug: mta_flush(%s, %d, \"%s\")",
 	    mta_relay_to_text(relay), fail, error);
 
-	if (fail != IMSG_DELIVERY_TEMPFAIL && fail != IMSG_DELIVERY_PERMFAIL)
+	if (fail != IMSG_MTA_DELIVERY_TEMPFAIL && fail != IMSG_MTA_DELIVERY_PERMFAIL)
 		errx(1, "unexpected delivery status %d", fail);
 
 	n = 0;
@@ -1429,7 +1381,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 			 * that domain.
 			 */
 			domain = strchr(e->dest, '@');
-			if (fail == IMSG_DELIVERY_TEMPFAIL && domain) {
+			if (fail == IMSG_MTA_DELIVERY_TEMPFAIL && domain) {
 				r = 0;
 				iter = NULL;
 				while (tree_iter(&relay->connectors, &iter,
@@ -1456,7 +1408,7 @@ mta_flush(struct mta_relay *relay, int fail, const char *error)
 
 	/* release all waiting envelopes for the relay */
 	if (relay->state & RELAY_HOLDQ) {
-		m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+		m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 		m_add_id(p_queue, relay->id);
 		m_add_int(p_queue, -1);
 		m_close(p_queue);
@@ -1763,7 +1715,7 @@ mta_relay_unref(struct mta_relay *relay)
 
 	/* Make sure they are no envelopes held for this relay */
 	if (relay->state & RELAY_HOLDQ) {
-		m_create(p_queue, IMSG_DELIVERY_RELEASE, 0, 0, -1);
+		m_create(p_queue, IMSG_MTA_HOLDQ_RELEASE, 0, 0, -1);
 		m_add_id(p_queue, relay->id);
 		m_add_int(p_queue, 0);
 		m_close(p_queue);
@@ -1796,68 +1748,68 @@ mta_relay_to_text(struct mta_relay *relay)
 	char		 tmp[32];
 	const char	*sep = ",";
 
-	snprintf(buf, sizeof buf, "[relay:%s", relay->domain->name);
+	(void)snprintf(buf, sizeof buf, "[relay:%s", relay->domain->name);
 
 	if (relay->port) {
-		strlcat(buf, sep, sizeof buf);
-		snprintf(tmp, sizeof tmp, "port=%d", (int)relay->port);
-		strlcat(buf, tmp, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)snprintf(tmp, sizeof tmp, "port=%d", (int)relay->port);
+		(void)strlcat(buf, tmp, sizeof buf);
 	}
 
 	if (relay->flags & RELAY_STARTTLS) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "starttls", sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "starttls", sizeof buf);
 	}
 
 	if (relay->flags & RELAY_SMTPS) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "smtps", sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "smtps", sizeof buf);
 	}
 
 	if (relay->flags & RELAY_AUTH) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "auth=", sizeof buf);
-		strlcat(buf, relay->authtable, sizeof buf);
-		strlcat(buf, ":", sizeof buf);
-		strlcat(buf, relay->authlabel, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "auth=", sizeof buf);
+		(void)strlcat(buf, relay->authtable, sizeof buf);
+		(void)strlcat(buf, ":", sizeof buf);
+		(void)strlcat(buf, relay->authlabel, sizeof buf);
 	}
 
 	if (relay->pki_name) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "pki_name=", sizeof buf);
-		strlcat(buf, relay->pki_name, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "pki_name=", sizeof buf);
+		(void)strlcat(buf, relay->pki_name, sizeof buf);
 	}
 
 	if (relay->flags & RELAY_MX) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "mx", sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "mx", sizeof buf);
 	}
 
 	if (relay->backupname) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "backup=", sizeof buf);
-		strlcat(buf, relay->backupname, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "backup=", sizeof buf);
+		(void)strlcat(buf, relay->backupname, sizeof buf);
 	}
 
 	if (relay->sourcetable) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "sourcetable=", sizeof buf);
-		strlcat(buf, relay->sourcetable, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "sourcetable=", sizeof buf);
+		(void)strlcat(buf, relay->sourcetable, sizeof buf);
 	}
 
 	if (relay->helotable) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "helotable=", sizeof buf);
-		strlcat(buf, relay->helotable, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "helotable=", sizeof buf);
+		(void)strlcat(buf, relay->helotable, sizeof buf);
 	}
 
 	if (relay->heloname) {
-		strlcat(buf, sep, sizeof buf);
-		strlcat(buf, "heloname=", sizeof buf);
-		strlcat(buf, relay->heloname, sizeof buf);
+		(void)strlcat(buf, sep, sizeof buf);
+		(void)strlcat(buf, "heloname=", sizeof buf);
+		(void)strlcat(buf, relay->heloname, sizeof buf);
 	}
 
-	strlcat(buf, "]", sizeof buf);
+	(void)strlcat(buf, "]", sizeof buf);
 
 	return (buf);
 }
@@ -1872,12 +1824,12 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 
 	flags[0] = '\0';
 
-#define SHOWSTATUS(f, n) do {						\
-		if (r->status & (f)) {					\
-			if (flags[0])					\
-				strlcat(flags, ",", sizeof(flags));	\
-			strlcat(flags, (n), sizeof(flags));		\
-		} 							\
+#define SHOWSTATUS(f, n) do {							\
+		if (r->status & (f)) {						\
+			if (flags[0])						\
+				(void)strlcat(flags, ",", sizeof(flags));	\
+			(void)strlcat(flags, (n), sizeof(flags));		\
+		}								\
 	} while(0)
 
 	SHOWSTATUS(RELAY_WAIT_MX, "MX");
@@ -1889,11 +1841,11 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 #undef SHOWSTATUS
 
 	if (runq_pending(runq_relay, NULL, r, &to))
-		snprintf(dur, sizeof(dur), "%s", duration_to_text(to - t));
+		(void)snprintf(dur, sizeof(dur), "%s", duration_to_text(to - t));
 	else
-		strlcpy(dur, "-", sizeof(dur));
+		(void)strlcpy(dur, "-", sizeof(dur));
 
-	snprintf(buf, sizeof(buf), "%s refcount=%d ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s%s",
+	(void)snprintf(buf, sizeof(buf), "%s refcount=%d ntask=%zu nconn=%zu lastconn=%s timeout=%s wait=%s%s",
 	    mta_relay_to_text(r),
 	    r->refcount,
 	    r->ntask,
@@ -1908,18 +1860,18 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 	while (tree_iter(&r->connectors, &iter, NULL, (void **)&c)) {
 
 		if (runq_pending(runq_connector, NULL, c, &to))
-			snprintf(dur, sizeof(dur), "%s", duration_to_text(to - t));
+			(void)snprintf(dur, sizeof(dur), "%s", duration_to_text(to - t));
 		else
-			strlcpy(dur, "-", sizeof(dur));
+			(void)strlcpy(dur, "-", sizeof(dur));
 
 		flags[0] = '\0';
 
-#define SHOWFLAG(f, n) do {						\
-		if (c->flags & (f)) {					\
-			if (flags[0])					\
-				strlcat(flags, ",", sizeof(flags));	\
-			strlcat(flags, (n), sizeof(flags));		\
-		} 							\
+#define SHOWFLAG(f, n) do {							\
+		if (c->flags & (f)) {						\
+			if (flags[0])						\
+				(void)strlcat(flags, ",", sizeof(flags));	\
+			(void)strlcat(flags, (n), sizeof(flags));		\
+		}								\
 	} while(0)
 
 		SHOWFLAG(CONNECTOR_NEW,		"NEW");
@@ -1940,7 +1892,7 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 		SHOWFLAG(CONNECTOR_LIMIT_DOMAIN,	"LIMIT_DOMAIN");
 #undef SHOWFLAG
 
-		snprintf(buf, sizeof(buf),
+		(void)snprintf(buf, sizeof(buf),
 		    "  connector %s refcount=%d nconn=%zu lastconn=%s timeout=%s flags=%s",
 		    mta_source_to_text(c->source),
 		    c->refcount,
@@ -2063,10 +2015,10 @@ mta_host_to_text(struct mta_host *h)
 	static char buf[1024];
 
 	if (h->ptrname)
-		snprintf(buf, sizeof buf, "%s (%s)",
+		(void)snprintf(buf, sizeof buf, "%s (%s)",
 		    sa_to_text(h->sa), h->ptrname);
 	else
-		snprintf(buf, sizeof buf, "%s", sa_to_text(h->sa));
+		(void)snprintf(buf, sizeof buf, "%s", sa_to_text(h->sa));
 
 	return (buf);
 }
@@ -2195,7 +2147,7 @@ mta_source_to_text(struct mta_source *s)
 
 	if (s->sa == NULL)
 		return "[]";
-	snprintf(buf, sizeof buf, "%s", sa_to_text(s->sa));
+	(void)snprintf(buf, sizeof buf, "%s", sa_to_text(s->sa));
 	return (buf);
 }
 
@@ -2242,7 +2194,7 @@ mta_connector_free(struct mta_connector *c)
 	    mta_connector_to_text(c));
 
 	if (c->flags & CONNECTOR_WAIT) {
-		log_debug("debug: mta: canceling timeout for %s",
+		log_debug("debug: mta: cancelling timeout for %s",
 		    mta_connector_to_text(c));
 		runq_cancel(runq_connector, NULL, c);
 	}
@@ -2257,7 +2209,7 @@ mta_connector_to_text(struct mta_connector *c)
 {
 	static char buf[1024];
 
-	snprintf(buf, sizeof buf, "[connector:%s->%s,0x%x]",
+	(void)snprintf(buf, sizeof buf, "[connector:%s->%s,0x%x]",
 	    mta_source_to_text(c->source),
 	    mta_relay_to_text(c->relay),
 	    c->flags);
@@ -2286,7 +2238,7 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 		stat_increment("mta.route", 1);
 	}
 	else if (r->flags & ROUTE_RUNQ) {
-		log_debug("debug: mta: mta_route_ref(): canceling runq for route %s",
+		log_debug("debug: mta: mta_route_ref(): cancelling runq for route %s",
 		    mta_route_to_text(r));
 		r->flags &= ~(ROUTE_RUNQ | ROUTE_KEEPALIVE);
 		runq_cancel(runq_route, NULL, r);
@@ -2349,7 +2301,7 @@ mta_route_unref(struct mta_route *r)
 		return;
 	}
 
-	log_debug("debug: mta: ma_route_unref(): really discarding route %s",
+	log_debug("debug: mta: mta_route_unref(): really discarding route %s",
 	    mta_route_to_text(r));
 
 	SPLAY_REMOVE(mta_route_tree, &routes, r);
@@ -2364,7 +2316,7 @@ mta_route_to_text(struct mta_route *r)
 {
 	static char	buf[1024];
 
-	snprintf(buf, sizeof buf, "%s <-> %s",
+	(void)snprintf(buf, sizeof buf, "%s <-> %s",
 	    mta_source_to_text(r->src),
 	    mta_host_to_text(r->dst));
 
@@ -2482,8 +2434,8 @@ mta_hoststat_update(const char *host, const char *error)
 		tree_init(&hs->deferred);
 		runq_schedule(runq_hoststat, tm+HOSTSTAT_EXPIRE_DELAY, NULL, hs);
 	}
-	strlcpy(hs->name, buf, sizeof hs->name);
-	strlcpy(hs->error, error, sizeof hs->error);
+	(void)strlcpy(hs->name, buf, sizeof hs->name);
+	(void)strlcpy(hs->error, error, sizeof hs->error);
 	hs->tm = time(NULL);
 	dict_set(&hoststat, buf, hs);
 

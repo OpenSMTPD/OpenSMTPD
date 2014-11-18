@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtp.c,v 1.141 2014/11/05 19:38:09 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -44,9 +44,6 @@
 #include "log.h"
 #include "ssl.h"
 
-static void smtp_imsg(struct mproc *, struct imsg *);
-static void smtp_shutdown(void);
-static void smtp_sig_handler(int, short, void *);
 static void smtp_setup_events(void);
 static void smtp_pause(void);
 static void smtp_resume(void);
@@ -58,28 +55,17 @@ static void smtp_setup_listeners(void);
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
 
-static void
+void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
-	struct msg	 m;
-	int		 v;
-
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
-		case IMSG_DNS_PTR:
-		case IMSG_LKA_EXPAND_RCPT:
-		case IMSG_LKA_HELO:
-		case IMSG_LKA_AUTHENTICATE:
-		case IMSG_LKA_SSL_INIT:
-		case IMSG_LKA_SSL_VERIFY:
-			smtp_session_imsg(p, imsg);
-			return;
-		}
-	}
-
-	if (p->proc == PROC_MFA) {
-		switch (imsg->hdr.type) {
-		case IMSG_MFA_SMTP_RESPONSE:
+		case IMSG_SMTP_DNS_PTR:
+		case IMSG_SMTP_EXPAND_RCPT:
+		case IMSG_SMTP_LOOKUP_HELO:
+		case IMSG_SMTP_AUTHENTICATE:
+		case IMSG_SMTP_SSL_INIT:
+		case IMSG_SMTP_SSL_VERIFY:
 			smtp_session_imsg(p, imsg);
 			return;
 		}
@@ -87,52 +73,26 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
-		case IMSG_QUEUE_CREATE_MESSAGE:
-		case IMSG_QUEUE_MESSAGE_FILE:
-		case IMSG_QUEUE_SUBMIT_ENVELOPE:
-		case IMSG_QUEUE_COMMIT_ENVELOPES:
-		case IMSG_QUEUE_COMMIT_MESSAGE:
+		case IMSG_SMTP_MESSAGE_COMMIT:
+		case IMSG_SMTP_MESSAGE_CREATE:
+		case IMSG_SMTP_MESSAGE_OPEN:
+		case IMSG_QUEUE_ENVELOPE_SUBMIT:
+		case IMSG_QUEUE_ENVELOPE_COMMIT:
 			smtp_session_imsg(p, imsg);
 			return;
 
-		case IMSG_SMTP_ENQUEUE_FD:
-			m_compose(p, IMSG_SMTP_ENQUEUE_FD, 0, 0,
+		case IMSG_QUEUE_SMTP_SESSION:
+			m_compose(p, IMSG_QUEUE_SMTP_SESSION, 0, 0,
 			    smtp_enqueue(NULL), imsg->data,
 			    imsg->hdr.len - sizeof imsg->hdr);
 			return;
 		}
 	}
 
-	if (p->proc == PROC_PARENT) {
-		switch (imsg->hdr.type) {
-
-		case IMSG_CONF_START:
-			return;
-
-		case IMSG_CONF_END:
-			smtp_setup_events();
-			return;
-
-		case IMSG_CTL_VERBOSE:
-			m_msg(&m, imsg);
-			m_get_int(&m, &v);
-			m_end(&m);
-			log_verbose(v);
-			return;
-
-		case IMSG_CTL_PROFILE:
-			m_msg(&m, imsg);
-			m_get_int(&m, &v);
-			m_end(&m);
-			profiling = v;
-			return;
-		}
-	}
-
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE_FD:
-			m_compose(p, IMSG_SMTP_ENQUEUE_FD, imsg->hdr.peerid, 0,
+		case IMSG_CTL_SMTP_SESSION:
+			m_compose(p, IMSG_CTL_SMTP_SESSION, imsg->hdr.peerid, 0,
 			    smtp_enqueue(imsg->data), NULL, 0);
 			return;
 
@@ -153,86 +113,21 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	errx(1, "smtp_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
-static void
-smtp_sig_handler(int sig, short event, void *p)
+void
+smtp_postfork(void)
 {
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		smtp_shutdown();
-		break;
-	default:
-		fatalx("smtp_sig_handler: unexpected signal");
-	}
-}
-
-static void
-smtp_shutdown(void)
-{
-	log_info("info: smtp server exiting");
-	_exit(0);
-}
-
-pid_t
-smtp(void)
-{
-	pid_t		 pid;
-	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("smtp: cannot fork");
-	case 0:
-		post_fork(PROC_SMTP);
-		break;
-	default:
-		return (pid);
-	}
-
 	smtp_setup_listeners();
+}
 
-	/* SSL will be purged later */
-	purge_config(PURGE_TABLES|PURGE_RULES);
+void
+smtp_postprivdrop(void)
+{
+}
 
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
-
-	if (chroot(PATH_CHROOT) == -1)
-		fatal("smtp: chroot");
-	if (chdir("/") == -1)
-		fatal("smtp: chdir(\"/\")");
-
-	config_process(PROC_SMTP);
-
-	if (setgroups(1, &pw->pw_gid) ||
-	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("smtp: cannot drop privileges");
-
-	imsg_callback = smtp_imsg;
-	event_init();
-
-	signal_set(&ev_sigint, SIGINT, smtp_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, smtp_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
-
-	config_peer(PROC_CONTROL);
-	config_peer(PROC_PARENT);
-	config_peer(PROC_LKA);
-	config_peer(PROC_MFA);
-	config_peer(PROC_QUEUE);
-	config_done();
-
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	smtp_shutdown();
-
-	return (0);
+void
+smtp_configure(void)
+{
+	smtp_setup_events();
 }
 
 static void
@@ -294,7 +189,7 @@ smtp_setup_events(void)
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
 
-	purge_config(PURGE_PKI);
+	purge_config(PURGE_PKI_KEYS);
 
 	/* XXX chl */
 	log_debug("debug: smtp: will accept at most %d clients",
@@ -335,12 +230,12 @@ smtp_enqueue(uid_t *euid)
 
 	if (listener == NULL) {
 		listener = &local;
-		strlcpy(listener->tag, "local", sizeof(listener->tag));
+		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
 		listener->ss.ss_family = AF_LOCAL;
 #ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 #endif
-		strlcpy(listener->hostname, "localhost",
+		(void)strlcpy(listener->hostname, env->sc_hostname,
 		    sizeof(listener->hostname));
 	}
 
@@ -356,9 +251,9 @@ smtp_enqueue(uid_t *euid)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		fatal("socketpair");
 
-	hostname = "localhost";
+	hostname = env->sc_hostname;
 	if (euid) {
-		snprintf(buf, sizeof(buf), "%d@localhost", *euid);
+		(void)snprintf(buf, sizeof(buf), "%s", hostname);
 		hostname = buf;
 	}
 
@@ -450,7 +345,7 @@ smtp_collect(void)
 
 	if (env->sc_flags & SMTPD_SMTP_DISABLED) {
 		log_warnx("warn: smtp: "
-		    "fd exaustion over, re-enabling incoming connections");
+		    "fd exhaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}

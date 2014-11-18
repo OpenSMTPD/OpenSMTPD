@@ -7,6 +7,7 @@ PROG=	table-stub
 SRCS=	table_stub.c
 SRCS+=	table_api.c
 SRCS+=	log.c
+SRCS+=	dict.c
 
 NOMAN=	noman
 

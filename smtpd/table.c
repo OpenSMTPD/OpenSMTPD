@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: table.c,v 1.17 2014/07/08 13:49:09 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -109,7 +109,7 @@ table_find(const char *name, const char *tag)
 	if (tag == NULL)
 		return dict_get(env->sc_tables_dict, name);
 
-	if (snprintf(buf, sizeof(buf), "%s#%s", name, tag) >= (int)sizeof(buf)) {
+	if ((size_t)snprintf(buf, sizeof(buf), "%s#%s", name, tag) >= sizeof(buf)) {
 		log_warnx("warn: table name too long: %s#%s", name, tag);
 		return (NULL);
 	}
@@ -118,7 +118,7 @@ table_find(const char *name, const char *tag)
 }
 
 int
-table_lookup(struct table *table, const char *key, enum table_service kind,
+table_lookup(struct table *table, struct dict *params, const char *key, enum table_service kind,
     union lookup *lk)
 {
 	int	r;
@@ -132,7 +132,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 		return -1;
 	}
 
-	r = table->t_backend->lookup(table->t_handle, lkey, kind, lk);
+	r = table->t_backend->lookup(table->t_handle, params, lkey, kind, lk);
 
 	if (r == 1)
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %s%s%s",
@@ -157,14 +157,14 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 }
 
 int
-table_fetch(struct table *table, enum table_service kind, union lookup *lk)
+table_fetch(struct table *table, struct dict *params, enum table_service kind, union lookup *lk)
 {
 	int 	r;
 
 	if (table->t_backend->fetch == NULL)
 		return (-1);
 
-	r = table->t_backend->fetch(table->t_handle, kind, lk);
+	r = table->t_backend->fetch(table->t_handle, params, kind, lk);
 
 	if (r == 1)
 		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %s%s%s",
@@ -196,34 +196,37 @@ table_create(const char *backend, const char *name, const char *tag,
 	struct stat		 sb;
 
 	if (name && tag) {
-		if (snprintf(buf, sizeof(buf), "%s#%s", name, tag)
-		    >= (int)sizeof(buf))
-			errx(1, "table_create: name too long \"%s#%s\"",
+		if ((size_t)snprintf(buf, sizeof(buf), "%s#%s", name, tag) >=
+		    sizeof(buf))
+			fatalx("table_create: name too long \"%s#%s\"",
 			    name, tag);
 		name = buf;
 	}
 
 	if (name && table_find(name, NULL))
-		errx(1, "table_create: table \"%s\" already defined", name);
+		fatalx("table_create: table \"%s\" already defined", name);
 
 	if ((tb = table_backend_lookup(backend)) == NULL) {
-		if (snprintf(path, sizeof(path), PATH_TABLES "/table-%s",
-		    backend) >= (int)sizeof(path)) {
-			errx(1, "table_create: path too long \""
-			    PATH_TABLES "/table-%s\"", backend);
+		if ((size_t)snprintf(path, sizeof(path), PATH_LIBEXEC "/table-%s",
+		    backend) >= sizeof(path)) {
+			fatalx("table_create: path too long \""
+			    PATH_LIBEXEC "/table-%s\"", backend);
 		}
 		if (stat(path, &sb) == 0) {
 			tb = table_backend_lookup("proc");
+			(void)strlcpy(path, backend, sizeof(path));
 			if (config) {
-				strlcat(path, " ", sizeof(path));
-				strlcat(path, config, sizeof(path));
+				(void)strlcat(path, ":", sizeof(path));
+				if (strlcat(path, config, sizeof(path))
+				    >= sizeof(path))
+					fatalx("table_create: config file path too long");
 			}
 			config = path;
 		}
 	}
 
 	if (tb == NULL)
-		errx(1, "table_create: backend \"%s\" does not exist", backend);
+		fatalx("table_create: backend \"%s\" does not exist", backend);
 
 	t = xcalloc(1, sizeof(*t), "table_create");
 	t->t_backend = tb;
@@ -238,7 +241,7 @@ table_create(const char *backend, const char *name, const char *tag,
 	if (config) {
 		if (strlcpy(t->t_config, config, sizeof t->t_config)
 		    >= sizeof t->t_config)
-			errx(1, "table_create: table config \"%s\" too large",
+			fatalx("table_create: table config \"%s\" too large",
 			    t->t_config);
 	}
 
@@ -246,12 +249,12 @@ table_create(const char *backend, const char *name, const char *tag,
 		t->t_type = T_DYNAMIC;
 
 	if (name == NULL)
-		snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>",
+		(void)snprintf(t->t_name, sizeof(t->t_name), "<dynamic:%u>",
 		    last_table_id++);
 	else {
 		n = strlcpy(t->t_name, name, sizeof(t->t_name));
 		if (n >= sizeof(t->t_name))
-			errx(1, "table_create: table name too long");
+			fatalx("table_create: table name too long");
 	}
 
 	dict_init(&t->t_dict);
@@ -286,7 +289,7 @@ table_add(struct table *t, const char *key, const char *val)
 	char	lkey[1024], *old;
 
 	if (t->t_type & T_DYNAMIC)
-		errx(1, "table_add: cannot add to table");
+		fatalx("table_add: cannot add to table");
 
 	if (! lowercase(lkey, key, sizeof lkey)) {
 		log_warnx("warn: lookup key too long: %s", key);
@@ -299,22 +302,6 @@ table_add(struct table *t, const char *key, const char *val)
 		    lkey, t->t_name);
 		free(old);
 	}
-}
-
-const void *
-table_get(struct table *t, const char *key)
-{
-	if (t->t_type & T_DYNAMIC)
-		errx(1, "table_get: cannot get from table");
-	return dict_get(&t->t_dict, key);
-}
-
-void
-table_delete(struct table *t, const char *key)
-{
-	if (t->t_type & T_DYNAMIC)
-		errx(1, "table_delete: cannot delete from table");
-	free(dict_pop(&t->t_dict, key));
 }
 
 int
@@ -485,17 +472,17 @@ table_dump_all(void)
 		sep = "";
  		buf[0] = '\0';
 		if (t->t_type & T_DYNAMIC) {
-			strlcat(buf, "DYNAMIC", sizeof(buf));
+			(void)strlcat(buf, "DYNAMIC", sizeof(buf));
 			sep = ",";
 		}
 		if (t->t_type & T_LIST) {
-			strlcat(buf, sep, sizeof(buf));
-			strlcat(buf, "LIST", sizeof(buf));
+			(void)strlcat(buf, sep, sizeof(buf));
+			(void)strlcat(buf, "LIST", sizeof(buf));
 			sep = ",";
 		}
 		if (t->t_type & T_HASH) {
-			strlcat(buf, sep, sizeof(buf));
-			strlcat(buf, "HASH", sizeof(buf));
+			(void)strlcat(buf, sep, sizeof(buf));
+			(void)strlcat(buf, "HASH", sizeof(buf));
 			sep = ",";
 		}
 		log_debug("TABLE \"%s\" type=%s config=\"%s\"",
@@ -518,7 +505,7 @@ table_open_all(void)
 	iter = NULL;
 	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
 		if (! table_open(t))
-			errx(1, "failed to open table %s", t->t_name);
+			fatalx("failed to open table %s", t->t_name);
 }
 
 void
@@ -632,6 +619,7 @@ static const char *
 table_dump_lookup(enum table_service s, union lookup *lk)
 {
 	static char	buf[SMTPD_MAXLINESIZE];
+	int		ret;
 
 	switch (s) {
 	case K_NONE:
@@ -642,42 +630,56 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	case K_DOMAIN:
-		snprintf(buf, sizeof(buf), "%s", lk->domain.name);
+		ret = snprintf(buf, sizeof(buf), "%s", lk->domain.name);
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	case K_CREDENTIALS:
-		snprintf(buf, sizeof(buf), "%s:%s",
+		ret = snprintf(buf, sizeof(buf), "%s:%s",
 		    lk->creds.username, lk->creds.password);
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	case K_NETADDR:
-		snprintf(buf, sizeof(buf), "%s/%d",
+		ret = snprintf(buf, sizeof(buf), "%s/%d",
 		    sockaddr_to_text((struct sockaddr *)&lk->netaddr.ss),
 		    lk->netaddr.bits);
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	case K_USERINFO:
-		snprintf(buf, sizeof(buf), "%s:%d:%d:%s",
+		ret = snprintf(buf, sizeof(buf), "%s:%d:%d:%s",
 		    lk->userinfo.username,
 		    lk->userinfo.uid,
 		    lk->userinfo.gid,
 		    lk->userinfo.directory);
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	case K_SOURCE:
-		snprintf(buf, sizeof(buf), "%s",
+		ret = snprintf(buf, sizeof(buf), "%s",
 		    ss_to_text(&lk->source.addr));
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	case K_MAILADDR:
-		snprintf(buf, sizeof(buf), "%s@%s",
+		ret = snprintf(buf, sizeof(buf), "%s@%s",
 		    lk->mailaddr.user,
 		    lk->mailaddr.domain);
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	case K_ADDRNAME:
-		snprintf(buf, sizeof(buf), "%s",
+		ret = snprintf(buf, sizeof(buf), "%s",
 		    lk->addrname.name);
+		if (ret == -1 || (size_t)ret >= sizeof (buf))
+			goto err;
 		break;
 
 	default:
@@ -685,6 +687,9 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 	}
 
 	return (buf);
+
+err:
+	return (NULL);
 }
 
 

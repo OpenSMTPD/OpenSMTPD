@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: ssl_smtpd.c,v 1.7 2014/04/29 19:13:14 reyk Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -46,21 +46,12 @@
 
 
 void *
-ssl_mta_init(char *cert, off_t cert_len, char *key, off_t key_len)
+ssl_mta_init(void *pkiname, char *cert, off_t cert_len)
 {
 	SSL_CTX	*ctx = NULL;
 	SSL	*ssl = NULL;
 
-	ctx = ssl_ctx_create();
-
-	if (cert != NULL && key != NULL) {
-		if (!ssl_ctx_use_certificate_chain(ctx, cert, cert_len)) 
-			goto err;
-		else if (!ssl_ctx_use_private_key(ctx, key, key_len))
-			goto err;
-		else if (!SSL_CTX_check_private_key(ctx))
-			goto err;
-	}
+	ctx = ssl_ctx_create(pkiname, cert, cert_len);
 
 	if ((ssl = SSL_new(ctx)) == NULL)
 		goto err;
@@ -92,18 +83,12 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 }
 
 void *
-ssl_smtp_init(void *ssl_ctx, char *cert, off_t cert_len, char *key, off_t key_len, void *sni, void *arg)
+ssl_smtp_init(void *ssl_ctx, void *sni, void *arg)
 {
 	SSL	*ssl = NULL;
 	int	(*cb)(SSL *,int *,void *) = sni;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
-	if (!ssl_ctx_use_certificate_chain(ssl_ctx, cert, cert_len))
-		goto err;
-	else if (!ssl_ctx_use_private_key(ssl_ctx, key, key_len))
-		goto err;
-	else if (!SSL_CTX_check_private_key(ssl_ctx))
-		goto err;
 
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 

@@ -8,6 +8,9 @@ TESTASR!=	nm `ls /usr/lib/libc.so.* | sort | tail -1` | grep "T asr_unpack_rr" |
 NEED_ASR=	Yes
 .endif
 
+# we're in a transitional phase, we *always* need the shipped in ASR for now
+NEED_ASR=	Yes
+
 PROG=		smtpd
 
 SRCS=		aliases.c
@@ -31,14 +34,16 @@ SRCS+=		lka.c
 SRCS+=		lka_session.c
 SRCS+=		log.c
 SRCS+=		mda.c
-SRCS+=		mfa.c
-SRCS+=		mfa_session.c
+#SRCS+=		mfa.c
+#SRCS+=		mfa_session.c
 SRCS+=		mproc.c
 SRCS+=		mta.c
 SRCS+=		mta_session.c
 SRCS+=		parse.y
+SRCS+=		pony.c
 SRCS+=		queue.c
 SRCS+=		queue_backend.c
+SRCS+=		rfc2822.c
 SRCS+=		ruleset.c
 SRCS+=		runq.c
 SRCS+=		scheduler.c

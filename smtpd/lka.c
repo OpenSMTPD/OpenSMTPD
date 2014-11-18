@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: lka.c,v 1.173 2014/09/03 07:42:47 giovanni Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -66,7 +66,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct table		*table;
 	int			 ret;
 	struct pki		*pki;
-	struct iovec		iov[3];
+	struct iovec		iov[2];
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_smtp = NULL;
 	static struct ca_vrfy_req_msg	*req_ca_vrfy_mta = NULL;
 	struct ca_vrfy_req_msg		*req_ca_vrfy_chain;
@@ -86,17 +86,18 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	int			 v;
 	const char	        *cafile = NULL;
 
-	if (imsg->hdr.type == IMSG_DNS_HOST ||
-	    imsg->hdr.type == IMSG_DNS_PTR ||
-	    imsg->hdr.type == IMSG_DNS_MX ||
-	    imsg->hdr.type == IMSG_DNS_MX_PREFERENCE) {
+	if (imsg->hdr.type == IMSG_MTA_DNS_HOST ||
+	    imsg->hdr.type == IMSG_MTA_DNS_PTR ||
+	    imsg->hdr.type == IMSG_SMTP_DNS_PTR ||
+	    imsg->hdr.type == IMSG_MTA_DNS_MX ||
+	    imsg->hdr.type == IMSG_MTA_DNS_MX_PREFERENCE) {
 		dns_imsg(p, imsg);
 		return;
 	}
 
-	if (p->proc == PROC_SMTP) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_EXPAND_RCPT:
+		case IMSG_SMTP_EXPAND_RCPT:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_envelope(&m, &evp);
@@ -104,7 +105,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			lka_session(reqid, &evp);
 			return;
 
-		case IMSG_LKA_HELO:
+		case IMSG_SMTP_LOOKUP_HELO:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
@@ -114,7 +115,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			ret = lka_addrname(tablename, (struct sockaddr*)&ss,
 			    &addrname);
 
-			m_create(p, IMSG_LKA_HELO, 0, 0, -1);
+			m_create(p, IMSG_SMTP_LOOKUP_HELO, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
@@ -122,7 +123,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p);
 			return;
 
-		case IMSG_LKA_SSL_INIT:
+		case IMSG_SMTP_SSL_INIT:
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;
 
@@ -131,23 +132,20 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			pki = dict_get(env->sc_pki_dict, buf);
 			if (pki == NULL) {
 				resp_ca_cert.status = CA_FAIL;
-				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
+				m_compose(p, IMSG_SMTP_SSL_INIT, 0, 0, -1, &resp_ca_cert,
 				    sizeof(resp_ca_cert));
 				return;
 			}
 			resp_ca_cert.status = CA_OK;
 			resp_ca_cert.cert_len = pki->pki_cert_len;
-			resp_ca_cert.key_len = pki->pki_key_len;
 			iov[0].iov_base = &resp_ca_cert;
 			iov[0].iov_len = sizeof(resp_ca_cert);
 			iov[1].iov_base = pki->pki_cert;
 			iov[1].iov_len = pki->pki_cert_len;
-			iov[2].iov_base = pki->pki_key;
-			iov[2].iov_len = pki->pki_key_len;
-			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
+			m_composev(p, IMSG_SMTP_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 
-		case IMSG_LKA_SSL_VERIFY_CERT:
+		case IMSG_SMTP_SSL_VERIFY_CERT:
 			req_ca_vrfy_smtp = xmemdup(imsg->data, sizeof *req_ca_vrfy_smtp, "lka:ca_vrfy");
 			req_ca_vrfy_smtp->cert = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_smtp, req_ca_vrfy_smtp->cert_len, "lka:ca_vrfy");
@@ -157,7 +155,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			    sizeof (off_t), "lka:ca_vrfy");
 			return;
 
-		case IMSG_LKA_SSL_VERIFY_CHAIN:
+		case IMSG_SMTP_SSL_VERIFY_CHAIN:
 			if (req_ca_vrfy_smtp == NULL)
 				fatalx("lka:ca_vrfy: chain without a certificate");
 			req_ca_vrfy_chain = imsg->data;
@@ -167,7 +165,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req_ca_vrfy_smtp->chain_offset++;
 			return;
 
-		case IMSG_LKA_SSL_VERIFY:
+		case IMSG_SMTP_SSL_VERIFY:
 			if (req_ca_vrfy_smtp == NULL)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
@@ -181,7 +179,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			else
 				resp_ca_vrfy.status = CA_OK;
 
-			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
+			m_compose(p, IMSG_SMTP_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
 			    sizeof resp_ca_vrfy);
 
 			for (i = 0; i < req_ca_vrfy_smtp->n_chain; ++i)
@@ -192,7 +190,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			free(req_ca_vrfy_smtp);
 			return;
 
-		case IMSG_LKA_AUTHENTICATE:
+		case IMSG_SMTP_AUTHENTICATE:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
@@ -212,7 +210,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = lka_authenticate(tablename, username, password);
 
-			m_create(p, IMSG_LKA_AUTHENTICATE, 0, 0, -1);
+			m_create(p, IMSG_SMTP_AUTHENTICATE, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			m_close(p);
@@ -220,9 +218,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_MDA) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
-		case IMSG_LKA_USERINFO:
+		case IMSG_MDA_LOOKUP_USERINFO:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
@@ -231,7 +229,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			ret = lka_userinfo(tablename, username, &userinfo);
 
-			m_create(p, IMSG_LKA_USERINFO, 0, 0, -1);
+			m_create(p, IMSG_MDA_LOOKUP_USERINFO, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
@@ -241,10 +239,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		}
 	}
 
-	if (p->proc == PROC_MTA) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 
-		case IMSG_LKA_SSL_INIT:
+		case IMSG_MTA_SSL_INIT:
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;
 
@@ -253,23 +251,20 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			pki = dict_get(env->sc_pki_dict, buf);
 			if (pki == NULL) {
 				resp_ca_cert.status = CA_FAIL;
-				m_compose(p, IMSG_LKA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
+				m_compose(p, IMSG_MTA_SSL_INIT, 0, 0, -1, &resp_ca_cert,
 				    sizeof(resp_ca_cert));
 				return;
 			}
 			resp_ca_cert.status = CA_OK;
 			resp_ca_cert.cert_len = pki->pki_cert_len;
-			resp_ca_cert.key_len = pki->pki_key_len;
 			iov[0].iov_base = &resp_ca_cert;
 			iov[0].iov_len = sizeof(resp_ca_cert);
 			iov[1].iov_base = pki->pki_cert;
 			iov[1].iov_len = pki->pki_cert_len;
-			iov[2].iov_base = pki->pki_key;
-			iov[2].iov_len = pki->pki_key_len;
-			m_composev(p, IMSG_LKA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
+			m_composev(p, IMSG_MTA_SSL_INIT, 0, 0, -1, iov, nitems(iov));
 			return;
 
-		case IMSG_LKA_SSL_VERIFY_CERT:
+		case IMSG_MTA_SSL_VERIFY_CERT:
 			req_ca_vrfy_mta = xmemdup(imsg->data, sizeof *req_ca_vrfy_mta, "lka:ca_vrfy");
 			req_ca_vrfy_mta->cert = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy_mta, req_ca_vrfy_mta->cert_len, "lka:ca_vrfy");
@@ -279,7 +274,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			    sizeof (off_t), "lka:ca_vrfy");
 			return;
 
-		case IMSG_LKA_SSL_VERIFY_CHAIN:
+		case IMSG_MTA_SSL_VERIFY_CHAIN:
 			if (req_ca_vrfy_mta == NULL)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
@@ -290,7 +285,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req_ca_vrfy_mta->chain_offset++;
 			return;
 
-		case IMSG_LKA_SSL_VERIFY:
+		case IMSG_MTA_SSL_VERIFY:
 			if (req_ca_vrfy_mta == NULL)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 
@@ -305,7 +300,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			else
 				resp_ca_vrfy.status = CA_OK;
 
-			m_compose(p, IMSG_LKA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
+			m_compose(p, IMSG_MTA_SSL_VERIFY, 0, 0, -1, &resp_ca_vrfy,
 			    sizeof resp_ca_vrfy);
 
 			for (i = 0; i < req_ca_vrfy_mta->n_chain; ++i)
@@ -316,7 +311,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			free(req_ca_vrfy_mta);
 			return;
 
-		case IMSG_LKA_SECRET:
+		case IMSG_MTA_LOOKUP_CREDENTIALS:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
@@ -325,13 +320,13 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			lka_credentials(tablename, label, buf, sizeof(buf));
 
-			m_create(p, IMSG_LKA_SECRET, 0, 0, -1);
+			m_create(p, IMSG_MTA_LOOKUP_CREDENTIALS, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_string(p, buf);
 			m_close(p);
 			return;
 
-		case IMSG_LKA_SOURCE:
+		case IMSG_MTA_LOOKUP_SOURCE:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
@@ -339,7 +334,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 			table = table_find(tablename, NULL);
 
-			m_create(p, IMSG_LKA_SOURCE, 0, 0, -1);
+			m_create(p, IMSG_MTA_LOOKUP_SOURCE, 0, 0, -1);
 			m_add_id(p, reqid);
 
 			if (table == NULL) {
@@ -348,7 +343,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 				m_add_int(p, LKA_TEMPFAIL);
 			}
 			else {
-				ret = table_fetch(table, K_SOURCE, &lk);
+				ret = table_fetch(table, NULL, K_SOURCE, &lk);
 				if (ret == -1)
 					m_add_int(p, LKA_TEMPFAIL);
 				else if (ret == 0)
@@ -362,7 +357,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p);
 			return;
 
-		case IMSG_LKA_HELO:
+		case IMSG_MTA_LOOKUP_HELO:
 			m_msg(&m, imsg);
 			m_get_id(&m, &reqid);
 			m_get_string(&m, &tablename);
@@ -372,7 +367,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			ret = lka_addrname(tablename, (struct sockaddr*)&ss,
 			    &addrname);
 
-			m_create(p, IMSG_LKA_HELO, 0, 0, -1);
+			m_create(p, IMSG_MTA_LOOKUP_HELO, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
@@ -394,10 +389,22 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			table_open_all();
 
 			/* Start fulfilling requests */
-			mproc_enable(p_mda);
-			mproc_enable(p_mta);
-			mproc_enable(p_smtp);
+			mproc_enable(p_pony);
 			return;
+
+		case IMSG_LKA_OPEN_FORWARD:
+			lka_session_forward_reply(imsg->data, imsg->fd);
+			return;
+
+		case IMSG_LKA_AUTHENTICATE:
+			imsg->hdr.type = IMSG_SMTP_AUTHENTICATE;
+			m_forward(p_pony, imsg);
+			return;
+		}
+	}
+
+	if (p->proc == PROC_CONTROL) {
+		switch (imsg->hdr.type) {
 
 		case IMSG_CTL_VERBOSE:
 			m_msg(&m, imsg);
@@ -413,19 +420,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			profiling = v;
 			return;
 
-		case IMSG_PARENT_FORWARD_OPEN:
-			lka_session_forward_reply(imsg->data, imsg->fd);
-			return;
-
-		case IMSG_LKA_AUTHENTICATE:
-			m_forward(p_smtp, imsg);
-			return;
-		}
-	}
-
-	if (p->proc == PROC_CONTROL) {
-		switch (imsg->hdr.type) {
-		case IMSG_LKA_UPDATE_TABLE:
+		case IMSG_CTL_UPDATE_TABLE:
 			table = table_find(imsg->data, NULL);
 			if (table == NULL) {
 				log_warnx("warn: Lookup table not found: "
@@ -513,16 +508,12 @@ lka(void)
 
 	config_peer(PROC_PARENT);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_SMTP);
-	config_peer(PROC_MDA);
-	config_peer(PROC_MTA);
 	config_peer(PROC_CONTROL);
+	config_peer(PROC_PONY);
 	config_done();
 
 	/* Ignore them until we get our config */
-	mproc_disable(p_mda);
-	mproc_disable(p_mta);
-	mproc_disable(p_smtp);
+	mproc_disable(p_pony);
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -535,6 +526,7 @@ static int
 lka_authenticate(const char *tablename, const char *user, const char *password)
 {
 	struct table		*table;
+	char			*cpass;
 	union lookup		 lk;
 
 	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
@@ -545,7 +537,7 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 		return (LKA_TEMPFAIL);
 	}
 
-	switch (table_lookup(table, user, K_CREDENTIALS, &lk)) {
+	switch (table_lookup(table, NULL, user, K_CREDENTIALS, &lk)) {
 	case -1:
 		log_warnx("warn: user credentials lookup fail for %s:%s",
 		    tablename, user);
@@ -553,7 +545,10 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		if (!strcmp(lk.creds.password, crypt(password, lk.creds.password)))
+		cpass = crypt(password, lk.creds.password);
+		if (cpass == NULL)
+			return (LKA_PERMFAIL);
+		if (!strcmp(lk.creds.password, cpass))
 			return (LKA_OK);
 		return (LKA_PERMFAIL);
 	}
@@ -575,7 +570,7 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 
 	dst[0] = '\0';
 
-	switch(table_lookup(table, label, K_CREDENTIALS, &lk)) {
+	switch(table_lookup(table, NULL, label, K_CREDENTIALS, &lk)) {
 	case -1:
 		log_warnx("warn: credentials lookup fail for %s:%s",
 		    tablename, label);
@@ -616,7 +611,7 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 		return (LKA_TEMPFAIL);
 	}
 
-	switch (table_lookup(table, username, K_USERINFO, &lk)) {
+	switch (table_lookup(table, NULL, username, K_USERINFO, &lk)) {
 	case -1:
 		log_warnx("warn: failure during userinfo lookup %s:%s",
 		    tablename, username);
@@ -646,7 +641,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 		return (LKA_TEMPFAIL);
 	}
 
-	switch (table_lookup(table, source, K_ADDRNAME, &lk)) {
+	switch (table_lookup(table, NULL, source, K_ADDRNAME, &lk)) {
 	case -1:
 		log_warnx("warn: failure during helo lookup %s:%s",
 		    tablename, source);

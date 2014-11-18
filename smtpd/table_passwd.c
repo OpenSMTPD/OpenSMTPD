@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: table_passwd.c,v 1.8 2014/09/29 08:41:55 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
@@ -32,10 +32,10 @@
 #include "log.h"
 
 static int table_passwd_update(void);
-static int table_passwd_check(int, const char *);
-static int table_passwd_lookup(int, const char *, char *, size_t);
-static int table_passwd_fetch(int, char *, size_t);
-static int parse_passwd_entry(struct passwd *, const char *);
+static int table_passwd_check(int, struct dict *, const char *);
+static int table_passwd_lookup(int, struct dict *, const char *, char *, size_t);
+static int table_passwd_fetch(int, struct dict *, char *, size_t);
+static int parse_passwd_entry(struct passwd *, char *);
 
 static char	       *config;
 static struct dict     *passwd;
@@ -84,6 +84,7 @@ table_passwd_update(void)
 {
 	FILE	       *fp;
 	char	       *buf, *lbuf = NULL;
+	char		tmp[LINE_MAX];
 	size_t		len;
 	char	       *line;
 	struct passwd	pw;
@@ -111,7 +112,12 @@ table_passwd_update(void)
 			lbuf[len] = '\0';
 			buf = lbuf;
 		}
-		if (! parse_passwd_entry(&pw, buf)) {
+
+		if (strlcpy(tmp, buf, sizeof tmp) >= sizeof tmp) {
+			log_warnx("warn: table-passwd: line too long");
+			goto err;
+		}
+		if (! parse_passwd_entry(&pw, tmp)) {
 			log_warnx("warn: table-passwd: invalid entry");
 			goto err;
 		}
@@ -145,23 +151,25 @@ err:
 }
 
 static int
-table_passwd_check(int service, const char *key)
+table_passwd_check(int service, struct dict *params, const char *key)
 {
 	return (-1);
 }
 
 static int
-table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
+table_passwd_lookup(int service, struct dict *params, const char *key, char *dst, size_t sz)
 {
 	int		r;
 	struct passwd	pw;
 	char	       *line;
+	char		tmp[LINE_MAX];
 
 	line = dict_get(passwd, key);
 	if (line == NULL)
 		return 0;
 
-	if (! parse_passwd_entry(&pw, line)) {
+	(void)strlcpy(tmp, line, sizeof tmp);
+	if (! parse_passwd_entry(&pw, tmp)) {
 		log_warnx("warn: table-passwd: invalid entry");
 		return -1;
 	}
@@ -170,7 +178,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 	switch (service) {
 	case K_CREDENTIALS:
 		if (snprintf(dst, sz, "%s:%s",
-			pw.pw_name, pw.pw_passwd) > (ssize_t)sz) {
+			pw.pw_name, pw.pw_passwd) >= (ssize_t)sz) {
 			log_warnx("warn: table-passwd: result too large");
 			r = -1;
 		}
@@ -178,7 +186,7 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 	case K_USERINFO:
 		if (snprintf(dst, sz, "%d:%d:%s",
 			pw.pw_uid, pw.pw_gid, pw.pw_dir)
-		    > (ssize_t)sz) {
+		    >= (ssize_t)sz) {
 			log_warnx("warn: table-passwd: result too large");
 			r = -1;
 		}
@@ -193,20 +201,17 @@ table_passwd_lookup(int service, const char *key, char *dst, size_t sz)
 }
 
 static int
-table_passwd_fetch(int service, char *dst, size_t sz)
+table_passwd_fetch(int service, struct dict *params, char *dst, size_t sz)
 {
 	return (-1);
 }
 
 static int
-parse_passwd_entry(struct passwd *pw, const char *line)
+parse_passwd_entry(struct passwd *pw, char *buf)
 {
 	const char     *errstr;
 	char	       *p, *q;
-	char		buf[LINE_MAX];
 
-	if (strlcpy(buf, line, sizeof buf) >= sizeof buf)
-		return 0;
 	p = buf;
 
 	/* username */

@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: enqueue.c,v 1.88 2014/11/12 10:28:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -53,9 +53,10 @@ static void parse_addr_terminal(int);
 static char *qualify_addr(char *);
 static void rcpt_add(char *);
 static int open_connection(void);
-static void get_responses(FILE *, int);
+static int get_responses(FILE *, int);
 static int send_line(FILE *, int, char *, ...);
 static int enqueue_offline(int, char *[], FILE *);
+static int savedeadletter(struct passwd *, FILE *);
 
 extern int srv_connect(void);
 
@@ -122,6 +123,7 @@ struct {
 	int	  saw_content_disposition;
 	int	  saw_content_transfer_encoding;
 	int	  saw_user_agent;
+	int	  noheader;
 } msg;
 
 struct {
@@ -164,7 +166,7 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 int
 enqueue(int argc, char *argv[])
 {
-	int			 i, ch, tflag = 0, noheader;
+	int			 i, ch, tflag = 0;
 	char			*fake_from = NULL, *buf;
 	struct passwd		*pw;
 	FILE			*fp, *fout;
@@ -233,10 +235,11 @@ enqueue(int argc, char *argv[])
 
 	if (getmailname(host, sizeof(host)) == -1)
 		err(EX_NOHOST, "getmailname");
-	if ((pw = getpwuid(getuid())) == NULL)
+	if ((user = getlogin()) != NULL && *user != '\0')
+		pw = getpwnam(user);
+	else if ((pw = getpwuid(getuid())) == NULL)
 		user = "anonymous";
-	if (pw != NULL)
-		user = xstrdup(pw->pw_name, "enqueue");
+	user = xstrdup(pw ? pw->pw_name : user, "enqueue");
 
 	build_from(fake_from, pw);
 
@@ -248,14 +251,15 @@ enqueue(int argc, char *argv[])
 
 	if ((fd = mkstemp(sfn)) == -1 ||
 	    (fp = fdopen(fd, "w+")) == NULL) {
+		int saved_errno = errno;
 		if (fd != -1) {
 			unlink(sfn);
 			close(fd);
 		}
-		err(EX_UNAVAILABLE, "mkstemp");
+		errc(EX_UNAVAILABLE, saved_errno, "mkstemp");
 	}
 	unlink(sfn);
-	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
+	msg.noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
 
 	if (msg.rcpt_cnt == 0)
 		errx(EX_SOFTWARE, "no recipients");
@@ -282,10 +286,12 @@ enqueue(int argc, char *argv[])
 	 */
 
 	/* banner */
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	send_line(fout, verbose, "EHLO localhost\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	if (msg.dsn_envid != NULL)
 		envid_sz = strlen(msg.dsn_envid);
@@ -296,18 +302,21 @@ enqueue(int argc, char *argv[])
 	    msg.dsn_ret ? msg.dsn_ret : "",
 	    envid_sz ? "ENVID=" : "",
 	    envid_sz ? msg.dsn_envid : "");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
 		send_line(fout, verbose, "RCPT TO:<%s> %s%s\n",
 		    msg.rcpts[i],
 		    msg.dsn_notify ? "NOTIFY=" : "",
 		    msg.dsn_notify ? msg.dsn_notify : "");
-		get_responses(fout, 1);
+		if (! get_responses(fout, 1))
+			goto fail;
 	}
 
 	send_line(fout, verbose, "DATA\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	/* add From */
 	if (!msg.saw_from)
@@ -338,12 +347,9 @@ enqueue(int argc, char *argv[])
 			send_line(fout, 0, "Content-Transfer-Encoding: "
 			    "quoted-printable\n");
 	}
-	if (!msg.saw_user_agent)
-		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
-		    SMTPD_NAME, "Demoostik");
 
 	/* add separating newline */
-	if (noheader)
+	if (msg.noheader)
 		send_line(fout, 0, "\n");
 	else
 		inheaders = 1;
@@ -366,7 +372,7 @@ enqueue(int argc, char *argv[])
 
 		line = buf;
 
-		if (msg.saw_content_transfer_encoding || noheader ||
+		if (msg.saw_content_transfer_encoding || msg.noheader ||
 		    inheaders || !msg.need_linesplit) {
 			send_line(fout, 0, "%.*s", (int)len, line);
 			if (inheaders && buf[0] == '\n')
@@ -390,18 +396,25 @@ enqueue(int argc, char *argv[])
 		} while (len);
 	}
 	send_line(fout, verbose, ".\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	send_line(fout, verbose, "QUIT\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	fclose(fp);
 	fclose(fout);
 
 	exit(EX_OK);
+
+fail:
+	if (pw)
+		savedeadletter(pw, fp);
+	exit(EX_SOFTWARE);
 }
 
-static void
+static int
 get_responses(FILE *fin, int n)
 {
 	char	*buf;
@@ -409,34 +422,45 @@ get_responses(FILE *fin, int n)
 	int	 e;
 
 	fflush(fin);
-	if ((e = ferror(fin)))
-		errx(1, "ferror: %d", e);
+	if ((e = ferror(fin))) {
+		warnx("ferror: %d", e);
+		return 0;
+	}
 
 	while (n) {
 		buf = fgetln(fin, &len);
-		if (buf == NULL && ferror(fin))
-			err(1, "fgetln");
+		if (buf == NULL && ferror(fin)) {
+			warn("fgetln");
+			return 0;
+		}
 		if (buf == NULL && feof(fin))
 			break;
-		if (buf == NULL || len < 1)
-			err(1, "fgetln weird");
+		if (buf == NULL || len < 1) {
+			warn("fgetln weird");
+			return 0;
+		}
 
 		/* account for \r\n linebreaks */
 		if (len >= 2 && buf[len - 2] == '\r' && buf[len - 1] == '\n')
 			buf[--len - 1] = '\n';
 
-		if (len < 4)
-			errx(1, "bad response");
+		if (len < 4) {
+			warnx("bad response");
+			return 0;
+		}
 
 		if (verbose)
 			printf("<<< %.*s", (int)len, buf);
 
 		if (buf[3] == '-')
 			continue;
-		if (buf[0] != '2' && buf[0] != '3')
-			errx(1, "command failed: %.*s", (int)len, buf);
+		if (buf[0] != '2' && buf[0] != '3') {
+			warnx("command failed: %.*s", (int)len, buf);
+			return 0;
+		}
 		n--;
 	}
+	return 1;
 }
 
 static int
@@ -704,8 +728,8 @@ rcpt_add(char *addr)
 		p++;
 	}
 
-	if ((nrcpts = realloc(msg.rcpts,
-	    sizeof(char *) * (msg.rcpt_cnt + n))) == NULL)
+	if ((nrcpts = reallocarray(msg.rcpts,
+	    msg.rcpt_cnt + n, sizeof(char *))) == NULL)
 		err(1, "rcpt_add realloc");
 	msg.rcpts = nrcpts;
 
@@ -726,10 +750,10 @@ open_connection(void)
 	int		fd;
 	int		n;
 
-	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, IMSG_VERSION, 0, -1, NULL, 0);
+	imsg_compose(ibuf, IMSG_CTL_SMTP_SESSION, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0 && errno != EAGAIN)
+		if (msgbuf_write(&ibuf->w) <= 0 && errno != EAGAIN)
 			err(1, "write error");
 
 	while (1) {
@@ -817,4 +841,77 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 	fclose(fp);
 
 	return (EX_TEMPFAIL);
+}
+
+static int
+savedeadletter(struct passwd *pw, FILE *in)
+{
+	char	buffer[SMTPD_MAXPATHLEN];
+	FILE   *fp;
+	char *buf, *lbuf;
+	size_t len;
+
+	(void)snprintf(buffer, sizeof buffer, "%s/dead.letter", pw->pw_dir);
+
+	if (fseek(in, 0, SEEK_SET) != 0)
+		return 0;
+	
+	if ((fp = fopen(buffer, "w")) == NULL)
+		return 0;
+
+	/* add From */
+	if (!msg.saw_from)
+		fprintf(fp, "From: %s%s<%s>\n",
+		    msg.fromname ? msg.fromname : "",
+		    msg.fromname ? " " : "",
+		    msg.from);
+
+	/* add Date */
+	if (!msg.saw_date)
+		fprintf(fp, "Date: %s\n", time_to_text(timestamp));
+
+	/* add Message-Id */
+	if (!msg.saw_msgid)
+		fprintf(fp, "Message-Id: <%"PRIu64".enqueue@%s>\n",
+		    generate_uid(), host);
+
+	if (msg.need_linesplit) {
+		/* we will always need to mime encode for long lines */
+		if (!msg.saw_mime_version)
+			fprintf(fp, "MIME-Version: 1.0\n");
+		if (!msg.saw_content_type)
+			fprintf(fp, "Content-Type: text/plain; "
+			    "charset=unknown-8bit\n");
+		if (!msg.saw_content_disposition)
+			fprintf(fp, "Content-Disposition: inline\n");
+		if (!msg.saw_content_transfer_encoding)
+			fprintf(fp, "Content-Transfer-Encoding: "
+			    "quoted-printable\n");
+	}
+
+	/* add separating newline */
+	if (msg.noheader)
+		fprintf(fp, "\n");
+
+
+	lbuf = NULL;
+	while ((buf = fgetln(in, &len))) {
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
+		else {
+			/* EOF without EOL, copy and add the NUL */
+			if ((lbuf = malloc(len + 1)) == NULL)
+				err(1, NULL);
+			memcpy(lbuf, buf, len);
+			lbuf[len] = '\0';
+			buf = lbuf;
+		}
+		fprintf(fp, "%s\n", buf);
+	}
+	free(lbuf);
+
+	fprintf(fp, "\n");
+	fclose(fp);
+
+	return 1;
 }

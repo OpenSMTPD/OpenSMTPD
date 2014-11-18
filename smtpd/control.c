@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: control.c,v 1.101 2014/07/10 15:54:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -68,6 +68,7 @@ static void control_close(struct ctl_conn *);
 static void control_sig_handler(int, short, void *);
 static void control_dispatch_ext(struct mproc *, struct imsg *);
 static void control_digest_update(const char *, size_t, int);
+static void control_broadcast_verbose(int, int);
 
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
@@ -88,9 +89,9 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	const void		*data;
 	size_t			 sz;
 
-	if (p->proc == PROC_SMTP) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
-		case IMSG_SMTP_ENQUEUE_FD:
+		case IMSG_CTL_SMTP_SESSION:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -122,7 +123,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 	}
-	if (p->proc == PROC_MTA) {
+	if (p->proc == PROC_PONY) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_OK:
 		case IMSG_CTL_FAIL:
@@ -286,12 +287,10 @@ control(void)
 
 	config_peer(PROC_SCHEDULER);
 	config_peer(PROC_QUEUE);
-	config_peer(PROC_SMTP);
-	config_peer(PROC_MFA);
 	config_peer(PROC_PARENT);
 	config_peer(PROC_LKA);
-	config_peer(PROC_MDA);
-	config_peer(PROC_MTA);
+	config_peer(PROC_PONY);
+	config_peer(PROC_CA);
 	config_done();
 
 	control_listen();
@@ -451,39 +450,33 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 	}
 
 	switch (imsg->hdr.type) {
-	case IMSG_SMTP_ENQUEUE_FD:
+	case IMSG_CTL_SMTP_SESSION:
 		if (env->sc_flags & (SMTPD_SMTP_PAUSED | SMTPD_EXITING)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
-		m_compose(p_smtp, IMSG_SMTP_ENQUEUE_FD, c->id, 0, -1,
+		m_compose(p_pony, IMSG_CTL_SMTP_SESSION, c->id, 0, -1,
 		    &c->euid, sizeof(c->euid));
 		return;
 
-	case IMSG_STATS:
-		if (c->euid)
-			goto badcred;
-		m_compose(p, IMSG_STATS, 0, 0, -1, NULL, 0);
-		return;
-
-	case IMSG_DIGEST:
+	case IMSG_CTL_GET_DIGEST:
 		if (c->euid)
 			goto badcred;
 		digest.timestamp = time(NULL);
-		m_compose(p, IMSG_DIGEST, 0, 0, -1, &digest, sizeof digest);
+		m_compose(p, IMSG_CTL_GET_DIGEST, 0, 0, -1, &digest, sizeof digest);
 		return;
 
-	case IMSG_STATS_GET:
+	case IMSG_CTL_GET_STATS:
 		if (c->euid)
 			goto badcred;
 		kvp = imsg->data;
 		if (! stat_backend->iter(&kvp->iter, &key, &val))
 			kvp->iter = NULL;
 		else {
-			strlcpy(kvp->key, key, sizeof kvp->key);
+			(void)strlcpy(kvp->key, key, sizeof kvp->key);
 			kvp->val = val;
 		}
-		m_compose(p, IMSG_STATS_GET, 0, 0, -1, kvp, sizeof *kvp);
+		m_compose(p, IMSG_CTL_GET_STATS, 0, 0, -1, kvp, sizeof *kvp);
 		return;
 
 	case IMSG_CTL_SHUTDOWN:
@@ -513,14 +506,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose = v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_VERBOSE, 0, 0, -1);
-		m_add_int(p_parent, verbose);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_VERBOSE, verbose);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_TRACE:
+	case IMSG_CTL_TRACE_ENABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -531,14 +522,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose |= v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_TRACE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_VERBOSE, verbose);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_UNTRACE:
+	case IMSG_CTL_TRACE_DISABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -549,14 +538,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		verbose &= ~v;
 		log_verbose(verbose);
 
-		m_create(p_parent, IMSG_CTL_UNTRACE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_VERBOSE, verbose);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_PROFILE:
+	case IMSG_CTL_PROFILE_ENABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -566,14 +553,12 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling |= v;
 
-		m_create(p_parent, IMSG_CTL_PROFILE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_PROFILE, profiling);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
-	case IMSG_CTL_UNPROFILE:
+	case IMSG_CTL_PROFILE_DISABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -583,9 +568,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		memcpy(&v, imsg->data, sizeof(v));
 		profiling &= ~v;
 
-		m_create(p_parent, IMSG_CTL_UNPROFILE, 0, 0, -1);
-		m_add_int(p_parent, v);
-		m_close(p_parent);
+		control_broadcast_verbose(IMSG_CTL_PROFILE, profiling);
 
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
@@ -636,7 +619,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		}
 		log_info("info: smtp paused");
 		env->sc_flags |= SMTPD_SMTP_PAUSED;
-		m_compose(p_smtp, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
+		m_compose(p_pony, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
@@ -686,7 +669,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		}
 		log_info("info: smtp resumed");
 		env->sc_flags &= ~SMTPD_SMTP_PAUSED;
-		m_forward(p_smtp, imsg);
+		m_forward(p_pony, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
@@ -694,7 +677,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		m_forward(p_mta, imsg);
+		m_forward(p_pony, imsg);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
@@ -721,7 +704,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			goto badcred;
 
 		imsg->hdr.peerid = c->id;
-		m_forward(p_mta, imsg);
+		m_forward(p_pony, imsg);
 		return;
 
 	case IMSG_CTL_SHOW_STATUS:
@@ -740,10 +723,10 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (imsg->hdr.len - IMSG_HEADER_SIZE <= sizeof(ss))
 			goto invalid;
 		memmove(&ss, imsg->data, sizeof(ss));
-		m_create(p_mta, imsg->hdr.type, c->id, 0, -1);
-		m_add_sockaddr(p_mta, (struct sockaddr *)&ss);
-		m_add_string(p_mta, (char *)imsg->data + sizeof(ss));
-		m_close(p_mta);
+		m_create(p_pony, imsg->hdr.type, c->id, 0, -1);
+		m_add_sockaddr(p_pony, (struct sockaddr *)&ss);
+		m_add_string(p_pony, (char *)imsg->data + sizeof(ss));
+		m_close(p_pony);
 		return;
 
 	case IMSG_CTL_SCHEDULE:
@@ -762,7 +745,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_forward(p_scheduler, imsg);
 		return;
 
-	case IMSG_LKA_UPDATE_TABLE:
+	case IMSG_CTL_UPDATE_TABLE:
 		if (c->euid)
 			goto badcred;
 
@@ -784,4 +767,32 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 badcred:
 invalid:
 	m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
+}
+
+static void
+control_broadcast_verbose(int msg, int v)
+{
+	m_create(p_lka, msg, 0, 0, -1);
+	m_add_int(p_lka, v);
+	m_close(p_lka);
+
+	m_create(p_pony, msg, 0, 0, -1);
+	m_add_int(p_pony, v);
+	m_close(p_pony);
+
+	m_create(p_queue, msg, 0, 0, -1);
+	m_add_int(p_queue, v);
+	m_close(p_queue);
+
+	m_create(p_ca, msg, 0, 0, -1);
+	m_add_int(p_ca, v);
+	m_close(p_ca);
+
+	m_create(p_scheduler, msg, 0, 0, -1);
+	m_add_int(p_scheduler, v);
+	m_close(p_scheduler);
+
+	m_create(p_parent, msg, 0, 0, -1);
+	m_add_int(p_parent, v);
+	m_close(p_parent);
 }
