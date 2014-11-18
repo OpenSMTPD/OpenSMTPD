@@ -83,16 +83,15 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
-<<<<<<< HEAD
 #ifndef	PATH_FILTERS
 #define	PATH_FILTERS		"/usr/libexec/smtpd"
 #endif
 #ifndef	PATH_TABLES
 #define	PATH_TABLES		"/usr/libexec/smtpd"
 #endif
-=======
+#ifndef	PATH_LIBEXEC
 #define	PATH_LIBEXEC		"/usr/libexec/smtpd"
->>>>>>> branch-opensmtpd-5.4.4
+#endif
 
 
 /*
