@@ -23,6 +23,7 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
+#include <signal.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
