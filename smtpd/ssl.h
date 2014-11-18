@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: ssl.h,v 1.9 2014/05/20 17:33:36 reyk Exp $	*/
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
  *
@@ -34,6 +34,8 @@ struct pki {
 	char			*pki_key;
 	off_t			 pki_key_len;
 
+	EVP_PKEY		*pki_pkey;
+
 	char			*pki_dhparams_file;
 	char			*pki_dhparams;
 	off_t			 pki_dhparams_len;
@@ -42,7 +44,7 @@ struct pki {
 /* ssl.c */
 void		ssl_init(void);
 int		ssl_setup(SSL_CTX **, struct pki *);
-SSL_CTX	       *ssl_ctx_create(void);
+SSL_CTX	       *ssl_ctx_create(const char *, char *, off_t);
 int	        ssl_cmp(struct pki *, struct pki *);
 DH	       *get_dh1024(void);
 DH	       *get_dh_from_memory(char *, size_t);
@@ -59,10 +61,12 @@ int		ssl_load_certificate(struct pki *, const char *);
 int		ssl_load_keyfile(struct pki *, const char *, const char *);
 int		ssl_load_cafile(struct pki *, const char *);
 int		ssl_load_dhparams(struct pki *, const char *);
-
+int		ssl_load_pkey(const void *, size_t, char *, off_t,
+		    X509 **, EVP_PKEY **);
+int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
+		    char *, off_t, X509 **, EVP_PKEY **);
 
 /* ssl_privsep.c */
-int	 ssl_ctx_use_private_key(SSL_CTX *, char *, off_t);
-int	 ssl_ctx_use_certificate_chain(SSL_CTX *, char *, off_t);
-int      ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
-int      ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
+int		ssl_ctx_use_certificate_chain(SSL_CTX *, char *, off_t);
+int		ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
+int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);

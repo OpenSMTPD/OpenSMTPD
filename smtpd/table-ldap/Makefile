@@ -9,6 +9,7 @@ SRCS+=	table_api.c
 SRCS+=	aldap.c
 SRCS+=	ber.c
 SRCS+=	log.c
+SRCS+=	dict.c
 
 NOMAN=	noman
 

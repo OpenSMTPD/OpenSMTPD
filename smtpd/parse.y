@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: parse.y,v 1.148 2014/11/16 19:07:50 bluhm Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -75,7 +75,8 @@ int		 lgetc(int);
 int		 lungetc(int);
 int		 findeol(void);
 int		 yyerror(const char *, ...)
-    __attribute__ ((format (printf, 1, 2)));
+    __attribute__((__format__ (printf, 1, 2)))
+    __attribute__((__nonnull__ (1)));
 
 TAILQ_HEAD(symhead, sym)	 symhead = TAILQ_HEAD_INITIALIZER(symhead);
 struct sym {
@@ -91,25 +92,42 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct filter		*filter = NULL;
+struct filter_conf	*filter = NULL;
 struct table		*table = NULL;
 struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
 static struct pki	*pki;
 
+enum listen_options {
+	LO_FAMILY	= 0x01,
+	LO_PORT		= 0x02,
+	LO_SSL		= 0x04,
+	LO_FILTER      	= 0x08,
+	LO_PKI      	= 0x10,
+	LO_AUTH      	= 0x20,
+	LO_TAG      	= 0x40,
+	LO_HOSTNAME   	= 0x80,
+	LO_HOSTNAMES   	= 0x100,
+	LO_MASKSOURCE  	= 0x200,
+	LO_NODSN	= 0x400,
+};
+
 static struct listen_opts {
 	char	       *ifx;
 	int		family;
 	in_port_t	port;
 	uint16_t	ssl;
+	char	       *filtername;
 	char	       *pki;
 	uint16_t       	auth;
 	struct table   *authtable;
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
-	uint16_t	flags;	
+	uint16_t	flags;
+
+	uint16_t       	options;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -120,13 +138,14 @@ struct listener	*host_v6(const char *, in_port_t);
 int		 host_dns(struct listenerlist *, struct listen_opts *);
 int		 host(struct listenerlist *, struct listen_opts *);
 int		 interface(struct listenerlist *, struct listen_opts *);
-void		 set_localaddrs(void);
+void		 set_local(const char *);
+void		 set_localaddrs(struct table *);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
 
-static struct filter	*create_filter(const char *, const char *);
-static struct filter	*create_filter_chain(const char *);
-static int		 extend_filter_chain(struct filter *, const char *);
+static struct filter_conf *create_filter_proc(char *, char *);
+static struct filter_conf *create_filter_chain(char *);
+static int add_filter_arg(struct filter_conf *, char *);
 
 typedef struct {
 	union {
@@ -142,10 +161,10 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
-%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6
+%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6 NODSN
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
-%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER FILTERCHAIN KEY CA DHPARAMS
+%token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
@@ -349,10 +368,30 @@ pki		: opt_pki pki
 		| /* empty */
 		;
 
-opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
-		| INET6			{ listen_opts.family = AF_INET6; }
+opt_listen     	: INET4			{
+			if (listen_opts.options & LO_FAMILY) {
+				yyerror("address family already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_FAMILY;
+			listen_opts.family = AF_INET;
+		}
+		| INET6			{
+			if (listen_opts.options & LO_FAMILY) {
+				yyerror("address family already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_FAMILY;
+			listen_opts.family = AF_INET6;
+		}
 		| PORT STRING			{
 			struct servent	*servent;
+
+			if (listen_opts.options & LO_PORT) {
+				yyerror("port already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_PORT;
 
 			servent = getservbyname($2, "tcp");
 			if (servent == NULL) {
@@ -364,30 +403,123 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			listen_opts.port = ntohs(servent->s_port);
 		}
 		| PORT NUMBER			{
+			if (listen_opts.options & LO_PORT) {
+				yyerror("port already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_PORT;
+
 			if ($2 <= 0 || $2 >= (int)USHRT_MAX) {
 				yyerror("invalid port: %" PRId64, $2);
 				YYERROR;
 			}
 			listen_opts.port = $2;
 		}
-		| SMTPS				{ listen_opts.ssl = F_SMTPS; }
-		| SMTPS VERIFY 			{ listen_opts.ssl = F_SMTPS|F_TLS_VERIFY; }
-		| TLS				{ listen_opts.ssl = F_STARTTLS; }
-		| SECURE       			{ listen_opts.ssl = F_SSL; }
-		| TLS_REQUIRE			{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE; }
-		| TLS_REQUIRE VERIFY   		{ listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY; }
-		| PKI STRING			{ listen_opts.pki = $2; }
-		| AUTH				{ listen_opts.auth = F_AUTH|F_AUTH_REQUIRE; }
-		| AUTH_OPTIONAL			{ listen_opts.auth = F_AUTH; }
+		| FILTER STRING			{
+			if (listen_opts.options & LO_FILTER) {
+				yyerror("filter already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_FILTER;
+			listen_opts.filtername = $2;
+		}
+		| SMTPS				{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_SMTPS;
+		}
+		| SMTPS VERIFY 			{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
+		}
+		| TLS				{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_STARTTLS;
+		}
+		| SECURE       			{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_SSL;
+		}
+		| TLS_REQUIRE			{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
+		}
+		| TLS_REQUIRE VERIFY   		{
+			if (listen_opts.options & LO_SSL) {
+				yyerror("TLS mode already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_SSL;
+			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
+		}
+		| PKI STRING			{
+			if (listen_opts.options & LO_PKI) {
+				yyerror("pki already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_PKI;
+			listen_opts.pki = $2;
+		}
+		| AUTH				{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
+			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
+		}
+		| AUTH_OPTIONAL			{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
+			listen_opts.auth = F_AUTH;
+		}
 		| AUTH tables  			{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
 			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
 		}
 		| AUTH_OPTIONAL tables 		{
+			if (listen_opts.options & LO_AUTH) {
+				yyerror("auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
 			listen_opts.auth = F_AUTH;
 		}
 		| TAG STRING			{
+			if (listen_opts.options & LO_TAG) {
+				yyerror("tag already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_TAG;
+
        			if (strlen($2) >= MAX_TAG_SIZE) {
        				yyerror("tag name too long");
 				free($2);
@@ -395,9 +527,24 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			}
 			listen_opts.tag = $2;
 		}
-		| HOSTNAME STRING	{ listen_opts.hostname = $2; }
+		| HOSTNAME STRING	{
+			if (listen_opts.options & LO_HOSTNAME) {
+				yyerror("hostname already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_HOSTNAME;
+
+			listen_opts.hostname = $2;
+		}
 		| HOSTNAMES tables	{
 			struct table	*t = $2;
+
+			if (listen_opts.options & LO_HOSTNAMES) {
+				yyerror("hostnames already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_HOSTNAMES;
+
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_ADDRNAME)) {
 				yyerror("invalid use of table \"%s\" as "
 				    "HOSTNAMES parameter", t->t_name);
@@ -405,7 +552,22 @@ opt_listen     	: INET4			{ listen_opts.family = AF_INET; }
 			}
 			listen_opts.hostnametable = t;
 		}
-		| MASK_SOURCE	{ listen_opts.flags |= F_MASK_SOURCE; }
+		| MASK_SOURCE	{
+			if (listen_opts.options & LO_MASKSOURCE) {
+				yyerror("mask-source already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_MASKSOURCE;
+			listen_opts.flags |= F_MASK_SOURCE;
+		}
+		| NODSN	{
+			if (listen_opts.options & LO_NODSN) {
+				yyerror("no-dsn already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_NODSN;
+			listen_opts.flags &= ~F_EXT_DSN;
+		}
 		;
 
 listen		: opt_listen listen
@@ -444,11 +606,11 @@ opt_relay_common: AS STRING	{
 				    "SOURCE parameter", t->t_name);
 				YYERROR;
 			}
-			strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
+			(void)strlcpy(rule->r_value.relayhost.sourcetable, t->t_name,
 			    sizeof rule->r_value.relayhost.sourcetable);
 		}
 		| HOSTNAME STRING {
-			strlcat(rule->r_value.relayhost.heloname, $2,
+			(void)strlcpy(rule->r_value.relayhost.heloname, $2,
 			    sizeof rule->r_value.relayhost.heloname);
 			free($2);
 		}
@@ -459,7 +621,7 @@ opt_relay_common: AS STRING	{
 				    "HOSTNAMES parameter", t->t_name);
 				YYERROR;
 			}
-			strlcpy(rule->r_value.relayhost.helotable, t->t_name,
+			(void)strlcpy(rule->r_value.relayhost.helotable, t->t_name,
 			    sizeof rule->r_value.relayhost.helotable);
 		}
 		| PKI STRING {
@@ -481,12 +643,18 @@ opt_relay_common: AS STRING	{
 
 opt_relay	: BACKUP STRING			{
 			rule->r_value.relayhost.flags |= F_BACKUP;
-			strlcpy(rule->r_value.relayhost.hostname, $2,
-			    sizeof (rule->r_value.relayhost.hostname));
+			if (strlcpy(rule->r_value.relayhost.hostname, $2,
+				sizeof (rule->r_value.relayhost.hostname))
+			    >= sizeof (rule->r_value.relayhost.hostname)) {
+				log_warnx("hostname too long: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
 		}
 		| BACKUP       			{
 			rule->r_value.relayhost.flags |= F_BACKUP;
-			strlcpy(rule->r_value.relayhost.hostname,
+			(void)strlcpy(rule->r_value.relayhost.hostname,
 			    conf->sc_hostname,
 			    sizeof (rule->r_value.relayhost.hostname));
 		}
@@ -511,7 +679,7 @@ opt_relay_via	: AUTH tables {
 				    t->t_name);
 				YYERROR;
 			}
-			strlcpy(rule->r_value.relayhost.authtable, t->t_name,
+			(void)strlcpy(rule->r_value.relayhost.authtable, t->t_name,
 			    sizeof(rule->r_value.relayhost.authtable));
 		}
 		| VERIFY {
@@ -535,40 +703,12 @@ main		: BOUNCEWARN {
 			conf->sc_queue_flags |= QUEUE_COMPRESSION;
 		}
 		| QUEUE ENCRYPTION {
-			char	*password;
-
-			password = getpass("queue key: ");
-			if (password == NULL) {
-				yyerror("getpass() error");
-				YYERROR;
-			}
-			conf->sc_queue_key = strdup(password);
-			memset(password, 0, strlen(password));
-			if (conf->sc_queue_key == NULL) {
-				yyerror("memory exhausted");
-				YYERROR;
-			}
 			conf->sc_queue_flags |= QUEUE_ENCRYPTION;
-
 		}
 		| QUEUE ENCRYPTION KEY STRING {
-			char   *buf;
-			char   *lbuf;
-			size_t	len;
-
-			if (strcasecmp($4, "stdin") == 0 ||
-			    strcasecmp($4, "-") == 0) {
-				lbuf = NULL;
-				buf = fgetln(stdin, &len);
-				if (buf[len - 1] == '\n') {
-					lbuf = calloc(len, 1);
-					memcpy(lbuf, buf, len-1);
-				}
-				else {
-					lbuf = calloc(len+1, 1);
-					memcpy(lbuf, buf, len);
-				}
-				conf->sc_queue_key = lbuf;
+			if (strcasecmp($4, "stdin") == 0 || strcasecmp($4, "-") == 0) {
+				conf->sc_queue_key = "stdin";
+				free($4);
 			}
 			else
 				conf->sc_queue_key = $4;
@@ -610,25 +750,27 @@ main		: BOUNCEWARN {
 			memset(&l, 0, sizeof l);
 			memset(&listen_opts, 0, sizeof listen_opts);
 			listen_opts.family = AF_UNSPEC;
+			listen_opts.flags |= F_EXT_DSN;
 		} ON STRING listen {
 			listen_opts.ifx = $4;
 			create_listener(conf->sc_listeners, &listen_opts);
 		}
 		| FILTER STRING STRING {
-			if (!create_filter($2, $3)) {
-				free($2);
+			if (!strcmp($3, "chain")) {
 				free($3);
-				YYERROR;
+				if ((filter = create_filter_chain($2)) == NULL) {
+					free($2);
+					YYERROR;
+				}
 			}
-			free($2);
-			free($3);
-		}
-		| FILTERCHAIN STRING {
-			if ((filter = create_filter_chain($2)) == NULL) {
-				free($2);
-				YYERROR;
+			else {
+				if ((filter = create_filter_proc($2, $3)) == NULL) {
+					free($2);
+					free($3);
+					YYERROR;
+				}
 			}
-		} filter_list
+		} filter_args;
 		| PKI STRING	{
 			char buf[MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
@@ -636,10 +778,19 @@ main		: BOUNCEWARN {
 			pki = dict_get(conf->sc_pki_dict, buf);
 			if (pki == NULL) {
 				pki = xcalloc(1, sizeof *pki, "parse:pki");
-				strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
+				(void)strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
+		;
+
+filter_args	:
+		| STRING {
+			if (!add_filter_arg(filter, $1)) {
+				free($1);
+				YYERROR;
+			}
+		} filter_args
 		;
 
 table		: TABLE STRING STRING	{
@@ -670,8 +821,8 @@ table		: TABLE STRING STRING	{
 			}
 			table = table_create(backend, $2, NULL, config);
 			if (!table_config(table)) {
-				yyerror("invalid backend configuration for table %s",
-				    table->t_name);
+				yyerror("invalid configuration file %s for table %s",
+				    config, table->t_name);
 				free($2);
 				free($3);
 				YYERROR;
@@ -710,15 +861,6 @@ stringel	: STRING			{
 
 string_list	: stringel
 		| stringel comma string_list
-		;
-
-filter_list	:
-		| STRING {
-			if (!extend_filter_chain(filter, $1)) {
-				free($1);
-				YYERROR;
-			}
-		} filter_list
 		;
 
 tableval_list	: string_list			{ }
@@ -832,6 +974,13 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("pathname too long");
 			free($4);
 		}
+		| DELIVER TO MBOX			{
+			rule->r_action = A_MBOX;
+			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
+			    sizeof(rule->r_value.buffer))
+			    >= sizeof(rule->r_value.buffer))
+				fatal("pathname too long");
+		}
 		| DELIVER TO LMTP STRING		{
 			rule->r_action = A_LMTP;
 			if (strchr($4, ':') || $4[0] == '/') {
@@ -843,14 +992,7 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("invalid lmtp destination");
 			free($4);
 		}
-		| DELIVER TO MBOX			{
-			rule->r_action = A_MBOX;
-			if (strlcpy(rule->r_value.buffer, _PATH_MAILDIR "/%u",
-			    sizeof(rule->r_value.buffer))
-			    >= sizeof(rule->r_value.buffer))
-				fatal("pathname too long");
-		}
-		| DELIVER TO MDA STRING	       	{
+		| DELIVER TO MDA STRING			{
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
@@ -1098,15 +1240,15 @@ int
 yyerror(const char *fmt, ...)
 {
 	va_list		 ap;
-	char		*nfmt;
+	char		*msg;
 
 	file->errors++;
 	va_start(ap, fmt);
-	if (asprintf(&nfmt, "%s:%d: %s", file->name, yylval.lineno, fmt) == -1)
-		fatalx("yyerror asprintf");
-	vlog(LOG_CRIT, nfmt, ap);
+	if (vasprintf(&msg, fmt, ap) == -1)
+		fatalx("yyerror vasprintf");
 	va_end(ap);
-	free(nfmt);
+	logit(LOG_CRIT, "%s:%d: %s", file->name, yylval.lineno, msg);
+	free(msg);
 	return (0);
 }
 
@@ -1138,7 +1280,6 @@ lookup(char *s)
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
-		{ "filterchain",	FILTERCHAIN },
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
@@ -1159,6 +1300,7 @@ lookup(char *s)
 		{ "mbox",		MBOX },
 		{ "mda",		MDA },
 		{ "mta",		MTA },
+		{ "no-dsn",		NODSN },
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
@@ -1519,7 +1661,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf = x_conf;
 	memset(conf, 0, sizeof(*conf));
 
-	strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
+	(void)strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
 
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 
@@ -1591,12 +1733,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	/*
 	 * declare special "localhost", "anyhost" and "localnames" tables
 	 */
-	set_localaddrs();
-
-	t = table_create("static", "<localnames>", NULL, NULL);
-	t->t_type = T_LIST;
-	table_add(t, "localhost", NULL);
-	table_add(t, hostname, NULL);
+	set_local(hostname);
 
 	t = table_create("static", "<anydestination>", NULL, NULL);
 	t->t_type = T_LIST;
@@ -1774,6 +1911,14 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->hostname == NULL)
 		lo->hostname = conf->sc_hostname;
+
+	if (lo->filtername) {
+		if (dict_get(&conf->sc_filters, lo->filtername) == NULL) {
+			log_warnx("undefined filter: %s", lo->filtername);
+			fatalx(NULL);
+		}
+		(void)strlcpy(h->filter, lo->filtername, sizeof(h->filter));
+	}
 
 	h->pki_name[0] = '\0';
 
@@ -1968,13 +2113,27 @@ interface(struct listenerlist *al, struct listen_opts *lo)
 }
 
 void
-set_localaddrs(void)
+set_local(const char *hostname)
+{
+	struct table	*t;
+
+	t = table_create("static", "<localnames>", NULL, NULL);
+	t->t_type = T_LIST;
+	table_add(t, "localhost", NULL);
+	table_add(t, hostname, NULL);
+
+	set_localaddrs(t);
+}
+
+void
+set_localaddrs(struct table *localnames)
 {
 	struct ifaddrs *ifap, *p;
 	struct sockaddr_storage ss;
 	struct sockaddr_in	*sain;
 	struct sockaddr_in6	*sin6;
 	struct table		*t;
+	char buf[NI_MAXHOST + 5];
 
 	t = table_create("static", "<anyhost>", NULL, NULL);
 	table_add(t, "local", NULL);
@@ -1996,6 +2155,9 @@ set_localaddrs(void)
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
 			table_add(t, ss_to_text(&ss), NULL);
+			table_add(localnames, ss_to_text(&ss), NULL);
+			(void)snprintf(buf, sizeof buf, "[%s]", ss_to_text(&ss));
+			table_add(localnames, buf, NULL);
 			break;
 
 		case AF_INET6:
@@ -2003,6 +2165,11 @@ set_localaddrs(void)
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 			table_add(t, ss_to_text(&ss), NULL);
+			table_add(localnames, ss_to_text(&ss), NULL);
+			(void)snprintf(buf, sizeof buf, "[%s]", ss_to_text(&ss));
+			table_add(localnames, buf, NULL);
+			(void)snprintf(buf, sizeof buf, "[ipv6:%s]", ss_to_text(&ss));
+			table_add(localnames, buf, NULL);
 			break;
 		}
 	}
@@ -2069,7 +2236,9 @@ is_if_in_group(const char *ifname, const char *groupname)
 		err(1, "socket");
 
         memset(&ifgr, 0, sizeof(ifgr));
-        strlcpy(ifgr.ifgr_name, ifname, IFNAMSIZ);
+        if (strlcpy(ifgr.ifgr_name, ifname, IFNAMSIZ) >= IFNAMSIZ)
+		errx(1, "interface name too large");
+
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1) {
                 if (errno == EINVAL || errno == ENOTTY)
 			goto end;
@@ -2098,37 +2267,45 @@ end:
 	return ret;
 }
 
-struct filter *
-create_filter(const char *name, const char *path)
+static struct filter_conf *
+create_filter_proc(char *name, char *prog)
 {
-	struct filter	*f;
+	struct filter_conf	*f;
+	char			*path;
 
 	if (dict_get(&conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
 
+	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC, prog) == -1) {
+		yyerror("filter \"%s\" asprintf failed", name);
+		return (0);
+	}
+
 	f = xcalloc(1, sizeof(*f), "create_filter");
-	strlcpy(f->name, name, sizeof(f->name));
-	strlcpy(f->path, path, sizeof(f->path));
+	f->path = path;
+	f->name = name;
+	f->argv[f->argc++] = name;
 
 	dict_xset(&conf->sc_filters, name, f);
 
 	return (f);
 }
 
-static struct filter *
-create_filter_chain(const char *name)
+static struct filter_conf *
+create_filter_chain(char *name)
 {
-	struct filter	*f;
+	struct filter_conf	*f;
 
 	if (dict_get(&conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
+
 	f = xcalloc(1, sizeof(*f), "create_filter_chain");
-	strlcpy(f->name, name, sizeof(f->name));
 	f->chain = 1;
+	f->name = name;
 
 	dict_xset(&conf->sc_filters, name, f);
 
@@ -2136,30 +2313,25 @@ create_filter_chain(const char *name)
 }
 
 static int
-extend_filter_chain(struct filter *f, const char *name)
+add_filter_arg(struct filter_conf *f, char *arg)
 {
-	int	i;
-
-	if (!f->chain) {
-		yyerror("filter \"%s\" is not a chain", f->name);
+	if (f->argc == MAX_FILTER_ARGS) {
+		yyerror("filter \"%s\" is full", f->name);
 		return (0);
 	}
 
-	if (dict_get(&conf->sc_filters, name) == NULL) {
-		yyerror("undefined filter \"%s\"", name);
-		return (0);
-	}
-	if (dict_get(&conf->sc_filters, name) == f) {
-		yyerror("filter chain cannot contain itself");
-		return (0);
-	}
-
-	for (i = 0; i < MAX_FILTER_PER_CHAIN; i++) {
-		if (f->filters[i][0] == '\0') {
-			strlcpy(f->filters[i], name, sizeof(f->filters[i]));
-			return (1);
+	if (f->chain) {
+		if (dict_get(&conf->sc_filters, arg) == NULL) {
+			yyerror("undefined filter \"%s\"", arg);
+			return (0);
+		}
+		if (dict_get(&conf->sc_filters, arg) == f) {
+			yyerror("filter chain cannot contain itself");
+			return (0);
 		}
 	}
-	yyerror("filter chain \"%s\" is full", f->name);
-	return (0);
+
+	f->argv[f->argc++] = arg;
+
+	return (1);
 }
