@@ -32,8 +32,7 @@ smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
 
 AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
-			-I$(top_srcdir)/openbsd-compat		\
-			-I$(top_srcdir)/contrib/lib/libc/asr
+			-I$(top_srcdir)/openbsd-compat
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
