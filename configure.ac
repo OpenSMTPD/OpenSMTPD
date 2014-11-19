@@ -2765,6 +2765,60 @@ AC_SUBST([DB_LIB])
 
 LIBS="$save_LIBS"
 
+# Search for asr (based on zlib checks)
+dnl asr is required
+AC_ARG_WITH([asr],
+	[  --with-asr=PATH         Use asr in PATH],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** asr is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
+[#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>])
+AC_CHECK_LIB([asr], [asr_resolver], ,
+	[
+		saved_CPPFLAGS="$CPPFLAGS"
+		saved_LDFLAGS="$LDFLAGS"
+		save_LIBS="$LIBS"
+		dnl Check default asr install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+# don't add -lasr to LIBS, it's only added when needed
+#		LIBS="$LIBS -lasr"
+		AC_TRY_LINK_FUNC([asr_resolver], ,
+			[
+				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
+			]
+		)
+	]
+)
+
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
 
