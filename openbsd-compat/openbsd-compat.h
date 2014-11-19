@@ -39,19 +39,6 @@
 /* OpenBSD function replacements */
 #include "base64.h"
 
-#ifndef AI_MASK
-/* valid flags for addrinfo */
-#define AI_MASK \
-	    (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV)
-#ifdef AI_FQDN
-#define AI_MASK (AI_MASK | AI_FQDN)
-#endif
-#endif
-
-#ifndef AI_FQDN
-#define AI_FQDN AI_CANONNAME
-#endif
-
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include "vis.h"
@@ -61,42 +48,6 @@
 #include <sys/time.h>
 #endif
 
-#ifndef SIZE_MAX
-#include <stdint.h>
-#endif
-
-/* From OpenNTPD portable */
-#if !defined(SA_LEN)
-# if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
-#  define SA_LEN(x)	((x)->sa_len)
-# else
-#  define SA_LEN(x)     ((x)->sa_family == AF_INET6 ? \
-			sizeof(struct sockaddr_in6) : \
-			sizeof(struct sockaddr_in))
-# endif
-#endif
-
-/* From OpenBGPD portable */
-#if !defined(SS_LEN)
-# if defined(HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN)
-#  define SS_LEN(x)  ((x)->ss_len)
-# else
-#  define SS_LEN(x)  SA_LEN((struct sockaddr *)(x))
-# endif
-#endif
-
-#ifdef HAVE_SS_LEN
-# define STORAGE_LEN(X) ((X).ss_len)
-# define SET_STORAGE_LEN(X, Y) do { STORAGE_LEN(X) = (Y); } while(0)
-#elif defined(HAVE___SS_LEN)
-# define STORAGE_LEN(X) ((X).__ss_len)
-# define SET_STORAGE_LEN(X, Y) do { STORAGE_LEN(X) = (Y); } while(0)
-#else
-# define STORAGE_LEN(X) (STORAGE_FAMILY(X) == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
-# define SET_STORAGE_LEN(X, Y) (void) 0
-#endif
-
-
 #ifndef HAVE_BASENAME
 char *basename(const char *path);
 #endif
@@ -104,6 +55,10 @@ char *basename(const char *path);
 #ifndef HAVE_CLOSEFROM
 void closefrom(int);
 #endif
+
+#if !defined(HAVE_REALPATH) || defined(BROKEN_REALPATH)
+char *realpath(const char *path, char *resolved);
+#endif 
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size);
@@ -116,6 +71,12 @@ size_t strlcat(char *dst, const char *src, size_t size);
 #ifndef HAVE_STRMODE
 void strmode(int mode, char *p);
 #endif
+
+#if !defined(HAVE_MKDTEMP) || defined(HAVE_STRICT_MKSTEMP)
+int mkstemps(char *path, int slen);
+int mkstemp(char *path);
+char *mkdtemp(char *path);
+#endif 
 
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose);
@@ -132,6 +93,10 @@ int	fmt_scaled(long long number, char *result);
 
 #ifndef HAVE_SCAN_SCALED
 int	scan_scaled(char *, long long *);
+#endif
+
+#ifndef HAVE_INET_NTOP
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 #endif
 
 #ifndef HAVE_STRSEP
@@ -160,7 +125,11 @@ int	BSDoptind;		/* index into parent argv vector */
 int getpeereid(int , uid_t *, gid_t *);
 #endif 
 
-#ifndef HAVE_ARC4RANDOM
+#ifdef HAVE_ARC4RANDOM
+# ifndef HAVE_ARC4RANDOM_STIR
+#  define arc4random_stir()
+# endif
+#else
 unsigned int arc4random(void);
 void arc4random_stir(void);
 #endif /* !HAVE_ARC4RANDOM */
@@ -173,8 +142,46 @@ void arc4random_buf(void *, size_t);
 u_int32_t arc4random_uniform(u_int32_t);
 #endif
 
+#ifndef HAVE_ASPRINTF
+int asprintf(char **, const char *, ...);
+#endif 
+
+/* #include <sys/types.h> XXX needed? For size_t */
+
+#ifndef HAVE_SNPRINTF
+int snprintf(char *, size_t, SNPRINTF_CONST char *, ...);
+#endif 
+
+#ifndef HAVE_STRTOLL
+long long strtoll(const char *, char **, int);
+#endif
+
+#ifndef HAVE_STRTOUL
+unsigned long strtoul(const char *, char **, int);
+#endif
+
+#ifndef HAVE_STRTOULL
+unsigned long long strtoull(const char *, char **, int);
+#endif
+
 #ifndef HAVE_STRTONUM
 long long strtonum(const char *nptr, long long minval, long long maxval, const char **errstr);
+#endif
+
+#if !defined(HAVE_VASPRINTF) || !defined(HAVE_VSNPRINTF)
+# include <stdarg.h>
+#endif
+
+#ifndef HAVE_VASPRINTF
+int vasprintf(char **, const char *, va_list);
+#endif
+
+#ifndef HAVE_VSNPRINTF
+int vsnprintf(char *, size_t, const char *, va_list);
+#endif
+
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *p, size_t n);
 #endif
 
 /* OpenSMTPD-portable specific entries */
@@ -197,8 +204,12 @@ int pidfile(const char *basename);
 struct passwd *pw_dup(const struct passwd *);
 #endif
 
-#ifndef HAVE_EXPLICIT_BZERO
-void explicit_bzero(void *b, size_t len);
+#ifndef HAVE_REALLOCARRAY
+void *reallocarray(void *, size_t, size_t);
+#endif
+
+#ifndef HAVE_ERRC
+void errc(int, int, const char *, ...);
 #endif
 
 #endif /* _OPENBSD_COMPAT_H */

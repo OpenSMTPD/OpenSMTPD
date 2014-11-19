@@ -25,7 +25,7 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.145 2007/09/26 21:03:20 dtucker Exp $ */
+/* $Id: defines.h,v 1.181 2014/06/11 19:22:50 dtucker Exp $ */
 
 
 /* Constants */
@@ -42,41 +42,32 @@ enum
 # define SHUT_RDWR SHUT_RDWR
 #endif
 
-#ifndef IPTOS_LOWDELAY
-# define IPTOS_LOWDELAY          0x10
-# define IPTOS_THROUGHPUT        0x08
-# define IPTOS_RELIABILITY       0x04
-# define IPTOS_LOWCOST           0x02
-# define IPTOS_MINCOST           IPTOS_LOWCOST
-#endif /* IPTOS_LOWDELAY */
-
-#ifndef MAXHOSTNAMELEN
-# define MAXHOSTNAMELEN  64
-#endif
-
-#ifndef LOGIN_NAME_MAX
-# define LOGIN_NAME_MAX 9
-#endif
-
 #ifndef PATH_MAX
 # ifdef _POSIX_PATH_MAX
 # define PATH_MAX _POSIX_PATH_MAX
-# else
-# define PATH_MAX 64
 # endif
 #endif
+
+#ifndef MAXPATHLEN
+# ifdef PATH_MAX
+#  define MAXPATHLEN PATH_MAX
+# else /* PATH_MAX */
+#  define MAXPATHLEN 64
+#  define PATH_MAX 64
+/* realpath uses a fixed buffer of size MAXPATHLEN, so force use of ours */
+#  ifndef BROKEN_REALPATH
+#   define BROKEN_REALPATH 1
+#  endif /* BROKEN_REALPATH */
+# endif /* PATH_MAX */
+#endif /* MAXPATHLEN */
 
 /*
  * Looks like ugly, but MAX_IMSGSIZE equals 16384,
  * and if we don't care it will overflow for some struct
  */
 #if PATH_MAX > 1024
-#  undef    PATH_MAX
+#  undef  PATH_MAX
 #  define PATH_MAX 1024
-#endif
-
-#ifndef MAXPATHLEN
-#  define MAXPATHLEN PATH_MAX
 #endif
 
 #if MAXPATHLEN > 1024
@@ -84,8 +75,12 @@ enum
 #  define MAXPATHLEN 1024
 #endif
 
-#if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
-# define MAXSYMLINKS 5
+#ifndef MAXHOSTNAMELEN
+# define MAXHOSTNAMELEN  64
+#endif
+
+#ifndef LOGIN_NAME_MAX
+# define LOGIN_NAME_MAX 9
 #endif
 
 #ifndef MAXLOGNAME
@@ -97,6 +92,10 @@ enum
 #endif
 #ifndef GID_MAX
 #define	GID_MAX	UINT_MAX
+#endif
+
+#if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
+# define MAXSYMLINKS 5
 #endif
 
 #ifndef STDIN_FILENO
@@ -157,11 +156,6 @@ enum
 # define MAP_FAILED ((void *)-1)
 #endif
 
-/* *-*-nto-qnx doesn't define this constant in the system headers */
-#ifdef MISSING_NFDBITS
-# define	NFDBITS (8 * sizeof(unsigned long))
-#endif
-
 /*
 SCO Open Server 3 has INADDR_LOOPBACK defined in rpc/rpc.h but
 including rpc/rpc.h breaks Solaris 6
@@ -180,11 +174,7 @@ typedef unsigned int u_int;
 #endif
 
 #ifndef HAVE_INTXX_T
-# if (SIZEOF_CHAR == 1)
-typedef char int8_t;
-# else
-#  error "8 bit int type not found."
-# endif
+typedef signed char int8_t;
 # if (SIZEOF_SHORT_INT == 2)
 typedef short int int16_t;
 # else
@@ -217,11 +207,7 @@ typedef uint16_t u_int16_t;
 typedef uint32_t u_int32_t;
 # define HAVE_U_INTXX_T 1
 # else
-#  if (SIZEOF_CHAR == 1)
 typedef unsigned char u_int8_t;
-#  else
-#   error "8 bit int type not found."
-#  endif
 #  if (SIZEOF_SHORT_INT == 2)
 typedef unsigned short int u_int16_t;
 #  else
@@ -268,10 +254,29 @@ typedef unsigned long long int u_int64_t;
 # endif
 #endif
 
+#ifndef HAVE_UINTXX_T
+typedef u_int8_t uint8_t;
+typedef u_int16_t uint16_t;
+typedef u_int32_t uint32_t;
+typedef u_int64_t uint64_t;
+#endif
+
+#ifndef HAVE_INTMAX_T
+typedef long long intmax_t;
+#endif
+
+#ifndef HAVE_UINTMAX_T
+typedef unsigned long long uintmax_t;
+#endif
+
 #ifndef HAVE_U_CHAR
 typedef unsigned char u_char;
 # define HAVE_U_CHAR
 #endif /* HAVE_U_CHAR */
+
+#ifndef ULLONG_MAX
+# define ULLONG_MAX ((unsigned long long)-1)
+#endif
 
 #ifndef SIZE_T_MAX
 #define SIZE_T_MAX ULONG_MAX
@@ -282,6 +287,10 @@ typedef unsigned int size_t;
 # define HAVE_SIZE_T
 # define SIZE_T_MAX UINT_MAX
 #endif /* HAVE_SIZE_T */
+
+#ifndef SIZE_MAX
+#define SIZE_MAX SIZE_T_MAX
+#endif
 
 #ifndef HAVE_SSIZE_T
 typedef int ssize_t;
@@ -342,9 +351,17 @@ struct winsize {
 };
 #endif
 
-/* *-*-nto-qnx does not define this type in the system headers */
-#ifdef MISSING_FD_MASK
+/* bits needed for select that may not be in the system headers */
+#ifndef HAVE_FD_MASK
  typedef unsigned long int	fd_mask;
+#endif
+
+#if defined(HAVE_DECL_NFDBITS) && HAVE_DECL_NFDBITS == 0
+# define	NFDBITS (8 * sizeof(unsigned long))
+#endif
+
+#if defined(HAVE_DECL_HOWMANY) && HAVE_DECL_HOWMANY == 0
+# define howmany(x,y)	(((x)+((y)-1))/(y))
 #endif
 
 /* Paths */
@@ -374,7 +391,7 @@ struct winsize {
 
 /* user may have set a different path */
 #if defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
-# undef _PATH_MAILDIR MAILDIR
+# undef _PATH_MAILDIR
 #endif /* defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
 
 #ifdef MAIL_DIRECTORY
@@ -498,11 +515,6 @@ struct winsize {
 # define __nonnull__(x)
 #endif
 
-/* *-*-nto-qnx doesn't define this macro in the system headers */
-#ifdef MISSING_HOWMANY
-# define howmany(x,y)	(((x)+((y)-1))/(y))
-#endif
-
 #ifndef OSSH_ALIGNBYTES
 #define OSSH_ALIGNBYTES	(sizeof(int) - 1)
 #endif
@@ -604,18 +616,9 @@ struct winsize {
 # define memmove(s1, s2, n) bcopy((s2), (s1), (n))
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
 
-#if defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX)
-#  define USE_VHANGUP
-#endif /* defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX) */
-
 #ifdef USE_BSM_AUDIT
 # define SSH_AUDIT_EVENTS
 # define CUSTOM_SSH_AUDIT_EVENTS
-#endif
-
-/* OPENSSL_free() is Free() in versions before OpenSSL 0.9.6 */
-#if !defined(OPENSSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x0090600f)
-# define OPENSSL_free(x) Free(x)
 #endif
 
 #if !defined(HAVE___func__) && defined(HAVE___FUNCTION__)
@@ -641,24 +644,6 @@ struct winsize {
 # else
 #  define OPEN_MAX	256
 # endif
-#endif
-
-#if defined(__Lynx__)
- /*
-  * LynxOS defines these in param.h which we do not want to include since
-  * it will also pull in a bunch of kernel definitions.
-  */
-# define ALIGNBYTES (sizeof(int) - 1)
-# define ALIGN(p) (((unsigned)p + ALIGNBYTES) & ~ALIGNBYTES)
-  /* Missing prototypes on LynxOS */
-  int snprintf (char *, size_t, const char *, ...);
-  int mkstemp (char *);
-  char *crypt (const char *, const char *);
-  int seteuid (uid_t);
-  int setegid (gid_t);
-  char *mkdtemp (char *);
-  int rresvport_af (int *, sa_family_t);
-  int innetgr (const char *, const char *, const char *, const char *);
 #endif
 
 /*
@@ -746,7 +731,7 @@ struct winsize {
 # define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
 
-#if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID)
+#if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(HAVE_SECUREWARE)
 # define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
 #if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(BROKEN_LIBIAF)
@@ -780,6 +765,79 @@ struct winsize {
 # else
 #  define	IOV_MAX		16
 # endif
+#endif
+
+#ifndef EWOULDBLOCK
+# define EWOULDBLOCK EAGAIN
+#endif
+
+#ifndef INET6_ADDRSTRLEN	/* for non IPv6 machines */
+#define INET6_ADDRSTRLEN 46
+#endif
+
+/*
+ * Platforms that have arc4random_uniform() and not arc4random_stir()
+ * shouldn't need the latter.
+ */
+#if defined(HAVE_ARC4RANDOM) && defined(HAVE_ARC4RANDOM_UNIFORM) && \
+    !defined(HAVE_ARC4RANDOM_STIR)
+# define arc4random_stir()
+#endif
+
+#ifndef HAVE_VA_COPY
+# ifdef HAVE___VA_COPY
+#  define va_copy(dest, src) __va_copy(dest, src)
+# else
+#  define va_copy(dest, src) (dest) = (src)
+# endif
+#endif
+
+/* ASR specific entries */
+
+#ifndef AI_MASK
+/* valid flags for addrinfo */
+#define AI_MASK \
+	    (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV)
+#ifdef AI_FQDN
+#define AI_MASK (AI_MASK | AI_FQDN)
+#endif
+#endif
+
+#ifndef AI_FQDN
+#define AI_FQDN AI_CANONNAME
+#endif
+
+/* OpenSMTPD-portable specific entries */
+
+/* From OpenNTPD portable */
+#if !defined(SA_LEN)
+# if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
+#  define SA_LEN(x)	((x)->sa_len)
+# else
+#  define SA_LEN(x)     ((x)->sa_family == AF_INET6 ? \
+			sizeof(struct sockaddr_in6) : \
+			sizeof(struct sockaddr_in))
+# endif
+#endif
+
+/* From OpenBGPD portable */
+#if !defined(SS_LEN)
+# if defined(HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN)
+#  define SS_LEN(x)  ((x)->ss_len)
+# else
+#  define SS_LEN(x)  SA_LEN((struct sockaddr *)(x))
+# endif
+#endif
+
+#ifdef HAVE_SS_LEN
+# define STORAGE_LEN(X) ((X).ss_len)
+# define SET_STORAGE_LEN(X, Y) do { STORAGE_LEN(X) = (Y); } while(0)
+#elif defined(HAVE___SS_LEN)
+# define STORAGE_LEN(X) ((X).__ss_len)
+# define SET_STORAGE_LEN(X, Y) do { STORAGE_LEN(X) = (Y); } while(0)
+#else
+# define STORAGE_LEN(X) (STORAGE_FAMILY(X) == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+# define SET_STORAGE_LEN(X, Y) (void) 0
 #endif
 
 /* chl parts */
