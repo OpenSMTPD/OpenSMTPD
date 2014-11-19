@@ -2892,24 +2892,6 @@ AC_CONFIG_FILES([Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
 		mk/makemap/Makefile
-		mk/backends/Makefile
-		mk/backends/queue-null/Makefile
-		mk/backends/queue-ram/Makefile
-		mk/backends/queue-stub/Makefile
-		mk/backends/scheduler-ram/Makefile
-		mk/backends/scheduler-stub/Makefile
-		mk/backends/table-ldap/Makefile
-		mk/backends/table-mysql/Makefile
-		mk/backends/table-passwd/Makefile
-		mk/backends/table-postgres/Makefile
-		mk/backends/table-sqlite/Makefile
-		mk/backends/table-stub/Makefile
-		mk/backends/table-redis/Makefile
-		mk/filters/Makefile
-		mk/filters/dnsbl/Makefile
-		mk/filters/stub/Makefile
-		mk/filters/trace/Makefile
-		mk/filters/monkey/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
