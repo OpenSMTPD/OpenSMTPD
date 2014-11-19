@@ -857,8 +857,7 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	if (pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		if (procname == NULL)
 			procname = name;
@@ -1027,18 +1026,8 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	if (dup2(pipefd[0], STDIN_FILENO) < 0 ||
 	    dup2(allout, STDOUT_FILENO) < 0 ||
 	    dup2(allout, STDERR_FILENO) < 0)
-<<<<<<< HEAD
-		error("forkmda: dup2");
+	    err(1, "forkmda: dup2");
 	closefrom(STDERR_FILENO + 1);
-	if (setgroups(1, &deliver->userinfo.gid) ||
-	    setresgid(deliver->userinfo.gid, deliver->userinfo.gid, deliver->userinfo.gid) ||
-	    setresuid(deliver->userinfo.uid, deliver->userinfo.uid, deliver->userinfo.uid))
-		error("forkmda: cannot drop privileges");
-=======
-		err(1, "forkmda: dup2");
-	if (closefrom(STDERR_FILENO + 1) < 0)
-		err(1, "closefrom");
->>>>>>> branch-opensmtpd-5.4.4
 	if (setsid() < 0)
 		err(1, "setsid");
 	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
@@ -1563,7 +1552,6 @@ parent_auth_bsd(const char *username, const char *password)
 		return LKA_OK;
 	return LKA_PERMFAIL;
 }
-<<<<<<< HEAD
 #endif
 
 #ifdef USE_PAM
@@ -1674,61 +1662,3 @@ parent_auth_user(const char *username, const char *password)
 	return (parent_auth_pwd(username, password));
 #endif
 }
-
-static void
-parent_broadcast_verbose(uint32_t v)
-{
-	m_create(p_lka, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_lka, v);
-	m_close(p_lka);
-	
-	m_create(p_mda, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_mda, v);
-	m_close(p_mda);
-	
-	m_create(p_mfa, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_mfa, v);
-	m_close(p_mfa);
-	
-	m_create(p_mta, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_mta, v);
-	m_close(p_mta);
-	
-	m_create(p_queue, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_queue, v);
-	m_close(p_queue);
-	
-	m_create(p_smtp, IMSG_CTL_VERBOSE, 0, 0, -1);
-	m_add_int(p_smtp, v);
-	m_close(p_smtp);
-}
-
-static void
-parent_broadcast_profile(uint32_t v)
-{
-	m_create(p_lka, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_lka, v);
-	m_close(p_lka);
-	
-	m_create(p_mda, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_mda, v);
-	m_close(p_mda);
-	
-	m_create(p_mfa, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_mfa, v);
-	m_close(p_mfa);
-	
-	m_create(p_mta, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_mta, v);
-	m_close(p_mta);
-	
-	m_create(p_queue, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_queue, v);
-	m_close(p_queue);
-	
-	m_create(p_smtp, IMSG_CTL_PROFILE, 0, 0, -1);
-	m_add_int(p_smtp, v);
-	m_close(p_smtp);
-}
-=======
->>>>>>> branch-opensmtpd-5.4.4

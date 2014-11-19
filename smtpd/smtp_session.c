@@ -2165,9 +2165,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
 }
-<<<<<<< HEAD
 #endif
-=======
 
 static void
 smtp_filter_rset(struct smtp_session *s)
@@ -2224,7 +2222,6 @@ smtp_filter_data(struct smtp_session *s)
 {
 	smtp_mfa_response(s, IMSG_SMTP_REQ_DATA, FILTER_OK, 0, NULL);
 }
->>>>>>> branch-opensmtpd-5.4.4
 
 #define CASE(x) case x : return #x
 
