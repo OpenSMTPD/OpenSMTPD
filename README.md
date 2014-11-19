@@ -23,7 +23,9 @@ list: [http://www.opensmtpd.org/list.html](http://www.opensmtpd.org/list.html)
 
 and to join the IRC channel: #OpenSMTPD @ irc.freenode.net
 
-Cheers !
+Also note that we have a [wiki](https://github.com/OpenSMTPD/OpenSMTPD/wiki) that you are encouraged to contribute to.
+
+Cheers!
 
 
 How to build, configure and use Portable OpenSMTPD
@@ -45,7 +47,7 @@ Portable OpenSMTPD relies on:
 Get the source
 --------------
 
-    git clone -b portable git://github.com/poolpOrg/OpenSMTPD.git opensmtpd
+    git clone -b portable git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
 
 or
 
@@ -99,7 +101,7 @@ To operate, OpenSMTPD requires at least one user, by default _smtpd; and
 preferably two users, by default _smtpd and _smtpq.
 
 Using two users instead of one will increase security by a large factor so...
-unless you want to voluntarily reduce security or you have absolute more faith in our code than we do, by all means use two.
+unless you want to voluntarily reduce security or you have absolute more faith in our code than we do, by all means use one.
 
 
 The instructions below assume the default users however, the configure
@@ -107,16 +109,16 @@ script allows overriding these using the options:
 --with-privsep-user, --with-queue-user.
 
 
-### NetBSD, Linux (Debian, ArchLinux, ...)
+### NetBSD, Linux (Debian, Arch Linux, ...)
 
     mkdir /var/empty  
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
-    useradd -c "SMTP queue user" -d /var/empty -s /sbin/nologin _smtpq
+    useradd -c "SMTPD Queue" -d /var/empty -s /sbin/nologin _smtpq
 
 ### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
-    pw useradd _smtpq -c "SMTP queue user" -d /var/empty -s /sbin/nologin
+    pw useradd _smtpq -c "SMTPD Queue" -d /var/empty -s /sbin/nologin
 
 ### Mac OS X
 
@@ -155,7 +157,7 @@ First, kill any running sendmail/exim/qmail/postfix or other.
 
 Then:
 
-    smtpd &
+    smtpd
 
 or in debug and verbose mode
 
