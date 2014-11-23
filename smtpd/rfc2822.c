@@ -82,7 +82,12 @@ parser_feed_header(struct rfc2822_parser *rp, char *line)
 			return 0;
 		memset(rp->header.name, 0, sizeof rp->header.name);
 		(void)memcpy(rp->header.name, line, pos - line);
-		return parser_feed_header(rp, pos + 1);
+		if (isspace(*(pos + 1)))
+			return parser_feed_header(rp, pos + 1);
+		else {
+			*pos = ' ';
+			return parser_feed_header(rp, pos);
+		}
 	}
 
 	/* continuation */
