@@ -770,7 +770,7 @@ io_dispatch_connect_ssl(int fd, short event, void *humppa)
 	default:
 		io->error = io_ssl_error();
 		ssl_error("io_dispatch_connect_ssl:SSL_connect");
-		io_callback(io, IO_ERROR);
+		io_callback(io, IO_TLSERROR);
 		break;
 	}
 

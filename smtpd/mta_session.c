@@ -1307,6 +1307,22 @@ mta_io(struct io *io, int evt)
 		mta_free(s);
 		break;
 
+	case IO_TLSERROR:
+		log_debug("debug: mta: %p: TLS IO error: %s", s, io->error);
+		if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
+			/* error in non-strict SSL negotiation, downgrade to plain */
+			log_info("smtp-out: TLS Error on session %016"PRIx64
+			    ": TLS failed, "
+			    "downgrading to plain", s->id);
+			s->flags &= ~MTA_TLS;
+			s->flags |= MTA_DOWNGRADE_PLAIN;
+			mta_connect(s);
+			break;
+		}
+		mta_error(s, "IO Error: %s", io->error);
+		mta_free(s);
+		break;
+
 	case IO_DISCONNECTED:
 		log_debug("debug: mta: %p: disconnected in state %s",
 		    s, mta_strstate(s->state));
