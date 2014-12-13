@@ -992,6 +992,24 @@ accept from any for domain example.org \e
 	deliver to mda "/path/to/mda \-f \-"
 accept for any relay
 .Ed
+.Pp
+For sites that wish to sign messages using DKIM, the
+.Em dkimproxy
+package may be used as a filter.
+The following example is the same as the default configuration,
+but all outgoing mail is passed to dkimproxy_out on port 10027
+for signing.
+The signed messages are received on port 10028 and tagged for relaying.
+.Bd -literal -offset indent
+listen on lo0
+listen on lo0 port 10028 tag DKIM
+
+table aliases db:/etc/mail/aliases.db
+
+accept for local alias <aliases> deliver to mbox
+accept tagged DKIM for any relay
+accept from local for any relay via smtp://127.0.0.1:10027
+.Ed
 .Sh SEE ALSO
 .Xr mailer.conf 5 ,
 .Xr table 5 ,
