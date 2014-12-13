@@ -2037,11 +2037,6 @@ smtp_free(struct smtp_session *s, const char * reason)
 
 	tree_pop(&wait_filter_data, s->id);
 
-/*
-	if (s->ofile)
-		fclose(s->ofile);
-*/
-
 	if (s->evp.id) {
 		m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 		m_add_msgid(p_queue, evpid_to_msgid(s->evp.id));
