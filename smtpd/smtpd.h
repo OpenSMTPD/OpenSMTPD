@@ -1207,7 +1207,7 @@ void lka_session_forward_reply(struct forward_req *, int);
 
 /* log.c */
 void vlog(int, const char *, va_list);
-
+void logit(int, const char *, ...) __attribute__((format (printf, 2, 3)));
 
 /* mda.c */
 void mda_postfork(void);
