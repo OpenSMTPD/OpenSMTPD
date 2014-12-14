@@ -128,6 +128,8 @@ struct mta_session {
 	FILE			*datafp;
 
 	size_t			 failures;
+
+	char			 replybuf[2048];
 };
 
 static void mta_session_init(void);
@@ -595,6 +597,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 	    mta_strstate(newstate));
 
 	s->state = newstate;
+
+	memset(s->replybuf, 0, sizeof s->replybuf);
 
 	/* don't try this at home! */
 #define mta_enter_state(_s, _st) do { newstate = _st; goto again; } while (0)
@@ -1228,8 +1232,37 @@ mta_io(struct io *io, int evt)
 				s->ext |= MTA_EXT_DSN;
 		}
 
-		if (cont)
+		/* continuation reply, we parse out the repeating statuses and ESC */
+		if (cont) {
+			if (s->replybuf[0] == '\0')
+				(void)strlcat(s->replybuf, line, sizeof s->replybuf);
+			else {
+				line = line + 4;
+				if (isdigit((int)*line) && *(line + 1) == '.' &&
+				    isdigit((int)*line+2) && *(line + 3) == '.' &&
+				    isdigit((int)*line+4) && isspace((int)*(line + 5)))
+					(void)strlcat(s->replybuf, line+5, sizeof s->replybuf);
+				else
+					(void)strlcat(s->replybuf, line, sizeof s->replybuf);
+			}
 			goto nextline;
+		}
+
+		/* last line of a reply, check if we're on a continuation to parse out status and ESC.
+		 * if we overflow reply buffer or are not on continuation, log entire last line.
+		 */
+		if (s->replybuf[0] != '\0') {
+			p = line + 4;
+			if (isdigit((int)*p) && *(p + 1) == '.' &&
+			    isdigit((int)*p+2) && *(p + 3) == '.' &&
+			    isdigit((int)*p+4) && isspace((int)*(p + 5)))
+				p += 5;
+			if (strlcat(s->replybuf, p, sizeof s->replybuf) >= sizeof s->replybuf)
+				(void)strlcpy(s->replybuf, line, sizeof s->replybuf);
+		}
+		else
+			(void)strlcpy(s->replybuf, line, sizeof s->replybuf);
+
 
 		if (s->state == MTA_QUIT) {
 			log_info("smtp-out: Closing session %016"PRIx64
@@ -1239,7 +1272,7 @@ mta_io(struct io *io, int evt)
 			return;
 		}
 		io_set_write(io);
-		mta_response(s, line);
+		mta_response(s, s->replybuf);
 		if (s->flags & MTA_FREE) {
 			mta_free(s);
 			return;
