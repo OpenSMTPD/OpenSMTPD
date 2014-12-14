@@ -44,7 +44,9 @@
 #endif
 #define CONF_FILE		 SMTPD_CONFDIR "/smtpd.conf"
 #define MAILNAME_FILE		 SMTPD_CONFDIR "/mailname"
+#ifndef CA_FILE
 #define CA_FILE			 "/etc/ssl/cert.pem"
+#endif
 
 #define PROC_COUNT		 7
 
