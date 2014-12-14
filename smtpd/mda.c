@@ -335,7 +335,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			case A_LMTP:
 				deliver.mode = A_LMTP;
 				deliver.userinfo = *userinfo;
-				(void)strlcpy(deliver.user, userinfo->username,
+				(void)strlcpy(deliver.user, e->user,
 				    sizeof(deliver.user));
 				(void)strlcpy(deliver.from, e->sender,
 				    sizeof(deliver.from));
