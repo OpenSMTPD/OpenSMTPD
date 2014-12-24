@@ -1,4 +1,4 @@
-/*	$OpenBSD: getnetnamadr_async.c,v 1.14 2014/03/26 18:13:15 eric Exp $	*/
+/*	$OpenBSD: getnetnamadr_async.c,v 1.19 2014/11/02 13:59:16 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -125,6 +125,21 @@ getnetnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 		}
 
+		if (as->as_type == ASR_GETNETBYNAME &&
+		    as->as.netnamadr.name[0] == '\0') {
+			ar->ar_h_errno = NO_DATA;
+			async_set_state(as, ASR_STATE_HALT);
+			break;
+		}
+
+		if (as->as_type == ASR_GETNETBYNAME &&
+		    !res_hnok(as->as.netnamadr.name)) {
+			ar->ar_h_errno = NETDB_INTERNAL;
+			ar->ar_errno = EINVAL;
+			async_set_state(as, ASR_STATE_HALT);
+			break;
+		}
+
 		async_set_state(as, ASR_STATE_NEXT_DB);
 		break;
 
@@ -171,7 +186,7 @@ getnetnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 
 		case ASR_DB_FILE:
 
-			if ((f = fopen("/etc/networks", "r")) == NULL)
+			if ((f = fopen(_PATH_NETWORKS, "re")) == NULL)
 				break;
 
 			if (as->as_type == ASR_GETNETBYNAME)
@@ -232,11 +247,11 @@ getnetnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 			n->n.n_net = as->as.netnamadr.addr;
 
 		/*
-		 * No address found in the dns packet. The blocking version
-		 * reports this as an error.
+		 * No valid hostname or address found in the dns packet.
+		 * Ignore it.
 		 */
-		if (as->as_type == ASR_GETNETBYNAME && n->n.n_net == 0) {
-			 /* XXX wrong */
+		if ((as->as_type == ASR_GETNETBYNAME && n->n.n_net == 0) ||
+		    n->n.n_name == NULL) {
 			free(n);
 			async_set_state(as, ASR_STATE_NEXT_DB);
 			break;
@@ -286,6 +301,10 @@ netent_file_match(FILE *f, int reqtype, const char *data)
 			errno = 0; /* ignore errors reading the file */
 			return (NULL);
 		}
+
+		/* there must be an address and at least one name */
+		if (n < 2)
+			continue;
 
 		if (reqtype == ASR_GETNETBYADDR) {
 			net = inet_network(tokens[1]);

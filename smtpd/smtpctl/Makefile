@@ -3,6 +3,7 @@
 .PATH:		${.CURDIR}/..
 
 NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
+NEED_ERRC!=		grep -q errc /usr/include/err.h && echo No || echo Yes
 
 PROG=	smtpctl
 BINOWN=	root
@@ -33,8 +34,14 @@ SRCS+=		to.c
 SRCS+=		expand.c
 SRCS+=		tree.c
 SRCS+=		dict.c
+
 .if ${NEED_REALLOCARRAY} == "Yes"
+CFLAGS+=	-DNEED_REALLOCARRAY
 SRCS+=		reallocarray.c
+.endif
+.if ${NEED_ERRC} == "Yes"
+CFLAGS+=	-DNEED_ERRC
+SRCS+=		errc.c
 .endif
 
 LDADD+=	-lutil -lz -lcrypto

@@ -1,4 +1,4 @@
-/*	$OpenBSD: getaddrinfo_async.c,v 1.27 2014/04/28 21:38:59 sperreault Exp $	*/
+/*	$OpenBSD: getaddrinfo_async.c,v 1.31 2014/11/18 20:51:00 krw Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -18,7 +18,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <net/if.h>
@@ -157,6 +156,12 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 		}
 
+		if (as->as.ai.hostname && as->as.ai.hostname[0] == '\0') {
+			ar->ar_gai_errno = EAI_NODATA;
+			async_set_state(as, ASR_STATE_HALT);
+			break;
+		}
+		
 		ai = &as->as.ai.hints;
 
 		if (ai->ai_addrlen ||
@@ -168,7 +173,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 		}
 
-		if (ai->ai_flags & ~AI_MASK ||
+		if (ai->ai_flags & ~(AI_MASK | AI_ADDRCONFIG) ||
 		    (ai->ai_flags & AI_CANONNAME && ai->ai_flags & AI_FQDN)) {
 			ar->ar_gai_errno = EAI_BADFLAGS;
 			async_set_state(as, ASR_STATE_HALT);
@@ -219,9 +224,9 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 					v6 = 1;
 			}
 			freeifaddrs(ifa0);
-			if (ai->ai_family == PF_UNSPEC && !v4 && !v6 ||
-			    ai->ai_family == PF_INET && !v4 ||
-			    ai->ai_family == PF_INET6 && !v6) {
+			if ((ai->ai_family == PF_UNSPEC && !v4 && !v6) ||
+			    (ai->ai_family == PF_INET && !v4) ||
+			    (ai->ai_family == PF_INET6 && !v6)) {
 				ar->ar_gai_errno = EAI_NONAME;
 				async_set_state(as, ASR_STATE_HALT);
 				break;
@@ -310,6 +315,13 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 
 		if (ai->ai_flags & AI_NUMERICHOST) {
 			ar->ar_gai_errno = EAI_NONAME;
+			async_set_state(as, ASR_STATE_HALT);
+			break;
+		}
+
+		if (!res_hnok(as->as.ai.hostname)) {
+			ar->ar_errno = EINVAL;
+			ar->ar_gai_errno = EAI_SYSTEM;
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
@@ -403,7 +415,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 
 		case ASR_DB_FILE:
-			f = fopen(as->as_ctx->ac_hostfile, "r");
+			f = fopen(as->as_ctx->ac_hostfile, "re");
 			if (f == NULL) {
 				async_set_state(as, ASR_STATE_NEXT_DB);
 				break;
