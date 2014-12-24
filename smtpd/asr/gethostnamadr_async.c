@@ -1,4 +1,4 @@
-/*	$OpenBSD: gethostnamadr_async.c,v 1.28 2014/03/26 18:13:15 eric Exp $	*/
+/*	$OpenBSD: gethostnamadr_async.c,v 1.32 2014/11/02 13:59:16 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -173,8 +173,15 @@ gethostnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 		}
 
-		/* Name might be an IP address string */
 		if (as->as_type == ASR_GETHOSTBYNAME) {
+
+			if (as->as.hostnamadr.name[0] == '\0') {
+				ar->ar_h_errno = NO_DATA;
+				async_set_state(as, ASR_STATE_HALT);
+				break;
+			}
+
+			/* Name might be an IP address string */
 			for (c = as->as.hostnamadr.name; *c; c++)
 				if (!isdigit((unsigned char)*c) &&
 				     *c != '.' && *c != ':')
@@ -192,6 +199,13 @@ gethostnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 					ar->ar_hostent = &h->h;
 					ar->ar_h_errno = NETDB_SUCCESS;
 				}
+				async_set_state(as, ASR_STATE_HALT);
+				break;
+			}
+
+			if (!res_hnok(as->as.hostnamadr.name)) {
+				ar->ar_errno = EINVAL;
+				ar->ar_h_errno = NETDB_INTERNAL;
 				async_set_state(as, ASR_STATE_HALT);
 				break;
 			}
@@ -240,7 +254,7 @@ gethostnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 
 			/* Try to find a match in the host file */
 
-			if ((f = fopen(as->as_ctx->ac_hostfile, "r")) == NULL)
+			if ((f = fopen(as->as_ctx->ac_hostfile, "re")) == NULL)
 				break;
 
 			if (as->as_type == ASR_GETHOSTBYNAME) {
@@ -350,13 +364,12 @@ gethostnamadr_async_run(struct asr_query *as, struct asr_result *ar)
 		}
 
 		/*
-		 * No address found in the dns packet. The blocking version
-		 * reports this as an error.
+		 * No valid hostname or address found in the dns packet.
+		 * Ignore it.
 		 */
 		if ((as->as_type == ASR_GETHOSTBYNAME &&
 		     h->h.h_addr_list[0] == NULL) ||
-		    (as->as_type == ASR_GETHOSTBYADDR &&
-		     h->h.h_name == NULL)) {
+		    h->h.h_name == NULL) {
 			free(h);
 			async_set_state(as, ASR_STATE_NEXT_DB);
 			break;
@@ -431,6 +444,10 @@ hostent_file_match(FILE *f, int reqtype, int family, const char *data,
 			errno = 0; /* ignore errors reading the file */
 			return (NULL);
 		}
+
+		/* there must be an address and at least one name */
+		if (n < 2)
+			continue;
 
 		if (reqtype == ASR_GETHOSTBYNAME) {
 			for (i = 1; i < n; i++) {
