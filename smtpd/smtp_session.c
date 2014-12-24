@@ -1819,7 +1819,7 @@ smtp_message_write(struct smtp_session *s, const char *line)
 			s->rcvcount++;
 		if (s->rcvcount == MAX_HOPS_COUNT) {
 			s->msgflags |= MF_ERROR_LOOP;
-			log_warn("warn: loop detected");
+			log_warnx("warn: loop detected");
 			return;
 		}
 	}
