@@ -90,3 +90,7 @@ struct asr_query *getnameinfo_async(const struct sockaddr *, socklen_t, char *,
 /* from in event.h */
 struct event_asr * event_asr_run(struct asr_query *,
     void (*)(struct asr_result *, void *), void *);
+
+#ifndef AI_ADDRCONFIG
+#define	AI_ADDRCONFIG		64
+#endif

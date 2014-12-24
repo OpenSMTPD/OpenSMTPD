@@ -3,7 +3,7 @@
 ASRDIR=		${.CURDIR}/../asr
 .PATH:		${.CURDIR}/.. ${ASRDIR}
 
-NEED_ASR!=	grep -q event_asr_run /usr/include/event.h && echo No || echo Yes
+NEED_ASR!=		grep -q AI_ADDRCONF /usr/include/netdb.h && echo No || echo Yes
 NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
 
 PROG=		smtpd
@@ -38,6 +38,7 @@ SRCS+=		pony.c
 SRCS+=		queue.c
 SRCS+=		queue_backend.c
 .if ${NEED_REALLOCARRAY} == "Yes"
+CFLAGS+=	-DNEED_REALLOCARRAY
 SRCS+=		reallocarray.c
 .endif
 SRCS+=		rfc2822.c

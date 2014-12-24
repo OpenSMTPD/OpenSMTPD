@@ -173,7 +173,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 		}
 
-		if (ai->ai_flags & ~AI_MASK ||
+		if (ai->ai_flags & ~(AI_MASK | AI_ADDRCONFIG) ||
 		    (ai->ai_flags & AI_CANONNAME && ai->ai_flags & AI_FQDN)) {
 			ar->ar_gai_errno = EAI_BADFLAGS;
 			async_set_state(as, ASR_STATE_HALT);
