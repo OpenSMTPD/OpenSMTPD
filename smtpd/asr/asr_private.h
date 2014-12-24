@@ -18,7 +18,6 @@
 /* tweaks */
 #define	DEBUG			1
 #define	ASR_OPT_THREADSAFE	0
-#define	AI_ADDRCONFIG		64
 
 #include <stdio.h>
 
