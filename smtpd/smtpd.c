@@ -589,7 +589,7 @@ main(int argc, char *argv[])
 				err(1, "getpass");
 
 			env->sc_queue_key = strdup(password);
-			memset(password, 0, strlen(password));
+			explicit_bzero(password, strlen(password));
 			if (env->sc_queue_key == NULL)
 				err(1, "strdup");
 		}
