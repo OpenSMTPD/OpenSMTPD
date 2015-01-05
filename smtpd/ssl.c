@@ -146,7 +146,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	size_t	len;
 	if (u == NULL) {
-		memset(buf, 0, size);
+		explicit_bzero(buf, size);
 		return (0);
 	}
 	if ((len = strlcpy(buf, u, size)) >= (size_t)size)
@@ -171,7 +171,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 	ret = len;
 end:
 	if (len)
-		memset(pass, 0, len);
+		explicit_bzero(pass, len);
 	return ret;
 }
 
