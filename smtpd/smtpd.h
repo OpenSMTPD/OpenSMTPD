@@ -434,7 +434,8 @@ enum expand_type {
 	EXPAND_FILTER,
 	EXPAND_INCLUDE,
 	EXPAND_ADDRESS,
-	EXPAND_ERROR
+	EXPAND_ERROR,
+	EXPAND_MAILDIR
 };
 
 struct expandnode {

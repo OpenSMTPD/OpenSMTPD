@@ -271,6 +271,7 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		ep;
 	struct expandnode	node;
 	struct mailaddr		maddr;
+	struct passwd		*pw;
 	int			r;
 	union lookup		lk;
 	char		       *tag;
@@ -456,6 +457,19 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
+
+	case EXPAND_MAILDIR:
+		log_trace(TRACE_EXPAND, "expand: lka_expand: maildir: %s "
+		    "[depth=%d]", xn->u.buffer, xn->depth);
+		if ((pw = getpwnam(xn->parent->u.user)) == NULL) {
+			log_trace(TRACE_EXPAND, "expand: maildir: %s is not "
+			    "a local user", xn->parent->u.user);
+			lks->error = LKA_PERMFAIL;
+			break;
+		}
+
+		lka_submit(lks, rule, xn);
+		break;
 	}
 }
 
@@ -539,18 +553,19 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			ep->agent.mda.method = A_FILENAME;
 			(void)strlcpy(ep->agent.mda.buffer, xn->u.buffer,
 			    sizeof ep->agent.mda.buffer);
-		}
-		else if (xn->type == EXPAND_FILTER) {
+		} else if (xn->type == EXPAND_FILTER) {
 			ep->agent.mda.method = A_MDA;
 			(void)strlcpy(ep->agent.mda.buffer, xn->u.buffer,
 			    sizeof ep->agent.mda.buffer);
-		}
-		else if (xn->type == EXPAND_USERNAME) {
+		} else if (xn->type == EXPAND_USERNAME) {
 			ep->agent.mda.method = rule->r_action;
 			(void)strlcpy(ep->agent.mda.buffer, rule->r_value.buffer,
 			    sizeof ep->agent.mda.buffer);
-		}
-		else
+		} else if (xn->type == EXPAND_MAILDIR) {
+			ep->agent.mda.method = A_MAILDIR;
+			(void)strlcpy(ep->agent.mda.buffer, xn->u.buffer,
+			    sizeof ep->agent.mda.buffer);
+		} else
 			fatalx("lka_deliver: bad node type");
 
 		r = lka_expand_format(ep->agent.mda.buffer,

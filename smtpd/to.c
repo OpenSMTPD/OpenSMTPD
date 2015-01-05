@@ -50,6 +50,7 @@
 #include "log.h"
 
 static const char *in6addr_to_text(const struct in6_addr *);
+static int alias_is_maildir(struct expandnode *, const char *, size_t);
 static int alias_is_filter(struct expandnode *, const char *, size_t);
 static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
@@ -680,6 +681,7 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	    alias_is_filter(expandnode, s, l) ||
 	    alias_is_filename(expandnode, s, l) ||
 	    alias_is_address(expandnode, s, l) ||
+	    alias_is_maildir(expandnode, s, l) ||
 	    alias_is_username(expandnode, s, l))
 		return (1);
 
@@ -694,6 +696,7 @@ expandnode_to_text(struct expandnode *expandnode)
 	case EXPAND_FILENAME:
 	case EXPAND_INCLUDE:
 	case EXPAND_ERROR:
+	case EXPAND_MAILDIR:
 		return expandnode->u.buffer;
 	case EXPAND_USERNAME:
 		return expandnode->u.user;
@@ -706,6 +709,21 @@ expandnode_to_text(struct expandnode *expandnode)
 	return NULL;
 }
 
+static int
+alias_is_maildir(struct expandnode *alias, const char *line, size_t len)
+{
+	if (strncasecmp("maildir:", line, 8) != 0)
+		return (0);
+
+	line += 8;
+	memset(alias, 0, sizeof *alias);
+	alias->type = EXPAND_MAILDIR;
+	if (strlcpy(alias->u.buffer, line,
+	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+		return (0);
+
+	return (1);
+}
 
 /******/
 static int
