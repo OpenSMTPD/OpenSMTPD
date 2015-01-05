@@ -564,7 +564,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t			 msgid;
 	int				 status, success, dnserror;
 	void				*ssl_ctx;
-	void				*sni = NULL;
 
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_DNS_PTR:
@@ -813,10 +812,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else
 			pkiname = s->smtpname;
 		ssl_ctx = dict_get(env->sc_ssl_dict, pkiname);
-
-		sni = smtp_sni_callback;
-
-		ssl = ssl_smtp_init(ssl_ctx, sni, s);
+		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback, s);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
