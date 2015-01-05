@@ -57,7 +57,6 @@ static void
 delivery_filename_open(struct deliver *deliver)
 {
 	struct stat	 sb;
-	time_t		 now;
 	size_t		 len;
 	int		 fd;
 	FILE		*fp;
@@ -83,9 +82,6 @@ delivery_filename_open(struct deliver *deliver)
 	fp = fdopen(fd, "a");
 	if (fp == NULL)
 		error("fdopen");
-	time(&now);
-	fprintf(fp, "From %s@%s %s", SMTPD_USER, env->sc_hostname,
-	    ctime(&now));
 	while ((ln = fgetln(stdin, &len)) != NULL) {
 		if (ln[len - 1] == '\n')
 			len--;

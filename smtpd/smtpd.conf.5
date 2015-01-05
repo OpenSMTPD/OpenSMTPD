@@ -274,6 +274,19 @@ instead of performing system lookups using the
 function.
 .El
 .Pp
+You can also accept mail just to have it forwarded elsewhere:
+.Pp
+.Bl -tag -width Ds
+.It forward-only
+.Xc
+Mail is accepted for local recipients ONLY if it is redirected to an external address via an alias or a ~/.forward.
+.Pp
+Example:
+.Bd -literal -offset indent
+accept for domain opensmtpd.org forward-only
+.Ed
+.El
+.Pp
 Finally, the method of delivery is specified:
 .Bl -tag -width Ds
 .It Ic deliver to lmtp Op Ar host : Ns Ar port | socket
