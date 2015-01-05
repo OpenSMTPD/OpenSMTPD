@@ -1014,12 +1014,12 @@ smtp_filter_fd(uint64_t id, int fd)
 
 	iobuf_fqueue(&s->obuf, "Received: ");
 	if (! (s->listener->flags & F_MASK_SOURCE)) {
-		iobuf_fqueue(&s->obuf, "from %s (%s [%s])\n",
+		iobuf_fqueue(&s->obuf, "from %s (%s [%s]);\n\t",
 		    s->evp.helo,
 		    s->hostname,
 		    ss_to_text(&s->ss));
 	}
-	iobuf_fqueue(&s->obuf, "\tby %s (%s) with %sSMTP%s%s id %08x\n",
+	iobuf_fqueue(&s->obuf, "by %s (%s) with %sSMTP%s%s id %08x;\n",
 	    s->smtpname,
 	    SMTPD_NAME,
 	    s->flags & SF_EHLO ? "E" : "",
@@ -1030,7 +1030,7 @@ smtp_filter_fd(uint64_t id, int fd)
 	if (s->flags & SF_SECURE) {
 		x = SSL_get_peer_certificate(s->io.ssl);
 		iobuf_fqueue(&s->obuf,
-		    "\tTLS version=%s cipher=%s bits=%d verify=%s\n",
+		    "\tTLS version=%s cipher=%s bits=%d verify=%s;\n",
 		    SSL_get_cipher_version(s->io.ssl),
 		    SSL_get_cipher_name(s->io.ssl),
 		    SSL_get_cipher_bits(s->io.ssl, NULL),
@@ -1040,12 +1040,12 @@ smtp_filter_fd(uint64_t id, int fd)
 	}
 
 	if (s->rcptcount == 1) {
-		iobuf_fqueue(&s->obuf, "\tfor <%s@%s>\n",
+		iobuf_fqueue(&s->obuf, "\tfor <%s@%s>;\n",
 		    s->evp.rcpt.user,
 		    s->evp.rcpt.domain);
 	}
 
-	iobuf_fqueue(&s->obuf, "\t;%s\n", time_to_text(time(NULL)));
+	iobuf_fqueue(&s->obuf, "\t%s\n", time_to_text(time(NULL)));
 
 	/*
 	 * XXX This is not exactly fair, since this is not really
