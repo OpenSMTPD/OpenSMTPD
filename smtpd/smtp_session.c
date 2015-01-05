@@ -319,7 +319,9 @@ header_append_domain_buffer(char *buffer, char *domain, size_t len)
 			has_domain = 1;
 		if (buffer[i] == ':' && !escape && !comment && !quote)
 			has_group = 1;
-		if (! isspace(buffer[i]))
+
+		/* update insert point if not in comment and not on a whitespace */
+		if (!comment && buffer[i] != ')' && !isspace((int)buffer[i]))
 			pos_component = i;
 	}
 
