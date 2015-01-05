@@ -193,9 +193,7 @@ static int smtp_verify_certificate(struct smtp_session *);
 static uint8_t dsn_notify_str_to_uint8(const char *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
-#if defined(HAVE_TLSEXT_SERVERNAME)
 static int smtp_sni_callback(SSL *, int *, void *);
-#endif
 
 static void smtp_filter_connect(struct smtp_session *, struct sockaddr *);
 static void smtp_filter_rset(struct smtp_session *);
@@ -566,7 +564,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t			 msgid;
 	int				 status, success, dnserror;
 	void				*ssl_ctx;
-	void				*sni = NULL;
 
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_DNS_PTR:
@@ -815,13 +812,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else
 			pkiname = s->smtpname;
 		ssl_ctx = dict_get(env->sc_ssl_dict, pkiname);
-
-#if defined(HAVE_TLSEXT_SERVERNAME)
-		sni = smtp_sni_callback;
-#endif
-
-		ssl = ssl_smtp_init(ssl_ctx, sni, s);
-
+		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback, s);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
@@ -2216,10 +2207,10 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	evtimer_add(&s->pause, &tv);
 }
 
-#if defined(HAVE_TLSEXT_SERVERNAME)
 static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
+#if defined(HAVE_TLSEXT_SERVERNAME)
 	const char		*sn;
 	struct smtp_session	*s = arg;
 	void			*ssl_ctx;
@@ -2239,8 +2230,11 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 	}
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
+#else
+	/* ssl_smtp_init should have ignored the callback if SNI is not supported */
+	fatalx("unxepected call to smtp_sni_callback()");
+#endif /* defined(HAVE_TLSEXT_SERVERNAME) */
 }
-#endif
 
 static void
 smtp_filter_rset(struct smtp_session *s)
