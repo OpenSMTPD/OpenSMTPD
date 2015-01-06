@@ -244,7 +244,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		}
 
 		as = res_query_async(s->name, C_IN, T_MX, NULL);
-		if (as ==  NULL) {
+		if (as == NULL) {
 			log_warn("warn: req_query_async: %s", s->name);
 			m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
@@ -341,7 +341,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	struct unpack		 pack;
 	struct dns_header	 h;
 	struct dns_query	 q;
-	struct dns_rr	 rr;
+	struct dns_rr		 rr;
 	char			 buf[512];
 	size_t			 found;
 
