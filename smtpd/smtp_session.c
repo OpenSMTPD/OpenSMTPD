@@ -517,6 +517,21 @@ smtp_session(struct listener *listener, int sock,
 
 	(void)strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));
 
+	/* Setup parser and callbacks before smtp_connected() can be called */
+	rfc2822_parser_init(&s->rfc2822_parser);
+	rfc2822_header_default_callback(&s->rfc2822_parser,
+	    header_default_callback, s);
+	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
+            header_bcc_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "from",
+            header_masquerade_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "to",
+            header_masquerade_callback, s);
+        rfc2822_header_callback(&s->rfc2822_parser, "cc",
+            header_masquerade_callback, s);
+	rfc2822_body_callback(&s->rfc2822_parser,
+	    dataline_callback, s);
+
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
 		s->flags |= SF_AUTHENTICATED;
@@ -534,19 +549,8 @@ smtp_session(struct listener *listener, int sock,
 		tree_xset(&wait_lka_ptr, s->id, s);
 	}
 
-	rfc2822_parser_init(&s->rfc2822_parser);
-	rfc2822_header_default_callback(&s->rfc2822_parser,
-	    header_default_callback, s);
-	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
-            header_bcc_callback, s);
-        rfc2822_header_callback(&s->rfc2822_parser, "from",
-            header_masquerade_callback, s);
-        rfc2822_header_callback(&s->rfc2822_parser, "to",
-            header_masquerade_callback, s);
-        rfc2822_header_callback(&s->rfc2822_parser, "cc",
-            header_masquerade_callback, s);
-	rfc2822_body_callback(&s->rfc2822_parser,
-	    dataline_callback, s);
+	/* session may have been freed by now */
+
 	return (0);
 }
 
