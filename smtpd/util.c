@@ -442,6 +442,30 @@ hostname_match(const char *hostname, const char *pattern)
 }
 
 int
+mailaddr_match(const struct mailaddr *maddr1, const struct mailaddr *maddr2)
+{
+	struct mailaddr m1 = *maddr1;
+	struct mailaddr m2 = *maddr2;
+	char	       *p;
+
+	if (! hostname_match(m1.domain, m2.domain))
+		return 0;
+
+	if (m2.user[0]) {
+		/* if address from table has a tag, we must respect it */
+		if (strchr(m2.user, '+') == NULL) {
+			/* otherwise, strip tag from session address if any */
+			p = strchr(m1.user, '+');
+			if (p)
+				*p = '\0';
+		}
+		if (strcasecmp(m1.user, m2.user))
+			return 0;
+	}
+	return 1;
+}
+
+int
 valid_localpart(const char *s)
 {
 #define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr(MAILADDR_ALLOWED, (c)))
