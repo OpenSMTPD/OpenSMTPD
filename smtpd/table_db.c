@@ -59,7 +59,7 @@ static char *table_db_get_entry_match(void *, const char *, size_t *,
     int(*)(const char *, const char *));
 
 struct table_backend table_backend_db = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME|K_MAILADDRMAP,
 	table_db_config,
 	table_db_open,
 	table_db_update,

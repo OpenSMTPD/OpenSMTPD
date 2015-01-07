@@ -299,6 +299,7 @@ enum imsg_type {
 	IMSG_SMTP_MESSAGE_CREATE,
 	IMSG_SMTP_MESSAGE_ROLLBACK,
 	IMSG_SMTP_MESSAGE_OPEN,
+	IMSG_SMTP_CHECK_SENDER,
 	IMSG_SMTP_EXPAND_RCPT,
 	IMSG_SMTP_LOOKUP_HELO,
 	IMSG_SMTP_SSL_INIT,
@@ -558,6 +559,7 @@ struct listener {
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
 	char			 hostnametable[SMTPD_MAXPATHLEN];
+	char			 sendertable[SMTPD_MAXPATHLEN];
 
 	TAILQ_ENTRY(listener)	 entry;
 };
@@ -1445,6 +1447,7 @@ int bsnprintf(char *, size_t, const char *, ...)
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(const char *, const char *);
+int mailaddr_match(const struct mailaddr *, const struct mailaddr *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
 int secure_file(int, char *, char *, uid_t, int);

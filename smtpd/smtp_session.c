@@ -225,6 +225,7 @@ static struct { int code; const char *cmd; } commands[] = {
 
 static struct tree wait_lka_ptr;
 static struct tree wait_lka_helo;
+static struct tree wait_lka_mail;
 static struct tree wait_lka_rcpt;
 static struct tree wait_filter;
 static struct tree wait_filter_data;
@@ -473,6 +474,7 @@ smtp_session_init(void)
 	if (!init) {
 		tree_init(&wait_lka_ptr);
 		tree_init(&wait_lka_helo);
+		tree_init(&wait_lka_mail);
 		tree_init(&wait_lka_rcpt);
 		tree_init(&wait_filter);
 		tree_init(&wait_filter_data);
@@ -585,6 +587,32 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		(void)strlcpy(s->hostname, line, sizeof s->hostname);
 		if (smtp_lookup_servername(s))
 			smtp_connected(s);
+		return;
+
+	case IMSG_SMTP_CHECK_SENDER:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &status);
+		m_end(&m);
+		s = tree_xpop(&wait_lka_mail, reqid);
+		switch (status) {
+		case LKA_OK:
+			m_create(p_queue, IMSG_SMTP_MESSAGE_CREATE, 0, 0, -1);
+			m_add_id(p_queue, s->id);
+			m_close(p_queue);
+			tree_xset(&wait_queue_msg, s->id, s);
+			break;
+
+		case LKA_PERMFAIL:
+			smtp_reply(s, "%d %s", 530, "Sender rejected");
+			io_reload(&s->io);
+			break;
+		case LKA_TEMPFAIL:
+			smtp_reply(s, "421 %s: Temporary Error",
+			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			io_reload(&s->io);
+			break;
+		}
 		return;
 
 	case IMSG_SMTP_EXPAND_RCPT:
@@ -935,10 +963,22 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 			return;
 		}
 
-		m_create(p_queue, IMSG_SMTP_MESSAGE_CREATE, 0, 0, -1);
-		m_add_id(p_queue, s->id);
-		m_close(p_queue);
-		tree_xset(&wait_queue_msg, s->id, s);
+		/* only check sendertable if defined and user has authenticated */
+		if (s->flags & SF_AUTHENTICATED && s->listener->sendertable[0]) {
+			m_create(p_lka, IMSG_SMTP_CHECK_SENDER, 0, 0, -1);
+			m_add_id(p_lka, s->id);
+			m_add_string(p_lka, s->listener->sendertable);
+			m_add_string(p_lka, s->username);
+			m_add_mailaddr(p_lka, &s->evp.sender);
+			m_close(p_lka);
+			tree_xset(&wait_lka_mail, s->id, s);
+		}
+		else {
+			m_create(p_queue, IMSG_SMTP_MESSAGE_CREATE, 0, 0, -1);
+			m_add_id(p_queue, s->id);
+			m_close(p_queue);
+			tree_xset(&wait_queue_msg, s->id, s);
+		}
 		return;
 
 	case QUERY_RCPT:

@@ -117,6 +117,7 @@ enum listen_options {
 	LO_HOSTNAMES   	= 0x0100,
 	LO_MASKSOURCE  	= 0x0200,
 	LO_NODSN	= 0x0400,
+	LO_SENDERS	= 0x0800,
 };
 
 static struct listen_opts {
@@ -131,6 +132,7 @@ static struct listen_opts {
 	char	       *tag;
 	char	       *hostname;
 	struct table   *hostnametable;
+	struct table   *sendertable;
 	uint16_t	flags;
 
 	uint16_t       	options;
@@ -171,7 +173,7 @@ typedef struct {
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
-%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
+%token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
 %token	CIPHERS CURVE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
@@ -594,6 +596,22 @@ opt_listen     	: INET4			{
 			}
 			listen_opts.options |= LO_NODSN;
 			listen_opts.flags &= ~F_EXT_DSN;
+		}
+		| SENDERS tables	{
+			struct table	*t = $2;
+
+			if (listen_opts.options & LO_SENDERS) {
+				yyerror("senders already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_SENDERS;
+
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "SENDERS parameter", t->t_name);
+				YYERROR;
+			}
+			listen_opts.sendertable = t;
 		}
 		;
 
@@ -1356,6 +1374,7 @@ lookup(char *s)
 		{ "scheduler",		SCHEDULER },
 		{ "secure",		SECURE },
 		{ "sender",    		SENDER },
+		{ "senders",   		SENDERS },
 		{ "session",   		SESSION },
 		{ "smtps",		SMTPS },
 		{ "source",		SOURCE },
@@ -1992,6 +2011,8 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	(void)strlcpy(h->hostname, lo->hostname, sizeof(h->hostname));
 	if (lo->hostnametable)
 		(void)strlcpy(h->hostnametable, lo->hostnametable->t_name, sizeof(h->hostnametable));
+	if (lo->sendertable)
+		(void)strlcpy(h->sendertable, lo->sendertable->t_name, sizeof(h->sendertable));
 
 	if (lo->ssl & F_TLS_VERIFY)
 		h->flags |= F_TLS_VERIFY;

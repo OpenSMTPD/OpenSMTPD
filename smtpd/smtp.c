@@ -61,6 +61,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_DNS_PTR:
+		case IMSG_SMTP_CHECK_SENDER:
 		case IMSG_SMTP_EXPAND_RCPT:
 		case IMSG_SMTP_LOOKUP_HELO:
 		case IMSG_SMTP_AUTHENTICATE:
