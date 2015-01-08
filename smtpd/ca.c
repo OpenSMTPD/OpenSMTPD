@@ -31,6 +31,7 @@
 #include <imsg.h>
 #include <pwd.h>
 #include <err.h>
+#include <grp.h>
 
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
