@@ -25,6 +25,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
