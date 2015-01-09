@@ -271,7 +271,6 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	struct envelope		ep;
 	struct expandnode	node;
 	struct mailaddr		maddr;
-	struct passwd		*pw;
 	int			r;
 	union lookup		lk;
 	char		       *tag;
@@ -461,9 +460,17 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	case EXPAND_MAILDIR:
 		log_trace(TRACE_EXPAND, "expand: lka_expand: maildir: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
-		if ((pw = getpwnam(xn->parent->u.user)) == NULL) {
-			log_trace(TRACE_EXPAND, "expand: maildir: %s is not "
-			    "a local user", xn->parent->u.user);
+		r = table_lookup(rule->r_userbase, NULL,
+		    xn->parent->u.user, K_USERINFO, &lk);
+		if (r == -1) {
+			log_trace(TRACE_EXPAND, "expand: lka_expand: maildir: "
+			    "backend error while searching user");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
+		if (r == 0) {
+			log_trace(TRACE_EXPAND, "expand: lka_expand: maildir: "
+			    "user-part does not match system user");
 			lks->error = LKA_PERMFAIL;
 			break;
 		}
