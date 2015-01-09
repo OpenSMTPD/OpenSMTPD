@@ -553,19 +553,23 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			ep->agent.mda.method = A_FILENAME;
 			(void)strlcpy(ep->agent.mda.buffer, xn->u.buffer,
 			    sizeof ep->agent.mda.buffer);
-		} else if (xn->type == EXPAND_FILTER) {
+		}
+		else if (xn->type == EXPAND_FILTER) {
 			ep->agent.mda.method = A_MDA;
 			(void)strlcpy(ep->agent.mda.buffer, xn->u.buffer,
 			    sizeof ep->agent.mda.buffer);
-		} else if (xn->type == EXPAND_USERNAME) {
+		}
+		else if (xn->type == EXPAND_USERNAME) {
 			ep->agent.mda.method = rule->r_action;
 			(void)strlcpy(ep->agent.mda.buffer, rule->r_value.buffer,
 			    sizeof ep->agent.mda.buffer);
-		} else if (xn->type == EXPAND_MAILDIR) {
+		}
+		else if (xn->type == EXPAND_MAILDIR) {
 			ep->agent.mda.method = A_MAILDIR;
 			(void)strlcpy(ep->agent.mda.buffer, xn->u.buffer,
 			    sizeof ep->agent.mda.buffer);
-		} else
+		}
+		else
 			fatalx("lka_deliver: bad node type");
 
 		r = lka_expand_format(ep->agent.mda.buffer,
