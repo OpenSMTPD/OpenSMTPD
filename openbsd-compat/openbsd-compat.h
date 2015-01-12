@@ -193,6 +193,8 @@ char * fgetln(FILE *stream, size_t *len);
 #endif
 
 #ifndef HAVE_FPARSELN
+#include <stdio.h>
+#include <string.h>
 char * fparseln(FILE *fp, size_t *size, size_t *lineno, const char str[3], int flags);
 #endif
 
