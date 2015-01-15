@@ -1116,6 +1116,7 @@ offline_enqueue(char *name)
 		p[len - 1] = '\0';
 
 		addargs(&args, "%s", "sendmail");
+		addargs(&args, "%s", "-S");
 
 		while ((tmp = strsep(&p, "|")) != NULL)
 			addargs(&args, "%s", tmp);
