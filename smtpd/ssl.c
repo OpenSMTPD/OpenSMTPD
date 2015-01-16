@@ -69,13 +69,18 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curv
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
+	u_int8_t sid[SSL_MAX_SID_CTX_LENGTH];
 
 	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
 
-	if (!SSL_CTX_set_session_id_context(ctx,
-		(const unsigned char *)pki->pki_name,
-		strlen(pki->pki_name) + 1))
-		goto err;
+        /*
+         * Set session ID context to a random value.  We don't support
+         * persistent caching of sessions so it is OK to set a temporary
+         * session ID context that is valid during run time.
+         */
+        arc4random_buf(sid, sizeof(sid));
+        if (!SSL_CTX_set_session_id_context(ctx, sid, sizeof(sid)))
+                goto err;
 
 	if (pki->pki_dhparams_len == 0)
 		dh = get_dh1024();
