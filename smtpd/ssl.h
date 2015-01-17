@@ -67,6 +67,5 @@ int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
 
 /* ssl_privsep.c */
-int		ssl_ctx_use_certificate_chain(SSL_CTX *, char *, off_t);
 int		ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
 int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
