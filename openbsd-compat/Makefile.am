@@ -5,7 +5,7 @@ libopenbsd_compat_a_SOURCES =							\
 		bsd-getpeereid.c bsd-misc.c bsd-waitpid.c clock_gettime.c	\
 		daemon.c dirname.c entropy.c errc.c event_asr_run.c explicit_bzero.c	\
 		fgetln.c fmt_scaled.c fparseln.c getopt.c imsg.c imsg-buffer.c	\
-		mktemp.c pidfile.c pw_dup.c reallocarray.c setresguid.c		\
+		libressl.c mktemp.c pidfile.c pw_dup.c reallocarray.c setresguid.c	\
 		setproctitle.c strlcat.c strlcpy.c strmode.c strtonum.c		\
 		strsep.c vis.c xmalloc.c
 
