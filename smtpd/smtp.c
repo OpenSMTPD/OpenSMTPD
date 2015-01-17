@@ -30,6 +30,7 @@
 #include <netdb.h>
 #include <pwd.h>
 #include <signal.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

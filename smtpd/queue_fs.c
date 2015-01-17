@@ -17,12 +17,11 @@
  */
 
 #include <sys/types.h>
+#include <sys/mount.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/param.h>
-#include <sys/mount.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -33,6 +32,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -31,6 +31,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <netdb.h>
+#include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>

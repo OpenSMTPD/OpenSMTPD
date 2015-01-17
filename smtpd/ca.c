@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 
 #include <string.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <imsg.h>

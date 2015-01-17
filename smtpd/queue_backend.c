@@ -28,6 +28,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
@@ -179,7 +180,7 @@ queue_message_create(uint32_t *msgid)
 int
 queue_message_delete(uint32_t msgid)
 {
-	char	msgpath[MAXPATHLEN];
+	char	msgpath[PATH_MAX];
 	int	r;
 
 	profile_enter("queue_message_delete");
@@ -200,8 +201,8 @@ int
 queue_message_commit(uint32_t msgid)
 {
 	int	r;
-	char	msgpath[MAXPATHLEN];
-	char	tmppath[MAXPATHLEN];
+	char	msgpath[PATH_MAX];
+	char	tmppath[PATH_MAX];
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 

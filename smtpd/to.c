@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <fts.h>
 #include <imsg.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <netdb.h>
