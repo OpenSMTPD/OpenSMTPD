@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <openssl/ssl.h>
 #include <resolv.h>

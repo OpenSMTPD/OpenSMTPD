@@ -818,7 +818,7 @@ main		: BOUNCEWARN {
 			}
 		} filter_args
 		| PKI STRING	{
-			char buf[MAXHOSTNAMELEN];
+			char buf[HOST_NAME_MAX+1];
 			xlowercase(buf, $2, sizeof(buf));
 			free($2);
 			pki = dict_get(conf->sc_pki_dict, buf);

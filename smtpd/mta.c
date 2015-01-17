@@ -34,6 +34,7 @@
 #include <inttypes.h>
 #include <netdb.h>
 #include <grp.h> /* needed for setgroups */
+#include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>

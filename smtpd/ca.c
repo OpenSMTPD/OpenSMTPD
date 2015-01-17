@@ -26,6 +26,7 @@
 #include <grp.h> /* needed for setgroups */
 #include <signal.h>
 #include <string.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <imsg.h>

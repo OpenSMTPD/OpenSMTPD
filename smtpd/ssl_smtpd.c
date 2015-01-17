@@ -29,6 +29,7 @@
 #include <ctype.h>
 #include <event.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <imsg.h>
 #include <pwd.h>
 #include <stdio.h>

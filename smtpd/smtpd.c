@@ -63,6 +63,7 @@
 #include <shadow.h> /* needed for getspnam() */
 #endif
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
