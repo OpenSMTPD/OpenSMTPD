@@ -214,4 +214,9 @@ void *reallocarray(void *, size_t, size_t);
 void errc(int, int, const char *, ...);
 #endif
 
+#ifndef HAVE_ERRC
+#include <openssl/ssl.h>
+int SSL_CTX_use_certificate_chain(SSL_CTX *, char *, off_t);
+#endif
+
 #endif /* _OPENBSD_COMPAT_H */
