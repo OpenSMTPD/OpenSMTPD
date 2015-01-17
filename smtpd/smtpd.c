@@ -607,6 +607,10 @@ main(int argc, char *argv[])
 		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
+		if (env->sc_queue_key) {
+			if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
+				fatalx("crypto_setup: invalid key for queue encryption");
+		}
 		load_pki_tree();
 		load_pki_keys();
 		fprintf(stderr, "configuration OK\n");
