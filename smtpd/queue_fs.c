@@ -17,6 +17,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/param.h>	/* for OpenBSD-5.6, DO NOT BACKPORT TO OpenBSD-current ! */
 #include <sys/mount.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
