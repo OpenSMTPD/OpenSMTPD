@@ -25,6 +25,7 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "log.h"
 #include "smtpd.h"

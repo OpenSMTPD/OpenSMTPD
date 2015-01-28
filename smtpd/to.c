@@ -98,7 +98,7 @@ text_to_mailaddr(struct mailaddr *maddr, const char *email)
 {
 	char *username;
 	char *hostname;
-	char  buffer[SMTPD_MAXLINESIZE];
+	char  buffer[LINE_MAX];
 
 	if (strlcpy(buffer, email, sizeof buffer) >= sizeof buffer)
 		return 0;
@@ -135,7 +135,7 @@ text_to_mailaddr(struct mailaddr *maddr, const char *email)
 const char *
 mailaddr_to_text(const struct mailaddr *maddr)
 {
-	static char  buffer[SMTPD_MAXLINESIZE];
+	static char  buffer[LINE_MAX];
 
 	(void)strlcpy(buffer, maddr->user, sizeof buffer);
 	(void)strlcat(buffer, "@", sizeof buffer);
@@ -591,7 +591,7 @@ rule_to_text(struct rule *r)
 int
 text_to_userinfo(struct userinfo *userinfo, const char *s)
 {
-	char		buf[SMTPD_MAXPATHLEN];
+	char		buf[PATH_MAX];
 	char	       *p;
 	const char     *errstr;
 
@@ -640,7 +640,7 @@ int
 text_to_credentials(struct credentials *creds, const char *s)
 {
 	char   *p;
-	char	buffer[SMTPD_MAXLINESIZE];
+	char	buffer[LINE_MAX];
 	size_t	offset;
 
 	p = strchr(s, ':');

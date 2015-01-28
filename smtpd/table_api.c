@@ -18,7 +18,11 @@
 
 #include <sys/types.h>
 #include <sys/queue.h>
-#include <sys/uio.h>
+#include <sys/tree.h>
+#include <sys/socket.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
 
 #include <event.h>
 #include <fcntl.h>
@@ -28,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"

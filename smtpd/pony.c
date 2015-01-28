@@ -35,6 +35,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 #include <vis.h>
 
 #include "smtpd.h"
