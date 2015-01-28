@@ -50,7 +50,6 @@ SRCS+=		smtp.c
 SRCS+=		smtp_session.c
 SRCS+=		smtpd.c
 SRCS+=		ssl.c
-SRCS+=		ssl_privsep.c
 SRCS+=		ssl_smtpd.c
 SRCS+=		stat_backend.c
 SRCS+=		table.c
