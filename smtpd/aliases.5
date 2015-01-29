@@ -65,7 +65,7 @@ Pipe the message to
 .Ar command
 on its standard input.
 The command is run under the privileges of the daemon's unprivileged account.
-.It No : Ns Ar include : Ns Ar /path/to/file
+.It : Ns Ar include : Ns Ar /path/to/file
 Include any definitions in
 .Ar file
 as alias entries.
@@ -85,6 +85,9 @@ A status code and message to return.
 The code must be 3 digits,
 starting 4XX (TempFail) or 5XX (PermFail).
 The message must be present and can be freely chosen.
+.It Ar maildir:/path
+Deliver messages to Maildir at the
+.Ar path.
 .El
 .Sh FILES
 .Bl -tag -width "/etc/mail/aliasesXXX"
