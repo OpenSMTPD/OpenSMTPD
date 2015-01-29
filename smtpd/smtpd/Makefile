@@ -5,6 +5,7 @@ ASRDIR=		${.CURDIR}/../asr
 
 NEED_ASR!=		grep -q AI_ADDRCONF /usr/include/netdb.h && echo No || echo Yes
 NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
+OPENBSD_VERSION!=	uname -r
 
 PROG=		smtpd
 
@@ -25,6 +26,9 @@ SRCS+=		filter.c
 SRCS+=		forward.c
 SRCS+=		iobuf.c
 SRCS+=		ioev.c
+.if ${OPENBSD_VERSION} != "5.7"
+SRCS+=		libressl.c
+.endif
 SRCS+=		limit.c
 SRCS+=		lka.c
 SRCS+=		lka_session.c
