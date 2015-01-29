@@ -1,5 +1,3 @@
-/*      $OpenBSD: ssl_privsep.c,v 1.7 2014/04/29 19:13:14 reyk Exp $    */
-
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -57,14 +55,9 @@
  * [including the GNU Public Licence.]
  */
 
-/*
- * SSL operations needed when running in a privilege separated environment.
- * Adapted from openssl's ssl_rsa.c by Pierre-Yves Ritschard .
- */
-
 #include <sys/types.h>
-#include <sys/uio.h>
 
+#include <limits.h>
 #include <unistd.h>
 #include <stdio.h>
 
@@ -76,84 +69,94 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 
-int	 ssl_ctx_use_private_key(SSL_CTX *, char *, off_t);
-int	 ssl_ctx_load_verify_memory(SSL_CTX *, char *, off_t);
-int	 ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
+#include "ssl.h"
 
-X509_LOOKUP_METHOD x509_mem_lookup = {
-	"Load cert from memory",
-	NULL,			/* new */
-	NULL,			/* free */
-	NULL,			/* init */
-	NULL,			/* shutdown */
-	ssl_by_mem_ctrl,	/* ctrl */
-	NULL,			/* get_by_subject */
-	NULL,			/* get_by_issuer_serial */
-	NULL,			/* get_by_fingerprint */
-	NULL,			/* get_by_alias */
-};
-
-#define X509_L_ADD_MEM	3
-
-int
-ssl_ctx_load_verify_memory(SSL_CTX *ctx, char *buf, off_t len)
+/*
+ * Read a bio that contains our certificate in "PEM" format,
+ * possibly followed by a sequence of CA certificates that should be
+ * sent to the peer in the Certificate message.
+ */
+static int
+ssl_ctx_use_certificate_chain_bio(SSL_CTX *ctx, BIO *in)
 {
-	X509_LOOKUP		*lu;
-	struct iovec		 iov;
+	int ret = 0;
+	X509 *x = NULL;
 
-	if ((lu = X509_STORE_add_lookup(ctx->cert_store,
-	    &x509_mem_lookup)) == NULL)
-		return (0);
+	ERR_clear_error(); /* clear error stack for SSL_CTX_use_certificate() */
 
-	iov.iov_base = buf;
-	iov.iov_len = len;
+	x = PEM_read_bio_X509_AUX(in, NULL, ctx->default_passwd_callback,
+	    ctx->default_passwd_callback_userdata);
+	if (x == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_CERTIFICATE_CHAIN_FILE, ERR_R_PEM_LIB);
+		goto end;
+	}
 
-	if (!ssl_by_mem_ctrl(lu, X509_L_ADD_MEM,
-	    (const char *)&iov, X509_FILETYPE_PEM, NULL))
-		return (0);
+	ret = SSL_CTX_use_certificate(ctx, x);
 
-	return (1);
+	if (ERR_peek_error() != 0)
+		ret = 0;
+	/* Key/certificate mismatch doesn't imply ret==0 ... */
+	if (ret) {
+		/*
+		 * If we could set up our certificate, now proceed to
+		 * the CA certificates.
+		 */
+		X509 *ca;
+		int r;
+		unsigned long err;
+
+		if (ctx->extra_certs != NULL) {
+			sk_X509_pop_free(ctx->extra_certs, X509_free);
+			ctx->extra_certs = NULL;
+		}
+
+		while ((ca = PEM_read_bio_X509(in, NULL,
+		    ctx->default_passwd_callback,
+		    ctx->default_passwd_callback_userdata)) != NULL) {
+			r = SSL_CTX_add_extra_chain_cert(ctx, ca);
+			if (!r) {
+				X509_free(ca);
+				ret = 0;
+				goto end;
+			}
+			/*
+			 * Note that we must not free r if it was successfully
+			 * added to the chain (while we must free the main
+			 * certificate, since its reference count is increased
+			 * by SSL_CTX_use_certificate).
+			 */
+		}
+
+		/* When the while loop ends, it's usually just EOF. */
+		err = ERR_peek_last_error();
+		if (ERR_GET_LIB(err) == ERR_LIB_PEM &&
+		    ERR_GET_REASON(err) == PEM_R_NO_START_LINE)
+			ERR_clear_error();
+		else
+			ret = 0; /* some real error */
+	}
+
+end:
+	if (x != NULL)
+		X509_free(x);
+	return (ret);
 }
 
 int
-ssl_by_mem_ctrl(X509_LOOKUP *lu, int cmd, const char *buf,
-    long type, char **ret)
+SSL_CTX_use_certificate_chain(SSL_CTX *ctx, void *buf, int len)
 {
-	STACK_OF(X509_INFO)	*inf;
-	const struct iovec	*iov;
-	X509_INFO		*itmp;
-	BIO			*in = NULL;
-	int			 i, count = 0;
+	BIO *in;
+	int ret = 0;
 
-	iov = (const struct iovec *)buf;
-
-	if (type != X509_FILETYPE_PEM)
-		goto done;
-
-	if ((in = BIO_new_mem_buf(iov->iov_base, iov->iov_len)) == NULL)
-		goto done;
-
-	if ((inf = PEM_X509_INFO_read_bio(in, NULL, NULL, NULL)) == NULL)
-		goto done;
-
-	for (i = 0; i < sk_X509_INFO_num(inf); i++) {
-		itmp = sk_X509_INFO_value(inf, i);
-		if (itmp->x509) {
-			X509_STORE_add_cert(lu->store_ctx, itmp->x509);
-			count++;
-		}
-		if (itmp->crl) {
-			X509_STORE_add_crl(lu->store_ctx, itmp->crl);
-			count++;
-		}
+	in = BIO_new_mem_buf(buf, len);
+	if (in == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_CERTIFICATE_CHAIN_FILE, ERR_R_BUF_LIB);
+		goto end;
 	}
-	sk_X509_INFO_pop_free(inf, X509_INFO_free);
 
- done:
-	if (!count)
-		X509err(X509_F_X509_LOAD_CERT_CRL_FILE,ERR_R_PEM_LIB);
+	ret = ssl_ctx_use_certificate_chain_bio(ctx, in);
 
-	if (in != NULL)
-		BIO_free(in);
-	return (count);
+end:
+	BIO_free(in);
+	return (ret);
 }
