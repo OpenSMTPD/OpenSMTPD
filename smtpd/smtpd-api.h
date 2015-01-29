@@ -20,13 +20,6 @@
 #ifndef	_SMTPD_API_H_
 #define	_SMTPD_API_H_
 
-#include <sys/queue.h>
-#include <sys/tree.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
-#include <netdb.h>
-
 #define	FILTER_API_VERSION	 50
 
 struct mailaddr {
@@ -193,7 +186,7 @@ struct scheduler_info {
 
 struct table_open_params {
 	uint32_t	version;
-	char		name[SMTPD_MAXLINESIZE];
+	char		name[LINE_MAX];
 };
 
 enum table_service {

@@ -18,7 +18,11 @@
 
 #include <sys/types.h>
 #include <sys/queue.h>
-#include <sys/uio.h>
+#include <sys/tree.h>
+#include <sys/socket.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
 
 #include <imsg.h>
 #include <pwd.h>

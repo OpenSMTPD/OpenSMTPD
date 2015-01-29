@@ -16,7 +16,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/queue.h>
+#include <sys/tree.h>
+#include <sys/socket.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"

@@ -26,9 +26,9 @@
 #include <imsg.h>	/* for smtpd.h */
 
 #include <err.h>
-//#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "smtpd.h"
 

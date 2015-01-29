@@ -30,6 +30,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <resolv.h>
 #include <signal.h>
 #include <stdio.h>
@@ -101,9 +102,9 @@ struct filter_query {
 		struct {
 			struct sockaddr_storage	 local;
 			struct sockaddr_storage	 remote;
-			char			 hostname[SMTPD_MAXHOSTNAMELEN];
+			char			 hostname[HOST_NAME_MAX+1];
 		} connect;
-		char			line[SMTPD_MAXLINESIZE];
+		char			line[LINE_MAX];
 		struct mailaddr		maddr;
 		size_t			datalen;
 	} u;

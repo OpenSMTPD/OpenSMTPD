@@ -72,7 +72,7 @@ static struct keycmp {
 
 struct dbhandle {
 	DB		*db;
-	char		 pathname[SMTPD_MAXPATHLEN];
+	char		 pathname[PATH_MAX];
 	time_t		 mtime;
 	struct table	*table;
 };
@@ -236,7 +236,7 @@ table_db_get_entry(void *hdl, const char *key, size_t *len)
 	int ret;
 	DBT dbk;
 	DBT dbv;
-	char pkey[SMTPD_MAXLINESIZE];
+	char pkey[LINE_MAX];
 
 	/* workaround the stupidity of the DB interface */
 	if (strlcpy(pkey, key, sizeof pkey) >= sizeof pkey)
