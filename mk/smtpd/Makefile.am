@@ -51,7 +51,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/smtp.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/smtp_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/smtpd.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ssl.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_privsep.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_smtpd.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table.c
