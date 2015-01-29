@@ -38,6 +38,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"

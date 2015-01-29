@@ -19,6 +19,7 @@
 #include "includes.h"
 
 #include <stdio.h>
+#include <limits.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"

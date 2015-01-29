@@ -40,6 +40,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 #if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
 #include <vis.h>
 #endif
@@ -70,8 +71,8 @@ struct mda_user {
 	uint64_t			id;
 	TAILQ_ENTRY(mda_user)		entry;
 	TAILQ_ENTRY(mda_user)		entry_runnable;
-	char				name[SMTPD_MAXLOGNAME];
-	char				usertable[SMTPD_MAXPATHLEN];
+	char				name[LOGIN_NAME_MAX];
+	char				usertable[PATH_MAX];
 	size_t				evpcount;
 	TAILQ_HEAD(, mda_envelope)	envelopes;
 	int				flags;
@@ -126,7 +127,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	time_t			 now;
 	size_t			 sz;
-	char			 out[256], buf[SMTPD_MAXLINESIZE];
+	char			 out[256], buf[LINE_MAX];
 	int			 n;
 	enum lka_resp_status	status;
 
@@ -604,7 +605,7 @@ static int
 mda_getlastline(int fd, char *dst, size_t dstsz)
 {
 	FILE	*fp;
-	char	*ln, buf[SMTPD_MAXLINESIZE];
+	char	*ln, buf[LINE_MAX];
 	size_t	 len;
 
 	memset(buf, 0, sizeof buf);
@@ -752,7 +753,7 @@ mda_done(struct mda_session *s)
 static void
 mda_log(const struct mda_envelope *evp, const char *prefix, const char *status)
 {
-	char rcpt[SMTPD_MAXLINESIZE];
+	char rcpt[LINE_MAX];
 	const char *method;
 
 	rcpt[0] = '\0';
@@ -894,7 +895,7 @@ static struct mda_envelope *
 mda_envelope(const struct envelope *evp)
 {
 	struct mda_envelope	*e;
-	char			 buf[SMTPD_MAXLINESIZE];
+	char			 buf[LINE_MAX];
 
 	e = xcalloc(1, sizeof *e, "mda_envelope");
 	e->id = evp->id;

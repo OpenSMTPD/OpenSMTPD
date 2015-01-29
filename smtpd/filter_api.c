@@ -509,8 +509,8 @@ filter_io_in(struct io *io, int evt)
 	case IO_DATAIN:
 	    nextline:
 		line = iobuf_getline(&s->pipe.ibuf, &len);
-		if ((line == NULL && iobuf_len(&s->pipe.ibuf) >= SMTPD_MAXLINESIZE) ||
-		    (line && len >= SMTPD_MAXLINESIZE)) {
+		if ((line == NULL && iobuf_len(&s->pipe.ibuf) >= LINE_MAX) ||
+		    (line && len >= LINE_MAX)) {
 			s->pipe.error = 1;
 			break;
 		}
@@ -989,7 +989,7 @@ filter_api_sockaddr_to_text(const struct sockaddr *sa)
 const char *
 filter_api_mailaddr_to_text(const struct mailaddr *maddr)
 {
-	static char  buffer[SMTPD_MAXLINESIZE];
+	static char  buffer[LINE_MAX];
 
 	strlcpy(buffer, maddr->user, sizeof buffer);
 	strlcat(buffer, "@", sizeof buffer);

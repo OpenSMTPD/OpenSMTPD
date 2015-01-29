@@ -588,8 +588,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 	size_t			 envid_sz;
 	int			 oldstate;
 	ssize_t			 q;
-	char			 ibuf[SMTPD_MAXLINESIZE];
-	char			 obuf[SMTPD_MAXLINESIZE];
+	char			 ibuf[LINE_MAX];
+	char			 obuf[LINE_MAX];
 	int			 offset;
 
     again:
@@ -881,7 +881,7 @@ mta_response(struct mta_session *s, char *line)
 	struct sockaddr		*sa;
 	const char		*domain;
 	socklen_t		 sa_len;
-	char			 buf[SMTPD_MAXLINESIZE];
+	char			 buf[LINE_MAX];
 	int			 delivery;
 
 	switch (s->state) {
@@ -1199,7 +1199,7 @@ mta_io(struct io *io, int evt)
 	    nextline:
 		line = iobuf_getline(&s->iobuf, &len);
 		if (line == NULL) {
-			if (iobuf_len(&s->iobuf) >= SMTPD_MAXLINESIZE) {
+			if (iobuf_len(&s->iobuf) >= LINE_MAX) {
 				mta_error(s, "Input too long");
 				mta_free(s);
 				return;
@@ -1432,7 +1432,7 @@ mta_flush_task(struct mta_session *s, int delivery, const char *error, size_t co
 	int cache)
 {
 	struct mta_envelope	*e;
-	char			 relay[SMTPD_MAXLINESIZE];
+	char			 relay[LINE_MAX];
 	size_t			 n;
 	struct sockaddr_storage	 ss;
 	struct sockaddr		*sa;

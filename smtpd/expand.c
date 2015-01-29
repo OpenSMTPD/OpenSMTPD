@@ -28,6 +28,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_UTIL_H
@@ -200,7 +201,7 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 static int
 expand_line_split(char **line, char **ret)
 {
-	static char	buffer[SMTPD_MAXLINESIZE];
+	static char	buffer[LINE_MAX];
 	int		esc, dq, sq;
 	size_t		i;
 	char	       *s;
@@ -245,7 +246,7 @@ int
 expand_line(struct expand *expand, const char *s, int do_includes)
 {
 	struct expandnode	xn;
-	char			buffer[SMTPD_MAXLINESIZE];
+	char			buffer[LINE_MAX];
 	char		       *p, *subrcpt;
 	int			ret;
 

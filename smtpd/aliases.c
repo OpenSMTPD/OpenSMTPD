@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #ifdef HAVE_UTIL_H
 #include <util.h>
 #endif
@@ -101,10 +102,10 @@ aliases_virtual_get(struct expand *expand, const struct mailaddr *maddr)
 {
 	struct expandnode      *xn;
 	union lookup		lk;
-	char			buf[SMTPD_MAXLINESIZE];
-	char			user[SMTPD_MAXLINESIZE];
-	char			tag[SMTPD_MAXLINESIZE];
-	char			domain[SMTPD_MAXLINESIZE];
+	char			buf[LINE_MAX];
+	char			user[LINE_MAX];
+	char			tag[LINE_MAX];
+	char			domain[LINE_MAX];
 	char		       *pbuf;
 	int			nbaliases;
 	int			ret;

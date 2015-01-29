@@ -37,6 +37,7 @@
 #include <libutil.h>
 #endif
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"

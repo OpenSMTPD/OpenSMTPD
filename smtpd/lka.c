@@ -82,7 +82,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct mailaddr		 maddr;
 	struct msg		 m;
 	union lookup		 lk;
-	char			 buf[SMTPD_MAXLINESIZE];
+	char			 buf[LINE_MAX];
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
 	size_t			 i;

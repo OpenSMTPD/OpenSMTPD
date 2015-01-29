@@ -20,7 +20,11 @@
 
 #include <sys/types.h>
 #include <sys/queue.h>
-#include <sys/uio.h>
+#include <sys/tree.h>
+#include <sys/socket.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
 
 #include <imsg.h>
 #include <pwd.h>
@@ -110,7 +114,7 @@ queue_msg_dispatch(void)
 	uint64_t	 evpid;
 	uint32_t	 msgid, version;
 	size_t		 n, m;
-	char		 buffer[8192], path[SMTPD_MAXPATHLEN];
+	char		 buffer[8192], path[PATH_MAX];
 	int		 r, fd;
 	FILE		*ifile, *ofile;
 

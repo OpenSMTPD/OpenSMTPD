@@ -22,11 +22,13 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/tree.h>
 
 #include <grp.h> /* needed for setgroups */
 #include <signal.h>
 #include <string.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <imsg.h>

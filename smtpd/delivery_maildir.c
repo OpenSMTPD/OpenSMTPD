@@ -36,6 +36,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -75,7 +76,7 @@ mailaddr_tag(const struct mailaddr *maddr, char *dest, size_t len)
 static void
 delivery_maildir_open(struct deliver *deliver)
 {
-	char	 tmp[SMTPD_MAXPATHLEN], new[SMTPD_MAXPATHLEN], tag[SMTPD_MAXPATHLEN];
+	char	 tmp[PATH_MAX], new[PATH_MAX], tag[PATH_MAX];
 	int	 ch, fd;
 	FILE	*fp;
 	char	*msg;

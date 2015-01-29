@@ -107,7 +107,7 @@ int
 main(int argc, char *argv[])
 {
 	struct stat	 sb;
-	char		 dbname[SMTPD_MAXPATHLEN];
+	char		 dbname[PATH_MAX];
 	char		*opts;
 	char		*conf;
 	int		 ch;

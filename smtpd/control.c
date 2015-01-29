@@ -40,6 +40,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -751,7 +752,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 
 		/* table name too long */
 		len = strlen(imsg->data);
-		if (len >= SMTPD_MAXLINESIZE)
+		if (len >= LINE_MAX)
 			goto invalid;
 
 		m_forward(p_lka, imsg);

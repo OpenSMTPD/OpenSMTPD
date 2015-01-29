@@ -375,7 +375,7 @@ err:
 int
 queue_message_fd_rw(uint32_t msgid)
 {
-	char buf[SMTPD_MAXPATHLEN];
+	char buf[PATH_MAX];
 
 	queue_message_path(msgid, buf, sizeof(buf));
 

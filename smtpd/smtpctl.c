@@ -48,6 +48,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "parser.h"
@@ -587,7 +588,7 @@ do_schedule(int argc, struct parameter *argv)
 static int
 do_show_envelope(int argc, struct parameter *argv)
 {
-	char	 buf[SMTPD_MAXPATHLEN];
+	char	 buf[PATH_MAX];
 
 	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/%016" PRIx64,
 	    PATH_SPOOL,
@@ -613,7 +614,7 @@ do_show_hoststats(int argc, struct parameter *argv)
 static int
 do_show_message(int argc, struct parameter *argv)
 {
-	char	 buf[SMTPD_MAXPATHLEN];
+	char	 buf[PATH_MAX];
 	uint32_t msgid;
 
 	if (argv[0].type == P_EVPID)
@@ -1040,7 +1041,7 @@ static void
 show_offline_envelope(uint64_t evpid)
 {
 	FILE   *fp = NULL;
-	char	pathname[SMTPD_MAXPATHLEN];
+	char	pathname[PATH_MAX];
 	size_t	plen;
 	char   *p;
 	size_t	buflen;

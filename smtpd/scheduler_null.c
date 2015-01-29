@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <imsg.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "smtpd.h"
 

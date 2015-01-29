@@ -43,6 +43,7 @@
 #include <ifaddrs.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <netdb.h>
 #include <paths.h>
 #include <pwd.h>
@@ -1720,8 +1721,8 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 {
 	struct sym     *sym, *next;
 	struct table   *t;
-	char		hostname[SMTPD_MAXHOSTNAMELEN];
-	char		hostname_copy[SMTPD_MAXHOSTNAMELEN];
+	char		hostname[HOST_NAME_MAX+1];
+	char		hostname_copy[HOST_NAME_MAX+1];
 
 	if (! getmailname(hostname, sizeof hostname))
 		return (-1);

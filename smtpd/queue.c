@@ -40,6 +40,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -697,7 +698,7 @@ queue_timeout(int fd, short event, void *p)
 static void
 queue_log(const struct envelope *e, const char *prefix, const char *status)
 {
-	char rcpt[SMTPD_MAXLINESIZE];
+	char rcpt[LINE_MAX];
 	
 	(void)strlcpy(rcpt, "-", sizeof rcpt);
 	if (strcmp(e->rcpt.user, e->dest.user) ||

@@ -227,7 +227,7 @@ static int
 smtp_enqueue(uid_t *euid)
 {
 	static struct listener	 local, *listener = NULL;
-	char			 buf[SMTPD_MAXHOSTNAMELEN], *hostname;
+	char			 buf[HOST_NAME_MAX+1], *hostname;
 	int			 fd[2];
 
 	if (listener == NULL) {
