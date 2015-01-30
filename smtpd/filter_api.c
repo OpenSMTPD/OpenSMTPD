@@ -674,17 +674,6 @@ proc_name(enum smtp_proc_type proc)
 	return ("filter");
 }
 
-const char *
-imsg_to_str(int imsg)
-{
-	static char buf[32];
-
-	snprintf(buf, sizeof(buf), "%d", imsg);
-
-	return (buf);
-}
-
-
 /*
  * These functions are callable by filters
  */
