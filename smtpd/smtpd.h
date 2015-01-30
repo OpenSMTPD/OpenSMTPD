@@ -81,6 +81,7 @@
 #define	F_MASK_SOURCE		0x100
 #define	F_TLS_VERIFY		0x200
 #define	F_EXT_DSN		0x400
+#define	F_RECEIVEDAUTH		0x800
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
@@ -92,8 +93,8 @@
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
 #define	RELAY_TLS_VERIFY	0x200
-
 #define MTA_EXT_DSN		0x400
+
 
 struct userinfo {
 	char username[LOGIN_NAME_MAX];
