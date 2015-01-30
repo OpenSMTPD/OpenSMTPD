@@ -1082,9 +1082,13 @@ smtp_filter_fd(uint64_t id, int fd)
 		    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
 		if (x)
 			X509_free(x);
+
+		if (s->listener->flags & F_RECEIVEDAUTH) {
+			iobuf_fqueue(&s->obuf, " auth=%s", s->username[0] ? "yes" : "no");
+			if (s->username[0])
+				iobuf_fqueue(&s->obuf, " user=%s", s->username);
+		}
 	}
-	if ((s->listener->flags & F_RECEIVEDAUTH) && s->username[0])
-		iobuf_fqueue(&s->obuf, "\n\tAUTH user=%s", s->username);
 
 	if (s->rcptcount == 1) {
 		iobuf_fqueue(&s->obuf, "\n\tfor <%s@%s>",
