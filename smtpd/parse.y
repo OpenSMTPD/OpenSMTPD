@@ -119,6 +119,7 @@ enum listen_options {
 	LO_MASKSOURCE  	= 0x0200,
 	LO_NODSN	= 0x0400,
 	LO_SENDERS	= 0x0800,
+	LO_RECEIVEDAUTH	= 0x1000,
 };
 
 static struct listen_opts {
@@ -175,7 +176,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE
+%token	CIPHERS CURVE RECEIVEDAUTH
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -589,6 +590,14 @@ opt_listen     	: INET4			{
 			}
 			listen_opts.options |= LO_MASKSOURCE;
 			listen_opts.flags |= F_MASK_SOURCE;
+		}
+		| RECEIVEDAUTH {
+			if (listen_opts.options & LO_RECEIVEDAUTH) {
+				yyerror("received-auth already specified");
+				YYERROR;	
+			}
+			listen_opts.options |= LO_RECEIVEDAUTH;
+			listen_opts.flags |= F_RECEIVEDAUTH;
 		}
 		| NODSN	{
 			if (listen_opts.options & LO_NODSN) {
@@ -1369,6 +1378,7 @@ lookup(char *s)
 		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
+		{ "received-auth",     	RECEIVEDAUTH },
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
