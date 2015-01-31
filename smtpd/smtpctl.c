@@ -59,6 +59,7 @@ static void getflag(uint *, int, char *, char *, size_t);
 static void display(const char *);
 static int str_to_trace(const char *);
 static int str_to_profile(const char *);
+static int load_envelope(uint64_t, struct envelope *);
 static void show_offline_envelope(uint64_t);
 static int is_gzip_fp(FILE *);
 static int is_encrypted_fp(FILE *);
@@ -1028,47 +1029,13 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 static void
 show_offline_envelope(uint64_t evpid)
 {
-	FILE   *fp = NULL;
-	char	pathname[PATH_MAX];
-	size_t	plen;
-	char   *p;
-	size_t	buflen;
-	char	buffer[sizeof(struct envelope)];
 
 	struct envelope	evp;
 
-	if (! bsnprintf(pathname, sizeof pathname,
-		"/queue/%02x/%08x/%016"PRIx64,
-		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
-		evpid_to_msgid(evpid), evpid))
-		goto end;
-	fp = fopen(pathname, "r");
-	if (fp == NULL)
-		goto end;
-
-	buflen = fread(buffer, 1, sizeof (buffer) - 1, fp);
-	p = buffer;
-	plen = buflen;
-	buffer[buflen] = '\0';
-
-	if (is_encrypted_buffer(p)) {
-		warnx("offline encrypted queue is not supported yet");
-		goto end;
-	}
-
-	if (is_gzip_buffer(p)) {
-		warnx("offline compressed queue is not supported yet");
-		goto end;
-	}
-
-	if (! envelope_load_buffer(&evp, p, plen))
-		goto end;
-	evp.id = evpid;
-	show_queue_envelope(&evp, 0);
-
-end:
-	if (fp)
-		fclose(fp);
+	if (load_envelope(evpid, &evp))
+		show_queue_envelope(&evp, 0);
+	else
+		warnx("failed to load envelope %016" PRIx64, evpid);
 }
 
 static void
@@ -1229,3 +1196,54 @@ end:
 	fseek(fp, 0, SEEK_SET);
 	return ret;
 }
+
+static int
+load_envelope(uint64_t evpid, struct envelope *evp)
+{
+	FILE   *fp = NULL;
+	char	pathname[PATH_MAX];
+	size_t	plen;
+	char   *p;
+	size_t	buflen;
+	char	buffer[sizeof(struct envelope)];
+
+	if (! bsnprintf(pathname, sizeof pathname,
+	    "/queue/%02x/%08x/%016"PRIx64,
+	    (evpid_to_msgid(evpid) & 0xff000000) >> 24,
+	    evpid_to_msgid(evpid), evpid)) {
+		warnx("pathname too long");
+		return (0);
+	}
+
+	fp = fopen(pathname, "r");
+	if (fp == NULL)
+		err(1, "%s", pathname);
+
+	buflen = fread(buffer, 1, sizeof (buffer) - 1, fp);
+	p = buffer;
+	plen = buflen;
+	buffer[buflen] = '\0';
+
+	if (is_encrypted_buffer(p)) {
+		warnx("offline encrypted queue is not supported yet");
+		goto end;
+	}
+
+	if (is_gzip_buffer(p)) {
+		warnx("offline compressed queue is not supported yet");
+		goto end;
+	}
+
+	if (! envelope_load_buffer(evp, p, plen))
+		goto end;
+
+	evp->id = evpid;
+	return (1);
+	
+end:
+	if (fp)
+		fclose(fp);
+
+	return (0);
+}
+
