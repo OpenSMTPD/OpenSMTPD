@@ -36,6 +36,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/log.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mda.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mproc.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/mailaddr.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mta.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mta_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/parse.y
