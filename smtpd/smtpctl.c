@@ -28,6 +28,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 
+#include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -872,6 +873,80 @@ do_unblock_mta(int argc, struct parameter *argv)
 	return srv_check_result(1);
 }
 
+static void
+discover_envelope(uint64_t evpid)
+{
+	struct envelope	evp;
+	struct ibuf	*m;
+
+	if (! load_envelope(evpid, &evp))
+		errx(1, "Failed to load envelope %016" PRIx64, evpid);
+
+	m = imsg_create(ibuf, IMSG_CTL_DISCOVER_ENVELOPE, IMSG_VERSION,
+	    0, sizeof(evp));
+	if (imsg_add(m, &evp, sizeof(evp)) == -1)
+		errx(1, "imsg_add");
+	imsg_close(ibuf, m);
+	srv_check_result(0);
+}
+
+static int
+do_discover(int argc, struct parameter *argv)
+{
+	char		 pathname[PATH_MAX];
+	char		 msgid_str[9];
+	DIR		*dir;
+	struct dirent	*d;
+	size_t		 n_evp = 0;
+	uint64_t	 evpid;
+	uint32_t	 msgid;
+
+	if (ibuf == NULL && !srv_connect())
+		errx(1, "smtpd doesn't seem to be running");
+
+	if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
+		err(1, "%s", PATH_SPOOL);
+
+	if (argv[0].type == P_EVPID) {
+		discover_envelope(argv[0].u.u_evpid);
+		msgid = evpid_to_msgid(argv[0].u.u_evpid);
+		n_evp = 1;
+	} else {
+		msgid = argv[0].u.u_msgid;
+		if (! bsnprintf(pathname, sizeof pathname,
+		   "/queue/%02x/%08"PRIx32,
+		   (msgid & 0xff000000) >> 24, msgid))
+			errx(1, "pathname too long");
+
+		if ((dir = opendir(pathname)) == NULL)
+			err(1, "%s", pathname);
+		
+		(void)snprintf(msgid_str, sizeof msgid_str,
+		    "%08" PRIx32, msgid);
+		while ((d = readdir(dir)) != NULL) {
+			if (d->d_type != DT_REG)
+				continue;
+
+			/* ignore filenames other than envelopes */
+			if (d->d_namlen != 16 || 
+			    strncmp(d->d_name, msgid_str, 8))
+				continue;
+
+			evpid = strtoumax(d->d_name, NULL, 16);
+			discover_envelope(evpid);
+			n_evp += 1;
+		}
+
+		closedir(dir);
+	}
+
+	if (n_evp == 0)
+		return (0);
+
+	srv_send(IMSG_CTL_DISCOVER_MESSAGE, &msgid, sizeof(msgid));
+	return srv_check_result(1);
+}
+
 static int
 do_show_mta_block(int argc, struct parameter *argv)
 {
@@ -894,6 +969,8 @@ main(int argc, char **argv)
 	if (geteuid())
 		errx(1, "need root privileges");
 
+	cmd_install("discover <evpid>",		do_discover);
+	cmd_install("discover <msgid>",		do_discover);
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("pause mta from <addr> for <str>", do_block_mta);
