@@ -27,6 +27,7 @@ SRCS+=		expand.c
 SRCS+=		limit.c
 SRCS+=		log.c
 SRCS+=		makemap.c
+SRCS+=		mailaddr.c
 SRCS+=		parse.y
 SRCS+=		table.c
 SRCS+=		to.c

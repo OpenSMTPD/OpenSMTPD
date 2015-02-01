@@ -147,6 +147,7 @@ union lookup {
 	struct userinfo		 userinfo;
 	struct mailaddr		 mailaddr;
 	struct addrname		 addrname;
+	struct maddrmap		*maddrmap;
 };
 
 /*
@@ -468,6 +469,15 @@ struct expand {
 	size_t				 nb_nodes;
 	struct rule			*rule;
 	struct expandnode		*parent;
+};
+
+struct maddrnode {
+	TAILQ_ENTRY(maddrnode)		entries;
+	struct mailaddr			mailaddr;
+};
+
+struct maddrmap {
+	TAILQ_HEAD(xmaddr, maddrnode)	queue;
 };
 
 #define DSN_SUCCESS 0x01
@@ -1204,6 +1214,13 @@ void filter_line(uint64_t, int, const char *);
 void filter_eom(uint64_t, int, size_t);
 void filter_event(uint64_t, int);
 void filter_build_fd_chain(uint64_t, int);
+
+
+/* mailaddr.c */
+int mailaddr_line(struct maddrmap *, const char *);
+void maddrmap_init(struct maddrmap *);
+void maddrmap_insert(struct maddrmap *, struct maddrnode *);
+void maddrmap_free(struct maddrmap *);
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, char **);

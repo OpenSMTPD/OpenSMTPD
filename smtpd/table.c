@@ -597,11 +597,21 @@ table_parse_lookup(enum table_service service, const char *key,
 		return (1);
 
 	case K_MAILADDR:
-	case K_MAILADDRMAP:
 		if (!text_to_mailaddr(&lk->mailaddr, line))
 			return (-1);
 		return (1);
 
+	case K_MAILADDRMAP:
+		lk->maddrmap = calloc(1, sizeof(*lk->maddrmap));
+		if (lk->maddrmap == NULL)
+			return (-1);
+		maddrmap_init(lk->maddrmap);
+		if (! mailaddr_line(lk->maddrmap, line)) {
+			maddrmap_free(lk->maddrmap);
+			return (-1);
+		}
+		return (1);
+		
 	case K_ADDRNAME:
 		if (parse_sockaddr((struct sockaddr *)&lk->addrname.addr,
 		    PF_UNSPEC, key) == -1)
