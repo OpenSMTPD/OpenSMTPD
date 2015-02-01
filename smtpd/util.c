@@ -451,6 +451,10 @@ mailaddr_match(const struct mailaddr *maddr1, const struct mailaddr *maddr2)
 	struct mailaddr m2 = *maddr2;
 	char	       *p;
 
+	/* catchall */
+	if (m2.user[0] == '\0' && m2.domain[0] == '\0')
+		return 1;
+	
 	if (! hostname_match(m1.domain, m2.domain))
 		return 0;
 

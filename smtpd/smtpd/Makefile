@@ -33,6 +33,7 @@ SRCS+=		limit.c
 SRCS+=		lka.c
 SRCS+=		lka_session.c
 SRCS+=		log.c
+SRCS+=		mailaddr.c
 SRCS+=		mda.c
 SRCS+=		mproc.c
 SRCS+=		mta.c

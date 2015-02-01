@@ -672,8 +672,11 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 static int
 lka_mailaddrmap(const char *tablename, const char *username, const struct mailaddr *maddr)
 {
-	struct table	*table;
-	union lookup	 lk;
+	struct table	       *table;
+	struct maddrmap	       *mm;
+	struct maddrnode       *mn;
+	union lookup		lk;
+	int			found;
 
 	log_debug("debug: lka: mailaddrmap %s:%s", tablename, username);
 	table = table_find(tablename, NULL);
@@ -690,8 +693,18 @@ lka_mailaddrmap(const char *tablename, const char *username, const struct mailad
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		if (! mailaddr_match(maddr, &lk.mailaddr))
-			return (LKA_PERMFAIL);
+		mm = lk.maddrmap;
+		found = 0;
+		TAILQ_FOREACH(mn, &lk.maddrmap->queue, entries) {
+			if (! mailaddr_match(maddr, &mn->mailaddr))
+				continue;
+			found = 1;
+			break;
+		}
+		maddrmap_free(lk.maddrmap);
+		if (found)
+			return (LKA_OK);
+		return (LKA_PERMFAIL);
 	}
 	return (LKA_OK);
 }
