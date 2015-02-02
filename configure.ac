@@ -1087,7 +1087,7 @@ fi
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
 AC_ARG_WITH([ssl-dir],
-	[  --with-ssl-dir=PATH     Specify path to OpenSSL installation ],
+	[  --with-ssl-dir=PATH     Specify path to LibreSSL installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
@@ -1135,17 +1135,17 @@ AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
 		fi
 		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
 		AC_CHECK_HEADER([openssl/opensslv.h], ,
-		    [AC_MSG_ERROR([*** OpenSSL headers missing - please install first or check config.log ***])])
+		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
 		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
 			[
-				AC_MSG_ERROR([*** Can't find recent OpenSSL libcrypto (see config.log for details) ***])
+				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
 			]
 		)
 	]
 )
 
 # Determine OpenSSL header version
-AC_MSG_CHECKING([OpenSSL header version])
+AC_MSG_CHECKING([LibreSSL header version])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <stdio.h>
@@ -1171,7 +1171,7 @@ AC_RUN_IFELSE(
 	],
 	[
 		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([OpenSSL version header not found.])
+		AC_MSG_ERROR([LibreSSL version header not found.])
 	],
 	[
 		AC_MSG_WARN([cross compiling: not checking])
@@ -1179,7 +1179,7 @@ AC_RUN_IFELSE(
 )
 
 # Determine OpenSSL library version
-AC_MSG_CHECKING([OpenSSL library version])
+AC_MSG_CHECKING([LibreSSL library version])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <stdio.h>
@@ -1206,7 +1206,7 @@ AC_RUN_IFELSE(
 	],
 	[
 		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([OpenSSL library not found.])
+		AC_MSG_ERROR([LibreSSL library not found.])
 	],
 	[
 		AC_MSG_WARN([cross compiling: not checking])
@@ -1217,7 +1217,7 @@ AC_RUN_IFELSE(
 AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
 
 AC_ARG_WITH([openssl-header-check],
-	[  --without-openssl-header-check Disable OpenSSL version consistency check],
+	[  --without-libressl-header-check Disable LibreSSL version consistency check],
 	[  if test "x$withval" = "xno" ; then
 		openssl_check_nonfatal=1
 	   fi
@@ -1225,7 +1225,7 @@ AC_ARG_WITH([openssl-header-check],
 )
 
 # Sanity check OpenSSL headers
-AC_MSG_CHECKING([whether OpenSSL's headers match the library])
+AC_MSG_CHECKING([whether LibreSSL's headers match the library])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <string.h>
@@ -1239,14 +1239,14 @@ AC_RUN_IFELSE(
 	[
 		AC_MSG_RESULT([no])
 		if test "x$openssl_check_nonfatal" = "x"; then
-			AC_MSG_ERROR([Your OpenSSL headers do not match your
+			AC_MSG_ERROR([Your LibreSSL headers do not match your
 library. Check config.log for details.
 If you are sure your installation is consistent, you can disable the check
 by running "./configure --without-openssl-header-check".
 Also see contrib/findssl.sh for help identifying header/library mismatches.
 ])
 		else
-			AC_MSG_WARN([Your OpenSSL headers do not match your
+			AC_MSG_WARN([Your LibreSSL headers do not match your
 library. Check config.log for details.
 Also see contrib/findssl.sh for help identifying header/library mismatches.])
 		fi
@@ -1256,7 +1256,7 @@ Also see contrib/findssl.sh for help identifying header/library mismatches.])
 	]
 )
 
-AC_MSG_CHECKING([if programs using OpenSSL functions will link])
+AC_MSG_CHECKING([if programs using LibreSSL functions will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
 	[[ SSLeay_add_all_algorithms(); ]])],
@@ -1267,7 +1267,7 @@ AC_LINK_IFELSE(
 		AC_MSG_RESULT([no])
 		saved_LIBS="$LIBS"
 		LIBS="$LIBS -ldl"
-		AC_MSG_CHECKING([if programs using OpenSSL need -ldl])
+		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
 		AC_LINK_IFELSE(
 			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
 			[[ SSLeay_add_all_algorithms(); ]])],
@@ -1285,7 +1285,7 @@ AC_LINK_IFELSE(
 
 ##chl
 EXPERIMENTAL_GCM_CRYPTO=no
-AC_MSG_CHECKING([if programs using OpenSSL EVP_aes_256_gcm() will link])
+AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
 	[[ EVP_aes_256_gcm(); ]])],
@@ -1332,7 +1332,7 @@ HAVE_SSL_OP_NO_TICKET
    AC_MSG_RESULT([yes])
 ], [
    AC_MSG_RESULT([no])
-   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by OpenSSL.])
+   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by LibreSSL.])
 ])
 ##gilles
 
@@ -1354,7 +1354,7 @@ fi
 ### Configure cryptographic random number support
 
 # Check wheter OpenSSL seeds itself
-AC_MSG_CHECKING([whether OpenSSL's PRNG is internally seeded])
+AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <string.h>
