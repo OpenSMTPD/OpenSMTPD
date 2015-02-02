@@ -2516,7 +2516,7 @@ dnl Add now.
 CFLAGS="$CFLAGS $werror_flags"
 
 AC_SUBST([TEST_MALLOC_OPTIONS], [$TEST_MALLOC_OPTIONS])
-AC_SUBST([UNSUPPORTED_ALGORITHMS], [$unsupported_algorithms])
+
 
 AC_EXEEXT
 #l4757
