@@ -428,12 +428,14 @@ static void
 control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 {
 	struct sockaddr_storage	 ss;
+	struct envelope		 evp;
 	struct ctl_conn		*c;
 	int			 v;
 	struct stat_kv		*kvp;
 	char			*key;
 	struct stat_value	 val;
 	size_t			 len;
+	uint32_t		 msgid;
 
 	c = p->data;
 
@@ -753,6 +755,34 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			goto invalid;
 
 		m_forward(p_lka, imsg);
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_DISCOVER_ENVELOPE:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE < sizeof(evp))
+			goto invalid;
+
+		memmove(&evp, imsg->data, sizeof(evp));
+		m_create(p_scheduler, IMSG_QUEUE_ENVELOPE_SUBMIT, c->id, 0, -1);
+		m_add_envelope(p_scheduler, &evp);
+		m_close(p_scheduler);
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_DISCOVER_MESSAGE:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE < sizeof(msgid))
+			goto invalid;
+
+		memmove(&msgid, imsg->data, sizeof(msgid));
+		m_create(p_scheduler, IMSG_QUEUE_MESSAGE_COMMIT, 0, 0, -1);
+		m_add_msgid(p_scheduler, msgid);
+		m_close(p_scheduler);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 

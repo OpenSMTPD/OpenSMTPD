@@ -28,6 +28,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 
+#include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -59,6 +60,7 @@ static void getflag(uint *, int, char *, char *, size_t);
 static void display(const char *);
 static int str_to_trace(const char *);
 static int str_to_profile(const char *);
+static int load_envelope(uint64_t, struct envelope *);
 static void show_offline_envelope(uint64_t);
 static int is_gzip_fp(FILE *);
 static int is_encrypted_fp(FILE *);
@@ -871,6 +873,80 @@ do_unblock_mta(int argc, struct parameter *argv)
 	return srv_check_result(1);
 }
 
+static void
+discover_envelope(uint64_t evpid)
+{
+	struct envelope	evp;
+	struct ibuf	*m;
+
+	if (! load_envelope(evpid, &evp))
+		errx(1, "Failed to load envelope %016" PRIx64, evpid);
+
+	m = imsg_create(ibuf, IMSG_CTL_DISCOVER_ENVELOPE, IMSG_VERSION,
+	    0, sizeof(evp));
+	if (imsg_add(m, &evp, sizeof(evp)) == -1)
+		errx(1, "imsg_add");
+	imsg_close(ibuf, m);
+	srv_check_result(0);
+}
+
+static int
+do_discover(int argc, struct parameter *argv)
+{
+	char		 pathname[PATH_MAX];
+	char		 msgid_str[9];
+	DIR		*dir;
+	struct dirent	*d;
+	size_t		 n_evp = 0;
+	uint64_t	 evpid;
+	uint32_t	 msgid;
+
+	if (ibuf == NULL && !srv_connect())
+		errx(1, "smtpd doesn't seem to be running");
+
+	if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
+		err(1, "%s", PATH_SPOOL);
+
+	if (argv[0].type == P_EVPID) {
+		discover_envelope(argv[0].u.u_evpid);
+		msgid = evpid_to_msgid(argv[0].u.u_evpid);
+		n_evp = 1;
+	} else {
+		msgid = argv[0].u.u_msgid;
+		if (! bsnprintf(pathname, sizeof pathname,
+		   "/queue/%02x/%08"PRIx32,
+		   (msgid & 0xff000000) >> 24, msgid))
+			errx(1, "pathname too long");
+
+		if ((dir = opendir(pathname)) == NULL)
+			err(1, "%s", pathname);
+		
+		(void)snprintf(msgid_str, sizeof msgid_str,
+		    "%08" PRIx32, msgid);
+		while ((d = readdir(dir)) != NULL) {
+			if (d->d_type != DT_REG)
+				continue;
+
+			/* ignore filenames other than envelopes */
+			if (d->d_namlen != 16 || 
+			    strncmp(d->d_name, msgid_str, 8))
+				continue;
+
+			evpid = strtoumax(d->d_name, NULL, 16);
+			discover_envelope(evpid);
+			n_evp += 1;
+		}
+
+		closedir(dir);
+	}
+
+	if (n_evp == 0)
+		return (0);
+
+	srv_send(IMSG_CTL_DISCOVER_MESSAGE, &msgid, sizeof(msgid));
+	return srv_check_result(1);
+}
+
 static int
 do_show_mta_block(int argc, struct parameter *argv)
 {
@@ -893,6 +969,8 @@ main(int argc, char **argv)
 	if (geteuid())
 		errx(1, "need root privileges");
 
+	cmd_install("discover <evpid>",		do_discover);
+	cmd_install("discover <msgid>",		do_discover);
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("pause mta from <addr> for <str>", do_block_mta);
@@ -1028,47 +1106,13 @@ getflag(uint *bitmap, int bit, char *bitstr, char *buf, size_t len)
 static void
 show_offline_envelope(uint64_t evpid)
 {
-	FILE   *fp = NULL;
-	char	pathname[PATH_MAX];
-	size_t	plen;
-	char   *p;
-	size_t	buflen;
-	char	buffer[sizeof(struct envelope)];
 
 	struct envelope	evp;
 
-	if (! bsnprintf(pathname, sizeof pathname,
-		"/queue/%02x/%08x/%016"PRIx64,
-		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
-		evpid_to_msgid(evpid), evpid))
-		goto end;
-	fp = fopen(pathname, "r");
-	if (fp == NULL)
-		goto end;
-
-	buflen = fread(buffer, 1, sizeof (buffer) - 1, fp);
-	p = buffer;
-	plen = buflen;
-	buffer[buflen] = '\0';
-
-	if (is_encrypted_buffer(p)) {
-		warnx("offline encrypted queue is not supported yet");
-		goto end;
-	}
-
-	if (is_gzip_buffer(p)) {
-		warnx("offline compressed queue is not supported yet");
-		goto end;
-	}
-
-	if (! envelope_load_buffer(&evp, p, plen))
-		goto end;
-	evp.id = evpid;
-	show_queue_envelope(&evp, 0);
-
-end:
-	if (fp)
-		fclose(fp);
+	if (load_envelope(evpid, &evp))
+		show_queue_envelope(&evp, 0);
+	else
+		warnx("failed to load envelope %016" PRIx64, evpid);
 }
 
 static void
@@ -1229,3 +1273,54 @@ end:
 	fseek(fp, 0, SEEK_SET);
 	return ret;
 }
+
+static int
+load_envelope(uint64_t evpid, struct envelope *evp)
+{
+	FILE   *fp = NULL;
+	char	pathname[PATH_MAX];
+	size_t	plen;
+	char   *p;
+	size_t	buflen;
+	char	buffer[sizeof(struct envelope)];
+
+	if (! bsnprintf(pathname, sizeof pathname,
+	    "/queue/%02x/%08x/%016"PRIx64,
+	    (evpid_to_msgid(evpid) & 0xff000000) >> 24,
+	    evpid_to_msgid(evpid), evpid)) {
+		warnx("pathname too long");
+		return (0);
+	}
+
+	fp = fopen(pathname, "r");
+	if (fp == NULL)
+		err(1, "%s", pathname);
+
+	buflen = fread(buffer, 1, sizeof (buffer) - 1, fp);
+	p = buffer;
+	plen = buflen;
+	buffer[buflen] = '\0';
+
+	if (is_encrypted_buffer(p)) {
+		warnx("offline encrypted queue is not supported yet");
+		goto end;
+	}
+
+	if (is_gzip_buffer(p)) {
+		warnx("offline compressed queue is not supported yet");
+		goto end;
+	}
+
+	if (! envelope_load_buffer(evp, p, plen))
+		goto end;
+
+	evp->id = evpid;
+	return (1);
+	
+end:
+	if (fp)
+		fclose(fp);
+
+	return (0);
+}
+
