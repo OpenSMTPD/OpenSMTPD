@@ -2920,7 +2920,7 @@ echo "      Linker flags: ${LDFLAGS}"
 echo "         Libraries: ${LIBS}"
 echo "      DB Libraries: ${DB_LIB}"
 if test ! -z "${SMTPDLIBS}"; then
-echo "         +for sshd: ${SMTPDLIBS}"
+echo "         +for smtpd: ${SMTPDLIBS}"
 fi
 
 echo ""
