@@ -342,8 +342,6 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	AC_DEFINE([BROKEN_SETREUID])
 	AC_DEFINE([BROKEN_SETREGID])
 	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
-	AC_DEFINE_UNQUOTED([BIND_8_COMPAT], [1],
-		[Define if your resolver libs need this for getrrsetbyname])
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
 		supported by bsd-setproctitle.c])
