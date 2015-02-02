@@ -1215,7 +1215,6 @@ AC_RUN_IFELSE(
 
 # XXX make --without-openssl work
 AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
-AC_DEFINE_UNQUOTED([WITH_SSH1], [1], [include SSH protocol version 1 support])
 
 AC_ARG_WITH([openssl-header-check],
 	[  --without-openssl-header-check Disable OpenSSL version consistency check],
