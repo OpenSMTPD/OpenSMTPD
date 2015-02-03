@@ -874,6 +874,19 @@ do_show_mta_block(int argc, struct parameter *argv)
 	return (0);
 }
 
+static int
+do_discover(int argc, struct parameter *argv)
+{
+	uint64_t evpid;
+
+	if (ibuf == NULL && !srv_connect())
+		errx(1, "smtpd doesn't seem to be running");
+
+	evpid = argv[0].u.u_evpid;
+	srv_send(IMSG_CTL_DISCOVER_EVPID, &evpid, sizeof evpid);
+	return srv_check_result(1);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -888,6 +901,7 @@ main(int argc, char **argv)
 	if (geteuid())
 		errx(1, "need root privileges");
 
+	cmd_install("discover <evpid>",		do_discover);
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("pause mta from <addr> for <str>", do_block_mta);

@@ -434,6 +434,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 	char			*key;
 	struct stat_value	 val;
 	size_t			 len;
+	uint64_t		 evpid;
 
 	c = p->data;
 
@@ -753,6 +754,20 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 			goto invalid;
 
 		m_forward(p_lka, imsg);
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_DISCOVER_EVPID:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof evpid)
+			goto invalid;
+
+		memmove(&evpid, imsg->data, sizeof evpid);
+		m_create(p_queue, imsg->hdr.type, c->id, 0, -1);
+		m_add_evpid(p_queue, evpid);
+		m_close(p_queue);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 

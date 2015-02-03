@@ -500,6 +500,27 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			profiling = v;
 			return;
+
+		case IMSG_CTL_DISCOVER_EVPID:
+			m_msg(&m, imsg);
+			m_get_evpid(&m, &evpid);
+			m_end(&m);
+			if (queue_envelope_load(evpid, &evp) == 0) {
+				log_warnx("queue: discover: failed to load "
+				    "envelope %016" PRIx64, evpid);
+				return;
+			}
+
+			m_create(p_scheduler, IMSG_QUEUE_ENVELOPE_SUBMIT,
+			    0, 0, -1);
+			m_add_envelope(p_scheduler, &evp);
+			m_close(p_scheduler);
+
+			m_create(p_scheduler, IMSG_QUEUE_MESSAGE_COMMIT,
+			    0, 0, -1);
+			m_add_msgid(p_scheduler, evpid_to_msgid(evpid));
+			m_close(p_scheduler);
+			return;
 		}
 	}
 
