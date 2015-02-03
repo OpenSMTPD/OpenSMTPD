@@ -659,11 +659,6 @@ do_show_queue(int argc, struct parameter *argv)
 		}
 
 		fts_close(fts);
-		/*
-		while ((r = queue_envelope_walk(&evp)) != -1)
-			if (r)
-				show_queue_envelope(&evp, 0);
-		*/
 		return (0);
 	}
 
