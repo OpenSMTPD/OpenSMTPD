@@ -878,13 +878,32 @@ static int
 do_discover(int argc, struct parameter *argv)
 {
 	uint64_t evpid;
+	uint32_t msgid;
+	size_t	 n_evp;
 
 	if (ibuf == NULL && !srv_connect())
 		errx(1, "smtpd doesn't seem to be running");
 
-	evpid = argv[0].u.u_evpid;
-	srv_send(IMSG_CTL_DISCOVER_EVPID, &evpid, sizeof evpid);
-	return srv_check_result(1);
+	if (argv[0].type == P_EVPID) {
+		evpid = argv[0].u.u_evpid;
+		srv_send(IMSG_CTL_DISCOVER_EVPID, &evpid, sizeof evpid);
+		srv_recv(IMSG_CTL_DISCOVER_EVPID);
+	} else {
+		msgid = argv[0].u.u_msgid;
+		srv_send(IMSG_CTL_DISCOVER_MSGID, &msgid, sizeof msgid);
+		srv_recv(IMSG_CTL_DISCOVER_MSGID);
+	}
+
+	if (rlen == 0) {
+		srv_end();
+		return (0);
+	} else {
+		srv_read(&n_evp, sizeof n_evp);
+		srv_end();
+	}
+	
+	printf("%zu envelope%s discovered\n", n_evp, (n_evp != 1) ? "s" : "");
+	return (0);
 }
 
 int
@@ -902,6 +921,7 @@ main(int argc, char **argv)
 		errx(1, "need root privileges");
 
 	cmd_install("discover <evpid>",		do_discover);
+	cmd_install("discover <msgid>",		do_discover);
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("pause mta from <addr> for <str>", do_block_mta);

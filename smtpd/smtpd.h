@@ -194,6 +194,7 @@ enum imsg_type {
 	IMSG_CTL_UPDATE_TABLE,
 	IMSG_CTL_VERBOSE,
 	IMSG_CTL_DISCOVER_EVPID,
+	IMSG_CTL_DISCOVER_MSGID,
 
 	IMSG_CTL_SMTP_SESSION,
 
@@ -1080,6 +1081,14 @@ struct ca_vrfy_resp_msg {
 	enum ca_resp_status	status;
 };
 
+struct msg_walkinfo {
+	struct event	 ev;
+	uint32_t	 msgid;
+	uint32_t	 peerid;
+	size_t		 n_evp;
+	void		*data;
+	int		 done;
+};
 
 /* aliases.c */
 int aliases_get(struct expand *, const char *);
@@ -1317,7 +1326,7 @@ int queue_envelope_delete(uint64_t);
 int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);
-
+int queue_message_walk(struct envelope *, uint32_t, int *, void **);
 
 /* ruleset.c */
 struct rule *ruleset_match(const struct envelope *);

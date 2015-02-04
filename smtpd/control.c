@@ -114,6 +114,8 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_QUEUE) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_LIST_ENVELOPES:
+		case IMSG_CTL_DISCOVER_EVPID:
+		case IMSG_CTL_DISCOVER_MSGID:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -435,6 +437,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 	struct stat_value	 val;
 	size_t			 len;
 	uint64_t		 evpid;
+	uint32_t		 msgid;
 
 	c = p->data;
 
@@ -768,7 +771,19 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_create(p_queue, imsg->hdr.type, c->id, 0, -1);
 		m_add_evpid(p_queue, evpid);
 		m_close(p_queue);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_DISCOVER_MSGID:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE != sizeof msgid)
+			goto invalid;
+
+		memmove(&msgid, imsg->data, sizeof msgid);
+		m_create(p_queue, imsg->hdr.type, c->id, 0, -1);
+		m_add_msgid(p_queue, msgid);
+		m_close(p_queue);
 		return;
 
 	default:
