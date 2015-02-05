@@ -37,6 +37,9 @@ for
 .Pp
 The following commands are available:
 .Bl -tag -width Ds
+.It Cm discover Ar envelope-id | message-id
+Schedule a single envelope, or all envelopes with the same message ID
+that were manually moved to the queue.
 .It Cm encrypt Op Ar string
 Encrypt the password
 .Ar string
