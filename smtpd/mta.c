@@ -232,6 +232,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
+			task = NULL;
 			TAILQ_FOREACH(task, &relay->tasks, entry)
 				if (task->msgid == evpid_to_msgid(evp.id))
 					break;
