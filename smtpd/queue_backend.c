@@ -292,7 +292,7 @@ queue_message_corrupt(uint32_t msgid)
 int
 queue_message_fd_r(uint32_t msgid)
 {
-	int	fdin = -1, fdout = -1, fd = -1;
+	int	fdin, fdout = -1, fd = -1;
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
