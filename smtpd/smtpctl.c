@@ -731,7 +731,7 @@ do_show_stats(int argc, struct parameter *argv)
 			switch (kv.val.type) {
 			case STAT_COUNTER:
 				printf("%s=%zd\n",
-				    kv.key, kv.val.u.counter);
+				    kv.key, (ssize_t)kv.val.u.counter);
 				break;
 			case STAT_TIMESTAMP:
 				printf("%s=%" PRId64 "\n",
