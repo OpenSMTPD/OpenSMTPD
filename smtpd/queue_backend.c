@@ -71,6 +71,8 @@ static int (*handler_envelope_delete)(uint64_t);
 static int (*handler_envelope_update)(uint64_t, const char *, size_t);
 static int (*handler_envelope_load)(uint64_t, char *, size_t);
 static int (*handler_envelope_walk)(uint64_t *, char *, size_t);
+static int (*handler_message_walk)(uint64_t *, char *, size_t,
+    uint32_t, int *, void **);
 
 #ifdef QUEUE_PROFILING
 
@@ -296,7 +298,7 @@ queue_message_corrupt(uint32_t msgid)
 int
 queue_message_fd_r(uint32_t msgid)
 {
-	int	fdin = -1, fdout = -1, fd = -1;
+	int	fdin, fdout = -1, fd = -1;
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
@@ -627,6 +629,41 @@ queue_envelope_update(struct envelope *ep)
 }
 
 int
+queue_message_walk(struct envelope *ep, uint32_t msgid, int *done, void **data)
+{
+	char		 evpbuf[sizeof(struct envelope)];
+	uint64_t	 evpid;
+	int		 r;
+	const char	*e;
+
+	profile_enter("queue_message_walk");
+	r = handler_message_walk(&evpid, evpbuf, sizeof evpbuf,
+	    msgid, done, data);
+	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_walk() -> %d (%016"PRIx64")",
+	    r, evpid);
+
+	if (r == -1)
+		return (r);
+
+	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
+		if ((e = envelope_validate(ep)) == NULL) {
+			ep->id = evpid;
+			if (env->sc_queue_flags & QUEUE_EVPCACHE)
+				queue_envelope_cache_add(ep);
+			return (1);
+		}
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
+		    ep->id, e);
+		(void)queue_message_corrupt(evpid_to_msgid(evpid));
+	}
+
+	return (-1);
+}
+
+int
 queue_envelope_walk(struct envelope *ep)
 {
 	const char	*e;
@@ -773,4 +810,11 @@ void
 queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 {
 	handler_envelope_walk = cb;
+}
+
+void
+queue_api_on_message_walk(int(*cb)(uint64_t *, char *, size_t,
+    uint32_t, int *, void **))
+{
+	handler_message_walk = cb;
 }
