@@ -42,6 +42,12 @@ enum
 # define SHUT_RDWR SHUT_RDWR
 #endif
 
+#ifndef HOST_NAME_MAX
+# ifdef _POSIX_HOST_NAME_MAX
+# define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+# endif
+#endif
+
 #ifndef PATH_MAX
 # ifdef _POSIX_PATH_MAX
 # define PATH_MAX _POSIX_PATH_MAX
