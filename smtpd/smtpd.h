@@ -911,6 +911,7 @@ struct scheduler_backend {
 	int	(*remove)(uint64_t);
 	int	(*suspend)(uint64_t);
 	int	(*resume)(uint64_t);
+	int	(*query)(uint64_t);
 };
 
 enum stat_type {
