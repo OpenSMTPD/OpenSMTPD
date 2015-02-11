@@ -637,8 +637,13 @@ queue_message_walk(struct envelope *ep, uint32_t msgid, int *done, void **data)
 	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
 		if ((e = envelope_validate(ep)) == NULL) {
 			ep->id = evpid;
-			if (env->sc_queue_flags & QUEUE_EVPCACHE)
-				queue_envelope_cache_add(ep);
+			/*
+			 * do not cache the envelope here, while discovering
+			 * envelopes one could re-run discover on already
+			 * scheduled envelopes which leads to triggering of 
+			 * strict checks in caching. Envelopes could anyway
+			 * be loaded from backend if it isn't cached.
+			 */
 			return (1);
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
