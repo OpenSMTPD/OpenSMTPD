@@ -286,7 +286,7 @@ header_bcc_callback(const struct rfc2822_header *hdr, void *arg)
 }
 
 static void
-header_append_domain_buffer(char *buffer, char *domain, size_t len)
+header_append_domain_buffer(char *buffer, const char *domain, size_t len)
 {
 	size_t	i;
 	int	escape, quote, comment, bracket;
@@ -367,7 +367,7 @@ header_append_domain_buffer(char *buffer, char *domain, size_t len)
 }
 
 static void
-header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
+header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 {
 	struct smtp_session    *s = arg;
 	struct rfc2822_line    *l;
@@ -466,6 +466,196 @@ ioerror:
 }
 
 static void
+header_address_rewrite_buffer(char *buffer, const char *address, size_t len)
+{
+	size_t	i;
+	int	address_len;
+	int	escape, quote, comment, bracket;
+	int	has_domain, has_bracket, has_group;
+	int	pos_bracket_beg, pos_bracket_end, pos_component_beg, pos_component_end;
+	int	insert_beg, insert_end;
+	char	copy[APPEND_DOMAIN_BUFFER_SIZE];
+
+	i = 0;
+	escape = quote = comment = bracket = 0;
+	has_domain = has_bracket = has_group = 0;
+	pos_bracket_beg = pos_bracket_end = pos_component_beg = pos_component_end = 0;
+	insert_beg = insert_end = 0;
+	for (i = 0; buffer[i]; ++i) {
+		if (buffer[i] == '(' && !escape && !quote)
+			comment++;
+		if (buffer[i] == '"' && !escape && !comment)
+			quote = !quote;
+		if (buffer[i] == ')' && !escape && !quote && comment)
+			comment--;
+		if (buffer[i] == '\\' && !escape && !comment && !quote)
+			escape = 1;
+		else
+			escape = 0;
+		if (buffer[i] == '<' && !escape && !comment && !quote && !bracket) {
+			bracket++;
+			has_bracket = 1;
+			pos_bracket_beg = i+1;
+		}
+		if (buffer[i] == '>' && !escape && !comment && !quote && bracket) {
+			bracket--;
+			pos_bracket_end = i;
+		}
+		if (buffer[i] == ':' && !escape && !comment && !quote)
+			has_group = 1;
+
+		/* update insert point if not in comment and not on a whitespace */
+		if (!comment && buffer[i] != ')' && !isspace((unsigned char)buffer[i]))
+			pos_component_end = i;
+	}
+
+	/* parse error, do not attempt to modify */
+	if (escape || quote || comment || bracket)
+		return;
+
+	/* address is group, skip */
+	if (has_group)
+		return;
+
+	/* there's an address between brackets, just replace everything brackets */
+	if (has_bracket) {
+		insert_beg = pos_bracket_beg;
+		insert_end = pos_bracket_end;
+	}
+	else {
+		if (pos_component_end == 0)
+			pos_component_beg = 0;
+		else {
+			for (pos_component_beg = pos_component_end; pos_component_beg >= 0; --pos_component_beg)
+				if (buffer[pos_component_beg] == ')' || isspace(buffer[pos_component_beg]))
+					break;
+			pos_component_beg += 1;
+			pos_component_end += 1;
+		}
+		insert_beg = pos_component_beg;
+		insert_end = pos_component_end;
+	}
+
+	/* check that masquerade won' t overflow */
+	address_len = strlen(address);
+	if (strlen(buffer) - (insert_end - insert_beg) + address_len >= len)
+		return;
+
+	(void)strlcpy(copy, buffer, sizeof copy);
+	(void)strlcpy(copy+insert_beg, address, sizeof (copy) - insert_beg);
+	(void)strlcat(copy, buffer+insert_end, sizeof (copy));
+	memcpy(buffer, copy, len);
+}
+
+static void
+header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
+{
+	struct smtp_session    *s = arg;
+	struct rfc2822_line    *l;
+	size_t			i, j;
+	int			escape, quote, comment, skip;
+	size_t			len;
+	char			buffer[APPEND_DOMAIN_BUFFER_SIZE];
+
+	len = strlen(hdr->name) + 1;
+	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len)
+		goto ioerror;
+	s->odatalen += len;
+
+	i = j = 0;
+	escape = quote = comment = skip = 0;
+	memset(buffer, 0, sizeof buffer);
+
+	TAILQ_FOREACH(l, &hdr->lines, next) {
+		for (i = 0; i < strlen(l->buffer); ++i) {
+			if (l->buffer[i] == '(' && !escape && !quote)
+				comment++;
+			if (l->buffer[i] == '"' && !escape && !comment)
+				quote = !quote;
+			if (l->buffer[i] == ')' && !escape && !quote && comment)
+				comment--;
+			if (l->buffer[i] == '\\' && !escape && !comment && !quote)
+				escape = 1;
+			else
+				escape = 0;
+
+			/* found a separator, buffer contains a full address */
+			if (l->buffer[i] == ',' && !escape && !quote && !comment) {
+				if (!skip && j + strlen(s->listener->hostname) + 1 < sizeof buffer) {
+					header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
+					header_address_rewrite_buffer(buffer, mailaddr_to_text(&s->evp.sender),
+					    sizeof buffer);
+					log_debug("BUFFER: [%s]", buffer);
+				}
+				len = strlen(buffer) + 1;
+				if (iobuf_fqueue(&s->obuf, "%s,", buffer) != (int)len)
+					goto ioerror;
+				s->odatalen += len;
+				j = 0;
+				skip = 0;
+				memset(buffer, 0, sizeof buffer);
+			}
+			else {
+				if (skip) {
+					if (iobuf_fqueue(&s->obuf, "%c", l->buffer[i]) != (int)1)
+						goto ioerror;
+					s->odatalen += 1;
+				}
+				else {
+					buffer[j++] = l->buffer[i];
+					if (j == sizeof (buffer) - 1) {
+						len = strlen(buffer);
+						if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
+							goto ioerror;
+						s->odatalen += len;
+						skip = 1;
+						j = 0;
+						memset(buffer, 0, sizeof buffer);
+					}
+				}
+			}
+		}
+		if (skip) {
+			if (iobuf_fqueue(&s->obuf, "\n", l->buffer[i]) != (int)1)
+				goto ioerror;
+			s->odatalen += 1;
+		}
+		else {
+			buffer[j++] = '\n';
+			if (j == sizeof (buffer) - 1) {
+				len = strlen(buffer);
+				if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
+					goto ioerror;
+				s->odatalen += len;
+				skip = 1;
+				j = 0;
+				memset(buffer, 0, sizeof buffer);
+			}
+		}
+	}
+
+	/* end of header, if buffer is not empty we'll process it */
+	if (buffer[0]) {
+		if (j + strlen(s->listener->hostname) + 1 < sizeof buffer) {
+			header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
+			header_address_rewrite_buffer(buffer, mailaddr_to_text(&s->evp.sender),
+			    sizeof buffer);
+			log_debug("BUFFER: [%s]", buffer);
+			log_debug("REWRITE AS: [%s]", mailaddr_to_text(&s->evp.sender));
+		}
+		len = strlen(buffer);
+		if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
+			goto ioerror;
+		s->odatalen += len;
+	}
+	return;
+
+ioerror:
+	s->msgflags |= MF_ERROR_IO;
+	return;
+}
+
+static void
 smtp_session_init(void)
 {
 	static int	init = 0;
@@ -524,14 +714,19 @@ smtp_session(struct listener *listener, int sock,
 	    header_default_callback, s);
 	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
             header_bcc_callback, s);
-        rfc2822_header_callback(&s->rfc2822_parser, "from",
-            header_masquerade_callback, s);
+	rfc2822_header_callback(&s->rfc2822_parser, "from",
+	    header_domain_append_callback, s);
         rfc2822_header_callback(&s->rfc2822_parser, "to",
-            header_masquerade_callback, s);
+            header_domain_append_callback, s);
         rfc2822_header_callback(&s->rfc2822_parser, "cc",
-            header_masquerade_callback, s);
+            header_domain_append_callback, s);
 	rfc2822_body_callback(&s->rfc2822_parser,
 	    dataline_callback, s);
+
+	/* masquerading requested ? override domain_append callback */
+	if (s->listener->flags & F_MASQUERADE)
+		rfc2822_header_callback(&s->rfc2822_parser, "from",
+		    header_masquerade_callback, s);
 
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
