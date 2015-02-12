@@ -523,12 +523,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				return;
 			}
 
-			m_create(p_scheduler, IMSG_QUEUE_ENVELOPE_SUBMIT,
+			m_create(p_scheduler, IMSG_QUEUE_DISCOVER_EVPID,
 			    0, 0, -1);
 			m_add_envelope(p_scheduler, &evp);
 			m_close(p_scheduler);
 
-			m_create(p_scheduler, IMSG_QUEUE_MESSAGE_COMMIT,
+			m_create(p_scheduler, IMSG_QUEUE_DISCOVER_MSGID,
 			    0, 0, -1);
 			m_add_msgid(p_scheduler, evpid_to_msgid(evpid));
 			m_close(p_scheduler);
@@ -567,7 +567,7 @@ queue_msgid_walk(int fd, short event, void *arg)
 	r = queue_message_walk(&evp, wi->msgid, &wi->done, &wi->data);
 	if (r == -1) {
 		if (wi->n_evp) {
-			m_create(p_scheduler, IMSG_QUEUE_MESSAGE_COMMIT,
+			m_create(p_scheduler, IMSG_QUEUE_DISCOVER_MSGID,
 			    0, 0, -1);
 			m_add_msgid(p_scheduler, wi->msgid);
 			m_close(p_scheduler);
@@ -581,7 +581,7 @@ queue_msgid_walk(int fd, short event, void *arg)
 	}
 
 	if (r) {
-		m_create(p_scheduler, IMSG_QUEUE_ENVELOPE_SUBMIT, 0, 0, -1);
+		m_create(p_scheduler, IMSG_QUEUE_DISCOVER_EVPID, 0, 0, -1);
 		m_add_envelope(p_scheduler, &evp);
 		m_close(p_scheduler);
 		wi->n_evp += 1;

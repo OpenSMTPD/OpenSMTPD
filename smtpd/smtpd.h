@@ -182,7 +182,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		12
+#define	IMSG_VERSION		13
 
 enum imsg_type {
 	IMSG_NONE,
@@ -243,6 +243,8 @@ enum imsg_type {
 	IMSG_QUEUE_DELIVERY_TEMPFAIL,
 	IMSG_QUEUE_DELIVERY_PERMFAIL,
 	IMSG_QUEUE_DELIVERY_LOOP,
+	IMSG_QUEUE_DISCOVER_EVPID,
+	IMSG_QUEUE_DISCOVER_MSGID,
 	IMSG_QUEUE_ENVELOPE_ACK,
 	IMSG_QUEUE_ENVELOPE_COMMIT,
 	IMSG_QUEUE_ENVELOPE_REMOVE,
@@ -939,6 +941,7 @@ struct scheduler_backend {
 	int	(*remove)(uint64_t);
 	int	(*suspend)(uint64_t);
 	int	(*resume)(uint64_t);
+	int	(*query)(uint64_t);
 };
 
 enum stat_type {
