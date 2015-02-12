@@ -723,11 +723,6 @@ smtp_session(struct listener *listener, int sock,
 	rfc2822_body_callback(&s->rfc2822_parser,
 	    dataline_callback, s);
 
-	/* masquerading requested ? override domain_append callback */
-	if (s->listener->flags & F_MASQUERADE)
-		rfc2822_header_callback(&s->rfc2822_parser, "from",
-		    header_masquerade_callback, s);
-
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
 		s->flags |= SF_AUTHENTICATED;
@@ -795,6 +790,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			m_add_id(p_queue, s->id);
 			m_close(p_queue);
 			tree_xset(&wait_queue_msg, s->id, s);
+
+			/* sender check passed, override From callback if masquerading */
+			if (s->listener->flags & F_MASQUERADE)
+				rfc2822_header_callback(&s->rfc2822_parser, "from",
+				    header_masquerade_callback, s);
 			break;
 
 		case LKA_PERMFAIL:
