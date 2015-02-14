@@ -120,6 +120,7 @@ enum listen_options {
 	LO_NODSN	= 0x0400,
 	LO_SENDERS	= 0x0800,
 	LO_RECEIVEDAUTH	= 0x1000,
+	LO_MASQUERADE	= 0x2000,
 };
 
 static struct listen_opts {
@@ -176,7 +177,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE RECEIVEDAUTH
+%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -615,6 +616,22 @@ opt_listen     	: INET4			{
 				YYERROR;
 			}
 			listen_opts.options |= LO_SENDERS;
+
+			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "SENDERS parameter", t->t_name);
+				YYERROR;
+			}
+			listen_opts.sendertable = t;
+		}
+		| SENDERS tables MASQUERADE	{
+			struct table	*t = $2;
+
+			if (listen_opts.options & LO_SENDERS) {
+				yyerror("senders already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_SENDERS|LO_MASQUERADE;
 
 			if (! table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
 				yyerror("invalid use of table \"%s\" as "
@@ -1368,6 +1385,7 @@ lookup(char *s)
 		{ "local",		LOCAL },
 		{ "maildir",		MAILDIR },
 		{ "mask-source",	MASK_SOURCE },
+		{ "masquerade",		MASQUERADE },
 		{ "max-message-size",  	MAXMESSAGESIZE },
 		{ "max-mta-deferred",  	MAXMTADEFERRED },
 		{ "mbox",		MBOX },
@@ -2022,8 +2040,11 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	(void)strlcpy(h->hostname, lo->hostname, sizeof(h->hostname));
 	if (lo->hostnametable)
 		(void)strlcpy(h->hostnametable, lo->hostnametable->t_name, sizeof(h->hostnametable));
-	if (lo->sendertable)
+	if (lo->sendertable) {
 		(void)strlcpy(h->sendertable, lo->sendertable->t_name, sizeof(h->sendertable));
+		if (lo->options & LO_MASQUERADE)
+			h->flags |= F_MASQUERADE;
+	}
 
 	if (lo->ssl & F_TLS_VERIFY)
 		h->flags |= F_TLS_VERIFY;
