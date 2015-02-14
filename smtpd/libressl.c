@@ -150,7 +150,7 @@ end:
 }
 
 int
-SSL_CTX_use_certificate_chain(SSL_CTX *ctx, void *buf, int len)
+SSL_CTX_use_certificate_chain_mem(SSL_CTX *ctx, void *buf, int len)
 {
 	BIO *in;
 	int ret = 0;
