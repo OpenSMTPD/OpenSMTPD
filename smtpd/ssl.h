@@ -66,4 +66,4 @@ int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
 
 /* libressl.c */
-int SSL_CTX_use_certificate_chain(SSL_CTX *, void *, int);
+int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
