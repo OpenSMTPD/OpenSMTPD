@@ -42,6 +42,7 @@ Portable OpenSMTPD relies on:
 * [libevent](http://libevent.org/)
 * [libtool](http://www.gnu.org/software/libtool/)
 * [openssl](http://www.openssl.org/)
+* [libasr](https://opensmtpd.org/archives/libasr-1.0.1.tar.gz)
 
 
 Get the source
@@ -66,20 +67,19 @@ Build
 
 ### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
 
-Please launch configure with special directive about libevent directory:
+Please launch configure with special directive about libevent and libasr directory:
 
 #### FreeBSD:
 
-    ./configure --with-libevent-dir=/usr/local
+    ./configure --with-libevent-dir=/usr/local --with-asr=/usr/local
 
 #### DragonFlyBSD:
 
-    ./configure --with-libevent-dir=/usr/pkg
+    ./configure --with-libevent-dir=/usr/pkg --with-asr=/usr/pkg
 
 #### Mac OS X:
 
-    ./configure --with-libevent-dir=/opt/local
-    make CFLAGS="-DBIND_8_COMPAT=1"
+    ./configure --with-libevent-dir=/opt/local --with-asr=/opt/local
 
 
 Install
