@@ -320,8 +320,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (resp_ca_cert->status == CA_FAIL) {
 			if (s->relay->pki_name) {
-				log_info("smtp-out: Disconnecting session %016"PRIx64
-				    ": CA failure", s->id);
+				log_info("smtp-out: session %016"PRIx64
+				    ": disconnected (CA failure)", s->id);
 				mta_free(s);
 				return;
 			}
@@ -557,9 +557,10 @@ mta_connect(struct mta_session *s)
 	else
 		schema = "smtp://";
 
-	log_info("smtp-out: Connecting to %s%s:%d (%s) on session"
-	    " %016"PRIx64"...", schema, sa_to_text(s->route->dst->sa),
-	    portno, s->route->dst->ptrname, s->id);
+	log_info("smtp-out: session %016" PRIx64
+	    ": connecting to %s%s:%d (%s)",
+	    s->id, schema, sa_to_text(s->route->dst->sa),
+	    portno, s->route->dst->ptrname);
 
 	mta_enter_state(s, MTA_INIT);
 	iobuf_xinit(&s->iobuf, 0, 0, "mta_connect");
@@ -1153,8 +1154,6 @@ mta_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_CONNECTED:
-		log_info("smtp-out: Connected on session %016"PRIx64, s->id);
-
 		if (s->use_smtps) {
 			io_set_write(io);
 			mta_start_tls(s);
@@ -1166,7 +1165,7 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_TLSREADY:
-		log_info("smtp-out: Started TLS on session %016"PRIx64": %s",
+		log_info("smtp-out: session %016"PRIx64": TLS started %s",
 		    s->id, ssl_to_text(s->io.ssl));
 		s->flags |= MTA_TLS;
 
@@ -1178,10 +1177,9 @@ mta_io(struct io *io, int evt)
 	case IO_TLSVERIFIED:
 		x = SSL_get_peer_certificate(s->io.ssl);
 		if (x) {
-			log_info("smtp-out: Server certificate verification %s "
-			    "on session %016"PRIx64,
-			    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
-			    s->id);
+			log_info("smtp-out: session %016"PRIx64
+			    ": server certificate verification %s",
+			    s->id, (s->flags & MTA_VERIFIED) ? "succeeded" : "failed");
 			X509_free(x);
 		}
 
@@ -1266,8 +1264,8 @@ mta_io(struct io *io, int evt)
 
 
 		if (s->state == MTA_QUIT) {
-			log_info("smtp-out: Closing session %016"PRIx64
-			    ": %zu message%s sent.", s->id, s->msgcount,
+			log_info("smtp-out: session %016"PRIx64
+			    ": connection closed, %zu message%s sent.", s->id, s->msgcount,
 			    (s->msgcount > 1) ? "s" : "");
 			mta_free(s);
 			return;
