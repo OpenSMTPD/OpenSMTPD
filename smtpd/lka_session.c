@@ -384,12 +384,14 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			*tag++ = '\0';
 
 		/* A username should not exceed the size of a system user */
+		/*
 		if (strlen(xn->u.user) >= sizeof fwreq.user) {
 			log_trace(TRACE_EXPAND, "expand: lka_expand: "
 			    "user-part too long to be a system user");
 			lks->error = LKA_PERMFAIL;
 			break;
 		}
+		*/
 
 		r = table_lookup(rule->r_userbase, NULL, xn->u.user, K_USERINFO, &lk);
 		if (r == -1) {

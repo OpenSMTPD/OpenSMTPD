@@ -98,7 +98,7 @@
 
 
 struct userinfo {
-	char username[LOGIN_NAME_MAX];
+	char username[LINE_MAX];
 	char directory[PATH_MAX];
 	uid_t uid;
 	gid_t gid;
@@ -400,15 +400,15 @@ struct rule {
 	struct table		       *r_userbase;
 	time_t				r_qexpire;
 	uint8_t				r_forwardonly;
-	char				r_delivery_user[LOGIN_NAME_MAX];
+	char				r_delivery_user[LINE_MAX];
 };
 
 struct delivery_mda {
 	enum action_type	method;
 	char			usertable[PATH_MAX];
-	char			username[LOGIN_NAME_MAX];
+	char			username[LINE_MAX];
 	char			buffer[EXPAND_BUFFER];
-	char			delivery_user[LOGIN_NAME_MAX];
+	char			delivery_user[LINE_MAX];
 };
 
 struct delivery_mta {
@@ -646,7 +646,7 @@ struct forward_req {
 	uint64_t			id;
 	uint8_t				status;
 
-	char				user[LOGIN_NAME_MAX];
+	char				user[LINE_MAX];
 	uid_t				uid;
 	gid_t				gid;
 	char				directory[PATH_MAX];
@@ -656,7 +656,7 @@ struct deliver {
 	char			to[PATH_MAX];
 	char			from[PATH_MAX];
 	char			dest[LINE_MAX];
-	char			user[LOGIN_NAME_MAX];
+	char			user[LINE_MAX];
 	short			mode;
 
 	struct userinfo		userinfo;
