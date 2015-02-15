@@ -30,6 +30,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/filter.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ioev.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/libressl.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/limit.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
