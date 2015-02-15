@@ -2,7 +2,7 @@ Preliminary note
 ================
 
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as defined
-by RFC 5321, with some additional standart extensions.
+by RFC 5321, with some additional standard extensions.
 
 It allows ordinary machines to exchange e-mails with other systems speaking
 the SMTP protocol.
