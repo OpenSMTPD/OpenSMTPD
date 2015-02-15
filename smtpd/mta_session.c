@@ -724,7 +724,8 @@ mta_enter_state(struct mta_session *s, int newstate)
 		}
 
 		if (s->msgtried >= MAX_TRYBEFOREDISABLE) {
-			log_info("smtp-out: Remote host seems to reject all mails on session %016"PRIx64,
+			log_info("smtp-out: session %016"PRIx64
+			    "remote host seems to reject all mails",
 			    s->id);
 			mta_route_down(s->relay, s->route);
 			mta_enter_state(s, MTA_QUIT);
@@ -1326,8 +1327,8 @@ mta_io(struct io *io, int evt)
 		else if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
 			/* error in non-strict SSL negotiation, downgrade to plain */
 			if (s->flags & MTA_TLS) {
-				log_info("smtp-out: Error on session %016"PRIx64
-				    ": opportunistic TLS failed, "
+				log_info("smtp-out: session %016"PRIx64
+				    ": error: opportunistic TLS failed, "
 				    "downgrading to plain", s->id);
 				s->flags &= ~MTA_TLS;
 				s->flags |= MTA_DOWNGRADE_PLAIN;
@@ -1343,8 +1344,8 @@ mta_io(struct io *io, int evt)
 		log_debug("debug: mta: %p: TLS IO error: %s", s, io->error);
 		if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
 			/* error in non-strict SSL negotiation, downgrade to plain */
-			log_info("smtp-out: TLS Error on session %016"PRIx64
-			    ": TLS failed, "
+			log_info("smtp-out: session %016"PRIx64
+			    ": error: TLS failed, "
 			    "downgrading to plain", s->id);
 			s->flags &= ~MTA_TLS;
 			s->flags |= MTA_DOWNGRADE_PLAIN;
@@ -1503,11 +1504,11 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 	va_end(ap);
 
 	if (s->msgcount)
-		log_info("smtp-out: Error on session %016"PRIx64
-		    " after %zu message%s sent: %s", s->id, s->msgcount,
+		log_info("smtp-out: session %016"PRIx64
+		    ": error after %zu message%s sent: %s", s->id, s->msgcount,
 		    (s->msgcount > 1) ? "s" : "", error);
 	else
-		log_info("smtp-out: Error on session %016"PRIx64 ": %s",
+		log_info("smtp-out: session %016"PRIx64 ": error: %s",
 		    s->id, error);
 	/*
 	 * If not connected yet, and the error is not local, just ignore it
