@@ -961,7 +961,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		TAILQ_FOREACH(rcpt, &s->rcpts, entry) {
 			log_info("smtp-in: session %016"PRIx64
-			    ": msgid=%08x, from=<%s%s%s>, to=<%s%s%s>, size=%zu, ndest=%zu, proto=%s",
+			    ": msgid=%08x, status=Ok, from=<%s%s%s>, to=<%s%s%s>, size=%zu, ndest=%zu, proto=%s",
 			    s->id,
 			    evpid_to_msgid(s->evp.id),
 			    s->evp.sender.user,

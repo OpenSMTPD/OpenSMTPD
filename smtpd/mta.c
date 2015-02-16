@@ -1609,12 +1609,12 @@ static void
 mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
     const char *relay, const char *status)
 {
-	log_info("smtp-out: session %016"PRIx64": status=%s, evpid=%016" PRIx64 ", "
+	log_info("smtp-out: session %016"PRIx64": evpid=%016" PRIx64 ", status=%s, "
 	    "from=<%s>, to=<%s>, rcpt=<%s>, source=%s, "
 	    "relay=%s, delay=%s, stat=%s",
 	    evp->session,
-	    prefix,
 	    evp->id,
+	    prefix,
 	    evp->task->sender,
 	    evp->dest,
 	    evp->rcpt ? evp->rcpt : "-",
