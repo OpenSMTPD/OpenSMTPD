@@ -651,7 +651,7 @@ queue_message_walk(struct envelope *ep, uint32_t msgid, int *done, void **data)
 		(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	}
 
-	return (-1);
+	return (0);
 }
 
 int
