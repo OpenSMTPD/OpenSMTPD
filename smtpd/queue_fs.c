@@ -243,6 +243,33 @@ again:
 }
 
 static int
+queue_fs_message_uncorrupt(uint32_t msgid)
+{
+	struct stat	sb;
+	char		queuedir[PATH_MAX];
+	char		corruptdir[PATH_MAX];
+
+	fsqueue_message_corrupt_path(msgid, corruptdir, sizeof(corruptdir));
+	if (stat(corruptdir, &sb) == -1) {
+		log_warnx("warn: queue-fs: stat %s failed", corruptdir);
+		return (0);
+	}
+
+	fsqueue_message_path(msgid, queuedir, sizeof(queuedir));
+	if (stat(queuedir, &sb) == 0) {
+		log_warnx("warn: queue-fs: %s already exists", queuedir);
+		return (0);
+	}
+
+	if (rename(corruptdir, queuedir) == -1) {
+		log_warn("warn: queue-fs: rename");
+		return 0;
+	}
+
+	return (1);
+}
+
+static int
 queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
     uint64_t *evpid)
 {
@@ -693,6 +720,7 @@ queue_fs_init(struct passwd *pw, int server, const char *conf)
 	queue_api_on_message_delete(queue_fs_message_delete);
 	queue_api_on_message_fd_r(queue_fs_message_fd_r);
 	queue_api_on_message_corrupt(queue_fs_message_corrupt);
+	queue_api_on_message_uncorrupt(queue_fs_message_uncorrupt);
 	queue_api_on_envelope_create(queue_fs_envelope_create);
 	queue_api_on_envelope_delete(queue_fs_envelope_delete);
 	queue_api_on_envelope_update(queue_fs_envelope_update);
