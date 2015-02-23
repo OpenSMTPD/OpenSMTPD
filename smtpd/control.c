@@ -116,6 +116,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_CTL_LIST_ENVELOPES:
 		case IMSG_CTL_DISCOVER_EVPID:
 		case IMSG_CTL_DISCOVER_MSGID:
+		case IMSG_CTL_UNCORRUPT_MSGID:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -774,6 +775,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		return;
 
 	case IMSG_CTL_DISCOVER_MSGID:
+	case IMSG_CTL_UNCORRUPT_MSGID:
 		if (c->euid)
 			goto badcred;
 

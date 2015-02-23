@@ -293,6 +293,12 @@ queue_message_corrupt(uint32_t msgid)
 }
 
 int
+queue_message_uncorrupt(uint32_t msgid)
+{
+	return handler_message_uncorrupt(msgid);
+}
+
+int
 queue_message_fd_r(uint32_t msgid)
 {
 	int	fdin, fdout = -1, fd = -1;

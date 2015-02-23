@@ -155,7 +155,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		13
+#define	IMSG_VERSION		14
 
 enum imsg_type {
 	IMSG_NONE,
@@ -196,6 +196,7 @@ enum imsg_type {
 	IMSG_CTL_VERBOSE,
 	IMSG_CTL_DISCOVER_EVPID,
 	IMSG_CTL_DISCOVER_MSGID,
+	IMSG_CTL_UNCORRUPT_MSGID,
 
 	IMSG_CTL_SMTP_SESSION,
 
@@ -1325,6 +1326,7 @@ int queue_message_commit(uint32_t);
 int queue_message_fd_r(uint32_t);
 int queue_message_fd_rw(uint32_t);
 int queue_message_corrupt(uint32_t);
+int queue_message_uncorrupt(uint32_t);
 int queue_envelope_create(struct envelope *);
 int queue_envelope_delete(uint64_t);
 int queue_envelope_load(uint64_t, struct envelope *);
