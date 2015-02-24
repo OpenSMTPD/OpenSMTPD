@@ -246,6 +246,7 @@ static int
 queue_fs_message_uncorrupt(uint32_t msgid)
 {
 	struct stat	sb;
+	char		bucketdir[PATH_MAX];
 	char		queuedir[PATH_MAX];
 	char		corruptdir[PATH_MAX];
 
@@ -261,9 +262,26 @@ queue_fs_message_uncorrupt(uint32_t msgid)
 		return (0);
 	}
 
+
+	if (! bsnprintf(bucketdir, sizeof bucketdir, "%s/%02x", PATH_QUEUE,
+	    (msgid & 0xff000000) >> 24)) {
+		log_warnx("warn: queue-fs: path too long");
+		return (0);
+	}
+
+	/* create the bucket */
+	if (mkdir(bucketdir, 0700) == -1) {
+		if (errno == ENOSPC)
+			return (0);
+		if (errno != EEXIST) {
+			log_warn("warn: queue-fs: mkdir");
+			return (0);
+		}
+	}
+
 	if (rename(corruptdir, queuedir) == -1) {
 		log_warn("warn: queue-fs: rename");
-		return 0;
+		return (0);
 	}
 
 	return (1);
