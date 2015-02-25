@@ -262,7 +262,6 @@ queue_fs_message_uncorrupt(uint32_t msgid)
 		return (0);
 	}
 
-
 	if (! bsnprintf(bucketdir, sizeof bucketdir, "%s/%02x", PATH_QUEUE,
 	    (msgid & 0xff000000) >> 24)) {
 		log_warnx("warn: queue-fs: path too long");
