@@ -66,6 +66,7 @@ static int (*handler_message_commit)(uint32_t, const char*);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
+static int (*handler_message_uncorrupt)(uint32_t);
 static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
 static int (*handler_envelope_delete)(uint64_t);
 static int (*handler_envelope_update)(uint64_t, const char *, size_t);
@@ -293,6 +294,12 @@ queue_message_corrupt(uint32_t msgid)
 	    "queue-backend: queue_message_corrupt(%08"PRIx32") -> %d", msgid, r);
 
 	return (r);
+}
+
+int
+queue_message_uncorrupt(uint32_t msgid)
+{
+	return handler_message_uncorrupt(msgid);
 }
 
 int
@@ -785,6 +792,12 @@ void
 queue_api_on_message_corrupt(int(*cb)(uint32_t))
 {
 	handler_message_corrupt = cb;
+}
+
+void
+queue_api_on_message_uncorrupt(int(*cb)(uint32_t))
+{
+	handler_message_uncorrupt = cb;
 }
 
 void
