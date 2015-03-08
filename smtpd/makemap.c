@@ -235,7 +235,6 @@ parse_map(char *filename)
 	char	*line;
 	size_t	 len;
 	size_t	 lineno = 0;
-	char	 delim[] = { '\\', '\\', '#' };
 
 	if (strcmp(filename, "-") == 0)
 		fp = fdopen(0, "r");
@@ -255,7 +254,8 @@ parse_map(char *filename)
 		return 0;
 	}
 
-	while ((line = fparseln(fp, &len, &lineno, delim, 0)) != NULL) {
+	while ((line = fparseln(fp, &len, &lineno,
+	    NULL, FPARSELN_UNESCCOMM)) != NULL) {
 		if (! parse_entry(line, len, lineno)) {
 			free(line);
 			fclose(fp);
@@ -292,7 +292,7 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 	keyp = line;
 	while (isspace((unsigned char)*keyp))
 		keyp++;
-	if (*keyp == '\0' || *keyp == '#')
+	if (*keyp == '\0')
 		return 1;
 
 	valp = keyp;
@@ -301,7 +301,7 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 		goto bad;
 	while (*valp == ':' || isspace((unsigned char)*valp))
 		valp++;
-	if (*valp == '\0' || *valp == '#')
+	if (*valp == '\0')
 		goto bad;
 
 	/* Check for dups. */
@@ -349,7 +349,7 @@ parse_setentry(char *line, size_t len, size_t lineno)
 	keyp = line;
 	while (isspace((unsigned char)*keyp))
 		keyp++;
-	if (*keyp == '\0' || *keyp == '#')
+	if (*keyp == '\0')
 		return 1;
 
 	val.data  = "<set>";
