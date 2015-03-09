@@ -275,11 +275,10 @@ function.
 .El
 .Pp
 You can also accept mail just to have it forwarded elsewhere:
-.Pp
 .Bl -tag -width Ds
 .It forward-only
-.Xc
-Mail is accepted for local recipients ONLY if it is redirected to an external address via an alias or a ~/.forward.
+Mail is accepted for local recipients ONLY if it is redirected to an
+external address via an alias or a ~/.forward.
 .Pp
 Example:
 .Bd -literal -offset indent
@@ -592,11 +591,12 @@ expire 10h	# expire after 10 hours
 .Brq Cm max-rcpt | max-mails
 .Ar num
 .Xc
-Instruct   
+Instruct
 .Xr smtpd 8
-to accept a maximum number of recipients or emails at once in the receiving queue. Defaults are 100 for 
-.Ic max-mails 
-and 1000 for 
+to accept a maximum number of recipients or emails at once in the
+receiving queue. Defaults are 100 for
+.Ic max-mails
+and 1000 for
 .Ic max-rcpt .
 .It Xo
 .Ic limit mta
