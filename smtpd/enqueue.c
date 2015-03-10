@@ -245,10 +245,15 @@ enqueue(int argc, char *argv[])
 			user = xstrdup(pw->pw_name, "enqueue");
 	}
 	else {
-		if ((user = getlogin()) != NULL && *user != '\0')
-			pw = getpwnam(user);
-		else if ((pw = getpwuid(getuid())) == NULL)
+		uid_t ruid = getuid();
+
+		if ((user = getlogin()) != NULL && *user != '\0') {
+			if ((pw = getpwnam(user)) == NULL ||
+			    (ruid != 0 && ruid != pw->pw_uid))
+				pw = getpwuid(ruid);
+		} else if ((pw = getpwuid(ruid)) == NULL) {
 			user = "anonymous";
+		}
 		user = xstrdup(pw ? pw->pw_name : user, "enqueue");
 	}
 
