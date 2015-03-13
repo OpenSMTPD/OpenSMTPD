@@ -193,10 +193,8 @@ smtp_setup_events(void)
 
 	purge_config(PURGE_PKI_KEYS);
 
-	/* XXX chl */
 	log_debug("debug: smtp: will accept at most %d clients",
-	    /* (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE); */
-	    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE);
+	    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE); /* XXX better way? */
 }
 
 static void
@@ -330,9 +328,7 @@ smtp_can_accept(void)
 {
 	size_t max;
 
-	/* XXX chl */
-	/* max = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE; */
-	max =    (getdtablesize() - 42)/2 - SMTP_FD_RESERVE;
+	max = (getdtablesize() - 42)/2 - SMTP_FD_RESERVE; /* XXX better way?*/
 
 	return (sessions < max);
 }
