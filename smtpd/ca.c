@@ -564,8 +564,6 @@ ca_engine_init(void)
 
 	if (rsa_default->rsa_mod_exp == NULL)
 		rsae_method.rsa_mod_exp = NULL;
-	if (rsa_default->rsa_mod_exp == NULL)
-		rsae_method.rsa_mod_exp = NULL;
 	if (rsa_default->bn_mod_exp == NULL)
 		rsae_method.bn_mod_exp = NULL;
 	if (rsa_default->rsa_keygen == NULL)
