@@ -34,7 +34,6 @@
 #include <imsg.h>
 #include <pwd.h>
 #include <err.h>
-#include <grp.h>
 
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
@@ -567,8 +566,6 @@ ca_engine_init(void)
 	if (rsa_default->flags & RSA_FLAG_SIGN_VER)
 		fatalx("unsupported RSA engine");
 
-	if (rsa_default->rsa_mod_exp == NULL)
-		rsae_method.rsa_mod_exp = NULL;
 	if (rsa_default->rsa_mod_exp == NULL)
 		rsae_method.rsa_mod_exp = NULL;
 	if (rsa_default->bn_mod_exp == NULL)
