@@ -61,20 +61,6 @@ enum
 # endif /* PATH_MAX */
 #endif /* MAXPATHLEN */
 
-/*
- * Looks like ugly, but MAX_IMSGSIZE equals 16384,
- * and if we don't care it will overflow for some struct
- */
-#if PATH_MAX > 1024
-#  undef  PATH_MAX
-#  define PATH_MAX 1024
-#endif
-
-#if MAXPATHLEN > 1024
-#  undef  MAXPATHLEN
-#  define MAXPATHLEN 1024
-#endif
-
 #ifndef MAXHOSTNAMELEN
 # define MAXHOSTNAMELEN  64
 #endif
