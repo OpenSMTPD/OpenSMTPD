@@ -840,4 +840,15 @@ struct winsize {
 #endif
 /* end of chl */
 
+#ifndef HAVE_FPARSELN
+/*
+ * fparseln() specific operation flags.
+ */
+#define FPARSELN_UNESCESC       0x01
+#define FPARSELN_UNESCCONT      0x02
+#define FPARSELN_UNESCCOMM      0x04
+#define FPARSELN_UNESCREST      0x08
+#define FPARSELN_UNESCALL       0x0f
+#endif
+
 #endif /* _DEFINES_H */
