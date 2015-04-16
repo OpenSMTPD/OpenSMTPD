@@ -195,6 +195,7 @@ static uint8_t dsn_notify_str_to_uint8(const char *);
 static void smtp_auth_failure_pause(struct smtp_session *);
 static void smtp_auth_failure_resume(int, short, void *);
 static int smtp_sni_callback(SSL *, int *, void *);
+static const char * smtp_sni_get_servername(struct smtp_session *);
 
 static void smtp_filter_connect(struct smtp_session *, struct sockaddr *);
 static void smtp_filter_rset(struct smtp_session *);
@@ -1045,7 +1046,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else
 			pkiname = s->smtpname;
 		ssl_ctx = dict_get(env->sc_ssl_dict, pkiname);
-		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback, s);
+		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 
@@ -1317,6 +1318,7 @@ smtp_io(struct io *io, int evt)
 {
 	struct ca_cert_req_msg	req_ca_cert;
 	struct smtp_session    *s = io->arg;
+	const char	       *sn;
 	char		       *line;
 	size_t			len, i;
 	X509		       *x;
@@ -1333,6 +1335,14 @@ smtp_io(struct io *io, int evt)
 		s->flags |= SF_SECURE;
 		s->kickcount = 0;
 		s->phase = PHASE_INIT;
+
+		sn = smtp_sni_get_servername(s);
+		if (sn) {
+			if (strlcpy(s->sni, sn, sizeof s->sni) >= sizeof s->sni) {
+				smtp_free(s, "client SNI exceeds max hostname length");
+				return;
+			}
+		}
 
 		if (smtp_verify_certificate(s)) {
 			io_pause(&s->io, IO_PAUSE_IN);
@@ -2453,6 +2463,16 @@ smtp_auth_failure_pause(struct smtp_session *s)
 	evtimer_add(&s->pause, &tv);
 }
 
+static const char *
+smtp_sni_get_servername(struct smtp_session *s)
+{
+#if defined(HAVE_TLSEXT_SERVERNAME)
+	return SSL_get_servername(s->io.ssl, TLSEXT_NAMETYPE_host_name);
+#else
+	return NULL;
+#endif /* defined(HAVE_TLSEXT_SERVERNAME) */
+}
+
 static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
@@ -2464,10 +2484,6 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 	if (sn == NULL)
 		return SSL_TLSEXT_ERR_NOACK;
-	if (strlcpy(s->sni, sn, sizeof s->sni) >= sizeof s->sni) {
-		log_warnx("warn: client SNI exceeds max hostname length");
-		return SSL_TLSEXT_ERR_NOACK;
-	}
 	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
 	if (ssl_ctx == NULL) {
 		log_info("smtp-in: session %016"PRIx64
