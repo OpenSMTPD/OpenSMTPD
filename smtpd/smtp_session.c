@@ -2471,19 +2471,14 @@ static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
 	const char		*sn;
-	struct smtp_session	*s = arg;
 	void			*ssl_ctx;
 
 	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 	if (sn == NULL)
 		return SSL_TLSEXT_ERR_NOACK;
 	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
-	if (ssl_ctx == NULL) {
-		log_info("smtp-in: session %016"PRIx64
-		    ": no pki configured for client requested SNI \"%s\"",
-		    s->id, sn);
+	if (ssl_ctx == NULL)
 		return SSL_TLSEXT_ERR_NOACK;
-	}
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
 }
