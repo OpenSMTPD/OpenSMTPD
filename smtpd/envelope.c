@@ -34,6 +34,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>

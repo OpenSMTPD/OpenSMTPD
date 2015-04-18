@@ -32,6 +32,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <openssl/ssl.h>
 #include <resolv.h>
 #include <stdio.h>

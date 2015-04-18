@@ -37,6 +37,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
+#include <limits.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <resolv.h>

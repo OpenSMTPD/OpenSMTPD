@@ -179,7 +179,7 @@ queue_message_create(uint32_t *msgid)
 int
 queue_message_delete(uint32_t msgid)
 {
-	char	msgpath[MAXPATHLEN];
+	char	msgpath[SMTPD_MAXPATHLEN];
 	int	r;
 
 	profile_enter("queue_message_delete");
@@ -200,8 +200,8 @@ int
 queue_message_commit(uint32_t msgid)
 {
 	int	r;
-	char	msgpath[MAXPATHLEN];
-	char	tmppath[MAXPATHLEN];
+	char	msgpath[SMTPD_MAXPATHLEN];
+	char	tmppath[SMTPD_MAXPATHLEN];
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 

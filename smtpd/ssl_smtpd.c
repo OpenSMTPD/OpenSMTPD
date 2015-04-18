@@ -28,6 +28,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>

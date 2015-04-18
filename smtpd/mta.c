@@ -30,6 +30,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <signal.h>
