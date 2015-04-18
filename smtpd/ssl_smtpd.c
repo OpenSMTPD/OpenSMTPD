@@ -84,7 +84,7 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 }
 
 void *
-ssl_smtp_init(void *ssl_ctx, void *sni, void *arg)
+ssl_smtp_init(void *ssl_ctx, void *sni)
 {
 	SSL	*ssl = NULL;
 	int	(*cb)(SSL *,int *,void *) = sni;
@@ -94,10 +94,8 @@ ssl_smtp_init(void *ssl_ctx, void *sni, void *arg)
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
 #if defined HAVE_TLSEXT_SERVERNAME
-	if (cb) {
+	if (cb)
 		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, cb);
-		SSL_CTX_set_tlsext_servername_arg(ssl_ctx, arg);
-	}
 #endif
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)

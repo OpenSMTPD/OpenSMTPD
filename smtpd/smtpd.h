@@ -1357,7 +1357,7 @@ int fork_proc_backend(const char *, const char *, const char *);
 
 /* ssl_smtpd.c */
 void   *ssl_mta_init(void *, char *, off_t);
-void   *ssl_smtp_init(void *, void *, void *);
+void   *ssl_smtp_init(void *, void *);
 
 
 /* stat_backend.c */
