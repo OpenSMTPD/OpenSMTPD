@@ -33,6 +33,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <netdb.h>
 #include <openssl/ssl.h>
 #include <pwd.h>

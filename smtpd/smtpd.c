@@ -53,6 +53,7 @@
 #include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #ifdef HAVE_LOGIN_CAP_H
 #include <login_cap.h>
 #endif
@@ -1165,6 +1166,7 @@ offline_enqueue(char *name)
 		p[len - 1] = '\0';
 
 		addargs(&args, "%s", "sendmail");
+		addargs(&args, "%s", "-S");
 
 		while ((tmp = strsep(&p, "|")) != NULL)
 			addargs(&args, "%s", tmp);

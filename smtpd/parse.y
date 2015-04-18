@@ -43,6 +43,7 @@
 #include <ifaddrs.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <netdb.h>
 #include <paths.h>
 #include <pwd.h>
@@ -778,7 +779,7 @@ main		: BOUNCEWARN {
 			}
 		} filter_args;
 		| PKI STRING	{
-			char buf[MAXHOSTNAMELEN];
+			char buf[SMTPD_MAXHOSTNAMELEN];
 			xlowercase(buf, $2, sizeof(buf));
 			free($2);
 			pki = dict_get(conf->sc_pki_dict, buf);
