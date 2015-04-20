@@ -186,18 +186,14 @@ ca_verify_cb(int ok, X509_STORE_CTX *ctx)
 	case X509_V_OK:
 		break;
         case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
-		log_warnx("warn: unable to get issuer cert");
 		break;
         case X509_V_ERR_CERT_NOT_YET_VALID:
         case X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD:
-		log_warnx("warn: certificate not yet valid");
 		break;
         case X509_V_ERR_CERT_HAS_EXPIRED:
         case X509_V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD:
-		log_warnx("warn: certificate has expired");
 		break;
         case X509_V_ERR_NO_EXPLICIT_POLICY:
-		log_warnx("warn: no explicit policy");
 		break;
 	}
 	return ok;
