@@ -1,6 +1,8 @@
 Preliminary note
 ================
 
+[![Join the chat at https://gitter.im/OpenSMTPD/OpenSMTPD](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/OpenSMTPD/OpenSMTPD?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as defined
 by RFC 5321, with some additional standard extensions.
 
