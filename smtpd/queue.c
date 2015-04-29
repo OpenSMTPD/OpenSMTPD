@@ -610,6 +610,7 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	b.lasttry = 0;
 	b.creation = time(NULL);
 	b.expire = 3600 * 24 * 7;
+	b.dsn_ret = e->dsn_ret;
 
 	if (e->dsn_notify & DSN_NEVER)
 		return;
