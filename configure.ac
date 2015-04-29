@@ -2465,50 +2465,6 @@ AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"],
 	[Specify location of spooler])
 AC_SUBST([spooldir])
 
-# Whether to enable *experimental* SQLite support
-EXPERIMENTAL_SQLITE=no
-AC_ARG_WITH([experimental-sqlite],
-	[  --with-experimental-sqlite	Enable experimental SQLite support],
-	[
-		if test "x$withval" != "xno" ; then
-			AC_DEFINE([HAVE_SQLITE], [1],
-				[Define if you have experimental SQLite support])
-				AC_CHECK_HEADER([sqlite3.h],
-						[AC_DEFINE([HAVE_SQLITE3_H], [], [if you have the <sqlite3.h> header file]) ],
-						[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
-						)
-
-				save_LIBS="$LIBS"
-				saved_CPPFLAGS="$CPPFLAGS"
-				saved_LDFLAGS="$LDFLAGS"
-				AC_CHECK_LIB([sqlite3], [sqlite3_open], ,
-					[
-						dnl Check default sqlite install dir
-						if test -n "${need_dash_r}"; then
-							LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-						else
-							LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-						fi
-						CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-						LIBS="$LIBS -lsqlite3"
-						AC_TRY_LINK_FUNC([sqlite3_open], [AC_DEFINE([HAVE_LIBSQLITE3])],
-							[
-							AC_MSG_ERROR([*** sqlite3 missing - please install first or check config.log ***])
-							]
-						)
-					]
-				)
-				CPPFLAGS="$saved_CPPFLAGS"
-				LDFLAGS="$saved_LDFLAGS"
-				LIBS="$save_LIBS"
-			EXPERIMENTAL_SQLITE=yes
-		fi
-	]
-)
-AM_CONDITIONAL([HAVE_SQLITE], [test $EXPERIMENTAL_SQLITE = yes])
-
-dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
-
 
 #l4742
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
