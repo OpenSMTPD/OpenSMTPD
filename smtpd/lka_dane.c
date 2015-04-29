@@ -48,7 +48,7 @@
 /* DANE support */
 /*
  * Bringing DANE support to OpenSMTPD is relatively simple as soon as
- * ASR supports DNSSEC and TLSA RR.
+ * ASR supports TLSA RR.
  *
  * This file contains the OpenSMTPD-side DANE verification which will
  * be plugged in the lookup process when ASR is ready.
