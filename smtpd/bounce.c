@@ -151,6 +151,8 @@ bounce_add(uint64_t evpid)
 	key.msgid = evpid_to_msgid(evpid);
 	key.bounce = evp.agent.bounce;
 	key.smtpname = evp.smtpname;
+	key.bounce.type = B_DSN;
+	key.bounce.dsn_ret = evp.dsn_ret;
 	msg = SPLAY_FIND(bounce_message_tree, &messages, &key);
 	if (msg == NULL) {
 		msg = xcalloc(1, sizeof(*msg), "bounce_add");

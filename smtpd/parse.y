@@ -107,20 +107,22 @@ struct mta_limits	*limits;
 static struct pki	*pki;
 
 enum listen_options {
-	LO_FAMILY	= 0x0001,
-	LO_PORT		= 0x0002,
-	LO_SSL		= 0x0004,
-	LO_FILTER      	= 0x0008,
-	LO_PKI      	= 0x0010,
-	LO_AUTH      	= 0x0020,
-	LO_TAG      	= 0x0040,
-	LO_HOSTNAME   	= 0x0080,
-	LO_HOSTNAMES   	= 0x0100,
-	LO_MASKSOURCE  	= 0x0200,
-	LO_NODSN	= 0x0400,
-	LO_SENDERS	= 0x0800,
-	LO_RECEIVEDAUTH	= 0x1000,
-	LO_MASQUERADE	= 0x2000,
+	LO_FAMILY		= 0x000001,
+	LO_PORT			= 0x000002,
+	LO_SSL			= 0x000004,
+	LO_FILTER		= 0x000008,
+	LO_PKI			= 0x000010,
+	LO_AUTH			= 0x000020,
+	LO_TAG			= 0x000040,
+	LO_HOSTNAME		= 0x000080,
+	LO_HOSTNAMES		= 0x000100,
+	LO_MASKSOURCE		= 0x000200,
+	LO_NODSN		= 0x000400,
+	LO_SENDERS		= 0x000800,
+	LO_RECEIVEDAUTH		= 0x001000,
+	LO_MASQUERADE		= 0x002000,
+	LO_DSNNOTIFY_DISABLE	= 0x004000,
+	LO_DSNRET_HEADERS	= 0x008000,
 };
 
 static struct listen_opts {
@@ -138,7 +140,7 @@ static struct listen_opts {
 	struct table   *sendertable;
 	uint16_t	flags;
 
-	uint16_t       	options;
+	uint32_t       	options;
 } listen_opts;
 
 static void	create_listener(struct listenerlist *,  struct listen_opts *);
@@ -177,7 +179,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE
+%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE DSNNOTIFY DISABLE DSNRET HEADERS
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -607,6 +609,30 @@ opt_listen     	: INET4			{
 			}
 			listen_opts.options |= LO_NODSN;
 			listen_opts.flags &= ~F_EXT_DSN;
+		}
+		| DSNNOTIFY DISABLE {
+			if (listen_opts.options & LO_DSNRET_HEADERS) {
+				yyerror("dsn-notify used in ambiguous context");
+				YYERROR;
+			}
+			if (listen_opts.options & LO_DSNNOTIFY_DISABLE) {
+				yyerror("dsn-notify already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_DSNNOTIFY_DISABLE;
+			listen_opts.flags |= F_DSNNOTIFY_DISABLE;
+		}
+		| DSNRET HEADERS {
+			if (listen_opts.options & LO_DSNNOTIFY_DISABLE) {
+				yyerror("dsn-ret used in ambiguous context");
+				YYERROR;
+			}
+			if (listen_opts.options & LO_DSNRET_HEADERS) {
+				yyerror("dsn-ret already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_DSNRET_HEADERS;
+			listen_opts.flags |= F_DSNRET_HEADERS;
 		}
 		| SENDERS tables	{
 			struct table	*t = $2;
@@ -1366,13 +1392,17 @@ lookup(char *s)
 		{ "curve",		CURVE },
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
+		{ "disable",		DISABLE },
 		{ "domain",		DOMAIN },
+		{ "dsn-notify",		DSNNOTIFY },
+		{ "dsn-ret",		DSNRET },
 		{ "encryption",		ENCRYPTION },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
+		{ "headers",		HEADERS },
 		{ "hostname",		HOSTNAME },
 		{ "hostnames",		HOSTNAMES },
 		{ "include",		INCLUDE },
