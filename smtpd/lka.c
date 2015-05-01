@@ -137,8 +137,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p);
 			return;
 
-		case IMSG_SMTP_SSL_INIT:
-		case IMSG_MTA_SSL_INIT:
+		case IMSG_SMTP_TLS_INIT:
+		case IMSG_MTA_TLS_INIT:
 			req_ca_cert = imsg->data;
 			resp_ca_cert.reqid = req_ca_cert->reqid;
 
@@ -160,8 +160,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			m_composev(p, imsg->hdr.type, 0, 0, -1, iov, nitems(iov));
 			return;
 
-		case IMSG_SMTP_SSL_VERIFY_CERT:
-		case IMSG_MTA_SSL_VERIFY_CERT:
+		case IMSG_SMTP_TLS_VERIFY_CERT:
+		case IMSG_MTA_TLS_VERIFY_CERT:
 			req_ca_vrfy = xmemdup(imsg->data, sizeof *req_ca_vrfy, "lka:ca_vrfy");
 			req_ca_vrfy->cert = xmemdup((char *)imsg->data +
 			    sizeof *req_ca_vrfy, req_ca_vrfy->cert_len, "lka:ca_vrfy");
@@ -171,8 +171,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			    sizeof (off_t), "lka:ca_vrfy");
 			return;
 
-		case IMSG_SMTP_SSL_VERIFY_CHAIN:
-		case IMSG_MTA_SSL_VERIFY_CHAIN:
+		case IMSG_SMTP_TLS_VERIFY_CHAIN:
+		case IMSG_MTA_TLS_VERIFY_CHAIN:
 			if (req_ca_vrfy == NULL)
 				fatalx("lka:ca_vrfy: chain without a certificate");
 			req_ca_vrfy_chain = imsg->data;
@@ -182,8 +182,8 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			req_ca_vrfy->chain_offset++;
 			return;
 
-		case IMSG_SMTP_SSL_VERIFY:
-		case IMSG_MTA_SSL_VERIFY:
+		case IMSG_SMTP_TLS_VERIFY:
+		case IMSG_MTA_TLS_VERIFY:
 			if (req_ca_vrfy == NULL)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 

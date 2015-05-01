@@ -384,11 +384,11 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			mta_session_imsg(p, imsg);
 			return;
 
-		case IMSG_MTA_SSL_INIT:
+		case IMSG_MTA_TLS_INIT:
 			mta_session_imsg(p, imsg);
 			return;
 
-		case IMSG_MTA_SSL_VERIFY:
+		case IMSG_MTA_TLS_VERIFY:
 			mta_session_imsg(p, imsg);
 			return;
 		}

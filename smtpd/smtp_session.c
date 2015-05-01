@@ -1023,7 +1023,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_reload(&s->io);
 		return;
 
-	case IMSG_SMTP_SSL_INIT:
+	case IMSG_SMTP_TLS_INIT:
 		resp_ca_cert = imsg->data;
 		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
 
@@ -1053,7 +1053,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		free(resp_ca_cert);
 		return;
 
-	case IMSG_SMTP_SSL_VERIFY:
+	case IMSG_SMTP_TLS_VERIFY:
 		resp_ca_vrfy = imsg->data;
 		s = tree_xpop(&wait_ssl_verify, resp_ca_vrfy->reqid);
 
@@ -1111,7 +1111,7 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 			else
 				(void)strlcpy(req_ca_cert.name, s->smtpname,
 				    sizeof req_ca_cert.name);
-			m_compose(p_lka, IMSG_SMTP_SSL_INIT, 0, 0, -1,
+			m_compose(p_lka, IMSG_SMTP_TLS_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
 			tree_xset(&wait_ssl_init, s->id, s);
 			return;
@@ -1474,7 +1474,7 @@ smtp_io(struct io *io, int evt)
 			else
 				(void)strlcpy(req_ca_cert.name, s->smtpname,
 				    sizeof req_ca_cert.name);
-			m_compose(p_lka, IMSG_SMTP_SSL_INIT, 0, 0, -1,
+			m_compose(p_lka, IMSG_SMTP_TLS_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
 			tree_xset(&wait_ssl_init, s->id, s);
 			break;
@@ -2411,7 +2411,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	iov[0].iov_len = sizeof(req_ca_vrfy);
 	iov[1].iov_base = req_ca_vrfy.cert;
 	iov[1].iov_len = req_ca_vrfy.cert_len;
-	m_composev(p_lka, IMSG_SMTP_SSL_VERIFY_CERT, 0, 0, -1,
+	m_composev(p_lka, IMSG_SMTP_TLS_VERIFY_CERT, 0, 0, -1,
 	    iov, nitems(iov));
 	free(req_ca_vrfy.cert);
 	X509_free(x);
@@ -2427,7 +2427,7 @@ smtp_verify_certificate(struct smtp_session *s)
 			iov[0].iov_len  = sizeof(req_ca_vrfy);
 			iov[1].iov_base = req_ca_vrfy.cert;
 			iov[1].iov_len  = req_ca_vrfy.cert_len;
-			m_composev(p_lka, IMSG_SMTP_SSL_VERIFY_CHAIN, 0, 0, -1,
+			m_composev(p_lka, IMSG_SMTP_TLS_VERIFY_CHAIN, 0, 0, -1,
 			    iov, nitems(iov));
 			free(req_ca_vrfy.cert);
 		}
@@ -2436,7 +2436,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	/* Tell lookup process that it can start verifying, we're done */
 	memset(&req_ca_vrfy, 0, sizeof req_ca_vrfy);
 	req_ca_vrfy.reqid = s->id;
-	m_compose(p_lka, IMSG_SMTP_SSL_VERIFY, 0, 0, -1,
+	m_compose(p_lka, IMSG_SMTP_TLS_VERIFY, 0, 0, -1,
 	    &req_ca_vrfy, sizeof req_ca_vrfy);
 
 	return 1;

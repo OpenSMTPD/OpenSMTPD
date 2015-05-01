@@ -63,8 +63,8 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_SMTP_EXPAND_RCPT:
 		case IMSG_SMTP_LOOKUP_HELO:
 		case IMSG_SMTP_AUTHENTICATE:
-		case IMSG_SMTP_SSL_INIT:
-		case IMSG_SMTP_SSL_VERIFY:
+		case IMSG_SMTP_TLS_INIT:
+		case IMSG_SMTP_TLS_VERIFY:
 			smtp_session_imsg(p, imsg);
 			return;
 		}
