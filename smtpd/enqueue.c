@@ -184,7 +184,7 @@ enqueue(int argc, char *argv[])
 	save_argv = argv;
 
 	while ((ch = getopt(argc, argv,
-	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qRS:tvV:x")) != -1) {
+	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qRStvV:x")) != -1) {
 		switch (ch) {
 		case 'f':
 			fake_from = optarg;
