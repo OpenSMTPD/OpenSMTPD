@@ -130,4 +130,11 @@ CFLAGS+=	-DIO_SSL
 CFLAGS+=	-DQUEUE_PROFILING
 YFLAGS=
 
+uninstall:
+	rm -f /usr/share/man/man8/smtpd.8
+	rm -f /usr/share/man/man5/smtpd.conf.5
+	rm -f /usr/share/man/man5/table.5
+	rm -f /usr/sbin/smtpd
+
 .include <bsd.prog.mk>
+
