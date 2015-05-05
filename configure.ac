@@ -88,7 +88,10 @@ AC_C_INLINE
 AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 #l108
 
-#l150 (without _FORTIFY_SOURCE=2)
+
+#
+# CHECK COMPILER FLAGS & ENVIRONMENT
+#
 if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	OSSH_CHECK_CFLAG_COMPILE([-Qunused-arguments])
 	OSSH_CHECK_CFLAG_COMPILE([-Wunknown-warning-option])
@@ -189,6 +192,7 @@ if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	fi
 fi
 
+
 AC_MSG_CHECKING([if compiler allows __attribute__ on return types])
 AC_COMPILE_IFELSE(
     [AC_LANG_PROGRAM([[
@@ -205,6 +209,87 @@ if test "x$no_attrib_nonnull" != "x1" ; then
 	AC_DEFINE([HAVE_ATTRIBUTE__NONNULL__], [1], [Have attribute nonnull])
 fi
 
+AC_MSG_CHECKING([compiler and flags for sanity])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
+	[	AC_MSG_RESULT([yes]) ],
+	[
+		AC_MSG_RESULT([no])
+		AC_MSG_ERROR([*** compiler cannot create working executables, check config.log ***])
+	],
+	[	AC_MSG_WARN([cross compiling: not checking compiler sanity]) ]
+)
+
+
+
+#
+# CHECK OPERATING SYSTEM
+#
+case "$host" in
+*-*-darwin*)
+	use_pie=auto
+	AC_MSG_CHECKING([if we have working getaddrinfo])
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[ #include <mach-o/dyld.h>
+main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
+		exit(0);
+	else
+		exit(1);
+}
+			]])],
+	[AC_MSG_RESULT([working])],
+	[AC_MSG_RESULT([buggy])
+	AC_DEFINE([BROKEN_GETADDRINFO], [1],
+		[getaddrinfo is broken (if present)])
+	],
+	[AC_MSG_RESULT([assume it is working])])
+	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
+	    [Define if your platform breaks doing a seteuid before a setuid])
+	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
+	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
+	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
+	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
+		[Define to a Set Process Title type if your system is
+		supported by bsd-setproctitle.c])
+	;;
+*-*-dragonfly*)
+	SMTPDLIBS="$SMTPDLIBS -lcrypt"
+	;;
+*-*-linux* | *-gnu* | *-k*bsd*-gnu* )
+	use_pie=auto
+	check_for_libcrypt_later=1
+	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
+	case `uname -r` in
+	1.*|2.0.*)
+		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
+			[Define if cmsg_type is not passed correctly])
+		;;
+	esac
+	;;
+*-*-netbsd*)
+	check_for_libcrypt_before=1
+	need_dash_r=1
+	AC_DEFINE([BROKEN_STRNVIS], [1],
+	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
+	;;
+*-*-freebsd*)
+	check_for_libcrypt_later=1
+	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
+	AC_DEFINE([BROKEN_STRNVIS], [1],
+	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
+	;;
+*-*-openbsd*)
+	use_pie=auto
+	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
+	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
+	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
+	;;
+esac
+
+
+
+#
+# CONFIGURE OPTIONS
+#
+
 AC_ARG_WITH([rpath],
 	[  --without-rpath         Disable auto-added -R linker paths],
 	[
@@ -217,7 +302,6 @@ AC_ARG_WITH([rpath],
 	]
 )
 
-# Allow user to specify flags
 AC_ARG_WITH([cflags],
 	[  --with-cflags           Specify additional flags to pass to compiler],
 	[
@@ -265,7 +349,48 @@ AC_ARG_WITH([Werror],
 		fi
 	]
 )
-#l325
+
+AC_ARG_WITH([zlib],
+	[  --with-zlib=PATH        Use zlib in PATH],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** zlib is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+AC_ARG_WITH([pie],
+    [  --with-pie             Build Position Independent Executables if possible], [
+	if test "x$withval" = "xno"; then
+		use_pie=no
+	fi
+	if test "x$withval" = "xyes"; then
+		use_pie=yes
+	fi
+    ]
+)
+
+
+#
+#
+#
 
 AC_CHECK_HEADERS([ \
 	crypt.h \
@@ -311,77 +436,9 @@ AC_CHECK_HEADERS([sys/mount.h], [], [], [
 
 #l432 (customized)
 # Check for some target-specific stuff
-case "$host" in
-*-*-darwin*)
-	use_pie=auto
-	AC_MSG_CHECKING([if we have working getaddrinfo])
-	AC_RUN_IFELSE([AC_LANG_SOURCE([[ #include <mach-o/dyld.h>
-main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
-		exit(0);
-	else
-		exit(1);
-}
-			]])],
-	[AC_MSG_RESULT([working])],
-	[AC_MSG_RESULT([buggy])
-	AC_DEFINE([BROKEN_GETADDRINFO], [1],
-		[getaddrinfo is broken (if present)])
-	],
-	[AC_MSG_RESULT([assume it is working])])
-	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
-	    [Define if your platform breaks doing a seteuid before a setuid])
-	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
-	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
-	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
-	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
-		[Define to a Set Process Title type if your system is
-		supported by bsd-setproctitle.c])
-	;;
-*-*-dragonfly*)
-	SMTPDLIBS="$SMTPDLIBS -lcrypt"
-	;;
-*-*-linux* | *-gnu* | *-k*bsd*-gnu* )
-	use_pie=auto
-	check_for_libcrypt_later=1
-	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
-	case `uname -r` in
-	1.*|2.0.*)
-		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
-			[Define if cmsg_type is not passed correctly])
-		;;
-	esac
-	;;
-*-*-netbsd*)
-	check_for_libcrypt_before=1
-	if test "x$withval" != "xno" ; then
-		need_dash_r=1
-	fi
-	AC_DEFINE([BROKEN_STRNVIS], [1],
-	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
-	;;
-*-*-freebsd*)
-	check_for_libcrypt_later=1
-	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
-	AC_DEFINE([BROKEN_STRNVIS], [1],
-	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
-	;;
-*-*-openbsd*)
-	use_pie=auto
-	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
-	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
-	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
-	;;
-esac
 
-AC_MSG_CHECKING([compiler and flags for sanity])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
-	[	AC_MSG_RESULT([yes]) ],
-	[
-		AC_MSG_RESULT([no])
-		AC_MSG_ERROR([*** compiler cannot create working executables, check config.log ***])
-	],
-	[	AC_MSG_WARN([cross compiling: not checking compiler sanity]) ]
-)
+
+
 
 dnl Checks for header files.
 # Checks for libraries.
@@ -431,31 +488,7 @@ AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
 
 dnl zlib is required
-AC_ARG_WITH([zlib],
-	[  --with-zlib=PATH        Use zlib in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** zlib is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
+
 
 AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
 AC_CHECK_LIB([z], [deflate], ,
@@ -508,16 +541,6 @@ fi
 #
 
 #l1525
-AC_ARG_WITH([pie],
-    [  --with-pie             Build Position Independent Executables if possible], [
-	if test "x$withval" = "xno"; then
-		use_pie=no
-	fi
-	if test "x$withval" = "xyes"; then
-		use_pie=yes
-	fi
-    ]
-)
 if test "x$use_pie" = "x"; then
 	use_pie=no
 fi
