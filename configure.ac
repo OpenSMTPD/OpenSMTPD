@@ -996,7 +996,6 @@ AC_RUN_IFELSE(
 	]
 )
 
-# XXX make --without-openssl work
 AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
 
 AC_ARG_WITH([openssl-header-check],
