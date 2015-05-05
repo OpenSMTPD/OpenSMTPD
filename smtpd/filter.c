@@ -693,7 +693,7 @@ filter_tx(struct filter_session *s, int sink)
 	s->eom = NULL;
 	s->error = 0;
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, PF_UNSPEC, sp) == -1) {
 		log_warn("warn: filter: socketpair");
 		return (-1);
 	}
@@ -704,9 +704,6 @@ filter_tx(struct filter_session *s, int sink)
 		close(sp[1]);
 		return (-1);
 	}
-
-	io_set_blocking(sp[0], 0);
-	io_set_blocking(sp[1], 0);
 
 	iobuf_init(&s->ibuf, 0, 0);
 	io_init(&s->iev, sp[0], s, filter_tx_io, &s->ibuf);

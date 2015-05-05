@@ -198,7 +198,7 @@ control_create_socket(void)
 	int			fd;
 	mode_t			old_umask;
 
-	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+	if ((fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0)) == -1)
 		fatal("control: socket");
 
 	memset(&sun, 0, sizeof(sun));
@@ -227,7 +227,6 @@ control_create_socket(void)
 		fatal("control: chmod");
 	}
 
-	session_socket_blockmode(fd, BM_NONBLOCK);
 	control_state.fd = fd;
 
 	return fd;

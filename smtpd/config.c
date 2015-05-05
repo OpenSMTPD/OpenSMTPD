@@ -112,13 +112,11 @@ init_pipes(void)
 
 	for (i = 0; i < PROC_COUNT; i++)
 		for (j = i + 1; j < PROC_COUNT; j++) {
-			if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
-			    sockpair) == -1)
+			if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK,
+			    PF_UNSPEC, sockpair) == -1)
 				fatal("socketpair");
 			pipes[i][j] = sockpair[0];
 			pipes[j][i] = sockpair[1];
-			session_socket_blockmode(pipes[i][j], BM_NONBLOCK);
-			session_socket_blockmode(pipes[j][i], BM_NONBLOCK);
 		}
 }
 
