@@ -652,7 +652,6 @@ AC_CHECK_FUNCS([ \
 	getspnam \
 	isblank \
 	memmove \
-	nsleep \
 	pidfile \
 	reallocarray \
 	setenv \
