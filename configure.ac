@@ -25,6 +25,7 @@ AC_PROG_CC
 AC_CANONICAL_HOST
 AC_C_BIGENDIAN
 
+
 # Checks for programs.
 AC_PROG_CPP
 AC_PROG_INSTALL
@@ -53,10 +54,8 @@ if test "x$with_pic" != "xno" ; then
 fi
 
 
-#from here everything comes from portable openssh configure.ac script
-
-#l50
-dnl select manpage formatter
+# check which formatter to use for man pages
+#
 if test "x$MANDOC" != "x" ; then
 	MANFMT="$MANDOC"
 elif test "x$NROFF" != "x" ; then
@@ -68,21 +67,23 @@ else
 	MANFMT="false"
 fi
 AC_SUBST([MANFMT])
-#l61
 
-#l78
+# check for AR
+#
 if test -z "$AR" ; then
 	AC_MSG_ERROR([*** 'ar' missing, please install or fix your \$PATH ***])
 fi
-#l80
 
-#l101
+# if LD is missing, use CC
+#
 if test -z "$LD" ; then
 	LD=$CC
 fi
 AC_SUBST([LD])
 
+
 AC_C_INLINE
+
 
 AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 #l108
