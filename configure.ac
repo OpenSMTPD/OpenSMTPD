@@ -90,6 +90,15 @@ AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 
 
 #
+# configure variables
+#
+need_dash_r=
+cflags_werror=
+use_pie=auto
+with_table_db=no
+
+
+#
 # CHECK COMPILER FLAGS & ENVIRONMENT
 #
 if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
@@ -226,7 +235,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
 #
 case "$host" in
 *-*-darwin*)
-	use_pie=auto
 	AC_MSG_CHECKING([if we have working getaddrinfo])
 	AC_RUN_IFELSE([AC_LANG_SOURCE([[ #include <mach-o/dyld.h>
 main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
@@ -251,10 +259,9 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		supported by bsd-setproctitle.c])
 	;;
 *-*-dragonfly*)
-	SMTPDLIBS="$SMTPDLIBS -lcrypt"
+	LIBS_SMTPD="$LIBS_SMTPD -lcrypt"
 	;;
 *-*-linux* | *-gnu* | *-k*bsd*-gnu* )
-	use_pie=auto
 	check_for_libcrypt_later=1
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	case `uname -r` in
@@ -277,7 +284,6 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
 	;;
 *-*-openbsd*)
-	use_pie=auto
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
 	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
@@ -289,6 +295,20 @@ esac
 #
 # CONFIGURE OPTIONS
 #
+
+
+
+
+
+#CFLAGS_DEBUG=-g
+#AC_ARG_WITH([debug],
+#	[  --without-debug		Disable debugging symbols],
+#	[
+#		if test "x$withval" = "xyes" ; then
+#			CFLAGS_DEBUG=
+#		fi
+#	]
+#)
 
 AC_ARG_WITH([rpath],
 	[  --without-rpath         Disable auto-added -R linker paths],
@@ -305,7 +325,7 @@ AC_ARG_WITH([rpath],
 AC_ARG_WITH([cflags],
 	[  --with-cflags           Specify additional flags to pass to compiler],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		if test -n "$withval" && test "x$withval" != "xno" &&  \
 		    test "x${withval}" != "xyes"; then
 			CFLAGS="$CFLAGS $withval"
 		fi
@@ -314,7 +334,7 @@ AC_ARG_WITH([cflags],
 AC_ARG_WITH([cppflags],
 	[  --with-cppflags         Specify additional flags to pass to preprocessor] ,
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		if test -n "$withval" && test "x$withval" != "xno" &&  \
 		    test "x${withval}" != "xyes"; then
 			CPPFLAGS="$CPPFLAGS $withval"
 		fi
@@ -323,7 +343,7 @@ AC_ARG_WITH([cppflags],
 AC_ARG_WITH([ldflags],
 	[  --with-ldflags          Specify additional flags to pass to linker],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		if test -n "$withval" && test "x$withval" != "xno" &&  \
 		    test "x${withval}" != "xyes"; then
 			LDFLAGS="$LDFLAGS $withval"
 		fi
@@ -332,7 +352,7 @@ AC_ARG_WITH([ldflags],
 AC_ARG_WITH([libs],
 	[  --with-libs             Specify additional libraries to link with],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		if test -n "$withval" && test "x$withval" != "xno" &&  \
 		    test "x${withval}" != "xyes"; then
 			LIBS="$LIBS $withval"
 		fi
@@ -341,10 +361,10 @@ AC_ARG_WITH([libs],
 AC_ARG_WITH([Werror],
 	[  --with-Werror           Build main code with -Werror],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"; then
-			werror_flags="-Werror"
+		if test -n "$withval" && test "x$withval" != "xno"; then
+			cflags_werror="-Werror"
 			if test "x${withval}" != "xyes"; then
-				werror_flags="$withval"
+				cflags_werror="$withval"
 			fi
 		fi
 	]
@@ -386,6 +406,345 @@ AC_ARG_WITH([pie],
 	fi
     ]
 )
+
+
+USE_PAM_SERVICE=smtpd
+AC_ARG_WITH([pam-service],
+	[  --with-pam-service=service Specify PAM service],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			USE_PAM_SERVICE=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
+AC_SUBST([USE_PAM_SERVICE])
+
+
+PAM_MSG="no"
+AC_ARG_WITH([pam],
+	[  --with-pam              Enable PAM support ],
+	[
+		if test "x$withval" != "xno" ; then
+			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
+			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
+				AC_MSG_ERROR([PAM headers not found])
+			fi
+
+			saved_LIBS="$LIBS"
+			AC_CHECK_LIB([dl], [dlopen], , )
+			AC_CHECK_LIB([pam], [pam_set_item], , [AC_MSG_ERROR([*** libpam missing])])
+			AC_CHECK_FUNCS([pam_getenvlist])
+			AC_CHECK_FUNCS([pam_putenv])
+			LIBS="$saved_LIBS"
+
+			PAM_MSG="yes"
+
+			LIBS_SMTPD="$LIBS_SMTPD -lpam"
+			AC_DEFINE([USE_PAM], [1],
+				[Define if you want to enable PAM support])
+
+			if test $ac_cv_lib_dl_dlopen = yes; then
+				case "$LIBS" in
+				*-ldl*)
+					# libdl already in LIBS
+					;;
+				*)
+					LIBS_SMTPD="$LIBS_SMTPD -ldl"
+					;;
+				esac
+			fi
+		fi
+	]
+)
+
+SMTPD_USER=_smtpd
+AC_ARG_WITH([privsep-user],
+	[  --with-privsep-user=user Specify non-privileged user for privilege separation],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_USER=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
+	[non-privileged user for privilege separation])
+AC_SUBST([SMTPD_USER])
+
+SMTPD_QUEUE_USER=_smtpq
+AC_ARG_WITH([queue-user],
+	[  --with-queue-user=user  Specify non-privileged user for queue process],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_QUEUE_USER=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
+	[non-privileged user for queue process])
+AC_SUBST([SMTPD_QUEUE_USER])
+
+
+PRIVSEP_PATH=/var/empty
+AC_ARG_WITH([privsep-path],
+	[  --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			PRIVSEP_PATH=$withval
+		fi
+	]
+)
+AC_SUBST([PRIVSEP_PATH])
+
+
+dnl # Otherwise we run a program to get the dir from system headers.
+dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
+dnl # If we find _PATH_MAILDIR we do nothing because that is what
+dnl # session.c expects anyway. Otherwise we set to the value found
+dnl # stripping any trailing slash. If for some strage reason our program
+dnl # does not find what it needs, we default to /var/spool/mail.
+# Check for mail directory
+AC_ARG_WITH([maildir],
+    [  --with-maildir=/path/to/mail    Specify your system mail directory],
+    [
+	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
+	    test "x${withval}" != xyes; then
+		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
+            [Set this to your mail directory if you do not have _PATH_MAILDIR])
+	    fi
+     ],[
+	if test "X$maildir" != "X"; then
+	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+	else
+	    AC_MSG_CHECKING([Discovering system mail directory])
+	    AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <string.h>
+#ifdef HAVE_PATHS_H
+#include <paths.h>
+#endif
+#ifdef HAVE_MAILLOCK_H
+#include <maillock.h>
+#endif
+#define DATA "conftest.maildir"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+#if defined (_PATH_MAILDIR)
+	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
+		exit(1);
+#elif defined (MAILDIR)
+	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
+		exit(1);
+#elif defined (_PATH_MAIL)
+	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
+		exit(1);
+#else
+	exit (2);
+#endif
+
+	exit(0);
+		]])],
+		[
+	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
+		    maildir=`awk -F: '{print $2}' conftest.maildir \
+			| sed 's|/$||'`
+		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
+		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+		    fi
+		],
+		[
+		    if test "X$ac_status" = "X2";then
+# our test program didn't find it. Default to /var/spool/mail
+			AC_MSG_RESULT([Using: default value of /var/spool/mail])
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
+		     else
+			AC_MSG_RESULT([*** not found ***])
+		     fi
+		],
+		[
+			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
+		]
+	    )
+	fi
+    ]
+) # maildir
+#l4146
+
+#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
+# Options from here on. Some of these are preset by platform above
+AC_ARG_WITH([mantype],
+	[  --with-mantype=man|cat|doc  Set man page type],
+	[
+		case "$withval" in
+		man|cat|doc)
+			MANTYPE=$withval
+			;;
+		*)
+			AC_MSG_ERROR([invalid man type: $withval])
+			;;
+		esac
+	]
+)
+if test -z "$MANTYPE"; then
+	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
+	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
+	if ${NROFF} -mdoc ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
+		MANTYPE=doc
+	elif ${NROFF} -man ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
+		MANTYPE=man
+	else
+		MANTYPE=cat
+	fi
+fi
+AC_SUBST([MANTYPE])
+if test "$MANTYPE" = "doc"; then
+	mansubdir=man;
+else
+	mansubdir=$MANTYPE;
+fi
+AC_SUBST([mansubdir])
+#l4207
+
+#l4432 (customized s/pid/sock/)
+# Whether to enable BSD auth support
+BSD_AUTH_MSG=no
+AC_ARG_WITH([bsd-auth],
+	[  --with-bsd-auth         Enable BSD auth support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([BSD_AUTH], [1],
+				[Define if you have BSD auth support])
+			BSD_AUTH_MSG=yes
+		fi
+	]
+)
+
+# Where to place smtpd.sock
+sockdir=/var/run
+# make sure the directory exists
+if test ! -d $sockdir ; then
+	sockdir=`eval echo ${sysconfdir}`
+	case $sockdir in
+		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
+	esac
+fi
+
+AC_ARG_WITH([sock-dir],
+	[  --with-sock-dir=PATH    Specify location of smtpd.sock file],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			sockdir=$withval
+			if test ! -d $sockdir ; then
+			AC_MSG_WARN([** no $sockdir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
+	[Specify location of smtpd.sock])
+AC_SUBST([sockdir])
+#l4470
+
+
+CA_FILE=/etc/ssl/cert.pem
+AC_ARG_WITH([ca-file],
+	[  --with-ca-file=FILE     Path for certificate file (default=/etc/ssl/cert.pem)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			CA_FILE=$withval
+		fi
+	]
+)
+AC_SUBST([CA_FILE])
+
+
+# Where to place spooler
+spooldir=/var/spool/smtpd
+AC_ARG_WITH([spooldir],
+	[  --with-spooldir=PATH		Specify location of spooler directory],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			spooldir=$withval
+			if test ! -d $spooldir ; then
+			AC_MSG_WARN([** no $spooldir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
+AC_SUBST([spooldir])
+
+
+
+use_mailwrapper=0
+AC_ARG_WITH([mailwrapper],
+	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
+	[ if test "x$withval" = "xyes"; then
+	     use_mailwrapper=1
+	  fi
+	]
+)
+AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
+
+
+# Search for asr (based on zlib checks)
+dnl asr is required
+AC_ARG_WITH([asr],
+	[  --with-asr=PATH         Use asr in PATH],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** asr is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+
+AC_ARG_WITH([table-db],
+	[  --with-table-db	Build table db backend],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([ENABLE_TABLE_DB], [1],
+				[Define if you have table DB support])
+			with_table_db=yes
+		fi
+	]
+)
+
 
 
 #
@@ -1160,42 +1519,6 @@ fi
 
 #l2757
 # Check for PAM libs
-PAM_MSG="no"
-AC_ARG_WITH([pam],
-	[  --with-pam              Enable PAM support ],
-	[
-		if test "x$withval" != "xno" ; then
-			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
-			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
-				AC_MSG_ERROR([PAM headers not found])
-			fi
-
-			saved_LIBS="$LIBS"
-			AC_CHECK_LIB([dl], [dlopen], , )
-			AC_CHECK_LIB([pam], [pam_set_item], , [AC_MSG_ERROR([*** libpam missing])])
-			AC_CHECK_FUNCS([pam_getenvlist])
-			AC_CHECK_FUNCS([pam_putenv])
-			LIBS="$saved_LIBS"
-
-			PAM_MSG="yes"
-
-			SMTPDLIBS="$SMTPDLIBS -lpam"
-			AC_DEFINE([USE_PAM], [1],
-				[Define if you want to enable PAM support])
-
-			if test $ac_cv_lib_dl_dlopen = yes; then
-				case "$LIBS" in
-				*-ldl*)
-					# libdl already in LIBS
-					;;
-				*)
-					SMTPDLIBS="$SMTPDLIBS -ldl"
-					;;
-				esac
-			fi
-		fi
-	]
-)
 
 # Check for older PAM
 if test "x$PAM_MSG" = "xyes" ; then
@@ -1222,47 +1545,10 @@ fi
 #l2816
 
 ##gilles
-USE_PAM_SERVICE=smtpd
-AC_ARG_WITH([pam-service],
-	[  --with-pam-service=service Specify PAM service],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			USE_PAM_SERVICE=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
-AC_SUBST([USE_PAM_SERVICE])
+
 ##gilles
 
-SMTPD_USER=_smtpd
-AC_ARG_WITH([privsep-user],
-	[  --with-privsep-user=user Specify non-privileged user for privilege separation],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			SMTPD_USER=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
-	[non-privileged user for privilege separation])
-AC_SUBST([SMTPD_USER])
 
-SMTPD_QUEUE_USER=_smtpq
-AC_ARG_WITH([queue-user],
-	[  --with-queue-user=user  Specify non-privileged user for queue process],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			SMTPD_QUEUE_USER=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
-	[non-privileged user for queue process])
-AC_SUBST([SMTPD_QUEUE_USER])
 
 #l3037 (customized s/SSH/SMTPD/)
 # Check for  long long datatypes
@@ -2030,17 +2316,7 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 #l4010
 # Looking for programs, paths and files
 
-PRIVSEP_PATH=/var/empty
-AC_ARG_WITH([privsep-path],
-	[  --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			PRIVSEP_PATH=$withval
-		fi
-	]
-)
-AC_SUBST([PRIVSEP_PATH])
+
 #l4022
 
 #l4045
@@ -2056,207 +2332,34 @@ AC_ARG_ENABLE([strip],
 AC_SUBST([STRIP_OPT])
 #l4054
 
-#l4066
-dnl # --with-maildir=/path/to/mail gets top priority.
-dnl # if maildir is set in the platform case statement above we use that.
-dnl # Otherwise we run a program to get the dir from system headers.
-dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
-dnl # If we find _PATH_MAILDIR we do nothing because that is what
-dnl # session.c expects anyway. Otherwise we set to the value found
-dnl # stripping any trailing slash. If for some strage reason our program
-dnl # does not find what it needs, we default to /var/spool/mail.
-# Check for mail directory
-AC_ARG_WITH([maildir],
-    [  --with-maildir=/path/to/mail    Specify your system mail directory],
-    [
-	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
-	    test "x${withval}" != xyes; then
-		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
-            [Set this to your mail directory if you do not have _PATH_MAILDIR])
-	    fi
-     ],[
-	if test "X$maildir" != "X"; then
-	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
-	else
-	    AC_MSG_CHECKING([Discovering system mail directory])
-	    AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#ifdef HAVE_PATHS_H
-#include <paths.h>
-#endif
-#ifdef HAVE_MAILLOCK_H
-#include <maillock.h>
-#endif
-#define DATA "conftest.maildir"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-#if defined (_PATH_MAILDIR)
-	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
-		exit(1);
-#elif defined (MAILDIR)
-	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
-		exit(1);
-#elif defined (_PATH_MAIL)
-	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
-		exit(1);
-#else
-	exit (2);
-#endif
-
-	exit(0);
-		]])],
-		[
-	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
-		    maildir=`awk -F: '{print $2}' conftest.maildir \
-			| sed 's|/$||'`
-		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
-		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
-		    fi
-		],
-		[
-		    if test "X$ac_status" = "X2";then
-# our test program didn't find it. Default to /var/spool/mail
-			AC_MSG_RESULT([Using: default value of /var/spool/mail])
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
-		     else
-			AC_MSG_RESULT([*** not found ***])
-		     fi
-		],
-		[
-			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
-		]
-	    )
-	fi
-    ]
-) # maildir
-#l4146
-
-#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
-# Options from here on. Some of these are preset by platform above
-AC_ARG_WITH([mantype],
-	[  --with-mantype=man|cat|doc  Set man page type],
-	[
-		case "$withval" in
-		man|cat|doc)
-			MANTYPE=$withval
-			;;
-		*)
-			AC_MSG_ERROR([invalid man type: $withval])
-			;;
-		esac
-	]
-)
-if test -z "$MANTYPE"; then
-	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
-	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
-	if ${NROFF} -mdoc ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
-		MANTYPE=doc
-	elif ${NROFF} -man ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
-		MANTYPE=man
-	else
-		MANTYPE=cat
-	fi
-fi
-AC_SUBST([MANTYPE])
-if test "$MANTYPE" = "doc"; then
-	mansubdir=man;
-else
-	mansubdir=$MANTYPE;
-fi
-AC_SUBST([mansubdir])
-#l4207
-
-#l4432 (customized s/pid/sock/)
-# Whether to enable BSD auth support
-BSD_AUTH_MSG=no
-AC_ARG_WITH([bsd-auth],
-	[  --with-bsd-auth         Enable BSD auth support],
-	[
-		if test "x$withval" != "xno" ; then
-			AC_DEFINE([BSD_AUTH], [1],
-				[Define if you have BSD auth support])
-			BSD_AUTH_MSG=yes
-		fi
-	]
-)
-
-# Where to place smtpd.sock
-sockdir=/var/run
-# make sure the directory exists
-if test ! -d $sockdir ; then
-	sockdir=`eval echo ${sysconfdir}`
-	case $sockdir in
-		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
-	esac
-fi
-
-AC_ARG_WITH([sock-dir],
-	[  --with-sock-dir=PATH    Specify location of smtpd.sock file],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			sockdir=$withval
-			if test ! -d $sockdir ; then
-			AC_MSG_WARN([** no $sockdir directory on this system **])
-			fi
-		fi
-	]
-)
-
-AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
-	[Specify location of smtpd.sock])
-AC_SUBST([sockdir])
-#l4470
-
-
-CA_FILE=/etc/ssl/cert.pem
-AC_ARG_WITH([ca-file],
-	[  --with-ca-file=FILE     Path for certificate file (default=/etc/ssl/cert.pem)],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			CA_FILE=$withval
-		fi
-	]
-)
-AC_SUBST([CA_FILE])
-
-
-# Where to place spooler
-spooldir=/var/spool/smtpd
-AC_ARG_WITH([spooldir],
-	[  --with-spooldir=PATH		Specify location of spooler directory],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			spooldir=$withval
-			if test ! -d $spooldir ; then
-			AC_MSG_WARN([** no $spooldir directory on this system **])
-			fi
-		fi
-	]
-)
-
-AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
-	[Specify location of spooler])
-AC_SUBST([spooldir])
 
 
 #l4742
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.
-CFLAGS="$CFLAGS $werror_flags"
 
-AC_SUBST([TEST_MALLOC_OPTIONS], [$TEST_MALLOC_OPTIONS])
+
+#
+# update CFLAGS
+#
+
+# we enable debugging symbols by default unless disabled explicitely
+# or unless part of user-provided CFLAGS.
+#
+#case "$CFLAGS" in
+#     *-g*)
+#     ;;
+#     *)
+#     if test ! -z "${CFLAGS_DEBUG}"; then
+#     CFLAGS="${CFLAGS} ${CFLAGS_DEBUG}"
+#     fi
+#     ;;
+#esac
+
+# -werror prevents configure tests from running, add now
+#
+CFLAGS="$CFLAGS $cflags_werror"
+
 
 
 AC_EXEEXT
@@ -2297,8 +2400,8 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([libevent-dir],
-	[  --with-libevent-dir=PATH     Specify path to libevent installation ],
+AC_ARG_WITH([libevent],
+	[  --with-libevent=PATH		Specify path to libevent installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
@@ -2469,76 +2572,58 @@ AC_LINK_IFELSE(
 )
 
 # Search for libdb
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
-				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
-])])])
 
 
-save_LIBS="$LIBS"
-DB_LIB=
 
-for libdb in db db1 c; do
-    AC_CHECK_LIB($libdb, dbopen,       [ DB_LIB="$libdb"; break; ], 
-    AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
-done
+# --with-table-db
+#
+LIBS_DB=
+if test x"$with_table_db" = x"yes"; then
+   # check suitable header
+   #
+   AC_CHECK_HEADER(db_185.h,
+	[AC_DEFINE([HAVE_DB_185_H],	[], [if you have the <db_185.h> header file])],[
+   AC_CHECK_HEADER(db.h,
+	[AC_DEFINE([HAVE_DB_H],		[], [if you have the <db.h> header file])],[
+   AC_CHECK_HEADER(db1/db.h,
+	[AC_DEFINE([HAVE_DB1_DB_H],	[], [if you have the <db1/db.h> header file])],[
+   AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])])])])
 
-if test -z "$DB_LIB" ; then
-    AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
+
+   # check suitable lib
+   #
+   for libdb in db db1 c; do
+	AC_CHECK_LIB($libdb, dbopen,       [ LIBS_DB="-l$libdb"; break; ], 
+	AC_CHECK_LIB($libdb, __db185_open, [ LIBS_DB="-l$libdb"; break; ]))
+   done
+
+   if test -z "$LIBS_DB" ; then
+	AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
+   fi
+
+   AC_SUBST([LIBS_DB])
+   echo "foobar: " $LIBS_DB
 fi
 
-DB_LIB="-l$DB_LIB"
-AC_SUBST([DB_LIB])
 
-LIBS="$save_LIBS"
-
-# Search for asr (based on zlib checks)
-dnl asr is required
-AC_ARG_WITH([asr],
-	[  --with-asr=PATH         Use asr in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** asr is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
 
 AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
-[#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>])
+			  [
+				#include <sys/types.h>
+				#include <sys/socket.h>
+				#include <netinet/in.h>
+			  ])
 AC_CHECK_LIB([asr], [asr_resolver], ,
 	[
 		saved_CPPFLAGS="$CPPFLAGS"
 		saved_LDFLAGS="$LDFLAGS"
 		save_LIBS="$LIBS"
-		dnl Check default asr install dir
 		if test -n "${need_dash_r}"; then
 			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
 		else
 			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
 		fi
 		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-# don't add -lasr to LIBS, it's only added when needed
-#		LIBS="$LIBS -lasr"
 		AC_TRY_LINK_FUNC([asr_resolver], ,
 			[
 				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
@@ -2547,18 +2632,10 @@ AC_CHECK_LIB([asr], [asr_resolver], ,
 	]
 )
 
-LIBS="$LIBS ${SMTPDLIBS}"
+LIBS="$LIBS ${LIBS_SMTPD}"
 ##end of chl
 
-use_mailwrapper=0
-AC_ARG_WITH([mailwrapper],
-	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
-	[ if test "x$withval" = "xyes"; then
-	     use_mailwrapper=1
-	  fi
-	]
-)
-AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
+
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
@@ -2575,7 +2652,10 @@ AC_CONFIG_FILES([Makefile
 #l4761
 AC_OUTPUT
 
+
+#
 # Print summary of options
+#
 
 # Someone please show me a better way :)
 A=`eval echo ${prefix}` ; A=`eval echo ${A}`
@@ -2612,9 +2692,11 @@ echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
 echo "         Libraries: ${LIBS}"
-echo "      DB Libraries: ${DB_LIB}"
-if test ! -z "${SMTPDLIBS}"; then
-echo "         +for smtpd: ${SMTPDLIBS}"
+if test ! -z "${LIBS_DB}"; then
+echo "      DB Libraries: ${LIBS_DB}"
+fi
+if test ! -z "${LIBS_SMTPD}"; then
+echo "   smtpd Libraries: ${LIBS_SMTPD}"
 fi
 
 echo ""
