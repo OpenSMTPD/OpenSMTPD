@@ -1254,6 +1254,7 @@ smtp_filter_fd(uint64_t id, int fd)
 	}
 
 	iobuf_init(&s->obuf, 0, 0);
+	io_set_blocking(fd, 0);
 	io_init(&s->oev, fd, s, smtp_data_io, &s->obuf);
 
 	iobuf_fqueue(&s->obuf, "Received: ");
