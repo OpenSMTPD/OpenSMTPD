@@ -657,7 +657,6 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nsleep \
 	pidfile \
-	pw_dup \
 	reallocarray \
 	setenv \
 	setlinebuf \
