@@ -2604,7 +2604,5 @@ fi
 if test "x$PAM_MSG" = "xyes" ; then
 	echo "PAM is enabled. You may need to install a PAM control file "
 	echo "for smtpd, otherwise password authentication may fail. "
-#	echo "Example PAM control files can be found in the contrib/ "
-#	echo "subdirectory"
 	echo ""
 fi
