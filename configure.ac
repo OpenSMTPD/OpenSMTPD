@@ -543,29 +543,6 @@ AC_SEARCH_LIBS([scan_scaled], [util bsd])
 AC_CHECK_FUNCS([fmt_scaled scan_scaled])
 #l1242
 
-#l1304
-AC_MSG_CHECKING([whether struct dirent allocates space for d_name])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <dirent.h>]],
-	[[
-	struct dirent d;
-	exit(sizeof(d.d_name)<=sizeof(char));
-	]])],
-	[AC_MSG_RESULT([yes])],
-	[
-		AC_MSG_RESULT([no])
-		AC_DEFINE([BROKEN_ONE_BYTE_DIRENT_D_NAME], [1],
-			[Define if your struct dirent expects you to
-			allocate extra space for d_name])
-	],
-	[
-		AC_MSG_WARN([cross compiling: assuming BROKEN_ONE_BYTE_DIRENT_D_NAME])
-		AC_DEFINE([BROKEN_ONE_BYTE_DIRENT_D_NAME])
-	]
-)
-
 AC_MSG_CHECKING([for /proc/pid/fd directory])
 if test -d "/proc/$$/fd" ; then
 	AC_DEFINE([HAVE_PROC_PID], [1], [Define if you have /proc/$pid/fd])
