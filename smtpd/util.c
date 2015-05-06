@@ -523,8 +523,24 @@ valid_domainpart(const char *s)
 		
 		return 0;
 	}
-
-	return res_hnok(s);
+	
+nextsub:
+	if (!isalnum((unsigned char)*s))
+		return 0;
+	while (*(++s) != '\0') {
+		if (*s == '.')
+			break;
+		if (isalnum((unsigned char)*s) || *s == '-')
+			continue;
+		return 0;
+	}
+	if (s[-1] == '-')
+		return 0;
+	if (*s == '.') {
+		s++;
+		goto nextsub;
+	}
+	return 1;
 }
 
 /*
