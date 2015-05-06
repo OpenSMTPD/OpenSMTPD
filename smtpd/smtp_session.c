@@ -474,14 +474,14 @@ header_address_rewrite_buffer(char *buffer, const char *address, size_t len)
 	size_t	i;
 	int	address_len;
 	int	escape, quote, comment, bracket;
-	int	has_domain, has_bracket, has_group;
+	int	has_bracket, has_group;
 	int	pos_bracket_beg, pos_bracket_end, pos_component_beg, pos_component_end;
 	int	insert_beg, insert_end;
 	char	copy[APPEND_DOMAIN_BUFFER_SIZE];
 
 	i = 0;
 	escape = quote = comment = bracket = 0;
-	has_domain = has_bracket = has_group = 0;
+	has_bracket = has_group = 0;
 	pos_bracket_beg = pos_bracket_end = pos_component_beg = pos_component_end = 0;
 	insert_beg = insert_end = 0;
 	for (i = 0; buffer[i]; ++i) {
