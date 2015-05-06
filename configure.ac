@@ -478,6 +478,14 @@ AC_CHECK_LIB([z], [deflate], ,
 	]
 )
 
+AC_ARG_WITH([zlib-version-check],
+	[  --without-zlib-version-check Disable zlib version check],
+	[  if test "x$withval" = "xno" ; then
+		zlib_check_nonfatal=1
+	   fi
+	]
+)
+
 
 dnl UnixWare 2.x
 AC_CHECK_FUNC([strcasecmp],
