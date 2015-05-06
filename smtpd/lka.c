@@ -587,6 +587,7 @@ static int
 lka_mailaddrmap(const char *tablename, const char *username, const struct mailaddr *maddr)
 {
 	struct table	       *table;
+	struct maddrmap	       *mm;
 	struct maddrnode       *mn;
 	union lookup		lk;
 	int			found;
@@ -606,6 +607,7 @@ lka_mailaddrmap(const char *tablename, const char *username, const struct mailad
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
+		mm = lk.maddrmap;
 		found = 0;
 		TAILQ_FOREACH(mn, &lk.maddrmap->queue, entries) {
 			if (! mailaddr_match(maddr, &mn->mailaddr))
