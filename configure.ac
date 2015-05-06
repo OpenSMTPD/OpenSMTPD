@@ -2139,17 +2139,10 @@ AC_CHECK_LIB([asr], [asr_resolver], ,
 				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
 			]
 		)
-		LIBS_SMTPD="${LIBS_SMTPD}"
 	]
 )
 
-for lib in asr c; do
-    AC_CHECK_LIB($lib, asr_run,	[ LIBS_SMTPD="${LIBS_SMTPD} -l$lib"; break; ])
-done
-AC_CHECK_FUNCS([asr_freeaddrinfo],
-	[], [ AC_CHECK_LIB([$lib], [asr_freeaddrinfo], [AC_DEFINE([HAVE_ASR_FREEADDRINFO])])])
-
-#LIBS="$LIBS ${LIBS_SMTPD}"
+LIBS="$LIBS ${LIBS_SMTPD}"
 ##end of chl
 
 

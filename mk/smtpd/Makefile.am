@@ -96,7 +96,7 @@ AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD=			$(LIBCOMPAT) $(DB_LIB) $(SMTPD_LIB)
+LDADD=			$(LIBCOMPAT) $(DB_LIB) -lasr
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
