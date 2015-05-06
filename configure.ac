@@ -650,6 +650,9 @@ AC_CHECK_FUNCS([ \
 	getopt \
 	getpeereid \
 	getspnam \
+	inet_aton \
+	inet_ntoa \
+	inet_ntop \
 	isblank \
 	memmove \
 	nsleep \
