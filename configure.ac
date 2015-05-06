@@ -519,8 +519,8 @@ dnl # session.c expects anyway. Otherwise we set to the value found
 dnl # stripping any trailing slash. If for some strage reason our program
 dnl # does not find what it needs, we default to /var/spool/mail.
 # Check for mail directory
-AC_ARG_WITH([maildir],
-    [  --with-maildir=/path/to/mail    Specify your system mail directory],
+AC_ARG_WITH([mail-dir],
+    [  --with-mail-dir=/path/to/maildirectory    Specify your system mail directory],
     [
 	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
 	    test "x${withval}" != xyes; then
@@ -678,8 +678,8 @@ AC_SUBST([CA_FILE])
 
 
 
-AC_ARG_WITH([spooldir],
-	[  --with-spooldir=PATH		Specify location of spooler directory],
+AC_ARG_WITH([spooler-dir],
+	[  --with-spooler-dir=PATH	Specify location of spooler directory],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -992,6 +992,13 @@ AC_CHECK_FUNCS([ \
 	vsnprintf \
 	waitpid \
 ])
+
+AC_SEARCH_LIBS([arc4random],		[crypto])
+AC_SEARCH_LIBS([arc4random_buf],	[crypto])
+AC_SEARCH_LIBS([arc4random_stir],	[crypto])
+AC_SEARCH_LIBS([arc4random_uniform],	[crypto])
+
+
 #l1685
 
 #l1715
