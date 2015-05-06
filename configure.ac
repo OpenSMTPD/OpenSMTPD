@@ -14,8 +14,6 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
-dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
 AC_INIT([opensmtpd], [portable], [bugs@opensmtpd.org])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
@@ -95,7 +93,12 @@ AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 need_dash_r=
 cflags_werror=
 use_pie=auto
-with_table_db=no
+
+enable_table_db=no
+enable_bsd_auth=no
+enable_pam=no
+enable_pam_old=no
+enable_pam_service=smtpd
 
 
 #
@@ -408,21 +411,18 @@ AC_ARG_WITH([pie],
 )
 
 
-USE_PAM_SERVICE=smtpd
 AC_ARG_WITH([pam-service],
 	[  --with-pam-service=service Specify PAM service],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
-			USE_PAM_SERVICE=$withval
+		    enable_pam_service=$withval
 		fi
 	]
 )
-AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
+AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$enable_pam_service"], [pam service])
 AC_SUBST([USE_PAM_SERVICE])
 
-
-PAM_MSG="no"
 AC_ARG_WITH([pam],
 	[  --with-pam              Enable PAM support ],
 	[
@@ -439,7 +439,7 @@ AC_ARG_WITH([pam],
 			AC_CHECK_FUNCS([pam_putenv])
 			LIBS="$saved_LIBS"
 
-			PAM_MSG="yes"
+			enable_pam=yes
 
 			LIBS_SMTPD="$LIBS_SMTPD -lpam"
 			AC_DEFINE([USE_PAM], [1],
@@ -617,19 +617,20 @@ fi
 AC_SUBST([mansubdir])
 #l4207
 
-#l4432 (customized s/pid/sock/)
-# Whether to enable BSD auth support
-BSD_AUTH_MSG=no
+
+
 AC_ARG_WITH([bsd-auth],
 	[  --with-bsd-auth         Enable BSD auth support],
 	[
 		if test "x$withval" != "xno" ; then
-			AC_DEFINE([BSD_AUTH], [1],
-				[Define if you have BSD auth support])
-			BSD_AUTH_MSG=yes
+			AC_DEFINE([BSD_AUTH], [1], [Define if you have BSD auth support])
+			enable_bsd_auth=yes
 		fi
 	]
 )
+
+
+
 
 # Where to place smtpd.sock
 sockdir=/var/run
@@ -740,7 +741,7 @@ AC_ARG_WITH([table-db],
 		if test "x$withval" != "xno" ; then
 			AC_DEFINE([ENABLE_TABLE_DB], [1],
 				[Define if you have table DB support])
-			with_table_db=yes
+			enable_table_db=yes
 		fi
 	]
 )
@@ -1521,7 +1522,7 @@ fi
 # Check for PAM libs
 
 # Check for older PAM
-if test "x$PAM_MSG" = "xyes" ; then
+if test "x${enable_pam}" = "xyes" ; then
 	# Check PAM strerror arguments (old PAM)
 	AC_MSG_CHECKING([whether pam_strerror takes only one argument])
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -1538,7 +1539,7 @@ if test "x$PAM_MSG" = "xyes" ; then
 				[Define if you have an old version of PAM
 				which takes only one argument to pam_strerror])
 			AC_MSG_RESULT([yes])
-			PAM_MSG="yes (old library)"
+			enable_pam_old="yes"
 		
 	])
 fi
@@ -2578,7 +2579,7 @@ AC_LINK_IFELSE(
 # --with-table-db
 #
 LIBS_DB=
-if test x"$with_table_db" = x"yes"; then
+if test x"$enable_table_db" = x"yes"; then
    # check suitable header
    #
    AC_CHECK_HEADER(db_185.h,
@@ -2681,9 +2682,16 @@ echo "                      Manual pages: $G"
 echo "                    smtpd.sock dir: $H"
 echo "  Privilege separation chroot path: $I"
 echo "                    Manpage format: $MANTYPE"
-echo "                       PAM support: $PAM_MSG"
-echo "                  BSD Auth support: $BSD_AUTH_MSG"
-
+if test ! -z "${enable_pam}"; then
+   if test ! -z "${enable_pam_old}"; then
+      echo "                       PAM support: yes (old version)"
+   else
+      echo "                       PAM support: yes"
+   fi
+fi
+if test ! -z "${enable_bsd_auth}"; then
+echo "                  BSD Auth support: yes"
+fi
 echo ""
 
 echo "              Host: ${host}"
@@ -2701,7 +2709,7 @@ fi
 
 echo ""
 
-if test "x$PAM_MSG" = "xyes" ; then
+if test "x${enable_pam}" = "xyes" ; then
 	echo "PAM is enabled. You may need to install a PAM control file "
 	echo "for smtpd, otherwise password authentication may fail. "
 	echo ""
