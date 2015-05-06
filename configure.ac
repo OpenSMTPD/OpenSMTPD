@@ -1192,7 +1192,33 @@ if test "x$check_for_libcrypt_later" = "x1"; then
 fi
 #l2504
 
+#l2645
+### Configure cryptographic random number support
 
+# Check wheter OpenSSL seeds itself
+AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <string.h>
+#include <openssl/rand.h>
+	]], [[
+	exit(RAND_status() == 1 ? 0 : 1);
+	]])],
+	[
+		OPENSSL_SEEDS_ITSELF=yes
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+	],
+	[
+		AC_MSG_WARN([cross compiling: assuming yes])
+		# This is safe, since we will fatal() at runtime if
+		# OpenSSL is not seeded correctly.
+		OPENSSL_SEEDS_ITSELF=yes
+	]
+)
+#l2669
 
 #l2757
 # Check for PAM libs
