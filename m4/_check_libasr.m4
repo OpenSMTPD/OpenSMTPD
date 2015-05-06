@@ -4,24 +4,23 @@
 #
 AC_DEFUN([WITH_LIBASR], [{
 	AC_ARG_WITH([libasr],
-		[  --with-libasr=PATH			Use libasr located in PATH],
+		[--with-libasr=PATH			Use libasr located in PATH],
 		[
-			with_libasr_include=${withval}
-			if test -d "${with_libasr_include}/include"; then
-				with_libasr_include="${with_libasr_include}/include"
+			echo "####1"
+			if test -d "$withval/lib"; then
+				suffix="/lib"
 			fi
-
-			with_libasr_lib=${withval}
-			if test -d "${with_libasr_lib}/lib"; then
-				with_libasr_lib="${with_libasr_lib}/lib"
-			fi
-
-			with_libasr_cppflags="-I${with_libasr_include}"
-
-			with_libasr_ldflags="-L${with_libasr_lib}"
 			if test -n "${need_dash_r}"; then
-				with_libasr_ldflags="${with_libasr_ldflags} -R${with_libasr_lib}"
+				with_libasr_ldflags="-L${withval}${suffix} -R${withval}${suffix}"
+			else
+				with_libasr_ldflags="-L${withval}${suffix}"
 			fi
+			echo "####1" $with_libasr_ldflags
+			if test -d "$withval/include"; then
+				suffix="/include"
+			fi
+			with_libasr_cppflags="-I${withval}${suffix}"
+			echo "####2" $with_libasr_cppflags
 		]
 	)
 }])
@@ -30,11 +29,12 @@ AC_DEFUN([CHECK_LIBASR], [{
 	ldflags_save=$LDFLAGS
 	cppflags_save=$CPPFLAGS
 
-	if test "$with_libasr_ldflags" != ""; then
-	   LDFLAGS=$with_libasr_ldflags
+	# REPLACE THESE TWO WITH AN EXPLICIT CHECK
+	if test x"$with_libasr_cppflags" != x""; then
+		CPPFLAGS=$with_libasr_cppflags
 	fi
-	if test "$with_libasr_cppflags" != ""; then
-	   CPPFLAGS=$with_libasr_cppflags
+	if test x"$with_libasr_ldflags" != x""; then
+		LDFLAGS=$with_libasr_ldflags
 	fi
 
 	AC_CHECK_HEADER(asr.h,
