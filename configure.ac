@@ -289,6 +289,8 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-openbsd*)
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
+	AC_DEFINE([BROKEN_STRNVIS], [1],
+	    [Temporarily to fix build on OpenBSD])
 	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
 	;;
 esac
