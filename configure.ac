@@ -46,8 +46,7 @@ AM_INIT_AUTOMAKE
 
 LT_INIT
 
-# check variables set by libtool detection
-#
+#here we should test for variables set by libtool detection
 if test "x$with_pic" != "xno" ; then
 	CFLAGS="$CFLAGS ${pic_flag}"
 fi
@@ -95,19 +94,11 @@ need_dash_r=
 cflags_werror=
 use_pie=auto
 
-sockdir=/var/run
-spooldir=/var/spool/smtpd
-CA_FILE=/etc/ssl/cert.pem
-
-
 enable_table_db=no
 enable_bsd_auth=no
-enable_mailwrapper=no
 enable_pam=no
 enable_pam_old=no
 enable_pam_service=smtpd
-enable_gcm_crypto=yes
-enable_tls_sni=yes
 
 
 #
@@ -643,6 +634,8 @@ AC_ARG_WITH([bsd-auth],
 
 
 
+# Where to place smtpd.sock
+sockdir=/var/run
 # make sure the directory exists
 if test ! -d $sockdir ; then
 	sockdir=`eval echo ${sysconfdir}`
@@ -650,6 +643,7 @@ if test ! -d $sockdir ; then
 		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
 	esac
 fi
+
 AC_ARG_WITH([sock-dir],
 	[  --with-sock-dir=PATH    Specify location of smtpd.sock file],
 	[
@@ -662,11 +656,14 @@ AC_ARG_WITH([sock-dir],
 		fi
 	]
 )
-AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], [Specify location of smtpd.sock])
+
+AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
+	[Specify location of smtpd.sock])
 AC_SUBST([sockdir])
 #l4470
 
 
+CA_FILE=/etc/ssl/cert.pem
 AC_ARG_WITH([ca-file],
 	[  --with-ca-file=FILE     Path for certificate file (default=/etc/ssl/cert.pem)],
 	[
@@ -680,6 +677,7 @@ AC_SUBST([CA_FILE])
 
 
 # Where to place spooler
+spooldir=/var/spool/smtpd
 AC_ARG_WITH([spooldir],
 	[  --with-spooldir=PATH		Specify location of spooler directory],
 	[
@@ -687,24 +685,27 @@ AC_ARG_WITH([spooldir],
 		    test "x${withval}" != "xyes"; then
 			spooldir=$withval
 			if test ! -d $spooldir ; then
-			   AC_MSG_WARN([** no $spooldir directory on this system **])
+			AC_MSG_WARN([** no $spooldir directory on this system **])
 			fi
 		fi
 	]
 )
-AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], [Specify location of spooler])
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
 AC_SUBST([spooldir])
 
 
+
+use_mailwrapper=0
 AC_ARG_WITH([mailwrapper],
 	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
 	[ if test "x$withval" = "xyes"; then
-	     enable_mailwrapper=1
+	     use_mailwrapper=1
 	  fi
 	]
 )
-AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $enable_mailwrapper = 1])
-
+AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
 
 
 # Search for asr (based on zlib checks)
@@ -1510,41 +1511,43 @@ AC_LINK_IFELSE(
 )
 #l2371
 
-
+##chl
+EXPERIMENTAL_GCM_CRYPTO=no
 AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
 	[[ EVP_aes_256_gcm(); ]])],
 	[
 		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_GCM_CRYPTO], [1], [Define if you want to use GCM crypto support])
+		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
+			[Define if you want to use GCM crypto support])
+		EXPERIMENTAL_GCM_CRYPTO=yes
 	],
 	[
 		AC_MSG_RESULT([no])
-		enable_gcm_crypto=no
 	]
 )
-AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $enable_gcm_crypto = yes])
+AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
+##chl
 
-
-
+##gilles
+OPENSSL_SUPPORTS_SNI=no
 AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
 	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
 	[
 		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1], [Define if you want to enable TLS extension SERVERNAME])
-
+		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
+			[Define if you want to enable TLS extension SERVERNAME])
+		OPENSSL_SUPPORTS_SNI=yes
 	],
 	[
 		AC_MSG_RESULT([no])
-		enable_tls_sni=no
 	]
 )
-AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $enable_tls_sni = yes])
-
-
+AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
+##gilles
 
 ##gilles
 AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
@@ -2662,6 +2665,7 @@ if test x"$enable_table_db" = x"yes"; then
    fi
 
    AC_SUBST([LIBS_DB])
+   echo "foobar: " $LIBS_DB
 fi
 
 
