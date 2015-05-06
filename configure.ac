@@ -1291,6 +1291,20 @@ AC_ARG_WITH([ssl-dir],
 )
 ## XXX chl -lssl manually added
 LIBS="-lcrypto -lssl $LIBS"
+SSLIB=LibreSSL
+AC_MSG_CHECKING([if SSL library is LibreSSL or OpenSSL])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/opensslv.h> ]],
+	[[ { int x = LIBRESSL_VERSION_NUMBER;} ]])],
+	[
+		AC_MSG_RESULT([LibreSSL !])
+	],
+	[
+		AC_MSG_RESULT([OpenSSL :(])
+		SSLLIB=OpenSSL
+	]
+)
+
 
 AC_MSG_CHECKING([if programs using LibreSSL functions will link])
 AC_LINK_IFELSE(
@@ -1337,7 +1351,7 @@ AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $enable_gcm_crypto = yes])
 
 
 
-AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
+AC_MSG_CHECKING([if programs using LibreSSL TLSEXT_NAMETYPE_host_name will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
 	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
@@ -1356,7 +1370,7 @@ AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $enable_tls_sni = yes])
 
 
 ##gilles
-AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
+AC_MSG_CHECKING([if LibreSSL SSL_OP_NO_TICKET is supported])
 AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
 #include <openssl/ssl.h>
 #ifdef SSL_OP_NO_TICKET
