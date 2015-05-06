@@ -1528,13 +1528,3 @@ int runq_delay(struct runq *, unsigned int, void (*)(struct runq *, void *), voi
 int runq_cancel(struct runq *, void (*)(struct runq *, void *), void *);
 int runq_pending(struct runq *, void (*)(struct runq *, void *), void *, time_t *);
 int runq_next(struct runq *, void (**)(struct runq *, void *), void **, time_t *);
-
-/* This is needed to build on pre-5.6 */
-
-#ifdef NEED_REALLOCARRAY
-void    *reallocarray(void *, size_t, size_t);
-#endif
-
-#ifdef NEED_ERRC
-void     errc(int, int, const char *, ...);
-#endif
