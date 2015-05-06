@@ -102,9 +102,20 @@ CHECK_COMPILER([])
 CHECK_SYSTEM([])
 
 
-# add --with-XXX options that are not OpenSMTPD-specific
+# add generic --with-XXX options
 #
 CHECK_WITH_OPTIONS([])
+
+
+# add --with-XXX options for libraries we may want to provide paths for
+#
+WITH_LIBASR([])
+WITH_LIBDB([])
+WITH_LIBEVENT([])
+WITH_LIBSSL([])
+WITH_LIBZ([])
+
+
 
 #CFLAGS_DEBUG=-g
 #AC_ARG_WITH([debug],
@@ -115,32 +126,6 @@ CHECK_WITH_OPTIONS([])
 #		fi
 #	]
 #)
-
-AC_ARG_WITH([zlib],
-	[  --with-zlib=PATH        Use zlib in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** zlib is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
 
 AC_ARG_WITH([pie],
     [  --with-pie             Build Position Independent Executables if possible], [
@@ -437,8 +422,7 @@ AC_ARG_WITH([mailwrapper],
 AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $enable_mailwrapper = 1])
 
 
-WITH_LIBASR([])
-WITH_LIBDB([])
+
 
 
 
@@ -555,30 +539,6 @@ int main(int argc, char **argv) {
 AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
 
-dnl zlib is required
-
-
-AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
-AC_CHECK_LIB([z], [deflate], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default zlib install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-		LIBS="$LIBS -lz"
-		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
-			[
-				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
-			]
-		)
-	]
-)
 
 
 dnl UnixWare 2.x
@@ -956,153 +916,9 @@ fi
 
 
 
-#l2174 (customized, bu adding -lssl to LIBS)
-# Search for LibreSSL
-saved_CPPFLAGS="$CPPFLAGS"
-saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([ssl-dir],
-	[  --with-ssl-dir=PATH     Specify path to LibreSSL installation ],
-	[
-		if test "x$withval" != "xno" ; then
-			case "$withval" in
-				# Relative paths
-				./*|../*)	withval="`pwd`/$withval"
-			esac
-			if test -d "$withval/lib"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-				fi
-			elif test -d "$withval/lib64"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
-				fi
-			else
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval} ${LDFLAGS}"
-				fi
-			fi
-			if test -d "$withval/include"; then
-				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-			else
-				CPPFLAGS="-I${withval} ${CPPFLAGS}"
-			fi
-		fi
-	]
-)
-
-AC_CHECK_FUNC([arc4random],
-        [], [ AC_CHECK_LIB([crypto], [arc4random], []) ]
-	)
-AC_CHECK_FUNC([arc4random_buf],
-        [], [ AC_CHECK_LIB([crypto], [arc4random_buf], []) ]
-	)
-AC_CHECK_FUNC([arc4random_stir],
-        [], [ AC_CHECK_LIB([crypto], [arc4random_stir], []) ]
-	)
-AC_CHECK_FUNC([arc4random_uniform],
-        [], [ AC_CHECK_LIB([crypto], [arc4random_uniform], []) ]
-	)
-
-
-## XXX chl -lssl manually added
-LIBS="-lcrypto -lssl $LIBS"
-SSLIB=LibreSSL
-AC_MSG_CHECKING([if SSL library is LibreSSL or OpenSSL])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/opensslv.h> ]],
-	[[ { int x = LIBRESSL_VERSION_NUMBER;} ]])],
-	[
-		AC_MSG_RESULT([LibreSSL :-)])
-	],
-	[
-		AC_MSG_RESULT([OpenSSL :-(])
-		SSLLIB=OpenSSL
-	]
-)
-
-
-AC_MSG_CHECKING([if programs using LibreSSL functions will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ SSLeay_add_all_algorithms(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		saved_LIBS="$LIBS"
-		LIBS="$LIBS -ldl"
-		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-			[[ SSLeay_add_all_algorithms(); ]])],
-			[
-				AC_MSG_RESULT([yes])
-			],
-			[
-				AC_MSG_RESULT([no])
-				LIBS="$saved_LIBS"
-			]
-		)
-	]
-)
-#l2371
-
-
-AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ EVP_aes_256_gcm(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_GCM_CRYPTO], [1], [Define if you want to use GCM crypto support])
-	],
-	[
-		AC_MSG_RESULT([no])
-		enable_gcm_crypto=no
-	]
-)
-AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $enable_gcm_crypto = yes])
 
 
 
-AC_MSG_CHECKING([if programs using LibreSSL TLSEXT_NAMETYPE_host_name will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
-	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1], [Define if you want to enable TLS extension SERVERNAME])
-
-	],
-	[
-		AC_MSG_RESULT([no])
-		enable_tls_sni=no
-	]
-)
-AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $enable_tls_sni = yes])
-
-
-
-##gilles
-AC_MSG_CHECKING([if LibreSSL SSL_OP_NO_TICKET is supported])
-AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
-#include <openssl/ssl.h>
-#ifdef SSL_OP_NO_TICKET
-HAVE_SSL_OP_NO_TICKET
-#endif
-], [
-   AC_MSG_RESULT([yes])
-], [
-   AC_MSG_RESULT([no])
-   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by LibreSSL.])
-])
 ##gilles
 
 #l2494
@@ -1998,69 +1814,10 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 ##end of chl
 
 
-# Search for libevent
-saved_CPPFLAGS="$CPPFLAGS"
-saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([libevent-dir],
-	[  --with-libevent-dir=PATH		Specify path to libevent installation ],
-	[
-		if test "x$withval" != "xno" ; then
-			case "$withval" in
-				# Relative paths
-				./*|../*)	withval="`pwd`/$withval"
-			esac
-			if test -d "$withval/lib"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-				fi
-			elif test -d "$withval/lib64"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
-				fi
-			else
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval} ${LDFLAGS}"
-				fi
-			fi
-			if test -d "$withval/include"; then
-				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-			else
-				CPPFLAGS="-I${withval} ${CPPFLAGS}"
-			fi
-		fi
-	]
-)
-
-LIBS="-levent $LIBS"
-
-AC_MSG_CHECKING([if programs using libevent functions will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[
-#if LIBEVENT_MAJOR_VERSION < 2
-#include <event.h>
-#else
-#include <event2/event.h>
-#endif
-	]], [[
-	event_base_new();
-	]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-
 
 LIBS_DB=
 if test x"$enable_table_db" = x"yes"; then
+   :
    AC_SUBST([LIBS_DB])
 fi
 
@@ -2072,6 +1829,72 @@ fi
 
 CHECK_LIBASR([])
 CHECK_LIBDB([])
+CHECK_LIBEVENT([])
+CHECK_LIBSSL([])
+CHECK_LIBZ([])
+
+
+# use for these is obvious
+#
+AC_CHECK_FUNC([arc4random],		[], [ AC_CHECK_LIB([crypto], [arc4random], [])])
+AC_CHECK_FUNC([arc4random_buf],		[], [ AC_CHECK_LIB([crypto], [arc4random_buf], [])])
+AC_CHECK_FUNC([arc4random_stir],	[], [ AC_CHECK_LIB([crypto], [arc4random_stir], [])])
+AC_CHECK_FUNC([arc4random_uniform],	[], [ AC_CHECK_LIB([crypto], [arc4random_uniform], [])])
+
+
+# if SSL library supports EVP_aes_256_gcm(), we can provide queue encryption
+#
+AC_MSG_CHECKING([for EVP_aes_256_gcm])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ EVP_aes_256_gcm(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_EVP_AES_256_GCM])
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+
+
+# if SSL library supports SSL_CTX_set_tlsext_servername_callback(), we can provide SNI
+#
+AC_MSG_CHECKING([for SSL_CTX_set_tlsext_servername_callback])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_EVP_AES_256_GCM])
+		AC_DEFINE([HAVE_SSL_CTX_SET_TLSEXT_SERVERNAME_CALLBACK])
+
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+
+
+# Some OpenSSL versions do not define SSL_OP_NO_TICKET, prevent compilation breakage
+#
+AC_MSG_CHECKING([for SSL_OP_NO_TICKET])
+AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET,
+	[
+		#include <openssl/ssl.h>
+		#ifdef SSL_OP_NO_TICKET
+		HAVE_SSL_OP_NO_TICKET
+		#endif
+	],[
+		AC_MSG_RESULT([yes])
+	],[
+		AC_MSG_RESULT([no])
+		AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't found])
+	]
+)
+
+
+
 
 
 
@@ -2120,7 +1943,7 @@ echo "                      Manual pages: $G"
 echo "                    smtpd.sock dir: $H"
 echo "  Privilege separation chroot path: $I"
 echo "                    Manpage format: $MANTYPE"
-if test ! -z "${enable_pam}"; then
+if test x"${enable_pam}" = x"yes"; then
    if test ! -z "${enable_pam_old}"; then
       echo "                       PAM support: yes (old version)"
    else
