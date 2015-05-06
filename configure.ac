@@ -1248,6 +1248,65 @@ fi
 #l1982
 
 
+if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
+    test "x$check_for_aix_broken_getaddrinfo" = "x1"; then
+	AC_MSG_CHECKING([if getaddrinfo seems to work])
+	AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <errno.h>
+#include <netinet/in.h>
+
+#define TEST_PORT "2222"
+		]], [[
+	int err, sock;
+	struct addrinfo *gai_ai, *ai, hints;
+	char ntop[NI_MAXHOST], strport[NI_MAXSERV], *name = NULL;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	err = getaddrinfo(name, TEST_PORT, &hints, &gai_ai);
+	if (err != 0) {
+		fprintf(stderr, "getaddrinfo failed (%s)", gai_strerror(err));
+		exit(1);
+	}
+
+	for (ai = gai_ai; ai != NULL; ai = ai->ai_next) {
+		if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6)
+			continue;
+
+		err = getnameinfo(ai->ai_addr, ai->ai_addrlen, ntop,
+		    sizeof(ntop), strport, sizeof(strport),
+		    NI_NUMERICHOST|NI_NUMERICSERV);
+
+		if (ai->ai_family == AF_INET && err != 0) {
+			perror("getnameinfo");
+			exit(2);
+		}
+	}
+	exit(0);
+		]])],
+		[
+			AC_MSG_RESULT([yes])
+			AC_DEFINE([AIX_GETNAMEINFO_HACK], [1],
+				[Define if you have a getaddrinfo that fails
+				for the all-zeros IPv6 address])
+		],
+		[
+			AC_MSG_RESULT([no])
+			AC_DEFINE([BROKEN_GETADDRINFO])
+		],
+		[
+			AC_MSG_RESULT([cross-compiling, assuming no])
+		]
+	)
+fi
+#l2155
 
 #l2174 (customized, bu adding -lssl to LIBS)
 # Search for LibreSSL
