@@ -28,6 +28,7 @@ makemap_SOURCES+=	$(smtpd_srcdir)/table_proc.c
 makemap_CFLAGS=		-DNO_IO
 
 
+AM_CFLAGS=
 AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)	\
 			-I$(asr_srcdir)
@@ -40,8 +41,8 @@ LDADD=			$(LIBCOMPAT) $(DB_LIB)
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS+=		-D_GNU_SOURCE
-CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+AM_CFLAGS+=		-D_GNU_SOURCE
+AM_CPPFLAGS+=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		makemap.8.out newaliases.8.out
 MANPAGES_IN=		$(smtpd_srcdir)/makemap.8
