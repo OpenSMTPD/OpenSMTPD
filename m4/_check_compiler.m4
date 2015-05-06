@@ -1,6 +1,8 @@
 AC_DEFUN([CHECK_COMPILER], [{
 
 if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
+   	echo "TEST TEST TEST"
+	sleep 4
    	OPENSMTPD_CHECK_CFLAG_COMPILE([-Qunused-arguments])
 	OPENSMTPD_CHECK_CFLAG_COMPILE([-Wunknown-warning-option])
 	OPENSMTPD_CHECK_CFLAG_COMPILE([-Wall])
