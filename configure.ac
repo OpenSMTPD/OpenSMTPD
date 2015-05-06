@@ -438,8 +438,8 @@ AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $enable_mailwrapper = 1])
 
 
 WITH_LIBASR([])
-echo "cpp" $with_libasr_cppflags
-echo "ld" $with_libasr_ldflags
+WITH_LIBDB([])
+
 
 
 AC_ARG_WITH([table-db],
@@ -2059,32 +2059,8 @@ AC_LINK_IFELSE(
 )
 
 
-# --with-table-db
-#
 LIBS_DB=
 if test x"$enable_table_db" = x"yes"; then
-   # check suitable header
-   #
-   AC_CHECK_HEADER(db_185.h,
-	[AC_DEFINE([HAVE_DB_185_H],	[], [if you have the <db_185.h> header file])],[
-   AC_CHECK_HEADER(db.h,
-	[AC_DEFINE([HAVE_DB_H],		[], [if you have the <db.h> header file])],[
-   AC_CHECK_HEADER(db1/db.h,
-	[AC_DEFINE([HAVE_DB1_DB_H],	[], [if you have the <db1/db.h> header file])],[
-   AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])])])])
-
-
-   # check suitable lib
-   #
-   for libdb in db db1 c; do
-	AC_CHECK_LIB($libdb, dbopen,       [ LIBS_DB="-l$libdb"; break; ], 
-	AC_CHECK_LIB($libdb, __db185_open, [ LIBS_DB="-l$libdb"; break; ]))
-   done
-
-   if test -z "$LIBS_DB" ; then
-	AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
-   fi
-
    AC_SUBST([LIBS_DB])
 fi
 
@@ -2095,6 +2071,7 @@ fi
 
 
 CHECK_LIBASR([])
+CHECK_LIBDB([])
 
 
 
