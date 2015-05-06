@@ -44,6 +44,10 @@
 #include "smtpd.h"
 #include "log.h"
 
+#if !defined(HAVE_ASR_FREEADDRINFO)
+#define asr_freeaddrinfo(x)	(x)
+#endif
+
 struct dns_lookup {
 	struct dns_session	*session;
 	int			 preference;
