@@ -2,6 +2,8 @@
 
 .PATH:		${.CURDIR}/..
 
+NEED_REALLOCARRAY!=	grep -q reallocarray /usr/include/stdlib.h && echo No || echo Yes
+
 PROG=	makemap
 BINOWN=	root
 
@@ -34,6 +36,11 @@ SRCS+=		table_static.c
 SRCS+=		table_db.c
 SRCS+=		table_getpwnam.c
 SRCS+=		table_proc.c
+
+.if ${NEED_REALLOCARRAY} == "Yes"
+CFLAGS+=	-DNEED_REALLOCARRAY
+SRCS+=		reallocarray.c
+.endif
 
 DPADD+= ${LIBUTIL} ${LIBCRYPTO} ${LIBZ}
 LDADD+= -lutil -lcrypto -lz
