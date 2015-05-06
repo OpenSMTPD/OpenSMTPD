@@ -857,10 +857,10 @@ mda_user(const struct envelope *evp)
 	stat_increment("mda.user", 1);
 
 	if (evp->agent.mda.delivery_user[0])
-		log_debug("mda: new user %llx for \"%s\" delivering as \"%s\"",
+		log_debug("mda: new user %016" PRIx64 " for \"%s\" delivering as \"%s\"",
 		    u->id, mda_user_to_text(u), evp->agent.mda.delivery_user);
 	else
-		log_debug("mda: new user %llx for \"%s\"", u->id, mda_user_to_text(u));
+		log_debug("mda: new user %016" PRIx64 " for \"%s\"", u->id, mda_user_to_text(u));
 
 	return (u);
 }
