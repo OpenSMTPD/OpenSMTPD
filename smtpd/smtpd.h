@@ -18,11 +18,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#if LIBEVENT_MAJOR_VERSION < 2
 #include <event.h>
-#else
-#include <event2/event_struct.h>
-#endif
 
 #include			 <imsg.h>
 
