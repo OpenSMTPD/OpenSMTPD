@@ -311,6 +311,17 @@ AC_CHECK_HEADERS([sys/mount.h], [], [], [
 #l432 (customized)
 # Check for some target-specific stuff
 case "$host" in
+*-*-aix*)
+	check_for_aix_broken_getaddrinfo=1
+	AC_DEFINE([BROKEN_REALPATH], [1], [Define if you have a broken realpath.])
+	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
+	    [Define if your platform breaks doing a seteuid before a setuid])
+	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
+	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
+	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
+		[Define to a Set Process Title type if your system is
+		supported by bsd-setproctitle.c])
+	;;
 *-*-darwin*)
 	use_pie=auto
 	AC_MSG_CHECKING([if we have working getaddrinfo])
@@ -327,10 +338,9 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		[getaddrinfo is broken (if present)])
 	],
 	[AC_MSG_RESULT([assume it is working])])
-	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
-	    [Define if your platform breaks doing a seteuid before a setuid])
-	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
-	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
+	AC_DEFINE([SETEUID_BREAKS_SETUID])
+	AC_DEFINE([BROKEN_SETREUID])
+	AC_DEFINE([BROKEN_SETREGID])
 	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
