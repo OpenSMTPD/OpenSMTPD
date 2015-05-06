@@ -15,44 +15,58 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-
-
 AC_INIT([opensmtpd], [portable], [bugs@opensmtpd.org])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
+
 AC_CONFIG_HEADER([config.h])
+AC_PROG_CC
 AC_CANONICAL_HOST
+AC_C_BIGENDIAN
+
+
+# Checks for programs.
 AC_PROG_CPP
-
-
-# check path for programs required for build
-#
-CHECK_PROGRAMS([])
-
-
-# in addition, opensmtpd also needs zcat for queue compression
+AC_PROG_INSTALL
+AC_PROG_LIBTOOL
+AC_PATH_PROG([AR], [ar])
+AC_PATH_PROG([CAT], [cat])
 AC_PATH_PROG([ZCAT], [zcat])
 AC_SUBST([ZCAT])
-
-# we can already set the default man page formatter
-
-
+AC_PATH_PROG([SED], [sed])
+AC_PATH_PROG([TEST_MINUS_S_SH], [bash])
+AC_PATH_PROG([TEST_MINUS_S_SH], [ksh])
+AC_PATH_PROG([TEST_MINUS_S_SH], [sh])
+AC_PATH_PROG([SH], [sh])
+AC_PATH_PROG([GROFF], [groff])
+AC_PATH_PROG([NROFF], [nroff])
+AC_PATH_PROG([MANDOC], [mandoc])
+AC_PROG_YACC
 
 AM_INIT_AUTOMAKE
 
-
-
-# libtool init
-#
 LT_INIT
 
 # check variables set by libtool detection
+#
 if test "x$with_pic" != "xno" ; then
 	CFLAGS="$CFLAGS ${pic_flag}"
 fi
 
 
-
+# check which formatter to use for man pages
+#
+if test "x$MANDOC" != "x" ; then
+	MANFMT="$MANDOC"
+elif test "x$NROFF" != "x" ; then
+	MANFMT="$NROFF -mandoc"
+elif test "x$GROFF" != "x" ; then
+	MANFMT="$GROFF -mandoc -Tascii"
+else
+	AC_MSG_WARN([no manpage formatted found])
+	MANFMT="false"
+fi
+AC_SUBST([MANFMT])
 
 # check for AR
 #
