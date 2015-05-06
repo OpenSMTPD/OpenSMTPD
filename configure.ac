@@ -1,5 +1,6 @@
 # $Id: configure.ac,v 1.519 2013/03/22 01:49:15 dtucker Exp $
 #
+# Copyright (c) 2015 Gilles Chehade <gilles@poolp.org>
 # Copyright (c) 1999-2004 Damien Miller
 #
 # Permission to use, copy, modify, and distribute this software for any
@@ -113,206 +114,13 @@ enable_tls_sni=yes
 #
 # CHECK COMPILER FLAGS & ENVIRONMENT
 #
-if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
-	OSSH_CHECK_CFLAG_COMPILE([-Qunused-arguments])
-	OSSH_CHECK_CFLAG_COMPILE([-Wunknown-warning-option])
-	OSSH_CHECK_CFLAG_COMPILE([-Wall])
-	OSSH_CHECK_CFLAG_COMPILE([-Wpointer-arith])
-	OSSH_CHECK_CFLAG_COMPILE([-Wuninitialized])
-	OSSH_CHECK_CFLAG_COMPILE([-Wsign-compare])
-	OSSH_CHECK_CFLAG_COMPILE([-Wformat-security])
-	OSSH_CHECK_CFLAG_COMPILE([-Wsizeof-pointer-memaccess])
-	OSSH_CHECK_CFLAG_COMPILE([-Wpointer-sign], [-Wno-pointer-sign])
-	OSSH_CHECK_CFLAG_COMPILE([-Wunused-result], [-Wno-unused-result])
-	OSSH_CHECK_CFLAG_COMPILE([-fno-strict-aliasing])
-	OSSH_CHECK_CFLAG_COMPILE([-D_FORTIFY_SOURCE=2])
-    if test "x$use_toolchain_hardening" = "x1"; then
-	OSSH_CHECK_LDFLAG_LINK([-Wl,-z,relro])
-	OSSH_CHECK_LDFLAG_LINK([-Wl,-z,now])
-	OSSH_CHECK_LDFLAG_LINK([-Wl,-z,noexecstack])
-	# NB. -ftrapv expects certain support functions to be present in
-	# the compiler library (libgcc or similar) to detect integer operations
-	# that can overflow. We must check that the result of enabling it
-	# actually links. The test program compiled/linked includes a number
-	# of integer operations that should exercise this.
-	OSSH_CHECK_CFLAG_LINK([-ftrapv])
-    fi
-	AC_MSG_CHECKING([gcc version])
-	GCC_VER=`$CC -v 2>&1 | $AWK '/gcc version /{print $3}'`
-	case $GCC_VER in
-		1.*) no_attrib_nonnull=1 ;;
-		2.8* | 2.9*)
-		     no_attrib_nonnull=1
-		     ;;
-		2.*) no_attrib_nonnull=1 ;;
-		*) ;;
-	esac
-	AC_MSG_RESULT([$GCC_VER])
-
-	AC_MSG_CHECKING([if $CC accepts -fno-builtin-memset])
-	saved_CFLAGS="$CFLAGS"
-	CFLAGS="$CFLAGS -fno-builtin-memset"
-	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <string.h> ]],
-			[[ char b[10]; memset(b, 0, sizeof(b)); ]])],
-		[ AC_MSG_RESULT([yes]) ],
-		[ AC_MSG_RESULT([no])
-		  CFLAGS="$saved_CFLAGS" ]
-	)
-
-	# -fstack-protector-all doesn't always work for some GCC versions
-	# and/or platforms, so we test if we can.  If it's not supported
-	# on a given platform gcc will emit a warning so we use -Werror.
-	if test "x$use_stack_protector" = "x1"; then
-	    for t in -fstack-protector-strong -fstack-protector-all \
-		    -fstack-protector; do
-		AC_MSG_CHECKING([if $CC supports $t])
-		saved_CFLAGS="$CFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		CFLAGS="$CFLAGS $t -Werror"
-		LDFLAGS="$LDFLAGS $t -Werror"
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM([[ #include <stdio.h> ]],
-			[[
-	char x[256];
-	snprintf(x, sizeof(x), "XXX");
-			 ]])],
-		    [ AC_MSG_RESULT([yes])
-		      CFLAGS="$saved_CFLAGS $t"
-		      LDFLAGS="$saved_LDFLAGS $t"
-		      AC_MSG_CHECKING([if $t works])
-		      AC_RUN_IFELSE(
-			[AC_LANG_PROGRAM([[ #include <stdio.h> ]],
-			[[
-	char x[256];
-	snprintf(x, sizeof(x), "XXX");
-			]])],
-			[ AC_MSG_RESULT([yes])
-			  break ],
-			[ AC_MSG_RESULT([no]) ],
-			[ AC_MSG_WARN([cross compiling: cannot test])
-			  break ]
-		      )
-		    ],
-		    [ AC_MSG_RESULT([no]) ]
-		)
-		CFLAGS="$saved_CFLAGS"
-		LDFLAGS="$saved_LDFLAGS"
-	    done
-	fi
-
-	if test -z "$have_llong_max"; then
-		# retry LLONG_MAX with -std=gnu99, needed on some Linuxes
-		unset ac_cv_have_decl_LLONG_MAX
-		saved_CFLAGS="$CFLAGS"
-		CFLAGS="$CFLAGS -std=gnu99"
-		AC_CHECK_DECL([LLONG_MAX],
-		    [have_llong_max=1],
-		    [CFLAGS="$saved_CFLAGS"],
-		    [#include <limits.h>]
-		)
-	fi
-fi
+CHECK_COMPILER([])
+CHECK_SYSTEM([])
 
 
-AC_MSG_CHECKING([if compiler allows __attribute__ on return types])
-AC_COMPILE_IFELSE(
-    [AC_LANG_PROGRAM([[
-#include <stdlib.h>
-__attribute__((__unused__)) static void foo(void){return;}]],
-    [[ exit(0); ]])],
-    [ AC_MSG_RESULT([yes]) ],
-    [ AC_MSG_RESULT([no])
-      AC_DEFINE(NO_ATTRIBUTE_ON_RETURN_TYPE, 1,
-	 [compiler does not accept __attribute__ on return types]) ]
-)
-
-if test "x$no_attrib_nonnull" != "x1" ; then
-	AC_DEFINE([HAVE_ATTRIBUTE__NONNULL__], [1], [Have attribute nonnull])
-fi
-
-AC_MSG_CHECKING([compiler and flags for sanity])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
-	[	AC_MSG_RESULT([yes]) ],
-	[
-		AC_MSG_RESULT([no])
-		AC_MSG_ERROR([*** compiler cannot create working executables, check config.log ***])
-	],
-	[	AC_MSG_WARN([cross compiling: not checking compiler sanity]) ]
-)
-
-
-
+# add --with-XXX options that are not OpenSMTPD-specific
 #
-# CHECK OPERATING SYSTEM
-#
-case "$host" in
-*-*-darwin*)
-	AC_MSG_CHECKING([if we have working getaddrinfo])
-	AC_RUN_IFELSE([AC_LANG_SOURCE([[ #include <mach-o/dyld.h>
-main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
-		exit(0);
-	else
-		exit(1);
-}
-			]])],
-	[AC_MSG_RESULT([working])],
-	[AC_MSG_RESULT([buggy])
-	AC_DEFINE([BROKEN_GETADDRINFO], [1],
-		[getaddrinfo is broken (if present)])
-	],
-	[AC_MSG_RESULT([assume it is working])])
-	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
-	    [Define if your platform breaks doing a seteuid before a setuid])
-	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
-	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
-	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
-	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
-		[Define to a Set Process Title type if your system is
-		supported by bsd-setproctitle.c])
-	;;
-*-*-dragonfly*)
-	LIBS_SMTPD="$LIBS_SMTPD -lcrypt"
-	;;
-*-*-linux* | *-gnu* | *-k*bsd*-gnu* )
-	check_for_libcrypt_later=1
-	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
-	case `uname -r` in
-	1.*|2.0.*)
-		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
-			[Define if cmsg_type is not passed correctly])
-		;;
-	esac
-	;;
-*-*-netbsd*)
-	check_for_libcrypt_before=1
-	need_dash_r=1
-	AC_DEFINE([BROKEN_STRNVIS], [1],
-	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
-	;;
-*-*-freebsd*)
-	check_for_libcrypt_later=1
-	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
-	AC_DEFINE([BROKEN_STRNVIS], [1],
-	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
-	;;
-*-*-openbsd*)
-	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
-	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
-	AC_DEFINE([BROKEN_STRNVIS], [1],
-	    [Temporarily to fix build on OpenBSD])
-	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
-	;;
-esac
-
-
-
-#
-# CONFIGURE OPTIONS
-#
-
-
-
-
+CHECK_WITH_OPTIONS([])
 
 #CFLAGS_DEBUG=-g
 #AC_ARG_WITH([debug],
@@ -323,66 +131,6 @@ esac
 #		fi
 #	]
 #)
-
-AC_ARG_WITH([rpath],
-	[  --without-rpath         Disable auto-added -R linker paths],
-	[
-		if test "x$withval" = "xno" ; then
-			need_dash_r=""
-		fi
-		if test "x$withval" = "xyes" ; then
-			need_dash_r=1
-		fi
-	]
-)
-
-AC_ARG_WITH([cflags],
-	[  --with-cflags           Specify additional flags to pass to compiler],
-	[
-		if test -n "$withval" && test "x$withval" != "xno" &&  \
-		    test "x${withval}" != "xyes"; then
-			CFLAGS="$CFLAGS $withval"
-		fi
-	]
-)
-AC_ARG_WITH([cppflags],
-	[  --with-cppflags         Specify additional flags to pass to preprocessor] ,
-	[
-		if test -n "$withval" && test "x$withval" != "xno" &&  \
-		    test "x${withval}" != "xyes"; then
-			CPPFLAGS="$CPPFLAGS $withval"
-		fi
-	]
-)
-AC_ARG_WITH([ldflags],
-	[  --with-ldflags          Specify additional flags to pass to linker],
-	[
-		if test -n "$withval" && test "x$withval" != "xno" &&  \
-		    test "x${withval}" != "xyes"; then
-			LDFLAGS="$LDFLAGS $withval"
-		fi
-	]
-)
-AC_ARG_WITH([libs],
-	[  --with-libs             Specify additional libraries to link with],
-	[
-		if test -n "$withval" && test "x$withval" != "xno" &&  \
-		    test "x${withval}" != "xyes"; then
-			LIBS="$LIBS $withval"
-		fi
-	]
-)
-AC_ARG_WITH([Werror],
-	[  --with-Werror           Build main code with -Werror],
-	[
-		if test -n "$withval" && test "x$withval" != "xno"; then
-			cflags_werror="-Werror"
-			if test "x${withval}" != "xyes"; then
-				cflags_werror="$withval"
-			fi
-		fi
-	]
-)
 
 AC_ARG_WITH([zlib],
 	[  --with-zlib=PATH        Use zlib in PATH],
@@ -925,8 +673,8 @@ fi
 if test "x$use_pie" != "xno"; then
 	SAVED_CFLAGS="$CFLAGS"
 	SAVED_LDFLAGS="$LDFLAGS"
-	OSSH_CHECK_CFLAG_COMPILE([-fPIE])
-	OSSH_CHECK_LDFLAG_LINK([-pie])
+	OPENSMTPD_CHECK_CFLAG_COMPILE([-fPIE])
+	OPENSMTPD_CHECK_LDFLAG_LINK([-pie])
 	# We use both -fPIE and -pie or neither.
 	AC_MSG_CHECKING([whether both -fPIE and -pie are supported])
 	if echo "x $CFLAGS"  | grep ' -fPIE' >/dev/null 2>&1 && \

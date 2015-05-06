@@ -1,13 +1,4 @@
-dnl $Id: aclocal.m4,v 1.13 2014/01/22 10:30:12 djm Exp $
-dnl
-dnl OpenSSH-specific autoconf macros
-dnl
-
-dnl OSSH_CHECK_CFLAG_COMPILE(check_flag[, define_flag])
-dnl Check that $CC accepts a flag 'check_flag'. If it is supported append
-dnl 'define_flag' to $CFLAGS. If 'define_flag' is not specified, then append
-dnl 'check_flag'.
-AC_DEFUN([OSSH_CHECK_CFLAG_COMPILE], [{
+AC_DEFUN([OPENSMTPD_CHECK_CFLAG_COMPILE], [{
 	AC_MSG_CHECKING([if $CC supports compile flag $1])
 	saved_CFLAGS="$CFLAGS"
 	CFLAGS="$CFLAGS $WERROR $1"
@@ -40,11 +31,11 @@ fi],
 	)
 }])
 
-dnl OSSH_CHECK_CFLAG_LINK(check_flag[, define_flag])
+dnl OPENSMTPD_CHECK_CFLAG_LINK(check_flag[, define_flag])
 dnl Check that $CC accepts a flag 'check_flag'. If it is supported append
 dnl 'define_flag' to $CFLAGS. If 'define_flag' is not specified, then append
 dnl 'check_flag'.
-AC_DEFUN([OSSH_CHECK_CFLAG_LINK], [{
+AC_DEFUN([OPENSMTPD_CHECK_CFLAG_LINK], [{
 	AC_MSG_CHECKING([if $CC supports compile flag $1 and linking succeeds])
 	saved_CFLAGS="$CFLAGS"
 	CFLAGS="$CFLAGS $WERROR $1"
@@ -77,11 +68,11 @@ fi],
 	)
 }])
 
-dnl OSSH_CHECK_LDFLAG_LINK(check_flag[, define_flag])
+dnl OPENSMTPD_CHECK_LDFLAG_LINK(check_flag[, define_flag])
 dnl Check that $LD accepts a flag 'check_flag'. If it is supported append
 dnl 'define_flag' to $LDFLAGS. If 'define_flag' is not specified, then append
 dnl 'check_flag'.
-AC_DEFUN([OSSH_CHECK_LDFLAG_LINK], [{
+AC_DEFUN([OPENSMTPD_CHECK_LDFLAG_LINK], [{
 	AC_MSG_CHECKING([if $LD supports link flag $1])
 	saved_LDFLAGS="$LDFLAGS"
 	LDFLAGS="$LDFLAGS $WERROR $1"
@@ -107,11 +98,11 @@ int main(int argc, char **argv) {
 	)
 }])
 
-dnl OSSH_CHECK_HEADER_FOR_FIELD(field, header, symbol)
+dnl OPENSMTPD_CHECK_HEADER_FOR_FIELD(field, header, symbol)
 dnl Does AC_EGREP_HEADER on 'header' for the string 'field'
 dnl If found, set 'symbol' to be defined. Cache the result.
 dnl TODO: This is not foolproof, better to compile and read from there
-AC_DEFUN([OSSH_CHECK_HEADER_FOR_FIELD], [
+AC_DEFUN([OPENSMTPD_CHECK_HEADER_FOR_FIELD], [
 # look for field '$1' in header '$2'
 	dnl This strips characters illegal to m4 from the header filename
 	ossh_safe=`echo "$2" | sed 'y%./+-%__p_%'`
