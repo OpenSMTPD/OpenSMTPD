@@ -943,10 +943,6 @@ fi
 #l1572 (customized)
 dnl    Checks for library functions. Please keep in alphabetical order
 AC_CHECK_FUNCS([ \
-	arc4random \
-	arc4random_buf \
-	arc4random_stir \
-	arc4random_uniform \
 	asprintf \
 	b64_ntop \
 	__b64_ntop \
@@ -993,10 +989,6 @@ AC_CHECK_FUNCS([ \
 	waitpid \
 ])
 
-AC_SEARCH_LIBS([arc4random],		[crypto])
-AC_SEARCH_LIBS([arc4random_buf],	[crypto])
-AC_SEARCH_LIBS([arc4random_stir],	[crypto])
-AC_SEARCH_LIBS([arc4random_uniform],	[crypto])
 
 
 #l1685
@@ -1296,6 +1288,21 @@ AC_ARG_WITH([ssl-dir],
 		fi
 	]
 )
+
+AC_CHECK_FUNC([arc4random],
+        [], [ AC_CHECK_LIB([crypto], [arc4random], []) ]
+	)
+AC_CHECK_FUNC([arc4random_buf],
+        [], [ AC_CHECK_LIB([crypto], [arc4random_buf], []) ]
+	)
+AC_CHECK_FUNC([arc4random_stir],
+        [], [ AC_CHECK_LIB([crypto], [arc4random_stir], []) ]
+	)
+AC_CHECK_FUNC([arc4random_uniform],
+        [], [ AC_CHECK_LIB([crypto], [arc4random_uniform], []) ]
+	)
+
+
 ## XXX chl -lssl manually added
 LIBS="-lcrypto -lssl $LIBS"
 SSLIB=LibreSSL
