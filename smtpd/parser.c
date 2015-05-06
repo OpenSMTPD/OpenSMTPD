@@ -117,6 +117,7 @@ cmd_install(const char *pattern, int (*cmd)(int, struct parameter*))
 	return (n);
 }
 
+#if 0
 static void
 cmd_dump(struct node *node, int depth)
 {
@@ -130,6 +131,7 @@ cmd_dump(struct node *node, int depth)
 	TAILQ_FOREACH(n, &node->children, entry)
 		cmd_dump(n, depth + 1);
 }
+#endif
 
 static int
 cmd_check(const char *str, struct node *node, struct parameter *res)
