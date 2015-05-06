@@ -2038,7 +2038,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 		    ])
 ##end of chl
 
-##chl (based on LibreSSL checks, see above)
+
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
@@ -2080,120 +2080,6 @@ AC_ARG_WITH([libevent-dir],
 
 LIBS="-levent $LIBS"
 
-# Determine libevent header version
-AC_MSG_CHECKING([libevent header version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#include <event.h>
-#define DATA "conftest.libeventincver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%s\n", _EVENT_VERSION)) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		libevent_header_ver=`cat conftest.libeventincver`
-		AC_MSG_RESULT([$libevent_header_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libevent version header not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-# Determine libevent library version
-AC_MSG_CHECKING([libevent library version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#include <event.h>
-#define DATA "conftest.libeventlibver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%s\n", event_get_version())) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		libevent_library_ver=`cat conftest.libeventlibver`
-		AC_MSG_RESULT([$libevent_library_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libevent library not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-libevent_major_version=`cat conftest.libeventlibver|head -c1 || echo 1`
-
-AC_DEFINE_UNQUOTED([LIBEVENT_MAJOR_VERSION], [$libevent_major_version], [Define libevent major version])
-
-AC_ARG_WITH([libevent-header-check],
-	[  --without-libevent-header-check Disable libevent version consistency check],
-	[  if test "x$withval" = "xno" ; then
-		libevent_check_nonfatal=1
-	   fi
-	]
-)
-
-# Sanity check libevent headers
-AC_MSG_CHECKING([whether libevent's headers match the library])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#if LIBEVENT_MAJOR_VERSION < 2
-#include <event.h>
-#else
-#include <event2/event.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
-	]], [[
-	exit(strcmp(event_get_version(), _EVENT_VERSION) == 0 ? 0 : 1);
-	]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		if test "x$libevent_check_nonfatal" = "x"; then
-			AC_MSG_ERROR([Your libevent headers do not match your
-library. Check config.log for details.
-If you are sure your installation is consistent, you can disable the check
-by running "./configure --without-libevent-header-check".])
-		else
-			AC_MSG_WARN([Your libevent headers do not match your
-library. Check config.log for details.])
-		fi
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
 AC_MSG_CHECKING([if programs using libevent functions will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[
@@ -2212,9 +2098,6 @@ AC_LINK_IFELSE(
 		AC_MSG_RESULT([no])
 	]
 )
-
-# Search for libdb
-
 
 
 # --with-table-db
