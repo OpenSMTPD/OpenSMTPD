@@ -31,7 +31,6 @@ smtpctl_CFLAGS=		-DNO_IO
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
 
-AM_CFLAGS=
 AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat
 
@@ -43,8 +42,8 @@ LDADD=			$(LIBCOMPAT)
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-AM_CFLAGS+=		-D_GNU_SOURCE
-AM_CPPFLAGS+=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+CFLAGS+=		-D_GNU_SOURCE
+CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		smtpctl.8.out sendmail.8.out
 MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8

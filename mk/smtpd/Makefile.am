@@ -90,7 +90,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 smtpd_CFLAGS=		-DIO_SSL
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
-AM_CFLAGS=
 AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)
 
@@ -102,8 +101,8 @@ LDADD=			$(LIBCOMPAT) $(DB_LIB) -lasr
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-AM_CFLAGS+=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
-AM_CPPFLAGS+=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+CFLAGS+=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
+CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
 			smtpd.conf.5.out table.5.out
