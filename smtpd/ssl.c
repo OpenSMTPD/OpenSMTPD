@@ -27,7 +27,12 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
+#if LIBEVENT_MAJOR_VERSION < 2
 #include <event.h>
+#else
+#include <event2/event.h>
+#include <event2/bufferevent_ssl.h>
+#endif
 #include <fcntl.h>
 #include <imsg.h>
 #include <limits.h>
