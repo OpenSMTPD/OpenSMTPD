@@ -52,8 +52,6 @@ if test "x$with_pic" != "xno" ; then
 fi
 
 
-
-
 # check for AR
 #
 if test -z "$AR" ; then
@@ -439,34 +437,9 @@ AC_ARG_WITH([mailwrapper],
 AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $enable_mailwrapper = 1])
 
 
-
-# Search for asr (based on zlib checks)
-dnl asr is required
-AC_ARG_WITH([asr-dir],
-	[  --with-asr-dir=PATH         Use asr in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** asr is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
+WITH_LIBASR([])
+echo "cpp" $with_libasr_cppflags
+echo "ld" $with_libasr_ldflags
 
 
 AC_ARG_WITH([table-db],
@@ -2117,40 +2090,12 @@ fi
 
 
 
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
-			  [
-				#include <sys/types.h>
-				#include <sys/socket.h>
-				#include <netinet/in.h>
-			  ])
-AC_CHECK_LIB([asr], [asr_resolver], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-		AC_TRY_LINK_FUNC([asr_resolver], ,
-			[
-				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
-			]
-		)
-		LIBS_SMTPD="${LIBS_SMTPD}"
-	]
-)
-
-for lib in asr c; do
-    AC_CHECK_LIB($lib, asr_run,	[ LIBS_SMTPD="${LIBS_SMTPD} -l$lib"; break; ])
-done
-AC_CHECK_FUNCS([asr_freeaddrinfo],
-	[], [ AC_CHECK_LIB([$lib], [asr_freeaddrinfo], [AC_DEFINE([HAVE_ASR_FREEADDRINFO])])])
-
 #LIBS="$LIBS ${LIBS_SMTPD}"
 ##end of chl
+
+
+CHECK_LIBASR([])
+
 
 
 
