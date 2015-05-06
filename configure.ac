@@ -591,10 +591,9 @@ AC_ARG_WITH([maildir],
 	fi
     ]
 ) # maildir
-#l4146
 
-#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
-# Options from here on. Some of these are preset by platform above
+
+
 AC_ARG_WITH([mantype],
 	[  --with-mantype=man|cat|doc  Set man page type],
 	[
@@ -626,7 +625,7 @@ else
 	mansubdir=$MANTYPE;
 fi
 AC_SUBST([mansubdir])
-#l4207
+
 
 
 
@@ -639,7 +638,6 @@ AC_ARG_WITH([bsd-auth],
 		fi
 	]
 )
-
 
 
 
@@ -664,7 +662,7 @@ AC_ARG_WITH([sock-dir],
 )
 AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], [Specify location of smtpd.sock])
 AC_SUBST([sockdir])
-#l4470
+
 
 
 AC_ARG_WITH([ca-file],
@@ -679,7 +677,7 @@ AC_ARG_WITH([ca-file],
 AC_SUBST([CA_FILE])
 
 
-# Where to place spooler
+
 AC_ARG_WITH([spooldir],
 	[  --with-spooldir=PATH		Specify location of spooler directory],
 	[
@@ -696,6 +694,7 @@ AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], [Specify location of spooler])
 AC_SUBST([spooldir])
 
 
+
 AC_ARG_WITH([mailwrapper],
 	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
 	[ if test "x$withval" = "xyes"; then
@@ -709,8 +708,8 @@ AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $enable_mailwrapper = 1])
 
 # Search for asr (based on zlib checks)
 dnl asr is required
-AC_ARG_WITH([asr],
-	[  --with-asr=PATH         Use asr in PATH],
+AC_ARG_WITH([asr-dir],
+	[  --with-asr-dir=PATH         Use asr in PATH],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** asr is required ***])
 	  elif test "x$withval" != "xyes"; then
@@ -1252,7 +1251,7 @@ fi
 
 
 #l2174 (customized, bu adding -lssl to LIBS)
-# Search for OpenSSL
+# Search for LibreSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
 AC_ARG_WITH([ssl-dir],
@@ -1292,137 +1291,6 @@ AC_ARG_WITH([ssl-dir],
 )
 ## XXX chl -lssl manually added
 LIBS="-lcrypto -lssl $LIBS"
-AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
-	[Define if your ssl headers are included
-	with #include <openssl/header.h>])],
-	[
-		dnl Check default openssl install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
-		AC_CHECK_HEADER([openssl/opensslv.h], ,
-		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
-		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
-			[
-				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
-			]
-		)
-	]
-)
-
-# Determine OpenSSL header version
-AC_MSG_CHECKING([LibreSSL header version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-#define DATA "conftest.sslincver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		ssl_header_ver=`cat conftest.sslincver`
-		AC_MSG_RESULT([$ssl_header_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([LibreSSL version header not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-# Determine OpenSSL library version
-AC_MSG_CHECKING([LibreSSL library version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-#include <openssl/crypto.h>
-#define DATA "conftest.ssllibver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		ssl_library_ver=`cat conftest.ssllibver`
-		AC_MSG_RESULT([$ssl_library_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([LibreSSL library not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
-
-AC_ARG_WITH([openssl-header-check],
-	[  --without-libressl-header-check Disable LibreSSL version consistency check],
-	[  if test "x$withval" = "xno" ; then
-		openssl_check_nonfatal=1
-	   fi
-	]
-)
-
-# Sanity check OpenSSL headers
-AC_MSG_CHECKING([whether LibreSSL's headers match the library])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <string.h>
-#include <openssl/opensslv.h>
-	]], [[
-	exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1);
-	]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		if test "x$openssl_check_nonfatal" = "x"; then
-			AC_MSG_ERROR([Your LibreSSL headers do not match your
-library. Check config.log for details.
-If you are sure your installation is consistent, you can disable the check
-by running "./configure --without-openssl-header-check".
-Also see contrib/findssl.sh for help identifying header/library mismatches.
-])
-		else
-			AC_MSG_WARN([Your LibreSSL headers do not match your
-library. Check config.log for details.
-Also see contrib/findssl.sh for help identifying header/library mismatches.])
-		fi
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
 
 AC_MSG_CHECKING([if programs using LibreSSL functions will link])
 AC_LINK_IFELSE(
@@ -1503,14 +1371,14 @@ HAVE_SSL_OP_NO_TICKET
 ##gilles
 
 #l2494
-# Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
+# Some systems want crypt() from libcrypt, *not* the version in LibreSSL,
 # because the system crypt() is more featureful.
 if test "x$check_for_libcrypt_before" = "x1"; then
 	AC_CHECK_LIB([crypt], [crypt])
 fi
 
 # Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
-# version in OpenSSL.
+# version in LibreSSL.
 if test "x$check_for_libcrypt_later" = "x1"; then
 	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
 fi
@@ -2397,12 +2265,12 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 		    ])
 ##end of chl
 
-##chl (based on OpenSSL checks, see above)
+##chl (based on LibreSSL checks, see above)
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([libevent],
-	[  --with-libevent=PATH		Specify path to libevent installation ],
+AC_ARG_WITH([libevent-dir],
+	[  --with-libevent-dir=PATH		Specify path to libevent installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
