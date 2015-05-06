@@ -1297,10 +1297,10 @@ AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[ #include <openssl/opensslv.h> ]],
 	[[ { int x = LIBRESSL_VERSION_NUMBER;} ]])],
 	[
-		AC_MSG_RESULT([LibreSSL !])
+		AC_MSG_RESULT([LibreSSL :-)])
 	],
 	[
-		AC_MSG_RESULT([OpenSSL :(])
+		AC_MSG_RESULT([OpenSSL :-(])
 		SSLLIB=OpenSSL
 	]
 )
@@ -2217,10 +2217,6 @@ AC_SUBST([STRIP_OPT])
 
 
 
-#l4742
-dnl Adding -Werror to CFLAGS early prevents configure tests from running.
-dnl Add now.
-
 
 #
 # update CFLAGS
@@ -2242,6 +2238,7 @@ dnl Add now.
 # -werror prevents configure tests from running, add now
 #
 CFLAGS="$CFLAGS $cflags_werror"
+
 
 
 
