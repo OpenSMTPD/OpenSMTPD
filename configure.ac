@@ -747,7 +747,6 @@ AC_ARG_WITH([table-db],
 		fi
 	]
 )
-AM_CONDITIONAL([ENABLE_TABLE_DB], [test $enable_table_db = yes])
 
 
 
