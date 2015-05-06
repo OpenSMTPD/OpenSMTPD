@@ -14,7 +14,7 @@ AC_DEFUN([CHECK_PROGRAMS], [{
 	AC_PROG_YACC
 
 	MANFMT="false"
-	if test "x$MANDOC" != "x" ; then
+	if test "x$MANDOC" != "x" ;
 		MANFMT="$MANDOC"
 	elif test "x$NROFF" != "x" ; then
 		MANFMT="$NROFF -mandoc"
