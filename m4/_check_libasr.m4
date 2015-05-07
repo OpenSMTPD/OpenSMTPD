@@ -6,21 +6,35 @@ AC_DEFUN([WITH_LIBASR], [{
 	AC_ARG_WITH([libasr],
 		[  --with-libasr=PATH			Use libasr located in PATH],
 		[
-			with_libasr_include=${withval}
-			if test -d "${with_libasr_include}/include"; then
-				with_libasr_include="${with_libasr_include}/include"
-			fi
-
-			with_libasr_lib=${withval}
-			if test -d "${with_libasr_lib}/lib"; then
-				with_libasr_lib="${with_libasr_lib}/lib"
-			fi
-
-			with_libasr_cppflags="-I${with_libasr_include}"
-
-			with_libasr_ldflags="-L${with_libasr_lib}"
-			if test -n "${need_dash_r}"; then
-				with_libasr_ldflags="${with_libasr_ldflags} -R${with_libasr_lib}"
+			if test "x$withval" != "xno" ; then
+				case "$withval" in
+					# Relative paths
+					./*|../*)	withval="`pwd`/$withval"
+				esac
+				if test -d "$withval/lib"; then
+					if test -n "${need_dash_r}"; then
+						LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+					else
+						LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+					fi
+				elif test -d "$withval/lib64"; then
+					if test -n "${need_dash_r}"; then
+						LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
+					else
+						LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
+					fi
+				else
+					if test -n "${need_dash_r}"; then
+						LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+					else
+						LDFLAGS="-L${withval} ${LDFLAGS}"
+					fi
+				fi
+				if test -d "$withval/include"; then
+					CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+				else
+					CPPFLAGS="-I${withval} ${CPPFLAGS}"
+				fi
 			fi
 		]
 	)
