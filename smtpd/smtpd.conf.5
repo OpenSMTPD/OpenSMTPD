@@ -554,6 +554,12 @@ will generate a failure report when an envelope is in the queue for more
 than one hour, six hours and two days.
 The default is 4h.
 .It Xo
+.It Ic ca Ar hostname Ic certificate Ar cafile
+Associate a custom CA certificate
+.Ar cafile
+with
+.Ar hostname .
+.It Xo
 .Ic ciphers Ar cipher-list
 .Xc
 Specify an alternate ciphers list to use when establishing TLS sessions.
@@ -772,11 +778,6 @@ Creation of certificates is documented in
 .It Ic pki Ar hostname Ic key Ar keyfile
 Associate the key located in
 .Ar keyfile
-with
-.Ar hostname .
-.It Ic pki Ar hostname Ic ca Ar cafile
-Associate a custom CA certificate
-.Ar cafile
 with
 .Ar hostname .
 .It Ic pki Ar hostname Ic dhparams Ar dhfile
