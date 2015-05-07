@@ -52,6 +52,7 @@ static void smtp_accept(int, short, void *);
 static int smtp_enqueue(uid_t *);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
+static int smtp_sni_callback(SSL *, int *, void *);
 
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
@@ -187,7 +188,8 @@ smtp_setup_events(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
-		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki, env->sc_tls_ciphers, env->sc_tls_curve))
+		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
+			env->sc_tls_ciphers, env->sc_tls_curve))
 			fatal("smtp_setup_events: ssl_setup failure");
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
@@ -349,4 +351,25 @@ smtp_collect(void)
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}
+}
+
+static int
+smtp_sni_callback(SSL *ssl, int *ad, void *arg)
+{
+#if defined(HAVE_TLSEXT_SERVERNAME)
+	const char		*sn;
+	void			*ssl_ctx;
+
+	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+	if (sn == NULL)
+		return SSL_TLSEXT_ERR_NOACK;
+	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
+	if (ssl_ctx == NULL)
+		return SSL_TLSEXT_ERR_NOACK;
+	SSL_set_SSL_CTX(ssl, ssl_ctx);
+	return SSL_TLSEXT_ERR_OK;
+#else
+	/* ssl_smtp_init should have ignored the callback if SNI is not supported */
+	fatalx("unxepected call to smtp_sni_callback()");
+#endif /* defined(HAVE_TLSEXT_SERVERNAME) */
 }

@@ -71,8 +71,21 @@ ssl_init(void)
 	inited = 1;
 }
 
+/* dummy_verify */
+static int
+dummy_verify(int ok, X509_STORE_CTX *store)
+{
+	/*
+	 * We *want* SMTP to request an optional client certificate, however we don't want the
+	 * verification to take place in the SMTP process. This dummy verify will allow us to
+	 * asynchronously verify in the lookup process.
+	 */
+	return 1;
+}
+
 int
-ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curve)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
+    const char *ciphers, const char *curve)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
@@ -88,6 +101,10 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, const char *ciphers, const char *curv
         arc4random_buf(sid, sizeof(sid));
         if (!SSL_CTX_set_session_id_context(ctx, sid, sizeof(sid)))
                 goto err;
+
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, dummy_verify);
+	if (sni_cb)
+		SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
 
 	if (pki->pki_dhparams_len == 0)
 		dh = get_dh1024();
