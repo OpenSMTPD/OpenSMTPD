@@ -261,7 +261,6 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*name;
 	void			*ssl;
 	int			 dnserror, status;
-	char			*pkiname;
 
 	switch (imsg->hdr.type) {
 
@@ -339,16 +338,11 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "mta:ca_cert");
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "mta:ca_cert");
-		if (s->relay->pki_name)
-			pkiname = s->relay->pki_name;
-		else
-			pkiname = s->helo;
-		ssl = ssl_mta_init(pkiname,
+		ssl = ssl_mta_init(resp_ca_cert->name,
 		    resp_ca_cert->cert, resp_ca_cert->cert_len, env->sc_tls_ciphers);
 		if (ssl == NULL)
 			fatal("mta: ssl_mta_init");
 		io_start_tls(&s->io, ssl);
-
 		explicit_bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		free(resp_ca_cert->cert);
 		free(resp_ca_cert);
@@ -359,7 +353,6 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		s = mta_tree_pop(&wait_ssl_verify, resp_ca_vrfy->reqid);
 		if (s == NULL)
 			return;
-
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= MTA_VERIFIED;
 		else if (s->relay->flags & F_TLS_VERIFY) {
@@ -368,7 +361,6 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			mta_free(s);
 			return;
 		}
-
 		mta_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
 		io_reload(&s->io);
@@ -1537,11 +1529,14 @@ mta_start_tls(struct mta_session *s)
 	struct ca_cert_req_msg	req_ca_cert;
 	const char	       *certname;
 
-	if (s->relay->pki_name)
+	if (s->relay->pki_name) {
 		certname = s->relay->pki_name;
-	else
+		req_ca_cert.fallback = 0;
+	}
+	else {
 		certname = s->helo;
-
+		req_ca_cert.fallback = 1;
+	}
 	req_ca_cert.reqid = s->id;
 	(void)strlcpy(req_ca_cert.name, certname, sizeof req_ca_cert.name);
 	m_compose(p_lka, IMSG_MTA_TLS_INIT, 0, 0, -1,
@@ -1559,7 +1554,7 @@ mta_verify_certificate(struct mta_session *s)
 	X509		       *x;
 	STACK_OF(X509)	       *xchain;
 	int			i;
-	const char	       *pkiname;
+	const char	       *name;
 
 	x = SSL_get_peer_certificate(s->io.ssl);
 	if (x == NULL)
@@ -1579,12 +1574,16 @@ mta_verify_certificate(struct mta_session *s)
 
 	/* Send the client certificate */
 	memset(&req_ca_vrfy, 0, sizeof req_ca_vrfy);
-	if (s->relay->pki_name)
-		pkiname = s->relay->pki_name;
-	else
-		pkiname = s->helo;
-	if (strlcpy(req_ca_vrfy.pkiname, pkiname, sizeof req_ca_vrfy.pkiname)
-	    >= sizeof req_ca_vrfy.pkiname)
+	if (s->relay->ca_name) {
+		name = s->relay->ca_name;
+		req_ca_vrfy.fallback = 0;
+	}
+	else {
+		name = s->helo;
+		req_ca_vrfy.fallback = 1;
+	}
+	if (strlcpy(req_ca_vrfy.name, name, sizeof req_ca_vrfy.name)
+	    >= sizeof req_ca_vrfy.name)
 		return 0;
 
 	req_ca_vrfy.reqid = s->id;

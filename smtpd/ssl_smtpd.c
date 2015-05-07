@@ -90,7 +90,6 @@ ssl_smtp_init(void *ssl_ctx, void *sni)
 	int	(*cb)(SSL *,int *,void *) = sni;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
-
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 
 #if defined HAVE_TLSEXT_SERVERNAME

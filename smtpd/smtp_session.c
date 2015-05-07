@@ -756,7 +756,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct smtp_session		*s;
 	struct smtp_rcpt		*rcpt;
 	void				*ssl;
-	char				*pkiname;
 	char				 user[LOGIN_NAME_MAX];
 	struct msg			 m;
 	const char			*line, *helo;
@@ -1030,22 +1029,20 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		s = tree_xpop(&wait_ssl_init, resp_ca_cert->reqid);
 
 		if (resp_ca_cert->status == CA_FAIL) {
-			log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (CA failure)",
-			    s->id, s->hostname, ss_to_text(&s->ss));
-			smtp_free(s, "CA failure");
+			log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed"
+			    " (TLS failure: no PKI suitable for %s)",
+			    s->id, s->hostname, ss_to_text(&s->ss), s->smtpname);
+			smtp_free(s, "TLS failure");
 			return;
 		}
 
 		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "smtp:ca_cert");
 		if (resp_ca_cert == NULL)
 			fatal(NULL);
+
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "smtp:ca_cert");
-		if (s->listener->pki_name[0])
-			pkiname = s->listener->pki_name;
-		else
-			pkiname = s->smtpname;
-		ssl_ctx = dict_get(env->sc_ssl_dict, pkiname);
+		ssl_ctx = dict_get(env->sc_ssl_dict, resp_ca_cert->name);
 		ssl = ssl_smtp_init(ssl_ctx, smtp_sni_callback);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
@@ -1107,12 +1104,17 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 
 		if (s->listener->flags & F_SMTPS) {
 			req_ca_cert.reqid = s->id;
-			if (s->listener->pki_name[0])
+
+			if (s->listener->pki_name[0]) {
 				(void)strlcpy(req_ca_cert.name, s->listener->pki_name,
 				    sizeof req_ca_cert.name);
-			else
+				req_ca_cert.fallback = 0;
+			}
+			else {
 				(void)strlcpy(req_ca_cert.name, s->smtpname,
 				    sizeof req_ca_cert.name);
+				req_ca_cert.fallback = 1;
+			}
 			m_compose(p_lka, IMSG_SMTP_TLS_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
 			tree_xset(&wait_ssl_init, s->id, s);
@@ -1471,12 +1473,17 @@ smtp_io(struct io *io, int evt)
 		/* Wait for the client to start tls */
 		if (s->state == STATE_TLS) {
 			req_ca_cert.reqid = s->id;
-			if (s->listener->pki_name[0])
+
+			if (s->listener->pki_name[0]) {
 				(void)strlcpy(req_ca_cert.name, s->listener->pki_name,
 				    sizeof req_ca_cert.name);
-			else
+				req_ca_cert.fallback = 0;
+			}
+			else {
 				(void)strlcpy(req_ca_cert.name, s->smtpname,
 				    sizeof req_ca_cert.name);
+				req_ca_cert.fallback = 1;
+			}
 			m_compose(p_lka, IMSG_SMTP_TLS_INIT, 0, 0, -1,
 			    &req_ca_cert, sizeof(req_ca_cert));
 			tree_xset(&wait_ssl_init, s->id, s);
@@ -2378,7 +2385,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	X509		       *x;
 	STACK_OF(X509)	       *xchain;
 	int			i;
-	const char	       *pkiname;
+	const char	       *name;
 
 	x = SSL_get_peer_certificate(s->io.ssl);
 	if (x == NULL)
@@ -2397,13 +2404,17 @@ smtp_verify_certificate(struct smtp_session *s)
 
 	/* Send the client certificate */
 	memset(&req_ca_vrfy, 0, sizeof req_ca_vrfy);
-	if (s->listener->pki_name[0])
-		pkiname = s->listener->pki_name;
-	else
-		pkiname = s->smtpname;
+	if (s->listener->ca_name[0]) {
+		name = s->listener->ca_name;
+		req_ca_vrfy.fallback = 0;
+	}
+	else {
+		name = s->smtpname;
+		req_ca_vrfy.fallback = 1;
+	}
 
-	if (strlcpy(req_ca_vrfy.pkiname, pkiname, sizeof req_ca_vrfy.pkiname)
-	    >= sizeof req_ca_vrfy.pkiname)
+	if (strlcpy(req_ca_vrfy.name, name, sizeof req_ca_vrfy.name)
+	    >= sizeof req_ca_vrfy.name)
 		return 0;
 
 	req_ca_vrfy.reqid = s->id;

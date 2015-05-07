@@ -20,11 +20,7 @@
 #define	SSL_SESSION_TIMEOUT	300
 
 struct pki {
-	char			 pki_name[PATH_MAX];
-
-	char			*pki_ca_file;
-	char			*pki_ca;
-	off_t			 pki_ca_len;
+	char			 pki_name[HOST_NAME_MAX+1];
 
 	char			*pki_cert_file;
 	char			*pki_cert;
@@ -39,6 +35,14 @@ struct pki {
 	char			*pki_dhparams_file;
 	char			*pki_dhparams;
 	off_t			 pki_dhparams_len;
+};
+
+struct ca {
+       	char			 ca_name[HOST_NAME_MAX+1];
+
+	char			*ca_cert_file;
+	char			*ca_cert;
+	off_t			 ca_cert_len;
 };
 
 /* ssl.c */
@@ -58,12 +62,13 @@ void		ssl_error(const char *);
 
 int		ssl_load_certificate(struct pki *, const char *);
 int		ssl_load_keyfile(struct pki *, const char *, const char *);
-int		ssl_load_cafile(struct pki *, const char *);
 int		ssl_load_dhparams(struct pki *, const char *);
 int		ssl_load_pkey(const void *, size_t, char *, off_t,
 		    X509 **, EVP_PKEY **);
 int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
+
+int		ssl_load_cafile(struct ca *, const char *);
 
 /* libressl.c */
 int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
