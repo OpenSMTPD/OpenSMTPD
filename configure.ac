@@ -2071,6 +2071,8 @@ fi
 
 
 CHECK_LIBASR([])
+LIBS="-lasr ${LIBS}"
+
 CHECK_LIBDB([])
 
 
