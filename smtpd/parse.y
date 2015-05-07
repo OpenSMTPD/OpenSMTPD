@@ -44,6 +44,7 @@
 #include <netdb.h>
 #include <paths.h>
 #include <pwd.h>
+#include <resolv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,6 +100,7 @@ struct rule		*rule = NULL;
 struct listener		 l;
 struct mta_limits	*limits;
 static struct pki	*pki;
+static struct ca	*sca;
 
 enum listen_options {
 	LO_FAMILY		= 0x000001,
@@ -117,6 +119,7 @@ enum listen_options {
 	LO_MASQUERADE		= 0x002000,
 	LO_DSNNOTIFY_DISABLE	= 0x004000,
 	LO_DSNRET_HEADERS	= 0x008000,
+	LO_CA			= 0x010000,
 };
 
 static struct listen_opts {
@@ -126,6 +129,7 @@ static struct listen_opts {
 	uint16_t	ssl;
 	char	       *filtername;
 	char	       *pki;
+	char	       *ca;
 	uint16_t       	auth;
 	struct table   *authtable;
 	char	       *tag;
@@ -378,6 +382,14 @@ limits_scheduler: opt_limit_scheduler limits_scheduler
 		| /* empty */
 		;
 
+opt_ca		: CERTIFICATE STRING {
+			sca->ca_cert_file = $2;
+		}
+		;
+
+ca		: opt_ca
+		;
+
 opt_pki		: CERTIFICATE STRING {
 			pki->pki_cert_file = $2;
 		}
@@ -503,6 +515,14 @@ opt_listen     	: INET4			{
 			}
 			listen_opts.options |= LO_PKI;
 			listen_opts.pki = $2;
+		}
+		| CA STRING			{
+			if (listen_opts.options & LO_CA) {
+				yyerror("ca already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_CA;
+			listen_opts.ca = $2;
 		}
 		| AUTH				{
 			if (listen_opts.options & LO_AUTH) {
@@ -728,6 +748,21 @@ opt_relay_common: AS STRING	{
 			}
 			free($2);
 		}
+		| CA STRING {
+			if (! lowercase(rule->r_value.relayhost.ca_name, $2,
+				sizeof(rule->r_value.relayhost.ca_name))) {
+				yyerror("ca name too long: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			if (dict_get(conf->sc_ca_dict,
+			    rule->r_value.relayhost.ca_name) == NULL) {
+				log_warnx("ca name not found: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			free($2);
+		}
 		;
 
 opt_relay	: BACKUP STRING			{
@@ -864,8 +899,14 @@ main		: BOUNCEWARN {
 		| PKI STRING	{
 			char buf[HOST_NAME_MAX+1];
 
-			warnx("###### checking %s", $2);
-
+			/* if not catchall, check that it is a valid domain */
+			if (strcmp($2, "*") != 0) {
+				if (! res_hnok($2)) {
+					yyerror("not a valid domain name: %s", $2);
+					free($2);
+					YYERROR;
+				}
+			}
 			xlowercase(buf, $2, sizeof(buf));
 			free($2);
 			pki = dict_get(conf->sc_pki_dict, buf);
@@ -875,6 +916,26 @@ main		: BOUNCEWARN {
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
 		} pki
+		| CA STRING	{
+			char buf[HOST_NAME_MAX+1];
+
+			/* if not catchall, check that it is a valid domain */
+			if (strcmp($2, "*") != 0) {
+				if (! res_hnok($2)) {
+					yyerror("not a valid domain name: %s", $2);
+					free($2);
+					YYERROR;
+				}
+			}
+			xlowercase(buf, $2, sizeof(buf));
+			free($2);
+			sca = dict_get(conf->sc_ca_dict, buf);
+			if (sca == NULL) {
+				sca = xcalloc(1, sizeof *sca, "parse:ca");
+				(void)strlcpy(sca->ca_name, buf, sizeof(sca->ca_name));
+				dict_set(conf->sc_ca_dict, sca->ca_name, sca);
+			}
+		} ca
 		| CIPHERS STRING {
 			env->sc_tls_ciphers = $2;
 		}
@@ -1789,6 +1850,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
+	conf->sc_ca_dict = calloc(1, sizeof(*conf->sc_ca_dict));
 	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
 	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
@@ -1799,12 +1861,15 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	if (conf->sc_tables_dict == NULL	||
 	    conf->sc_rules == NULL		||
 	    conf->sc_listeners == NULL		||
+	    conf->sc_ca_dict == NULL		||
 	    conf->sc_pki_dict == NULL		||
+	    conf->sc_ssl_dict == NULL		||
 	    conf->sc_limits_dict == NULL) {
 		log_warn("warn: cannot allocate memory");
 		free(conf->sc_tables_dict);
 		free(conf->sc_rules);
 		free(conf->sc_listeners);
+		free(conf->sc_ca_dict);
 		free(conf->sc_pki_dict);
 		free(conf->sc_ssl_dict);
 		free(conf->sc_limits_dict);
@@ -1818,6 +1883,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 
 	dict_init(&conf->sc_filters);
 
+	dict_init(conf->sc_ca_dict);
 	dict_init(conf->sc_pki_dict);
 	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
@@ -2055,6 +2121,16 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 		}
 		if (dict_get(conf->sc_pki_dict, h->pki_name) == NULL) {
 			log_warnx("pki name not found: %s", lo->pki);
+			fatalx(NULL);
+		}
+	}
+	if (lo->ca != NULL) {
+		if (! lowercase(h->ca_name, lo->ca, sizeof(h->ca_name))) {
+			log_warnx("ca name too long: %s", lo->ca);
+			fatalx(NULL);
+		}
+		if (dict_get(conf->sc_ca_dict, h->ca_name) == NULL) {
+			log_warnx("ca name not found: %s", lo->ca);
 			fatalx(NULL);
 		}
 	}

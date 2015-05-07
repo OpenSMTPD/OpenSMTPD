@@ -115,7 +115,8 @@ struct relayhost {
 	uint16_t flags;
 	char hostname[HOST_NAME_MAX+1];
 	uint16_t port;
-	char pki_name[PATH_MAX];
+	char pki_name[HOST_NAME_MAX+1];
+	char ca_name[HOST_NAME_MAX+1];
 	char authtable[PATH_MAX];
 	char authlabel[PATH_MAX];
 	char sourcetable[PATH_MAX];
@@ -546,6 +547,7 @@ struct listener {
 	struct timeval		 timeout;
 	struct event		 ev;
 	char			 pki_name[PATH_MAX];
+	char			 ca_name[PATH_MAX];
 	char			 tag[MAX_TAG_SIZE];
 	char			 filter[PATH_MAX];
 	char			 authtable[LINE_MAX];
@@ -808,6 +810,7 @@ struct mta_relay {
 	char			*sourcetable;
 	uint16_t		 port;
 	char			*pki_name;
+	char			*ca_name;
 	char			*authtable;
 	char			*authlabel;
 	char			*helotable;
@@ -1064,18 +1067,21 @@ enum ca_resp_status {
 struct ca_cert_req_msg {
 	uint64_t		reqid;
 	char			name[HOST_NAME_MAX+1];
+	int			fallback;
 };
 
 struct ca_cert_resp_msg {
 	uint64_t		reqid;
 	enum ca_resp_status	status;
+	char			name[HOST_NAME_MAX+1];
 	char		       *cert;
 	off_t			cert_len;
 };
 
 struct ca_vrfy_req_msg {
 	uint64_t		reqid;
-	char			pkiname[HOST_NAME_MAX+1];
+	char			name[HOST_NAME_MAX+1];
+	int			fallback;
 	unsigned char  	       *cert;
 	off_t			cert_len;
 	size_t			n_chain;

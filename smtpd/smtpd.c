@@ -708,6 +708,7 @@ static void
 load_pki_tree(void)
 {
 	struct pki	*pki;
+	struct ca	*sca;
 	const char	*k;
 	void		*iter_dict;
 
@@ -719,18 +720,19 @@ load_pki_tree(void)
 			fatalx("load_pki_tree: missing certificate file");
 		if (pki->pki_key_file == NULL)
 			fatalx("load_pki_tree: missing key file");
-
 		if (! ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
-
 		if (pki->pki_dhparams_file)
 			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
 				fatalx("load_pki_tree: failed to load dhparams file");
-		/*
-		if (pki->pki_ca_file)
-			if (! ssl_load_cafile(pki, pki->pki_ca_file))
-				fatalx("load_pki_tree: failed to load CA file");
-		*/
+	}
+
+	log_debug("debug: init ca-tree");
+	iter_dict = NULL;
+	while (dict_iter(env->sc_ca_dict, &iter_dict, &k, (void **)&sca)) {
+		log_debug("info: loading CA information for %s", k);
+		if (! ssl_load_cafile(sca, sca->ca_cert_file))
+			fatalx("load_pki_tree: failed to load CA file");
 	}
 }
 
@@ -745,7 +747,6 @@ load_pki_keys(void)
 	iter_dict = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
 		log_debug("info: loading pki keys for %s", k);
-
 		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
 			fatalx("load_pki_keys: failed to load key file");
 	}

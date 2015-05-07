@@ -164,8 +164,9 @@ smtp_setup_events(void)
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
-		    " pki \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
-		    l->flags, l->pki_name);
+		    " pki \"%s\""
+		    " ca \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
+		    l->flags, l->pki_name, l->ca_name);
 
 		if (listen(l->fd, SMTPD_BACKLOG) == -1)
 			fatal("listen");

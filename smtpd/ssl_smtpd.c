@@ -88,12 +88,9 @@ ssl_smtp_init(void *ssl_ctx, void *sni)
 	int	(*cb)(SSL *,int *,void *) = sni;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
-
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
-
 	if (cb)
 		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, cb);
-
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;
 	if (!SSL_set_ssl_method(ssl, SSLv23_server_method()))
