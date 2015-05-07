@@ -683,8 +683,10 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 	cafile = CA_FILE;
 
 	pki = dict_get(env->sc_pki_dict, req->pkiname);
+	/*
 	if (pki && pki->pki_ca_file)
 		cafile = pki->pki_ca_file;
+	*/
 	if (! lka_X509_verify(req, cafile, NULL))
 		resp.status = CA_FAIL;
 	else

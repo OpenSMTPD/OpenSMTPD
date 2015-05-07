@@ -384,9 +384,6 @@ opt_pki		: CERTIFICATE STRING {
 		| KEY STRING {
 			pki->pki_key_file = $2;
 		}
-		| CA STRING {
-			pki->pki_ca_file = $2;
-		}
 		| DHPARAMS STRING {
 			pki->pki_dhparams_file = $2;
 		}
@@ -866,6 +863,9 @@ main		: BOUNCEWARN {
 		} filter_args
 		| PKI STRING	{
 			char buf[HOST_NAME_MAX+1];
+
+			warnx("###### checking %s", $2);
+
 			xlowercase(buf, $2, sizeof(buf));
 			free($2);
 			pki = dict_get(conf->sc_pki_dict, buf);

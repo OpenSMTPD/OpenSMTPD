@@ -723,12 +723,14 @@ load_pki_tree(void)
 		if (! ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
 
-		if (pki->pki_ca_file)
-			if (! ssl_load_cafile(pki, pki->pki_ca_file))
-				fatalx("load_pki_tree: failed to load CA file");
 		if (pki->pki_dhparams_file)
 			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
 				fatalx("load_pki_tree: failed to load dhparams file");
+		/*
+		if (pki->pki_ca_file)
+			if (! ssl_load_cafile(pki, pki->pki_ca_file))
+				fatalx("load_pki_tree: failed to load CA file");
+		*/
 	}
 }
 
