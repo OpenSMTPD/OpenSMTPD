@@ -41,6 +41,13 @@ and writes data to a file whose name is made by adding a
 .Dq .db
 suffix to
 .Ar file .
+The current line can be extended over multiple lines using a backslash
+.Pq Sq \e .
+Comments can be put anywhere in the file using a hash mark
+.Pq Sq # ,
+and extend to the end of the current line.
+Care should be taken when commenting out multi-line text:
+the comment is effective until the end of the entire block.
 In all cases,
 .Nm
 reads lines consisting of words separated by whitespace.
