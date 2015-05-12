@@ -693,7 +693,10 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 		if (req->fallback)
 			sca = dict_get(env->sc_ca_dict, "*");
 	cafile = sca ? sca->ca_cert_file : CA_FILE;
-	if (sca == NULL || ! lka_X509_verify(req, cafile, NULL))
+
+	if (sca == NULL && !req->fallback)
+		resp.status = CA_FAIL;
+	else if (! lka_X509_verify(req, cafile, NULL))
 		resp.status = CA_FAIL;
 	else
 		resp.status = CA_OK;
