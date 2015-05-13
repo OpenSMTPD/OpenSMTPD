@@ -383,6 +383,13 @@ enqueue(int argc, char *argv[])
 
 		line = buf;
 
+		if (inheaders) {
+			if (strncasecmp("From ", line, 5) == 0)
+				continue;
+			if (strncasecmp("Return-Path: ", line, 13) == 0)
+				continue;
+		}
+
 		if (msg.saw_content_transfer_encoding || noheader ||
 		    inheaders || !msg.need_linesplit) {
 			send_line(fout, 0, "%.*s", (int)len, line);
