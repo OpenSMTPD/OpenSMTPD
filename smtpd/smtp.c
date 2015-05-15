@@ -137,7 +137,7 @@ smtp_setup_listeners(void)
 	int			opt;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		l->fd = socket(l->ss.ss_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
+		l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0);
 		if (l->fd == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
@@ -169,6 +169,7 @@ smtp_setup_events(void)
 		    " ca \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->pki_name, l->ca_name);
 
+		session_socket_blockmode(l->fd, BM_NONBLOCK);		
 		if (listen(l->fd, SMTPD_BACKLOG) == -1)
 			fatal("listen");
 		event_set(&l->ev, l->fd, EV_READ|EV_PERSIST, smtp_accept, l);
