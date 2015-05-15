@@ -73,6 +73,7 @@ static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
 static int mod_lowercase(char *, size_t);
 static int mod_uppercase(char *, size_t);
 static int mod_strip(char *, size_t);
+static int mod_tag(char *, size_t);
 
 struct modifiers {
 	char	*name;
@@ -81,6 +82,7 @@ struct modifiers {
 	{ "lowercase",	mod_lowercase },
 	{ "uppercase",	mod_uppercase },
 	{ "strip",	mod_strip },
+	{ "tag",	mod_tag },
 	{ "raw",	NULL },		/* special case, must stay last */
 };
 
@@ -894,5 +896,30 @@ mod_strip(char *buf, size_t len)
 		} else
 			*tag = '\0';
 	}
+	return 1;
+}
+
+static int
+mod_tag(char *buf, size_t len)
+{
+	char *tag, *at;
+	unsigned int i;
+
+	/* gilles+hackers -> +hackers */
+	if ((tag = strchr(buf, TAG_CHAR)) != NULL) {
+		/* gilles+hackers@poolp.org -> hackers */
+		/* skip the tag character */
+		++tag;
+		if ((at = strchr(tag, '@')) != NULL) {
+			for (i = 0; i <= strlen(tag) && i < (at - tag); ++i)
+				buf[i] = tag[i];
+			buf[at - tag] = '\0';
+		} else {
+			for (i = 0; i <= strlen(tag); ++i)
+				buf[i] = tag[i];
+		}
+	} else
+		*buf = '\0';
+
 	return 1;
 }
