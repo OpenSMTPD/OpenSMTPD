@@ -50,8 +50,11 @@ mproc_fork(struct mproc *p, const char *path, char *argv[])
 {
 	int sp[2];
 
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, PF_UNSPEC, sp) < 0)
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) < 0)
 		return (-1);
+
+	session_socket_blockmode(sp[0], BM_NONBLOCK);
+	session_socket_blockmode(sp[1], BM_NONBLOCK);
 
 	if ((p->pid = fork()) == -1)
 		goto err;
