@@ -2263,8 +2263,18 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	case '4':
 		if (s->flags & SF_BADINPUT)
 			log_info("smtp-in: session %016"PRIx64": received invalid input: %.*s", s->id, n, buf);
-		else if (strstr(s->cmd, "AUTH ") == s->cmd)
-			log_info("smtp-in: session %016"PRIx64": received invalid command: \"AUTH [...]\"", s->id);
+		else if (s->state == STATE_AUTH_INIT) {
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"AUTH PLAIN (...)\" => %.*s", s->id, n, buf);
+		}
+		else if (s->state == STATE_AUTH_USERNAME) {
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"AUTH LOGIN (username)\" => %.*s", s->id, n, buf);
+		}
+		else if (s->state == STATE_AUTH_PASSWORD) {
+			log_info("smtp-in: Failed command on session %016"PRIx64
+			    ": \"AUTH LOGIN (password)\" => %.*s", s->id, n, buf);
+		}
 		else {
 			strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
 			log_info("smtp-in: session %016"PRIx64": received invalid command: \"%s\"", s->id, tmp);
