@@ -711,6 +711,31 @@ do_show_routes(int argc, struct parameter *argv)
 	return (0);
 }
 
+#if 1
+static int
+do_show_sizes(int argc, struct parameter *argv)
+{
+	printf("struct userinfo=%ld\n", sizeof (struct userinfo));
+	printf("struct netaddr=%ld\n", sizeof (struct netaddr));
+	printf("struct relayhost=%ld\n", sizeof (struct relayhost));
+	printf("struct credentials=%ld\n", sizeof (struct credentials));
+	printf("struct destination=%ld\n", sizeof (struct destination));
+	printf("struct source=%ld\n", sizeof (struct source));
+	printf("struct addrname=%ld\n", sizeof (struct addrname));
+	printf("union lookup=%ld\n", sizeof (union lookup));
+	printf("struct delivery_mda=%ld\n", sizeof (struct delivery_mda));
+	printf("struct delivery_mta=%ld\n", sizeof (struct delivery_mta));
+	printf("struct envelope=%ld\n", sizeof (struct envelope));
+	printf("struct forward_req=%ld\n", sizeof (struct forward_req));
+	printf("struct deliver=%ld\n", sizeof (struct deliver));
+	printf("struct bounce_req_msg=%ld\n", sizeof (struct bounce_req_msg));
+	printf("struct ca_cert_req_msg=%ld\n", sizeof (struct ca_cert_req_msg));
+	printf("struct ca_vrfy_req_msg=%ld\n", sizeof (struct ca_vrfy_req_msg));
+	return 0;
+}
+#endif
+
+
 static int
 do_show_stats(int argc, struct parameter *argv)
 {
@@ -1001,6 +1026,12 @@ main(int argc, char **argv)
 	cmd_install("unprofile <str>",		do_unprofile);
 	cmd_install("untrace <str>",		do_untrace);
 	cmd_install("update table <str>",	do_update_table);
+
+#if 1
+	/* print size of various structures */
+	cmd_install("show sizes",		do_show_sizes);
+#endif
+
 
 	if (strcmp(__progname, "mailq") == 0)
 		return cmd_run(2, argv_mailq);
