@@ -565,7 +565,7 @@ opt_listen     	: INET4			{
 			}
 			listen_opts.options |= LO_TAG;
 
-       			if (strlen($2) >= MAX_TAG_SIZE) {
+       			if (strlen($2) >= SMTPD_TAG_SIZE) {
        				yyerror("tag name too long");
 				free($2);
 				YYERROR;
