@@ -37,7 +37,6 @@
 
 #define MAX_HOPS_COUNT		 100
 #define	DEFAULT_MAX_BODY_SIZE	(35*1024*1024)
-#define MAX_TAG_SIZE		 32
 #define	MAX_FILTER_NAME		 32
 #define	MAX_FILTER_ARGS		 255
 
@@ -100,7 +99,7 @@
 
 
 struct userinfo {
-	char username[LINE_MAX];
+	char username[SMTPD_VUSERNAME_SIZE];
 	char directory[PATH_MAX];
 	uid_t uid;
 	gid_t gid;
@@ -117,7 +116,7 @@ struct relayhost {
 	uint16_t port;
 	char pki_name[HOST_NAME_MAX+1];
 	char ca_name[HOST_NAME_MAX+1];
-	char authtable[PATH_MAX];
+	char authtable[SMTPD_TABLENAME_SIZE];
 	char authlabel[PATH_MAX];
 	char sourcetable[PATH_MAX];
 	char heloname[HOST_NAME_MAX+1];
@@ -378,7 +377,7 @@ struct rule {
 	TAILQ_ENTRY(rule)		r_entry;
 	enum decision			r_decision;
 	uint8_t				r_nottag;
-	char				r_tag[MAX_TAG_SIZE];
+	char				r_tag[SMTPD_TAG_SIZE];
 
 	uint8_t				r_notsources;
 	struct table		       *r_sources;
@@ -409,10 +408,10 @@ struct rule {
 
 struct delivery_mda {
 	enum action_type	method;
-	char			usertable[PATH_MAX];
-	char			username[LINE_MAX];
+	char			usertable[SMTPD_TABLENAME_SIZE];
+	char			username[SMTPD_VUSERNAME_SIZE];
 	char			buffer[EXPAND_BUFFER];
-	char			delivery_user[LINE_MAX];
+	char			delivery_user[SMTPD_VUSERNAME_SIZE];
 };
 
 struct delivery_mta {
@@ -500,7 +499,7 @@ struct maddrmap {
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
-	char				tag[MAX_TAG_SIZE];
+	char				tag[SMTPD_TAG_SIZE];
 
 	uint32_t			version;
 	uint64_t			id;
@@ -548,7 +547,7 @@ struct listener {
 	struct event		 ev;
 	char			 pki_name[PATH_MAX];
 	char			 ca_name[PATH_MAX];
-	char			 tag[MAX_TAG_SIZE];
+	char			 tag[SMTPD_TAG_SIZE];
 	char			 filter[PATH_MAX];
 	char			 authtable[LINE_MAX];
 	char			 hostname[HOST_NAME_MAX+1];
@@ -659,10 +658,10 @@ struct forward_req {
 };
 
 struct deliver {
-	char			to[PATH_MAX];
-	char			from[PATH_MAX];
-	char			dest[LINE_MAX];
-	char			user[LINE_MAX];
+	char			to[SMTPD_MAXMAILADDRSIZE];
+	char			from[SMTPD_MAXMAILADDRSIZE];
+	char			dest[SMTPD_MAXMAILADDRSIZE];
+	char			user[SMTPD_VUSERNAME_SIZE];
 	short			mode;
 
 	struct userinfo		userinfo;
