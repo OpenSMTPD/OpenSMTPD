@@ -115,7 +115,7 @@ struct filter_query {
 	struct {
 		int	 status;
 		int	 code;
-		char	*response;	
+		char	*response;
 	} smtp;
 };
 
@@ -284,23 +284,16 @@ filter_event(uint64_t id, int event)
 {
 	struct filter_session	*s;
 	struct filter_query	*q;
-	int			 gone;
 
-	gone = 0;
-	if (event == EVENT_DISCONNECT) {
+	if (event == EVENT_DISCONNECT)
 		/* On disconnect, the session is virtualy dead */
 		s = tree_xpop(&sessions, id);
-		gone = 1;
-	}
 	else
 		s = tree_xget(&sessions, id);
 
 	q = filter_query(s, QK_EVENT, event);
 
 	filter_drain_query(q);
-
-	if (gone)
-		free(s);
 }
 
 void
@@ -447,7 +440,7 @@ filter_drain_query(struct filter_query *q)
 
 	/*
 	 * The query must be passed through all filters that registered
-	 * a hook, until one rejects it.  
+	 * a hook, until one rejects it.
 	 */
 	while (q->state != QUERY_DONE) {
 
@@ -587,6 +580,8 @@ filter_end_query(struct filter_query *q)
 
     done:
 	TAILQ_REMOVE(&s->queries, q, entry);
+	if (q->kind == QK_EVENT && q->type == EVENT_DISCONNECT)
+		free(s);
 	free(q);
 }
 
