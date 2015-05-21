@@ -354,14 +354,23 @@ static void
 parent_sig_handler(int sig, short event, void *p)
 {
 	struct child	*child;
-	int		 die = 0, status, fail;
+	int		 die = 0, die_gracefully = 0, status, fail;
 	pid_t		 pid;
 	char		*cause;
 
 	switch (sig) {
 	case SIGTERM:
+		log_info("info: received signal SIGTERM, shutting down");
+		break;
 	case SIGINT:
-		die = 1;
+		log_info("info: received signal SIGINT, shutting down");
+		break;
+	}
+
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		die_gracefully = 1;
 		/* FALLTHROUGH */
 	case SIGCHLD:
 		do {
@@ -446,6 +455,8 @@ parent_sig_handler(int sig, short event, void *p)
 
 		if (die)
 			parent_shutdown(1);
+		else if (die_gracefully)
+			parent_shutdown(0);
 		break;
 	default:
 		fatalx("smtpd: unexpected signal");
