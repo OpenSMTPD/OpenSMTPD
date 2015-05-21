@@ -282,16 +282,23 @@ filter_event(uint64_t id, int event)
 {
 	struct filter_session	*s;
 	struct filter_query	*q;
+	int			 gone;
 
-	if (event == EVENT_DISCONNECT)
+	gone = 0;
+	if (event == EVENT_DISCONNECT) {
 		/* On disconnect, the session is virtualy dead */
 		s = tree_xpop(&sessions, id);
+		gone = 1;
+	}
 	else
 		s = tree_xget(&sessions, id);
 
 	q = filter_query(s, QK_EVENT, event);
 
 	filter_drain_query(q);
+
+	if (gone)
+		free(s);
 }
 
 void
