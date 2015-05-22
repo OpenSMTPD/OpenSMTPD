@@ -205,7 +205,7 @@ if test "x$no_attrib_nonnull" != "x1" ; then
 fi
 
 AC_ARG_WITH([rpath],
-	[  --without-rpath         Disable auto-added -R linker paths],
+	[  --without-rpath		Disable auto-added -R linker paths],
 	[
 		if test "x$withval" = "xno" ; then
 			need_dash_r=""
@@ -218,7 +218,7 @@ AC_ARG_WITH([rpath],
 
 # Allow user to specify flags
 AC_ARG_WITH([cflags],
-	[  --with-cflags           Specify additional flags to pass to compiler],
+	[  --with-cflags			Specify additional flags to pass to compiler],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -227,7 +227,7 @@ AC_ARG_WITH([cflags],
 	]
 )
 AC_ARG_WITH([cppflags],
-	[  --with-cppflags         Specify additional flags to pass to preprocessor] ,
+	[  --with-cppflags		Specify additional flags to pass to preprocessor] ,
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -236,7 +236,7 @@ AC_ARG_WITH([cppflags],
 	]
 )
 AC_ARG_WITH([ldflags],
-	[  --with-ldflags          Specify additional flags to pass to linker],
+	[  --with-ldflags		Specify additional flags to pass to linker],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -245,7 +245,7 @@ AC_ARG_WITH([ldflags],
 	]
 )
 AC_ARG_WITH([libs],
-	[  --with-libs             Specify additional libraries to link with],
+	[  --with-libs			Specify additional libraries to link with],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -254,7 +254,7 @@ AC_ARG_WITH([libs],
 	]
 )
 AC_ARG_WITH([Werror],
-	[  --with-Werror           Build main code with -Werror],
+	[  --with-Werror			Build main code with -Werror],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"; then
 			werror_flags="-Werror"
@@ -265,6 +265,57 @@ AC_ARG_WITH([Werror],
 	]
 )
 #l325
+
+
+AC_ARG_WITH([pie],
+    [  --with-pie			Build Position Independent Executables if possible], [
+	if test "x$withval" = "xno"; then
+		use_pie=no
+	fi
+	if test "x$withval" = "xyes"; then
+		use_pie=yes
+	fi
+    ]
+)
+if test "x$use_pie" = "x"; then
+	use_pie=no
+fi
+if test "x$use_toolchain_hardening" != "x1" && test "x$use_pie" = "xauto"; then
+	# Turn off automatic PIE when toolchain hardening is off.
+	use_pie=no
+fi
+if test "x$use_pie" = "xauto"; then
+	# Automatic PIE requires gcc >= 4.x
+	AC_MSG_CHECKING([for gcc >= 4.x])
+	AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+#if !defined(__GNUC__) || __GNUC__ < 4
+#error gcc is too old
+#endif
+]])],
+	[ AC_MSG_RESULT([yes]) ],
+	[ AC_MSG_RESULT([no])
+	  use_pie=no ]
+)
+fi
+if test "x$use_pie" != "xno"; then
+	SAVED_CFLAGS="$CFLAGS"
+	SAVED_LDFLAGS="$LDFLAGS"
+	OSSH_CHECK_CFLAG_COMPILE([-fPIE])
+	OSSH_CHECK_LDFLAG_LINK([-pie])
+	# We use both -fPIE and -pie or neither.
+	AC_MSG_CHECKING([whether both -fPIE and -pie are supported])
+	if echo "x $CFLAGS"  | grep ' -fPIE' >/dev/null 2>&1 && \
+	   echo "x $LDFLAGS" | grep ' -pie'  >/dev/null 2>&1 ; then
+		AC_MSG_RESULT([yes])
+	else
+		AC_MSG_RESULT([no])
+		CFLAGS="$SAVED_CFLAGS"
+		LDFLAGS="$SAVED_LDFLAGS"
+	fi
+fi
+
+
+
 
 AC_CHECK_HEADERS([ \
 	crypt.h \
@@ -460,7 +511,7 @@ AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 
 dnl zlib is required
 AC_ARG_WITH([zlib],
-	[  --with-zlib=PATH        Use zlib in PATH],
+	[  --with-zlib=PATH		Use zlib in PATH],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** zlib is required ***])
 	  elif test "x$withval" != "xyes"; then
@@ -508,7 +559,7 @@ AC_CHECK_LIB([z], [deflate], ,
 )
 
 AC_ARG_WITH([zlib-version-check],
-	[  --without-zlib-version-check Disable zlib version check],
+	[  --without-zlib-version-check	Disable zlib version check],
 	[  if test "x$withval" = "xno" ; then
 		zlib_check_nonfatal=1
 	   fi
@@ -605,52 +656,6 @@ fi
 #l1332
 
 #l1525
-AC_ARG_WITH([pie],
-    [  --with-pie             Build Position Independent Executables if possible], [
-	if test "x$withval" = "xno"; then
-		use_pie=no
-	fi
-	if test "x$withval" = "xyes"; then
-		use_pie=yes
-	fi
-    ]
-)
-if test "x$use_pie" = "x"; then
-	use_pie=no
-fi
-if test "x$use_toolchain_hardening" != "x1" && test "x$use_pie" = "xauto"; then
-	# Turn off automatic PIE when toolchain hardening is off.
-	use_pie=no
-fi
-if test "x$use_pie" = "xauto"; then
-	# Automatic PIE requires gcc >= 4.x
-	AC_MSG_CHECKING([for gcc >= 4.x])
-	AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
-#if !defined(__GNUC__) || __GNUC__ < 4
-#error gcc is too old
-#endif
-]])],
-	[ AC_MSG_RESULT([yes]) ],
-	[ AC_MSG_RESULT([no])
-	  use_pie=no ]
-)
-fi
-if test "x$use_pie" != "xno"; then
-	SAVED_CFLAGS="$CFLAGS"
-	SAVED_LDFLAGS="$LDFLAGS"
-	OSSH_CHECK_CFLAG_COMPILE([-fPIE])
-	OSSH_CHECK_LDFLAG_LINK([-pie])
-	# We use both -fPIE and -pie or neither.
-	AC_MSG_CHECKING([whether both -fPIE and -pie are supported])
-	if echo "x $CFLAGS"  | grep ' -fPIE' >/dev/null 2>&1 && \
-	   echo "x $LDFLAGS" | grep ' -pie'  >/dev/null 2>&1 ; then
-		AC_MSG_RESULT([yes])
-	else
-		AC_MSG_RESULT([no])
-		CFLAGS="$SAVED_CFLAGS"
-		LDFLAGS="$SAVED_LDFLAGS"
-	fi
-fi
 #l1570
 
 #l1572 (customized)
@@ -1041,7 +1046,7 @@ fi
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
 AC_ARG_WITH([ssl-dir],
-	[  --with-ssl-dir=PATH     Specify path to LibreSSL installation ],
+	[  --with-ssl-dir=PATH		Specify path to LibreSSL installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
@@ -1336,7 +1341,7 @@ AC_RUN_IFELSE(
 # Check for PAM libs
 PAM_MSG="no"
 AC_ARG_WITH([pam],
-	[  --with-pam              Enable PAM support ],
+	[  --with-pam			Enable PAM support ],
 	[
 		if test "x$withval" != "xno" ; then
 			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
@@ -1398,7 +1403,7 @@ fi
 ##gilles
 USE_PAM_SERVICE=smtpd
 AC_ARG_WITH([pam-service],
-	[  --with-pam-service=service Specify PAM service],
+	[  --with-pam-service=service	Specify PAM service],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -1412,7 +1417,7 @@ AC_SUBST([USE_PAM_SERVICE])
 
 SMTPD_USER=_smtpd
 AC_ARG_WITH([privsep-user],
-	[  --with-privsep-user=user Specify non-privileged user for privilege separation],
+	[  --with-privsep-user=user	Specify non-privileged user for privilege separation],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -1426,7 +1431,7 @@ AC_SUBST([SMTPD_USER])
 
 SMTPD_QUEUE_USER=_smtpq
 AC_ARG_WITH([queue-user],
-	[  --with-queue-user=user  Specify non-privileged user for queue process],
+	[  --with-queue-user=user	Specify non-privileged user for queue process],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -2206,7 +2211,7 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 
 PRIVSEP_PATH=/var/empty
 AC_ARG_WITH([privsep-path],
-	[  --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)],
+	[  --with-privsep-path=xxx	Path for privilege separation chroot (default=/var/empty)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -2241,7 +2246,7 @@ dnl # stripping any trailing slash. If for some strage reason our program
 dnl # does not find what it needs, we default to /var/spool/mail.
 # Check for mail directory
 AC_ARG_WITH([maildir],
-    [  --with-maildir=/path/to/mail    Specify your system mail directory],
+    [  --with-maildir=/path/to/mail	Specify your system mail directory],
     [
 	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
 	    test "x${withval}" != xyes; then
@@ -2317,7 +2322,7 @@ AC_ARG_WITH([maildir],
 #l4176 (customized s/ssh.1/smtpd/smtpd.8/)
 # Options from here on. Some of these are preset by platform above
 AC_ARG_WITH([mantype],
-	[  --with-mantype=man|cat|doc  Set man page type],
+	[  --with-mantype=man|cat|doc	Set man page type],
 	[
 		case "$withval" in
 		man|cat|doc)
@@ -2353,7 +2358,7 @@ AC_SUBST([mansubdir])
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
 AC_ARG_WITH([bsd-auth],
-	[  --with-bsd-auth         Enable BSD auth support],
+	[  --with-bsd-auth		Enable BSD auth support],
 	[
 		if test "x$withval" != "xno" ; then
 			AC_DEFINE([BSD_AUTH], [1],
@@ -2374,7 +2379,7 @@ if test ! -d $sockdir ; then
 fi
 
 AC_ARG_WITH([sock-dir],
-	[  --with-sock-dir=PATH    Specify location of smtpd.sock file],
+	[  --with-sock-dir=PATH		Specify location of smtpd.sock file],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -2394,7 +2399,7 @@ AC_SUBST([sockdir])
 
 CA_FILE=/etc/ssl/cert.pem
 AC_ARG_WITH([ca-file],
-	[  --with-ca-file=FILE     Path for certificate file (default=/etc/ssl/cert.pem)],
+	[  --with-ca-file=FILE		Path for certificate file (default=/etc/ssl/cert.pem)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -2670,7 +2675,7 @@ LIBS="$save_LIBS"
 # Search for asr (based on zlib checks)
 dnl asr is required
 AC_ARG_WITH([asr],
-	[  --with-asr=PATH         Use asr in PATH],
+	[  --with-asr=PATH		Use asr in PATH],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** asr is required ***])
 	  elif test "x$withval" != "xyes"; then
