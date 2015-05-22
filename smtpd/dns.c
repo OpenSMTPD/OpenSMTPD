@@ -44,6 +44,11 @@
 #include "smtpd.h"
 #include "log.h"
 
+/* On OpenBSD, this function is not needed because we don't free addrinfo */
+#if defined(NOOP_ASR_FREEADDRINFO)
+#define asr_freeaddrinfo(x) (x)
+#endif
+
 struct dns_lookup {
 	struct dns_session	*session;
 	int			 preference;

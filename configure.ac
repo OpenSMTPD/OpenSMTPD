@@ -310,6 +310,8 @@ AC_CHECK_HEADERS([sys/mount.h], [], [], [
 
 #l432 (customized)
 # Check for some target-specific stuff
+ASR_LIB=-lasr
+
 case "$host" in
 *-*-aix*)
 	check_for_aix_broken_getaddrinfo=1
@@ -379,8 +381,15 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
 	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
+	AC_DEFINE([BROKEN_STRNVIS], [0],
+	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
+	YACC='yacc'
+	ASR_LIB=
+	AC_DEFINE([NOOP_ASR_FREEADDRINFO], [0], [OpenBSD doesn't need ASR_FREEADDRINFO])
 	;;
 esac
+AC_SUBST([ASR_LIB])
+
 
 AC_MSG_CHECKING([compiler and flags for sanity])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
