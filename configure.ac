@@ -2647,15 +2647,29 @@ AC_LINK_IFELSE(
 	]
 )
 
+AC_ARG_ENABLE([table-db],
+	[  --enable-table-db		Enable building of table-db backend],
+	[
+		if test "x$enableval" = "xyes" ; then
+			use_db_api=1
+		else
+			use_db_api=0
+		fi
+	]
+)
+
+if test x"$use_db_api" = x"1"; then
 # Search for libdb
 AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
 AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
 AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
 				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
 ])])])
-
+fi
 
 save_LIBS="$LIBS"
+
+if test x"$use_db_api" = x"1"; then
 DB_LIB=
 
 for libdb in db db1 c; do
@@ -2669,8 +2683,13 @@ fi
 
 DB_LIB="-l$DB_LIB"
 AC_SUBST([DB_LIB])
+fi
 
 LIBS="$save_LIBS"
+
+
+AM_CONDITIONAL([HAVE_DB_API], [test $use_db_api = 1])
+
 
 # Search for asr (based on zlib checks)
 dnl asr is required

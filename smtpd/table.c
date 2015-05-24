@@ -47,7 +47,9 @@
 struct table_backend *table_backend_lookup(const char *);
 
 extern struct table_backend table_backend_static;
+#ifdef HAVE_DB_API
 extern struct table_backend table_backend_db;
+#endif
 extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_proc;
 
@@ -63,8 +65,10 @@ table_backend_lookup(const char *backend)
 {
 	if (!strcmp(backend, "static") || !strcmp(backend, "file"))
 		return &table_backend_static;
+#ifdef HAVE_DB_API
 	if (!strcmp(backend, "db"))
 		return &table_backend_db;
+#endif
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
 	if (!strcmp(backend, "proc"))
@@ -77,8 +81,10 @@ table_backend_name(struct table_backend *backend)
 {
 	if (backend == &table_backend_static)
 		return "static";
+#ifdef HAVE_DB_API
 	if (backend == &table_backend_db)
 		return "db";
+#endif
 	if (backend == &table_backend_getpwnam)
 		return "getpwnam";
 	if (backend == &table_backend_proc)

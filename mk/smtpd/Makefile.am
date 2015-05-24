@@ -71,7 +71,9 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_maildir.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_mbox.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_mda.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_lmtp.c
+if HAVE_DB_API
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_db.c
+endif
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_getpwnam.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_proc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_static.c
