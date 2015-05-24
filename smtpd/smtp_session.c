@@ -684,7 +684,6 @@ smtp_session(struct listener *listener, int sock,
 	struct smtp_session	*s;
 
 	log_debug("debug: smtp: new client on listener: %p", listener);
-
 	smtp_session_init();
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
@@ -708,6 +707,10 @@ smtp_session(struct listener *listener, int sock,
 
 	(void)strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));
 
+	log_trace(TRACE_SMTP, "smtp: %p: connected to listener %p "
+	    "[hostname=%s, port=%d, tag=%s]", s, listener,
+	    listener->hostname, ntohs(listener->port), listener->tag);
+	
 	/* Setup parser and callbacks before smtp_connected() can be called */
 	rfc2822_parser_init(&s->rfc2822_parser);
 	rfc2822_header_default_callback(&s->rfc2822_parser,
