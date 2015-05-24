@@ -139,11 +139,11 @@ strip(char *s)
 {
 	size_t	 l;
 
-	while (*s == ' ' || *s == '\t')
+	while (isspace((unsigned char)*s))
 		s++;
 
 	for (l = strlen(s); l; l--) {
-		if (s[l-1] != ' ' && s[l-1] != '\t')
+		if (!isspace((unsigned char)s[l-1]))
 			break;
 		s[l-1] = '\0';
 	}

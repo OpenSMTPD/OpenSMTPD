@@ -388,7 +388,6 @@ make_aliases(DBT *val, char *text)
 {
 	struct expandnode	xn;
 	char		       *subrcpt;
-	char		       *endp;
 	char		       *origtext;
 
 	val->data = NULL;
@@ -397,16 +396,10 @@ make_aliases(DBT *val, char *text)
 	origtext = xstrdup(text, "make_aliases");
 
 	while ((subrcpt = strsep(&text, ",")) != NULL) {
-		/* subrcpt: strip initial whitespace. */
-		while (isspace((unsigned char)*subrcpt))
-			++subrcpt;
+		/* subrcpt: strip initial and trailing whitespace. */
+		subrcpt = strip(subrcpt);
 		if (*subrcpt == '\0')
 			goto error;
-
-		/* subrcpt: strip trailing whitespace. */
-		endp = subrcpt + strlen(subrcpt) - 1;
-		while (subrcpt < endp && isspace((unsigned char)*endp))
-			*endp-- = '\0';
 
 		if (! text_to_expandnode(&xn, subrcpt))
 			goto error;
