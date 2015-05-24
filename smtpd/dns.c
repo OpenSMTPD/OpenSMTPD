@@ -446,12 +446,26 @@ dns_lookup_host(struct dns_session *s, const char *host, int preference)
 {
 	struct dns_lookup	*lookup;
 	struct addrinfo		 hints;
+	char			 hostcopy[HOST_NAME_MAX+1];
+	char			*p;
 	void			*as;
 
 	lookup = xcalloc(1, sizeof *lookup, "dns_lookup_host");
 	lookup->preference = preference;
 	lookup->session = s;
 	s->refcount++;
+
+	if (*host == '[') {
+		if (strncasecmp("[IPv6:", host, 6) == 0)
+			host += 6;
+		else
+			host += 1;
+		(void)strlcpy(hostcopy, host, sizeof hostcopy);
+		p = strchr(hostcopy, ']');
+		if (p)
+			*p = 0;
+		host = hostcopy;
+	}
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;
