@@ -2547,6 +2547,8 @@ create_filter_chain(char *name)
 static int
 add_filter_arg(struct filter_conf *f, char *arg)
 {
+	int	i;
+
 	if (f->argc == MAX_FILTER_ARGS) {
 		yyerror("filter \"%s\" is full", f->name);
 		return (0);
@@ -2561,6 +2563,11 @@ add_filter_arg(struct filter_conf *f, char *arg)
 			yyerror("filter chain cannot contain itself");
 			return (0);
 		}
+		for (i = 0; i < f->argc; ++i)
+			if (strcasecmp(f->argv[i], arg) == 0) {
+				yyerror("filter chain cannot contain twice the same filter instance");
+				return (0);
+			}
 	}
 
 	f->argv[f->argc++] = arg;
