@@ -273,9 +273,6 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		(void)strlcpy(s->name, mx, sizeof(s->name));
 
-		sa = (struct sockaddr *)&ss;
-		sl = sizeof(ss);
-
 		as = res_query_async(domain, C_IN, T_MX, NULL);
 		if (as == NULL) {
 			m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
@@ -371,13 +368,15 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		return;
 	}
 
-	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	unpack_header(&pack, &h);
-	unpack_query(&pack, &q);
-
 	found = 0;
+
+	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
+	if (unpack_header(&pack, &h) == -1 || unpack_query(&pack, &q) == -1)
+		return;
+
 	for (; h.ancount; h.ancount--) {
-		unpack_rr(&pack, &rr);
+		if (unpack_rr(&pack, &rr) == -1)
+			break;
 		if (rr.rr_type != T_MX)
 			continue;
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
@@ -415,17 +414,19 @@ dns_dispatch_mx_preference(struct asr_result *ar, void *arg)
 	else {
 		error = DNS_ENOTFOUND;
 		unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-		unpack_header(&pack, &h);
-		unpack_query(&pack, &q);
-		for (; h.ancount; h.ancount--) {
-			unpack_rr(&pack, &rr);
-			if (rr.rr_type != T_MX)
-				continue;
-			print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
-			buf[strlen(buf) - 1] = '\0';
-			if (!strcasecmp(s->name, buf)) {
-				error = DNS_OK;
-				break;
+		if (unpack_header(&pack, &h) != -1 &&
+		    unpack_query(&pack, &q) != -1) {
+			for (; h.ancount; h.ancount--) {
+				if (unpack_rr(&pack, &rr) == -1)
+					break;
+				if (rr.rr_type != T_MX)
+					continue;
+				print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
+				buf[strlen(buf) - 1] = '\0';
+				if (!strcasecmp(s->name, buf)) {
+					error = DNS_OK;
+					break;
+				}
 			}
 		}
 	}

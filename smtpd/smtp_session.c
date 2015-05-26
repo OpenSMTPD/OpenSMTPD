@@ -294,7 +294,6 @@ header_append_domain_buffer(char *buffer, const char *domain, size_t len)
 	int	pos_bracket, pos_component, pos_insert;
 	char	copy[APPEND_DOMAIN_BUFFER_SIZE];
 
-	i = 0;
 	escape = quote = comment = bracket = 0;
 	has_domain = has_bracket = has_group = 0;
 	pos_bracket = pos_insert = pos_component = 0;
@@ -381,7 +380,7 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 		goto ioerror;
 	s->odatalen += len;
 
-	i = j = 0;
+	j = 0;
 	escape = quote = comment = skip = 0;
 	memset(buffer, 0, sizeof buffer);
 
@@ -476,11 +475,9 @@ header_address_rewrite_buffer(char *buffer, const char *address, size_t len)
 	int	insert_beg, insert_end;
 	char	copy[APPEND_DOMAIN_BUFFER_SIZE];
 
-	i = 0;
 	escape = quote = comment = bracket = 0;
 	has_bracket = has_group = 0;
 	pos_bracket_beg = pos_bracket_end = pos_component_beg = pos_component_end = 0;
-	insert_beg = insert_end = 0;
 	for (i = 0; buffer[i]; ++i) {
 		if (buffer[i] == '(' && !escape && !quote)
 			comment++;
@@ -562,7 +559,7 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 		goto ioerror;
 	s->odatalen += len;
 
-	i = j = 0;
+	j = 0;
 	escape = quote = comment = skip = 0;
 	memset(buffer, 0, sizeof buffer);
 

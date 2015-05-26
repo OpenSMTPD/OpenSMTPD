@@ -201,7 +201,7 @@ smtp_setup_events(void)
 	purge_config(PURGE_PKI_KEYS);
 
 	maxsessions = ((getdtablesize() - getdtablecount()) & ~0x1) / 2 - SMTP_FD_RESERVE;
-	log_debug("debug: smtp: will accept at most %d clients", maxsessions);
+	log_debug("debug: smtp: will accept at most %d clients", (int)maxsessions);
 }
 
 static void
@@ -333,8 +333,6 @@ pause:
 static int
 smtp_can_accept(void)
 {
-	size_t	remain;
-
 	if (sessions + 1 == maxsessions)
 		return 0;
 	return (getdtablesize() - getdtablecount() - SMTP_FD_RESERVE >= 2);
