@@ -883,7 +883,7 @@ purge_task(void)
 		closedir(d);
 	} else
 		log_warn("warn: purge_task: opendir");
-	
+
 	if (n > 2) {
 		switch (purge_pid = fork()) {
 		case -1:

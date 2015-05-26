@@ -708,7 +708,7 @@ smtp_session(struct listener *listener, int sock,
 	log_trace(TRACE_SMTP, "smtp: %p: connected to listener %p "
 	    "[hostname=%s, port=%d, tag=%s]", s, listener,
 	    listener->hostname, ntohs(listener->port), listener->tag);
-	
+
 	/* Setup parser and callbacks before smtp_connected() can be called */
 	rfc2822_parser_init(&s->rfc2822_parser);
 	rfc2822_header_default_callback(&s->rfc2822_parser,
@@ -1004,7 +1004,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			log_info("smtp-in: session %016"PRIx64
 			    ": authentication failure for user %s",
 			    s->id, user);
-			    
+
 			smtp_auth_failure_pause(s);
 			return;
 		}
@@ -1059,7 +1059,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		else if (s->listener->flags & F_TLS_VERIFY) {
 			log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (certificate verification failed)",
 			    s->id, s->hostname, ss_to_text(&s->ss));
-			smtp_free(s, "SSL certificate check failed");	
+			smtp_free(s, "SSL certificate check failed");
 			return;
 		}
 		smtp_io(&s->io, IO_TLSVERIFIED);
