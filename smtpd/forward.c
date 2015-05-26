@@ -91,7 +91,7 @@ forwards_get(int fd, struct expand *expand)
 		}
 		free(line);
 	}
-	       
+
 	ret = expand->nb_nodes > save ? 1 : 0;
 
 end:
