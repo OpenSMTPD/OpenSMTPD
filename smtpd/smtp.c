@@ -321,8 +321,6 @@ pause:
 static int
 smtp_can_accept(void)
 {
-	size_t	remain;
-
 	if (sessions + 1 == maxsessions)
 		return 0;
 	return (getdtablesize() - getdtablecount() - SMTP_FD_RESERVE >= 2);
