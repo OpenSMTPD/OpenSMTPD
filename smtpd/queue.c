@@ -158,7 +158,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_id(&m, &reqid);
 			m_get_envelope(&m, &evp);
 			m_end(&m);
-		    
+
 			if (evp.id == 0)
 				log_warnx("warn: imsg_queue_submit_envelope: evpid=0");
 			if (evpid_to_msgid(evp.id) == 0)
