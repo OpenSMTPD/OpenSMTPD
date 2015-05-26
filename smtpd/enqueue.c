@@ -369,6 +369,9 @@ enqueue(int argc, char *argv[])
 			err(EX_UNAVAILABLE, "fgetln");
 		if (buf == NULL && feof(fp))
 			break;
+		if (buf == NULL)
+			err(EX_UNAVAILABLE, "fgetln");
+
 		/* newlines have been normalized on first parsing */
 		if (buf[len-1] != '\n')
 			errx(EX_SOFTWARE, "expect EOL");
