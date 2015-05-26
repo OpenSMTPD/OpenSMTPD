@@ -264,9 +264,6 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		(void)strlcpy(s->name, mx, sizeof(s->name));
 
-		sa = (struct sockaddr *)&ss;
-		sl = sizeof(ss);
-
 		as = res_query_async(domain, C_IN, T_MX, NULL);
 		if (as == NULL) {
 			m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
