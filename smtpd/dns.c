@@ -362,11 +362,12 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		return;
 	}
 
-	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	unpack_header(&pack, &h);
-	unpack_query(&pack, &q);
-
 	found = 0;
+
+	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
+	if (unpack_header(&pack, &h) == -1 || unpack_query(&pack, &q) == -1)
+		return;
+
 	for (; h.ancount; h.ancount--) {
 		unpack_rr(&pack, &rr);
 		if (rr.rr_type != T_MX)
