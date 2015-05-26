@@ -1035,9 +1035,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		}
 
 		resp_ca_cert = xmemdup(imsg->data, sizeof *resp_ca_cert, "smtp:ca_cert");
-		if (resp_ca_cert == NULL)
-			fatal(NULL);
-
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "smtp:ca_cert");
 		ssl_ctx = dict_get(env->sc_ssl_dict, resp_ca_cert->name);
