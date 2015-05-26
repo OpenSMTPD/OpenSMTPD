@@ -476,7 +476,6 @@ header_address_rewrite_buffer(char *buffer, const char *address, size_t len)
 	escape = quote = comment = bracket = 0;
 	has_bracket = has_group = 0;
 	pos_bracket_beg = pos_bracket_end = pos_component_beg = pos_component_end = 0;
-	insert_beg = insert_end = 0;
 	for (i = 0; buffer[i]; ++i) {
 		if (buffer[i] == '(' && !escape && !quote)
 			comment++;
