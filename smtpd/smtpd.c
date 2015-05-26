@@ -1351,6 +1351,10 @@ log_imsg(int to, int from, struct imsg *imsg)
 	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
 		return;
 
+	if (imsg->hdr.type == IMSG_STAT_INCREMENT ||
+	    imsg->hdr.type == IMSG_STAT_DECREMENT)
+		return;
+
 	if (imsg->fd != -1)
 		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%d)",
 		    proc_name(to),
