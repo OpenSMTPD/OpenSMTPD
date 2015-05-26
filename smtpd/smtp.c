@@ -53,6 +53,7 @@ static int smtp_sni_callback(SSL *, int *, void *);
 
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
+static size_t	maxsessions;
 
 void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
@@ -169,7 +170,7 @@ smtp_setup_events(void)
 		    " ca \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->pki_name, l->ca_name);
 
-		session_socket_blockmode(l->fd, BM_NONBLOCK);		
+		session_socket_blockmode(l->fd, BM_NONBLOCK);
 		if (listen(l->fd, SMTPD_BACKLOG) == -1)
 			fatal("listen");
 		event_set(&l->ev, l->fd, EV_READ|EV_PERSIST, smtp_accept, l);
@@ -188,8 +189,9 @@ smtp_setup_events(void)
 
 	purge_config(PURGE_PKI_KEYS);
 
-	log_debug("debug: smtp: will accept at most %d clients",
-	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
+	maxsessions = ((getdtablesize() - getdtablecount()) & ~0x1) / 2 - SMTP_FD_RESERVE;
+	log_debug("debug: smtp: will accept at most %d clients", maxsessions);
+
 }
 
 static void
@@ -319,11 +321,11 @@ pause:
 static int
 smtp_can_accept(void)
 {
-	size_t max;
+	size_t	remain;
 
-	max = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
-
-	return (sessions < max);
+	if (sessions + 1 == maxsessions)
+		return 0;
+	return (getdtablesize() - getdtablecount() - SMTP_FD_RESERVE >= 2);
 }
 
 void
