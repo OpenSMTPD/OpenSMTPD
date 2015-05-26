@@ -242,9 +242,9 @@ smtp_enqueue(uid_t *euid)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		return (-1);
 
-	/* XXX dont' fatal here */
+	/* XXX don't fatal here */
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
-		fatal("socketpair");
+		return (-1);
 
 	hostname = env->sc_hostname;
 	if (euid) {
