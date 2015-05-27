@@ -2508,9 +2508,19 @@ AC_ARG_WITH([libevent-dir],
 			else
 				CPPFLAGS="-I${withval} ${CPPFLAGS}"
 			fi
+			need_libevent_autodetect=no
 		fi
 	]
 )
+
+if test x"${need_libevent_autodetect}" != x"no"; then
+   for path in /usr/local /usr; do
+       if test -f "${path}/include/event.h"; then
+       	  CPPFLAGS="-I${path}/include ${CPPFLAGS}"
+	  LDFLAGS="-L${path}/lib ${LDFLAGS}"
+       fi
+   done
+fi
 
 LIBS="-levent $LIBS"
 
