@@ -2608,13 +2608,9 @@ AC_ARG_WITH([libevent-header-check],
 AC_MSG_CHECKING([whether libevent's headers match the library])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
-#if LIBEVENT_MAJOR_VERSION < 2
-#include <event.h>
-#else
-#include <event2/event.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
+	#include <event.h>
+	#include <stdlib.h>
+	#include <string.h>
 	]], [[
 	exit(strcmp(event_get_version(), _EVENT_VERSION) == 0 ? 0 : 1);
 	]])],
@@ -2641,11 +2637,7 @@ library. Check config.log for details.])
 AC_MSG_CHECKING([if programs using libevent functions will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[
-#if LIBEVENT_MAJOR_VERSION < 2
-#include <event.h>
-#else
-#include <event2/event.h>
-#endif
+	#include <event.h>
 	]], [[
 	event_base_new();
 	]])],
