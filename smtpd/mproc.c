@@ -155,6 +155,8 @@ mproc_dispatch(int fd, short event, void *arg)
 		if ((n = imsg_read(&p->imsgbuf)) == -1) {
 			log_warn("warn: %s -> %s: imsg_read",
 			    proc_name(smtpd_process),  p->name);
+			if (errno == EAGAIN)
+				return;
 			fatal("exiting");
 		}
 		if (n == 0) {
@@ -283,7 +285,9 @@ m_forward(struct mproc *p, struct imsg *imsg)
 	    imsg->hdr.pid, imsg->fd, imsg->data,
 	    imsg->hdr.len - sizeof(imsg->hdr));
 
-	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s (forward)",
+	if (imsg->hdr.type != IMSG_STAT_DECREMENT &&
+	    imsg->hdr.type != IMSG_STAT_INCREMENT)
+		log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s (forward)",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg->hdr.len - sizeof(imsg->hdr),
@@ -303,7 +307,9 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 {
 	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
 
-	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
+	if (type != IMSG_STAT_DECREMENT &&
+	    type != IMSG_STAT_INCREMENT)
+		log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    len,
@@ -335,7 +341,9 @@ m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
 	if (p->bytes_queued > p->bytes_queued_max)
 		p->bytes_queued_max = p->bytes_queued;
 
-	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
+	if (type != IMSG_STAT_DECREMENT &&
+	    type != IMSG_STAT_INCREMENT)
+		log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    len,

@@ -417,7 +417,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
-			
+
 		case IMSG_CTL_RESUME_ROUTE:
 			u64 = *((uint64_t *)imsg->data);
 			if (u64)

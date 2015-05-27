@@ -933,7 +933,7 @@ purge_task(void)
 		closedir(d);
 	} else
 		log_warn("warn: purge_task: opendir");
-	
+
 	if (n > 2) {
 		switch (purge_pid = fork()) {
 		case -1:
@@ -1259,8 +1259,10 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 	struct stat	sb;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
-		directory))
-		fatal("smtpd: parent_forward_open: snprintf");
+		directory)) {
+		log_warnx("warn: smtpd: %s: pathname too large", pathname);
+		return -1;
+	}
 
 	if (stat(directory, &sb) < 0) {
 		log_warn("warn: smtpd: parent_forward_open: %s", directory);
@@ -1301,6 +1303,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 {
 	struct timespec	t0, t1, dt;
 	int		msg;
+	int		profile = profiling & PROFILE_IMSG;
 
 	if (imsg == NULL) {
 		exit(1);
@@ -1309,13 +1312,13 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 
 	log_imsg(smtpd_process, p->proc, imsg);
 
-	if (profiling & PROFILE_IMSG)
+	if (profile)
 		clock_gettime(CLOCK_MONOTONIC, &t0);
 
 	msg = imsg->hdr.type;
 	imsg_callback(p, imsg);
 
-	if (profiling & PROFILE_IMSG) {
+	if (profile) {
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 		timespecsub(&t1, &t0, &dt);
 
@@ -1349,6 +1352,10 @@ log_imsg(int to, int from, struct imsg *imsg)
 {
 
 	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
+		return;
+
+	if (imsg->hdr.type == IMSG_STAT_INCREMENT ||
+	    imsg->hdr.type == IMSG_STAT_DECREMENT)
 		return;
 
 	if (imsg->fd != -1)
