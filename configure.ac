@@ -2530,7 +2530,7 @@ AC_RUN_IFELSE(
 	if(fd == NULL)
 		exit(1);
 
-	if ((rc = fprintf(fd ,"%s\n", _EVENT_VERSION)) <0)
+	if ((rc = fprintf(fd ,"%s\n", LIBEVENT_VERSION)) <0)
 		exit(1);
 
 	exit(0);
@@ -2606,7 +2606,7 @@ AC_RUN_IFELSE(
 #include <stdlib.h>
 #include <string.h>
 	]], [[
-	exit(strcmp(event_get_version(), _EVENT_VERSION) == 0 ? 0 : 1);
+	exit(strcmp(event_get_version(), LIBEVENT_VERSION) == 0 ? 0 : 1);
 	]])],
 	[
 		AC_MSG_RESULT([yes])
