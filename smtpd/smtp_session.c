@@ -1340,7 +1340,7 @@ smtp_io(struct io *io, int evt)
 		if (s->listener->flags & F_TLS_VERIFY) {
 			log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (client certificate not presented)",
 			    s->id, s->hostname, ss_to_text(&s->ss));
-			smtp_free(s, "client did not present certificate");	
+			smtp_free(s, "client did not present certificate");
 			return;
 		}
 
@@ -2425,7 +2425,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	free(req_ca_vrfy.cert);
 	X509_free(x);
 
-	if (xchain) {		
+	if (xchain) {
 		/* Send the chain, one cert at a time */
 		for (i = 0; i < sk_X509_num(xchain); ++i) {
 			memset(&req_ca_vrfy, 0, sizeof req_ca_vrfy);
