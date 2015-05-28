@@ -408,7 +408,7 @@ filter_query(struct filter_session *s, int kind, int type)
 {
 	struct filter_query	*q;
 
-	q = xcalloc(1, sizeof *q, "filter_query");
+	q = xcalloc(1, sizeof(*q), "filter_query");
 	q->qid = generate_uid();
 	q->session = s;
 	q->kind = kind;

@@ -356,7 +356,7 @@ m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd)
 {
 	if (p->m_buf == NULL) {
 		p->m_alloc = 128;
-		log_trace(TRACE_MPROC, "mproc: %s -> %s: allocating %zu", 
+		log_trace(TRACE_MPROC, "mproc: %s -> %s: allocating %zu",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    p->m_alloc);
@@ -682,7 +682,7 @@ m_get_string(struct msg *m, const char **s)
 	end = memchr(m->pos + 1, 0, m->end - (m->pos + 1));
 	if (end == NULL)
 		m_error("unterminated string");
-	
+
 	*s = m->pos + 1;
 	m->pos = end + 1;
 }

@@ -1338,7 +1338,7 @@ smtp_io(struct io *io, int evt)
 		if (s->listener->flags & F_TLS_VERIFY) {
 			log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (client certificate not presented)",
 			    s->id, s->hostname, ss_to_text(&s->ss));
-			smtp_free(s, "client did not present certificate");	
+			smtp_free(s, "client did not present certificate");
 			return;
 		}
 
