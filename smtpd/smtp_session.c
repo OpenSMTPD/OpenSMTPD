@@ -2423,7 +2423,7 @@ smtp_verify_certificate(struct smtp_session *s)
 	free(req_ca_vrfy.cert);
 	X509_free(x);
 
-	if (xchain) {		
+	if (xchain) {
 		/* Send the chain, one cert at a time */
 		for (i = 0; i < sk_X509_num(xchain); ++i) {
 			memset(&req_ca_vrfy, 0, sizeof req_ca_vrfy);
