@@ -226,6 +226,46 @@ mkdirs(char *path, mode_t mode)
 	return 1;
 }
 
+int
+ckdir_quiet(const char *path, mode_t mode, uid_t owner, gid_t group)
+{
+	struct stat	sb;
+
+	if (stat(path, &sb) == -1) {
+		if (errno != ENOENT)
+			return (0);
+
+		/* chmod is deferred to avoid umask effect */
+		if (mkdir(path, 0) == -1)
+			return (0);
+
+		if (chown(path, owner, group) == -1)
+			return (0);
+
+		if (chmod(path, mode) == -1)
+			return (0);
+
+		if (stat(path, &sb) == -1)
+			return (0);
+	}
+
+	/* check if it's a directory */
+	if (!S_ISDIR(sb.st_mode))
+		return 0;
+
+	/* check that it is owned by owner/group */
+	if (sb.st_uid != owner)
+		return 0;
+
+	if (sb.st_gid != group)
+		return 0;
+
+	/* check permission */
+	if ((sb.st_mode & 07777) != mode)
+		return 0;
+
+	return 1;
+}
 
 int
 ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
