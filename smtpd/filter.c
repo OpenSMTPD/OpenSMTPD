@@ -408,7 +408,7 @@ filter_query(struct filter_session *s, int kind, int type)
 {
 	struct filter_query	*q;
 
-	q = xcalloc(1, sizeof *q, "filter_query");
+	q = xcalloc(1, sizeof(*q), "filter_query");
 	q->qid = generate_uid();
 	q->session = s;
 	q->kind = kind;
@@ -578,8 +578,11 @@ filter_end_query(struct filter_query *q)
 
     done:
 	TAILQ_REMOVE(&s->queries, q, entry);
-	if (q->kind == QK_EVENT && q->type == EVENT_DISCONNECT)
+	if (q->kind == QK_EVENT && q->type == EVENT_DISCONNECT) {
+		io_clear(&s->iev);
+		iobuf_clear(&s->ibuf);
 		free(s);
+	}
 	free(q);
 }
 
@@ -612,7 +615,7 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 			    proc->mproc.name);
 			exit(1);
 		}
-		
+
 		m_msg(&m, imsg);
 		m_get_int(&m, &proc->hooks);
 		m_get_int(&m, &proc->flags);

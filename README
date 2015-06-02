@@ -60,21 +60,17 @@ Build
 
     cd opensmtpd*
     ./bootstrap  # Only if you build from git sources
-    ./configure  
-    make  
-    sudo make install  
+    ./configure
+    make
+    sudo make install
 
 ### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
 
 Please launch configure with special directive about libevent and libasr directory:
 
-#### FreeBSD:
+#### FreeBSD / DragonFlyBSD:
 
-    ./configure --with-libevent-dir=/usr/local --with-asr=/usr/local
-
-#### DragonFlyBSD:
-
-    ./configure --with-libevent-dir=/usr/pkg --with-asr=/usr/pkg
+    ./configure --with-asr=/usr/local
 
 #### Mac OS X:
 
@@ -84,7 +80,7 @@ Please launch configure with special directive about libevent and libasr directo
 Install
 -------
 
-    sudo make install    
+    sudo make install
 
 
 Configure /etc/smtpd.conf
