@@ -355,8 +355,10 @@ control_accept(int listenfd, short event, void *arg)
 		fatal("getpeereid");
 
 	count = tree_get(&ctl_count, euid);
-	if (count == NULL)
+	if (count == NULL) {
 		count = xcalloc(1, sizeof *count, "control_accept");
+		tree_xset(&ctl_count, euid, count);
+	}
 
 	if (*count == CONTROL_MAXCONN_PER_CLIENT) {
 		close(connfd);
@@ -374,7 +376,6 @@ control_accept(int listenfd, short event, void *arg)
 	mproc_init(&c->mproc, connfd);
 	mproc_enable(&c->mproc);
 	tree_xset(&ctl_conns, c->id, c);
-	tree_set(&ctl_count, c->euid, count);
 
 	stat_backend->increment("control.session", 1);
 	return;
@@ -389,14 +390,12 @@ control_close(struct ctl_conn *c)
 {
 	size_t	*count;
 
-	count = tree_get(&ctl_count, c->euid);
+	count = tree_xget(&ctl_count, c->euid);
 	(*count)--;
 	if (*count == 0) {
 		tree_xpop(&ctl_count, c->euid);
 		free(count);
 	}
-	else
-		tree_set(&ctl_count, c->euid, count);
 	tree_xpop(&ctl_conns, c->id);
 	mproc_clear(&c->mproc);
 	free(c);
