@@ -51,7 +51,9 @@ int		ssl_setup(SSL_CTX **, struct pki *, int (*)(SSL *, int *, void *),
 	    const char *, const char *);
 SSL_CTX	       *ssl_ctx_create(const char *, char *, off_t, const char *);
 int	        ssl_cmp(struct pki *, struct pki *);
+DH	       *get_dh(void);
 DH	       *get_dh1024(void);
+DH	       *get_dh2048(void);
 DH	       *get_dh_from_memory(char *, size_t);
 void		ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
 void		ssl_set_ecdh_curve(SSL_CTX *, const char *);

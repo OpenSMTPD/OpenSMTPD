@@ -139,6 +139,8 @@ queue_init(const char *name, int server)
 			errx(1, "error in spool directory setup");
 		if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 1) == 0)
 			errx(1, "error in offline directory setup");
+		if (ckdir_quiet(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0))
+			chmod(PATH_SPOOL PATH_PURGE, 0750);
 		if (ckdir(PATH_SPOOL PATH_PURGE, 0750, pwq->pw_uid, 0, 1) == 0)
 			errx(1, "error in purge directory setup");
 

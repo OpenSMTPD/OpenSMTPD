@@ -310,7 +310,6 @@ static void
 control_shutdown(void)
 {
 	log_info("info: control process exiting");
-	unlink(SMTPD_SOCKET);
 	_exit(0);
 }
 
