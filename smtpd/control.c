@@ -77,7 +77,7 @@ static struct tree		ctl_count;
 static struct stat_digest	digest;
 
 #define	CONTROL_FD_RESERVE		5
-#define	CONTROL_MAXCONN_PER_CLIENT	5
+#define	CONTROL_MAXCONN_PER_CLIENT	32
 
 static void
 control_imsg(struct mproc *p, struct imsg *imsg)
