@@ -359,7 +359,7 @@ control_accept(int listenfd, short event, void *arg)
 
 	if (*count == CONTROL_MAXCONN_PER_CLIENT) {
 		close(connfd);
-		log_warn("warn: too many connections to control socket "
+		log_warnx("warn: too many connections to control socket "
 		    "from user with uid %lu", (unsigned long int)euid);
 		return;
 	}
