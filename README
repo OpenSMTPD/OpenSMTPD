@@ -41,7 +41,7 @@ Portable OpenSMTPD relies on:
 * [libevent](http://libevent.org/)
 * [libtool](http://www.gnu.org/software/libtool/)
 * [openssl](http://www.openssl.org/)
-* [libasr](https://opensmtpd.org/archives/libasr-1.0.1.tar.gz)
+* [libasr](https://opensmtpd.org/archives/libasr-1.0.2.tar.gz)
 
 
 Get the source
