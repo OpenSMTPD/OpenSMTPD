@@ -244,6 +244,8 @@ smtp_enqueue(uid_t *euid)
 #endif
 		(void)strlcpy(listener->hostname, env->sc_hostname,
 		    sizeof(listener->hostname));
+		(void)strlcpy(listener->filter, env->sc_enqueue_filter,
+		    sizeof listener->filter);
 	}
 
 	/*

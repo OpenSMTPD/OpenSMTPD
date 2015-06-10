@@ -646,6 +646,8 @@ struct smtpd {
 	struct dict				sc_filters;
 	uint32_t				filtermask;
 
+	char					sc_enqueue_filter[PATH_MAX];
+
 	char			       *sc_tls_ciphers;
 	char			       *sc_tls_curve;
 };

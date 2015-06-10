@@ -183,7 +183,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE DSNNOTIFY DISABLE DSNRET HEADERS
+%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE DSNNOTIFY DISABLE DSNRET HEADERS ENQUEUER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -886,6 +886,20 @@ main		: BOUNCEWARN {
 			listen_opts.ifx = $4;
 			create_listener(conf->sc_listeners, &listen_opts);
 		}
+		| ENQUEUER FILTER STRING {
+			if (dict_get(&conf->sc_filters, $3) == NULL) {
+				yyerror("undefined filter \"%s\"", $3);
+				free($3);
+				YYERROR;
+			}
+			if (strlcpy(conf->sc_enqueue_filter, $3,
+				sizeof conf->sc_enqueue_filter)
+			    >= sizeof conf->sc_enqueue_filter) {
+				free($3);
+				YYERROR;
+			}
+			free($3);
+		}
 		| FILTER STRING STRING {
 			if (!strcmp($3, "chain")) {
 				free($3);
@@ -1458,6 +1472,7 @@ lookup(char *s)
 		{ "dsn-notify",		DSNNOTIFY },
 		{ "dsn-ret",		DSNRET },
 		{ "encryption",		ENCRYPTION },
+		{ "enqueuer",		ENQUEUER },
 		{ "expire",		EXPIRE },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
