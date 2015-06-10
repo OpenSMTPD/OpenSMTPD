@@ -232,6 +232,8 @@ smtp_enqueue(uid_t *euid)
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 		(void)strlcpy(listener->hostname, env->sc_hostname,
 		    sizeof(listener->hostname));
+		(void)strlcpy(listener->filter, env->sc_enqueue_filter,
+		    sizeof listener->filter);
 	}
 
 	/*
