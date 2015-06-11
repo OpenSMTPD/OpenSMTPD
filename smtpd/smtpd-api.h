@@ -326,10 +326,11 @@ const char *esc_description(enum enhanced_status_code);
 void filter_api_setugid(uid_t, gid_t);
 void filter_api_set_chroot(const char *);
 void filter_api_no_chroot(void);
+void filter_api_set_udata(uint64_t, void *);
+void *filter_api_get_udata(uint64_t);
 
 void filter_api_loop(void);
 int filter_api_accept(uint64_t);
-int filter_api_accept_notify(uint64_t, uint64_t *);
 int filter_api_reject(uint64_t, enum filter_status);
 int filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
@@ -344,6 +345,10 @@ void filter_api_on_rcpt(int(*)(uint64_t, struct mailaddr *));
 void filter_api_on_data(int(*)(uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *));
 void filter_api_on_eom(int(*)(uint64_t, size_t));
+void filter_api_on_reset(void(*)(uint64_t));
+void filter_api_on_disconnect(void(*)(uint64_t));
+void filter_api_on_commit(void(*)(uint64_t));
+void filter_api_on_rollback(void(*)(uint64_t));
 
 /* queue */
 void queue_api_on_close(int(*)(void));
