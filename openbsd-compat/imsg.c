@@ -311,7 +311,7 @@ int
 imsg_flush(struct imsgbuf *ibuf)
 {
 	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0)
+		if (msgbuf_write(&ibuf->w) <= 0)
 			return (-1);
 	return (0);
 }
