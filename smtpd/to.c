@@ -33,7 +33,6 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
-#include <fts.h>
 #include <imsg.h>
 #include <limits.h>
 #include <inttypes.h>
