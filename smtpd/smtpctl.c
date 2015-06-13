@@ -1073,7 +1073,7 @@ show_queue_envelope(struct envelope *e, int online)
 	else if (e->type == D_BOUNCE)
 		agent = "bounce";
 
-	if (e->ss.ss_family == AF_LOCAL)
+	if (e->ss.ss_family == AF_UNIX)
 		src = "local";
 	else if (e->ss.ss_family == AF_INET)
 		src = "inet4";

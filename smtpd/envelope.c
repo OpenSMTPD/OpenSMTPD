@@ -317,7 +317,7 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 	memset(&ssin6, 0, sizeof ssin6);
 
 	if (!strcmp("local", buf)) {
-		ss->ss_family = AF_LOCAL;
+		ss->ss_family = AF_UNIX;
 	}
 	else if (strncasecmp("IPv6:", buf, 5) == 0) {
 		if (inet_pton(AF_INET6, buf + 5, &ssin6.sin6_addr) != 1)
