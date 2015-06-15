@@ -27,7 +27,6 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
-#include <paths.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
