@@ -238,7 +238,7 @@ smtp_enqueue(uid_t *euid)
 	if (listener == NULL) {
 		listener = &local;
 		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
-		listener->ss.ss_family = AF_LOCAL;
+		listener->ss.ss_family = AF_UNIX;
 #ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 #endif
@@ -318,7 +318,7 @@ smtp_accept(int fd, short event, void *p)
 
 	sessions++;
 	stat_increment("smtp.session", 1);
-	if (listener->ss.ss_family == AF_LOCAL)
+	if (listener->ss.ss_family == AF_UNIX)
 		stat_increment("smtp.session.local", 1);
 	if (listener->ss.ss_family == AF_INET)
 		stat_increment("smtp.session.inet4", 1);

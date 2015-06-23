@@ -35,7 +35,6 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
-#include <fts.h>
 #include <imsg.h>
 #include <limits.h>
 #include <inttypes.h>
@@ -162,7 +161,7 @@ sa_to_text(const struct sockaddr *sa)
 	buf[0] = '\0';
 	p = buf;
 
-	if (sa->sa_family == AF_LOCAL)
+	if (sa->sa_family == AF_UNIX)
 		(void)strlcpy(buf, "local", sizeof buf);
 	else if (sa->sa_family == AF_INET) {
 		in_addr_t addr;

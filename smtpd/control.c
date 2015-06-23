@@ -199,20 +199,20 @@ control_sig_handler(int sig, short event, void *p)
 int
 control_create_socket(void)
 {
-	struct sockaddr_un	sun;
+	struct sockaddr_un	addr;
 	int			fd;
 	mode_t			old_umask;
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("control: socket");
 
-	memset(&sun, 0, sizeof(sun));
-	sun.sun_family = AF_UNIX;
-	if (strlcpy(sun.sun_path, SMTPD_SOCKET,
-	    sizeof(sun.sun_path)) >= sizeof(sun.sun_path))
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	if (strlcpy(addr.sun_path, SMTPD_SOCKET,
+	    sizeof(addr.sun_path)) >= sizeof(addr.sun_path))
 		fatal("control: socket name too long");
 
-	if (connect(fd, (struct sockaddr *)&sun, sizeof(sun)) == 0)
+	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0)
 		fatalx("control socket already listening");
 
 	if (unlink(SMTPD_SOCKET) == -1)
@@ -220,7 +220,7 @@ control_create_socket(void)
 			fatal("control: cannot unlink socket");
 
 	old_umask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
-	if (bind(fd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
+	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		(void)umask(old_umask);
 		fatal("control: bind");
 	}
@@ -333,7 +333,7 @@ control_accept(int listenfd, short event, void *arg)
 {
 	int			 connfd;
 	socklen_t		 len;
-	struct sockaddr_un	 sun;
+	struct sockaddr_un	 addr;
 	struct ctl_conn		*c;
 	size_t			*count;
 	uid_t			 euid;
@@ -342,8 +342,8 @@ control_accept(int listenfd, short event, void *arg)
 	if (available_fds(CONTROL_FD_RESERVE))
 		goto pause;
 
-	len = sizeof(sun);
-	if ((connfd = accept(listenfd, (struct sockaddr *)&sun, &len)) == -1) {
+	len = sizeof(addr);
+	if ((connfd = accept(listenfd, (struct sockaddr *)&addr, &len)) == -1) {
 		if (errno == ENFILE || errno == EMFILE)
 			goto pause;
 		if (errno == EINTR || errno == EWOULDBLOCK ||
