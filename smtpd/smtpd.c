@@ -56,7 +56,9 @@
 #ifdef HAVE_LOGIN_CAP_H
 #include <login_cap.h>
 #endif
+#ifdef HAVE_PATHS_H
 #include <paths.h>
+#endif
 #include <pwd.h>
 #include <signal.h>
 #ifdef HAVE_SHADOW_H
