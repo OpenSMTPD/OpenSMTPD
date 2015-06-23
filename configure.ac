@@ -378,7 +378,9 @@ case "$host" in
 *-*-darwin*)
 	use_pie=auto
 	AC_MSG_CHECKING([if we have working getaddrinfo])
-	AC_RUN_IFELSE([AC_LANG_SOURCE([[ #include <mach-o/dyld.h>
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[ 
+#include <stdlib.h>
+#include <mach-o/dyld.h>
 main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		exit(0);
 	else
@@ -452,7 +454,9 @@ AC_SUBST([ASR_LIB])
 
 
 AC_MSG_CHECKING([compiler and flags for sanity])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[ 
+#include <stdio.h>
+#include <stdlib.h> ]], [[ exit(0); ]])],
 	[	AC_MSG_RESULT([yes]) ],
 	[
 		AC_MSG_RESULT([no])
@@ -477,6 +481,7 @@ AC_CHECK_FUNCS([dirname], [AC_CHECK_HEADERS([libgen.h])] , [
 				[AC_LANG_SOURCE([[
 #include <libgen.h>
 #include <string.h>
+#include <stdlib.h>
 
 int main(int argc, char **argv) {
     char *s, buf[32];
@@ -628,6 +633,7 @@ AC_MSG_CHECKING([whether struct dirent allocates space for d_name])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <sys/types.h>
+#include <stdlib.h>
 #include <dirent.h>]],
 	[[
 	struct dirent d;
@@ -863,7 +869,9 @@ AC_SEARCH_LIBS(res_9_b64_ntop, resolv)
 if test "x$ac_cv_func_snprintf" = "xyes" ; then
 	AC_MSG_CHECKING([whether snprintf correctly terminates long strings])
 	AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[ #include <stdio.h> ]],
+		[AC_LANG_PROGRAM([[ 
+#include <stdio.h>
+#include <stdlib.h> ]],
 		[[
 	char b[5];
 	snprintf(b,5,"123456789");
@@ -891,6 +899,7 @@ if test "x$ac_cv_func_asprintf" != "xyes" && \
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 int x_snprintf(char *str,size_t count,const char *fmt,...)
 {
@@ -978,6 +987,7 @@ if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
 	AC_RUN_IFELSE(
 		[AC_LANG_PROGRAM([[
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <errno.h>
@@ -1108,6 +1118,7 @@ AC_MSG_CHECKING([LibreSSL header version])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <openssl/opensslv.h>
 #define DATA "conftest.sslincver"
@@ -1142,6 +1153,7 @@ AC_MSG_CHECKING([LibreSSL library version])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
@@ -1187,6 +1199,7 @@ AC_ARG_WITH([openssl-header-check],
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
+#include <stdlib.h>
 #include <string.h>
 #include <openssl/opensslv.h>
 	]], [[
@@ -1316,6 +1329,7 @@ fi
 AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
+#include <stdlib.h>
 #include <string.h>
 #include <openssl/rand.h>
 	]], [[
@@ -1464,6 +1478,7 @@ if test -z "$have_llong_max"; then
 	AC_RUN_IFELSE(
 		[AC_LANG_PROGRAM([[
 #include <stdio.h>
+#include <stdlib.h>
 /* Why is this so damn hard? */
 #ifdef __GNUC__
 # undef __GNUC__
@@ -1922,6 +1937,7 @@ dnl test snprintf (broken on SCO w/gcc)
 	AC_RUN_IFELSE(
 		[AC_LANG_SOURCE([[
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_SNPRINTF
 main()
@@ -2004,6 +2020,7 @@ AC_CACHE_CHECK([for msg_accrights field in struct msghdr],
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <stdlib.h>
 		]], [[
 #ifdef msg_accrights
 #error "msg_accrights is a macro"
@@ -2065,6 +2082,7 @@ AC_CACHE_CHECK([for msg_control field in struct msghdr],
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <stdlib.h>
 		]], [[
 #ifdef msg_control
 #error "msg_control is a macro"
@@ -2262,6 +2280,7 @@ AC_ARG_WITH([maildir],
 		[AC_LANG_PROGRAM([[
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #ifdef HAVE_PATHS_H
 #include <paths.h>
 #endif
