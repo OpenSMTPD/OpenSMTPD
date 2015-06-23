@@ -103,17 +103,17 @@ void stat_decrement(const char *k, size_t v)
 int
 srv_connect(void)
 {
-	struct sockaddr_un	sun;
+	struct sockaddr_un	addr;
 	int			ctl_sock, saved_errno;
 
 	/* connect to smtpd control socket */
 	if ((ctl_sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		err(1, "socket");
 
-	memset(&sun, 0, sizeof(sun));
-	sun.sun_family = AF_UNIX;
-	(void)strlcpy(sun.sun_path, SMTPD_SOCKET, sizeof(sun.sun_path));
-	if (connect(ctl_sock, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	(void)strlcpy(addr.sun_path, SMTPD_SOCKET, sizeof(addr.sun_path));
+	if (connect(ctl_sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		saved_errno = errno;
 		close(ctl_sock);
 		errno = saved_errno;
