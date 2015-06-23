@@ -2580,7 +2580,7 @@ fi
 LIBS="$save_LIBS"
 
 
-AM_CONDITIONAL([HAVE_DB_API], [test $use_db_api = 1])
+AM_CONDITIONAL([HAVE_DB_API], [test x"$use_db_api" = x"1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 
