@@ -30,7 +30,11 @@
  *
  *	from: @(#)pathnames.h	5.3 (Berkeley) 1/17/91
  */
+#ifdef HAVE_PATHS_H
 #include <paths.h>
+#else
+#include "defines.h"
+#endif
 
 #define _PATH_LOCTMP	"/tmp/local.XXXXXXXXXX"
 #define _PATH_LOCKSPOOL	"/usr/libexec/lockspool"
