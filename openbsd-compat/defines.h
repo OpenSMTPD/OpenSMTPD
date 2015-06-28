@@ -868,4 +868,11 @@ struct winsize {
 #ifndef WAIT_MYPGRP
 #define WAIT_MYPGRP 0
 #endif
+
+#ifndef _PATH_DEFPATH
+# if defined(sun) || defined(__sun)
+#  define _PATH_DEFPATH "/usr/bin:/bin:/usr/sbin:/sbin:/opt/csw/bin"
+# endif
+#endif
+
 #endif /* _DEFINES_H */
