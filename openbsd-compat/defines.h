@@ -875,4 +875,8 @@ struct winsize {
 # endif
 #endif
 
+#ifndef SCOPE_DELIMITER
+#define SCOPE_DELIMITER '%'
+#endif
+
 #endif /* _DEFINES_H */
