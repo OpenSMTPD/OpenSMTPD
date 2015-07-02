@@ -2660,23 +2660,6 @@ AC_CHECK_LIB([asr], [asr_resolver], ,
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
 
-AC_MSG_CHECKING([if RES_USE_DNSSEC is defined in resolv.h])
-AC_EGREP_CPP(HAVE_RES_USE_DNSSEC, [
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/nameser.h>
-#include <resolv.h>
-#ifdef RES_USE_DNSSEC
-HAVE_RES_USE_DNSSEC
-#endif
-], [
-   AC_MSG_RESULT([yes])
-], [
-   AC_MSG_RESULT([no])
-   AC_DEFINE([RES_USE_DNSSEC], [0], [Defined to 0 if RES_USE_DNSSEC isn't a supported resolver flag.])
-])
-
-
 use_mailwrapper=0
 AC_ARG_WITH([mailwrapper],
 	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
