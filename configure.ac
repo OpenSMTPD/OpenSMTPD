@@ -563,55 +563,6 @@ AC_CHECK_LIB([z], [deflate], ,
 	]
 )
 
-AC_ARG_WITH([zlib-version-check],
-	[  --without-zlib-version-check	Disable zlib version check],
-	[  if test "x$withval" = "xno" ; then
-		zlib_check_nonfatal=1
-	   fi
-	]
-)
-
-AC_MSG_CHECKING([for possibly buggy zlib])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <zlib.h>
-	]],
-	[[
-	int a=0, b=0, c=0, d=0, n, v;
-	n = sscanf(ZLIB_VERSION, "%d.%d.%d.%d", &a, &b, &c, &d);
-	if (n != 3 && n != 4)
-		exit(1);
-	v = a*1000000 + b*10000 + c*100 + d;
-	fprintf(stderr, "found zlib version %s (%d)\n", ZLIB_VERSION, v);
-
-	/* 1.1.4 is OK */
-	if (a == 1 && b == 1 && c >= 4)
-		exit(0);
-
-	/* 1.2.3 and up are OK */
-	if (v >= 1020300)
-		exit(0);
-
-	exit(2);
-	]])],
-	AC_MSG_RESULT([no]),
-	[ AC_MSG_RESULT([yes])
-	  if test -z "$zlib_check_nonfatal" ; then
-		AC_MSG_ERROR([*** zlib too old - check config.log ***
-Your reported zlib version has known security problems.  It's possible your
-vendor has fixed these problems without changing the version number.  If you
-are sure this is the case, you can disable the check by running
-"./configure --without-zlib-version-check".
-If you are in doubt, upgrade zlib to version 1.2.3 or greater.
-See http://www.gzip.org/zlib/ for details.])
-	  else
-		AC_MSG_WARN([zlib version may have security problems])
-	  fi
-	],
-	[	AC_MSG_WARN([cross compiling: not checking zlib version]) ]
-)
-
 dnl UnixWare 2.x
 AC_CHECK_FUNC([strcasecmp],
 	[], [ AC_CHECK_LIB([resolv], [strcasecmp], [LIBS="$LIBS -lresolv"]) ]
