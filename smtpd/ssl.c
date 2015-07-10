@@ -361,19 +361,9 @@ const char *
 ssl_to_text(const SSL *ssl)
 {
 	static char	buf[256];
-	static char	description[128];
-	char	       *tls_version = NULL;
 
-	/*
-	 * SSL_get_cipher_version() does not know about the exact TLS version...
-	 * you have to pick it up from second field of the SSL cipher description !
-	 */
-	SSL_CIPHER_description(SSL_get_current_cipher(ssl), description, sizeof description);
-	tls_version = strchr(description, ' ') + 1;
-	tls_version[strcspn(tls_version, " ")] = '\0';
-	(void)snprintf(buf, sizeof buf, "version=%s (%s), cipher=%s, bits=%d",
-	    SSL_get_cipher_version(ssl),
-	    tls_version,
+	(void) snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
+	    SSL_get_version(ssl),
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
 
