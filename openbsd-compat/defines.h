@@ -861,4 +861,22 @@ struct winsize {
 #define _PATH_VARRUN "/var/run/"
 #endif
 
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 255
+#endif
+
+#ifndef WAIT_MYPGRP
+#define WAIT_MYPGRP 0
+#endif
+
+#ifndef _PATH_DEFPATH
+# if defined(sun) || defined(__sun)
+#  define _PATH_DEFPATH "/usr/bin:/bin:/usr/sbin:/sbin:/opt/csw/bin"
+# endif
+#endif
+
+#ifndef SCOPE_DELIMITER
+#define SCOPE_DELIMITER '%'
+#endif
+
 #endif /* _DEFINES_H */
