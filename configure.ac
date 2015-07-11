@@ -2174,6 +2174,13 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 )
 ##chl part
 
+AC_CHECK_MEMBERS([struct dirent.d_type], , ,
+	[ #include <dirent.h> ]
+)
+
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff], , ,
+	[ #include <time.h> ]
+)
 
 #l4010
 # Looking for programs, paths and files

@@ -544,6 +544,9 @@ enum {
 	M_SIZET,
 	M_TIME,
 	M_STRING,
+#if (defined(sun) || defined(__sun)) && defined(M_DATA)
+#undef M_DATA
+#endif
 	M_DATA,
 	M_ID,
 	M_EVPID,
