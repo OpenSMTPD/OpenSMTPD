@@ -272,6 +272,9 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 	static uint32_t	currmsgid = 0;
 	static uint64_t	from = 0;
 	static int	done = 0, need_send = 1, found;
+	char		buf[sizeof(*evp)];
+	size_t		buflen;
+	uint64_t	evpid;
 
 	if (currmsgid != msgid) {
 		if (currmsgid != 0 && !done)
@@ -304,7 +307,12 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 		goto again;
 	}
 
-	srv_read(evp, sizeof(*evp));
+	srv_read(&evpid, sizeof evpid);
+	buflen = rlen;
+	srv_read(buf, rlen);	
+	envelope_load_buffer(evp, buf, buflen - 1);
+	evp->id = evpid;
+
 	srv_end();
 	from = evp->id + 1;
 	found++;
@@ -994,14 +1002,17 @@ main(int argc, char **argv)
 	cmd_install("monitor",			do_monitor);
 	cmd_install("pause envelope <evpid>",	do_pause_envelope);
 	cmd_install("pause envelope <msgid>",	do_pause_envelope);
+	cmd_install("pause envelope all",	do_pause_envelope);
 	cmd_install("pause mda",		do_pause_mda);
 	cmd_install("pause mta",		do_pause_mta);
 	cmd_install("pause smtp",		do_pause_smtp);
 	cmd_install("profile <str>",		do_profile);
 	cmd_install("remove <evpid>",		do_remove);
 	cmd_install("remove <msgid>",		do_remove);
+	cmd_install("remove all",		do_remove);
 	cmd_install("resume envelope <evpid>",	do_resume_envelope);
 	cmd_install("resume envelope <msgid>",	do_resume_envelope);
+	cmd_install("resume envelope all",	do_resume_envelope);
 	cmd_install("resume mda",		do_resume_mda);
 	cmd_install("resume mta",		do_resume_mta);
 	cmd_install("resume route <routeid>",	do_resume_route);

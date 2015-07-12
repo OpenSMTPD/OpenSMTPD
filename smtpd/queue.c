@@ -78,6 +78,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	time_t			 nexttry;
 	size_t			 n_evp;
 	int			 fd, mta_ext, ret, v, flags, code;
+	char			 buf[sizeof(evp)];
 
 	memset(&bounce, 0, sizeof(struct delivery_bounce));
 	if (p->proc == PROC_PONY) {
@@ -332,8 +333,11 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				 */
 				evp.lasttry = nexttry;
 			}
+
+			(void)memcpy(buf, &evp.id, sizeof evp.id);
+			envelope_dump_buffer(&evp, buf+8, sizeof(buf)-8);
 			m_compose(p_control, IMSG_CTL_LIST_ENVELOPES,
-			    imsg->hdr.peerid, 0, -1, &evp, sizeof evp);
+			    imsg->hdr.peerid, 0, -1, buf, 8 + strlen(buf+8) + 1);
 			return;
 		}
 	}
