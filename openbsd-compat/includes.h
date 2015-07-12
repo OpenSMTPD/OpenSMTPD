@@ -78,4 +78,8 @@
 
 #include "entropy.h"
 
+#ifdef HAVE_M_DATA
+#undef M_DATA
+#endif
+
 #endif /* INCLUDES_H */
