@@ -861,4 +861,8 @@ struct winsize {
 #define _PATH_VARRUN "/var/run/"
 #endif
 
+#ifndef WAIT_MYPGRP
+#define WAIT_MYPGRP 0
+#endif
+
 #endif /* _DEFINES_H */
