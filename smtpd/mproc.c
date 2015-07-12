@@ -538,6 +538,9 @@ m_add_typed_sized(struct mproc *p, uint8_t type, const void *data, size_t len)
 	m_add(p, data, len);
 }
 
+#if defined(HAVE_M_DATA)
+#undef M_DATA
+#endif
 enum {
 	M_INT,
 	M_UINT32,
