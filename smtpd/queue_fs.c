@@ -410,9 +410,6 @@ queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
 	char		 msgid_str[9];
 	char		*tmp;
 	int		 r, *n;
-#ifndef HAVE_STRUCT_DIRENT_D_TYPE
-	struct stat sb;
-#endif
 
 	if (*done)
 		return (-1);
@@ -433,15 +430,8 @@ queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
 
 	(void)snprintf(msgid_str, sizeof msgid_str, "%08" PRIx32, msgid);
 	while ((dp = readdir(dir)) != NULL) {
-#ifdef HAVE_STRUCT_DIRENT_D_TYPE
 		if (dp->d_type != DT_REG)
 			continue;
-#else
-		if (stat(d->d_name, &sb) == -1)
-			continue;
-		if (!S_ISREG(sb.st_mode))
-			continue;
-#endif
 
 		/* ignore files other than envelopes */
 		if (strlen(dp->d_name) != 16 || strncmp(dp->d_name, msgid_str, 8))

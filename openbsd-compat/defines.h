@@ -861,11 +861,8 @@ struct winsize {
 #define _PATH_VARRUN "/var/run/"
 #endif
 
-#ifndef HOST_NAME_MAX
-#define HOST_NAME_MAX 255
-#endif
-
 #ifndef WAIT_MYPGRP
 #define WAIT_MYPGRP 0
 #endif
+
 #endif /* _DEFINES_H */

@@ -1079,9 +1079,6 @@ offline_scan(int fd, short ev, void *arg)
 	DIR		*dir = arg;
 	struct dirent	*d;
 	int		 n = 0;
-#ifndef HAVE_STRUCT_DIRENT_D_TYPE
-	struct stat sb;
-#endif
 
 	if (dir == NULL) {
 		log_debug("debug: smtpd: scanning offline queue...");
@@ -1090,15 +1087,8 @@ offline_scan(int fd, short ev, void *arg)
 	}
 
 	while ((d = readdir(dir)) != NULL) {
-#ifdef HAVE_STRUCT_DIRENT_D_TYPE
 		if (d->d_type != DT_REG)
 			continue;
-#else
-		if (stat(d->d_name, &sb) == -1)
-			continue;
-		if (!S_ISREG(sb.st_mode))
-			continue;
-#endif
 
 		if (offline_add(d->d_name)) {
 			log_warnx("warn: smtpd: "
