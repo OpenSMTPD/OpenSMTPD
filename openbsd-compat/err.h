@@ -3,11 +3,7 @@
  * err.h compatibility shim
  */
 
-#ifdef HAVE_ERR_H
-
-#include_next <err.h>
-
-#else
+#ifndef HAVE_ERR_H
 
 #ifndef LIBCRYPTOCOMPAT_ERR_H
 #define LIBCRYPTOCOMPAT_ERR_H
