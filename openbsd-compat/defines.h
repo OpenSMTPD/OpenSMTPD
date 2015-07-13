@@ -861,4 +861,8 @@ struct winsize {
 #define _PATH_VARRUN "/var/run/"
 #endif
 
+#ifdef HAVE_M_DATA
+#undef M_DATA
+#endif
+
 #endif /* _DEFINES_H */
