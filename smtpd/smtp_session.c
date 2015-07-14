@@ -1272,7 +1272,7 @@ smtp_filter_fd(uint64_t id, int fd)
 		x = SSL_get_peer_certificate(s->io.ssl);
 		iobuf_fqueue(&s->obuf,
 		    "\n\tTLS version=%s cipher=%s bits=%d verify=%s",
-		    SSL_get_cipher_version(s->io.ssl),
+		    SSL_get_version(s->io.ssl),
 		    SSL_get_cipher_name(s->io.ssl),
 		    SSL_get_cipher_bits(s->io.ssl, NULL),
 		    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
