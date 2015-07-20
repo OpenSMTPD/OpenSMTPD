@@ -449,6 +449,9 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	ASR_LIB=
 	AC_DEFINE([NOOP_ASR_FREEADDRINFO], [0], [OpenBSD doesn't need ASR_FREEADDRINFO])
 	;;
+*-sun-solaris*)
+	AC_DEFINE([HAVE_M_DATA], [1], [M_DATA is defined in sys/stream.h included by netinet/in.h])
+	;;
 esac
 AC_SUBST([ASR_LIB])
 
