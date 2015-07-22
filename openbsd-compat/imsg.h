@@ -25,8 +25,6 @@
 #define IMSG_HEADER_SIZE	sizeof(struct imsg_hdr)
 #define MAX_IMSGSIZE		16384
 
-#include "defines.h"
-
 struct ibuf {
 	TAILQ_ENTRY(ibuf)	 entry;
 	u_char			*buf;
