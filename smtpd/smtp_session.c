@@ -82,6 +82,7 @@ enum session_flags {
 	SF_BADINPUT		= 0x0080,
 	SF_FILTERCONN		= 0x0100,
 	SF_FILTERDATA		= 0x0200,
+	SF_USERTOOLONG		= 0x0400,
 };
 
 enum message_flags {
@@ -131,7 +132,7 @@ struct smtp_session {
 
 	char			 helo[LINE_MAX];
 	char			 cmd[LINE_MAX];
-	char			 username[LOGIN_NAME_MAX];
+	char			 username[SMTPD_MAXMAILADDRSIZE];
 
 	struct envelope		 evp;
 
@@ -988,6 +989,17 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		s = tree_xpop(&wait_parent_auth, reqid);
 		strnvis(user, s->username, sizeof user, VIS_WHITE | VIS_SAFE);
+
+		if (s->flags & SF_USERTOOLONG) {
+			log_info("smtp-in: session %016"PRIx64
+				": auth failed because username too long",
+				s->id);
+			s->flags &= (~SF_USERTOOLONG);
+			if (success == LKA_OK) {
+				success = LKA_TEMPFAIL;
+			}
+		}
+
 		if (success == LKA_OK) {
 			log_info("smtp-in: session %016"PRIx64
 			    ": authentication successful for user %s ",
@@ -1927,7 +1939,7 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 		user++; /* skip NUL */
 		if (strlcpy(s->username, user, sizeof(s->username))
 		    >= sizeof(s->username))
-			goto abort;
+			s->flags |= SF_USERTOOLONG;
 
 		pass = memchr(user, '\0', len - (user - buf));
 		if (pass == NULL || pass >= buf + len - 2)
@@ -1967,9 +1979,12 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 
 	case STATE_AUTH_USERNAME:
 		memset(s->username, 0, sizeof(s->username));
-		if (base64_decode(arg, (unsigned char *)s->username,
-				  sizeof(s->username) - 1) == -1)
+		if (base64_decode(arg, (unsigned char *)buf,
+				  sizeof(buf) - 1) == -1)
 			goto abort;
+		if (strlcpy(s->username, buf, sizeof(s->username))
+		    >= sizeof(s->username))
+			s->flags |= SF_USERTOOLONG;
 
 		smtp_enter_state(s, STATE_AUTH_PASSWORD);
 		smtp_reply(s, "334 UGFzc3dvcmQ6");
