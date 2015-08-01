@@ -116,8 +116,6 @@ struct smtp_rcpt {
 	size_t			 destcount;
 };
 
-#define SMTP_PATH_MAX 256
-
 struct smtp_session {
 	uint64_t		 id;
 	struct iobuf		 iobuf;
@@ -134,7 +132,7 @@ struct smtp_session {
 
 	char			 helo[LINE_MAX];
 	char			 cmd[LINE_MAX];
-	char			 username[SMTP_PATH_MAX-1]; //a path is a mailbox in '<' '>'
+	char			 username[SMTPD_MAXMAILADDRSIZE];
 
 	struct envelope		 evp;
 
