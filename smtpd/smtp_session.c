@@ -133,7 +133,7 @@ struct smtp_session {
 
 	char			 helo[LINE_MAX];
 	char			 cmd[LINE_MAX];
-	char			 username[LOGIN_NAME_MAX];
+	char			 username[SMTPD_MAXMAILADDRSIZE];
 
 	struct envelope		 evp;
 
