@@ -330,7 +330,7 @@ This parameter may use conversion specifiers that are expanded before use
 .Op Ic hostname Ar name
 .Op Ic hostnames No < Ns Ar names Ns >
 .Op Ic pki Ar pkiname
-.Op Ic tls Op verify
+.Op Ic tls Op Ic verify
 .Ek
 .Xc
 .Pp
@@ -409,13 +409,17 @@ If
 .Ic tls
 is specified, OpenSMTPD will refuse to relay unless the remote host provides
 STARTTLS.
+If
+.Ic tls verify
+is specified, OpenSMTPD will refuse to relay unless the remote host provides
+STARTTLS and the certificate it presented has been verified.
 .Pp
-If the
-.Ic verify
-parameter to
+Note that the
 .Ic tls
-is specified, then OpenSMTPD will refuse to relay unless the certificate
-presented by the remote host has been verified.
+and
+.Ic tls verify
+options should only be used in private networks
+as they will prevent proper relaying on the Internet.
 .It Xo
 .Ic relay via
 .Ar host
