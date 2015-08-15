@@ -1314,7 +1314,7 @@ smtp_io(struct io *io, int evt)
 	struct ca_cert_req_msg	req_ca_cert;
 	struct smtp_session    *s = io->arg;
 	char		       *line;
-	size_t			len, i;
+	size_t			len;
 	X509		       *x;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
@@ -1402,11 +1402,6 @@ smtp_io(struct io *io, int evt)
                                         goto nextline;
                                 }
                         }
-
-			if (!(s->flags & SF_8BITMIME))
-				for (i = 0; i < len; ++i)
-					if (line[i] & 0x80)
-						line[i] = line[i] & 0x7f;
 
 			log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 			smtp_filter_dataline(s, line);
