@@ -19,7 +19,7 @@
 #ifndef _RFC2822_H_
 #define	_RFC2822_H_
 
-#define	RFC2822_MAX_LINE_SIZE		998
+#define	RFC2822_MAX_LINE_SIZE		4096
 
 struct rfc2822_line {
 	TAILQ_ENTRY(rfc2822_line)	next;
