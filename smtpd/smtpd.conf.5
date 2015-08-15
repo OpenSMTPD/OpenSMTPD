@@ -290,6 +290,7 @@ Finally, the method of delivery is specified:
 .It Xo
 .Ic deliver to lmtp
 .Op Ar host : Ns Ar port | socket
+.Op Ic rcpt-to
 .Op Ic as Ar user
 .Xc
 Mail is delivered to
@@ -299,6 +300,11 @@ or to the
 .Ar socket
 over LMTP with the privileges of the specified
 .Ar user .
+.Pp
+Optionally,
+.Ic rcpt-to
+might be specified to use the recipient email address (after expansion) instead
+of the local user in the LMTP session as RCPT TO.
 .It Ic deliver to maildir Ar path
 Mail is added to a maildir.
 Its location,
