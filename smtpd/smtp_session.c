@@ -659,13 +659,13 @@ header_missing_callback(const char *header, void *arg)
 	int			 len;
 
 	if (strcasecmp(header, "message-id") == 0) {
-		len = fprintf(s->ofile, "Message-Id: <%016"PRIx64"@%s>\n",
+		len = iobuf_fqueue(&s->obuf, "Message-Id: <%016"PRIx64"@%s>\n",
 		    generate_uid(), s->listener->hostname);
 		if (len == -1) {
 			s->msgflags |= MF_ERROR_IO;
 			return;
 		}
-		s->datalen += len;
+		s->odatalen += len;
 	}
 }
 
