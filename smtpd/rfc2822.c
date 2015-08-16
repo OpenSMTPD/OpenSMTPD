@@ -47,20 +47,34 @@ header_reset(struct rfc2822_header *hdr)
 static void
 header_callback(struct rfc2822_parser *rp)
 {
-	struct rfc2822_hdr_cb	*hdr_cb;
+	struct rfc2822_hdr_cb		*hdr_cb;
+	struct rfc2822_hdr_miss_cb	*hdr_miss_cb;
 
 	TAILQ_FOREACH(hdr_cb, &rp->hdr_cb, next)
 	    if (strcasecmp(hdr_cb->name, rp->header.name) == 0) {
 		    hdr_cb->func(&rp->header, hdr_cb->arg);
-		    header_reset(&rp->header);
-		    rp->in_hdr = 0;
-		    return;
+		    goto end;
 	    }
-
 	rp->hdr_dflt_cb.func(&rp->header, rp->hdr_dflt_cb.arg);
+
+end:
+	TAILQ_FOREACH(hdr_miss_cb, &rp->hdr_miss_cb, next)
+	    if (strcasecmp(hdr_miss_cb->name, rp->header.name) == 0)
+		    break;
+	if (hdr_miss_cb)
+		TAILQ_REMOVE(&rp->hdr_miss_cb, hdr_miss_cb, next);
 	header_reset(&rp->header);
 	rp->in_hdr = 0;
 	return;
+}
+
+static void
+missing_headers_callback(struct rfc2822_parser *rp)
+{
+	struct rfc2822_hdr_miss_cb	*hdr_miss_cb;
+
+	TAILQ_FOREACH(hdr_miss_cb, &rp->hdr_miss_cb, next)
+	    hdr_miss_cb->func(hdr_miss_cb->name, hdr_miss_cb->arg);
 }
 
 static void
@@ -116,6 +130,7 @@ rfc2822_parser_init(struct rfc2822_parser *rp)
 {
 	memset(rp, 0, sizeof *rp);
 	TAILQ_INIT(&rp->hdr_cb);
+	TAILQ_INIT(&rp->hdr_miss_cb);
 	TAILQ_INIT(&rp->header.lines);
 	rfc2822_header_default_callback(rp, hdr_dflt_cb, NULL);
 	rfc2822_body_callback(rp, body_dflt_cb, NULL);
@@ -131,12 +146,17 @@ rfc2822_parser_reset(struct rfc2822_parser *rp)
 void
 rfc2822_parser_release(struct rfc2822_parser *rp)
 {
-	struct rfc2822_hdr_cb	*cb;
+	struct rfc2822_hdr_cb		*cb;
+	struct rfc2822_hdr_miss_cb	*mcb;
 
 	rfc2822_parser_reset(rp);
 	while ((cb = TAILQ_FIRST(&rp->hdr_cb))) {
 		TAILQ_REMOVE(&rp->hdr_cb, cb, next);
 		free(cb);
+	}
+	while ((mcb = TAILQ_FIRST(&rp->hdr_miss_cb))) {
+		TAILQ_REMOVE(&rp->hdr_miss_cb, mcb, next);
+		free(mcb);
 	}
 }
 
@@ -150,8 +170,10 @@ rfc2822_parser_feed(struct rfc2822_parser *rp, const char *line)
 		header_callback(rp);
 
 	/* no longer in headers */
-	if (*line == '\0')
+	if (*line == '\0') {
+		missing_headers_callback(rp);
 		rp->in_hdrs = 0;
+	}
 
 	if (rp->in_hdrs) {
 		/* line exceeds RFC maximum size requirement */
@@ -189,6 +211,34 @@ rfc2822_header_callback(struct rfc2822_parser *rp, const char *header,
 	cb->func = func;
 	cb->arg  = arg;
 	TAILQ_INSERT_TAIL(&rp->hdr_cb, cb, next);
+	return 1;
+}
+
+int
+rfc2822_missing_header_callback(struct rfc2822_parser *rp, const char *header,
+    void (*func)(const char *, void *), void *arg)
+{
+	struct rfc2822_hdr_miss_cb  *cb;
+	struct rfc2822_hdr_miss_cb  *cb_tmp;
+	char			buffer[RFC2822_MAX_LINE_SIZE+1];
+
+	/* line exceeds RFC maximum size requirement */
+	if (strlcpy(buffer, header, sizeof buffer) >= sizeof buffer)
+		return 0;
+
+	TAILQ_FOREACH_SAFE(cb, &rp->hdr_miss_cb, next, cb_tmp) {
+		if (strcasecmp(cb->name, buffer) == 0) {
+			TAILQ_REMOVE(&rp->hdr_miss_cb, cb, next);
+			free(cb);
+		}
+	}
+
+	if ((cb = calloc(1, sizeof *cb)) == NULL)
+		return -1;
+	(void)strlcpy(cb->name, buffer, sizeof cb->name);
+	cb->func = func;
+	cb->arg  = arg;
+	TAILQ_INSERT_TAIL(&rp->hdr_miss_cb, cb, next);
 	return 1;
 }
 

@@ -555,6 +555,8 @@ struct listener {
 	char			 sendertable[PATH_MAX];
 
 	TAILQ_ENTRY(listener)	 entry;
+
+	int			 local;		/* there must be a better way */
 };
 
 struct smtpd {
