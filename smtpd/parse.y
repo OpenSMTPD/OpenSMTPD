@@ -2199,7 +2199,7 @@ host_v4(const char *s, in_port_t port)
 	sain->sin_addr.s_addr = ina.s_addr;
 	sain->sin_port = port;
 
-	if (htonl(sain->sin_addr.s_addr) == INADDR_LOOPBACK)
+	if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
 		h->local = 1;
 
 	return (h);
@@ -2264,7 +2264,7 @@ host_dns(struct listenerlist *al, struct listen_opts *lo)
 			sain->sin_addr.s_addr = ((struct sockaddr_in *)
 			    res->ai_addr)->sin_addr.s_addr;
 			sain->sin_port = lo->port;
-			if (htonl(sain->sin_addr.s_addr) == INADDR_LOOPBACK)
+			if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
 				h->local = 1;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
@@ -2335,7 +2335,7 @@ interface(struct listenerlist *al, struct listen_opts *lo)
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
 			sain->sin_port = lo->port;
-			if (htonl(sain->sin_addr.s_addr) == INADDR_LOOPBACK)
+			if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
 				h->local = 1;
 			break;
 
