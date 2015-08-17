@@ -112,7 +112,7 @@ and may be omitted.
 .Pf < Ar table Ns >
 .Xc
 The rule matches if the connection is made from a client whose address
-is declared in the table
+is declared in
 .Ar table .
 .El
 .Pp
@@ -121,11 +121,11 @@ In addition, finer filtering may be achieved on the sender if desired:
 .It Xo
 .Ic sender
 .Op Ic \&!
-.Pf < Ar senders Ns >
+.Pf < Ar table Ns >
 .Xc
 If specified, the rule will only be matched if the sender email address
-is found in the table
-.Ar senders .
+is found in
+.Ar table .
 The table may contain complete email addresses or apply to an entire
 domain if prefixed with @.
 .El
