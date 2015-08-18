@@ -340,11 +340,6 @@ enqueue(int argc, char *argv[])
 	if (!msg.saw_date)
 		send_line(fout, 0, "Date: %s\n", time_to_text(timestamp));
 
-	/* add Message-Id */
-	if (!msg.saw_msgid)
-		send_line(fout, 0, "Message-Id: <%"PRIu64".enqueue@%s>\n",
-		    generate_uid(), host);
-
 	if (msg.need_linesplit) {
 		/* we will always need to mime encode for long lines */
 		if (!msg.saw_mime_version)

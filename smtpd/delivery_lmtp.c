@@ -138,16 +138,14 @@ unix_socket(char *path) {
 static void
 delivery_lmtp_open(struct deliver *deliver)
 {
-	 char *buffer;
-	 char *lbuf;
+	 char *buffer, *lbuf, *rcpt = deliver->to;
 	 char lhloname[255];
 	 int s;
-	 FILE	*fp;
+	 FILE *fp = NULL;
 	 enum lmtp_state state = LMTP_BANNER;
 	 size_t	len;
 
-	 fp = NULL;
-
+	 strsep(&rcpt, " ");
 	 if (deliver->to[0] == '/')
 		 s = unix_socket(deliver->to);
 	 else
@@ -184,7 +182,8 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_MAIL_FROM:
 			 if (buffer[0] != '2')
 				 errx(1, "MAIL FROM rejected: %s\n", buffer);
-			 fprintf(fp, "RCPT TO:<%s>\r\n", deliver->user);
+			 fprintf(fp, "RCPT TO:<%s>\r\n",
+			     rcpt ? deliver->dest : deliver->user);
 			 state = LMTP_RCPT_TO;
 			 break;
 			 

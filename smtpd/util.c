@@ -564,6 +564,9 @@ valid_domainpart(const char *s)
 		return 0;
 	}
 
+	if (*s == '\0')
+		return 0;
+
 	return res_hnok(s);
 }
 

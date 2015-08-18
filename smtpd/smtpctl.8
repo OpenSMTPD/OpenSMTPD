@@ -31,9 +31,9 @@ The
 program controls
 .Xr smtpd 8 .
 Commands may be abbreviated to the minimum unambiguous prefix; for example,
-.Cm sh s
+.Cm sh ro for
 for
-.Cm show stats .
+.Cm show routes .
 .Pp
 The following commands are available:
 .Bl -tag -width Ds
@@ -312,7 +312,7 @@ a command which specifies an
 applies to a specific recipient of a message.
 .Sh FILES
 .Bl -tag -width "/var/run/smtpd.sockXXX" -compact
-.It /var/run/smtpd.sock
+.It Pa /var/run/smtpd.sock
 .Ux Ns -domain
 socket used for communication with
 .Xr smtpd 8 .
