@@ -1,4 +1,4 @@
-/*	$OpenBSD: rfc2822.c,v 1.1 2014/10/12 16:19:30 gilles Exp $	*/
+/*	$OpenBSD: rfc2822.c,v 1.3 2014/11/23 21:27:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -73,8 +73,11 @@ missing_headers_callback(struct rfc2822_parser *rp)
 {
 	struct rfc2822_hdr_miss_cb	*hdr_miss_cb;
 
-	TAILQ_FOREACH(hdr_miss_cb, &rp->hdr_miss_cb, next)
-	    hdr_miss_cb->func(hdr_miss_cb->name, hdr_miss_cb->arg);
+	while ((hdr_miss_cb = TAILQ_FIRST(&rp->hdr_miss_cb))) {
+		hdr_miss_cb->func(hdr_miss_cb->name, hdr_miss_cb->arg);
+		TAILQ_REMOVE(&rp->hdr_miss_cb, hdr_miss_cb, next);
+		free(hdr_miss_cb);
+	}
 }
 
 static void
@@ -89,7 +92,7 @@ parser_feed_header(struct rfc2822_parser *rp, char *line)
 	struct rfc2822_line	*hdrline;
 	char			*pos;
 
-	/* new header */	
+	/* new header */
 	if (! isspace(*line) && *line != '\0') {
 		rp->in_hdr = 1;
 		if ((pos = strchr(line, ':')) == NULL)
@@ -171,7 +174,8 @@ rfc2822_parser_feed(struct rfc2822_parser *rp, const char *line)
 
 	/* no longer in headers */
 	if (*line == '\0') {
-		missing_headers_callback(rp);
+		if (rp->in_hdrs)
+			missing_headers_callback(rp);
 		rp->in_hdrs = 0;
 	}
 
