@@ -1017,6 +1017,7 @@ struct msg {
 extern enum smtp_proc_type	smtpd_process;
 
 extern int verbose;
+extern int foreground_log;
 extern int profiling;
 
 extern struct mproc *p_control;
