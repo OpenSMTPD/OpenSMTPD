@@ -47,9 +47,6 @@
 #include "log.h"
 #include "ssl.h"
 
-#define SMTP_KICK_CMD		5
-#define SMTP_KICK_RCPTFAIL	50
-
 #define DATA_HIWAT		65535
 
 #define APPEND_DOMAIN_BUFFER_SIZE       4096
@@ -137,14 +134,12 @@ struct smtp_session {
 
 	struct envelope		 evp;
 
-	size_t			 kickcount;
 	size_t			 mailcount;
 
 	int			 msgflags;
 	int			 msgcode;
 	size_t			 rcptcount;
 	size_t			 destcount;
-	size_t			 rcptfail;
 	TAILQ_HEAD(, smtp_rcpt)	 rcpts;
 
 	size_t			 odatalen;
@@ -842,12 +837,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
 			smtp_reply(s, "%s", line);
-			s->rcptfail += 1;
-			if (s->rcptfail >= SMTP_KICK_RCPTFAIL) {
-				log_info("smtp-in: session %016"PRIx64
-				    ": closing, too many failed RCPT", s->id);
-				smtp_enter_state(s, STATE_QUIT);
-			}
 			break;
 		case LKA_TEMPFAIL:
 			smtp_reply(s, "%s", line);
@@ -952,7 +941,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 			s->destcount = 0;
 			s->rcptcount++;
-			s->kickcount--;
 			smtp_reply(s, "250 %s %s: Recipient ok",
 			    esc_code(ESC_STATUS_OK, ESC_DESTINATION_ADDRESS_VALID),
 			    esc_description(ESC_DESTINATION_ADDRESS_VALID));
@@ -997,7 +985,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		}
 
 		s->mailcount++;
-		s->kickcount = 0;
 		s->phase = PHASE_SETUP;
 		smtp_message_reset(s, 0);
 		smtp_enter_state(s, STATE_HELO);
@@ -1016,7 +1003,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			log_info("smtp-in: session %016"PRIx64
 			    ": authentication successful for user %s ",
 			    s->id, user);
-			s->kickcount = 0;
 			s->flags |= SF_AUTHENTICATED;
 			smtp_reply(s, "235 %s: Authentication succeeded",
 			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
@@ -1167,7 +1153,6 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 				smtp_reply(s, "250-AUTH PLAIN LOGIN");
 			smtp_reply(s, "250 HELP");
 		}
-		s->kickcount = 0;
 		s->phase = PHASE_SETUP;
 		io_reload(&s->io);
 		return;
@@ -1204,13 +1189,6 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 			code = code ? code : 530;
 			line = line ? line : "Recipient rejected";
 			smtp_reply(s, "%d %s", code, line);
-
-			s->rcptfail += 1;
-			if (s->rcptfail >= SMTP_KICK_RCPTFAIL) {
-				log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (too many failed RCPT)",
-				    s->id, s->hostname, ss_to_text(&s->ss));
-				smtp_enter_state(s, STATE_QUIT);
-			}
 			io_reload(&s->io);
 			return;
 		}
@@ -1351,7 +1329,6 @@ smtp_io(struct io *io, int evt)
 		    s->id, ssl_to_text(s->io.ssl));
 
 		s->flags |= SF_SECURE;
-		s->kickcount = 0;
 		s->phase = PHASE_INIT;
 
 		if (smtp_verify_certificate(s)) {
@@ -1600,14 +1577,6 @@ smtp_command(struct smtp_session *s, char *line)
 	int				cmd, i;
 
 	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
-
-	if (++s->kickcount >= SMTP_KICK_CMD) {
-		log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (session not moving forward)",
-		    s->id, s->hostname, ss_to_text(&s->ss));
-		s->flags |= SF_KICK;
-		stat_increment("smtp.kick", 1);
-		return;
-	}
 
 	/*
 	 * These states are special.
