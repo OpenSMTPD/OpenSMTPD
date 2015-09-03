@@ -397,7 +397,7 @@ iobuf_flush_ssl(struct iobuf *io, void *ssl)
 	ssize_t	s;
 
 	while (io->queued)
-		if ((s = iobuf_write_ssl(io, ssl) < 0))
+		if ((s = iobuf_write_ssl(io, ssl)) < 0)
 			return (s);
 
 	return (0);
