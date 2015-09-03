@@ -173,7 +173,7 @@ typedef struct {
 
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
 %token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6 NODSN SESSION
-%token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX HOSTNAME HOSTNAMES
+%token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX RCPTTO HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
@@ -1175,6 +1175,21 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("invalid lmtp destination");
 			free($4);
 		}
+		| DELIVER TO LMTP STRING RCPTTO deliver_as	{
+			rule->r_action = A_LMTP;
+			if (strchr($4, ':') || $4[0] == '/') {
+				if (strlcpy(rule->r_value.buffer, $4,
+					sizeof(rule->r_value.buffer))
+					>= sizeof(rule->r_value.buffer))
+					fatal("lmtp destination too long");
+				if (strlcat(rule->r_value.buffer, " rcpt-to",
+					sizeof(rule->r_value.buffer))
+					>= sizeof(rule->r_value.buffer))
+					fatal("lmtp recipient too long");
+			} else
+				fatal("invalid lmtp destination");
+			free($4);
+		}
 		| DELIVER TO MDA STRING deliver_as   	{
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
@@ -1496,6 +1511,7 @@ lookup(char *s)
 		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
+		{ "rcpt-to",		RCPTTO },
 		{ "received-auth",     	RECEIVEDAUTH },
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
@@ -2183,6 +2199,9 @@ host_v4(const char *s, in_port_t port)
 	sain->sin_addr.s_addr = ina.s_addr;
 	sain->sin_port = port;
 
+	if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
+		h->local = 1;
+
 	return (h);
 }
 
@@ -2204,6 +2223,9 @@ host_v6(const char *s, in_port_t port)
 	sin6->sin6_port = port;
 	memcpy(&sin6->sin6_addr, &ina6, sizeof(ina6));
 
+	if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+		h->local = 1;
+	
 	return (h);
 }
 
@@ -2242,12 +2264,16 @@ host_dns(struct listenerlist *al, struct listen_opts *lo)
 			sain->sin_addr.s_addr = ((struct sockaddr_in *)
 			    res->ai_addr)->sin_addr.s_addr;
 			sain->sin_port = lo->port;
+			if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
+				h->local = 1;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 			memcpy(&sin6->sin6_addr, &((struct sockaddr_in6 *)
 			    res->ai_addr)->sin6_addr, sizeof(struct in6_addr));
 			sin6->sin6_port = lo->port;
+			if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+				h->local = 1;
 		}
 
 		config_listener(h, lo);
@@ -2309,6 +2335,8 @@ interface(struct listenerlist *al, struct listen_opts *lo)
 			*sain = *(struct sockaddr_in *)p->ifa_addr;
 			sain->sin_len = sizeof(struct sockaddr_in);
 			sain->sin_port = lo->port;
+			if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
+				h->local = 1;
 			break;
 
 		case AF_INET6:
@@ -2316,6 +2344,8 @@ interface(struct listenerlist *al, struct listen_opts *lo)
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
 			sin6->sin6_port = lo->port;
+			if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+				h->local = 1;
 			break;
 
 		default:

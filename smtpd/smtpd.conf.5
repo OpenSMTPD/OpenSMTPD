@@ -112,7 +112,7 @@ and may be omitted.
 .Pf < Ar table Ns >
 .Xc
 The rule matches if the connection is made from a client whose address
-is declared in the table
+is declared in
 .Ar table .
 .El
 .Pp
@@ -121,11 +121,11 @@ In addition, finer filtering may be achieved on the sender if desired:
 .It Xo
 .Ic sender
 .Op Ic \&!
-.Pf < Ar senders Ns >
+.Pf < Ar table Ns >
 .Xc
 If specified, the rule will only be matched if the sender email address
-is found in the table
-.Ar senders .
+is found in
+.Ar table .
 The table may contain complete email addresses or apply to an entire
 domain if prefixed with @.
 .El
@@ -290,6 +290,7 @@ Finally, the method of delivery is specified:
 .It Xo
 .Ic deliver to lmtp
 .Op Ar host : Ns Ar port | socket
+.Op Ic rcpt-to
 .Op Ic as Ar user
 .Xc
 Mail is delivered to
@@ -299,6 +300,11 @@ or to the
 .Ar socket
 over LMTP with the privileges of the specified
 .Ar user .
+.Pp
+Optionally,
+.Ic rcpt-to
+might be specified to use the recipient email address (after expansion) instead
+of the local user in the LMTP session as RCPT TO.
 .It Ic deliver to maildir Ar path
 Mail is added to a maildir.
 Its location,
@@ -330,7 +336,7 @@ This parameter may use conversion specifiers that are expanded before use
 .Op Ic hostname Ar name
 .Op Ic hostnames No < Ns Ar names Ns >
 .Op Ic pki Ar pkiname
-.Op Ic tls Op verify
+.Op Ic tls Op Ic verify
 .Ek
 .Xc
 .Pp
@@ -409,13 +415,17 @@ If
 .Ic tls
 is specified, OpenSMTPD will refuse to relay unless the remote host provides
 STARTTLS.
+If
+.Ic tls verify
+is specified, OpenSMTPD will refuse to relay unless the remote host provides
+STARTTLS and the certificate it presented has been verified.
 .Pp
-If the
-.Ic verify
-parameter to
+Note that the
 .Ic tls
-is specified, then OpenSMTPD will refuse to relay unless the certificate
-presented by the remote host has been verified.
+and
+.Ic tls verify
+options should only be used in private networks
+as they will prevent proper relaying on the Internet.
 .It Xo
 .Ic relay via
 .Ar host
@@ -710,7 +720,7 @@ able to establish an SMTP session.
 .Ic secure
 may be specified to provide both STARTTLS and SMTPS services.
 Host certificates may be used for these connections,
-and must be priorly declared using the pki directive.
+and must be previously declared using the pki directive.
 If
 .Ic pki
 is specified,
@@ -819,6 +829,11 @@ The default maximum message size is 35MB if none is specified.
 Associate the certificate located in
 .Ar certfile
 with
+.Ar hostname .
+.Pp
+If a fallback certificate or SNI is wanted, the
+.Sq *
+wildcard may be used as
 .Ar hostname .
 .Pp
 A certificate chain may be created by appending one or many certificates,
