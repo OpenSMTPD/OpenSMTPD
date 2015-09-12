@@ -127,7 +127,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	time_t			 now;
 	size_t			 sz;
-	char			 out[256], buf[LINE_MAX];
+	char			 out[256], buf[LINE_MAX], error_buf[LINE_MAX];
 	int			 n;
 	enum lka_resp_status	status;
 
@@ -436,8 +436,13 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			 */
 			error = NULL;
 			if (strcmp(parent_error, "exited okay") == 0) {
-				if (s->datafp || iobuf_queued(&s->iobuf))
-					error = "mda exited prematurely";
+				if (s->datafp || iobuf_queued(&s->iobuf)) {
+					(void)snprintf(error_buf,
+					    sizeof error_buf,
+					    "mda exited prematurely: %s",
+					    deliver.to);
+					error = error_buf;
+				}
 			} else
 				error = out[0] ? out : parent_error;
 
