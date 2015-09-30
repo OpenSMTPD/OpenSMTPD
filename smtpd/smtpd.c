@@ -359,7 +359,8 @@ parent_sig_handler(int sig, short event, void *p)
 				} else
 					asprintf(&cause, "exited okay");
 			} else
-				fatalx("smtpd: unexpected cause of SIGCHLD");
+				/* WIFSTOPPED or WIFCONTINUED */
+				continue;
 
 			if (pid == purge_pid)
 				purge_pid = -1;
