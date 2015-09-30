@@ -1225,7 +1225,7 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 	}
 
 	do {
-		fd = open(pathname, O_RDONLY);
+		fd = open(pathname, O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
 	} while (fd == -1 && errno == EINTR);
 	if (fd == -1) {
 		if (errno == ENOENT)
@@ -1234,7 +1234,11 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 			errno = EAGAIN;
 			return -1;
 		}
-		log_warn("warn: smtpd: parent_forward_open: %s", pathname);
+		if (errno == ELOOP)
+			log_warnx("warn: smtpd: parent_forward_open: %s: "
+			    "cannot follow symbolic links", pathname);
+		else
+			log_warn("warn: smtpd: parent_forward_open: %s", pathname);
 		return -1;
 	}
 
