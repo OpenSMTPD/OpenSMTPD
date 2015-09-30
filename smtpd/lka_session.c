@@ -837,6 +837,10 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep,
 		if (exptoklen == 0)
 			return 0;
 
+		/* writing expanded token at ptmp will overflow tmpbuf */
+		if (sizeof (tmpbuf) - (ptmp - tmpbuf) <= exptoklen)
+			return 0;
+
 		memcpy(ptmp, exptok, exptoklen);
 		pbuf   = ebuf + 1;
 		ptmp  += exptoklen;
