@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+void *reallocarray(void *, size_t, size_t);
+
 char *
 fgetln(FILE *fp, size_t *len)
 {
