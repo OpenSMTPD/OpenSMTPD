@@ -1174,10 +1174,12 @@ offline_enqueue(char *name)
 			_exit(1);
 		}
 
+#ifdef HAVE_FCHFLAGS
 		if (fchflags(fd, 0) == -1) {
 			log_warn("warn: smtpd: chflags: %s", path);
 			_exit(1);
 		}
+#endif
 
 		if (setgroups(1, &pw->pw_gid) ||
 		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
