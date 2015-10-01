@@ -140,6 +140,7 @@ struct smtp_session {
 	size_t			 destcount;
 	TAILQ_HEAD(, smtp_rcpt)	 rcpts;
 
+	size_t			 datain;
 	size_t			 odatalen;
 	struct iobuf		 obuf;
 	struct io		 oev;
@@ -259,11 +260,6 @@ dataline_callback(const char *line, void *arg)
         size_t                  len;
 
 	len = strlen(line) + 1;
-
-        if (s->odatalen + len > env->sc_maxsize) {
-                s->msgflags |= MF_ERROR_SIZE;
-                return;
-        }
 
 	if (iobuf_fqueue(&s->obuf, "%s\n", line) != (int)len) {
                 s->msgflags |= MF_ERROR_IO;
@@ -2199,6 +2195,7 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 	s->msgflags = 0;
 	s->destcount = 0;
 	s->rcptcount = 0;
+	s->datain = 0;
 	s->odatalen = 0;
 	s->dataeom = 0;
 	s->rcvcount = 0;
@@ -2540,6 +2537,13 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 
 	if (*line == '\0')
 		s->hdrdone = 1;
+
+	/* account for newline */
+	s->datain += strlen(line) + 1;
+	if (s->datain > env->sc_maxsize) {
+		s->msgflags |= MF_ERROR_SIZE;
+		return;
+	}
 
 	/* check for loops */
 	if (!s->hdrdone) {
