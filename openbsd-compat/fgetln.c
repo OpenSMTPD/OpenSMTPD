@@ -34,11 +34,6 @@ fgetln(FILE *fp, size_t *len)
 	char *p, c;
 	int e;
 
-	if (fp == NULL || len == NULL) {
-		errno = EINVAL;
-		return NULL;
-	}
-
 	if (buf == NULL) {
 		if ((buf = calloc(1, BUFSIZ)) == NULL)
 			return NULL;
