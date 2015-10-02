@@ -1198,13 +1198,9 @@ offline_enqueue(char *name)
 		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 			_exit(1);
 
-<<<<<<< HEAD
 		closefrom(STDERR_FILENO + 1);
 
-		if ((fp = fopen(path, "r")) == NULL)
-=======
 		if ((fp = fdopen(fd, "r")) == NULL)
->>>>>>> 08793c7... do not let user play symlink/hardlink/mkfifo games in offline enqueue
 			_exit(1);
 
 		if (chdir(pw->pw_dir) == -1 && chdir("/") == -1)
