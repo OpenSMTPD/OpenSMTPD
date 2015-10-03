@@ -44,6 +44,7 @@
 static void mproc_dispatch(int, short, void *);
 
 static ssize_t msgbuf_write2(struct msgbuf *);
+static ssize_t imsg_read_nofd(struct imsgbuf *);
 
 int
 mproc_fork(struct mproc *p, const char *path, char *argv[])
@@ -152,7 +153,12 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	if (event & EV_READ) {
 
-		if ((n = imsg_read(&p->imsgbuf)) == -1) {
+		if (p->proc == PROC_CLIENT)
+			n = imsg_read_nofd(&p->imsgbuf);
+		else
+			n = imsg_read(&p->imsgbuf);
+
+		if (n == -1) {
 			log_warn("warn: %s -> %s: imsg_read",
 			    proc_name(smtpd_process),  p->name);
 			if (errno == EAGAIN)
@@ -284,6 +290,29 @@ again:
 	msgbuf_drain(msgbuf, n);
 
 	return (n);
+}
+
+/* This should go into libutil */
+static ssize_t
+imsg_read_nofd(struct imsgbuf *ibuf)
+{
+	ssize_t	 n;
+	char	*buf;
+	size_t	 len;
+
+	buf = ibuf->r.buf + ibuf->r.wpos;
+	len = sizeof(ibuf->r.buf) - ibuf->r.wpos;
+
+    again:
+	if ((n = recv(ibuf->fd, buf, len, 0)) == -1) {
+		if (errno != EINTR && errno != EAGAIN)
+			goto fail;
+		goto again;
+	}
+
+        ibuf->r.wpos += n;
+fail:
+        return (n);
 }
 
 void
