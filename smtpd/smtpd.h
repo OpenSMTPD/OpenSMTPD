@@ -660,7 +660,7 @@ struct forward_req {
 };
 
 struct deliver {
-	char			to[SMTPD_MAXMAILADDRSIZE];
+	char			to[EXPAND_BUFFER];
 	char			from[SMTPD_MAXMAILADDRSIZE];
 	char			dest[SMTPD_MAXMAILADDRSIZE];
 	char			user[SMTPD_VUSERNAME_SIZE];
