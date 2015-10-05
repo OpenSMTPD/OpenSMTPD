@@ -793,12 +793,25 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 	FILE	*fp;
 	int	 i, fd, ch;
 	mode_t	 omode;
+	uint64_t	rnd;
+	int	 ret;
 
 	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 0) == 0)
 		errx(EX_UNAVAILABLE, "error in offline directory setup");
 
-	if (! bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
-		PATH_OFFLINE, (long long int) time(NULL)))
+	do {
+		rnd = generate_uid();
+		if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64, PATH_SPOOL,
+			PATH_OFFLINE, rnd))
+			err(EX_UNAVAILABLE, "snprintf");
+		ret = mkdir(path, 0700);
+		if (ret == -1)
+			if (errno != EEXIST)
+				err(EX_UNAVAILABLE, "mkdir");
+	} while (ret == -1);
+
+	if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64"/%lld.XXXXXXXXXX", PATH_SPOOL,
+		PATH_OFFLINE, rnd, (long long int) time(NULL)))
 		err(EX_UNAVAILABLE, "snprintf");
 
 	omode = umask(7077);

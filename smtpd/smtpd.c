@@ -33,8 +33,10 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <fts.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <libgen.h>
 #include <login_cap.h>
 #include <paths.h>
 #include <pwd.h>
@@ -409,8 +411,10 @@ parent_sig_handler(int sig, short event, void *p)
 					    "couldn't enqueue offline "
 					    "message %s; smtpctl %s",
 					    child->path, cause);
-				else
+				else {
 					unlink(child->path);
+					rmdir(dirname(child->path));
+				}
 				free(child->path);
 				offline_done();
 				break;
@@ -1026,28 +1030,43 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 static void
 offline_scan(int fd, short ev, void *arg)
 {
-	DIR		*dir = arg;
-	struct dirent	*d;
+	char		*path_argv[2];
+	FTS		*fts = arg;
+	FTSENT		*e;
 	int		 n = 0;
 
-	if (dir == NULL) {
+	path_argv[0] = PATH_SPOOL PATH_OFFLINE;
+	path_argv[1] = NULL;
+
+	if (fts == NULL) {
 		log_debug("debug: smtpd: scanning offline queue...");
-		if ((dir = opendir(PATH_SPOOL PATH_OFFLINE)) == NULL)
-			errx(1, "smtpd: opendir");
+		fts = fts_open(path_argv, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+		if (fts == NULL) {
+			log_warn("fts_open: %s", path_argv[0]);
+			return;
+		}
 	}
 
-	while ((d = readdir(dir)) != NULL) {
-		if (d->d_type != DT_REG)
+	while ((e = fts_read(fts)) != NULL) {
+		if (e->fts_info != FTS_F)
 			continue;
 
-		if (offline_add(d->d_name)) {
+		/* offline files must be at depth 2 */
+		if (e->fts_level != 2)
+			continue;
+
+		/* offline file owner must match parent directory owner */
+		if (e->fts_statp->st_uid != e->fts_parent->fts_statp->st_uid)
+			continue;
+
+		if (offline_add(e->fts_accpath)) {
 			log_warnx("warn: smtpd: "
-			    "could not add offline message %s", d->d_name);
+			    "could not add offline message %s", e->fts_name);
 			continue;
 		}
 
 		if ((n++) == OFFLINE_READMAX) {
-			evtimer_set(&offline_ev, offline_scan, dir);
+			evtimer_set(&offline_ev, offline_scan, fts);
 			offline_timeout.tv_sec = 0;
 			offline_timeout.tv_usec = 100000;
 			evtimer_add(&offline_ev, &offline_timeout);
@@ -1056,24 +1075,19 @@ offline_scan(int fd, short ev, void *arg)
 	}
 
 	log_debug("debug: smtpd: offline scanning done");
-	closedir(dir);
+	fts_close(fts);
 }
 
 static int
 offline_enqueue(char *name)
 {
-	char		 t[PATH_MAX], *path;
+	char		*path;
 	struct stat	 sb;
 	pid_t		 pid;
 	struct child	*child;
 	struct passwd	*pw;
 
-	if (!bsnprintf(t, sizeof t, "%s/%s", PATH_SPOOL PATH_OFFLINE, name)) {
-		log_warnx("warn: smtpd: path name too long");
-		return (-1);
-	}
-
-	if ((path = strdup(t)) == NULL) {
+	if ((path = strdup(name)) == NULL) {
 		log_warn("warn: smtpd: strdup");
 		return (-1);
 	}
