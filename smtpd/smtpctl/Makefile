@@ -4,8 +4,9 @@
 
 PROG=	smtpctl
 BINOWN=	root
+BINGRP=	_smtpq
 
-BINMODE?=555
+BINMODE?=2555
 
 BINDIR=	/usr/sbin
 MAN=	smtpctl.8

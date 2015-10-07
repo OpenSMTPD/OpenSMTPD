@@ -33,7 +33,8 @@
 
 #define SMTPD_USER		"_smtpd"
 #define PATH_CHROOT		"/var/empty"
-#define SMTPD_QUEUE_USER	 "_smtpq"
+#define SMTPD_QUEUE_USER	"_smtpq"
+#define SMTPD_QUEUE_GROUP	"_smtpq"
 #define PATH_SPOOL		"/var/spool/smtpd"
 
 #define TAG_CHAR		'+'
