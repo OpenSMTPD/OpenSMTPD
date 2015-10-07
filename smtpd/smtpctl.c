@@ -979,7 +979,8 @@ do_uncorrupt(int argc, struct parameter *argv)
 int
 main(int argc, char **argv)
 {
-	char	*argv_mailq[] = { "show", "queue", NULL };
+	gid_t		 gid;
+	char		*argv_mailq[] = { "show", "queue", NULL };
 
 	if (strcmp(__progname, "sendmail") == 0 ||
 	    strcmp(__progname, "send-mail") == 0) {
@@ -989,6 +990,10 @@ main(int argc, char **argv)
 
 	if (geteuid())
 		errx(1, "need root privileges");
+
+	gid = getgid();
+	if (setresgid(gid, gid, gid) == -1)
+		err(1, "setresgid");
 
 	cmd_install("discover <evpid>",		do_discover);
 	cmd_install("discover <msgid>",		do_discover);

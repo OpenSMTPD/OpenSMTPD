@@ -1111,8 +1111,8 @@ offline_scan(int fd, short ev, void *arg)
 		if (e->fts_info != FTS_F)
 			continue;
 
-		/* offline files must be at depth 2 */
-		if (e->fts_level != 2)
+		/* offline files must be at depth 1 */
+		if (e->fts_level != 1)
 			continue;
 
 		/* offline file owner must match parent directory owner */
