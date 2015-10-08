@@ -1115,8 +1115,8 @@ offline_scan(int fd, short ev, void *arg)
 		if (e->fts_level != 1)
 			continue;
 
-		/* offline file owner must match parent directory owner */
-		if (e->fts_statp->st_uid != e->fts_parent->fts_statp->st_uid)
+		/* offline file group must match parent directory group */
+		if (e->fts_statp->st_gid != e->fts_parent->fts_statp->st_gid)
 			continue;
 
 		if (offline_add(e->fts_accpath)) {
@@ -1167,8 +1167,7 @@ offline_enqueue(char *name)
 		size_t	 len;
 		arglist	 args;
 
-		if (closefrom(STDERR_FILENO + 1) == -1)
-			_exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		memset(&args, 0, sizeof(args));
 
