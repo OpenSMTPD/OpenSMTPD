@@ -1167,8 +1167,7 @@ offline_enqueue(char *name)
 		size_t	 len;
 		arglist	 args;
 
-		if (closefrom(STDERR_FILENO + 1) == -1)
-			_exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		memset(&args, 0, sizeof(args));
 
