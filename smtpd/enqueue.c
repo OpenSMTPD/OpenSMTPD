@@ -30,7 +30,6 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -179,7 +178,6 @@ enqueue(int argc, char *argv[])
 	int			 save_argc;
 	char			**save_argv;
 	int			 no_getlogin = 0;
-	gid_t			 gid;
 
 	memset(&msg, 0, sizeof(msg));
 	time(&timestamp);
@@ -290,10 +288,6 @@ enqueue(int argc, char *argv[])
 
 	if (!srv_connect())
 		return (enqueue_offline(save_argc, save_argv, fp));
-
-	gid = getgid();
-	if (setresgid(gid, gid, gid) == -1)
-		err(1, "setresgid");
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
@@ -796,20 +790,25 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 	FILE	*fp;
 	int	 i, fd, ch;
 	mode_t	 omode;
-	uid_t	 uid;
-	gid_t	 gid;
-	struct passwd	*pw;
-	struct group	*gr;
+	uint64_t	rnd;
+	int	 ret;
 
-	gr = getgrnam(SMTPD_QUEUE_GROUP);
-	if (gr == NULL)
-		err(EX_UNAVAILABLE, "getgrnam");
-
-	if (ckdir(PATH_SPOOL PATH_OFFLINE, 0770, 0, gr->gr_gid, 0) == 0)
+	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 0) == 0)
 		errx(EX_UNAVAILABLE, "error in offline directory setup");
 
-	if (! bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
-		PATH_OFFLINE, (long long int) time(NULL)))
+	do {
+		rnd = generate_uid();
+		if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64, PATH_SPOOL,
+			PATH_OFFLINE, rnd))
+			err(EX_UNAVAILABLE, "snprintf");
+		ret = mkdir(path, 0700);
+		if (ret == -1)
+			if (errno != EEXIST)
+				err(EX_UNAVAILABLE, "mkdir");
+	} while (ret == -1);
+
+	if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64"/%lld.XXXXXXXXXX", PATH_SPOOL,
+		PATH_OFFLINE, rnd, (long long int) time(NULL)))
 		err(EX_UNAVAILABLE, "snprintf");
 
 	omode = umask(7077);
@@ -825,29 +824,6 @@ enqueue_offline(int argc, char *argv[], FILE *ifile)
 		unlink(path);
 		exit(EX_SOFTWARE);
 	}
-
-	uid = getuid();
-	gid = getgid();
-	if (uid == 0) {
-		pw = getpwnam(SMTPD_QUEUE_USER);
-		if (pw == NULL)
-			err(EX_UNAVAILABLE, "getpwnam");
-		if (setgroups(1, &gr->gr_gid) ||
-		    setresgid(gr->gr_gid, gr->gr_gid, gr->gr_gid) ||
-		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-			err(EX_UNAVAILABLE, "could not drop privileges");
-	}
-	else {
-		if (setresgid(gid, gid, gid))
-			err(EX_UNAVAILABLE, "could not drop group privileges");
-	}
-
-#if 0
-	if (tame("stdio", NULL) == -1) {
-		unlink(path);
-		exit(EX_SOFTWARE);
-	}
-#endif
 
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {

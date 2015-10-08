@@ -1111,12 +1111,12 @@ offline_scan(int fd, short ev, void *arg)
 		if (e->fts_info != FTS_F)
 			continue;
 
-		/* offline files must be at depth 1 */
-		if (e->fts_level != 1)
+		/* offline files must be at depth 2 */
+		if (e->fts_level != 2)
 			continue;
 
-		/* offline file group must match parent directory group */
-		if (e->fts_statp->st_gid != e->fts_parent->fts_statp->st_gid)
+		/* offline file owner must match parent directory owner */
+		if (e->fts_statp->st_uid != e->fts_parent->fts_statp->st_uid)
 			continue;
 
 		if (offline_add(e->fts_accpath)) {
