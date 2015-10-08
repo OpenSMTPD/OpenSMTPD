@@ -177,7 +177,6 @@ enqueue(int argc, char *argv[])
 	int			 save_argc;
 	char			**save_argv;
 	int			 no_getlogin = 0;
-	gid_t			 gid;
 
 	memset(&msg, 0, sizeof(msg));
 	time(&timestamp);
@@ -288,10 +287,6 @@ enqueue(int argc, char *argv[])
 
 	if (!srv_connect())
 		return (enqueue_offline(save_argc, save_argv, fp));
-
-	gid = getgid();
-	if (setresgid(gid, gid, gid) == -1)
-		err(1, "setresgid");
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
