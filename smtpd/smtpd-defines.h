@@ -40,8 +40,20 @@
 #ifndef SMTPD_QUEUE_USER
 #define SMTPD_QUEUE_USER	"_smtpq"
 #endif
+#ifndef SMTPD_QUEUE_GROUP
+#define SMTPD_QUEUE_GROUP	"_smtpq"
+#endif
 #ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
 #endif
 
 #define TAG_CHAR		'+'
+
+
+/* sendmail compat */
+
+#define	EX_OK			0
+#define	EX_NOHOST		68
+#define	EX_UNAVAILABLE		69
+#define	EX_SOFTWARE		70
+#define	EX_TEMPFAIL		75

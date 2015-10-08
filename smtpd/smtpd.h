@@ -1198,7 +1198,7 @@ void dns_imsg(struct mproc *, struct imsg *);
 
 
 /* enqueue.c */
-int		 enqueue(int, char **);
+int		 enqueue(int, char **, FILE *);
 
 
 /* envelope.c */
