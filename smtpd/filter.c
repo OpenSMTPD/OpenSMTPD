@@ -145,6 +145,16 @@ struct tree	sessions;
 struct tree	queries;
 
 static void
+filter_add_arg(struct filter_conf *filter, char *arg)
+{
+	if (filter->argc == MAX_FILTER_ARGS) {
+		log_warnx("warn: filter \"%s\" is full", filter->name);
+		fatalx("exiting");
+	}
+	filter->argv[filter->argc++] = arg;
+}
+
+static void
 filter_extend_chain(struct filter_lst *chain, const char *name)
 {
 	struct filter		*n;
@@ -202,6 +212,10 @@ filter_postfork(void)
 		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "filter_postfork");
 		p->data = proc;
+		if (verbose & TRACE_DEBUG)
+			filter_add_arg(filter, "-v");
+		if (foreground_log)
+			filter_add_arg(filter, "-d");
 		if (mproc_fork(p, filter->path, filter->argv) < 0)
 			fatalx("filter_postfork");
 
