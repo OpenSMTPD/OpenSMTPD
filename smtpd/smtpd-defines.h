@@ -33,7 +33,17 @@
 
 #define SMTPD_USER		"_smtpd"
 #define PATH_CHROOT		"/var/empty"
-#define SMTPD_QUEUE_USER	 "_smtpq"
+#define SMTPD_QUEUE_USER	"_smtpq"
+#define SMTPD_QUEUE_GROUP	"_smtpq"
 #define PATH_SPOOL		"/var/spool/smtpd"
 
 #define TAG_CHAR		'+'
+
+
+/* sendmail compat */
+
+#define	EX_OK			0
+#define	EX_NOHOST		68
+#define	EX_UNAVAILABLE		69
+#define	EX_SOFTWARE		70
+#define	EX_TEMPFAIL		75

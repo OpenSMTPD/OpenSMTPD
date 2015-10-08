@@ -28,6 +28,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -35,7 +36,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 #include <limits.h>
@@ -54,9 +54,10 @@ static void rcpt_add(char *);
 static int open_connection(void);
 static void get_responses(FILE *, int);
 static int send_line(FILE *, int, char *, ...);
-static int enqueue_offline(int, char *[], FILE *);
+static int enqueue_offline(int, char *[], FILE *, FILE *);
 
 extern int srv_connect(void);
+extern int srv_connected(void);
 
 enum headerfields {
 	HDR_NONE,
@@ -161,7 +162,7 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 }
 
 int
-enqueue(int argc, char *argv[])
+enqueue(int argc, char *argv[], FILE *ofp)
 {
 	int			 i, ch, tflag = 0, noheader;
 	char			*fake_from = NULL, *buf;
@@ -281,11 +282,11 @@ enqueue(int argc, char *argv[])
 	/* init session */
 	rewind(fp);
 
-	/* try to connect */
+	/* check if working in offline mode */
 	/* If the server is not running, enqueue the message offline */
 
-	if (!srv_connect())
-		return (enqueue_offline(save_argc, save_argv, fp));
+	if (!srv_connected())
+		return (enqueue_offline(save_argc, save_argv, fp, ofp));
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
@@ -782,72 +783,32 @@ open_connection(void)
 }
 
 static int
-enqueue_offline(int argc, char *argv[], FILE *ifile)
+enqueue_offline(int argc, char *argv[], FILE *ifile, FILE *ofile)
 {
-	char	 path[PATH_MAX];
-	FILE	*fp;
-	int	 i, fd, ch;
-	mode_t	 omode;
-	uint64_t	rnd;
-	int	 ret;
-
-	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 0) == 0)
-		errx(EX_UNAVAILABLE, "error in offline directory setup");
-
-	do {
-		rnd = generate_uid();
-		if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64, PATH_SPOOL,
-			PATH_OFFLINE, rnd))
-			err(EX_UNAVAILABLE, "snprintf");
-		ret = mkdir(path, 0700);
-		if (ret == -1)
-			if (errno != EEXIST)
-				err(EX_UNAVAILABLE, "mkdir");
-	} while (ret == -1);
-
-	if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64"/%lld.XXXXXXXXXX", PATH_SPOOL,
-		PATH_OFFLINE, rnd, (long long int) time(NULL)))
-		err(EX_UNAVAILABLE, "snprintf");
-
-	omode = umask(7077);
-	if ((fd = mkstemp(path)) == -1 || (fp = fdopen(fd, "w+")) == NULL) {
-		warn("cannot create temporary file %s", path);
-		if (fd != -1)
-			unlink(path);
-		exit(EX_UNAVAILABLE);
-	}
-	umask(omode);
-
-	if (fchmod(fd, 0600) == -1) {
-		unlink(path);
-		exit(EX_SOFTWARE);
-	}
+	int	 i, ch;
 
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {
 			warnx("%s contains illegal character", argv[i]);
-			unlink(path);
 			exit(EX_SOFTWARE);
 		}
-		fprintf(fp, "%s%s", i == 1 ? "" : "|", argv[i]);
+		fprintf(ofile, "%s%s", i == 1 ? "" : "|", argv[i]);
 	}
 
-	fprintf(fp, "\n");
+	fprintf(ofile, "\n");
 
 	while ((ch = fgetc(ifile)) != EOF)
-		if (fputc(ch, fp) == EOF) {
+		if (fputc(ch, ofile) == EOF) {
 			warn("write error");
-			unlink(path);
 			exit(EX_UNAVAILABLE);
 		}
 
 	if (ferror(ifile)) {
 		warn("read error");
-		unlink(path);
 		exit(EX_UNAVAILABLE);
 	}
 
-	fclose(fp);
+	fclose(ofile);
 
 	return (EX_TEMPFAIL);
 }
