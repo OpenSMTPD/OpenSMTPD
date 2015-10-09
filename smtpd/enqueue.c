@@ -790,6 +790,7 @@ enqueue_offline(int argc, char *argv[], FILE *ifile, FILE *ofile)
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {
 			warnx("%s contains illegal character", argv[i]);
+			ftruncate(fileno(ofile), 0);
 			exit(EX_SOFTWARE);
 		}
 		fprintf(ofile, "%s%s", i == 1 ? "" : "|", argv[i]);
@@ -800,11 +801,13 @@ enqueue_offline(int argc, char *argv[], FILE *ifile, FILE *ofile)
 	while ((ch = fgetc(ifile)) != EOF)
 		if (fputc(ch, ofile) == EOF) {
 			warn("write error");
+			ftruncate(fileno(ofile), 0);
 			exit(EX_UNAVAILABLE);
 		}
 
 	if (ferror(ifile)) {
 		warn("read error");
+		ftruncate(fileno(ofile), 0);
 		exit(EX_UNAVAILABLE);
 	}
 
