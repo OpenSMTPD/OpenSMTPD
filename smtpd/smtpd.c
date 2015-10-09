@@ -1068,6 +1068,12 @@ offline_scan(int fd, short ev, void *arg)
 		if (e->fts_statp->st_gid != e->fts_parent->fts_statp->st_gid)
 			continue;
 
+		if (e->fts_statp->st_size == 0) {
+			if (unlink(e->fts_accpath) == -1)
+				log_warnx("warn: smtpd: could not unlink %s", e->fts_accpath);
+			continue;
+		}
+
 		if (offline_add(e->fts_accpath)) {
 			log_warnx("warn: smtpd: "
 			    "could not add offline message %s", e->fts_name);
