@@ -31,8 +31,8 @@ fgetln(FILE *fp, size_t *len)
 	static char *buf = NULL;
 	static size_t bufsz = 0;
 	size_t r = 0;
-	char *p, c;
-	int e;
+	char *p;
+	int c, e;
 
 	if (buf == NULL) {
 		if ((buf = calloc(1, BUFSIZ)) == NULL)

@@ -145,6 +145,16 @@ struct tree	sessions;
 struct tree	queries;
 
 static void
+filter_add_arg(struct filter_conf *filter, char *arg)
+{
+	if (filter->argc == MAX_FILTER_ARGS) {
+		log_warnx("warn: filter \"%s\" is full", filter->name);
+		fatalx("exiting");
+	}
+	filter->argv[filter->argc++] = arg;
+}
+
+static void
 filter_extend_chain(struct filter_lst *chain, const char *name)
 {
 	struct filter		*n;
@@ -202,6 +212,10 @@ filter_postfork(void)
 		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "filter_postfork");
 		p->data = proc;
+		if (verbose & TRACE_DEBUG)
+			filter_add_arg(filter, "-v");
+		if (foreground_log)
+			filter_add_arg(filter, "-d");
 		if (mproc_fork(p, filter->path, filter->argv) < 0)
 			fatalx("filter_postfork");
 
@@ -728,7 +742,6 @@ filter_tx_io(struct io *io, int evt)
 	struct filter_session	*s = io->arg;
 	size_t			 len, n;
 	char			*data;
-	char			buf[65535];
 
 	log_trace(TRACE_FILTERS, "filter: filter_tx_io(%p, %s)", s, io_strevent(evt));
 
@@ -736,10 +749,9 @@ filter_tx_io(struct io *io, int evt)
 	case IO_DATAIN:
 		data = iobuf_data(&s->ibuf);
 		len = iobuf_len(&s->ibuf);
-		memmove(buf, data, len);
-		buf[len] = 0;
-		log_trace(TRACE_FILTERS, "filter: filter_tx_io: datain (%zu) for req %016"PRIx64": %s",
-		    len, s->id, buf);
+
+		log_trace(TRACE_FILTERS, "filter: filter_tx_io: datain (%zu) for req %016"PRIx64"",
+		    len, s->id);
 
 		n = fwrite(data, 1, len, s->ofile);
 		if (n != len) {

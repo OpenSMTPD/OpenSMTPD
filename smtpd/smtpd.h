@@ -686,7 +686,7 @@ struct forward_req {
 };
 
 struct deliver {
-	char			to[SMTPD_MAXMAILADDRSIZE];
+	char			to[EXPAND_BUFFER];
 	char			from[SMTPD_MAXMAILADDRSIZE];
 	char			dest[SMTPD_MAXMAILADDRSIZE];
 	char			user[SMTPD_VUSERNAME_SIZE];
@@ -1041,6 +1041,7 @@ struct msg {
 extern enum smtp_proc_type	smtpd_process;
 
 extern int verbose;
+extern int foreground_log;
 extern int profiling;
 
 extern struct mproc *p_control;
@@ -1197,7 +1198,7 @@ void dns_imsg(struct mproc *, struct imsg *);
 
 
 /* enqueue.c */
-int		 enqueue(int, char **);
+int		 enqueue(int, char **, FILE *);
 
 
 /* envelope.c */

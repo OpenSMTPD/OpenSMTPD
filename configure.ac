@@ -1412,6 +1412,20 @@ AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
 	[non-privileged user for queue process])
 AC_SUBST([SMTPD_QUEUE_USER])
 
+SMTPD_QUEUE_GROUP=_smtpq
+AC_ARG_WITH([queue-group],
+	[  --with-queue-group=group	Specify non-privileged group for offline queue],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			SMTPD_QUEUE_GROUP=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([SMTPD_QUEUE_GROUP], ["$SMTPD_QUEUE_GROUP"],
+	[non-privileged group for queue process])
+AC_SUBST([SMTPD_QUEUE_GROUP])
+
 #l3037 (customized s/SSH/SMTPD/)
 # Check for  long long datatypes
 AC_CHECK_TYPES([long long, unsigned long long, long double])
