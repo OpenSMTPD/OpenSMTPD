@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: compress_backend.c,v 1.9 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2012 Charles Longeau <chl@openbsd.org>

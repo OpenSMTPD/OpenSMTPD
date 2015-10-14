@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.124 2014/07/20 01:38:40 guenther Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.130 2015/10/13 08:06:22 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -106,17 +106,17 @@ void stat_decrement(const char *k, size_t v)
 int
 srv_connect(void)
 {
-	struct sockaddr_un	addr;
+	struct sockaddr_un	sun;
 	int			ctl_sock, saved_errno;
 
 	/* connect to smtpd control socket */
 	if ((ctl_sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		err(1, "socket");
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	(void)strlcpy(addr.sun_path, SMTPD_SOCKET, sizeof(addr.sun_path));
-	if (connect(ctl_sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+	memset(&sun, 0, sizeof(sun));
+	sun.sun_family = AF_UNIX;
+	(void)strlcpy(sun.sun_path, SMTPD_SOCKET, sizeof(sun.sun_path));
+	if (connect(ctl_sock, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
 		saved_errno = errno;
 		close(ctl_sock);
 		errno = saved_errno;
@@ -139,7 +139,6 @@ FILE *
 offline_file(void)
 {
 	char	path[PATH_MAX];
-	mode_t	omode;
 	int	fd;
 	FILE   *fp;
 
@@ -147,13 +146,11 @@ offline_file(void)
 		PATH_OFFLINE, (long long int) time(NULL)))
 		err(EX_UNAVAILABLE, "snprintf");
 
-	omode = umask(07077);
 	if ((fd = mkstemp(path)) == -1 || (fp = fdopen(fd, "w+")) == NULL) {
 		if (fd != -1)
 			unlink(path);
 		err(EX_UNAVAILABLE, "cannot create temporary file %s", path);
 	}
-	umask(omode);
 
 	if (fchmod(fd, 0600) == -1) {
 		unlink(path);
@@ -298,9 +295,6 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 	static uint32_t	currmsgid = 0;
 	static uint64_t	from = 0;
 	static int	done = 0, need_send = 1, found;
-	char		buf[sizeof(*evp)];
-	size_t		buflen;
-	uint64_t	evpid;
 
 	if (currmsgid != msgid) {
 		if (currmsgid != 0 && !done)
@@ -333,12 +327,7 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 		goto again;
 	}
 
-	srv_read(&evpid, sizeof evpid);
-	buflen = rlen;
-	srv_read(buf, rlen);	
-	envelope_load_buffer(evp, buf, buflen - 1);
-	evp->id = evpid;
-
+	srv_read(evp, sizeof(*evp));
 	srv_end();
 	from = evp->id + 1;
 	found++;
@@ -348,7 +337,7 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 static int
 srv_iter_evpids(uint32_t msgid, uint64_t *evpid, int *offset)
 {
-	static uint64_t	*evpids = NULL;
+	static uint64_t	*evpids = NULL, *tmp;
 	static int	 n, alloc = 0;
 	struct envelope	 evp;
 
@@ -364,10 +353,11 @@ srv_iter_evpids(uint32_t msgid, uint64_t *evpid, int *offset)
 		while (srv_iter_envelopes(msgid, &evp)) {
 			if (n == alloc) {
 				alloc += 256;
-				evpids = reallocarray(evpids, alloc,
+				tmp = reallocarray(evpids, alloc,
 				    sizeof(*evpids));
-				if (evpids == NULL)
+				if (tmp == NULL)
 					err(1, "reallocarray");
+				evpids = tmp;
 			}
 			evpids[n++] = evp.id;
 		}
@@ -684,7 +674,7 @@ do_show_queue(int argc, struct parameter *argv)
 	if (!srv_connect()) {
 		log_init(1);
 		queue_init("fs", 0);
-		if (chroot(PATH_SPOOL) == -1 || chdir(".") == -1)
+		if (chroot(PATH_SPOOL) == -1 || chdir("/") == -1)
 			err(1, "%s", PATH_SPOOL);
 		fts = fts_open(qpath, FTS_PHYSICAL|FTS_NOCHDIR, NULL);
 		if (fts == NULL)
@@ -705,6 +695,11 @@ do_show_queue(int argc, struct parameter *argv)
 		}
 
 		fts_close(fts);
+		/*
+		while ((r = queue_envelope_walk(&evp)) != -1)
+			if (r)
+				show_queue_envelope(&evp, 0);
+		*/
 		return (0);
 	}
 
@@ -745,31 +740,6 @@ do_show_routes(int argc, struct parameter *argv)
 	return (0);
 }
 
-#if 1
-static int
-do_show_sizes(int argc, struct parameter *argv)
-{
-	printf("struct userinfo=%ld\n", sizeof (struct userinfo));
-	printf("struct netaddr=%ld\n", sizeof (struct netaddr));
-	printf("struct relayhost=%ld\n", sizeof (struct relayhost));
-	printf("struct credentials=%ld\n", sizeof (struct credentials));
-	printf("struct destination=%ld\n", sizeof (struct destination));
-	printf("struct source=%ld\n", sizeof (struct source));
-	printf("struct addrname=%ld\n", sizeof (struct addrname));
-	printf("union lookup=%ld\n", sizeof (union lookup));
-	printf("struct delivery_mda=%ld\n", sizeof (struct delivery_mda));
-	printf("struct delivery_mta=%ld\n", sizeof (struct delivery_mta));
-	printf("struct envelope=%ld\n", sizeof (struct envelope));
-	printf("struct forward_req=%ld\n", sizeof (struct forward_req));
-	printf("struct deliver=%ld\n", sizeof (struct deliver));
-	printf("struct bounce_req_msg=%ld\n", sizeof (struct bounce_req_msg));
-	printf("struct ca_cert_req_msg=%ld\n", sizeof (struct ca_cert_req_msg));
-	printf("struct ca_vrfy_req_msg=%ld\n", sizeof (struct ca_vrfy_req_msg));
-	return 0;
-}
-#endif
-
-
 static int
 do_show_stats(int argc, struct parameter *argv)
 {
@@ -797,7 +767,7 @@ do_show_stats(int argc, struct parameter *argv)
 			switch (kv.val.type) {
 			case STAT_COUNTER:
 				printf("%s=%zd\n",
-				    kv.key, (ssize_t)kv.val.u.counter);
+				    kv.key, kv.val.u.counter);
 				break;
 			case STAT_TIMESTAMP:
 				printf("%s=%" PRId64 "\n",
@@ -945,63 +915,6 @@ do_show_mta_block(int argc, struct parameter *argv)
 	return (0);
 }
 
-static int
-do_discover(int argc, struct parameter *argv)
-{
-	uint64_t evpid;
-	uint32_t msgid;
-	size_t	 n_evp;
-
-	if (ibuf == NULL && !srv_connect())
-		errx(1, "smtpd doesn't seem to be running");
-
-	if (argv[0].type == P_EVPID) {
-		evpid = argv[0].u.u_evpid;
-		srv_send(IMSG_CTL_DISCOVER_EVPID, &evpid, sizeof evpid);
-		srv_recv(IMSG_CTL_DISCOVER_EVPID);
-	} else {
-		msgid = argv[0].u.u_msgid;
-		srv_send(IMSG_CTL_DISCOVER_MSGID, &msgid, sizeof msgid);
-		srv_recv(IMSG_CTL_DISCOVER_MSGID);
-	}
-
-	if (rlen == 0) {
-		srv_end();
-		return (0);
-	} else {
-		srv_read(&n_evp, sizeof n_evp);
-		srv_end();
-	}
-	
-	printf("%zu envelope%s discovered\n", n_evp, (n_evp != 1) ? "s" : "");
-	return (0);
-}
-
-static int
-do_uncorrupt(int argc, struct parameter *argv)
-{
-	uint32_t msgid;
-	int	 ret;
-
-	if (ibuf == NULL && !srv_connect())
-		errx(1, "smtpd doesn't seem to be running");
-
-	msgid = argv[0].u.u_msgid;
-	srv_send(IMSG_CTL_UNCORRUPT_MSGID, &msgid, sizeof msgid);
-	srv_recv(IMSG_CTL_UNCORRUPT_MSGID);
-
-	if (rlen == 0) {
-		srv_end();
-		return (0);
-	} else {
-		srv_read(&ret, sizeof ret);
-		srv_end();
-	}
-
-	printf("command %s\n", ret ? "succeeded" : "failed");
-	return (0);
-}
-
 int
 main(int argc, char **argv)
 {
@@ -1018,6 +931,10 @@ main(int argc, char **argv)
 		if (setresgid(gid, gid, gid) == -1)
 			err(1, "setresgid");
 
+		/* we'll reduce further down the road */
+		if (pledge("stdio rpath tmppath getpw recvfd", NULL) == -1)
+			err(1, "pledge");
+		
 		sendmail = 1;
 		return (enqueue(argc, argv, offlinefp));
 	}
@@ -1028,8 +945,6 @@ main(int argc, char **argv)
 	if (setresgid(gid, gid, gid) == -1)
 		err(1, "setresgid");
 
-	cmd_install("discover <evpid>",		do_discover);
-	cmd_install("discover <msgid>",		do_discover);
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
 	cmd_install("pause mta from <addr> for <str>", do_block_mta);
@@ -1040,17 +955,14 @@ main(int argc, char **argv)
 	cmd_install("monitor",			do_monitor);
 	cmd_install("pause envelope <evpid>",	do_pause_envelope);
 	cmd_install("pause envelope <msgid>",	do_pause_envelope);
-	cmd_install("pause envelope all",	do_pause_envelope);
 	cmd_install("pause mda",		do_pause_mda);
 	cmd_install("pause mta",		do_pause_mta);
 	cmd_install("pause smtp",		do_pause_smtp);
 	cmd_install("profile <str>",		do_profile);
 	cmd_install("remove <evpid>",		do_remove);
 	cmd_install("remove <msgid>",		do_remove);
-	cmd_install("remove all",		do_remove);
 	cmd_install("resume envelope <evpid>",	do_resume_envelope);
 	cmd_install("resume envelope <msgid>",	do_resume_envelope);
-	cmd_install("resume envelope all",	do_resume_envelope);
 	cmd_install("resume mda",		do_resume_mda);
 	cmd_install("resume mta",		do_resume_mta);
 	cmd_install("resume route <routeid>",	do_resume_route);
@@ -1071,16 +983,9 @@ main(int argc, char **argv)
 	cmd_install("show status",		do_show_status);
 	cmd_install("stop",			do_stop);
 	cmd_install("trace <str>",		do_trace);
-	cmd_install("uncorrupt <msgid>",	do_uncorrupt);
 	cmd_install("unprofile <str>",		do_unprofile);
 	cmd_install("untrace <str>",		do_untrace);
 	cmd_install("update table <str>",	do_update_table);
-
-#if 1
-	/* print size of various structures */
-	cmd_install("show sizes",		do_show_sizes);
-#endif
-
 
 	if (strcmp(__progname, "mailq") == 0)
 		return cmd_run(2, argv_mailq);
@@ -1134,7 +1039,7 @@ show_queue_envelope(struct envelope *e, int online)
 	else if (e->type == D_BOUNCE)
 		agent = "bounce";
 
-	if (e->ss.ss_family == AF_UNIX)
+	if (e->ss.ss_family == AF_LOCAL)
 		src = "local";
 	else if (e->ss.ss_family == AF_INET)
 		src = "inet4";

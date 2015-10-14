@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.17 2014/04/19 14:27:29 gilles Exp $	*/
+/*	$OpenBSD: to.c,v 1.20 2015/10/14 22:01:43 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <fts.h>
 #include <imsg.h>
 #include <limits.h>
 #include <inttypes.h>
@@ -50,7 +51,6 @@
 #include "log.h"
 
 static const char *in6addr_to_text(const struct in6_addr *);
-static int alias_is_maildir(struct expandnode *, const char *, size_t);
 static int alias_is_filter(struct expandnode *, const char *, size_t);
 static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
@@ -155,7 +155,7 @@ sa_to_text(const struct sockaddr *sa)
 	buf[0] = '\0';
 	p = buf;
 
-	if (sa->sa_family == AF_UNIX)
+	if (sa->sa_family == AF_LOCAL)
 		(void)strlcpy(buf, "local", sizeof buf);
 	else if (sa->sa_family == AF_INET) {
 		in_addr_t addr;
@@ -337,15 +337,14 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
 		{ "secure://",		F_SMTPS|F_STARTTLS		},
 		{ "secure+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	},
-		{ "backup://",		F_BACKUP       			},
-		{ "tls+backup://",	F_BACKUP|F_STARTTLS    		}
+		{ "backup://",		F_BACKUP       			}
 	};
 	const char     *errstr = NULL;
 	char	       *p, *q;
 	char		buffer[1024];
-	char	       *beg, *end;
+	char	       *sep;
 	size_t		i;
-	size_t		len;
+	int		len;
 
 	memset(buffer, 0, sizeof buffer);
 	if (strlcpy(buffer, s, sizeof buffer) >= sizeof buffer)
@@ -374,53 +373,40 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	if (relay->flags & F_LMTP)
 		relay->port = 0;
 
-	/* first, we extract the label if any */
-	if ((q = strchr(p, '@')) != NULL) {
+	if ((sep = strrchr(p, ':')) != NULL) {
+		*sep = 0;
+		relay->port = strtonum(sep+1, 1, 0xffff, &errstr);
+		if (errstr)
+			return 0;
+		len = sep - p;
+	}
+	else
+		len = strlen(p);
+
+	if ((relay->flags & F_LMTP) && (relay->port == 0))
+		return 0;
+
+	relay->hostname[len] = 0;
+
+	q = strchr(p, '@');
+	if (q == NULL && relay->flags & F_AUTH)
+		return 0;
+	if (q && !(relay->flags & F_AUTH))
+		return 0;
+
+	if (q == NULL) {
+		if (strlcpy(relay->hostname, p, sizeof (relay->hostname))
+		    >= sizeof (relay->hostname))
+			return 0;
+	} else {
 		*q = 0;
 		if (strlcpy(relay->authlabel, p, sizeof (relay->authlabel))
 		    >= sizeof (relay->authlabel))
 			return 0;
-		p = q + 1;
-	}
-
-	/* then, we extract the mail exchanger */
-	beg = end = p;
-	if (*beg == '[') {
-		if ((end = strchr(beg, ']')) == NULL)
-			return 0;
-		/* skip ']', it has to be included in the relay hostname */
-		++end;
-		len = end - beg;
-	}
-	else {
-		for (end = beg; *end; ++end)
-			if (! isalnum((unsigned char)*end) &&
-			    *end != '_' && *end != '.' && *end != '-')
-				break;
-		len = end - beg;
-	}
-	if (len >= sizeof relay->hostname)
-		return 0;
-	for (i = 0; i < len; ++i)
-		relay->hostname[i] = beg[i];
-	relay->hostname[i] = 0;
-
-	/* finally, we extract the port */
-	p = beg + len;
-	if (*p == ':') {
-		relay->port = strtonum(p+1, 1, 0xffff, &errstr);
-		if (errstr)
+		if (strlcpy(relay->hostname, q + 1, sizeof (relay->hostname))
+		    >= sizeof (relay->hostname))
 			return 0;
 	}
-
-	if (! valid_domainpart(relay->hostname))
-		return 0;
-	if ((relay->flags & F_LMTP) && (relay->port == 0))
-		return 0;
-	if (relay->authlabel[0] == '\0' && relay->flags & F_AUTH)
-		return 0;
-	if (relay->authlabel[0] != '\0' && !(relay->flags & F_AUTH))
-		return 0;
 	return 1;
 }
 
@@ -450,9 +436,6 @@ relayhost_to_text(const struct relayhost *relay)
 		break;
 	case F_SMTPS:
 		(void)strlcat(buf, "smtps://", sizeof buf);
-		break;
-	case F_BACKUP|F_STARTTLS:
-		(void)strlcat(buf, "tls+backup://", sizeof buf);
 		break;
 	case F_BACKUP:
 		(void)strlcat(buf, "backup://", sizeof buf);
@@ -597,7 +580,7 @@ rule_to_text(struct rule *r)
 	case A_NONE:
 		break;
 	}
-	    
+
 	return buf;
 }
 
@@ -694,7 +677,6 @@ text_to_expandnode(struct expandnode *expandnode, const char *s)
 	    alias_is_filter(expandnode, s, l) ||
 	    alias_is_filename(expandnode, s, l) ||
 	    alias_is_address(expandnode, s, l) ||
-	    alias_is_maildir(expandnode, s, l) ||
 	    alias_is_username(expandnode, s, l))
 		return (1);
 
@@ -709,7 +691,6 @@ expandnode_to_text(struct expandnode *expandnode)
 	case EXPAND_FILENAME:
 	case EXPAND_INCLUDE:
 	case EXPAND_ERROR:
-	case EXPAND_MAILDIR:
 		return expandnode->u.buffer;
 	case EXPAND_USERNAME:
 		return expandnode->u.user;
@@ -722,21 +703,6 @@ expandnode_to_text(struct expandnode *expandnode)
 	return NULL;
 }
 
-static int
-alias_is_maildir(struct expandnode *alias, const char *line, size_t len)
-{
-	if (strncasecmp("maildir:", line, 8) != 0)
-		return (0);
-
-	line += 8;
-	memset(alias, 0, sizeof *alias);
-	alias->type = EXPAND_MAILDIR;
-	if (strlcpy(alias->u.buffer, line,
-	    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
-		return (0);
-
-	return (1);
-}
 
 /******/
 static int
@@ -775,7 +741,7 @@ alias_is_username(struct expandnode *alias, const char *line, size_t len)
 
 	while (*line) {
 		if (!isalnum((unsigned char)*line) &&
-		    *line != '_' && *line != '.' && *line != '-' && *line != '+')
+		    *line != '_' && *line != '.' && *line != '-')
 			return 0;
 		++line;
 	}

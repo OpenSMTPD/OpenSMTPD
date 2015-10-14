@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fs.c,v 1.5 2014/04/19 13:48:57 gilles Exp $	*/
+/*	$OpenBSD: queue_fs.c,v 1.9 2015/10/12 22:29:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -17,7 +17,6 @@
  */
 
 #include <sys/types.h>
-#include <sys/param.h>	/* for OpenBSD-5.6, DO NOT BACKPORT TO OpenBSD-current ! */
 #include <sys/mount.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -25,7 +24,6 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
-#include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -34,7 +32,6 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
-#include <limits.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,8 +48,9 @@
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
 #define PATH_MESSAGE		"/message"
 
-/* minimum number of free blocks on filesystem */
-#define	MINFREEBLOCKS		100
+/* percentage of remaining space / inodes required to accept new messages */
+#define	MINSPACE		5
+#define	MININODES		5
 
 struct qwalk {
 	FTS	*fts;
@@ -167,9 +165,6 @@ queue_fs_message_commit(uint32_t msgid, const char *path)
 		return 0;
 	}
 
-	/* best effort */
-	sync();
-
 	return 1;
 }
 
@@ -240,50 +235,6 @@ again:
 	tree_pop(&evpcount, msgid);
 
 	return 1;
-}
-
-static int
-queue_fs_message_uncorrupt(uint32_t msgid)
-{
-	struct stat	sb;
-	char		bucketdir[PATH_MAX];
-	char		queuedir[PATH_MAX];
-	char		corruptdir[PATH_MAX];
-
-	fsqueue_message_corrupt_path(msgid, corruptdir, sizeof(corruptdir));
-	if (stat(corruptdir, &sb) == -1) {
-		log_warnx("warn: queue-fs: stat %s failed", corruptdir);
-		return (0);
-	}
-
-	fsqueue_message_path(msgid, queuedir, sizeof(queuedir));
-	if (stat(queuedir, &sb) == 0) {
-		log_warnx("warn: queue-fs: %s already exists", queuedir);
-		return (0);
-	}
-
-	if (! bsnprintf(bucketdir, sizeof bucketdir, "%s/%02x", PATH_QUEUE,
-	    (msgid & 0xff000000) >> 24)) {
-		log_warnx("warn: queue-fs: path too long");
-		return (0);
-	}
-
-	/* create the bucket */
-	if (mkdir(bucketdir, 0700) == -1) {
-		if (errno == ENOSPC)
-			return (0);
-		if (errno != EEXIST) {
-			log_warn("warn: queue-fs: mkdir");
-			return (0);
-		}
-	}
-
-	if (rename(corruptdir, queuedir) == -1) {
-		log_warn("warn: queue-fs: rename");
-		return (0);
-	}
-
-	return (1);
 }
 
 static int
@@ -394,69 +345,6 @@ queue_fs_envelope_delete(uint64_t evpid)
 }
 
 static int
-queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
-    uint32_t msgid, int *done, void **data)
-{
-	struct dirent	*dp;
-	DIR		*dir = *data;
-	char		 path[PATH_MAX];
-	char		 msgid_str[9];
-	char		*tmp;
-	int		 r, *n;
-
-	if (*done)
-		return (-1);
-
-	if (! bsnprintf(path, sizeof path, "%s/%02x/%08x",
-	    PATH_QUEUE, (msgid  & 0xff000000) >> 24, msgid))
-		fatalx("queue_fs_message_walk: path does not fit buffer");
-
-	if (dir == NULL) {
-		if ((dir = opendir(path)) == NULL) {
-			log_warn("warn: queue_fs: opendir: %s", path);
-			*done = 1;
-			return (-1);
-		}
-
-		*data = dir;
-	}
-
-	(void)snprintf(msgid_str, sizeof msgid_str, "%08" PRIx32, msgid);
-	while ((dp = readdir(dir)) != NULL) {
-		if (dp->d_type != DT_REG)
-			continue;
-
-		/* ignore files other than envelopes */
-		if (strlen(dp->d_name) != 16 || strncmp(dp->d_name, msgid_str, 8))
-			continue;
-
-		tmp = NULL;
-		*evpid = strtoull(dp->d_name, &tmp, 16);
-		if (tmp && *tmp !=  '\0') {
-			log_debug("debug: fsqueue: bogus file %s", dp->d_name);
-			continue;
-		}
-
-		memset(buf, 0, len);
-		r = queue_fs_envelope_load(*evpid, buf, len);
-		if (r) {
-			n = tree_pop(&evpcount, msgid);
-			if (n == NULL)
-				n = REF;
-
-			n += 1;
-			tree_xset(&evpcount, msgid, n);
-		}
-
-		return (r);
-	}
-
-	(void)closedir(dir);
-	*done = 1;
-	return (-1);
-}
-
-static int
 queue_fs_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 {
 	static int	 done = 0;
@@ -493,6 +381,8 @@ static int
 fsqueue_check_space(void)
 {
 	struct statfs	buf;
+	uint64_t	used;
+	uint64_t	total;
 
 	if (statfs(PATH_QUEUE, &buf) < 0) {
 		log_warn("warn: queue-fs: statfs");
@@ -508,8 +398,29 @@ fsqueue_check_space(void)
 	    (int64_t)buf.f_bfree == -1 || (int64_t)buf.f_ffree == -1)
 		return 1;
 
-	if (buf.f_bavail < MINFREEBLOCKS) {
-		log_warnx("warn: disk space running low, temporarily rejecting messages");
+	used = buf.f_blocks - buf.f_bfree;
+	total = buf.f_bavail + used;
+	if (total != 0)
+		used = (float)used / (float)total * 100;
+	else
+		used = 100;
+	if (100 - used < MINSPACE) {
+		log_warnx("warn: not enough disk space: %llu%% left",
+		    (unsigned long long) 100 - used);
+		log_warnx("warn: temporarily rejecting messages");
+		return 0;
+	}
+
+	used = buf.f_files - buf.f_ffree;
+	total = buf.f_favail + used;
+	if (total != 0)
+		used = (float)used / (float)total * 100;
+	else
+		used = 100;
+	if (100 - used < MININODES) {
+		log_warnx("warn: not enough inodes: %llu%% left",
+		    (unsigned long long) 100 - used);
+		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
 
@@ -737,13 +648,11 @@ queue_fs_init(struct passwd *pw, int server, const char *conf)
 	queue_api_on_message_delete(queue_fs_message_delete);
 	queue_api_on_message_fd_r(queue_fs_message_fd_r);
 	queue_api_on_message_corrupt(queue_fs_message_corrupt);
-	queue_api_on_message_uncorrupt(queue_fs_message_uncorrupt);
 	queue_api_on_envelope_create(queue_fs_envelope_create);
 	queue_api_on_envelope_delete(queue_fs_envelope_delete);
 	queue_api_on_envelope_update(queue_fs_envelope_update);
 	queue_api_on_envelope_load(queue_fs_envelope_load);
 	queue_api_on_envelope_walk(queue_fs_envelope_walk);
-	queue_api_on_message_walk(queue_fs_message_walk);
 
 	return (ret);
 }

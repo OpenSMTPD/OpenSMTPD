@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.78 2014/04/19 12:26:15 gilles Exp $	*/
+/*	$OpenBSD: dns.c,v 1.81 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -264,6 +264,9 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		(void)strlcpy(s->name, mx, sizeof(s->name));
 
+		sa = (struct sockaddr *)&ss;
+		sl = sizeof(ss);
+
 		as = res_query_async(domain, C_IN, T_MX, NULL);
 		if (as == NULL) {
 			m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
@@ -359,15 +362,13 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		return;
 	}
 
-	found = 0;
-
 	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	if (unpack_header(&pack, &h) == -1 || unpack_query(&pack, &q) == -1)
-		return;
+	unpack_header(&pack, &h);
+	unpack_query(&pack, &q);
 
+	found = 0;
 	for (; h.ancount; h.ancount--) {
-		if (unpack_rr(&pack, &rr) == -1)
-			break;
+		unpack_rr(&pack, &rr);
 		if (rr.rr_type != T_MX)
 			continue;
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
@@ -405,19 +406,17 @@ dns_dispatch_mx_preference(struct asr_result *ar, void *arg)
 	else {
 		error = DNS_ENOTFOUND;
 		unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-		if (unpack_header(&pack, &h) != -1 &&
-		    unpack_query(&pack, &q) != -1) {
-			for (; h.ancount; h.ancount--) {
-				if (unpack_rr(&pack, &rr) == -1)
-					break;
-				if (rr.rr_type != T_MX)
-					continue;
-				print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
-				buf[strlen(buf) - 1] = '\0';
-				if (!strcasecmp(s->name, buf)) {
-					error = DNS_OK;
-					break;
-				}
+		unpack_header(&pack, &h);
+		unpack_query(&pack, &q);
+		for (; h.ancount; h.ancount--) {
+			unpack_rr(&pack, &rr);
+			if (rr.rr_type != T_MX)
+				continue;
+			print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
+			buf[strlen(buf) - 1] = '\0';
+			if (!strcasecmp(s->name, buf)) {
+				error = DNS_OK;
+				break;
 			}
 		}
 	}
@@ -438,8 +437,6 @@ dns_lookup_host(struct dns_session *s, const char *host, int preference)
 {
 	struct dns_lookup	*lookup;
 	struct addrinfo		 hints;
-	char			 hostcopy[HOST_NAME_MAX+1];
-	char			*p;
 	void			*as;
 
 	lookup = xcalloc(1, sizeof *lookup, "dns_lookup_host");
@@ -447,19 +444,8 @@ dns_lookup_host(struct dns_session *s, const char *host, int preference)
 	lookup->session = s;
 	s->refcount++;
 
-	if (*host == '[') {
-		if (strncasecmp("[IPv6:", host, 6) == 0)
-			host += 6;
-		else
-			host += 1;
-		(void)strlcpy(hostcopy, host, sizeof hostcopy);
-		p = strchr(hostcopy, ']');
-		if (p)
-			*p = 0;
-		host = hostcopy;
-	}
-
 	memset(&hints, 0, sizeof(hints));
+	hints.ai_flags = AI_ADDRCONFIG;
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	as = getaddrinfo_async(host, NULL, &hints, NULL);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.29 2014/04/19 12:30:54 gilles Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.32 2015/10/14 20:57:17 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -214,13 +214,11 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		envelope_ascii_dump(ep, &dest, &len, "mda-method");
 		envelope_ascii_dump(ep, &dest, &len, "mda-user");
 		envelope_ascii_dump(ep, &dest, &len, "mda-usertable");
-		envelope_ascii_dump(ep, &dest, &len, "mda-delivery-user");
 		break;
 	case D_MTA:
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-auth");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-cert");
-		envelope_ascii_dump(ep, &dest, &len, "mta-relay-ca");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-flags");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-heloname");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-helotable");
@@ -317,7 +315,7 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 	memset(&ssin6, 0, sizeof ssin6);
 
 	if (!strcmp("local", buf)) {
-		ss->ss_family = AF_UNIX;
+		ss->ss_family = AF_LOCAL;
 	}
 	else if (strncasecmp("IPv6:", buf, 5) == 0) {
 		if (inet_pton(AF_INET6, buf + 5, &ssin6.sin6_addr) != 1)
@@ -489,10 +487,6 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
 
-	if (strcasecmp("mda-delivery-user", field) == 0)
-		return ascii_load_string(ep->agent.mda.delivery_user, buf,
-		    sizeof ep->agent.mda.delivery_user);
-
 	if (strcasecmp("mta-relay", field) == 0) {
 		int ret;
 		uint16_t flags = ep->agent.mta.relay.flags;
@@ -510,10 +504,6 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 	if (strcasecmp("mta-relay-cert", field) == 0)
 		return ascii_load_string(ep->agent.mta.relay.pki_name, buf,
 		    sizeof ep->agent.mta.relay.pki_name);
-
-	if (strcasecmp("mta-relay-ca", field) == 0)
-		return ascii_load_string(ep->agent.mta.relay.ca_name, buf,
-		    sizeof ep->agent.mta.relay.ca_name);
 
 	if (strcasecmp("mta-relay-flags", field) == 0)
 		return ascii_load_mta_relay_flags(&ep->agent.mta.relay.flags, buf);
@@ -824,9 +814,6 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	if (strcasecmp(field, "mda-user") == 0)
 		return ascii_dump_string(ep->agent.mda.username, buf, len);
 
-	if (strcasecmp(field, "mda-delivery-user") == 0)
-		return ascii_dump_string(ep->agent.mda.delivery_user, buf, len);
-
 	if (strcasecmp(field, "mda-usertable") == 0)
 		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
 
@@ -842,10 +829,6 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "mta-relay-cert") == 0)
 		return ascii_dump_string(ep->agent.mta.relay.pki_name,
-		    buf, len);
-
-	if (strcasecmp(field, "mta-relay-ca") == 0)
-		return ascii_dump_string(ep->agent.mta.relay.ca_name,
 		    buf, len);
 
 	if (strcasecmp(field, "mta-relay-flags") == 0)
@@ -910,6 +893,7 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	}
 
 	if (strcasecmp(field, "esc-code") == 0) {
+		/* this is not a pasto, we dump esc_code if esc_class is !0 */
 		if (ep->esc_class)
 			return ascii_dump_uint8(ep->esc_code, buf, len);
 		return 1;

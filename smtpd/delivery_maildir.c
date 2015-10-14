@@ -1,4 +1,4 @@
-/*	$OpenBSD: delivery_maildir.c,v 1.13 2014/04/19 17:31:35 gilles Exp $	*/
+/*	$OpenBSD: delivery_maildir.c,v 1.16 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -28,6 +28,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <paths.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

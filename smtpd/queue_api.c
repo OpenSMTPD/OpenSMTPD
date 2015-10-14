@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_api.c,v 1.4 2014/04/19 17:47:40 gilles Exp $	*/
+/*	$OpenBSD: queue_api.c,v 1.8 2015/10/14 21:30:40 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>

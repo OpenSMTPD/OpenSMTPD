@@ -1,4 +1,4 @@
-/*	$OpenBSD$ */
+/*	$OpenBSD: ruleset.c,v 1.31 2015/01/20 17:37:54 deraadt Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -94,6 +94,13 @@ ruleset_match(const struct envelope *evp)
 		if ((ret == 0 && !r->r_notdestination) || (ret != 0 && r->r_notdestination))
 			continue;
 
+		if (r->r_desttype == DEST_VDOM &&
+		    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
+			if (! aliases_virtual_check(r->r_mapping,
+				&evp->rcpt)) {
+				return NULL;
+			}
+		}
 		goto matched;
 	}
 

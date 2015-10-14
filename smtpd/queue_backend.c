@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: queue_backend.c,v 1.56 2015/10/09 14:37:38 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -65,14 +65,11 @@ static int (*handler_message_commit)(uint32_t, const char*);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
-static int (*handler_message_uncorrupt)(uint32_t);
 static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
 static int (*handler_envelope_delete)(uint64_t);
 static int (*handler_envelope_update)(uint64_t, const char *, size_t);
 static int (*handler_envelope_load)(uint64_t, char *, size_t);
 static int (*handler_envelope_walk)(uint64_t *, char *, size_t);
-static int (*handler_message_walk)(uint64_t *, char *, size_t,
-    uint32_t, int *, void **);
 
 #ifdef QUEUE_PROFILING
 
@@ -145,9 +142,7 @@ queue_init(const char *name, int server)
 			errx(1, "error in spool directory setup");
 		if (ckdir(PATH_SPOOL PATH_OFFLINE, 0770, 0, gr->gr_gid, 1) == 0)
 			errx(1, "error in offline directory setup");
-		if (ckdir_quiet(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0))
-			chmod(PATH_SPOOL PATH_PURGE, 0750);
-		if (ckdir(PATH_SPOOL PATH_PURGE, 0750, pwq->pw_uid, 0, 1) == 0)
+		if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
 			errx(1, "error in purge directory setup");
 
 		mvpurge(PATH_SPOOL PATH_TEMPORARY, PATH_SPOOL PATH_PURGE);
@@ -301,15 +296,9 @@ queue_message_corrupt(uint32_t msgid)
 }
 
 int
-queue_message_uncorrupt(uint32_t msgid)
-{
-	return handler_message_uncorrupt(msgid);
-}
-
-int
 queue_message_fd_r(uint32_t msgid)
 {
-	int	fdin, fdout = -1, fd = -1;
+	int	fdin = -1, fdout = -1, fd = -1;
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
@@ -630,46 +619,6 @@ queue_envelope_update(struct envelope *ep)
 }
 
 int
-queue_message_walk(struct envelope *ep, uint32_t msgid, int *done, void **data)
-{
-	char		 evpbuf[sizeof(struct envelope)];
-	uint64_t	 evpid;
-	int		 r;
-	const char	*e;
-
-	profile_enter("queue_message_walk");
-	r = handler_message_walk(&evpid, evpbuf, sizeof evpbuf,
-	    msgid, done, data);
-	profile_leave();
-
-	log_trace(TRACE_QUEUE,
-	    "queue-backend: queue_message_walk() -> %d (%016"PRIx64")",
-	    r, evpid);
-
-	if (r == -1)
-		return (r);
-
-	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
-		if ((e = envelope_validate(ep)) == NULL) {
-			ep->id = evpid;
-			/*
-			 * do not cache the envelope here, while discovering
-			 * envelopes one could re-run discover on already
-			 * scheduled envelopes which leads to triggering of 
-			 * strict checks in caching. Envelopes could anyway
-			 * be loaded from backend if it isn't cached.
-			 */
-			return (1);
-		}
-		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
-		    ep->id, e);
-		(void)queue_message_corrupt(evpid_to_msgid(evpid));
-	}
-
-	return (0);
-}
-
-int
 queue_envelope_walk(struct envelope *ep)
 {
 	const char	*e;
@@ -789,12 +738,6 @@ queue_api_on_message_corrupt(int(*cb)(uint32_t))
 }
 
 void
-queue_api_on_message_uncorrupt(int(*cb)(uint32_t))
-{
-	handler_message_uncorrupt = cb;
-}
-
-void
 queue_api_on_envelope_create(int(*cb)(uint32_t, const char *, size_t, uint64_t *))
 {
 	handler_envelope_create = cb;
@@ -822,11 +765,4 @@ void
 queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 {
 	handler_envelope_walk = cb;
-}
-
-void
-queue_api_on_message_walk(int(*cb)(uint64_t *, char *, size_t,
-    uint32_t, int *, void **))
-{
-	handler_message_walk = cb;
 }

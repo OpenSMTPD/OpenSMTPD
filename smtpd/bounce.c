@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.64 2014/04/19 17:27:40 gilles Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.67 2015/10/07 19:25:42 millert Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -58,10 +58,7 @@ enum {
 struct bounce_envelope {
 	TAILQ_ENTRY(bounce_envelope)	 entry;
 	uint64_t			 id;
-	struct mailaddr			 dest;
 	char				*report;
-	uint8_t				 esc_class;
-	uint8_t				 esc_code;
 };
 
 struct bounce_message {
@@ -82,7 +79,6 @@ struct bounce_session {
 	int				 state;
 	struct iobuf			 iobuf;
 	struct io			 io;
-	uint64_t			 boundary;
 };
 
 SPLAY_HEAD(bounce_message_tree, bounce_message);
@@ -101,7 +97,6 @@ static void bounce_io(struct io *, int);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce_session *);
 static const char *bounce_strtype(enum bounce_type);
-static const char *action_str(const struct delivery_bounce *);
 
 static struct tree			wait_fd;
 static struct bounce_message_tree	messages;
@@ -149,16 +144,6 @@ bounce_add(uint64_t evpid)
 	key.msgid = evpid_to_msgid(evpid);
 	key.bounce = evp.agent.bounce;
 	key.smtpname = evp.smtpname;
-
-	if (evp.errorline[0] == '4')
-		key.bounce.type = B_WARNING;
-	else if (evp.errorline[0] == '5')
-		key.bounce.type = B_ERROR;
-	else
-		key.bounce.type = B_DSN;
-
-	key.bounce.dsn_ret = evp.dsn_ret;
-	key.bounce.expire = evp.expire;
 	msg = SPLAY_FIND(bounce_message_tree, &messages, &key);
 	if (msg == NULL) {
 		msg = xcalloc(1, sizeof(*msg), "bounce_add");
@@ -188,11 +173,6 @@ bounce_add(uint64_t evpid)
 	be = xmalloc(sizeof *be, "bounce_add");
 	be->id = evpid;
 	be->report = xstrdup(buf, "bounce_add");
-	(void)strlcpy(be->dest.user, evp.dest.user, sizeof(be->dest.user));
-	(void)strlcpy(be->dest.domain, evp.dest.domain,
-	    sizeof(be->dest.domain));
-	be->esc_class = evp.esc_class;
-	be->esc_code = evp.esc_code;
 	TAILQ_INSERT_TAIL(&msg->envelopes, be, entry);
 	buf[strcspn(buf, "\n")] = '\0';
 	log_debug("debug: bounce: adding report %16"PRIx64": %s", be->id, buf);
@@ -230,7 +210,6 @@ bounce_fd(int fd)
 	io_init(&s->io, fd, s, bounce_io, &s->iobuf);
 	io_set_timeout(&s->io, 30000);
 	io_set_read(&s->io);
-	s->boundary = generate_uid();
 
 	log_debug("debug: bounce: new session %p", s);
 	stat_increment("bounce.session", 1);
@@ -319,22 +298,18 @@ bounce_duration(long long int d)
 	static char buf[32];
 
 	if (d < 60) {
-		(void)snprintf(buf, sizeof buf, "%lld second%s", d,
-		    (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld second%s", d, (d == 1)?"":"s");
 	} else if (d < 3600) {
 		d = d / 60;
-		(void)snprintf(buf, sizeof buf, "%lld minute%s", d,
-		    (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld minute%s", d, (d == 1)?"":"s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
-		(void)snprintf(buf, sizeof buf, "%lld hour%s", d,
-		    (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld hour%s", d, (d == 1)?"":"s");
 	}
 	else {
 		d = d / (3600 * 24);
-		(void)snprintf(buf, sizeof buf, "%lld day%s", d,
-		    (d == 1)?"":"s");
+		(void)snprintf(buf, sizeof buf, "%lld day%s", d, (d == 1)?"":"s");
 	}
 	return (buf);
 }
@@ -409,8 +384,9 @@ static int
 bounce_next(struct bounce_session *s)
 {
 	struct bounce_envelope	*evp;
-	char			*line;
-	size_t			 len, n;
+	char			*line = NULL;
+	size_t			 n, sz = 0;
+	ssize_t			 len;
 
 	switch (s->state) {
 	case BOUNCE_EHLO:
@@ -452,21 +428,12 @@ bounce_next(struct bounce_session *s)
 		    "To: %s\n"
 		    "Date: %s\n"
 		    "\n"
-		    "This is a MIME-encapsulated message.\n"
+		    NOTICE_INTRO
 		    "\n",
 		    bounce_strtype(s->msg->bounce.type),
 		    s->smtpname,
 		    s->msg->to,
 		    time_to_text(time(NULL)));
-
-		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-		    "--%16" PRIu64 "/%s\n"
-		    "Content-Description: Notification\n"
-		    "Content-Type: text/plain; charset=us-ascii\n"
-		    "\n"
-		    NOTICE_INTRO
-		    "\n",
-		    s->boundary, s->smtpname);
 
 		switch (s->msg->bounce.type) {
 		case B_ERROR:
@@ -503,34 +470,6 @@ bounce_next(struct bounce_session *s)
 		    "    Below is a copy of the original message:\n"
 		    "\n");
 
-		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-		    "--%16" PRIu64 "/%s\n"
-		    "Content-Description: Delivery Report\n"
-		    "Content-Type: message/delivery-status\n"
-		    "\n",
-		    s->boundary, s->smtpname);
-
-		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    "Reporting-MTA: dns; %s\n"
-	    	    "Arrival-Date: %s\n"
-		    "\n",
-	    	    s->smtpname,
-	    	    time_to_text(time(NULL)));
-
-		TAILQ_FOREACH(evp, &s->msg->envelopes, entry) {
-			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    	    "Final-Recipient: rfc822; %s@%s\n"
-			    "Action: %s\n"
-	    	    	    "Status: %s\n"
-	    	    	    "Diagnostic-Code: smtp; %s\n"
-	    	    	    "\n",
-			    evp->dest.user,
-			    evp->dest.domain,
-			    action_str(&s->msg->bounce),
-	    	    	    esc_code(evp->esc_class, evp->esc_code),
-	    	    	    esc_description(evp->esc_code));
-		}
-
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
 		    s, iobuf_queued(&s->iobuf));
 
@@ -538,25 +477,18 @@ bounce_next(struct bounce_session *s)
 		break;
 
 	case BOUNCE_DATA_MESSAGE:
-		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-		    "--%16" PRIu64 "/%s\n"
-	    	    "Content-Type: message/rfc822\n"
-	    	    "\n",
-	    	    s->boundary, s->smtpname);
 
 		n = iobuf_queued(&s->iobuf);
+
 		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
-			line = fgetln(s->msgfp, &len);
-			if (line == NULL)
+			if ((len = getline(&line, &sz, s->msgfp)) == -1)
 				break;
 			if (len == 1 && line[0] == '\n' && /* end of headers */
 			    s->msg->bounce.type == B_DSN &&
 			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
+				free(line);
 				fclose(s->msgfp);
 				s->msgfp = NULL;
-				iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    		    "\n--%16" PRIu64 "/%s--\n", s->boundary,
-				    s->smtpname);
 				bounce_send(s, ".");
 				s->state = BOUNCE_DATA_END;
 				return (0);
@@ -566,6 +498,7 @@ bounce_next(struct bounce_session *s)
 			    "bounce_next: DATA_MESSAGE", "%s%s\n",
 			    (len == 2 && line[0] == '.') ? "." : "", line);
 		}
+		free(line);
 
 		if (ferror(s->msgfp)) {
 			fclose(s->msgfp);
@@ -575,9 +508,6 @@ bounce_next(struct bounce_session *s)
 			s->msg = NULL;
 			return (-1);
 		}
-
-		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    "\n--%16" PRIu64 "/%s--\n", s->boundary, s->smtpname);
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
 		    s, iobuf_queued(&s->iobuf) - n);
@@ -645,8 +575,8 @@ bounce_delivery(struct bounce_message *msg, int delivery, const char *status)
 		f = NULL;
 
 	if (f)
-		log_warnx("warn: %s injecting failure report on message %08"
-		    PRIx32 " to <%s> for %zu envelope%s: %s",
+		log_warnx("warn: %s injecting failure report on message %08"PRIx32
+		    " to <%s> for %zu envelope%s: %s",
 		    f, msg->msgid, msg->to, n, n > 1 ? "s":"", status);
 
 	nmessage -= 1;
@@ -792,25 +722,6 @@ bounce_message_cmp(const struct bounce_message *a,
 		return (r);
 
 	return memcmp(&a->bounce, &b->bounce, sizeof (a->bounce));
-}
-
-static const char *
-action_str(const struct delivery_bounce *b)
-{
-	switch (b->type) {
-	case B_ERROR:
-		return ("failed");
-	case B_WARNING:
-		return ("delayed");
-	case B_DSN:
-		if (b->mta_without_dsn)
-			return ("relayed");
-		
-		return ("delivered");
-	default:
-		log_warn("warn: bounce: unknown bounce_type");
-		return ("");
-	}
 }
 
 static const char *

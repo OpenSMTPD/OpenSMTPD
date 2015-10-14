@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: table_proc.c,v 1.5 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -26,6 +26,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <paths.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

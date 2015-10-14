@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: queue_ram.c,v 1.7 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>

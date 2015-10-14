@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: iobuf.c,v 1.6 2015/09/03 06:26:17 jsg Exp $	*/
 /*      
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -287,7 +287,7 @@ iobuf_queue(struct iobuf *io, const void *data, size_t len)
 
 	memmove(buf, data, len);
 
-	return (len);
+	return (0);
 }
 
 int

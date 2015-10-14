@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: makemap.c,v 1.54 2015/10/12 07:58:19 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -97,7 +97,6 @@ main(int argc, char *argv[])
 	int		 ch;
 	DBTYPE		 dbtype = DB_HASH;
 	char		*p;
-	mode_t		 omode;
 
 	log_init(1);
 
@@ -185,10 +184,8 @@ main(int argc, char *argv[])
 
 	if (! bsnprintf(dbname, sizeof(dbname), "%s.XXXXXXXXXXX", oflag))
 		errx(1, "path too long");
-	omode = umask(7077);
 	if (mkstemp(dbname) == -1)
 		err(1, "mkstemp");
-	umask(omode);
 
 	db = dbopen(dbname, O_EXLOCK|O_RDWR|O_SYNC, 0644, dbtype, NULL);
 	if (db == NULL) {
@@ -235,6 +232,7 @@ parse_map(char *filename)
 	char	*line;
 	size_t	 len;
 	size_t	 lineno = 0;
+	char	 delim[] = { '\\', '\\', '#' };
 
 	if (strcmp(filename, "-") == 0)
 		fp = fdopen(0, "r");
@@ -254,8 +252,7 @@ parse_map(char *filename)
 		return 0;
 	}
 
-	while ((line = fparseln(fp, &len, &lineno,
-	    NULL, FPARSELN_UNESCCOMM)) != NULL) {
+	while ((line = fparseln(fp, &len, &lineno, delim, 0)) != NULL) {
 		if (! parse_entry(line, len, lineno)) {
 			free(line);
 			fclose(fp);
@@ -292,7 +289,7 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 	keyp = line;
 	while (isspace((unsigned char)*keyp))
 		keyp++;
-	if (*keyp == '\0')
+	if (*keyp == '\0' || *keyp == '#')
 		return 1;
 
 	valp = keyp;
@@ -301,7 +298,7 @@ parse_mapentry(char *line, size_t len, size_t lineno)
 		goto bad;
 	while (*valp == ':' || isspace((unsigned char)*valp))
 		valp++;
-	if (*valp == '\0')
+	if (*valp == '\0' || *valp == '#')
 		goto bad;
 
 	/* Check for dups. */
@@ -349,7 +346,7 @@ parse_setentry(char *line, size_t len, size_t lineno)
 	keyp = line;
 	while (isspace((unsigned char)*keyp))
 		keyp++;
-	if (*keyp == '\0')
+	if (*keyp == '\0' || *keyp == '#')
 		return 1;
 
 	val.data  = "<set>";
@@ -388,6 +385,7 @@ make_aliases(DBT *val, char *text)
 {
 	struct expandnode	xn;
 	char		       *subrcpt;
+	char		       *endp;
 	char		       *origtext;
 
 	val->data = NULL;
@@ -396,10 +394,16 @@ make_aliases(DBT *val, char *text)
 	origtext = xstrdup(text, "make_aliases");
 
 	while ((subrcpt = strsep(&text, ",")) != NULL) {
-		/* subrcpt: strip initial and trailing whitespace. */
-		subrcpt = strip(subrcpt);
+		/* subrcpt: strip initial whitespace. */
+		while (isspace((unsigned char)*subrcpt))
+			++subrcpt;
 		if (*subrcpt == '\0')
 			goto error;
+
+		/* subrcpt: strip trailing whitespace. */
+		endp = subrcpt + strlen(subrcpt) - 1;
+		while (subrcpt < endp && isspace((unsigned char)*endp))
+			*endp-- = '\0';
 
 		if (! text_to_expandnode(&xn, subrcpt))
 			goto error;

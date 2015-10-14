@@ -1,4 +1,4 @@
-/*	$OpenBSD: rfc2822.h,v 1.1 2014/10/12 16:19:30 gilles Exp $	*/
+/*	$OpenBSD: rfc2822.h,v 1.3 2015/09/07 15:36:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>

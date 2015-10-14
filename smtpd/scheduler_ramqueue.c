@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler_ramqueue.c,v 1.38 2014/04/19 13:51:24 gilles Exp $	*/
+/*	$OpenBSD: scheduler_ramqueue.c,v 1.41 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -114,7 +114,6 @@ static int scheduler_ram_schedule(uint64_t);
 static int scheduler_ram_remove(uint64_t);
 static int scheduler_ram_suspend(uint64_t);
 static int scheduler_ram_resume(uint64_t);
-static int scheduler_ram_query(uint64_t);
 
 static void sorted_insert(struct rq_queue *, struct rq_envelope *);
 
@@ -150,7 +149,6 @@ struct scheduler_backend scheduler_backend_ramqueue = {
 	scheduler_ram_remove,
 	scheduler_ram_suspend,
 	scheduler_ram_resume,
-	scheduler_ram_query,
 };
 
 static struct rq_queue	ramqueue;
@@ -801,22 +799,6 @@ scheduler_ram_resume(uint64_t evpid)
 				r++;
 		return (r);
 	}
-}
-
-static int
-scheduler_ram_query(uint64_t evpid)
-{
-	uint32_t msgid;
-
-	if (evpid > 0xffffffff)
-		msgid = evpid_to_msgid(evpid);
-	else
-		msgid = evpid;
-
-	if (tree_get(&ramqueue.messages, msgid) == NULL)
-		return (0);
-
-	return (1);
 }
 
 static void

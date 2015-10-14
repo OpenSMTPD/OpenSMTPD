@@ -49,7 +49,7 @@ static void  table_static_close(void *);
 static int table_static_parse(struct table *, const char *, enum table_type);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME|K_MAILADDRMAP,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME,
 	table_static_config,
 	table_static_open,
 	table_static_update,

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl_smtpd.c,v 1.7 2014/04/29 19:13:14 reyk Exp $	*/
+/*	$OpenBSD: ssl_smtpd.c,v 1.9 2015/04/19 20:29:12 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -45,12 +45,12 @@
 
 
 void *
-ssl_mta_init(void *pkiname, char *cert, off_t cert_len, const char *ciphers)
+ssl_mta_init(void *pkiname, char *cert, off_t cert_len)
 {
 	SSL_CTX	*ctx = NULL;
 	SSL	*ssl = NULL;
 
-	ctx = ssl_ctx_create(pkiname, cert, cert_len, ciphers);
+	ctx = ssl_ctx_create(pkiname, cert, cert_len);
 
 	if ((ssl = SSL_new(ctx)) == NULL)
 		goto err;
@@ -69,12 +69,30 @@ err:
 	return (NULL);
 }
 
+/* dummy_verify */
+static int
+dummy_verify(int ok, X509_STORE_CTX *store)
+{
+	/*
+	 * We *want* SMTP to request an optional client certificate, however we don't want the
+	 * verification to take place in the SMTP process. This dummy verify will allow us to
+	 * asynchronously verify in the lookup process.
+	 */
+	return 1;
+}
+
 void *
-ssl_smtp_init(void *ssl_ctx)
+ssl_smtp_init(void *ssl_ctx, void *sni)
 {
 	SSL	*ssl = NULL;
+	int	(*cb)(SSL *,int *,void *) = sni;
 
 	log_debug("debug: session_start_ssl: switching to SSL");
+
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
+
+	if (cb)
+		SSL_CTX_set_tlsext_servername_callback(ssl_ctx, cb);
 
 	if ((ssl = SSL_new(ssl_ctx)) == NULL)
 		goto err;

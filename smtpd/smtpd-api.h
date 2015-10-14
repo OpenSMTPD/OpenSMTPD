@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtpd-api.h,v 1.22 2015/10/14 21:02:11 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -190,18 +190,17 @@ struct table_open_params {
 };
 
 enum table_service {
-	K_NONE		= 0x000,
-	K_ALIAS		= 0x001,	/* returns struct expand	*/
-	K_DOMAIN	= 0x002,	/* returns struct destination	*/
-	K_CREDENTIALS	= 0x004,	/* returns struct credentials	*/
-	K_NETADDR	= 0x008,	/* returns struct netaddr	*/
-	K_USERINFO	= 0x010,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x020,	/* returns struct source	*/
-	K_MAILADDR	= 0x040,	/* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x080,	/* returns struct addrname	*/
-	K_MAILADDRMAP	= 0x100,	/* returns struct mailaddr	*/
+	K_NONE		= 0x00,
+	K_ALIAS		= 0x01,	/* returns struct expand	*/
+	K_DOMAIN	= 0x02,	/* returns struct destination	*/
+	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
+	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
+	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
+	K_SOURCE	= 0x20, /* returns struct source	*/
+	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
 };
-#define K_ANY		  0xfff
+#define K_ANY		  0xff
 
 enum {
 	PROC_TABLE_OK,
@@ -255,7 +254,7 @@ enum enhanced_status_code {
 	ESC_DELIVERY_TIME_EXPIRED   	      	    	= 47,
 
 	/* 5.x */
-	ESC_INVALID_RECIPIENT				= 50,
+	ESC_INVALID_RECIPIENT   	      	    	= 50,
 	ESC_INVALID_COMMAND	   	      	    	= 51,
 	ESC_SYNTAX_ERROR	   	      	    	= 52,
 	ESC_TOO_MANY_RECIPIENTS	   	      	    	= 53,
@@ -326,11 +325,10 @@ const char *esc_description(enum enhanced_status_code);
 void filter_api_setugid(uid_t, gid_t);
 void filter_api_set_chroot(const char *);
 void filter_api_no_chroot(void);
-void filter_api_set_udata(uint64_t, void *);
-void *filter_api_get_udata(uint64_t);
 
 void filter_api_loop(void);
 int filter_api_accept(uint64_t);
+int filter_api_accept_notify(uint64_t, uint64_t *);
 int filter_api_reject(uint64_t, enum filter_status);
 int filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
@@ -345,10 +343,6 @@ void filter_api_on_rcpt(int(*)(uint64_t, struct mailaddr *));
 void filter_api_on_data(int(*)(uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *));
 void filter_api_on_eom(int(*)(uint64_t, size_t));
-void filter_api_on_reset(void(*)(uint64_t));
-void filter_api_on_disconnect(void(*)(uint64_t));
-void filter_api_on_commit(void(*)(uint64_t));
-void filter_api_on_rollback(void(*)(uint64_t));
 
 /* queue */
 void queue_api_on_close(int(*)(void));
@@ -357,14 +351,11 @@ void queue_api_on_message_commit(int(*)(uint32_t, const char*));
 void queue_api_on_message_delete(int(*)(uint32_t));
 void queue_api_on_message_fd_r(int(*)(uint32_t));
 void queue_api_on_message_corrupt(int(*)(uint32_t));
-void queue_api_on_message_uncorrupt(int(*)(uint32_t));
 void queue_api_on_envelope_create(int(*)(uint32_t, const char *, size_t, uint64_t *));
 void queue_api_on_envelope_delete(int(*)(uint64_t));
 void queue_api_on_envelope_update(int(*)(uint64_t, const char *, size_t));
 void queue_api_on_envelope_load(int(*)(uint64_t, char *, size_t));
 void queue_api_on_envelope_walk(int(*)(uint64_t *, char *, size_t));
-void queue_api_on_message_walk(int(*)(uint64_t *, char *, size_t,
-    uint32_t, int *, void **));
 void queue_api_no_chroot(void);
 void queue_api_set_chroot(const char *);
 void queue_api_set_user(const char *);

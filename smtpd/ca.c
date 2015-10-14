@@ -1,4 +1,4 @@
-/*	$OpenBSD: ca.c,v 1.10 2014/07/10 20:16:48 jsg Exp $	*/
+/*	$OpenBSD: ca.c,v 1.16 2015/10/14 21:05:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Reyk Floeter <reyk@openbsd.org>
@@ -22,11 +22,12 @@
 #include <sys/socket.h>
 #include <sys/tree.h>
 
+#include <signal.h>
 #include <string.h>
 #include <limits.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
 #include <imsg.h>
 #include <pwd.h>
 #include <err.h>
@@ -135,6 +136,9 @@ ca(void)
 
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
+
+	if (pledge("stdio", NULL) == -1)
+		err(1, "pledge");
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");

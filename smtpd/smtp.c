@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.136 2014/04/19 13:52:49 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.143 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -49,11 +49,9 @@ static void smtp_accept(int, short, void *);
 static int smtp_enqueue(uid_t *);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
-static int smtp_sni_callback(SSL *, int *, void *);
 
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
-static size_t	maxsessions;
 
 void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
@@ -61,12 +59,11 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_SMTP_DNS_PTR:
-		case IMSG_SMTP_CHECK_SENDER:
 		case IMSG_SMTP_EXPAND_RCPT:
 		case IMSG_SMTP_LOOKUP_HELO:
 		case IMSG_SMTP_AUTHENTICATE:
-		case IMSG_SMTP_TLS_INIT:
-		case IMSG_SMTP_TLS_VERIFY:
+		case IMSG_SMTP_SSL_INIT:
+		case IMSG_SMTP_SSL_VERIFY:
 			smtp_session_imsg(p, imsg);
 			return;
 		}
@@ -138,8 +135,7 @@ smtp_setup_listeners(void)
 	int			opt;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0);
-		if (l->fd == -1) {
+		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
 				continue;
@@ -166,9 +162,8 @@ smtp_setup_events(void)
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
-		    " pki \"%s\""
-		    " ca \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
-		    l->flags, l->pki_name, l->ca_name);
+		    " pki \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
+		    l->flags, l->pki_name);
 
 		session_socket_blockmode(l->fd, BM_NONBLOCK);
 		if (listen(l->fd, SMTPD_BACKLOG) == -1)
@@ -181,17 +176,15 @@ smtp_setup_events(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
-		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
-			env->sc_tls_ciphers, env->sc_tls_curve))
+		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki))
 			fatal("smtp_setup_events: ssl_setup failure");
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
 
 	purge_config(PURGE_PKI_KEYS);
 
-	maxsessions = ((getdtablesize() - getdtablecount()) & ~0x1) / 2 - SMTP_FD_RESERVE;
-	log_debug("debug: smtp: will accept at most %d clients", (int)maxsessions);
-
+	log_debug("debug: smtp: will accept at most %d clients",
+	    (getdtablesize() - getdtablecount())/2 - SMTP_FD_RESERVE);
 }
 
 static void
@@ -228,12 +221,10 @@ smtp_enqueue(uid_t *euid)
 	if (listener == NULL) {
 		listener = &local;
 		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
-		listener->ss.ss_family = AF_UNIX;
+		listener->ss.ss_family = AF_LOCAL;
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 		(void)strlcpy(listener->hostname, env->sc_hostname,
 		    sizeof(listener->hostname));
-		(void)strlcpy(listener->filter, env->sc_enqueue_filter,
-		    sizeof listener->filter);
 	}
 
 	/*
@@ -244,9 +235,9 @@ smtp_enqueue(uid_t *euid)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		return (-1);
 
-	/* XXX don't fatal here */
+	/* XXX dont' fatal here */
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
-		return (-1);
+		fatal("socketpair");
 
 	hostname = env->sc_hostname;
 	if (euid) {
@@ -302,11 +293,10 @@ smtp_accept(int fd, short event, void *p)
 		return;
 	}
 	io_set_blocking(sock, 0);
-	session_socket_no_linger(sock);
 
 	sessions++;
 	stat_increment("smtp.session", 1);
-	if (listener->ss.ss_family == AF_UNIX)
+	if (listener->ss.ss_family == AF_LOCAL)
 		stat_increment("smtp.session.local", 1);
 	if (listener->ss.ss_family == AF_INET)
 		stat_increment("smtp.session.inet4", 1);
@@ -323,9 +313,11 @@ pause:
 static int
 smtp_can_accept(void)
 {
-	if (sessions + 1 == maxsessions)
-		return 0;
-	return (getdtablesize() - getdtablecount() - SMTP_FD_RESERVE >= 2);
+	size_t max;
+
+	max = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
+
+	return (sessions < max);
 }
 
 void
@@ -343,20 +335,4 @@ smtp_collect(void)
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}
-}
-
-static int
-smtp_sni_callback(SSL *ssl, int *ad, void *arg)
-{
-	const char		*sn;
-	void			*ssl_ctx;
-
-	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-	if (sn == NULL)
-		return SSL_TLSEXT_ERR_NOACK;
-	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
-	if (ssl_ctx == NULL)
-		return SSL_TLSEXT_ERR_NOACK;
-	SSL_set_SSL_CTX(ssl, ssl_ctx);
-	return SSL_TLSEXT_ERR_OK;
 }

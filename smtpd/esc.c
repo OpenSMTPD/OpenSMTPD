@@ -1,4 +1,4 @@
-/* $OpenBSD: esc.c,v 1.2 2014/04/19 17:32:58 gilles Exp $	 */
+/* $OpenBSD: esc.c,v 1.4 2015/10/14 21:02:11 gilles Exp $	 */
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
