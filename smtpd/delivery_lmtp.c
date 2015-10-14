@@ -1,4 +1,4 @@
-/* $OpenBSD: delivery_lmtp.c,v 1.6 2014/04/19 17:24:59 gilles Exp $ */
+/* $OpenBSD: delivery_lmtp.c,v 1.8 2015/10/10 11:42:49 jung Exp $ */
 
 /*
  * Copyright (c) 2013 Ashish SHUKLA <ashish.is@lostca.se>
@@ -27,6 +27,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <paths.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -136,14 +137,16 @@ unix_socket(char *path) {
 static void
 delivery_lmtp_open(struct deliver *deliver)
 {
-	 char *buffer, *lbuf, *rcpt = deliver->to;
+	 char *buffer;
 	 char lhloname[255];
 	 int s;
-	 FILE *fp = NULL;
+	 FILE	*fp;
 	 enum lmtp_state state = LMTP_BANNER;
-	 size_t	len;
+	 size_t sz;
+	 ssize_t len;
 
-	 strsep(&rcpt, " ");
+	 fp = NULL;
+
 	 if (deliver->to[0] == '/')
 		 s = unix_socket(deliver->to);
 	 else
@@ -155,7 +158,7 @@ delivery_lmtp_open(struct deliver *deliver)
 	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
 		 buffer = lmtp_getline(fp);
 		 if (buffer == NULL)
-			 errx(1, "No input received");
+			 err(1, "No input received");
 
 		 switch (state) {
 		 case LMTP_BANNER:
@@ -180,8 +183,7 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_MAIL_FROM:
 			 if (buffer[0] != '2')
 				 errx(1, "MAIL FROM rejected: %s\n", buffer);
-			 fprintf(fp, "RCPT TO:<%s>\r\n",
-			     rcpt ? deliver->dest : deliver->user);
+			 fprintf(fp, "RCPT TO:<%s>\r\n", deliver->user);
 			 state = LMTP_RCPT_TO;
 			 break;
 			 
@@ -195,21 +197,15 @@ delivery_lmtp_open(struct deliver *deliver)
 		 case LMTP_DATA:
 			 if (buffer[0] != '3')
 				 errx(1, "DATA rejected: %s\n", buffer);
-			 lbuf = NULL;
-			 while ((buffer = fgetln(stdin, &len))) {
-				 if (buffer[len- 1] == '\n')
+			 buffer = NULL;
+			 sz = 0;
+			 while ((len = getline(&buffer, &sz, stdin)) != -1) {
+				 if (buffer[len - 1] == '\n')
 					 buffer[len - 1] = '\0';
-				 else {
-					 if ((lbuf = malloc(len + 1)) == NULL)
-						 err(1, NULL);
-					 memcpy(lbuf, buffer, len);
-					 lbuf[len] = '\0';
-					 buffer = lbuf;
-				 }
 				 fprintf(fp, "%s%s\r\n",
 				     *buffer == '.' ? "." : "", buffer);
 			 }
-			 free(lbuf);
+			 free(buffer);
 			 fprintf(fp, ".\r\n");
 			 state = LMTP_QUIT;
 			 break;
