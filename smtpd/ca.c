@@ -25,10 +25,10 @@
 #include <err.h>
 #include <imsg.h>
 #include <limits.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pwd.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
