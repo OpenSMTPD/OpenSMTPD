@@ -112,8 +112,8 @@ init_pipes(void)
 
 	for (i = 0; i < PROC_COUNT; i++)
 		for (j = i + 1; j < PROC_COUNT; j++) {
-			if (socketpair(AF_UNIX, SOCK_STREAM,
-			    PF_UNSPEC, sockpair) == -1)
+			if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
+				sockpair) == -1)
 				fatal("socketpair");
 			pipes[i][j] = sockpair[0];
 			pipes[j][i] = sockpair[1];
