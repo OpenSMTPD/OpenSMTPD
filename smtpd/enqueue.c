@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.81 2014/06/06 15:02:08 gilles Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.100 2015/10/13 08:06:22 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -52,11 +52,11 @@ static void parse_addr_terminal(int);
 static char *qualify_addr(char *);
 static void rcpt_add(char *);
 static int open_connection(void);
-static void get_responses(FILE *, int);
+static int get_responses(FILE *, int);
 static int send_line(FILE *, int, char *, ...);
 static int enqueue_offline(int, char *[], FILE *, FILE *);
+static int savedeadletter(struct passwd *, FILE *);
 
-extern int srv_connect(void);
 extern int srv_connected(void);
 
 enum headerfields {
@@ -122,6 +122,7 @@ struct {
 	int	  saw_content_disposition;
 	int	  saw_content_transfer_encoding;
 	int	  saw_user_agent;
+	int	  noheader;
 } msg;
 
 struct {
@@ -164,7 +165,7 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 int
 enqueue(int argc, char *argv[], FILE *ofp)
 {
-	int			 i, ch, tflag = 0, noheader;
+	int			 i, ch, tflag = 0;
 	char			*fake_from = NULL, *buf;
 	struct passwd		*pw;
 	FILE			*fp, *fout;
@@ -274,7 +275,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		errc(EX_UNAVAILABLE, saved_errno, "mkstemp");
 	}
 	unlink(sfn);
-	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
+	msg.noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
 
 	if (msg.rcpt_cnt == 0)
 		errx(EX_SOFTWARE, "no recipients");
@@ -285,11 +286,17 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	/* check if working in offline mode */
 	/* If the server is not running, enqueue the message offline */
 
-	if (!srv_connected())
+	if (!srv_connected()) {
+		if (pledge("stdio", NULL) == -1)
+			err(1, "pledge");
 		return (enqueue_offline(save_argc, save_argv, fp, ofp));
+	}
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
+
+	if (pledge("stdio", NULL) == -1)
+		err(1, "pledge");
 
 	fout = fdopen(msg.fd, "a+");
 	if (fout == NULL)
@@ -301,10 +308,12 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	 */
 
 	/* banner */
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	send_line(fout, verbose, "EHLO localhost\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	if (msg.dsn_envid != NULL)
 		envid_sz = strlen(msg.dsn_envid);
@@ -315,18 +324,21 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	    msg.dsn_ret ? msg.dsn_ret : "",
 	    envid_sz ? "ENVID=" : "",
 	    envid_sz ? msg.dsn_envid : "");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
 		send_line(fout, verbose, "RCPT TO:<%s> %s%s\n",
 		    msg.rcpts[i],
 		    msg.dsn_notify ? "NOTIFY=" : "",
 		    msg.dsn_notify ? msg.dsn_notify : "");
-		get_responses(fout, 1);
+		if (! get_responses(fout, 1))
+			goto fail;
 	}
 
 	send_line(fout, verbose, "DATA\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	/* add From */
 	if (!msg.saw_from)
@@ -354,7 +366,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	}
 
 	/* add separating newline */
-	if (noheader)
+	if (msg.noheader)
 		send_line(fout, 0, "\n");
 	else
 		inheaders = 1;
@@ -365,9 +377,6 @@ enqueue(int argc, char *argv[], FILE *ofp)
 			err(EX_UNAVAILABLE, "fgetln");
 		if (buf == NULL && feof(fp))
 			break;
-		if (buf == NULL)
-			err(EX_UNAVAILABLE, "fgetln");
-
 		/* newlines have been normalized on first parsing */
 		if (buf[len-1] != '\n')
 			errx(EX_SOFTWARE, "expect EOL");
@@ -381,13 +390,13 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		line = buf;
 
 		if (inheaders) {
-			if (strncasecmp("From ", line, 5) == 0)
+			if (strncasecmp("from ", line, 5) == 0)
 				continue;
-			if (strncasecmp("Return-Path: ", line, 13) == 0)
+			if (strncasecmp("return-path: ", line, 13) == 0)
 				continue;
 		}
-
-		if (msg.saw_content_transfer_encoding || noheader ||
+		
+		if (msg.saw_content_transfer_encoding || msg.noheader ||
 		    inheaders || !msg.need_linesplit) {
 			send_line(fout, 0, "%.*s", (int)len, line);
 			if (inheaders && buf[0] == '\n')
@@ -411,18 +420,25 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		} while (len);
 	}
 	send_line(fout, verbose, ".\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	send_line(fout, verbose, "QUIT\n");
-	get_responses(fout, 1);
+	if (! get_responses(fout, 1))
+		goto fail;
 
 	fclose(fp);
 	fclose(fout);
 
 	exit(EX_OK);
+
+fail:
+	if (pw)
+		savedeadletter(pw, fp);
+	exit(EX_SOFTWARE);
 }
 
-static void
+static int
 get_responses(FILE *fin, int n)
 {
 	char	*buf;
@@ -430,34 +446,45 @@ get_responses(FILE *fin, int n)
 	int	 e;
 
 	fflush(fin);
-	if ((e = ferror(fin)))
-		errx(1, "ferror: %d", e);
+	if ((e = ferror(fin))) {
+		warnx("ferror: %d", e);
+		return 0;
+	}
 
 	while (n) {
 		buf = fgetln(fin, &len);
-		if (buf == NULL && ferror(fin))
-			err(1, "fgetln");
+		if (buf == NULL && ferror(fin)) {
+			warn("fgetln");
+			return 0;
+		}
 		if (buf == NULL && feof(fin))
 			break;
-		if (buf == NULL || len < 1)
-			err(1, "fgetln weird");
+		if (buf == NULL || len < 1) {
+			warn("fgetln weird");
+			return 0;
+		}
 
 		/* account for \r\n linebreaks */
 		if (len >= 2 && buf[len - 2] == '\r' && buf[len - 1] == '\n')
 			buf[--len - 1] = '\n';
 
-		if (len < 4)
-			errx(1, "bad response");
+		if (len < 4) {
+			warnx("bad response");
+			return 0;
+		}
 
 		if (verbose)
 			printf("<<< %.*s", (int)len, buf);
 
 		if (buf[3] == '-')
 			continue;
-		if (buf[0] != '2' && buf[0] != '3')
-			errx(1, "command failed: %.*s", (int)len, buf);
+		if (buf[0] != '2' && buf[0] != '3') {
+			warnx("command failed: %.*s", (int)len, buf);
+			return 0;
+		}
 		n--;
 	}
+	return 1;
 }
 
 static int
@@ -725,8 +752,8 @@ rcpt_add(char *addr)
 		p++;
 	}
 
-	if ((nrcpts = realloc(msg.rcpts,
-	    sizeof(char *) * (msg.rcpt_cnt + n))) == NULL)
+	if ((nrcpts = reallocarray(msg.rcpts,
+	    msg.rcpt_cnt + n, sizeof(char *))) == NULL)
 		err(1, "rcpt_add realloc");
 	msg.rcpts = nrcpts;
 
@@ -785,7 +812,7 @@ open_connection(void)
 static int
 enqueue_offline(int argc, char *argv[], FILE *ifile, FILE *ofile)
 {
-	int	 i, ch;
+	int	i, ch;
 
 	for (i = 1; i < argc; i++) {
 		if (strchr(argv[i], '|') != NULL) {
@@ -793,17 +820,17 @@ enqueue_offline(int argc, char *argv[], FILE *ifile, FILE *ofile)
 			ftruncate(fileno(ofile), 0);
 			exit(EX_SOFTWARE);
 		}
-		fprintf(ofile, "%s%s", i == 1 ? "" : "|", argv[i]);
+		if (fprintf(ofile, "%s%s", i == 1 ? "" : "|", argv[i]) < 0)
+			goto write_error;
 	}
 
-	fprintf(ofile, "\n");
+	if (fputc('\n', ofile) == EOF)
+		goto write_error;
 
-	while ((ch = fgetc(ifile)) != EOF)
-		if (fputc(ch, ofile) == EOF) {
-			warn("write error");
-			ftruncate(fileno(ofile), 0);
-			exit(EX_UNAVAILABLE);
-		}
+	while ((ch = fgetc(ifile)) != EOF) {
+		if (fputc(ch, ofile) == EOF)
+			goto write_error;
+	}
 
 	if (ferror(ifile)) {
 		warn("read error");
@@ -811,7 +838,80 @@ enqueue_offline(int argc, char *argv[], FILE *ifile, FILE *ofile)
 		exit(EX_UNAVAILABLE);
 	}
 
-	fclose(ofile);
+	if (fclose(ofile) == EOF)
+		goto write_error;
 
 	return (EX_TEMPFAIL);
+write_error:
+	warn("write error");
+	ftruncate(fileno(ofile), 0);
+	exit(EX_UNAVAILABLE);
+}
+
+static int
+savedeadletter(struct passwd *pw, FILE *in)
+{
+	char	buffer[PATH_MAX];
+	FILE   *fp;
+	char *buf, *lbuf;
+	size_t len;
+
+	(void)snprintf(buffer, sizeof buffer, "%s/dead.letter", pw->pw_dir);
+
+	if (fseek(in, 0, SEEK_SET) != 0)
+		return 0;
+	
+	if ((fp = fopen(buffer, "w")) == NULL)
+		return 0;
+
+	/* add From */
+	if (!msg.saw_from)
+		fprintf(fp, "From: %s%s<%s>\n",
+		    msg.fromname ? msg.fromname : "",
+		    msg.fromname ? " " : "",
+		    msg.from);
+
+	/* add Date */
+	if (!msg.saw_date)
+		fprintf(fp, "Date: %s\n", time_to_text(timestamp));
+
+	if (msg.need_linesplit) {
+		/* we will always need to mime encode for long lines */
+		if (!msg.saw_mime_version)
+			fprintf(fp, "MIME-Version: 1.0\n");
+		if (!msg.saw_content_type)
+			fprintf(fp, "Content-Type: text/plain; "
+			    "charset=unknown-8bit\n");
+		if (!msg.saw_content_disposition)
+			fprintf(fp, "Content-Disposition: inline\n");
+		if (!msg.saw_content_transfer_encoding)
+			fprintf(fp, "Content-Transfer-Encoding: "
+			    "quoted-printable\n");
+	}
+
+	/* add separating newline */
+	if (msg.noheader)
+		fprintf(fp, "\n");
+
+
+	lbuf = NULL;
+	while ((buf = fgetln(in, &len))) {
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
+		else {
+			/* EOF without EOL, copy and add the NUL */
+			if ((lbuf = malloc(len + 1)) == NULL)
+				err(1, NULL);
+			memcpy(lbuf, buf, len);
+			lbuf[len] = '\0';
+			buf = lbuf;
+		}
+		fprintf(fp, "%s\n", buf);
+	}
+	free(lbuf);
+
+	fprintf(fp, "\n");
+	fclose(fp);
+
+	return 1;
 }
