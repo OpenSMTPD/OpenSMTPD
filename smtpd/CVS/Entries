@@ -6,7 +6,6 @@ D/smtpd////
 D/table-ldap////
 D/table-passwd////
 D/table-sqlite////
-/ca.c/1.16/Wed Oct 14 21:05:31 2015//
 /Makefile/1.12/Wed Oct 14 22:56:04 2015//
 /aldap.c/1.7/Wed Oct 14 22:56:04 2015//
 /aldap.h/1.5/Wed Oct 14 22:56:04 2015//
@@ -79,7 +78,6 @@ D/table-sqlite////
 /smtpd-api.h/1.22/Wed Oct 14 22:56:04 2015//
 /smtpd-defines.h/1.5/Wed Oct 14 22:56:04 2015//
 /smtpd.8/1.26/Wed Oct 14 22:56:04 2015//
-/smtpd.c/1.248/Fri Oct 16 23:05:03 2015//
 /smtpd.conf.5/1.129/Wed Oct 14 22:56:04 2015//
 /smtpd.h/1.477/Wed Oct 14 22:56:04 2015//
 /ssl.c/1.77/Fri Oct 16 23:05:03 2015//
@@ -101,3 +99,5 @@ D/table-sqlite////
 /tree.c/1.5/Wed Oct 14 22:56:04 2015//
 /util.c/1.120/Wed Oct 14 22:56:04 2015//
 /waitq.c/1.5/Wed Oct 14 22:56:04 2015//
+/smtpd.c/1.249/Sat Oct 17 13:03:35 2015//
+/ca.c/1.16/Sat Oct 17 13:06:30 2015//
