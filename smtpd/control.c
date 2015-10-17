@@ -299,6 +299,9 @@ control(void)
 
 	control_listen();
 
+	if (pledge("stdio unix recvfd sendfd", NULL) == -1)
+		err(1, "pledge");
+
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	control_shutdown();
