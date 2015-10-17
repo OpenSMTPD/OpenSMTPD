@@ -25,15 +25,14 @@
 #include <sys/tree.h>
 
 #include <grp.h> /* needed for setgroups */
-#include <signal.h>
-#include <string.h>
+#include <err.h>
+#include <imsg.h>
 #include <limits.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include <imsg.h>
-#include <pwd.h>
-#include <err.h>
 
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
