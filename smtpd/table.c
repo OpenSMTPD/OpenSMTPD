@@ -483,6 +483,7 @@ table_dump_all(void)
 		if (t->t_type & T_HASH) {
 			(void)strlcat(buf, sep, sizeof(buf));
 			(void)strlcat(buf, "HASH", sizeof(buf));
+			sep = ",";
 		}
 		log_debug("TABLE \"%s\" type=%s config=\"%s\"",
 		    t->t_name, buf, t->t_config);
