@@ -226,7 +226,6 @@ mkdirs(char *path, mode_t mode)
 	return 1;
 }
 
-
 int
 ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
 {
