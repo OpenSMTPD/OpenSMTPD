@@ -790,7 +790,7 @@ getmailname(char *hostname, size_t len)
 	FILE	*fp;
 	char	*buf = NULL;
 	size_t	 bufsz = 0;
-	size_t	 buflen;
+	ssize_t	 buflen;
 	int	 error, ret = 0;
 
 	/* First, check if we have MAILNAME_FILE */
