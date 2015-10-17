@@ -186,14 +186,14 @@ delivery_lmtp_open(struct deliver *deliver)
 			 fprintf(fp, "RCPT TO:<%s>\r\n", deliver->user);
 			 state = LMTP_RCPT_TO;
 			 break;
-			 
+
 		 case LMTP_RCPT_TO:
 			 if (buffer[0] != '2')
 				 errx(1, "RCPT TO rejected: %s\n", buffer);
 			 fprintf(fp, "DATA\r\n");
 			 state = LMTP_DATA;
 			 break;
-			 
+
 		 case LMTP_DATA:
 			 if (buffer[0] != '3')
 				 errx(1, "DATA rejected: %s\n", buffer);
