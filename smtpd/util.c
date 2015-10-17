@@ -786,7 +786,8 @@ getmailname(char *hostname, size_t len)
 {
 	struct addrinfo	hints, *res = NULL;
 	FILE	*fp;
-	char	*buf, *lbuf = NULL;
+	char	*buf = NULL;
+	size_t	 bufsz = 0;
 	size_t	 buflen;
 	int	 error, ret = 0;
 
@@ -794,18 +795,11 @@ getmailname(char *hostname, size_t len)
 	if ((fp = fopen(MAILNAME_FILE, "r")) == NULL)
 		goto nomailname;
 
-	if ((buf = fgetln(fp, &buflen)) == NULL)
+	if ((buflen = getline(&buf, &bufsz, fp)) == -1)
 		goto end;
 
-	if (buf[buflen-1] == '\n')
+	if (buf[buflen - 1] == '\n')
 		buf[buflen - 1] = '\0';
-	else {
-		if ((lbuf = calloc(buflen + 1, 1)) == NULL) {
-			log_warn("calloc");
-			fatal("exiting");
-		}
-		memcpy(lbuf, buf, buflen);
-	}
 
 	if (strlcpy(hostname, buf, len) >= len)
 		fprintf(stderr, MAILNAME_FILE " entry too long");
@@ -842,7 +836,7 @@ nomailname:
 	ret = 1;
 
 end:
-	free(lbuf);
+	free(buf);
 	if (res)
 		freeaddrinfo(res);
 	if (fp)
