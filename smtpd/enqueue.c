@@ -302,7 +302,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	if (fout == NULL)
 		err(EX_UNAVAILABLE, "fdopen");
 
-	/* 
+	/*
 	 * We need to call get_responses after every command because we don't
 	 * support PIPELINING on the server-side yet.
 	 */
