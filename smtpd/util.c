@@ -417,7 +417,6 @@ mktmpfile(void)
 {
 	char		path[PATH_MAX];
 	int		fd;
-	mode_t		omode;
 
 	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
 		PATH_TEMPORARY)) {
@@ -425,12 +424,10 @@ mktmpfile(void)
 		fatal("exiting");
 	}
 
-	omode = umask(7077);
 	if ((fd = mkstemp(path)) == -1) {
 		log_warn("cannot create temporary file %s", path);
 		fatal("exiting");
 	}
-	umask(omode);
 	unlink(path);
 	return (fd);
 }
