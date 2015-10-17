@@ -23,9 +23,6 @@ SRCS+=		filter.c
 SRCS+=		forward.c
 SRCS+=		iobuf.c
 SRCS+=		ioev.c
-.if ${OPENBSD_VERSION} != "5.7"
-SRCS+=		libressl.c
-.endif
 SRCS+=		limit.c
 SRCS+=		lka.c
 SRCS+=		lka_session.c
