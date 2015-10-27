@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.250 2015/10/17 16:03:20 sunil Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.252 2015/10/26 09:56:01 jung Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -46,7 +46,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <util.h>
 
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
@@ -685,12 +684,9 @@ main(int argc, char *argv[])
 	offline_timeout.tv_usec = 0;
 	evtimer_add(&offline_ev, &offline_timeout);
 
-	if (pidfile(NULL) < 0)
-		err(1, "pidfile");
-
 	purge_task();
 
-	if (pledge("stdio rpath wpath cpath flock tmppath "
+	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
 	    "getpw sendfd proc exec id inet unix", NULL) == -1)
 		err(1, "pledge");
 	

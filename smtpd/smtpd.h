@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.477 2015/10/14 22:16:38 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.480 2015/10/27 20:14:19 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1061,7 +1061,6 @@ struct ca_vrfy_resp_msg {
 
 /* aliases.c */
 int aliases_get(struct expand *, const char *);
-int aliases_virtual_check(struct table *, const struct mailaddr *);
 int aliases_virtual_get(struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, const char *);
 
@@ -1324,7 +1323,7 @@ int fork_proc_backend(const char *, const char *, const char *);
 
 /* ssl_smtpd.c */
 void   *ssl_mta_init(void *, char *, off_t);
-void   *ssl_smtp_init(void *, void *);
+void   *ssl_smtp_init(void *, void *, int);
 
 
 /* stat_backend.c */
@@ -1398,6 +1397,7 @@ int bsnprintf(char *, size_t, const char *, ...)
 int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(const char *, const char *);
+int mailaddr_match(const struct mailaddr *, const struct mailaddr *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
 int secure_file(int, char *, char *, uid_t, int);
