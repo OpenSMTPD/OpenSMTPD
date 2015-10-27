@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.110 2014/05/25 10:55:36 espie Exp $	*/
+/*	$OpenBSD: util.c,v 1.122 2015/10/17 22:24:36 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -448,7 +448,7 @@ mailaddr_match(const struct mailaddr *maddr1, const struct mailaddr *maddr2)
 	/* catchall */
 	if (m2.user[0] == '\0' && m2.domain[0] == '\0')
 		return 1;
-	
+
 	if (! hostname_match(m1.domain, m2.domain))
 		return 0;
 
