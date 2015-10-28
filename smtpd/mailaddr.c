@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: mailaddr.c,v 1.1 2015/10/28 14:30:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2015 Gilles Chehade <gilles@poolp.org>
