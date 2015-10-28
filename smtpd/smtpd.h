@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.480 2015/10/27 20:14:19 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.482 2015/10/28 14:30:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -431,7 +431,8 @@ enum expand_type {
 	EXPAND_FILTER,
 	EXPAND_INCLUDE,
 	EXPAND_ADDRESS,
-	EXPAND_ERROR
+	EXPAND_ERROR,
+	EXPAND_MAILDIR
 };
 
 struct expandnode {
@@ -463,6 +464,15 @@ struct expand {
 	size_t				 nb_nodes;
 	struct rule			*rule;
 	struct expandnode		*parent;
+};
+
+struct maddrnode {
+	TAILQ_ENTRY(maddrnode)		entries;
+	struct mailaddr			mailaddr;
+};
+
+struct maddrmap {
+	TAILQ_HEAD(xmaddr, maddrnode)	queue;
 };
 
 #define DSN_SUCCESS 0x01
@@ -1181,6 +1191,13 @@ void logit(int, const char *, ...) __attribute__((format (printf, 2, 3)));
 void mda_postfork(void);
 void mda_postprivdrop(void);
 void mda_imsg(struct mproc *, struct imsg *);
+
+
+/* mailaddr.c */
+int mailaddr_line(struct maddrmap *, const char *);
+void maddrmap_init(struct maddrmap *);
+void maddrmap_insert(struct maddrmap *, struct maddrnode *);
+void maddrmap_free(struct maddrmap *);
 
 
 /* mproc.c */
