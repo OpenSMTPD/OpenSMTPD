@@ -571,7 +571,6 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 					header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
 					header_address_rewrite_buffer(buffer, mailaddr_to_text(&s->evp.sender),
 					    sizeof buffer);
-					log_debug("BUFFER: [%s]", buffer);
 				}
 				len = strlen(buffer) + 1;
 				if (iobuf_fqueue(&s->obuf, "%s,", buffer) != (int)len)
@@ -626,8 +625,6 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 			header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
 			header_address_rewrite_buffer(buffer, mailaddr_to_text(&s->evp.sender),
 			    sizeof buffer);
-			log_debug("BUFFER: [%s]", buffer);
-			log_debug("REWRITE AS: [%s]", mailaddr_to_text(&s->evp.sender));
 		}
 		len = strlen(buffer);
 		if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
