@@ -68,6 +68,7 @@ struct rfc2822_parser {
 
 void	rfc2822_parser_init(struct rfc2822_parser *);
 int	rfc2822_parser_feed(struct rfc2822_parser *, const char *);
+void	rfc2822_parser_flush(struct rfc2822_parser *);
 void	rfc2822_parser_reset(struct rfc2822_parser *);
 void	rfc2822_parser_release(struct rfc2822_parser *);
 int	rfc2822_header_callback(struct rfc2822_parser *, const char *,

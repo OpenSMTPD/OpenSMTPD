@@ -140,6 +140,15 @@ rfc2822_parser_init(struct rfc2822_parser *rp)
 }
 
 void
+rfc2822_parser_flush(struct rfc2822_parser *rp)
+{
+	if (! rp->in_hdrs)
+		return;
+
+	header_callback(rp);
+}
+
+void
 rfc2822_parser_reset(struct rfc2822_parser *rp)
 {
 	header_reset(&rp->header);

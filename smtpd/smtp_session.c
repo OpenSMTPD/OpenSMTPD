@@ -1414,6 +1414,9 @@ smtp_io(struct io *io, int evt)
 		/* End of body */
 		if (s->state == STATE_BODY) {
 			log_trace(TRACE_SMTP, "<<< [EOM]");
+
+			rfc2822_parser_flush(&s->rfc2822_parser);
+
 			iobuf_normalize(&s->iobuf);
 			io_set_write(io);
 
