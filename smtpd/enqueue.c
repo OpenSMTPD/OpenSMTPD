@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.100 2015/10/13 08:06:22 gilles Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.105 2015/11/03 05:06:24 mmcc Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -166,10 +166,11 @@ int
 enqueue(int argc, char *argv[], FILE *ofp)
 {
 	int			 i, ch, tflag = 0;
-	char			*fake_from = NULL, *buf;
+	char			*fake_from = NULL, *buf = NULL;
 	struct passwd		*pw;
 	FILE			*fp, *fout;
-	size_t			 len, envid_sz = 0;
+	size_t			 sz = 0, envid_sz = 0;
+	ssize_t			 len;
 	int			 fd;
 	char			 sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 	char			*line;
@@ -289,13 +290,14 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	if (!srv_connected()) {
 		if (pledge("stdio", NULL) == -1)
 			err(1, "pledge");
+
 		return (enqueue_offline(save_argc, save_argv, fp, ofp));
 	}
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
 
-	if (pledge("stdio", NULL) == -1)
+	if (pledge("stdio wpath cpath", NULL) == -1)
 		err(1, "pledge");
 
 	fout = fdopen(msg.fd, "a+");
@@ -372,11 +374,13 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		inheaders = 1;
 
 	for (;;) {
-		buf = fgetln(fp, &len);
-		if (buf == NULL && ferror(fp))
-			err(EX_UNAVAILABLE, "fgetln");
-		if (buf == NULL && feof(fp))
-			break;
+		if ((len = getline(&buf, &sz, fp)) == -1) {
+			if (feof(fp))
+				break;
+			else
+				err(EX_UNAVAILABLE, "getline");
+		}
+
 		/* newlines have been normalized on first parsing */
 		if (buf[len-1] != '\n')
 			errx(EX_SOFTWARE, "expect EOL");
@@ -419,6 +423,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 			}
 		} while (len);
 	}
+	free(buf);
 	send_line(fout, verbose, ".\n");
 	if (! get_responses(fout, 1))
 		goto fail;
@@ -441,27 +446,26 @@ fail:
 static int
 get_responses(FILE *fin, int n)
 {
-	char	*buf;
-	size_t	 len;
-	int	 e;
+	char	*buf = NULL;
+	size_t	 sz = 0;
+	ssize_t	 len;
+	int	 e, ret = 0;
 
 	fflush(fin);
 	if ((e = ferror(fin))) {
 		warnx("ferror: %d", e);
-		return 0;
+		goto err;
 	}
 
 	while (n) {
-		buf = fgetln(fin, &len);
-		if (buf == NULL && ferror(fin)) {
-			warn("fgetln");
-			return 0;
-		}
-		if (buf == NULL && feof(fin))
-			break;
-		if (buf == NULL || len < 1) {
-			warn("fgetln weird");
-			return 0;
+		if ((len = getline(&buf, &sz, fin)) == -1) {
+			if (ferror(fin)) {
+				warn("getline");
+				goto err;
+			} else if (feof(fin))
+				break;
+			else
+				err(EX_UNAVAILABLE, "getline");
 		}
 
 		/* account for \r\n linebreaks */
@@ -470,7 +474,7 @@ get_responses(FILE *fin, int n)
 
 		if (len < 4) {
 			warnx("bad response");
-			return 0;
+			goto err;
 		}
 
 		if (verbose)
@@ -480,11 +484,15 @@ get_responses(FILE *fin, int n)
 			continue;
 		if (buf[0] != '2' && buf[0] != '3') {
 			warnx("command failed: %.*s", (int)len, buf);
-			return 0;
+			goto err;
 		}
 		n--;
 	}
-	return 1;
+
+	ret = 1;
+err:
+	free(buf);
+	return ret;
 }
 
 static int
@@ -550,20 +558,20 @@ build_from(char *fake_from, struct passwd *pw)
 static int
 parse_message(FILE *fin, int get_from, int tflag, FILE *fout)
 {
-	char	*buf;
-	size_t	 len;
+	char	*buf = NULL;
+	size_t	 sz = 0;
+	ssize_t	 len;
 	uint	 i, cur = HDR_NONE;
 	uint	 header_seen = 0, header_done = 0;
 
 	memset(&pstate, 0, sizeof(pstate));
 	for (;;) {
-		buf = fgetln(fin, &len);
-		if (buf == NULL && ferror(fin))
-			err(1, "fgetln");
-		if (buf == NULL && feof(fin))
-			break;
-		if (buf == NULL || len < 1)
-			err(1, "fgetln weird");
+		if ((len = getline(&buf, &sz, fin)) == -1) {
+			if (feof(fin))
+				break;
+			else
+				err(EX_UNAVAILABLE, "getline");
+		}
 
 		/* account for \r\n linebreaks */
 		if (len >= 2 && buf[len - 2] == '\r' && buf[len - 1] == '\n')
@@ -586,7 +594,7 @@ parse_message(FILE *fin, int get_from, int tflag, FILE *fout)
 
 		for (i = 0; !header_done && cur == HDR_NONE &&
 		    i < nitems(keywords); i++)
-			if (len > strlen(keywords[i].word) &&
+			if ((size_t)len > strlen(keywords[i].word) &&
 			    !strncasecmp(buf, keywords[i].word,
 			    strlen(keywords[i].word)))
 				cur = keywords[i].type;
@@ -631,6 +639,7 @@ parse_message(FILE *fin, int get_from, int tflag, FILE *fout)
 			msg.saw_user_agent = 1;
 	}
 
+	free(buf);
 	return (!header_seen);
 }
 
@@ -851,10 +860,11 @@ write_error:
 static int
 savedeadletter(struct passwd *pw, FILE *in)
 {
-	char	buffer[PATH_MAX];
-	FILE   *fp;
-	char *buf, *lbuf;
-	size_t len;
+	char	 buffer[PATH_MAX];
+	FILE	*fp;
+	char	*buf = NULL;
+	size_t	 sz = 0;
+	ssize_t	 len;
 
 	(void)snprintf(buffer, sizeof buffer, "%s/dead.letter", pw->pw_dir);
 
@@ -893,25 +903,14 @@ savedeadletter(struct passwd *pw, FILE *in)
 	if (msg.noheader)
 		fprintf(fp, "\n");
 
-
-	lbuf = NULL;
-	while ((buf = fgetln(in, &len))) {
+	while ((len = getline(&buf, &sz, in)) != -1) {
 		if (buf[len - 1] == '\n')
 			buf[len - 1] = '\0';
-		else {
-			/* EOF without EOL, copy and add the NUL */
-			if ((lbuf = malloc(len + 1)) == NULL)
-				err(1, NULL);
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
 		fprintf(fp, "%s\n", buf);
 	}
-	free(lbuf);
 
+	free(buf);
 	fprintf(fp, "\n");
 	fclose(fp);
-
 	return 1;
 }
