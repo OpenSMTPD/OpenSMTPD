@@ -512,23 +512,19 @@ bounce_next(struct bounce_session *s)
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    "Reporting-MTA: dns; %s\n"
-	    	    "Arrival-Date: %s\n"
 		    "\n",
-	    	    s->smtpname,
-	    	    time_to_text(time(NULL)));
+	    	    s->smtpname);
 
 		TAILQ_FOREACH(evp, &s->msg->envelopes, entry) {
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    	    "Final-Recipient: rfc822; %s@%s\n"
 			    "Action: %s\n"
 	    	    	    "Status: %s\n"
-	    	    	    "Diagnostic-Code: smtp; %s\n"
 	    	    	    "\n",
 			    evp->dest.user,
 			    evp->dest.domain,
 			    action_str(&s->msg->bounce),
-	    	    	    esc_code(evp->esc_class, evp->esc_code),
-	    	    	    esc_description(evp->esc_code));
+	    	    	    esc_code(evp->esc_class, evp->esc_code));
 		}
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
