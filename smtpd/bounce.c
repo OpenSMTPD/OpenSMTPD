@@ -100,7 +100,6 @@ static void bounce_status(struct bounce_session *, const char *, ...);
 static void bounce_io(struct io *, int);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce_session *);
-static const char *bounce_strtype(enum bounce_type);
 static const char *action_str(const struct delivery_bounce *);
 
 static struct tree			wait_fd;
@@ -456,7 +455,7 @@ bounce_next(struct bounce_session *s)
 		    "\n"
 		    "This is a MIME-encapsulated message.\n"
 		    "\n",
-		    bounce_strtype(s->msg->bounce.type),
+		    action_str(&s->msg->bounce),
 		    s->smtpname,
 		    s->msg->to,
 		    time_to_text(time(NULL)),
@@ -801,30 +800,14 @@ action_str(const struct delivery_bounce *b)
 {
 	switch (b->type) {
 	case B_ERROR:
-		return ("failed");
+		return ("error");
 	case B_WARNING:
 		return ("delayed");
 	case B_DSN:
 		if (b->mta_without_dsn)
 			return ("relayed");
 		
-		return ("delivered");
-	default:
-		log_warn("warn: bounce: unknown bounce_type");
-		return ("");
-	}
-}
-
-static const char *
-bounce_strtype(enum bounce_type t)
-{
-	switch (t) {
-	case B_ERROR:
-		return ("error");
-	case B_WARNING:
-		return ("warning");
-	case B_DSN:
-		return ("dsn");
+		return ("success");
 	default:
 		log_warn("warn: bounce: unknown bounce_type");
 		return ("");
