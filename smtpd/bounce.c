@@ -537,6 +537,7 @@ bounce_next(struct bounce_session *s)
 	case BOUNCE_DATA_MESSAGE:
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 		    "--%16" PRIu64 "/%s\n"
+		    "Content-Description: Message headers\n"
 	    	    "Content-Type: message/rfc822\n"
 	    	    "\n",
 	    	    s->boundary, s->smtpname);
