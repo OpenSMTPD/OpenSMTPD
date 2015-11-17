@@ -452,13 +452,16 @@ bounce_next(struct bounce_session *s)
 		    "From: Mailer Daemon <MAILER-DAEMON@%s>\n"
 		    "To: %s\n"
 		    "Date: %s\n"
+		    "Content-Type: multipart/mixed; boundary=%16" PRIu64 "/%s\n"
 		    "\n"
 		    "This is a MIME-encapsulated message.\n"
 		    "\n",
 		    bounce_strtype(s->msg->bounce.type),
 		    s->smtpname,
 		    s->msg->to,
-		    time_to_text(time(NULL)));
+		    time_to_text(time(NULL)),
+		    s->boundary,
+		    s->smtpname);
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 		    "--%16" PRIu64 "/%s\n"
