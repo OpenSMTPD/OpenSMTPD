@@ -452,7 +452,8 @@ bounce_next(struct bounce_session *s)
 		    "To: %s\n"
 		    "Date: %s\n"
 		    "MIME-Version: 1.0\n"
-		    "Content-Type: multipart/mixed; boundary=\"%16" PRIu64 "/%s\"\n"
+		    "Content-Type: multipart/mixed;"
+		    "boundary=\"%16" PRIu64 "/%s\"\n"
 		    "\n"
 		    "This is a MIME-encapsulated message.\n"
 		    "\n",
