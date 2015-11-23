@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.57 2015/10/29 10:25:36 sunil Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.59 2015/11/05 09:14:31 sunil Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -65,6 +65,7 @@ static int (*handler_message_commit)(uint32_t, const char*);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
+static int (*handler_message_uncorrupt)(uint32_t);
 static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
 static int (*handler_envelope_delete)(uint64_t);
 static int (*handler_envelope_update)(uint64_t, const char *, size_t);
@@ -295,6 +296,12 @@ queue_message_corrupt(uint32_t msgid)
 	    "queue-backend: queue_message_corrupt(%08"PRIx32") -> %d", msgid, r);
 
 	return (r);
+}
+
+int
+queue_message_uncorrupt(uint32_t msgid)
+{
+	return handler_message_uncorrupt(msgid);
 }
 
 int
@@ -657,7 +664,7 @@ queue_message_walk(struct envelope *ep, uint32_t msgid, int *done, void **data)
 		(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	}
 
-	return (-1);
+	return (0);
 }
 
 int
@@ -777,6 +784,12 @@ void
 queue_api_on_message_corrupt(int(*cb)(uint32_t))
 {
 	handler_message_corrupt = cb;
+}
+
+void
+queue_api_on_message_uncorrupt(int(*cb)(uint32_t))
+{
+	handler_message_uncorrupt = cb;
 }
 
 void
