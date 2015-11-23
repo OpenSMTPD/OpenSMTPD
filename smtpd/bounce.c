@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.67 2015/10/07 19:25:42 millert Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.68 2015/11/23 06:54:21 sunil Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -319,21 +319,21 @@ bounce_duration(long long int d)
 
 	if (d < 60) {
 		(void)snprintf(buf, sizeof buf, "%lld second%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	} else if (d < 3600) {
 		d = d / 60;
 		(void)snprintf(buf, sizeof buf, "%lld minute%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
 		(void)snprintf(buf, sizeof buf, "%lld hour%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	}
 	else {
 		d = d / (3600 * 24);
 		(void)snprintf(buf, sizeof buf, "%lld day%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	}
 	return (buf);
 }
