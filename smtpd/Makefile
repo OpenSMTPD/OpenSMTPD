@@ -6,9 +6,8 @@ SUBDIR =	smtpd
 SUBDIR+=	smtpctl
 SUBDIR+=	makemap
 
-uninstall:
-	cd smtpd && make uninstall
-	cd smtpctl && make uninstall
-	cd makemap && make uninstall
+SUBDIR+=	table-ldap
+SUBDIR+=	table-passwd
+SUBDIR+=	table-sqlite
 
 .include <bsd.subdir.mk>
