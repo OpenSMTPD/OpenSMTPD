@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.16 2014/05/09 21:30:11 tedu Exp $	*/
+/*	$OpenBSD: table.c,v 1.20 2015/11/23 21:50:12 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -611,7 +611,7 @@ table_parse_lookup(enum table_service service, const char *key,
 			return (-1);
 		}
 		return (1);
-		
+
 	case K_ADDRNAME:
 		if (parse_sockaddr((struct sockaddr *)&lk->addrname.addr,
 		    PF_UNSPEC, key) == -1)
