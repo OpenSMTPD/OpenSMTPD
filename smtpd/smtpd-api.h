@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: smtpd-api.h,v 1.26 2015/11/30 14:47:39 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -196,10 +196,10 @@ enum table_service {
 	K_CREDENTIALS	= 0x004,	/* returns struct credentials	*/
 	K_NETADDR	= 0x008,	/* returns struct netaddr	*/
 	K_USERINFO	= 0x010,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x020,	/* returns struct source	*/
-	K_MAILADDR	= 0x040,	/* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x080,	/* returns struct addrname	*/
-	K_MAILADDRMAP	= 0x100,	/* returns struct mailaddr	*/
+	K_SOURCE	= 0x020, /* returns struct source	*/
+	K_MAILADDR	= 0x040, /* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x080, /* returns struct addrname	*/
+	K_MAILADDRMAP	= 0x100,	/* returns struct maddrmap	*/
 };
 #define K_ANY		  0xfff
 
@@ -255,7 +255,7 @@ enum enhanced_status_code {
 	ESC_DELIVERY_TIME_EXPIRED   	      	    	= 47,
 
 	/* 5.x */
-	ESC_INVALID_RECIPIENT				= 50,
+	ESC_INVALID_RECIPIENT   	      	    	= 50,
 	ESC_INVALID_COMMAND	   	      	    	= 51,
 	ESC_SYNTAX_ERROR	   	      	    	= 52,
 	ESC_TOO_MANY_RECIPIENTS	   	      	    	= 53,
@@ -327,7 +327,7 @@ void filter_api_setugid(uid_t, gid_t);
 void filter_api_set_chroot(const char *);
 void filter_api_no_chroot(void);
 void filter_api_set_udata(uint64_t, void *);
-void *filter_api_get_udata(uint64_t);
+void filter_api_get_udata(uint64_t);
 
 void filter_api_loop(void);
 int filter_api_accept(uint64_t);
