@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.487 2015/11/30 12:49:35 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.489 2015/11/30 14:27:25 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -58,7 +58,8 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
-#define	PATH_LIBEXEC		"/usr/libexec/smtpd"
+#define	PATH_LIBEXEC_DEPRECATED	"/usr/libexec/smtpd"
+#define	PATH_LIBEXEC		"/usr/local/libexec/smtpd:/usr/libexec/smtpd"
 
 
 /*
@@ -112,6 +113,7 @@ struct relayhost {
 	char hostname[HOST_NAME_MAX+1];
 	uint16_t port;
 	char pki_name[PATH_MAX];
+	char ca_name[PATH_MAX];
 	char authtable[PATH_MAX];
 	char authlabel[PATH_MAX];
 	char sourcetable[PATH_MAX];
@@ -541,6 +543,7 @@ struct listener {
 	struct timeval		 timeout;
 	struct event		 ev;
 	char			 pki_name[PATH_MAX];
+	char			 ca_name[PATH_MAX];
 	char			 tag[MAX_TAG_SIZE];
 	char			 filter[PATH_MAX];
 	char			 authtable[LINE_MAX];
@@ -796,6 +799,7 @@ struct mta_relay {
 	char			*sourcetable;
 	uint16_t		 port;
 	char			*pki_name;
+	char			*ca_name;
 	char			*authtable;
 	char			*authlabel;
 	char			*helotable;
