@@ -459,6 +459,7 @@ static int
 lka_authenticate(const char *tablename, const char *user, const char *password)
 {
 	struct table		*table;
+	char			*cpass;
 	union lookup		 lk;
 
 	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
@@ -477,7 +478,10 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		if (!strcmp(lk.creds.password, crypt(password, lk.creds.password)))
+		cpass = crypt(password, lk.creds.password);
+		if (cpass == NULL)
+			return (LKA_PERMFAIL);
+		if (!strcmp(lk.creds.password, cpass))
 			return (LKA_OK);
 		return (LKA_PERMFAIL);
 	}
