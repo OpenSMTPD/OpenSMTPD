@@ -36,7 +36,6 @@
 #include <fts.h>
 #include <imsg.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <login_cap.h>
 #include <paths.h>
 #include <pwd.h>
@@ -359,7 +358,8 @@ parent_sig_handler(int sig, short event, void *p)
 			} else if (WIFEXITED(status)) {
 				if (WEXITSTATUS(status) != 0) {
 					fail = 1;
-					len = asprintf(&cause, "exited abnormally");
+					len = asprintf(&cause,
+					    "exited abnormally");
 				} else
 					len = asprintf(&cause, "exited okay");
 			} else
@@ -420,10 +420,8 @@ parent_sig_handler(int sig, short event, void *p)
 					    "couldn't enqueue offline "
 					    "message %s; smtpctl %s",
 					    child->path, cause);
-				else {
+				else
 					unlink(child->path);
-					rmdir(dirname(child->path));
-				}
 				free(child->path);
 				offline_done();
 				break;
@@ -631,25 +629,15 @@ main(int argc, char *argv[])
 		}
 		else {
 			char   *buf;
-			char   *lbuf;
-			size_t	len;
+			size_t	sz = 0;
+			ssize_t	len;
 
 			if (strcasecmp(env->sc_queue_key, "stdin") == 0) {
-				lbuf = NULL;
-				buf = fgetln(stdin, &len);
-				if (buf[len - 1] == '\n') {
-					lbuf = calloc(len, 1);
-					if (lbuf == NULL)
-						err(1, "calloc");
-					memcpy(lbuf, buf, len-1);
-				}
-				else {
-					lbuf = calloc(len+1, 1);
-					if (lbuf == NULL)
-						err(1, "calloc");
-					memcpy(lbuf, buf, len);
-				}
-				env->sc_queue_key = lbuf;
+				if ((len = getline(&buf, &sz, stdin)) == -1)
+					err(1, "getline");
+				if (buf[len - 1] == '\n')
+					buf[len - 1] = '\0';
+				env->sc_queue_key = buf;
 			}
 		}
 	}
@@ -722,6 +710,10 @@ main(int argc, char *argv[])
 		err(1, "pidfile");
 
 	purge_task();
+
+	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
+		"getpw sendfd proc exec id inet unix", NULL) == -1)
+		err(1, "pledge");
 
 	if (event_dispatch() < 0)
 		fatal("smtpd: event_dispatch");
