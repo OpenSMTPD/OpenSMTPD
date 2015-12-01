@@ -39,9 +39,4 @@ SRCS+=		table_proc.c
 DPADD+= ${LIBUTIL} ${LIBCRYPTO} ${LIBZ}
 LDADD+= -lutil -lcrypto -lz
 
-uninstall:
-	rm -f /usr/share/man/man8/makemap.8
-	rm -f /usr/share/man/man8/newaliases.8
-	rm -f /usr/libexec/smtpd/makemap
-
 .include <bsd.prog.mk>
