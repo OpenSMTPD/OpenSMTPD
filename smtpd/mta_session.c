@@ -1390,13 +1390,14 @@ mta_send(struct mta_session *s, char *fmt, ...)
 static ssize_t
 mta_queue_data(struct mta_session *s)
 {
-	char	*ln;
-	size_t	 len, q;
+	char	*ln = NULL;
+	size_t	 sz = 0, q;
+	ssize_t	 len;
 
 	q = iobuf_queued(&s->iobuf);
 
 	while (iobuf_queued(&s->iobuf) < MTA_HIWAT) {
-		if ((ln = fgetln(s->datafp, &len)) == NULL)
+		if ((len = getline(&ln, &sz, s->datafp)) == -1)
 			break;
 		if (ln[len - 1] == '\n')
 			ln[len - 1] = '\0';
@@ -1404,6 +1405,7 @@ mta_queue_data(struct mta_session *s)
 		    *ln == '.' ? "." : "", ln);
 	}
 
+	free(ln);
 	if (ferror(s->datafp)) {
 		mta_flush_task(s, IMSG_MTA_DELIVERY_TEMPFAIL,
 		    "Error reading content file", 0, 0);
