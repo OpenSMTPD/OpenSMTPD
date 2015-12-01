@@ -341,6 +341,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (ssl == NULL)
 			fatal("mta: ssl_mta_init");
 		io_start_tls(&s->io, ssl);
+
 		explicit_bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		free(resp_ca_cert->cert);
 		free(resp_ca_cert);
