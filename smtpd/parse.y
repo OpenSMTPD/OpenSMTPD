@@ -408,7 +408,7 @@ pki		: opt_pki pki
 opt_listen     	: INET4			{
 			if (listen_opts.options & LO_FAMILY) {
 				yyerror("address family already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_FAMILY;
 			listen_opts.family = AF_INET;
@@ -416,7 +416,7 @@ opt_listen     	: INET4			{
 		| INET6			{
 			if (listen_opts.options & LO_FAMILY) {
 				yyerror("address family already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_FAMILY;
 			listen_opts.family = AF_INET6;
@@ -426,7 +426,7 @@ opt_listen     	: INET4			{
 
 			if (listen_opts.options & LO_PORT) {
 				yyerror("port already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_PORT;
 
@@ -442,7 +442,7 @@ opt_listen     	: INET4			{
 		| PORT NUMBER			{
 			if (listen_opts.options & LO_PORT) {
 				yyerror("port already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_PORT;
 
@@ -455,7 +455,7 @@ opt_listen     	: INET4			{
 		| FILTER STRING			{
 			if (listen_opts.options & LO_FILTER) {
 				yyerror("filter already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_FILTER;
 			listen_opts.filtername = $2;
@@ -463,7 +463,7 @@ opt_listen     	: INET4			{
 		| SMTPS				{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SMTPS;
@@ -471,7 +471,7 @@ opt_listen     	: INET4			{
 		| SMTPS VERIFY 			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
@@ -479,7 +479,7 @@ opt_listen     	: INET4			{
 		| TLS				{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS;
@@ -487,7 +487,7 @@ opt_listen     	: INET4			{
 		| SECURE       			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SSL;
@@ -495,7 +495,7 @@ opt_listen     	: INET4			{
 		| TLS_REQUIRE			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
@@ -503,7 +503,7 @@ opt_listen     	: INET4			{
 		| TLS_REQUIRE VERIFY   		{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
@@ -511,7 +511,7 @@ opt_listen     	: INET4			{
 		| PKI STRING			{
 			if (listen_opts.options & LO_PKI) {
 				yyerror("pki already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_PKI;
 			listen_opts.pki = $2;
@@ -527,7 +527,7 @@ opt_listen     	: INET4			{
 		| AUTH				{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
@@ -535,7 +535,7 @@ opt_listen     	: INET4			{
 		| AUTH_OPTIONAL			{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.auth = F_AUTH;
@@ -543,7 +543,7 @@ opt_listen     	: INET4			{
 		| AUTH tables  			{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
@@ -552,7 +552,7 @@ opt_listen     	: INET4			{
 		| AUTH_OPTIONAL tables 		{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
@@ -561,7 +561,7 @@ opt_listen     	: INET4			{
 		| TAG STRING			{
 			if (listen_opts.options & LO_TAG) {
 				yyerror("tag already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_TAG;
 
@@ -575,7 +575,7 @@ opt_listen     	: INET4			{
 		| HOSTNAME STRING	{
 			if (listen_opts.options & LO_HOSTNAME) {
 				yyerror("hostname already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_HOSTNAME;
 
@@ -586,7 +586,7 @@ opt_listen     	: INET4			{
 
 			if (listen_opts.options & LO_HOSTNAMES) {
 				yyerror("hostnames already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_HOSTNAMES;
 
@@ -600,7 +600,7 @@ opt_listen     	: INET4			{
 		| MASK_SOURCE	{
 			if (listen_opts.options & LO_MASKSOURCE) {
 				yyerror("mask-source already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_MASKSOURCE;
 			listen_opts.flags |= F_MASK_SOURCE;
@@ -608,7 +608,7 @@ opt_listen     	: INET4			{
 		| RECEIVEDAUTH {
 			if (listen_opts.options & LO_RECEIVEDAUTH) {
 				yyerror("received-auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_RECEIVEDAUTH;
 			listen_opts.flags |= F_RECEIVEDAUTH;
@@ -616,7 +616,7 @@ opt_listen     	: INET4			{
 		| NODSN	{
 			if (listen_opts.options & LO_NODSN) {
 				yyerror("no-dsn already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_NODSN;
 			listen_opts.flags &= ~F_EXT_DSN;
