@@ -8,13 +8,14 @@ BINOWN=	root
 BINMODE?=555
 
 BINDIR=	/usr/libexec/smtpd
-MAN=	makemap.8 newaliases.8
+MAN=	aliases.5 forward.5 makemap.8 newaliases.8
 
-CFLAGS+=	-g3 -ggdb -I${.CURDIR}/..
+CFLAGS+=	-fstack-protector-all
+CFLAGS+=	-I${.CURDIR}/..
 CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
-CFLAGS+=	-Wsign-compare -Wbounded
+CFLAGS+=	-Wsign-compare
 CFLAGS+=	-DNO_IO
 
 SRCS=		aliases.c
