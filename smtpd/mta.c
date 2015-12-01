@@ -209,7 +209,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 
 			relay = mta_relay(&evp);
 			/* ignore if we don't know the limits yet */
-			if (relay->limits && 
+			if (relay->limits &&
 			    relay->ntask >= (size_t)relay->limits->task_hiwat) {
 				if (!(relay->state & RELAY_ONHOLD)) {
 					log_info("smtp-out: hiwat reached on %s: holding envelopes",
@@ -736,7 +736,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 			m_create(p_queue, IMSG_MTA_DELIVERY_PERMFAIL, 0, 0, -1);
 			m_add_evpid(p_queue, e->id);
 			m_add_string(p_queue, e->status);
-			m_add_int(p_queue, ESC_INVALID_RECIPIENT);
+			m_add_int(p_queue, ESC_OTHER_STATUS);
 			m_close(p_queue);
 		}
 		else if (e->delivery == IMSG_MTA_DELIVERY_LOOP) {
@@ -1247,13 +1247,13 @@ mta_route_disable(struct mta_route *route, int penalty, int reason)
 	log_info("smtp-out: Disabling route %s for %llus",
 	    mta_route_to_text(route), delay);
 
-	if (route->flags & ROUTE_DISABLED) {
+	if (route->flags & ROUTE_DISABLED)
 		runq_cancel(runq_route, NULL, route);
-		mta_route_unref(route); /* from last call to here */
-	}
+	else
+		mta_route_ref(route);
+
 	route->flags |= reason & ROUTE_DISABLED;
 	runq_schedule(runq_route, time(NULL) + delay, NULL, route);
-	mta_route_ref(route);
 }
 
 static void
@@ -1283,7 +1283,7 @@ mta_drain(struct mta_relay *r)
 	char			 buf[64];
 
 	log_debug("debug: mta: draining %s "
-	    "refcount=%d, ntask=%zu, nconnector=%zu, nconn=%zu", 
+	    "refcount=%d, ntask=%zu, nconnector=%zu, nconn=%zu",
 	    mta_relay_to_text(r),
 	    r->refcount, r->ntask, tree_count(&r->connectors), r->nconn);
 
@@ -1443,7 +1443,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 	TAILQ_FOREACH(mx, &c->relay->domain->mxs, entry) {
 		/*
 		 * New preference level
-		 */		
+		 */
 		if (mx->preference > level) {
 #ifndef IGNORE_MX_PREFERENCE
 			/*
@@ -1609,12 +1609,12 @@ static void
 mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
     const char *relay, const char *status)
 {
-	log_info("smtp-out: session %016"PRIx64": evpid=%016" PRIx64 ", status=%s, "
+	log_info("relay: %s for %016" PRIx64 ": session=%016"PRIx64", "
 	    "from=<%s>, to=<%s>, rcpt=<%s>, source=%s, "
 	    "relay=%s, delay=%s, stat=%s",
-	    evp->session,
-	    evp->id,
 	    prefix,
+	    evp->id,
+	    evp->session,
 	    evp->task->sender,
 	    evp->dest,
 	    evp->rcpt ? evp->rcpt : "-",
