@@ -351,6 +351,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		s = mta_tree_pop(&wait_ssl_verify, resp_ca_vrfy->reqid);
 		if (s == NULL)
 			return;
+
 		if (resp_ca_vrfy->status == CA_OK)
 			s->flags |= MTA_VERIFIED;
 		else if (s->relay->flags & F_TLS_VERIFY) {
@@ -359,6 +360,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			mta_free(s);
 			return;
 		}
+
 		mta_io(&s->io, IO_TLSVERIFIED);
 		io_resume(&s->io, IO_PAUSE_IN);
 		io_reload(&s->io);
