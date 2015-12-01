@@ -1470,7 +1470,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 			/*
 			 * Start looking at MXs on this preference level.
-			 */ 
+			 */
 #endif
 			level = mx->preference;
 		}
