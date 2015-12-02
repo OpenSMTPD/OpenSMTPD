@@ -739,6 +739,9 @@ queue(void)
 	tv.tv_usec = 10;
 	evtimer_add(&ev_qload, &tv);
 
+	if (pledge("stdio rpath wpath cpath flock recvfd sendfd", NULL) == -1)
+		err(1, "pledge");
+
 	if (event_dispatch() <  0)
 		fatal("event_dispatch");
 	queue_shutdown();
