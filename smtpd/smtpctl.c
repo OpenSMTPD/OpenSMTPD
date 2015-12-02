@@ -333,7 +333,7 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 	srv_read(&evpid, sizeof evpid);
 	buflen = rlen;
 	srv_read(buf, rlen);
-	envelope_load_buffer(evp, buf, buflen -1);
+	envelope_load_buffer(evp, buf, buflen - 1);
 	evp->id = evpid;
 
 	srv_end();
