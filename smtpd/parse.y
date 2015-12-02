@@ -603,7 +603,7 @@ opt_listen     	: INET4			{
 			listen_opts.options |= LO_MASKSOURCE;
 			listen_opts.flags |= F_MASK_SOURCE;
 		}
-		| RECEIVEDAUTH {
+		| RECEIVEDAUTH	{
 			if (listen_opts.options & LO_RECEIVEDAUTH) {
 				yyerror("received-auth already specified");
 				YYERROR;
