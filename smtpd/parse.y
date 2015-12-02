@@ -117,8 +117,6 @@ enum listen_options {
 	LO_SENDERS		= 0x000800,
 	LO_RECEIVEDAUTH		= 0x001000,
 	LO_MASQUERADE		= 0x002000,
-	LO_DSNNOTIFY_DISABLE	= 0x004000,
-	LO_DSNRET_HEADERS	= 0x008000,
 	LO_CA			= 0x010000,
 };
 
@@ -177,7 +175,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE DSNNOTIFY DISABLE DSNRET HEADERS ENQUEUER
+%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE ENQUEUER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -620,30 +618,6 @@ opt_listen     	: INET4			{
 			}
 			listen_opts.options |= LO_NODSN;
 			listen_opts.flags &= ~F_EXT_DSN;
-		}
-		| DSNNOTIFY DISABLE {
-			if (listen_opts.options & LO_DSNRET_HEADERS) {
-				yyerror("dsn-notify used in ambiguous context");
-				YYERROR;
-			}
-			if (listen_opts.options & LO_DSNNOTIFY_DISABLE) {
-				yyerror("dsn-notify already specified");
-				YYERROR;
-			}
-			listen_opts.options |= LO_DSNNOTIFY_DISABLE;
-			listen_opts.flags |= F_DSNNOTIFY_DISABLE;
-		}
-		| DSNRET HEADERS {
-			if (listen_opts.options & LO_DSNNOTIFY_DISABLE) {
-				yyerror("dsn-ret used in ambiguous context");
-				YYERROR;
-			}
-			if (listen_opts.options & LO_DSNRET_HEADERS) {
-				yyerror("dsn-ret already specified");
-				YYERROR;
-			}
-			listen_opts.options |= LO_DSNRET_HEADERS;
-			listen_opts.flags |= F_DSNRET_HEADERS;
 		}
 		| SENDERS tables	{
 			struct table	*t = $2;
@@ -1477,10 +1451,7 @@ lookup(char *s)
 		{ "curve",		CURVE },
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
-		{ "disable",		DISABLE },
 		{ "domain",		DOMAIN },
-		{ "dsn-notify",		DSNNOTIFY },
-		{ "dsn-ret",		DSNRET },
 		{ "encryption",		ENCRYPTION },
 		{ "enqueuer",		ENQUEUER },
 		{ "expire",		EXPIRE },
@@ -1488,7 +1459,6 @@ lookup(char *s)
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
-		{ "headers",		HEADERS },
 		{ "hostname",		HOSTNAME },
 		{ "hostnames",		HOSTNAMES },
 		{ "include",		INCLUDE },

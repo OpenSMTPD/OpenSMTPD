@@ -2212,10 +2212,6 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 			s->evp.flags |= EF_BOUNCE;
 		if (s->flags & SF_AUTHENTICATED)
 			s->evp.flags |= EF_AUTHENTICATED;
-		if (s->listener->flags & F_DSNNOTIFY_DISABLE)
-			s->evp.dsn_notify = DSN_NEVER;
-		if (s->listener->flags & F_DSNRET_HEADERS)
-			s->evp.dsn_ret = DSN_RETHDRS;
 	}
 }
 

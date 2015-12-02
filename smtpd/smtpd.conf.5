@@ -675,8 +675,6 @@ Changing the default value might degrade performances.
 .Op Ic senders No < Ns Ar users Ns > Op masquerade
 .Op Ic mask-source
 .Op Ic no-dsn
-.Op Ic dsn-notify Ar disable
-.Op Ic dsn-ret Ar headers
 .Ek
 .Xc
 .Pp
@@ -808,16 +806,6 @@ If the
 .Ic no-dsn
 parameter is used, DSN (Delivery Status Notification) extension will not
 be enabled.
-If the
-.Ic dsn-notify
-parameter is used with the
-.Ar disable
-argument, the listener will not generate DSN upon delivery failures.
-If the
-.Ic dsn-ret
-parameter is used with the
-.Ar headers
-argument, DSN will be generated without the content of the original message.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n

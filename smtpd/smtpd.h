@@ -82,8 +82,6 @@
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
-#define	F_DSNNOTIFY_DISABLE    	0x2000
-#define	F_DSNRET_HEADERS	0x4000
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
