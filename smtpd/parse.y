@@ -2468,12 +2468,11 @@ is_if_in_group(const char *ifname, const char *groupname)
         }
 
         len = ifgr.ifgr_len;
-        ifgr.ifgr_groups =
-            (struct ifg_req *)xcalloc(len/sizeof(struct ifg_req),
+        ifgr.ifgr_groups = xcalloc(len/sizeof(struct ifg_req),
 		sizeof(struct ifg_req), "is_if_in_group");
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1)
                 err(1, "SIOCGIFGROUP");
-	
+
         ifg = ifgr.ifgr_groups;
         for (; ifg && len >= sizeof(struct ifg_req); ifg++) {
                 len -= sizeof(struct ifg_req);
