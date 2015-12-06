@@ -1105,7 +1105,8 @@ offline_enqueue(char *name)
 		char	*envp[2], *p, *tmp;
 		int	 fd;
 		FILE	*fp;
-		size_t	 len;
+		size_t	 sz = 0;
+		ssize_t	 len;
 		arglist	 args;
 
 		if (closefrom(STDERR_FILENO + 1) == -1)
@@ -1141,11 +1142,6 @@ offline_enqueue(char *name)
 			_exit(1);
 		}
 
-		if (fchflags(fd, 0) == -1) {
-			log_warn("warn: smtpd: chflags: %s", path);
-			_exit(1);
-		}
-
 		if (setgroups(1, &pw->pw_gid) ||
 		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
@@ -1162,7 +1158,7 @@ offline_enqueue(char *name)
 		    dup2(fileno(fp), STDIN_FILENO) == -1)
 			_exit(1);
 
-		if ((p = fgetln(fp, &len)) == NULL)
+		if ((len = getline(&p, &sz, fp)) == -1)
 			_exit(1);
 
 		if (p[len - 1] != '\n')
@@ -1175,6 +1171,7 @@ offline_enqueue(char *name)
 		while ((tmp = strsep(&p, "|")) != NULL)
 			addargs(&args, "%s", tmp);
 
+		free(p);
 		if (lseek(fileno(fp), len, SEEK_SET) == -1)
 			_exit(1);
 
