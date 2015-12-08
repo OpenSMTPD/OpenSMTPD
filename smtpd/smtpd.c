@@ -330,16 +330,8 @@ parent_sig_handler(int sig, short event, void *p)
 
 	switch (sig) {
 	case SIGTERM:
-		log_info("info: received signal SIGTERM, shutting down");
-		break;
 	case SIGINT:
-		log_info("info: received signal SIGINT, shutting down");
-		break;
-	}
-
-	switch (sig) {
-	case SIGTERM:
-	case SIGINT:
+		log_info("info: %s, shutting down", strsignal(sig));
 		die_gracefully = 1;
 		/* FALLTHROUGH */
 	case SIGCHLD:
