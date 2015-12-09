@@ -381,7 +381,7 @@ parent_sig_handler(int sig, short event, void *p)
 				    WTERMSIG(status) == SIGALRM) {
 					char *tmp;
 					if (asprintf(&tmp,
-						"terminated; timeout") != -1) {
+					    "terminated; timeout") != -1) {
 						free(cause);
 						cause = tmp;
 					}
@@ -393,8 +393,7 @@ parent_sig_handler(int sig, short event, void *p)
 					cause = child->cause;
 					child->cause = NULL;
 				}
-				if (child->cause)
-					free(child->cause);
+				free(child->cause);
 				log_debug("debug: smtpd: mda process done "
 				    "for session %016"PRIx64 ": %s",
 				    child->mda_id, cause);
@@ -701,7 +700,7 @@ main(int argc, char *argv[])
 	purge_task();
 
 	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
-		"getpw sendfd proc exec id inet unix", NULL) == -1)
+	    "getpw sendfd proc exec id inet unix", NULL) == -1)
 		err(1, "pledge");
 
 	if (event_dispatch() < 0)
@@ -726,6 +725,7 @@ load_pki_tree(void)
 			fatalx("load_pki_tree: missing certificate file");
 		if (pki->pki_key_file == NULL)
 			fatalx("load_pki_tree: missing key file");
+
 		if (! ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
 		if (pki->pki_dhparams_file)
@@ -753,6 +753,7 @@ load_pki_keys(void)
 	iter_dict = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
 		log_debug("info: loading pki keys for %s", k);
+
 		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
 			fatalx("load_pki_keys: failed to load key file");
 	}
