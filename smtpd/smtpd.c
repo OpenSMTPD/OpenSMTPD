@@ -619,7 +619,7 @@ main(int argc, char *argv[])
 				err(1, "strdup");
 		}
 		else {
-			char   *buf;
+			char   *buf = NULL;
 			size_t	sz = 0;
 			ssize_t	len;
 
