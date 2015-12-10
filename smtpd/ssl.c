@@ -55,9 +55,9 @@ ssl_init(void)
 
 	SSL_library_init();
 	SSL_load_error_strings();
-	
+
 	OpenSSL_add_all_algorithms();
-	
+
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
@@ -82,7 +82,7 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
-	u_int8_t sid[SSL_MAX_SID_CTX_LENGTH];
+	uint8_t  sid[SSL_MAX_SID_CTX_LENGTH];
 
 	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
 
@@ -154,8 +154,7 @@ ssl_load_file(const char *name, off_t *len, mode_t perm)
 	return (buf);
 
 fail:
-	if (buf != NULL)
-		free(buf);
+	free(buf);
 	saved_errno = errno;
 	close(fd);
 	errno = saved_errno;
@@ -362,7 +361,7 @@ ssl_to_text(const SSL *ssl)
 {
 	static char	buf[256];
 
-	(void) snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
+	(void)snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
 	    SSL_get_version(ssl),
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
