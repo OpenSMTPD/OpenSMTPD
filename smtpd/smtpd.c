@@ -1095,7 +1095,7 @@ offline_enqueue(char *name)
 	}
 
 	if (pid == 0) {
-		char	*envp[2], *p, *tmp;
+		char	*envp[2], *p = NULL, *tmp;
 		int	 fd;
 		FILE	*fp;
 		size_t	 sz = 0;
