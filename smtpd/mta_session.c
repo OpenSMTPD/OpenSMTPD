@@ -319,8 +319,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (resp_ca_cert->status == CA_FAIL) {
 			if (s->relay->pki_name) {
-				log_info("smtp-out: session %016"PRIx64
-				    ": disconnected (CA failure)", s->id);
+				log_info("smtp-out: Disconnecting session %016"PRIx64
+				    ": CA failure", s->id);
 				mta_free(s);
 				return;
 			}
@@ -434,8 +434,7 @@ mta_free(struct mta_session *s)
 		fatalx("current task should have been deleted already");
 	if (s->datafp)
 		fclose(s->datafp);
-	if (s->helo)
-		free(s->helo);
+	free(s->helo);
 
 	relay = s->relay;
 	route = s->route;
@@ -552,10 +551,9 @@ mta_connect(struct mta_session *s)
 	else
 		schema = "smtp://";
 
-	log_info("smtp-out: session %016" PRIx64
-	    ": connecting to %s%s:%d (%s)",
-	    s->id, schema, sa_to_text(s->route->dst->sa),
-	    portno, s->route->dst->ptrname);
+	log_info("smtp-out: Connecting to %s%s:%d (%s) on session"
+	    " %016"PRIx64"...", schema, sa_to_text(s->route->dst->sa),
+	    portno, s->route->dst->ptrname, s->id);
 
 	mta_enter_state(s, MTA_INIT);
 	iobuf_xinit(&s->iobuf, 0, 0, "mta_connect");
@@ -719,8 +717,7 @@ mta_enter_state(struct mta_session *s, int newstate)
 		}
 
 		if (s->msgtried >= MAX_TRYBEFOREDISABLE) {
-			log_info("smtp-out: session %016"PRIx64
-			    "remote host seems to reject all mails",
+			log_info("smtp-out: Remote host seems to reject all mails on session %016"PRIx64,
 			    s->id);
 			mta_route_down(s->relay, s->route);
 			mta_enter_state(s, MTA_QUIT);
@@ -1150,6 +1147,8 @@ mta_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_CONNECTED:
+		log_info("smtp-out: Connected on session %016"PRIx64, s->id);
+
 		if (s->use_smtps) {
 			io_set_write(io);
 			mta_start_tls(s);
@@ -1161,7 +1160,7 @@ mta_io(struct io *io, int evt)
 		break;
 
 	case IO_TLSREADY:
-		log_info("smtp-out: session %016"PRIx64": TLS started %s",
+		log_info("smtp-out: Started TLS on session %016"PRIx64": %s",
 		    s->id, ssl_to_text(s->io.ssl));
 		s->flags |= MTA_TLS;
 
@@ -1173,9 +1172,10 @@ mta_io(struct io *io, int evt)
 	case IO_TLSVERIFIED:
 		x = SSL_get_peer_certificate(s->io.ssl);
 		if (x) {
-			log_info("smtp-out: session %016"PRIx64
-			    ": server certificate verification %s",
-			    s->id, (s->flags & MTA_VERIFIED) ? "succeeded" : "failed");
+			log_info("smtp-out: Server certificate verification %s "
+			    "on session %016"PRIx64,
+			    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
+			    s->id);
 			X509_free(x);
 		}
 
@@ -1258,10 +1258,9 @@ mta_io(struct io *io, int evt)
 		else
 			(void)strlcpy(s->replybuf, line, sizeof s->replybuf);
 
-
 		if (s->state == MTA_QUIT) {
-			log_info("smtp-out: session %016"PRIx64
-			    ": connection closed, %zu message%s sent.", s->id, s->msgcount,
+			log_info("smtp-out: Closing session %016"PRIx64
+			    ": %zu message%s sent.", s->id, s->msgcount,
 			    (s->msgcount > 1) ? "s" : "");
 			mta_free(s);
 			return;
@@ -1322,8 +1321,8 @@ mta_io(struct io *io, int evt)
 		else if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
 			/* error in non-strict SSL negotiation, downgrade to plain */
 			if (s->flags & MTA_TLS) {
-				log_info("smtp-out: session %016"PRIx64
-				    ": error: opportunistic TLS failed, "
+				log_info("smtp-out: Error on session %016"PRIx64
+				    ": opportunistic TLS failed, "
 				    "downgrading to plain", s->id);
 				s->flags &= ~MTA_TLS;
 				s->flags |= MTA_DOWNGRADE_PLAIN;
@@ -1339,8 +1338,8 @@ mta_io(struct io *io, int evt)
 		log_debug("debug: mta: %p: TLS IO error: %s", s, io->error);
 		if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
 			/* error in non-strict SSL negotiation, downgrade to plain */
-			log_info("smtp-out: session %016"PRIx64
-			    ": error: TLS failed, "
+			log_info("smtp-out: TLS Error on session %016"PRIx64
+			    ": TLS failed, "
 			    "downgrading to plain", s->id);
 			s->flags &= ~MTA_TLS;
 			s->flags |= MTA_DOWNGRADE_PLAIN;
@@ -1501,17 +1500,17 @@ mta_error(struct mta_session *s, const char *fmt, ...)
 	va_end(ap);
 
 	if (s->msgcount)
-		log_info("smtp-out: session %016"PRIx64
-		    ": error after %zu message%s sent: %s", s->id, s->msgcount,
+		log_info("smtp-out: Error on session %016"PRIx64
+		    " after %zu message%s sent: %s", s->id, s->msgcount,
 		    (s->msgcount > 1) ? "s" : "", error);
 	else
-		log_info("smtp-out: session %016"PRIx64 ": error: %s",
+		log_info("smtp-out: Error on session %016"PRIx64 ": %s",
 		    s->id, error);
 	/*
 	 * If not connected yet, and the error is not local, just ignore it
 	 * and try to reconnect.
 	 */
-	if (s->state == MTA_INIT && 
+	if (s->state == MTA_INIT &&
 	    (errno == ETIMEDOUT || errno == ECONNREFUSED)) {
 		log_debug("debug: mta: not reporting route error yet");
 		free(error);
