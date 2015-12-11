@@ -189,7 +189,7 @@ smtp_setup_events(void)
 	purge_config(PURGE_PKI_KEYS);
 
 	maxsessions = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
-	log_debug("debug: smtp: will accept at most %zx clients", (int)maxsessions);
+	log_debug("debug: smtp: will accept at most %zx clients", maxsessions);
 
 }
 
