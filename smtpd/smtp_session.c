@@ -380,14 +380,14 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 			else {
 				if (skip) {
 					if (smtp_message_printf(s, "%c",
-						l->buffer[i]) == -1)
+					    l->buffer[i]) == -1)
 						return;
 				}
 				else {
 					buffer[j++] = l->buffer[i];
 					if (j == sizeof (buffer) - 1) {
 						if (smtp_message_printf(s, "%s",
-							buffer) != -1)
+						    buffer) != -1)
 							return;
 						skip = 1;
 						j = 0;
@@ -647,6 +647,7 @@ smtp_session(struct listener *listener, int sock,
 	struct smtp_session	*s;
 
 	log_debug("debug: smtp: new client on listener: %p", listener);
+
 	smtp_session_init();
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)
@@ -679,7 +680,7 @@ smtp_session(struct listener *listener, int sock,
 	rfc2822_header_default_callback(&s->rfc2822_parser,
 	    header_default_callback, s);
 	rfc2822_header_callback(&s->rfc2822_parser, "bcc",
-            header_bcc_callback, s);
+	    header_bcc_callback, s);
 	rfc2822_header_callback(&s->rfc2822_parser, "from",
 	    header_domain_append_callback, s);
         rfc2822_header_callback(&s->rfc2822_parser, "to",
