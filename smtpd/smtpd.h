@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.494 2015/12/07 12:29:19 sunil Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.496 2015/12/11 07:51:38 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -83,6 +83,7 @@
 #define	F_TLS_VERIFY		0x200
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
+#define	F_MASQUERADE		0x1000
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
@@ -551,6 +552,7 @@ struct listener {
 	char			 authtable[LINE_MAX];
 	char			 hostname[HOST_NAME_MAX+1];
 	char			 hostnametable[PATH_MAX];
+	char			 sendertable[PATH_MAX];
 	TAILQ_ENTRY(listener)	 entry;
 
 	int			 local;		/* there must be a better way */
@@ -1183,6 +1185,18 @@ int expand_to_text(struct expand *, char *, size_t);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
+/* filter.c */
+void filter_postfork(void);
+void filter_configure(void);
+void filter_connect(uint64_t, const struct sockaddr *,
+    const struct sockaddr *, const char *, const char *);
+void filter_mailaddr(uint64_t, int, const struct mailaddr *);
+void filter_line(uint64_t, int, const char *);
+void filter_eom(uint64_t, int, size_t);
+void filter_event(uint64_t, int);
+void filter_build_fd_chain(uint64_t, int);
+
+
 /* forward.c */
 int forwards_get(int, struct expand *);
 
@@ -1219,8 +1233,10 @@ void mda_postfork(void);
 void mda_postprivdrop(void);
 void mda_imsg(struct mproc *, struct imsg *);
 
+
 /* makemap.c */
 int makemap(int, char **);
+
 
 /* mailaddr.c */
 int mailaddr_line(struct maddrmap *, const char *);
@@ -1356,6 +1372,8 @@ void smtp_collect(void);
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
     const char *);
 void smtp_session_imsg(struct mproc *, struct imsg *);
+void smtp_filter_response(uint64_t, int, int, uint32_t, const char *);
+void smtp_filter_fd(uint64_t, int);
 
 
 /* smtpd.c */
