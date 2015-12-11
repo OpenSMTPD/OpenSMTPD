@@ -1412,8 +1412,8 @@ struct keywords {
 int
 yyerror(const char *fmt, ...)
 {
-	va_list ap;
-	char*msg;
+	va_list		 ap;
+	char		*msg;
 
 	file->errors++;
 	va_start(ap, fmt);
@@ -1518,10 +1518,10 @@ lookup(char *s)
 
 #define MAXPUSHBACK	128
 
-u_char	*parsebuf;
-int	 parseindex;
-u_char	 pushback_buffer[MAXPUSHBACK];
-int	 pushback_index = 0;
+unsigned char  *parsebuf;
+int		parseindex;
+unsigned char	pushback_buffer[MAXPUSHBACK];
+int		pushback_index = 0;
 
 int
 lgetc(int quotec)
@@ -1611,10 +1611,10 @@ findeol(void)
 int
 yylex(void)
 {
-	u_char	 buf[8096];
-	u_char	*p, *val;
-	int	 quotec, next, c;
-	int	 token;
+	unsigned char	 buf[8096];
+	unsigned char	*p, *val;
+	int		 quotec, next, c;
+	int		 token;
 
 top:
 	p = buf;
@@ -2057,10 +2057,10 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 
 	if (lo->port != 0 && lo->ssl == F_SSL)
 		errx(1, "invalid listen option: tls/smtps on same port");
-	
+
 	if (lo->auth != 0 && !lo->ssl)
 		errx(1, "invalid listen option: auth requires tls/smtps");
-	
+
 	if (lo->pki && !lo->ssl)
 		errx(1, "invalid listen option: pki requires tls/smtps");
 
@@ -2126,6 +2126,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 			fatalx(NULL);
 		}
 	}
+
 	if (lo->ca != NULL) {
 		if (! lowercase(h->ca_name, lo->ca, sizeof(h->ca_name))) {
 			log_warnx("ca name too long: %s", lo->ca);
@@ -2196,7 +2197,7 @@ host_v6(const char *s, in_port_t port)
 
 	if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
 		h->local = 1;
-	
+
 	return (h);
 }
 
@@ -2406,41 +2407,41 @@ delaytonum(char *str)
 	size_t           len;
 	const char      *errstr = NULL;
 	int              delay;
-  	
+
 	/* we need at least 1 digit and 1 unit */
 	len = strlen(str);
 	if (len < 2)
 		goto bad;
-	
+
 	switch(str[len - 1]) {
-		
+	
 	case 's':
 		factor = 1;
 		break;
-		
+	
 	case 'm':
 		factor = 60;
 		break;
-		
+
 	case 'h':
 		factor = 60 * 60;
 		break;
-		
+
 	case 'd':
 		factor = 24 * 60 * 60;
 		break;
-		
+
 	default:
 		goto bad;
 	}
-  	
+
 	str[len - 1] = '\0';
 	delay = strtonum(str, 1, INT_MAX / factor, &errstr);
 	if (errstr)
 		goto bad;
-	
+
 	return (delay * factor);
-  	
+
 bad:
 	return (-1);
 }
@@ -2499,7 +2500,7 @@ create_filter_proc(char *name, char *prog)
 		return (NULL);
 	}
 
-	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC, prog) == -1) {
+	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC_DEPRECATED, prog) == -1) {
 		yyerror("filter \"%s\" asprintf failed", name);
 		return (0);
 	}
