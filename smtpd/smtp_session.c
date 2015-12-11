@@ -350,7 +350,7 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 	if (smtp_message_printf(s, "%s:", hdr->name) == -1)
 		return;
 
-	j = 0;
+	i = j = 0;
 	escape = quote = comment = skip = 0;
 	memset(buffer, 0, sizeof buffer);
 
@@ -416,14 +416,8 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 	if (buffer[0]) {
 		if (j + strlen(s->listener->hostname) + 1 < sizeof buffer)
 			header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
-		if (smtp_message_printf(s, "%s", buffer) == -1)
-			goto ioerror;
+		smtp_message_printf(s, "%s", buffer);
 	}
-	return;
-
-ioerror:
-	s->msgflags |= MF_ERROR_IO;
-	return;
 }
 
 static void
