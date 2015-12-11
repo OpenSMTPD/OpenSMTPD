@@ -1220,9 +1220,11 @@ void imsgproc_set_write(struct imsgproc *);
 void imsgproc_set_read_write(struct imsgproc *);
 void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
+
 /* limit.c */
 void limit_mta_set_defaults(struct mta_limits *);
 int limit_mta_set(struct mta_limits *, const char*, int64_t);
+
 
 /* lka.c */
 pid_t lka(void);
@@ -1237,6 +1239,7 @@ void lka_session_forward_reply(struct forward_req *, int);
 void vlog(int, const char *, va_list);
 void logit(int, const char *, ...) __attribute__((format (printf, 2, 3)));
 
+
 /* mda.c */
 void mda_postfork(void);
 void mda_postprivdrop(void);
@@ -1246,11 +1249,13 @@ void mda_imsg(struct mproc *, struct imsg *);
 /* makemap.c */
 int makemap(int, char **);
 
+
 /* mailaddr.c */
 int mailaddr_line(struct maddrmap *, const char *);
 void maddrmap_init(struct maddrmap *);
 void maddrmap_insert(struct maddrmap *, struct maddrnode *);
 void maddrmap_free(struct maddrmap *);
+
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, char **);
@@ -1503,6 +1508,7 @@ int base64_decode(char const *, unsigned char *, size_t);
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
 void waitq_run(void *, void *);
+
 
 /* runq.c */
 struct runq;
