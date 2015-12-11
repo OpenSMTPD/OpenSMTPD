@@ -2414,11 +2414,11 @@ delaytonum(char *str)
 		goto bad;
 
 	switch(str[len - 1]) {
-	
+
 	case 's':
 		factor = 1;
 		break;
-	
+
 	case 'm':
 		factor = 60;
 		break;
