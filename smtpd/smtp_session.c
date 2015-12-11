@@ -691,6 +691,8 @@ smtp_session(struct listener *listener, int sock,
 	    dataline_callback, s);
 
 	if (hostname || listener->local) {
+		rfc2822_missing_header_callback(&s->rfc2822_parser, "date",
+		    header_missing_callback, s);
 		rfc2822_missing_header_callback(&s->rfc2822_parser, "message-id",
 		    header_missing_callback, s);
 	}
