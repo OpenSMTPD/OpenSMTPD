@@ -16,7 +16,6 @@
  */
 
 #define SSL_CIPHERS		"HIGH:!aNULL:!MD5"
-#define	SSL_ECDH_CURVE		"prime256v1"
 #define	SSL_SESSION_TIMEOUT	300
 
 struct pki {

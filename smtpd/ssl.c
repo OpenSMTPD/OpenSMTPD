@@ -107,7 +107,7 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx, curve);
+	SSL_CTX_set_ecdh_auto(ctx, 1);
 
 	*ctxp = ctx;
 	return 1;
@@ -515,29 +515,6 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 		ssl_error("ssl_set_ephemeral_key_exchange");
 		fatal("ssl_set_ephemeral_key_exchange: cannot set tmp dh");
 	}
-}
-
-void
-ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
-{
-	int	nid;
-	EC_KEY *ecdh;
-
-	if (curve == NULL)
-		curve = SSL_ECDH_CURVE;
-	if ((nid = OBJ_sn2nid(curve)) == 0) {
-		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unknown curve name %s", curve);
-	}
-
-	if ((ecdh = EC_KEY_new_by_curve_name(nid)) == NULL) {
-		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unable to create curve %s", curve);
-	}
-
-	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
-	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
-	EC_KEY_free(ecdh);
 }
 
 int
