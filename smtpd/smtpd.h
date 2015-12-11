@@ -614,7 +614,7 @@ struct smtpd {
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 
-       	struct dict			       *sc_ca_dict;
+	struct dict			       *sc_ca_dict;
 	struct dict			       *sc_pki_dict;
 	struct dict			       *sc_ssl_dict;
 
@@ -1320,6 +1320,7 @@ struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
 
+
 /* mta_session.c */
 void mta_session(struct mta_relay *, struct mta_route *);
 void mta_session_imsg(struct mproc *, struct imsg *);
@@ -1353,6 +1354,7 @@ int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);
 int queue_message_walk(struct envelope *, uint32_t, int *, void **);
+
 
 /* ruleset.c */
 struct rule *ruleset_match(const struct envelope *);
@@ -1459,6 +1461,7 @@ const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
 const char *mailaddr_to_text(const struct mailaddr *);
 const char *expandnode_to_text(struct expandnode *);
+
 
 /* util.c */
 typedef struct arglist arglist;
