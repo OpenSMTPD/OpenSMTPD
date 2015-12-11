@@ -46,7 +46,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <util.h>
 
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
