@@ -95,6 +95,7 @@
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
 #define	RELAY_TLS_VERIFY	0x200
+
 #define MTA_EXT_DSN		0x400
 
 
@@ -1110,7 +1111,6 @@ struct msg_walkinfo {
 
 /* aliases.c */
 int aliases_get(struct expand *, const char *);
-int aliases_virtual_check(struct table *, const struct mailaddr *);
 int aliases_virtual_get(struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, const char *);
 
