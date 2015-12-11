@@ -232,8 +232,8 @@ static struct tree wait_ssl_verify;
 static void
 header_default_callback(const struct rfc2822_header *hdr, void *arg)
 {
-	struct smtp_session	*s = arg;
-	struct rfc2822_line	*l;
+	struct smtp_session    *s = arg;
+	struct rfc2822_line    *l;
 
 	if (smtp_message_printf(s, "%s:", hdr->name) == -1)
 		return;
