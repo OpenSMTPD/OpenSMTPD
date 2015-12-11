@@ -188,8 +188,8 @@ smtp_setup_events(void)
 
 	purge_config(PURGE_PKI_KEYS);
 
-	maxsessions = ((getdtablesize() - getdtablecount()) & ~0x1) / 2 - SMTP_FD_RESERVE;
-	log_debug("debug: smtp: will accept at most %d clients", (int)maxsessions);
+	maxsessions = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
+	log_debug("debug: smtp: will accept at most %zx clients", (int)maxsessions);
 
 }
 
@@ -243,7 +243,6 @@ smtp_enqueue(uid_t *euid)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		return (-1);
 
-	/* XXX don't fatal here */
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		return (-1);
 
