@@ -104,20 +104,20 @@ static struct ca	*sca;
 
 enum listen_options {
 	LO_FAMILY	= 0x000001,
-	LO_PORT	        = 0x000002,
-	LO_SSL	       	= 0x000004,
+	LO_PORT		= 0x000002,
+	LO_SSL		= 0x000004,
 	LO_FILTER      	= 0x000008,
-	LO_PKI	       	= 0x000010,
-	LO_AUTH	       	= 0x000020,
-	LO_TAG	       	= 0x000040,
-	LO_HOSTNAME	= 0x000080,
-	LO_HOSTNAMES	= 0x000100,
-	LO_MASKSOURCE	= 0x000200,
+	LO_PKI      	= 0x000010,
+	LO_AUTH      	= 0x000020,
+	LO_TAG      	= 0x000040,
+	LO_HOSTNAME   	= 0x000080,
+	LO_HOSTNAMES   	= 0x000100,
+	LO_MASKSOURCE  	= 0x000200,
 	LO_NODSN	= 0x000400,
 	LO_SENDERS	= 0x000800,
-	LO_RECEIVEDAUTH	= 0x001000,
+	LO_RECEIVEDAUTH = 0x001000,
 	LO_MASQUERADE	= 0x002000,
-	LO_CA		= 0x010000,
+	LO_CA		= 0x010000
 };
 
 static struct listen_opts {
