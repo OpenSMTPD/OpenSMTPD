@@ -345,13 +345,10 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 	struct rfc2822_line    *l;
 	size_t			i, j;
 	int			escape, quote, comment, skip;
-	size_t			len;
 	char			buffer[APPEND_DOMAIN_BUFFER_SIZE];
 
-	len = strlen(hdr->name) + 1;
-	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len)
-		goto ioerror;
-	s->odatalen += len;
+	if (smtp_message_printf(s, "%s:", hdr->name) == -1)
+		return;
 
 	j = 0;
 	escape = quote = comment = skip = 0;
@@ -374,27 +371,24 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 			if (l->buffer[i] == ',' && !escape && !quote && !comment) {
 				if (!skip && j + strlen(s->listener->hostname) + 1 < sizeof buffer)
 					header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
-				len = strlen(buffer) + 1;
-				if (iobuf_fqueue(&s->obuf, "%s,", buffer) != (int)len)
-					goto ioerror;
-				s->odatalen += len;
+				if (smtp_message_printf(s, "%s,", buffer) == -1)
+					return;
 				j = 0;
 				skip = 0;
 				memset(buffer, 0, sizeof buffer);
 			}
 			else {
 				if (skip) {
-					if (iobuf_fqueue(&s->obuf, "%c", l->buffer[i]) != (int)1)
-						goto ioerror;
-					s->odatalen += 1;
+					if (smtp_message_printf(s, "%c",
+						l->buffer[i]) == -1)
+						return;
 				}
 				else {
 					buffer[j++] = l->buffer[i];
 					if (j == sizeof (buffer) - 1) {
-						len = strlen(buffer);
-						if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
-							goto ioerror;
-						s->odatalen += len;
+						if (smtp_message_printf(s, "%s",
+							buffer) != -1)
+							return;
 						skip = 1;
 						j = 0;
 						memset(buffer, 0, sizeof buffer);
@@ -403,17 +397,14 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 			}
 		}
 		if (skip) {
-			if (iobuf_fqueue(&s->obuf, "\n", l->buffer[i]) != (int)1)
-				goto ioerror;
-			s->odatalen += 1;
+			if (smtp_message_printf(s, "\n") == -1)
+				return;
 		}
 		else {
 			buffer[j++] = '\n';
 			if (j == sizeof (buffer) - 1) {
-				len = strlen(buffer);
-				if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
-					goto ioerror;
-				s->odatalen += len;
+				if (smtp_message_printf(s, "%s", buffer) == -1)
+					return;
 				skip = 1;
 				j = 0;
 				memset(buffer, 0, sizeof buffer);
@@ -425,10 +416,8 @@ header_domain_append_callback(const struct rfc2822_header *hdr, void *arg)
 	if (buffer[0]) {
 		if (j + strlen(s->listener->hostname) + 1 < sizeof buffer)
 			header_append_domain_buffer(buffer, s->listener->hostname, sizeof buffer);
-		len = strlen(buffer);
-		if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
+		if (smtp_message_printf(s, "%s", buffer) == -1)
 			goto ioerror;
-		s->odatalen += len;
 	}
 	return;
 
