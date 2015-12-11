@@ -1518,10 +1518,10 @@ lookup(char *s)
 
 #define MAXPUSHBACK	128
 
-unsigned char  *parsebuf;
-int		parseindex;
-unsigned char	pushback_buffer[MAXPUSHBACK];
-int		pushback_index = 0;
+unsigned char	*parsebuf;
+int		 parseindex;
+unsigned char	 pushback_buffer[MAXPUSHBACK];
+int		 pushback_index = 0;
 
 int
 lgetc(int quotec)
@@ -2414,11 +2414,11 @@ delaytonum(char *str)
 		goto bad;
 
 	switch(str[len - 1]) {
-	
+
 	case 's':
 		factor = 1;
 		break;
-	
+
 	case 'm':
 		factor = 60;
 		break;
