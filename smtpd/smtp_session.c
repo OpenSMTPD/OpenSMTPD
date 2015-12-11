@@ -240,8 +240,8 @@ header_default_callback(const struct rfc2822_header *hdr, void *arg)
 		return;
 
 	TAILQ_FOREACH(l, &hdr->lines, next)
-	    if (smtp_message_printf(s, "%s\n", l->buffer) == -1)
-		    return;
+		if (smtp_message_printf(s, "%s\n", l->buffer) == -1)
+			return;
 }
 
 static void
