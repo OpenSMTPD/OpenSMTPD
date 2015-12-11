@@ -74,7 +74,6 @@ enum session_flags {
 	SF_SECURE		= 0x0004,
 	SF_AUTHENTICATED	= 0x0008,
 	SF_BOUNCE		= 0x0010,
-	SF_KICK			= 0x0020,
 	SF_VERIFIED		= 0x0040,
 	SF_BADINPUT		= 0x0080,
 	SF_FILTERCONN		= 0x0100,
@@ -1412,8 +1411,6 @@ smtp_io(struct io *io, int evt)
 		io_set_write(io);
 		smtp_command(s, line);
 		iobuf_normalize(&s->iobuf);
-		if (s->flags & SF_KICK)
-			smtp_free(s, "kick");
 		break;
 
 	case IO_LOWAT:
