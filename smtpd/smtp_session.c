@@ -181,6 +181,7 @@ static void smtp_rfc4954_auth_plain(struct smtp_session *, char *);
 static void smtp_rfc4954_auth_login(struct smtp_session *, char *);
 static void smtp_message_end(struct smtp_session *);
 static void smtp_message_reset(struct smtp_session *, int);
+static int smtp_message_printf(struct smtp_session *, const char *, ...);
 static void smtp_free(struct smtp_session *, const char *);
 static const char *smtp_strstate(int);
 static int smtp_verify_certificate(struct smtp_session *);
@@ -2213,6 +2214,29 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 		if (s->flags & SF_AUTHENTICATED)
 			s->evp.flags |= EF_AUTHENTICATED;
 	}
+}
+
+static int
+smtp_message_printf(struct smtp_session *s, const char *fmt, ...)
+{
+	va_list	ap;
+	int	len;
+
+	if (s->msgflags & MF_ERROR)
+		return -1;
+
+	va_start(ap, fmt);
+	len = iobuf_vfqueue(&s->obuf, fmt, ap);
+	va_end(ap);
+
+	if (len < 0) {
+		log_warn("smtp-in: session %016"PRIx64": vfprintf", s->id);
+		s->msgflags |= MF_ERROR_IO;
+	}
+	else
+		s->odatalen += len;
+
+	return len;
 }
 
 static void
