@@ -233,41 +233,23 @@ static struct tree wait_ssl_verify;
 static void
 header_default_callback(const struct rfc2822_header *hdr, void *arg)
 {
-        struct smtp_session    *s = arg;
-        struct rfc2822_line    *l;
-        size_t                  len;
+	struct smtp_session	*s = arg;
+	struct rfc2822_line	*l;
 
-        len = strlen(hdr->name) + 1;
-	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len) {
-                s->msgflags |= MF_ERROR_IO;
-                return;
-	}
-	s->odatalen += len;
+	if (smtp_message_printf(s, "%s:", hdr->name) == -1)
+		return;
 
-        TAILQ_FOREACH(l, &hdr->lines, next) {
-                len = strlen(l->buffer) + 1;
-		if (iobuf_fqueue(&s->obuf, "%s\n", l->buffer) != (int)len) {
-			s->msgflags |= MF_ERROR_IO;
-			return;
-		}
-		s->odatalen += len;
-	}
+	TAILQ_FOREACH(l, &hdr->lines, next)
+	    if (smtp_message_printf(s, "%s\n", l->buffer) == -1)
+		    return;
 }
 
 static void
 dataline_callback(const char *line, void *arg)
 {
-        struct smtp_session     *s = arg;
-        size_t                  len;
+	struct smtp_session	*s = arg;
 
-	len = strlen(line) + 1;
-
-	if (iobuf_fqueue(&s->obuf, "%s\n", line) != (int)len) {
-                s->msgflags |= MF_ERROR_IO;
-                return;
-	}
-
-        s->odatalen += len;
+	smtp_message_printf(s, "%s\n", line);
 }
 
 static void
