@@ -1244,7 +1244,7 @@ void filter_event(uint64_t, int);
 void filter_build_fd_chain(uint64_t, int);
 
 
-/* mailaddr.c */
+/* makemap.c */
 int makemap(int, char **);
 
 /* mailaddr.c */
