@@ -683,10 +683,10 @@ smtp_session(struct listener *listener, int sock,
 	    header_bcc_callback, s);
 	rfc2822_header_callback(&s->rfc2822_parser, "from",
 	    header_domain_append_callback, s);
-        rfc2822_header_callback(&s->rfc2822_parser, "to",
-            header_domain_append_callback, s);
-        rfc2822_header_callback(&s->rfc2822_parser, "cc",
-            header_domain_append_callback, s);
+	rfc2822_header_callback(&s->rfc2822_parser, "to",
+	    header_domain_append_callback, s);
+	rfc2822_header_callback(&s->rfc2822_parser, "cc",
+	    header_domain_append_callback, s);
 	rfc2822_body_callback(&s->rfc2822_parser,
 	    dataline_callback, s);
 
