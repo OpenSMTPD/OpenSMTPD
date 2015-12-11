@@ -1518,10 +1518,10 @@ lookup(char *s)
 
 #define MAXPUSHBACK	128
 
-unsigned char  *parsebuf;
-int		parseindex;
-unsigned char	pushback_buffer[MAXPUSHBACK];
-int		pushback_index = 0;
+unsigned char	*parsebuf;
+int		 parseindex;
+unsigned char	 pushback_buffer[MAXPUSHBACK];
+int		 pushback_index = 0;
 
 int
 lgetc(int quotec)
