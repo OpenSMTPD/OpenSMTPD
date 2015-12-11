@@ -190,7 +190,6 @@ smtp_setup_events(void)
 
 	maxsessions = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
 	log_debug("debug: smtp: will accept at most %zx clients", maxsessions);
-
 }
 
 static void
