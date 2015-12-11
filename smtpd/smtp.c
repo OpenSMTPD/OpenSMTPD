@@ -138,8 +138,7 @@ smtp_setup_listeners(void)
 	int			opt;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0);
-		if (l->fd == -1) {
+		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
 				continue;
