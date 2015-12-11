@@ -335,6 +335,15 @@ ssl_load_keyfile(struct pki *p, const char *pathname, const char *pkiname)
 }
 
 int
+ssl_load_cafile(struct ca *c, const char *pathname)
+{
+	c->ca_cert = ssl_load_file(pathname, &c->ca_cert_len, 0755);
+	if (c->ca_cert == NULL)
+		return 0;
+	return 1;
+}
+
+int
 ssl_load_dhparams(struct pki *p, const char *pathname)
 {
 	p->pki_dhparams = ssl_load_file(pathname, &p->pki_dhparams_len, 0755);
@@ -347,19 +356,10 @@ ssl_load_dhparams(struct pki *p, const char *pathname)
 	return 1;
 }
 
-int
-ssl_load_cafile(struct ca *c, const char *pathname)
-{
-	c->ca_cert = ssl_load_file(pathname, &c->ca_cert_len, 0755);
-	if (c->ca_cert == NULL)
-		return 0;
-	return 1;
-}
-
 const char *
 ssl_to_text(const SSL *ssl)
 {
-	static char	buf[256];
+	static char buf[256];
 
 	(void)snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
 	    SSL_get_version(ssl),
