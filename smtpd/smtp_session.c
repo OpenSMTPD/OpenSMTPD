@@ -258,7 +258,7 @@ header_bcc_callback(const struct rfc2822_header *hdr, void *arg)
 }
 
 static void
-header_append_domain_buffer(char *buffer, const char *domain, size_t len)
+header_append_domain_buffer(char *buffer, char *domain, size_t len)
 {
 	size_t	i;
 	int	escape, quote, comment, bracket;
@@ -266,6 +266,7 @@ header_append_domain_buffer(char *buffer, const char *domain, size_t len)
 	int	pos_bracket, pos_component, pos_insert;
 	char	copy[APPEND_DOMAIN_BUFFER_SIZE];
 
+	i = 0;
 	escape = quote = comment = bracket = 0;
 	has_domain = has_bracket = has_group = 0;
 	pos_bracket = pos_insert = pos_component = 0;
@@ -324,7 +325,8 @@ header_append_domain_buffer(char *buffer, const char *domain, size_t len)
 		pos_insert = pos_component + 1;
 
 		/* empty address */
-                if (buffer[pos_component] == '\0' || isspace((unsigned char)buffer[pos_component]))
+                if (buffer[pos_component] == '\0' ||
+		    isspace((unsigned char)buffer[pos_component]))
                         return;
 	}
 
