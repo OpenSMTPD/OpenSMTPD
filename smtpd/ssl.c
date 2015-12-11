@@ -272,8 +272,8 @@ fail:
 SSL_CTX *
 ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len, const char *ciphers)
 {
-	SSL_CTX	       *ctx;
-	size_t		pkinamelen = 0;
+	SSL_CTX	*ctx;
+	size_t	 pkinamelen = 0;
 
 	ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
@@ -573,6 +573,7 @@ ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
 	if (x509 != NULL)
 		X509_free(x509);
 	free(exdata);
+
 	return (0);
 }
 
