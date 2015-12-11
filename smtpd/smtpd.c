@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.259 2015/12/08 17:28:03 sunil Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.261 2015/12/10 14:07:04 sunil Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -764,7 +764,8 @@ post_fork(int proc)
 {
 	if (proc != PROC_QUEUE && env->sc_queue_key) {
 		explicit_bzero(env->sc_queue_key, strlen(env->sc_queue_key));
-		free(env->sc_queue_key);
+		if (strcasecmp(env->sc_queue_key, "stdin") != 0)
+			free(env->sc_queue_key);
 	}
 
 	if (proc != PROC_CONTROL) {
@@ -865,7 +866,7 @@ purge_task(void)
 		closedir(d);
 	} else
 		log_warn("warn: purge_task: opendir");
-	
+
 	if (n > 2) {
 		switch (purge_pid = fork()) {
 		case -1:
@@ -1038,7 +1039,7 @@ offline_scan(int fd, short ev, void *arg)
 				log_warnx("warn: smtpd: could not unlink %s", e->fts_accpath);
 			continue;
 		}
-		
+
 		if (offline_add(e->fts_name)) {
 			log_warnx("warn: smtpd: "
 			    "could not add offline message %s", e->fts_name);
@@ -1220,8 +1221,10 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 	struct stat	sb;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
-		directory))
-		fatal("smtpd: parent_forward_open: snprintf");
+		directory)) {
+		log_warnx("warn: smtpd: %s: pathname too large", pathname);
+		return -1;
+	}
 
 	if (stat(directory, &sb) < 0) {
 		log_warn("warn: smtpd: parent_forward_open: %s", directory);

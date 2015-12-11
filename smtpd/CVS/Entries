@@ -1,9 +1,6 @@
 D/makemap////
 D/smtpctl////
 D/smtpd////
-D/table-ldap////
-D/table-passwd////
-D/table-sqlite////
 /Makefile/1.15/Wed Dec  9 11:26:17 2015//
 /aliases.5/1.11/Wed Dec  9 11:26:17 2015//
 /aliases.c/1.68/Wed Dec  9 11:26:17 2015//
@@ -39,8 +36,6 @@ D/table-sqlite////
 /log.c/1.16/Wed Dec  9 11:26:17 2015//
 /log.h/1.5/Wed Dec  9 11:26:17 2015//
 /mailaddr.c/1.1/Wed Dec  9 11:26:17 2015//
-/makemap.8/1.25/Wed Dec  9 11:26:17 2015//
-/makemap.c/1.57/Wed Dec  9 11:26:17 2015//
 /mda.c/1.114/Wed Dec  9 11:26:17 2015//
 /mproc.c/1.16/Wed Dec  9 11:26:17 2015//
 /mta.c/1.196/Wed Dec  9 11:26:23 2015//
@@ -50,7 +45,6 @@ D/table-sqlite////
 /parser.c/1.40/Wed Dec  9 11:26:17 2015//
 /parser.h/1.29/Wed Dec  9 11:26:17 2015//
 /pony.c/1.10/Wed Dec  9 11:26:23 2015//
-/queue.c/1.172/Wed Dec  9 11:26:23 2015//
 /queue_backend.c/1.59/Wed Dec  9 11:26:17 2015//
 /queue_fs.c/1.11/Wed Dec  9 11:26:17 2015//
 /queue_null.c/1.6/Wed Dec  9 11:26:17 2015//
@@ -69,12 +63,9 @@ D/table-sqlite////
 /smtp.c/1.144/Wed Dec  9 11:26:23 2015//
 /smtp_session.c/1.242/Wed Dec  9 11:26:23 2015//
 /smtpctl.8/1.54/Wed Dec  9 11:26:17 2015//
-/smtpctl.c/1.138/Wed Dec  9 11:26:17 2015//
 /smtpd-api.h/1.27/Wed Dec  9 11:26:17 2015//
 /smtpd-defines.h/1.6/Wed Dec  9 11:26:17 2015//
 /smtpd.8/1.28/Wed Dec  9 11:26:17 2015//
-/smtpd.c/1.259/Wed Dec  9 11:26:44 2015//
-/smtpd.conf.5/1.136/Wed Dec  9 11:26:23 2015//
 /smtpd.h/1.494/Wed Dec  9 11:26:23 2015//
 /ssl.c/1.80/Wed Dec  9 11:26:23 2015//
 /ssl.h/1.13/Wed Dec  9 11:26:23 2015//
@@ -92,3 +83,9 @@ D/table-sqlite////
 /tree.c/1.5/Wed Dec  9 11:26:17 2015//
 /util.c/1.122/Wed Dec  9 11:26:17 2015//
 /waitq.c/1.5/Wed Dec  9 11:26:17 2015//
+/makemap.8/1.26/Fri Dec 11 07:16:47 2015//
+/makemap.c/1.58/Fri Dec 11 07:16:47 2015//
+/queue.c/1.173/Fri Dec 11 07:16:47 2015//
+/smtpctl.c/1.139/Fri Dec 11 07:16:47 2015//
+/smtpd.c/1.261/Fri Dec 11 07:16:47 2015//
+/smtpd.conf.5/1.137/Fri Dec 11 07:16:47 2015//
