@@ -778,8 +778,11 @@ fork_peers(void)
 void
 post_fork(int proc)
 {
-	if (proc != PROC_QUEUE && env->sc_queue_key)
+	if (proc != PROC_QUEUE && env->sc_queue_key) {
 		explicit_bzero(env->sc_queue_key, strlen(env->sc_queue_key));
+		if (strcasecmp(env->sc_queue_key, "stdin") != 0)
+			free(env->sc_queue_key);
+	}
 
 	if (proc != PROC_CONTROL) {
 		close(control_socket);
@@ -809,7 +812,7 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	if (arg)
 		*arg++ = '\0';
 
-	if (snprintf(path, sizeof(path), PATH_LIBEXEC "/%s-%s", key, name) >=
+	if (snprintf(path, sizeof(path), PATH_LIBEXEC_DEPRECATED "/%s-%s", key, name) >=
 	    (ssize_t)sizeof(path)) {
 		log_warn("warn: %s-proc: exec path too long", key);
 		return (-1);
