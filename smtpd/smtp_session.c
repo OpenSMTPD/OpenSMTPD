@@ -627,17 +627,13 @@ static void
 header_missing_callback(const char *header, void *arg)
 {
 	struct smtp_session	*s = arg;
-	int			 len;
 
-	if (strcasecmp(header, "message-id") == 0) {
-		len = iobuf_fqueue(&s->obuf, "Message-Id: <%016"PRIx64"@%s>\n",
+	if (strcasecmp(header, "message-id") == 0)
+		smtp_message_printf(s, "Message-Id: <%016"PRIx64"@%s>\n",
 		    generate_uid(), s->listener->hostname);
-		if (len == -1) {
-			s->msgflags |= MF_ERROR_IO;
-			return;
-		}
-		s->odatalen += len;
-	}
+
+	if (strcasecmp(header, "date") == 0)
+		smtp_message_printf(s, "Date: %s\n", time_to_text(time(NULL)));
 }
 
 static void
