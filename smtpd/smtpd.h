@@ -1245,6 +1245,9 @@ void filter_build_fd_chain(uint64_t, int);
 
 
 /* mailaddr.c */
+int makemap(int, char **);
+
+/* mailaddr.c */
 int mailaddr_line(struct maddrmap *, const char *);
 void maddrmap_init(struct maddrmap *);
 void maddrmap_insert(struct maddrmap *, struct maddrnode *);
