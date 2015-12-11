@@ -1093,6 +1093,7 @@ offline_enqueue(char *name)
 	if (pathlen >= PATH_MAX) {
 		log_warnx("warn: smtpd: pathname exceeds PATH_MAX");
 		free(path);
+		return (-1);
 	}
 
 	log_debug("debug: smtpd: enqueueing offline message %s", path);
