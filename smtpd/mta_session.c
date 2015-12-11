@@ -319,8 +319,8 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 
 		if (resp_ca_cert->status == CA_FAIL) {
 			if (s->relay->pki_name) {
-				log_info("smtp-out: session %016"PRIx64
-				    ": disconnected (CA failure)", s->id);
+				log_info("smtp-out: Disconnecting session %016"PRIx64
+				    ": CA failure", s->id);
 				mta_free(s);
 				return;
 			}
