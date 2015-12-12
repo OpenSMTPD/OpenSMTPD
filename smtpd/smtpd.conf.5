@@ -577,11 +577,9 @@ Associate a custom CA certificate
 .Ar cafile
 with
 .Ar hostname .
-.It Xo
-.Ic ciphers Ar cipher-list
-.Xc
+.It Ic ciphers Ar cipher-list
 Specify an alternate ciphers list to use when establishing TLS sessions.
-It is highly recommanded to avoid making use of this option unless there
+It is highly recommended to avoid making use of this option unless there
 is a good understanding of the implications.
 .Pp
 When not specified, only ciphers considered safe are chosen.
