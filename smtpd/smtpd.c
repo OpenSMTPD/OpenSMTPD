@@ -578,9 +578,11 @@ main(int argc, char *argv[])
 		errx(1, "config file exceeds PATH_MAX");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
-		if (env->sc_queue_key) {
-			if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
-				fatalx("crypto_setup: invalid key for queue encryption");
+		if (env->sc_queue_key &&
+		    crypto_setup(env->sc_queue_key,
+		    strlen(env->sc_queue_key)) == 0) {
+			fatalx("crypto_setup:"
+			    "invalid key for queue encryption");
 		}
 		load_pki_tree();
 		load_pki_keys();
