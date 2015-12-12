@@ -44,6 +44,7 @@ struct ca {
 	off_t			 ca_cert_len;
 };
 
+
 /* ssl.c */
 void		ssl_init(void);
 int		ssl_setup(SSL_CTX **, struct pki *, int (*)(SSL *, int *, void *),
