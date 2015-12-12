@@ -509,10 +509,8 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 	size_t			len;
 	char			buffer[APPEND_DOMAIN_BUFFER_SIZE];
 
-	len = strlen(hdr->name) + 1;
-	if (iobuf_fqueue(&s->obuf, "%s:", hdr->name) != (int)len)
-		goto ioerror;
-	s->odatalen += len;
+	if (smtp_message_printf(s, "%s:", hdr->name) == -1)
+		return;
 
 	j = 0;
 	escape = quote = comment = skip = 0;
@@ -538,27 +536,22 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 					header_address_rewrite_buffer(buffer, mailaddr_to_text(&s->evp.sender),
 					    sizeof buffer);
 				}
-				len = strlen(buffer) + 1;
-				if (iobuf_fqueue(&s->obuf, "%s,", buffer) != (int)len)
-					goto ioerror;
-				s->odatalen += len;
+				if (smtp_message_printf(s, "%s,", buffer) == -1)
+					return;
 				j = 0;
 				skip = 0;
 				memset(buffer, 0, sizeof buffer);
 			}
 			else {
 				if (skip) {
-					if (iobuf_fqueue(&s->obuf, "%c", l->buffer[i]) != (int)1)
-						goto ioerror;
-					s->odatalen += 1;
+					if (smtp_message_printf(s, "%c", l->buffer[i]) == -1)
+						return;
 				}
 				else {
 					buffer[j++] = l->buffer[i];
 					if (j == sizeof (buffer) - 1) {
-						len = strlen(buffer);
-						if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
-							goto ioerror;
-						s->odatalen += len;
+						if (smtp_message_printf(s, "%s", buffer) == -1)
+							return;
 						skip = 1;
 						j = 0;
 						memset(buffer, 0, sizeof buffer);
@@ -567,17 +560,14 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 			}
 		}
 		if (skip) {
-			if (iobuf_fqueue(&s->obuf, "\n", l->buffer[i]) != (int)1)
-				goto ioerror;
-			s->odatalen += 1;
+			if (smtp_message_printf(s, "\n") == -1)
+				return;
 		}
 		else {
 			buffer[j++] = '\n';
 			if (j == sizeof (buffer) - 1) {
-				len = strlen(buffer);
-				if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
-					goto ioerror;
-				s->odatalen += len;
+				if (smtp_message_printf(s, "%s", buffer) == -1)
+					return;
 				skip = 1;
 				j = 0;
 				memset(buffer, 0, sizeof buffer);
@@ -592,16 +582,8 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 			header_address_rewrite_buffer(buffer, mailaddr_to_text(&s->evp.sender),
 			    sizeof buffer);
 		}
-		len = strlen(buffer);
-		if (iobuf_fqueue(&s->obuf, "%s", buffer) != (int)len)
-			goto ioerror;
-		s->odatalen += len;
+		smtp_message_printf(s, "%s", buffer);
 	}
-	return;
-
-ioerror:
-	s->msgflags |= MF_ERROR_IO;
-	return;
 }
 
 static void
