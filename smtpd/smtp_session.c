@@ -1031,15 +1031,14 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 
 	case QUERY_CONNECT:
 		if (status != FILTER_OK) {
-			log_info("smtp-in: session %016"PRIx64": connection from host %s [%s] closed (filter rejection)",
-			    s->id, s->hostname, ss_to_text(&s->ss));
+			log_info("smtp-in: Disconnecting session %016" PRIx64
+			    ": rejected by filter", s->id);
 			smtp_free(s, "rejected by filter");
 			return;
 		}
 
 		if (s->listener->flags & F_SMTPS) {
 			req_ca_cert.reqid = s->id;
-
 			if (s->listener->pki_name[0]) {
 				(void)strlcpy(req_ca_cert.name, s->listener->pki_name,
 				    sizeof req_ca_cert.name);
@@ -1258,7 +1257,7 @@ smtp_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_TLSREADY:
-		log_info("smtp-in: session %016"PRIx64": TLS started %s",
+		log_info("smtp-in: Started TLS on session %016"PRIx64": %s",
 		    s->id, ssl_to_text(s->io.ssl));
 
 		s->flags |= SF_SECURE;
