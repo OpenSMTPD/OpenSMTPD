@@ -47,7 +47,7 @@ struct ca {
 /* ssl.c */
 void		ssl_init(void);
 int		ssl_setup(SSL_CTX **, struct pki *, int (*)(SSL *, int *, void *),
-	    const char *, const char *);
+	    const char *);
 SSL_CTX	       *ssl_ctx_create(const char *, char *, off_t, const char *);
 int	        ssl_cmp(struct pki *, struct pki *);
 DH	       *get_dh(void);
@@ -63,13 +63,13 @@ void		ssl_error(const char *);
 
 int		ssl_load_certificate(struct pki *, const char *);
 int		ssl_load_keyfile(struct pki *, const char *, const char *);
+int		ssl_load_cafile(struct ca *, const char *);
 int		ssl_load_dhparams(struct pki *, const char *);
 int		ssl_load_pkey(const void *, size_t, char *, off_t,
 		    X509 **, EVP_PKEY **);
 int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
 
-int		ssl_load_cafile(struct ca *, const char *);
+/* ssl_privsep.c */
+int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
 
-/* libressl.c */
-int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
