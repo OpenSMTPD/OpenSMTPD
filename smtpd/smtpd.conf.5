@@ -776,8 +776,9 @@ If the
 .Ic senders
 parameter is used, then
 .Xr smtpd 8
-will lookup in a mapping of username to email addresses if the authenticated
-user is allowed to submit mail as the sender that was provided in the SMTP session.
+will look up a mapping of username to email addresses to see wether
+the authenticated user is allowed to submit mail
+as the sender that was provided in the SMTP session.
 In addition, if the masquerade option is provided, the From header will be rewritten
 to match the sender provided in the SMTP session.
 .Pp
