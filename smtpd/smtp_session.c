@@ -506,7 +506,6 @@ header_masquerade_callback(const struct rfc2822_header *hdr, void *arg)
 	struct rfc2822_line    *l;
 	size_t			i, j;
 	int			escape, quote, comment, skip;
-	size_t			len;
 	char			buffer[APPEND_DOMAIN_BUFFER_SIZE];
 
 	if (smtp_message_printf(s, "%s:", hdr->name) == -1)
@@ -907,10 +906,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		    evpid_to_msgid(s->evp.id));
 
 		TAILQ_FOREACH(rcpt, &s->rcpts, entry) {
-			log_info("smtp-in: session %016"PRIx64
-			    ": msgid=%08x, status=Ok, from=<%s%s%s>, to=<%s%s%s>, size=%zu, ndest=%zu, proto=%s",
-			    s->id,
+			log_info("smtp-in: Accepted message %08x "
+			    "on session %016"PRIx64
+			    ": from=<%s%s%s>, to=<%s%s%s>, size=%zu, ndest=%zu, proto=%s",
 			    evpid_to_msgid(s->evp.id),
+			    s->id,
 			    s->evp.sender.user,
 			    s->evp.sender.user[0] == '\0' ? "" : "@",
 			    s->evp.sender.domain,
