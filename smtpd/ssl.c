@@ -45,8 +45,8 @@
 #include "log.h"
 #include "ssl.h"
 
-static DH		*get_dh2048(void);
-static DH		*get_dh_from_memory(char *, size_t);
+static DH	       *get_dh2048(void);
+static DH	       *get_dh_from_memory(char *, size_t);
 
 void
 ssl_init(void)
@@ -393,7 +393,7 @@ ssl_error(const char *where)
  * -- gilles@
  */
 static DH *
-get_dh2048()
+get_dh2048(void)
 {
 	DH *dh;
 	unsigned char dh2048_p[] = {
