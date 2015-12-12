@@ -927,9 +927,6 @@ main		: BOUNCEWARN {
 		| CIPHERS STRING {
 			env->sc_tls_ciphers = $2;
 		}
-		| CURVE STRING {
-			env->sc_tls_curve = $2;
-		}
 		;
 
 filter_args	:

@@ -55,7 +55,6 @@ DH	       *get_dh1024(void);
 DH	       *get_dh2048(void);
 DH	       *get_dh_from_memory(char *, size_t);
 void		ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
-void		ssl_set_ecdh_curve(SSL_CTX *, const char *);
 char	       *ssl_load_file(const char *, off_t *, mode_t);
 char	       *ssl_load_key(const char *, off_t *, char *, mode_t, const char *);
 

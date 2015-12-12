@@ -78,7 +78,7 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 
 int
 ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
-    const char *ciphers, const char *curve)
+    const char *ciphers)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
