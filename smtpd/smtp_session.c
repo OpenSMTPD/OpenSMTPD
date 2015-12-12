@@ -45,8 +45,7 @@
 #include "log.h"
 #include "ssl.h"
 
-#define	DATA_HIWAT		65535
-
+#define	DATA_HIWAT			65535
 #define	APPEND_DOMAIN_BUFFER_SIZE	4096
 
 enum smtp_phase {
