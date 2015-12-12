@@ -655,7 +655,7 @@ struct forward_req {
 	uint64_t			id;
 	uint8_t				status;
 
-	char				user[LINE_MAX];
+	char				user[SMTPD_VUSERNAME_SIZE];
 	uid_t				uid;
 	gid_t				gid;
 	char				directory[PATH_MAX];
