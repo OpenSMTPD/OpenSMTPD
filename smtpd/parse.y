@@ -715,7 +715,7 @@ opt_relay_common: AS STRING	{
 				YYERROR;
 			}
 			if (dict_get(conf->sc_pki_dict,
-			    rule->r_value.relayhost.pki_name) == NULL) {
+				rule->r_value.relayhost.pki_name) == NULL) {
 				log_warnx("pki name not found: %s", $2);
 				free($2);
 				YYERROR;
