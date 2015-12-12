@@ -626,7 +626,7 @@ struct smtpd {
 
 	char					sc_enqueue_filter[PATH_MAX];
 
-	char			       *sc_tls_ciphers;
+	char				       *sc_tls_ciphers;
 };
 
 #define	TRACE_DEBUG	0x0001
