@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.221 2014/04/19 14:00:45 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.266 2015/12/12 20:02:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -729,6 +729,7 @@ load_pki_tree(void)
 
 		if (! ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
+
 		if (pki->pki_dhparams_file)
 			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
 				fatalx("load_pki_tree: failed to load dhparams file");
