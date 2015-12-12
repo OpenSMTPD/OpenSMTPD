@@ -190,6 +190,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			if (req_ca_vrfy == NULL)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 			lka_certificate_verify(imsg->hdr.type, req_ca_vrfy);
+			req_ca_vrfy = NULL;
 			return;
 
 		case IMSG_SMTP_AUTHENTICATE:
