@@ -196,9 +196,9 @@ enum table_service {
 	K_CREDENTIALS	= 0x004,	/* returns struct credentials	*/
 	K_NETADDR	= 0x008,	/* returns struct netaddr	*/
 	K_USERINFO	= 0x010,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x020, /* returns struct source	*/
-	K_MAILADDR	= 0x040, /* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x080, /* returns struct addrname	*/
+	K_SOURCE	= 0x020,	/* returns struct source	*/
+	K_MAILADDR	= 0x040,	/* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x080,	/* returns struct addrname	*/
 	K_MAILADDRMAP	= 0x100,	/* returns struct maddrmap	*/
 };
 #define K_ANY		  0xfff
