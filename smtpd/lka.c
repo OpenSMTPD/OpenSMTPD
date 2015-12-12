@@ -588,7 +588,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 		*res = lk.addrname;
 		return (LKA_OK);
 	}
-}      
+}
 
 static int
 lka_mailaddrmap(const char *tablename, const char *username, const struct mailaddr *maddr)
