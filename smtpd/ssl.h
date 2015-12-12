@@ -72,4 +72,3 @@ int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 
 /* ssl_privsep.c */
 int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
-
