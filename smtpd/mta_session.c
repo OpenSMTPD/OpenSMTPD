@@ -1539,6 +1539,7 @@ mta_start_tls(struct mta_session *s)
 		certname = s->helo;
 		req_ca_cert.fallback = 1;
 	}
+
 	req_ca_cert.reqid = s->id;
 	(void)strlcpy(req_ca_cert.name, certname, sizeof req_ca_cert.name);
 	m_compose(p_lka, IMSG_MTA_TLS_INIT, 0, 0, -1,
