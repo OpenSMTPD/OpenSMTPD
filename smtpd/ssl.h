@@ -37,7 +37,7 @@ struct pki {
 };
 
 struct ca {
-       	char			 ca_name[HOST_NAME_MAX+1];
+	char			 ca_name[HOST_NAME_MAX+1];
 
 	char			*ca_cert_file;
 	char			*ca_cert;
