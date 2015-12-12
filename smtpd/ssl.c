@@ -73,18 +73,18 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
-	uint8_t  sid[SSL_MAX_SID_CTX_LENGTH];
+	uint8_t sid[SSL_MAX_SID_CTX_LENGTH];
 
 	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
 
-        /*
-         * Set session ID context to a random value.  We don't support
-         * persistent caching of sessions so it is OK to set a temporary
-         * session ID context that is valid during run time.
-         */
-        arc4random_buf(sid, sizeof(sid));
-        if (!SSL_CTX_set_session_id_context(ctx, sid, sizeof(sid)))
-                goto err;
+	/*
+	 * Set session ID context to a random value.  We don't support
+	 * persistent caching of sessions so it is OK to set a temporary
+	 * session ID context that is valid during run time.
+	 */
+	arc4random_buf(sid, sizeof(sid));
+	if (!SSL_CTX_set_session_id_context(ctx, sid, sizeof(sid)))
+		goto err;
 
 	if (sni_cb)
 		SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
