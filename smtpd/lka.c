@@ -704,10 +704,10 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 		resp.status = CA_FAIL;
 	else
 		resp.status = CA_OK;
-	
+
 	m_compose(p_pony, type, 0, 0, -1, &resp,
 	    sizeof resp);
-	
+
 	for (i = 0; i < req->n_chain; ++i)
 		free(req->chain_cert[i]);
 	free(req->chain_cert);
