@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.8,v 1.25 2014/03/13 14:47:44 tedu Exp $
+.\"	$OpenBSD: smtpd.8,v 1.28 2015/10/24 11:38:39 jung Exp $
 .\"
 .\" Copyright (c) 2012, Eric Faurot <eric@openbsd.org>
 .\" Copyright (c) 2008, Gilles Chehade <gilles@poolp.org>
@@ -16,7 +16,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: March 13 2014 $
+.Dd $Mdocdate: October 24 2015 $
 .Dt SMTPD 8
 .Os
 .Sh NAME
@@ -24,7 +24,7 @@
 .Nd Simple Mail Transfer Protocol daemon
 .Sh SYNOPSIS
 .Nm
-.Op Fl dnv
+.Op Fl dhnv
 .Op Fl D Ar macro Ns = Ns Ar value
 .Op Fl f Ar file
 .Op Fl P Ar system
@@ -88,44 +88,9 @@ Do not listen on SMTP sockets.
 .El
 .It Fl v
 Produce more verbose output.
-.It Fl T Ar trace
-Enables real-time tracing at startup.
-Normal operation can be resumed using
-.Xr smtpctl 8 .
-This option can be used multiple times.
-The accepted values are:
-.Pp
-.Bl -bullet -compact
-.It
-imsg
-.It
-io
-.It
-smtp (incoming sessions)
-.It
-filters
-.It
-transfer (outgoing sessions)
-.It
-bounce
-.It
-scheduler
-.It
-expand (aliases/virtual/forward expansion)
-.It
-lookup (user/credentials lookups)
-.It
-stat
-.It
-rules (matched by incoming sessions)
-.It
-mproc
-.It
-all
-.El
 .El
 .Sh FILES
-.Bl -tag -width "/var/run/smtpd.sockXXX" -compact
+.Bl -tag -width "/etc/mail/smtpd.confXXX" -compact
 .It Pa /etc/mail/mailname
 Alternate server name to use.
 .It Pa /etc/mail/smtpd.conf
@@ -136,6 +101,8 @@ configuration file.
 .Ux Ns -domain
 socket used for communication with
 .Xr smtpctl 8 .
+.It Pa /var/spool/smtpd/
+Spool directories for mail during processing.
 .El
 .Sh SEE ALSO
 .Xr smtpd.conf 5 ,

@@ -143,8 +143,7 @@ smtp_setup_listeners(void)
 	int			opt;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0);
-		if (l->fd == -1) {
+		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
 				continue;
@@ -193,15 +192,15 @@ smtp_setup_events(void)
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
 		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
-			env->sc_tls_ciphers, env->sc_tls_curve))
+			env->sc_tls_ciphers))
 			fatal("smtp_setup_events: ssl_setup failure");
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
 	}
 
 	purge_config(PURGE_PKI_KEYS);
 
-	maxsessions = ((getdtablesize() - getdtablecount()) & ~0x1) / 2 - SMTP_FD_RESERVE;
-	log_debug("debug: smtp: will accept at most %d clients", (int)maxsessions);
+	maxsessions = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
+	log_debug("debug: smtp: will accept at most %zx clients", maxsessions);
 }
 
 static void
@@ -238,8 +237,8 @@ smtp_enqueue(uid_t *euid)
 	if (listener == NULL) {
 		listener = &local;
 		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
-		listener->ss.ss_family = AF_UNIX;
 #ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
+		listener->ss.ss_family = AF_LOCAL;
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 #endif
 		(void)strlcpy(listener->hostname, env->sc_hostname,
@@ -256,7 +255,6 @@ smtp_enqueue(uid_t *euid)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		return (-1);
 
-	/* XXX don't fatal here */
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		return (-1);
 
@@ -314,11 +312,10 @@ smtp_accept(int fd, short event, void *p)
 		return;
 	}
 	io_set_blocking(sock, 0);
-	session_socket_no_linger(sock);
 
 	sessions++;
 	stat_increment("smtp.session", 1);
-	if (listener->ss.ss_family == AF_UNIX)
+	if (listener->ss.ss_family == AF_LOCAL)
 		stat_increment("smtp.session.local", 1);
 	if (listener->ss.ss_family == AF_INET)
 		stat_increment("smtp.session.inet4", 1);

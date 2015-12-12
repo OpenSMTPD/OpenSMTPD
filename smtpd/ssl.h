@@ -16,7 +16,6 @@
  */
 
 #define SSL_CIPHERS		"HIGH:!aNULL:!MD5"
-#define	SSL_ECDH_CURVE		"prime256v1"
 #define	SSL_SESSION_TIMEOUT	300
 
 struct pki {
@@ -38,17 +37,18 @@ struct pki {
 };
 
 struct ca {
-       	char			 ca_name[HOST_NAME_MAX+1];
+	char			 ca_name[HOST_NAME_MAX+1];
 
 	char			*ca_cert_file;
 	char			*ca_cert;
 	off_t			 ca_cert_len;
 };
 
+
 /* ssl.c */
 void		ssl_init(void);
 int		ssl_setup(SSL_CTX **, struct pki *, int (*)(SSL *, int *, void *),
-	    const char *, const char *);
+	    const char *);
 SSL_CTX	       *ssl_ctx_create(const char *, char *, off_t, const char *);
 int	        ssl_cmp(struct pki *, struct pki *);
 DH	       *get_dh(void);
@@ -56,7 +56,6 @@ DH	       *get_dh1024(void);
 DH	       *get_dh2048(void);
 DH	       *get_dh_from_memory(char *, size_t);
 void		ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
-void		ssl_set_ecdh_curve(SSL_CTX *, const char *);
 char	       *ssl_load_file(const char *, off_t *, mode_t);
 char	       *ssl_load_key(const char *, off_t *, char *, mode_t, const char *);
 
@@ -65,13 +64,12 @@ void		ssl_error(const char *);
 
 int		ssl_load_certificate(struct pki *, const char *);
 int		ssl_load_keyfile(struct pki *, const char *, const char *);
+int		ssl_load_cafile(struct ca *, const char *);
 int		ssl_load_dhparams(struct pki *, const char *);
 int		ssl_load_pkey(const void *, size_t, char *, off_t,
 		    X509 **, EVP_PKEY **);
 int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
 
-int		ssl_load_cafile(struct ca *, const char *);
-
-/* libressl.c */
-int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
+/* ssl_privsep.c */
+int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);

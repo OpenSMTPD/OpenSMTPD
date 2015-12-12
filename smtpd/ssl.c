@@ -57,9 +57,9 @@ ssl_init(void)
 
 	SSL_library_init();
 	SSL_load_error_strings();
-	
+
 	OpenSSL_add_all_algorithms();
-	
+
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
@@ -80,11 +80,11 @@ dummy_verify(int ok, X509_STORE_CTX *store)
 
 int
 ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
-    const char *ciphers, const char *curve)
+    const char *ciphers)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
-	u_int8_t sid[SSL_MAX_SID_CTX_LENGTH];
+	uint8_t  sid[SSL_MAX_SID_CTX_LENGTH];
 
 	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
 
@@ -109,7 +109,7 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx, curve);
+	SSL_CTX_set_ecdh_auto(ctx, 1);
 
 	*ctxp = ctx;
 	return 1;
@@ -156,8 +156,7 @@ ssl_load_file(const char *name, off_t *len, mode_t perm)
 	return (buf);
 
 fail:
-	if (buf != NULL)
-		free(buf);
+	free(buf);
 	saved_errno = errno;
 	close(fd);
 	errno = saved_errno;
@@ -275,8 +274,8 @@ fail:
 SSL_CTX *
 ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len, const char *ciphers)
 {
-	SSL_CTX	       *ctx;
-	size_t		pkinamelen = 0;
+	SSL_CTX	*ctx;
+	size_t	 pkinamelen = 0;
 
 	ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
@@ -338,6 +337,15 @@ ssl_load_keyfile(struct pki *p, const char *pathname, const char *pkiname)
 }
 
 int
+ssl_load_cafile(struct ca *c, const char *pathname)
+{
+	c->ca_cert = ssl_load_file(pathname, &c->ca_cert_len, 0755);
+	if (c->ca_cert == NULL)
+		return 0;
+	return 1;
+}
+
+int
 ssl_load_dhparams(struct pki *p, const char *pathname)
 {
 	p->pki_dhparams = ssl_load_file(pathname, &p->pki_dhparams_len, 0755);
@@ -350,21 +358,12 @@ ssl_load_dhparams(struct pki *p, const char *pathname)
 	return 1;
 }
 
-int
-ssl_load_cafile(struct ca *c, const char *pathname)
-{
-	c->ca_cert = ssl_load_file(pathname, &c->ca_cert_len, 0755);
-	if (c->ca_cert == NULL)
-		return 0;
-	return 1;
-}
-
 const char *
 ssl_to_text(const SSL *ssl)
 {
-	static char	buf[256];
+	static char buf[256];
 
-	(void) snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
+	(void)snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
 	    SSL_get_version(ssl),
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
@@ -520,33 +519,6 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 	}
 }
 
-void
-ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
-{
-#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
-#ifndef OPENSSL_NO_ECDH
-	int	nid;
-	EC_KEY *ecdh;
-
-	if (curve == NULL)
-		curve = SSL_ECDH_CURVE;
-	if ((nid = OBJ_sn2nid(curve)) == 0) {
-		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unknown curve name %s", curve);
-	}
-
-	if ((ecdh = EC_KEY_new_by_curve_name(nid)) == NULL) {
-		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unable to create curve %s", curve);
-	}
-
-	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
-	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
-	EC_KEY_free(ecdh);
-#endif
-#endif
-}
-
 int
 ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
     X509 **x509ptr, EVP_PKEY **pkeyptr)
@@ -603,6 +575,7 @@ ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
 	if (x509 != NULL)
 		X509_free(x509);
 	free(exdata);
+
 	return (0);
 }
 

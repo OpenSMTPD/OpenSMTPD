@@ -25,7 +25,6 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -217,6 +216,9 @@ pony(void)
 	config_done();
 
 	ca_engine_init();
+
+	if (pledge("stdio inet unix recvfd sendfd", NULL) == -1)
+		err(1, "pledge");
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");

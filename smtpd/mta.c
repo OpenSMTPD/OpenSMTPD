@@ -212,10 +212,10 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 
 			relay = mta_relay(&evp);
 			/* ignore if we don't know the limits yet */
-			if (relay->limits && 
+			if (relay->limits &&
 			    relay->ntask >= (size_t)relay->limits->task_hiwat) {
 				if (!(relay->state & RELAY_ONHOLD)) {
-					log_info("smtp-out: routing: hiwat reached on %s: holding envelopes",
+					log_info("smtp-out: hiwat reached on %s: holding envelopes",
 					    mta_relay_to_text(relay));
 					relay->state |= RELAY_ONHOLD;
 				}
@@ -430,7 +430,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 					continue;
 
 				if (route->flags & ROUTE_DISABLED) {
-					log_info("smtp-out: routing: Enabling route %s per admin request",
+					log_info("smtp-out: Enabling route %s per admin request",
 					    mta_route_to_text(route));
 					if (!runq_cancel(runq_route, NULL, route)) {
 						log_warnx("warn: route not on runq");
@@ -609,7 +609,7 @@ mta_source_error(struct mta_relay *relay, struct mta_route *route, const char *e
 	 */
 	c = mta_connector(relay, route->src);
 	if (!(c->flags & CONNECTOR_ERROR_SOURCE))
-		log_info("smtp-out: routing: Error on %s: %s",
+		log_info("smtp-out: Error on %s: %s",
 		    mta_route_to_text(route), e);
 	c->flags |= CONNECTOR_ERROR_SOURCE;
 }
@@ -621,7 +621,7 @@ mta_route_error(struct mta_relay *relay, struct mta_route *route)
 	route->nerror += 1;
 
 	if (route->nerror > MAXERROR_PER_ROUTE) {
-		log_info("smtp-out: routing: Too many errors on %s: "
+		log_info("smtp-out: Too many errors on %s: "
 		    "disabling for a while", mta_route_to_text(route));
 		mta_route_disable(route, 2, ROUTE_DISABLED_SMTP);
 	}
@@ -693,7 +693,7 @@ mta_route_next_task(struct mta_relay *relay, struct mta_route *route)
 		/* When the number of tasks is down to lowat, query some evp */
 		if (relay->ntask == (size_t)relay->limits->task_lowat) {
 			if (relay->state & RELAY_ONHOLD) {
-				log_info("smtp-out: routing: back to lowat on %s: releasing",
+				log_info("smtp-out: back to lowat on %s: releasing",
 				    mta_relay_to_text(relay));
 				relay->state &= ~RELAY_ONHOLD;
 			}
@@ -739,7 +739,7 @@ mta_delivery_flush_event(int fd, short event, void *arg)
 			m_create(p_queue, IMSG_MTA_DELIVERY_PERMFAIL, 0, 0, -1);
 			m_add_evpid(p_queue, e->id);
 			m_add_string(p_queue, e->status);
-			m_add_int(p_queue, ESC_INVALID_RECIPIENT);
+			m_add_int(p_queue, ESC_OTHER_STATUS);
 			m_close(p_queue);
 		}
 		else if (e->delivery == IMSG_MTA_DELIVERY_LOOP) {
@@ -948,7 +948,7 @@ mta_on_mx(void *tag, void *arg, void *data)
 	}
 
 	if (domain->mxstatus)
-		log_info("smtp-out: routing: Failed to resolve MX for %s: %s",
+		log_info("smtp-out: Failed to resolve MX for %s: %s",
 		    mta_relay_to_text(relay), relay->failstr);
 
 	relay->status &= ~RELAY_WAIT_MX;
@@ -1247,23 +1247,23 @@ mta_route_disable(struct mta_route *route, int penalty, int reason)
 	delay = 60;
 #endif
 
-	log_info("smtp-out: routing: Disabling route %s for %llus",
+	log_info("smtp-out: Disabling route %s for %llus",
 	    mta_route_to_text(route), delay);
 
-	if (route->flags & ROUTE_DISABLED) {
+	if (route->flags & ROUTE_DISABLED)
 		runq_cancel(runq_route, NULL, route);
-		mta_route_unref(route); /* from last call to here */
-	}
+	else
+		mta_route_ref(route);
+
 	route->flags |= reason & ROUTE_DISABLED;
 	runq_schedule(runq_route, time(NULL) + delay, NULL, route);
-	mta_route_ref(route);
 }
 
 static void
 mta_route_enable(struct mta_route *route)
 {
 	if (route->flags & ROUTE_DISABLED) {
-		log_info("smtp-out: routing: Enabling route %s",
+		log_info("smtp-out: Enabling route %s",
 		    mta_route_to_text(route));
 		route->flags &= ~ROUTE_DISABLED;
 		route->flags |= ROUTE_NEW;
@@ -1286,7 +1286,7 @@ mta_drain(struct mta_relay *r)
 	char			 buf[64];
 
 	log_debug("debug: mta: draining %s "
-	    "refcount=%d, ntask=%zu, nconnector=%zu, nconn=%zu", 
+	    "refcount=%d, ntask=%zu, nconnector=%zu, nconn=%zu",
 	    mta_relay_to_text(r),
 	    r->refcount, r->ntask, tree_count(&r->connectors), r->nconn);
 
@@ -1446,7 +1446,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 	TAILQ_FOREACH(mx, &c->relay->domain->mxs, entry) {
 		/*
 		 * New preference level
-		 */		
+		 */
 		if (mx->preference > level) {
 #ifndef IGNORE_MX_PREFERENCE
 			/*
@@ -1473,7 +1473,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 			/*
 			 * Start looking at MXs on this preference level.
-			 */ 
+			 */
 #endif
 			level = mx->preference;
 		}
@@ -1575,7 +1575,7 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 
 	/* Order is important */
 	if (seen == 0) {
-		log_info("smtp-out: routing: No MX found for %s",
+		log_info("smtp-out: No MX found for %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_ERROR_MX;
 	}
@@ -1592,12 +1592,12 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 			*nextconn = tm;
 	}
 	else if (family_mismatch) {
-		log_info("smtp-out: routing: Address family mismatch on %s",
+		log_info("smtp-out: Address family mismatch on %s",
 		    mta_connector_to_text(c));
 		c->flags |= CONNECTOR_ERROR_FAMILY;
 	}
 	else if (suspended_route) {
-		log_info("smtp-out: routing: No valid route for %s",
+		log_info("smtp-out: No valid route for %s",
 		    mta_connector_to_text(c));
 		if (suspended_route & ROUTE_DISABLED_NET)
 			c->flags |= CONNECTOR_ERROR_ROUTE_NET;
@@ -1612,12 +1612,12 @@ static void
 mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
     const char *relay, const char *status)
 {
-	log_info("smtp-out: session %016"PRIx64": evpid=%016" PRIx64 ", status=%s, "
+	log_info("relay: %s for %016" PRIx64 ": session=%016"PRIx64", "
 	    "from=<%s>, to=<%s>, rcpt=<%s>, source=%s, "
 	    "relay=%s, delay=%s, stat=%s",
-	    evp->session,
-	    evp->id,
 	    prefix,
+	    evp->id,
+	    evp->session,
 	    evp->task->sender,
 	    evp->dest,
 	    evp->rcpt ? evp->rcpt : "-",

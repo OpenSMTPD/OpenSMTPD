@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: queue_backend.c,v 1.59 2015/11/05 09:14:31 sunil Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -147,9 +147,7 @@ queue_init(const char *name, int server)
 			errx(1, "error in spool directory setup");
 		if (ckdir(PATH_SPOOL PATH_OFFLINE, 0770, 0, gr->gr_gid, 1) == 0)
 			errx(1, "error in offline directory setup");
-		if (ckdir_quiet(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0))
-			chmod(PATH_SPOOL PATH_PURGE, 0750);
-		if (ckdir(PATH_SPOOL PATH_PURGE, 0750, pwq->pw_uid, 0, 1) == 0)
+		if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
 			errx(1, "error in purge directory setup");
 
 		mvpurge(PATH_SPOOL PATH_TEMPORARY, PATH_SPOOL PATH_PURGE);
@@ -313,7 +311,7 @@ queue_message_uncorrupt(uint32_t msgid)
 int
 queue_message_fd_r(uint32_t msgid)
 {
-	int	fdin, fdout = -1, fd = -1;
+	int	fdin = -1, fdout = -1, fd = -1;
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 

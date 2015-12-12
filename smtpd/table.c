@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.16 2014/05/09 21:30:11 tedu Exp $	*/
+/*	$OpenBSD: table.c,v 1.21 2015/11/30 14:13:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -199,8 +199,11 @@ table_create(const char *backend, const char *name, const char *tag,
 {
 	struct table		*t;
 	struct table_backend	*tb;
+	char			*ps;
+	char			*p;
 	char			 buf[LINE_MAX];
 	char			 path[LINE_MAX];
+	char			 pathsplit[LINE_MAX];
 	size_t			 n;
 	struct stat		 sb;
 
@@ -216,21 +219,25 @@ table_create(const char *backend, const char *name, const char *tag,
 		fatalx("table_create: table \"%s\" already defined", name);
 
 	if ((tb = table_backend_lookup(backend)) == NULL) {
-		if ((size_t)snprintf(path, sizeof(path), PATH_LIBEXEC "/table-%s",
-		    backend) >= sizeof(path)) {
-			fatalx("table_create: path too long \""
-			    PATH_LIBEXEC "/table-%s\"", backend);
-		}
-		if (stat(path, &sb) == 0) {
-			tb = table_backend_lookup("proc");
-			(void)strlcpy(path, backend, sizeof(path));
-			if (config) {
-				(void)strlcat(path, ":", sizeof(path));
-				if (strlcat(path, config, sizeof(path))
-				    >= sizeof(path))
-					fatalx("table_create: config file path too long");
+		(void)strlcpy(pathsplit, PATH_LIBEXEC, sizeof pathsplit);
+		for (ps = pathsplit; (p = strsep(&ps, ":")) != NULL;)  {
+			if ((size_t)snprintf(path, sizeof(path), "%s/table-%s",
+				p, backend) >= sizeof(path)) {
+				fatalx("table_create: path too long \""
+				    "%s/table-%s\"", p, backend);
 			}
-			config = path;
+			if (stat(path, &sb) == 0) {
+				tb = table_backend_lookup("proc");
+				(void)strlcpy(path, backend, sizeof(path));
+				if (config) {
+					(void)strlcat(path, ":", sizeof(path));
+					if (strlcat(path, config, sizeof(path))
+					    >= sizeof(path))
+						fatalx("table_create: config file path too long");
+				}
+				config = path;
+				break;
+			}
 		}
 	}
 
@@ -491,6 +498,7 @@ table_dump_all(void)
 		if (t->t_type & T_HASH) {
 			(void)strlcat(buf, sep, sizeof(buf));
 			(void)strlcat(buf, "HASH", sizeof(buf));
+			sep = ",";
 		}
 		log_debug("TABLE \"%s\" type=%s config=\"%s\"",
 		    t->t_name, buf, t->t_config);
@@ -618,7 +626,7 @@ table_parse_lookup(enum table_service service, const char *key,
 			return (-1);
 		}
 		return (1);
-		
+
 	case K_ADDRNAME:
 		if (parse_sockaddr((struct sockaddr *)&lk->addrname.addr,
 		    PF_UNSPEC, key) == -1)

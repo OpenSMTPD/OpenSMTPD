@@ -79,9 +79,13 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
-#ifndef	PATH_LIBEXEC
-#define	PATH_LIBEXEC		"/usr/libexec/smtpd"
+#ifndef	PATH_LIBEXEC_DEPRECATED
+#define	PATH_LIBEXEC_DEPRECATED	"/usr/libexec/smtpd"
 #endif
+#ifndef	PATH_LIBEXEC
+#define	PATH_LIBEXEC		"/usr/local/libexec/smtpd:/usr/libexec/smtpd"
+#endif
+
 
 
 /*
@@ -106,8 +110,6 @@
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
-#define	F_DSNNOTIFY_DISABLE    	0x2000
-#define	F_DSNRET_HEADERS	0x4000
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
@@ -119,6 +121,7 @@
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
 #define	RELAY_TLS_VERIFY	0x200
+
 #define MTA_EXT_DSN		0x400
 
 
@@ -637,7 +640,7 @@ struct smtpd {
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 
-       	struct dict			       *sc_ca_dict;
+	struct dict			       *sc_ca_dict;
 	struct dict			       *sc_pki_dict;
 	struct dict			       *sc_ssl_dict;
 
@@ -650,8 +653,7 @@ struct smtpd {
 
 	char					sc_enqueue_filter[PATH_MAX];
 
-	char			       *sc_tls_ciphers;
-	char			       *sc_tls_curve;
+	char				       *sc_tls_ciphers;
 };
 
 #define	TRACE_DEBUG	0x0001
@@ -679,7 +681,7 @@ struct forward_req {
 	uint64_t			id;
 	uint8_t				status;
 
-	char				user[LINE_MAX];
+	char				user[SMTPD_VUSERNAME_SIZE];
 	uid_t				uid;
 	gid_t				gid;
 	char				directory[PATH_MAX];
@@ -1134,7 +1136,6 @@ struct msg_walkinfo {
 
 /* aliases.c */
 int aliases_get(struct expand *, const char *);
-int aliases_virtual_check(struct table *, const struct mailaddr *);
 int aliases_virtual_get(struct expand *, const struct mailaddr *);
 int alias_parse(struct expandnode *, const char *);
 
@@ -1220,6 +1221,18 @@ int expand_to_text(struct expand *, char *, size_t);
 RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 
 
+/* filter.c */
+void filter_postfork(void);
+void filter_configure(void);
+void filter_connect(uint64_t, const struct sockaddr *,
+    const struct sockaddr *, const char *, const char *);
+void filter_mailaddr(uint64_t, int, const struct mailaddr *);
+void filter_line(uint64_t, int, const char *);
+void filter_eom(uint64_t, int, size_t);
+void filter_event(uint64_t, int);
+void filter_build_fd_chain(uint64_t, int);
+
+
 /* forward.c */
 int forwards_get(int, struct expand *);
 
@@ -1233,9 +1246,11 @@ void imsgproc_set_write(struct imsgproc *);
 void imsgproc_set_read_write(struct imsgproc *);
 void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
 
+
 /* limit.c */
 void limit_mta_set_defaults(struct mta_limits *);
 int limit_mta_set(struct mta_limits *, const char*, int64_t);
+
 
 /* lka.c */
 pid_t lka(void);
@@ -1250,22 +1265,15 @@ void lka_session_forward_reply(struct forward_req *, int);
 void vlog(int, const char *, va_list);
 void logit(int, const char *, ...) __attribute__((format (printf, 2, 3)));
 
+
 /* mda.c */
 void mda_postfork(void);
 void mda_postprivdrop(void);
 void mda_imsg(struct mproc *, struct imsg *);
 
 
-/* filter.c */
-void filter_postfork(void);
-void filter_configure(void);
-void filter_connect(uint64_t, const struct sockaddr *,
-    const struct sockaddr *, const char *, const char *);
-void filter_mailaddr(uint64_t, int, const struct mailaddr *);
-void filter_line(uint64_t, int, const char *);
-void filter_eom(uint64_t, int, size_t);
-void filter_event(uint64_t, int);
-void filter_build_fd_chain(uint64_t, int);
+/* makemap.c */
+int makemap(int, char **);
 
 
 /* mailaddr.c */
@@ -1273,6 +1281,7 @@ int mailaddr_line(struct maddrmap *, const char *);
 void maddrmap_init(struct maddrmap *);
 void maddrmap_insert(struct maddrmap *, struct maddrnode *);
 void maddrmap_free(struct maddrmap *);
+
 
 /* mproc.c */
 int mproc_fork(struct mproc *, const char*, char **);
@@ -1337,6 +1346,7 @@ struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
 
+
 /* mta_session.c */
 void mta_session(struct mta_relay *, struct mta_route *);
 void mta_session_imsg(struct mproc *, struct imsg *);
@@ -1370,6 +1380,7 @@ int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);
 int queue_message_walk(struct envelope *, uint32_t, int *, void **);
+
 
 /* ruleset.c */
 struct rule *ruleset_match(const struct envelope *);
@@ -1477,6 +1488,7 @@ const char *sockaddr_to_text(struct sockaddr *);
 const char *mailaddr_to_text(const struct mailaddr *);
 const char *expandnode_to_text(struct expandnode *);
 
+
 /* util.c */
 typedef struct arglist arglist;
 struct arglist {
@@ -1500,7 +1512,6 @@ void xlowercase(char *, const char *, size_t);
 int  uppercase(char *, const char *, size_t);
 uint64_t generate_uid(void);
 int availdesc(void);
-int ckdir_quiet(const char *, mode_t, uid_t, gid_t);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
 int mvpurge(char *, char *);
@@ -1526,6 +1537,7 @@ int base64_decode(char const *, unsigned char *, size_t);
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
 void waitq_run(void *, void *);
+
 
 /* runq.c */
 struct runq;

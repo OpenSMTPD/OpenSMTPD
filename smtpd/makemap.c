@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: makemap.c,v 1.58 2015/12/11 07:10:06 guenther Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -58,24 +58,25 @@
 
 #define	PATH_ALIASES	SMTPD_CONFDIR "/aliases"
 
-extern char *__progname;
-
-__dead void	usage(void);
-static int parse_map(char *);
-static int parse_entry(char *, size_t, size_t);
-static int parse_mapentry(char *, size_t, size_t);
-static int parse_setentry(char *, size_t, size_t);
-static int make_plain(DBT *, char *);
-static int make_aliases(DBT *, char *);
-static char *conf_aliases(char *);
+static void	 usage(void);
+static int	 parse_map(char *);
+static int	 parse_entry(char *, size_t, size_t);
+static int	 parse_mapentry(char *, size_t, size_t);
+static int	 parse_setentry(char *, size_t, size_t);
+static int	 make_plain(DBT *, char *);
+static int	 make_aliases(DBT *, char *);
+static char	*conf_aliases(char *);
+static int	dump_db(const char *, DBTYPE);
 
 DB	*db;
 char	*source;
 char	*oflag;
+int	 Uflag;
 int	 dbputs;
 
 struct smtpd	smtpd;
 struct smtpd	*env = &smtpd;
+extern char	*__progname;
 
 enum program {
 	P_MAKEMAP,
@@ -104,23 +105,22 @@ fork_proc_backend(const char *backend, const char *conf, const char *procname)
 }
 
 int
-main(int argc, char *argv[])
+makemap(int argc, char *argv[])
 {
 	struct stat	 sb;
 	char		 dbname[PATH_MAX];
-	char		*opts;
+	const char	*opts;
 	char		*conf;
 	int		 ch;
 	DBTYPE		 dbtype = DB_HASH;
 	char		*p;
-	mode_t		 omode;
 
 	log_init(1);
 
 	mode = strcmp(__progname, "newaliases") ? P_MAKEMAP : P_NEWALIASES;
 	conf = CONF_FILE;
 	type = T_PLAIN;
-	opts = "ho:t:d:";
+	opts = "ho:t:d:U";
 	if (mode == P_NEWALIASES)
 		opts = "f:h";
 
@@ -149,6 +149,9 @@ main(int argc, char *argv[])
 				type = T_SET;
 			else
 				errx(1, "unsupported type '%s'", optarg);
+			break;
+		case 'U':
+			Uflag = 1;
 			break;
 		default:
 			usage();
@@ -192,6 +195,9 @@ main(int argc, char *argv[])
 		source = argv[0];
 	}
 
+	if (Uflag)
+		return dump_db(source, dbtype);
+
 	if (oflag == NULL && asprintf(&oflag, "%s.db", source) == -1)
 		err(1, "asprintf");
 
@@ -201,10 +207,8 @@ main(int argc, char *argv[])
 
 	if (! bsnprintf(dbname, sizeof(dbname), "%s.XXXXXXXXXXX", oflag))
 		errx(1, "path too long");
-	omode = umask(7077);
 	if (mkstemp(dbname) == -1)
 		err(1, "mkstemp");
-	umask(omode);
 
 /* XXX */
 #ifndef O_EXLOCK
@@ -253,7 +257,7 @@ bad:
 	return 1;
 }
 
-int
+static int
 parse_map(char *filename)
 {
 	FILE	*fp;
@@ -293,7 +297,7 @@ parse_map(char *filename)
 	return 1;
 }
 
-int
+static int
 parse_entry(char *line, size_t len, size_t lineno)
 {
 	switch (type) {
@@ -306,7 +310,7 @@ parse_entry(char *line, size_t len, size_t lineno)
 	return 0;
 }
 
-int
+static int
 parse_mapentry(char *line, size_t len, size_t lineno)
 {
 	DBT	 key;
@@ -364,7 +368,7 @@ bad:
 	return 0;
 }
 
-int
+static int
 parse_setentry(char *line, size_t len, size_t lineno)
 {
 	DBT	 key;
@@ -399,7 +403,7 @@ parse_setentry(char *line, size_t len, size_t lineno)
 	return 1;
 }
 
-int
+static int
 make_plain(DBT *val, char *text)
 {
 	val->data = xstrdup(text, "make_plain");
@@ -408,7 +412,7 @@ make_plain(DBT *val, char *text)
 	return (val->size);
 }
 
-int
+static int
 make_aliases(DBT *val, char *text)
 {
 	struct expandnode	xn;
@@ -440,7 +444,7 @@ error:
 	return 0;
 }
 
-char *
+static char *
 conf_aliases(char *cfgpath)
 {
 	struct table	*table;
@@ -463,7 +467,38 @@ conf_aliases(char *cfgpath)
 	return (path);
 }
 
-void
+static int
+dump_db(const char *dbname, DBTYPE dbtype)
+{
+	DBT	key, val;
+	char	*keystr, *valstr;
+	int	r;
+
+	db = dbopen(dbname, O_RDONLY, 0644, dbtype, NULL);
+	if (db == NULL)
+		err(1, "dbopen: %s", dbname);
+
+	for (r = db->seq(db, &key, &val, R_FIRST); r == 0;
+	    r = db->seq(db, &key, &val, R_NEXT)) {
+		keystr = key.data;
+		valstr = val.data;
+		if (keystr[key.size - 1] == '\0')
+			key.size--;
+		if (valstr[val.size - 1] == '\0')
+			val.size--;
+		printf("%.*s\t%.*s\n", (int)key.size, keystr,
+		    (int)val.size, valstr);
+	}
+	if (r == -1)
+		err(1, "db->seq: %s", dbname);
+
+	if (db->close(db) == -1)
+		err(1, "dbclose: %s", dbname);
+
+	return 0;
+}
+
+static void
 usage(void)
 {
 	if (mode == P_NEWALIASES)

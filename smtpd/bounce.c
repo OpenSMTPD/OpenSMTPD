@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.64 2014/04/19 17:27:40 gilles Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.68 2015/11/23 06:54:21 sunil Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -102,7 +102,6 @@ static void bounce_status(struct bounce_session *, const char *, ...);
 static void bounce_io(struct io *, int);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce_session *);
-static const char *bounce_strtype(enum bounce_type);
 static const char *action_str(const struct delivery_bounce *);
 
 static struct tree			wait_fd;
@@ -322,21 +321,21 @@ bounce_duration(long long int d)
 
 	if (d < 60) {
 		(void)snprintf(buf, sizeof buf, "%lld second%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	} else if (d < 3600) {
 		d = d / 60;
 		(void)snprintf(buf, sizeof buf, "%lld minute%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	}
 	else if (d < 3600 * 24) {
 		d = d / 3600;
 		(void)snprintf(buf, sizeof buf, "%lld hour%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	}
 	else {
 		d = d / (3600 * 24);
 		(void)snprintf(buf, sizeof buf, "%lld day%s", d,
-		    (d == 1)?"":"s");
+		    (d == 1) ? "" : "s");
 	}
 	return (buf);
 }
@@ -411,8 +410,9 @@ static int
 bounce_next(struct bounce_session *s)
 {
 	struct bounce_envelope	*evp;
-	char			*line;
-	size_t			 len, n;
+	char			*line = NULL;
+	size_t			 n, sz = 0;
+	ssize_t			 len;
 
 	switch (s->state) {
 	case BOUNCE_EHLO:
@@ -453,13 +453,18 @@ bounce_next(struct bounce_session *s)
 		    "From: Mailer Daemon <MAILER-DAEMON@%s>\n"
 		    "To: %s\n"
 		    "Date: %s\n"
+		    "MIME-Version: 1.0\n"
+		    "Content-Type: multipart/mixed;"
+		    "boundary=\"%16" PRIu64 "/%s\"\n"
 		    "\n"
 		    "This is a MIME-encapsulated message.\n"
 		    "\n",
-		    bounce_strtype(s->msg->bounce.type),
+		    action_str(&s->msg->bounce),
 		    s->smtpname,
 		    s->msg->to,
-		    time_to_text(time(NULL)));
+		    time_to_text(time(NULL)),
+		    s->boundary,
+		    s->smtpname);
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 		    "--%16" PRIu64 "/%s\n"
@@ -514,23 +519,19 @@ bounce_next(struct bounce_session *s)
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    "Reporting-MTA: dns; %s\n"
-	    	    "Arrival-Date: %s\n"
 		    "\n",
-	    	    s->smtpname,
-	    	    time_to_text(time(NULL)));
+	    	    s->smtpname);
 
 		TAILQ_FOREACH(evp, &s->msg->envelopes, entry) {
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 	    	    	    "Final-Recipient: rfc822; %s@%s\n"
 			    "Action: %s\n"
 	    	    	    "Status: %s\n"
-	    	    	    "Diagnostic-Code: smtp; %s\n"
 	    	    	    "\n",
 			    evp->dest.user,
 			    evp->dest.domain,
 			    action_str(&s->msg->bounce),
-	    	    	    esc_code(evp->esc_class, evp->esc_code),
-	    	    	    esc_description(evp->esc_code));
+	    	    	    esc_code(evp->esc_class, evp->esc_code));
 		}
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
@@ -542,18 +543,19 @@ bounce_next(struct bounce_session *s)
 	case BOUNCE_DATA_MESSAGE:
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 		    "--%16" PRIu64 "/%s\n"
-	    	    "Content-Type: message/rfc822\n"
+		    "Content-Description: Message headers\n"
+	    	    "Content-Type: text/rfc822-headers\n"
 	    	    "\n",
 	    	    s->boundary, s->smtpname);
 
 		n = iobuf_queued(&s->iobuf);
 		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
-			line = fgetln(s->msgfp, &len);
-			if (line == NULL)
+			if ((len = getline(&line, &sz, s->msgfp)) == -1)
 				break;
 			if (len == 1 && line[0] == '\n' && /* end of headers */
 			    s->msg->bounce.type == B_DSN &&
 			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
+				free(line);
 				fclose(s->msgfp);
 				s->msgfp = NULL;
 				iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
@@ -568,6 +570,7 @@ bounce_next(struct bounce_session *s)
 			    "bounce_next: DATA_MESSAGE", "%s%s\n",
 			    (len == 2 && line[0] == '.') ? "." : "", line);
 		}
+		free(line);
 
 		if (ferror(s->msgfp)) {
 			fclose(s->msgfp);
@@ -801,30 +804,14 @@ action_str(const struct delivery_bounce *b)
 {
 	switch (b->type) {
 	case B_ERROR:
-		return ("failed");
+		return ("error");
 	case B_WARNING:
 		return ("delayed");
 	case B_DSN:
 		if (b->mta_without_dsn)
 			return ("relayed");
 		
-		return ("delivered");
-	default:
-		log_warn("warn: bounce: unknown bounce_type");
-		return ("");
-	}
-}
-
-static const char *
-bounce_strtype(enum bounce_type t)
-{
-	switch (t) {
-	case B_ERROR:
-		return ("error");
-	case B_WARNING:
-		return ("warning");
-	case B_DSN:
-		return ("dsn");
+		return ("success");
 	default:
 		log_warn("warn: bounce: unknown bounce_type");
 		return ("");

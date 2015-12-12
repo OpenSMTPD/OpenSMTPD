@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.27 2014/05/09 21:30:11 tedu Exp $	*/
+/*	$OpenBSD: expand.c,v 1.28 2015/01/20 17:37:54 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>

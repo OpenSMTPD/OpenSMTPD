@@ -71,6 +71,18 @@ err:
 	return (NULL);
 }
 
+/* dummy_verify */
+static int
+dummy_verify(int ok, X509_STORE_CTX *store)
+{
+	/*
+	 * We *want* SMTP to request an optional client certificate, however we don't want the
+	 * verification to take place in the SMTP process. This dummy verify will allow us to
+	 * asynchronously verify in the lookup process.
+	 */
+	return 1;
+}
+
 void *
 ssl_smtp_init(void *ssl_ctx)
 {

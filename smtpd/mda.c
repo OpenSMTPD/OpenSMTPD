@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.105 2014/04/19 17:42:18 gilles Exp $	*/
+/*	$OpenBSD: mda.c,v 1.114 2015/11/30 13:10:13 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -127,7 +127,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid;
 	time_t			 now;
 	size_t			 sz;
-	char			 out[256], buf[LINE_MAX], error_buf[LINE_MAX];
+	char			 out[256], buf[LINE_MAX];
 	int			 n;
 	enum lka_resp_status	status;
 
@@ -445,13 +445,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			 */
 			error = NULL;
 			if (strcmp(parent_error, "exited okay") == 0) {
-				if (s->datafp || iobuf_queued(&s->iobuf)) {
-					(void)snprintf(error_buf,
-					    sizeof error_buf,
-					    "mda exited prematurely: %s",
-					    deliver.to);
-					error = error_buf;
-				}
+				if (s->datafp || iobuf_queued(&s->iobuf))
+					error = "mda exited prematurely";
 			} else
 				error = out[0] ? out : parent_error;
 
@@ -491,8 +486,9 @@ static void
 mda_io(struct io *io, int evt)
 {
 	struct mda_session	*s = io->arg;
-	char			*ln;
-	size_t			 len;
+	char			*ln = NULL;
+	size_t			 sz = 0;
+	ssize_t			 len;
 
 	log_trace(TRACE_IO, "mda: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -511,7 +507,7 @@ mda_io(struct io *io, int evt)
 		}
 
 		while (iobuf_queued(&s->iobuf) < MDA_HIWAT) {
-			if ((ln = fgetln(s->datafp, &len)) == NULL)
+			if ((len = getline(&ln, &sz, s->datafp)) == -1)
 				break;
 			if (iobuf_queue(&s->iobuf, ln, len) == -1) {
 				m_create(p_parent, IMSG_MDA_KILL,
@@ -520,6 +516,7 @@ mda_io(struct io *io, int evt)
 				m_add_string(p_parent, "Out of memory");
 				m_close(p_parent);
 				io_pause(io, IO_PAUSE_OUT);
+				free(ln);
 				return;
 			}
 #if 0
@@ -529,6 +526,8 @@ mda_io(struct io *io, int evt)
 #endif
 		}
 
+		free(ln);
+		ln = NULL;
 		if (ferror(s->datafp)) {
 			log_debug("debug: mda: ferror on session %016"PRIx64,
 			    s->id);
@@ -579,21 +578,14 @@ mda_io(struct io *io, int evt)
 static int
 mda_check_loop(FILE *fp, struct mda_envelope *e)
 {
-	char		*buf, *lbuf;
-	size_t		 len;
+	char		*buf = NULL;
+	size_t		 sz = 0;
+	ssize_t		 len;
 	int		 ret = 0;
 
-	lbuf = NULL;
-	while ((buf = fgetln(fp, &len))) {
+	while ((len = getline(&buf, &sz, fp)) != -1) {
 		if (buf[len - 1] == '\n')
 			buf[len - 1] = '\0';
-		else {
-			/* EOF without EOL, copy and add the NUL */
-			lbuf = xmalloc(len + 1, "mda_check_loop");
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
 
 		if (strchr(buf, ':') == NULL && !isspace((unsigned char)*buf))
 			break;
@@ -604,16 +596,10 @@ mda_check_loop(FILE *fp, struct mda_envelope *e)
 				break;
 			}
 		}
-		if (lbuf) {
-			free(lbuf);
-			lbuf = NULL;
-		}
 	}
-	if (lbuf)
-		free(lbuf);
 
+	free(buf);
 	fseek(fp, SEEK_SET, 0);
-
 	return (ret);
 }
 
@@ -621,10 +607,10 @@ static int
 mda_getlastline(int fd, char *dst, size_t dstsz)
 {
 	FILE	*fp;
-	char	*ln, buf[LINE_MAX];
-	size_t	 len;
+	char	*ln = NULL;
+	size_t	 sz = 0;
+	ssize_t	 len;
 
-	memset(buf, 0, sizeof buf);
 	if (lseek(fd, 0, SEEK_SET) < 0) {
 		log_warn("warn: mda: lseek");
 		close(fd);
@@ -636,24 +622,19 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 		close(fd);
 		return (-1);
 	}
-	while ((ln = fgetln(fp, &len))) {
+	while ((len = getline(&ln, &sz, fp)) != -1) {
 		if (ln[len - 1] == '\n')
-			len--;
-		if (len == 0)
-			continue;
-		if (len >= sizeof buf)
-			len = (sizeof buf) - 1;
-		memmove(buf, ln, len);
-		buf[len] = '\0';
+			ln[len - 1] = '\0';
 	}
 	fclose(fp);
 
-	if (buf[0]) {
+	if (sz != 0) {
 		(void)strlcpy(dst, "\"", dstsz);
-		(void)strnvis(dst + 1, buf, dstsz - 2, VIS_SAFE | VIS_CSTYLE);
+		(void)strnvis(dst + 1, ln, dstsz - 2, VIS_SAFE | VIS_CSTYLE);
 		(void)strlcat(dst, "\"", dstsz);
 	}
 
+	free(ln);
 	return (0);
 }
 

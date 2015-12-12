@@ -85,7 +85,7 @@ int		 lgetc(int);
 int		 lungetc(int);
 int		 findeol(void);
 int		 yyerror(const char *, ...)
-    __attribute__ ((format (printf, 1, 2)))
+    __attribute__((__format__ (printf, 1, 2)))
     __attribute__((__nonnull__ (1)));
 
 TAILQ_HEAD(symhead, sym)	 symhead = TAILQ_HEAD_INITIALIZER(symhead);
@@ -111,23 +111,21 @@ static struct pki	*pki;
 static struct ca	*sca;
 
 enum listen_options {
-	LO_FAMILY		= 0x000001,
-	LO_PORT			= 0x000002,
-	LO_SSL			= 0x000004,
-	LO_FILTER		= 0x000008,
-	LO_PKI			= 0x000010,
-	LO_AUTH			= 0x000020,
-	LO_TAG			= 0x000040,
-	LO_HOSTNAME		= 0x000080,
-	LO_HOSTNAMES		= 0x000100,
-	LO_MASKSOURCE		= 0x000200,
-	LO_NODSN		= 0x000400,
-	LO_SENDERS		= 0x000800,
-	LO_RECEIVEDAUTH		= 0x001000,
-	LO_MASQUERADE		= 0x002000,
-	LO_DSNNOTIFY_DISABLE	= 0x004000,
-	LO_DSNRET_HEADERS	= 0x008000,
-	LO_CA			= 0x010000,
+	LO_FAMILY	= 0x000001,
+	LO_PORT		= 0x000002,
+	LO_SSL		= 0x000004,
+	LO_FILTER      	= 0x000008,
+	LO_PKI      	= 0x000010,
+	LO_AUTH      	= 0x000020,
+	LO_TAG      	= 0x000040,
+	LO_HOSTNAME   	= 0x000080,
+	LO_HOSTNAMES   	= 0x000100,
+	LO_MASKSOURCE  	= 0x000200,
+	LO_NODSN	= 0x000400,
+	LO_SENDERS	= 0x000800,
+	LO_RECEIVEDAUTH = 0x001000,
+	LO_MASQUERADE	= 0x002000,
+	LO_CA		= 0x010000
 };
 
 static struct listen_opts {
@@ -185,7 +183,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE DSNNOTIFY DISABLE DSNRET HEADERS ENQUEUER
+%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE ENQUEUER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -416,7 +414,7 @@ pki		: opt_pki pki
 opt_listen     	: INET4			{
 			if (listen_opts.options & LO_FAMILY) {
 				yyerror("address family already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_FAMILY;
 			listen_opts.family = AF_INET;
@@ -424,7 +422,7 @@ opt_listen     	: INET4			{
 		| INET6			{
 			if (listen_opts.options & LO_FAMILY) {
 				yyerror("address family already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_FAMILY;
 			listen_opts.family = AF_INET6;
@@ -434,7 +432,7 @@ opt_listen     	: INET4			{
 
 			if (listen_opts.options & LO_PORT) {
 				yyerror("port already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_PORT;
 
@@ -450,7 +448,7 @@ opt_listen     	: INET4			{
 		| PORT NUMBER			{
 			if (listen_opts.options & LO_PORT) {
 				yyerror("port already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_PORT;
 
@@ -463,7 +461,7 @@ opt_listen     	: INET4			{
 		| FILTER STRING			{
 			if (listen_opts.options & LO_FILTER) {
 				yyerror("filter already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_FILTER;
 			listen_opts.filtername = $2;
@@ -471,7 +469,7 @@ opt_listen     	: INET4			{
 		| SMTPS				{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SMTPS;
@@ -479,7 +477,7 @@ opt_listen     	: INET4			{
 		| SMTPS VERIFY 			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
@@ -487,7 +485,7 @@ opt_listen     	: INET4			{
 		| TLS				{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS;
@@ -495,7 +493,7 @@ opt_listen     	: INET4			{
 		| SECURE       			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SSL;
@@ -503,7 +501,7 @@ opt_listen     	: INET4			{
 		| TLS_REQUIRE			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
@@ -511,7 +509,7 @@ opt_listen     	: INET4			{
 		| TLS_REQUIRE VERIFY   		{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
@@ -519,7 +517,7 @@ opt_listen     	: INET4			{
 		| PKI STRING			{
 			if (listen_opts.options & LO_PKI) {
 				yyerror("pki already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_PKI;
 			listen_opts.pki = $2;
@@ -535,7 +533,7 @@ opt_listen     	: INET4			{
 		| AUTH				{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.auth = F_AUTH|F_AUTH_REQUIRE;
@@ -543,7 +541,7 @@ opt_listen     	: INET4			{
 		| AUTH_OPTIONAL			{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.auth = F_AUTH;
@@ -551,7 +549,7 @@ opt_listen     	: INET4			{
 		| AUTH tables  			{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
@@ -560,7 +558,7 @@ opt_listen     	: INET4			{
 		| AUTH_OPTIONAL tables 		{
 			if (listen_opts.options & LO_AUTH) {
 				yyerror("auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_AUTH;
 			listen_opts.authtable = $2;
@@ -569,11 +567,11 @@ opt_listen     	: INET4			{
 		| TAG STRING			{
 			if (listen_opts.options & LO_TAG) {
 				yyerror("tag already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_TAG;
 
-       			if (strlen($2) >= SMTPD_TAG_SIZE) {
+			if (strlen($2) >= SMTPD_TAG_SIZE) {
        				yyerror("tag name too long");
 				free($2);
 				YYERROR;
@@ -583,7 +581,7 @@ opt_listen     	: INET4			{
 		| HOSTNAME STRING	{
 			if (listen_opts.options & LO_HOSTNAME) {
 				yyerror("hostname already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_HOSTNAME;
 
@@ -594,7 +592,7 @@ opt_listen     	: INET4			{
 
 			if (listen_opts.options & LO_HOSTNAMES) {
 				yyerror("hostnames already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_HOSTNAMES;
 
@@ -608,15 +606,15 @@ opt_listen     	: INET4			{
 		| MASK_SOURCE	{
 			if (listen_opts.options & LO_MASKSOURCE) {
 				yyerror("mask-source already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_MASKSOURCE;
 			listen_opts.flags |= F_MASK_SOURCE;
 		}
-		| RECEIVEDAUTH {
+		| RECEIVEDAUTH	{
 			if (listen_opts.options & LO_RECEIVEDAUTH) {
 				yyerror("received-auth already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_RECEIVEDAUTH;
 			listen_opts.flags |= F_RECEIVEDAUTH;
@@ -624,34 +622,10 @@ opt_listen     	: INET4			{
 		| NODSN	{
 			if (listen_opts.options & LO_NODSN) {
 				yyerror("no-dsn already specified");
-				YYERROR;	
+				YYERROR;
 			}
 			listen_opts.options |= LO_NODSN;
 			listen_opts.flags &= ~F_EXT_DSN;
-		}
-		| DSNNOTIFY DISABLE {
-			if (listen_opts.options & LO_DSNRET_HEADERS) {
-				yyerror("dsn-notify used in ambiguous context");
-				YYERROR;
-			}
-			if (listen_opts.options & LO_DSNNOTIFY_DISABLE) {
-				yyerror("dsn-notify already specified");
-				YYERROR;
-			}
-			listen_opts.options |= LO_DSNNOTIFY_DISABLE;
-			listen_opts.flags |= F_DSNNOTIFY_DISABLE;
-		}
-		| DSNRET HEADERS {
-			if (listen_opts.options & LO_DSNNOTIFY_DISABLE) {
-				yyerror("dsn-ret used in ambiguous context");
-				YYERROR;
-			}
-			if (listen_opts.options & LO_DSNRET_HEADERS) {
-				yyerror("dsn-ret already specified");
-				YYERROR;
-			}
-			listen_opts.options |= LO_DSNRET_HEADERS;
-			listen_opts.flags |= F_DSNRET_HEADERS;
 		}
 		| SENDERS tables	{
 			struct table	*t = $2;
@@ -749,7 +723,7 @@ opt_relay_common: AS STRING	{
 				YYERROR;
 			}
 			if (dict_get(conf->sc_pki_dict,
-			    rule->r_value.relayhost.pki_name) == NULL) {
+				rule->r_value.relayhost.pki_name) == NULL) {
 				log_warnx("pki name not found: %s", $2);
 				free($2);
 				YYERROR;
@@ -764,7 +738,7 @@ opt_relay_common: AS STRING	{
 				YYERROR;
 			}
 			if (dict_get(conf->sc_ca_dict,
-			    rule->r_value.relayhost.ca_name) == NULL) {
+				rule->r_value.relayhost.ca_name) == NULL) {
 				log_warnx("ca name not found: %s", $2);
 				free($2);
 				YYERROR;
@@ -961,9 +935,6 @@ main		: BOUNCEWARN {
 		| CIPHERS STRING {
 			env->sc_tls_ciphers = $2;
 		}
-		| CURVE STRING {
-			env->sc_tls_curve = $2;
-		}
 		;
 
 filter_args	:
@@ -1141,13 +1112,14 @@ userbase	: USERBASE tables	{
 		}
 		;
 
-deliver_as	: AS STRING		{
-			if (strlcpy(rule->r_delivery_user, $2, sizeof(rule->r_delivery_user))
+deliver_as	: AS STRING	{
+			if (strlcpy(rule->r_delivery_user, $2,
+			    sizeof(rule->r_delivery_user))
 			    >= sizeof(rule->r_delivery_user))
 				fatal("username too long");
 			free($2);
 		}
-		| /* empty */		{ }
+		| /* empty */	{}
 		;
 
 deliver_action	: DELIVER TO MAILDIR			{
@@ -1183,7 +1155,7 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("invalid lmtp destination");
 			free($4);
 		}
-		| DELIVER TO LMTP STRING RCPTTO deliver_as	{
+		| DELIVER TO LMTP STRING RCPTTO deliver_as 	{
 			rule->r_action = A_LMTP;
 			if (strchr($4, ':') || $4[0] == '/') {
 				if (strlcpy(rule->r_value.buffer, $4,
@@ -1198,7 +1170,7 @@ deliver_action	: DELIVER TO MAILDIR			{
 				fatal("invalid lmtp destination");
 			free($4);
 		}
-		| DELIVER TO MDA STRING deliver_as   	{
+		| DELIVER TO MDA STRING deliver_as	{
 			rule->r_action = A_MDA;
 			if (strlcpy(rule->r_value.buffer, $4,
 			    sizeof(rule->r_value.buffer))
@@ -1398,7 +1370,7 @@ rule		: ACCEPT {
 			rule->r_qexpire = -1;
 		} decision lookup action accept_params {
 			if (! rule->r_sources)
-				rule->r_sources = table_find("<localhost>", NULL);			
+				rule->r_sources = table_find("<localhost>", NULL);
 			if (! rule->r_destination)
 			 	rule->r_destination = table_find("<localnames>", NULL);
 			if (! rule->r_userbase)
@@ -1445,8 +1417,8 @@ struct keywords {
 int
 yyerror(const char *fmt, ...)
 {
-	va_list ap;
-	char*msg;
+	va_list		 ap;
+	char		*msg;
 
 	file->errors++;
 	va_start(ap, fmt);
@@ -1484,10 +1456,7 @@ lookup(char *s)
 		{ "curve",		CURVE },
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
-		{ "disable",		DISABLE },
 		{ "domain",		DOMAIN },
-		{ "dsn-notify",		DSNNOTIFY },
-		{ "dsn-ret",		DSNRET },
 		{ "encryption",		ENCRYPTION },
 		{ "enqueuer",		ENQUEUER },
 		{ "expire",		EXPIRE },
@@ -1495,7 +1464,6 @@ lookup(char *s)
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARDONLY },
 		{ "from",		FROM },
-		{ "headers",		HEADERS },
 		{ "hostname",		HOSTNAME },
 		{ "hostnames",		HOSTNAMES },
 		{ "include",		INCLUDE },
@@ -1555,10 +1523,10 @@ lookup(char *s)
 
 #define MAXPUSHBACK	128
 
-u_char	*parsebuf;
-int	 parseindex;
-u_char	 pushback_buffer[MAXPUSHBACK];
-int	 pushback_index = 0;
+unsigned char	*parsebuf;
+int		 parseindex;
+unsigned char	 pushback_buffer[MAXPUSHBACK];
+int		 pushback_index = 0;
 
 int
 lgetc(int quotec)
@@ -1648,10 +1616,10 @@ findeol(void)
 int
 yylex(void)
 {
-	u_char	 buf[8096];
-	u_char	*p, *val;
-	int	 quotec, next, c;
-	int	 token;
+	unsigned char	 buf[8096];
+	unsigned char	*p, *val;
+	int		 quotec, next, c;
+	int		 token;
 
 top:
 	p = buf;
@@ -2094,10 +2062,10 @@ create_listener(struct listenerlist *ll,  struct listen_opts *lo)
 
 	if (lo->port != 0 && lo->ssl == F_SSL)
 		errx(1, "invalid listen option: tls/smtps on same port");
-	
+
 	if (lo->auth != 0 && !lo->ssl)
 		errx(1, "invalid listen option: auth requires tls/smtps");
-	
+
 	if (lo->pki && !lo->ssl)
 		errx(1, "invalid listen option: pki requires tls/smtps");
 
@@ -2163,6 +2131,7 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 			fatalx(NULL);
 		}
 	}
+
 	if (lo->ca != NULL) {
 		if (! lowercase(h->ca_name, lo->ca, sizeof(h->ca_name))) {
 			log_warnx("ca name too long: %s", lo->ca);
@@ -2237,7 +2206,7 @@ host_v6(const char *s, in_port_t port)
 
 	if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
 		h->local = 1;
-	
+
 	return (h);
 }
 
@@ -2459,41 +2428,41 @@ delaytonum(char *str)
 	size_t           len;
 	const char      *errstr = NULL;
 	int              delay;
-  	
+
 	/* we need at least 1 digit and 1 unit */
 	len = strlen(str);
 	if (len < 2)
 		goto bad;
-	
+
 	switch(str[len - 1]) {
-		
+
 	case 's':
 		factor = 1;
 		break;
-		
+
 	case 'm':
 		factor = 60;
 		break;
-		
+
 	case 'h':
 		factor = 60 * 60;
 		break;
-		
+
 	case 'd':
 		factor = 24 * 60 * 60;
 		break;
-		
+
 	default:
 		goto bad;
 	}
-  	
+
 	str[len - 1] = '\0';
 	delay = strtonum(str, 1, INT_MAX / factor, &errstr);
 	if (errstr)
 		goto bad;
-	
+
 	return (delay * factor);
-  	
+
 bad:
 	return (-1);
 }
@@ -2522,12 +2491,11 @@ is_if_in_group(const char *ifname, const char *groupname)
         }
 
         len = ifgr.ifgr_len;
-        ifgr.ifgr_groups =
-            (struct ifg_req *)xcalloc(len/sizeof(struct ifg_req),
+        ifgr.ifgr_groups = xcalloc(len/sizeof(struct ifg_req),
 		sizeof(struct ifg_req), "is_if_in_group");
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1)
                 err(1, "SIOCGIFGROUP");
-	
+
         ifg = ifgr.ifgr_groups;
         for (; ifg && len >= sizeof(struct ifg_req); ifg++) {
                 len -= sizeof(struct ifg_req);
@@ -2557,7 +2525,7 @@ create_filter_proc(char *name, char *prog)
 		return (NULL);
 	}
 
-	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC, prog) == -1) {
+	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC_DEPRECATED, prog) == -1) {
 		yyerror("filter \"%s\" asprintf failed", name);
 		return (0);
 	}
