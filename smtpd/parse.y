@@ -730,7 +730,7 @@ opt_relay_common: AS STRING	{
 				YYERROR;
 			}
 			if (dict_get(conf->sc_ca_dict,
-			    rule->r_value.relayhost.ca_name) == NULL) {
+				rule->r_value.relayhost.ca_name) == NULL) {
 				log_warnx("ca name not found: %s", $2);
 				free($2);
 				YYERROR;
