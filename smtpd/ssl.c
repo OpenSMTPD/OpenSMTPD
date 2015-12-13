@@ -68,8 +68,8 @@ ssl_init(void)
 }
 
 int
-ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
-    const char *ciphers)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki,
+    int (*sni_cb)(SSL *,int *,void *), const char *ciphers)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
