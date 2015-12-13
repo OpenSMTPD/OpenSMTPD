@@ -48,8 +48,7 @@ struct ca {
 /* ssl.c */
 void		ssl_init(void);
 int		ssl_setup(SSL_CTX **, struct pki *,
-    int (*)(SSL *, int *, void *),
-	    const char *);
+    int (*)(SSL *, int *, void *), const char *);
 SSL_CTX	       *ssl_ctx_create(const char *, char *, off_t, const char *);
 int	        ssl_cmp(struct pki *, struct pki *);
 void		ssl_set_ephemeral_key_exchange(SSL_CTX *, DH *);
