@@ -980,7 +980,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		resp_ca_cert->cert = xstrdup((char *)imsg->data +
 		    sizeof *resp_ca_cert, "smtp:ca_cert");
 		ssl_ctx = dict_get(env->sc_ssl_dict, resp_ca_cert->name);
-		ssl = ssl_smtp_init(ssl_ctx);
+		ssl = ssl_smtp_init(ssl_ctx, s->listener->flags & F_TLS_VERIFY);
 		io_set_read(&s->io);
 		io_start_tls(&s->io, ssl);
 

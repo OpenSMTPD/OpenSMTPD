@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: lka.c,v 1.188 2015/12/12 20:02:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -694,7 +694,7 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 	struct ca		       *sca;
 	const char		       *cafile;
 	size_t				i;
-	
+
 	resp.reqid = req->reqid;
 	sca = dict_get(env->sc_ca_dict, req->name);
 	if (sca == NULL)

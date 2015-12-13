@@ -570,18 +570,14 @@ bounce-warn	1h, 6h, 2d
 will generate a failure report when an envelope is in the queue for more
 than one hour, six hours and two days.
 The default is 4h.
-.It Xo
-.Ic ca Ar hostname Ic certificate Ar cafile
-.Xc
-Associate a custom CA certificate
+.It Ic ca Ar hostname Ic ca Ar cafile
+Associate a custom CA certificate located in
 .Ar cafile
 with
 .Ar hostname .
-.It Xo
-.Ic ciphers Ar cipher-list
-.Xc
+.It Ic ciphers Ar cipher-list
 Specify an alternate ciphers list to use when establishing TLS sessions.
-It is highly recommanded to avoid making use of this option unless there
+It is highly recommended to avoid making use of this option unless there
 is a good understanding of the implications.
 .Pp
 When not specified, only ciphers considered safe are chosen.
@@ -779,7 +775,8 @@ parameter is used, then
 will look up a mapping of username to email addresses to see whether
 the authenticated user is allowed to submit mail
 as the sender that was provided in the SMTP session.
-In addition, if the masquerade option is provided, the From header will be rewritten
+In addition, if the masquerade option is provided,
+the From header will be rewritten
 to match the sender provided in the SMTP session.
 .Pp
 If the
