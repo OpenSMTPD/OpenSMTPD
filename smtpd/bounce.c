@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.68 2015/11/23 06:54:21 sunil Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.70 2015/12/14 10:31:25 sunil Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -389,7 +389,7 @@ bounce_next_message(struct bounce_session *s)
 	if ((fd = queue_message_fd_r(msg->msgid)) == -1) {
 		bounce_delivery(msg, IMSG_QUEUE_DELIVERY_TEMPFAIL,
 		    "Could not open message fd");
-		goto again;		
+		goto again;
 	}
 
 	if ((s->msgfp = fdopen(fd, "r")) == NULL) {
@@ -425,7 +425,7 @@ bounce_next(struct bounce_session *s)
 			log_debug("debug: bounce: %p: no more messages", s);
 			bounce_send(s, "QUIT");
 			s->state = BOUNCE_CLOSE;
- 			break;
+			break;
 		}
 		log_debug("debug: bounce: %p: found message %08"PRIx32,
 		    s, s->msg->msgid);
@@ -516,20 +516,20 @@ bounce_next(struct bounce_session *s)
 		    s->boundary, s->smtpname);
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    "Reporting-MTA: dns; %s\n"
+		    "Reporting-MTA: dns; %s\n"
 		    "\n",
-	    	    s->smtpname);
+		    s->smtpname);
 
 		TAILQ_FOREACH(evp, &s->msg->envelopes, entry) {
 			iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    	    "Final-Recipient: rfc822; %s@%s\n"
+			    "Final-Recipient: rfc822; %s@%s\n"
 			    "Action: %s\n"
-	    	    	    "Status: %s\n"
-	    	    	    "\n",
+			    "Status: %s\n"
+			    "\n",
 			    evp->dest.user,
 			    evp->dest.domain,
 			    action_str(&s->msg->bounce),
-	    	    	    esc_code(evp->esc_class, evp->esc_code));
+			    esc_code(evp->esc_class, evp->esc_code));
 		}
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
@@ -542,9 +542,9 @@ bounce_next(struct bounce_session *s)
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
 		    "--%16" PRIu64 "/%s\n"
 		    "Content-Description: Message headers\n"
-	    	    "Content-Type: text/rfc822-headers\n"
-	    	    "\n",
-	    	    s->boundary, s->smtpname);
+		    "Content-Type: text/rfc822-headers\n"
+		    "\n",
+		    s->boundary, s->smtpname);
 
 		n = iobuf_queued(&s->iobuf);
 		while (iobuf_queued(&s->iobuf) < BOUNCE_HIWAT) {
@@ -557,7 +557,7 @@ bounce_next(struct bounce_session *s)
 				fclose(s->msgfp);
 				s->msgfp = NULL;
 				iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    		    "\n--%16" PRIu64 "/%s--\n", s->boundary,
+				    "\n--%16" PRIu64 "/%s--\n", s->boundary,
 				    s->smtpname);
 				bounce_send(s, ".");
 				s->state = BOUNCE_DATA_END;
@@ -580,7 +580,7 @@ bounce_next(struct bounce_session *s)
 		}
 
 		iobuf_xfqueue(&s->iobuf, "bounce_next: BODY",
-	    	    "\n--%16" PRIu64 "/%s--\n", s->boundary, s->smtpname);
+		    "\n--%16" PRIu64 "/%s--\n", s->boundary, s->smtpname);
 
 		log_trace(TRACE_BOUNCE, "bounce: %p: >>> [... %zu bytes ...]",
 		    s, iobuf_queued(&s->iobuf) - n);
@@ -808,7 +808,7 @@ action_str(const struct delivery_bounce *b)
 	case B_DSN:
 		if (b->mta_without_dsn)
 			return ("relayed");
-		
+
 		return ("success");
 	default:
 		log_warn("warn: bounce: unknown bounce_type");
