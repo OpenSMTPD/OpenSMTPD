@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.17 2014/04/19 14:27:29 gilles Exp $	*/
+/*	$OpenBSD: to.c,v 1.22 2015/11/30 12:53:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -161,7 +161,7 @@ sa_to_text(const struct sockaddr *sa)
 	buf[0] = '\0';
 	p = buf;
 
-	if (sa->sa_family == AF_UNIX)
+	if (sa->sa_family == AF_LOCAL)
 		(void)strlcpy(buf, "local", sizeof buf);
 	else if (sa->sa_family == AF_INET) {
 		in_addr_t addr;
@@ -623,7 +623,7 @@ rule_to_text(struct rule *r)
 	case A_NONE:
 		break;
 	}
-	    
+
 	return buf;
 }
 

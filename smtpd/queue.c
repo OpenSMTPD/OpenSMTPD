@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.162 2014/04/19 13:40:24 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.173 2015/12/10 07:49:58 sunil Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -76,7 +76,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 	uint64_t		 reqid, evpid, holdq;
 	uint32_t		 msgid;
 	time_t			 nexttry;
-	size_t			 n_evp;
+	size_t			 buflen, id_sz, n_evp;
 	int			 fd, mta_ext, ret, v, flags, code;
 	char			 buf[sizeof(evp)];
 
@@ -334,10 +334,12 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				evp.lasttry = nexttry;
 			}
 
-			(void)memcpy(buf, &evp.id, sizeof evp.id);
-			envelope_dump_buffer(&evp, buf+8, sizeof(buf)-8);
+			id_sz = sizeof evp.id;
+			(void)memcpy(buf, &evp.id, id_sz);
+			buflen = envelope_dump_buffer(&evp, buf + id_sz,
+			    sizeof(buf) - id_sz);
 			m_compose(p_control, IMSG_CTL_LIST_ENVELOPES,
-			    imsg->hdr.peerid, 0, -1, buf, 8 + strlen(buf+8) + 1);
+			    imsg->hdr.peerid, 0, -1, buf, id_sz + buflen + 1);
 			return;
 		}
 	}
@@ -370,7 +372,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			if (evp.dsn_notify & DSN_SUCCESS) {
 				bounce.type = B_DSN;
 				bounce.dsn_ret = evp.dsn_ret;
-
+				envelope_set_esc_class(&evp, ESC_STATUS_OK);
 				if (imsg->hdr.type == IMSG_MDA_DELIVERY_OK)
 					queue_bounce(&evp, &bounce);
 				else if (imsg->hdr.type == IMSG_MTA_DELIVERY_OK &&
@@ -618,7 +620,6 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	b.lasttry = 0;
 	b.creation = time(NULL);
 	b.expire = 3600 * 24 * 7;
-	b.dsn_ret = e->dsn_ret;
 
 	if (e->dsn_notify & DSN_NEVER)
 		return;
@@ -745,6 +746,9 @@ queue(void)
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
 	evtimer_add(&ev_qload, &tv);
+
+	if (pledge("stdio rpath wpath cpath flock recvfd sendfd", NULL) == -1)
+		err(1, "pledge");
 
 	if (event_dispatch() <  0)
 		fatal("event_dispatch");

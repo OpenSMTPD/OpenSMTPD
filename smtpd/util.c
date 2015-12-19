@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.110 2014/05/25 10:55:36 espie Exp $	*/
+/*	$OpenBSD: util.c,v 1.122 2015/10/17 22:24:36 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -229,47 +229,6 @@ mkdirs(char *path, mode_t mode)
 }
 
 int
-ckdir_quiet(const char *path, mode_t mode, uid_t owner, gid_t group)
-{
-	struct stat	sb;
-
-	if (stat(path, &sb) == -1) {
-		if (errno != ENOENT)
-			return (0);
-
-		/* chmod is deferred to avoid umask effect */
-		if (mkdir(path, 0) == -1)
-			return (0);
-
-		if (chown(path, owner, group) == -1)
-			return (0);
-
-		if (chmod(path, mode) == -1)
-			return (0);
-
-		if (stat(path, &sb) == -1)
-			return (0);
-	}
-
-	/* check if it's a directory */
-	if (!S_ISDIR(sb.st_mode))
-		return 0;
-
-	/* check that it is owned by owner/group */
-	if (sb.st_uid != owner)
-		return 0;
-
-	if (sb.st_gid != group)
-		return 0;
-
-	/* check permission */
-	if ((sb.st_mode & 07777) != mode)
-		return 0;
-
-	return 1;
-}
-
-int
 ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
 {
 	char		mode_str[12];
@@ -419,7 +378,6 @@ mktmpfile(void)
 {
 	char		path[PATH_MAX];
 	int		fd;
-	mode_t		omode;
 
 	if (! bsnprintf(path, sizeof(path), "%s/smtpd.XXXXXXXXXX",
 		PATH_TEMPORARY)) {
@@ -427,12 +385,10 @@ mktmpfile(void)
 		fatal("exiting");
 	}
 
-	omode = umask(7077);
 	if ((fd = mkstemp(path)) == -1) {
 		log_warn("cannot create temporary file %s", path);
 		fatal("exiting");
 	}
-	umask(omode);
 	unlink(path);
 	return (fd);
 }
@@ -494,7 +450,7 @@ mailaddr_match(const struct mailaddr *maddr1, const struct mailaddr *maddr2)
 	/* catchall */
 	if (m2.user[0] == '\0' && m2.domain[0] == '\0')
 		return 1;
-	
+
 	if (! hostname_match(m1.domain, m2.domain))
 		return 0;
 
@@ -624,6 +580,7 @@ addargs(arglist *args, char *fmt, ...)
 	char *cp;
 	uint nalloc;
 	int r;
+	char	**tmp;
 
 	va_start(ap, fmt);
 	r = vasprintf(&cp, fmt, ap);
@@ -638,9 +595,10 @@ addargs(arglist *args, char *fmt, ...)
 	} else if (args->num+2 >= nalloc)
 		nalloc *= 2;
 
-	args->list = reallocarray(args->list, nalloc, sizeof(char *));
-	if (args->list == NULL)
+	tmp = reallocarray(args->list, nalloc, sizeof(char *));
+	if (tmp == NULL)
 		fatal("addargs: reallocarray");
+	args->list = tmp;
 	args->nalloc = nalloc;
 	args->list[args->num++] = cp;
 	args->list[args->num] = NULL;
@@ -786,26 +744,20 @@ getmailname(char *hostname, size_t len)
 {
 	struct addrinfo	hints, *res = NULL;
 	FILE	*fp;
-	char	*buf, *lbuf = NULL;
-	size_t	 buflen;
+	char	*buf = NULL;
+	size_t	 bufsz = 0;
+	ssize_t	 buflen;
 	int	 error, ret = 0;
 
 	/* First, check if we have MAILNAME_FILE */
 	if ((fp = fopen(MAILNAME_FILE, "r")) == NULL)
 		goto nomailname;
 
-	if ((buf = fgetln(fp, &buflen)) == NULL)
+	if ((buflen = getline(&buf, &bufsz, fp)) == -1)
 		goto end;
 
-	if (buf[buflen-1] == '\n')
+	if (buf[buflen - 1] == '\n')
 		buf[buflen - 1] = '\0';
-	else {
-		if ((lbuf = calloc(buflen + 1, 1)) == NULL) {
-			log_warn("calloc");
-			fatal("exiting");
-		}
-		memcpy(lbuf, buf, buflen);
-	}
 
 	if (strlcpy(hostname, buf, len) >= len)
 		fprintf(stderr, MAILNAME_FILE " entry too long");
@@ -842,7 +794,7 @@ nomailname:
 	ret = 1;
 
 end:
-	free(lbuf);
+	free(buf);
 	if (res)
 		freeaddrinfo(res);
 	if (fp)

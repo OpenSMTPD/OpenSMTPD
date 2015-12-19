@@ -1,14 +1,8 @@
-#	$OpenBSD$
+#	$OpenBSD: Makefile,v 1.15 2015/12/07 12:29:19 sunil Exp $
 
 .include <bsd.own.mk>
 
 SUBDIR =	smtpd
 SUBDIR+=	smtpctl
-SUBDIR+=	makemap
-
-uninstall:
-	cd smtpd && make uninstall
-	cd smtpctl && make uninstall
-	cd makemap && make uninstall
 
 .include <bsd.subdir.mk>

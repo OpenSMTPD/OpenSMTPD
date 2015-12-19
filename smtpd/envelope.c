@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.29 2014/04/19 12:30:54 gilles Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.34 2015/11/30 14:32:00 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -319,7 +319,7 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 	memset(&ssin6, 0, sizeof ssin6);
 
 	if (!strcmp("local", buf)) {
-		ss->ss_family = AF_UNIX;
+		ss->ss_family = AF_LOCAL;
 	}
 	else if (strncasecmp("IPv6:", buf, 5) == 0) {
 		if (inet_pton(AF_INET6, buf + 5, &ssin6.sin6_addr) != 1)
@@ -916,6 +916,7 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	}
 
 	if (strcasecmp(field, "esc-code") == 0) {
+		/* this is not a pasto, we dump esc_code if esc_class is !0 */
 		if (ep->esc_class)
 			return ascii_dump_uint8(ep->esc_code, buf, len);
 		return 1;

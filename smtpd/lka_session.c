@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.66 2014/04/19 12:55:23 gilles Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.77 2015/11/30 12:57:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -70,7 +70,6 @@ static void lka_submit(struct lka_session *, struct rule *,
 static void lka_resume(struct lka_session *);
 static size_t lka_expand_format(char *, size_t, const struct envelope *,
     const struct userinfo *);
-static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
 
 static int mod_lowercase(char *, size_t);
 static int mod_uppercase(char *, size_t);
@@ -324,9 +323,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			 * we eventually strip the '+'-part before lookup.
 			 */
 			maddr = xn->u.mailaddr;
-			mailaddr_to_username(&xn->u.mailaddr, maddr.user,
+			xlowercase(maddr.user, xn->u.mailaddr.user,
 			    sizeof maddr.user);
-
 			r = aliases_virtual_get(&lks->expand, &maddr);
 			if (r == -1) {
 				lks->error = LKA_TEMPFAIL;
@@ -345,8 +343,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->expand.alias = 1;
 			memset(&node, 0, sizeof node);
 			node.type = EXPAND_USERNAME;
-			mailaddr_to_username(&xn->u.mailaddr, node.u.user,
-				sizeof node.u.user);
+			xlowercase(node.u.user, xn->u.mailaddr.user,
+			    sizeof node.u.user);
 			node.mapping = rule->r_mapping;
 			node.userbase = rule->r_userbase;
 			expand_insert(&lks->expand, &node);
@@ -384,16 +382,6 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		/* gilles+hackers@ -> gilles@ */
 		if ((tag = strchr(xn->u.user, TAG_CHAR)) != NULL)
 			*tag++ = '\0';
-
-		/* A username should not exceed the size of a system user */
-		/*
-		if (strlen(xn->u.user) >= sizeof fwreq.user) {
-			log_trace(TRACE_EXPAND, "expand: lka_expand: "
-			    "user-part too long to be a system user");
-			lks->error = LKA_PERMFAIL;
-			break;
-		}
-		*/
 
 		r = table_lookup(rule->r_userbase, NULL, xn->u.user, K_USERINFO, &lk);
 		if (r == -1) {
@@ -660,19 +648,19 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	/* token -> expanded token */
 	if (! strcasecmp("sender", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
-			ep->sender.user, ep->sender.domain) <= 0)
+			ep->sender.user, ep->sender.domain) >= (int)sizeof tmp)
 			return 0;
 		string = tmp;
 	}
 	else if (! strcasecmp("dest", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
-			ep->dest.user, ep->dest.domain) <= 0)
+			ep->dest.user, ep->dest.domain) >= (int)sizeof tmp)
 			return 0;
 		string = tmp;
 	}
 	else if (! strcasecmp("rcpt", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
-			ep->rcpt.user, ep->rcpt.domain) <= 0)
+			ep->rcpt.user, ep->rcpt.domain) >= (int)sizeof tmp)
 			return 0;
 		string = tmp;
 	}
@@ -855,12 +843,6 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep,
 		return 0;
 
 	return ret;
-}
-
-static void
-mailaddr_to_username(const struct mailaddr *maddr, char *dst, size_t len)
-{
-	xlowercase(dst, maddr->user, len);
 }
 
 static int 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ca.c,v 1.10 2014/07/10 20:16:48 jsg Exp $	*/
+/*	$OpenBSD: ca.c,v 1.19 2015/12/05 13:14:21 claudio Exp $	*/
 
 /*
  * Copyright (c) 2014 Reyk Floeter <reyk@openbsd.org>
@@ -25,15 +25,14 @@
 #include <sys/tree.h>
 
 #include <grp.h> /* needed for setgroups */
-#include <signal.h>
-#include <string.h>
+#include <err.h>
+#include <imsg.h>
 #include <limits.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include <imsg.h>
-#include <pwd.h>
-#include <err.h>
 
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
@@ -48,21 +47,25 @@
 
 static int	 ca_verify_cb(int, X509_STORE_CTX *);
 
-static int	 rsae_send_imsg(int, const u_char *, u_char *, RSA *,
-		    int, u_int);
-static int	 rsae_pub_enc(int, const u_char *, u_char *, RSA *, int);
-static int	 rsae_pub_dec(int,const u_char *, u_char *, RSA *, int);
-static int	 rsae_priv_enc(int, const u_char *, u_char *, RSA *, int);
-static int	 rsae_priv_dec(int, const u_char *, u_char *, RSA *, int);
+static int	 rsae_send_imsg(int, const unsigned char *, unsigned char *,
+		    RSA *, int, unsigned int);
+static int	 rsae_pub_enc(int, const unsigned char *, unsigned char *,
+		    RSA *, int);
+static int	 rsae_pub_dec(int,const unsigned char *, unsigned char *,
+		    RSA *, int);
+static int	 rsae_priv_enc(int, const unsigned char *, unsigned char *,
+		    RSA *, int);
+static int	 rsae_priv_dec(int, const unsigned char *, unsigned char *,
+		    RSA *, int);
 static int	 rsae_mod_exp(BIGNUM *, const BIGNUM *, RSA *, BN_CTX *);
 static int	 rsae_bn_mod_exp(BIGNUM *, const BIGNUM *, const BIGNUM *,
 		    const BIGNUM *, BN_CTX *, BN_MONT_CTX *);
 static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
-static int	 rsae_sign(int, const u_char *, u_int, u_char *, u_int *,
-		    const RSA *);
-static int	 rsae_verify(int dtype, const u_char *m, u_int, const u_char *,
-		    u_int, const RSA *);
+static int	 rsae_sign(int, const unsigned char *, unsigned int,
+		    unsigned char *, unsigned int *, const RSA *);
+static int	 rsae_verify(int dtype, const unsigned char *m, unsigned int,
+		    const unsigned char *, unsigned int, const RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 
 static uint64_t	 rsae_reqid = 0;
@@ -139,6 +142,9 @@ ca(void)
 
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
+
+	if (pledge("stdio", NULL) == -1)
+		err(1, "pledge");
 
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
@@ -248,7 +254,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 {
 	RSA			*rsa;
 	const void		*from = NULL;
-	u_char			 *to = NULL;
+	unsigned char		*to = NULL;
 	struct msg		 m;
 	const char		*pkiname;
 	size_t			 flen, tlen, padding;
@@ -359,8 +365,8 @@ static RSA_METHOD rsae_method = {
 };
 
 static int
-rsae_send_imsg(int flen, const u_char *from, u_char *to, RSA *rsa,
-    int padding, u_int cmd)
+rsae_send_imsg(int flen, const unsigned char *from, unsigned char *to,
+    RSA *rsa, int padding, unsigned int cmd)
 {
 	int		 ret = 0;
 	struct imsgbuf	*ibuf;
@@ -391,7 +397,7 @@ rsae_send_imsg(int flen, const u_char *from, u_char *to, RSA *rsa,
 	ibuf = &p_ca->imsgbuf;
 
 	while (!done) {
-		if ((n = imsg_read(ibuf)) == -1)
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
 			fatalx("imsg_read");
 		if (n == 0)
 			fatalx("pipe closed");
@@ -437,21 +443,24 @@ rsae_send_imsg(int flen, const u_char *from, u_char *to, RSA *rsa,
 }
 
 static int
-rsae_pub_enc(int flen,const u_char *from, u_char *to, RSA *rsa,int padding)
+rsae_pub_enc(int flen,const unsigned char *from, unsigned char *to, RSA *rsa,
+    int padding)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (rsa_default->rsa_pub_enc(flen, from, to, rsa, padding));
 }
 
 static int
-rsae_pub_dec(int flen,const u_char *from, u_char *to, RSA *rsa,int padding)
+rsae_pub_dec(int flen,const unsigned char *from, unsigned char *to, RSA *rsa,
+    int padding)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (rsa_default->rsa_pub_dec(flen, from, to, rsa, padding));
 }
 
 static int
-rsae_priv_enc(int flen, const u_char *from, u_char *to, RSA *rsa, int padding)
+rsae_priv_enc(int flen, const unsigned char *from, unsigned char *to, RSA *rsa,
+    int padding)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	if (RSA_get_ex_data(rsa, 0) != NULL) {
@@ -462,7 +471,8 @@ rsae_priv_enc(int flen, const u_char *from, u_char *to, RSA *rsa, int padding)
 }
 
 static int
-rsae_priv_dec(int flen, const u_char *from, u_char *to, RSA *rsa, int padding)
+rsae_priv_dec(int flen, const unsigned char *from, unsigned char *to, RSA *rsa,
+    int padding)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	if (RSA_get_ex_data(rsa, 0) != NULL) {
@@ -506,8 +516,8 @@ rsae_finish(RSA *rsa)
 }
 
 static int
-rsae_sign(int type, const u_char *m, u_int m_length, u_char *sigret,
-    u_int *siglen, const RSA *rsa)
+rsae_sign(int type, const unsigned char *m, unsigned int m_length,
+    unsigned char *sigret, unsigned int *siglen, const RSA *rsa)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (rsa_default->rsa_sign(type, m, m_length,
@@ -515,8 +525,8 @@ rsae_sign(int type, const u_char *m, u_int m_length, u_char *sigret,
 }
 
 static int
-rsae_verify(int dtype, const u_char *m, u_int m_length, const u_char *sigbuf,
-    u_int siglen, const RSA *rsa)
+rsae_verify(int dtype, const unsigned char *m, unsigned int m_length,
+    const unsigned char *sigbuf, unsigned int siglen, const RSA *rsa)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (rsa_default->rsa_verify(dtype, m, m_length,

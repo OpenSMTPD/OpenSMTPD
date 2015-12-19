@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: scheduler_proc.c,v 1.8 2015/12/05 13:14:21 claudio Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
+#include <errno.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -67,7 +68,7 @@ scheduler_proc_call(void)
 			return;
 		}
 
-		if ((n = imsg_read(&ibuf)) == -1) {
+		if ((n = imsg_read(&ibuf)) == -1 && errno != EAGAIN) {
 			log_warn("warn: scheduler-proc: imsg_read");
 			break;
 		}

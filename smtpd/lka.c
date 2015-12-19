@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: lka.c,v 1.188 2015/12/12 20:02:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -194,6 +194,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			if (req_ca_vrfy == NULL)
 				fatalx("lka:ca_vrfy: verify without a certificate");
 			lka_certificate_verify(imsg->hdr.type, req_ca_vrfy);
+			req_ca_vrfy = NULL;
 			return;
 
 		case IMSG_SMTP_AUTHENTICATE:
@@ -452,6 +453,9 @@ lka(void)
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
 
+	if (pledge("stdio rpath inet dns getpw recvfd", NULL) == -1)
+		err(1, "pledge");
+
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	lka_shutdown();
@@ -463,6 +467,7 @@ static int
 lka_authenticate(const char *tablename, const char *user, const char *password)
 {
 	struct table		*table;
+	char			*cpass;
 	union lookup		 lk;
 
 	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
@@ -481,7 +486,10 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 	case 0:
 		return (LKA_PERMFAIL);
 	default:
-		if (!strcmp(lk.creds.password, crypt(password, lk.creds.password)))
+		cpass = crypt(password, lk.creds.password);
+		if (cpass == NULL)
+			return (LKA_PERMFAIL);
+		if (!strcmp(lk.creds.password, cpass))
 			return (LKA_OK);
 		return (LKA_PERMFAIL);
 	}
@@ -585,7 +593,7 @@ lka_addrname(const char *tablename, const struct sockaddr *sa,
 		*res = lk.addrname;
 		return (LKA_OK);
 	}
-}      
+}
 
 static int
 lka_mailaddrmap(const char *tablename, const char *username, const struct mailaddr *maddr)
@@ -686,7 +694,7 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 	struct ca		       *sca;
 	const char		       *cafile;
 	size_t				i;
-	
+
 	resp.reqid = req->reqid;
 	sca = dict_get(env->sc_ca_dict, req->name);
 	if (sca == NULL)
@@ -700,10 +708,10 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 		resp.status = CA_FAIL;
 	else
 		resp.status = CA_OK;
-	
+
 	m_compose(p_pony, type, 0, 0, -1, &resp,
 	    sizeof resp);
-	
+
 	for (i = 0; i < req->n_chain; ++i)
 		free(req->chain_cert[i]);
 	free(req->chain_cert);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.100 2014/04/19 11:17:14 gilles Exp $	*/
+/*	$OpenBSD: control.c,v 1.108 2015/11/05 09:14:31 sunil Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -199,20 +199,20 @@ control_sig_handler(int sig, short event, void *p)
 int
 control_create_socket(void)
 {
-	struct sockaddr_un	addr;
+	struct sockaddr_un	sun;
 	int			fd;
 	mode_t			old_umask;
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("control: socket");
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	if (strlcpy(addr.sun_path, SMTPD_SOCKET,
-	    sizeof(addr.sun_path)) >= sizeof(addr.sun_path))
+	memset(&sun, 0, sizeof(sun));
+	sun.sun_family = AF_UNIX;
+	if (strlcpy(sun.sun_path, SMTPD_SOCKET,
+	    sizeof(sun.sun_path)) >= sizeof(sun.sun_path))
 		fatal("control: socket name too long");
 
-	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0)
+	if (connect(fd, (struct sockaddr *)&sun, sizeof(sun)) == 0)
 		fatalx("control socket already listening");
 
 	if (unlink(SMTPD_SOCKET) == -1)
@@ -220,7 +220,7 @@ control_create_socket(void)
 			fatal("control: cannot unlink socket");
 
 	old_umask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
-	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+	if (bind(fd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
 		(void)umask(old_umask);
 		fatal("control: bind");
 	}
@@ -302,6 +302,9 @@ control(void)
 
 	control_listen();
 
+	if (pledge("stdio unix recvfd sendfd", NULL) == -1)
+		err(1, "pledge");
+
 	if (event_dispatch() < 0)
 		fatal("event_dispatch");
 	control_shutdown();
@@ -333,7 +336,7 @@ control_accept(int listenfd, short event, void *arg)
 {
 	int			 connfd;
 	socklen_t		 len;
-	struct sockaddr_un	 addr;
+	struct sockaddr_un	 sun;
 	struct ctl_conn		*c;
 	size_t			*count;
 	uid_t			 euid;
@@ -342,8 +345,8 @@ control_accept(int listenfd, short event, void *arg)
 	if (available_fds(CONTROL_FD_RESERVE))
 		goto pause;
 
-	len = sizeof(addr);
-	if ((connfd = accept(listenfd, (struct sockaddr *)&addr, &len)) == -1) {
+	len = sizeof(sun);
+	if ((connfd = accept(listenfd, (struct sockaddr *)&sun, &len)) == -1) {
 		if (errno == ENFILE || errno == EMFILE)
 			goto pause;
 		if (errno == EINTR || errno == EWOULDBLOCK ||

@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.78 2014/04/19 12:26:15 gilles Exp $	*/
+/*	$OpenBSD: dns.c,v 1.83 2015/10/28 07:28:13 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -368,15 +368,13 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		return;
 	}
 
-	found = 0;
-
 	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	if (unpack_header(&pack, &h) == -1 || unpack_query(&pack, &q) == -1)
-		return;
+	unpack_header(&pack, &h);
+	unpack_query(&pack, &q);
 
+	found = 0;
 	for (; h.ancount; h.ancount--) {
-		if (unpack_rr(&pack, &rr) == -1)
-			break;
+		unpack_rr(&pack, &rr);
 		if (rr.rr_type != T_MX)
 			continue;
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
@@ -414,19 +412,17 @@ dns_dispatch_mx_preference(struct asr_result *ar, void *arg)
 	else {
 		error = DNS_ENOTFOUND;
 		unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-		if (unpack_header(&pack, &h) != -1 &&
-		    unpack_query(&pack, &q) != -1) {
-			for (; h.ancount; h.ancount--) {
-				if (unpack_rr(&pack, &rr) == -1)
-					break;
-				if (rr.rr_type != T_MX)
-					continue;
-				print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
-				buf[strlen(buf) - 1] = '\0';
-				if (!strcasecmp(s->name, buf)) {
-					error = DNS_OK;
-					break;
-				}
+		unpack_header(&pack, &h);
+		unpack_query(&pack, &q);
+		for (; h.ancount; h.ancount--) {
+			unpack_rr(&pack, &rr);
+			if (rr.rr_type != T_MX)
+				continue;
+			print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
+			buf[strlen(buf) - 1] = '\0';
+			if (!strcasecmp(s->name, buf)) {
+				error = DNS_OK;
+				break;
 			}
 		}
 	}
@@ -469,6 +465,7 @@ dns_lookup_host(struct dns_session *s, const char *host, int preference)
 	}
 
 	memset(&hints, 0, sizeof(hints));
+	hints.ai_flags = AI_ADDRCONFIG;
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	as = getaddrinfo_async(host, NULL, &hints, NULL);
