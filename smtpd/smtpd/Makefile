@@ -2,6 +2,8 @@
 
 .PATH:		${.CURDIR}/..
 
+OPENBSD_VERSION!=	uname -r
+
 PROG=		smtpd
 
 SRCS=	aliases.c
@@ -93,6 +95,9 @@ CFLAGS+=	-Wsign-compare
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
 CFLAGS+=	-DQUEUE_PROFILING
+.if ${OPENBSD_VERSION} == "5.7" || ${OPENBSD_VERSION} == "5.8"
+CFLAGS+=	-D"pledge(promises, paths)=0"
+.endif
 YFLAGS=
 
 .include <bsd.prog.mk>
