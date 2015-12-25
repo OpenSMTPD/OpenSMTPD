@@ -146,7 +146,6 @@ struct smtp_session {
 	int			 rcvcount;
 	int			 dataeom;
 
-	int			 skiphdr;
 	struct event		 pause;
 
 	struct rfc2822_parser	 rfc2822_parser;
@@ -1324,18 +1323,6 @@ smtp_io(struct io *io, int evt)
 				line += 1;
 				len -= 1;
 			}
-
-			if (isspace((unsigned char)line[0]) && s->skiphdr)
-                                goto nextline;
-                        s->skiphdr = 0;
-
-                        /* BCC should be stripped from headers */
-                        if (! s->hdrdone) {
-                                if (strncasecmp("bcc:", line, 4) == 0) {
-                                        s->skiphdr = 1;
-                                        goto nextline;
-                                }
-                        }
 
 			log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 			smtp_filter_dataline(s, line);
