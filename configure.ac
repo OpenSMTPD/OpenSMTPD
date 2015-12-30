@@ -652,6 +652,7 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nsleep \
 	pidfile \
+	pledge \
 	pw_dup \
 	reallocarray \
 	setenv \
