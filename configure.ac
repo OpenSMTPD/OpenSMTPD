@@ -322,6 +322,7 @@ AC_CHECK_HEADERS([ \
 	dirent.h \
 	fcntl.h \
 	getopt.h \
+	grp.h \
 	limits.h \
 	maillock.h \
 	mach/mach_time.h \
@@ -407,6 +408,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	use_pie=auto
 	check_for_libcrypt_later=1
+	CFLAGS="$CFLAGS -D_BSD_SOURCE"
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	case `uname -r` in
 	1.*|2.0.*)
