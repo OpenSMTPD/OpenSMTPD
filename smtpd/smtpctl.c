@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.140 2015/12/11 07:30:24 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.144 2015/12/28 22:08:30 jung Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -140,7 +140,7 @@ offline_file(void)
 	int	fd;
 	FILE   *fp;
 
-	if (! bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
+	if (!bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
 		PATH_OFFLINE, (long long int) time(NULL)))
 		err(EX_UNAVAILABLE, "snprintf");
 
@@ -620,7 +620,7 @@ do_show_envelope(int argc, struct parameter *argv)
 {
 	char	 buf[PATH_MAX];
 
-	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/%016" PRIx64,
+	if (!bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/%016" PRIx64,
 	    PATH_SPOOL,
 	    PATH_QUEUE,
 	    (evpid_to_msgid(argv[0].u.u_evpid) & 0xff000000) >> 24,
@@ -652,7 +652,7 @@ do_show_message(int argc, struct parameter *argv)
 	else
 		msgid = argv[0].u.u_msgid;
 
-	if (! bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
+	if (!bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
 		PATH_SPOOL,
 		PATH_QUEUE,
 		(msgid & 0xff000000) >> 24,
@@ -976,13 +976,57 @@ do_uncorrupt(int argc, struct parameter *argv)
 int
 main(int argc, char **argv)
 {
+	arglist		 args;
 	gid_t		 gid;
 	char		*argv_mailq[] = { "show", "queue", NULL };
+	char		*aliases_path = NULL, *p;
 	FILE		*offlinefp = NULL;
+	int		 ch, i, sendmail_makemap = 0;
 
 	gid = getgid();
 	if (strcmp(__progname, "sendmail") == 0 ||
 	    strcmp(__progname, "send-mail") == 0) {
+		/*
+		 * determine whether we are called with flags
+		 * that should invoke makemap/newaliases.
+		 */
+		opterr = 0;
+		while ((ch = getopt(argc, argv, "b:C:O:")) != -1) {
+			switch (ch) {
+			case 'b':
+				if (strcmp(optarg, "i") == 0)
+					sendmail_makemap = 1;
+				break;
+			case 'C':
+				break; /* compatibility, not required */
+			case 'O':
+				if (strncmp(optarg, "AliasFile=", 10) != 0)
+					break;
+				p = strchr(optarg, '=');
+				aliases_path = ++p;
+				break;
+			}
+		}
+		opterr = 1;
+
+		if (sendmail_makemap) {
+			argc -= optind;
+			argv += optind;
+			optind = 0;
+
+			memset(&args, 0, sizeof args);
+			addargs(&args, "%s", "makemap");
+			for (i = 0; i < argc; i++)
+				addargs(&args, "%s", argv[i]);
+
+			addargs(&args, "%s", "-taliases");
+			if (aliases_path)
+				addargs(&args, "%s", aliases_path);
+
+			return makemap(args.num, args.list);
+		}
+		optind = 0;
+
 		if (!srv_connect())
 			offlinefp = offline_file();
 
@@ -1156,7 +1200,7 @@ show_offline_envelope(uint64_t evpid)
 
 	struct envelope	evp;
 
-	if (! bsnprintf(pathname, sizeof pathname,
+	if (!bsnprintf(pathname, sizeof pathname,
 		"/queue/%02x/%08x/%016"PRIx64,
 		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
 		evpid_to_msgid(evpid), evpid))
@@ -1180,7 +1224,7 @@ show_offline_envelope(uint64_t evpid)
 		goto end;
 	}
 
-	if (! envelope_load_buffer(&evp, p, plen))
+	if (!envelope_load_buffer(&evp, p, plen))
 		goto end;
 	evp.id = evpid;
 	show_queue_envelope(&evp, 0);
@@ -1226,7 +1270,7 @@ display(const char *s)
 		if (i == 3)
 			errx(1, "crypto-setup: invalid key");
 
-		if (! crypto_decrypt_file(fp, ofp)) {
+		if (!crypto_decrypt_file(fp, ofp)) {
 			printf("object is encrypted: %s\n", key);
 			exit(1);
 		}

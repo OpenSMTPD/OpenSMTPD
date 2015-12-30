@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.267 2015/12/14 10:22:12 jung Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.269 2015/12/28 22:08:30 jung Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -644,7 +644,7 @@ main(int argc, char *argv[])
 
 	log_info("info: %s %s starting", SMTPD_NAME, SMTPD_VERSION);
 
-	if (! foreground)
+	if (!foreground)
 		if (daemon(0, 0) == -1)
 			err(1, "failed to daemonize");
 
@@ -658,7 +658,6 @@ main(int argc, char *argv[])
 	log_debug("debug: using \"%s\" queue backend", backend_queue);
 	log_debug("debug: using \"%s\" scheduler backend", backend_scheduler);
 	log_debug("debug: using \"%s\" stat backend", backend_stat);
-	log_info("info: startup%s", (verbose & TRACE_DEBUG)?" [debug mode]":"");
 
 	if (env->sc_hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");
@@ -727,11 +726,11 @@ load_pki_tree(void)
 		if (pki->pki_key_file == NULL)
 			fatalx("load_pki_tree: missing key file");
 
-		if (! ssl_load_certificate(pki, pki->pki_cert_file))
+		if (!ssl_load_certificate(pki, pki->pki_cert_file))
 			fatalx("load_pki_tree: failed to load certificate file");
 
 		if (pki->pki_dhparams_file)
-			if (! ssl_load_dhparams(pki, pki->pki_dhparams_file))
+			if (!ssl_load_dhparams(pki, pki->pki_dhparams_file))
 				fatalx("load_pki_tree: failed to load dhparams file");
 	}
 
@@ -739,7 +738,7 @@ load_pki_tree(void)
 	iter_dict = NULL;
 	while (dict_iter(env->sc_ca_dict, &iter_dict, &k, (void **)&sca)) {
 		log_debug("info: loading CA information for %s", k);
-		if (! ssl_load_cafile(sca, sca->ca_cert_file))
+		if (!ssl_load_cafile(sca, sca->ca_cert_file))
 			fatalx("load_pki_tree: failed to load CA file");
 	}
 }
@@ -756,7 +755,7 @@ load_pki_keys(void)
 	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
 		log_debug("info: loading pki keys for %s", k);
 
-		if (! ssl_load_keyfile(pki, pki->pki_key_file, k))
+		if (!ssl_load_keyfile(pki, pki->pki_key_file, k))
 			fatalx("load_pki_keys: failed to load key file");
 	}
 }
@@ -934,7 +933,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		return;
 	}
 
-	if (deliver->userinfo.uid == 0 && ! db->allow_root) {
+	if (deliver->userinfo.uid == 0 && !db->allow_root) {
 		(void)snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->user);
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
@@ -1130,7 +1129,7 @@ offline_enqueue(char *name)
 			_exit(1);
 		}
 
-		if (! S_ISREG(sb.st_mode)) {
+		if (!S_ISREG(sb.st_mode)) {
 			log_warnx("warn: smtpd: file %s (uid %d) not regular",
 			    path, sb.st_uid);
 			_exit(1);
@@ -1238,7 +1237,7 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 	int		fd;
 	struct stat	sb;
 
-	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
+	if (!bsnprintf(pathname, sizeof (pathname), "%s/.forward",
 		directory)) {
 		log_warnx("warn: smtpd: %s: pathname too large", pathname);
 		return -1;
@@ -1273,7 +1272,7 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 		return -1;
 	}
 
-	if (! secure_file(fd, pathname, directory, uid, 1)) {
+	if (!secure_file(fd, pathname, directory, uid, 1)) {
 		log_warnx("warn: smtpd: %s: unsecure file", pathname);
 		close(fd);
 		return -1;
@@ -1319,7 +1318,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 			if (smtpd_process == PROC_CONTROL)
 				return;
 
-			if (! bsnprintf(key, sizeof key,
+			if (!bsnprintf(key, sizeof key,
 				"profiling.imsg.%s.%s.%s",
 				proc_name(smtpd_process),
 				proc_name(p->proc),
