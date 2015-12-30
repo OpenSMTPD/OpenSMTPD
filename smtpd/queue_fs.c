@@ -430,7 +430,7 @@ queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
 			continue;
 
 		/* ignore files other than envelopes */
-		if (dp->d_namlen != 16 || strncmp(dp->d_name, msgid_str, 8))
+		if (strlen(dp->d_name) != 16 || strncmp(dp->d_name, msgid_str, 8))
 			continue;
 
 		tmp = NULL;
