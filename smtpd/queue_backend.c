@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.60 2015/12/14 10:22:12 jung Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.61 2015/12/28 22:08:30 jung Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -227,7 +227,7 @@ queue_message_commit(uint32_t msgid)
 		ofp = fopen(tmppath, "w+");
 		if (ifp == NULL || ofp == NULL)
 			goto err;
-		if (! compress_file(ifp, ofp))
+		if (!compress_file(ifp, ofp))
 			goto err;
 		fclose(ifp);
 		fclose(ofp);
@@ -250,7 +250,7 @@ queue_message_commit(uint32_t msgid)
 		ofp = fopen(tmppath, "w+");
 		if (ifp == NULL || ofp == NULL)
 			goto err;
-		if (! crypto_encrypt_file(ifp, ofp))
+		if (!crypto_encrypt_file(ifp, ofp))
 			goto err;
 		fclose(ifp);
 		fclose(ofp);
@@ -338,7 +338,7 @@ queue_message_fd_r(uint32_t msgid)
 		if ((ofp = fdopen(fdout, "w+")) == NULL)
 			goto err;
 
-		if (! crypto_decrypt_file(ifp, ofp))
+		if (!crypto_decrypt_file(ifp, ofp))
 			goto err;
 
 		fclose(ifp);
@@ -361,7 +361,7 @@ queue_message_fd_r(uint32_t msgid)
 		if ((ofp = fdopen(fdout, "w+")) == NULL)
 			goto err;
 
-		if (! uncompress_file(ifp, ofp))
+		if (!uncompress_file(ifp, ofp))
 			goto err;
 
 		fclose(ifp);
