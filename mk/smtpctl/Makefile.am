@@ -23,6 +23,18 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/expand.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/tree.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/dict.c
 
+if HAVE_DB_API
+smtpctl_SOURCES+=	$(smtpd_srcdir)/parse.y
+smtpctl_SOURCES+=	$(smtpd_srcdir)/limit.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/table.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/table_static.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/table_db.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/table_getpwnam.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/table_proc.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/mailaddr.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/makemap.c
+endif
+
 if HAVE_GCM_CRYPTO
 smtpctl_SOURCES+=	$(smtpd_srcdir)/crypto.c
 endif
@@ -37,6 +49,9 @@ AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
 LDADD=			$(LIBCOMPAT)
+if HAVE_DB_API
+LDADD+= $(DB_LIB)
+endif
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined

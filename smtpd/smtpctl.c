@@ -64,6 +64,11 @@
 #define PATH_ENCRYPT	"/usr/bin/encrypt"
 #endif
 
+#ifndef HAVE_DB_API
+#define	makemap(x, y)	1
+#endif
+
+
 int srv_connect(void);
 int srv_connected(void);
 
