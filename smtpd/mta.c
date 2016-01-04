@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.198 2015/12/14 10:22:12 jung Exp $	*/
+/*	$OpenBSD: mta.c,v 1.199 2015/12/28 22:08:30 jung Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -2437,7 +2437,7 @@ mta_hoststat_update(const char *host, const char *error)
 	char		 buf[HOST_NAME_MAX+1];
 	time_t		 tm;
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	tm = time(NULL);
@@ -2463,7 +2463,7 @@ mta_hoststat_cache(const char *host, uint64_t evpid)
 	struct hoststat	*hs = NULL;
 	char buf[HOST_NAME_MAX+1];
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);
@@ -2482,7 +2482,7 @@ mta_hoststat_uncache(const char *host, uint64_t evpid)
 	struct hoststat	*hs = NULL;
 	char buf[HOST_NAME_MAX+1];
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);
@@ -2499,7 +2499,7 @@ mta_hoststat_reschedule(const char *host)
 	char		 buf[HOST_NAME_MAX+1];
 	uint64_t	 evpid;
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);

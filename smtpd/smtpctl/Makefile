@@ -1,6 +1,8 @@
-#	$OpenBSD: Makefile,v 1.42 2015/12/09 08:13:28 sunil Exp $
+#	$OpenBSD: Makefile,v 1.43 2015/12/28 13:26:44 benno Exp $
 
 .PATH:		${.CURDIR}/..
+
+OPENBSD_VERSION!=	uname -r
 
 PROG=	smtpctl
 BINOWN=	root
@@ -18,7 +20,11 @@ CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare
+CFLAGS+=	-Werror-implicit-function-declaration
 CFLAGS+=	-DNO_IO
+.if ${OPENBSD_VERSION} == "5.7" || ${OPENBSD_VERSION} == "5.8"
+CFLAGS+=	-D"pledge(promises, paths)=0"
+.endif
 
 SRCS=	enqueue.c
 SRCS+=	parser.c

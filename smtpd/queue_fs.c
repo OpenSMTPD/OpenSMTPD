@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fs.c,v 1.12 2015/12/14 10:22:12 jung Exp $	*/
+/*	$OpenBSD: queue_fs.c,v 1.14 2015/12/30 11:40:30 jung Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -87,7 +87,7 @@ queue_fs_message_create(uint32_t *msgid)
 	char		rootdir[PATH_MAX];
 	struct stat	sb;
 
-	if (! fsqueue_check_space())
+	if (!fsqueue_check_space())
 		return 0;
 
 again:
@@ -265,7 +265,7 @@ queue_fs_message_uncorrupt(uint32_t msgid)
 		return (0);
 	}
 
-	if (! bsnprintf(bucketdir, sizeof bucketdir, "%s/%02x", PATH_QUEUE,
+	if (!bsnprintf(bucketdir, sizeof bucketdir, "%s/%02x", PATH_QUEUE,
 	    (msgid & 0xff000000) >> 24)) {
 		log_warnx("warn: queue-fs: path too long");
 		return (0);
@@ -410,7 +410,7 @@ queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
 	if (*done)
 		return (-1);
 
-	if (! bsnprintf(path, sizeof path, "%s/%02x/%08x",
+	if (!bsnprintf(path, sizeof path, "%s/%02x/%08x",
 	    PATH_QUEUE, (msgid  & 0xff000000) >> 24, msgid))
 		fatalx("queue_fs_message_walk: path does not fit buffer");
 
@@ -430,7 +430,8 @@ queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
 			continue;
 
 		/* ignore files other than envelopes */
-		if (dp->d_namlen != 16 || strncmp(dp->d_name, msgid_str, 8))
+		if (strlen(dp->d_name) != 16 ||
+		    strncmp(dp->d_name, msgid_str, 8))
 			continue;
 
 		tmp = NULL;
@@ -545,7 +546,7 @@ fsqueue_check_space(void)
 static void
 fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 {
-	if (! bsnprintf(buf, len, "%s/%02x/%08x/%016" PRIx64,
+	if (!bsnprintf(buf, len, "%s/%02x/%08x/%016" PRIx64,
 		PATH_QUEUE,
 		(evpid_to_msgid(evpid) & 0xff000000) >> 24,
 		evpid_to_msgid(evpid),
@@ -556,7 +557,7 @@ fsqueue_envelope_path(uint64_t evpid, char *buf, size_t len)
 static void
 fsqueue_envelope_incoming_path(uint64_t evpid, char *buf, size_t len)
 {
-	if (! bsnprintf(buf, len, "%s/%08x/%016" PRIx64,
+	if (!bsnprintf(buf, len, "%s/%08x/%016" PRIx64,
 		PATH_INCOMING,
 		evpid_to_msgid(evpid),
 		evpid))
@@ -622,7 +623,7 @@ tempfail:
 static void
 fsqueue_message_path(uint32_t msgid, char *buf, size_t len)
 {
-	if (! bsnprintf(buf, len, "%s/%02x/%08x",
+	if (!bsnprintf(buf, len, "%s/%02x/%08x",
 		PATH_QUEUE,
 		(msgid & 0xff000000) >> 24,
 		msgid))
@@ -632,7 +633,7 @@ fsqueue_message_path(uint32_t msgid, char *buf, size_t len)
 static void
 fsqueue_message_corrupt_path(uint32_t msgid, char *buf, size_t len)
 {
-	if (! bsnprintf(buf, len, "%s/%08x",
+	if (!bsnprintf(buf, len, "%s/%08x",
 		PATH_CORRUPT,
 		msgid))
 		fatalx("fsqueue_message_corrupt_path: path does not fit buffer");
@@ -641,7 +642,7 @@ fsqueue_message_corrupt_path(uint32_t msgid, char *buf, size_t len)
 static void
 fsqueue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
 {
-	if (! bsnprintf(buf, len, "%s/%08x",
+	if (!bsnprintf(buf, len, "%s/%08x",
 		PATH_INCOMING,
 		msgid))
 		fatalx("fsqueue_message_incoming_path: path does not fit buffer");
