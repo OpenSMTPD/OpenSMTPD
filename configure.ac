@@ -322,6 +322,7 @@ AC_CHECK_HEADERS([ \
 	dirent.h \
 	fcntl.h \
 	getopt.h \
+	grp.h \
 	limits.h \
 	maillock.h \
 	mach/mach_time.h \
@@ -407,6 +408,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	use_pie=auto
 	check_for_libcrypt_later=1
+	CFLAGS="$CFLAGS -D_BSD_SOURCE"
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	case `uname -r` in
 	1.*|2.0.*)
@@ -652,6 +654,7 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nsleep \
 	pidfile \
+	pledge \
 	pw_dup \
 	reallocarray \
 	setenv \
@@ -1246,6 +1249,25 @@ AC_LINK_IFELSE(
 	]
 )
 AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
+##gilles
+
+##gilles
+OPENSSL_SUPPORTS_ECDH_AUTO=no
+AC_MSG_CHECKING([if programs using SSL_CTX_set_ecdh_auto will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_ecdh_auto(NULL, 1); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_SSL_CTX_SET_ECDH_AUTO], [1],
+			[Define if SSL library support SSL_CTX_set_ecdh_auto])
+		OPENSSL_SUPPORTS_ECDH_AUTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_SSL_CTX_SET_ECDH_AUTO], [test $OPENSSL_SUPPORTS_ECDH_AUTO = yes])
 ##gilles
 
 ##gilles

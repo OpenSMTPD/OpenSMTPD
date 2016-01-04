@@ -496,6 +496,7 @@ queue_fs_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 static int
 fsqueue_check_space(void)
 {
+#ifdef __OpenBSD__
 	struct statfs	buf;
 	uint64_t	used;
 	uint64_t	total;
@@ -539,7 +540,7 @@ fsqueue_check_space(void)
 		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
-
+#endif
 	return 1;
 }
 

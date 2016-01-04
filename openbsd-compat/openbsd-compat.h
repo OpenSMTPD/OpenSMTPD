@@ -214,4 +214,8 @@ void *reallocarray(void *, size_t, size_t);
 void errc(int, int, const char *, ...);
 #endif
 
+#ifndef HAVE_PLEDGE
+#define pledge(promises, paths) 0
+#endif
+
 #endif /* _OPENBSD_COMPAT_H */
