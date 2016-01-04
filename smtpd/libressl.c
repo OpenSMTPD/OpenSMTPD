@@ -79,7 +79,9 @@
 #include "ssl.h"
 
 #define SSL_ECDH_CURVE          "prime256v1"
+#ifndef HAVE_SSL_CTX_SET_ECDH_AUTO
 void	SSL_CTX_set_ecdh_auto(SSL_CTX *, int);
+#endif
 
 /*
  * Read a bio that contains our certificate in "PEM" format,
