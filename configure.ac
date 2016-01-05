@@ -14,9 +14,11 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
-dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([opensmtpd], [portable], [bugs@opensmtpd.org])
+AC_PREREQ(2.69)
+
+dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'), [bugs@opensmtpd.org>], [opensmtpd], [https://github.com/OpenSMTPD/OpenSMTPD])
+AC_INIT([OpenSMTPD-portable], [portable], [bugs@opensmtpd.org], [opensmtpd], [https://github.com/OpenSMTPD/OpenSMTPD])
+
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -2364,6 +2366,16 @@ fi
 AC_SUBST([mansubdir])
 #l4207
 
+case "$host" in
+*-*-openbsd*)
+        pkglibexecdir="$libexecdir/smtpd"
+        ;;
+*)
+        pkglibexecdir="$libexecdir/opensmtpd"
+        ;;
+esac
+AC_SUBST([pkglibexecdir])
+
 #l4432 (customized s/pid/sock/)
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
@@ -2702,6 +2714,7 @@ echo "                      Manual pages: $G"
 echo "                    smtpd.sock dir: $H"
 echo "  Privilege separation chroot path: $I"
 echo "                    Manpage format: $MANTYPE"
+echo "                Package libexecdir: ${pkglibexecdir}"
 echo "                       PAM support: $PAM_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
 
