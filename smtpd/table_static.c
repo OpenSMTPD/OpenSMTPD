@@ -92,7 +92,7 @@ table_static_parse(struct table *t, const char *config, enum table_type type)
 	size_t	 ret = 0;
 
         if ((fp = fopen(config, "r")) == NULL) {
-                log_warn("warn: table \"%s\"", config);
+                log_warn("warn: Table \"%s\"", config);
                 return 0;
         }
 
