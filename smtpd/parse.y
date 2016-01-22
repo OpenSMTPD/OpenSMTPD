@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.179 2016/01/04 13:30:20 jung Exp $	*/
+/*	$OpenBSD: parse.y,v 1.181 2016/01/18 09:19:41 jung Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -183,7 +183,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHPARAMS
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS CURVE RECEIVEDAUTH MASQUERADE ENQUEUER
+%token	CIPHERS RECEIVEDAUTH MASQUERADE ENQUEUER
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -1453,7 +1453,6 @@ lookup(char *s)
 		{ "certificate",	CERTIFICATE },
 		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
-		{ "curve",		CURVE },
 		{ "deliver",		DELIVER },
 		{ "dhparams",		DHPARAMS },
 		{ "domain",		DOMAIN },
@@ -1844,7 +1843,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	char		hostname[HOST_NAME_MAX+1];
 	char		hostname_copy[HOST_NAME_MAX+1];
 
-	if (!getmailname(hostname, sizeof hostname))
+	if (getmailname(hostname, sizeof hostname) == -1)
 		return (-1);
 
 	conf = x_conf;
