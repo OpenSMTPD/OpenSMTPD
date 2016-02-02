@@ -76,6 +76,7 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 
+#include "log.h"
 #include "ssl.h"
 
 #define SSL_ECDH_CURVE          "prime256v1"
