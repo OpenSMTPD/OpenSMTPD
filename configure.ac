@@ -2707,11 +2707,6 @@ fi
 
 echo ""
 
-if test "x$MAKE_PACKAGE_SUPPORTED" = "xyes" ; then
-	echo "SVR4 style packages are supported with \"make package\""
-	echo ""
-fi
-
 if test "x$PAM_MSG" = "xyes" ; then
 	echo "PAM is enabled. You may need to install a PAM control file "
 	echo "for smtpd, otherwise password authentication may fail. "
