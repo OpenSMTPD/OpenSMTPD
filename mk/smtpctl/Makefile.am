@@ -2,12 +2,6 @@ include	$(top_srcdir)/mk/pathnames
 
 sbin_PROGRAMS=		smtpctl
 
-if HAVE_MAILWRAPPER
-USE_MAILWRAPPER=1
-else
-USE_MAILWRAPPER=0
-endif
-
 smtpctl_SOURCES=	$(smtpd_srcdir)/enqueue.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/parser.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/log.c
@@ -79,10 +73,6 @@ $(MANPAGES): $(MANPAGES_IN)
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
-	if test "$(USE_MAILWRAPPER)" = "0"; then \
-		ln -s $(sbindir)/smtpctl  $(DESTDIR)$(sbindir)/mailq;\
-		ln -s $(sbindir)/smtpctl  $(DESTDIR)$(bindir)/sendmail;\
-	fi
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
 	$(INSTALL) -m 644 sendmail.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
 	rm	smtpctl.8.out sendmail.8.out
@@ -91,7 +81,3 @@ uninstall-hook:
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8			\
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
-	if test "$(USE_MAILWRAPPER)" = "0"; then \
-		rm -f $(DESTDIR)$(sbindir)/mailq;\
-		rm -f $(DESTDIR)$(bindir)/sendmail;\
-	fi
