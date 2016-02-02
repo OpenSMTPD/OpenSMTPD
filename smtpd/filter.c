@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.c,v 1.10 2015/12/14 10:28:50 sunil Exp $	*/
+/*	$OpenBSD: filter.c,v 1.15 2016/01/29 12:43:38 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -44,13 +44,7 @@
 #include "log.h"
 
 enum {
-	QK_QUERY,
-	QK_EVENT,
-};
-
-enum {
 	QUERY_READY,
-	QUERY_WAITING,
 	QUERY_RUNNING,
 	QUERY_DONE
 };
@@ -77,8 +71,6 @@ struct filter_session {
 	struct filter_lst	*filters;
 	struct filter		*fcurr;
 
-	struct filter_query_lst	 queries;
-
 	int			 error;
 	struct io		 iev;
 	struct iobuf		 ibuf;
@@ -90,13 +82,10 @@ struct filter_session {
 
 struct filter_query {
 	uint64_t			 qid;
-	int				 kind;
 	int				 type;
 	struct filter_session		*session;
-	TAILQ_ENTRY(filter_query)	 entry;
 
 	int				 state;
-	int				 hasrun;
 	struct filter			*current;
 
 	/* current data */
@@ -120,7 +109,8 @@ struct filter_query {
 };
 
 static void filter_imsg(struct mproc *, struct imsg *);
-static struct filter_query *filter_query(struct filter_session *, int, int);
+static void filter_post_event(uint64_t, int, struct filter *, struct filter *);
+static struct filter_query *filter_query(struct filter_session *, int);
 static void filter_drain_query(struct filter_query *);
 static void filter_run_query(struct filter *, struct filter_query *);
 static void filter_end_query(struct filter_query *);
@@ -135,7 +125,6 @@ static const char * filter_session_to_text(struct filter_session *);
 static const char * filter_query_to_text(struct filter_query *);
 static const char * filter_to_text(struct filter *);
 static const char * filter_proc_to_text(struct filter_proc *);
-static const char * kind_to_str(int);
 static const char * query_to_str(int);
 static const char * event_to_str(int);
 static const char * status_to_str(int);
@@ -298,7 +287,6 @@ void
 filter_event(uint64_t id, int event)
 {
 	struct filter_session	*s;
-	struct filter_query	*q;
 
 	if (event == EVENT_DISCONNECT)
 		/* On disconnect, the session is virtualy dead */
@@ -306,8 +294,13 @@ filter_event(uint64_t id, int event)
 	else
 		s = tree_xget(&sessions, id);
 
-	q = filter_query(s, QK_EVENT, event);
-	filter_drain_query(q);
+	filter_post_event(id, event, TAILQ_FIRST(s->filters), NULL);
+
+	if (event == EVENT_DISCONNECT) {
+		io_clear(&s->iev);
+		iobuf_clear(&s->ibuf);
+		free(s);
+	}
 }
 
 void
@@ -323,11 +316,10 @@ filter_connect(uint64_t id, const struct sockaddr *local,
 		filter = "<no-filter>";
 	s->filters = dict_xget(&chains, filter);
 	s->iev.sock = -1;
-	TAILQ_INIT(&s->queries);
 	tree_xset(&sessions, s->id, s);
 
 	filter_event(id, EVENT_CONNECT);
-	q = filter_query(s, QK_QUERY, QUERY_CONNECT);
+	q = filter_query(s, QUERY_CONNECT);
 
 	memmove(&q->u.connect.local, local, SA_LEN(local));
 	memmove(&q->u.connect.remote, remote, SA_LEN(remote));
@@ -347,7 +339,7 @@ filter_mailaddr(uint64_t id, int type, const struct mailaddr *maddr)
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QK_QUERY, type);
+	q = filter_query(s, type);
 
 	strlcpy(q->u.maddr.user, maddr->user, sizeof(q->u.maddr.user));
 	strlcpy(q->u.maddr.domain, maddr->domain, sizeof(q->u.maddr.domain));
@@ -362,7 +354,7 @@ filter_line(uint64_t id, int type, const char *line)
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QK_QUERY, type);
+	q = filter_query(s, type);
 
 	if (line)
 		strlcpy(q->u.line, line, sizeof(q->u.line));
@@ -377,7 +369,7 @@ filter_eom(uint64_t id, int type, size_t datalen)
 	struct filter_query	*q;
 
 	s = tree_xget(&sessions, id);
-	q = filter_query(s, QK_QUERY, type);
+	q = filter_query(s, type);
 	q->u.datalen = datalen;
 
 	filter_drain_query(q);
@@ -418,28 +410,34 @@ filter_build_fd_chain(uint64_t id, int sink)
 	filter_set_sink(s, fd);
 }
 
+void
+filter_post_event(uint64_t id, int event, struct filter *f, struct filter *end)
+{
+	for(; f && f != end; f = TAILQ_NEXT(f, entry)) {
+		log_trace(TRACE_FILTERS, "filter: post-event event=%s filter=%s",
+		    event_to_str(event), f->proc->mproc.name);
+
+		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
+		m_add_id(&f->proc->mproc, id);
+		m_add_int(&f->proc->mproc, event);
+		m_close(&f->proc->mproc);
+	}
+}
+
 static struct filter_query *
-filter_query(struct filter_session *s, int kind, int type)
+filter_query(struct filter_session *s, int type)
 {
 	struct filter_query	*q;
 
 	q = xcalloc(1, sizeof(*q), "filter_query");
 	q->qid = generate_uid();
 	q->session = s;
-	q->kind = kind;
 	q->type = type;
-	TAILQ_INSERT_TAIL(&s->queries, q, entry);
 
 	q->state = QUERY_READY;
 	q->current = TAILQ_FIRST(s->filters);
-	q->hasrun = 0;
 
-	if (kind == QK_QUERY)
-		log_trace(TRACE_FILTERS, "filter: new query %s %s",
-		    kind_to_str(kind), query_to_str(type));
-	else
-		log_trace(TRACE_FILTERS, "filter: new query %s %s",
-		    kind_to_str(kind), event_to_str(type));
+	log_trace(TRACE_FILTERS, "filter: new query %s", query_to_str(type));
 
 	return (q);
 }
@@ -447,8 +445,6 @@ filter_query(struct filter_session *s, int kind, int type)
 static void
 filter_drain_query(struct filter_query *q)
 {
-	struct filter_query	*prev;
-
 	log_trace(TRACE_FILTERS, "filter: filter_drain_query %s",
 	    filter_query_to_text(q));
 
@@ -459,39 +455,19 @@ filter_drain_query(struct filter_query *q)
 	while (q->state != QUERY_DONE) {
 		/* Walk over all filters */
 		while (q->current) {
-			/* Trigger the current filter if not done yet. */
-			if (!q->hasrun) {
-				filter_run_query(q->current, q);
-				q->hasrun = 1;
-			}
+			filter_run_query(q->current, q);
 			if (q->state == QUERY_RUNNING) {
 				log_trace(TRACE_FILTERS,
 				    "filter: waiting for running query %s",
 				    filter_query_to_text(q));
 				return;
 			}
-
-			/*
-			 * Do not move forward if the query ahead of us is
-			 * waiting on this filter.
-			 */
-			prev = TAILQ_PREV(q, filter_query_lst, entry);
-			if (prev && prev->current == q->current) {
-				q->state = QUERY_WAITING;
-				log_trace(TRACE_FILTERS,
-				    "filter: query blocked by previous query"
-				    "%s", filter_query_to_text(prev));
-				return;
-			}
-
-			q->current = TAILQ_NEXT(q->current, entry);
-			q->hasrun = 0;
 		}
 		q->state = QUERY_DONE;
 	}
 
 	/* Defer the response if the file is not closed yet. */
-	if (q->kind == QK_QUERY && q->type == QUERY_EOM && q->session->ofile) {
+	if (q->type == QUERY_EOM && q->session->ofile) {
 		log_debug("filter: deferring eom query...");
 		q->session->eom = q;
 		return;
@@ -503,53 +479,40 @@ filter_drain_query(struct filter_query *q)
 static void
 filter_run_query(struct filter *f, struct filter_query *q)
 {
-	if (q->kind == QK_QUERY) {
+	log_trace(TRACE_FILTERS,
+	    "filter: running filter %s for query %s",
+	    filter_to_text(f), filter_query_to_text(q));
 
-		log_trace(TRACE_FILTERS,
-		    "filter: running filter %s for query %s",
-		    filter_to_text(f), filter_query_to_text(q));
+	m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
+	m_add_id(&f->proc->mproc, q->session->id);
+	m_add_id(&f->proc->mproc, q->qid);
+	m_add_int(&f->proc->mproc, q->type);
 
-		m_create(&f->proc->mproc, IMSG_FILTER_QUERY, 0, 0, -1);
-		m_add_id(&f->proc->mproc, q->session->id);
-		m_add_id(&f->proc->mproc, q->qid);
-		m_add_int(&f->proc->mproc, q->type);
-
-		switch (q->type) {
-		case QUERY_CONNECT:
-			m_add_sockaddr(&f->proc->mproc,
-			    (struct sockaddr *)&q->u.connect.local);
-			m_add_sockaddr(&f->proc->mproc,
-			    (struct sockaddr *)&q->u.connect.remote);
-			m_add_string(&f->proc->mproc, q->u.connect.hostname);
-			break;
-		case QUERY_HELO:
-			m_add_string(&f->proc->mproc, q->u.line);
-			break;
-		case QUERY_MAIL:
-		case QUERY_RCPT:
-			m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
-			break;
-		case QUERY_EOM:
-			m_add_u32(&f->proc->mproc, q->u.datalen);
-			break;
-		default:
-			break;
-		}
-		m_close(&f->proc->mproc);
-
-		tree_xset(&queries, q->qid, q);
-		q->state = QUERY_RUNNING;
+	switch (q->type) {
+	case QUERY_CONNECT:
+		m_add_sockaddr(&f->proc->mproc,
+		    (struct sockaddr *)&q->u.connect.local);
+		m_add_sockaddr(&f->proc->mproc,
+		    (struct sockaddr *)&q->u.connect.remote);
+		m_add_string(&f->proc->mproc, q->u.connect.hostname);
+		break;
+	case QUERY_HELO:
+		m_add_string(&f->proc->mproc, q->u.line);
+		break;
+	case QUERY_MAIL:
+	case QUERY_RCPT:
+		m_add_mailaddr(&f->proc->mproc, &q->u.maddr);
+		break;
+	case QUERY_EOM:
+		m_add_u32(&f->proc->mproc, q->u.datalen);
+		break;
+	default:
+		break;
 	}
-	else {
-		log_trace(TRACE_FILTERS,
-		    "filter: running filter %s for query %s",
-		    filter_to_text(f), filter_query_to_text(q));
+	m_close(&f->proc->mproc);
 
-		m_create(&f->proc->mproc, IMSG_FILTER_EVENT, 0, 0, -1);
-		m_add_id(&f->proc->mproc, q->session->id);
-		m_add_int(&f->proc->mproc, q->type);
-		m_close(&f->proc->mproc);
-	}
+	tree_xset(&queries, q->qid, q);
+	q->state = QUERY_RUNNING;
 }
 
 static void
@@ -559,9 +522,6 @@ filter_end_query(struct filter_query *q)
 
 	log_trace(TRACE_FILTERS, "filter: filter_end_query %s",
 	    filter_query_to_text(q));
-
-	if (q->kind == QK_EVENT)
-		goto done;
 
 	if (q->type == QUERY_EOM) {
 
@@ -597,12 +557,6 @@ filter_end_query(struct filter_query *q)
 	free(q->smtp.response);
 
     done:
-	TAILQ_REMOVE(&s->queries, q, entry);
-	if (q->kind == QK_EVENT && q->type == EVENT_DISCONNECT) {
-		io_clear(&s->iev);
-		iobuf_clear(&s->ibuf);
-		free(s);
-	}
 	free(q);
 }
 
@@ -611,7 +565,7 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct filter_proc	*proc = p->data;
 	struct filter_session	*s;
-	struct filter_query	*q, *next;
+	struct filter_query	*q;
 	struct msg		 m;
 	const char		*line;
 	uint64_t		 qid;
@@ -683,15 +637,8 @@ filter_imsg(struct mproc *p, struct imsg *imsg)
 		if (type == QUERY_EOM)
 			q->u.datalen = datalen;
 
-		next = TAILQ_NEXT(q, entry);
+		q->current = TAILQ_NEXT(q->current, entry);
 		filter_drain_query(q);
-
-		/*
-		 * If there is another query after this one which is waiting,
-		 * make it move forward.
-		 */
-		if (next && next->state == QUERY_WAITING)
-			filter_drain_query(next);
 		break;
 
 	case IMSG_FILTER_PIPE:
@@ -806,39 +753,32 @@ filter_query_to_text(struct filter_query *q)
 
 	tmp[0] = '\0';
 
-	if (q->kind == QK_QUERY) {
-		switch (q->type) {
-		case QUERY_CONNECT:
-			strlcat(tmp, "=", sizeof tmp);
-			strlcat(tmp, ss_to_text(&q->u.connect.local),
-			    sizeof tmp);
-			strlcat(tmp, " <-> ", sizeof tmp);
-			strlcat(tmp, ss_to_text(&q->u.connect.remote),
-			    sizeof tmp);
-			strlcat(tmp, "(", sizeof tmp);
-			strlcat(tmp, q->u.connect.hostname, sizeof tmp);
-			strlcat(tmp, ")", sizeof tmp);
-			break;
-		case QUERY_MAIL:
-		case QUERY_RCPT:
-			snprintf(tmp, sizeof tmp, "=%s@%s",
-			    q->u.maddr.user, q->u.maddr.domain);
-			break;
-		case QUERY_HELO:
-			snprintf(tmp, sizeof tmp, "=%s", q->u.line);
-			break;
-		default:
-			break;
-		}
-		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s,%s]",
-		    q->qid, kind_to_str(q->kind), query_to_str(q->type), tmp,
-		    filter_session_to_text(q->session));
+	switch (q->type) {
+	case QUERY_CONNECT:
+		strlcat(tmp, "=", sizeof tmp);
+		strlcat(tmp, ss_to_text(&q->u.connect.local),
+		    sizeof tmp);
+		strlcat(tmp, " <-> ", sizeof tmp);
+		strlcat(tmp, ss_to_text(&q->u.connect.remote),
+		    sizeof tmp);
+		strlcat(tmp, "(", sizeof tmp);
+		strlcat(tmp, q->u.connect.hostname, sizeof tmp);
+		strlcat(tmp, ")", sizeof tmp);
+		break;
+	case QUERY_MAIL:
+	case QUERY_RCPT:
+		snprintf(tmp, sizeof tmp, "=%s@%s",
+		    q->u.maddr.user, q->u.maddr.domain);
+		break;
+	case QUERY_HELO:
+		snprintf(tmp, sizeof tmp, "=%s", q->u.line);
+		break;
+	default:
+		break;
 	}
-	else {
-		snprintf(buf, sizeof buf, "%016"PRIx64"[%s,%s%s,%s]",
-		    q->qid, kind_to_str(q->kind), event_to_str(q->type), tmp,
-		    filter_session_to_text(q->session));
-	}
+	snprintf(buf, sizeof buf, "%016"PRIx64"[%s%s,%s]",
+	    q->qid, query_to_str(q->type), tmp,
+	    filter_session_to_text(q->session));
 
 	return (buf);
 }
@@ -922,17 +862,6 @@ event_to_str(int event)
 	CASE(EVENT_ROLLBACK);
 	default:
 		return "EVENT_???";
-	}
-}
-
-static const char *
-kind_to_str(int type)
-{
-	switch (type) {
-	CASE(QK_QUERY);
-	CASE(QK_EVENT);
-	default:
-		return "QK_???";
 	}
 }
 
