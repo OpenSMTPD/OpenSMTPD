@@ -59,10 +59,6 @@ static int	 rsae_bn_mod_exp(BIGNUM *, const BIGNUM *, const BIGNUM *,
 		    const BIGNUM *, BN_CTX *, BN_MONT_CTX *);
 static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
-static int	 rsae_sign(int, const u_char *, u_int, u_char *, u_int *,
-		    const RSA *);
-static int	 rsae_verify(int dtype, const u_char *m, u_int, const u_char *,
-		    u_int, const RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 
 static uint64_t	 rsae_reqid = 0;
@@ -353,8 +349,8 @@ static RSA_METHOD rsae_method = {
 	rsae_finish,
 	0,
 	NULL,
-	rsae_sign,
-	rsae_verify,
+	NULL,
+	NULL,
 	rsae_keygen
 };
 
@@ -503,24 +499,6 @@ rsae_finish(RSA *rsa)
 	if (rsa_default->finish == NULL)
 		return (1);
 	return (rsa_default->finish(rsa));
-}
-
-static int
-rsae_sign(int type, const u_char *m, u_int m_length, u_char *sigret,
-    u_int *siglen, const RSA *rsa)
-{
-	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->rsa_sign(type, m, m_length,
-	    sigret, siglen, rsa));
-}
-
-static int
-rsae_verify(int dtype, const u_char *m, u_int m_length, const u_char *sigbuf,
-    u_int siglen, const RSA *rsa)
-{
-	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->rsa_verify(dtype, m, m_length,
-	    sigbuf, siglen, rsa));
 }
 
 static int
