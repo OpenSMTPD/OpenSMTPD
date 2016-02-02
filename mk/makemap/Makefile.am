@@ -59,9 +59,7 @@ $(MANPAGES): $(MANPAGES_IN)
 # newaliases makemap
 install-exec-hook: $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
-	if test "$(USE_MAILWRAPPER)" = "0"; then \
-		ln -s $(sbindir)/makemap $(DESTDIR)$(sbindir)/newaliases;\
-	fi
+	ln -s $(sbindir)/makemap $(DESTDIR)$(sbindir)/newaliases;
 
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
 	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
