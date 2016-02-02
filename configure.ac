@@ -401,12 +401,6 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	check_for_libcrypt_later=1
 	CFLAGS="$CFLAGS -D_BSD_SOURCE"
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
-	case `uname -r` in
-	1.*|2.0.*)
-		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
-			[Define if cmsg_type is not passed correctly])
-		;;
-	esac
 	;;
 *-*-netbsd*)
 	check_for_libcrypt_before=1
