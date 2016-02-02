@@ -1,12 +1,6 @@
 include	$(top_srcdir)/mk/pathnames
 
-if HAVE_MAILWRAPPER
-USE_MAILWRAPPER=1
-pkglibexec_PROGRAMS=	makemap
-else
-USE_MAILWRAPPER=0
 sbin_PROGRAMS=	makemap
-endif
 
 makemap_SOURCES=	$(smtpd_srcdir)/parse.y
 makemap_SOURCES+=	$(smtpd_srcdir)/makemap.c
