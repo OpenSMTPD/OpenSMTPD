@@ -54,12 +54,15 @@ endif
 CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-MANPAGES=		smtpctl.8.out sendmail.8.out
-MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8
+MANPAGES=		smtpctl.8.out sendmail.8.out makemap.8.out newaliases.8.out
+MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8 $(smtpd_srcdir)/makemap.8 $(smtpd_srcdir)/newaliases.8
 
 EXTRA_DIST=		$(MANPAGES_IN)
 
-PATHSUBS=		-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
+PATHSUBS=		-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'	\
+			-e 's|/usr/libexec|$(libexecdir)|g'			\
+			-e 's|/etc/mail/|$(sysconfdir)/|g'
+
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 
@@ -75,9 +78,13 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
 	$(INSTALL) -m 644 sendmail.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
-	rm	smtpctl.8.out sendmail.8.out
+	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
+	$(INSTALL) -m 644 newaliases.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
+	rm smtpctl.8.out sendmail.8.out makemap.8.out newaliases.8.out
 
 uninstall-hook:
-	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8			\
-	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8			\
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
+	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
