@@ -385,9 +385,9 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		[getaddrinfo is broken (if present)])
 	],
 	[AC_MSG_RESULT([assume it is working])])
-	AC_DEFINE([SETEUID_BREAKS_SETUID])
-	AC_DEFINE([BROKEN_SETREUID])
-	AC_DEFINE([BROKEN_SETREGID])
+	AC_DEFINE([SETEUID_BREAKS_SETUID], [1], [define if seteuid breaks setuid])
+	AC_DEFINE([BROKEN_SETREUID], [1], [define if setreuid is broken])
+	AC_DEFINE([BROKEN_SETREGID], [1], [define if setregid is broken])
 	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
@@ -2612,7 +2612,7 @@ AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install firs
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>])
-AC_CHECK_LIB([asr], [asr_resolver], ,
+AC_CHECK_LIB([asr], [asr_run], ,
 	[
 		saved_CPPFLAGS="$CPPFLAGS"
 		saved_LDFLAGS="$LDFLAGS"
@@ -2626,7 +2626,7 @@ AC_CHECK_LIB([asr], [asr_resolver], ,
 		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
 # don't add -lasr to LIBS, it's only added when needed
 #		LIBS="$LIBS -lasr"
-		AC_TRY_LINK_FUNC([asr_resolver], ,
+		AC_TRY_LINK_FUNC([asr_run], ,
 			[
 				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
 			]
