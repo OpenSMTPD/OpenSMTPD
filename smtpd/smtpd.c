@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.271 2016/01/18 11:29:34 sunil Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.273 2016/02/02 17:51:11 sthen Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -154,6 +154,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_OPEN_FORWARD:
+			CHECK_IMSG_DATA_SIZE(imsg, sizeof *fwreq);
 			fwreq = imsg->data;
 			fd = parent_forward_open(fwreq->user, fwreq->directory,
 			    fwreq->uid, fwreq->gid);
@@ -665,8 +666,6 @@ main(int argc, char *argv[])
 	env->sc_uptime = time(NULL);
 
 	fork_peers();
-
-	config_process(PROC_PARENT);
 
 	imsg_callback = parent_imsg;
 	event_init();
