@@ -2566,7 +2566,6 @@ AC_CONFIG_FILES([Makefile
 		mk/Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
-		mk/makemap/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
