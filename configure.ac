@@ -437,16 +437,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	use_pie=auto
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
-	echo "######################################################"
-	echo "# YOU ARE BUILDING PORTABLE BRANCH ON OPENBSD.       #"
-	echo "# THERE WILL BE DRAGONS.                             #"
-	echo "# YOU WILL BE ON YOUR OWN.                           #"
-	echo "# USE -CURRENT OR NATIVE VERSION FROM OUR MAIN SITE. #"
-	echo "#                                                    #"
-	echo "#     https://www.OpenSMTPD.org                      #"
-	echo "#                                                    #"
-	echo "######################################################"
-	sleep 10
+
 	AC_DEFINE([BROKEN_STRNVIS], [0],
 	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
 	YACC='yacc'
