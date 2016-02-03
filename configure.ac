@@ -1961,7 +1961,7 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 #l4045
 STRIP_OPT=-s
 AC_ARG_ENABLE([strip],
-	[  --disable-strip         Disable calling strip(1) on install],
+	[  --disable-strip	Disable calling strip(1) on install],
 	[
 		if test "x$enableval" = "xno" ; then
 			STRIP_OPT=
@@ -2462,50 +2462,6 @@ AC_RUN_IFELSE(
 
 
 
-AC_ARG_ENABLE([table-db],
-	[  --enable-table-db		Enable building of table-db backend],
-	[
-		if test "x$enableval" = "xyes" ; then
-			use_db_api=1
-		else
-			use_db_api=0
-		fi
-	]
-)
-
-if test x"$use_db_api" = x"1"; then
-# Search for libdb
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
-				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
-])])])
-fi
-
-save_LIBS="$LIBS"
-
-if test x"$use_db_api" = x"1"; then
-DB_LIB=
-
-for libdb in db db1 c; do
-    AC_CHECK_LIB($libdb, dbopen,       [ DB_LIB="$libdb"; break; ], 
-    AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
-done
-
-if test -z "$DB_LIB" ; then
-    AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
-fi
-
-DB_LIB="-l$DB_LIB"
-AC_SUBST([DB_LIB])
-fi
-
-LIBS="$save_LIBS"
-
-
-AM_CONDITIONAL([HAVE_DB_API], [test x"$use_db_api" = x"1"])
-AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
-
 
 dnl zlib is required
 AC_ARG_WITH([libz],
@@ -2555,6 +2511,55 @@ AC_CHECK_LIB([z], [deflate], ,
 		)
 	]
 )
+
+
+
+
+
+AC_ARG_WITH([table-db],
+	[  --with-table-db		Enable building of table-db backend (default=no)],
+	[
+		if test "x$withval" = "xyes" ; then
+			use_db_api=1
+		else
+			use_db_api=0
+		fi
+	]
+)
+
+if test x"$use_db_api" = x"1"; then
+# Search for libdb
+AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
+AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
+AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
+				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
+])])])
+fi
+
+save_LIBS="$LIBS"
+
+if test x"$use_db_api" = x"1"; then
+DB_LIB=
+
+for libdb in db db1 c; do
+    AC_CHECK_LIB($libdb, dbopen,       [ DB_LIB="$libdb"; break; ], 
+    AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
+done
+
+if test -z "$DB_LIB" ; then
+    AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
+fi
+
+DB_LIB="-l$DB_LIB"
+AC_SUBST([DB_LIB])
+fi
+
+LIBS="$save_LIBS"
+
+
+AM_CONDITIONAL([HAVE_DB_API], [test x"$use_db_api" = x"1"])
+AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
+
 
 
 
