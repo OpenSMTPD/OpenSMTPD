@@ -901,7 +901,7 @@ AC_SUBST([mansubdir])
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
 AC_ARG_WITH([auth-bsdauth],
-	[  --with-auth-bsdauth		Enable BSD's bsd_auth(3) authentication support],
+	[  --with-auth-bsdauth		Enable bsd_auth(3) authentication support],
 	[
 		if test "x$withval" != "xno" ; then
 			AC_DEFINE([BSD_AUTH], [1],
@@ -915,10 +915,15 @@ AC_ARG_WITH([auth-bsdauth],
 #l2757
 # Check for PAM libs
 PAM_MSG="no"
+USE_PAM_SERVICE=smtpd
 AC_ARG_WITH([auth-pam],
-	[  --with-auth-pam		Enable PAM support ],
+	[  --with-auth-pam=SERVICE	Enable PAM authentication support (default=smtpd)],
 	[
 		if test "x$withval" != "xno" ; then
+			if test -n "$withval" && test "x${withval}" != "xyes"; then
+				USE_PAM_SERVICE=$withval
+			fi
+
 			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
 			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
 				AC_MSG_ERROR([PAM headers not found])
@@ -950,6 +955,8 @@ AC_ARG_WITH([auth-pam],
 		fi
 	]
 )
+AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
+AC_SUBST([USE_PAM_SERVICE])
 
 # Check for older PAM
 if test "x$PAM_MSG" = "xyes" ; then
@@ -975,19 +982,7 @@ if test "x$PAM_MSG" = "xyes" ; then
 fi
 #l2816
 
-##gilles
-USE_PAM_SERVICE=smtpd
-AC_ARG_WITH([auth-pam-service],
-	[  --with-auth-pam-service=service	Specify PAM service],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			USE_PAM_SERVICE=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
-AC_SUBST([USE_PAM_SERVICE])
+
 ##gilles
 
 SMTPD_USER=_smtpd
