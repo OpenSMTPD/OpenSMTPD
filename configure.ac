@@ -861,11 +861,62 @@ fi
 #l1982
 
 
+#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
+# Options from here on. Some of these are preset by platform above
+AC_ARG_WITH([mantype],
+	[  --with-mantype=man|cat|doc	Set man page type],
+	[
+		case "$withval" in
+		man|cat|doc)
+			MANTYPE=$withval
+			;;
+		*)
+			AC_MSG_ERROR([invalid man type: $withval])
+			;;
+		esac
+	]
+)
+if test -z "$MANTYPE"; then
+	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
+	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
+	if ${NROFF} -mdoc ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
+		MANTYPE=doc
+	elif ${NROFF} -man ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
+		MANTYPE=man
+	else
+		MANTYPE=cat
+	fi
+fi
+AC_SUBST([MANTYPE])
+if test "$MANTYPE" = "doc"; then
+	mansubdir=man;
+else
+	mansubdir=$MANTYPE;
+fi
+AC_SUBST([mansubdir])
+#l4207
+
+
+#l4432 (customized s/pid/sock/)
+# Whether to enable BSD auth support
+BSD_AUTH_MSG=no
+AC_ARG_WITH([auth-bsdauth],
+	[  --with-auth-bsdauth		Enable BSD's bsd_auth(3) authentication support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([BSD_AUTH], [1],
+				[Define if you have BSD auth support])
+			BSD_AUTH_MSG=yes
+		fi
+	]
+)
+
+
 #l2757
 # Check for PAM libs
 PAM_MSG="no"
-AC_ARG_WITH([pam],
-	[  --with-pam			Enable PAM support ],
+AC_ARG_WITH([auth-pam],
+	[  --with-auth-pam		Enable PAM support ],
 	[
 		if test "x$withval" != "xno" ; then
 			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
@@ -926,8 +977,8 @@ fi
 
 ##gilles
 USE_PAM_SERVICE=smtpd
-AC_ARG_WITH([pam-service],
-	[  --with-pam-service=service	Specify PAM service],
+AC_ARG_WITH([auth-pam-service],
+	[  --with-auth-pam-service=service	Specify PAM service],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -940,8 +991,8 @@ AC_SUBST([USE_PAM_SERVICE])
 ##gilles
 
 SMTPD_USER=_smtpd
-AC_ARG_WITH([smtpd-user],
-	[  --with-smtpd-user=user	Specify non-privileged user for smtpd],
+AC_ARG_WITH([user-smtpd],
+	[  --with-user-smtpd=user	Specify non-privileged user for smtpd (default=_smtpd)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -954,8 +1005,8 @@ AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 AC_SUBST([SMTPD_USER])
 
 SMTPD_QUEUE_USER=_smtpq
-AC_ARG_WITH([queue-user],
-	[  --with-queue-user=user	Specify non-privileged user for queue process],
+AC_ARG_WITH([user-queue],
+	[  --with-user-queue=user	Specify non-privileged user for queue process (default=_smtpq)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -968,8 +1019,8 @@ AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
 AC_SUBST([SMTPD_QUEUE_USER])
 
 SMTPD_QUEUE_GROUP=_smtpq
-AC_ARG_WITH([queue-group],
-	[  --with-queue-group=group	Specify non-privileged group for offline queue],
+AC_ARG_WITH([group-queue],
+	[  --with-group-queue=group	Specify non-privileged group for offline queue (default=_smtpq)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -980,6 +1031,124 @@ AC_ARG_WITH([queue-group],
 AC_DEFINE_UNQUOTED([SMTPD_QUEUE_GROUP], ["$SMTPD_QUEUE_GROUP"],
 	[non-privileged group for queue process])
 AC_SUBST([SMTPD_QUEUE_GROUP])
+
+# Where to place spooler
+spooldir=/var/spool/smtpd
+AC_ARG_WITH([path-queue],
+	[  --with-path-queue=PATH	Specify path to queue directory (default=/var/spool/smtpd)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			spooldir=$withval
+			if test ! -d $spooldir ; then
+			AC_MSG_WARN([** no $spooldir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
+AC_SUBST([spooldir])
+
+
+PRIVSEP_PATH=/var/empty
+AC_ARG_WITH([path-empty],
+	[  --with-path-empty=PATH	Specify path to empty directory (default=/var/empty)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			PRIVSEP_PATH=$withval
+		fi
+	]
+)
+AC_SUBST([PRIVSEP_PATH])
+#l4022
+
+#l4066
+dnl # --with-maildir=/path/to/mail gets top priority.
+dnl # if maildir is set in the platform case statement above we use that.
+dnl # Otherwise we run a program to get the dir from system headers.
+dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
+dnl # If we find _PATH_MAILDIR we do nothing because that is what
+dnl # session.c expects anyway. Otherwise we set to the value found
+dnl # stripping any trailing slash. If for some strage reason our program
+dnl # does not find what it needs, we default to /var/spool/mail.
+# Check for mail directory
+AC_ARG_WITH([path-mbox],
+    [  --with-path-mbox=PATH		Specify path to mbox directory (default=/var/spool/mail)],
+    [
+	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
+	    test "x${withval}" != xyes; then
+		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
+            [Set this to your mail directory if you do not have _PATH_MAILDIR])
+	    fi
+     ],[
+	if test "X$maildir" != "X"; then
+	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+	else
+	    AC_MSG_CHECKING([Discovering system mail directory])
+	    AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#ifdef HAVE_PATHS_H
+#include <paths.h>
+#endif
+#ifdef HAVE_MAILLOCK_H
+#include <maillock.h>
+#endif
+#define DATA "conftest.maildir"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+#if defined (_PATH_MAILDIR)
+	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
+		exit(1);
+#elif defined (MAILDIR)
+	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
+		exit(1);
+#elif defined (_PATH_MAIL)
+	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
+		exit(1);
+#else
+	exit (2);
+#endif
+
+	exit(0);
+		]])],
+		[
+	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
+		    maildir=`awk -F: '{print $2}' conftest.maildir \
+			| sed 's|/$||'`
+		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
+		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+		    fi
+		],
+		[
+		    if test "X$ac_status" = "X2";then
+# our test program didn't find it. Default to /var/spool/mail
+			AC_MSG_RESULT([Using: default value of /var/spool/mail])
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
+		     else
+			AC_MSG_RESULT([*** not found ***])
+		     fi
+		],
+		[
+			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
+		]
+	    )
+	fi
+    ]
+) # maildir
+#l4146
 
 #l3037 (customized s/SSH/SMTPD/)
 # Check for  long long datatypes
@@ -1751,18 +1920,7 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 #l4010
 # Looking for programs, paths and files
 
-PRIVSEP_PATH=/var/empty
-AC_ARG_WITH([privsep-path],
-	[  --with-privsep-path=xxx	Path for privilege separation chroot (default=/var/empty)],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			PRIVSEP_PATH=$withval
-		fi
-	]
-)
-AC_SUBST([PRIVSEP_PATH])
-#l4022
+
 
 #l4045
 STRIP_OPT=-s
@@ -1777,125 +1935,7 @@ AC_ARG_ENABLE([strip],
 AC_SUBST([STRIP_OPT])
 #l4054
 
-#l4066
-dnl # --with-maildir=/path/to/mail gets top priority.
-dnl # if maildir is set in the platform case statement above we use that.
-dnl # Otherwise we run a program to get the dir from system headers.
-dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
-dnl # If we find _PATH_MAILDIR we do nothing because that is what
-dnl # session.c expects anyway. Otherwise we set to the value found
-dnl # stripping any trailing slash. If for some strage reason our program
-dnl # does not find what it needs, we default to /var/spool/mail.
-# Check for mail directory
-AC_ARG_WITH([maildir],
-    [  --with-maildir=/path/to/mail	Specify your system mail directory],
-    [
-	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
-	    test "x${withval}" != xyes; then
-		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
-            [Set this to your mail directory if you do not have _PATH_MAILDIR])
-	    fi
-     ],[
-	if test "X$maildir" != "X"; then
-	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
-	else
-	    AC_MSG_CHECKING([Discovering system mail directory])
-	    AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#ifdef HAVE_PATHS_H
-#include <paths.h>
-#endif
-#ifdef HAVE_MAILLOCK_H
-#include <maillock.h>
-#endif
-#define DATA "conftest.maildir"
-	]], [[
-	FILE *fd;
-	int rc;
 
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-#if defined (_PATH_MAILDIR)
-	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
-		exit(1);
-#elif defined (MAILDIR)
-	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
-		exit(1);
-#elif defined (_PATH_MAIL)
-	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
-		exit(1);
-#else
-	exit (2);
-#endif
-
-	exit(0);
-		]])],
-		[
-	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
-		    maildir=`awk -F: '{print $2}' conftest.maildir \
-			| sed 's|/$||'`
-		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
-		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
-		    fi
-		],
-		[
-		    if test "X$ac_status" = "X2";then
-# our test program didn't find it. Default to /var/spool/mail
-			AC_MSG_RESULT([Using: default value of /var/spool/mail])
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
-		     else
-			AC_MSG_RESULT([*** not found ***])
-		     fi
-		],
-		[
-			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
-		]
-	    )
-	fi
-    ]
-) # maildir
-#l4146
-
-#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
-# Options from here on. Some of these are preset by platform above
-AC_ARG_WITH([mantype],
-	[  --with-mantype=man|cat|doc	Set man page type],
-	[
-		case "$withval" in
-		man|cat|doc)
-			MANTYPE=$withval
-			;;
-		*)
-			AC_MSG_ERROR([invalid man type: $withval])
-			;;
-		esac
-	]
-)
-if test -z "$MANTYPE"; then
-	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
-	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
-	if ${NROFF} -mdoc ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
-		MANTYPE=doc
-	elif ${NROFF} -man ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
-		MANTYPE=man
-	else
-		MANTYPE=cat
-	fi
-fi
-AC_SUBST([MANTYPE])
-if test "$MANTYPE" = "doc"; then
-	mansubdir=man;
-else
-	mansubdir=$MANTYPE;
-fi
-AC_SUBST([mansubdir])
-#l4207
 
 case "$host" in
 *-*-openbsd*)
@@ -1907,19 +1947,6 @@ case "$host" in
 esac
 AC_SUBST([pkglibexecdir])
 
-#l4432 (customized s/pid/sock/)
-# Whether to enable BSD auth support
-BSD_AUTH_MSG=no
-AC_ARG_WITH([bsd-auth],
-	[  --with-bsd-auth		Enable BSD auth support],
-	[
-		if test "x$withval" != "xno" ; then
-			AC_DEFINE([BSD_AUTH], [1],
-				[Define if you have BSD auth support])
-			BSD_AUTH_MSG=yes
-		fi
-	]
-)
 
 # Where to place smtpd.sock
 sockdir=/var/run
@@ -1963,24 +1990,7 @@ AC_ARG_WITH([ca-file],
 AC_SUBST([CA_FILE])
 
 
-# Where to place spooler
-spooldir=/var/spool/smtpd
-AC_ARG_WITH([spooldir],
-	[  --with-spooldir=PATH		Specify location of spooler directory],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			spooldir=$withval
-			if test ! -d $spooldir ; then
-			AC_MSG_WARN([** no $spooldir directory on this system **])
-			fi
-		fi
-	]
-)
 
-AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
-	[Specify location of spooler])
-AC_SUBST([spooldir])
 
 
 #l4742
