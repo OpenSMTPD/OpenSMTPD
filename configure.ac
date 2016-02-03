@@ -494,55 +494,6 @@ int main(int argc, char **argv) {
 AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
 
-dnl zlib is required
-AC_ARG_WITH([libz],
-	[  --with-libz=PATH		Use zlib in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** zlib is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
-
-AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
-AC_CHECK_LIB([z], [deflate], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default zlib install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-		LIBS="$LIBS -lz"
-		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
-			[
-				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
-			]
-		)
-	]
-)
-
 AC_CHECK_FUNCS([utimes],
 	[], [ AC_CHECK_LIB([c89], [utimes], [AC_DEFINE([HAVE_UTIMES])
 					LIBS="$LIBS -lc89"]) ]
@@ -2378,6 +2329,60 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 		    ])
 ##end of chl
 
+# Search for asr (based on zlib checks)
+dnl asr is required
+AC_ARG_WITH([libasr],
+	[  --with-libasr=PATH		Use asr in PATH],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** asr is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
+[#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>])
+AC_CHECK_LIB([asr], [asr_run], ,
+	[
+		saved_CPPFLAGS="$CPPFLAGS"
+		saved_LDFLAGS="$LDFLAGS"
+		save_LIBS="$LIBS"
+		dnl Check default asr install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+# don't add -lasr to LIBS, it's only added when needed
+#		LIBS="$LIBS -lasr"
+		AC_TRY_LINK_FUNC([asr_run], ,
+			[
+				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
+			]
+		)
+	]
+)
+
 ##chl (based on OpenSSL checks, see above)
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
@@ -2490,12 +2495,11 @@ AM_CONDITIONAL([HAVE_DB_API], [test x"$use_db_api" = x"1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 
-# Search for asr (based on zlib checks)
-dnl asr is required
-AC_ARG_WITH([libasr],
-	[  --with-libasr=PATH		Use asr in PATH],
+dnl zlib is required
+AC_ARG_WITH([libz],
+	[  --with-libz=PATH		Use zlib in PATH],
 	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** asr is required ***])
+		AC_MSG_ERROR([*** zlib is required ***])
 	  elif test "x$withval" != "xyes"; then
 		if test -d "$withval/lib"; then
 			if test -n "${need_dash_r}"; then
@@ -2518,31 +2522,29 @@ AC_ARG_WITH([libasr],
 	fi ]
 )
 
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
-[#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>])
-AC_CHECK_LIB([asr], [asr_run], ,
+AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
+AC_CHECK_LIB([z], [deflate], ,
 	[
 		saved_CPPFLAGS="$CPPFLAGS"
 		saved_LDFLAGS="$LDFLAGS"
 		save_LIBS="$LIBS"
-		dnl Check default asr install dir
+		dnl Check default zlib install dir
 		if test -n "${need_dash_r}"; then
 			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
 		else
 			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
 		fi
 		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-# don't add -lasr to LIBS, it's only added when needed
-#		LIBS="$LIBS -lasr"
-		AC_TRY_LINK_FUNC([asr_run], ,
+		LIBS="$LIBS -lz"
+		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
 			[
-				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
+				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
 			]
 		)
 	]
 )
+
+
 
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
