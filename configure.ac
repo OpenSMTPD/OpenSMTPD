@@ -1150,6 +1150,47 @@ AC_ARG_WITH([path-mbox],
 ) # maildir
 #l4146
 
+# Where to place smtpd.sock
+sockdir=/var/run
+# make sure the directory exists
+if test ! -d $sockdir ; then
+	sockdir=`eval echo ${sysconfdir}`
+	case $sockdir in
+		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
+	esac
+fi
+
+AC_ARG_WITH([path-socket],
+	[  --with-path-socket=PATH	Specify path to smtpd.sock directory (default=/var/run)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			sockdir=$withval
+			if test ! -d $sockdir ; then
+			AC_MSG_WARN([** no $sockdir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
+	[Specify location of smtpd.sock])
+AC_SUBST([sockdir])
+#l4470
+
+CA_FILE=/etc/ssl/cert.pem
+AC_ARG_WITH([path-CAfile],
+	[  --with-path-CAfile=FILE	Specify path to CA certificate (default=/etc/ssl/cert.pem)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			CA_FILE=$withval
+		fi
+	]
+)
+AC_SUBST([CA_FILE])
+
+
 #l3037 (customized s/SSH/SMTPD/)
 # Check for  long long datatypes
 AC_CHECK_TYPES([long long, unsigned long long, long double])
@@ -1948,46 +1989,8 @@ esac
 AC_SUBST([pkglibexecdir])
 
 
-# Where to place smtpd.sock
-sockdir=/var/run
-# make sure the directory exists
-if test ! -d $sockdir ; then
-	sockdir=`eval echo ${sysconfdir}`
-	case $sockdir in
-		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
-	esac
-fi
-
-AC_ARG_WITH([sock-dir],
-	[  --with-sock-dir=PATH		Specify location of smtpd.sock file],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			sockdir=$withval
-			if test ! -d $sockdir ; then
-			AC_MSG_WARN([** no $sockdir directory on this system **])
-			fi
-		fi
-	]
-)
-
-AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
-	[Specify location of smtpd.sock])
-AC_SUBST([sockdir])
-#l4470
 
 
-CA_FILE=/etc/ssl/cert.pem
-AC_ARG_WITH([ca-file],
-	[  --with-ca-file=FILE		Path for certificate file (default=/etc/ssl/cert.pem)],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			CA_FILE=$withval
-		fi
-	]
-)
-AC_SUBST([CA_FILE])
 
 
 
