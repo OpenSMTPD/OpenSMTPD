@@ -495,8 +495,8 @@ AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
 
 dnl zlib is required
-AC_ARG_WITH([zlib],
-	[  --with-zlib=PATH		Use zlib in PATH],
+AC_ARG_WITH([libz],
+	[  --with-libz=PATH		Use zlib in PATH],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** zlib is required ***])
 	  elif test "x$withval" != "xyes"; then
@@ -913,8 +913,8 @@ fi
 # Search for OpenSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([ssl-dir],
-	[  --with-ssl-dir=PATH		Specify path to LibreSSL installation ],
+AC_ARG_WITH([libssl],
+	[  --with-libssl=PATH		Specify path to LibreSSL installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
@@ -2396,8 +2396,8 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([libevent-dir],
-	[  --with-libevent-dir=PATH     Specify path to libevent installation ],
+AC_ARG_WITH([libevent],
+	[  --with-libevent=PATH          Specify path to libevent installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
@@ -2506,8 +2506,8 @@ AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB
 
 # Search for asr (based on zlib checks)
 dnl asr is required
-AC_ARG_WITH([asr],
-	[  --with-asr=PATH		Use asr in PATH],
+AC_ARG_WITH([libasr],
+	[  --with-libasr=PATH		Use asr in PATH],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** asr is required ***])
 	  elif test "x$withval" != "xyes"; then
