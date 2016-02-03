@@ -860,310 +860,6 @@ AC_RUN_IFELSE(
 fi
 #l1982
 
-#l2174 (customized, bu adding -lssl to LIBS)
-# Search for OpenSSL
-saved_CPPFLAGS="$CPPFLAGS"
-saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([libssl],
-	[  --with-libssl=PATH		Specify path to LibreSSL installation ],
-	[
-		if test "x$withval" != "xno" ; then
-			case "$withval" in
-				# Relative paths
-				./*|../*)	withval="`pwd`/$withval"
-			esac
-			if test -d "$withval/lib"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-				fi
-			elif test -d "$withval/lib64"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
-				fi
-			else
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval} ${LDFLAGS}"
-				fi
-			fi
-			if test -d "$withval/include"; then
-				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-			else
-				CPPFLAGS="-I${withval} ${CPPFLAGS}"
-			fi
-		fi
-	]
-)
-## XXX chl -lssl manually added
-LIBS="-lcrypto -lssl $LIBS"
-AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
-	[Define if your ssl headers are included
-	with #include <openssl/header.h>])],
-	[
-		dnl Check default openssl install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
-		AC_CHECK_HEADER([openssl/opensslv.h], ,
-		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
-		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
-			[
-				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
-			]
-		)
-	]
-)
-
-# Determine OpenSSL header version
-AC_MSG_CHECKING([LibreSSL header version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-#define DATA "conftest.sslincver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		ssl_header_ver=`cat conftest.sslincver`
-		AC_MSG_RESULT([$ssl_header_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([LibreSSL version header not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-# Determine OpenSSL library version
-AC_MSG_CHECKING([LibreSSL library version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-#include <openssl/crypto.h>
-#define DATA "conftest.ssllibver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		ssl_library_ver=`cat conftest.ssllibver`
-		AC_MSG_RESULT([$ssl_library_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([LibreSSL library not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-# XXX make --without-openssl work
-AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
-
-# Sanity check OpenSSL headers
-AC_MSG_CHECKING([whether LibreSSL's headers match the library])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-	]], [[
-	exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1);
-	]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-			AC_MSG_ERROR([Your LibreSSL headers do not match your
-library. Check config.log for details.
-If you are sure your installation is consistent, you can disable the check
-by running "./configure --without-openssl-header-check".
-Also see contrib/findssl.sh for help identifying header/library mismatches.
-])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-AC_MSG_CHECKING([if programs using LibreSSL functions will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ SSLeay_add_all_algorithms(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		saved_LIBS="$LIBS"
-		LIBS="$LIBS -ldl"
-		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-			[[ SSLeay_add_all_algorithms(); ]])],
-			[
-				AC_MSG_RESULT([yes])
-			],
-			[
-				AC_MSG_RESULT([no])
-				LIBS="$saved_LIBS"
-			]
-		)
-	]
-)
-#l2371
-
-##chl
-EXPERIMENTAL_GCM_CRYPTO=no
-AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ EVP_aes_256_gcm(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
-			[Define if you want to use GCM crypto support])
-		EXPERIMENTAL_GCM_CRYPTO=yes
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
-##chl
-
-##gilles
-OPENSSL_SUPPORTS_SNI=no
-AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
-	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
-			[Define if you want to enable TLS extension SERVERNAME])
-		OPENSSL_SUPPORTS_SNI=yes
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
-##gilles
-
-##gilles
-OPENSSL_SUPPORTS_ECDH_AUTO=no
-AC_MSG_CHECKING([if programs using SSL_CTX_set_ecdh_auto will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
-	[[ SSL_CTX_set_ecdh_auto(NULL, 1); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_SSL_CTX_SET_ECDH_AUTO], [1],
-			[Define if SSL library support SSL_CTX_set_ecdh_auto])
-		OPENSSL_SUPPORTS_ECDH_AUTO=yes
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-AM_CONDITIONAL([HAVE_SSL_CTX_SET_ECDH_AUTO], [test $OPENSSL_SUPPORTS_ECDH_AUTO = yes])
-##gilles
-
-##gilles
-AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
-AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
-#include <openssl/ssl.h>
-#ifdef SSL_OP_NO_TICKET
-HAVE_SSL_OP_NO_TICKET
-#endif
-], [
-   AC_MSG_RESULT([yes])
-], [
-   AC_MSG_RESULT([no])
-   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by LibreSSL.])
-])
-##gilles
-
-#l2494
-# Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
-# because the system crypt() is more featureful.
-if test "x$check_for_libcrypt_before" = "x1"; then
-	AC_CHECK_LIB([crypt], [crypt])
-fi
-
-# Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
-# version in OpenSSL.
-if test "x$check_for_libcrypt_later" = "x1"; then
-	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
-fi
-#l2504
-
-#l2645
-### Configure cryptographic random number support
-
-# Check wheter OpenSSL seeds itself
-AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/rand.h>
-	]], [[
-	exit(RAND_status() == 1 ? 0 : 1);
-	]])],
-	[
-		OPENSSL_SEEDS_ITSELF=yes
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-	],
-	[
-		AC_MSG_WARN([cross compiling: assuming yes])
-		# This is safe, since we will fatal() at runtime if
-		# OpenSSL is not seeded correctly.
-		OPENSSL_SEEDS_ITSELF=yes
-	]
-)
-#l2669
 
 #l2757
 # Check for PAM libs
@@ -1244,8 +940,8 @@ AC_SUBST([USE_PAM_SERVICE])
 ##gilles
 
 SMTPD_USER=_smtpd
-AC_ARG_WITH([privsep-user],
-	[  --with-privsep-user=user	Specify non-privileged user for privilege separation],
+AC_ARG_WITH([smtpd-user],
+	[  --with-smtpd-user=user	Specify non-privileged user for smtpd],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -2332,7 +2028,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 # Search for asr (based on zlib checks)
 dnl asr is required
 AC_ARG_WITH([libasr],
-	[  --with-libasr=PATH		Use asr in PATH],
+	[  --with-libasr=PATH		Specify path to libasr installation],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** asr is required ***])
 	  elif test "x$withval" != "xyes"; then
@@ -2450,6 +2146,314 @@ AC_LINK_IFELSE(
 	]
 )
 
+
+#l2174 (customized, bu adding -lssl to LIBS)
+# Search for OpenSSL
+saved_CPPFLAGS="$CPPFLAGS"
+saved_LDFLAGS="$LDFLAGS"
+AC_ARG_WITH([libssl],
+	[  --with-libssl=PATH		Specify path to libssl installation ],
+	[
+		if test "x$withval" != "xno" ; then
+			case "$withval" in
+				# Relative paths
+				./*|../*)	withval="`pwd`/$withval"
+			esac
+			if test -d "$withval/lib"; then
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+				fi
+			elif test -d "$withval/lib64"; then
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
+				fi
+			else
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval} ${LDFLAGS}"
+				fi
+			fi
+			if test -d "$withval/include"; then
+				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+			else
+				CPPFLAGS="-I${withval} ${CPPFLAGS}"
+			fi
+		fi
+	]
+)
+## XXX chl -lssl manually added
+LIBS="-lcrypto -lssl $LIBS"
+AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
+	[Define if your ssl headers are included
+	with #include <openssl/header.h>])],
+	[
+		dnl Check default openssl install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
+		AC_CHECK_HEADER([openssl/opensslv.h], ,
+		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
+		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
+			[
+				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
+			]
+		)
+	]
+)
+
+# Determine OpenSSL header version
+AC_MSG_CHECKING([LibreSSL header version])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/opensslv.h>
+#define DATA "conftest.sslincver"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
+		exit(1);
+
+	exit(0);
+	]])],
+	[
+		ssl_header_ver=`cat conftest.sslincver`
+		AC_MSG_RESULT([$ssl_header_ver])
+	],
+	[
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([LibreSSL version header not found.])
+	],
+	[
+		AC_MSG_WARN([cross compiling: not checking])
+	]
+)
+
+# Determine OpenSSL library version
+AC_MSG_CHECKING([LibreSSL library version])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/opensslv.h>
+#include <openssl/crypto.h>
+#define DATA "conftest.ssllibver"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
+		exit(1);
+
+	exit(0);
+	]])],
+	[
+		ssl_library_ver=`cat conftest.ssllibver`
+		AC_MSG_RESULT([$ssl_library_ver])
+	],
+	[
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([LibreSSL library not found.])
+	],
+	[
+		AC_MSG_WARN([cross compiling: not checking])
+	]
+)
+
+# XXX make --without-openssl work
+AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
+
+# Sanity check OpenSSL headers
+AC_MSG_CHECKING([whether LibreSSL's headers match the library])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/opensslv.h>
+	]], [[
+	exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1);
+	]])],
+	[
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+			AC_MSG_ERROR([Your LibreSSL headers do not match your
+library. Check config.log for details.
+If you are sure your installation is consistent, you can disable the check
+by running "./configure --without-openssl-header-check".
+Also see contrib/findssl.sh for help identifying header/library mismatches.
+])
+	],
+	[
+		AC_MSG_WARN([cross compiling: not checking])
+	]
+)
+
+AC_MSG_CHECKING([if programs using LibreSSL functions will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ SSLeay_add_all_algorithms(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+		saved_LIBS="$LIBS"
+		LIBS="$LIBS -ldl"
+		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
+		AC_LINK_IFELSE(
+			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+			[[ SSLeay_add_all_algorithms(); ]])],
+			[
+				AC_MSG_RESULT([yes])
+			],
+			[
+				AC_MSG_RESULT([no])
+				LIBS="$saved_LIBS"
+			]
+		)
+	]
+)
+#l2371
+
+##chl
+EXPERIMENTAL_GCM_CRYPTO=no
+AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ EVP_aes_256_gcm(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
+			[Define if you want to use GCM crypto support])
+		EXPERIMENTAL_GCM_CRYPTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
+##chl
+
+##gilles
+OPENSSL_SUPPORTS_SNI=no
+AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
+			[Define if you want to enable TLS extension SERVERNAME])
+		OPENSSL_SUPPORTS_SNI=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
+##gilles
+
+##gilles
+OPENSSL_SUPPORTS_ECDH_AUTO=no
+AC_MSG_CHECKING([if programs using SSL_CTX_set_ecdh_auto will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_ecdh_auto(NULL, 1); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_SSL_CTX_SET_ECDH_AUTO], [1],
+			[Define if SSL library support SSL_CTX_set_ecdh_auto])
+		OPENSSL_SUPPORTS_ECDH_AUTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_SSL_CTX_SET_ECDH_AUTO], [test $OPENSSL_SUPPORTS_ECDH_AUTO = yes])
+##gilles
+
+##gilles
+AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
+AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
+#include <openssl/ssl.h>
+#ifdef SSL_OP_NO_TICKET
+HAVE_SSL_OP_NO_TICKET
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by LibreSSL.])
+])
+##gilles
+
+#l2494
+# Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
+# because the system crypt() is more featureful.
+if test "x$check_for_libcrypt_before" = "x1"; then
+	AC_CHECK_LIB([crypt], [crypt])
+fi
+
+# Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
+# version in OpenSSL.
+if test "x$check_for_libcrypt_later" = "x1"; then
+	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
+fi
+#l2504
+
+#l2645
+### Configure cryptographic random number support
+
+# Check wheter OpenSSL seeds itself
+AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/rand.h>
+	]], [[
+	exit(RAND_status() == 1 ? 0 : 1);
+	]])],
+	[
+		OPENSSL_SEEDS_ITSELF=yes
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+	],
+	[
+		AC_MSG_WARN([cross compiling: assuming yes])
+		# This is safe, since we will fatal() at runtime if
+		# OpenSSL is not seeded correctly.
+		OPENSSL_SEEDS_ITSELF=yes
+	]
+)
+#l2669
+
+
+
 AC_ARG_ENABLE([table-db],
 	[  --enable-table-db		Enable building of table-db backend],
 	[
@@ -2497,7 +2501,7 @@ AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB
 
 dnl zlib is required
 AC_ARG_WITH([libz],
-	[  --with-libz=PATH		Use zlib in PATH],
+	[  --with-libz=PATH		Specify path to libz installation],
 	[ if test "x$withval" = "xno" ; then
 		AC_MSG_ERROR([*** zlib is required ***])
 	  elif test "x$withval" != "xyes"; then
