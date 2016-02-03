@@ -1045,14 +1045,6 @@ AC_RUN_IFELSE(
 # XXX make --without-openssl work
 AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
 
-AC_ARG_WITH([libressl-header-check],
-	[  --without-libressl-header-check Disable LibreSSL version consistency check],
-	[  if test "x$withval" = "xno" ; then
-		openssl_check_nonfatal=1
-	   fi
-	]
-)
-
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])
 AC_RUN_IFELSE(
@@ -1068,18 +1060,12 @@ AC_RUN_IFELSE(
 	],
 	[
 		AC_MSG_RESULT([no])
-		if test "x$openssl_check_nonfatal" = "x"; then
 			AC_MSG_ERROR([Your LibreSSL headers do not match your
 library. Check config.log for details.
 If you are sure your installation is consistent, you can disable the check
 by running "./configure --without-openssl-header-check".
 Also see contrib/findssl.sh for help identifying header/library mismatches.
 ])
-		else
-			AC_MSG_WARN([Your LibreSSL headers do not match your
-library. Check config.log for details.
-Also see contrib/findssl.sh for help identifying header/library mismatches.])
-		fi
 	],
 	[
 		AC_MSG_WARN([cross compiling: not checking])
