@@ -2288,9 +2288,6 @@ AC_RUN_IFELSE(
 	]
 )
 
-# XXX make --without-openssl work
-AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
-
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])
 AC_RUN_IFELSE(
