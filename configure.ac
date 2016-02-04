@@ -2617,12 +2617,7 @@ echo "          Compiler: ${CC}"
 echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
-echo "         Libraries: ${LIBS}"
-echo "      DB Libraries: ${DB_LIB}"
-if test ! -z "${SMTPDLIBS}"; then
-echo "         +for smtpd: ${SMTPDLIBS}"
-fi
-
+echo "         Libraries: ${LIBS} ${DB_LIB} ${SMTPDLIBS}"
 echo ""
 
 if test "x$PAM_MSG" = "xyes" ; then
