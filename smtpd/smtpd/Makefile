@@ -1,6 +1,8 @@
-#	$OpenBSD: Makefile,v 1.83 2015/12/13 19:55:16 jung Exp $
+#	$OpenBSD: Makefile,v 1.85 2016/01/09 09:48:03 jung Exp $
 
 .PATH:		${.CURDIR}/..
+
+OPENBSD_VERSION!=	uname -r
 
 PROG=		smtpd
 
@@ -78,7 +80,7 @@ SRCS+=		scheduler_proc.c
 
 SRCS+=		stat_ramstat.c
 
-MAN=		sendmail.8 smtpd.8 smtpd.conf.5 table.5 filter_api.3
+MAN=		sendmail.8 smtpd.8 smtpd.conf.5 table.5
 BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
@@ -90,9 +92,13 @@ CFLAGS+=	-Wall -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare
+CFLAGS+=	-Werror-implicit-function-declaration
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
 CFLAGS+=	-DIO_SSL
 CFLAGS+=	-DQUEUE_PROFILING
+.if ${OPENBSD_VERSION} == "5.7" || ${OPENBSD_VERSION} == "5.8"
+CFLAGS+=	-D"pledge(promises, paths)=0"
+.endif
 YFLAGS=
 
 .include <bsd.prog.mk>

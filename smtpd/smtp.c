@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.150 2015/12/13 09:52:44 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.152 2016/01/08 21:31:06 jung Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -191,7 +191,7 @@ smtp_setup_events(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
-		if (! ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
+		if (!ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
 			env->sc_tls_ciphers))
 			fatal("smtp_setup_events: ssl_setup failure");
 		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
@@ -200,7 +200,7 @@ smtp_setup_events(void)
 	purge_config(PURGE_PKI_KEYS);
 
 	maxsessions = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
-	log_debug("debug: smtp: will accept at most %zx clients", maxsessions);
+	log_debug("debug: smtp: will accept at most %zu clients", maxsessions);
 }
 
 static void
@@ -288,7 +288,7 @@ smtp_accept(int fd, short event, void *p)
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_session: unexpected client");
 
-	if (! smtp_can_accept()) {
+	if (!smtp_can_accept()) {
 		log_warnx("warn: Disabling incoming SMTP connections: "
 		    "Client limit reached");
 		goto pause;

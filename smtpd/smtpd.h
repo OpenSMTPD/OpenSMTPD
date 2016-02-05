@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.508 2015/12/13 11:06:13 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.510 2016/01/27 12:46:03 sunil Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -34,6 +34,13 @@
 #include "iobuf.h"
 
 #include "rfc2822.h"
+
+#define CHECK_IMSG_DATA_SIZE(imsg, expected_sz) do {			\
+	if ((imsg)->hdr.len - IMSG_HEADER_SIZE != (expected_sz))	\
+		fatalx("smtpd: imsg %d: data size expected %zd got %zd",\
+	   	    (imsg)->hdr.type,					\
+	   	    (expected_sz), (imsg)->hdr.len - IMSG_HEADER_SIZE);	\
+} while (0)
 
 #ifndef SMTPD_CONFDIR
 #define SMTPD_CONFDIR		 "/etc"
@@ -79,13 +86,9 @@
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
-#ifndef	PATH_LIBEXEC_DEPRECATED
-#define	PATH_LIBEXEC_DEPRECATED	"/usr/libexec/smtpd"
-#endif
 #ifndef	PATH_LIBEXEC
-#define	PATH_LIBEXEC		"/usr/local/libexec/smtpd:/usr/libexec/smtpd"
+#define	PATH_LIBEXEC		"/usr/local/libexec/smtpd"
 #endif
-
 
 
 /*

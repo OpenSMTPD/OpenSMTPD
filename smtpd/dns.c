@@ -46,7 +46,7 @@
 
 /* On OpenBSD, this function is not needed because we don't free addrinfo */
 #if defined(NOOP_ASR_FREEADDRINFO)
-#define asr_freeaddrinfo(x) (x)
+#define asr_freeaddrinfo(x)	do { } while(0);
 #endif
 
 struct dns_lookup {

@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.108 2015/11/05 09:14:31 sunil Exp $	*/
+/*	$OpenBSD: control.c,v 1.110 2016/02/02 05:45:27 sunil Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -153,6 +153,8 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &key);
 		m_get_data(&m, &data, &sz);
 		m_end(&m);
+		if (sz != sizeof(val))
+			fatalx("control: IMSG_STAT_INCREMENT size mismatch");
 		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->increment(key, val.u.counter);
@@ -163,6 +165,8 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &key);
 		m_get_data(&m, &data, &sz);
 		m_end(&m);
+		if (sz != sizeof(val))
+			fatalx("control: IMSG_STAT_DECREMENT size mismatch");
 		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->decrement(key, val.u.counter);
@@ -173,6 +177,8 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &key);
 		m_get_data(&m, &data, &sz);
 		m_end(&m);
+		if (sz != sizeof(val))
+			fatalx("control: IMSG_STAT_SET size mismatch");
 		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->set(key, &val);
@@ -513,7 +519,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 		kvp = imsg->data;
-		if (! stat_backend->iter(&kvp->iter, &key, &val))
+		if (!stat_backend->iter(&kvp->iter, &key, &val))
 			kvp->iter = NULL;
 		else {
 			(void)strlcpy(kvp->key, key, sizeof kvp->key);
@@ -678,7 +684,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		if (c->euid)
 			goto badcred;
 
-		if (! (env->sc_flags & SMTPD_MDA_PAUSED)) {
+		if (!(env->sc_flags & SMTPD_MDA_PAUSED)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}

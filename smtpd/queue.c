@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.173 2015/12/10 07:49:58 sunil Exp $	*/
+/*	$OpenBSD: queue.c,v 1.176 2016/01/27 12:46:03 sunil Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -242,6 +242,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_SCHED_ENVELOPE_BOUNCE:
+			CHECK_IMSG_DATA_SIZE(imsg, sizeof *req_bounce);
 			req_bounce = imsg->data;
 			evpid = req_bounce->evpid;
 
@@ -713,7 +714,7 @@ queue(void)
 
 #ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_key) {
-		if (! crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
+		if (!crypto_setup(env->sc_queue_key, strlen(env->sc_queue_key)))
 			fatalx("crypto_setup: invalid key for queue encryption");
 		log_info("queue: queue encryption enabled");
 	}
@@ -800,13 +801,13 @@ static void
 queue_log(const struct envelope *e, const char *prefix, const char *status)
 {
 	char rcpt[LINE_MAX];
-	
+
 	(void)strlcpy(rcpt, "-", sizeof rcpt);
 	if (strcmp(e->rcpt.user, e->dest.user) ||
 	    strcmp(e->rcpt.domain, e->dest.domain))
 		(void)snprintf(rcpt, sizeof rcpt, "%s@%s",
 		    e->rcpt.user, e->rcpt.domain);
-	
+
 	log_info("%s: %s for %016" PRIx64 ": from=<%s@%s>, to=<%s@%s>, "
 	    "rcpt=<%s>, delay=%s, stat=%s",
 	    e->type == D_MDA ? "delivery" : "relay",

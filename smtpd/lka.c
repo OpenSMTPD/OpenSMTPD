@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.188 2015/12/12 20:02:31 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.192 2016/01/22 13:10:41 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -324,7 +324,14 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		case IMSG_CONF_END:
 			if (verbose & TRACE_TABLES)
 				table_dump_all();
+
+			/* fork & exec tables that need it */
 			table_open_all();
+
+			/* revoke proc & exec */
+			if (pledge("stdio rpath inet dns getpw recvfd",
+				NULL) == -1)
+				err(1, "pledge");
 
 			/* Start fulfilling requests */
 			mproc_enable(p_pony);
@@ -453,7 +460,8 @@ lka(void)
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
 
-	if (pledge("stdio rpath inet dns getpw recvfd", NULL) == -1)
+	/* proc & exec will be revoked before serving requests */
+	if (pledge("stdio rpath inet dns getpw recvfd proc exec", NULL) == -1)
 		err(1, "pledge");
 
 	if (event_dispatch() < 0)
@@ -529,7 +537,7 @@ lka_credentials(const char *tablename, const char *label, char *dst, size_t sz)
 
 		r = base64_encode((unsigned char *)buf, buflen, dst, sz);
 		free(buf);
-		
+
 		if (r == -1) {
 			log_warnx("warn: credentials parse error for %s:%s",
 			    tablename, label);
@@ -620,7 +628,7 @@ lka_mailaddrmap(const char *tablename, const char *username, const struct mailad
 	default:
 		found = 0;
 		TAILQ_FOREACH(mn, &lk.maddrmap->queue, entries) {
-			if (! mailaddr_match(maddr, &mn->mailaddr))
+			if (!mailaddr_match(maddr, &mn->mailaddr))
 				continue;
 			found = 1;
 			break;
@@ -665,12 +673,12 @@ lka_X509_verify(struct ca_vrfy_req_msg *vrfy,
 			x509_tmp = NULL;
 		}
 	}
-	if (! ca_X509_verify(x509, x509_chain, CAfile, NULL, &errstr))
+	if (!ca_X509_verify(x509, x509_chain, CAfile, NULL, &errstr))
 		log_debug("debug: lka: X509 verify: %s", errstr);
 	else
 		ret = 1;
 
-end:	
+end:
 	if (x509)
 		X509_free(x509);
 	if (x509_tmp)
@@ -704,7 +712,7 @@ lka_certificate_verify_resume(enum imsg_type type, struct ca_vrfy_req_msg *req)
 
 	if (sca == NULL && !req->fallback)
 		resp.status = CA_FAIL;
-	else if (! lka_X509_verify(req, cafile, NULL))
+	else if (!lka_X509_verify(req, cafile, NULL))
 		resp.status = CA_FAIL;
 	else
 		resp.status = CA_OK;

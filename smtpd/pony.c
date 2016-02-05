@@ -1,4 +1,4 @@
-/*	$OpenBSD: pony.c,v 1.11 2015/12/13 10:54:11 gilles Exp $	*/
+/*	$OpenBSD: pony.c,v 1.12 2016/01/01 12:37:14 jung Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -15,6 +15,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#include "includes.h"
 
 #include <sys/types.h>
 #include <sys/queue.h>
@@ -35,6 +37,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <limits.h>
+#include <grp.h>
 #include <vis.h>
 
 #include "smtpd.h"

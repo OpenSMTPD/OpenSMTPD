@@ -1,4 +1,4 @@
-/*	$OpenBSD: compress_gzip.c,v 1.8 2015/01/20 17:37:54 deraadt Exp $	*/
+/*	$OpenBSD: compress_gzip.c,v 1.10 2015/12/28 22:08:30 jung Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -67,7 +67,7 @@ compress_gzip_chunk(void *ib, size_t ibsz, void *ob, size_t obsz)
 
 	if ((strm = calloc(1, sizeof *strm)) == NULL)
 		return 0;
-	
+
 	strm->zalloc = Z_NULL;
 	strm->zfree = Z_NULL;
 	strm->opaque = Z_NULL;
@@ -133,23 +133,23 @@ compress_gzip_file(FILE *in, FILE *out)
 	char  ibuf[GZIP_BUFFER_SIZE];
 	int  r, w;
 	int  ret = 0;
-	
+
 	if (in == NULL || out == NULL)
 		return (0);
-	
+
 	gzf = gzdopen(fileno(out), "wb");
 	if (gzf == NULL)
 		return (0);
-	
+
 	while ((r = fread(ibuf, 1, GZIP_BUFFER_SIZE, in)) != 0) {
 		if ((w = gzwrite(gzf, ibuf, r)) != r)
 			goto end;
 	}
-	if (! feof(in))
+	if (!feof(in))
 		goto end;
-	
+
 	ret = 1;
-	
+
 end:
 	gzclose(gzf);
 	return (ret);
@@ -175,7 +175,7 @@ uncompress_gzip_file(FILE *in, FILE *out)
 		if  ((w = fwrite(obuf, r, 1, out)) != 1)
 			goto end;
 	}
-	if (! gzeof(gzf))
+	if (!gzeof(gzf))
 		goto end;
 
 	ret = 1;

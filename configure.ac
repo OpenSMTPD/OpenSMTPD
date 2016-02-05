@@ -14,9 +14,11 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
-dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([opensmtpd], [portable], [bugs@opensmtpd.org])
+AC_PREREQ(2.69)
+
+dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'), [bugs@opensmtpd.org>], [opensmtpd], [https://github.com/OpenSMTPD/OpenSMTPD])
+AC_INIT([OpenSMTPD-portable], [portable], [bugs@opensmtpd.org], [opensmtpd], [https://github.com/OpenSMTPD/OpenSMTPD])
+
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -322,6 +324,7 @@ AC_CHECK_HEADERS([ \
 	dirent.h \
 	fcntl.h \
 	getopt.h \
+	grp.h \
 	limits.h \
 	maillock.h \
 	mach/mach_time.h \
@@ -364,17 +367,6 @@ AC_CHECK_HEADERS([sys/mount.h], [], [], [
 ASR_LIB=-lasr
 
 case "$host" in
-*-*-aix*)
-	check_for_aix_broken_getaddrinfo=1
-	AC_DEFINE([BROKEN_REALPATH], [1], [Define if you have a broken realpath.])
-	AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
-	    [Define if your platform breaks doing a seteuid before a setuid])
-	AC_DEFINE([BROKEN_SETREUID], [1], [Define if your setreuid() is broken])
-	AC_DEFINE([BROKEN_SETREGID], [1], [Define if your setregid() is broken])
-	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
-		[Define to a Set Process Title type if your system is
-		supported by bsd-setproctitle.c])
-	;;
 *-*-darwin*)
 	use_pie=auto
 	AC_MSG_CHECKING([if we have working getaddrinfo])
@@ -393,9 +385,9 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		[getaddrinfo is broken (if present)])
 	],
 	[AC_MSG_RESULT([assume it is working])])
-	AC_DEFINE([SETEUID_BREAKS_SETUID])
-	AC_DEFINE([BROKEN_SETREUID])
-	AC_DEFINE([BROKEN_SETREGID])
+	AC_DEFINE([SETEUID_BREAKS_SETUID], [1], [define if seteuid breaks setuid])
+	AC_DEFINE([BROKEN_SETREUID], [1], [define if setreuid is broken])
+	AC_DEFINE([BROKEN_SETREGID], [1], [define if setregid is broken])
 	AC_DEFINE([BROKEN_GLOB], [1], [OS X glob does not do what we expect])
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
@@ -407,13 +399,8 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 *-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	use_pie=auto
 	check_for_libcrypt_later=1
+	CFLAGS="$CFLAGS -D_BSD_SOURCE"
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
-	case `uname -r` in
-	1.*|2.0.*)
-		AC_DEFINE(BROKEN_CMSG_TYPE, 1,
-			[Define if cmsg_type is not passed correctly])
-		;;
-	esac
 	;;
 *-*-netbsd*)
 	check_for_libcrypt_before=1
@@ -433,16 +420,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	use_pie=auto
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
-	echo "######################################################"
-	echo "# YOU ARE BUILDING PORTABLE BRANCH ON OPENBSD.       #"
-	echo "# THERE WILL BE DRAGONS.                             #"
-	echo "# YOU WILL BE ON YOUR OWN.                           #"
-	echo "# USE -CURRENT OR NATIVE VERSION FROM OUR MAIN SITE. #"
-	echo "#                                                    #"
-	echo "#     https://www.OpenSMTPD.org                      #"
-	echo "#                                                    #"
-	echo "######################################################"
-	sleep 10
+
 	AC_DEFINE([BROKEN_STRNVIS], [0],
 	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
 	YACC='yacc'
@@ -470,7 +448,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 
 dnl Checks for header files.
 # Checks for libraries.
-AC_CHECK_FUNC([yp_match], , [AC_CHECK_LIB([nsl], [yp_match])])
 AC_CHECK_FUNC([setsockopt], , [AC_CHECK_LIB([socket], [setsockopt])])
 
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
@@ -517,59 +494,6 @@ int main(int argc, char **argv) {
 AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
 
-dnl zlib is required
-AC_ARG_WITH([zlib],
-	[  --with-zlib=PATH		Use zlib in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** zlib is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
-
-AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
-AC_CHECK_LIB([z], [deflate], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default zlib install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-		LIBS="$LIBS -lz"
-		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
-			[
-				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
-			]
-		)
-	]
-)
-
-dnl UnixWare 2.x
-AC_CHECK_FUNC([strcasecmp],
-	[], [ AC_CHECK_LIB([resolv], [strcasecmp], [LIBS="$LIBS -lresolv"]) ]
-)
 AC_CHECK_FUNCS([utimes],
 	[], [ AC_CHECK_LIB([c89], [utimes], [AC_DEFINE([HAVE_UTIMES])
 					LIBS="$LIBS -lc89"]) ]
@@ -652,6 +576,7 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nsleep \
 	pidfile \
+	pledge \
 	pw_dup \
 	reallocarray \
 	setenv \
@@ -935,384 +860,70 @@ AC_RUN_IFELSE(
 fi
 #l1982
 
-#l2030
-if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
-    test "x$check_for_hpux_broken_getaddrinfo" = "x1"; then
-	AC_MSG_CHECKING([if getaddrinfo seems to work])
-	AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <errno.h>
-#include <netinet/in.h>
 
-#define TEST_PORT "2222"
-		]], [[
-	int err, sock;
-	struct addrinfo *gai_ai, *ai, hints;
-	char ntop[NI_MAXHOST], strport[NI_MAXSERV], *name = NULL;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
-
-	err = getaddrinfo(name, TEST_PORT, &hints, &gai_ai);
-	if (err != 0) {
-		fprintf(stderr, "getaddrinfo failed (%s)", gai_strerror(err));
-		exit(1);
-	}
-
-	for (ai = gai_ai; ai != NULL; ai = ai->ai_next) {
-		if (ai->ai_family != AF_INET6)
-			continue;
-
-		err = getnameinfo(ai->ai_addr, ai->ai_addrlen, ntop,
-		    sizeof(ntop), strport, sizeof(strport),
-		    NI_NUMERICHOST|NI_NUMERICSERV);
-
-		if (err != 0) {
-			if (err == EAI_SYSTEM)
-				perror("getnameinfo EAI_SYSTEM");
-			else
-				fprintf(stderr, "getnameinfo failed: %s\n",
-				    gai_strerror(err));
-			exit(2);
-		}
-
-		sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-		if (sock < 0)
-			perror("socket");
-		if (bind(sock, ai->ai_addr, ai->ai_addrlen) < 0) {
-			if (errno == EBADF)
-				exit(3);
-		}
-	}
-	exit(0);
-		]])],
-		[
-			AC_MSG_RESULT([yes])
-		],
-		[
-			AC_MSG_RESULT([no])
-			AC_DEFINE([BROKEN_GETADDRINFO])
-		],
-		[
-			AC_MSG_RESULT([cross-compiling, assuming yes])
-		]
-	)
+#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
+# Options from here on. Some of these are preset by platform above
+AC_ARG_WITH([mantype],
+	[  --with-mantype=man|cat|doc	Set man page type],
+	[
+		case "$withval" in
+		man|cat|doc)
+			MANTYPE=$withval
+			;;
+		*)
+			AC_MSG_ERROR([invalid man type: $withval])
+			;;
+		esac
+	]
+)
+if test -z "$MANTYPE"; then
+	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
+	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
+	if ${NROFF} -mdoc ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
+		MANTYPE=doc
+	elif ${NROFF} -man ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
+		MANTYPE=man
+	else
+		MANTYPE=cat
+	fi
 fi
+AC_SUBST([MANTYPE])
+if test "$MANTYPE" = "doc"; then
+	mansubdir=man;
+else
+	mansubdir=$MANTYPE;
+fi
+AC_SUBST([mansubdir])
+#l4207
 
 
-#l2174 (customized, bu adding -lssl to LIBS)
-# Search for OpenSSL
-saved_CPPFLAGS="$CPPFLAGS"
-saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([ssl-dir],
-	[  --with-ssl-dir=PATH		Specify path to LibreSSL installation ],
+#l4432 (customized s/pid/sock/)
+# Whether to enable BSD auth support
+BSD_AUTH_MSG=no
+AC_ARG_WITH([auth-bsdauth],
+	[  --with-auth-bsdauth		Enable bsd_auth(3) authentication support],
 	[
 		if test "x$withval" != "xno" ; then
-			case "$withval" in
-				# Relative paths
-				./*|../*)	withval="`pwd`/$withval"
-			esac
-			if test -d "$withval/lib"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-				fi
-			elif test -d "$withval/lib64"; then
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
-				fi
-			else
-				if test -n "${need_dash_r}"; then
-					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval} ${LDFLAGS}"
-				fi
-			fi
-			if test -d "$withval/include"; then
-				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-			else
-				CPPFLAGS="-I${withval} ${CPPFLAGS}"
-			fi
+			AC_DEFINE([BSD_AUTH], [1],
+				[Define if you have BSD auth support])
+			BSD_AUTH_MSG=yes
 		fi
 	]
 )
-## XXX chl -lssl manually added
-LIBS="-lcrypto -lssl $LIBS"
-AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
-	[Define if your ssl headers are included
-	with #include <openssl/header.h>])],
-	[
-		dnl Check default openssl install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
-		AC_CHECK_HEADER([openssl/opensslv.h], ,
-		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
-		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
-			[
-				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
-			]
-		)
-	]
-)
 
-# Determine OpenSSL header version
-AC_MSG_CHECKING([LibreSSL header version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-#define DATA "conftest.sslincver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		ssl_header_ver=`cat conftest.sslincver`
-		AC_MSG_RESULT([$ssl_header_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([LibreSSL version header not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-# Determine OpenSSL library version
-AC_MSG_CHECKING([LibreSSL library version])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-#include <openssl/crypto.h>
-#define DATA "conftest.ssllibver"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
-		exit(1);
-
-	exit(0);
-	]])],
-	[
-		ssl_library_ver=`cat conftest.ssllibver`
-		AC_MSG_RESULT([$ssl_library_ver])
-	],
-	[
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([LibreSSL library not found.])
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-# XXX make --without-openssl work
-AC_DEFINE_UNQUOTED([WITH_OPENSSL], [1], [use libcrypto for cryptography])
-
-AC_ARG_WITH([libressl-header-check],
-	[  --without-libressl-header-check Disable LibreSSL version consistency check],
-	[  if test "x$withval" = "xno" ; then
-		openssl_check_nonfatal=1
-	   fi
-	]
-)
-
-# Sanity check OpenSSL headers
-AC_MSG_CHECKING([whether LibreSSL's headers match the library])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/opensslv.h>
-	]], [[
-	exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1);
-	]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		if test "x$openssl_check_nonfatal" = "x"; then
-			AC_MSG_ERROR([Your LibreSSL headers do not match your
-library. Check config.log for details.
-If you are sure your installation is consistent, you can disable the check
-by running "./configure --without-openssl-header-check".
-Also see contrib/findssl.sh for help identifying header/library mismatches.
-])
-		else
-			AC_MSG_WARN([Your LibreSSL headers do not match your
-library. Check config.log for details.
-Also see contrib/findssl.sh for help identifying header/library mismatches.])
-		fi
-	],
-	[
-		AC_MSG_WARN([cross compiling: not checking])
-	]
-)
-
-AC_MSG_CHECKING([if programs using LibreSSL functions will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ SSLeay_add_all_algorithms(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		saved_LIBS="$LIBS"
-		LIBS="$LIBS -ldl"
-		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-			[[ SSLeay_add_all_algorithms(); ]])],
-			[
-				AC_MSG_RESULT([yes])
-			],
-			[
-				AC_MSG_RESULT([no])
-				LIBS="$saved_LIBS"
-			]
-		)
-	]
-)
-#l2371
-
-##chl
-EXPERIMENTAL_GCM_CRYPTO=no
-AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ EVP_aes_256_gcm(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
-			[Define if you want to use GCM crypto support])
-		EXPERIMENTAL_GCM_CRYPTO=yes
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
-##chl
-
-##gilles
-OPENSSL_SUPPORTS_SNI=no
-AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
-	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
-			[Define if you want to enable TLS extension SERVERNAME])
-		OPENSSL_SUPPORTS_SNI=yes
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
-##gilles
-
-##gilles
-AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
-AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
-#include <openssl/ssl.h>
-#ifdef SSL_OP_NO_TICKET
-HAVE_SSL_OP_NO_TICKET
-#endif
-], [
-   AC_MSG_RESULT([yes])
-], [
-   AC_MSG_RESULT([no])
-   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by LibreSSL.])
-])
-##gilles
-
-#l2494
-# Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
-# because the system crypt() is more featureful.
-if test "x$check_for_libcrypt_before" = "x1"; then
-	AC_CHECK_LIB([crypt], [crypt])
-fi
-
-# Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
-# version in OpenSSL.
-if test "x$check_for_libcrypt_later" = "x1"; then
-	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
-fi
-#l2504
-
-#l2645
-### Configure cryptographic random number support
-
-# Check wheter OpenSSL seeds itself
-AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
-AC_RUN_IFELSE(
-	[AC_LANG_PROGRAM([[
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/rand.h>
-	]], [[
-	exit(RAND_status() == 1 ? 0 : 1);
-	]])],
-	[
-		OPENSSL_SEEDS_ITSELF=yes
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-	],
-	[
-		AC_MSG_WARN([cross compiling: assuming yes])
-		# This is safe, since we will fatal() at runtime if
-		# OpenSSL is not seeded correctly.
-		OPENSSL_SEEDS_ITSELF=yes
-	]
-)
-#l2669
 
 #l2757
 # Check for PAM libs
 PAM_MSG="no"
-AC_ARG_WITH([pam],
-	[  --with-pam			Enable PAM support ],
+USE_PAM_SERVICE=smtpd
+AC_ARG_WITH([auth-pam],
+	[  --with-auth-pam=SERVICE	Enable PAM authentication support (default=smtpd)],
 	[
 		if test "x$withval" != "xno" ; then
+			if test -n "$withval" && test "x${withval}" != "xyes"; then
+				USE_PAM_SERVICE=$withval
+			fi
+
 			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
 			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
 				AC_MSG_ERROR([PAM headers not found])
@@ -1344,6 +955,8 @@ AC_ARG_WITH([pam],
 		fi
 	]
 )
+AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
+AC_SUBST([USE_PAM_SERVICE])
 
 # Check for older PAM
 if test "x$PAM_MSG" = "xyes" ; then
@@ -1369,24 +982,12 @@ if test "x$PAM_MSG" = "xyes" ; then
 fi
 #l2816
 
-##gilles
-USE_PAM_SERVICE=smtpd
-AC_ARG_WITH([pam-service],
-	[  --with-pam-service=service	Specify PAM service],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			USE_PAM_SERVICE=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
-AC_SUBST([USE_PAM_SERVICE])
+
 ##gilles
 
 SMTPD_USER=_smtpd
-AC_ARG_WITH([privsep-user],
-	[  --with-privsep-user=user	Specify non-privileged user for privilege separation],
+AC_ARG_WITH([user-smtpd],
+	[  --with-user-smtpd=user	Specify non-privileged user for smtpd (default=_smtpd)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -1399,8 +1000,8 @@ AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 AC_SUBST([SMTPD_USER])
 
 SMTPD_QUEUE_USER=_smtpq
-AC_ARG_WITH([queue-user],
-	[  --with-queue-user=user	Specify non-privileged user for queue process],
+AC_ARG_WITH([user-queue],
+	[  --with-user-queue=user	Specify non-privileged user for queue process (default=_smtpq)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -1413,8 +1014,8 @@ AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
 AC_SUBST([SMTPD_QUEUE_USER])
 
 SMTPD_QUEUE_GROUP=_smtpq
-AC_ARG_WITH([queue-group],
-	[  --with-queue-group=group	Specify non-privileged group for offline queue],
+AC_ARG_WITH([group-queue],
+	[  --with-group-queue=group	Specify non-privileged group for offline queue (default=_smtpq)],
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
 		    test "x${withval}" != "xyes"; then
@@ -1425,6 +1026,165 @@ AC_ARG_WITH([queue-group],
 AC_DEFINE_UNQUOTED([SMTPD_QUEUE_GROUP], ["$SMTPD_QUEUE_GROUP"],
 	[non-privileged group for queue process])
 AC_SUBST([SMTPD_QUEUE_GROUP])
+
+# Where to place spooler
+spooldir=/var/spool/smtpd
+AC_ARG_WITH([path-queue],
+	[  --with-path-queue=PATH	Specify path to queue directory (default=/var/spool/smtpd)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			spooldir=$withval
+			if test ! -d $spooldir ; then
+			AC_MSG_WARN([** no $spooldir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
+AC_SUBST([spooldir])
+
+
+PRIVSEP_PATH=/var/empty
+AC_ARG_WITH([path-empty],
+	[  --with-path-empty=PATH	Specify path to empty directory (default=/var/empty)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			PRIVSEP_PATH=$withval
+		fi
+	]
+)
+AC_SUBST([PRIVSEP_PATH])
+#l4022
+
+#l4066
+dnl # --with-maildir=/path/to/mail gets top priority.
+dnl # if maildir is set in the platform case statement above we use that.
+dnl # Otherwise we run a program to get the dir from system headers.
+dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
+dnl # If we find _PATH_MAILDIR we do nothing because that is what
+dnl # session.c expects anyway. Otherwise we set to the value found
+dnl # stripping any trailing slash. If for some strage reason our program
+dnl # does not find what it needs, we default to /var/spool/mail.
+# Check for mail directory
+AC_ARG_WITH([path-mbox],
+    [  --with-path-mbox=PATH		Specify path to mbox directory (default=/var/spool/mail)],
+    [
+	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
+	    test "x${withval}" != xyes; then
+		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
+            [Set this to your mail directory if you do not have _PATH_MAILDIR])
+	    fi
+     ],[
+	if test "X$maildir" != "X"; then
+	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+	else
+	    AC_MSG_CHECKING([Discovering system mail directory])
+	    AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#ifdef HAVE_PATHS_H
+#include <paths.h>
+#endif
+#ifdef HAVE_MAILLOCK_H
+#include <maillock.h>
+#endif
+#define DATA "conftest.maildir"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+#if defined (_PATH_MAILDIR)
+	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
+		exit(1);
+#elif defined (MAILDIR)
+	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
+		exit(1);
+#elif defined (_PATH_MAIL)
+	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
+		exit(1);
+#else
+	exit (2);
+#endif
+
+	exit(0);
+		]])],
+		[
+	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
+		    maildir=`awk -F: '{print $2}' conftest.maildir \
+			| sed 's|/$||'`
+		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
+		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
+		    fi
+		],
+		[
+		    if test "X$ac_status" = "X2";then
+# our test program didn't find it. Default to /var/spool/mail
+			AC_MSG_RESULT([Using: default value of /var/spool/mail])
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
+		     else
+			AC_MSG_RESULT([*** not found ***])
+		     fi
+		],
+		[
+			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
+		]
+	    )
+	fi
+    ]
+) # maildir
+#l4146
+
+# Where to place smtpd.sock
+sockdir=/var/run
+# make sure the directory exists
+if test ! -d $sockdir ; then
+	sockdir=`eval echo ${sysconfdir}`
+	case $sockdir in
+		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
+	esac
+fi
+
+AC_ARG_WITH([path-socket],
+	[  --with-path-socket=PATH	Specify path to smtpd.sock directory (default=/var/run)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			sockdir=$withval
+			if test ! -d $sockdir ; then
+			AC_MSG_WARN([** no $sockdir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
+	[Specify location of smtpd.sock])
+AC_SUBST([sockdir])
+#l4470
+
+CA_FILE=/etc/ssl/cert.pem
+AC_ARG_WITH([path-CAfile],
+	[  --with-path-CAfile=FILE	Specify path to CA certificate (default=/etc/ssl/cert.pem)],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			CA_FILE=$withval
+		fi
+	]
+)
+AC_SUBST([CA_FILE])
+
 
 #l3037 (customized s/SSH/SMTPD/)
 # Check for  long long datatypes
@@ -2196,23 +1956,12 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 #l4010
 # Looking for programs, paths and files
 
-PRIVSEP_PATH=/var/empty
-AC_ARG_WITH([privsep-path],
-	[  --with-privsep-path=xxx	Path for privilege separation chroot (default=/var/empty)],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			PRIVSEP_PATH=$withval
-		fi
-	]
-)
-AC_SUBST([PRIVSEP_PATH])
-#l4022
+
 
 #l4045
 STRIP_OPT=-s
 AC_ARG_ENABLE([strip],
-	[  --disable-strip         Disable calling strip(1) on install],
+	[  --disable-strip	Disable calling strip(1) on install],
 	[
 		if test "x$enableval" = "xno" ; then
 			STRIP_OPT=
@@ -2222,200 +1971,24 @@ AC_ARG_ENABLE([strip],
 AC_SUBST([STRIP_OPT])
 #l4054
 
-#l4066
-dnl # --with-maildir=/path/to/mail gets top priority.
-dnl # if maildir is set in the platform case statement above we use that.
-dnl # Otherwise we run a program to get the dir from system headers.
-dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
-dnl # If we find _PATH_MAILDIR we do nothing because that is what
-dnl # session.c expects anyway. Otherwise we set to the value found
-dnl # stripping any trailing slash. If for some strage reason our program
-dnl # does not find what it needs, we default to /var/spool/mail.
-# Check for mail directory
-AC_ARG_WITH([maildir],
-    [  --with-maildir=/path/to/mail	Specify your system mail directory],
-    [
-	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
-	    test "x${withval}" != xyes; then
-		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
-            [Set this to your mail directory if you do not have _PATH_MAILDIR])
-	    fi
-     ],[
-	if test "X$maildir" != "X"; then
-	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
-	else
-	    AC_MSG_CHECKING([Discovering system mail directory])
-	    AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#ifdef HAVE_PATHS_H
-#include <paths.h>
-#endif
-#ifdef HAVE_MAILLOCK_H
-#include <maillock.h>
-#endif
-#define DATA "conftest.maildir"
-	]], [[
-	FILE *fd;
-	int rc;
-
-	fd = fopen(DATA,"w");
-	if(fd == NULL)
-		exit(1);
-
-#if defined (_PATH_MAILDIR)
-	if ((rc = fprintf(fd ,"_PATH_MAILDIR:%s\n", _PATH_MAILDIR)) <0)
-		exit(1);
-#elif defined (MAILDIR)
-	if ((rc = fprintf(fd ,"MAILDIR:%s\n", MAILDIR)) <0)
-		exit(1);
-#elif defined (_PATH_MAIL)
-	if ((rc = fprintf(fd ,"_PATH_MAIL:%s\n", _PATH_MAIL)) <0)
-		exit(1);
-#else
-	exit (2);
-#endif
-
-	exit(0);
-		]])],
-		[
-	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
-		    maildir=`awk -F: '{print $2}' conftest.maildir \
-			| sed 's|/$||'`
-		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
-		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
-		    fi
-		],
-		[
-		    if test "X$ac_status" = "X2";then
-# our test program didn't find it. Default to /var/spool/mail
-			AC_MSG_RESULT([Using: default value of /var/spool/mail])
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
-		     else
-			AC_MSG_RESULT([*** not found ***])
-		     fi
-		],
-		[
-			AC_MSG_WARN([cross compiling: use --with-maildir=/path/to/mail])
-		]
-	    )
-	fi
-    ]
-) # maildir
-#l4146
-
-#l4176 (customized s/ssh.1/smtpd/smtpd.8/)
-# Options from here on. Some of these are preset by platform above
-AC_ARG_WITH([mantype],
-	[  --with-mantype=man|cat|doc	Set man page type],
-	[
-		case "$withval" in
-		man|cat|doc)
-			MANTYPE=$withval
-			;;
-		*)
-			AC_MSG_ERROR([invalid man type: $withval])
-			;;
-		esac
-	]
-)
-if test -z "$MANTYPE"; then
-	TestPath="/usr/bin${PATH_SEPARATOR}/usr/ucb"
-	AC_PATH_PROGS([NROFF], [nroff awf], [/bin/false], [$TestPath])
-	if ${NROFF} -mdoc ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
-		MANTYPE=doc
-	elif ${NROFF} -man ${srcdir}/smtpd/smtpd.8 >/dev/null 2>&1; then
-		MANTYPE=man
-	else
-		MANTYPE=cat
-	fi
-fi
-AC_SUBST([MANTYPE])
-if test "$MANTYPE" = "doc"; then
-	mansubdir=man;
-else
-	mansubdir=$MANTYPE;
-fi
-AC_SUBST([mansubdir])
-#l4207
-
-#l4432 (customized s/pid/sock/)
-# Whether to enable BSD auth support
-BSD_AUTH_MSG=no
-AC_ARG_WITH([bsd-auth],
-	[  --with-bsd-auth		Enable BSD auth support],
-	[
-		if test "x$withval" != "xno" ; then
-			AC_DEFINE([BSD_AUTH], [1],
-				[Define if you have BSD auth support])
-			BSD_AUTH_MSG=yes
-		fi
-	]
-)
-
-# Where to place smtpd.sock
-sockdir=/var/run
-# make sure the directory exists
-if test ! -d $sockdir ; then
-	sockdir=`eval echo ${sysconfdir}`
-	case $sockdir in
-		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
-	esac
-fi
-
-AC_ARG_WITH([sock-dir],
-	[  --with-sock-dir=PATH		Specify location of smtpd.sock file],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			sockdir=$withval
-			if test ! -d $sockdir ; then
-			AC_MSG_WARN([** no $sockdir directory on this system **])
-			fi
-		fi
-	]
-)
-
-AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
-	[Specify location of smtpd.sock])
-AC_SUBST([sockdir])
-#l4470
 
 
-CA_FILE=/etc/ssl/cert.pem
-AC_ARG_WITH([ca-file],
-	[  --with-ca-file=FILE		Path for certificate file (default=/etc/ssl/cert.pem)],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			CA_FILE=$withval
-		fi
-	]
-)
-AC_SUBST([CA_FILE])
+case "$host" in
+*-*-openbsd*)
+        pkglibexecdir="$libexecdir/smtpd"
+        ;;
+*)
+        pkglibexecdir="$libexecdir/opensmtpd"
+        ;;
+esac
+AC_SUBST([pkglibexecdir])
 
 
-# Where to place spooler
-spooldir=/var/spool/smtpd
-AC_ARG_WITH([spooldir],
-	[  --with-spooldir=PATH		Specify location of spooler directory],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			spooldir=$withval
-			if test ! -d $spooldir ; then
-			AC_MSG_WARN([** no $spooldir directory on this system **])
-			fi
-		fi
-	]
-)
 
-AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
-	[Specify location of spooler])
-AC_SUBST([spooldir])
+
+
+
+
 
 
 #l4742
@@ -2460,12 +2033,66 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 		    ])
 ##end of chl
 
+# Search for asr (based on zlib checks)
+dnl asr is required
+AC_ARG_WITH([libasr],
+	[  --with-libasr=PATH		Specify path to libasr installation],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** asr is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
+[#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>])
+AC_CHECK_LIB([asr], [asr_run], ,
+	[
+		saved_CPPFLAGS="$CPPFLAGS"
+		saved_LDFLAGS="$LDFLAGS"
+		save_LIBS="$LIBS"
+		dnl Check default asr install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+# don't add -lasr to LIBS, it's only added when needed
+#		LIBS="$LIBS -lasr"
+		AC_TRY_LINK_FUNC([asr_run], ,
+			[
+				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
+			]
+		)
+	]
+)
+
 ##chl (based on OpenSSL checks, see above)
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
-AC_ARG_WITH([libevent-dir],
-	[  --with-libevent-dir=PATH     Specify path to libevent installation ],
+AC_ARG_WITH([libevent],
+	[  --with-libevent=PATH          Specify path to libevent installation ],
 	[
 		if test "x$withval" != "xno" ; then
 			case "$withval" in
@@ -2527,10 +2154,369 @@ AC_LINK_IFELSE(
 	]
 )
 
-AC_ARG_ENABLE([table-db],
-	[  --enable-table-db		Enable building of table-db backend],
+
+#l2174 (customized, bu adding -lssl to LIBS)
+# Search for OpenSSL
+saved_CPPFLAGS="$CPPFLAGS"
+saved_LDFLAGS="$LDFLAGS"
+AC_ARG_WITH([libssl],
+	[  --with-libssl=PATH		Specify path to libssl installation ],
 	[
-		if test "x$enableval" = "xyes" ; then
+		if test "x$withval" != "xno" ; then
+			case "$withval" in
+				# Relative paths
+				./*|../*)	withval="`pwd`/$withval"
+			esac
+			if test -d "$withval/lib"; then
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+				fi
+			elif test -d "$withval/lib64"; then
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval}/lib64 -R${withval}/lib64 ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
+				fi
+			else
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval} ${LDFLAGS}"
+				fi
+			fi
+			if test -d "$withval/include"; then
+				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+			else
+				CPPFLAGS="-I${withval} ${CPPFLAGS}"
+			fi
+		fi
+	]
+)
+## XXX chl -lssl manually added
+LIBS="-lcrypto -lssl $LIBS"
+AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
+	[Define if your ssl headers are included
+	with #include <openssl/header.h>])],
+	[
+		dnl Check default openssl install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
+		AC_CHECK_HEADER([openssl/opensslv.h], ,
+		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
+		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
+			[
+				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
+			]
+		)
+	]
+)
+
+# Determine OpenSSL header version
+AC_MSG_CHECKING([LibreSSL header version])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/opensslv.h>
+#define DATA "conftest.sslincver"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
+		exit(1);
+
+	exit(0);
+	]])],
+	[
+		ssl_header_ver=`cat conftest.sslincver`
+		AC_MSG_RESULT([$ssl_header_ver])
+	],
+	[
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([LibreSSL version header not found.])
+	],
+	[
+		AC_MSG_WARN([cross compiling: not checking])
+	]
+)
+
+# Determine OpenSSL library version
+AC_MSG_CHECKING([LibreSSL library version])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/opensslv.h>
+#include <openssl/crypto.h>
+#define DATA "conftest.ssllibver"
+	]], [[
+	FILE *fd;
+	int rc;
+
+	fd = fopen(DATA,"w");
+	if(fd == NULL)
+		exit(1);
+
+	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
+		exit(1);
+
+	exit(0);
+	]])],
+	[
+		ssl_library_ver=`cat conftest.ssllibver`
+		AC_MSG_RESULT([$ssl_library_ver])
+	],
+	[
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([LibreSSL library not found.])
+	],
+	[
+		AC_MSG_WARN([cross compiling: not checking])
+	]
+)
+
+# Sanity check OpenSSL headers
+AC_MSG_CHECKING([whether LibreSSL's headers match the library])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/opensslv.h>
+	]], [[
+	exit(SSLeay() == OPENSSL_VERSION_NUMBER ? 0 : 1);
+	]])],
+	[
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+			AC_MSG_ERROR([Your LibreSSL headers do not match your
+library. Check config.log for details.
+If you are sure your installation is consistent, you can disable the check
+by running "./configure --without-openssl-header-check".
+Also see contrib/findssl.sh for help identifying header/library mismatches.
+])
+	],
+	[
+		AC_MSG_WARN([cross compiling: not checking])
+	]
+)
+
+AC_MSG_CHECKING([if programs using LibreSSL functions will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ SSLeay_add_all_algorithms(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+		saved_LIBS="$LIBS"
+		LIBS="$LIBS -ldl"
+		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
+		AC_LINK_IFELSE(
+			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+			[[ SSLeay_add_all_algorithms(); ]])],
+			[
+				AC_MSG_RESULT([yes])
+			],
+			[
+				AC_MSG_RESULT([no])
+				LIBS="$saved_LIBS"
+			]
+		)
+	]
+)
+#l2371
+
+##chl
+EXPERIMENTAL_GCM_CRYPTO=no
+AC_MSG_CHECKING([if programs using LibreSSL EVP_aes_256_gcm() will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ EVP_aes_256_gcm(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
+			[Define if you want to use GCM crypto support])
+		EXPERIMENTAL_GCM_CRYPTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
+##chl
+
+##gilles
+OPENSSL_SUPPORTS_SNI=no
+AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
+			[Define if you want to enable TLS extension SERVERNAME])
+		OPENSSL_SUPPORTS_SNI=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
+##gilles
+
+##gilles
+OPENSSL_SUPPORTS_ECDH_AUTO=no
+AC_MSG_CHECKING([if programs using SSL_CTX_set_ecdh_auto will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_ecdh_auto(NULL, 1); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_SSL_CTX_SET_ECDH_AUTO], [1],
+			[Define if SSL library support SSL_CTX_set_ecdh_auto])
+		OPENSSL_SUPPORTS_ECDH_AUTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_SSL_CTX_SET_ECDH_AUTO], [test $OPENSSL_SUPPORTS_ECDH_AUTO = yes])
+##gilles
+
+##gilles
+AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
+AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
+#include <openssl/ssl.h>
+#ifdef SSL_OP_NO_TICKET
+HAVE_SSL_OP_NO_TICKET
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by LibreSSL.])
+])
+##gilles
+
+#l2494
+# Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
+# because the system crypt() is more featureful.
+if test "x$check_for_libcrypt_before" = "x1"; then
+	AC_CHECK_LIB([crypt], [crypt])
+fi
+
+# Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
+# version in OpenSSL.
+if test "x$check_for_libcrypt_later" = "x1"; then
+	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
+fi
+#l2504
+
+#l2645
+### Configure cryptographic random number support
+
+# Check wheter OpenSSL seeds itself
+AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
+AC_RUN_IFELSE(
+	[AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/rand.h>
+	]], [[
+	exit(RAND_status() == 1 ? 0 : 1);
+	]])],
+	[
+		OPENSSL_SEEDS_ITSELF=yes
+		AC_MSG_RESULT([yes])
+	],
+	[
+		AC_MSG_RESULT([no])
+	],
+	[
+		AC_MSG_WARN([cross compiling: assuming yes])
+		# This is safe, since we will fatal() at runtime if
+		# OpenSSL is not seeded correctly.
+		OPENSSL_SEEDS_ITSELF=yes
+	]
+)
+#l2669
+
+
+
+
+dnl zlib is required
+AC_ARG_WITH([libz],
+	[  --with-libz=PATH		Specify path to libz installation],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** zlib is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	fi ]
+)
+
+AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
+AC_CHECK_LIB([z], [deflate], ,
+	[
+		saved_CPPFLAGS="$CPPFLAGS"
+		saved_LDFLAGS="$LDFLAGS"
+		save_LIBS="$LIBS"
+		dnl Check default zlib install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
+		else
+			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
+		fi
+		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
+		LIBS="$LIBS -lz"
+		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
+			[
+				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
+			]
+		)
+	]
+)
+
+
+
+
+
+AC_ARG_WITH([table-db],
+	[  --with-table-db		Enable building of table-db backend (default=no)],
+	[
+		if test "x$withval" = "xyes" ; then
 			use_db_api=1
 		else
 			use_db_api=0
@@ -2572,79 +2558,16 @@ AM_CONDITIONAL([HAVE_DB_API], [test x"$use_db_api" = x"1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 
-# Search for asr (based on zlib checks)
-dnl asr is required
-AC_ARG_WITH([asr],
-	[  --with-asr=PATH		Use asr in PATH],
-	[ if test "x$withval" = "xno" ; then
-		AC_MSG_ERROR([*** asr is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
 
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
-[#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>])
-AC_CHECK_LIB([asr], [asr_resolver], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default asr install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-# don't add -lasr to LIBS, it's only added when needed
-#		LIBS="$LIBS -lasr"
-		AC_TRY_LINK_FUNC([asr_resolver], ,
-			[
-				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
-			]
-		)
-	]
-)
 
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
-
-use_mailwrapper=0
-AC_ARG_WITH([mailwrapper],
-	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
-	[ if test "x$withval" = "xyes"; then
-	     use_mailwrapper=1
-	  fi
-	]
-)
-AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		mk/Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
-		mk/makemap/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
@@ -2680,6 +2603,7 @@ echo "                      Manual pages: $G"
 echo "                    smtpd.sock dir: $H"
 echo "  Privilege separation chroot path: $I"
 echo "                    Manpage format: $MANTYPE"
+echo "                Package libexecdir: ${pkglibexecdir}"
 echo "                       PAM support: $PAM_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
 
@@ -2690,18 +2614,8 @@ echo "          Compiler: ${CC}"
 echo "    Compiler flags: ${CFLAGS}"
 echo "Preprocessor flags: ${CPPFLAGS}"
 echo "      Linker flags: ${LDFLAGS}"
-echo "         Libraries: ${LIBS}"
-echo "      DB Libraries: ${DB_LIB}"
-if test ! -z "${SMTPDLIBS}"; then
-echo "         +for smtpd: ${SMTPDLIBS}"
-fi
-
+echo "         Libraries: ${LIBS} ${DB_LIB} ${SMTPDLIBS}"
 echo ""
-
-if test "x$MAKE_PACKAGE_SUPPORTED" = "xyes" ; then
-	echo "SVR4 style packages are supported with \"make package\""
-	echo ""
-fi
 
 if test "x$PAM_MSG" = "xyes" ; then
 	echo "PAM is enabled. You may need to install a PAM control file "

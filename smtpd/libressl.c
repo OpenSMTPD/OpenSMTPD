@@ -76,7 +76,13 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 
+#include "log.h"
 #include "ssl.h"
+
+#define SSL_ECDH_CURVE          "prime256v1"
+#ifndef HAVE_SSL_CTX_SET_ECDH_AUTO
+void	SSL_CTX_set_ecdh_auto(SSL_CTX *, int);
+#endif
 
 /*
  * Read a bio that contains our certificate in "PEM" format,
@@ -167,3 +173,31 @@ end:
 	BIO_free(in);
 	return (ret);
 }
+
+#ifndef HAVE_SSL_CTX_SET_ECDH_AUTO
+void
+SSL_CTX_set_ecdh_auto(SSL_CTX *ctx, int enable)
+{
+	int	nid;
+	EC_KEY	*ecdh;
+
+	if (!enable)
+		return;
+
+	if ((nid = OBJ_sn2nid(SSL_ECDH_CURVE)) == 0) {
+		ssl_error("ssl_set_ecdh_auto");
+		fatal("ssl_set_ecdh_auto: unknown curve name "
+		      SSL_ECDH_CURVE);
+	}
+
+	if ((ecdh = EC_KEY_new_by_curve_name(nid)) == NULL) {
+		ssl_error("ssl_set_ecdh_auto");
+		fatal("ssl_set_ecdh_auto: unable to create curve "
+		      SSL_ECDH_CURVE);
+	}
+
+	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
+	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
+	EC_KEY_free(ecdh);
+}
+#endif

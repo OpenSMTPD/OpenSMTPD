@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.197 2015/12/12 20:02:31 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.200 2016/01/14 18:56:55 mmcc Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -520,7 +520,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &dom);
 			m_end(&m);
 			source = mta_source((struct sockaddr*)&ss);
-			if (strlen(dom)) {
+			if (*dom != '\0') {
 				if (!(strlcpy(buf, dom, sizeof(buf))
 					>= sizeof(buf)))
 					mta_block(source, buf);
@@ -537,7 +537,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			m_get_string(&m, &dom);
 			m_end(&m);
 			source = mta_source((struct sockaddr*)&ss);
-			if (strlen(dom)) {
+			if (*dom != '\0') {
 				if (!(strlcpy(buf, dom, sizeof(buf))
 					>= sizeof(buf)))
 					mta_unblock(source, buf);
@@ -1045,7 +1045,7 @@ mta_on_source(struct mta_relay *relay, struct mta_source *source)
 		else if (errmask & CONNECTOR_ERROR_BLOCKED)
 			relay->failstr = "All routes to destination blocked";
 		else
-			relay->failstr = "No valid route to destination";	
+			relay->failstr = "No valid route to destination";
 	}
 
 	relay->nextsource = relay->lastsource + delay;
@@ -1909,7 +1909,7 @@ mta_relay_show(struct mta_relay *r, struct mproc *p, uint32_t id, time_t t)
 		    flags);
 		m_compose(p, IMSG_CTL_MTA_SHOW_RELAYS, id, 0, -1, buf,
 		    strlen(buf) + 1);
-		
+
 
 	}
 }
@@ -2437,7 +2437,7 @@ mta_hoststat_update(const char *host, const char *error)
 	char		 buf[HOST_NAME_MAX+1];
 	time_t		 tm;
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	tm = time(NULL);
@@ -2463,7 +2463,7 @@ mta_hoststat_cache(const char *host, uint64_t evpid)
 	struct hoststat	*hs = NULL;
 	char buf[HOST_NAME_MAX+1];
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);
@@ -2482,7 +2482,7 @@ mta_hoststat_uncache(const char *host, uint64_t evpid)
 	struct hoststat	*hs = NULL;
 	char buf[HOST_NAME_MAX+1];
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);
@@ -2499,7 +2499,7 @@ mta_hoststat_reschedule(const char *host)
 	char		 buf[HOST_NAME_MAX+1];
 	uint64_t	 evpid;
 
-	if (! lowercase(buf, host, sizeof buf))
+	if (!lowercase(buf, host, sizeof buf))
 		return;
 
 	hs = dict_get(&hoststat, buf);

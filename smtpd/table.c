@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.21 2015/11/30 14:13:03 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.23 2016/01/04 13:30:20 jung Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -136,7 +136,7 @@ table_lookup(struct table *table, struct dict *params, const char *key, enum tab
 	if (table->t_backend->lookup == NULL)
 		return (-1);
 
-	if (! lowercase(lkey, key, sizeof lkey)) {
+	if (!lowercase(lkey, key, sizeof lkey)) {
 		log_warnx("warn: lookup key too long: %s", key);
 		return -1;
 	}
@@ -199,11 +199,8 @@ table_create(const char *backend, const char *name, const char *tag,
 {
 	struct table		*t;
 	struct table_backend	*tb;
-	char			*ps;
-	char			*p;
 	char			 buf[LINE_MAX];
 	char			 path[LINE_MAX];
-	char			 pathsplit[LINE_MAX];
 	size_t			 n;
 	struct stat		 sb;
 
@@ -219,25 +216,21 @@ table_create(const char *backend, const char *name, const char *tag,
 		fatalx("table_create: table \"%s\" already defined", name);
 
 	if ((tb = table_backend_lookup(backend)) == NULL) {
-		(void)strlcpy(pathsplit, PATH_LIBEXEC, sizeof pathsplit);
-		for (ps = pathsplit; (p = strsep(&ps, ":")) != NULL;)  {
-			if ((size_t)snprintf(path, sizeof(path), "%s/table-%s",
-				p, backend) >= sizeof(path)) {
-				fatalx("table_create: path too long \""
-				    "%s/table-%s\"", p, backend);
+		if ((size_t)snprintf(path, sizeof(path), PATH_LIBEXEC"/table-%s",
+			backend) >= sizeof(path)) {
+			fatalx("table_create: path too long \""
+			    PATH_LIBEXEC"/table-%s\"", backend);
+		}
+		if (stat(path, &sb) == 0) {
+			tb = table_backend_lookup("proc");
+			(void)strlcpy(path, backend, sizeof(path));
+			if (config) {
+				(void)strlcat(path, ":", sizeof(path));
+				if (strlcat(path, config, sizeof(path))
+				    >= sizeof(path))
+					fatalx("table_create: config file path too long");
 			}
-			if (stat(path, &sb) == 0) {
-				tb = table_backend_lookup("proc");
-				(void)strlcpy(path, backend, sizeof(path));
-				if (config) {
-					(void)strlcat(path, ":", sizeof(path));
-					if (strlcat(path, config, sizeof(path))
-					    >= sizeof(path))
-						fatalx("table_create: config file path too long");
-				}
-				config = path;
-				break;
-			}
+			config = path;
 		}
 	}
 
@@ -307,7 +300,7 @@ table_add(struct table *t, const char *key, const char *val)
 	if (t->t_type & T_DYNAMIC)
 		fatalx("table_add: cannot add to table");
 
-	if (! lowercase(lkey, key, sizeof lkey)) {
+	if (!lowercase(lkey, key, sizeof lkey)) {
 		log_warnx("warn: lookup key too long: %s", key);
 		return;
 	}
@@ -383,9 +376,9 @@ table_mailaddr_match(const char *s1, const char *s2)
 	struct mailaddr m1;
 	struct mailaddr m2;
 
-	if (! text_to_mailaddr(&m1, s1))
+	if (!text_to_mailaddr(&m1, s1))
 		return 0;
-	if (! text_to_mailaddr(&m2, s2))
+	if (!text_to_mailaddr(&m2, s2))
 		return 0;
 	return mailaddr_match(&m1, &m2);
 }
@@ -402,9 +395,9 @@ table_netaddr_match(const char *s1, const char *s2)
 
 	if (strcasecmp(s1, s2) == 0)
 		return 1;
-	if (! text_to_netaddr(&n1, s1))
+	if (!text_to_netaddr(&n1, s1))
 		return 0;
-	if (! text_to_netaddr(&n2, s2))
+	if (!text_to_netaddr(&n2, s2))
 		return 0;
 	if (n1.ss.ss_family != n2.ss.ss_family)
 		return 0;
@@ -519,7 +512,7 @@ table_open_all(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_tables_dict, &iter, NULL, (void **)&t))
-		if (! table_open(t))
+		if (!table_open(t))
 			fatalx("failed to open table %s", t->t_name);
 }
 
@@ -621,7 +614,7 @@ table_parse_lookup(enum table_service service, const char *key,
 		if (lk->maddrmap == NULL)
 			return (-1);
 		maddrmap_init(lk->maddrmap);
-		if (! mailaddr_line(lk->maddrmap, line)) {
+		if (!mailaddr_line(lk->maddrmap, line)) {
 			maddrmap_free(lk->maddrmap);
 			return (-1);
 		}

@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.107 2015/12/07 12:29:19 sunil Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.112 2016/02/03 08:03:21 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -155,7 +155,7 @@ qp_encoded_write(FILE *fp, char *buf, size_t len)
 			else
 				fprintf(fp, "%c", *buf & 0xff);
 		}
-		else if (! isprint((unsigned char)*buf) && *buf != '\n')
+		else if (!isprint((unsigned char)*buf) && *buf != '\n')
 			fprintf(fp, "=%2X", *buf & 0xff);
 		else
 			fprintf(fp, "%c", *buf);
@@ -170,14 +170,14 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	int			 i, ch, tflag = 0;
 	char			*fake_from = NULL, *buf = NULL;
 	struct passwd		*pw;
-	FILE			*fp, *fout;
+	FILE			*fp = NULL, *fout;
 	size_t			 sz = 0, envid_sz = 0;
 	ssize_t			 len;
 	int			 fd;
 	char			 sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 	char			*line;
 	int			 dotted;
-	int			 inheaders = 0;
+	int			 inheaders = 1;
 	int			 save_argc;
 	char			**save_argv;
 	int			 no_getlogin = 0;
@@ -240,7 +240,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	argv += optind;
 
 	if (getmailname(host, sizeof(host)) == -1)
-		err(EX_NOHOST, "getmailname");
+		errx(EX_NOHOST, "getmailname");
 	if (no_getlogin) {
 		if ((pw = getpwuid(getuid())) == NULL)
 			user = "anonymous";
@@ -312,68 +312,75 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	 */
 
 	/* banner */
-	if (! get_responses(fout, 1))
+	if (!get_responses(fout, 1))
 		goto fail;
 
-	send_line(fout, verbose, "EHLO localhost\n");
-	if (! get_responses(fout, 1))
+	if (!send_line(fout, verbose, "EHLO localhost\n"))
+		goto fail;
+	if (!get_responses(fout, 1))
 		goto fail;
 
 	if (msg.dsn_envid != NULL)
 		envid_sz = strlen(msg.dsn_envid);
 
-	send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\n",
+	if (!send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\n",
 	    msg.from,
 	    msg.dsn_ret ? "RET=" : "",
 	    msg.dsn_ret ? msg.dsn_ret : "",
 	    envid_sz ? "ENVID=" : "",
-	    envid_sz ? msg.dsn_envid : "");
-	if (! get_responses(fout, 1))
+	    envid_sz ? msg.dsn_envid : ""))
+		goto fail;
+	if (!get_responses(fout, 1))
 		goto fail;
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
-		send_line(fout, verbose, "RCPT TO:<%s> %s%s\n",
+		if (!send_line(fout, verbose, "RCPT TO:<%s> %s%s\n",
 		    msg.rcpts[i],
 		    msg.dsn_notify ? "NOTIFY=" : "",
-		    msg.dsn_notify ? msg.dsn_notify : "");
-		if (! get_responses(fout, 1))
+		    msg.dsn_notify ? msg.dsn_notify : ""))
+			goto fail;
+		if (!get_responses(fout, 1))
 			goto fail;
 	}
 
-	send_line(fout, verbose, "DATA\n");
-	if (! get_responses(fout, 1))
+	if (!send_line(fout, verbose, "DATA\n"))
+		goto fail;
+	if (!get_responses(fout, 1))
 		goto fail;
 
 	/* add From */
-	if (!msg.saw_from)
-		send_line(fout, 0, "From: %s%s<%s>\n",
-		    msg.fromname ? msg.fromname : "",
-		    msg.fromname ? " " : "",
-		    msg.from);
+	if (!msg.saw_from && !send_line(fout, 0, "From: %s%s<%s>\n",
+	    msg.fromname ? msg.fromname : "", msg.fromname ? " " : "",
+	    msg.from))
+		goto fail;
 
 	/* add Date */
-	if (!msg.saw_date)
-		send_line(fout, 0, "Date: %s\n", time_to_text(timestamp));
+	if (!msg.saw_date && !send_line(fout, 0, "Date: %s\n",
+	    time_to_text(timestamp)))
+		goto fail;
 
 	if (msg.need_linesplit) {
 		/* we will always need to mime encode for long lines */
-		if (!msg.saw_mime_version)
-			send_line(fout, 0, "MIME-Version: 1.0\n");
-		if (!msg.saw_content_type)
-			send_line(fout, 0, "Content-Type: text/plain; "
-			    "charset=unknown-8bit\n");
-		if (!msg.saw_content_disposition)
-			send_line(fout, 0, "Content-Disposition: inline\n");
-		if (!msg.saw_content_transfer_encoding)
-			send_line(fout, 0, "Content-Transfer-Encoding: "
-			    "quoted-printable\n");
+		if (!msg.saw_mime_version && !send_line(fout, 0,
+		    "MIME-Version: 1.0\n"))
+			goto fail;
+		if (!msg.saw_content_type && !send_line(fout, 0,
+		    "Content-Type: text/plain; charset=unknown-8bit\n"))
+			goto fail;
+		if (!msg.saw_content_disposition && !send_line(fout, 0,
+		    "Content-Disposition: inline\n"))
+			goto fail;
+		if (!msg.saw_content_transfer_encoding && !send_line(fout, 0,
+		    "Content-Transfer-Encoding: quoted-printable\n"))
+			goto fail;
 	}
 
 	/* add separating newline */
-	if (msg.noheader)
-		send_line(fout, 0, "\n");
-	else
-		inheaders = 1;
+	if (msg.noheader) {
+		if (!send_line(fout, 0, "\n"))
+			goto fail;
+		inheaders = 0;
+	}
 
 	for (;;) {
 		if ((len = getline(&buf, &sz, fp)) == -1) {
@@ -389,7 +396,8 @@ enqueue(int argc, char *argv[], FILE *ofp)
 
 		dotted = 0;
 		if (buf[0] == '.') {
-			fputc('.', fout);
+			if (fputc('.', fout) == EOF)
+				goto fail;
 			dotted = 1;
 		}
 
@@ -401,10 +409,11 @@ enqueue(int argc, char *argv[], FILE *ofp)
 			if (strncasecmp("return-path: ", line, 13) == 0)
 				continue;
 		}
-		
+
 		if (msg.saw_content_transfer_encoding || msg.noheader ||
 		    inheaders || !msg.need_linesplit) {
-			send_line(fout, 0, "%.*s", (int)len, line);
+			if (!send_line(fout, 0, "%.*s", (int)len, line))
+				goto fail;
 			if (inheaders && buf[0] == '\n')
 				inheaders = 0;
 			continue;
@@ -419,19 +428,22 @@ enqueue(int argc, char *argv[], FILE *ofp)
 			else {
 				qp_encoded_write(fout, line,
 				    LINESPLIT - 2 - dotted);
-				send_line(fout, 0, "=\n");
+				if (!send_line(fout, 0, "=\n"))
+					goto fail;
 				line += LINESPLIT - 2 - dotted;
 				len -= LINESPLIT - 2 - dotted;
 			}
 		} while (len);
 	}
 	free(buf);
-	send_line(fout, verbose, ".\n");
-	if (! get_responses(fout, 1))
+	if (!send_line(fout, verbose, ".\n"))
+		goto fail;
+	if (!get_responses(fout, 1))
 		goto fail;
 
-	send_line(fout, verbose, "QUIT\n");
-	if (! get_responses(fout, 1))
+	if (!send_line(fout, verbose, "QUIT\n"))
+		goto fail;
+	if (!get_responses(fout, 1))
 		goto fail;
 
 	fclose(fp);
@@ -500,17 +512,18 @@ err:
 static int
 send_line(FILE *fp, int v, char *fmt, ...)
 {
-	int ret;
+	int ret = 0;
 	va_list ap;
 
 	va_start(ap, fmt);
-	ret = vfprintf(fp, fmt, ap);
+	if (vfprintf(fp, fmt, ap) >= 0)
+	    ret = 1;
 	va_end(ap);
 
-	if (v) {
-		va_start(ap, fmt);
+	if (ret && v) {
 		printf(">>> ");
-		ret = vprintf(fmt, ap);
+		va_start(ap, fmt);
+		vprintf(fmt, ap);
 		va_end(ap);
 	}
 
@@ -547,12 +560,12 @@ build_from(char *fake_from, struct passwd *pw)
 			    apos, pw->pw_gecos,
 			    pw->pw_name,
 			    len - apos - 1, p + 1) == -1)
-				err(1, NULL);
+				err(1, "asprintf");
 			msg.fromname[apos] = toupper((unsigned char)msg.fromname[apos]);
 		} else {
 			if (asprintf(&msg.fromname, "%.*s", len,
 			    pw->pw_gecos) == -1)
-				err(1, NULL);
+				err(1, "asprintf");
 		}
 	}
 }
@@ -605,11 +618,12 @@ parse_message(FILE *fin, int get_from, int tflag, FILE *fout)
 			header_seen = 1;
 
 		if (cur != HDR_BCC) {
-			send_line(fout, 0, "%.*s", (int)len, buf);
-			if (buf[len - 1] != '\n')
-				fputc('\n', fout);
-			if (ferror(fout))
+			if (!send_line(fout, 0, "%.*s", (int)len, buf))
 				err(1, "write error");
+			if (buf[len - 1] != '\n') {
+				if (fputc('\n', fout) == EOF)
+					err(1, "write error");
+			}
 		}
 
 		/*
@@ -872,7 +886,7 @@ savedeadletter(struct passwd *pw, FILE *in)
 
 	if (fseek(in, 0, SEEK_SET) != 0)
 		return 0;
-	
+
 	if ((fp = fopen(buffer, "w")) == NULL)
 		return 0;
 
