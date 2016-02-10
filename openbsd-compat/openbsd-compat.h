@@ -218,4 +218,8 @@ void errc(int, int, const char *, ...);
 #define pledge(promises, paths) 0
 #endif
 
+#if !HAVE_DECL_AF_LOCAL
+#define AF_LOCAL AF_UNIX
+#endif
+
 #endif /* _OPENBSD_COMPAT_H */
