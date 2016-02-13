@@ -125,6 +125,9 @@ enum
 #endif /* S_ISLNK */
 
 #ifndef S_IXUSR
+# define S_ISUID			0004000	/* set-uid */
+# define S_ISGID			0002000	/* set-gid */
+# define S_ISVTX			0001000	/* sticky */
 # define S_IXUSR			0000100	/* execute/search permission, */
 # define S_IXGRP			0000010	/* execute/search permission, */
 # define S_IXOTH			0000001	/* execute/search permission, */
