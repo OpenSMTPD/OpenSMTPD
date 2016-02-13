@@ -350,7 +350,7 @@ AC_CHECK_HEADERS([ \
 	vis.h
 ])
 
-#l411
+# NetBSD requires sys/types.h before login_cap.h
 AC_CHECK_HEADERS([login_cap.h], [], [], [
 #include <sys/types.h>
 ])
@@ -359,7 +359,7 @@ AC_CHECK_HEADERS([login_cap.h], [], [], [
 AC_CHECK_HEADERS([sys/mount.h], [], [], [
 #include <sys/param.h>
 ])
-#l419
+
 
 #l432 (customized)
 # Check for some target-specific stuff
