@@ -7,7 +7,7 @@ libopenbsd_compat_a_SOURCES =							\
 		fgetln.c fmt_scaled.c fparseln.c getopt.c imsg.c imsg-buffer.c	\
 		libressl.c mktemp.c pidfile.c pw_dup.c reallocarray.c setresguid.c	\
 		setproctitle.c strlcat.c strlcpy.c strmode.c strtonum.c		\
-		strsep.c vis.c xmalloc.c
+		strsep.c vis.c xmalloc.c inet_net_pton.c
 
 EXTRA_DIST =	base64.h bsd-misc.h bsd-waitpid.h chacha_private.h defines.h	\
 		entropy.h imsg.h includes.h log.h openbsd-compat.h sys/queue.h	\
