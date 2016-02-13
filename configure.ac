@@ -351,7 +351,6 @@ AC_CHECK_HEADERS([ \
 ])
 
 #l411
-# login_cap.h requires sys/types.h on NetBSD
 AC_CHECK_HEADERS([login_cap.h], [], [], [
 #include <sys/types.h>
 ])
@@ -2125,7 +2124,10 @@ AC_ARG_WITH([libfts],
 	]
 )
 
-AC_CHECK_HEADER([fts.h], ,[AC_MSG_ERROR([*** fts.h missing - please install first or check config.log ***])], [#include <fts.h>])
+AC_CHECK_HEADER([fts.h], ,[AC_MSG_ERROR([*** fts.h missing - please install first or check config.log ***])],
+[
+#include <sys/types.h>
+#include <sys/stat.h>])
 
 
 ##chl (based on OpenSSL checks, see above)
