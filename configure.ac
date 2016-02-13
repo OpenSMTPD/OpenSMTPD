@@ -666,6 +666,9 @@ AC_CHECK_DECLS([howmany, NFDBITS], [], [], [[
 AC_CHECK_DECLS([AF_LOCAL], , , [
 #include <sys/socket.h>
 	])
+AC_CHECK_DECLS([WAIT_MYPGRP], , , [
+#include <sys/wait.h>
+	])
 AC_CHECK_TYPES([fd_mask], [], [], [[
 #include <sys/param.h>
 #include <sys/types.h>
