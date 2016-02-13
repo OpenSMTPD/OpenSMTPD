@@ -2091,6 +2091,39 @@ AC_CHECK_LIB([asr], [asr_run], ,
 	]
 )
 
+
+# Search for fts
+AC_ARG_WITH([libfts],
+	[  --with-libfts=PATH		Specify path to libfts installation (default: none, part of libc)],
+	[ if test "x$withval" = "xno" ; then
+		AC_MSG_ERROR([*** fts is required ***])
+	  elif test "x$withval" != "xyes"; then
+		if test -d "$withval/lib"; then
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+			fi
+		else
+			if test -n "${need_dash_r}"; then
+				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${withval} ${LDFLAGS}"
+			fi
+		fi
+		if test -d "$withval/include"; then
+			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+		else
+			CPPFLAGS="-I${withval} ${CPPFLAGS}"
+		fi
+	LIBS="-lfts $LIBS"
+	fi
+	]
+)
+
+AC_CHECK_HEADER([fts.h], ,[AC_MSG_ERROR([*** fts.h missing - please install first or check config.log ***])], [#include <fts.h>])
+
+
 ##chl (based on OpenSSL checks, see above)
 # Search for libevent
 saved_CPPFLAGS="$CPPFLAGS"
