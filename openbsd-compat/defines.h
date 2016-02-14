@@ -337,6 +337,7 @@ typedef u_int16_t	in_port_t;
 
 /* Macros */
 
+/* needed by compat */
 #ifndef MAX
 # define MAX(a,b) (((a)>(b))?(a):(b))
 #endif
@@ -344,6 +345,7 @@ typedef u_int16_t	in_port_t;
 # define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
 
+/* needed by smtpd */
 #ifndef timespeccmp
 #define timespeccmp(a, b, cmp)			       		\
 	(((a)->tv_sec == (b)->tv_sec) ?			       	\
@@ -351,6 +353,7 @@ typedef u_int16_t	in_port_t;
 	 ((a)->tv_sec cmp (b)->tv_sec))
 #endif
 
+/* needed by smtpd */
 #ifndef timespecsub
 #define timespecsub(a, b, result)				\
    do {								\
@@ -363,6 +366,7 @@ typedef u_int16_t	in_port_t;
    } while (0)
 #endif
 
+/* needed by smtpd */
 #ifndef TIMEVAL_TO_TIMESPEC
 #define	TIMEVAL_TO_TIMESPEC(tv, ts) {					\
 	(ts)->tv_sec = (tv)->tv_sec;					\
@@ -370,6 +374,7 @@ typedef u_int16_t	in_port_t;
 }
 #endif
 
+/* needed by compat */
 #ifndef TIMESPEC_TO_TIMEVAL
 #define	TIMESPEC_TO_TIMEVAL(tv, ts) {					\
 	(tv)->tv_sec = (ts)->tv_sec;					\
