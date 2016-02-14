@@ -607,11 +607,6 @@ typedef u_int16_t	in_port_t;
 #endif
 
 
-/* I hope that the presence of LASTLOG_FILE is enough to detect this */
-#if defined(LASTLOG_FILE) && !defined(DISABLE_LASTLOG)
-#  define USE_LASTLOG
-#endif
-
 #ifdef HAVE_OSF_SIA
 # ifdef USE_SHADOW
 #  undef USE_SHADOW
