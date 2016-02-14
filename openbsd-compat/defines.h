@@ -346,11 +346,6 @@ struct winsize {
 };
 #endif
 
-/* bits needed for select that may not be in the system headers */
-#ifndef HAVE_FD_MASK
- typedef unsigned long int	fd_mask;
-#endif
-
 /* Paths */
 
 #ifndef _PATH_BSHELL
