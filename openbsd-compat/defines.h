@@ -355,16 +355,6 @@ typedef u_int16_t	in_port_t;
 # define _PATH_NOLOGIN "/etc/nologin"
 #endif
 
-/* derived from XF4/xc/lib/dps/Xlibnet.h */
-#ifndef X_UNIX_PATH
-#  ifdef __hpux
-#    define X_UNIX_PATH "/var/spool/sockets/X11/%u"
-#  else
-#    define X_UNIX_PATH "/tmp/.X11-unix/X%u"
-#  endif
-#endif /* X_UNIX_PATH */
-#define _PATH_UNIX_X X_UNIX_PATH
-
 #ifndef _PATH_TTY
 # define _PATH_TTY "/dev/tty"
 #endif
