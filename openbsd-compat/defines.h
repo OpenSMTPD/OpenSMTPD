@@ -336,15 +336,6 @@ typedef u_int32_t	in_addr_t;
 typedef u_int16_t	in_port_t;
 #endif
 
-#if defined(BROKEN_SYS_TERMIO_H) && !defined(_STRUCT_WINSIZE)
-#define _STRUCT_WINSIZE
-struct winsize {
-      unsigned short ws_row;          /* rows, in characters */
-      unsigned short ws_col;          /* columns, in character */
-      unsigned short ws_xpixel;       /* horizontal size, pixels */
-      unsigned short ws_ypixel;       /* vertical size, pixels */
-};
-#endif
 
 /* Paths */
 
