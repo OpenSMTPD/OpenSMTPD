@@ -684,15 +684,6 @@ typedef u_int16_t	in_port_t;
 # define USE_LIBIAF
 #endif
 
-/* HP-UX 11.11 */
-#ifdef BTMP_FILE
-# define _PATH_BTMP BTMP_FILE
-#endif
-
-#if defined(USE_BTMP) && defined(_PATH_BTMP)
-# define CUSTOM_FAILED_LOGIN
-#endif
-
 /** end of login recorder definitions */
 
 #ifndef IOV_MAX
