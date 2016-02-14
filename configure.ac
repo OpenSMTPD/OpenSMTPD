@@ -334,6 +334,18 @@ AC_SEARCH_LIBS([dirname],
 		[1],
 		[Define if you have the dirname() function.])])
 
+AC_SEARCH_LIBS([inet_net_pton],
+	[resolv],
+	[AC_DEFINE([HAVE_INET_NET_PTON],
+		[1],
+		[Define if you have the inet_net_pton() function.])])
+
+AC_SEARCH_LIBS([clock_gettime],
+	[rt],
+	[AC_DEFINE([HAVE_CLOCK_GETTIME],
+		[1],
+		[Define if you have the clock_gettime() function.])])
+
 
 #
 # CHECKS FOR SYSTEM SERVICES
@@ -793,8 +805,8 @@ AC_CHECK_FUNCS([ \
 	strerror \
 	strlcat \
 	strlcpy \
-	strnvis \
 	strmode \
+	strnvis \
 	strtonum \
 	sysconf \
 	tcgetpgrp \
@@ -806,8 +818,6 @@ AC_CHECK_FUNCS([ \
 #l1685
 
 #l1715
-AC_SEARCH_LIBS([clock_gettime], [rt],
-	[AC_DEFINE([HAVE_CLOCK_GETTIME], [1], [Have clock_gettime])])
 #l1719
 
 #l1723
@@ -1561,36 +1571,6 @@ AC_SUBST([TEST_MALLOC_OPTIONS], [$TEST_MALLOC_OPTIONS])
 AC_EXEEXT
 #l4757
 
-##chl (still based on portable OpenSSH's configure.ac)
-AC_MSG_CHECKING([if inet_net_pton will link])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/nameser.h>
-#include <netdb.h>
-#include <resolv.h>
-				]], [[
-	inet_net_pton (0, 0, 0, 0, 0);
-				]])],
-		    AC_MSG_RESULT([yes]),
-		   [AC_MSG_RESULT([no])
-		    saved_LIBS="$LIBS"
-		    LIBS="$LIBS -lresolv"
-		    AC_MSG_CHECKING([for inet_net_pton in -lresolv])
-		    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/nameser.h>
-#include <netdb.h>
-#include <resolv.h>
-				]], [[
-	inet_net_pton (0, 0, 0, 0, 0);
-				]])],
-			[AC_MSG_RESULT([yes])],
-			[LIBS="$saved_LIBS"
-			 AC_MSG_RESULT([no])])
-		    ])
-##end of chl
 
 # Search for asr (based on zlib checks)
 dnl asr is required
