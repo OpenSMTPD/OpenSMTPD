@@ -284,6 +284,16 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 	  #include <sys/statfs.h> ]
 )
 
+AC_CHECK_MEMBERS([struct sockaddr_storage.ss_family], [], [], [
+#include <sys/types.h>
+#include <sys/socket.h>
+])
+
+AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
+#include <sys/types.h>
+#include <sys/socket.h>
+])
+
 
 
 #
@@ -1504,33 +1514,6 @@ fi
 
 #l3561
 
-AC_CACHE_CHECK([for ss_family field in struct sockaddr_storage],
-		ac_cv_have_ss_family_in_struct_ss, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <sys/socket.h>
-		]], [[ struct sockaddr_storage s; s.ss_family = 1; ]])],
-	[ ac_cv_have_ss_family_in_struct_ss="yes" ],
-	[ ac_cv_have_ss_family_in_struct_ss="no" ])
-])
-if test "x$ac_cv_have_ss_family_in_struct_ss" = "xyes" ; then
-	AC_DEFINE([HAVE_SS_FAMILY_IN_SS], [1], [Fields in struct sockaddr_storage])
-fi
-
-AC_CACHE_CHECK([for __ss_family field in struct sockaddr_storage],
-		ac_cv_have___ss_family_in_struct_ss, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <sys/socket.h>
-		]], [[ struct sockaddr_storage s; s.__ss_family = 1; ]])],
-	[ ac_cv_have___ss_family_in_struct_ss="yes" ],
-	[ ac_cv_have___ss_family_in_struct_ss="no" 
-	])
-])
-if test "x$ac_cv_have___ss_family_in_struct_ss" = "xyes" ; then
-	AC_DEFINE([HAVE___SS_FAMILY_IN_SS], [1],
-		[Fields in struct sockaddr_storage])
-fi
 
 dnl make sure we're using the real structure members and not defines
 AC_CACHE_CHECK([for msg_accrights field in struct msghdr],
