@@ -549,10 +549,6 @@ typedef u_int16_t	in_port_t;
 # undef HAVE_UPDWTMPX
 #endif
 
-#if defined(BROKEN_SHADOW_EXPIRE) && defined(HAS_SHADOW_EXPIRE)
-# undef HAS_SHADOW_EXPIRE
-#endif
-
 #if defined(HAVE_OPENLOG_R) && defined(SYSLOG_DATA_INIT) && \
     defined(SYSLOG_R_SAFE_IN_SIGHAND)
 # define DO_LOG_SAFE_IN_SIGHAND
