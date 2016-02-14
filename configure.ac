@@ -14,20 +14,47 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+
+#
+# WE NEED TO CLEANUP CONFIGURE.AC AND MAKE IT FOLLOW THE
+# STANDARD LAYOUT ...
+#
+# 3.1.3 Standard configure.ac Layout
+#
+# https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Autoconf-Input-Layout.html
+#
+
+
+#
+# AUTOCONF REQUIREMENTS
+#
 AC_PREREQ(2.69)
 
-dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'), [bugs@opensmtpd.org>], [opensmtpd], [https://github.com/OpenSMTPD/OpenSMTPD])
-AC_INIT([OpenSMTPD-portable], [portable], [bugs@opensmtpd.org], [opensmtpd], [https://github.com/OpenSMTPD/OpenSMTPD])
 
+#
+# AC_INIT
+#
+AC_INIT([OpenSMTPD-portable],
+	[portable],
+	[bugs@opensmtpd.org],
+	[opensmtpd],
+	[https://github.com/OpenSMTPD/OpenSMTPD])
+
+
+#
+# PACKAGE INFORMATION
+#
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
-
 AC_CONFIG_HEADER([config.h])
 AC_PROG_CC
 AC_CANONICAL_HOST
 AC_C_BIGENDIAN
 
-# Checks for programs.
+
+#
+# CHECKS FOR PROGRAMS
+#
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
@@ -45,9 +72,52 @@ AC_PATH_PROG([NROFF], [nroff])
 AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 
-AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
 
+#
+# CHECKS FOR LIBRARIES
+#
+
+#
+# CHECKS FOR HEADERS
+#
+
+#
+# CHECKS FOR TYPES
+#
+
+#
+# CHECKS FOR STRUCTURES
+#
+
+#
+# CHECKS FOR COMPILER CHARACTERISTICS
+#
+
+#
+# CHECKS FOR LIBRARY FUNCTIONS
+#
+
+#
+# CHECKS FOR SYSTEM SERVICES
+#
+
+#
+# AC_CONFIG_FILES
+#
+
+#
+# AC_OUTPUT
+#
+
+
+###
+### EVERYTHING BELOW MUST BE CLEANED AND MOVED ABOVE
+###
+
+AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
 LT_INIT
+
+
 
 #here we should test for variables set by libtool detection
 if test "x$with_pic" != "xno" ; then
@@ -712,7 +782,6 @@ AC_CHECK_FUNC([fparseln],
 AC_SEARCH_LIBS(res_9_b64_ntop, resolv)
 ##chl
 
-#l1873
 # Check for broken snprintf
 if test "x$ac_cv_func_snprintf" = "xyes" ; then
 	AC_MSG_CHECKING([whether snprintf correctly terminates long strings])
