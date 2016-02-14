@@ -351,10 +351,6 @@ struct winsize {
  typedef unsigned long int	fd_mask;
 #endif
 
-#if defined(HAVE_DECL_NFDBITS) && HAVE_DECL_NFDBITS == 0
-# define	NFDBITS (8 * sizeof(unsigned long))
-#endif
-
 /* Paths */
 
 #ifndef _PATH_BSHELL
