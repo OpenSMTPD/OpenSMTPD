@@ -30,18 +30,6 @@
 
 /* Constants */
 
-#if defined(HAVE_DECL_SHUT_RD) && HAVE_DECL_SHUT_RD == 0
-enum
-{
-  SHUT_RD = 0,		/* No more receptions.  */
-  SHUT_WR,			/* No more transmissions.  */
-  SHUT_RDWR			/* No more receptions or transmissions.  */
-};
-# define SHUT_RD   SHUT_RD
-# define SHUT_WR   SHUT_WR
-# define SHUT_RDWR SHUT_RDWR
-#endif
-
 #ifndef HOST_NAME_MAX
 # ifdef _POSIX_HOST_NAME_MAX
 # define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
