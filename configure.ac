@@ -394,6 +394,13 @@ AC_SEARCH_LIBS([res_9_b64_ntop],
 		[1],
 		[Define if you have the res_9_b64_ntop() function.])])
 
+AC_SEARCH_LIBS([setsockopt],
+	[socket],
+	[AC_DEFINE([HAVE_SETSOCKOPT],
+		[1],
+		[Define if you have the setsockopt() function.])])
+
+
 AC_CHECK_FUNCS([ \
 	arc4random \
 	arc4random_buf \
@@ -812,12 +819,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 	],
 	[	AC_MSG_WARN([cross compiling: not checking compiler sanity]) ]
 )
-
-dnl Checks for header files.
-# Checks for libraries.
-AC_CHECK_FUNC([setsockopt], , [AC_CHECK_LIB([socket], [setsockopt])])
-
-
 
 
 
