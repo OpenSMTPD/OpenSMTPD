@@ -315,25 +315,7 @@ typedef u_int16_t	in_port_t;
 
 /* Paths */
 
-#ifndef _PATH_BSHELL
-# define _PATH_BSHELL "/bin/sh"
-#endif
-
-#ifdef USER_PATH
-# ifdef _PATH_STDPATH
-#  undef _PATH_STDPATH
-# endif
-# define _PATH_STDPATH USER_PATH
-#endif
-
-#ifndef _PATH_STDPATH
-# define _PATH_STDPATH "/usr/bin:/bin:/usr/sbin:/sbin"
-#endif
-
-#ifndef SUPERUSER_PATH
-# define SUPERUSER_PATH	_PATH_STDPATH
-#endif
-
+/* needed by compat/daemon.c */
 #ifndef _PATH_DEVNULL
 # define _PATH_DEVNULL "/dev/null"
 #endif
