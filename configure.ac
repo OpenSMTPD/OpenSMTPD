@@ -443,6 +443,8 @@ AC_CHECK_FUNCS([ \
 	setproctitle \
 	setregid \
 	setreuid \
+	setresuid \
+	setresgid \
 	setsid \
 	sigaction \
 	snprintf \
@@ -846,52 +848,6 @@ AC_CHECK_DECLS([AF_LOCAL], , , [
 AC_CHECK_DECLS([WAIT_MYPGRP], , , [
 #include <sys/wait.h>
 	])
-
-AC_CHECK_FUNCS([setresuid], [
-	dnl Some platorms have setresuid that isn't implemented, test for this
-	AC_MSG_CHECKING([if setresuid seems to work])
-	AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[
-#include <stdlib.h>
-#include <errno.h>
-		]], [[
-	errno=0;
-	setresuid(0,0,0);
-	if (errno==ENOSYS)
-		exit(1);
-	else
-		exit(0);
-		]])],
-		[AC_MSG_RESULT([yes])],
-		[AC_DEFINE([BROKEN_SETRESUID], [1],
-			[Define if your setresuid() is broken])
-		 AC_MSG_RESULT([not implemented])],
-		[AC_MSG_WARN([cross compiling: not checking setresuid])]
-	)
-])
-
-AC_CHECK_FUNCS([setresgid], [
-	dnl Some platorms have setresgid that isn't implemented, test for this
-	AC_MSG_CHECKING([if setresgid seems to work])
-	AC_RUN_IFELSE(
-		[AC_LANG_PROGRAM([[
-#include <stdlib.h>
-#include <errno.h>
-		]], [[
-	errno=0;
-	setresgid(0,0,0);
-	if (errno==ENOSYS)
-		exit(1);
-	else
-		exit(0);
-		]])],
-		[AC_MSG_RESULT([yes])],
-		[AC_DEFINE([BROKEN_SETRESGID], [1],
-			[Define if your setresgid() is broken])
-		 AC_MSG_RESULT([not implemented])],
-		[AC_MSG_WARN([cross compiling: not checking setresuid])]
-	)
-])
 
 
 # Check for missing getpeereid (or equiv) support
