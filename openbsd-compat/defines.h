@@ -376,10 +376,6 @@ typedef u_int16_t	in_port_t;
 
 /* Macros */
 
-#if defined(HAVE_LOGIN_GETCAPBOOL) && defined(HAVE_LOGIN_CAP_H)
-# define HAVE_LOGIN_CAP
-#endif
-
 #ifndef MAX
 # define MAX(a,b) (((a)>(b))?(a):(b))
 # define MIN(a,b) (((a)<(b))?(a):(b))
