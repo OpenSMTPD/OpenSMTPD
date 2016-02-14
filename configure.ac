@@ -1,5 +1,6 @@
 # $Id: configure.ac,v 1.519 2013/03/22 01:49:15 dtucker Exp $
 #
+# Copyright (c) 2016 Gilles Chehade <gilles@poolp.org>
 # Copyright (c) 1999-2004 Damien Miller
 #
 # Permission to use, copy, modify, and distribute this software for any

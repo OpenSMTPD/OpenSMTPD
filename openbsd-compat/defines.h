@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2016 Gilles Chehade <gilles@poolp.org>.  All rights reserved.
  * Copyright (c) 1999-2003 Damien Miller.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
