@@ -74,10 +74,6 @@
 #define	GID_MAX	UINT_MAX
 #endif
 
-#if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
-# define MAXSYMLINKS 5
-#endif
-
 #ifndef STDIN_FILENO
 # define STDIN_FILENO    0
 #endif

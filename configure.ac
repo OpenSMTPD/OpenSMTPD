@@ -637,10 +637,6 @@ AC_CHECK_DECLS([writev], , , [
 #include <unistd.h>
 	])
 
-AC_CHECK_DECLS([MAXSYMLINKS], , , [
-#include <sys/param.h>
-	])
-
 AC_CHECK_DECLS([offsetof], , , [
 #include <stddef.h>
 	])
