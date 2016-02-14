@@ -568,10 +568,6 @@ typedef u_int16_t	in_port_t;
 #  define __func__ ""
 #endif
 
-#if defined(KRB5) && !defined(HEIMDAL)
-#  define krb5_get_err_text(context,code) error_message(code)
-#endif
-
 #if defined(SKEYCHALLENGE_4ARG)
 # define _compat_skeychallenge(a,b,c,d) skeychallenge(a,b,c,d)
 #else
