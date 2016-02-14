@@ -607,13 +607,6 @@ typedef u_int16_t	in_port_t;
 #endif
 
 
-#if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(HAVE_SECUREWARE)
-# define CUSTOM_SYS_AUTH_PASSWD 1
-#endif
-#if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(BROKEN_LIBIAF)
-# define USE_LIBIAF
-#endif
-
 /** end of login recorder definitions */
 
 #ifndef IOV_MAX
