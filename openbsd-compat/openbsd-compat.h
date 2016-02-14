@@ -72,12 +72,6 @@ size_t strlcat(char *dst, const char *src, size_t size);
 void strmode(int mode, char *p);
 #endif
 
-#if !defined(HAVE_MKDTEMP) || defined(HAVE_STRICT_MKSTEMP)
-int mkstemps(char *path, int slen);
-int mkstemp(char *path);
-char *mkdtemp(char *path);
-#endif 
-
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose);
 #endif 
