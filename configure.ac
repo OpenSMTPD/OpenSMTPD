@@ -1408,38 +1408,8 @@ if test "x$ac_cv_have_int64_t" = "xno" && \
 	echo "an alternative compiler (I.E., GCC) before continuing."
 	echo ""
 	exit 1;
-else
-dnl test snprintf (broken on SCO w/gcc)
-	AC_RUN_IFELSE(
-		[AC_LANG_SOURCE([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#ifdef HAVE_SNPRINTF
-main()
-{
-	char buf[50];
-	char expected_out[50];
-	int mazsize = 50 ;
-#if (SIZEOF_LONG_INT == 8)
-	long int num = 0x7fffffffffffffff;
-#else
-	long long num = 0x7fffffffffffffffll;
-#endif
-	strcpy(expected_out, "9223372036854775807");
-	snprintf(buf, mazsize, "%lld", num);
-	if(strcmp(buf, expected_out) != 0)
-		exit(1);
-	exit(0);
-}
-#else
-main() { exit(0); }
-#endif
-		]])], [ true ], [ AC_DEFINE([BROKEN_SNPRINTF]) ],
-		AC_MSG_WARN([cross compiling: Assuming working snprintf()])
-	)
 fi
-#l3539
+
 
 #l3561
 
