@@ -355,9 +355,6 @@ typedef u_int16_t	in_port_t;
 # define _PATH_NOLOGIN "/etc/nologin"
 #endif
 
-#ifndef _PATH_TTY
-# define _PATH_TTY "/dev/tty"
-#endif
 
 /* Macros */
 
