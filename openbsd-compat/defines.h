@@ -562,11 +562,6 @@ typedef u_int16_t	in_port_t;
 # define memmove(s1, s2, n) bcopy((s2), (s1), (n))
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
 
-#ifdef USE_BSM_AUDIT
-# define SSH_AUDIT_EVENTS
-# define CUSTOM_SSH_AUDIT_EVENTS
-#endif
-
 #if !defined(HAVE___func__) && defined(HAVE___FUNCTION__)
 #  define __func__ __FUNCTION__
 #elif !defined(HAVE___func__)
