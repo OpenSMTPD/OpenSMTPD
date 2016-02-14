@@ -455,6 +455,14 @@ AC_CHECK_FUNCS([ \
 #
 # CHECKS FOR SYSTEM SERVICES
 #
+AC_MSG_CHECKING([for /proc/pid/fd directory])
+if test -d "/proc/$$/fd" ; then
+	AC_DEFINE([HAVE_PROC_PID], [1], [Define if you have /proc/$pid/fd])
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
+
 
 #
 # AC_CONFIG_FILES
@@ -817,13 +825,7 @@ AC_RUN_IFELSE(
 	]
 )
 
-AC_MSG_CHECKING([for /proc/pid/fd directory])
-if test -d "/proc/$$/fd" ; then
-	AC_DEFINE([HAVE_PROC_PID], [1], [Define if you have /proc/$pid/fd])
-	AC_MSG_RESULT([yes])
-else
-	AC_MSG_RESULT([no])
-fi
+
 #l1332
 
 #l1525
