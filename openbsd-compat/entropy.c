@@ -37,19 +37,12 @@
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
-#include <stddef.h> /* for offsetof */
 
 #include <openssl/rand.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 
-//#include "ssh.h"
-//#include "misc.h"
-//#include "xmalloc.h"
-//#include "atomicio.h"
-//#include "pathnames.h"
 #include "smtpd/log.h"
-//#include "buffer.h"
 
 void
 seed_rng(void)

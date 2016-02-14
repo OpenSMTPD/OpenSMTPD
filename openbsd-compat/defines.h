@@ -505,9 +505,6 @@ typedef u_int16_t	in_port_t;
 	 (struct cmsghdr *)NULL)
 #endif /* CMSG_FIRSTHDR */
 
-#if defined(HAVE_DECL_OFFSETOF) && HAVE_DECL_OFFSETOF == 0
-# define offsetof(type, member) ((size_t) &((type *)0)->member)
-#endif
 
 /* Set up BSD-style BYTE_ORDER definition if it isn't there already */
 /* XXX: doesn't try to cope with strange byte orders (PDP_ENDIAN) */

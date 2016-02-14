@@ -637,10 +637,6 @@ AC_CHECK_DECLS([writev], , , [
 #include <unistd.h>
 	])
 
-AC_CHECK_DECLS([offsetof], , , [
-#include <stddef.h>
-	])
-
 AC_CHECK_DECLS([AF_LOCAL], , , [
 #include <sys/socket.h>
 	])
