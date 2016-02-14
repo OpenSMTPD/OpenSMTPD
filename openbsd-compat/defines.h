@@ -355,11 +355,6 @@ typedef u_int16_t	in_port_t;
 # define _PATH_NOLOGIN "/etc/nologin"
 #endif
 
-/* Define this to be the path of the xauth program. */
-#ifdef XAUTH_PATH
-#define _PATH_XAUTH XAUTH_PATH
-#endif /* XAUTH_PATH */
-
 /* derived from XF4/xc/lib/dps/Xlibnet.h */
 #ifndef X_UNIX_PATH
 #  ifdef __hpux
