@@ -607,13 +607,6 @@ typedef u_int16_t	in_port_t;
 #endif
 
 
-#ifdef HAVE_OSF_SIA
-# ifdef USE_SHADOW
-#  undef USE_SHADOW
-# endif
-# define CUSTOM_SYS_AUTH_PASSWD 1
-#endif
-
 #if defined(HAVE_LIBIAF) && defined(HAVE_SET_ID) && !defined(HAVE_SECUREWARE)
 # define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
