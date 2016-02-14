@@ -134,6 +134,15 @@ AC_CHECK_HEADERS([sys/mount.h], [], [], [
 
 AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 
+AC_CHECK_HEADER([fts.h],
+	[],
+	[AC_MSG_ERROR([*** fts.h missing - please install fts library ***])],
+	[
+#include <sys/types.h>
+#include <sys/stat.h>
+])
+
+
 
 
 #
@@ -345,6 +354,18 @@ AC_SEARCH_LIBS([clock_gettime],
 	[AC_DEFINE([HAVE_CLOCK_GETTIME],
 		[1],
 		[Define if you have the clock_gettime() function.])])
+
+AC_SEARCH_LIBS([fts_open],
+	[fts],
+	[AC_DEFINE([HAVE_FTS_OPEN],
+		[1],
+		[Define if you have the fts_open() function.])])
+
+AC_SEARCH_LIBS([arc4random],
+	[crypto],
+	[AC_DEFINE([HAVE_ARC4RANDOM],
+		[1],
+		[Define if you have the arc4random() function.])])
 
 
 #
@@ -1656,10 +1677,6 @@ AC_ARG_WITH([libfts],
 	]
 )
 
-AC_CHECK_HEADER([fts.h], ,[AC_MSG_ERROR([*** fts.h missing - please install first or check config.log ***])],
-[
-#include <sys/types.h>
-#include <sys/stat.h>])
 
 
 ##chl (based on OpenSSL checks, see above)
