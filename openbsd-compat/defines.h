@@ -570,6 +570,7 @@ typedef u_int16_t	in_port_t;
 
 
 /* Maximum number of file descriptors available */
+/* needed by compat/bsd-closefrom.c */
 #ifndef OPEN_MAX
 # ifdef HAVE_SYSCONF
 #  define OPEN_MAX	sysconf(_SC_OPEN_MAX)
@@ -578,14 +579,6 @@ typedef u_int16_t	in_port_t;
 # endif
 #endif
 
-/*
- * Define this to use pipes instead of socketpairs for communicating with the
- * client program.  Socketpairs do not seem to work on all systems.
- *
- * configure.ac sets this for a few OS's which are known to have problems
- * but you may need to set it yourself
- */
-/* #define USE_PIPES 1 */
 
 #if defined(HAVE_SHADOW_H) && !defined(DISABLE_SHADOW)
 # define USE_SHADOW
