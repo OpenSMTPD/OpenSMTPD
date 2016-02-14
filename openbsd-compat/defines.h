@@ -378,11 +378,9 @@ typedef u_int16_t	in_port_t;
 
 #ifndef MAX
 # define MAX(a,b) (((a)>(b))?(a):(b))
-# define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
-
-#ifndef roundup
-# define roundup(x, y)   ((((x)+((y)-1))/(y))*(y))
+#ifndef MIN
+# define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
 
 #ifndef timersub
