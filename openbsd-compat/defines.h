@@ -351,10 +351,6 @@ typedef u_int16_t	in_port_t;
 # undef MAILDIR
 #endif
 
-#ifndef _PATH_NOLOGIN
-# define _PATH_NOLOGIN "/etc/nologin"
-#endif
-
 
 /* Macros */
 
