@@ -587,17 +587,6 @@ typedef u_int16_t	in_port_t;
  */
 /* #define USE_PIPES 1 */
 
-/* pick up the user's location for lastlog if given */
-#ifndef LASTLOG_FILE
-#  ifdef _PATH_LASTLOG
-#    define LASTLOG_FILE _PATH_LASTLOG
-#  else
-#    ifdef CONF_LASTLOG_FILE
-#      define LASTLOG_FILE CONF_LASTLOG_FILE
-#    endif
-#  endif
-#endif
-
 #if defined(HAVE_SHADOW_H) && !defined(DISABLE_SHADOW)
 # define USE_SHADOW
 #endif
