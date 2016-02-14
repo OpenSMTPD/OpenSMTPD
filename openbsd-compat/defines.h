@@ -587,29 +587,6 @@ typedef u_int16_t	in_port_t;
  */
 /* #define USE_PIPES 1 */
 
-/**
- ** login recorder definitions
- **/
-
-/* FIXME: put default paths back in */
-#ifndef UTMP_FILE
-#  ifdef _PATH_UTMP
-#    define UTMP_FILE _PATH_UTMP
-#  else
-#    ifdef CONF_UTMP_FILE
-#      define UTMP_FILE CONF_UTMP_FILE
-#    endif
-#  endif
-#endif
-#ifndef WTMP_FILE
-#  ifdef _PATH_WTMP
-#    define WTMP_FILE _PATH_WTMP
-#  else
-#    ifdef CONF_WTMP_FILE
-#      define WTMP_FILE CONF_WTMP_FILE
-#    endif
-#  endif
-#endif
 /* pick up the user's location for lastlog if given */
 #ifndef LASTLOG_FILE
 #  ifdef _PATH_LASTLOG
