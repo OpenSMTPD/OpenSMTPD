@@ -77,17 +77,214 @@ AC_PROG_YACC
 # CHECKS FOR LIBRARIES
 #
 
+
 #
 # CHECKS FOR HEADERS
 #
+AC_CHECK_HEADERS([ \
+	crypt.h \
+	dirent.h \
+	fcntl.h \
+	getopt.h \
+	grp.h \
+	libgen.h \
+	limits.h \
+	maillock.h \
+	mach/mach_time.h \
+	ndir.h \
+	netdb.h \
+	pam/pam_appl.h \
+	paths.h \
+	security/pam_appl.h \
+	shadow.h \
+	sys/cdefs.h \
+	sys/dir.h \
+	sys/file.h \
+	sys/mount.h \
+	sys/ndir.h \
+	sys/pstat.h \
+	sys/statfs.h \
+	sys/time.h \
+	sys/un.h \
+	time.h \
+	ucred.h \
+	util.h \
+	utime.h \
+	vis.h
+])
+
+# NetBSD requires sys/types.h before login_cap.h
+AC_CHECK_HEADERS([login_cap.h], [], [], [
+#include <sys/types.h>
+])
+
+# older BSDs need sys/param.h before sys/mount.h
+AC_CHECK_HEADERS([sys/mount.h], [], [], [
+#include <sys/param.h>
+])
+
+AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
+
+
 
 #
 # CHECKS FOR TYPES
 #
+AC_CHECK_TYPES([long long, unsigned long long, long double, u_int, u_char])
+AC_CHECK_SIZEOF([short int], [2])
+AC_CHECK_SIZEOF([int], [4])
+AC_CHECK_SIZEOF([long int], [4])
+AC_CHECK_SIZEOF([long long int], [8])
+
+AC_TYPE_INT8_T
+AC_TYPE_INT16_T
+AC_TYPE_INT32_T
+AC_TYPE_INT64_T
+AC_TYPE_UINT8_T
+AC_TYPE_UINT16_T
+AC_TYPE_UINT32_T
+AC_TYPE_UINT64_T
+AC_TYPE_INTPTR_T
+AC_TYPE_INTMAX_T
+AC_TYPE_UINTPTR_T
+AC_TYPE_UINTMAX_T
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
+AC_TYPE_OFF_T
+AC_TYPE_MODE_T
+AC_TYPE_PID_T
+AC_TYPE_UID_T
+
+TYPE_SOCKLEN_T
+
+AC_CHECK_TYPES([sig_atomic_t], [], [], [
+#include <signal.h>
+])
+AC_CHECK_TYPES([fsblkcnt_t, fsfilcnt_t], [], [], [
+#include <sys/types.h>
+#ifdef HAVE_SYS_BITYPES_H
+#include <sys/bitypes.h>
+#endif
+#ifdef HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
+#ifdef HAVE_SYS_STATVFS_H
+#include <sys/statvfs.h>
+#endif
+])
+
+AC_CHECK_TYPES([in_addr_t, in_port_t], [], [], [
+#include <sys/types.h>
+#include <netinet/in.h>
+])
+
+AC_CHECK_TYPES([sa_family_t], [], [], [
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+])
+
+AC_CHECK_TYPES([struct timespec])
+AC_CHECK_TYPES([struct ifgroupreq])
+AC_CHECK_TYPES([struct sockaddr_storage], [], [], [
+#include <sys/types.h>
+#include <sys/socket.h>
+])
+AC_CHECK_TYPES([struct sockaddr_in6], [], [], [
+#include <sys/types.h>
+#include <netinet/in.h>
+])
+AC_CHECK_TYPES([struct in6_addr], [], [], [
+#include <sys/types.h>
+#include <netinet/in.h>
+])
+AC_CHECK_TYPES([struct addrinfo], [], [], [
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+])
+AC_CHECK_TYPES([struct timeval], [], [], [
+#include <sys/time.h>
+])
+
+
+# Sanity check long long for some platforms (AIX)
+if test "x$ac_cv_sizeof_long_long_int" = "x4" ; then
+	ac_cv_sizeof_long_long_int=0
+fi
+
+#if test "x$ac_cv_have_int64_t" = "xno" && \
+#	test "x$ac_cv_sizeof_long_int" != "x8" && \
+#	test "x$ac_cv_sizeof_long_long_int" = "x0" ; then
+#	echo "OpenSMTPD requires int64_t support.  Contact your vendor or install"
+#	echo "an alternative compiler (I.E., GCC) before continuing."
+#	echo ""
+#	exit 1;
+#fi
+
 
 #
 # CHECKS FOR STRUCTURES
 #
+AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_scope_id], [], [], [
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#include <netinet/in.h>
+])
+
+AC_CHECK_MEMBERS([struct passwd.pw_gecos, struct passwd.pw_class,
+struct passwd.pw_change, struct passwd.pw_expire],
+[], [], [
+#include <sys/types.h>
+#include <pwd.h>
+])
+
+AC_CHECK_MEMBERS([struct stat.st_flags], , ,
+	[ #include <sys/types.h>
+	  #include <sys/stat.h> ]
+)
+
+AC_CHECK_MEMBERS([struct stat.st_mtim], , ,
+	[ #include <sys/types.h>
+	  #include <sys/stat.h> ]
+)
+
+AC_CHECK_MEMBERS([struct stat.st_mtimespec], , ,
+	[ #include <sys/types.h>
+	  #include <sys/stat.h> ]
+)
+
+AC_CHECK_MEMBERS([struct sockaddr.sa_len], , ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+AC_CHECK_MEMBERS([struct sockaddr_storage.ss_len], , ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+AC_CHECK_MEMBERS([struct sockaddr_in.sin_len], , ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
+	[ #include <netdb.h>
+	  #include <netinet/in.h>
+	  #include <sys/socket.h> ]
+)
+
+AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
+	[ #include <sys/vfs.h>
+	  #include <sys/statfs.h> ]
+)
+
+
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
@@ -389,46 +586,6 @@ fi
 
 
 
-AC_CHECK_HEADERS([ \
-	crypt.h \
-	dirent.h \
-	fcntl.h \
-	getopt.h \
-	grp.h \
-	limits.h \
-	maillock.h \
-	mach/mach_time.h \
-	ndir.h \
-	netdb.h \
-	pam/pam_appl.h \
-	paths.h \
-	security/pam_appl.h \
-	shadow.h \
-	sys/cdefs.h \
-	sys/dir.h \
-	sys/file.h \
-	sys/mount.h \
-	sys/ndir.h \
-	sys/pstat.h \
-	sys/statfs.h \
-	sys/time.h \
-	sys/un.h \
-	time.h \
-	ucred.h \
-	util.h \
-	utime.h \
-	vis.h
-])
-
-# NetBSD requires sys/types.h before login_cap.h
-AC_CHECK_HEADERS([login_cap.h], [], [], [
-#include <sys/types.h>
-])
-
-# older BSDs need sys/param.h before sys/mount.h
-AC_CHECK_HEADERS([sys/mount.h], [], [], [
-#include <sys/param.h>
-])
 
 
 #l432 (customized)
@@ -569,7 +726,6 @@ AC_CHECK_FUNCS([utimes],
 )
 
 dnl    Checks for libutil functions
-AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 AC_SEARCH_LIBS([fmt_scaled], [util bsd])
 AC_SEARCH_LIBS([scan_scaled], [util bsd])
 AC_CHECK_FUNCS([fmt_scaled scan_scaled])
@@ -1196,18 +1352,9 @@ AC_SUBST([CA_FILE])
 
 #l3037 (customized s/SSH/SMTPD/)
 # Check for  long long datatypes
-AC_CHECK_TYPES([long long, unsigned long long, long double])
 
-# Check datatype sizes
-AC_CHECK_SIZEOF([short int], [2])
-AC_CHECK_SIZEOF([int], [4])
-AC_CHECK_SIZEOF([long int], [4])
-AC_CHECK_SIZEOF([long long int], [8])
 
-# Sanity check long long for some platforms (AIX)
-if test "x$ac_cv_sizeof_long_long_int" = "x4" ; then
-	ac_cv_sizeof_long_long_int=0
-fi
+
 
 # compute LLONG_MIN and LLONG_MAX if we don't know them.
 if test -z "$have_llong_max"; then
@@ -1308,358 +1455,11 @@ fi
 
 
 # More checks for data types
-AC_CACHE_CHECK([for u_int type], ac_cv_have_u_int, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ u_int a; a = 1;]])],
-	[ ac_cv_have_u_int="yes" ], [ ac_cv_have_u_int="no" 
-	])
-])
-if test "x$ac_cv_have_u_int" = "xyes" ; then
-	AC_DEFINE([HAVE_U_INT], [1], [define if you have u_int data type])
-	have_u_int=1
-fi
-
-AC_CACHE_CHECK([for intXX_t types], ac_cv_have_intxx_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ int8_t a; int16_t b; int32_t c; a = b = c = 1;]])],
-	[ ac_cv_have_intxx_t="yes" ], [ ac_cv_have_intxx_t="no" 
-	])
-])
-if test "x$ac_cv_have_intxx_t" = "xyes" ; then
-	AC_DEFINE([HAVE_INTXX_T], [1], [define if you have intxx_t data type])
-	have_intxx_t=1
-fi
-
-if (test -z "$have_intxx_t" && \
-	   test "x$ac_cv_header_stdint_h" = "xyes")
-then
-    AC_MSG_CHECKING([for intXX_t types in stdint.h])
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <stdint.h> ]],
-	[[ int8_t a; int16_t b; int32_t c; a = b = c = 1;]])],
-		[
-			AC_DEFINE([HAVE_INTXX_T])
-			AC_MSG_RESULT([yes])
-		], [ AC_MSG_RESULT([no]) 
-	])
-fi
-
-AC_CACHE_CHECK([for int64_t type], ac_cv_have_int64_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#ifdef HAVE_STDINT_H
-# include <stdint.h>
-#endif
-#include <sys/socket.h>
-#ifdef HAVE_SYS_BITYPES_H
-# include <sys/bitypes.h>
-#endif
-		]], [[
-int64_t a; a = 1;
-		]])],
-	[ ac_cv_have_int64_t="yes" ], [ ac_cv_have_int64_t="no" 
-	])
-])
-if test "x$ac_cv_have_int64_t" = "xyes" ; then
-	AC_DEFINE([HAVE_INT64_T], [1], [define if you have int64_t data type])
-fi
-
-AC_CACHE_CHECK([for u_intXX_t types], ac_cv_have_u_intxx_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ u_int8_t a; u_int16_t b; u_int32_t c; a = b = c = 1;]])],
-	[ ac_cv_have_u_intxx_t="yes" ], [ ac_cv_have_u_intxx_t="no" 
-	])
-])
-if test "x$ac_cv_have_u_intxx_t" = "xyes" ; then
-	AC_DEFINE([HAVE_U_INTXX_T], [1], [define if you have u_intxx_t data type])
-	have_u_intxx_t=1
-fi
-
-if test -z "$have_u_intxx_t" ; then
-    AC_MSG_CHECKING([for u_intXX_t types in sys/socket.h])
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/socket.h> ]],
-	[[ u_int8_t a; u_int16_t b; u_int32_t c; a = b = c = 1;]])],
-		[
-			AC_DEFINE([HAVE_U_INTXX_T])
-			AC_MSG_RESULT([yes])
-		], [ AC_MSG_RESULT([no]) 
-	])
-fi
-
-AC_CACHE_CHECK([for u_int64_t types], ac_cv_have_u_int64_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ u_int64_t a; a = 1;]])],
-	[ ac_cv_have_u_int64_t="yes" ], [ ac_cv_have_u_int64_t="no" 
-	])
-])
-if test "x$ac_cv_have_u_int64_t" = "xyes" ; then
-	AC_DEFINE([HAVE_U_INT64_T], [1], [define if you have u_int64_t data type])
-	have_u_int64_t=1
-fi
-
-if (test -z "$have_u_int64_t" && \
-	   test "x$ac_cv_header_sys_bitypes_h" = "xyes")
-then
-    AC_MSG_CHECKING([for u_int64_t type in sys/bitypes.h])
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/bitypes.h> ]],
-	[[ u_int64_t a; a = 1]])],
-		[
-			AC_DEFINE([HAVE_U_INT64_T])
-			AC_MSG_RESULT([yes])
-		], [ AC_MSG_RESULT([no]) 
-	])
-fi
-
-if test -z "$have_u_intxx_t" ; then
-	AC_CACHE_CHECK([for uintXX_t types], ac_cv_have_uintxx_t, [
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-			]], [[
-	uint8_t a;
-	uint16_t b;
-	uint32_t c;
-	a = b = c = 1;
-			]])],
-		[ ac_cv_have_uintxx_t="yes" ], [ ac_cv_have_uintxx_t="no" 
-		])
-	])
-	if test "x$ac_cv_have_uintxx_t" = "xyes" ; then
-		AC_DEFINE([HAVE_UINTXX_T], [1],
-			[define if you have uintxx_t data type])
-	fi
-fi
-
-if (test -z "$have_uintxx_t" && \
-	   test "x$ac_cv_header_stdint_h" = "xyes")
-then
-    AC_MSG_CHECKING([for uintXX_t types in stdint.h])
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <stdint.h> ]],
-	[[ uint8_t a; uint16_t b; uint32_t c; a = b = c = 1;]])],
-		[
-			AC_DEFINE([HAVE_UINTXX_T])
-			AC_MSG_RESULT([yes])
-		], [ AC_MSG_RESULT([no]) 
-	])
-fi
-
-if (test -z "$have_uintxx_t" && \
-	   test "x$ac_cv_header_inttypes_h" = "xyes")
-then
-    AC_MSG_CHECKING([for uintXX_t types in inttypes.h])
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <inttypes.h> ]],
-	[[ uint8_t a; uint16_t b; uint32_t c; a = b = c = 1;]])],
-		[
-			AC_DEFINE([HAVE_UINTXX_T])
-			AC_MSG_RESULT([yes])
-		], [ AC_MSG_RESULT([no]) 
-	])
-fi
-
-if (test -z "$have_u_intxx_t" || test -z "$have_intxx_t" && \
-	   test "x$ac_cv_header_sys_bitypes_h" = "xyes")
-then
-	AC_MSG_CHECKING([for intXX_t and u_intXX_t types in sys/bitypes.h])
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/bitypes.h>
-		]], [[
-			int8_t a; int16_t b; int32_t c;
-			u_int8_t e; u_int16_t f; u_int32_t g;
-			a = b = c = e = f = g = 1;
-		]])],
-		[
-			AC_DEFINE([HAVE_U_INTXX_T])
-			AC_DEFINE([HAVE_INTXX_T])
-			AC_MSG_RESULT([yes])
-		], [AC_MSG_RESULT([no])
-	])
-fi
-
-
-AC_CACHE_CHECK([for u_char], ac_cv_have_u_char, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ u_char foo; foo = 125; ]])],
-	[ ac_cv_have_u_char="yes" ], [ ac_cv_have_u_char="no" 
-	])
-])
-if test "x$ac_cv_have_u_char" = "xyes" ; then
-	AC_DEFINE([HAVE_U_CHAR], [1], [define if you have u_char data type])
-fi
-
-AC_CHECK_TYPES([intmax_t, uintmax_t], , , [
-#include <sys/types.h>
-#include <stdint.h>
-])
-
-TYPE_SOCKLEN_T
-
-AC_CHECK_TYPES([sig_atomic_t], , , [#include <signal.h>])
-AC_CHECK_TYPES([fsblkcnt_t, fsfilcnt_t], , , [
-#include <sys/types.h>
-#ifdef HAVE_SYS_BITYPES_H
-#include <sys/bitypes.h>
-#endif
-#ifdef HAVE_SYS_STATFS_H
-#include <sys/statfs.h>
-#endif
-#ifdef HAVE_SYS_STATVFS_H
-#include <sys/statvfs.h>
-#endif
-])
-
-AC_CHECK_TYPES([in_addr_t, in_port_t], , ,
-[#include <sys/types.h>
-#include <netinet/in.h>])
-
-AC_CACHE_CHECK([for size_t], ac_cv_have_size_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ size_t foo; foo = 1235; ]])],
-	[ ac_cv_have_size_t="yes" ], [ ac_cv_have_size_t="no" 
-	])
-])
-if test "x$ac_cv_have_size_t" = "xyes" ; then
-	AC_DEFINE([HAVE_SIZE_T], [1], [define if you have size_t data type])
-fi
-
-AC_CACHE_CHECK([for ssize_t], ac_cv_have_ssize_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ ssize_t foo; foo = 1235; ]])],
-	[ ac_cv_have_ssize_t="yes" ], [ ac_cv_have_ssize_t="no" 
-	])
-])
-if test "x$ac_cv_have_ssize_t" = "xyes" ; then
-	AC_DEFINE([HAVE_SSIZE_T], [1], [define if you have ssize_t data type])
-fi
-
-AC_CACHE_CHECK([for clock_t], ac_cv_have_clock_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <time.h> ]],
-	[[ clock_t foo; foo = 1235; ]])],
-	[ ac_cv_have_clock_t="yes" ], [ ac_cv_have_clock_t="no" 
-	])
-])
-if test "x$ac_cv_have_clock_t" = "xyes" ; then
-	AC_DEFINE([HAVE_CLOCK_T], [1], [define if you have clock_t data type])
-fi
-
-AC_CACHE_CHECK([for sa_family_t], ac_cv_have_sa_family_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <sys/socket.h>
-		]], [[ sa_family_t foo; foo = 1235; ]])],
-	[ ac_cv_have_sa_family_t="yes" ],
-	[ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-		]], [[ sa_family_t foo; foo = 1235; ]])],
-		[ ac_cv_have_sa_family_t="yes" ],
-		[ ac_cv_have_sa_family_t="no" ]
-	)
-	])
-])
-if test "x$ac_cv_have_sa_family_t" = "xyes" ; then
-	AC_DEFINE([HAVE_SA_FAMILY_T], [1],
-		[define if you have sa_family_t data type])
-fi
-
-AC_CACHE_CHECK([for pid_t], ac_cv_have_pid_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ pid_t foo; foo = 1235; ]])],
-	[ ac_cv_have_pid_t="yes" ], [ ac_cv_have_pid_t="no" 
-	])
-])
-if test "x$ac_cv_have_pid_t" = "xyes" ; then
-	AC_DEFINE([HAVE_PID_T], [1], [define if you have pid_t data type])
-fi
-
-AC_CACHE_CHECK([for mode_t], ac_cv_have_mode_t, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/types.h> ]],
-	[[ mode_t foo; foo = 1235; ]])],
-	[ ac_cv_have_mode_t="yes" ], [ ac_cv_have_mode_t="no" 
-	])
-])
-if test "x$ac_cv_have_mode_t" = "xyes" ; then
-	AC_DEFINE([HAVE_MODE_T], [1], [define if you have mode_t data type])
-fi
-
-
-AC_CACHE_CHECK([for struct sockaddr_storage], ac_cv_have_struct_sockaddr_storage, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <sys/socket.h>
-		]], [[ struct sockaddr_storage s; ]])],
-	[ ac_cv_have_struct_sockaddr_storage="yes" ],
-	[ ac_cv_have_struct_sockaddr_storage="no" 
-	])
-])
-if test "x$ac_cv_have_struct_sockaddr_storage" = "xyes" ; then
-	AC_DEFINE([HAVE_STRUCT_SOCKADDR_STORAGE], [1],
-		[define if you have struct sockaddr_storage data type])
-fi
-
-AC_CACHE_CHECK([for struct sockaddr_in6], ac_cv_have_struct_sockaddr_in6, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <netinet/in.h>
-		]], [[ struct sockaddr_in6 s; s.sin6_family = 0; ]])],
-	[ ac_cv_have_struct_sockaddr_in6="yes" ],
-	[ ac_cv_have_struct_sockaddr_in6="no" 
-	])
-])
-if test "x$ac_cv_have_struct_sockaddr_in6" = "xyes" ; then
-	AC_DEFINE([HAVE_STRUCT_SOCKADDR_IN6], [1],
-		[define if you have struct sockaddr_in6 data type])
-fi
-
-AC_CACHE_CHECK([for struct in6_addr], ac_cv_have_struct_in6_addr, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <netinet/in.h>
-		]], [[ struct in6_addr s; s.s6_addr[0] = 0; ]])],
-	[ ac_cv_have_struct_in6_addr="yes" ],
-	[ ac_cv_have_struct_in6_addr="no" 
-	])
-])
-if test "x$ac_cv_have_struct_in6_addr" = "xyes" ; then
-	AC_DEFINE([HAVE_STRUCT_IN6_ADDR], [1],
-		[define if you have struct in6_addr data type])
 
 dnl Now check for sin6_scope_id
-	AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_scope_id], , ,
-		[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#include <netinet/in.h>
-		])
-fi
 
-AC_CACHE_CHECK([for struct addrinfo], ac_cv_have_struct_addrinfo, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-		]], [[ struct addrinfo s; s.ai_flags = AI_PASSIVE; ]])],
-	[ ac_cv_have_struct_addrinfo="yes" ],
-	[ ac_cv_have_struct_addrinfo="no" 
-	])
-])
-if test "x$ac_cv_have_struct_addrinfo" = "xyes" ; then
-	AC_DEFINE([HAVE_STRUCT_ADDRINFO], [1],
-		[define if you have struct addrinfo data type])
-fi
 
-AC_CACHE_CHECK([for struct timeval], ac_cv_have_struct_timeval, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <sys/time.h> ]],
-	[[ struct timeval tv; tv.tv_sec = 1;]])],
-	[ ac_cv_have_struct_timeval="yes" ],
-	[ ac_cv_have_struct_timeval="no" 
-	])
-])
-if test "x$ac_cv_have_struct_timeval" = "xyes" ; then
-	AC_DEFINE([HAVE_STRUCT_TIMEVAL], [1], [define if you have struct timeval])
-	have_struct_timeval=1
-fi
 
-AC_CHECK_TYPES([struct timespec])
 
 # We need int64_t or else certian parts of the compile will fail.
 if test "x$ac_cv_have_int64_t" = "xno" && \
@@ -1703,12 +1503,6 @@ fi
 #l3539
 
 #l3561
-AC_CHECK_MEMBERS([struct passwd.pw_gecos, struct passwd.pw_class,
-struct passwd.pw_change, struct passwd.pw_expire],
-[], [], [[
-#include <sys/types.h>
-#include <pwd.h>
-]])
 
 AC_CHECK_MEMBER([struct __res_state.retrans], [], [AC_DEFINE([__res_state], [state],
 	[Define if we don't have struct __res_state in resolv.h])],
@@ -1913,51 +1707,8 @@ fi
 #l3765
 
 ##chl part
-AC_CHECK_TYPES([struct ifgroupreq])
 
-AC_CHECK_MEMBERS([struct stat.st_flags], , ,
-	[ #include <sys/types.h>
-	  #include <sys/stat.h> ]
-)
 
-AC_CHECK_MEMBERS([struct stat.st_mtim], , ,
-	[ #include <sys/types.h>
-	  #include <sys/stat.h> ]
-)
-
-AC_CHECK_MEMBERS([struct stat.st_mtimespec], , ,
-	[ #include <sys/types.h>
-	  #include <sys/stat.h> ]
-)
-
-AC_CHECK_MEMBERS([struct sockaddr.sa_len], , ,
-	[ #include <netdb.h>
-	  #include <netinet/in.h>
-	  #include <sys/socket.h> ]
-)
-
-AC_CHECK_MEMBERS([struct sockaddr_storage.ss_len], , ,
-	[ #include <netdb.h>
-	  #include <netinet/in.h>
-	  #include <sys/socket.h> ]
-)
-
-AC_CHECK_MEMBERS([struct sockaddr_in.sin_len], , ,
-	[ #include <netdb.h>
-	  #include <netinet/in.h>
-	  #include <sys/socket.h> ]
-)
-
-AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
-	[ #include <netdb.h>
-	  #include <netinet/in.h>
-	  #include <sys/socket.h> ]
-)
-
-AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
-	[ #include <sys/vfs.h>
-	  #include <sys/statfs.h> ]
-)
 ##chl part
 
 
