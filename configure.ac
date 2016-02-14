@@ -73,6 +73,14 @@ AC_PATH_PROG([NROFF], [nroff])
 AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 
+if test -z "$AR" ; then
+	AC_MSG_ERROR([*** 'ar' missing, please install or fix your \$PATH ***])
+fi
+
+if test -z "$LD" ; then
+	LD=$CC
+fi
+AC_SUBST([LD])
 
 #
 # CHECKS FOR LIBRARIES
@@ -304,6 +312,28 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 #
 # CHECKS FOR LIBRARY FUNCTIONS
 #
+AC_SEARCH_LIBS([basename],
+	[gen],
+	[AC_DEFINE([HAVE_BASENAME],
+		[1], [Define if you have the basename() function.])])
+
+AC_SEARCH_LIBS([utimes],
+	[c89],
+	[AC_DEFINE([HAVE_UTIMES],
+		[1], [Define if you have the utimes() function.])])
+
+AC_SEARCH_LIBS([fmt_scaled],
+	[util bsd],
+	[AC_DEFINE([HAVE_FMT_SCALED],
+		[1],
+		[Define if you have the fmt_scaled() function.])])
+
+AC_SEARCH_LIBS([dirname],
+	[gen],
+	[AC_DEFINE([HAVE_DIRNAME],
+		[1],
+		[Define if you have the dirname() function.])])
+
 
 #
 # CHECKS FOR SYSTEM SERVICES
@@ -333,9 +363,8 @@ if test "x$with_pic" != "xno" ; then
 fi
 
 
-#from here everything comes from portable openssh configure.ac script
 
-#l50
+
 dnl select manpage formatter
 if test "x$MANDOC" != "x" ; then
 	MANFMT="$MANDOC"
@@ -348,19 +377,9 @@ else
 	MANFMT="false"
 fi
 AC_SUBST([MANFMT])
-#l61
 
-#l78
-if test -z "$AR" ; then
-	AC_MSG_ERROR([*** 'ar' missing, please install or fix your \$PATH ***])
-fi
-#l80
 
-#l101
-if test -z "$LD" ; then
-	LD=$CC
-fi
-AC_SUBST([LD])
+
 
 AC_C_INLINE
 
@@ -686,61 +705,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 dnl Checks for header files.
 # Checks for libraries.
 AC_CHECK_FUNC([setsockopt], , [AC_CHECK_LIB([socket], [setsockopt])])
-
-dnl IRIX and Solaris 2.5.1 have dirname() in libgen
-AC_CHECK_FUNCS([dirname], [AC_CHECK_HEADERS([libgen.h])] , [
-	AC_CHECK_LIB([gen], [dirname], [
-		AC_CACHE_CHECK([for broken dirname],
-			ac_cv_have_broken_dirname, [
-			save_LIBS="$LIBS"
-			LIBS="$LIBS -lgen"
-			AC_RUN_IFELSE(
-				[AC_LANG_SOURCE([[
-#include <libgen.h>
-#include <string.h>
-#include <stdlib.h>
-
-int main(int argc, char **argv) {
-    char *s, buf[32];
-
-    strncpy(buf,"/etc", 32);
-    s = dirname(buf);
-    if (!s || strncmp(s, "/", 32) != 0) {
-	exit(1);
-    } else {
-	exit(0);
-    }
-}
-				]])],
-				[ ac_cv_have_broken_dirname="no" ],
-				[ ac_cv_have_broken_dirname="yes" ],
-				[ ac_cv_have_broken_dirname="no" ],
-			)
-			LIBS="$save_LIBS"
-		])
-		if test "x$ac_cv_have_broken_dirname" = "xno" ; then
-			LIBS="$LIBS -lgen"
-			AC_DEFINE([HAVE_DIRNAME])
-			AC_CHECK_HEADERS([libgen.h])
-		fi
-	])
-])
-#l1120
-
-#l1124 (slightly customized around fmt_scaled scan_scaled checks)
-AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
-	[Define if you have the basename function.])])
-
-AC_CHECK_FUNCS([utimes],
-	[], [ AC_CHECK_LIB([c89], [utimes], [AC_DEFINE([HAVE_UTIMES])
-					LIBS="$LIBS -lc89"]) ]
-)
-
-dnl    Checks for libutil functions
-AC_SEARCH_LIBS([fmt_scaled], [util bsd])
-AC_SEARCH_LIBS([scan_scaled], [util bsd])
-AC_CHECK_FUNCS([fmt_scaled scan_scaled])
-#l1242
 
 #l1304
 AC_MSG_CHECKING([whether struct dirent allocates space for d_name])
