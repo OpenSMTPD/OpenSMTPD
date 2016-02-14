@@ -606,9 +606,6 @@ typedef u_int16_t	in_port_t;
 
 #endif
 
-#ifndef UT_LINESIZE
-# define UT_LINESIZE 8
-#endif
 
 /* I hope that the presence of LASTLOG_FILE is enough to detect this */
 #if defined(LASTLOG_FILE) && !defined(DISABLE_LASTLOG)
