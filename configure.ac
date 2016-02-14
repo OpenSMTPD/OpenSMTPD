@@ -413,6 +413,7 @@ AC_CHECK_FUNCS([ \
 	freeaddrinfo \
 	getaddrinfo \
 	getnameinfo \
+	gettimeofday \
 	getopt \
 	getpeereid \
 	getspnam \
@@ -445,6 +446,7 @@ AC_CHECK_FUNCS([ \
 	strtonum \
 	sysconf \
 	tcgetpgrp \
+	time \
 	truncate \
 	vasprintf \
 	vsnprintf \
@@ -826,17 +828,8 @@ AC_RUN_IFELSE(
 )
 
 
-#l1332
 
-#l1525
-#l1570
 
-#l1572 (customized)
-dnl    Checks for library functions. Please keep in alphabetical order
-#l1685
-
-#l1715
-#l1719
 
 #l1723
 AC_CHECK_DECL([strsep],
@@ -920,9 +913,7 @@ AC_CHECK_FUNCS([setresgid], [
 	)
 ])
 
-dnl    Checks for time functions
-AC_CHECK_FUNCS([gettimeofday time])
-#l1850
+
 
 #l1860
 AC_CHECK_FUNC([daemon],
@@ -1534,14 +1525,6 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
 fi
 #l3765
 
-##chl part
-
-
-##chl part
-
-
-#l4010
-# Looking for programs, paths and files
 
 
 
