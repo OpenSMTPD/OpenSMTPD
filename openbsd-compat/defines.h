@@ -84,14 +84,6 @@
 # define STDERR_FILENO   2
 #endif
 
-#ifndef NGROUPS_MAX	/* Disable groupaccess if NGROUP_MAX is not set */
-#ifdef NGROUPS
-#define NGROUPS_MAX NGROUPS
-#else
-#define NGROUPS_MAX 0
-#endif
-#endif
-
 #if defined(HAVE_DECL_O_NONBLOCK) && HAVE_DECL_O_NONBLOCK == 0
 # define O_NONBLOCK      00004	/* Non Blocking Open */
 #endif
@@ -702,10 +694,6 @@ typedef u_int16_t	in_port_t;
 #endif
 
 /** end of login recorder definitions */
-
-#ifdef BROKEN_GETGROUPS
-# define getgroups(a,b) ((a)==0 && (b)==NULL ? NGROUPS_MAX : getgroups((a),(b)))
-#endif
 
 #if defined(HAVE_MMAP) && defined(BROKEN_MMAP)
 # undef HAVE_MMAP
