@@ -1504,18 +1504,6 @@ fi
 
 #l3561
 
-AC_CHECK_MEMBER([struct __res_state.retrans], [], [AC_DEFINE([__res_state], [state],
-	[Define if we don't have struct __res_state in resolv.h])],
-[[
-#include <stdio.h>
-#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#include <netinet/in.h>
-#include <arpa/nameser.h>
-#include <resolv.h>
-]])
-
 AC_CACHE_CHECK([for ss_family field in struct sockaddr_storage],
 		ac_cv_have_ss_family_in_struct_ss, [
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
