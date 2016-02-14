@@ -464,10 +464,6 @@ typedef u_int16_t	in_port_t;
 
 /* Function replacement / compatibility hacks */
 
-#if !defined(HAVE_GETADDRINFO) && (defined(HAVE_OGETADDRINFO) || defined(HAVE_NGETADDRINFO))
-# define HAVE_GETADDRINFO
-#endif
-
 #ifndef HAVE_GETOPT_OPTRESET
 # undef getopt
 # undef opterr
