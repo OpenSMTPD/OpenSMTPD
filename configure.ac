@@ -248,21 +248,6 @@ AC_CHECK_TYPES([struct timeval], [], [], [
 ])
 
 
-# Sanity check long long for some platforms (AIX)
-if test "x$ac_cv_sizeof_long_long_int" = "x4" ; then
-	ac_cv_sizeof_long_long_int=0
-fi
-
-#if test "x$ac_cv_have_int64_t" = "xno" && \
-#	test "x$ac_cv_sizeof_long_int" != "x8" && \
-#	test "x$ac_cv_sizeof_long_long_int" = "x0" ; then
-#	echo "OpenSMTPD requires int64_t support.  Contact your vendor or install"
-#	echo "an alternative compiler (I.E., GCC) before continuing."
-#	echo ""
-#	exit 1;
-#fi
-
-
 #
 # CHECKS FOR STRUCTURES
 #
@@ -391,6 +376,24 @@ AC_SEARCH_LIBS([arc4random],
 		[1],
 		[Define if you have the arc4random() function.])])
 
+AC_SEARCH_LIBS([daemon],
+	[bsd],
+	[AC_DEFINE([HAVE_DAEMON],
+		[1],
+		[Define if you have the daemon() function.])])
+
+AC_SEARCH_LIBS([fparseln],
+	[util],
+	[AC_DEFINE([HAVE_FPARSELN],
+		[1],
+		[Define if you have the fparseln() function.])])
+
+AC_SEARCH_LIBS([res_9_b64_ntop],
+	[resolv],
+	[AC_DEFINE([HAVE_RES_9_B64_NTOP],
+		[1],
+		[Define if you have the res_9_b64_ntop() function.])])
+
 AC_CHECK_FUNCS([ \
 	arc4random \
 	arc4random_buf \
@@ -452,6 +455,17 @@ AC_CHECK_FUNCS([ \
 	vsnprintf \
 	waitpid \
 ])
+
+AC_CHECK_DECL([strsep],
+	[AC_CHECK_FUNCS([strsep])],
+	[],
+	[
+#ifdef HAVE_STRING_H
+# include <string.h>
+#endif
+	])
+
+
 
 
 #
@@ -612,7 +626,7 @@ AC_ARG_WITH([rpath],
 	]
 )
 
-# Allow user to specify flags
+
 AC_ARG_WITH([cflags],
 	[  --with-cflags			Specify additional flags to pass to compiler],
 	[
@@ -660,7 +674,7 @@ AC_ARG_WITH([Werror],
 		fi
 	]
 )
-#l325
+
 
 
 AC_ARG_WITH([pie],
@@ -831,16 +845,6 @@ AC_RUN_IFELSE(
 
 
 
-#l1723
-AC_CHECK_DECL([strsep],
-	[AC_CHECK_FUNCS([strsep])],
-	[],
-	[
-#ifdef HAVE_STRING_H
-# include <string.h>
-#endif
-	])
-#l1730
 
 #l1747
 AC_CHECK_DECLS([O_NONBLOCK], , ,
@@ -912,26 +916,6 @@ AC_CHECK_FUNCS([setresgid], [
 		[AC_MSG_WARN([cross compiling: not checking setresuid])]
 	)
 ])
-
-
-
-#l1860
-AC_CHECK_FUNC([daemon],
-	[AC_DEFINE([HAVE_DAEMON], [1], [Define if your libraries define daemon()])],
-	[AC_CHECK_LIB([bsd], [daemon],
-		[LIBS="$LIBS -lbsd"; AC_DEFINE([HAVE_DAEMON])])]
-)
-#l1864
-
-##chl
-AC_CHECK_FUNC([fparseln],
-	[AC_DEFINE([HAVE_FPARSELN], [1], [Define if your libraries define fparseln()])],
-	[AC_CHECK_LIB([util], [fparseln],
-		[LIBS="$LIBS -lutil"; AC_DEFINE([HAVE_FPARSELN])])]
-)
-
-AC_SEARCH_LIBS(res_9_b64_ntop, resolv)
-##chl
 
 
 # Check for missing getpeereid (or equiv) support
@@ -1273,8 +1257,6 @@ AC_ARG_WITH([path-CAfile],
 AC_SUBST([CA_FILE])
 
 
-#l3037 (customized s/SSH/SMTPD/)
-# Check for  long long datatypes
 
 
 
@@ -1377,22 +1359,7 @@ fprint_ll(FILE *f, long long n)
 fi
 
 
-# More checks for data types
 
-dnl Now check for sin6_scope_id
-
-
-
-
-# We need int64_t or else certian parts of the compile will fail.
-if test "x$ac_cv_have_int64_t" = "xno" && \
-	test "x$ac_cv_sizeof_long_int" != "x8" && \
-	test "x$ac_cv_sizeof_long_long_int" = "x0" ; then
-	echo "OpenSMTPD requires int64_t support.  Contact your vendor or install"
-	echo "an alternative compiler (I.E., GCC) before continuing."
-	echo ""
-	exit 1;
-fi
 
 
 #l3561
