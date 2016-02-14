@@ -571,32 +571,6 @@ typedef u_int16_t	in_port_t;
 #endif
 
 
-#if defined(HAVE_SHADOW_H) && !defined(DISABLE_SHADOW)
-# define USE_SHADOW
-#endif
-
-/* The login() library function in libutil is first choice */
-#if defined(HAVE_LOGIN) && !defined(DISABLE_LOGIN)
-#  define USE_LOGIN
-
-#else
-/* Simply select your favourite login types. */
-/* Can't do if-else because some systems use several... <sigh> */
-#  if defined(UTMPX_FILE) && !defined(DISABLE_UTMPX)
-#    define USE_UTMPX
-#  endif
-#  if defined(UTMP_FILE) && !defined(DISABLE_UTMP)
-#    define USE_UTMP
-#  endif
-#  if defined(WTMPX_FILE) && !defined(DISABLE_WTMPX)
-#    define USE_WTMPX
-#  endif
-#  if defined(WTMP_FILE) && !defined(DISABLE_WTMP)
-#    define USE_WTMP
-#  endif
-
-#endif
-
 
 /** end of login recorder definitions */
 
