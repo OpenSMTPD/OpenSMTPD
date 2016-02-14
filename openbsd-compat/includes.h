@@ -42,16 +42,6 @@
 # include <paths.h>
 #endif
 
-/*
- *-*-nto-qnx needs these headers for strcasecmp and LASTLOG_FILE respectively
- */
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif
-#ifdef HAVE_LOGIN_H
-# include <login.h>
-#endif
-
 #ifdef HAVE_RPC_TYPES_H
 # include <rpc/types.h> /* For INADDR_LOOPBACK */
 #endif
