@@ -644,21 +644,6 @@ typedef u_int16_t	in_port_t;
 # endif
 #endif
 
-/* ASR specific entries */
-
-#ifndef AI_MASK
-/* valid flags for addrinfo */
-#define AI_MASK \
-	    (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV)
-#ifdef AI_FQDN
-#define AI_MASK (AI_MASK | AI_FQDN)
-#endif
-#endif
-
-#ifndef AI_FQDN
-#define AI_FQDN AI_CANONNAME
-#endif
-
 /* OpenSMTPD-portable specific entries */
 
 /* From OpenNTPD portable */
