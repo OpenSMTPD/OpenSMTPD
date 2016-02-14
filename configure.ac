@@ -41,6 +41,14 @@ AC_INIT([OpenSMTPD-portable],
 	[opensmtpd],
 	[https://github.com/OpenSMTPD/OpenSMTPD])
 
+AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
+LT_INIT
+
+# here we should test for variables set by libtool detection
+if test "x$with_pic" != "xno" ; then
+	CFLAGS="$CFLAGS ${pic_flag}"
+fi
+
 
 #
 # PACKAGE INFORMATION
@@ -81,6 +89,20 @@ if test -z "$LD" ; then
 	LD=$CC
 fi
 AC_SUBST([LD])
+
+dnl select manpage formatter
+if test "x$MANDOC" != "x" ; then
+	MANFMT="$MANDOC"
+elif test "x$NROFF" != "x" ; then
+	MANFMT="$NROFF -mandoc"
+elif test "x$GROFF" != "x" ; then
+	MANFMT="$GROFF -mandoc -Tascii"
+else
+	AC_MSG_WARN([no manpage formatted found])
+	MANFMT="false"
+fi
+AC_SUBST([MANFMT])
+
 
 #
 # CHECKS FOR LIBRARIES
@@ -317,6 +339,8 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
 #
+AC_C_INLINE
+
 
 #
 # CHECKS FOR LIBRARY FUNCTIONS
@@ -367,6 +391,66 @@ AC_SEARCH_LIBS([arc4random],
 		[1],
 		[Define if you have the arc4random() function.])])
 
+AC_CHECK_FUNCS([ \
+	arc4random \
+	arc4random_buf \
+	arc4random_stir \
+	arc4random_uniform \
+	asprintf \
+	b64_ntop \
+	__b64_ntop \
+	b64_pton \
+	__b64_pton \
+	bcopy \
+	chflags \
+	closefrom \
+	dirfd \
+	dirname \
+	endgrent \
+	explicit_bzero \
+	fchflags \
+	fgetln \
+	freeaddrinfo \
+	getaddrinfo \
+	getnameinfo \
+	getopt \
+	getpeereid \
+	getspnam \
+	inet_aton \
+	inet_net_pton \
+	inet_ntoa \
+	inet_ntop \
+	isblank \
+	memmove \
+	nsleep \
+	pidfile \
+	pledge \
+	pw_dup \
+	reallocarray \
+	setenv \
+	setlinebuf \
+	setproctitle \
+	setregid \
+	setreuid \
+	setsid \
+	sigaction \
+	snprintf \
+	socketpair \
+	strdup \
+	strerror \
+	strlcat \
+	strlcpy \
+	strmode \
+	strnvis \
+	strtonum \
+	sysconf \
+	tcgetpgrp \
+	truncate \
+	vasprintf \
+	vsnprintf \
+	waitpid \
+])
+
 
 #
 # CHECKS FOR SYSTEM SERVICES
@@ -385,36 +469,6 @@ AC_SEARCH_LIBS([arc4random],
 ### EVERYTHING BELOW MUST BE CLEANED AND MOVED ABOVE
 ###
 
-AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
-LT_INIT
-
-
-
-#here we should test for variables set by libtool detection
-if test "x$with_pic" != "xno" ; then
-	CFLAGS="$CFLAGS ${pic_flag}"
-fi
-
-
-
-
-dnl select manpage formatter
-if test "x$MANDOC" != "x" ; then
-	MANFMT="$MANDOC"
-elif test "x$NROFF" != "x" ; then
-	MANFMT="$NROFF -mandoc"
-elif test "x$GROFF" != "x" ; then
-	MANFMT="$GROFF -mandoc -Tascii"
-else
-	AC_MSG_WARN([no manpage formatted found])
-	MANFMT="false"
-fi
-AC_SUBST([MANFMT])
-
-
-
-
-AC_C_INLINE
 
 AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 #l108
@@ -777,65 +831,6 @@ fi
 
 #l1572 (customized)
 dnl    Checks for library functions. Please keep in alphabetical order
-AC_CHECK_FUNCS([ \
-	arc4random \
-	arc4random_buf \
-	arc4random_stir \
-	arc4random_uniform \
-	asprintf \
-	b64_ntop \
-	__b64_ntop \
-	b64_pton \
-	__b64_pton \
-	bcopy \
-	chflags \
-	closefrom \
-	dirfd \
-	dirname \
-	endgrent \
-	explicit_bzero \
-	fchflags \
-	fgetln \
-	freeaddrinfo \
-	getaddrinfo \
-	getnameinfo \
-	getopt \
-	getpeereid \
-	getspnam \
-	inet_aton \
-	inet_net_pton \
-	inet_ntoa \
-	inet_ntop \
-	isblank \
-	memmove \
-	nsleep \
-	pidfile \
-	pledge \
-	pw_dup \
-	reallocarray \
-	setenv \
-	setlinebuf \
-	setproctitle \
-	setregid \
-	setreuid \
-	setsid \
-	sigaction \
-	snprintf \
-	socketpair \
-	strdup \
-	strerror \
-	strlcat \
-	strlcpy \
-	strmode \
-	strnvis \
-	strtonum \
-	sysconf \
-	tcgetpgrp \
-	truncate \
-	vasprintf \
-	vsnprintf \
-	waitpid \
-])
 #l1685
 
 #l1715
