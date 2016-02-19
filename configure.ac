@@ -428,6 +428,12 @@ AC_SEARCH_LIBS([setsockopt],
 		[1],
 		[Define if you have the setsockopt() function.])])
 
+AC_SEARCH_LIBS([crypt],
+	[crypt],
+	[AC_DEFINE([HAVE_CRYPT],
+		[1],
+		[Define if you have the crypt() function.])])
+
 
 AC_CHECK_FUNCS([ \
 	arc4random \
@@ -798,16 +804,13 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		supported by bsd-setproctitle.c])
 	;;
 *-*-dragonfly*)
-	SMTPDLIBS="$SMTPDLIBS -lcrypt"
 	;;
 *-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	use_pie=auto
-	check_for_libcrypt_later=1
 	CFLAGS="$CFLAGS -D_BSD_SOURCE"
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	;;
 *-*-netbsd*)
-	check_for_libcrypt_before=1
 	if test "x$withval" != "xno" ; then
 		need_dash_r=1
 	fi
@@ -815,7 +818,6 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
 	;;
 *-*-freebsd*)
-	check_for_libcrypt_later=1
 	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
 	AC_DEFINE([BROKEN_STRNVIS], [1],
 	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
@@ -1892,22 +1894,7 @@ HAVE_SSL_OP_NO_TICKET
 ])
 ##gilles
 
-#l2494
-# Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
-# because the system crypt() is more featureful.
-if test "x$check_for_libcrypt_before" = "x1"; then
-	AC_CHECK_LIB([crypt], [crypt])
-fi
 
-# Some Linux systems (Slackware) need crypt() from libcrypt, *not* the
-# version in OpenSSL.
-if test "x$check_for_libcrypt_later" = "x1"; then
-	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
-fi
-#l2504
-
-#l2645
-### Configure cryptographic random number support
 
 # Check wheter OpenSSL seeds itself
 AC_MSG_CHECKING([whether LibreSSL's PRNG is internally seeded])
