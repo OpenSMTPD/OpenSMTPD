@@ -320,6 +320,34 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 ])
 
 
+#
+# CHECKS FOR DECLARATIONS
+#
+AC_CHECK_DECLS([O_NONBLOCK], [], [], [
+#include <sys/types.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
+])
+
+AC_CHECK_DECLS([AF_LOCAL], [], [], [
+#include <sys/socket.h>
+])
+
+AC_CHECK_DECLS([WAIT_MYPGRP], [], [], [
+#include <sys/wait.h>
+])
+
+AC_CHECK_DECLS([writev], [], [], [
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+])
+
+
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
@@ -825,29 +853,8 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 
 
 #l1747
-AC_CHECK_DECLS([O_NONBLOCK], , ,
-	[
-#include <sys/types.h>
-#ifdef HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
-	])
 
-AC_CHECK_DECLS([writev], , , [
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-	])
 
-AC_CHECK_DECLS([AF_LOCAL], , , [
-#include <sys/socket.h>
-	])
-AC_CHECK_DECLS([WAIT_MYPGRP], , , [
-#include <sys/wait.h>
-	])
 
 
 # Check for missing getpeereid (or equiv) support
