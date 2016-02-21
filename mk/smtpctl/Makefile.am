@@ -76,6 +76,7 @@ $(MANPAGES): $(MANPAGES_IN)
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
+	chmod 2555 $(DESTDIR)$(sbindir)/smtpctl
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
 	$(INSTALL) -m 644 sendmail.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
