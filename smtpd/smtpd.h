@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.511 2016/02/05 19:21:04 jung Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.513 2016/02/21 15:17:25 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -52,7 +52,7 @@
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #define	SMTPD_NAME		 "OpenSMTPD"
-#define	SMTPD_VERSION		 "master"
+#define	SMTPD_VERSION		 "5.9.1"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -612,6 +612,9 @@ struct smtpd {
 	struct compress_backend	       *sc_comp;
 
 	time_t					 sc_uptime;
+
+	/* This is a listener for a local socket used by smtp_enqueue(). */
+	struct listener                         *sc_sock_listener;
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
