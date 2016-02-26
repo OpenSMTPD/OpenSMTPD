@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.153 2016/02/13 09:28:13 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.154 2016/02/13 20:43:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -230,21 +230,8 @@ smtp_resume(void)
 static int
 smtp_enqueue(void)
 {
-	static struct listener	 local, *listener = NULL;
-	int			 fd[2];
-
-	if (listener == NULL) {
-		listener = &local;
-		(void)strlcpy(listener->tag, "local", sizeof(listener->tag));
-#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
-		listener->ss.ss_family = AF_LOCAL;
-		listener->ss.ss_len = sizeof(struct sockaddr *);
-#endif
-		(void)strlcpy(listener->hostname, env->sc_hostname,
-		    sizeof(listener->hostname));
-		(void)strlcpy(listener->filter, env->sc_enqueue_filter,
-		    sizeof listener->filter);
-	}
+	struct listener	*listener = env->sc_sock_listener;
+	int		 fd[2];
 
 	/*
 	 * Some enqueue requests buffered in IMSG may still arrive even after

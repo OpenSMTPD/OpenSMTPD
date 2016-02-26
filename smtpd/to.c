@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.24 2015/12/28 22:08:30 jung Exp $	*/
+/*	$OpenBSD: to.c,v 1.26 2016/02/15 12:53:50 mpi Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
