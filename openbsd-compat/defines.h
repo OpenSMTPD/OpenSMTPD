@@ -158,6 +158,15 @@ typedef unsigned long long uintmax_t;
 # define HAVE_UINTMAX_T
 #endif
 
+#ifndef HAVE_U_INT16_T
+typedef uint16_t u_int16_t;
+#define HAVE_U_INT16_T
+#endif
+#ifndef HAVE_U_INT32_T
+typedef uint32_t u_int32_t;
+#define HAVE_U_INT32_T
+#endif
+
 #ifndef HAVE_SA_FAMILY_T
 typedef int sa_family_t;
 # define HAVE_SA_FAMILY_T
