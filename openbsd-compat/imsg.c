@@ -188,8 +188,8 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 }
 
 int
-imsg_compose(struct imsgbuf *ibuf, u_int32_t type, u_int32_t peerid,
-    pid_t pid, int fd, const void *data, u_int16_t datalen)
+imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
+    pid_t pid, int fd, const void *data, uint16_t datalen)
 {
 	struct ibuf	*wbuf;
 
@@ -207,7 +207,7 @@ imsg_compose(struct imsgbuf *ibuf, u_int32_t type, u_int32_t peerid,
 }
 
 int
-imsg_composev(struct imsgbuf *ibuf, u_int32_t type, u_int32_t peerid,
+imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
     pid_t pid, int fd, const struct iovec *iov, int iovcnt)
 {
 	struct ibuf	*wbuf;
@@ -232,8 +232,8 @@ imsg_composev(struct imsgbuf *ibuf, u_int32_t type, u_int32_t peerid,
 
 /* ARGSUSED */
 struct ibuf *
-imsg_create(struct imsgbuf *ibuf, u_int32_t type, u_int32_t peerid,
-    pid_t pid, u_int16_t datalen)
+imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
+    pid_t pid, uint16_t datalen)
 {
 	struct ibuf	*wbuf;
 	struct imsg_hdr	 hdr;
@@ -259,7 +259,7 @@ imsg_create(struct imsgbuf *ibuf, u_int32_t type, u_int32_t peerid,
 }
 
 int
-imsg_add(struct ibuf *msg, const void *data, u_int16_t datalen)
+imsg_add(struct ibuf *msg, const void *data, uint16_t datalen)
 {
 	if (datalen)
 		if (ibuf_add(msg, data, datalen) == -1) {
@@ -280,7 +280,7 @@ imsg_close(struct imsgbuf *ibuf, struct ibuf *msg)
 	if (msg->fd != -1)
 		hdr->flags |= IMSGF_HASFD;
 
-	hdr->len = (u_int16_t)msg->wpos;
+	hdr->len = (uint16_t)msg->wpos;
 
 	ibuf_close(&ibuf->w, msg);
 }
