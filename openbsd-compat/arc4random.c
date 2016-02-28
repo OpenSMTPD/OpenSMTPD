@@ -152,7 +152,7 @@ _rs_random_buf(void *_buf, size_t n)
 }
 
 static inline void
-_rs_random_u32(u_int32_t *val)
+_rs_random_u32(uint32_t *val)
 {
 	_rs_stir_if_needed(sizeof(*val));
 	if (rs_have < sizeof(*val))
@@ -188,10 +188,10 @@ arc4random_addrandom(u_char *dat, int datlen)
 	_ARC4_UNLOCK();
 }
 
-u_int32_t
+uint32_t
 arc4random(void)
 {
-	u_int32_t val;
+	uint32_t val;
 
 	_ARC4_LOCK();
 	_rs_random_u32(&val);
@@ -220,7 +220,7 @@ void
 arc4random_buf(void *_buf, size_t n)
 {
 	size_t i;
-	u_int32_t r = 0;
+	uint32_t r = 0;
 	char *buf = (char *)_buf;
 
 	for (i = 0; i < n; i++) {
@@ -244,10 +244,10 @@ arc4random_buf(void *_buf, size_t n)
  * [2**32 % upper_bound, 2**32) which maps back to [0, upper_bound)
  * after reduction modulo upper_bound.
  */
-u_int32_t
-arc4random_uniform(u_int32_t upper_bound)
+uint32_t
+arc4random_uniform(uint32_t upper_bound)
 {
-	u_int32_t r, min;
+	uint32_t r, min;
 
 	if (upper_bound < 2)
 		return 0;
