@@ -319,6 +319,9 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 #include <sys/socket.h>
 ])
 
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff, struct tm.tm_zone], [], [], [
+#include <time.h>
+])
 
 #
 # CHECKS FOR DECLARATIONS
@@ -347,7 +350,9 @@ AC_CHECK_DECLS([writev], [], [], [
 #include <unistd.h>
 ])
 
-
+AC_CHECK_DECLS([timezone, altzone, tzname], [], [], [
+#include <time.h>
+])
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
