@@ -200,39 +200,21 @@ time_to_text(time_t when)
 	char *day[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 	char *month[] = {"Jan","Feb","Mar","Apr","May","Jun",
 			 "Jul","Aug","Sep","Oct","Nov","Dec"};
-#ifndef HAVE_STRUCT_TM_TM_GMTOFF
-    long offset;
-#endif
 
 	lt = localtime(&when);
 	if (lt == NULL || when == 0)
 		fatalx("time_to_text: localtime");
 
-#if defined HAVE_DECL_ALTZONE && defined HAVE_DECL_TIMEZONE
-    offset = lt->tm_isdst > 0 ? altzone : timezone;
-#endif
 	/* We do not use strftime because it is subject to locale substitution*/
 	if (!bsnprintf(buf, sizeof(buf),
 	    "%s, %d %s %d %02d:%02d:%02d %c%02d%02d (%s)",
 	    day[lt->tm_wday], lt->tm_mday, month[lt->tm_mon],
 	    lt->tm_year + 1900,
 	    lt->tm_hour, lt->tm_min, lt->tm_sec,
-#ifdef HAVE_STRUCT_TM_TM_GMTOFF
 	    lt->tm_gmtoff >= 0 ? '+' : '-',
 	    abs((int)lt->tm_gmtoff / 3600),
 	    abs((int)lt->tm_gmtoff % 3600) / 60,
-#elif defined HAVE_DECL_ALTZONE && defined HAVE_DECL_TIMEZONE
-	    offset >= 0 ? '+' : '-',
-	    abs((int)offset / 3600),
-	    abs((int)offset % 3600) / 60,
-#endif
-#ifdef HAVE_STRUCT_TM_TM_ZONE
-	    lt->tm_zone
-#elif defined HAVE_DECL_TZNAME
-	    lt->tm_isdst > 0 ? tzname[1] : tzname[0]
-#endif
-        ))
-
+	    lt->tm_zone))
 		fatalx("time_to_text: bsnprintf");
 
 	return buf;
