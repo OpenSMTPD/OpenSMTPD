@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.147 2016/02/12 03:11:16 sunil Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.149 2016/04/29 08:55:08 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -235,6 +235,51 @@ srv_read(void *dst, size_t sz)
 }
 
 static void
+srv_get_int(int *i)
+{
+	uint8_t type;
+
+	srv_read(&type, 1);
+	srv_read(i, sizeof(*i));
+}
+
+static void
+srv_get_time(time_t *t)
+{
+	uint8_t type;
+
+	srv_read(&type, 1);
+	srv_read(t, sizeof(*t));
+}
+
+static void
+srv_get_evpid(uint64_t *evpid)
+{
+	uint8_t type;
+
+	srv_read(&type, 1);
+	srv_read(evpid, sizeof(*evpid));
+}
+
+static void
+srv_get_envelope(struct envelope *evp)
+{
+	uint64_t	 evpid;
+	uint8_t		 type;
+	size_t		 s;
+	const void	*d;
+
+	srv_get_evpid(&evpid);
+	srv_read(&type, sizeof(type));
+	srv_read(&s, sizeof(s));
+	d = rdata;
+	srv_read(NULL, s);
+
+	envelope_load_buffer(evp, d, s - 1);
+	evp->id = evpid;
+}
+
+static void
 srv_end(void)
 {
 	if (rlen)
@@ -311,9 +356,8 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 	static uint32_t	currmsgid = 0;
 	static uint64_t	from = 0;
 	static int	done = 0, need_send = 1, found;
-	char		buf[sizeof(*evp)];
-	size_t		buflen;
-	uint64_t	evpid;
+	int		flags;
+	time_t		nexttry;
 
 	if (currmsgid != msgid) {
 		if (currmsgid != 0 && !done)
@@ -346,13 +390,14 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 		goto again;
 	}
 
-	srv_read(&evpid, sizeof evpid);
-	buflen = rlen;
-	srv_read(buf, rlen);
-	envelope_load_buffer(evp, buf, buflen - 1);
-	evp->id = evpid;
-
+	srv_get_int(&flags);
+	srv_get_time(&nexttry);
+	srv_get_envelope(evp);
 	srv_end();
+
+	evp->flags |= flags;
+	evp->nexttry = nexttry;
+
 	from = evp->id + 1;
 	found++;
 	return (1);
@@ -885,7 +930,7 @@ do_encrypt(int argc, struct parameter *argv)
 
 	if (argv)
 		p = argv[0].u.u_str;
-	execl(PATH_ENCRYPT, "encrypt", p, NULL);
+	execl(PATH_ENCRYPT, "encrypt", p, (char *)NULL);
 	errx(1, "execl");
 }
 
@@ -1283,9 +1328,9 @@ display(const char *s)
 	lseek(fileno(fp), 0, SEEK_SET);
 	(void)dup2(fileno(fp), STDIN_FILENO);
 	if (gzipped)
-		execl(PATH_GZCAT, gzcat_argv0, NULL);
+		execl(PATH_GZCAT, gzcat_argv0, (char *)NULL);
 	else
-		execl(PATH_CAT, "cat", NULL);
+		execl(PATH_CAT, "cat", (char *)NULL);
 	err(1, "execl");
 }
 

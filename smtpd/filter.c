@@ -299,6 +299,8 @@ filter_event(uint64_t id, int event)
 	if (event == EVENT_DISCONNECT) {
 		io_clear(&s->iev);
 		iobuf_clear(&s->ibuf);
+		if (s->ofile)
+			fclose(s->ofile);
 		free(s);
 	}
 }
