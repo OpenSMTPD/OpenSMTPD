@@ -1146,6 +1146,7 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 
 	case QUERY_EOM:
 		if (status != FILTER_OK) {
+			tree_pop(&wait_filter_data, s->id);
 			smtp_filter_rollback(s);
 			code = code ? code : 530;
 			line = line ? line : "Message rejected";
@@ -1451,6 +1452,8 @@ smtp_data_io_done(struct smtp_session *s)
 	iobuf_clear(&s->obuf);
 
 	if (s->msgflags & MF_ERROR) {
+
+		tree_pop(&wait_filter_data, s->id);
 
 		smtp_filter_rollback(s);
 		smtp_queue_rollback(s);
