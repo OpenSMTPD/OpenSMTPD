@@ -2081,7 +2081,9 @@ create_sock_listener(struct listen_opts *lo)
 	lo->tag = "local";
 	lo->hostname = conf->sc_hostname;
 	l->ss.ss_family = AF_LOCAL;
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 	l->ss.ss_len = sizeof(struct sockaddr *);
+#endif
 	config_listener(l, lo);
 
 	return (l);
