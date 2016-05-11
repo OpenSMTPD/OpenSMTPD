@@ -80,9 +80,6 @@
 #include "ssl.h"
 
 #define SSL_ECDH_CURVE          "prime256v1"
-#ifndef HAVE_SSL_CTX_SET_ECDH_AUTO
-void	SSL_CTX_set_ecdh_auto(SSL_CTX *, int);
-#endif
 
 /*
  * Read a bio that contains our certificate in "PEM" format,
@@ -199,5 +196,18 @@ SSL_CTX_set_ecdh_auto(SSL_CTX *ctx, int enable)
 	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
 	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
 	EC_KEY_free(ecdh);
+}
+#endif
+
+#ifndef HAVE_SSL_CTX_SET_DH_AUTO
+void
+SSL_CTX_set_dh_auto(SSL_CTX *ctx, int enable)
+{
+	if (!enable)
+		return;
+
+	/* stub until OpenSSL catches up with this ... */
+	log_warnx("OpenSSL does not support SSL_CTX_set_dh_auto (yet ?)");
+	return;
 }
 #endif

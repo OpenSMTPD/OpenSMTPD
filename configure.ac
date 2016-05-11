@@ -1881,6 +1881,25 @@ AM_CONDITIONAL([HAVE_SSL_CTX_SET_ECDH_AUTO], [test $OPENSSL_SUPPORTS_ECDH_AUTO =
 ##gilles
 
 ##gilles
+OPENSSL_SUPPORTS_DH_AUTO=no
+AC_MSG_CHECKING([if programs using SSL_CTX_set_dh_auto will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_dh_auto(NULL, 1); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_SSL_CTX_SET_DH_AUTO], [1],
+			[Define if SSL library support SSL_CTX_set_dh_auto])
+		OPENSSL_SUPPORTS_DH_AUTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_SSL_CTX_SET_DH_AUTO], [test $OPENSSL_SUPPORTS_DH_AUTO = yes])
+##gilles
+
+##gilles
 AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
 AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
 #include <openssl/ssl.h>
