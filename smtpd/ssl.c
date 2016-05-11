@@ -99,6 +99,8 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki,
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
+	/*SSL_CTX_set_dh_auto(ctx, 0);*/
+
 	SSL_CTX_set_ecdh_auto(ctx, 1);
 
 	*ctxp = ctx;
