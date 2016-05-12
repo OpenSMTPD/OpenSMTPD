@@ -161,13 +161,14 @@ smtp_setup_listeners(void)
 			fatal("smtpd: setsockopt");
 #endif
 #ifdef IPV6_V6ONLY
-		/* If using IPv6, bind only to IPv6 if possible. This avoids
-		   ambiguities with IPv4-mapped IPv6 addresses. */
-		if (l->ss.ss_family == AF_INET6) {
-				if (setsockopt(l->fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt,
-						sizeof(opt)) < 0)
-						fatal("smtpd: setsockopt");
-		}
+		/*
+		 * If using IPv6, bind only to IPv6 if possible.
+		 * This avoids ambiguities with IPv4-mapped IPv6 addresses.
+		 */
+		if (l->ss.ss_family == AF_INET6)
+			if (setsockopt(l->fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt,
+				sizeof(opt)) < 0)
+				fatal("smtpd: setsockopt");
 #endif
 		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
 			fatal("smtpd: bind");
