@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.c,v 1.17 2016/03/25 15:06:58 krw Exp $	*/
+/*	$OpenBSD: filter.c,v 1.18 2016/05/16 19:25:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
