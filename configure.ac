@@ -319,6 +319,19 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 #include <sys/socket.h>
 ])
 
+AC_CHECK_MEMBERS(
+  [struct tm.tm_gmtoff, struct tm.tm_zone], 
+  [], 
+  [
+    AC_CHECK_DECLS([timezone, altzone, tzname], 
+      [], 
+      [ AC_MSG_ERROR([cannot find timezone])], 
+      [ #include <time.h> ]
+    )
+  ], 
+  [ #include <time.h> ]
+)
+
 
 #
 # CHECKS FOR DECLARATIONS
@@ -346,7 +359,6 @@ AC_CHECK_DECLS([writev], [], [], [
 #include <sys/uio.h>
 #include <unistd.h>
 ])
-
 
 
 #
