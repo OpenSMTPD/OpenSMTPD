@@ -193,6 +193,7 @@ table_create(const char *backend, const char *name, const char *tag,
 	struct table_backend	*tb;
 	char			 buf[LINE_MAX];
 	char			 path[LINE_MAX];
+	const char		*proc_path;
 	size_t			 n;
 	struct stat		 sb;
 
@@ -207,11 +208,16 @@ table_create(const char *backend, const char *name, const char *tag,
 	if (name && table_find(name, NULL))
 		fatalx("table_create: table \"%s\" already defined", name);
 
+	proc_path = getenv("OPENSMTPD_PROC_PATH");
+	if (proc_path == NULL) {
+		proc_path = PATH_LIBEXEC;
+	}
+
 	if ((tb = table_backend_lookup(backend)) == NULL) {
-		if ((size_t)snprintf(path, sizeof(path), PATH_LIBEXEC"/table-%s",
-			backend) >= sizeof(path)) {
-			fatalx("table_create: path too long \""
-			    PATH_LIBEXEC"/table-%s\"", backend);
+		if ((size_t)snprintf(path, sizeof(path), "%s/table-%s",
+			proc_path, backend) >= sizeof(path)) {
+			fatalx("table_create: path too long \"%s/table-%s\"",
+				proc_path, backend);
 		}
 		if (stat(path, &sb) == 0) {
 			tb = table_backend_lookup("proc");

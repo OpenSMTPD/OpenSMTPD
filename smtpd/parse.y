@@ -2534,13 +2534,19 @@ create_filter_proc(char *name, char *prog)
 {
 	struct filter_conf	*f;
 	char			*path;
+	const char		*proc_path;
 
 	if (dict_get(&conf->sc_filters, name)) {
 		yyerror("filter \"%s\" already defined", name);
 		return (NULL);
 	}
 
-	if (asprintf(&path, "%s/filter-%s", PATH_LIBEXEC, prog) == -1) {
+	proc_path = getenv("OPENSMTPD_PROC_PATH");
+	if (proc_path == NULL) {
+		proc_path = PATH_LIBEXEC;
+	}
+
+	if (asprintf(&path, "%s/filter-%s", proc_path, prog) == -1) {
 		yyerror("filter \"%s\" asprintf failed", name);
 		return (0);
 	}
