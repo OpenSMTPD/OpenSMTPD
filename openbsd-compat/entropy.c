@@ -59,14 +59,10 @@ seed_rng(void)
 	 */
 	error = 0;
 	mask = SSLeay() >= 0x1000000f ?  0xfff00000L : 0xfffff00fL;
-	if (SSLeay() >= 0x1000000f)
-		if ((SSLeay() & 0xfffffff0L) < (OPENSSL_VERSION_NUMBER & 0xfffffff0L))
-			error = 1;
-	if ((SSLeay() ^ OPENSSL_VERSION_NUMBER) & mask || (SSLeay() >> 12) < (OPENSSL_VERSION_NUMBER >> 12))
-		error = 1;
-	if (error)
+	if ((SSLeay() & mask) < (OPENSSL_VERSION_NUMBER & mask)) {
 		fatalx("OpenSSL version mismatch. Built against %lx, you have %lx\n",
 		    (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
+	}
 
 	if (RAND_status() != 1)
 		fatal("PRNG is not seeded");
