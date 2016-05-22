@@ -48,7 +48,6 @@ void
 seed_rng(void)
 {
 	u_long	mask;
-	int	error;
 
 	/*
 	 * OpenSSL version numbers: MNNFFPPS: major minor fix patch status
@@ -57,7 +56,6 @@ seed_rng(void)
 	 * allow 1.0.1 to work with 1.0.0). Going backwards is only allowed
 	 * within a patch series.
 	 */
-	error = 0;
 	mask = SSLeay() >= 0x1000000f ?  0xfff00000L : 0xfffff00fL;
 	if ((SSLeay() & mask) < (OPENSSL_VERSION_NUMBER & mask)) {
 		fatalx("OpenSSL version mismatch. Built against %lx, you have %lx\n",
