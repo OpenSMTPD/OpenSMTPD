@@ -36,7 +36,7 @@ aclocalflags="`sed -ne 's/^[ \t]*ACLOCAL_AMFLAGS[ \t]*=//p' Makefile.am 2>/dev/n
 
 # Check for automake
 amvers="no"
-for v in 15 14 13 12 11 10 9 8 7 6 5; do
+for v in 15 14; do
   if automake-1.${v} --version >/dev/null 2>&1; then
     amvers="-1.${v}"
     break
@@ -48,7 +48,7 @@ done
 
 if test "${amvers}" = "no" && automake --version > /dev/null 2>&1; then
   amvers="`automake --version | sed -e '1s/[^0-9]*//' -e q`"
-  if expr "$amvers" "<" "1.5" > /dev/null 2>&1; then
+  if `echo "$amvers\n1.14" | sort -V | head -n 1 | grep -q "$amvers"`; then
     amvers="no"
   else
     amvers=""
@@ -56,13 +56,13 @@ if test "${amvers}" = "no" && automake --version > /dev/null 2>&1; then
 fi
 
 if test "$amvers" = "no"; then
-  echo "$0: you need automake version 1.5 or later"
+  echo "$0: you need automake version 1.14 or later"
   exit 1
 fi
 
 # Check for autoconf
 acvers="no"
-for v in "" "269" "-2.69" "259" "-2.59" "253" "-2.53"; do
+for v in "" "269" "-2.69"; do
   if autoconf${v} --version >/dev/null 2>&1; then
     acvers="${v}"
     break

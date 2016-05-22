@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.269 2016/03/25 15:06:58 krw Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.271 2016/05/16 19:25:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1146,6 +1146,7 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 
 	case QUERY_EOM:
 		if (status != FILTER_OK) {
+			tree_pop(&wait_filter_data, s->id);
 			smtp_filter_rollback(s);
 			code = code ? code : 530;
 			line = line ? line : "Message rejected";
@@ -1451,6 +1452,8 @@ smtp_data_io_done(struct smtp_session *s)
 	iobuf_clear(&s->obuf);
 
 	if (s->msgflags & MF_ERROR) {
+
+		tree_pop(&wait_filter_data, s->id);
 
 		smtp_filter_rollback(s);
 		smtp_queue_rollback(s);
@@ -2581,7 +2584,7 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 			s->rcvcount++;
 		if (s->rcvcount == MAX_HOPS_COUNT) {
 			s->msgflags |= MF_ERROR_LOOP;
-			log_warn("warn: loop detected");
+			log_warnx("warn: loop detected");
 			return;
 		}
 
