@@ -207,8 +207,13 @@ time_to_text(time_t when)
 	if (lt == NULL || when == 0)
 		fatalx("time_to_text: localtime");
 
+#if HAVE_STRUCT_TM_TM_GMTOFF
 	offset = lt->tm_gmtoff;
 	tz = lt->tm_zone;
+#elif defined HAVE_DECL_ALTZONE && defined HAVE_DECL_TIMEZONE
+	offset = lt->tm_isdst > 0 ? altzone : timezone;
+	tz = lt->tm_isdst > 0 ? tzname[1] : tzname[0];
+#endif
 
 	/* We do not use strftime because it is subject to locale substitution*/
 	if (!bsnprintf(buf, sizeof(buf),
