@@ -187,10 +187,10 @@ lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 	if (fflush(fp) != 0)
 		err(1, "fflush");
 
-    do {
-	if ((len = getline(buf, sz, fp)) == -1)
-		err(1, "getline");
-    } while((*buf)[3] != ' ');
+	do {
+		if ((len = getline(buf, sz, fp)) == -1)
+			err(1, "getline");
+	} while((*buf)[3] != ' ');
 
 	bufp = *buf;
 	if (len >= 2 && bufp[len - 2] == '\r')
