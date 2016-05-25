@@ -190,6 +190,8 @@ lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 	do {
 		if ((len = getline(buf, sz, fp)) == -1)
 			err(1, "getline");
+		if (len < 4)
+			errx(1, "Server response line too short");
 	} while((*buf)[3] != ' ');
 
 	bufp = *buf;
