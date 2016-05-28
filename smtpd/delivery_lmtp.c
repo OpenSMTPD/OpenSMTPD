@@ -197,7 +197,7 @@ lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 			errx(1, "Server response line too short");
 		if (continuations++ >= MAX_CONTINUATIONS)
 			errx(1, "Too many continuations in response");
-	} while((*buf)[3] != ' ');
+	} while((*buf)[3] == '-');
 
 	bufp = *buf;
 	if (len >= 2 && bufp[len - 2] == '\r')
