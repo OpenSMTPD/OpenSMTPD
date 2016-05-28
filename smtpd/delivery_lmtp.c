@@ -36,6 +36,8 @@
 
 #include "smtpd.h"
 
+#define MAX_CONTINUATIONS 20
+
 static int	inet_socket(char *);
 static int	lmtp_cmd(char **buf, size_t *, int, FILE *, const char *, ...)
 		    __attribute__((__format__ (printf, 5, 6)))
@@ -175,6 +177,7 @@ lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 	va_list	 ap;
 	char	*bufp;
 	ssize_t	 len;
+	unsigned int continuations = 0;
 
 	va_start(ap, fmt);
 	if (vfprintf(fp, fmt, ap) < 0)
@@ -192,6 +195,8 @@ lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 			err(1, "getline");
 		if (len < 4)
 			errx(1, "Server response line too short");
+		if (continuations++ >= MAX_CONTINUATIONS)
+			errx(1, "Too many continuations in response");
 	} while((*buf)[3] != ' ');
 
 	bufp = *buf;
