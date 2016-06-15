@@ -1,4 +1,4 @@
-/* $OpenBSD: delivery_lmtp.c,v 1.15 2015/12/14 10:22:11 jung Exp $ */
+/* $OpenBSD: delivery_lmtp.c,v 1.17 2016/06/05 12:10:28 gilles Exp $ */
 
 /*
  * Copyright (c) 2013 Ashish SHUKLA <ashish.is@lostca.se>
@@ -36,7 +36,11 @@
 
 #include "smtpd.h"
 
+/* should be more than enough for any LMTP server */
+#define	MAX_CONTINUATIONS	100
+
 static int	inet_socket(char *);
+static int	lmtp_banner(char **buf, size_t *, int, FILE *);
 static int	lmtp_cmd(char **buf, size_t *, int, FILE *, const char *, ...)
 		    __attribute__((__format__ (printf, 5, 6)))
 		    __attribute__((__nonnull__ (5)));
@@ -130,11 +134,8 @@ lmtp_open(struct deliver *deliver)
 	if ((fp = fdopen(s, "r+")) == NULL)
 		err(1, "fdopen");
 
-	if (getline(&buf, &sz, fp) == -1)
-		err(1, "getline");
-
-	if (buf[0] != '2')
-		errx(1, "Invalid LMTP greeting: %s", buf);
+	if (lmtp_banner(&buf, &sz, '2', fp) != 0)
+		errx(1, "Invalid LHLO reply: %s", buf);
 
 	if (gethostname(hn, sizeof hn) == -1)
 		err(1, "gethostname");
@@ -170,11 +171,47 @@ lmtp_open(struct deliver *deliver)
 }
 
 static int
+lmtp_banner(char **buf, size_t *sz, int code, FILE *fp)
+{
+	char	*bufp;
+	ssize_t	 len;
+	size_t	 counter;
+
+	counter = 0;
+	do {
+		if ((len = getline(buf, sz, fp)) == -1)
+			err(1, "getline");
+		if (len < 4)
+			err(1, "line too short");
+
+		bufp = *buf;
+		if (len >= 2 && bufp[len - 2] == '\r')
+			bufp[len - 2] = '\0';
+		else if (bufp[len - 1] == '\n')
+			bufp[len - 1] = '\0';
+
+		if (bufp[3] == '\0' || bufp[3] == ' ')
+			break;
+		else if (bufp[3] == '-') {
+			if (counter == MAX_CONTINUATIONS)
+				errx(1, "LMTP server is sending too many continuations");
+			counter++;
+			continue;
+		}
+		else
+			errx(1, "invalid line");
+	} while (1);
+
+	return bufp[0] != code;
+}
+
+static int
 lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 {
 	va_list	 ap;
 	char	*bufp;
 	ssize_t	 len;
+	size_t	 counter;
 
 	va_start(ap, fmt);
 	if (vfprintf(fp, fmt, ap) < 0)
@@ -187,14 +224,30 @@ lmtp_cmd(char **buf, size_t *sz, int code, FILE *fp, const char *fmt, ...)
 	if (fflush(fp) != 0)
 		err(1, "fflush");
 
-	if ((len = getline(buf, sz, fp)) == -1)
-		err(1, "getline");
+	counter = 0;
+	do {
+		if ((len = getline(buf, sz, fp)) == -1)
+			err(1, "getline");
+		if (len < 4)
+			err(1, "line too short");
 
-	bufp = *buf;
-	if (len >= 2 && bufp[len - 2] == '\r')
-		bufp[len - 2] = '\0';
-	else if (bufp[len - 1] == '\n')
-		bufp[len - 1] = '\0';
+		bufp = *buf;
+		if (len >= 2 && bufp[len - 2] == '\r')
+			bufp[len - 2] = '\0';
+		else if (bufp[len - 1] == '\n')
+			bufp[len - 1] = '\0';
+
+		if (bufp[3] == '\0' || bufp[3] == ' ')
+			break;
+		else if (bufp[3] == '-') {
+			if (counter == MAX_CONTINUATIONS)
+				errx(1, "LMTP server is sending too many continuations");
+			counter++;
+			continue;
+		}
+		else
+			errx(1, "invalid line");
+	} while (1);
 
 	return bufp[0] != code;
 }
