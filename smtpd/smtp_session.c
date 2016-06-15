@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.272 2016/05/22 16:31:21 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.274 2016/06/15 19:56:07 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1206,7 +1206,7 @@ smtp_filter_fd(uint64_t id, int fd)
 	if (s->flags & SF_SECURE) {
 		x = SSL_get_peer_certificate(s->io.ssl);
 		iobuf_fqueue(&s->obuf,
-		    "\n\tTLS version=%s cipher=%s bits=%d verify=%s",
+		    " (%s:%s:%d:%s)",
 		    SSL_get_version(s->io.ssl),
 		    SSL_get_cipher_name(s->io.ssl),
 		    SSL_get_cipher_bits(s->io.ssl, NULL),
@@ -1260,7 +1260,7 @@ smtp_io(struct io *io, int evt)
 	switch (evt) {
 
 	case IO_TLSREADY:
-		log_info("%016"PRIx64" smtp event=starttls ciphers=%s",
+		log_info("%016"PRIx64" smtp event=starttls ciphers=\"%s\"",
 		    s->id, ssl_to_text(s->io.ssl));
 
 		s->flags |= SF_SECURE;
@@ -1285,7 +1285,7 @@ smtp_io(struct io *io, int evt)
 		x = SSL_get_peer_certificate(s->io.ssl);
 		if (x) {
 			log_info("%016"PRIx64" smtp "
-			    "event=client-cert-check result=%s",
+			    "event=client-cert-check result=\"%s\"",
 			    s->id,
 			    (s->flags & SF_VERIFIED) ? "success" : "failure");
 			X509_free(x);
@@ -1404,7 +1404,7 @@ smtp_io(struct io *io, int evt)
 		break;
 
 	case IO_ERROR:
-		log_info("%016"PRIx64" smtp event=closed reason=io-error: %s",
+		log_info("%016"PRIx64" smtp event=closed reason=\"io-error: %s\"",
 		    s->id, io->error);
 		smtp_free(s, "IO error");
 		break;
@@ -2185,7 +2185,7 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	case '4':
 		if (s->flags & SF_BADINPUT) {
 			log_info("%016"PRIx64" smtp "
-			    "event=bad-input result=%.*s",
+			    "event=bad-input result=\"%.*s\"",
 			    s->id, n, buf);
 		}
 		else if (s->state == STATE_AUTH_INIT) {
@@ -2203,7 +2203,7 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 		else {
 			strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
 			log_info("%016"PRIx64" smtp "
-			    "event=failed-command command=%s result=%.*s",
+			    "event=failed-command command=\"%s\" result=\"%.*s\"",
 			    s->id, tmp, n, buf);
 		}
 		break;
