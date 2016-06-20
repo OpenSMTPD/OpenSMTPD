@@ -448,10 +448,6 @@ AC_SEARCH_LIBS([crypt],
 
 
 AC_CHECK_FUNCS([ \
-	arc4random \
-	arc4random_buf \
-	arc4random_stir \
-	arc4random_uniform \
 	asprintf \
 	b64_ntop \
 	__b64_ntop \
@@ -981,6 +977,8 @@ AC_ARG_WITH([auth-pam],
 )
 AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
 AC_SUBST([USE_PAM_SERVICE])
+
+AC_CHECK_FUNCS([arc4random arc4random_buf arc4random_stir arc4random_uniform])
 
 # Check for older PAM
 if test "x$PAM_MSG" = "xyes" ; then
