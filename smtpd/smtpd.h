@@ -18,6 +18,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <event.h>
+
+#include			 <imsg.h>
+
+#include			 "openbsd-compat.h"
+
 #ifndef nitems
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
@@ -36,9 +42,14 @@
 	   	    (expected_sz), (imsg)->hdr.len - IMSG_HEADER_SIZE);	\
 } while (0)
 
-#define CONF_FILE		 "/etc/mail/smtpd.conf"
-#define MAILNAME_FILE		 "/etc/mail/mailname"
-#define CA_FILE			 "/etc/ssl/cert.pem"
+#ifndef SMTPD_CONFDIR
+#define SMTPD_CONFDIR		 "/etc"
+#endif
+#define CONF_FILE		 SMTPD_CONFDIR "/smtpd.conf"
+#define MAILNAME_FILE		 SMTPD_CONFDIR "/mailname"
+#ifndef CA_FILE
+#define CA_FILE                  "/etc/ssl/cert.pem"
+#endif
 
 #define PROC_COUNT		 7
 
@@ -50,19 +61,34 @@
 #define	EXPAND_BUFFER		 1024
 
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
-#define SMTPD_SOCKET		 "/var/run/smtpd.sock"
+#ifndef SMTPD_USER
+#define SMTPD_USER		 "_smtpd"
+#endif
+#ifndef SMTPD_QUEUE_USER
+#define SMTPD_QUEUE_USER	 "_smtpq"
+#endif
+#ifndef SMTPD_SOCKDIR
+#define SMTPD_SOCKDIR		 "/var/run"
+#endif
+#define SMTPD_SOCKET		 SMTPD_SOCKDIR "/smtpd.sock"
+#ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
-#define	SMTPD_VERSION		 "5.9.1"
+#endif
+#define	SMTPD_VERSION		 "5.9.1p1"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
+#ifndef PATH_SMTPCTL
 #define	PATH_SMTPCTL		"/usr/sbin/smtpctl"
+#endif
 
 #define PATH_OFFLINE		"/offline"
 #define PATH_PURGE		"/purge"
 #define PATH_TEMPORARY		"/temporary"
 
+#ifndef	PATH_LIBEXEC
 #define	PATH_LIBEXEC		"/usr/local/libexec/smtpd"
+#endif
 
 
 /*

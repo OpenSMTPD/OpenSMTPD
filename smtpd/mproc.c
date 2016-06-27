@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
@@ -61,8 +63,7 @@ mproc_fork(struct mproc *p, const char *path, char *argv[])
 	if (p->pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		execv(path, argv);
 		err(1, "execv: %s", path);
@@ -641,7 +642,7 @@ m_add_msgid(struct mproc *m, uint32_t v)
 void
 m_add_sockaddr(struct mproc *m, const struct sockaddr *sa)
 {
-	m_add_typed_sized(m, M_SOCKADDR, sa, sa->sa_len);
+	m_add_typed_sized(m, M_SOCKADDR, sa, SA_LEN(sa));
 }
 
 void

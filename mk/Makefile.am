@@ -1,0 +1,2 @@
+SUBDIRS =	smtpd
+SUBDIRS	+=	smtpctl

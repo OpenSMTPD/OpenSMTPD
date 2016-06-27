@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -26,7 +28,9 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#ifdef HAVE_PATHS_H
 #include <paths.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +40,9 @@
 #include "smtpd.h"
 #include "log.h"
 
+#ifndef PATH_MAILLOCAL
 #define	PATH_MAILLOCAL	"/usr/libexec/mail.local"
+#endif
 
 extern char	**environ;
 

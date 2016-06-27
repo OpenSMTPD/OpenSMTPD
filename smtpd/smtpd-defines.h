@@ -31,11 +31,21 @@
 /* buffer size for virtual username (can be email addresses) */
 #define	SMTPD_VUSERNAME_SIZE	 (255 + 1)
 
+#ifndef SMTPD_USER
 #define SMTPD_USER		"_smtpd"
+#endif
+#ifndef PATH_CHROOT
 #define PATH_CHROOT		"/var/empty"
+#endif
+#ifndef SMTPD_QUEUE_USER
 #define SMTPD_QUEUE_USER	"_smtpq"
+#endif
+#ifndef SMTPD_QUEUE_GROUP
 #define SMTPD_QUEUE_GROUP	"_smtpq"
+#endif
+#ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
+#endif
 
 #define TAG_CHAR		'+'
 

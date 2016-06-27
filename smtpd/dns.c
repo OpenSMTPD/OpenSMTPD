@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
@@ -31,6 +33,8 @@
 
 #include <asr.h>
 #include <event.h>
+#include <netdb.h>
+#include <resolv.h>
 #include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +43,11 @@
 
 #include "smtpd.h"
 #include "log.h"
+
+/* On OpenBSD, this function is not needed because we don't free addrinfo */
+#if defined(NOOP_ASR_FREEADDRINFO)
+#define asr_freeaddrinfo(x)	do { } while(0);
+#endif
 
 struct dns_lookup {
 	struct dns_session	*session;
@@ -216,7 +225,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		sa = (struct sockaddr *)&ss;
 		m_get_sockaddr(&m, sa);
 		m_end(&m);
-		as = getnameinfo_async(sa, sa->sa_len, s->name, sizeof(s->name),
+		as = getnameinfo_async(sa, SA_LEN(sa), s->name, sizeof(s->name),
 		    NULL, 0, 0, NULL);
 		event_asr_run(as, dns_dispatch_ptr, s);
 		return;
@@ -302,7 +311,7 @@ dns_dispatch_host(struct asr_result *ar, void *arg)
 	}
 	free(lookup);
 	if (ar->ar_addrinfo)
-		freeaddrinfo(ar->ar_addrinfo);
+		asr_freeaddrinfo(ar->ar_addrinfo);
 
 	if (ar->ar_gai_errno)
 		s->error = ar->ar_gai_errno;

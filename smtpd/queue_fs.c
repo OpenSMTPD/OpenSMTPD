@@ -16,12 +16,19 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
+#if HAVE_SYS_MOUNT_H
 #include <sys/mount.h>
+#endif
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
 
 #include <ctype.h>
 #include <dirent.h>
@@ -489,6 +496,7 @@ queue_fs_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 static int
 fsqueue_check_space(void)
 {
+#ifdef __OpenBSD__
 	struct statfs	buf;
 	uint64_t	used;
 	uint64_t	total;
@@ -532,7 +540,7 @@ fsqueue_check_space(void)
 		log_warnx("warn: temporarily rejecting messages");
 		return 0;
 	}
-
+#endif
 	return 1;
 }
 
@@ -704,7 +712,12 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 				break;
 			if (e->fts_namelen != 16)
 				break;
+#if HAVE_STRUCT_STAT_ST_MTIM
 			if (timespeccmp(&e->fts_statp->st_mtim, &startup, >))
+#endif
+#if HAVE_STRUCT_STAT_ST_MTIMSPEC
+			if (timespeccmp(&e->fts_statp->st_mtimspec, &startup, >))
+#endif
 				break;
 			tmp = NULL;
 			*evpid = strtoull(e->fts_name, &tmp, 16);

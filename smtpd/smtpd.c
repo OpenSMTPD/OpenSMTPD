@@ -18,6 +18,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
+#include <sys/file.h> /* Needed for flock */
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -27,26 +30,52 @@
 #include <sys/uio.h>
 #include <sys/mman.h>
 
+#ifdef BSD_AUTH
 #include <bsd_auth.h>
+#endif
+
+#ifdef USE_PAM
+#if defined(HAVE_SECURITY_PAM_APPL_H)
+#include <security/pam_appl.h>
+#elif defined (HAVE_PAM_PAM_APPL_H)
+#include <pam/pam_appl.h>
+#endif
+#endif
+
+#ifdef HAVE_CRYPT_H
+#include <crypt.h> /* needed for crypt() */
+#endif
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <grp.h> /* needed for setgroups */
 #include <fts.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <libgen.h>
+#ifdef HAVE_LOGIN_CAP_H
 #include <login_cap.h>
+#endif
+#ifdef HAVE_PATHS_H
 #include <paths.h>
+#endif
 #include <poll.h>
 #include <pwd.h>
 #include <signal.h>
+#ifdef HAVE_SHADOW_H
+#include <shadow.h> /* needed for getspnam() */
+#endif
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef HAVE_UTIL_H
+#include <util.h>
+#endif
 
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
@@ -54,6 +83,8 @@
 #include "smtpd.h"
 #include "log.h"
 #include "ssl.h"
+
+extern char *__progname;
 
 #define SMTPD_MAXARG 32
 
@@ -146,6 +177,10 @@ int	foreground_log = 0;
 int	control_socket = -1;
 
 struct tree	 children;
+
+/* Saved arguments to main(). */
+char **saved_argv;
+int saved_argc;
 
 static void
 parent_imsg(struct mproc *p, struct imsg *imsg)
@@ -459,6 +494,21 @@ main(int argc, char *argv[])
 	char		*rexec = NULL;
 	struct smtpd	 conf;
 
+	__progname = ssh_get_progname(argv[0]);
+
+	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
+	saved_argc = argc;
+	saved_argv = __xcalloc(argc + 1, sizeof(*saved_argv));
+	for (i = 0; i < argc; i++)
+		saved_argv[i] = __xstrdup(argv[i]);
+	saved_argv[i] = NULL;
+
+#ifndef HAVE_SETPROCTITLE
+	/* Prepare for later setproctitle emulation */
+	compat_init_setproctitle(argc, argv);
+	argv = saved_argv;
+#endif
+
 	env = &conf;
 
 	flags = 0;
@@ -588,17 +638,21 @@ main(int argc, char *argv[])
 	if (parse_config(&conf, conffile, opts))
 		exit(1);
 
+	seed_rng();
+
 	if (strlcpy(env->sc_conffile, conffile, PATH_MAX)
 	    >= PATH_MAX)
 		errx(1, "config file exceeds PATH_MAX");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
+#ifdef HAVE_GCM_CRYPTO
 		if (env->sc_queue_key &&
 		    crypto_setup(env->sc_queue_key,
 		    strlen(env->sc_queue_key)) == 0) {
 			fatalx("crypto_setup:"
 			    "invalid key for queue encryption");
 		}
+#endif
 		load_pki_tree();
 		load_pki_keys();
 		fprintf(stderr, "configuration OK\n");
@@ -1051,6 +1105,9 @@ smtpd(void) {
 	offline_timeout.tv_usec = 0;
 	evtimer_add(&offline_ev, &offline_timeout);
 
+	if (pidfile(NULL) < 0)
+		err(1, "pidfile");
+
 	purge_task();
 
 	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
@@ -1149,8 +1206,7 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	if (pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
-			exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		if (procname == NULL)
 			procname = name;
@@ -1317,8 +1373,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	    dup2(allout, STDOUT_FILENO) < 0 ||
 	    dup2(allout, STDERR_FILENO) < 0)
 		err(1, "forkmda: dup2");
-	if (closefrom(STDERR_FILENO + 1) < 0)
-		err(1, "closefrom");
+	closefrom(STDERR_FILENO + 1);
 	if (setsid() < 0)
 		err(1, "setsid");
 	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
@@ -1429,8 +1484,7 @@ offline_enqueue(char *name)
 		ssize_t	 len;
 		arglist	 args;
 
-		if (closefrom(STDERR_FILENO + 1) == -1)
-			_exit(1);
+		closefrom(STDERR_FILENO + 1);
 
 		memset(&args, 0, sizeof(args));
 
@@ -1466,6 +1520,8 @@ offline_enqueue(char *name)
 		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 			_exit(1);
+
+		closefrom(STDERR_FILENO + 1);
 
 		if ((fp = fdopen(fd, "r")) == NULL)
 			_exit(1);
@@ -1875,8 +1931,9 @@ imsg_to_str(int type)
 	}
 }
 
+#ifdef BSD_AUTH
 int
-parent_auth_user(const char *username, const char *password)
+parent_auth_bsd(const char *username, const char *password)
 {
 	char	user[LOGIN_NAME_MAX];
 	char	pass[LINE_MAX];
@@ -1889,4 +1946,114 @@ parent_auth_user(const char *username, const char *password)
 	if (ret)
 		return LKA_OK;
 	return LKA_PERMFAIL;
+}
+#endif
+
+#ifdef USE_PAM
+int 
+pam_conv_password(int num_msg, const struct pam_message **msg,
+    struct pam_response **respp, const char *password)
+{
+	struct pam_response *response;
+
+	if (num_msg != 1)
+		return PAM_CONV_ERR;
+
+	response = calloc(1, sizeof(struct pam_response));
+	if (response == NULL || (response->resp = strdup(password)) == NULL) {
+		free(response);
+		return PAM_BUF_ERR;
+	}
+
+	*respp = response;
+	return PAM_SUCCESS;
+}
+int
+parent_auth_pam(const char *username, const char *password)
+{
+	int rc;
+	pam_handle_t *pamh = NULL;
+	struct pam_conv conv = { pam_conv_password, password };
+
+	if ((rc = pam_start(USE_PAM_SERVICE, username, &conv, &pamh)) != PAM_SUCCESS)
+		goto end;
+	if ((rc = pam_authenticate(pamh, 0)) != PAM_SUCCESS)
+		goto end;
+	if ((rc = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS)
+		goto end;
+
+end:
+	pam_end(pamh, rc);
+	
+	switch (rc) {
+		case PAM_SUCCESS:
+			return LKA_OK;
+		case PAM_SYSTEM_ERR:
+		case PAM_ABORT:
+		case PAM_AUTHINFO_UNAVAIL:
+			return LKA_TEMPFAIL;
+		default:
+			return LKA_PERMFAIL;
+	}
+}
+#endif
+
+#ifdef HAVE_GETSPNAM
+int
+parent_auth_getspnam(const char *username, const char *password)
+{
+       struct spwd *pw;
+
+       errno = 0;
+       do {
+               pw = getspnam(username);
+       } while (pw == NULL && errno == EINTR);
+
+       if (pw == NULL) {
+               if (errno)
+                       return LKA_TEMPFAIL;
+               return LKA_PERMFAIL;
+       }
+
+       if (strcmp(pw->sp_pwdp, crypt(password, pw->sp_pwdp)) == 0)
+               return LKA_OK;
+
+       return LKA_PERMFAIL;
+}
+#endif
+
+int
+parent_auth_pwd(const char *username, const char *password)
+{
+       struct passwd *pw;
+
+       errno = 0;
+       do {
+               pw = getpwnam(username);
+       } while (pw == NULL && errno == EINTR);
+
+       if (pw == NULL) {
+               if (errno)
+                       return LKA_TEMPFAIL;
+               return LKA_PERMFAIL;
+       }
+
+       if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
+               return LKA_OK;
+
+       return LKA_PERMFAIL;
+}
+
+int
+parent_auth_user(const char *username, const char *password)
+{
+#if defined(BSD_AUTH)
+	return (parent_auth_bsd(username, password));
+#elif defined(USE_PAM)
+	return (parent_auth_pam(username, password));
+#elif defined(HAVE_GETSPNAM)
+	return (parent_auth_getspnam(username, password));
+#else
+	return (parent_auth_pwd(username, password));
+#endif
 }

@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/queue.h>
@@ -24,8 +26,13 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+#ifdef HAVE_DB_H
 #include <db.h>
+#elif defined(HAVE_DB1_DB_H)
+#include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
 #include <ctype.h>
 #include <err.h>
 #include <event.h>

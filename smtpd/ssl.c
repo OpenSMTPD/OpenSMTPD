@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -85,7 +87,7 @@ ssl_setup(SSL_CTX **ctxp, struct pki *pki,
 	if (sni_cb)
 		SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
 
-	SSL_CTX_set_dh_auto(ctx, pki->pki_dhe);
+	SSL_CTX_set_dh_auto(ctx, 0);
 
 	SSL_CTX_set_ecdh_auto(ctx, 1);
 

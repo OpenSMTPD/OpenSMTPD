@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -254,6 +256,7 @@ queue_message_commit(uint32_t msgid)
 		}
 	}
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		bsnprintf(tmppath, sizeof tmppath, "%s.enc", msgpath);
 		ifp = fopen(msgpath, "r");
@@ -275,6 +278,7 @@ queue_message_commit(uint32_t msgid)
 			return (0);
 		}
 	}
+#endif
 
 	r = handler_message_commit(msgid, msgpath);
 	profile_leave();
@@ -334,6 +338,7 @@ queue_message_fd_r(uint32_t msgid)
 	if (fdin == -1)
 		return (-1);
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		if ((fdout = mktmpfile()) == -1)
 			goto err;
@@ -355,6 +360,7 @@ queue_message_fd_r(uint32_t msgid)
 		ofp = NULL;
 		lseek(fdin, SEEK_SET, 0);
 	}
+#endif
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		if ((fdout = mktmpfile()) == -1)
@@ -411,8 +417,10 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t	evplen;
 	size_t	complen;
 	char	compbuf[sizeof(struct envelope)];
+#ifdef HAVE_GCM_CRYPTO
 	size_t	enclen;
 	char	encbuf[sizeof(struct envelope)];
+#endif
 
 	evp = evpbuf;
 	evplen = envelope_dump_buffer(ep, evpbuf, evpbufsize);
@@ -427,6 +435,7 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evplen = complen;
 	}
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		enclen = crypto_encrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
 		if (enclen == 0)
@@ -434,6 +443,7 @@ queue_envelope_dump_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evp = encbuf;
 		evplen = enclen;
 	}
+#endif
 
 	memmove(evpbuf, evp, evplen);
 
@@ -447,12 +457,15 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	size_t		 evplen;
 	char		 compbuf[sizeof(struct envelope)];
 	size_t		 complen;
+#ifdef HAVE_GCM_CRYPTO
 	char		 encbuf[sizeof(struct envelope)];
 	size_t		 enclen;
+#endif
 
 	evp = evpbuf;
 	evplen = evpbufsize;
 
+#ifdef HAVE_GCM_CRYPTO
 	if (env->sc_queue_flags & QUEUE_ENCRYPTION) {
 		enclen = crypto_decrypt_buffer(evp, evplen, encbuf, sizeof encbuf);
 		if (enclen == 0)
@@ -460,6 +473,7 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 		evp = encbuf;
 		evplen = enclen;
 	}
+#endif
 
 	if (env->sc_queue_flags & QUEUE_COMPRESSION) {
 		complen = uncompress_chunk(evp, evplen, compbuf, sizeof compbuf);

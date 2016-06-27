@@ -17,6 +17,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h> /* Needed for flock */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/tree.h>
@@ -24,7 +29,13 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
+#ifdef HAVE_DB_H
 #include <db.h>
+#elif defined(HAVE_DB1_DB_H)
+#include <db1/db.h>
+#elif defined(HAVE_DB_185_H)
+#include <db_185.h>
+#endif
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -35,12 +46,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#ifdef HAVE_UTIL_H
 #include <util.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#include <libutil.h>
+#endif
 
 #include "smtpd.h"
 #include "log.h"
 
-#define	PATH_ALIASES	"/etc/mail/aliases"
+#define	PATH_ALIASES	SMTPD_CONFDIR "/aliases"
 
 static void	 usage(void);
 static int	 parse_map(DB *, int *, char *);

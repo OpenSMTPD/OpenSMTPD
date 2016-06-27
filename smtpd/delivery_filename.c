@@ -16,6 +16,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h> /* Needed for flock */
+#endif
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -28,7 +33,9 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#ifdef HAVE_PATHS_H
 #include <paths.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,7 +78,11 @@ delivery_filename_open(struct deliver *deliver)
 		error("open");
 	if (fstat(fd, &sb) < 0)
 		error("fstat");
+#ifndef HAVE_STAT_ST_FLAGS
 	if (S_ISREG(sb.st_mode) && flock(fd, LOCK_EX) < 0)
+#else
+	if (S_ISREG(sb.st_flags) && flock(fd, LOCK_EX) < 0)
+#endif
 		error("flock");
 	fp = fdopen(fd, "a");
 	if (fp == NULL)

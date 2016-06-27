@@ -17,6 +17,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -45,7 +47,9 @@
 struct table_backend *table_backend_lookup(const char *);
 
 extern struct table_backend table_backend_static;
+#ifdef HAVE_DB_API
 extern struct table_backend table_backend_db;
+#endif
 extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_proc;
 
@@ -61,8 +65,10 @@ table_backend_lookup(const char *backend)
 {
 	if (!strcmp(backend, "static") || !strcmp(backend, "file"))
 		return &table_backend_static;
+#ifdef HAVE_DB_API
 	if (!strcmp(backend, "db"))
 		return &table_backend_db;
+#endif
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
 	if (!strcmp(backend, "proc"))
@@ -75,8 +81,10 @@ table_backend_name(struct table_backend *backend)
 {
 	if (backend == &table_backend_static)
 		return "static";
+#ifdef HAVE_DB_API
 	if (backend == &table_backend_db)
 		return "db";
+#endif
 	if (backend == &table_backend_getpwnam)
 		return "getpwnam";
 	if (backend == &table_backend_proc)
@@ -393,7 +401,7 @@ table_netaddr_match(const char *s1, const char *s2)
 		return 0;
 	if (n1.ss.ss_family != n2.ss.ss_family)
 		return 0;
-	if (n1.ss.ss_len != n2.ss.ss_len)
+	if (SS_LEN(&n1.ss) != SS_LEN(&n2.ss))
 		return 0;
 	return table_match_mask(&n1.ss, &n2);
 }
@@ -726,7 +734,9 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 
 		sin = (struct sockaddr_in *)sa;
 		memset(sin, 0, sizeof *sin);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sin->sin_len = sizeof(struct sockaddr_in);
+#endif
 		sin->sin_family = PF_INET;
 		sin->sin_addr.s_addr = ina.s_addr;
 		return (0);
@@ -751,7 +761,9 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 
 		sin6 = (struct sockaddr_in6 *)sa;
 		memset(sin6, 0, sizeof *sin6);
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 		sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 		sin6->sin6_family = PF_INET6;
 		sin6->sin6_addr = in6a;
 
@@ -760,7 +772,7 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 
 		if (IN6_IS_ADDR_LINKLOCAL(&in6a) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(&in6a) ||
-		    IN6_IS_ADDR_MC_INTFACELOCAL(&in6a))
+		    IN6_IS_ADDR_MC_NODELOCAL(&in6a))
 			if ((sin6->sin6_scope_id = if_nametoindex(cp)))
 				return (0);
 

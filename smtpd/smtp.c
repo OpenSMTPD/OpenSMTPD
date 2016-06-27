@@ -18,6 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
@@ -26,6 +28,7 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -52,6 +55,8 @@ static void smtp_setup_listeners(void);
 static int smtp_sni_callback(SSL *, int *, void *);
 
 #define	SMTP_FD_RESERVE	5
+#define	getdtablecount()	0
+
 static size_t	sessions;
 static size_t	maxsessions;
 
@@ -146,10 +151,26 @@ smtp_setup_listeners(void)
 			fatal("smtpd: socket");
 		}
 		opt = 1;
+#ifdef SO_REUSEADDR
 		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
 			sizeof(opt)) < 0)
 			fatal("smtpd: setsockopt");
-		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
+#else
+		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEPORT, &opt,
+			sizeof(opt)) < 0)
+			fatal("smtpd: setsockopt");
+#endif
+#ifdef IPV6_V6ONLY
+		/*
+		 * If using IPv6, bind only to IPv6 if possible.
+		 * This avoids ambiguities with IPv4-mapped IPv6 addresses.
+		 */
+		if (l->ss.ss_family == AF_INET6)
+			if (setsockopt(l->fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt,
+				sizeof(opt)) < 0)
+				fatal("smtpd: setsockopt");
+#endif
+		if (bind(l->fd, (struct sockaddr *)&l->ss, SS_LEN(&l->ss)) == -1)
 			fatal("smtpd: bind");
 	}
 }
@@ -326,6 +347,7 @@ smtp_collect(void)
 static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
+#if defined(HAVE_TLSEXT_SERVERNAME)
 	const char		*sn;
 	void			*ssl_ctx;
 
@@ -337,4 +359,8 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 		return SSL_TLSEXT_ERR_NOACK;
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
+#else
+	/* ssl_smtp_init should have ignored the callback if SNI is not supported */
+	fatalx("unxepected call to smtp_sni_callback()");
+#endif /* defined(HAVE_TLSEXT_SERVERNAME) */
 }
