@@ -462,6 +462,7 @@ AC_CHECK_FUNCS([ \
 	explicit_bzero \
 	fchflags \
 	fgetln \
+	flock \
 	freeaddrinfo \
 	getaddrinfo \
 	getnameinfo \
