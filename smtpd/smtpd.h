@@ -52,9 +52,7 @@
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #define	SMTPD_NAME		 "OpenSMTPD"
-#ifndef SMTPD_VERSION
-#define	SMTPD_VERSION		 "5.9.1"
-#endif
+#define	SMTPD_VERSION		 "master"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
