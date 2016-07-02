@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.278 2016/06/29 06:46:06 eric Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.283 2016/07/02 09:32:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -113,12 +113,14 @@ struct smtp_rcpt {
 
 struct smtp_tx {
 	struct smtp_session	*session;
+	uint32_t		 msgid;
 
 	struct envelope		 evp;
 	size_t			 rcptcount;
 	size_t			 destcount;
 	TAILQ_HEAD(, smtp_rcpt)	 rcpts;
 
+	size_t			 datain;
 	size_t			 odatalen;
 	struct iobuf		 obuf;
 	struct io		 oev;
@@ -152,9 +154,6 @@ struct smtp_session {
 	char			 username[SMTPD_MAXMAILADDRSIZE];
 
 	size_t			 mailcount;
-
-	size_t			 datain;
-
 	struct event		 pause;
 
 	struct smtp_tx		*tx;
@@ -694,7 +693,7 @@ smtp_session(struct listener *listener, int sock,
 	rfc2822_body_callback(&s->tx->rfc2822_parser,
 	    dataline_callback, s);
 
-	if (hostname || listener->local || listener->port == 587) {
+	if (listener->local || listener->port == 587) {
 		rfc2822_missing_header_callback(&s->tx->rfc2822_parser, "date",
 		    header_missing_callback, s);
 		rfc2822_missing_header_callback(&s->tx->rfc2822_parser, "message-id",
@@ -824,6 +823,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		s = tree_xpop(&wait_queue_msg, reqid);
 		if (success) {
 			m_get_msgid(&m, &msgid);
+			s->tx->msgid = msgid;
 			s->tx->evp.id = msgid_to_evpid(msgid);
 			s->tx->rcptcount = 0;
 			s->phase = PHASE_TRANSACTION;
@@ -927,13 +927,13 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		smtp_filter_tx_commit(s);
 		smtp_reply(s, "250 %s: %08x Message accepted for delivery",
 		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS),
-		    evpid_to_msgid(s->tx->evp.id));
+		    s->tx->msgid);
 
 		TAILQ_FOREACH(rcpt, &s->tx->rcpts, entry) {
 			log_info("%016"PRIx64" smtp event=message msgid=%08x "
 			    "from=<%s%s%s> to=<%s%s%s> size=%zu ndest=%zu proto=%s",
 			    s->id,
-			    evpid_to_msgid(s->tx->evp.id),
+			    s->tx->msgid,
 			    s->tx->evp.sender.user,
 			    s->tx->evp.sender.user[0] == '\0' ? "" : "@",
 			    s->tx->evp.sender.domain,
@@ -1098,7 +1098,7 @@ smtp_filter_response(uint64_t id, int query, int status, uint32_t code,
 		smtp_reply(s, "250%c%s Hello %s [%s], pleased to meet you",
 		    (s->flags & SF_EHLO) ? '-' : ' ',
 		    s->smtpname,
-		    s->tx->evp.helo,
+		    s->helo,
 		    ss_to_text(&s->ss));
 
 		if (s->flags & SF_EHLO) {
@@ -1214,7 +1214,7 @@ smtp_filter_fd(uint64_t id, int fd)
 	iobuf_fqueue(&s->tx->obuf, "Received: ");
 	if (!(s->listener->flags & F_MASK_SOURCE)) {
 		iobuf_fqueue(&s->tx->obuf, "from %s (%s [%s])",
-		    s->tx->evp.helo,
+		    s->helo,
 		    s->hostname,
 		    ss_to_text(&s->ss));
 	}
@@ -1224,7 +1224,7 @@ smtp_filter_fd(uint64_t id, int fd)
 	    s->flags & SF_EHLO ? "E" : "",
 	    s->flags & SF_SECURE ? "S" : "",
 	    s->flags & SF_AUTHENTICATED ? "A" : "",
-	    evpid_to_msgid(s->tx->evp.id));
+	    s->tx->msgid);
 
 	if (s->flags & SF_SECURE) {
 		x = SSL_get_peer_certificate(s->io.ssl);
@@ -1252,10 +1252,6 @@ smtp_filter_fd(uint64_t id, int fd)
 
 	iobuf_fqueue(&s->tx->obuf, ";\n\t%s\n", time_to_text(time(NULL)));
 
-	/*
-	 * XXX This is not exactly fair, since this is not really
-	 * user data.
-	 */
 	s->tx->odatalen = iobuf_queued(&s->tx->obuf);
 
 	io_set_write(&s->tx->oev);
@@ -1788,7 +1784,7 @@ smtp_command(struct smtp_session *s, char *line)
 
 		if (s->flags & SF_FILTERTX)
 			smtp_filter_tx_rollback(s);
-		if (s->tx->evp.id)
+		if (s->tx->msgid)
 			smtp_queue_rollback(s);
 
 		smtp_filter_rset(s);
@@ -2164,11 +2160,12 @@ smtp_message_reset(struct smtp_session *s, int prepare)
 		free(rcpt);
 	}
 
+	s->tx->msgid = 0;
 	memset(&s->tx->evp, 0, sizeof s->tx->evp);
 	s->tx->msgflags = 0;
 	s->tx->destcount = 0;
 	s->tx->rcptcount = 0;
-	s->datain = 0;
+	s->tx->datain = 0;
 	s->tx->odatalen = 0;
 	s->tx->dataeom = 0;
 	s->tx->rcvcount = 0;
@@ -2269,7 +2266,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 
 	tree_pop(&wait_filter_data, s->id);
 
-	if (s->tx->evp.id) {
+	if (s->tx->msgid) {
 		smtp_queue_rollback(s);
 		io_clear(&s->tx->oev);
 		iobuf_clear(&s->tx->obuf);
@@ -2512,7 +2509,7 @@ smtp_queue_open_message(struct smtp_session *s)
 {
 	m_create(p_queue, IMSG_SMTP_MESSAGE_OPEN, 0, 0, -1);
 	m_add_id(p_queue, s->id);
-	m_add_msgid(p_queue, evpid_to_msgid(s->tx->evp.id));
+	m_add_msgid(p_queue, s->tx->msgid);
 	m_close(p_queue);
 	tree_xset(&wait_queue_fd, s->id, s);
 }
@@ -2522,7 +2519,7 @@ smtp_queue_commit(struct smtp_session *s)
 {
 	m_create(p_queue, IMSG_SMTP_MESSAGE_COMMIT, 0, 0, -1);
 	m_add_id(p_queue, s->id);
-	m_add_msgid(p_queue, evpid_to_msgid(s->tx->evp.id));
+	m_add_msgid(p_queue, s->tx->msgid);
 	m_close(p_queue);
 	tree_xset(&wait_queue_commit, s->id, s);
 }
@@ -2531,7 +2528,7 @@ static void
 smtp_queue_rollback(struct smtp_session *s)
 {
 	m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
-	m_add_msgid(p_queue, evpid_to_msgid(s->tx->evp.id));
+	m_add_msgid(p_queue, s->tx->msgid);
 	m_close(p_queue);
 }
 
@@ -2631,8 +2628,8 @@ smtp_filter_dataline(struct smtp_session *s, const char *line)
 		line += 1;
 
 	/* account for newline */
-	s->datain += strlen(line) + 1;
-	if (s->datain > env->sc_maxsize) {
+	s->tx->datain += strlen(line) + 1;
+	if (s->tx->datain > env->sc_maxsize) {
 		s->tx->msgflags |= MF_ERROR_SIZE;
 		return;
 	}

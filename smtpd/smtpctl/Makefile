@@ -2,8 +2,6 @@
 
 .PATH:		${.CURDIR}/..
 
-OPENBSD_VERSION!=	uname -r
-
 PROG=	smtpctl
 BINOWN=	root
 BINGRP=	_smtpq
@@ -21,9 +19,6 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare
 CFLAGS+=	-Werror-implicit-function-declaration
 CFLAGS+=	-DNO_IO
-.if ${OPENBSD_VERSION} == "5.7" || ${OPENBSD_VERSION} == "5.8"
-CFLAGS+=	-D"pledge(promises, paths)=0"
-.endif
 
 SRCS=	enqueue.c
 SRCS+=	parser.c
