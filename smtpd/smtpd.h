@@ -74,9 +74,7 @@
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#ifndef SMTPD_VERSION
-#define	SMTPD_VERSION		 "5.9.1p1"
-#endif
+#define	SMTPD_VERSION		 "portable"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
