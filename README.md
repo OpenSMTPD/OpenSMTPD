@@ -87,6 +87,41 @@ Install
     sudo make install
 
 
+Setup historical interface
+-------
+
+OpenSMTPD provides a single utility `smtpctl` to control the daemon and
+the local submission subsystem.
+
+To accomodate systems that require historical interfaces such as `sendmail`,
+`newaliases` or `makemap`, the `smtpctl` utility can operate in compatibility
+mode if called with the historical name.
+
+On mailwrapper-enabled systems, this is achieved by editing /etc/mailer.conf
+and adding the following lines:
+
+    sendmail        /usr/sbin/smtpctl
+    send-mail       /usr/sbin/smtpctl
+    mailq           /usr/sbin/smtpctl
+    makemap         /usr/sbin/smtpctl
+    newaliases      /usr/sbin/smtpctl
+
+
+Whereas on systems that don't provide mailwrapper, it can be achieved by
+setting the appropriate symbolic links:
+
+    ln -s /usr/sbin/smtpctl sendmail
+    ln -s /usr/sbin/smtpctl send-mail
+    ln -s /usr/sbin/smtpctl mailq
+    ln -s /usr/sbin/smtpctl makemap
+    ln -s /usr/sbin/smtpctl newaliases
+
+
+The OpenSMTPD project leaves it up to the package maintainers to setup the
+links in their packages as it is very hard for us to accomodate all systems
+with the prefered method in a clean way.
+
+
 Configure /etc/smtpd.conf
 -------------------------
 
