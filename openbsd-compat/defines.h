@@ -497,10 +497,6 @@ typedef uint16_t	in_port_t;
 #define FPARSELN_UNESCALL       0x0f
 #endif
 
-#ifndef _PATH_VARRUN
-#define _PATH_VARRUN "/var/run/"
-#endif
-
 #ifdef HAVE_M_DATA
 #undef M_DATA
 #endif
