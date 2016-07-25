@@ -1196,6 +1196,14 @@ AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"],
 AC_SUBST([sockdir])
 #l4470
 
+# Where to place smtpd.pid
+AC_ARG_WITH([path-pidfile],
+	[  --with-path-pidfile=PATH	Specify path to smtpd.pid directory (default=/var/run)],
+	[AS_IF([test "x$with_path-pidfile" != "xno" -a "x$with_path-pidfile" != "xyes"],
+		AC_DEFINE_UNQUOTED([_PATH_VARRUN], ["$with_path-pidfile"])
+       )]
+)
+
 CA_FILE=/etc/ssl/cert.pem
 AC_ARG_WITH([path-CAfile],
 	[  --with-path-CAfile=FILE	Specify path to CA certificate (default=/etc/ssl/cert.pem)],
