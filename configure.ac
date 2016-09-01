@@ -1200,7 +1200,7 @@ AC_SUBST([sockdir])
 AC_ARG_WITH([path-pidfile],
 	[  --with-path-pidfile=PATH	Specify path to smtpd.pid directory (default=/var/run)],
 	[AS_IF([test "x$with_path-pidfile" != "xno" -a "x$with_path-pidfile" != "xyes"],
-		AC_DEFINE_UNQUOTED([_PATH_VARRUN], ["$with_path-pidfile"])
+		AC_DEFINE_UNQUOTED([_PATH_VARRUN], ["$with_path-pidfile"], ["path to pidfile directory"])
        )]
 )
 
