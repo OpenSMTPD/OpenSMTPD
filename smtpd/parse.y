@@ -440,38 +440,6 @@ opt_sock_listen : FILTER STRING {
 				YYERROR;
 			}
 		}
-		| SENDERS tables	{
-			struct table	*t = $2;
-
-			if (listen_opts.options & LO_SENDERS) {
-				yyerror("senders already specified");
-				YYERROR;
-			}
-			listen_opts.options |= LO_SENDERS;
-
-			if (!table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
-				yyerror("invalid use of table \"%s\" as "
-				    "SENDERS parameter", t->t_name);
-				YYERROR;
-			}
-			listen_opts.sendertable = t;
-		}
-		| SENDERS tables MASQUERADE	{
-			struct table	*t = $2;
-
-			if (listen_opts.options & LO_SENDERS) {
-				yyerror("senders already specified");
-				YYERROR;
-			}
-			listen_opts.options |= LO_SENDERS|LO_MASQUERADE;
-
-			if (!table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
-				yyerror("invalid use of table \"%s\" as "
-				    "SENDERS parameter", t->t_name);
-				YYERROR;
-			}
-			listen_opts.sendertable = t;
-		}
 		;
 
 opt_if_listen : INET4 {
