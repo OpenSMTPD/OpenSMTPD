@@ -1,4 +1,4 @@
-/*	$OpenBSD: mproc.c,v 1.20 2016/06/06 20:48:15 eric Exp $	*/
+/*	$OpenBSD: mproc.c,v 1.22 2016/09/01 10:07:20 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
@@ -175,7 +175,6 @@ mproc_dispatch(int fd, short event, void *arg)
 			p->handler(p, NULL);
 			return;
 		default:
-			p->bytes_in += n;
 			break;
 		}
 	}
@@ -190,9 +189,6 @@ mproc_dispatch(int fd, short event, void *arg)
 				    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
-		} else if (n != -1) {
-			p->bytes_out += n;
-			p->bytes_queued -= n;
 		}
 	}
 
@@ -213,16 +209,10 @@ mproc_dispatch(int fd, short event, void *arg)
 		if (n == 0)
 			break;
 
-		p->msg_in += 1;
 		p->handler(p, &imsg);
 
 		imsg_free(&imsg);
 	}
-
-#if 0
-	if (smtpd_process == PROC_QUEUE)
-		queue_flow_control();
-#endif
 
 	mproc_event_add(p);
 }
@@ -333,11 +323,6 @@ m_forward(struct mproc *p, struct imsg *imsg)
 		    imsg->hdr.len - sizeof(imsg->hdr),
 		    imsg_to_str(imsg->hdr.type));
 
-	p->msg_out += 1;
-	p->bytes_queued += imsg->hdr.len;
-	if (p->bytes_queued > p->bytes_queued_max)
-		p->bytes_queued_max = p->bytes_queued;
-
 	mproc_event_add(p);
 }
 
@@ -355,11 +340,6 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 		    len,
 		    imsg_to_str(type));
 
-	p->msg_out += 1;
-	p->bytes_queued += len + IMSG_HEADER_SIZE;
-	if (p->bytes_queued > p->bytes_queued_max)
-		p->bytes_queued_max = p->bytes_queued;
-
 	mproc_event_add(p);
 }
 
@@ -375,11 +355,6 @@ m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
 	len = 0;
 	for (i = 0; i < n; i++)
 		len += iov[i].iov_len;
-
-	p->msg_out += 1;
-	p->bytes_queued += IMSG_HEADER_SIZE + len;
-	if (p->bytes_queued > p->bytes_queued_max)
-		p->bytes_queued_max = p->bytes_queued;
 
 	if (type != IMSG_STAT_DECREMENT &&
 	    type != IMSG_STAT_INCREMENT)
@@ -458,11 +433,6 @@ m_close(struct mproc *p)
 		    p->m_pos,
 		    imsg_to_str(p->m_type));
 
-	p->msg_out += 1;
-	p->bytes_queued += p->m_pos + IMSG_HEADER_SIZE;
-	if (p->bytes_queued > p->bytes_queued_max)
-		p->bytes_queued_max = p->bytes_queued;
-
 	mproc_event_add(p);
 }
 
@@ -479,7 +449,6 @@ m_flush(struct mproc *p)
 	    p->m_pos,
 	    imsg_to_str(p->m_type));
 
-	p->msg_out += 1;
 	p->m_pos = 0;
 
 	imsg_flush(&p->imsgbuf);

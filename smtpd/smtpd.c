@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.279 2016/06/20 20:26:04 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.281 2016/09/01 10:07:20 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -602,8 +602,6 @@ main(int argc, char *argv[])
 				profiling |= PROFILE_IMSG;
 			else if (!strcmp(optarg, "profile-queue"))
 				profiling |= PROFILE_QUEUE;
-			else if (!strcmp(optarg, "profile-buffers"))
-				profiling |= PROFILE_BUFFERS;
 			else
 				log_warnx("warn: unknown trace flag \"%s\"",
 				    optarg);
@@ -763,7 +761,7 @@ main(int argc, char *argv[])
 		setup_done(p_queue);
 		setup_done(p_scheduler);
 
-		log_info("smtpd: setup done");
+		log_debug("smtpd: setup done");
 
 		return smtpd();
 	}
@@ -925,7 +923,7 @@ setup_done(struct mproc *p)
 	if (imsg.hdr.type != IMSG_SETUP_DONE)
 		fatalx("expect IMSG_SETUP_DONE");
 
-	log_info("setup_done: %s[%d] done", p->name, p->pid);
+	log_debug("setup_done: %s[%d] done", p->name, p->pid);
 
 	imsg_free(&imsg);
 }
@@ -974,7 +972,7 @@ setup_proc(void)
 	if (imsg_flush(ibuf) == -1)
 		fatal("imsg_flush");
 
-	log_info("setup_proc: %s done", proc_title(smtpd_process));
+	log_debug("setup_proc: %s done", proc_title(smtpd_process));
 }
 
 static struct mproc *
@@ -982,7 +980,7 @@ setup_peer(enum smtp_proc_type proc, pid_t pid, int sock)
 {
 	struct mproc *p, **pp;
 
-	log_info("setup_peer: %s -> %s[%u] fd=%d", proc_title(smtpd_process),
+	log_debug("setup_peer: %s -> %s[%u] fd=%d", proc_title(smtpd_process),
 	    proc_title(proc), pid, sock);
 
 	if (sock == -1)
