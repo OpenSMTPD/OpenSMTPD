@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.161 2016/05/19 08:21:23 gilles Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.165 2016/08/31 16:39:24 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: May 19 2016 $
+.Dd $Mdocdate: August 31 2016 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -82,7 +82,14 @@ the default action is to reject the message.
 An exclamation mark may be specified to perform a reverse match.
 .Pp
 Following the accept/reject
-decision comes the optional tag matching:
+decision comes the matching of optional session related properties:
+.Bl -tag -width Ds
+.It Ic authenticated
+If specified, the rule will only be matched if the client session was
+authenticated either by requesting authentication over the network or
+because the message was submitted over the local enqueuer.
+.El
+.Pp
 .Bl -tag -width Ds
 .It Xo
 .Ic tagged
@@ -899,6 +906,19 @@ utility.
 .Pp
 Queue encryption can be used with queue compression and will always
 perform compression before encryption.
+.It Ic subaddressing-delimiter Ar delimiter
+Redefine the subaddressing delimiter from the default
+.Sq +
+to
+.Ar delimiter .
+.Pp
+Any printable character valid in an email address is allowed,
+except spaces and
+.Sq @ .
+.Pp
+The first character in the user-part of an email address that matches
+.Ar delimiter
+is considered to be the subaddressing delimiter.
 .It Ic table Ar name Oo Ar type : Oc Ns Ar config
 Tables are used to provide additional configuration information for
 .Xr smtpd 8

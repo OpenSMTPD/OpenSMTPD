@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.186 2016/07/01 17:53:23 eric Exp $	*/
+/*	$OpenBSD: parse.y,v 1.189 2016/08/31 15:24:04 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -178,7 +178,7 @@ typedef struct {
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHE
 %token	AUTH_OPTIONAL TLS_REQUIRE USERBASE SENDER SENDERS MASK_SOURCE VERIFY FORWARDONLY RECIPIENT
-%token	CIPHERS RECEIVEDAUTH MASQUERADE SOCKET
+%token	CIPHERS RECEIVEDAUTH MASQUERADE SOCKET SUBADDRESSING_DELIM AUTHENTICATED
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
@@ -269,6 +269,11 @@ tagged		: TAGGED negation STRING       		{
 			}
 			free($3);
 			rule->r_nottag = $2;
+		}
+		;
+
+authenticated  	: AUTHENTICATED	{
+			rule->r_wantauth = 1;
 		}
 		;
 
@@ -434,6 +439,38 @@ opt_sock_listen : FILTER STRING {
 			if (config_lo_mask_source(&listen_opts)) {
 				YYERROR;
 			}
+		}
+		| SENDERS tables	{
+			struct table	*t = $2;
+
+			if (listen_opts.options & LO_SENDERS) {
+				yyerror("senders already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_SENDERS;
+
+			if (!table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "SENDERS parameter", t->t_name);
+				YYERROR;
+			}
+			listen_opts.sendertable = t;
+		}
+		| SENDERS tables MASQUERADE	{
+			struct table	*t = $2;
+
+			if (listen_opts.options & LO_SENDERS) {
+				yyerror("senders already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_SENDERS|LO_MASQUERADE;
+
+			if (!table_check_use(t, T_DYNAMIC|T_HASH, K_MAILADDRMAP)) {
+				yyerror("invalid use of table \"%s\" as "
+				    "SENDERS parameter", t->t_name);
+				YYERROR;
+			}
+			listen_opts.sendertable = t;
 		}
 		;
 
@@ -848,6 +885,21 @@ relay_via	: opt_relay_common relay_via
 main		: BOUNCEWARN {
 			memset(conf->sc_bounce_warn, 0, sizeof conf->sc_bounce_warn);
 		} bouncedelays
+		| SUBADDRESSING_DELIM STRING {
+			if (strlen($2) != 1) {
+				yyerror("subaddressing-delimiter must be one character");
+				free($2);
+				YYERROR;
+			}
+
+			if (isspace((int)*$2) ||  !isprint((int)*$2) || *$2== '@') {
+				yyerror("subaddressing-delimiter uses invalid character");
+				free($2);
+				YYERROR;
+			}
+
+			conf->sc_subaddressing_delim = $2;
+		}
 		| QUEUE COMPRESSION {
 			conf->sc_queue_flags |= QUEUE_COMPRESSION;
 		}
@@ -958,7 +1010,7 @@ main		: BOUNCEWARN {
 			}
 		} ca
 		| CIPHERS STRING {
-			env->sc_tls_ciphers = $2;
+			conf->sc_tls_ciphers = $2;
 		}
 		;
 
@@ -1362,6 +1414,7 @@ opt_decision	: sender
 		| from
 		| for
 		| tagged
+		| authenticated
 		;
 decision	: opt_decision decision
 		|
@@ -1472,6 +1525,7 @@ lookup(char *s)
 		{ "as",			AS },
 		{ "auth",		AUTH },
 		{ "auth-optional",     	AUTH_OPTIONAL },
+		{ "authenticated",     	AUTHENTICATED },
 		{ "backup",		BACKUP },
 		{ "bounce-warn",	BOUNCEWARN },
 		{ "ca",			CA },
@@ -1523,6 +1577,7 @@ lookup(char *s)
 		{ "smtps",		SMTPS },
 		{ "socket",		SOCKET },
 		{ "source",		SOURCE },
+		{ "subaddressing-delimiter",	SUBADDRESSING_DELIM },
 		{ "table",		TABLE },
 		{ "tag",		TAG },
 		{ "tagged",		TAGGED },
@@ -1877,6 +1932,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	(void)strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
 
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
+	conf->sc_subaddressing_delim = SUBADDRESSING_DELIMITER;
 
 	conf->sc_tables_dict = calloc(1, sizeof(*conf->sc_tables_dict));
 	conf->sc_rules = calloc(1, sizeof(*conf->sc_rules));
