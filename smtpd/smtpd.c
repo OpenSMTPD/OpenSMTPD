@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.279 2016/06/20 20:26:04 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.281 2016/09/01 10:07:20 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -552,8 +552,6 @@ main(int argc, char *argv[])
 				profiling |= PROFILE_IMSG;
 			else if (!strcmp(optarg, "profile-queue"))
 				profiling |= PROFILE_QUEUE;
-			else if (!strcmp(optarg, "profile-buffers"))
-				profiling |= PROFILE_BUFFERS;
 			else
 				log_warnx("warn: unknown trace flag \"%s\"",
 				    optarg);
