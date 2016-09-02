@@ -509,6 +509,10 @@ main(int argc, char *argv[])
 	argv = saved_argv;
 #endif
 
+	/* this is to work around GNU getopt + portable setproctitle() fuckery */
+	save_argc = saved_argc;
+	save_argv = saved_argv;
+
 	env = &conf;
 
 	flags = 0;
