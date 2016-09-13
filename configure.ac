@@ -1197,12 +1197,50 @@ AC_SUBST([sockdir])
 #l4470
 
 # Where to place smtpd.pid
-AC_ARG_WITH([path-pidfile],
-	[  --with-path-pidfile=PATH	Specify path to smtpd.pid directory (default=/var/run)],
-	[AS_IF([test "x$with_path-pidfile" != "xno" -a "x$with_path-pidfile" != "xyes"],
-		AC_DEFINE_UNQUOTED([_PATH_VARRUN], ["$with_path-pidfile"], ["path to pidfile directory"])
-       )]
+piddir=/var/run
+AC_RUN_IFELSE(
+	[
+		AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <stdlib.h>
+#ifdef HAVE_PATHS_H
+#include <paths.h>
+#endif
+#define DATA "conftest.piddir"
+		]],
+		[[
+#ifdef _PATH_VARRUN
+FILE *fd;
+int rc;
+
+if ((fd = fopen(DATA,"w")) == NULL) { exit(1); }
+if ((rc = fprintf(fd ,"%s\n", _PATH_VARRUN)) < 0) { exit(2); }
+exit(0);
+#else
+exit(-1);
+#endif
+		]])
+	],		[
+		piddir=`cat conftest.piddir`
+		AC_MSG_RESULT([using $piddir from paths.h])
+	],
+	[
+		AC_MSG_RESULT([using $piddir from default value])
+	]
 )
+
+AC_ARG_WITH([path-pidfile],
+	[  --with-path-pidfile=PATH  Specify path to smtpd.pid directory (default=/var/run)],
+	[
+		if test -n "$withval" && test "x$withval" != "xno" && \
+			test "x${withval}" != "xyes"; then
+			piddir=$withval
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([SMTPD_PIDDIR], ["$piddir"], [Specify location of smtpd.pid])
+AC_SUBST([piddir])
 
 CA_FILE=/etc/ssl/cert.pem
 AC_ARG_WITH([path-CAfile],
@@ -2095,6 +2133,7 @@ H=`eval echo ${sockdir}` ; H=`eval echo ${H}`
 I=`eval echo ${PRIVSEP_PATH}` ; I=`eval echo ${I}`
 J=`eval echo ${user_path}` ; J=`eval echo ${J}`
 K=`eval echo ${superuser_path}` ; K=`eval echo ${K}`
+L=`eval echo ${piddir}` ; L=`eval echo ${L}`
 
 echo ""
 echo "OpenSMTPD has been configured with the following options:"
@@ -2105,6 +2144,7 @@ echo "                mail.local program: $E"
 echo "                   encrypt program: $F"
 echo "                      Manual pages: $G"
 echo "                    smtpd.sock dir: $H"
+echo "                     smtpd.pid dir: $L"
 echo "  Privilege separation chroot path: $I"
 echo "                    Manpage format: $MANTYPE"
 echo "                Package libexecdir: ${pkglibexecdir}"
