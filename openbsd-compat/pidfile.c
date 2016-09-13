@@ -63,8 +63,7 @@ pidfile(const char *basename)
 		pidfile_path = NULL;
 	}
 
-	/* SMTPD_PIDDIR includes trailing / */
-	(void) asprintf(&pidfile_path, "%s%s.pid", SMTPD_PIDDIR, basename);
+	(void) asprintf(&pidfile_path, "%s/%s.pid", SMTPD_PIDDIR, basename);
 	if (pidfile_path == NULL)
 		return (-1);
 
