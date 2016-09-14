@@ -37,9 +37,6 @@
 
 #include <sys/param.h>
 #include <errno.h>
-#ifdef HAVE_PATHS_H
-#include <paths.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -66,8 +63,7 @@ pidfile(const char *basename)
 		pidfile_path = NULL;
 	}
 
-	/* _PATH_VARRUN includes trailing / */
-	(void) asprintf(&pidfile_path, "%s%s.pid", _PATH_VARRUN, basename);
+	(void) asprintf(&pidfile_path, "%s/%s.pid", SMTPD_PIDDIR, basename);
 	if (pidfile_path == NULL)
 		return (-1);
 
