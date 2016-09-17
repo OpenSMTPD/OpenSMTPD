@@ -216,6 +216,10 @@ void errc(int, int, const char *, ...);
 #define AF_LOCAL AF_UNIX
 #endif
 
+#if !HAVE_DECL_PF_LOCAL
+#define PF_LOCAL PF_UNIX
+#endif
+
 #if !HAVE_DECL_WAIT_MYPGRP
 #define WAIT_MYPGRP 0
 #endif

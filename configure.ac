@@ -346,7 +346,7 @@ AC_CHECK_DECLS([O_NONBLOCK], [], [], [
 #endif
 ])
 
-AC_CHECK_DECLS([AF_LOCAL], [], [], [
+AC_CHECK_DECLS([AF_LOCAL, PF_LOCAL], [], [], [
 #include <sys/socket.h>
 ])
 
