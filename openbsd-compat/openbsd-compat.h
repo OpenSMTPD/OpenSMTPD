@@ -212,11 +212,11 @@ void errc(int, int, const char *, ...);
 #define pledge(promises, paths) 0
 #endif
 
-#ifndef HAVE_DECL_AF_LOCAL
+#if !HAVE_DECL_AF_LOCAL
 #define AF_LOCAL AF_UNIX
 #endif
 
-#ifndef HAVE_DECL_WAIT_MYPGRP
+#if !HAVE_DECL_WAIT_MYPGRP
 #define WAIT_MYPGRP 0
 #endif
 
