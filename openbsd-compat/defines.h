@@ -85,7 +85,7 @@
 # define STDERR_FILENO   2
 #endif
 
-#if defined(HAVE_DECL_O_NONBLOCK) && HAVE_DECL_O_NONBLOCK == 0
+#if !HAVE_DECL_O_NONBLOCK
 # define O_NONBLOCK      00004	/* Non Blocking Open */
 #endif
 
