@@ -426,8 +426,10 @@ queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
 
 	(void)snprintf(msgid_str, sizeof msgid_str, "%08" PRIx32, msgid);
 	while ((dp = readdir(dir)) != NULL) {
+#if defined(HAVE_STRUCT_DIR_D_TYPE)
 		if (dp->d_type != DT_REG)
 			continue;
+#endif
 
 		/* ignore files other than envelopes */
 		if (strlen(dp->d_name) != 16 ||
