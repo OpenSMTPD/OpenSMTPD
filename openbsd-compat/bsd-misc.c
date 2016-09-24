@@ -58,7 +58,7 @@ char *ssh_get_progname(char *argv0)
 	else
 		p++;
 
-	return (xstrdup(p));
+	return __xstrdup(p);
 #endif
 }
 
