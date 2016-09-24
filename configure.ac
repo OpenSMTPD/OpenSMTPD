@@ -371,6 +371,14 @@ AC_CHECK_DECLS([writev], [], [], [
 AC_C_INLINE
 
 
+AC_ARG_WITH([libs],
+	[  --with-libs			Specify additional libraries to link with],
+	[
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
+			LIBS="$LIBS $withval"
+		fi
+	]
+)
 #
 # CHECKS FOR LIBRARY FUNCTIONS
 #
@@ -704,14 +712,6 @@ AC_ARG_WITH([ldflags],
 	[
 		if test -n "$withval" -a "$withval" != "xno" -a "${withval}" != "yes"; then
 			LDFLAGS="$LDFLAGS $withval"
-		fi
-	]
-)
-AC_ARG_WITH([libs],
-	[  --with-libs			Specify additional libraries to link with],
-	[
-		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
-			LIBS="$LIBS $withval"
 		fi
 	]
 )
