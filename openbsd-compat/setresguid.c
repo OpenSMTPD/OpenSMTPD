@@ -15,7 +15,7 @@
  */
 
 #include "includes.h"
-
+#include <unistd.h>
 
 #ifndef HAVE_SETRESGID
 int setresgid(uid_t rgid, uid_t egid, uid_t sgid)
