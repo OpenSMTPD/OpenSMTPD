@@ -26,6 +26,9 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef HAVE_EXPLICIT_BZERO
+#include <strings.h>
+#endif
 #include <unistd.h>
 
 #include "imsg.h"
