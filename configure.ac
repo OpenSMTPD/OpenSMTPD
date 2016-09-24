@@ -1762,7 +1762,7 @@ AC_RUN_IFELSE(
 	if(fd == NULL)
 		exit(1);
 
-	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
+	if ((rc = fprintf(fd ,"%lx (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
 		exit(1);
 
 	exit(0);
@@ -1798,7 +1798,7 @@ AC_RUN_IFELSE(
 	if(fd == NULL)
 		exit(1);
 
-	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
+	if ((rc = fprintf(fd ,"%lx (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
 		exit(1);
 
 	exit(0);
