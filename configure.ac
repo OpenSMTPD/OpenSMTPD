@@ -332,6 +332,10 @@ AC_CHECK_MEMBERS(
   [ #include <time.h> ]
 )
 
+AC_CHECK_MEMBERS([struct DIR.d_type], [], [], [
+#include <sys/types.h>
+#include <dirent.h>
+])
 
 #
 # CHECKS FOR DECLARATIONS
