@@ -227,4 +227,12 @@ void errc(int, int, const char *, ...);
 #ifndef HAVE_FLOCK
 int flock(int, int);
 #endif
+
+#ifndef HAVE_SETRESGID
+int setresgid(uid_t, uid_t, uid_t);
+#endif
+
+#ifndef HAVE_SETRESUID
+int setresuid(uid_t, uid_t, uid_t);
+#endif
 #endif /* _OPENBSD_COMPAT_H */
