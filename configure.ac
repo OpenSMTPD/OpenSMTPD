@@ -319,17 +319,15 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 #include <sys/socket.h>
 ])
 
-AC_CHECK_MEMBERS(
-  [struct tm.tm_gmtoff, struct tm.tm_zone], 
-  [], 
-  [
-    AC_CHECK_DECLS([timezone, altzone, tzname], 
-      [], 
-      [ AC_MSG_ERROR([cannot find timezone])], 
-      [ #include <time.h> ]
-    )
-  ], 
-  [ #include <time.h> ]
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff, struct tm.tm_zone], [], 
+	[
+		AC_CHECK_DECLS([timezone, altzone, tzname], 
+			[], 
+			[ AC_MSG_ERROR([cannot find timezone])], 
+			[ #include <time.h> ]
+		)
+	], 
+	[ #include <time.h> ]
 )
 
 AC_CHECK_MEMBERS([struct DIR.d_type], [], [], [
@@ -382,81 +380,132 @@ AC_ARG_WITH([libs],
 #
 # CHECKS FOR LIBRARY FUNCTIONS
 #
+BASENAME_SUPPORT=no
 AC_SEARCH_LIBS([basename],
 	[gen],
-	[AC_DEFINE([HAVE_BASENAME],
-		[1], [Define if you have the basename() function.])])
+	[
+		AC_DEFINE([HAVE_BASENAME], [1], 
+			[Define if you have the basename() function.])
+		BASENAME_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_BASENAME], [test $BASENAME_SUPPORT = yes])
 
+UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
 	[c89],
-	[AC_DEFINE([HAVE_UTIMES],
-		[1], [Define if you have the utimes() function.])])
+	[
+		AC_DEFINE([HAVE_UTIMES],
+			[1], [Define if you have the utimes() function.])
+		UTIMES_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_UTIMES], [test $UTIMES_SUPPORT = yes])
 
+FMT_SCALED_SUPPORT=no
 AC_SEARCH_LIBS([fmt_scaled],
 	[util bsd],
-	[AC_DEFINE([HAVE_FMT_SCALED],
-		[1],
-		[Define if you have the fmt_scaled() function.])])
+	[
+		AC_DEFINE([HAVE_FMT_SCALED], [1],
+			[Define if you have the fmt_scaled() function.])
+		FMT_SCALED_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FMT_SCALED], [test $FMT_SCALED_SUPPORT = yes])
 
+DIRNAME_SUPPORT=no
 AC_SEARCH_LIBS([dirname],
 	[gen],
-	[AC_DEFINE([HAVE_DIRNAME],
-		[1],
-		[Define if you have the dirname() function.])])
+	[
+		AC_DEFINE([HAVE_DIRNAME], [1],
+			[Define if you have the dirname() function.])
+		DIRNAME_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_DIRNAME], [test $DIRNAME_SUPPORT = yes])
 
+INET_NET_PTON_SUPPORT=no
 AC_SEARCH_LIBS([inet_net_pton],
 	[resolv],
-	[AC_DEFINE([HAVE_INET_NET_PTON],
-		[1],
-		[Define if you have the inet_net_pton() function.])])
+	[
+		AC_DEFINE([HAVE_INET_NET_PTON], [1],
+			[Define if you have the inet_net_pton() function.])
+		INET_NET_PTON_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_INET_NET_PTON], [test $INET_NET_PTON_SUPPORT = yes])
 
+CLOCK_GETTIME_SUPPORT=no
 AC_SEARCH_LIBS([clock_gettime],
 	[rt],
-	[AC_DEFINE([HAVE_CLOCK_GETTIME],
-		[1],
-		[Define if you have the clock_gettime() function.])])
+	[
+		AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
+			[Define if you have the clock_gettime() function.])
+		CLOCK_GETTIME_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CLOCK_GETTIME], [test $CLOCK_GETTIME_SUPPORT = yes])
 
+FTS_OPEN_SUPPORT=no
 AC_SEARCH_LIBS([fts_open],
 	[fts],
-	[AC_DEFINE([HAVE_FTS_OPEN],
-		[1],
-		[Define if you have the fts_open() function.])])
+	[
+		AC_DEFINE([HAVE_FTS_OPEN], [1],
+			[Define if you have the fts_open() function.])
+		FTS_OPEN_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FTS_OPEN], [test $FTS_OPEN_SUPPORT = yes])
 
 AC_SEARCH_LIBS([arc4random],
 	[crypto],
-	[AC_DEFINE([HAVE_ARC4RANDOM],
-		[1],
-		[Define if you have the arc4random() function.])])
+	[
+		AC_DEFINE([HAVE_ARC4RANDOM], [1],
+			[Define if you have the arc4random() function.])
+	])
 
+DAEMON_SUPPORT=no
 AC_SEARCH_LIBS([daemon],
 	[bsd],
-	[AC_DEFINE([HAVE_DAEMON],
-		[1],
-		[Define if you have the daemon() function.])])
+	[
+		AC_DEFINE([HAVE_DAEMON], [1],
+			[Define if you have the daemon() function.])
+		DAEMON_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_DAEMON], [test $DAEMON_SUPPORT = yes])
 
+FPARSELN_SUPPORT=no
 AC_SEARCH_LIBS([fparseln],
 	[util],
-	[AC_DEFINE([HAVE_FPARSELN],
-		[1],
-		[Define if you have the fparseln() function.])])
+	[
+		AC_DEFINE([HAVE_FPARSELN], [1],
+			[Define if you have the fparseln() function.])
+		FPARSELN_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FPARSELN], [test $FPARSELN_SUPPORT = yes])
 
+RES_9_B64_NTOP_SUPPORT=no
 AC_SEARCH_LIBS([res_9_b64_ntop],
 	[resolv],
-	[AC_DEFINE([HAVE_RES_9_B64_NTOP],
-		[1],
-		[Define if you have the res_9_b64_ntop() function.])])
+	[
+		AC_DEFINE([HAVE_RES_9_B64_NTOP], [1],
+			[Define if you have the res_9_b64_ntop() function.])
+		RES_9_B64_NTOP_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_RES_9_B64_NTOP], [test $RES_9_B64_NTOP_SUPPORT = yes])
 
+SETSOCKOPT_SUPPORT=no
 AC_SEARCH_LIBS([setsockopt],
 	[socket],
-	[AC_DEFINE([HAVE_SETSOCKOPT],
-		[1],
-		[Define if you have the setsockopt() function.])])
+	[
+		AC_DEFINE([HAVE_SETSOCKOPT], [1],
+			[Define if you have the setsockopt() function.])
+		SETSOCKOPT_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_SETSOCKOPT], [test $SETSOCKOPT_SUPPORT = yes])
 
+CRYPT_SUPPORT=no
 AC_SEARCH_LIBS([crypt],
 	[crypt],
-	[AC_DEFINE([HAVE_CRYPT],
-		[1],
-		[Define if you have the crypt() function.])])
+	[
+		AC_DEFINE([HAVE_CRYPT], [1],
+			[Define if you have the crypt() function.])
+		CRYPT_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
 
 AC_CHECK_FUNCS([ \
@@ -1223,7 +1272,7 @@ exit(-1);
 )
 
 AC_ARG_WITH([path-pidfile],
-	[  --with-path-pidfile=PATH  Specify path to smtpd.pid directory (default=/var/run)],
+	[  --with-path-pidfile=PATH	Specify path to smtpd.pid directory (default=/var/run)],
 	[
 		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			piddir=$withval
