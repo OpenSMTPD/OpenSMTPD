@@ -2007,6 +2007,7 @@ int
 parent_auth_getspnam(const char *username, const char *password)
 {
        struct spwd *pw;
+       char *ep;
 
        errno = 0;
        do {
@@ -2019,7 +2020,10 @@ parent_auth_getspnam(const char *username, const char *password)
                return LKA_PERMFAIL;
        }
 
-       if (strcmp(pw->sp_pwdp, crypt(password, pw->sp_pwdp)) == 0)
+       if ((ep = crypt(password, pw->sp_pwdp)) == NULL)
+	       return LKA_PERMFAIL;
+
+       if (strcmp(pw->sp_pwdp, ep) == 0)
                return LKA_OK;
 
        return LKA_PERMFAIL;
@@ -2030,6 +2034,7 @@ int
 parent_auth_pwd(const char *username, const char *password)
 {
        struct passwd *pw;
+       char *ep;
 
        errno = 0;
        do {
@@ -2042,7 +2047,10 @@ parent_auth_pwd(const char *username, const char *password)
                return LKA_PERMFAIL;
        }
 
-       if (strcmp(pw->pw_passwd, crypt(password, pw->pw_passwd)) == 0)
+       if ((ep = crypt(password, pw->pw_passwd)) == NULL)
+	       return LKA_PERMFAIL;
+
+       if (strcmp(pw->pw_passwd, ep) == 0)
                return LKA_OK;
 
        return LKA_PERMFAIL;
