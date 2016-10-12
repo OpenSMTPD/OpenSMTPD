@@ -1346,6 +1346,8 @@ smtp_io(struct io *io, int evt)
 			s->tx->dataeom = 1;
 			if (iobuf_queued(&s->tx->obuf) == 0)
 				smtp_data_io_done(s);
+			else
+				io_reload(&s->tx->oev);
 			return;
 		}
 
