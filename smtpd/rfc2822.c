@@ -50,6 +50,9 @@ header_callback(struct rfc2822_parser *rp)
 	struct rfc2822_hdr_cb		*hdr_cb;
 	struct rfc2822_hdr_miss_cb	*hdr_miss_cb;
 
+	if (!rp->in_hdr)
+		goto end;
+
 	TAILQ_FOREACH(hdr_cb, &rp->hdr_cb, next)
 	    if (strcasecmp(hdr_cb->name, rp->header.name) == 0) {
 		    hdr_cb->func(&rp->header, hdr_cb->arg);
@@ -148,6 +151,8 @@ rfc2822_parser_flush(struct rfc2822_parser *rp)
 		return;
 
 	header_callback(rp);
+
+	missing_headers_callback(rp);
 }
 
 void
