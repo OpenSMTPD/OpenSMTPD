@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.53 2016/09/01 10:54:25 eric Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.55 2016/09/08 12:06:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -50,7 +50,6 @@
 
 static void scheduler_imsg(struct mproc *, struct imsg *);
 static void scheduler_shutdown(void);
-static void scheduler_sig_handler(int, short, void *);
 static void scheduler_reset_events(void);
 static void scheduler_timeout(int, short, void *);
 
@@ -77,6 +76,9 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 	size_t			 n, i;
 	time_t			 timestamp;
 	int			 v, r, type;
+
+	if (imsg == NULL)
+		scheduler_shutdown();
 
 	switch (imsg->hdr.type) {
 
@@ -407,22 +409,9 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 }
 
 static void
-scheduler_sig_handler(int sig, short event, void *p)
-{
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		scheduler_shutdown();
-		break;
-	default:
-		fatalx("scheduler_sig_handler: unexpected signal");
-	}
-}
-
-static void
 scheduler_shutdown(void)
 {
-	log_info("info: scheduler handler exiting");
+	log_debug("debug: scheduler agent exiting");
 	_exit(0);
 }
 
@@ -441,8 +430,6 @@ int
 scheduler(void)
 {
 	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
 
 	backend = scheduler_backend_lookup(backend_scheduler);
 	if (backend == NULL)
@@ -476,10 +463,8 @@ scheduler(void)
 	imsg_callback = scheduler_imsg;
 	event_init();
 
-	signal_set(&ev_sigint, SIGINT, scheduler_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, scheduler_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
@@ -492,9 +477,8 @@ scheduler(void)
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
 
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	scheduler_shutdown();
+	event_dispatch();
+	fatalx("exited event loop");
 
 	return (0);
 }
