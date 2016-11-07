@@ -1,4 +1,4 @@
-/*	$OpenBSD: rfc2822.c,v 1.8 2016/08/20 20:47:08 eric Exp $	*/
+/*	$OpenBSD: rfc2822.c,v 1.9 2016/10/13 15:47:32 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.282 2016/09/01 10:54:25 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.287 2016/10/19 14:06:07 jmc Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -60,7 +60,7 @@
 static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
 static int smtpd(void);
-static void parent_shutdown(int);
+static void parent_shutdown(void);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
 static void parent_send_config_pony(void);
@@ -162,8 +162,8 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 	int			 fd, n, v, ret;
 
 	if (imsg == NULL)
-		exit(1);
-	
+		fatalx("process %s socket closed", p->name);
+
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
 		case IMSG_LKA_OPEN_FORWARD:
@@ -257,10 +257,6 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			m_end(&m);
 			profiling = v;
 			return;
-
-		case IMSG_CTL_SHUTDOWN:
-			parent_shutdown(0);
-			return;
 		}
 	}
 
@@ -273,22 +269,22 @@ usage(void)
 {
 	extern char	*__progname;
 
-	fprintf(stderr, "usage: %s [-dhnv] [-D macro=value] "
+	fprintf(stderr, "usage: %s [-dFhnv] [-D macro=value] "
 	    "[-f file] [-P system] [-T trace]\n", __progname);
 	exit(1);
 }
 
 static void
-parent_shutdown(int ret)
+parent_shutdown(void)
 {
-	void		*iter;
-	struct child	*child;
-	pid_t		 pid;
+	pid_t pid;
 
-	iter = NULL;
-	while (tree_iter(&children, &iter, NULL, (void**)&child))
-		if (child->type == CHILD_DAEMON)
-			kill(child->pid, SIGTERM);
+	mproc_clear(p_ca);
+	mproc_clear(p_pony);
+	mproc_clear(p_control);
+	mproc_clear(p_lka);
+	mproc_clear(p_scheduler);
+	mproc_clear(p_queue);
 
 	do {
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
@@ -296,8 +292,8 @@ parent_shutdown(int ret)
 
 	unlink(SMTPD_SOCKET);
 
-	log_warnx("warn: parent terminating");
-	exit(ret);
+	log_info("Exiting");
+	exit(0);
 }
 
 static void
@@ -337,16 +333,17 @@ static void
 parent_sig_handler(int sig, short event, void *p)
 {
 	struct child	*child;
-	int		 die = 0, die_gracefully = 0, status, fail;
+	int		 status, fail;
 	pid_t		 pid;
 	char		*cause;
 
 	switch (sig) {
 	case SIGTERM:
 	case SIGINT:
-		log_info("info: %s, shutting down", strsignal(sig));
-		die_gracefully = 1;
-		/* FALLTHROUGH */
+		log_debug("debug: got signal %d", sig);
+		parent_shutdown();
+		/* NOT REACHED */
+
 	case SIGCHLD:
 		do {
 			int len;
@@ -383,7 +380,6 @@ parent_sig_handler(int sig, short event, void *p)
 
 			switch (child->type) {
 			case CHILD_DAEMON:
-				die = 1;
 				if (fail)
 					log_warnx("warn: lost child: %s %s",
 					    child->title, cause);
@@ -438,10 +434,6 @@ parent_sig_handler(int sig, short event, void *p)
 			free(cause);
 		} while (pid > 0 || (pid == -1 && errno == EINTR));
 
-		if (die)
-			parent_shutdown(1);
-		else if (die_gracefully)
-			parent_shutdown(0);
 		break;
 	default:
 		fatalx("smtpd: unexpected signal");
@@ -814,10 +806,11 @@ start_child(int save_argc, char **save_argv, char *rexec)
 		return p;
 	}
 
-	close(sp[1]);
-
 	if (dup2(sp[0], 3) == -1)
 		fatal("%s: dup2", rexec);
+
+	if (closefrom(4) == -1)
+		fatal("%s: closefrom", rexec);
 
 	for (argc = 0; argc < save_argc; argc++)
 		argv[argc] = save_argv[argc];
@@ -1054,8 +1047,8 @@ smtpd(void) {
 	    "getpw sendfd proc exec id inet unix", NULL) == -1)
 		err(1, "pledge");
 
-	if (event_dispatch() < 0)
-		fatal("smtpd: event_dispatch");
+	event_dispatch();
+	fatalx("exited event loop");
 
 	return (0);
 }
@@ -1600,7 +1593,7 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 	int		msg;
 
 	if (imsg == NULL) {
-		exit(1);
+		imsg_callback(p, imsg);
 		return;
 	}
 
@@ -1752,7 +1745,6 @@ imsg_to_str(int type)
 	CASE(IMSG_CTL_REMOVE);
 	CASE(IMSG_CTL_SCHEDULE);
 	CASE(IMSG_CTL_SHOW_STATUS);
-	CASE(IMSG_CTL_SHUTDOWN);
 	CASE(IMSG_CTL_TRACE_DISABLE);
 	CASE(IMSG_CTL_TRACE_ENABLE);
 	CASE(IMSG_CTL_UPDATE_TABLE);
