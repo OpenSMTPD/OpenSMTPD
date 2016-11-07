@@ -8,6 +8,7 @@
 #include "includes.h"
 
 #ifndef HAVE_EXPLICIT_BZERO
+#include <strings.h>
 
 /*
  * explicit_bzero - don't let the compiler optimize away bzero

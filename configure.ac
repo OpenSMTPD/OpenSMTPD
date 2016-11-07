@@ -45,7 +45,7 @@ AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
 LT_INIT
 
 # here we should test for variables set by libtool detection
-if test "x$with_pic" != "xno" ; then
+if test "x$with_pic" != "xno"; then
 	CFLAGS="$CFLAGS ${pic_flag}"
 fi
 
@@ -81,21 +81,21 @@ AC_PATH_PROG([NROFF], [nroff])
 AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 
-if test -z "$AR" ; then
+if test -z "$AR"; then
 	AC_MSG_ERROR([*** 'ar' missing, please install or fix your \$PATH ***])
 fi
 
-if test -z "$LD" ; then
+if test -z "$LD"; then
 	LD=$CC
 fi
 AC_SUBST([LD])
 
 dnl select manpage formatter
-if test "x$MANDOC" != "x" ; then
+if test -n "$MANDOC"; then
 	MANFMT="$MANDOC"
-elif test "x$NROFF" != "x" ; then
+elif test -n "$NROFF"; then
 	MANFMT="$NROFF -mandoc"
-elif test "x$GROFF" != "x" ; then
+elif test -n "$GROFF"; then
 	MANFMT="$GROFF -mandoc -Tascii"
 else
 	AC_MSG_WARN([no manpage formatted found])
@@ -319,19 +319,21 @@ AC_CHECK_MEMBERS([struct sockaddr_storage.__ss_family], [], [], [
 #include <sys/socket.h>
 ])
 
-AC_CHECK_MEMBERS(
-  [struct tm.tm_gmtoff, struct tm.tm_zone], 
-  [], 
-  [
-    AC_CHECK_DECLS([timezone, altzone, tzname], 
-      [], 
-      [ AC_MSG_ERROR([cannot find timezone])], 
-      [ #include <time.h> ]
-    )
-  ], 
-  [ #include <time.h> ]
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff, struct tm.tm_zone], [], 
+	[
+		AC_CHECK_DECLS([timezone, altzone, tzname], 
+			[], 
+			[ AC_MSG_ERROR([cannot find timezone])], 
+			[ #include <time.h> ]
+		)
+	], 
+	[ #include <time.h> ]
 )
 
+AC_CHECK_MEMBERS([struct DIR.d_type], [], [], [
+#include <sys/types.h>
+#include <dirent.h>
+])
 
 #
 # CHECKS FOR DECLARATIONS
@@ -346,7 +348,7 @@ AC_CHECK_DECLS([O_NONBLOCK], [], [], [
 #endif
 ])
 
-AC_CHECK_DECLS([AF_LOCAL], [], [], [
+AC_CHECK_DECLS([AF_LOCAL, PF_LOCAL], [], [], [
 #include <sys/socket.h>
 ])
 
@@ -367,84 +369,143 @@ AC_CHECK_DECLS([writev], [], [], [
 AC_C_INLINE
 
 
+AC_ARG_WITH([libs],
+	[  --with-libs			Specify additional libraries to link with],
+	[
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
+			LIBS="$LIBS $withval"
+		fi
+	]
+)
 #
 # CHECKS FOR LIBRARY FUNCTIONS
 #
+BASENAME_SUPPORT=no
 AC_SEARCH_LIBS([basename],
 	[gen],
-	[AC_DEFINE([HAVE_BASENAME],
-		[1], [Define if you have the basename() function.])])
+	[
+		AC_DEFINE([HAVE_BASENAME], [1], 
+			[Define if you have the basename() function.])
+		BASENAME_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_BASENAME], [test $BASENAME_SUPPORT = yes])
 
+UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
 	[c89],
-	[AC_DEFINE([HAVE_UTIMES],
-		[1], [Define if you have the utimes() function.])])
+	[
+		AC_DEFINE([HAVE_UTIMES],
+			[1], [Define if you have the utimes() function.])
+		UTIMES_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_UTIMES], [test $UTIMES_SUPPORT = yes])
 
+FMT_SCALED_SUPPORT=no
 AC_SEARCH_LIBS([fmt_scaled],
 	[util bsd],
-	[AC_DEFINE([HAVE_FMT_SCALED],
-		[1],
-		[Define if you have the fmt_scaled() function.])])
+	[
+		AC_DEFINE([HAVE_FMT_SCALED], [1],
+			[Define if you have the fmt_scaled() function.])
+		FMT_SCALED_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FMT_SCALED], [test $FMT_SCALED_SUPPORT = yes])
 
+DIRNAME_SUPPORT=no
 AC_SEARCH_LIBS([dirname],
 	[gen],
-	[AC_DEFINE([HAVE_DIRNAME],
-		[1],
-		[Define if you have the dirname() function.])])
+	[
+		AC_DEFINE([HAVE_DIRNAME], [1],
+			[Define if you have the dirname() function.])
+		DIRNAME_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_DIRNAME], [test $DIRNAME_SUPPORT = yes])
 
+INET_NET_PTON_SUPPORT=no
 AC_SEARCH_LIBS([inet_net_pton],
 	[resolv],
-	[AC_DEFINE([HAVE_INET_NET_PTON],
-		[1],
-		[Define if you have the inet_net_pton() function.])])
+	[
+		AC_DEFINE([HAVE_INET_NET_PTON], [1],
+			[Define if you have the inet_net_pton() function.])
+		INET_NET_PTON_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_INET_NET_PTON], [test $INET_NET_PTON_SUPPORT = yes])
 
+CLOCK_GETTIME_SUPPORT=no
 AC_SEARCH_LIBS([clock_gettime],
 	[rt],
-	[AC_DEFINE([HAVE_CLOCK_GETTIME],
-		[1],
-		[Define if you have the clock_gettime() function.])])
+	[
+		AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
+			[Define if you have the clock_gettime() function.])
+		CLOCK_GETTIME_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CLOCK_GETTIME], [test $CLOCK_GETTIME_SUPPORT = yes])
 
+FTS_OPEN_SUPPORT=no
 AC_SEARCH_LIBS([fts_open],
 	[fts],
-	[AC_DEFINE([HAVE_FTS_OPEN],
-		[1],
-		[Define if you have the fts_open() function.])])
+	[
+		AC_DEFINE([HAVE_FTS_OPEN], [1],
+			[Define if you have the fts_open() function.])
+		FTS_OPEN_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FTS_OPEN], [test $FTS_OPEN_SUPPORT = yes])
 
 AC_SEARCH_LIBS([arc4random],
 	[crypto],
-	[AC_DEFINE([HAVE_ARC4RANDOM],
-		[1],
-		[Define if you have the arc4random() function.])])
+	[
+		AC_DEFINE([HAVE_ARC4RANDOM], [1],
+			[Define if you have the arc4random() function.])
+	])
 
+DAEMON_SUPPORT=no
 AC_SEARCH_LIBS([daemon],
 	[bsd],
-	[AC_DEFINE([HAVE_DAEMON],
-		[1],
-		[Define if you have the daemon() function.])])
+	[
+		AC_DEFINE([HAVE_DAEMON], [1],
+			[Define if you have the daemon() function.])
+		DAEMON_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_DAEMON], [test $DAEMON_SUPPORT = yes])
 
+FPARSELN_SUPPORT=no
 AC_SEARCH_LIBS([fparseln],
 	[util],
-	[AC_DEFINE([HAVE_FPARSELN],
-		[1],
-		[Define if you have the fparseln() function.])])
+	[
+		AC_DEFINE([HAVE_FPARSELN], [1],
+			[Define if you have the fparseln() function.])
+		FPARSELN_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FPARSELN], [test $FPARSELN_SUPPORT = yes])
 
+RES_9_B64_NTOP_SUPPORT=no
 AC_SEARCH_LIBS([res_9_b64_ntop],
 	[resolv],
-	[AC_DEFINE([HAVE_RES_9_B64_NTOP],
-		[1],
-		[Define if you have the res_9_b64_ntop() function.])])
+	[
+		AC_DEFINE([HAVE_RES_9_B64_NTOP], [1],
+			[Define if you have the res_9_b64_ntop() function.])
+		RES_9_B64_NTOP_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_RES_9_B64_NTOP], [test $RES_9_B64_NTOP_SUPPORT = yes])
 
+SETSOCKOPT_SUPPORT=no
 AC_SEARCH_LIBS([setsockopt],
 	[socket],
-	[AC_DEFINE([HAVE_SETSOCKOPT],
-		[1],
-		[Define if you have the setsockopt() function.])])
+	[
+		AC_DEFINE([HAVE_SETSOCKOPT], [1],
+			[Define if you have the setsockopt() function.])
+		SETSOCKOPT_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_SETSOCKOPT], [test $SETSOCKOPT_SUPPORT = yes])
 
+CRYPT_SUPPORT=no
 AC_SEARCH_LIBS([crypt],
 	[crypt],
-	[AC_DEFINE([HAVE_CRYPT],
-		[1],
-		[Define if you have the crypt() function.])])
+	[
+		AC_DEFINE([HAVE_CRYPT], [1],
+			[Define if you have the crypt() function.])
+		CRYPT_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
 
 AC_CHECK_FUNCS([ \
@@ -524,7 +585,7 @@ AC_CHECK_DECL([strsep],
 # CHECKS FOR SYSTEM SERVICES
 #
 AC_MSG_CHECKING([for /proc/pid/fd directory])
-if test -d "/proc/$$/fd" ; then
+if test -d "/proc/$$/fd"; then
 	AC_DEFINE([HAVE_PROC_PID], [1], [Define if you have /proc/$pid/fd])
 	AC_MSG_RESULT([yes])
 else
@@ -550,7 +611,7 @@ AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 #l108
 
 #l150 (without _FORTIFY_SOURCE=2)
-if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
+if test "$GCC" = "yes" -o "$GCC" = "egcs"; then
 	OSSH_CHECK_CFLAG_COMPILE([-Qunused-arguments])
 	OSSH_CHECK_CFLAG_COMPILE([-Wunknown-warning-option])
 	OSSH_CHECK_CFLAG_COMPILE([-Wall])
@@ -662,17 +723,17 @@ __attribute__((__unused__)) static void foo(void){return;}]],
 	 [compiler does not accept __attribute__ on return types]) ]
 )
 
-if test "x$no_attrib_nonnull" != "x1" ; then
+if test "x$no_attrib_nonnull" != "x1"; then
 	AC_DEFINE([HAVE_ATTRIBUTE__NONNULL__], [1], [Have attribute nonnull])
 fi
 
 AC_ARG_WITH([rpath],
 	[  --without-rpath		Disable auto-added -R linker paths],
 	[
-		if test "x$withval" = "xno" ; then
+		if test "x$withval" = "xno"; then
 			need_dash_r=""
 		fi
-		if test "x$withval" = "xyes" ; then
+		if test "x$withval" = "xyes"; then
 			need_dash_r=1
 		fi
 	]
@@ -682,8 +743,7 @@ AC_ARG_WITH([rpath],
 AC_ARG_WITH([cflags],
 	[  --with-cflags			Specify additional flags to pass to compiler],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			CFLAGS="$CFLAGS $withval"
 		fi
 	]
@@ -691,8 +751,7 @@ AC_ARG_WITH([cflags],
 AC_ARG_WITH([cppflags],
 	[  --with-cppflags		Specify additional flags to pass to preprocessor] ,
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			CPPFLAGS="$CPPFLAGS $withval"
 		fi
 	]
@@ -700,27 +759,17 @@ AC_ARG_WITH([cppflags],
 AC_ARG_WITH([ldflags],
 	[  --with-ldflags		Specify additional flags to pass to linker],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "xno" -a "${withval}" != "yes"; then
 			LDFLAGS="$LDFLAGS $withval"
-		fi
-	]
-)
-AC_ARG_WITH([libs],
-	[  --with-libs			Specify additional libraries to link with],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			LIBS="$LIBS $withval"
 		fi
 	]
 )
 AC_ARG_WITH([Werror],
 	[  --with-Werror			Build main code with -Werror],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"; then
+		if test -n "$withval" -a "$withval" != "no"; then
 			werror_flags="-Werror"
-			if test "x${withval}" != "xyes"; then
+			if test "${withval}" != "yes"; then
 				werror_flags="$withval"
 			fi
 		fi
@@ -739,10 +788,10 @@ AC_ARG_WITH([pie],
 	fi
     ]
 )
-if test "x$use_pie" = "x"; then
+if test -z "$use_pie"; then
 	use_pie=no
 fi
-if test "x$use_toolchain_hardening" != "x1" && test "x$use_pie" = "xauto"; then
+if test "x$use_toolchain_hardening" != "x1" -a "x$use_pie" = "xauto"; then
 	# Turn off automatic PIE when toolchain hardening is off.
 	use_pie=no
 fi
@@ -820,7 +869,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	;;
 *-*-netbsd*)
-	if test "x$withval" != "xno" ; then
+	if test "x$withval" != "xno"; then
 		need_dash_r=1
 	fi
 	AC_DEFINE([BROKEN_STRNVIS], [1],
@@ -924,7 +973,7 @@ BSD_AUTH_MSG=no
 AC_ARG_WITH([auth-bsdauth],
 	[  --with-auth-bsdauth		Enable bsd_auth(3) authentication support],
 	[
-		if test "x$withval" != "xno" ; then
+		if test "x$withval" != "xno"; then
 			AC_DEFINE([BSD_AUTH], [1],
 				[Define if you have BSD auth support])
 			BSD_AUTH_MSG=yes
@@ -940,13 +989,13 @@ USE_PAM_SERVICE=smtpd
 AC_ARG_WITH([auth-pam],
 	[  --with-auth-pam=SERVICE	Enable PAM authentication support (default=smtpd)],
 	[
-		if test "x$withval" != "xno" ; then
-			if test -n "$withval" && test "x${withval}" != "xyes"; then
+		if test "x$withval" != "xno"; then
+			if test -n "$withval" -a "x${withval}" != "xyes"; then
 				USE_PAM_SERVICE=$withval
 			fi
 
-			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
-			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
+			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" -a \
+			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes"; then
 				AC_MSG_ERROR([PAM headers not found])
 			fi
 
@@ -963,7 +1012,7 @@ AC_ARG_WITH([auth-pam],
 			AC_DEFINE([USE_PAM], [1],
 				[Define if you want to enable PAM support])
 
-			if test $ac_cv_lib_dl_dlopen = yes; then
+			if test "x$ac_cv_lib_dl_dlopen" = "xyes"; then
 				case "$LIBS" in
 				*-ldl*)
 					# libdl already in LIBS
@@ -982,7 +1031,7 @@ AC_SUBST([USE_PAM_SERVICE])
 AC_CHECK_FUNCS([arc4random arc4random_buf arc4random_stir arc4random_uniform])
 
 # Check for older PAM
-if test "x$PAM_MSG" = "xyes" ; then
+if test "x$PAM_MSG" = "xyes"; then
 	# Check PAM strerror arguments (old PAM)
 	AC_MSG_CHECKING([whether pam_strerror takes only one argument])
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -1012,8 +1061,7 @@ SMTPD_USER=_smtpd
 AC_ARG_WITH([user-smtpd],
 	[  --with-user-smtpd=user	Specify non-privileged user for smtpd (default=_smtpd)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			SMTPD_USER=$withval
 		fi
 	]
@@ -1026,8 +1074,7 @@ SMTPD_QUEUE_USER=_smtpq
 AC_ARG_WITH([user-queue],
 	[  --with-user-queue=user	Specify non-privileged user for queue process (default=_smtpq)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			SMTPD_QUEUE_USER=$withval
 		fi
 	]
@@ -1040,8 +1087,7 @@ SMTPD_QUEUE_GROUP=_smtpq
 AC_ARG_WITH([group-queue],
 	[  --with-group-queue=group	Specify non-privileged group for offline queue (default=_smtpq)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval"  -a "$withval" != "no" -a "${withval}" != "yes"; then
 			SMTPD_QUEUE_GROUP=$withval
 		fi
 	]
@@ -1055,10 +1101,9 @@ spooldir=/var/spool/smtpd
 AC_ARG_WITH([path-queue],
 	[  --with-path-queue=PATH	Specify path to queue directory (default=/var/spool/smtpd)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			spooldir=$withval
-			if test ! -d $spooldir ; then
+			if test ! -d $spooldir; then
 			AC_MSG_WARN([** no $spooldir directory on this system **])
 			fi
 		fi
@@ -1074,8 +1119,7 @@ PRIVSEP_PATH=/var/empty
 AC_ARG_WITH([path-empty],
 	[  --with-path-empty=PATH	Specify path to empty directory (default=/var/empty)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			PRIVSEP_PATH=$withval
 		fi
 	]
@@ -1096,13 +1140,12 @@ dnl # does not find what it needs, we default to /var/spool/mail.
 AC_ARG_WITH([path-mbox],
     [  --with-path-mbox=PATH		Specify path to mbox directory (default=/var/spool/mail)],
     [
-	if test "X$withval" != X  &&  test "x$withval" != xno  &&  \
-	    test "x${withval}" != xyes; then
+	if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
             [Set this to your mail directory if you do not have _PATH_MAILDIR])
 	    fi
      ],[
-	if test "X$maildir" != "X"; then
+	if test -n "$maildir"; then
 	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
 	else
 	    AC_MSG_CHECKING([Discovering system mail directory])
@@ -1151,7 +1194,7 @@ AC_ARG_WITH([path-mbox],
 		    fi
 		],
 		[
-		    if test "X$ac_status" = "X2";then
+		    if test "X$ac_status" = "X2"; then
 # our test program didn't find it. Default to /var/spool/mail
 			AC_MSG_RESULT([Using: default value of /var/spool/mail])
 			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
@@ -1171,7 +1214,7 @@ AC_ARG_WITH([path-mbox],
 # Where to place smtpd.sock
 sockdir=/var/run
 # make sure the directory exists
-if test ! -d $sockdir ; then
+if test ! -d $sockdir; then
 	sockdir=`eval echo ${sysconfdir}`
 	case $sockdir in
 		NONE/*) sockdir=`echo $sockdir | sed "s~NONE~$ac_default_prefix~"` ;;
@@ -1181,10 +1224,9 @@ fi
 AC_ARG_WITH([path-socket],
 	[  --with-path-socket=PATH	Specify path to smtpd.sock directory (default=/var/run)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			sockdir=$withval
-			if test ! -d $sockdir ; then
+			if test ! -d $sockdir; then
 			AC_MSG_WARN([** no $sockdir directory on this system **])
 			fi
 		fi
@@ -1230,10 +1272,9 @@ exit(-1);
 )
 
 AC_ARG_WITH([path-pidfile],
-	[  --with-path-pidfile=PATH  Specify path to smtpd.pid directory (default=/var/run)],
+	[  --with-path-pidfile=PATH	Specify path to smtpd.pid directory (default=/var/run)],
 	[
-		if test -n "$withval" && test "x$withval" != "xno" && \
-			test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			piddir=$withval
 		fi
 	]
@@ -1246,8 +1287,7 @@ CA_FILE=/etc/ssl/cert.pem
 AC_ARG_WITH([path-CAfile],
 	[  --with-path-CAfile=FILE	Specify path to CA certificate (default=/etc/ssl/cert.pem)],
 	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
+		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 			CA_FILE=$withval
 		fi
 	]
@@ -1384,7 +1424,7 @@ exit(0);
 		[ ac_cv_have_accrights_in_msghdr="no" ]
 	)
 ])
-if test "x$ac_cv_have_accrights_in_msghdr" = "xyes" ; then
+if test "x$ac_cv_have_accrights_in_msghdr" = "xyes"; then
 	AC_DEFINE([HAVE_ACCRIGHTS_IN_MSGHDR], [1],
 		[Define if your system uses access rights style
 		file descriptor passing])
@@ -1411,7 +1451,7 @@ exit(0);
 		[ ac_cv_have_control_in_msghdr="no" ]
 	)
 ])
-if test "x$ac_cv_have_control_in_msghdr" = "xyes" ; then
+if test "x$ac_cv_have_control_in_msghdr" = "xyes"; then
 	AC_DEFINE([HAVE_CONTROL_IN_MSGHDR], [1],
 		[Define if your system uses ancillary data style
 		file descriptor passing])
@@ -1424,7 +1464,7 @@ AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [
 	[ ac_cv_libc_defines___progname="no" 
 	])
 ])
-if test "x$ac_cv_libc_defines___progname" = "xyes" ; then
+if test "x$ac_cv_libc_defines___progname" = "xyes"; then
 	AC_DEFINE([HAVE___PROGNAME], [1], [Define if libc defines __progname])
 fi
 
@@ -1435,7 +1475,7 @@ AC_CACHE_CHECK([whether $CC implements __FUNCTION__], ac_cv_cc_implements___FUNC
 	[ ac_cv_cc_implements___FUNCTION__="no" 
 	])
 ])
-if test "x$ac_cv_cc_implements___FUNCTION__" = "xyes" ; then
+if test "x$ac_cv_cc_implements___FUNCTION__" = "xyes"; then
 	AC_DEFINE([HAVE___FUNCTION__], [1],
 		[Define if compiler implements __FUNCTION__])
 fi
@@ -1447,7 +1487,7 @@ AC_CACHE_CHECK([whether $CC implements __func__], ac_cv_cc_implements___func__, 
 	[ ac_cv_cc_implements___func__="no" 
 	])
 ])
-if test "x$ac_cv_cc_implements___func__" = "xyes" ; then
+if test "x$ac_cv_cc_implements___func__" = "xyes"; then
 	AC_DEFINE([HAVE___func__], [1], [Define if compiler implements __func__])
 fi
 
@@ -1460,7 +1500,7 @@ va_list x,y;
 	[ ac_cv_have_va_copy="no" 
 	])
 ])
-if test "x$ac_cv_have_va_copy" = "xyes" ; then
+if test "x$ac_cv_have_va_copy" = "xyes"; then
 	AC_DEFINE([HAVE_VA_COPY], [1], [Define if va_copy exists])
 fi
 
@@ -1472,7 +1512,7 @@ va_list x,y;
 	[ ac_cv_have___va_copy="yes" ], [ ac_cv_have___va_copy="no" 
 	])
 ])
-if test "x$ac_cv_have___va_copy" = "xyes" ; then
+if test "x$ac_cv_have___va_copy" = "xyes"; then
 	AC_DEFINE([HAVE___VA_COPY], [1], [Define if __va_copy exists])
 fi
 
@@ -1484,7 +1524,7 @@ AC_CACHE_CHECK([whether getopt has optreset support],
 	[ ac_cv_have_getopt_optreset="no" 
 	])
 ])
-if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
+if test "x$ac_cv_have_getopt_optreset" = "xyes"; then
 	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
 		[Define if your getopt(3) defines and uses optreset])
 fi
@@ -1498,7 +1538,7 @@ STRIP_OPT=-s
 AC_ARG_ENABLE([strip],
 	[  --disable-strip	Disable calling strip(1) on install],
 	[
-		if test "x$enableval" = "xno" ; then
+		if test "x$enableval" = "xno"; then
 			STRIP_OPT=
 		fi
 	]
@@ -1542,7 +1582,7 @@ AC_EXEEXT
 dnl asr is required
 AC_ARG_WITH([libasr],
 	[  --with-libasr=PATH		Specify path to libasr installation],
-	[ if test "x$withval" = "xno" ; then
+	[ if test "x$withval" = "xno"; then
 		AC_MSG_ERROR([*** asr is required ***])
 	  elif test "x$withval" != "xyes"; then
 		if test -d "$withval/lib"; then
@@ -1596,7 +1636,7 @@ AC_CHECK_LIB([asr], [asr_run], ,
 # Search for fts
 AC_ARG_WITH([libfts],
 	[  --with-libfts=PATH		Specify path to libfts installation (default: none, part of libc)],
-	[ if test "x$withval" = "xno" ; then
+	[ if test "x$withval" = "xno"; then
 		AC_MSG_ERROR([*** fts is required ***])
 	  elif test "x$withval" != "xyes"; then
 		if test -d "$withval/lib"; then
@@ -1631,7 +1671,7 @@ saved_LDFLAGS="$LDFLAGS"
 AC_ARG_WITH([libevent],
 	[  --with-libevent=PATH          Specify path to libevent installation ],
 	[
-		if test "x$withval" != "xno" ; then
+		if test "x$withval" != "xno"; then
 			case "$withval" in
 				# Relative paths
 				./*|../*)	withval="`pwd`/$withval"
@@ -1665,7 +1705,7 @@ AC_ARG_WITH([libevent],
 	]
 )
 
-if test x"${need_libevent_autodetect}" != x"no"; then
+if test "x${need_libevent_autodetect}" != "xno"; then
    for path in /usr/local /usr; do
        if test -f "${path}/include/event.h"; then
        	  CPPFLAGS="-I${path}/include ${CPPFLAGS}"
@@ -1699,7 +1739,7 @@ saved_LDFLAGS="$LDFLAGS"
 AC_ARG_WITH([libssl],
 	[  --with-libssl=PATH		Specify path to libssl installation ],
 	[
-		if test "x$withval" != "xno" ; then
+		if test "x$withval" != "xno"; then
 			case "$withval" in
 				# Relative paths
 				./*|../*)	withval="`pwd`/$withval"
@@ -1771,7 +1811,7 @@ AC_RUN_IFELSE(
 	if(fd == NULL)
 		exit(1);
 
-	if ((rc = fprintf(fd ,"%x (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
+	if ((rc = fprintf(fd ,"%lx (%s)\n", OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_TEXT)) <0)
 		exit(1);
 
 	exit(0);
@@ -1807,7 +1847,7 @@ AC_RUN_IFELSE(
 	if(fd == NULL)
 		exit(1);
 
-	if ((rc = fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
+	if ((rc = fprintf(fd ,"%lx (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
 		exit(1);
 
 	exit(0);
@@ -2005,7 +2045,7 @@ AC_RUN_IFELSE(
 dnl zlib is required
 AC_ARG_WITH([libz],
 	[  --with-libz=PATH		Specify path to libz installation],
-	[ if test "x$withval" = "xno" ; then
+	[ if test "x$withval" = "xno"; then
 		AC_MSG_ERROR([*** zlib is required ***])
 	  elif test "x$withval" != "xyes"; then
 		if test -d "$withval/lib"; then
@@ -2058,7 +2098,7 @@ AC_CHECK_LIB([z], [deflate], ,
 AC_ARG_WITH([table-db],
 	[  --with-table-db		Enable building of table-db backend (default=no)],
 	[
-		if test "x$withval" = "xyes" ; then
+		if test "x$withval" = "xyes"; then
 			use_db_api=1
 		else
 			use_db_api=0
@@ -2066,7 +2106,7 @@ AC_ARG_WITH([table-db],
 	]
 )
 
-if test x"$use_db_api" = x"1"; then
+if test "x$use_db_api" = "x1"; then
 # Search for libdb
 AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
 AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
@@ -2077,7 +2117,7 @@ fi
 
 save_LIBS="$LIBS"
 
-if test x"$use_db_api" = x"1"; then
+if test "x$use_db_api" = "x1"; then
 DB_LIB=
 
 for libdb in db db1 c; do
@@ -2085,7 +2125,7 @@ for libdb in db db1 c; do
     AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
 done
 
-if test -z "$DB_LIB" ; then
+if test -z "$DB_LIB"; then
     AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
 fi
 
@@ -2096,7 +2136,7 @@ fi
 LIBS="$save_LIBS"
 
 
-AM_CONDITIONAL([HAVE_DB_API], [test x"$use_db_api" = x"1"])
+AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 

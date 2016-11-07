@@ -212,15 +212,27 @@ void errc(int, int, const char *, ...);
 #define pledge(promises, paths) 0
 #endif
 
-#ifndef HAVE_DECL_AF_LOCAL
+#if !HAVE_DECL_AF_LOCAL
 #define AF_LOCAL AF_UNIX
 #endif
 
-#ifndef HAVE_DECL_WAIT_MYPGRP
+#if !HAVE_DECL_PF_LOCAL
+#define PF_LOCAL PF_UNIX
+#endif
+
+#if !HAVE_DECL_WAIT_MYPGRP
 #define WAIT_MYPGRP 0
 #endif
 
 #ifndef HAVE_FLOCK
 int flock(int, int);
+#endif
+
+#ifndef HAVE_SETRESGID
+int setresgid(uid_t, uid_t, uid_t);
+#endif
+
+#ifndef HAVE_SETRESUID
+int setresuid(uid_t, uid_t, uid_t);
 #endif
 #endif /* _OPENBSD_COMPAT_H */
