@@ -390,6 +390,16 @@ AC_SEARCH_LIBS([basename],
 	])
 AM_CONDITIONAL([SUPPORT_BASENAME], [test $BASENAME_SUPPORT = yes])
 
+CLOSEFROM_SUPPORT=no
+AC_SEARCH_LIBS([closefrom],
+	[gen],
+	[
+		AC_DEFINE([HAVE_CLOSEFROM], [1], 
+			[Define if you have the closefrom() function.])
+		CLOSEFROM_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CLOSEFROM], [test $CLOSEFROM_SUPPORT = yes])
+
 UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
 	[c89],
