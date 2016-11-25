@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.30 2016/11/20 08:43:36 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.36 2016/11/24 21:25:21 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -363,6 +363,30 @@ io_set_write(struct io *io)
 	io_reload(io);
 }
 
+const char *
+io_error(struct io *io)
+{
+	return io->error;
+}
+
+void *
+io_ssl(struct io *io)
+{
+	return io->ssl;
+}
+
+int
+io_fileno(struct io *io)
+{
+	return io->sock;
+}
+
+int
+io_paused(struct io *io, int what)
+{
+	return (io->flags & (IO_PAUSE_IN | IO_PAUSE_OUT)) == what;
+}
+
 /*
  * Buffered output functions
  */
@@ -370,13 +394,25 @@ io_set_write(struct io *io)
 int
 io_write(struct io *io, const void *buf, size_t len)
 {
-	return iobuf_queue(io->iobuf, buf, len);
+	int r;
+
+	r = iobuf_queue(io->iobuf, buf, len);
+
+	io_reload(io);
+
+	return r;
 }
 
 int
 io_writev(struct io *io, const struct iovec *iov, int iovcount)
 {
-	return iobuf_queuev(io->iobuf, iov, iovcount);
+	int r;
+
+	r = iobuf_queuev(io->iobuf, iov, iovcount);
+
+	io_reload(io);
+
+	return r;
 }
 
 int
@@ -464,6 +500,9 @@ io_reload(struct io *io)
 	/* io will be reloaded at release time */
 	if (io->flags & IO_HELD)
 		return;
+
+	if (io->iobuf)
+		iobuf_normalize(io->iobuf);
 
 #ifdef IO_SSL
 	if (io->ssl) {

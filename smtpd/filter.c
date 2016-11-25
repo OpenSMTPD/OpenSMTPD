@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.c,v 1.21 2016/11/20 08:43:36 eric Exp $	*/
+/*	$OpenBSD: filter.c,v 1.23 2016/11/22 07:28:42 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -691,8 +691,8 @@ filter_tx_io(struct io *io, int evt, void *arg)
 
 	switch (evt) {
 	case IO_DATAIN:
-		data = iobuf_data(&s->ibuf);
-		len = iobuf_len(&s->ibuf);
+		data = io_data(&s->iev);
+		len = io_datalen(&s->iev);
 
 		log_trace(TRACE_FILTERS,
 		    "filter: filter_tx_io: datain (%zu) for req %016"PRIx64"",
@@ -705,8 +705,7 @@ filter_tx_io(struct io *io, int evt, void *arg)
 			break;
 		}
 		s->idatalen += n;
-		iobuf_drop(&s->ibuf, n);
-		iobuf_normalize(&s->ibuf);
+		io_drop(&s->iev, n);
 		return;
 
 	case IO_DISCONNECTED:
