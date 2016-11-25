@@ -1,4 +1,4 @@
-/*	$OpenBSD: mproc.c,v 1.26 2016/09/03 16:06:26 eric Exp $	*/
+/*	$OpenBSD: mproc.c,v 1.28 2016/09/14 08:59:56 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
@@ -89,6 +89,8 @@ mproc_init(struct mproc *p, int fd)
 void
 mproc_clear(struct mproc *p)
 {
+	log_debug("debug: clearing p=%s, fd=%d, pid=%d", p->name, p->imsgbuf.fd, p->pid);
+
 	event_del(&p->ev);
 	close(p->imsgbuf.fd);
 	imsg_clear(&p->imsgbuf);
@@ -167,10 +169,8 @@ mproc_dispatch(int fd, short event, void *arg)
 			/* NOTREACHED */
 		case 0:
 			/* this pipe is dead, so remove the event handler */
-			if (smtpd_process != PROC_CONTROL ||
-			    p->proc != PROC_CLIENT)
-				log_warnx("warn: %s -> %s: pipe closed",
-				    proc_name(smtpd_process),  p->name);
+			log_debug("debug: %s -> %s: pipe closed",
+			    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
 		default:
@@ -182,10 +182,8 @@ mproc_dispatch(int fd, short event, void *arg)
 		n = msgbuf_write(&p->imsgbuf.w);
 		if (n == 0 || (n == -1 && errno != EAGAIN)) {
 			/* this pipe is dead, so remove the event handler */
-			if (smtpd_process != PROC_CONTROL ||
-			    p->proc != PROC_CLIENT)
-				log_warnx("warn: %s -> %s: pipe closed",
-				    proc_name(smtpd_process),  p->name);
+			log_debug("debug: %s -> %s: pipe closed",
+			    proc_name(smtpd_process),  p->name);
 			p->handler(p, NULL);
 			return;
 		}
@@ -496,7 +494,6 @@ m_add_mailaddr(struct mproc *m, const struct mailaddr *maddr)
 	m_add(m, maddr, sizeof(*maddr));
 }
 
-#ifndef BUILD_FILTER
 void
 m_add_envelope(struct mproc *m, const struct envelope *evp)
 {
@@ -506,7 +503,6 @@ m_add_envelope(struct mproc *m, const struct envelope *evp)
 	m_add_evpid(m, evp->id);
 	m_add_string(m, buf);
 }
-#endif
 
 void
 m_add_params(struct mproc *m, struct dict *d)
@@ -612,7 +608,6 @@ m_get_mailaddr(struct msg *m, struct mailaddr *maddr)
 	m_get(m, maddr, sizeof(*maddr));
 }
 
-#ifndef BUILD_FILTER
 void
 m_get_envelope(struct msg *m, struct envelope *evp)
 {
@@ -626,7 +621,6 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 		fatalx("failed to retrieve envelope");
 	evp->id = evpid;
 }
-#endif
 
 void
 m_get_params(struct msg *m, struct dict *d)

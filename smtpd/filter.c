@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.c,v 1.19 2016/06/29 06:46:06 eric Exp $	*/
+/*	$OpenBSD: filter.c,v 1.21 2016/11/20 08:43:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -116,7 +116,7 @@ static void filter_run_query(struct filter *, struct filter_query *);
 static void filter_end_query(struct filter_query *);
 static void filter_set_sink(struct filter_session *, int);
 static int filter_tx(struct filter_session *, int);
-static void filter_tx_io(struct io *, int);
+static void filter_tx_io(struct io *, int, void *);
 
 static TAILQ_HEAD(, filter_proc)	procs;
 struct dict				chains;
@@ -317,7 +317,7 @@ filter_connect(uint64_t id, const struct sockaddr *local,
 	if (filter == NULL)
 		filter = "<no-filter>";
 	s->filters = dict_xget(&chains, filter);
-	s->iev.sock = -1;
+	io_init(&s->iev, NULL);
 	tree_xset(&sessions, s->id, s);
 
 	filter_event(id, EVENT_CONNECT);
@@ -673,16 +673,18 @@ filter_tx(struct filter_session *s, int sink)
 	io_set_nonblocking(sp[1]);
 
 	iobuf_init(&s->ibuf, 0, 0);
-	io_init(&s->iev, sp[0], s, filter_tx_io, &s->ibuf);
+	io_init(&s->iev, &s->ibuf);
+	io_set_callback(&s->iev, filter_tx_io, s);
+	io_set_fd(&s->iev, sp[0]);
 	io_set_read(&s->iev);
 
 	return (sp[1]);
 }
 
 static void
-filter_tx_io(struct io *io, int evt)
+filter_tx_io(struct io *io, int evt, void *arg)
 {
-	struct filter_session	*s = io->arg;
+	struct filter_session	*s = arg;
 	size_t			 len, n;
 	char			*data;
 

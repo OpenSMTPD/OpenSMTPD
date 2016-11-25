@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.83 2016/05/22 16:31:21 gilles Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.87 2016/11/20 08:43:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -137,7 +137,7 @@ struct mta_session {
 
 static void mta_session_init(void);
 static void mta_start(int fd, short ev, void *arg);
-static void mta_io(struct io *, int);
+static void mta_io(struct io *, int, void *);
 static void mta_free(struct mta_session *);
 static void mta_on_ptr(void *, void *, void *);
 static void mta_on_timeout(struct runq *, void *);
@@ -151,6 +151,7 @@ static void mta_response(struct mta_session *, char *);
 static const char * mta_strstate(int);
 static void mta_start_tls(struct mta_session *);
 static int mta_verify_certificate(struct mta_session *);
+static void mta_tls_verified(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
 static const char * dsn_strret(enum dsn_ret);
 static const char * dsn_strnotify(uint8_t);
@@ -196,7 +197,7 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 	s->id = generate_uid();
 	s->relay = relay;
 	s->route = route;
-	s->io.sock = -1;
+	io_init(&s->io, NULL);
 
 	if (relay->flags & RELAY_SSL && relay->flags & RELAY_AUTH)
 		s->flags |= MTA_USE_AUTH;
@@ -365,7 +366,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		mta_io(&s->io, IO_TLSVERIFIED);
+		mta_tls_verified(s);
 		io_resume(&s->io, IO_PAUSE_IN);
 		io_reload(&s->io);
 		return;
@@ -561,7 +562,8 @@ mta_connect(struct mta_session *s)
 
 	mta_enter_state(s, MTA_INIT);
 	iobuf_xinit(&s->iobuf, 0, 0, "mta_connect");
-	io_init(&s->io, -1, s, mta_io, &s->iobuf);
+	io_init(&s->io, &s->iobuf);
+	io_set_callback(&s->io, mta_io, s);
 	io_set_timeout(&s->io, 300000);
 	if (io_connect(&s->io, sa, s->route->src->sa) == -1) {
 		/*
@@ -1136,14 +1138,13 @@ mta_response(struct mta_session *s, char *line)
 }
 
 static void
-mta_io(struct io *io, int evt)
+mta_io(struct io *io, int evt, void *arg)
 {
-	struct mta_session	*s = io->arg;
+	struct mta_session	*s = arg;
 	char			*line, *msg, *p;
 	size_t			 len;
 	const char		*error;
 	int			 cont;
-	X509			*x;
 
 	log_trace(TRACE_IO, "mta: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -1173,22 +1174,7 @@ mta_io(struct io *io, int evt)
 			break;
 		}
 
-	case IO_TLSVERIFIED:
-		x = SSL_get_peer_certificate(s->io.ssl);
-		if (x) {
-			log_info("smtp-out: Server certificate verification %s "
-			    "on session %016"PRIx64,
-			    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
-			    s->id);
-			X509_free(x);
-		}
-
-		if (s->use_smtps) {
-			mta_enter_state(s, MTA_BANNER);
-			io_set_read(io);
-		}
-		else
-			mta_enter_state(s, MTA_EHLO);
+		mta_tls_verified(s);
 		break;
 
 	case IO_DATAIN:
@@ -1674,6 +1660,28 @@ mta_verify_certificate(struct mta_session *s)
 		free(cert_der[i]);
 
 	return res;
+}
+
+static void
+mta_tls_verified(struct mta_session *s)
+{
+	X509 *x;
+
+	x = SSL_get_peer_certificate(s->io.ssl);
+	if (x) {
+		log_info("smtp-out: Server certificate verification %s "
+		    "on session %016"PRIx64,
+		    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
+		    s->id);
+		X509_free(x);
+	}
+
+	if (s->use_smtps) {
+		mta_enter_state(s, MTA_BANNER);
+		io_set_read(&s->io);
+	}
+	else
+		mta_enter_state(s, MTA_EHLO);
 }
 
 static const char *

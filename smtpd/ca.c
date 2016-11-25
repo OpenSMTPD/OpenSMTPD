@@ -1,4 +1,4 @@
-/*	$OpenBSD: ca.c,v 1.23 2016/09/01 10:54:25 eric Exp $	*/
+/*	$OpenBSD: ca.c,v 1.25 2016/09/08 12:06:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2014 Reyk Floeter <reyk@openbsd.org>
@@ -69,29 +69,14 @@ static uint64_t	 rsae_reqid = 0;
 static void
 ca_shutdown(void)
 {
-	log_info("info: ca agent exiting");
+	log_debug("debug: ca agent exiting");
 	_exit(0);
-}
-
-static void
-ca_sig_handler(int sig, short event, void *p)
-{
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		ca_shutdown();
-		break;
-	default:
-		fatalx("ca_sig_handler: unexpected signal");
-	}
 }
 
 int
 ca(void)
 {
 	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
 
 	purge_config(PURGE_LISTENERS|PURGE_TABLES|PURGE_RULES);
 
@@ -113,10 +98,8 @@ ca(void)
 	imsg_callback = ca_imsg;
 	event_init();
 
-	signal_set(&ev_sigint, SIGINT, ca_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, ca_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
@@ -130,9 +113,8 @@ ca(void)
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
 
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	ca_shutdown();
+	event_dispatch();
+	fatalx("exited event loop");
 
 	return (0);
 }
@@ -246,6 +228,9 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 	int			 ret = 0;
 	uint64_t		 id;
 	int			 v;
+
+	if (imsg == NULL)
+		ca_shutdown();
 
 	if (p->proc == PROC_PARENT) {
 		switch (imsg->hdr.type) {

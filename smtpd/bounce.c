@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.72 2016/02/03 05:57:09 sunil Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.74 2016/11/20 08:43:36 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -99,7 +99,7 @@ static int  bounce_next_message(struct bounce_session *);
 static int  bounce_next(struct bounce_session *);
 static void bounce_delivery(struct bounce_message *, int, const char *);
 static void bounce_status(struct bounce_session *, const char *, ...);
-static void bounce_io(struct io *, int);
+static void bounce_io(struct io *, int, void *);
 static void bounce_timeout(int, short, void *);
 static void bounce_free(struct bounce_session *);
 static const char *action_str(const struct delivery_bounce *);
@@ -232,7 +232,9 @@ bounce_fd(int fd)
 	s->smtpname = xstrdup(msg->smtpname, "bounce_fd");
 	s->state = BOUNCE_EHLO;
 	iobuf_xinit(&s->iobuf, 0, 0, "bounce_run");
-	io_init(&s->io, fd, s, bounce_io, &s->iobuf);
+	io_init(&s->io, &s->iobuf);
+	io_set_callback(&s->io, bounce_io, s);
+	io_set_fd(&s->io, fd);
 	io_set_timeout(&s->io, 30000);
 	io_set_read(&s->io);
 	s->boundary = generate_uid();
@@ -714,9 +716,9 @@ bounce_free(struct bounce_session *s)
 }
 
 static void
-bounce_io(struct io *io, int evt)
+bounce_io(struct io *io, int evt, void *arg)
 {
-	struct bounce_session	*s = io->arg;
+	struct bounce_session	*s = arg;
 	const char		*error;
 	char			*line, *msg;
 	int			 cont;

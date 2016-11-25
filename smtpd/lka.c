@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.195 2016/09/03 15:54:14 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.197 2016/09/08 12:06:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -86,6 +86,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
 	int			 v;
+
+	if (imsg == NULL)
+		lka_shutdown();
 
 	if (imsg->hdr.type == IMSG_MTA_DNS_HOST ||
 	    imsg->hdr.type == IMSG_MTA_DNS_PTR ||
@@ -387,10 +390,6 @@ lka_sig_handler(int sig, short event, void *p)
 	pid_t pid;
 
 	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		lka_shutdown();
-		break;
 	case SIGCHLD:
 		do {
 			pid = waitpid(-1, &status, WNOHANG);
@@ -404,7 +403,7 @@ lka_sig_handler(int sig, short event, void *p)
 void
 lka_shutdown(void)
 {
-	log_info("info: lookup agent exiting");
+	log_debug("debug: lookup agent exiting");
 	_exit(0);
 }
 
@@ -412,8 +411,6 @@ int
 lka(void)
 {
 	struct passwd	*pw;
-	struct event	 ev_sigint;
-	struct event	 ev_sigterm;
 	struct event	 ev_sigchld;
 
 	purge_config(PURGE_LISTENERS);
@@ -431,12 +428,10 @@ lka(void)
 	imsg_callback = lka_imsg;
 	event_init();
 
-	signal_set(&ev_sigint, SIGINT, lka_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, lka_sig_handler, NULL);
 	signal_set(&ev_sigchld, SIGCHLD, lka_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
 	signal_add(&ev_sigchld, NULL);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
@@ -452,9 +447,8 @@ lka(void)
 	if (pledge("stdio rpath inet dns getpw recvfd proc exec", NULL) == -1)
 		err(1, "pledge");
 
-	if (event_dispatch() < 0)
-		fatal("event_dispatch");
-	lka_shutdown();
+	event_dispatch();
+	fatalx("exited event loop");
 
 	return (0);
 }
