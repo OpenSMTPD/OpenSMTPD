@@ -390,6 +390,22 @@ AC_SEARCH_LIBS([basename],
 	])
 AM_CONDITIONAL([SUPPORT_BASENAME], [test $BASENAME_SUPPORT = yes])
 
+CLOSEFROM_SUPPORT=no
+AC_SEARCH_LIBS([closefrom],
+	[gen],
+	[
+		AC_DEFINE([HAVE_CLOSEFROM], [1], 
+			[Define if you have the closefrom() function.])
+		CLOSEFROM_SUPPORT=yes
+        AC_COMPILE_IFELSE(
+            [
+                AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT], [[int res = closefrom(0);]])
+            ],
+            AC_DEFINE(HAVE_CLOSEFROM_INT, 1, [closefrom return int])
+        )
+	])
+AM_CONDITIONAL([SUPPORT_CLOSEFROM], [test $CLOSEFROM_SUPPORT = yes])
+
 UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
 	[c89],
@@ -516,7 +532,6 @@ AC_CHECK_FUNCS([ \
 	__b64_pton \
 	bcopy \
 	chflags \
-	closefrom \
 	dirfd \
 	endgrent \
 	explicit_bzero \
