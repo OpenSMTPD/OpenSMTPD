@@ -518,7 +518,6 @@ AC_CHECK_FUNCS([ \
 	chflags \
 	closefrom \
 	dirfd \
-	dirname \
 	endgrent \
 	explicit_bzero \
 	fchflags \
@@ -532,7 +531,6 @@ AC_CHECK_FUNCS([ \
 	getpeereid \
 	getspnam \
 	inet_aton \
-	inet_net_pton \
 	inet_ntoa \
 	inet_ntop \
 	isblank \
