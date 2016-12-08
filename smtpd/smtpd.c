@@ -867,8 +867,7 @@ start_child(int save_argc, char **save_argv, char *rexec)
 	if (dup2(sp[0], 3) == -1)
 		fatal("%s: dup2", rexec);
 
-	if (closefrom(4) == -1)
-		fatal("%s: closefrom", rexec);
+	xclosefrom(4);
 
 	for (argc = 0; argc < save_argc; argc++)
 		argv[argc] = save_argv[argc];

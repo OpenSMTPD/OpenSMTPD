@@ -1,7 +1,7 @@
 noinst_LIBRARIES = libopenbsd-compat.a
 
 libopenbsd_compat_a_SOURCES =							\
-		arc4random.c base64.c bsd-closefrom.c		\
+		arc4random.c base64.c 		\
 		bsd-getpeereid.c bsd-misc.c bsd-waitpid.c 	\
 		entropy.c errc.c event_asr_run.c explicit_bzero.c	\
 		fgetln.c flock.c getopt.c imsg.c imsg-buffer.c	\
@@ -15,6 +15,10 @@ endif
 
 if !SUPPORT_CLOCK_GETTIME
 libopenbsd_compat_a_SOURCES += clock_gettime.c
+endif
+
+if !SUPPORT_CLOSEFROM
+libopenbsd_compat_a_SOURCES += bsd-closefrom.c
 endif
 
 if !SUPPORT_DAEMON
