@@ -818,14 +818,14 @@ base64_decode(char const *src, unsigned char *dest, size_t destsize)
 	return __b64_pton(src, dest, destsize);
 }
 
-int
+void
 xclosefrom(int lowfd)
 {
-#if !defined HAVE_CLOSEFROM_INT
-    closefrom(lowfd);
-    return 0;
+#if defined HAVE_CLOSEFROM_INT
+    if (closefrom(lowfd) == -1)
+        err(1, "closefrom");
 #else
-    return closefrom(lowfd);
+    closefrom(lowfd);
 #endif
 }
 
