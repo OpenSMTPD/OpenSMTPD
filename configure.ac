@@ -467,6 +467,16 @@ AC_SEARCH_LIBS([fts_open],
 	])
 AM_CONDITIONAL([SUPPORT_FTS_OPEN], [test $FTS_OPEN_SUPPORT = yes])
 
+FLOCK_SUPPORT=no
+AC_SEARCH_LIBS([flock],
+	[],
+	[
+		AC_DEFINE([HAVE_FLOCK], [1],
+			[Define if you have the floct() function.])
+		FLOCK_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FLOCK], [test $FLOCK_SUPPORT = yes])
+
 AC_SEARCH_LIBS([arc4random],
 	[crypto],
 	[
@@ -538,7 +548,6 @@ AC_CHECK_FUNCS([ \
 	explicit_bzero \
 	fchflags \
 	fgetln \
-	flock \
 	freeaddrinfo \
 	getaddrinfo \
 	getnameinfo \
