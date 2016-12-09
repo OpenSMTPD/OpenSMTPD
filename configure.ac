@@ -472,7 +472,7 @@ AC_SEARCH_LIBS([flock],
 	[],
 	[
 		AC_DEFINE([HAVE_FLOCK], [1],
-			[Define if you have the floct() function.])
+			[Define if you have the flock() function.])
 		FLOCK_SUPPORT=yes
 	])
 AM_CONDITIONAL([SUPPORT_FLOCK], [test $FLOCK_SUPPORT = yes])
