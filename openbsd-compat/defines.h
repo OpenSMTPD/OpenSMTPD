@@ -512,4 +512,8 @@ typedef uint16_t	in_port_t;
 #define LOCK_UN         0x08            /* unlock file */
 #endif
 
+#if !HAVE_DECL_LOG_PERROR
+#define LOG_PERROR 0
+#endif
+
 #endif /* _DEFINES_H */

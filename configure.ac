@@ -362,6 +362,10 @@ AC_CHECK_DECLS([writev], [], [], [
 #include <unistd.h>
 ])
 
+AC_CHECK_DECLS([LOG_PERROR], [], [], [
+#include <syslog.h>
+])
+
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
