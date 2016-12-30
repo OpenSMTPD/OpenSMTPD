@@ -278,7 +278,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 			unlink(sfn);
 			close(fd);
 		}
-		errc(EX_UNAVAILABLE, saved_errno, "mkstemp");
+		errx(EX_UNAVAILABLE, "mkstemp: %s", strerror(saved_errno));
 	}
 	unlink(sfn);
 	msg.noheader = parse_message(stdin, fake_from == NULL, tflag, fp);

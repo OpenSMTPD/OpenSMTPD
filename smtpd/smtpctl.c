@@ -1296,7 +1296,7 @@ display(const char *s)
 				unlink(sfn);
 				close(fd);
 			}
-			errc(1, saved_errno, "mkstemp");
+			errx(1, "mkstemp: %s", strerror(saved_errno));
 		}
 		unlink(sfn);
 
