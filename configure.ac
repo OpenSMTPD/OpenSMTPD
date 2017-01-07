@@ -441,6 +441,15 @@ AC_SEARCH_LIBS([dirname],
 	])
 AM_CONDITIONAL([SUPPORT_DIRNAME], [test $DIRNAME_SUPPORT = yes])
 
+ERRC_SUPPORT=no
+AC_CHECK_FUNC([errc],
+	[
+		AC_DEFINE([HAVE_ERRC], [1],
+			[Define if you have the errc() function.])
+		ERRC_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_ERRC], [test $ERRC_SUPPORT = yes])
+
 INET_NET_PTON_SUPPORT=no
 AC_SEARCH_LIBS([inet_net_pton],
 	[resolv],
