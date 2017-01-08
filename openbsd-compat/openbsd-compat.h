@@ -235,4 +235,8 @@ int setresgid(uid_t, uid_t, uid_t);
 #ifndef HAVE_SETRESUID
 int setresuid(uid_t, uid_t, uid_t);
 #endif
+
+#ifndef HAVE_GETLINE
+ssize_t getline(char **, size_t *, FILE *);
+#endif
 #endif /* _OPENBSD_COMPAT_H */

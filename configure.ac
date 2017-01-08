@@ -547,6 +547,15 @@ AC_SEARCH_LIBS([crypt],
 	])
 AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
+GETLINE_SUPPORT=no
+AC_CHECK_FUNC([getline],
+	[
+		AC_DEFINE([HAVE_GETLINE], [1],
+			[Define if you have the getline() function.])
+		GETLINE_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_GETLINE], [test $GETLINE_SUPPORT = yes])
+
 EXPLICIT_BZERO_SUPPORT=no
 AC_CHECK_FUNC([explicit_bzero],
 	[

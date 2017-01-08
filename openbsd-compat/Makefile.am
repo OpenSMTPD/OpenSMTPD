@@ -49,6 +49,10 @@ if !SUPPORT_FPARSELN
 libopenbsd_compat_a_SOURCES += fparseln.c
 endif
 
+if !SUPPORT_GETLINE
+libopenbsd_compat_a_SOURCES += getline.c
+endif
+
 if !SUPPORT_INET_NET_PTON
 libopenbsd_compat_a_SOURCES += inet_net_pton.c
 endif
