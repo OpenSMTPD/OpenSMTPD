@@ -441,6 +441,15 @@ AC_SEARCH_LIBS([dirname],
 	])
 AM_CONDITIONAL([SUPPORT_DIRNAME], [test $DIRNAME_SUPPORT = yes])
 
+ERRC_SUPPORT=no
+AC_CHECK_FUNC([errc],
+	[
+		AC_DEFINE([HAVE_ERRC], [1],
+			[Define if you have the errc() function.])
+		ERRC_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_ERRC], [test $ERRC_SUPPORT = yes])
+
 INET_NET_PTON_SUPPORT=no
 AC_SEARCH_LIBS([inet_net_pton],
 	[resolv],
@@ -547,6 +556,14 @@ AC_CHECK_FUNC([getline],
 	])
 AM_CONDITIONAL([SUPPORT_GETLINE], [test $GETLINE_SUPPORT = yes])
 
+EXPLICIT_BZERO_SUPPORT=no
+AC_CHECK_FUNC([explicit_bzero],
+	[
+		AC_DEFINE([HAVE_EXPLICIT_BZERO], [1],
+			[Define if you have the explicit_bzero() function.])
+		EXPLICIT_BZERO_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_EXPLICIT_BZERO], [test $EXPLICIT_BZERO_SUPPORT = yes])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
@@ -558,7 +575,6 @@ AC_CHECK_FUNCS([ \
 	chflags \
 	dirfd \
 	endgrent \
-	explicit_bzero \
 	fchflags \
 	fgetln \
 	freeaddrinfo \
