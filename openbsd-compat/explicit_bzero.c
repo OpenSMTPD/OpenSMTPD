@@ -1,21 +1,13 @@
-/* OPENBSD ORIGINAL: lib/libc/string/explicit_bzero.c */
-/*	$OpenBSD: explicit_bzero.c,v 1.1 2014/01/22 21:06:45 tedu Exp $ */
+/*  $OpenBSD: explicit_bzero.c,v 1.4 2015/08/31 02:53:57 guenther Exp $ */
 /*
  * Public domain.
- * Written by Ted Unangst
+ * Written by Matthew Dempsky.
  */
 
-#include "includes.h"
+#include <string.h>
 
-#ifndef HAVE_EXPLICIT_BZERO
-#include <strings.h>
-
-/*
- * explicit_bzero - don't let the compiler optimize away bzero
- */
 void
-explicit_bzero(void *p, size_t n)
+explicit_bzero(void *buf, size_t len)
 {
-	bzero(p, n);
+	memset(buf, 0, len);
 }
-#endif

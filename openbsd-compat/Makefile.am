@@ -3,7 +3,7 @@ noinst_LIBRARIES = libopenbsd-compat.a
 libopenbsd_compat_a_SOURCES =							\
 		arc4random.c base64.c 		\
 		bsd-getpeereid.c bsd-misc.c bsd-waitpid.c 	\
-		entropy.c errc.c event_asr_run.c explicit_bzero.c	\
+		entropy.c errc.c event_asr_run.c 	\
 		fgetln.c getopt.c imsg.c imsg-buffer.c	\
 		libressl.c pidfile.c pw_dup.c reallocarray.c setresguid.c	\
 		setproctitle.c strlcat.c strlcpy.c strmode.c strtonum.c		\
@@ -31,6 +31,10 @@ endif
 
 if !SUPPORT_ERRC
 libopenbsd_compat_a_SOURCES += errc.c
+endif
+
+if !SUPPORT_EXPLICIT_BZERO
+libopenbsd_compat_a_SOURCES += explicit_bzero.c
 endif
 
 if !SUPPORT_FMT_SCALED

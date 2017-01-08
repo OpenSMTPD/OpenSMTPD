@@ -547,6 +547,14 @@ AC_SEARCH_LIBS([crypt],
 	])
 AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
+EXPLICIT_BZERO_SUPPORT=no
+AC_CHECK_FUNC([explicit_bzero],
+	[
+		AC_DEFINE([HAVE_EXPLICIT_BZERO], [1],
+			[Define if you have the explicit_bzero() function.])
+		EXPLICIT_BZERO_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_EXPLICIT_BZERO], [test $EXPLICIT_BZERO_SUPPORT = yes])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
@@ -558,7 +566,6 @@ AC_CHECK_FUNCS([ \
 	chflags \
 	dirfd \
 	endgrent \
-	explicit_bzero \
 	fchflags \
 	fgetln \
 	freeaddrinfo \
