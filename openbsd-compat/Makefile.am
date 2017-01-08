@@ -29,6 +29,10 @@ if !SUPPORT_DIRNAME
 libopenbsd_compat_a_SOURCES += dirname.c
 endif
 
+if !SUPPORT_ERRC
+libopenbsd_compat_a_SOURCES += errc.c
+endif
+
 if !SUPPORT_EXPLICIT_BZERO
 libopenbsd_compat_a_SOURCES += explicit_bzero.c
 endif
