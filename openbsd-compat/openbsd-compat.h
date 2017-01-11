@@ -119,20 +119,25 @@ int	BSDoptind;		/* index into parent argv vector */
 int getpeereid(int , uid_t *, gid_t *);
 #endif 
 
-#ifdef HAVE_ARC4RANDOM
-# ifndef HAVE_ARC4RANDOM_STIR
-#  define arc4random_stir()
-# endif
-#else
+#if !defined(HAVE_ARC4RANDOM) || defined(LIBRESSL_VERSION_NUMBER)
 unsigned int arc4random(void);
-void arc4random_stir(void);
-#endif /* !HAVE_ARC4RANDOM */
+#endif
 
-#ifndef HAVE_ARC4RANDOM_BUF
+#if defined(HAVE_ARC4RANDOM_STIR)
+void arc4random_stir(void);
+#elif defined(HAVE_ARC4RANDOM) || defined(LIBRESSL_VERSION_NUMBER)
+/* Recent system/libressl implementation; no need for explicit stir */
+# define arc4random_stir()
+#else
+/* openbsd-compat/arc4random.c provides arc4random_stir() */
+void arc4random_stir(void);
+#endif
+
+#if !defined(HAVE_ARC4RANDOM_BUF) || defined(LIBRESSL_VERSION_NUMBER)
 void arc4random_buf(void *, size_t);
 #endif
 
-#ifndef HAVE_ARC4RANDOM_UNIFORM
+#if !defined(HAVE_ARC4RANDOM_UNIFORM) || defined(LIBRESSL_VERSION_NUMBER)
 uint32_t arc4random_uniform(uint32_t);
 #endif
 
@@ -174,7 +179,7 @@ int vasprintf(char **, const char *, va_list);
 int vsnprintf(char *, size_t, const char *, va_list);
 #endif
 
-#ifndef HAVE_EXPLICIT_BZERO
+#if !defined(HAVE_EXPLICIT_BZERO) || defined(LIBRESSL_VERSION_NUMBER)
 void explicit_bzero(void *p, size_t n);
 #endif
 
@@ -200,7 +205,7 @@ int pidfile(const char *basename);
 struct passwd *pw_dup(const struct passwd *);
 #endif
 
-#ifndef HAVE_REALLOCARRAY
+#if !defined(HAVE_REALLOCARRAY) || defined(LIBRESSL_VERSION_NUMBER)
 void *reallocarray(void *, size_t, size_t);
 #endif
 
