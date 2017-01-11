@@ -594,6 +594,7 @@ AC_CHECK_FUNCS([ \
 	pledge \
 	pw_dup \
 	reallocarray \
+	res_hnok \
 	setenv \
 	setlinebuf \
 	setproctitle \

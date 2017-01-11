@@ -208,8 +208,16 @@ void *reallocarray(void *, size_t, size_t);
 void errc(int, int, const char *, ...);
 #endif
 
+#ifndef HAVE_INET_NET_PTON
+int inet_net_pton(int, const char *, void *, size_t);
+#endif
+
 #ifndef HAVE_PLEDGE
 #define pledge(promises, paths) 0
+#endif
+
+#ifndef HAVE_RES_HNOK
+int res_hnok(const char *);
 #endif
 
 #if !HAVE_DECL_AF_LOCAL
