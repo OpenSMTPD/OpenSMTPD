@@ -422,15 +422,6 @@ typedef uint16_t	in_port_t;
 #define INET6_ADDRSTRLEN 46
 #endif
 
-/*
- * Platforms that have arc4random_uniform() and not arc4random_stir()
- * shouldn't need the latter.
- */
-#if defined(HAVE_ARC4RANDOM) && defined(HAVE_ARC4RANDOM_UNIFORM) && \
-    !defined(HAVE_ARC4RANDOM_STIR)
-# define arc4random_stir()
-#endif
-
 #ifndef HAVE_VA_COPY
 # ifdef HAVE___VA_COPY
 #  define va_copy(dest, src) __va_copy(dest, src)
