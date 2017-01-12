@@ -246,6 +246,10 @@ AC_CHECK_TYPES([struct addrinfo], [], [], [
 AC_CHECK_TYPES([struct timeval], [], [], [
 #include <sys/time.h>
 ])
+AC_CHECK_TYPES([u_int16_t, u_int32_t], [], [], [
+#include <sys/types.h>
+])
+
 
 
 #
