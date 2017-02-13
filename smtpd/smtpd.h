@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.525 2016/11/25 09:21:21 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.529 2017/02/03 08:23:46 guenther Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -28,10 +28,12 @@
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
+#include <netinet/in.h>
+#include <event.h>
+
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "ioev.h"
-#include "iobuf.h"
 
 #include "rfc2822.h"
 
@@ -1043,7 +1045,7 @@ struct msg {
 
 extern enum smtp_proc_type	smtpd_process;
 
-extern int verbose;
+extern int tracing;
 extern int foreground_log;
 extern int profiling;
 
@@ -1519,8 +1521,6 @@ void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);
 void *xmemdup(const void *, size_t, const char *);
 char *strip(char *);
-void iobuf_xinit(struct iobuf *, size_t, size_t, const char *);
-void iobuf_xfqueue(struct iobuf *, const char *, const char *, ...);
 int io_xprint(struct io *, const char *);
 int io_xprintf(struct io *, const char *, ...);
 void log_envelope(const struct envelope *, const char *, const char *,

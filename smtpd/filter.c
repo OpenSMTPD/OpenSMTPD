@@ -1,4 +1,4 @@
-/*	$OpenBSD: filter.c,v 1.23 2016/11/22 07:28:42 eric Exp $	*/
+/*	$OpenBSD: filter.c,v 1.25 2017/01/09 09:53:23 reyk Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -72,8 +72,7 @@ struct filter_session {
 	struct filter		*fcurr;
 
 	int			 error;
-	struct io		 iev;
-	struct iobuf		 ibuf;
+	struct io		*iev;
 	size_t			 idatalen;
 	FILE			*ofile;
 
@@ -200,7 +199,7 @@ filter_postfork(void)
 		p->proc = PROC_FILTER;
 		p->name = xstrdup(filter->name, "filter_postfork");
 		p->data = proc;
-		if (verbose & TRACE_DEBUG)
+		if (tracing & TRACE_DEBUG)
 			filter_add_arg(filter, "-v");
 		if (foreground_log)
 			filter_add_arg(filter, "-d");
@@ -297,8 +296,8 @@ filter_event(uint64_t id, int event)
 	filter_post_event(id, event, TAILQ_FIRST(s->filters), NULL);
 
 	if (event == EVENT_DISCONNECT) {
-		io_clear(&s->iev);
-		iobuf_clear(&s->ibuf);
+		if (s->iev)
+			io_free(s->iev);
 		if (s->ofile)
 			fclose(s->ofile);
 		free(s);
@@ -317,7 +316,6 @@ filter_connect(uint64_t id, const struct sockaddr *local,
 	if (filter == NULL)
 		filter = "<no-filter>";
 	s->filters = dict_xget(&chains, filter);
-	io_init(&s->iev, NULL);
 	tree_xset(&sessions, s->id, s);
 
 	filter_event(id, EVENT_CONNECT);
@@ -672,11 +670,10 @@ filter_tx(struct filter_session *s, int sink)
 	io_set_nonblocking(sp[0]);
 	io_set_nonblocking(sp[1]);
 
-	iobuf_init(&s->ibuf, 0, 0);
-	io_init(&s->iev, &s->ibuf);
-	io_set_callback(&s->iev, filter_tx_io, s);
-	io_set_fd(&s->iev, sp[0]);
-	io_set_read(&s->iev);
+	s->iev = io_new();
+	io_set_callback(s->iev, filter_tx_io, s);
+	io_set_fd(s->iev, sp[0]);
+	io_set_read(s->iev);
 
 	return (sp[1]);
 }
@@ -693,8 +690,8 @@ filter_tx_io(struct io *io, int evt, void *arg)
 
 	switch (evt) {
 	case IO_DATAIN:
-		data = io_data(&s->iev);
-		len = io_datalen(&s->iev);
+		data = io_data(s->iev);
+		len = io_datalen(s->iev);
 
 		log_trace(TRACE_FILTERS,
 		    "filter: filter_tx_io: datain (%zu) for req %016"PRIx64"",
@@ -707,7 +704,7 @@ filter_tx_io(struct io *io, int evt, void *arg)
 			break;
 		}
 		s->idatalen += n;
-		io_drop(&s->iev, n);
+		io_drop(s->iev, n);
 		return;
 
 	case IO_DISCONNECTED:
@@ -723,8 +720,8 @@ filter_tx_io(struct io *io, int evt, void *arg)
 		break;
 	}
 
-	io_clear(&s->iev);
-	iobuf_clear(&s->ibuf);
+	io_free(s->iev);
+	s->iev = NULL;
 	fclose(s->ofile);
 	s->ofile = NULL;
 
