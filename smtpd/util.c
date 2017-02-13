@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.129 2016/11/17 17:34:55 eric Exp $	*/
+/*	$OpenBSD: util.c,v 1.132 2017/01/09 14:49:22 reyk Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -55,6 +55,9 @@ const char *log_in6addr(const struct in6_addr *);
 const char *log_sockaddr(struct sockaddr *);
 static int  parse_mailname_file(char *, size_t);
 
+int	tracing = 0;
+int	foreground_log = 0;
+
 void *
 xmalloc(size_t size, const char *where)
 {
@@ -109,31 +112,6 @@ xmemdup(const void *ptr, size_t size, const char *where)
 }
 
 #if !defined(NO_IO)
-void
-iobuf_xinit(struct iobuf *io, size_t size, size_t max, const char *where)
-{
-	if (iobuf_init(io, size, max) == -1) {
-		log_warnx("%s: iobuf_init(%p, %zu, %zu)", where, io, size, max);
-		fatalx("exiting");
-	}
-}
-
-void
-iobuf_xfqueue(struct iobuf *io, const char *where, const char *fmt, ...)
-{
-	va_list	ap;
-	int	len;
-
-	va_start(ap, fmt);
-	len = iobuf_vfqueue(io, fmt, ap);
-	va_end(ap);
-
-	if (len == -1) {
-		log_warnx("%s: iobuf_xfqueue(%p, %s, ...)", where, io, fmt);
-		fatalx("exiting");
-	}
-}
-
 int
 io_xprintf(struct io *io, const char *fmt, ...)
 {
@@ -814,4 +792,25 @@ int
 base64_decode(char const *src, unsigned char *dest, size_t destsize)
 {
 	return __b64_pton(src, dest, destsize);
+}
+
+void
+log_trace(int mask, const char *emsg, ...)
+{
+	va_list	 ap;
+
+	if (tracing & mask) {
+		va_start(ap, emsg);
+		vlog(LOG_DEBUG, emsg, ap);
+		va_end(ap);
+	}
+}
+
+void
+log_trace_verbose(int v)
+{
+	tracing = v;
+
+	/* Set debug logging in log.c */
+	log_setverbose(v & TRACE_DEBUG ? 2 : foreground_log);
 }
