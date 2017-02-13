@@ -864,8 +864,7 @@ start_child(int save_argc, char **save_argv, char *rexec)
 	if (dup2(sp[0], 3) == -1)
 		fatal("%s: dup2", rexec);
 
-	if (closefrom(4) == -1)
-		fatal("%s: closefrom", rexec);
+	xclosefrom(4);
 
 	for (argc = 0; argc < save_argc; argc++)
 		argv[argc] = save_argv[argc];
@@ -1513,8 +1512,6 @@ offline_enqueue(char *name)
 		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 			_exit(1);
-
-		closefrom(STDERR_FILENO + 1);
 
 		if ((fp = fdopen(fd, "r")) == NULL)
 			_exit(1);

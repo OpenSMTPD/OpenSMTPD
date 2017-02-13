@@ -362,6 +362,10 @@ AC_CHECK_DECLS([writev], [], [], [
 #include <unistd.h>
 ])
 
+AC_CHECK_DECLS([LOG_PERROR], [], [], [
+#include <syslog.h>
+])
+
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
@@ -389,6 +393,23 @@ AC_SEARCH_LIBS([basename],
 		BASENAME_SUPPORT=yes
 	])
 AM_CONDITIONAL([SUPPORT_BASENAME], [test $BASENAME_SUPPORT = yes])
+
+
+CLOSEFROM_SUPPORT=no
+AC_SEARCH_LIBS([closefrom],
+	[gen],
+	[
+		AC_DEFINE([HAVE_CLOSEFROM], [1], 
+			[Define if you have the closefrom() function.])
+		CLOSEFROM_SUPPORT=yes
+        AC_COMPILE_IFELSE(
+            [
+                AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT], [[int res = closefrom(0);]])
+            ],
+            AC_DEFINE(HAVE_CLOSEFROM_INT, 1, [closefrom return int])
+        )
+	])
+AM_CONDITIONAL([SUPPORT_CLOSEFROM], [test $CLOSEFROM_SUPPORT = yes])
 
 UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
@@ -420,6 +441,15 @@ AC_SEARCH_LIBS([dirname],
 	])
 AM_CONDITIONAL([SUPPORT_DIRNAME], [test $DIRNAME_SUPPORT = yes])
 
+ERRC_SUPPORT=no
+AC_CHECK_FUNC([errc],
+	[
+		AC_DEFINE([HAVE_ERRC], [1],
+			[Define if you have the errc() function.])
+		ERRC_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_ERRC], [test $ERRC_SUPPORT = yes])
+
 INET_NET_PTON_SUPPORT=no
 AC_SEARCH_LIBS([inet_net_pton],
 	[resolv],
@@ -449,6 +479,16 @@ AC_SEARCH_LIBS([fts_open],
 		FTS_OPEN_SUPPORT=yes
 	])
 AM_CONDITIONAL([SUPPORT_FTS_OPEN], [test $FTS_OPEN_SUPPORT = yes])
+
+FLOCK_SUPPORT=no
+AC_SEARCH_LIBS([flock],
+	[],
+	[
+		AC_DEFINE([HAVE_FLOCK], [1],
+			[Define if you have the flock() function.])
+		FLOCK_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_FLOCK], [test $FLOCK_SUPPORT = yes])
 
 AC_SEARCH_LIBS([arc4random],
 	[crypto],
@@ -507,6 +547,23 @@ AC_SEARCH_LIBS([crypt],
 	])
 AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
+GETLINE_SUPPORT=no
+AC_CHECK_FUNC([getline],
+	[
+		AC_DEFINE([HAVE_GETLINE], [1],
+			[Define if you have the getline() function.])
+		GETLINE_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_GETLINE], [test $GETLINE_SUPPORT = yes])
+
+EXPLICIT_BZERO_SUPPORT=no
+AC_CHECK_FUNC([explicit_bzero],
+	[
+		AC_DEFINE([HAVE_EXPLICIT_BZERO], [1],
+			[Define if you have the explicit_bzero() function.])
+		EXPLICIT_BZERO_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_EXPLICIT_BZERO], [test $EXPLICIT_BZERO_SUPPORT = yes])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
@@ -516,14 +573,10 @@ AC_CHECK_FUNCS([ \
 	__b64_pton \
 	bcopy \
 	chflags \
-	closefrom \
 	dirfd \
-	dirname \
 	endgrent \
-	explicit_bzero \
 	fchflags \
 	fgetln \
-	flock \
 	freeaddrinfo \
 	getaddrinfo \
 	getnameinfo \
@@ -532,7 +585,6 @@ AC_CHECK_FUNCS([ \
 	getpeereid \
 	getspnam \
 	inet_aton \
-	inet_net_pton \
 	inet_ntoa \
 	inet_ntop \
 	isblank \
@@ -542,6 +594,7 @@ AC_CHECK_FUNCS([ \
 	pledge \
 	pw_dup \
 	reallocarray \
+	res_hnok \
 	setenv \
 	setlinebuf \
 	setproctitle \

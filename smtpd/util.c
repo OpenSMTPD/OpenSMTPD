@@ -816,3 +816,14 @@ log_trace_verbose(int v)
 	/* Set debug logging in log.c */
 	log_setverbose(v & TRACE_DEBUG ? 2 : foreground_log);
 }
+
+void
+xclosefrom(int lowfd)
+{
+#if defined HAVE_CLOSEFROM_INT
+    if (closefrom(lowfd) == -1)
+        err(1, "closefrom");
+#else
+    closefrom(lowfd);
+#endif
+}

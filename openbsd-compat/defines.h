@@ -422,15 +422,6 @@ typedef uint16_t	in_port_t;
 #define INET6_ADDRSTRLEN 46
 #endif
 
-/*
- * Platforms that have arc4random_uniform() and not arc4random_stir()
- * shouldn't need the latter.
- */
-#if defined(HAVE_ARC4RANDOM) && defined(HAVE_ARC4RANDOM_UNIFORM) && \
-    !defined(HAVE_ARC4RANDOM_STIR)
-# define arc4random_stir()
-#endif
-
 #ifndef HAVE_VA_COPY
 # ifdef HAVE___VA_COPY
 #  define va_copy(dest, src) __va_copy(dest, src)
@@ -510,6 +501,10 @@ typedef uint16_t	in_port_t;
 #define LOCK_EX         0x02            /* exclusive file lock */
 #define LOCK_NB         0x04            /* don't block when locking */
 #define LOCK_UN         0x08            /* unlock file */
+#endif
+
+#if !HAVE_DECL_LOG_PERROR
+#define LOG_PERROR 0
 #endif
 
 #endif /* _DEFINES_H */
