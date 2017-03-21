@@ -1041,6 +1041,8 @@ main(int argc, char **argv)
 	gid_t		 gid;
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
+	__progname = ssh_get_progname(argv[0]);
+
 	sendmail_compat(argc, argv);
 	if (geteuid())
 		errx(1, "need root privileges");
