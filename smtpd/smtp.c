@@ -49,6 +49,10 @@ static void smtp_setup_events(void);
 static void smtp_pause(void);
 static void smtp_resume(void);
 static void smtp_accept(int, short, void *);
+static void smtp_dropped(struct listener *, int, struct sockaddr_storage *);
+static void smtp_accepted(struct listener *, int, struct sockaddr_storage *,
+		struct io*);
+
 static int smtp_enqueue(void);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
@@ -297,14 +301,52 @@ smtp_accept(int fd, short event, void *p)
 		fatal("smtp_accept");
 	}
 
-	if (smtp_session(listener, sock, &ss, NULL, NULL) == -1) {
-		log_warn("warn: Failed to create SMTP session");
-		close(sock);
+	/* XXX: make sure this does not break anything, as this used to be after
+	 * the smtp_session init */
+	io_set_nonblocking(sock);
+	sessions++;
+
+	if (listener->flags & F_PROXY) {
+		if (proxy_session(listener, sock, &ss, smtp_accepted,
+					smtp_dropped) == -1) {
+			log_warn("warn: Failed to create PROXY session");
+			close(sock);
+			sessions--;
+			return;
+		}
+
+		stat_increment("smtp.proxy_session", 1);
 		return;
 	}
-	io_set_nonblocking(sock);
 
-	sessions++;
+	smtp_accepted(listener, sock, &ss, NULL);
+	return;
+
+pause:
+	smtp_pause();
+	env->sc_flags |= SMTPD_SMTP_DISABLED;
+	return;
+}
+
+static void
+smtp_dropped(struct listener *listener, int sock, struct sockaddr_storage *ss)
+{
+	log_debug("debug: smtp: dropped connection from listener %p", listener);
+	close(sock);
+	sessions--;
+}
+
+static void
+smtp_accepted(struct listener *listener, int sock, struct sockaddr_storage *ss,
+		struct io *io)
+{
+	if (smtp_session(listener, sock, ss, NULL, io) == -1) {
+		log_warn("warn: Failed to create SMTP session");
+		close(sock);
+		sessions--;
+		return;
+	}
+
 	stat_increment("smtp.session", 1);
 	if (listener->ss.ss_family == AF_LOCAL)
 		stat_increment("smtp.session.local", 1);
@@ -312,11 +354,6 @@ smtp_accept(int fd, short event, void *p)
 		stat_increment("smtp.session.inet4", 1);
 	if (listener->ss.ss_family == AF_INET6)
 		stat_increment("smtp.session.inet6", 1);
-	return;
-
-pause:
-	smtp_pause();
-	env->sc_flags |= SMTPD_SMTP_DISABLED;
 	return;
 }
 

@@ -31,6 +31,7 @@ SRCS+=	mproc.c
 SRCS+=	mta.c
 SRCS+=	mta_session.c
 SRCS+=	parse.y
+SRCS+=	proxy.c
 SRCS+=	pony.c
 SRCS+=	queue.c
 SRCS+=	queue_backend.c
