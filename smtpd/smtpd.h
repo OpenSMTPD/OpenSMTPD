@@ -1411,7 +1411,7 @@ void smtp_collect(void);
 
 /* smtp_session.c */
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
-    const char *);
+    const char *, struct io *);
 void smtp_session_imsg(struct mproc *, struct imsg *);
 void smtp_filter_response(uint64_t, int, int, uint32_t, const char *);
 void smtp_filter_fd(uint64_t, int);

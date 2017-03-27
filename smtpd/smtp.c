@@ -254,7 +254,8 @@ smtp_enqueue(void)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		return (-1);
 
-	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname)) == -1) {
+	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname,
+					NULL)) == -1) {
 		close(fd[0]);
 		close(fd[1]);
 		return (-1);
@@ -296,7 +297,7 @@ smtp_accept(int fd, short event, void *p)
 		fatal("smtp_accept");
 	}
 
-	if (smtp_session(listener, sock, &ss, NULL) == -1) {
+	if (smtp_session(listener, sock, &ss, NULL, NULL) == -1) {
 		log_warn("warn: Failed to create SMTP session");
 		close(sock);
 		return;
