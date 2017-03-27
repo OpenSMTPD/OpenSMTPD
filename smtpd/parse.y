@@ -125,7 +125,8 @@ enum listen_options {
 	LO_SENDERS	= 0x000800,
 	LO_RECEIVEDAUTH = 0x001000,
 	LO_MASQUERADE	= 0x002000,
-	LO_CA		= 0x010000
+	LO_CA		= 0x010000,
+	LO_PROXY	= 0x020000
 };
 
 static struct listen_opts {
@@ -181,7 +182,7 @@ typedef struct {
 %}
 
 %token	AS QUEUE COMPRESSION ENCRYPTION MAXMESSAGESIZE MAXMTADEFERRED LISTEN ON ANY PORT EXPIRE
-%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6 NODSN SESSION
+%token	TABLE SECURE SMTPS CERTIFICATE DOMAIN BOUNCEWARN LIMIT INET4 INET6 NODSN SESSION PROXY
 %token  RELAY BACKUP VIA DELIVER TO LMTP MAILDIR MBOX RCPTTO HOSTNAME HOSTNAMES
 %token	ACCEPT REJECT INCLUDE ERROR MDA FROM FOR SOURCE MTA PKI SCHEDULER
 %token	ARROW AUTH TLS LOCAL VIRTUAL TAG TAGGED ALIAS FILTER KEY CA DHE
@@ -497,6 +498,14 @@ opt_if_listen : INET4 {
 				YYERROR;
 			}
 			listen_opts.port = $2;
+		}
+		| PROXY			{
+			if (listen_opts.options & LO_PROXY) {
+				yyerror("proxy already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_PROXY;
+			listen_opts.flags |= F_PROXY;
 		}
 		| FILTER STRING			{
 			if (config_lo_filter(&listen_opts, $2)) {
@@ -1542,6 +1551,7 @@ lookup(char *s)
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
+		{ "proxy",		PROXY },
 		{ "queue",		QUEUE },
 		{ "rcpt-to",		RCPTTO },
 		{ "received-auth",     	RECEIVEDAUTH },
