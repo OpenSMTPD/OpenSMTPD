@@ -1107,6 +1107,7 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	char		path[PATH_MAX];
 	char		name[PATH_MAX];
 	char		*arg;
+	char		*proc_path;
 
 	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
 		log_warnx("warn: %s-proc: conf too long", key);
@@ -1117,7 +1118,12 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	if (arg)
 		*arg++ = '\0';
 
-	if (snprintf(path, sizeof(path), PATH_LIBEXEC "/%s-%s", key, name) >=
+	proc_path = getenv("OPENSMTPD_PROC_PATH");
+	if (proc_path == NULL) {
+		proc_path = PATH_LIBEXEC;
+	}
+
+	if (snprintf(path, sizeof(path), "%s/%s-%s", proc_path, key, name) >=
 	    (ssize_t)sizeof(path)) {
 		log_warn("warn: %s-proc: exec path too long", key);
 		return (-1);
