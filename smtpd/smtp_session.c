@@ -631,7 +631,8 @@ smtp_session_init(void)
 
 int
 smtp_session(struct listener *listener, int sock,
-    const struct sockaddr_storage *ss, const char *hostname)
+    const struct sockaddr_storage *ss, const char *hostname,
+    const char *username)
 {
 	struct smtp_session	*s;
 
@@ -662,6 +663,9 @@ smtp_session(struct listener *listener, int sock,
 	/* For local enqueueing, the hostname is already set */
 	if (hostname) {
 		s->flags |= SF_AUTHENTICATED;
+		if (username) {
+			(void)strlcpy(s->username, username, sizeof(s->username));
+		}
 		/* A bit of a hack */
 		if (!strcmp(hostname, "localhost"))
 			s->flags |= SF_BOUNCE;
@@ -1209,12 +1213,13 @@ smtp_filter_fd(uint64_t id, int fd)
 		    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
 		if (x)
 			X509_free(x);
+	}
 
-		if (s->listener->flags & F_RECEIVEDAUTH) {
-			io_printf(s->tx->oev, " auth=%s", s->username[0] ? "yes" : "no");
-			if (s->username[0])
-				io_printf(s->tx->oev, " user=%s", s->username);
-		}
+	if ((s->flags & SF_AUTHENTICATED) && (s->listener->flags & F_RECEIVEDAUTH)) {
+		log_debug("debug: smtp: received auth %s", s->username);
+		io_printf(s->tx->oev, " auth=%s", s->username[0] ? "yes" : "no");
+		if (s->username[0])
+			io_printf(s->tx->oev, " user=%s", s->username);
 	}
 
 	if (s->tx->rcptcount == 1) {

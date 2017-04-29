@@ -82,6 +82,7 @@ pony_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_SMTP_CHECK_SENDER:
 	case IMSG_SMTP_EXPAND_RCPT:
 	case IMSG_SMTP_LOOKUP_HELO:
+	case IMSG_SMTP_LOOKUP_UID_USERINFO:
 	case IMSG_SMTP_AUTHENTICATE:
 	case IMSG_SMTP_TLS_INIT:
 	case IMSG_SMTP_TLS_VERIFY:

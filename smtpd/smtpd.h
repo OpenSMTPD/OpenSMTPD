@@ -319,6 +319,7 @@ enum imsg_type {
 	IMSG_SMTP_CHECK_SENDER,
 	IMSG_SMTP_EXPAND_RCPT,
 	IMSG_SMTP_LOOKUP_HELO,
+	IMSG_SMTP_LOOKUP_UID_USERINFO,
 	IMSG_SMTP_TLS_INIT,
 	IMSG_SMTP_TLS_VERIFY_CERT,
 	IMSG_SMTP_TLS_VERIFY_CHAIN,
@@ -1411,7 +1412,7 @@ void smtp_collect(void);
 
 /* smtp_session.c */
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
-    const char *);
+    const char *, const char *);
 void smtp_session_imsg(struct mproc *, struct imsg *);
 void smtp_filter_response(uint64_t, int, int, uint32_t, const char *);
 void smtp_filter_fd(uint64_t, int);

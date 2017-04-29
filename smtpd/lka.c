@@ -57,6 +57,7 @@ static void lka_sig_handler(int, short, void *);
 static int lka_authenticate(const char *, const char *, const char *);
 static int lka_credentials(const char *, const char *, char *, size_t);
 static int lka_userinfo(const char *, const char *, struct userinfo *);
+static int lka_uid_userinfo(uid_t, struct userinfo *);
 static int lka_addrname(const char *, const struct sockaddr *,
     struct addrname *);
 static int lka_mailaddrmap(const char *, const char *, const struct mailaddr *);
@@ -86,6 +87,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*tablename, *username, *password, *label;
 	uint64_t		 reqid;
 	int			 v;
+	uint64_t		 uid;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -240,6 +242,21 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			ret = lka_userinfo(tablename, username, &userinfo);
 
 			m_create(p, IMSG_MDA_LOOKUP_USERINFO, 0, 0, -1);
+			m_add_id(p, reqid);
+			m_add_int(p, ret);
+			if (ret == LKA_OK)
+				m_add_data(p, &userinfo, sizeof(userinfo));
+			m_close(p);
+			return;
+		case IMSG_SMTP_LOOKUP_UID_USERINFO:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_id(&m, &uid);
+			m_end(&m);
+
+			ret = lka_uid_userinfo((uid_t) uid, &userinfo);
+
+			m_create(p, IMSG_SMTP_LOOKUP_UID_USERINFO, 0, 0, -1);
 			m_add_id(p, reqid);
 			m_add_int(p, ret);
 			if (ret == LKA_OK)
@@ -553,6 +570,41 @@ lka_userinfo(const char *tablename, const char *username, struct userinfo *res)
 		*res = lk.userinfo;
 		return (LKA_OK);
 	}
+}
+
+static int
+lka_uid_userinfo(uid_t uid, struct userinfo *res)
+{
+	union lookup	 lk;
+	struct passwd	*pw;
+	size_t		 s;
+
+	log_debug("debug: lka: uid-userinfo:%d", uid);
+
+	errno = 0;
+	do {
+		pw = getpwuid(uid);
+	} while (pw == NULL && errno == EINTR);
+
+	if (pw == NULL) {
+		if (errno)
+			return (LKA_TEMPFAIL);
+		return (LKA_PERMFAIL);
+	}
+
+	if (res == NULL)
+		return (LKA_OK);
+
+	res->uid = pw->pw_uid;
+	res->gid = pw->pw_gid;
+	s = strlcpy(res->username, pw->pw_name, sizeof(res->username));
+	if (s >= sizeof(res->username))
+		return (LKA_TEMPFAIL);
+	s = strlcpy(res->directory, pw->pw_dir, sizeof(res->directory));
+	if (s >= sizeof(res->directory))
+		return (LKA_TEMPFAIL);
+
+	return (LKA_OK);
 }
 
 static int

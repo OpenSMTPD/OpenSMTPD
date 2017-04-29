@@ -49,7 +49,7 @@ static void smtp_setup_events(void);
 static void smtp_pause(void);
 static void smtp_resume(void);
 static void smtp_accept(int, short, void *);
-static int smtp_enqueue(void);
+static int smtp_enqueue(char *);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
 static int smtp_sni_callback(SSL *, int *, void *);
@@ -63,8 +63,37 @@ static size_t	maxsessions;
 void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
+	struct msg		 m;
+	uint64_t		 reqid;
+	enum lka_resp_status	 status;
+	const void		*data;
+	size_t			 sz;
+	int			 fd;
+	struct userinfo		 userinfo;
+
 	if (p->proc == PROC_LKA) {
 		switch (imsg->hdr.type) {
+		case IMSG_SMTP_LOOKUP_UID_USERINFO:
+			m_msg(&m, imsg);
+			m_get_id(&m, &reqid);
+			m_get_int(&m, (int *)&status);
+			if (status == LKA_OK)
+				m_get_data(&m, &data, &sz);
+			m_end(&m);
+			
+			if (status != LKA_OK) {
+				log_debug("debug: smtp: uid to username lookup failed");
+				fd = -1;
+			} else {
+				if (sz != sizeof(userinfo))
+					fatalx("smtp: userinfo size mismatch");
+				memmove(&userinfo, data, sz);
+				fd = smtp_enqueue(&userinfo.username);
+			}
+			
+			m_compose(p_control, IMSG_CTL_SMTP_SESSION, (uint32_t)reqid, 0,
+			    fd, NULL, 0);
+			return;
 		case IMSG_SMTP_DNS_PTR:
 		case IMSG_SMTP_CHECK_SENDER:
 		case IMSG_SMTP_EXPAND_RCPT:
@@ -89,7 +118,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 		case IMSG_QUEUE_SMTP_SESSION:
 			m_compose(p, IMSG_QUEUE_SMTP_SESSION, 0, 0,
-			    smtp_enqueue(), imsg->data,
+			    smtp_enqueue(NULL), imsg->data,
 			    imsg->hdr.len - sizeof imsg->hdr);
 			return;
 		}
@@ -98,8 +127,11 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	if (p->proc == PROC_CONTROL) {
 		switch (imsg->hdr.type) {
 		case IMSG_CTL_SMTP_SESSION:
-			m_compose(p, IMSG_CTL_SMTP_SESSION, imsg->hdr.peerid, 0,
-			    smtp_enqueue(), NULL, 0);
+			m_create(p_lka, IMSG_SMTP_LOOKUP_UID_USERINFO, 0, 0, -1);
+			m_add_id(p_lka, imsg->hdr.peerid);
+			log_debug("debug: smtp: requested session for uid %d", *((uid_t*)imsg->data));
+			m_add_id(p_lka, *((uid_t*)imsg->data));
+			m_close(p_lka);
 			return;
 
 		case IMSG_CTL_PAUSE_SMTP:
@@ -238,7 +270,7 @@ smtp_resume(void)
 }
 
 static int
-smtp_enqueue(void)
+smtp_enqueue(char *username)
 {
 	struct listener	*listener = env->sc_sock_listener;
 	int		 fd[2];
@@ -254,7 +286,7 @@ smtp_enqueue(void)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		return (-1);
 
-	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname)) == -1) {
+	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname, username)) == -1) {
 		close(fd[0]);
 		close(fd[1]);
 		return (-1);
@@ -296,7 +328,7 @@ smtp_accept(int fd, short event, void *p)
 		fatal("smtp_accept");
 	}
 
-	if (smtp_session(listener, sock, &ss, NULL) == -1) {
+	if (smtp_session(listener, sock, &ss, NULL, NULL) == -1) {
 		log_warn("warn: Failed to create SMTP session");
 		close(sock);
 		return;
