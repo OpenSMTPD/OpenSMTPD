@@ -702,7 +702,7 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	default:
-		strlcpy(buf, "???", sizeof(buf));
+		(void)strlcpy(buf, "???", sizeof(buf));
 		break;
 	}
 
