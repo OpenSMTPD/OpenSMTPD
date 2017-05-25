@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.96 2016/11/30 17:43:32 eric Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.98 2017/05/24 21:27:32 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -343,8 +343,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			fatal("mta: ssl_mta_init");
 		io_start_tls(s->io, ssl);
 
-		explicit_bzero(resp_ca_cert->cert, resp_ca_cert->cert_len);
-		free(resp_ca_cert->cert);
+		freezero(resp_ca_cert->cert, resp_ca_cert->cert_len);
 		free(resp_ca_cert);
 		return;
 
@@ -1299,7 +1298,7 @@ mta_io(struct io *io, int evt, void *arg)
 			mta_connect(s);
 			break;
 		}
-		else if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
+		else if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_SMTPS|MTA_FORCE_ANYSSL))) {
 			/* error in non-strict SSL negotiation, downgrade to plain */
 			if (s->flags & MTA_TLS) {
 				log_info("smtp-out: Error on session %016"PRIx64
@@ -1317,7 +1316,7 @@ mta_io(struct io *io, int evt, void *arg)
 
 	case IO_TLSERROR:
 		log_debug("debug: mta: %p: TLS IO error: %s", s, io_error(io));
-		if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_ANYSSL))) {
+		if (!(s->flags & (MTA_FORCE_TLS|MTA_FORCE_SMTPS|MTA_FORCE_ANYSSL))) {
 			/* error in non-strict SSL negotiation, downgrade to plain */
 			log_info("smtp-out: TLS Error on session %016"PRIx64
 			    ": TLS failed, "
