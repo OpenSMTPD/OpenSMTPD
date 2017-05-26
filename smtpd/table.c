@@ -639,7 +639,6 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 {
 	static char		buf[LINE_MAX];
 	int			ret;
-	size_t			written;
 	struct maddrnode       *mn;
 
 	switch (s) {
@@ -697,19 +696,14 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	case K_MAILADDRMAP:
-		written = 0;
 		TAILQ_FOREACH(mn, &lk->maddrmap->queue, entries) {
-			ret = snprintf(&buf[written], sizeof(buf) - written,
-			    "%s@%s, ",
-			    mn->mailaddr.user,
-			    mn->mailaddr.domain);
-			if (ret < 0)
-				goto err;
-			written += ret;
-			if  (written >= sizeof (buf)) {
-				written = sizeof(buf) - 4;
-				(void)strlcpy(&buf[written], "...",
-				    sizeof(buf) - written);
+			if (strlcat(buf, mn->mailaddr.user, sizeof(buf)) >= sizeof(buf)
+			 || strlcat(buf, "@", sizeof(buf)) >= sizeof(buf)
+			 || strlcat(buf, mn->mailaddr.domain, sizeof(buf)) >= sizeof(buf)
+			 || strlcat(buf, ", ", sizeof(buf)) >= sizeof(buf)
+			) {
+			    strlcpy(buf + sizeof(buf) - 4, "...", 4);
+			    break;
 			}
 		}
 		break;
