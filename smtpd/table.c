@@ -637,8 +637,9 @@ table_parse_lookup(enum table_service service, const char *key,
 static const char *
 table_dump_lookup(enum table_service s, union lookup *lk)
 {
-	static char	buf[LINE_MAX];
-	int		ret;
+	static char		buf[LINE_MAX];
+	struct maddrnode       *mn;
+	int			ret;
 
 	switch (s) {
 	case K_NONE:
@@ -692,6 +693,23 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		    lk->mailaddr.domain);
 		if (ret == -1 || (size_t)ret >= sizeof (buf))
 			goto err;
+		break;
+
+	case K_MAILADDRMAP:
+		buf[0] = '\0';
+		TAILQ_FOREACH(mn, &lk->maddrmap->queue, entries) {
+			(void)strlcat(buf, mn->mailaddr.user, sizeof(buf));
+			(void)strlcat(buf, "@", sizeof(buf));
+			ret = strlcat(buf, mn->mailaddr.domain, sizeof(buf));
+
+			if (mn != TAILQ_LAST(&lk->maddrmap->queue, xmaddr))
+				ret = strlcat(buf, ", ", sizeof(buf));
+
+			if (ret >= sizeof(buf)) {
+				strlcpy(buf + sizeof(buf) - 4, "...", 4);
+				break;
+			}
+		}
 		break;
 
 	case K_ADDRNAME:
