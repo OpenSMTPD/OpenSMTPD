@@ -699,8 +699,12 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		TAILQ_FOREACH(mn, &lk->maddrmap->queue, entries) {
 			(void)strlcat(buf, mn->mailaddr.user, sizeof(buf));
 			(void)strlcat(buf, "@", sizeof(buf));
-			(void)strlcat(buf, mn->mailaddr.domain, sizeof(buf));
-			if (strlcat(buf, ", ", sizeof(buf)) >= sizeof(buf)) {
+			ret = strlcat(buf, mn->mailaddr.domain, sizeof(buf));
+
+			if (mn != TAILQ_LAST(&lk->maddrmap->queue, xmaddr))
+				ret = strlcat(buf, ", ", sizeof(buf));
+
+			if (ret >= sizeof(buf)) {
 				strlcpy(buf + sizeof(buf) - 4, "...", 4);
 				break;
 			}
