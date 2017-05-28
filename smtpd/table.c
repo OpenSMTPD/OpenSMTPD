@@ -696,6 +696,7 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	case K_MAILADDRMAP:
+		buf[0] = '\0';
 		TAILQ_FOREACH(mn, &lk->maddrmap->queue, entries) {
 			(void)strlcat(buf, mn->mailaddr.user, sizeof(buf));
 			(void)strlcat(buf, "@", sizeof(buf));
