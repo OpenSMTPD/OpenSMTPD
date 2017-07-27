@@ -2064,6 +2064,9 @@ HAVE_SSL_OP_NO_TICKET
 ])
 ##gilles
 
+AC_CHECK_DECLS([SSL_OP_NO_CLIENT_RENEGOTIATION], [], [], [
+#include <openssl/ssl.h>
+])
 
 
 # Check wheter OpenSSL seeds itself
