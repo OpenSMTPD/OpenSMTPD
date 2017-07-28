@@ -6,6 +6,8 @@ Public domain.
 
 /* $OpenBSD: chacha_private.h,v 1.2 2013/10/04 07:02:27 djm Exp $ */
 
+#include <sys/types.h>
+
 typedef unsigned char u8;
 typedef unsigned int u32;
 
