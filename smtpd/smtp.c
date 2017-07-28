@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.155 2016/03/25 15:06:58 krw Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.156 2017/05/22 13:43:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -306,6 +306,7 @@ smtp_accept(int fd, short event, void *p)
 	struct sockaddr_storage	 ss;
 	socklen_t		 len;
 	int			 sock;
+	int			 ret;
 
 	if (env->sc_flags & SMTPD_SMTP_PAUSED)
 		fatalx("smtp_session: unexpected client");
@@ -328,7 +329,12 @@ smtp_accept(int fd, short event, void *p)
 		fatal("smtp_accept");
 	}
 
-	if (smtp_session(listener, sock, &ss, NULL, NULL) == -1) {
+	if (listener->filter[0])
+		ret = smtpf_session(listener, sock, &ss, NULL);
+	else
+		ret = smtp_session(listener, sock, &ss, NULL);
+
+	if (ret == -1) {
 		log_warn("warn: Failed to create SMTP session");
 		close(sock);
 		return;
