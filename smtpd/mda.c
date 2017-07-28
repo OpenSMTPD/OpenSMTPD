@@ -622,6 +622,7 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	char	*ln = NULL;
 	size_t	 sz = 0;
 	ssize_t	 len;
+	int	 out = 0;
 
 	if (lseek(fd, 0, SEEK_SET) < 0) {
 		log_warn("warn: mda: lseek");
@@ -637,10 +638,11 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	while ((len = getline(&ln, &sz, fp)) != -1) {
 		if (ln[len - 1] == '\n')
 			ln[len - 1] = '\0';
+		out = 1;
 	}
 	fclose(fp);
 
-	if (sz != 0) {
+	if (out && sz != 0) {
 		(void)strlcpy(dst, "\"", dstsz);
 		(void)strnvis(dst + 1, ln, dstsz - 2, VIS_SAFE | VIS_CSTYLE);
 		(void)strlcat(dst, "\"", dstsz);
