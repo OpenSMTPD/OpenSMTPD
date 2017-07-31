@@ -92,6 +92,9 @@
 #define	PATH_LIBEXEC		"/usr/local/libexec/smtpd"
 #endif
 
+#ifndef	PROXY_SESSION_TIMEOUT
+#define PROXY_SESSION_TIMEOUT	50
+#endif
 
 /*
  * RFC 5322 defines these characters as valid, some of them are
@@ -115,6 +118,7 @@
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
+#define	F_PROXY			0x2000
 
 /* must match F_* for mta */
 #define RELAY_STARTTLS		0x01
@@ -1353,6 +1357,11 @@ const char *mta_relay_to_text(struct mta_relay *);
 void mta_session(struct mta_relay *, struct mta_route *);
 void mta_session_imsg(struct mproc *, struct imsg *);
 
+/* proxy.c */
+int proxy_session(struct listener *, int, const struct sockaddr_storage *,
+    void (*)(struct listener *, int, const struct sockaddr_storage *,
+	    struct io*),
+    void (*)(struct listener *, int, const struct sockaddr_storage *));
 
 /* parse.y */
 int parse_config(struct smtpd *, const char *, int);
@@ -1411,7 +1420,7 @@ void smtp_collect(void);
 
 /* smtp_session.c */
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
-    const char *);
+    const char *, struct io *);
 void smtp_session_imsg(struct mproc *, struct imsg *);
 void smtp_filter_response(uint64_t, int, int, uint32_t, const char *);
 void smtp_filter_fd(uint64_t, int);
