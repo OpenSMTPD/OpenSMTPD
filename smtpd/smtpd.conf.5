@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.169 2017/05/24 13:26:03 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.174 2017/07/11 06:08:40 natano Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: May 24 2017 $
+.Dd $Mdocdate: July 11 2017 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -653,52 +653,28 @@ of inflight envelopes falls below
 .Ar num .
 Changing the default value might degrade performance.
 .It Xo
-.Ic listen on socket
-.Op Ic mask-source
-.br
 .Bk -words
 .Ic listen on Ar interface
 .Op Ar family
 .Op Ic port Ar port
-.Op Ic tls | tls-require | tls-require verify | smtps | secure
+.Op Ic tls | tls-require | tls-require verify | smtps
 .Op Ic pki Ar pkiname
 .Op Ic ca Ar caname
 .Op Ic auth | auth-optional Op < Ns Ar authtable Ns >
 .Op Ic tag Ar tag
 .Op Ic hostname Ar hostname
 .Op Ic hostnames No < Ns Ar names Ns >
-.Op Ic senders No < Ns Ar users Ns > Op masquerade
+.Op Ic senders No < Ns Ar users Ns > Op Cm masquerade
 .Op Ic mask-source
 .Op Ic received-auth
 .Op Ic no-dsn
 .Ek
 .Xc
-.Pp
-Specify a
-.Ic socket
-or an
+Specify an
 .Ar interface
+and optional
+.Ar port
 to listen on for incoming connections.
-The
-.Ic listen on socket
-directive is used to modify the behavior of the listener handling
-messages submitted through the local enqueuer, for example via the
-.Xr mail 1
-utility.
-This is an optional directive: if unspecified then
-.Xr smtpd 8
-will simply listen for connections on the
-.Ic socket
-as if it was configured with no option.
-Clients connecting through the
-.Ic socket
-will always be tagged with the 'local'
-.Ic tag .
-.Pp
-To listen on a specific network interface, specify an
-.Ar interface
-and an optional
-.Ar port .
 An interface group, an IP address or a domain name may
 be used in place of
 .Ar interface .
@@ -725,8 +701,6 @@ If
 is specified, the client must provide a valid certificate to be
 able to establish an SMTP session.
 .Pp
-.Ic secure
-may be specified to provide both STARTTLS and SMTPS services.
 Host certificates may be used for these connections,
 and must be previously declared using the pki directive.
 If
@@ -795,7 +769,9 @@ parameter is used, then
 will look up a mapping of username to email addresses to see whether
 the authenticated user is allowed to submit mail
 as the sender that was provided in the SMTP session.
-In addition, if the masquerade option is provided,
+In addition, if the
+.Cm masquerade
+option is provided,
 the From header will be rewritten
 to match the sender provided in the SMTP session.
 .Pp
@@ -817,6 +793,27 @@ If the
 .Ic no-dsn
 parameter is used, DSN (Delivery Status Notification) extension will not
 be enabled.
+.It Xo
+.Ic listen on socket
+.Op Ic mask-source
+.Xc
+Modify behaviour for the listener which handles messages
+submitted through the local enqueuer,
+such as the
+.Xr mail 1
+utility.
+Clients connecting in this manner are tagged with the "local"
+.Ic tag .
+.Pp
+Parameters available are:
+.Bl -tag -width "mask-source"
+.It Ic mask-source
+Skip the
+.Ic from
+part when prepending the
+.Dq Received
+header.
+.El
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n

@@ -14,7 +14,6 @@ portable version that can build and run on several systems, including:
 * FreeBSD
 * NetBSD
 * DragonFly
-* MacOSX
 
 For more information: http://www.opensmtpd.org/portable.html
 
