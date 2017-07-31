@@ -66,8 +66,9 @@ getlock(char *name, struct passwd *pw)
 	(void)snprintf(lpath, sizeof lpath, "%s/%s.lock",
 	    _PATH_MAILDIR, name);
 
-	if (stat(_PATH_MAILDIR, &sb) != -1 &&
-	    (sb.st_mode & S_IWOTH) == S_IWOTH) {
+	if (stat(_PATH_MAILDIR, &sb) == -1)
+		merr(FATAL, "%s: %s", _PATH_MAILDIR, strerror(errno));
+	if ((sb.st_mode & S_IWOTH) == S_IWOTH) {
 		/*
 		 * We have a writeable spool, deal with it as
 		 * securely as possible.
