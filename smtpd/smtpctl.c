@@ -65,7 +65,7 @@
 #endif
 
 #ifndef HAVE_DB_API
-#define	makemap(x, y)	1
+#define	makemap(x, y, z)	1
 #endif
 
 
