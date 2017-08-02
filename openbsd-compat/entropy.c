@@ -47,6 +47,7 @@
 void
 seed_rng(void)
 {
+#ifndef LIBRESSL_VERSION
 	u_long	mask;
 
 	/*
@@ -61,6 +62,7 @@ seed_rng(void)
 		fatalx("OpenSSL version mismatch. Built against %lx, you have %lx\n",
 		    (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
 	}
+#endif
 
 	if (RAND_status() != 1)
 		fatal("PRNG is not seeded");
