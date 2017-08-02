@@ -919,7 +919,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	;;
 *-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	use_pie=auto
-	CFLAGS="$CFLAGS -D_BSD_SOURCE"
+	CFLAGS="$CFLAGS -D_BSD_SOURCE -D_DEFAULT_SOURCE"
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	;;
 *-*-netbsd*)
