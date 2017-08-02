@@ -197,6 +197,10 @@ char * fgetln(FILE *stream, size_t *len);
 char * fparseln(FILE *fp, size_t *size, size_t *lineno, const char str[3], int flags);
 #endif
 
+#ifndef HAVE_FREEZERO
+void freezero(void *, size_t);
+#endif
+
 #ifndef HAVE_PIDFILE
 int pidfile(const char *basename);
 #endif

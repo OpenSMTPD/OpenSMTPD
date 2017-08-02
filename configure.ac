@@ -578,6 +578,7 @@ AC_CHECK_FUNCS([ \
 	fchflags \
 	fgetln \
 	freeaddrinfo \
+	freezero \
 	getaddrinfo \
 	getnameinfo \
 	gettimeofday \
