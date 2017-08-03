@@ -635,6 +635,11 @@ AC_CHECK_DECL([strsep],
 
 
 
+# These functions might be found in libressl
+AC_CHECK_DECLS([strlcat, strlcpy],
+	[],
+	[],
+	[])
 
 #
 # CHECKS FOR SYSTEM SERVICES
