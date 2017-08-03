@@ -595,6 +595,7 @@ AC_CHECK_FUNCS([ \
 	pledge \
 	pw_dup \
 	reallocarray \
+	recallocarray \
 	res_hnok \
 	setenv \
 	setlinebuf \

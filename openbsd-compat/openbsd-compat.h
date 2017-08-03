@@ -213,6 +213,10 @@ struct passwd *pw_dup(const struct passwd *);
 void *reallocarray(void *, size_t, size_t);
 #endif
 
+#if !defined(HAVE_RECALLOCARRAY) || defined(LIBRESSL_VERSION_NUMBER)
+void *recallocarray(void *, size_t, size_t, size_t);
+#endif
+
 #ifndef HAVE_ERRC
 void errc(int, int, const char *, ...);
 #endif
