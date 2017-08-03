@@ -37,8 +37,9 @@ static void print_passwd(const char *);
 int
 main(int argc, char *argv[])
 {
-	char	*buf, *lbuf;
-	size_t	len;
+	char *line;
+	size_t linesz;
+	ssize_t linelen;
 
 	if (argc > 2) {
 		fprintf(stderr, "usage: encrypt <string>\n");
@@ -50,22 +51,14 @@ main(int argc, char *argv[])
 		return (0);
 	}
 
-	lbuf = NULL;
-	while ((buf = fgetln(stdin, &len))) {
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-		else {
-			if ((lbuf = malloc(len + 1)) == NULL) {
-				fprintf(stderr, "memory exhausted");
-				return (1);
-			}
-			memcpy(lbuf, buf, len);
-			lbuf[len] = '\0';
-			buf = lbuf;
-		}
-		print_passwd(buf);
+	line = NULL;
+	linesz = 0;
+	while ((linelen = getline(&line, &linesz, stdin)) != -1) {
+		if (line[linelen - 1] == '\n')
+			line[linelen - 1] = '\0';
+		print_passwd(line);
 	}
-	free(lbuf);
+	free(line);
 
 	return (0);
 }
