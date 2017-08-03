@@ -119,7 +119,8 @@ storemail(char *from)
 	FILE *fp = NULL;
 	time_t tval;
 	int fd, eline;
-	size_t len;
+	ssize_t len;
+	size_t linesz;
 	char *line, *tbuf;
 
 	if ((tbuf = strdup(_PATH_LOCTMP)) == NULL)
@@ -132,18 +133,10 @@ storemail(char *from)
 	(void)time(&tval);
 	(void)fprintf(fp, "From %s %s", from, ctime(&tval));
 
-	for (eline = 1, tbuf = NULL; (line = fgetln(stdin, &len));) {
-		/* We have to NUL-terminate the line since fgetln does not */
+	for (eline = 1, line = NULL, linesz = 0;
+	    (len = getline(&line, &linesz, stdin)) != -1;) {
 		if (line[len - 1] == '\n')
-			line[len - 1] = '\0';
-		else {
-			/* No trailing newline, so alloc space and copy */
-			if ((tbuf = malloc(len + 1)) == NULL)
-				merr(FATAL, "unable to allocate memory");
-			memcpy(tbuf, line, len);
-			tbuf[len] = '\0';
-			line = tbuf;
-		}
+			line[--len] = '\0';
 		if (line[0] == '\0')
 			eline = 1;
 		else {
@@ -156,8 +149,7 @@ storemail(char *from)
 		if (ferror(fp))
 			break;
 	}
-	if (tbuf)
-		free(tbuf);
+	free(line);
 
 	/* Output a newline; note, empty messages are allowed. */
 	(void)putc('\n', fp);
