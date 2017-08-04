@@ -1,14 +1,32 @@
 noinst_LIBRARIES = libopenbsd-compat.a
 
-libopenbsd_compat_a_SOURCES =							\
-		arc4random.c base64.c 		\
-		bsd-getpeereid.c bsd-misc.c bsd-waitpid.c 	\
-		entropy.c errc.c event_asr_run.c 	\
-		fgetln.c freezero.c getopt.c imsg.c imsg-buffer.c	\
-		libressl.c pidfile.c pw_dup.c reallocarray.c setresguid.c	\
-		recallocarray.c \
-		setproctitle.c strlcat.c strlcpy.c strmode.c strtonum.c		\
-		strsep.c vis.c xmalloc.c
+libopenbsd_compat_a_SOURCES =	arc4random.c
+libopenbsd_compat_a_SOURCES +=	base64.c
+libopenbsd_compat_a_SOURCES +=	bsd-getpeereid.c
+libopenbsd_compat_a_SOURCES +=	bsd-misc.c
+libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
+libopenbsd_compat_a_SOURCES +=	entropy.c
+libopenbsd_compat_a_SOURCES +=	errc.c
+libopenbsd_compat_a_SOURCES +=	event_asr_run.c
+libopenbsd_compat_a_SOURCES +=	fgetln.c
+libopenbsd_compat_a_SOURCES +=	freezero.c
+libopenbsd_compat_a_SOURCES +=	getopt.c
+libopenbsd_compat_a_SOURCES +=	imsg.c
+libopenbsd_compat_a_SOURCES +=	imsg-buffer.c
+libopenbsd_compat_a_SOURCES +=	libressl.c
+libopenbsd_compat_a_SOURCES +=	pidfile.c
+libopenbsd_compat_a_SOURCES +=	pw_dup.c
+libopenbsd_compat_a_SOURCES +=	reallocarray.c
+libopenbsd_compat_a_SOURCES +=	recallocarray.c
+libopenbsd_compat_a_SOURCES +=	setproctitle.c
+libopenbsd_compat_a_SOURCES +=	setresguid.c
+libopenbsd_compat_a_SOURCES +=	strlcat.c
+libopenbsd_compat_a_SOURCES +=	strlcpy.c
+libopenbsd_compat_a_SOURCES +=	strmode.c
+libopenbsd_compat_a_SOURCES +=	strtonum.c
+libopenbsd_compat_a_SOURCES +=	strsep.c
+libopenbsd_compat_a_SOURCES +=	vis.c
+libopenbsd_compat_a_SOURCES +=	xmalloc.c
 
 if !SUPPORT_BASENAME
 libopenbsd_compat_a_SOURCES += basename.c
@@ -58,8 +76,19 @@ if !SUPPORT_INET_NET_PTON
 libopenbsd_compat_a_SOURCES += inet_net_pton.c
 endif
 
-EXTRA_DIST =	base64.h bsd-misc.h bsd-waitpid.h chacha_private.h defines.h	\
-		entropy.h imsg.h includes.h log.h openbsd-compat.h sys/queue.h	\
-		sys/tree.h vis.h xmalloc.h
+EXTRA_DIST =	base64.h
+EXTRA_DIST +=	bsd-misc.h
+EXTRA_DIST +=	bsd-waitpid.h
+EXTRA_DIST +=	chacha_private.h
+EXTRA_DIST +=	defines.h
+EXTRA_DIST +=	entropy.h
+EXTRA_DIST +=	imsg.h
+EXTRA_DIST +=	includes.h
+EXTRA_DIST +=	log.h
+EXTRA_DIST +=	openbsd-compat.h
+EXTRA_DIST +=	sys/queue.h
+EXTRA_DIST +=	sys/tree.h
+EXTRA_DIST +=	vis.h
+EXTRA_DIST +=	xmalloc.h
 
 AM_CPPFLAGS = -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
