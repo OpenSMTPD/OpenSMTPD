@@ -15,7 +15,10 @@
  */
 
 #include "includes.h"
+
+#include <stdarg.h>
 #include <unistd.h>
+
 #include "log.h"
 
 #ifndef HAVE_SETRESGID
