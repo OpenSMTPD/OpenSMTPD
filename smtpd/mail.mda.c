@@ -28,7 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 
-static void	file_engine(const char *);
+extern char **environ;
 
 int
 main(int argc, char *argv[])
@@ -36,7 +36,7 @@ main(int argc, char *argv[])
 	int ch;
 
 	if (! geteuid())
-		errx(1, "mail.file: may not be executed as root");
+		errx(1, "mail.mda: may not be executed as root");
 
 	while ((ch = getopt(argc, argv, "")) != -1) {
 		switch (ch) {
@@ -48,65 +48,8 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc == 0)
-		errx(1, "mail.file: filename required");
+		errx(1, "mail.mda: command required");
 
-	if (argc > 1)
-		errx(1, "mail.file: only one filename is supported");
-
-	file_engine(argv[0]);
-	
-	return (0);
-}
-
-static void
-file_engine(const char *filename)
-{
-	int	fd;
-	FILE    *fp;
-	char	*line = NULL;
-	size_t	linesize = 0;
-	ssize_t	linelen;
-	int	n;
-	struct stat sb;
-	int	escaped = 0;
-	
-	fd = open(filename, O_CREAT | O_APPEND | O_WRONLY, 0600);
-	if (fd < 0)
-		err(1, NULL);
-	if (fstat(fd, &sb) < 0)
-		err(1, NULL);
-	if (S_ISREG(sb.st_mode) && flock(fd, LOCK_EX) < 0)
-		err(1, NULL);
-
-	if ((fp = fdopen(fd, "a")) == NULL)
-		err(1, NULL);
-
-	while ((linelen = getline(&line, &linesize, stdin)) != -1) {
-		line[strcspn(line, "\n")] = '\0';
-		if (strncasecmp(line, "From ", 5) == 0) {
-			if (!escaped)
-				escaped = 1;
-			else
-				fprintf(fp, ">");
-		}
-		fprintf(fp, "%s\n", line);
-	}
-	free(line);
-	if (ferror(stdin))
-		goto truncate;
-
-	if (fflush(fp) == -1)
-		if (errno != EINVAL)
-			goto truncate;
-
-	if (fclose(fp) == EOF)
-		goto truncate;
-	
-	exit(0);
-
-truncate:
-	n = errno;
-	ftruncate(fd, sb.st_size);
-	errno = n;
+	execve(argv[0], argv, environ);
 	err(1, NULL);
 }
