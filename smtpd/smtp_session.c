@@ -1686,6 +1686,10 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 	switch (s->state) {
 	case STATE_HELO:
 		smtp_enter_state(s, STATE_AUTH_USERNAME);
+		if (strchr(arg, '') != NULL) {
+			smtp_rfc4954_auth_login(s, arg);
+			return;
+		}
 		smtp_reply(s, "334 VXNlcm5hbWU6");
 		return;
 
