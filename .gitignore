@@ -1,3 +1,4 @@
+*.d
 *.o
 *.a
 *.in
@@ -26,3 +27,4 @@ ylwrap
 tags
 obj
 CVS/
+*/CVS/
