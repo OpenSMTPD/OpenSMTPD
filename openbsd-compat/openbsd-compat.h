@@ -233,18 +233,6 @@ int inet_net_pton(int, const char *, void *, size_t);
 int res_hnok(const char *);
 #endif
 
-#if !HAVE_DECL_AF_LOCAL
-#define AF_LOCAL AF_UNIX
-#endif
-
-#if !HAVE_DECL_PF_LOCAL
-#define PF_LOCAL PF_UNIX
-#endif
-
-#if !HAVE_DECL_WAIT_MYPGRP
-#define WAIT_MYPGRP 0
-#endif
-
 #ifndef HAVE_FLOCK
 int flock(int, int);
 #endif
@@ -260,4 +248,13 @@ int setresuid(uid_t, uid_t, uid_t);
 #ifndef HAVE_GETLINE
 ssize_t getline(char **, size_t *, FILE *);
 #endif
+
+#ifndef HAVE_CRYPT_CHECKPASS
+int crypt_checkpass(const char *, const char *);
+#endif
+
+#ifndef HAVE_TIMINGSAFE_BCMP
+int timingsafe_bcmp(const void *, const void *, size_t);
+#endif
+
 #endif /* _OPENBSD_COMPAT_H */
