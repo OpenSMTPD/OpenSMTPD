@@ -511,4 +511,20 @@ typedef uint16_t	in_port_t;
 #define SSL_OP_NO_CLIENT_RENEGOTIATION 0
 #endif
 
+#if !HAVE_DECL__PASSWORD_LEN && HAVE_DECL_PASS_MAX
+#define _PASSWORD_LEN PASS_MAX
+#endif
+
+#if !HAVE_DECL_AF_LOCAL
+#define AF_LOCAL AF_UNIX
+#endif
+
+#if !HAVE_DECL_PF_LOCAL
+#define PF_LOCAL PF_UNIX
+#endif
+
+#if !HAVE_DECL_WAIT_MYPGRP
+#define WAIT_MYPGRP 0
+#endif
+
 #endif /* _DEFINES_H */
