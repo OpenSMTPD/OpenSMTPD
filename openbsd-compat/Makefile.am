@@ -36,6 +36,10 @@ if !SUPPORT_CLOCK_GETTIME
 libopenbsd_compat_a_SOURCES += clock_gettime.c
 endif
 
+if !SUPPORT_CRYPT_CHECKPASS
+libopenbsd_compat_a_SOURCES += cryptutil.c bcrypt.c blowfish.c timingsafe_bcmp.c
+endif
+
 if !SUPPORT_CLOSEFROM
 libopenbsd_compat_a_SOURCES += bsd-closefrom.c
 endif
