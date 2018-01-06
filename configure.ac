@@ -247,7 +247,6 @@ AC_CHECK_TYPES([struct timeval], [], [], [
 #include <sys/time.h>
 ])
 
-
 #
 # CHECKS FOR STRUCTURES
 #
@@ -366,6 +365,13 @@ AC_CHECK_DECLS([LOG_PERROR], [], [], [
 #include <syslog.h>
 ])
 
+AC_CHECK_DECLS([_PASSWORD_LEN], [], [], [
+#include <pwd.h>
+])
+
+AC_CHECK_DECLS([PASS_MAX], [], [], [
+#include <limits.h>
+])
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
@@ -564,6 +570,24 @@ AC_CHECK_FUNC([explicit_bzero],
 		EXPLICIT_BZERO_SUPPORT=yes
 	])
 AM_CONDITIONAL([SUPPORT_EXPLICIT_BZERO], [test $EXPLICIT_BZERO_SUPPORT = yes])
+
+CRYPT_CHECKPASS_SUPPORT=no
+AC_CHECK_FUNC([crypt_checkpass],
+	[
+		AC_DEFINE([HAVE_CRYPT_CHECKPASS], [1],
+			[Define if you have the crypt_checkpass() function.])
+		CRYPT_CHECKPASS_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CRYPT_CHECKPASS], [test $CRYPT_CHECKPASS_SUPPORT = yes])
+
+HAVE_TIMINGSAFE_BCMP_SUPPORT=no
+AC_CHECK_FUNC([timingsafe_bcmp],
+	[
+		AC_DEFINE([HAVE_TIMINGSAFE_BCMP_SUPPORT], [1],
+			[Define if you have the timingsafe_bcmp() function.])
+		HAVE_TIMINGSAFE_BCMP_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_HAVE_TIMINGSAFE_BCMP], [test $HAVE_TIMINGSAFE_BCMP_SUPPORT = yes])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
