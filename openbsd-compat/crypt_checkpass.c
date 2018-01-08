@@ -1,6 +1,9 @@
 /* OPENBSD ORIGINAL: lib/libc/crypt/cryptutil.c */
 
 #include <errno.h>
+#ifdef HAVE_CRYPT_H
+#include <crypt.h>
+#endif
 #include <string.h>
 #include <unistd.h>
 
