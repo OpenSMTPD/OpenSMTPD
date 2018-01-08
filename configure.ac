@@ -565,6 +565,15 @@ AC_CHECK_FUNC([explicit_bzero],
 	])
 AM_CONDITIONAL([SUPPORT_EXPLICIT_BZERO], [test $EXPLICIT_BZERO_SUPPORT = yes])
 
+CRYPT_CHECKPASS_SUPPORT=no
+AC_CHECK_FUNC([crypt_checkpass],
+	[
+		AC_DEFINE([HAVE_CRYPT_CHECKPASS], [1],
+			[Define if you have the explicit_bzero() function.])
+		CRYPT_CHECKPASS_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_CRYPT_CHECKPASS], [test $CRYPT_CHECKPASS_SUPPORT = yes])
+
 AC_CHECK_FUNCS([ \
 	asprintf \
 	b64_ntop \
