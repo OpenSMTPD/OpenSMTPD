@@ -593,6 +593,7 @@ AC_CHECK_FUNCS([ \
 	gettimeofday \
 	getopt \
 	getpeereid \
+	getpeerucred \
 	getspnam \
 	inet_aton \
 	inet_ntoa \
