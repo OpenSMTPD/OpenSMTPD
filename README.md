@@ -125,7 +125,7 @@ Configure /etc/smtpd.conf
 -------------------------
 
 Please have a look at the complete format description of smtpd.conf
-configuration file (http://opensmtpd.org/smtpd.conf.5.html)
+configuration file (https://man.openbsd.org/smtpd.conf)
 
 
 Add OpenSMTPD users
