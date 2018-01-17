@@ -1207,8 +1207,8 @@ dnl # session.c expects anyway. Otherwise we set to the value found
 dnl # stripping any trailing slash. If for some strage reason our program
 dnl # does not find what it needs, we default to /var/spool/mail.
 # Check for mail directory
-AC_ARG_WITH([path-mbox],
-    [  --with-path-mbox=PATH		Specify path to mbox directory (default=/var/spool/mail)],
+AC_ARG_WITH([maildir],
+    [  --with-maildir=PATH		Specify maildir directory (default=/var/spool/mail)],
     [
 	if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
