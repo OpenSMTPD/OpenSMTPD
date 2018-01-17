@@ -1205,10 +1205,10 @@ dnl # We first look for _PATH_MAILDIR then MAILDIR then _PATH_MAIL
 dnl # If we find _PATH_MAILDIR we do nothing because that is what
 dnl # session.c expects anyway. Otherwise we set to the value found
 dnl # stripping any trailing slash. If for some strage reason our program
-dnl # does not find what it needs, we default to /var/spool/mail.
+dnl # does not find what it needs, we default to /var/mail.
 # Check for mail directory
-AC_ARG_WITH([path-mbox],
-    [  --with-path-mbox=PATH		Specify path to mbox directory (default=/var/spool/mail)],
+AC_ARG_WITH([maildir],
+    [  --with-maildir=PATH		Specify maildir directory (default=/var/mail)],
     [
 	if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
 		AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$withval"],
@@ -1265,9 +1265,9 @@ AC_ARG_WITH([path-mbox],
 		],
 		[
 		    if test "X$ac_status" = "X2"; then
-# our test program didn't find it. Default to /var/spool/mail
-			AC_MSG_RESULT([Using: default value of /var/spool/mail])
-			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
+# our test program didn't find it. Default to /var/mail
+			AC_MSG_RESULT([Using: default value of /var/mail])
+			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/mail"])
 		     else
 			AC_MSG_RESULT([*** not found ***])
 		     fi
