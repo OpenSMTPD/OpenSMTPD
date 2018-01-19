@@ -425,7 +425,7 @@ ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
 	 */
 	ret = SSL_CTX_use_PrivateKey(ctx, pkey);
 	if (!ret)
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_SSL_LIB);
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_SYS_LIB);
 
 	if (pkeyptr != NULL)
 		*pkeyptr = pkey;

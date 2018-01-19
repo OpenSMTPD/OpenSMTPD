@@ -73,3 +73,17 @@ void	SSL_CTX_set_ecdh_auto(SSL_CTX *, int);
 void	SSL_CTX_set_dh_auto(SSL_CTX *, int);
 #endif
 int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
+
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+
+static inline pem_password_cb *SSL_CTX_get_default_passwd_cb(SSL_CTX *ctx)
+{
+	return ctx->default_passwd_callback;
+}
+
+static inline void *SSL_CTX_get_default_passwd_cb_userdata(SSL_CTX *ctx)
+{
+	return ctx->default_passwd_callback_userdata;
+}
+
+#endif

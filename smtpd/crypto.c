@@ -64,7 +64,7 @@ crypto_setup(const char *key, size_t len)
 int
 crypto_encrypt_file(FILE * in, FILE * out)
 {
-	EVP_CIPHER_CTX	ctx;
+	EVP_CIPHER_CTX	*ctx;
 	uint8_t		ibuf[CRYPTO_BUFFER_SIZE];
 	uint8_t		obuf[CRYPTO_BUFFER_SIZE];
 	uint8_t		iv[IV_SIZE];
@@ -91,12 +91,14 @@ crypto_encrypt_file(FILE * in, FILE * out)
 	if ((w = fwrite(iv, 1, sizeof iv, out)) != sizeof iv)
 		return 0;
 
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_EncryptInit_ex(&ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
+        ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+                return 0;
+	EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
 
 	/* encrypt until end of file */
 	while ((r = fread(ibuf, 1, CRYPTO_BUFFER_SIZE, in)) != 0) {
-		if (!EVP_EncryptUpdate(&ctx, obuf, &len, ibuf, r))
+		if (!EVP_EncryptUpdate(ctx, obuf, &len, ibuf, r))
 			goto end;
 		if (len && (w = fwrite(obuf, len, 1, out)) != 1)
 			goto end;
@@ -105,13 +107,13 @@ crypto_encrypt_file(FILE * in, FILE * out)
 		goto end;
 
 	/* finalize and write last chunk if any */
-	if (!EVP_EncryptFinal_ex(&ctx, obuf, &len))
+	if (!EVP_EncryptFinal_ex(ctx, obuf, &len))
 		goto end;
 	if (len && (w = fwrite(obuf, len, 1, out)) != 1)
 		goto end;
 
 	/* get and append tag */
-	EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, sizeof tag, tag);
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof tag, tag);
 	if ((w = fwrite(tag, sizeof tag, 1, out)) != 1)
 		goto end;
 
@@ -119,14 +121,14 @@ crypto_encrypt_file(FILE * in, FILE * out)
 	ret = 1;
 
 end:
-	EVP_CIPHER_CTX_cleanup(&ctx);
+	EVP_CIPHER_CTX_free(ctx);
 	return ret;
 }
 
 int
 crypto_decrypt_file(FILE * in, FILE * out)
 {
-	EVP_CIPHER_CTX	ctx;
+	EVP_CIPHER_CTX	*ctx;
 	uint8_t		ibuf[CRYPTO_BUFFER_SIZE];
 	uint8_t		obuf[CRYPTO_BUFFER_SIZE];
 	uint8_t		iv[IV_SIZE];
@@ -171,11 +173,13 @@ crypto_decrypt_file(FILE * in, FILE * out)
 	sz -= sizeof tag;
 
 
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_DecryptInit_ex(&ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
+        ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+                return 0;
+	EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
 
 	/* set expected tag */
-	EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, sizeof tag, tag);
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, sizeof tag, tag);
 
 	/* decrypt until end of ciphertext */
 	while (sz) {
@@ -185,7 +189,7 @@ crypto_decrypt_file(FILE * in, FILE * out)
 			r = fread(ibuf, 1, sz, in);
 		if (!r)
 			break;
-		if (!EVP_DecryptUpdate(&ctx, obuf, &len, ibuf, r))
+		if (!EVP_DecryptUpdate(ctx, obuf, &len, ibuf, r))
 			goto end;
 		if (len && (w = fwrite(obuf, len, 1, out)) != 1)
 			goto end;
@@ -195,7 +199,7 @@ crypto_decrypt_file(FILE * in, FILE * out)
 		goto end;
 
 	/* finalize, write last chunk if any and perform authentication check */
-	if (!EVP_DecryptFinal_ex(&ctx, obuf, &len))
+	if (!EVP_DecryptFinal_ex(ctx, obuf, &len))
 		goto end;
 	if (len && (w = fwrite(obuf, len, 1, out)) != 1)
 		goto end;
@@ -204,14 +208,14 @@ crypto_decrypt_file(FILE * in, FILE * out)
 	ret = 1;
 
 end:
-	EVP_CIPHER_CTX_cleanup(&ctx);
+	EVP_CIPHER_CTX_free(ctx);
 	return ret;
 }
 
 size_t
 crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 {
-	EVP_CIPHER_CTX	ctx;
+	EVP_CIPHER_CTX	*ctx;
 	uint8_t		iv[IV_SIZE];
 	uint8_t		tag[GCM_TAG_SIZE];
 	uint8_t		version = API_VERSION;
@@ -239,33 +243,35 @@ crypto_encrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 	memcpy(out + len, iv, sizeof iv);
 	len += sizeof iv;
 
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_EncryptInit_ex(&ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
+        ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+                return 0;
+	EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
 
 	/* encrypt buffer */
-	if (!EVP_EncryptUpdate(&ctx, out + len, &olen, in, inlen))
+	if (!EVP_EncryptUpdate(ctx, out + len, &olen, in, inlen))
 		goto end;
 	len += olen;
 
 	/* finalize and write last chunk if any */
-	if (!EVP_EncryptFinal_ex(&ctx, out + len, &olen))
+	if (!EVP_EncryptFinal_ex(ctx, out + len, &olen))
 		goto end;
 	len += olen;
 
 	/* get and append tag */
-	EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, sizeof tag, tag);
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof tag, tag);
 	memcpy(out + len, tag, sizeof tag);
 	ret = len + sizeof tag;
 
 end:
-	EVP_CIPHER_CTX_cleanup(&ctx);
+	EVP_CIPHER_CTX_cleanup(ctx);
 	return ret;
 }
 
 size_t
 crypto_decrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 {
-	EVP_CIPHER_CTX	ctx;
+	EVP_CIPHER_CTX	*ctx;
 	uint8_t		iv[IV_SIZE];
 	uint8_t		tag[GCM_TAG_SIZE];
 	int		olen;
@@ -292,24 +298,26 @@ crypto_decrypt_buffer(const char *in, size_t inlen, char *out, size_t outlen)
 	inlen -= sizeof iv;
 	in += sizeof iv;
 
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_DecryptInit_ex(&ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
+        ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+                return 0;
+	EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, cp.key, iv);
 
 	/* set expected tag */
-	EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, sizeof tag, tag);
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, sizeof tag, tag);
 
 	/* decrypt buffer */
-	if (!EVP_DecryptUpdate(&ctx, out, &olen, in, inlen))
+	if (!EVP_DecryptUpdate(ctx, out, &olen, in, inlen))
 		goto end;
 	len += olen;
 
 	/* finalize, write last chunk if any and perform authentication check */
-	if (!EVP_DecryptFinal_ex(&ctx, out + len, &olen))
+	if (!EVP_DecryptFinal_ex(ctx, out + len, &olen))
 		goto end;
 	ret = len + olen;
 
 end:
-	EVP_CIPHER_CTX_cleanup(&ctx);
+	EVP_CIPHER_CTX_cleanup(ctx);
 	return ret;
 }
 

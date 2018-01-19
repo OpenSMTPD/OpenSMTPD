@@ -170,6 +170,190 @@ ca_verify_cb(int ok, X509_STORE_CTX *ctx)
 	return ok;
 }
 
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+
+static int RSA_meth_get_flags(RSA_METHOD *meth)
+{
+	return meth->flags;
+}
+
+static int RSA_meth_set_flags(RSA_METHOD *meth, int flags)
+{
+	meth->flags = flags;
+	return 1;
+}
+
+static void *RSA_meth_get0_app_data(const RSA_METHOD *meth)
+{
+	return meth->app_data;
+}
+
+static int RSA_meth_set0_app_data(RSA_METHOD *meth, void *app_data)
+{
+	meth->app_data = app_data;
+	return 1;
+}
+
+static int (*RSA_meth_get_pub_enc(const RSA_METHOD *meth))
+(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding)
+{
+	return meth->rsa_pub_enc;
+}
+
+static int RSA_meth_set_pub_enc(RSA_METHOD *meth,
+	int (*pub_enc) (int flen, const unsigned char *from,
+			unsigned char *to, RSA *rsa,
+			int padding))
+{
+	meth->rsa_pub_enc = pub_enc;
+	return 1;
+}
+
+static int (*RSA_meth_get_pub_dec(const RSA_METHOD *meth))
+(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding)
+{
+	return meth->rsa_pub_dec;
+}
+
+static int (*RSA_meth_get_priv_enc(const RSA_METHOD *meth))
+(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding)
+{
+	return meth->rsa_priv_enc;
+}
+
+int RSA_meth_set_priv_enc(RSA_METHOD *meth,
+  int (*priv_enc) (int flen, const unsigned char *from,
+  unsigned char *to, RSA *rsa, int padding))
+{
+	meth->rsa_priv_enc = priv_enc;
+	return 1;
+}
+
+static int (*RSA_meth_get_priv_dec(const RSA_METHOD *meth))
+(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding)
+{
+	return meth->rsa_priv_dec;
+}
+
+static int RSA_meth_set_priv_dec(RSA_METHOD *meth,
+  int (*priv_dec) (int flen, const unsigned char *from,
+  unsigned char *to, RSA *rsa, int padding))
+{
+	meth->rsa_priv_dec = priv_dec;
+	return 1;
+}
+
+static int (*RSA_meth_get_mod_exp(const RSA_METHOD *meth))
+  (BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx)
+{
+	return meth->rsa_mod_exp;
+}
+
+static int RSA_meth_set_mod_exp(RSA_METHOD *meth,
+  int (*mod_exp) (BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx))
+{
+	meth->rsa_mod_exp = mod_exp;
+	return 1;
+}
+
+static int (*RSA_meth_get_bn_mod_exp(const RSA_METHOD *meth))
+(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
+{
+	return meth->bn_mod_exp;
+}
+
+static int RSA_meth_set_bn_mod_exp(RSA_METHOD *meth, int (*bn_mod_exp)
+  (BIGNUM *r, const BIGNUM *a, const BIGNUM *p, const BIGNUM *m,
+   BN_CTX *ctx, BN_MONT_CTX *m_ctx))
+{
+	meth->bn_mod_exp = bn_mod_exp;
+	return 1;
+}
+
+static int (*RSA_meth_get_init(const RSA_METHOD *meth)) (RSA *rsa)
+{
+	return meth->init;
+}
+
+static int RSA_meth_set_init(RSA_METHOD *meth, int (*init) (RSA *rsa))
+{
+	meth->init = init;
+	return 1;
+}
+
+static int (*RSA_meth_get_finish(const RSA_METHOD *meth)) (RSA *rsa)
+{
+	return meth->finish;
+}
+
+static int RSA_meth_set_finish(RSA_METHOD *meth, int (*finish) (RSA *rsa))
+{
+	meth->finish = finish;
+	return 1;
+}
+
+static int (*RSA_meth_get_keygen(const RSA_METHOD *meth))
+  (RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
+{
+	return meth->rsa_keygen;
+}
+
+static int RSA_meth_set_keygen(RSA_METHOD *meth, int (*keygen)
+  (RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb))
+{
+	meth->rsa_keygen = keygen;
+	return 1;
+}
+
+static int (*RSA_meth_get_verify(const RSA_METHOD *meth))
+  (int dtype, const unsigned char *m,
+   unsigned int m_length, const unsigned char *sigbuf,
+   unsigned int siglen, const RSA *rsa)
+{
+	if (meth->flags & RSA_FLAG_SIGN_VER)
+		return meth->rsa_verify;
+	return NULL;
+}
+
+static int (*RSA_meth_get_sign(const RSA_METHOD *meth))
+  (int type,
+   const unsigned char *m, unsigned int m_length,
+   unsigned char *sigret, unsigned int *siglen,
+   const RSA *rsa)
+{
+	if (meth->flags & RSA_FLAG_SIGN_VER)
+		return meth->rsa_sign;
+	return NULL;
+}
+
+static int RSA_meth_set_pub_dec(RSA_METHOD *meth,
+ int (*pub_dec) (int flen, const unsigned char *from,
+   unsigned char *to, RSA *rsa, int padding))
+{
+	meth->rsa_pub_dec = pub_dec;
+	return 1;
+}
+
+static RSA_METHOD *RSA_meth_new(const char *name, int flags)
+{
+	RSA_METHOD *meth = malloc(sizeof(*meth));
+
+	if (meth != NULL) {
+		memset(meth, 0, sizeof(*meth));
+		meth->flags = flags;
+
+		meth->name = strdup(name);
+		if (meth->name != NULL)
+			return meth;
+
+		free(meth);
+	}
+
+	return NULL;
+}
+
+#endif
+
 int
 ca_X509_verify(void *certificate, void *chain, const char *CAfile,
     const char *CRLfile, const char **errstr)
@@ -201,7 +385,7 @@ end:
 	*errstr = NULL;
 	if (ret != 1) {
 		if (xsc)
-			*errstr = X509_verify_cert_error_string(xsc->error);
+			*errstr = X509_verify_cert_error_string(X509_STORE_CTX_get_error(xsc));
 		else if (ERR_peek_last_error())
 			*errstr = ERR_error_string(ERR_peek_last_error(), NULL);
 	}
@@ -302,24 +486,9 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
  * RSA privsep engine (called from unprivileged processes)
  */
 
-const RSA_METHOD *rsa_default = NULL;
+static const RSA_METHOD *rsa_default = NULL;
 
-static RSA_METHOD rsae_method = {
-	"RSA privsep engine",
-	rsae_pub_enc,
-	rsae_pub_dec,
-	rsae_priv_enc,
-	rsae_priv_dec,
-	rsae_mod_exp,
-	rsae_bn_mod_exp,
-	rsae_init,
-	rsae_finish,
-	0,
-	NULL,
-	NULL,
-	NULL,
-	rsae_keygen
-};
+static const char *rsae_method_name = "RSA privsep engine";
 
 static int
 rsae_send_imsg(int flen, const unsigned char *from, unsigned char *to,
@@ -404,7 +573,7 @@ rsae_pub_enc(int flen,const unsigned char *from, unsigned char *to, RSA *rsa,
     int padding)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->rsa_pub_enc(flen, from, to, rsa, padding));
+	return (RSA_meth_get_pub_enc(rsa_default)(flen, from, to, rsa, padding));
 }
 
 static int
@@ -412,7 +581,7 @@ rsae_pub_dec(int flen,const unsigned char *from, unsigned char *to, RSA *rsa,
     int padding)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->rsa_pub_dec(flen, from, to, rsa, padding));
+	return (RSA_meth_get_pub_dec(rsa_default)(flen, from, to, rsa, padding));
 }
 
 static int
@@ -424,7 +593,7 @@ rsae_priv_enc(int flen, const unsigned char *from, unsigned char *to, RSA *rsa,
 		return (rsae_send_imsg(flen, from, to, rsa, padding,
 		    IMSG_CA_PRIVENC));
 	}
-	return (rsa_default->rsa_priv_enc(flen, from, to, rsa, padding));
+	return (RSA_meth_get_priv_enc(rsa_default)(flen, from, to, rsa, padding));
 }
 
 static int
@@ -436,14 +605,14 @@ rsae_priv_dec(int flen, const unsigned char *from, unsigned char *to, RSA *rsa,
 		return (rsae_send_imsg(flen, from, to, rsa, padding,
 		    IMSG_CA_PRIVDEC));
 	}
-	return (rsa_default->rsa_priv_dec(flen, from, to, rsa, padding));
+	return (RSA_meth_get_priv_dec(rsa_default)(flen, from, to, rsa, padding));
 }
 
 static int
 rsae_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->rsa_mod_exp(r0, I, rsa, ctx));
+	return (RSA_meth_get_mod_exp(rsa_default)(r0, I, rsa, ctx));
 }
 
 static int
@@ -451,33 +620,35 @@ rsae_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
     const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->bn_mod_exp(r, a, p, m, ctx, m_ctx));
+	return (RSA_meth_get_bn_mod_exp(rsa_default)(r, a, p, m, ctx, m_ctx));
 }
 
 static int
 rsae_init(RSA *rsa)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	if (rsa_default->init == NULL)
+	if (RSA_meth_get_init(rsa_default) == NULL)
 		return (1);
-	return (rsa_default->init(rsa));
+	return (RSA_meth_get_init(rsa_default)(rsa));
 }
 
 static int
 rsae_finish(RSA *rsa)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	if (rsa_default->finish == NULL)
+	if (RSA_meth_get_finish(rsa_default) == NULL)
 		return (1);
-	return (rsa_default->finish(rsa));
+	return (RSA_meth_get_finish(rsa_default)(rsa));
 }
 
 static int
 rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
-	return (rsa_default->rsa_keygen(rsa, bits, e, cb));
+	return (RSA_meth_get_keygen(rsa_default)(rsa, bits, e, cb));
 }
+
+static RSA_METHOD *rsae_method;
 
 void
 ca_engine_init(void)
@@ -490,7 +661,7 @@ ca_engine_init(void)
 			errstr = "ENGINE_new";
 			goto fail;
 		}
-		if (!ENGINE_set_name(e, rsae_method.name)) {
+		if (!ENGINE_set_name(e, rsae_method_name)) {
 			errstr = "ENGINE_set_name";
 			goto fail;
 		}
@@ -503,25 +674,58 @@ ca_engine_init(void)
 		goto fail;
 	}
 
+	rsae_method = RSA_meth_new(rsae_method_name, 0);
+	if (!rsae_method) {
+		errstr = "RSA_meth_new";
+		goto fail;
+	}
+
 	if ((name = ENGINE_get_name(e)) == NULL)
 		name = "unknown RSA engine";
 
 	log_debug("debug: %s: using %s", __func__, name);
 
-	if (rsa_default->flags & RSA_FLAG_SIGN_VER)
+	if (RSA_meth_get_sign(rsa_default) ||
+	    RSA_meth_get_verify(rsa_default))
 		fatalx("unsupported RSA engine");
 
-	if (rsa_default->rsa_mod_exp == NULL)
-		rsae_method.rsa_mod_exp = NULL;
-	if (rsa_default->bn_mod_exp == NULL)
-		rsae_method.bn_mod_exp = NULL;
-	if (rsa_default->rsa_keygen == NULL)
-		rsae_method.rsa_keygen = NULL;
-	rsae_method.flags = rsa_default->flags |
-	    RSA_METHOD_FLAG_NO_CHECK;
-	rsae_method.app_data = rsa_default->app_data;
+	errstr = "Setting callback";
+	if (!RSA_meth_set_pub_enc(rsae_method, rsae_pub_enc))
+		goto fail;
+        if (!RSA_meth_set_pub_dec(rsae_method, rsae_pub_dec))
+		goto fail;
+        if (!RSA_meth_set_priv_enc(rsae_method, rsae_priv_enc))
+		goto fail;
+        if (!RSA_meth_set_priv_dec(rsae_method, rsae_priv_dec))
+		goto fail;
 
-	if (!ENGINE_set_RSA(e, &rsae_method)) {
+	if (RSA_meth_get_mod_exp(rsa_default)) {
+		if (!RSA_meth_set_mod_exp(rsae_method, rsae_mod_exp))
+			goto fail;
+	}
+
+	if (RSA_meth_get_bn_mod_exp(rsa_default))
+		if (!RSA_meth_set_bn_mod_exp(rsae_method, rsae_bn_mod_exp))
+			goto fail;
+        if (!RSA_meth_set_init(rsae_method, rsae_init))
+		goto fail;
+        if (!RSA_meth_set_finish(rsae_method, rsae_finish))
+		goto fail;
+
+	if (RSA_meth_get_keygen(rsa_default)) {
+		if (!RSA_meth_set_keygen(rsae_method, rsae_keygen))
+			goto fail;
+	}
+
+	if (!RSA_meth_set_flags(rsae_method,
+			   RSA_meth_get_flags(rsa_default) |
+			   RSA_METHOD_FLAG_NO_CHECK))
+		goto fail;
+
+	if (!RSA_meth_set0_app_data(rsae_method, RSA_meth_get0_app_data(rsa_default)))
+		goto fail;
+
+	if (!ENGINE_set_RSA(e, rsae_method)) {
 		errstr = "ENGINE_set_RSA";
 		goto fail;
 	}
