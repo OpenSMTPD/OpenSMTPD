@@ -569,7 +569,7 @@ CRYPT_CHECKPASS_SUPPORT=no
 AC_CHECK_FUNC([crypt_checkpass],
 	[
 		AC_DEFINE([HAVE_CRYPT_CHECKPASS], [1],
-			[Define if you have the explicit_bzero() function.])
+			[Define if you have the crypt_checkpass() function.])
 		CRYPT_CHECKPASS_SUPPORT=yes
 	])
 AM_CONDITIONAL([SUPPORT_CRYPT_CHECKPASS], [test $CRYPT_CHECKPASS_SUPPORT = yes])
@@ -582,6 +582,7 @@ AC_CHECK_FUNCS([ \
 	__b64_pton \
 	bcopy \
 	chflags \
+	crypt_checkpass \
 	dirfd \
 	endgrent \
 	explicit_bzero \
