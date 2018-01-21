@@ -4,6 +4,9 @@
  * Written by Matthew Dempsky.
  */
 
+#include "includes.h"
+#ifndef HAVE_EXPLICIT_BZERO
+
 #include <string.h>
 
 void
@@ -11,3 +14,4 @@ explicit_bzero(void *buf, size_t len)
 {
 	memset(buf, 0, len);
 }
+#endif
