@@ -584,6 +584,7 @@ AC_CHECK_FUNCS([ \
 	chflags \
 	dirfd \
 	endgrent \
+	explicit_bzero \
 	fchflags \
 	fgetln \
 	freeaddrinfo \
