@@ -32,6 +32,10 @@ if !SUPPORT_BASENAME
 libopenbsd_compat_a_SOURCES += basename.c
 endif
 
+if !SUPPORT_CRYPT_CHECKPASS
+libopenbsd_compat_a_SOURCES += crypt_checkpass.c
+endif
+
 if !SUPPORT_CLOCK_GETTIME
 libopenbsd_compat_a_SOURCES += clock_gettime.c
 endif

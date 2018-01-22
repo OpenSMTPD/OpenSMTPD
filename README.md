@@ -125,7 +125,7 @@ Configure /etc/smtpd.conf
 -------------------------
 
 Please have a look at the complete format description of smtpd.conf
-configuration file (http://opensmtpd.org/smtpd.conf.5.html)
+configuration file (https://man.openbsd.org/smtpd.conf)
 
 
 Add OpenSMTPD users
@@ -135,8 +135,8 @@ To operate, OpenSMTPD requires at least one user, by default _smtpd; and
 preferably two users, by default _smtpd and _smtpq.
 
 Using two users instead of one will increase security by a large factor
-so... unless you want to voluntarily reduce security or you have
-absolute more faith in our code than we do, by all means use one.
+so... if you want to voluntarily reduce security or you have absolute
+more faith in our code than we do, by all means use one.
 
 
 The instructions below assume the default users however, the configure
