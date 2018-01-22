@@ -105,7 +105,8 @@ config_process(enum smtp_proc_type proc)
 		fatal("fdlimit: getrlimit");
 	rl.rlim_cur = rl.rlim_max;
 	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
-		fatal("fdlimit: setrlimit");
+		if (errno != EINVAL)
+			fatal("fdlimit: setrlimit");
 }
 
 void

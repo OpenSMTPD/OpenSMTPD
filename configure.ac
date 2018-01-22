@@ -113,6 +113,7 @@ AC_SUBST([MANFMT])
 # CHECKS FOR HEADERS
 #
 AC_CHECK_HEADERS([ \
+	arpa/nameser_compat.h \
 	crypt.h \
 	dirent.h \
 	fcntl.h \
@@ -932,6 +933,8 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV],
 		[Define to a Set Process Title type if your system is
 		supported by bsd-setproctitle.c])
+	AC_DEFINE([BROKEN_STRNVIS], [1],
+	    [OSX strnvis argument order is swapped compared to OpenBSD])
 	;;
 *-*-dragonfly*)
 	;;

@@ -41,7 +41,7 @@
 
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include "vis.h"
+#include "bsd-vis.h"
 #include "xmalloc.h"
 
 #ifdef HAVE_SYS_TIME_H

@@ -36,6 +36,7 @@
 #ifndef HAVE_SETPROCTITLE
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #ifdef HAVE_SYS_PSTAT_H
@@ -43,7 +44,11 @@
 #endif
 #include <string.h>
 
+#if defined(HAVE_VIS_H) && !defined(BROKEN_STRNVIS)
 #include <vis.h>
+#else
+#include "bsd-vis.h"
+#endif
 
 #define SPT_NONE	0	/* don't use it at all */
 #define SPT_PSTAT	1	/* use pstat(PSTAT_SETCMD, ...) */

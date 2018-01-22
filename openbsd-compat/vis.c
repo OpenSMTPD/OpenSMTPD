@@ -32,11 +32,10 @@
 
 #include "includes.h"
 #if !defined(HAVE_STRNVIS) || defined(BROKEN_STRNVIS)
-
 #include <ctype.h>
 #include <string.h>
 
-#include "vis.h"
+#include "bsd-vis.h"
 
 #define	isoctal(c)	(((u_char)(c)) >= '0' && ((u_char)(c)) <= '7')
 #define	isvisible(c)							\
