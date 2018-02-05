@@ -475,6 +475,10 @@ typedef uint16_t	in_port_t;
 #ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC -1
 #endif
+
+#ifndef CLOCK_REALTIME
+#define CLOCK_REALTIME -2
+#endif
 /* end of chl */
 
 #ifndef HAVE_FPARSELN
