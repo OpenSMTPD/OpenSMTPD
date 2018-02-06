@@ -1156,7 +1156,7 @@ smtp_tx(struct smtp_session *s)
 	rfc2822_body_callback(&tx->rfc2822_parser,
 	    dataline_callback, s);
 
-	if (s->listener->local || s->listener->port == 587) {
+	if (s->listener->local || ntohs(s->listener->port) == 587) {
 		rfc2822_missing_header_callback(&tx->rfc2822_parser, "date",
 		    header_missing_callback, s);
 		rfc2822_missing_header_callback(&tx->rfc2822_parser, "message-id",
