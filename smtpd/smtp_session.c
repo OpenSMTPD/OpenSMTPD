@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.315 2017/11/18 08:23:14 eric Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.317 2018/02/16 20:57:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -45,8 +45,9 @@
 #include "log.h"
 #include "ssl.h"
 
+#define	SMTP_LINE_MAX			16384
 #define	DATA_HIWAT			65535
-#define	APPEND_DOMAIN_BUFFER_SIZE	4096
+#define	APPEND_DOMAIN_BUFFER_SIZE	SMTP_LINE_MAX
 
 enum smtp_state {
 	STATE_NEW = 0,
@@ -186,7 +187,7 @@ static void smtp_queue_open_message(struct smtp_session *);
 static void smtp_queue_commit(struct smtp_session *);
 static void smtp_queue_rollback(struct smtp_session *);
 
-static void smtp_dataline(struct smtp_session *, const char *);
+static int smtp_dataline(struct smtp_session *, const char *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -974,6 +975,7 @@ smtp_io(struct io *io, int evt, void *arg)
 	struct smtp_session    *s = arg;
 	char		       *line;
 	size_t			len;
+	int			eom;
 
 	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
 	    io_strio(io));
@@ -1006,8 +1008,8 @@ smtp_io(struct io *io, int evt, void *arg)
 	case IO_DATAIN:
 	    nextline:
 		line = io_getline(s->io, &len);
-		if ((line == NULL && io_datalen(s->io) >= LINE_MAX) ||
-		    (line && len >= LINE_MAX)) {
+		if ((line == NULL && io_datalen(s->io) >= SMTP_LINE_MAX) ||
+		    (line && len >= SMTP_LINE_MAX)) {
 			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 %s: Line too long",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
@@ -1021,9 +1023,11 @@ smtp_io(struct io *io, int evt, void *arg)
 			return;
 
 		/* Message body */
-		if (s->state == STATE_BODY && strcmp(line, ".")) {
-			smtp_dataline(s, line);
-			goto nextline;
+		eom = 0;
+		if (s->state == STATE_BODY) {
+			eom = smtp_dataline(s, line);
+			if (eom == 0)
+				goto nextline;
 		}
 
 		/* Pipelining not supported */
@@ -1037,20 +1041,21 @@ smtp_io(struct io *io, int evt, void *arg)
 			return;
 		}
 
-		/* End of body */
-		if (s->state == STATE_BODY) {
-			log_trace(TRACE_SMTP, "<<< [EOM]");
-
-			rfc2822_parser_flush(&s->tx->rfc2822_parser);
-
-			io_set_write(io);
-
+		if (eom) {
 			smtp_message_end(s);
+			io_set_write(io);
 			return;
 		}
 
 		/* Must be a command */
-		(void)strlcpy(s->cmd, line, sizeof s->cmd);
+		if (strlcpy(s->cmd, line, sizeof(s->cmd)) >= sizeof(s->cmd)) {
+			s->flags |= SF_BADINPUT;
+			smtp_reply(s, "500 %s: Command line too long",
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
+			smtp_enter_state(s, STATE_QUIT);
+			io_set_write(io);
+			return;
+		}
 		io_set_write(io);
 		smtp_command(s, line);
 		break;
@@ -2208,16 +2213,23 @@ smtp_queue_rollback(struct smtp_session *s)
 	m_close(p_queue);
 }
 
-static void
+static int
 smtp_dataline(struct smtp_session *s, const char *line)
 {
 	int	ret;
 
 	log_trace(TRACE_SMTP, "<<< [MSG] %s", line);
 
+	if (!strcmp(line, ".")) {
+		log_trace(TRACE_SMTP, "<<< [EOM]");
+		if (!s->tx->error)
+			rfc2822_parser_flush(&s->tx->rfc2822_parser);
+		return 1;
+	}
+
 	/* ignore data line if an error is set */
 	if (s->tx->error)
-		return;
+		return 0;
 
 	/* escape lines starting with a '.' */
 	if (line[0] == '.')
@@ -2227,20 +2239,20 @@ smtp_dataline(struct smtp_session *s, const char *line)
 	s->tx->datain += strlen(line) + 1;
 	if (s->tx->datain > env->sc_maxsize) {
 		s->tx->error = TX_ERROR_SIZE;
-		return;
+		return 0;
 	}
 
 	if (!s->tx->hdrdone) {
 
 		/* folded header that must be skipped */
 		if (isspace((unsigned char)line[0]) && s->tx->skiphdr)
-			return;
+			return 0;
 		s->tx->skiphdr = 0;
 
 		/* BCC should be stripped from headers */
 		if (strncasecmp("bcc:", line, 4) == 0) {
 			s->tx->skiphdr = 1;
-			return;
+			return 0;
 		}
 
 		/* check for loop */
@@ -2249,7 +2261,7 @@ smtp_dataline(struct smtp_session *s, const char *line)
 		if (s->tx->rcvcount == MAX_HOPS_COUNT) {
 			s->tx->error = TX_ERROR_LOOP;
 			log_warnx("warn: loop detected");
-			return;
+			return 0;
 		}
 
 		if (line[0] == '\0')
@@ -2257,15 +2269,13 @@ smtp_dataline(struct smtp_session *s, const char *line)
 	}
 
 	ret = rfc2822_parser_feed(&s->tx->rfc2822_parser, line);
-	if (ret == -1) {
+	if (ret == -1)
 		s->tx->error = TX_ERROR_RESOURCES;
-		return;
-	}
 
-	if (ret == 0) {
+	if (ret == 0)
 		s->tx->error = TX_ERROR_MALFORMED;
-		return;
-	}
+
+	return 0;
 }
 
 #define CASE(x) case x : return #x
