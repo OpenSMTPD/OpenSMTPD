@@ -27,4 +27,10 @@ ylwrap
 tags
 obj
 CVS/
-*/CVS/
+smtpd/CVS
+smtpd/smtpctl/CVS
+smtpd/smtpd/CVS
+smtpd/mail/CVS
+smtpd/mail/CVS
+smtpd/mail/*/CVS
+smtpd/smtpctl/CVS/*
