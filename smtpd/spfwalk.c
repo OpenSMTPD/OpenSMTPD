@@ -42,6 +42,7 @@ static void	dispatch_mx(struct dns_rr *);
 static void	dispatch_a(struct dns_rr *);
 static void	dispatch_aaaa(struct dns_rr *);
 static void	lookup_record(int, const char *, void (*)(struct dns_rr *));
+static int	validate_address(int, const char *);
 static void	dispatch_record(struct asr_result *, void *);
 static ssize_t	parse_txt(const char *, size_t, char *, size_t);
 
@@ -129,6 +130,17 @@ dispatch_record(struct asr_result *ar, void *arg)
 	}
 }
 
+int
+validate_address(int af, const char *s)
+{
+	struct in6_addr ina;
+
+	if (strrchr(s, '/') != NULL)
+		return inet_net_pton(af, s, &ina, sizeof(s)) != -1;
+	else
+		return inet_pton(af, s, &ina) == 1;
+}
+
 void
 dispatch_txt(struct dns_rr *rr)
 {
@@ -159,22 +171,26 @@ dispatch_txt(struct dns_rr *rr)
 			*end = '\0';
 
 		if (strncasecmp("ip4:", *ap, 4) == 0) {
-			if (ip_v4 == 1 || ip_both == 1)
+			if ((ip_v4 == 1 || ip_both == 1) &&
+			    validate_address(AF_INET, *(ap) + 4))
 				printf("%s\n", *(ap) + 4);
 			continue;
 		}
 		if (strncasecmp("ip6:", *ap, 4) == 0) {
-			if (ip_v6 == 1 || ip_both == 1)
+			if ((ip_v6 == 1 || ip_both == 1) &&
+			    validate_address(AF_INET6, *(ap) + 4))
 				printf("%s\n", *(ap) + 4);
 			continue;
 		}
 		if (strncasecmp("+ip4:", *ap, 5) == 0) {
-			if (ip_v4 == 1 || ip_both == 1)
+			if ((ip_v4 == 1 || ip_both == 1) &&
+			    validate_address(AF_INET, *(ap) + 5))
 				printf("%s\n", *(ap) + 5);
 			continue;
 		}
 		if (strncasecmp("+ip6:", *ap, 5) == 0) {
-			if (ip_v6 == 1 || ip_both == 1)
+			if ((ip_v6 == 1 || ip_both == 1) &&
+			    validate_address(AF_INET6, *(ap) + 5))
 				printf("%s\n", *(ap) + 5);
 			continue;
 		}
