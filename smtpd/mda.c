@@ -266,7 +266,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 				 * if any
 				 */
 				n = io_printf(s->io,
-				    "Return-Path: %s\n"
+				    "Return-Path: <%s>\n"
 				    "Delivered-To: %s\n",
 				    e->sender,
 				    e->rcpt ? e->rcpt : e->dest);
