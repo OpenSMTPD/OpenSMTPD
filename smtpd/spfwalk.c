@@ -14,10 +14,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/tree.h>
 
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#include <netinet/in.h>
 #include <netdb.h>
 
 #include <asr.h>
@@ -31,7 +34,9 @@
 #include <strings.h>
 #include <unistd.h>
 
+#define LINE_MAX 1024
 #include "smtpd-defines.h"
+#include "smtpd-api.h"
 #include "unpack_dns.h"
 #include "parser.h"
 
@@ -48,6 +53,8 @@ static ssize_t	parse_txt(const char *, size_t, char *, size_t);
 int     ip_v4 = 0;
 int     ip_v6 = 0;
 int     ip_both = 1;
+
+struct dict seen;
 
 int
 spfwalk(int argc, struct parameter *argv)
@@ -74,6 +81,7 @@ spfwalk(int argc, struct parameter *argv)
 	argv += optind;
 	argc -= optind;
 
+	dict_init(&seen);
   	event_init();
 
 	while ((linelen = getline(&line, &linesize, stdin)) != -1) {
@@ -132,6 +140,7 @@ dispatch_record(struct asr_result *ar, void *arg)
 void
 dispatch_txt(struct dns_rr *rr)
 {
+	struct in6_addr ina;
         char buf[4096];
         char buf2[512];
         char *in = buf;
@@ -158,23 +167,34 @@ dispatch_txt(struct dns_rr *rr)
 		if (*end == '.')
 			*end = '\0';
 
+		if (dict_set(&seen, *ap, &seen))
+			continue;
+
 		if (strncasecmp("ip4:", *ap, 4) == 0) {
-			if (ip_v4 == 1 || ip_both == 1)
+			if ((ip_v4 == 1 || ip_both == 1) &&
+			    inet_net_pton(AF_INET, *(ap) + 4,
+			    &ina, sizeof(ina)) != -1)
 				printf("%s\n", *(ap) + 4);
 			continue;
 		}
 		if (strncasecmp("ip6:", *ap, 4) == 0) {
-			if (ip_v6 == 1 || ip_both == 1)
+			if ((ip_v6 == 1 || ip_both == 1) &&
+			    inet_net_pton(AF_INET6, *(ap) + 4,
+			    &ina, sizeof(ina)) != -1)
 				printf("%s\n", *(ap) + 4);
 			continue;
 		}
 		if (strncasecmp("+ip4:", *ap, 5) == 0) {
-			if (ip_v4 == 1 || ip_both == 1)
+			if ((ip_v4 == 1 || ip_both == 1) &&
+			    inet_net_pton(AF_INET, *(ap) + 5,
+			    &ina, sizeof(ina)) != -1)
 				printf("%s\n", *(ap) + 5);
 			continue;
 		}
 		if (strncasecmp("+ip6:", *ap, 5) == 0) {
-			if (ip_v6 == 1 || ip_both == 1)
+			if ((ip_v6 == 1 || ip_both == 1) &&
+			    inet_net_pton(AF_INET6, *(ap) + 5,
+			    &ina, sizeof(ina)) != -1)
 				printf("%s\n", *(ap) + 5);
 			continue;
 		}
