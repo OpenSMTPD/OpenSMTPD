@@ -1,5 +1,4 @@
 #	$OpenBSD: Makefile,v 1.6 2018/05/14 17:10:21 gilles Exp $
-
 .PATH:	${.CURDIR}/..
 
 PROGS=	mail.lmtp mail.maildir mail.mda
