@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.184 2017/11/21 12:20:34 eric Exp $	*/
+/*	$OpenBSD: queue.c,v 1.186 2018/05/24 11:38:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -528,15 +528,6 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		tv.tv_usec = 10;
 		evtimer_add(&wi->ev, &tv);
 		return;
-
-	case IMSG_CTL_UNCORRUPT_MSGID:
-		m_msg(&m, imsg);
-		m_get_msgid(&m, &msgid);
-		m_end(&m);
-		ret = queue_message_uncorrupt(msgid);
-		m_compose(p_control, imsg->hdr.type, imsg->hdr.peerid,
-		    0, -1, &ret, sizeof ret);
-		return;
 	}
 
 	errx(1, "queue_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
@@ -590,7 +581,7 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 	b.retry = 0;
 	b.lasttry = 0;
 	b.creation = time(NULL);
-	b.expire = 3600 * 24 * 7;
+	b.ttl = 3600 * 24 * 7;
 
 	if (e->dsn_notify & DSN_NEVER)
 		return;
@@ -637,7 +628,7 @@ queue(void)
 	struct timeval	 tv;
 	struct event	 ev_qload;
 
-	purge_config(PURGE_EVERYTHING);
+	purge_config(PURGE_EVERYTHING & ~PURGE_DISPATCHERS);
 
 	if ((pw = getpwnam(SMTPD_QUEUE_USER)) == NULL)
 		if ((pw = getpwnam(SMTPD_USER)) == NULL)
@@ -702,6 +693,7 @@ static void
 queue_timeout(int fd, short event, void *p)
 {
 	static uint32_t	 msgid = 0;
+	struct dispatcher *dsp;
 	struct envelope	 evp;
 	struct event	*ev = p;
 	struct timeval	 tv;
@@ -720,6 +712,13 @@ queue_timeout(int fd, short event, void *p)
 	}
 
 	if (r) {
+		dsp = dict_get(env->sc_dispatchers, evp.dispatcher);
+		if (dsp == NULL) {
+			log_warnx("warn: queue: missing dispatcher \"%s\""
+			    " for envelope %016"PRIx64", ignoring",
+			    evp.dispatcher, evp.id);
+			goto reset;
+		}
 		if (msgid && evpid_to_msgid(evp.id) != msgid) {
 			m_create(p_scheduler, IMSG_QUEUE_MESSAGE_COMMIT,
 			    0, 0, -1);
@@ -732,6 +731,7 @@ queue_timeout(int fd, short event, void *p)
 		m_close(p_scheduler);
 	}
 
+reset:
 	tv.tv_sec = 0;
 	tv.tv_usec = 10;
 	evtimer_add(ev, &tv);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.29 2015/12/28 22:08:30 jung Exp $	*/
+/*	$OpenBSD: expand.c,v 1.30 2018/05/24 11:38:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -71,6 +71,7 @@ expand_insert(struct expand *expand, struct expandnode *node)
 {
 	struct expandnode *xn;
 
+	node->rule = expand->rule;
 	node->parent = expand->parent;
 
 	log_trace(TRACE_EXPAND, "expand: %p: expand_insert() called for %s",
@@ -93,7 +94,6 @@ expand_insert(struct expand *expand, struct expandnode *node)
 	xn = xmemdup(node, sizeof *xn, "expand_insert");
 	xn->rule = expand->rule;
 	xn->parent = expand->parent;
-	xn->alias = expand->alias;
 	if (xn->parent)
 		xn->depth = xn->parent->depth + 1;
 	else
@@ -144,19 +144,14 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 		return -1;
 	if (e1->sameuser > e2->sameuser)
 		return 1;
-	if (e1->mapping < e2->mapping)
+	if (e1->realuser < e2->realuser)
 		return -1;
-	if (e1->mapping > e2->mapping)
-		return 1;
-	if (e1->userbase < e2->userbase)
-		return -1;
-	if (e1->userbase > e2->userbase)
+	if (e1->realuser > e2->realuser)
 		return 1;
 
 	r = memcmp(&e1->u, &e2->u, sizeof(e1->u));
 	if (r)
 		return (r);
-
 
 	if (e1->parent == e2->parent)
 		return (0);
@@ -318,14 +313,14 @@ expandnode_info(struct expandnode *e)
 	if (strlcat(buffer, tmp, sizeof buffer) >= sizeof buffer)
 		return NULL;
 
-	if (e->mapping) {
-		(void)strlcat(buffer, ", mapping=", sizeof buffer);
-		(void)strlcat(buffer, e->mapping->t_name, sizeof buffer);
-	}
+	(void)snprintf(tmp, sizeof(tmp), ", rule=%p", e->rule);
+	if (strlcat(buffer, tmp, sizeof buffer) >= sizeof buffer)
+		return NULL;
 
-	if (e->userbase) {
-		(void)strlcat(buffer, ", userbase=", sizeof buffer);
-		(void)strlcat(buffer, e->userbase->t_name, sizeof buffer);
+	if (e->rule) {
+		(void)snprintf(tmp, sizeof(tmp), ", dispatcher=%p", e->rule->dispatcher);
+		if (strlcat(buffer, tmp, sizeof buffer) >= sizeof buffer)
+			return NULL;
 	}
 
 	if (strlcat(buffer, "]", sizeof buffer) >= sizeof buffer)

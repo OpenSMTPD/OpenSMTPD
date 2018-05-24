@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.158 2018/03/14 22:22:30 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.161 2018/05/24 11:38:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
 #include <vis.h>
@@ -1033,31 +1034,6 @@ do_discover(int argc, struct parameter *argv)
 }
 
 static int
-do_uncorrupt(int argc, struct parameter *argv)
-{
-	uint32_t msgid;
-	int	 ret;
-
-	if (ibuf == NULL && !srv_connect())
-		errx(1, "smtpd doesn't seem to be running");
-
-	msgid = argv[0].u.u_msgid;
-	srv_send(IMSG_CTL_UNCORRUPT_MSGID, &msgid, sizeof msgid);
-	srv_recv(IMSG_CTL_UNCORRUPT_MSGID);
-
-	if (rlen == 0) {
-		srv_end();
-		return (0);
-	} else {
-		srv_read(&ret, sizeof ret);
-		srv_end();
-	}
-
-	printf("command %s\n", ret ? "succeeded" : "failed");
-	return (0);
-}
-
-static int
 do_spf_walk(int argc, struct parameter *argv)
 {
 	droppriv();
@@ -1125,7 +1101,6 @@ main(int argc, char **argv)
 	cmd_install_priv("show stats",		do_show_stats);
 	cmd_install_priv("show status",		do_show_status);
 	cmd_install_priv("trace <str>",		do_trace);
-	cmd_install_priv("uncorrupt <msgid>",	do_uncorrupt);
 	cmd_install_priv("unprofile <str>",	do_unprofile);
 	cmd_install_priv("untrace <str>",	do_untrace);
 	cmd_install_priv("update table <str>",	do_update_table);
@@ -1256,7 +1231,7 @@ show_queue_envelope(struct envelope *e, int online)
 	    e->dest.user, e->dest.domain,
 
 	    (size_t) e->creation,
-	    (size_t) (e->creation + e->expire),
+	    (size_t) (e->creation + e->ttl),
 	    (size_t) e->lasttry,
 	    (size_t) e->retry,
 	    runstate,

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd-api.h,v 1.32 2017/09/08 16:51:22 eric Exp $	*/
+/*	$OpenBSD: smtpd-api.h,v 1.34 2018/05/24 11:38:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -49,8 +49,6 @@ enum {
 	PROC_QUEUE_MESSAGE_DELETE,
 	PROC_QUEUE_MESSAGE_COMMIT,
 	PROC_QUEUE_MESSAGE_FD_R,
-	PROC_QUEUE_MESSAGE_CORRUPT,
-	PROC_QUEUE_MESSAGE_UNCORRUPT,
 	PROC_QUEUE_ENVELOPE_CREATE,
 	PROC_QUEUE_ENVELOPE_DELETE,
 	PROC_QUEUE_ENVELOPE_LOAD,
@@ -113,7 +111,7 @@ struct scheduler_info {
 	enum delivery_type	type;
 	uint16_t		retry;
 	time_t			creation;
-	time_t			expire;
+	time_t			ttl;
 	time_t			lasttry;
 	time_t			lastbounce;
 	time_t			nexttry;
@@ -144,6 +142,8 @@ enum table_service {
 	K_MAILADDR	= 0x040,	/* returns struct mailaddr	*/
 	K_ADDRNAME	= 0x080,	/* returns struct addrname	*/
 	K_MAILADDRMAP	= 0x100,	/* returns struct maddrmap	*/
+	K_RELAYHOST	= 0x200,	/* returns struct relayhost	*/
+	K_STRING	= 0x400,
 };
 #define K_ANY		  0xfff
 
@@ -272,8 +272,6 @@ void queue_api_on_message_create(int(*)(uint32_t *));
 void queue_api_on_message_commit(int(*)(uint32_t, const char*));
 void queue_api_on_message_delete(int(*)(uint32_t));
 void queue_api_on_message_fd_r(int(*)(uint32_t));
-void queue_api_on_message_corrupt(int(*)(uint32_t));
-void queue_api_on_message_uncorrupt(int(*)(uint32_t));
 void queue_api_on_envelope_create(int(*)(uint32_t, const char *, size_t, uint64_t *));
 void queue_api_on_envelope_delete(int(*)(uint64_t));
 void queue_api_on_envelope_update(int(*)(uint64_t, const char *, size_t));

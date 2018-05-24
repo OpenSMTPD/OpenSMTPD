@@ -1,4 +1,4 @@
-/*	$OpenBSD: aliases.c,v 1.71 2016/08/31 10:18:08 gilles Exp $	*/
+/*	$OpenBSD: aliases.c,v 1.72 2018/05/24 11:38:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -51,12 +51,14 @@ aliases_get(struct expand *expand, const char *username)
 	size_t			nbaliases;
 	int			ret;
 	union lookup		lk;
+	struct dispatcher      *dsp;
 	struct table	       *mapping = NULL;
 	struct table	       *userbase = NULL;
 	char		       *pbuf;
 
-	mapping = expand->rule->r_mapping;
-	userbase = expand->rule->r_userbase;
+	dsp = dict_xget(env->sc_dispatchers, expand->rule->dispatcher);
+	userbase = table_find(dsp->u.local.table_userbase, NULL);
+	mapping = table_find(dsp->u.local.table_alias, NULL);
 
 	xlowercase(buf, username, sizeof(buf));
 
@@ -84,8 +86,6 @@ expand:
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
 		else {
-			xn->mapping = mapping;
-			xn->userbase = userbase;
 			expand_insert(expand, xn);
 			nbaliases++;
 		}
@@ -109,11 +109,13 @@ aliases_virtual_get(struct expand *expand, const struct mailaddr *maddr)
 	char		       *pbuf;
 	int			nbaliases;
 	int			ret;
+	struct dispatcher      *dsp;
 	struct table	       *mapping = NULL;
 	struct table	       *userbase = NULL;
 
-	mapping = expand->rule->r_mapping;
-	userbase = expand->rule->r_userbase;
+	dsp = dict_xget(env->sc_dispatchers, expand->rule->dispatcher);
+	userbase = table_find(dsp->u.local.table_userbase, NULL);
+	mapping = table_find(dsp->u.local.table_virtual, NULL);
 
 	if (!bsnprintf(user, sizeof(user), "%s", maddr->user))
 		return 0;
@@ -195,8 +197,6 @@ expand:
 			nbaliases += aliases_expand_include(expand,
 			    xn->u.buffer);
 		else {
-			xn->mapping = mapping;
-			xn->userbase = userbase;
 			expand_insert(expand, xn);
 			nbaliases++;
 		}
