@@ -9,6 +9,7 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_backend.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_fs.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/smtpctl.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/spfwalk.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/util.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_backend.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_gzip.c
