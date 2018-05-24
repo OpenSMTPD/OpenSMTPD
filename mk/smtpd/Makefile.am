@@ -20,7 +20,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/ca.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/compress_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/config.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/control.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/delivery.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
@@ -67,11 +66,6 @@ if HAVE_GCM_CRYPTO
 smtpd_SOURCES+=		$(smtpd_srcdir)/crypto.c
 endif
 smtpd_SOURCES+=		$(smtpd_srcdir)/compress_gzip.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_filename.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_maildir.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_mbox.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_mda.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_lmtp.c
 if HAVE_DB_API
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_db.c
 endif
