@@ -58,6 +58,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/stat_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/to.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/tree.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/unpack_dns.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/util.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/waitq.c
 
