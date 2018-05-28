@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.207 2018/05/24 11:38:24 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.209 2018/05/28 17:10:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -673,6 +673,7 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 			m_add_string(p_queue, "Cannot parse smarthost");
 			m_add_int(p_queue, ESC_OTHER_STATUS);
 			m_close(p_queue);
+			return;
 		}
 	}
 
@@ -1052,6 +1053,7 @@ mta_on_smarthost(struct envelope *evp, const char *smarthost)
 		m_add_evpid(p_queue, evp->id);
 		m_add_string(p_queue, "Cannot retrieve smarthost");
 		m_add_int(p_queue, ESC_OTHER_STATUS);
+		m_close(p_queue);
 		return;
 	}
 
