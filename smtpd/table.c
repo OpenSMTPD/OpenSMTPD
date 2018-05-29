@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.25 2018/05/24 11:38:24 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.28 2018/05/29 20:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -106,6 +106,7 @@ table_service_name(enum table_service s)
 	case K_MAILADDR:	return "MAILADDR";
 	case K_ADDRNAME:	return "ADDRNAME";
 	case K_MAILADDRMAP:	return "MAILADDRMAP";
+	case K_RELAYHOST:	return "RELAYHOST";
 	default:		return "???";
 	}
 }
@@ -630,7 +631,8 @@ table_parse_lookup(enum table_service service, const char *key,
 		return (1);
 
 	case K_RELAYHOST:
-		if (!text_to_relayhost(&lk->relayhost, line))
+		if (strlcpy(lk->relayhost, line, sizeof(lk->relayhost))
+		    >= sizeof(lk->relayhost))
 			return (-1);
 		return (1);
 
@@ -725,9 +727,7 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	case K_RELAYHOST:
-		ret = snprintf(buf, sizeof(buf), "%s",
-		    relayhost_to_text(&lk->relayhost));
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
+		if (strlcpy(buf, lk->relayhost, sizeof(buf)) >= sizeof(buf))
 			goto err;
 		break;
 

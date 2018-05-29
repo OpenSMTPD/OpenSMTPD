@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.542 2018/05/24 12:22:00 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.545 2018/05/29 21:05:52 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -184,7 +184,7 @@ union lookup {
 	struct mailaddr		 mailaddr;
 	struct addrname		 addrname;
 	struct maddrmap		*maddrmap;
-	struct relayhost	 relayhost;
+	char			 relayhost[LINE_MAX];
 };
 
 /*
@@ -1479,7 +1479,6 @@ const char *sa_to_text(const struct sockaddr *);
 const char *ss_to_text(const struct sockaddr_storage *);
 const char *time_to_text(time_t);
 const char *duration_to_text(time_t);
-const char *relayhost_to_text(const struct relayhost *);
 const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
 const char *mailaddr_to_text(const struct mailaddr *);
@@ -1514,6 +1513,7 @@ int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
+void *xasprintf(const char *, ...);
 void *xmalloc(size_t, const char *);
 void *xcalloc(size_t, size_t, const char *);
 char *xstrdup(const char *, const char *);

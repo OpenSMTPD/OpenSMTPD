@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.202 2018/05/25 14:10:28 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.204 2018/05/29 22:16:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -187,7 +187,7 @@ typedef struct {
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
 %token	INCLUDE INET4 INET6
 %token	KEY
-%token	LIMIT LISTEN LOCAL
+%token	LIMIT LISTEN LMTP LOCAL
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
 %token	NODSN
 %token	ON
@@ -363,16 +363,23 @@ MBOX {
 	asprintf(&dispatcher->u.local.command, "/usr/libexec/mail.local -f %%{sender} %%{user.username}");
 } dispatcher_local_options
 | MAILDIR {
-	asprintf(&dispatcher->u.local.command,
-	    "/usr/libexec/mail.maildir -p %%{user.directory}/Maildir -r %%{dest.user}");
+	asprintf(&dispatcher->u.local.command, "/usr/libexec/mail.maildir");
 } dispatcher_local_options
 | MAILDIR STRING {
 	if (strncmp($2, "~/", 2) == 0)
 		asprintf(&dispatcher->u.local.command,
-		    "/usr/libexec/mail.maildir -p %%{user.directory}/%s -r %%{dest.user}}", $2+2);
+		    "/usr/libexec/mail.maildir \"%%{user.directory}/%s\"", $2+2);
 	else
 		asprintf(&dispatcher->u.local.command,
-		    "/usr/libexec/mail.maildir -p %s -r %%{dest.user}}", $2);
+		    "/usr/libexec/mail.maildir \"%s\"", $2);
+} dispatcher_local_options
+| LMTP STRING {
+	asprintf(&dispatcher->u.local.command,
+	    "/usr/libexec/mail.lmtp -f %%{sender} -d %s %%{user.username}", $2);
+} dispatcher_local_options
+| LMTP STRING RCPT_TO {
+	asprintf(&dispatcher->u.local.command,
+	    "/usr/libexec/mail.lmtp -f %%{sender} -d %s %%{dest}", $2);
 } dispatcher_local_options
 | MDA STRING {
 	asprintf(&dispatcher->u.local.command,
@@ -1543,6 +1550,7 @@ lookup(char *s)
 		{ "key",		KEY },
 		{ "limit",		LIMIT },
 		{ "listen",		LISTEN },
+		{ "lmtp",		LMTP },
 		{ "local",		LOCAL },
 		{ "mail-from",		MAIL_FROM },
 		{ "maildir",		MAILDIR },

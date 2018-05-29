@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.177 2018/05/25 09:17:01 gilles Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.180 2018/05/29 22:16:15 gilles Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: May 25 2018 $
+.Dd $Mdocdate: May 29 2018 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -95,6 +95,16 @@ in an aliases or
 file.
 .It Cm forward\-only
 Only accept the message if the recipient results in a remote address.
+.It Cm lmtp Ar destination Op Ar rcpt-to
+Deliver the message to an lmtp server at
+.Ar destination .
+The location may be expressed as host:port or as a UNIX socket.
+.Pp
+Optionally,
+.Ar rcpt-to
+might be specified to use the
+recipient email address (after expansion) instead of the
+local user in the LMTP session as RCPT TO.
 .It Cm maildir Op Ar pathname
 Deliver the message to the maildir in
 .Ar pathname
@@ -236,12 +246,6 @@ Credentials are looked up in the optional mapping
 .Ar authtable .
 The credentials format is described in
 .Xr table 5 .
-.Pp
-Any remote sender that passed SMTPAUTH is treated as if
-it was the server's local user that was sending the mail.
-This means that filter rules using
-.Cm from local
-are matched.
 .It Cm auth\-optional Op Pf < Ar authtable Ns >
 Like
 .Cm auth ,
@@ -357,6 +361,7 @@ Specify that session may address any destination.
 .Cm for local
 .Xc
 Specify that session may address any local domain.
+This is the default, and may be omitted.
 .It Xo
 .Op Ic \&!
 .Cm for domain
@@ -375,6 +380,7 @@ Specify that session may originate from any source.
 .Xc
 Specify that session may only originate from a local IP address,
 or from the local enqueuer.
+This is the default, and may be omitted.
 .It Xo
 .Op Ic \&!
 .Cm from socket
