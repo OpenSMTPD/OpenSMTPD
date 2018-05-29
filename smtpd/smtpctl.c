@@ -50,7 +50,11 @@
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(HAVE_VIS_H) && !defined(BROKEN_STRNVIS)
 #include <vis.h>
+#else
+#include "bsd-vis.h"
+#endif
 #include <limits.h>
 
 #include "smtpd.h"
