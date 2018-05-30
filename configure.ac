@@ -2226,6 +2226,10 @@ LIBS="$LIBS ${SMTPDLIBS}"
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		mk/Makefile
+		mk/mail/Makefile
+		mk/mail/mail.lmtp/Makefile
+		mk/mail/mail.maildir/Makefile
+		mk/mail/mail.mda/Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
 		contrib/Makefile
