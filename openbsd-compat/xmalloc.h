@@ -24,9 +24,9 @@ void	*__xcalloc(size_t, size_t);
 void	*__xrealloc(void *, size_t, size_t);
 void     __xfree(void *);
 char	*__xstrdup(const char *);
-int	 xasprintf(char **, const char *, ...)
-                __attribute__((__format__ (printf, 2, 3)))
-                __attribute__((__nonnull__ (2)));
+//int	 xasprintf(char **, const char *, ...)
+//                __attribute__((__format__ (printf, 2, 3)))
+//                __attribute__((__nonnull__ (2)));
 int	 xsnprintf(char *, size_t, const char *, ...)
 		__attribute__((__format__ (printf, 3, 4)))
 		__attribute__((__nonnull__ (3)));

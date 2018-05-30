@@ -11,6 +11,7 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_fs.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/smtpctl.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/spfwalk.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/util.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/unpack_dns.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_backend.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_gzip.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/to.c

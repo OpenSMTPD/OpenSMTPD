@@ -94,6 +94,7 @@ __xstrdup(const char *str)
 	return cp;
 }
 
+/*
 int
 xasprintf(char **ret, const char *fmt, ...)
 {
@@ -109,6 +110,7 @@ xasprintf(char **ret, const char *fmt, ...)
 
 	return (i);
 }
+*/
 
 int
 xsnprintf(char *str, size_t size, const char *fmt, ...)
