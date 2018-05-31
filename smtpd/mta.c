@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.211 2018/05/29 20:43:07 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.213 2018/05/31 21:06:12 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -259,7 +259,7 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_int(&m, &preference);
 		m_end(&m);
 		domain = tree_xget(&wait_mx, reqid);
-		mx = xcalloc(1, sizeof *mx, "mta: mx");
+		mx = xcalloc(1, sizeof *mx);
 		mx->host = mta_host((struct sockaddr*)&ss);
 		mx->preference = preference;
 		TAILQ_FOREACH(imx, &domain->mxs, entry) {
@@ -667,17 +667,14 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 		    sizeof(evp->agent.mta.relay.hostname));
 	}
 
-	if (smarthost) {
-		if (text_to_relayhost(&evp->agent.mta.relay, smarthost) == 0) {
-			log_warnx("warn: Failed to parse smarthost %s",
-			    smarthost);
-			m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
-			m_add_evpid(p_queue, evp->id);
-			m_add_string(p_queue, "Cannot parse smarthost");
-			m_add_int(p_queue, ESC_OTHER_STATUS);
-			m_close(p_queue);
-			return;
-		}
+	if (smarthost && !text_to_relayhost(&evp->agent.mta.relay, smarthost)) {
+		log_warnx("warn: Failed to parse smarthost %s", smarthost);
+		m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
+		m_add_evpid(p_queue, evp->id);
+		m_add_string(p_queue, "Cannot parse smarthost");
+		m_add_int(p_queue, ESC_OTHER_STATUS);
+		m_close(p_queue);
+		return;
 	}
 
 	relay = mta_relay(evp);
@@ -711,7 +708,7 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 			break;
 
 	if (task == NULL) {
-		task = xmalloc(sizeof *task, "mta_task");
+		task = xmalloc(sizeof *task);
 		TAILQ_INIT(&task->envelopes);
 		task->relay = relay;
 		relay->ntask += 1;
@@ -733,27 +730,26 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 			}
 		}
 
-		task->sender = xstrdup(buf, "mta_task:sender");
+		task->sender = xstrdup(buf);
 		stat_increment("mta.task", 1);
 	}
 
-	e = xcalloc(1, sizeof *e, "mta_envelope");
+	e = xcalloc(1, sizeof *e);
 	e->id = evp->id;
 	e->creation = evp->creation;
-	e->smtpname = xstrdup(evp->smtpname, "mta_envelope:smtpname");
+	e->smtpname = xstrdup(evp->smtpname);
 	(void)snprintf(buf, sizeof buf, "%s@%s",
 	    evp->dest.user, evp->dest.domain);
-	e->dest = xstrdup(buf, "mta_envelope:dest");
+	e->dest = xstrdup(buf);
 	(void)snprintf(buf, sizeof buf, "%s@%s",
 	    evp->rcpt.user, evp->rcpt.domain);
 	if (strcmp(buf, e->dest))
-		e->rcpt = xstrdup(buf, "mta_envelope:rcpt");
+		e->rcpt = xstrdup(buf);
 	e->task = task;
 	if (evp->dsn_orcpt.user[0] && evp->dsn_orcpt.domain[0]) {
 		(void)snprintf(buf, sizeof buf, "%s@%s",
 	    	    evp->dsn_orcpt.user, evp->dsn_orcpt.domain);
-		e->dsn_orcpt = xstrdup(buf,
-		    "mta_envelope:dsn_orcpt");
+		e->dsn_orcpt = xstrdup(buf);
 	}
 	(void)strlcpy(e->dsn_envid, evp->dsn_envid,
 	    sizeof e->dsn_envid);
@@ -1771,30 +1767,27 @@ mta_relay(struct envelope *e)
 		key.heloname = NULL;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
-		r = xcalloc(1, sizeof *r, "mta_relay");
+		r = xcalloc(1, sizeof *r);
 		TAILQ_INIT(&r->tasks);
 		r->id = generate_uid();
 		r->flags = key.flags;
 		r->domain = key.domain;
 		r->backupname = key.backupname ?
-		    xstrdup(key.backupname, "mta: backupname") : NULL;
+		    xstrdup(key.backupname) : NULL;
 		r->backuppref = -1;
 		r->port = key.port;
-		r->pki_name = key.pki_name ? xstrdup(key.pki_name, "mta: pki_name") : NULL;
-		r->ca_name = key.ca_name ? xstrdup(key.ca_name, "mta: ca_name") : NULL;
+		r->pki_name = key.pki_name ? xstrdup(key.pki_name) : NULL;
+		r->ca_name = key.ca_name ? xstrdup(key.ca_name) : NULL;
 		if (key.authtable)
-			r->authtable = xstrdup(key.authtable, "mta: authtable");
+			r->authtable = xstrdup(key.authtable);
 		if (key.authlabel)
-			r->authlabel = xstrdup(key.authlabel, "mta: authlabel");
+			r->authlabel = xstrdup(key.authlabel);
 		if (key.sourcetable)
-			r->sourcetable = xstrdup(key.sourcetable,
-			    "mta: sourcetable");
+			r->sourcetable = xstrdup(key.sourcetable);
 		if (key.helotable)
-			r->helotable = xstrdup(key.helotable,
-			    "mta: helotable");
+			r->helotable = xstrdup(key.helotable);
 		if (key.heloname)
-			r->heloname = xstrdup(key.heloname,
-			    "mta: heloname");
+			r->heloname = xstrdup(key.heloname);
 		SPLAY_INSERT(mta_relay_tree, &relays, r);
 		stat_increment("mta.relay", 1);
 	} else {
@@ -2094,8 +2087,8 @@ mta_host(const struct sockaddr *sa)
 	h = SPLAY_FIND(mta_host_tree, &hosts, &key);
 
 	if (h == NULL) {
-		h = xcalloc(1, sizeof(*h), "mta_host");
-		h->sa = xmemdup(sa, sa->sa_len, "mta_host");
+		h = xcalloc(1, sizeof(*h));
+		h->sa = xmemdup(sa, sa->sa_len);
 		SPLAY_INSERT(mta_host_tree, &hosts, h);
 		stat_increment("mta.host", 1);
 	}
@@ -2159,8 +2152,8 @@ mta_domain(char *name, int flags)
 	d = SPLAY_FIND(mta_domain_tree, &domains, &key);
 
 	if (d == NULL) {
-		d = xcalloc(1, sizeof(*d), "mta_domain");
-		d->name = xstrdup(name, "mta_domain");
+		d = xcalloc(1, sizeof(*d));
+		d->name = xstrdup(name);
 		d->flags = flags;
 		TAILQ_INIT(&d->mxs);
 		SPLAY_INSERT(mta_domain_tree, &domains, d);
@@ -2225,9 +2218,9 @@ mta_source(const struct sockaddr *sa)
 	s = SPLAY_FIND(mta_source_tree, &sources, &key);
 
 	if (s == NULL) {
-		s = xcalloc(1, sizeof(*s), "mta_source");
+		s = xcalloc(1, sizeof(*s));
 		if (sa)
-			s->sa = xmemdup(sa, sa->sa_len, "mta_source");
+			s->sa = xmemdup(sa, sa->sa_len);
 		SPLAY_INSERT(mta_source_tree, &sources, s);
 		stat_increment("mta.source", 1);
 	}
@@ -2288,7 +2281,7 @@ mta_connector(struct mta_relay *relay, struct mta_source *source)
 
 	c = tree_get(&relay->connectors, (uintptr_t)(source));
 	if (c == NULL) {
-		c = xcalloc(1, sizeof(*c), "mta_connector");
+		c = xcalloc(1, sizeof(*c));
 		c->relay = relay;
 		c->source = source;
 		c->flags |= CONNECTOR_NEW;
@@ -2341,7 +2334,7 @@ mta_route(struct mta_source *src, struct mta_host *dst)
 	r = SPLAY_FIND(mta_route_tree, &routes, &key);
 
 	if (r == NULL) {
-		r = xcalloc(1, sizeof(*r), "mta_route");
+		r = xcalloc(1, sizeof(*r));
 		r->src = src;
 		r->dst = dst;
 		r->flags |= ROUTE_NEW;
@@ -2467,9 +2460,9 @@ mta_block(struct mta_source *src, char *dom)
 	if (b != NULL)
 		return;
 
-	b = xcalloc(1, sizeof(*b), "mta_block");
+	b = xcalloc(1, sizeof(*b));
 	if (dom)
-		b->domain = xstrdup(dom, "mta_block");
+		b->domain = xstrdup(dom);
 	b->source = src;
 	mta_source_ref(src);
 	SPLAY_INSERT(mta_block_tree, &blocks, b);
