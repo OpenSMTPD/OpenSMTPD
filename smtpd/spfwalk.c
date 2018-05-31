@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
@@ -34,7 +36,6 @@
 #include <strings.h>
 #include <unistd.h>
 
-#include "openbsd-compat.h"
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "unpack_dns.h"
