@@ -24,7 +24,9 @@
 #include <syslog.h>
 
 #include <stdarg.h>
+#ifdef HAVE_SYS_CDEFS_H
 #include <sys/cdefs.h>
+#endif
 
 void	log_init(int, int);
 void	log_procinit(const char *);
