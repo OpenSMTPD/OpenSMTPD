@@ -116,6 +116,7 @@ AC_CHECK_HEADERS([ \
 	arpa/nameser_compat.h \
 	crypt.h \
 	dirent.h \
+	err.h \
 	fcntl.h \
 	getopt.h \
 	grp.h \
