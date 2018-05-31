@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.206 2018/05/30 19:01:58 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.207 2018/05/31 21:06:12 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -394,7 +394,7 @@ dispatcher_local_option dispatcher_local_options
 dispatcher_local:
 MBOX {
 	dispatcher->u.local.requires_root = 1;
-	dispatcher->u.local.user = xstrdup("root", "dispatcher_mda");
+	dispatcher->u.local.user = xstrdup("root");
 	asprintf(&dispatcher->u.local.command, "/usr/libexec/mail.local -f %%{sender} %%{user.username}");
 } dispatcher_local_options
 | MAILDIR {
@@ -618,7 +618,7 @@ ACTION STRING {
 		yyerror("dispatcher already declared with that name: %s", $2);
 		YYERROR;
 	}
-	dispatcher = xcalloc(1, sizeof *dispatcher, "dispatcher");
+	dispatcher = xcalloc(1, sizeof *dispatcher);
 } dispatcher_type dispatcher_options {
 	if (dispatcher->type == DISPATCHER_LOCAL)
 		if (dispatcher->u.local.table_userbase == NULL)
@@ -838,7 +838,7 @@ REJECT {
 
 match:
 MATCH {
-	rule = xcalloc(1, sizeof *rule, "rule");
+	rule = xcalloc(1, sizeof *rule);
 } match_options action {
 	if (!rule->flag_from) {
 		rule->table_from = strdup("<localhost>");
@@ -1359,7 +1359,7 @@ limit		: LIMIT SMTP limits_smtp
 
 			limits = dict_get(conf->sc_limits_dict, $5);
 			if (limits == NULL) {
-				limits = xcalloc(1, sizeof(*limits), "mta_limits");
+				limits = xcalloc(1, sizeof(*limits));
 				dict_xset(conf->sc_limits_dict, $5, limits);
 				d = dict_xget(conf->sc_limits_dict, "default");
 				memmove(limits, d, sizeof(*limits));
@@ -1387,7 +1387,7 @@ pkica		: PKI STRING	{
 			free($2);
 			pki = dict_get(conf->sc_pki_dict, buf);
 			if (pki == NULL) {
-				pki = xcalloc(1, sizeof *pki, "parse:pki");
+				pki = xcalloc(1, sizeof *pki);
 				(void)strlcpy(pki->pki_name, buf, sizeof(pki->pki_name));
 				dict_set(conf->sc_pki_dict, pki->pki_name, pki);
 			}
@@ -1407,7 +1407,7 @@ pkica		: PKI STRING	{
 			free($2);
 			sca = dict_get(conf->sc_ca_dict, buf);
 			if (sca == NULL) {
-				sca = xcalloc(1, sizeof *sca, "parse:ca");
+				sca = xcalloc(1, sizeof *sca);
 				(void)strlcpy(sca->ca_name, buf, sizeof(sca->ca_name));
 				dict_set(conf->sc_ca_dict, sca->ca_name, sca);
 			}
@@ -1997,7 +1997,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	dict_init(conf->sc_tables_dict);
 
 	dict_init(conf->sc_limits_dict);
-	limits = xcalloc(1, sizeof(*limits), "mta_limits");
+	limits = xcalloc(1, sizeof(*limits));
 	limit_mta_set_defaults(limits);
 	dict_xset(conf->sc_limits_dict, "default", limits);
 
@@ -2047,7 +2047,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	table_create("getpwnam", "<getpwnam>", NULL, NULL);
 
 	/* bounce dispatcher */
-	dispatcher = xcalloc(1, sizeof *dispatcher, "dispatcher");
+	dispatcher = xcalloc(1, sizeof *dispatcher);
 	dispatcher->type = DISPATCHER_BOUNCE;
 	conf->sc_dispatcher_bounce = dispatcher;
 	dispatcher = NULL;
@@ -2172,7 +2172,7 @@ symget(const char *nam)
 static void
 create_sock_listener(struct listen_opts *lo)
 {
-	struct listener *l = xcalloc(1, sizeof(*l), "create_sock_listener");
+	struct listener *l = xcalloc(1, sizeof(*l));
 	lo->tag = "local";
 	lo->hostname = conf->sc_hostname;
 	l->ss.ss_family = AF_LOCAL;
@@ -2304,7 +2304,7 @@ host_v4(struct listen_opts *lo)
 	if (inet_pton(AF_INET, lo->ifx, &ina) != 1)
 		return (0);
 
-	h = xcalloc(1, sizeof(*h), "host_v4");
+	h = xcalloc(1, sizeof(*h));
 	sain = (struct sockaddr_in *)&h->ss;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sain->sin_len = sizeof(struct sockaddr_in);
@@ -2334,7 +2334,7 @@ host_v6(struct listen_opts *lo)
 	if (inet_pton(AF_INET6, lo->ifx, &ina6) != 1)
 		return (0);
 
-	h = xcalloc(1, sizeof(*h), "host_v6");
+	h = xcalloc(1, sizeof(*h));
 	sin6 = (struct sockaddr_in6 *)&h->ss;
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 	sin6->sin6_len = sizeof(struct sockaddr_in6);
@@ -2376,7 +2376,7 @@ host_dns(struct listen_opts *lo)
 		if (res->ai_family != AF_INET &&
 		    res->ai_family != AF_INET6)
 			continue;
-		h = xcalloc(1, sizeof(*h), "host_dns");
+		h = xcalloc(1, sizeof(*h));
 
 		h->ss.ss_family = res->ai_family;
 		if (res->ai_family == AF_INET) {
@@ -2431,7 +2431,7 @@ interface(struct listen_opts *lo)
 		if (lo->family != AF_UNSPEC && lo->family != p->ifa_addr->sa_family)
 			continue;
 
-		h = xcalloc(1, sizeof(*h), "interface");
+		h = xcalloc(1, sizeof(*h));
 
 		switch (p->ifa_addr->sa_family) {
 		case AF_INET:
@@ -2610,7 +2610,7 @@ is_if_in_group(const char *ifname, const char *groupname)
 
         len = ifgr.ifgr_len;
         ifgr.ifgr_groups = xcalloc(len/sizeof(struct ifg_req),
-		sizeof(struct ifg_req), "is_if_in_group");
+		sizeof(struct ifg_req));
         if (ioctl(s, SIOCGIFGROUP, (caddr_t)&ifgr) == -1)
                 err(1, "SIOCGIFGROUP");
 
