@@ -34,7 +34,7 @@
 #include <strings.h>
 #include <unistd.h>
 
-#define LINE_MAX 1024
+#include "openbsd-compat.h"
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "unpack_dns.h"
