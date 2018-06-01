@@ -20,6 +20,9 @@
 #include <sys/socket.h>
 #include <sys/tree.h>
 
+#ifdef HAVE_ARPA_NAMESER_COMPAT_H
+#include <arpa/nameser_compat.h>
+#endif
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <netinet/in.h>
