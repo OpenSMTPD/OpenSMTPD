@@ -34,6 +34,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/lka.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/log.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mda.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/mda_unpriv.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mda_variables.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mproc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mailaddr.c
