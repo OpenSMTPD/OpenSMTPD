@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.187 2018/06/02 06:07:33 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.192 2018/06/04 21:13:34 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: June 2 2018 $
+.Dd $Mdocdate: June 4 2018 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -384,6 +384,10 @@ directive, receive the incoming message, put a copy into each
 matching envelope, and atomically save the envelopes to the mail
 spool for later processing by the respective dispatcher
 .Ar name .
+If the envelope does not match any options,
+it is rejected.
+Rules are evaluated sequentially,
+with the first match winning.
 .Pp
 The following matching options are supported and can all be negated:
 .Bl -tag -width Ds
@@ -438,7 +442,7 @@ In addition, the following transaction options:
 .Op Ic \&!
 .Cm auth
 .Xc
-Specify that transaction should be authenticated.
+Matches any transactions which have been authenticated.
 .It Xo
 .Op Ic \&!
 .Cm helo
@@ -473,6 +477,16 @@ The same
 are supported as for the
 .Ic match Cm action
 directive.
+.It Ic mda Cm wrapper Ar name command
+Associate
+.Ar command
+with the mail delivery agent wrapper named
+.Ar name .
+When a local delivery specifies a wrapper, the
+.Ar command
+associated with the wrapper will be executed instead.
+The command may contain format specifiers
+.Pq see Sx FORMAT SPECIFIERS .
 .It Ic mta Cm max\-deferred Ar number
 When delivery to a given host is suspended due to temporary failures,
 cache at most
@@ -626,6 +640,7 @@ The following formats are currently supported:
 .It %{dest.domain}    Ta domain part after expansion
 .It %{user.username}  Ta local user
 .It %{user.directory} Ta home directory of the local user
+.It %{mda}            Ta mda command, only available for mda wrappers
 .El
 .Pp
 Expansion formats also support partial expansion using the optional
@@ -720,11 +735,11 @@ match for any action "relay"
 .Ed
 .Pp
 In this second example,
-the aim is to permit mail relaying for any user that can authenticate
-using their normal login credentials.
+the aim is to permit mail delivery and relaying only for users that can authenticate
+(using their normal login credentials).
 An RSA certificate must be provided to prove the server's identity.
-The mail server listens on all interfaces the default route(s) point to.
-Mail with a local destination should be sent to an external mda.
+The mail server listens on all interfaces the default routes point to.
+Mail with a local destination is sent to an external MDA.
 First, the RSA certificate is created:
 .Bd -literal -offset indent
 # openssl genrsa \-out /etc/ssl/private/mail.example.com.key 4096
