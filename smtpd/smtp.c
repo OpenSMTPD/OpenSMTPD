@@ -46,6 +46,8 @@ static void smtp_setup_events(void);
 static void smtp_pause(void);
 static void smtp_resume(void);
 static void smtp_accept(int, short, void *);
+static void smtp_dropped(struct listener *, int, struct sockaddr_storage *);
+static void smtp_accepted(struct listener *, int, struct sockaddr_storage *, struct io *);
 static int smtp_enqueue(void);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
@@ -222,7 +224,8 @@ smtp_enqueue(void)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		return (-1);
 
-	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname)) == -1) {
+	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname,
+			NULL)) == -1) {
 		close(fd[0]);
 		close(fd[1]);
 		return (-1);
@@ -268,7 +271,7 @@ smtp_accept(int fd, short event, void *p)
 	if (listener->filter[0])
 		ret = smtpf_session(listener, sock, &ss, NULL);
 	else
-		ret = smtp_session(listener, sock, &ss, NULL);
+		ret = smtp_session(listener, sock, &ss, NULL, NULL);
 
 	if (ret == -1) {
 		log_warn("warn: Failed to create SMTP session");
