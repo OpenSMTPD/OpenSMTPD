@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda_variables.c,v 1.2 2018/05/24 11:38:24 gilles Exp $	*/
+/*	$OpenBSD: mda_variables.c,v 1.3 2018/06/04 15:57:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011-2017 Gilles Chehade <gilles@poolp.org>
@@ -39,9 +39,9 @@
 #define	EXPAND_DEPTH	10
 
 size_t mda_expand_format(char *, size_t, const struct deliver *,
-    const struct userinfo *);
+    const struct userinfo *, const char *);
 static size_t mda_expand_token(char *, size_t, const char *,
-    const struct deliver *, const struct userinfo *);
+    const struct deliver *, const struct userinfo *, const char *);
 static int mod_lowercase(char *, size_t);
 static int mod_uppercase(char *, size_t);
 static int mod_strip(char *, size_t);
@@ -60,7 +60,7 @@ static struct modifiers {
 
 static size_t
 mda_expand_token(char *dest, size_t len, const char *token,
-    const struct deliver *dlv, const struct userinfo *ui)
+    const struct deliver *dlv, const struct userinfo *ui, const char *mda_command)
 {
 	char		rtoken[MAXTOKENLEN];
 	char		tmp[EXPAND_BUFFER];
@@ -150,6 +150,10 @@ mda_expand_token(char *dest, size_t len, const char *token,
 		string = dlv->dest.user;
 	else if (!strcasecmp("dest.domain", rtoken))
 		string = dlv->dest.domain;
+	else if (!strcasecmp("mda", rtoken)) {
+		string = mda_command;
+		replace = 0;
+	}
 	else
 		return 0;
 
@@ -230,7 +234,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 
 size_t
 mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
-    const struct userinfo *ui)
+    const struct userinfo *ui, const char *mda_command)
 {
 	char		tmpbuf[EXPAND_BUFFER], *ptmp, *pbuf, *ebuf;
 	char		exptok[EXPAND_BUFFER];
@@ -291,7 +295,7 @@ mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
 		*strchr(token, '}') = '\0';
 
 		exptoklen = mda_expand_token(exptok, sizeof exptok, token, dlv,
-		    ui);
+		    ui, mda_command);
 		if (exptoklen == 0)
 			return 0;
 
