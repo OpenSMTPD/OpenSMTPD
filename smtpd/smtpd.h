@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.549 2018/06/04 15:57:46 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.551 2018/06/06 12:00:26 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -147,13 +147,7 @@ struct relayhost {
 	uint16_t flags;
 	char hostname[HOST_NAME_MAX+1];
 	uint16_t port;
-	char pki_name[HOST_NAME_MAX+1];
-	char ca_name[HOST_NAME_MAX+1];
-	char authtable[SMTPD_TABLENAME_SIZE];
 	char authlabel[PATH_MAX];
-	char sourcetable[PATH_MAX];
-	char heloname[HOST_NAME_MAX+1];
-	char helotable[PATH_MAX];
 };
 
 struct credentials {
@@ -383,10 +377,6 @@ struct table_backend {
 };
 
 
-struct delivery_mta {
-	struct relayhost	relay;
-};
-
 enum bounce_type {
 	B_ERROR,
 	B_WARNING,
@@ -488,7 +478,6 @@ struct envelope {
 
 	enum delivery_type		type;
 	union {
-		struct delivery_mta	mta;
 		struct delivery_bounce	bounce;
 	}				agent;
 
