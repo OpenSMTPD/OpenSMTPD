@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.548 2018/06/03 14:04:06 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.552 2018/06/07 16:28:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -75,26 +75,23 @@
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
-#define	F_TLS_OPTIONAL		0x04
 #define F_SSL		       (F_STARTTLS | F_SMTPS)
 #define F_AUTH			0x08
-#define	F_BACKUP		0x10	/* XXX - MUST BE SYNC-ED WITH RELAY_BACKUP */
 #define	F_STARTTLS_REQUIRE	0x20
 #define	F_AUTH_REQUIRE		0x40
-#define	F_LMTP			0x80
 #define	F_MASK_SOURCE		0x100
 #define	F_TLS_VERIFY		0x200
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
 
-/* must match F_* for mta */
+
 #define RELAY_STARTTLS		0x01
 #define RELAY_SMTPS		0x02
 #define	RELAY_TLS_OPTIONAL     	0x04
 #define RELAY_SSL		(RELAY_STARTTLS | RELAY_SMTPS)
 #define RELAY_AUTH		0x08
-#define RELAY_BACKUP		0x10	/* XXX - MUST BE SYNC-ED WITH F_BACKUP */
+#define RELAY_BACKUP		0x10
 #define RELAY_MX		0x20
 #define RELAY_LMTP		0x80
 #define	RELAY_TLS_VERIFY	0x200
@@ -121,13 +118,7 @@ struct relayhost {
 	uint16_t flags;
 	char hostname[HOST_NAME_MAX+1];
 	uint16_t port;
-	char pki_name[HOST_NAME_MAX+1];
-	char ca_name[HOST_NAME_MAX+1];
-	char authtable[SMTPD_TABLENAME_SIZE];
 	char authlabel[PATH_MAX];
-	char sourcetable[PATH_MAX];
-	char heloname[HOST_NAME_MAX+1];
-	char helotable[PATH_MAX];
 };
 
 struct credentials {
@@ -357,10 +348,6 @@ struct table_backend {
 };
 
 
-struct delivery_mta {
-	struct relayhost	relay;
-};
-
 enum bounce_type {
 	B_ERROR,
 	B_WARNING,
@@ -462,7 +449,6 @@ struct envelope {
 
 	enum delivery_type		type;
 	union {
-		struct delivery_mta	mta;
 		struct delivery_bounce	bounce;
 	}				agent;
 
@@ -531,6 +517,7 @@ struct smtpd {
 	size_t				sc_session_max_rcpt;
 	size_t				sc_session_max_mails;
 
+	struct dict		       *sc_mda_wrappers;
 	size_t				sc_mda_max_session;
 	size_t				sc_mda_max_user_session;
 	size_t				sc_mda_task_hiwat;
@@ -1046,6 +1033,7 @@ struct dispatcher_local {
 	uint8_t	expand_only;
 	uint8_t	forward_only;
 
+	char	*mda_wrapper;
 	char	*command;
 
 	char	*table_alias;
@@ -1245,7 +1233,7 @@ void mda_unpriv(struct dispatcher *, struct deliver *, const char *, const char 
 
 /* mda_variables.c */
 size_t mda_expand_format(char *, size_t, const struct deliver *,
-    const struct userinfo *);
+    const struct userinfo *, const char *);
 
 
 /* makemap.c */

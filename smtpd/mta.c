@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.214 2018/06/01 12:24:16 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.219 2018/06/07 11:31:51 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -81,7 +81,7 @@ static void mta_log(const struct mta_envelope *, const char *, const char *,
     const char *, const char *);
 
 SPLAY_HEAD(mta_relay_tree, mta_relay);
-static struct mta_relay *mta_relay(struct envelope *);
+static struct mta_relay *mta_relay(struct envelope *, struct relayhost *);
 static void mta_relay_ref(struct mta_relay *);
 static void mta_relay_unref(struct mta_relay *);
 static void mta_relay_show(struct mta_relay *, struct mproc *, uint32_t, time_t);
@@ -629,7 +629,8 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 	struct mta_envelope	*e;
 	struct dispatcher	*dispatcher;
 	struct mailaddr		 maddr;
-	char			 buf[LINE_MAX], *backupmx;
+	struct relayhost	 relayh;
+	char			 buf[LINE_MAX];
 
 	dispatcher = dict_xget(env->sc_dispatchers, evp->dispatcher);
 	if (dispatcher->u.remote.smarthost && smarthost == NULL) {
@@ -637,37 +638,8 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 		return;
 	}
 
-	memset(&evp->agent.mta, 0, sizeof(evp->agent.mta));
-
-	/* dispatcher init */
-	if (dispatcher->u.remote.pki)
-		strlcpy(evp->agent.mta.relay.pki_name, dispatcher->u.remote.pki,
-		    sizeof(evp->agent.mta.relay.pki_name));
-	if (dispatcher->u.remote.ca)
-		strlcpy(evp->agent.mta.relay.ca_name, dispatcher->u.remote.ca,
-		    sizeof(evp->agent.mta.relay.ca_name));
-	if (dispatcher->u.remote.auth)
-		strlcpy(evp->agent.mta.relay.authtable, dispatcher->u.remote.auth,
-		    sizeof(evp->agent.mta.relay.authtable));
-	if (dispatcher->u.remote.source)
-		strlcpy(evp->agent.mta.relay.sourcetable, dispatcher->u.remote.source,
-		    sizeof(evp->agent.mta.relay.sourcetable));
-	if (dispatcher->u.remote.helo_source)
-		strlcpy(evp->agent.mta.relay.helotable, dispatcher->u.remote.helo_source,
-		    sizeof(evp->agent.mta.relay.helotable));
-	if (dispatcher->u.remote.helo)
-		strlcpy(evp->agent.mta.relay.heloname, dispatcher->u.remote.helo,
-		    sizeof(evp->agent.mta.relay.heloname));
-	if (dispatcher->u.remote.backup) {
-		evp->agent.mta.relay.flags |= RELAY_BACKUP;
-		backupmx = dispatcher->u.remote.backupmx;
-		if (backupmx == NULL)
-			backupmx = evp->smtpname;
-		strlcpy(evp->agent.mta.relay.hostname, backupmx,
-		    sizeof(evp->agent.mta.relay.hostname));
-	}
-
-	if (smarthost && !text_to_relayhost(&evp->agent.mta.relay, smarthost)) {
+	memset(&relayh, 0, sizeof(relayh));
+	if (smarthost && !text_to_relayhost(&relayh, smarthost)) {
 		log_warnx("warn: Failed to parse smarthost %s", smarthost);
 		m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
 		m_add_evpid(p_queue, evp->id);
@@ -677,10 +649,7 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 		return;
 	}
 
-	if (smarthost && dispatcher->u.remote.tls_noverify == 0)
-		evp->agent.mta.relay.flags |= F_TLS_VERIFY;
-
-	relay = mta_relay(evp);
+	relay = mta_relay(evp, &relayh);
 	/* ignore if we don't know the limits yet */
 	if (relay->limits &&
 	    relay->ntask >= (size_t)relay->limits->task_hiwat) {
@@ -1727,47 +1696,46 @@ mta_log(const struct mta_envelope *evp, const char *prefix, const char *source,
 }
 
 static struct mta_relay *
-mta_relay(struct envelope *e)
+mta_relay(struct envelope *e, struct relayhost *relayh)
 {
+	struct dispatcher	*dispatcher;
 	struct mta_relay	 key, *r;
+
+	dispatcher = dict_xget(env->sc_dispatchers, e->dispatcher);
 
 	memset(&key, 0, sizeof key);
 
-	if (e->agent.mta.relay.flags & RELAY_BACKUP) {
+	key.pki_name = dispatcher->u.remote.pki;
+	key.ca_name = dispatcher->u.remote.ca;
+	key.authtable = dispatcher->u.remote.auth;
+	key.sourcetable = dispatcher->u.remote.source;
+	key.helotable = dispatcher->u.remote.helo_source;
+	key.heloname = dispatcher->u.remote.helo;
+
+	if (dispatcher->u.remote.backup) {
+		key.backupname = dispatcher->u.remote.backupmx;
+		if (key.backupname == NULL)
+			key.backupname = e->smtpname;
 		key.domain = mta_domain(e->dest.domain, 0);
-		key.backupname = e->agent.mta.relay.hostname;
-	} else if (e->agent.mta.relay.hostname[0]) {
-		key.domain = mta_domain(e->agent.mta.relay.hostname, 1);
+		key.flags |= RELAY_BACKUP;
+	} else if (relayh->hostname[0]) {
+		key.domain = mta_domain(relayh->hostname, 1);
 		key.flags |= RELAY_MX;
 	} else {
 		key.domain = mta_domain(e->dest.domain, 0);
-		if (!(e->agent.mta.relay.flags & RELAY_STARTTLS))
+		if (!(relayh->flags & RELAY_STARTTLS))
 			key.flags |= RELAY_TLS_OPTIONAL;
 	}
 
-	key.flags |= e->agent.mta.relay.flags;
-	key.port = e->agent.mta.relay.port;
-	key.pki_name = e->agent.mta.relay.pki_name;
-	if (!key.pki_name[0])
-		key.pki_name = NULL;
-	key.ca_name = e->agent.mta.relay.ca_name;
-	if (!key.ca_name[0])
-		key.ca_name = NULL;
-	key.authtable = e->agent.mta.relay.authtable;
-	if (!key.authtable[0])
-		key.authtable = NULL;
-	key.authlabel = e->agent.mta.relay.authlabel;
+	key.flags |= relayh->flags;
+	key.port = relayh->port;
+	key.authlabel = relayh->authlabel;
 	if (!key.authlabel[0])
 		key.authlabel = NULL;
-	key.sourcetable = e->agent.mta.relay.sourcetable;
-	if (!key.sourcetable[0])
-		key.sourcetable = NULL;
-	key.helotable = e->agent.mta.relay.helotable;
-	if (!key.helotable[0])
-		key.helotable = NULL;
-	key.heloname = e->agent.mta.relay.heloname;
-	if (!key.heloname[0])
-		key.heloname = NULL;
+
+	if (dispatcher->u.remote.smarthost &&
+	    dispatcher->u.remote.tls_noverify == 0)
+		key.flags |= RELAY_TLS_VERIFY;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r);
