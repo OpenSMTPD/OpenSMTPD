@@ -124,7 +124,8 @@ enum listen_options {
 	LO_SENDERS	= 0x000800,
 	LO_RECEIVEDAUTH = 0x001000,
 	LO_MASQUERADE	= 0x002000,
-	LO_CA		= 0x010000
+	LO_CA		= 0x004000,
+	LO_PROXY       	= 0x008000,
 };
 
 static struct listen_opts {
@@ -189,7 +190,7 @@ typedef struct {
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
 %token	NODSN NOVERIFY
 %token	ON
-%token	PKI PORT
+%token	PKI PORT PROXY_V2
 %token	QUEUE
 %token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
@@ -1414,6 +1415,14 @@ opt_if_listen : INET4 {
 			listen_opts.options |= LO_NODSN;
 			listen_opts.flags &= ~F_EXT_DSN;
 		}
+		| PROXY_V2	{
+			if (listen_opts.options & LO_PROXY) {
+				yyerror("proxy-v2 already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_PROXY;
+			listen_opts.flags |= F_PROXY;
+		}
 		| SENDERS tables	{
 			struct table	*t = $2;
 
@@ -1645,6 +1654,7 @@ lookup(char *s)
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
+		{ "proxy-v2",		PROXY_V2 },
 		{ "queue",		QUEUE },
 		{ "rcpt-to",		RCPT_TO },
 		{ "received-auth",     	RECEIVEDAUTH },

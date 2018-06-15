@@ -549,7 +549,7 @@ smtp_session(struct listener *listener, int sock,
 	s->id = generate_uid();
 	s->listener = listener;
 	memmove(&s->ss, ss, sizeof(*ss));
-	if (io == NULL)
+	if (io != NULL)
 		s->io = io;
 	else
 		s->io = io_new();
@@ -557,7 +557,6 @@ smtp_session(struct listener *listener, int sock,
 	io_set_fd(s->io, sock);
 	io_set_timeout(s->io, SMTPD_SESSION_TIMEOUT * 1000);
 	io_set_write(s->io);
-
 	s->state = STATE_NEW;
 
 	(void)strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));

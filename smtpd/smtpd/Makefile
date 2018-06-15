@@ -33,6 +33,7 @@ SRCS+=	mta.c
 SRCS+=	mta_session.c
 SRCS+=	parse.y
 SRCS+=	pony.c
+SRCS+=	proxy.c
 SRCS+=	queue.c
 SRCS+=	queue_backend.c
 SRCS+=	ruleset.c

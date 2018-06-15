@@ -84,7 +84,7 @@
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
-
+#define	F_PROXY			0x2000
 
 #define RELAY_STARTTLS		0x01
 #define RELAY_SMTPS		0x02
