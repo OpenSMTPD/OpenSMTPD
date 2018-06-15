@@ -110,7 +110,7 @@ lmtp_connect_inet(const char *destination)
 	int n, s = -1, save_errno;
 
 	if ((destcopy = strdup(destination)) == NULL)
-		err(1, NULL);
+		err(1, "strdup");
 
 	servname = "25";
 	hostname = destcopy;
@@ -184,7 +184,7 @@ lmtp_connect_unix(const char *destination)
 		errx(1, "unix: path must be absolute");
 	
 	if ((s = socket(PF_LOCAL, SOCK_STREAM, 0)) == -1)
-		err(1, NULL);
+		err(1, "socket");
 
 	memset(&addr, 0, sizeof addr);
 	addr.sun_family = AF_UNIX;
