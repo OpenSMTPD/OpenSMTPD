@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.216 2018/06/06 12:00:26 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.219 2018/06/07 11:31:51 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -630,7 +630,7 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 	struct dispatcher	*dispatcher;
 	struct mailaddr		 maddr;
 	struct relayhost	 relayh;
-	char			 buf[LINE_MAX], *backupmx;
+	char			 buf[LINE_MAX];
 
 	dispatcher = dict_xget(env->sc_dispatchers, evp->dispatcher);
 	if (dispatcher->u.remote.smarthost && smarthost == NULL) {
@@ -639,17 +639,6 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 	}
 
 	memset(&relayh, 0, sizeof(relayh));
-
-	/* dispatcher init */
-	if (dispatcher->u.remote.backup) {
-		relayh.flags |= RELAY_BACKUP;
-		backupmx = dispatcher->u.remote.backupmx;
-		if (backupmx == NULL)
-			backupmx = evp->smtpname;
-		strlcpy(relayh.hostname, backupmx,
-		    sizeof(relayh.hostname));
-	}
-
 	if (smarthost && !text_to_relayhost(&relayh, smarthost)) {
 		log_warnx("warn: Failed to parse smarthost %s", smarthost);
 		m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
@@ -659,9 +648,6 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 		m_close(p_queue);
 		return;
 	}
-
-	if (smarthost && dispatcher->u.remote.tls_noverify == 0)
-		relayh.flags |= F_TLS_VERIFY;
 
 	relay = mta_relay(evp, &relayh);
 	/* ignore if we don't know the limits yet */
@@ -1726,9 +1712,12 @@ mta_relay(struct envelope *e, struct relayhost *relayh)
 	key.helotable = dispatcher->u.remote.helo_source;
 	key.heloname = dispatcher->u.remote.helo;
 
-	if (relayh->flags & RELAY_BACKUP) {
+	if (dispatcher->u.remote.backup) {
+		key.backupname = dispatcher->u.remote.backupmx;
+		if (key.backupname == NULL)
+			key.backupname = e->smtpname;
 		key.domain = mta_domain(e->dest.domain, 0);
-		key.backupname = relayh->hostname;
+		key.flags |= RELAY_BACKUP;
 	} else if (relayh->hostname[0]) {
 		key.domain = mta_domain(relayh->hostname, 1);
 		key.flags |= RELAY_MX;
@@ -1743,6 +1732,10 @@ mta_relay(struct envelope *e, struct relayhost *relayh)
 	key.authlabel = relayh->authlabel;
 	if (!key.authlabel[0])
 		key.authlabel = NULL;
+
+	if (dispatcher->u.remote.smarthost &&
+	    dispatcher->u.remote.tls_noverify == 0)
+		key.flags |= RELAY_TLS_VERIFY;
 
 	if ((r = SPLAY_FIND(mta_relay_tree, &relays, &key)) == NULL) {
 		r = xcalloc(1, sizeof *r);
