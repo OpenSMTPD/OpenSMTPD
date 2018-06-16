@@ -539,8 +539,6 @@ smtp_session(struct listener *listener, int sock,
 {
 	struct smtp_session	*s;
 
-	log_debug("debug: smtp: new client on listener: %p", listener);
-
 	smtp_session_init();
 
 	if ((s = calloc(1, sizeof(*s))) == NULL)

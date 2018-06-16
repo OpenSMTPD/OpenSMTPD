@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,7 @@ static struct proxy_session {
 	struct listener	*l;
 	struct io	*io;
 
+	uint64_t	id;
 	int		fd;
 	uint16_t	header_len;
 	uint16_t	header_total;
@@ -76,6 +78,7 @@ proxy_session(struct listener *listener, int sock,
 		return (-1);
 	}
 
+	s->id = generate_uid();
 	s->l = listener;
 	s->fd = sock;
 	s->header_len = 0;
@@ -84,13 +87,13 @@ proxy_session(struct listener *listener, int sock,
 	s->cb_accepted = accepted;
 	s->cb_dropped = dropped;
 
-	log_info("proxy %p event=accepted address=%s",
-	    s, ss_to_text(&s->ss));
-
 	io_set_callback(s->io, proxy_io, s);
 	io_set_fd(s->io, sock);
 	io_set_timeout(s->io, PROXY_SESSION_TIMEOUT * 1000);
 	io_set_read(s->io);
+
+	log_info("%016"PRIx64" smtp event=proxy address=%s",
+	    s->id, ss_to_text(&s->ss));
 
 	return 0;
 }
@@ -165,15 +168,11 @@ proxy_io(struct io *io, int evt, void *arg)
 		switch(h->ver_cmd & 0xF) {
 		case PROXY_CLOCAL:
 			/* local address, no need to modify ss */
-			log_info("proxy %p event=is-local address=%s",
-			    s, ss_to_text(&s->ss));
 			break;
 
 		case PROXY_CPROXY:
 			if (proxy_translate_ss(s) != 0)
 				return;
-			log_info("proxy %p event=translated address=%s",
-			    s, ss_to_text(&s->ss));
 			break;
 
 		default:
@@ -182,8 +181,7 @@ proxy_io(struct io *io, int evt, void *arg)
 		}
 
 		s->cb_accepted(s->l, s->fd, &s->ss, s->io);
-		/* we passed off s->io, so it does not need to be freed
-		 * here */
+		/* we passed off s->io, so it does not need to be freed here */
 		free(s);
 		break;
 
@@ -251,7 +249,7 @@ proxy_header_validate(struct proxy_session *s)
 		break;
 
 	default:
-		proxy_error(s, "protocol error", "unsupported addresss family");
+		proxy_error(s, "protocol error", "unsupported address family");
 		return (-1);
 	}
 

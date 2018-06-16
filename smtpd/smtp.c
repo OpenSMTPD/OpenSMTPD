@@ -46,8 +46,8 @@ static void smtp_setup_events(void);
 static void smtp_pause(void);
 static void smtp_resume(void);
 static void smtp_accept(int, short, void *);
-static void smtp_dropped(struct listener *, int, struct sockaddr_storage *);
-static void smtp_accepted(struct listener *, int, struct sockaddr_storage *, struct io *);
+static void smtp_dropped(struct listener *, int, const struct sockaddr_storage *);
+static void smtp_accepted(struct listener *, int, const struct sockaddr_storage *, struct io *);
 static int smtp_enqueue(void);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
@@ -276,6 +276,7 @@ smtp_accept(int fd, short event, void *p)
 	}
 
 	if (listener->flags & F_PROXY) {
+		io_set_nonblocking(sock);
 		if (proxy_session(listener, sock, &ss,
 			smtp_accepted, smtp_dropped) == -1) {
 			close(sock);
@@ -335,14 +336,14 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 }
 
 static void
-smtp_accepted(struct listener *listener, int sock, struct sockaddr_storage *ss, struct io *io)
+smtp_accepted(struct listener *listener, int sock, const struct sockaddr_storage *ss, struct io *io)
 {
 	int	ret;
 
 	if (listener->filter[0])
-		ret = smtpf_session(listener, sock, &ss, NULL);
+		ret = smtpf_session(listener, sock, ss, NULL);
 	else
-		ret = smtp_session(listener, sock, &ss, NULL, NULL);
+		ret = smtp_session(listener, sock, ss, NULL, io);
 	if (ret == -1) {
 		log_warn("warn: Failed to create SMTP session");
 		close(sock);
@@ -361,7 +362,7 @@ smtp_accepted(struct listener *listener, int sock, struct sockaddr_storage *ss, 
 }
 
 static void
-smtp_dropped(struct listener *listener, int sock, struct sockaddr_storage *ss)
+smtp_dropped(struct listener *listener, int sock, const struct sockaddr_storage *ss)
 {
 	close(sock);
 	sessions--;
