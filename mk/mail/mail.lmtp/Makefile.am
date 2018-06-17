@@ -7,6 +7,9 @@ mail_lmtp_SOURCES+= $(smtpd_srcdir)/log.c
 
 AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat
+if !SUPPORT_ERR_H
+AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
+endif
 
 LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
