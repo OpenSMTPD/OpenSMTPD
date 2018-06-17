@@ -146,6 +146,9 @@ AC_CHECK_HEADERS([ \
 	vis.h
 ])
 
+AM_CONDITIONAL([SUPPORT_ERR_H], [test x$HAVE_ERR_H = x1])
+AM_CONDITIONAL([SUPPORT_PATHS_H], [test x$HAVE_ERR_H = x1])
+
 # NetBSD requires sys/types.h before login_cap.h
 AC_CHECK_HEADERS([login_cap.h], [], [], [
 #include <sys/types.h>
