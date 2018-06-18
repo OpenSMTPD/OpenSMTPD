@@ -6,7 +6,6 @@ libopenbsd_compat_a_SOURCES +=	bsd-getpeereid.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
-libopenbsd_compat_a_SOURCES +=	errc.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
 libopenbsd_compat_a_SOURCES +=	fgetln.c
 libopenbsd_compat_a_SOURCES +=	freezero.c
@@ -50,6 +49,10 @@ endif
 
 if !SUPPORT_DIRNAME
 libopenbsd_compat_a_SOURCES += dirname.c
+endif
+
+if !SUPPORT_ERR_H
+libopenbsd_compat_a_SOURCES += bsd-err.c
 endif
 
 if !SUPPORT_ERRC
@@ -96,3 +99,6 @@ EXTRA_DIST +=	bsd-vis.h
 EXTRA_DIST +=	xmalloc.h
 
 AM_CPPFLAGS = -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
+if !SUPPORT_ERR_H
+AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
+endif
