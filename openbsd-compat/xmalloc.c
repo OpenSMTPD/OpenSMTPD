@@ -15,11 +15,7 @@
 
 #include "includes.h"
 
-#ifdef HAVE_ERR_H
 #include <err.h>
-#else
-#include "bsd-err.h"
-#endif
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
