@@ -45,9 +45,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <netdb.h>
-#ifdef HAVE_PATHS_H
-#include <paths.h>
-#endif
 #include <pwd.h>
 #include <stdarg.h>
 #include <resolv.h>
