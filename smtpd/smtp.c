@@ -285,7 +285,7 @@ smtp_accept(int fd, short event, void *p)
 		}
 		return;
 	}
-	
+
 	smtp_accepted(listener, sock, &ss, NULL);
 	return;
 
