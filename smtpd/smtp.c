@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.157 2017/11/21 12:20:34 eric Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.158 2018/06/18 18:14:39 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -47,7 +47,6 @@ static void smtp_pause(void);
 static void smtp_resume(void);
 static void smtp_accept(int, short, void *);
 static void smtp_dropped(struct listener *, int, const struct sockaddr_storage *);
-static void smtp_accepted(struct listener *, int, const struct sockaddr_storage *, struct io *);
 static int smtp_enqueue(void);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
@@ -60,6 +59,9 @@ proxy_session(struct listener *listener, int sock,
 	const struct sockaddr_storage *, struct io *),
     void (*dropped)(struct listener *, int,
 	const struct sockaddr_storage *));
+
+static void smtp_accepted(struct listener *, int, const struct sockaddr_storage *, struct io *);
+
 
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
@@ -232,8 +234,7 @@ smtp_enqueue(void)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, fd))
 		return (-1);
 
-	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname,
-			NULL)) == -1) {
+	if ((smtp_session(listener, fd[0], &listener->ss, env->sc_hostname, NULL)) == -1) {
 		close(fd[0]);
 		close(fd[1]);
 		return (-1);
@@ -338,7 +339,7 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 static void
 smtp_accepted(struct listener *listener, int sock, const struct sockaddr_storage *ss, struct io *io)
 {
-	int	ret;
+	int     ret;
 
 	if (listener->filter[0])
 		ret = smtpf_session(listener, sock, ss, NULL);
