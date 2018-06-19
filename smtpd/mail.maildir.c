@@ -95,7 +95,7 @@ maildir_mkdirs(const char *dirname)
 	char	*subdirs[] = { "cur", "tmp", "new" };
 
 	if (mkdirs(dirname, 0700) < 0 && errno != EEXIST)
-		err(1, NULL);
+		err(1, "mkdirs");
 
 	for (i = 0; i < nitems(subdirs); ++i) {
 		ret = snprintf(pathname, sizeof pathname, "%s/%s", dirname,
@@ -103,7 +103,7 @@ maildir_mkdirs(const char *dirname)
 		if (ret == -1 || (size_t)ret >= sizeof pathname)
 			errc(1, ENAMETOOLONG, "%s/%s", dirname, subdirs[i]);
 		if (mkdir(pathname, 0700) < 0 && errno != EEXIST)
-			err(1, NULL);
+			err(1, "mkdir");
 	}
 }
 
@@ -135,7 +135,7 @@ maildir_engine(const char *dirname, int junk)
 
 	if (dirname == NULL) {
 		if ((home = getenv("HOME")) == NULL)
-			err(1, NULL);
+			err(1, "getenv");
 		ret = snprintf(rootpath, sizeof rootpath, "%s/Maildir", home);
 		if (ret == -1 || (size_t)ret >= sizeof rootpath)
 			errc(1, ENAMETOOLONG, "%s/Maildir", home);
@@ -175,9 +175,9 @@ maildir_engine(const char *dirname, int junk)
 
 	fd = open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0600);
 	if (fd < 0)
-		err(1, NULL);
+		err(1, "open");
 	if ((fp = fdopen(fd, "w")) == NULL)
-		err(1, NULL);
+		err(1, "fdopen");
 
 	while ((linelen = getline(&line, &linesize, stdin)) != -1) {
 		line[strcspn(line, "\n")] = '\0';
@@ -189,19 +189,19 @@ maildir_engine(const char *dirname, int junk)
 	}
 	free(line);
 	if (ferror(stdin))
-		err(1, NULL);
+		err(1, "ferror");
 
 	if (fflush(fp) == EOF ||
 	    ferror(fp) ||
 	    fsync(fd) < 0 ||
 	    fclose(fp) == EOF)
-		err(1, NULL);
+		err(1, "fflush/ferror/fsync/fclose");
 
 	(void)snprintf(new, sizeof new, "%s/new/%s",
 	    is_junk ? junkpath : dirname, filename);
 
 	if (rename(tmp, new) < 0)
-		err(1, NULL);
+		err(1, "rename");
 
 	exit(0);
 }
