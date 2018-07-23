@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.70 2018/06/16 19:41:26 gilles Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.71 2018/07/03 01:34:43 mortimer Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -69,8 +69,7 @@ static int	 make_aliases(DBT *, char *);
 static char	*conf_aliases(char *);
 static int	 dump_db(const char *, DBTYPE);
 
-struct smtpd	 smtpd;
-struct smtpd	*env = &smtpd;
+struct smtpd	*env;
 char		*source;
 static int	 mode;
 
@@ -83,12 +82,6 @@ enum output_type {
 /*
  * Stub functions so that makemap compiles using minimum object files.
  */
-void
-purge_config(uint8_t what)
-{
-	memset(env, 0, sizeof(struct smtpd));
-}
-
 int
 fork_proc_backend(const char *backend, const char *conf, const char *procname)
 {
@@ -107,6 +100,9 @@ makemap(int prog_mode, int argc, char *argv[])
 	DBTYPE		 dbtype = DB_HASH;
 	char		*p;
 	int		 fd = -1;
+
+	if ((env = config_default()) == NULL)
+		err(1, NULL);
 
 	log_init(1, LOG_MAIL);
 
