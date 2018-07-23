@@ -19,6 +19,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare
 CFLAGS+=	-Werror-implicit-function-declaration
 CFLAGS+=	-DNO_IO
+CFLAGS+=	-DCONFIG_MINIMUM
 YFLAGS=
 
 SRCS=	enqueue.c
@@ -35,6 +36,7 @@ SRCS+=	compress_gzip.c
 SRCS+=	to.c
 SRCS+=	expand.c
 SRCS+=	tree.c
+SRCS+=	config.c
 SRCS+=	dict.c
 SRCS+=	aliases.c
 SRCS+=	limit.c

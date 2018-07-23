@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.214 2018/06/18 18:19:14 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.217 2018/07/15 08:49:12 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -99,7 +99,6 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct filter_conf	*filter = NULL;
 struct table		*table = NULL;
 struct mta_limits	*limits;
 static struct pki	*pki;
@@ -1763,7 +1762,7 @@ lungetc(int c)
 	if (file->ungetpos >= file->ungetsize) {
 		void *p = reallocarray(file->ungetbuf, file->ungetsize, 2);
 		if (p == NULL)
-			err(1, "lungetc");
+			err(1, "%s", __func__);
 		file->ungetbuf = p;
 		file->ungetsize *= 2;
 	}
@@ -1872,7 +1871,7 @@ top:
 		}
 		yylval.v.string = strdup(buf);
 		if (yylval.v.string == NULL)
-			err(1, "yylex: strdup");
+			err(1, "%s", __func__);
 		return (STRING);
 	}
 
@@ -1937,7 +1936,7 @@ nodigits:
 		*p = '\0';
 		if ((token = lookup(buf)) == STRING)
 			if ((yylval.v.string = strdup(buf)) == NULL)
-				err(1, "yylex: strdup");
+				err(1, "%s", __func__);
 		return (token);
 	}
 	if (c == '\n') {
@@ -1975,16 +1974,16 @@ pushfile(const char *name, int secret)
 	struct file	*nfile;
 
 	if ((nfile = calloc(1, sizeof(struct file))) == NULL) {
-		log_warn("warn: malloc");
+		log_warn("%s", __func__);
 		return (NULL);
 	}
 	if ((nfile->name = strdup(name)) == NULL) {
-		log_warn("warn: malloc");
+		log_warn("%s", __func__);
 		free(nfile);
 		return (NULL);
 	}
 	if ((nfile->stream = fopen(nfile->name, "r")) == NULL) {
-		log_warn("warn: %s", nfile->name);
+		log_warn("%s: %s", __func__, nfile->name);
 		free(nfile->name);
 		free(nfile);
 		return (NULL);
@@ -1999,7 +1998,7 @@ pushfile(const char *name, int secret)
 	nfile->ungetsize = 16;
 	nfile->ungetbuf = malloc(nfile->ungetsize);
 	if (nfile->ungetbuf == NULL) {
-		log_warn("warn: malloc");
+		log_warn("%s", __func__);
 		fclose(nfile->stream);
 		free(nfile->name);
 		free(nfile);
