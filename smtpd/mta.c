@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.220 2018/07/08 13:06:37 gilles Exp $	*/
+/*	$OpenBSD: mta.c,v 1.222 2018/08/22 10:11:43 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -313,10 +313,6 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 			preference = INT_MAX;
 		}
 		mta_on_preference(relay, preference);
-		return;
-
-	case IMSG_MTA_DNS_PTR:
-		mta_session_imsg(p, imsg);
 		return;
 
 	case IMSG_MTA_TLS_INIT:
@@ -647,6 +643,17 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 		m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
 		m_add_evpid(p_queue, evp->id);
 		m_add_string(p_queue, "Cannot parse smarthost");
+		m_add_int(p_queue, ESC_OTHER_STATUS);
+		m_close(p_queue);
+		return;
+	}
+
+	if (relayh.flags & RELAY_AUTH && dispatcher->u.remote.auth == NULL) {
+		log_warnx("warn: No auth table on action \"%s\" for relay %s",
+		    evp->dispatcher, smarthost);
+		m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
+		m_add_evpid(p_queue, evp->id);
+		m_add_string(p_queue, "No auth table for relaying");
 		m_add_int(p_queue, ESC_OTHER_STATUS);
 		m_close(p_queue);
 		return;
