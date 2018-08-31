@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.217 2018/07/15 08:49:12 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.218 2018/08/25 19:05:23 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -45,9 +45,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <netdb.h>
-#ifdef HAVE_PATHS_H
-#include <paths.h>
-#endif
 #include <pwd.h>
 #include <stdarg.h>
 #include <resolv.h>
