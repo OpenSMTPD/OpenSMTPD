@@ -35,6 +35,7 @@ SRCS+=	parse.y
 SRCS+=	pony.c
 SRCS+=	queue.c
 SRCS+=	queue_backend.c
+SRCS+=	resolver.c
 SRCS+=	ruleset.c
 SRCS+=	runq.c
 SRCS+=	scheduler.c
@@ -54,6 +55,7 @@ SRCS+=	waitq.c
 
 # RFC parsers
 SRCS+=		rfc2822.c
+SRCS+=		rfc5322.c
 
 # backends
 SRCS+=		compress_gzip.c
