@@ -69,8 +69,9 @@ AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PATH_PROG([AR], [ar])
 AC_PATH_PROG([CAT], [cat])
+AC_PATH_PROG([CHMOD], [chmod])
+AC_PATH_PROG([CHOWN], [chown])
 AC_PATH_PROG([ZCAT], [zcat])
-AC_SUBST([ZCAT])
 AC_PATH_PROG([SED], [sed])
 AC_PATH_PROG([TEST_MINUS_S_SH], [bash])
 AC_PATH_PROG([TEST_MINUS_S_SH], [ksh])
@@ -80,6 +81,9 @@ AC_PATH_PROG([GROFF], [groff])
 AC_PATH_PROG([NROFF], [nroff])
 AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
+
+AC_SUBST([ZCAT])
+
 
 if test -z "$AR"; then
 	AC_MSG_ERROR([*** 'ar' missing, please install or fix your \$PATH ***])
@@ -1227,7 +1231,7 @@ AC_ARG_WITH([path-mbox],
 	if test -n "$maildir"; then
 	    AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
 	else
-	    AC_MSG_CHECKING([Discovering system mail directory])
+	    AC_MSG_CHECKING([system mail directory])
 	    AC_RUN_IFELSE(
 		[AC_LANG_PROGRAM([[
 #include <stdio.h>
@@ -1267,7 +1271,7 @@ AC_ARG_WITH([path-mbox],
 	 	    maildir_what=`awk -F: '{print $1}' conftest.maildir`
 		    maildir=`awk -F: '{print $2}' conftest.maildir \
 			| sed 's|/$||'`
-		    AC_MSG_RESULT([Using: $maildir from $maildir_what])
+		    AC_MSG_RESULT([$maildir from $maildir_what])
 		    if test "x$maildir_what" != "x_PATH_MAILDIR"; then
 			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["$maildir"])
 		    fi
@@ -1275,7 +1279,7 @@ AC_ARG_WITH([path-mbox],
 		[
 		    if test "X$ac_status" = "X2"; then
 # our test program didn't find it. Default to /var/spool/mail
-			AC_MSG_RESULT([Using: default value of /var/spool/mail])
+			AC_MSG_RESULT([/var/spool/mail])
 			AC_DEFINE_UNQUOTED([MAIL_DIRECTORY], ["/var/spool/mail"])
 		     else
 			AC_MSG_RESULT([*** not found ***])
@@ -1319,9 +1323,10 @@ AC_SUBST([sockdir])
 
 # Where to place smtpd.pid
 piddir=/var/run
+AC_MSG_CHECKING([system pid directory])
 AC_RUN_IFELSE(
 	[
-		AC_LANG_PROGRAM([[
+	    AC_LANG_PROGRAM([[
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_PATHS_H
@@ -1343,10 +1348,10 @@ exit(-1);
 		]])
 	],		[
 		piddir=`cat conftest.piddir`
-		AC_MSG_RESULT([using $piddir from paths.h])
+		AC_MSG_RESULT([$piddir from paths.h])
 	],
 	[
-		AC_MSG_RESULT([using $piddir from default value])
+		AC_MSG_RESULT([$piddir from default value])
 	]
 )
 
