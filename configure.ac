@@ -2233,6 +2233,7 @@ AC_CONFIG_FILES([Makefile
 		mk/mail/Makefile
 		mk/mail/mail.lmtp/Makefile
 		mk/mail/mail.maildir/Makefile
+		mk/mail/mail.mboxfile/Makefile
 		mk/mail/mail.mda/Makefile
 		mk/smtpd/Makefile
 		mk/smtpctl/Makefile
