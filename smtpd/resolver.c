@@ -189,7 +189,7 @@ resolver_dispatch_request(struct mproc *proc, struct imsg *imsg)
 		if ((s = calloc(1, sizeof(*s))) &&
 		    (s->host = malloc(NI_MAXHOST)) &&
 		    (s->serv = malloc(NI_MAXSERV)) &&
-		    (q = getnameinfo_async(sa, sa->sa_len, s->host, NI_MAXHOST,
+		    (q = getnameinfo_async(sa, SA_LEN(sa), s->host, NI_MAXHOST,
 			s->serv, NI_MAXSERV, flags, NULL)) &&
 		    (event_asr_run(q, resolver_getnameinfo_cb, s))) {
 			s->reqid = reqid;
@@ -250,14 +250,14 @@ resolver_dispatch_result(struct mproc *proc, struct imsg *imsg)
 		m_get_string(&m, &cname);
 		m_end(&m);
 
-		ai->ai_addr = malloc(ss.ss_len);
+		ai->ai_addr = malloc(SS_LEN(&ss));
 		if (ai->ai_addr == NULL) {
 			log_warn("%s: malloc", __func__);
 			free(ai);
 			break;
 		}
 
-		memmove(ai->ai_addr, &ss, ss.ss_len);
+		memmove(ai->ai_addr, &ss, SS_LEN(&ss));
 
 		if (cname[0]) {
 			ai->ai_canonname = strdup(cname);
