@@ -137,7 +137,6 @@ AC_CHECK_HEADERS([ \
 	sys/cdefs.h \
 	sys/dir.h \
 	sys/file.h \
-	sys/mount.h \
 	sys/ndir.h \
 	sys/pstat.h \
 	sys/statfs.h \
@@ -357,6 +356,16 @@ AC_CHECK_DECLS([O_NONBLOCK], [], [], [
 #endif
 ])
 
+AC_CHECK_DECLS([O_EXCL], [], [], [
+#include <sys/types.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
+])
+
 AC_CHECK_DECLS([AF_LOCAL, PF_LOCAL], [], [], [
 #include <sys/socket.h>
 ])
@@ -375,6 +384,11 @@ AC_CHECK_DECLS([LOG_PERROR], [], [], [
 #include <syslog.h>
 ])
 
+AC_CHECK_DECLS([EFTYPE], [], [
+	AC_MSG_ERROR([please define EFTYPE, by e.g. passing -DEFTYPE=EMEDIUMTYPE in your CFLAGS])
+], [
+#include <errno.h>
+])
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS

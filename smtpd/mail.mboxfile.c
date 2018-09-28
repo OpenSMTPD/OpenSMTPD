@@ -14,9 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
+#include "config.h"
 
+#include <sys/types.h>
+
+#include <sys/stat.h>
+#include <sys/file.h>
+
+#include <time.h>
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -71,9 +76,18 @@ mboxfile_engine(const char *sender, const char *filename)
 
 	time(&now);
 
-	fd = open(filename, O_CREAT | O_APPEND | O_WRONLY | O_EXLOCK, 0600);
+#ifdef HAVE_DECL_O_EXCL
+	fd = open(filename, O_CREAT | O_APPEND | O_WRONLY | O_EXCL, 0600);
+#else
+	fd = open(filename, O_CREAT | O_APPEND | O_WRONLY, 0600);
+#endif
 	if (fd < 0)
 		err(1, NULL);
+
+#ifndef HAVE_DECL_O_EXCL
+        if(flock(fd, LOCK_EX) < 0)
+                err(1, NULL);
+#endif
 
 	if ((fp = fdopen(fd, "w")) == NULL)
 		err(1, NULL);
