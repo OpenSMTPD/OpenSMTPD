@@ -185,7 +185,7 @@ typedef struct {
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
 %token	NO_DSN NO_VERIFY
 %token	ON
-%token	PKI PORT
+%token	PKI PORT PROC
 %token	QUEUE
 %token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
@@ -210,6 +210,7 @@ grammar		: /* empty */
 		| grammar mda '\n'
 		| grammar mta '\n'
 		| grammar pki '\n'
+		| grammar proc '\n'
 		| grammar queue '\n'
 		| grammar scheduler '\n'
 		| grammar smtp '\n'
@@ -427,6 +428,21 @@ pki_params_opt pki_params
 | /* empty */
 ;
 
+proc:
+PROC STRING STRING {
+	struct processor	*processor;
+
+	if (dict_get(conf->sc_processors_dict, $2)) {
+		yyerror("processor already exists with that name: %s", $2);
+		free($2);
+		free($3);
+		YYERROR;
+	}
+	processor = xcalloc(1, sizeof *processor);
+	processor->command = $3;
+	dict_set(conf->sc_processors_dict, $2, processor);
+}
+;
 
 queue:
 QUEUE COMPRESSION {
@@ -1643,6 +1659,7 @@ lookup(char *s)
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
+		{ "proc",		PROC },
 		{ "queue",		QUEUE },
 		{ "rcpt-to",		RCPT_TO },
 		{ "received-auth",     	RECEIVEDAUTH },

@@ -303,6 +303,8 @@ enum imsg_type {
 	IMSG_SMTP_EVENT_ROLLBACK,
 	IMSG_SMTP_EVENT_DISCONNECT,
 
+	IMSG_LKA_PROCESSOR_FORK,
+
 	IMSG_CA_PRIVENC,
 	IMSG_CA_PRIVDEC
 };
@@ -315,7 +317,7 @@ enum smtp_proc_type {
 	PROC_SCHEDULER,
 	PROC_PONY,
 	PROC_CA,
-
+	PROC_PROCESSOR,
 	PROC_CLIENT,
 };
 
@@ -531,6 +533,8 @@ struct smtpd {
 	size_t				sc_scheduler_max_evp_batch_size;
 	size_t				sc_scheduler_max_msg_batch_size;
 	size_t				sc_scheduler_max_schedule;
+
+	struct dict		       *sc_processors_dict;
 
 	int				sc_ttl;
 #define MAX_BOUNCE_WARN			4
@@ -976,6 +980,16 @@ enum lka_resp_status {
 	LKA_PERMFAIL
 };
 
+struct processor {
+	const char		       *command;
+	const char		       *user;
+	const char		       *group;
+};
+
+struct processor_proc {
+	pid_t				pid;
+};
+
 enum ca_resp_status {
 	CA_OK,
 	CA_FAIL
@@ -1217,6 +1231,10 @@ int limit_mta_set(struct mta_limits *, const char*, int64_t);
 
 /* lka.c */
 int lka(void);
+
+
+/* lka_proc.c */
+void lka_proc_forked(const char *, int);
 
 
 /* lka_session.c */
