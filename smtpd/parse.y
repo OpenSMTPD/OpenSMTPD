@@ -187,7 +187,7 @@ typedef struct {
 %token	ON
 %token	PKI PORT PROC
 %token	QUEUE
-%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT
+%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT REPORT
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
 %token	TABLE TAG TAGGED TLS TLS_REQUIRE TO TTL
 %token	USER USERBASE
@@ -212,6 +212,7 @@ grammar		: /* empty */
 		| grammar pki '\n'
 		| grammar proc '\n'
 		| grammar queue '\n'
+		| grammar report '\n'
 		| grammar scheduler '\n'
 		| grammar smtp '\n'
 		| grammar listen '\n'
@@ -441,6 +442,17 @@ PROC STRING STRING {
 	processor = xcalloc(1, sizeof *processor);
 	processor->command = $3;
 	dict_set(conf->sc_processors_dict, $2, processor);
+}
+;
+
+
+report:
+REPORT SMTP TO STRING {
+	if (! dict_get(conf->sc_processors_dict, $4)) {
+		yyerror("no processor exist with that name: %s", $4);
+		free($4);
+		YYERROR;
+	}
 }
 ;
 
@@ -1666,6 +1678,7 @@ lookup(char *s)
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "report",		REPORT },
 		{ "scheduler",		SCHEDULER },
 		{ "senders",   		SENDERS },
 		{ "smtp",		SMTP },
