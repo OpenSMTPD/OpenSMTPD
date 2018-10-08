@@ -42,7 +42,7 @@ Portable OpenSMTPD relies on:
     or byacc (http://invisible-island.net/byacc/byacc.html)
   * libevent (http://libevent.org/)
   * libtool (http://www.gnu.org/software/libtool/)
-  * openssl (http://www.openssl.org/)
+  * libressl (https://www.libressl.org/)
   * libasr (https://opensmtpd.org/archives/libasr-1.0.2.tar.gz)
 
 
