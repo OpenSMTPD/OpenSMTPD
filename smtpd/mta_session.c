@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.107 2018/09/04 10:08:22 eric Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.112 2018/09/20 10:22:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -80,11 +80,10 @@ enum mta_state {
 #define MTA_FORCE_TLS     	0x0004
 #define MTA_FORCE_PLAIN		0x0008
 #define MTA_WANT_SECURE		0x0010
-#define MTA_USE_AUTH		0x0020
 #define MTA_DOWNGRADE_PLAIN    	0x0080
 
 #define MTA_TLS			0x0100
-#define MTA_VERIFIED   		0x0200
+#define MTA_TLS_VERIFIED	0x0200
 
 #define MTA_FREE		0x0400
 #define MTA_LMTP		0x0800
@@ -198,32 +197,26 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 	s->relay = relay;
 	s->route = route;
 
-	if (relay->flags & RELAY_SSL && relay->flags & RELAY_AUTH)
-		s->flags |= MTA_USE_AUTH;
 	if (relay->flags & RELAY_LMTP)
 		s->flags |= MTA_LMTP;
-	switch (relay->flags & (RELAY_SSL|RELAY_TLS_OPTIONAL)) {
-		case RELAY_SSL:
-			s->flags |= MTA_FORCE_ANYSSL;
-			s->flags |= MTA_WANT_SECURE;
-			break;
-		case RELAY_SMTPS:
-			s->flags |= MTA_FORCE_SMTPS;
-			s->flags |= MTA_WANT_SECURE;
-			break;
-		case RELAY_STARTTLS:
-			s->flags |= MTA_FORCE_TLS;
-			s->flags |= MTA_WANT_SECURE;
-			break;
-		case RELAY_TLS_OPTIONAL:
-			/* do not force anything, try tls then smtp */
-			break;
-		default:
-			s->flags |= MTA_FORCE_PLAIN;
+	switch (relay->tls) {
+	case RELAY_TLS_SMTPS:
+		s->flags |= MTA_FORCE_SMTPS;
+		s->flags |= MTA_WANT_SECURE;
+		break;
+	case RELAY_TLS_STARTTLS:
+		s->flags |= MTA_FORCE_TLS;
+		s->flags |= MTA_WANT_SECURE;
+		break;
+	case RELAY_TLS_OPPORTUNISTIC:
+		/* do not force anything, try tls then smtp */
+		break;
+	case RELAY_TLS_NO:
+		s->flags |= MTA_FORCE_PLAIN;
+		break;
+	default:
+		fatalx("bad value for relay->tls: %d", relay->tls);
 	}
-
-	if (relay->flags & RELAY_BACKUP)
-		s->flags &= ~MTA_FORCE_PLAIN;
 
 	log_debug("debug: mta: %p: spawned for relay %s", s,
 	    mta_relay_to_text(relay));
@@ -346,7 +339,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		if (resp_ca_vrfy->status == CA_OK)
-			s->flags |= MTA_VERIFIED;
+			s->flags |= MTA_TLS_VERIFIED;
 		else if (s->relay->flags & RELAY_TLS_VERIFY) {
 			errno = 0;
 			mta_error(s, "SSL certificate check failed");
@@ -899,7 +892,7 @@ mta_response(struct mta_session *s, char *line)
 	case MTA_EHLO:
 		if (line[0] != '2') {
 			/* rejected at ehlo state */
-			if ((s->flags & MTA_USE_AUTH) ||
+			if ((s->relay->flags & RELAY_AUTH) ||
 			    (s->flags & MTA_WANT_SECURE)) {
 				mta_error(s, "EHLO rejected: %s", line);
 				s->flags |= MTA_FREE;
@@ -1671,7 +1664,7 @@ mta_tls_verified(struct mta_session *s)
 	if (x) {
 		log_info("smtp-out: Server certificate verification %s "
 		    "on session %016"PRIx64,
-		    (s->flags & MTA_VERIFIED) ? "succeeded" : "failed",
+		    (s->flags & MTA_TLS_VERIFIED) ? "succeeded" : "failed",
 		    s->id);
 		X509_free(x);
 	}

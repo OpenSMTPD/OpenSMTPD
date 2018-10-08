@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.201 2018/09/03 13:27:43 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.206 2018/10/08 06:10:17 miko Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: September 3 2018 $
+.Dd $Mdocdate: October 8 2018 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -242,7 +242,8 @@ The following protocols are available:
 .Pp
 .Bl -tag -width "smtp+notls" -compact
 .It smtp
-Normal SMTP session with opportunistic STARTTLS.
+Normal SMTP session with opportunistic STARTTLS
+(the default).
 .It smtp+tls
 Normal SMTP session with mandatory STARTTLS.
 .It smtp+notls
@@ -253,18 +254,24 @@ LMTP session.
 SMTP session with forced TLS on connection.
 .El
 .Pp
-If not specified, the
-.Dq smtp
-protocol is used.
-.Pp
-Specifying an auth label toggles authentication.
-An auth table must also be defined for this action.
-The protocol must explicitly require TLS.
-.Pp
-If TLS is explicitly required, the server certificate
-will be verified by default.
-.It Cm tls no-verify
-Do not require a valid certificate for the specified host.
+The
+.Ar label
+corresponds to an entry in a credentials table,
+as documented in
+.Xr table 5 .
+It is used with the
+.Dq smtp+tls
+and
+.Dq smtps
+protocols for authentication.
+Server certificates for those protocols are verified by default.
+.It Cm tls Op no-verify
+Require TLS to be used when relaying, using mandatory STARTTLS by default.
+When used with a smarthost, the protocol must not be
+.Dq smtp+notls:// .
+If 
+.Op no-verify
+is specified, do not require a valid certificate.
 .It Cm auth Pf < Ar table Ns >
 Use the mapping
 .Ar table
@@ -329,7 +336,7 @@ for incoming connections, using the same syntax as for
 The
 .Ar interface
 parameter may also be an interface group, an IP address, or a domain name.
-Listening can optionally be resticted to a specific address
+Listening can optionally be restricted to a specific address
 .Ar family ,
 which can be either
 .Cm inet4
@@ -688,17 +695,15 @@ to the file must be absolute.
 Instead of using a separate file, declare a list table
 containing the given static
 .Ar value Ns s .
-The table must contain at least one value and may declare many values as a
-list of comma-separated strings.
+The table must contain at least one value and may declare multiple values as a
+comma-separated (whitespace optional) list.
 .It Ic table Ar name Brq Ar key Ns = Ns Ar value Op , Ar ...
 Instead of using a separate file, declare a mapping table
 containing the given static
 .Ar key Ns - Ns Ar value
 pairs.
 The table must contain at least one key-value pair and may declare
-many pairs as a list of comma-separated
-.Ar key Ns = Ns Ar value
-descriptions.
+multiple pairs as a comma-separated (whitespace optional) list.
 .El
 .Ss FORMAT SPECIFIERS
 Some configuration directives support expansion of their parameters at runtime.
@@ -796,7 +801,7 @@ A secrets file is needed to specify a username and password:
 # touch /etc/mail/secrets
 # chmod 640 /etc/mail/secrets
 # chown root:_smtpd /etc/mail/secrets
-# echo "label username:password" > /etc/mail/secrets
+# echo "bob username:password" > /etc/mail/secrets
 .Ed
 .Pp
 .Nm
@@ -808,7 +813,7 @@ table secrets file:/etc/mail/secrets
 listen on lo0
 
 action "local" mbox alias <aliases>
-action "relay" relay host smtp+tls://label@smtp.example.com \e
+action "relay" relay host smtp+tls://bob@smtp.example.com \e
 	auth <secrets>
 
 match for local action "local"
