@@ -45,7 +45,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/pony.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/resolver.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/rfc2822.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/rfc5322.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ruleset.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/runq.c

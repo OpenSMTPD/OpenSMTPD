@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.222 2018/08/22 10:11:43 eric Exp $	*/
+/*	$OpenBSD: mta.c,v 1.226 2018/09/24 16:14:34 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -638,6 +638,7 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 	}
 
 	memset(&relayh, 0, sizeof(relayh));
+	relayh.tls = RELAY_TLS_OPPORTUNISTIC;
 	if (smarthost && !text_to_relayhost(&relayh, smarthost)) {
 		log_warnx("warn: Failed to parse smarthost %s", smarthost);
 		m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
@@ -657,6 +658,23 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 		m_add_int(p_queue, ESC_OTHER_STATUS);
 		m_close(p_queue);
 		return;
+	}
+
+	if (dispatcher->u.remote.tls_required) {
+		/* Reject relay if smtp+notls:// is requested */
+		if (relayh.tls == RELAY_TLS_NO) {
+			log_warnx("warn: TLS required for action \"%s\"",
+			    evp->dispatcher);
+			m_create(p_queue, IMSG_MTA_DELIVERY_TEMPFAIL, 0, 0, -1);
+			m_add_evpid(p_queue, evp->id);
+			m_add_string(p_queue, "TLS required for relaying");
+			m_add_int(p_queue, ESC_OTHER_STATUS);
+			m_close(p_queue);
+			return;
+		}
+		/* Update smtp:// to smtp+tls:// */
+		if (relayh.tls == RELAY_TLS_OPPORTUNISTIC)
+			relayh.tls = RELAY_TLS_STARTTLS;
 	}
 
 	relay = mta_relay(evp, &relayh);
@@ -850,7 +868,7 @@ mta_query_mx(struct mta_relay *relay)
 	if (waitq_wait(&relay->domain->mxs, mta_on_mx, relay)) {
 		id = generate_uid();
 		tree_xset(&wait_mx, id, relay->domain);
-		if (relay->domain->flags)
+		if (relay->domain->as_host)
 			m_create(p_lka,  IMSG_MTA_DNS_HOST, 0, 0, -1);
 		else
 			m_create(p_lka,  IMSG_MTA_DNS_MX, 0, 0, -1);
@@ -1722,28 +1740,26 @@ mta_relay(struct envelope *e, struct relayhost *relayh)
 	key.helotable = dispatcher->u.remote.helo_source;
 	key.heloname = dispatcher->u.remote.helo;
 
-	if (dispatcher->u.remote.backup) {
-		key.backupname = dispatcher->u.remote.backupmx;
-		if (key.backupname == NULL)
-			key.backupname = e->smtpname;
-		key.domain = mta_domain(e->dest.domain, 0);
-		key.flags |= RELAY_BACKUP;
-	} else if (relayh->hostname[0]) {
+	if (relayh->hostname[0]) {
 		key.domain = mta_domain(relayh->hostname, 1);
-		key.flags |= RELAY_MX;
-	} else {
+	}
+	else {
 		key.domain = mta_domain(e->dest.domain, 0);
-		if (!(relayh->flags & RELAY_STARTTLS))
-			key.flags |= RELAY_TLS_OPTIONAL;
+		if (dispatcher->u.remote.backup) {
+			key.backupname = dispatcher->u.remote.backupmx;
+			if (key.backupname == NULL)
+				key.backupname = e->smtpname;
+		}
 	}
 
+	key.tls = relayh->tls;
 	key.flags |= relayh->flags;
 	key.port = relayh->port;
 	key.authlabel = relayh->authlabel;
 	if (!key.authlabel[0])
 		key.authlabel = NULL;
 
-	if (dispatcher->u.remote.smarthost &&
+	if ((key.tls == RELAY_TLS_STARTTLS || key.tls == RELAY_TLS_SMTPS) &&
 	    dispatcher->u.remote.tls_noverify == 0)
 		key.flags |= RELAY_TLS_VERIFY;
 
@@ -1751,6 +1767,7 @@ mta_relay(struct envelope *e, struct relayhost *relayh)
 		r = xcalloc(1, sizeof *r);
 		TAILQ_INIT(&r->tasks);
 		r->id = generate_uid();
+		r->tls = key.tls;
 		r->flags = key.flags;
 		r->domain = key.domain;
 		r->backupname = key.backupname ?
@@ -1837,14 +1854,25 @@ mta_relay_to_text(struct mta_relay *relay)
 		(void)strlcat(buf, tmp, sizeof buf);
 	}
 
-	if (relay->flags & RELAY_STARTTLS) {
-		(void)strlcat(buf, sep, sizeof buf);
-		(void)strlcat(buf, "starttls", sizeof buf);
-	}
-
-	if (relay->flags & RELAY_SMTPS) {
-		(void)strlcat(buf, sep, sizeof buf);
+	(void)strlcat(buf, sep, sizeof buf);
+	switch(relay->tls) {
+	case RELAY_TLS_OPPORTUNISTIC:
+		(void)strlcat(buf, "smtp", sizeof buf);
+		break;
+	case RELAY_TLS_STARTTLS:
+		(void)strlcat(buf, "smtp+tls", sizeof buf);
+		break;
+	case RELAY_TLS_SMTPS:
 		(void)strlcat(buf, "smtps", sizeof buf);
+		break;
+	case RELAY_TLS_NO:
+		if (relay->flags & RELAY_LMTP)
+			(void)strlcat(buf, "lmtp", sizeof buf);
+		else
+			(void)strlcat(buf, "smtp+notls", sizeof buf);
+		break;
+	default:
+		(void)strlcat(buf, "???", sizeof buf);
 	}
 
 	if (relay->flags & RELAY_AUTH) {
@@ -1861,7 +1889,7 @@ mta_relay_to_text(struct mta_relay *relay)
 		(void)strlcat(buf, relay->pki_name, sizeof buf);
 	}
 
-	if (relay->flags & RELAY_MX) {
+	if (relay->domain->as_host) {
 		(void)strlcat(buf, sep, sizeof buf);
 		(void)strlcat(buf, "mx", sizeof buf);
 	}
@@ -1998,6 +2026,11 @@ mta_relay_cmp(const struct mta_relay *a, const struct mta_relay *b)
 	if (a->domain > b->domain)
 		return (1);
 
+	if (a->tls < b->tls)
+		return (-1);
+	if (a->tls > b->tls)
+		return (1);
+
 	if (a->flags < b->flags)
 		return (-1);
 	if (a->flags > b->flags)
@@ -2124,18 +2157,18 @@ mta_host_cmp(const struct mta_host *a, const struct mta_host *b)
 SPLAY_GENERATE(mta_host_tree, mta_host, entry, mta_host_cmp);
 
 static struct mta_domain *
-mta_domain(char *name, int flags)
+mta_domain(char *name, int as_host)
 {
 	struct mta_domain	key, *d;
 
 	key.name = name;
-	key.flags = flags;
+	key.as_host = as_host;
 	d = SPLAY_FIND(mta_domain_tree, &domains, &key);
 
 	if (d == NULL) {
 		d = xcalloc(1, sizeof(*d));
 		d->name = xstrdup(name);
-		d->flags = flags;
+		d->as_host = as_host;
 		TAILQ_INIT(&d->mxs);
 		SPLAY_INSERT(mta_domain_tree, &domains, d);
 		stat_increment("mta.domain", 1);
@@ -2176,9 +2209,9 @@ mta_domain_unref(struct mta_domain *d)
 static int
 mta_domain_cmp(const struct mta_domain *a, const struct mta_domain *b)
 {
-	if (a->flags < b->flags)
+	if (a->as_host < b->as_host)
 		return (-1);
-	if (a->flags > b->flags)
+	if (a->as_host > b->as_host)
 		return (1);
 	return (strcasecmp(a->name, b->name));
 }
