@@ -55,7 +55,6 @@ SRCS+=	util.c
 SRCS+=	waitq.c
 
 # RFC parsers
-SRCS+=		rfc2822.c
 SRCS+=		rfc5322.c
 
 # backends
