@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.220 2018/09/05 08:47:34 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.222 2018/09/24 16:14:34 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -755,17 +755,21 @@ HELO STRING {
 
 	dispatcher->u.remote.smarthost = strdup(t->t_name);
 }
+| TLS {
+	if (dispatcher->u.remote.tls_required == 1) {
+		yyerror("tls already specified for this dispatcher");
+		YYERROR;
+	}
+
+	dispatcher->u.remote.tls_required = 1;
+}
 | TLS NO_VERIFY {
-	if (dispatcher->u.remote.smarthost == NULL) {
-		yyerror("tls no-verify may not be specified without host on a dispatcher");
+	if (dispatcher->u.remote.tls_required == 1) {
+		yyerror("tls already specified for this dispatcher");
 		YYERROR;
 	}
 
-	if (dispatcher->u.remote.tls_noverify == 1) {
-		yyerror("tls no-verify already specified for this dispatcher");
-		YYERROR;
-	}
-
+	dispatcher->u.remote.tls_required = 1;
 	dispatcher->u.remote.tls_noverify = 1;
 }
 | AUTH tables {
@@ -2141,17 +2145,12 @@ cmdline_symset(char *s)
 {
 	char	*sym, *val;
 	int	ret;
-	size_t	len;
 
 	if ((val = strrchr(s, '=')) == NULL)
 		return (-1);
-
-	len = strlen(s) - strlen(val) + 1;
-	if ((sym = malloc(len)) == NULL)
-		errx(1, "cmdline_symset: malloc");
-
-	(void)strlcpy(sym, s, len);
-
+	sym = strndup(s, val - s);
+	if (sym == NULL)
+		errx(1, "%s: strndup", __func__);
 	ret = symset(sym, val + 1, 1);
 	free(sym);
 
