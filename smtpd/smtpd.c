@@ -660,7 +660,7 @@ main(int argc, char *argv[])
 #endif
 		load_pki_tree();
 		load_pki_keys();
-		fprintf(stderr, "configuration OK\n");
+		printf("configuration OK\n");
 		exit(0);
 	}
 
