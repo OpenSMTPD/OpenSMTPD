@@ -30,4 +30,3 @@ strnlen(const char *str, size_t maxlen)
 
 	return (size_t)(cp - str);
 }
-DEF_WEAK(strnlen);
