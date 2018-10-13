@@ -583,6 +583,24 @@ AC_CHECK_FUNC([crypt_checkpass],
 	])
 AM_CONDITIONAL([SUPPORT_CRYPT_CHECKPASS], [test $CRYPT_CHECKPASS_SUPPORT = yes])
 
+STRNDUP_SUPPORT=no
+AC_CHECK_FUNC([strndup],
+	[
+		AC_DEFINE([HAVE_STRNDUP], [1],
+			[Define if you have the strndup() function.])
+		STRNDUP_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_STRNDUP], [test $STRNDUP_SUPPORT = yes])
+
+STRNLEN_SUPPORT=no
+AC_CHECK_FUNC([strnlen],
+	[
+		AC_DEFINE([HAVE_STRNLEN], [1],
+			[Define if you have the strnlen() function.])
+		STRNLEN_SUPPORT=yes
+	])
+AM_CONDITIONAL([SUPPORT_STRNLEN], [test $STRNLEN_SUPPORT = yes])
+
 AC_CHECK_FUNCS([ \
 	asprintf \
 	b64_ntop \

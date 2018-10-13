@@ -265,5 +265,12 @@ ssize_t getline(char **, size_t *, FILE *);
 int crypt_checkpass(const char *, const char *);
 #endif
 
+#ifndef HAVE_STRNDUP
+char * strndup(const char *, size_t);
+#endif
+
+#ifndef HAVE_STRNLEN
+char * strnlen(const char *, size_t);
+#endif
 
 #endif /* _OPENBSD_COMPAT_H */
