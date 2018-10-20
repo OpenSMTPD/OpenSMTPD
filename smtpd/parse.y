@@ -190,7 +190,7 @@ typedef struct {
 %token	QUEUE
 %token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT REPORT
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
-%token	TABLE TAG TAGGED TLS TLS_REQUIRE TO TTL
+%token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
 %token	VERIFY VIRTUAL
 %token	WARN_INTERVAL WRAPPER
@@ -431,7 +431,6 @@ pki_params_opt pki_params
 ;
 
 
-
 proc:
 PROC STRING STRING {
 	if (dict_get(conf->sc_processors_dict, $2)) {
@@ -448,21 +447,6 @@ PROC STRING STRING {
 }
 ;
 
-report:
-REPORT SMTP TO STRING {
-	if (! dict_get(conf->sc_processors_dict, $4)) {
-		yyerror("no processor exist with that name: %s", $4);
-		free($4);
-		YYERROR;
-	}
-	if (dict_get(conf->sc_smtp_reporters_dict, $4)) {
-		yyerror("processor already registered for smtp reporting: %s", $4);
-		free($4);
-		YYERROR;
-	}
-	dict_set(conf->sc_smtp_reporters_dict, $4, NULL);
-}
-;
 
 proc_params_opt:
 USER STRING {
@@ -494,6 +478,23 @@ USER STRING {
 proc_params:
 proc_params_opt proc_params
 | /* empty */
+;
+
+
+report:
+REPORT SMTP ON STRING {
+	if (! dict_get(conf->sc_processors_dict, $4)) {
+		yyerror("no processor exist with that name: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	if (dict_get(conf->sc_smtp_reporters_dict, $4)) {
+		yyerror("processor already registered for smtp reporting: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	dict_set(conf->sc_smtp_reporters_dict, $4, (void *)~0);
+}
 ;
 
 
@@ -1738,7 +1739,6 @@ lookup(char *s)
 		{ "tagged",		TAGGED },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
-		{ "to",			TO },
 		{ "ttl",		TTL },
 		{ "user",		USER },
 		{ "userbase",		USERBASE },

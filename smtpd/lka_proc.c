@@ -64,7 +64,6 @@ lka_proc_forked(const char *name, int fd)
 	dict_xset(&processors, name, processor);
 }
 
-
 static void
 processor_write(const char *name, uint64_t reqid, const char *phase, const char *param)
 {

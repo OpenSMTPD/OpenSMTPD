@@ -46,7 +46,6 @@
 #include "smtpd.h"
 #include "log.h"
 #include "ssl.h"
-#include "reporting.h"
 
 static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
@@ -83,8 +82,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*tablename, *username, *password, *label, *procname;
 	uint64_t		 reqid;
 	int			 v;
-	enum report_event	 re;
-	time_t			 tm;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -401,15 +398,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		lka_proc_forked(procname, imsg->fd);
 		return;
 
-	case IMSG_SMTP_REPORT_EVENT:
-		m_msg(&m, imsg);
-		m_get_time(&m, &tm);
-		m_get_int(&m, (int *)&re);
-		m_get_id(&m, &reqid);
-		m_end(&m);
-
-		log_debug("smtp event reported: %d", re);
-		return;
 	}
 
 	errx(1, "lka_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
