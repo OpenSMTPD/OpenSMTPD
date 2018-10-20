@@ -152,6 +152,7 @@ error:
 	free(conf->sc_ssl_dict);
 	free(conf->sc_limits_dict);
 	free(conf->sc_mda_wrappers);
+	free(conf->sc_processors_dict);
 	free(conf->sc_dispatcher_bounce);
 	free(limits);
 	free(conf);
