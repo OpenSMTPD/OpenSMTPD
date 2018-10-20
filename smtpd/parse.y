@@ -453,6 +453,12 @@ REPORT SMTP TO STRING {
 		free($4);
 		YYERROR;
 	}
+	if (dict_get(conf->sc_smtp_reporters_dict, $4)) {
+		yyerror("processor already registered for smtp reporting: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	dict_set(conf->sc_smtp_reporters_dict, $4, NULL);
 }
 ;
 

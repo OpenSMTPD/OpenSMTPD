@@ -45,6 +45,7 @@
 #include "log.h"
 #include "ssl.h"
 #include "rfc5322.h"
+#include "reporting.h"
 
 #define	SMTP_LINE_MAX			65535
 #define	DATA_HIWAT			65535
@@ -189,6 +190,8 @@ static int  smtp_tx_dataline(struct smtp_tx *, const char *);
 static void smtp_message_fd(struct smtp_tx *, int);
 static void smtp_message_end(struct smtp_tx *);
 static int  smtp_message_printf(struct smtp_tx *, const char *, ...);
+
+static void smtp_report_event(enum report_event, struct smtp_session *);
 
 static int  smtp_check_rset(struct smtp_session *);
 static int  smtp_check_helo(struct smtp_session *, int, const char *);
@@ -568,7 +571,7 @@ smtp_session(struct listener *listener, int sock,
 	}
 
 	/* session may have been freed by now */
-
+	smtp_report_event(RE_CONNECTED, s);
 	return (0);
 }
 
@@ -1352,6 +1355,7 @@ smtp_proceed_rset(struct smtp_session *s)
 
 	smtp_reply(s, "250 %s: Reset state",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1383,6 +1387,7 @@ smtp_proceed_helo(struct smtp_session *s, int cmd, char *args)
 			smtp_reply(s, "250-AUTH PLAIN LOGIN");
 		smtp_reply(s, "250 HELP");
 	}
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1405,6 +1410,7 @@ smtp_proceed_auth(struct smtp_session *s, char *args)
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_SECURITY_FEATURES_NOT_SUPPORTED),
 		    esc_description(ESC_SECURITY_FEATURES_NOT_SUPPORTED),
 		    method);
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1413,24 +1419,28 @@ smtp_proceed_starttls(struct smtp_session *s)
 	smtp_reply(s, "220 %s: Ready to start TLS",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 	smtp_enter_state(s, STATE_TLS);
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
 smtp_proceed_mail_from(struct smtp_session *s, char *args)
 {
 	smtp_tx_mail_from(s->tx, args);
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
 smtp_proceed_rcpt_to(struct smtp_session *s, char *args)
 {
 	smtp_tx_rcpt_to(s->tx, args);
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
 smtp_proceed_data(struct smtp_session *s)
 {
 	smtp_tx_open_message(s->tx);
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1439,6 +1449,7 @@ smtp_proceed_quit(struct smtp_session *s)
 	smtp_reply(s, "221 %s: Bye",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 	smtp_enter_state(s, STATE_QUIT);
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1446,6 +1457,7 @@ smtp_proceed_noop(struct smtp_session *s)
 {
 	smtp_reply(s, "250 %s: Ok",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1457,6 +1469,7 @@ smtp_proceed_help(struct smtp_session *s)
 	smtp_reply(s, "214- with full details");
 	smtp_reply(s, "214 %s: End of HELP info",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1465,6 +1478,7 @@ smtp_proceed_wiz(struct smtp_session *s)
 	smtp_reply(s, "500 %s %s: this feature is not supported yet ;-)",
 	    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
 	    esc_description(ESC_INVALID_COMMAND));
+	smtp_report_event(RE_COMMAND, s);
 }
 
 static void
@@ -1715,6 +1729,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 	if (s->flags & SF_SECURE && s->listener->flags & F_STARTTLS)
 		stat_decrement("smtp.tls", 1);
 
+	smtp_report_event(RE_DISCONNECTED, s);
+	
 	io_free(s->io);
 	free(s);
 
@@ -1969,6 +1985,8 @@ smtp_tx(struct smtp_session *s)
 		return 0;
 	}
 
+	smtp_report_event(RE_TX_BEGIN, tx->session);
+
 	return 1;
 }
 
@@ -2152,6 +2170,7 @@ smtp_tx_commit(struct smtp_tx *tx)
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
 	tree_xset(&wait_queue_commit, tx->session->id, tx->session);
+	smtp_report_event(RE_TX_COMMIT, tx->session);
 }
 
 static void
@@ -2160,6 +2179,7 @@ smtp_tx_rollback(struct smtp_tx *tx)
 	m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
+	smtp_report_event(RE_TX_ROLLBACK, tx->session);
 }
 
 static int
@@ -2430,6 +2450,17 @@ smtp_message_printf(struct smtp_tx *tx, const char *fmt, ...)
 
 	return len;
 }
+
+static void
+smtp_report_event(enum report_event re, struct smtp_session *s)
+{
+	m_create(p_lka, IMSG_SMTP_REPORT_EVENT, 0, 0, -1);
+	m_add_time(p_lka, time(NULL));
+	m_add_int(p_lka, (int)re);
+	m_add_id(p_lka, s->id);
+	m_close(p_lka);
+}
+
 
 #define CASE(x) case x : return #x
 

@@ -303,6 +303,7 @@ enum imsg_type {
 	IMSG_SMTP_EVENT_DISCONNECT,
 
 	IMSG_LKA_PROCESSOR_FORK,
+	IMSG_SMTP_REPORT_EVENT,
 
 	IMSG_CA_PRIVENC,
 	IMSG_CA_PRIVDEC
@@ -534,6 +535,7 @@ struct smtpd {
 	size_t				sc_scheduler_max_schedule;
 
 	struct dict		       *sc_processors_dict;
+	struct dict		       *sc_smtp_reporters_dict;
 
 	int				sc_ttl;
 #define MAX_BOUNCE_WARN			4
