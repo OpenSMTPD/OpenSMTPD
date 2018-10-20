@@ -71,9 +71,8 @@ processor_write(const char *name, uint64_t reqid, const char *phase, const char 
 	int			n;
 
 	n = io_printf(processor->io, "FILTER %016"PRIx64" %s %s\n", reqid, phase, param);
-	if (n == -1) {
+	if (n == -1)
 		fatalx("failed to write to processor");
-	}
 }
 
 static void
