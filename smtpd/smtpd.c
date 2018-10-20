@@ -388,9 +388,11 @@ parent_sig_handler(int sig, short event, void *p)
 
 			switch (child->type) {
 			case CHILD_PROCESSOR:
-				if (fail)
+				if (fail) {
 					log_warnx("warn: lost processor: %s %s",
 					    child->title, cause);
+					parent_shutdown();
+				}
 				break;
 
 			case CHILD_DAEMON:
@@ -1314,7 +1316,6 @@ fork_processor(const char *name, const char *command, const char *user, const ch
 		err(1, "signal");
 
 	execle(command, name, (char *)NULL, NULL);
-
 	perror("execle");
 	_exit(1);
 }
