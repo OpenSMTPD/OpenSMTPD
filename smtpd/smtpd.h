@@ -984,6 +984,7 @@ struct processor {
 	const char		       *command;
 	const char		       *user;
 	const char		       *group;
+	const char		       *chroot;
 };
 
 struct processor_proc {

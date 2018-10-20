@@ -105,7 +105,7 @@ static struct ca	*sca;
 
 struct dispatcher	*dispatcher;
 struct rule		*rule;
-
+struct processor	*processor;
 
 enum listen_options {
 	LO_FAMILY	= 0x000001,
@@ -173,10 +173,11 @@ typedef struct {
 
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE
-%token	CA CERT CIPHERS COMPRESSION
+%token	CA CERT CHROOT CIPHERS COMPRESSION
 %token	DHE DOMAIN
 %token	ENCRYPTION ERROR EXPAND_ONLY
 %token	FILTER FOR FORWARD_ONLY FROM
+%token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
 %token	INCLUDE INET4 INET6
 %token	JUNK
@@ -428,10 +429,10 @@ pki_params_opt pki_params
 | /* empty */
 ;
 
+
+
 proc:
 PROC STRING STRING {
-	struct processor	*processor;
-
 	if (dict_get(conf->sc_processors_dict, $2)) {
 		yyerror("processor already exists with that name: %s", $2);
 		free($2);
@@ -440,9 +441,44 @@ PROC STRING STRING {
 	}
 	processor = xcalloc(1, sizeof *processor);
 	processor->command = $3;
+} proc_params {
 	dict_set(conf->sc_processors_dict, $2, processor);
+	processor = NULL;
 }
 ;
+
+proc_params_opt:
+USER STRING {
+	if (processor->user) {
+		yyerror("user already specified");
+		free($2);
+		YYERROR;
+	}
+	processor->user = $2;
+}
+| GROUP STRING {
+	if (processor->group) {
+		yyerror("group already specified");
+		free($2);
+		YYERROR;
+	}
+	processor->group = $2;
+}
+| CHROOT STRING {
+	if (processor->chroot) {
+		yyerror("chroot already specified");
+		free($2);
+		YYERROR;
+	}
+	processor->chroot = $2;
+}
+;
+
+proc_params:
+proc_params_opt proc_params
+| /* empty */
+;
+
 
 queue:
 QUEUE COMPRESSION {
@@ -1623,6 +1659,7 @@ lookup(char *s)
 		{ "bounce",		BOUNCE },
 		{ "ca",			CA },
 		{ "cert",		CERT },
+		{ "chroot",		CHROOT },
 		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
 		{ "dhe",		DHE },
@@ -1633,6 +1670,7 @@ lookup(char *s)
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARD_ONLY },
 		{ "from",		FROM },
+		{ "group",		GROUP },
 		{ "helo",		HELO },
 		{ "helo-src",       	HELO_SRC },
 		{ "host",		HOST },
