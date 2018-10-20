@@ -91,7 +91,7 @@ static void	load_pki_tree(void);
 static void	load_pki_keys(void);
 
 static void	fork_processors(void);
-static void	fork_processor(const char *, const char *, const char *, const char *);
+static void	fork_processor(const char *, const char *, const char *, const char *, const char *);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -1252,11 +1252,11 @@ fork_processors(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_processors_dict, &iter, &name, (void **)&processor))
-		fork_processor(name, processor->command, processor->user, processor->group);
+		fork_processor(name, processor->command, processor->user, processor->group, processor->chroot);
 }
 
 static void
-fork_processor(const char *name, const char *command, const char *user, const char *group)
+fork_processor(const char *name, const char *command, const char *user, const char *group, const char *chroot_path)
 {
 	pid_t		 pid;
 	int		 sp[2];
@@ -1278,7 +1278,7 @@ fork_processor(const char *name, const char *command, const char *user, const ch
 		if ((gr = getgrgid(pw->pw_gid)) == NULL)
 			err(1, "getgrgid");
 	}
-
+	
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1)
 		err(1, "socketpair");
 
@@ -1299,10 +1299,13 @@ fork_processor(const char *name, const char *command, const char *user, const ch
 	dup2(sp[0], STDIN_FILENO);
 	dup2(sp[0], STDOUT_FILENO);
 
+	if (chroot(chroot_path) != 0 || chdir("/") != 0)
+		err(1, "chroot: %s", chroot_path);
+
 	if (setgroups(1, &gr->gr_gid) ||
 	    setresgid(gr->gr_gid, gr->gr_gid, gr->gr_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		err(1, "forkmda: cannot drop privileges");
+		err(1, "fork_processor: cannot drop privileges");
 
 	if (closefrom(STDERR_FILENO + 1) < 0)
 		err(1, "closefrom");
