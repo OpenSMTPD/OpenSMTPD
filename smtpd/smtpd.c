@@ -1299,8 +1299,10 @@ fork_processor(const char *name, const char *command, const char *user, const ch
 	dup2(sp[0], STDIN_FILENO);
 	dup2(sp[0], STDOUT_FILENO);
 
-	if (chroot(chroot_path) != 0 || chdir("/") != 0)
-		err(1, "chroot: %s", chroot_path);
+	if (chroot_path) {
+		if (chroot(chroot_path) != 0 || chdir("/") != 0)
+			err(1, "chroot: %s", chroot_path);
+	}
 
 	if (setgroups(1, &gr->gr_gid) ||
 	    setresgid(gr->gr_gid, gr->gr_gid, gr->gr_gid) ||
