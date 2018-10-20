@@ -467,7 +467,7 @@ REPORT SMTP TO STRING {
 proc_params_opt:
 USER STRING {
 	if (processor->user) {
-		yyerror("user already specified");
+		yyerror("user already specified for this processor");
 		free($2);
 		YYERROR;
 	}
@@ -475,7 +475,7 @@ USER STRING {
 }
 | GROUP STRING {
 	if (processor->group) {
-		yyerror("group already specified");
+		yyerror("group already specified for this processor");
 		free($2);
 		YYERROR;
 	}
@@ -483,7 +483,7 @@ USER STRING {
 }
 | CHROOT STRING {
 	if (processor->chroot) {
-		yyerror("chroot already specified");
+		yyerror("chroot already specified for this processor");
 		free($2);
 		YYERROR;
 	}
