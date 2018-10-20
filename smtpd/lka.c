@@ -398,6 +398,31 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		lka_proc_forked(procname, imsg->fd);
 		return;
 
+
+	case IMSG_SMTP_REPORT_LINK_EVENT:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		log_debug("SMTP LINK EVENT");
+		return;
+
+	case IMSG_SMTP_REPORT_TX_EVENT:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		log_debug("SMTP TX EVENT");
+		return;
+
+	case IMSG_SMTP_REPORT_PROTOCOL_EVENT:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		log_debug("SMTP PROTOCOL EVENT");
+		return;
+
 	}
 
 	errx(1, "lka_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));

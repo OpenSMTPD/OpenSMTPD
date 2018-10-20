@@ -45,6 +45,7 @@
 #include "log.h"
 #include "ssl.h"
 #include "rfc5322.h"
+#include "reporting.h"
 
 #define	SMTP_LINE_MAX			65535
 #define	DATA_HIWAT			65535
@@ -210,6 +211,9 @@ static void smtp_proceed_help(struct smtp_session *);
 static void smtp_proceed_wiz(struct smtp_session *);
 static void smtp_proceed_quit(struct smtp_session *);
 
+static void smtp_report_link_event(enum reporting_event, struct smtp_session *);
+static void smtp_report_tx_event(enum reporting_event, struct smtp_session *);
+static void smtp_report_protocol_event(enum reporting_event, struct smtp_session *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -568,6 +572,8 @@ smtp_session(struct listener *listener, int sock,
 	}
 
 	/* session may have been freed by now */
+
+	smtp_report_link_event(R_EVT_LINK_CONNECT, s);
 
 	return (0);
 }
@@ -1710,6 +1716,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 		smtp_tx_free(s->tx);
 	}
 
+	smtp_report_link_event(R_EVT_LINK_DISCONNECT, s);
+
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
 		stat_decrement("smtp.smtps", 1);
 	if (s->flags & SF_SECURE && s->listener->flags & F_STARTTLS)
@@ -2066,6 +2074,7 @@ smtp_tx_create_message(struct smtp_tx *tx)
 	m_add_id(p_queue, tx->session->id);
 	m_close(p_queue);
 	tree_xset(&wait_queue_msg, tx->session->id, tx->session);
+	smtp_report_tx_event(R_EVT_SMTP_TX_BEGIN, tx->session);
 }
 
 static void
@@ -2152,6 +2161,7 @@ smtp_tx_commit(struct smtp_tx *tx)
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
 	tree_xset(&wait_queue_commit, tx->session->id, tx->session);
+	smtp_report_tx_event(R_EVT_SMTP_TX_COMMIT, tx->session);
 }
 
 static void
@@ -2160,6 +2170,7 @@ smtp_tx_rollback(struct smtp_tx *tx)
 	m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
+	smtp_report_tx_event(R_EVT_SMTP_TX_ROLLBACK, tx->session);
 }
 
 static int
@@ -2430,6 +2441,32 @@ smtp_message_printf(struct smtp_tx *tx, const char *fmt, ...)
 
 	return len;
 }
+
+static void
+smtp_report_link_event(enum reporting_event revt, struct smtp_session *s)
+{
+	m_create(p_lka, IMSG_SMTP_REPORT_LINK_EVENT, 0, 0, -1);
+	m_add_id(p_lka, s->id);
+	m_close(p_lka);
+}
+
+static void
+smtp_report_tx_event(enum reporting_event revt, struct smtp_session *s)
+{
+	m_create(p_lka, IMSG_SMTP_REPORT_TX_EVENT, 0, 0, -1);
+	m_add_id(p_lka, s->id);
+	m_close(p_lka);
+
+}
+
+static void
+smtp_report_protocol_event(enum reporting_event revt, struct smtp_session *s)
+{
+	m_create(p_lka, IMSG_SMTP_REPORT_PROTOCOL_EVENT, 0, 0, -1);
+	m_add_id(p_lka, s->id);
+	m_close(p_lka);
+}
+
 
 #define CASE(x) case x : return #x
 

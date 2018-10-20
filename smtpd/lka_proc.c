@@ -100,3 +100,4 @@ processor_io(struct io *io, int evt, void *arg)
 		goto nextline;
 	}
 }
+
