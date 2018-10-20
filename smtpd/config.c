@@ -157,7 +157,6 @@ error:
 	free(conf->sc_mda_wrappers);
 	free(conf->sc_processors_dict);
 	free(conf->sc_dispatcher_bounce);
-	free(conf->sc_processors_dict);
 	free(conf->sc_smtp_reporters_dict);
 	free(limits);
 	free(conf);
