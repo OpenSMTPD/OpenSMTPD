@@ -46,7 +46,6 @@
 #include "smtpd.h"
 #include "log.h"
 #include "ssl.h"
-#include "reporting.h"
 
 static void lka_imsg(struct mproc *, struct imsg *);
 static void lka_shutdown(void);
@@ -83,9 +82,9 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*tablename, *username, *password, *label, *procname;
 	uint64_t		 reqid;
 	int			 v;
-	enum reporting_event	 revt;
 	time_t			 tm;
-	const char		*command, *args;
+	const char		*command, *response;
+	const char		*src_addr, *dest_addr;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -403,38 +402,74 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 
 
-	case IMSG_SMTP_REPORT_LINK_EVENT:
+	case IMSG_SMTP_REPORT_LINK_CONNECT:
 		m_msg(&m, imsg);
 		m_get_time(&m, &tm);
-		m_get_int(&m, (int *)&revt);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &src_addr);
+		m_get_string(&m, &dest_addr);
+		m_end(&m);
+
+		lka_report_smtp_link_connect(tm, reqid, src_addr, dest_addr);
+		return;
+
+	case IMSG_SMTP_REPORT_LINK_DISCONNECT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &src_addr);
+		m_get_string(&m, &dest_addr);
+		m_end(&m);
+
+		lka_report_smtp_link_disconnect(tm, reqid, src_addr, dest_addr);
+		return;
+
+	case IMSG_SMTP_REPORT_TX_BEGIN:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
 		m_get_id(&m, &reqid);
 		m_end(&m);
 
-		log_debug("SMTP LINK EVENT: %d", revt);
+		lka_report_smtp_tx_begin(tm, reqid);
 		return;
 
-	case IMSG_SMTP_REPORT_TX_EVENT:
+	case IMSG_SMTP_REPORT_TX_COMMIT:
 		m_msg(&m, imsg);
 		m_get_time(&m, &tm);
-		m_get_int(&m, (int *)&revt);
 		m_get_id(&m, &reqid);
 		m_end(&m);
 
-		log_debug("SMTP TX EVENT: %d", revt);
+		lka_report_smtp_tx_commit(tm, reqid);
 		return;
 
-	case IMSG_SMTP_REPORT_PROTOCOL_EVENT:
+	case IMSG_SMTP_REPORT_TX_ROLLBACK:
 		m_msg(&m, imsg);
 		m_get_time(&m, &tm);
-		m_get_int(&m, (int *)&revt);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_report_smtp_tx_rollback(tm, reqid);
+		return;
+
+	case IMSG_SMTP_REPORT_PROTOCOL_CLIENT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
 		m_get_id(&m, &reqid);
 		m_get_string(&m, &command);
-		m_get_string(&m, &args);
 		m_end(&m);
 
-		log_debug("SMTP PROTOCOL EVENT: %d, PARAM: %s,%s", revt, command, args);
+		lka_report_smtp_protocol_client(tm, reqid, command);
 		return;
 
+	case IMSG_SMTP_REPORT_PROTOCOL_SERVER:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &response);
+		m_end(&m);
+
+		lka_report_smtp_protocol_server(tm, reqid, response);
+		return;
 	}
 
 	errx(1, "lka_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));

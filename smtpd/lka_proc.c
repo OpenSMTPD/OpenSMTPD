@@ -44,6 +44,7 @@ struct processor_instance {
 	struct io		*io;
 };
 
+static void	processor_write(const char *name, uint64_t reqid, const char *phase, const char *param);
 static void	processor_io(struct io *, int, void *);
 
 void
@@ -62,6 +63,18 @@ lka_proc_forked(const char *name, int fd)
 	io_set_fd(processor->io, fd);
 	io_set_callback(processor->io, processor_io, processor);
 	dict_xset(&processors, name, processor);
+}
+
+void
+lka_proc_report_smtp_link_event(uint64_t reqid)
+{
+	void		*hdl = NULL;
+	const char	*reporter;
+	
+	while (dict_iter(env->sc_smtp_reporters_dict, &hdl, &reporter, NULL)) {
+		log_debug("BOO: %s", reporter);
+		processor_write(reporter, reqid, "foo", "bar");
+	}		
 }
 
 static void

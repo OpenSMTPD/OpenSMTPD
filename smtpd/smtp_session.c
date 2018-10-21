@@ -45,7 +45,6 @@
 #include "log.h"
 #include "ssl.h"
 #include "rfc5322.h"
-#include "reporting.h"
 
 #define	SMTP_LINE_MAX			65535
 #define	DATA_HIWAT			65535
@@ -210,10 +209,6 @@ static void smtp_proceed_noop(struct smtp_session *);
 static void smtp_proceed_help(struct smtp_session *);
 static void smtp_proceed_wiz(struct smtp_session *);
 static void smtp_proceed_quit(struct smtp_session *);
-
-static void smtp_report_link_event(enum reporting_event, struct smtp_session *);
-static void smtp_report_tx_event(enum reporting_event, struct smtp_session *);
-static void smtp_report_protocol_event(enum reporting_event, struct smtp_session *, const char *, const char *);
 
 static struct { int code; const char *cmd; } commands[] = {
 	{ CMD_HELO,		"HELO" },
@@ -573,8 +568,9 @@ smtp_session(struct listener *listener, int sock,
 
 	/* session may have been freed by now */
 
-	smtp_report_link_event(R_EVT_LINK_CONNECT, s);
-
+	smtp_report_link_connect(s->id, ss_to_text(&s->ss),
+	    ss_to_text(&s->listener->ss));
+	
 	return (0);
 }
 
@@ -1044,6 +1040,7 @@ smtp_command(struct smtp_session *s, char *line)
 	int				cmd, i;
 
 	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
+	smtp_report_protocol_client(s->id, line);
 
 	/*
 	 * These states are special.
@@ -1072,8 +1069,6 @@ smtp_command(struct smtp_session *s, char *line)
 		while (isspace((unsigned char)*args))
 			args++;
 	}
-
-	smtp_report_protocol_event(R_EVT_SMTP_PROTOCOL_COMMAND, s, line, args);
 
 	cmd = -1;
 	for (i = 0; commands[i].code != -1; i++)
@@ -1671,7 +1666,7 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	log_trace(TRACE_SMTP, "smtp: %p: >>> %s", s, buf);
 
 	io_xprintf(s->io, "%s\r\n", buf);
-	smtp_report_protocol_event(R_EVT_SMTP_PROTOCOL_RESPONSE, s, s->cmd, buf);
+	smtp_report_protocol_server(s->id, buf);
 
 	switch (buf[0]) {
 	case '5':
@@ -1719,7 +1714,8 @@ smtp_free(struct smtp_session *s, const char * reason)
 		smtp_tx_free(s->tx);
 	}
 
-	smtp_report_link_event(R_EVT_LINK_DISCONNECT, s);
+	smtp_report_link_disconnect(s->id, ss_to_text(&s->ss),
+	    ss_to_text(&s->listener->ss));
 
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
 		stat_decrement("smtp.smtps", 1);
@@ -2077,7 +2073,7 @@ smtp_tx_create_message(struct smtp_tx *tx)
 	m_add_id(p_queue, tx->session->id);
 	m_close(p_queue);
 	tree_xset(&wait_queue_msg, tx->session->id, tx->session);
-	smtp_report_tx_event(R_EVT_SMTP_TX_BEGIN, tx->session);
+	smtp_report_tx_begin(tx->session->id);
 }
 
 static void
@@ -2164,7 +2160,7 @@ smtp_tx_commit(struct smtp_tx *tx)
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
 	tree_xset(&wait_queue_commit, tx->session->id, tx->session);
-	smtp_report_tx_event(R_EVT_SMTP_TX_COMMIT, tx->session);
+	smtp_report_tx_commit(tx->session->id);
 }
 
 static void
@@ -2173,7 +2169,7 @@ smtp_tx_rollback(struct smtp_tx *tx)
 	m_create(p_queue, IMSG_SMTP_MESSAGE_ROLLBACK, 0, 0, -1);
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
-	smtp_report_tx_event(R_EVT_SMTP_TX_ROLLBACK, tx->session);
+	smtp_report_tx_rollback(tx->session->id);
 }
 
 static int
@@ -2444,53 +2440,6 @@ smtp_message_printf(struct smtp_tx *tx, const char *fmt, ...)
 
 	return len;
 }
-
-static void
-smtp_report_link_event(enum reporting_event revt, struct smtp_session *s)
-{
-	if (revt != R_EVT_LINK_CONNECT &&
-	    revt != R_EVT_LINK_DISCONNECT)
-		fatalx("smtp_report_link_event: unexpected revt");
-
-	m_create(p_lka, IMSG_SMTP_REPORT_LINK_EVENT, 0, 0, -1);
-	m_add_time(p_lka, time(NULL));
-	m_add_int(p_lka, (int)revt);
-	m_add_id(p_lka, s->id);
-	m_close(p_lka);
-}
-
-static void
-smtp_report_tx_event(enum reporting_event revt, struct smtp_session *s)
-{
-	if (revt != R_EVT_SMTP_TX_BEGIN &&
-	    revt != R_EVT_SMTP_TX_COMMIT &&
-	    revt != R_EVT_SMTP_TX_ROLLBACK)
-		fatalx("smtp_report_tx_event: unexpected revt");
-
-	m_create(p_lka, IMSG_SMTP_REPORT_TX_EVENT, 0, 0, -1);
-	m_add_time(p_lka, time(NULL));
-	m_add_int(p_lka, (int)revt);
-	m_add_id(p_lka, s->id);
-	m_close(p_lka);
-
-}
-
-static void
-smtp_report_protocol_event(enum reporting_event revt, struct smtp_session *s, const char *command, const char *param)
-{
-	if (revt != R_EVT_SMTP_PROTOCOL_COMMAND &&
-	    revt != R_EVT_SMTP_PROTOCOL_RESPONSE)
-		fatalx("smtp_report_protocol_event: unexpected revt");
-
-	m_create(p_lka, IMSG_SMTP_REPORT_PROTOCOL_EVENT, 0, 0, -1);
-	m_add_time(p_lka, time(NULL));
-	m_add_int(p_lka, (int)revt);
-	m_add_id(p_lka, s->id);
-	m_add_string(p_lka, command ? command : "");
-	m_add_string(p_lka, param ? param : "");
-	m_close(p_lka);
-}
-
 
 #define CASE(x) case x : return #x
 

@@ -304,9 +304,15 @@ enum imsg_type {
 
 	IMSG_LKA_PROCESSOR_FORK,
 
-	IMSG_SMTP_REPORT_LINK_EVENT,
-	IMSG_SMTP_REPORT_TX_EVENT,
-	IMSG_SMTP_REPORT_PROTOCOL_EVENT,
+	IMSG_SMTP_REPORT_LINK_CONNECT,
+	IMSG_SMTP_REPORT_LINK_DISCONNECT,
+	
+	IMSG_SMTP_REPORT_TX_BEGIN,
+	IMSG_SMTP_REPORT_TX_COMMIT,
+	IMSG_SMTP_REPORT_TX_ROLLBACK,
+
+	IMSG_SMTP_REPORT_PROTOCOL_CLIENT,
+	IMSG_SMTP_REPORT_PROTOCOL_SERVER,
 
 	IMSG_CA_PRIVENC,
 	IMSG_CA_PRIVDEC
@@ -1242,6 +1248,17 @@ int lka(void);
 
 /* lka_proc.c */
 void lka_proc_forked(const char *, int);
+void lka_proc_report_smtp_link_event(uint64_t);
+
+
+/* lka_report.c */
+void lka_report_smtp_link_connect(time_t, uint64_t, const char *, const char *);
+void lka_report_smtp_link_disconnect(time_t, uint64_t, const char *, const char *);
+void lka_report_smtp_tx_begin(time_t, uint64_t);
+void lka_report_smtp_tx_commit(time_t, uint64_t);
+void lka_report_smtp_tx_rollback(time_t, uint64_t);
+void lka_report_smtp_protocol_client(time_t, uint64_t, const char *);
+void lka_report_smtp_protocol_server(time_t, uint64_t, const char *);
 
 
 /* lka_session.c */
@@ -1409,6 +1426,16 @@ void smtp_postprivdrop(void);
 void smtp_imsg(struct mproc *, struct imsg *);
 void smtp_configure(void);
 void smtp_collect(void);
+
+
+/* smtp_report.c */
+void smtp_report_link_connect(uint64_t, const char *, const char *);
+void smtp_report_link_disconnect(uint64_t, const char *, const char *);
+void smtp_report_tx_begin(uint64_t);
+void smtp_report_tx_commit(uint64_t);
+void smtp_report_tx_rollback(uint64_t);
+void smtp_report_protocol_client(uint64_t, const char *);
+void smtp_report_protocol_server(uint64_t, const char *);
 
 
 /* smtp_session.c */
