@@ -2486,8 +2486,8 @@ smtp_report_protocol_event(enum reporting_event revt, struct smtp_session *s, co
 	m_add_time(p_lka, time(NULL));
 	m_add_int(p_lka, (int)revt);
 	m_add_id(p_lka, s->id);
-	m_add_string(p_lka, command);
-	m_add_string(p_lka, param);
+	m_add_string(p_lka, command ? command : "");
+	m_add_string(p_lka, param ? param : "");
 	m_close(p_lka);
 }
 
