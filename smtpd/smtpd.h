@@ -1248,7 +1248,7 @@ int lka(void);
 
 /* lka_proc.c */
 void lka_proc_forked(const char *, int);
-void lka_proc_report_smtp_link_event(uint64_t);
+struct io *lka_proc_get_io(const char *);
 
 
 /* lka_report.c */

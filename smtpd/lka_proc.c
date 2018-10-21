@@ -65,16 +65,12 @@ lka_proc_forked(const char *name, int fd)
 	dict_xset(&processors, name, processor);
 }
 
-void
-lka_proc_report_smtp_link_event(uint64_t reqid)
+struct io *
+lka_proc_get_io(const char *name)
 {
-	void		*hdl = NULL;
-	const char	*reporter;
-	
-	while (dict_iter(env->sc_smtp_reporters_dict, &hdl, &reporter, NULL)) {
-		log_debug("BOO: %s", reporter);
-		processor_write(reporter, reqid, "foo", "bar");
-	}		
+	struct processor_instance	*processor = dict_xget(&processors, name);
+
+	return processor->io;
 }
 
 static void

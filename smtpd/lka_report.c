@@ -35,45 +35,73 @@
 #include "smtpd.h"
 #include "log.h"
 
+static void
+report_smtp_broadcast(const char *format, ...)
+{
+	va_list		ap;
+	void		*hdl = NULL;
+	const char	*reporter;
+
+	va_start(ap, format);
+	while (dict_iter(env->sc_smtp_reporters_dict, &hdl, &reporter, NULL)) {
+		if (io_vprintf(lka_proc_get_io(reporter), format, ap) == -1)
+			fatalx("failed to write to processor");
+	}
+	va_end(ap);
+}
 
 void
 lka_report_smtp_link_connect(time_t tm, uint64_t reqid, const char *src_addr, const char *dest_addr)
 {
-	log_debug("SMTP LINK CONNECT: %s->%s", src_addr, dest_addr);
+	report_smtp_broadcast("report smtp-link-connect "
+	    "timestamp=%zd session=%016"PRIx64" src-addr=%s dest-addr=%s\n",
+	    tm, reqid, src_addr, dest_addr);
 }
 
 void
 lka_report_smtp_link_disconnect(time_t tm, uint64_t reqid, const char *src_addr, const char *dest_addr)
 {
-	log_debug("SMTP LINK DISCONNECT: %s->%s", src_addr, dest_addr);
+	report_smtp_broadcast("report smtp-link-disconnect "
+	    "timestamp=%zd session=%016"PRIx64" src-addr=%s dest-addr=%s\n",
+	    tm, reqid, src_addr, dest_addr);
 }
 
 void
 lka_report_smtp_tx_begin(time_t tm, uint64_t reqid)
 {
-	log_debug("SMTP TX BEGIN");
+	report_smtp_broadcast("report smtp-tx-begin "
+	    "timestamp=%zd session=%016"PRIx64"\n",
+	    tm, reqid);
 }
 
 void
 lka_report_smtp_tx_commit(time_t tm, uint64_t reqid)
 {
-	log_debug("SMTP TX COMMIT");
+	report_smtp_broadcast("report smtp-tx-commit "
+	    "timestamp=%zd session=%016"PRIx64"\n",
+	    tm, reqid);
 }
 
 void
 lka_report_smtp_tx_rollback(time_t tm, uint64_t reqid)
 {
-	log_debug("SMTP TX ROLLBACK");
+	report_smtp_broadcast("report smtp-tx-rollback "
+	    "timestamp=%zd session=%016"PRIx64"\n",
+	    tm, reqid);
 }
 
 void
 lka_report_smtp_protocol_client(time_t tm, uint64_t reqid, const char *command)
 {
-	log_debug("SMTP CLIENT PROTOCOL: %s", command);
+	report_smtp_broadcast("report smtp-protocol-client "
+	    "timestamp=%zd session=%016"PRIx64" command=\"%s\"\n",
+	    tm, reqid, command);
 }
 
 void
 lka_report_smtp_protocol_server(time_t tm, uint64_t reqid, const char *response)
 {
-	log_debug("SMTP SERVER PROTOCOL: %s", response);
+	report_smtp_broadcast("report smtp-protocol-server "
+	    "timestamp=%zd session=%016"PRIx64" command=\"%s\"\n",
+	    tm, reqid, response);
 }
