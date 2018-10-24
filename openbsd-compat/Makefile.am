@@ -1,7 +1,7 @@
 noinst_LIBRARIES = libopenbsd-compat.a
 
-libopenbsd_compat_a_SOURCES =	arc4random.c
-libopenbsd_compat_a_SOURCES +=	base64.c
+#libopenbsd_compat_a_SOURCES =	arc4random.c
+libopenbsd_compat_a_SOURCES =	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-getpeereid.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c

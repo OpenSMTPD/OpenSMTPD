@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -26,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 static void	mboxfile_engine(const char *sender, const char *filename);
@@ -71,7 +74,13 @@ mboxfile_engine(const char *sender, const char *filename)
 
 	time(&now);
 
+#ifndef O_EXLOCK
+#define O_EXLOCK 0
+#endif
 	fd = open(filename, O_CREAT | O_APPEND | O_WRONLY | O_EXLOCK, 0600);
+#ifndef HAVE_O_EXLOCK
+	/* XXX : do something! */
+#endif
 	if (fd < 0)
 		err(1, NULL);
 

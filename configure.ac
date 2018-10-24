@@ -499,13 +499,6 @@ AC_SEARCH_LIBS([flock],
 	])
 AM_CONDITIONAL([SUPPORT_FLOCK], [test $FLOCK_SUPPORT = yes])
 
-AC_SEARCH_LIBS([arc4random],
-	[crypto],
-	[
-		AC_DEFINE([HAVE_ARC4RANDOM], [1],
-			[Define if you have the arc4random() function.])
-	])
-
 DAEMON_SUPPORT=no
 AC_SEARCH_LIBS([daemon],
 	[bsd],
