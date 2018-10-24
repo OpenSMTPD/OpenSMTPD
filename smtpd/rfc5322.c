@@ -180,7 +180,7 @@ _rfc5322_next(struct rfc5322_parser *parser, struct rfc5322_result *res)
 			return RFC5322_BODY_START;
 		}
 
-		errno = EFTYPE;
+		errno = EINVAL;
 		return -1;
 
 	case RFC5322_BODY_START:
