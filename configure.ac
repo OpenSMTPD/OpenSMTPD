@@ -1931,7 +1931,7 @@ AC_RUN_IFELSE(
 	if(fd == NULL)
 		exit(1);
 
-	if ((rc = fprintf(fd ,"%lx (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION))) <0)
+	if ((rc = fprintf(fd ,"%lx (%s)\n", OpenSSL_version_num(), OpenSSL_version(OPENSSL_VERSION))) <0)
 		exit(1);
 
 	exit(0);
