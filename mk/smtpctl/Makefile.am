@@ -31,9 +31,7 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/mailaddr.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/makemap.c
 endif
 
-if HAVE_GCM_CRYPTO
 smtpctl_SOURCES+=	$(smtpd_srcdir)/crypto.c
-endif
 
 smtpctl_CFLAGS=		-DNO_IO
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \

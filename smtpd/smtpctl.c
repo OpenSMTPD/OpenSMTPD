@@ -1302,9 +1302,7 @@ static void
 display(const char *s)
 {
 	FILE   *fp;
-#ifdef HAVE_GCM_CRYPTO
 	char   *key;
-#endif
 	int	gzipped;
 	char   *gzcat_argv0 = strrchr(PATH_GZCAT, '/') + 1;
 
@@ -1312,7 +1310,6 @@ display(const char *s)
 		err(1, "fopen");
 
 	if (is_encrypted_fp(fp)) {
-#ifdef HAVE_GCM_CRYPTO
 		int	i;
 		int	fd;
 		FILE   *ofp = NULL;
@@ -1345,10 +1342,6 @@ display(const char *s)
 		fclose(fp);
 		fp = ofp;
 		fseek(fp, 0, SEEK_SET);
-#else
-	       	printf("GCM crypto not supported!\n");
-       		exit(1);
-#endif
 	}
 	gzipped = is_gzip_fp(fp);
 

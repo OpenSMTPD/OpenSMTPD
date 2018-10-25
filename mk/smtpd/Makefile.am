@@ -65,9 +65,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/util.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/waitq.c
 
 # backends
-if HAVE_GCM_CRYPTO
 smtpd_SOURCES+=		$(smtpd_srcdir)/crypto.c
-endif
 smtpd_SOURCES+=		$(smtpd_srcdir)/compress_gzip.c
 if HAVE_DB_API
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_db.c
