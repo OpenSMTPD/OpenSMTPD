@@ -35,11 +35,11 @@ AC_PREREQ(2.69)
 #
 # AC_INIT
 #
-AC_INIT([OpenSMTPD-portable],
+AC_INIT([OpenSMTPD],
 	[portable],
 	[bugs@opensmtpd.org],
 	[opensmtpd],
-	[https://github.com/OpenSMTPD/OpenSMTPD])
+	[https://www.OpenSMTPD.org])
 
 AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
 LT_INIT
