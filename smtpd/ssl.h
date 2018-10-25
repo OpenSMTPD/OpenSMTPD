@@ -65,11 +65,4 @@ int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 
 /* ssl_privsep.c */
 int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
-
-#ifndef HAVE_SSL_CTX_SET_ECDH_AUTO
-void	SSL_CTX_set_ecdh_auto(SSL_CTX *, int);
-#endif
-#ifndef HAVE_SSL_CTX_SET_DH_AUTO
-void	SSL_CTX_set_dh_auto(SSL_CTX *, int);
-#endif
 int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
