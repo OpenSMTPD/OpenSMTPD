@@ -503,8 +503,4 @@ typedef uint16_t	in_port_t;
 #define LOG_PERROR 0
 #endif
 
-#if !HAVE_DECL_SSL_OP_NO_CLIENT_RENEGOTIATION
-#define SSL_OP_NO_CLIENT_RENEGOTIATION 0
-#endif
-
 #endif /* _DEFINES_H */
