@@ -324,7 +324,6 @@ smtp_collect(void)
 static int
 smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 {
-#if defined(HAVE_TLSEXT_SERVERNAME)
 	const char		*sn;
 	void			*ssl_ctx;
 
@@ -336,10 +335,6 @@ smtp_sni_callback(SSL *ssl, int *ad, void *arg)
 		return SSL_TLSEXT_ERR_NOACK;
 	SSL_set_SSL_CTX(ssl, ssl_ctx);
 	return SSL_TLSEXT_ERR_OK;
-#else
-	/* ssl_smtp_init should have ignored the callback if SNI is not supported */
-	fatalx("unxepected call to smtp_sni_callback()");
-#endif /* defined(HAVE_TLSEXT_SERVERNAME) */
 }
 
 static void

@@ -1923,25 +1923,6 @@ AC_LINK_IFELSE(
 #l2371
 
 ##gilles
-OPENSSL_SUPPORTS_SNI=no
-AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
-	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
-	[
-		AC_MSG_RESULT([yes])
-		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
-			[Define if you want to enable TLS extension SERVERNAME])
-		OPENSSL_SUPPORTS_SNI=yes
-	],
-	[
-		AC_MSG_RESULT([no])
-	]
-)
-AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
-##gilles
-
-##gilles
 OPENSSL_SUPPORTS_ECDH_AUTO=no
 AC_MSG_CHECKING([if programs using SSL_CTX_set_ecdh_auto will link])
 AC_LINK_IFELSE(
