@@ -44,7 +44,6 @@ struct processor_instance {
 	struct io		*io;
 };
 
-static void	processor_write(const char *name, uint64_t reqid, const char *phase, const char *param);
 static void	processor_io(struct io *, int, void *);
 
 void

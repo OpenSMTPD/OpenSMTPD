@@ -53,55 +53,63 @@ report_smtp_broadcast(const char *format, ...)
 void
 lka_report_smtp_link_connect(time_t tm, uint64_t reqid, const char *src_addr, const char *dest_addr)
 {
-	report_smtp_broadcast("report smtp-link-connect "
-	    "timestamp=%zd session=%016"PRIx64" src-addr=%s dest-addr=%s\n",
+	report_smtp_broadcast("report|in-smtp-link-connect|"
+	    "%zd|%016"PRIx64"|%s|%s\n",
 	    tm, reqid, src_addr, dest_addr);
 }
 
 void
-lka_report_smtp_link_disconnect(time_t tm, uint64_t reqid, const char *src_addr, const char *dest_addr)
+lka_report_smtp_link_disconnect(time_t tm, uint64_t reqid)
 {
-	report_smtp_broadcast("report smtp-link-disconnect "
-	    "timestamp=%zd session=%016"PRIx64" src-addr=%s dest-addr=%s\n",
-	    tm, reqid, src_addr, dest_addr);
+	report_smtp_broadcast("report|in-smtp-link-disconnect|"
+	    "%zd|%016"PRIx64"\n",
+	    tm, reqid);
+}
+
+void
+lka_report_smtp_link_tls(time_t tm, uint64_t reqid, const char *ciphers)
+{
+	report_smtp_broadcast("report|in-smtp-link-tls|"
+	    "%zd|%016"PRIx64"|%s\n",
+	    tm, reqid, ciphers);
 }
 
 void
 lka_report_smtp_tx_begin(time_t tm, uint64_t reqid)
 {
-	report_smtp_broadcast("report smtp-tx-begin "
-	    "timestamp=%zd session=%016"PRIx64"\n",
+	report_smtp_broadcast("report|in-smtp-tx-begin|"
+	    "%zd|%016"PRIx64"\n",
 	    tm, reqid);
 }
 
 void
 lka_report_smtp_tx_commit(time_t tm, uint64_t reqid)
 {
-	report_smtp_broadcast("report smtp-tx-commit "
-	    "timestamp=%zd session=%016"PRIx64"\n",
+	report_smtp_broadcast("report|in-smtp-tx-commit|"
+	    "%zd|%016"PRIx64"\n",
 	    tm, reqid);
 }
 
 void
 lka_report_smtp_tx_rollback(time_t tm, uint64_t reqid)
 {
-	report_smtp_broadcast("report smtp-tx-rollback "
-	    "timestamp=%zd session=%016"PRIx64"\n",
+	report_smtp_broadcast("report|in-smtp-tx-rollback|"
+	    "%zd|%016"PRIx64"\n",
 	    tm, reqid);
 }
 
 void
 lka_report_smtp_protocol_client(time_t tm, uint64_t reqid, const char *command)
 {
-	report_smtp_broadcast("report smtp-protocol-client "
-	    "timestamp=%zd session=%016"PRIx64" command=\"%s\"\n",
+	report_smtp_broadcast("report|in-smtp-protocol-client|"
+	    "%zd|%016"PRIx64"|%s\n",
 	    tm, reqid, command);
 }
 
 void
 lka_report_smtp_protocol_server(time_t tm, uint64_t reqid, const char *response)
 {
-	report_smtp_broadcast("report smtp-protocol-server "
-	    "timestamp=%zd session=%016"PRIx64" command=\"%s\"\n",
+	report_smtp_broadcast("report|in-smtp-protocol-server|"
+	    "%zd|%016"PRIx64"|%s\n",
 	    tm, reqid, response);
 }

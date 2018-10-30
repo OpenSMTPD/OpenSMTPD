@@ -915,6 +915,8 @@ smtp_io(struct io *io, int evt, void *arg)
 		log_info("%016"PRIx64" smtp starttls address=%s host=%s ciphers=\"%s\"",
 		    s->id, ss_to_text(&s->ss), s->hostname, ssl_to_text(io_ssl(s->io)));
 
+		smtp_report_link_tls(s->id, ssl_to_text(io_ssl(s->io)));
+
 		s->flags |= SF_SECURE;
 		s->helo[0] = '\0';
 
@@ -1714,8 +1716,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 		smtp_tx_free(s->tx);
 	}
 
-	smtp_report_link_disconnect(s->id, ss_to_text(&s->ss),
-	    ss_to_text(&s->listener->ss));
+	smtp_report_link_disconnect(s->id);
 
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
 		stat_decrement("smtp.smtps", 1);

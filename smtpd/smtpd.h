@@ -306,7 +306,8 @@ enum imsg_type {
 
 	IMSG_SMTP_REPORT_LINK_CONNECT,
 	IMSG_SMTP_REPORT_LINK_DISCONNECT,
-	
+	IMSG_SMTP_REPORT_LINK_TLS,
+
 	IMSG_SMTP_REPORT_TX_BEGIN,
 	IMSG_SMTP_REPORT_TX_COMMIT,
 	IMSG_SMTP_REPORT_TX_ROLLBACK,
@@ -1249,7 +1250,8 @@ struct io *lka_proc_get_io(const char *);
 
 /* lka_report.c */
 void lka_report_smtp_link_connect(time_t, uint64_t, const char *, const char *);
-void lka_report_smtp_link_disconnect(time_t, uint64_t, const char *, const char *);
+void lka_report_smtp_link_disconnect(time_t, uint64_t);
+void lka_report_smtp_link_tls(time_t, uint64_t, const char *);
 void lka_report_smtp_tx_begin(time_t, uint64_t);
 void lka_report_smtp_tx_commit(time_t, uint64_t);
 void lka_report_smtp_tx_rollback(time_t, uint64_t);
@@ -1426,7 +1428,8 @@ void smtp_collect(void);
 
 /* smtp_report.c */
 void smtp_report_link_connect(uint64_t, const char *, const char *);
-void smtp_report_link_disconnect(uint64_t, const char *, const char *);
+void smtp_report_link_disconnect(uint64_t);
+void smtp_report_link_tls(uint64_t, const char *);
 void smtp_report_tx_begin(uint64_t);
 void smtp_report_tx_commit(uint64_t);
 void smtp_report_tx_rollback(uint64_t);

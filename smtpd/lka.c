@@ -84,7 +84,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	int			 v;
 	time_t			 tm;
 	const char		*command, *response;
-	const char		*src_addr, *dest_addr;
+	const char		*src_addr, *dest_addr, *ciphers;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -417,11 +417,19 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_time(&m, &tm);
 		m_get_id(&m, &reqid);
-		m_get_string(&m, &src_addr);
-		m_get_string(&m, &dest_addr);
 		m_end(&m);
 
-		lka_report_smtp_link_disconnect(tm, reqid, src_addr, dest_addr);
+		lka_report_smtp_link_disconnect(tm, reqid);
+		return;
+
+	case IMSG_SMTP_REPORT_LINK_TLS:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &ciphers);
+		m_end(&m);
+
+		lka_report_smtp_link_tls(tm, reqid, ciphers);
 		return;
 
 	case IMSG_SMTP_REPORT_TX_BEGIN:

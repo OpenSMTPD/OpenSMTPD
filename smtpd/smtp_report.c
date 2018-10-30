@@ -55,13 +55,21 @@ smtp_report_link_connect(uint64_t qid, const char *src, const char *dest)
 }
 
 void
-smtp_report_link_disconnect(uint64_t qid, const char *src, const char *dest)
+smtp_report_link_tls(uint64_t qid, const char *ssl)
+{
+	m_create(p_lka, IMSG_SMTP_REPORT_LINK_TLS, 0, 0, -1);
+	m_add_time(p_lka, time(NULL));
+	m_add_id(p_lka, qid);
+	m_add_string(p_lka, ssl);
+	m_close(p_lka);
+}
+
+void
+smtp_report_link_disconnect(uint64_t qid)
 {
 	m_create(p_lka, IMSG_SMTP_REPORT_LINK_DISCONNECT, 0, 0, -1);
 	m_add_time(p_lka, time(NULL));
 	m_add_id(p_lka, qid);
-	m_add_string(p_lka, src);
-	m_add_string(p_lka, dest);
 	m_close(p_lka);
 }
 
