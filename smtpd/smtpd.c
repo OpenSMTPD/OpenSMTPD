@@ -1278,7 +1278,7 @@ fork_processor(const char *name, const char *command, const char *user, const ch
 		if ((gr = getgrgid(pw->pw_gid)) == NULL)
 			err(1, "getgrgid");
 	}
-	
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1)
 		err(1, "socketpair");
 
