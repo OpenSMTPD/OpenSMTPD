@@ -74,17 +74,6 @@ lka_proc_get_io(const char *name)
 }
 
 static void
-processor_write(const char *name, uint64_t reqid, const char *phase, const char *param)
-{
-	struct processor_instance	*processor = dict_xget(&processors, name);
-	int			n;
-
-	n = io_printf(processor->io, "FILTER %016"PRIx64" %s %s\n", reqid, phase, param);
-	if (n == -1)
-		fatalx("failed to write to processor");
-}
-
-static void
 processor_io(struct io *io, int evt, void *arg)
 {
 	struct processor_instance	*processor = arg;
@@ -101,9 +90,6 @@ processor_io(struct io *io, int evt, void *arg)
 		/* No complete line received */
 		if (line == NULL)
 			return;
-
-		//if (! processor_process_response(line))
-		//fatalx("misbehaving processor");
 
 		goto nextline;
 	}

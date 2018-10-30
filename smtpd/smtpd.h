@@ -998,10 +998,6 @@ struct processor {
 	const char		       *chroot;
 };
 
-struct processor_proc {
-	pid_t				pid;
-};
-
 enum ca_resp_status {
 	CA_OK,
 	CA_FAIL
