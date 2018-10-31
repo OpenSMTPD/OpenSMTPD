@@ -315,6 +315,8 @@ enum imsg_type {
 	IMSG_SMTP_REPORT_PROTOCOL_CLIENT,
 	IMSG_SMTP_REPORT_PROTOCOL_SERVER,
 
+	IMSG_SMTP_FILTER,
+
 	IMSG_CA_PRIVENC,
 	IMSG_CA_PRIVDEC
 };
@@ -997,6 +999,13 @@ struct processor {
 	const char		       *user;
 	const char		       *group;
 	const char		       *chroot;
+};
+
+enum filter_status {
+	FILTER_PROCEED,
+	FILTER_REWRITE,
+	FILTER_REJECT,
+	FILTER_DISCONNECT,
 };
 
 enum ca_resp_status {

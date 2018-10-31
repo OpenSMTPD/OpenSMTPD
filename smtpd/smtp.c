@@ -68,6 +68,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_SMTP_AUTHENTICATE:
 	case IMSG_SMTP_TLS_INIT:
 	case IMSG_SMTP_TLS_VERIFY:
+	case IMSG_SMTP_FILTER:
 		smtp_session_imsg(p, imsg);
 		return;
 
