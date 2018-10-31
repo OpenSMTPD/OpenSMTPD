@@ -48,6 +48,7 @@ config_default(void)
 	struct mta_limits      *limits = NULL;
 	struct table	       *t = NULL;
 	char			hostname[HOST_NAME_MAX+1];
+	uint8_t			i;
 
 	if (getmailname(hostname, sizeof hostname) == -1)
 		return NULL;
@@ -124,6 +125,9 @@ config_default(void)
 
 	TAILQ_INIT(conf->sc_listeners);
 	TAILQ_INIT(conf->sc_rules);
+
+	for (i = 0; i < nitems(conf->sc_filter_rules); ++i)
+		TAILQ_INIT(&conf->sc_filter_rules[i]);
 
 	/* bounce dispatcher */
 	conf->sc_dispatcher_bounce->type = DISPATCHER_BOUNCE;
