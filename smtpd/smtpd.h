@@ -392,6 +392,23 @@ enum expand_type {
 	EXPAND_ERROR,
 };
 
+enum filter_phase {
+	FILTER_CONNECTED = 0,
+	FILTER_HELO,
+	FILTER_EHLO,
+	FILTER_STARTTLS,
+	FILTER_AUTH,
+	FILTER_MAIL_FROM,
+	FILTER_RCPT_TO,
+	FILTER_DATA,
+	FILTER_RSET,
+	FILTER_QUIT,
+	FILTER_NOOP,
+	FILTER_HELP,
+	FILTER_WIZ,
+	FILTER_PHASES_COUNT     /* must be last */
+};
+
 struct expandnode {
 	RB_ENTRY(expandnode)	entry;
 	TAILQ_ENTRY(expandnode)	tq_entry;
@@ -564,6 +581,8 @@ struct smtpd {
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
+	TAILQ_HEAD(filterrules, filter_rule)    sc_filter_rules[FILTER_PHASES_COUNT];
+
 	struct dict				*sc_dispatchers;
 	struct dispatcher			*sc_dispatcher_bounce;
 
@@ -999,6 +1018,22 @@ struct processor {
 	const char		       *user;
 	const char		       *group;
 	const char		       *chroot;
+};
+
+struct filter_rule {
+	TAILQ_ENTRY(filter_rule)        entry;
+
+	enum filter_phase               phase;
+	char                           *reject;
+	char                           *disconnect;
+	char                           *rewrite;
+	char                           *filter;
+
+	int8_t                          not_table;
+	struct table                   *table;
+
+	int8_t                          not_regex;
+	struct table                   *regex;
 };
 
 enum filter_status {
