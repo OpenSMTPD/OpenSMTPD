@@ -1303,6 +1303,10 @@ void lka_report_smtp_protocol_client(time_t, uint64_t, const char *);
 void lka_report_smtp_protocol_server(time_t, uint64_t, const char *);
 
 
+/* lka_filter.c */
+void lka_filter(uint64_t, enum filter_phase, const char *);
+
+
 /* lka_session.c */
 void lka_session(uint64_t, struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
