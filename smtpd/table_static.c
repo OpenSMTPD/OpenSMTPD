@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_static.c,v 1.19 2018/06/16 19:41:26 gilles Exp $	*/
+/*	$OpenBSD: table_static.c,v 1.20 2018/11/01 10:47:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
