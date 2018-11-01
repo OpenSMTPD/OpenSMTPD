@@ -1,4 +1,4 @@
-/*	$OpenBSD: config.c,v 1.42 2018/07/03 01:34:43 mortimer Exp $	*/
+/*	$OpenBSD: config.c,v 1.44 2018/11/01 14:48:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>

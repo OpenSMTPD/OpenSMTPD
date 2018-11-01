@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.340 2018/10/31 16:45:24 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.341 2018/11/01 14:48:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -571,7 +571,7 @@ smtp_session(struct listener *listener, int sock,
 
 	smtp_report_link_connect(s->id, ss_to_text(&s->ss),
 	    ss_to_text(&s->listener->ss));
-	
+
 	return (0);
 }
 
