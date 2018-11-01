@@ -40,6 +40,8 @@ static void	filter_rewrite(uint64_t, enum filter_phase, const char *);
 static void	filter_reject(uint64_t, enum filter_phase, const char *);
 static void	filter_disconnect(uint64_t, enum filter_phase, const char *);
 
+static void	filter_write(const char *, uint64_t, const char *, const char *);
+
 static int	filter_exec_notimpl(uint64_t, struct filter_rule *, const char *);
 static int	filter_exec_connected(uint64_t, struct filter_rule *, const char *);
 static int	filter_exec_helo(uint64_t, struct filter_rule *, const char *);
@@ -78,6 +80,12 @@ lka_filter(uint64_t reqid, enum filter_phase phase, const char *param)
 		goto proceed;
 
 	TAILQ_FOREACH(rule, &env->sc_filter_rules[phase], entry) {
+		if (rule->proc) {
+			filter_write(rule->proc, reqid,
+			    filter_execs[i].phase_name, param);
+			return; /* deferred */
+		}
+
 		if (! filter_execs[i].func(reqid, rule, param)) {
 			if (rule->rewrite)
 				filter_rewrite(reqid, phase, rule->rewrite);
@@ -91,6 +99,19 @@ lka_filter(uint64_t reqid, enum filter_phase phase, const char *param)
 
 proceed:
 	filter_proceed(reqid, phase, param);
+}
+
+
+static void
+filter_write(const char *name, uint64_t reqid, const char *phase, const char *param)
+{
+	int                     n;
+
+	n = io_printf(lka_proc_get_io(name),
+	    "filter|in-smtp-%s|%016"PRIx64"|%s\n",
+	    phase, reqid, param);
+	if (n == -1)
+		fatalx("failed to write to processor");
 }
 
 static void

@@ -1027,7 +1027,7 @@ struct filter_rule {
 	char                           *reject;
 	char                           *disconnect;
 	char                           *rewrite;
-	char                           *filter;
+	char                           *proc;
 
 	int8_t                          not_table;
 	struct table                   *table;
