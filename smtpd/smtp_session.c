@@ -146,6 +146,9 @@ struct smtp_session {
 	struct event		 pause;
 
 	struct smtp_tx		*tx;
+
+	enum filter_phase	 filter_phase;
+	const char		*filter_param;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -619,7 +622,6 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t			 msgid;
 	int				 status, success;
 	void				*ssl_ctx;
-	enum filter_phase                filter_phase;
 	int                              filter_response;
 	const char                      *filter_param;
 	uint8_t                          i;
@@ -890,13 +892,13 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_SMTP_FILTER:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
-		m_get_int(&m, (int *)&filter_phase);
 		m_get_int(&m, &filter_response);
-		m_get_string(&m, &filter_param);
+		if (filter_response != FILTER_PROCEED)
+			m_get_string(&m, &filter_param);
 		m_end(&m);
 
 		s = tree_xpop(&wait_filters, reqid);
-
+		
 		switch (filter_response) {
 		case FILTER_REJECT:
 		case FILTER_DISCONNECT:
@@ -913,13 +915,16 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			break;
 
 		case FILTER_PROCEED:
+			filter_param = s->filter_param;
+			/* fallthrough*/
+
 		case FILTER_REWRITE:
-			if (filter_phase == FILTER_CONNECTED) {
+			if (s->filter_phase == FILTER_CONNECTED) {
 				smtp_proceed_connected(s);
 				return;
 			}
 			for (i = 0; i < nitems(commands); ++i)
-				if (commands[i].filter_phase == filter_phase) {
+				if (commands[i].filter_phase == s->filter_phase) {
 					if (filter_response == FILTER_REWRITE)
 						if (!commands[i].check(s, filter_param))
 							break;
@@ -1465,6 +1470,9 @@ static void
 smtp_query_filters(enum filter_phase phase, struct smtp_session *s, const char *args)
 {
 	uint8_t i;
+
+	s->filter_phase = phase;
+	s->filter_param = args;
 
 	if (TAILQ_FIRST(&env->sc_filter_rules[phase])) {
 		m_create(p_lka, IMSG_SMTP_FILTER, 0, 0, -1);
