@@ -106,6 +106,7 @@ static struct ca	*sca;
 struct dispatcher	*dispatcher;
 struct rule		*rule;
 struct processor	*processor;
+struct filter_rule	*filter_rule;
 
 enum listen_options {
 	LO_FAMILY	= 0x000001,
@@ -173,9 +174,10 @@ typedef struct {
 
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE
-%token	CA CERT CHROOT CIPHERS COMPRESSION
-%token	DHE DOMAIN
-%token	ENCRYPTION ERROR EXPAND_ONLY
+%token	CA CERT CHROOT CIPHERS COMPRESSION CONNECT
+%token	CHECK_REGEX CHECK_TABLE
+%token	DATA DHE DISCONNECT DOMAIN
+%token	EHLO ENABLE ENCRYPTION ERROR EXPAND_ONLY 
 %token	FILTER FOR FORWARD_ONLY FROM
 %token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
@@ -184,11 +186,11 @@ typedef struct {
 %token	KEY
 %token	LIMIT LISTEN LMTP LOCAL
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
-%token	NO_DSN NO_VERIFY
+%token	NO_DSN NO_VERIFY NOOP
 %token	ON
 %token	PKI PORT PROC
-%token	QUEUE
-%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT REPORT
+%token	QUEUE QUIT
+%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT REPORT REWRITE RSET
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
 %token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
@@ -220,6 +222,7 @@ grammar		: /* empty */
 		| grammar table '\n'
 		| grammar dispatcher '\n'
 		| grammar match '\n'
+		  /*| grammar filter '\n'*/
 		| grammar error '\n'		{ file->errors++; }
 		;
 
@@ -1677,11 +1680,17 @@ lookup(char *s)
 		{ "bounce",		BOUNCE },
 		{ "ca",			CA },
 		{ "cert",		CERT },
+		{ "check-regex",	CHECK_REGEX },
+		{ "check-table",	CHECK_TABLE },
 		{ "chroot",		CHROOT },
 		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
+		{ "connect",		CONNECT },
+		{ "data",		DATA },
 		{ "dhe",		DHE },
+		{ "disconnect",		DISCONNECT },
 		{ "domain",		DOMAIN },
+		{ "ehlo",		EHLO },
 		{ "encryption",		ENCRYPTION },
 		{ "expand-only",      	EXPAND_ONLY },
 		{ "filter",		FILTER },
@@ -1716,17 +1725,21 @@ lookup(char *s)
 		{ "mx",			MX },
 		{ "no-dsn",		NO_DSN },
 		{ "no-verify",		NO_VERIFY },
+		{ "noop",		NOOP },
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "proc",		PROC },
 		{ "queue",		QUEUE },
+		{ "quit",		QUIT },
 		{ "rcpt-to",		RCPT_TO },
 		{ "received-auth",     	RECEIVEDAUTH },
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
 		{ "report",		REPORT },
+		{ "rewrite",		REWRITE },
+		{ "rset",		RSET },
 		{ "scheduler",		SCHEDULER },
 		{ "senders",   		SENDERS },
 		{ "smtp",		SMTP },
