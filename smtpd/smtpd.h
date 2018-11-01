@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.562 2018/09/24 16:14:34 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.566 2018/11/01 14:48:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -328,6 +328,19 @@ enum imsg_type {
 	IMSG_SMTP_EVENT_ROLLBACK,
 	IMSG_SMTP_EVENT_DISCONNECT,
 
+	IMSG_LKA_PROCESSOR_FORK,
+
+	IMSG_SMTP_REPORT_LINK_CONNECT,
+	IMSG_SMTP_REPORT_LINK_DISCONNECT,
+	IMSG_SMTP_REPORT_LINK_TLS,
+
+	IMSG_SMTP_REPORT_TX_BEGIN,
+	IMSG_SMTP_REPORT_TX_COMMIT,
+	IMSG_SMTP_REPORT_TX_ROLLBACK,
+
+	IMSG_SMTP_REPORT_PROTOCOL_CLIENT,
+	IMSG_SMTP_REPORT_PROTOCOL_SERVER,
+
 	IMSG_CA_PRIVENC,
 	IMSG_CA_PRIVDEC
 };
@@ -340,7 +353,7 @@ enum smtp_proc_type {
 	PROC_SCHEDULER,
 	PROC_PONY,
 	PROC_CA,
-
+	PROC_PROCESSOR,
 	PROC_CLIENT,
 };
 
@@ -556,6 +569,9 @@ struct smtpd {
 	size_t				sc_scheduler_max_evp_batch_size;
 	size_t				sc_scheduler_max_msg_batch_size;
 	size_t				sc_scheduler_max_schedule;
+
+	struct dict		       *sc_processors_dict;
+	struct dict		       *sc_smtp_reporters_dict;
 
 	int				sc_ttl;
 #define MAX_BOUNCE_WARN			4
@@ -1002,6 +1018,13 @@ enum lka_resp_status {
 	LKA_PERMFAIL
 };
 
+struct processor {
+	const char		       *command;
+	const char		       *user;
+	const char		       *group;
+	const char		       *chroot;
+};
+
 enum ca_resp_status {
 	CA_OK,
 	CA_FAIL
@@ -1246,6 +1269,22 @@ int limit_mta_set(struct mta_limits *, const char*, int64_t);
 int lka(void);
 
 
+/* lka_proc.c */
+void lka_proc_forked(const char *, int);
+struct io *lka_proc_get_io(const char *);
+
+
+/* lka_report.c */
+void lka_report_smtp_link_connect(time_t, uint64_t, const char *, const char *);
+void lka_report_smtp_link_disconnect(time_t, uint64_t);
+void lka_report_smtp_link_tls(time_t, uint64_t, const char *);
+void lka_report_smtp_tx_begin(time_t, uint64_t);
+void lka_report_smtp_tx_commit(time_t, uint64_t);
+void lka_report_smtp_tx_rollback(time_t, uint64_t);
+void lka_report_smtp_protocol_client(time_t, uint64_t, const char *);
+void lka_report_smtp_protocol_server(time_t, uint64_t, const char *);
+
+
 /* lka_session.c */
 void lka_session(uint64_t, struct envelope *);
 void lka_session_forward_reply(struct forward_req *, int);
@@ -1413,6 +1452,17 @@ void smtp_configure(void);
 void smtp_collect(void);
 
 
+/* smtp_report.c */
+void smtp_report_link_connect(uint64_t, const char *, const char *);
+void smtp_report_link_disconnect(uint64_t);
+void smtp_report_link_tls(uint64_t, const char *);
+void smtp_report_tx_begin(uint64_t);
+void smtp_report_tx_commit(uint64_t);
+void smtp_report_tx_rollback(uint64_t);
+void smtp_report_protocol_client(uint64_t, const char *);
+void smtp_report_protocol_server(uint64_t, const char *);
+
+
 /* smtp_session.c */
 int smtp_session(struct listener *, int, const struct sockaddr_storage *,
     const char *, struct io *);
@@ -1469,6 +1519,7 @@ void table_add(struct table *, const char *, const char *);
 int table_domain_match(const char *, const char *);
 int table_netaddr_match(const char *, const char *);
 int table_mailaddr_match(const char *, const char *);
+int table_regex_match(const char *, const char *);
 void	table_open_all(struct smtpd *);
 void	table_dump_all(struct smtpd *);
 void	table_close_all(struct smtpd *);
@@ -1513,6 +1564,7 @@ int hostname_match(const char *, const char *);
 int mailaddr_match(const struct mailaddr *, const struct mailaddr *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
+int valid_smtp_response(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);

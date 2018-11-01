@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.222 2018/09/24 16:14:34 eric Exp $	*/
+/*	$OpenBSD: parse.y,v 1.225 2018/11/01 14:48:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -111,7 +111,7 @@ static struct ca	*sca;
 
 struct dispatcher	*dispatcher;
 struct rule		*rule;
-
+struct processor	*processor;
 
 enum listen_options {
 	LO_FAMILY	= 0x000001,
@@ -179,10 +179,11 @@ typedef struct {
 
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE
-%token	CA CERT CIPHERS COMPRESSION
+%token	CA CERT CHROOT CIPHERS COMPRESSION
 %token	DHE DOMAIN
 %token	ENCRYPTION ERROR EXPAND_ONLY
 %token	FILTER FOR FORWARD_ONLY FROM
+%token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
 %token	INCLUDE INET4 INET6
 %token	JUNK
@@ -191,11 +192,11 @@ typedef struct {
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
 %token	NO_DSN NO_VERIFY
 %token	ON
-%token	PKI PORT
+%token	PKI PORT PROC
 %token	QUEUE
-%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT
+%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT REPORT
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
-%token	TABLE TAG TAGGED TLS TLS_REQUIRE TO TTL
+%token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
 %token	VERIFY VIRTUAL
 %token	WARN_INTERVAL WRAPPER
@@ -216,7 +217,9 @@ grammar		: /* empty */
 		| grammar mda '\n'
 		| grammar mta '\n'
 		| grammar pki '\n'
+		| grammar proc '\n'
 		| grammar queue '\n'
+		| grammar report '\n'
 		| grammar scheduler '\n'
 		| grammar smtp '\n'
 		| grammar listen '\n'
@@ -431,6 +434,72 @@ CERT STRING {
 pki_params:
 pki_params_opt pki_params
 | /* empty */
+;
+
+
+proc:
+PROC STRING STRING {
+	if (dict_get(conf->sc_processors_dict, $2)) {
+		yyerror("processor already exists with that name: %s", $2);
+		free($2);
+		free($3);
+		YYERROR;
+	}
+	processor = xcalloc(1, sizeof *processor);
+	processor->command = $3;
+} proc_params {
+	dict_set(conf->sc_processors_dict, $2, processor);
+	processor = NULL;
+}
+;
+
+proc_params_opt:
+USER STRING {
+	if (processor->user) {
+		yyerror("user already specified for this processor");
+		free($2);
+		YYERROR;
+	}
+	processor->user = $2;
+}
+| GROUP STRING {
+	if (processor->group) {
+		yyerror("group already specified for this processor");
+		free($2);
+		YYERROR;
+	}
+	processor->group = $2;
+}
+| CHROOT STRING {
+	if (processor->chroot) {
+		yyerror("chroot already specified for this processor");
+		free($2);
+		YYERROR;
+	}
+	processor->chroot = $2;
+}
+;
+
+proc_params:
+proc_params_opt proc_params
+| /* empty */
+;
+
+
+report:
+REPORT SMTP ON STRING {
+	if (! dict_get(conf->sc_processors_dict, $4)) {
+		yyerror("no processor exist with that name: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	if (dict_get(conf->sc_smtp_reporters_dict, $4)) {
+		yyerror("processor already registered for smtp reporting: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	dict_set(conf->sc_smtp_reporters_dict, $4, (void *)~0);
+}
 ;
 
 
@@ -1613,6 +1682,7 @@ lookup(char *s)
 		{ "bounce",		BOUNCE },
 		{ "ca",			CA },
 		{ "cert",		CERT },
+		{ "chroot",		CHROOT },
 		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
 		{ "dhe",		DHE },
@@ -1623,6 +1693,7 @@ lookup(char *s)
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARD_ONLY },
 		{ "from",		FROM },
+		{ "group",		GROUP },
 		{ "helo",		HELO },
 		{ "helo-src",       	HELO_SRC },
 		{ "host",		HOST },
@@ -1653,12 +1724,14 @@ lookup(char *s)
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
+		{ "proc",		PROC },
 		{ "queue",		QUEUE },
 		{ "rcpt-to",		RCPT_TO },
 		{ "received-auth",     	RECEIVEDAUTH },
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "report",		REPORT },
 		{ "scheduler",		SCHEDULER },
 		{ "senders",   		SENDERS },
 		{ "smtp",		SMTP },
@@ -1671,7 +1744,6 @@ lookup(char *s)
 		{ "tagged",		TAGGED },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
-		{ "to",			TO },
 		{ "ttl",		TTL },
 		{ "user",		USER },
 		{ "userbase",		USERBASE },
@@ -1858,7 +1930,8 @@ top:
 			} else if (c == '\\') {
 				if ((next = lgetc(quotec)) == EOF)
 					return (0);
-				if (next == quotec || c == ' ' || c == '\t')
+				if (next == quotec || next == ' ' ||
+				    next == '\t')
 					c = next;
 				else if (next == '\n') {
 					file->lineno++;

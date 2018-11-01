@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.207 2018/07/25 16:00:48 eric Exp $	*/
+/*	$OpenBSD: lka.c,v 1.209 2018/11/01 14:48:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -83,9 +83,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	union lookup		 lk;
 	char			 buf[LINE_MAX];
-	const char		*tablename, *username, *password, *label;
+	const char		*tablename, *username, *password, *label, *procname;
 	uint64_t		 reqid;
 	int			 v;
+	time_t			 tm;
+	const char		*command, *response;
+	const char		*src_addr, *dest_addr, *ciphers;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -392,6 +395,92 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_compose(p_control,
 		    (ret == 1) ? IMSG_CTL_OK : IMSG_CTL_FAIL,
 		    imsg->hdr.peerid, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_LKA_PROCESSOR_FORK:
+		m_msg(&m, imsg);
+		m_get_string(&m, &procname);
+		m_end(&m);
+
+		lka_proc_forked(procname, imsg->fd);
+		return;
+
+
+	case IMSG_SMTP_REPORT_LINK_CONNECT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &src_addr);
+		m_get_string(&m, &dest_addr);
+		m_end(&m);
+
+		lka_report_smtp_link_connect(tm, reqid, src_addr, dest_addr);
+		return;
+
+	case IMSG_SMTP_REPORT_LINK_DISCONNECT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_report_smtp_link_disconnect(tm, reqid);
+		return;
+
+	case IMSG_SMTP_REPORT_LINK_TLS:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &ciphers);
+		m_end(&m);
+
+		lka_report_smtp_link_tls(tm, reqid, ciphers);
+		return;
+
+	case IMSG_SMTP_REPORT_TX_BEGIN:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_report_smtp_tx_begin(tm, reqid);
+		return;
+
+	case IMSG_SMTP_REPORT_TX_COMMIT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_report_smtp_tx_commit(tm, reqid);
+		return;
+
+	case IMSG_SMTP_REPORT_TX_ROLLBACK:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_report_smtp_tx_rollback(tm, reqid);
+		return;
+
+	case IMSG_SMTP_REPORT_PROTOCOL_CLIENT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &command);
+		m_end(&m);
+
+		lka_report_smtp_protocol_client(tm, reqid, command);
+		return;
+
+	case IMSG_SMTP_REPORT_PROTOCOL_SERVER:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &response);
+		m_end(&m);
+
+		lka_report_smtp_protocol_server(tm, reqid, response);
 		return;
 	}
 
