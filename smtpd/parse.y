@@ -1148,9 +1148,11 @@ REJECT STRING {
 | DISCONNECT STRING {
 	filter_rule->disconnect = $2;
 }
+/*
 | REWRITE STRING {
 	filter_rule->rewrite = $2;
 }
+*/
 ;
 
 filter_phase_check_table:
