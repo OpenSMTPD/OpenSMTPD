@@ -489,7 +489,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		lka_filter(reqid, filter_phase, filter_param);
-		return; 
+		return;
 	}
 
 	errx(1, "lka_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));

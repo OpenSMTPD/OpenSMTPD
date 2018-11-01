@@ -928,7 +928,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 				}
 			break;
 		}
-		return;                                                                                                         
+		return;
 	}
 
 	log_warnx("smtp_session_imsg: unexpected %s imsg",
