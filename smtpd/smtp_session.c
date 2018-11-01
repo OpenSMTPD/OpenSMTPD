@@ -898,7 +898,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		s = tree_xpop(&wait_filters, reqid);
-		
+
 		switch (filter_response) {
 		case FILTER_REJECT:
 		case FILTER_DISCONNECT:

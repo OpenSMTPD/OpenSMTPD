@@ -126,7 +126,7 @@ processor_response(const char *line)
 		return 0;
 	if (errno == ERANGE && reqid == ULONG_MAX)
 		return 0;
-	
+
 	response = ep+1;
 	if ((ep = strchr(response, '|'))) {
 		parameter = ep + 1;
@@ -146,6 +146,6 @@ processor_response(const char *line)
 	if (strcmp(response, "proceed") != 0 &&
 	    parameter == NULL)
 		return 0;
-	
+
 	return lka_filter_response(reqid, response, parameter);
 }
