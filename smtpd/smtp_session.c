@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.337 2018/09/03 19:01:29 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.340 2018/10/31 16:45:24 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -137,6 +137,7 @@ struct smtp_session {
 	int			 flags;
 	enum smtp_state		 state;
 
+	uint8_t			 banner_sent;
 	char			 helo[LINE_MAX];
 	char			 cmd[LINE_MAX];
 	char			 username[SMTPD_MAXMAILADDRSIZE];
@@ -180,8 +181,8 @@ static void smtp_auth_failure_resume(int, short, void *);
 static int  smtp_tx(struct smtp_session *);
 static void smtp_tx_free(struct smtp_tx *);
 static void smtp_tx_create_message(struct smtp_tx *);
-static void smtp_tx_mail_from(struct smtp_tx *, char *);
-static void smtp_tx_rcpt_to(struct smtp_tx *, char *);
+static void smtp_tx_mail_from(struct smtp_tx *, const char *);
+static void smtp_tx_rcpt_to(struct smtp_tx *, const char *);
 static void smtp_tx_open_message(struct smtp_tx *);
 static void smtp_tx_commit(struct smtp_tx *);
 static void smtp_tx_rollback(struct smtp_tx *);
@@ -910,7 +911,7 @@ smtp_io(struct io *io, int evt, void *arg)
 	switch (evt) {
 
 	case IO_TLSREADY:
-		log_info("%016"PRIx64" smtp starttls address=%s host=%s ciphers=\"%s\"",
+		log_info("%016"PRIx64" smtp tls address=%s host=%s ciphers=\"%s\"",
 		    s->id, ss_to_text(&s->ss), s->hostname, ssl_to_text(io_ssl(s->io)));
 
 		s->flags |= SF_SECURE;
@@ -1633,6 +1634,7 @@ static void
 smtp_send_banner(struct smtp_session *s)
 {
 	smtp_reply(s, "220 %s ESMTP %s", s->smtpname, SMTPD_NAME);
+	s->banner_sent = 1;
 }
 
 void
@@ -1993,11 +1995,16 @@ smtp_tx_free(struct smtp_tx *tx)
 }
 
 static void
-smtp_tx_mail_from(struct smtp_tx *tx, char *line)
+smtp_tx_mail_from(struct smtp_tx *tx, const char *line)
 {
 	char *opt;
+	char *copy;
+	char tmp[SMTP_LINE_MAX];
 
-	if (smtp_mailaddr(&tx->evp.sender, line, 1, &line,
+	(void)strlcpy(tmp, line, sizeof tmp);
+	copy = tmp;  
+
+	if (smtp_mailaddr(&tx->evp.sender, copy, 1, &copy,
 		tx->session->smtpname) == 0) {
 		smtp_reply(tx->session, "553 %s: Sender address syntax error",
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
@@ -2005,7 +2012,7 @@ smtp_tx_mail_from(struct smtp_tx *tx, char *line)
 		return;
 	}
 
-	while ((opt = strsep(&line, " "))) {
+	while ((opt = strsep(&copy, " "))) {
 		if (*opt == '\0')
 			continue;
 
@@ -2069,9 +2076,14 @@ smtp_tx_create_message(struct smtp_tx *tx)
 }
 
 static void
-smtp_tx_rcpt_to(struct smtp_tx *tx, char *line)
+smtp_tx_rcpt_to(struct smtp_tx *tx, const char *line)
 {
 	char *opt, *p;
+	char *copy;
+	char tmp[SMTP_LINE_MAX];
+
+	(void)strlcpy(tmp, line, sizeof tmp);
+	copy = tmp; 
 
 	if (tx->rcptcount >= env->sc_session_max_rcpt) {
 		smtp_reply(tx->session, "451 %s %s: Too many recipients",
@@ -2080,7 +2092,7 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, char *line)
 		return;
 	}
 
-	if (smtp_mailaddr(&tx->evp.rcpt, line, 0, &line,
+	if (smtp_mailaddr(&tx->evp.rcpt, copy, 0, &copy,
 	    tx->session->smtpname) == 0) {
 		smtp_reply(tx->session,
 		    "501 %s: Recipient address syntax error",
@@ -2089,7 +2101,7 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, char *line)
 		return;
 	}
 
-	while ((opt = strsep(&line, " "))) {
+	while ((opt = strsep(&copy, " "))) {
 		if (*opt == '\0')
 			continue;
 
