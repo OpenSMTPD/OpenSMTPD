@@ -51,7 +51,7 @@ static void  table_static_close(void *);
 struct table_backend table_backend_static = {
 	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|
 	K_SOURCE|K_MAILADDR|K_ADDRNAME|K_MAILADDRMAP|K_RELAYHOST|
-	K_STRING,
+	K_STRING|K_REGEX,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -66,7 +66,8 @@ static struct keycmp {
 } keycmp[] = {
 	{ K_DOMAIN, table_domain_match },
 	{ K_NETADDR, table_netaddr_match },
-	{ K_MAILADDR, table_mailaddr_match }
+	{ K_MAILADDR, table_mailaddr_match },
+	{ K_REGEX, table_regex_match },
 };
 
 

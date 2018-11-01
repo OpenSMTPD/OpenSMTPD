@@ -144,6 +144,7 @@ enum table_service {
 	K_MAILADDRMAP	= 0x100,	/* returns struct maddrmap	*/
 	K_RELAYHOST	= 0x200,	/* returns struct relayhost	*/
 	K_STRING	= 0x400,
+	K_REGEX		= 0x800,
 };
 #define K_ANY		  0xfff
 
