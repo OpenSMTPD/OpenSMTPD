@@ -222,7 +222,7 @@ grammar		: /* empty */
 		| grammar table '\n'
 		| grammar dispatcher '\n'
 		| grammar match '\n'
-		  /*| grammar filter '\n'*/
+		| grammar filter '\n'
 		| grammar error '\n'		{ file->errors++; }
 		;
 
@@ -1130,6 +1130,155 @@ MATCH {
 	}
 	TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 	rule = NULL;
+}
+;
+
+
+filter_action_proc:
+ON STRING {
+	filter_rule->filter = $2;
+}
+;
+
+filter_action_builtin:
+REJECT STRING {
+	filter_rule->reject = $2;
+}
+| DISCONNECT STRING {
+	filter_rule->disconnect = $2;
+}
+| REWRITE STRING {
+	filter_rule->rewrite = $2;
+}
+;
+
+filter_phase_check_table:
+negation CHECK_TABLE tables {
+	filter_rule->not_table =  $1 ? -1 : 1;
+	filter_rule->table = $3;
+}
+;
+
+filter_phase_check_regex:
+negation CHECK_REGEX tables {
+	filter_rule->not_regex = $1 ? -1 : 1;
+	filter_rule->regex = $3;
+}
+;
+
+filter_phase_connect_options:
+filter_phase_check_table | filter_phase_check_regex;
+
+filter_phase_connect:
+CONNECT {
+	filter_rule->phase = FILTER_CONNECTED;
+} filter_phase_connect_options filter_action_builtin
+| CONNECT {
+	filter_rule->phase = FILTER_CONNECTED;
+} filter_action_proc
+;
+
+filter_phase_helo_options:
+filter_phase_check_table | filter_phase_check_regex;
+
+filter_phase_helo:
+HELO {
+	filter_rule->phase = FILTER_HELO;
+} filter_phase_helo_options filter_action_builtin
+| HELO {
+	filter_rule->phase = FILTER_HELO;
+} filter_action_proc
+;
+
+filter_phase_ehlo:
+EHLO {
+	filter_rule->phase = FILTER_EHLO;
+} filter_phase_helo_options filter_action_builtin
+| EHLO {
+	filter_rule->phase = FILTER_EHLO;
+} filter_action_proc
+;
+
+filter_phase_mail_from_options:
+filter_phase_check_table | filter_phase_check_regex;
+
+filter_phase_mail_from:
+MAIL_FROM {
+	filter_rule->phase = FILTER_MAIL_FROM;
+} filter_phase_mail_from_options filter_action_builtin
+| MAIL_FROM {
+	filter_rule->phase = FILTER_MAIL_FROM;
+} filter_action_proc
+;
+
+filter_phase_rcpt_to_options:
+filter_phase_check_table | filter_phase_check_regex;
+
+filter_phase_rcpt_to:
+RCPT_TO {
+	filter_rule->phase = FILTER_RCPT_TO;
+} filter_phase_rcpt_to_options filter_action_builtin
+| RCPT_TO {
+	filter_rule->phase = FILTER_RCPT_TO;
+} filter_action_proc
+;
+
+filter_phase_data:
+DATA {
+	filter_rule->phase = FILTER_DATA;
+} filter_action_builtin
+| DATA {
+	filter_rule->phase = FILTER_DATA;
+} filter_action_proc
+;
+
+filter_phase_quit:
+QUIT {
+	filter_rule->phase = FILTER_QUIT;
+} filter_action_builtin
+| QUIT {
+	filter_rule->phase = FILTER_QUIT;
+} filter_action_proc
+;
+
+filter_phase_rset:
+RSET {
+	filter_rule->phase = FILTER_RSET;
+} filter_action_builtin
+| RSET {
+	filter_rule->phase = FILTER_RSET;
+} filter_action_proc
+;
+
+filter_phase_noop:
+NOOP {
+	filter_rule->phase = FILTER_NOOP;
+} filter_action_builtin
+| NOOP {
+	filter_rule->phase = FILTER_NOOP;
+} filter_action_proc
+;
+
+
+
+filter_phase:
+filter_phase_connect
+| filter_phase_helo
+| filter_phase_ehlo
+| filter_phase_mail_from
+| filter_phase_rcpt_to
+| filter_phase_data
+| filter_phase_quit
+| filter_phase_noop
+| filter_phase_rset
+;
+
+filter:
+FILTER SMTP {
+	filter_rule = xcalloc(1, sizeof *filter_rule);
+} filter_phase {
+	TAILQ_INSERT_TAIL(&conf->sc_filter_rules[filter_rule->phase], filter_rule, entry);
+	filter_rule = NULL;
 }
 ;
 
