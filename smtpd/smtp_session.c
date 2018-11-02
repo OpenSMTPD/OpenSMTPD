@@ -1173,7 +1173,7 @@ smtp_command(struct smtp_session *s, char *line)
 	case CMD_AUTH:
 		if (!smtp_check_auth(s, args))
 			break;
-		smtp_filter_phase(FILTER_AUTH, s, NULL);
+		smtp_filter_phase(FILTER_AUTH, s, args);
 		break;
 
 	case CMD_MAIL_FROM:
