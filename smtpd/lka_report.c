@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_report.c,v 1.3 2018/11/02 16:50:23 gilles Exp $	*/
+/*	$OpenBSD: lka_report.c,v 1.4 2018/11/02 17:03:17 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
