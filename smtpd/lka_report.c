@@ -51,11 +51,31 @@ report_smtp_broadcast(const char *format, ...)
 }
 
 void
-lka_report_smtp_link_connect(time_t tm, uint64_t reqid, const char *src_addr, const char *dest_addr)
+lka_report_smtp_link_connect(time_t tm, uint64_t reqid,
+    const struct sockaddr_storage *ss_src,
+    const struct sockaddr_storage *ss_dest)
 {
+	char	src[NI_MAXHOST + 5];
+	char	dest[NI_MAXHOST + 5];
+	uint16_t	src_port = 0;
+	uint16_t	dest_port = 0;
+
+	if (ss_src->ss_family == AF_INET)
+		src_port = ntohs(((const struct sockaddr_in *)ss_src)->sin_port);
+	else if (ss_src->ss_family == AF_INET6)
+		src_port = ntohs(((const struct sockaddr_in6 *)ss_src)->sin6_port);
+
+	if (ss_dest->ss_family == AF_INET)
+		dest_port = ntohs(((const struct sockaddr_in *)ss_dest)->sin_port);
+	else if (ss_dest->ss_family == AF_INET6)
+		dest_port = ntohs(((const struct sockaddr_in6 *)ss_dest)->sin6_port);
+
+	(void)strlcpy(src, ss_to_text(ss_src), sizeof src);
+	(void)strlcpy(dest, ss_to_text(ss_dest), sizeof dest);
+
 	report_smtp_broadcast("report|smtp-in|link-connect|"
-	    "%zd|%016"PRIx64"|%s|%s\n",
-	    tm, reqid, src_addr, dest_addr);
+	    "%zd|%016"PRIx64"|%s:%d|%s:%d\n",
+	    tm, reqid, src, src_port, dest, dest_port);
 }
 
 void
