@@ -1494,7 +1494,22 @@ smtp_query_filters(enum filter_phase phase, struct smtp_session *s, const char *
 static void
 smtp_filter_phase(enum filter_phase phase, struct smtp_session *s, const char *param)
 {
-	smtp_query_filters(phase, s, param ? param : "");
+	uint8_t i;
+
+	if (s->listener->flags & F_FILTERED) {
+		smtp_query_filters(phase, s, param ? param : "");
+		return;
+	}
+
+	if (s->filter_phase == FILTER_CONNECTED) {
+		smtp_proceed_connected(s);
+		return;
+	}
+	for (i = 0; i < nitems(commands); ++i)
+		if (commands[i].filter_phase == s->filter_phase) {
+			commands[i].proceed(s, param);
+			break;
+		}
 }
 
 static void
