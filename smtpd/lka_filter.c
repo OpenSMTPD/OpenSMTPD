@@ -123,7 +123,9 @@ filter_write(const char *name, uint64_t reqid, const char *phase, const char *ho
 {
 	int	n;
 
-	if (phase == FILTER_CONNECTED)
+	if (strcmp(phase, "connected") == 0 ||
+	    strcmp(phase, "helo") == 0 ||
+	    strcmp(phase, "ehlo") == 0)
 		n = io_printf(lka_proc_get_io(name),
 		    "filter-request|smtp-in|%s|%016"PRIx64"|%s|%s\n",
 		    phase, reqid, hostname, param);
