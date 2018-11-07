@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.159 2018/07/25 16:00:48 eric Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.161 2018/11/03 14:39:45 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -73,6 +73,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_SMTP_AUTHENTICATE:
 	case IMSG_SMTP_TLS_INIT:
 	case IMSG_SMTP_TLS_VERIFY:
+	case IMSG_SMTP_FILTER:
 		smtp_session_imsg(p, imsg);
 		return;
 
@@ -342,10 +343,7 @@ smtp_accepted(struct listener *listener, int sock, const struct sockaddr_storage
 {
 	int     ret;
 
-	if (listener->filter[0])
-		ret = smtpf_session(listener, sock, ss, NULL);
-	else
-		ret = smtp_session(listener, sock, ss, NULL, io);
+	ret = smtp_session(listener, sock, ss, NULL, io);
 	if (ret == -1) {
 		log_warn("warn: Failed to create SMTP session");
 		close(sock);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.341 2018/11/01 14:48:49 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.350 2018/11/03 14:53:44 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -152,6 +152,9 @@ struct smtp_session {
 	struct event		 pause;
 
 	struct smtp_tx		*tx;
+
+	enum filter_phase	 filter_phase;
+	const char		*filter_param;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -197,40 +200,53 @@ static void smtp_message_fd(struct smtp_tx *, int);
 static void smtp_message_end(struct smtp_tx *);
 static int  smtp_message_printf(struct smtp_tx *, const char *, ...);
 
-static int  smtp_check_rset(struct smtp_session *);
-static int  smtp_check_helo(struct smtp_session *, int, const char *);
+static int  smtp_check_rset(struct smtp_session *, const char *);
+static int  smtp_check_helo(struct smtp_session *, const char *);
+static int  smtp_check_ehlo(struct smtp_session *, const char *);
 static int  smtp_check_auth(struct smtp_session *s, const char *);
 static int  smtp_check_starttls(struct smtp_session *, const char *);
-static int  smtp_check_mail_from(struct smtp_session *);
-static int  smtp_check_rcpt_to(struct smtp_session *);
-static int  smtp_check_data(struct smtp_session *);
+static int  smtp_check_mail_from(struct smtp_session *, const char *);
+static int  smtp_check_rcpt_to(struct smtp_session *, const char *);
+static int  smtp_check_data(struct smtp_session *, const char *);
+static int  smtp_check_noparam(struct smtp_session *, const char *);
 
-static void smtp_proceed_rset(struct smtp_session *);
-static void smtp_proceed_helo(struct smtp_session *, int, char *);
-static void smtp_proceed_auth(struct smtp_session *, char *);
-static void smtp_proceed_starttls(struct smtp_session *);
-static void smtp_proceed_mail_from(struct smtp_session *, char *);
-static void smtp_proceed_rcpt_to(struct smtp_session *, char *);
-static void smtp_proceed_data(struct smtp_session *);
-static void smtp_proceed_noop(struct smtp_session *);
-static void smtp_proceed_help(struct smtp_session *);
-static void smtp_proceed_wiz(struct smtp_session *);
-static void smtp_proceed_quit(struct smtp_session *);
+static void smtp_filter_phase(enum filter_phase, struct smtp_session *, const char *);
 
-static struct { int code; const char *cmd; } commands[] = {
-	{ CMD_HELO,		"HELO" },
-	{ CMD_EHLO,		"EHLO" },
-	{ CMD_STARTTLS,		"STARTTLS" },
-	{ CMD_AUTH,		"AUTH" },
-	{ CMD_MAIL_FROM,	"MAIL FROM" },
-	{ CMD_RCPT_TO,		"RCPT TO" },
-	{ CMD_DATA,		"DATA" },
-	{ CMD_RSET,		"RSET" },
-	{ CMD_QUIT,		"QUIT" },
-	{ CMD_HELP,		"HELP" },
-	{ CMD_WIZ,		"WIZ" },
-	{ CMD_NOOP,		"NOOP" },
-	{ -1, NULL },
+static void smtp_proceed_connected(struct smtp_session *);
+static void smtp_proceed_rset(struct smtp_session *, const char *);
+static void smtp_proceed_helo(struct smtp_session *, const char *);
+static void smtp_proceed_ehlo(struct smtp_session *, const char *);
+static void smtp_proceed_auth(struct smtp_session *, const char *);
+static void smtp_proceed_starttls(struct smtp_session *, const char *);
+static void smtp_proceed_mail_from(struct smtp_session *, const char *);
+static void smtp_proceed_rcpt_to(struct smtp_session *, const char *);
+static void smtp_proceed_data(struct smtp_session *, const char *);
+static void smtp_proceed_noop(struct smtp_session *, const char *);
+static void smtp_proceed_help(struct smtp_session *, const char *);
+static void smtp_proceed_wiz(struct smtp_session *, const char *);
+static void smtp_proceed_quit(struct smtp_session *, const char *);
+
+static struct {
+	int code;
+	enum filter_phase filter_phase;
+	const char *cmd;
+
+	int (*check)(struct smtp_session *, const char *);
+	void (*proceed)(struct smtp_session *, const char *);
+} commands[] = {
+	{ CMD_HELO,             FILTER_HELO,            "HELO",         smtp_check_helo,        smtp_proceed_helo },
+	{ CMD_EHLO,             FILTER_EHLO,            "EHLO",         smtp_check_ehlo,        smtp_proceed_ehlo },
+	{ CMD_STARTTLS,         FILTER_STARTTLS,        "STARTTLS",     smtp_check_starttls,    smtp_proceed_starttls },
+	{ CMD_AUTH,             FILTER_AUTH,            "AUTH",         smtp_check_auth,        smtp_proceed_auth },
+	{ CMD_MAIL_FROM,        FILTER_MAIL_FROM,       "MAIL FROM",    smtp_check_mail_from,   smtp_proceed_mail_from },
+	{ CMD_RCPT_TO,          FILTER_RCPT_TO,         "RCPT TO",      smtp_check_rcpt_to,     smtp_proceed_rcpt_to },
+	{ CMD_DATA,             FILTER_DATA,            "DATA",         smtp_check_data,        smtp_proceed_data },
+	{ CMD_RSET,             FILTER_RSET,            "RSET",         smtp_check_rset,        smtp_proceed_rset },
+	{ CMD_QUIT,             FILTER_QUIT,            "QUIT",         smtp_check_noparam,     smtp_proceed_quit },
+	{ CMD_NOOP,             FILTER_NOOP,            "NOOP",         smtp_check_noparam,     smtp_proceed_noop },
+	{ CMD_HELP,             FILTER_HELP,            "HELP",         smtp_check_noparam,     smtp_proceed_help },
+	{ CMD_WIZ,              FILTER_WIZ,             "WIZ",          smtp_check_noparam,     smtp_proceed_wiz },
+	{ -1,                   0,                      NULL,           NULL },
 };
 
 static struct tree wait_lka_helo;
@@ -242,6 +258,7 @@ static struct tree wait_queue_fd;
 static struct tree wait_queue_commit;
 static struct tree wait_ssl_init;
 static struct tree wait_ssl_verify;
+static struct tree wait_filters;
 
 static void
 header_append_domain_buffer(char *buffer, char *domain, size_t len)
@@ -522,6 +539,7 @@ smtp_session_init(void)
 		tree_init(&wait_queue_commit);
 		tree_init(&wait_ssl_init);
 		tree_init(&wait_ssl_verify);
+		tree_init(&wait_filters);
 		init = 1;
 	}
 }
@@ -575,9 +593,6 @@ smtp_session(struct listener *listener, int sock,
 
 	/* session may have been freed by now */
 
-	smtp_report_link_connect(s->id, ss_to_text(&s->ss),
-	    ss_to_text(&s->listener->ss));
-
 	return (0);
 }
 
@@ -610,6 +625,9 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	uint32_t			 msgid;
 	int				 status, success;
 	void				*ssl_ctx;
+	int                              filter_response;
+	const char                      *filter_param;
+	uint8_t                          i;
 
 	switch (imsg->hdr.type) {
 
@@ -873,6 +891,52 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		smtp_tls_verified(s);
 		io_resume(s->io, IO_IN);
 		return;
+
+	case IMSG_SMTP_FILTER:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_int(&m, &filter_response);
+		if (filter_response != FILTER_PROCEED)
+			m_get_string(&m, &filter_param);
+		m_end(&m);
+
+		s = tree_xpop(&wait_filters, reqid);
+
+		switch (filter_response) {
+		case FILTER_REJECT:
+		case FILTER_DISCONNECT:
+			if (!valid_smtp_response(filter_param) ||
+			    (filter_param[0] != '4' && filter_param[0] != '5'))
+				filter_param = "421 Internal server error";
+			if (!strncmp(filter_param, "421", 3))
+				filter_response = FILTER_DISCONNECT;
+
+			smtp_reply(s, "%s", filter_param);
+
+			if (filter_response == FILTER_DISCONNECT)
+				smtp_enter_state(s, STATE_QUIT);
+			break;
+
+		case FILTER_PROCEED:
+			filter_param = s->filter_param;
+			/* fallthrough*/
+
+		case FILTER_REWRITE:
+			if (s->filter_phase == FILTER_CONNECTED) {
+				smtp_proceed_connected(s);
+				return;
+			}
+			for (i = 0; i < nitems(commands); ++i)
+				if (commands[i].filter_phase == s->filter_phase) {
+					if (filter_response == FILTER_REWRITE)
+						if (!commands[i].check(s, filter_param))
+							break;
+					commands[i].proceed(s, filter_param);
+					break;
+				}
+			break;
+		}
+		return;
 	}
 
 	log_warnx("smtp_session_imsg: unexpected %s imsg",
@@ -1091,70 +1155,77 @@ smtp_command(struct smtp_session *s, char *line)
 	 * INIT
 	 */
 	case CMD_HELO:
-	case CMD_EHLO:
-		if (!smtp_check_helo(s, cmd, args))
+		if (!smtp_check_helo(s, args))
 			break;
-		smtp_proceed_helo(s, cmd, args);
+		smtp_filter_phase(FILTER_HELO, s, args);
 		break;
+
+	case CMD_EHLO:
+		if (!smtp_check_ehlo(s, args))
+			break;
+		smtp_filter_phase(FILTER_EHLO, s, args);
+		break;
+
 	/*
 	 * SETUP
 	 */
 	case CMD_STARTTLS:
 		if (!smtp_check_starttls(s, args))
 			break;
-		smtp_proceed_starttls(s);
+
+		smtp_filter_phase(FILTER_STARTTLS, s, NULL);
 		break;
 
 	case CMD_AUTH:
 		if (!smtp_check_auth(s, args))
 			break;
-		smtp_proceed_auth(s, args);
+		smtp_filter_phase(FILTER_AUTH, s, args);
 		break;
 
 	case CMD_MAIL_FROM:
-		if (!smtp_check_mail_from(s))
+		if (!smtp_check_mail_from(s, args))
 			break;
-		smtp_proceed_mail_from(s, args);
+		smtp_filter_phase(FILTER_MAIL_FROM, s, args);
 		break;
 
 	/*
 	 * TRANSACTION
 	 */
 	case CMD_RCPT_TO:
-		if (!smtp_check_rcpt_to(s))
+		if (!smtp_check_rcpt_to(s, args))
 			break;
-		smtp_proceed_rcpt_to(s, args);
+		smtp_filter_phase(FILTER_RCPT_TO, s, args);
 		break;
 
 	case CMD_RSET:
-		if (!smtp_check_rset(s))
+		if (!smtp_check_rset(s, args))
 			break;
-		smtp_proceed_rset(s);
+		smtp_filter_phase(FILTER_RSET, s, NULL);
 		break;
 
 	case CMD_DATA:
-		if (!smtp_check_data(s))
+		if (!smtp_check_data(s, args))
 			break;
-		smtp_proceed_data(s);
+		smtp_filter_phase(FILTER_DATA, s, NULL);
 		break;
 
 	/*
 	 * ANY
 	 */
 	case CMD_QUIT:
-		smtp_proceed_quit(s);
+		smtp_filter_phase(FILTER_QUIT, s, NULL);
 		break;
 
 	case CMD_NOOP:
-		smtp_proceed_noop(s);
+		smtp_filter_phase(FILTER_NOOP, s, NULL);
 		break;
 
 	case CMD_HELP:
-		smtp_proceed_help(s);
+		smtp_proceed_help(s, NULL);
 		break;
 
 	case CMD_WIZ:
-		smtp_proceed_wiz(s);
+		smtp_proceed_wiz(s, NULL);
 		break;
 
 	default:
@@ -1166,7 +1237,7 @@ smtp_command(struct smtp_session *s, char *line)
 }
 
 static int
-smtp_check_rset(struct smtp_session *s)
+smtp_check_rset(struct smtp_session *s, const char *args)
 {
 	if (s->helo[0] == '\0') {
 		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
@@ -1178,8 +1249,15 @@ smtp_check_rset(struct smtp_session *s)
 }
 
 static int
-smtp_check_helo(struct smtp_session *s, int cmd, const char *args)
+smtp_check_helo(struct smtp_session *s, const char *args)
 {
+	if (!s->banner_sent) {
+		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
+		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+		    esc_description(ESC_INVALID_COMMAND));
+		return 0;
+	}
+
 	if (s->helo[0]) {
 		smtp_reply(s, "503 %s %s: Already identified",
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
@@ -1188,10 +1266,43 @@ smtp_check_helo(struct smtp_session *s, int cmd, const char *args)
 	}
 
 	if (args == NULL) {
-		smtp_reply(s, "501 %s %s: %s requires domain name",
+		smtp_reply(s, "501 %s %s: HELO requires domain name",
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-		    esc_description(ESC_INVALID_COMMAND),
-		    (cmd == CMD_HELO) ? "HELO" : "EHLO");
+		    esc_description(ESC_INVALID_COMMAND));
+		return 0;
+	}
+
+	if (!valid_domainpart(args)) {
+		smtp_reply(s, "501 %s %s: Invalid domain name",
+		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND_ARGUMENTS),
+		    esc_description(ESC_INVALID_COMMAND_ARGUMENTS));
+		return 0;
+	}
+
+	return 1;
+}
+
+static int
+smtp_check_ehlo(struct smtp_session *s, const char *args)
+{
+	if (!s->banner_sent) {
+		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
+		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+		    esc_description(ESC_INVALID_COMMAND));
+		return 0;
+	}
+
+	if (s->helo[0]) {
+		smtp_reply(s, "503 %s %s: Already identified",
+		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+		    esc_description(ESC_INVALID_COMMAND));
+		return 0;
+	}
+
+	if (args == NULL) {
+		smtp_reply(s, "501 %s %s: EHLO requires domain name",
+		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
+		    esc_description(ESC_INVALID_COMMAND));
 		return 0;
 	}
 
@@ -1274,7 +1385,7 @@ smtp_check_starttls(struct smtp_session *s, const char *args)
 }
 
 static int
-smtp_check_mail_from(struct smtp_session *s)
+smtp_check_mail_from(struct smtp_session *s, const char *args)
 {
 	if (s->helo[0] == '\0' || s->tx) {
 		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
@@ -1320,7 +1431,7 @@ smtp_check_mail_from(struct smtp_session *s)
 }
 
 static int
-smtp_check_rcpt_to(struct smtp_session *s)
+smtp_check_rcpt_to(struct smtp_session *s, const char *args)
 {
 	if (s->tx == NULL) {
 		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
@@ -1333,7 +1444,7 @@ smtp_check_rcpt_to(struct smtp_session *s)
 }
 
 static int
-smtp_check_data(struct smtp_session *s)
+smtp_check_data(struct smtp_session *s, const char *args)
 {
 	if (s->tx == NULL) {
 		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
@@ -1352,9 +1463,63 @@ smtp_check_data(struct smtp_session *s)
 	return 1;
 }
 
+static int
+smtp_check_noparam(struct smtp_session *s, const char *args)
+{
+	return 1;
+}
 
 static void
-smtp_proceed_rset(struct smtp_session *s)
+smtp_query_filters(enum filter_phase phase, struct smtp_session *s, const char *args)
+{
+	uint8_t i;
+
+	if (TAILQ_FIRST(&env->sc_filter_rules[phase])) {
+		m_create(p_lka, IMSG_SMTP_FILTER, 0, 0, -1);
+		m_add_id(p_lka, s->id);
+		m_add_int(p_lka, phase);
+		m_add_string(p_lka, s->hostname);
+		m_add_string(p_lka, args);
+		m_close(p_lka);
+		tree_xset(&wait_filters, s->id, s);
+		return;
+	}
+
+	if (phase == FILTER_CONNECTED) {
+		smtp_proceed_connected(s);
+		return;
+	}
+	for (i = 0; i < nitems(commands); ++i)
+		if (commands[i].filter_phase == phase)
+			commands[i].proceed(s, args);
+}
+
+static void
+smtp_filter_phase(enum filter_phase phase, struct smtp_session *s, const char *param)
+{
+	uint8_t i;
+
+	s->filter_phase = phase;
+	s->filter_param = param;
+
+	if (s->listener->flags & F_FILTERED) {
+		smtp_query_filters(phase, s, param ? param : "");
+		return;
+	}
+
+	if (s->filter_phase == FILTER_CONNECTED) {
+		smtp_proceed_connected(s);
+		return;
+	}
+	for (i = 0; i < nitems(commands); ++i)
+		if (commands[i].filter_phase == s->filter_phase) {
+			commands[i].proceed(s, param);
+			break;
+		}
+}
+
+static void
+smtp_proceed_rset(struct smtp_session *s, const char *args)
 {
 	if (s->tx) {
 		if (s->tx->msgid)
@@ -1367,45 +1532,56 @@ smtp_proceed_rset(struct smtp_session *s)
 }
 
 static void
-smtp_proceed_helo(struct smtp_session *s, int cmd, char *args)
+smtp_proceed_helo(struct smtp_session *s, const char *args)
 {
 	(void)strlcpy(s->helo, args, sizeof(s->helo));
 	s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
-	if (cmd == CMD_EHLO) {
-		s->flags |= SF_EHLO;
-		s->flags |= SF_8BITMIME;
-	}
 
 	smtp_enter_state(s, STATE_HELO);
-	smtp_reply(s, "250%c%s Hello %s [%s], pleased to meet you",
-	    (s->flags & SF_EHLO) ? '-' : ' ',
+	smtp_reply(s, "250 %s Hello %s [%s], pleased to meet you",
+	    s->smtpname,
+	    s->helo,
+	    ss_to_text(&s->ss));
+}
+
+static void
+smtp_proceed_ehlo(struct smtp_session *s, const char *args)
+{
+	(void)strlcpy(s->helo, args, sizeof(s->helo));
+	s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
+	s->flags |= SF_EHLO;
+	s->flags |= SF_8BITMIME;
+
+	smtp_enter_state(s, STATE_HELO);
+	smtp_reply(s, "250-%s Hello %s [%s], pleased to meet you",
 	    s->smtpname,
 	    s->helo,
 	    ss_to_text(&s->ss));
 
-	if (s->flags & SF_EHLO) {
-		smtp_reply(s, "250-8BITMIME");
-		smtp_reply(s, "250-ENHANCEDSTATUSCODES");
-		smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
-		if (ADVERTISE_EXT_DSN(s))
-			smtp_reply(s, "250-DSN");
-		if (ADVERTISE_TLS(s))
-			smtp_reply(s, "250-STARTTLS");
-		if (ADVERTISE_AUTH(s))
-			smtp_reply(s, "250-AUTH PLAIN LOGIN");
-		smtp_reply(s, "250 HELP");
-	}
+	smtp_reply(s, "250-8BITMIME");
+	smtp_reply(s, "250-ENHANCEDSTATUSCODES");
+	smtp_reply(s, "250-SIZE %zu", env->sc_maxsize);
+	if (ADVERTISE_EXT_DSN(s))
+		smtp_reply(s, "250-DSN");
+	if (ADVERTISE_TLS(s))
+		smtp_reply(s, "250-STARTTLS");
+	if (ADVERTISE_AUTH(s))
+		smtp_reply(s, "250-AUTH PLAIN LOGIN");
+	smtp_reply(s, "250 HELP");
 }
 
 static void
-smtp_proceed_auth(struct smtp_session *s, char *args)
+smtp_proceed_auth(struct smtp_session *s, const char *args)
 {
+	char tmp[SMTP_LINE_MAX];
 	char *eom, *method;
 
-	method = args;
-	eom = strchr(args, ' ');
+	(void)strlcpy(tmp, args, sizeof tmp);
+
+	method = tmp;
+	eom = strchr(tmp, ' ');
 	if (eom == NULL)
-		eom = strchr(args, '\t');
+		eom = strchr(tmp, '\t');
 	if (eom != NULL)
 		*eom++ = '\0';
 	if (strcasecmp(method, "PLAIN") == 0)
@@ -1420,7 +1596,7 @@ smtp_proceed_auth(struct smtp_session *s, char *args)
 }
 
 static void
-smtp_proceed_starttls(struct smtp_session *s)
+smtp_proceed_starttls(struct smtp_session *s, const char *args)
 {
 	smtp_reply(s, "220 %s: Ready to start TLS",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
@@ -1428,25 +1604,25 @@ smtp_proceed_starttls(struct smtp_session *s)
 }
 
 static void
-smtp_proceed_mail_from(struct smtp_session *s, char *args)
+smtp_proceed_mail_from(struct smtp_session *s, const char *args)
 {
 	smtp_tx_mail_from(s->tx, args);
 }
 
 static void
-smtp_proceed_rcpt_to(struct smtp_session *s, char *args)
+smtp_proceed_rcpt_to(struct smtp_session *s, const char *args)
 {
 	smtp_tx_rcpt_to(s->tx, args);
 }
 
 static void
-smtp_proceed_data(struct smtp_session *s)
+smtp_proceed_data(struct smtp_session *s, const char *args)
 {
 	smtp_tx_open_message(s->tx);
 }
 
 static void
-smtp_proceed_quit(struct smtp_session *s)
+smtp_proceed_quit(struct smtp_session *s, const char *args)
 {
 	smtp_reply(s, "221 %s: Bye",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
@@ -1454,14 +1630,14 @@ smtp_proceed_quit(struct smtp_session *s)
 }
 
 static void
-smtp_proceed_noop(struct smtp_session *s)
+smtp_proceed_noop(struct smtp_session *s, const char *args)
 {
 	smtp_reply(s, "250 %s: Ok",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 }
 
 static void
-smtp_proceed_help(struct smtp_session *s)
+smtp_proceed_help(struct smtp_session *s, const char *args)
 {
 	smtp_reply(s, "214- This is " SMTPD_NAME);
 	smtp_reply(s, "214- To report bugs in the implementation, "
@@ -1472,7 +1648,7 @@ smtp_proceed_help(struct smtp_session *s)
 }
 
 static void
-smtp_proceed_wiz(struct smtp_session *s)
+smtp_proceed_wiz(struct smtp_session *s, const char *args)
 {
 	smtp_reply(s, "500 %s %s: this feature is not supported yet ;-)",
 	    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
@@ -1627,6 +1803,9 @@ smtp_connected(struct smtp_session *s)
 	log_info("%016"PRIx64" smtp connected address=%s host=%s",
 	    s->id, ss_to_text(&s->ss), s->hostname);
 
+	smtp_report_link_connect(s->id, s->hostname, &s->ss,
+	    &s->listener->ss);
+
 	sl = sizeof(ss);
 	if (getsockname(io_fileno(s->io), (struct sockaddr*)&ss, &sl) == -1) {
 		smtp_free(s, strerror(errno));
@@ -1638,6 +1817,12 @@ smtp_connected(struct smtp_session *s)
 		return;
 	}
 
+	smtp_filter_phase(FILTER_CONNECTED, s, ss_to_text(&s->ss));
+}
+
+static void
+smtp_proceed_connected(struct smtp_session *s)
+{
 	smtp_send_banner(s);
 }
 

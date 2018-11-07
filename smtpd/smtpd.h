@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.566 2018/11/01 14:48:49 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.572 2018/11/03 14:39:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -109,6 +109,7 @@
 #define	F_EXT_DSN		0x400
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
+#define	F_FILTERED		0x2000
 
 #define RELAY_TLS_OPPORTUNISTIC	0
 #define RELAY_TLS_STARTTLS	1
@@ -341,6 +342,8 @@ enum imsg_type {
 	IMSG_SMTP_REPORT_PROTOCOL_CLIENT,
 	IMSG_SMTP_REPORT_PROTOCOL_SERVER,
 
+	IMSG_SMTP_FILTER,
+
 	IMSG_CA_PRIVENC,
 	IMSG_CA_PRIVDEC
 };
@@ -414,6 +417,23 @@ enum expand_type {
 	EXPAND_INCLUDE,
 	EXPAND_ADDRESS,
 	EXPAND_ERROR,
+};
+
+enum filter_phase {
+	FILTER_CONNECTED = 0,
+	FILTER_HELO,
+	FILTER_EHLO,
+	FILTER_STARTTLS,
+	FILTER_AUTH,
+	FILTER_MAIL_FROM,
+	FILTER_RCPT_TO,
+	FILTER_DATA,
+	FILTER_RSET,
+	FILTER_QUIT,
+	FILTER_NOOP,
+	FILTER_HELP,
+	FILTER_WIZ,
+	FILTER_PHASES_COUNT     /* must be last */
 };
 
 struct expandnode {
@@ -517,7 +537,6 @@ struct listener {
 	char			 pki_name[PATH_MAX];
 	char			 ca_name[PATH_MAX];
 	char			 tag[SMTPD_TAG_SIZE];
-	char			 filter[PATH_MAX];
 	char			 authtable[LINE_MAX];
 	char			 hostname[HOST_NAME_MAX+1];
 	char			 hostnametable[PATH_MAX];
@@ -588,6 +607,8 @@ struct smtpd {
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
 	TAILQ_HEAD(rulelist, rule)		*sc_rules;
+	TAILQ_HEAD(filterrules, filter_rule)    sc_filter_rules[FILTER_PHASES_COUNT];
+
 	struct dict				*sc_dispatchers;
 	struct dispatcher			*sc_dispatcher_bounce;
 
@@ -1025,6 +1046,32 @@ struct processor {
 	const char		       *chroot;
 };
 
+struct filter_rule {
+	TAILQ_ENTRY(filter_rule)        entry;
+
+	enum filter_phase               phase;
+	char                           *reject;
+	char                           *disconnect;
+	char                           *rewrite;
+	char                           *proc;
+
+	int8_t                          not_table;
+	struct table                   *table;
+
+	int8_t                          not_regex;
+	struct table                   *regex;
+
+	int8_t				not_rdns;
+	int8_t				rdns;
+};
+
+enum filter_status {
+	FILTER_PROCEED,
+	FILTER_REWRITE,
+	FILTER_REJECT,
+	FILTER_DISCONNECT,
+};
+
 enum ca_resp_status {
 	CA_OK,
 	CA_FAIL
@@ -1275,7 +1322,7 @@ struct io *lka_proc_get_io(const char *);
 
 
 /* lka_report.c */
-void lka_report_smtp_link_connect(time_t, uint64_t, const char *, const char *);
+void lka_report_smtp_link_connect(time_t, uint64_t, const char *, const struct sockaddr_storage *, const struct sockaddr_storage *);
 void lka_report_smtp_link_disconnect(time_t, uint64_t);
 void lka_report_smtp_link_tls(time_t, uint64_t, const char *);
 void lka_report_smtp_tx_begin(time_t, uint64_t);
@@ -1283,6 +1330,11 @@ void lka_report_smtp_tx_commit(time_t, uint64_t);
 void lka_report_smtp_tx_rollback(time_t, uint64_t);
 void lka_report_smtp_protocol_client(time_t, uint64_t, const char *);
 void lka_report_smtp_protocol_server(time_t, uint64_t, const char *);
+
+
+/* lka_filter.c */
+void lka_filter(uint64_t, enum filter_phase, const char *, const char *);
+int lka_filter_response(uint64_t, const char *, const char *);
 
 
 /* lka_session.c */
@@ -1453,7 +1505,7 @@ void smtp_collect(void);
 
 
 /* smtp_report.c */
-void smtp_report_link_connect(uint64_t, const char *, const char *);
+void smtp_report_link_connect(uint64_t, const char *, const struct sockaddr_storage *, const struct sockaddr_storage *);
 void smtp_report_link_disconnect(uint64_t);
 void smtp_report_link_tls(uint64_t, const char *);
 void smtp_report_tx_begin(uint64_t);
