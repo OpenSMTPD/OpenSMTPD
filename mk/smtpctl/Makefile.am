@@ -4,6 +4,7 @@ sbin_PROGRAMS=		smtpctl
 
 smtpctl_SOURCES=	$(smtpd_srcdir)/enqueue.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/parser.c
+smtpctl_SOURCES+=	$(smtpd_srcdir)/config.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/log.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_backend.c
