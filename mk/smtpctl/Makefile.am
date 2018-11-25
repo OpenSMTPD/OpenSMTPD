@@ -21,6 +21,7 @@ smtpctl_SOURCES+=	$(smtpd_srcdir)/dict.c
 
 if HAVE_DB_API
 smtpctl_SOURCES+=	$(smtpd_srcdir)/parse.y
+smtpctl_SOURCES+=	$(smtpd_srcdir)/config.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/limit.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/table.c
 smtpctl_SOURCES+=	$(smtpd_srcdir)/table_static.c
