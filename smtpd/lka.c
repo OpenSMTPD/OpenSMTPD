@@ -502,6 +502,22 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		lka_report_smtp_protocol_server(tm, reqid, response);
 		return;
 
+	case IMSG_SMTP_FILTER_BEGIN:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_begin(reqid);
+		return;
+
+	case IMSG_SMTP_FILTER_END:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_end(reqid);
+		return;
+
 	case IMSG_SMTP_FILTER:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
@@ -510,7 +526,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &filter_param);
 		m_end(&m);
 
-		lka_filter(reqid, filter_phase, hostname, filter_param);
+		lka_filter_phase(reqid, filter_phase, hostname, filter_param);
 		return;
 	}
 

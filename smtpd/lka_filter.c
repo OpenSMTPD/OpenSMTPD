@@ -68,8 +68,40 @@ static struct filter_exec {
 	{ FILTER_COMMIT,    	"commit",      	filter_exec_notimpl },
 };
 
+static struct tree	sessions;
+static int		inited;
+
+struct filter_session {
+	struct io	*io;
+};
+
 void
-lka_filter(uint64_t reqid, enum filter_phase phase, const char *hostname, const char *param)
+lka_filter_begin(uint64_t reqid)
+{
+	struct filter_session	*fs;
+
+	if (!inited) {
+		tree_init(&sessions);
+		inited = 1;
+	}
+
+	log_debug("creating filter session");
+	fs = xcalloc(1, sizeof (struct filter_session));
+	tree_xset(&sessions, reqid, fs);
+}
+
+void
+lka_filter_end(uint64_t reqid)
+{
+	struct filter_session	*fs;
+
+	log_debug("releasing filter session");
+	fs = tree_xpop(&sessions, reqid);
+	free(fs);
+}
+
+void
+lka_filter_phase(uint64_t reqid, enum filter_phase phase, const char *hostname, const char *param)
 {
 	struct filter_rule	*rule;
 	uint8_t			i;

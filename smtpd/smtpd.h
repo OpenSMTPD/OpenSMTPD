@@ -317,6 +317,8 @@ enum imsg_type {
 	IMSG_SMTP_REPORT_PROTOCOL_CLIENT,
 	IMSG_SMTP_REPORT_PROTOCOL_SERVER,
 
+	IMSG_SMTP_FILTER_BEGIN,
+	IMSG_SMTP_FILTER_END,
 	IMSG_SMTP_FILTER,
 
 	IMSG_CA_PRIVENC,
@@ -1310,7 +1312,9 @@ void lka_report_smtp_protocol_server(time_t, uint64_t, const char *);
 
 
 /* lka_filter.c */
-void lka_filter(uint64_t, enum filter_phase, const char *, const char *);
+void lka_filter_begin(uint64_t);
+void lka_filter_end(uint64_t);
+void lka_filter_phase(uint64_t, enum filter_phase, const char *, const char *);
 int lka_filter_response(uint64_t, const char *, const char *);
 
 

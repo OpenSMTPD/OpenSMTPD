@@ -1496,6 +1496,22 @@ smtp_query_filters(enum filter_phase phase, struct smtp_session *s, const char *
 }
 
 static void
+smtp_filter_begin(struct smtp_session *s)
+{
+	m_create(p_lka, IMSG_SMTP_FILTER_BEGIN, 0, 0, -1);
+	m_add_id(p_lka, s->id);
+	m_close(p_lka);
+}
+
+static void
+smtp_filter_end(struct smtp_session *s)
+{
+	m_create(p_lka, IMSG_SMTP_FILTER_END, 0, 0, -1);
+	m_add_id(p_lka, s->id);
+	m_close(p_lka);
+}
+
+static void
 smtp_filter_phase(enum filter_phase phase, struct smtp_session *s, const char *param)
 {
 	uint8_t i;
@@ -1835,6 +1851,7 @@ smtp_connected(struct smtp_session *s)
 		return;
 	}
 
+	smtp_filter_begin(s);
 	smtp_filter_phase(FILTER_CONNECTED, s, ss_to_text(&s->ss));
 }
 
@@ -1931,6 +1948,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 	}
 
 	smtp_report_link_disconnect(s->id);
+	smtp_filter_end(s);
 
 	if (s->flags & SF_SECURE && s->listener->flags & F_SMTPS)
 		stat_decrement("smtp.smtps", 1);
