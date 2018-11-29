@@ -518,7 +518,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		lka_filter_end(reqid);
 		return;
 
-	case IMSG_SMTP_FILTER:
+	case IMSG_SMTP_FILTER_PROTOCOL:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &filter_phase);

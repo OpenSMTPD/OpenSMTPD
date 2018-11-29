@@ -891,7 +891,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		io_resume(s->io, IO_IN);
 		return;
 
-	case IMSG_SMTP_FILTER:
+	case IMSG_SMTP_FILTER_PROTOCOL:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &filter_response);
@@ -1476,7 +1476,7 @@ smtp_query_filters(enum filter_phase phase, struct smtp_session *s, const char *
 	uint8_t i;
 
 	if (TAILQ_FIRST(&env->sc_filter_rules[phase])) {
-		m_create(p_lka, IMSG_SMTP_FILTER, 0, 0, -1);
+		m_create(p_lka, IMSG_SMTP_FILTER_PROTOCOL, 0, 0, -1);
 		m_add_id(p_lka, s->id);
 		m_add_int(p_lka, phase);
 		m_add_string(p_lka, s->hostname);
