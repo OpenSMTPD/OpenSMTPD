@@ -85,7 +85,6 @@ lka_filter_begin(uint64_t reqid)
 		inited = 1;
 	}
 
-	log_debug("creating filter session");
 	fs = xcalloc(1, sizeof (struct filter_session));
 	tree_xset(&sessions, reqid, fs);
 }
@@ -95,7 +94,6 @@ lka_filter_end(uint64_t reqid)
 {
 	struct filter_session	*fs;
 
-	log_debug("releasing filter session");
 	fs = tree_xpop(&sessions, reqid);
 	free(fs);
 }
