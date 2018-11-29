@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.352 2018/11/08 13:21:00 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.355 2018/11/29 12:48:16 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -97,6 +97,7 @@ enum smtp_command {
 	CMD_HELP,
 	CMD_WIZ,
 	CMD_NOOP,
+	CMD_COMMIT,
 };
 
 struct smtp_rcpt {
@@ -163,7 +164,7 @@ struct smtp_session {
 
 static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
-static int smtp_lookup_servername(struct smtp_session *);
+static void smtp_lookup_servername(struct smtp_session *);
 static void smtp_getnameinfo_cb(void *, int, const char *, const char *);
 static void smtp_connected(struct smtp_session *);
 static void smtp_send_banner(struct smtp_session *);
@@ -219,6 +220,9 @@ static void smtp_proceed_noop(struct smtp_session *, const char *);
 static void smtp_proceed_help(struct smtp_session *, const char *);
 static void smtp_proceed_wiz(struct smtp_session *, const char *);
 static void smtp_proceed_quit(struct smtp_session *, const char *);
+static void smtp_proceed_commit(struct smtp_session *, const char *);
+static void smtp_proceed_rollback(struct smtp_session *, const char *);
+
 
 static struct {
 	int code;
@@ -240,6 +244,7 @@ static struct {
 	{ CMD_NOOP,             FILTER_NOOP,            "NOOP",         smtp_check_noparam,     smtp_proceed_noop },
 	{ CMD_HELP,             FILTER_HELP,            "HELP",         smtp_check_noparam,     smtp_proceed_help },
 	{ CMD_WIZ,              FILTER_WIZ,             "WIZ",          smtp_check_noparam,     smtp_proceed_wiz },
+	{ CMD_COMMIT,  		FILTER_COMMIT,		".",		smtp_check_noparam,	smtp_proceed_commit },
 	{ -1,                   0,                      NULL,           NULL },
 };
 
@@ -578,8 +583,7 @@ smtp_session(struct listener *listener, int sock,
 		if (!strcmp(hostname, "localhost"))
 			s->flags |= SF_BOUNCE;
 		(void)strlcpy(s->hostname, hostname, sizeof(s->hostname));
-		if (smtp_lookup_servername(s))
-			smtp_connected(s);
+		smtp_lookup_servername(s);
 	} else {
 		resolver_getnameinfo((struct sockaddr *)&s->ss, 0,
 		    smtp_getnameinfo_cb, s);
@@ -600,8 +604,7 @@ smtp_getnameinfo_cb(void *arg, int gaierrno, const char *host, const char *serv)
 
 	(void)strlcpy(s->hostname, host, sizeof(s->hostname));
 
-	if (smtp_lookup_servername(s))
-		smtp_connected(s);
+	smtp_lookup_servername(s);
 }
 
 void
@@ -911,6 +914,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 
 			if (filter_response == FILTER_DISCONNECT)
 				smtp_enter_state(s, STATE_QUIT);
+			else if (s->filter_phase == FILTER_COMMIT)
+				smtp_proceed_rollback(s, NULL);
 			break;
 
 		case FILTER_PROCEED:
@@ -1040,7 +1045,7 @@ smtp_io(struct io *io, int evt, void *arg)
 		}
 
 		if (eom) {
-			smtp_message_end(s->tx);
+			smtp_filter_phase(FILTER_COMMIT, s, NULL);
 			io_set_write(io);
 			return;
 		}
@@ -1652,6 +1657,27 @@ smtp_proceed_wiz(struct smtp_session *s, const char *args)
 }
 
 static void
+smtp_proceed_commit(struct smtp_session *s, const char *args)
+{
+	smtp_message_end(s->tx);
+}
+
+static void
+smtp_proceed_rollback(struct smtp_session *s, const char *args)
+{
+	struct smtp_tx *tx;
+
+	tx = s->tx;
+
+	fclose(tx->ofile);
+	tx->ofile = NULL;
+
+	smtp_tx_rollback(tx);
+	smtp_tx_free(tx);
+	smtp_enter_state(s, STATE_HELO);
+}
+
+static void
 smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 {
 	char		 buf[1024], *user, *pass;
@@ -1762,7 +1788,7 @@ abort:
 	smtp_enter_state(s, STATE_HELO);
 }
 
-static int
+static void
 smtp_lookup_servername(struct smtp_session *s)
 {
 	struct sockaddr		*sa;
@@ -1782,10 +1808,11 @@ smtp_lookup_servername(struct smtp_session *s)
 			m_add_sockaddr(p_lka, sa);
 			m_close(p_lka);
 			tree_xset(&wait_lka_helo, s->id, s);
-			return 0;
+			return;
 		}
 	}
-	return 1;
+
+	smtp_connected(s);
 }
 
 static void
@@ -1808,18 +1835,16 @@ smtp_connected(struct smtp_session *s)
 		return;
 	}
 
-	if (s->listener->flags & F_SMTPS) {
-		smtp_tls_init(s);
-		return;
-	}
-
 	smtp_filter_phase(FILTER_CONNECTED, s, ss_to_text(&s->ss));
 }
 
 static void
 smtp_proceed_connected(struct smtp_session *s)
 {
-	smtp_send_banner(s);
+	if (s->listener->flags & F_SMTPS)
+		smtp_tls_init(s);
+	else
+		smtp_send_banner(s);
 }
 
 static void

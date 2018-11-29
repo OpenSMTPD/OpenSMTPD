@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.305 2018/11/03 08:59:54 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.307 2018/11/25 14:37:53 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1070,7 +1070,7 @@ smtpd(void) {
 
 	purge_task();
 
-	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
+	if (pledge("stdio rpath wpath cpath fattr tmppath "
 	    "getpw sendfd proc exec id inet unix", NULL) == -1)
 		err(1, "pledge");
 
@@ -1950,6 +1950,8 @@ imsg_to_str(int type)
 	CASE(IMSG_MDA_KILL);
 	CASE(IMSG_MDA_OPEN_MESSAGE);
 
+	CASE(IMSG_MFA_SMTP_RESPONSE);
+
 	CASE(IMSG_MTA_DELIVERY_OK);
 	CASE(IMSG_MTA_DELIVERY_TEMPFAIL);
 	CASE(IMSG_MTA_DELIVERY_PERMFAIL);
@@ -2003,6 +2005,20 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_EVENT_DISCONNECT);
 
 	CASE(IMSG_LKA_PROCESSOR_FORK);
+
+	CASE(IMSG_SMTP_REPORT_LINK_CONNECT);
+	CASE(IMSG_SMTP_REPORT_LINK_DISCONNECT);
+	CASE(IMSG_SMTP_REPORT_LINK_TLS);
+
+	CASE(IMSG_SMTP_REPORT_TX_BEGIN);
+	CASE(IMSG_SMTP_REPORT_TX_ENVELOPE);
+	CASE(IMSG_SMTP_REPORT_TX_COMMIT);
+	CASE(IMSG_SMTP_REPORT_TX_ROLLBACK);
+
+	CASE(IMSG_SMTP_REPORT_PROTOCOL_CLIENT);
+	CASE(IMSG_SMTP_REPORT_PROTOCOL_SERVER);
+
+	CASE(IMSG_SMTP_FILTER);
 
 	CASE(IMSG_CA_PRIVENC);
 	CASE(IMSG_CA_PRIVDEC);
