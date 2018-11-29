@@ -528,6 +528,23 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 		lka_filter_phase(reqid, filter_phase, hostname, filter_param);
 		return;
+
+	case IMSG_SMTP_FILTER_DATA_BEGIN:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_data_begin(reqid);
+		return;
+
+	case IMSG_SMTP_FILTER_DATA_END:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_data_end(reqid);
+		return;
+
 	}
 
 	errx(1, "lka_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
