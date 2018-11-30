@@ -33,6 +33,7 @@ SRCS+=	mda_unpriv.c
 SRCS+=	mda_variables.c
 SRCS+=	mproc.c
 SRCS+=	mta.c
+SRCS+=	mta_report.c
 SRCS+=	mta_session.c
 SRCS+=	parse.y
 SRCS+=	pony.c
