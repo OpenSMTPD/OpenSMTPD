@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.358 2018/12/06 12:09:50 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.361 2018/12/06 16:05:04 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -150,6 +150,7 @@ struct smtp_session {
 
 	struct smtp_tx		*tx;
 
+	enum smtp_command	 last_cmd;
 	enum filter_phase	 filter_phase;
 	const char		*filter_param;
 };
@@ -163,6 +164,14 @@ struct smtp_session {
 
 #define ADVERTISE_EXT_DSN(s) \
 	((s)->listener->flags & F_EXT_DSN)
+
+#define	SESSION_FILTERED(s) \
+	((s)->listener->flags & F_FILTERED)
+
+#define	SESSION_DATA_FILTERED(s) \
+	(((s)->listener->flags & F_FILTERED) && \
+	    TAILQ_FIRST(&env->sc_filter_rules[FILTER_DATA_LINE]))
+
 
 static int smtp_mailaddr(struct mailaddr *, char *, int, char **, const char *);
 static void smtp_session_init(void);
@@ -600,7 +609,7 @@ smtp_session(struct listener *listener, int sock,
 		s->fcrdns = 1;
 		smtp_lookup_servername(s);
 	} else {
-		resolver_getnameinfo((struct sockaddr *)&s->ss, 0,
+		resolver_getnameinfo((struct sockaddr *)&s->ss, NI_NAMEREQD,
 		    smtp_getnameinfo_cb, s);
 	}
 
@@ -775,7 +784,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		log_debug("smtp: %p: fd %d from queue", s, imsg->fd);
 
 		if (smtp_message_fd(s->tx, imsg->fd)) {
-			if (1 == 1)
+			if (!SESSION_DATA_FILTERED(s))
 				smtp_message_begin(s->tx);
 			else
 				smtp_filter_data_begin(s);
@@ -1233,6 +1242,7 @@ smtp_command(struct smtp_session *s, char *line)
 			break;
 		}
 
+	s->last_cmd = cmd;
 	switch (cmd) {
 	/*
 	 * INIT
@@ -1580,7 +1590,7 @@ smtp_query_filters(enum filter_phase phase, struct smtp_session *s, const char *
 static void
 smtp_filter_begin(struct smtp_session *s)
 {
-	if (!(s->listener->flags & F_FILTERED))
+	if (!SESSION_FILTERED(s))
 		return;
 
 	m_create(p_lka, IMSG_SMTP_FILTER_BEGIN, 0, 0, -1);
@@ -1591,7 +1601,7 @@ smtp_filter_begin(struct smtp_session *s)
 static void
 smtp_filter_end(struct smtp_session *s)
 {
-	if (!(s->listener->flags & F_FILTERED))
+	if (!SESSION_FILTERED(s))
 		return;
 
 	m_create(p_lka, IMSG_SMTP_FILTER_END, 0, 0, -1);
@@ -1602,7 +1612,7 @@ smtp_filter_end(struct smtp_session *s)
 static void
 smtp_filter_data_begin(struct smtp_session *s)
 {
-	if (!(s->listener->flags & F_FILTERED))
+	if (!SESSION_FILTERED(s))
 		return;
 
 	m_create(p_lka, IMSG_SMTP_FILTER_DATA_BEGIN, 0, 0, -1);
@@ -1614,7 +1624,7 @@ smtp_filter_data_begin(struct smtp_session *s)
 static void
 smtp_filter_data_end(struct smtp_session *s)
 {
-	if (!(s->listener->flags & F_FILTERED))
+	if (!SESSION_FILTERED(s))
 		return;
 
 	if (s->tx->filter == NULL)
@@ -1636,7 +1646,7 @@ smtp_filter_phase(enum filter_phase phase, struct smtp_session *s, const char *p
 	s->filter_phase = phase;
 	s->filter_param = param;
 
-	if (s->listener->flags & F_FILTERED) {
+	if (!SESSION_FILTERED(s)) {
 		smtp_query_filters(phase, s, param ? param : "");
 		return;
 	}
@@ -1959,7 +1969,7 @@ smtp_connected(struct smtp_session *s)
 	log_info("%016"PRIx64" smtp connected address=%s host=%s",
 	    s->id, ss_to_text(&s->ss), s->hostname);
 
-	smtp_report_link_connect(s->id, s->hostname, &s->ss,
+	smtp_report_link_connect(s->id, s->hostname, s->fcrdns, &s->ss,
 	    &s->listener->ss);
 
 	sl = sizeof(ss);
@@ -2016,11 +2026,21 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	log_trace(TRACE_SMTP, "smtp: %p: >>> %s", s, buf);
 
 	io_xprintf(s->io, "%s\r\n", buf);
-	smtp_report_protocol_server(s->id, buf);
 
 	switch (buf[0]) {
+	case '2':
+		if (s->last_cmd == CMD_MAIL_FROM)
+			smtp_report_tx_mail(s->id, s->tx->msgid, s->cmd + 10, 1);
+		else if (s->last_cmd == CMD_RCPT_TO)
+			smtp_report_tx_rcpt(s->id, s->tx->msgid, s->cmd + 8, 1);
+		break;
 	case '5':
 	case '4':
+		if (s->last_cmd == CMD_MAIL_FROM)
+			smtp_report_tx_mail(s->id, s->tx->msgid, s->cmd + 10, buf[0] == '4' ? -1 : 0);
+		else if (s->last_cmd == CMD_RCPT_TO)
+			smtp_report_tx_rcpt(s->id, s->tx->msgid, s->cmd + 8, buf[0] == '4' ? -1 : 0);
+
 		if (s->flags & SF_BADINPUT) {
 			log_info("%016"PRIx64" smtp "
 			    "bad-input address=%s host=%s result=\"%.*s\"",
@@ -2053,6 +2073,7 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 		}
 		break;
 	}
+	smtp_report_protocol_server(s->id, buf);
 }
 
 static void
