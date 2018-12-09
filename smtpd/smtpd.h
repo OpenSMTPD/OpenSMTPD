@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.580 2018/12/06 16:05:04 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.582 2018/12/08 08:01:15 sunil Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -202,6 +202,10 @@ enum imsg_type {
 	IMSG_GETADDRINFO_END,
 	IMSG_GETNAMEINFO,
 
+	IMSG_CERT_INIT,
+	IMSG_CERT_CERTIFICATE,
+	IMSG_CERT_VERIFY,
+
 	IMSG_SETUP_KEY,
 	IMSG_SETUP_PEER,
 	IMSG_SETUP_DONE,
@@ -382,9 +386,9 @@ struct table_backend {
 
 
 enum bounce_type {
-	B_ERROR,
-	B_WARNING,
-	B_DSN
+	B_FAILED,
+	B_DELAYED,
+	B_DELIVERED
 };
 
 enum dsn_ret {
@@ -1225,6 +1229,15 @@ int	 ca_X509_verify(void *, void *, const char *, const char *, const char **);
 void	 ca_imsg(struct mproc *, struct imsg *);
 void	 ca_init(void);
 void	 ca_engine_init(void);
+
+
+/* cert.c */
+int cert_init(const char *, int,
+    void (*)(void *, int, const char *, const void *, size_t), void *);
+int cert_verify(const void *, const char *, int, void (*)(void *, int), void *);
+void cert_dispatch_request(struct mproc *, struct imsg *);
+void cert_dispatch_result(struct mproc *, struct imsg *);
+
 
 /* compress_backend.c */
 struct compress_backend *compress_backend_lookup(const char *);
