@@ -609,7 +609,7 @@ smtp_session(struct listener *listener, int sock,
 		s->fcrdns = 1;
 		smtp_lookup_servername(s);
 	} else {
-		resolver_getnameinfo((struct sockaddr *)&s->ss, NI_NAMEREQD,
+		resolver_getnameinfo((struct sockaddr *)&s->ss, 0,
 		    smtp_getnameinfo_cb, s);
 	}
 
