@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.214 2018/11/08 13:21:00 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.221 2018/12/09 17:37:15 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -90,13 +90,15 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*rdns;
 	const char		*command, *response;
 	const char		*ciphers;
-	const char		*hostname;
+	const char		*address;
 	struct sockaddr_storage	ss_src, ss_dest;
 	int                      filter_phase;
 	const char              *filter_param;
 	uint32_t		 msgid;
 	uint64_t		 evpid;
 	size_t			 msgsz;
+	int			 ok;
+	int			 fcrdns;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -106,6 +108,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_GETADDRINFO:
 	case IMSG_GETNAMEINFO:
 		resolver_dispatch_request(p, imsg);
+		return;
+
+	case IMSG_CERT_INIT:
+	case IMSG_CERT_CERTIFICATE:
+	case IMSG_CERT_VERIFY:
+		cert_dispatch_request(p, imsg);
 		return;
 
 	case IMSG_MTA_DNS_HOST:
@@ -360,7 +368,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		table_open_all(env);
 
 		/* revoke proc & exec */
-		if (pledge("stdio rpath inet dns getpw recvfd",
+		if (pledge("stdio rpath inet dns getpw recvfd sendfd",
 			NULL) == -1)
 			err(1, "pledge");
 
@@ -419,11 +427,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_time(&m, &tm);
 		m_get_id(&m, &reqid);
 		m_get_string(&m, &rdns);
+		m_get_int(&m, &fcrdns);
 		m_get_sockaddr(&m, (struct sockaddr *)&ss_src);
 		m_get_sockaddr(&m, (struct sockaddr *)&ss_dest);
 		m_end(&m);
 
-		lka_report_smtp_link_connect(tm, reqid, rdns, &ss_src, &ss_dest);
+		lka_report_smtp_link_connect("smtp-in", tm, reqid, rdns, fcrdns, &ss_src, &ss_dest);
 		return;
 
 	case IMSG_SMTP_REPORT_LINK_DISCONNECT:
@@ -432,7 +441,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &reqid);
 		m_end(&m);
 
-		lka_report_smtp_link_disconnect(tm, reqid);
+		lka_report_smtp_link_disconnect("smtp-in", tm, reqid);
 		return;
 
 	case IMSG_SMTP_REPORT_LINK_TLS:
@@ -442,7 +451,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &ciphers);
 		m_end(&m);
 
-		lka_report_smtp_link_tls(tm, reqid, ciphers);
+		lka_report_smtp_link_tls("smtp-in", tm, reqid, ciphers);
 		return;
 
 	case IMSG_SMTP_REPORT_TX_BEGIN:
@@ -452,7 +461,31 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_u32(&m, &msgid);
 		m_end(&m);
 
-		lka_report_smtp_tx_begin(tm, reqid, msgid);
+		lka_report_smtp_tx_begin("smtp-in", tm, reqid, msgid);
+		return;
+
+	case IMSG_SMTP_REPORT_TX_MAIL:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_get_string(&m, &address);
+		m_get_int(&m, &ok);
+		m_end(&m);
+
+		lka_report_smtp_tx_mail("smtp-in", tm, reqid, msgid, address, ok);
+		return;
+
+	case IMSG_SMTP_REPORT_TX_RCPT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_get_string(&m, &address);
+		m_get_int(&m, &ok);
+		m_end(&m);
+
+		lka_report_smtp_tx_rcpt("smtp-in", tm, reqid, msgid, address, ok);
 		return;
 
 	case IMSG_SMTP_REPORT_TX_ENVELOPE:
@@ -463,7 +496,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &evpid);
 		m_end(&m);
 
-		lka_report_smtp_tx_envelope(tm, reqid, msgid, evpid);
+		lka_report_smtp_tx_envelope("smtp-in", tm, reqid, msgid, evpid);
 		return;
 
 	case IMSG_SMTP_REPORT_TX_COMMIT:
@@ -474,16 +507,17 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_size(&m, &msgsz);
 		m_end(&m);
 
-		lka_report_smtp_tx_commit(tm, reqid, msgid, msgsz);
+		lka_report_smtp_tx_commit("smtp-in", tm, reqid, msgid, msgsz);
 		return;
 
 	case IMSG_SMTP_REPORT_TX_ROLLBACK:
 		m_msg(&m, imsg);
 		m_get_time(&m, &tm);
 		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
 		m_end(&m);
 
-		lka_report_smtp_tx_rollback(tm, reqid);
+		lka_report_smtp_tx_rollback("smtp-in", tm, reqid, msgid);
 		return;
 
 	case IMSG_SMTP_REPORT_PROTOCOL_CLIENT:
@@ -493,7 +527,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &command);
 		m_end(&m);
 
-		lka_report_smtp_protocol_client(tm, reqid, command);
+		lka_report_smtp_protocol_client("smtp-in", tm, reqid, command);
 		return;
 
 	case IMSG_SMTP_REPORT_PROTOCOL_SERVER:
@@ -503,19 +537,174 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &response);
 		m_end(&m);
 
-		lka_report_smtp_protocol_server(tm, reqid, response);
+		lka_report_smtp_protocol_server("smtp-in", tm, reqid, response);
 		return;
 
-	case IMSG_SMTP_FILTER:
+	case IMSG_MTA_REPORT_LINK_CONNECT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &rdns);
+		m_get_int(&m, &fcrdns);
+		m_get_sockaddr(&m, (struct sockaddr *)&ss_src);
+		m_get_sockaddr(&m, (struct sockaddr *)&ss_dest);
+		m_end(&m);
+
+		lka_report_smtp_link_connect("smtp-out", tm, reqid, rdns, fcrdns, &ss_src, &ss_dest);
+		return;
+
+	case IMSG_MTA_REPORT_LINK_DISCONNECT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_report_smtp_link_disconnect("smtp-out", tm, reqid);
+		return;
+
+	case IMSG_MTA_REPORT_LINK_TLS:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &ciphers);
+		m_end(&m);
+
+		lka_report_smtp_link_tls("smtp-out", tm, reqid, ciphers);
+		return;
+
+	case IMSG_MTA_REPORT_TX_BEGIN:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_end(&m);
+
+		lka_report_smtp_tx_begin("smtp-out", tm, reqid, msgid);
+		return;
+
+	case IMSG_MTA_REPORT_TX_MAIL:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_get_string(&m, &address);
+		m_get_int(&m, &ok);
+		m_end(&m);
+
+		lka_report_smtp_tx_mail("smtp-out", tm, reqid, msgid, address, ok);
+		return;
+
+	case IMSG_MTA_REPORT_TX_RCPT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_get_string(&m, &address);
+		m_get_int(&m, &ok);
+		m_end(&m);
+
+		lka_report_smtp_tx_rcpt("smtp-out", tm, reqid, msgid, address, ok);
+		return;
+
+	case IMSG_MTA_REPORT_TX_ENVELOPE:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_get_id(&m, &evpid);
+		m_end(&m);
+
+		lka_report_smtp_tx_envelope("smtp-out", tm, reqid, msgid, evpid);
+		return;
+
+	case IMSG_MTA_REPORT_TX_COMMIT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_get_size(&m, &msgsz);
+		m_end(&m);
+
+		lka_report_smtp_tx_commit("smtp-out", tm, reqid, msgid, msgsz);
+		return;
+
+	case IMSG_MTA_REPORT_TX_ROLLBACK:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_end(&m);
+
+		lka_report_smtp_tx_rollback("smtp-out", tm, reqid, msgid);
+		return;
+
+	case IMSG_MTA_REPORT_PROTOCOL_CLIENT:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &command);
+		m_end(&m);
+
+		lka_report_smtp_protocol_client("smtp-out", tm, reqid, command);
+		return;
+
+	case IMSG_MTA_REPORT_PROTOCOL_SERVER:
+		m_msg(&m, imsg);
+		m_get_time(&m, &tm);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &response);
+		m_end(&m);
+
+		lka_report_smtp_protocol_server("smtp-out", tm, reqid, response);
+		return;
+
+
+	case IMSG_SMTP_FILTER_PROTOCOL:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &filter_phase);
-		m_get_string(&m, &hostname);
 		m_get_string(&m, &filter_param);
 		m_end(&m);
 
-		lka_filter(reqid, filter_phase, hostname, filter_param);
+		lka_filter_protocol(reqid, filter_phase, filter_param);
 		return;
+
+	case IMSG_SMTP_FILTER_BEGIN:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_get_sockaddr(&m, (struct sockaddr *)&ss_src);
+		m_get_sockaddr(&m, (struct sockaddr *)&ss_dest);
+		m_get_string(&m, &rdns);
+		m_get_int(&m, &fcrdns);
+		m_end(&m);
+
+		lka_filter_begin(reqid, &ss_src, &ss_dest, rdns, fcrdns);
+		return;
+
+	case IMSG_SMTP_FILTER_END:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_end(reqid);
+		return;
+
+	case IMSG_SMTP_FILTER_DATA_BEGIN:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_data_begin(reqid);
+		return;
+
+	case IMSG_SMTP_FILTER_DATA_END:
+		m_msg(&m, imsg);
+		m_get_id(&m, &reqid);
+		m_end(&m);
+
+		lka_filter_data_end(reqid);
+		return;
+
 	}
 
 	errx(1, "lka_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
@@ -582,7 +771,7 @@ lka(void)
 	mproc_disable(p_pony);
 
 	/* proc & exec will be revoked before serving requests */
-	if (pledge("stdio rpath inet dns getpw recvfd proc exec", NULL) == -1)
+	if (pledge("stdio rpath inet dns getpw recvfd sendfd proc exec", NULL) == -1)
 		err(1, "pledge");
 
 	event_dispatch();

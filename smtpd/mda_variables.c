@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda_variables.c,v 1.4 2018/06/15 08:57:17 gilles Exp $	*/
+/*	$OpenBSD: mda_variables.c,v 1.5 2018/12/06 12:32:11 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011-2017 Gilles Chehade <gilles@poolp.org>
@@ -38,9 +38,9 @@
 
 #define	EXPAND_DEPTH	10
 
-size_t mda_expand_format(char *, size_t, const struct deliver *,
+ssize_t mda_expand_format(char *, size_t, const struct deliver *,
     const struct userinfo *, const char *);
-static size_t mda_expand_token(char *, size_t, const char *,
+static ssize_t mda_expand_token(char *, size_t, const char *,
     const struct deliver *, const struct userinfo *, const char *);
 static int mod_lowercase(char *, size_t);
 static int mod_uppercase(char *, size_t);
@@ -58,7 +58,7 @@ static struct modifiers {
 
 #define	MAXTOKENLEN	128
 
-static size_t
+static ssize_t
 mda_expand_token(char *dest, size_t len, const char *token,
     const struct deliver *dlv, const struct userinfo *ui, const char *mda_command)
 {
@@ -77,14 +77,14 @@ mda_expand_token(char *dest, size_t len, const char *token,
 	mods = NULL;
 
 	if (strlcpy(rtoken, token, sizeof rtoken) >= sizeof rtoken)
-		return 0;
+		return -1;
 
 	/* token[x[:y]] -> extracts optional x and y, converts into offsets */
 	if ((lbracket = strchr(rtoken, '[')) &&
 	    (rbracket = strchr(rtoken, ']'))) {
 		/* ] before [ ... or empty */
 		if (rbracket < lbracket || rbracket - lbracket <= 1)
-			return 0;
+			return -1;
 
 		*lbracket = *rbracket = '\0';
 		 content  = lbracket + 1;
@@ -104,7 +104,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 			 }
 		 }
 		 if (errstr)
-			 return 0;
+			 return -1;
 
 		 /* token:mod_1,mod_2,mod_n -> extract modifiers */
 		 mods = strchr(rbracket + 1, ':');
@@ -117,7 +117,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 	if (!strcasecmp("sender", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
 			dlv->sender.user, dlv->sender.domain) >= (int)sizeof tmp)
-			return 0;
+			return -1;
 		if (strcmp(tmp, "@") == 0)
 			(void)strlcpy(tmp, "", sizeof tmp);
 		string = tmp;
@@ -125,7 +125,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 	else if (!strcasecmp("rcpt", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
 			dlv->rcpt.user, dlv->rcpt.domain) >= (int)sizeof tmp)
-			return 0;
+			return -1;
 		if (strcmp(tmp, "@") == 0)
 			(void)strlcpy(tmp, "", sizeof tmp);
 		string = tmp;
@@ -133,7 +133,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 	else if (!strcasecmp("dest", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
 			dlv->dest.user, dlv->dest.domain) >= (int)sizeof tmp)
-			return 0;
+			return -1;
 		if (strcmp(tmp, "@") == 0)
 			(void)strlcpy(tmp, "", sizeof tmp);
 		string = tmp;
@@ -163,17 +163,17 @@ mda_expand_token(char *dest, size_t len, const char *token,
 	else if (!strcasecmp("mbox.from", rtoken)) {
 		if (snprintf(tmp, sizeof tmp, "%s@%s",
 			dlv->sender.user, dlv->sender.domain) >= (int)sizeof tmp)
-			return 0;
+			return -1;
 		if (strcmp(tmp, "@") == 0)
 			(void)strlcpy(tmp, "MAILER-DAEMON", sizeof tmp);
 		string = tmp;
 	}
 	else
-		return 0;
+		return -1;
 
 	if (string != tmp) {
 		if (strlcpy(tmp, string, sizeof tmp) >= sizeof tmp)
-			return 0;
+			return -1;
 		string = tmp;
 	}
 
@@ -189,12 +189,12 @@ mda_expand_token(char *dest, size_t len, const char *token,
 						break;
 					}
 					if (!token_modifiers[i].f(tmp, sizeof tmp))
-						return 0; /* modifier error */
+						return -1; /* modifier error */
 					break;
 				}
 			}
 			if ((size_t)i == nitems(token_modifiers))
-				return 0; /* modifier not found */
+				return -1; /* modifier not found */
 		} while ((mods = sep) != NULL);
 	}
 
@@ -210,7 +210,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 
 	/* begin offset beyond end of string */
 	if (begoff >= i)
-		return 0;
+		return -1;
 
 	/* end offset beyond end of string, make it end of string */
 	if (endoff >= i)
@@ -227,13 +227,13 @@ mda_expand_token(char *dest, size_t len, const char *token,
 
 	/* check that final offsets are valid */
 	if (begoff < 0 || endoff < 0 || endoff < begoff)
-		return 0;
+		return -1;
 	endoff += 1; /* end offset is inclusive */
 
 	/* check that substring does not exceed destination buffer length */
 	i = endoff - begoff;
 	if ((size_t)i + 1 >= len)
-		return 0;
+		return -1;
 
 	string += begoff;
 	for (; i; i--) {
@@ -246,19 +246,19 @@ mda_expand_token(char *dest, size_t len, const char *token,
 }
 
 
-size_t
+ssize_t
 mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
     const struct userinfo *ui, const char *mda_command)
 {
 	char		tmpbuf[EXPAND_BUFFER], *ptmp, *pbuf, *ebuf;
 	char		exptok[EXPAND_BUFFER];
-	size_t		exptoklen;
+	ssize_t		exptoklen;
 	char		token[MAXTOKENLEN];
 	size_t		ret, tmpret;
 
 	if (len < sizeof tmpbuf) {
 		log_warnx("mda_expand_format: tmp buffer < rule buffer");
-		return 0;
+		return -1;
 	}
 
 	memset(tmpbuf, 0, sizeof tmpbuf);
@@ -310,12 +310,12 @@ mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
 
 		exptoklen = mda_expand_token(exptok, sizeof exptok, token, dlv,
 		    ui, mda_command);
-		if (exptoklen == 0)
-			return 0;
+		if (exptoklen == -1)
+			return -1;
 
 		/* writing expanded token at ptmp will overflow tmpbuf */
-		if (sizeof (tmpbuf) - (ptmp - tmpbuf) <= exptoklen)
-			return 0;
+		if (sizeof (tmpbuf) - (ptmp - tmpbuf) <= (size_t)exptoklen)
+			return -1;
 
 		memcpy(ptmp, exptok, exptoklen);
 		pbuf   = ebuf + 1;
@@ -323,10 +323,10 @@ mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
 		tmpret = exptoklen;
 	}
 	if (ret >= sizeof tmpbuf)
-		return 0;
+		return -1;
 
 	if ((ret = strlcpy(buf, tmpbuf, len)) >= len)
-		return 0;
+		return -1;
 
 	return ret;
 }
