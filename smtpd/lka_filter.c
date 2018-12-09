@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.9 2018/12/09 17:20:19 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.11 2018/12/09 18:05:20 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -42,14 +42,14 @@ static void	filter_disconnect(uint64_t, const char *);
 
 static void	filter_data(uint64_t reqid, const char *line);
 
-static void	filter_write(const char *, uint64_t, const char *, const char *, const char *);
+static void	filter_write(const char *, uint64_t, const char *, const char *);
 static void	filter_write_dataline(const char *, uint64_t, const char *);
 
-static int	filter_exec_notimpl(uint64_t, struct filter_rule *, const char *, const char *);
-static int	filter_exec_connected(uint64_t, struct filter_rule *, const char *, const char *);
-static int	filter_exec_helo(uint64_t, struct filter_rule *, const char *, const char *);
-static int	filter_exec_mail_from(uint64_t, struct filter_rule *, const char *, const char *);
-static int	filter_exec_rcpt_to(uint64_t, struct filter_rule *, const char *, const char *);
+static int	filter_exec_notimpl(uint64_t, struct filter_rule *, const char *);
+static int	filter_exec_connected(uint64_t, struct filter_rule *, const char *);
+static int	filter_exec_helo(uint64_t, struct filter_rule *, const char *);
+static int	filter_exec_mail_from(uint64_t, struct filter_rule *, const char *);
+static int	filter_exec_rcpt_to(uint64_t, struct filter_rule *, const char *);
 
 static void	filter_session_io(struct io *, int, void *);
 int		lka_filter_process_response(const char *, const char *);
@@ -60,7 +60,7 @@ static void	filter_data_next(uint64_t, const char *, const char *);
 static struct filter_exec {
 	enum filter_phase	phase;
 	const char	       *phase_name;
-	int		       (*func)(uint64_t, struct filter_rule *, const char *, const char *);
+	int		       (*func)(uint64_t, struct filter_rule *, const char *);
 } filter_execs[] = {
 	{ FILTER_AUTH,     	"auth",		filter_exec_notimpl },
 	{ FILTER_CONNECTED,	"connected",	filter_exec_connected },
@@ -241,7 +241,7 @@ lka_filter_process_response(const char *name, const char *line)
 }
 
 void
-lka_filter_protocol(uint64_t reqid, enum filter_phase phase, const char *hostname, const char *param)
+lka_filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 {
 	struct filter_rule	*rule;
 	uint8_t			i;
@@ -255,11 +255,11 @@ lka_filter_protocol(uint64_t reqid, enum filter_phase phase, const char *hostnam
 	TAILQ_FOREACH(rule, &env->sc_filter_rules[phase], entry) {
 		if (rule->proc) {
 			filter_write(rule->proc, reqid,
-			    filter_execs[i].phase_name, hostname, param);
+			    filter_execs[i].phase_name, param);
 			return; /* deferred */
 		}
 
-		if (filter_execs[i].func(reqid, rule, hostname, param)) {
+		if (filter_execs[i].func(reqid, rule, param)) {
 			if (rule->rewrite)
 				filter_rewrite(reqid, rule->rewrite);
 			else if (rule->disconnect)
@@ -323,11 +323,13 @@ lka_filter_response(uint64_t reqid, const char *response, const char *param)
 }
 
 static void
-filter_write(const char *name, uint64_t reqid, const char *phase, const char *hostname, const char *param)
+filter_write(const char *name, uint64_t reqid, const char *phase, const char *param)
 {
 	int	n;
 	time_t	tm;
+	struct filter_session	*fs;
 
+	fs = tree_xget(&sessions, reqid);
 	time(&tm);
 	if (strcmp(phase, "connected") == 0 ||
 	    strcmp(phase, "helo") == 0 ||
@@ -336,7 +338,7 @@ filter_write(const char *name, uint64_t reqid, const char *phase, const char *ho
 		    "filter|%d|%zd|smtp-in|%s|%016"PRIx64"|%s|%s\n",
 		    PROTOCOL_VERSION,
 		    tm,
-		    phase, reqid, hostname, param);
+		    phase, reqid, fs->rdns, param);
 	else
 		n = io_printf(lka_proc_get_io(name),
 		    "filter|%d|%zd|smtp-in|%s|%016"PRIx64"|%s\n",
@@ -432,6 +434,18 @@ filter_check_regex(struct filter_rule *rule, const char *key)
 }
 
 static int
+filter_check_fcrdns_connected(struct filter_rule *rule, int fcrdns)
+{
+	int	ret = 0;
+
+	if (rule->fcrdns) {
+		ret = fcrdns == 0;
+		ret = rule->not_fcrdns < 0 ? !ret : ret;
+	}
+	return ret;
+}
+
+static int
 filter_check_rdns_connected(struct filter_rule *rule, const char *hostname)
 {
 	int	ret = 0;
@@ -463,37 +477,40 @@ filter_check_rdns_helo(struct filter_rule *rule, const char *hostname, const cha
 }
 
 static int
-filter_exec_notimpl(uint64_t reqid, struct filter_rule *rule, const char *hostname, const char *param)
+filter_exec_notimpl(uint64_t reqid, struct filter_rule *rule, const char *param)
 {
 	return 0;
 }
 
 static int
-filter_exec_connected(uint64_t reqid, struct filter_rule *rule, const char *hostname, const char *param)
+filter_exec_connected(uint64_t reqid, struct filter_rule *rule, const char *param)
 {
 	struct filter_session	*fs;
 
 	fs = tree_xget(&sessions, reqid);
-
 	if (filter_check_table(rule, K_NETADDR, param) ||
 	    filter_check_regex(rule, param) ||
-	    filter_check_rdns_connected(rule, hostname))
+	    filter_check_rdns_connected(rule, fs->rdns) ||
+	    filter_check_fcrdns_connected(rule, fs->fcrdns))
 		return 1;
 	return 0;
 }
 
 static int
-filter_exec_helo(uint64_t reqid, struct filter_rule *rule, const char *hostname, const char *param)
+filter_exec_helo(uint64_t reqid, struct filter_rule *rule, const char *param)
 {
+	struct filter_session	*fs;
+
+	fs = tree_xget(&sessions, reqid);
 	if (filter_check_table(rule, K_DOMAIN, param) ||
 	    filter_check_regex(rule, param) ||
-	    filter_check_rdns_helo(rule, hostname, param))
+	    filter_check_rdns_helo(rule, fs->rdns, param))
 		return 1;
 	return 0;
 }
 
 static int
-filter_exec_mail_from(uint64_t reqid, struct filter_rule *rule, const char *hostname, const char *param)
+filter_exec_mail_from(uint64_t reqid, struct filter_rule *rule, const char *param)
 {
 	char	buffer[SMTPD_MAXMAILADDRSIZE];
 
@@ -508,7 +525,7 @@ filter_exec_mail_from(uint64_t reqid, struct filter_rule *rule, const char *host
 }
 
 static int
-filter_exec_rcpt_to(uint64_t reqid, struct filter_rule *rule, const char *hostname, const char *param)
+filter_exec_rcpt_to(uint64_t reqid, struct filter_rule *rule, const char *param)
 {
 	char	buffer[SMTPD_MAXMAILADDRSIZE];
 

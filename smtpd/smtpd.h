@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.583 2018/12/09 16:37:51 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.585 2018/12/09 18:05:20 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1061,6 +1061,9 @@ struct filter_rule {
 
 	int8_t				not_rdns;
 	int8_t				rdns;
+
+	int8_t				not_fcrdns;
+	int8_t				fcrdns;
 };
 
 enum filter_status {
@@ -1346,7 +1349,7 @@ void lka_report_smtp_protocol_server(const char *, time_t, uint64_t, const char 
 /* lka_filter.c */
 void lka_filter_begin(uint64_t, const struct sockaddr_storage *, const struct sockaddr_storage *, const char *, int);
 void lka_filter_end(uint64_t);
-void lka_filter_protocol(uint64_t, enum filter_phase, const char *, const char *);
+void lka_filter_protocol(uint64_t, enum filter_phase, const char *);
 void lka_filter_data_begin(uint64_t);
 void lka_filter_data_end(uint64_t);
 int lka_filter_response(uint64_t, const char *, const char *);
