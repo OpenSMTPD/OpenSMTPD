@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.12 2018/12/09 18:24:15 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.13 2018/12/09 21:43:46 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
