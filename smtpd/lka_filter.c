@@ -331,9 +331,7 @@ filter_write(const char *name, uint64_t reqid, const char *phase, const char *pa
 
 	fs = tree_xget(&sessions, reqid);
 	time(&tm);
-	if (strcmp(phase, "connected") == 0 ||
-	    strcmp(phase, "helo") == 0 ||
-	    strcmp(phase, "ehlo") == 0)
+	if (strcmp(phase, "connected") == 0)
 		n = io_printf(lka_proc_get_io(name),
 		    "filter|%d|%zd|smtp-in|%s|%016"PRIx64"|%s|%s\n",
 		    PROTOCOL_VERSION,
