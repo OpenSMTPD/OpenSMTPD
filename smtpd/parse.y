@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.235 2018/12/09 18:24:15 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.237 2018/12/13 14:43:31 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -220,7 +220,6 @@ grammar		: /* empty */
 		| grammar pki '\n'
 		| grammar proc '\n'
 		| grammar queue '\n'
-		| grammar report '\n'
 		| grammar scheduler '\n'
 		| grammar smtp '\n'
 		| grammar listen '\n'
@@ -486,36 +485,6 @@ USER STRING {
 proc_params:
 proc_params_opt proc_params
 | /* empty */
-;
-
-
-report:
-REPORT SMTP_IN ON STRING {
-	if (! dict_get(conf->sc_processors_dict, $4)) {
-		yyerror("no processor exist with that name: %s", $4);
-		free($4);
-		YYERROR;
-	}
-	if (dict_get(conf->sc_smtp_reporters_dict, $4)) {
-		yyerror("processor already registered for smtp-in reporting: %s", $4);
-		free($4);
-		YYERROR;
-	}
-	dict_set(conf->sc_smtp_reporters_dict, $4, (void *)~0);
-}
-| REPORT SMTP_OUT ON STRING {
-	if (! dict_get(conf->sc_processors_dict, $4)) {
-		yyerror("no processor exist with that name: %s", $4);
-		free($4);
-		YYERROR;
-	}
-	if (dict_get(conf->sc_mta_reporters_dict, $4)) {
-		yyerror("processor already registered for smtp-out reporting: %s", $4);
-		free($4);
-		YYERROR;
-	}
-	dict_set(conf->sc_mta_reporters_dict, $4, (void *)~0);
-}
 ;
 
 
@@ -1151,12 +1120,6 @@ MATCH {
 }
 ;
 
-filter_action_proc:
-ON STRING {
-	filter_rule->proc = $2;
-}
-;
-
 filter_action_builtin:
 REJECT STRING {
 	filter_rule->reject = $2;
@@ -1164,11 +1127,6 @@ REJECT STRING {
 | DISCONNECT STRING {
 	filter_rule->disconnect = $2;
 }
-/*
-| REWRITE STRING {
-	filter_rule->rewrite = $2;
-}
-*/
 ;
 
 filter_phase_check_table:
@@ -1206,9 +1164,6 @@ filter_phase_connect:
 CONNECT {
 	filter_rule->phase = FILTER_CONNECTED;
 } filter_phase_connect_options filter_action_builtin
-| CONNECT {
-	filter_rule->phase = FILTER_CONNECTED;
-} filter_action_proc
 ;
 
 filter_phase_helo_options:
@@ -1218,18 +1173,12 @@ filter_phase_helo:
 HELO {
 	filter_rule->phase = FILTER_HELO;
 } filter_phase_helo_options filter_action_builtin
-| HELO {
-	filter_rule->phase = FILTER_HELO;
-} filter_action_proc
 ;
 
 filter_phase_ehlo:
 EHLO {
 	filter_rule->phase = FILTER_EHLO;
 } filter_phase_helo_options filter_action_builtin
-| EHLO {
-	filter_rule->phase = FILTER_EHLO;
-} filter_action_proc
 ;
 
 filter_phase_mail_from_options:
@@ -1239,9 +1188,6 @@ filter_phase_mail_from:
 MAIL_FROM {
 	filter_rule->phase = FILTER_MAIL_FROM;
 } filter_phase_mail_from_options filter_action_builtin
-| MAIL_FROM {
-	filter_rule->phase = FILTER_MAIL_FROM;
-} filter_action_proc
 ;
 
 filter_phase_rcpt_to_options:
@@ -1251,63 +1197,42 @@ filter_phase_rcpt_to:
 RCPT_TO {
 	filter_rule->phase = FILTER_RCPT_TO;
 } filter_phase_rcpt_to_options filter_action_builtin
-| RCPT_TO {
-	filter_rule->phase = FILTER_RCPT_TO;
-} filter_action_proc
 ;
 
 filter_phase_data:
 DATA {
 	filter_rule->phase = FILTER_DATA;
 } filter_action_builtin
-| DATA {
-	filter_rule->phase = FILTER_DATA;
-} filter_action_proc
 ;
 
 filter_phase_data_line:
 DATA_LINE {
 	filter_rule->phase = FILTER_DATA_LINE;
 } filter_action_builtin
-| DATA_LINE {
-	filter_rule->phase = FILTER_DATA_LINE;
-} filter_action_proc
 ;
 
 filter_phase_quit:
 QUIT {
 	filter_rule->phase = FILTER_QUIT;
 } filter_action_builtin
-| QUIT {
-	filter_rule->phase = FILTER_QUIT;
-} filter_action_proc
 ;
 
 filter_phase_rset:
 RSET {
 	filter_rule->phase = FILTER_RSET;
 } filter_action_builtin
-| RSET {
-	filter_rule->phase = FILTER_RSET;
-} filter_action_proc
 ;
 
 filter_phase_noop:
 NOOP {
 	filter_rule->phase = FILTER_NOOP;
 } filter_action_builtin
-| NOOP {
-	filter_rule->phase = FILTER_NOOP;
-} filter_action_proc
 ;
 
 filter_phase_commit:
 COMMIT {
 	filter_rule->phase = FILTER_COMMIT;
 } filter_action_builtin
-| COMMIT {
-	filter_rule->phase = FILTER_COMMIT;
-} filter_action_proc
 ;
 
 
@@ -1331,6 +1256,22 @@ FILTER SMTP_IN {
 } filter_phase {
 	TAILQ_INSERT_TAIL(&conf->sc_filter_rules[filter_rule->phase], filter_rule, entry);
 	filter_rule = NULL;
+}
+| FILTER SMTP_IN ON STRING {
+	if (! dict_get(conf->sc_processors_dict, $4)) {
+		yyerror("no processor exist with that name: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	dict_set(conf->sc_smtp_reporters_dict, $4, (void *)~0);
+}
+| FILTER SMTP_OUT ON STRING {
+	if (! dict_get(conf->sc_processors_dict, $4)) {
+		yyerror("no processor exist with that name: %s", $4);
+		free($4);
+		YYERROR;
+	}
+	dict_set(conf->sc_mta_reporters_dict, $4, (void *)~0);
 }
 ;
 
@@ -1946,8 +1887,6 @@ lookup(char *s)
 		{ "recipient",		RECIPIENT },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
-		{ "report",		REPORT },
-		{ "rewrite",		REWRITE },
 		{ "rset",		RSET },
 		{ "scheduler",		SCHEDULER },
 		{ "senders",   		SENDERS },
