@@ -517,7 +517,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 				    "run with %s privileges", SMTPD_USER);
 
 			if (xn->type == EXPAND_FILENAME)
-				format = "/usr/libexec/mail.mboxfile -f %%{mbox.from} %s";
+				format = PATH_LIBEXEC"/mail.mboxfile -f %%{mbox.from} %s";
 			else if (xn->type == EXPAND_FILTER)
 				format = "%s";
 			(void)snprintf(ep->mda_exec, sizeof(ep->mda_exec),

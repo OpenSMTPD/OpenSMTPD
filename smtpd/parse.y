@@ -591,41 +591,41 @@ dispatcher_local:
 MBOX {
 	dispatcher->u.local.requires_root = 1;
 	dispatcher->u.local.user = xstrdup("root");
-	asprintf(&dispatcher->u.local.command, "/usr/libexec/mail.local -f %%{mbox.from} %%{user.username}");
+	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.local -f %%{mbox.from} %%{user.username}");
 } dispatcher_local_options
 | MAILDIR {
-	asprintf(&dispatcher->u.local.command, "/usr/libexec/mail.maildir");
+	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir");
 } dispatcher_local_options
 | MAILDIR JUNK {
-	asprintf(&dispatcher->u.local.command, "/usr/libexec/mail.maildir -j");
+	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir -j");
 } dispatcher_local_options
 | MAILDIR STRING {
 	if (strncmp($2, "~/", 2) == 0)
 		asprintf(&dispatcher->u.local.command,
-		    "/usr/libexec/mail.maildir \"%%{user.directory}/%s\"", $2+2);
+		    PATH_LIBEXEC"/mail.maildir \"%%{user.directory}/%s\"", $2+2);
 	else
 		asprintf(&dispatcher->u.local.command,
-		    "/usr/libexec/mail.maildir \"%s\"", $2);
+		    PATH_LIBEXEC"/mail.maildir \"%s\"", $2);
 } dispatcher_local_options
 | MAILDIR STRING JUNK {
 	if (strncmp($2, "~/", 2) == 0)
 		asprintf(&dispatcher->u.local.command,
-		    "/usr/libexec/mail.maildir -j \"%%{user.directory}/%s\"", $2+2);
+		    PATH_LIBEXEC"/mail.maildir -j \"%%{user.directory}/%s\"", $2+2);
 	else
 		asprintf(&dispatcher->u.local.command,
-		    "/usr/libexec/mail.maildir -j \"%s\"", $2);
+		    PATH_LIBEXEC"/mail.maildir -j \"%s\"", $2);
 } dispatcher_local_options
 | LMTP STRING {
 	asprintf(&dispatcher->u.local.command,
-	    "/usr/libexec/mail.lmtp -f %%{mbox.from} -d %s %%{user.username}", $2);
+	    PATH_LIBEXEC"/mail.lmtp -f %%{mbox.from} -d %s %%{user.username}", $2);
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
 	asprintf(&dispatcher->u.local.command,
-	    "/usr/libexec/mail.lmtp -f %%{mbox.from} -d %s %%{dest}", $2);
+	    PATH_LIBEXEC"/mail.lmtp -f %%{mbox.from} -d %s %%{dest}", $2);
 } dispatcher_local_options
 | MDA STRING {
 	asprintf(&dispatcher->u.local.command,
-	    "/usr/libexec/mail.mda \"%s\"", $2);
+	    PATH_LIBEXEC"/mail.mda \"%s\"", $2);
 } dispatcher_local_options
 | FORWARD_ONLY {
 	dispatcher->u.local.forward_only = 1;

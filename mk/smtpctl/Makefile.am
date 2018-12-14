@@ -34,7 +34,7 @@ endif
 
 smtpctl_SOURCES+=	$(smtpd_srcdir)/crypto.c
 
-smtpctl_CFLAGS=		-DNO_IO
+smtpctl_CFLAGS=		-DNO_IO -DCONFIG_MINIMUM
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
 
@@ -80,8 +80,8 @@ $(MANPAGES): $(MANPAGES_IN)
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
-	chgrp $(SMTPD_QUEUE_USER) $(DESTDIR)$(sbindir)/smtpctl
-	chmod 2555 $(DESTDIR)$(sbindir)/smtpctl
+	chgrp $(SMTPD_QUEUE_USER) $(DESTDIR)$(sbindir)/smtpctl || true
+	chmod 2555 $(DESTDIR)$(sbindir)/smtpctl || true
 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
 	$(INSTALL) -m 644 sendmail.8.out	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
 	$(INSTALL) -m 644 makemap.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
