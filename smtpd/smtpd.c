@@ -1364,8 +1364,8 @@ fork_processor(const char *name, const char *command, const char *user, const ch
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		err(1, "fork_processor: cannot drop privileges");
 
-	if (closefrom(STDERR_FILENO + 1) < 0)
-		err(1, "closefrom");
+	xclosefrom(STDERR_FILENO + 1);
+
 	if (setsid() < 0)
 		err(1, "setsid");
 	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
