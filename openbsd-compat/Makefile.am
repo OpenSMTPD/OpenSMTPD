@@ -83,6 +83,14 @@ if !SUPPORT_INET_NET_PTON
 libopenbsd_compat_a_SOURCES += inet_net_pton.c
 endif
 
+if !SUPPORT_STRNDUP
+libopenbsd_compat_a_SOURCES += strndup.c
+endif
+
+if !SUPPORT_STRNLEN
+libopenbsd_compat_a_SOURCES += strnlen.c
+endif
+
 EXTRA_DIST =	base64.h
 EXTRA_DIST +=	bsd-misc.h
 EXTRA_DIST +=	bsd-waitpid.h
