@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.227 2018/12/13 17:08:10 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.228 2018/12/21 14:33:52 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -64,6 +64,10 @@ static int lka_X509_verify(struct ca_vrfy_req_msg *, const char *, const char *)
 static void lka_certificate_verify(enum imsg_type, struct ca_vrfy_req_msg *);
 static void lka_certificate_verify_resume(enum imsg_type, struct ca_vrfy_req_msg *);
 
+static void proc_timeout(int fd, short event, void *p);
+
+struct event	 ev_proc_ready;
+
 static void
 lka_imsg(struct mproc *p, struct imsg *imsg)
 {
@@ -93,6 +97,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	const char		*ciphers;
 	const char		*address;
 	const char		*heloname;
+	const char		*filter_name;
 	struct sockaddr_storage	ss_src, ss_dest;
 	int                      filter_response;
 	int                      filter_phase;
@@ -375,8 +380,11 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 			NULL) == -1)
 			err(1, "pledge");
 
-		/* Start fulfilling requests */
-		mproc_enable(p_pony);
+		/* setup proc registering task */
+		evtimer_set(&ev_proc_ready, proc_timeout, &ev_proc_ready);
+		tv.tv_sec = 0;
+		tv.tv_usec = 10;
+		evtimer_add(&ev_proc_ready, &tv);
 		return;
 
 	case IMSG_LKA_OPEN_FORWARD:
@@ -605,13 +613,14 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_FILTER_SMTP_BEGIN:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
+		m_get_string(&m, &filter_name);
 		m_get_sockaddr(&m, (struct sockaddr *)&ss_src);
 		m_get_sockaddr(&m, (struct sockaddr *)&ss_dest);
 		m_get_string(&m, &rdns);
 		m_get_int(&m, &fcrdns);
 		m_end(&m);
 
-		lka_filter_begin(reqid, &ss_src, &ss_dest, rdns, fcrdns);
+		lka_filter_begin(reqid, filter_name, &ss_src, &ss_dest, rdns, fcrdns);
 		return;
 
 	case IMSG_FILTER_SMTP_END:
@@ -703,6 +712,9 @@ lka(void)
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
 
+	lka_report_init();
+	lka_filter_init();
+
 	/* proc & exec will be revoked before serving requests */
 	if (pledge("stdio rpath inet dns getpw recvfd sendfd proc exec", NULL) == -1)
 		err(1, "pledge");
@@ -712,6 +724,26 @@ lka(void)
 
 	return (0);
 }
+
+static void
+proc_timeout(int fd, short event, void *p)
+{
+	struct event	*ev = p;
+	struct timeval	 tv;
+
+	if (!lka_proc_ready())
+		goto reset;
+
+	lka_filter_ready();
+	mproc_enable(p_pony);
+	return;
+
+reset:
+	tv.tv_sec = 0;
+	tv.tv_usec = 10;
+	evtimer_add(ev, &tv);
+}
+
 
 static int
 lka_authenticate(const char *tablename, const char *user, const char *password)
