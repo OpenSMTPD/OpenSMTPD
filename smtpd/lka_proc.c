@@ -73,6 +73,9 @@ lka_proc_forked(const char *name, int fd)
 	processor = xcalloc(1, sizeof *processor);
 	processor->name = xstrdup(name);
 	processor->io = io_new();
+
+	io_set_nonblocking(fd);
+
 	io_set_fd(processor->io, fd);
 	io_set_callback(processor->io, processor_io, processor->name);
 	dict_xset(&processors, name, processor);

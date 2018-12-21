@@ -264,7 +264,9 @@ lka_filter_proc_in_session(uint64_t reqid, const char *proc)
 	struct filter		*filter;
 	size_t			 i;
 
-	fs = tree_xget(&sessions, reqid);
+	if ((fs = tree_get(&sessions, reqid)) == NULL)
+		return 0;
+
 	filter = dict_get(&filters, fs->filter_name);
 
 	if (filter->proc == NULL && filter->chain == NULL)
@@ -591,7 +593,10 @@ filter_data_next(uint64_t token, uint64_t reqid, const char *line)
 	struct filter_entry	*filter_entry;
 	struct filter		*filter;
 
-	fs = tree_xget(&sessions, reqid);
+	/* client session may have disappeared since we started streaming data */
+	if ((fs = tree_get(&sessions, reqid)) == NULL)
+		return;
+
 	filter_chain = dict_get(&filter_chains, fs->filter_name);
 
 	TAILQ_FOREACH(filter_entry, &filter_chain->chain[fs->phase], entries)
