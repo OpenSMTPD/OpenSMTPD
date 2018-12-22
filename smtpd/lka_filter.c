@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.21 2018/12/21 20:38:42 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.27 2018/12/22 12:31:40 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -39,10 +39,12 @@
 
 struct filter;
 struct filter_session;
+static void	filter_protocol_internal(struct filter_session *, uint64_t *, uint64_t, enum filter_phase, const char *);
 static void	filter_protocol(uint64_t, enum filter_phase, const char *);
-static void	filter_protocol_next(uint64_t, uint64_t, const char *);
+static void	filter_protocol_next(uint64_t, uint64_t, enum filter_phase, const char *);
 static void	filter_protocol_query(struct filter *, uint64_t, uint64_t, const char *, const char *);
 
+static void	filter_data_internal(struct filter_session *, uint64_t, uint64_t, const char *);
 static void	filter_data(uint64_t, const char *);
 static void	filter_data_next(uint64_t, uint64_t, const char *);
 static void	filter_data_query(struct filter *, uint64_t, uint64_t, const char *);
@@ -72,6 +74,9 @@ struct filter_session {
 	char *rdns;
 	int fcrdns;
 
+	char *helo;
+	char *mail_from;
+	
 	enum filter_phase	phase;
 };
 
@@ -137,6 +142,7 @@ lka_filter_init(void)
 	dict_init(&filters);
 	dict_init(&filter_chains);
 
+	/* first pass, allocate and init individual filters */
 	iter = NULL;
 	while (dict_iter(env->sc_filters_dict, &iter, &name, (void **)&filter_config)) {
 		switch (filter_config->filter_type) {
@@ -161,6 +167,7 @@ lka_filter_init(void)
 		}
 	}
 
+	/* second pass, allocate and init filter chains but don't build yet */
 	iter = NULL;
 	while (dict_iter(env->sc_filters_dict, &iter, &name, (void **)&filter_config)) {
 		switch (filter_config->filter_type) {
@@ -222,6 +229,7 @@ lka_filter_ready(void)
 	size_t		i;
 	size_t		j;
 
+	/* all filters are ready, actually build the filter chains */
 	iter = NULL;
 	while (dict_iter(&filters, &iter, &filter_name, (void **)&filter)) {
 		filter_chain = xcalloc(1, sizeof *filter_chain);
@@ -392,6 +400,7 @@ lka_filter_process_response(const char *name, const char *line)
 	char *ep = NULL;
 	char *kind = NULL;
 	char *qid = NULL;
+	/*char *phase = NULL;*/
 	char *response = NULL;
 	char *parameter = NULL;
 
@@ -470,7 +479,7 @@ lka_filter_process_response(const char *name, const char *line)
 		return 1;
 	}
 
-	filter_protocol_next(token, reqid, parameter);
+	filter_protocol_next(token, reqid, 0, parameter);
 	return 1;
 }
 
@@ -480,154 +489,168 @@ lka_filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 	filter_protocol(reqid, phase, param);
 }
 
-void
-filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
-{
-	struct filter_session	*fs;
-	struct filter_chain	*filter_chain;
-	struct filter_entry	*filter_entry;
-	struct filter		*filter;
-	uint8_t i;
-
-	fs = tree_xget(&sessions, reqid);
-	filter_chain = dict_get(&filter_chains, fs->filter_name);
-
-	for (i = 0; i < nitems(filter_execs); ++i)
-		if (phase == filter_execs[i].phase)
-			break;
-	if (i == nitems(filter_execs))
-		goto proceed;
-	if (TAILQ_EMPTY(&filter_chain->chain[i]))
-		goto proceed;
-
-	fs->phase = phase;
-	TAILQ_FOREACH(filter_entry, &filter_chain->chain[i], entries) {
-		filter = dict_get(&filters, filter_entry->name);
-		if (filter->proc) {
-			filter_protocol_query(filter, filter_entry->id, reqid,
-			    filter_execs[i].phase_name, param);
-			return;	/* deferred */
-		}
-
-		if (filter_execs[i].func(fs, filter, reqid, param)) {
-			if (filter->config->rewrite)
-				filter_result_rewrite(reqid, filter->config->rewrite);
-			else if (filter->config->disconnect)
-				filter_result_disconnect(reqid, filter->config->disconnect);
-			else
-				filter_result_reject(reqid, filter->config->reject);
-			return;
-		}
-	}
-
-proceed:
-	filter_result_proceed(reqid);
-}
-
 static void
-filter_protocol_next(uint64_t token, uint64_t reqid, const char *param)
+filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t reqid, enum filter_phase phase, const char *param)
 {
-	struct filter_session	*fs;
 	struct filter_chain	*filter_chain;
 	struct filter_entry	*filter_entry;
 	struct filter		*filter;
 
-	/* client session may have disappeared while we were in proc */
-	if ((fs = tree_xget(&sessions, reqid)) == NULL)
-		return;
+	if (!*token)
+		fs->phase = phase;
 
-	filter_chain = dict_get(&filter_chains, fs->filter_name);
-	TAILQ_FOREACH(filter_entry, &filter_chain->chain[fs->phase], entries)
-	    if (filter_entry->id == token)
-		    break;
+	/* XXX - this sanity check requires a protocol change, stub for now */
+	phase = fs->phase;
+	if (fs->phase != phase)
+		fatalx("misbehaving filter");
 
-	while ((filter_entry = TAILQ_NEXT(filter_entry, entries))) {
-		filter = dict_get(&filters, filter_entry->name);
-		if (filter->proc) {
-			filter_protocol_query(filter, filter_entry->id, reqid,
-			    filter_execs[fs->phase].phase_name, param);
-			return;	/* deferred */
-		}
-
-		if (filter_execs[fs->phase].func(fs, filter, reqid, param)) {
-			if (filter->config->rewrite)
-				filter_result_rewrite(reqid, filter->config->rewrite);
-			else if (filter->config->disconnect)
-				filter_result_disconnect(reqid, filter->config->disconnect);
-			else
-				filter_result_reject(reqid, filter->config->reject);
-			return;
-		}
-	}
-
-	filter_result_proceed(reqid);
-}
-
-
-static void
-filter_data(uint64_t reqid, const char *line)
-{
-	struct filter_session	*fs;
-	struct filter_chain	*filter_chain;
-	struct filter_entry	*filter_entry;
-	struct filter		*filter;
-
-	fs = tree_xget(&sessions, reqid);
-
-	fs->phase = FILTER_DATA_LINE;
+	/* based on token, identify the filter_entry we should apply  */
 	filter_chain = dict_get(&filter_chains, fs->filter_name);
 	filter_entry = TAILQ_FIRST(&filter_chain->chain[fs->phase]);
+	if (*token) {
+		TAILQ_FOREACH(filter_entry, &filter_chain->chain[fs->phase], entries)
+		    if (filter_entry->id == *token)
+			    break;
+		if (filter_entry == NULL)
+			fatalx("misbehaving filter");
+		filter_entry = TAILQ_NEXT(filter_entry, entries);
+	}
+
+	/* no filter_entry, we either had none or reached end of chain */
+	if (filter_entry == NULL) {
+		filter_result_proceed(reqid);
+		return;
+	}
+
+	/* process param with current filter_entry */
+	*token = filter_entry->id;
+	filter = dict_get(&filters, filter_entry->name);
+	if (filter->proc) {
+		filter_protocol_query(filter, filter_entry->id, reqid,
+		    filter_execs[fs->phase].phase_name, param);
+		return;	/* deferred response */
+	}
+
+	if (filter_execs[fs->phase].func(fs, filter, reqid, param)) {
+		if (filter->config->rewrite) {
+			filter_result_rewrite(reqid, filter->config->rewrite);
+			return;
+		}
+		else if (filter->config->disconnect) {
+			filter_result_disconnect(reqid, filter->config->disconnect);
+			return;
+		}
+		else {
+			filter_result_reject(reqid, filter->config->reject);
+			return;
+		}
+	}
+
+	/* filter_entry resulted in proceed, try next filter */
+	filter_protocol_internal(fs, token, reqid, phase, param);
+	return;
+}
+
+static void
+filter_data_internal(struct filter_session *fs, uint64_t token, uint64_t reqid, const char *line)
+{
+	struct filter_chain	*filter_chain;
+	struct filter_entry	*filter_entry;
+	struct filter		*filter;
+
+	if (!token)
+		fs->phase = FILTER_DATA_LINE;
+	if (fs->phase != FILTER_DATA_LINE)
+		fatalx("misbehaving filter");
+
+	/* based on token, identify the filter_entry we should apply  */
+	filter_chain = dict_get(&filter_chains, fs->filter_name);
+	filter_entry = TAILQ_FIRST(&filter_chain->chain[fs->phase]);
+	if (token) {
+		TAILQ_FOREACH(filter_entry, &filter_chain->chain[fs->phase], entries)
+		    if (filter_entry->id == token)
+			    break;
+		if (filter_entry == NULL)
+			fatalx("misbehaving filter");
+		filter_entry = TAILQ_NEXT(filter_entry, entries);
+	}
+
+	/* no filter_entry, we either had none or reached end of chain */
 	if (filter_entry == NULL) {
 		io_printf(fs->io, "%s\r\n", line);
 		return;
 	}
 
+	/* pass data to the filter */
 	filter = dict_get(&filters, filter_entry->name);
 	filter_data_query(filter, filter_entry->id, reqid, line);
 }
 
 static void
-filter_data_next(uint64_t token, uint64_t reqid, const char *line)
+filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 {
-	struct filter_session	*fs;
-	struct filter_chain	*filter_chain;
-	struct filter_entry	*filter_entry;
-	struct filter		*filter;
+	struct filter_session  *fs;
+	uint64_t		token = 0;
 
-	/* client session may have disappeared while we were in proc */
+	fs = tree_xget(&sessions, reqid);
+
+	switch (phase) {
+	case FILTER_HELO:
+	case FILTER_EHLO:
+		if (fs->helo)
+			free(fs->helo);
+		fs->helo = xstrdup(param);
+		break;
+	case FILTER_MAIL_FROM:
+		if (fs->mail_from)
+			free(fs->mail_from);
+
+		fs->mail_from = xstrdup(param + 1);
+		*strchr(fs->mail_from, '>') = '\0';
+
+		break;
+	case FILTER_STARTTLS:
+	case FILTER_AUTH:
+		/* TBD */
+		break;
+	default:
+		break;
+	}
+	filter_protocol_internal(fs, &token, reqid, phase, param);
+}
+
+static void
+filter_protocol_next(uint64_t token, uint64_t reqid, enum filter_phase phase, const char *param)
+{
+	struct filter_session  *fs;
+
+	/* session can legitimately disappear on a resume */
 	if ((fs = tree_get(&sessions, reqid)) == NULL)
 		return;
 
-	filter_chain = dict_get(&filter_chains, fs->filter_name);
-
-	TAILQ_FOREACH(filter_entry, &filter_chain->chain[fs->phase], entries)
-	    if (filter_entry->id == token)
-		    break;
-
-	if ((filter_entry = TAILQ_NEXT(filter_entry, entries))) {
-		filter = dict_get(&filters, filter_entry->name);
-		filter_data_query(filter, filter_entry->id, reqid, line);
-		return;
-	}
-
-	io_printf(fs->io, "%s\r\n", line);
+	filter_protocol_internal(fs, &token, reqid, phase, param);
 }
 
-
-int
-lka_filter_response(uint64_t reqid, const char *response, const char *param)
+static void
+filter_data(uint64_t reqid, const char *line)
 {
-	if (strcmp(response, "proceed") == 0)
-		filter_result_proceed(reqid);
-	else if (strcmp(response, "rewrite") == 0)
-		filter_result_rewrite(reqid, param);
-	else if (strcmp(response, "reject") == 0)
-		filter_result_reject(reqid, param);
-	else if (strcmp(response, "disconnect") == 0)
-		filter_result_disconnect(reqid, param);
-	else
-		return 0;
-	return 1;
+	struct filter_session  *fs;
+
+	fs = tree_xget(&sessions, reqid);
+
+	filter_data_internal(fs, 0, reqid, line);
+}
+
+static void
+filter_data_next(uint64_t token, uint64_t reqid, const char *line)
+{
+	struct filter_session  *fs;
+
+	/* session can legitimately disappear on a resume */
+	if ((fs = tree_get(&sessions, reqid)) == NULL)
+		return;
+
+	filter_data_internal(fs, token, reqid, line);
 }
 
 static void
@@ -766,6 +789,58 @@ filter_check_src_regex(struct filter *filter, const char *key)
 }
 
 static int
+filter_check_helo_table(struct filter *filter, enum table_service kind, const char *key)
+{
+	int	ret = 0;
+
+	if (filter->config->helo_table) {
+		if (table_lookup(filter->config->helo_table, NULL, key, kind, NULL) > 0)
+			ret = 1;
+		ret = filter->config->not_helo_table < 0 ? !ret : ret;
+	}
+	return ret;
+}
+
+static int
+filter_check_helo_regex(struct filter *filter, const char *key)
+{
+	int	ret = 0;
+
+	if (filter->config->helo_regex) {
+		if (table_lookup(filter->config->helo_regex, NULL, key, K_REGEX, NULL) > 0)
+			ret = 1;
+		ret = filter->config->not_helo_regex < 0 ? !ret : ret;
+	}
+	return ret;
+}
+
+static int
+filter_check_mail_from_table(struct filter *filter, enum table_service kind, const char *key)
+{
+	int	ret = 0;
+
+	if (filter->config->mail_from_table) {
+		if (table_lookup(filter->config->mail_from_table, NULL, key, kind, NULL) > 0)
+			ret = 1;
+		ret = filter->config->not_mail_from_table < 0 ? !ret : ret;
+	}
+	return ret;
+}
+
+static int
+filter_check_mail_from_regex(struct filter *filter, const char *key)
+{
+	int	ret = 0;
+
+	if (filter->config->mail_from_regex) {
+		if (table_lookup(filter->config->mail_from_regex, NULL, key, K_REGEX, NULL) > 0)
+			ret = 1;
+		ret = filter->config->not_mail_from_regex < 0 ? !ret : ret;
+	}
+	return ret;
+}
+
+static int
 filter_check_fcrdns(struct filter *filter, int fcrdns)
 {
 	int	ret = 0;
@@ -807,7 +882,11 @@ filter_builtins_global(struct filter_session *fs, struct filter *filter, uint64_
 	    filter_check_rdns_table(filter, K_DOMAIN, fs->rdns) ||
 	    filter_check_rdns_regex(filter, fs->rdns) ||
 	    filter_check_src_table(filter, K_NETADDR, ss_to_text(&fs->ss_src)) ||
-	    filter_check_src_regex(filter, ss_to_text(&fs->ss_src)))
+	    filter_check_src_regex(filter, ss_to_text(&fs->ss_src)) ||
+	    filter_check_helo_table(filter, K_DOMAIN, fs->helo) ||
+	    filter_check_helo_regex(filter, fs->helo) ||
+	    filter_check_mail_from_table(filter, K_MAILADDR, fs->mail_from) ||
+	    filter_check_mail_from_regex(filter, fs->mail_from))
 		return 1;
 	return 0;
 }
