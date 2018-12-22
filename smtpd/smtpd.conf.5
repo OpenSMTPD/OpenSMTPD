@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.208 2018/12/21 21:35:29 gilles Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.210 2018/12/22 08:54:02 gilles Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: December 21 2018 $
+.Dd $Mdocdate: December 22 2018 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -504,6 +504,22 @@ or from the local enqueuer.
 This is the default, and may be omitted.
 .It Xo
 .Op Ic \&!
+.Cm from rdns
+.Ar hostname | Pf < Ar hostname Ns >
+.Xc
+Specify that session may only originate from an IP address that
+resolves to a reverse DNS matching string or list string
+.Ar hostname .
+.It Xo
+.Op Ic \&!
+.Cm from rdns regex
+.Ar hostname | Pf < Ar hostname Ns >
+.Xc
+Specify that session may only originate from an IP address that
+resolves to a reverse DNS matching regex or list regex
+.Ar hostname .
+.It Xo
+.Op Ic \&!
 .Cm from socket
 .Xc
 Specify that session may only originate from the local enqueuer.
@@ -586,7 +602,7 @@ Matches transactions tagged with the given
 .Xc
 Matches transactions tagged with the given
 .Ar tag
-regex .
+regex.
 .It Xo
 .Op Ic \&!
 .Cm tls
