@@ -1363,6 +1363,9 @@ exit(-1);
 	],
 	[
 		AC_MSG_RESULT([$piddir from default value])
+	],
+	[
+		AC_MSG_RESULT([$piddir from default value])
 	]
 )
 
