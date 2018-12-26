@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.601 2018/12/22 13:09:05 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.603 2018/12/23 16:37:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -275,10 +275,6 @@ enum imsg_type {
 	IMSG_MTA_LOOKUP_SMARTHOST,
 	IMSG_MTA_OPEN_MESSAGE,
 	IMSG_MTA_SCHEDULE,
-	IMSG_MTA_TLS_INIT,
-	IMSG_MTA_TLS_VERIFY_CERT,
-	IMSG_MTA_TLS_VERIFY_CHAIN,
-	IMSG_MTA_TLS_VERIFY,
 
 	IMSG_SCHED_ENVELOPE_BOUNCE,
 	IMSG_SCHED_ENVELOPE_DELIVER,
@@ -295,10 +291,6 @@ enum imsg_type {
 	IMSG_SMTP_CHECK_SENDER,
 	IMSG_SMTP_EXPAND_RCPT,
 	IMSG_SMTP_LOOKUP_HELO,
-	IMSG_SMTP_TLS_INIT,
-	IMSG_SMTP_TLS_VERIFY_CERT,
-	IMSG_SMTP_TLS_VERIFY_CHAIN,
-	IMSG_SMTP_TLS_VERIFY,
 
 	IMSG_SMTP_REQ_CONNECT,
 	IMSG_SMTP_REQ_HELO,
@@ -375,8 +367,8 @@ struct table_backend {
 	void   *(*open)(struct table *);
 	int	(*update)(struct table *);
 	void	(*close)(void *);
-	int	(*lookup)(void *, struct dict *, const char *, enum table_service, union lookup *);
-	int	(*fetch)(void *, struct dict *, enum table_service, union lookup *);
+	int	(*lookup)(void *, struct dict *, const char *, enum table_service, char **);
+	int	(*fetch)(void *, struct dict *, enum table_service, char **);
 };
 
 
@@ -1114,37 +1106,6 @@ enum mda_resp_status {
 	MDA_PERMFAIL
 };
 
-struct ca_cert_req_msg {
-	uint64_t		reqid;
-	char			name[HOST_NAME_MAX+1];
-	int			fallback;
-};
-
-struct ca_cert_resp_msg {
-	uint64_t		reqid;
-	enum ca_resp_status	status;
-	char			name[HOST_NAME_MAX+1];
-	char		       *cert;
-	off_t			cert_len;
-};
-
-struct ca_vrfy_req_msg {
-	uint64_t		reqid;
-	char			name[HOST_NAME_MAX+1];
-	int			fallback;
-	unsigned char  	       *cert;
-	off_t			cert_len;
-	size_t			n_chain;
-	size_t			chain_offset;
-	unsigned char	      **chain_cert;
-	off_t		       *chain_cert_len;
-};
-
-struct ca_vrfy_resp_msg {
-	uint64_t		reqid;
-	enum ca_resp_status	status;
-};
-
 struct msg_walkinfo {
 	struct event	 ev;
 	uint32_t	 msgid;
@@ -1654,8 +1615,6 @@ int table_regex_match(const char *, const char *);
 void	table_open_all(struct smtpd *);
 void	table_dump_all(struct smtpd *);
 void	table_close_all(struct smtpd *);
-int table_parse_lookup(enum table_service, const char *, const char *,
-    union lookup *);
 
 
 /* to.c */

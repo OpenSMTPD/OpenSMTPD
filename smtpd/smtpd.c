@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.313 2018/12/13 17:07:13 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.315 2018/12/23 16:37:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -530,9 +530,7 @@ main(int argc, char *argv[])
 				tracing |= TRACE_IO;
 			else if (!strcmp(optarg, "smtp"))
 				tracing |= TRACE_SMTP;
-			else if (!strcmp(optarg, "mfa") ||
-			    !strcmp(optarg, "filter") ||
-			    !strcmp(optarg, "filters"))
+			else if (!strcmp(optarg, "filters"))
 				tracing |= TRACE_FILTERS;
 			else if (!strcmp(optarg, "mta") ||
 			    !strcmp(optarg, "transfer"))
@@ -1972,10 +1970,6 @@ imsg_to_str(int type)
 	CASE(IMSG_MTA_LOOKUP_SMARTHOST);
 	CASE(IMSG_MTA_OPEN_MESSAGE);
 	CASE(IMSG_MTA_SCHEDULE);
-	CASE(IMSG_MTA_TLS_INIT);
-	CASE(IMSG_MTA_TLS_VERIFY_CERT);
-	CASE(IMSG_MTA_TLS_VERIFY_CHAIN);
-	CASE(IMSG_MTA_TLS_VERIFY);
 
 	CASE(IMSG_SCHED_ENVELOPE_BOUNCE);
 	CASE(IMSG_SCHED_ENVELOPE_DELIVER);
@@ -1992,10 +1986,6 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_CHECK_SENDER);
 	CASE(IMSG_SMTP_EXPAND_RCPT);
 	CASE(IMSG_SMTP_LOOKUP_HELO);
-	CASE(IMSG_SMTP_TLS_INIT);
-	CASE(IMSG_SMTP_TLS_VERIFY_CERT);
-	CASE(IMSG_SMTP_TLS_VERIFY_CHAIN);
-	CASE(IMSG_SMTP_TLS_VERIFY);
 
 	CASE(IMSG_SMTP_REQ_CONNECT);
 	CASE(IMSG_SMTP_REQ_HELO);
