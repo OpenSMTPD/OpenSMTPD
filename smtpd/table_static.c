@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_static.c,v 1.27 2018/12/27 09:30:29 eric Exp $	*/
+/*	$OpenBSD: table_static.c,v 1.29 2018/12/27 15:04:59 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -40,6 +40,8 @@
 
 /* static backend */
 static int table_static_config(struct table *);
+static int table_static_add(struct table *, const char *, const char *);
+static void table_static_dump(struct table *);
 static int table_static_update(struct table *);
 static int table_static_open(struct table *);
 static int table_static_lookup(struct table *, enum table_service, const char *,
@@ -53,6 +55,8 @@ struct table_backend table_backend_static = {
 	K_SOURCE|K_MAILADDR|K_ADDRNAME|K_MAILADDRMAP|K_RELAYHOST|
 	K_STRING|K_REGEX,
 	table_static_config,
+	table_static_add,
+	table_static_dump,
 	table_static_open,
 	table_static_update,
 	table_static_close,
@@ -173,6 +177,42 @@ end:
 }
 
 static int
+table_static_add(struct table *table, const char *key, const char *val)
+{
+	char	lkey[1024], *old;
+
+	if (!lowercase(lkey, key, sizeof lkey)) {
+		log_warnx("warn: lookup key too long: %s", key);
+		return 0;
+	}
+
+	old = dict_set(&table->t_dict, lkey, val ? xstrdup(val) : NULL);
+	if (old) {
+		log_warnx("warn: duplicate key \"%s\" in static table \"%s\"",
+		    lkey, table->t_name);
+		free(old);
+	}
+
+	return 1;
+}
+
+static void
+table_static_dump(struct table *table)
+{
+	const char *key;
+	char *value;
+	void *iter;
+
+	iter = NULL;
+	while (dict_iter(&table->t_dict, &iter, &key, (void**)&value)) {
+		if (value)
+			log_debug("	\"%s\" -> \"%s\"", key, value);
+		else
+			log_debug("	\"%s\"", key);
+	}
+}
+
+static int
 table_static_update(struct table *table)
 {
 	struct table	*t;
@@ -267,16 +307,13 @@ table_static_lookup(struct table *m, enum table_service service, const char *key
 static int
 table_static_fetch(struct table *t, enum table_service service, char **dst)
 {
-	const char     *k;
+	const char *k;
 
 	if (!dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL)) {
 		t->t_iter = NULL;
 		if (!dict_iter(&t->t_dict, &t->t_iter, &k, (void **)NULL))
 			return 0;
 	}
-
-	if (dst == NULL)
-		return 1;
 
 	*dst = strdup(k);
 	if (*dst == NULL)
