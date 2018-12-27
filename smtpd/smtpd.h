@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.603 2018/12/23 16:37:53 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.610 2018/12/27 09:30:29 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -362,13 +362,14 @@ struct table {
 };
 
 struct table_backend {
+	const char *name;
 	const unsigned int	services;
 	int	(*config)(struct table *);
-	void   *(*open)(struct table *);
+	int	(*open)(struct table *);
 	int	(*update)(struct table *);
-	void	(*close)(void *);
-	int	(*lookup)(void *, struct dict *, const char *, enum table_service, char **);
-	int	(*fetch)(void *, struct dict *, enum table_service, char **);
+	void	(*close)(struct table *);
+	int	(*lookup)(struct table *, enum table_service, const char *, char **);
+	int	(*fetch)(struct table *, enum table_service, char **);
 };
 
 
@@ -1603,9 +1604,10 @@ void	table_close(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);
-int	table_lookup(struct table *, struct dict *, const char *, enum table_service,
+int	table_match(struct table *, enum table_service, const char *);
+int	table_lookup(struct table *, enum table_service, const char *,
     union lookup *);
-int	table_fetch(struct table *, struct dict *, enum table_service, union lookup *);
+int	table_fetch(struct table *, enum table_service, union lookup *);
 void table_destroy(struct smtpd *, struct table *);
 void table_add(struct table *, const char *, const char *);
 int table_domain_match(const char *, const char *);

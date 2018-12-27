@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_getpwnam.c,v 1.5 2018/12/23 15:53:24 eric Exp $	*/
+/*	$OpenBSD: table_getpwnam.c,v 1.11 2018/12/27 09:30:29 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -40,12 +40,13 @@
 /* getpwnam(3) backend */
 static int table_getpwnam_config(struct table *);
 static int table_getpwnam_update(struct table *);
-static void *table_getpwnam_open(struct table *);
-static int table_getpwnam_lookup(void *, struct dict *, const char *, enum table_service,
+static int table_getpwnam_open(struct table *);
+static int table_getpwnam_lookup(struct table *, enum table_service, const char *,
     char **);
-static void  table_getpwnam_close(void *);
+static void table_getpwnam_close(struct table *);
 
 struct table_backend table_backend_getpwnam = {
+	"getpwnam",
 	K_USERINFO,
 	table_getpwnam_config,
 	table_getpwnam_open,
@@ -69,20 +70,20 @@ table_getpwnam_update(struct table *table)
 	return 1;
 }
 
-static void *
+static int
 table_getpwnam_open(struct table *table)
 {
-	return table;
+	return 1;
 }
 
 static void
-table_getpwnam_close(void *hdl)
+table_getpwnam_close(struct table *table)
 {
 	return;
 }
 
 static int
-table_getpwnam_lookup(void *hdl, struct dict *params, const char *key, enum table_service kind,
+table_getpwnam_lookup(struct table *table, enum table_service kind, const char *key,
     char **dst)
 {
 	struct passwd	       *pw;
