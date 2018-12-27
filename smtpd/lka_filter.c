@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.28 2018/12/22 13:09:05 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.33 2018/12/26 15:55:09 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -140,6 +140,7 @@ lka_filter_init(void)
 	struct filter  	*filter;
 	struct filter_config	*filter_config;
 	size_t		i;
+	char		 buffer[LINE_MAX];	/* for traces */
 
 	dict_init(&filters);
 	dict_init(&filter_chains);
@@ -154,6 +155,8 @@ lka_filter_init(void)
 			filter->phases |= (1<<filter_config->phase);
 			filter->config = filter_config;
 			dict_set(&filters, name, filter);
+			log_trace(TRACE_FILTERS, "filters init type=builtin, name=%s, hooks=%08x",
+			    name, filter->phases);
 			break;
 
 		case FILTER_TYPE_PROC:
@@ -162,6 +165,8 @@ lka_filter_init(void)
 			filter->proc = filter_config->proc;
 			filter->config = filter_config;
 			dict_set(&filters, name, filter);
+			log_trace(TRACE_FILTERS, "filters init type=proc, name=%s, proc=%s",
+			    name, filter_config->proc);
 			break;
 
 		case FILTER_TYPE_CHAIN:
@@ -179,8 +184,16 @@ lka_filter_init(void)
 			filter->chain = xcalloc(filter_config->chain_size, sizeof(void **));
 			filter->chain_size = filter_config->chain_size;
 			filter->config = filter_config;
-			for (i = 0; i < filter->chain_size; ++i)
+
+			buffer[0] = '\0';
+			for (i = 0; i < filter->chain_size; ++i) {
 				filter->chain[i] = dict_xget(&filters, filter_config->chain[i]);
+				if (i)
+					(void)strlcat(buffer, ", ", sizeof buffer);
+				(void)strlcat(buffer, filter->chain[i]->name, sizeof buffer);
+			}
+			log_trace(TRACE_FILTERS, "filters init type=chain, name=%s { %s }", name, buffer);
+
 			dict_set(&filters, name, filter);
 			break;
 
@@ -315,6 +328,8 @@ lka_filter_begin(uint64_t reqid,
 	fs->rdns = xstrdup(rdns);
 	fs->fcrdns = fcrdns;
 	tree_xset(&sessions, fs->id, fs);
+
+	log_trace(TRACE_FILTERS, "%016"PRIx64" filters session-begin", reqid);
 }
 
 void
@@ -325,6 +340,7 @@ lka_filter_end(uint64_t reqid)
 	fs = tree_xpop(&sessions, reqid);
 	free(fs->rdns);
 	free(fs);
+	log_trace(TRACE_FILTERS, "%016"PRIx64" filters session-end", reqid);
 }
 
 void
@@ -350,6 +366,7 @@ end:
 	m_add_id(p_pony, reqid);
 	m_add_int(p_pony, fd != -1 ? 1 : 0);
 	m_close(p_pony);
+	log_trace(TRACE_FILTERS, "%016"PRIx64" filters data-begin fd=%d", reqid, fd);
 }
 
 void
@@ -362,6 +379,7 @@ lka_filter_data_end(uint64_t reqid)
 		io_free(fs->io);
 		fs->io = NULL;
 	}
+	log_trace(TRACE_FILTERS, "%016"PRIx64" filters data-end", reqid);
 }
 
 static void
@@ -497,9 +515,13 @@ filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t re
 	struct filter_chain	*filter_chain;
 	struct filter_entry	*filter_entry;
 	struct filter		*filter;
+	const char		*phase_name = filter_execs[phase].phase_name;
+	int			 resume = 1;
 
-	if (!*token)
+	if (!*token) {
 		fs->phase = phase;
+		resume = 0;
+	}
 
 	/* XXX - this sanity check requires a protocol change, stub for now */
 	phase = fs->phase;
@@ -520,6 +542,9 @@ filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t re
 
 	/* no filter_entry, we either had none or reached end of chain */
 	if (filter_entry == NULL) {
+		log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, resume=%s, "
+		    "action=proceed",
+		    fs->id, phase_name, resume ? "y" : "n");
 		filter_result_proceed(reqid);
 		return;
 	}
@@ -528,6 +553,10 @@ filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t re
 	*token = filter_entry->id;
 	filter = dict_get(&filters, filter_entry->name);
 	if (filter->proc) {
+		log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+		    "resume=%s, action=deferred, filter=%s",
+		    fs->id, phase_name, resume ? "y" : "n",
+		    filter->name);
 		filter_protocol_query(filter, filter_entry->id, reqid,
 		    filter_execs[fs->phase].phase_name, param);
 		return;	/* deferred response */
@@ -535,18 +564,42 @@ filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t re
 
 	if (filter_execs[fs->phase].func(fs, filter, reqid, param)) {
 		if (filter->config->rewrite) {
-			filter_result_rewrite(reqid, filter->config->rewrite);
+			log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+			    "resume=%s, action=rewrite, filter=%s, query=%s, response=%s",
+			    fs->id, phase_name, resume ? "y" : "n",
+			    filter->name,
+			    param,
+			    filter->config->rewrite);
+			    filter_result_rewrite(reqid, filter->config->rewrite);
 			return;
 		}
 		else if (filter->config->disconnect) {
+			log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+			    "resume=%s, action=disconnect, filter=%s, query=%s, response=%s",
+			    fs->id, phase_name, resume ? "y" : "n",
+			    filter->name,
+			    param,
+			    filter->config->disconnect);
 			filter_result_disconnect(reqid, filter->config->disconnect);
 			return;
 		}
 		else {
+			log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+			    "resume=%s, action=reject, filter=%s, query=%s, response=%s",
+			    fs->id, phase_name, resume ? "y" : "n",
+			    filter->name,
+			    param,
+			    filter->config->reject);
 			filter_result_reject(reqid, filter->config->reject);
 			return;
 		}
 	}
+
+	log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+	    "resume=%s, action=proceed, filter=%s, query=%s",
+	    fs->id, phase_name, resume ? "y" : "n",
+	    filter->name,
+	    param);
 
 	/* filter_entry resulted in proceed, try next filter */
 	filter_protocol_internal(fs, token, reqid, phase, param);
@@ -593,7 +646,8 @@ filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 {
 	struct filter_session  *fs;
 	uint64_t		token = 0;
-
+	char		       *nparam = NULL;
+	
 	fs = tree_xget(&sessions, reqid);
 
 	switch (phase) {
@@ -609,7 +663,13 @@ filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 
 		fs->mail_from = xstrdup(param + 1);
 		*strchr(fs->mail_from, '>') = '\0';
+		param = fs->mail_from;
 
+		break;
+	case FILTER_RCPT_TO:
+		nparam = xstrdup(param + 1);
+		*strchr(nparam, '>') = '\0';
+		param = nparam;
 		break;
 	case FILTER_STARTTLS:
 	case FILTER_AUTH:
@@ -619,6 +679,8 @@ filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 		break;
 	}
 	filter_protocol_internal(fs, &token, reqid, phase, param);
+	if (nparam)
+		free(nparam);
 }
 
 static void
@@ -743,12 +805,13 @@ filter_check_rdns_table(struct filter *filter, enum table_service kind, const ch
 {
 	int	ret = 0;
 
-	if (filter->config->rdns_table) {
-		if (table_lookup(filter->config->rdns_table, NULL, key, kind, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_rdns_table < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->rdns_table == NULL)
+		return 0;
+	
+	if (table_match(filter->config->rdns_table, kind, key) > 0)
+		ret = 1;
+
+	return filter->config->not_rdns_table < 0 ? !ret : ret;
 }
 
 static int
@@ -756,12 +819,12 @@ filter_check_rdns_regex(struct filter *filter, const char *key)
 {
 	int	ret = 0;
 
-	if (filter->config->rdns_regex) {
-		if (table_lookup(filter->config->rdns_regex, NULL, key, K_REGEX, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_rdns_regex < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->rdns_regex == NULL)
+		return 0;
+
+	if (table_match(filter->config->rdns_regex, K_REGEX, key) > 0)
+		ret = 1;
+	return filter->config->not_rdns_regex < 0 ? !ret : ret;
 }
 
 static int
@@ -769,12 +832,12 @@ filter_check_src_table(struct filter *filter, enum table_service kind, const cha
 {
 	int	ret = 0;
 
-	if (filter->config->src_table) {
-		if (table_lookup(filter->config->src_table, NULL, key, kind, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_src_table < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->src_table == NULL)
+		return 0;
+
+	if (table_match(filter->config->src_table, kind, key) > 0)
+		ret = 1;
+	return filter->config->not_src_table < 0 ? !ret : ret;
 }
 
 static int
@@ -782,12 +845,12 @@ filter_check_src_regex(struct filter *filter, const char *key)
 {
 	int	ret = 0;
 
-	if (filter->config->src_regex) {
-		if (table_lookup(filter->config->src_regex, NULL, key, K_REGEX, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_src_regex < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->src_regex == NULL)
+		return 0;
+
+	if (table_match(filter->config->src_regex, K_REGEX, key) > 0)
+		ret = 1;
+	return filter->config->not_src_regex < 0 ? !ret : ret;
 }
 
 static int
@@ -795,12 +858,12 @@ filter_check_helo_table(struct filter *filter, enum table_service kind, const ch
 {
 	int	ret = 0;
 
-	if (filter->config->helo_table) {
-		if (table_lookup(filter->config->helo_table, NULL, key, kind, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_helo_table < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->helo_table == NULL)
+		return 0;
+
+	if (table_match(filter->config->helo_table, kind, key) > 0)
+		ret = 1;
+	return filter->config->not_helo_table < 0 ? !ret : ret;
 }
 
 static int
@@ -808,12 +871,12 @@ filter_check_helo_regex(struct filter *filter, const char *key)
 {
 	int	ret = 0;
 
-	if (filter->config->helo_regex) {
-		if (table_lookup(filter->config->helo_regex, NULL, key, K_REGEX, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_helo_regex < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->helo_regex == NULL)
+		return 0;
+
+	if (table_match(filter->config->helo_regex, K_REGEX, key) > 0)
+		ret = 1;
+	return filter->config->not_helo_regex < 0 ? !ret : ret;
 }
 
 static int
@@ -821,12 +884,12 @@ filter_check_mail_from_table(struct filter *filter, enum table_service kind, con
 {
 	int	ret = 0;
 
-	if (filter->config->mail_from_table) {
-		if (table_lookup(filter->config->mail_from_table, NULL, key, kind, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_mail_from_table < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->mail_from_table == NULL)
+		return 0;
+
+	if (table_match(filter->config->mail_from_table, kind, key) > 0)
+		ret = 1;
+	return filter->config->not_mail_from_table < 0 ? !ret : ret;
 }
 
 static int
@@ -834,12 +897,12 @@ filter_check_mail_from_regex(struct filter *filter, const char *key)
 {
 	int	ret = 0;
 
-	if (filter->config->mail_from_regex) {
-		if (table_lookup(filter->config->mail_from_regex, NULL, key, K_REGEX, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_mail_from_regex < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->mail_from_regex == NULL)
+		return 0;
+
+	if (table_match(filter->config->mail_from_regex, K_REGEX, key) > 0)
+		ret = 1;
+	return filter->config->not_mail_from_regex < 0 ? !ret : ret;
 }
 
 static int
@@ -847,12 +910,12 @@ filter_check_rcpt_to_table(struct filter *filter, enum table_service kind, const
 {
 	int	ret = 0;
 
-	if (filter->config->rcpt_to_table) {
-		if (table_lookup(filter->config->rcpt_to_table, NULL, key, kind, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_rcpt_to_table < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->rcpt_to_table == NULL)
+		return 0;
+
+	if (table_match(filter->config->rcpt_to_table, kind, key) > 0)
+		ret = 1;
+	return filter->config->not_rcpt_to_table < 0 ? !ret : ret;
 }
 
 static int
@@ -860,12 +923,12 @@ filter_check_rcpt_to_regex(struct filter *filter, const char *key)
 {
 	int	ret = 0;
 
-	if (filter->config->rcpt_to_regex) {
-		if (table_lookup(filter->config->rcpt_to_regex, NULL, key, K_REGEX, NULL) > 0)
-			ret = 1;
-		ret = filter->config->not_rcpt_to_regex < 0 ? !ret : ret;
-	}
-	return ret;
+	if (filter->config->rcpt_to_regex == NULL)
+		return 0;
+
+	if (table_match(filter->config->rcpt_to_regex, K_REGEX, key) > 0)
+		ret = 1;
+	return filter->config->not_rcpt_to_regex < 0 ? !ret : ret;
 }
 
 static int
@@ -873,11 +936,11 @@ filter_check_fcrdns(struct filter *filter, int fcrdns)
 {
 	int	ret = 0;
 
-	if (filter->config->fcrdns) {
-		ret = fcrdns == 0;
-		ret = filter->config->not_fcrdns < 0 ? !ret : ret;
-	}
-	return ret;
+	if (!filter->config->fcrdns)
+		return 0;
+
+	ret = fcrdns == 0;
+	return filter->config->not_fcrdns < 0 ? !ret : ret;
 }
 
 static int
@@ -886,14 +949,14 @@ filter_check_rdns(struct filter *filter, const char *hostname)
 	int	ret = 0;
 	struct netaddr	netaddr;
 
-	if (filter->config->rdns) {
-		/* if text_to_netaddress succeeds,
-		 * we don't have an rDNS so the filter should match
-		 */
-		ret = text_to_netaddr(&netaddr, hostname);
-		ret = filter->config->not_rdns < 0 ? !ret : ret;
-	}
-	return ret;
+	if (!filter->config->rdns)
+		return 0;
+
+	/* if text_to_netaddress succeeds,
+	 * we don't have an rDNS so the filter should match
+	 */
+	ret = text_to_netaddr(&netaddr, hostname);
+	return filter->config->not_rdns < 0 ? !ret : ret;
 }
 
 static int
@@ -903,9 +966,9 @@ filter_builtins_notimpl(struct filter_session *fs, struct filter *filter, uint64
 }
 
 static int
-filter_builtins_global(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
+filter_builtins_global(struct filter_session *fs, struct filter *filter, uint64_t reqid)
 {
-	if (filter_check_fcrdns(filter, fs->fcrdns) ||
+	return filter_check_fcrdns(filter, fs->fcrdns) ||
 	    filter_check_rdns(filter, fs->rdns) ||
 	    filter_check_rdns_table(filter, K_DOMAIN, fs->rdns) ||
 	    filter_check_rdns_regex(filter, fs->rdns) ||
@@ -914,43 +977,31 @@ filter_builtins_global(struct filter_session *fs, struct filter *filter, uint64_
 	    filter_check_helo_table(filter, K_DOMAIN, fs->helo) ||
 	    filter_check_helo_regex(filter, fs->helo) ||
 	    filter_check_mail_from_table(filter, K_MAILADDR, fs->mail_from) ||
-	    filter_check_mail_from_regex(filter, fs->mail_from))
-		return 1;
-	return 0;
+	    filter_check_mail_from_regex(filter, fs->mail_from);
 }
 
 static int
 filter_builtins_connect(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
 {
-	return filter_builtins_global(fs, filter, reqid, param);
+	return filter_builtins_global(fs, filter, reqid);
 }
 
 static int
 filter_builtins_helo(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
 {
-	return filter_builtins_global(fs, filter, reqid, param);
+	return filter_builtins_global(fs, filter, reqid);
 }
 
 static int
 filter_builtins_mail_from(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
 {
-	return filter_builtins_global(fs, filter, reqid, param);
+	return filter_builtins_global(fs, filter, reqid);
 }
 
 static int
 filter_builtins_rcpt_to(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
 {
-	int    	ret = 0;
-	char	*rcpt_to;
-
-	rcpt_to = xstrdup(param + 1);
-	*strchr(rcpt_to, '>') = '\0';
-
-	if (filter_builtins_global(fs, filter, reqid, param) ||
-	    filter_check_rcpt_to_table(filter, K_MAILADDR, rcpt_to) ||
-	    filter_check_rcpt_to_regex(filter, rcpt_to))
-		ret = 1;
-
-	free(rcpt_to);
-	return ret;
+	return filter_builtins_global(fs, filter, reqid) ||
+	    filter_check_rcpt_to_table(filter, K_MAILADDR, param) ||
+	    filter_check_rcpt_to_regex(filter, param);
 }

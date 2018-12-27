@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.33 2018/12/21 21:35:29 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.41 2018/12/27 09:30:29 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -55,42 +55,33 @@ extern struct table_backend table_backend_getpwnam;
 extern struct table_backend table_backend_proc;
 
 static const char * table_service_name(enum table_service);
-static const char * table_backend_name(struct table_backend *);
-static const char * table_dump_lookup(enum table_service, union lookup *);
+static int table_parse_lookup(enum table_service, const char *, const char *,
+    union lookup *);
 static int parse_sockaddr(struct sockaddr *, int, const char *);
 
 static unsigned int last_table_id = 0;
 
+static struct table_backend *backends[] = {
+	&table_backend_static,
+	&table_backend_db,
+	&table_backend_getpwnam,
+	&table_backend_proc,
+	NULL
+};
+
 struct table_backend *
 table_backend_lookup(const char *backend)
 {
-	if (!strcmp(backend, "static") || !strcmp(backend, "file"))
-		return &table_backend_static;
-#ifdef HAVE_DB_API
-	if (!strcmp(backend, "db"))
-		return &table_backend_db;
-#endif
-	if (!strcmp(backend, "getpwnam"))
-		return &table_backend_getpwnam;
-	if (!strcmp(backend, "proc"))
-		return &table_backend_proc;
-	return NULL;
-}
+	int i;
 
-static const char *
-table_backend_name(struct table_backend *backend)
-{
-	if (backend == &table_backend_static)
-		return "static";
-#ifdef HAVE_DB_API
-	if (backend == &table_backend_db)
-		return "db";
-#endif
-	if (backend == &table_backend_getpwnam)
-		return "getpwnam";
-	if (backend == &table_backend_proc)
-		return "proc";
-	return "???";
+	if (!strcmp(backend, "file"))
+		backend = "static";
+
+	for (i = 0; backends[i]; i++)
+		if (!strcmp(backends[i]->name, backend))
+			return (backends[i]);
+
+	return NULL;
 }
 
 static const char *
@@ -129,11 +120,17 @@ table_find(struct smtpd *conf, const char *name, const char *tag)
 }
 
 int
-table_lookup(struct table *table, struct dict *params, const char *key, enum table_service kind,
+table_match(struct table *table, enum table_service kind, const char *key)
+{
+	return table_lookup(table, kind, key, NULL);
+}
+
+int
+table_lookup(struct table *table, enum table_service kind, const char *key,
     union lookup *lk)
 {
 	int	r;
-	char	lkey[1024];
+	char	lkey[1024], *buf = NULL;
 
 	if (table->t_backend->lookup == NULL)
 		return (-1);
@@ -143,54 +140,65 @@ table_lookup(struct table *table, struct dict *params, const char *key, enum tab
 		return -1;
 	}
 
-	r = table->t_backend->lookup(table->t_handle, params, lkey, kind, lk);
+	r = table->t_backend->lookup(table, kind, lkey, lk ? &buf : NULL);
 
-	if (r == 1)
+	if (r == 1) {
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %s%s%s",
 		    lk ? "lookup" : "check",
 		    lkey,
 		    table_service_name(kind),
-		    table_backend_name(table->t_backend),
+		    table->t_backend->name,
 		    table->t_name,
 		    lk ? "\"" : "",
-		    (lk) ? table_dump_lookup(kind, lk): "found",
+		    (lk) ? buf : "found",
 		    lk ? "\"" : "");
+		if (buf)
+			r = table_parse_lookup(kind, lkey, buf, lk);
+	}
 	else
 		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %d",
 		    lk ? "lookup" : "check",
 		    lkey,
 		    table_service_name(kind),
-		    table_backend_name(table->t_backend),
+		    table->t_backend->name,
 		    table->t_name,
 		    r);
+
+	free(buf);
 
 	return (r);
 }
 
 int
-table_fetch(struct table *table, struct dict *params, enum table_service kind, union lookup *lk)
+table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 {
 	int 	r;
+	char	*buf = NULL;
 
 	if (table->t_backend->fetch == NULL)
 		return (-1);
 
-	r = table->t_backend->fetch(table->t_handle, params, kind, lk);
+	r = table->t_backend->fetch(table, kind, lk ? &buf : NULL);
 
-	if (r == 1)
+	if (r == 1) {
 		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %s%s%s",
 		    table_service_name(kind),
-		    table_backend_name(table->t_backend),
+		    table->t_backend->name,
 		    table->t_name,
 		    lk ? "\"" : "",
-		    (lk) ? table_dump_lookup(kind, lk): "found",
+		    (lk) ? buf : "found",
 		    lk ? "\"" : "");
+		if (buf)
+			r = table_parse_lookup(kind, NULL, buf, lk);
+	}
 	else
 		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %d",
 		    table_service_name(kind),
-		    table_backend_name(table->t_backend),
+		    table->t_backend->name,
 		    table->t_name,
 		    r);
+
+	free(buf);
 
 	return (r);
 }
@@ -336,20 +344,16 @@ table_check_use(struct table *t, uint32_t tmask, uint32_t smask)
 int
 table_open(struct table *t)
 {
-	t->t_handle = NULL;
 	if (t->t_backend->open == NULL)
 		return (1);
-	t->t_handle = t->t_backend->open(t);
-	if (t->t_handle == NULL)
-		return (0);
-	return (1);
+	return (t->t_backend->open(t));
 }
 
 void
 table_close(struct table *t)
 {
 	if (t->t_backend->close)
-		t->t_backend->close(t->t_handle);
+		t->t_backend->close(t);
 }
 
 int
@@ -549,7 +553,7 @@ table_close_all(struct smtpd *conf)
 		table_close(t);
 }
 
-int
+static int
 table_parse_lookup(enum table_service service, const char *key,
     const char *line, union lookup *lk)
 {
@@ -661,108 +665,6 @@ table_parse_lookup(enum table_service service, const char *key,
 		return (-1);
 	}
 }
-
-static const char *
-table_dump_lookup(enum table_service s, union lookup *lk)
-{
-	static char		buf[LINE_MAX];
-	struct maddrnode       *mn;
-	int			ret;
-
-	switch (s) {
-	case K_NONE:
-		break;
-
-	case K_ALIAS:
-		expand_to_text(lk->expand, buf, sizeof(buf));
-		break;
-
-	case K_DOMAIN:
-		ret = snprintf(buf, sizeof(buf), "%s", lk->domain.name);
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_CREDENTIALS:
-		ret = snprintf(buf, sizeof(buf), "%s:%s",
-		    lk->creds.username, lk->creds.password);
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_NETADDR:
-		ret = snprintf(buf, sizeof(buf), "%s/%d",
-		    sockaddr_to_text((struct sockaddr *)&lk->netaddr.ss),
-		    lk->netaddr.bits);
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_USERINFO:
-		ret = snprintf(buf, sizeof(buf), "%s:%d:%d:%s",
-		    lk->userinfo.username,
-		    lk->userinfo.uid,
-		    lk->userinfo.gid,
-		    lk->userinfo.directory);
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_SOURCE:
-		ret = snprintf(buf, sizeof(buf), "%s",
-		    ss_to_text(&lk->source.addr));
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_MAILADDR:
-		ret = snprintf(buf, sizeof(buf), "%s@%s",
-		    lk->mailaddr.user,
-		    lk->mailaddr.domain);
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_MAILADDRMAP:
-		buf[0] = '\0';
-		TAILQ_FOREACH(mn, &lk->maddrmap->queue, entries) {
-			(void)strlcat(buf, mn->mailaddr.user, sizeof(buf));
-			(void)strlcat(buf, "@", sizeof(buf));
-			ret = strlcat(buf, mn->mailaddr.domain, sizeof(buf));
-
-			if (mn != TAILQ_LAST(&lk->maddrmap->queue, xmaddr))
-				ret = strlcat(buf, ", ", sizeof(buf));
-
-			if (ret >= sizeof(buf)) {
-				strlcpy(buf + sizeof(buf) - 4, "...", 4);
-				break;
-			}
-		}
-		break;
-
-	case K_ADDRNAME:
-		ret = snprintf(buf, sizeof(buf), "%s",
-		    lk->addrname.name);
-		if (ret == -1 || (size_t)ret >= sizeof (buf))
-			goto err;
-		break;
-
-	case K_RELAYHOST:
-		if (strlcpy(buf, lk->relayhost, sizeof(buf)) >= sizeof(buf))
-			goto err;
-		break;
-
-	default:
-		(void)strlcpy(buf, "???", sizeof(buf));
-		break;
-	}
-
-	return (buf);
-
-err:
-	return (NULL);
-}
-
 
 static int
 parse_sockaddr(struct sockaddr *sa, int family, const char *str)
