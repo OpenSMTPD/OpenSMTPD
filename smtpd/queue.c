@@ -589,6 +589,8 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 			b.id);
 	if (e->type == D_BOUNCE) {
 		log_warnx("warn: queue: double bounce!");
+	} else if (strcmp(e->rcpt.user, "root") == 0 ) {
+		log_warnx("warn: queue: not allowed to deliver to root!");
 	} else if (e->sender.user[0] == '\0') {
 		log_warnx("warn: queue: no return path!");
 	} else if (!queue_envelope_create(&b)) {
