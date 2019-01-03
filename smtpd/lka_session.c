@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.90 2018/12/26 20:13:43 eric Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.92 2018/12/28 11:40:29 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -375,10 +375,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 
 		/* gilles+hackers@ -> gilles@ */
-		if ((tag = strchr(xn->u.user, *env->sc_subaddressing_delim)) != NULL)
+		if ((tag = strchr(xn->u.user, *env->sc_subaddressing_delim)) != NULL) {
 			*tag++ = '\0';
+			(void)strlcpy(xn->subaddress, tag, sizeof xn->subaddress);
+		}
 
-		userbase = table_find(env, dsp->u.local.table_userbase, NULL);
+		userbase = table_find(env, dsp->u.local.table_userbase);
 		r = table_lookup(userbase, K_USERINFO, xn->u.user, &lk);
 		if (r == -1) {
 			log_trace(TRACE_EXPAND, "expand: lka_expand: "
@@ -503,8 +505,10 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		ep->type = D_MDA;
 		ep->dest = lka_find_ancestor(xn, EXPAND_ADDRESS)->u.mailaddr;
-		if (xn->type == EXPAND_USERNAME)
+		if (xn->type == EXPAND_USERNAME) {
 			(void)strlcpy(ep->mda_user, xn->u.user, sizeof(ep->mda_user));
+			(void)strlcpy(ep->mda_subaddress, xn->subaddress, sizeof(ep->mda_subaddress));
+		}
 		else {
 			user = !xn->parent->realuser ?
 			    SMTPD_USER :

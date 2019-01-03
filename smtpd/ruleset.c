@@ -1,4 +1,4 @@
-/*	$OpenBSD: ruleset.c,v 1.41 2018/12/26 17:37:15 eric Exp $ */
+/*	$OpenBSD: ruleset.c,v 1.42 2018/12/28 11:40:29 eric Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -50,7 +50,7 @@ ruleset_match_tag(struct rule *r, const struct envelope *evp)
 	if (r->flag_tag_regex)
 		service = K_REGEX;
 
-	table = table_find(env, r->table_tag, NULL);
+	table = table_find(env, r->table_tag);
 	ret = table_match(table, service, evp->tag);
 
 	return MATCH_RESULT(ret, r->flag_tag);
@@ -85,7 +85,7 @@ ruleset_match_from(struct rule *r, const struct envelope *evp)
 	if (r->flag_from_regex)
 		service = K_REGEX;
 
-	table = table_find(env, r->table_from, NULL);
+	table = table_find(env, r->table_from);
 	ret = table_match(table, service, key);
 
 	return MATCH_RESULT(ret, r->flag_from);
@@ -104,7 +104,7 @@ ruleset_match_to(struct rule *r, const struct envelope *evp)
 	if (r->flag_for_regex)
 		service = K_REGEX;
 
-	table = table_find(env, r->table_for, NULL);
+	table = table_find(env, r->table_for);
 	ret = table_match(table, service, evp->dest.domain);
 
 	return MATCH_RESULT(ret, r->flag_for);
@@ -123,7 +123,7 @@ ruleset_match_smtp_helo(struct rule *r, const struct envelope *evp)
 	if (r->flag_smtp_helo_regex)
 		service = K_REGEX;
 
-	table = table_find(env, r->table_smtp_helo, NULL);
+	table = table_find(env, r->table_smtp_helo);
 	ret = table_match(table, service, evp->helo);
 
 	return MATCH_RESULT(ret, r->flag_smtp_helo);
@@ -152,7 +152,7 @@ ruleset_match_smtp_auth(struct rule *r, const struct envelope *evp)
 	else if (r->table_smtp_auth) {
 		/* XXX - not until smtp_session->username is added to envelope */
 		/*
-		 * table = table_find(m->from_table, NULL);
+		 * table = table_find(m->from_table);
 		 * key = evp->username;
 		 * return table_match(table, K_CREDENTIALS, key);
 		 */
@@ -182,7 +182,7 @@ ruleset_match_smtp_mail_from(struct rule *r, const struct envelope *evp)
 	if ((key = mailaddr_to_text(&evp->sender)) == NULL)
 		return -1;
 
-	table = table_find(env, r->table_smtp_mail_from, NULL);
+	table = table_find(env, r->table_smtp_mail_from);
 	ret = table_match(table, service, key);
 
 	return MATCH_RESULT(ret, r->flag_smtp_mail_from);
@@ -205,7 +205,7 @@ ruleset_match_smtp_rcpt_to(struct rule *r, const struct envelope *evp)
 	if ((key = mailaddr_to_text(&evp->dest)) == NULL)
 		return -1;
 
-	table = table_find(env, r->table_smtp_rcpt_to, NULL);
+	table = table_find(env, r->table_smtp_rcpt_to);
 	ret = table_match(table, service, key);
 
 	return MATCH_RESULT(ret, r->flag_smtp_rcpt_to);

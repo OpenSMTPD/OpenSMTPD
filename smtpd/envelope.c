@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.40 2018/12/08 08:01:15 sunil Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.42 2018/12/30 23:09:58 guenther Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -35,7 +35,6 @@
 #include <fcntl.h>
 #include <imsg.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <pwd.h>
 #include <limits.h>
 #include <stdio.h>
@@ -201,6 +200,7 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 	switch (ep->type) {
 	case D_MDA:
 		envelope_ascii_dump(ep, &dest, &len, "mda-exec");
+		envelope_ascii_dump(ep, &dest, &len, "mda-subaddress");
 		envelope_ascii_dump(ep, &dest, &len, "mda-user");
 		break;
 	case D_MTA:
@@ -428,6 +428,9 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 
 	if (strcasecmp("mda-exec", field) == 0)
 		return ascii_load_string(ep->mda_exec, buf, sizeof(ep->mda_exec));
+
+	if (strcasecmp("mda-subaddress", field) == 0)
+		return ascii_load_string(ep->mda_subaddress, buf, sizeof(ep->mda_subaddress));
 
 	if (strcasecmp("mda-user", field) == 0)
 		return ascii_load_string(ep->mda_user, buf, sizeof(ep->mda_user));
@@ -670,6 +673,12 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	if (strcasecmp(field, "mda-exec") == 0) {
 		if (ep->mda_exec[0])
 			return ascii_dump_string(ep->mda_exec, buf, len);
+		return 1;
+	}
+
+	if (strcasecmp(field, "mda-subaddress") == 0) {
+		if (ep->mda_subaddress[0])
+			return ascii_dump_string(ep->mda_subaddress, buf, len);
 		return 1;
 	}
 
