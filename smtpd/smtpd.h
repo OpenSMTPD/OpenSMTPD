@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.612 2018/12/27 15:41:50 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.615 2018/12/28 15:09:28 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -354,11 +354,8 @@ struct table {
 	enum table_type			 t_type;
 	char				 t_config[PATH_MAX];
 
-	struct dict			 t_dict;
-
 	void				*t_handle;
 	struct table_backend		*t_backend;
-	void				*t_iter;
 };
 
 struct table_backend {
@@ -1599,13 +1596,14 @@ struct stat_value *stat_timespec(struct timespec *);
 
 
 /* table.c */
-struct table *table_find(struct smtpd *, const char *, const char *);
-struct table *table_create(struct smtpd *, const char *, const char *, const char *,
+struct table *table_find(struct smtpd *, const char *);
+struct table *table_create(struct smtpd *, const char *, const char *,
     const char *);
 int	table_config(struct table *);
 int	table_open(struct table *);
 int	table_update(struct table *);
 void	table_close(struct table *);
+void	table_dump(struct table *);
 int	table_check_use(struct table *, uint32_t, uint32_t);
 int	table_check_type(struct table *, uint32_t);
 int	table_check_service(struct table *, uint32_t);

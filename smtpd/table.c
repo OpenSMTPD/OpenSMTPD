@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.43 2018/12/27 15:04:59 eric Exp $	*/
+/*	$OpenBSD: table.c,v 1.47 2018/12/28 15:09:28 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -100,19 +100,9 @@ table_service_name(enum table_service s)
 }
 
 struct table *
-table_find(struct smtpd *conf, const char *name, const char *tag)
+table_find(struct smtpd *conf, const char *name)
 {
-	char buf[LINE_MAX];
-
-	if (tag == NULL)
-		return dict_get(conf->sc_tables_dict, name);
-
-	if ((size_t)snprintf(buf, sizeof(buf), "%s#%s", name, tag) >= sizeof(buf)) {
-		log_warnx("warn: table name too long: %s#%s", name, tag);
-		return (NULL);
-	}
-
-	return dict_get(conf->sc_tables_dict, buf);
+	return dict_get(conf->sc_tables_dict, name);
 }
 
 int
@@ -197,25 +187,16 @@ table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 }
 
 struct table *
-table_create(struct smtpd *conf, const char *backend, const char *name, const char *tag,
+table_create(struct smtpd *conf, const char *backend, const char *name,
     const char *config)
 {
 	struct table		*t;
 	struct table_backend	*tb;
-	char			 buf[LINE_MAX];
 	char			 path[LINE_MAX];
 	size_t			 n;
 	struct stat		 sb;
 
-	if (name && tag) {
-		if ((size_t)snprintf(buf, sizeof(buf), "%s#%s", name, tag) >=
-		    sizeof(buf))
-			fatalx("table_create: name too long \"%s#%s\"",
-			    name, tag);
-		name = buf;
-	}
-
-	if (name && table_find(conf, name, NULL))
+	if (name && table_find(conf, name))
 		fatalx("table_create: table \"%s\" already defined", name);
 
 	if ((tb = table_backend_lookup(backend)) == NULL) {
@@ -243,13 +224,6 @@ table_create(struct smtpd *conf, const char *backend, const char *name, const ch
 	t = xcalloc(1, sizeof(*t));
 	t->t_backend = tb;
 
-	/* XXX */
-	/*
-	 * until people forget about it, "file" really means "static"
-	 */
-	if (!strcmp(backend, "file"))
-		backend = "static";
-
 	if (config) {
 		if (strlcpy(t->t_config, config, sizeof t->t_config)
 		    >= sizeof t->t_config)
@@ -257,7 +231,7 @@ table_create(struct smtpd *conf, const char *backend, const char *name, const ch
 			    t->t_config);
 	}
 
-	if (strcmp(backend, "static") != 0)
+	if (strcmp(tb->name, "static") != 0)
 		t->t_type = T_DYNAMIC;
 
 	if (name == NULL)
@@ -269,7 +243,6 @@ table_create(struct smtpd *conf, const char *backend, const char *name, const ch
 			fatalx("table_create: table name too long");
 	}
 
-	dict_init(&t->t_dict);
 	dict_set(conf->sc_tables_dict, t->t_name, t);
 
 	return (t);
@@ -278,11 +251,6 @@ table_create(struct smtpd *conf, const char *backend, const char *name, const ch
 void
 table_destroy(struct smtpd *conf, struct table *t)
 {
-	void	*p = NULL;
-
-	while (dict_poproot(&t->t_dict, (void **)&p))
-		free(p);
-
 	dict_xpop(conf->sc_tables_dict, t->t_name);
 	free(t);
 }
@@ -303,6 +271,42 @@ table_add(struct table *t, const char *key, const char *val)
 
 	if (t->t_backend->add(t, key, val) == 0)
 		log_warnx("warn: failed to add \"%s\" in table \"%s\"", key, t->t_name);
+}
+
+void
+table_dump(struct table *t)
+{
+	const char *type;
+	char buf[LINE_MAX];
+
+	switch(t->t_type) {
+	case T_NONE:
+		type = "NONE";
+		break;
+	case T_DYNAMIC:
+		type = "DYNAMIC";
+		break;
+	case T_LIST:
+		type = "LIST";
+		break;
+	case T_HASH:
+		type = "HASH";
+		break;
+	default:
+		type = "???";
+		break;
+	}
+
+	if (t->t_config[0])
+		snprintf(buf, sizeof(buf), " config=\"%s\"", t->t_config);
+	else
+		buf[0] = '\0';
+
+	log_debug("TABLE \"%s\" backend=%s type=%s%s", t->t_name,
+	    t->t_backend->name, type, buf);
+
+	if (t->t_backend->dump)
+		t->t_backend->dump(t);
 }
 
 int
@@ -478,32 +482,10 @@ table_dump_all(struct smtpd *conf)
 {
 	struct table	*t;
 	void		*iter;
-	const char 	*sep;
-	char		 buf[1024];
 
 	iter = NULL;
-	while (dict_iter(conf->sc_tables_dict, &iter, NULL, (void **)&t)) {
-		sep = "";
- 		buf[0] = '\0';
-		if (t->t_type & T_DYNAMIC) {
-			(void)strlcat(buf, "DYNAMIC", sizeof(buf));
-			sep = ",";
-		}
-		if (t->t_type & T_LIST) {
-			(void)strlcat(buf, sep, sizeof(buf));
-			(void)strlcat(buf, "LIST", sizeof(buf));
-			sep = ",";
-		}
-		if (t->t_type & T_HASH) {
-			(void)strlcat(buf, sep, sizeof(buf));
-			(void)strlcat(buf, "HASH", sizeof(buf));
-			sep = ",";
-		}
-		log_debug("TABLE \"%s\" type=%s config=\"%s\"",
-		    t->t_name, buf, t->t_config);
-		if (t->t_backend->dump)
-			t->t_backend->dump(t);
-	}
+	while (dict_iter(conf->sc_tables_dict, &iter, NULL, (void **)&t))
+		table_dump(t);
 }
 
 void
