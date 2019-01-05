@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.385 2019/01/03 15:46:07 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.387 2019/01/05 09:43:39 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1083,6 +1083,11 @@ smtp_io(struct io *io, int evt, void *arg)
 		/* Message body */
 		eom = 0;
 		if (s->state == STATE_BODY) {
+			if (strcmp(line, ".")) {
+				s->tx->datain += strlen(line) + 1;
+				if (s->tx->datain > env->sc_maxsize)
+					s->tx->error = TX_ERROR_SIZE;
+			}
 			eom = (s->tx->filter == NULL) ?
 			    smtp_tx_dataline(s->tx, line) :
 			    smtp_tx_filtered_dataline(s->tx, line);
@@ -1143,6 +1148,7 @@ smtp_io(struct io *io, int evt, void *arg)
 		log_info("%016"PRIx64" smtp disconnected "
 		    "reason=timeout",
 		    s->id);
+		report_smtp_timeout("smtp-in", s->id);
 		smtp_free(s, "timeout");
 		break;
 
@@ -2553,13 +2559,6 @@ smtp_tx_dataline(struct smtp_tx *tx, const char *line)
 		/* escape lines starting with a '.' */
 		if (line[0] == '.')
 			line += 1;
-
-		/* account for newline */
-		tx->datain += strlen(line) + 1;
-		if (tx->datain > env->sc_maxsize) {
-			tx->error = TX_ERROR_SIZE;
-			return 0;
-		}
 	}
 
 	if (rfc5322_push(tx->parser, line) == -1) {
@@ -2666,25 +2665,12 @@ smtp_tx_dataline(struct smtp_tx *tx, const char *line)
 static int
 smtp_tx_filtered_dataline(struct smtp_tx *tx, const char *line)
 {
-	if (!strcmp(line, ".")) {
-		/* XXX - this needs to be handled properly */
-		/*
-		 * if (tx->error)
-		 *	return 1;
-		 */
+	if (!strcmp(line, "."))
 		line = NULL;
-	}
 	else {
 		/* ignore data line if an error is set */
 		if (tx->error)
 			return 0;
-
-		/* account for newline */
-		tx->datain += strlen(line) + 1;
-		if (tx->datain > env->sc_maxsize) {
-			tx->error = TX_ERROR_SIZE;
-			return 0;
-		}
 	}
 	io_printf(tx->filter, "%s\r\n", line ? line : ".");
 	return line ? 0 : 1;
