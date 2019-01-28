@@ -122,21 +122,22 @@ struct table_open_params {
 };
 
 enum table_service {
-	K_NONE		= 0x000,
-	K_ALIAS		= 0x001,	/* returns struct expand	*/
-	K_DOMAIN	= 0x002,	/* returns struct destination	*/
-	K_CREDENTIALS	= 0x004,	/* returns struct credentials	*/
-	K_NETADDR	= 0x008,	/* returns struct netaddr	*/
-	K_USERINFO	= 0x010,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x020,	/* returns struct source	*/
-	K_MAILADDR	= 0x040,	/* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x080,	/* returns struct addrname	*/
-	K_MAILADDRMAP	= 0x100,	/* returns struct maddrmap	*/
-	K_RELAYHOST	= 0x200,	/* returns struct relayhost	*/
-	K_STRING	= 0x400,
-	K_REGEX		= 0x800,
+	K_NONE		= 0x0000,
+	K_ALIAS		= 0x0001,	/* returns struct expand	*/
+	K_DOMAIN	= 0x0002,	/* returns struct destination	*/
+	K_CREDENTIALS	= 0x0004,	/* returns struct credentials	*/
+	K_NETADDR	= 0x0008,	/* returns struct netaddr	*/
+	K_USERINFO	= 0x0010,	/* returns struct userinfo	*/
+	K_SOURCE	= 0x0020,	/* returns struct source	*/
+	K_MAILADDR	= 0x0040,	/* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x0080,	/* returns struct addrname	*/
+	K_MAILADDRMAP	= 0x0100,	/* returns struct maddrmap	*/
+	K_RELAYHOST	= 0x0200,	/* returns struct relayhost	*/
+	K_STRING	= 0x0400,
+	K_REGEX		= 0x0800,
+	K_CHECKUSER	= 0x1000,	/* check user credentials	*/
 };
-#define K_ANY		  0xfff
+#define K_ANY		  0xffff
 
 enum {
 	PROC_TABLE_OK,

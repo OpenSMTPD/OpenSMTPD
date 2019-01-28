@@ -689,6 +689,8 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 {
 	struct table		*table;
 	union lookup		 lk;
+	char			*buf;
+	int			 buflen, r;
 
 	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
 	table = table_find(env, tablename);
@@ -696,6 +698,24 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 		log_warnx("warn: could not find table %s needed for authentication",
 		    tablename);
 		return (LKA_TEMPFAIL);
+	}
+
+	if ((buflen = asprintf(&buf, "%s:%s", user, password)) == -1) {
+		log_warn("warn");
+		return (LKA_TEMPFAIL);
+	}
+
+	r = table_lookup(table, K_CHECKUSER, buf, NULL);
+	freezero(buf, buflen);
+
+	switch (r) {
+	case 0:
+		return (LKA_PERMFAIL);
+	case 1:
+		return (LKA_OK);
+	default:
+		/* try using crypt_checkpass to check the credentials */
+		break;
 	}
 
 	switch (table_lookup(table, K_CREDENTIALS, user, &lk)) {

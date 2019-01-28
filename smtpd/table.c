@@ -80,6 +80,17 @@ table_backend_lookup(const char *backend)
 	return NULL;
 }
 
+static int
+table_lowercase_key(enum table_service s)
+{
+	switch (s) {
+	case K_CHECKUSER:
+		return 0;
+	default:
+		return 1;
+	}
+}
+
 static const char *
 table_service_name(enum table_service s)
 {
@@ -95,6 +106,7 @@ table_service_name(enum table_service s)
 	case K_ADDRNAME:	return "ADDRNAME";
 	case K_MAILADDRMAP:	return "MAILADDRMAP";
 	case K_RELAYHOST:	return "RELAYHOST";
+	case K_CHECKUSER:	return "CHECKUSER";
 	default:		return "???";
 	}
 }
@@ -115,13 +127,15 @@ int
 table_lookup(struct table *table, enum table_service kind, const char *key,
     union lookup *lk)
 {
-	int	r;
+	int	lower, r;
 	char	lkey[1024], *buf = NULL;
 
 	if (table->t_backend->lookup == NULL)
 		return (-1);
 
-	if (!lowercase(lkey, key, sizeof lkey)) {
+	lower = table_lowercase_key(kind);
+	if ((lower && !lowercase(lkey, key, sizeof(lkey)))
+	    || (!lower && strlcpy(lkey, key, sizeof(lkey)) >= sizeof(lkey))) {
 		log_warnx("warn: lookup key too long: %s", key);
 		return -1;
 	}
