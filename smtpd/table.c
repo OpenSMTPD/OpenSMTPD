@@ -63,7 +63,9 @@ static unsigned int last_table_id = 0;
 
 static struct table_backend *backends[] = {
 	&table_backend_static,
+#ifdef HAVE_DB_API
 	&table_backend_db,
+#endif
 	&table_backend_getpwnam,
 	&table_backend_proc,
 	NULL
