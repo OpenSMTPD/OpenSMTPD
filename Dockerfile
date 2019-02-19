@@ -1,4 +1,7 @@
 FROM alpine:3.9 as build
+
+WORKDIR /opensmtpd
+
 RUN apk add --no-cache \
     ca-certificates \
     wget \
@@ -21,14 +24,13 @@ COPY . /opensmtpd
 
 #build opensmtpd
 RUN rm -r /usr/local/
-RUN cd /opensmtpd && \
-    ./bootstrap && \
+RUN ./bootstrap && \
     ./configure --with-gnu-ld --sysconfdir=/etc --with-path-empty=/var/lib/opensmtpd/empty/ && \
     make && \
     make install
 
 FROM alpine:3.9
-MAINTAINER Arthur Moore <Arthur.Moore.git@cd-net.net>
+LABEL maintainer="Arthur Moore <Arthur.Moore.git@cd-net.net>"
 
 EXPOSE 25
 EXPOSE 465
