@@ -200,3 +200,20 @@ Then:
 or in debug and verbose mode
 
     smtpd -dv
+
+# Docker version
+
+OpenSMTPD provides a convenient docker file for getting started quickly.  However, there are a few minor quirks to know about.
+
+For ease of use, all configuration files live in '/etc/mail'.  This means the two files to modify are:
+
+	/etc/mail/smtpd.conf
+	/etc/mail/mailname
+
+Also, local deliveries are disabled by default.  The nature of Docker makes interacting with local users a bit tricky, and requires a user to know the ins and outs of Docker.
+
+
+To run the Docker version, create a '/etc/mail' directory, and add your own smtpd.conf file there.  Next, run:
+```
+docker run --name smtpd_server -p 25:25 -v /etc/mail:/etc/mail emperorarthur/opensmtpd
+```
