@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.387 2019/01/05 09:43:39 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.389 2019/02/20 11:56:27 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -692,6 +692,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct smtp_session		*s;
 	struct smtp_rcpt		*rcpt;
 	char				 user[LOGIN_NAME_MAX];
+	char				 tmp[SMTP_LINE_MAX];
 	struct msg			 m;
 	const char			*line, *helo;
 	uint64_t			 reqid, evpid;
@@ -733,14 +734,26 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &line);
 		m_end(&m);
 		s = tree_xpop(&wait_lka_rcpt, reqid);
+
+		tmp[0] = '\0';
+		if (s->tx->evp.rcpt.user[0]) {
+			(void)strlcpy(tmp, s->tx->evp.rcpt.user, sizeof tmp);
+			if (s->tx->evp.rcpt.domain[0]) {
+				(void)strlcat(tmp, "@", sizeof tmp);
+				(void)strlcat(tmp, s->tx->evp.rcpt.domain,
+				    sizeof tmp);
+			}
+		}
+
 		switch (status) {
 		case LKA_OK:
 			fatalx("unexpected ok");
 		case LKA_PERMFAIL:
-			smtp_reply(s, "%s", line);
+			smtp_reply(s, "%s: <%s>", line, tmp);
 			break;
 		case LKA_TEMPFAIL:
-			smtp_reply(s, "%s", line);
+			smtp_reply(s, "%s: <%s>", line, tmp);
+			break;
 		}
 		return;
 
@@ -1969,7 +1982,7 @@ smtp_lookup_servername(struct smtp_session *s)
 		m_create(p_lka, IMSG_SMTP_LOOKUP_HELO, 0, 0, -1);
 		m_add_id(p_lka, s->id);
 		m_add_string(p_lka, s->listener->hostnametable);
-		m_add_sockaddr(p_lka, (struct sockaddr*)&s->ss);
+		m_add_sockaddr(p_lka, (struct sockaddr*)&s->listener->ss);
 		m_close(p_lka);
 		tree_xset(&wait_lka_helo, s->id, s);
 		return;
