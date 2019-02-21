@@ -2,10 +2,9 @@ FROM alpine:3.9 as build
 
 WORKDIR /opensmtpd
 
+# libressl is used for testing only
 RUN apk add --no-cache \
     ca-certificates \
-    wget \
-    cmake \
     automake \
     autoconf \
     libtool \
@@ -18,7 +17,15 @@ RUN apk add --no-cache \
     libasr-dev \
     fts-dev \
     zlib-dev \
-    libressl-dev
+    libressl-dev \
+    libressl
+
+#For testing
+RUN mkdir -p /var/lib/opensmtpd/empty/ && \
+    adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
+    adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
+    mkdir -p /var/spool/smtpd && \
+    chmod 711 /var/spool/smtpd
 
 COPY . /opensmtpd
 
@@ -48,7 +55,8 @@ RUN apk add --no-cache libressl libevent libasr fts zlib ca-certificates && \
     adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     mkdir -p /etc/mail/ && \
-    mkdir -p /var/spool/smtpd
+    mkdir -p /var/spool/smtpd && \
+    chmod 711 /var/spool/smtpd
 
 COPY --from=build /usr/local/ /usr/local/
 
