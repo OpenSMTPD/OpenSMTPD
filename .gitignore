@@ -4,7 +4,6 @@
 *.in
 *.out
 *.log
-*~
 .#*
 .deps
 m4
@@ -26,6 +25,8 @@ stamp-h1
 ylwrap
 tags
 obj
+
+#Other VCS files
 CVS/
 smtpd/CVS
 smtpd/smtpctl/CVS
@@ -34,3 +35,7 @@ smtpd/mail/CVS
 smtpd/mail/CVS
 smtpd/mail/*/CVS
 smtpd/smtpctl/CVS/*
+
+#Editor temporary files
+*~
+.idea

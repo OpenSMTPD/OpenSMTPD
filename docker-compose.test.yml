@@ -1,0 +1,6 @@
+sut:
+  build: .
+  #This means we are using the build container, not the final container
+  target: build
+  entrypoint: /bin/sh
+  command: /opensmtpd/tests/test_all.sh
