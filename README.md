@@ -51,11 +51,6 @@ Get the source
 
     git clone -b portable git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
 
-or
-
-    wget http://www.opensmtpd.org/archives/opensmtpd-portable-latest.tar.gz
-    tar xzvf opensmtpd-portable-latest.tar.gz
-
 
 Build
 -----
