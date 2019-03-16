@@ -1,6 +1,9 @@
-sut:
-  build: .
-  #This means we are using the build container, not the final container
-  target: build
-  entrypoint: /bin/sh
-  command: /opensmtpd/tests/test_all.sh
+version: '3.4'
+services:
+  sut:
+    build:
+      context: .
+      #This means we are using the build container, not the final container
+      target: build
+    entrypoint: /bin/sh
+    command: /opensmtpd/tests/test_all.sh
