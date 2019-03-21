@@ -182,7 +182,7 @@ typedef struct {
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE BUILTIN
 %token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT
-%token	DATA DATA_LINE DHE DISCONNECT DOMAIN
+%token	DATA DATA_LINE DHE DIRECTORY DISCONNECT DOMAIN
 %token	EHLO ENABLE ENCRYPTION ERROR EXPAND_ONLY 
 %token	FCRDNS FILTER FOR FORWARD_ONLY FROM
 %token	GROUP
@@ -511,6 +511,9 @@ QUEUE COMPRESSION {
 		YYERROR;
 	}
 	free($3);
+}
+| QUEUE DIRECTORY STRING {
+        conf->sc_queue_directory = $3;
 }
 ;
 
@@ -2264,6 +2267,7 @@ lookup(char *s)
 		{ "data",		DATA },
 		{ "data-line",		DATA_LINE },
 		{ "dhe",		DHE },
+		{ "directory",		DIRECTORY },
 		{ "disconnect",		DISCONNECT },
 		{ "domain",		DOMAIN },
 		{ "ehlo",		EHLO },

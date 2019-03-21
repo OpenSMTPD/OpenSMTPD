@@ -166,7 +166,7 @@ offline_file(void)
 	int	fd;
 	FILE   *fp;
 
-	if (!bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
+	if (!bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", env->sc_queue_directory,
 		PATH_OFFLINE, (long long int) time(NULL)))
 		err(EX_UNAVAILABLE, "snprintf");
 
@@ -724,7 +724,7 @@ do_show_envelope(int argc, struct parameter *argv)
 	char	 buf[PATH_MAX];
 
 	if (!bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/%016" PRIx64,
-	    PATH_SPOOL,
+            env->sc_queue_directory,
 	    PATH_QUEUE,
 	    (evpid_to_msgid(argv[0].u.u_evpid) & 0xff000000) >> 24,
 	    evpid_to_msgid(argv[0].u.u_evpid),
@@ -756,7 +756,7 @@ do_show_message(int argc, struct parameter *argv)
 		msgid = argv[0].u.u_msgid;
 
 	if (!bsnprintf(buf, sizeof(buf), "%s%s/%02x/%08x/message",
-		PATH_SPOOL,
+                env->sc_queue_directory,
 		PATH_QUEUE,
 		(msgid & 0xff000000) >> 24,
 		msgid))
@@ -783,11 +783,11 @@ do_show_queue(int argc, struct parameter *argv)
 	if (!srv_connect()) {
 		log_init(1, LOG_MAIL);
 		queue_init("fs", 0);
-		if (chroot(PATH_SPOOL) == -1 || chdir("/") == -1)
-			err(1, "%s", PATH_SPOOL);
+		if (chroot(env->sc_queue_directory) == -1 || chdir("/") == -1)
+			err(1, "%s", env->sc_queue_directory);
 		fts = fts_open(qpath, FTS_PHYSICAL|FTS_NOCHDIR, NULL);
 		if (fts == NULL)
-			err(1, "%s/queue", PATH_SPOOL);
+			err(1, "%s/queue", env->sc_queue_directory);
 
 		while ((ftse = fts_read(fts)) != NULL) {
 			switch (ftse->fts_info) {

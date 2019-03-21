@@ -1262,9 +1262,11 @@ purge_task(void)
 	int		 n;
 	uid_t		 uid;
 	gid_t		 gid;
+        char purge[PATH_MAX];
+        (void)snprintf(purge, sizeof purge, "%s%s", env->sc_queue_directory, PATH_PURGE);
 
 	n = 0;
-	if ((d = opendir(PATH_SPOOL PATH_PURGE))) {
+	if ((d = opendir(purge))) {
 		while (readdir(d) != NULL)
 			n++;
 		closedir(d);
@@ -1279,7 +1281,7 @@ purge_task(void)
 		case 0:
 			if ((pw = getpwnam(SMTPD_QUEUE_USER)) == NULL)
 				fatalx("unknown user " SMTPD_QUEUE_USER);
-			if (chroot(PATH_SPOOL PATH_PURGE) == -1)
+			if (chroot(purge) == -1)
 				fatal("smtpd: chroot");
 			if (chdir("/") == -1)
 				fatal("smtpd: chdir");
@@ -1531,8 +1533,10 @@ offline_scan(int fd, short ev, void *arg)
 	FTS		*fts = arg;
 	FTSENT		*e;
 	int		 n = 0;
+        char offline[PATH_MAX];
+        (void)snprintf(offline, sizeof offline, "%s%s", env->sc_queue_directory, PATH_OFFLINE);
 
-	path_argv[0] = PATH_SPOOL PATH_OFFLINE;
+	path_argv[0] = offline;
 	path_argv[1] = NULL;
 
 	if (fts == NULL) {
@@ -1591,7 +1595,7 @@ offline_enqueue(char *name)
 	struct passwd	*pw;
 	int		 pathlen;
 
-	pathlen = asprintf(&path, "%s/%s", PATH_SPOOL PATH_OFFLINE, name);
+	pathlen = asprintf(&path, "%s%s/%s", env->sc_queue_directory, PATH_OFFLINE, name);
 	if (pathlen == -1) {
 		log_warnx("warn: smtpd: asprintf");
 		return (-1);

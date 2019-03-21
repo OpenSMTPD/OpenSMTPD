@@ -636,7 +636,7 @@ queue(void)
 	env->sc_queue_flags |= QUEUE_EVPCACHE;
 	env->sc_queue_evpcache_size = 1024;
 
-	if (chroot(PATH_SPOOL) == -1)
+	if (chroot(env->sc_queue_directory) == -1)
 		fatal("queue: chroot");
 	if (chdir("/") == -1)
 		fatal("queue: chdir(\"/\")");
