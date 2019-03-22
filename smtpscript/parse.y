@@ -113,7 +113,7 @@ typedef struct {
 %token	ERROR ARROW
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
-%type	<v.number>	quantifier port duration size
+%type	<v.number>	quantifier port duration
 %type	<v.op>		statement block
 %%
 
@@ -168,26 +168,6 @@ duration	: NUMBER quantifier		{
 				YYERROR;
 			}
 			$$ = $1 * $2;
-		}
-		;
-
-size		: NUMBER		{
-			if ($1 < 0) {
-				yyerror("invalid size: %" PRId64, $1);
-				YYERROR;
-			}
-			$$ = $1;
-		}
-		| STRING			{
-			long long result;
-
-			if (scan_scaled($1, &result) == -1 || result < 0) {
-				yyerror("invalid size: %s", $1);
-				YYERROR;
-			}
-			free($1);
-
-			$$ = result;
 		}
 		;
 
