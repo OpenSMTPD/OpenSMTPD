@@ -215,8 +215,8 @@ control(void)
 
 	purge_config(PURGE_EVERYTHING);
 
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
+	if ((pw = getpwnam(env->sc_smtpd_user)) == NULL)
+		fatalx("unknown user %s", env->sc_smtpd_user);
 
 	stat_backend = env->sc_stat;
 	stat_backend->init();

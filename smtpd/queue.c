@@ -631,8 +631,8 @@ queue(void)
 	purge_config(PURGE_EVERYTHING & ~PURGE_DISPATCHERS);
 
 	if ((pw = getpwnam(env->sc_queue_user)) == NULL)
-		if ((pw = getpwnam(SMTPD_USER)) == NULL)
-			fatalx("unknown user " SMTPD_USER);
+		if ((pw = getpwnam(env->sc_smtpd_user)) == NULL)
+			fatalx("unknown user %s", env->sc_smtpd_user);
 
 	env->sc_queue_flags |= QUEUE_EVPCACHE;
 	env->sc_queue_evpcache_size = 1024;

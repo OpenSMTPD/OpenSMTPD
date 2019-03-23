@@ -61,6 +61,7 @@ config_default(void)
 
         conf->sc_sock_path = SMTPD_SOCKET;
         conf->sc_path_chroot = PATH_CHROOT;
+        conf->sc_smtpd_user = SMTPD_USER;
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 	conf->sc_subaddressing_delim = SUBADDRESSING_DELIMITER;
 	conf->sc_ttl = SMTPD_QUEUE_EXPIRY;

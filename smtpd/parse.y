@@ -506,6 +506,9 @@ SMTP LIMIT limits_smtp
 	}
 	conf->sc_subaddressing_delim = $3;
 }
+| SMTP USER STRING {
+	conf->sc_smtpd_user = $3;
+}
 ;
 
 

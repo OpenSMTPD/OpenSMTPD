@@ -80,8 +80,8 @@ ca(void)
 
 	purge_config(PURGE_LISTENERS|PURGE_TABLES|PURGE_RULES|PURGE_DISPATCHERS);
 
-	if ((pw = getpwnam(SMTPD_USER)) == NULL)
-		fatalx("unknown user " SMTPD_USER);
+	if ((pw = getpwnam(env->sc_smtpd_user)) == NULL)
+		fatalx("unknown user %s", env->sc_smtpd_user);
 
 	if (chroot(env->sc_path_chroot) == -1)
 		fatal("ca: chroot");

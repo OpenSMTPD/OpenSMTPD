@@ -507,14 +507,14 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			(void)strlcpy(ep->mda_user, xn->u.user, sizeof(ep->mda_user));
 		else {
 			user = !xn->parent->realuser ?
-			    SMTPD_USER :
+			    env->sc_smtpd_user :
 			    xn->parent->u.user;
 			(void)strlcpy(ep->mda_user, user, sizeof (ep->mda_user));
 
 			/* this battle needs to be fought ... */
-			if (strcmp(ep->mda_user, SMTPD_USER) == 0)
+			if (strcmp(ep->mda_user, env->sc_smtpd_user) == 0)
 				log_warn("commands executed from aliases "
-				    "run with %s privileges", SMTPD_USER);
+				    "run with %s privileges", env->sc_smtpd_user);
 
 			if (xn->type == EXPAND_FILENAME)
 				format = PATH_LIBEXEC"/mail.mboxfile -f %%{mbox.from} %s";
