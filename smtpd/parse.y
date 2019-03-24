@@ -128,13 +128,15 @@ enum listen_options {
 	LO_SENDERS	= 0x000800,
 	LO_RECEIVEDAUTH = 0x001000,
 	LO_MASQUERADE	= 0x002000,
-	LO_CA		= 0x010000
+	LO_CA		= 0x010000,
+	LO_INHERIT	= 0x020000,
 };
 
 static struct listen_opts {
 	char	       *ifx;
 	int		family;
 	in_port_t	port;
+	int		inherited_fd;
 	uint16_t	ssl;
 	char	       *filtername;
 	char	       *pki;
@@ -185,7 +187,7 @@ typedef struct {
 %token	FILTER FOR FORWARD_ONLY FROM
 %token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
-%token	INCLUDE INET4 INET6
+%token	INCLUDE INET4 INET6 INHERIT
 %token	JUNK
 %token	KEY
 %token	LIMIT LISTEN LMTP LOCAL
@@ -1476,6 +1478,19 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.sendertable = t;
 		}
+		| INHERIT NUMBER		{
+			if (listen_opts.options & LO_INHERIT) {
+				yyerror("inherited fd already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_INHERIT;
+
+			if ($2 <= 0) {
+				yyerror("invalid fd to inherit: %" PRId64, $2);
+				YYERROR;
+			}
+			listen_opts.inherited_fd = $2;
+		}
 		;
 
 listener_type	: socket_listener
@@ -1657,6 +1672,7 @@ lookup(char *s)
 		{ "include",		INCLUDE },
 		{ "inet4",		INET4 },
 		{ "inet6",		INET6 },
+		{ "inherit",		INHERIT },
 		{ "junk",		JUNK },
 		{ "key",		KEY },
 		{ "limit",		LIMIT },
@@ -2251,7 +2267,11 @@ create_if_listener(struct listen_opts *lo)
 static void
 config_listener(struct listener *h,  struct listen_opts *lo)
 {
-	h->fd = -1;
+	if (lo->options & LO_INHERIT) {
+		h->fd = lo->inherited_fd;
+	} else {
+		h->fd = -1;
+	}
 	h->port = lo->port;
 	h->flags = lo->flags;
 

@@ -103,6 +103,7 @@ static void forkmda(struct mproc *, uint64_t, struct deliver *);
 static int parent_forward_open(char *, char *, uid_t, gid_t);
 static struct child *child_add(pid_t, int, const char *);
 static struct mproc *start_child(int, char **, char *);
+static struct mproc *start_child_inherit(int, char **, char *, char);
 static struct mproc *setup_peer(enum smtp_proc_type, pid_t, int);
 static void setup_peers(struct mproc *, struct mproc *);
 static void setup_done(struct mproc *);
@@ -729,7 +730,7 @@ main(int argc, char *argv[])
 		p_lka = start_child(save_argc, save_argv, "lka");
 		p_lka->proc = PROC_LKA;
 
-		p_pony = start_child(save_argc, save_argv, "pony");
+		p_pony = start_child_inherit(save_argc, save_argv, "pony", 1);
 		p_pony->proc = PROC_PONY;
 
 		p_queue = start_child(save_argc, save_argv, "queue");
@@ -838,7 +839,7 @@ main(int argc, char *argv[])
 }
 
 static struct mproc *
-start_child(int save_argc, char **save_argv, char *rexec)
+start_child_inherit(int save_argc, char **save_argv, char *rexec, char inherit_listeners)
 {
 	struct mproc *p;
 	char *argv[SMTPD_MAXARG];
@@ -875,7 +876,18 @@ start_child(int save_argc, char **save_argv, char *rexec)
 	if (dup2(sp[0], 3) == -1)
 		fatal("%s: dup2", rexec);
 
-	xclosefrom(4);
+	int next_unused = 4;
+	if (inherit_listeners) {
+		struct listener	*l;
+		TAILQ_FOREACH(l, env->sc_listeners, entry) {
+			if (l->fd != -1) {
+				dup2(l->fd, next_unused);
+				next_unused++;
+			}
+		}
+	}
+
+	xclosefrom(next_unused);
 
 	for (argc = 0; argc < save_argc; argc++)
 		argv[argc] = save_argv[argc];
@@ -885,6 +897,12 @@ start_child(int save_argc, char **save_argv, char *rexec)
 
 	execvp(argv[0], argv);
 	fatal("%s: execvp", rexec);
+}
+
+static struct mproc *
+start_child(int save_argc, char **save_argv, char *rexec)
+{
+	return start_child_inherit(save_argc, save_argv, rexec, 1);
 }
 
 static void

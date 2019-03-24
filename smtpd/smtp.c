@@ -132,8 +132,15 @@ smtp_setup_listeners(void)
 {
 	struct listener	       *l;
 	int			opt;
+	int next_inherited = 4;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
+		/* Some fds may be already set up through inheritance. */
+		if (l->fd != -1) {
+			l->fd = next_inherited;
+			next_inherited++;
+			continue;
+		}
 		if ((l->fd = socket(l->ss.ss_family, SOCK_STREAM, 0)) == -1) {
 			if (errno == EAFNOSUPPORT) {
 				log_warn("smtpd: socket");
