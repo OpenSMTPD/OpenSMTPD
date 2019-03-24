@@ -1126,9 +1126,6 @@ smtpd(void) {
 	offline_timeout.tv_usec = 0;
 	evtimer_add(&offline_ev, &offline_timeout);
 
-	if (pidfile(NULL) < 0)
-		err(1, "pidfile");
-
 	purge_task();
 
 	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
