@@ -1266,8 +1266,8 @@ purge_task(void)
 			log_warn("warn: purge_task: fork");
 			break;
 		case 0:
-			if ((pw = getpwnam(SMTPD_QUEUE_USER)) == NULL)
-				fatalx("unknown user " SMTPD_QUEUE_USER);
+			if ((pw = getpwnam(env->sc_queue_user)) == NULL)
+				fatalx("unknown user %s", env->sc_queue_user);
 			if (chroot(purge) == -1)
 				fatal("smtpd: chroot");
 			if (chdir("/") == -1)

@@ -72,6 +72,8 @@ config_default(void)
 	conf->sc_scheduler_max_msg_batch_size = 1024;
 
         conf->sc_queue_path = PATH_SPOOL;
+        conf->sc_queue_user = SMTPD_QUEUE_USER;
+        conf->sc_queue_group = SMTPD_QUEUE_GROUP;
 
 	conf->sc_session_max_rcpt = 1000;
 	conf->sc_session_max_mails = 100;

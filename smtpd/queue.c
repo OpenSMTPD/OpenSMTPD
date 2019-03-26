@@ -630,7 +630,7 @@ queue(void)
 
 	purge_config(PURGE_EVERYTHING & ~PURGE_DISPATCHERS);
 
-	if ((pw = getpwnam(SMTPD_QUEUE_USER)) == NULL)
+	if ((pw = getpwnam(env->sc_queue_user)) == NULL)
 		if ((pw = getpwnam(SMTPD_USER)) == NULL)
 			fatalx("unknown user " SMTPD_USER);
 

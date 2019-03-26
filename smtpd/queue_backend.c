@@ -120,13 +120,13 @@ queue_init(const char *name, int server)
 	struct group	*gr;
 	int		 r;
 
-	pwq = getpwnam(SMTPD_QUEUE_USER);
+	pwq = getpwnam(env->sc_queue_user);
 	if (pwq == NULL)
-		errx(1, "unknown user %s", SMTPD_QUEUE_USER);
+		errx(1, "unknown user %s", env->sc_queue_user);
 
-	gr = getgrnam(SMTPD_QUEUE_GROUP);
+	gr = getgrnam(env->sc_queue_group);
 	if (gr == NULL)
-		errx(1, "unknown group %s", SMTPD_QUEUE_GROUP);
+		errx(1, "unknown group %s", env->sc_queue_group);
 
 	tree_init(&evpcache_tree);
 	TAILQ_INIT(&evpcache_list);

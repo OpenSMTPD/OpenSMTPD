@@ -471,6 +471,12 @@ QUEUE COMPRESSION {
 | QUEUE PATH STRING {
         conf->sc_queue_path = $3;
 }
+| QUEUE USER STRING {
+        conf->sc_queue_user = $3;
+}
+| QUEUE GROUP STRING {
+        conf->sc_queue_group = $3;
+}
 ;
 
 
