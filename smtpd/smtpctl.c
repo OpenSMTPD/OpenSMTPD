@@ -1045,6 +1045,16 @@ do_spf_walk(int argc, struct parameter *argv)
 	return spfwalk(argc, argv);
 }
 
+void
+load_config(void)
+{
+	char *conffile = CONF_FILE;
+	if ((env = config_default()) == NULL)
+		err(1, NULL);
+	if (parse_config(env, conffile, 0))
+		exit(1);
+}
+
 #define cmd_install_priv(s, f) \
 	cmd_install((s), privileged ? (f) : do_permission_denied)
 
@@ -1056,6 +1066,8 @@ main(int argc, char **argv)
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
 	__progname = ssh_get_progname(argv[0]);
+
+        load_config();
 
 	sendmail_compat(argc, argv);
 	privileged = geteuid() == 0;
