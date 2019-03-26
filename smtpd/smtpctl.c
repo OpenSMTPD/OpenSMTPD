@@ -1048,7 +1048,10 @@ do_spf_walk(int argc, struct parameter *argv)
 void
 load_config(void)
 {
-	char *conffile = CONF_FILE;
+	char *conffile;
+	conffile = getenv("SMTPD_CONFIG_FILE");
+	if (!conffile)
+		conffile = CONF_FILE;
 	if ((env = config_default()) == NULL)
 		err(1, NULL);
 	if (parse_config(env, conffile, 0))
