@@ -1219,6 +1219,9 @@ opt_sock_listen : FILTER STRING {
 				YYERROR;
 			}
 		}
+		| PATH STRING {
+			conf->sc_sock_path = $2;
+		}
 		;
 
 opt_if_listen : INET4 {

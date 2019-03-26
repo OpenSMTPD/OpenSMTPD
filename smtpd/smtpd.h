@@ -517,6 +517,7 @@ struct listener {
 
 struct smtpd {
 	char				sc_conffile[PATH_MAX];
+	char                           *sc_sock_path;
 	size_t				sc_maxsize;
 
 #define SMTPD_OPT_VERBOSE		0x00000001

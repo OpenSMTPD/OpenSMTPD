@@ -178,14 +178,14 @@ control_create_socket(void)
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
-	if (strlcpy(s_un.sun_path, SMTPD_SOCKET,
+	if (strlcpy(s_un.sun_path, env->sc_sock_path,
 	    sizeof(s_un.sun_path)) >= sizeof(s_un.sun_path))
 		fatal("control: socket name too long");
 
 	if (connect(fd, (struct sockaddr *)&s_un, sizeof(s_un)) == 0)
 		fatalx("control socket already listening");
 
-	if (unlink(SMTPD_SOCKET) == -1)
+	if (unlink(env->sc_sock_path) == -1)
 		if (errno != ENOENT)
 			fatal("control: cannot unlink socket");
 
@@ -196,9 +196,9 @@ control_create_socket(void)
 	}
 	(void)umask(old_umask);
 
-	if (chmod(SMTPD_SOCKET,
+	if (chmod(env->sc_sock_path,
 		S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) == -1) {
-		(void)unlink(SMTPD_SOCKET);
+		(void)unlink(env->sc_sock_path);
 		fatal("control: chmod");
 	}
 

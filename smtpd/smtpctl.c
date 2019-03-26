@@ -139,7 +139,7 @@ srv_connect(void)
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
-	(void)strlcpy(s_un.sun_path, SMTPD_SOCKET, sizeof(s_un.sun_path));
+	(void)strlcpy(s_un.sun_path, env->sc_sock_path, sizeof(s_un.sun_path));
 	if (connect(ctl_sock, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
 		saved_errno = errno;
 		close(ctl_sock);

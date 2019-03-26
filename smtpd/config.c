@@ -59,6 +59,7 @@ config_default(void)
 
 	(void)strlcpy(conf->sc_hostname, hostname, sizeof(conf->sc_hostname));
 
+        conf->sc_sock_path = SMTPD_SOCKET;
 	conf->sc_maxsize = DEFAULT_MAX_BODY_SIZE;
 	conf->sc_subaddressing_delim = SUBADDRESSING_DELIMITER;
 	conf->sc_ttl = SMTPD_QUEUE_EXPIRY;

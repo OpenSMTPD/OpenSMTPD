@@ -315,7 +315,7 @@ parent_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-	unlink(SMTPD_SOCKET);
+	unlink(env->sc_sock_path);
 
 	log_info("Exiting");
 	exit(0);
