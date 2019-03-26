@@ -445,7 +445,7 @@ scheduler(void)
 
 	backend->init(backend_scheduler);
 
-	if (chroot(PATH_CHROOT) == -1)
+	if (chroot(env->sc_path_chroot) == -1)
 		fatal("scheduler: chroot");
 	if (chdir("/") == -1)
 		fatal("scheduler: chdir(\"/\")");

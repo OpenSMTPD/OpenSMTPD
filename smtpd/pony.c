@@ -164,7 +164,7 @@ pony(void)
 	if ((pw = getpwnam(SMTPD_USER)) == NULL)
 		fatalx("unknown user " SMTPD_USER);
 
-	if (chroot(PATH_CHROOT) == -1)
+	if (chroot(env->sc_path_chroot) == -1)
 		fatal("pony: chroot");
 	if (chdir("/") == -1)
 		fatal("pony: chdir(\"/\")");

@@ -215,6 +215,7 @@ grammar		: /* empty */
 		| grammar ca '\n'
 		| grammar mda '\n'
 		| grammar mta '\n'
+		| grammar path '\n'
 		| grammar pki '\n'
 		| grammar queue '\n'
 		| grammar scheduler '\n'
@@ -378,6 +379,13 @@ MTA MAX_DEFERRED NUMBER  {
 | MTA LIMIT {
 	limits = dict_get(conf->sc_limits_dict, "default");
 } limits_mta
+;
+
+
+path:
+PATH CHROOT STRING {
+        conf->sc_path_chroot = $3;
+}
 ;
 
 
