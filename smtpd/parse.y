@@ -191,7 +191,7 @@ typedef struct {
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
 %token	NO_DSN NO_VERIFY
 %token	ON
-%token	PKI PORT
+%token	PATH PKI PORT
 %token	QUEUE
 %token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT
 %token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
@@ -1651,6 +1651,7 @@ lookup(char *s)
 		{ "no-dsn",		NO_DSN },
 		{ "no-verify",		NO_VERIFY },
 		{ "on",			ON },
+		{ "path",		PATH },
 		{ "pki",		PKI },
 		{ "port",		PORT },
 		{ "queue",		QUEUE },
