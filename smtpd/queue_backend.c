@@ -141,16 +141,22 @@ queue_init(const char *name, int server)
 		backend = &queue_backend_proc;
 
 	if (server) {
-		if (ckdir(PATH_SPOOL, 0711, 0, 0, 1) == 0)
+                char offline[PATH_MAX];
+                char purge[PATH_MAX];
+                char temporary[PATH_MAX];
+                (void)snprintf(offline,   sizeof offline,   "%s%s", env->sc_queue_path, PATH_OFFLINE);
+                (void)snprintf(purge,     sizeof purge,     "%s%s", env->sc_queue_path, PATH_PURGE);
+                (void)snprintf(temporary, sizeof temporary, "%s%s", env->sc_queue_path, PATH_TEMPORARY);
+		if (ckdir(env->sc_queue_path, 0711, 0, 0, 1) == 0)
 			errx(1, "error in spool directory setup");
-		if (ckdir(PATH_SPOOL PATH_OFFLINE, 0770, 0, gr->gr_gid, 1) == 0)
+		if (ckdir(offline, 0770, 0, gr->gr_gid, 1) == 0)
 			errx(1, "error in offline directory setup");
-		if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
+		if (ckdir(purge, 0700, pwq->pw_uid, 0, 1) == 0)
 			errx(1, "error in purge directory setup");
 
-		mvpurge(PATH_SPOOL PATH_TEMPORARY, PATH_SPOOL PATH_PURGE);
+		mvpurge(temporary, purge);
 
-		if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, pwq->pw_uid, 0, 1) == 0)
+		if (ckdir(temporary, 0700, pwq->pw_uid, 0, 1) == 0)
 			errx(1, "error in purge directory setup");
 	}
 

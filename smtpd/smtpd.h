@@ -539,6 +539,7 @@ struct smtpd {
 	uint32_t			sc_queue_flags;
 	char			       *sc_queue_key;
 	size_t				sc_queue_evpcache_size;
+	char			       *sc_queue_path;
 
 	size_t				sc_session_max_rcpt;
 	size_t				sc_session_max_mails;

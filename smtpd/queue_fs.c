@@ -659,16 +659,21 @@ queue_fs_init(struct passwd *pw, int server, const char *conf)
 	int		 ret;
 
 	/* remove incoming/ if it exists */
-	if (server)
-		mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
+	if (server) {
+                char incoming[PATH_MAX];
+                char purge[PATH_MAX];
+                (void)snprintf(incoming, sizeof incoming, "%s%s", env->sc_queue_path, PATH_INCOMING);
+                (void)snprintf(purge,    sizeof purge,    "%s%s", env->sc_queue_path, PATH_PURGE);
+		mvpurge(incoming, purge);
+        }
 
 	fsqueue_envelope_path(0, path, sizeof(path));
 
 	ret = 1;
 	for (n = 0; n < nitems(paths); n++) {
-		(void)strlcpy(path, PATH_SPOOL, sizeof(path));
+		(void)strlcpy(path, env->sc_queue_path, sizeof(path));
 		if (strlcat(path, paths[n], sizeof(path)) >= sizeof(path))
-			errx(1, "path too long %s%s", PATH_SPOOL, paths[n]);
+			errx(1, "path too long %s%s", env->sc_queue_path, paths[n]);
 		if (ckdir(path, 0700, pw->pw_uid, 0, server) == 0)
 			ret = 0;
 	}

@@ -459,6 +459,9 @@ QUEUE COMPRESSION {
 	}
 	free($3);
 }
+| QUEUE PATH STRING {
+        conf->sc_queue_path = $3;
+}
 ;
 
 
