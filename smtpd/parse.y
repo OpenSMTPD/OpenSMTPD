@@ -183,6 +183,7 @@ typedef struct {
 %token	DHE DOMAIN
 %token	ENCRYPTION ERROR EXPAND_ONLY
 %token	FILTER FOR FORWARD_ONLY FROM
+%token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
 %token	INCLUDE INET4 INET6
 %token	JUNK
@@ -1638,6 +1639,7 @@ lookup(char *s)
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARD_ONLY },
 		{ "from",		FROM },
+		{ "group",		GROUP },
 		{ "helo",		HELO },
 		{ "helo-src",       	HELO_SRC },
 		{ "host",		HOST },
