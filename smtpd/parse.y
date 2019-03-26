@@ -179,7 +179,7 @@ typedef struct {
 
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE
-%token	CA CERT CIPHERS COMPRESSION
+%token	CA CERT CHROOT CIPHERS COMPRESSION
 %token	DHE DOMAIN
 %token	ENCRYPTION ERROR EXPAND_ONLY
 %token	FILTER FOR FORWARD_ONLY FROM
@@ -1619,6 +1619,7 @@ lookup(char *s)
 		{ "bounce",		BOUNCE },
 		{ "ca",			CA },
 		{ "cert",		CERT },
+		{ "chroot",		CHROOT },
 		{ "ciphers",		CIPHERS },
 		{ "compression",	COMPRESSION },
 		{ "dhe",		DHE },
