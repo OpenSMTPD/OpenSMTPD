@@ -69,7 +69,7 @@ ruleset_match_from(struct rule *r, const struct envelope *evp)
 
 	if (r->flag_from_socket) {
 		/* XXX - socket needs to be distinguished from "local" */
-		return -1;
+		return 0;
 	}
 
 	if (evp->flags & EF_INTERNAL)
