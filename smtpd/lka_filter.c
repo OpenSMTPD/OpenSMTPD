@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.34 2019/01/15 04:49:50 sunil Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.36 2019/05/02 11:39:45 martijn Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -421,6 +421,7 @@ lka_filter_process_response(const char *name, const char *line)
 	/*char *phase = NULL;*/
 	char *response = NULL;
 	char *parameter = NULL;
+	struct filter_session *fs;
 
 	(void)strlcpy(buffer, line, sizeof buffer);
 	if ((ep = strchr(buffer, '|')) == NULL)
@@ -458,14 +459,20 @@ lka_filter_process_response(const char *name, const char *line)
 		return 0;
 
 	response = ep+1;
+
+	fs = tree_xget(&sessions, reqid);
+	if (strcmp(kind, "filter-dataline") == 0) {
+		if (fs->phase != FILTER_DATA_LINE)
+			fatalx("misbehaving filter");
+		filter_data_next(token, reqid, response);
+		return 1;
+	}
+	if (fs->phase == FILTER_DATA_LINE)
+		fatalx("misbehaving filter");
+
 	if ((ep = strchr(response, '|'))) {
 		parameter = ep + 1;
 		*ep = 0;
-	}
-
-	if (strcmp(kind, "filter-dataline") == 0) {
-		filter_data_next(token, reqid, response);
-		return 1;
 	}
 
 	if (strcmp(response, "proceed") != 0 &&
