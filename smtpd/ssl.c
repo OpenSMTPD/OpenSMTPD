@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.c,v 1.90 2018/12/20 19:40:13 gilles Exp $	*/
+/*	$OpenBSD: ssl.c,v 1.92 2019/05/24 16:29:41 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -185,7 +185,7 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	EVP_PKEY	*key = NULL;
 	BIO		*bio = NULL;
 	long		 size;
-	char		*data, *buf = NULL;
+	char		*data, *buf, *filebuf;
 	struct stat	 st;
 	char		 mode[12];
 	char		 prompt[2048];
@@ -198,6 +198,9 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	 */
 	if ((fp = fopen(name, "r")) == NULL)
 		return (NULL);
+	if ((filebuf = malloc_conceal(BUFSIZ)) == NULL)
+		goto fail;
+	setvbuf(fp, filebuf, _IOFBF, BUFSIZ);
 
 	if (fstat(fileno(fp), &st) != 0)
 		goto fail;
@@ -218,6 +221,8 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, prompt);
 	fclose(fp);
 	fp = NULL;
+	freezero(filebuf, BUFSIZ);
+	filebuf = NULL;
 	if (key == NULL)
 		goto fail;
 	/*
@@ -229,7 +234,7 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 		goto fail;
 	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
 		goto fail;
-	if ((buf = calloc(1, size + 1)) == NULL)
+	if ((buf = calloc_conceal(1, size + 1)) == NULL)
 		goto fail;
 	memcpy(buf, data, size);
 
@@ -241,11 +246,11 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 
 fail:
 	ssl_error("ssl_load_key");
-	free(buf);
 	BIO_free_all(bio);
 	EVP_PKEY_free(key);
 	if (fp)
 		fclose(fp);
+	freezero(filebuf, BUFSIZ);
 	return (NULL);
 }
 
@@ -425,7 +430,7 @@ ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
 	 */
 	ret = SSL_CTX_use_PrivateKey(ctx, pkey);
 	if (!ret)
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_SSL_LIB);
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_LIB_SSL);
 
 	if (pkeyptr != NULL)
 		*pkeyptr = pkey;
