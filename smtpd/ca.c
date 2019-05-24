@@ -1,4 +1,4 @@
-/*	$OpenBSD: ca.c,v 1.29 2018/05/24 11:38:24 gilles Exp $	*/
+/*	$OpenBSD: ca.c,v 1.32 2019/05/24 15:34:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Reyk Floeter <reyk@openbsd.org>
@@ -174,6 +174,7 @@ ca_X509_verify(void *certificate, void *chain, const char *CAfile,
 	X509_STORE     *store = NULL;
 	X509_STORE_CTX *xsc = NULL;
 	int		ret = 0;
+	long		error = 0;
 
 	if ((store = X509_STORE_new()) == NULL)
 		goto end;
@@ -197,8 +198,10 @@ ca_X509_verify(void *certificate, void *chain, const char *CAfile,
 end:
 	*errstr = NULL;
 	if (ret != 1) {
-		if (xsc)
-			*errstr = X509_verify_cert_error_string(xsc->error);
+		if (xsc) {
+			error = X509_STORE_CTX_get_error(xsc);
+			*errstr = X509_verify_cert_error_string(error);
+		}
 		else if (ERR_peek_last_error())
 			*errstr = ERR_error_string(ERR_peek_last_error(), NULL);
 	}
@@ -301,22 +304,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 
 const RSA_METHOD *rsa_default = NULL;
 
-static RSA_METHOD rsae_method = {
-	"RSA privsep engine",
-	rsae_pub_enc,
-	rsae_pub_dec,
-	rsae_priv_enc,
-	rsae_priv_dec,
-	rsae_mod_exp,
-	rsae_bn_mod_exp,
-	rsae_init,
-	rsae_finish,
-	0,
-	NULL,
-	NULL,
-	NULL,
-	rsae_keygen
-};
+static RSA_METHOD *rsae_method = NULL;
 
 static int
 rsae_send_imsg(int flen, const unsigned char *from, unsigned char *to,
@@ -482,12 +470,25 @@ ca_engine_init(void)
 	ENGINE		*e;
 	const char	*errstr, *name;
 
+	if ((rsae_method = RSA_meth_new("RSA privsep engine", 0)) == NULL)
+		goto fail;
+
+	rsae_method->rsa_pub_enc = rsae_pub_enc;
+	rsae_method->rsa_pub_dec = rsae_pub_dec;
+	rsae_method->rsa_priv_enc = rsae_priv_enc;
+	rsae_method->rsa_priv_dec = rsae_priv_dec;
+	rsae_method->rsa_mod_exp = rsae_mod_exp;
+	rsae_method->bn_mod_exp = rsae_bn_mod_exp;
+	rsae_method->init = rsae_init;
+	rsae_method->finish = rsae_finish;
+	rsae_method->rsa_keygen = rsae_keygen;
+
 	if ((e = ENGINE_get_default_RSA()) == NULL) {
 		if ((e = ENGINE_new()) == NULL) {
 			errstr = "ENGINE_new";
 			goto fail;
 		}
-		if (!ENGINE_set_name(e, rsae_method.name)) {
+		if (!ENGINE_set_name(e, rsae_method->name)) {
 			errstr = "ENGINE_set_name";
 			goto fail;
 		}
@@ -505,20 +506,17 @@ ca_engine_init(void)
 
 	log_debug("debug: %s: using %s", __func__, name);
 
-	if (rsa_default->flags & RSA_FLAG_SIGN_VER)
-		fatalx("unsupported RSA engine");
-
 	if (rsa_default->rsa_mod_exp == NULL)
-		rsae_method.rsa_mod_exp = NULL;
+		rsae_method->rsa_mod_exp = NULL;
 	if (rsa_default->bn_mod_exp == NULL)
-		rsae_method.bn_mod_exp = NULL;
+		rsae_method->bn_mod_exp = NULL;
 	if (rsa_default->rsa_keygen == NULL)
-		rsae_method.rsa_keygen = NULL;
-	rsae_method.flags = rsa_default->flags |
+		rsae_method->rsa_keygen = NULL;
+	rsae_method->flags = rsa_default->flags |
 	    RSA_METHOD_FLAG_NO_CHECK;
-	rsae_method.app_data = rsa_default->app_data;
+	rsae_method->app_data = rsa_default->app_data;
 
-	if (!ENGINE_set_RSA(e, &rsae_method)) {
+	if (!ENGINE_set_RSA(e, rsae_method)) {
 		errstr = "ENGINE_set_RSA";
 		goto fail;
 	}
