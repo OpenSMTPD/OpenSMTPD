@@ -815,10 +815,6 @@ io2_start_tls(struct io *io, void *tls)
 		errx(1, "io2_start_tls(): SSL already started");
 	io->tls = tls;
 
-	//if (SSL_set_fd(io->tls, io->sock) == 0) {
-	//	return (-1);
-	//}
-
 	if (mode == IO2_WRITE) {
 		io->state = IO2_STATE_CONNECT_SSL;
 		io2_reset(io, EV_WRITE, io2_dispatch_connect_tls);
@@ -882,19 +878,14 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 		goto leave;
 	}
 
-	if ((ret = tls_connect_socket(io->tls, io->sock, NULL)) > 0) {
+	if ((ret = tls_connect_socket(io->tls, io->sock, NULL)) == 0) {
 		io->state = IO2_STATE_UP;
 		io2_callback(io, IO2_TLSREADY);
 		goto leave;
 	}
 
-	if (ret == TLS_WANT_POLLIN)
-		io2_reset(io, EV_READ, io2_dispatch_connect_tls);
-	else if (ret == TLS_WANT_POLLOUT)
-		io2_reset(io, EV_WRITE, io2_dispatch_connect_tls);
-	else
-		io->error = tls_error(io->tls);
-		io2_callback(io, IO2_TLSERROR);
+	io->error = tls_error(io->tls);
+	io2_callback(io, IO2_TLSERROR);
 
     leave:
 	io2_frame_leave(io);
