@@ -44,6 +44,7 @@ struct smtp_params {
 	int			 timeout;	/* timeout in seconds */
 
 	/* TLS options */
+	const char		*tls_name;	/* hostname of requested server */
 	int			 tls_req;	/* requested TLS mode */
 	void			*tls_ctx;	/* TLS ctx to use */
 	int			 tls_verify;	/* need valid server certificate */

@@ -151,6 +151,8 @@ smtp_connect(const struct smtp_params *params, void *tag)
 	}
 	io2_set_callback(proto->io, smtp_client_io, proto);
 	io2_set_timeout(proto->io, proto->params.timeout);
+	if (params->tls_name)
+		io2_set_name(proto->io, params->tls_name);
 
 	if (io2_connect(proto->io, proto->params.dst, proto->params.src) == -1) {
 		smtp_client_abort(proto, FAIL_CONN, io2_error(proto->io));

@@ -53,6 +53,8 @@ const char* io2_error(struct io *);
 void* io2_tls(struct io *);
 int io2_fileno(struct io *);
 int io2_paused(struct io *, int);
+void io2_set_name(struct io *, const char *);
+
 
 /* Buffered output functions */
 int io2_write(struct io *, const void *, size_t);

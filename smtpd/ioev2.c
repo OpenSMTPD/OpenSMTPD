@@ -64,6 +64,7 @@ struct io {
 	int		 state;
 	struct event	 ev;
 	void		*tls;
+	char		*name;
 	const char	*error; /* only valid immediately on callback */
 };
 
@@ -164,6 +165,13 @@ io2_set_nolinger(int fd)
 	memset(&l, 0, sizeof(l));
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l)) == -1)
 		err(1, "io2_set_linger:setsockopt()");
+}
+
+void
+io2_set_name(struct io *io, const char *name)
+{
+	if ((io->name = strdup(name)) == NULL)
+		err(1, "io2_set_name:strdup()");
 }
 
 /*
@@ -278,6 +286,7 @@ io2_free(struct io *io)
 		io->sock = -1;
 	}
 
+	free(io->name);
 	iobuf2_clear(&io->iobuf);
 	free(io);
 }
@@ -878,7 +887,7 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 		goto leave;
 	}
 
-	if ((ret = tls_connect_socket(io->tls, io->sock, NULL)) == 0) {
+	if ((ret = tls_connect_socket(io->tls, io->sock, io->name)) == 0) {
 		io->state = IO2_STATE_UP;
 		io2_callback(io, IO2_TLSREADY);
 		goto leave;

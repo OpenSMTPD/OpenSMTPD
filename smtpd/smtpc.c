@@ -131,18 +131,18 @@ main(int argc, char **argv)
 
 	event_init();
 
-	if (pledge("stdio inet dns tmppath", NULL) == -1)
+	if (pledge("stdio inet dns tmppath rpath", NULL) == -1)
 		fatal("pledge");
 
 	if (!noaction)
 		parse_message(stdin);
 
-	if (pledge("stdio inet dns", NULL) == -1)
+	if (pledge("stdio inet dns rpath", NULL) == -1)
 		fatal("pledge");
 
 	parse_server(server);
 
-	if (pledge("stdio inet", NULL) == -1)
+	if (pledge("stdio inet rpath", NULL) == -1)
 		fatal("pledge");
 
 	resume();
@@ -246,7 +246,9 @@ parse_server(char *server)
 		port = "smtp";
 
 	if (params.tls_req != TLS_NO) {
+		params.tls_name = host;
 		tls_config = tls_config_new();
+		tls_config_insecure_noverifyname(tls_config);
 		params.tls_ctx = tls_client();
 		if (tls_config == NULL || params.tls_ctx == NULL)
 			fatal("tls_client");
