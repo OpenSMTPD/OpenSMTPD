@@ -197,7 +197,7 @@ pony(void)
 
 	ca_engine_init();
 
-	if (pledge("stdio inet unix recvfd sendfd", NULL) == -1)
+	if (pledge("stdio inet unix recvfd sendfd rpath", NULL) == -1)
 		err(1, "pledge");
 
 	event_dispatch();

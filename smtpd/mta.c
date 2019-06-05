@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include "smtpd.h"
@@ -175,6 +176,8 @@ void mta_hoststat_cache(const char *, uint64_t);
 void mta_hoststat_uncache(const char *, uint64_t);
 void mta_hoststat_reschedule(const char *);
 static void mta_hoststat_remove_entry(struct hoststat *);
+
+struct tls_config	*mta_tls_config;
 
 void
 mta_imsg(struct mproc *p, struct imsg *imsg)
@@ -461,6 +464,17 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 void
 mta_postfork(void)
 {
+	uint8_t	*ca;
+	size_t	 len;
+
+	mta_tls_config = tls_config_new();
+	ca = tls_load_file(CA_FILE, &len, NULL);
+	tls_config_set_ca_mem(mta_tls_config, ca, len);
+	tls_unload_file(ca, len);
+
+	tls_config_insecure_noverifyname(mta_tls_config);
+	tls_config_insecure_noverifycert(mta_tls_config);
+	tls_config_insecure_noverifytime(mta_tls_config);
 }
 
 void

@@ -107,10 +107,9 @@ io2_strio(struct io *io)
 	ssl[0] = '\0';
 #ifdef IO_TLS
 	if (io->tls) {
-//		(void)snprintf(ssl, sizeof ssl, " ssl=%s:%s:%d",
-//		    SSL_get_version(io->tls),
-//		    SSL_get_cipher_name(io->tls),
-//		    SSL_get_cipher_bits(io->tls, NULL));
+		(void)snprintf(ssl, sizeof ssl, " tls=%s:%s",
+		    tls_conn_version(io->tls),
+		    tls_conn_cipher(io->tls));
 	}
 #endif
 
@@ -888,11 +887,11 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 	}
 
 	if ((ret = tls_connect_socket(io->tls, io->sock, io->name)) == 0) {
+		warnx("#XXXX1");
 		io->state = IO2_STATE_UP;
 		io2_callback(io, IO2_TLSREADY);
 		goto leave;
 	}
-
 	io->error = tls_error(io->tls);
 	io2_callback(io, IO2_TLSERROR);
 

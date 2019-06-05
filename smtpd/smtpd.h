@@ -1607,6 +1607,8 @@ void	table_close_all(struct smtpd *);
 
 
 /* to.c */
+struct tls;
+
 int email_to_mailaddr(struct mailaddr *, char *);
 int text_to_netaddr(struct netaddr *, const char *);
 int text_to_mailaddr(struct mailaddr *, const char *);
@@ -1624,7 +1626,7 @@ const char *rule_to_text(struct rule *);
 const char *sockaddr_to_text(struct sockaddr *);
 const char *mailaddr_to_text(const struct mailaddr *);
 const char *expandnode_to_text(struct expandnode *);
-
+const char *tls_to_text(struct tls *);
 
 /* util.c */
 typedef struct arglist arglist;

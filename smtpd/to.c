@@ -43,6 +43,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#if IO_TLS
+#include <tls.h>
+#endif
 #include <unistd.h>
 
 #include "smtpd.h"
@@ -809,3 +812,17 @@ alias_is_error(struct expandnode *alias, const char *line, size_t len)
 	alias->type = EXPAND_ERROR;
 	return 1;
 }
+
+#if IO_TLS
+const char *
+tls_to_text(struct tls *tls)
+{
+	static char buf[256];
+
+	(void)snprintf(buf, sizeof buf, "%s:%s",
+	    tls_conn_version(tls),
+	    tls_conn_cipher(tls));
+
+	return (buf);
+}
+#endif
