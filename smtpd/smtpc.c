@@ -248,7 +248,8 @@ parse_server(char *server)
 	if (params.tls_req != TLS_NO) {
 		params.tls_name = host;
 		tls_config = tls_config_new();
-		tls_config_insecure_noverifyname(tls_config);
+		if (! params.tls_verify)
+			tls_config_insecure_noverifyname(tls_config);
 		params.tls_ctx = tls_client();
 		if (tls_config == NULL || params.tls_ctx == NULL)
 			fatal("tls_client");
