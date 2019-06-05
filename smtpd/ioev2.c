@@ -882,7 +882,7 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 		goto leave;
 	}
 
-	if ((ret = tls_connect_socket(io->tls, io->sock, "poolp.org")) > 0) {
+	if ((ret = tls_connect_socket(io->tls, io->sock, NULL)) > 0) {
 		io->state = IO2_STATE_UP;
 		io2_callback(io, IO2_TLSREADY);
 		goto leave;
