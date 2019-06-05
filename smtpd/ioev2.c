@@ -887,7 +887,6 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 	}
 
 	if ((ret = tls_connect_socket(io->tls, io->sock, io->name)) == 0) {
-		warnx("#XXXX1");
 		io->state = IO2_STATE_UP;
 		io2_callback(io, IO2_TLSREADY);
 		goto leave;
