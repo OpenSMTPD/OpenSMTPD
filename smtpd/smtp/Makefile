@@ -7,17 +7,19 @@ PROG=	smtp
 BINDIR=	/usr/bin
 MAN=	smtp.1
 
-SRCS+=	iobuf.c
-SRCS+=	ioev.c
+#SRCS+=	iobuf.c
+#SRCS+=	ioev.c
+SRCS+=	iobuf2.c
+SRCS+=	ioev2.c
 SRCS+=	log.c
 SRCS+=	smtp_client.c
 SRCS+=	smtpc.c
-SRCS+=	ssl.c
-SRCS+=	ssl_smtpd.c
+#SRCS+=	ssl.c
+#SRCS+=	ssl_smtpd.c
 
-CPPFLAGS+= -DIO_SSL
+CPPFLAGS+= -DIO_TLS
 
-LDADD+=	-levent -lutil -lssl -lcrypto -lm -lz
-DPADD+=	${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
+LDADD+=	-levent -lutil -ltls -lcrypto -lm -lz
+DPADD+=	${LIBEVENT} ${LIBUTIL} ${LIBTLS} ${LIBCRYPTO} ${LIBM} ${LIBZ}
 
 .include <bsd.prog.mk>

@@ -28,12 +28,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include "smtp.h"
 #include "log.h"
 
-void ssl_init(void);
 void *ssl_mta_init(void *, char *, off_t, const char *);
 
 static void parse_server(char *);
@@ -129,7 +129,6 @@ main(int argc, char **argv)
 		mail.rcptcount = argc;
 	}
 
-	ssl_init();
 	event_init();
 
 	if (pledge("stdio inet dns tmppath", NULL) == -1)
@@ -159,6 +158,7 @@ parse_server(char *server)
 	struct addrinfo hints;
 	char *scheme, *creds, *host, *port, *p, *c;
 	int error;
+	struct tls_config *tls_config;
 
 	creds = NULL;
 	host = NULL;
@@ -246,9 +246,11 @@ parse_server(char *server)
 		port = "smtp";
 
 	if (params.tls_req != TLS_NO) {
-		params.tls_ctx = ssl_mta_init(NULL, NULL, 0, NULL);
-		if (params.tls_ctx == NULL)
-			fatal("ssl_mta_init");
+		tls_config = tls_config_new();
+		params.tls_ctx = tls_client();
+		if (tls_config == NULL || params.tls_ctx == NULL)
+			fatal("tls_client");
+		tls_configure(params.tls_ctx, tls_config);
 	}
 
 	memset(&hints, 0, sizeof(hints));

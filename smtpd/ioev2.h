@@ -16,18 +16,18 @@
  */
 
 enum {
-	IO_CONNECTED = 0, 	/* connection successful	*/
-	IO_TLSREADY,		/* TLS started successfully	*/
-	IO_TLSERROR,		/* XXX - needs more work	*/
-	IO_DATAIN,		/* new data in input buffer	*/
-	IO_LOWAT,		/* output queue running low	*/
-	IO_DISCONNECTED,	/* error?			*/
-	IO_TIMEOUT,		/* error?			*/
-	IO_ERROR,		/* details?			*/
+	IO2_CONNECTED = 0, 	/* connection successful	*/
+	IO2_TLSREADY,		/* TLS started successfully	*/
+	IO2_TLSERROR,		/* XXX - needs more work	*/
+	IO2_DATAIN,		/* new data in input buffer	*/
+	IO2_LOWAT,		/* output queue running low	*/
+	IO2_DISCONNECTED,	/* error?			*/
+	IO2_TIMEOUT,		/* error?			*/
+	IO2_ERROR,		/* details?			*/
 };
 
-#define IO_IN		0x01
-#define IO_OUT		0x02
+#define IO2_IN		0x01
+#define IO2_OUT		0x02
 
 struct io;
 

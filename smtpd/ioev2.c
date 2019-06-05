@@ -36,22 +36,22 @@
 #include "iobuf2.h"
 
 enum {
-	IO_STATE_NONE,
-	IO_STATE_CONNECT,
-	IO_STATE_CONNECT_SSL,
-	IO_STATE_ACCEPT_SSL,
-	IO_STATE_UP,
+	IO2_STATE_NONE,
+	IO2_STATE_CONNECT,
+	IO2_STATE_CONNECT_SSL,
+	IO2_STATE_ACCEPT_SSL,
+	IO2_STATE_UP,
 
-	IO_STATE_MAX,
+	IO2_STATE_MAX,
 };
 
-#define IO_PAUSE_IN 		IO_IN
-#define IO_PAUSE_OUT		IO_OUT
-#define IO_READ			0x04
-#define IO_WRITE		0x08
-#define IO_RW			(IO_READ | IO_WRITE)
-#define IO_RESET		0x10  /* internal */
-#define IO_HELD			0x20  /* internal */
+#define IO2_PAUSE_IN 		IO2_IN
+#define IO2_PAUSE_OUT		IO2_OUT
+#define IO2_READ			0x04
+#define IO2_WRITE		0x08
+#define IO2_RW			(IO2_READ | IO2_WRITE)
+#define IO2_RESET		0x10  /* internal */
+#define IO2_HELD			0x20  /* internal */
 
 struct io {
 	int		 sock;
@@ -129,15 +129,15 @@ io2_strevent(int evt)
 	static char buf[32];
 
 	switch (evt) {
-	CASE(IO_CONNECTED);
-	CASE(IO_TLSREADY);
-	CASE(IO_DATAIN);
-	CASE(IO_LOWAT);
-	CASE(IO_DISCONNECTED);
-	CASE(IO_TIMEOUT);
-	CASE(IO_ERROR);
+	CASE(IO2_CONNECTED);
+	CASE(IO2_TLSREADY);
+	CASE(IO2_DATAIN);
+	CASE(IO2_LOWAT);
+	CASE(IO2_DISCONNECTED);
+	CASE(IO2_TIMEOUT);
+	CASE(IO2_ERROR);
 	default:
-		(void)snprintf(buf, sizeof(buf), "IO_? %d", evt);
+		(void)snprintf(buf, sizeof(buf), "IO2_? %d", evt);
 		return buf;
 	}
 }
@@ -233,7 +233,7 @@ _io2_init()
 		return;
 
 	init = 1;
-	_io2_debug = getenv("IO_DEBUG") != NULL;
+	_io2_debug = getenv("IO2_DEBUG") != NULL;
 }
 
 struct io *
@@ -287,21 +287,21 @@ io2_hold(struct io *io)
 {
 	io2_debug("io2_enter(%p)\n", io);
 
-	if (io->flags & IO_HELD)
+	if (io->flags & IO2_HELD)
 		errx(1, "io2_hold: io is already held");
 
-	io->flags &= ~IO_RESET;
-	io->flags |= IO_HELD;
+	io->flags &= ~IO2_RESET;
+	io->flags |= IO2_HELD;
 }
 
 void
 io2_release(struct io *io)
 {
-	if (!(io->flags & IO_HELD))
+	if (!(io->flags & IO2_HELD))
 		errx(1, "io2_release: io is not held");
 
-	io->flags &= ~IO_HELD;
-	if (!(io->flags & IO_RESET))
+	io->flags &= ~IO2_HELD;
+	if (!(io->flags & IO2_RESET))
 		io2_reload(io);
 }
 
@@ -341,7 +341,7 @@ io2_pause(struct io *io, int dir)
 {
 	io2_debug("io2_pause(%p, %x)\n", io, dir);
 
-	io->flags |= dir & (IO_PAUSE_IN | IO_PAUSE_OUT);
+	io->flags |= dir & (IO2_PAUSE_IN | IO2_PAUSE_OUT);
 	io2_reload(io);
 }
 
@@ -350,7 +350,7 @@ io2_resume(struct io *io, int dir)
 {
 	io2_debug("io2_resume(%p, %x)\n", io, dir);
 
-	io->flags &= ~(dir & (IO_PAUSE_IN | IO_PAUSE_OUT));
+	io->flags &= ~(dir & (IO2_PAUSE_IN | IO2_PAUSE_OUT));
 	io2_reload(io);
 }
 
@@ -361,12 +361,12 @@ io2_set_read(struct io *io)
 
 	io2_debug("io2_set_read(%p)\n", io);
 
-	mode = io->flags & IO_RW;
-	if (!(mode == 0 || mode == IO_WRITE))
+	mode = io->flags & IO2_RW;
+	if (!(mode == 0 || mode == IO2_WRITE))
 		errx(1, "io2_set_read(): full-duplex or reading");
 
-	io->flags &= ~IO_RW;
-	io->flags |= IO_READ;
+	io->flags &= ~IO2_RW;
+	io->flags |= IO2_READ;
 	io2_reload(io);
 }
 
@@ -377,12 +377,12 @@ io2_set_write(struct io *io)
 
 	io2_debug("io2_set_write(%p)\n", io);
 
-	mode = io->flags & IO_RW;
-	if (!(mode == 0 || mode == IO_READ))
+	mode = io->flags & IO2_RW;
+	if (!(mode == 0 || mode == IO2_READ))
 		errx(1, "io2_set_write(): full-duplex or writing");
 
-	io->flags &= ~IO_RW;
-	io->flags |= IO_WRITE;
+	io->flags &= ~IO2_RW;
+	io->flags |= IO2_WRITE;
 	io2_reload(io);
 }
 
@@ -407,7 +407,7 @@ io2_fileno(struct io *io)
 int
 io2_paused(struct io *io, int what)
 {
-	return (io->flags & (IO_PAUSE_IN | IO_PAUSE_OUT)) == what;
+	return (io->flags & (IO2_PAUSE_IN | IO2_PAUSE_OUT)) == what;
 }
 
 /*
@@ -508,8 +508,8 @@ io2_drop(struct io *io, size_t sz)
 }
 
 
-#define IO_READING(io) (((io)->flags & IO_RW) != IO_WRITE)
-#define IO_WRITING(io) (((io)->flags & IO_RW) != IO_READ)
+#define IO2_READING(io) (((io)->flags & IO2_RW) != IO2_WRITE)
+#define IO2_WRITING(io) (((io)->flags & IO2_RW) != IO2_READ)
 
 /*
  * Setup the necessary events as required by the current io state,
@@ -521,7 +521,7 @@ io2_reload(struct io *io)
 	short	events;
 
 	/* io will be reloaded at release time */
-	if (io->flags & IO_HELD)
+	if (io->flags & IO2_HELD)
 		return;
 
 	iobuf2_normalize(&io->iobuf);
@@ -536,9 +536,9 @@ io2_reload(struct io *io)
 	io2_debug("io2_reload(%p)\n", io);
 
 	events = 0;
-	if (IO_READING(io) && !(io->flags & IO_PAUSE_IN))
+	if (IO2_READING(io) && !(io->flags & IO2_PAUSE_IN))
 		events = EV_READ;
-	if (IO_WRITING(io) && !(io->flags & IO_PAUSE_OUT) && io2_queued(io))
+	if (IO2_WRITING(io) && !(io->flags & IO2_PAUSE_OUT) && io2_queued(io))
 		events |= EV_WRITE;
 
 	io2_reset(io, events, io2_dispatch);
@@ -557,7 +557,7 @@ io2_reset(struct io *io, short events, void (*dispatch)(int, short, void*))
 	 * Indicate that the event has already been reset so that reload
 	 * is not called on frame_leave.
 	 */
-	io->flags |= IO_RESET;
+	io->flags |= IO2_RESET;
 
 	if (event_initialized(&io->ev))
 		event_del(&io->ev);
@@ -593,24 +593,24 @@ io2_strflags(int flags)
 
 	buf[0] = '\0';
 
-	switch (flags & IO_RW) {
+	switch (flags & IO2_RW) {
 	case 0:
 		(void)strlcat(buf, "rw", sizeof buf);
 		break;
-	case IO_READ:
+	case IO2_READ:
 		(void)strlcat(buf, "R", sizeof buf);
 		break;
-	case IO_WRITE:
+	case IO2_WRITE:
 		(void)strlcat(buf, "W", sizeof buf);
 		break;
-	case IO_RW:
+	case IO2_RW:
 		(void)strlcat(buf, "RW", sizeof buf);
 		break;
 	}
 
-	if (flags & IO_PAUSE_IN)
+	if (flags & IO2_PAUSE_IN)
 		(void)strlcat(buf, ",F_PI", sizeof buf);
-	if (flags & IO_PAUSE_OUT)
+	if (flags & IO2_PAUSE_OUT)
 		(void)strlcat(buf, ",F_PO", sizeof buf);
 
 	return buf;
@@ -683,7 +683,7 @@ io2_dispatch(int fd, short ev, void *humppa)
 	io2_frame_enter("io2_dispatch", io, ev);
 
 	if (ev == EV_TIMEOUT) {
-		io2_callback(io, IO_TIMEOUT);
+		io2_callback(io, IO2_TIMEOUT);
 		goto leave;
 	}
 
@@ -692,17 +692,17 @@ io2_dispatch(int fd, short ev, void *humppa)
 			if (n == IOBUF_WANT_WRITE) /* kqueue bug? */
 				goto read;
 			if (n == IOBUF_CLOSED)
-				io2_callback(io, IO_DISCONNECTED);
+				io2_callback(io, IO2_DISCONNECTED);
 			else {
 				saved_errno = errno;
 				io->error = strerror(errno);
 				errno = saved_errno;
-				io2_callback(io, IO_ERROR);
+				io2_callback(io, IO2_ERROR);
 			}
 			goto leave;
 		}
 		if (w > io->lowat && w - n <= io->lowat)
-			io2_callback(io, IO_LOWAT);
+			io2_callback(io, IO2_LOWAT);
 	}
     read:
 
@@ -710,17 +710,17 @@ io2_dispatch(int fd, short ev, void *humppa)
 		iobuf2_normalize(&io->iobuf);
 		if ((n = iobuf2_read(&io->iobuf, io->sock)) < 0) {
 			if (n == IOBUF_CLOSED)
-				io2_callback(io, IO_DISCONNECTED);
+				io2_callback(io, IO2_DISCONNECTED);
 			else {
 				saved_errno = errno;
 				io->error = strerror(errno);
 				errno = saved_errno;
-				io2_callback(io, IO_ERROR);
+				io2_callback(io, IO2_ERROR);
 			}
 			goto leave;
 		}
 		if (n)
-			io2_callback(io, IO_DATAIN);
+			io2_callback(io, IO2_DATAIN);
 	}
 
 leave:
@@ -778,7 +778,7 @@ io2_dispatch_connect(int fd, short ev, void *humppa)
 	if (ev == EV_TIMEOUT) {
 		close(fd);
 		io->sock = -1;
-		io2_callback(io, IO_TIMEOUT);
+		io2_callback(io, IO2_TIMEOUT);
 	} else {
 		sl = sizeof(e);
 		r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &e, &sl);
@@ -790,11 +790,11 @@ io2_dispatch_connect(int fd, short ev, void *humppa)
 			close(fd);
 			io->sock = -1;
 			io->error = strerror(e);
-			io2_callback(io, e == ETIMEDOUT ? IO_TIMEOUT : IO_ERROR);
+			io2_callback(io, e == ETIMEDOUT ? IO2_TIMEOUT : IO2_ERROR);
 		}
 		else {
-			io->state = IO_STATE_UP;
-			io2_callback(io, IO_CONNECTED);
+			io->state = IO2_STATE_UP;
+			io2_callback(io, IO2_CONNECTED);
 		}
 	}
 
@@ -807,8 +807,8 @@ io2_start_tls(struct io *io, void *tls)
 {
 	int	mode;
 
-	mode = io->flags & IO_RW;
-	if (mode == 0 || mode == IO_RW)
+	mode = io->flags & IO2_RW;
+	if (mode == 0 || mode == IO2_RW)
 		errx(1, "io2_start_tls(): full-duplex or unset");
 
 	if (io->tls)
@@ -819,11 +819,11 @@ io2_start_tls(struct io *io, void *tls)
 	//	return (-1);
 	//}
 
-	if (mode == IO_WRITE) {
-		io->state = IO_STATE_CONNECT_SSL;
+	if (mode == IO2_WRITE) {
+		io->state = IO2_STATE_CONNECT_SSL;
 		io2_reset(io, EV_WRITE, io2_dispatch_connect_tls);
 	} else {
-		io->state = IO_STATE_ACCEPT_SSL;
+		io->state = IO2_STATE_ACCEPT_SSL;
 		io2_reset(io, EV_READ, io2_dispatch_accept_tls);
 	}
 
@@ -840,13 +840,13 @@ io2_dispatch_accept_tls(int fd, short event, void *humppa)
 	io2_frame_enter("io2_dispatch_accept_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
-		io2_callback(io, IO_TIMEOUT);
+		io2_callback(io, IO2_TIMEOUT);
 		goto leave;
 	}
 
 	if ((ret = SSL_accept(io->tls)) > 0) {
-		io->state = IO_STATE_UP;
-		io2_callback(io, IO_TLSREADY);
+		io->state = IO2_STATE_UP;
+		io2_callback(io, IO2_TLSREADY);
 		goto leave;
 	}
 
@@ -859,7 +859,7 @@ io2_dispatch_accept_tls(int fd, short event, void *humppa)
 		break;
 	default:
 		io->error = tls_error(io->tls);
-		io2_callback(io, IO_ERROR);
+		io2_callback(io, IO2_ERROR);
 		break;
 	}
 
@@ -878,13 +878,13 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 	io2_frame_enter("io2_dispatch_connect_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
-		io2_callback(io, IO_TIMEOUT);
+		io2_callback(io, IO2_TIMEOUT);
 		goto leave;
 	}
 
-	if ((ret = tls_connect_socket(io->tls, io->sock, NULL)) > 0) {
-		io->state = IO_STATE_UP;
-		io2_callback(io, IO_TLSREADY);
+	if ((ret = tls_connect_socket(io->tls, io->sock, "poolp.org")) > 0) {
+		io->state = IO2_STATE_UP;
+		io2_callback(io, IO2_TLSREADY);
 		goto leave;
 	}
 
@@ -894,7 +894,7 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 		io2_reset(io, EV_WRITE, io2_dispatch_connect_tls);
 	else
 		io->error = tls_error(io->tls);
-		io2_callback(io, IO_TLSERROR);
+		io2_callback(io, IO2_TLSERROR);
 
     leave:
 	io2_frame_leave(io);
@@ -909,7 +909,7 @@ io2_dispatch_read_tls(int fd, short event, void *humppa)
 	io2_frame_enter("io2_dispatch_read_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
-		io2_callback(io, IO_TIMEOUT);
+		io2_callback(io, IO2_TIMEOUT);
 		goto leave;
 	}
 
@@ -923,22 +923,22 @@ again:
 		io2_reset(io, EV_WRITE, io2_dispatch_read_tls);
 		break;
 	case IOBUF_CLOSED:
-		io2_callback(io, IO_DISCONNECTED);
+		io2_callback(io, IO2_DISCONNECTED);
 		break;
 	case IOBUF_ERROR:
 		saved_errno = errno;
 		io->error = strerror(errno);
 		errno = saved_errno;
-		io2_callback(io, IO_ERROR);
+		io2_callback(io, IO2_ERROR);
 		break;
 	case IOBUF_SSLERROR:
 		io->error = tls_error(io->tls);
-		io2_callback(io, IO_ERROR);
+		io2_callback(io, IO2_ERROR);
 		break;
 	default:
 		io2_debug("io2_dispatch_read_tls(...) -> r=%d\n", n);
-		io2_callback(io, IO_DATAIN);
-		if (current == io && IO_READING(io))
+		io2_callback(io, IO2_DATAIN);
+		if (current == io && IO2_READING(io))
 			goto again;
 	}
 
@@ -956,7 +956,7 @@ io2_dispatch_write_tls(int fd, short event, void *humppa)
 	io2_frame_enter("io2_dispatch_write_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
-		io2_callback(io, IO_TIMEOUT);
+		io2_callback(io, IO2_TIMEOUT);
 		goto leave;
 	}
 
@@ -969,23 +969,23 @@ io2_dispatch_write_tls(int fd, short event, void *humppa)
 		io2_reset(io, EV_WRITE, io2_dispatch_write_tls);
 		break;
 	case IOBUF_CLOSED:
-		io2_callback(io, IO_DISCONNECTED);
+		io2_callback(io, IO2_DISCONNECTED);
 		break;
 	case IOBUF_ERROR:
 		saved_errno = errno;
 		io->error = strerror(errno);
 		errno = saved_errno;
-		io2_callback(io, IO_ERROR);
+		io2_callback(io, IO2_ERROR);
 		break;
 	case IOBUF_SSLERROR:
 		io->error = tls_error(io->tls);
-		io2_callback(io, IO_ERROR);
+		io2_callback(io, IO2_ERROR);
 		break;
 	default:
 		io2_debug("io2_dispatch_write_tls(...) -> w=%d\n", n);
 		w2 = io2_queued(io);
 		if (w > io->lowat && w2 <= io->lowat)
-			io2_callback(io, IO_LOWAT);
+			io2_callback(io, IO2_LOWAT);
 		break;
 	}
 
@@ -1000,21 +1000,21 @@ io2_reload_tls(struct io *io)
 	void	(*dispatch)(int, short, void*) = NULL;
 
 	switch (io->state) {
-	case IO_STATE_CONNECT_SSL:
+	case IO2_STATE_CONNECT_SSL:
 		ev = EV_WRITE;
 		dispatch = io2_dispatch_connect_tls;
 		break;
-	case IO_STATE_ACCEPT_SSL:
+	case IO2_STATE_ACCEPT_SSL:
 		ev = EV_READ;
 		dispatch = io2_dispatch_accept_tls;
 		break;
-	case IO_STATE_UP:
+	case IO2_STATE_UP:
 		ev = 0;
-		if (IO_READING(io) && !(io->flags & IO_PAUSE_IN)) {
+		if (IO2_READING(io) && !(io->flags & IO2_PAUSE_IN)) {
 			ev = EV_READ;
 			dispatch = io2_dispatch_read_tls;
 		}
-		else if (IO_WRITING(io) && !(io->flags & IO_PAUSE_OUT) &&
+		else if (IO2_WRITING(io) && !(io->flags & IO2_PAUSE_OUT) &&
 		    io2_queued(io)) {
 			ev = EV_WRITE;
 			dispatch = io2_dispatch_write_tls;
