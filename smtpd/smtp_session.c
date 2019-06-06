@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tls.h>
 #include <unistd.h>
 #include <vis.h>
 
@@ -586,12 +587,12 @@ smtp_session(struct listener *listener, int sock,
 	if (io != NULL)
 		s->io = io;
 	else
-		s->io = io_new();
+		s->io = io2_new();
 
-	io_set_callback(s->io, smtp_io, s);
-	io_set_fd(s->io, sock);
-	io_set_timeout(s->io, SMTPD_SESSION_TIMEOUT * 1000);
-	io_set_write(s->io);
+	io2_set_callback(s->io, smtp_io, s);
+	io2_set_fd(s->io, sock);
+	io2_set_timeout(s->io, SMTPD_SESSION_TIMEOUT * 1000);
+	io2_set_write(s->io);
 
 	s->state = STATE_NEW;
 
@@ -1031,7 +1032,7 @@ smtp_tls_verified(struct smtp_session *s)
 {
 	X509 *x;
 
-	x = SSL_get_peer_certificate(io_ssl(s->io));
+	x = SSL_get_peer_certificate(io2_tls(s->io));
 	if (x) {
 		log_info("%016"PRIx64" smtp "
 		    "client-cert-check result=\"%s\"",
@@ -1042,7 +1043,7 @@ smtp_tls_verified(struct smtp_session *s)
 
 	if (s->listener->flags & F_SMTPS) {
 		stat_increment("smtp.smtps", 1);
-		io_set_write(s->io);
+		io2_set_write(s->io);
 		smtp_send_banner(s);
 	}
 	else {
@@ -1059,16 +1060,16 @@ smtp_io(struct io *io, int evt, void *arg)
 	size_t			len;
 	int			eom;
 
-	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io_strevent(evt),
-	    io_strio(io));
+	log_trace(TRACE_IO, "smtp: %p: %s %s", s, io2_strevent(evt),
+	    io2_strio(io));
 
 	switch (evt) {
 
-	case IO_TLSREADY:
+	case IO2_TLSREADY:
 		log_info("%016"PRIx64" smtp tls ciphers=%s",
-		    s->id, ssl_to_text(io_ssl(s->io)));
+		    s->id, ssl_to_text(io2_tls(s->io)));
 
-		report_smtp_link_tls("smtp-in", s->id, ssl_to_text(io_ssl(s->io)));
+		report_smtp_link_tls("smtp-in", s->id, ssl_to_text(io2_tls(s->io)));
 
 		s->flags |= SF_SECURE;
 		s->helo[0] = '\0';
@@ -1076,16 +1077,16 @@ smtp_io(struct io *io, int evt, void *arg)
 		smtp_cert_verify(s);
 		break;
 
-	case IO_DATAIN:
+	case IO2_DATAIN:
 	    nextline:
-		line = io_getline(s->io, &len);
-		if ((line == NULL && io_datalen(s->io) >= SMTP_LINE_MAX) ||
+		line = io2_getline(s->io, &len);
+		if ((line == NULL && io2_datalen(s->io) >= SMTP_LINE_MAX) ||
 		    (line && len >= SMTP_LINE_MAX)) {
 			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 %s: Line too long",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
-			io_set_write(io);
+			io2_set_write(io);
 			return;
 		}
 
@@ -1109,18 +1110,18 @@ smtp_io(struct io *io, int evt, void *arg)
 		}
 
 		/* Pipelining not supported */
-		if (io_datalen(s->io)) {
+		if (io2_datalen(s->io)) {
 			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 %s %s: Pipelining not supported",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
 			    esc_description(ESC_INVALID_COMMAND));
 			smtp_enter_state(s, STATE_QUIT);
-			io_set_write(io);
+			io2_set_write(io);
 			return;
 		}
 
 		if (eom) {
-			io_set_write(io);
+			io2_set_write(io);
 			if (s->tx->filter == NULL)
 				smtp_tx_eom(s->tx);
 			return;
@@ -1132,14 +1133,14 @@ smtp_io(struct io *io, int evt, void *arg)
 			smtp_reply(s, "500 %s: Command line too long",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
-			io_set_write(io);
+			io2_set_write(io);
 			return;
 		}
-		io_set_write(io);
+		io2_set_write(io);
 		smtp_command(s, line);
 		break;
 
-	case IO_LOWAT:
+	case IO2_LOWAT:
 		if (s->state == STATE_QUIT) {
 			log_info("%016"PRIx64" smtp disconnected "
 			    "reason=quit",
@@ -1154,10 +1155,10 @@ smtp_io(struct io *io, int evt, void *arg)
 			break;
 		}
 
-		io_set_read(io);
+		io2_set_read(io);
 		break;
 
-	case IO_TIMEOUT:
+	case IO2_TIMEOUT:
 		log_info("%016"PRIx64" smtp disconnected "
 		    "reason=timeout",
 		    s->id);
@@ -1165,17 +1166,17 @@ smtp_io(struct io *io, int evt, void *arg)
 		smtp_free(s, "timeout");
 		break;
 
-	case IO_DISCONNECTED:
+	case IO2_DISCONNECTED:
 		log_info("%016"PRIx64" smtp disconnected "
 		    "reason=disconnect",
 		    s->id);
 		smtp_free(s, "disconnected");
 		break;
 
-	case IO_ERROR:
+	case IO2_ERROR:
 		log_info("%016"PRIx64" smtp disconnected "
 		    "reason=\"io-error: %s\"",
-		    s->id, io_error(io));
+		    s->id, io2_error(io));
 		smtp_free(s, "IO error");
 		break;
 
@@ -1663,7 +1664,7 @@ smtp_filter_data_end(struct smtp_session *s)
 	if (s->tx->filter == NULL)
 		return;
 
-	io_free(s->tx->filter);
+	io2_free(s->tx->filter);
 	s->tx->filter = NULL;
 
 	m_create(p_lka, IMSG_FILTER_SMTP_DATA_END, 0, 0, -1);
@@ -2126,7 +2127,7 @@ smtp_free(struct smtp_session *s, const char * reason)
 	if (s->flags & SF_SECURE && s->listener->flags & F_STARTTLS)
 		stat_decrement("smtp.tls", 1);
 
-	io_free(s->io);
+	io2_free(s->io);
 	free(s);
 
 	smtp_collect();
@@ -2207,7 +2208,8 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
     size_t cert_len)
 {
 	struct smtp_session *s = arg;
-	void *ssl, *ssl_ctx;
+	struct tls *tls;
+	struct tls_config *tls_config;
 
 	tree_pop(&wait_ssl_init, s->id);
 
@@ -2219,10 +2221,21 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		return;
 	}
 
-	ssl_ctx = dict_get(env->sc_ssl_dict, name);
-	ssl = ssl_smtp_init(ssl_ctx, s->listener->flags & F_TLS_VERIFY);
-	io_set_read(s->io);
-	io_start_tls(s->io, ssl);
+	tls_config = dict_get(env->sc_ssl_dict, name);
+	//ssl = ssl_smtp_init(ssl_ctx, s->listener->flags & F_TLS_VERIFY);
+	//	if (verify)
+	//		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
+
+	tls = tls_server();
+	if (tls_configure(tls, tls_config) == -1) {
+		log_info("%016"PRIx64" smtp disconnected "
+		    "reason=tls-failure",
+		    s->id);
+		smtp_free(s, "TLS failure");
+		return;
+	}
+	io2_set_read(s->io);
+	io2_start_tls(s->io, tls);
 }
 
 static void
@@ -2240,9 +2253,9 @@ smtp_cert_verify(struct smtp_session *s)
 		fallback = 1;
 	}
 
-	if (cert_verify(io_ssl(s->io), name, fallback, smtp_cert_verify_cb, s)) {
+	if (cert_verify(io2_tls(s->io), name, fallback, smtp_cert_verify_cb, s)) {
 		tree_xset(&wait_ssl_verify, s->id, s);
-		io_pause(s->io, IO_IN);
+		io2_pause(s->io, IO2_IN);
 	}
 }
 
@@ -2286,7 +2299,7 @@ smtp_cert_verify_cb(void *arg, int status)
 
 	smtp_tls_verified(s);
 	if (resume)
-		io_resume(s->io, IO_IN);
+		io2_resume(s->io, IO2_IN);
 }
 
 static void
@@ -2685,7 +2698,7 @@ smtp_tx_filtered_dataline(struct smtp_tx *tx, const char *line)
 		if (tx->error)
 			return 0;
 	}
-	io_printf(tx->filter, "%s\n", line ? line : ".");
+	io2_printf(tx->filter, "%s\n", line ? line : ".");
 	return line ? 0 : 1;
 }
 
@@ -2721,13 +2734,13 @@ filter_session_io(struct io *io, int evt, void *arg)
 	char*line = NULL;
 	ssize_t len;
 
-	log_trace(TRACE_IO, "filter session io (smtp): %p: %s %s", tx, io_strevent(evt),
-	    io_strio(io));
+	log_trace(TRACE_IO, "filter session io (smtp): %p: %s %s", tx, io2_strevent(evt),
+	    io2_strio(io));
 
 	switch (evt) {
-	case IO_DATAIN:
+	case IO2_DATAIN:
 	nextline:
-		line = io_getline(tx->filter, &len);
+		line = io2_getline(tx->filter, &len);
 		/* No complete line received */
 		if (line == NULL)
 			return;
@@ -2750,9 +2763,9 @@ smtp_filter_fd(struct smtp_tx *tx, int fd)
 
 	log_debug("smtp: %p: filter fd %d", s, fd);
 
-	tx->filter = io_new();
-	io_set_fd(tx->filter, fd);
-	io_set_callback(tx->filter, filter_session_io, tx);
+	tx->filter = io2_new();
+	io2_set_fd(tx->filter, fd);
+	io2_set_callback(tx->filter, filter_session_io, tx);
 }
 
 static void
@@ -2789,11 +2802,11 @@ smtp_message_begin(struct smtp_tx *tx)
 	    tx->msgid);
 
 	if (s->flags & SF_SECURE) {
-		x = SSL_get_peer_certificate(io_ssl(s->io));
+		x = SSL_get_peer_certificate(io2_tls(s->io));
 		m_printf(tx, " (%s:%s:%d:%s)",
-		    SSL_get_version(io_ssl(s->io)),
-		    SSL_get_cipher_name(io_ssl(s->io)),
-		    SSL_get_cipher_bits(io_ssl(s->io), NULL),
+		    SSL_get_version(io2_tls(s->io)),
+		    SSL_get_cipher_name(io2_tls(s->io)),
+		    SSL_get_cipher_bits(io2_tls(s->io), NULL),
 		    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
 		X509_free(x);
 

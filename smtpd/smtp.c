@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
@@ -49,10 +50,14 @@ static void smtp_accept(int, short, void *);
 static int smtp_enqueue(void);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
-static int smtp_sni_callback(SSL *, int *, void *);
 
 static void smtp_accepted(struct listener *, int, const struct sockaddr_storage *, struct io *);
 
+/*
+ * This function is not publicy exported because it is a hack until libtls
+ * has a proper privsep setup
+ */
+void tls_config_skip_private_key_check(struct tls_config *config);
 
 #define	SMTP_FD_RESERVE	5
 static size_t	sessions;
@@ -150,9 +155,9 @@ smtp_setup_events(void)
 {
 	struct listener *l;
 	struct pki	*pki;
-	SSL_CTX		*ssl_ctx;
 	void		*iter;
 	const char	*k;
+	struct tls_config	*tls_config;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
@@ -171,10 +176,21 @@ smtp_setup_events(void)
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
-		if (!ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
-			env->sc_tls_ciphers))
-			fatal("smtp_setup_events: ssl_setup failure");
-		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
+		if ((tls_config = tls_config_new()) == NULL)
+			fatal("smtpd: tls_config_new");
+
+		if (tls_config_set_cert_mem(tls_config, pki->pki_cert,
+			pki->pki_cert_len) == -1)
+			fatal("smtpd: tls_config_set_cert_mem");
+		tls_config_skip_private_key_check(tls_config);
+
+		// ciphers ??
+		//ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
+
+		//if (sni_cb)
+		//	SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
+
+		dict_xset(env->sc_ssl_dict, k, tls_config);
 	}
 
 	purge_config(PURGE_PKI_KEYS);
@@ -298,22 +314,6 @@ smtp_collect(void)
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}
-}
-
-static int
-smtp_sni_callback(SSL *ssl, int *ad, void *arg)
-{
-	const char		*sn;
-	void			*ssl_ctx;
-
-	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-	if (sn == NULL)
-		return SSL_TLSEXT_ERR_NOACK;
-	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
-	if (ssl_ctx == NULL)
-		return SSL_TLSEXT_ERR_NOACK;
-	SSL_set_SSL_CTX(ssl, ssl_ctx);
-	return SSL_TLSEXT_ERR_OK;
 }
 
 static void

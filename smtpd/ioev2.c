@@ -84,6 +84,7 @@ void	io2_frame_enter(const char *, struct io *, int);
 void	io2_frame_leave(struct io *);
 
 #ifdef IO_TLS
+void	io2_dispatch_handshake_tls(int, short, void *);
 void	io2_dispatch_accept_tls(int, short, void *);
 void	io2_dispatch_connect_tls(int, short, void *);
 void	io2_dispatch_read_tls(int, short, void *);
@@ -135,7 +136,6 @@ io2_strevent(int evt)
 	CASE(IO2_LOWAT);
 	CASE(IO2_DISCONNECTED);
 	CASE(IO2_TIMEOUT);
-	CASE(IO2_TLSERROR);
 	CASE(IO2_ERROR);
 	default:
 		(void)snprintf(buf, sizeof(buf), "IO2_? %d", evt);
@@ -860,7 +860,7 @@ io2_dispatch_handshake_tls(int fd, short event, void *humppa)
 		io2_reset(io, EV_WRITE, io2_dispatch_handshake_tls);
 	else {
 		io->error = tls_error(io->tls);
-		io2_callback(io, IO2_TLSERROR);
+		io2_callback(io, IO2_ERROR);
 	}
 
 leave:
@@ -874,7 +874,7 @@ io2_dispatch_accept_tls(int fd, short event, void *humppa)
 {
 	struct io	*io = humppa;
 	struct tls     *cctx = NULL;
-
+	int ret;
 	io2_frame_enter("io2_dispatch_accept_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
@@ -882,14 +882,14 @@ io2_dispatch_accept_tls(int fd, short event, void *humppa)
 		goto leave;
 	}
 
-	if (tls_accept_socket(io->tls, &cctx, io->sock) == 0) {
+	if ((ret = tls_accept_socket(io->tls, &cctx, io->sock)) == 0) {
 		io->tls = cctx;
 		io2_reset(io, EV_READ|EV_WRITE, io2_dispatch_handshake_tls);
 		goto leave;
 	}
 
 	io->error = tls_error(io->tls);
-	io2_callback(io, IO2_TLSERROR);
+	io2_callback(io, IO2_ERROR);
 
 leave:
 	io2_frame_leave(io);
@@ -915,7 +915,7 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 	}
 
 	io->error = tls_error(io->tls);
-	io2_callback(io, IO2_TLSERROR);
+	io2_callback(io, IO2_ERROR);
 
     leave:
 	io2_frame_leave(io);
