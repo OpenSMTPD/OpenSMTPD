@@ -135,6 +135,7 @@ io2_strevent(int evt)
 	CASE(IO2_LOWAT);
 	CASE(IO2_DISCONNECTED);
 	CASE(IO2_TIMEOUT);
+	CASE(IO2_TLSERROR);
 	CASE(IO2_ERROR);
 	default:
 		(void)snprintf(buf, sizeof(buf), "IO2_? %d", evt);
@@ -835,11 +836,44 @@ io2_start_tls(struct io *io, void *tls)
 }
 
 void
+io2_dispatch_handshake_tls(int fd, short event, void *humppa)
+{
+	struct io	*io = humppa;
+	int		ret;
+
+	io2_frame_enter("io2_dispatch_handshake_tls", io, event);
+
+	if (event == EV_TIMEOUT) {
+		io2_callback(io, IO2_TIMEOUT);
+		goto leave;
+	}
+
+	if ((ret = tls_handshake(io->tls)) == 0) {
+		io->state = IO2_STATE_UP;
+		io2_callback(io, IO2_TLSREADY);
+		goto leave;
+	}
+
+	if (ret == TLS_WANT_POLLIN)
+		io2_reset(io, EV_READ, io2_dispatch_handshake_tls);
+	else if (ret == TLS_WANT_POLLOUT)
+		io2_reset(io, EV_WRITE, io2_dispatch_handshake_tls);
+	else {
+		io->error = tls_error(io->tls);
+		io2_callback(io, IO2_TLSERROR);
+	}
+
+leave:
+	io2_frame_leave(io);
+	return;
+}
+
+
+void
 io2_dispatch_accept_tls(int fd, short event, void *humppa)
 {
-/*
 	struct io	*io = humppa;
-	int		 ret;
+	struct tls     *cctx = NULL;
 
 	io2_frame_enter("io2_dispatch_accept_tls", io, event);
 
@@ -848,28 +882,17 @@ io2_dispatch_accept_tls(int fd, short event, void *humppa)
 		goto leave;
 	}
 
-	if ((ret = SSL_accept(io->tls)) > 0) {
-		io->state = IO2_STATE_UP;
-		io2_callback(io, IO2_TLSREADY);
+	if (tls_accept_socket(io->tls, &cctx, io->sock) == 0) {
+		io->tls = cctx;
+		io2_reset(io, EV_READ|EV_WRITE, io2_dispatch_handshake_tls);
 		goto leave;
 	}
 
-	switch ((e = SSL_get_error(io->tls, ret))) {
-	case SSL_ERROR_WANT_READ:
-		io2_reset(io, EV_READ, io2_dispatch_accept_tls);
-		break;
-	case SSL_ERROR_WANT_WRITE:
-		io2_reset(io, EV_WRITE, io2_dispatch_accept_tls);
-		break;
-	default:
-		io->error = tls_error(io->tls);
-		io2_callback(io, IO2_ERROR);
-		break;
-	}
+	io->error = tls_error(io->tls);
+	io2_callback(io, IO2_TLSERROR);
 
-    leave:
+leave:
 	io2_frame_leave(io);
-*/
 	return;
 }
 
@@ -887,10 +910,10 @@ io2_dispatch_connect_tls(int fd, short event, void *humppa)
 	}
 
 	if ((ret = tls_connect_socket(io->tls, io->sock, io->name)) == 0) {
-		io->state = IO2_STATE_UP;
-		io2_callback(io, IO2_TLSREADY);
+		io2_reset(io, EV_READ|EV_WRITE, io2_dispatch_handshake_tls);
 		goto leave;
 	}
+
 	io->error = tls_error(io->tls);
 	io2_callback(io, IO2_TLSERROR);
 
