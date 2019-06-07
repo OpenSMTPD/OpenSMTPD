@@ -67,40 +67,6 @@ ssl_init(void)
 	inited = 1;
 }
 
-int
-ssl_setup(SSL_CTX **ctxp, struct pki *pki,
-    int (*sni_cb)(SSL *,int *,void *), const char *ciphers)
-{
-	SSL_CTX	*ctx;
-	uint8_t sid[SSL_MAX_SID_CTX_LENGTH];
-
-	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
-
-	/*
-	 * Set session ID context to a random value.  We don't support
-	 * persistent caching of sessions so it is OK to set a temporary
-	 * session ID context that is valid during run time.
-	 */
-	arc4random_buf(sid, sizeof(sid));
-	if (!SSL_CTX_set_session_id_context(ctx, sid, sizeof(sid)))
-		goto err;
-
-	if (sni_cb)
-		SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
-
-	SSL_CTX_set_dh_auto(ctx, pki->pki_dhe);
-
-	SSL_CTX_set_ecdh_auto(ctx, 1);
-
-	*ctxp = ctx;
-	return 1;
-
-err:
-	SSL_CTX_free(ctx);
-	ssl_error("ssl_setup");
-	return 0;
-}
-
 char *
 ssl_load_file(const char *name, off_t *len, mode_t perm)
 {
@@ -143,21 +109,6 @@ fail:
 	errno = saved_errno;
 	return (NULL);
 }
-
-#if 0
-static int
-ssl_password_cb(char *buf, int size, int rwflag, void *u)
-{
-	size_t	len;
-	if (u == NULL) {
-		explicit_bzero(buf, size);
-		return (0);
-	}
-	if ((len = strlcpy(buf, u, size)) >= (size_t)size)
-		return (0);
-	return (len);
-}
-#endif
 
 static int
 ssl_password_cb(char *buf, int size, int rwflag, void *u)

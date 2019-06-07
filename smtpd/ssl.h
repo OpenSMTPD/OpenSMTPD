@@ -45,8 +45,6 @@ struct ca {
 
 /* ssl.c */
 void		ssl_init(void);
-int		ssl_setup(SSL_CTX **, struct pki *,
-    int (*)(SSL *, int *, void *), const char *);
 SSL_CTX	       *ssl_ctx_create(const char *, char *, off_t, const char *);
 int	        ssl_cmp(struct pki *, struct pki *);
 char	       *ssl_load_file(const char *, off_t *, mode_t);

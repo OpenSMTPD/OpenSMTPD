@@ -2225,6 +2225,7 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 	//ssl = ssl_smtp_init(ssl_ctx, s->listener->flags & F_TLS_VERIFY);
 	//	if (verify)
 	//		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
+	// SNI ?
 
 	tls = tls_server();
 	if (tls_configure(tls, tls_config) == -1) {
@@ -2232,8 +2233,6 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		    "reason=tls-failure",
 		    s->id);
 		smtp_free(s, "TLS failure");
-		log_warnx("### %s", tls_error(tls));
-		log_warnx("### %s", tls_config_error(tls_config));
 		return;
 	}
 	io2_set_read(s->io);

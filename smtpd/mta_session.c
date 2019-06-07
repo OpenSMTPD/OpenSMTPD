@@ -1504,7 +1504,7 @@ mta_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		return;
 	}
 
-	// cipher ? verify ? client cert ?
+	// cipher ? verify ? client cert ? SNI ?
 
 	if (name)
 		xname = xstrdup(name);
@@ -1578,9 +1578,9 @@ mta_cert_verify_cb(void *arg, int status)
 static void
 mta_tls_verified(struct mta_session *s)
 {
+	/*
 	X509 *x;
 
-	/*
 	x = SSL_get_peer_certificate(io2_tls(s->io));
 	if (x) {
 		log_info("smtp-out: Server certificate verification %s "
