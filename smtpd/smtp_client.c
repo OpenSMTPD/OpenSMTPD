@@ -31,7 +31,7 @@
 #include <string.h>
 
 #include "log.h"
-#include "ioev2.h"
+#include "ioev.h"
 #include "smtp.h"
 
 #define	TRACE_SMTPCLT	2
@@ -144,18 +144,18 @@ smtp_connect(const struct smtp_params *params, void *tag)
 
 	memmove(&proto->params, params, sizeof(*params));
 	proto->tag = tag;
-	proto->io = io2_new();
+	proto->io = io_new();
 	if (proto->io == NULL) {
 		free(proto);
 		return NULL;
 	}
-	io2_set_callback(proto->io, smtp_client_io, proto);
-	io2_set_timeout(proto->io, proto->params.timeout);
+	io_set_callback(proto->io, smtp_client_io, proto);
+	io_set_timeout(proto->io, proto->params.timeout);
 	if (params->tls_name)
-		io2_set_name(proto->io, params->tls_name);
+		io_set_name(proto->io, params->tls_name);
 
-	if (io2_connect(proto->io, proto->params.dst, proto->params.src) == -1) {
-		smtp_client_abort(proto, FAIL_CONN, io2_error(proto->io));
+	if (io_connect(proto->io, proto->params.dst, proto->params.src) == -1) {
+		smtp_client_abort(proto, FAIL_CONN, io_error(proto->io));
 		return NULL;
 	}
 
@@ -175,7 +175,7 @@ smtp_cert_verified(struct smtp_client *proto, int verified)
 		return;
 	}
 
-	io2_resume(proto->io, IO2_IN);
+	io_resume(proto->io, IO_IN);
 
 	if (proto->state == STATE_INIT)
 		smtp_client_state(proto, STATE_BANNER);
@@ -214,7 +214,7 @@ smtp_client_free(struct smtp_client *proto)
 	smtp_closed(proto->tag, proto);
 
 	if (proto->io)
-		io2_free(proto->io);
+		io_free(proto->io);
 
 	free(proto->reply);
 	free(proto);
@@ -272,7 +272,7 @@ smtp_client_state(struct smtp_client *proto, int newstate)
 
 	switch (proto->state) {
 	case STATE_BANNER:
-		io2_set_read(proto->io);
+		io_set_read(proto->io);
 		break;
 
 	case STATE_EHLO:
@@ -502,7 +502,7 @@ smtp_client_response(struct smtp_client *proto, const char *line)
 			smtp_client_state(proto, STATE_AUTH);
 		}
 		else
-			io2_start_tls(proto->io, proto->params.tls_ctx);
+			io_start_tls(proto->io, proto->params.tls_ctx);
 		break;
 
 	case STATE_AUTH_PLAIN:
@@ -573,7 +573,7 @@ smtp_client_response(struct smtp_client *proto, const char *line)
 				if (rcpt->done)
 					continue;
 				if (seen) {
-					io2_set_read(proto->io);
+					io_set_read(proto->io);
 					return;
 				}
 				smtp_client_rcpt_status(proto,
@@ -606,51 +606,51 @@ smtp_client_io(struct io *io, int evt, void *arg)
 {
 	struct smtp_client *proto = arg;
 
-	log_trace(TRACE_IO, "%p: %s %s", proto, io2_strevent(evt), io2_strio(io));
+	log_trace(TRACE_IO, "%p: %s %s", proto, io_strevent(evt), io_strio(io));
 
 	switch (evt) {
-	case IO2_CONNECTED:
+	case IO_CONNECTED:
 		if (proto->params.tls_req == TLS_SMTPS) {
-			io2_set_write(io);
-			io2_start_tls(proto->io, proto->params.tls_ctx);
+			io_set_write(io);
+			io_start_tls(proto->io, proto->params.tls_ctx);
 		}
 		else
 			smtp_client_state(proto, STATE_BANNER);
 		break;
 
-	case IO2_TLSREADY:
+	case IO_TLSREADY:
 		proto->flags |= FLAG_TLS;
-		io2_pause(proto->io, IO2_IN);
-		smtp_verify_server_cert(proto->tag, proto, io2_tls(proto->io));
+		io_pause(proto->io, IO_IN);
+		smtp_verify_server_cert(proto->tag, proto, io_tls(proto->io));
 		break;
 
-	case IO2_DATAIN:
+	case IO_DATAIN:
 		while (smtp_client_readline(proto))
 			;
 		break;
 
-	case IO2_LOWAT:
+	case IO_LOWAT:
 		if (proto->state == STATE_BODY)
 			smtp_client_sendbody(proto);
 		else
-			io2_set_read(io);
+			io_set_read(io);
 		break;
 
-	case IO2_TIMEOUT:
+	case IO_TIMEOUT:
 		errno = ETIMEDOUT;
 		smtp_client_abort(proto, FAIL_CONN, "Connection timeout");
 		break;
 
-	case IO2_ERROR:
-		smtp_client_abort(proto, FAIL_CONN, io2_error(io));
+	case IO_ERROR:
+		smtp_client_abort(proto, FAIL_CONN, io_error(io));
 		break;
 
-	case IO2_TLSERROR:
-		smtp_client_abort(proto, FAIL_CONN, io2_error(io));
+	case IO_TLSERROR:
+		smtp_client_abort(proto, FAIL_CONN, io_error(io));
 		break;
 
-	case IO2_DISCONNECTED:
-		smtp_client_abort(proto, FAIL_CONN, io2_error(io));
+	case IO_DISCONNECTED:
+		smtp_client_abort(proto, FAIL_CONN, io_error(io));
 		break;
 
 	default:
@@ -669,9 +669,9 @@ smtp_client_readline(struct smtp_client *proto)
 	char *line, *msg, *p;
 	int cont;
 
-	line = io2_getline(proto->io, &len);
+	line = io_getline(proto->io, &len);
 	if (line == NULL) {
-		if (io2_datalen(proto->io) >= proto->params.linemax)
+		if (io_datalen(proto->io) >= proto->params.linemax)
 			smtp_client_abort(proto, FAIL_PROTO, "Line too long");
 		return 0;
 	}
@@ -737,7 +737,7 @@ smtp_client_readline(struct smtp_client *proto)
 	if (cont)
 		return 1;
 
-	if (io2_datalen(proto->io)) {
+	if (io_datalen(proto->io)) {
 		/*
 		 * There should be no pending data after a response is read,
 		 * except for the multiple status lines after a LMTP message.
@@ -750,7 +750,7 @@ smtp_client_readline(struct smtp_client *proto)
 		}
 	}
 
-	io2_set_write(proto->io);
+	io_set_write(proto->io);
 	smtp_client_response(proto, proto->reply);
 	return 0;
 }
@@ -824,7 +824,7 @@ smtp_client_sendbody(struct smtp_client *proto)
 	char *ln = NULL;
 	int n;
 
-	total = io2_queued(proto->io);
+	total = io_queued(proto->io);
 	w = 0;
 
 	while (total < proto->params.obufmax) {
@@ -832,7 +832,7 @@ smtp_client_sendbody(struct smtp_client *proto)
 			break;
 		if (ln[len - 1] == '\n')
 			ln[len - 1] = '\0';
-		n = io2_printf(proto->io, "%s%s\r\n", *ln == '.'?".":"", ln);
+		n = io_printf(proto->io, "%s%s\r\n", *ln == '.'?".":"", ln);
 		if (n == -1) {
 			free(ln);
 			smtp_client_abort(proto, FAIL_INTERNAL, NULL);
@@ -872,7 +872,7 @@ smtp_client_sendcmd(struct smtp_client *proto, char *fmt, ...)
 
 	log_trace(TRACE_SMTPCLT, "mta: %p: >>> %s", proto, p);
 
-	len = io2_printf(proto->io, "%s\r\n", p);
+	len = io_printf(proto->io, "%s\r\n", p);
 	free(p);
 
 	if (len == -1)

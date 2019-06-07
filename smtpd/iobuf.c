@@ -21,15 +21,14 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#ifdef IO_SSL
-#include <openssl/err.h>
-#include <openssl/ssl.h>
+#ifdef IO_TLS
+#include <tls.h>
 #endif
+#include <unistd.h>
 
 #include "iobuf.h"
 
@@ -386,80 +385,60 @@ iobuf_flush(struct iobuf *io, int fd)
 	return (0);
 }
 
-#ifdef IO_SSL
+#ifdef IO_TLS
 
 int
-iobuf_flush_ssl(struct iobuf *io, void *ssl)
+iobuf_flush_tls(struct iobuf *io, void *tls)
 {
 	ssize_t	s;
 
 	while (io->queued)
-		if ((s = iobuf_write_ssl(io, ssl)) < 0)
+		if ((s = iobuf_write_tls(io, tls)) < 0)
 			return (s);
 
 	return (0);
 }
 
 ssize_t
-iobuf_write_ssl(struct iobuf *io, void *ssl)
+iobuf_write_tls(struct iobuf *io, void *tls)
 {
 	struct ioqbuf	*q;
-	int		 r;
 	ssize_t		 n;
 
 	q = io->outq;
-	n = SSL_write(ssl, q->buf + q->rpos, q->wpos - q->rpos);
-	if (n <= 0) {
-		switch ((r = SSL_get_error(ssl, n))) {
-		case SSL_ERROR_WANT_READ:
-			return (IOBUF_WANT_READ);
-		case SSL_ERROR_WANT_WRITE:
-			return (IOBUF_WANT_WRITE);
-		case SSL_ERROR_ZERO_RETURN: /* connection closed */
-			return (IOBUF_CLOSED);
-		case SSL_ERROR_SYSCALL:
-			if (ERR_peek_last_error())
-				return (IOBUF_SSLERROR);
-			if (r == 0)
-				errno = EPIPE;
-			return (IOBUF_ERROR);
-		default:
-			return (IOBUF_SSLERROR);
-		}
-	}
+	n = tls_write(tls, q->buf + q->rpos, q->wpos - q->rpos);
+	if (n == TLS_WANT_POLLIN)
+		return (IOBUF_WANT_READ);
+	else if (n == TLS_WANT_POLLOUT)
+		return (IOBUF_WANT_WRITE);
+	else if (n == 0)
+		return (IOBUF_CLOSED);
+	else if (n < 0)
+		return (IOBUF_SSLERROR);
+
 	iobuf_drain(io, n);
 
 	return (n);
 }
 
 ssize_t
-iobuf_read_ssl(struct iobuf *io, void *ssl)
+iobuf_read_tls(struct iobuf *io, void *tls)
 {
 	ssize_t	n;
-	int	r;
 
-	n = SSL_read(ssl, io->buf + io->wpos, iobuf_left(io));
-	if (n < 0) {
-		switch ((r = SSL_get_error(ssl, n))) {
-		case SSL_ERROR_WANT_READ:
-			return (IOBUF_WANT_READ);
-		case SSL_ERROR_WANT_WRITE:
-			return (IOBUF_WANT_WRITE);
-		case SSL_ERROR_SYSCALL:
-			if (ERR_peek_last_error())
-				return (IOBUF_SSLERROR);
-			if (r == 0)
-				errno = EPIPE;
-			return (IOBUF_ERROR);
-		default:
-			return (IOBUF_SSLERROR);
-		}
-	} else if (n == 0)
+	n = tls_read(tls, io->buf + io->wpos, iobuf_left(io));
+	if (n == TLS_WANT_POLLIN)
+		return (IOBUF_WANT_READ);
+	else if (n == TLS_WANT_POLLOUT)
+		return (IOBUF_WANT_WRITE);
+	else if (n == 0)
 		return (IOBUF_CLOSED);
+	else if (n < 0)
+		return (IOBUF_SSLERROR);
 
 	io->wpos += n;
 
 	return (n);
 }
 
-#endif /* IO_SSL */
+#endif /* IO_TLS */

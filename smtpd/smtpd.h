@@ -29,7 +29,6 @@
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "ioev.h"
-#include "ioev2.h"
 
 #define CHECK_IMSG_DATA_SIZE(imsg, expected_sz) do {			\
 	if ((imsg)->hdr.len - IMSG_HEADER_SIZE != (expected_sz))	\

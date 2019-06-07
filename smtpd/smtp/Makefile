@@ -7,10 +7,8 @@ PROG=	smtp
 BINDIR=	/usr/bin
 MAN=	smtp.1
 
-#SRCS+=	iobuf.c
-#SRCS+=	ioev.c
-SRCS+=	iobuf2.c
-SRCS+=	ioev2.c
+SRCS+=	iobuf.c
+SRCS+=	ioev.c
 SRCS+=	log.c
 SRCS+=	smtp_client.c
 SRCS+=	smtpc.c

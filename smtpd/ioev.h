@@ -50,9 +50,11 @@ int io_start_tls(struct io *, void *);
 const char* io_strio(struct io *);
 const char* io_strevent(int);
 const char* io_error(struct io *);
-void* io_ssl(struct io *);
+void* io_tls(struct io *);
 int io_fileno(struct io *);
 int io_paused(struct io *, int);
+void io_set_name(struct io *, const char *);
+
 
 /* Buffered output functions */
 int io_write(struct io *, const void *, size_t);

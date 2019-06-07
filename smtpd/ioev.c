@@ -27,15 +27,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#ifdef IO_TLS
+#include <tls.h>
+#endif
 #include <unistd.h>
 
 #include "ioev.h"
 #include "iobuf.h"
-
-#ifdef IO_SSL
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-#endif
 
 enum {
 	IO_STATE_NONE,
@@ -65,7 +63,8 @@ struct io {
 	int		 flags;
 	int		 state;
 	struct event	 ev;
-	void		*ssl;
+	void		*tls;
+	char		*name;
 	const char	*error; /* only valid immediately on callback */
 };
 
@@ -84,15 +83,13 @@ void	io_reset(struct io *, short, void (*)(int, short, void*));
 void	io_frame_enter(const char *, struct io *, int);
 void	io_frame_leave(struct io *);
 
-#ifdef IO_SSL
-void	ssl_error(const char *); /* XXX external */
-
-static const char* io_ssl_error(void);
-void	io_dispatch_accept_ssl(int, short, void *);
-void	io_dispatch_connect_ssl(int, short, void *);
-void	io_dispatch_read_ssl(int, short, void *);
-void	io_dispatch_write_ssl(int, short, void *);
-void	io_reload_ssl(struct io *io);
+#ifdef IO_TLS
+void	io_dispatch_handshake_tls(int, short, void *);
+void	io_dispatch_accept_tls(int, short, void *);
+void	io_dispatch_connect_tls(int, short, void *);
+void	io_dispatch_read_tls(int, short, void *);
+void	io_dispatch_write_tls(int, short, void *);
+void	io_reload_tls(struct io *io);
 #endif
 
 static struct io	*current = NULL;
@@ -109,12 +106,11 @@ io_strio(struct io *io)
 	char		ssl[128];
 
 	ssl[0] = '\0';
-#ifdef IO_SSL
-	if (io->ssl) {
-		(void)snprintf(ssl, sizeof ssl, " ssl=%s:%s:%d",
-		    SSL_get_version(io->ssl),
-		    SSL_get_cipher_name(io->ssl),
-		    SSL_get_cipher_bits(io->ssl, NULL));
+#ifdef IO_TLS
+	if (io->tls) {
+		(void)snprintf(ssl, sizeof ssl, " tls=%s:%s",
+		    tls_conn_version(io->tls),
+		    tls_conn_cipher(io->tls));
 	}
 #endif
 
@@ -169,6 +165,13 @@ io_set_nolinger(int fd)
 	memset(&l, 0, sizeof(l));
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l)) == -1)
 		err(1, "io_set_linger:setsockopt()");
+}
+
+void
+io_set_name(struct io *io, const char *name)
+{
+	if ((io->name = strdup(name)) == NULL)
+		err(1, "io_set_name:strdup()");
 }
 
 /*
@@ -271,9 +274,9 @@ io_free(struct io *io)
 	if (io == current)
 		current = NULL;
 
-#ifdef IO_SSL
-	SSL_free(io->ssl);
-	io->ssl = NULL;
+#ifdef IO_TLS
+	tls_free(io->tls);
+	io->tls = NULL;
 #endif
 
 	if (event_initialized(&io->ev))
@@ -283,6 +286,7 @@ io_free(struct io *io)
 		io->sock = -1;
 	}
 
+	free(io->name);
 	iobuf_clear(&io->iobuf);
 	free(io);
 }
@@ -398,9 +402,9 @@ io_error(struct io *io)
 }
 
 void *
-io_ssl(struct io *io)
+io_tls(struct io *io)
 {
-	return io->ssl;
+	return io->tls;
 }
 
 int
@@ -531,9 +535,9 @@ io_reload(struct io *io)
 
 	iobuf_normalize(&io->iobuf);
 
-#ifdef IO_SSL
-	if (io->ssl) {
-		io_reload_ssl(io);
+#ifdef IO_TLS
+	if (io->tls) {
+		io_reload_tls(io);
 		return;
 	}
 #endif
@@ -806,25 +810,9 @@ io_dispatch_connect(int fd, short ev, void *humppa)
 	io_frame_leave(io);
 }
 
-#ifdef IO_SSL
-
-static const char*
-io_ssl_error(void)
-{
-	static char	buf[128];
-	unsigned long	e;
-
-	e = ERR_peek_last_error();
-	if (e) {
-		ERR_error_string(e, buf);
-		return (buf);
-	}
-
-	return ("No SSL error");
-}
-
+#ifdef IO_TLS
 int
-io_start_tls(struct io *io, void *ssl)
+io_start_tls(struct io *io, void *tls)
 {
 	int	mode;
 
@@ -832,109 +820,114 @@ io_start_tls(struct io *io, void *ssl)
 	if (mode == 0 || mode == IO_RW)
 		errx(1, "io_start_tls(): full-duplex or unset");
 
-	if (io->ssl)
+	if (io->tls)
 		errx(1, "io_start_tls(): SSL already started");
-	io->ssl = ssl;
-
-	if (SSL_set_fd(io->ssl, io->sock) == 0) {
-		ssl_error("io_start_ssl:SSL_set_fd");
-		return (-1);
-	}
+	io->tls = tls;
 
 	if (mode == IO_WRITE) {
 		io->state = IO_STATE_CONNECT_SSL;
-		SSL_set_connect_state(io->ssl);
-		io_reset(io, EV_WRITE, io_dispatch_connect_ssl);
+		io_reset(io, EV_WRITE, io_dispatch_connect_tls);
 	} else {
 		io->state = IO_STATE_ACCEPT_SSL;
-		SSL_set_accept_state(io->ssl);
-		io_reset(io, EV_READ, io_dispatch_accept_ssl);
+		io_reset(io, EV_READ, io_dispatch_accept_tls);
 	}
 
 	return (0);
 }
 
 void
-io_dispatch_accept_ssl(int fd, short event, void *humppa)
+io_dispatch_handshake_tls(int fd, short event, void *humppa)
 {
 	struct io	*io = humppa;
-	int		 e, ret;
+	int		ret;
 
-	io_frame_enter("io_dispatch_accept_ssl", io, event);
+	io_frame_enter("io_dispatch_handshake_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
 		io_callback(io, IO_TIMEOUT);
 		goto leave;
 	}
 
-	if ((ret = SSL_accept(io->ssl)) > 0) {
+	if ((ret = tls_handshake(io->tls)) == 0) {
 		io->state = IO_STATE_UP;
 		io_callback(io, IO_TLSREADY);
 		goto leave;
 	}
 
-	switch ((e = SSL_get_error(io->ssl, ret))) {
-	case SSL_ERROR_WANT_READ:
-		io_reset(io, EV_READ, io_dispatch_accept_ssl);
-		break;
-	case SSL_ERROR_WANT_WRITE:
-		io_reset(io, EV_WRITE, io_dispatch_accept_ssl);
-		break;
-	default:
-		io->error = io_ssl_error();
-		ssl_error("io_dispatch_accept_ssl:SSL_accept");
+	if (ret == TLS_WANT_POLLIN)
+		io_reset(io, EV_READ, io_dispatch_handshake_tls);
+	else if (ret == TLS_WANT_POLLOUT)
+		io_reset(io, EV_WRITE, io_dispatch_handshake_tls);
+	else {
+		io->error = tls_error(io->tls);
 		io_callback(io, IO_ERROR);
-		break;
 	}
 
-    leave:
+leave:
 	io_frame_leave(io);
+	return;
 }
 
+
 void
-io_dispatch_connect_ssl(int fd, short event, void *humppa)
+io_dispatch_accept_tls(int fd, short event, void *humppa)
 {
 	struct io	*io = humppa;
-	int		 e, ret;
-
-	io_frame_enter("io_dispatch_connect_ssl", io, event);
+	struct tls     *cctx = NULL;
+	int ret;
+	io_frame_enter("io_dispatch_accept_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
 		io_callback(io, IO_TIMEOUT);
 		goto leave;
 	}
 
-	if ((ret = SSL_connect(io->ssl)) > 0) {
-		io->state = IO_STATE_UP;
-		io_callback(io, IO_TLSREADY);
+	if ((ret = tls_accept_socket(io->tls, &cctx, io->sock)) == 0) {
+		io->tls = cctx;
+		io_reset(io, EV_READ|EV_WRITE, io_dispatch_handshake_tls);
 		goto leave;
 	}
 
-	switch ((e = SSL_get_error(io->ssl, ret))) {
-	case SSL_ERROR_WANT_READ:
-		io_reset(io, EV_READ, io_dispatch_connect_ssl);
-		break;
-	case SSL_ERROR_WANT_WRITE:
-		io_reset(io, EV_WRITE, io_dispatch_connect_ssl);
-		break;
-	default:
-		io->error = io_ssl_error();
-		ssl_error("io_dispatch_connect_ssl:SSL_connect");
-		io_callback(io, IO_TLSERROR);
-		break;
+	io->error = tls_error(io->tls);
+	io_callback(io, IO_ERROR);
+
+leave:
+	io_frame_leave(io);
+	return;
+}
+
+void
+io_dispatch_connect_tls(int fd, short event, void *humppa)
+{
+	struct io	*io = humppa;
+	int		 ret;
+
+	io_frame_enter("io_dispatch_connect_tls", io, event);
+
+	if (event == EV_TIMEOUT) {
+		io_callback(io, IO_TIMEOUT);
+		goto leave;
 	}
+
+	if ((ret = tls_connect_socket(io->tls, io->sock, io->name)) == 0) {
+		io_reset(io, EV_READ|EV_WRITE, io_dispatch_handshake_tls);
+		goto leave;
+	}
+
+	io->error = tls_error(io->tls);
+	io_callback(io, IO_ERROR);
 
     leave:
 	io_frame_leave(io);
 }
 
 void
-io_dispatch_read_ssl(int fd, short event, void *humppa)
+io_dispatch_read_tls(int fd, short event, void *humppa)
 {
 	struct io	*io = humppa;
 	int		 n, saved_errno;
 
-	io_frame_enter("io_dispatch_read_ssl", io, event);
+	io_frame_enter("io_dispatch_read_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
 		io_callback(io, IO_TIMEOUT);
@@ -943,12 +936,12 @@ io_dispatch_read_ssl(int fd, short event, void *humppa)
 
 again:
 	iobuf_normalize(&io->iobuf);
-	switch ((n = iobuf_read_ssl(&io->iobuf, (SSL*)io->ssl))) {
+	switch ((n = iobuf_read_tls(&io->iobuf, io->tls))) {
 	case IOBUF_WANT_READ:
-		io_reset(io, EV_READ, io_dispatch_read_ssl);
+		io_reset(io, EV_READ, io_dispatch_read_tls);
 		break;
 	case IOBUF_WANT_WRITE:
-		io_reset(io, EV_WRITE, io_dispatch_read_ssl);
+		io_reset(io, EV_WRITE, io_dispatch_read_tls);
 		break;
 	case IOBUF_CLOSED:
 		io_callback(io, IO_DISCONNECTED);
@@ -960,14 +953,13 @@ again:
 		io_callback(io, IO_ERROR);
 		break;
 	case IOBUF_SSLERROR:
-		io->error = io_ssl_error();
-		ssl_error("io_dispatch_read_ssl:SSL_read");
+		io->error = tls_error(io->tls);
 		io_callback(io, IO_ERROR);
 		break;
 	default:
-		io_debug("io_dispatch_read_ssl(...) -> r=%d\n", n);
+		io_debug("io_dispatch_read_tls(...) -> r=%d\n", n);
 		io_callback(io, IO_DATAIN);
-		if (current == io && IO_READING(io) && SSL_pending(io->ssl))
+		if (current == io && IO_READING(io))
 			goto again;
 	}
 
@@ -976,13 +968,13 @@ again:
 }
 
 void
-io_dispatch_write_ssl(int fd, short event, void *humppa)
+io_dispatch_write_tls(int fd, short event, void *humppa)
 {
 	struct io	*io = humppa;
 	int		 n, saved_errno;
 	size_t		 w2, w;
 
-	io_frame_enter("io_dispatch_write_ssl", io, event);
+	io_frame_enter("io_dispatch_write_tls", io, event);
 
 	if (event == EV_TIMEOUT) {
 		io_callback(io, IO_TIMEOUT);
@@ -990,12 +982,12 @@ io_dispatch_write_ssl(int fd, short event, void *humppa)
 	}
 
 	w = io_queued(io);
-	switch ((n = iobuf_write_ssl(&io->iobuf, (SSL*)io->ssl))) {
+	switch ((n = iobuf_write_tls(&io->iobuf, io->tls))) {
 	case IOBUF_WANT_READ:
-		io_reset(io, EV_READ, io_dispatch_write_ssl);
+		io_reset(io, EV_READ, io_dispatch_write_tls);
 		break;
 	case IOBUF_WANT_WRITE:
-		io_reset(io, EV_WRITE, io_dispatch_write_ssl);
+		io_reset(io, EV_WRITE, io_dispatch_write_tls);
 		break;
 	case IOBUF_CLOSED:
 		io_callback(io, IO_DISCONNECTED);
@@ -1007,12 +999,11 @@ io_dispatch_write_ssl(int fd, short event, void *humppa)
 		io_callback(io, IO_ERROR);
 		break;
 	case IOBUF_SSLERROR:
-		io->error = io_ssl_error();
-		ssl_error("io_dispatch_write_ssl:SSL_write");
+		io->error = tls_error(io->tls);
 		io_callback(io, IO_ERROR);
 		break;
 	default:
-		io_debug("io_dispatch_write_ssl(...) -> w=%d\n", n);
+		io_debug("io_dispatch_write_tls(...) -> w=%d\n", n);
 		w2 = io_queued(io);
 		if (w > io->lowat && w2 <= io->lowat)
 			io_callback(io, IO_LOWAT);
@@ -1024,7 +1015,7 @@ io_dispatch_write_ssl(int fd, short event, void *humppa)
 }
 
 void
-io_reload_ssl(struct io *io)
+io_reload_tls(struct io *io)
 {
 	short	ev = 0;
 	void	(*dispatch)(int, short, void*) = NULL;
@@ -1032,31 +1023,31 @@ io_reload_ssl(struct io *io)
 	switch (io->state) {
 	case IO_STATE_CONNECT_SSL:
 		ev = EV_WRITE;
-		dispatch = io_dispatch_connect_ssl;
+		dispatch = io_dispatch_connect_tls;
 		break;
 	case IO_STATE_ACCEPT_SSL:
 		ev = EV_READ;
-		dispatch = io_dispatch_accept_ssl;
+		dispatch = io_dispatch_accept_tls;
 		break;
 	case IO_STATE_UP:
 		ev = 0;
 		if (IO_READING(io) && !(io->flags & IO_PAUSE_IN)) {
 			ev = EV_READ;
-			dispatch = io_dispatch_read_ssl;
+			dispatch = io_dispatch_read_tls;
 		}
 		else if (IO_WRITING(io) && !(io->flags & IO_PAUSE_OUT) &&
 		    io_queued(io)) {
 			ev = EV_WRITE;
-			dispatch = io_dispatch_write_ssl;
+			dispatch = io_dispatch_write_tls;
 		}
 		if (!ev)
 			return; /* paused */
 		break;
 	default:
-		errx(1, "io_reload_ssl(): bad state");
+		errx(1, "io_reload_tls(): bad state");
 	}
 
 	io_reset(io, ev, dispatch);
 }
 
-#endif /* IO_SSL */
+#endif /* IO_TLS */
