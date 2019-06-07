@@ -45,6 +45,7 @@
 
 #include "log.h"
 #include "ssl.h"
+#include "boguskeys.h"
 
 void
 ssl_init(void)
@@ -62,6 +63,7 @@ ssl_init(void)
 	/* Init hardware crypto engines. */
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
+
 	inited = 1;
 }
 
@@ -446,6 +448,67 @@ ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
 	if (x509ptr != NULL)
 		*x509ptr = x509;
 	else
+		X509_free(x509);
+
+	return (ret);
+}
+
+/*
+ * This function is a horrible hack but for RSA privsep to work a private key
+ * with correct size needs to be loaded into the tls config.
+ */
+int
+tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key)
+{
+	BIO		*in;
+	EVP_PKEY	*pkey = NULL;
+	X509		*x509 = NULL;
+	int		 ret = -1, keylen;
+
+	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
+		log_warnx("%s: BIO_new_mem_buf failed", __func__);
+		return (0);
+	}
+
+	if ((x509 = PEM_read_bio_X509(in, NULL, NULL, NULL)) == NULL) {
+		log_warnx("%s: PEM_read_bio_X509 failed", __func__);
+		goto fail;
+	}
+
+	if ((pkey = X509_get_pubkey(x509)) == NULL) {
+		log_warnx("%s: X509_get_pubkey failed", __func__);
+		goto fail;
+	}
+
+	keylen = EVP_PKEY_size(pkey) * 8;
+	switch(keylen) {
+	case 1024:
+		*fake_key = bogus_1024;
+		ret = sizeof(bogus_1024);
+		break;
+	case 2048:
+		*fake_key = bogus_2048;
+		ret = sizeof(bogus_2048);
+		break;
+	case 4096:
+		*fake_key = bogus_4096;
+		ret = sizeof(bogus_4096);
+		break;
+	case 8192:
+		*fake_key = bogus_8192;
+		ret = sizeof(bogus_8192);
+		break;
+	default:
+		log_warnx("%s: key size %d not support", __func__, keylen);
+		ret = -1;
+		break;
+	}
+fail:
+	BIO_free(in);
+
+	if (pkey != NULL)
+		EVP_PKEY_free(pkey);
+	if (x509 != NULL)
 		X509_free(x509);
 
 	return (ret);

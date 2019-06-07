@@ -62,6 +62,10 @@ int		ssl_load_pkey(const void *, size_t, char *, off_t,
 		    X509 **, EVP_PKEY **);
 int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
+int		tls_ctx_fake_private_key(char *, off_t, const char **);
+
 
 /* ssl_privsep.c */
 int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
+
+

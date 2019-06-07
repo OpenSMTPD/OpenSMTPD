@@ -2232,6 +2232,8 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		    "reason=tls-failure",
 		    s->id);
 		smtp_free(s, "TLS failure");
+		log_warnx("### %s", tls_error(tls));
+		log_warnx("### %s", tls_config_error(tls_config));
 		return;
 	}
 	io2_set_read(s->io);

@@ -158,6 +158,8 @@ smtp_setup_events(void)
 	void		*iter;
 	const char	*k;
 	struct tls_config	*tls_config;
+	const char	*fake_key;
+	int		 fake_keylen;
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
@@ -182,7 +184,11 @@ smtp_setup_events(void)
 		if (tls_config_set_cert_mem(tls_config, pki->pki_cert,
 			pki->pki_cert_len) == -1)
 			fatal("smtpd: tls_config_set_cert_mem");
+
 		tls_config_skip_private_key_check(tls_config);
+		if ((fake_keylen = tls_ctx_fake_private_key(pki->pki_cert,
+			    pki->pki_cert_len, &fake_key)) == -1)
+			err(1, NULL);
 
 		// ciphers ??
 		//ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
