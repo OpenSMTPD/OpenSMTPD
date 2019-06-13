@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.41 2017/05/17 14:00:06 deraadt Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.42 2019/06/12 17:42:53 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -38,8 +38,8 @@
 enum {
 	IO_STATE_NONE,
 	IO_STATE_CONNECT,
-	IO_STATE_CONNECT_SSL,
-	IO_STATE_ACCEPT_SSL,
+	IO_STATE_CONNECT_TLS,
+	IO_STATE_ACCEPT_TLS,
 	IO_STATE_UP,
 
 	IO_STATE_MAX,
@@ -65,6 +65,7 @@ struct io {
 	struct event	 ev;
 	void		*tls;
 	char		*name;
+
 	const char	*error; /* only valid immediately on callback */
 };
 
@@ -821,14 +822,14 @@ io_start_tls(struct io *io, void *tls)
 		errx(1, "io_start_tls(): full-duplex or unset");
 
 	if (io->tls)
-		errx(1, "io_start_tls(): SSL already started");
+		errx(1, "io_start_tls(): TLS already started");
 	io->tls = tls;
 
 	if (mode == IO_WRITE) {
-		io->state = IO_STATE_CONNECT_SSL;
+		io->state = IO_STATE_CONNECT_TLS;
 		io_reset(io, EV_WRITE, io_dispatch_connect_tls);
 	} else {
-		io->state = IO_STATE_ACCEPT_SSL;
+		io->state = IO_STATE_ACCEPT_TLS;
 		io_reset(io, EV_READ, io_dispatch_accept_tls);
 	}
 
@@ -952,7 +953,7 @@ again:
 		errno = saved_errno;
 		io_callback(io, IO_ERROR);
 		break;
-	case IOBUF_SSLERROR:
+	case IOBUF_TLSERROR:
 		io->error = tls_error(io->tls);
 		io_callback(io, IO_ERROR);
 		break;
@@ -998,7 +999,7 @@ io_dispatch_write_tls(int fd, short event, void *humppa)
 		errno = saved_errno;
 		io_callback(io, IO_ERROR);
 		break;
-	case IOBUF_SSLERROR:
+	case IOBUF_TLSERROR:
 		io->error = tls_error(io->tls);
 		io_callback(io, IO_ERROR);
 		break;
@@ -1021,11 +1022,11 @@ io_reload_tls(struct io *io)
 	void	(*dispatch)(int, short, void*) = NULL;
 
 	switch (io->state) {
-	case IO_STATE_CONNECT_SSL:
+	case IO_STATE_CONNECT_TLS:
 		ev = EV_WRITE;
 		dispatch = io_dispatch_connect_tls;
 		break;
-	case IO_STATE_ACCEPT_SSL:
+	case IO_STATE_ACCEPT_TLS:
 		ev = EV_READ;
 		dispatch = io_dispatch_accept_tls;
 		break;

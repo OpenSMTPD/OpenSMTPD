@@ -1,4 +1,4 @@
-/*	$OpenBSD: iobuf.c,v 1.10 2017/03/17 20:56:04 eric Exp $	*/
+/*	$OpenBSD: iobuf.c,v 1.11 2019/06/12 17:42:53 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -406,6 +406,7 @@ iobuf_write_tls(struct iobuf *io, void *tls)
 	ssize_t		 n;
 
 	q = io->outq;
+
 	n = tls_write(tls, q->buf + q->rpos, q->wpos - q->rpos);
 	if (n == TLS_WANT_POLLIN)
 		return (IOBUF_WANT_READ);
@@ -414,7 +415,7 @@ iobuf_write_tls(struct iobuf *io, void *tls)
 	else if (n == 0)
 		return (IOBUF_CLOSED);
 	else if (n < 0)
-		return (IOBUF_SSLERROR);
+		return (IOBUF_TLSERROR);
 
 	iobuf_drain(io, n);
 
@@ -434,7 +435,7 @@ iobuf_read_tls(struct iobuf *io, void *tls)
 	else if (n == 0)
 		return (IOBUF_CLOSED);
 	else if (n < 0)
-		return (IOBUF_SSLERROR);
+		return (IOBUF_TLSERROR);
 
 	io->wpos += n;
 

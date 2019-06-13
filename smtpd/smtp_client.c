@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_client.c,v 1.9 2019/05/14 12:08:54 eric Exp $	*/
+/*	$OpenBSD: smtp_client.c,v 1.10 2019/06/12 17:42:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
