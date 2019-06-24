@@ -86,7 +86,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_ramqueue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 
 
-smtpd_CFLAGS=		-DIO_SSL
+smtpd_CFLAGS=		-DIO_TLS
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
 AM_CPPFLAGS=		-I$(smtpd_srcdir)	\

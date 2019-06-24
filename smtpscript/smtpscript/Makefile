@@ -7,6 +7,6 @@ NOMAN=	noman
 LDADD+=         -lutil -lssl -lcrypto
 DPADD+=         ${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO}
 CPPFLAGS+=	-I${.CURDIR}/..
-CPPFLAGS+=	-DIO_SSL
+CPPFLAGS+=	-DIO_TLS
 
 .include <bsd.prog.mk>
