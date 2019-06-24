@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.622 2019/06/05 06:40:13 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.624 2019/06/14 19:55:25 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -234,6 +234,7 @@ enum imsg_type {
 	IMSG_GETADDRINFO,
 	IMSG_GETADDRINFO_END,
 	IMSG_GETNAMEINFO,
+	IMSG_RES_QUERY,
 
 	IMSG_CERT_INIT,
 	IMSG_CERT_CERTIFICATE,
@@ -1557,6 +1558,8 @@ void resolver_getaddrinfo(const char *, const char *, const struct addrinfo *,
     void(*)(void *, int, struct addrinfo*), void *);
 void resolver_getnameinfo(const struct sockaddr *, int,
     void(*)(void *, int, const char *, const char *), void *);
+void resolver_res_query(const char *, int, int,
+    void (*cb)(void *, int, int, int, const void *, int), void *);
 void resolver_dispatch_request(struct mproc *, struct imsg *);
 void resolver_dispatch_result(struct mproc *, struct imsg *);
 
@@ -1710,8 +1713,7 @@ void waitq_run(void *, void *);
 struct runq;
 
 int runq_init(struct runq **, void (*)(struct runq *, void *));
-int runq_schedule(struct runq *, time_t, void (*)(struct runq *, void *), void *);
-int runq_delay(struct runq *, unsigned int, void (*)(struct runq *, void *), void *);
-int runq_cancel(struct runq *, void (*)(struct runq *, void *), void *);
-int runq_pending(struct runq *, void (*)(struct runq *, void *), void *, time_t *);
-int runq_next(struct runq *, void (**)(struct runq *, void *), void **, time_t *);
+int runq_schedule(struct runq *, time_t, void *);
+int runq_schedule_at(struct runq *, time_t, void *);
+int runq_cancel(struct runq *, void *);
+int runq_pending(struct runq *, void *, time_t *);
