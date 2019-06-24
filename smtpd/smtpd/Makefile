@@ -93,7 +93,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare
 CFLAGS+=	-Werror-implicit-function-declaration
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
-CFLAGS+=	-DIO_SSL
+CFLAGS+=	-DIO_TLS
 CFLAGS+=	-DQUEUE_PROFILING
 YFLAGS=
 
