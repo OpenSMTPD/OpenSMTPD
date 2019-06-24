@@ -15,7 +15,7 @@ SRCS+=	smtpc.c
 SRCS+=	ssl.c
 SRCS+=	ssl_smtpd.c
 
-CPPFLAGS+= -DIO_SSL
+CPPFLAGS+= -DIO_TLS
 
 LDADD+=	-levent -lutil -lssl -lcrypto -lm -lz
 DPADD+=	${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
