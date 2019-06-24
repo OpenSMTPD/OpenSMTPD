@@ -1106,7 +1106,7 @@ mta_io(struct io *io, int evt, void *arg)
 
 	case IO_TLSREADY:
 		log_info("%016"PRIx64" mta tls ciphers=%s",
-		    s->id, ssl_to_text(io_tls(s->io)));
+		    s->id, tls_to_text(io_tls(s->io)));
 		s->flags |= MTA_TLS;
 
 		mta_cert_verify(s);
