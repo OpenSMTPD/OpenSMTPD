@@ -155,6 +155,7 @@ smtp_setup_events(void)
 {
 	struct listener *l;
 	struct pki	*pki;
+	struct ca	*ca;
 	void		*iter;
 	const char	*k;
 	const char	*fake_key;
@@ -213,18 +214,33 @@ smtp_setup_events(void)
 			if (pki == NULL)
 				fatalx("smtpd: could not find valid PKI for listener");
 
+			if (l->ca_name[0])
+				ca = dict_get(env->sc_ca_dict, l->ca_name);
+			else
+				ca = ssl_default_ca();
+			tls_config_set_ca_mem(l->tls_cfg,
+			    ca->ca_cert,
+			    ca->ca_cert_len);
+
 			if ((fake_keylen = tls_ctx_fake_private_key(pki->pki_cert,
 				    pki->pki_cert_len, &fake_key,
 				    NULL, &pki->pki_pkey, p)) == -1)
 				err(1, "tls_ctx_fake_private_key");
-
+			
 			if (tls_config_set_keypair_mem(l->tls_cfg,
 				pki->pki_cert, pki->pki_cert_len,
 				fake_key, fake_keylen) != 0)
 				err(1, "%s", tls_config_error(l->tls_cfg));
 
-		//if (sni_cb)
-		//	SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
+			if (l->flags & F_TLS_VERIFY)
+				tls_config_verify_client(l->tls_cfg);
+			//else
+			//	tls_config_verify_client_optional(l->tls_cfg);
+
+			//
+			// SNI ?
+			//if (sni_cb)
+			//	SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
 
 
 		}

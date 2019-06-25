@@ -20,6 +20,8 @@
 
 #define TLS_CERT_HASH_SIZE	128
 
+#define CA_FILE			 "/etc/ssl/cert.pem"
+
 struct pki {
 	char			 pki_name[HOST_NAME_MAX+1];
 
@@ -70,3 +72,4 @@ int		tls_ctx_fake_private_key(char *, off_t, const char **,
 int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
 
 int		tls_load_pkey(char *, off_t, X509 **, EVP_PKEY **);
+const struct ca *ssl_default_ca(void);

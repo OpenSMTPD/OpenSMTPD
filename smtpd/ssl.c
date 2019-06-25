@@ -48,8 +48,11 @@
 #include "ssl.h"
 #include "boguskeys.h"
 
-void
-hash_x509(X509 *cert, char *hash, size_t hashlen);
+struct ca	 default_ca;
+struct ca	*default_ca_p = &default_ca;
+
+int ssl_load_default_cafile(void);
+void hash_x509(X509 *cert, char *hash, size_t hashlen);
 
 void
 ssl_init(void)
@@ -394,4 +397,16 @@ hash_x509(X509 *cert, char *hash, size_t hashlen)
 		hash[off++] = hex[digest[i] & 0x0f];
 	}
 	hash[off] = 0;
+}
+
+int
+ssl_load_default_cafile(void)
+{
+	return ssl_load_cafile(&default_ca, CA_FILE);
+}
+
+const struct ca *
+ssl_default_ca(void)
+{
+	return default_ca_p;
 }

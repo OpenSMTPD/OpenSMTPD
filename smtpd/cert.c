@@ -28,6 +28,7 @@
 #include <openssl/ssl.h>
 #include <stdio.h>
 #include <string.h>
+#include <tls.h>
 
 #include "log.h"
 #include "smtpd.h"
@@ -106,8 +107,7 @@ cert_verify(const void *ssl, const char *name, int fallback,
 	int			cert_len[MAX_CERTS];
 	int			i, cert_count, ret;
 
-	x = SSL_get_peer_certificate(ssl);
-	if (x == NULL) {
+	if (! tls_peer_cert_provided(ssl)) {
 		cb(arg, CERT_NOCERT);
 		return 0;
 	}

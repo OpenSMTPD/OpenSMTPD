@@ -194,7 +194,7 @@ typedef struct {
 %token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SOCKET SRC SUB_ADDR_DELIM
 %token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
-%token	VERIFY VIRTUAL
+%token	VIRTUAL
 %token	WARN_INTERVAL WRAPPER
 
 %token	<v.string>	STRING
@@ -1912,15 +1912,15 @@ opt_if_listen : INET4 {
 				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
-			listen_opts.ssl = F_SMTPS;
+			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
 		}
-		| SMTPS VERIFY 			{
+		| SMTPS NO_VERIFY 			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
 				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
-			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
+			listen_opts.ssl = F_SMTPS;
 		}
 		| TLS				{
 			if (listen_opts.options & LO_SSL) {
@@ -1936,15 +1936,15 @@ opt_if_listen : INET4 {
 				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
-			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
+			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
 		}
-		| TLS_REQUIRE VERIFY   		{
+		| TLS_REQUIRE NO_VERIFY   		{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
 				YYERROR;
 			}
 			listen_opts.options |= LO_SSL;
-			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
+			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
 		}
 		| PKI STRING			{
 			if (listen_opts.options & LO_PKI) {
@@ -2329,7 +2329,6 @@ lookup(char *s)
 		{ "ttl",		TTL },
 		{ "user",		USER },
 		{ "userbase",		USERBASE },
-		{ "verify",		VERIFY },
 		{ "virtual",		VIRTUAL },
 		{ "warn-interval",	WARN_INTERVAL },
 		{ "wrapper",		WRAPPER },
