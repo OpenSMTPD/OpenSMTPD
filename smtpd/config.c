@@ -85,7 +85,6 @@ config_default(void)
 	conf->sc_listeners = calloc(1, sizeof(*conf->sc_listeners));
 	conf->sc_ca_dict = calloc(1, sizeof(*conf->sc_ca_dict));
 	conf->sc_pki_dict = calloc(1, sizeof(*conf->sc_pki_dict));
-	conf->sc_ssl_dict = calloc(1, sizeof(*conf->sc_ssl_dict));
 	conf->sc_limits_dict = calloc(1, sizeof(*conf->sc_limits_dict));
 	conf->sc_mda_wrappers = calloc(1, sizeof(*conf->sc_mda_wrappers));
 	conf->sc_processors_dict = calloc(1, sizeof(*conf->sc_processors_dict));
@@ -99,7 +98,6 @@ config_default(void)
 	    conf->sc_listeners == NULL		||
 	    conf->sc_ca_dict == NULL		||
 	    conf->sc_pki_dict == NULL		||
-	    conf->sc_ssl_dict == NULL		||
 	    conf->sc_limits_dict == NULL        ||
 	    conf->sc_mda_wrappers == NULL	||
 	    conf->sc_processors_dict == NULL	||
@@ -112,7 +110,6 @@ config_default(void)
 	dict_init(conf->sc_mda_wrappers);
 	dict_init(conf->sc_ca_dict);
 	dict_init(conf->sc_pki_dict);
-	dict_init(conf->sc_ssl_dict);
 	dict_init(conf->sc_tables_dict);
 	dict_init(conf->sc_limits_dict);
 	dict_init(conf->sc_processors_dict);
@@ -151,7 +148,6 @@ error:
 	free(conf->sc_listeners);
 	free(conf->sc_ca_dict);
 	free(conf->sc_pki_dict);
-	free(conf->sc_ssl_dict);
 	free(conf->sc_limits_dict);
 	free(conf->sc_mda_wrappers);
 	free(conf->sc_processors_dict);

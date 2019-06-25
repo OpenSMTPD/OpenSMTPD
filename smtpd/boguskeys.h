@@ -5,8 +5,8 @@
  * on March 26, 2017.
  */
 
-/* Bogus private key since the private key is privseped away */
-const char bogus_1024[] = "-----BEGIN RSA PRIVATE KEY-----\n"
+/* Bogus RSA private key since the private key is privseped away */
+const char bogus_rsa_1024[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "MIICXQIBAAKBgQDXEA8QOA7tgvV0UN50pAf34b0vKD95svTuFNuCn7esdTUly/hF\n"
     "wDckkEznfbGj6o1otpMVaPNwRhhwikF7x9IWPjXw7sfbgvQoa2gkMUMkUr/X49KA\n"
     "7Uu0xqOaKn/IM4yA/ZaTuL99zdn8EBCRyrDVF8iDnVTPMrsLTyg2bE1qhwIDAQAB\n"
@@ -21,7 +21,7 @@ const char bogus_1024[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "RM7M+SK2pdWNgHYBns+ZAkAT7fZsAeOxNjM7h2kA0AriUvc2IuDqVGiFKAFCVacF\n"
     "mSQSIplSJU117YTqbVGf++SEj/WFYOTS8G+jjBuMr1d9\n"
     "-----END RSA PRIVATE KEY-----\n";
-const char bogus_2048[] = "-----BEGIN RSA PRIVATE KEY-----\n"
+const char bogus_rsa_2048[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "MIIEpAIBAAKCAQEA2qsShCATc5n25suEmB+1zaxbrVbSqaEWZ+qizKTLlybJ0TOD\n"
     "Nl/6lo9hIZ+gTqf0GwJRTUwtkjlovrn5p8IWtZUceG0S+ijh7DybzGCVlOFN0JRx\n"
     "z+zTr9eNPkvrJLwYavSzV4BpjelBKManE8sHA6pqXCDi5PfJ0iKfWtHQk2S5ukWA\n"
@@ -48,7 +48,7 @@ const char bogus_2048[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "/w6oCEKldPe/6tzO12i9BITmAmoZzswO/ms7J3cRnvoLWM1tPHh3zrGZgIaMdTyv\n"
     "n0QebhOEKeXrhwZVmyhBFgI/4bTZJWByAnr6p3jLywK2NdxJIXZ5cg==\n"
     "-----END RSA PRIVATE KEY-----\n";
-const char bogus_4096[] = "-----BEGIN RSA PRIVATE KEY-----\n"
+const char bogus_rsa_4096[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "MIIJKAIBAAKCAgEAv+N1MSd69KotAzrgAAaMVrlXJZmI3yqD43RfPo97CCoOETXy\n"
     "taJwFO1rTGp/4RxMT7us89AVJTlb5IeBf2KLobLMwn0CT/mSoc/hNfiz9AQG98fI\n"
     "pjWsQcGcJ5ggY2eAg6O9UpQYBfmbbn5U9MpDWzrmSgTS3cCmKNGl/oJyhRLauM7d\n"
@@ -99,7 +99,7 @@ const char bogus_4096[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "IUqmRWdNw8O2U3tMYMOj1K5rl82XHsxHB6gOYWSn+Xwwg2FRwsDS67sUMu6zkClJ\n"
     "AcD2WgawwxehsKZx3r4GdrZNNa3JBs9NE5Bc4mivROIKSUxBTo44fwws0gE=\n"
     "-----END RSA PRIVATE KEY-----\n";
-const char bogus_8192[] = "-----BEGIN RSA PRIVATE KEY-----\n"
+const char bogus_rsa_8192[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "MIISKQIBAAKCBAEAzyPE0O2QFkMfOgLRrboLW586Ibh9EgoZaV//pyunvc0ICnyC\n"
     "4bVJ/oRLAhPYOSou2KMIKuy8T7dz6b0JgIhaZJ6Kwt6isE9kIgBgkeKitmNJXou1\n"
     "Q5GKUx28NJeh0jRkGleVbGyL0wGXaud5Q3bV3VBlQV3iCJwstnc2meu8ZzO97PeG\n"
@@ -198,3 +198,16 @@ const char bogus_8192[] = "-----BEGIN RSA PRIVATE KEY-----\n"
     "uQRZgyxBxgoqwEBlXl3bBfTES5N+T/9nL98LudfydkUlrHM7rAF5qoUdEIR2/4R4\n"
     "QwKCccA30QP3OE14uiDlfIBmLGKfveGMMCha9Dj33i3mIu4FWYi0rJg4hv4S\n"
     "-----END RSA PRIVATE KEY-----\n";
+
+/*
+ * Placed in the public domain by Gilles Chehade <gilles@poolp.org>
+ * on June 25, 2019.
+ */
+const char bogus_ecdsa_576[] = "-----BEGIN EC PARAMETERS-----\n"
+    "BggqhkjOPQMBBw==\n"
+    "-----END EC PARAMETERS-----\n"
+    "-----BEGIN EC PRIVATE KEY-----\n"
+    "MHcCAQEEIC/zVy1F7Mcn+e/19LdicDfOZLeUdVOJeoBTeYouL9jnoAoGCCqGSM49\n"
+    "AwEHoUQDQgAEmbKf/4ApbJNw80JJn3o3ysCtupM2rv80+FyKlfV2L3RJThmdG3oe\n"
+    "H3YEEPcf6cpJ3R+5Gfa7mY9kRNgYsW1zeQ==\n"
+    "-----END EC PRIVATE KEY-----\n";

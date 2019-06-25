@@ -536,6 +536,8 @@ struct listener {
 	TAILQ_ENTRY(listener)	 entry;
 
 	int			 local;		/* there must be a better way */
+
+	struct tls_config	*tls_cfg;
 };
 
 struct smtpd {
@@ -605,7 +607,6 @@ struct smtpd {
 
 	struct dict			       *sc_ca_dict;
 	struct dict			       *sc_pki_dict;
-	struct dict			       *sc_ssl_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
 

@@ -308,27 +308,43 @@ tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key,
 		ECDSA_set_ex_data(eckey, 0, hash);
 
 	keylen = EVP_PKEY_size(pkey) * 8;
-	switch(keylen) {
-	case 1024:
-		*fake_key = bogus_1024;
-		ret = sizeof(bogus_1024);
-		break;
-	case 2048:
-		*fake_key = bogus_2048;
-		ret = sizeof(bogus_2048);
-		break;
-	case 4096:
-		*fake_key = bogus_4096;
-		ret = sizeof(bogus_4096);
-		break;
-	case 8192:
-		*fake_key = bogus_8192;
-		ret = sizeof(bogus_8192);
-		break;
-	default:
-		log_warnx("%s: key size %d not support", __func__, keylen);
-		ret = -1;
-		break;
+	if (rsa) {
+		switch(keylen) {
+		case 1024:
+			*fake_key = bogus_rsa_1024;
+			ret = sizeof(bogus_rsa_1024);
+			break;
+		case 2048:
+			*fake_key = bogus_rsa_2048;
+			ret = sizeof(bogus_rsa_2048);
+			break;
+		case 4096:
+			*fake_key = bogus_rsa_4096;
+			ret = sizeof(bogus_rsa_4096);
+			break;
+		case 8192:
+			*fake_key = bogus_rsa_8192;
+			ret = sizeof(bogus_rsa_8192);
+			break;
+		default:
+			log_warnx("%s: key size %d not support", __func__, keylen);
+			ret = -1;
+			break;
+		}
+	}
+
+	if (eckey) {
+		switch(keylen) {
+		case 576:
+			*fake_key = bogus_ecdsa_576;
+			ret = sizeof(bogus_ecdsa_576);
+			break;
+		default:
+			log_warnx("%s: key size %d not support", __func__, keylen);
+			ret = -1;
+			break;
+		}
+
 	}
 
 	if (ret != -1) {

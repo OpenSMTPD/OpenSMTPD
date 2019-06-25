@@ -2208,7 +2208,7 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 {
 	struct smtp_session *s = arg;
 	struct tls *tls;
-	struct tls_config *tls_config;
+	struct tls_config *tls_cfg;
 
 
 	tree_pop(&wait_ssl_init, s->id);
@@ -2221,14 +2221,14 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		return;
 	}
 
-	tls_config = dict_get(env->sc_ssl_dict, name);
+	tls_cfg = s->listener->tls_cfg;
 	//ssl = ssl_smtp_init(ssl_ctx, s->listener->flags & F_TLS_VERIFY);
 	//	if (verify)
 	//		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, dummy_verify);
 	// SNI ?
 
 	tls = tls_server();
-	if (tls_configure(tls, tls_config) == -1) {
+	if (tls_configure(tls, tls_cfg) == -1) {
 		log_info("%016"PRIx64" smtp disconnected "
 		    "reason=tls-failure",
 		    s->id);
