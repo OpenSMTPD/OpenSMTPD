@@ -1067,7 +1067,7 @@ smtp_io(struct io *io, int evt, void *arg)
 
 	case IO_TLSREADY:
 		log_info("%016"PRIx64" smtp tls ciphers=%s",
-		    s->id, ssl_to_text(io_tls(s->io)));
+		    s->id, tls_to_text(io_tls(s->io)));
 
 		report_smtp_link_tls("smtp-in", s->id, ssl_to_text(io_tls(s->io)));
 
@@ -2198,7 +2198,6 @@ smtp_cert_init(struct smtp_session *s)
 		name = s->smtpname;
 		fallback = 1;
 	}
-
 	if (cert_init(name, fallback, smtp_cert_init_cb, s))
 		tree_xset(&wait_ssl_init, s->id, s);
 }
@@ -2210,6 +2209,7 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 	struct smtp_session *s = arg;
 	struct tls *tls;
 	struct tls_config *tls_config;
+
 
 	tree_pop(&wait_ssl_init, s->id);
 
@@ -2235,6 +2235,7 @@ smtp_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		smtp_free(s, "TLS failure");
 		return;
 	}
+
 	io_set_read(s->io);
 	io_start_tls(s->io, tls);
 }

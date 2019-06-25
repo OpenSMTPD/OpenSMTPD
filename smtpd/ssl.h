@@ -18,6 +18,8 @@
 #define SSL_CIPHERS		"HIGH:!aNULL:!MD5"
 #define	SSL_SESSION_TIMEOUT	300
 
+#define TLS_CERT_HASH_SIZE	128
+
 struct pki {
 	char			 pki_name[HOST_NAME_MAX+1];
 
@@ -60,8 +62,11 @@ int		ssl_load_pkey(const void *, size_t, char *, off_t,
 		    X509 **, EVP_PKEY **);
 int		ssl_ctx_fake_private_key(SSL_CTX *, const void *, size_t,
 		    char *, off_t, X509 **, EVP_PKEY **);
-int		tls_ctx_fake_private_key(char *, off_t, const char **);
+int		tls_ctx_fake_private_key(char *, off_t, const char **,
+    X509 **, EVP_PKEY **, char *);
 
 
 /* ssl_privsep.c */
 int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
+
+int		tls_load_pkey(char *, off_t, X509 **, EVP_PKEY **);

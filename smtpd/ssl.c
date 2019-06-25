@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
@@ -46,6 +47,9 @@
 #include "log.h"
 #include "ssl.h"
 #include "boguskeys.h"
+
+void
+hash_x509(X509 *cert, char *hash, size_t hashlen);
 
 void
 ssl_init(void)
@@ -206,53 +210,6 @@ fail:
 	return (NULL);
 }
 
-SSL_CTX *
-ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len, const char *ciphers)
-{
-	SSL_CTX	*ctx;
-	size_t	 pkinamelen = 0;
-
-	ctx = SSL_CTX_new(SSLv23_method());
-	if (ctx == NULL) {
-		ssl_error("ssl_ctx_create");
-		fatal("ssl_ctx_create: could not create SSL context");
-	}
-
-	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
-	SSL_CTX_set_timeout(ctx, SSL_SESSION_TIMEOUT);
-	SSL_CTX_set_options(ctx,
-	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TICKET);
-	SSL_CTX_set_options(ctx,
-	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-	SSL_CTX_set_options(ctx, SSL_OP_NO_CLIENT_RENEGOTIATION);
-	SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
-
-	if (ciphers == NULL)
-		ciphers = SSL_CIPHERS;
-	if (!SSL_CTX_set_cipher_list(ctx, ciphers)) {
-		ssl_error("ssl_ctx_create");
-		fatal("ssl_ctx_create: could not set cipher list");
-	}
-
-	if (cert != NULL) {
-		if (pkiname != NULL)
-			pkinamelen = strlen(pkiname) + 1;
-		if (!SSL_CTX_use_certificate_chain_mem(ctx, cert, cert_len)) {
-			ssl_error("ssl_ctx_create");
-			fatal("ssl_ctx_create: invalid certificate chain");
-		} else if (!ssl_ctx_fake_private_key(ctx,
-		    pkiname, pkinamelen, cert, cert_len, NULL, NULL)) {
-			ssl_error("ssl_ctx_create");
-			fatal("ssl_ctx_create: could not fake private key");
-		} else if (!SSL_CTX_check_private_key(ctx)) {
-			ssl_error("ssl_ctx_create");
-			fatal("ssl_ctx_create: invalid private key");
-		}
-	}
-
-	return (ctx);
-}
-
 int
 ssl_load_certificate(struct pki *p, const char *pathname)
 {
@@ -307,114 +264,21 @@ ssl_error(const char *where)
 	}
 }
 
-int
-ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
-    X509 **x509ptr, EVP_PKEY **pkeyptr)
-{
-	BIO		*in;
-	X509		*x509 = NULL;
-	EVP_PKEY	*pkey = NULL;
-	RSA		*rsa = NULL;
-	EC_KEY		*eckey = NULL;
-	void		*exdata = NULL;
-
-	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_BUF_LIB);
-		return (0);
-	}
-
-	if ((x509 = PEM_read_bio_X509(in, NULL,
-	    ssl_password_cb, NULL)) == NULL) {
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_PEM_LIB);
-		goto fail;
-	}
-
-	if ((pkey = X509_get_pubkey(x509)) == NULL) {
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_X509_LIB);
-		goto fail;
-	}
-
-	BIO_free(in);
-	in = NULL;
-
-	if (data != NULL && datalen) {
-		if (((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL &&
-			(eckey = EVP_PKEY_get1_EC_KEY(pkey)) == NULL) ||
-		    (exdata = malloc(datalen)) == NULL) {
-			SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_EVP_LIB);
-			goto fail;
-		}
-
-		memcpy(exdata, data, datalen);
-		if (rsa)
-			RSA_set_ex_data(rsa, 0, exdata);
-		if (eckey)
-			ECDSA_set_ex_data(eckey, 0, exdata);
-		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
-		EC_KEY_free(eckey); /* dereference, will be cleaned up with pkey */
-	}
-
-	*x509ptr = x509;
-	*pkeyptr = pkey;
-
-	return (1);
-
- fail:
-	RSA_free(rsa);
-	EC_KEY_free(eckey);
-	BIO_free(in);
-	EVP_PKEY_free(pkey);
-	X509_free(x509);
-	free(exdata);
-
-	return (0);
-}
-
-int
-ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
-    char *buf, off_t len, X509 **x509ptr, EVP_PKEY **pkeyptr)
-{
-	int		 ret = 0;
-	EVP_PKEY	*pkey = NULL;
-	X509		*x509 = NULL;
-
-	if (!ssl_load_pkey(data, datalen, buf, len, &x509, &pkey))
-		return (0);
-
-	/*
-	 * Use the public key as the "private" key - the secret key
-	 * parameters are hidden in an extra process that will be
-	 * contacted by the RSA engine.  The SSL/TLS library needs at
-	 * least the public key parameters in the current process.
-	 */
-	ret = SSL_CTX_use_PrivateKey(ctx, pkey);
-	if (!ret)
-		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_LIB_SSL);
-
-	if (pkeyptr != NULL)
-		*pkeyptr = pkey;
-	else
-		EVP_PKEY_free(pkey);
-
-	if (x509ptr != NULL)
-		*x509ptr = x509;
-	else
-		X509_free(x509);
-
-	return (ret);
-}
 
 /*
  * This function is a horrible hack but for RSA privsep to work a private key
  * with correct size needs to be loaded into the tls config.
  */
 int
-tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key)
+tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key,
+    X509 **x509ptr, EVP_PKEY **pkeyptr, char *hash)
 {
 	BIO		*in;
 	EVP_PKEY	*pkey = NULL;
 	X509		*x509 = NULL;
 	int		 ret = -1, keylen;
+	RSA		*rsa = NULL;
+	EC_KEY		*eckey = NULL;
 
 	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
 		log_warnx("%s: BIO_new_mem_buf failed", __func__);
@@ -430,6 +294,18 @@ tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key)
 		log_warnx("%s: X509_get_pubkey failed", __func__);
 		goto fail;
 	}
+
+	if (((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL &&
+		(eckey = EVP_PKEY_get1_EC_KEY(pkey)) == NULL)) {
+		log_warnx("%s: EVP_PKEY_get1_RSA/EC_KEY failed", __func__);
+		goto fail;
+	}
+
+	hash_x509(x509, hash, TLS_CERT_HASH_SIZE);
+	if (rsa)
+		RSA_set_ex_data(rsa, 0, hash);
+	if (eckey)
+		ECDSA_set_ex_data(eckey, 0, hash);
 
 	keylen = EVP_PKEY_size(pkey) * 8;
 	switch(keylen) {
@@ -454,13 +330,52 @@ tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key)
 		ret = -1;
 		break;
 	}
+
+	if (ret != -1) {
+		if (x509ptr) {
+			*x509ptr = x509;
+			x509 = NULL;
+		}
+		if (pkeyptr) {
+			*pkeyptr = pkey;
+			pkey = NULL;
+		}
+	}
+
 fail:
 	BIO_free(in);
 
-	if (pkey != NULL)
+	if (rsa)
+		RSA_free(rsa);
+	if (eckey)
+		EC_KEY_free(eckey);
+	if (pkey)
 		EVP_PKEY_free(pkey);
-	if (x509 != NULL)
+	if (x509)
 		X509_free(x509);
 
 	return (ret);
+}
+
+void
+hash_x509(X509 *cert, char *hash, size_t hashlen)
+{
+	static const char	hex[] = "0123456789abcdef";
+	size_t			off;
+	char			digest[EVP_MAX_MD_SIZE];
+	int		 	dlen, i;
+
+	if (X509_pubkey_digest(cert, EVP_sha256(), digest, &dlen) != 1)
+		fatalx("%s: X509_pubkey_digest failed", __func__);
+
+	if (hashlen < 2 * dlen + sizeof("SHA256:"))
+		fatalx("%s: hash buffer to small", __func__);
+
+	off = strlcpy(hash, "SHA256:", hashlen);
+
+	for (i = 0; i < dlen; i++) {
+		hash[off++] = hex[(digest[i] >> 4) & 0x0f];
+		hash[off++] = hex[digest[i] & 0x0f];
+	}
+	hash[off] = 0;
 }

@@ -854,7 +854,6 @@ io_dispatch_handshake_tls(int fd, short event, void *humppa)
 		io_callback(io, IO_TLSREADY);
 		goto leave;
 	}
-
 	if (ret == TLS_WANT_POLLIN)
 		io_reset(io, EV_READ, io_dispatch_handshake_tls);
 	else if (ret == TLS_WANT_POLLOUT)
@@ -888,7 +887,6 @@ io_dispatch_accept_tls(int fd, short event, void *humppa)
 		io_reset(io, EV_READ|EV_WRITE, io_dispatch_handshake_tls);
 		goto leave;
 	}
-
 	io->error = tls_error(io->tls);
 	io_callback(io, IO_ERROR);
 
