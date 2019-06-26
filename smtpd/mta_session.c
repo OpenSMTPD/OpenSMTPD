@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.117 2019/06/14 19:55:25 eric Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.118 2019/06/24 15:14:01 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -167,8 +167,8 @@ void mta_hoststat_uncache(const char *, uint64_t);
 static struct tree wait_helo;
 static struct tree wait_ptr;
 static struct tree wait_fd;
-static struct tree wait_ssl_init;
-static struct tree wait_ssl_verify;
+static struct tree wait_tls_init;
+static struct tree wait_tls_verify;
 
 static struct runq *hangon;
 
@@ -181,8 +181,8 @@ mta_session_init(void)
 		tree_init(&wait_helo);
 		tree_init(&wait_ptr);
 		tree_init(&wait_fd);
-		tree_init(&wait_ssl_init);
-		tree_init(&wait_ssl_verify);
+		tree_init(&wait_tls_init);
+		tree_init(&wait_tls_verify);
 		runq_init(&hangon, mta_on_timeout);
 		init = 1;
 	}
@@ -1463,7 +1463,7 @@ mta_cert_init(struct mta_session *s)
 	}
 
 	if (cert_init(name, fallback, mta_cert_init_cb, s)) {
-		tree_xset(&wait_ssl_init, s->id, s);
+		tree_xset(&wait_tls_init, s->id, s);
 		s->flags |= MTA_WAIT;
 	}
 }
@@ -1477,7 +1477,7 @@ mta_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 	char *xname = NULL, *xcert = NULL;
 
 	if (s->flags & MTA_WAIT)
-		mta_tree_pop(&wait_ssl_init, s->id);
+		mta_tree_pop(&wait_tls_init, s->id);
 
 	if (status == CA_FAIL && s->relay->pki_name) {
 		log_info("%016"PRIx64" mta closing reason=ca-failure", s->id);
@@ -1513,7 +1513,7 @@ mta_cert_verify(struct mta_session *s)
 	}
 
 	if (cert_verify(io_tls(s->io), name, fallback, mta_cert_verify_cb, s)) {
-		tree_xset(&wait_ssl_verify, s->id, s);
+		tree_xset(&wait_tls_verify, s->id, s);
 		io_pause(s->io, IO_IN);
 		s->flags |= MTA_WAIT;
 	}
@@ -1526,7 +1526,7 @@ mta_cert_verify_cb(void *arg, int status)
 	int resume = 0;
 
 	if (s->flags & MTA_WAIT) {
-		mta_tree_pop(&wait_ssl_verify, s->id);
+		mta_tree_pop(&wait_tls_verify, s->id);
 		resume = 1;
 	}
 
