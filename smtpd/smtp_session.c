@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.392 2019/06/26 08:46:08 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.395 2019/07/03 03:24:03 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1095,6 +1095,10 @@ smtp_io(struct io *io, int evt, void *arg)
 			return;
 		}
 
+		/* No complete line received */
+		if (line == NULL)
+			return;
+
 		if (strchr(line, '\r')) {
 			s->flags |= SF_BADINPUT;
 			smtp_reply(s, "500 %s: <CR> is only allowed before <LF>",
@@ -1103,10 +1107,6 @@ smtp_io(struct io *io, int evt, void *arg)
 			io_set_write(io);
 			return;
 		}
-
-		/* No complete line received */
-		if (line == NULL)
-			return;
 
 		/* Message body */
 		eom = 0;
@@ -2052,7 +2052,7 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	va_start(ap, fmt);
 	n = vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
-	if (n == -1 || n >= LINE_MAX)
+	if (n < 0 || n >= LINE_MAX)
 		fatalx("smtp_reply: line too long");
 	if (n < 4)
 		fatalx("smtp_reply: response too short");
@@ -2918,7 +2918,7 @@ smtp_message_printf(struct smtp_tx *tx, const char *fmt, ...)
 	len = vfprintf(tx->ofile, fmt, ap);
 	va_end(ap);
 
-	if (len < 0) {
+	if (len == -1) {
 		log_warn("smtp-in: session %016"PRIx64": vfprintf", tx->session->id);
 		tx->error = TX_ERROR_IO;
 	}
