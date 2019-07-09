@@ -397,10 +397,14 @@ ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
 		memcpy(exdata, data, datalen);
 		if (rsa)
 			RSA_set_ex_data(rsa, 0, exdata);
+#if defined(__OpenBSD__)
 		if (eckey)
 			ECDSA_set_ex_data(eckey, 0, exdata);
+#endif
 		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
+#if defined(__OpenBSD__)
 		EC_KEY_free(eckey); /* dereference, will be cleaned up with pkey */
+#endif
 	}
 
 	*x509ptr = x509;

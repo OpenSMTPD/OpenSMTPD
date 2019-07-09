@@ -65,12 +65,13 @@ static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 
+#if defined(__OpenBSD__)
 static ECDSA_SIG *ecdsae_do_sign(const unsigned char *, int, const BIGNUM *,
     const BIGNUM *, EC_KEY *);
 static int ecdsae_sign_setup(EC_KEY *, BN_CTX *, BIGNUM **, BIGNUM **);
 static int ecdsae_do_verify(const unsigned char *, int, const ECDSA_SIG *,
     EC_KEY *);
-
+#endif
 
 static uint64_t	 reqid = 0;
 
@@ -227,13 +228,17 @@ void
 ca_imsg(struct mproc *p, struct imsg *imsg)
 {
 	RSA			*rsa = NULL;
+#if defined(__OpenBSD__)
 	EC_KEY			*ecdsa = NULL;
+#endif
 	const void		*from = NULL;
 	unsigned char		*to = NULL;
 	struct msg		 m;
 	const char		*pkiname;
 	size_t			 flen, tlen, padding;
+#if defined(__OpenBSD__)
 	int			 buf_len;
+#endif
 	struct pki		*pki;
 	int			 ret = 0;
 	uint64_t		 id;
@@ -306,6 +311,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		RSA_free(rsa);
 		return;
 
+#if defined(__OpenBSD__)
 	case IMSG_CA_ECDSA_SIGN:
 		m_msg(&m, imsg);
 		m_get_id(&m, &id);
@@ -331,8 +337,8 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		free(to);
 		EC_KEY_free(ecdsa);
 		return;
+#endif
 	}
-
 	errx(1, "ca_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
@@ -502,6 +508,7 @@ rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
 }
 
 
+#if defined(__OpenBSD__)
 /*
  * ECDSA privsep engine (called from unprivileged processes)
  */
@@ -629,7 +636,7 @@ ecdsae_do_verify(const unsigned char *dgst, int dgst_len,
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (ecdsa_default->ecdsa_do_verify(dgst, dgst_len, sig, eckey));
 }
-
+#endif
 
 static void
 rsa_engine_init(void)
@@ -700,6 +707,7 @@ rsa_engine_init(void)
 	fatalx("%s", errstr);
 }
 
+#if defined(__OpenBSD__)
 static void
 ecdsa_engine_init(void)
 {
@@ -751,10 +759,13 @@ ecdsa_engine_init(void)
 	ssl_error(errstr);
 	fatalx("%s", errstr);
 }
+#endif
 
 void
 ca_engine_init(void)
 {
 	rsa_engine_init();
+#if defined(__OpenBSD__)
 	ecdsa_engine_init();
+#endif
 }
