@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.625 2019/06/27 05:14:49 martijn Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.628 2019/07/11 21:40:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -311,6 +311,8 @@ enum imsg_type {
 	IMSG_REPORT_SMTP_LINK_DISCONNECT,
 	IMSG_REPORT_SMTP_LINK_IDENTIFY,
 	IMSG_REPORT_SMTP_LINK_TLS,
+	IMSG_REPORT_SMTP_LINK_RESET,
+	IMSG_REPORT_SMTP_LINK_AUTH,
 	IMSG_REPORT_SMTP_TX_BEGIN,
 	IMSG_REPORT_SMTP_TX_MAIL,
 	IMSG_REPORT_SMTP_TX_RCPT,
@@ -1329,8 +1331,10 @@ void lka_report_register_hook(const char *, const char *);
 void lka_report_smtp_link_connect(const char *, struct timeval *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void lka_report_smtp_link_disconnect(const char *, struct timeval *, uint64_t);
-void lka_report_smtp_link_identify(const char *, struct timeval *, uint64_t, const char *);
+void lka_report_smtp_link_identify(const char *, struct timeval *, uint64_t, const char *, const char *);
 void lka_report_smtp_link_tls(const char *, struct timeval *, uint64_t, const char *);
+void lka_report_smtp_link_reset(const char *, struct timeval *, uint64_t);
+void lka_report_smtp_link_auth(const char *, struct timeval *, uint64_t, const char *, const char *);
 void lka_report_smtp_tx_begin(const char *, struct timeval *, uint64_t, uint32_t);
 void lka_report_smtp_tx_mail(const char *, struct timeval *, uint64_t, uint32_t, const char *, int);
 void lka_report_smtp_tx_rcpt(const char *, struct timeval *, uint64_t, uint32_t, const char *, int);
@@ -1496,8 +1500,10 @@ int queue_message_walk(struct envelope *, uint32_t, int *, void **);
 void report_smtp_link_connect(const char *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void report_smtp_link_disconnect(const char *, uint64_t);
-void report_smtp_link_identify(const char *, uint64_t, const char *);
+void report_smtp_link_identify(const char *, uint64_t, const char *, const char *);
 void report_smtp_link_tls(const char *, uint64_t, const char *);
+void report_smtp_link_reset(const char *, uint64_t);
+void report_smtp_link_auth(const char *, uint64_t, const char *, const char *);
 void report_smtp_tx_begin(const char *, uint64_t, uint32_t);
 void report_smtp_tx_mail(const char *, uint64_t, uint32_t, const char *, int);
 void report_smtp_tx_rcpt(const char *, uint64_t, uint32_t, const char *, int);
