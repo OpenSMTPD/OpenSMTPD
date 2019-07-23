@@ -132,8 +132,10 @@ main(int argc, char **argv)
 	ssl_init();
 	event_init();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio inet dns tmppath", NULL) == -1)
 		fatal("pledge");
+#endif
 
 	if (!noaction)
 		parse_message(stdin);

@@ -626,7 +626,6 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nsleep \
 	pidfile \
-	pledge \
 	pw_dup \
 	reallocarray \
 	recallocarray \
@@ -657,6 +656,7 @@ AC_CHECK_FUNCS([ \
 	vsnprintf \
 	waitpid \
 ])
+AC_DEFINE([HAVE_PLEDGE], [0], [compat layer is not pledge ready])
 
 AC_CHECK_DECL([strsep],
 	[AC_CHECK_FUNCS([strsep])],

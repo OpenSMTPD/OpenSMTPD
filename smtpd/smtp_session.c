@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.395 2019/07/03 03:24:03 deraadt Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.400 2019/07/11 21:40:03 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -945,6 +945,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    "result=ok",
 			    s->id, user);
 			s->flags |= SF_AUTHENTICATED;
+			report_smtp_link_auth("smtp-in", s->id, user, "pass");
 			smtp_reply(s, "235 %s: Authentication succeeded",
 			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		}
@@ -953,6 +954,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    "authentication user=%s "
 			    "result=permfail",
 			    s->id, user);
+			report_smtp_link_auth("smtp-in", s->id, user, "fail");
 			smtp_auth_failure_pause(s);
 			return;
 		}
@@ -961,6 +963,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    "authentication user=%s "
 			    "result=tempfail",
 			    s->id, user);
+			report_smtp_link_auth("smtp-in", s->id, user, "error");
 			smtp_reply(s, "421 %s: Temporary failure",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 		}
@@ -1206,19 +1209,26 @@ smtp_command(struct smtp_session *s, char *line)
 	int				cmd, i;
 
 	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
-	report_smtp_protocol_client("smtp-in", s->id, line);
 
 	/*
 	 * These states are special.
 	 */
 	if (s->state == STATE_AUTH_INIT) {
+		report_smtp_protocol_client("smtp-in", s->id, "********");
 		smtp_rfc4954_auth_plain(s, line);
 		return;
 	}
 	if (s->state == STATE_AUTH_USERNAME || s->state == STATE_AUTH_PASSWORD) {
+		report_smtp_protocol_client("smtp-in", s->id, "********");
 		smtp_rfc4954_auth_login(s, line);
 		return;
 	}
+
+	if (s->state == STATE_HELO && strncasecmp(line, "AUTH PLAIN ", 11) == 0)
+		report_smtp_protocol_client("smtp-in", s->id, "AUTH PLAIN ********");
+	else
+		report_smtp_protocol_client("smtp-in", s->id, line);
+
 
 	/*
 	 * Unlike other commands, "mail from" and "rcpt to" contain a
@@ -1720,6 +1730,8 @@ smtp_proceed_rset(struct smtp_session *s, const char *args)
 		smtp_tx_free(s->tx);
 	}
 
+	report_smtp_link_reset("smtp-in", s->id);
+
 	smtp_reply(s, "250 %s: Reset state",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 }
@@ -1730,7 +1742,7 @@ smtp_proceed_helo(struct smtp_session *s, const char *args)
 	(void)strlcpy(s->helo, args, sizeof(s->helo));
 	s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
 
-	report_smtp_link_identify("smtp-in", s->id, s->helo);
+	report_smtp_link_identify("smtp-in", s->id, "HELO", s->helo);
 
 	smtp_enter_state(s, STATE_HELO);
 	smtp_reply(s, "250 %s Hello %s [%s], pleased to meet you",
@@ -1747,7 +1759,7 @@ smtp_proceed_ehlo(struct smtp_session *s, const char *args)
 	s->flags |= SF_EHLO;
 	s->flags |= SF_8BITMIME;
 
-	report_smtp_link_identify("smtp-in", s->id, s->helo);
+	report_smtp_link_identify("smtp-in", s->id, "EHLO", s->helo);
 
 	smtp_enter_state(s, STATE_HELO);
 	smtp_reply(s, "250-%s Hello %s [%s], pleased to meet you",

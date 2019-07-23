@@ -677,8 +677,10 @@ queue(void)
 	tv.tv_usec = 10;
 	evtimer_add(&ev_qload, &tv);
 
+#if HAVE_PLEDGE
 	if (pledge("stdio rpath wpath cpath flock recvfd sendfd", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");
