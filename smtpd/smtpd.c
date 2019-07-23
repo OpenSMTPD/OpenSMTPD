@@ -1141,9 +1141,11 @@ smtpd(void) {
 
 	purge_task();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio rpath wpath cpath fattr tmppath "
 	    "getpw sendfd proc exec id inet unix", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");
