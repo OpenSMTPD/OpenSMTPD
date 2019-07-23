@@ -699,9 +699,11 @@ lka(void)
 	lka_report_init();
 	lka_filter_init();
 
+#if HAVE_PLEDGE
 	/* proc & exec will be revoked before serving requests */
 	if (pledge("stdio rpath inet dns getpw recvfd sendfd proc exec", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");
