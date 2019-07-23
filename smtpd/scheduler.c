@@ -473,8 +473,10 @@ scheduler(void)
 	evtimer_set(&ev, scheduler_timeout, NULL);
 	scheduler_reset_events();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");

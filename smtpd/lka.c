@@ -313,10 +313,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		/* fork & exec tables that need it */
 		table_open_all(env);
 
+#if HAVE_PLEDGE
 		/* revoke proc & exec */
 		if (pledge("stdio rpath inet dns getpw recvfd sendfd",
 			NULL) == -1)
 			err(1, "pledge");
+#endif
 
 		/* setup proc registering task */
 		evtimer_set(&ev_proc_ready, proc_timeout, &ev_proc_ready);
@@ -697,9 +699,11 @@ lka(void)
 	lka_report_init();
 	lka_filter_init();
 
+#if HAVE_PLEDGE
 	/* proc & exec will be revoked before serving requests */
 	if (pledge("stdio rpath inet dns getpw recvfd sendfd proc exec", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");

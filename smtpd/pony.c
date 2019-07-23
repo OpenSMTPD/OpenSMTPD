@@ -200,8 +200,10 @@ pony(void)
 
 	ca_engine_init();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio inet unix recvfd sendfd", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");
