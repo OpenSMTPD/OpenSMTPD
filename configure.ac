@@ -1908,7 +1908,7 @@ AC_TRY_LINK_FUNC([SSL_CTX_use_certificate_chain_mem],
 
 LIBS="-lcrypto -lssl $LIBS"
 AC_MSG_CHECKING([whether ECDSA is available])
-AC_TRY_LINK_FUNC([EC_KEY_free],
+AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],
 	[
 		AC_DEFINE([SUPPORT_ECDSA], [1],
 			[Define if ECDSA is supported])
