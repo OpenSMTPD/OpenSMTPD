@@ -284,17 +284,20 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	/* If the server is not running, enqueue the message offline */
 
 	if (!srv_connected()) {
+#if HAVE_PLEDGE
 		if (pledge("stdio", NULL) == -1)
 			err(1, "pledge");
-
+#endif
 		return (enqueue_offline(save_argc, save_argv, fp, ofp));
 	}
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
 
+#if HAVE_PLEDGE
 	if (pledge("stdio wpath cpath", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	fout = fdopen(msg.fd, "a+");
 	if (fout == NULL)

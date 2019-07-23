@@ -118,8 +118,10 @@ ca(void)
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
 
+#if HAVE_PLEDGE
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");
