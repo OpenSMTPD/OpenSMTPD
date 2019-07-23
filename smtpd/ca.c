@@ -65,7 +65,7 @@ static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 static ECDSA_SIG *ecdsae_do_sign(const unsigned char *, int, const BIGNUM *,
     const BIGNUM *, EC_KEY *);
 static int ecdsae_sign_setup(EC_KEY *, BN_CTX *, BIGNUM **, BIGNUM **);
@@ -230,7 +230,7 @@ void
 ca_imsg(struct mproc *p, struct imsg *imsg)
 {
 	RSA			*rsa = NULL;
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 	EC_KEY			*ecdsa = NULL;
 #endif
 	const void		*from = NULL;
@@ -238,7 +238,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	const char		*pkiname;
 	size_t			 flen, tlen, padding;
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 	int			 buf_len;
 #endif
 	struct pki		*pki;
@@ -313,7 +313,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		RSA_free(rsa);
 		return;
 
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 	case IMSG_CA_ECDSA_SIGN:
 		m_msg(&m, imsg);
 		m_get_id(&m, &id);
@@ -510,7 +510,7 @@ rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
 }
 
 
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 /*
  * ECDSA privsep engine (called from unprivileged processes)
  */
@@ -709,7 +709,7 @@ rsa_engine_init(void)
 	fatalx("%s", errstr);
 }
 
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 static void
 ecdsa_engine_init(void)
 {
@@ -767,7 +767,7 @@ void
 ca_engine_init(void)
 {
 	rsa_engine_init();
-#if defined(__OpenBSD__)
+#if defined(SUPPORT_ECDSA)
 	ecdsa_engine_init();
 #endif
 }
