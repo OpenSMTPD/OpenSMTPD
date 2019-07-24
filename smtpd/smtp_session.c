@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.400 2019/07/11 21:40:03 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.401 2019/07/24 19:50:10 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1848,13 +1848,13 @@ smtp_proceed_noop(struct smtp_session *s, const char *args)
 static void
 smtp_proceed_help(struct smtp_session *s, const char *args)
 {
-	const char *esc_code_str = esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS);
+	const char *code = esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS);
 
-	smtp_reply(s, "214-%s This is " SMTPD_NAME, esc_code_str);
+	smtp_reply(s, "214-%s This is " SMTPD_NAME, code);
 	smtp_reply(s, "214-%s To report bugs in the implementation, "
-	    "please contact bugs@openbsd.org", esc_code_str);
-	smtp_reply(s, "214-%s with full details", esc_code_str);
-	smtp_reply(s, "214 %s End of HELP info", esc_code_str);
+	    "please contact bugs@openbsd.org", code);
+	smtp_reply(s, "214-%s with full details", code);
+	smtp_reply(s, "214 %s End of HELP info", code);
 }
 
 static void

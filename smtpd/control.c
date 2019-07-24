@@ -256,8 +256,10 @@ control(void)
 
 	control_listen();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio unix recvfd sendfd", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");

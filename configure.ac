@@ -601,6 +601,7 @@ AC_CHECK_FUNCS([ \
 	b64_pton \
 	__b64_pton \
 	bcopy \
+	calloc_conceal \
 	chflags \
 	crypt_checkpass \
 	dirfd \
@@ -621,10 +622,10 @@ AC_CHECK_FUNCS([ \
 	inet_ntoa \
 	inet_ntop \
 	isblank \
+	malloc_conceal \
 	memmove \
 	nsleep \
 	pidfile \
-	pledge \
 	pw_dup \
 	reallocarray \
 	recallocarray \
@@ -655,6 +656,7 @@ AC_CHECK_FUNCS([ \
 	vsnprintf \
 	waitpid \
 ])
+AC_DEFINE([HAVE_PLEDGE], [0], [compat layer is not pledge ready])
 
 AC_CHECK_DECL([strsep],
 	[AC_CHECK_FUNCS([strsep])],
@@ -1892,6 +1894,28 @@ AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
 	]
 )
 
+
+LIBS="-lcrypto -lssl $LIBS"
+AC_MSG_CHECKING([whether SSL_CTX_use_certificate_chain_mem is available])
+AC_TRY_LINK_FUNC([SSL_CTX_use_certificate_chain_mem],
+	[
+		AC_DEFINE([HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [1],
+			[Define if SSL_CTX_use_certificate_chain_mem exists in libssl])
+		AC_MSG_RESULT([yes])
+	],
+	[ AC_MSG_RESULT([no])]
+)
+
+LIBS="-lcrypto -lssl $LIBS"
+AC_MSG_CHECKING([whether ECDSA is available])
+AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],
+	[
+		AC_DEFINE([SUPPORT_ECDSA], [1],
+			[Define if ECDSA is supported])
+		AC_MSG_RESULT([yes])
+	],
+	[ AC_MSG_RESULT([no])]
+)
 
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])

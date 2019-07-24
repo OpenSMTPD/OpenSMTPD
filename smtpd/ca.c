@@ -1,4 +1,4 @@
-/*	$OpenBSD: ca.c,v 1.34 2019/06/05 16:24:54 gilles Exp $	*/
+/*	$OpenBSD: ca.c,v 1.35 2019/07/23 08:05:44 gilles Exp $	*/
 
 /*
  * Copyright (c) 2014 Reyk Floeter <reyk@openbsd.org>
@@ -65,12 +65,13 @@ static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 
+#if defined(SUPPORT_ECDSA)
 static ECDSA_SIG *ecdsae_do_sign(const unsigned char *, int, const BIGNUM *,
     const BIGNUM *, EC_KEY *);
 static int ecdsae_sign_setup(EC_KEY *, BN_CTX *, BIGNUM **, BIGNUM **);
 static int ecdsae_do_verify(const unsigned char *, int, const ECDSA_SIG *,
     EC_KEY *);
-
+#endif
 
 static uint64_t	 reqid = 0;
 
@@ -118,8 +119,10 @@ ca(void)
 	/* Ignore them until we get our config */
 	mproc_disable(p_pony);
 
+#if HAVE_PLEDGE
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");
@@ -227,13 +230,17 @@ void
 ca_imsg(struct mproc *p, struct imsg *imsg)
 {
 	RSA			*rsa = NULL;
+#if defined(SUPPORT_ECDSA)
 	EC_KEY			*ecdsa = NULL;
+#endif
 	const void		*from = NULL;
 	unsigned char		*to = NULL;
 	struct msg		 m;
 	const char		*pkiname;
 	size_t			 flen, tlen, padding;
+#if defined(SUPPORT_ECDSA)
 	int			 buf_len;
+#endif
 	struct pki		*pki;
 	int			 ret = 0;
 	uint64_t		 id;
@@ -306,6 +313,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		RSA_free(rsa);
 		return;
 
+#if defined(SUPPORT_ECDSA)
 	case IMSG_CA_ECDSA_SIGN:
 		m_msg(&m, imsg);
 		m_get_id(&m, &id);
@@ -331,8 +339,8 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		free(to);
 		EC_KEY_free(ecdsa);
 		return;
+#endif
 	}
-
 	errx(1, "ca_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
@@ -502,6 +510,7 @@ rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
 }
 
 
+#if defined(SUPPORT_ECDSA)
 /*
  * ECDSA privsep engine (called from unprivileged processes)
  */
@@ -629,7 +638,7 @@ ecdsae_do_verify(const unsigned char *dgst, int dgst_len,
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (ecdsa_default->ecdsa_do_verify(dgst, dgst_len, sig, eckey));
 }
-
+#endif
 
 static void
 rsa_engine_init(void)
@@ -637,8 +646,10 @@ rsa_engine_init(void)
 	ENGINE		*e;
 	const char	*errstr, *name;
 
-	if ((rsae_method = RSA_meth_new("RSA privsep engine", 0)) == NULL)
+	if ((rsae_method = RSA_meth_new("RSA privsep engine", 0)) == NULL) {
+		errstr = "RSA_meth_new";
 		goto fail;
+	}
 
 	RSA_meth_set_pub_enc(rsae_method, rsae_pub_enc);
 	RSA_meth_set_pub_dec(rsae_method, rsae_pub_dec);
@@ -700,6 +711,7 @@ rsa_engine_init(void)
 	fatalx("%s", errstr);
 }
 
+#if defined(SUPPORT_ECDSA)
 static void
 ecdsa_engine_init(void)
 {
@@ -751,10 +763,13 @@ ecdsa_engine_init(void)
 	ssl_error(errstr);
 	fatalx("%s", errstr);
 }
+#endif
 
 void
 ca_engine_init(void)
 {
 	rsa_engine_init();
+#if defined(SUPPORT_ECDSA)
 	ecdsa_engine_init();
+#endif
 }
