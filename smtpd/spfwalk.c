@@ -98,8 +98,10 @@ spfwalk(int argc, struct parameter *argv)
 
 	free(line);
 
+#if HAVE_PLEDGE
 	if (pledge("dns stdio", NULL) == -1)
 		err(1, "pledge");
+#endif
 
   	event_dispatch();
 
