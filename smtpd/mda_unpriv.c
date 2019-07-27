@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda_unpriv.c,v 1.2 2018/06/04 15:57:46 gilles Exp $	*/
+/*	$OpenBSD: mda_unpriv.c,v 1.5 2018/12/27 15:41:50 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -45,7 +45,6 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 	char		mda_wrapper[LINE_MAX];
 	const char     *mda_command;
 	const char     *mda_command_wrap;
-	const char     *extension;
 
 	if (deliver->mda_exec[0])
 		mda_command = deliver->mda_exec;
@@ -54,11 +53,11 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 
 	if (strlcpy(mda_exec, mda_command, sizeof (mda_exec))
 	    >= sizeof (mda_exec))
-		err(1, "mda command line too long");
+		errx(1, "mda command line too long");
 
-	if (! mda_expand_format(mda_exec, sizeof mda_exec, deliver,
-		&deliver->userinfo, NULL))
-		err(1, "mda command line could not be expanded");
+	if (mda_expand_format(mda_exec, sizeof mda_exec, deliver,
+		&deliver->userinfo, NULL) == -1)
+		errx(1, "mda command line could not be expanded");
 
 	mda_command = mda_exec;
 
@@ -73,9 +72,8 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 	xasprintf(&mda_environ[idx++], "LOGNAME=%s", pw_name);
 	xasprintf(&mda_environ[idx++], "USER=%s", pw_name);
 
-	if ((extension = strchr(deliver->rcpt.user, *env->sc_subaddressing_delim)) != NULL)
-		if (strlen(extension+1))
-			xasprintf(&mda_environ[idx++], "EXTENSION=%s", extension+1);
+	if (deliver->mda_subaddress[0])
+		xasprintf(&mda_environ[idx++], "EXTENSION=%s", deliver->mda_subaddress);
 
 	mda_environ[idx++] = (char *)NULL;
 
@@ -83,16 +81,16 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 		mda_command_wrap = dict_get(env->sc_mda_wrappers,
 		    dsp->u.local.mda_wrapper);
 		if (mda_command_wrap == NULL)
-			err(1, "could not find wrapper %s",
+			errx(1, "could not find wrapper %s",
 			    dsp->u.local.mda_wrapper);
 
 		if (strlcpy(mda_wrapper, mda_command_wrap, sizeof (mda_wrapper))
 		    >= sizeof (mda_wrapper))
-			err(1, "mda command line too long");
+			errx(1, "mda command line too long");
 
-		if (! mda_expand_format(mda_wrapper, sizeof mda_wrapper, deliver,
-			&deliver->userinfo, mda_command))
-			err(1, "mda command line could not be expanded");
+		if (mda_expand_format(mda_wrapper, sizeof mda_wrapper, deliver,
+			&deliver->userinfo, mda_command) == -1)
+			errx(1, "mda command line could not be expanded");
 		mda_command = mda_wrapper;
 	}
 	execle("/bin/sh", "/bin/sh", "-c", mda_command, (char *)NULL,

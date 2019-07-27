@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_db.c,v 1.10 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: table_db.c,v 1.21 2019/06/28 13:32:51 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -42,18 +42,23 @@
 /* db(3) backend */
 static int table_db_config(struct table *);
 static int table_db_update(struct table *);
-static void *table_db_open(struct table *);
-static int table_db_lookup(void *, struct dict *, const char *, enum table_service, union lookup *);
-static int table_db_fetch(void *, struct dict *, enum table_service, union lookup *);
-static void  table_db_close(void *);
+static int table_db_open(struct table *);
+static void *table_db_open2(struct table *);
+static int table_db_lookup(struct table *, enum table_service, const char *, char **);
+static int table_db_fetch(struct table *, enum table_service, char **);
+static void table_db_close(struct table *);
+static void table_db_close2(void *);
 
 static char *table_db_get_entry(void *, const char *, size_t *);
 static char *table_db_get_entry_match(void *, const char *, size_t *,
     int(*)(const char *, const char *));
 
 struct table_backend table_backend_db = {
+	"db",
 	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME|K_MAILADDRMAP,
 	table_db_config,
+	NULL,
+	NULL,
 	table_db_open,
 	table_db_update,
 	table_db_close,
@@ -74,7 +79,7 @@ struct dbhandle {
 	DB		*db;
 	char		 pathname[PATH_MAX];
 	time_t		 mtime;
-	struct table	*table;
+	int		 iter;
 };
 
 static int
@@ -82,11 +87,11 @@ table_db_config(struct table *table)
 {
 	struct dbhandle	       *handle;
 
-	handle = table_db_open(table);
+	handle = table_db_open2(table);
 	if (handle == NULL)
 		return 0;
 
-	table_db_close(handle);
+	table_db_close2(handle);
 	return 1;
 }
 
@@ -95,17 +100,33 @@ table_db_update(struct table *table)
 {
 	struct dbhandle	*handle;
 
-	handle = table_db_open(table);
+	handle = table_db_open2(table);
 	if (handle == NULL)
 		return 0;
 
-	table_db_close(table->t_handle);
+	table_db_close2(table->t_handle);
 	table->t_handle = handle;
 	return 1;
 }
 
-static void *
+static int
 table_db_open(struct table *table)
+{
+	table->t_handle = table_db_open2(table);
+	if (table->t_handle == NULL)
+		return 0;
+	return 1;
+}
+
+static void
+table_db_close(struct table *table)
+{
+	table_db_close2(table->t_handle);
+	table->t_handle = NULL;
+}
+
+static void *
+table_db_open2(struct table *table)
 {
 	struct dbhandle	       *handle;
 	struct stat		sb;
@@ -115,14 +136,13 @@ table_db_open(struct table *table)
 	    >= sizeof handle->pathname)
 		goto error;
 
-	if (stat(handle->pathname, &sb) < 0)
+	if (stat(handle->pathname, &sb) == -1)
 		goto error;
 
 	handle->mtime = sb.st_mtime;
 	handle->db = dbopen(table->t_config, O_RDONLY, 0600, DB_HASH, NULL);
 	if (handle->db == NULL)
 		goto error;
-	handle->table = table;
 
 	return handle;
 
@@ -134,7 +154,7 @@ error:
 }
 
 static void
-table_db_close(void *hdl)
+table_db_close2(void *hdl)
 {
 	struct dbhandle	*handle = hdl;
 	handle->db->close(handle->db);
@@ -142,11 +162,10 @@ table_db_close(void *hdl)
 }
 
 static int
-table_db_lookup(void *hdl, struct dict *params, const char *key, enum table_service service,
-    union lookup *lk)
+table_db_lookup(struct table *table, enum table_service service, const char *key,
+    char **dst)
 {
-	struct dbhandle	*handle = hdl;
-	struct table	*table = NULL;
+	struct dbhandle	*handle = table->t_handle;
 	char	       *line;
 	size_t		len = 0;
 	int		ret;
@@ -154,13 +173,12 @@ table_db_lookup(void *hdl, struct dict *params, const char *key, enum table_serv
 	size_t		i;
 	struct stat	sb;
 
-	if (stat(handle->pathname, &sb) < 0)
+	if (stat(handle->pathname, &sb) == -1)
 		return -1;
 
 	/* DB has changed, close and reopen */
 	if (sb.st_mtime != handle->mtime) {
-		table = handle->table;
-		table_db_update(handle->table);
+		table_db_update(table);
 		handle = table->t_handle;
 	}
 
@@ -176,34 +194,38 @@ table_db_lookup(void *hdl, struct dict *params, const char *key, enum table_serv
 		return 0;
 
 	ret = 1;
-	if (lk)
-		ret = table_parse_lookup(service, key, line, lk);
-	free(line);
+	if (dst)
+		*dst = line;
+	else
+		free(line);
 
 	return ret;
 }
 
 static int
-table_db_fetch(void *hdl, struct dict *params, enum table_service service, union lookup *lk)
+table_db_fetch(struct table *table, enum table_service service, char **dst)
 {
-	struct dbhandle	*handle = hdl;
-	struct table	*table  = handle->table;
+	struct dbhandle	*handle = table->t_handle;
 	DBT dbk;
 	DBT dbd;
 	int r;
 
-	if (table->t_iter == NULL)
+	if (handle->iter == 0)
 		r = handle->db->seq(handle->db, &dbk, &dbd, R_FIRST);
 	else
 		r = handle->db->seq(handle->db, &dbk, &dbd, R_NEXT);
-	table->t_iter = handle->db;
+	handle->iter = 1;
 	if (!r) {
 		r = handle->db->seq(handle->db, &dbk, &dbd, R_FIRST);
 		if (!r)
 			return 0;
 	}
 
-	return table_parse_lookup(service, NULL, dbk.data, lk);
+	*dst = strdup(dbk.data);
+	if (*dst == NULL)
+		return -1;
+
+	return 1;
 }
 
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_client.c,v 1.5 2018/06/09 10:01:17 eric Exp $	*/
+/*	$OpenBSD: smtp_client.c,v 1.10 2019/06/12 17:42:53 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
@@ -188,7 +188,7 @@ void
 smtp_quit(struct smtp_client *proto)
 {
 	if (proto->state != STATE_READY)
-		fatalx("protoection is not ready");
+		fatalx("connection is not ready");
 
 	smtp_client_state(proto, STATE_QUIT);
 }
@@ -197,7 +197,7 @@ void
 smtp_sendmail(struct smtp_client *proto, struct smtp_mail *mail)
 {
 	if (proto->state != STATE_READY)
-		fatalx("protoection is not ready");
+		fatalx("connection is not ready");
 
 	proto->mail = mail;
 	smtp_client_state(proto, STATE_MAIL);
@@ -209,13 +209,13 @@ smtp_client_free(struct smtp_client *proto)
 	if (proto->mail)
 		fatalx("current task should have been deleted already");
 
+	smtp_closed(proto->tag, proto);
+
 	if (proto->io)
 		io_free(proto->io);
 
 	free(proto->reply);
 	free(proto);
-
-	smtp_closed(proto->tag, proto);
 }
 
 /*
@@ -251,7 +251,8 @@ smtp_client_state(struct smtp_client *proto, int newstate)
 {
 	struct smtp_rcpt *rcpt;
 	char ibuf[LINE_MAX], obuf[LINE_MAX];
-	int oldstate, offset;
+	size_t n;
+	int oldstate;
 
 	if (proto->reply)
 		proto->reply[0] = '\0';
@@ -297,7 +298,7 @@ smtp_client_state(struct smtp_client *proto, int newstate)
 		break;
 
 	case STATE_AUTH:
-		if (!proto->params.auth)
+		if (!proto->params.auth_user)
 			smtp_client_state(proto, STATE_READY);
 		else if ((proto->flags & FLAG_TLS) == 0)
 			smtp_client_cancel(proto, FAIL_IMPL,
@@ -315,7 +316,32 @@ smtp_client_state(struct smtp_client *proto, int newstate)
 		break;
 
 	case STATE_AUTH_PLAIN:
-		smtp_client_sendcmd(proto, "AUTH PLAIN %s", proto->params.auth);
+		(void)strlcpy(ibuf, "-", sizeof(ibuf));
+		(void)strlcat(ibuf, proto->params.auth_user, sizeof(ibuf));
+		if (strlcat(ibuf, ":", sizeof(ibuf)) >= sizeof(ibuf)) {
+			errno = EMSGSIZE;
+			smtp_client_cancel(proto, FAIL_INTERNAL,
+			    "credentials too large");
+			break;
+		}
+		n = strlcat(ibuf, proto->params.auth_pass, sizeof(ibuf));
+		if (n >= sizeof(ibuf)) {
+			errno = EMSGSIZE;
+			smtp_client_cancel(proto, FAIL_INTERNAL,
+			    "credentials too large");
+			break;
+		}
+		*strchr(ibuf, ':') = '\0';
+		ibuf[0] = '\0';
+		if (base64_encode(ibuf, n, obuf, sizeof(obuf)) == -1) {
+			errno = EMSGSIZE;
+			smtp_client_cancel(proto, FAIL_INTERNAL,
+			    "credentials too large");
+			break;
+		}
+		smtp_client_sendcmd(proto, "AUTH PLAIN %s", obuf);
+		explicit_bzero(ibuf, sizeof ibuf);
+		explicit_bzero(obuf, sizeof obuf);
 		break;
 
 	case STATE_AUTH_LOGIN:
@@ -323,39 +349,28 @@ smtp_client_state(struct smtp_client *proto, int newstate)
 		break;
 
 	case STATE_AUTH_LOGIN_USER:
-		memset(ibuf, 0, sizeof ibuf);
-		if (base64_decode(proto->params.auth, (unsigned char *)ibuf,
-				  sizeof(ibuf)-1) == -1) {
-			errno = EOVERFLOW;
+		if (base64_encode(proto->params.auth_user,
+		    strlen(proto->params.auth_user), obuf,
+		    sizeof(obuf)) == -1) {
+			errno = EMSGSIZE;
 			smtp_client_cancel(proto, FAIL_INTERNAL,
-			    "Credentials too large");
+			    "credentials too large");
 			break;
 		}
-
-		memset(obuf, 0, sizeof obuf);
-		base64_encode((unsigned char *)ibuf + 1, strlen(ibuf + 1),
-		    obuf, sizeof obuf);
 		smtp_client_sendcmd(proto, "%s", obuf);
-		explicit_bzero(ibuf, sizeof ibuf);
 		explicit_bzero(obuf, sizeof obuf);
 		break;
 
 	case STATE_AUTH_LOGIN_PASS:
-		memset(ibuf, 0, sizeof ibuf);
-		if (base64_decode(proto->params.auth, (unsigned char *)ibuf,
-				  sizeof(ibuf)-1) == -1) {
-			errno = EOVERFLOW;
+		if (base64_encode(proto->params.auth_pass,
+		    strlen(proto->params.auth_pass), obuf,
+		    sizeof(obuf)) == -1) {
+			errno = EMSGSIZE;
 			smtp_client_cancel(proto, FAIL_INTERNAL,
-			    "Credentials too large");
+			    "credentials too large");
 			break;
 		}
-
-		offset = strlen(ibuf+1)+2;
-		memset(obuf, 0, sizeof obuf);
-		base64_encode((unsigned char *)ibuf + offset,
-		    strlen(ibuf + offset), obuf, sizeof obuf);
 		smtp_client_sendcmd(proto, "%s", obuf);
-		explicit_bzero(ibuf, sizeof ibuf);
 		explicit_bzero(obuf, sizeof obuf);
 		break;
 
@@ -420,7 +435,7 @@ smtp_client_state(struct smtp_client *proto, int newstate)
 		break;
 
 	default:
-		fatalx("smtp_client_state: unknown state");
+		fatalx("%s: bad state %d", __func__, proto->state);
 	}
 #undef smtp_client_state
 }
@@ -452,7 +467,7 @@ smtp_client_response(struct smtp_client *proto, const char *line)
 			 * Otherwise, fallback to using HELO.
 			 */
 			if ((proto->params.tls_req == TLS_FORCE) ||
-			    (proto->params.auth))
+			    (proto->params.auth_user))
 				smtp_client_cancel(proto, FAIL_RESP, line);
 			else
 				smtp_client_state(proto, STATE_HELO);
@@ -478,7 +493,7 @@ smtp_client_response(struct smtp_client *proto, const char *line)
 	case STATE_STARTTLS:
 		if (line[0] != '2') {
 			if ((proto->params.tls_req == TLS_FORCE) ||
-			    (proto->params.auth)) {
+			    (proto->params.auth_user)) {
 				smtp_client_cancel(proto, FAIL_RESP, line);
 				break;
 			}
@@ -604,7 +619,7 @@ smtp_client_io(struct io *io, int evt, void *arg)
 	case IO_TLSREADY:
 		proto->flags |= FLAG_TLS;
 		io_pause(proto->io, IO_IN);
-		smtp_verify_server_cert(proto->tag, proto, io_ssl(proto->io));
+		smtp_verify_server_cert(proto->tag, proto, io_tls(proto->io));
 		break;
 
 	case IO_DATAIN:
@@ -621,7 +636,7 @@ smtp_client_io(struct io *io, int evt, void *arg)
 
 	case IO_TIMEOUT:
 		errno = ETIMEDOUT;
-		smtp_client_abort(proto, FAIL_CONN, "protoection timeout");
+		smtp_client_abort(proto, FAIL_CONN, "Connection timeout");
 		break;
 
 	case IO_ERROR:

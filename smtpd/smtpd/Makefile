@@ -7,6 +7,7 @@ PROG=		smtpd
 SRCS=	aliases.c
 SRCS+=	bounce.c
 SRCS+=	ca.c
+SRCS+=	cert.c
 SRCS+=	compress_backend.c
 SRCS+=	config.c
 SRCS+=	control.c
@@ -22,6 +23,9 @@ SRCS+=	iobuf.c
 SRCS+=	ioev.c
 SRCS+=	limit.c
 SRCS+=	lka.c
+SRCS+=	lka_filter.c
+SRCS+=	lka_proc.c
+SRCS+=	lka_report.c
 SRCS+=	lka_session.c
 SRCS+=	log.c
 SRCS+=	mailaddr.c
@@ -36,13 +40,14 @@ SRCS+=	pony.c
 SRCS+=	proxy.c
 SRCS+=	queue.c
 SRCS+=	queue_backend.c
+SRCS+=	report_smtp.c
+SRCS+=	resolver.c
 SRCS+=	ruleset.c
 SRCS+=	runq.c
 SRCS+=	scheduler.c
 SRCS+=	scheduler_backend.c
 SRCS+=	smtp.c
 SRCS+=	smtp_session.c
-SRCS+=	smtpf_session.c
 SRCS+=	smtpd.c
 SRCS+=	ssl.c
 SRCS+=	ssl_smtpd.c
@@ -54,7 +59,7 @@ SRCS+=	util.c
 SRCS+=	waitq.c
 
 # RFC parsers
-SRCS+=		rfc2822.c
+SRCS+=		rfc5322.c
 
 # backends
 SRCS+=		compress_gzip.c
@@ -89,7 +94,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare
 CFLAGS+=	-Werror-implicit-function-declaration
 #CFLAGS+=	-Werror # during development phase (breaks some archs)
-CFLAGS+=	-DIO_SSL
+CFLAGS+=	-DIO_TLS
 CFLAGS+=	-DQUEUE_PROFILING
 YFLAGS=
 

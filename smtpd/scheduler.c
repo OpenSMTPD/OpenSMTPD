@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler.c,v 1.58 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: scheduler.c,v 1.60 2018/12/30 23:09:58 guenther Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -32,7 +32,6 @@
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -214,7 +213,7 @@ scheduler_imsg(struct mproc *p, struct imsg *imsg)
 			    si.lastbounce < timestamp) {
 	    			req.evpid = evp.id;
 				req.timestamp = timestamp;
-				req.bounce.type = B_WARNING;
+				req.bounce.type = B_DELAYED;
 				req.bounce.delay = env->sc_bounce_warn[i];
 				req.bounce.ttl = si.ttl;
 				m_compose(p, IMSG_SCHED_ENVELOPE_BOUNCE, 0, 0, -1,

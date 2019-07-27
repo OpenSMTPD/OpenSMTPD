@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.136 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.142 2019/07/03 03:24:03 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -176,7 +176,7 @@ bsnprintf(char *str, size_t size, const char *format, ...)
 	va_start(ap, format);
 	ret = vsnprintf(str, size, format, ap);
 	va_end(ap);
-	if (ret == -1 || ret >= (int)size)
+	if (ret < 0 || ret >= (int)size)
 		return 0;
 
 	return 1;
@@ -465,7 +465,7 @@ mailaddr_match(const struct mailaddr *maddr1, const struct mailaddr *maddr2)
 	if (m2.user[0] == '\0' && m2.domain[0] == '\0')
 		return 1;
 
-	if (!hostname_match(m1.domain, m2.domain))
+	if (m2.domain[0] && !hostname_match(m1.domain, m2.domain))
 		return 0;
 
 	if (m2.user[0]) {
@@ -541,6 +541,21 @@ valid_domainpart(const char *s)
 }
 
 int
+valid_smtp_response(const char *s)
+{
+	if (strlen(s) < 5)
+		return 0;
+
+	if ((s[0] < '2' || s[0] > '5') ||
+	    (s[1] < '0' || s[1] > '9') ||
+	    (s[2] < '0' || s[2] > '9') ||
+	    (s[3] != ' '))
+		return 0;
+
+	return 1;
+}
+
+int
 secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 {
 	char		 buf[PATH_MAX];
@@ -555,7 +570,7 @@ secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 		homedir[0] = '\0';
 
 	/* Check the open file to avoid races. */
-	if (fstat(fd, &st) < 0 ||
+	if (fstat(fd, &st) == -1 ||
 	    !S_ISREG(st.st_mode) ||
 	    st.st_uid != uid ||
 	    (st.st_mode & (mayread ? 022 : 066)) != 0)
@@ -567,7 +582,7 @@ secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 			return 0;
 		(void)strlcpy(buf, cp, sizeof(buf));
 
-		if (stat(buf, &st) < 0 ||
+		if (stat(buf, &st) == -1 ||
 		    (st.st_uid != 0 && st.st_uid != uid) ||
 		    (st.st_mode & 022) != 0)
 			return 0;

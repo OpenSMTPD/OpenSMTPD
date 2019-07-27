@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.300 2018/06/18 18:19:14 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.323 2019/06/28 13:32:51 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -34,6 +34,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <login_cap.h>
@@ -46,6 +47,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -88,9 +90,13 @@ static int	parent_auth_user(const char *, const char *);
 static void	load_pki_tree(void);
 static void	load_pki_keys(void);
 
+static void	fork_processors(void);
+static void	fork_processor(const char *, const char *, const char *, const char *, const char *);
+
 enum child_type {
 	CHILD_DAEMON,
 	CHILD_MDA,
+	CHILD_PROCESSOR,
 	CHILD_ENQUEUE_OFFLINE,
 };
 
@@ -150,11 +156,12 @@ static void
 parent_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct forward_req	*fwreq;
+	struct processor	*processor;
 	struct deliver		 deliver;
 	struct child		*c;
 	struct msg		 m;
 	const void		*data;
-	const char		*username, *password, *cause;
+	const char		*username, *password, *cause, *procname;
 	uint64_t		 reqid;
 	size_t			 sz;
 	void			*i;
@@ -247,6 +254,17 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		profiling = v;
 		return;
+
+	case IMSG_LKA_PROCESSOR_ERRFD:
+		m_msg(&m, imsg);
+		m_get_string(&m, &procname);
+		m_end(&m);
+
+		processor = dict_xget(env->sc_processors_dict, procname);
+		m_create(p_lka, IMSG_LKA_PROCESSOR_ERRFD, 0, 0, processor->errfd);
+		m_add_string(p_lka, procname);
+		m_close(p_lka);
+		return;
 	}
 
 	errx(1, "parent_imsg: unexpected %s imsg from %s",
@@ -336,7 +354,9 @@ parent_sig_handler(int sig, short event, void *p)
 	case SIGCHLD:
 		do {
 			int len;
-
+			enum mda_resp_status mda_status;
+			int mda_sysexit;
+			
 			pid = waitpid(-1, &status, WNOHANG);
 			if (pid <= 0)
 				continue;
@@ -346,13 +366,24 @@ parent_sig_handler(int sig, short event, void *p)
 				fail = 1;
 				len = asprintf(&cause, "terminated; signal %d",
 				    WTERMSIG(status));
+				mda_status = MDA_TEMPFAIL;
+				mda_sysexit = 0;
 			} else if (WIFEXITED(status)) {
 				if (WEXITSTATUS(status) != 0) {
 					fail = 1;
 					len = asprintf(&cause,
 					    "exited abnormally");
-				} else
+					mda_sysexit = WEXITSTATUS(status);
+					if (mda_sysexit == EX_OSERR ||
+					    mda_sysexit == EX_TEMPFAIL)
+						mda_status = MDA_TEMPFAIL;
+					else
+						mda_status = MDA_PERMFAIL;
+				} else {
 					len = asprintf(&cause, "exited okay");
+					mda_status = MDA_OK;
+					mda_sysexit = 0;
+				}
 			} else
 				/* WIFSTOPPED or WIFCONTINUED */
 				continue;
@@ -368,6 +399,14 @@ parent_sig_handler(int sig, short event, void *p)
 				goto skip;
 
 			switch (child->type) {
+			case CHILD_PROCESSOR:
+				if (fail) {
+					log_warnx("warn: lost processor: %s %s",
+					    child->title, cause);
+					parent_shutdown();
+				}
+				break;
+
 			case CHILD_DAEMON:
 				if (fail)
 					log_warnx("warn: lost child: %s %s",
@@ -395,12 +434,15 @@ parent_sig_handler(int sig, short event, void *p)
 				log_debug("debug: smtpd: mda process done "
 				    "for session %016"PRIx64 ": %s",
 				    child->mda_id, cause);
+
 				m_create(p_pony, IMSG_MDA_DONE, 0, 0,
 				    child->mda_out);
 				m_add_id(p_pony, child->mda_id);
+				m_add_int(p_pony, mda_status);
+				m_add_int(p_pony, mda_sysexit);
 				m_add_string(p_pony, cause);
 				m_close(p_pony);
-				/* free(cause); */
+
 				break;
 
 			case CHILD_ENQUEUE_OFFLINE:
@@ -500,9 +542,7 @@ main(int argc, char *argv[])
 				tracing |= TRACE_IO;
 			else if (!strcmp(optarg, "smtp"))
 				tracing |= TRACE_SMTP;
-			else if (!strcmp(optarg, "mfa") ||
-			    !strcmp(optarg, "filter") ||
-			    !strcmp(optarg, "filters"))
+			else if (!strcmp(optarg, "filters"))
 				tracing |= TRACE_FILTERS;
 			else if (!strcmp(optarg, "mta") ||
 			    !strcmp(optarg, "transfer"))
@@ -564,6 +604,8 @@ main(int argc, char *argv[])
 
 	if (argc || *argv)
 		usage();
+
+	env->sc_opts |= opts;
 
 	ssl_init();
 
@@ -797,8 +839,11 @@ start_child(int save_argc, char **save_argv, char *rexec)
 		return p;
 	}
 
-	if (dup2(sp[0], 3) == -1)
-		fatal("%s: dup2", rexec);
+	if (sp[0] != 3) {
+		if (dup2(sp[0], 3) == -1)
+			fatal("%s: dup2", rexec);
+	} else if (fcntl(sp[0], F_SETFD, 0) == -1)
+		fatal("%s: fcntl", rexec);
 
 	if (closefrom(4) == -1)
 		fatal("%s: closefrom", rexec);
@@ -1034,9 +1079,11 @@ smtpd(void) {
 	offline_timeout.tv_usec = 0;
 	evtimer_add(&offline_ev, &offline_timeout);
 
+	fork_processors();
+
 	purge_task();
 
-	if (pledge("stdio rpath wpath cpath fattr flock tmppath "
+	if (pledge("stdio rpath wpath cpath fattr tmppath "
 	    "getpw sendfd proc exec id inet unix", NULL) == -1)
 		err(1, "pledge");
 
@@ -1132,7 +1179,7 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 	if (pid == 0) {
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
-		if (closefrom(STDERR_FILENO + 1) < 0)
+		if (closefrom(STDERR_FILENO + 1) == -1)
 			exit(1);
 
 		if (procname == NULL)
@@ -1210,6 +1257,107 @@ purge_task(void)
 }
 
 static void
+fork_processors(void)
+{
+	const char	*name;
+	struct processor	*processor;
+	void		*iter;
+
+	iter = NULL;
+	while (dict_iter(env->sc_processors_dict, &iter, &name, (void **)&processor))
+		fork_processor(name, processor->command, processor->user, processor->group, processor->chroot);
+}
+
+static void
+fork_processor(const char *name, const char *command, const char *user, const char *group, const char *chroot_path)
+{
+	pid_t		 pid;
+	struct processor	*processor;
+	char		 buf;
+	int		 sp[2], errfd[2];
+	struct passwd	*pw;
+	struct group	*gr;
+
+	if (user == NULL)
+		user = SMTPD_USER;
+	if ((pw = getpwnam(user)) == NULL)
+		err(1, "getpwnam");
+
+	if (group) {
+		if ((gr = getgrnam(group)) == NULL)
+			err(1, "getgrnam");
+	}
+	else {
+		if ((gr = getgrgid(pw->pw_gid)) == NULL)
+			err(1, "getgrgid");
+	}
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sp) == -1)
+		err(1, "socketpair");
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, errfd) == -1)
+		err(1, "socketpair");
+
+	if ((pid = fork()) == -1)
+		err(1, "fork");
+
+	/* parent passes the child fd over to lka */
+	if (pid > 0) {
+		processor = dict_xget(env->sc_processors_dict, name);
+		processor->errfd = errfd[1];
+		child_add(pid, CHILD_PROCESSOR, name);
+		close(sp[0]);
+		close(errfd[0]);
+		m_create(p_lka, IMSG_LKA_PROCESSOR_FORK, 0, 0, sp[1]);
+		m_add_string(p_lka, name);
+		m_close(p_lka);
+		return;
+	}
+
+	close(sp[1]);
+	close(errfd[1]);
+	dup2(sp[0], STDIN_FILENO);
+	dup2(sp[0], STDOUT_FILENO);
+	dup2(errfd[0], STDERR_FILENO);
+
+	if (chroot_path) {
+		if (chroot(chroot_path) != 0 || chdir("/") != 0)
+			err(1, "chroot: %s", chroot_path);
+	}
+
+	if (setgroups(1, &gr->gr_gid) ||
+	    setresgid(gr->gr_gid, gr->gr_gid, gr->gr_gid) ||
+	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
+		err(1, "fork_processor: cannot drop privileges");
+
+	if (closefrom(STDERR_FILENO + 1) == -1)
+		err(1, "closefrom");
+	if (setsid() == -1)
+		err(1, "setsid");
+	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
+	    signal(SIGINT, SIG_DFL) == SIG_ERR ||
+	    signal(SIGTERM, SIG_DFL) == SIG_ERR ||
+	    signal(SIGCHLD, SIG_DFL) == SIG_ERR ||
+	    signal(SIGHUP, SIG_DFL) == SIG_ERR)
+		err(1, "signal");
+
+	/*
+	 * Wait for lka to acknowledge that it received the fd.
+	 * This prevents a race condition between the filter sending an error
+	 * message, and exiting and lka not being able to log it because of
+	 * SIGCHLD.
+	 * (Ab)use read to determine if the fd is installed; since stderr is
+	 * never going to be read from we can shutdown(2) the write-end in lka.
+	 */
+	if (read(STDERR_FILENO, &buf, 1) != 0)
+		errx(1, "lka didn't properly close write end of error socket");
+	if (system(command) == -1)
+		err(1, NULL);
+
+	/* there's no successful exit from a processor */
+	_exit(1);
+}
+
+static void
 forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 {
 	char		 ebuf[128], sfn[32];
@@ -1236,6 +1384,8 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 			    dsp->u.local.user);
 			m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 			m_add_id(p_pony, id);
+			m_add_int(p_pony, MDA_PERMFAIL);
+			m_add_int(p_pony, EX_NOUSER);
 			m_add_string(p_pony, ebuf);
 			m_close(p_pony);
 			return;
@@ -1264,15 +1414,19 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		    deliver->userinfo.username);
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
+		m_add_int(p_pony, MDA_PERMFAIL);
+		m_add_int(p_pony, EX_NOPERM);
 		m_add_string(p_pony, ebuf);
 		m_close(p_pony);
 		return;
 	}
 
-	if (pipe(pipefd) < 0) {
+	if (pipe(pipefd) == -1) {
 		(void)snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
+		m_add_int(p_pony, MDA_TEMPFAIL);
+		m_add_int(p_pony, EX_OSERR);
 		m_add_string(p_pony, ebuf);
 		m_close(p_pony);
 		return;
@@ -1281,10 +1435,12 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	/* prepare file which captures stdout and stderr */
 	(void)strlcpy(sfn, "/tmp/smtpd.out.XXXXXXXXXXX", sizeof(sfn));
 	allout = mkstemp(sfn);
-	if (allout < 0) {
+	if (allout == -1) {
 		(void)snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
+		m_add_int(p_pony, MDA_TEMPFAIL);
+		m_add_int(p_pony, EX_OSERR);
 		m_add_string(p_pony, ebuf);
 		m_close(p_pony);
 		close(pipefd[0]);
@@ -1294,10 +1450,12 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	unlink(sfn);
 
 	pid = fork();
-	if (pid < 0) {
+	if (pid == -1) {
 		(void)snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		m_create(p_pony, IMSG_MDA_DONE, 0, 0, -1);
 		m_add_id(p_pony, id);
+		m_add_int(p_pony, MDA_TEMPFAIL);
+		m_add_int(p_pony, EX_OSERR);
 		m_add_string(p_pony, ebuf);
 		m_close(p_pony);
 		close(pipefd[0]);
@@ -1317,19 +1475,19 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		m_close(p);
 		return;
 	}
-	if (chdir(pw_dir) < 0 && chdir("/") < 0)
+	if (chdir(pw_dir) == -1 && chdir("/") == -1)
 		err(1, "chdir");
 	if (setgroups(1, &pw_gid) ||
 	    setresgid(pw_gid, pw_gid, pw_gid) ||
 	    setresuid(pw_uid, pw_uid, pw_uid))
 		err(1, "forkmda: cannot drop privileges");
-	if (dup2(pipefd[0], STDIN_FILENO) < 0 ||
-	    dup2(allout, STDOUT_FILENO) < 0 ||
-	    dup2(allout, STDERR_FILENO) < 0)
+	if (dup2(pipefd[0], STDIN_FILENO) == -1 ||
+	    dup2(allout, STDOUT_FILENO) == -1 ||
+	    dup2(allout, STDERR_FILENO) == -1)
 		err(1, "forkmda: dup2");
-	if (closefrom(STDERR_FILENO + 1) < 0)
+	if (closefrom(STDERR_FILENO + 1) == -1)
 		err(1, "closefrom");
-	if (setsid() < 0)
+	if (setsid() == -1)
 		err(1, "setsid");
 	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
 	    signal(SIGINT, SIG_DFL) == SIG_ERR ||
@@ -1568,7 +1726,7 @@ parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 		return -1;
 	}
 
-	if (stat(directory, &sb) < 0) {
+	if (stat(directory, &sb) == -1) {
 		log_warn("warn: smtpd: parent_forward_open: %s", directory);
 		return -1;
 	}
@@ -1696,6 +1854,8 @@ proc_title(enum smtp_proc_type proc)
 		return "klondike";
 	case PROC_CLIENT:
 		return "client";
+	case PROC_PROCESSOR:
+		return "processor";
 	}
 	return "unknown";
 }
@@ -1773,6 +1933,15 @@ imsg_to_str(int type)
 
 	CASE(IMSG_CTL_SMTP_SESSION);
 
+	CASE(IMSG_GETADDRINFO);
+	CASE(IMSG_GETADDRINFO_END);
+	CASE(IMSG_GETNAMEINFO);
+	CASE(IMSG_RES_QUERY);
+
+	CASE(IMSG_CERT_INIT);
+	CASE(IMSG_CERT_CERTIFICATE);
+	CASE(IMSG_CERT_VERIFY);
+
 	CASE(IMSG_SETUP_KEY);
 	CASE(IMSG_SETUP_PEER);
 	CASE(IMSG_SETUP_DONE);
@@ -1827,7 +1996,6 @@ imsg_to_str(int type)
 	CASE(IMSG_MTA_DELIVERY_HOLD);
 	CASE(IMSG_MTA_DNS_HOST);
 	CASE(IMSG_MTA_DNS_HOST_END);
-	CASE(IMSG_MTA_DNS_PTR);
 	CASE(IMSG_MTA_DNS_MX);
 	CASE(IMSG_MTA_DNS_MX_PREFERENCE);
 	CASE(IMSG_MTA_HOLDQ_RELEASE);
@@ -1837,10 +2005,6 @@ imsg_to_str(int type)
 	CASE(IMSG_MTA_LOOKUP_SMARTHOST);
 	CASE(IMSG_MTA_OPEN_MESSAGE);
 	CASE(IMSG_MTA_SCHEDULE);
-	CASE(IMSG_MTA_TLS_INIT);
-	CASE(IMSG_MTA_TLS_VERIFY_CERT);
-	CASE(IMSG_MTA_TLS_VERIFY_CHAIN);
-	CASE(IMSG_MTA_TLS_VERIFY);
 
 	CASE(IMSG_SCHED_ENVELOPE_BOUNCE);
 	CASE(IMSG_SCHED_ENVELOPE_DELIVER);
@@ -1850,7 +2014,6 @@ imsg_to_str(int type)
 	CASE(IMSG_SCHED_ENVELOPE_TRANSFER);
 
 	CASE(IMSG_SMTP_AUTHENTICATE);
-	CASE(IMSG_SMTP_DNS_PTR);
 	CASE(IMSG_SMTP_MESSAGE_COMMIT);
 	CASE(IMSG_SMTP_MESSAGE_CREATE);
 	CASE(IMSG_SMTP_MESSAGE_ROLLBACK);
@@ -1858,10 +2021,6 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_CHECK_SENDER);
 	CASE(IMSG_SMTP_EXPAND_RCPT);
 	CASE(IMSG_SMTP_LOOKUP_HELO);
-	CASE(IMSG_SMTP_TLS_INIT);
-	CASE(IMSG_SMTP_TLS_VERIFY_CERT);
-	CASE(IMSG_SMTP_TLS_VERIFY_CHAIN);
-	CASE(IMSG_SMTP_TLS_VERIFY);
 
 	CASE(IMSG_SMTP_REQ_CONNECT);
 	CASE(IMSG_SMTP_REQ_HELO);
@@ -1874,8 +2033,30 @@ imsg_to_str(int type)
 	CASE(IMSG_SMTP_EVENT_ROLLBACK);
 	CASE(IMSG_SMTP_EVENT_DISCONNECT);
 
-	CASE(IMSG_CA_PRIVENC);
-	CASE(IMSG_CA_PRIVDEC);
+	CASE(IMSG_LKA_PROCESSOR_FORK);
+	CASE(IMSG_LKA_PROCESSOR_ERRFD);
+
+	CASE(IMSG_REPORT_SMTP_LINK_CONNECT);
+	CASE(IMSG_REPORT_SMTP_LINK_DISCONNECT);
+	CASE(IMSG_REPORT_SMTP_LINK_TLS);
+
+	CASE(IMSG_REPORT_SMTP_TX_BEGIN);
+	CASE(IMSG_REPORT_SMTP_TX_ENVELOPE);
+	CASE(IMSG_REPORT_SMTP_TX_COMMIT);
+	CASE(IMSG_REPORT_SMTP_TX_ROLLBACK);
+
+	CASE(IMSG_REPORT_SMTP_PROTOCOL_CLIENT);
+	CASE(IMSG_REPORT_SMTP_PROTOCOL_SERVER);
+
+	CASE(IMSG_FILTER_SMTP_BEGIN);
+	CASE(IMSG_FILTER_SMTP_END);
+	CASE(IMSG_FILTER_SMTP_PROTOCOL);
+	CASE(IMSG_FILTER_SMTP_DATA_BEGIN);
+	CASE(IMSG_FILTER_SMTP_DATA_END);
+
+	CASE(IMSG_CA_RSA_PRIVENC);
+	CASE(IMSG_CA_RSA_PRIVDEC);
+	CASE(IMSG_CA_ECDSA_SIGN);
 	default:
 		(void)snprintf(buf, sizeof(buf), "IMSG_??? (%d)", type);
 

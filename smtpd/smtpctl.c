@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.162 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.165 2019/07/23 08:11:10 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fts.h>
+#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -247,6 +248,15 @@ srv_get_string(const char **s)
 
 	if (rlen == 0)
 		errx(1, "message too short");
+
+	rlen -= 1;
+	if (*rdata++ == '\0') {
+		*s = NULL;
+		return;
+	}
+
+	if (rlen == 0)
+		errx(1, "bogus string");
 
 	end = memchr(rdata, 0, rlen);
 	if (end == NULL)
@@ -1288,20 +1298,10 @@ display(const char *s)
 
 	if (is_encrypted_fp(fp)) {
 		int	i;
-		int	fd;
 		FILE   *ofp = NULL;
-		char	sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 
-		if ((fd = mkstemp(sfn)) == -1 ||
-		    (ofp = fdopen(fd, "w+")) == NULL) {
-			int saved_errno = errno;
-			if (fd != -1) {
-				unlink(sfn);
-				close(fd);
-			}
-			errc(1, saved_errno, "mkstemp");
-		}
-		unlink(sfn);
+		if ((ofp = tmpfile()) == NULL)
+			err(1, "tmpfile");
 
 		for (i = 0; i < 3; i++) {
 			key = getpass("key> ");

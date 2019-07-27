@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.31 2018/06/07 11:31:51 eric Exp $	*/
+/*	$OpenBSD: to.c,v 1.37 2019/07/24 20:44:21 kn Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -36,7 +36,6 @@
 #include <imsg.h>
 #include <limits.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <stdarg.h>
@@ -304,21 +303,20 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 {
 	static const struct schema {
 		const char	*name;
-		uint16_t       	 flags;
+		int		 tls;
+		uint16_t	 flags;
+		uint16_t	 port;
 	} schemas [] = {
 		/*
 		 * new schemas should be *appended* otherwise the default
 		 * schema index needs to be updated later in this function.
 		 */
-		{ "smtp://",		0				},
-		{ "lmtp://",		RELAY_LMTP			},
-		{ "smtp+tls://",       	RELAY_TLS_OPTIONAL 		},
-		{ "smtps://",		RELAY_SMTPS			},
-		{ "tls://",		RELAY_STARTTLS			},
-		{ "smtps+auth://",	RELAY_SMTPS|RELAY_AUTH		},
-		{ "tls+auth://",	RELAY_STARTTLS|RELAY_AUTH	},
-		{ "secure://",		RELAY_SMTPS|RELAY_STARTTLS	},
-		{ "secure+auth://",	RELAY_SMTPS|RELAY_STARTTLS|RELAY_AUTH }
+		{ "smtp://",		RELAY_TLS_OPPORTUNISTIC, 0,		25 },
+		{ "smtp+tls://",	RELAY_TLS_STARTTLS,	 0,		25 },
+		{ "smtp+notls://",	RELAY_TLS_NO,		 0,		25 },
+		/* need to specify an explicit port for LMTP */
+		{ "lmtp://",		RELAY_TLS_NO,		 RELAY_LMTP,	0 },
+		{ "smtps://",		RELAY_TLS_SMTPS,	 0,		465 }
 	};
 	const char     *errstr = NULL;
 	char	       *p, *q;
@@ -341,18 +339,16 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		if (strstr(buffer, "://"))
 			return 0;
 
-		/* no schema, default to smtp+tls:// */
-		i = 2;
+		/* no schema, default to smtp:// */
+		i = 0;
 		p = buffer;
 	}
 	else
 		p = buffer + strlen(schemas[i].name);
 
+	relay->tls = schemas[i].tls;
 	relay->flags = schemas[i].flags;
-
-	/* need to specify an explicit port for LMTP */
-	if (relay->flags & RELAY_LMTP)
-		relay->port = 0;
+	relay->port = schemas[i].port;
 
 	/* first, we extract the label if any */
 	if ((q = strchr(p, '@')) != NULL) {
@@ -388,7 +384,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 	/* finally, we extract the port */
 	p = beg + len;
 	if (*p == ':') {
-		relay->port = strtonum(p+1, 1, 0xffff, &errstr);
+		relay->port = strtonum(p+1, 1, IPPORT_HILASTAUTO, &errstr);
 		if (errstr)
 			return 0;
 	}
@@ -397,10 +393,14 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		return 0;
 	if ((relay->flags & RELAY_LMTP) && (relay->port == 0))
 		return 0;
-	if (relay->authlabel[0] == '\0' && relay->flags & RELAY_AUTH)
-		return 0;
-	if (relay->authlabel[0] != '\0' && !(relay->flags & RELAY_AUTH))
-		return 0;
+	if (relay->authlabel[0]) {
+		/* disallow auth on non-tls scheme. */
+		if (relay->tls != RELAY_TLS_STARTTLS &&
+		    relay->tls != RELAY_TLS_SMTPS)
+			return 0;
+		relay->flags |= RELAY_AUTH;
+	}
+
 	return 1;
 }
 
@@ -504,7 +504,7 @@ rule_to_text(struct rule *r)
 	if (r->flag_smtp_starttls) {
 		if (r->flag_smtp_starttls < 0)
 			(void)strlcat(buf, "!", sizeof buf);
-		(void)strlcat(buf, "starttls ", sizeof buf);
+		(void)strlcat(buf, "tls ", sizeof buf);
 		(void)strlcat(buf, " ", sizeof buf);
 	}
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.214 2018/06/18 18:19:14 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.253 2019/06/28 13:32:50 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -42,7 +42,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <netdb.h>
-#include <paths.h>
 #include <pwd.h>
 #include <resolv.h>
 #include <stdio.h>
@@ -99,7 +98,6 @@ char		*symget(const char *);
 struct smtpd		*conf = NULL;
 static int		 errors = 0;
 
-struct filter_conf	*filter = NULL;
 struct table		*table = NULL;
 struct mta_limits	*limits;
 static struct pki	*pki;
@@ -107,7 +105,10 @@ static struct ca	*sca;
 
 struct dispatcher	*dispatcher;
 struct rule		*rule;
-
+struct processor	*processor;
+struct filter_config	*filter_config;
+static uint32_t		 last_dynchain_id = 1;
+static uint32_t		 last_dynproc_id = 1;
 
 enum listen_options {
 	LO_FAMILY	= 0x000001,
@@ -158,7 +159,6 @@ static int	interface(struct listen_opts *);
 int		 delaytonum(char *);
 int		 is_if_in_group(const char *, const char *);
 
-static int config_lo_filter(struct listen_opts *, char *);
 static int config_lo_mask_source(struct listen_opts *);
 
 typedef struct {
@@ -175,24 +175,25 @@ typedef struct {
 %}
 
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
-%token	BACKUP BOUNCE
-%token	CA CERT CIPHERS COMPRESSION
-%token	DHE DOMAIN
-%token	ENCRYPTION ERROR EXPAND_ONLY
-%token	FILTER FOR FORWARD_ONLY FROM
+%token	BACKUP BOUNCE BUILTIN
+%token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT
+%token	DATA DATA_LINE DHE DISCONNECT DOMAIN
+%token	EHLO ENABLE ENCRYPTION ERROR EXPAND_ONLY 
+%token	FCRDNS FILTER FOR FORWARD_ONLY FROM
+%token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
 %token	INCLUDE INET4 INET6
 %token	JUNK
 %token	KEY
 %token	LIMIT LISTEN LMTP LOCAL
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
-%token	NODSN NOVERIFY
+%token	NO_DSN NO_VERIFY NOOP
 %token	ON
-%token	PKI PORT PROXY_V2
-%token	QUEUE
-%token	RCPT_TO RECIPIENT RECEIVEDAUTH RELAY REJECT
-%token	SCHEDULER SENDER SENDERS SMTP SMTPS SOCKET SRC SUB_ADDR_DELIM
-%token	TABLE TAG TAGGED TLS TLS_REQUIRE TO TTL
+%token	PKI PORT PROC PROC_EXEC PROXY_V2
+%token	QUEUE QUIT
+%token	RCPT_TO RDNS RECIPIENT RECEIVEDAUTH REGEX RELAY REJECT REPORT REWRITE RSET
+%token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SOCKET SRC SUB_ADDR_DELIM
+%token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
 %token	VERIFY VIRTUAL
 %token	WARN_INTERVAL WRAPPER
@@ -213,6 +214,7 @@ grammar		: /* empty */
 		| grammar mda '\n'
 		| grammar mta '\n'
 		| grammar pki '\n'
+		| grammar proc '\n'
 		| grammar queue '\n'
 		| grammar scheduler '\n'
 		| grammar smtp '\n'
@@ -220,6 +222,7 @@ grammar		: /* empty */
 		| grammar table '\n'
 		| grammar dispatcher '\n'
 		| grammar match '\n'
+		| grammar filter '\n'
 		| grammar error '\n'		{ file->errors++; }
 		;
 
@@ -276,7 +279,6 @@ assign		: '=' | ARROW;
 
 
 keyval		: STRING assign STRING		{
-			table->t_type = T_HASH;
 			table_add(table, $1, $3);
 			free($1);
 			free($3);
@@ -288,7 +290,6 @@ keyval_list	: keyval
 		;
 
 stringel	: STRING			{
-			table->t_type = T_LIST;
 			table_add(table, $1, NULL);
 			free($1);
 		}
@@ -427,6 +428,56 @@ CERT STRING {
 
 pki_params:
 pki_params_opt pki_params
+| /* empty */
+;
+
+
+proc:
+PROC STRING STRING {
+	if (dict_get(conf->sc_processors_dict, $2)) {
+		yyerror("processor already exists with that name: %s", $2);
+		free($2);
+		free($3);
+		YYERROR;
+	}
+	processor = xcalloc(1, sizeof *processor);
+	processor->command = $3;
+} proc_params {
+	dict_set(conf->sc_processors_dict, $2, processor);
+	processor = NULL;
+}
+;
+
+
+proc_params_opt:
+USER STRING {
+	if (processor->user) {
+		yyerror("user already specified for this processor");
+		free($2);
+		YYERROR;
+	}
+	processor->user = $2;
+}
+| GROUP STRING {
+	if (processor->group) {
+		yyerror("group already specified for this processor");
+		free($2);
+		YYERROR;
+	}
+	processor->group = $2;
+}
+| CHROOT STRING {
+	if (processor->chroot) {
+		yyerror("chroot already specified for this processor");
+		free($2);
+		YYERROR;
+	}
+	processor->chroot = $2;
+}
+;
+
+proc_params:
+proc_params_opt proc_params
 | /* empty */
 ;
 
@@ -742,17 +793,21 @@ HELO STRING {
 
 	dispatcher->u.remote.smarthost = strdup(t->t_name);
 }
-| TLS NOVERIFY {
-	if (dispatcher->u.remote.smarthost == NULL) {
-		yyerror("tls no-verify may not be specified without host on a dispatcher");
+| TLS {
+	if (dispatcher->u.remote.tls_required == 1) {
+		yyerror("tls already specified for this dispatcher");
 		YYERROR;
 	}
 
-	if (dispatcher->u.remote.tls_noverify == 1) {
-		yyerror("tls no-verify already specified for this dispatcher");
+	dispatcher->u.remote.tls_required = 1;
+}
+| TLS NO_VERIFY {
+	if (dispatcher->u.remote.tls_required == 1) {
+		yyerror("tls already specified for this dispatcher");
 		YYERROR;
 	}
 
+	dispatcher->u.remote.tls_required = 1;
 	dispatcher->u.remote.tls_noverify = 1;
 }
 | AUTH tables {
@@ -852,11 +907,31 @@ negation TAG tables {
 	rule->flag_tag = $1 ? -1 : 1;
 	rule->table_tag = strdup(t->t_name);
 }
+|
+negation TAG REGEX tables {
+	struct table   *t = $4;
+
+	if (rule->flag_tag) {
+		yyerror("tag already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for tag lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_tag = $1 ? -1 : 1;
+	rule->flag_tag_regex = 1;
+	rule->table_tag = strdup(t->t_name);
+}
+
 | negation HELO tables {
 	struct table   *t = $3;
 
 	if (rule->flag_smtp_helo) {
-		yyerror("mail-helo already specified for this rule");
+		yyerror("helo already specified for this rule");
 		YYERROR;
 	}
 
@@ -867,6 +942,24 @@ negation TAG tables {
 	}
 
 	rule->flag_smtp_helo = $1 ? -1 : 1;
+	rule->table_smtp_helo = strdup(t->t_name);
+}
+| negation HELO REGEX tables {
+	struct table   *t = $4;
+
+	if (rule->flag_smtp_helo) {
+		yyerror("helo already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for helo lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_smtp_helo = $1 ? -1 : 1;
+	rule->flag_smtp_helo_regex = 1;
 	rule->table_smtp_helo = strdup(t->t_name);
 }
 | negation TLS {
@@ -900,6 +993,24 @@ negation TAG tables {
 	rule->flag_smtp_auth = $1 ? -1 : 1;
 	rule->table_smtp_auth = strdup(t->t_name);
 }
+| negation AUTH REGEX tables {
+	struct table   *t = $4;
+
+	if (rule->flag_smtp_auth) {
+		yyerror("auth already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for auth lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_smtp_auth = $1 ? -1 : 1;
+	rule->flag_smtp_auth_regex = 1;
+	rule->table_smtp_auth = strdup(t->t_name);
+}
 | negation MAIL_FROM tables {
 	struct table   *t = $3;
 
@@ -915,6 +1026,24 @@ negation TAG tables {
 	}
 
 	rule->flag_smtp_mail_from = $1 ? -1 : 1;
+	rule->table_smtp_mail_from = strdup(t->t_name);
+}
+| negation MAIL_FROM REGEX tables {
+	struct table   *t = $4;
+
+	if (rule->flag_smtp_mail_from) {
+		yyerror("mail-from already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for mail-from lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_smtp_mail_from = $1 ? -1 : 1;
+	rule->flag_smtp_mail_from_regex = 1;
 	rule->table_smtp_mail_from = strdup(t->t_name);
 }
 | negation RCPT_TO tables {
@@ -934,6 +1063,24 @@ negation TAG tables {
 	rule->flag_smtp_rcpt_to = $1 ? -1 : 1;
 	rule->table_smtp_rcpt_to = strdup(t->t_name);
 }
+| negation RCPT_TO REGEX tables {
+	struct table   *t = $4;
+
+	if (rule->flag_smtp_rcpt_to) {
+		yyerror("rcpt-to already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for rcpt-to lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_smtp_rcpt_to = $1 ? -1 : 1;
+	rule->flag_smtp_rcpt_to_regex = 1;
+	rule->table_smtp_rcpt_to = strdup(t->t_name);
+}
 
 | negation FROM SOCKET {
 	if (rule->flag_from) {
@@ -944,7 +1091,7 @@ negation TAG tables {
 	rule->flag_from_socket = 1;
 }
 | negation FROM LOCAL {
-	struct table	*t = table_find(conf, "<localhost>", NULL);
+	struct table	*t = table_find(conf, "<localhost>");
 
 	if (rule->flag_from) {
 		yyerror("from already specified for this rule");
@@ -954,7 +1101,7 @@ negation TAG tables {
 	rule->table_from = strdup(t->t_name);
 }
 | negation FROM ANY {
-	struct table	*t = table_find(conf, "<anyhost>", NULL);
+	struct table	*t = table_find(conf, "<anyhost>");
 
 	if (rule->flag_from) {
 		yyerror("from already specified for this rule");
@@ -980,9 +1127,66 @@ negation TAG tables {
 	rule->flag_from = $1 ? -1 : 1;
 	rule->table_from = strdup(t->t_name);
 }
+| negation FROM SRC REGEX tables {
+	struct table   *t = $5;
+
+	if (rule->flag_from) {
+		yyerror("from already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for from lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_from = $1 ? -1 : 1;
+	rule->flag_from_regex = 1;
+	rule->table_from = strdup(t->t_name);
+}
+
+| negation FROM RDNS tables {
+	struct table   *t = $4;
+
+	if (rule->flag_from) {
+		yyerror("from already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+		yyerror("table \"%s\" may not be used for rdns lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_from = $1 ? -1 : 1;
+	rule->flag_from_rdns = 1;
+	rule->table_from = strdup(t->t_name);
+}
+| negation FROM RDNS REGEX tables {
+	struct table   *t = $5;
+
+	if (rule->flag_from) {
+		yyerror("from already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_DOMAIN)) {
+		yyerror("table \"%s\" may not be used for rdns lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_from = $1 ? -1 : 1;
+	rule->flag_from_regex = 1;
+	rule->flag_from_rdns = 1;
+	rule->table_from = strdup(t->t_name);
+}
+
 
 | negation FOR LOCAL {
-	struct table   *t = table_find(conf, "<localnames>", NULL);
+	struct table   *t = table_find(conf, "<localnames>");
 
 	if (rule->flag_for) {
 		yyerror("for already specified for this rule");
@@ -992,7 +1196,7 @@ negation TAG tables {
 	rule->table_for = strdup(t->t_name);
 }
 | negation FOR ANY {
-	struct table   *t = table_find(conf, "<anydestination>", NULL);
+	struct table   *t = table_find(conf, "<anydestination>");
 
 	if (rule->flag_for) {
 		yyerror("for already specified for this rule");
@@ -1016,6 +1220,24 @@ negation TAG tables {
 	}
 
 	rule->flag_for = $1 ? -1 : 1;
+	rule->table_for = strdup(t->t_name);
+}
+| negation FOR DOMAIN REGEX tables {
+	struct table   *t = $5;
+
+	if (rule->flag_for) {
+		yyerror("for already specified for this rule");
+		YYERROR;
+	}
+
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_REGEX)) {
+		yyerror("table \"%s\" may not be used for 'for' lookups",
+		    t->t_name);
+		YYERROR;
+	}
+
+	rule->flag_for = $1 ? -1 : 1;
+	rule->flag_for_regex = 1;
 	rule->table_for = strdup(t->t_name);
 }
 ;
@@ -1056,6 +1278,369 @@ MATCH {
 	}
 	TAILQ_INSERT_TAIL(conf->sc_rules, rule, r_entry);
 	rule = NULL;
+}
+;
+
+filter_action_builtin:
+REJECT STRING {
+	filter_config->reject = $2;
+}
+| DISCONNECT STRING {
+	filter_config->disconnect = $2;
+}
+;
+
+filter_phase_check_fcrdns:
+negation FCRDNS {
+	filter_config->not_fcrdns = $1 ? -1 : 1;
+	filter_config->fcrdns = 1;
+}
+;
+
+filter_phase_check_rdns:
+negation RDNS {
+	filter_config->not_rdns = $1 ? -1 : 1;
+	filter_config->rdns = 1;
+}
+;
+
+filter_phase_check_rdns_table:
+negation RDNS tables {
+	filter_config->not_rdns_table = $1 ? -1 : 1;
+	filter_config->rdns_table = $3;
+}
+;
+filter_phase_check_rdns_regex:
+negation RDNS REGEX tables {
+	filter_config->not_rdns_regex = $1 ? -1 : 1;
+	filter_config->rdns_regex = $4;
+}
+;
+
+filter_phase_check_src_table:
+negation SRC tables {
+	filter_config->not_src_table = $1 ? -1 : 1;
+	filter_config->src_table = $3;
+}
+;
+filter_phase_check_src_regex:
+negation SRC REGEX tables {
+	filter_config->not_src_regex = $1 ? -1 : 1;
+	filter_config->src_regex = $4;
+}
+;
+
+filter_phase_check_helo_table:
+negation HELO tables {
+	filter_config->not_helo_table = $1 ? -1 : 1;
+	filter_config->helo_table = $3;
+}
+;
+filter_phase_check_helo_regex:
+negation HELO REGEX tables {
+	filter_config->not_helo_regex = $1 ? -1 : 1;
+	filter_config->helo_regex = $4;
+}
+;
+
+filter_phase_check_mail_from_table:
+negation MAIL_FROM tables {
+	filter_config->not_mail_from_table = $1 ? -1 : 1;
+	filter_config->mail_from_table = $3;
+}
+;
+filter_phase_check_mail_from_regex:
+negation MAIL_FROM REGEX tables {
+	filter_config->not_mail_from_regex = $1 ? -1 : 1;
+	filter_config->mail_from_regex = $4;
+}
+;
+
+filter_phase_check_rcpt_to_table:
+negation RCPT_TO tables {
+	filter_config->not_rcpt_to_table = $1 ? -1 : 1;
+	filter_config->rcpt_to_table = $3;
+}
+;
+filter_phase_check_rcpt_to_regex:
+negation RCPT_TO REGEX tables {
+	filter_config->not_rcpt_to_regex = $1 ? -1 : 1;
+	filter_config->rcpt_to_regex = $4;
+}
+;
+
+filter_phase_global_options:
+filter_phase_check_fcrdns |
+filter_phase_check_rdns |
+filter_phase_check_rdns_regex |
+filter_phase_check_rdns_table |
+filter_phase_check_src_regex |
+filter_phase_check_src_table;
+
+filter_phase_connect_options:
+filter_phase_global_options;
+
+filter_phase_helo_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_global_options;
+
+filter_phase_mail_from_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_check_mail_from_table |
+filter_phase_check_mail_from_regex |
+filter_phase_global_options;
+
+filter_phase_rcpt_to_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_check_mail_from_table |
+filter_phase_check_mail_from_regex |
+filter_phase_check_rcpt_to_table |
+filter_phase_check_rcpt_to_regex |
+filter_phase_global_options;
+
+filter_phase_data_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_check_mail_from_table |
+filter_phase_check_mail_from_regex |
+filter_phase_global_options;
+
+/*
+filter_phase_quit_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_global_options;
+
+filter_phase_rset_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_global_options;
+
+filter_phase_noop_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_global_options;
+*/
+
+filter_phase_commit_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_check_mail_from_table |
+filter_phase_check_mail_from_regex |
+filter_phase_global_options;
+
+
+filter_phase_connect:
+CONNECT {
+	filter_config->phase = FILTER_CONNECT;
+} filter_phase_connect_options filter_action_builtin
+;
+
+
+filter_phase_helo:
+HELO {
+	filter_config->phase = FILTER_HELO;
+} filter_phase_helo_options filter_action_builtin
+;
+
+filter_phase_ehlo:
+EHLO {
+	filter_config->phase = FILTER_EHLO;
+} filter_phase_helo_options filter_action_builtin
+;
+
+filter_phase_mail_from:
+MAIL_FROM {
+	filter_config->phase = FILTER_MAIL_FROM;
+} filter_phase_mail_from_options filter_action_builtin
+;
+
+filter_phase_rcpt_to:
+RCPT_TO {
+	filter_config->phase = FILTER_RCPT_TO;
+} filter_phase_rcpt_to_options filter_action_builtin
+;
+
+filter_phase_data:
+DATA {
+	filter_config->phase = FILTER_DATA;
+} filter_phase_data_options filter_action_builtin
+;
+
+/*
+filter_phase_data_line:
+DATA_LINE {
+	filter_config->phase = FILTER_DATA_LINE;
+} filter_action_builtin
+;
+
+filter_phase_quit:
+QUIT {
+	filter_config->phase = FILTER_QUIT;
+} filter_phase_quit_options filter_action_builtin
+;
+
+filter_phase_rset:
+RSET {
+	filter_config->phase = FILTER_RSET;
+} filter_phase_rset_options filter_action_builtin
+;
+
+filter_phase_noop:
+NOOP {
+	filter_config->phase = FILTER_NOOP;
+} filter_phase_noop_options filter_action_builtin
+;
+*/
+
+filter_phase_commit:
+COMMIT {
+	filter_config->phase = FILTER_COMMIT;
+} filter_phase_commit_options filter_action_builtin
+;
+
+
+
+filter_phase:
+filter_phase_connect
+| filter_phase_helo
+| filter_phase_ehlo
+| filter_phase_mail_from
+| filter_phase_rcpt_to
+| filter_phase_data
+/*| filter_phase_data_line*/
+/*| filter_phase_quit*/
+/*| filter_phase_noop*/
+/*| filter_phase_rset*/
+| filter_phase_commit
+;
+
+
+filterel:
+STRING	{
+	struct filter_config   *fr;
+	size_t			i;
+
+	if ((fr = dict_get(conf->sc_filters_dict, $1)) == NULL) {
+		yyerror("no filter exist with that name: %s", $1);
+		free($1);
+		YYERROR;
+	}
+	if (fr->filter_type == FILTER_TYPE_CHAIN) {
+		yyerror("no filter chain allowed within a filter chain: %s", $1);
+		free($1);
+		YYERROR;
+	}
+
+	for (i = 0; i < filter_config->chain_size; i++) {
+		if (strcmp(filter_config->chain[i], $1) == 0) {
+			yyerror("no filter allowed twice within a filter chain: %s", $1);
+			free($1);
+			YYERROR;
+		}
+	}
+
+	if (fr->proc) {
+		if (dict_check(&filter_config->chain_procs, fr->proc)) {
+			yyerror("no proc allowed twice within a filter chain: %s", fr->proc);
+			free($1);
+			YYERROR;
+		}
+		dict_set(&filter_config->chain_procs, fr->proc, NULL);
+	}
+
+	filter_config->chain_size += 1;
+	filter_config->chain = reallocarray(filter_config->chain, filter_config->chain_size, sizeof(char *));
+	if (filter_config->chain == NULL)
+		err(1, NULL);
+	filter_config->chain[filter_config->chain_size - 1] = $1;
+}
+;
+
+filter_list:
+filterel
+| filterel comma filter_list
+;
+
+filter:
+FILTER STRING PROC STRING {
+	if (dict_get(conf->sc_filters_dict, $2)) {
+		yyerror("filter already exists with that name: %s", $2);
+		free($2);
+		free($4);
+		YYERROR;
+	}
+	if (! dict_get(conf->sc_processors_dict, $4)) {
+		yyerror("no processor exist with that name: %s", $4);
+		free($4);
+		YYERROR;
+	}
+
+	filter_config = xcalloc(1, sizeof *filter_config);
+	filter_config->filter_type = FILTER_TYPE_PROC;
+	filter_config->name = $2;
+	filter_config->proc = $4;
+	dict_set(conf->sc_filters_dict, $2, filter_config);
+	filter_config = NULL;
+}
+|
+FILTER STRING PROC_EXEC STRING {
+	char	buffer[128];
+
+	do {
+		(void)snprintf(buffer, sizeof buffer, "<dynproc:%08x>", last_dynproc_id++);
+	} while (dict_check(conf->sc_processors_dict, buffer));
+
+	if (dict_get(conf->sc_filters_dict, $2)) {
+		yyerror("filter already exists with that name: %s", $2);
+		free($2);
+		free($4);
+		YYERROR;
+	}
+
+	processor = xcalloc(1, sizeof *processor);
+	processor->command = $4;
+
+	filter_config = xcalloc(1, sizeof *filter_config);
+	filter_config->filter_type = FILTER_TYPE_PROC;
+	filter_config->name = $2;
+	filter_config->proc = xstrdup(buffer);
+	dict_set(conf->sc_filters_dict, $2, filter_config);
+} proc_params {
+	dict_set(conf->sc_processors_dict, filter_config->proc, processor);
+	processor = NULL;
+	filter_config = NULL;
+}
+|
+FILTER STRING BUILTIN {
+	if (dict_get(conf->sc_filters_dict, $2)) {
+		yyerror("filter already exists with that name: %s", $2);
+		free($2);
+		YYERROR;
+	}
+	filter_config = xcalloc(1, sizeof *filter_config);
+	filter_config->name = $2;
+	filter_config->filter_type = FILTER_TYPE_BUILTIN;
+	dict_set(conf->sc_filters_dict, $2, filter_config);
+} filter_phase {
+	filter_config = NULL;
+}
+|
+FILTER STRING CHAIN {
+	if (dict_get(conf->sc_filters_dict, $2)) {
+		yyerror("filter already exists with that name: %s", $2);
+		free($2);
+		YYERROR;
+	}
+	filter_config = xcalloc(1, sizeof *filter_config);
+	filter_config->filter_type = FILTER_TYPE_CHAIN;
+	dict_init(&filter_config->chain_procs);
+} '{' filter_list '}' {
+	dict_set(conf->sc_filters_dict, $2, filter_config);
+	filter_config = NULL;
 }
 ;
 
@@ -1200,9 +1785,39 @@ limits_scheduler: opt_limit_scheduler limits_scheduler
 
 
 opt_sock_listen : FILTER STRING {
-			if (config_lo_filter(&listen_opts, $2)) {
+			if (listen_opts.options & LO_FILTER) {
+				yyerror("filter already specified");
+				free($2);
 				YYERROR;
 			}
+			if (dict_get(conf->sc_filters_dict, $2) == NULL) {
+				yyerror("no filter exist with that name: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			listen_opts.options |= LO_FILTER;
+			listen_opts.filtername = $2;
+		}
+		| FILTER {
+			char	buffer[128];
+
+			if (listen_opts.options & LO_FILTER) {
+				yyerror("filter already specified");
+				YYERROR;
+			}
+
+			do {
+				(void)snprintf(buffer, sizeof buffer, "<dynchain:%08x>", last_dynchain_id++);
+			} while (dict_check(conf->sc_filters_dict, buffer));
+
+			listen_opts.options |= LO_FILTER;
+			listen_opts.filtername = xstrdup(buffer);
+			filter_config = xcalloc(1, sizeof *filter_config);
+			filter_config->filter_type = FILTER_TYPE_CHAIN;
+			dict_init(&filter_config->chain_procs);
+		} '{' filter_list '}' {
+			dict_set(conf->sc_filters_dict, listen_opts.filtername, filter_config);
+			filter_config = NULL;
 		}
 		| MASK_SRC {
 			if (config_lo_mask_source(&listen_opts)) {
@@ -1259,9 +1874,38 @@ opt_if_listen : INET4 {
 			listen_opts.port = $2;
 		}
 		| FILTER STRING			{
-			if (config_lo_filter(&listen_opts, $2)) {
+			if (listen_opts.options & LO_FILTER) {
+				yyerror("filter already specified");
 				YYERROR;
 			}
+			if (dict_get(conf->sc_filters_dict, $2) == NULL) {
+				yyerror("no filter exist with that name: %s", $2);
+				free($2);
+				YYERROR;
+			}
+			listen_opts.options |= LO_FILTER;
+			listen_opts.filtername = $2;
+		}
+		| FILTER {
+			char	buffer[128];
+
+			if (listen_opts.options & LO_FILTER) {
+				yyerror("filter already specified");
+				YYERROR;
+			}
+
+			do {
+				(void)snprintf(buffer, sizeof buffer, "<dynchain:%08x>", last_dynchain_id++);
+			} while (dict_check(conf->sc_filters_dict, buffer));
+
+			listen_opts.options |= LO_FILTER;
+			listen_opts.filtername = xstrdup(buffer);
+			filter_config = xcalloc(1, sizeof *filter_config);
+			filter_config->filter_type = FILTER_TYPE_CHAIN;
+			dict_init(&filter_config->chain_procs);
+		} '{' filter_list '}' {
+			dict_set(conf->sc_filters_dict, listen_opts.filtername, filter_config);
+			filter_config = NULL;
 		}
 		| SMTPS				{
 			if (listen_opts.options & LO_SSL) {
@@ -1405,7 +2049,7 @@ opt_if_listen : INET4 {
 			listen_opts.options |= LO_RECEIVEDAUTH;
 			listen_opts.flags |= F_RECEIVEDAUTH;
 		}
-		| NODSN	{
+		| NO_DSN	{
 			if (listen_opts.options & LO_NODSN) {
 				yyerror("no-dsn already specified");
 				YYERROR;
@@ -1516,7 +2160,7 @@ table		: TABLE STRING STRING	{
 				free($3);
 				YYERROR;
 			}
-			table = table_create(conf, backend, $2, NULL, config);
+			table = table_create(conf, backend, $2, config);
 			if (!table_config(table)) {
 				yyerror("invalid configuration file %s for table %s",
 				    config, table->t_name);
@@ -1529,7 +2173,7 @@ table		: TABLE STRING STRING	{
 			free($3);
 		}
 		| TABLE STRING {
-			table = table_create(conf, "static", $2, NULL, NULL);
+			table = table_create(conf, "static", $2, NULL);
 			free($2);
 		} '{' tableval_list '}' {
 			table = NULL;
@@ -1539,14 +2183,13 @@ table		: TABLE STRING STRING	{
 tablenew	: STRING			{
 			struct table	*t;
 
-			t = table_create(conf, "static", NULL, NULL, NULL);
-			t->t_type = T_LIST;
+			t = table_create(conf, "static", NULL, NULL);
 			table_add(t, $1, NULL);
 			free($1);
 			$$ = t;
 		}
 		| '{'				{
-			table = table_create(conf, "static", NULL, NULL, NULL);
+			table = table_create(conf, "static", NULL, NULL);
 		} tableval_list '}'		{
 			$$ = table;
 			table = NULL;
@@ -1556,7 +2199,7 @@ tablenew	: STRING			{
 tableref       	: '<' STRING '>'       		{
 			struct table	*t;
 
-			if ((t = table_find(conf, $2, NULL)) == NULL) {
+			if ((t = table_find(conf, $2)) == NULL) {
 				yyerror("no such table: %s", $2);
 				free($2);
 				YYERROR;
@@ -1612,18 +2255,29 @@ lookup(char *s)
 		{ "auth-optional",     	AUTH_OPTIONAL },
 		{ "backup",		BACKUP },
 		{ "bounce",		BOUNCE },
+		{ "builtin",		BUILTIN },
 		{ "ca",			CA },
 		{ "cert",		CERT },
+		{ "chain",		CHAIN },
+		{ "chroot",		CHROOT },
 		{ "ciphers",		CIPHERS },
+		{ "commit",		COMMIT },
 		{ "compression",	COMPRESSION },
+		{ "connect",		CONNECT },
+		{ "data",		DATA },
+		{ "data-line",		DATA_LINE },
 		{ "dhe",		DHE },
+		{ "disconnect",		DISCONNECT },
 		{ "domain",		DOMAIN },
+		{ "ehlo",		EHLO },
 		{ "encryption",		ENCRYPTION },
 		{ "expand-only",      	EXPAND_ONLY },
+		{ "fcrdns",		FCRDNS },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
 		{ "forward-only",      	FORWARD_ONLY },
 		{ "from",		FROM },
+		{ "group",		GROUP },
 		{ "helo",		HELO },
 		{ "helo-src",       	HELO_SRC },
 		{ "host",		HOST },
@@ -1649,21 +2303,30 @@ lookup(char *s)
 		{ "mda",		MDA },
 		{ "mta",		MTA },
 		{ "mx",			MX },
-		{ "no-dsn",		NODSN },
-		{ "no-verify",		NOVERIFY },
+		{ "no-dsn",		NO_DSN },
+		{ "no-verify",		NO_VERIFY },
+		{ "noop",		NOOP },
 		{ "on",			ON },
 		{ "pki",		PKI },
 		{ "port",		PORT },
+		{ "proc",		PROC },
+		{ "proc-exec",		PROC_EXEC },
 		{ "proxy-v2",		PROXY_V2 },
 		{ "queue",		QUEUE },
+		{ "quit",		QUIT },
 		{ "rcpt-to",		RCPT_TO },
+		{ "rdns",		RDNS },
 		{ "received-auth",     	RECEIVEDAUTH },
 		{ "recipient",		RECIPIENT },
+		{ "regex",		REGEX },
 		{ "reject",		REJECT },
 		{ "relay",		RELAY },
+		{ "rset",		RSET },
 		{ "scheduler",		SCHEDULER },
 		{ "senders",   		SENDERS },
 		{ "smtp",		SMTP },
+		{ "smtp-in",		SMTP_IN },
+		{ "smtp-out",		SMTP_OUT },
 		{ "smtps",		SMTPS },
 		{ "socket",		SOCKET },
 		{ "src",		SRC },
@@ -1673,7 +2336,6 @@ lookup(char *s)
 		{ "tagged",		TAGGED },
 		{ "tls",		TLS },
 		{ "tls-require",       	TLS_REQUIRE },
-		{ "to",			TO },
 		{ "ttl",		TTL },
 		{ "user",		USER },
 		{ "userbase",		USERBASE },
@@ -1773,7 +2435,7 @@ lungetc(int c)
 	if (file->ungetpos >= file->ungetsize) {
 		void *p = reallocarray(file->ungetbuf, file->ungetsize, 2);
 		if (p == NULL)
-			err(1, "lungetc");
+			err(1, "%s", __func__);
 		file->ungetbuf = p;
 		file->ungetsize *= 2;
 	}
@@ -1860,7 +2522,8 @@ top:
 			} else if (c == '\\') {
 				if ((next = lgetc(quotec)) == EOF)
 					return (0);
-				if (next == quotec || c == ' ' || c == '\t')
+				if (next == quotec || next == ' ' ||
+				    next == '\t')
 					c = next;
 				else if (next == '\n') {
 					file->lineno++;
@@ -1882,7 +2545,7 @@ top:
 		}
 		yylval.v.string = strdup(buf);
 		if (yylval.v.string == NULL)
-			err(1, "yylex: strdup");
+			err(1, "%s", __func__);
 		return (STRING);
 	}
 
@@ -1892,7 +2555,7 @@ top:
 	if (c == '-' || isdigit(c)) {
 		do {
 			*p++ = c;
-			if ((unsigned)(p-buf) >= sizeof(buf)) {
+			if ((size_t)(p-buf) >= sizeof(buf)) {
 				yyerror("string too long");
 				return (findeol());
 			}
@@ -1938,7 +2601,7 @@ nodigits:
 	if (isalnum(c) || c == ':' || c == '_') {
 		do {
 			*p++ = c;
-			if ((unsigned)(p-buf) >= sizeof(buf)) {
+			if ((size_t)(p-buf) >= sizeof(buf)) {
 				yyerror("string too long");
 				return (findeol());
 			}
@@ -1947,7 +2610,7 @@ nodigits:
 		*p = '\0';
 		if ((token = lookup(buf)) == STRING)
 			if ((yylval.v.string = strdup(buf)) == NULL)
-				err(1, "yylex: strdup");
+				err(1, "%s", __func__);
 		return (token);
 	}
 	if (c == '\n') {
@@ -1985,16 +2648,16 @@ pushfile(const char *name, int secret)
 	struct file	*nfile;
 
 	if ((nfile = calloc(1, sizeof(struct file))) == NULL) {
-		log_warn("warn: malloc");
+		log_warn("%s", __func__);
 		return (NULL);
 	}
 	if ((nfile->name = strdup(name)) == NULL) {
-		log_warn("warn: malloc");
+		log_warn("%s", __func__);
 		free(nfile);
 		return (NULL);
 	}
 	if ((nfile->stream = fopen(nfile->name, "r")) == NULL) {
-		log_warn("warn: %s", nfile->name);
+		log_warn("%s: %s", __func__, nfile->name);
 		free(nfile->name);
 		free(nfile);
 		return (NULL);
@@ -2009,7 +2672,7 @@ pushfile(const char *name, int secret)
 	nfile->ungetsize = 16;
 	nfile->ungetbuf = malloc(nfile->ungetsize);
 	if (nfile->ungetbuf == NULL) {
-		log_warn("warn: malloc");
+		log_warn("%s", __func__);
 		fclose(nfile->stream);
 		free(nfile->name);
 		free(nfile);
@@ -2136,17 +2799,12 @@ cmdline_symset(char *s)
 {
 	char	*sym, *val;
 	int	ret;
-	size_t	len;
 
 	if ((val = strrchr(s, '=')) == NULL)
 		return (-1);
-
-	len = strlen(s) - strlen(val) + 1;
-	if ((sym = malloc(len)) == NULL)
-		errx(1, "cmdline_symset: malloc");
-
-	(void)strlcpy(sym, s, len);
-
+	sym = strndup(s, val - s);
+	if (sym == NULL)
+		errx(1, "%s: strndup", __func__);
 	ret = symset(sym, val + 1, 1);
 	free(sym);
 
@@ -2236,8 +2894,12 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	if (lo->hostname == NULL)
 		lo->hostname = conf->sc_hostname;
 
-	if (lo->filtername)
-		(void)strlcpy(h->filter, lo->filtername, sizeof(h->filter));
+	if (lo->options & LO_FILTER) {
+		h->flags |= F_FILTERED;
+		(void)strlcpy(h->filter_name,
+		    lo->filtername,
+		    sizeof(h->filter_name));
+	}
 
 	h->pki_name[0] = '\0';
 
@@ -2509,7 +3171,7 @@ is_if_in_group(const char *ifname, const char *groupname)
 	int			 s;
 	int			 ret = 0;
 
-	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		err(1, "socket");
 
         memset(&ifgr, 0, sizeof(ifgr));
@@ -2541,18 +3203,6 @@ is_if_in_group(const char *ifname, const char *groupname)
 end:
 	close(s);
 	return ret;
-}
-
-static int
-config_lo_filter(struct listen_opts *lo, char *filter_name) {
-	if (lo->options & LO_FILTER) {
-		yyerror("filter already specified");
-		return -1;
-	}
-	lo->options |= LO_FILTER;
-	lo->filtername = filter_name;
-
-	return 0;
 }
 
 static int

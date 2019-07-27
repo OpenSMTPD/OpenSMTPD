@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpc.c,v 1.3 2018/05/21 21:25:37 krw Exp $	*/
+/*	$OpenBSD: smtpc.c,v 1.6 2019/07/02 09:36:20 martijn Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
@@ -204,7 +204,15 @@ parse_server(char *server)
 	if (port && port[0] == '\0')
 		port = NULL;
 
-	params.auth = creds;
+	if (creds) {
+		p = strchr(creds, ':');
+		if (p == NULL)
+			fatalx("invalid credentials");
+		*p = '\0';
+
+		params.auth_user = creds;
+		params.auth_pass = p + 1;
+	}
 	params.tls_req = TLS_YES;
 
 	if (!strcmp(scheme, "lmtp")) {
@@ -255,19 +263,12 @@ parse_server(char *server)
 void
 parse_message(FILE *ifp)
 {
-	char sfn[] = "/tmp/smtp.XXXXXXXXXX";
 	char *line = NULL;
 	size_t linesz = 0;
 	ssize_t len;
-	int fd;
 
-	if ((fd = mkstemp(sfn)) == -1)
-		fatal("mkstemp");
-	unlink(sfn);
-
-	mail.fp = fdopen(fd, "w+");
-	if ((mail.fp) == NULL)
-		fatal("fdopen");
+	if ((mail.fp = tmpfile()) == NULL)
+		fatal("tmpfile");
 
 	for (;;) {
 		if ((len = getline(&line, &linesz, ifp)) == -1) {
@@ -275,8 +276,15 @@ parse_message(FILE *ifp)
 				break;
 			fatal("getline");
 		}
+
+		if (len >= 2 && line[len - 2] == '\r' && line[len - 1] == '\n')
+			line[--len - 1] = '\n';
+
 		if (fwrite(line, 1, len, mail.fp) != len)
-			fatal("frwite");
+			fatal("fwrite");
+
+		if (line[len - 1] != '\n' && fputc('\n', mail.fp) == EOF)
+			fatal("fputc");
 	}
 
 	fclose(ifp);

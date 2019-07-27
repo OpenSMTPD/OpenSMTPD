@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fs.c,v 1.17 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: queue_fs.c,v 1.19 2019/06/28 13:32:51 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -32,7 +32,6 @@
 #include <fts.h>
 #include <imsg.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -415,7 +414,7 @@ fsqueue_check_space(void)
 	uint64_t	used;
 	uint64_t	total;
 
-	if (statfs(PATH_QUEUE, &buf) < 0) {
+	if (statfs(PATH_QUEUE, &buf) == -1) {
 		log_warn("warn: queue-fs: statfs");
 		return 0;
 	}

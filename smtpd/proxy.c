@@ -32,9 +32,64 @@
 
 #include "log.h"
 #include "smtpd.h"
-#include "proxy.h"
 
-static struct proxy_session {
+
+/*
+ * The PROXYv2 protocol is described here:
+ * http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+ */
+
+#define PROXY_CLOCAL 0x0
+#define PROXY_CPROXY 0x1
+#define PROXY_AF_UNSPEC 0x0
+#define PROXY_AF_INET 0x1
+#define PROXY_AF_INET6 0x2
+#define PROXY_AF_UNIX 0x3
+#define PROXY_TF_UNSPEC 0x0
+#define PROXY_TF_STREAM 0x1
+#define PROXY_TF_DGRAM 0x2
+
+#define PROXY_SESSION_TIMEOUT	300
+
+static const uint8_t pv2_signature[] = {
+	0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D,
+	0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A
+};
+
+struct proxy_hdr_v2 {
+	uint8_t sig[12];
+	uint8_t ver_cmd;
+	uint8_t fam;
+	uint16_t len;
+} __attribute__((packed));
+
+
+struct proxy_addr_ipv4 {
+	uint32_t src_addr;
+	uint32_t dst_addr;
+	uint16_t src_port;
+	uint16_t dst_port;
+} __attribute__((packed));
+
+struct proxy_addr_ipv6 {
+	uint8_t src_addr[16];
+	uint8_t dst_addr[16];
+	uint16_t src_port;
+	uint16_t dst_port;
+} __attribute__((packed));
+
+struct proxy_addr_unix {
+	uint8_t src_addr[108];
+	uint8_t dst_addr[108];
+} __attribute__((packed));
+
+union proxy_addr {
+	struct proxy_addr_ipv4 ipv4;
+	struct proxy_addr_ipv6 ipv6;
+	struct proxy_addr_unix un;
+} __attribute__((packed));
+
+struct proxy_session {
 	struct listener	*l;
 	struct io	*io;
 
@@ -59,6 +114,14 @@ static void proxy_io(struct io *, int, void *);
 static void proxy_error(struct proxy_session *, const char *, const char *);
 static int proxy_header_validate(struct proxy_session *);
 static int proxy_translate_ss(struct proxy_session *);
+
+int
+proxy_session(struct listener *listener, int sock,
+    const struct sockaddr_storage *ss,
+    void (*accepted)(struct listener *, int,
+	const struct sockaddr_storage *, struct io *),
+    void (*dropped)(struct listener *, int,
+	const struct sockaddr_storage *));
 
 int
 proxy_session(struct listener *listener, int sock,
@@ -206,8 +269,12 @@ proxy_io(struct io *io, int evt, void *arg)
 static void
 proxy_error(struct proxy_session *s, const char *reason, const char *extra)
 {
-	log_info("proxy %p event=closed address=%s reason=\"%s (%s)",
-	    s, ss_to_text(&s->ss), reason, (extra != NULL ? extra : ""));
+	if (extra)
+		log_info("proxy %p event=closed address=%s reason=\"%s (%s)\"",
+		    s, ss_to_text(&s->ss), reason, extra);
+	else
+		log_info("proxy %p event=closed address=%s reason=\"%s\"",
+		    s, ss_to_text(&s->ss), reason);
 
 	s->cb_dropped(s->l, s->fd, &s->ss);
 	io_free(s->io);
@@ -221,7 +288,6 @@ proxy_header_validate(struct proxy_session *s)
 
 	if (memcmp(h->sig, pv2_signature,
 		sizeof(pv2_signature)) != 0) {
-		log_debug("h->sig:%s len:%d", h->sig, strlen(h->sig));
 		proxy_error(s, "protocol error", "invalid signature");
 		return (-1);
 	}
@@ -237,15 +303,15 @@ proxy_header_validate(struct proxy_session *s)
 		break;
 
 	case (PROXY_AF_INET << 4 | PROXY_TF_STREAM):
-		s->addr_total = sizeof(s->addr.ipv4_addr);
+		s->addr_total = sizeof(s->addr.ipv4);
 		break;
 
 	case (PROXY_AF_INET6 << 4 | PROXY_TF_STREAM):
-		s->addr_total = sizeof(s->addr.ipv6_addr);
+		s->addr_total = sizeof(s->addr.ipv6);
 		break;
 
 	case (PROXY_AF_UNIX << 4 | PROXY_TF_STREAM):
-		s->addr_total = sizeof(s->addr.unix_addr);
+		s->addr_total = sizeof(s->addr.un);
 		break;
 
 	default:
@@ -286,29 +352,29 @@ proxy_translate_ss(struct proxy_session *s)
 	case (PROXY_AF_INET << 4 | PROXY_TF_STREAM):
 		memset(&s->ss, 0, sizeof(s->ss));
 		sin->sin_family = AF_INET;
-		sin->sin_port = s->addr.ipv4_addr.src_port;
-		sin->sin_addr.s_addr = s->addr.ipv4_addr.src_addr;
+		sin->sin_port = s->addr.ipv4.src_port;
+		sin->sin_addr.s_addr = s->addr.ipv4.src_addr;
 		break;
 
 	case (PROXY_AF_INET6 << 4 | PROXY_TF_STREAM):
 		memset(&s->ss, 0, sizeof(s->ss));
 		sin6->sin6_family = AF_INET6;
-		sin6->sin6_port = s->addr.ipv6_addr.src_port;
-		memcpy(sin6->sin6_addr.s6_addr, s->addr.ipv6_addr.src_addr,
-		    sizeof(s->addr.ipv6_addr.src_addr));
+		sin6->sin6_port = s->addr.ipv6.src_port;
+		memcpy(sin6->sin6_addr.s6_addr, s->addr.ipv6.src_addr,
+		    sizeof(s->addr.ipv6.src_addr));
 		break;
 
 	case (PROXY_AF_UNIX << 4 | PROXY_TF_STREAM):
 		memset(&s->ss, 0, sizeof(s->ss));
-		sun_len = strnlen(s->addr.unix_addr.src_addr,
-		    sizeof(s->addr.unix_addr.src_addr));
+		sun_len = strnlen(s->addr.un.src_addr,
+		    sizeof(s->addr.un.src_addr));
 		if (sun_len > sizeof(sun->sun_path)) {
 			proxy_error(s, "address translation", "Unix socket path"
 			    " longer than supported");
 			return (-1);
 		}
 		sun->sun_family = AF_UNIX;
-		memcpy(sun->sun_path, s->addr.unix_addr.src_addr, sun_len);
+		memcpy(sun->sun_path, s->addr.un.src_addr, sun_len);
 		break;
 
 	default:

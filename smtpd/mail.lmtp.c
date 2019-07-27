@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <unistd.h>
 
 enum phase {
@@ -167,7 +168,7 @@ lmtp_connect_inet(const char *destination)
 
 	freeaddrinfo(res0);
 	if (s == -1)
-		errx(1, "%s", cause);
+		errx(EX_TEMPFAIL, "%s", cause);
 
 	return fdopen(s, "r+");
 }
@@ -191,7 +192,7 @@ lmtp_connect_unix(const char *destination)
 		errx(1, "unix: socket path is too long");
 
 	if (connect(s, (struct sockaddr *)&addr, sizeof addr) == -1)
-		err(1, "connect");
+		err(EX_TEMPFAIL, "connect");
 
 	return fdopen(s, "r+");
 }
@@ -213,9 +214,11 @@ lmtp_engine(FILE *conn, struct session *session)
 	enum phase phase = PHASE_BANNER;
 
 	do {
+		fflush(conn);
 		if ((linelen = getline(&line, &linesize, conn)) == -1)
 			err(1, "getline");
 		line[strcspn(line, "\n")] = '\0';
+		line[strcspn(line, "\r")] = '\0';
 
 		if (linelen < 4 ||
 		    !isdigit(line[0]) ||
@@ -270,9 +273,10 @@ lmtp_engine(FILE *conn, struct session *session)
 		case PHASE_QUIT:
 			exit(0);
 		}
-		if (ferror(stdin))
-			err(1, "getline");
 	} while (1);
+
+	if (ferror(conn))
+		err(1, "getline");
 }
 
 static void

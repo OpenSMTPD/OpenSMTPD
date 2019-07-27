@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.196 2018/06/18 08:15:29 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.212 2019/07/24 20:44:21 kn Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: June 18 2018 $
+.Dd $Mdocdate: July 24 2019 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -32,21 +32,24 @@ When mail arrives,
 each
 .Dq RCPT TO:
 command generates a mail envelope.
-If an envelope matches any of a pre-designated set of actions
-(set using the
-.Ic action
-keyword),
+If an envelope matches
+any of a pre-designated set of criteria
+(using the
+.Ic match
+directive),
 the message is accepted for delivery.
 A copy of the message, as well as its associated envelopes,
 is saved in the mail queue and later dispatched
-according to whatever method the action rule specified.
+according to an associated set of actions
+(using the
+.Ic action
+directive).
 If an envelope does not match any options,
 it is rejected.
-The
-.Ic match
-rules are evaluated sequentially,
+The match rules are evaluated sequentially,
 with the first match winning.
 .Pp
+The format of the configuration file is fairly flexible.
 The current line can be extended over multiple lines using a backslash
 .Pq Sq \e .
 Comments can be put anywhere in the file using a hash mark
@@ -54,22 +57,22 @@ Comments can be put anywhere in the file using a hash mark
 and extend to the end of the current line.
 Care should be taken when commenting out multi-line text:
 the comment is effective until the end of the entire block.
-.Pp
 Argument names not beginning with a letter, digit, or underscore,
-or otherwise using a reserved keyword,
+as well as reserved words
+(such as
+.Ic listen ,
+.Ic match ,
+and
+.Cm port ) ,
 must be quoted.
 Arguments containing whitespace should be surrounded by double quotes
 .Pq \&" .
 .Pp
 Macros can be defined that are later expanded in context.
 Macro names must start with a letter, digit, or underscore,
-and may contain any of those characters.
-Macro names may not be reserved words (for example
-.Ic listen ,
-.Ic match ,
-.Cm port ) .
+and may contain any of those characters,
+but may not be reserved words.
 Macros are not expanded inside quotes.
-.Pp
 For example:
 .Bd -literal -offset indent
 lan_addr = "192.168.0.1"
@@ -113,7 +116,8 @@ in an aliases or
 .Pa .forward
 file.
 .It Cm forward\-only
-Only accept the message if the recipient results in a remote address.
+Only accept the message if the recipient results in a remote address
+after the processing of aliases or forward file.
 .It Cm lmtp Ar destination Op Ar rcpt-to
 Deliver the message to an LMTP server at
 .Ar destination .
@@ -124,7 +128,7 @@ Optionally,
 might be specified to use the
 recipient email address (after expansion) instead of the
 local user in the LMTP session as RCPT TO.
-.It Cm maildir Op Ar pathname Op Ar junk
+.It Cm maildir Op Ar pathname Op Cm junk
 Deliver the message to the maildir in
 .Ar pathname
 if specified, or by default to
@@ -136,8 +140,8 @@ may contain format specifiers that are expanded before use
 .Pq see Sx FORMAT SPECIFIERS .
 .Pp
 If the
-.Ar junk
-keyword is provided, message will be moved to the Junk
+.Cm junk
+argument is provided, the message will be moved to the Junk
 folder if it contains a positive X-Spam header.
 .It Cm mbox
 Deliver the message to the user's mbox with
@@ -201,6 +205,9 @@ Use the mapping
 for virtual expansion.
 The aliasing table format is described in
 .Xr table 5 .
+.It Cm wrapper Ar name
+Use the wrapper specified in
+.Cm mda wrapper .
 .El
 .Pp
 The relay delivery methods also support additional options:
@@ -224,9 +231,52 @@ to advertise during the HELO phase.
 .It Cm host Ar relay-url
 Do not perform MX lookups but relay messages to the relay host described by
 .Ar relay-url .
-If the URL uses TLS, the certificate will be verified by default.
-.It Cm tls no-verify
-Do not require a valid certificate for the specified host.
+The format for
+.Ar relay-url
+is
+.Sm off
+.Op Ar proto No :// Op Ar label No @
+.Ar host Op : Ar port .
+.Sm on
+The following protocols are available:
+.Pp
+.Bl -tag -width "smtp+notls" -compact
+.It smtp
+Normal SMTP session with opportunistic STARTTLS
+(the default).
+.It smtp+tls
+Normal SMTP session with mandatory STARTTLS.
+.It smtp+notls
+Plain text SMTP session without TLS.
+.It lmtp
+LMTP session.
+.Ar port
+is required.
+.It smtps
+SMTP session with forced TLS on connection, default port is 465.
+.El
+Unless noted,
+.Ar port
+defaults to 25.
+.Pp
+The
+.Ar label
+corresponds to an entry in a credentials table,
+as documented in
+.Xr table 5 .
+It is used with the
+.Dq smtp+tls
+and
+.Dq smtps
+protocols for authentication.
+Server certificates for those protocols are verified by default.
+.It Cm tls Op no-verify
+Require TLS to be used when relaying, using mandatory STARTTLS by default.
+When used with a smarthost, the protocol must not be
+.Dq smtp+notls:// .
+If
+.Op no-verify
+is specified, do not require a valid certificate.
 .It Cm auth Pf < Ar table Ns >
 Use the mapping
 .Ar table
@@ -291,7 +341,7 @@ for incoming connections, using the same syntax as for
 The
 .Ar interface
 parameter may also be an interface group, an IP address, or a domain name.
-Listening can optionally be resticted to a specific address
+Listening can optionally be restricted to a specific address
 .Ar family ,
 which can be either
 .Cm inet4
@@ -440,6 +490,13 @@ Specify that session may address the string or list table
 .Ar domain .
 .It Xo
 .Op Ic \&!
+.Cm for domain regex
+.Ar domain | Pf < Ar domain Ns >
+.Xc
+Specify that session may address the regex or regex table
+.Ar domain .
+.It Xo
+.Op Ic \&!
 .Cm from any
 .Xc
 Specify that session may originate from any source.
@@ -452,6 +509,22 @@ or from the local enqueuer.
 This is the default, and may be omitted.
 .It Xo
 .Op Ic \&!
+.Cm from rdns
+.Ar hostname | Pf < Ar hostname Ns >
+.Xc
+Specify that session may only originate from an IP address that
+resolves to a reverse DNS matching string or list string
+.Ar hostname .
+.It Xo
+.Op Ic \&!
+.Cm from rdns regex
+.Ar hostname | Pf < Ar hostname Ns >
+.Xc
+Specify that session may only originate from an IP address that
+resolves to a reverse DNS matching regex or list regex
+.Ar hostname .
+.It Xo
+.Op Ic \&!
 .Cm from socket
 .Xc
 Specify that session may only originate from the local enqueuer.
@@ -461,6 +534,14 @@ Specify that session may only originate from the local enqueuer.
 .Ar address | Pf < Ar address Ns >
 .Xc
 Specify that session may only originate from string or list table
+.Ar address
+which can be a specific address or a subnet expressed in CIDR-notation.
+.It Xo
+.Op Ic \&!
+.Cm from src regex
+.Ar address | Pf < Ar address Ns >
+.Xc
+Specify that session may only originate from regex or regex table
 .Ar address
 which can be a specific address or a subnet expressed in CIDR-notation.
 .El
@@ -481,10 +562,24 @@ Specify that session's HELO / EHLO should match the string or list table
 .Ar helo-name .
 .It Xo
 .Op Ic \&!
+.Cm helo regex
+.Ar helo-name | Pf < Ar helo-name Ns >
+.Xc
+Specify that session's HELO / EHLO should match the regex or regex table
+.Ar helo-name .
+.It Xo
+.Op Ic \&!
 .Cm mail\-from
 .Ar sender | Pf < Ar sender Ns >
 .Xc
 Specify that transactions's MAIL FROM should match the string or list table
+.Ar sender .
+.It Xo
+.Op Ic \&!
+.Cm mail\-from regex
+.Ar sender | Pf < Ar sender Ns >
+.Xc
+Specify that transactions's MAIL FROM should match the regex or regex table
 .Ar sender .
 .It Xo
 .Op Ic \&!
@@ -495,10 +590,24 @@ Specify that transaction's RCPT TO should match the string or list table
 .Ar recipient .
 .It Xo
 .Op Ic \&!
+.Cm rcpt\-to regex
+.Ar recipient | Pf < Ar recipient Ns >
+.Xc
+Specify that transaction's RCPT TO should match the regex or regex table
+.Ar recipient .
+.It Xo
+.Op Ic \&!
 .Cm tag Ar tag
 .Xc
 Matches transactions tagged with the given
 .Ar tag .
+.It Xo
+.Op Ic \&!
+.Cm tag regex Ar tag
+.Xc
+Matches transactions tagged with the given
+.Ar tag
+regex.
 .It Xo
 .Op Ic \&!
 .Cm tls
@@ -650,17 +759,15 @@ to the file must be absolute.
 Instead of using a separate file, declare a list table
 containing the given static
 .Ar value Ns s .
-The table must contain at least one value and may declare many values as a
-list of comma-separated strings.
+The table must contain at least one value and may declare multiple values as a
+comma-separated (whitespace optional) list.
 .It Ic table Ar name Brq Ar key Ns = Ns Ar value Op , Ar ...
 Instead of using a separate file, declare a mapping table
 containing the given static
 .Ar key Ns - Ns Ar value
 pairs.
 The table must contain at least one key-value pair and may declare
-many pairs as a list of comma-separated
-.Ar key Ns = Ns Ar value
-descriptions.
+multiple pairs as a comma-separated (whitespace optional) list.
 .El
 .Ss FORMAT SPECIFIERS
 Some configuration directives support expansion of their parameters at runtime.
@@ -758,7 +865,7 @@ A secrets file is needed to specify a username and password:
 # touch /etc/mail/secrets
 # chmod 640 /etc/mail/secrets
 # chown root:_smtpd /etc/mail/secrets
-# echo "label username:password" > /etc/mail/secrets
+# echo "bob username:password" > /etc/mail/secrets
 .Ed
 .Pp
 .Nm
@@ -769,12 +876,12 @@ table secrets file:/etc/mail/secrets
 
 listen on lo0
 
-action "local" mbox alias <aliases>
-action "relay" relay host tls+auth://label@smtp.example.com \e
+action "local_mail" mbox alias <aliases>
+action "outbound" relay host smtp+tls://bob@smtp.example.com \e
 	auth <secrets>
 
-match for local action "local"
-match for any action "relay"
+match for local action "local_mail"
+match for any action "outbound"
 .Ed
 .Pp
 In this second example,
@@ -806,12 +913,12 @@ listen on egress tls pki mail.example.com auth
 
 action mda_with_aliases mda "/path/to/mda \-f \-" alias <aliases>
 action mda_without_aliases mda "/path/to/mda \-f \-"
-action "relay" relay
+action "outbound" relay
 
 match for local action mda_with_aliases
 match from any for domain example.com action mda_without_aliases
-match for any action "relay"
-match auth from any for any action "relay"
+match for any action "outbound"
+match auth from any for any action "outbound"
 .Ed
 .Pp
 For sites that wish to sign messages using DKIM, the
@@ -827,13 +934,13 @@ table aliases file:/etc/mail/aliases
 listen on lo0
 listen on lo0 port 10028 tag DKIM
 
-action "mbox" mbox alias <aliases>
-action "relay" relay
-action relay_dkim relay host smtp://127.0.0.1:10027
+action "local_mail" mbox alias <aliases>
+action "outbound" relay
+action "relay_dkim" relay host smtp://127.0.0.1:10027
 
-match for local action "mbox"
-match tag DKIM for any action "relay"
-match for any action relay_dkim
+match for local action "local_mail"
+match tag DKIM for any action "outbound"
+match for any action "relay_dkim"
 .Ed
 .Pp
 Sites that accept non-local messages may be able to cut down on the
@@ -850,14 +957,14 @@ table other-relays file:/etc/mail/other-relays
 listen on lo0
 listen on egress
 
-action "mbox" mbox alias <aliases>
-action "relay" relay
+action "local_mail" mbox alias <aliases>
+action "outbound" relay
 
-match for local action "mbox"
-match for any action "relay"
+match for local action "local_mail"
+match for any action "outbound"
 match !from src <other-relays> mail\-from "@example.com" for any \e
       reject
-match from any for domain example.com action "mbox"
+match from any for domain example.com action "local_mail"
 .Ed
 .Sh SEE ALSO
 .Xr mailer.conf 5 ,

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.158 2018/06/18 18:14:39 gilles Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.165 2019/06/28 13:32:51 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -71,13 +71,12 @@ void
 smtp_imsg(struct mproc *p, struct imsg *imsg)
 {
 	switch (imsg->hdr.type) {
-	case IMSG_SMTP_DNS_PTR:
 	case IMSG_SMTP_CHECK_SENDER:
 	case IMSG_SMTP_EXPAND_RCPT:
 	case IMSG_SMTP_LOOKUP_HELO:
 	case IMSG_SMTP_AUTHENTICATE:
-	case IMSG_SMTP_TLS_INIT:
-	case IMSG_SMTP_TLS_VERIFY:
+	case IMSG_FILTER_SMTP_PROTOCOL:
+	case IMSG_FILTER_SMTP_DATA_BEGIN:
 		smtp_session_imsg(p, imsg);
 		return;
 
@@ -148,7 +147,7 @@ smtp_setup_listeners(void)
 		}
 		opt = 1;
 		if (setsockopt(l->fd, SOL_SOCKET, SO_REUSEADDR, &opt,
-			sizeof(opt)) < 0)
+		    sizeof(opt)) == -1)
 			fatal("smtpd: setsockopt");
 		if (bind(l->fd, (struct sockaddr *)&l->ss, l->ss.ss_len) == -1)
 			fatal("smtpd: bind");
@@ -341,10 +340,7 @@ smtp_accepted(struct listener *listener, int sock, const struct sockaddr_storage
 {
 	int     ret;
 
-	if (listener->filter[0])
-		ret = smtpf_session(listener, sock, ss, NULL);
-	else
-		ret = smtp_session(listener, sock, ss, NULL, io);
+	ret = smtp_session(listener, sock, ss, NULL, io);
 	if (ret == -1) {
 		log_warn("warn: Failed to create SMTP session");
 		close(sock);

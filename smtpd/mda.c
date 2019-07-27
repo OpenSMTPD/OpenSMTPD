@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.132 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: mda.c,v 1.138 2019/06/28 13:32:50 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 #include <limits.h>
@@ -47,6 +48,7 @@
 
 struct mda_envelope {
 	TAILQ_ENTRY(mda_envelope)	 entry;
+	uint64_t			 session_id;
 	uint64_t			 id;
 	time_t				 creation;
 	char				*sender;
@@ -54,6 +56,7 @@ struct mda_envelope {
 	char				*dest;
 	char				*user;
 	char				*dispatcher;
+	char				*mda_subaddress;
 	char				*mda_exec;
 };
 
@@ -99,9 +102,10 @@ static void mda_queue_loop(uint64_t);
 static struct mda_user *mda_user(const struct envelope *);
 static void mda_user_free(struct mda_user *);
 static const char *mda_user_to_text(const struct mda_user *);
-static struct mda_envelope *mda_envelope(const struct envelope *);
+static struct mda_envelope *mda_envelope(uint64_t, const struct envelope *);
 static void mda_envelope_free(struct mda_envelope *);
 static struct mda_session * mda_session(struct mda_user *);
+static const char *mda_sysexit_to_str(int);
 
 static struct tree	sessions;
 static struct tree	users;
@@ -118,12 +122,14 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	struct deliver		 deliver;
 	struct msg		 m;
 	const void		*data;
-	const char		*error, *parent_error;
+	const char		*error, *parent_error, *syserror;
 	uint64_t		 reqid;
 	size_t			 sz;
 	char			 out[256], buf[LINE_MAX];
 	int			 n;
 	enum lka_resp_status	status;
+	enum mda_resp_status	mda_status;
+	int			mda_sysexit;
 
 	switch (imsg->hdr.type) {
 	case IMSG_MDA_LOOKUP_USERINFO:
@@ -181,7 +187,7 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		e = mda_envelope(&evp);
+		e = mda_envelope(u->id, &evp);
 		TAILQ_INSERT_TAIL(&u->envelopes, e, entry);
 		u->evpcount += 1;
 		stat_increment("mda.pending", 1);
@@ -270,6 +276,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 		text_to_mailaddr(&deliver.dest, s->evp->dest);
 		if (s->evp->mda_exec)
 			(void)strlcpy(deliver.mda_exec, s->evp->mda_exec, sizeof deliver.mda_exec);
+		if (s->evp->mda_subaddress)
+			(void)strlcpy(deliver.mda_subaddress, s->evp->mda_subaddress, sizeof deliver.mda_subaddress);
 		(void)strlcpy(deliver.dispatcher, s->evp->dispatcher, sizeof deliver.dispatcher);
 		deliver.userinfo = s->user->userinfo;
 
@@ -311,6 +319,8 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_MDA_DONE:
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
+		m_get_int(&m, (int *)&mda_status);
+		m_get_int(&m, (int *)&mda_sysexit);
 		m_get_string(&m, &parent_error);
 		m_end(&m);
 
@@ -322,29 +332,48 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 		out[0] = '\0';
 		if (imsg->fd != -1)
 			mda_getlastline(imsg->fd, out, sizeof(out));
+
 		/*
 		 * Choose between parent's description of error and
 		 * child's output, the latter having preference over
 		 * the former.
 		 */
 		error = NULL;
-		if (strcmp(parent_error, "exited okay") == 0) {
-			if (s->datafp || (s->io && io_queued(s->io)))
+		if (mda_status == MDA_OK) {
+			if (s->datafp || (s->io && io_queued(s->io))) {
 				error = "mda exited prematurely";
+				mda_status = MDA_TEMPFAIL;
+			}
 		} else
 			error = out[0] ? out : parent_error;
 
+		syserror = NULL;
+		if (mda_sysexit) {
+			syserror = mda_sysexit_to_str(mda_sysexit);
+			if (syserror)
+				error = syserror;
+		}
+		
 		/* update queue entry */
-		if (error) {
+		switch (mda_status) {
+		case MDA_TEMPFAIL:
 			mda_queue_tempfail(e->id, error,
 			    ESC_OTHER_MAIL_SYSTEM_STATUS);
 			(void)snprintf(buf, sizeof buf,
 			    "Error (%s)", error);
 			mda_log(e, "TempFail", buf);
-		}
-		else {
+			break;
+		case MDA_PERMFAIL:
+			mda_queue_permfail(e->id, error,
+			    ESC_OTHER_MAIL_SYSTEM_STATUS);
+			(void)snprintf(buf, sizeof buf,
+			    "Error (%s)", error);
+			mda_log(e, "PermFail", buf);
+			break;
+		case MDA_OK:
 			mda_queue_ok(e->id);
 			mda_log(e, "Ok", "Delivered");
+			break;
 		}
 		mda_done(s);
 		return;
@@ -492,7 +521,7 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	ssize_t	 len;
 	int	 out = 0;
 	
-	if (lseek(fd, 0, SEEK_SET) < 0) {
+	if (lseek(fd, 0, SEEK_SET) == -1) {
 		log_warn("warn: mda: lseek");
 		close(fd);
 		return (-1);
@@ -512,7 +541,7 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 
 	if (out) {
 		(void)strlcpy(dst, "\"", dstsz);
-		(void)strnvis(dst + 1, ln, dstsz - 2, VIS_SAFE | VIS_CSTYLE);
+		(void)strnvis(dst + 1, ln, dstsz - 2, VIS_SAFE | VIS_CSTYLE | VIS_NL);
 		(void)strlcat(dst, "\"", dstsz);
 	}
 
@@ -641,9 +670,9 @@ mda_log(const struct mda_envelope *evp, const char *prefix, const char *status)
 	if (evp->rcpt)
 		(void)snprintf(rcpt, sizeof rcpt, "rcpt=<%s> ", evp->rcpt);
 
-	log_info("%016"PRIx64" mda event=delivery evpid=%016" PRIx64 " from=<%s> to=<%s> "
+	log_info("%016"PRIx64" mda delivery evpid=%016" PRIx64 " from=<%s> to=<%s> "
 	    "%suser=%s delay=%s result=%s stat=%s",
-	    (uint64_t)0,
+	    evp->session_id,
 	    evp->id,
 	    evp->sender ? evp->sender : "",
 	    evp->dest,
@@ -763,12 +792,13 @@ mda_user_to_text(const struct mda_user *u)
 }
 
 static struct mda_envelope *
-mda_envelope(const struct envelope *evp)
+mda_envelope(uint64_t session_id, const struct envelope *evp)
 {
 	struct mda_envelope	*e;
 	char			 buf[LINE_MAX];
 
 	e = xcalloc(1, sizeof *e);
+	e->session_id = session_id;
 	e->id = evp->id;
 	e->creation = evp->creation;
 	buf[0] = '\0';
@@ -787,6 +817,8 @@ mda_envelope(const struct envelope *evp)
 	e->dispatcher = xstrdup(evp->dispatcher);
 	if (evp->mda_exec[0])
 		e->mda_exec = xstrdup(evp->mda_exec);
+	if (evp->mda_subaddress[0])
+		e->mda_subaddress = xstrdup(evp->mda_subaddress);
 	stat_increment("mda.envelope", 1);
 	return (e);
 }
@@ -836,3 +868,44 @@ mda_session(struct mda_user * u)
 
 	return (s);
 }
+
+static const char *
+mda_sysexit_to_str(int sysexit)
+{
+	switch (sysexit) {
+	case EX_USAGE:
+		return "command line usage error";
+	case EX_DATAERR:
+		return "data format error";
+	case EX_NOINPUT:
+		return "cannot open input";
+	case EX_NOUSER:
+		return "user unknown";
+	case EX_NOHOST:
+		return "host name unknown";
+	case EX_UNAVAILABLE:
+		return "service unavailable";
+	case EX_SOFTWARE:
+		return "internal software error";
+	case EX_OSERR:
+		return "system resource problem";
+	case EX_OSFILE:
+		return "critical OS file missing";
+	case EX_CANTCREAT:
+		return "can't create user output file";
+	case EX_IOERR:
+		return "input/output error";
+	case EX_TEMPFAIL:
+		return "temporary failure";
+	case EX_PROTOCOL:
+		return "remote error in protocol";
+	case EX_NOPERM:
+		return "permission denied";
+	case EX_CONFIG:
+		return "local configuration error";
+	default:
+		break;
+	}
+	return NULL;
+}
+

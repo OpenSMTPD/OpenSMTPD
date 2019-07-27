@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.c,v 1.187 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: queue.c,v 1.189 2018/12/30 23:09:58 guenther Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -28,7 +28,6 @@
 #include <event.h>
 #include <imsg.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -210,7 +209,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		if (queue_envelope_load(evpid, &evp) == 0)
 			return;
 
-		bounce.type = B_ERROR;
+		bounce.type = B_FAILED;
 		envelope_set_errormsg(&evp, "Envelope expired");
 		envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
 		envelope_set_esc_code(&evp, ESC_DELIVERY_TIME_EXPIRED);
@@ -342,7 +341,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 		if (evp.dsn_notify & DSN_SUCCESS) {
-			bounce.type = B_DSN;
+			bounce.type = B_DELIVERED;
 			bounce.dsn_ret = evp.dsn_ret;
 			envelope_set_esc_class(&evp, ESC_STATUS_OK);
 			if (imsg->hdr.type == IMSG_MDA_DELIVERY_OK)
@@ -400,7 +399,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			m_close(p_scheduler);
 			return;
 		}
-		bounce.type = B_ERROR;
+		bounce.type = B_FAILED;
 		envelope_set_errormsg(&evp, "%s", reason);
 		envelope_set_esc_class(&evp, ESC_STATUS_PERMFAIL);
 		envelope_set_esc_code(&evp, code);
@@ -427,7 +426,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		envelope_set_errormsg(&evp, "%s", "Loop detected");
 		envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
 		envelope_set_esc_code(&evp, ESC_ROUTING_LOOP_DETECTED);
-		bounce.type = B_ERROR;
+		bounce.type = B_FAILED;
 		queue_bounce(&evp, &bounce);
 		queue_envelope_delete(evp.id);
 		m_create(p_scheduler, IMSG_QUEUE_DELIVERY_LOOP, 0, 0, -1);
