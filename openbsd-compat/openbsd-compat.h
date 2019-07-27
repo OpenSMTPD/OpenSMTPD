@@ -257,6 +257,10 @@ int res_hnok(const char *);
 #define WAIT_MYPGRP 0
 #endif
 
+#if !HAVE_DECL_IPPORT_HILASTAUTO
+#define IPPORT_HILASTAUTO 65535
+#endif
+
 #ifndef HAVE_FLOCK
 int flock(int, int);
 #endif
