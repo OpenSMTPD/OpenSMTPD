@@ -45,6 +45,7 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/mta.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mta_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/parse.y
 smtpd_SOURCES+=		$(smtpd_srcdir)/pony.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/proxy.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/report_smtp.c
