@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.39 2019/08/11 17:23:12 gilles Exp $	*/
+/*	$OpenBSD: to.c,v 1.41 2019/08/14 21:11:25 gilles Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
