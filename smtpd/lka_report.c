@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_report.c,v 1.17 2019/01/05 09:43:39 gilles Exp $	*/
+/*	$OpenBSD: lka_report.c,v 1.24 2019/08/18 16:52:02 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -35,7 +35,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PROTOCOL_VERSION	1
+#define	PROTOCOL_VERSION	"0.1"
 
 struct reporter_proc {
 	TAILQ_ENTRY(reporter_proc)	entries;
@@ -53,7 +53,9 @@ static struct smtp_events {
 	{ "link-disconnect" },
 	{ "link-identify" },
 	{ "link-tls" },
+	{ "link-auth" },
 
+	{ "tx-reset" },
 	{ "tx-begin" },
 	{ "tx-mail" },
 	{ "tx-rcpt" },
@@ -154,7 +156,7 @@ report_smtp_broadcast(uint64_t reqid, const char *direction, struct timeval *tv,
 			continue;
 
 		va_start(ap, format);
-		if (io_printf(lka_proc_get_io(rp->name), "report|%d|%lld.%06ld|%s|%s|",
+		if (io_printf(lka_proc_get_io(rp->name), "report|%s|%lld.%06ld|%s|%s|",
 			PROTOCOL_VERSION, tv->tv_sec, tv->tv_usec, direction, event) == -1 ||
 		    io_vprintf(lka_proc_get_io(rp->name), format, ap) == -1)
 			fatalx("failed to write to processor");
@@ -184,8 +186,13 @@ lka_report_smtp_link_connect(const char *direction, struct timeval *tv, uint64_t
 	else if (ss_dest->ss_family == AF_INET6)
 		dest_port = ntohs(((const struct sockaddr_in6 *)ss_dest)->sin6_port);
 
-	(void)strlcpy(src, ss_to_text(ss_src), sizeof src);
-	(void)strlcpy(dest, ss_to_text(ss_dest), sizeof dest);
+	if (strcmp(ss_to_text(ss_src), "local") == 0) {
+		(void)snprintf(src, sizeof src, "unix:%s", SMTPD_SOCKET);
+		(void)snprintf(dest, sizeof dest, "unix:%s", SMTPD_SOCKET);
+	} else {
+		(void)snprintf(src, sizeof src, "%s:%d", ss_to_text(ss_src), src_port);
+		(void)snprintf(dest, sizeof dest, "%s:%d", ss_to_text(ss_dest), dest_port);
+	}
 
 	switch (fcrdns) {
 	case 1:
@@ -200,8 +207,8 @@ lka_report_smtp_link_connect(const char *direction, struct timeval *tv, uint64_t
 	}
 	
 	report_smtp_broadcast(reqid, direction, tv, "link-connect",
-	    "%016"PRIx64"|%s|%s|%s:%d|%s:%d\n",
-	    reqid, rdns, fcrdns_str, src, src_port, dest, dest_port);
+	    "%016"PRIx64"|%s|%s|%s|%s\n",
+	    reqid, rdns, fcrdns_str, src, dest);
 }
 
 void
@@ -212,10 +219,19 @@ lka_report_smtp_link_disconnect(const char *direction, struct timeval *tv, uint6
 }
 
 void
-lka_report_smtp_link_identify(const char *direction, struct timeval *tv, uint64_t reqid, const char *heloname)
+lka_report_smtp_link_auth(const char *direction, struct timeval *tv, uint64_t reqid,
+    const char *username, const char *result)
+{
+	report_smtp_broadcast(reqid, direction, tv, "link-auth",
+	    "%016"PRIx64"|%s|%s\n", reqid, username, result);
+}
+
+void
+lka_report_smtp_link_identify(const char *direction, struct timeval *tv,
+    uint64_t reqid, const char *method, const char *heloname)
 {
 	report_smtp_broadcast(reqid, direction, tv, "link-identify",
-	    "%016"PRIx64"|%s\n", reqid, heloname);
+	    "%016"PRIx64"|%s|%s\n", reqid, method, heloname);
 }
 
 void
@@ -223,6 +239,13 @@ lka_report_smtp_link_tls(const char *direction, struct timeval *tv, uint64_t req
 {
 	report_smtp_broadcast(reqid, direction, tv, "link-tls",
 	    "%016"PRIx64"|%s\n", reqid, ciphers);
+}
+
+void
+lka_report_smtp_tx_reset(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "tx-reset",
+	    "%016"PRIx64"|%08x\n", reqid, msgid);
 }
 
 void

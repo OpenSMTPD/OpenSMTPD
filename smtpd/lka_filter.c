@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.38 2019/07/01 07:40:43 martijn Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.41 2019/08/18 16:52:02 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -35,7 +35,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PROTOCOL_VERSION	1
+#define	PROTOCOL_VERSION	"0.1"
 
 struct filter;
 struct filter_session;
@@ -740,13 +740,13 @@ filter_protocol_query(struct filter *filter, uint64_t token, uint64_t reqid, con
 	fs = tree_xget(&sessions, reqid);
 	if (strcmp(phase, "connect") == 0)
 		n = io_printf(lka_proc_get_io(filter->proc),
-		    "filter|%d|%lld.%06ld|smtp-in|%s|%016"PRIx64"|%016"PRIx64"|%s|%s\n",
+		    "filter|%s|%lld.%06ld|smtp-in|%s|%016"PRIx64"|%016"PRIx64"|%s|%s\n",
 		    PROTOCOL_VERSION,
 		    tv.tv_sec, tv.tv_usec,
 		    phase, reqid, token, fs->rdns, param);
 	else
 		n = io_printf(lka_proc_get_io(filter->proc),
-		    "filter|%d|%lld.%06ld|smtp-in|%s|%016"PRIx64"|%016"PRIx64"|%s\n",
+		    "filter|%s|%lld.%06ld|smtp-in|%s|%016"PRIx64"|%016"PRIx64"|%s\n",
 		    PROTOCOL_VERSION,
 		    tv.tv_sec, tv.tv_usec,
 		    phase, reqid, token, param);
@@ -763,7 +763,7 @@ filter_data_query(struct filter *filter, uint64_t token, uint64_t reqid, const c
 	gettimeofday(&tv, NULL);
 
 	n = io_printf(lka_proc_get_io(filter->proc),
-	    "filter|%d|%lld.%06ld|smtp-in|data-line|"
+	    "filter|%s|%lld.%06ld|smtp-in|data-line|"
 	    "%016"PRIx64"|%016"PRIx64"|%s\n",
 	    PROTOCOL_VERSION,
 	    tv.tv_sec, tv.tv_usec,
@@ -966,10 +966,15 @@ filter_check_rdns(struct filter *filter, const char *hostname)
 	if (!filter->config->rdns)
 		return 0;
 
+	/* this is a hack until smtp session properly deals with lack of rdns */
+	ret = strcmp("<unknown>", hostname);
+	if (ret == 0)
+		return filter->config->not_rdns < 0 ? !ret : ret;
+
 	/* if text_to_netaddress succeeds,
 	 * we don't have an rDNS so the filter should match
 	 */
-	ret = text_to_netaddr(&netaddr, hostname);
+	ret = !text_to_netaddr(&netaddr, hostname);
 	return filter->config->not_rdns < 0 ? !ret : ret;
 }
 

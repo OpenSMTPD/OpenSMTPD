@@ -1,4 +1,4 @@
-/*	$OpenBSD: ruleset.c,v 1.42 2018/12/28 11:40:29 eric Exp $ */
+/*	$OpenBSD: ruleset.c,v 1.44 2019/08/11 17:23:12 gilles Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -58,6 +58,7 @@ static int
 ruleset_match_from(struct rule *r, const struct envelope *evp)
 {
 	int		ret;
+	int		has_rdns;
 	const char	*key;
 	struct table	*table;
 	enum table_service service = K_NETADDR;
@@ -65,21 +66,22 @@ ruleset_match_from(struct rule *r, const struct envelope *evp)
 	if (!r->flag_from)
 		return 1;
 
-	if (r->flag_from_socket) {
-		/* XXX - socket needs to be distinguished from "local" */
-		return -1;
-	}
-
 	if (evp->flags & EF_INTERNAL)
 		key = "local";
 	else if (r->flag_from_rdns) {
-		if (strcmp(evp->hostname, "<unknown>") == 0)
+		has_rdns = strcmp(evp->hostname, "<unknown>") != 0;
+		if (r->table_from == NULL)
+		  	return MATCH_RESULT(has_rdns, r->flag_from);
+		if (!has_rdns)
 			return 0;
 		key = evp->hostname;
 	}
-	else
+	else {
 		key = ss_to_text(&evp->ss);
-
+		if (strcmp(key, "local") == 0)
+			if (r->flag_from_socket)
+				return MATCH_RESULT(1, r->flag_from);
+	}
 	if (r->flag_from_regex)
 		service = K_REGEX;
 
