@@ -164,7 +164,7 @@ smtp_setup_events(void)
 {
 	struct listener *l;
 	struct pki	*pki;
-	struct ca	*ca;
+	const struct ca	*ca;
 	void		*iter;
 	const char	*k;
 	const char	*fake_key;
@@ -236,9 +236,9 @@ smtp_setup_events(void)
 				    NULL, &pki->pki_pkey, p)) == -1)
 				err(1, "tls_ctx_fake_private_key");
 			
-			if (tls_config_set_keypair_mem(l->tls_cfg,
+			if (tls_config_set_keypair_ocsp_mem(l->tls_cfg,
 				pki->pki_cert, pki->pki_cert_len,
-				fake_key, fake_keylen) != 0)
+				fake_key, fake_keylen, NULL, 0) != 0)
 				err(1, "%s", tls_config_error(l->tls_cfg));
 
 			if (l->flags & F_TLS_VERIFY)
