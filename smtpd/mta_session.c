@@ -1109,7 +1109,7 @@ mta_io(struct io *io, int evt, void *arg)
 		    s->id, tls_to_text(io_tls(s->io)));
 		s->flags |= MTA_TLS;
 
-		mta_cert_verify(s);
+		mta_tls_verified(s);
 		break;
 
 	case IO_DATAIN:
@@ -1524,70 +1524,20 @@ mta_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 }
 
 static void
-mta_cert_verify(struct mta_session *s)
-{
-	const char *name;
-	int fallback;
-
-	if (s->relay->ca_name) {
-		name = s->relay->ca_name;
-		fallback = 0;
-	}
-	else {
-		name = s->helo;
-		fallback = 1;
-	}
-
-	if (cert_verify(io_tls(s->io), name, fallback, mta_cert_verify_cb, s)) {
-		tree_xset(&wait_tls_verify, s->id, s);
-		io_pause(s->io, IO_IN);
-		s->flags |= MTA_WAIT;
-	}
-}
-
-static void
-mta_cert_verify_cb(void *arg, int status)
-{
-	struct mta_session *s = arg;
-	int resume = 0;
-
-	if (s->flags & MTA_WAIT) {
-		mta_tree_pop(&wait_tls_verify, s->id);
-		resume = 1;
-	}
-
-	s->flags |= MTA_TLS_VERIFIED;
-	#if 0
-	if (status == CERT_OK)
-		s->flags |= MTA_TLS_VERIFIED;
-	else if (s->relay->flags & RELAY_TLS_VERIFY) {
-		errno = 0;
-		mta_error(s, "SSL certificate check failed");
-		mta_free(s);
-		return;
-	}
-	#endif
-
-	mta_tls_verified(s);
-	if (resume)
-		io_resume(s->io, IO_IN);
-}
-
-static void
 mta_tls_verified(struct mta_session *s)
 {
-	/*
-	X509 *x;
-
-	x = SSL_get_peer_certificate(io_tls(s->io));
-	if (x) {
-	  log_info("%016"PRIx64" mta "
-		   "server-cert-check result=\"%s\"",
-		   s->id,
-		   (s->flags & MTA_TLS_VERIFIED) ? "success" : "failure");
-		X509_free(x);
+	if (tls_peer_cert_provided(io_tls(s->io))) {
+		log_info("%016"PRIx64" mta "
+		    "cert-check result=\"%s\" fingerprint=\"%s\"",
+		    s->id,
+		    (s->flags & MTA_TLS_VERIFIED) ? "success" : "failure",
+		    tls_peer_cert_hash(io_tls(s->io)));
 	}
-	*/
+	else {
+		log_info("%016"PRIx64" smtp "
+		    "cert-check result=\"no certificate presented\"",
+		    s->id);
+	}
 
 	if (s->use_smtps) {
 		mta_enter_state(s, MTA_BANNER);

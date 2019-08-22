@@ -1028,11 +1028,17 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 static void
 smtp_tls_verified(struct smtp_session *s)
 {
-	if (! tls_peer_cert_provided(io_tls(s->io))) {
+	if (tls_peer_cert_provided(io_tls(s->io))) {
 		log_info("%016"PRIx64" smtp "
-		    "client-cert-check result=\"%s\"",
+		    "cert-check result=\"%s\" fingerprint=\"%s\"",
 		    s->id,
-		    (s->flags & SF_VERIFIED) ? "success" : "failure");
+		    (s->flags & SF_VERIFIED) ? "success" : "failure",
+		    tls_peer_cert_hash(io_tls(s->io)));
+	}
+	else {
+		log_info("%016"PRIx64" smtp "
+		    "cert-check result=\"no certificate presented\"",
+		    s->id);
 	}
 
 	if (s->listener->flags & F_SMTPS) {
