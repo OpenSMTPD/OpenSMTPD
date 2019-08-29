@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.257 2019/08/11 17:23:12 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.259 2019/08/25 03:40:45 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -114,7 +114,6 @@ struct rule		*rule;
 struct processor	*processor;
 struct filter_config	*filter_config;
 static uint32_t		 last_dynchain_id = 1;
-static uint32_t		 last_dynproc_id = 1;
 
 enum listen_options {
 	LO_FAMILY	= 0x000001,
@@ -1604,12 +1603,6 @@ FILTER STRING PROC STRING {
 }
 |
 FILTER STRING PROC_EXEC STRING {
-	char	buffer[128];
-
-	do {
-		(void)snprintf(buffer, sizeof buffer, "<dynproc:%08x>", last_dynproc_id++);
-	} while (dict_check(conf->sc_processors_dict, buffer));
-
 	if (dict_get(conf->sc_filters_dict, $2)) {
 		yyerror("filter already exists with that name: %s", $2);
 		free($2);
@@ -1623,7 +1616,7 @@ FILTER STRING PROC_EXEC STRING {
 	filter_config = xcalloc(1, sizeof *filter_config);
 	filter_config->filter_type = FILTER_TYPE_PROC;
 	filter_config->name = $2;
-	filter_config->proc = xstrdup(buffer);
+	filter_config->proc = xstrdup($2);
 	dict_set(conf->sc_filters_dict, $2, filter_config);
 } proc_params {
 	dict_set(conf->sc_processors_dict, filter_config->proc, processor);
@@ -1874,6 +1867,38 @@ opt_if_listen : INET4 {
 				YYERROR;
 			}
 			free($2);
+			listen_opts.port = ntohs(servent->s_port);
+		}
+		| PORT SMTP			{
+			struct servent *servent;
+
+			if (listen_opts.options & LO_PORT) {
+				yyerror("port already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_PORT;
+
+			servent = getservbyname("smtp", "tcp");
+			if (servent == NULL) {
+				yyerror("invalid port: smtp");
+				YYERROR;
+			}
+			listen_opts.port = ntohs(servent->s_port);
+		}
+		| PORT SMTPS			{
+			struct servent *servent;
+
+			if (listen_opts.options & LO_PORT) {
+				yyerror("port already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_PORT;
+
+			servent = getservbyname("smtps", "tcp");
+			if (servent == NULL) {
+				yyerror("invalid port: smtps");
+				YYERROR;
+			}
 			listen_opts.port = ntohs(servent->s_port);
 		}
 		| PORT NUMBER			{
