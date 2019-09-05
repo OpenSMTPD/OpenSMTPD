@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.221 2019/08/17 14:43:21 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.223 2019/09/04 07:28:27 gilles Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: August 17 2019 $
+.Dd $Mdocdate: September 4 2019 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -348,6 +348,15 @@ to disconnect session with
 Phase and matching conditions are documented in a specific section,
 see
 .Sx BUILTIN FILTERING .
+.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic junk
+Register builtin filter
+.Ar filter-name
+matching
+.Ar conditions
+to mark a session or a transaction as junk.
+Phase and matching conditions are documented in a specific section,
+see
+.Sx BUILTIN FILTERING .
 .It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic reject Ar message
 Register builtin filter
 .Ar filter-name
@@ -383,6 +392,11 @@ filter
 .Ar filter-name
 from
 .Ar command .
+If
+.Ar command
+starts with a slash it is executed with an absolute path,
+else it will be run from
+.Dq /usr/local/libexec/smtpd/ .
 .It Ic include Qq Ar pathname
 Replace this directive with the content of the additional configuration
 file at the absolute
@@ -757,6 +771,11 @@ Register an external process named
 from
 .Ar command .
 Such processes may be used to share the same instance between multiple filters.
+If
+.Ar command
+starts with a slash it is executed with an absolute path,
+else it will be run from
+.Dq /usr/local/libexec/smtpd/ .
 .It Ic queue Cm compression
 Store queue files in a compressed format.
 This may be useful to save disk space.
@@ -908,15 +927,18 @@ prefixing the table name with the keyword regex.
 .It helo regex Pf < Ar table Ns >       Ta helo name matches a regex in table
 .El
 Finally,
-three decisions may be taken at each phase:
+four decisions may be taken:
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It disconnect Ar message Ta the session is disconnected with message
+.It junk                  Ta the session or transaction is junked
 .It reject Ar message     Ta the command is rejected with message
 .It rewrite Ar value      Ta the command parameter is rewritten with value
 .El
 .Pp
 Decisions that involve a message require that the message be RFC valid,
 meaning that they should either start with a 4xx or 5xx status code.
+Descisions can be taken at any phase,
+however junking can only happen before a message is committed.
 .Ss FORMAT SPECIFIERS
 Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example

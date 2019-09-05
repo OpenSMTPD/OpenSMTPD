@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpc.c,v 1.6 2019/07/02 09:36:20 martijn Exp $	*/
+/*	$OpenBSD: smtpc.c,v 1.8 2019/09/02 20:05:21 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
@@ -229,7 +229,7 @@ parse_server(char *server)
 	else if (!strcmp(scheme, "smtps")) {
 		params.tls_req = TLS_SMTPS;
 		if (port == NULL)
-			port = "submission";
+			port = "smtps";
 	}
 	else if (!strcmp(scheme, "smtp")) {
 	}
@@ -244,12 +244,6 @@ parse_server(char *server)
 
 	if (port == NULL)
 		port = "smtp";
-
-	if (params.tls_req != TLS_NO) {
-		params.tls_ctx = ssl_mta_init(NULL, NULL, 0, NULL);
-		if (params.tls_ctx == NULL)
-			fatal("ssl_mta_init");
-	}
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
@@ -340,6 +334,16 @@ smtp_verify_server_cert(void *tag, struct smtp_client *proto, void *ctx)
 
 	/* Not implemented for now. */
 	smtp_cert_verified(proto, CERT_UNKNOWN);
+}
+
+void
+smtp_require_tls(void *tag, struct smtp_client *proto)
+{
+	void *ctx;
+
+	ctx = ssl_mta_init(NULL, NULL, 0, NULL);
+
+	smtp_set_tls(proto, ctx);
 }
 
 void

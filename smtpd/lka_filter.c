@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.44 2019/08/29 08:49:55 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.47 2019/09/04 08:30:36 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -35,7 +35,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PROTOCOL_VERSION	"0.2"
+#define	PROTOCOL_VERSION	"0.3"
 
 struct filter;
 struct filter_session;
@@ -56,6 +56,7 @@ static int	filter_builtins_mail_from(struct filter_session *, struct filter *, u
 static int	filter_builtins_rcpt_to(struct filter_session *, struct filter *, uint64_t, const char *);
 
 static void	filter_result_proceed(uint64_t);
+static void	filter_result_junk(uint64_t);
 static void	filter_result_rewrite(uint64_t, const char *);
 static void	filter_result_reject(uint64_t, const char *);
 static void	filter_result_disconnect(uint64_t, const char *);
@@ -479,6 +480,13 @@ lka_filter_process_response(const char *name, const char *line)
 			fatalx("Unexpected parameter after proceed: %s", line);
 		filter_protocol_next(token, reqid, 0);
 		return;
+	} else if (strcmp(response, "junk") == 0) {
+		if (parameter != NULL)
+			fatalx("Unexpected parameter after junk: %s", line);
+		if (fs->phase == FILTER_COMMIT)
+			fatalx("filter-reponse junk after DATA");
+		filter_result_junk(reqid);
+		return;
 	} else {
 		if (parameter == NULL)
 			fatalx("Missing parameter: %s", line);
@@ -572,6 +580,15 @@ filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t re
 			    param,
 			    filter->config->disconnect);
 			filter_result_disconnect(reqid, filter->config->disconnect);
+			return;
+		}
+		else if (filter->config->junk) {
+			log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+			    "resume=%s, action=junk, filter=%s, query=%s",
+			    fs->id, phase_name, resume ? "y" : "n",
+			    filter->name,
+			    param);
+			filter_result_junk(reqid);
 			return;
 		}
 		else {
@@ -759,6 +776,15 @@ filter_result_proceed(uint64_t reqid)
 	m_create(p_pony, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_pony, reqid);
 	m_add_int(p_pony, FILTER_PROCEED);
+	m_close(p_pony);
+}
+
+static void
+filter_result_junk(uint64_t reqid)
+{
+	m_create(p_pony, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
+	m_add_id(p_pony, reqid);
+	m_add_int(p_pony, FILTER_JUNK);
 	m_close(p_pony);
 }
 
