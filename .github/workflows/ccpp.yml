@@ -17,7 +17,9 @@ jobs:
       run: ./configure
     - name: make
       run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+    - name: make install
+      run: sudo make install
+#    - name: make check
+#      run: make check
+#    - name: make distcheck
+#      run: make distcheck
