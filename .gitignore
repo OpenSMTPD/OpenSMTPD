@@ -14,7 +14,6 @@ config.guess
 config.h
 config.status
 config.sub
-configure
 depcomp
 install-sh
 libtool
