@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: dependencies
-      run: sudo apt install libasr-dev libevent-dev libssl-dev
+      run: sudo apt install libasr-dev libevent-dev libssl-dev bison
     - name: boostrap
       run: bash bootstrap
     - name: configure
