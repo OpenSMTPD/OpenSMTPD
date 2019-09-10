@@ -13,7 +13,6 @@ compile
 config.guess
 config.h
 config.status
-config.sub
 depcomp
 libtool
 ltmain.sh
