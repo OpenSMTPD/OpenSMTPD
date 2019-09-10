@@ -10,6 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: configure
+      run: bash bootstrap
       run: ./configure
     - name: make
       run: make
