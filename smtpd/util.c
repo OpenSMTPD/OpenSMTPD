@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.140 2019/01/30 21:33:34 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.147 2019/08/28 19:46:20 eric Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -178,7 +178,7 @@ bsnprintf(char *str, size_t size, const char *format, ...)
 	va_start(ap, format);
 	ret = vsnprintf(str, size, format, ap);
 	va_end(ap);
-	if (ret == -1 || ret >= (int)size)
+	if (ret < 0 || ret >= (int)size)
 		return 0;
 
 	return 1;
@@ -512,6 +512,7 @@ valid_domainpart(const char *s)
 	struct in6_addr	 ina6;
 	char		*c, domain[SMTPD_MAXDOMAINPARTSIZE];
 	const char	*p;
+	size_t		 dlen;
 
 	if (*s == '[') {
 		if (strncasecmp("[IPv6:", s, 6) == 0)
@@ -539,7 +540,54 @@ valid_domainpart(const char *s)
 	if (*s == '\0')
 		return 0;
 
+	dlen = strlen(s);
+	if (dlen >= sizeof domain)
+		return 0;
+
+	if (s[dlen - 1] == '.')
+		return 0;
+
 	return res_hnok(s);
+}
+
+#define LABELCHR(c) ((c) == '-' || (c) == '_' || isalpha((int)(c)) || isdigit((int)(c)))
+#define LABELMAX 63
+#define DNAMEMAX 253
+
+int
+valid_domainname(const char *str)
+{
+	const char *label, *s;
+
+	/*
+	 * Expect a sequence of dot-separated labels, possibly with a trailing
+	 * dot. The empty string is rejected, as well a single dot.
+	 */
+	for (s = str; *s; s++) {
+
+		/* Start of a new label. */
+		label = s;
+		while (LABELCHR(*s))
+			s++;
+
+		/* Must have at least one char and at most LABELMAX. */
+		if (s == label || s - label > LABELMAX)
+			return 0;
+
+		/* If last label, stop here. */
+		if (*s == '\0')
+			break;
+
+		/* Expect a dot as label separator or last char. */
+		if (*s != '.')
+			return 0;
+	}
+
+	/* Must have at leat one label and no more than DNAMEMAX chars. */
+	if (s == str || s - str > DNAMEMAX)
+		return 0;
+
+	return 1;
 }
 
 int
@@ -572,7 +620,7 @@ secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 		homedir[0] = '\0';
 
 	/* Check the open file to avoid races. */
-	if (fstat(fd, &st) < 0 ||
+	if (fstat(fd, &st) == -1 ||
 	    !S_ISREG(st.st_mode) ||
 	    st.st_uid != uid ||
 	    (st.st_mode & (mayread ? 022 : 066)) != 0)
@@ -584,7 +632,7 @@ secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 			return 0;
 		(void)strlcpy(buf, cp, sizeof(buf));
 
-		if (stat(buf, &st) < 0 ||
+		if (stat(buf, &st) == -1 ||
 		    (st.st_uid != 0 && st.st_uid != uid) ||
 		    (st.st_mode & 022) != 0)
 			return 0;

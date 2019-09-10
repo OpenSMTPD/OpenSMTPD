@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_client.c,v 1.8 2018/09/20 11:42:28 eric Exp $	*/
+/*	$OpenBSD: smtp_client.c,v 1.11 2019/09/02 20:05:21 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
@@ -185,10 +185,16 @@ smtp_cert_verified(struct smtp_client *proto, int verified)
 }
 
 void
+smtp_set_tls(struct smtp_client *proto, void *ctx)
+{
+	io_start_tls(proto->io, ctx);
+}
+
+void
 smtp_quit(struct smtp_client *proto)
 {
 	if (proto->state != STATE_READY)
-		fatalx("protoection is not ready");
+		fatalx("connection is not ready");
 
 	smtp_client_state(proto, STATE_QUIT);
 }
@@ -197,7 +203,7 @@ void
 smtp_sendmail(struct smtp_client *proto, struct smtp_mail *mail)
 {
 	if (proto->state != STATE_READY)
-		fatalx("protoection is not ready");
+		fatalx("connection is not ready");
 
 	proto->mail = mail;
 	smtp_client_state(proto, STATE_MAIL);
@@ -500,7 +506,7 @@ smtp_client_response(struct smtp_client *proto, const char *line)
 			smtp_client_state(proto, STATE_AUTH);
 		}
 		else
-			io_start_tls(proto->io, proto->params.tls_ctx);
+			smtp_require_tls(proto->tag, proto);
 		break;
 
 	case STATE_AUTH_PLAIN:
@@ -610,7 +616,7 @@ smtp_client_io(struct io *io, int evt, void *arg)
 	case IO_CONNECTED:
 		if (proto->params.tls_req == TLS_SMTPS) {
 			io_set_write(io);
-			io_start_tls(proto->io, proto->params.tls_ctx);
+			smtp_require_tls(proto->tag, proto);
 		}
 		else
 			smtp_client_state(proto, STATE_BANNER);
@@ -619,7 +625,7 @@ smtp_client_io(struct io *io, int evt, void *arg)
 	case IO_TLSREADY:
 		proto->flags |= FLAG_TLS;
 		io_pause(proto->io, IO_IN);
-		smtp_verify_server_cert(proto->tag, proto, io_ssl(proto->io));
+		smtp_verify_server_cert(proto->tag, proto, io_tls(proto->io));
 		break;
 
 	case IO_DATAIN:
@@ -636,7 +642,7 @@ smtp_client_io(struct io *io, int evt, void *arg)
 
 	case IO_TIMEOUT:
 		errno = ETIMEDOUT;
-		smtp_client_abort(proto, FAIL_CONN, "protoection timeout");
+		smtp_client_abort(proto, FAIL_CONN, "Connection timeout");
 		break;
 
 	case IO_ERROR:

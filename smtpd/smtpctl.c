@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.163 2019/01/14 09:37:40 eric Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.165 2019/07/23 08:11:10 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -41,6 +41,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fts.h>
+#include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
@@ -1156,10 +1157,12 @@ sendmail_compat(int argc, char **argv)
 		if (setresgid(gid, gid, gid) == -1)
 			err(1, "setresgid");
 
+#if HAVE_PLEDGE
 		/* we'll reduce further down the road */
 		if (pledge("stdio rpath wpath cpath tmppath flock "
 			"dns getpw recvfd", NULL) == -1)
 			err(1, "pledge");
+#endif
 
 		sendmail = 1;
 		exit(enqueue(argc, argv, offlinefp));
@@ -1320,20 +1323,10 @@ display(const char *s)
 
 	if (is_encrypted_fp(fp)) {
 		int	i;
-		int	fd;
 		FILE   *ofp = NULL;
-		char	sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 
-		if ((fd = mkstemp(sfn)) == -1 ||
-		    (ofp = fdopen(fd, "w+")) == NULL) {
-			int saved_errno = errno;
-			if (fd != -1) {
-				unlink(sfn);
-				close(fd);
-			}
-			errc(1, saved_errno, "mkstemp");
-		}
-		unlink(sfn);
+		if ((ofp = tmpfile()) == NULL)
+			err(1, "tmpfile");
 
 		for (i = 0; i < 3; i++) {
 			key = getpass("key> ");

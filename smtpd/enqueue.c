@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.115 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.116 2019/07/02 09:36:20 martijn Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -173,8 +173,6 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	FILE			*fp = NULL, *fout;
 	size_t			 sz = 0, envid_sz = 0;
 	ssize_t			 len;
-	int			 fd;
-	char			 sfn[] = "/tmp/smtpd.XXXXXXXXXX";
 	char			*line;
 	int			 dotted;
 	int			 inheaders = 1;
@@ -271,16 +269,9 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		argc--;
 	}
 
-	if ((fd = mkstemp(sfn)) == -1 ||
-	    (fp = fdopen(fd, "w+")) == NULL) {
-		int saved_errno = errno;
-		if (fd != -1) {
-			unlink(sfn);
-			close(fd);
-		}
-		errc(EX_UNAVAILABLE, saved_errno, "mkstemp");
-	}
-	unlink(sfn);
+	if ((fp = tmpfile()) == NULL)
+		err(EX_UNAVAILABLE, "tmpfile");
+
 	msg.noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
 
 	if (msg.rcpt_cnt == 0)
@@ -293,17 +284,20 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	/* If the server is not running, enqueue the message offline */
 
 	if (!srv_connected()) {
+#if HAVE_PLEDGE
 		if (pledge("stdio", NULL) == -1)
 			err(1, "pledge");
-
+#endif
 		return (enqueue_offline(save_argc, save_argv, fp, ofp));
 	}
 
 	if ((msg.fd = open_connection()) == -1)
 		errx(EX_UNAVAILABLE, "server too busy");
 
+#if HAVE_PLEDGE
 	if (pledge("stdio wpath cpath", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	fout = fdopen(msg.fd, "a+");
 	if (fout == NULL)

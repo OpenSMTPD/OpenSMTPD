@@ -26,7 +26,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef IO_SSL
+#ifdef IO_TLS
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #endif
@@ -387,7 +387,7 @@ iobuf_flush(struct iobuf *io, int fd)
 	return (0);
 }
 
-#ifdef IO_SSL
+#ifdef IO_TLS
 
 int
 iobuf_flush_ssl(struct iobuf *io, void *ssl)
@@ -463,4 +463,4 @@ iobuf_read_ssl(struct iobuf *io, void *ssl)
 	return (n);
 }
 
-#endif /* IO_SSL */
+#endif /* IO_TLS */

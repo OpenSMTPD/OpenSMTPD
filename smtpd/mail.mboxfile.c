@@ -81,7 +81,7 @@ mboxfile_engine(const char *sender, const char *filename)
 #ifndef HAVE_O_EXLOCK
 	/* XXX : do something! */
 #endif
-	if (fd < 0)
+	if (fd == -1)
 		err(1, NULL);
 
 	if ((fp = fdopen(fd, "w")) == NULL)
@@ -102,7 +102,7 @@ mboxfile_engine(const char *sender, const char *filename)
 
 	if (fflush(fp) == EOF ||
 	    ferror(fp) ||
-	    fsync(fd) < 0 ||
+	    fsync(fd) == -1 ||
 	    fclose(fp) == EOF)
 		err(1, NULL);
 }

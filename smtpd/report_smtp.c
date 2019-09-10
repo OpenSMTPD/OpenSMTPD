@@ -1,4 +1,4 @@
-/*	$OpenBSD: report_smtp.c,v 1.4 2019/01/05 09:43:39 gilles Exp $	*/
+/*	$OpenBSD: report_smtp.c,v 1.9 2019/08/28 15:50:36 martijn Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -70,7 +70,23 @@ report_smtp_link_connect(const char *direction, uint64_t qid, const char *rdns, 
 }
 
 void
-report_smtp_link_identify(const char *direction, uint64_t qid, const char *identity)
+report_smtp_link_greeting(const char *direction, uint64_t qid,
+    const char *domain)
+{
+	struct timeval	tv;
+
+	gettimeofday(&tv, NULL);
+
+	m_create(p_lka, IMSG_REPORT_SMTP_LINK_GREETING, 0, 0, -1);
+	m_add_string(p_lka, direction);
+	m_add_timeval(p_lka, &tv);
+	m_add_id(p_lka, qid);
+	m_add_string(p_lka, domain);
+	m_close(p_lka);
+}
+
+void
+report_smtp_link_identify(const char *direction, uint64_t qid, const char *method, const char *identity)
 {
 	struct timeval	tv;
 
@@ -80,6 +96,7 @@ report_smtp_link_identify(const char *direction, uint64_t qid, const char *ident
 	m_add_string(p_lka, direction);
 	m_add_timeval(p_lka, &tv);
 	m_add_id(p_lka, qid);
+	m_add_string(p_lka, method);
 	m_add_string(p_lka, identity);
 	m_close(p_lka);
 }
@@ -110,6 +127,37 @@ report_smtp_link_disconnect(const char *direction, uint64_t qid)
 	m_add_string(p_lka, direction);
 	m_add_timeval(p_lka, &tv);
 	m_add_id(p_lka, qid);
+	m_close(p_lka);
+}
+
+void
+report_smtp_link_auth(const char *direction, uint64_t qid, const char *user, const char *result)
+{
+	struct timeval	tv;
+
+	gettimeofday(&tv, NULL);
+
+	m_create(p_lka, IMSG_REPORT_SMTP_LINK_AUTH, 0, 0, -1);
+	m_add_string(p_lka, direction);
+	m_add_timeval(p_lka, &tv);
+	m_add_id(p_lka, qid);
+	m_add_string(p_lka, user);
+	m_add_string(p_lka, result);
+	m_close(p_lka);
+}
+
+void
+report_smtp_tx_reset(const char *direction, uint64_t qid, uint32_t msgid)
+{
+	struct timeval	tv;
+
+	gettimeofday(&tv, NULL);
+
+	m_create(p_lka, IMSG_REPORT_SMTP_TX_RESET, 0, 0, -1);
+	m_add_string(p_lka, direction);
+	m_add_timeval(p_lka, &tv);
+	m_add_id(p_lka, qid);
+	m_add_u32(p_lka, msgid);
 	m_close(p_lka);
 }
 

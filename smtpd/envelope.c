@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.42 2018/12/30 23:09:58 guenther Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.45 2019/08/14 21:11:25 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -61,7 +61,7 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 	va_end(ap);
 
 	/* this should not happen */
-	if (ret == -1)
+	if (ret < 0)
 		err(1, "vsnprintf");
 
 	if ((size_t)ret >= sizeof(e->errorline))
@@ -754,7 +754,7 @@ envelope_ascii_dump(const struct envelope *ep, char **dest, size_t *len,
 		return;
 
 	l = snprintf(*dest, *len, "%s: %s\n", field, buf);
-	if (l == -1 || (size_t) l >= *len)
+	if (l < 0 || (size_t) l >= *len)
 		goto err;
 	*dest += l;
 	*len -= l;

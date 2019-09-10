@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_proc.c,v 1.6 2018/12/21 19:07:47 gilles Exp $	*/
+/*	$OpenBSD: lka_proc.c,v 1.11 2019/09/06 08:23:56 martijn Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -43,11 +43,13 @@ static struct dict		processors;
 struct processor_instance {
 	char			*name;
 	struct io		*io;
+	struct io		*errfd;
 	int			 ready;
 };
 
 static void	processor_io(struct io *, int, void *);
-int		lka_filter_process_response(const char *, const char *);
+static void	processor_errfd(struct io *, int, void *);
+void		lka_filter_process_response(const char *, const char *);
 
 int
 lka_proc_ready(void)
@@ -60,6 +62,13 @@ lka_proc_ready(void)
 		if (!pi->ready)
 			return 0;
 	return 1;
+}
+
+static void
+lka_proc_config(struct processor_instance *pi)
+{
+	io_printf(pi->io, "config|smtp-session-timeout|%d\n", SMTPD_SESSION_TIMEOUT);
+	io_printf(pi->io, "config|ready\n");
 }
 
 void
@@ -83,6 +92,22 @@ lka_proc_forked(const char *name, int fd)
 	dict_xset(&processors, name, processor);
 }
 
+void
+lka_proc_errfd(const char *name, int fd)
+{
+	struct processor_instance	*processor;
+
+	processor = dict_xget(&processors, name);
+
+	io_set_nonblocking(fd);
+
+	processor->errfd = io_new();
+	io_set_fd(processor->errfd, fd);
+	io_set_callback(processor->errfd, processor_errfd, processor->name);
+
+	lka_proc_config(processor);
+}
+
 struct io *
 lka_proc_get_io(const char *name)
 {
@@ -100,42 +125,65 @@ processor_register(const char *name, const char *line)
 
 	processor = dict_xget(&processors, name);
 
-	if (strcasecmp(line, "register|ready") == 0) {
+	if (strcmp(line, "register|ready") == 0) {
 		processor->ready = 1;
 		return;
 	}
 
-	if (strncasecmp(line, "register|report|", 16) == 0) {
+	if (strncmp(line, "register|report|", 16) == 0) {
 		lka_report_register_hook(name, line+16);
 		return;
 	}
 
-	if (strncasecmp(line, "register|filter|", 16) == 0) {
+	if (strncmp(line, "register|filter|", 16) == 0) {
 		lka_filter_register_hook(name, line+16);
 		return;
 	}
+
+	fatalx("Invalid register line received: %s", line);
 }
 
 static void
 processor_io(struct io *io, int evt, void *arg)
 {
+	struct processor_instance *processor;
 	const char		*name = arg;
 	char			*line = NULL;
 	ssize_t			 len;
 
 	switch (evt) {
 	case IO_DATAIN:
-	    nextline:
-		line = io_getline(io, &len);
-		/* No complete line received */
-		if (line == NULL)
-			return;
+		while ((line = io_getline(io, &len)) != NULL) {
+			if (strncmp("register|", line, 9) == 0) {
+				processor_register(name, line);
+				continue;
+			}
+			
+			processor = dict_xget(&processors, name);
+			if (!processor->ready)
+				fatalx("Non-register message before register|"
+				    "ready: %s", line);
+			else if (strncmp(line, "filter-result|", 14) == 0 ||
+			    strncmp(line, "filter-dataline|", 16) == 0)
+				lka_filter_process_response(name, line);
+			else if (strncmp(line, "report|", 7) == 0)
+				lka_report_proc(name, line);
+			else
+				fatalx("Invalid filter message type: %s", line);
+		}
+	}
+}
 
-		if (strncasecmp("register|", line, 9) == 0)
-			processor_register(name, line);
-		else if (! lka_filter_process_response(name, line))
-			fatalx("misbehaving filter");
+static void
+processor_errfd(struct io *io, int evt, void *arg)
+{
+	const char	*name = arg;
+	char		*line = NULL;
+	ssize_t		 len;
 
-		goto nextline;
+	switch (evt) {
+	case IO_DATAIN:
+		while ((line = io_getline(io, &len)) != NULL)
+			log_warnx("%s: %s", name, line);
 	}
 }

@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpc.c,v 1.4 2018/09/20 11:42:28 eric Exp $	*/
+/*	$OpenBSD: smtpc.c,v 1.8 2019/09/02 20:05:21 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
@@ -132,8 +132,10 @@ main(int argc, char **argv)
 	ssl_init();
 	event_init();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio inet dns tmppath", NULL) == -1)
 		fatal("pledge");
+#endif
 
 	if (!noaction)
 		parse_message(stdin);
@@ -229,7 +231,7 @@ parse_server(char *server)
 	else if (!strcmp(scheme, "smtps")) {
 		params.tls_req = TLS_SMTPS;
 		if (port == NULL)
-			port = "submission";
+			port = "smtps";
 	}
 	else if (!strcmp(scheme, "smtp")) {
 	}
@@ -245,12 +247,6 @@ parse_server(char *server)
 	if (port == NULL)
 		port = "smtp";
 
-	if (params.tls_req != TLS_NO) {
-		params.tls_ctx = ssl_mta_init(NULL, NULL, 0, NULL);
-		if (params.tls_ctx == NULL)
-			fatal("ssl_mta_init");
-	}
-
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
@@ -263,19 +259,12 @@ parse_server(char *server)
 void
 parse_message(FILE *ifp)
 {
-	char sfn[] = "/tmp/smtp.XXXXXXXXXX";
 	char *line = NULL;
 	size_t linesz = 0;
 	ssize_t len;
-	int fd;
 
-	if ((fd = mkstemp(sfn)) == -1)
-		fatal("mkstemp");
-	unlink(sfn);
-
-	mail.fp = fdopen(fd, "w+");
-	if ((mail.fp) == NULL)
-		fatal("fdopen");
+	if ((mail.fp = tmpfile()) == NULL)
+		fatal("tmpfile");
 
 	for (;;) {
 		if ((len = getline(&line, &linesz, ifp)) == -1) {
@@ -283,8 +272,15 @@ parse_message(FILE *ifp)
 				break;
 			fatal("getline");
 		}
+
+		if (len >= 2 && line[len - 2] == '\r' && line[len - 1] == '\n')
+			line[--len - 1] = '\n';
+
 		if (fwrite(line, 1, len, mail.fp) != len)
-			fatal("frwite");
+			fatal("fwrite");
+
+		if (line[len - 1] != '\n' && fputc('\n', mail.fp) == EOF)
+			fatal("fputc");
 	}
 
 	fclose(ifp);
@@ -340,6 +336,16 @@ smtp_verify_server_cert(void *tag, struct smtp_client *proto, void *ctx)
 
 	/* Not implemented for now. */
 	smtp_cert_verified(proto, CERT_UNKNOWN);
+}
+
+void
+smtp_require_tls(void *tag, struct smtp_client *proto)
+{
+	void *ctx;
+
+	ctx = ssl_mta_init(NULL, NULL, 0, NULL);
+
+	smtp_set_tls(proto, ctx);
 }
 
 void

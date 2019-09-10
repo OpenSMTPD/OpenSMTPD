@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.389 2019/02/20 11:56:27 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.409 2019/09/04 07:28:27 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -132,6 +132,8 @@ struct smtp_tx {
 	int			 rcvcount;
 	int			 has_date;
 	int			 has_message_id;
+
+	uint8_t			 junk;
 };
 
 struct smtp_session {
@@ -160,6 +162,8 @@ struct smtp_session {
 	enum smtp_command	 last_cmd;
 	enum filter_phase	 filter_phase;
 	const char		*filter_param;
+
+	uint8_t			 junk;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -598,7 +602,6 @@ smtp_session(struct listener *listener, int sock,
 	io_set_fd(s->io, sock);
 	io_set_timeout(s->io, SMTPD_SESSION_TIMEOUT * 1000);
 	io_set_write(s->io);
-
 	s->state = STATE_NEW;
 
 	(void)strlcpy(s->smtpname, listener->hostname, sizeof(s->smtpname));
@@ -721,7 +724,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			break;
 		case LKA_TEMPFAIL:
 			smtp_tx_free(s->tx);
-			smtp_reply(s, "421 %s: Temporary Error",
+			smtp_reply(s, "421 %s Temporary Error",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			break;
 		}
@@ -781,11 +784,11 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			s->tx->evp.id = msgid_to_evpid(msgid);
 			s->tx->rcptcount = 0;
 			report_smtp_tx_begin("smtp-in", s->id, s->tx->msgid);
-			smtp_reply(s, "250 %s: Ok",
+			smtp_reply(s, "250 %s Ok",
 			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		} else {
 			smtp_tx_free(s->tx);
-			smtp_reply(s, "421 %s: Temporary Error",
+			smtp_reply(s, "421 %s Temporary Error",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 		}
@@ -802,7 +805,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (!success || imsg->fd == -1) {
 			if (imsg->fd != -1)
 				close(imsg->fd);
-			smtp_reply(s, "421 %s: Temporary Error",
+			smtp_reply(s, "421 %s Temporary Error",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			return;
@@ -828,7 +831,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		if (!success || imsg->fd == -1) {
 			if (imsg->fd != -1)
 				close(imsg->fd);
-			smtp_reply(s, "421 %s: Temporary Error",
+			smtp_reply(s, "421 %s Temporary Error",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			return;
@@ -870,7 +873,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			 * RCPT only so we must cancel the whole transaction
 			 * and close the connection.
 			 */
-			smtp_reply(s, "421 %s: Temporary failure",
+			smtp_reply(s, "421 %s Temporary failure",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 		}
@@ -897,13 +900,13 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		s = tree_xpop(&wait_queue_commit, reqid);
 		if (!success) {
 			smtp_tx_free(s->tx);
-			smtp_reply(s, "421 %s: Temporary failure",
+			smtp_reply(s, "421 %s Temporary failure",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			return;
 		}
 
-		smtp_reply(s, "250 %s: %08x Message accepted for delivery",
+		smtp_reply(s, "250 %s %08x Message accepted for delivery",
 		    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS),
 		    s->tx->msgid);
 
@@ -945,7 +948,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    "result=ok",
 			    s->id, user);
 			s->flags |= SF_AUTHENTICATED;
-			smtp_reply(s, "235 %s: Authentication succeeded",
+			report_smtp_link_auth("smtp-in", s->id, user, "pass");
+			smtp_reply(s, "235 %s Authentication succeeded",
 			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		}
 		else if (success == LKA_PERMFAIL) {
@@ -953,6 +957,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    "authentication user=%s "
 			    "result=permfail",
 			    s->id, user);
+			report_smtp_link_auth("smtp-in", s->id, user, "fail");
 			smtp_auth_failure_pause(s);
 			return;
 		}
@@ -961,7 +966,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			    "authentication user=%s "
 			    "result=tempfail",
 			    s->id, user);
-			smtp_reply(s, "421 %s: Temporary failure",
+			report_smtp_link_auth("smtp-in", s->id, user, "error");
+			smtp_reply(s, "421 %s Temporary failure",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 		}
 		else
@@ -974,7 +980,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &filter_response);
-		if (filter_response != FILTER_PROCEED)
+		if (filter_response != FILTER_PROCEED &&
+		    filter_response != FILTER_JUNK)
 			m_get_string(&m, &filter_param);
 		else
 			filter_param = NULL;
@@ -1002,9 +1009,17 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 				smtp_proceed_rollback(s, NULL);
 			break;
 
+
+		case FILTER_JUNK:
+			if (s->tx)
+				s->tx->junk = 1;
+			else
+				s->junk = 1;
+			/* fallthrough */
+
 		case FILTER_PROCEED:
 			filter_param = s->filter_param;
-			/* fallthrough*/
+			/* fallthrough */
 
 		case FILTER_REWRITE:
 			report_smtp_filter_response("smtp-in", s->id, s->filter_phase,
@@ -1037,7 +1052,7 @@ smtp_tls_verified(struct smtp_session *s)
 {
 	X509 *x;
 
-	x = SSL_get_peer_certificate(io_ssl(s->io));
+	x = SSL_get_peer_certificate(io_tls(s->io));
 	if (x) {
 		log_info("%016"PRIx64" smtp "
 		    "client-cert-check result=\"%s\"",
@@ -1072,9 +1087,9 @@ smtp_io(struct io *io, int evt, void *arg)
 
 	case IO_TLSREADY:
 		log_info("%016"PRIx64" smtp tls ciphers=%s",
-		    s->id, ssl_to_text(io_ssl(s->io)));
+		    s->id, ssl_to_text(io_tls(s->io)));
 
-		report_smtp_link_tls("smtp-in", s->id, ssl_to_text(io_ssl(s->io)));
+		report_smtp_link_tls("smtp-in", s->id, ssl_to_text(io_tls(s->io)));
 
 		s->flags |= SF_SECURE;
 		s->helo[0] = '\0';
@@ -1088,7 +1103,7 @@ smtp_io(struct io *io, int evt, void *arg)
 		if ((line == NULL && io_datalen(s->io) >= SMTP_LINE_MAX) ||
 		    (line && len >= SMTP_LINE_MAX)) {
 			s->flags |= SF_BADINPUT;
-			smtp_reply(s, "500 %s: Line too long",
+			smtp_reply(s, "500 %s Line too long",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
@@ -1098,6 +1113,15 @@ smtp_io(struct io *io, int evt, void *arg)
 		/* No complete line received */
 		if (line == NULL)
 			return;
+
+		if (strchr(line, '\r')) {
+			s->flags |= SF_BADINPUT;
+			smtp_reply(s, "500 %s <CR> is only allowed before <LF>",
+			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
+			smtp_enter_state(s, STATE_QUIT);
+			io_set_write(io);
+			return;
+		}
 
 		/* Message body */
 		eom = 0;
@@ -1135,7 +1159,7 @@ smtp_io(struct io *io, int evt, void *arg)
 		/* Must be a command */
 		if (strlcpy(s->cmd, line, sizeof(s->cmd)) >= sizeof(s->cmd)) {
 			s->flags |= SF_BADINPUT;
-			smtp_reply(s, "500 %s: Command line too long",
+			smtp_reply(s, "500 %s Command line too long",
 			    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_STATUS));
 			smtp_enter_state(s, STATE_QUIT);
 			io_set_write(io);
@@ -1197,19 +1221,26 @@ smtp_command(struct smtp_session *s, char *line)
 	int				cmd, i;
 
 	log_trace(TRACE_SMTP, "smtp: %p: <<< %s", s, line);
-	report_smtp_protocol_client("smtp-in", s->id, line);
 
 	/*
 	 * These states are special.
 	 */
 	if (s->state == STATE_AUTH_INIT) {
+		report_smtp_protocol_client("smtp-in", s->id, "********");
 		smtp_rfc4954_auth_plain(s, line);
 		return;
 	}
 	if (s->state == STATE_AUTH_USERNAME || s->state == STATE_AUTH_PASSWORD) {
+		report_smtp_protocol_client("smtp-in", s->id, "********");
 		smtp_rfc4954_auth_login(s, line);
 		return;
 	}
+
+	if (s->state == STATE_HELO && strncasecmp(line, "AUTH PLAIN ", 11) == 0)
+		report_smtp_protocol_client("smtp-in", s->id, "AUTH PLAIN ********");
+	else
+		report_smtp_protocol_client("smtp-in", s->id, line);
+
 
 	/*
 	 * Unlike other commands, "mail from" and "rcpt to" contain a
@@ -1485,6 +1516,7 @@ smtp_check_mail_from(struct smtp_session *s, const char *args)
 {
 	char *copy;
 	char tmp[SMTP_LINE_MAX];
+	struct mailaddr	sender;
 
 	(void)strlcpy(tmp, args, sizeof tmp);
 	copy = tmp;  
@@ -1522,18 +1554,10 @@ smtp_check_mail_from(struct smtp_session *s, const char *args)
 		return 0;
 	}
 
-	if (!smtp_tx(s)) {
-		smtp_reply(s, "421 %s: Temporary Error",
-		    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
-		smtp_enter_state(s, STATE_QUIT);
-		return 0;
-	}
-
-	if (smtp_mailaddr(&s->tx->evp.sender, copy, 1, &copy,
-		s->tx->session->smtpname) == 0) {
-		smtp_reply(s, "553 %s: Sender address syntax error",
+	if (smtp_mailaddr(&sender, copy, 1, &copy,
+		s->smtpname) == 0) {
+		smtp_reply(s, "553 %s Sender address syntax error",
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
-		smtp_tx_free(s->tx);
 		return 0;
 	}
 
@@ -1566,7 +1590,7 @@ smtp_check_rcpt_to(struct smtp_session *s, const char *args)
 	if (smtp_mailaddr(&s->tx->evp.rcpt, copy, 0, &copy,
 		s->tx->session->smtpname) == 0) {
 		smtp_reply(s->tx->session,
-		    "501 %s: Recipient address syntax error",
+		    "501 %s Recipient address syntax error",
 		    esc_code(ESC_STATUS_PERMFAIL,
 		        ESC_BAD_DESTINATION_MAILBOX_ADDRESS_SYNTAX));
 		return 0;
@@ -1711,7 +1735,7 @@ smtp_proceed_rset(struct smtp_session *s, const char *args)
 		smtp_tx_free(s->tx);
 	}
 
-	smtp_reply(s, "250 %s: Reset state",
+	smtp_reply(s, "250 %s Reset state",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 }
 
@@ -1721,7 +1745,7 @@ smtp_proceed_helo(struct smtp_session *s, const char *args)
 	(void)strlcpy(s->helo, args, sizeof(s->helo));
 	s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
 
-	report_smtp_link_identify("smtp-in", s->id, s->helo);
+	report_smtp_link_identify("smtp-in", s->id, "HELO", s->helo);
 
 	smtp_enter_state(s, STATE_HELO);
 	smtp_reply(s, "250 %s Hello %s [%s], pleased to meet you",
@@ -1738,7 +1762,7 @@ smtp_proceed_ehlo(struct smtp_session *s, const char *args)
 	s->flags |= SF_EHLO;
 	s->flags |= SF_8BITMIME;
 
-	report_smtp_link_identify("smtp-in", s->id, s->helo);
+	report_smtp_link_identify("smtp-in", s->id, "EHLO", s->helo);
 
 	smtp_enter_state(s, STATE_HELO);
 	smtp_reply(s, "250-%s Hello %s [%s], pleased to meet you",
@@ -1786,7 +1810,7 @@ smtp_proceed_auth(struct smtp_session *s, const char *args)
 static void
 smtp_proceed_starttls(struct smtp_session *s, const char *args)
 {
-	smtp_reply(s, "220 %s: Ready to start TLS",
+	smtp_reply(s, "220 %s Ready to start TLS",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 	smtp_enter_state(s, STATE_TLS);
 }
@@ -1794,6 +1818,27 @@ smtp_proceed_starttls(struct smtp_session *s, const char *args)
 static void
 smtp_proceed_mail_from(struct smtp_session *s, const char *args)
 {
+	char *copy;
+	char tmp[SMTP_LINE_MAX];
+
+	(void)strlcpy(tmp, args, sizeof tmp);
+	copy = tmp;  
+
+       	if (!smtp_tx(s)) {
+		smtp_reply(s, "421 %s Temporary Error",
+		    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+		smtp_enter_state(s, STATE_QUIT);
+		return;
+	}
+
+	if (smtp_mailaddr(&s->tx->evp.sender, copy, 1, &copy,
+		s->smtpname) == 0) {
+		smtp_reply(s, "553 %s Sender address syntax error",
+		    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
+		smtp_tx_free(s->tx);
+		return;
+	}
+
 	smtp_tx_mail_from(s->tx, args);
 }
 
@@ -1812,7 +1857,7 @@ smtp_proceed_data(struct smtp_session *s, const char *args)
 static void
 smtp_proceed_quit(struct smtp_session *s, const char *args)
 {
-	smtp_reply(s, "221 %s: Bye",
+	smtp_reply(s, "221 %s Bye",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 	smtp_enter_state(s, STATE_QUIT);
 }
@@ -1820,19 +1865,20 @@ smtp_proceed_quit(struct smtp_session *s, const char *args)
 static void
 smtp_proceed_noop(struct smtp_session *s, const char *args)
 {
-	smtp_reply(s, "250 %s: Ok",
+	smtp_reply(s, "250 %s Ok",
 	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 }
 
 static void
 smtp_proceed_help(struct smtp_session *s, const char *args)
 {
-	smtp_reply(s, "214- This is " SMTPD_NAME);
-	smtp_reply(s, "214- To report bugs in the implementation, "
-	    "please contact bugs@openbsd.org");
-	smtp_reply(s, "214- with full details");
-	smtp_reply(s, "214 %s: End of HELP info",
-	    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
+	const char *code = esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS);
+
+	smtp_reply(s, "214-%s This is " SMTPD_NAME, code);
+	smtp_reply(s, "214-%s To report bugs in the implementation, "
+	    "please contact bugs@openbsd.org", code);
+	smtp_reply(s, "214-%s with full details", code);
+	smtp_reply(s, "214 %s End of HELP info", code);
 }
 
 static void
@@ -2021,6 +2067,7 @@ smtp_send_banner(struct smtp_session *s)
 {
 	smtp_reply(s, "220 %s ESMTP %s", s->smtpname, SMTPD_NAME);
 	s->banner_sent = 1;
+	report_smtp_link_greeting("smtp-in", s->id, s->smtpname);
 }
 
 void
@@ -2038,15 +2085,21 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 {
 	va_list	 ap;
 	int	 n;
-	char	 buf[LINE_MAX], tmp[LINE_MAX];
+	char	 buf[LINE_MAX*2], tmp[LINE_MAX*2];
 
 	va_start(ap, fmt);
 	n = vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
-	if (n == -1 || n >= LINE_MAX)
-		fatalx("smtp_reply: line too long");
+	if (n < 0)
+		fatalx("smtp_reply: response format error");
 	if (n < 4)
 		fatalx("smtp_reply: response too short");
+	if (n >= (int)sizeof buf) {
+		/* only first three bytes are used by SMTP logic,
+		 * so if _our_ reply does not fit entirely in the
+		 * buffer, it's ok to truncate.
+		 */
+	}
 
 	log_trace(TRACE_SMTP, "smtp: %p: >>> %s", s, buf);
 
@@ -2246,7 +2299,7 @@ smtp_cert_verify(struct smtp_session *s)
 		fallback = 1;
 	}
 
-	if (cert_verify(io_ssl(s->io), name, fallback, smtp_cert_verify_cb, s)) {
+	if (cert_verify(io_tls(s->io), name, fallback, smtp_cert_verify_cb, s)) {
 		tree_xset(&wait_ssl_verify, s->id, s);
 		io_pause(s->io, IO_IN);
 	}
@@ -2383,7 +2436,7 @@ smtp_tx_mail_from(struct smtp_tx *tx, const char *line)
 
 	if (smtp_mailaddr(&tx->evp.sender, copy, 1, &copy,
 		tx->session->smtpname) == 0) {
-		smtp_reply(tx->session, "553 %s: Sender address syntax error",
+		smtp_reply(tx->session, "553 %s Sender address syntax error",
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_OTHER_ADDRESS_STATUS));
 		smtp_tx_free(tx);
 		return;
@@ -2472,7 +2525,7 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, const char *line)
 	if (smtp_mailaddr(&tx->evp.rcpt, copy, 0, &copy,
 	    tx->session->smtpname) == 0) {
 		smtp_reply(tx->session,
-		    "501 %s: Recipient address syntax error",
+		    "501 %s Recipient address syntax error",
 		    esc_code(ESC_STATUS_PERMFAIL,
 		        ESC_BAD_DESTINATION_MAILBOX_ADDRESS_SYNTAX));
 		return;
@@ -2542,6 +2595,7 @@ smtp_tx_commit(struct smtp_tx *tx)
 	m_close(p_queue);
 	tree_xset(&wait_queue_commit, tx->session->id, tx->session);
 	report_smtp_tx_commit("smtp-in", tx->session->id, tx->msgid, tx->odatalen);
+	report_smtp_tx_reset("smtp-in", tx->session->id, tx->msgid);
 	smtp_filter_data_end(tx->session);
 }
 
@@ -2552,6 +2606,7 @@ smtp_tx_rollback(struct smtp_tx *tx)
 	m_add_msgid(p_queue, tx->msgid);
 	m_close(p_queue);
 	report_smtp_tx_rollback("smtp-in", tx->session->id, tx->msgid);
+	report_smtp_tx_reset("smtp-in", tx->session->id, tx->msgid);
 	smtp_filter_data_end(tx->session);
 }
 
@@ -2691,7 +2746,7 @@ smtp_tx_filtered_dataline(struct smtp_tx *tx, const char *line)
 		if (tx->error)
 			return 0;
 	}
-	io_printf(tx->filter, "%s\r\n", line ? line : ".");
+	io_printf(tx->filter, "%s\n", line ? line : ".");
 	return line ? 0 : 1;
 }
 
@@ -2712,7 +2767,7 @@ smtp_message_fd(struct smtp_tx *tx, int fd)
 
 	if ((tx->ofile = fdopen(fd, "w")) == NULL) {
 		close(fd);
-		smtp_reply(s, "421 %s: Temporary Error",
+		smtp_reply(s, "421 %s Temporary Error",
 		    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 		smtp_enter_state(s, STATE_QUIT);
 		return 0;
@@ -2779,6 +2834,9 @@ smtp_message_begin(struct smtp_tx *tx)
 	smtp_reply(s, "354 Enter mail, end with \".\""
 	    " on a line by itself");	
 	
+	if (s->junk || (s->tx && s->tx->junk))
+		m_printf(tx, "X-Spam: Yes\n");
+
 	m_printf(tx, "Received: ");
 	if (!(s->listener->flags & F_MASK_SOURCE)) {
 		m_printf(tx, "from %s (%s [%s])",
@@ -2795,11 +2853,11 @@ smtp_message_begin(struct smtp_tx *tx)
 	    tx->msgid);
 
 	if (s->flags & SF_SECURE) {
-		x = SSL_get_peer_certificate(io_ssl(s->io));
+		x = SSL_get_peer_certificate(io_tls(s->io));
 		m_printf(tx, " (%s:%s:%d:%s)",
-		    SSL_get_version(io_ssl(s->io)),
-		    SSL_get_cipher_name(io_ssl(s->io)),
-		    SSL_get_cipher_bits(io_ssl(s->io), NULL),
+		    SSL_get_version(io_tls(s->io)),
+		    SSL_get_cipher_name(io_tls(s->io)),
+		    SSL_get_cipher_bits(io_tls(s->io), NULL),
 		    (s->flags & SF_VERIFIED) ? "YES" : (x ? "FAIL" : "NO"));
 		X509_free(x);
 
@@ -2859,7 +2917,7 @@ smtp_message_end(struct smtp_tx *tx)
 
 	case TX_ERROR_IO:
 	case TX_ERROR_RESOURCES:
-		smtp_reply(s, "421 %s: Temporary Error",
+		smtp_reply(s, "421 %s Temporary Error",
 		    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
 		break;
 
@@ -2909,7 +2967,7 @@ smtp_message_printf(struct smtp_tx *tx, const char *fmt, ...)
 	len = vfprintf(tx->ofile, fmt, ap);
 	va_end(ap);
 
-	if (len < 0) {
+	if (len == -1) {
 		log_warn("smtp-in: session %016"PRIx64": vfprintf", tx->session->id);
 		tx->error = TX_ERROR_IO;
 	}

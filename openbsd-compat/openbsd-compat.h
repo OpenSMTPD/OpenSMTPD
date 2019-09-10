@@ -141,6 +141,10 @@ void arc4random_buf(void *, size_t);
 uint32_t arc4random_uniform(uint32_t);
 #endif
 
+#if !defined(SSL_OP_NO_CLIENT_RENEGOTIATION)
+#define SSL_OP_NO_CLIENT_RENEGOTIATION 0
+#endif
+
 #ifndef HAVE_ASPRINTF
 int asprintf(char **, const char *, ...);
 #endif 
@@ -229,6 +233,14 @@ int inet_net_pton(int, const char *, void *, size_t);
 #define pledge(promises, paths) 0
 #endif
 
+#ifndef HAVE_MALLOC_CONCEAL
+#define malloc_conceal malloc
+#endif
+
+#ifndef HAVE_CALLOC_CONCEAL
+#define calloc_conceal calloc
+#endif
+
 #ifndef HAVE_RES_HNOK
 int res_hnok(const char *);
 #endif
@@ -243,6 +255,10 @@ int res_hnok(const char *);
 
 #if !HAVE_DECL_WAIT_MYPGRP
 #define WAIT_MYPGRP 0
+#endif
+
+#if !HAVE_DECL_IPPORT_HILASTAUTO
+#define IPPORT_HILASTAUTO 65535
 #endif
 
 #ifndef HAVE_FLOCK

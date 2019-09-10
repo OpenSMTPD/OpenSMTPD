@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.233 2019/01/05 09:43:39 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.240 2019/08/28 15:50:36 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -84,11 +84,15 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	struct timeval		 tv;
 	const char		*direction;
 	const char		*rdns;
-	const char		*command, *response;
+	const char		*command;
+	const char		*response;
 	const char		*ciphers;
 	const char		*address;
+	const char		*domain;
+	const char		*helomethod;
 	const char		*heloname;
 	const char		*filter_name;
+	const char		*result;
 	struct sockaddr_storage	ss_src, ss_dest;
 	int                      filter_response;
 	int                      filter_phase;
@@ -106,6 +110,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_GETADDRINFO:
 	case IMSG_GETNAMEINFO:
+	case IMSG_RES_QUERY:
 		resolver_dispatch_request(p, imsg);
 		return;
 
@@ -309,10 +314,12 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		/* fork & exec tables that need it */
 		table_open_all(env);
 
+#if HAVE_PLEDGE
 		/* revoke proc & exec */
 		if (pledge("stdio rpath inet dns getpw recvfd sendfd",
 			NULL) == -1)
 			err(1, "pledge");
+#endif
 
 		/* setup proc registering task */
 		evtimer_set(&ev_proc_ready, proc_timeout, &ev_proc_ready);
@@ -363,9 +370,21 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &procname);
 		m_end(&m);
 
+		m_create(p, IMSG_LKA_PROCESSOR_ERRFD, 0, 0, -1);
+		m_add_string(p, procname);
+		m_close(p);
+
 		lka_proc_forked(procname, imsg->fd);
 		return;
 
+	case IMSG_LKA_PROCESSOR_ERRFD:
+		m_msg(&m, imsg);
+		m_get_string(&m, &procname);
+		m_end(&m);
+
+		lka_proc_errfd(procname, imsg->fd);
+		shutdown(imsg->fd, SHUT_WR);
+		return;
 
 	case IMSG_REPORT_SMTP_LINK_CONNECT:
 		m_msg(&m, imsg);
@@ -379,6 +398,17 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		lka_report_smtp_link_connect(direction, &tv, reqid, rdns, fcrdns, &ss_src, &ss_dest);
+		return;
+
+	case IMSG_REPORT_SMTP_LINK_GREETING:
+		m_msg(&m, imsg);
+		m_get_string(&m, &direction);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &domain);
+		m_end(&m);
+
+		lka_report_smtp_link_greeting(direction, reqid, &tv, domain);
 		return;
 
 	case IMSG_REPORT_SMTP_LINK_DISCONNECT:
@@ -396,10 +426,11 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_string(&m, &direction);
 		m_get_timeval(&m, &tv);
 		m_get_id(&m, &reqid);
+		m_get_string(&m, &helomethod);
 		m_get_string(&m, &heloname);
 		m_end(&m);
 
-		lka_report_smtp_link_identify(direction, &tv, reqid, heloname);
+		lka_report_smtp_link_identify(direction, &tv, reqid, helomethod, heloname);
 		return;
 
 	case IMSG_REPORT_SMTP_LINK_TLS:
@@ -411,6 +442,29 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		lka_report_smtp_link_tls(direction, &tv, reqid, ciphers);
+		return;
+
+	case IMSG_REPORT_SMTP_LINK_AUTH:
+		m_msg(&m, imsg);
+		m_get_string(&m, &direction);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &reqid);
+		m_get_string(&m, &username);
+		m_get_string(&m, &result);
+		m_end(&m);
+
+		lka_report_smtp_link_auth(direction, &tv, reqid, username, result);
+		return;
+
+	case IMSG_REPORT_SMTP_TX_RESET:
+		m_msg(&m, imsg);
+		m_get_string(&m, &direction);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &reqid);
+		m_get_u32(&m, &msgid);
+		m_end(&m);
+
+		lka_report_smtp_tx_reset(direction, &tv, reqid, msgid);
 		return;
 
 	case IMSG_REPORT_SMTP_TX_BEGIN:
@@ -658,9 +712,11 @@ lka(void)
 	lka_report_init();
 	lka_filter_init();
 
+#if HAVE_PLEDGE
 	/* proc & exec will be revoked before serving requests */
 	if (pledge("stdio rpath inet dns getpw recvfd sendfd proc exec", NULL) == -1)
 		err(1, "pledge");
+#endif
 
 	event_dispatch();
 	fatalx("exited event loop");

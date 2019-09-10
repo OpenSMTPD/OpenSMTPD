@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.619 2019/01/30 21:31:48 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.635 2019/09/06 08:23:56 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -73,7 +73,7 @@
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#define	SMTPD_VERSION		 "6.4.0-portable"
+#define	SMTPD_VERSION		 "6.6.0-portable"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -110,6 +110,7 @@
 #define	F_RECEIVEDAUTH		0x800
 #define	F_MASQUERADE		0x1000
 #define	F_FILTERED		0x2000
+#define	F_PROXY			0x4000
 
 #define RELAY_TLS_OPPORTUNISTIC	0
 #define RELAY_TLS_STARTTLS	1
@@ -233,6 +234,7 @@ enum imsg_type {
 	IMSG_GETADDRINFO,
 	IMSG_GETADDRINFO_END,
 	IMSG_GETNAMEINFO,
+	IMSG_RES_QUERY,
 
 	IMSG_CERT_INIT,
 	IMSG_CERT_CERTIFICATE,
@@ -330,11 +332,15 @@ enum imsg_type {
 	IMSG_SMTP_EVENT_DISCONNECT,
 
 	IMSG_LKA_PROCESSOR_FORK,
+	IMSG_LKA_PROCESSOR_ERRFD,
 
 	IMSG_REPORT_SMTP_LINK_CONNECT,
 	IMSG_REPORT_SMTP_LINK_DISCONNECT,
+	IMSG_REPORT_SMTP_LINK_GREETING,
 	IMSG_REPORT_SMTP_LINK_IDENTIFY,
 	IMSG_REPORT_SMTP_LINK_TLS,
+	IMSG_REPORT_SMTP_LINK_AUTH,
+	IMSG_REPORT_SMTP_TX_RESET,
 	IMSG_REPORT_SMTP_TX_BEGIN,
 	IMSG_REPORT_SMTP_TX_MAIL,
 	IMSG_REPORT_SMTP_TX_RCPT,
@@ -353,8 +359,9 @@ enum imsg_type {
 	IMSG_FILTER_SMTP_DATA_BEGIN,
 	IMSG_FILTER_SMTP_DATA_END,
 
-	IMSG_CA_PRIVENC,
-	IMSG_CA_PRIVDEC
+	IMSG_CA_RSA_PRIVENC,
+	IMSG_CA_RSA_PRIVDEC,
+	IMSG_CA_ECDSA_SIGN,
 };
 
 enum smtp_proc_type {
@@ -1022,16 +1029,6 @@ extern struct mproc *p_ca;
 extern struct smtpd	*env;
 extern void (*imsg_callback)(struct mproc *, struct imsg *);
 
-struct imsgproc {
-	pid_t			pid;
-	struct event		ev;
-	struct imsgbuf	       *ibuf;
-	char		       *path;
-	char		       *name;
-	void		      (*cb)(struct imsg *, void *);
-	void		       *cb_arg;
-};
-
 /* inter-process structures */
 
 struct bounce_req_msg {
@@ -1059,6 +1056,7 @@ struct processor {
 	const char		       *user;
 	const char		       *group;
 	const char		       *chroot;
+	int				errfd;
 };
 
 enum filter_type {
@@ -1074,6 +1072,8 @@ struct filter_config {
 	char                           *reject;
 	char                           *disconnect;
 	char                           *rewrite;
+	char                           *report;
+	uint8_t				junk;
 	char                           *proc;
 
 	const char		      **chain;
@@ -1123,6 +1123,7 @@ enum filter_status {
 	FILTER_REWRITE,
 	FILTER_REJECT,
 	FILTER_DISCONNECT,
+	FILTER_JUNK,
 };
 
 enum ca_resp_status {
@@ -1339,16 +1340,6 @@ RB_PROTOTYPE(expandtree, expandnode, nodes, expand_cmp);
 int forwards_get(int, struct expand *);
 
 
-/* imsgproc.c */
-void imsgproc_init(void);
-struct imsgproc *imsgproc_fork(const char *, const char *,
-    void (*)(struct imsg *, void *), void *);
-void imsgproc_set_read(struct imsgproc *);
-void imsgproc_set_write(struct imsgproc *);
-void imsgproc_set_read_write(struct imsgproc *);
-void imsgproc_reset_callback(struct imsgproc *, void (*)(struct imsg *, void *), void *);
-
-
 /* limit.c */
 void limit_mta_set_defaults(struct mta_limits *);
 int limit_mta_set(struct mta_limits *, const char*, int64_t);
@@ -1361,6 +1352,7 @@ int lka(void);
 /* lka_proc.c */
 int lka_proc_ready(void);
 void lka_proc_forked(const char *, int);
+void lka_proc_errfd(const char *, int);
 struct io *lka_proc_get_io(const char *);
 
 
@@ -1370,8 +1362,12 @@ void lka_report_register_hook(const char *, const char *);
 void lka_report_smtp_link_connect(const char *, struct timeval *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void lka_report_smtp_link_disconnect(const char *, struct timeval *, uint64_t);
-void lka_report_smtp_link_identify(const char *, struct timeval *, uint64_t, const char *);
+void lka_report_smtp_link_greeting(const char *, uint64_t, struct timeval *,
+    const char *);
+void lka_report_smtp_link_identify(const char *, struct timeval *, uint64_t, const char *, const char *);
 void lka_report_smtp_link_tls(const char *, struct timeval *, uint64_t, const char *);
+void lka_report_smtp_link_auth(const char *, struct timeval *, uint64_t, const char *, const char *);
+void lka_report_smtp_tx_reset(const char *, struct timeval *, uint64_t, uint32_t);
 void lka_report_smtp_tx_begin(const char *, struct timeval *, uint64_t, uint32_t);
 void lka_report_smtp_tx_mail(const char *, struct timeval *, uint64_t, uint32_t, const char *, int);
 void lka_report_smtp_tx_rcpt(const char *, struct timeval *, uint64_t, uint32_t, const char *, int);
@@ -1384,6 +1380,9 @@ void lka_report_smtp_protocol_server(const char *, struct timeval *, uint64_t, c
 void lka_report_smtp_filter_response(const char *, struct timeval *, uint64_t,
     int, int, const char *);
 void lka_report_smtp_timeout(const char *, struct timeval *, uint64_t);
+void lka_report_filter_report(uint64_t, const char *, int, const char *,
+    struct timeval *, const char *);
+void lka_report_proc(const char *, const char *);
 
 
 /* lka_filter.c */
@@ -1537,8 +1536,11 @@ int queue_message_walk(struct envelope *, uint32_t, int *, void **);
 void report_smtp_link_connect(const char *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void report_smtp_link_disconnect(const char *, uint64_t);
-void report_smtp_link_identify(const char *, uint64_t, const char *);
+void report_smtp_link_greeting(const char *, uint64_t, const char *);
+void report_smtp_link_identify(const char *, uint64_t, const char *, const char *);
 void report_smtp_link_tls(const char *, uint64_t, const char *);
+void report_smtp_link_auth(const char *, uint64_t, const char *, const char *);
+void report_smtp_tx_reset(const char *, uint64_t, uint32_t);
 void report_smtp_tx_begin(const char *, uint64_t, uint32_t);
 void report_smtp_tx_mail(const char *, uint64_t, uint32_t, const char *, int);
 void report_smtp_tx_rcpt(const char *, uint64_t, uint32_t, const char *, int);
@@ -1575,6 +1577,8 @@ void resolver_getaddrinfo(const char *, const char *, const struct addrinfo *,
     void(*)(void *, int, struct addrinfo*), void *);
 void resolver_getnameinfo(const struct sockaddr *, int,
     void(*)(void *, int, const char *, const char *), void *);
+void resolver_res_query(const char *, int, int,
+    void (*cb)(void *, int, int, int, const void *, int), void *);
 void resolver_dispatch_request(struct mproc *, struct imsg *);
 void resolver_dispatch_result(struct mproc *, struct imsg *);
 
@@ -1688,6 +1692,7 @@ int hostname_match(const char *, const char *);
 int mailaddr_match(const struct mailaddr *, const struct mailaddr *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
+int valid_domainname(const char *);
 int valid_smtp_response(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
@@ -1728,8 +1733,7 @@ void waitq_run(void *, void *);
 struct runq;
 
 int runq_init(struct runq **, void (*)(struct runq *, void *));
-int runq_schedule(struct runq *, time_t, void (*)(struct runq *, void *), void *);
-int runq_delay(struct runq *, unsigned int, void (*)(struct runq *, void *), void *);
-int runq_cancel(struct runq *, void (*)(struct runq *, void *), void *);
-int runq_pending(struct runq *, void (*)(struct runq *, void *), void *, time_t *);
-int runq_next(struct runq *, void (**)(struct runq *, void *), void **, time_t *);
+int runq_schedule(struct runq *, time_t, void *);
+int runq_schedule_at(struct runq *, time_t, void *);
+int runq_cancel(struct runq *, void *);
+int runq_pending(struct runq *, void *, time_t *);
