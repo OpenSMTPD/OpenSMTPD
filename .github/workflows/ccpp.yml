@@ -9,8 +9,12 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: dependencies
+      run: apt install libasr-dev libevent-dev libssl-dev
+    - name: boostrap
+      run: bash bootstrap
     - name: configure
-      run: bash bootstrap && ./configure
+      run: ./configure
     - name: make
       run: make
     - name: make check
