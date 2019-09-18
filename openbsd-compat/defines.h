@@ -30,6 +30,9 @@
 
 
 /* Constants */
+#ifndef EAUTH
+# define EAUTH 80
+#endif
 
 #ifndef HOST_NAME_MAX
 # ifdef _POSIX_HOST_NAME_MAX
