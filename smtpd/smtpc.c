@@ -155,13 +155,17 @@ main(int argc, char **argv)
 	if (!noaction)
 		parse_message(stdin);
 
+#if HAVE_PLEDGE
 	if (pledge("stdio inet dns", NULL) == -1)
 		fatal("pledge");
+#endif
 
 	parse_server(server);
 
+#if HAVE_PLEDGE
 	if (pledge("stdio inet", NULL) == -1)
 		fatal("pledge");
+#endif
 
 	resume();
 
@@ -294,7 +298,7 @@ parse_message(FILE *ifp)
 		if (len >= 2 && line[len - 2] == '\r' && line[len - 1] == '\n')
 			line[--len - 1] = '\n';
 
-		if (fwrite(line, 1, len, mail.fp) != len)
+		if (fwrite(line, 1, len, mail.fp) != (size_t)len)
 			fatal("fwrite");
 
 		if (line[len - 1] != '\n' && fputc('\n', mail.fp) == EOF)
@@ -320,7 +324,7 @@ resume(void)
 	if (ai == NULL)
 		fatalx("no more host");
 
-	getnameinfo(ai->ai_addr, ai->ai_addr->sa_len,
+	getnameinfo(ai->ai_addr, SA_LEN(ai->ai_addr),
 	    host, sizeof(host), serv, sizeof(serv),
 	    NI_NUMERICHOST | NI_NUMERICSERV);
 	log_debug("trying host %s port %s...", host, serv);
