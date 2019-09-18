@@ -51,6 +51,7 @@ SRCS+=	smtp_session.c
 SRCS+=	smtpd.c
 SRCS+=	ssl.c
 SRCS+=	ssl_smtpd.c
+SRCS+=	ssl_verify.c
 SRCS+=	stat_backend.c
 SRCS+=	table.c
 SRCS+=	to.c
