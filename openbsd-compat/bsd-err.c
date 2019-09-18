@@ -43,10 +43,11 @@ err(int r, const char *fmt, ...)
 
 	va_start(args, fmt);
 	fprintf(stderr, "%s: ", __progname);
-	fprintf(stderr, "%s", strerror(errno));
-    if (fmt != NULL)
-	    vfprintf(stderr, fmt, args);
-	fputc('\n', stderr);
+	if (fmt != NULL) {
+		vfprintf(stderr, fmt, args);
+		fprintf(stderr, ": ");
+	}
+	fprintf(stderr, "%s\n", strerror(errno));
 	va_end(args);
 	exit(r);
 }
@@ -60,9 +61,9 @@ errx(int r, const char *fmt, ...)
 
 	va_start(args, fmt);
 	fprintf(stderr, "%s: ", __progname);
-    if (fmt != NULL)
-	    vfprintf(stderr, fmt, args);
-	fputc('\n', stderr);
+	if (fmt != NULL)
+		vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
 	va_end(args);
 	exit(r);
 }
@@ -76,12 +77,11 @@ warn(const char *fmt, ...)
 
 	va_start(args, fmt);
 	fprintf(stderr, "%s: ", __progname);
-    if (fmt != NULL) {
-	    vfprintf(stderr, fmt, args);
-        fprintf(stderr, ": ");
-    }
-	fprintf(stderr, "%s", strerror(errno));
-	fputc('\n', stderr);
+	if (fmt != NULL) {
+		vfprintf(stderr, fmt, args);
+		fprintf(stderr, ": ");
+	}
+	fprintf(stderr, "%s\n", strerror(errno));
 	va_end(args);
 }
 #endif
@@ -94,9 +94,9 @@ warnx(const char *fmt, ...)
 
 	va_start(args, fmt);
 	fprintf(stderr, "%s: ", __progname);
-    if (fmt != NULL)
-	    vfprintf(stderr, fmt, args);
-	fputc('\n', stderr);
+	if (fmt != NULL)
+		vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
 	va_end(args);
 }
 #endif
