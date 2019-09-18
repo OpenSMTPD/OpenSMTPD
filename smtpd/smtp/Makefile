@@ -14,6 +14,7 @@ SRCS+=	smtp_client.c
 SRCS+=	smtpc.c
 SRCS+=	ssl.c
 SRCS+=	ssl_smtpd.c
+SRCS+=	ssl_verify.c
 
 CPPFLAGS+= -DIO_TLS
 

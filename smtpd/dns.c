@@ -1,4 +1,4 @@
-/*	$OpenBSD: dns.c,v 1.88 2018/09/26 16:28:34 eric Exp $	*/
+/*	$OpenBSD: dns.c,v 1.89 2019/09/18 11:26:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -55,6 +55,7 @@
 
 struct dns_lookup {
 	struct dns_session	*session;
+	char			*host;
 	int			 preference;
 };
 
@@ -156,6 +157,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		if (domainname_is_addr(domain, sa, &sl)) {
 			m_create(s->p, IMSG_MTA_DNS_HOST, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
+			m_add_string(s->p, sockaddr_to_text(sa));
 			m_add_sockaddr(s->p, sa);
 			m_add_int(s->p, -1);
 			m_close(s->p);
@@ -220,10 +222,12 @@ dns_dispatch_host(struct asr_result *ar, void *arg)
 		s->mxfound++;
 		m_create(s->p, IMSG_MTA_DNS_HOST, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
+		m_add_string(s->p, lookup->host);
 		m_add_sockaddr(s->p, ai->ai_addr);
 		m_add_int(s->p, lookup->preference);
 		m_close(s->p);
 	}
+	free(lookup->host);
 	free(lookup);
 	if (ar->ar_addrinfo)
 		asr_freeaddrinfo(ar->ar_addrinfo);
@@ -350,6 +354,7 @@ dns_lookup_host(struct dns_session *s, const char *host, int preference)
 
 	lookup = xcalloc(1, sizeof *lookup);
 	lookup->preference = preference;
+	lookup->host = xstrdup(host);
 	lookup->session = s;
 	s->refcount++;
 
