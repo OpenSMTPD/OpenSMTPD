@@ -314,7 +314,9 @@ ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 			return 0;
 		ssin6.sin6_family = AF_INET6;
 		memcpy(ss, &ssin6, sizeof(ssin6));
+#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		ss->ss_len = sizeof(struct sockaddr_in6);
+#endif
 	}
 	else {
 		if (inet_pton(AF_INET, buf, &ssin.sin_addr) != 1)
