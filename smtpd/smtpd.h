@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.631 2019/08/10 16:07:02 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.637 2019/09/18 11:26:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -310,6 +310,7 @@ enum imsg_type {
 
 	IMSG_REPORT_SMTP_LINK_CONNECT,
 	IMSG_REPORT_SMTP_LINK_DISCONNECT,
+	IMSG_REPORT_SMTP_LINK_GREETING,
 	IMSG_REPORT_SMTP_LINK_IDENTIFY,
 	IMSG_REPORT_SMTP_LINK_TLS,
 	IMSG_REPORT_SMTP_LINK_AUTH,
@@ -680,6 +681,7 @@ struct mta_host {
 struct mta_mx {
 	TAILQ_ENTRY(mta_mx)	 entry;
 	struct mta_host		*host;
+	char			*mxname;
 	int			 preference;
 };
 
@@ -1047,6 +1049,8 @@ struct filter_config {
 	char                           *reject;
 	char                           *disconnect;
 	char                           *rewrite;
+	char                           *report;
+	uint8_t				junk;
 	char                           *proc;
 
 	const char		      **chain;
@@ -1096,6 +1100,7 @@ enum filter_status {
 	FILTER_REWRITE,
 	FILTER_REJECT,
 	FILTER_DISCONNECT,
+	FILTER_JUNK,
 };
 
 enum ca_resp_status {
@@ -1334,6 +1339,8 @@ void lka_report_register_hook(const char *, const char *);
 void lka_report_smtp_link_connect(const char *, struct timeval *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void lka_report_smtp_link_disconnect(const char *, struct timeval *, uint64_t);
+void lka_report_smtp_link_greeting(const char *, uint64_t, struct timeval *,
+    const char *);
 void lka_report_smtp_link_identify(const char *, struct timeval *, uint64_t, const char *, const char *);
 void lka_report_smtp_link_tls(const char *, struct timeval *, uint64_t, const char *);
 void lka_report_smtp_link_auth(const char *, struct timeval *, uint64_t, const char *, const char *);
@@ -1350,6 +1357,9 @@ void lka_report_smtp_protocol_server(const char *, struct timeval *, uint64_t, c
 void lka_report_smtp_filter_response(const char *, struct timeval *, uint64_t,
     int, int, const char *);
 void lka_report_smtp_timeout(const char *, struct timeval *, uint64_t);
+void lka_report_filter_report(uint64_t, const char *, int, const char *,
+    struct timeval *, const char *);
+void lka_report_proc(const char *, const char *);
 
 
 /* lka_filter.c */
@@ -1468,7 +1478,7 @@ const char *mta_relay_to_text(struct mta_relay *);
 
 
 /* mta_session.c */
-void mta_session(struct mta_relay *, struct mta_route *);
+void mta_session(struct mta_relay *, struct mta_route *, const char *);
 void mta_session_imsg(struct mproc *, struct imsg *);
 
 
@@ -1503,6 +1513,7 @@ int queue_message_walk(struct envelope *, uint32_t, int *, void **);
 void report_smtp_link_connect(const char *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void report_smtp_link_disconnect(const char *, uint64_t);
+void report_smtp_link_greeting(const char *, uint64_t, const char *);
 void report_smtp_link_identify(const char *, uint64_t, const char *, const char *);
 void report_smtp_link_tls(const char *, uint64_t, const char *);
 void report_smtp_link_auth(const char *, uint64_t, const char *, const char *);
@@ -1660,6 +1671,7 @@ int hostname_match(const char *, const char *);
 int mailaddr_match(const struct mailaddr *, const struct mailaddr *);
 int valid_localpart(const char *);
 int valid_domainpart(const char *);
+int valid_domainname(const char *);
 int valid_smtp_response(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
@@ -1672,14 +1684,16 @@ int rmtree(char *, int);
 int mvpurge(char *, char *);
 int mktmpfile(void);
 const char *parse_smtp_response(char *, size_t, char **, int *);
-int xasprintf(char **, const char *, ...);
+int xasprintf(char **, const char *, ...)
+    __attribute__((__format__ (printf, 2, 3)));
 void *xmalloc(size_t);
 void *xcalloc(size_t, size_t);
 char *xstrdup(const char *);
 void *xmemdup(const void *, size_t);
 char *strip(char *);
 int io_xprint(struct io *, const char *);
-int io_xprintf(struct io *, const char *, ...);
+int io_xprintf(struct io *, const char *, ...)
+    __attribute__((__format__ (printf, 2, 3)));
 void log_envelope(const struct envelope *, const char *, const char *,
     const char *);
 int session_socket_error(int);

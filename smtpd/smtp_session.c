@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.407 2019/08/14 21:11:25 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.410 2019/09/11 04:19:19 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -127,6 +127,8 @@ struct smtp_tx {
 	int			 rcvcount;
 	int			 has_date;
 	int			 has_message_id;
+
+	uint8_t			 junk;
 };
 
 struct smtp_session {
@@ -155,6 +157,8 @@ struct smtp_session {
 	enum smtp_command	 last_cmd;
 	enum filter_phase	 filter_phase;
 	const char		*filter_param;
+
+	uint8_t			 junk;
 };
 
 #define ADVERTISE_TLS(s) \
@@ -210,8 +214,10 @@ static void smtp_filter_fd(struct smtp_tx *, int);
 static int  smtp_message_fd(struct smtp_tx *, int);
 static void smtp_message_begin(struct smtp_tx *);
 static void smtp_message_end(struct smtp_tx *);
-static int  smtp_filter_printf(struct smtp_tx *, const char *, ...);
-static int  smtp_message_printf(struct smtp_tx *, const char *, ...);
+static int  smtp_filter_printf(struct smtp_tx *, const char *, ...)
+    __attribute__((__format__ (printf, 2, 3)));
+static int  smtp_message_printf(struct smtp_tx *, const char *, ...)
+    __attribute__((__format__ (printf, 2, 3)));
 
 static int  smtp_check_rset(struct smtp_session *, const char *);
 static int  smtp_check_helo(struct smtp_session *, const char *);
@@ -967,7 +973,8 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_msg(&m, imsg);
 		m_get_id(&m, &reqid);
 		m_get_int(&m, &filter_response);
-		if (filter_response != FILTER_PROCEED)
+		if (filter_response != FILTER_PROCEED &&
+		    filter_response != FILTER_JUNK)
 			m_get_string(&m, &filter_param);
 		else
 			filter_param = NULL;
@@ -995,9 +1002,17 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 				smtp_proceed_rollback(s, NULL);
 			break;
 
+
+		case FILTER_JUNK:
+			if (s->tx)
+				s->tx->junk = 1;
+			else
+				s->junk = 1;
+			/* fallthrough */
+
 		case FILTER_PROCEED:
 			filter_param = s->filter_param;
-			/* fallthrough*/
+			/* fallthrough */
 
 		case FILTER_REWRITE:
 			report_smtp_filter_response("smtp-in", s->id, s->filter_phase,
@@ -2047,6 +2062,7 @@ smtp_send_banner(struct smtp_session *s)
 {
 	smtp_reply(s, "220 %s ESMTP %s", s->smtpname, SMTPD_NAME);
 	s->banner_sent = 1;
+	report_smtp_link_greeting("smtp-in", s->id, s->smtpname);
 }
 
 void
@@ -2763,6 +2779,9 @@ smtp_message_begin(struct smtp_tx *tx)
 	smtp_reply(s, "354 Enter mail, end with \".\""
 	    " on a line by itself");	
 	
+	if (s->junk || (s->tx && s->tx->junk))
+		m_printf(tx, "X-Spam: Yes\n");
+
 	m_printf(tx, "Received: ");
 	if (!(s->listener->flags & F_MASK_SOURCE)) {
 		m_printf(tx, "from %s (%s [%s])",

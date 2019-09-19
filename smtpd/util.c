@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.144 2019/08/10 15:46:22 gilles Exp $	*/
+/*	$OpenBSD: util.c,v 1.147 2019/08/28 19:46:20 eric Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -546,6 +546,46 @@ valid_domainpart(const char *s)
 		return 0;
 
 	return res_hnok(s);
+}
+
+#define LABELCHR(c) ((c) == '-' || (c) == '_' || isalpha((int)(c)) || isdigit((int)(c)))
+#define LABELMAX 63
+#define DNAMEMAX 253
+
+int
+valid_domainname(const char *str)
+{
+	const char *label, *s;
+
+	/*
+	 * Expect a sequence of dot-separated labels, possibly with a trailing
+	 * dot. The empty string is rejected, as well a single dot.
+	 */
+	for (s = str; *s; s++) {
+
+		/* Start of a new label. */
+		label = s;
+		while (LABELCHR(*s))
+			s++;
+
+		/* Must have at least one char and at most LABELMAX. */
+		if (s == label || s - label > LABELMAX)
+			return 0;
+
+		/* If last label, stop here. */
+		if (*s == '\0')
+			break;
+
+		/* Expect a dot as label separator or last char. */
+		if (*s != '.')
+			return 0;
+	}
+
+	/* Must have at leat one label and no more than DNAMEMAX chars. */
+	if (s == str || s - str > DNAMEMAX)
+		return 0;
+
+	return 1;
 }
 
 int

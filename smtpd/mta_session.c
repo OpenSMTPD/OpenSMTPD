@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.120 2019/08/11 11:11:02 gilles Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.121 2019/09/18 11:26:30 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -104,6 +104,7 @@ struct mta_session {
 	struct mta_relay	*relay;
 	struct mta_route	*route;
 	char			*helo;
+	char			*mxname;
 
 	int			 flags;
 
@@ -188,7 +189,7 @@ mta_session_init(void)
 }
 
 void
-mta_session(struct mta_relay *relay, struct mta_route *route)
+mta_session(struct mta_relay *relay, struct mta_route *route, const char *mxname)
 {
 	struct mta_session	*s;
 	struct timeval		 tv;
@@ -199,6 +200,7 @@ mta_session(struct mta_relay *relay, struct mta_route *route)
 	s->id = generate_uid();
 	s->relay = relay;
 	s->route = route;
+	s->mxname = xstrdup(mxname);
 
 	if (relay->flags & RELAY_LMTP)
 		s->flags |= MTA_LMTP;
@@ -367,6 +369,7 @@ mta_free(struct mta_session *s)
 
 	relay = s->relay;
 	route = s->route;
+	free(s->mxname);
 	free(s);
 	stat_decrement("mta.session", 1);
 	mta_route_collect(relay, route);

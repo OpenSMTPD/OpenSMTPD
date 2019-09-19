@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssl.h,v 1.20 2016/04/21 14:27:41 jsing Exp $	*/
+/*	$OpenBSD: ssl.h,v 1.21 2019/09/18 11:26:30 eric Exp $	*/
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
  *
@@ -73,3 +73,4 @@ int		ssl_by_mem_ctrl(X509_LOOKUP *, int, const char *, long, char **);
 
 int		tls_load_pkey(char *, off_t, X509 **, EVP_PKEY **);
 const struct ca *ssl_default_ca(void);
+
