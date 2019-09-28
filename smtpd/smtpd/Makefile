@@ -49,6 +49,7 @@ SRCS+=	scheduler_backend.c
 SRCS+=	smtp.c
 SRCS+=	smtp_session.c
 SRCS+=	smtpd.c
+SRCS+=	srs.c
 SRCS+=	ssl.c
 SRCS+=	ssl_smtpd.c
 SRCS+=	ssl_verify.c
