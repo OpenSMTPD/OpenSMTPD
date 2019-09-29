@@ -1,4 +1,4 @@
-/*	$OpenBSD: srs.c,v 1.1 2019/09/20 17:46:05 gilles Exp $	*/
+/*	$OpenBSD: srs.c,v 1.3 2019/09/29 10:03:49 gilles Exp $	*/
 
 /*
  * Copyright (c) 2019 Gilles Chehade <gilles@poolp.org>
@@ -15,8 +15,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#include "includes.h"
 
 #include <sys/types.h>
 #include <sys/queue.h>
@@ -127,7 +125,7 @@ srs0_encode(const char *sender, const char *rcpt_domain)
 		return sender;
 
 	/* compute HHHH */
-	base64_encode(srs_hash(env->sc_srs_key, tmp), SHA_DIGEST_LENGTH,
+	base64_encode_rfc3548(srs_hash(env->sc_srs_key, tmp), SHA_DIGEST_LENGTH,
 	    md, sizeof md);
 
 	/* prepend SRS0=HHHH= prefix */
@@ -146,11 +144,7 @@ srs1_encode_srs0(const char *sender, const char *rcpt_domain)
 	char tmp[SMTPD_MAXMAILADDRSIZE];
 	char md[SHA_DIGEST_LENGTH*4+1];
 	struct mailaddr maddr;
-	uint16_t timestamp;
 	int ret;
-
-	/* compute 10 bits timestamp according to spec */
-	timestamp = (time(NULL) / (60 * 60 * 24)) % 1024;
 
 	/* parse sender into user and domain */
 	if (! text_to_mailaddr(&maddr, sender))
@@ -163,7 +157,7 @@ srs1_encode_srs0(const char *sender, const char *rcpt_domain)
 		return sender;
 
 	/* compute HHHH */
-	base64_encode(srs_hash(env->sc_srs_key, tmp), SHA_DIGEST_LENGTH,
+	base64_encode_rfc3548(srs_hash(env->sc_srs_key, tmp), SHA_DIGEST_LENGTH,
 		md, sizeof md);
 
 	/* prepend SRS1=HHHH= prefix */
@@ -182,11 +176,7 @@ srs1_encode_srs1(const char *sender, const char *rcpt_domain)
 	char tmp[SMTPD_MAXMAILADDRSIZE];
 	char md[SHA_DIGEST_LENGTH*4+1];
 	struct mailaddr maddr;
-	uint16_t timestamp;
 	int ret;
-
-	/* compute 10 bits timestamp according to spec */
-	timestamp = (time(NULL) / (60 * 60 * 24)) % 1024;
 
 	/* parse sender into user and domain */
 	if (! text_to_mailaddr(&maddr, sender))
@@ -206,7 +196,7 @@ srs1_encode_srs1(const char *sender, const char *rcpt_domain)
 		return sender;
 
 	/* compute HHHH */
-	base64_encode(srs_hash(env->sc_srs_key, tmp + 5), SHA_DIGEST_LENGTH,
+	base64_encode_rfc3548(srs_hash(env->sc_srs_key, tmp + 5), SHA_DIGEST_LENGTH,
 		md, sizeof md);
 
 	/* prepend SRS1=HHHH= prefix skipping previous hops' HHHH */
@@ -244,14 +234,14 @@ srs0_decode(const char *rcpt)
 		return NULL;
 
 	/* compute checksum */
-	base64_encode(srs_hash(env->sc_srs_key, rcpt+5), SHA_DIGEST_LENGTH,
+	base64_encode_rfc3548(srs_hash(env->sc_srs_key, rcpt+5), SHA_DIGEST_LENGTH,
 	    md, sizeof md);
 
 	/* compare prefix checksum with computed checksum */
 	if (strncmp(md, rcpt, 4) != 0) {
 		if (env->sc_srs_key_backup == NULL)
 			return NULL;
-		base64_encode(srs_hash(env->sc_srs_key_backup, rcpt+5),
+		base64_encode_rfc3548(srs_hash(env->sc_srs_key_backup, rcpt+5),
 		    SHA_DIGEST_LENGTH, md, sizeof md);
 		if (strncmp(md, rcpt, 4) != 0)
 			return NULL;
@@ -312,14 +302,14 @@ srs1_decode(const char *rcpt)
 		return NULL;
 
 	/* compute checksum */
-	base64_encode(srs_hash(env->sc_srs_key, rcpt+5), SHA_DIGEST_LENGTH,
+	base64_encode_rfc3548(srs_hash(env->sc_srs_key, rcpt+5), SHA_DIGEST_LENGTH,
 	    md, sizeof md);
 
 	/* compare prefix checksum with computed checksum */
 	if (strncmp(md, rcpt, 4) != 0) {
 		if (env->sc_srs_key_backup == NULL)
 			return NULL;
-		base64_encode(srs_hash(env->sc_srs_key_backup, rcpt+5),
+		base64_encode_rfc3548(srs_hash(env->sc_srs_key_backup, rcpt+5),
 		    SHA_DIGEST_LENGTH, md, sizeof md);
 		if (strncmp(md, rcpt, 4) != 0)
 			return NULL;
