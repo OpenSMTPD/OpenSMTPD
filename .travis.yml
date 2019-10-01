@@ -1,6 +1,6 @@
 language: c
 dist: bionic
-script: ./configure && make && make install
+script: ./configure && make && sudo make install
 
 branches:
   only:
