@@ -13,7 +13,7 @@ env:
 
 before_install:
   - sudo apt update
-  - sudo apt install libasr-dev libevent-dev libssl1.1 bison
+  - sudo apt install libasr-dev libevent-dev libssl-dev bison
   - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
   - bash bootstrap
 
