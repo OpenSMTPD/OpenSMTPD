@@ -11,6 +11,7 @@ env:
    - secure: "NYv5uImAh8e56pQ1f+8dcFNjK5MrgFHyND0qEBWMt0NYbLM9J+ATZPpd1B5q3+Yii+yvi6UMYAcj4w1yNNvhWAZdvYtEYgVDwYkH4wB9/k1Ye4aDpnC8dB28Vqilsm8DhgDAwyPXXPWzfWZEHYoWFNvokemRyKsoGv/cjn+spGN/xTVc1dyKh74jewyLeGkIt5WK533WWfFDkwGRWne65algkm2k+8HCk9tP1hhu1O/hZOg3CYKLTxaLkJ520K2zE/ZUxn6OTcF920mZ00XwEh+IaTL0LHoOmHvsCxwmVbnlYFSDQVIUoOfHYhBouF+raE7nQJZLFkNe7k7pVF8Y2+grOj9+hHBlH0LI75mb40LsWCVolGeCF7oohKUs5+45dFe9ay3JLhIToPDE6EkMv12C76mlDmYOC6uCfWCHaSajuHACjTZN1/K5yyVfVw6pWx35ci1Q0VMRWjjVu+omBLUkTmEE1vI3BQBO29Zt1twAC52caljiFgmsgbYHtcLAy3y/ucY9T53VnalnYY5LHm83vLY5XHLjOEDb9+tS4ok/oPSqGYPGApTpedSOFsmpfFmVgatTvw1uDzLhB6kQmG4G/4HpZqOntd6EqikXub/WqsxRJN/qauMCl50DPoDe/DuBGMt/DTdgKmBuBy+ibJSyoAy0vCgdjwfVbvnJ34g="
 
 before_install:
+  - sudo apt update
   - sudo apt libasr-dev libevent-dev libssl-dev bison
   - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
   - bash bootstrap
