@@ -2,7 +2,7 @@ language: c
 
 branches:
   only:
-    - coverity_scan
+    - coverity
 
 env:
   global:
