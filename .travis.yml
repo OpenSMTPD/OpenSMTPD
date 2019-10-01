@@ -12,6 +12,7 @@ env:
 
 before_install:
   - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+  - bash bootstrap
 
 addons:
   coverity_scan:
@@ -20,5 +21,5 @@ addons:
       description: "<Your project description here>"
     notification_email: gilles@poolp.org
     build_command_prepend: ""
-    build_command: "bash boostrap && ./configure && make && make install"
+    build_command: ""
     branch_pattern: coverity_scan
