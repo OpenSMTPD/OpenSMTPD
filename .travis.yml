@@ -19,6 +19,6 @@ addons:
       name: "OpenSMTPD/OpenSMTPD"
       description: "<Your project description here>"
     notification_email: gilles@poolp.org
-    build_command_prepend: "bootstrap"
-    build_command: "./configure && make && make install"
+    build_command_prepend: ""
+    build_command: "bash boostrap && ./configure && make && make install"
     branch_pattern: coverity_scan
