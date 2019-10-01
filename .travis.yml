@@ -1,4 +1,5 @@
 language: c
+dist: bionic
 
 branches:
   only:
