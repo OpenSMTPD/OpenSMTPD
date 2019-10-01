@@ -2,7 +2,7 @@ language: c
 
 branches:
   only:
-    - coverity
+    - portable
 
 env:
   global:
