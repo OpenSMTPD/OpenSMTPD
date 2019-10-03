@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.412 2019/09/21 09:01:52 semarie Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.414 2019/10/03 05:08:21 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -782,9 +782,9 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			smtp_reply(s, "250 %s Ok",
 			    esc_code(ESC_STATUS_OK, ESC_OTHER_STATUS));
 		} else {
-			smtp_tx_free(s->tx);
 			smtp_reply(s, "421 %s Temporary Error",
 			    esc_code(ESC_STATUS_TEMPFAIL, ESC_OTHER_MAIL_SYSTEM_STATUS));
+			smtp_tx_free(s->tx);
 			smtp_enter_state(s, STATE_QUIT);
 		}
 		m_end(&m);
@@ -2105,14 +2105,18 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 
 	switch (buf[0]) {
 	case '2':
-		if (s->last_cmd == CMD_MAIL_FROM)
-			report_smtp_tx_mail("smtp-in", s->id, s->tx->msgid, s->cmd + 10, 1);
-		else if (s->last_cmd == CMD_RCPT_TO)
-			report_smtp_tx_rcpt("smtp-in", s->id, s->tx->msgid, s->cmd + 8, 1);
+		if (s->tx) {
+			if (s->last_cmd == CMD_MAIL_FROM)
+				report_smtp_tx_mail("smtp-in", s->id, s->tx->msgid, s->cmd + 10, 1);
+			else if (s->last_cmd == CMD_RCPT_TO)
+				report_smtp_tx_rcpt("smtp-in", s->id, s->tx->msgid, s->cmd + 8, 1);
+		}
 		break;
 	case '3':
-		if (s->last_cmd == CMD_DATA)
-			report_smtp_tx_data("smtp-in", s->id, s->tx->msgid, 1);
+		if (s->tx) {
+			if (s->last_cmd == CMD_DATA)
+				report_smtp_tx_data("smtp-in", s->id, s->tx->msgid, 1);
+		}
 		break;
 	case '5':
 	case '4':
