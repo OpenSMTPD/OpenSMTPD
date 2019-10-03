@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -82,10 +83,10 @@ mboxfile_engine(const char *sender, const char *filename)
 	/* XXX : do something! */
 #endif
 	if (fd == -1)
-		err(1, NULL);
+		err(EX_TEMPFAIL, NULL);
 
 	if ((fp = fdopen(fd, "w")) == NULL)
-		err(1, NULL);
+		err(EX_TEMPFAIL, NULL);
 
 	fprintf(fp, "From %s %s", sender, ctime(&now));
 	while ((linelen = getline(&line, &linesize, stdin)) != -1) {
@@ -98,11 +99,11 @@ mboxfile_engine(const char *sender, const char *filename)
 	fprintf(fp, "\n");
 	free(line);
 	if (ferror(stdin))
-		err(1, NULL);
+		err(EX_TEMPFAIL, NULL);
 
 	if (fflush(fp) == EOF ||
 	    ferror(fp) ||
 	    fsync(fd) == -1 ||
 	    fclose(fp) == EOF)
-		err(1, NULL);
+		err(EX_TEMPFAIL, NULL);
 }
