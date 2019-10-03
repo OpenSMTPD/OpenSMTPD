@@ -1,0 +1,29 @@
+language: c
+dist: bionic
+script: ./configure && make && sudo make install
+
+branches:
+  only:
+    - coverity_scan
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "XHrxQGpyIoT8Bt0iQ9wB9NZx0YE1QypktdfdJVlztaV3hmnGziRAe0rx4AMD1y1FIPx9hW2aX2Ng+JrZlCVWeQ2nQOpT50nk/ezny9667wv/l7DBmlV/1M62i/XiGlXDXbH4LiPmY7/IZWHWRGeP1MNXK2X+QmGEi86CVIwetQ7mOQWGBebh6arH75uwEBbcOE94D3CvOcxHM+n9MgY+Qd/7DVflXl5anP7v0/eeIwpRQfx7P2yUKjdiDalaG/0fH0CsnycIeutrukooEhw3AtRe4RXZjs7pAZXDpH0H4tvFqfnLs23eD9JslACP0XPkhB0BiSXgrcTNlnaP0bbD9HeIrWUt73T/SRWGJPUIT0ZrmtQvUj1XhgmUGp7mHQ5sIH/UKU7CtnzzxkJPrQhiKOzLHNRAAhYI8ELJtFXAnk+jzvd/ayCGZ9cGYbeOq+76ZPEkYFbS5/1CZOMQrc+uptPXG7hliMFWdWesf7PfW+WSzfBkksDMqpyyJw/f4JfcNlRwOshK3lXOp6xSGOHfpdHGJAWT2v5DDGsULM+jmjAL8o2D3VXyzq1PAGE0lE0NxO3Rh1kXN9y2zgr+ycNSJzS1E1TxO2Be0bYew8yHjVOGsd7MTXBes+SBVdvTBXb3bQMmL5hYX532nASmHGOkxZby8720vfF7jFl1ZStJOyg="
+
+before_install:
+  - sudo apt update
+  - sudo apt install libasr-dev libevent-dev libssl-dev bison
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+  - bash bootstrap
+
+addons:
+  coverity_scan:
+    project:
+      name: "OpenSMTPD/OpenSMTPD"
+      description: "<Your project description here>"
+    notification_email: gilles@poolp.org
+    build_command_prepend: "./configure"
+    build_command: "make"
+    branch_pattern: coverity_scan
