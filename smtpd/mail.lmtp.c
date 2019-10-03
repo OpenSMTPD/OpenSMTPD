@@ -172,6 +172,7 @@ lmtp_connect_inet(const char *destination)
 	if (s == -1)
 		errx(EX_TEMPFAIL, "%s", cause);
 
+	free(destcopy);
 	return fdopen(s, "r+");
 }
 
