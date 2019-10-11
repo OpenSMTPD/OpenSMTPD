@@ -1,4 +1,4 @@
-FROM alpine:3.9 as build
+FROM alpine:3.10 as build
 
 WORKDIR /opensmtpd
 
@@ -17,7 +17,7 @@ RUN apk add --no-cache \
     libasr-dev \
     fts-dev \
     zlib-dev \
-    libressl-dev \
+    openssl-dev \
     libressl
 
 #For testing
@@ -36,7 +36,7 @@ RUN ./bootstrap && \
     make && \
     make install
 
-FROM alpine:3.9
+FROM alpine:3.10
 LABEL maintainer="Arthur Moore <Arthur.Moore.git@cd-net.net>"
 
 EXPOSE 25
@@ -50,7 +50,7 @@ WORKDIR /var/spool/smtpd
 ENTRYPOINT ["smtpd", "-d"]
 CMD ["-P", "mda"]
 
-RUN apk add --no-cache libressl libevent libasr fts zlib ca-certificates && \
+RUN apk add --no-cache openssl libevent libasr fts zlib ca-certificates && \
     mkdir -p /var/lib/opensmtpd/empty/ && \
     adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
