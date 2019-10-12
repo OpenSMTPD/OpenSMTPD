@@ -39,6 +39,7 @@ chmod 700 /var/spool/smtpd/purge
 chmod 700 /var/spool/smtpd/queue
 chmod 700 /var/spool/smtpd/temporary
 
+chown root:root /var/spool/smtpd
 chown _smtpq /var/spool/smtpd/corrupt
 chown _smtpq /var/spool/smtpd/incoming
 chown _smtpq /var/spool/smtpd/purge

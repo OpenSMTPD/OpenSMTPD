@@ -1,5 +1,4 @@
-Preliminary note
-================
+# Preliminary note
 
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as
 defined by RFC 5321, with some additional standard extensions.
@@ -29,11 +28,10 @@ contribute to.
 Cheers!
 
 
-How to build, configure and use Portable OpenSMTPD
-==================================================
+# How to build, configure and use Portable OpenSMTPD
 
-Dependencies
-------------
+
+## Dependencies
 
 Portable OpenSMTPD relies on:
   * autoconf (http://www.gnu.org/software/autoconf/)
@@ -46,14 +44,12 @@ Portable OpenSMTPD relies on:
   * libasr (https://opensmtpd.org/archives/libasr-1.0.2.tar.gz)
 
 
-Get the source
---------------
+## Get the source
 
     git clone -b portable git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
 
 
-Build
------
+## Build
 
     cd opensmtpd*
     ./bootstrap  # Only if you build from git sources
@@ -61,28 +57,27 @@ Build
     make
     sudo make install
 
-# Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
+
+## Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
 
 Please launch configure with special directive about libevent and
 libasr directory:
 
-# FreeBSD / DragonFlyBSD:
+### FreeBSD / DragonFlyBSD:
 
     ./configure --with-libasr=/usr/local
 
-# Mac OS X:
+### Mac OS X:
 
     ./configure --with-libevent=/opt/local --with-libasr=/opt/local
 
 
-Install
--------
+## Install
 
     sudo make install
 
 
-Setup historical interface
--------
+### Setup historical interface
 
 OpenSMTPD provides a single utility `smtpctl` to control the daemon and
 the local submission subsystem.
@@ -116,18 +111,16 @@ links in their packages as it is very hard for us to accomodate all systems
 with the prefered method in a clean way.
 
 
-Configure /etc/smtpd.conf
--------------------------
+### Configure /etc/smtpd.conf
 
 Please have a look at the complete format description of smtpd.conf
 configuration file (https://man.openbsd.org/smtpd.conf)
 
 
-Add OpenSMTPD users
--------------------
+### Add OpenSMTPD users
 
-To operate, OpenSMTPD requires at least one user, by default _smtpd; and
-preferably two users, by default _smtpd and _smtpq.
+To operate, OpenSMTPD requires at least one user, by default `_smtpd`; and
+preferably two users, by default `_smtpd` and `_smtpq`.
 
 Using two users instead of one will increase security by a large factor
 so... if you want to voluntarily reduce security or you have absolute
@@ -139,18 +132,18 @@ script allows overriding these using the options:
 --with-user-smtpd, --with-user-queue, and --with-group-queue.
 
 
-# NetBSD, Linux (Debian, Arch Linux, ...)
+### NetBSD, Linux (Debian, Arch Linux, ...)
 
     mkdir /var/empty  
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
     useradd -c "SMTPD Queue" -d /var/empty -s /sbin/nologin _smtpq
 
-# DragonFlyBSD, FreeBSD
+### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
     pw useradd _smtpq -c "SMTPD Queue" -d /var/empty -s /sbin/nologin
 
-# Mac OS X
+### Mac OS X
 
 First we need a group with an unused GID below 500, list the current
 ones used:
@@ -180,11 +173,10 @@ Add a user - here we have picked 444:
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
-repeat for the _smtpq user.
+repeat for the `_smtpq` user.
 
 
-Launch smtpd
-------------
+## Launch smtpd
 
 First, kill any running sendmail/exim/qmail/postfix or other.
 
@@ -196,19 +188,87 @@ or in debug and verbose mode
 
     smtpd -dv
 
-# Docker version
 
-OpenSMTPD provides a convenient docker file for getting started quickly.  However, there are a few minor quirks to know about.
+## Docker version
 
-For ease of use, all configuration files live in '/etc/mail'.  This means the two files to modify are:
+OpenSMTPD provides a convenient docker file for getting started quickly with
+development or usage.
 
-	/etc/mail/smtpd.conf
-	/etc/mail/mailname
+### Short reference
 
-Also, local deliveries are disabled by default.  The nature of Docker makes interacting with local users a bit tricky, and requires a user to know the ins and outs of Docker.
+Default OpenSMTPD config only accepts localhost connections, so mount your own config if you want to talk to smtpd from outside.
+
+Exposed ports: 
+* 25
+* 465 
+* 587
+
+Volumes: 
+* `/etc/mail` - configuration directory
+* `/var/spool/smtpd` - state directory of smtpd
+
+See [Dockerfile](Dockerfile) for details
 
 
-To run the Docker version, create a '/etc/mail' directory, and add your own smtpd.conf file there.  Next, run:
-```
-docker run --name smtpd_server -p 25:25 -v /etc/mail:/etc/mail emperorarthur/opensmtpd
-```
+### Build
+
+First, you need to build the container:
+
+    docker build -t opensmtpd-dev .
+
+This will build the container with OpenSMTPD and run some tests. If everything
+went ok you can run the container.
+
+### Run 
+
+To run the container execute the following command:
+
+> port 10025 was chosen to avoid possible permission denied errors. 
+> Any port above 1024 should work):
+
+    docker run --rm -ti -p 10025:25 opensmtpd-dev
+
+
+Container's port 25 will be exposed on your localhost port 10025. However
+OpenSMTPD's default config only accepts local (relevant to smtpd) connections,
+so if you attempt to talk to port 10025 you will see:
+
+    [~]$ telnet localhost 10025
+    Trying ::1...
+    Connected to localhost.
+    Escape character is '^]'.
+    Connection closed by foreign host.
+
+Luckily there is a way to change this. You will need to mount your own
+directory with configuration files. Create a folder somewhere and put your
+`smtpd.conf` there. In this example the folder on local machine that contains
+custom config is [docker/examples/config](docker/examples/config) and it allows delivery for local recipients
+from any source
+
+    docker run --rm -ti -p 10025:25 -v $(pwd)/docker/examples/config:/etc/mail opensmtpd-dev:latest 
+
+
+So now you can try sending [test email](tests/test_email_noauth.txt) like this:
+
+    awk '{print $0; system("sleep .1");}' "tests/test_email_noauth.txt"  | nc localhost 10025
+
+    220 60f5076d05ff ESMTP OpenSMTPD
+    250 60f5076d05ff Hello localhost [172.17.0.1], pleased to meet you
+    250 2.0.0 Ok
+    250 2.1.5 Destination address valid: Recipient ok
+    354 Enter mail, end with "." on a line by itself
+    250 2.0.0 2da6a23e Message accepted for delivery
+    221 2.0.0 Bye
+
+In the same way you can mount a directory to persist OpenSMTPD's data. Just mount
+a directory to /var/spool/smtpd
+
+    docker run --rm -ti -p 10025:25 \
+    -v $(pwd)/docker/examples/config:/etc/mail \
+    -v ~/tmp/mail:/var/spool/smtpd \
+    opensmtpd-dev:latest
+
+> Since OpenSMTPD requires data volume to be owned by root and have strictly set
+> permissions the directory that you mount to `/var/spool/smtpd` will get chown'ed
+> to root with 711 permissions. (At this moment I don't know a good way to fix this)
+

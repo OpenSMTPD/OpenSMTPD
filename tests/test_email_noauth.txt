@@ -1,0 +1,10 @@
+HELO localhost
+MAIL FROM:<_smtpd@localhost>
+RCPT TO:<postmaster@localhost>
+DATA
+Subject: Test Email from OpenSMTPD
+
+Hey Postmaster, looks like you got some mail!
+
+.
+QUIT

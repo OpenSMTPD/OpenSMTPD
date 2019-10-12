@@ -39,9 +39,10 @@ RUN apk add --no-cache \
 RUN mkdir -p /var/lib/opensmtpd/empty \
     && adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
     && adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
-    && mkdir -p /var/spool/smtpd \
+    && mkdir -p /var/lib/opensmtpd/empty \
     && mkdir -p /var/mail \
-    && mkdir -p /etc/mail
+    && mkdir -p /etc/mail \
+    && mkdir -p /var/spool/smtpd
 
 WORKDIR /opensmtpd
 COPY . /opensmtpd
@@ -61,7 +62,7 @@ RUN rm -r /usr/local/ \
    && chmod 711 /var/spool/smtpd
 
 COPY smtpd/smtpd.conf /etc/mail/smtpd.conf
-COPY etc/aliases /etc/mail/aliases
+COPY docker/examples/config/aliases /etc/mail/aliases
 
 # TODO run tests here
 
@@ -86,6 +87,7 @@ WORKDIR /var/spool/smtpd
 
 RUN apk add --no-cache db openssl libevent libasr fts zlib ca-certificates \ 
     && mkdir -p /var/lib/opensmtpd/empty \
+    && mkdir -p /var/mail \
     && mkdir -p /etc/mail \
     && mkdir -p /var/spool/smtpd \
     && touch /etc/mail/aliases \
@@ -95,8 +97,10 @@ RUN apk add --no-cache db openssl libevent libasr fts zlib ca-certificates \
 
 COPY --from=build /usr/local/ /usr/local/
 COPY smtpd/smtpd.conf /etc/mail/smtpd.conf
-COPY etc/aliases /etc/mail/aliases
-COPY etc/docker-entrypoint.sh /docker-entrypoint.sh
+COPY docker/examples/config/aliases /etc/mail/aliases
+COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
 
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
-CMD [ "-P", "mda" ]
+
+# Explicitly override any previously existing CMD
+CMD [ ]
