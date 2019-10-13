@@ -17,8 +17,8 @@ RUN apk add --no-cache \
     libasr-dev \
     fts-dev \
     zlib-dev \
-    libressl-dev \
-    libressl
+    openssl-dev \
+    openssl
 
 #For testing
 RUN mkdir -p /var/lib/opensmtpd/empty/ && \
@@ -50,7 +50,7 @@ WORKDIR /var/spool/smtpd
 ENTRYPOINT ["smtpd", "-d"]
 CMD ["-P", "mda"]
 
-RUN apk add --no-cache libressl libevent libasr fts zlib ca-certificates && \
+RUN apk add --no-cache openssl libevent libasr fts zlib ca-certificates && \
     mkdir -p /var/lib/opensmtpd/empty/ && \
     adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
