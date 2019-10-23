@@ -25,6 +25,7 @@ RUN mkdir -p /var/lib/opensmtpd/empty/ && \
     adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     mkdir -p /var/spool/smtpd && \
+    mkdir -p /var/mail && \
     chmod 711 /var/spool/smtpd
 
 COPY . /opensmtpd
@@ -55,6 +56,7 @@ RUN apk add --no-cache openssl libevent libasr fts zlib ca-certificates && \
     adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false && \
     mkdir -p /etc/mail/ && \
+    mkdir -p /var/mail && \
     mkdir -p /var/spool/smtpd && \
     chmod 711 /var/spool/smtpd
 
