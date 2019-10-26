@@ -1,0 +1,12 @@
+on: [push]
+name: Docker builds
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Alpine Linux build
+      run: docker build . --file docker/Dockerfile.alpine --tag opensmtpd-alpine:$(date +%s)
