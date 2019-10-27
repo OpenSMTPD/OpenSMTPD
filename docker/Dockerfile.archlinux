@@ -1,0 +1,43 @@
+FROM archlinux
+
+WORKDIR /opensmtpd
+
+RUN pacman -Suy --noconfirm \
+  make \
+  m4 \
+  grep \
+  gcc \
+  automake \
+  autoconf \
+  libtool \ 
+  bison \
+  libasr \
+  libevent \
+  libressl \
+  pam \
+  zlib
+
+
+RUN mkdir -p /var/lib/opensmtpd/empty \
+  && useradd _smtpd \
+     --home-dir /var/lib/opensmtpd/empty \
+     --no-create-home \
+     --shell /bin/false \
+  && useradd _smtpq \
+     --home-dir /var/lib/opensmtpd/empty \
+     --no-create-home \
+     --shell /bin/false \
+  && mkdir -p /var/spool/smtpd \
+  && mkdir -p /var/mail \
+  && mkdir -p /etc/mail \
+  && chmod 711 /var/spool/smtpd
+
+COPY . /opensmtpd
+
+
+RUN ./bootstrap \
+  && ./configure --with-gnu-ld \
+       --sysconfdir=/etc/mail \
+       --with-path-empty=/var/lib/opensmtpd/empty \
+  && make \
+  && make install
