@@ -127,7 +127,7 @@ unsigned int arc4random(void);
 void arc4random_stir(void);
 #elif defined(HAVE_ARC4RANDOM) || defined(LIBRESSL_VERSION_NUMBER)
 /* Recent system/libressl implementation; no need for explicit stir */
-# define arc4random_stir()
+void arc4random_stir(void);
 #else
 /* openbsd-compat/arc4random.c provides arc4random_stir() */
 void arc4random_stir(void);
