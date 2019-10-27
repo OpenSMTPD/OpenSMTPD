@@ -38,6 +38,8 @@ COPY . /opensmtpd
 RUN ./bootstrap \
   && ./configure --with-gnu-ld \
        --sysconfdir=/etc/mail \
+       --with-cflags='-I/usr/include/libressl -L/usr/lib/libressl -Wl,-rpath=/usr/lib/libressl' \
        --with-path-empty=/var/lib/opensmtpd/empty \
+       --with-auth-pam \
   && make \
   && make install
