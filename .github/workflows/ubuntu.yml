@@ -1,10 +1,14 @@
-name: Ubuntu build
+# Ubuntu build that leverages GitHub's native Actions environment
+# This build uses openssl + glibc 
+
+name: Ubuntu build (openssl+glibc)
 
 on: [push]
 
 jobs:
   build:
 
+    # Ubuntu latest is really latest LTS
     runs-on: ubuntu-latest
     
     steps:
