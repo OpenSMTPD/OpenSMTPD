@@ -1,8 +1,8 @@
-Preliminary note
-================
+# Preliminary note
 
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as
-defined by RFC 5321, with some additional standard extensions.
+defined by [RFC 5321](https://tools.ietf.org/html/rfc5321), with some
+additional standard extensions.
 
 It allows ordinary machines to exchange e-mails with other systems
 speaking the SMTP protocol.
@@ -29,11 +29,9 @@ contribute to.
 Cheers!
 
 
-How to build, configure and use Portable OpenSMTPD
-==================================================
+# How to build, configure and use Portable OpenSMTPD
 
-Dependencies
-------------
+## Dependencies
 
 Portable OpenSMTPD relies on:
   * autoconf (http://www.gnu.org/software/autoconf/)
@@ -42,18 +40,17 @@ Portable OpenSMTPD relies on:
     or byacc (http://invisible-island.net/byacc/byacc.html)
   * libevent (http://libevent.org/)
   * libtool (http://www.gnu.org/software/libtool/)
-  * libressl (https://www.libressl.org/)
-  * libasr (https://opensmtpd.org/archives/libasr-1.0.2.tar.gz)
+  * libressl (https://www.libressl.org/) >= 3.0.2
+    or OpenSSL (https://www.openssl.org/) >= 1.1.0
+  * libasr (https://opensmtpd.org/archives/libasr-1.0.3.tar.gz) >= 1.0.3
 
 
-Get the source
---------------
+## Get the source
 
     git clone -b portable git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
 
 
-Build
------
+## Build
 
     cd opensmtpd*
     ./bootstrap  # Only if you build from git sources
@@ -61,28 +58,26 @@ Build
     make
     sudo make install
 
-# Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
+### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
 
 Please launch configure with special directive about libevent and
 libasr directory:
 
-# FreeBSD / DragonFlyBSD:
+### FreeBSD / DragonFlyBSD:
 
     ./configure --with-libasr=/usr/local
 
-# Mac OS X:
+### Mac OS X:
 
     ./configure --with-libevent=/opt/local --with-libasr=/opt/local
 
 
-Install
--------
+## Install
 
     sudo make install
 
 
-Setup historical interface
--------
+## Setup historical interface
 
 OpenSMTPD provides a single utility `smtpctl` to control the daemon and
 the local submission subsystem.
@@ -91,7 +86,7 @@ To accomodate systems that require historical interfaces such as `sendmail`,
 `newaliases` or `makemap`, the `smtpctl` utility can operate in compatibility
 mode if called with the historical name.
 
-On mailwrapper-enabled systems, this is achieved by editing /etc/mailer.conf
+On mailwrapper-enabled systems, this is achieved by editing `/etc/mailer.conf`
 and adding the following lines:
 
     sendmail        /usr/sbin/smtpctl
@@ -116,18 +111,16 @@ links in their packages as it is very hard for us to accomodate all systems
 with the prefered method in a clean way.
 
 
-Configure /etc/smtpd.conf
--------------------------
+## Configure /etc/smtpd.conf
 
 Please have a look at the complete format description of smtpd.conf
 configuration file (https://man.openbsd.org/smtpd.conf)
 
 
-Add OpenSMTPD users
--------------------
+## Add OpenSMTPD users
 
-To operate, OpenSMTPD requires at least one user, by default _smtpd; and
-preferably two users, by default _smtpd and _smtpq.
+To operate, OpenSMTPD requires at least one user, by default `_smtpd`; and
+preferably two users, by default `_smtpd` and `_smtpq`.
 
 Using two users instead of one will increase security by a large factor
 so... if you want to voluntarily reduce security or you have absolute
@@ -136,38 +129,38 @@ more faith in our code than we do, by all means use one.
 
 The instructions below assume the default users however, the configure
 script allows overriding these using the options:
---with-user-smtpd, --with-user-queue, and --with-group-queue.
+`--with-user-smtpd`, `--with-user-queue`, and `--with-group-queue`.
 
 
-# NetBSD, Linux (Debian, Arch Linux, ...)
+### NetBSD, Linux (Debian, Arch Linux, ...)
 
     mkdir /var/empty  
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
     useradd -c "SMTPD Queue" -d /var/empty -s /sbin/nologin _smtpq
 
-# DragonFlyBSD, FreeBSD
+### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
     pw useradd _smtpq -c "SMTPD Queue" -d /var/empty -s /sbin/nologin
 
-# Mac OS X
+### Mac OS X
 
-First we need a group with an unused GID below 500, list the current
+First we need a group with an unused GID below `500`, list the current
 ones used:
 
 	/usr/bin/dscl . -list /Groups PrimaryGroupID | sort -n -k2,2
 
-Add a group - here we have picked 444:
+Add a group - here we have picked `444`:
 
 	/usr/bin/sudo /usr/bin/dscl . -create /Groups/_smtpd
 	PrimaryGroupID 444
 
-Then the user. Again we need an unused UID below 500, list the current
+Then the user. Again we need an unused UID below `500`, list the current
 ones used:
 
 	/usr/bin/dscl . -list /Users UniqueID | sort -n -k2,2
 
-Add a user - here we have picked 444:
+Add a user - here we have picked `444`:
 
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UniqueID 444
 	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd AuthenticationAuthority
@@ -180,11 +173,10 @@ Add a user - here we have picked 444:
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
 	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
-repeat for the _smtpq user.
+repeat for the `_smtpq` user.
 
 
-Launch smtpd
-------------
+## Launch smtpd
 
 First, kill any running sendmail/exim/qmail/postfix or other.
 
@@ -196,19 +188,3 @@ or in debug and verbose mode
 
     smtpd -dv
 
-# Docker version
-
-OpenSMTPD provides a convenient docker file for getting started quickly.  However, there are a few minor quirks to know about.
-
-For ease of use, all configuration files live in '/etc/mail'.  This means the two files to modify are:
-
-	/etc/mail/smtpd.conf
-	/etc/mail/mailname
-
-Also, local deliveries are disabled by default.  The nature of Docker makes interacting with local users a bit tricky, and requires a user to know the ins and outs of Docker.
-
-
-To run the Docker version, create a '/etc/mail' directory, and add your own smtpd.conf file there.  Next, run:
-```
-docker run --name smtpd_server -p 25:25 -v /etc/mail:/etc/mail emperorarthur/opensmtpd
-```

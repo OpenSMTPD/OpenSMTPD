@@ -11,13 +11,25 @@ a reference for package maintainers of various distributions.
 
 ## Usage
 
+OpenSMTPD provides a set of dockerfiles for getting started with development
+quickly.
+
 For each distribution there is a separate dockerfile with a distro name
 suffixed.  E.g. `Dockerfile.alpine` is a dockerfile that builds OpenSMTPD in
-Alpine Linux environment
+Alpine Linux environment.
 
 To build:
 
-`docker build -f docker/Dockerfile.alpine -t opensmtpd-alpine`
+    docker build -f docker/Dockerfile.alpine -t opensmtpd-alpine
+
+
+All configuration files that are in `/etc/mail` are taken from `etc/`  directory.
+
+
+To run the container that you've just built run:
+
+    docker run --name smtpd_server -p 25:25 opensmtpd-alpine
+
 
 
 
