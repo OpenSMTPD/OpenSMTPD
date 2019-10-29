@@ -1,4 +1,4 @@
-/*	$OpenBSD: util.c,v 1.147 2019/08/28 19:46:20 eric Exp $	*/
+/*	$OpenBSD: util.c,v 1.150 2019/10/03 04:49:12 gilles Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -182,65 +182,6 @@ bsnprintf(char *str, size_t size, const char *format, ...)
 	return 1;
 }
 
-
-static int
-mkdirs_component(char *path, mode_t mode)
-{
-	struct stat	sb;
-
-	if (stat(path, &sb) == -1) {
-		if (errno != ENOENT)
-			return 0;
-		if (mkdir(path, mode | S_IWUSR | S_IXUSR) == -1)
-			return 0;
-	}
-	else if (!S_ISDIR(sb.st_mode))
-		return 0;
-
-	return 1;
-}
-
-int
-mkdirs(char *path, mode_t mode)
-{
-	char	 buf[PATH_MAX];
-	int	 i = 0;
-	int	 done = 0;
-	char	*p;
-
-	/* absolute path required */
-	if (*path != '/')
-		return 0;
-
-	/* make sure we don't exceed PATH_MAX */
-	if (strlen(path) >= sizeof buf)
-		return 0;
-
-	memset(buf, 0, sizeof buf);
-	for (p = path; *p; p++) {
-		if (*p == '/') {
-			if (buf[0] != '\0')
-				if (!mkdirs_component(buf, mode))
-					return 0;
-			while (*p == '/')
-				p++;
-			buf[i++] = '/';
-			buf[i++] = *p;
-			if (*p == '\0' && ++done)
-				break;
-			continue;
-		}
-		buf[i++] = *p;
-	}
-	if (!done)
-		if (!mkdirs_component(buf, mode))
-			return 0;
-
-	if (chmod(path, mode) == -1)
-		return 0;
-
-	return 1;
-}
 
 int
 ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
@@ -840,6 +781,7 @@ getmailname(char *hostname, size_t len)
 
 	if (strlcpy(hostname, res->ai_canonname, len) >= len) {
 		fprintf(stderr, "hostname too long");
+		freeaddrinfo(res);
 		return -1;
 	}
 
@@ -858,6 +800,26 @@ int
 base64_decode(char const *src, unsigned char *dest, size_t destsize)
 {
 	return __b64_pton(src, dest, destsize);
+}
+
+int
+base64_encode_rfc3548(unsigned char const *src, size_t srclen,
+	      char *dest, size_t destsize)
+{
+	size_t i;
+	int ret;
+
+	if ((ret = base64_encode(src, srclen, dest, destsize)) == -1)
+		return -1;
+
+	for (i = 0; i < destsize; ++i) {
+		if (dest[i] == '/')
+			dest[i] = '_';
+		else if (dest[i] == '+')
+			dest[i] = '-';
+	}
+
+	return ret;
 }
 
 void

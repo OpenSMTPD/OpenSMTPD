@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.637 2019/09/18 11:26:30 eric Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.641 2019/09/30 08:31:41 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -69,7 +69,7 @@
  * potentially dangerous and need to be escaped.
  */
 #define	MAILADDR_ALLOWED       	"!#$%&'*/?^`{|}~+-=_"
-#define	MAILADDR_ESCAPE		"!#$%&'*/?^`{|}~"
+#define	MAILADDR_ESCAPE		"!#$%&'*?`{|}~"
 
 
 #define F_STARTTLS		0x01
@@ -620,6 +620,10 @@ struct smtpd {
 	char				       *sc_tls_ciphers;
 
 	char				       *sc_subaddressing_delim;
+
+	char				       *sc_srs_key;
+	char				       *sc_srs_key_backup;
+	int				        sc_srs_ttl;
 };
 
 #define	TRACE_DEBUG	0x0001
@@ -806,6 +810,7 @@ struct mta_relay {
 	char			*helotable;
 	char			*heloname;
 	char			*secret;
+	int			 srs;
 
 	int			 state;
 	size_t			 ntask;
@@ -1164,6 +1169,8 @@ struct dispatcher_remote {
 
 	int	 backup;
 	char	*backupmx;
+
+	int	 srs;
 };
 
 struct dispatcher_bounce {
@@ -1589,6 +1596,11 @@ void log_imsg(int, int, struct imsg *);
 int fork_proc_backend(const char *, const char *, const char *);
 
 
+/* srs.c */
+const char *srs_encode(const char *, const char *);
+const char *srs_decode(const char *);
+
+
 /* ssl_smtpd.c */
 void   *ssl_mta_init(void *, char *, off_t, const char *);
 void   *ssl_smtp_init(void *, int);
@@ -1665,7 +1677,6 @@ void addargs(arglist *, char *, ...)
 	__attribute__((format(printf, 2, 3)));
 int bsnprintf(char *, size_t, const char *, ...)
 	__attribute__((format (printf, 3, 4)));
-int mkdirs(char *, mode_t);
 int safe_fclose(FILE *);
 int hostname_match(const char *, const char *);
 int mailaddr_match(const struct mailaddr *, const struct mailaddr *);
@@ -1700,6 +1711,8 @@ int session_socket_error(int);
 int getmailname(char *, size_t);
 int base64_encode(unsigned char const *, size_t, char *, size_t);
 int base64_decode(char const *, unsigned char *, size_t);
+int base64_encode_rfc3548(unsigned char const *, size_t,
+		      char *, size_t);
 
 void log_trace_verbose(int);
 void log_trace(int, const char *, ...)

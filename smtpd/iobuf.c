@@ -1,4 +1,4 @@
-/*	$OpenBSD: iobuf.c,v 1.11 2019/06/12 17:42:53 eric Exp $	*/
+/*	$OpenBSD: iobuf.c,v 1.12 2019/10/03 07:03:23 gilles Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

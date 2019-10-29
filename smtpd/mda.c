@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.139 2019/08/10 19:16:01 gilles Exp $	*/
+/*	$OpenBSD: mda.c,v 1.141 2019/10/03 08:50:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -242,8 +242,6 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		n = 0;
-
 		/* start queueing delivery headers */
 		if (e->sender[0])
 			/*
@@ -271,9 +269,9 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 
 		/* request parent to fork a helper process */
 		memset(&deliver, 0, sizeof deliver);
-		text_to_mailaddr(&deliver.sender, s->evp->sender);
-		text_to_mailaddr(&deliver.rcpt, s->evp->rcpt);
-		text_to_mailaddr(&deliver.dest, s->evp->dest);
+		(void)text_to_mailaddr(&deliver.sender, s->evp->sender);
+		(void)text_to_mailaddr(&deliver.rcpt, s->evp->rcpt);
+		(void)text_to_mailaddr(&deliver.dest, s->evp->dest);
 		if (s->evp->mda_exec)
 			(void)strlcpy(deliver.mda_exec, s->evp->mda_exec, sizeof deliver.mda_exec);
 		if (s->evp->mda_subaddress)
