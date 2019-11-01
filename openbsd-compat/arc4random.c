@@ -26,12 +26,12 @@
 
 #include "includes.h"
 
+#if !defined(HAVE_ARC4RANDOM) && !defined(LIBRESSL_VERSION_NUMBER)
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-
-#ifndef HAVE_ARC4RANDOM
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
@@ -163,7 +163,6 @@ _rs_random_u32(uint32_t *val)
 	return;
 }
 
-#if !defined(HAVE_ARC4RANDOM) && !defined(LIBRESSL_VERSION_NUMBER)
 void
 arc4random_stir(void)
 {
@@ -171,7 +170,6 @@ arc4random_stir(void)
 	_rs_stir();
 	_ARC4_UNLOCK();
 }
-#endif
 
 void
 arc4random_addrandom(u_char *dat, int datlen)
