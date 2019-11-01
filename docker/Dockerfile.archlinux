@@ -11,6 +11,7 @@ RUN pacman -Suy --noconfirm \
   autoconf \
   libtool \ 
   bison \
+  gettext \
   libasr \
   libevent \
   libressl \
