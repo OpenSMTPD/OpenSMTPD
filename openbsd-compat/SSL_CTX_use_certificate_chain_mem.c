@@ -62,6 +62,8 @@
 
 #include "includes.h"
 
+#ifndef HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
+
 #include <sys/types.h>
 
 #include <limits.h>
@@ -80,6 +82,9 @@
 #include "ssl.h"
 
 #define SSL_ECDH_CURVE          "prime256v1"
+
+
+long SSL_CTX_get_extra_chain_certs_only(SSL_CTX *ctx, STACK_OF(X509) **sk);
 
 /*
  * Read a bio that contains our certificate in "PEM" format,
@@ -154,7 +159,6 @@ end:
 	return (ret);
 }
 
-#ifndef HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
 int
 SSL_CTX_use_certificate_chain_mem(SSL_CTX *ctx, void *buf, int len)
 {
