@@ -19,6 +19,9 @@
 /* OPENBSD ORIGINAL: lib/libc/gen/errc.c */
 
 #include "includes.h"
+
+#ifndef HAVE_ERRC
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -27,7 +30,7 @@
 
 extern char *__progname;
 
-void
+static void
 _verrc(int eval, int code, const char *fmt, va_list ap)
 {
         (void)fprintf(stderr, "%s: ", __progname);
@@ -48,3 +51,5 @@ errc(int eval, int code, const char *fmt, ...)
         _verrc(eval, code, fmt, ap);
         va_end(ap);
 }
+
+#endif
