@@ -83,9 +83,6 @@
 
 #define SSL_ECDH_CURVE          "prime256v1"
 
-
-long SSL_CTX_get_extra_chain_certs_only(SSL_CTX *ctx, STACK_OF(X509) **sk);
-
 /*
  * Read a bio that contains our certificate in "PEM" format,
  * possibly followed by a sequence of CA certificates that should be
