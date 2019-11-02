@@ -1,8 +1,18 @@
 FROM archlinux
 
+# Allow container to expose ports at runtime, if necessary
+# https://docs.docker.com/engine/reference/#expose
+EXPOSE 25
+EXPOSE 465
+EXPOSE 587
+
+# creates /opensmtpd dir and makes all following commands to run in it
+# https://docs.docker.com/engine/reference/builder/#workdir
 WORKDIR /opensmtpd
 
+# install necessary packages
 RUN pacman -Suy --noconfirm \
+  base \
   make \
   m4 \
   grep \
@@ -19,6 +29,7 @@ RUN pacman -Suy --noconfirm \
   zlib
 
 
+# create users and directories
 RUN mkdir -p /var/lib/opensmtpd/empty \
   && useradd _smtpd \
      --home-dir /var/lib/opensmtpd/empty \
@@ -33,9 +44,13 @@ RUN mkdir -p /var/lib/opensmtpd/empty \
   && mkdir -p /etc/mail \
   && chmod 711 /var/spool/smtpd
 
+
+# Copy contentes of the repo inside the container
+# https://docs.docker.com/engine/reference/builder/#copy
 COPY . /opensmtpd
 
 
+# build opensmtpd
 RUN ./bootstrap \
   && ./configure --with-gnu-ld \
        --sysconfdir=/etc/mail \
@@ -43,4 +58,6 @@ RUN ./bootstrap \
        --with-path-empty=/var/lib/opensmtpd/empty \
        --with-auth-pam \
   && make \
-  && make install
+  && make install \
+  && cp etc/aliases /etc/mail/aliases
+

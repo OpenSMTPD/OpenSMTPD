@@ -1,0 +1,57 @@
+FROM alpine:3.10 as build
+
+# Allow container to expose ports at runtime, if necessary
+# https://docs.docker.com/engine/reference/#expose
+EXPOSE 25
+EXPOSE 465
+EXPOSE 587
+
+# creates /opensmtpd dir and makes all following commands to run in it
+# https://docs.docker.com/engine/reference/builder/#workdir
+WORKDIR /opensmtpd
+
+# install necessary packages
+RUN apk add --no-cache \
+    autoconf \
+    automake \
+    bison \
+    ca-certificates \
+    fts-dev \
+    gcc \
+    fts \
+    libasr-dev \
+    libevent-dev \
+    libtool \
+    libtool \
+    linux-pam-dev \
+    make \
+    musl-dev \
+    openssl \
+    openssl-dev \
+    zlib-dev
+ 
+# create users and directories
+# note: alpine uses busybox and useradd is not available there
+# also long flags are not available too, so sorry for the 
+RUN mkdir -p /var/lib/opensmtpd/empty \
+  && adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && mkdir -p /var/spool/smtpd \
+  && mkdir -p /var/mail \
+  && mkdir -p /etc/mail \
+  && chmod 711 /var/spool/smtpd
+
+# Copy contentes of the repo inside the container
+# https://docs.docker.com/engine/reference/builder/#copy
+COPY . /opensmtpd
+
+# build opensmtpd
+RUN ./bootstrap \
+  && ./configure \
+       --with-gnu-ld \
+       --sysconfdir=/etc/mail \
+       --with-auth-pam \
+  && make \
+  && make install \
+  && cp etc/aliases /etc/mail/aliases
+
