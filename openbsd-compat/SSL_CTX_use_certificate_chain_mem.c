@@ -62,6 +62,8 @@
 
 #include "includes.h"
 
+#ifndef HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
+
 #include <sys/types.h>
 
 #include <limits.h>
@@ -154,7 +156,6 @@ end:
 	return (ret);
 }
 
-#ifndef HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
 int
 SSL_CTX_use_certificate_chain_mem(SSL_CTX *ctx, void *buf, int len)
 {
