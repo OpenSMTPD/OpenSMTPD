@@ -141,7 +141,7 @@ void arc4random_buf(void *, size_t);
 uint32_t arc4random_uniform(uint32_t);
 #endif
 
-#if !defined(SSL_OP_NO_CLIENT_RENEGOTIATION)
+#if !defined(SSL_OP_NO_CLIENT_RENEGOTIATION) && !defined(LIBRESSL_VERSION_NUMBER)
 #define SSL_OP_NO_CLIENT_RENEGOTIATION 0
 #endif
 
