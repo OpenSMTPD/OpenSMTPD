@@ -317,7 +317,7 @@ text_to_netaddr(struct netaddr *netaddr, const char *s)
 		if (bits == -1) {
 			if (errno != EAFNOSUPPORT)
 				return 0;
-			bits = broken_inet_net_pton_ipv6(s, &ssin6.sin6_addr,
+			bits = broken_inet_net_pton_ipv6(buf, &ssin6.sin6_addr,
 			    sizeof(struct in6_addr));
 			if (bits == -1)
 				return 0;
