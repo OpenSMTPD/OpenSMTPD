@@ -1,4 +1,6 @@
-# Preliminary note
+# OpenSMTPD
+
+[![Coverity Scan analysis](https://scan.coverity.com/projects/278/badge.svg)](https://scan.coverity.com/projects/opensmtpd-opensmtpd)
 
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as
 defined by [RFC 5321](https://tools.ietf.org/html/rfc5321), with some
