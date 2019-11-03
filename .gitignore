@@ -45,3 +45,9 @@ cov-int/
 cov-analysis-linux64/
 cov-analysis-linux64.tgz
 opensmtpd.tgz
+
+
+# TLS certs
+open.smtpd.cert
+open.smtpd.csr
+open.smtpd.key
