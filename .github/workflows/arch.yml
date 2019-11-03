@@ -1,4 +1,4 @@
-name: Ubuntu (amd64 glibc openssl)
+name: Archlinux (amd64 glibc libressl)
 on: 
   push:
     branches:
@@ -11,5 +11,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Ubuntu (amd64 glibc openssl)
-      run: docker build . --file ci/docker/Dockerfile.ubuntu --tag opensmtpd:ubuntu
+    - name: Archlinux (amd64 glibc libressl)
+      run: docker build . --file ci/docker/Dockerfile.archlinux --tag opensmtpd:archlinux

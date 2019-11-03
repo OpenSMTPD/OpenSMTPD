@@ -1,0 +1,15 @@
+name: Coverity Scan
+on:
+  schedule:
+    - cron: '0 23 * * *' # Daily at 23:00 UTC
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: dependencies
+      run: sudo apt install libasr-dev libevent-dev libssl-dev bison
+    - name: scan
+      run: sh ci/scripts/coverity_scan.sh
+      env:
+        token: ${{ secrets.COVERITY_SCAN_TOKEN }}
