@@ -71,7 +71,8 @@ Scripts to automate ci/cd actions:
 - [coverity_scan](scripts/coverity_scan.sh) - runs coverity scan and submits 
   the rusult to Coverity. See script contents for usage instructions.
 
-
+- [generate_certs](scripts/generate_certs.sh) - convenient script to quickly
+  generate some TLS certificates. Useful for testing.
 
 # Historical reference
 
