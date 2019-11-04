@@ -67,6 +67,9 @@ static void resolver_res_query_cb(struct asr_result *, void *);
 static int request_cmp(struct request *, struct request *);
 SPLAY_PROTOTYPE(reqtree, request, entry, request_cmp);
 
+/* musl work-around */
+void portable_freeaddrinfo(struct addrinfo *);
+
 static struct reqtree reqs;
 
 void
@@ -408,7 +411,7 @@ resolver_getaddrinfo_cb(struct asr_result *ar, void *arg)
 	m_close(s->proc);
 
 	if (ar->ar_addrinfo)
-		freeaddrinfo(ar->ar_addrinfo);
+		portable_freeaddrinfo(ar->ar_addrinfo);
 	free(s);
 }
 

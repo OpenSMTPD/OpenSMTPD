@@ -259,6 +259,9 @@ static void smtp_filter_end(struct smtp_session *);
 static void smtp_filter_data_begin(struct smtp_session *);
 static void smtp_filter_data_end(struct smtp_session *);
 
+/* musl work-around */
+void portable_freeaddrinfo(struct addrinfo *);
+
 static struct {
 	int code;
 	enum filter_phase filter_phase;
@@ -684,7 +687,7 @@ smtp_getaddrinfo_cb(void *arg, int gaierrno, struct addrinfo *ai0)
 				break;
 			}
 		}
-		freeaddrinfo(ai0);
+		portable_freeaddrinfo(ai0);
 	}
 
 	smtp_lookup_servername(s);

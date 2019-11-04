@@ -855,3 +855,16 @@ xclosefrom(int lowfd)
     closefrom(lowfd);
 #endif
 }
+
+void
+portable_freeaddrinfo(struct addrinfo *ai)
+{
+	struct addrinfo *p;
+
+	do {
+		p = ai;
+		ai = ai->ai_next;
+		free(p->ai_canonname);
+		free(p);
+	} while (ai);
+}
