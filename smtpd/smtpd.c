@@ -2153,7 +2153,7 @@ parent_auth_bsd(const char *username, const char *password)
 #ifdef USE_PAM
 int 
 pam_conv_password(int num_msg, const struct pam_message **msg,
-    struct pam_response **respp, const char *password)
+    struct pam_response **respp, void *password)
 {
 	struct pam_response *response;
 
@@ -2174,7 +2174,7 @@ parent_auth_pam(const char *username, const char *password)
 {
 	int rc;
 	pam_handle_t *pamh = NULL;
-	struct pam_conv conv = { pam_conv_password, password };
+	struct pam_conv conv = { pam_conv_password, (char *)password };
 
 	if ((rc = pam_start(USE_PAM_SERVICE, username, &conv, &pamh)) != PAM_SUCCESS)
 		goto end;
