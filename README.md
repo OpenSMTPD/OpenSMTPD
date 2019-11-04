@@ -48,7 +48,7 @@ Portable OpenSMTPD relies on:
   * libasr (https://opensmtpd.org/archives/libasr-1.0.3.tar.gz)
 
 
-By defaul OpenSMTPD expects latest versions of all dependencies unless noted otherwise
+By default OpenSMTPD expects latest versions of all dependencies unless noted otherwise
 
 ## Get the source
 
