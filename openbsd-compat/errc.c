@@ -30,6 +30,7 @@
 
 extern char *__progname;
 
+__attribute__((noreturn))
 static void
 _verrc(int eval, int code, const char *fmt, va_list ap)
 {
