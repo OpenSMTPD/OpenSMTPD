@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.641 2019/09/30 08:31:41 martijn Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.642 2019/11/03 23:58:51 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -73,7 +73,7 @@
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#define	SMTPD_VERSION		 "6.6.0-portable"
+#define	SMTPD_VERSION		 "6.6.1-portable"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
