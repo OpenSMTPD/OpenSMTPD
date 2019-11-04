@@ -222,6 +222,7 @@ void *recallocarray(void *, size_t, size_t, size_t);
 #endif
 
 #ifndef HAVE_ERRC
+__attribute__ ((noreturn))
 void errc(int, int, const char *, ...);
 #endif
 
