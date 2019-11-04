@@ -43,10 +43,12 @@ Portable OpenSMTPD relies on:
     or byacc (http://invisible-island.net/byacc/byacc.html)
   * libevent (http://libevent.org/)
   * libtool (http://www.gnu.org/software/libtool/)
-  * libressl (https://www.libressl.org/) >= 3.0.2
-    or OpenSSL (https://www.openssl.org/) >= 1.1.0
-  * libasr (https://opensmtpd.org/archives/libasr-1.0.3.tar.gz) >= 1.0.3
+  * libressl (https://www.libressl.org/)
+    or OpenSSL (https://www.openssl.org/)
+  * libasr (https://opensmtpd.org/archives/libasr-1.0.3.tar.gz)
 
+
+By defaul OpenSMTPD expects latest versions of all dependencies unless noted otherwise
 
 ## Get the source
 
