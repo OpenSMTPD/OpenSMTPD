@@ -9,6 +9,7 @@ This is a bugfix release. No new features were added.
 - Fixed crash in `arc4random` caused by differences in OpenSSL vs LibreSSL compatibility layer plumbing [#958](https://github.com/OpenSMTPD/OpenSMTPD/issues/958)  
 - Fixed issue where `from any` rules never matched by IPv6 sources [#969](https://github.com/OpenSMTPD/OpenSMTPD/issues/969)
 - Fixed crash that happened during mail relay on musl distros [#929](https://github.com/OpenSMTPD/OpenSMTPD/issues/929)
+- Added reference aliases file in `etc/aliases`
 - Fixed multiple compilation warnings 
 [#965](https://github.com/OpenSMTPD/OpenSMTPD/issues/965)
 [#966](https://github.com/OpenSMTPD/OpenSMTPD/issues/966)
