@@ -1,4 +1,25 @@
-# Release 6.6.0 #
+# Release 6.6.1p1 (2019-11-06)
+
+## Changes in this release (since 6.6.0p1)
+
+This is a bugfix release. No new features were added.
+
+- Fixed crash on recipient expansion [#968](https://github.com/OpenSMTPD/OpenSMTPD/issues/968)
+- Fixed broken build with LibreSSL [#944](https://github.com/OpenSMTPD/OpenSMTPD/issues/944)
+- Fixed crash in `arc4random` caused by differences in OpenSSL vs LibreSSL compatibility layer plumbing [#958](https://github.com/OpenSMTPD/OpenSMTPD/issues/958)  
+- Fixed issue where `from any` rules never matched by IPv6 sources [#969](https://github.com/OpenSMTPD/OpenSMTPD/issues/969)
+- Fixed crash that happened during mail relay on musl distros [#929](https://github.com/OpenSMTPD/OpenSMTPD/issues/929)
+- Fixed multiple compilation warnings 
+[#965](https://github.com/OpenSMTPD/OpenSMTPD/issues/965)
+[#966](https://github.com/OpenSMTPD/OpenSMTPD/issues/966)
+[#967](https://github.com/OpenSMTPD/OpenSMTPD/issues/967)
+[#978](https://github.com/OpenSMTPD/OpenSMTPD/issues/978)
+[#977](https://github.com/OpenSMTPD/OpenSMTPD/issues/977)
+[#975](https://github.com/OpenSMTPD/OpenSMTPD/issues/975)
+
+
+
+# Release 6.6.0p1 (2019-10-26)
 
 ## Dependencies note:
 
