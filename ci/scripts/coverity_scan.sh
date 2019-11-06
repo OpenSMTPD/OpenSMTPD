@@ -20,6 +20,8 @@ cd "$(dirname "$0")"
 # This moves us to the root of the repo
 cd "$(git rev-parse --show-toplevel)"
 
+# Get short SHA of the HEAD
+sha=$(git rev-parse --short HEAD)
 
 # Download Coverity Build Tool if absent
 set +x
@@ -49,11 +51,27 @@ tar czvf opensmtpd.tgz cov-int
 
 
 # Submit the result to Coverity Scan
+# Some parts are shamelessly taken from:
+# https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh
 set +x
-curl \
+response=$(curl \
+  --silent \
+  --write-out "\n%{http_code}\n" \
   --form token="$token" \
   --form email="$maintainer" \
   --form file=@opensmtpd.tgz \
-  --form version="portable" \
+  --form version="portable-$sha" \
   --form description="daily scan" \
-  "https://scan.coverity.com/builds?project=$project_name"
+  "https://scan.coverity.com/builds?project=$project_name")
+set -x
+
+status_code=$(echo "$response" | sed -n '$p')
+
+if [ "$status_code" != "200" ]; then
+  text=$(echo "$response" | sed '$d')
+  echo -e "Coverity Scan upload failed: $text"
+  exit 1
+fi
+
+
+
