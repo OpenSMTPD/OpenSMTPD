@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Generate self-signed SSL certs
+# Usage: ./generate_certs.sh
+
 days=3560           # 10 years
 config="$(dirname "$0")/ssl.conf"
 cert="open.smtpd.cert"
