@@ -297,8 +297,13 @@ control_accept(int listenfd, short event, void *arg)
 	uid_t			 euid;
 	gid_t			 egid;
 
+#if defined(HAVE_GETDTABLESIZE) && defined(HAVE_GETDTABLECOUNT)
+	if (getdtablesize() - getdtablecount() < CONTROL_FD_RESERVE)
+		goto pause;
+#else
 	if (available_fds(CONTROL_FD_RESERVE))
 		goto pause;
+#endif
 
 	len = sizeof(s_un);
 	if ((connfd = accept(listenfd, (struct sockaddr *)&s_un, &len)) == -1) {
@@ -371,8 +376,13 @@ control_close(struct ctl_conn *c)
 
 	stat_backend->decrement("control.session", 1);
 
+#if defined(HAVE_GETDTABLESIZE) && defined(HAVE_GETDTABLECOUNT)
+	if (getdtablesize() - getdtablecount() < CONTROL_FD_RESERVE)
+		return;
+#else
 	if (available_fds(CONTROL_FD_RESERVE))
 		return;
+#endif
 
 	if (!event_pending(&control_state.ev, EV_READ, NULL)) {
 		log_warnx("warn: re-enabling ctl connections");

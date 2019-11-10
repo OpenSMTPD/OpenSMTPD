@@ -22,29 +22,6 @@
 
 #include "log.h"
 
-#ifndef HAVE_SETRESGID
-int setresgid(uid_t rgid, uid_t egid, uid_t sgid)
-{
-
-#if defined(HAVE_SETRESGID) && !defined(BROKEN_SETRESGID)
-	if (setresgid(rgid, egid, sgid) < 0)
-		fatal("setresgid %u: %.100s", (u_int)rgid, strerror(errno));
-#elif defined(HAVE_SETREGID) && !defined(BROKEN_SETREGID)
-	if (setregid(rgid, egid) < 0)
-		fatal("setregid %u: %.100s", (u_int)rgid, strerror(errno));
-#else
-	if (setegid(egid) < 0)
-		fatal("setegid %u: %.100s", (u_int)egid, strerror(errno));
-	if (setgid(rgid) < 0)
-		fatal("setgid %u: %.100s", (u_int)rgid, strerror(errno));
-#endif
-	return (0);
-}
-#endif /* HAVE_SETRESGID */
-
-
-
-#ifndef HAVE_SETRESUID
 int setresuid(uid_t ruid, uid_t euid, uid_t suid)
 {
 
@@ -64,4 +41,3 @@ int setresuid(uid_t ruid, uid_t euid, uid_t suid)
 #endif
 	return (0);
 }
-#endif /* HAVE_SETRESUID */

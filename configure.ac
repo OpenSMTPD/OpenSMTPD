@@ -397,24 +397,18 @@ AC_ARG_WITH([libs],
 #
 # CHECKS FOR LIBRARY FUNCTIONS
 #
-BASENAME_SUPPORT=no
 AC_SEARCH_LIBS([basename],
 	[gen],
 	[
 		AC_DEFINE([HAVE_BASENAME], [1], 
 			[Define if you have the basename() function.])
-		BASENAME_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_BASENAME], [test $BASENAME_SUPPORT = yes])
 
-
-CLOSEFROM_SUPPORT=no
 AC_SEARCH_LIBS([closefrom],
 	[gen],
 	[
 		AC_DEFINE([HAVE_CLOSEFROM], [1], 
 			[Define if you have the closefrom() function.])
-		CLOSEFROM_SUPPORT=yes
         AC_COMPILE_IFELSE(
             [
                 AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT], [[int res = closefrom(0);]])
@@ -422,7 +416,6 @@ AC_SEARCH_LIBS([closefrom],
             AC_DEFINE(HAVE_CLOSEFROM_INT, 1, [closefrom return int])
         )
 	])
-AM_CONDITIONAL([SUPPORT_CLOSEFROM], [test $CLOSEFROM_SUPPORT = yes])
 
 UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
@@ -434,54 +427,33 @@ AC_SEARCH_LIBS([utimes],
 	])
 AM_CONDITIONAL([SUPPORT_UTIMES], [test $UTIMES_SUPPORT = yes])
 
-FMT_SCALED_SUPPORT=no
 AC_SEARCH_LIBS([fmt_scaled],
 	[util bsd],
 	[
 		AC_DEFINE([HAVE_FMT_SCALED], [1],
 			[Define if you have the fmt_scaled() function.])
-		FMT_SCALED_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_FMT_SCALED], [test $FMT_SCALED_SUPPORT = yes])
 
-DIRNAME_SUPPORT=no
 AC_SEARCH_LIBS([dirname],
 	[gen],
 	[
 		AC_DEFINE([HAVE_DIRNAME], [1],
 			[Define if you have the dirname() function.])
-		DIRNAME_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_DIRNAME], [test $DIRNAME_SUPPORT = yes])
 
-ERRC_SUPPORT=no
-AC_CHECK_FUNC([errc],
-	[
-		AC_DEFINE([HAVE_ERRC], [1],
-			[Define if you have the errc() function.])
-		ERRC_SUPPORT=yes
-	])
-AM_CONDITIONAL([SUPPORT_ERRC], [test $ERRC_SUPPORT = yes])
-
-INET_NET_PTON_SUPPORT=no
 AC_SEARCH_LIBS([inet_net_pton],
-	[resolv],
+	[resolv bsd],
 	[
 		AC_DEFINE([HAVE_INET_NET_PTON], [1],
 			[Define if you have the inet_net_pton() function.])
-		INET_NET_PTON_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_INET_NET_PTON], [test $INET_NET_PTON_SUPPORT = yes])
 
-CLOCK_GETTIME_SUPPORT=no
 AC_SEARCH_LIBS([clock_gettime],
 	[rt],
 	[
 		AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
 			[Define if you have the clock_gettime() function.])
-		CLOCK_GETTIME_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_CLOCK_GETTIME], [test $CLOCK_GETTIME_SUPPORT = yes])
 
 FTS_OPEN_SUPPORT=no
 AC_SEARCH_LIBS([fts_open],
@@ -493,35 +465,19 @@ AC_SEARCH_LIBS([fts_open],
 	])
 AM_CONDITIONAL([SUPPORT_FTS_OPEN], [test $FTS_OPEN_SUPPORT = yes])
 
-FLOCK_SUPPORT=no
-AC_SEARCH_LIBS([flock],
-	[],
-	[
-		AC_DEFINE([HAVE_FLOCK], [1],
-			[Define if you have the flock() function.])
-		FLOCK_SUPPORT=yes
-	])
-AM_CONDITIONAL([SUPPORT_FLOCK], [test $FLOCK_SUPPORT = yes])
-
-DAEMON_SUPPORT=no
 AC_SEARCH_LIBS([daemon],
 	[bsd],
 	[
 		AC_DEFINE([HAVE_DAEMON], [1],
 			[Define if you have the daemon() function.])
-		DAEMON_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_DAEMON], [test $DAEMON_SUPPORT = yes])
 
-FPARSELN_SUPPORT=no
 AC_SEARCH_LIBS([fparseln],
 	[util],
 	[
 		AC_DEFINE([HAVE_FPARSELN], [1],
 			[Define if you have the fparseln() function.])
-		FPARSELN_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_FPARSELN], [test $FPARSELN_SUPPORT = yes])
 
 RES_9_B64_NTOP_SUPPORT=no
 AC_SEARCH_LIBS([res_9_b64_ntop],
@@ -553,50 +509,13 @@ AC_SEARCH_LIBS([crypt],
 	])
 AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
-GETLINE_SUPPORT=no
-AC_CHECK_FUNC([getline],
+AC_SEARCH_LIBS([imsg_init],
+	[util],
 	[
-		AC_DEFINE([HAVE_GETLINE], [1],
-			[Define if you have the getline() function.])
-		GETLINE_SUPPORT=yes
+		AC_DEFINE([HAVE_IMSG], [1], 
+			[Define if you have the imsg framework.])
 	])
-AM_CONDITIONAL([SUPPORT_GETLINE], [test $GETLINE_SUPPORT = yes])
 
-EXPLICIT_BZERO_SUPPORT=no
-AC_CHECK_FUNC([explicit_bzero],
-	[
-		AC_DEFINE([HAVE_EXPLICIT_BZERO], [1],
-			[Define if you have the explicit_bzero() function.])
-		EXPLICIT_BZERO_SUPPORT=yes
-	])
-AM_CONDITIONAL([SUPPORT_EXPLICIT_BZERO], [test $EXPLICIT_BZERO_SUPPORT = yes])
-
-CRYPT_CHECKPASS_SUPPORT=no
-AC_CHECK_FUNC([crypt_checkpass],
-	[
-		AC_DEFINE([HAVE_CRYPT_CHECKPASS], [1],
-			[Define if you have the crypt_checkpass() function.])
-		CRYPT_CHECKPASS_SUPPORT=yes
-	])
-AM_CONDITIONAL([SUPPORT_CRYPT_CHECKPASS], [test $CRYPT_CHECKPASS_SUPPORT = yes])
-
-STRNDUP_SUPPORT=no
-AC_CHECK_FUNC([strndup],
-	[
-		AC_DEFINE([HAVE_STRNDUP], [1],
-			[Define if you have the strndup() function.])
-		STRNDUP_SUPPORT=yes
-	])
-AM_CONDITIONAL([SUPPORT_STRNDUP], [test $STRNDUP_SUPPORT = yes])
-
-STRNLEN_SUPPORT=no
-AC_CHECK_FUNC([strnlen],
-	[
-		AC_DEFINE([HAVE_STRNLEN], [1],
-			[Define if you have the strnlen() function.])
-		STRNLEN_SUPPORT=yes
-	])
-AM_CONDITIONAL([SUPPORT_STRNLEN], [test $STRNLEN_SUPPORT = yes])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
@@ -610,12 +529,17 @@ AC_CHECK_FUNCS([ \
 	crypt_checkpass \
 	dirfd \
 	endgrent \
+	errc \
 	explicit_bzero \
 	fchflags \
 	fgetln \
+	flock \
 	freeaddrinfo \
 	freezero \
 	getaddrinfo \
+	getdtablesize \
+	getdtablecount \
+	getline \
 	getnameinfo \
 	gettimeofday \
 	getopt \
@@ -650,6 +574,8 @@ AC_CHECK_FUNCS([ \
 	strlcat \
 	strlcpy \
 	strmode \
+	strndup \
+	strnlen \
 	strnvis \
 	strtonum \
 	sysconf \
@@ -2070,10 +1996,53 @@ AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 
-
-
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
+
+
+##
+AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_have_basename" != "xyes"])
+
+AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_have_errc" != "xyes"])
+
+AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_have_closefrom" != "xyes"])
+AM_CONDITIONAL([NEED_CRYPT_CHECKPASS], [test "x$ac_cv_have_crypt_checkpass" != "xyes"])
+AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_have_clock_gettime" != "xyes"])
+
+AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_have_daemon" != "xyes"])
+AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_have_dirname" != "xyes"])
+
+AM_CONDITIONAL([NEED_EXPLICIT_BZERO], [test "x$ac_cv_have_explicit_bzero" != "xyes"])
+
+AM_CONDITIONAL([NEED_FGETLN], [test "x$ac_cv_have_fgetln" != "xyes"])
+AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_have_fmt_scaled" != "xyes"])
+AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_have_fparseln" != "xyes"])
+AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_have_freezero" != "xyes"])
+
+#AM_CONDITIONAL([NEED_GETLINE], [test "x$ac_cv_have_getline" != "xyes"])
+
+AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_have_imsg_init" != "xyes"])
+AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_have_inet_net_pton" != "xyes"])
+
+AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_have_pidfile" != "xyes"])
+AM_CONDITIONAL([NEED_PW_DUP], [test "x$ac_cv_have_pw_dup" != "xyes"])
+
+AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_have_reallocarray" != "xyes"])
+AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_have_recallocarray" != "xyes"])
+
+
+AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_have_setresgid" != "xyes"])
+AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_have_strresuid" != "xyes"])
+
+AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_have_strlcat" != "xyes"])
+AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_have_strlcpy" != "xyes"])
+AM_CONDITIONAL([NEED_STRMODE], [test "x$ac_cv_have_strmode" != "xyes"])
+AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_have_strsep" != "xyes"])
+AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_have_strtonum" != "xyes"])
+AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_have_strndup" != "xyes"])
+AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_have_strnlen" != "xyes"])
+##
+
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile

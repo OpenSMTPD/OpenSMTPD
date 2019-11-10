@@ -31,8 +31,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef HAVE_PW_DUP
-
 #define PW_SIZE(name, size)				\
 do {							\
 	if (pw->name) {					\
@@ -93,4 +91,3 @@ pw_dup(const struct passwd *pw)
 
 	return (newpw);
 }
-#endif
