@@ -27,7 +27,7 @@ libopenbsd_compat_a_SOURCES += clock_gettime.c
 endif
 
 if NEED_CLOSEFROM
-libopenbsd_compat_a_SOURCES += bsd-closefrom.c
+libopenbsd_compat_a_SOURCES += closefrom.c
 endif
 
 if NEED_CRYPT_CHECKPASS
