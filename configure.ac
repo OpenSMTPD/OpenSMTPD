@@ -113,6 +113,7 @@ AC_SUBST([MANFMT])
 #
 
 
+
 #
 # CHECKS FOR HEADERS
 #
@@ -253,6 +254,8 @@ AC_CHECK_TYPES([struct addrinfo], [], [], [
 AC_CHECK_TYPES([struct timeval], [], [], [
 #include <sys/time.h>
 ])
+
+AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 
 
 #
@@ -611,10 +614,6 @@ fi
 ###
 ### EVERYTHING BELOW MUST BE CLEANED AND MOVED ABOVE
 ###
-
-
-AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
-#l108
 
 #l150 (without _FORTIFY_SOURCE=2)
 if test "$GCC" = "yes" -o "$GCC" = "egcs"; then
