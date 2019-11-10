@@ -6,7 +6,6 @@ libopenbsd_compat_a_SOURCES +=	arc4random.c
 libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
 libopenbsd_compat_a_SOURCES +=	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
-libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
 libopenbsd_compat_a_SOURCES +=	getopt.c
