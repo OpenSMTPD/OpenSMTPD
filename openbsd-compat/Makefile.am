@@ -5,7 +5,6 @@ libopenbsd_compat_a_SOURCES =	empty.c
 libopenbsd_compat_a_SOURCES +=	arc4random.c
 libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
 libopenbsd_compat_a_SOURCES +=	base64.c
-libopenbsd_compat_a_SOURCES +=	bsd-getpeereid.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
@@ -69,6 +68,10 @@ endif
 
 #if NEED_GETLINE
 #libopenbsd_compat_a_SOURCES +=	getline.c
+#endif
+
+#if NEED_GETPEEREID
+libopenbsd_compat_a_SOURCES +=	getpeereid.c
 #endif
 
 if NEED_IMSG

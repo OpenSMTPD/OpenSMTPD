@@ -2002,6 +2002,7 @@ AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_have_fparseln" != "xyes"])
 AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_have_freezero" != "xyes"])
 
 #AM_CONDITIONAL([NEED_GETLINE], [test "x$ac_cv_have_getline" != "xyes"])
+AM_CONDITIONAL([NEED_GETPEEREID], [test "x$ac_cv_have_getpeereid" != "xyes"])
 
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_have_imsg_init" != "xyes"])
 AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_have_inet_net_pton" != "xyes"])

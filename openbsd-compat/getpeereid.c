@@ -16,8 +16,6 @@
 
 #include "includes.h"
 
-#if !defined(HAVE_GETPEEREID)
-
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -69,5 +67,3 @@ getpeereid(int s, uid_t *euid, gid_t *gid)
 	return (0);
 }
 #endif /* defined(SO_PEERCRED) */
-
-#endif /* !defined(HAVE_GETPEEREID) */
