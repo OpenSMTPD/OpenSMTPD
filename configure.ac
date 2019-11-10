@@ -510,7 +510,7 @@ AC_SEARCH_LIBS([crypt],
 AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
 AC_SEARCH_LIBS([imsg_init],
-	[gen],
+	[util],
 	[
 		AC_DEFINE([HAVE_IMSG], [1], 
 			[Define if you have the imsg framework.])
