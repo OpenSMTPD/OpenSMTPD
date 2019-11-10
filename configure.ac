@@ -417,15 +417,12 @@ AC_SEARCH_LIBS([closefrom],
         )
 	])
 
-UTIMES_SUPPORT=no
 AC_SEARCH_LIBS([utimes],
 	[c89],
 	[
 		AC_DEFINE([HAVE_UTIMES],
 			[1], [Define if you have the utimes() function.])
-		UTIMES_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_UTIMES], [test $UTIMES_SUPPORT = yes])
 
 AC_SEARCH_LIBS([fmt_scaled],
 	[util bsd],
@@ -455,15 +452,12 @@ AC_SEARCH_LIBS([clock_gettime],
 			[Define if you have the clock_gettime() function.])
 	])
 
-FTS_OPEN_SUPPORT=no
 AC_SEARCH_LIBS([fts_open],
 	[fts],
 	[
 		AC_DEFINE([HAVE_FTS_OPEN], [1],
 			[Define if you have the fts_open() function.])
-		FTS_OPEN_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_FTS_OPEN], [test $FTS_OPEN_SUPPORT = yes])
 
 AC_SEARCH_LIBS([daemon],
 	[bsd],
@@ -479,35 +473,26 @@ AC_SEARCH_LIBS([fparseln],
 			[Define if you have the fparseln() function.])
 	])
 
-RES_9_B64_NTOP_SUPPORT=no
 AC_SEARCH_LIBS([res_9_b64_ntop],
 	[resolv],
 	[
 		AC_DEFINE([HAVE_RES_9_B64_NTOP], [1],
 			[Define if you have the res_9_b64_ntop() function.])
-		RES_9_B64_NTOP_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_RES_9_B64_NTOP], [test $RES_9_B64_NTOP_SUPPORT = yes])
 
-SETSOCKOPT_SUPPORT=no
 AC_SEARCH_LIBS([setsockopt],
 	[socket],
 	[
 		AC_DEFINE([HAVE_SETSOCKOPT], [1],
 			[Define if you have the setsockopt() function.])
-		SETSOCKOPT_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_SETSOCKOPT], [test $SETSOCKOPT_SUPPORT = yes])
 
-CRYPT_SUPPORT=no
 AC_SEARCH_LIBS([crypt],
 	[crypt],
 	[
 		AC_DEFINE([HAVE_CRYPT], [1],
 			[Define if you have the crypt() function.])
-		CRYPT_SUPPORT=yes
 	])
-AM_CONDITIONAL([SUPPORT_CRYPT], [test $CRYPT_SUPPORT = yes])
 
 AC_SEARCH_LIBS([imsg_init],
 	[util],
