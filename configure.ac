@@ -2034,7 +2034,7 @@ AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_have_recallocarray" != "xyes
 AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_have_setresgid" != "xyes"])
 AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_have_strresuid" != "xyes"])
 
-AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test "x$ac_cv_have_ssl_ctx_use_certificate_chain_mem" != "xyes"])
+AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test "x$ac_cv_have_SSL_CTX_use_certificate_chain_mem" != "xyes"])
 
 AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_have_strlcat" != "xyes"])
 AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_have_strlcpy" != "xyes"])
