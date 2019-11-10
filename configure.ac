@@ -442,7 +442,7 @@ AC_SEARCH_LIBS([dirname],
 	])
 
 AC_SEARCH_LIBS([inet_net_pton],
-	[resolv],
+	[resolv bsd],
 	[
 		AC_DEFINE([HAVE_INET_NET_PTON], [1],
 			[Define if you have the inet_net_pton() function.])
