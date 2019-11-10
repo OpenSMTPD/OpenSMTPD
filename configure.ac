@@ -168,13 +168,11 @@ AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 
 AC_CHECK_HEADER([fts.h],
 	[],
-	[AC_MSG_ERROR([*** fts.h missing - please install fts library ***])],
+	[AC_MSG_ERROR([*** fts.h missing - please install libfts ***])],
 	[
 #include <sys/types.h>
 #include <sys/stat.h>
 ])
-
-
 
 
 #
@@ -584,7 +582,6 @@ AC_CHECK_DECL([strsep],
 # include <string.h>
 #endif
 	])
-
 
 
 # These functions might be found in libressl
@@ -1620,7 +1617,7 @@ AC_ARG_WITH([libasr],
 	fi ]
 )
 
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
+AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install libasr ***])],
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>])
@@ -1728,8 +1725,9 @@ if test "x${need_libevent_autodetect}" != "xno"; then
    done
 fi
 
+AC_CHECK_HEADER([event.h], ,[AC_MSG_ERROR([*** event.h missing - please install libevent ***])],
+[#include <sys/types.h>])
 LIBS="-levent $LIBS"
-
 AC_MSG_CHECKING([if programs using libevent functions will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[
@@ -2026,8 +2024,6 @@ AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_have_strsep" != "xyes"])
 AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_have_strtonum" != "xyes"])
 AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_have_strndup" != "xyes"])
 AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_have_strnlen" != "xyes"])
-
-AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_have_waitpid" != "xyes"])
 ##
 
 
