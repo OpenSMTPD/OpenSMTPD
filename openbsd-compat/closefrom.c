@@ -16,8 +16,6 @@
 
 #include "includes.h"
 
-#ifndef HAVE_CLOSEFROM
-
 #include <sys/types.h>
 #include <sys/param.h>
 #include <unistd.h>
@@ -106,4 +104,4 @@ closefrom(int lowfd)
     }
 }
 #endif /* !HAVE_FCNTL_CLOSEM */
-#endif /* HAVE_CLOSEFROM */
+
