@@ -2001,47 +2001,47 @@ LIBS="$LIBS ${SMTPDLIBS}"
 
 
 ##
-AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_have_decl_basename" = "xno"])
+AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_have_basename" = "xno"])
 
-AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_have_decl_errc" = "xno"])
+AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_have_errc" = "xno"])
 
-AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_have_decl_closefrom" = "xno"])
-AM_CONDITIONAL([NEED_CRYPT_CHECKPASS], [test "x$ac_cv_have_decl_crypt_checkpass" = "xno"])
-AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_have_decl_clock_gettime" = "xno"])
+AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_have_closefrom" = "xno"])
+AM_CONDITIONAL([NEED_CRYPT_CHECKPASS], [test "x$ac_cv_have_crypt_checkpass" = "xno"])
+AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_have_clock_gettime" = "xno"])
 
-AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_have_decl_daemon" = "xno"])
-AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_have_decl_dirname" = "xno"])
+AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_have_daemon" = "xno"])
+AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_have_dirname" = "xno"])
 
-AM_CONDITIONAL([NEED_EXPLICIT_BZERO], [test "x$ac_cv_have_decl_explicit_bzero" = "xno"])
+AM_CONDITIONAL([NEED_EXPLICIT_BZERO], [test "x$ac_cv_have_explicit_bzero" = "xno"])
 
-AM_CONDITIONAL([NEED_FGETLN], [test "x$ac_cv_have_decl_fgetln" = "xno"])
-AM_CONDITIONAL([NEED_FLOCK], [test "x$ac_cv_have_decl_flock" = "xno"])
-AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_have_decl_fmt_scaled" = "xno"])
-AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_have_decl_fparseln" = "xno"])
-AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_have_decl_freezero" = "xno"])
+AM_CONDITIONAL([NEED_FGETLN], [test "x$ac_cv_have_fgetln" = "xno"])
+AM_CONDITIONAL([NEED_FLOCK], [test "x$ac_cv_have_flock" = "xno"])
+AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_have_fmt_scaled" = "xno"])
+AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_have_fparseln" = "xno"])
+AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_have_freezero" = "xno"])
 
-AM_CONDITIONAL([NEED_GETLINE], [test "x$ac_cv_have_decl_getline" = "xno"])
+AM_CONDITIONAL([NEED_GETLINE], [test "x$ac_cv_have_getline" = "xno"])
 
-AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_have_decl_imsg_init" = "xno"])
-AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_have_decl_inet_net_pton" = "xno"])
+AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_have_imsg_init" = "xno"])
+AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_have_inet_net_pton" = "xno"])
 
-AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_have_decl_pidfile" = "xno"])
-AM_CONDITIONAL([NEED_PW_DUP], [test "x$ac_cv_have_decl_pw_dup" = "xno"])
+AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_have_pidfile" = "xno"])
+AM_CONDITIONAL([NEED_PW_DUP], [test "x$ac_cv_have_pw_dup" = "xno"])
 
-AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_have_decl_reallocarray" = "xno"])
-AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_have_decl_recallocarray" = "xno"])
+AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_have_reallocarray" = "xno"])
+AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_have_recallocarray" = "xno"])
 
 
-AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_have_decl_setresgid" = "xno"])
-AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_have_decl_strresuid" = "xno"])
+AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_have_setresgid" = "xno"])
+AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_have_strresuid" = "xno"])
 
-AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_have_decl_strlcat" = "xno"])
-AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_have_decl_strlcpy" = "xno"])
-AM_CONDITIONAL([NEED_STRMODE], [test "x$ac_cv_have_decl_strmode" = "xno"])
-AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_have_decl_strsep" = "xno"])
-AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_have_decl_strtonum" = "xno"])
-AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_have_decl_strndup" = "xno"])
-AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_have_decl_strnlen" = "xno"])
+AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_have_strlcat" = "xno"])
+AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_have_strlcpy" = "xno"])
+AM_CONDITIONAL([NEED_STRMODE], [test "x$ac_cv_have_strmode" = "xno"])
+AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_have_strsep" = "xno"])
+AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_have_strtonum" = "xno"])
+AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_have_strndup" = "xno"])
+AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_have_strnlen" = "xno"])
 ##
 
 
