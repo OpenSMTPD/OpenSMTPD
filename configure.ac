@@ -167,13 +167,11 @@ AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 
 AC_CHECK_HEADER([fts.h],
 	[],
-	[AC_MSG_ERROR([*** fts.h missing - please install fts library ***])],
+	[AC_MSG_ERROR([*** fts.h missing - please install libfts ***])],
 	[
 #include <sys/types.h>
 #include <sys/stat.h>
 ])
-
-
 
 
 #
@@ -581,7 +579,6 @@ AC_CHECK_DECL([strsep],
 # include <string.h>
 #endif
 	])
-
 
 
 # These functions might be found in libressl
@@ -1621,7 +1618,7 @@ AC_ARG_WITH([libasr],
 	fi ]
 )
 
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install first or check config.log ***])],
+AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install libasr ***])],
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>])
@@ -1729,8 +1726,10 @@ if test "x${need_libevent_autodetect}" != "xno"; then
    done
 fi
 
+AC_CHECK_HEADER([event.h], ,[AC_MSG_ERROR([*** event.h missing - please install libevent ***])],
+[#include <sys/types.h>])
+LIBS_BACKUP=$LIBS
 LIBS="-levent $LIBS"
-
 AC_MSG_CHECKING([if programs using libevent functions will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[
@@ -1745,6 +1744,7 @@ AC_LINK_IFELSE(
 		AC_MSG_RESULT([no])
 	]
 )
+LIBS=$LIBS_BACKUP
 
 
 #l2174 (customized, bu adding -lssl to LIBS)
