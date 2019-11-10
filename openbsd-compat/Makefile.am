@@ -55,10 +55,6 @@ if NEED_FGETLN
 libopenbsd_compat_a_SOURCES +=	fgetln.c
 endif
 
-if NEED_FLOCK
-libopenbsd_compat_a_SOURCES += flock.c
-endif
-
 if NEED_FMT_SCALED
 libopenbsd_compat_a_SOURCES += fmt_scaled.c
 endif
@@ -71,9 +67,9 @@ if NEED_FREEZERO
 libopenbsd_compat_a_SOURCES +=	freezero.c
 endif
 
-if NEED_GETLINE
-libopenbsd_compat_a_SOURCES +=	getline.c
-endif
+#if NEED_GETLINE
+#libopenbsd_compat_a_SOURCES +=	getline.c
+#endif
 
 if NEED_IMSG
 libopenbsd_compat_a_SOURCES +=	imsg.c
