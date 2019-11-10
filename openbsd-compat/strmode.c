@@ -31,7 +31,6 @@
 /* OPENBSD ORIGINAL: lib/libc/string/strmode.c */
 
 #include "includes.h"
-#ifndef HAVE_STRMODE
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -145,4 +144,3 @@ strmode(int mode, char *p)
 	*p++ = ' ';		/* will be a '+' if ACL's implemented */
 	*p = '\0';
 }
-#endif
