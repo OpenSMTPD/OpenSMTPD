@@ -62,8 +62,6 @@
 
 #include "includes.h"
 
-#ifndef HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
-
 #include <sys/types.h>
 
 #include <limits.h>
@@ -174,4 +172,3 @@ end:
 	BIO_free(in);
 	return (ret);
 }
-#endif
