@@ -1727,6 +1727,7 @@ fi
 
 AC_CHECK_HEADER([event.h], ,[AC_MSG_ERROR([*** event.h missing - please install libevent ***])],
 [#include <sys/types.h>])
+LIBS_BACKUP=$LIBS
 LIBS="-levent $LIBS"
 AC_MSG_CHECKING([if programs using libevent functions will link])
 AC_LINK_IFELSE(
@@ -1742,6 +1743,7 @@ AC_LINK_IFELSE(
 		AC_MSG_RESULT([no])
 	]
 )
+LIBS=$LIBS_BACKUP
 
 
 #l2174 (customized, bu adding -lssl to LIBS)
