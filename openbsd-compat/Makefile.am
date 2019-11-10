@@ -135,6 +135,11 @@ if NEED_STRNLEN
 libopenbsd_compat_a_SOURCES += strnlen.c
 endif
 
+if NEED_WAITPID
+libopenbsd_compat_a_SOURCES +=	waitpid.c
+endif
+
+
 
 if !SUPPORT_ERR_H
 libopenbsd_compat_a_SOURCES += bsd-err.c

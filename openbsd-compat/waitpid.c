@@ -24,7 +24,6 @@
 
 #include "includes.h"
 
-#ifndef HAVE_WAITPID 
 #include <errno.h>
 #include <sys/wait.h>
 #include "bsd-waitpid.h"
@@ -49,5 +48,3 @@ waitpid(int pid, int *stat_loc, int options)
 
         return (wait_pid);                               
 }
-
-#endif /* !HAVE_WAITPID */

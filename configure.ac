@@ -2024,6 +2024,8 @@ AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_have_strsep" != "xyes"])
 AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_have_strtonum" != "xyes"])
 AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_have_strndup" != "xyes"])
 AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_have_strnlen" != "xyes"])
+
+AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_have_waitpid" != "xyes"])
 ##
 
 
