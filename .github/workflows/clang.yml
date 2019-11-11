@@ -1,0 +1,35 @@
+name: Clang Scan
+
+on:
+  schedule:
+    - cron: '0 23 * * *' # Daily at 23:00 UTC
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install dependencies
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 9
+        sudo apt install \
+        clang-tools-9 \
+        libasr-dev \
+        libevent-dev \
+        libssl-dev \
+        bison
+    - uses: actions/checkout@v1
+    - name: run scan-build
+      run: |
+        export PATH=$PATH:/usr/lib/llvm-9/bin/
+        CLANG_SCAN_BADGE_REQUIRED=1 ci/scripts/clang_scan.sh
+    - name: publish results
+      run: |
+        aws s3 rm --recursive s3://opensmtpd/reports/clang/
+        cd clang-report
+        cd "$( find  . -type d | sort | tail -n1 )"
+        aws s3 sync . s3://opensmtpd/reports/clang
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
