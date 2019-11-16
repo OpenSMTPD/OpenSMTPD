@@ -87,10 +87,6 @@ if NEED_PIDFILE
 libopenbsd_compat_a_SOURCES +=	pidfile.c
 endif
 
-if NEED_PW_DUP
-libopenbsd_compat_a_SOURCES +=	pw_dup.c
-endif
-
 if NEED_REALLOCARRAY
 libopenbsd_compat_a_SOURCES +=	reallocarray.c
 endif

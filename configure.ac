@@ -540,7 +540,6 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nsleep \
 	pidfile \
-	pw_dup \
 	reallocarray \
 	recallocarray \
 	res_hnok \
@@ -2002,7 +2001,6 @@ AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_func_freezero" != "xyes"])
 #AM_CONDITIONAL([NEED_GETLINE], [test "x$ac_cv_have_getline" != "xyes"])
 AM_CONDITIONAL([NEED_GETPEEREID], [test "x$ac_cv_func_getpeereid" != "xyes"])
 AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_func_pidfile" != "xyes"])
-AM_CONDITIONAL([NEED_PW_DUP], [test "x$ac_cv_func_pw_dup" != "xyes"])
 AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_func_setresgid" != "xyes"])
