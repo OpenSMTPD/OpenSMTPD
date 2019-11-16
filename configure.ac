@@ -1983,47 +1983,37 @@ LIBS="$LIBS ${SMTPDLIBS}"
 
 
 ##
-AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_have_basename" != "xyes"])
+#AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_have_basename" != "xyes"])
+AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_search_basename" = "xno"])
+AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_search_clock_gettime" = "xno"])
+AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_search_closefrom" = "xno"])
+AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_search_daemon" = "xno"])
+AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_search_dirname" = "xno"])
+AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
+AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
+AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_search_inet_net_pton" = "xno"])
 
-AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_have_errc" != "xyes"])
-
-AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_have_closefrom" != "xyes"])
-AM_CONDITIONAL([NEED_CRYPT_CHECKPASS], [test "x$ac_cv_have_crypt_checkpass" != "xyes"])
-AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_have_clock_gettime" != "xyes"])
-
-AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_have_daemon" != "xyes"])
-AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_have_dirname" != "xyes"])
-
-AM_CONDITIONAL([NEED_EXPLICIT_BZERO], [test "x$ac_cv_have_explicit_bzero" != "xyes"])
-
-AM_CONDITIONAL([NEED_FGETLN], [test "x$ac_cv_have_fgetln" != "xyes"])
-AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_have_fmt_scaled" != "xyes"])
-AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_have_fparseln" != "xyes"])
-AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_have_freezero" != "xyes"])
-
+AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_func_errc" != "xyes"])
+AM_CONDITIONAL([NEED_CRYPT_CHECKPASS], [test "x$ac_cv_func_crypt_checkpass" != "xyes"])
+AM_CONDITIONAL([NEED_EXPLICIT_BZERO], [test "x$ac_cv_func_explicit_bzero" != "xyes"])
+AM_CONDITIONAL([NEED_FGETLN], [test "x$ac_cv_func_fgetln" != "xyes"])
+AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_func_fparseln" != "xyes"])
+AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_func_freezero" != "xyes"])
 #AM_CONDITIONAL([NEED_GETLINE], [test "x$ac_cv_have_getline" != "xyes"])
-AM_CONDITIONAL([NEED_GETPEEREID], [test "x$ac_cv_have_getpeereid" != "xyes"])
-
-AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_have_imsg_init" != "xyes"])
-AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_have_inet_net_pton" != "xyes"])
-
-AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_have_pidfile" != "xyes"])
-AM_CONDITIONAL([NEED_PW_DUP], [test "x$ac_cv_have_pw_dup" != "xyes"])
-
-AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_have_reallocarray" != "xyes"])
-AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_have_recallocarray" != "xyes"])
-
-
-AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_have_setresgid" != "xyes"])
-AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_have_strresuid" != "xyes"])
-
-AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_have_strlcat" != "xyes"])
-AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_have_strlcpy" != "xyes"])
-AM_CONDITIONAL([NEED_STRMODE], [test "x$ac_cv_have_strmode" != "xyes"])
-AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_have_strsep" != "xyes"])
-AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_have_strtonum" != "xyes"])
-AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_have_strndup" != "xyes"])
-AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_have_strnlen" != "xyes"])
+AM_CONDITIONAL([NEED_GETPEEREID], [test "x$ac_cv_func_getpeereid" != "xyes"])
+AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_func_pidfile" != "xyes"])
+AM_CONDITIONAL([NEED_PW_DUP], [test "x$ac_cv_func_pw_dup" != "xyes"])
+AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" != "xyes"])
+AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" != "xyes"])
+AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_func_setresgid" != "xyes"])
+AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_func_strresuid" != "xyes"])
+AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_func_strlcat" != "xyes"])
+AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_func_strlcpy" != "xyes"])
+AM_CONDITIONAL([NEED_STRMODE], [test "x$ac_cv_func_strmode" != "xyes"])
+AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_func_strsep" != "xyes"])
+AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_func_strtonum" != "xyes"])
+AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_func_strndup" != "xyes"])
+AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_func_strnlen" != "xyes"])
 ##
 
 
