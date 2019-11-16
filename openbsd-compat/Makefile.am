@@ -9,7 +9,6 @@ libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
-libopenbsd_compat_a_SOURCES +=	getopt.c
 libopenbsd_compat_a_SOURCES +=	setproctitle.c
 libopenbsd_compat_a_SOURCES +=	vis.c
 libopenbsd_compat_a_SOURCES +=	xmalloc.c
@@ -66,13 +65,13 @@ if NEED_FREEZERO
 libopenbsd_compat_a_SOURCES +=	freezero.c
 endif
 
-#if NEED_GETLINE
-#libopenbsd_compat_a_SOURCES +=	getline.c
-#endif
+if NEED_GETOPT
+libopenbsd_compat_a_SOURCES +=	getopt.c
+endif
 
-#if NEED_GETPEEREID
+if NEED_GETPEEREID
 libopenbsd_compat_a_SOURCES +=	getpeereid.c
-#endif
+endif
 
 if NEED_IMSG
 libopenbsd_compat_a_SOURCES +=	imsg.c
