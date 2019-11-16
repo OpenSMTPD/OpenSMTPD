@@ -3,7 +3,6 @@ noinst_LIBRARIES = libopenbsd-compat.a
 libopenbsd_compat_a_SOURCES =	empty.c
 
 libopenbsd_compat_a_SOURCES +=	arc4random.c
-libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
 libopenbsd_compat_a_SOURCES +=	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
@@ -100,6 +99,10 @@ endif
 
 if NEED_SETRESUID
 libopenbsd_compat_a_SOURCES +=	setresuid.c
+endif
+
+if NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
+libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
 endif
 
 if NEED_STRLCAT
