@@ -1065,7 +1065,9 @@ main(int argc, char **argv)
 	int		 privileged;
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
+#ifndef HAVE___PROGNAME
 	__progname = ssh_get_progname(argv[0]);
+#endif
 
 	sendmail_compat(argc, argv);
 	privileged = geteuid() == 0;

@@ -516,9 +516,12 @@ main(int argc, char *argv[])
 	char		**save_argv = argv;
 	char		*rexec = NULL;
 	struct smtpd	*conf;
-
+	
+#ifndef HAVE___PROGNAME
 	__progname = ssh_get_progname(argv[0]);
+#endif
 
+#ifndef HAVE_SETPROCTITLE
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;
 	saved_argv = xcalloc(argc + 1, sizeof(*saved_argv));
@@ -526,7 +529,6 @@ main(int argc, char *argv[])
 		saved_argv[i] = xstrdup(argv[i]);
 	saved_argv[i] = NULL;
 
-#ifndef HAVE_SETPROCTITLE
 	/* Prepare for later setproctitle emulation */
 	compat_init_setproctitle(argc, argv);
 	argv = saved_argv;

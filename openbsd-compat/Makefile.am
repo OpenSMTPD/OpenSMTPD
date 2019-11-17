@@ -2,8 +2,9 @@ noinst_LIBRARIES = libopenbsd-compat.a
 
 libopenbsd_compat_a_SOURCES =	empty.c
 
-libopenbsd_compat_a_SOURCES +=	bsd-misc.c
-
+if NEED_PROGNAME
+libopenbsd_compat_a_SOURCES +=	progname.c
+endif
 
 if NEED_ARC4RANDOM
 libopenbsd_compat_a_SOURCES +=	arc4random.c

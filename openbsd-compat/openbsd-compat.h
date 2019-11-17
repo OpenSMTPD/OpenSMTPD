@@ -308,6 +308,18 @@ struct timespec {
 int nanosleep(const struct timespec *, struct timespec *);
 #endif
 
+#ifdef NEED_SETEGID
+int setegid(uid_t);
+#endif
+
+#ifdef NEED_SETEUID
+int seteuid(uid_t);
+#endif
+
+#ifdef NEED_SETSID
+#define setsid() setpgrp(0, getpid())
+#endif
+
 #ifdef NEED_SIGNAL
 typedef void (*mysig_t)(int);
 mysig_t mysignal(int sig, mysig_t act);
@@ -321,5 +333,11 @@ const char *strerror(int);
 #ifdef NEED_USLEEP
 int usleep(unsigned int useconds);
 #endif
+
+char *get_progname(char *);
+
+
+
+
 
 #endif /* _OPENBSD_COMPAT_H */
