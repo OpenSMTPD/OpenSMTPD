@@ -8,11 +8,6 @@ libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
 libopenbsd_compat_a_SOURCES +=	vis.c
-libopenbsd_compat_a_SOURCES +=	xmalloc.c
-
-#if NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
-#libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
-#endif
 
 if NEED_BASENAME
 libopenbsd_compat_a_SOURCES += basename.c
