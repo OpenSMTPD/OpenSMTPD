@@ -473,6 +473,34 @@ AC_SEARCH_LIBS([res_9_b64_ntop],
 			[Define if you have the res_9_b64_ntop() function.])
 	])
 
+AC_SEARCH_LIBS([__b64_pton],
+	[resolv],
+	[
+		AC_DEFINE([HAVE___B64_PTON], [1],
+			[Define if you have the __b64_pton() function.])
+	])
+
+AC_SEARCH_LIBS([b64_pton],
+	[resolv],
+	[
+		AC_DEFINE([HAVE_B64_PTON], [1],
+			[Define if you have the b64_pton() function.])
+	])
+
+AC_SEARCH_LIBS([__b64_ntop],
+	[resolv],
+	[
+		AC_DEFINE([HAVE___B64_NTOP], [1],
+			[Define if you have the b64_ntop() function.])
+	])
+
+AC_SEARCH_LIBS([b64_ntop],
+	[resolv],
+	[
+		AC_DEFINE([HAVE_B64_NTOP], [1],
+			[Define if you have the b64_ntop() function.])
+	])
+
 AC_SEARCH_LIBS([setsockopt],
 	[socket],
 	[
@@ -503,10 +531,6 @@ AC_SEARCH_LIBS([event_asr_run],
 
 AC_CHECK_FUNCS([ \
 	asprintf \
-	b64_ntop \
-	__b64_ntop \
-	b64_pton \
-	__b64_pton \
 	bcopy \
 	calloc_conceal \
 	chflags \
@@ -1985,6 +2009,7 @@ LIBS="$LIBS ${SMTPDLIBS}"
 
 ##
 #AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_have_basename" != "xyes"])
+AM_CONDITIONAL([NEED_BASE64], [test "x$ac_cv_search_b64_ntop" = "xno" -a "x$ac_cv_search___b64_ntop" = "xno" ])
 AM_CONDITIONAL([NEED_BASENAME], [test "x$ac_cv_search_basename" = "xno"])
 AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_search_clock_gettime" = "xno"])
 AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_search_closefrom" = "xno"])

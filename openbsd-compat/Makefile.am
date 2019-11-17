@@ -3,9 +3,12 @@ noinst_LIBRARIES = libopenbsd-compat.a
 libopenbsd_compat_a_SOURCES =	empty.c
 
 libopenbsd_compat_a_SOURCES +=	arc4random.c
-libopenbsd_compat_a_SOURCES +=	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 
+
+if NEED_BASE64
+libopenbsd_compat_a_SOURCES +=	base64.c
+endif
 
 if NEED_BASENAME
 libopenbsd_compat_a_SOURCES += basename.c

@@ -46,8 +46,6 @@
 
 #include "includes.h"
 
-#if (!defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP)) || (!defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON))
-
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -129,7 +127,6 @@ static const char Pad64 = '=';
 	   characters followed by one "=" padding character.
    */
 
-#if !defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP) 
 int
 b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize)
 {
@@ -183,7 +180,6 @@ b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize)
 	target[datalength] = '\0';	/* Returned value doesn't count \0. */
 	return (datalength);
 }
-#endif /* !defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP) */
 
 #if !defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON)
 
@@ -310,6 +306,3 @@ b64_pton(char const *src, u_char *target, size_t targsize)
 
 	return (tarindex);
 }
-
-#endif /* !defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON) */
-#endif 
