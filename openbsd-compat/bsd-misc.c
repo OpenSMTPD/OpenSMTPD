@@ -43,10 +43,12 @@ char *__progname;
  */
 char *ssh_get_progname(char *argv0)
 {
+	char *retp;
 #ifdef HAVE___PROGNAME
 	extern char *__progname;
 
-	return __xstrdup(__progname);
+	if ((retp = strdup(__progname)) == NULL)
+		err(1, NULL);
 #else
 	char *p;
 
@@ -58,8 +60,10 @@ char *ssh_get_progname(char *argv0)
 	else
 		p++;
 
-	return __xstrdup(p);
+	if ((retp = strdup(p)) == NULL)
+		err(1, NULL);
 #endif
+	return retp
 }
 
 #ifndef HAVE_SETLOGIN
