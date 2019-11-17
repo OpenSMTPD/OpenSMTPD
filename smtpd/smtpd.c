@@ -666,7 +666,8 @@ main(int argc, char *argv[])
 	if (parse_config(conf, conffile, opts))
 		exit(1);
 
-	seed_rng();
+	if (RAND_status() != 1)
+		errx(1, "PRNG is not seeded");
 
 	if (strlcpy(env->sc_conffile, conffile, PATH_MAX)
 	    >= PATH_MAX)
