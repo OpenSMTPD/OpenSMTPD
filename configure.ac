@@ -2022,7 +2022,7 @@ AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_func_strtonum" != "xyes"])
 AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_func_strndup" != "xyes"])
 AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_func_strnlen" != "xyes"])
 AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_func_waitpid" != "xyes"])
-AM_CONDITIONAL([NEED_VIS], [test "x$ac_cv_func_strnvis" != "xyes"])
+AM_CONDITIONAL([NEED_VIS], [test "x$ac_cv_func_strnvis" != "xyes" -o "$BROKEN_STRNVIS" = "x1"])
 
 AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER != "xyes"])
 ##
