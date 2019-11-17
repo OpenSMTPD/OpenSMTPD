@@ -209,23 +209,6 @@ arc4random_buf(void *buf, size_t n)
 	_ARC4_UNLOCK();
 }
 
-/* arc4random_buf() that uses platform arc4random() */
-void
-arc4random_buf(void *_buf, size_t n)
-{
-	size_t i;
-	uint32_t r = 0;
-	char *buf = (char *)_buf;
-
-	for (i = 0; i < n; i++) {
-		if (i % 4 == 0)
-			r = arc4random();
-		buf[i] = r & 0xff;
-		r >>= 8;
-	}
-	explicit_bzero(&r, sizeof(r));
-}
-
 /*
  * Calculate a uniformly distributed random number less than upper_bound
  * avoiding "modulo bias".
