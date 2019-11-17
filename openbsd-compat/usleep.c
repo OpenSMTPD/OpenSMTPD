@@ -32,49 +32,12 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifndef HAVE___PROGNAME
-char *__progname;
-#endif
-
-/*
- * NB. duplicate __progname in case it is an alias for argv[0]
- * Otherwise it may get clobbered by setproctitle()
- */
-char *ssh_get_progname(char *argv0)
+int
+usleep(unsigned int useconds)
 {
-	char *retp;
-#ifdef HAVE___PROGNAME
-	extern char *__progname;
+	struct timespec ts;
 
-	if ((retp = strdup(__progname)) == NULL)
-		err(1, NULL);
-#else
-	char *p;
-
-	if (argv0 == NULL)
-		return ("unknown");	/* XXX */
-	p = strrchr(argv0, '/');
-	if (p == NULL)
-		p = argv0;
-	else
-		p++;
-
-	if ((retp = strdup(p)) == NULL)
-		err(1, NULL);
-#endif
-	return retp;
+	ts.tv_sec = useconds / 1000000;
+	ts.tv_nsec = (useconds % 1000000) * 1000;
+	return nanosleep(&ts, NULL);
 }
-
-#if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
-int seteuid(uid_t euid)
-{
-	return (setreuid(-1, euid));
-}
-#endif /* !defined(HAVE_SETEUID) && defined(HAVE_SETREUID) */
-
-#if !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID)
-int setegid(uid_t egid)
-{
-	return(setresgid(-1, egid, -1));
-}
-#endif /* !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID) */

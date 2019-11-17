@@ -35,25 +35,4 @@ int seteuid(uid_t);
 int setegid(uid_t);
 #endif /* !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID) */
 
-#ifndef HAVE_STRUCT_TIMEVAL
-struct timeval {
-	long tv_sec;
-	long tv_usec;
-}
-#endif /* HAVE_STRUCT_TIMEVAL */
-
-#if !defined(HAVE_NANOSLEEP) && !defined(HAVE_NSLEEP)
-#ifndef HAVE_STRUCT_TIMESPEC
-struct timespec {
-	time_t	tv_sec;
-	long	tv_nsec;
-};
-#endif
-int nanosleep(const struct timespec *, struct timespec *);
-#endif
-
-#ifndef HAVE_USLEEP
-int usleep(unsigned int useconds);
-#endif
-
 #endif /* _BSD_MISC_H */

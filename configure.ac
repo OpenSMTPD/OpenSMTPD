@@ -561,6 +561,7 @@ AC_CHECK_FUNCS([ \
 	inet_ntop \
 	malloc_conceal \
 	memmove \
+	nanosleep \
 	nsleep \
 	pidfile \
 	reallocarray \
@@ -589,6 +590,7 @@ AC_CHECK_FUNCS([ \
 	sysconf \
 	tcgetpgrp \
 	time \
+	usleep \
 	vasprintf \
 	vsnprintf \
 	waitpid \

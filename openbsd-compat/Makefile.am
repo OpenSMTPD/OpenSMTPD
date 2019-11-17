@@ -86,8 +86,8 @@ if NEED_INET_NET_PTON
 libopenbsd_compat_a_SOURCES += inet_net_pton.c
 endif
 
-if NEED_SIGNAL
-libopenbsd_compat_a_SOURCES +=	signal.c
+if NEED_NANOSLEEP
+libopenbsd_compat_a_SOURCES +=	nanosleep.c
 endif
 
 if NEED_PIDFILE
@@ -112,6 +112,10 @@ endif
 
 if NEED_SETRESUID
 libopenbsd_compat_a_SOURCES +=	setresuid.c
+endif
+
+if NEED_SIGNAL
+libopenbsd_compat_a_SOURCES +=	signal.c
 endif
 
 if NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
@@ -148,6 +152,10 @@ endif
 
 if NEED_STRNLEN
 libopenbsd_compat_a_SOURCES += strnlen.c
+endif
+
+if NEED_USLEEP
+libopenbsd_compat_a_SOURCES +=	usleep.c
 endif
 
 if NEED_VIS

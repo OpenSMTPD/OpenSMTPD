@@ -290,6 +290,24 @@ char * strnlen(const char *, size_t);
 #endif
 
 
+
+#ifndef HAVE_STRUCT_TIMEVAL
+struct timeval {
+	long tv_sec;
+	long tv_usec;
+}
+#endif
+
+#ifdef NEED_NANOSLEEP
+#ifndef HAVE_STRUCT_TIMESPEC
+struct timespec {
+	time_t	tv_sec;
+	long	tv_nsec;
+};
+#endif
+int nanosleep(const struct timespec *, struct timespec *);
+#endif
+
 #ifdef NEED_SIGNAL
 typedef void (*mysig_t)(int);
 mysig_t mysignal(int sig, mysig_t act);
@@ -300,5 +318,8 @@ mysig_t mysignal(int sig, mysig_t act);
 const char *strerror(int);
 #endif
 
+#ifdef NEED_USLEEP
+int usleep(unsigned int useconds);
+#endif
 
 #endif /* _OPENBSD_COMPAT_H */

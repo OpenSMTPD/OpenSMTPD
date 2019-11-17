@@ -32,49 +32,32 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifndef HAVE___PROGNAME
-char *__progname;
-#endif
-
-/*
- * NB. duplicate __progname in case it is an alias for argv[0]
- * Otherwise it may get clobbered by setproctitle()
- */
-char *ssh_get_progname(char *argv0)
+int
+nanosleep(const struct timespec *req, struct timespec *rem)
 {
-	char *retp;
-#ifdef HAVE___PROGNAME
-	extern char *__progname;
+	int rc, saverrno;
+	extern int errno;
+	struct timeval tstart, tstop, tremain, time2wait;
 
-	if ((retp = strdup(__progname)) == NULL)
-		err(1, NULL);
-#else
-	char *p;
+	TIMESPEC_TO_TIMEVAL(&time2wait, req);
+	(void) gettimeofday(&tstart, NULL);
+	rc = select(0, NULL, NULL, NULL, &time2wait);
+	if (rc == -1) {
+		saverrno = errno;
+		(void) gettimeofday (&tstop, NULL);
+		errno = saverrno;
+		tremain.tv_sec = time2wait.tv_sec - 
+			(tstop.tv_sec - tstart.tv_sec);
+		tremain.tv_usec = time2wait.tv_usec - 
+			(tstop.tv_usec - tstart.tv_usec);
+		tremain.tv_sec += tremain.tv_usec / 1000000L;
+		tremain.tv_usec %= 1000000L;
+	} else {
+		tremain.tv_sec = 0;
+		tremain.tv_usec = 0;
+	}
+	if (rem != NULL)
+		TIMEVAL_TO_TIMESPEC(&tremain, rem);
 
-	if (argv0 == NULL)
-		return ("unknown");	/* XXX */
-	p = strrchr(argv0, '/');
-	if (p == NULL)
-		p = argv0;
-	else
-		p++;
-
-	if ((retp = strdup(p)) == NULL)
-		err(1, NULL);
-#endif
-	return retp;
+	return(rc);
 }
-
-#if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
-int seteuid(uid_t euid)
-{
-	return (setreuid(-1, euid));
-}
-#endif /* !defined(HAVE_SETEUID) && defined(HAVE_SETREUID) */
-
-#if !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID)
-int setegid(uid_t egid)
-{
-	return(setresgid(-1, egid, -1));
-}
-#endif /* !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID) */
