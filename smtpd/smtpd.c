@@ -516,7 +516,7 @@ main(int argc, char *argv[])
 	char		**save_argv = argv;
 	char		*rexec = NULL;
 	struct smtpd	*conf;
-	
+
 #ifndef HAVE___PROGNAME
 	__progname = ssh_get_progname(argv[0]);
 #endif
@@ -532,11 +532,11 @@ main(int argc, char *argv[])
 	/* Prepare for later setproctitle emulation */
 	compat_init_setproctitle(argc, argv);
 	argv = saved_argv;
-#endif
 
 	/* this is to work around GNU getopt + portable setproctitle() fuckery */
 	save_argc = saved_argc;
 	save_argv = saved_argv;
+#endif
 
 	if ((conf = config_default()) == NULL)
 		err(1, NULL);

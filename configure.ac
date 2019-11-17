@@ -564,6 +564,7 @@ AC_CHECK_FUNCS([ \
 	nanosleep \
 	nsleep \
 	pidfile \
+	pledge \
 	reallocarray \
 	recallocarray \
 	res_hnok \
@@ -599,7 +600,6 @@ AC_CHECK_FUNCS([ \
 	warn \
 	warnx \
 ])
-AC_DEFINE([HAVE_PLEDGE], [0], [compat layer is not pledge ready])
 
 AC_CHECK_DECL([strsep],
 	[AC_CHECK_FUNCS([strsep])],

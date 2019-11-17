@@ -289,8 +289,6 @@ char * strndup(const char *, size_t);
 char * strnlen(const char *, size_t);
 #endif
 
-
-
 #ifndef HAVE_STRUCT_TIMEVAL
 struct timeval {
 	long tv_sec;
@@ -335,9 +333,6 @@ int usleep(unsigned int useconds);
 #endif
 
 char *get_progname(char *);
-
-
-
 
 
 #endif /* _OPENBSD_COMPAT_H */
