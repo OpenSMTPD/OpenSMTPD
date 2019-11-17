@@ -559,7 +559,6 @@ AC_CHECK_FUNCS([ \
 	sysconf \
 	tcgetpgrp \
 	time \
-	truncate \
 	vasprintf \
 	vsnprintf \
 	waitpid \

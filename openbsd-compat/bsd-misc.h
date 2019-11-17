@@ -54,10 +54,6 @@ struct timeval {
 }
 #endif /* HAVE_STRUCT_TIMEVAL */
 
-#ifndef HAVE_TRUNCATE
-int truncate (const char *, off_t);
-#endif /* HAVE_TRUNCATE */
-
 #if !defined(HAVE_NANOSLEEP) && !defined(HAVE_NSLEEP)
 #ifndef HAVE_STRUCT_TIMESPEC
 struct timespec {
