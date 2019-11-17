@@ -114,6 +114,14 @@ if NEED_SETRESUID
 libopenbsd_compat_a_SOURCES +=	setresuid.c
 endif
 
+if NEED_SETEGID
+libopenbsd_compat_a_SOURCES +=	setegid.c
+endif
+
+if NEED_SETEUID
+libopenbsd_compat_a_SOURCES +=	seteuid.c
+endif
+
 if NEED_SIGNAL
 libopenbsd_compat_a_SOURCES +=	signal.c
 endif

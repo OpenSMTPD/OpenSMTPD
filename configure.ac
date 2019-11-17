@@ -568,6 +568,8 @@ AC_CHECK_FUNCS([ \
 	recallocarray \
 	res_hnok \
 	setenv \
+	seteuid \
+	setegid \
 	setproctitle \
 	setregid \
 	setreuid \
@@ -2035,6 +2037,8 @@ AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_func_pidfile" != "xyes"])
 AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_SETPROCTITLE], [test "x$ac_cv_func_setproctitle" != "xyes"])
+AM_CONDITIONAL([NEED_SETEGID], [test "x$ac_cv_func_setegid" != "xyes"])
+AM_CONDITIONAL([NEED_SETEUID], [test "x$ac_cv_func_seteuid" != "xyes"])
 AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_func_setresgid" != "xyes"])
 AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_func_setresuid" != "xyes"])
 AM_CONDITIONAL([NEED_SIGNAL], [test "x$ac_cv_func_signal" != "xyes"])

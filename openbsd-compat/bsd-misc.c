@@ -64,17 +64,3 @@ char *ssh_get_progname(char *argv0)
 #endif
 	return retp;
 }
-
-#if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
-int seteuid(uid_t euid)
-{
-	return (setreuid(-1, euid));
-}
-#endif /* !defined(HAVE_SETEUID) && defined(HAVE_SETREUID) */
-
-#if !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID)
-int setegid(uid_t egid)
-{
-	return(setresgid(-1, egid, -1));
-}
-#endif /* !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID) */
