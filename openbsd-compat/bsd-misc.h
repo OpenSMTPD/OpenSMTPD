@@ -43,10 +43,6 @@ int setegid(uid_t);
 const char *strerror(int);
 #endif 
 
-#if !defined(HAVE_SETLINEBUF)
-#define setlinebuf(a)	(setvbuf((a), NULL, _IOLBF, 0))
-#endif
-
 #ifndef HAVE_STRUCT_TIMEVAL
 struct timeval {
 	long tv_sec;
@@ -66,18 +62,6 @@ int nanosleep(const struct timespec *, struct timespec *);
 
 #ifndef HAVE_USLEEP
 int usleep(unsigned int useconds);
-#endif
-
-#ifndef HAVE_TCGETPGRP
-pid_t tcgetpgrp(int);
-#endif
-
-#ifndef HAVE_TCSENDBREAK
-int tcsendbreak(int, int);
-#endif
-
-#ifndef HAVE_UNSETENV
-int unsetenv(const char *);
 #endif
 
 /* wrapper for signal interface */

@@ -537,7 +537,6 @@ AC_CHECK_FUNCS([ \
 	recallocarray \
 	res_hnok \
 	setenv \
-	setlinebuf \
 	setproctitle \
 	setregid \
 	setreuid \

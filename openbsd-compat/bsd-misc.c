@@ -134,40 +134,6 @@ int usleep(unsigned int useconds)
 }
 #endif
 
-#ifndef HAVE_TCGETPGRP
-pid_t
-tcgetpgrp(int fd)
-{
-	int ctty_pgrp;
-
-	if (ioctl(fd, TIOCGPGRP, &ctty_pgrp) == -1)
-		return(-1);
-	else
-		return(ctty_pgrp);
-}
-#endif /* HAVE_TCGETPGRP */
-
-#ifndef HAVE_TCSENDBREAK
-int
-tcsendbreak(int fd, int duration)
-{
-# if defined(TIOCSBRK) && defined(TIOCCBRK)
-	struct timeval sleepytime;
-
-	sleepytime.tv_sec = 0;
-	sleepytime.tv_usec = 400000;
-	if (ioctl(fd, TIOCSBRK, 0) == -1)
-		return (-1);
-	(void)select(0, 0, 0, 0, &sleepytime);
-	if (ioctl(fd, TIOCCBRK, 0) == -1)
-		return (-1);
-	return (0);
-# else
-	return -1;
-# endif
-}
-#endif /* HAVE_TCSENDBREAK */
-
 mysig_t
 mysignal(int sig, mysig_t act)
 {
