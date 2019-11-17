@@ -531,6 +531,7 @@ AC_SEARCH_LIBS([event_asr_run],
 
 AC_CHECK_FUNCS([ \
 	asprintf \
+	arc4random \
 	bcopy \
 	calloc_conceal \
 	chflags \
@@ -1057,7 +1058,6 @@ AC_ARG_WITH([auth-pam],
 AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
 AC_SUBST([USE_PAM_SERVICE])
 
-AC_CHECK_FUNCS([arc4random arc4random_buf arc4random_stir arc4random_uniform])
 
 # Check for older PAM
 if test "x$PAM_MSG" = "xyes"; then
@@ -2045,7 +2045,8 @@ AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_func_strnlen" != "xyes"])
 AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_func_waitpid" != "xyes"])
 AM_CONDITIONAL([NEED_VIS], [test "x$ac_cv_func_strnvis" != "xyes" -o "$BROKEN_STRNVIS" = "x1"])
 
-AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER != "xyes"])
+AM_CONDITIONAL([NEED_ARC4RANDOM], [test "x$ac_cv_func_arc4random" != "xyes" -a "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
+AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
 ##
 
 

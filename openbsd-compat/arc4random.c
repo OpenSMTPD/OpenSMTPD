@@ -26,8 +26,6 @@
 
 #include "includes.h"
 
-#if !defined(HAVE_ARC4RANDOM) && !defined(LIBRESSL_VERSION_NUMBER)
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -203,7 +201,6 @@ arc4random(void)
  * If we are providing arc4random, then we can provide a more efficient 
  * arc4random_buf().
  */
-# ifndef HAVE_ARC4RANDOM_BUF
 void
 arc4random_buf(void *buf, size_t n)
 {
@@ -211,11 +208,8 @@ arc4random_buf(void *buf, size_t n)
 	_rs_random_buf(buf, n);
 	_ARC4_UNLOCK();
 }
-# endif /* !HAVE_ARC4RANDOM_BUF */
-#endif /* !HAVE_ARC4RANDOM */
 
 /* arc4random_buf() that uses platform arc4random() */
-#if !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM)
 void
 arc4random_buf(void *_buf, size_t n)
 {
@@ -231,9 +225,7 @@ arc4random_buf(void *_buf, size_t n)
 	}
 	explicit_bzero(&r, sizeof(r));
 }
-#endif /* !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM) */
 
-#ifndef HAVE_ARC4RANDOM_UNIFORM
 /*
  * Calculate a uniformly distributed random number less than upper_bound
  * avoiding "modulo bias".
@@ -269,26 +261,3 @@ arc4random_uniform(uint32_t upper_bound)
 
 	return r % upper_bound;
 }
-#endif /* !HAVE_ARC4RANDOM_UNIFORM */
-
-#if 0
-/*-------- Test code for i386 --------*/
-#include <stdio.h>
-#include <machine/pctr.h>
-int
-main(int argc, char **argv)
-{
-	const int iter = 1000000;
-	int     i;
-	pctrval v;
-
-	v = rdtsc();
-	for (i = 0; i < iter; i++)
-		arc4random();
-	v = rdtsc() - v;
-	v /= iter;
-
-	printf("%qd cycles\n", v);
-	exit(0);
-}
-#endif
