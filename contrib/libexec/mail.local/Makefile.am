@@ -8,7 +8,7 @@ EXTRA_DIST =		mail.local.h pathnames.h
 
 AM_CPPFLAGS = 		-I$(top_srcdir)/openbsd-compat
 
-LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
+LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd.a
 
 LDADD = 		$(LIBCOMPAT)
 

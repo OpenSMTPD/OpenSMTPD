@@ -101,7 +101,7 @@ if !SUPPORT_PATHS_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/paths_h
 endif
 
-LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
+LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
 
 LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)
 

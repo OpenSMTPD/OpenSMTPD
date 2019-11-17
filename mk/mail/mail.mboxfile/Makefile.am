@@ -11,7 +11,7 @@ if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
 endif
 
-LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
+LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd.a
 
 LDADD = 		$(LIBCOMPAT)
 

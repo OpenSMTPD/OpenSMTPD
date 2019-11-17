@@ -1,178 +1,178 @@
-noinst_LIBRARIES = libopenbsd-compat.a
+noinst_LIBRARIES = libopenbsd.a
 
-libopenbsd_compat_a_SOURCES =	empty.c
+libopenbsd_a_SOURCES =	empty.c
 
 if NEED_PROGNAME
-libopenbsd_compat_a_SOURCES +=	progname.c
+libopenbsd_a_SOURCES +=	progname.c
 endif
 
 if NEED_ARC4RANDOM
-libopenbsd_compat_a_SOURCES +=	arc4random.c
+libopenbsd_a_SOURCES +=	arc4random.c
 endif
 
 if NEED_BASE64
-libopenbsd_compat_a_SOURCES +=	base64.c
+libopenbsd_a_SOURCES +=	base64.c
 endif
 
 if NEED_BASENAME
-libopenbsd_compat_a_SOURCES += basename.c
+libopenbsd_a_SOURCES += basename.c
 endif
 
 if NEED_CLOCK_GETTIME
-libopenbsd_compat_a_SOURCES += clock_gettime.c
+libopenbsd_a_SOURCES += clock_gettime.c
 endif
 
 if NEED_CLOSEFROM
-libopenbsd_compat_a_SOURCES += closefrom.c
+libopenbsd_a_SOURCES += closefrom.c
 endif
 
 if NEED_CRYPT_CHECKPASS
-libopenbsd_compat_a_SOURCES += crypt_checkpass.c
+libopenbsd_a_SOURCES += crypt_checkpass.c
 endif
 
 if NEED_DAEMON
-libopenbsd_compat_a_SOURCES += daemon.c
+libopenbsd_a_SOURCES += daemon.c
 endif
 
 if NEED_DIRNAME
-libopenbsd_compat_a_SOURCES += dirname.c
+libopenbsd_a_SOURCES += dirname.c
 endif
 
 if NEED_ERR
-libopenbsd_compat_a_SOURCES += bsd-err.c
+libopenbsd_a_SOURCES += bsd-err.c
 endif
 
 if NEED_ERRC
-libopenbsd_compat_a_SOURCES += errc.c
+libopenbsd_a_SOURCES += errc.c
 endif
 
 if NEED_EVENT_ASR_RUN
-libopenbsd_compat_a_SOURCES +=	event_asr_run.c
+libopenbsd_a_SOURCES +=	event_asr_run.c
 endif
 
 if NEED_EXPLICIT_BZERO
-libopenbsd_compat_a_SOURCES += explicit_bzero.c
+libopenbsd_a_SOURCES += explicit_bzero.c
 endif
 
 if NEED_FGETLN
-libopenbsd_compat_a_SOURCES +=	fgetln.c
+libopenbsd_a_SOURCES +=	fgetln.c
 endif
 
 if NEED_FMT_SCALED
-libopenbsd_compat_a_SOURCES += fmt_scaled.c
+libopenbsd_a_SOURCES += fmt_scaled.c
 endif
 
 if NEED_FPARSELN
-libopenbsd_compat_a_SOURCES += fparseln.c
+libopenbsd_a_SOURCES += fparseln.c
 endif
 
 if NEED_FREEZERO
-libopenbsd_compat_a_SOURCES +=	freezero.c
+libopenbsd_a_SOURCES +=	freezero.c
 endif
 
 if NEED_GETOPT
-libopenbsd_compat_a_SOURCES +=	getopt.c
+libopenbsd_a_SOURCES +=	getopt.c
 endif
 
 if NEED_GETPEEREID
-libopenbsd_compat_a_SOURCES +=	getpeereid.c
+libopenbsd_a_SOURCES +=	getpeereid.c
 endif
 
 if NEED_IMSG
-libopenbsd_compat_a_SOURCES +=	imsg.c
-libopenbsd_compat_a_SOURCES +=	imsg-buffer.c
+libopenbsd_a_SOURCES +=	imsg.c
+libopenbsd_a_SOURCES +=	imsg-buffer.c
 endif
 
 if NEED_INET_NET_PTON
-libopenbsd_compat_a_SOURCES += inet_net_pton.c
+libopenbsd_a_SOURCES += inet_net_pton.c
 endif
 
 if NEED_NANOSLEEP
-libopenbsd_compat_a_SOURCES +=	nanosleep.c
+libopenbsd_a_SOURCES +=	nanosleep.c
 endif
 
 if NEED_PIDFILE
-libopenbsd_compat_a_SOURCES +=	pidfile.c
+libopenbsd_a_SOURCES +=	pidfile.c
 endif
 
 if NEED_REALLOCARRAY
-libopenbsd_compat_a_SOURCES +=	reallocarray.c
+libopenbsd_a_SOURCES +=	reallocarray.c
 endif
 
 if NEED_RECALLOCARRAY
-libopenbsd_compat_a_SOURCES +=	recallocarray.c
+libopenbsd_a_SOURCES +=	recallocarray.c
 endif
 
 if NEED_SETPROCTITLE
-libopenbsd_compat_a_SOURCES +=	setproctitle.c
+libopenbsd_a_SOURCES +=	setproctitle.c
 endif
 
 if NEED_SETRESGID
-libopenbsd_compat_a_SOURCES +=	setresgid.c
+libopenbsd_a_SOURCES +=	setresgid.c
 endif
 
 if NEED_SETRESUID
-libopenbsd_compat_a_SOURCES +=	setresuid.c
+libopenbsd_a_SOURCES +=	setresuid.c
 endif
 
 if NEED_SETEGID
-libopenbsd_compat_a_SOURCES +=	setegid.c
+libopenbsd_a_SOURCES +=	setegid.c
 endif
 
 if NEED_SETEUID
-libopenbsd_compat_a_SOURCES +=	seteuid.c
+libopenbsd_a_SOURCES +=	seteuid.c
 endif
 
 if NEED_SIGNAL
-libopenbsd_compat_a_SOURCES +=	signal.c
+libopenbsd_a_SOURCES +=	signal.c
 endif
 
 if NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
-libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
+libopenbsd_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
 endif
 
 if NEED_STRERROR
-libopenbsd_compat_a_SOURCES +=	strerror.c
+libopenbsd_a_SOURCES +=	strerror.c
 endif
 
 if NEED_STRLCAT
-libopenbsd_compat_a_SOURCES +=	strlcat.c
+libopenbsd_a_SOURCES +=	strlcat.c
 endif
 
 if NEED_STRLCPY
-libopenbsd_compat_a_SOURCES +=	strlcpy.c
+libopenbsd_a_SOURCES +=	strlcpy.c
 endif
 
 if NEED_STRMODE
-libopenbsd_compat_a_SOURCES +=	strmode.c
+libopenbsd_a_SOURCES +=	strmode.c
 endif
 
 if NEED_STRSEP
-libopenbsd_compat_a_SOURCES +=	strsep.c
+libopenbsd_a_SOURCES +=	strsep.c
 endif
 
 if NEED_STRTONUM
-libopenbsd_compat_a_SOURCES +=	strtonum.c
+libopenbsd_a_SOURCES +=	strtonum.c
 endif
 
 if NEED_STRNDUP
-libopenbsd_compat_a_SOURCES += strndup.c
+libopenbsd_a_SOURCES += strndup.c
 endif
 
 if NEED_STRNLEN
-libopenbsd_compat_a_SOURCES += strnlen.c
+libopenbsd_a_SOURCES += strnlen.c
 endif
 
 if NEED_USLEEP
-libopenbsd_compat_a_SOURCES +=	usleep.c
+libopenbsd_a_SOURCES +=	usleep.c
 endif
 
 if NEED_VIS
-libopenbsd_compat_a_SOURCES +=	vis.c
+libopenbsd_a_SOURCES +=	vis.c
 endif
 
 if NEED_WAITPID
-libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
+libopenbsd_a_SOURCES +=	bsd-waitpid.c
 endif
 
 
