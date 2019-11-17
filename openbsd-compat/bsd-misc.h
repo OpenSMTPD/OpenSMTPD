@@ -27,10 +27,6 @@ char *ssh_get_progname(char *);
 #define setsid() setpgrp(0, getpid())
 #endif /* !HAVE_SETSID */
 
-#ifndef HAVE_SETENV
-int setenv(const char *, const char *, int);
-#endif /* !HAVE_SETENV */
-
 #if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
 int seteuid(uid_t);
 #endif /* !defined(HAVE_SETEUID) && defined(HAVE_SETREUID) */
@@ -62,16 +58,6 @@ int nanosleep(const struct timespec *, struct timespec *);
 
 #ifndef HAVE_USLEEP
 int usleep(unsigned int useconds);
-#endif
-
-/* wrapper for signal interface */
-typedef void (*mysig_t)(int);
-mysig_t mysignal(int sig, mysig_t act);
-
-#define signal(a,b) mysignal(a,b)
-
-#ifndef HAVE_ENDGRENT
-# define endgrent() {}
 #endif
 
 #endif /* _BSD_MISC_H */

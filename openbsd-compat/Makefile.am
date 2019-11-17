@@ -86,6 +86,10 @@ if NEED_INET_NET_PTON
 libopenbsd_compat_a_SOURCES += inet_net_pton.c
 endif
 
+if NEED_SIGNAL
+libopenbsd_compat_a_SOURCES +=	signal.c
+endif
+
 if NEED_PIDFILE
 libopenbsd_compat_a_SOURCES +=	pidfile.c
 endif

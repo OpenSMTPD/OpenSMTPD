@@ -289,4 +289,12 @@ char * strndup(const char *, size_t);
 char * strnlen(const char *, size_t);
 #endif
 
+
+#ifdef NEED_SIGNAL
+typedef void (*mysig_t)(int);
+mysig_t mysignal(int sig, mysig_t act);
+#define signal(a,b) mysignal(a,b)
+#endif
+
+
 #endif /* _OPENBSD_COMPAT_H */
