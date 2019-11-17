@@ -5,7 +5,6 @@ libopenbsd_compat_a_SOURCES =	empty.c
 libopenbsd_compat_a_SOURCES +=	arc4random.c
 libopenbsd_compat_a_SOURCES +=	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
-libopenbsd_compat_a_SOURCES +=	event_asr_run.c
 
 
 if NEED_BASENAME
@@ -38,6 +37,10 @@ endif
 
 if NEED_ERRC
 libopenbsd_compat_a_SOURCES += errc.c
+endif
+
+if NEED_EVENT_ASR_RUN
+libopenbsd_compat_a_SOURCES +=	event_asr_run.c
 endif
 
 if NEED_EXPLICIT_BZERO

@@ -494,6 +494,12 @@ AC_SEARCH_LIBS([imsg_init],
 			[Define if you have the imsg framework.])
 	])
 
+AC_SEARCH_LIBS([event_asr_run],
+	[event],
+	[
+		AC_DEFINE([HAVE_EVENT_ASR_RUN], [1],
+			[Define if you have the basename() function.])
+	])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
@@ -1984,6 +1990,7 @@ AM_CONDITIONAL([NEED_CLOCK_GETTIME], [test "x$ac_cv_search_clock_gettime" = "xno
 AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_search_closefrom" = "xno"])
 AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_search_daemon" = "xno"])
 AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_search_dirname" = "xno"])
+AM_CONDITIONAL([NEED_EVENT_ASR_RUN], [test "x$ac_cv_search_event_asr_run" = "xno"])
 AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
 AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_search_fparseln" = "xno"])
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
