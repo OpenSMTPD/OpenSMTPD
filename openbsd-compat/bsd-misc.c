@@ -79,19 +79,6 @@ int setegid(uid_t egid)
 }
 #endif /* !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID) */
 
-#if !defined(HAVE_STRERROR) && defined(HAVE_SYS_ERRLIST) && defined(HAVE_SYS_NERR)
-const char *strerror(int e)
-{
-	extern int sys_nerr;
-	extern char *sys_errlist[];
-	
-	if ((e >= 0) && (e < sys_nerr))
-		return (sys_errlist[e]);
-
-	return ("unlisted error");
-}
-#endif
-
 #if !defined(HAVE_NANOSLEEP) && !defined(HAVE_NSLEEP)
 int nanosleep(const struct timespec *req, struct timespec *rem)
 {

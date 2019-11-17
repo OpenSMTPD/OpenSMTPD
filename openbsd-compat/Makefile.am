@@ -118,6 +118,10 @@ if NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
 libopenbsd_compat_a_SOURCES +=	SSL_CTX_use_certificate_chain_mem.c
 endif
 
+if NEED_STRERROR
+libopenbsd_compat_a_SOURCES +=	strerror.c
+endif
+
 if NEED_STRLCAT
 libopenbsd_compat_a_SOURCES +=	strlcat.c
 endif

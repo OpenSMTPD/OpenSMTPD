@@ -35,10 +35,6 @@ int seteuid(uid_t);
 int setegid(uid_t);
 #endif /* !defined(HAVE_SETEGID) && defined(HAVE_SETRESGID) */
 
-#if !defined(HAVE_STRERROR) && defined(HAVE_SYS_ERRLIST) && defined(HAVE_SYS_NERR)
-const char *strerror(int);
-#endif 
-
 #ifndef HAVE_STRUCT_TIMEVAL
 struct timeval {
 	long tv_sec;

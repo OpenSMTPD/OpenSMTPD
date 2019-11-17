@@ -2036,6 +2036,7 @@ AM_CONDITIONAL([NEED_SETPROCTITLE], [test "x$ac_cv_func_setproctitle" != "xyes"]
 AM_CONDITIONAL([NEED_SETRESGID], [test "x$ac_cv_func_setresgid" != "xyes"])
 AM_CONDITIONAL([NEED_SETRESUID], [test "x$ac_cv_func_setresuid" != "xyes"])
 AM_CONDITIONAL([NEED_SIGNAL], [test "x$ac_cv_func_signal" != "xyes"])
+AM_CONDITIONAL([NEED_STRERROR], [test "x$ac_cv_func_strerror" != "xyes"])
 AM_CONDITIONAL([NEED_STRLCAT], [test "x$ac_cv_func_strlcat" != "xyes"])
 AM_CONDITIONAL([NEED_STRLCPY], [test "x$ac_cv_func_strlcpy" != "xyes"])
 AM_CONDITIONAL([NEED_STRMODE], [test "x$ac_cv_func_strmode" != "xyes"])
