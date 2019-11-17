@@ -7,7 +7,7 @@ libopenbsd_compat_a_SOURCES +=	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
-libopenbsd_compat_a_SOURCES +=	vis.c
+
 
 if NEED_BASENAME
 libopenbsd_compat_a_SOURCES += basename.c
@@ -132,6 +132,10 @@ endif
 
 if NEED_STRNLEN
 libopenbsd_compat_a_SOURCES += strnlen.c
+endif
+
+if NEED_VIS
+libopenbsd_compat_a_SOURCES +=	vis.c
 endif
 
 if NEED_WAITPID

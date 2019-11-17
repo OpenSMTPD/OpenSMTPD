@@ -31,7 +31,7 @@
 /* OPENBSD ORIGINAL: lib/libc/gen/vis.c */
 
 #include "includes.h"
-#if !defined(HAVE_STRNVIS) || defined(BROKEN_STRNVIS)
+
 #include <ctype.h>
 #include <string.h>
 
@@ -220,5 +220,3 @@ strvisx(char *dst, const char *src, size_t len, int flag)
 	*dst = '\0';
 	return (dst - start);
 }
-
-#endif
