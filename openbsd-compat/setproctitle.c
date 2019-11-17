@@ -33,8 +33,6 @@
 
 #include "includes.h"
 
-#ifndef HAVE_SETPROCTITLE
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -170,5 +168,3 @@ setproctitle(const char *fmt, ...)
 
 #endif /* SPT_NONE */
 }
-
-#endif /* HAVE_SETPROCTITLE */

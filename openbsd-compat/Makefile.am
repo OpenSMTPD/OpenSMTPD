@@ -8,7 +8,6 @@ libopenbsd_compat_a_SOURCES +=	bsd-misc.c
 libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
-libopenbsd_compat_a_SOURCES +=	setproctitle.c
 libopenbsd_compat_a_SOURCES +=	vis.c
 libopenbsd_compat_a_SOURCES +=	xmalloc.c
 
@@ -91,6 +90,10 @@ endif
 
 if NEED_RECALLOCARRAY
 libopenbsd_compat_a_SOURCES +=	recallocarray.c
+endif
+
+if NEED_SETPROCTITLE
+libopenbsd_compat_a_SOURCES +=	setproctitle.c
 endif
 
 if NEED_SETRESGID
