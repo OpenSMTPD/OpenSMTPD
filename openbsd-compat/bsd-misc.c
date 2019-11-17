@@ -25,6 +25,7 @@
 # include <sys/time.h>
 #endif
 
+#include <err.h>
 #include <string.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -63,7 +64,7 @@ char *ssh_get_progname(char *argv0)
 	if ((retp = strdup(p)) == NULL)
 		err(1, NULL);
 #endif
-	return retp
+	return retp;
 }
 
 #ifndef HAVE_SETLOGIN
