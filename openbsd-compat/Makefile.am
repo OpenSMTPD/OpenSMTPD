@@ -153,7 +153,6 @@ EXTRA_DIST +=	openbsd-compat.h
 EXTRA_DIST +=	sys/queue.h
 EXTRA_DIST +=	sys/tree.h
 EXTRA_DIST +=	bsd-vis.h
-EXTRA_DIST +=	xmalloc.h
 
 AM_CPPFLAGS = -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
 

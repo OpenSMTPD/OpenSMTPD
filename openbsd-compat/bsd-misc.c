@@ -32,8 +32,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "xmalloc.h"
-
 #ifndef HAVE___PROGNAME
 char *__progname;
 #endif
