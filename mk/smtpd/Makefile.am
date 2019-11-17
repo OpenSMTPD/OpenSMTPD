@@ -94,7 +94,7 @@ smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
 AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 			-I$(compat_srcdir)
-if !SUPPORT_ERR_H
+if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
 endif
 if !SUPPORT_PATHS_H

@@ -42,8 +42,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifndef HAVE_FPARSELN
-
 static int isescaped(const char *, const char *, int);
 
 /* isescaped():
@@ -179,39 +177,3 @@ fparseln(FILE *fp, size_t *size, size_t *lineno, const char str[3],
 		*size = len;
 	return buf;
 }
-#endif
-
-#ifdef TEST
-
-int main(int, char **);
-
-int
-main(argc, argv)
-	int argc;
-	char **argv;
-{
-	char   *ptr;
-	size_t	size, line;
-
-	line = 0;
-	while ((ptr = fparseln(stdin, &size, &line, NULL,
-	    FPARSELN_UNESCALL)) != NULL)
-		printf("line %d (%d) |%s|\n", line, size, ptr);
-	return 0;
-}
-
-/*
-
-# This is a test
-line 1
-line 2 \
-line 3 # Comment
-line 4 \# Not comment \\\\
-
-# And a comment \
-line 5 \\\
-line 6
-
-*/
-
-#endif /* TEST */

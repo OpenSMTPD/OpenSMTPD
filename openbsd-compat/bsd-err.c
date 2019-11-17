@@ -35,7 +35,6 @@
 
 extern char *__progname;
 
-#ifndef HAVE_ERR
 void
 err(int r, const char *fmt, ...)
 {
@@ -51,9 +50,7 @@ err(int r, const char *fmt, ...)
 	va_end(args);
 	exit(r);
 }
-#endif
 
-#ifndef HAVE_ERRX
 void
 errx(int r, const char *fmt, ...)
 {
@@ -67,9 +64,7 @@ errx(int r, const char *fmt, ...)
 	va_end(args);
 	exit(r);
 }
-#endif
 
-#ifndef HAVE_WARN
 void
 warn(const char *fmt, ...)
 {
@@ -84,9 +79,7 @@ warn(const char *fmt, ...)
 	fprintf(stderr, "%s\n", strerror(errno));
 	va_end(args);
 }
-#endif
 
-#ifndef HAVE_WARNX
 void
 warnx(const char *fmt, ...)
 {
@@ -99,4 +92,3 @@ warnx(const char *fmt, ...)
 	fprintf(stderr, "\n");
 	va_end(args);
 }
-#endif

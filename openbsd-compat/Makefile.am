@@ -5,7 +5,6 @@ libopenbsd_compat_a_SOURCES =	empty.c
 libopenbsd_compat_a_SOURCES +=	arc4random.c
 libopenbsd_compat_a_SOURCES +=	base64.c
 libopenbsd_compat_a_SOURCES +=	bsd-misc.c
-libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 libopenbsd_compat_a_SOURCES +=	entropy.c
 libopenbsd_compat_a_SOURCES +=	event_asr_run.c
 libopenbsd_compat_a_SOURCES +=	vis.c
@@ -37,6 +36,10 @@ endif
 
 if NEED_DIRNAME
 libopenbsd_compat_a_SOURCES += dirname.c
+endif
+
+if NEED_ERR
+libopenbsd_compat_a_SOURCES += bsd-err.c
 endif
 
 if NEED_ERRC
@@ -136,10 +139,10 @@ if NEED_STRNLEN
 libopenbsd_compat_a_SOURCES += strnlen.c
 endif
 
-
-if !SUPPORT_ERR_H
-libopenbsd_compat_a_SOURCES += bsd-err.c
+if NEED_WAITPID
+libopenbsd_compat_a_SOURCES +=	bsd-waitpid.c
 endif
+
 
 
 EXTRA_DIST =	base64.h
@@ -158,6 +161,7 @@ EXTRA_DIST +=	bsd-vis.h
 EXTRA_DIST +=	xmalloc.h
 
 AM_CPPFLAGS = -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
-if !SUPPORT_ERR_H
+
+if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
 endif

@@ -40,7 +40,7 @@ smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
 
 AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat
-if !SUPPORT_ERR_H
+if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
 endif
 

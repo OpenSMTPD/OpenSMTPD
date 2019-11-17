@@ -151,7 +151,7 @@ AC_CHECK_HEADERS([ \
 	vis.h
 ])
 
-AM_CONDITIONAL([SUPPORT_ERR_H], [test x$HAVE_ERR_H = x1])
+AM_CONDITIONAL([NEED_ERR_H], [test x$HAVE_ERR_H = x1])
 AM_CONDITIONAL([SUPPORT_PATHS_H], [test x$HAVE_PATHS_H = x1])
 
 # NetBSD requires sys/types.h before login_cap.h
@@ -515,7 +515,9 @@ AC_CHECK_FUNCS([ \
 	crypt_checkpass \
 	dirfd \
 	endgrent \
+	err \
 	errc \
+	errx \
 	explicit_bzero \
 	fchflags \
 	fgetln \
@@ -570,6 +572,8 @@ AC_CHECK_FUNCS([ \
 	vasprintf \
 	vsnprintf \
 	waitpid \
+	warn \
+	warnx \
 ])
 AC_DEFINE([HAVE_PLEDGE], [0], [compat layer is not pledge ready])
 
@@ -1992,14 +1996,15 @@ AM_CONDITIONAL([NEED_CLOSEFROM], [test "x$ac_cv_search_closefrom" = "xno"])
 AM_CONDITIONAL([NEED_DAEMON], [test "x$ac_cv_search_daemon" = "xno"])
 AM_CONDITIONAL([NEED_DIRNAME], [test "x$ac_cv_search_dirname" = "xno"])
 AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
+AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_search_fparseln" = "xno"])
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
 AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_search_inet_net_pton" = "xno"])
 
+AM_CONDITIONAL([NEED_ERR], [test "x$ac_cv_func_err" != "xyes"])
 AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_func_errc" != "xyes"])
 AM_CONDITIONAL([NEED_CRYPT_CHECKPASS], [test "x$ac_cv_func_crypt_checkpass" != "xyes"])
 AM_CONDITIONAL([NEED_EXPLICIT_BZERO], [test "x$ac_cv_func_explicit_bzero" != "xyes"])
 AM_CONDITIONAL([NEED_FGETLN], [test "x$ac_cv_func_fgetln" != "xyes"])
-AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_func_fparseln" != "xyes"])
 AM_CONDITIONAL([NEED_FREEZERO], [test "x$ac_cv_func_freezero" != "xyes"])
 AM_CONDITIONAL([NEED_GETOPT], [test "x$ac_cv_have_getopt" != "xyes"])
 AM_CONDITIONAL([NEED_GETPEEREID], [test "x$ac_cv_func_getpeereid" != "xyes"])
@@ -2016,6 +2021,7 @@ AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_func_strsep" != "xyes"])
 AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_func_strtonum" != "xyes"])
 AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_func_strndup" != "xyes"])
 AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_func_strnlen" != "xyes"])
+AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_func_waitpid" != "xyes"])
 
 AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER != "xyes"])
 ##
