@@ -181,8 +181,6 @@ b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize)
 	return (datalength);
 }
 
-#if !defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON)
-
 /* skips all whitespace anywhere.
    converts characters, four at a time, starting at (or after)
    src from base - 64 numbers into three 8 bit bytes in the target area.
