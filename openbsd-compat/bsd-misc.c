@@ -65,21 +65,6 @@ char *ssh_get_progname(char *argv0)
 	return retp;
 }
 
-#ifndef HAVE_SETLOGIN
-int setlogin(const char *name)
-{
-	return (0);
-}
-#endif /* !HAVE_SETLOGIN */
-
-#ifndef HAVE_INNETGR
-int innetgr(const char *netgroup, const char *host, 
-            const char *user, const char *domain)
-{
-	return (0);
-}
-#endif /* HAVE_INNETGR */
-
 #if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
 int seteuid(uid_t euid)
 {
@@ -106,18 +91,6 @@ const char *strerror(int e)
 	return ("unlisted error");
 }
 #endif
-
-#ifndef HAVE_UTIMES
-int utimes(char *filename, struct timeval *tvp)
-{
-	struct utimbuf ub;
-
-	ub.actime = tvp[0].tv_sec;
-	ub.modtime = tvp[1].tv_sec;
-	
-	return (utime(filename, &ub));
-}
-#endif 
 
 #ifndef HAVE_TRUNCATE
 int truncate(const char *path, off_t length)
@@ -240,42 +213,3 @@ mysignal(int sig, mysig_t act)
 	return (signal(sig, act));
 #endif
 }
-
-#ifndef HAVE_STRDUP
-char *
-strdup(const char *str)
-{
-	size_t len;
-	char *cp;
-
-	len = strlen(str) + 1;
-	cp = malloc(len);
-	if (cp != NULL)
-		return(memcpy(cp, str, len));
-	return NULL;
-}
-#endif
-
-#ifndef HAVE_ISBLANK
-int
-isblank(int c)
-{
-	return (c == ' ' || c == '\t');
-}
-#endif
-
-#ifndef HAVE_GETPGID
-pid_t
-getpgid(pid_t pid)
-{
-#if defined(HAVE_GETPGRP) && !defined(GETPGRP_VOID)
-	return getpgrp(pid);
-#elif defined(HAVE_GETPGRP)
-	if (pid == 0)
-		return getpgrp();
-#endif
-
-	errno = ESRCH;
-	return -1;
-}
-#endif

@@ -147,7 +147,6 @@ AC_CHECK_HEADERS([ \
 	time.h \
 	ucred.h \
 	util.h \
-	utime.h \
 	vis.h
 ])
 
@@ -418,13 +417,6 @@ AC_SEARCH_LIBS([closefrom],
         )
 	])
 
-AC_SEARCH_LIBS([utimes],
-	[c89],
-	[
-		AC_DEFINE([HAVE_UTIMES],
-			[1], [Define if you have the utimes() function.])
-	])
-
 AC_SEARCH_LIBS([fmt_scaled],
 	[util bsd],
 	[
@@ -537,7 +529,6 @@ AC_CHECK_FUNCS([ \
 	inet_aton \
 	inet_ntoa \
 	inet_ntop \
-	isblank \
 	malloc_conceal \
 	memmove \
 	nsleep \

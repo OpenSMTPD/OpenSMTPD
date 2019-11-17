@@ -31,14 +31,6 @@ char *ssh_get_progname(char *);
 int setenv(const char *, const char *, int);
 #endif /* !HAVE_SETENV */
 
-#ifndef HAVE_SETLOGIN
-int setlogin(const char *);
-#endif /* !HAVE_SETLOGIN */
-
-#ifndef HAVE_INNETGR
-int innetgr(const char *, const char *, const char *, const char *);
-#endif /* HAVE_INNETGR */
-
 #if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
 int seteuid(uid_t);
 #endif /* !defined(HAVE_SETEUID) && defined(HAVE_SETREUID) */
@@ -55,16 +47,12 @@ const char *strerror(int);
 #define setlinebuf(a)	(setvbuf((a), NULL, _IOLBF, 0))
 #endif
 
-#ifndef HAVE_UTIMES
 #ifndef HAVE_STRUCT_TIMEVAL
 struct timeval {
 	long tv_sec;
 	long tv_usec;
 }
 #endif /* HAVE_STRUCT_TIMEVAL */
-
-int utimes(char *, struct timeval *);
-#endif /* HAVE_UTIMES */
 
 #ifndef HAVE_TRUNCATE
 int truncate (const char *, off_t);
@@ -101,14 +89,6 @@ typedef void (*mysig_t)(int);
 mysig_t mysignal(int sig, mysig_t act);
 
 #define signal(a,b) mysignal(a,b)
-
-#ifndef HAVE_ISBLANK
-int	isblank(int);
-#endif
-
-#ifndef HAVE_GETPGID
-pid_t getpgid(pid_t);
-#endif
 
 #ifndef HAVE_ENDGRENT
 # define endgrent() {}
