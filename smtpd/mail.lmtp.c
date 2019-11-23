@@ -219,26 +219,14 @@ lmtp_engine(int fd_read, struct session *session)
 	ssize_t linelen;
 	enum phase phase = PHASE_BANNER;
 
-	fd_write = dup(fd_read);
-
-	if (fd_write == -1){
+	if ((fd_write = dup(fd_read)) == -1)
 		err(EX_TEMPFAIL, "dup");
-		return;
-	}
 
-	file_read = fdopen(fd_read, "r");
-
-	if (!file_read){
+	if (!(file_read = fdopen(fd_read, "r")))
 		err(EX_TEMPFAIL, "fdopen");
-		return;
-	}
 
-	file_write = fdopen(fd_write, "w");
-
-	if (!file_write){
+	if (!(file_write = fdopen(fd_write, "w")))
 		err(EX_TEMPFAIL, "fdopen");
-		return;
-	}
 
 	do {
 		fflush(file_write);
