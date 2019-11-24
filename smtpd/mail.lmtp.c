@@ -222,10 +222,10 @@ lmtp_engine(int fd_read, struct session *session)
 	if ((fd_write = dup(fd_read)) == -1)
 		err(EX_TEMPFAIL, "dup");
 
-	if (!(file_read = fdopen(fd_read, "r")))
+	if ((file_read = fdopen(fd_read, "r")) == NULL)
 		err(EX_TEMPFAIL, "fdopen");
 
-	if (!(file_write = fdopen(fd_write, "w")))
+	if ((file_write = fdopen(fd_write, "w")) == NULL)
 		err(EX_TEMPFAIL, "fdopen");
 
 	do {
