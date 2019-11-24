@@ -1,0 +1,22 @@
+image: freebsd/latest
+packages:
+- autoconf
+- automake
+- bison
+- libevent
+- libtool
+- libressl
+- libasr
+sources:
+- https://github.com/OpenSMTPD/OpenSMTPD
+tasks:
+- configure: |
+    cd OpenSMTPD
+    ./bootstrap
+    ./configure --with-libasr=/usr/local
+- build: |
+    cd OpenSMTPD
+    make
+#  - test: |
+#      cd mrsh
+#      ninja -C build test
