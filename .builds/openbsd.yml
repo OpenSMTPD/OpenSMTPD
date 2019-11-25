@@ -1,4 +1,4 @@
-image: freebsd/latest
+image: open/latest
 packages:
 - autoconf
 - automake
@@ -13,7 +13,7 @@ tasks:
 - configure: |
     cd OpenSMTPD
     ./bootstrap
-    ./configure --with-libasr=/usr/local
+    ./configure
 - build: |
     cd OpenSMTPD
     make
