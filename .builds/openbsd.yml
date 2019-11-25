@@ -1,17 +1,14 @@
-image: open/latest
+image: openbsd/latest
 packages:
-- autoconf
-- automake
-- bison
-- libevent
+- autoconf-2.69p2
+- automake-1.14.1p1
 - libtool
-- libressl
-- libasr
 sources:
 - https://github.com/OpenSMTPD/OpenSMTPD
 tasks:
 - configure: |
     cd OpenSMTPD
+    export AUTOCONF_VERSION=2.69
     ./bootstrap
     ./configure
 - build: |
