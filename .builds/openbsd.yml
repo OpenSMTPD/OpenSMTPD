@@ -1,0 +1,16 @@
+image: openbsd/6.6
+packages:
+- autoconf-2.69p2
+- automake-1.14.1p1
+- libtool
+sources:
+- https://github.com/OpenSMTPD/OpenSMTPD
+tasks:
+- configure: |
+    cd OpenSMTPD
+    export AUTOCONF_VERSION=2.69
+    ./bootstrap
+    ./configure
+- build: |
+    cd OpenSMTPD
+    make
