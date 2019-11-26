@@ -1,4 +1,4 @@
-image: openbsd/latest
+image: openbsd/6.6
 packages:
 - autoconf-2.69p2
 - automake-1.14.1p1
