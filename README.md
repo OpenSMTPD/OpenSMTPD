@@ -5,6 +5,8 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/opensmtpd.svg)](https://repology.org/project/opensmtpd/versions)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://www.isc.org/licenses/)
 [![Clang Analysis](https://opensmtpd.email/reports/clang/badge.svg)](https://opensmtpd.email/reports/clang/index.html)
+[![builds.sr.ht status](https://builds.sr.ht/~puffy-bot.svg?search=OpenSMTPD)](https://builds.sr.ht/~puffy-bot?search=OpenSMTPD)
+
 
 
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as
