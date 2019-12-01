@@ -1061,13 +1061,23 @@ do_spf_walk(int argc, struct parameter *argv)
 int
 main(int argc, char **argv)
 {
-	gid_t		 gid;
+	gid_t		 egid, gid;
+	struct group    *gr;
 	int		 privileged;
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
 #ifndef HAVE___PROGNAME
 	__progname = ssh_get_progname(argv[0]);
 #endif
+
+	/* Sanity check that too many Linux distros fail */
+	egid = getegid();
+	gr = getgrnam(SMTPD_QUEUE_GROUP);
+	if (gr == NULL)
+		warnx("installation problem: unknown group %s", SMTPD_QUEUE_GROUP);
+	if (gr != NULL && gr->gr_gid != egid)
+		warnx("installation problem: this program must be setgid %s",
+		     SMTPD_QUEUE_GROUP);
 
 	sendmail_compat(argc, argv);
 	privileged = geteuid() == 0;
