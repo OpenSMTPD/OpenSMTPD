@@ -1062,12 +1062,19 @@ int
 main(int argc, char **argv)
 {
 	gid_t		 gid;
+	struct group    *gr;
 	int		 privileged;
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
 #ifndef HAVE___PROGNAME
 	__progname = ssh_get_progname(argv[0]);
 #endif
+
+	/* check that smtpctl was installed setgid */
+	if ((gr = getgrnam(SMTPD_QUEUE_GROUP)) == NULL)
+		errx(1, "unknown group %s", SMTPD_QUEUE_GROUP);
+	else if (gr->gr_gid != getegid())
+		errx(1, "this program must be setgid %s", SMTPD_QUEUE_GROUP);
 
 	sendmail_compat(argc, argv);
 	privileged = geteuid() == 0;
