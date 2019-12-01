@@ -1072,9 +1072,9 @@ main(int argc, char **argv)
 
 	/* check that smtpctl was installed setgid */
 	if ((gr = getgrnam(SMTPD_QUEUE_GROUP)) == NULL)
-		warnx("unknown group %s", SMTPD_QUEUE_GROUP);
+		errx(1, "unknown group %s", SMTPD_QUEUE_GROUP);
 	else if (gr->gr_gid != getegid())
-		warnx("this program must be setgid %s", SMTPD_QUEUE_GROUP);
+		errx(1, "this program must be setgid %s", SMTPD_QUEUE_GROUP);
 
 	sendmail_compat(argc, argv);
 	privileged = geteuid() == 0;
