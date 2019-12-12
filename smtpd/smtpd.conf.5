@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.231 2019/11/26 07:50:01 gilles Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.238 2019/12/09 16:55:30 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: November 26 2019 $
+.Dd $Mdocdate: December 9 2019 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -333,64 +333,26 @@ or using the
 .Ic hostname
 directive.
 .It Ic filter Ar chain-name Ic chain Brq Ar filter-name Op , Ar ...
-Register a chain of filters named
-.Ar chain-name
-and consisting of the filters listed from
+Register a chain of filters
+.Ar chain-name ,
+consisting of the filters listed from
 .Ar filter-name .
 Filters part of a filter chain are executed in order of declaration for
 each phase that they are registered for.
 A filter chain may be used in place of a filter for any directive but
 filter chains themselves.
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic disconnect Ar message
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to disconnect session with
-.Ar message .
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic junk
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to mark a session or a transaction as junk.
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic reject Ar message
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to reject session with
-.Ar message .
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic report Ar message
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to report on session with
-.Ar message
-and proceed with the transaction.
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic rewrite Ar value
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to rewrite phase parameter with new
-.Ar value .
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
+.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions decision
+Register a filter
+.Ar filter-name .
+A
+.Ar decision
+about what to do with the mail is taken at phase
+.Ar phase-name
+when matching
+.Ar conditions .
+Phases, matching conditions, and decisions are described in
+.Sx MAIL FILTERING ,
+below.
 .It Ic filter Ar filter-name Ic proc Ar proc-name
 Register
 .Qq proc
@@ -536,7 +498,7 @@ With the
 option, clients must also provide a valid certificate
 to establish an SMTP session.
 .El
-.It Ic listen on Cm socket Oc Op Ar options
+.It Ic listen on Cm socket Op Ar options
 Listen for incoming SMTP connections on the Unix domain socket
 .Pa /var/run/smtpd.sock .
 This is done by default, even if the directive is absent.
@@ -975,7 +937,7 @@ pairs.
 The table must contain at least one key-value pair and may declare
 multiple pairs as a comma-separated (whitespace optional) list.
 .El
-.Ss BUILTIN FILTERING
+.Ss MAIL FILTERING
 In a regular workflow,
 .Xr smtpd 8
 may accept or reject a message based only on the content of envelopes.
@@ -991,7 +953,7 @@ then decide if a session is allowed to move forward.
 With filtering,
 a session may be interrupted at any phase before an envelope is complete.
 A message may also be rejected after being submitted,
-disregarding if the envelope was accepted or not.
+regardless of whether the envelope was accepted or not.
 .Pp
 The following phases are currently supported:
 .Bl -column mail-from -offset indent
@@ -1004,8 +966,9 @@ The following phases are currently supported:
 .It commit     Ta after message is fully is submitted
 .El
 .Pp
-At each phase,
-multiple criteria may be checked:
+At each phase, various conditions may be matched.
+The fcrdns, rdns, and src data are available in all phases,
+but other data must have been already submitted before they are available.
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It fcrdns                        Ta forward-confirmed reverse DNS is valid
 .It rdns                          Ta session has a reverse DNS
@@ -1016,22 +979,18 @@ multiple criteria may be checked:
 .It rcpt-to Pf < Ar table Ns >   Ta recipient address is in table
 .El
 .Pp
-All criteria from previous phases are available to subsequent phases,
-so while the helo criteria is not available before the helo or ehlo phase,
-the fcrdns criteria is available in all phases.
-.Pp
-Criteria may all be negated by prefixing them with an exclamation mark:
+These conditions may all be negated by prefixing them with an exclamation mark:
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
-.It ! fcrdns                     Ta forward-confirmed reverse DNS is invalid
+.It !fcrdns                     Ta forward-confirmed reverse DNS is invalid
 .El
 .Pp
-Any criteria using a table may indicate that tables hold regex by
+Any conditions using a table may indicate that tables hold regex by
 prefixing the table name with the keyword regex.
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It helo regex Pf < Ar table Ns >       Ta helo name matches a regex in table
 .El
-Finally,
-four decisions may be taken:
+.Pp
+Finally, a number of decisions may be taken:
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It disconnect Ar message Ta the session is disconnected with message
 .It junk                  Ta the session or transaction is junked
@@ -1042,7 +1001,7 @@ four decisions may be taken:
 Decisions that involve a message require that the message be RFC valid,
 meaning that they should either start with a 4xx or 5xx status code.
 Descisions can be taken at any phase,
-however junking can only happen before a message is committed.
+though junking can only happen before a message is committed.
 .Ss FORMAT SPECIFIERS
 Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example
@@ -1154,8 +1113,8 @@ action "local_mail" mbox alias <aliases>
 action "outbound" relay host smtp+tls://bob@smtp.example.com \e
 	auth <secrets>
 
-match for local action "local_mail"
-match for any action "outbound"
+match from local for local action "local_mail"
+match from local for any action "outbound"
 .Ed
 .Pp
 In this second example,
