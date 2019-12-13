@@ -32,7 +32,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/ioev.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/limit.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka_filter.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/lka_proc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/log.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mda.c
