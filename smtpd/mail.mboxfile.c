@@ -103,7 +103,7 @@ mboxfile_engine(const char *sender, const char *filename)
 
 	if (fflush(fp) == EOF ||
 	    ferror(fp) ||
-	    fsync(fd) == -1 ||
+	    (fsync(fd) == -1 && errno != EINVAL) ||
 	    fclose(fp) == EOF)
 		err(EX_TEMPFAIL, NULL);
 }
