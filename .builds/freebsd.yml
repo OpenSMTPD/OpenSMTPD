@@ -20,4 +20,4 @@ tasks:
     ls -lah
     BUILD_DIR=$(pwd)/OpenSMTPD
     cd ci/ansible
-    ansible-playbook test.yml --skip-tags checkout --extra-vars "build_dir=$BUILD_DIR"
+    ansible-playbook test.yml --inventory inventory/freebsd --skip-tags checkout --extra-vars "build_dir=$BUILD_DIR"
