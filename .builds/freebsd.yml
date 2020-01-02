@@ -13,8 +13,11 @@ packages:
 - python37
 - python-3.7_3,2
 sources:
+- https://github.com/OpenSMTPD/OpenSMTPD
 - https://github.com/OpenSMTPD/ci
 tasks:
 - ansible: |
+    ls -lah
+    BUILD_DIR=$(pwd)/OpenSMTPD
     cd ci/ansible
-    ansible-playbook test.yml
+    ansible-playbook test.yml --skip-tags checkout --extra-vars "build_dir=$BUILD_DIR"
