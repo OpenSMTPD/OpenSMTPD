@@ -64,7 +64,7 @@
 #endif
 
 #ifndef LOGIN_NAME_MAX
-# define LOGIN_NAME_MAX 9
+# define LOGIN_NAME_MAX 32
 #endif
 
 #ifndef MAXLOGNAME
