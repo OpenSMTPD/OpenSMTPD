@@ -191,7 +191,7 @@ EXTRA_DIST +=	sys/queue.h
 EXTRA_DIST +=	sys/tree.h
 EXTRA_DIST +=	bsd-vis.h
 
-AM_CPPFLAGS = -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
+AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
 
 if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
