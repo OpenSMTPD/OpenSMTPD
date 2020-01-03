@@ -1,10 +1,4 @@
-FROM alpine:3.10 as build
-
-# Allow container to expose ports at runtime, if necessary
-# https://docs.docker.com/engine/reference/#expose
-EXPOSE 25
-EXPOSE 465
-EXPOSE 587
+FROM alpine:3.11 as build
 
 # creates /opensmtpd dir and makes all following commands to run in it
 # https://docs.docker.com/engine/reference/builder/#workdir
@@ -26,8 +20,8 @@ RUN apk add --no-cache \
     linux-pam-dev \
     make \
     musl-dev \
-    openssl \
-    openssl-dev \
+    libressl \
+    libressl-dev \
     zlib-dev
  
 # create users and directories
