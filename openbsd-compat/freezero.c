@@ -22,6 +22,7 @@
 #include "includes.h"
 
 #include <stdlib.h>
+#include <strings.h>
 
 void
 freezero(void *ptr, size_t sz)
