@@ -894,6 +894,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		supported by bsd-setproctitle.c])
 	AC_DEFINE([BROKEN_STRNVIS], [1],
 	    [OSX strnvis argument order is swapped compared to OpenBSD])
+	BROKEN_STRNVIS=1
 	;;
 *-*-dragonfly*)
 	;;
@@ -908,11 +909,13 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	fi
 	AC_DEFINE([BROKEN_STRNVIS], [1],
 	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
+	BROKEN_STRNVIS=1
 	;;
 *-*-freebsd*)
 	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
 	AC_DEFINE([BROKEN_STRNVIS], [1],
 	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
+	BROKEN_STRNVIS=1
 	;;
 *-*-openbsd*)
 	use_pie=auto
@@ -921,6 +924,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 
 	AC_DEFINE([BROKEN_STRNVIS], [0],
 	    [FreeBSD strnvis argument order is swapped compared to OpenBSD])
+	BROKEN_STRNVIS=0
 	YACC='yacc'
 	ASR_LIB=
 	AC_DEFINE([NOOP_ASR_FREEADDRINFO], [0], [OpenBSD doesn't need ASR_FREEADDRINFO])
