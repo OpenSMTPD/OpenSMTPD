@@ -1333,7 +1333,7 @@ report_smtp_broadcast(uint64_t reqid, const char *direction, struct timeval *tv,
 		va_start(ap, format);
 		if (io_printf(lka_proc_get_io(rp->name),
 		    "report|%s|%lld.%06ld|%s|%s|%016"PRIx64"%s",
-		    PROTOCOL_VERSION, tv->tv_sec, tv->tv_usec, direction,
+		    PROTOCOL_VERSION, (long long int)tv->tv_sec, tv->tv_usec, direction,
 		    event, reqid, format[0] != '\n' ? "|" : "") == -1 ||
 		    io_vprintf(lka_proc_get_io(rp->name), format, ap) == -1)
 			fatalx("failed to write to processor");
