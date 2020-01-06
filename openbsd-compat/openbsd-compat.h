@@ -122,9 +122,11 @@ int getpeereid(int , uid_t *, gid_t *);
 unsigned int arc4random(void);
 #endif
 
-#if defined(HAVE_ARC4RANDOM_STIR)
+#if defined(LIBRESSL_VERSION_NUMBER)
+# define arc4random_stir()
+#elif defined(HAVE_ARC4RANDOM_STIR)
 void arc4random_stir(void);
-#elif defined(HAVE_ARC4RANDOM) || defined(LIBRESSL_VERSION_NUMBER)
+#elif defined(HAVE_ARC4RANDOM)
 /* Recent system/libressl implementation; no need for explicit stir */
 # define arc4random_stir()
 #else
