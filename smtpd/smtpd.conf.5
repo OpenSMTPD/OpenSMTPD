@@ -1,4 +1,4 @@
-.\"	$OpenBSD: smtpd.conf.5,v 1.226 2019/09/20 18:47:23 jmc Exp $
+.\"	$OpenBSD: smtpd.conf.5,v 1.246 2019/12/19 13:34:45 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: September 20 2019 $
+.Dd $Mdocdate: December 19 2019 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -228,6 +228,10 @@ Use the mapping
 .Ar table
 to look up a hostname matching the source address,
 to advertise during the HELO phase.
+.It Cm domain Pf < Ar domains Ns >
+Do not perform MX lookups but look up destination domain in
+.Ar domains
+and use matching relay url as relay host.
 .It Cm host Ar relay-url
 Do not perform MX lookups but relay messages to the relay host described by
 .Ar relay-url .
@@ -333,64 +337,26 @@ or using the
 .Ic hostname
 directive.
 .It Ic filter Ar chain-name Ic chain Brq Ar filter-name Op , Ar ...
-Register a chain of filters named
-.Ar chain-name
-and consisting of the filters listed from
+Register a chain of filters
+.Ar chain-name ,
+consisting of the filters listed from
 .Ar filter-name .
 Filters part of a filter chain are executed in order of declaration for
 each phase that they are registered for.
 A filter chain may be used in place of a filter for any directive but
 filter chains themselves.
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic disconnect Ar message
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to disconnect session with
-.Ar message .
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic junk
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to mark a session or a transaction as junk.
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic reject Ar message
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to reject session with
-.Ar message .
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic report Ar message
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to report on session with
-.Ar message
-and proceed with the transaction.
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
-.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions Ic rewrite Ar value
-Register builtin filter
-.Ar filter-name
-matching
-.Ar conditions
-to rewrite phase parameter with new
-.Ar value .
-Phase and matching conditions are documented in a specific section,
-see
-.Sx BUILTIN FILTERING .
+.It Ic filter Ar filter-name Ic phase Ar phase-name Ic match Ar conditions decision
+Register a filter
+.Ar filter-name .
+A
+.Ar decision
+about what to do with the mail is taken at phase
+.Ar phase-name
+when matching
+.Ar conditions .
+Phases, matching conditions, and decisions are described in
+.Sx MAIL FILTERING ,
+below.
 .It Ic filter Ar filter-name Ic proc Ar proc-name
 Register
 .Qq proc
@@ -536,17 +502,29 @@ With the
 option, clients must also provide a valid certificate
 to establish an SMTP session.
 .El
-.It Ic listen on Cm socket Op Cm mask-src
+.It Ic listen on Cm socket Op Ar options
 Listen for incoming SMTP connections on the Unix domain socket
 .Pa /var/run/smtpd.sock .
 This is done by default, even if the directive is absent.
-If the
-.Cm mask-src
-option is specified, printing of the HELO name, hostname, and IP
-address of the originating host is suppressed in Received: header lines.
-.\" XXX The option
-.\" Cm filter Ar string
-.\" is parsed, but not implemented, see smtpf_session.c.
+.Pp
+The
+.Ar options
+are as follows:
+.Bl -tag -width Ds
+.It Ic filter Ar name
+Apply filter
+.Ar name
+on connections handled by this listener.
+.It Cm mask-src
+Omit the
+.Sy from
+part when prepending
+.Dq Received
+headers.
+.It Cm tag Ar tag
+Clients connecting to the listener are tagged with the given
+.Ar tag .
+.El
 .It Ic match Ar options Cm action Ar name
 If at least one mail envelope matches the
 .Ar options
@@ -586,9 +564,45 @@ Specify that session may address the regex or regex table
 .Ar domain .
 .It Xo
 .Op Ic \&!
+.Cm for rcpt-to
+.Ar recipient | Pf < Ar recipient Ns >
+.Xc
+Specify that session may address the string or list table
+.Ar recipient .
+.It Xo
+.Op Ic \&!
+.Cm for rcpt-to regex
+.Ar recipient | Pf < Ar recipient Ns >
+.Xc
+Specify that session may address the regex or regex table
+.Ar recipient .
+.It Xo
+.Op Ic \&!
 .Cm from any
 .Xc
 Specify that session may originate from any source.
+.It Xo
+.Op Ic \&!
+.Cm from auth
+.Xc
+Specify that session may originate from any authenticated user,
+no matter the source IP address.
+.It Xo
+.Op Ic \&!
+.Cm from auth
+.Ar user | Pf < Ar user Ns >
+.Xc
+Specify that session may originate from authenticated user or user list
+.Ar user ,
+no matter the source IP address.
+.It Xo
+.Op Ic \&!
+.Cm from auth
+.Ar user | Pf < Ar user Ns >
+.Xc
+Specify that session may originate from authenticated regex or regex list
+.Ar user ,
+no matter the source IP address.
 .It Xo
 .Op Ic \&!
 .Cm from local
@@ -596,6 +610,22 @@ Specify that session may originate from any source.
 Specify that session may only originate from a local IP address,
 or from the local enqueuer.
 This is the default, and may be omitted.
+.It Xo
+.Op Ic \&!
+.Cm from mail-from
+.Ar sender | Pf < Ar sender Ns >
+.Xc
+Specify that session may originate from sender or sender list
+.Ar sender ,
+no matter the source IP address.
+.It Xo
+.Op Ic \&!
+.Cm from mail-from regex
+.Ar sender | Pf < Ar sender Ns >
+.Xc
+Specify that session may originate from regex or regex list
+.Ar sender ,
+no matter the source IP address.
 .It Xo
 .Op Ic \&!
 .Cm from rdns
@@ -648,6 +678,20 @@ In addition, the following transaction options:
 .Cm auth
 .Xc
 Matches transactions which have been authenticated.
+.It Xo
+.Op Ic \&!
+.Cm auth
+.Ar username | Pf < Ar username Ns >
+.Xc
+Matches transactions which have been authenticated for user or user list
+.Ar username .
+.It Xo
+.Op Ic \&!
+.Cm auth regex
+.Ar username | Pf < Ar username Ns >
+.Xc
+Matches transactions which have been authenticated for regex or regex list
+.Ar username .
 .It Xo
 .Op Ic \&!
 .Cm helo
@@ -897,7 +941,7 @@ pairs.
 The table must contain at least one key-value pair and may declare
 multiple pairs as a comma-separated (whitespace optional) list.
 .El
-.Ss BUILTIN FILTERING
+.Ss MAIL FILTERING
 In a regular workflow,
 .Xr smtpd 8
 may accept or reject a message based only on the content of envelopes.
@@ -913,7 +957,7 @@ then decide if a session is allowed to move forward.
 With filtering,
 a session may be interrupted at any phase before an envelope is complete.
 A message may also be rejected after being submitted,
-disregarding if the envelope was accepted or not.
+regardless of whether the envelope was accepted or not.
 .Pp
 The following phases are currently supported:
 .Bl -column mail-from -offset indent
@@ -926,8 +970,9 @@ The following phases are currently supported:
 .It commit     Ta after message is fully is submitted
 .El
 .Pp
-At each phase,
-multiple criterias may be checked:
+At each phase, various conditions may be matched.
+The fcrdns, rdns, and src data are available in all phases,
+but other data must have been already submitted before they are available.
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It fcrdns                        Ta forward-confirmed reverse DNS is valid
 .It rdns                          Ta session has a reverse DNS
@@ -938,23 +983,20 @@ multiple criterias may be checked:
 .It rcpt-to Pf < Ar table Ns >   Ta recipient address is in table
 .El
 .Pp
-All criterias from previous phases are available to subsequent phases,
-so while the helo criteria is not available before the helo or ehlo phase,
-the fcrdns criteria is available in all phases.
-.Pp
-Criterias may all be negated by prefixing them with an exclamation mark:
+These conditions may all be negated by prefixing them with an exclamation mark:
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
-.It ! fcrdns                     Ta forward-confirmed reverse DNS is invalid
+.It !fcrdns                     Ta forward-confirmed reverse DNS is invalid
 .El
 .Pp
-Any criteria using a table may indicate that tables hold regex by
+Any conditions using a table may indicate that tables hold regex by
 prefixing the table name with the keyword regex.
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It helo regex Pf < Ar table Ns >       Ta helo name matches a regex in table
 .El
-Finally,
-four decisions may be taken:
+.Pp
+Finally, a number of decisions may be taken:
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
+.It bypass                Ta the session or transaction bypasses filters
 .It disconnect Ar message Ta the session is disconnected with message
 .It junk                  Ta the session or transaction is junked
 .It reject Ar message     Ta the command is rejected with message
@@ -964,7 +1006,7 @@ four decisions may be taken:
 Decisions that involve a message require that the message be RFC valid,
 meaning that they should either start with a 4xx or 5xx status code.
 Descisions can be taken at any phase,
-however junking can only happen before a message is committed.
+though junking can only happen before a message is committed.
 .Ss FORMAT SPECIFIERS
 Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example
@@ -1076,8 +1118,8 @@ action "local_mail" mbox alias <aliases>
 action "outbound" relay host smtp+tls://bob@smtp.example.com \e
 	auth <secrets>
 
-match for local action "local_mail"
-match for any action "outbound"
+match from local for local action "local_mail"
+match from local for any action "outbound"
 .Ed
 .Pp
 In this second example,
@@ -1117,26 +1159,40 @@ match for any action "outbound"
 match auth from any for any action "outbound"
 .Ed
 .Pp
-For sites that wish to sign messages using DKIM, the
-.Sy dkimproxy
-package may be used as a filter.
-The following example is the same as the default configuration,
-but all outgoing mail is passed to dkimproxy_out on port 10027
-for signing.
-The signed messages are received on port 10028 and tagged for relaying.
+For sites that wish to sign messages using DKIM,
+the following example uses
+.Sy opensmtpd-filter-dkimsign
+for DKIM signing:
 .Bd -literal -offset indent
 table aliases file:/etc/mail/aliases
 
-listen on lo0
-listen on lo0 port 10028 tag DKIM
+filter "dkimsign" proc-exec "filter-dkimsign -d <domain> -s <selector> \e
+	-k /etc/mail/dkim/private.key" user _dkimsign group _dkimsign
+
+listen on socket filter "dkimsign"
+listen on lo0 filter "dkimsign"
 
 action "local_mail" mbox alias <aliases>
 action "outbound" relay
-action "relay_dkim" relay host smtp://127.0.0.1:10027
 
 match for local action "local_mail"
-match tag DKIM for any action "outbound"
-match for any action "relay_dkim"
+match for any action "outbound"
+.Ed
+.Pp
+Alternatively, the
+.Sy opensmtpd-filter-rspamd
+package may be used to provide integration with
+.Sy rspamd ,
+a third-party daemon which provides multiple antispam features
+as well as DKIM signing.
+As well as configuring
+.Sy rspamd
+itself,
+it requires use of the
+.Cm proc-exec
+keyword:
+.Bd -literal -offset indent
+filter "rspamd" proc-exec "filter-rspamd"
 .Ed
 .Pp
 Sites that accept non-local messages may be able to cut down on the

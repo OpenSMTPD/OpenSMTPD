@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.50 2019/09/11 20:06:26 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.57 2019/12/21 11:47:34 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -35,7 +35,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PROTOCOL_VERSION	"0.4"
+#define	PROTOCOL_VERSION	"0.5"
 
 struct filter;
 struct filter_session;
@@ -126,12 +126,207 @@ struct filter_chain {
 	TAILQ_HEAD(, filter_entry)		chain[nitems(filter_execs)];
 };
 
-static struct dict	smtp_in;
+static struct dict	filter_smtp_in;
 
 static struct tree	sessions;
-static int		inited;
+static int		filters_inited;
 
 static struct dict	filter_chains;
+
+struct reporter_proc {
+	TAILQ_ENTRY(reporter_proc)	entries;
+	const char		       *name;
+};
+TAILQ_HEAD(reporters, reporter_proc);
+
+static struct dict	report_smtp_in;
+static struct dict	report_smtp_out;
+
+static struct smtp_events {
+	const char     *event;
+} smtp_events[] = {
+	{ "link-connect" },
+	{ "link-disconnect" },
+	{ "link-greeting" },
+	{ "link-identify" },
+	{ "link-tls" },
+	{ "link-auth" },
+
+	{ "tx-reset" },
+	{ "tx-begin" },
+	{ "tx-mail" },
+	{ "tx-rcpt" },
+	{ "tx-envelope" },
+	{ "tx-data" },
+	{ "tx-commit" },
+	{ "tx-rollback" },
+
+	{ "protocol-client" },
+	{ "protocol-server" },
+
+	{ "filter-report" },
+	{ "filter-response" },
+
+	{ "timeout" },
+};
+
+static int			processors_inited = 0;
+static struct dict		processors;
+
+struct processor_instance {
+	char			*name;
+	struct io		*io;
+	struct io		*errfd;
+	int			 ready;
+	uint32_t		 subsystems;
+};
+
+static void	processor_io(struct io *, int, void *);
+static void	processor_errfd(struct io *, int, void *);
+void		lka_filter_process_response(const char *, const char *);
+
+int
+lka_proc_ready(void)
+{
+	void	*iter;
+	struct processor_instance	*pi;
+
+	iter = NULL;
+	while (dict_iter(&processors, &iter, NULL, (void **)&pi))
+		if (!pi->ready)
+			return 0;
+	return 1;
+}
+
+static void
+lka_proc_config(struct processor_instance *pi)
+{
+	io_printf(pi->io, "config|smtpd-version|%s\n", SMTPD_VERSION);
+	io_printf(pi->io, "config|smtp-session-timeout|%d\n", SMTPD_SESSION_TIMEOUT);
+	if (pi->subsystems & FILTER_SUBSYSTEM_SMTP_IN)
+		io_printf(pi->io, "config|subsystem|smtp-in\n");
+	if (pi->subsystems & FILTER_SUBSYSTEM_SMTP_OUT)
+		io_printf(pi->io, "config|subsystem|smtp-out\n");
+	io_printf(pi->io, "config|ready\n");
+}
+
+void
+lka_proc_forked(const char *name, uint32_t subsystems, int fd)
+{
+	struct processor_instance	*processor;
+
+	if (!processors_inited) {
+		dict_init(&processors);
+		processors_inited = 1;
+	}
+
+	processor = xcalloc(1, sizeof *processor);
+	processor->name = xstrdup(name);
+	processor->io = io_new();
+	processor->subsystems = subsystems;
+
+	io_set_nonblocking(fd);
+
+	io_set_fd(processor->io, fd);
+	io_set_callback(processor->io, processor_io, processor->name);
+	dict_xset(&processors, name, processor);
+}
+
+void
+lka_proc_errfd(const char *name, int fd)
+{
+	struct processor_instance	*processor;
+
+	processor = dict_xget(&processors, name);
+
+	io_set_nonblocking(fd);
+
+	processor->errfd = io_new();
+	io_set_fd(processor->errfd, fd);
+	io_set_callback(processor->errfd, processor_errfd, processor->name);
+
+	lka_proc_config(processor);
+}
+
+struct io *
+lka_proc_get_io(const char *name)
+{
+	struct processor_instance *processor;
+
+	processor = dict_xget(&processors, name);
+
+	return processor->io;
+}
+
+static void
+processor_register(const char *name, const char *line)
+{
+	struct processor_instance *processor;
+
+	processor = dict_xget(&processors, name);
+
+	if (strcmp(line, "register|ready") == 0) {
+		processor->ready = 1;
+		return;
+	}
+
+	if (strncmp(line, "register|report|", 16) == 0) {
+		lka_report_register_hook(name, line+16);
+		return;
+	}
+
+	if (strncmp(line, "register|filter|", 16) == 0) {
+		lka_filter_register_hook(name, line+16);
+		return;
+	}
+
+	fatalx("Invalid register line received: %s", line);
+}
+
+static void
+processor_io(struct io *io, int evt, void *arg)
+{
+	struct processor_instance *processor;
+	const char		*name = arg;
+	char			*line = NULL;
+	ssize_t			 len;
+
+	switch (evt) {
+	case IO_DATAIN:
+		while ((line = io_getline(io, &len)) != NULL) {
+			if (strncmp("register|", line, 9) == 0) {
+				processor_register(name, line);
+				continue;
+			}
+			
+			processor = dict_xget(&processors, name);
+			if (!processor->ready)
+				fatalx("Non-register message before register|"
+				    "ready: %s", line);
+			else if (strncmp(line, "filter-result|", 14) == 0 ||
+			    strncmp(line, "filter-dataline|", 16) == 0)
+				lka_filter_process_response(name, line);
+			else if (strncmp(line, "report|", 7) == 0)
+				lka_report_proc(name, line);
+			else
+				fatalx("Invalid filter message type: %s", line);
+		}
+	}
+}
+
+static void
+processor_errfd(struct io *io, int evt, void *arg)
+{
+	const char	*name = arg;
+	char		*line = NULL;
+	ssize_t		 len;
+
+	switch (evt) {
+	case IO_DATAIN:
+		while ((line = io_getline(io, &len)) != NULL)
+			log_warnx("%s: %s", name, line);
+	}
+}
 
 void
 lka_filter_init(void)
@@ -215,7 +410,7 @@ lka_filter_register_hook(const char *name, const char *hook)
 	size_t	i;
 
 	if (strncasecmp(hook, "smtp-in|", 8) == 0) {
-		subsystem = &smtp_in;
+		subsystem = &filter_smtp_in;
 		hook += 8;
 	}
 	else
@@ -292,7 +487,7 @@ lka_filter_proc_in_session(uint64_t reqid, const char *proc)
 		return 0;
 
 	filter = dict_get(&filters, fs->filter_name);
-	if (filter->proc == NULL && filter->chain == NULL)
+	if (filter == NULL || (filter->proc == NULL && filter->chain == NULL))
 		return 0;
 
 	if (filter->proc)
@@ -307,27 +502,18 @@ lka_filter_proc_in_session(uint64_t reqid, const char *proc)
 }
 
 void
-lka_filter_begin(uint64_t reqid,
-    const char *filter_name,
-    const struct sockaddr_storage *ss_src,
-    const struct sockaddr_storage *ss_dest,
-    const char *rdns,
-    int fcrdns)
+lka_filter_begin(uint64_t reqid, const char *filter_name)
 {
 	struct filter_session	*fs;
 
-	if (!inited) {
+	if (!filters_inited) {
 		tree_init(&sessions);
-		inited = 1;
+		filters_inited = 1;
 	}
 
 	fs = xcalloc(1, sizeof (struct filter_session));
 	fs->id = reqid;
 	fs->filter_name = xstrdup(filter_name);
-	fs->ss_src = *ss_src;
-	fs->ss_dest = *ss_dest;
-	fs->rdns = xstrdup(rdns);
-	fs->fcrdns = fcrdns;
 	tree_xset(&sessions, fs->id, fs);
 
 	log_trace(TRACE_FILTERS, "%016"PRIx64" filters session-begin", reqid);
@@ -441,22 +627,22 @@ lka_filter_process_response(const char *name, const char *line)
 		fatalx("Missing reqid: %s", line);
 	ep[0] = '\0';
 
-	token = strtoull(qid, &ep, 16);
+	reqid = strtoull(qid, &ep, 16);
 	if (qid[0] == '\0' || *ep != '\0')
-		fatalx("Invalid token: %s", line);
-	if (errno == ERANGE && token == ULLONG_MAX)
-		fatal("Invalid token: %s", line);
+		fatalx("Invalid reqid: %s", line);
+	if (errno == ERANGE && reqid == ULLONG_MAX)
+		fatal("Invalid reqid: %s", line);
 
 	qid = ep+1;
 	if ((ep = strchr(qid, '|')) == NULL)
 		fatal("Missing directive: %s", line);
 	ep[0] = '\0';
 
-	reqid = strtoull(qid, &ep, 16);
+	token = strtoull(qid, &ep, 16);
 	if (qid[0] == '\0' || *ep != '\0')
-		fatalx("Invalid reqid: %s", line);
-	if (errno == ERANGE && reqid == ULLONG_MAX)
-		fatal("Invalid reqid: %s", line);
+		fatalx("Invalid token: %s", line);
+	if (errno == ERANGE && token == ULLONG_MAX)
+		fatal("Invalid token: %s", line);
 
 	response = ep+1;
 
@@ -604,6 +790,14 @@ filter_protocol_internal(struct filter_session *fs, uint64_t *token, uint64_t re
 			gettimeofday(&tv, NULL);
 			lka_report_filter_report(fs->id, filter->name, 1,
 			    "smtp-in", &tv, filter->config->report);
+		} else if (filter->config->bypass) {
+			log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
+			    "resume=%s, action=bypass, filter=%s, query=%s",
+			    fs->id, phase_name, resume ? "y" : "n",
+			    filter->name,
+			    param);
+			filter_result_proceed(reqid);
+			return;
 		} else {
 			log_trace(TRACE_FILTERS, "%016"PRIx64" filters protocol phase=%s, "
 			    "resume=%s, action=reject, filter=%s, query=%s, response=%s",
@@ -1043,4 +1237,442 @@ filter_builtins_rcpt_to(struct filter_session *fs, struct filter *filter, uint64
 	return filter_builtins_global(fs, filter, reqid) ||
 	    filter_check_rcpt_to_table(filter, K_MAILADDR, param) ||
 	    filter_check_rcpt_to_regex(filter, param);
+}
+
+static void
+report_smtp_broadcast(uint64_t, const char *, struct timeval *, const char *,
+    const char *, ...) __attribute__((__format__ (printf, 5, 6)));
+
+void
+lka_report_init(void)
+{
+	struct reporters	*tailq;
+	size_t			 i;
+
+	dict_init(&report_smtp_in);
+	dict_init(&report_smtp_out);
+
+	for (i = 0; i < nitems(smtp_events); ++i) {
+		tailq = xcalloc(1, sizeof (struct reporters));
+		TAILQ_INIT(tailq);
+		dict_xset(&report_smtp_in, smtp_events[i].event, tailq);
+
+		tailq = xcalloc(1, sizeof (struct reporters));
+		TAILQ_INIT(tailq);
+		dict_xset(&report_smtp_out, smtp_events[i].event, tailq);
+	}
+}
+
+void
+lka_report_register_hook(const char *name, const char *hook)
+{
+	struct dict	*subsystem;
+	struct reporter_proc	*rp;
+	struct reporters	*tailq;
+	void *iter;
+	size_t	i;
+
+	if (strncmp(hook, "smtp-in|", 8) == 0) {
+		subsystem = &report_smtp_in;
+		hook += 8;
+	}
+	else if (strncmp(hook, "smtp-out|", 9) == 0) {
+		subsystem = &report_smtp_out;
+		hook += 9;
+	}
+	else
+		fatalx("Invalid message direction: %s", hook);
+
+	if (strcmp(hook, "*") == 0) {
+		iter = NULL;
+		while (dict_iter(subsystem, &iter, NULL, (void **)&tailq)) {
+			rp = xcalloc(1, sizeof *rp);
+			rp->name = xstrdup(name);
+			TAILQ_INSERT_TAIL(tailq, rp, entries);
+		}
+		return;
+	}
+
+	for (i = 0; i < nitems(smtp_events); i++)
+		if (strcmp(hook, smtp_events[i].event) == 0)
+			break;
+	if (i == nitems(smtp_events))
+		fatalx("Unrecognized report name: %s", hook);
+
+	tailq = dict_get(subsystem, hook);
+	rp = xcalloc(1, sizeof *rp);
+	rp->name = xstrdup(name);
+	TAILQ_INSERT_TAIL(tailq, rp, entries);
+}
+
+static void
+report_smtp_broadcast(uint64_t reqid, const char *direction, struct timeval *tv, const char *event,
+    const char *format, ...)
+{
+	va_list		ap;
+	struct dict	*d;
+	struct reporters	*tailq;
+	struct reporter_proc	*rp;
+
+	if (strcmp("smtp-in", direction) == 0)
+		d = &report_smtp_in;
+
+	else if (strcmp("smtp-out", direction) == 0)
+		d = &report_smtp_out;
+
+	else
+		fatalx("unexpected direction: %s", direction);
+
+	tailq = dict_xget(d, event);
+	TAILQ_FOREACH(rp, tailq, entries) {
+		if (!lka_filter_proc_in_session(reqid, rp->name))
+			continue;
+
+		va_start(ap, format);
+		if (io_printf(lka_proc_get_io(rp->name),
+		    "report|%s|%lld.%06ld|%s|%s|%016"PRIx64"%s",
+		    PROTOCOL_VERSION, tv->tv_sec, tv->tv_usec, direction,
+		    event, reqid, format[0] != '\n' ? "|" : "") == -1 ||
+		    io_vprintf(lka_proc_get_io(rp->name), format, ap) == -1)
+			fatalx("failed to write to processor");
+		va_end(ap);
+	}
+}
+
+void
+lka_report_smtp_link_connect(const char *direction, struct timeval *tv, uint64_t reqid, const char *rdns,
+    int fcrdns,
+    const struct sockaddr_storage *ss_src,
+    const struct sockaddr_storage *ss_dest)
+{
+	struct filter_session *fs;
+	char	src[NI_MAXHOST + 5];
+	char	dest[NI_MAXHOST + 5];
+	uint16_t	src_port = 0;
+	uint16_t	dest_port = 0;
+	const char     *fcrdns_str;
+
+	if (ss_src->ss_family == AF_INET)
+		src_port = ntohs(((const struct sockaddr_in *)ss_src)->sin_port);
+	else if (ss_src->ss_family == AF_INET6)
+		src_port = ntohs(((const struct sockaddr_in6 *)ss_src)->sin6_port);
+
+	if (ss_dest->ss_family == AF_INET)
+		dest_port = ntohs(((const struct sockaddr_in *)ss_dest)->sin_port);
+	else if (ss_dest->ss_family == AF_INET6)
+		dest_port = ntohs(((const struct sockaddr_in6 *)ss_dest)->sin6_port);
+
+	if (strcmp(ss_to_text(ss_src), "local") == 0) {
+		(void)snprintf(src, sizeof src, "unix:%s", SMTPD_SOCKET);
+		(void)snprintf(dest, sizeof dest, "unix:%s", SMTPD_SOCKET);
+	} else {
+		(void)snprintf(src, sizeof src, "%s:%d", ss_to_text(ss_src), src_port);
+		(void)snprintf(dest, sizeof dest, "%s:%d", ss_to_text(ss_dest), dest_port);
+	}
+
+	switch (fcrdns) {
+	case 1:
+		fcrdns_str = "pass";
+		break;
+	case 0:
+		fcrdns_str = "fail";
+		break;
+	default:
+		fcrdns_str = "error";
+		break;
+	}
+
+	fs = tree_xget(&sessions, reqid);
+	fs->rdns = xstrdup(rdns);
+	fs->fcrdns = fcrdns;
+	fs->ss_src = *ss_src;
+	fs->ss_dest = *ss_dest;
+
+	report_smtp_broadcast(reqid, direction, tv, "link-connect",
+	    "%s|%s|%s|%s\n", rdns, fcrdns_str, src, dest);
+}
+
+void
+lka_report_smtp_link_disconnect(const char *direction, struct timeval *tv, uint64_t reqid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "link-disconnect", "\n");
+}
+
+void
+lka_report_smtp_link_greeting(const char *direction, uint64_t reqid,
+    struct timeval *tv, const char *domain)
+{
+	report_smtp_broadcast(reqid, direction, tv, "link-greeting", "%s\n",
+	    domain);
+}
+
+void
+lka_report_smtp_link_auth(const char *direction, struct timeval *tv, uint64_t reqid,
+    const char *username, const char *result)
+{
+	report_smtp_broadcast(reqid, direction, tv, "link-auth", "%s|%s\n",
+	    username, result);
+}
+
+void
+lka_report_smtp_link_identify(const char *direction, struct timeval *tv,
+    uint64_t reqid, const char *method, const char *heloname)
+{
+	report_smtp_broadcast(reqid, direction, tv, "link-identify", "%s|%s\n",
+	    method, heloname);
+}
+
+void
+lka_report_smtp_link_tls(const char *direction, struct timeval *tv, uint64_t reqid, const char *ciphers)
+{
+	report_smtp_broadcast(reqid, direction, tv, "link-tls", "%s\n",
+	    ciphers);
+}
+
+void
+lka_report_smtp_tx_reset(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "tx-reset", "%08x\n",
+	    msgid);
+}
+
+void
+lka_report_smtp_tx_begin(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "tx-begin", "%08x\n",
+	    msgid);
+}
+
+void
+lka_report_smtp_tx_mail(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid, const char *address, int ok)
+{
+	const char *result;
+
+	switch (ok) {
+	case 1:
+		result = "ok";
+		break;
+	case 0:
+		result = "permfail";
+		break;
+	default:
+		result = "tempfail";
+		break;
+	}
+	report_smtp_broadcast(reqid, direction, tv, "tx-mail", "%08x|%s|%s\n",
+	    msgid, address, result);
+}
+
+void
+lka_report_smtp_tx_rcpt(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid, const char *address, int ok)
+{
+	const char *result;
+
+	switch (ok) {
+	case 1:
+		result = "ok";
+		break;
+	case 0:
+		result = "permfail";
+		break;
+	default:
+		result = "tempfail";
+		break;
+	}
+	report_smtp_broadcast(reqid, direction, tv, "tx-rcpt", "%08x|%s|%s\n",
+	    msgid, address, result);
+}
+
+void
+lka_report_smtp_tx_envelope(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid, uint64_t evpid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "tx-envelope",
+	    "%08x|%016"PRIx64"\n", msgid, evpid);
+}
+
+void
+lka_report_smtp_tx_data(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid, int ok)
+{
+	const char *result;
+
+	switch (ok) {
+	case 1:
+		result = "ok";
+		break;
+	case 0:
+		result = "permfail";
+		break;
+	default:
+		result = "tempfail";
+		break;
+	}
+	report_smtp_broadcast(reqid, direction, tv, "tx-data", "%08x|%s\n",
+	    msgid, result);
+}
+
+void
+lka_report_smtp_tx_commit(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid, size_t msgsz)
+{
+	report_smtp_broadcast(reqid, direction, tv, "tx-commit", "%08x|%zd\n",
+	    msgid, msgsz);
+}
+
+void
+lka_report_smtp_tx_rollback(const char *direction, struct timeval *tv, uint64_t reqid, uint32_t msgid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "tx-rollback", "%08x\n",
+	    msgid);
+}
+
+void
+lka_report_smtp_protocol_client(const char *direction, struct timeval *tv, uint64_t reqid, const char *command)
+{
+	report_smtp_broadcast(reqid, direction, tv, "protocol-client", "%s\n",
+	    command);
+}
+
+void
+lka_report_smtp_protocol_server(const char *direction, struct timeval *tv, uint64_t reqid, const char *response)
+{
+	report_smtp_broadcast(reqid, direction, tv, "protocol-server", "%s\n",
+	    response);
+}
+
+void
+lka_report_smtp_filter_response(const char *direction, struct timeval *tv, uint64_t reqid,
+    int phase, int response, const char *param)
+{
+	const char *phase_name;
+	const char *response_name;
+
+	switch (phase) {
+	case FILTER_CONNECT:
+		phase_name = "connected";
+		break;
+	case FILTER_HELO:
+		phase_name = "helo";
+		break;
+	case FILTER_EHLO:
+		phase_name = "ehlo";
+		break;
+	case FILTER_STARTTLS:
+		phase_name = "tls";
+		break;
+	case FILTER_AUTH:
+		phase_name = "auth";
+		break;
+	case FILTER_MAIL_FROM:
+		phase_name = "mail-from";
+		break;
+	case FILTER_RCPT_TO:
+		phase_name = "rcpt-to";
+		break;
+	case FILTER_DATA:
+		phase_name = "data";
+		break;
+	case FILTER_DATA_LINE:
+		phase_name = "data-line";
+		break;
+	case FILTER_RSET:
+		phase_name = "rset";
+		break;
+	case FILTER_QUIT:
+		phase_name = "quit";
+		break;
+	case FILTER_NOOP:
+		phase_name = "noop";
+		break;
+	case FILTER_HELP:
+		phase_name = "help";
+		break;
+	case FILTER_WIZ:
+		phase_name = "wiz";
+		break;
+	case FILTER_COMMIT:
+		phase_name = "commit";
+		break;
+	default:
+		phase_name = "";
+	}
+
+	switch (response) {
+	case FILTER_PROCEED:
+		response_name = "proceed";
+		break;
+	case FILTER_JUNK:
+		response_name = "junk";
+		break;
+	case FILTER_REWRITE:
+		response_name = "rewrite";
+		break;
+	case FILTER_REJECT:
+		response_name = "reject";
+		break;
+	case FILTER_DISCONNECT:
+		response_name = "disconnect";
+		break;
+	default:
+		response_name = "";
+	}
+
+	report_smtp_broadcast(reqid, direction, tv, "filter-response",
+	    "%s|%s%s%s\n", phase_name, response_name, param ? "|" : "",
+	    param ? param : "");
+}
+
+void
+lka_report_smtp_timeout(const char *direction, struct timeval *tv, uint64_t reqid)
+{
+	report_smtp_broadcast(reqid, direction, tv, "timeout", "\n");
+}
+
+void
+lka_report_filter_report(uint64_t reqid, const char *name, int builtin,
+    const char *direction, struct timeval *tv, const char *message)
+{
+	report_smtp_broadcast(reqid, direction, tv, "filter-report",
+	    "%s|%s|%s\n", builtin ? "builtin" : "proc",
+	    name, message);
+}
+
+void
+lka_report_proc(const char *name, const char *line)
+{
+	char buffer[LINE_MAX];
+	struct timeval tv;
+	char *ep, *sp, *direction;
+	uint64_t reqid;
+
+	if (strlcpy(buffer, line + 7, sizeof(buffer)) >= sizeof(buffer))
+		fatalx("Invalid report: line too long: %s", line);
+
+	errno = 0;
+	tv.tv_sec = strtoll(buffer, &ep, 10);
+	if (ep[0] != '.' || errno != 0)
+		fatalx("Invalid report: invalid time: %s", line);
+	sp = ep + 1;
+	tv.tv_usec = strtol(sp, &ep, 10);
+	if (ep[0] != '|' || errno != 0)
+		fatalx("Invalid report: invalid time: %s", line);
+	if (ep - sp != 6)
+		fatalx("Invalid report: invalid time: %s", line);
+
+	direction = ep + 1;
+	if (strncmp(direction, "smtp-in|", 8) == 0) {
+		direction[7] = '\0';
+		direction += 7;
+#if 0
+	} else if (strncmp(direction, "smtp-out|", 9) == 0) {
+		direction[8] = '\0';
+		direction += 8;
+#endif
+	} else
+		fatalx("Invalid report: invalid direction: %s", line);
+
+	reqid = strtoull(sp, &ep, 16);
+	if (ep[0] != '|' || errno != 0)
+		fatalx("Invalid report: invalid reqid: %s", line);
+	sp = ep + 1;
+
+	lka_report_filter_report(reqid, name, 0, direction, &tv, sp);
 }
