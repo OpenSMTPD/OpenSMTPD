@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.272 2019/12/21 11:07:38 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.273 2020/01/08 01:41:11 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1605,6 +1605,25 @@ negation HELO REGEX tables {
 }
 ;
 
+filter_phase_check_auth:
+negation AUTH {
+	filter_config->not_auth = $1 ? -1 : 1;
+	filter_config->auth = 1;
+}
+;
+filter_phase_check_auth_table:
+negation AUTH tables {
+	filter_config->not_auth_table = $1 ? -1 : 1;
+	filter_config->auth_table = $3;
+}
+;
+filter_phase_check_auth_regex:
+negation AUTH REGEX tables {
+	filter_config->not_auth_regex = $1 ? -1 : 1;
+	filter_config->auth_regex = $4;
+}
+;
+
 filter_phase_check_mail_from_table:
 negation MAIL_FROM tables {
 	filter_config->not_mail_from_table = $1 ? -1 : 1;
@@ -1647,9 +1666,20 @@ filter_phase_check_helo_table |
 filter_phase_check_helo_regex |
 filter_phase_global_options;
 
+filter_phase_auth_options:
+filter_phase_check_helo_table |
+filter_phase_check_helo_regex |
+filter_phase_check_auth |
+filter_phase_check_auth_table |
+filter_phase_check_auth_regex |
+filter_phase_global_options;
+
 filter_phase_mail_from_options:
 filter_phase_check_helo_table |
 filter_phase_check_helo_regex |
+filter_phase_check_auth |
+filter_phase_check_auth_table |
+filter_phase_check_auth_regex |
 filter_phase_check_mail_from_table |
 filter_phase_check_mail_from_regex |
 filter_phase_global_options;
@@ -1657,6 +1687,9 @@ filter_phase_global_options;
 filter_phase_rcpt_to_options:
 filter_phase_check_helo_table |
 filter_phase_check_helo_regex |
+filter_phase_check_auth |
+filter_phase_check_auth_table |
+filter_phase_check_auth_regex |
 filter_phase_check_mail_from_table |
 filter_phase_check_mail_from_regex |
 filter_phase_check_rcpt_to_table |
@@ -1666,6 +1699,9 @@ filter_phase_global_options;
 filter_phase_data_options:
 filter_phase_check_helo_table |
 filter_phase_check_helo_regex |
+filter_phase_check_auth |
+filter_phase_check_auth_table |
+filter_phase_check_auth_regex |
 filter_phase_check_mail_from_table |
 filter_phase_check_mail_from_regex |
 filter_phase_global_options;
@@ -1690,6 +1726,9 @@ filter_phase_global_options;
 filter_phase_commit_options:
 filter_phase_check_helo_table |
 filter_phase_check_helo_regex |
+filter_phase_check_auth |
+filter_phase_check_auth_table |
+filter_phase_check_auth_regex |
 filter_phase_check_mail_from_table |
 filter_phase_check_mail_from_regex |
 filter_phase_global_options;
@@ -1712,6 +1751,11 @@ filter_phase_ehlo:
 EHLO {
 	filter_config->phase = FILTER_EHLO;
 } MATCH filter_phase_helo_options filter_action_builtin
+;
+
+filter_phase_auth:
+AUTH {
+} MATCH filter_phase_auth_options filter_action_builtin
 ;
 
 filter_phase_mail_from:
@@ -1770,6 +1814,7 @@ filter_phase:
 filter_phase_connect
 | filter_phase_helo
 | filter_phase_ehlo
+| filter_phase_auth
 | filter_phase_mail_from
 | filter_phase_rcpt_to
 | filter_phase_data
