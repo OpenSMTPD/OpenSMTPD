@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.57 2019/12/21 11:47:34 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.60 2020/01/08 01:41:11 gilles Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -54,6 +54,8 @@ static int	filter_builtins_connect(struct filter_session *, struct filter *, uin
 static int	filter_builtins_helo(struct filter_session *, struct filter *, uint64_t, const char *);
 static int	filter_builtins_mail_from(struct filter_session *, struct filter *, uint64_t, const char *);
 static int	filter_builtins_rcpt_to(struct filter_session *, struct filter *, uint64_t, const char *);
+static int	filter_builtins_data(struct filter_session *, struct filter *, uint64_t, const char *);
+static int	filter_builtins_commit(struct filter_session *, struct filter *, uint64_t, const char *);
 
 static void	filter_result_proceed(uint64_t);
 static void	filter_result_junk(uint64_t);
@@ -78,6 +80,7 @@ struct filter_session {
 	int fcrdns;
 
 	char *helo;
+	char *username;
 	char *mail_from;
 	
 	enum filter_phase	phase;
@@ -95,14 +98,14 @@ static struct filter_exec {
 	{ FILTER_AUTH,     	"auth",		filter_builtins_notimpl },
 	{ FILTER_MAIL_FROM,    	"mail-from",	filter_builtins_mail_from },
 	{ FILTER_RCPT_TO,    	"rcpt-to",	filter_builtins_rcpt_to },
-	{ FILTER_DATA,    	"data",		filter_builtins_notimpl },
+	{ FILTER_DATA,    	"data",		filter_builtins_data },
 	{ FILTER_DATA_LINE,    	"data-line",   	filter_builtins_notimpl },
 	{ FILTER_RSET,    	"rset",		filter_builtins_notimpl },
 	{ FILTER_QUIT,    	"quit",		filter_builtins_notimpl },
 	{ FILTER_NOOP,    	"noop",		filter_builtins_notimpl },
 	{ FILTER_HELP,    	"help",		filter_builtins_notimpl },
 	{ FILTER_WIZ,    	"wiz",		filter_builtins_notimpl },
-	{ FILTER_COMMIT,    	"commit",      	filter_builtins_notimpl },
+	{ FILTER_COMMIT,    	"commit",      	filter_builtins_commit },
 };
 
 struct filter {
@@ -528,6 +531,7 @@ lka_filter_end(uint64_t reqid)
 	free(fs->rdns);
 	free(fs->helo);
 	free(fs->mail_from);
+	free(fs->username);
 	free(fs->lastparam);
 	free(fs);
 	log_trace(TRACE_FILTERS, "%016"PRIx64" filters session-end", reqid);
@@ -884,7 +888,6 @@ filter_protocol(uint64_t reqid, enum filter_phase phase, const char *param)
 		param = nparam;
 		break;
 	case FILTER_STARTTLS:
-	case FILTER_AUTH:
 		/* TBD */
 		break;
 	default:
@@ -1108,6 +1111,47 @@ filter_check_helo_regex(struct filter *filter, const char *key)
 }
 
 static int
+filter_check_auth(struct filter *filter, const char *username)
+{
+	int ret = 0;
+
+	if (!filter->config->auth)
+		return 0;
+
+	ret = username ? 1 : 0;
+
+	return filter->config->not_auth < 0 ? !ret : ret;
+}
+
+static int
+filter_check_auth_table(struct filter *filter, enum table_service kind, const char *key)
+{
+	int	ret = 0;
+
+	if (filter->config->auth_table == NULL)
+		return 0;
+	
+	if (key && table_match(filter->config->auth_table, kind, key) > 0)
+		ret = 1;
+
+	return filter->config->not_auth_table < 0 ? !ret : ret;
+}
+
+static int
+filter_check_auth_regex(struct filter *filter, const char *key)
+{
+	int	ret = 0;
+
+	if (filter->config->auth_regex == NULL)
+		return 0;
+
+	if (key && table_match(filter->config->auth_regex, K_REGEX, key) > 0)
+		ret = 1;
+	return filter->config->not_auth_regex < 0 ? !ret : ret;
+}
+
+
+static int
 filter_check_mail_from_table(struct filter *filter, enum table_service kind, const char *key)
 {
 	int	ret = 0;
@@ -1209,6 +1253,10 @@ filter_builtins_global(struct filter_session *fs, struct filter *filter, uint64_
 	    filter_check_src_regex(filter, ss_to_text(&fs->ss_src)) ||
 	    filter_check_helo_table(filter, K_DOMAIN, fs->helo) ||
 	    filter_check_helo_regex(filter, fs->helo) ||
+	    filter_check_auth(filter, fs->username) ||
+	    filter_check_auth_table(filter, K_STRING, fs->username) ||
+	    filter_check_auth_table(filter, K_CREDENTIALS, fs->username) ||
+	    filter_check_auth_regex(filter, fs->username) ||
 	    filter_check_mail_from_table(filter, K_MAILADDR, fs->mail_from) ||
 	    filter_check_mail_from_regex(filter, fs->mail_from);
 }
@@ -1237,6 +1285,18 @@ filter_builtins_rcpt_to(struct filter_session *fs, struct filter *filter, uint64
 	return filter_builtins_global(fs, filter, reqid) ||
 	    filter_check_rcpt_to_table(filter, K_MAILADDR, param) ||
 	    filter_check_rcpt_to_regex(filter, param);
+}
+
+static int
+filter_builtins_data(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
+{
+	return filter_builtins_global(fs, filter, reqid);
+}
+
+static int
+filter_builtins_commit(struct filter_session *fs, struct filter *filter, uint64_t reqid, const char *param)
+{
+	return filter_builtins_global(fs, filter, reqid);
 }
 
 static void
@@ -1410,6 +1470,12 @@ void
 lka_report_smtp_link_auth(const char *direction, struct timeval *tv, uint64_t reqid,
     const char *username, const char *result)
 {
+	struct filter_session *fs;
+
+	if (strcmp(result, "pass") == 0) {
+		fs = tree_xget(&sessions, reqid);
+		fs->username = xstrdup(username);
+	}
 	report_smtp_broadcast(reqid, direction, tv, "link-auth", "%s|%s\n",
 	    username, result);
 }
