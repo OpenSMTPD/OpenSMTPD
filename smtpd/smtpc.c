@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
@@ -38,6 +39,8 @@
 #include "smtp.h"
 #include "ssl.h"
 #include "log.h"
+
+void *ssl_mta_init(void *, char *, off_t, const char *);
 
 static void parse_server(char *);
 static void parse_message(FILE *);
@@ -138,19 +141,9 @@ main(int argc, char **argv)
 		mail.rcptcount = argc;
 	}
 
-	ssl_init();
 	event_init();
 
-	ssl_ctx = ssl_ctx_create(NULL, NULL, 0, NULL);
-	if (!SSL_CTX_load_verify_locations(ssl_ctx,
-	    X509_get_default_cert_file(), NULL))
-		fatal("SSL_CTX_load_verify_locations");
-	if (!SSL_CTX_set_ssl_version(ssl_ctx, SSLv23_client_method()))
-		fatal("SSL_CTX_set_ssl_version");
-	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE , NULL);
-
-#if HAVE_PLEDGE
-	if (pledge("stdio inet dns tmppath", NULL) == -1)
+	if (pledge("stdio inet dns tmppath rpath", NULL) == -1)
 		fatal("pledge");
 #endif
 
@@ -158,14 +151,14 @@ main(int argc, char **argv)
 		parse_message(stdin);
 
 #if HAVE_PLEDGE
-	if (pledge("stdio inet dns", NULL) == -1)
+	if (pledge("stdio inet dns rpath", NULL) == -1)
 		fatal("pledge");
 #endif
 
 	parse_server(server);
 
 #if HAVE_PLEDGE
-	if (pledge("stdio inet", NULL) == -1)
+	if (pledge("stdio inet rpath", NULL) == -1)
 		fatal("pledge");
 #endif
 
@@ -182,6 +175,7 @@ parse_server(char *server)
 	struct addrinfo hints;
 	char *scheme, *creds, *host, *port, *p, *c;
 	int error;
+	struct tls_config *tls_config;
 
 	creds = NULL;
 	host = NULL;
@@ -268,6 +262,16 @@ parse_server(char *server)
 	if (port == NULL)
 		port = "smtp";
 
+	if (params.tls_req != TLS_NO) {
+		params.tls_name = host;
+		tls_config = tls_config_new();
+		if (! params.tls_verify)
+			tls_config_insecure_noverifyname(tls_config);
+		params.tls_ctx = tls_client();
+		if (tls_config == NULL || params.tls_ctx == NULL)
+			fatal("tls_client");
+		tls_configure(params.tls_ctx, tls_config);
+	}
 	if (servname == NULL)
 		servname = host;
 

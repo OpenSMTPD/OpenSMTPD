@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
@@ -53,7 +54,6 @@ static void smtp_dropped(struct listener *, int, const struct sockaddr_storage *
 static int smtp_enqueue(void);
 static int smtp_can_accept(void);
 static void smtp_setup_listeners(void);
-static int smtp_sni_callback(SSL *, int *, void *);
 
 int
 proxy_session(struct listener *listener, int sock,
@@ -65,6 +65,11 @@ proxy_session(struct listener *listener, int sock,
 
 static void smtp_accepted(struct listener *, int, const struct sockaddr_storage *, struct io *);
 
+/*
+ * This function is not publicy exported because it is a hack until libtls
+ * has a proper privsep setup
+ */
+void tls_config_skip_private_key_check(struct tls_config *config);
 
 #define	SMTP_FD_RESERVE	5
 #define	getdtablecount()	0
@@ -180,9 +185,27 @@ smtp_setup_events(void)
 {
 	struct listener *l;
 	struct pki	*pki;
-	SSL_CTX		*ssl_ctx;
+	const struct ca	*ca;
 	void		*iter;
 	const char	*k;
+	const char	*fake_key;
+	int		 fake_keylen;
+	char		 hash[TLS_CERT_HASH_SIZE];
+	char		*p = &hash[0];
+
+	iter = NULL;
+	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
+		if ((fake_keylen = tls_ctx_fake_private_key(pki->pki_cert,
+			    pki->pki_cert_len, &fake_key,
+			    NULL, &pki->pki_pkey, p)) == -1)
+			err(1, "tls_ctx_fake_private_key");
+
+		/* let ca.c create a mapping hash -> pki */
+		m_create(p_ca, IMSG_CA_HASH_TO_PKI, 0, 0, -1);
+		m_add_string(p_ca, p);
+		m_add_string(p_ca, pki->pki_name);
+		m_flush(p_ca);
+	}
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
@@ -197,14 +220,60 @@ smtp_setup_events(void)
 
 		if (!(env->sc_flags & SMTPD_SMTP_PAUSED))
 			event_add(&l->ev, NULL);
-	}
 
-	iter = NULL;
-	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
-		if (!ssl_setup((SSL_CTX **)&ssl_ctx, pki, smtp_sni_callback,
-			env->sc_tls_ciphers))
-			fatal("smtp_setup_events: ssl_setup failure");
-		dict_xset(env->sc_ssl_dict, k, ssl_ctx);
+		if (l->flags & F_SSL) {
+			if ((l->tls_cfg = tls_config_new()) == NULL)
+				fatal("smtpd: tls_config_new");
+
+			tls_config_skip_private_key_check(l->tls_cfg);
+
+			if (tls_config_set_ciphers(l->tls_cfg, env->sc_tls_ciphers) == -1)
+				err(1, "%s", tls_config_error(l->tls_cfg));
+
+			if (l->pki_name[0])
+				pki = dict_get(env->sc_pki_dict, l->pki_name);
+			else {
+				if (l->hostname[0])
+					pki = dict_get(env->sc_pki_dict, l->hostname);
+				if (pki == NULL)
+					if (env->sc_hostname[0])
+						pki = dict_get(env->sc_pki_dict, env->sc_hostname);
+				if (pki == NULL)
+					pki = dict_get(env->sc_pki_dict, "*");
+			}
+			if (pki == NULL)
+				fatalx("smtpd: could not find valid PKI for listener");
+
+			if (l->ca_name[0])
+				ca = dict_get(env->sc_ca_dict, l->ca_name);
+			else
+				ca = ssl_default_ca();
+			tls_config_set_ca_mem(l->tls_cfg,
+			    ca->ca_cert,
+			    ca->ca_cert_len);
+
+			if ((fake_keylen = tls_ctx_fake_private_key(pki->pki_cert,
+				    pki->pki_cert_len, &fake_key,
+				    NULL, &pki->pki_pkey, p)) == -1)
+				err(1, "tls_ctx_fake_private_key");
+			
+			if (tls_config_set_keypair_ocsp_mem(l->tls_cfg,
+				pki->pki_cert, pki->pki_cert_len,
+				fake_key, fake_keylen, NULL, 0) != 0)
+				err(1, "%s", tls_config_error(l->tls_cfg));
+
+			if (l->flags & F_TLS_VERIFY)
+				tls_config_verify_client(l->tls_cfg);
+			//else
+			//	tls_config_verify_client_optional(l->tls_cfg);
+
+			//
+			// SNI ?
+			//if (sni_cb)
+			//	SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
+
+
+		}
 	}
 
 	purge_config(PURGE_PKI_KEYS);
@@ -338,22 +407,6 @@ smtp_collect(void)
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
 		smtp_resume();
 	}
-}
-
-static int
-smtp_sni_callback(SSL *ssl, int *ad, void *arg)
-{
-	const char		*sn;
-	void			*ssl_ctx;
-
-	sn = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-	if (sn == NULL)
-		return SSL_TLSEXT_ERR_NOACK;
-	ssl_ctx = dict_get(env->sc_ssl_dict, sn);
-	if (ssl_ctx == NULL)
-		return SSL_TLSEXT_ERR_NOACK;
-	SSL_set_SSL_CTX(ssl, ssl_ctx);
-	return SSL_TLSEXT_ERR_OK;
 }
 
 static void

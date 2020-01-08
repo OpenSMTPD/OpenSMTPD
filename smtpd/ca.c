@@ -73,6 +73,7 @@ static int ecdsae_do_verify(const unsigned char *, int, const ECDSA_SIG *,
     EC_KEY *);
 #endif
 
+static struct dict cksum_to_pki;
 static uint64_t	 reqid = 0;
 
 static void
@@ -123,6 +124,8 @@ ca(void)
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
 #endif
+
+	dict_init(&cksum_to_pki);
 
 	event_dispatch();
 	fatalx("exited event loop");
@@ -236,6 +239,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 	const void		*from = NULL;
 	unsigned char		*to = NULL;
 	struct msg		 m;
+	const char		*hash;
 	const char		*pkiname;
 	size_t			 flen, tlen, padding;
 #if defined(SUPPORT_ECDSA)
@@ -273,21 +277,30 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		profiling = v;
 		return;
 
+	case IMSG_CA_HASH_TO_PKI:
+		m_msg(&m, imsg);
+		m_get_string(&m, &hash);
+		m_get_string(&m, &pkiname);
+		m_end(&m);
+
+		pki = dict_xget(env->sc_pki_dict, pkiname);
+		dict_set(&cksum_to_pki, hash, pki);
+		return;
+
 	case IMSG_CA_RSA_PRIVENC:
 	case IMSG_CA_RSA_PRIVDEC:
 		m_msg(&m, imsg);
 		m_get_id(&m, &id);
-		m_get_string(&m, &pkiname);
+		m_get_string(&m, &hash);
 		m_get_data(&m, &from, &flen);
 		m_get_size(&m, &tlen);
 		m_get_size(&m, &padding);
 		m_end(&m);
 
-		pki = dict_get(env->sc_pki_dict, pkiname);
+		pki = dict_get(&cksum_to_pki, hash);
 		if (pki == NULL || pki->pki_pkey == NULL ||
 		    (rsa = EVP_PKEY_get1_RSA(pki->pki_pkey)) == NULL)
 			fatalx("ca_imsg: invalid pki");
-
 		if ((to = calloc(1, tlen)) == NULL)
 			fatalx("ca_imsg: calloc");
 
@@ -361,12 +374,12 @@ rsae_send_imsg(int flen, const unsigned char *from, unsigned char *to,
 	struct imsg	 imsg;
 	int		 n, done = 0;
 	const void	*toptr;
-	char		*pkiname;
+	char		*hash;
 	size_t		 tlen;
 	struct msg	 m;
 	uint64_t	 id;
 
-	if ((pkiname = RSA_get_ex_data(rsa, 0)) == NULL)
+	if ((hash = RSA_get_ex_data(rsa, 0)) == NULL)
 		return (0);
 
 	/*
@@ -376,7 +389,7 @@ rsae_send_imsg(int flen, const unsigned char *from, unsigned char *to,
 	m_create(p_ca, cmd, 0, 0, -1);
 	reqid++;
 	m_add_id(p_ca, reqid);
-	m_add_string(p_ca, pkiname);
+	m_add_string(p_ca, hash);
 	m_add_data(p_ca, (const void *)from, (size_t)flen);
 	m_add_size(p_ca, (size_t)RSA_size(rsa));
 	m_add_size(p_ca, (size_t)padding);
@@ -548,13 +561,13 @@ ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
 	struct imsg	 imsg;
 	int		 n, done = 0;
 	const void	*toptr;
-	char		*pkiname;
+	char		*hash;
 	size_t		 tlen;
 	struct msg	 m;
 	uint64_t	 id;
 	ECDSA_SIG	*sig = NULL;
 
-	if ((pkiname = ECDSA_get_ex_data(eckey, 0)) == NULL)
+	if ((hash = ECDSA_get_ex_data(eckey, 0)) == NULL)
 		return (0);
 
 	/*
@@ -564,7 +577,7 @@ ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
 	m_create(p_ca, IMSG_CA_ECDSA_SIGN, 0, 0, -1);
 	reqid++;
 	m_add_id(p_ca, reqid);
-	m_add_string(p_ca, pkiname);
+	m_add_string(p_ca, hash);
 	m_add_data(p_ca, (const void *)dgst, (size_t)dgst_len);
 	m_flush(p_ca);
 

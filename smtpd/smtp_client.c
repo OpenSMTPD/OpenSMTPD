@@ -151,6 +151,8 @@ smtp_connect(const struct smtp_params *params, void *tag)
 	}
 	io_set_callback(proto->io, smtp_client_io, proto);
 	io_set_timeout(proto->io, proto->params.timeout);
+	if (params->tls_name)
+		io_set_name(proto->io, params->tls_name);
 
 	if (io_connect(proto->io, proto->params.dst, proto->params.src) == -1) {
 		smtp_client_abort(proto, FAIL_CONN, io_error(proto->io));

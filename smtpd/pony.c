@@ -48,6 +48,8 @@ void smtp_imsg(struct mproc *, struct imsg *);
 
 static void pony_shutdown(void);
 
+int ssl_load_default_cafile(void);
+
 void
 pony_imsg(struct mproc *p, struct imsg *imsg)
 {
@@ -156,6 +158,8 @@ pony(void)
 {
 	struct passwd	*pw;
 
+	ssl_load_default_cafile();
+
 	mda_postfork();
 	mta_postfork();
 	smtp_postfork();
@@ -201,7 +205,7 @@ pony(void)
 	ca_engine_init();
 
 #if HAVE_PLEDGE
-	if (pledge("stdio inet unix recvfd sendfd", NULL) == -1)
+	if (pledge("stdio inet unix recvfd sendfd rpath", NULL) == -1)
 		err(1, "pledge");
 #endif
 

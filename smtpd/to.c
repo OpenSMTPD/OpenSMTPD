@@ -45,6 +45,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#if IO_TLS
+#include <tls.h>
+#endif
 #include <unistd.h>
 
 #include "smtpd.h"
@@ -878,3 +881,18 @@ broken_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
 
 	return bits;
 }
+
+#if IO_TLS
+const char *
+tls_to_text(struct tls *tls)
+{
+	static char buf[256];
+
+	(void)snprintf(buf, sizeof buf, "%s:%s:%d",
+	    tls_conn_version(tls),
+	    tls_conn_cipher(tls),
+	    tls_conn_cipher_bits(tls));
+
+	return (buf);
+}
+#endif

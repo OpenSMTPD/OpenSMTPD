@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <tls.h>
 #include <unistd.h>
 
 #include "smtpd.h"
@@ -550,6 +551,9 @@ mta_connect(struct mta_session *s)
 	s->io = io_new();
 	io_set_callback(s->io, mta_io, s);
 	io_set_timeout(s->io, 300000);
+	if (s->route->dst->ptrname)
+		io_set_name(s->io, s->route->dst->ptrname);
+
 	if (io_connect(s->io, sa, s->route->src->sa) == -1) {
 		/*
 		 * This error is most likely a "no route",
@@ -814,6 +818,7 @@ again:
 			    envid_sz ? e->dsn_envid : "");
 		} else
 			mta_send(s, "MAIL FROM:<%s>", s->task->sender);
+
 		break;
 
 	case MTA_RCPT:
@@ -1239,13 +1244,12 @@ mta_io(struct io *io, int evt, void *arg)
 
 	case IO_TLSREADY:
 		log_info("%016"PRIx64" mta tls ciphers=%s",
-		    s->id, ssl_to_text(io_tls(s->io)));
+		    s->id, tls_to_text(io_tls(s->io)));
 		s->flags |= MTA_TLS;
 
+		mta_tls_verified(s);
 		mta_report_link_tls(s,
-		    ssl_to_text(io_tls(s->io)));
-
-		mta_cert_verify(s);
+		    tls_to_text(io_tls(s->io)));
 		break;
 
 	case IO_DATAIN:
@@ -1621,8 +1625,9 @@ mta_cert_init_cb(void *arg, int status, const char *name, const void *cert,
     size_t cert_len)
 {
 	struct mta_session *s = arg;
-	void *ssl;
 	char *xname = NULL, *xcert = NULL;
+	struct tls	*tls;
+	struct tls_config	*tls_config;
 
 	if (s->flags & MTA_WAIT)
 		mta_tree_pop(&wait_tls_init, s->id);
@@ -1633,91 +1638,54 @@ mta_cert_init_cb(void *arg, int status, const char *name, const void *cert,
 		return;
 	}
 
-	if (name)
-		xname = xstrdup(name);
-	if (cert)
-		xcert = xmemdup(cert, cert_len);
-	ssl = ssl_mta_init(xname, xcert, cert_len, env->sc_tls_ciphers);
-	free(xname);
-	free(xcert);
-	if (ssl == NULL)
-		fatal("mta: ssl_mta_init");
-	io_start_tls(s->io, ssl);
-}
-
-static void
-mta_cert_verify(struct mta_session *s)
-{
-	const char *name;
-	int fallback;
-
-	if (s->relay->ca_name) {
-		name = s->relay->ca_name;
-		fallback = 0;
-	}
-	else {
-		name = s->helo;
-		fallback = 1;
-	}
-
-	if (cert_verify(io_tls(s->io), name, fallback, mta_cert_verify_cb, s)) {
-		tree_xset(&wait_tls_verify, s->id, s);
-		io_pause(s->io, IO_IN);
-		s->flags |= MTA_WAIT;
-	}
-}
-
-static void
-mta_cert_verify_cb(void *arg, int status)
-{
-	struct mta_session *s = arg;
-	int match, resume = 0;
-	X509 *cert;
-
-	if (s->flags & MTA_WAIT) {
-		mta_tree_pop(&wait_tls_verify, s->id);
-		resume = 1;
-	}
-
-	if (status == CERT_OK) {
-		cert = SSL_get_peer_certificate(io_tls(s->io));
-		if (!cert)
-			status = CERT_NOCERT;
-		else {
-			match = 0;
-			(void)ssl_check_name(cert, s->mxname, &match);
-			X509_free(cert);
-			if (!match)
-				status = CERT_INVALID;
-		}
-	}
-
-	if (status == CERT_OK)
-		s->flags |= MTA_TLS_VERIFIED;
-	else if (s->relay->flags & RELAY_TLS_VERIFY) {
-		errno = 0;
-		mta_error(s, "SSL certificate check failed");
+	if ((tls = tls_client()) == NULL) {
+		log_info("%016"PRIx64" mta closing reason=tls-failure", s->id);
 		mta_free(s);
 		return;
 	}
 
-	mta_tls_verified(s);
-	if (resume)
-		io_resume(s->io, IO_IN);
+	// must be moved upfront
+	if ((tls_config = tls_config_new()) == NULL) {
+		log_info("%016"PRIx64" mta closing reason=tls-failure", s->id);
+		mta_free(s);
+		return;
+	}
+
+	// cipher ? verify ? client cert ? SNI ?
+
+	if (name)
+		xname = xstrdup(name);
+	if (cert)
+		xcert = xmemdup(cert, cert_len);
+
+	//XXXX
+	tls_config_insecure_noverifycert(tls_config);
+	
+	if (tls_configure(tls, tls_config) == -1) {
+		log_info("%016"PRIx64" mta closing reason=tls-failure", s->id);
+		mta_free(s);
+		return;
+	}
+
+	free(xname);
+	free(xcert);
+	io_start_tls(s->io, tls);
 }
 
 static void
 mta_tls_verified(struct mta_session *s)
 {
-	X509 *x;
-
-	x = SSL_get_peer_certificate(io_tls(s->io));
-	if (x) {
-	  log_info("%016"PRIx64" mta "
-		   "server-cert-check result=\"%s\"",
-		   s->id,
-		   (s->flags & MTA_TLS_VERIFIED) ? "success" : "failure");
-		X509_free(x);
+	if (tls_peer_cert_provided(io_tls(s->io))) {
+		log_info("%016"PRIx64" mta "
+		    "cert-check result=\"%s\" fingerprint=\"%s\"",
+		    s->id,
+		    (s->flags & MTA_TLS_VERIFIED) ? "success" : "failure",
+		    tls_peer_cert_hash(io_tls(s->io)));
+	}
+	else {
+		log_info("%016"PRIx64" smtp "
+		    "cert-check result=\"no certificate presented\"",
+		    s->id);
 	}
 
 	if (s->use_smtps) {

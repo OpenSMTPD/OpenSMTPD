@@ -49,8 +49,7 @@ SRCS+=	smtp_session.c
 SRCS+=	smtpd.c
 SRCS+=	srs.c
 SRCS+=	ssl.c
-SRCS+=	ssl_smtpd.c
-SRCS+=	ssl_verify.c
+#SRCS+=	ssl_smtpd.c
 SRCS+=	stat_backend.c
 SRCS+=	table.c
 SRCS+=	to.c
@@ -83,8 +82,8 @@ SRCS+=		stat_ramstat.c
 MAN=		sendmail.8 smtpd.8 smtpd.conf.5 table.5
 BINDIR=		/usr/sbin
 
-LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
-DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
+LDADD+=		-levent -lutil -ltls -lssl -lcrypto -lm -lz
+DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBTLS} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
 
 CFLAGS+=	-fstack-protector-all
 CFLAGS+=	-I${.CURDIR}/..
