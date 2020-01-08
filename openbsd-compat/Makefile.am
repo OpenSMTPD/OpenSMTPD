@@ -46,9 +46,9 @@ if NEED_ERRC
 libopenbsd_a_SOURCES += errc.c
 endif
 
-if NEED_EVENT_ASR_RUN
-libopenbsd_a_SOURCES +=	event_asr_run.c
-endif
+#if NEED_EVENT_ASR_RUN
+#libopenbsd_a_SOURCES +=	event_asr_run.c
+#endif
 
 if NEED_EXPLICIT_BZERO
 libopenbsd_a_SOURCES += explicit_bzero.c

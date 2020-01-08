@@ -526,7 +526,7 @@ AC_SEARCH_LIBS([event_asr_run],
 	[event],
 	[
 		AC_DEFINE([HAVE_EVENT_ASR_RUN], [1],
-			[Define if you have the basename() function.])
+			[Define if you have the event_asr_run() function.])
 	])
 
 AC_CHECK_FUNCS([ \
@@ -864,7 +864,6 @@ fi
 
 #l432 (customized)
 # Check for some target-specific stuff
-ASR_LIB=-lasr
 
 case "$host" in
 *-*-darwin*)
@@ -1647,7 +1646,8 @@ AC_ARG_WITH([libasr],
 	fi ]
 )
 
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install libasr ***])],
+need_libasr=no
+AC_CHECK_HEADER([asr.h], ,[need_libasr=yes])
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>])
@@ -1667,11 +1667,12 @@ AC_CHECK_LIB([asr], [asr_run], ,
 #		LIBS="$LIBS -lasr"
 		AC_TRY_LINK_FUNC([asr_run], ,
 			[
-				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
+				need_libasr=yes
 			]
 		)
 	]
 )
+AM_CONDITIONAL([NEED_LIBASR], [test "x$need_libasr" = "xyes"])
 
 
 # Search for fts
@@ -2068,6 +2069,7 @@ AM_CONDITIONAL([NEED_PROGNAME], [test "x$ac_cv_libc_defines___progname" != "xyes
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
+		openbsd-compat/libasr/Makefile
 		mk/Makefile
 		mk/mail/Makefile
 		mk/mail/mail.lmtp/Makefile

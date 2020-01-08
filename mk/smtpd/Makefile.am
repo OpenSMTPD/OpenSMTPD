@@ -100,6 +100,10 @@ AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/paths_h
 endif
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
+if NEED_LIBASR
+AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libasr
+LIBCOMPAT+=		$(top_builddir)/openbsd-compat/libasr/libasr.a
+endif
 
 LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)
 
