@@ -476,6 +476,13 @@ AC_SEARCH_LIBS([fparseln],
 			[Define if you have the fparseln() function.])
 	])
 
+AC_SEARCH_LIBS([res_hnok],
+	[resolv],
+	[
+		AC_DEFINE([HAVE_RES_HNOK], [1],
+			[Define if you have the res_hnok() function.])
+	])
+
 AC_SEARCH_LIBS([res_randomid],
 	[resolv],
 	[
@@ -2027,6 +2034,7 @@ AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_func_waitpid" != "xyes"])
 AM_CONDITIONAL([NEED_VIS], [test "x$ac_cv_func_strnvis" != "xyes" -o "x$BROKEN_STRNVIS" = "x1"])
 AM_CONDITIONAL([NEED_USLEEP], [test "x$ac_cv_func_usleep" != "xyes"])
 
+AM_CONDITIONAL([NEED_RES_HNOK], [test "x$ac_cv_search_res_hnok" = "xno" -a x"$ac_cv_func_res_hnok" != "xyes" -a x"$need_libasr" = x"yes"])
 AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" = "xno" -a x"$ac_cv_func_res_randomid" != "xyes" -a x"$need_libasr" = x"yes"])
 
 AM_CONDITIONAL([NEED_ARC4RANDOM], [test "x$ac_cv_func_arc4random" != "xyes" -a "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
