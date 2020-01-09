@@ -2008,7 +2008,7 @@ AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
 AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_search_fparseln" = "xno"])
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
 AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_search_inet_net_pton" = "xno"])
-AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" != "xno"])
+AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" = "xno"])
 
 AM_CONDITIONAL([NEED_ERR], [test "x$ac_cv_func_err" != "xyes"])
 AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_func_errc" != "xyes"])
