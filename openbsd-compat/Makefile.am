@@ -11,7 +11,6 @@ libopenbsd_a_SOURCES +=	libasr/asr.c
 libopenbsd_a_SOURCES +=	libasr/asr_debug.c
 libopenbsd_a_SOURCES +=	libasr/asr_compat.c
 libopenbsd_a_SOURCES +=	libasr/asr_utils.c
-libopenbsd_a_SOURCES += libasr/event_asr_run.c
 libopenbsd_a_SOURCES +=	libasr/getaddrinfo_async.c
 libopenbsd_a_SOURCES +=	libasr/gethostnamadr_async.c
 libopenbsd_a_SOURCES +=	libasr/getnameinfo_async.c
@@ -68,9 +67,9 @@ if NEED_ERRC
 libopenbsd_a_SOURCES += errc.c
 endif
 
-#if NEED_EVENT_ASR_RUN
-#libopenbsd_a_SOURCES +=	event_asr_run.c
-#endif
+if NEED_EVENT_ASR_RUN
+libopenbsd_a_SOURCES +=	event_asr_run.c
+endif
 
 if NEED_EXPLICIT_BZERO
 libopenbsd_a_SOURCES += explicit_bzero.c
