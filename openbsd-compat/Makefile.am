@@ -23,6 +23,23 @@ include_HEADERS =	libasr/asr.h
 endif
 
 
+if NEED_LIBTLS
+AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/libtls
+
+libopenbsd_a_SOURCES += libtls/tls.c
+libopenbsd_a_SOURCES += libtls/tls_client.c
+libopenbsd_a_SOURCES += libtls/tls_bio_cb.c
+libopenbsd_a_SOURCES += libtls/tls_config.c
+libopenbsd_a_SOURCES += libtls/tls_conninfo.c
+libopenbsd_a_SOURCES += libtls/tls_keypair.c
+libopenbsd_a_SOURCES += libtls/tls_server.c
+libopenbsd_a_SOURCES += libtls/tls_ocsp.c
+libopenbsd_a_SOURCES += libtls/tls_peer.c
+libopenbsd_a_SOURCES += libtls/tls_util.c
+libopenbsd_a_SOURCES += libtls/tls_verify.c
+
+endif
+
 
 if NEED_PROGNAME
 libopenbsd_a_SOURCES +=	progname.c

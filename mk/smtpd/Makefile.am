@@ -58,7 +58,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/smtp_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/smtpd.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/srs.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ssl.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_smtpd.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_verify.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table.c
@@ -102,6 +101,9 @@ endif
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
 if NEED_LIBASR
 AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libasr
+endif
+if NEED_LIBTLS
+AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libtls
 endif
 
 LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)

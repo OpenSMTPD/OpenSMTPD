@@ -306,25 +306,13 @@ tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key,
 		goto fail;
 	}
 
-<<<<<<< HEAD
-		memcpy(exdata, data, datalen);
-		if (rsa)
-			RSA_set_ex_data(rsa, 0, exdata);
-#if defined(SUPPORT_ECDSA)
-		if (eckey)
-			ECDSA_set_ex_data(eckey, 0, exdata);
-#endif
-		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
-#if defined(SUPPORT_ECDSA)
-		EC_KEY_free(eckey); /* dereference, will be cleaned up with pkey */
-#endif
-=======
 	hash_x509(x509, hash, TLS_CERT_HASH_SIZE);
 	if (rsa)
 		RSA_set_ex_data(rsa, 0, hash);
+#if defined(SUPPORT_ECDSA)
 	if (eckey)
 		ECDSA_set_ex_data(eckey, 0, hash);
-
+#endif
 	keylen = EVP_PKEY_size(pkey) * 8;
 	if (rsa) {
 		switch(keylen) {
@@ -349,9 +337,9 @@ tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key,
 			ret = -1;
 			break;
 		}
->>>>>>> libtls
 	}
 
+#if defined(SUPPORT_ECDSA)
 	if (eckey) {
 		switch(keylen) {
 		case 576:
@@ -363,8 +351,8 @@ tls_ctx_fake_private_key(char *buf, off_t len, const char **fake_key,
 			ret = -1;
 			break;
 		}
-
 	}
+#endif
 
 	if (ret != -1) {
 		if (x509ptr) {
@@ -382,8 +370,10 @@ fail:
 
 	if (rsa)
 		RSA_free(rsa);
+#if defined(SUPPORT_ECDSA)
 	if (eckey)
 		EC_KEY_free(eckey);
+#endif
 	if (pkey)
 		EVP_PKEY_free(pkey);
 	if (x509)
