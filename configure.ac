@@ -1973,6 +1973,12 @@ AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 
+
+if test "$need_libasr" = "no" -a "x$ac_cv_search_event_asr_run" = "xno"; then
+	LIBS="$LIBS -lasr"
+fi
+
+
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
 
