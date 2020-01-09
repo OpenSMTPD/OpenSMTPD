@@ -466,6 +466,13 @@ AC_SEARCH_LIBS([fparseln],
 			[Define if you have the fparseln() function.])
 	])
 
+AC_SEARCH_LIBS([res_randomid],
+	[resolv],
+	[
+		AC_DEFINE([HAVE_RES_RANDOMID], [1],
+			[Define if you have the res_randomid() function.])
+	])
+
 AC_SEARCH_LIBS([res_9_b64_ntop],
 	[resolv],
 	[
@@ -2001,6 +2008,7 @@ AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
 AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_search_fparseln" = "xno"])
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
 AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_search_inet_net_pton" = "xno"])
+AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" != "xno"])
 
 AM_CONDITIONAL([NEED_ERR], [test "x$ac_cv_func_err" != "xyes"])
 AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_func_errc" != "xyes"])
@@ -2014,7 +2022,6 @@ AM_CONDITIONAL([NEED_NANOSLEEP], [test "x$ac_cv_func_nanosleep" != "xyes"])
 AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_func_pidfile" != "xyes"])
 AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" != "xyes"])
-AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_func_res_randomid" != "xyes"])
 AM_CONDITIONAL([NEED_SETPROCTITLE], [test "x$ac_cv_func_setproctitle" != "xyes"])
 AM_CONDITIONAL([NEED_SETEGID], [test "x$ac_cv_func_setegid" != "xyes"])
 AM_CONDITIONAL([NEED_SETEUID], [test "x$ac_cv_func_seteuid" != "xyes"])
