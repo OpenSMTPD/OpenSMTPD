@@ -125,6 +125,10 @@ if NEED_RECALLOCARRAY
 libopenbsd_a_SOURCES +=	recallocarray.c
 endif
 
+if NEED_RES_RANDOMID
+libopenbsd_a_SOURCES +=	res_randomid.c
+endif
+
 if NEED_SETPROCTITLE
 libopenbsd_a_SOURCES +=	setproctitle.c
 endif

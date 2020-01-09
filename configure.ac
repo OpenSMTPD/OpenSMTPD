@@ -567,6 +567,7 @@ AC_CHECK_FUNCS([ \
 	pledge \
 	reallocarray \
 	recallocarray \
+	res_randomid \
 	res_hnok \
 	setenv \
 	seteuid \
@@ -2013,6 +2014,7 @@ AM_CONDITIONAL([NEED_NANOSLEEP], [test "x$ac_cv_func_nanosleep" != "xyes"])
 AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_func_pidfile" != "xyes"])
 AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" != "xyes"])
+AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_func_res_randomid" != "xyes"])
 AM_CONDITIONAL([NEED_SETPROCTITLE], [test "x$ac_cv_func_setproctitle" != "xyes"])
 AM_CONDITIONAL([NEED_SETEGID], [test "x$ac_cv_func_setegid" != "xyes"])
 AM_CONDITIONAL([NEED_SETEUID], [test "x$ac_cv_func_seteuid" != "xyes"])
