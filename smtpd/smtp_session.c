@@ -2822,7 +2822,7 @@ smtp_message_begin(struct smtp_tx *tx)
 		m_printf(tx, " (%s:%s:%d:%s)",
 		    tls_conn_version(io_tls(s->io)),
 		    tls_conn_cipher(io_tls(s->io)),
-		    tls_conn_cipher_bits(io_tls(s->io)),
+		    tls_conn_cipher_strength(io_tls(s->io)),
 		    (s->flags & SF_VERIFIED) ? "YES" : "NO");
 
 		if (s->listener->flags & F_RECEIVEDAUTH) {
