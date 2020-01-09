@@ -143,6 +143,7 @@ main(int argc, char **argv)
 
 	event_init();
 
+#if HAVE_PLEDGE
 	if (pledge("stdio inet dns tmppath rpath", NULL) == -1)
 		fatal("pledge");
 #endif

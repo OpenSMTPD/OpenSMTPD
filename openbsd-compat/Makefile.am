@@ -40,6 +40,9 @@ libopenbsd_a_SOURCES += libtls/tls_peer.c
 libopenbsd_a_SOURCES += libtls/tls_util.c
 libopenbsd_a_SOURCES += libtls/tls_verify.c
 
+libopenbsd_a_SOURCES += libtls/by_mem.c
+libopenbsd_a_SOURCES += libtls/openssl.c
+
 endif
 
 

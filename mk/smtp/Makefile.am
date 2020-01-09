@@ -17,6 +17,9 @@ AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
 endif
+if NEED_LIBTLS
+AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libtls
+endif
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
 
