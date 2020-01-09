@@ -1,5 +1,7 @@
 #include "includes.h"
 
+#include <time.h>
+
 unsigned int
 res_randomid(void)
 {
