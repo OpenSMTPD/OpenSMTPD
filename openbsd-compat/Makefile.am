@@ -124,6 +124,10 @@ if NEED_RECALLOCARRAY
 libopenbsd_a_SOURCES +=	recallocarray.c
 endif
 
+if NEED_RES_HNOK
+libopenbsd_a_SOURCES +=	res_hnok.c
+endif
+
 if NEED_RES_RANDOMID
 libopenbsd_a_SOURCES +=	res_randomid.c
 endif
