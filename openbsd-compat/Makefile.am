@@ -206,6 +206,10 @@ if NEED_STRNLEN
 libopenbsd_a_SOURCES += strnlen.c
 endif
 
+if NEED_TIMINGSAFE_MEMCMP
+libopenbsd_a_SOURCES += timingsafe_memcmp.c
+endif
+
 if NEED_USLEEP
 libopenbsd_a_SOURCES +=	usleep.c
 endif
