@@ -13,7 +13,6 @@ RUN apk add --no-cache \
     fts-dev \
     gcc \
     fts \
-    libasr-dev \
     libevent-dev \
     libtool \
     libtool \
