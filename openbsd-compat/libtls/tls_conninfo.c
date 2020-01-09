@@ -314,6 +314,14 @@ tls_conn_cipher(struct tls *ctx)
 	return (ctx->conninfo->cipher);
 }
 
+int
+tls_conn_cipher_strength(struct tls *ctx)
+{
+	if (ctx->conninfo == NULL)
+		return (0);
+	return (ctx->conninfo->cipher_strength);
+}
+
 const char *
 tls_conn_servername(struct tls *ctx)
 {

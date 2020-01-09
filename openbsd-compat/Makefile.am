@@ -26,6 +26,8 @@ endif
 if NEED_LIBTLS
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/libtls
 
+libopenbsd_a_SOURCES += libtls/asn.c
+
 libopenbsd_a_SOURCES += libtls/tls.c
 libopenbsd_a_SOURCES += libtls/tls_client.c
 libopenbsd_a_SOURCES += libtls/tls_bio_cb.c

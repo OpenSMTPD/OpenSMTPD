@@ -891,7 +891,7 @@ tls_to_text(struct tls *tls)
 	(void)snprintf(buf, sizeof buf, "%s:%s:%d",
 	    tls_conn_version(tls),
 	    tls_conn_cipher(tls),
-	    tls_conn_cipher_bits(tls));
+	    tls_conn_cipher_strength(tls));
 
 	return (buf);
 }

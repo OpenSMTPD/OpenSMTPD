@@ -112,6 +112,7 @@ struct tls_config {
 struct tls_conninfo {
 	char *alpn;
 	char *cipher;
+	int cipher_strength;
 	char *servername;
 	int session_resumed;
 	char *version;
