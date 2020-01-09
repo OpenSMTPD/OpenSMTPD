@@ -17,9 +17,13 @@
 
 #include <sys/socket.h>
 
+#define MONOTHREADED
+
 #include <errno.h>
 #include <limits.h>
+#ifndef MONOTHREADED
 #include <pthread.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -58,11 +62,14 @@ tls_do_init(void)
 int
 tls_init(void)
 {
+#ifndef MONOTHREADED
 	static pthread_once_t once = PTHREAD_ONCE_INIT;
 
 	if (pthread_once(&once, tls_do_init) != 0)
 		return -1;
-
+#else
+	tls_do_init();
+#endif
 	return tls_init_rv;
 }
 
@@ -257,9 +264,13 @@ tls_configure(struct tls *ctx, struct tls_config *config)
 	if (config == NULL)
 		config = tls_config_default;
 
+#ifndef MONOTHREADED
 	pthread_mutex_lock(&config->mutex);
 	config->refcount++;
 	pthread_mutex_unlock(&config->mutex);
+#else
+	config->refcount++;
+#endif
 
 	tls_config_free(ctx->config);
 
