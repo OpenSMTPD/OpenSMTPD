@@ -359,47 +359,6 @@ log_trace(int lvl, const char *emsg, ...)
 }
 
 void
-smtp_verify_server_cert(void *tag, struct smtp_client *proto, void *ctx)
-{
-	SSL *ssl = ctx;
-	X509 *cert;
-	long res;
-	int match;
-
-	if ((cert = SSL_get_peer_certificate(ssl))) {
-		(void)ssl_check_name(cert, servname, &match);
-		X509_free(cert);
-		res = SSL_get_verify_result(ssl);
-		if (res == X509_V_OK) {
-			if (match) {
-				log_debug("valid certificate");
-				smtp_cert_verified(proto, CERT_OK);
-			}
-			else {
-				log_debug("certificate does not match hostname");
-				smtp_cert_verified(proto, CERT_INVALID);
-			}
-			return;
-		}
-		log_debug("certificate validation error %ld", res);
-	}
-	else
-		log_debug("no certificate provided");
-
-	smtp_cert_verified(proto, CERT_INVALID);
-}
-
-void
-smtp_require_tls(void *tag, struct smtp_client *proto)
-{
-	SSL *ssl = NULL;
-
-	if ((ssl = SSL_new(ssl_ctx)) == NULL)
-		fatal("SSL_new");
-	smtp_set_tls(proto, ssl);
-}
-
-void
 smtp_ready(void *tag, struct smtp_client *proto)
 {
 	log_debug("connection ready...");

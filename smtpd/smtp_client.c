@@ -507,8 +507,9 @@ smtp_client_response(struct smtp_client *proto, const char *line)
 			}
 			smtp_client_state(proto, STATE_AUTH);
 		}
-		else
-			smtp_require_tls(proto->tag, proto);
+		else {
+			//smtp_require_tls(proto->tag, proto);
+		}
 		break;
 
 	case STATE_AUTH_PLAIN:
@@ -618,7 +619,7 @@ smtp_client_io(struct io *io, int evt, void *arg)
 	case IO_CONNECTED:
 		if (proto->params.tls_req == TLS_SMTPS) {
 			io_set_write(io);
-			smtp_require_tls(proto->tag, proto);
+			//smtp_require_tls(proto->tag, proto);
 		}
 		else
 			smtp_client_state(proto, STATE_BANNER);
@@ -627,7 +628,6 @@ smtp_client_io(struct io *io, int evt, void *arg)
 	case IO_TLSREADY:
 		proto->flags |= FLAG_TLS;
 		io_pause(proto->io, IO_IN);
-		smtp_verify_server_cert(proto->tag, proto, io_tls(proto->io));
 		break;
 
 	case IO_DATAIN:

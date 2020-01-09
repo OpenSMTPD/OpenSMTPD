@@ -88,8 +88,6 @@ void smtp_quit(struct smtp_client *);
 void smtp_sendmail(struct smtp_client *, struct smtp_mail *);
 
 /* callbacks */
-void smtp_verify_server_cert(void *, struct smtp_client *, void *);
-void smtp_require_tls(void *, struct smtp_client *);
 void smtp_ready(void *, struct smtp_client *);
 void smtp_failed(void *, struct smtp_client *, int, const char *);
 void smtp_closed(void *, struct smtp_client *);

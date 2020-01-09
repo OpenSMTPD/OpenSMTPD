@@ -157,8 +157,6 @@ static void mta_response(struct mta_session *, char *);
 static const char * mta_strstate(int);
 static void mta_cert_init(struct mta_session *);
 static void mta_cert_init_cb(void *, int, const char *, const void *, size_t);
-static void mta_cert_verify(struct mta_session *);
-static void mta_cert_verify_cb(void *, int);
 static void mta_tls_verified(struct mta_session *);
 static struct mta_session *mta_tree_pop(struct tree *, uint64_t);
 static const char * dsn_strret(enum dsn_ret);
