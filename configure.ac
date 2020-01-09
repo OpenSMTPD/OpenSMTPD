@@ -173,6 +173,16 @@ AC_CHECK_HEADER([fts.h],
 #include <sys/stat.h>
 ])
 
+need_libasr=no
+AC_CHECK_HEADER([asr.h],
+	[],
+	[need_libasr=yes],
+	[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+])
+AM_CONDITIONAL([NEED_LIBASR], [test x"$need_libasr" = x"yes"])
 
 #
 # CHECKS FOR TYPES
@@ -466,6 +476,13 @@ AC_SEARCH_LIBS([fparseln],
 			[Define if you have the fparseln() function.])
 	])
 
+AC_SEARCH_LIBS([res_hnok],
+	[resolv],
+	[
+		AC_DEFINE([HAVE_RES_HNOK], [1],
+			[Define if you have the res_hnok() function.])
+	])
+
 AC_SEARCH_LIBS([res_randomid],
 	[resolv],
 	[
@@ -575,6 +592,7 @@ AC_CHECK_FUNCS([ \
 	reallocarray \
 	recallocarray \
 	res_hnok \
+	res_randomid \
 	setenv \
 	seteuid \
 	setegid \
@@ -1625,34 +1643,6 @@ AC_SUBST([TEST_MALLOC_OPTIONS], [$TEST_MALLOC_OPTIONS])
 AC_EXEEXT
 #l4757
 
-need_libasr=no
-AC_CHECK_HEADER([asr.h], ,[need_libasr=yes])
-[#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>])
-AC_CHECK_LIB([asr], [asr_run], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default asr install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-# don't add -lasr to LIBS, it's only added when needed
-#		LIBS="$LIBS -lasr"
-		AC_TRY_LINK_FUNC([asr_run], ,
-			[
-				need_libasr=yes
-			]
-		)
-	]
-)
-AM_CONDITIONAL([NEED_LIBASR], [test "x$need_libasr" = "xyes"])
-
 
 # Search for fts
 AC_ARG_WITH([libfts],
@@ -1991,6 +1981,12 @@ AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 
+
+if test "$need_libasr" = "no" -a "x$ac_cv_search_event_asr_run" = "xno"; then
+	LIBS="$LIBS -lasr"
+fi
+
+
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
 
@@ -2008,7 +2004,6 @@ AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
 AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_search_fparseln" = "xno"])
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
 AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_search_inet_net_pton" = "xno"])
-AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" = "xno"])
 
 AM_CONDITIONAL([NEED_ERR], [test "x$ac_cv_func_err" != "xyes"])
 AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_func_errc" != "xyes"])
@@ -2040,6 +2035,9 @@ AM_CONDITIONAL([NEED_TIMINGSAFE_MEMCMP], [test "x$ac_cv_func_timingsafe_memcmp" 
 AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_func_waitpid" != "xyes"])
 AM_CONDITIONAL([NEED_VIS], [test "x$ac_cv_func_strnvis" != "xyes" -o "x$BROKEN_STRNVIS" = "x1"])
 AM_CONDITIONAL([NEED_USLEEP], [test "x$ac_cv_func_usleep" != "xyes"])
+
+AM_CONDITIONAL([NEED_RES_HNOK], [test "x$ac_cv_search_res_hnok" = "xno" -a x"$ac_cv_func_res_hnok" != "xyes" -a x"$need_libasr" = x"yes"])
+AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" = "xno" -a x"$ac_cv_func_res_randomid" != "xyes" -a x"$need_libasr" = x"yes"])
 
 AM_CONDITIONAL([NEED_ARC4RANDOM], [test "x$ac_cv_func_arc4random" != "xyes" -a "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
 AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
