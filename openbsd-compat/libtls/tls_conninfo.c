@@ -248,6 +248,7 @@ tls_conninfo_populate(struct tls *ctx)
 		goto err;
 	if ((ctx->conninfo->cipher = strdup(tmp)) == NULL)
 		goto err;
+	ctx->conninfo->cipher_strength = SSL_get_cipher_bits(ctx->ssl_conn, NULL);
 
 	if (ctx->servername != NULL) {
 		if ((ctx->conninfo->servername =
