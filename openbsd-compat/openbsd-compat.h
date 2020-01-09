@@ -300,6 +300,10 @@ struct timeval {
 }
 #endif
 
+#ifdef NEED_FREEZERO
+void freezero(void *, size_t);
+#endif
+
 #ifdef NEED_NANOSLEEP
 #ifndef HAVE_STRUCT_TIMESPEC
 struct timespec {
@@ -332,8 +336,16 @@ mysig_t mysignal(int sig, mysig_t act);
 const char *strerror(int);
 #endif
 
+#ifdef NEED_TIMINGSAFE_MEMCMP
+int timingsafe_memcmp(const void *b1, const void *b2, size_t len);
+#endif
+
 #ifdef NEED_USLEEP
 int usleep(unsigned int useconds);
+#endif
+
+#ifdef NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
+int SSL_CTX_use_certificate_chain_mem(SSL_CTX *ctx, void *buf, int len);
 #endif
 
 char *get_progname(char *);

@@ -15,6 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "includes.h"
+
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>

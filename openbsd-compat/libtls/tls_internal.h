@@ -287,4 +287,8 @@ int tls_password_cb(char *_buf, int _size, int _rwflag, void *_u);
 /* XXX this function is not fully hidden so relayd can use it */
 void tls_config_skip_private_key_check(struct tls_config *config);
 
+/* XXX prototypes brought for OpenSMTPD libtls wrapper to OpenSSL */
+int ASN1_time_parse(const char *bytes, size_t len, struct tm *tm, int mode);
+
+
 #endif /* HEADER_TLS_INTERNAL_H */
