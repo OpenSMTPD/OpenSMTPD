@@ -2040,7 +2040,6 @@ AM_CONDITIONAL([NEED_PROGNAME], [test "x$ac_cv_libc_defines___progname" != "xyes
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
-		openbsd-compat/libasr/Makefile
 		mk/Makefile
 		mk/mail/Makefile
 		mk/mail/mail.lmtp/Makefile

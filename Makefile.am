@@ -1,3 +1,3 @@
-SUBDIRS =		openbsd-compat openbsd-compat/libasr mk contrib
+SUBDIRS =		openbsd-compat mk contrib
 
 ACLOCAL_AMFLAGS =	-I m4

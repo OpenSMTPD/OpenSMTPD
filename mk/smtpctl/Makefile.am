@@ -71,7 +71,6 @@ FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 if NEED_LIBASR
 AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libasr
-LIBCOMPAT+=		$(top_builddir)/openbsd-compat/libasr/libasr.a
 endif
 
 $(MANPAGES): $(MANPAGES_IN)
