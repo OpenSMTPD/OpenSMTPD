@@ -22,7 +22,6 @@ RUN pacman -Suy --noconfirm \
   libtool \ 
   bison \
   gettext \
-  libasr \
   libevent \
   libressl \
   pam \
