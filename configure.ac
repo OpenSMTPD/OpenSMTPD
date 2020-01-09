@@ -466,6 +466,13 @@ AC_SEARCH_LIBS([fparseln],
 			[Define if you have the fparseln() function.])
 	])
 
+AC_SEARCH_LIBS([res_randomid],
+	[resolv],
+	[
+		AC_DEFINE([HAVE_RES_RANDOMID], [1],
+			[Define if you have the res_randomid() function.])
+	])
+
 AC_SEARCH_LIBS([res_9_b64_ntop],
 	[resolv],
 	[
@@ -526,7 +533,7 @@ AC_SEARCH_LIBS([event_asr_run],
 	[event],
 	[
 		AC_DEFINE([HAVE_EVENT_ASR_RUN], [1],
-			[Define if you have the basename() function.])
+			[Define if you have the event_asr_run() function.])
 	])
 
 AC_CHECK_FUNCS([ \
@@ -864,7 +871,6 @@ fi
 
 #l432 (customized)
 # Check for some target-specific stuff
-ASR_LIB=-lasr
 
 case "$host" in
 *-*-darwin*)
@@ -1618,36 +1624,8 @@ AC_SUBST([TEST_MALLOC_OPTIONS], [$TEST_MALLOC_OPTIONS])
 AC_EXEEXT
 #l4757
 
-
-# Search for asr (based on zlib checks)
-dnl asr is required
-AC_ARG_WITH([libasr],
-	[  --with-libasr=PATH		Specify path to libasr installation],
-	[ if test "x$withval" = "xno"; then
-		AC_MSG_ERROR([*** asr is required ***])
-	  elif test "x$withval" != "xyes"; then
-		if test -d "$withval/lib"; then
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-			fi
-		else
-			if test -n "${need_dash_r}"; then
-				LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-			else
-				LDFLAGS="-L${withval} ${LDFLAGS}"
-			fi
-		fi
-		if test -d "$withval/include"; then
-			CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-		else
-			CPPFLAGS="-I${withval} ${CPPFLAGS}"
-		fi
-	fi ]
-)
-
-AC_CHECK_HEADER([asr.h], ,[AC_MSG_ERROR([*** asr.h missing - please install libasr ***])],
+need_libasr=no
+AC_CHECK_HEADER([asr.h], ,[need_libasr=yes])
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>])
@@ -1667,11 +1645,12 @@ AC_CHECK_LIB([asr], [asr_run], ,
 #		LIBS="$LIBS -lasr"
 		AC_TRY_LINK_FUNC([asr_run], ,
 			[
-				AC_MSG_ERROR([*** libasr missing - please install first or check config.log ***])
+				need_libasr=yes
 			]
 		)
 	]
 )
+AM_CONDITIONAL([NEED_LIBASR], [test "x$need_libasr" = "xyes"])
 
 
 # Search for fts
@@ -2028,6 +2007,7 @@ AM_CONDITIONAL([NEED_FMT_SCALED], [test "x$ac_cv_search_fmt_scaled" = "xno"])
 AM_CONDITIONAL([NEED_FPARSELN], [test "x$ac_cv_search_fparseln" = "xno"])
 AM_CONDITIONAL([NEED_IMSG], [test "x$ac_cv_search_imsg_init" = "xno"])
 AM_CONDITIONAL([NEED_INET_NET_PTON], [test "x$ac_cv_search_inet_net_pton" = "xno"])
+AM_CONDITIONAL([NEED_RES_RANDOMID], [test "x$ac_cv_search_res_randomid" = "xno"])
 
 AM_CONDITIONAL([NEED_ERR], [test "x$ac_cv_func_err" != "xyes"])
 AM_CONDITIONAL([NEED_ERRC], [test "x$ac_cv_func_errc" != "xyes"])

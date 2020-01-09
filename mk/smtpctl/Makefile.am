@@ -69,6 +69,9 @@ PATHSUBS=		-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'	\
 
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
+if NEED_LIBASR
+AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libasr
+endif
 
 $(MANPAGES): $(MANPAGES_IN)
 	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \

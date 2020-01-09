@@ -491,4 +491,8 @@ typedef uint16_t	in_port_t;
 #define LOG_PERROR 0
 #endif
 
+#ifndef MAXDNAME
+#define MAXDNAME 1025
+#endif
+
 #endif /* _DEFINES_H */

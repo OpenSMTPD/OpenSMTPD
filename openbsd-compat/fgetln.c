@@ -18,6 +18,8 @@
  * portable fgetln() version, NOT reentrant
  */
 
+#include "includes.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
