@@ -1986,6 +1986,9 @@ if test "$need_libasr" = "no" -a "x$ac_cv_search_event_asr_run" = "xno"; then
 	LIBS="$LIBS -lasr"
 fi
 
+if test "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"; then
+	LIBS="$LIBS -lpthread"
+fi
 
 LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
