@@ -574,7 +574,6 @@ AC_CHECK_FUNCS([ \
 	pledge \
 	reallocarray \
 	recallocarray \
-	res_randomid \
 	res_hnok \
 	setenv \
 	seteuid \
