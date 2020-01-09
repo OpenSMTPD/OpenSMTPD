@@ -197,6 +197,7 @@ const uint8_t *tls_peer_cert_chain_pem(struct tls *_ctx, size_t *_len);
 
 const char *tls_conn_alpn_selected(struct tls *_ctx);
 const char *tls_conn_cipher(struct tls *_ctx);
+int tls_conn_cipher_strength(struct tls *ctx);
 const char *tls_conn_servername(struct tls *_ctx);
 int tls_conn_session_resumed(struct tls *_ctx);
 const char *tls_conn_version(struct tls *_ctx);
