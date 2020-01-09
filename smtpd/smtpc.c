@@ -54,8 +54,6 @@ static struct smtp_params params;
 static struct smtp_mail mail;
 static const char *servname = NULL;
 
-static SSL_CTX *ssl_ctx;
-
 static void
 usage(void)
 {
