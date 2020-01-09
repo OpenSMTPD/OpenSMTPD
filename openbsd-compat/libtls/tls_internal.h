@@ -26,9 +26,7 @@
 
 #include <openssl/ssl.h>
 
-//__BEGIN_HIDDEN_DECLS
-
-#define TLS_CIPHERS_DEFAULT	"TLSv1.2+AEAD+ECDHE:TLSv1.2+AEAD+DHE"
+#define TLS_CIPHERS_DEFAULT	"HIGH:!aNULL"
 #define TLS_CIPHERS_COMPAT	"HIGH:!aNULL"
 #define TLS_CIPHERS_LEGACY	"HIGH:MEDIUM:!aNULL"
 #define TLS_CIPHERS_ALL		"ALL:!aNULL:!eNULL"
@@ -285,8 +283,6 @@ int tls_cert_hash(X509 *_cert, char **_hash);
 int tls_cert_pubkey_hash(X509 *_cert, char **_hash);
 
 int tls_password_cb(char *_buf, int _size, int _rwflag, void *_u);
-
-//__END_HIDDEN_DECLS
 
 /* XXX this function is not fully hidden so relayd can use it */
 void tls_config_skip_private_key_check(struct tls_config *config);
