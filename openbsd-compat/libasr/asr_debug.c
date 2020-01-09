@@ -78,7 +78,7 @@ print_rr(const struct asr_dns_rr *rr, char *buf, size_t max)
 	    rr->rr_ttl,
 	    __p_class(rr->rr_class),
 	    __p_type(rr->rr_type));
-	if (r < 0 || r >= max) {
+	if (r < 0 || (size_t)r >= max) {
 		buf[0] = '\0';
 		return (buf);
 	}

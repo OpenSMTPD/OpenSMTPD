@@ -476,7 +476,9 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 static int
 get_port(const char *servname, const char *proto, int numonly)
 {
+#ifdef HAVE_GETSERVBYNAME_R_4_ARGS
 	struct servent		se;
+#endif
 #ifdef HAVE_STRUCT_SERVENT_DATA
 	struct servent_data	sed;
 #endif

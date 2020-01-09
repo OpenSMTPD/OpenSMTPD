@@ -250,7 +250,7 @@ _servname(struct asr_query *as)
 	}
 
 	r = snprintf(buf, buflen, "%u", ntohs(port));
-	if (r < 0 || r >= buflen)
+	if (r < 0 || (size_t)r >= buflen)
 		return (-1);
 
 	return (0);
