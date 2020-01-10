@@ -171,8 +171,12 @@ smtp_setup_events(void)
 	int		 fake_keylen;
 	char		 hash[TLS_CERT_HASH_SIZE];
 	char		*p = &hash[0];
+
 	char		*tls_protocols;
 	uint32_t	protocols;
+
+	char		*sni;
+	size_t		 i;
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
@@ -258,16 +262,25 @@ smtp_setup_events(void)
 				fake_key, fake_keylen, NULL, 0) != 0)
 				err(1, "%s", tls_config_error(l->tls_cfg));
 
+
+
 			if (l->flags & F_TLS_VERIFY)
 				tls_config_verify_client(l->tls_cfg);
 			//else
 			//	tls_config_verify_client_optional(l->tls_cfg);
 
-			//
-			// SNI ?
-			//if (sni_cb)
-			//	SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
-
+			for (i = 0; i < l->sni_size; ++i) {
+				pki = dict_xget(env->sc_pki_dict, l->sni[i]);
+				if ((fake_keylen = tls_ctx_fake_private_key(pki->pki_cert,
+					    pki->pki_cert_len, &fake_key,
+					    NULL, &pki->pki_pkey, p)) == -1)
+					err(1, "tls_ctx_fake_private_key");
+			
+				if (tls_config_add_keypair_ocsp_mem(l->tls_cfg,
+					pki->pki_cert, pki->pki_cert_len,
+					fake_key, fake_keylen, NULL, 0) != 0)
+					err(1, "tls_config_add_keypair_ocsp_mem");
+			}
 
 		}
 	}
