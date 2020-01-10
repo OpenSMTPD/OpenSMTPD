@@ -889,6 +889,12 @@ When resolving the local part of a local email address, ignore the ASCII
 and all characters following it.
 The default is
 .Ql + .
+.It Ic smtp tls Cm protocols Ar control
+Set the TLS protocols to enable globally.
+Refer to
+.Xr tls_config_parse_protocols 3
+for other valid protocol string values.
+The default is to only use secure protocols.
 .It Ic srs Cm key Ar secret
 Set the secret key to use for SRS,
 the Sender Rewriting Scheme.

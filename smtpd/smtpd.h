@@ -544,6 +544,7 @@ struct listener {
 	int			 local;		/* there must be a better way */
 
 	struct tls_config	*tls_cfg;
+	char			*tls_protocols;
 };
 
 struct smtpd {
@@ -619,6 +620,7 @@ struct smtpd {
 	struct dict			       *sc_limits_dict;
 
 	char				       *sc_tls_ciphers;
+	char				       *sc_tls_protocols;
 
 	char				       *sc_subaddressing_delim;
 

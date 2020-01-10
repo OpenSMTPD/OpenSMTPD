@@ -145,6 +145,8 @@ static struct listen_opts {
 	uint16_t	flags;
 
 	uint32_t       	options;
+
+	char		*tls_protocols;
 } listen_opts;
 
 static void	create_sock_listener(struct listen_opts *);
@@ -188,7 +190,7 @@ typedef struct {
 %token	MAIL_FROM MAILDIR MASK_SRC MASQUERADE MATCH MAX_MESSAGE_SIZE MAX_DEFERRED MBOX MDA MTA MX
 %token	NO_DSN NO_VERIFY NOOP
 %token	ON
-%token	PHASE PKI PORT PROC PROC_EXEC PROXY_V2
+%token	PHASE PKI PORT PROC PROC_EXEC PROTOCOLS PROXY_V2
 %token	QUEUE QUIT
 %token	RCPT_TO RDNS RECIPIENT RECEIVEDAUTH REGEX RELAY REJECT REPORT REWRITE RSET
 %token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SOCKET SRC SRS SUB_ADDR_DELIM
@@ -519,6 +521,9 @@ smtp:
 SMTP LIMIT limits_smtp
 | SMTP CIPHERS STRING {
 	conf->sc_tls_ciphers = $3;
+}
+| SMTP TLS PROTOCOLS STRING {
+	conf->sc_tls_protocols = $4;
 }
 | SMTP MAX_MESSAGE_SIZE size {
 	conf->sc_maxsize = $3;
@@ -2083,6 +2088,7 @@ limits_scheduler: opt_limit_scheduler limits_scheduler
 		;
 
 
+
 opt_sock_listen : FILTER STRING {
 			struct filter_config *fc;
 
@@ -2141,6 +2147,21 @@ opt_sock_listen : FILTER STRING {
 			}
 			listen_opts.tag = $2;
 		}
+		;
+
+opt_listen_tls	:
+PROTOCOLS STRING {
+	if (listen_opts.tls_protocols) {
+		yyerror("TLS protocols already set: %s", $2);
+		free($2);
+		YYERROR;
+	}
+	listen_opts.tls_protocols = $2;
+}
+;
+
+listen_tls	: opt_listen_tls listen_tls
+		| /* empty */
 		;
 
 opt_if_listen : INET4 {
@@ -2267,7 +2288,7 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SMTPS|F_TLS_VERIFY;
-		}
+		} listen_tls
 		| SMTPS NO_VERIFY 			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
@@ -2275,7 +2296,7 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_SMTPS;
-		}
+	        } listen_tls
 		| TLS				{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
@@ -2283,7 +2304,7 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS;
-		}
+		} listen_tls
 		| TLS_REQUIRE			{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
@@ -2291,7 +2312,7 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE|F_TLS_VERIFY;
-		}
+		} listen_tls
 		| TLS_REQUIRE NO_VERIFY   		{
 			if (listen_opts.options & LO_SSL) {
 				yyerror("TLS mode already specified");
@@ -2299,7 +2320,7 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.options |= LO_SSL;
 			listen_opts.ssl = F_STARTTLS|F_STARTTLS_REQUIRE;
-		}
+		} listen_tls
 		| PKI STRING			{
 			if (listen_opts.options & LO_PKI) {
 				yyerror("pki already specified");
@@ -2665,6 +2686,7 @@ lookup(char *s)
 		{ "port",		PORT },
 		{ "proc",		PROC },
 		{ "proc-exec",		PROC_EXEC },
+		{ "protocols",		PROTOCOLS },
 		{ "proxy-v2",		PROXY_V2 },
 		{ "queue",		QUEUE },
 		{ "quit",		QUIT },
@@ -3298,7 +3320,10 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->ssl & F_STARTTLS_REQUIRE)
 		h->flags |= F_STARTTLS_REQUIRE;
-	
+
+	if (lo->tls_protocols)
+		h->tls_protocols = lo->tls_protocols;
+
 	if (h != conf->sc_sock_listener)
 		TAILQ_INSERT_TAIL(conf->sc_listeners, h, entry);
 }
