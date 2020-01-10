@@ -3336,15 +3336,13 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 	if (lo->ssl & F_STARTTLS_REQUIRE)
 		h->flags |= F_STARTTLS_REQUIRE;
 
-<<<<<<< HEAD
 	if (lo->tls_protocols)
 		h->tls_protocols = lo->tls_protocols;
-=======
+
 	if (lo->sni) {
 		h->sni = lo->sni;
 		h->sni_size = lo->sni_size;
 	}
->>>>>>> libtls
 
 	if (h != conf->sc_sock_listener)
 		TAILQ_INSERT_TAIL(conf->sc_listeners, h, entry);
