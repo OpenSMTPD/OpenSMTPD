@@ -2480,7 +2480,6 @@ opt_if_listen : INET4 {
 			if (listen_opts.sni == NULL)
 				err(1, NULL);
 			listen_opts.sni[listen_opts.sni_size-1] = $2;
-			warnx("###1: %s", $2);
 		}
 		;
 
