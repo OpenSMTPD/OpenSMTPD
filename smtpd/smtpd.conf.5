@@ -428,6 +428,13 @@ use the CA certificate associated with
 .Ic ca
 directive)
 as the CA certificate when verifying client certificates.
+.It Ic ciphers Ar control
+Set the
+.Ar control
+string for
+.Xr SSL_CTX_set_cipher_list 3 .
+The default is
+.Qq HIGH:!aNULL:!MD5 .
 .It Ic filter Ar name
 Apply filter
 .Ar name
