@@ -171,6 +171,7 @@ smtp_setup_events(void)
 	int		 fake_keylen;
 	char		 hash[TLS_CERT_HASH_SIZE];
 	char		*p = &hash[0];
+	char		*ciphers;
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
@@ -206,10 +207,15 @@ smtp_setup_events(void)
 
 			tls_config_skip_private_key_check(l->tls_cfg);
 
-			if (env->sc_tls_ciphers) {
-				if (tls_config_set_ciphers(l->tls_cfg, env->sc_tls_ciphers) == -1)
+			ciphers = NULL;
+			if (l->tls_ciphers)
+				ciphers = l->tls_ciphers;
+			else if (env->sc_tls_ciphers)
+				ciphers = env->sc_tls_ciphers;
+
+			if (ciphers)
+				if (tls_config_set_ciphers(l->tls_cfg, ciphers) == -1)
 					err(1, "%s", tls_config_error(l->tls_cfg));
-			}
 
 			if (l->pki_name[0])
 				pki = dict_get(env->sc_pki_dict, l->pki_name);

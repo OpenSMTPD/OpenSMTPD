@@ -143,6 +143,7 @@ static struct listen_opts {
 	struct table   *hostnametable;
 	struct table   *sendertable;
 	uint16_t	flags;
+	char	       *tls_ciphers;
 
 	uint32_t       	options;
 } listen_opts;
@@ -2450,6 +2451,9 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.sendertable = t;
 		}
+		| CIPHERS STRING {
+			listen_opts.tls_ciphers = $2;
+		}
 		;
 
 listener_type	: socket_listener
@@ -3207,6 +3211,9 @@ create_if_listener(struct listen_opts *lo)
 	if (lo->pki && !lo->ssl)
 		errx(1, "invalid listen option: pki requires tls/smtps");
 
+	if (lo->tls_ciphers && !lo->ssl)
+		errx(1, "invalid listen option: ciphers requires tls/smtps");
+
 	flags = lo->flags;
 
 	if (lo->port) {
@@ -3298,7 +3305,10 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->ssl & F_STARTTLS_REQUIRE)
 		h->flags |= F_STARTTLS_REQUIRE;
-	
+
+	if (lo->tls_ciphers)
+		h->tls_ciphers = lo->tls_ciphers;
+
 	if (h != conf->sc_sock_listener)
 		TAILQ_INSERT_TAIL(conf->sc_listeners, h, entry);
 }
