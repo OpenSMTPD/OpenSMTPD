@@ -146,6 +146,9 @@ static struct listen_opts {
 	char	       *tls_ciphers;
 
 	uint32_t       	options;
+
+	char	       **sni;
+	size_t		sni_size;
 } listen_opts;
 
 static void	create_sock_listener(struct listen_opts *);
@@ -192,7 +195,7 @@ typedef struct {
 %token	PHASE PKI PORT PROC PROC_EXEC PROXY_V2
 %token	QUEUE QUIT
 %token	RCPT_TO RDNS RECIPIENT RECEIVEDAUTH REGEX RELAY REJECT REPORT REWRITE RSET
-%token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SOCKET SRC SRS SUB_ADDR_DELIM
+%token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SNI SOCKET SRC SRS SUB_ADDR_DELIM
 %token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
 %token	VIRTUAL
@@ -2454,6 +2457,14 @@ opt_if_listen : INET4 {
 		| CIPHERS STRING {
 			listen_opts.tls_ciphers = $2;
 		}
+		| SNI STRING {
+			listen_opts.sni_size += 1;
+			listen_opts.sni = reallocarray(listen_opts.sni, listen_opts.sni_size, sizeof(char *));
+			if (listen_opts.sni == NULL)
+				err(1, NULL);
+			listen_opts.sni[listen_opts.sni_size-1] = $2;
+			warnx("###1: %s", $2);
+		}
 		;
 
 listener_type	: socket_listener
@@ -2688,6 +2699,7 @@ lookup(char *s)
 		{ "smtp-in",		SMTP_IN },
 		{ "smtp-out",		SMTP_OUT },
 		{ "smtps",		SMTPS },
+		{ "sni",		SNI },
 		{ "socket",		SOCKET },
 		{ "src",		SRC },
 		{ "srs",		SRS },
@@ -3214,6 +3226,9 @@ create_if_listener(struct listen_opts *lo)
 	if (lo->tls_ciphers && !lo->ssl)
 		errx(1, "invalid listen option: ciphers requires tls/smtps");
 
+	if (lo->sni && !lo->ssl)
+		errx(1, "invalid listen option: sni requires tls/smtps");
+
 	flags = lo->flags;
 
 	if (lo->port) {
@@ -3308,6 +3323,11 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->tls_ciphers)
 		h->tls_ciphers = lo->tls_ciphers;
+
+	if (lo->sni) {
+		h->sni = lo->sni;
+		h->sni_size = lo->sni_size;
+	}
 
 	if (h != conf->sc_sock_listener)
 		TAILQ_INSERT_TAIL(conf->sc_listeners, h, entry);

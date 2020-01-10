@@ -544,7 +544,11 @@ struct listener {
 	int			 local;		/* there must be a better way */
 
 	struct tls_config	*tls_cfg;
+
 	char			*tls_ciphers;
+
+	char			**sni;
+	size_t			sni_size;
 };
 
 struct smtpd {
