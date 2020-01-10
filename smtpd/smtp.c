@@ -171,6 +171,7 @@ smtp_setup_events(void)
 	int		 fake_keylen;
 	char		 hash[TLS_CERT_HASH_SIZE];
 	char		*p = &hash[0];
+	char		*curves;
 
 	iter = NULL;
 	while (dict_iter(env->sc_pki_dict, &iter, &k, (void **)&pki)) {
@@ -208,6 +209,16 @@ smtp_setup_events(void)
 
 			if (env->sc_tls_ciphers) {
 				if (tls_config_set_ciphers(l->tls_cfg, env->sc_tls_ciphers) == -1)
+					err(1, "%s", tls_config_error(l->tls_cfg));
+			}
+
+			curves = NULL;
+			if (l->tls_curves)
+				curves = l->tls_curves;
+			else if (env->sc_tls_curves)
+				curves = env->sc_tls_curves;
+			if (curves) {
+				if (tls_config_set_ecdhecurves(l->tls_cfg, curves) == -1)
 					err(1, "%s", tls_config_error(l->tls_cfg));
 			}
 

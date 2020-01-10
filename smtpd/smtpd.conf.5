@@ -428,6 +428,22 @@ use the CA certificate associated with
 .Ic ca
 directive)
 as the CA certificate when verifying client certificates.
+.It Ic curves Ar control
+Set the
+.Ar control
+string for
+.Xr tls_config_set_ecdhecurves 3 .
+The default is
+.Qq secure .
+For secure connections,
+use the CA certificate associated with
+.Ar caname
+(declared in a
+.Ic ca
+directive)
+as the CA certificate when verifying client certificates.
+
+
 .It Ic filter Ar name
 Apply filter
 .Ar name

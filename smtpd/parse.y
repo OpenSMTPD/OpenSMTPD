@@ -145,6 +145,8 @@ static struct listen_opts {
 	uint16_t	flags;
 
 	uint32_t       	options;
+
+	char	       *tls_curves;
 } listen_opts;
 
 static void	create_sock_listener(struct listen_opts *);
@@ -175,7 +177,7 @@ typedef struct {
 
 %token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE BYPASS
-%token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT
+%token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT CURVES
 %token	DATA DATA_LINE DHE DISCONNECT DOMAIN
 %token	EHLO ENABLE ENCRYPTION ERROR EXPAND_ONLY 
 %token	FCRDNS FILTER FOR FORWARD_ONLY FROM
@@ -519,6 +521,9 @@ smtp:
 SMTP LIMIT limits_smtp
 | SMTP CIPHERS STRING {
 	conf->sc_tls_ciphers = $3;
+}
+| SMTP CURVES STRING {
+	conf->sc_tls_curves = $3;
 }
 | SMTP MAX_MESSAGE_SIZE size {
 	conf->sc_maxsize = $3;
@@ -2450,6 +2455,9 @@ opt_if_listen : INET4 {
 			}
 			listen_opts.sendertable = t;
 		}
+		| CURVES STRING {
+			listen_opts.tls_curves = $2;
+		}
 		;
 
 listener_type	: socket_listener
@@ -2617,6 +2625,7 @@ lookup(char *s)
 		{ "commit",		COMMIT },
 		{ "compression",	COMPRESSION },
 		{ "connect",		CONNECT },
+		{ "curves",		CURVES },
 		{ "data",		DATA },
 		{ "data-line",		DATA_LINE },
 		{ "dhe",		DHE },
@@ -3207,6 +3216,9 @@ create_if_listener(struct listen_opts *lo)
 	if (lo->pki && !lo->ssl)
 		errx(1, "invalid listen option: pki requires tls/smtps");
 
+	if (lo->tls_curves && !lo->ssl)
+		errx(1, "invalid listen option: curves requires tls/smtps");
+
 	flags = lo->flags;
 
 	if (lo->port) {
@@ -3298,7 +3310,10 @@ config_listener(struct listener *h,  struct listen_opts *lo)
 
 	if (lo->ssl & F_STARTTLS_REQUIRE)
 		h->flags |= F_STARTTLS_REQUIRE;
-	
+
+	if (lo->tls_curves)
+		h->tls_curves = lo->tls_curves;
+
 	if (h != conf->sc_sock_listener)
 		TAILQ_INSERT_TAIL(conf->sc_listeners, h, entry);
 }
