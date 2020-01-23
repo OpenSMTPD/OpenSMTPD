@@ -159,6 +159,14 @@ report|0.5|1576147242.200225|smtp-in|link-connect|7641dfb3798eb5bf|mail.openbsd.
 report|0.5|1576148447.982572|smtp-in|link-connect|7641dfc063102cbd|mail.openbsd.org|pass|199.185.178.25:24786|45.77.67.80:25
 .Ed
 .Pp
+The char
+.Dq |
+may only appear in the last field of a payload,
+in which case it should be considered a regular char and not a separator.
+Other fields have strict formatting excluding the possibility of having a
+.Dq | .
+.Ed
+.Pp
 The list of subsystems and events,
 as well as the format of requests and reponses,
 will be documented in the sections below.
