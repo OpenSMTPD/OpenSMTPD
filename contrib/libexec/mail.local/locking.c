@@ -1,4 +1,4 @@
-/*	$OpenBSD: locking.c,v 1.10 2011/01/10 21:00:50 millert Exp $	*/
+/*	$OpenBSD: locking.c,v 1.12 2015/01/16 06:39:50 deraadt Exp $	*/
 
 /*
  * Copyright (c) 1996-1998 Theo de Raadt <deraadt@theos.com>
@@ -30,13 +30,15 @@
 
 #include "includes.h"
 
-#include <sys/param.h>
+#include <sys/types.h>
+
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +47,7 @@
 #include "pathnames.h"
 #include "mail.local.h"
 
-static char lpath[MAXPATHLEN];
+static char lpath[PATH_MAX];
 
 void
 rellock(void)
@@ -66,9 +68,8 @@ getlock(char *name, struct passwd *pw)
 	(void)snprintf(lpath, sizeof lpath, "%s/%s.lock",
 	    _PATH_MAILDIR, name);
 
-	if (stat(_PATH_MAILDIR, &sb) == -1)
-		merr(FATAL, "%s: %s", _PATH_MAILDIR, strerror(errno));
-	if ((sb.st_mode & S_IWOTH) == S_IWOTH) {
+	if (stat(_PATH_MAILDIR, &sb) != -1 &&
+	    (sb.st_mode & S_IWOTH) == S_IWOTH) {
 		/*
 		 * We have a writeable spool, deal with it as
 		 * securely as possible.
@@ -121,6 +122,7 @@ again:
 						seteuid(pw->pw_uid);
 					}
 				}
+				close(lfd);
 			}
 			sleep(1U << tries);
 			tries++;
@@ -149,7 +151,7 @@ again:
 void
 baditem(char *path)
 {
-	char npath[MAXPATHLEN];
+	char npath[PATH_MAX];
 	int fd;
 
 	if (unlink(path) == 0)
