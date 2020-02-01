@@ -48,8 +48,9 @@
 #define PATH_SPOOL		"/var/spool/smtpd"
 #endif
 #ifndef	PATH_MAILLOCAL
-#define	PATH_MAILLOCAL		"/usr/libexec/mail.local"
+#define	PATH_MAILLOCAL		PATH_LIBEXEC "/mail.local"
 #endif
+
 
 #define SUBADDRESSING_DELIMITER	"+"
 
