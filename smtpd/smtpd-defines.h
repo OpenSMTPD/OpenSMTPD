@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd-defines.h,v 1.10 2018/12/27 15:41:50 gilles Exp $	*/
+/*	$OpenBSD: smtpd-defines.h,v 1.11 2020/01/31 22:01:20 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>
@@ -46,6 +46,9 @@
 #endif
 #ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
+#endif
+#ifndef	PATH_MAILLOCAL
+#define	PATH_MAILLOCAL		"/usr/libexec/mail.local"
 #endif
 
 #define SUBADDRESSING_DELIMITER	"+"
