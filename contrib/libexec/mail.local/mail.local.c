@@ -1,4 +1,4 @@
-/*	$OpenBSD: mail.local.c,v 1.32 2009/10/27 23:59:31 deraadt Exp $	*/
+/*	$OpenBSD: mail.local.c,v 1.36 2019/06/28 13:32:53 deraadt Exp $	*/
 
 /*-
  * Copyright (c) 1996-1998 Theo de Raadt <deraadt@theos.com>
@@ -33,7 +33,8 @@
 
 #include "includes.h"
 
-#include <sys/param.h>
+#include <sys/types.h>
+
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -43,6 +44,7 @@
 #include <pwd.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,8 +121,7 @@ storemail(char *from)
 	FILE *fp = NULL;
 	time_t tval;
 	int fd, eline;
-	ssize_t len;
-	size_t linesz;
+	size_t len;
 	char *line, *tbuf;
 
 	if ((tbuf = strdup(_PATH_LOCTMP)) == NULL)
@@ -133,10 +134,18 @@ storemail(char *from)
 	(void)time(&tval);
 	(void)fprintf(fp, "From %s %s", from, ctime(&tval));
 
-	for (eline = 1, line = NULL, linesz = 0;
-	    (len = getline(&line, &linesz, stdin)) != -1;) {
+	for (eline = 1, tbuf = NULL; (line = fgetln(stdin, &len));) {
+		/* We have to NUL-terminate the line since fgetln does not */
 		if (line[len - 1] == '\n')
-			line[--len] = '\0';
+			line[len - 1] = '\0';
+		else {
+			/* No trailing newline, so alloc space and copy */
+			if ((tbuf = malloc(len + 1)) == NULL)
+				merr(FATAL, "unable to allocate memory");
+			memcpy(tbuf, line, len);
+			tbuf[len] = '\0';
+			line = tbuf;
+		}
 		if (line[0] == '\0')
 			eline = 1;
 		else {
@@ -149,7 +158,7 @@ storemail(char *from)
 		if (ferror(fp))
 			break;
 	}
-	free(line);
+	free(tbuf);
 
 	/* Output a newline; note, empty messages are allowed. */
 	(void)putc('\n', fp);
@@ -165,7 +174,7 @@ deliver(int fd, char *name, int lockfile)
 	struct stat sb, fsb;
 	struct passwd *pw;
 	int mbfd=-1, rval=1, lfd=-1;
-	char biffmsg[100], buf[8*1024], path[MAXPATHLEN];
+	char biffmsg[100], buf[8*1024], path[PATH_MAX];
 	off_t curoff;
 	size_t off;
 	ssize_t nr, nw;
@@ -198,7 +207,7 @@ retry:
 #define O_EXLOCK 0
 #endif
 		if ((mbfd = open(path, O_APPEND|O_CREAT|O_EXCL|O_WRONLY|O_EXLOCK,
-		    S_IRUSR|S_IWUSR)) < 0) {
+		    S_IRUSR|S_IWUSR)) == -1) {
 #ifndef HAVE_O_EXLOCK
 			/* XXX : do something! */
 #endif
@@ -216,7 +225,7 @@ retry:
 		 * that if the ownership or permissions were changed there
 		 * was a reason for doing so.
 		 */
-		if (fchown(mbfd, pw->pw_uid, pw->pw_gid) < 0) {
+		if (fchown(mbfd, pw->pw_uid, pw->pw_gid) == -1) {
 			merr(NOTFATAL, "chown %u:%u: %s",
 			    pw->pw_uid, pw->pw_gid, name);
 			goto bad;
@@ -227,11 +236,11 @@ retry:
 			goto bad;
 		}
 		if ((mbfd = open(path, O_APPEND|O_WRONLY|O_EXLOCK,
-		    S_IRUSR|S_IWUSR)) < 0) {
+		    S_IRUSR|S_IWUSR)) == -1) {
 			merr(NOTFATAL, "%s: %s", path, strerror(errno));
 			goto bad;
 		}
-		if (fstat(mbfd, &fsb)) {
+		if (fstat(mbfd, &fsb) == -1) {
 			/* relating error to path may be bad style */
 			merr(NOTFATAL, "%s: %s", path, strerror(errno));
 			goto bad;
@@ -248,8 +257,7 @@ retry:
 	}
 
 	curoff = lseek(mbfd, 0, SEEK_END);
-	(void)snprintf(biffmsg, sizeof biffmsg, "%s@%qd\n", name,
-		       (long long int) curoff);
+	(void)snprintf(biffmsg, sizeof biffmsg, "%s@%lld\n", name, curoff);
 	if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
 		merr(NOTFATAL, "temporary file: %s", strerror(errno));
 		goto bad;
@@ -257,7 +265,7 @@ retry:
 
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 		for (off = 0; off < (size_t)nr;  off += nw)
-			if ((nw = write(mbfd, buf + off, nr - off)) < 0) {
+			if ((nw = write(mbfd, buf + off, nr - off)) == -1) {
 				merr(NOTFATAL, "%s: %s", path, strerror(errno));
 				(void)ftruncate(mbfd, curoff);
 				goto bad;
@@ -289,34 +297,45 @@ bad:
 void
 notifybiff(char *msg)
 {
-	static struct sockaddr_in addr;
+	static struct addrinfo *res0;
+	struct addrinfo hints, *res;
 	static int f = -1;
-	struct hostent *hp;
-	struct servent *sp;
 	size_t len;
+	ssize_t slen;
+	int error;
 
-	if (!addr.sin_family) {
-		/* Be silent if biff service not available. */
-		if (!(sp = getservbyname("biff", "udp")))
-			return;
-		if (!(hp = gethostbyname("localhost"))) {
-			merr(NOTFATAL, "localhost: %s", strerror(errno));
+	if (res0 == NULL) {
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_DGRAM;
+
+		error = getaddrinfo("localhost", "biff", &hints, &res0);
+		if (error) {
+			/* Be silent if biff service not available. */
+			if (error != EAI_SERVICE) {
+				merr(NOTFATAL, "localhost: %s",
+				    gai_strerror(error));
+			}
 			return;
 		}
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		addr.sin_len = sizeof(struct sockaddr_in);
-#endif
-		addr.sin_family = hp->h_addrtype;
-		addr.sin_port = sp->s_port;
-		bcopy(hp->h_addr, &addr.sin_addr, (size_t)hp->h_length);
 	}
-	if (f < 0 && (f = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+
+	if (f == -1) {
+		for (res = res0; res != NULL; res = res->ai_next) {
+			f = socket(res->ai_family, res->ai_socktype,
+			    res->ai_protocol);
+			if (f != -1)
+				break;
+		}
+	}
+	if (f == -1) {
 		merr(NOTFATAL, "socket: %s", strerror(errno));
 		return;
 	}
-	len = strlen(msg) + 1;
-	if (sendto(f, msg, len, 0, (struct sockaddr *)&addr, sizeof(addr))
-	    != (ssize_t)len)
+
+	len = strlen(msg) + 1;	/* XXX */
+	slen = sendto(f, msg, len, 0, res->ai_addr, res->ai_addrlen);
+	if (slen == -1 || (size_t)slen != len)
 		merr(NOTFATAL, "sendto biff: %s", strerror(errno));
 }
 
