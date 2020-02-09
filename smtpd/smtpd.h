@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.652 2020/01/31 22:01:20 gilles Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.653 2020/02/03 15:41:22 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -51,7 +51,7 @@
 #define SMTPD_QUEUE_EXPIRY	 (4 * 24 * 60 * 60)
 #define SMTPD_SOCKET		 "/var/run/smtpd.sock"
 #define	SMTPD_NAME		 "OpenSMTPD"
-#define	SMTPD_VERSION		 "6.6.2"
+#define	SMTPD_VERSION		 "6.6.3"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -1419,6 +1419,7 @@ void mda_imsg(struct mproc *, struct imsg *);
 
 
 /* mda_mbox.c */
+void mda_mbox_init(struct deliver *);
 void mda_mbox(struct deliver *);
 
 
