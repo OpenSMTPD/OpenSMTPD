@@ -695,11 +695,11 @@ MBOX {
 } dispatcher_local_options
 | LMTP STRING {
 	asprintf(&dispatcher->u.local.command,
-	    PATH_LIBEXEC"/mail.lmtp -f \"%%{sender}\" -d %s %%{user.username}", $2);
+	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -u", $2);
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
 	asprintf(&dispatcher->u.local.command,
-	    PATH_LIBEXEC"/mail.lmtp -f \"%%{sender}\" -d %s %%{dest}", $2);
+	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -r", $2);
 } dispatcher_local_options
 | MDA STRING {
 	asprintf(&dispatcher->u.local.command,
