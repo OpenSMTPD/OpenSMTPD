@@ -668,8 +668,7 @@ dispatcher_local_option dispatcher_local_options
 
 dispatcher_local:
 MBOX {
-	dispatcher->u.local.requires_root = 1;
-	dispatcher->u.local.user = xstrdup("root");
+	dispatcher->u.local.is_mbox = 1;
 	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.local -f %%{mbox.from} %%{user.username}");
 } dispatcher_local_options
 | MAILDIR {

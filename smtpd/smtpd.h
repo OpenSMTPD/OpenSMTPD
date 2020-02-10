@@ -1160,7 +1160,7 @@ enum dispatcher_type {
 };
 
 struct dispatcher_local {
-	uint8_t requires_root;	/* only for MBOX */
+	uint8_t is_mbox;	/* only for MBOX */
 
 	uint8_t	expand_only;
 	uint8_t	forward_only;
