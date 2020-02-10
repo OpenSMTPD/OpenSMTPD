@@ -14,7 +14,7 @@ LDADD = 		$(LIBCOMPAT)
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	chown root $(DESTDIR)$(pkglibexecdir)/lockspool || true
-	chmod 1555 $(DESTDIR)$(pkglibexecdir)/lockspool || true
+	chmod 4555 $(DESTDIR)$(pkglibexecdir)/lockspool || true
 
 uninstall-hook:
 	rmdir $(DESTDIR)$(pkglibexecdir) 2> /dev/null || /bin/true
