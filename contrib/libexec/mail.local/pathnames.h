@@ -35,4 +35,4 @@
 #endif
 
 #define _PATH_LOCTMP	"/tmp/local.XXXXXXXXXX"
-#define _PATH_LOCKSPOOL	"/usr/libexec/lockspool"
+#define _PATH_LOCKSPOOL	PATH_LIBEXEC"/lockspool"
