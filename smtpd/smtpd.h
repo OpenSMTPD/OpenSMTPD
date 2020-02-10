@@ -1422,6 +1422,11 @@ void mda_postprivdrop(void);
 void mda_imsg(struct mproc *, struct imsg *);
 
 
+/* mda_mbox.c */
+void
+mda_mbox(struct deliver *);
+
+
 /* mda_unpriv.c */
 void mda_unpriv(struct dispatcher *, struct deliver *, const char *, const char *);
 
