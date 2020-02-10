@@ -1446,8 +1446,8 @@ void mda_imsg(struct mproc *, struct imsg *);
 
 
 /* mda_mbox.c */
-void
-mda_mbox(struct deliver *);
+void mda_mbox_init(struct deliver *);
+void mda_mbox(struct deliver *);
 
 
 /* mda_unpriv.c */
