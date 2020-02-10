@@ -34,6 +34,10 @@
 # define EAUTH 80
 #endif
 
+#ifndef INFTIM
+#define INFTIM	(-1)
+#endif
+
 #ifndef HOST_NAME_MAX
 # ifdef _POSIX_HOST_NAME_MAX
 # define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
