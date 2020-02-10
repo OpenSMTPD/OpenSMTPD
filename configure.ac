@@ -2058,6 +2058,7 @@ AC_CONFIG_FILES([Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
+		contrib/libexec/lockspool/Makefile
 		contrib/libexec/encrypt/Makefile
 		])
 
