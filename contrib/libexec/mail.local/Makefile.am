@@ -6,7 +6,7 @@ mail_local_SOURCES += $(top_srcdir)/smtpd/log.c
 
 EXTRA_DIST =		mail.local.h pathnames.h
 
-AM_CPPFLAGS = 		-I$(top_srcdir)/openbsd-compat
+AM_CPPFLAGS = 		-I$(top_srcdir)/openbsd-compat -DPATH_LIBEXEC=\"$(pkglibexecdir)\"
 
 LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
