@@ -1,3 +1,11 @@
+# Release 6.6.2p1 (2020-01-28)
+
+This is CRITICAL security bugfix for [
+CVE-2020-7247](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-7247)
+
+Read more details in 
+[this blog post](https://poolp.org/posts/2020-01-30/opensmtpd-advisory-dissected/)
+
 # Release 6.6.1p1 (2019-11-06)
 
 ## Changes in this release (since 6.6.0p1)
