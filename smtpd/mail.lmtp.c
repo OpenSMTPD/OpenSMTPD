@@ -43,6 +43,7 @@ enum phase {
 struct session {
 	const char	*lhlo;
 	const char	*mailfrom;
+	char		*rcptto;
 
 	char		**rcpts;
 	int		n_rcpts;
@@ -64,9 +65,9 @@ main(int argc, char *argv[])
 		errx(EX_TEMPFAIL, "mail.lmtp: may not be executed as root");
 
 	session.lhlo = "localhost";
-	session.mailfrom = NULL;
+	session.mailfrom = getenv("SENDER");
 
-	while ((ch = getopt(argc, argv, "d:l:f:")) != -1) {
+	while ((ch = getopt(argc, argv, "d:l:f:ru")) != -1) {
 		switch (ch) {
 		case 'd':
 			destination = optarg;
@@ -77,6 +78,15 @@ main(int argc, char *argv[])
 		case 'f':
 			session.mailfrom = optarg;
 			break;
+
+		case 'r':
+			session.rcptto = getenv("RECIPIENT");
+			break;
+
+		case 'u':
+			session.rcptto = getenv("USER");
+			break;
+
 		default:
 			break;
 		}
@@ -87,11 +97,17 @@ main(int argc, char *argv[])
 	if (session.mailfrom == NULL)
 		errx(EX_TEMPFAIL, "sender must be specified with -f");
 
-	if (argc == 0)
+	if (argc == 0 && session.rcptto == NULL)
 		errx(EX_TEMPFAIL, "no recipient was specified");
 
-	session.rcpts = argv;
-	session.n_rcpts = argc;
+	if (session.rcptto) {
+		session.rcpts = &session.rcptto;
+		session.n_rcpts = 1;
+	}
+	else {
+		session.rcpts = argv;
+		session.n_rcpts = argc;
+	}
 
 	conn = lmtp_connect(destination);
 	lmtp_engine(conn, &session);
