@@ -55,11 +55,11 @@ main(int argc, char *argv[])
 	char *from, c;
 	int holdfd;
 
-#ifdef HAVE_UNVEIL
+#if HAVE_UNVEIL
 	if (unveil(_PATH_MAILDIR, "rwc") == -1)
 		err(1, "unveil");
 #endif
-#ifdef HAVE_PLEDGE
+#if HAVE_PLEDGE
 	if (pledge("stdio rpath wpath getpw cpath fattr", NULL) == -1)
 		err(1, "pledge");
 #endif
