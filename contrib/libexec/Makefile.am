@@ -1,1 +1,1 @@
-SUBDIRS =		mail.local encrypt
+SUBDIRS =		mail.local lockspool encrypt

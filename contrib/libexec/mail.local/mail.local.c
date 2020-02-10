@@ -1,4 +1,4 @@
-/*	$OpenBSD: mail.local.c,v 1.32 2009/10/27 23:59:31 deraadt Exp $	*/
+/*	$OpenBSD: mail.local.c,v 1.39 2020/02/09 14:59:20 millert Exp $	*/
 
 /*-
  * Copyright (c) 1996-1998 Theo de Raadt <deraadt@theos.com>
@@ -33,20 +33,24 @@
 
 #include "includes.h"
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
+#include <sysexits.h>
 #include <syslog.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include "pathnames.h"
 #include "mail.local.h"
 
@@ -54,21 +58,21 @@ int
 main(int argc, char *argv[])
 {
 	struct passwd *pw;
-	int ch, fd, eval, lockfile=1, holdme=0;
+	int ch, fd, eval, lockfile=1;
 	uid_t uid;
 	char *from;
 
 	openlog("mail.local", LOG_PERROR, LOG_MAIL);
 
 	from = NULL;
-	while ((ch = getopt(argc, argv, "lLdf:r:H")) != -1)
+	while ((ch = getopt(argc, argv, "lLdf:r:")) != -1)
 		switch (ch) {
 		case 'd':		/* backward compatible */
 			break;
 		case 'f':
 		case 'r':		/* backward compatible */
 			if (from)
-				merr(FATAL, "multiple -f options");
+				merr(EX_USAGE, "multiple -f options");
 			from = optarg;
 			break;
 		case 'l':
@@ -77,25 +81,14 @@ main(int argc, char *argv[])
 		case 'L':
 			lockfile=0;
 			break;
-		case 'H':
-			holdme=1;
-			break;
 		default:
 			usage();
 		}
 	argc -= optind;
 	argv += optind;
 
-	/* Support -H flag for backwards compat */
-	if (holdme) {
-		execl(_PATH_LOCKSPOOL, "lockspool", (char *)NULL);
-		merr(FATAL, "execl: lockspool: %s", strerror(errno));
-	} else {
-		if (!*argv)
-			usage();
-		if (geteuid() != 0)
-			merr(FATAL, "may only be run by the superuser");
-	}
+	if (!*argv)
+		usage();
 
 	/*
 	 * If from not specified, use the name from getlogin() if the
@@ -108,8 +101,10 @@ main(int argc, char *argv[])
 		from = (pw = getpwuid(uid)) ? pw->pw_name : "???";
 
 	fd = storemail(from);
-	for (eval = 0; *argv; ++argv)
-		eval |= deliver(fd, *argv, lockfile);
+	for (eval = 0; *argv; ++argv) {
+		if ((ch = deliver(fd, *argv, lockfile)) != 0)
+			eval = ch;
+	}
 	exit(eval);
 }
 
@@ -119,24 +114,31 @@ storemail(char *from)
 	FILE *fp = NULL;
 	time_t tval;
 	int fd, eline;
-	ssize_t len;
-	size_t linesz;
+	size_t len;
 	char *line, *tbuf;
 
 	if ((tbuf = strdup(_PATH_LOCTMP)) == NULL)
-		merr(FATAL, "unable to allocate memory");
+		merr(EX_OSERR, "unable to allocate memory");
 	if ((fd = mkstemp(tbuf)) == -1 || !(fp = fdopen(fd, "w+")))
-		merr(FATAL, "unable to open temporary file");
+		merr(EX_OSERR, "unable to open temporary file");
 	(void)unlink(tbuf);
 	free(tbuf);
 
 	(void)time(&tval);
 	(void)fprintf(fp, "From %s %s", from, ctime(&tval));
 
-	for (eline = 1, line = NULL, linesz = 0;
-	    (len = getline(&line, &linesz, stdin)) != -1;) {
+	for (eline = 1, tbuf = NULL; (line = fgetln(stdin, &len));) {
+		/* We have to NUL-terminate the line since fgetln does not */
 		if (line[len - 1] == '\n')
-			line[--len] = '\0';
+			line[len - 1] = '\0';
+		else {
+			/* No trailing newline, so alloc space and copy */
+			if ((tbuf = malloc(len + 1)) == NULL)
+				merr(EX_OSERR, "unable to allocate memory");
+			memcpy(tbuf, line, len);
+			tbuf[len] = '\0';
+			line = tbuf;
+		}
 		if (line[0] == '\0')
 			eline = 1;
 		else {
@@ -149,13 +151,13 @@ storemail(char *from)
 		if (ferror(fp))
 			break;
 	}
-	free(line);
+	free(tbuf);
 
 	/* Output a newline; note, empty messages are allowed. */
 	(void)putc('\n', fp);
 	(void)fflush(fp);
 	if (ferror(fp))
-		merr(FATAL, "temporary file write error");
+		merr(EX_OSERR, "temporary file write error");
 	return(fd);
 }
 
@@ -164,8 +166,8 @@ deliver(int fd, char *name, int lockfile)
 {
 	struct stat sb, fsb;
 	struct passwd *pw;
-	int mbfd=-1, rval=1, lfd=-1;
-	char biffmsg[100], buf[8*1024], path[MAXPATHLEN];
+	int mbfd=-1, lfd=-1, rval=EX_OSERR;
+	char biffmsg[100], buf[8*1024], path[PATH_MAX];
 	off_t curoff;
 	size_t off;
 	ssize_t nr, nw;
@@ -175,38 +177,33 @@ deliver(int fd, char *name, int lockfile)
 	 * handled in the sendmail aliases file.
 	 */
 	if (!(pw = getpwnam(name))) {
-		merr(NOTFATAL, "unknown name: %s", name);
-		return(1);
+		mwarn("unknown name: %s", name);
+		return(EX_NOUSER);
 	}
 
 	(void)snprintf(path, sizeof path, "%s/%s", _PATH_MAILDIR, name);
 
 	if (lockfile) {
-		lfd = getlock(name, pw);
+		lfd = lockspool(name, pw);
 		if (lfd == -1)
-			return (1);
+			return(EX_OSERR);
 	}
 
 	/* after this point, always exit via bad to remove lockfile */
 retry:
 	if (lstat(path, &sb)) {
 		if (errno != ENOENT) {
-			merr(NOTFATAL, "%s: %s", path, strerror(errno));
+			mwarn("%s: %s", path, strerror(errno));
 			goto bad;
 		}
-#ifndef O_EXLOCK
-#define O_EXLOCK 0
-#endif
 		if ((mbfd = open(path, O_APPEND|O_CREAT|O_EXCL|O_WRONLY|O_EXLOCK,
-		    S_IRUSR|S_IWUSR)) < 0) {
-#ifndef HAVE_O_EXLOCK
-			/* XXX : do something! */
-#endif
+		    S_IRUSR|S_IWUSR)) == -1) {
 			if (errno == EEXIST) {
 				/* file appeared since lstat */
 				goto retry;
 			} else {
-				merr(NOTFATAL, "%s: %s", path, strerror(errno));
+				mwarn("%s: %s", path, strerror(errno));
+				rval = EX_CANTCREAT;
 				goto bad;
 			}
 		}
@@ -216,49 +213,48 @@ retry:
 		 * that if the ownership or permissions were changed there
 		 * was a reason for doing so.
 		 */
-		if (fchown(mbfd, pw->pw_uid, pw->pw_gid) < 0) {
-			merr(NOTFATAL, "chown %u:%u: %s",
-			    pw->pw_uid, pw->pw_gid, name);
+		if (fchown(mbfd, pw->pw_uid, pw->pw_gid) == -1) {
+			mwarn("chown %u:%u: %s", pw->pw_uid, pw->pw_gid, name);
 			goto bad;
 		}
 	} else {
 		if (sb.st_nlink != 1 || !S_ISREG(sb.st_mode)) {
-			merr(NOTFATAL, "%s: linked or special file", path);
+			mwarn("%s: linked or special file", path);
 			goto bad;
 		}
 		if ((mbfd = open(path, O_APPEND|O_WRONLY|O_EXLOCK,
-		    S_IRUSR|S_IWUSR)) < 0) {
-			merr(NOTFATAL, "%s: %s", path, strerror(errno));
+		    S_IRUSR|S_IWUSR)) == -1) {
+			mwarn("%s: %s", path, strerror(errno));
 			goto bad;
 		}
-		if (fstat(mbfd, &fsb)) {
+		if (fstat(mbfd, &fsb) == -1) {
 			/* relating error to path may be bad style */
-			merr(NOTFATAL, "%s: %s", path, strerror(errno));
+			mwarn("%s: %s", path, strerror(errno));
 			goto bad;
 		}
 		if (sb.st_dev != fsb.st_dev || sb.st_ino != fsb.st_ino) {
-			merr(NOTFATAL, "%s: changed after open", path);
+			mwarn("%s: changed after open", path);
 			goto bad;
 		}
 		/* paranoia? */
 		if (fsb.st_nlink != 1 || !S_ISREG(fsb.st_mode)) {
-			merr(NOTFATAL, "%s: linked or special file", path);
+			mwarn("%s: linked or special file", path);
+			rval = EX_CANTCREAT;
 			goto bad;
 		}
 	}
 
 	curoff = lseek(mbfd, 0, SEEK_END);
-	(void)snprintf(biffmsg, sizeof biffmsg, "%s@%qd\n", name,
-		       (long long int) curoff);
+	(void)snprintf(biffmsg, sizeof biffmsg, "%s@%lld\n", name, curoff);
 	if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
-		merr(NOTFATAL, "temporary file: %s", strerror(errno));
+		mwarn("temporary file: %s", strerror(errno));
 		goto bad;
 	}
 
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
-		for (off = 0; off < (size_t)nr;  off += nw)
-			if ((nw = write(mbfd, buf + off, nr - off)) < 0) {
-				merr(NOTFATAL, "%s: %s", path, strerror(errno));
+		for (off = 0; off < nr;  off += nw)
+			if ((nw = write(mbfd, buf + off, nr - off)) == -1) {
+				mwarn("%s: %s", path, strerror(errno));
 				(void)ftruncate(mbfd, curoff);
 				goto bad;
 			}
@@ -267,14 +263,12 @@ retry:
 		rval = 0;
 	} else {
 		(void)ftruncate(mbfd, curoff);
-		merr(FATAL, "temporary file: %s", strerror(errno));
+		mwarn("temporary file: %s", strerror(errno));
 	}
 
 bad:
-	if (lfd != -1) {
-		rellock();
-		close(lfd);
-	}
+	if (lfd != -1)
+		unlockspool();
 
 	if (mbfd != -1) {
 		(void)fsync(mbfd);		/* Don't wait for update. */
@@ -289,39 +283,106 @@ bad:
 void
 notifybiff(char *msg)
 {
-	static struct sockaddr_in addr;
+	static struct addrinfo *res0;
+	struct addrinfo hints, *res;
 	static int f = -1;
-	struct hostent *hp;
-	struct servent *sp;
 	size_t len;
+	int error;
 
-	if (!addr.sin_family) {
-		/* Be silent if biff service not available. */
-		if (!(sp = getservbyname("biff", "udp")))
-			return;
-		if (!(hp = gethostbyname("localhost"))) {
-			merr(NOTFATAL, "localhost: %s", strerror(errno));
+	if (res0 == NULL) {
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_DGRAM;
+
+		error = getaddrinfo("localhost", "biff", &hints, &res0);
+		if (error) {
+			/* Be silent if biff service not available. */
+			if (error != EAI_SERVICE) {
+				mwarn("localhost: %s", gai_strerror(error));
+			}
 			return;
 		}
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		addr.sin_len = sizeof(struct sockaddr_in);
-#endif
-		addr.sin_family = hp->h_addrtype;
-		addr.sin_port = sp->s_port;
-		bcopy(hp->h_addr, &addr.sin_addr, (size_t)hp->h_length);
 	}
-	if (f < 0 && (f = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-		merr(NOTFATAL, "socket: %s", strerror(errno));
+
+	if (f == -1) {
+		for (res = res0; res != NULL; res = res->ai_next) {
+			f = socket(res->ai_family, res->ai_socktype,
+			    res->ai_protocol);
+			if (f != -1)
+				break;
+		}
+	}
+	if (f == -1) {
+		mwarn("socket: %s", strerror(errno));
 		return;
 	}
-	len = strlen(msg) + 1;
-	if (sendto(f, msg, len, 0, (struct sockaddr *)&addr, sizeof(addr))
-	    != (ssize_t)len)
-		merr(NOTFATAL, "sendto biff: %s", strerror(errno));
+
+	len = strlen(msg) + 1;	/* XXX */
+	if (sendto(f, msg, len, 0, res->ai_addr, res->ai_addrlen) != len)
+		mwarn("sendto biff: %s", strerror(errno));
+}
+
+static int lockfd = -1;
+static pid_t lockpid = -1;
+
+int
+lockspool(const char *name, struct passwd *pw)
+{
+	int pfd[2];
+	char ch;
+
+	if (geteuid() == 0)
+		return getlock(name, pw);
+
+	/* If not privileged, open pipe to lockspool(1) instead */
+	if (pipe2(pfd, O_CLOEXEC) == -1) {
+		merr(EX_OSERR, "pipe: %s", strerror(errno));
+		return -1;
+	}
+
+	signal(SIGPIPE, SIG_IGN);
+	switch ((lockpid = fork())) {
+	case -1:
+		merr(EX_OSERR, "fork: %s", strerror(errno));
+		return -1;
+	case 0:
+		/* child */
+		close(pfd[0]);
+		dup2(pfd[1], STDOUT_FILENO);
+		execl(_PATH_LOCKSPOOL, "lockspool", (char *)NULL);
+		merr(EX_OSERR, "execl: lockspool: %s", strerror(errno));
+		/* NOTREACHED */
+		break;
+	default:
+		/* parent */
+		close(pfd[1]);
+		lockfd = pfd[0];
+		break;
+	}
+
+	if (read(lockfd, &ch, 1) != 1 || ch != '1') {
+		unlockspool();
+		merr(EX_OSERR, "lockspool: unable to get lock");
+	}
+
+	return lockfd;
+}
+
+void
+unlockspool(void)
+{
+	if (lockpid != -1) {
+		waitpid(lockpid, NULL, 0);
+		lockpid = -1;
+	} else {
+		rellock();
+	}
+	close(lockfd);
+	lockfd = -1;
 }
 
 void
 usage(void)
 {
-	merr(FATAL, "usage: mail.local [-Ll] [-f from] user ...");
+	merr(EX_USAGE, "usage: mail.local [-Ll] [-f from] user ...");
 }
