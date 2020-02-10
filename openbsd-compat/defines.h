@@ -218,6 +218,10 @@ typedef uint16_t	in_port_t;
 #endif
 
 /* user may have set a different path */
+#if !defined(_PATH_MAILDIR)
+# define _PATH_MAILDIR "/var/spool/mail"
+#endif
+
 #if defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
 # undef _PATH_MAILDIR
 #endif /* defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
