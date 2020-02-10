@@ -92,6 +92,10 @@
 # define O_NONBLOCK      00004	/* Non Blocking Open */
 #endif
 
+#ifndef O_EXLOCK
+#define	O_EXLOCK	0
+#endif
+
 #ifndef S_ISDIR
 # define S_ISDIR(mode)	(((mode) & (_S_IFMT)) == (_S_IFDIR))
 #endif /* S_ISDIR */

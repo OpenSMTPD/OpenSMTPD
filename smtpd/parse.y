@@ -572,7 +572,7 @@ SRS KEY STRING {
 
 dispatcher_local_option:
 USER STRING {
-	if (dispatcher->u.local.requires_root) {
+	if (dispatcher->u.local.is_mbox) {
 		yyerror("user may not be specified for this dispatcher");
 		YYERROR;
 	}
