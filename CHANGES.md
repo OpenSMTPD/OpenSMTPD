@@ -1,7 +1,13 @@
+# Release 6.6.3p1 (2020-02-10)
+
+Following the 6.6.2p1 release, various improvements were done in OpenBSD -current to mitigate the risk of similar bugs.
+
+This release back-ports them to the portable version of OpenSMTPD.
+
 # Release 6.6.2p1 (2020-01-28)
 
-This is CRITICAL security bugfix for [
-CVE-2020-7247](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-7247)
+This is CRITICAL security bugfix for
+[CVE-2020-7247](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-7247)
 
 Read more details in 
 [this blog post](https://poolp.org/posts/2020-01-30/opensmtpd-advisory-dissected/)
