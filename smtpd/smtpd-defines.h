@@ -47,10 +47,14 @@
 #ifndef PATH_SPOOL
 #define PATH_SPOOL		"/var/spool/smtpd"
 #endif
+
 #ifndef	PATH_MAILLOCAL
 #define	PATH_MAILLOCAL		PATH_LIBEXEC "/mail.local"
 #endif
 
+#ifndef PATH_MAKEMAP
+#define	PATH_MAKEMAP		"/usr/sbin/makemap"
+#endif
 
 #define SUBADDRESSING_DELIMITER	"+"
 
