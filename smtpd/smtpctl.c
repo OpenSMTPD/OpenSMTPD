@@ -1148,7 +1148,7 @@ sendmail_compat(int argc, char **argv)
 		 */
 		for (i = 1; i < argc; i++)
 			if (strncmp(argv[i], "-bi", 3) == 0)
-				exit(makemap(P_NEWALIASES, argc, argv));
+				exit(makemap(P_SENDMAIL, argc, argv));
 
 		if (!srv_connect())
 			offlinefp = offline_file();

@@ -73,7 +73,7 @@
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#define	SMTPD_VERSION		 "6.6.3p1"
+#define	SMTPD_VERSION		 "6.6.4p1"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
 
@@ -124,8 +124,9 @@
 #define MTA_EXT_DSN		0x400
 
 
-#define P_NEWALIASES	0
-#define P_MAKEMAP	1
+#define P_SENDMAIL	0
+#define P_NEWALIASES	1
+#define P_MAKEMAP	2
 
 #define	CERT_ERROR	-1
 #define	CERT_OK		 0
