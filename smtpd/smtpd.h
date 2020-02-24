@@ -98,8 +98,9 @@
 #define MTA_EXT_DSN		0x400
 
 
-#define P_NEWALIASES	0
-#define P_MAKEMAP	1
+#define P_SENDMAIL	0
+#define P_NEWALIASES	1
+#define P_MAKEMAP	2
 
 #define	CERT_ERROR	-1
 #define	CERT_OK		 0

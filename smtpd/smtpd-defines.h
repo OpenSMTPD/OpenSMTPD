@@ -38,6 +38,7 @@
 #define SMTPD_QUEUE_GROUP	"_smtpq"
 #define PATH_SPOOL		"/var/spool/smtpd"
 #define	PATH_MAILLOCAL		"/usr/libexec/mail.local"
+#define PATH_MAKEMAP		"/usr/sbin/makemap"
 
 #define SUBADDRESSING_DELIMITER	"+"
 
