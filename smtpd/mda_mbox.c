@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-/*	$OpenBSD: mda_mbox.c,v 1.1 2020/01/31 22:01:20 gilles Exp $	*/
-=======
 /*	$OpenBSD: mda_mbox.c,v 1.2 2020/02/03 15:41:22 gilles Exp $	*/
->>>>>>> 69d74968... missing file
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -23,10 +19,7 @@
 #include "includes.h"
 
 #include <sys/types.h>
-<<<<<<< HEAD
-=======
 #include <sys/stat.h>
->>>>>>> 69d74968... missing file
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
@@ -34,19 +27,13 @@
 #include <err.h>
 #include <errno.h>
 #include <event.h>
-<<<<<<< HEAD
-=======
 #include <fcntl.h>
->>>>>>> 69d74968... missing file
 #include <imsg.h>
 #include <paths.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-<<<<<<< HEAD
-=======
 #include <sysexits.h>
->>>>>>> 69d74968... missing file
 #include <unistd.h>
 #include <limits.h>
 
@@ -73,18 +60,11 @@ mda_mbox(struct deliver *deliver)
 		ret = snprintf(sender, sizeof sender, "%s@%s",
 			       deliver->sender.user, deliver->sender.domain);
 	if (ret < 0 || (size_t)ret >= sizeof sender)
-<<<<<<< HEAD
-		errx(1, "sender address too long");
-=======
 		errx(EX_TEMPFAIL, "sender address too long");
->>>>>>> 69d74968... missing file
 
 	execle(PATH_MAILLOCAL, PATH_MAILLOCAL, "-f",
 	       sender, deliver->userinfo.username, (char *)NULL, envp);
 	perror("execl");
-<<<<<<< HEAD
-	_exit(1);
-=======
 	_exit(EX_TEMPFAIL);
 }
 
@@ -111,5 +91,4 @@ mda_mbox_init(struct deliver *deliver)
 
 	if (fchmod(fd, S_IRUSR|S_IWUSR) == -1)
 		err(EX_TEMPFAIL, "fchown");
->>>>>>> 69d74968... missing file
 }
