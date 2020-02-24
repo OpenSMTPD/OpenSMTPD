@@ -235,8 +235,7 @@ queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
 			fsqueue_envelope_incoming_path(*evpid, path,
 			    sizeof(path));
 
-		r = fsqueue_envelope_dump(path, buf, len, 0, 0);
-		if (r >= 0)
+		if ((r = fsqueue_envelope_dump(path, buf, len, 0, 0)) != 0)
 			goto done;
 	}
 	r = 0;
