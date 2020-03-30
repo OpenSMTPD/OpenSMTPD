@@ -1,4 +1,4 @@
-/*	$OpenBSD: enqueue.c,v 1.116 2019/07/02 09:36:20 martijn Exp $	*/
+/*	$OpenBSD: enqueue.c,v 1.118 2020/03/18 20:17:14 eric Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -134,32 +134,51 @@ struct {
 	char		buf[SMTP_LINELEN];
 } pstate;
 
-static void
-qp_encoded_write(FILE *fp, char *buf, size_t len)
-{
-	while (len) {
-		if (*buf == '=')
-			fprintf(fp, "=3D");
-		else if (*buf == ' ' || *buf == '\t') {
-			char *p = buf;
+#define QP_TEST_WRAP(fp, buf, linelen, size)	do {			\
+	if (((linelen) += (size)) + 1 > 76) {				\
+		fprintf((fp), "=\r\n");					\
+		if (buf[0] == '.')					\
+			fprintf((fp), ".");				\
+		(linelen) = (size);					\
+	}								\
+} while (0)
 
-			while (*p != '\n') {
-				if (*p != ' ' && *p != '\t')
-					break;
-				p++;
-			}
-			if (*p == '\n')
+/* RFC 2045 section 6.7 */
+static void
+qp_encoded_write(FILE *fp, char *buf)
+{
+	size_t linelen = 0;
+
+	for (;buf[0] != '\0' && buf[0] != '\n'; buf++) {
+		/*
+		 * Point 3: Any TAB (HT) or SPACE characters on an encoded line
+		 * MUST thus be followed on that line by a printable character.
+		 *
+		 * Ergo, only encode if the next character is EOL.
+		 */
+		if (buf[0] == ' ' || buf[0] == '\t') {
+			if (buf[1] == '\n') {
+				QP_TEST_WRAP(fp, buf, linelen, 3);
 				fprintf(fp, "=%2X", *buf & 0xff);
-			else
+			} else {
+				QP_TEST_WRAP(fp, buf, linelen, 1);
 				fprintf(fp, "%c", *buf & 0xff);
-		}
-		else if (!isprint((unsigned char)*buf) && *buf != '\n')
+			}
+		/*
+		 * Point 1, with exclusion of point 2, skip EBCDIC NOTE.
+		 * Do this after whitespace check, else they would match here.
+		 */
+		} else if (!((buf[0] >= 33 && buf[0] <= 60) ||
+		    (buf[0] >= 62 && buf[0] <= 126))) {
+			QP_TEST_WRAP(fp, buf, linelen, 3);
 			fprintf(fp, "=%2X", *buf & 0xff);
-		else
+		/* Point 2: 33 through 60 inclusive, and 62 through 126 */
+		} else {
+			QP_TEST_WRAP(fp, buf, linelen, 1);
 			fprintf(fp, "%c", *buf);
-		buf++;
-		len--;
+		}
 	}
+	fprintf(fp, "\r\n");
 }
 
 int
@@ -172,7 +191,6 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	size_t			 sz = 0, envid_sz = 0;
 	ssize_t			 len;
 	char			*line;
-	int			 dotted;
 	int			 inheaders = 1;
 	int			 save_argc;
 	char			**save_argv;
@@ -307,7 +325,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	if (!get_responses(fout, 1))
 		goto fail;
 
-	if (!send_line(fout, verbose, "EHLO localhost\n"))
+	if (!send_line(fout, verbose, "EHLO localhost\r\n"))
 		goto fail;
 	if (!get_responses(fout, 1))
 		goto fail;
@@ -315,7 +333,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	if (msg.dsn_envid != NULL)
 		envid_sz = strlen(msg.dsn_envid);
 
-	if (!send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\n",
+	if (!send_line(fout, verbose, "MAIL FROM:<%s> %s%s %s%s\r\n",
 	    msg.from,
 	    msg.dsn_ret ? "RET=" : "",
 	    msg.dsn_ret ? msg.dsn_ret : "",
@@ -326,7 +344,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		goto fail;
 
 	for (i = 0; i < msg.rcpt_cnt; i++) {
-		if (!send_line(fout, verbose, "RCPT TO:<%s> %s%s\n",
+		if (!send_line(fout, verbose, "RCPT TO:<%s> %s%s\r\n",
 		    msg.rcpts[i],
 		    msg.dsn_notify ? "NOTIFY=" : "",
 		    msg.dsn_notify ? msg.dsn_notify : ""))
@@ -335,41 +353,41 @@ enqueue(int argc, char *argv[], FILE *ofp)
 			goto fail;
 	}
 
-	if (!send_line(fout, verbose, "DATA\n"))
+	if (!send_line(fout, verbose, "DATA\r\n"))
 		goto fail;
 	if (!get_responses(fout, 1))
 		goto fail;
 
 	/* add From */
-	if (!msg.saw_from && !send_line(fout, 0, "From: %s%s<%s>\n",
+	if (!msg.saw_from && !send_line(fout, 0, "From: %s%s<%s>\r\n",
 	    msg.fromname ? msg.fromname : "", msg.fromname ? " " : "",
 	    msg.from))
 		goto fail;
 
 	/* add Date */
-	if (!msg.saw_date && !send_line(fout, 0, "Date: %s\n",
+	if (!msg.saw_date && !send_line(fout, 0, "Date: %s\r\n",
 	    time_to_text(timestamp)))
 		goto fail;
 
 	if (msg.need_linesplit) {
 		/* we will always need to mime encode for long lines */
 		if (!msg.saw_mime_version && !send_line(fout, 0,
-		    "MIME-Version: 1.0\n"))
+		    "MIME-Version: 1.0\r\n"))
 			goto fail;
 		if (!msg.saw_content_type && !send_line(fout, 0,
-		    "Content-Type: text/plain; charset=unknown-8bit\n"))
+		    "Content-Type: text/plain; charset=unknown-8bit\r\n"))
 			goto fail;
 		if (!msg.saw_content_disposition && !send_line(fout, 0,
-		    "Content-Disposition: inline\n"))
+		    "Content-Disposition: inline\r\n"))
 			goto fail;
 		if (!msg.saw_content_transfer_encoding && !send_line(fout, 0,
-		    "Content-Transfer-Encoding: quoted-printable\n"))
+		    "Content-Transfer-Encoding: quoted-printable\r\n"))
 			goto fail;
 	}
 
 	/* add separating newline */
 	if (msg.noheader) {
-		if (!send_line(fout, 0, "\n"))
+		if (!send_line(fout, 0, "\r\n"))
 			goto fail;
 		inheaders = 0;
 	}
@@ -385,12 +403,11 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		/* newlines have been normalized on first parsing */
 		if (buf[len-1] != '\n')
 			errx(EX_SOFTWARE, "expect EOL");
+		len--;
 
-		dotted = 0;
 		if (buf[0] == '.') {
 			if (fputc('.', fout) == EOF)
 				goto fail;
-			dotted = 1;
 		}
 
 		line = buf;
@@ -404,7 +421,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 
 		if (msg.saw_content_transfer_encoding || msg.noheader ||
 		    inheaders || !msg.need_linesplit) {
-			if (!send_line(fout, 0, "%.*s", (int)len, line))
+			if (!send_line(fout, 0, "%.*s\r\n", (int)len, line))
 				goto fail;
 			if (inheaders && buf[0] == '\n')
 				inheaders = 0;
@@ -412,28 +429,15 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		}
 
 		/* we don't have a content transfer encoding, use our default */
-		do {
-			if (len < LINESPLIT) {
-				qp_encoded_write(fout, line, len);
-				break;
-			}
-			else {
-				qp_encoded_write(fout, line,
-				    LINESPLIT - 2 - dotted);
-				if (!send_line(fout, 0, "=\n"))
-					goto fail;
-				line += LINESPLIT - 2 - dotted;
-				len -= LINESPLIT - 2 - dotted;
-			}
-		} while (len);
+		qp_encoded_write(fout, line);
 	}
 	free(buf);
-	if (!send_line(fout, verbose, ".\n"))
+	if (!send_line(fout, verbose, ".\r\n"))
 		goto fail;
 	if (!get_responses(fout, 1))
 		goto fail;
 
-	if (!send_line(fout, verbose, "QUIT\n"))
+	if (!send_line(fout, verbose, "QUIT\r\n"))
 		goto fail;
 	if (!get_responses(fout, 1))
 		goto fail;
