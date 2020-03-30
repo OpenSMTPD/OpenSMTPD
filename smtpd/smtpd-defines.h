@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd-defines.h,v 1.11 2020/01/31 22:01:20 gilles Exp $	*/
+/*	$OpenBSD: smtpd-defines.h,v 1.12 2020/02/24 16:16:08 millert Exp $	*/
 
 /*
  * Copyright (c) 2013 Gilles Chehade <gilles@poolp.org>

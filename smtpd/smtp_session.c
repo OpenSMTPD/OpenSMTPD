@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.423 2020/02/01 15:33:46 gilles Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.425 2020/03/15 16:34:57 millert Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -462,7 +462,7 @@ header_address_rewrite_buffer(char *buffer, const char *address, size_t len)
 			pos_component_beg = 0;
 		else {
 			for (pos_component_beg = pos_component_end; pos_component_beg >= 0; --pos_component_beg)
-				if (buffer[pos_component_beg] == ')' || isspace(buffer[pos_component_beg]))
+				if (buffer[pos_component_beg] == ')' || isspace((unsigned char)buffer[pos_component_beg]))
 					break;
 			pos_component_beg += 1;
 			pos_component_end += 1;
@@ -2583,6 +2583,10 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, const char *line)
 			}
 		} else if (ADVERTISE_EXT_DSN(tx->session) && strncasecmp(opt, "ORCPT=", 6) == 0) {
 			opt += 6;
+
+			if (strncasecmp(opt, "rfc822;", 7) == 0)
+				opt += 7;
+
 			if (!text_to_mailaddr(&tx->evp.dsn_orcpt, opt) ||
 			    !valid_localpart(tx->evp.dsn_orcpt.user) ||
 			    !valid_domainpart(tx->evp.dsn_orcpt.domain)) {

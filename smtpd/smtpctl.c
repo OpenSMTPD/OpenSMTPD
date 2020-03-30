@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.166 2020/01/06 11:03:06 gilles Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.167 2020/02/24 16:16:07 millert Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>

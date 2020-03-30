@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.330 2020/02/01 12:54:38 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.332 2020/02/24 16:16:08 millert Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1148,7 +1148,7 @@ smtpd(void) {
 
 #if HAVE_PLEDGE
 	if (pledge("stdio rpath wpath cpath fattr tmppath "
-	    "getpw sendfd proc exec id inet unix", NULL) == -1)
+	    "getpw sendfd proc exec id inet chown unix", NULL) == -1)
 		err(1, "pledge");
 #endif
 
@@ -1575,9 +1575,9 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		return;
 	}
 
-        /* mbox helper, create mailbox before privdrop if it doesn't exist */                                                                            
-        if (dsp->u.local.is_mbox)                                            
-                mda_mbox_init(deliver);
+	/* mbox helper, create mailbox before privdrop if it doesn't exist */
+	if (dsp->u.local.is_mbox)
+		mda_mbox_init(deliver);
 
 	if (chdir(pw_dir) == -1 && chdir("/") == -1)
 		err(1, "chdir");

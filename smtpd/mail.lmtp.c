@@ -66,6 +66,7 @@ main(int argc, char *argv[])
 
 	session.lhlo = "localhost";
 	session.mailfrom = getenv("SENDER");
+	session.rcptto = NULL;
 
 	while ((ch = getopt(argc, argv, "d:l:f:ru")) != -1) {
 		switch (ch) {
@@ -257,9 +258,9 @@ lmtp_engine(int fd_read, struct session *session)
 		line[strcspn(line, "\r")] = '\0';
 
 		if (linelen < 4 ||
-		    !isdigit(line[0]) ||
-		    !isdigit(line[1]) ||
-		    !isdigit(line[2]) ||
+		    !isdigit((unsigned char)line[0]) ||
+		    !isdigit((unsigned char)line[1]) ||
+		    !isdigit((unsigned char)line[2]) ||
 		    (line[3] != ' ' && line[3] != '-'))
 			errx(EX_TEMPFAIL, "LMTP server sent an invalid line");
 

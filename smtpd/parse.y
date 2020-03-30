@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.274 2020/01/31 22:01:20 gilles Exp $	*/
+/*	$OpenBSD: parse.y,v 1.277 2020/02/24 23:54:27 millert Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -535,7 +535,7 @@ SMTP LIMIT limits_smtp
 		free($3);
 		YYERROR;
 	}
-	if (isspace((int)*$3) ||  !isprint((int)*$3) || *$3== '@') {
+	if (isspace((unsigned char)*$3) || !isprint((unsigned char)*$3) || *$3 == '@') {
 		yyerror("sub-addr-delim uses invalid character");
 		free($3);
 		YYERROR;
