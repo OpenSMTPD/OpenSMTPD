@@ -141,8 +141,14 @@ may contain format specifiers that are expanded before use
 .Pp
 If the
 .Cm junk
-argument is provided, the message will be moved to the Junk
-folder if it contains a positive X-Spam header.
+argument is provided, the message will be moved to the
+.Ql Junk
+folder if it contains a positive
+.Ql X-Spam
+header.
+This folder will be created under
+.Ar pathname
+if it does not yet exist.
 .It Cm mbox
 Deliver the message to the user's mbox with
 .Xr mail.local 8 .
@@ -1001,7 +1007,9 @@ Finally, a number of decisions may be taken:
 .Bl -column XXXXXXXXXXXXXXXXXXXXX -offset indent
 .It bypass                Ta the session or transaction bypasses filters
 .It disconnect Ar message Ta the session is disconnected with message
-.It junk                  Ta the session or transaction is junked
+.It junk                  Ta the session or transaction is junked, i.e., an
+.Ql X-Spam: yes
+header is added to any messages
 .It reject Ar message     Ta the command is rejected with message
 .It rewrite Ar value      Ta the command parameter is rewritten with value
 .El
