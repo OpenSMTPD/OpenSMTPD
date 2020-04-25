@@ -142,7 +142,8 @@ EXTRA_DIST+=		$(backends_srcdir)/queue_utils.h
 EXTRA_DIST+=		$(filters_srcdir)/asr_event.h
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
-			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'
+			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g' \
+			-e 's|/usr/local/libexec/smtpd/|$(pkglibexecdir)|g'
 
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
