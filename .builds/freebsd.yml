@@ -7,11 +7,11 @@ packages:
 - libtool
 - libressl
 - libasr
-- py37-ansible-2.8.7
+- py37-ansible
 - db6
 - python3
 - python37
-- python-3.7_3,2
+- python
 sources:
 - https://github.com/OpenSMTPD/OpenSMTPD
 - https://github.com/OpenSMTPD/ci
