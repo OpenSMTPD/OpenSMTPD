@@ -103,8 +103,6 @@ void compat_init_setproctitle(int argc, char *argv[]);
 
 #if !defined(HAVE_GETOPT) || !defined(HAVE_GETOPT_OPTRESET)
 int BSDgetopt(int argc, char * const *argv, const char *opts);
-char	*BSDoptarg;		/* argument associated with option */
-int	BSDoptind;		/* index into parent argv vector */
 #endif
 
 /* Home grown routines */
