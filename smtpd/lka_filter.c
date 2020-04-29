@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.60 2020/01/08 01:41:11 gilles Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.62 2020/04/24 11:34:07 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -35,7 +35,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PROTOCOL_VERSION	"0.5"
+#define	PROTOCOL_VERSION	"0.6"
 
 struct filter;
 struct filter_session;
@@ -851,7 +851,7 @@ filter_data_internal(struct filter_session *fs, uint64_t token, uint64_t reqid, 
 
 	/* no filter_entry, we either had none or reached end of chain */
 	if (filter_entry == NULL) {
-		io_printf(fs->io, "%s\r\n", line);
+		io_printf(fs->io, "%s\n", line);
 		return;
 	}
 
@@ -1526,7 +1526,7 @@ lka_report_smtp_tx_mail(const char *direction, struct timeval *tv, uint64_t reqi
 		break;
 	}
 	report_smtp_broadcast(reqid, direction, tv, "tx-mail", "%08x|%s|%s\n",
-	    msgid, address, result);
+	    msgid, result, address);
 }
 
 void
@@ -1546,7 +1546,7 @@ lka_report_smtp_tx_rcpt(const char *direction, struct timeval *tv, uint64_t reqi
 		break;
 	}
 	report_smtp_broadcast(reqid, direction, tv, "tx-rcpt", "%08x|%s|%s\n",
-	    msgid, address, result);
+	    msgid, result, address);
 }
 
 void
