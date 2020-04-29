@@ -1,0 +1,15 @@
+name: Ubuntu (amd64 glibc openssl gcc10)
+on: 
+  push:
+    branches:
+      - portable
+  pull_request:
+    branches:
+      - portable
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Ubuntu (amd64 glibc openssl gcc10)
+      run: docker build . --file ci/docker/Dockerfile.ubuntu-gcc10 --tag opensmtpd:ubuntu-gcc10
