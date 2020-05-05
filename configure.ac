@@ -587,6 +587,7 @@ AC_CHECK_FUNCS([ \
 	memmove \
 	nanosleep \
 	nsleep \
+	pipe2 \
 	pidfile \
 	pledge \
 	reallocarray \
@@ -2014,6 +2015,7 @@ AM_CONDITIONAL([NEED_GETOPT], [test "x$ac_cv_func_getopt" != "xyes"])
 AM_CONDITIONAL([NEED_GETPEEREID], [test "x$ac_cv_func_getpeereid" != "xyes"])
 AM_CONDITIONAL([NEED_NANOSLEEP], [test "x$ac_cv_func_nanosleep" != "xyes"])
 AM_CONDITIONAL([NEED_PIDFILE], [test "x$ac_cv_func_pidfile" != "xyes"])
+AM_CONDITIONAL([NEED_PIPE2], [test "x$ac_cv_func_pipe2" != "xyes"])
 AM_CONDITIONAL([NEED_REALLOCARRAY], [test "x$ac_cv_func_reallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_RECALLOCARRAY], [test "x$ac_cv_func_recallocarray" != "xyes"])
 AM_CONDITIONAL([NEED_SETPROCTITLE], [test "x$ac_cv_func_setproctitle" != "xyes"])

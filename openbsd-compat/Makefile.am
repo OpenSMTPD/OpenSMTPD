@@ -116,6 +116,10 @@ if NEED_PIDFILE
 libopenbsd_a_SOURCES +=	pidfile.c
 endif
 
+if NEED_PIPE2
+libopenbsd_a_SOURCES +=	pipe2.c
+endif
+
 if NEED_REALLOCARRAY
 libopenbsd_a_SOURCES +=	reallocarray.c
 endif
