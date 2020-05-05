@@ -1,0 +1,15 @@
+name: Fedora (amd64 glibc openssl)
+on: 
+  push:
+    branches:
+      - portable
+  pull_request:
+    branches:
+      - portable
+jobs:
+  build:
+    runs-on: fedora-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Fedora (amd64 glibc openssl)
+      run: docker build . --file ci/docker/Dockerfile.fedora --tag opensmtpd:fedora
