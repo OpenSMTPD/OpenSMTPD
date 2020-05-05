@@ -11,7 +11,7 @@ EXPOSE 587
 WORKDIR /opensmtpd
 
 # install necessary packages
-RUN dns -y install \
+RUN dnf -y install \
   autoconf \
   automake \
   bison \
