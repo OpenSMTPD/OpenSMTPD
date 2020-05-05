@@ -13,5 +13,5 @@ jobs:
     - uses: actions/checkout@v1
     - name: install dependencies
       run: brew install automake
-    - name: bootstrap
-      run: ./bootstrap
+    - name: macOS Catalina 10.15
+      run: ./bootstrap && ./configure --with-gnu-ld --sysconfdir=/etc/mail --with-auth-pam --with-table-db
