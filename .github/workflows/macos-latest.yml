@@ -14,4 +14,4 @@ jobs:
     - name: install dependencies
       run: brew install automake libevent openssl@1.1
     - name: macOS Catalina 10.15
-      run: ./bootstrap && ./configure --with-gnu-ld --sysconfdir=/etc/mail --with-auth-pam --with-table-db
+      run: ./bootstrap && ./configure --with-gnu-ld --sysconfdir=/etc/mail --with-auth-pam --with-table-db && make
