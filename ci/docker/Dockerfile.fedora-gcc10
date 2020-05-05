@@ -20,7 +20,8 @@ RUN dnf -y install \
   openssl-devel \
   libtool \
   pam-devel \
-  zlib-devel 
+  zlib-devel \
+  libdb-devel
 
 # create users and directories
 RUN mkdir -p /var/lib/opensmtpd/empty \
@@ -47,6 +48,7 @@ RUN ./bootstrap \
        --with-gnu-ld \
        --sysconfdir=/etc/mail \
        --with-auth-pam \
+       --with-table-db \
   && make \
   && make install \
   && cp etc/aliases /etc/mail/aliases
