@@ -13,6 +13,7 @@ jobs:
     - uses: actions/checkout@v1
     - name: macOS Catalina 10.15
       run: |
+        sudo mkdir /etc/mail
         brew install automake libevent openssl@1.1 bison
         export PATH="/usr/local/opt/bison/bin:$PATH"
         export LDFLAGS="-L/usr/local/opt/openssl@1.1/lib -L/usr/local/opt/bison/lib"
