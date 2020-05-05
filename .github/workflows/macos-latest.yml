@@ -12,4 +12,12 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: macOS Catalina 10.15
-      run: brew install automake libevent openssl@1.1 byacc && ./bootstrap && export LDFLAGS=-L/usr/local/opt/openssl@1.1/lib && export CFLAGS=-I/usr/local/opt/openssl@1.1/include && ./configure --with-gnu-ld --sysconfdir=/etc/mail --with-auth-pam --with-table-db && make
+      run: |
+        brew install automake libevent openssl@1.1 bison
+        export PATH="/usr/local/opt/bison/bin:$PATH"
+        export LDFLAGS="-L/usr/local/opt/openssl@1.1/lib -L/usr/local/opt/bison/lib"
+        export CFLAGS=-I/usr/local/opt/openssl@1.1/include
+        ./bootstrap
+        ./configure --with-gnu-ld --sysconfdir=/etc/mail --with-auth-pam
+        make
+        make install
