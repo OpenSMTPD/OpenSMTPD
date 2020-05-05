@@ -11,5 +11,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v1
+    - name: install dependencies
+      run: brew install automake
     - name: bootstrap
       run: ./bootstrap
