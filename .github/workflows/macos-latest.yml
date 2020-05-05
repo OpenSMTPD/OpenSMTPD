@@ -1,0 +1,15 @@
+name: macOS Catalina 10.15
+on: 
+  push:
+    branches:
+      - portable
+  pull_request:
+    branches:
+      - portable
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: bootstrap
+      run: ./bootstrap
