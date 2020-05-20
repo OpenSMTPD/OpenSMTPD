@@ -17,8 +17,6 @@ libopenbsd_a_SOURCES +=	libasr/getnameinfo_async.c
 libopenbsd_a_SOURCES +=	libasr/getnetnamadr_async.c
 libopenbsd_a_SOURCES +=	libasr/res_search_async.c
 libopenbsd_a_SOURCES +=	libasr/res_send_async.c
-
-include_HEADERS =	libasr/asr.h
 endif
 
 
