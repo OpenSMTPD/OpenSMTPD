@@ -2,10 +2,10 @@ name: Fedora (amd64 glibc openssl)
 on: 
   push:
     branches:
-      - portable
+      - master
   pull_request:
     branches:
-      - portable
+      - master
 jobs:
   build:
     runs-on: ubuntu-latest
