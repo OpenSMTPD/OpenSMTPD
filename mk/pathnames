@@ -1,4 +1,4 @@
-smtpd_srcdir	= $(top_srcdir)/smtpd
+smtpd_srcdir	= $(top_srcdir)/usr.sbin/smtpd
 compat_srcdir	= $(top_srcdir)/openbsd-compat
 regress_srcdir	= $(top_srcdir)/regress/bin
 

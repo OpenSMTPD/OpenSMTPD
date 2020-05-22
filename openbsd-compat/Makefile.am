@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libopenbsd.a
 
-AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/smtpd -I$(top_srcdir)/openbsd-compat
+AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/usr.sbin/smtpd -I$(top_srcdir)/openbsd-compat
 
 libopenbsd_a_SOURCES =	empty.c
 
