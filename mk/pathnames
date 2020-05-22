@@ -1,8 +1,8 @@
-smtpd_srcdir	= $(top_srcdir)/usr.sbin/smtpd
+smtpd_srcdir	= $(top_srcdir)/smtpd
 compat_srcdir	= $(top_srcdir)/openbsd-compat
 regress_srcdir	= $(top_srcdir)/regress/bin
 
-PATHS=	-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
+PATHS=		-DSMTPD_CONFDIR=\"$(sysconfdir)\"			\
 		-DPATH_CHROOT=\"$(PRIVSEP_PATH)\"			\
 		-DPATH_SMTPCTL=\"$(sbindir)/smtpctl\"			\
 		-DPATH_MAILLOCAL=\"$(pkglibexecdir)/mail.local\"	\
