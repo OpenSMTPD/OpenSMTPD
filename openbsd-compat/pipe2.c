@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020 Gilles Chehade <gilles@poolp.org>
+ * Copyright (C) 2020 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -25,12 +26,21 @@ pipe2(int pipefd[2], int flags)
 	if (pipe(pipefd) == -1)
 		return -1;
 
-	if (fcntl(pipefd[0], F_SETFL, FD_CLOEXEC) == -1 ||
-		fcntl(pipefd[1], F_SETFL, FD_CLOEXEC) == -1) {
-			close(pipefd[0]);
-			close(pipefd[1]);
-			return -1;
-		}
+	if ((flags & O_NONBLOCK) &&
+	    (fcntl(pipefd[0], F_SETFL, O_NONBLOCK) == -1 ||
+	     fcntl(pipefd[1], F_SETFL, O_NONBLOCK) == -1)) {
+		close(pipefd[0]);
+		close(pipefd[1]);
+		return -1;
+	}
+
+	if ((flags & O_CLOEXEC) &&
+	    (fcntl(pipefd[0], F_SETFD, FD_CLOEXEC) == -1 ||
+	     fcntl(pipefd[1], F_SETFD, FD_CLOEXEC) == -1)) {
+		close(pipefd[0]);
+		close(pipefd[1]);
+		return -1;
+	}
 
 	return 0;
 }
