@@ -58,7 +58,7 @@ Note that some distributions have different packages for a same library, you sho
 
 ## Get the source
 
-    git clone -b portable git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
+    git clone git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
 
 
 ## Build
