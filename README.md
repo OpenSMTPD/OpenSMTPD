@@ -29,9 +29,8 @@ mailing list: http://www.opensmtpd.org/list.html
 
 and to join the IRC channel: #OpenSMTPD @ irc.freenode.net
 
-Also note that we have a wiki at
-https://github.com/OpenSMTPD/OpenSMTPD/wiki that you are encouraged to
-contribute to.
+The manual pages are available online at https://www.opensmtpd.org/manual.html,
+which you are encouraged to contribute to.
 
 Cheers!
 
@@ -145,7 +144,7 @@ script allows overriding these using the options:
 
 ### NetBSD, Linux (Debian, Arch Linux, ...)
 
-    mkdir /var/empty  
+    mkdir /var/empty
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
     useradd -c "SMTPD Queue" -d /var/empty -s /sbin/nologin _smtpq
 
