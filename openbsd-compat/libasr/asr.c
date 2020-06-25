@@ -150,6 +150,8 @@ asr_run(struct asr_query *as, struct asr_result *ar)
 {
 	int	r, saved_errno = errno;
 
+	memset(ar, 0, sizeof(*ar));
+
 	DPRINT("asr: asr_run(%p, %p) %s ctx=[%p]\n", as, ar,
 	    _asr_querystr(as->as_type), as->as_ctx);
 	r = as->as_run(as, ar);
