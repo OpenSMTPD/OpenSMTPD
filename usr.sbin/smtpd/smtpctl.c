@@ -966,7 +966,7 @@ do_encrypt(int argc, struct parameter *argv)
 
 	if (argv)
 		p = argv[0].u.u_str;
-	execl(PATH_ENCRYPT, "encrypt", "--", p, (char *)NULL);
+	execl(PATH_ENCRYPT, "encrypt", p, (char *)NULL);
 	errx(1, "execl");
 }
 
