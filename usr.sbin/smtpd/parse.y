@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.277 2020/02/24 23:54:27 millert Exp $	*/
+/*	$OpenBSD: parse.y,v 1.279 2020/09/16 11:19:42 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -179,7 +179,7 @@ typedef struct {
 
 %}
 
-%token	ACTION ALIAS ANY ARROW AUTH AUTH_OPTIONAL
+%token	ACTION ADMD ALIAS ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE BYPASS
 %token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT
 %token	DATA DATA_LINE DHE DISCONNECT DOMAIN
@@ -215,6 +215,7 @@ grammar		: /* empty */
 		| grammar include '\n'
 		| grammar varset '\n'
 		| grammar bounce '\n'
+		| grammar admd '\n'
 		| grammar ca '\n'
 		| grammar mda '\n'
 		| grammar mta '\n'
@@ -314,6 +315,21 @@ BOUNCE WARN_INTERVAL {
 	memset(conf->sc_bounce_warn, 0, sizeof conf->sc_bounce_warn);
 } bouncedelays
 ;
+
+
+admd:
+ADMD STRING {
+	size_t i;
+
+	for (i = 0; $2[i] != '\0'; i++) {
+		if (!isprint($2[i])) {
+			yyerror("not a valid admd");
+			free($2);
+			YYERROR;
+		}
+	}
+	conf->sc_admd = $2;
+};
 
 
 ca:
@@ -2607,6 +2623,7 @@ lookup(char *s)
 	/* this has to be sorted always */
 	static const struct keywords keywords[] = {
 		{ "action",		ACTION },
+		{ "admd",		ADMD },
 		{ "alias",		ALIAS },
 		{ "any",		ANY },
 		{ "auth",		AUTH },
