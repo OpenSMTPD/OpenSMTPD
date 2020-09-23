@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #	$OpenBSD: Makefile,v 1.91 2018/06/03 14:04:06 gilles Exp $
+=======
+#	$OpenBSD: Makefile,v 1.108 2020/09/23 18:01:27 martijn Exp $
+>>>>>>> 770825c6930... Add support for agentx to smtpd.
 
 .PATH:		${.CURDIR}/..
 
@@ -11,6 +15,7 @@ SRCS+=	cert.c
 SRCS+=	compress_backend.c
 SRCS+=	config.c
 SRCS+=	control.c
+SRCS+=	control_agentx.c
 SRCS+=	crypto.c
 SRCS+=	dict.c
 SRCS+=	dns.c
@@ -84,8 +89,8 @@ SRCS+=		stat_ramstat.c
 MAN=		sendmail.8 smtpd.8 smtpd.conf.5 table.5
 BINDIR=		/usr/sbin
 
-LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz
-DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
+LDADD+=		-levent -lutil -lssl -lcrypto -lm -lz -lagentx
+DPADD+=		${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ} ${LIBAGENTX}
 
 CFLAGS+=	-fstack-protector-all
 CFLAGS+=	-I${.CURDIR}/..
