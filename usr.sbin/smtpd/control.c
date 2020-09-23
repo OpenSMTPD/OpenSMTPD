@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.124 2020/09/23 18:01:26 martijn Exp $	*/
+/*	$OpenBSD: control.c,v 1.125 2020/09/23 19:11:50 martijn Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -76,7 +76,7 @@ extern const char *backend_stat;
 static uint64_t			connid = 0;
 static struct tree		ctl_conns;
 static struct tree		ctl_count;
-struct stat_digest		digest;
+static struct stat_digest	digest;
 
 #define	CONTROL_FD_RESERVE		5
 #define	CONTROL_MAXCONN_PER_CLIENT	32
@@ -159,9 +159,6 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		memmove(&val, data, sz);
 		if (stat_backend)
 			stat_backend->set(key, &val);
-		return;
-	case IMSG_AGENTX_GETFD:
-		control_agentx_connect(imsg->fd);
 		return;
 	}
 
@@ -260,9 +257,6 @@ control(void)
 	control_listen();
 
 #if HAVE_PLEDGE
-	if (env->sc_agentx != NULL)
-		control_agentx();
-
 	if (pledge("stdio unix recvfd sendfd", NULL) == -1)
 		err(1, "pledge");
 #endif
