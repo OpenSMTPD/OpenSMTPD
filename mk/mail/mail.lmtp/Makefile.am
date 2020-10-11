@@ -2,8 +2,8 @@ include	$(top_srcdir)/mk/pathnames
 
 pkglibexec_PROGRAMS =	mail.lmtp
 
-mail_lmtp_SOURCES = $(smtpd_srcdir)/mail.lmtp.c
-mail_lmtp_SOURCES+= $(smtpd_srcdir)/log.c
+mail_lmtp_SOURCES = $(top_srcdir)/usr.sbin/smtpd/mail.lmtp.c
+mail_lmtp_SOURCES+= $(top_srcdir)/usr.sbin/smtpd/log.c
 
 AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat

@@ -216,7 +216,7 @@ EXTRA_DIST +=	defines.h
 EXTRA_DIST +=	entropy.h
 EXTRA_DIST +=	imsg.h
 EXTRA_DIST +=	includes.h
-EXTRA_DIST +=	log.h
+EXTRA_DIST +=	$(top_srcdir)/usr.sbin/smtpd/log.h
 EXTRA_DIST +=	openbsd-compat.h
 EXTRA_DIST +=	sys/queue.h
 EXTRA_DIST +=	sys/tree.h
@@ -225,6 +225,8 @@ EXTRA_DIST +=	bsd-vis.h
 if NEED_LIBASR
 EXTRA_DIST +=		libasr/asr_compat.h
 EXTRA_DIST +=		libasr/asr_private.h
+EXTRA_DIST +=		libasr/asr.h
+EXTRA_DIST +=		libasr/thread_private.h
 endif
 
 
