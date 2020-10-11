@@ -84,8 +84,32 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 		xasprintf(&mda_environ[idx++], "EXTENSION=%s", deliver->mda_subaddress);
 
 	mda_environ[idx++] = (char *)NULL;
-
-	if (dsp->u.local.mda_wrapper) {
+	if (!deliver->mda_exec[0]) switch (dsp->u.local.type) {
+	case DELIVER_MBOX:
+	case DELIVER_INVALID:
+	default:
+		errx(EX_SOFTWARE, "internal bad delivery type (this is a bug)");
+	case DELIVER_MAILDIR:
+		execle(PATH_LIBEXEC"/mail.maildir", "mail.maildir", "--",
+		    mda_command, NULL, mda_environ);
+		goto bad;
+	case DELIVER_MAILDIR_JUNK:
+		execle(PATH_LIBEXEC"/mail.maildir", "mail.maildir", "-j", "--",
+		    mda_command, NULL, mda_environ);
+		goto bad;
+	case DELIVER_LMTP:
+		execle(PATH_LIBEXEC"/mail.lmtp", "mail.lmtp", "-d", mda_command,
+		    "-u", NULL, mda_environ);
+		goto bad;
+	case DELIVER_LMTP_RCPT_TO:
+		execle(PATH_LIBEXEC"/mail.lmtp", "mail.lmtp", "-d", mda_command,
+		    "-r", NULL, mda_environ);
+		goto bad;
+	case DELIVER_MDA:
+		execle(PATH_LIBEXEC"/mail.mda", "mail.mda", "--", mda_command,
+		    NULL, mda_environ);
+		goto bad;
+	} else if (dsp->u.local.mda_wrapper) {
 		mda_command_wrap = dict_get(env->sc_mda_wrappers,
 		    dsp->u.local.mda_wrapper);
 		if (mda_command_wrap == NULL)
@@ -101,9 +125,11 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 			errx(1, "mda command line could not be expanded");
 		mda_command = mda_wrapper;
 	}
+
 	execle("/bin/sh", "/bin/sh", "-c", mda_command, (char *)NULL,
             mda_environ);
 
+bad:
 	perror("execle");
 	_exit(1);
 }

@@ -1178,8 +1178,18 @@ enum dispatcher_type {
 	DISPATCHER_BOUNCE,
 };
 
+enum deliver_type {
+	DELIVER_INVALID,
+	DELIVER_MBOX,
+	DELIVER_MAILDIR,
+	DELIVER_MAILDIR_JUNK,
+	DELIVER_LMTP,
+	DELIVER_LMTP_RCPT_TO,
+	DELIVER_MDA,
+};
+
 struct dispatcher_local {
-	uint8_t is_mbox;	/* only for MBOX */
+	uint8_t type;
 
 	uint8_t	expand_only;
 	uint8_t	forward_only;

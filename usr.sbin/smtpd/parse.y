@@ -572,7 +572,7 @@ SRS KEY STRING {
 
 dispatcher_local_option:
 USER STRING {
-	if (dispatcher->u.local.is_mbox) {
+	if (dispatcher->u.local.type == DELIVER_MBOX) {
 		yyerror("user may not be specified for this dispatcher");
 		YYERROR;
 	}
@@ -668,42 +668,42 @@ dispatcher_local_option dispatcher_local_options
 
 dispatcher_local:
 MBOX {
-	dispatcher->u.local.is_mbox = 1;
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.local -f %%{mbox.from} -- %%{user.username}");
+	dispatcher->u.local.type = DELIVER_MBOX;
+	dispatcher->u.local.command = xstrdup("");
 } dispatcher_local_options
 | MAILDIR {
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir");
+	dispatcher->u.local.type = DELIVER_MAILDIR;
+	dispatcher->u.local.command = xstrdup("%{user.directory:raw}/Maildir");
 } dispatcher_local_options
 | MAILDIR JUNK {
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir -j");
+	dispatcher->u.local.type = DELIVER_MAILDIR_JUNK;
+	dispatcher->u.local.command = xstrdup("%{user.directory:raw}/Maildir");
 } dispatcher_local_options
 | MAILDIR STRING {
+	dispatcher->u.local.type = DELIVER_MAILDIR;
 	if (strncmp($2, "~/", 2) == 0)
-		asprintf(&dispatcher->u.local.command,
-		    PATH_LIBEXEC"/mail.maildir \"%%{user.directory}/%s\"", $2+2);
+		xasprintf(&dispatcher->u.local.command, "%%{user.directory:raw}/%s", $2+2);
 	else
-		asprintf(&dispatcher->u.local.command,
-		    PATH_LIBEXEC"/mail.maildir \"%s\"", $2);
+		dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | MAILDIR STRING JUNK {
+	dispatcher->u.local.type = DELIVER_MAILDIR_JUNK;
 	if (strncmp($2, "~/", 2) == 0)
-		asprintf(&dispatcher->u.local.command,
-		    PATH_LIBEXEC"/mail.maildir -j \"%%{user.directory}/%s\"", $2+2);
+		xasprintf(&dispatcher->u.local.command, "%%{user.directory:raw}/%s", $2+2);
 	else
-		asprintf(&dispatcher->u.local.command,
-		    PATH_LIBEXEC"/mail.maildir -j \"%s\"", $2);
+		dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | LMTP STRING {
-	asprintf(&dispatcher->u.local.command,
-	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -u", $2);
+	dispatcher->u.local.type = DELIVER_LMTP;
+	dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
-	asprintf(&dispatcher->u.local.command,
-	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -r", $2);
+	dispatcher->u.local.type = DELIVER_LMTP_RCPT_TO;
+	dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | MDA STRING {
-	asprintf(&dispatcher->u.local.command,
-	    PATH_LIBEXEC"/mail.mda \"%s\"", $2);
+	dispatcher->u.local.type = DELIVER_MDA;
+	dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | FORWARD_ONLY {
 	dispatcher->u.local.forward_only = 1;
@@ -2896,7 +2896,7 @@ top:
 				*p = '\0';
 				break;
 			} else if (c == '\0') {
-				yyerror("syntax error");
+				yyerror("syntax error: NUL in string");
 				return (findeol());
 			}
 			if (p + 1 >= buf + sizeof(buf) - 1) {
