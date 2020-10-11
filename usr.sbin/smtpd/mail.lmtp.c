@@ -329,4 +329,7 @@ stream_file(FILE *conn)
 	free(line);
 	if (ferror(stdin))
 		err(EX_TEMPFAIL, "getline");
+	fflush(conn);
+	if (ferror(conn))
+		err(EX_TEMPFAIL, "fprintf");
 }
