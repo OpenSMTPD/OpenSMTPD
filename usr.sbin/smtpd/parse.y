@@ -669,7 +669,7 @@ dispatcher_local_option dispatcher_local_options
 dispatcher_local:
 MBOX {
 	dispatcher->u.local.is_mbox = 1;
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.local -f %%{mbox.from} -- %%{user.username}");
+	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.local -f \"$SENDER\" -- \"$USER\"");
 } dispatcher_local_options
 | MAILDIR {
 	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir");
