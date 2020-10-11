@@ -678,30 +678,55 @@ MBOX {
 	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir -j");
 } dispatcher_local_options
 | MAILDIR STRING {
+	char *bad;
+	if ((bad = strpbrk($2, "\"$\\`")) != NULL) {
+		yyerror("invalid character in maildir: %c", *bad);
+		YYERROR;
+	}
 	if (strncmp($2, "~/", 2) == 0)
 		asprintf(&dispatcher->u.local.command,
-		    PATH_LIBEXEC"/mail.maildir \"%%{user.directory}/%s\"", $2+2);
+		    PATH_LIBEXEC"/mail.maildir ~/\"%s\"", $2+2);
 	else
 		asprintf(&dispatcher->u.local.command,
 		    PATH_LIBEXEC"/mail.maildir \"%s\"", $2);
 } dispatcher_local_options
 | MAILDIR STRING JUNK {
+	char *bad;
+	if ((bad = strpbrk($2, "\"$\\`")) != NULL) {
+		yyerror("invalid character in maildir: %c", *bad);
+		YYERROR;
+	}
 	if (strncmp($2, "~/", 2) == 0)
 		asprintf(&dispatcher->u.local.command,
-		    PATH_LIBEXEC"/mail.maildir -j \"%%{user.directory}/%s\"", $2+2);
+		    PATH_LIBEXEC"/mail.maildir -j ~/\"%s\"", $2+2);
 	else
 		asprintf(&dispatcher->u.local.command,
 		    PATH_LIBEXEC"/mail.maildir -j \"%s\"", $2);
 } dispatcher_local_options
 | LMTP STRING {
+	char *bad;
+	if ((bad = strpbrk($2, "\"$\\`")) != NULL) {
+		yyerror("invalid character in lmtp destination: %c", *bad);
+		YYERROR;
+	}
 	asprintf(&dispatcher->u.local.command,
 	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -u", $2);
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
+	char *bad;
+	if ((bad = strpbrk($2, "\"$\\`")) != NULL) {
+		yyerror("invalid character in lmtp destination: %c", *bad);
+		YYERROR;
+	}
 	asprintf(&dispatcher->u.local.command,
 	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -r", $2);
 } dispatcher_local_options
 | MDA STRING {
+	char *bad;
+	if ((bad = strpbrk($2, "\"$\\`")) != NULL) {
+		yyerror("invalid character in MDA: %c", *bad);
+		YYERROR;
+	}
 	asprintf(&dispatcher->u.local.command,
 	    PATH_LIBEXEC"/mail.mda \"%s\"", $2);
 } dispatcher_local_options
@@ -2896,7 +2921,7 @@ top:
 				*p = '\0';
 				break;
 			} else if (c == '\0') {
-				yyerror("syntax error");
+				yyerror("syntax error: NUL in string");
 				return (findeol());
 			}
 			if (p + 1 >= buf + sizeof(buf) - 1) {
