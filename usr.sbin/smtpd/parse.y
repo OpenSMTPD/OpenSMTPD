@@ -680,6 +680,10 @@ MBOX {
 	dispatcher->u.local.command = xstrdup("%{user.directory:raw}/Maildir");
 } dispatcher_local_options
 | MAILDIR STRING {
+	if (strlen($2) == 0) {
+		yyerror("empty maildir not valid");
+		YYERROR;
+	}
 	dispatcher->u.local.type = DELIVER_MAILDIR;
 	if (strncmp($2, "~/", 2) == 0)
 		xasprintf(&dispatcher->u.local.command, "%%{user.directory:raw}/%s", $2+2);
@@ -687,6 +691,10 @@ MBOX {
 		dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | MAILDIR STRING JUNK {
+	if (strlen($2) == 0) {
+		yyerror("empty maildir not valid");
+		YYERROR;
+	}
 	dispatcher->u.local.type = DELIVER_MAILDIR_JUNK;
 	if (strncmp($2, "~/", 2) == 0)
 		xasprintf(&dispatcher->u.local.command, "%%{user.directory:raw}/%s", $2+2);
@@ -694,10 +702,18 @@ MBOX {
 		dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | LMTP STRING {
+	if (strlen($2) == 0) {
+		yyerror("empty LMTP socket not valid");
+		YYERROR;
+	}
 	dispatcher->u.local.type = DELIVER_LMTP;
 	dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
+	if (strlen($2) == 0) {
+		yyerror("empty LMTP socket not valid");
+		YYERROR;
+	}
 	dispatcher->u.local.type = DELIVER_LMTP_RCPT_TO;
 	dispatcher->u.local.command = xstrdup($2);
 } dispatcher_local_options
