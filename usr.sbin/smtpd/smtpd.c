@@ -1459,7 +1459,7 @@ fork_filter_process(const char *name, const char *command, const char *user, con
 static void
 forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 {
-	char		 ebuf[128], sfn[32];
+	char		 ebuf[128], sfn[32], *username;
 	struct dispatcher	*dsp;
 	struct child	*child;
 	pid_t		 pid;
@@ -1469,17 +1469,20 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	uid_t	pw_uid;
 	gid_t	pw_gid;
 	const char	*pw_dir;
+	_Bool	is_getpwnam;
 
 	dsp = dict_xget(env->sc_dispatchers, deliver->dispatcher);
 	if (dsp->type != DISPATCHER_LOCAL)
 		fatalx("non-local dispatcher called from forkmda()");
 
+	is_getpwnam = strcmp(dsp->u.local.table_userbase, "<getpwnam>") == 0;
+	username = dsp->u.local.user ? dsp->u.local.user : deliver->userinfo.username;
 	log_debug("debug: smtpd: forking mda for session %016"PRIx64
 	    ": %s as %s", id, deliver->userinfo.username,
-	    dsp->u.local.user ? dsp->u.local.user : deliver->userinfo.username);
+	    username);
 
-	if (dsp->u.local.user) {
-		if ((pw = getpwnam(dsp->u.local.user)) == NULL) {
+	if (dsp->u.local.user || is_getpwnam) {
+		if ((pw = getpwnam(username)) == NULL) {
 			(void)snprintf(ebuf, sizeof ebuf,
 			    "delivery user '%s' does not exist",
 			    dsp->u.local.user);
@@ -1503,7 +1506,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		pw_dir = deliver->userinfo.directory;
 	}
 
-	if (pw_uid == 0 && deliver->mda_exec[0]) {
+	if (pw_uid == 0 && deliver->mda_exec[0] && !is_getpwnam) {
 		pw_name = deliver->userinfo.username;
 		pw_uid = deliver->userinfo.uid;
 		pw_gid = deliver->userinfo.gid;
