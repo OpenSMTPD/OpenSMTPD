@@ -42,7 +42,7 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
     const char *pw_name, const char *pw_dir)
 {
 	int		idx;
-	char	       *mda_environ[11];
+	char	       *mda_environ[12];
 	char		mda_exec[LINE_MAX];
 	char		mda_wrapper[LINE_MAX];
 	const char     *mda_command;
@@ -123,6 +123,8 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 		if (mda_expand_format(mda_wrapper, sizeof mda_wrapper, deliver,
 			&deliver->userinfo, mda_command) == -1)
 			errx(1, "mda command line could not be expanded");
+		xasprintf(&mda_environ[idx - 1], "MDA=%s", mda_command);
+		mda_environ[idx] = NULL;
 		mda_command = mda_wrapper;
 	}
 
