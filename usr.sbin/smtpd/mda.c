@@ -738,6 +738,8 @@ mda_user(const struct envelope *evp)
 
 	i = NULL;
 	dsp = dict_xget(env->sc_dispatchers, evp->dispatcher);
+	if (dsp->type != DISPATCHER_LOCAL)
+		fatalx("non-local dispatcher called from mda_user()");
 	while (tree_iter(&users, &i, NULL, (void**)(&u))) {
 		if (!strcmp(evp->mda_user, u->name) &&
 		    !strcmp(dsp->u.local.table_userbase, u->usertable))

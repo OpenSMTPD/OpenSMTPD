@@ -1230,15 +1230,11 @@ struct dispatcher_remote {
 	int	 srs;
 };
 
-struct dispatcher_bounce {
-};
-
 struct dispatcher {
 	enum dispatcher_type			type;
 	union dispatcher_agent {
 		struct dispatcher_local		local;
 		struct dispatcher_remote  	remote;
-		struct dispatcher_bounce  	bounce;
 	} u;
 
 	time_t	ttl;

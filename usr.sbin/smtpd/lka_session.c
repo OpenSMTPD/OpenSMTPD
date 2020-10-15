@@ -127,6 +127,8 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 	case 1:
 		if (fd == -1) {
 			dsp = dict_get(env->sc_dispatchers, lks->rule->dispatcher);
+			if (dsp->type != DISPATCHER_LOCAL)
+				fatalx("non-local dispatcher called from lka_session_forward_reply()");
 			if (dsp->u.local.forward_only) {
 				log_trace(TRACE_EXPAND, "expand: no .forward "
 				    "for user %s on forward-only rule", fwreq->user);
@@ -145,6 +147,8 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 		}
 		else {
 			dsp = dict_get(env->sc_dispatchers, rule->dispatcher);
+			if (dsp->type != DISPATCHER_LOCAL)
+				fatalx("non-local dispatcher called from lka_session_forward_reply()");
 
 			/* expand for the current user and rule */
 			lks->expand.rule = rule;
@@ -324,9 +328,10 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		}
 
 		dsp = dict_xget(env->sc_dispatchers, rule->dispatcher);
-		if (dsp->type == DISPATCHER_REMOTE) {
+		if (dsp->type == DISPATCHER_REMOTE)
 			lka_submit(lks, rule, xn);
-		}
+		else if (dsp->type != DISPATCHER_LOCAL)
+			fatalx("internal wrong dispatcher type");
 		else if (dsp->u.local.table_virtual) {
 			/* expand */
 			lks->expand.rule = rule;
@@ -374,6 +379,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 		/* expand aliases with the given rule */
 		dsp = dict_xget(env->sc_dispatchers, rule->dispatcher);
+		if (dsp->type != DISPATCHER_LOCAL)
+			fatalx("non-local dispatcher called from lka_expand()");
 
 		lks->expand.rule = rule;
 		lks->expand.parent = xn;
@@ -455,6 +462,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 	case EXPAND_ERROR:
 		dsp = dict_xget(env->sc_dispatchers, rule->dispatcher);
+		if (dsp->type != DISPATCHER_LOCAL)
+			fatalx("non-local dispatcher called from lka_expand()");
 		if (dsp->u.local.forward_only) {
 			log_trace(TRACE_EXPAND, "expand: error matched on forward-only rule");
 			lks->error = LKA_TEMPFAIL;
@@ -471,6 +480,8 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 
 	case EXPAND_FILTER:
 		dsp = dict_xget(env->sc_dispatchers, rule->dispatcher);
+		if (dsp->type != DISPATCHER_LOCAL)
+			fatalx("non-local dispatcher called from lka_expand()");
 		if (dsp->u.local.forward_only) {
 			log_trace(TRACE_EXPAND, "expand: filter matched on forward-only rule");
 			lks->error = LKA_TEMPFAIL;
@@ -542,10 +553,14 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 				log_warnx("commands executed from aliases "
 				    "run with %s privileges", SMTPD_USER);
 
-			if (xn->type == EXPAND_FILENAME)
-				format = PATH_LIBEXEC"/mail.mboxfile -f %%{mbox.from} %s";
-			else if (xn->type == EXPAND_FILTER)
+			if (xn->type == EXPAND_FILENAME) {
+				if (strchr(xn->u.buffer, '\''))
+					return;
+				format = PATH_LIBEXEC"/mail.mboxfile -f \"$SENDER\" -- '%s'";
+			} else if (xn->type == EXPAND_FILTER)
 				format = "%s";
+			else
+				abort();
 			(void)snprintf(ep->mda_exec, sizeof(ep->mda_exec),
 			    format, xn->u.buffer);
 		}

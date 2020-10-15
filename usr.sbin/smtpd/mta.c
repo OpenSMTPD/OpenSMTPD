@@ -61,7 +61,7 @@
 #define RELAY_HOLDQ		0x02
 
 static void mta_handle_envelope(struct envelope *, const char *);
-static void mta_query_smarthost(struct envelope *);
+static void mta_query_smarthost(struct envelope *, struct dispatcher_remote *);
 static void mta_on_smarthost(struct envelope *, const char *);
 static void mta_query_mx(struct mta_relay *);
 static void mta_query_secret(struct mta_relay *);
@@ -626,8 +626,10 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 	char			 buf[LINE_MAX];
 
 	dispatcher = dict_xget(env->sc_dispatchers, evp->dispatcher);
+	if (dispatcher->type != DISPATCHER_REMOTE)
+		fatalx("non-remote dispatcher called from mta_handle_envelope()");
 	if (dispatcher->u.remote.smarthost && smarthost == NULL) {
-		mta_query_smarthost(evp);
+		mta_query_smarthost(evp, &dispatcher->u.remote);
 		return;
 	}
 
@@ -912,28 +914,25 @@ mta_query_secret(struct mta_relay *relay)
 }
 
 static void
-mta_query_smarthost(struct envelope *evp0)
+mta_query_smarthost(struct envelope *evp0, struct dispatcher_remote *remote)
 {
-	struct dispatcher *dispatcher;
 	struct envelope *evp;
 
 	evp = malloc(sizeof(*evp));
 	memmove(evp, evp0, sizeof(*evp));
 
-	dispatcher = dict_xget(env->sc_dispatchers, evp->dispatcher);
-
 	log_debug("debug: mta: querying smarthost for %s:%s...",
-	    evp->dispatcher, dispatcher->u.remote.smarthost);
+	    evp->dispatcher, remote->smarthost);
 
 	tree_xset(&wait_smarthost, evp->id, evp);
 
 	m_create(p_lka, IMSG_MTA_LOOKUP_SMARTHOST, 0, 0, -1);
 	m_add_id(p_lka, evp->id);
-	if (dispatcher->u.remote.smarthost_domain)
+	if (remote->smarthost_domain)
 		m_add_string(p_lka, evp->dest.domain);
 	else
 		m_add_string(p_lka, NULL);
-	m_add_string(p_lka, dispatcher->u.remote.smarthost);
+	m_add_string(p_lka, remote->smarthost);
 	m_close(p_lka);
 
 	log_debug("debug: mta: querying smarthost");

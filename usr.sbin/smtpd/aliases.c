@@ -56,6 +56,8 @@ aliases_get(struct expand *expand, const char *username)
 	char		       *pbuf;
 
 	dsp = dict_xget(env->sc_dispatchers, expand->rule->dispatcher);
+	if (dsp->type != DISPATCHER_LOCAL)
+		fatalx("non-local dispatcher called from aliases_get()");
 	mapping = table_find(env, dsp->u.local.table_alias);
 
 	xlowercase(buf, username, sizeof(buf));
@@ -111,6 +113,8 @@ aliases_virtual_get(struct expand *expand, const struct mailaddr *maddr)
 	struct table	       *mapping = NULL;
 
 	dsp = dict_xget(env->sc_dispatchers, expand->rule->dispatcher);
+	if (dsp->type != DISPATCHER_LOCAL)
+		fatalx("non-local dispatcher called from aliases_virtual_get()");
 	mapping = table_find(env, dsp->u.local.table_virtual);
 
 	if (!bsnprintf(user, sizeof(user), "%s", maddr->user))
