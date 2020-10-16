@@ -3,6 +3,7 @@ noinst_LIBRARIES = libopenbsd.a
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/usr.sbin/smtpd -I$(top_srcdir)/openbsd-compat
 
 libopenbsd_a_SOURCES =	empty.c
+libopenbsd_a_SOURCES +=	progname.c
 
 if NEED_LIBASR
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/libasr
@@ -17,12 +18,6 @@ libopenbsd_a_SOURCES +=	libasr/getnameinfo_async.c
 libopenbsd_a_SOURCES +=	libasr/getnetnamadr_async.c
 libopenbsd_a_SOURCES +=	libasr/res_search_async.c
 libopenbsd_a_SOURCES +=	libasr/res_send_async.c
-endif
-
-
-
-if NEED_PROGNAME
-libopenbsd_a_SOURCES +=	progname.c
 endif
 
 if NEED_ARC4RANDOM
