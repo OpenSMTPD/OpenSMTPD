@@ -334,6 +334,8 @@ const char *strerror(int);
 int usleep(unsigned int useconds);
 #endif
 
+int pipe2(int pipefd[2], int flags);
+
 char *get_progname(char *);
 
 

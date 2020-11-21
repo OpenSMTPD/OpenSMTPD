@@ -10,6 +10,9 @@ void err(int, const char *, ...);
 __attribute__ ((noreturn))
 void errx(int, const char *, ...);
 
+__attribute__ ((noreturn))
+void errc(int, int, const char *, ...);
+
 void warn(const char *, ...);
 void warnx(const char *, ...);
 
