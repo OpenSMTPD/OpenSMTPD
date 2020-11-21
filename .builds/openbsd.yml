@@ -1,6 +1,6 @@
-image: openbsd/6.6
+image: openbsd/6.8
 packages:
-- autoconf-2.69p2
+- autoconf-2.69p3
 - automake-1.14.1p1
 - libtool
 sources:
