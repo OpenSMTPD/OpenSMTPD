@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-#	$OpenBSD: Makefile,v 1.91 2018/06/03 14:04:06 gilles Exp $
-=======
-#	$OpenBSD: Makefile,v 1.108 2020/09/23 18:01:27 martijn Exp $
->>>>>>> 770825c6930... Add support for agentx to smtpd.
-=======
 #	$OpenBSD: Makefile,v 1.109 2020/09/23 19:11:50 martijn Exp $
->>>>>>> 99399201a83... Revert agentx support for now, we're too close to release.
 
 .PATH:		${.CURDIR}/..
 
