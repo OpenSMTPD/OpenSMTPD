@@ -77,10 +77,12 @@ libasr directory:
 
     ./configure --with-libasr=/usr/local
 
-### Mac OS X:
+### MacOS:
 
-    ./configure --with-libevent=/opt/local --with-libasr=/opt/local
+    ./configure --with-libevent=/opt/local
 
+Though MacOS includes a copy of bison in the bases system, you will
+need to install a more recent version from, e.g., MacPorts.
 
 ## Install
 
