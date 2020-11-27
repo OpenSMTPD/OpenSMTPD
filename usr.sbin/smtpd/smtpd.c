@@ -80,6 +80,7 @@
 #include <util.h>
 #endif
 
+#include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 
