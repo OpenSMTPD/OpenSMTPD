@@ -2,37 +2,37 @@ include	$(top_srcdir)/mk/pathnames
 
 sbin_PROGRAMS=		smtpctl
 
-smtpctl_SOURCES=	$(smtpd_srcdir)/enqueue.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/parser.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/log.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/envelope.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_backend.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/queue_fs.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/smtpctl.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/spfwalk.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/util.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/unpack_dns.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_backend.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/compress_gzip.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/to.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/expand.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/tree.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/dict.c
+smtpctl_SOURCES=	$(top_srcdir)/usr.sbin/smtpd/enqueue.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/parser.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/log.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/envelope.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/queue_backend.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/queue_fs.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtpctl.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/spfwalk.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/util.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/unpack_dns.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/compress_backend.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/compress_gzip.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/to.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/expand.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/tree.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/dict.c
 
 if HAVE_DB_API
-smtpctl_SOURCES+=	$(smtpd_srcdir)/config.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/parse.y
-smtpctl_SOURCES+=	$(smtpd_srcdir)/limit.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/table.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/table_static.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/table_db.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/table_getpwnam.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/table_proc.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/mailaddr.c
-smtpctl_SOURCES+=	$(smtpd_srcdir)/makemap.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/config.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/parse.y
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/limit.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/table.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/table_static.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/table_db.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/table_getpwnam.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/table_proc.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/mailaddr.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/makemap.c
 endif
 
-smtpctl_SOURCES+=	$(smtpd_srcdir)/crypto.c
+smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/crypto.c
 
 smtpctl_CFLAGS=		-DNO_IO -DCONFIG_MINIMUM
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
@@ -59,7 +59,7 @@ CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		smtpctl.8.out sendmail.8.out makemap.8.out newaliases.8.out
-MANPAGES_IN=		$(smtpd_srcdir)/smtpctl.8 $(smtpd_srcdir)/sendmail.8 $(smtpd_srcdir)/makemap.8 $(smtpd_srcdir)/newaliases.8
+MANPAGES_IN=		$(top_srcdir)/usr.sbin/smtpd/smtpctl.8 $(top_srcdir)/usr.sbin/smtpd/sendmail.8 $(top_srcdir)/usr.sbin/smtpd/makemap.8 $(top_srcdir)/usr.sbin/smtpd/newaliases.8
 
 EXTRA_DIST=		$(MANPAGES_IN)
 
@@ -74,7 +74,7 @@ AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libasr
 endif
 
 $(MANPAGES): $(MANPAGES_IN)
-	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
+	manpage=$(top_srcdir)/usr.sbin/smtpd/`echo $@ | sed 's/\.out$$//'`; \
 	if test "$(MANTYPE)" = "man"; then \
 		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/../mdoc2man.awk > $@; \
 	else \

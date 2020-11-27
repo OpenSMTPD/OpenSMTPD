@@ -2,13 +2,13 @@ include	$(top_srcdir)/mk/pathnames
 
 bin_PROGRAMS=		smtp
 
-smtp_SOURCES=	$(smtpd_srcdir)/iobuf.c
-smtp_SOURCES+=	$(smtpd_srcdir)/ioev.c
-smtp_SOURCES+=	$(smtpd_srcdir)/log.c
-smtp_SOURCES+=	$(smtpd_srcdir)/smtp_client.c
-smtp_SOURCES+=	$(smtpd_srcdir)/smtpc.c
-smtp_SOURCES+=	$(smtpd_srcdir)/ssl.c
-smtp_SOURCES+=	$(smtpd_srcdir)/ssl_verify.c
+smtp_SOURCES=	$(top_srcdir)/usr.sbin/smtpd/iobuf.c
+smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ioev.c
+smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/log.c
+smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtp_client.c
+smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtpc.c
+smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ssl.c
+smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ssl_verify.c
 
 smtp_CFLAGS=		-DIO_TLS
 
@@ -30,7 +30,7 @@ CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		smtp.1.out
-MANPAGES_IN=		$(smtpd_srcdir)/smtp.1
+MANPAGES_IN=		$(top_srcdir)/usr.sbin/smtpd/smtp.1
 
 EXTRA_DIST=		$(MANPAGES_IN)
 
@@ -42,7 +42,7 @@ FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 
 $(MANPAGES): $(MANPAGES_IN)
-	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
+	manpage=$(top_srcdir)/usr.sbin/smtpd/`echo $@ | sed 's/\.out$$//'`; \
 	if test "$(MANTYPE)" = "man"; then \
 		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/../mdoc2man.awk > $@; \
 	else \

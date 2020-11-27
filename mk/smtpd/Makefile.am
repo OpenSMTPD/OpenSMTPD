@@ -14,84 +14,84 @@ include $(top_srcdir)/mk/pathnames
 
 sbin_PROGRAMS=		smtpd
 
-smtpd_SOURCES=		$(smtpd_srcdir)/aliases.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/bounce.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ca.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/cert.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/compress_backend.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/config.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/control.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/dict.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/envelope.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ioev.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/limit.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/lka.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/lka_filter.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/log.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mda.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mda_mbox.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mda_unpriv.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mda_variables.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mproc.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mailaddr.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mta.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mta_session.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/parse.y
-smtpd_SOURCES+=		$(smtpd_srcdir)/pony.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/proxy.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/queue.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/queue_backend.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/report_smtp.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/resolver.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/rfc5322.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ruleset.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/runq.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_backend.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/smtp.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/smtp_session.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/smtpd.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/srs.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ssl.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_smtpd.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_verify.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/stat_backend.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/table.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/to.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/tree.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/unpack_dns.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/util.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/waitq.c
+smtpd_SOURCES=		$(top_srcdir)/usr.sbin/smtpd/aliases.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/bounce.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/ca.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/cert.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/compress_backend.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/config.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/control.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/dict.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/dns.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/esc.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/envelope.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/expand.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/forward.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/iobuf.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/limit.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/lka.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/lka_filter.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/lka_session.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/log.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mda.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mda_mbox.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mda_unpriv.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mda_variables.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mproc.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mailaddr.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mta.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/mta_session.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/parse.y
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/pony.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/proxy.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue_backend.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/report_smtp.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/resolver.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/rfc5322.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/ruleset.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/runq.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler_backend.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/smtp.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/smtp_session.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/smtpd.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/srs.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/ssl.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/ssl_smtpd.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/ssl_verify.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/stat_backend.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/table.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/to.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/tree.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/unpack_dns.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/util.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/waitq.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/ioev.c
 
 # backends
-smtpd_SOURCES+=		$(smtpd_srcdir)/crypto.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/compress_gzip.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/crypto.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/compress_gzip.c
 if HAVE_DB_API
-smtpd_SOURCES+=		$(smtpd_srcdir)/table_db.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/table_db.c
 endif
-smtpd_SOURCES+=		$(smtpd_srcdir)/table_getpwnam.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/table_proc.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/table_static.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/queue_fs.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/queue_null.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/queue_proc.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/queue_ram.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_null.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_proc.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_ramqueue.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/table_getpwnam.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/table_proc.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/table_static.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue_fs.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue_null.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue_proc.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue_ram.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler_null.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler_proc.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler_ramqueue.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/stat_ramstat.c
 
 
 smtpd_CFLAGS=		-DIO_TLS
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
-AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
+AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(compat_srcdir)
 if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
@@ -111,35 +111,37 @@ LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS+=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
-CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+AM_CFLAGS=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
+AM_CPPFLAGS+=		-I$(srcdir) $(PATHS) @DEFS@
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
 			smtpd.conf.5.out table.5.out
 
-MANPAGES_IN=		$(smtpd_srcdir)/aliases.5
-MANPAGES_IN+=		$(smtpd_srcdir)/forward.5
-MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.8
-MANPAGES_IN+=		$(smtpd_srcdir)/smtpd.conf.5
-MANPAGES_IN+=		$(smtpd_srcdir)/table.5
+MANPAGES_IN=		$(top_srcdir)/usr.sbin/smtpd/aliases.5
+MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/forward.5
+MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/smtpd.8
+MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/smtpd.conf.5
+MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/table.5
 
 CONFIGFILES=		smtpd.conf.out
-CONFIGFILES_IN=		$(smtpd_srcdir)/smtpd.conf
+CONFIGFILES_IN=		$(top_srcdir)/usr.sbin/smtpd/smtpd.conf
 
 EXTRA_DIST=		$(CONFIGFILES_IN) $(MANPAGES_IN)
 
 
-EXTRA_DIST+=		$(smtpd_srcdir)/smtpd.h
-EXTRA_DIST+=		$(smtpd_srcdir)/smtpd-api.h
-EXTRA_DIST+=		$(smtpd_srcdir)/smtpd-defines.h
-EXTRA_DIST+=		$(smtpd_srcdir)/ioev.h
-EXTRA_DIST+=		$(smtpd_srcdir)/iobuf.h
-EXTRA_DIST+=		$(smtpd_srcdir)/log.h
-EXTRA_DIST+=		$(smtpd_srcdir)/ssl.h
-EXTRA_DIST+=		$(smtpd_srcdir)/parser.h
-
-EXTRA_DIST+=		$(backends_srcdir)/queue_utils.h
-EXTRA_DIST+=		$(filters_srcdir)/asr_event.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/rfc5322.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/unpack_dns.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/tree.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/smtp.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/smtpd.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/smtpd-api.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/smtpd-defines.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/ioev.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/iobuf.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/log.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/ssl.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/parser.h
+EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/dict.h
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
 			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g' \
@@ -148,7 +150,7 @@ PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
 $(MANPAGES): $(MANPAGES_IN)
-	manpage=$(smtpd_srcdir)/`echo $@ | sed 's/\.out$$//'`; \
+	manpage=$(top_srcdir)/usr.sbin/smtpd/`echo $@ | sed 's/\.out$$//'`; \
 	if test "$(MANTYPE)" = "man"; then \
 		$(FIXPATHSCMD) $${manpage} | $(AWK) -f $(srcdir)/../mdoc2man.awk > $@; \
 	else \
@@ -156,8 +158,8 @@ $(MANPAGES): $(MANPAGES_IN)
 	fi
 
 $(CONFIGFILES): $(CONFIGFILES_IN)
-	conffile=$(smtpd_srcdir)/`echo $@ | sed 's/.out$$//'`; \
-	$(CAT) $(srcdir)/$${conffile} > $@
+	conffile=$(top_srcdir)/usr.sbin/smtpd/`echo $@ | sed 's/.out$$//'`; \
+	$(CAT) $${conffile} > $@
 
 
 # smtpd.conf
@@ -184,8 +186,8 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
-#	rm $(DESTDIR)$(sysconfdir)/smtpd.conf
-	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
+	rm -f	$(DESTDIR)$(sysconfdir)/smtpd.conf				\
+		$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
