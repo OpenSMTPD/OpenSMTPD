@@ -521,7 +521,7 @@ main(int argc, char *argv[])
 	struct smtpd	*conf;
 
 #ifndef HAVE___PROGNAME
-	__progname = ssh_get_progname(argv[0]);
+	__progname = get_progname(argv[0]);
 #endif
 
 #ifndef HAVE_SETPROCTITLE
