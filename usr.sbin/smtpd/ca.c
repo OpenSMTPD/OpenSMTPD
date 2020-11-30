@@ -698,6 +698,22 @@ ecdsae_sign_setup(EC_KEY *eckey, BN_CTX *ctx, BIGNUM **kinv,
 }
 
 int
+ecdsae_verify(int type, const unsigned char *dgst, int dgst_len,
+    const unsigned char *sigbuf, int sig_len, EC_KEY *eckey)
+{
+	int (*verify)(int type, const unsigned
+	    char *dgst, int dgst_len,
+	    const unsigned char *sigbuf,
+	    int sig_len, EC_KEY *eckey);
+
+	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	EC_KEY_METHOD_get_verify(ecdsa_default,
+	    &verify,
+	    NULL);
+	return (verify(type, dgst, dgst_len, sigbuf, sig_len, eckey));
+}
+
+int
 ecdsae_do_verify(const unsigned char *dgst, int dgst_len,
     const ECDSA_SIG *sig, EC_KEY *eckey)
 {
@@ -853,7 +869,7 @@ ecdsa_engine_init(void)
 
 	EC_KEY_METHOD_set_sign(ecdsae_method, ecdsae_sign, ecdsae_sign_setup,
 	    ecdsae_do_sign);
-	EC_KEY_METHOD_set_verify(ecdsae_method, NULL, ecdsae_do_verify);
+	EC_KEY_METHOD_set_verify(ecdsae_method, ecdsae_verify, ecdsae_do_verify);
 
 	if ((e = ENGINE_get_default_EC()) == NULL) {
 		if ((e = ENGINE_new()) == NULL) {
