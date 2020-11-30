@@ -65,13 +65,11 @@ static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 
-#if defined(SUPPORT_ECDSA)
 static ECDSA_SIG *ecdsae_do_sign(const unsigned char *, int, const BIGNUM *,
     const BIGNUM *, EC_KEY *);
 static int ecdsae_sign_setup(EC_KEY *, BN_CTX *, BIGNUM **, BIGNUM **);
 static int ecdsae_do_verify(const unsigned char *, int, const ECDSA_SIG *,
     EC_KEY *);
-#endif
 
 static uint64_t	 reqid = 0;
 
@@ -230,17 +228,13 @@ void
 ca_imsg(struct mproc *p, struct imsg *imsg)
 {
 	RSA			*rsa = NULL;
-#if defined(SUPPORT_ECDSA)
 	EC_KEY			*ecdsa = NULL;
-#endif
 	const void		*from = NULL;
 	unsigned char		*to = NULL;
 	struct msg		 m;
 	const char		*pkiname;
 	size_t			 flen, tlen, padding;
-#if defined(SUPPORT_ECDSA)
 	int			 buf_len;
-#endif
 	struct pki		*pki;
 	int			 ret = 0;
 	uint64_t		 id;
@@ -313,7 +307,6 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		RSA_free(rsa);
 		return;
 
-#if defined(SUPPORT_ECDSA)
 	case IMSG_CA_ECDSA_SIGN:
 		m_msg(&m, imsg);
 		m_get_id(&m, &id);
@@ -329,6 +322,7 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		buf_len = ECDSA_size(ecdsa);
 		if ((to = calloc(1, buf_len)) == NULL)
 			fatalx("ca_imsg: calloc");
+
 		ret = ECDSA_sign(0, from, flen, to, &buf_len, ecdsa);
 		m_create(p, imsg->hdr.type, 0, 0, -1);
 		m_add_id(p, id);
@@ -339,7 +333,6 @@ ca_imsg(struct mproc *p, struct imsg *imsg)
 		free(to);
 		EC_KEY_free(ecdsa);
 		return;
-#endif
 	}
 	errx(1, "ca_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
@@ -510,15 +503,11 @@ rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
 }
 
 
-#if defined(SUPPORT_ECDSA)
 /*
  * ECDSA privsep engine (called from unprivileged processes)
  */
 
-const ECDSA_METHOD *ecdsa_default = NULL;
-
-static ECDSA_METHOD *ecdsae_method = NULL;
-
+#if defined(SUPPORT_ECDSA)
 ECDSA_METHOD *
 ECDSA_METHOD_new_temporary(const char *name, int);
 
@@ -538,6 +527,11 @@ ECDSA_METHOD_new_temporary(const char *name, int flags)
 	ecdsa->flags = flags;
 	return ecdsa;
 }
+#else
+const EC_KEY_METHOD *ecdsa_default = NULL;
+
+static EC_KEY_METHOD *ecdsae_method = NULL;
+#endif
 
 static ECDSA_SIG *
 ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
@@ -554,8 +548,13 @@ ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
 	uint64_t	 id;
 	ECDSA_SIG	*sig = NULL;
 
+#if defined(SUPPORT_ECDSA)
 	if ((pkiname = ECDSA_get_ex_data(eckey, 0)) == NULL)
 		return (0);
+#else
+	if ((pkiname = EC_KEY_get_ex_data(eckey, 0)) == NULL)
+		return (0);
+#endif
 
 	/*
 	 * Send a synchronous imsg because we cannot defer the ECDSA
@@ -613,6 +612,7 @@ ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
 	return (sig);
 }
 
+#if defined(SUPPORT_ECDSA)
 ECDSA_SIG *
 ecdsae_do_sign(const unsigned char *dgst, int dgst_len,
     const BIGNUM *inv, const BIGNUM *rp, EC_KEY *eckey)
@@ -621,6 +621,7 @@ ecdsae_do_sign(const unsigned char *dgst, int dgst_len,
 	if (ECDSA_get_ex_data(eckey, 0) != NULL)
 		return (ecdsae_send_enc_imsg(dgst, dgst_len, inv, rp, eckey));
 	return (ecdsa_default->ecdsa_do_sign(dgst, dgst_len, inv, rp, eckey));
+
 }
 
 int
@@ -637,6 +638,79 @@ ecdsae_do_verify(const unsigned char *dgst, int dgst_len,
 {
 	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
 	return (ecdsa_default->ecdsa_do_verify(dgst, dgst_len, sig, eckey));
+}
+#else
+int
+ecdsae_sign(int type, const unsigned char *dgst, int dlen, unsigned char *sig,
+    unsigned int *siglen, const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
+{
+	int (*sign)(int type, const unsigned char *dgst,
+	    int dlen, unsigned char *sig,
+	    unsigned int *siglen,
+	    const BIGNUM *kinv, const BIGNUM *r,
+	    EC_KEY *eckey);
+
+	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	EC_KEY_METHOD_get_sign(ecdsa_default,
+	    &sign,
+	    NULL,
+	    NULL);
+	return (sign(type, dgst, dlen, sig, siglen, kinv, r, eckey));
+
+
+	return 0;
+}
+	
+
+ECDSA_SIG *
+ecdsae_do_sign(const unsigned char *dgst, int dgst_len,
+    const BIGNUM *inv, const BIGNUM *rp, EC_KEY *eckey)
+{
+	ECDSA_SIG *(*psign_sig)(const unsigned char *dgst,
+	    int dgst_len,
+	    const BIGNUM *in_kinv,
+	    const BIGNUM *in_r,
+	    EC_KEY *eckey);
+
+	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	if (EC_KEY_get_ex_data(eckey, 0) != NULL)
+		return (ecdsae_send_enc_imsg(dgst, dgst_len, inv, rp, eckey));
+	EC_KEY_METHOD_get_sign(ecdsa_default,
+	    NULL,
+	    NULL,
+	    &psign_sig);
+	return (psign_sig(dgst, dgst_len, inv, rp, eckey));
+}
+
+int
+ecdsae_sign_setup(EC_KEY *eckey, BN_CTX *ctx, BIGNUM **kinv,
+    BIGNUM **r)
+{
+	int (*psign_setup)(EC_KEY *eckey, BN_CTX *ctx_in,
+	    BIGNUM **kinvp, BIGNUM **rp);
+
+	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	EC_KEY_METHOD_get_sign(ecdsa_default,
+	    NULL,
+	    &psign_setup,
+	    NULL);
+	return (psign_setup(eckey, ctx, kinv, r));
+}
+
+int
+ecdsae_do_verify(const unsigned char *dgst, int dgst_len,
+    const ECDSA_SIG *sig, EC_KEY *eckey)
+{
+	int (*pverify_sig)(const unsigned char *dgst,
+	    int dgst_len,
+	    const ECDSA_SIG *sig,
+	    EC_KEY *eckey);
+
+	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	EC_KEY_METHOD_get_verify(ecdsa_default,
+	    NULL,
+	    &pverify_sig);
+	return (pverify_sig(dgst, dgst_len, sig, eckey));
 }
 #endif
 
@@ -765,13 +839,64 @@ ecdsa_engine_init(void)
 	ssl_error(errstr);
 	fatalx("%s", errstr);
 }
+#else
+static void
+ecdsa_engine_init(void)
+{
+	ENGINE		*e;
+	const char	*errstr, *name;
+
+	if ((ecdsae_method = EC_KEY_METHOD_new(NULL)) == NULL) {
+		errstr = "EC_KEY_new";
+		goto fail;
+	}
+
+	EC_KEY_METHOD_set_sign(ecdsae_method, ecdsae_sign, ecdsae_sign_setup,
+	    ecdsae_do_sign);
+	EC_KEY_METHOD_set_verify(ecdsae_method, NULL, ecdsae_do_verify);
+
+	if ((e = ENGINE_get_default_EC()) == NULL) {
+		if ((e = ENGINE_new()) == NULL) {
+			errstr = "ENGINE_new";
+			goto fail;
+		}
+		if (!ENGINE_set_name(e, "ECDSA privsep engine")) {
+			errstr = "ENGINE_set_name";
+			goto fail;
+		}
+		if ((ecdsa_default = EC_KEY_get_default_method()) == NULL) {
+			errstr = "EC_KEY_get_default_method";
+			goto fail;
+		}
+	} else if ((ecdsa_default = ENGINE_get_EC(e)) == NULL) {
+		errstr = "ENGINE_get_EC";
+		goto fail;
+	}
+
+	if ((name = ENGINE_get_name(e)) == NULL)
+		name = "unknown ECDSA engine";
+	
+	log_debug("debug: %s: using %s", __func__, name);
+
+	if (!ENGINE_set_EC(e, ecdsae_method)) {
+		errstr = "ENGINE_set_EC";
+		goto fail;
+	}
+	if (!ENGINE_set_default_EC(e)) {
+		errstr = "ENGINE_set_default_EC";
+		goto fail;
+	}
+	return;
+
+ fail:
+	ssl_error(errstr);
+	fatalx("%s", errstr);
+}
 #endif
 
 void
 ca_engine_init(void)
 {
 	rsa_engine_init();
-#if defined(SUPPORT_ECDSA)
 	ecdsa_engine_init();
-#endif
 }

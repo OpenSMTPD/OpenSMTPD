@@ -400,11 +400,12 @@ ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
 #if defined(SUPPORT_ECDSA)
 		if (eckey)
 			ECDSA_set_ex_data(eckey, 0, exdata);
+#else
+		if (eckey)
+			EC_KEY_set_ex_data(eckey, 0, exdata);
 #endif
 		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
-#if defined(SUPPORT_ECDSA)
 		EC_KEY_free(eckey); /* dereference, will be cleaned up with pkey */
-#endif
 	}
 
 	*x509ptr = x509;
