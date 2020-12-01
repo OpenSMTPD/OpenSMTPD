@@ -643,23 +643,23 @@ ecdsae_do_verify(const unsigned char *dgst, int dgst_len,
 int
 ecdsae_keygen(EC_KEY *eckey)
 {
-		int (*keygen)(EC_KEY *key);
-		EC_KEY_METHOD_get_keygen(ecdsa_default,
-			&keygen);
-		return keygen(eckey);
+	int (*keygen)(EC_KEY *key);
+	EC_KEY_METHOD_get_keygen(ecdsa_default,
+		&keygen);
+	return keygen(eckey);
 }
 
 int
 ecdsae_compute_key(unsigned char **psec, size_t *pseclen,
 	const EC_POINT *pub_key, const EC_KEY *ecdh)
 {
-		int (*ckey)(unsigned char **psec,
-			size_t *pseclen,
-			const EC_POINT *pub_key,
-			const EC_KEY *ecdh);
-			EC_KEY_METHOD_get_compute_key(ecdsa_default,
-				&ckey);
-			return ckey(psec, pseclen, pub_key, ecdh);
+	int (*ckey)(unsigned char **psec,
+		size_t *pseclen,
+		const EC_POINT *pub_key,
+		const EC_KEY *ecdh);
+	EC_KEY_METHOD_get_compute_key(ecdsa_default,
+		&ckey);
+	return ckey(psec, pseclen, pub_key, ecdh);
 }
 
 int
@@ -678,9 +678,6 @@ ecdsae_sign(int type, const unsigned char *dgst, int dlen, unsigned char *sig,
 	    NULL,
 	    NULL);
 	return (sign(type, dgst, dlen, sig, siglen, kinv, r, eckey));
-
-
-	return 0;
 }
 	
 
