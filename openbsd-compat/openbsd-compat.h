@@ -96,7 +96,7 @@ const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 char *strsep(char **stringp, const char *delim);
 #endif
 
-#ifndef HAVE_SETPROCTITLE
+#ifdef NEED_SETPROCTITLE
 void setproctitle(const char *fmt, ...);
 void compat_init_setproctitle(int argc, char *argv[]);
 #endif
