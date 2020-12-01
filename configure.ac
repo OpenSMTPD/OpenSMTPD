@@ -2046,6 +2046,10 @@ AM_CONDITIONAL([NEED_PROGNAME], [test "x$ac_cv_libc_defines___progname" != "xyes
 ##
 
 
+AM_COND_IF([NEED_PROGNAME], [AC_DEFINE([NEED_PROGNAME], [1], [Define to 1 if NEED_PROGNAME])])
+AM_COND_IF([NEED_SETPROCTITLE], [AC_DEFINE([NEED_SETPROCTITLE], [1], [Define to 1 if NEED_SETPROCTITLE])])
+
+
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
 		mk/Makefile

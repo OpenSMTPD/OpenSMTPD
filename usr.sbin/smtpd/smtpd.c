@@ -520,11 +520,11 @@ main(int argc, char *argv[])
 	char		*rexec = NULL;
 	struct smtpd	*conf;
 
-#ifndef HAVE___PROGNAME
+#ifdef NEED_PROGNAME
 	__progname = get_progname(argv[0]);
 #endif
+	__progname = xstrdup(__progname);
 
-#ifndef HAVE_SETPROCTITLE
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;
 	saved_argv = xcalloc(argc + 1, sizeof(*saved_argv));
@@ -532,14 +532,15 @@ main(int argc, char *argv[])
 		saved_argv[i] = xstrdup(argv[i]);
 	saved_argv[i] = NULL;
 
+#ifdef NEED_SETPROCTITLE
 	/* Prepare for later setproctitle emulation */
 	compat_init_setproctitle(argc, argv);
 	argv = saved_argv;
+#endif
 
 	/* this is to work around GNU getopt + portable setproctitle() fuckery */
 	save_argc = saved_argc;
 	save_argv = saved_argv;
-#endif
 
 	if ((conf = config_default()) == NULL)
 		err(1, NULL);

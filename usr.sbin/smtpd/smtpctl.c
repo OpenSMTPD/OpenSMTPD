@@ -1066,8 +1066,8 @@ main(int argc, char **argv)
 	int		 privileged;
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
-#ifndef HAVE___PROGNAME
-	__progname = ssh_get_progname(argv[0]);
+#ifdef NEED_PROGNAME
+	__progname = get_progname(argv[0]);
 #endif
 
 	/* check that smtpctl was installed setgid */

@@ -68,8 +68,7 @@ static size_t argv_env_len = 0;
 void
 compat_init_setproctitle(int argc, char *argv[])
 {
-#if !defined(HAVE_SETPROCTITLE) && \
-    defined(SPT_TYPE) && SPT_TYPE == SPT_REUSEARGV
+#if defined(SPT_TYPE) && SPT_TYPE == SPT_REUSEARGV
 	extern char **environ;
 	char *lastargv = NULL;
 	char **envp = environ;
@@ -156,8 +155,6 @@ setproctitle(const char *fmt, ...)
 	pst.pst_command = ptitle;
 	pstat(PSTAT_SETCMD, pst, strlen(ptitle), 0, 0);
 #elif SPT_TYPE == SPT_REUSEARGV
-/*	debug("setproctitle: copy \"%s\" into len %d", 
-	    buf, argv_env_len); */
 	len = strlcpy(argv_start, ptitle, argv_env_len);
 	for(; len < argv_env_len; len++)
 		argv_start[len] = SPT_PADCHAR;
