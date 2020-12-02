@@ -508,6 +508,10 @@ rsae_keygen(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb)
  */
 
 #if defined(SUPPORT_ECDSA)
+const ECDSA_METHOD *ecdsa_default = NULL;
+
+static ECDSA_METHOD *ecdsae_method = NULL;
+
 ECDSA_METHOD *
 ECDSA_METHOD_new_temporary(const char *name, int);
 
