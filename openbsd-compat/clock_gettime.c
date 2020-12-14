@@ -44,7 +44,7 @@ clock_gettime(int clock_id, struct timespec *tp)
 	if (scaling_factor == 0) {
 		ret = (int) mach_timebase_info(&info);
 		if (ret != 0)
-			fatal("mach_timebase_info failed");
+			return (-1);
 		scaling_factor = info.numer/info.denom;
 	}
 
