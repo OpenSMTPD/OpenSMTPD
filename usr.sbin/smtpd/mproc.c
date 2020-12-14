@@ -90,7 +90,8 @@ mproc_clear(struct mproc *p)
 {
 	log_debug("debug: clearing p=%s, fd=%d, pid=%d", p->name, p->imsgbuf.fd, p->pid);
 
-	event_del(&p->ev);
+	if (p->events)
+		event_del(&p->ev);
 	close(p->imsgbuf.fd);
 	imsg_clear(&p->imsgbuf);
 }
