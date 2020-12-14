@@ -339,4 +339,15 @@ int pipe2(int pipefd[2], int flags);
 char *get_progname(char *);
 
 
+#ifdef NEED_CLOCK_GETTIME
+#ifndef CLOCK_REALTIME
+#define CLOCK_REALTIME	0
+#endif
+#ifndef	CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC	3
+#endif
+int	clock_gettime(int clock_id, struct timespec *tp);
+#endif
+
+
 #endif /* _OPENBSD_COMPAT_H */
