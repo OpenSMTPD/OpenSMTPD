@@ -22,7 +22,6 @@
 #include <sys/time.h>
 #include <time.h>
 
-#if !defined(HAVE_CLOCK_GETTIME)
 int
 clock_gettime(int clock_id, struct timespec *tp)
 {
@@ -56,4 +55,4 @@ clock_gettime(int clock_id, struct timespec *tp)
 
 	return (ret);
 }
-#endif
+
