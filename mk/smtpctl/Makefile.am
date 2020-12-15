@@ -35,8 +35,7 @@ endif
 smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/crypto.c
 
 smtpctl_CFLAGS=		-DNO_IO -DCONFIG_MINIMUM
-smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
-			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
+smtpctl_CFLAGS+=	-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
 
 AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
 			-I$(top_srcdir)/openbsd-compat

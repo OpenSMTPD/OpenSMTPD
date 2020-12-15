@@ -44,6 +44,7 @@
 #include <grp.h>
 #include <imsg.h>
 #include <inttypes.h>
+#include <paths.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,10 +63,6 @@
 #include "parser.h"
 #include "log.h"
 
-#ifndef PATH_GZCAT
-#define PATH_GZCAT	"/usr/bin/gzcat"
-#endif
-#define	PATH_CAT	"/bin/cat"
 #define PATH_QUEUE	"/queue"
 #ifndef PATH_ENCRYPT
 #define PATH_ENCRYPT	"/usr/bin/encrypt"
@@ -1325,7 +1322,6 @@ display(const char *s)
 	FILE   *fp;
 	char   *key;
 	int	gzipped;
-	char   *gzcat_argv0 = strrchr(PATH_GZCAT, '/') + 1;
 
 	if ((fp = fopen(s, "r")) == NULL)
 		err(1, "fopen");
@@ -1356,13 +1352,16 @@ display(const char *s)
 	}
 	gzipped = is_gzip_fp(fp);
 
+	if (setenv("PATH", _PATH_DEFPATH, 1) == -1)
+		err(1, "setenv");
+
 	lseek(fileno(fp), 0, SEEK_SET);
 	(void)dup2(fileno(fp), STDIN_FILENO);
 	if (gzipped)
-		execl(PATH_GZCAT, gzcat_argv0, (char *)NULL);
+		execlp("gzcat", "gzcat", (char *)NULL);
 	else
-		execl(PATH_CAT, "cat", (char *)NULL);
-	err(1, "execl");
+		execlp("cat", "cat", (char *)NULL);
+	err(1, "execlp");
 }
 
 static int
