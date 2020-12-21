@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.136 2020/05/21 15:38:05 millert Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.138 2020/12/21 11:44:07 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -275,7 +275,8 @@ mta_session(struct mta_relay *relay, struct mta_route *route, const char *mxname
 		evtimer_set(&s->ev, mta_start, s);
 		evtimer_add(&s->ev, &tv);
 	} else if (waitq_wait(&route->dst->ptrname, mta_on_ptr, s)) {
-		resolver_getnameinfo(s->route->dst->sa, 0, mta_getnameinfo_cb, s);
+		resolver_getnameinfo(s->route->dst->sa, NI_NUMERICSERV,
+		    mta_getnameinfo_cb, s);
 	}
 }
 
