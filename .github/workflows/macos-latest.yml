@@ -2,10 +2,10 @@ name: macOS Catalina 10.15
 on: 
   push:
     branches:
-      - master
+      - notmaster
   pull_request:
     branches:
-      - master
+      - notmaster
 jobs:
   build:
     runs-on: macos-latest
