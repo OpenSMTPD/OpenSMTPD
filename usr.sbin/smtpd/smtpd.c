@@ -1512,7 +1512,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		pw_dir = deliver->userinfo.directory;
 	}
 
-	if (pw_uid == 0 && !dsp->u.local.is_mbox) {
+	if (pw_uid == 0) {
 		(void)snprintf(ebuf, sizeof ebuf, "not allowed to deliver to: %s",
 		    deliver->userinfo.username);
 		m_create(p_dispatcher, IMSG_MDA_DONE, 0, 0, -1);
