@@ -614,7 +614,7 @@ USER STRING {
 
 	dsp->u.local.user = $2;
 }
-| ALIAS tables {
+| ALIAS tables allow_exec {
 	struct table   *t = $2;
 
 	if (dsp->u.local.table_alias) {
@@ -634,8 +634,9 @@ USER STRING {
 	}
 
 	dsp->u.local.table_alias = strdup(t->t_name);
+	dsp->u.local.allow_expand_exec = $3;
 }
-| VIRTUAL tables {
+| VIRTUAL tables allow_exec {
 	struct table   *t = $2;
 
 	if (dsp->u.local.table_virtual) {
@@ -655,6 +656,7 @@ USER STRING {
 	}
 
 	dsp->u.local.table_virtual = strdup(t->t_name);
+	dsp->u.local.allow_expand_exec = $3;
 }
 | USERBASE tables {
 	struct table   *t = $2;

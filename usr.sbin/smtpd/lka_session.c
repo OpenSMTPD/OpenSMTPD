@@ -489,6 +489,12 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 				lks->error = LKA_TEMPFAIL;
 				break;
 			}
+		} else {
+			if (! dsp->u.local.allow_expand_exec) {
+				log_trace(TRACE_EXPAND, "expand: matched expand with no allow-exec");
+				lks->error = LKA_TEMPFAIL;
+				break;
+			}
 		}
 
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filter: %s "
