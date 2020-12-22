@@ -332,8 +332,8 @@ config_peer(enum smtp_proc_type proc)
 		p = p_queue;
 	else if (proc == PROC_SCHEDULER)
 		p = p_scheduler;
-	else if (proc == PROC_PONY)
-		p = p_pony;
+	else if (proc == PROC_DISPATCHER)
+		p = p_dispatcher;
 	else if (proc == PROC_CA)
 		p = p_ca;
 	else

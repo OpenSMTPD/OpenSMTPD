@@ -46,16 +46,16 @@ void mda_imsg(struct mproc *, struct imsg *);
 void mta_imsg(struct mproc *, struct imsg *);
 void smtp_imsg(struct mproc *, struct imsg *);
 
-static void pony_shutdown(void);
+static void dispatcher_shutdown(void);
 
 void
-pony_imsg(struct mproc *p, struct imsg *imsg)
+dispatcher_imsg(struct mproc *p, struct imsg *imsg)
 {
 	struct msg	m;
 	int		v;
 
 	if (imsg == NULL)
-		pony_shutdown();
+		dispatcher_shutdown();
 
 	switch (imsg->hdr.type) {
 
@@ -145,14 +145,14 @@ pony_imsg(struct mproc *p, struct imsg *imsg)
 }
 
 static void
-pony_shutdown(void)
+dispatcher_shutdown(void)
 {
-	log_debug("debug: pony agent exiting");
+	log_debug("debug: dispatcher agent exiting");
 	_exit(0);
 }
 
 int
-pony(void)
+dispatcher(void)
 {
 	struct passwd	*pw;
 
@@ -169,18 +169,18 @@ pony(void)
 		fatalx("unknown user " SMTPD_USER);
 
 	if (chroot(PATH_CHROOT) == -1)
-		fatal("pony: chroot");
+		fatal("dispatcher: chroot");
 	if (chdir("/") == -1)
-		fatal("pony: chdir(\"/\")");
+		fatal("dispatcher: chdir(\"/\")");
 
-	config_process(PROC_PONY);
+	config_process(PROC_DISPATCHER);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("pony: cannot drop privileges");
+		fatal("dispatcher: cannot drop privileges");
 
-	imsg_callback = pony_imsg;
+	imsg_callback = dispatcher_imsg;
 	event_init();
 
 	mda_postprivdrop();

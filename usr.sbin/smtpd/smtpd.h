@@ -371,7 +371,7 @@ enum smtp_proc_type {
 	PROC_QUEUE,
 	PROC_CONTROL,
 	PROC_SCHEDULER,
-	PROC_PONY,
+	PROC_DISPATCHER,
 	PROC_CA,
 	PROC_PROCESSOR,
 	PROC_CLIENT,
@@ -1033,7 +1033,7 @@ extern struct mproc *p_parent;
 extern struct mproc *p_lka;
 extern struct mproc *p_queue;
 extern struct mproc *p_scheduler;
-extern struct mproc *p_pony;
+extern struct mproc *p_dispatcher;
 extern struct mproc *p_ca;
 
 extern struct smtpd	*env;
@@ -1607,8 +1607,8 @@ void scheduler_info(struct scheduler_info *, struct envelope *);
 
 
 /* pony.c */
-int pony(void);
-void pony_imsg(struct mproc *, struct imsg *);
+int dispatcher(void);
+void dispatcher_imsg(struct mproc *, struct imsg *);
 
 
 /* resolver.c */
