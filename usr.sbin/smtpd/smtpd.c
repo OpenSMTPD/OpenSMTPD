@@ -1476,6 +1476,19 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	if (dsp->type != DISPATCHER_LOCAL)
 		fatalx("non-local dispatcher called from forkmda()");
 
+	if (deliver->mda_exec[0] != '\0' &&
+		(!dsp->u.local.allow_expand_exec && !dsp->u.local.allow_expand_exec)) {
+		(void)snprintf(ebuf, sizeof ebuf,
+		    "custom MDA execution attempt on dispatcher without allow-exec");
+		m_create(p_dispatcher, IMSG_MDA_DONE, 0, 0, -1);
+		m_add_id(p_dispatcher, id);
+		m_add_int(p_dispatcher, MDA_PERMFAIL);
+		m_add_int(p_dispatcher, EX_NOPERM);
+		m_add_string(p_dispatcher, ebuf);
+		m_close(p_dispatcher);
+		return;
+	}
+
 	log_debug("debug: smtpd: forking mda for session %016"PRIx64
 	    ": %s as %s", id, deliver->userinfo.username,
 	    dsp->u.local.user ? dsp->u.local.user : deliver->userinfo.username);
