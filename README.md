@@ -1,4 +1,4 @@
-# OpenSMTPD
+# notOpenSMTPD
 
 [![Version](https://img.shields.io/badge/Version-6.7.1p1-brihtgreen.svg)](https://github.com/OpenSMTPD/OpenSMTPD/releases/tag/6.7.1p1)
 [![Coverity Scan analysis](https://scan.coverity.com/projects/278/badge.svg)](https://scan.coverity.com/projects/opensmtpd-opensmtpd)
