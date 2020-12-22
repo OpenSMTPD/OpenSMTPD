@@ -282,12 +282,39 @@ resolver_dispatch_request(struct mproc *proc, struct imsg *imsg)
 	}
 }
 
+static struct addrinfo *
+_alloc_addrinfo(const struct addrinfo *ai0, const struct sockaddr *sa,
+	const char *cname)
+{
+	struct addrinfo *ai;
+
+	ai = calloc(1, sizeof(*ai) + SA_LEN(sa));
+	if (ai == NULL) {
+		log_warn("%s: calloc", __func__);
+		return NULL;
+	}
+	*ai = *ai0;
+	ai->ai_addr = (void *)(ai + 1);
+	memmove(ai->ai_addr, sa, SA_LEN(sa));
+
+	if (cname) {
+		ai->ai_canonname = strdup(cname);
+		if (ai->ai_canonname == NULL) {
+			log_warn("%s: strdup", __func__);
+			free(ai);
+			return NULL;
+		}
+	}
+
+	return ai;
+}
+
 void
 resolver_dispatch_result(struct mproc *proc, struct imsg *imsg)
 {
 	struct request key, *req;
 	struct sockaddr_storage ss;
-	struct addrinfo *ai;
+	struct addrinfo *ai, tai;
 	struct msg m;
 	const char *cname, *host, *serv;
 	const void *data;
@@ -304,40 +331,20 @@ resolver_dispatch_result(struct mproc *proc, struct imsg *imsg)
 	switch (imsg->hdr.type) {
 
 	case IMSG_GETADDRINFO:
-		ai = calloc(1, sizeof(*ai));
-		if (ai == NULL) {
-			log_warn("%s: calloc", __func__);
-			break;
-		}
-		m_get_int(&m, &ai->ai_flags);
-		m_get_int(&m, &ai->ai_family);
-		m_get_int(&m, &ai->ai_socktype);
-		m_get_int(&m, &ai->ai_protocol);
+		memset(&tai, 0, sizeof(tai));
+		m_get_int(&m, &tai.ai_flags);
+		m_get_int(&m, &tai.ai_family);
+		m_get_int(&m, &tai.ai_socktype);
+		m_get_int(&m, &tai.ai_protocol);
 		m_get_sockaddr(&m, (struct sockaddr *)&ss);
 		m_get_string(&m, &cname);
 		m_end(&m);
 
-		ai->ai_addr = malloc(SS_LEN(&ss));
-		if (ai->ai_addr == NULL) {
-			log_warn("%s: malloc", __func__);
-			free(ai);
-			break;
+		ai = _alloc_addrinfo(&tai, (struct sockaddr *)&ss, cname);
+		if (ai) {
+			ai->ai_next = req->ai;
+			req->ai = ai;
 		}
-
-		memmove(ai->ai_addr, &ss, SS_LEN(&ss));
-
-		if (cname) {
-			ai->ai_canonname = strdup(cname);
-			if (ai->ai_canonname == NULL) {
-				log_warn("%s: strdup", __func__);
-				free(ai->ai_addr);
-				free(ai);
-				break;
-			}
-		}
-
-		ai->ai_next = req->ai;
-		req->ai = ai;
 		break;
 
 	case IMSG_GETADDRINFO_END:
