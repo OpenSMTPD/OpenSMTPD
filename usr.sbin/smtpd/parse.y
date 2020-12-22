@@ -681,13 +681,6 @@ USER STRING {
 	}
 	dsp->u.local.mda_wrapper = $2;
 }
-| FORWARD_FILE {
-	if (dsp->u.local.forward_file) {
-		yyerror("forward-file already specified for this dispatcher");
-		YYERROR;
-	}
-	dsp->u.local.forward_file = 1;
-}
 | FORWARD_FILE allow_exec {
 	if (dsp->u.local.forward_file) {
 		yyerror("forward-file already specified for this dispatcher");
