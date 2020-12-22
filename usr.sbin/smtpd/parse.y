@@ -184,7 +184,7 @@ typedef struct {
 %token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT
 %token	DATA DATA_LINE DHE DISCONNECT DOMAIN
 %token	EHLO ENABLE ENCRYPTION ERROR EXPAND_ONLY 
-%token	FCRDNS FILTER FOR FORWARD_ONLY FROM
+%token	FCRDNS FILTER FOR FORWARD_FILE FORWARD_ONLY FROM
 %token	GROUP
 %token	HELO HELO_SRC HOST HOSTNAME HOSTNAMES
 %token	INCLUDE INET4 INET6
@@ -674,6 +674,13 @@ USER STRING {
 		YYERROR;
 	}
 	dsp->u.local.mda_wrapper = $2;
+}
+| FORWARD_FILE {
+	if (dsp->u.local.forward_file) {
+		yyerror("forward-file already specified for this dispatcher");
+		YYERROR;
+	}
+	dsp->u.local.forward_file = 1;
 }
 ;
 
@@ -2650,6 +2657,7 @@ lookup(char *s)
 		{ "fcrdns",		FCRDNS },
 		{ "filter",		FILTER },
 		{ "for",		FOR },
+		{ "forward-file",      	FORWARD_FILE },
 		{ "forward-only",      	FORWARD_ONLY },
 		{ "from",		FROM },
 		{ "group",		GROUP },

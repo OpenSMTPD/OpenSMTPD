@@ -436,9 +436,17 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		fwreq.uid = lk.userinfo.uid;
 		fwreq.gid = lk.userinfo.gid;
 
-		m_compose(p_parent, IMSG_LKA_OPEN_FORWARD, 0, 0, -1,
-		    &fwreq, sizeof(fwreq));
-		lks->flags |= F_WAITING;
+		if (dsp->u.local.forward_file) {
+			log_debug("OPENING FORWARD FILE");
+			m_compose(p_parent, IMSG_LKA_OPEN_FORWARD, 0, 0, -1,
+			    &fwreq, sizeof(fwreq));
+			lks->flags |= F_WAITING;
+		} else {
+			log_debug("BYPASSING FORWARD FILE");
+			fwreq.status = 1;
+			lks->flags |= F_WAITING;
+			lka_session_forward_reply(&fwreq, -1);
+		}
 		break;
 
 	case EXPAND_FILENAME:
