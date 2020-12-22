@@ -173,8 +173,12 @@ Use the mapping
 for
 .Xr aliases 5
 expansion.
-.It Cm forward-file
+.It Cm forward-file Op Cm allow-exec
 Allow the use of a .forward file in user home directory .
+.Pp
+If
+.Cm allow-exec
+is specified, the .forward file is allowed to execute a custom command.
 .It Xo
 .Cm ttl
 .Sm off
