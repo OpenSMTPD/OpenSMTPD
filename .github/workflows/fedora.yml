@@ -2,14 +2,14 @@ name: Fedora (amd64 glibc openssl)
 on: 
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - name: Fedora (amd64 glibc openssl)
-      run: docker build . --file ci/docker/Dockerfile.fedora --tag opensmtpd:fedora
+      run: docker build . --file ci/docker/Dockerfile.fedora --tag notopensmtpd:fedora
