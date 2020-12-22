@@ -684,65 +684,65 @@ dispatcher_local_option dispatcher_local_options
 
 dispatcher_local:
 MBOX {
-	dispatcher->u.local.is_mbox = 1;
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.local -f %%{mbox.from} -- %%{user.username}");
+	dsp->u.local.is_mbox = 1;
+	asprintf(&dsp->u.local.command, PATH_LIBEXEC"/mail.local -f %%{mbox.from} -- %%{user.username}");
 } dispatcher_local_options
 | MAILDIR {
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir");
+	asprintf(&dsp->u.local.command, PATH_LIBEXEC"/mail.maildir");
 } dispatcher_local_options
 | MAILDIR JUNK {
-	asprintf(&dispatcher->u.local.command, PATH_LIBEXEC"/mail.maildir -j");
+	asprintf(&dsp->u.local.command, PATH_LIBEXEC"/mail.maildir -j");
 } dispatcher_local_options
 | MAILDIR STRING {
 	if (strncmp($2, "~/", 2) == 0)
-		asprintf(&dispatcher->u.local.command,
+		asprintf(&dsp->u.local.command,
 		    PATH_LIBEXEC"/mail.maildir \"%%{user.directory}/%s\"", $2+2);
 	else
-		asprintf(&dispatcher->u.local.command,
+		asprintf(&dsp->u.local.command,
 		    PATH_LIBEXEC"/mail.maildir \"%s\"", $2);
 } dispatcher_local_options
 | MAILDIR STRING JUNK {
 	if (strncmp($2, "~/", 2) == 0)
-		asprintf(&dispatcher->u.local.command,
+		asprintf(&dsp->u.local.command,
 		    PATH_LIBEXEC"/mail.maildir -j \"%%{user.directory}/%s\"", $2+2);
 	else
-		asprintf(&dispatcher->u.local.command,
+		asprintf(&dsp->u.local.command,
 		    PATH_LIBEXEC"/mail.maildir -j \"%s\"", $2);
 } dispatcher_local_options
 | LMTP STRING {
-	asprintf(&dispatcher->u.local.command,
+	asprintf(&dsp->u.local.command,
 	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -u", $2);
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
-	asprintf(&dispatcher->u.local.command,
+	asprintf(&dsp->u.local.command,
 	    PATH_LIBEXEC"/mail.lmtp -d \"%s\" -r", $2);
 } dispatcher_local_options
 | MDA STRING {
-	asprintf(&dispatcher->u.local.command,
+	asprintf(&dsp->u.local.command,
 	    PATH_LIBEXEC"/mail.mda \"%s\"", $2);
 } dispatcher_local_options
 | FORWARD_ONLY {
-	dispatcher->u.local.forward_only = 1;
+	dsp->u.local.forward_only = 1;
 } dispatcher_local_options
 | EXPAND_ONLY {
-	dispatcher->u.local.expand_only = 1;
+	dsp->u.local.expand_only = 1;
 } dispatcher_local_options
 
 ;
 
 dispatcher_remote_option:
 HELO STRING {
-	if (dispatcher->u.remote.helo) {
+	if (dsp->u.remote.helo) {
 		yyerror("helo already specified for this dispatcher");
 		YYERROR;
 	}
 
-	dispatcher->u.remote.helo = $2;
+	dsp->u.remote.helo = $2;
 }
 | HELO_SRC tables {
 	struct table   *t = $2;
 
-	if (dispatcher->u.remote.helo_source) {
+	if (dsp->u.remote.helo_source) {
 		yyerror("helo-source mapping already specified for this dispatcher");
 		YYERROR;
 	}
