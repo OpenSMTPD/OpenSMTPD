@@ -437,12 +437,10 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		fwreq.gid = lk.userinfo.gid;
 
 		if (dsp->u.local.forward_file) {
-			log_debug("OPENING FORWARD FILE");
 			m_compose(p_parent, IMSG_LKA_OPEN_FORWARD, 0, 0, -1,
 			    &fwreq, sizeof(fwreq));
 			lks->flags |= F_WAITING;
 		} else {
-			log_debug("BYPASSING FORWARD FILE");
 			fwreq.status = 1;
 			lks->flags |= F_WAITING;
 			lka_session_forward_reply(&fwreq, -1);
@@ -484,6 +482,21 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			lks->error = LKA_TEMPFAIL;
 			break;
 		}
+
+		if (xn->parent->forwarded) {
+			if (! dsp->u.local.allow_forward_exec) {
+				log_trace(TRACE_EXPAND, "expand: matched forward with no allow-exec");
+				lks->error = LKA_TEMPFAIL;
+				break;
+			}
+		} else {
+			if (! dsp->u.local.allow_expand_exec) {
+				log_trace(TRACE_EXPAND, "expand: matched expand with no allow-exec");
+				lks->error = LKA_TEMPFAIL;
+				break;
+			}
+		}
+
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filter: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);

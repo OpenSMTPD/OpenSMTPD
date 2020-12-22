@@ -1187,6 +1187,9 @@ struct dispatcher_local {
 	uint8_t	forward_only;
 	uint8_t forward_file;
 
+	uint8_t allow_expand_exec;
+	uint8_t allow_forward_exec;
+
 	char	*mda_wrapper;
 	char	*command;
 

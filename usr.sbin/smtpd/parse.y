@@ -179,7 +179,7 @@ typedef struct {
 
 %}
 
-%token	ACTION ADMD ALIAS ANY ARROW AUTH AUTH_OPTIONAL
+%token	ACTION ADMD ALIAS ALLOW_EXEC ANY ARROW AUTH AUTH_OPTIONAL
 %token	BACKUP BOUNCE BYPASS
 %token	CA CERT CHAIN CHROOT CIPHERS COMMIT COMPRESSION CONNECT
 %token	DATA DATA_LINE DHE DISCONNECT DOMAIN
@@ -206,7 +206,7 @@ typedef struct {
 %token	<v.string>	STRING
 %token  <v.number>	NUMBER
 %type	<v.table>	table
-%type	<v.number>	size negation
+%type	<v.number>	size negation allow_exec
 %type	<v.table>	tables tablenew tableref
 %%
 
@@ -586,6 +586,10 @@ SRS KEY STRING {
 ;
 
 
+allow_exec	: ALLOW_EXEC	{ $$ = 1; }
+		| /* empty */	{ $$ = 0; }
+		;
+
 dispatcher_local_option:
 USER STRING {
 	if (dsp->u.local.is_mbox) {
@@ -610,7 +614,7 @@ USER STRING {
 
 	dsp->u.local.user = $2;
 }
-| ALIAS tables {
+| ALIAS tables allow_exec {
 	struct table   *t = $2;
 
 	if (dsp->u.local.table_alias) {
@@ -630,8 +634,9 @@ USER STRING {
 	}
 
 	dsp->u.local.table_alias = strdup(t->t_name);
+	dsp->u.local.allow_expand_exec = $3;
 }
-| VIRTUAL tables {
+| VIRTUAL tables allow_exec {
 	struct table   *t = $2;
 
 	if (dsp->u.local.table_virtual) {
@@ -651,6 +656,7 @@ USER STRING {
 	}
 
 	dsp->u.local.table_virtual = strdup(t->t_name);
+	dsp->u.local.allow_expand_exec = $3;
 }
 | USERBASE tables {
 	struct table   *t = $2;
@@ -681,6 +687,14 @@ USER STRING {
 		YYERROR;
 	}
 	dsp->u.local.forward_file = 1;
+}
+| FORWARD_FILE allow_exec {
+	if (dsp->u.local.forward_file) {
+		yyerror("forward-file already specified for this dispatcher");
+		YYERROR;
+	}
+	dsp->u.local.forward_file = 1;
+	dsp->u.local.allow_forward_exec = $2;
 }
 ;
 
@@ -2632,6 +2646,7 @@ lookup(char *s)
 		{ "action",		ACTION },
 		{ "admd",		ADMD },
 		{ "alias",		ALIAS },
+		{ "allow-exec",		ALLOW_EXEC },
 		{ "any",		ANY },
 		{ "auth",		AUTH },
 		{ "auth-optional",     	AUTH_OPTIONAL },
