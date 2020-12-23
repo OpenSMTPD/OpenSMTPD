@@ -602,11 +602,6 @@ filter_session_io(struct io *io, int evt, void *arg)
 		filter_data(fs->id, line);
 
 		goto nextline;
-
-	case IO_DISCONNECTED:
-		io_free(fs->io);
-		fs->io = NULL;
-		break;
 	}
 }
 
