@@ -71,7 +71,7 @@
 #endif
 #define SMTPD_SOCKET		 SMTPD_SOCKDIR "/smtpd.sock"
 #ifndef SMTPD_NAME
-#define	SMTPD_NAME		 "notOpenSMTPD"
+#define	SMTPD_NAME		 "nooSMTPD"
 #endif
 #define	SMTPD_VERSION		 "1.0.0"
 #define SMTPD_SESSION_TIMEOUT	 300
