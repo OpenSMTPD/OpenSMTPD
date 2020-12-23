@@ -57,7 +57,6 @@ static int open_connection(void);
 static int get_responses(FILE *, int);
 static int send_line(FILE *, int, char *, ...);
 static int enqueue_offline(int, char *[], FILE *, FILE *);
-static int savedeadletter(struct passwd *, FILE *);
 
 extern int srv_connected(void);
 
@@ -453,8 +452,6 @@ enqueue(int argc, char *argv[], FILE *ofp)
 	exit(EX_OK);
 
 fail:
-	if (pw)
-		savedeadletter(pw, fp);
 	exit(EX_SOFTWARE);
 }
 
@@ -873,60 +870,3 @@ write_error:
 	exit(EX_UNAVAILABLE);
 }
 
-static int
-savedeadletter(struct passwd *pw, FILE *in)
-{
-	char	 buffer[PATH_MAX];
-	FILE	*fp;
-	char	*buf = NULL;
-	size_t	 sz = 0;
-	ssize_t	 len;
-
-	(void)snprintf(buffer, sizeof buffer, "%s/dead.letter", pw->pw_dir);
-
-	if (fseek(in, 0, SEEK_SET) != 0)
-		return 0;
-
-	if ((fp = fopen(buffer, "w")) == NULL)
-		return 0;
-
-	/* add From */
-	if (!msg.saw_from)
-		fprintf(fp, "From: %s%s<%s>\n",
-		    msg.fromname ? msg.fromname : "",
-		    msg.fromname ? " " : "",
-		    msg.from);
-
-	/* add Date */
-	if (!msg.saw_date)
-		fprintf(fp, "Date: %s\n", time_to_text(timestamp));
-
-	if (msg.need_linesplit) {
-		/* we will always need to mime encode for long lines */
-		if (!msg.saw_mime_version)
-			fprintf(fp, "MIME-Version: 1.0\n");
-		if (!msg.saw_content_type)
-			fprintf(fp, "Content-Type: text/plain; "
-			    "charset=unknown-8bit\n");
-		if (!msg.saw_content_disposition)
-			fprintf(fp, "Content-Disposition: inline\n");
-		if (!msg.saw_content_transfer_encoding)
-			fprintf(fp, "Content-Transfer-Encoding: "
-			    "quoted-printable\n");
-	}
-
-	/* add separating newline */
-	if (msg.noheader)
-		fprintf(fp, "\n");
-
-	while ((len = getline(&buf, &sz, in)) != -1) {
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = '\0';
-		fprintf(fp, "%s\n", buf);
-	}
-
-	free(buf);
-	fprintf(fp, "\n");
-	fclose(fp);
-	return 1;
-}
