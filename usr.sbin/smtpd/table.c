@@ -482,7 +482,7 @@ table_regex_match(const char *string, const char *pattern)
 
 	ret = regexec(&preg, string, 0, NULL, 0);
 
-	regfree(&preg;)
+	regfree(&preg);
 
 	if (ret != 0)
 		return (0);
