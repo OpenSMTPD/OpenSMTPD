@@ -38,7 +38,7 @@ smtpctl_CFLAGS=		-DNO_IO -DCONFIG_MINIMUM
 smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
 
-AM_CPPFLAGS=		-I$(top_srcdir)/smtpd			\
+AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(top_srcdir)/openbsd-compat
 if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
