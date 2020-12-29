@@ -25,11 +25,31 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifndef CRYPT_GENSALT_IMPLEMENTS_DEFAULT_PREFIX
 #define PASSWORD_LEN	128
+#endif
 #define SALT_LEN	16
+
+struct hashing_method {
+	char           *prefix;
+	unsigned long	count;
+};
 
 static unsigned char itoa64[] =	 /* 0 ... 63 => ascii - 64 */
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+static struct hashing_method ids[] = {
+	{"$y$", 8},
+	{"$gy$", 8},
+	{"$7$", 8},
+	{"$2a$", 10},
+	{"$2b$", 10},
+	{"$2y$", 10},
+	{"$6$", 5000},
+	{"$5$", 5000},
+	{"$3$", 1},
+	{"$2$", 10},
+	{"$1$", 1000}
+};
 
 static void to64(char *, long int, int);
 static void print_passwd(const char *);
@@ -66,20 +86,28 @@ main(int argc, char *argv[])
 void
 print_passwd(const char *string)
 {
-	const char     *ids[] = { "2a", "6", "5", "3", "2", "1", NULL };
 	const char     *id;
 	char		salt[SALT_LEN+1];
+#ifndef CRYPT_GENSALT_IMPLEMENTS_DEFAULT_PREFIX
 	char		buffer[PASSWORD_LEN];
+#else
+	char           *buffer;
+#endif
 	int		n;
 	const char     *p;
+	int		nb_ids = sizeof(ids) / sizeof(ids[0]);
 
 	for (n = 0; n < SALT_LEN; ++n)
 		to64(&salt[n], arc4random_uniform(0xff), 1);
 	salt[SALT_LEN] = '\0';
 
-	for (n = 0; ids[n]; n++) {
-		id = ids[n];
-		(void)snprintf(buffer, sizeof buffer, "$%s$%s$", id, salt);
+	for (n = 0; n < nb_ids; n++) {
+		id = ids[n].prefix;
+#ifndef CRYPT_GENSALT_IMPLEMENTS_DEFAULT_PREFIX
+		(void)snprintf(buffer, sizeof buffer, "%s%s$", id, salt);
+#else
+                buffer = crypt_gensalt(id, ids[n].count, NULL, 0);
+#endif
 		if ((p = crypt(string, buffer)) == NULL)
 			continue;
 		if (strncmp(p, buffer, strlen(buffer)) != 0)
