@@ -25,34 +25,33 @@ and Unix-like operating systems including:
 
 For more information: http://www.opensmtpd.org/portable.html
 
-If you are looking for a comprehensive manual on how to build your mail server
+If you are looking for a comprehensive manual on how to build your own mail server
 visit our [wiki](https://github.com/OpenSMTPD/OpenSMTPD/wiki).
 
 
 ## Get In Touch
 
-If you want to stay up to day with most rescent developments or chat to talk
-about OpenSMTP you can:
+If you want to stay up to day with most recent developments or chat about 
+OpenSMTPD you can:
 
-- to subscribe to our mailing list: http://www.opensmtpd.org/list.html
-- join the IRC channel: `#OpenSMTPD` @ [ irc.freenode.net ](https://freenode.net/)
-- submit a bug report or a feature request here on [ Github ](https://github.com/OpenSMTPD/OpenSMTPD)
-- visit Github's [discussions page](https://github.com/OpenSMTPD/OpenSMTPD/discussions) 
+- subscribe to our mailing list: http://www.opensmtpd.org/list.html
+- join the IRC channel: `#opensmtpd` @ [ irc.freenode.net ](https://freenode.net/)
+- submit a bug report or a feature request here on [ GitHub ](https://github.com/OpenSMTPD/OpenSMTPD)
+- visit GitHub's [discussions page](https://github.com/OpenSMTPD/OpenSMTPD/discussions) 
 
 
 ## Documentation
 
-The manual pages are available online at https://www.opensmtpd.org/manual.html,
+The manual pages are available [online](https://www.opensmtpd.org/manual.html),
 which you are encouraged to contribute to.
 
 
+## Install Via Package Manager
 
-## Install via package manager
-
-Many distribution already provide a packaged version of opensmtpd. All you need
+Many distributions already provide a packaged version of opensmtpd. All you need
 to do is install it via your package manager.
 
-> :warning: **Dome distributions might ship and old version of opensmtpd** Be
+> :warning: **Some distributions might ship an old version of opensmtpd** Be
 > careful and check the version number to ensure you are running a secure
 > version
 
@@ -81,14 +80,14 @@ Has a [ dedicated wiki page ](https://wiki.archlinux.org/index.php/OpenSMTPD#Ins
 ### Install Dependencies
 
 OpenSMTPD relies on:
-  - autoconf (http://www.gnu.org/software/autoconf/)
-  - automake (http://www.gnu.org/software/automake/)
-  - bison (http://www.gnu.org/software/bison/)
-    or byacc (http://invisible-island.net/byacc/byacc.html)
-  - libevent (http://libevent.org/)
-  - libtool (http://www.gnu.org/software/libtool/)
-  - libressl (https://www.libressl.org/)
-    or OpenSSL (https://www.openssl.org/)
+  - [ autoconf ](http://www.gnu.org/software/autoconf/)
+  - [ automake ](http://www.gnu.org/software/automake/)
+  - [ bison ](http://www.gnu.org/software/bison/)
+    or [ byacc ](http://invisible-island.net/byacc/byacc.html)
+  - [ libevent ](http://libevent.org/)
+  - [ libtool ](http://www.gnu.org/software/libtool/)
+  - [ libressl ](https://www.libressl.org/)
+    or [ OpenSSL ](https://www.openssl.org/)
 
 You will also need a C compiler and git if you are cloning the git repository
 
@@ -101,15 +100,14 @@ or `libevent-devel`) if you're going to build OpenSMTPD yourself.
 
 ### Get The Source Code
 
--  Clone from github:
-
+Clone from github:
 
     git clone https://github.com/OpenSMTPD/OpenSMTPD.git
 
 
-- [Download tarball](https://github.com/OpenSMTPD/OpenSMTPD/archive/v6.8.0p2.zip)
+[Download tarball](https://github.com/OpenSMTPD/OpenSMTPD/archive/v6.8.0p2.zip)
 
--  Latest release can always be found [here](https://github.com/OpenSMTPD/OpenSMTPD/releases/latest)
+Latest release can always be found [here](https://github.com/OpenSMTPD/OpenSMTPD/releases/latest)
 
 
 
@@ -174,14 +172,14 @@ setting the appropriate symbolic links:
 
 
 The OpenSMTPD project leaves it up to the package maintainers to setup the
-links in their packages as it is very hard for us to accomodate all systems
-with the prefered method in a clean way.
+links in their packages as it is very hard for us to accommodate all systems
+with the preferred method in a clean way.
 
 
 ### Configure /etc/smtpd.conf
 
-Please have a look at the complete format description of smtpd.conf
-configuration file (https://man.openbsd.org/smtpd.conf)
+Please have a look at the complete format description of `smtpd.conf`
+[configuration file](https://man.openbsd.org/smtpd.conf)
 
 
 ### Add OpenSMTPD users
