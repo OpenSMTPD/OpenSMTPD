@@ -1,66 +1,120 @@
 # OpenSMTPD
 
-[![Version](https://img.shields.io/badge/Version-6.7.1p1-brihtgreen.svg)](https://github.com/OpenSMTPD/OpenSMTPD/releases/tag/6.7.1p1)
+[![Version](https://img.shields.io/badge/Version-6.8.0p2-brihtgreen.svg)](https://github.com/OpenSMTPD/OpenSMTPD/releases/tag/v6.8.0p2)
 [![Coverity Scan analysis](https://scan.coverity.com/projects/278/badge.svg)](https://scan.coverity.com/projects/opensmtpd-opensmtpd)
 [![Packaging status](https://repology.org/badge/tiny-repos/opensmtpd.svg)](https://repology.org/project/opensmtpd/versions)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://www.isc.org/licenses/)
 
 
-
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as
-defined by [RFC 5321](https://tools.ietf.org/html/rfc5321), with some
+defined by [ RFC 5321 ](https://tools.ietf.org/html/rfc5321), with some
 additional standard extensions.
 
 It allows ordinary machines to exchange e-mails with other systems
 speaking the SMTP protocol.
 
-OpenSMTPD runs on top of the OpenBSD operating system but also has a
-portable version that can build and run on several systems, including:
+OpenSMTPD runs on various [ Unix ](https://en.wikipedia.org/wiki/Unix) 
+and Unix-like operating systems including:
 
-* Linux
-* FreeBSD
-* NetBSD
-* DragonFly
+- Linux
+- [ FreeBSD ](https://www.freebsd.org)
+- [ OpenBSD ](https://www.openbsd.org)
+- [ NetBSD ](https://www.netbsd.org)
+- [ DragonFlyBSD ](https://www.dragonflybsd.org)
+- [ OSX ](https://en.wikipedia.org/wiki/MacOS)
 
 For more information: http://www.opensmtpd.org/portable.html
 
-People interested about OpenSMTPD are encouraged to subscribe to our
-mailing list: http://www.opensmtpd.org/list.html
+If you are looking for a comprehensive manual on how to build your mail server
+visit our [wiki](https://github.com/OpenSMTPD/OpenSMTPD/wiki).
 
-and to join the IRC channel: #OpenSMTPD @ irc.freenode.net
+
+## Get In Touch
+
+If you want to stay up to day with most rescent developments or chat to talk
+about OpenSMTP you can:
+
+- to subscribe to our mailing list: http://www.opensmtpd.org/list.html
+- join the IRC channel: `#OpenSMTPD` @ [ irc.freenode.net ](https://freenode.net/)
+- submit a bug report or a feature request here on [ Github ](https://github.com/OpenSMTPD/OpenSMTPD)
+- visit Github's [discussions page](https://github.com/OpenSMTPD/OpenSMTPD/discussions) 
+
+
+## Documentation
 
 The manual pages are available online at https://www.opensmtpd.org/manual.html,
 which you are encouraged to contribute to.
 
-Cheers!
 
 
-# How to build, configure and use Portable OpenSMTPD
+## Install via package manager
 
-## Dependencies
+Many distribution already provide a packaged version of opensmtpd. All you need
+to do is install it via your package manager.
 
-Portable OpenSMTPD relies on:
-  * autoconf (http://www.gnu.org/software/autoconf/)
-  * automake (http://www.gnu.org/software/automake/)
-  * bison (http://www.gnu.org/software/bison/)
+> :warning: **Dome distributions might ship and old version of opensmtpd** Be
+> careful and check the version number to ensure you are running a secure
+> version
+
+### Ubuntu/Debian
+
+    sudo apt install opensmtpd
+
+### Archlinux
+
+Has a [ dedicated wiki page ](https://wiki.archlinux.org/index.php/OpenSMTPD#Installation)
+
+
+### Alpine Linux
+
+    apk install opensmtpd
+
+
+### Fedora
+
+    yum install opensmtpd
+
+
+## Install From Source
+
+
+### Install Dependencies
+
+OpenSMTPD relies on:
+  - autoconf (http://www.gnu.org/software/autoconf/)
+  - automake (http://www.gnu.org/software/automake/)
+  - bison (http://www.gnu.org/software/bison/)
     or byacc (http://invisible-island.net/byacc/byacc.html)
-  * libevent (http://libevent.org/)
-  * libtool (http://www.gnu.org/software/libtool/)
-  * libressl (https://www.libressl.org/)
+  - libevent (http://libevent.org/)
+  - libtool (http://www.gnu.org/software/libtool/)
+  - libressl (https://www.libressl.org/)
     or OpenSSL (https://www.openssl.org/)
 
+You will also need a C compiler and git if you are cloning the git repository
 
-By default OpenSMTPD expects latest versions of all dependencies unless noted otherwise.
+By default OpenSMTPD expects latest versions of all dependencies unless noted
+otherwise.
 
-Note that some distributions have different packages for a same library, you should always use the `-dev` or `-devel` package (for example, `libevent-dev` or `libevent-devel`) if you're going to build OpenSMTPD yourself.
+Note that some distributions have different packages for a same library, you
+should always use the `-dev` or `-devel` package (for example, `libevent-dev`
+or `libevent-devel`) if you're going to build OpenSMTPD yourself.
+
+### Get The Source Code
+
+-  Clone from github:
 
 
-## Get the source
-
-    git clone git://github.com/OpenSMTPD/OpenSMTPD.git opensmtpd
+    git clone https://github.com/OpenSMTPD/OpenSMTPD.git
 
 
-## Build
+- [Download tarball](https://github.com/OpenSMTPD/OpenSMTPD/archive/v6.8.0p2.zip)
+
+-  Latest release can always be found [here](https://github.com/OpenSMTPD/OpenSMTPD/releases/latest)
+
+
+
+### Compile
+
 
     cd opensmtpd*
     ./bootstrap  # Only if you build from git sources
@@ -68,28 +122,29 @@ Note that some distributions have different packages for a same library, you sho
     make
     sudo make install
 
-### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
+
+#### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
 
 Please launch configure with special directive about libevent and
 libasr directory:
 
-### FreeBSD / DragonFlyBSD:
+#### FreeBSD / DragonFlyBSD:
 
     ./configure --with-libasr=/usr/local
 
-### MacOS:
+#### MacOS:
 
     ./configure --with-libevent=/opt/local
 
 Though MacOS includes a copy of bison in the bases system, you will
 need to install a more recent version from, e.g., MacPorts.
 
-## Install
+### Install
 
     sudo make install
 
 
-## Setup historical interface
+### Setup historical interface
 
 OpenSMTPD provides a single utility `smtpctl` to control the daemon and
 the local submission subsystem.
@@ -123,13 +178,13 @@ links in their packages as it is very hard for us to accomodate all systems
 with the prefered method in a clean way.
 
 
-## Configure /etc/smtpd.conf
+### Configure /etc/smtpd.conf
 
 Please have a look at the complete format description of smtpd.conf
 configuration file (https://man.openbsd.org/smtpd.conf)
 
 
-## Add OpenSMTPD users
+### Add OpenSMTPD users
 
 To operate, OpenSMTPD requires at least one user, by default `_smtpd`; and
 preferably two users, by default `_smtpd` and `_smtpq`.
@@ -144,18 +199,18 @@ script allows overriding these using the options:
 `--with-user-smtpd`, `--with-user-queue`, and `--with-group-queue`.
 
 
-### NetBSD, Linux (Debian, Arch Linux, ...)
+#### NetBSD, Linux (Debian, Arch Linux, ...)
 
     mkdir /var/empty
     useradd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin _smtpd
     useradd -c "SMTPD Queue" -d /var/empty -s /sbin/nologin _smtpq
 
-### DragonFlyBSD, FreeBSD
+#### DragonFlyBSD, FreeBSD
 
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
     pw useradd _smtpq -c "SMTPD Queue" -d /var/empty -s /sbin/nologin
 
-### Mac OS X
+#### Mac OS X
 
 First we need a group with an unused GID below `500`, list the current
 ones used:
@@ -188,7 +243,7 @@ Add a user - here we have picked `444`:
 repeat for the `_smtpq` user.
 
 
-## Launch smtpd
+### Launch smtpd
 
 First, kill any running sendmail/exim/qmail/postfix or other.
 

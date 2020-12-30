@@ -1,6 +1,6 @@
 # Continuous Integration 
 
-This directory contains CI/CD related scripts and resources
+This directory contains CI/CD related scripts and resources.
 
 CI/CD process leverages GitHub Actions as a primary automation platform since
 up to 20 parallel workflows are available for opensource projects.
@@ -8,7 +8,7 @@ up to 20 parallel workflows are available for opensource projects.
 On high level we have multiple dimensions to test: 
 
  - OS Distribution
- - TLS library implementation: libress, openssl
+ - TLS library implementation: libressl, openssl
  - libc implementations: glibc, musl
  - compiler: gcc, clang (not yet tested)
 
@@ -19,8 +19,8 @@ tests.
 
 ## Directory strucuture
 
-- [docker](#dockerfiles) dockerfiles for various distributions
-- [scripts](#scripts) useful scripts for ci/cd automation
+- [docker](#dockerfiles) dockerfiles for various distributions.
+- [scripts](#scripts) useful scripts for ci/cd automation.
 
 
 ## Design Considerations
