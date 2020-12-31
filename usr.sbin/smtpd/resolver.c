@@ -284,30 +284,18 @@ resolver_dispatch_request(struct mproc *proc, struct imsg *imsg)
 
 static struct addrinfo *
 _alloc_addrinfo(const struct addrinfo *ai0, const struct sockaddr *sa,
-<<<<<<< HEAD
-	const char *cname)
-{
-	struct addrinfo *ai;
-
-	ai = calloc(1, sizeof(*ai) + SA_LEN(sa));
-=======
     const char *cname)
 {
 	struct addrinfo *ai;
 
-	ai = calloc(1, sizeof(*ai) + sa->sa_len);
->>>>>>> ce5509e44fe... Fix a memory leak: use a single memory allocation for struct addrinfo and
+	ai = calloc(1, sizeof(*ai) + SA_LEN(sa));
 	if (ai == NULL) {
 		log_warn("%s: calloc", __func__);
 		return NULL;
 	}
 	*ai = *ai0;
 	ai->ai_addr = (void *)(ai + 1);
-<<<<<<< HEAD
-	memmove(ai->ai_addr, sa, SA_LEN(sa));
-=======
-	memcpy(ai->ai_addr, sa, sa->sa_len);
->>>>>>> ce5509e44fe... Fix a memory leak: use a single memory allocation for struct addrinfo and
+	memcpy(ai->ai_addr, sa, SA_LEN(sa));
 
 	if (cname) {
 		ai->ai_canonname = strdup(cname);
@@ -317,7 +305,7 @@ _alloc_addrinfo(const struct addrinfo *ai0, const struct sockaddr *sa,
 			return NULL;
 		}
 	}
-
+git 
 	return ai;
 }
 
