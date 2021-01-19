@@ -305,7 +305,7 @@ _alloc_addrinfo(const struct addrinfo *ai0, const struct sockaddr *sa,
 			return NULL;
 		}
 	}
-git 
+
 	return ai;
 }
 
