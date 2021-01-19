@@ -8,7 +8,7 @@ packages:
 - libressl
 - libasr
 - py37-ansible
-- db6
+- db5
 - python3
 - python37
 - python
