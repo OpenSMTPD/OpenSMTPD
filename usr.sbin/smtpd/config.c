@@ -1,4 +1,4 @@
-/*	$OpenBSD: config.c,v 1.52 2020/12/31 08:27:15 martijn Exp $	*/
+/*	$OpenBSD: config.c,v 1.53 2021/01/19 09:16:20 claudio Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -219,6 +219,16 @@ set_localaddrs(struct smtpd *conf, struct table *localnames)
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
+#ifdef __KAME__
+			if ((IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) ||
+			    IN6_IS_ADDR_MC_LINKLOCAL(&sin6->sin6_addr) ||
+			    IN6_IS_ADDR_MC_INTFACELOCAL(&sin6->sin6_addr)) &&
+			    sin6->sin6_scope_id == 0) {
+				sin6->sin6_scope_id = ntohs(
+				    *(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
+				sin6->sin6_addr.s6_addr[2] = 0;
+				sin6->sin6_addr.s6_addr[3] = 0;
+			}
 #endif
 			table_add(t, ss_to_text(&ss), NULL);
 			table_add(localnames, ss_to_text(&ss), NULL);

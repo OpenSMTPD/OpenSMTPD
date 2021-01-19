@@ -1,4 +1,4 @@
-/*	$OpenBSD: to.c,v 1.44 2019/11/12 20:21:46 gilles Exp $	*/
+/*	$OpenBSD: to.c,v 1.45 2021/01/19 09:16:20 claudio Exp $	*/
 
 /*
  * Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -50,7 +50,6 @@
 #include "smtpd.h"
 #include "log.h"
 
-static const char *in6addr_to_text(const struct in6_addr *);
 static int alias_is_filter(struct expandnode *, const char *, size_t);
 static int alias_is_username(struct expandnode *, const char *, size_t);
 static int alias_is_address(struct expandnode *, const char *, size_t);
@@ -61,7 +60,7 @@ static int alias_is_error(struct expandnode *, const char *, size_t);
 static int broken_inet_net_pton_ipv6(const char *, void *, size_t);
 
 const char *
-sockaddr_to_text(struct sockaddr *sa)
+sockaddr_to_text(const struct sockaddr *sa)
 {
 	static char	buf[NI_MAXHOST];
 
@@ -72,6 +71,7 @@ sockaddr_to_text(struct sockaddr *sa)
 		return (buf);
 }
 
+<<<<<<< HEAD
 static const char *
 in6addr_to_text(const struct in6_addr *addr)
 {
@@ -97,6 +97,8 @@ in6addr_to_text(const struct in6_addr *addr)
 	return (sockaddr_to_text((struct sockaddr *)&sa_in6));
 }
 
+=======
+>>>>>>> ad3800687d8 (Do the KAME embedded scope fixup in the two places where getifaddrs() is)
 int
 text_to_mailaddr(struct mailaddr *maddr, const char *email)
 {
@@ -171,13 +173,7 @@ sa_to_text(const struct sockaddr *sa)
 		    (addr >> 8) & 0xff, addr & 0xff);
 	}
 	else if (sa->sa_family == AF_INET6) {
-		const struct sockaddr_in6 *in6;
-		const struct in6_addr	*in6_addr;
-
-		in6 = (const struct sockaddr_in6 *)sa;
-		p = buf;
-		in6_addr = &in6->sin6_addr;
-		(void)bsnprintf(p, NI_MAXHOST, "[%s]", in6addr_to_text(in6_addr));
+		(void)bsnprintf(p, NI_MAXHOST, "[%s]", sockaddr_to_text(sa));
 	}
 
 	return (buf);
