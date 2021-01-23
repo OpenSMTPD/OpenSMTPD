@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.66 2020/12/31 08:27:15 martijn Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.67 2021/01/23 16:11:11 rob Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -130,8 +130,6 @@ struct filter_entry {
 struct filter_chain {
 	TAILQ_HEAD(, filter_entry)		chain[nitems(filter_execs)];
 };
-
-static struct dict	filter_smtp_in;
 
 static struct tree	sessions;
 static int		filters_inited;
@@ -410,14 +408,12 @@ lka_filter_init(void)
 void
 lka_filter_register_hook(const char *name, const char *hook)
 {
-	struct dict		*subsystem;
 	struct filter		*filter;
 	const char	*filter_name;
 	void		*iter;
 	size_t	i;
 
 	if (strncasecmp(hook, "smtp-in|", 8) == 0) {
-		subsystem = &filter_smtp_in;
 		hook += 8;
 	}
 	else
