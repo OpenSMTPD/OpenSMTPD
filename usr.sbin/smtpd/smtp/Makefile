@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #	$OpenBSD: Makefile,v 1.1 2018/04/26 13:57:13 eric Exp $
+=======
+#	$OpenBSD: Makefile,v 1.4 2021/03/05 12:37:32 eric Exp $
+>>>>>>> eed85469e33 (Start porting smtpd to libtls.)
 
 .PATH:	${.CURDIR}/..
 
@@ -18,7 +22,7 @@ SRCS+=	ssl_verify.c
 
 CPPFLAGS+= -DIO_TLS
 
-LDADD+=	-levent -lutil -lssl -lcrypto -lm -lz
-DPADD+=	${LIBEVENT} ${LIBUTIL} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
+LDADD+=	-levent -lutil -ltls -lssl -lcrypto -lm -lz
+DPADD+=	${LIBEVENT} ${LIBUTIL} ${LIBTLS} ${LIBSSL} ${LIBCRYPTO} ${LIBM} ${LIBZ}
 
 .include <bsd.prog.mk>
