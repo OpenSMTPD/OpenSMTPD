@@ -74,7 +74,6 @@ sockaddr_to_text(const struct sockaddr *sa)
 		return (buf);
 }
 
-<<<<<<< HEAD
 static const char *
 in6addr_to_text(const struct in6_addr *addr)
 {
@@ -100,8 +99,6 @@ in6addr_to_text(const struct in6_addr *addr)
 	return (sockaddr_to_text((struct sockaddr *)&sa_in6));
 }
 
-=======
->>>>>>> ad3800687d8 (Do the KAME embedded scope fixup in the two places where getifaddrs() is)
 int
 text_to_mailaddr(struct mailaddr *maddr, const char *email)
 {
@@ -846,39 +843,6 @@ alias_is_error(struct expandnode *alias, const char *line, size_t len)
 	return 1;
 }
 
-<<<<<<< HEAD
-static int
-broken_inet_net_pton_ipv6(const char *src, void *dst, size_t size)
-{
-	int	ret;
-	int	bits;
-	char	buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255:255:255:255/128")];
-	char		*sep;
-	const char	*errstr;
-
-	if (strlcpy(buf, src, sizeof buf) >= sizeof buf) {
-		errno = EMSGSIZE;
-		return (-1);
-	}
-
-	sep = strchr(buf, '/');
-	if (sep != NULL)
-		*sep++ = '\0';
-
-	ret = inet_pton(AF_INET6, buf, dst);
-	if (ret != 1)
-		return (-1);
-
-	if (sep == NULL)
-		return 128;
-
-	bits = strtonum(sep, 0, 128, &errstr);
-	if (errstr)
-		return (-1);
-
-	return bits;
-}
-=======
 #if IO_TLS
 const char *
 tls_to_text(struct tls *tls)
@@ -893,4 +857,3 @@ tls_to_text(struct tls *tls)
 	return (buf);
 }
 #endif
->>>>>>> eed85469e33 (Start porting smtpd to libtls.)
