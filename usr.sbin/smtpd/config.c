@@ -219,6 +219,7 @@ set_localaddrs(struct smtpd *conf, struct table *localnames)
 			*sin6 = *(struct sockaddr_in6 *)p->ifa_addr;
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
 			sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 #ifdef __KAME__
 			if ((IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) ||
 			    IN6_IS_ADDR_MC_LINKLOCAL(&sin6->sin6_addr) ||
