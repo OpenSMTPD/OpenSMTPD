@@ -19,6 +19,25 @@ libopenbsd_a_SOURCES +=	libasr/res_search_async.c
 libopenbsd_a_SOURCES +=	libasr/res_send_async.c
 endif
 
+if NEED_LIBTLS
+AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/libtls
+
+libopenbsd_a_SOURCES += libtls/asn.c
+libopenbsd_a_SOURCES += libtls/tls.c
+libopenbsd_a_SOURCES += libtls/tls_client.c
+libopenbsd_a_SOURCES += libtls/tls_bio_cb.c
+libopenbsd_a_SOURCES += libtls/tls_config.c
+libopenbsd_a_SOURCES += libtls/tls_conninfo.c
+libopenbsd_a_SOURCES += libtls/tls_keypair.c
+libopenbsd_a_SOURCES += libtls/tls_server.c
+libopenbsd_a_SOURCES += libtls/tls_ocsp.c
+libopenbsd_a_SOURCES += libtls/tls_peer.c
+libopenbsd_a_SOURCES += libtls/tls_util.c
+libopenbsd_a_SOURCES += libtls/tls_verify.c
+libopenbsd_a_SOURCES += libtls/by_mem.c
+libopenbsd_a_SOURCES += libtls/openssl.c
+endif
+
 
 
 if NEED_PROGNAME
