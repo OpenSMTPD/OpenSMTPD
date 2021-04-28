@@ -556,15 +556,11 @@ ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
 	uint64_t	 id;
 	ECDSA_SIG	*sig = NULL;
 
-<<<<<<< HEAD
 #if defined(SUPPORT_ECDSA)
-	if ((pkiname = ECDSA_get_ex_data(eckey, 0)) == NULL)
-=======
 	if ((hash = ECDSA_get_ex_data(eckey, 0)) == NULL)
->>>>>>> eed85469e33 (Start porting smtpd to libtls.)
 		return (0);
 #else
-	if ((pkiname = EC_KEY_get_ex_data(eckey, 0)) == NULL)
+	if ((hash = EC_KEY_get_ex_data(eckey, 0)) == NULL)
 		return (0);
 #endif
 
