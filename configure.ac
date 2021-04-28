@@ -184,6 +184,13 @@ AC_CHECK_HEADER([asr.h],
 ])
 AM_CONDITIONAL([NEED_LIBASR], [test x"$need_libasr" = x"yes"])
 
+need_libtls=no
+AC_CHECK_HEADER([tls.h],
+	[],
+	[need_libtls=yes],
+	[])
+AM_CONDITIONAL([NEED_LIBTLS], [test x"$need_libtls" = x"yes"])
+
 #
 # CHECKS FOR TYPES
 #
