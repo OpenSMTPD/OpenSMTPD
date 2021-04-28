@@ -626,6 +626,7 @@ AC_CHECK_FUNCS([ \
 	sysconf \
 	tcgetpgrp \
 	time \
+	timingsafe_memcmp \
 	usleep \
 	vasprintf \
 	vsnprintf \
@@ -2039,6 +2040,7 @@ AM_CONDITIONAL([NEED_STRSEP], [test "x$ac_cv_func_strsep" != "xyes"])
 AM_CONDITIONAL([NEED_STRTONUM], [test "x$ac_cv_func_strtonum" != "xyes"])
 AM_CONDITIONAL([NEED_STRNDUP], [test "x$ac_cv_func_strndup" != "xyes"])
 AM_CONDITIONAL([NEED_STRNLEN], [test "x$ac_cv_func_strnlen" != "xyes"])
+AM_CONDITIONAL([NEED_TIMINGSAFE_MEMCMP], [test "x$ac_cv_func_timingsafe_memcmp" != "xyes"])
 AM_CONDITIONAL([NEED_WAITPID], [test "x$ac_cv_func_waitpid" != "xyes"])
 AM_CONDITIONAL([NEED_VIS], [test "x$ac_cv_func_strnvis" != "xyes" -o "x$BROKEN_STRNVIS" = "x1"])
 AM_CONDITIONAL([NEED_USLEEP], [test "x$ac_cv_func_usleep" != "xyes"])
