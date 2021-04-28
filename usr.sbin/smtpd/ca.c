@@ -71,11 +71,8 @@ static int ecdsae_sign_setup(EC_KEY *, BN_CTX *, BIGNUM **, BIGNUM **);
 static int ecdsae_do_verify(const unsigned char *, int, const ECDSA_SIG *,
     EC_KEY *);
 
-<<<<<<< HEAD
-=======
 
 static struct dict pkeys;
->>>>>>> eed85469e33 (Start porting smtpd to libtls.)
 static uint64_t	 reqid = 0;
 
 static void
