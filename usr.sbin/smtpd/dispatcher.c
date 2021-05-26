@@ -1,4 +1,4 @@
-/*	$OpenBSD: dispatcher.c,v 1.3 2021/04/21 07:54:10 eric Exp $	*/
+/*	$OpenBSD: dispatcher.c,v 1.4 2021/05/26 18:08:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -24,7 +24,6 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
@@ -136,7 +135,7 @@ dispatcher_imsg(struct mproc *p, struct imsg *imsg)
 		break;
 	}
 
-	errx(1, "session_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
+	fatalx("session_imsg: unexpected %s imsg", imsg_to_str(imsg->hdr.type));
 }
 
 static void
@@ -197,7 +196,7 @@ dispatcher(void)
 
 #if HAVE_PLEDGE
 	if (pledge("stdio inet unix recvfd sendfd", NULL) == -1)
-		err(1, "pledge");
+		fatal("pledge");
 #endif
 
 	event_dispatch();

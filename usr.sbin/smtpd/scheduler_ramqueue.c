@@ -1,4 +1,4 @@
-/*	$OpenBSD: scheduler_ramqueue.c,v 1.45 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: scheduler_ramqueue.c,v 1.46 2021/05/26 18:08:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -25,7 +25,6 @@
 #include <sys/socket.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
@@ -312,7 +311,7 @@ scheduler_ram_update(struct scheduler_info *si)
 
 	/* it *must* be in-flight */
 	if (evp->state != RQ_EVPSTATE_INFLIGHT)
-		errx(1, "evp:%016" PRIx64 " not in-flight", si->evpid);
+		fatalx("evp:%016" PRIx64 " not in-flight", si->evpid);
 
 	TAILQ_REMOVE(&ramqueue.q_inflight, evp, entry);
 
@@ -354,7 +353,7 @@ scheduler_ram_delete(uint64_t evpid)
 
 	/* it *must* be in-flight */
 	if (evp->state != RQ_EVPSTATE_INFLIGHT)
-		errx(1, "evp:%016" PRIx64 " not in-flight", evpid);
+		fatalx("evp:%016" PRIx64 " not in-flight", evpid);
 
 	TAILQ_REMOVE(&ramqueue.q_inflight, evp, entry);
 
@@ -381,7 +380,7 @@ scheduler_ram_hold(uint64_t evpid, uint64_t holdq)
 
 	/* it *must* be in-flight */
 	if (evp->state != RQ_EVPSTATE_INFLIGHT)
-		errx(1, "evp:%016" PRIx64 " not in-flight", evpid);
+		fatalx("evp:%016" PRIx64 " not in-flight", evpid);
 
 	TAILQ_REMOVE(&ramqueue.q_inflight, evp, entry);
 
@@ -900,7 +899,7 @@ rq_queue_schedule(struct rq_queue *rq)
 			break;
 
 		if (evp->state != RQ_EVPSTATE_PENDING)
-			errx(1, "evp:%016" PRIx64 " flags=0x%x", evp->evpid,
+			fatalx("evp:%016" PRIx64 " flags=0x%x", evp->evpid,
 			    evp->flags);
 
 		if (evp->expire <= currtime) {
@@ -937,7 +936,7 @@ rq_envelope_list(struct rq_queue *rq, struct rq_envelope *evp)
 			return &rq->q_mda;
 		if (evp->type == D_BOUNCE)
 			return &rq->q_bounce;
-		errx(1, "%016" PRIx64 " bad evp type %d", evp->evpid, evp->type);
+		fatalx("%016" PRIx64 " bad evp type %d", evp->evpid, evp->type);
 
 	case RQ_EVPSTATE_INFLIGHT:
 		return &rq->q_inflight;
@@ -946,7 +945,7 @@ rq_envelope_list(struct rq_queue *rq, struct rq_envelope *evp)
 		return (NULL);
 	}
 
-	errx(1, "%016" PRIx64 " bad state %d", evp->evpid, evp->state);
+	fatalx("%016" PRIx64 " bad state %d", evp->evpid, evp->state);
 	return (NULL);
 }
 
@@ -1148,7 +1147,7 @@ rq_envelope_to_text(struct rq_envelope *e)
 		(void)strlcat(buf, t, sizeof buf);
 		break;
 	default:
-		errx(1, "%016" PRIx64 " bad state %d", e->evpid, e->state);
+		fatalx("%016" PRIx64 " bad state %d", e->evpid, e->state);
 	}
 
 	if (e->flags & RQ_ENVELOPE_REMOVED)

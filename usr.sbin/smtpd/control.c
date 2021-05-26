@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.126 2020/12/31 08:27:15 martijn Exp $	*/
+/*	$OpenBSD: control.c,v 1.127 2021/05/26 18:08:55 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -27,7 +27,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -162,7 +161,7 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		return;
 	}
 
-	errx(1, "control_imsg: unexpected %s imsg",
+	fatalx("control_imsg: unexpected %s imsg",
 	    imsg_to_str(imsg->hdr.type));
 }
 
@@ -258,7 +257,7 @@ control(void)
 
 #if HAVE_PLEDGE
 	if (pledge("stdio unix recvfd sendfd", NULL) == -1)
-		err(1, "pledge");
+		fatal("pledge");
 #endif
 
 	event_dispatch();

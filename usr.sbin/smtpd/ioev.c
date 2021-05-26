@@ -1,4 +1,4 @@
-/*	$OpenBSD: ioev.c,v 1.46 2021/05/20 07:33:32 eric Exp $	*/
+/*	$OpenBSD: ioev.c,v 1.47 2021/05/26 18:08:55 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -21,7 +21,6 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
-#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -36,6 +35,7 @@
 
 #include "ioev.h"
 #include "iobuf.h"
+#include "log.h"
 
 enum {
 	IO_STATE_NONE,
@@ -151,12 +151,12 @@ io_set_nonblocking(int fd)
 	int	flags;
 
 	if ((flags = fcntl(fd, F_GETFL)) == -1)
-		err(1, "io_set_blocking:fcntl(F_GETFL)");
+		fatal("io_set_blocking:fcntl(F_GETFL)");
 
 	flags |= O_NONBLOCK;
 
 	if (fcntl(fd, F_SETFL, flags) == -1)
-		err(1, "io_set_blocking:fcntl(F_SETFL)");
+		fatal("io_set_blocking:fcntl(F_SETFL)");
 }
 
 void
@@ -166,7 +166,7 @@ io_set_nolinger(int fd)
 
 	memset(&l, 0, sizeof(l));
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l)) == -1)
-		err(1, "io_set_linger:setsockopt");
+		fatal("io_set_linger:setsockopt");
 }
 
 /*
@@ -188,7 +188,7 @@ io_frame_enter(const char *where, struct io *io, int ev)
 	    frame, where, io_evstr(ev), io_strio(io));
 
 	if (current)
-		errx(1, "io_frame_enter: interleaved frames");
+		fatalx("io_frame_enter: interleaved frames");
 
 	current = io;
 
@@ -201,7 +201,7 @@ io_frame_leave(struct io *io)
 	io_debug("io_frame_leave(%" PRIu64 ")\n", frame);
 
 	if (current && current != io)
-		errx(1, "io_frame_leave: io mismatch");
+		fatalx("io_frame_leave: io mismatch");
 
 	/* io has been cleared */
 	if (current == NULL)
@@ -291,7 +291,7 @@ io_hold(struct io *io)
 	io_debug("io_enter(%p)\n", io);
 
 	if (io->flags & IO_HELD)
-		errx(1, "io_hold: io is already held");
+		fatalx("io_hold: io is already held");
 
 	io->flags &= ~IO_RESET;
 	io->flags |= IO_HELD;
@@ -301,7 +301,7 @@ void
 io_release(struct io *io)
 {
 	if (!(io->flags & IO_HELD))
-		errx(1, "io_release: io is not held");
+		fatalx("io_release: io is not held");
 
 	io->flags &= ~IO_HELD;
 	if (!(io->flags & IO_RESET))
@@ -366,7 +366,7 @@ io_set_read(struct io *io)
 
 	mode = io->flags & IO_RW;
 	if (!(mode == 0 || mode == IO_WRITE))
-		errx(1, "io_set_read: full-duplex or reading");
+		fatalx("io_set_read: full-duplex or reading");
 
 	io->flags &= ~IO_RW;
 	io->flags |= IO_READ;
@@ -382,7 +382,7 @@ io_set_write(struct io *io)
 
 	mode = io->flags & IO_RW;
 	if (!(mode == 0 || mode == IO_READ))
-		errx(1, "io_set_write: full-duplex or writing");
+		fatalx("io_set_write: full-duplex or writing");
 
 	io->flags &= ~IO_RW;
 	io->flags |= IO_WRITE;
@@ -786,7 +786,7 @@ io_dispatch_connect(int fd, short ev, void *humppa)
 		sl = sizeof(e);
 		r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &e, &sl);
 		if (r == -1)  {
-			warn("io_dispatch_connect: getsockopt");
+			log_warn("io_dispatch_connect: getsockopt");
 			e = errno;
 		}
 		if (e) {
@@ -812,10 +812,10 @@ io_connect_tls(struct io *io, struct tls *tls, const char *hostname)
 
 	mode = io->flags & IO_RW;
 	if (mode != IO_WRITE)
-		errx(1, "io_connect_tls: expect IO_WRITE mode");
+		fatalx("io_connect_tls: expect IO_WRITE mode");
 
 	if (io->tls)
-		errx(1, "io_connect_tls: TLS already started");
+		fatalx("io_connect_tls: TLS already started");
 
 	if (tls_connect_socket(tls, io->sock, hostname) == -1) {
 		io->error = tls_error(tls);
@@ -836,10 +836,10 @@ io_accept_tls(struct io *io, struct tls *tls)
 
 	mode = io->flags & IO_RW;
 	if (mode != IO_READ)
-		errx(1, "io_accept_tls: expect IO_READ mode");
+		fatalx("io_accept_tls: expect IO_READ mode");
 
 	if (io->tls)
-		errx(1, "io_accept_tls: TLS already started");
+		fatalx("io_accept_tls: TLS already started");
 
 	if (tls_accept_socket(tls, &io->tls, io->sock) == -1) {
 		io->error = tls_error(tls);
@@ -969,7 +969,7 @@ void
 io_reload_tls(struct io *io)
 {
 	if (io->state != IO_STATE_UP)
-		errx(1, "io_reload_tls: bad state");
+		fatalx("io_reload_tls: bad state");
 
 	if (IO_READING(io) && !(io->flags & IO_PAUSE_IN)) {
 		io_reset(io, EV_READ, io_dispatch_read_tls);
