@@ -1,4 +1,4 @@
-/*	$OpenBSD: makemap.c,v 1.74 2021/01/27 07:20:27 deraadt Exp $	*/
+/*	$OpenBSD: makemap.c,v 1.75 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -24,9 +24,6 @@
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/tree.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
 
 #include <ctype.h>
 #ifdef HAVE_DB_H
@@ -38,10 +35,7 @@
 #endif
 #include <err.h>
 #include <errno.h>
-#include <event.h>
 #include <fcntl.h>
-#include <imsg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>

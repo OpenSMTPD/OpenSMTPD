@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_session.c,v 1.94 2020/12/31 08:27:15 martijn Exp $	*/
+/*	$OpenBSD: lka_session.c,v 1.95 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -29,16 +29,8 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <event.h>
-#include <imsg.h>
-#include <resolv.h>
-#include <pwd.h>
-#include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"

@@ -1,4 +1,4 @@
-/*	$OpenBSD: dict.c,v 1.7 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: dict.c,v 1.8 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -24,7 +24,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 #include "dict.h"
 #include "log.h"

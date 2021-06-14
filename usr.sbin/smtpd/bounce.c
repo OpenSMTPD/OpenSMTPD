@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.84 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.85 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -26,17 +26,10 @@
 #include <sys/socket.h>
 
 #include <errno.h>
-#include <event.h>
-#include <imsg.h>
 #include <inttypes.h>
-#include <pwd.h>
-#include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"

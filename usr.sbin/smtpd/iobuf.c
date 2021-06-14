@@ -1,4 +1,4 @@
-/*	$OpenBSD: iobuf.c,v 1.15 2021/03/05 12:37:32 eric Exp $	*/
+/*	$OpenBSD: iobuf.c,v 1.16 2021/06/14 17:58:15 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

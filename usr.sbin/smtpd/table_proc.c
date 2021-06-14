@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_proc.c,v 1.16 2019/10/03 04:51:15 gilles Exp $	*/
+/*	$OpenBSD: table_proc.c,v 1.17 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -34,8 +34,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
-#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"

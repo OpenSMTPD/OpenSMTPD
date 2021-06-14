@@ -1,4 +1,4 @@
-/*	$OpenBSD: report_smtp.c,v 1.11 2020/01/07 23:03:37 gilles Exp $	*/
+/*	$OpenBSD: report_smtp.c,v 1.12 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -45,9 +45,6 @@
 #endif
 
 #include "smtpd.h"
-#include "log.h"
-#include "ssl.h"
-#include "rfc5322.h"
 
 void
 report_smtp_link_connect(const char *direction, uint64_t qid, const char *rdns, int fcrdns,

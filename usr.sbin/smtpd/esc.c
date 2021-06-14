@@ -1,4 +1,4 @@
-/* $OpenBSD: esc.c,v 1.5 2016/09/03 22:16:39 gilles Exp $	 */
+/* $OpenBSD: esc.c,v 1.6 2021/06/14 17:58:15 eric Exp $	 */
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -18,8 +18,12 @@
 
 #include "includes.h"
 
+#include <sys/tree.h>
+
 #include <stdio.h>
+
 #include <limits.h>
+#include <stdio.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"

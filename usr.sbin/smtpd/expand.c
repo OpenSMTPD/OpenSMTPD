@@ -1,4 +1,4 @@
-/*	$OpenBSD: expand.c,v 1.31 2018/05/31 21:06:12 gilles Exp $	*/
+/*	$OpenBSD: expand.c,v 1.32 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -39,7 +39,6 @@
 #endif
 
 #include "smtpd.h"
-#include "log.h"
 
 static const char *expandnode_info(struct expandnode *);
 

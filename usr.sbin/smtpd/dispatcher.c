@@ -1,4 +1,4 @@
-/*	$OpenBSD: dispatcher.c,v 1.4 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: dispatcher.c,v 1.5 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -30,13 +30,7 @@
 #include <inttypes.h>
 #include <pwd.h>
 #include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 #include <unistd.h>
-#include <limits.h>
-#include <grp.h>
 
 #include "smtpd.h"
 #include "log.h"

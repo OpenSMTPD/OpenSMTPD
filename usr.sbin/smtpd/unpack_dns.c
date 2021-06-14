@@ -1,4 +1,4 @@
-/*	$OpenBSD: unpack_dns.c,v 1.1 2018/01/06 07:57:53 sunil Exp $	*/
+/*	$OpenBSD: unpack_dns.c,v 1.2 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2011-2014 Eric Faurot <eric@faurot.net>

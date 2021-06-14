@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.339 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.340 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -27,8 +27,6 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <sys/uio.h>
-#include <sys/mman.h>
 
 #ifdef BSD_AUTH
 #include <bsd_auth.h>
@@ -47,12 +45,10 @@
 #endif
 #include <dirent.h>
 #include <errno.h>
-#include <event.h>
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
 #include <fts.h>
 #include <grp.h>
-#include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
 #ifdef HAVE_LOGIN_CAP_H
@@ -69,11 +65,9 @@
 #endif
 #include <stdio.h>
 #include <syslog.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-#include <time.h>
 #include <tls.h>
 #include <unistd.h>
 #ifdef HAVE_UTIL_H

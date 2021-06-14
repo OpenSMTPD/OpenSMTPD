@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda_variables.c,v 1.6 2019/09/19 07:35:36 gilles Exp $	*/
+/*	$OpenBSD: mda_variables.c,v 1.7 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2011-2017 Gilles Chehade <gilles@poolp.org>
@@ -30,8 +30,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"

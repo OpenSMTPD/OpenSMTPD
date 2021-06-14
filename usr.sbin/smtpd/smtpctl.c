@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.168 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.169 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -28,7 +28,6 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/un.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
 
 #include <net/if.h>
@@ -39,17 +38,12 @@
 
 #include <err.h>
 #include <errno.h>
-#include <event.h>
 #include <fts.h>
-#include <grp.h>
-#include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <time.h>
 #include <unistd.h>
 #if defined(HAVE_VIS_H) && !defined(BROKEN_STRNVIS)
 #include <vis.h>

@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_null.c,v 1.9 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: queue_null.c,v 1.10 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
@@ -39,7 +39,6 @@
 #include <limits.h>
 
 #include "smtpd.h"
-#include "log.h"
 
 static int
 queue_null_message_create(uint32_t *msgid)

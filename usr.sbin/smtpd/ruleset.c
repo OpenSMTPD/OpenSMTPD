@@ -1,4 +1,4 @@
-/*	$OpenBSD: ruleset.c,v 1.47 2019/11/25 14:18:33 gilles Exp $ */
+/*	$OpenBSD: ruleset.c,v 1.48 2021/06/14 17:58:16 eric Exp $ */
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -26,14 +26,9 @@
 #include <netinet/in.h>
 
 #include <errno.h>
-#include <event.h>
-#include <imsg.h>
-#include <stdio.h>
 #include <string.h>
-#include <limits.h>
 
 #include "smtpd.h"
-#include "log.h"
 
 #define MATCH_RESULT(r, neg) ((r) == -1 ? -1 : ((neg) < 0 ? !(r) : (r)))
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: limit.c,v 1.6 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: limit.c,v 1.7 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -33,7 +33,6 @@
 #include <string.h>
 
 #include "smtpd.h"
-#include "log.h"
 
 void
 limit_mta_set_defaults(struct mta_limits *limits)

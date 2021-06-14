@@ -1,4 +1,4 @@
-/*	$OpenBSD: tree.c,v 1.7 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: tree.c,v 1.8 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
@@ -23,7 +23,6 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
-#include <limits.h>
 
 #include "tree.h"
 #include "log.h"

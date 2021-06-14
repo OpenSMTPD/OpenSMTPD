@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.142 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: mda.c,v 1.143 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -32,13 +32,9 @@
 #include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <inttypes.h>
-#include <pwd.h>
-#include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-#include <time.h>
 #include <unistd.h>
 #include <limits.h>
 #if defined(HAVE_VIS_H) && !defined(BROKEN_STRNVIS)

@@ -1,4 +1,4 @@
-/*	$OpenBSD: mproc.c,v 1.38 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: mproc.c,v 1.39 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
@@ -29,11 +29,7 @@
 #include <arpa/nameser.h>
 
 #include <errno.h>
-#include <event.h>
-#include <imsg.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 

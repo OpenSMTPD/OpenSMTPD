@@ -1,4 +1,4 @@
-/*	$OpenBSD: stat_backend.c,v 1.11 2018/12/27 10:35:26 gilles Exp $	*/
+/*	$OpenBSD: stat_backend.c,v 1.12 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>

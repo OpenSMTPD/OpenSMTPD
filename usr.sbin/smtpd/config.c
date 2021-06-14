@@ -1,4 +1,4 @@
-/*	$OpenBSD: config.c,v 1.56 2021/05/26 07:05:50 eric Exp $	*/
+/*	$OpenBSD: config.c,v 1.57 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -24,17 +24,9 @@
 #include <sys/socket.h>
 #include <sys/resource.h>
 
-#include <event.h>
 #include <ifaddrs.h>
-#include <imsg.h>
-#include <netdb.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <openssl/ssl.h>
 
 #include "smtpd.h"
 #include "log.h"

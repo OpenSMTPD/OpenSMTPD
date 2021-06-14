@@ -1,4 +1,4 @@
-/*	$OpenBSD: ca.c,v 1.39 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: ca.c,v 1.40 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2014 Reyk Floeter <reyk@openbsd.org>
@@ -28,19 +28,14 @@
 #include <err.h>
 #include <imsg.h>
 #include <limits.h>
+
+#include <openssl/pem.h>
+#include <openssl/engine.h>
+
 #include <pwd.h>
 #include <signal.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <openssl/ssl.h>
-#include <openssl/pem.h>
-#include <openssl/evp.h>
-#include <openssl/ecdsa.h>
-#include <openssl/rsa.h>
-#include <openssl/engine.h>
-#include <openssl/err.h>
 
 #include "smtpd.h"
 #include "log.h"

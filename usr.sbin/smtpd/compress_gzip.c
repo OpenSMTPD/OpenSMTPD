@@ -1,4 +1,4 @@
-/*	$OpenBSD: compress_gzip.c,v 1.12 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: compress_gzip.c,v 1.13 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -31,15 +31,9 @@
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <limits.h>
-
 #include <zlib.h>
 
 #include "smtpd.h"
-#include "log.h"
-
 
 #define	GZIP_BUFFER_SIZE	16384
 

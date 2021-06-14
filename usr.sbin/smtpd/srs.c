@@ -1,4 +1,4 @@
-/*	$OpenBSD: srs.c,v 1.4 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: srs.c,v 1.5 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2019 Gilles Chehade <gilles@poolp.org>
@@ -39,9 +39,9 @@
 #include <unistd.h>
 
 #include <openssl/sha.h>
+#include <string.h>
 
 #include "smtpd.h"
-#include "log.h"
 
 static uint8_t	base32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda_unpriv.c,v 1.6 2020/02/02 22:13:48 gilles Exp $	*/
+/*	$OpenBSD: mda_unpriv.c,v 1.8 2021/06/14 17:58:15 eric Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -24,18 +24,11 @@
 #include <sys/socket.h>
 
 #include <err.h>
-#include <errno.h>
-#include <event.h>
-#include <imsg.h>
 #include <paths.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "smtpd.h"
-
 
 void
 mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,

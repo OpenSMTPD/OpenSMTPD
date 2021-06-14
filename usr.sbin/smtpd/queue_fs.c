@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fs.c,v 1.21 2021/05/26 18:08:55 eric Exp $	*/
+/*	$OpenBSD: queue_fs.c,v 1.22 2021/06/14 17:58:16 eric Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -30,19 +30,14 @@
 #include <sys/statfs.h>
 #endif
 
-#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
-#include <event.h>
 #include <fcntl.h>
 #include <fts.h>
-#include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "smtpd.h"
