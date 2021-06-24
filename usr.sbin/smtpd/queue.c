@@ -215,7 +215,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 
 		bounce.type = B_FAILED;
 		envelope_set_errormsg(&evp, "Envelope expired");
-		envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
+		envelope_set_esc_class(&evp, ESC_STATUS_PERMFAIL);
 		envelope_set_esc_code(&evp, ESC_DELIVERY_TIME_EXPIRED);
 		queue_bounce(&evp, &bounce);
 		queue_log(&evp, "Expire", "Envelope expired");
