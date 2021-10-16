@@ -8,7 +8,6 @@ smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/log.c
 smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtp_client.c
 smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtpc.c
 smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ssl.c
-smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ssl_verify.c
 
 smtp_CFLAGS=		-DIO_TLS
 
