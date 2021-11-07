@@ -73,6 +73,11 @@ Has a [ dedicated wiki page ](https://wiki.archlinux.org/index.php/OpenSMTPD#Ins
 
     yum install opensmtpd
 
+### MacOS
+
+OpenSMTPD is available from [MacPorts](https://www.macports.org):
+
+    port install opensmtpd
 
 ## Install From Source
 
