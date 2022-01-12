@@ -114,8 +114,10 @@ parse_tls_options(char *opt)
 			servname = value;
 			break;
 		case -1:
+#ifdef HAVE_GETSUBOPT_SUBOPTARG
 			if (suboptarg)
 				fatalx("invalid TLS option \"%s\"", suboptarg);
+#endif
 			fatalx("missing TLS option");
 		}
 	}

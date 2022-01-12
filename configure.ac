@@ -1604,8 +1604,18 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes"; then
 fi
 #l3765
 
-
-
+AC_CACHE_CHECK([whether getsubopt has suboptarg support],
+		ac_cv_have_getsubopt_suboptarg, [
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[ #include <stdlib.h> ]],
+		[[ extern char *suboptarg; *suboptarg = "fail"]])],
+	[ ac_cv_have_getsubopt_suboptarg="yes" ],
+	[ ac_cv_have_getsubopt_suboptarg="no" 
+	])
+])
+if test "x$ac_cv_have_getsubopt_suboptarg" = "xyes"; then
+	AC_DEFINE([HAVE_GETSUBOPT_SUBOPTARG], [1],
+		[Define if your getopt(3) defines and uses suboptarg])
+fi
 
 #l4045
 STRIP_OPT=-s
