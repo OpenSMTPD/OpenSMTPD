@@ -384,6 +384,7 @@ AC_CHECK_DECLS([IPPORT_HILASTAUTO], [], [], [
 
 AC_CHECK_DECLS([IPV6_ADDR_SCOPE_INTFACELOCAL], [], [], [
 #include <netinet6/in6.h>
+#include <netinet/in.h>
 ])
 
 AC_CHECK_DECLS([WAIT_MYPGRP], [], [], [
