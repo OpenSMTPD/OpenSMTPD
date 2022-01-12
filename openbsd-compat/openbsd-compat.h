@@ -263,6 +263,10 @@ int res_hnok(const char *);
 #define IPPORT_HILASTAUTO 65535
 #endif
 
+#if !HAVE_DECL_IPV6_ADDR_SCOPE_INTFACELOCAL
+#define USE_IPV6_ADDR_SCOPE_NODELOCAL 1
+#endif
+
 #ifndef HAVE_FLOCK
 int flock(int, int);
 #endif
