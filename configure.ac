@@ -396,6 +396,10 @@ AC_CHECK_DECLS([LOG_PERROR], [], [], [
 #include <syslog.h>
 ])
 
+AC_CHECK_DECLS([suboptarg], [], [], [
+#include <stdlib.h>
+])
+
 
 #
 # CHECKS FOR COMPILER CHARACTERISTICS
@@ -2052,6 +2056,7 @@ AM_CONDITIONAL([NEED_ARC4RANDOM], [test "x$ac_cv_func_arc4random" != "xyes" -a "
 AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
 
 AM_CONDITIONAL([NEED_PROGNAME], [test "x$ac_cv_libc_defines___progname" != "xyes"])
+AM_CONDITIONAL([NEED_GETSUBOPT], [test "x$ac_cv_have_decl_suboptarg" != "xyes"])
 ##
 
 
