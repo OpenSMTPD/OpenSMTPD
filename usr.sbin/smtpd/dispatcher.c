@@ -1,4 +1,4 @@
-/*	$OpenBSD: dispatcher.c,v 1.5 2021/06/14 17:58:15 eric Exp $	*/
+/*	$OpenBSD: dispatcher.c,v 1.7 2022/02/18 16:57:36 millert Exp $	*/
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>

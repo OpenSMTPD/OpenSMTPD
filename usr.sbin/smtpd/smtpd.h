@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.h,v 1.672 2022/02/10 14:59:35 millert Exp $	*/
+/*	$OpenBSD: smtpd.h,v 1.674 2022/02/18 16:57:36 millert Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
