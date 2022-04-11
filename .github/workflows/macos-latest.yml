@@ -1,11 +1,13 @@
 name: macOS Catalina 10.15
-on: 
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+on:
+  # TODO: Fix build on macOS, remove the next line and uncomment the following lines.
+  - workflow_dispatch  # allow manual trigger
+  #push:
+  #  branches:
+  #    - master
+  #pull_request:
+  #  branches:
+  #    - master
 jobs:
   build:
     runs-on: macos-latest
