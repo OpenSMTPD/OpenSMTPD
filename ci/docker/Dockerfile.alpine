@@ -19,8 +19,8 @@ RUN apk add --no-cache \
     linux-pam-dev \
     make \
     musl-dev \
-    libressl \
-    libressl-dev \
+    openssl \
+    openssl-dev \
     zlib-dev
 
 # create users and directories
