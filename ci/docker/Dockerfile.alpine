@@ -1,4 +1,4 @@
-FROM alpine:3.11 as build
+FROM alpine:3.15 as build
 
 # creates /opensmtpd dir and makes all following commands to run in it
 # https://docs.docker.com/engine/reference/builder/#workdir
@@ -19,13 +19,13 @@ RUN apk add --no-cache \
     linux-pam-dev \
     make \
     musl-dev \
-    libressl \
-    libressl-dev \
+    openssl \
+    openssl-dev \
     zlib-dev
- 
+
 # create users and directories
 # note: alpine uses busybox and useradd is not available there
-# also long flags are not available too, so sorry for the 
+# also long flags are not available too, so sorry for the
 RUN mkdir -p /var/lib/opensmtpd/empty \
   && adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
   && adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
@@ -47,4 +47,3 @@ RUN ./bootstrap \
   && make \
   && make install \
   && cp etc/aliases /etc/mail/aliases
-

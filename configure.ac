@@ -382,6 +382,11 @@ AC_CHECK_DECLS([IPPORT_HILASTAUTO], [], [], [
 #include <netinet/in.h>
 ])
 
+AC_CHECK_DECLS([IPV6_ADDR_SCOPE_INTFACELOCAL], [], [], [
+#include <netinet6/in6.h>
+#include <netinet/in.h>
+])
+
 AC_CHECK_DECLS([WAIT_MYPGRP], [], [], [
 #include <sys/wait.h>
 ])
@@ -394,6 +399,10 @@ AC_CHECK_DECLS([writev], [], [], [
 
 AC_CHECK_DECLS([LOG_PERROR], [], [], [
 #include <syslog.h>
+])
+
+AC_CHECK_DECLS([suboptarg], [], [], [
+#include <stdlib.h>
 ])
 
 
@@ -2052,11 +2061,13 @@ AM_CONDITIONAL([NEED_ARC4RANDOM], [test "x$ac_cv_func_arc4random" != "xyes" -a "
 AM_CONDITIONAL([NEED_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [test "x$ac_cv_have_decl_LIBRESSL_VERSION_NUMBER" != "xyes"])
 
 AM_CONDITIONAL([NEED_PROGNAME], [test "x$ac_cv_libc_defines___progname" != "xyes"])
+AM_CONDITIONAL([NEED_GETSUBOPT], [test "x$ac_cv_have_decl_suboptarg" != "xyes"])
 ##
 
 
 AM_COND_IF([NEED_PROGNAME], [AC_DEFINE([NEED_PROGNAME], [1], [Define to 1 if NEED_PROGNAME])])
 AM_COND_IF([NEED_SETPROCTITLE], [AC_DEFINE([NEED_SETPROCTITLE], [1], [Define to 1 if NEED_SETPROCTITLE])])
+AM_COND_IF([NEED_GETSUBOPT], [AC_DEFINE([NEED_GETSUBOPT], [1], [Define to 1 if NEED_GETSUBOPT])])
 
 
 AC_CONFIG_FILES([Makefile

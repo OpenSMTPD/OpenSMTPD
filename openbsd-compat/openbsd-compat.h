@@ -263,6 +263,10 @@ int res_hnok(const char *);
 #define IPPORT_HILASTAUTO 65535
 #endif
 
+#if !HAVE_DECL_IPV6_ADDR_SCOPE_INTFACELOCAL
+#define USE_IPV6_ADDR_SCOPE_NODELOCAL 1
+#endif
+
 #ifndef HAVE_FLOCK
 int flock(int, int);
 #endif
@@ -349,5 +353,10 @@ char *get_progname(char *);
 int	clock_gettime(int clock_id, struct timespec *tp);
 #endif
 
+#ifdef NEED_GETSUBOPT
+#define getsubopt(optionp, tockens, valuep) openbsd_getsubopt(optionp, tockens, valuep)
+int openbsd_getsubopt(char **optionp, char * const *tokens, char **valuep);
+extern  char *suboptarg;               /* getsubopt(3) external variable */
+#endif
 
 #endif /* _OPENBSD_COMPAT_H */
