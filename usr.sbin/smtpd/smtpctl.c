@@ -39,6 +39,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
+#include <grp.h>
 #include <inttypes.h>
 #include <pwd.h>
 #include <stdlib.h>

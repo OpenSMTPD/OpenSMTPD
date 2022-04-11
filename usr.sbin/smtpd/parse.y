@@ -3539,7 +3539,11 @@ interface(struct listen_opts *lo)
 #ifdef __KAME__
 			if ((IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) ||
 			    IN6_IS_ADDR_MC_LINKLOCAL(&sin6->sin6_addr) ||
+#ifdef USE_IPV6_ADDR_SCOPE_NODELOCAL
+			    IN6_IS_ADDR_MC_NODELOCAL(&sin6->sin6_addr)) &&
+#else
 			    IN6_IS_ADDR_MC_INTFACELOCAL(&sin6->sin6_addr)) &&
+#endif
 			    sin6->sin6_scope_id == 0) {
 				sin6->sin6_scope_id = ntohs(
 				    *(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
