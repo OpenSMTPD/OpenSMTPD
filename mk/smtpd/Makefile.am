@@ -115,12 +115,13 @@ AM_CFLAGS=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
 AM_CPPFLAGS+=		-I$(srcdir) $(PATHS) @DEFS@
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
-			smtpd.conf.5.out table.5.out
+			smtpd.conf.5.out smtpd-filters.7.out table.5.out
 
 MANPAGES_IN=		$(top_srcdir)/usr.sbin/smtpd/aliases.5
 MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/forward.5
 MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/smtpd.8
 MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/smtpd.conf.5
+MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/smtpd-filters.7
 MANPAGES_IN+=		$(top_srcdir)/usr.sbin/smtpd/table.5
 
 CONFIGFILES=		smtpd.conf.out
@@ -168,6 +169,7 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(MKDIR_P) $(DESTDIR)$(sysconfdir)
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)5
+	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)7
 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
 
 	@if [ ! -f $(DESTDIR)$(sysconfdir)/smtpd.conf ]; then			\
@@ -181,8 +183,9 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	$(INSTALL) -m 644 table.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5
 	$(INSTALL) -m 644 smtpd.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
 	$(INSTALL) -m 644 smtpd.conf.5.out	$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5
+	$(INSTALL) -m 644 smtpd-filters.7.out	$(DESTDIR)$(mandir)/$(mansubdir)7/smtpd-filters.7
 	rm	aliases.5.out forward.5.out table.5.out \
-		smtpd.8.out smtpd.conf.5.out smtpd.conf.out
+		smtpd.8.out smtpd.conf.5.out smtpd-filters.7.out smtpd.conf.out
 
 uninstall-hook:
 # XXX to make "make distcheck" happy we need to rm smtpd.conf
@@ -191,6 +194,8 @@ uninstall-hook:
 		$(DESTDIR)$(mandir)/$(mansubdir)5/forward.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/table.5			\
 		$(DESTDIR)$(mandir)/$(mansubdir)5/smtpd.conf.5			\
-		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8
+		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpd.8			\
+		$(DESTDIR)$(mandir)/$(mansubdir)7/smtpd-filters.7
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)5 \
+		$(DESTDIR)$(mandir)/$(mansubdir)7 \
 		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
