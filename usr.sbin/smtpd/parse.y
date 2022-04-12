@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.289 2021/06/14 17:58:15 eric Exp $	*/
+/*	$OpenBSD: parse.y,v 1.291 2022/02/10 14:59:35 millert Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -881,6 +881,7 @@ HELO STRING {
 	}
 
 	dsp->u.remote.tls_required = 1;
+	dsp->u.remote.tls_verify = 1;
 }
 | TLS NO_VERIFY {
 	if (dsp->u.remote.tls_required == 1) {
@@ -889,7 +890,6 @@ HELO STRING {
 	}
 
 	dsp->u.remote.tls_required = 1;
-	dsp->u.remote.tls_noverify = 1;
 }
 | AUTH tables {
 	struct table   *t = $2;
@@ -2872,10 +2872,10 @@ findeol(void)
 int
 yylex(void)
 {
-	unsigned char	 buf[8096];
-	unsigned char	*p, *val;
-	int		 quotec, next, c;
-	int		 token;
+	char	 buf[8096];
+	char	*p, *val;
+	int	 quotec, next, c;
+	int	 token;
 
 top:
 	p = buf;
@@ -2911,7 +2911,7 @@ top:
 		p = val + strlen(val) - 1;
 		lungetc(DONE_EXPAND);
 		while (p >= val) {
-			lungetc(*p);
+			lungetc((unsigned char)*p);
 			p--;
 		}
 		lungetc(START_EXPAND);
@@ -2987,8 +2987,8 @@ top:
 		} else {
 nodigits:
 			while (p > buf + 1)
-				lungetc(*--p);
-			c = *--p;
+				lungetc((unsigned char)*--p);
+			c = (unsigned char)*--p;
 			if (c == '-')
 				return (c);
 		}
