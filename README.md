@@ -13,7 +13,7 @@ additional standard extensions.
 It allows ordinary machines to exchange e-mails with other systems
 speaking the SMTP protocol.
 
-OpenSMTPD runs on various [ Unix ](https://en.wikipedia.org/wiki/Unix) 
+OpenSMTPD runs on various [ Unix ](https://en.wikipedia.org/wiki/Unix)
 and Unix-like operating systems including:
 
 - Linux
@@ -31,13 +31,13 @@ visit our [wiki](https://github.com/OpenSMTPD/OpenSMTPD/wiki).
 
 ## Get In Touch
 
-If you want to stay up to day with most recent developments or chat about 
+If you want to stay up to day with most recent developments or chat about
 OpenSMTPD you can:
 
 - subscribe to our mailing list: http://www.opensmtpd.org/list.html
-- join the IRC channel: `#opensmtpd` @ [ irc.freenode.net ](https://freenode.net/)
+- join the IRC channel: `#opensmtpd` @ [ irc.libera.chat ](https://libera.chat)
 - submit a bug report or a feature request here on [ GitHub ](https://github.com/OpenSMTPD/OpenSMTPD)
-- visit GitHub's [discussions page](https://github.com/OpenSMTPD/OpenSMTPD/discussions) 
+- visit GitHub's [discussions page](https://github.com/OpenSMTPD/OpenSMTPD/discussions)
 
 
 ## Documentation
