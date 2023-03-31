@@ -49,6 +49,8 @@
 	   	    (expected_sz), (imsg)->hdr.len - IMSG_HEADER_SIZE);	\
 } while (0)
 
+#define SMTP_LINE_MAX		 65535
+
 #ifndef SMTPD_CONFDIR
 #define SMTPD_CONFDIR		 "/etc"
 #endif

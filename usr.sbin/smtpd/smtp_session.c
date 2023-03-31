@@ -46,7 +46,6 @@
 #include "log.h"
 #include "rfc5322.h"
 
-#define	SMTP_LINE_MAX			65535
 #define	DATA_HIWAT			65535
 #define	APPEND_DOMAIN_BUFFER_SIZE	SMTP_LINE_MAX
 

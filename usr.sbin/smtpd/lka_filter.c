@@ -35,6 +35,8 @@
 
 #define	PROTOCOL_VERSION	"0.6"
 
+#define RESPONSE_LEN_MAX	(SMTP_LINE_MAX + 256)
+
 struct filter;
 struct filter_session;
 static void	filter_protocol_internal(struct filter_session *, uint64_t *, uint64_t, enum filter_phase, const char *);
@@ -602,7 +604,7 @@ lka_filter_process_response(const char *name, const char *line)
 {
 	uint64_t reqid;
 	uint64_t token;
-	char buffer[LINE_MAX];
+	char buffer[RESPONSE_LEN_MAX];
 	char *ep = NULL;
 	char *kind = NULL;
 	char *qid = NULL;
