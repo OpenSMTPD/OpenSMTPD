@@ -5,94 +5,87 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/opensmtpd.svg)](https://repology.org/project/opensmtpd/versions)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://www.isc.org/licenses/)
 
+> **Warning**
+> This repository may be out of date compared to [OpenBSD smtpd source code](https://cvsweb.openbsd.org/src/usr.sbin/smtpd/). Downstream package maintainers should be aware of this when backporting security fixes and other changes.
 
 OpenSMTPD is a FREE implementation of the server-side SMTP protocol as
-defined by [ RFC 5321 ](https://tools.ietf.org/html/rfc5321), with some
+defined by [RFC 5321](https://tools.ietf.org/html/rfc5321), with some
 additional standard extensions.
 
 It allows ordinary machines to exchange e-mails with other systems
 speaking the SMTP protocol.
 
-OpenSMTPD runs on various [ Unix ](https://en.wikipedia.org/wiki/Unix)
+OpenSMTPD runs on various [Unix](https://en.wikipedia.org/wiki/Unix)
 and Unix-like operating systems including:
 
 - Linux
-- [ FreeBSD ](https://www.freebsd.org)
-- [ OpenBSD ](https://www.openbsd.org)
-- [ NetBSD ](https://www.netbsd.org)
-- [ DragonFlyBSD ](https://www.dragonflybsd.org)
-- [ OSX ](https://en.wikipedia.org/wiki/MacOS)
+- [FreeBSD](https://www.freebsd.org)
+- [OpenBSD](https://www.openbsd.org)
+- [NetBSD](https://www.netbsd.org)
+- [DragonFlyBSD](https://www.dragonflybsd.org)
+- [macOS](https://en.wikipedia.org/wiki/MacOS)
 
 For more information: http://www.opensmtpd.org/portable.html
 
 If you are looking for a comprehensive manual on how to build your own mail server
 visit our [wiki](https://github.com/OpenSMTPD/OpenSMTPD/wiki).
 
-
-## Get In Touch
+## Get in touch
 
 If you want to stay up to day with most recent developments or chat about
 OpenSMTPD you can:
 
-- subscribe to our mailing list: http://www.opensmtpd.org/list.html
-- join the IRC channel: `#opensmtpd` @ [ irc.libera.chat ](https://libera.chat)
-- submit a bug report or a feature request here on [ GitHub ](https://github.com/OpenSMTPD/OpenSMTPD)
+- subscribe to our [mailing list](http://www.opensmtpd.org/list.html)
+- join the IRC channel: `#opensmtpd` @ [irc.libera.chat](https://libera.chat)
+- submit a bug report or a feature request here on [GitHub](https://github.com/OpenSMTPD/OpenSMTPD)
 - visit GitHub's [discussions page](https://github.com/OpenSMTPD/OpenSMTPD/discussions)
-
 
 ## Documentation
 
 The manual pages are available [online](https://www.opensmtpd.org/manual.html),
 which you are encouraged to contribute to.
 
-
-## Install Via Package Manager
+## Install via package manager
 
 Many distributions already provide a packaged version of opensmtpd. All you need
 to do is install it via your package manager.
 
-> :warning: **Some distributions might ship an old version of opensmtpd** Be
-> careful and check the version number to ensure you are running a secure
-> version
+> **Warning** Some distributions might ship old versions of OpenSMTPD, and some distributions may selectively backport security fixes and other code changes.
 
-### Ubuntu/Debian
+### Debian/Ubuntu
 
     sudo apt install opensmtpd
 
 ### Archlinux
 
-Has a [ dedicated wiki page ](https://wiki.archlinux.org/index.php/OpenSMTPD#Installation)
-
+Has a [dedicated wiki page](https://wiki.archlinux.org/index.php/OpenSMTPD#Installation)
 
 ### Alpine Linux
 
     apk install opensmtpd
 
-
 ### Fedora
 
     yum install opensmtpd
 
-### MacOS
+### macOS
 
 OpenSMTPD is available from [MacPorts](https://www.macports.org):
 
     port install opensmtpd
 
-## Install From Source
+## Install from source
 
-
-### Install Dependencies
+### Install dependencies
 
 OpenSMTPD relies on:
-  - [ autoconf ](http://www.gnu.org/software/autoconf/)
-  - [ automake ](http://www.gnu.org/software/automake/)
-  - [ bison ](http://www.gnu.org/software/bison/)
-    or [ byacc ](http://invisible-island.net/byacc/byacc.html)
-  - [ libevent ](http://libevent.org/)
-  - [ libtool ](http://www.gnu.org/software/libtool/)
-  - [ libressl ](https://www.libressl.org/)
-    or [ OpenSSL ](https://www.openssl.org/)
+
+- [autoconf](http://www.gnu.org/software/autoconf/)
+- [automake](http://www.gnu.org/software/automake/)
+- [bison](http://www.gnu.org/software/bison/) or [byacc](http://invisible-island.net/byacc/byacc.html)
+- [libevent](http://libevent.org/)
+- [libtool](http://www.gnu.org/software/libtool/)
+- [libressl](https://www.libressl.org/) or [OpenSSL](https://www.openssl.org/)
 
 You will also need a C compiler and git if you are cloning the git repository
 
@@ -103,21 +96,17 @@ Note that some distributions have different packages for a same library, you
 should always use the `-dev` or `-devel` package (for example, `libevent-dev`
 or `libevent-devel`) if you're going to build OpenSMTPD yourself.
 
-### Get The Source Code
+### Get the source code
 
 Clone from github:
 
     git clone https://github.com/OpenSMTPD/OpenSMTPD.git
 
-
 [Download tarball](https://github.com/OpenSMTPD/OpenSMTPD/archive/v6.8.0p2.zip)
 
 Latest release can always be found [here](https://github.com/OpenSMTPD/OpenSMTPD/releases/latest)
 
-
-
 ### Compile
-
 
     cd opensmtpd*
     ./bootstrap  # Only if you build from git sources
@@ -125,27 +114,25 @@ Latest release can always be found [here](https://github.com/OpenSMTPD/OpenSMTPD
     make
     sudo make install
 
-
-#### Special notes for FreeBSD/DragonFlyBSD/Mac OS X:
+#### Special notes for FreeBSD/DragonFlyBSD/macOS
 
 Please launch configure with special directive about libevent and
 libasr directory:
 
-#### FreeBSD / DragonFlyBSD:
+#### FreeBSD / DragonFlyBSD
 
     ./configure --with-libasr=/usr/local
 
-#### MacOS:
+#### macOS
 
     ./configure --with-libevent=/opt/local
 
-Though MacOS includes a copy of bison in the bases system, you will
+Though macOS includes a copy of bison in the bases system, you will
 need to install a more recent version from, e.g., MacPorts.
 
 ### Install
 
     sudo make install
-
 
 ### Setup historical interface
 
@@ -165,7 +152,6 @@ and adding the following lines:
     makemap         /usr/sbin/smtpctl
     newaliases      /usr/sbin/smtpctl
 
-
 Whereas on systems that don't provide mailwrapper, it can be achieved by
 setting the appropriate symbolic links:
 
@@ -175,17 +161,14 @@ setting the appropriate symbolic links:
     ln -s /usr/sbin/smtpctl makemap
     ln -s /usr/sbin/smtpctl newaliases
 
-
 The OpenSMTPD project leaves it up to the package maintainers to setup the
 links in their packages as it is very hard for us to accommodate all systems
 with the preferred method in a clean way.
 
-
-### Configure /etc/smtpd.conf
+### Configure `/etc/smtpd.conf`
 
 Please have a look at the complete format description of `smtpd.conf`
 [configuration file](https://man.openbsd.org/smtpd.conf)
-
 
 ### Add OpenSMTPD users
 
@@ -196,11 +179,9 @@ Using two users instead of one will increase security by a large factor
 so... if you want to voluntarily reduce security or you have absolute
 more faith in our code than we do, by all means use one.
 
-
 The instructions below assume the default users however, the configure
 script allows overriding these using the options:
 `--with-user-smtpd`, `--with-user-queue`, and `--with-group-queue`.
-
 
 #### NetBSD, Linux (Debian, Arch Linux, ...)
 
@@ -213,38 +194,36 @@ script allows overriding these using the options:
     pw useradd _smtpd -c "SMTP Daemon" -d /var/empty -s /sbin/nologin
     pw useradd _smtpq -c "SMTPD Queue" -d /var/empty -s /sbin/nologin
 
-#### Mac OS X
+#### macOS
 
 First we need a group with an unused GID below `500`, list the current
 ones used:
 
-	/usr/bin/dscl . -list /Groups PrimaryGroupID | sort -n -k2,2
+    /usr/bin/dscl . -list /Groups PrimaryGroupID | sort -n -k2,2
 
 Add a group - here we have picked `444`:
 
-	/usr/bin/sudo /usr/bin/dscl . -create /Groups/_smtpd
-	PrimaryGroupID 444
+    /usr/bin/sudo /usr/bin/dscl . -create /Groups/_smtpd PrimaryGroupID 444
 
 Then the user. Again we need an unused UID below `500`, list the current
 ones used:
 
-	/usr/bin/dscl . -list /Users UniqueID | sort -n -k2,2
+    /usr/bin/dscl . -list /Users UniqueID | sort -n -k2,2
 
 Add a user - here we have picked `444`:
 
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UniqueID 444
-	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd AuthenticationAuthority
-	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd PasswordPolicyOptions
-	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd dsAttrTypeNative:KerberosKeys
-	/usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd dsAttrTypeNative:ShadowHashData
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd RealName "SMTP Daemon"
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd Password "*"
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd PrimaryGroupID 444
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
-	/usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
+    /usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UniqueID 444
+    /usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd AuthenticationAuthority
+    /usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd PasswordPolicyOptions
+    /usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd dsAttrTypeNative:KerberosKeys
+    /usr/bin/sudo /usr/bin/dscl . -delete /Users/_smtpd dsAttrTypeNative:ShadowHashData
+    /usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd RealName "SMTP Daemon"
+    /usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd Password "*"
+    /usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd PrimaryGroupID 444
+    /usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd NFSHomeDirectory /var/empty
+    /usr/bin/sudo /usr/bin/dscl . -create /Users/_smtpd UserShell /usr/bin/false
 
 repeat for the `_smtpq` user.
-
 
 ### Launch smtpd
 
@@ -257,4 +236,3 @@ Then:
 or in debug and verbose mode
 
     smtpd -dv
-
