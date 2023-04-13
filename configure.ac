@@ -569,6 +569,13 @@ AC_SEARCH_LIBS([event_asr_run],
 			[Define if you have the event_asr_run() function.])
 	])
 
+AC_SEARCH_LIBS([tls_config_set_ciphers],
+	[tls],
+	[
+		AC_DEFINE([HAVE_TLS_CONFIG_SET_CIPHERS], [1],
+			[Define if you have the tls_config_set_ciphers() function.])
+	])
+
 AC_CHECK_FUNCS([ \
 	asprintf \
 	arc4random \
