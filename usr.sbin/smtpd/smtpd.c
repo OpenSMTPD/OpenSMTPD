@@ -353,7 +353,7 @@ parent_send_config_dispatcher(void)
 }
 
 void
-parent_send_config_lka()
+parent_send_config_lka(void)
 {
 	log_debug("debug: parent_send_config_ruleset: reloading");
 	m_compose(p_lka, IMSG_CONF_START, 0, 0, -1, NULL, 0);

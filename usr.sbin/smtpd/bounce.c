@@ -243,7 +243,7 @@ bounce_timeout(int fd, short ev, void *arg)
 }
 
 static void
-bounce_drain()
+bounce_drain(void)
 {
 	struct bounce_message	*msg;
 	struct timeval		 tv;

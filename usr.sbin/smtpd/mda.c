@@ -386,12 +386,12 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 }
 
 void
-mda_postfork()
+mda_postfork(void)
 {
 }
 
 void
-mda_postprivdrop()
+mda_postprivdrop(void)
 {
 	tree_init(&sessions);
 	tree_init(&users);

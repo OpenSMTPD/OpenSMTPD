@@ -228,7 +228,7 @@ io_frame_leave(struct io *io)
 }
 
 void
-_io_init()
+_io_init(void)
 {
 	static int init = 0;
 
