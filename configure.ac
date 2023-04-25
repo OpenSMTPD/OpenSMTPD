@@ -67,7 +67,7 @@ AC_C_BIGENDIAN
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
-AC_PATH_PROG([AR], [ar])
+AM_PROG_AR
 AC_PATH_PROG([CAT], [cat])
 AC_PATH_PROG([CHMOD], [chmod])
 AC_PATH_PROG([CHOWN], [chown])
@@ -83,11 +83,6 @@ AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 
 AC_SUBST([ZCAT])
-
-
-if test -z "$AR"; then
-	AC_MSG_ERROR([*** 'ar' missing, please install or fix your \$PATH ***])
-fi
 
 if test -z "$LD"; then
 	LD=$CC
