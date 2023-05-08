@@ -19,7 +19,8 @@ RUN apt update \
   build-essential \
   libevent-dev \
   libssl-dev \
-  libtool \ 
+  libtool \
+  pkgconf \
   libpam0g-dev \
   zlib1g-dev
 
