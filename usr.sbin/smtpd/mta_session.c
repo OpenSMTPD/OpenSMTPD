@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.146 2022/02/18 17:02:06 millert Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.147 2022/09/26 08:48:52 martijn Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
