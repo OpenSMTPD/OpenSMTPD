@@ -102,6 +102,14 @@ else
 fi
 AC_SUBST([MANFMT])
 
+#
+# CHECKS FOR LIBBSD
+#
+PKG_CHECK_MODULES([LIBBSD], [libbsd-overlay], [
+CFLAGS="$CFLAGS $LIBBSD_CFLAGS"
+LIBS="$LIBS $LIBBSD_LIBS"
+AC_DEFINE([HAVE_LIBBSD], [1], [BSD UUID])
+], [:])
 
 #
 # CHECKS FOR LIBRARIES
@@ -121,6 +129,7 @@ AC_CHECK_HEADERS([ \
 	getopt.h \
 	grp.h \
 	libgen.h \
+	libutil.h \
 	limits.h \
 	maillock.h \
 	mach/mach_time.h \
@@ -156,8 +165,6 @@ AC_CHECK_HEADERS([login_cap.h], [], [], [
 AC_CHECK_HEADERS([sys/mount.h], [], [], [
 #include <sys/param.h>
 ])
-
-AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 
 AC_CHECK_HEADER([fts.h],
 	[],
@@ -438,7 +445,7 @@ AC_SEARCH_LIBS([closefrom],
 	])
 
 AC_SEARCH_LIBS([fmt_scaled],
-	[util bsd],
+	[util],
 	[
 		AC_DEFINE([HAVE_FMT_SCALED], [1],
 			[Define if you have the fmt_scaled() function.])
@@ -452,7 +459,7 @@ AC_SEARCH_LIBS([dirname],
 	])
 
 AC_SEARCH_LIBS([inet_net_pton],
-	[resolv bsd],
+	[resolv],
 	[
 		AC_DEFINE([HAVE_INET_NET_PTON], [1],
 			[Define if you have the inet_net_pton() function.])

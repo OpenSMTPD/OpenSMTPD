@@ -27,6 +27,7 @@
 #include <ifaddrs.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h> /* needed for setproctitle */
 
 #include "smtpd.h"
 #include "log.h"

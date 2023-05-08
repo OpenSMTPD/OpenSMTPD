@@ -19,7 +19,7 @@
  */
 
 #include "includes.h"
-#ifndef HAVE_INET_NET_PTON
+#if !defined(HAVE_INET_NET_PTON) || defined(HAVE_LIBBSD)
 
 #include <sys/types.h>
 #include <sys/socket.h>
