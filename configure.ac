@@ -542,11 +542,11 @@ AC_SEARCH_LIBS([setsockopt],
 			[Define if you have the setsockopt() function.])
 	])
 
-AC_SEARCH_LIBS([crypt],
+AC_SEARCH_LIBS([crypt_gensalt],
 	[crypt],
 	[
-		AC_DEFINE([HAVE_CRYPT], [1],
-			[Define if you have the crypt() function.])
+		AC_DEFINE([HAVE_CRYPT_GENSALT], [1],
+			[Define if you have the crypt_gensalt() function.])
 	])
 
 AC_SEARCH_LIBS([imsg_init],
