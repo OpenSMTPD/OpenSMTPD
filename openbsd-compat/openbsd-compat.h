@@ -227,7 +227,7 @@ __attribute__ ((noreturn))
 void errc(int, int, const char *, ...);
 #endif
 
-#ifndef HAVE_INET_NET_PTON
+#if !defined(HAVE_INET_NET_PTON) || defined(HAVE_LIBBSD)
 int inet_net_pton(int, const char *, void *, size_t);
 #endif
 
