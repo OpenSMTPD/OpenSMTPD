@@ -34,10 +34,6 @@
 
 #include "includes.h"
 
-#ifdef HAVE_SYS_CDEFS
-#include <sys/cdefs.h>
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
