@@ -44,6 +44,7 @@
 #include <crypt.h> /* needed for crypt() */
 #endif
 #include <dirent.h>
+#include <err.h> /* needed for err and errx */
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h> /* needed for setgroups */
