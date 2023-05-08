@@ -1,4 +1,4 @@
-/*	$OpenBSD: bounce.c,v 1.86 2021/07/28 19:39:50 benno Exp $	*/
+/*	$OpenBSD: bounce.c,v 1.88 2023/05/04 12:43:44 chrisz Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -243,7 +243,7 @@ bounce_timeout(int fd, short ev, void *arg)
 }
 
 static void
-bounce_drain()
+bounce_drain(void)
 {
 	struct bounce_message	*msg;
 	struct timeval		 tv;
@@ -545,8 +545,8 @@ bounce_next(struct bounce_session *s)
 			if ((len = getline(&line, &sz, s->msgfp)) == -1)
 				break;
 			if (len == 1 && line[0] == '\n' && /* end of headers */
-			    s->msg->bounce.type == B_DELIVERED &&
-			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
+			    (s->msg->bounce.type != B_FAILED ||
+			    s->msg->bounce.dsn_ret != DSN_RETFULL)) {
 				free(line);
 				fclose(s->msgfp);
 				s->msgfp = NULL;

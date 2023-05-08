@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.49 2021/06/14 17:58:15 eric Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.51 2023/02/06 18:35:52 semarie Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -279,36 +279,30 @@ ascii_load_string(char *dest, char *buf, size_t len)
 static int
 ascii_load_sockaddr(struct sockaddr_storage *ss, char *buf)
 {
-	struct sockaddr_in6 ssin6;
-	struct sockaddr_in  ssin;
-
-	memset(&ssin, 0, sizeof ssin);
-	memset(&ssin6, 0, sizeof ssin6);
-
 	if (!strcmp("local", buf)) {
 		ss->ss_family = AF_LOCAL;
 	}
-	else if (strncasecmp("IPv6:", buf, 5) == 0) {
-		/* XXX - remove this after 6.6 release */
-		if (inet_pton(AF_INET6, buf + 5, &ssin6.sin6_addr) != 1)
-			return 0;
-		ssin6.sin6_family = AF_INET6;
-		memcpy(ss, &ssin6, sizeof(ssin6));
-#ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
-		ss->ss_len = sizeof(struct sockaddr_in6);
-#endif
-	}
 	else if (buf[0] == '[' && buf[strlen(buf)-1] == ']') {
+		struct addrinfo hints, *res0;
+		
 		buf[strlen(buf)-1] = '\0';
-		if (inet_pton(AF_INET6, buf+1, &ssin6.sin6_addr) != 1)
+
+		/* getaddrinfo() is used to support scoped addresses. */
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = AF_INET6;
+		hints.ai_flags = AI_NUMERICHOST;
+		if (getaddrinfo(buf+1, NULL, &hints, &res0) != 0)
 			return 0;
-		ssin6.sin6_family = AF_INET6;
-		memcpy(ss, &ssin6, sizeof(ssin6));
+		memcpy(ss, res0->ai_addr, res0->ai_addrlen);
 #ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
-		ss->ss_len = sizeof(struct sockaddr_in6);
+		ss->ss_len = res0->ai_addrlen;
 #endif
+		freeaddrinfo(res0);
 	}
 	else {
+		struct sockaddr_in ssin;
+
+		memset(&ssin, 0, sizeof ssin);
 		if (inet_pton(AF_INET, buf, &ssin.sin_addr) != 1)
 			return 0;
 		ssin.sin_family = AF_INET;

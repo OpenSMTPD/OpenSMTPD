@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda_variables.c,v 1.7 2021/06/14 17:58:15 eric Exp $	*/
+/*	$OpenBSD: mda_variables.c,v 1.9 2023/03/19 16:43:44 millert Exp $	*/
 
 /*
  * Copyright (c) 2011-2017 Gilles Chehade <gilles@poolp.org>
@@ -62,7 +62,7 @@ mda_expand_token(char *dest, size_t len, const char *token,
 {
 	char		rtoken[MAXTOKENLEN];
 	char		tmp[EXPAND_BUFFER];
-	const char     *string;
+	const char     *string = NULL;
 	char	       *lbracket, *rbracket, *content, *sep, *mods;
 	ssize_t		i;
 	ssize_t		begoff, endoff;
@@ -170,6 +170,8 @@ mda_expand_token(char *dest, size_t len, const char *token,
 		return -1;
 
 	if (string != tmp) {
+		if (string == NULL)
+			return -1;
 		if (strlcpy(tmp, string, sizeof tmp) >= sizeof tmp)
 			return -1;
 		string = tmp;
@@ -252,7 +254,7 @@ mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
 	char		exptok[EXPAND_BUFFER];
 	ssize_t		exptoklen;
 	char		token[MAXTOKENLEN];
-	size_t		ret, tmpret;
+	size_t		ret, tmpret, toklen;
 
 	if (len < sizeof tmpbuf) {
 		log_warnx("mda_expand_format: tmp buffer < rule buffer");
@@ -277,7 +279,6 @@ mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
 		pbuf += 2;
 	}
 
-
 	/* expansion loop */
 	for (; *pbuf && ret < sizeof tmpbuf; ret += tmpret) {
 		if (*pbuf == '%' && *(pbuf + 1) == '%') {
@@ -294,17 +295,16 @@ mda_expand_format(char *buf, size_t len, const struct deliver *dlv,
 		}
 
 		/* %{...} otherwise fail */
-		if (*(pbuf+1) != '{' || (ebuf = strchr(pbuf+1, '}')) == NULL)
+		if ((ebuf = strchr(pbuf+2, '}')) == NULL)
 			return 0;
 
 		/* extract token from %{token} */
-		if ((size_t)(ebuf - pbuf) - 1 >= sizeof token)
+		toklen = ebuf - (pbuf+2);
+		if (toklen >= sizeof token)
 			return 0;
 
-		memcpy(token, pbuf+2, ebuf-pbuf-1);
-		if (strchr(token, '}') == NULL)
-			return 0;
-		*strchr(token, '}') = '\0';
+		memcpy(token, pbuf+2, toklen);
+		token[toklen] = '\0';
 
 		exptoklen = mda_expand_token(exptok, sizeof exptok, token, dlv,
 		    ui, mda_command);
