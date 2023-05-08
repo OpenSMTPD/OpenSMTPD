@@ -92,6 +92,10 @@ int	scan_scaled(char *, long long *);
 const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 #endif
 
+#ifndef HAVE_RES_RANDOMID
+unsigned int res_randomid(void);
+#endif
+
 #ifndef HAVE_STRSEP
 char *strsep(char **stringp, const char *delim);
 #endif
