@@ -105,11 +105,23 @@ AC_SUBST([MANFMT])
 #
 # CHECKS FOR LIBBSD
 #
-PKG_CHECK_MODULES([LIBBSD], [libbsd-overlay], [
-CFLAGS="$CFLAGS $LIBBSD_CFLAGS"
-LIBS="$LIBS $LIBBSD_LIBS"
-AC_DEFINE([HAVE_LIBBSD], [1], [BSD UUID])
-], [:])
+AC_ARG_WITH([libbsd],
+	AS_HELP_STRING([--without-libbsd], [Disable libbsd usage]))
+
+have_libbsd=no
+AS_IF([test "x$with_libbsd" != "xno"],
+	[
+		PKG_CHECK_MODULES([LIBBSD], [libbsd-overlay], [
+			CFLAGS="$CFLAGS $LIBBSD_CFLAGS"
+			LIBS="$LIBS $LIBBSD_LIBS"
+			AC_DEFINE([HAVE_LIBBSD], [1], [BSD UUID])
+			have_libbsd=yes
+		], [:])
+	])
+
+AS_IF([test "x$have_libbsd" != "xyes"],
+	[AS_IF([test "x$with_libbsd" = "xyes"],
+		[AC_MSG_ERROR([libbsd requested but not found])])])
 
 #
 # CHECKS FOR LIBRARIES
