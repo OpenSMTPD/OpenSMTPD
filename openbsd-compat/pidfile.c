@@ -1,4 +1,4 @@
-/*	$OpenBSD: pidfile.c,v 1.8 2008/06/26 05:42:05 ray Exp $	*/
+/*	$OpenBSD: pidfile.c,v 1.14 2019/06/28 14:20:40 schwarze Exp $	*/
 /*	$NetBSD: pidfile.c,v 1.4 2001/02/19 22:43:42 cgd Exp $	*/
 
 /*-
@@ -35,8 +35,9 @@
 #include "includes.h"
 #ifndef HAVE_PIDFILE
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <errno.h>
+#include <paths.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -58,13 +59,10 @@ pidfile(const char *basename)
 	if (basename == NULL)
 		basename = __progname;
 
-	if (pidfile_path != NULL) {
-		free(pidfile_path);
-		pidfile_path = NULL;
-	}
+	free(pidfile_path);
+	pidfile_path = NULL;
 
-	(void) asprintf(&pidfile_path, "%s/%s.pid", SMTPD_PIDDIR, basename);
-	if (pidfile_path == NULL)
+	if (asprintf(&pidfile_path, "%s/%s.pid", SMTPD_PIDDIR, basename) == -1)
 		return (-1);
 
 	if ((f = fopen(pidfile_path, "w")) == NULL) {
@@ -76,19 +74,19 @@ pidfile(const char *basename)
 	}
 
 	pid = getpid();
-	if (fprintf(f, "%ld\n", (long)pid) <= 0) {
-		fclose(f);
+	if (fprintf(f, "%ld\n", (long)pid) <= 0 || fflush(f) != 0) {
 		save_errno = errno;
+		(void) fclose(f);
 		(void) unlink(pidfile_path);
 		free(pidfile_path);
 		pidfile_path = NULL;
 		errno = save_errno;
 		return (-1);
 	}
+	(void) fclose(f);
 
-	fclose(f);
 	pidfile_pid = pid;
-	if (atexit(pidfile_cleanup) < 0) {
+	if (atexit(pidfile_cleanup) != 0) {
 		save_errno = errno;
 		(void) unlink(pidfile_path);
 		free(pidfile_path);

@@ -1,5 +1,3 @@
-/* $Id: bsd-waitpid.h,v 1.5 2003/08/29 16:59:52 mouring Exp $ */
-
 /*
  * Copyright (c) 2000 Ben Lindstrom.  All rights reserved.
  *
@@ -29,7 +27,7 @@
 #define _BSD_WAITPID_H
 
 #ifndef HAVE_WAITPID
-/* Clean out any potental issues */
+/* Clean out any potential issues */
 #undef WIFEXITED
 #undef WIFSTOPPED
 #undef WIFSIGNALED
@@ -42,7 +40,7 @@
 #define WEXITSTATUS(w)	(int)(WIFEXITED(w) ? ((_W_INT(w) >> 8) & 0377) : -1)
 #define WTERMSIG(w)	(int)(WIFSIGNALED(w) ? (_W_INT(w) & 0177) : -1)
 #define WCOREFLAG	0x80
-#define WCOREDUMP(w) 	((_W_INT(w)) & WCOREFLAG)
+#define WCOREDUMP(w)	((_W_INT(w)) & WCOREFLAG)
 
 /* Prototype */
 pid_t waitpid(int, int *, int);
