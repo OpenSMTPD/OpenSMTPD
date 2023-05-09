@@ -135,6 +135,7 @@ if test "$libtool" = "yes"; then
   fi
 fi
 
+libtoolize
 aclocal${amvers} ${aclocalflags}
 autoconf${acvers}
 if test "$header" = "yes"; then
