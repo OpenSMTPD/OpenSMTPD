@@ -41,7 +41,7 @@ AC_INIT([OpenSMTPD],
 	[opensmtpd],
 	[https://www.OpenSMTPD.org])
 
-AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
+AM_INIT_AUTOMAKE([foreign subdir-objects no-dependencies])
 
 # here we should test for variables set by libtool detection
 if test "x$with_pic" != "xno"; then
