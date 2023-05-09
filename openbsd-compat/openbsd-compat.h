@@ -292,7 +292,7 @@ char * strndup(const char *, size_t);
 #endif
 
 #ifndef HAVE_STRNLEN
-char * strnlen(const char *, size_t);
+size_t strnlen(const char *, size_t);
 #endif
 
 #ifndef HAVE_STRUCT_TIMEVAL
