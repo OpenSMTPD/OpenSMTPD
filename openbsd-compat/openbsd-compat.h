@@ -214,10 +214,6 @@ void freezero(void *, size_t);
 int pidfile(const char *basename);
 #endif
 
-#ifndef HAVE_PW_DUP
-struct passwd *pw_dup(const struct passwd *);
-#endif
-
 #if !defined(HAVE_REALLOCARRAY) || defined(LIBRESSL_VERSION_NUMBER)
 void *reallocarray(void *, size_t, size_t);
 #endif
