@@ -236,7 +236,6 @@ EXTRA_DIST +=	bsd-misc.h
 EXTRA_DIST +=	bsd-waitpid.h
 EXTRA_DIST +=	chacha_private.h
 EXTRA_DIST +=	defines.h
-EXTRA_DIST +=	entropy.h
 EXTRA_DIST +=	imsg.h
 EXTRA_DIST +=	includes.h
 EXTRA_DIST +=	$(top_srcdir)/usr.sbin/smtpd/log.h
