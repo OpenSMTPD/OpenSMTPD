@@ -302,6 +302,10 @@ struct timeval {
 }
 #endif
 
+#ifndef HAVE_TIMINGSAFE_MEMCMP
+int timingsafe_memcmp(const void *, const void *, size_t);
+#endif
+
 #ifdef NEED_NANOSLEEP
 #ifndef HAVE_STRUCT_TIMESPEC
 struct timespec {
