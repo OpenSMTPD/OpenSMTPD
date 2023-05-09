@@ -29,7 +29,7 @@
 #
 # AUTOCONF REQUIREMENTS
 #
-AC_PREREQ(2.69)
+AC_PREREQ([2.69])
 
 
 #
@@ -42,7 +42,6 @@ AC_INIT([OpenSMTPD],
 	[https://www.OpenSMTPD.org])
 
 AM_INIT_AUTOMAKE([subdir-objects no-dependencies])
-LT_INIT
 
 # here we should test for variables set by libtool detection
 if test "x$with_pic" != "xno"; then
@@ -55,7 +54,7 @@ fi
 #
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC
 AC_CANONICAL_HOST
 AC_C_BIGENDIAN
@@ -66,8 +65,8 @@ AC_C_BIGENDIAN
 #
 AC_PROG_CPP
 AC_PROG_INSTALL
-AC_PROG_LIBTOOL
 AM_PROG_AR
+LT_INIT
 AC_PATH_PROG([CAT], [cat])
 AC_PATH_PROG([CHMOD], [chmod])
 AC_PATH_PROG([CHOWN], [chown])
