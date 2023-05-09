@@ -29,7 +29,7 @@
 
 struct ibuf {
 	TAILQ_ENTRY(ibuf)	 entry;
-	u_char			*buf;
+	unsigned char		*buf;
 	size_t			 size;
 	size_t			 max;
 	size_t			 wpos;
@@ -44,8 +44,8 @@ struct msgbuf {
 };
 
 struct ibuf_read {
-	u_char			 buf[IBUF_READ_SIZE];
-	u_char			*rptr;
+	unsigned char		 buf[IBUF_READ_SIZE];
+	unsigned char		*rptr;
 	size_t			 wpos;
 };
 
@@ -78,6 +78,7 @@ struct imsg {
 	void		*data;
 };
 
+struct iovec;
 
 /* buffer.c */
 struct ibuf	*ibuf_open(size_t);
@@ -100,12 +101,11 @@ int	 available_fds(unsigned int);
 void	 imsg_init(struct imsgbuf *, int);
 ssize_t	 imsg_read(struct imsgbuf *);
 ssize_t	 imsg_get(struct imsgbuf *, struct imsg *);
-int	 imsg_compose(struct imsgbuf *, uint32_t, uint32_t, pid_t,
-	    int, const void *, uint16_t);
-int	 imsg_composev(struct imsgbuf *, uint32_t, uint32_t,  pid_t,
-	    int, const struct iovec *, int);
-struct ibuf *imsg_create(struct imsgbuf *, uint32_t, uint32_t, pid_t,
-	    uint16_t);
+int	 imsg_compose(struct imsgbuf *, uint32_t, uint32_t, pid_t, int,
+	    const void *, uint16_t);
+int	 imsg_composev(struct imsgbuf *, uint32_t, uint32_t,  pid_t, int,
+	    const struct iovec *, int);
+struct ibuf *imsg_create(struct imsgbuf *, uint32_t, uint32_t, pid_t, uint16_t);
 int	 imsg_add(struct ibuf *, const void *, uint16_t);
 void	 imsg_close(struct imsgbuf *, struct ibuf *);
 void	 imsg_free(struct imsg *);

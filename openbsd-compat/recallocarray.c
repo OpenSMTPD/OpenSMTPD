@@ -1,4 +1,4 @@
-/*	$OpenBSD: recallocarray.c,v 1.1 2017/03/06 18:44:21 otto Exp $	*/
+/*	$OpenBSD: recallocarray.c,v 1.2 2021/03/18 11:16:58 claudio Exp $	*/
 /*
  * Copyright (c) 2008, 2017 Otto Moerbeek <otto@drijf.net>
  *

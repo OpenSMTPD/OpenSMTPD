@@ -1,4 +1,4 @@
-/*	$OpenBSD: daemon.c,v 1.6 2005/08/08 08:05:33 espie Exp $ */
+/*	$OpenBSD: daemon.c,v 1.8 2021/10/24 21:24:20 deraadt Exp $ */
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -68,12 +68,12 @@ daemon(int nochdir, int noclose)
 	if (!nochdir)
 		(void)chdir("/");
 
-	if (!noclose && (fd = open(_PATH_DEVNULL, O_RDWR, 0)) != -1) {
+	if (!noclose && (fd = open(_PATH_DEVNULL, O_RDWR)) != -1) {
 		(void)dup2(fd, STDIN_FILENO);
 		(void)dup2(fd, STDOUT_FILENO);
 		(void)dup2(fd, STDERR_FILENO);
 		if (fd > 2)
-			(void)close (fd);
+			(void)close(fd);
 	}
 	return (0);
 }

@@ -18,7 +18,7 @@
 
 #include "includes.h"
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -26,16 +26,13 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef HAVE_EXPLICIT_BZERO
-#include <strings.h>
-#endif
 #include <unistd.h>
 
 #include "imsg.h"
 
 int	 imsg_fd_overhead = 0;
 
-int	 imsg_get_fd(struct imsgbuf *);
+static int	 imsg_get_fd(struct imsgbuf *);
 
 int
 available_fds(unsigned int n)
@@ -65,7 +62,7 @@ void
 imsg_init(struct imsgbuf *ibuf, int fd)
 {
 	msgbuf_init(&ibuf->w);
-	bzero(&ibuf->r, sizeof(ibuf->r));
+	memset(&ibuf->r, 0, sizeof(ibuf->r));
 	ibuf->fd = fd;
 	ibuf->w.fd = fd;
 	ibuf->pid = getpid();
@@ -86,7 +83,8 @@ imsg_read(struct imsgbuf *ibuf)
 	int			 fd;
 	struct imsg_fd		*ifd;
 
-	bzero(&msg, sizeof(msg));
+	memset(&msg, 0, sizeof(msg));
+	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
 
 	iov.iov_base = ibuf->r.buf + ibuf->r.wpos;
 	iov.iov_len = sizeof(ibuf->r.buf) - ibuf->r.wpos;
@@ -105,13 +103,11 @@ again:
 		free(ifd);
 		return (-1);
 	}
-	
+
 	if ((n = recvmsg(ibuf->fd, &msg, 0)) == -1) {
-		if (errno == EMSGSIZE)
-			goto fail;
-		if (errno != EINTR && errno != EAGAIN)
-			goto fail;
-		goto again;
+		if (errno == EINTR)
+			goto again;
+		goto fail;
 	}
 
 	ibuf->r.wpos += n;
@@ -145,8 +141,7 @@ again:
 	}
 
 fail:
-	if (ifd)
-		free(ifd);
+	free(ifd);
 	return (n);
 }
 
@@ -170,7 +165,9 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 		return (0);
 	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
 	ibuf->r.rptr = ibuf->r.buf + IMSG_HEADER_SIZE;
-	if ((imsg->data = malloc(datalen)) == NULL)
+	if (datalen == 0)
+		imsg->data = NULL;
+	else if ((imsg->data = malloc(datalen)) == NULL)
 		return (-1);
 
 	if (imsg->hdr.flags & IMSGF_HASFD)
@@ -178,7 +175,8 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 	else
 		imsg->fd = -1;
 
-	memcpy(imsg->data, ibuf->r.rptr, datalen);
+	if (datalen != 0)
+		memcpy(imsg->data, ibuf->r.rptr, datalen);
 
 	if (imsg->hdr.len < av) {
 		left = av - imsg->hdr.len;
@@ -191,8 +189,8 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 }
 
 int
-imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
-    pid_t pid, int fd, const void *data, uint16_t datalen)
+imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
+    int fd, const void *data, uint16_t datalen)
 {
 	struct ibuf	*wbuf;
 
@@ -210,8 +208,8 @@ imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 }
 
 int
-imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
-    pid_t pid, int fd, const struct iovec *iov, int iovcnt)
+imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
+    int fd, const struct iovec *iov, int iovcnt)
 {
 	struct ibuf	*wbuf;
 	int		 i, datalen = 0;
@@ -233,10 +231,9 @@ imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 	return (1);
 }
 
-/* ARGSUSED */
 struct ibuf *
-imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
-    pid_t pid, uint16_t datalen)
+imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
+    uint16_t datalen)
 {
 	struct ibuf	*wbuf;
 	struct imsg_hdr	 hdr;
@@ -291,10 +288,10 @@ imsg_close(struct imsgbuf *ibuf, struct ibuf *msg)
 void
 imsg_free(struct imsg *imsg)
 {
-	free(imsg->data);
+	freezero(imsg->data, imsg->hdr.len - IMSG_HEADER_SIZE);
 }
 
-int
+static int
 imsg_get_fd(struct imsgbuf *ibuf)
 {
 	int		 fd;

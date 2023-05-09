@@ -1,8 +1,8 @@
-/*	$OpenBSD: inet_net_pton.c,v 1.8 2013/11/25 18:23:51 deraadt Exp $	*/
+/*	$OpenBSD: inet_net_pton.c,v 1.14 2022/12/27 17:10:06 jmc Exp $	*/
 
 /*
  * Copyright (c) 2012 by Gilles Chehade <gilles@openbsd.org>
- * Copyright (c) 1996 by Internet Software Consortium.
+ * Copyright (c) 1996,1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -92,9 +92,9 @@ inet_net_pton_ipv4(const char *src, u_char *dst, size_t size)
 	if (ch == '0' && (src[0] == 'x' || src[0] == 'X')
 	    && isascii((unsigned char)src[1]) && isxdigit((unsigned char)src[1])) {
 		/* Hexadecimal: Eat nybble string. */
-		if (size <= 0)
+		if (size == 0)
 			goto emsgsize;
-		*dst = 0, dirty = 0;
+		tmp = 0, dirty = 0;
 		src++;	/* skip x or X. */
 		while ((ch = (unsigned char)*src++) != '\0' &&
 		    isascii(ch) && isxdigit(ch)) {
@@ -102,16 +102,22 @@ inet_net_pton_ipv4(const char *src, u_char *dst, size_t size)
 				ch = tolower(ch);
 			n = strchr(xdigits, ch) - xdigits;
 			assert(n >= 0 && n <= 15);
-			*dst |= n;
-			if (!dirty++)
-				*dst <<= 4;
-			else if (size-- > 0)
-				*++dst = 0, dirty = 0;
+			if (dirty == 0)
+				tmp = n;
 			else
-				goto emsgsize;
+				tmp = (tmp << 4) | n;
+			if (++dirty == 2) {
+				if (size-- == 0)
+					goto emsgsize;
+				*dst++ = (u_char) tmp;
+				dirty = 0;
+			}
 		}
-		if (dirty)
-			size--;
+		if (dirty) {  /* Odd trailing nybble? */
+			if (size-- == 0)
+				goto emsgsize;
+			*dst++ = (u_char) (tmp << 4);
+		}
 	} else if (isascii(ch) && isdigit(ch)) {
 		/* Decimal: eat dotted digit string. */
 		for (;;) {
@@ -125,7 +131,7 @@ inet_net_pton_ipv4(const char *src, u_char *dst, size_t size)
 					goto enoent;
 			} while ((ch = (unsigned char)*src++) != '\0' &&
 				 isascii(ch) && isdigit(ch));
-			if (size-- <= 0)
+			if (size-- == 0)
 				goto emsgsize;
 			*dst++ = (u_char) tmp;
 			if (ch == '\0' || ch == '/')
@@ -158,7 +164,7 @@ inet_net_pton_ipv4(const char *src, u_char *dst, size_t size)
 			goto enoent;
 	}
 
-	/* Firey death and destruction unless we prefetched EOS. */
+	/* Fiery death and destruction unless we prefetched EOS. */
 	if (ch != '\0')
 		goto enoent;
 
@@ -183,7 +189,7 @@ inet_net_pton_ipv4(const char *src, u_char *dst, size_t size)
 	}
 	/* Extend network to cover the actual mask. */
 	while (bits > ((dst - odst) * 8)) {
-		if (size-- <= 0)
+		if (size-- == 0)
 			goto emsgsize;
 		*dst++ = '\0';
 	}
@@ -202,9 +208,11 @@ inet_net_pton_ipv4(const char *src, u_char *dst, size_t size)
 static int
 inet_net_pton_ipv6(const char *src, u_char *dst, size_t size)
 {
-	int	ret;
-	int	bits;
-	char	buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255:255:255:255/128")];
+	struct in6_addr	 in6;
+	int		 ret;
+	int		 bits;
+	size_t		 bytes;
+	char		 buf[INET6_ADDRSTRLEN + sizeof("/128")];
 	char		*sep;
 	const char	*errstr;
 
@@ -217,20 +225,27 @@ inet_net_pton_ipv6(const char *src, u_char *dst, size_t size)
 	if (sep != NULL)
 		*sep++ = '\0';
 
-	ret = inet_pton(AF_INET6, buf, dst);
+	ret = inet_pton(AF_INET6, buf, &in6);
 	if (ret != 1)
 		return (-1);
 
 	if (sep == NULL)
-		return 128;
-
-	bits = strtonum(sep, 0, 128, &errstr);
-	if (errstr) {
-		errno = EINVAL;
-		return (-1);
+		bits = 128;
+	else {
+		bits = strtonum(sep, 0, 128, &errstr);
+		if (errstr) {
+			errno = EINVAL;
+			return (-1);
+		}
 	}
 
-	return bits;
+	bytes = (bits + 7) / 8;
+	if (bytes > size) {
+		errno = EMSGSIZE;
+		return (-1);
+	}
+	memcpy(dst, &in6.s6_addr, bytes);
+	return (bits);
 }
 
 #endif
