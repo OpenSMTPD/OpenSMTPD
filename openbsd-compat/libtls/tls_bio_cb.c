@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_bio_cb.c,v 1.19 2017/01/12 16:18:39 jsing Exp $ */
+/* $OpenBSD: tls_bio_cb.c,v 1.20 2022/01/10 23:39:48 tb Exp $ */
 /*
  * Copyright (c) 2016 Tobias Pape <tobias@netshed.de>
  *
@@ -19,7 +19,6 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <openssl/bio.h>
@@ -34,16 +33,34 @@ static long bio_cb_ctrl(BIO *bio, int cmd, long num, void *ptr);
 
 static BIO_METHOD *bio_cb_method;
 
+static void
+bio_cb_method_init(void)
+{
+	BIO_METHOD *bio_method;
+
+	if (bio_cb_method != NULL)
+		return;
+
+	bio_method = BIO_meth_new(BIO_TYPE_MEM, "libtls_callbacks");
+	if (bio_method == NULL)
+		return;
+
+	BIO_meth_set_write(bio_method, bio_cb_write);
+	BIO_meth_set_read(bio_method, bio_cb_read);
+	BIO_meth_set_puts(bio_method, bio_cb_puts);
+	BIO_meth_set_ctrl(bio_method, bio_cb_ctrl);
+
+	bio_cb_method = bio_method;
+}
+
 static BIO_METHOD *
 bio_s_cb(void)
 {
-	if (bio_cb_method == NULL) {
-		bio_cb_method = BIO_meth_new(BIO_TYPE_MEM, "libtls_callbacks");
-		BIO_meth_set_write(bio_cb_method, bio_cb_write);
-		BIO_meth_set_read(bio_cb_method, bio_cb_read);
-		BIO_meth_set_puts(bio_cb_method, bio_cb_puts);
-		BIO_meth_set_ctrl(bio_cb_method, bio_cb_ctrl);
-	}
+	if (bio_cb_method != NULL)
+		return (bio_cb_method);
+
+	bio_cb_method_init();
+
 	return (bio_cb_method);
 }
 
@@ -60,10 +77,10 @@ bio_cb_ctrl(BIO *bio, int cmd, long num, void *ptr)
 
 	switch (cmd) {
 	case BIO_CTRL_GET_CLOSE:
-		ret = BIO_get_shutdown(bio);
+		ret = (long)BIO_get_shutdown(bio);
 		break;
 	case BIO_CTRL_SET_CLOSE:
-		BIO_set_shutdown(bio, num);
+		BIO_set_shutdown(bio, (int)num);
 		break;
 	case BIO_CTRL_DUP:
 	case BIO_CTRL_FLUSH:
@@ -118,8 +135,9 @@ int
 tls_set_cbs(struct tls *ctx, tls_read_cb read_cb, tls_write_cb write_cb,
     void *cb_arg)
 {
-	int rv = -1;
+	const BIO_METHOD *bio_cb;
 	BIO *bio;
+	int rv = -1;
 
 	if (read_cb == NULL || write_cb == NULL) {
 		tls_set_errorx(ctx, "no callbacks provided");
@@ -130,7 +148,11 @@ tls_set_cbs(struct tls *ctx, tls_read_cb read_cb, tls_write_cb write_cb,
 	ctx->write_cb = write_cb;
 	ctx->cb_arg = cb_arg;
 
-	if ((bio = BIO_new(bio_s_cb())) == NULL) {
+	if ((bio_cb = bio_s_cb()) == NULL) {
+		tls_set_errorx(ctx, "failed to create callback method");
+		goto err;
+	}
+	if ((bio = BIO_new(bio_cb)) == NULL) {
 		tls_set_errorx(ctx, "failed to create callback i/o");
 		goto err;
 	}

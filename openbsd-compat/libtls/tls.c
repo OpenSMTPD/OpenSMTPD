@@ -1,4 +1,4 @@
-/* $OpenBSD: tls.c,v 1.83 2019/04/01 15:58:02 jsing Exp $ */
+/* $OpenBSD: tls.c,v 1.94 2022/02/08 19:13:50 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <openssl/bio.h>
@@ -329,7 +328,7 @@ tls_keypair_to_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY **pke
 	char *mem;
 	size_t len;
 	int ret = -1;
-	
+
 	*pkey = NULL;
 
 	if (ctx->config->use_fake_private_key) {
@@ -339,24 +338,24 @@ tls_keypair_to_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY **pke
 		mem = keypair->key_mem;
 		len = keypair->key_len;
 	}
-	
+
 	if (mem == NULL)
 		return (0);
 
 	if (len > INT_MAX) {
 		tls_set_errorx(ctx, ctx->config->use_fake_private_key ?
 		    "cert too long" : "key too long");
-		               goto err;
+		goto err;
 	}
 
 	if ((bio = BIO_new_mem_buf(mem, len)) == NULL) {
 		tls_set_errorx(ctx, "failed to create buffer");
 		goto err;
 	}
-	
+
 	if (ctx->config->use_fake_private_key) {
 		if ((x509 = PEM_read_bio_X509(bio, NULL, tls_password_cb,
-			    NULL)) == NULL) {
+		    NULL)) == NULL) {
 			tls_set_errorx(ctx, "failed to read X509 certificate");
 			goto err;
 		}
@@ -366,14 +365,14 @@ tls_keypair_to_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY **pke
 		}
 	} else {
 		if ((*pkey = PEM_read_bio_PrivateKey(bio, NULL, tls_password_cb,
-			    NULL)) ==  NULL) {
+		    NULL)) ==  NULL) {
 			tls_set_errorx(ctx, "failed to read private key");
 			goto err;
 		}
 	}
 
 	ret = 0;
-err:
+ err:
 	BIO_free(bio);
 	X509_free(x509);
 	return (ret);
@@ -399,7 +398,7 @@ tls_keypair_setup_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY *p
 	case EVP_PKEY_RSA:
 		if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL ||
 		    RSA_set_ex_data(rsa, 0, keypair->pubkey_hash) == 0) {
-			tls_set_errorx(ctx, "failed to setup RSA key");
+			tls_set_errorx(ctx, "RSA key setup failure");
 			goto err;
 		}
 		break;
@@ -407,13 +406,13 @@ tls_keypair_setup_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY *p
 #if defined(SUPPORT_ECDSA)
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) == NULL ||
 		    ECDSA_set_ex_data(eckey, 0, keypair->pubkey_hash) == 0) {
-			tls_set_errorx(ctx, "failed to setup EC key");
+			tls_set_errorx(ctx, "EC key setup failure");
 			goto err;
 		}
 #else
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) == NULL ||
 		    EC_KEY_set_ex_data(eckey, 0, keypair->pubkey_hash) == 0) {
-			tls_set_errorx(ctx, "failed to setup EC key");
+			tls_set_errorx(ctx, "EC key setup failure");
 			goto err;
 		}
 #endif
@@ -425,7 +424,7 @@ tls_keypair_setup_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY *p
 
 	ret = 0;
 
-err:
+ err:
 	RSA_free(rsa);
 	EC_KEY_free(eckey);
 	return (ret);
@@ -632,9 +631,8 @@ tls_configure_ssl_verify(struct tls *ctx, SSL_CTX *ssl_ctx, int verify)
 				tls_set_error(ctx, "failed to add crl");
 				goto err;
 			}
-			xi->crl = NULL;
 		}
-		X509_VERIFY_PARAM_set_flags(X509_STORE_get0_param(store),
+		X509_STORE_set_flags(store,
 		    X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
 	}
 
@@ -750,7 +748,7 @@ tls_ssl_error(struct tls *ctx, SSL *ssl_conn, int ssl_ret, const char *prefix)
 	case SSL_ERROR_WANT_ACCEPT:
 	case SSL_ERROR_WANT_X509_LOOKUP:
 	default:
-		tls_set_ssl_errorx(ctx, "%s failed (%i)", prefix, ssl_err);
+		tls_set_ssl_errorx(ctx, "%s failed (%d)", prefix, ssl_err);
 		return (-1);
 	}
 }
