@@ -58,6 +58,8 @@ tls_do_init(void)
 int
 tls_init(void)
 {
+	if (tls_init_rv == -1)
+		tls_do_init();
 	return tls_init_rv;
 }
 
