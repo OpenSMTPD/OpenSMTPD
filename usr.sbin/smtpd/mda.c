@@ -524,7 +524,7 @@ mda_getlastline(int fd, char *dst, size_t dstsz)
 	ssize_t	 len;
 	int	 out = 0;
 
-	if (lseek(fd, 0, SEEK_SET) < 0) {
+	if (lseek(fd, 0, SEEK_SET) == -1) {
 		log_warn("warn: mda: lseek");
 		close(fd);
 		return (-1);

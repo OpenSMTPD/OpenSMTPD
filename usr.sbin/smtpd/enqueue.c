@@ -554,12 +554,12 @@ build_from(char *fake_from, struct passwd *pw)
 			    apos, pw->pw_gecos,
 			    pw->pw_name,
 			    len - apos - 1, p + 1) == -1)
-				err(1, "asprintf");
+				err(1, NULL);
 			msg.fromname[apos] = toupper((unsigned char)msg.fromname[apos]);
 		} else {
 			if (asprintf(&msg.fromname, "%.*s", len,
 			    pw->pw_gecos) == -1)
-				err(1, "asprintf");
+				err(1, NULL);
 		}
 	}
 }
