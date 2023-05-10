@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.68 2021/06/14 17:58:15 eric Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.69 2023/05/10 07:20:20 op Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -1383,8 +1383,9 @@ report_smtp_broadcast(uint64_t reqid, const char *direction, struct timeval *tv,
 		va_start(ap, format);
 		if (io_printf(lka_proc_get_io(rp->name),
 		    "report|%s|%lld.%06ld|%s|%s|%016"PRIx64"%s",
-		    PROTOCOL_VERSION, (long long int)tv->tv_sec, tv->tv_usec, direction,
-		    event, reqid, format[0] != '\n' ? "|" : "") == -1 ||
+		    PROTOCOL_VERSION, (long long int)tv->tv_sec, tv->tv_usec,
+		    direction, event, reqid,
+		    format[0] != '\n' ? "|" : "") == -1 ||
 		    io_vprintf(lka_proc_get_io(rp->name), format, ap) == -1)
 			fatalx("failed to write to processor");
 		va_end(ap);
