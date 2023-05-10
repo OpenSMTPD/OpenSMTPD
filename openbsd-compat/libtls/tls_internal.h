@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_internal.h,v 1.74 2019/04/01 15:58:02 jsing Exp $ */
+/* $OpenBSD: tls_internal.h,v 1.81 2023/04/09 18:26:26 tb Exp $ */
 /*
  * Copyright (c) 2014 Jeremie Courreges-Anglas <jca@openbsd.org>
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
@@ -25,7 +25,7 @@
 #include <openssl/ssl.h>
 
 #ifndef TLS_DEFAULT_CA_FILE
-#define	TLS_DEFAULT_CA_FILE	"/etc/ssl/cert.pem"
+#define TLS_DEFAULT_CA_FILE 	"/etc/ssl/cert.pem"
 #endif
 
 #define TLS_CIPHERS_DEFAULT	"TLSv1.3:TLSv1.2+AEAD+ECDHE:TLSv1.2+AEAD+DHE"

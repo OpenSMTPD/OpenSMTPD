@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_config.c,v 1.56 2019/04/04 15:09:09 jsing Exp $ */
+/* $OpenBSD: tls_config.c,v 1.65 2022/01/25 21:51:24 eric Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <tls.h>
@@ -717,7 +716,7 @@ tls_config_set_session_fd(struct tls_config *config, int session_fd)
 
 	if (sb.st_uid != getuid()) {
 		tls_config_set_errorx(config, "session file has incorrect "
-		    "owner (uid %i != %i)", sb.st_uid, getuid());
+		    "owner (uid %u != %u)", sb.st_uid, getuid());
 		return (-1);
 	}
 	mugo = sb.st_mode & (S_IRWXU|S_IRWXG|S_IRWXO);
