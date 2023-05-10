@@ -22,13 +22,6 @@
 extern "C" {
 #endif
 
-#ifdef _MSC_VER
-#ifndef LIBRESSL_INTERNAL
-#include <basetsd.h>
-typedef SSIZE_T ssize_t;
-#endif
-#endif
-
 #include <sys/types.h>
 
 #include <stddef.h>
