@@ -64,8 +64,8 @@ mda_unpriv(struct dispatcher *dsp, struct deliver *deliver,
 	xasprintf(&mda_environ[idx++], "RECIPIENT=%s@%s", deliver->dest.user, deliver->dest.domain);
 	xasprintf(&mda_environ[idx++], "SHELL=/bin/sh");
 	xasprintf(&mda_environ[idx++], "LOCAL=%s", deliver->rcpt.user);
-	xasprintf(&mda_environ[idx++], "LOGNAME=%s", pw_name);
-	xasprintf(&mda_environ[idx++], "USER=%s", pw_name);
+	xasprintf(&mda_environ[idx++], "LOGNAME=%s", deliver->userinfo.username);
+	xasprintf(&mda_environ[idx++], "USER=%s", deliver->userinfo.username);
 
 	if (deliver->sender.user[0])
 		xasprintf(&mda_environ[idx++], "SENDER=%s@%s",
