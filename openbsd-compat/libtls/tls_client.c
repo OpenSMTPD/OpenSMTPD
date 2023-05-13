@@ -27,6 +27,7 @@
 #include <limits.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <openssl/err.h>

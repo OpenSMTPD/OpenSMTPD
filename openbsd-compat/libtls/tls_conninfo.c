@@ -19,6 +19,7 @@
 #include "includes.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include <openssl/x509.h>
 

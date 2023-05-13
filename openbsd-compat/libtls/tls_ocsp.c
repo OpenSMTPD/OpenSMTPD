@@ -23,6 +23,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <string.h>
+
 #include <openssl/err.h>
 #include <openssl/ocsp.h>
 #include <openssl/x509.h>

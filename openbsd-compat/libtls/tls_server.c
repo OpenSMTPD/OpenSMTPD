@@ -21,6 +21,8 @@
 
 #include <arpa/inet.h>
 
+#include <string.h>
+
 #include <openssl/asn1.h>
 #include <openssl/ec.h>
 #include <openssl/err.h>
