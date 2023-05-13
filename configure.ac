@@ -197,13 +197,6 @@ AC_CHECK_HEADER([asr.h],
 ])
 AM_CONDITIONAL([NEED_LIBASR], [test x"$need_libasr" = x"yes"])
 
-need_libtls=no
-AC_CHECK_HEADER([tls.h],
-	[],
-	[need_libtls=yes],
-	[])
-AM_CONDITIONAL([NEED_LIBTLS], [test x"$need_libtls" = x"yes"])
-
 #
 # CHECKS FOR TYPES
 #
@@ -582,12 +575,18 @@ AC_SEARCH_LIBS([event_asr_run],
 			[Define if you have the event_asr_run() function.])
 	])
 
-AC_SEARCH_LIBS([tls_config_set_ciphers],
-	[tls],
-	[
+need_libtls=yes
+AC_ARG_WITH([bundled-libtls],
+	AS_HELP_STRING([--with-bundled-libtls], [use bundled libtls]),
+	[], [with_bundled_libtls=no])
+AS_IF([test "x$with_bundled_libtls" != xno], [],
+	[AC_SEARCH_LIBS([tls_config_set_ciphers], [tls], [
+		need_libtls=no
 		AC_DEFINE([HAVE_TLS_CONFIG_SET_CIPHERS], [1],
 			[Define if you have the tls_config_set_ciphers() function.])
-	])
+	], [])])
+
+AM_CONDITIONAL([NEED_LIBTLS], [test x"$need_libtls" = x"yes"])
 
 AC_CHECK_FUNCS([ \
 	asprintf \
