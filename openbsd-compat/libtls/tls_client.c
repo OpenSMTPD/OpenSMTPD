@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_client.c,v 1.48 2021/10/21 08:38:11 tb Exp $ */
+/* $OpenBSD: tls_client.c,v 1.49 2023/05/14 07:26:25 op Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
