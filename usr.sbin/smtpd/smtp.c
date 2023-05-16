@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp.c,v 1.173 2022/02/18 16:57:36 millert Exp $	*/
+/*	$OpenBSD: smtp.c,v 1.174 2023/05/16 17:48:52 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -199,14 +199,14 @@ smtp_setup_listener_tls(struct listener *l)
 	if (l->tls_ciphers)
 		ciphers = l->tls_ciphers;
 	if (ciphers && tls_config_set_ciphers(config, ciphers) == -1)
-		fatal("%s", tls_config_error(config));
+		fatalx("%s", tls_config_error(config));
 
 	if (l->tls_protocols) {
 		if (tls_config_parse_protocols(&protos, l->tls_protocols) == -1)
-			fatal("failed to parse protocols \"%s\"",
+			fatalx("failed to parse protocols \"%s\"",
 			    l->tls_protocols);
 		if (tls_config_set_protocols(config, protos) == -1)
-			fatal("%s", tls_config_error(config));
+			fatalx("%s", tls_config_error(config));
 	}
 
 	pki = l->pki[0];
@@ -214,7 +214,8 @@ smtp_setup_listener_tls(struct listener *l)
 		fatal("no pki defined");
 
 	if (tls_config_set_dheparams(config, dheparams[pki->pki_dhe]) == -1)
-		fatal("tls_config_set_dheparams");
+		fatalx("tls_config_set_dheparams: %s",
+		    tls_config_error(config));
 
 	tls_config_use_fake_private_key(config);
 	for (i = 0; i < l->pkicount; i++) {
@@ -222,11 +223,13 @@ smtp_setup_listener_tls(struct listener *l)
 		if (i == 0) {
 			if (tls_config_set_keypair_mem(config, pki->pki_cert,
 			    pki->pki_cert_len, NULL, 0) == -1)
-				fatal("tls_config_set_keypair_mem");
+				fatalx("tls_config_set_keypair_mem: %s",
+				    tls_config_error(config));
 		} else {
 			if (tls_config_add_keypair_mem(config, pki->pki_cert,
 			    pki->pki_cert_len, NULL, 0) == -1)
-				fatal("tls_config_add_keypair_mem");
+				fatalx("tls_config_add_keypair_mem: %s",
+				    tls_config_error(config));
 		}
 	}
 	free(l->pki);
@@ -236,7 +239,8 @@ smtp_setup_listener_tls(struct listener *l)
 		ca = dict_get(env->sc_ca_dict, l->ca_name);
 		if (tls_config_set_ca_mem(config, ca->ca_cert, ca->ca_cert_len)
 		    == -1)
-			fatal("tls_config_set_ca_mem");
+			fatalx("tls_config_set_ca_mem: %s",
+			    tls_config_error(config));
 	}
 	else if (tls_config_set_ca_file(config, tls_default_ca_cert_file())
 	    == -1)
@@ -249,7 +253,7 @@ smtp_setup_listener_tls(struct listener *l)
 	if (l->tls == NULL)
 		fatal("tls_server");
 	if (tls_configure(l->tls, config) == -1) {
-		fatal("tls_configure: %s", tls_error(l->tls));
+		fatalx("tls_configure: %s", tls_error(l->tls));
 	}
 	tls_config_free(config);
 }
