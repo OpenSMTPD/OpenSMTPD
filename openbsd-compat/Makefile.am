@@ -38,8 +38,6 @@ libopenbsd_a_SOURCES += libtls/by_mem.c
 libopenbsd_a_SOURCES += libtls/openssl.c
 endif
 
-
-
 if NEED_PROGNAME
 libopenbsd_a_SOURCES +=	progname.c
 endif
@@ -229,28 +227,26 @@ if NEED_WAITPID
 libopenbsd_a_SOURCES +=	bsd-waitpid.c
 endif
 
-
-
-EXTRA_DIST =	base64.h
-EXTRA_DIST +=	bsd-misc.h
-EXTRA_DIST +=	bsd-waitpid.h
-EXTRA_DIST +=	chacha_private.h
-EXTRA_DIST +=	defines.h
-EXTRA_DIST +=	imsg.h
-EXTRA_DIST +=	includes.h
-EXTRA_DIST +=	$(top_srcdir)/usr.sbin/smtpd/log.h
-EXTRA_DIST +=	openbsd-compat.h
-EXTRA_DIST +=	sys/queue.h
-EXTRA_DIST +=	sys/tree.h
-EXTRA_DIST +=	bsd-vis.h
-
-if NEED_LIBASR
-EXTRA_DIST +=		libasr/asr_compat.h
-EXTRA_DIST +=		libasr/asr_private.h
-EXTRA_DIST +=		libasr/asr.h
-EXTRA_DIST +=		libasr/thread_private.h
-endif
-
+EXTRA_DIST =	NOTES				\
+		base64.h			\
+		bsd-misc.h			\
+		bsd-vis.h			\
+		bsd-waitpid.h			\
+		chacha_private.h		\
+		defines.h			\
+		err_h/err.h			\
+		imsg.h				\
+		includes.h			\
+		libasr/asr.h			\
+		libasr/asr_compat.h		\
+		libasr/asr_private.h		\
+		libasr/thread_private.h		\
+		libtls/tls.h			\
+		libtls/tls_internal.h		\
+		openbsd-compat.h		\
+		paths_h/paths.h			\
+		sys/queue.h			\
+		sys/tree.h
 
 if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
