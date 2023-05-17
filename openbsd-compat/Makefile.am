@@ -148,7 +148,7 @@ libopenbsd_a_SOURCES +=	res_hnok.c
 endif
 
 if NEED_RES_RANDOMID
-libopenbsd_a_SOURCES +=	res_randomid.c
+libopenbsd_a_SOURCES +=	res_random.c
 endif
 
 if NEED_SETPROCTITLE

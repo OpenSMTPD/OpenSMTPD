@@ -31,7 +31,7 @@ pidfile.c		/usr/src/lib/libutil/pidfile.c
 reallocarray.c		/usr/src/lib/libc/stdlib/reallocarray.c
 recallocarray.c		/usr/src/lib/libc/stdlib/recallocarray.c
 res_hok.c		part of /usr/src/lib/libc/net/res_comp.c
-res_randomid.c		musl ?
+res_random.c		/usr/src/lib/libc/net/res_random.c
 setegid.c		portable openssh bsd-misc.c
 seteuid.c		portable openssh bsd-misc.c
 setproctitle.c		portable openssh
