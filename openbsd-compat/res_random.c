@@ -59,6 +59,8 @@
  * custom 15 bit Luby-Rackoff block cipher.
  */
 
+#include "includes.h"
+
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/time.h>
@@ -67,8 +69,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "thread_private.h"
+#include <time.h>
 
 #define RU_OUT  	180	/* Time after which will be reseeded */
 #define RU_MAX		30000	/* Uniq cycle, avoid blackjack prediction */
@@ -219,23 +220,20 @@ res_initid(void)
 	if (ru_prf != NULL)
 		arc4random_buf(ru_prf, sizeof(*ru_prf));
 
-	WRAP(clock_gettime)(CLOCK_MONOTONIC, &ts);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	ru_reseed = ts.tv_sec + RU_OUT;
 	ru_msb = ru_msb == 0x8000 ? 0 : 0x8000; 
 }
 
 u_int
-__res_randomid(void)
+res_randomid(void)
 {
 	struct timespec ts;
 	pid_t pid;
 	u_int r;
-	static void *randomid_mutex;
 
-	WRAP(clock_gettime)(CLOCK_MONOTONIC, &ts);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	pid = getpid();
-
-	_MUTEX_LOCK(&randomid_mutex);
 
 	if (ru_counter >= RU_MAX || ts.tv_sec > ru_reseed || pid != ru_pid) {
 		res_initid();
@@ -248,11 +246,8 @@ __res_randomid(void)
 
 	r = permute15(ru_seed ^ pmod(ru_g, ru_seed2 + ru_x, RU_N)) | ru_msb;
 
-	_MUTEX_UNLOCK(&randomid_mutex);
-
 	return (r);
 }
-DEF_STRONG(__res_randomid);
 
 #if 0
 int
