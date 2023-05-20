@@ -555,6 +555,13 @@ AC_SEARCH_LIBS([setsockopt],
 			[Define if you have the setsockopt() function.])
 	])
 
+AC_SEARCH_LIBS([crypt],
+	[crypt],
+	[
+		AC_DEFINE([HAVE_CRYPT], [1],
+			[Define if you have the crypt() function.])
+	])
+
 AC_SEARCH_LIBS([crypt_gensalt],
 	[crypt],
 	[
