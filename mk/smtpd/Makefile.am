@@ -86,7 +86,6 @@ smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/stat_ramstat.c
 
 
 smtpd_CFLAGS=		-DIO_TLS
-smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
 AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(compat_srcdir)

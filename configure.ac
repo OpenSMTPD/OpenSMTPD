@@ -1393,16 +1393,6 @@ AC_ARG_WITH([path-pidfile],
 AC_DEFINE_UNQUOTED([SMTPD_PIDDIR], ["$piddir"], [Specify location of smtpd.pid])
 AC_SUBST([piddir])
 
-CA_FILE=/etc/ssl/cert.pem
-AC_ARG_WITH([path-CAfile],
-	[  --with-path-CAfile=FILE	Specify path to CA certificate (default=/etc/ssl/cert.pem)],
-	[
-		if test -n "$withval" -a "$withval" != "no" -a "${withval}" != "yes"; then
-			CA_FILE=$withval
-		fi
-	]
-)
-AC_SUBST([CA_FILE])
 
 
 
