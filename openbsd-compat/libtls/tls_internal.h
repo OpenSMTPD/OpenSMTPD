@@ -24,10 +24,6 @@
 
 #include <openssl/ssl.h>
 
-#ifndef TLS_DEFAULT_CA_FILE
-#define TLS_DEFAULT_CA_FILE 	"/etc/ssl/cert.pem"
-#endif
-
 #define TLS_CIPHERS_DEFAULT	TLS_CIPHERS_COMPAT
 #define TLS_CIPHERS_COMPAT	"HIGH:!aNULL"
 #define TLS_CIPHERS_LEGACY	"HIGH:MEDIUM:!aNULL"

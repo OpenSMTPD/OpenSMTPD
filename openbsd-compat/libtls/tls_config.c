@@ -30,12 +30,10 @@
 
 #include "tls_internal.h"
 
-static const char default_ca_file[] = TLS_DEFAULT_CA_FILE;
-
 const char *
 tls_default_ca_cert_file(void)
 {
-	return default_ca_file;
+	return X509_get_default_cert_file();
 }
 
 int
