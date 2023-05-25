@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <event.h>
+#include <grp.h> /* needed for setgroups */
 #include <imsg.h>
 #include <inttypes.h>
 #include <pwd.h>
