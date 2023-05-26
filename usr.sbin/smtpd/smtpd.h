@@ -18,6 +18,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/time.h>
 #include <event.h>
 
 #include			 <imsg.h>

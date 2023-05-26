@@ -69,6 +69,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <time.h>
 #include <tls.h>
 #include <unistd.h>
 #ifdef HAVE_UTIL_H
