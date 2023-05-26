@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #if IO_TLS
 #include <tls.h>
 #endif

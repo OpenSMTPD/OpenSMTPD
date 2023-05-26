@@ -34,6 +34,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <tls.h>
 #include <unistd.h>
 #if defined(HAVE_VIS_H) && !defined(BROKEN_STRNVIS)

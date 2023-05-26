@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <time.h>
 #include <unistd.h>
 #include <limits.h>
 #if defined(HAVE_VIS_H) && !defined(BROKEN_STRNVIS)
