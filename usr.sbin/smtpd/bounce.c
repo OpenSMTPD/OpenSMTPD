@@ -546,8 +546,8 @@ bounce_next(struct bounce_session *s)
 			if ((len = getline(&line, &sz, s->msgfp)) == -1)
 				break;
 			if (len == 1 && line[0] == '\n' && /* end of headers */
-			    (s->msg->bounce.type != B_FAILED ||
-			    s->msg->bounce.dsn_ret != DSN_RETFULL)) {
+			    s->msg->bounce.type == B_DELIVERED &&
+			    s->msg->bounce.dsn_ret ==  DSN_RETHDRS) {
 				free(line);
 				fclose(s->msgfp);
 				s->msgfp = NULL;
