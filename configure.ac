@@ -1852,6 +1852,16 @@ AC_TRY_LINK_FUNC([SSL_CTX_use_certificate_chain_mem],
 	[ AC_MSG_RESULT([no])]
 )
 
+AC_MSG_CHECKING([whether SSL_CTX_load_verify_mem is available])
+AC_TRY_LINK_FUNC([SSL_CTX_load_verify_mem],
+	[
+		AC_DEFINE([HAVE_SSL_CTX_LOAD_VERIFY_MEM], [1],
+			[Define if SSL_CTX_load_verify_mem exists in libssl])
+		AC_MSG_RESULT([yes])
+	],
+	[ AC_MSG_RESULT([no])]
+)
+
 LIBS="-lcrypto -lssl $LIBS"
 AC_MSG_CHECKING([whether ECDSA is available])
 AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],

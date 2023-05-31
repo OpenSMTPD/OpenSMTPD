@@ -293,4 +293,8 @@ int ASN1_time_parse(const char *bytes, size_t len, struct tm *tm, int mode);
 int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
 #endif
 
+#ifndef HAVE_SSL_CTX_LOAD_VERIFY_MEM
+int SSL_CTX_load_verify_mem(SSL_CTX *, void *, int);
+#endif
+
 #endif /* HEADER_TLS_INTERNAL_H */
