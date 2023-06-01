@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send_async.c,v 1.39 2019/09/28 11:21:07 eric Exp $	*/
+/*	$OpenBSD: res_send_async.c,v 1.41 2022/06/20 06:45:31 jca Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -47,6 +47,9 @@ static int udp_recv(struct asr_query *);
 static int tcp_write(struct asr_query *);
 static int tcp_read(struct asr_query *);
 static int validate_packet(struct asr_query *);
+#ifdef RES_TRUSTAD
+static void clear_ad(struct asr_result *);
+#endif
 static int setup_query(struct asr_query *, const char *, const char *, int, int);
 static int ensure_ibuf(struct asr_query *, size_t);
 static int iter_ns(struct asr_query *);
@@ -133,8 +136,8 @@ _res_query_async_ctx(const char *name, int class, int type, struct asr_ctx *a_ct
 		return (NULL); /* errno set */
 	as->as_run = res_send_async_run;
 
-	/* This adds a "." to name if it doesn't already has one.
-	 * That's how res_query() behaves (through res_mkquery").
+	/* This adds a "." to name if it doesn't already have one.
+	 * That's how res_query() behaves (through res_mkquery).
 	 */
 	if (setup_query(as, name, NULL, class, type) == -1)
 		goto err; /* errno set */
@@ -263,6 +266,10 @@ res_send_async_run(struct asr_query *as, struct asr_result *ar)
 		as->as.dns.ibuf = NULL;
 		ar->ar_errno = 0;
 		ar->ar_rcode = as->as.dns.rcode;
+#ifdef RES_TRUSTAD
+		if (!(as->as_ctx->ac_options & RES_TRUSTAD))
+			clear_ad(ar);
+#endif
 		async_set_state(as, ASR_STATE_HALT);
 		break;
 
@@ -392,6 +399,11 @@ setup_query(struct asr_query *as, const char *name, const char *dom,
 	if (as->as_ctx->ac_options & RES_USE_CD)
 		h.flags |= CD_MASK;
 #endif
+#ifdef RES_TRUSTAD
+	if (as->as_ctx->ac_options & RES_TRUSTAD)
+		h.flags |= AD_MASK;
+#endif
+
 	h.qdcount = 1;
 	if (as->as_ctx->ac_options & (RES_USE_EDNS0 | RES_USE_DNSSEC))
 		h.arcount = 1;
@@ -775,6 +787,23 @@ validate_packet(struct asr_query *as)
 	errno = EINVAL;
 	return (-1);
 }
+
+#ifdef RES_TRUSTAD
+/*
+ * Clear AD flag in the answer.
+ */
+static void
+clear_ad(struct asr_result *ar)
+{
+	struct asr_dns_header	*h;
+	uint16_t		 flags;
+
+	h = (struct asr_dns_header *)ar->ar_data;
+	flags = ntohs(h->flags);
+	flags &= ~(AD_MASK);
+	h->flags = htons(flags);
+}
+#endif
 
 /*
  * Set the async context nameserver index to the next nameserver, cycling

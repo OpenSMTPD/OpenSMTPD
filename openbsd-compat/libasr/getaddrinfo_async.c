@@ -1,4 +1,4 @@
-/*	$OpenBSD: getaddrinfo_async.c,v 1.56 2018/11/03 09:13:24 eric Exp $	*/
+/*	$OpenBSD: getaddrinfo_async.c,v 1.59 2022/12/27 17:10:06 jmc Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -292,6 +292,13 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			break;
 		}
 
+		/* make sure there are no funny characters in hostname */
+		if (!hnok_lenient(as->as.ai.hostname)) {
+			ar->ar_gai_errno = EAI_FAIL;
+			async_set_state(as, ASR_STATE_HALT);
+			break;
+		}
+
 		async_set_state(as, ASR_STATE_NEXT_DB);
 		break;
 
@@ -470,7 +477,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 }
 
 /*
- * Retreive the port number for the service name "servname" and
+ * Retrieve the port number for the service name "servname" and
  * the protocol "proto".
  */
 static int

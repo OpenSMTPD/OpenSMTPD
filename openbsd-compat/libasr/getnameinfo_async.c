@@ -1,4 +1,4 @@
-/*	$OpenBSD: getnameinfo_async.c,v 1.14 2019/07/03 03:24:03 deraadt Exp $	*/
+/*	$OpenBSD: getnameinfo_async.c,v 1.15 2020/12/21 09:40:35 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -235,7 +235,7 @@ _servname(struct asr_query *as)
 #endif
 #ifdef HAVE_GETSERVBYPORT_R_4_ARGS
 		r = getservbyport_r(port, (as->as.ni.flags & NI_DGRAM) ?
-			"udp" : "tcp", &s, &sd);
+		    "udp" : "tcp", &s, &sd);
 #else
 		r = -1;
 #endif

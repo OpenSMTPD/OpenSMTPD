@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr.c,v 1.61 2018/10/22 17:31:24 krw Exp $	*/
+/*	$OpenBSD: asr.c,v 1.68 2022/01/20 14:18:10 naddy Exp $	*/
 /*
  * Copyright (c) 2010-2012 Eric Faurot <eric@openbsd.org>
  *
@@ -116,11 +116,15 @@ _asr_resolver(void)
 void
 _asr_resolver_done(void *arg)
 {
-	struct asr *asr = arg;
+	struct asr_ctx *ac = arg;
+	struct asr *asr;
 	struct asr **priv;
 
-	if (asr == NULL) {
-		priv = _THREAD_PRIVATE(_asr, _asr, &_asr);
+	if (ac) {
+		_asr_ctx_unref(ac);
+		return;
+	} else {
+		priv = _THREAD_PRIVATE_DT(_asr, _asr, NULL, &_asr);
 		if (*priv == NULL)
 			return;
 		asr = *priv;
@@ -129,6 +133,43 @@ _asr_resolver_done(void *arg)
 
 	_asr_ctx_unref(asr->a_ctx);
 	free(asr);
+}
+
+static void
+_asr_resolver_done_tp(void *arg)
+{
+	struct asr **priv = arg;
+	struct asr *asr;
+
+	if (*priv == NULL)
+		return;
+	asr = *priv;
+
+	_asr_ctx_unref(asr->a_ctx);
+	free(asr);
+	free(priv);
+}
+
+void *
+asr_resolver_from_string(const char *str)
+{
+	struct asr_ctx *ac;
+
+	if ((ac = asr_ctx_create()) == NULL)
+		return NULL;
+
+	if (asr_ctx_from_string(ac, str) == -1) {
+		asr_ctx_free(ac);
+		return NULL;
+	}
+
+	return ac;
+}
+
+void
+asr_resolver_free(void *arg)
+{
+	_asr_ctx_unref(arg);
 }
 
 /*
@@ -318,12 +359,18 @@ _asr_async_free(struct asr_query *as)
 struct asr_ctx *
 _asr_use_resolver(void *arg)
 {
-	struct asr *asr = arg;
+	struct asr_ctx *ac = arg;
+	struct asr *asr;
 	struct asr **priv;
 
-	if (asr == NULL) {
+	if (ac) {
+		asr_ctx_ref(ac);
+		return ac;
+	}
+	else {
 		DPRINT("using thread-local resolver\n");
-		priv = _THREAD_PRIVATE(_asr, _asr, &_asr);
+		priv = _THREAD_PRIVATE_DT(_asr, _asr, _asr_resolver_done_tp,
+		    &_asr);
 		if (*priv == NULL) {
 			DPRINT("setting up thread-local resolver\n");
 			*priv = _asr_resolver();
@@ -488,13 +535,8 @@ asr_ctx_create(void)
 	ac->ac_options = RES_RECURSE | RES_DEFNAMES | RES_DNSRCH;
 	ac->ac_refcount = 1;
 	ac->ac_ndots = 1;
-#ifndef ASR_IPV4_BEFORE_IPV6
-	ac->ac_family[0] = AF_INET6;
-	ac->ac_family[1] = AF_INET;
-#else
 	ac->ac_family[0] = AF_INET;
 	ac->ac_family[1] = AF_INET6;
-#endif
 	ac->ac_family[2] = -1;
 
 	ac->ac_nscount = 0;
@@ -624,7 +666,12 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 				d = strtonum(tok[i] + 6, 1, 16, &e);
 				if (e == NULL)
 					ac->ac_ndots = d;
-			}
+			} else if (!strcmp(tok[i], "trust-ad"))
+#ifdef RES_TRUSTAD
+				ac->ac_options |= RES_TRUSTAD;
+#else
+				/* nop */ ;
+#endif
 		}
 	}
 }
@@ -635,7 +682,10 @@ pass0(char **tok, int n, struct asr_ctx *ac)
 static int
 asr_ctx_from_string(struct asr_ctx *ac, const char *str)
 {
-	char		 buf[512], *ch;
+	struct sockaddr_in6	*sin6;
+	struct sockaddr_in	*sin;
+	int			 i, trustad;
+	char			 buf[512], *ch;
 
 	asr_ctx_parse(ac, str);
 
@@ -664,6 +714,31 @@ asr_ctx_from_string(struct asr_ctx *ac, const char *str)
 			if (ch && asr_ndots(++ch) == 0)
 				break;
 		}
+
+	trustad = 1;
+	for (i = 0; i < ac->ac_nscount && trustad; i++) {
+		switch (ac->ac_ns[i]->sa_family) {
+		case AF_INET:
+			sin = (struct sockaddr_in *)ac->ac_ns[i];
+			if (sin->sin_addr.s_addr != htonl(INADDR_LOOPBACK))
+				trustad = 0;
+			break;
+		case AF_INET6:
+			sin6 = (struct sockaddr_in6 *)ac->ac_ns[i];
+			if (!IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+				trustad = 0;
+			break;
+		default:
+			trustad = 0;
+			break;
+		}
+	}
+	if (trustad)
+#ifdef RES_TRUSTAD
+		ac->ac_options |= RES_TRUSTAD;
+#else
+		/* nop */ ;
+#endif
 
 	return (0);
 }
