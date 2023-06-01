@@ -236,11 +236,11 @@ _servname(struct asr_query *as)
 #ifdef HAVE_GETSERVBYPORT_R_4_ARGS
 		r = getservbyport_r(port, (as->as.ni.flags & NI_DGRAM) ?
 		    "udp" : "tcp", &s, &sd);
+		if (r == 0)
+			n = strlcpy(buf, s.s_name, buflen);
 #else
 		r = -1;
 #endif
-		if (r == 0)
-			n = strlcpy(buf, s.s_name, buflen);
 #ifdef HAVE_ENDSERVENT_R
 		endservent_r(&sd);
 #endif
