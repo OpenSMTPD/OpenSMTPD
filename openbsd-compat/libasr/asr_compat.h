@@ -29,6 +29,13 @@
 #endif
 
 /*
+ * sys/socket.h
+ */
+#ifndef SOCK_DNS
+#define SOCK_DNS 0
+#endif
+
+/*
  * netdb.h
  */
 #ifndef NETDB_SUCCESS
