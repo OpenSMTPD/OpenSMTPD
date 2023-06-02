@@ -158,11 +158,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 		    ai->ai_canonname ||
 		    ai->ai_addr ||
 		    ai->ai_next) {
-#ifdef EAI_BADHINTS
 			ar->ar_gai_errno = EAI_BADHINTS;
-#else
-			ar->ar_gai_errno = EAI_FAIL;
-#endif
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
@@ -215,11 +211,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			    MATCH_PROTO(ai->ai_protocol, i))
 				break;
 		if (matches[i].family == -1) {
-#ifdef EAI_BADHINTS
 			ar->ar_gai_errno = EAI_BADHINTS;
-#else
-			ar->ar_gai_errno = EAI_FAIL;
-#endif
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}

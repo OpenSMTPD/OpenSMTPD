@@ -60,6 +60,10 @@
 #define _PATH_NETWORKS "/etc/networks"
 #endif
 
+#ifndef EAI_BADHINTS
+#define EAI_BADHINTS EAI_FAIL
+#endif
+
 /*
  * arpa/nameserv.h
  */
