@@ -496,7 +496,7 @@ _asr_sockaddr_from_str(struct sockaddr *sa, int family, const char *str)
 
 		if (IN6_IS_ADDR_LINKLOCAL(&in6a) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(&in6a) ||
-		    IN6_IS_ADDR_MC_NODELOCAL(&in6a))
+		    IN6_IS_ADDR_MC_INTFACELOCAL(&in6a))
 			if ((sin6->sin6_scope_id = if_nametoindex(cp)))
 				return (0);
 

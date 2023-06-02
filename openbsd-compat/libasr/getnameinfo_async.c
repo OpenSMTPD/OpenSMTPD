@@ -289,7 +289,7 @@ _numerichost(struct asr_query *as)
 
 		if (IN6_IS_ADDR_LINKLOCAL(&as->as.ni.sa.sain6.sin6_addr) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(&as->as.ni.sa.sain6.sin6_addr) ||
-		    IN6_IS_ADDR_MC_NODELOCAL(&as->as.ni.sa.sain6.sin6_addr))
+		    IN6_IS_ADDR_MC_INTFACELOCAL(&as->as.ni.sa.sain6.sin6_addr))
 			ifname = if_indextoname(ifidx, scope + 1);
 
 		if (ifname == NULL)

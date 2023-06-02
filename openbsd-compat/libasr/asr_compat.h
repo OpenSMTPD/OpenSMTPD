@@ -82,3 +82,10 @@ const char * __p_class(int);
 #ifndef HAVE___P_TYPE
 const char * __p_type(int);
 #endif
+
+/*
+ * netinet6/in6.h
+ */
+#ifndef IN6_IS_ADDR_MC_INTFACELOCAL
+#define IN6_IS_ADDR_MC_INTFACELOCAL(x) IN6_IS_ADDR_MC_NODELOCAL(x)
+#endif
