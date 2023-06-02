@@ -165,12 +165,14 @@ asr_resolver_from_string(const char *str)
 
 	return ac;
 }
+DEF_WEAK(asr_resolver_from_string);
 
 void
 asr_resolver_free(void *arg)
 {
 	_asr_ctx_unref(arg);
 }
+DEF_WEAK(asr_resolver_free);
 
 /*
  * Cancel an async query.
