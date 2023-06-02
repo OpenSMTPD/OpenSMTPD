@@ -154,16 +154,18 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 		
 		ai = &as->as.ai.hints;
 
-#ifdef EAI_BADHINTS
 		if (ai->ai_addrlen ||
 		    ai->ai_canonname ||
 		    ai->ai_addr ||
 		    ai->ai_next) {
+#ifdef EAI_BADHINTS
 			ar->ar_gai_errno = EAI_BADHINTS;
+#else
+			ar->ar_gai_errno = EAI_FAIL;
+#endif
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
-#endif
 
 		if (ai->ai_flags & ~AI_MASK ||
 		    (ai->ai_flags & AI_CANONNAME && ai->ai_flags & AI_FQDN)) {
