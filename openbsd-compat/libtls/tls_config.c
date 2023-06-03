@@ -33,7 +33,11 @@
 const char *
 tls_default_ca_cert_file(void)
 {
+#ifdef OPENSMTPD_CA_FILE
+	return OPENSMTPD_CA_FILE;
+#else
 	return X509_get_default_cert_file();
+#endif
 }
 
 int
