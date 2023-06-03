@@ -116,6 +116,8 @@ AS_IF([test "x$with_libbsd" != "xno"],
 			CFLAGS="$CFLAGS $LIBBSD_CFLAGS"
 			LIBS="$LIBS $LIBBSD_LIBS"
 			AC_DEFINE([HAVE_LIBBSD], [1], [BSD UUID])
+			AC_DEFINE([LIBBSD_OPENBSD_VIS], [1],
+			    [use OpenBSD-like strnvis])
 			have_libbsd=yes
 		], [:])
 	])
