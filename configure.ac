@@ -1396,7 +1396,7 @@ AC_DEFINE_UNQUOTED([SMTPD_PIDDIR], ["$piddir"], [Specify location of smtpd.pid])
 AC_SUBST([piddir])
 
 AC_ARG_WITH([path-CAfile],
-	[  --with-path-CAfile=FILE	Specify path to CA certificate (default=/etc/ssl/cert.pem)],
+	[  --with-path-CAfile=FILE	Specify path to CA certificate],
 )
 AS_IF([test -n "$with_path_CAfile" -a "$with_path_CAfile" != no -a \
     "$with_path_CAfile" != yes], [
