@@ -29,6 +29,13 @@
 #endif
 
 /*
+ * sys/socket.h
+ */
+#ifndef SOCK_DNS
+#define SOCK_DNS 0
+#endif
+
+/*
  * netdb.h
  */
 #ifndef NETDB_SUCCESS
@@ -60,6 +67,10 @@
 #define _PATH_NETWORKS "/etc/networks"
 #endif
 
+#ifndef EAI_BADHINTS
+#define EAI_BADHINTS EAI_FAIL
+#endif
+
 /*
  * arpa/nameserv.h
  */
@@ -77,4 +88,11 @@ const char * __p_class(int);
 
 #ifndef HAVE___P_TYPE
 const char * __p_type(int);
+#endif
+
+/*
+ * netinet6/in6.h
+ */
+#ifndef IN6_IS_ADDR_MC_INTFACELOCAL
+#define IN6_IS_ADDR_MC_INTFACELOCAL(x) IN6_IS_ADDR_MC_NODELOCAL(x)
 #endif

@@ -1,4 +1,4 @@
-/*	$OpenBSD: getnameinfo_async.c,v 1.14 2019/07/03 03:24:03 deraadt Exp $	*/
+/*	$OpenBSD: getnameinfo_async.c,v 1.15 2020/12/21 09:40:35 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -235,12 +235,12 @@ _servname(struct asr_query *as)
 #endif
 #ifdef HAVE_GETSERVBYPORT_R_4_ARGS
 		r = getservbyport_r(port, (as->as.ni.flags & NI_DGRAM) ?
-			"udp" : "tcp", &s, &sd);
+		    "udp" : "tcp", &s, &sd);
+		if (r == 0)
+			n = strlcpy(buf, s.s_name, buflen);
 #else
 		r = -1;
 #endif
-		if (r == 0)
-			n = strlcpy(buf, s.s_name, buflen);
 #ifdef HAVE_ENDSERVENT_R
 		endservent_r(&sd);
 #endif
@@ -289,7 +289,7 @@ _numerichost(struct asr_query *as)
 
 		if (IN6_IS_ADDR_LINKLOCAL(&as->as.ni.sa.sain6.sin6_addr) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(&as->as.ni.sa.sain6.sin6_addr) ||
-		    IN6_IS_ADDR_MC_NODELOCAL(&as->as.ni.sa.sain6.sin6_addr))
+		    IN6_IS_ADDR_MC_INTFACELOCAL(&as->as.ni.sa.sain6.sin6_addr))
 			ifname = if_indextoname(ifidx, scope + 1);
 
 		if (ifname == NULL)

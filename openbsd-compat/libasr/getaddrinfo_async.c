@@ -1,4 +1,4 @@
-/*	$OpenBSD: getaddrinfo_async.c,v 1.56 2018/11/03 09:13:24 eric Exp $	*/
+/*	$OpenBSD: getaddrinfo_async.c,v 1.59 2022/12/27 17:10:06 jmc Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -154,7 +154,6 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 		
 		ai = &as->as.ai.hints;
 
-#ifdef EAI_BADHINTS
 		if (ai->ai_addrlen ||
 		    ai->ai_canonname ||
 		    ai->ai_addr ||
@@ -163,7 +162,6 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
-#endif
 
 		if (ai->ai_flags & ~AI_MASK ||
 		    (ai->ai_flags & AI_CANONNAME && ai->ai_flags & AI_FQDN)) {
@@ -213,11 +211,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 			    MATCH_PROTO(ai->ai_protocol, i))
 				break;
 		if (matches[i].family == -1) {
-#ifdef EAI_BADHINTS
 			ar->ar_gai_errno = EAI_BADHINTS;
-#else
-			ar->ar_gai_errno = EAI_FAIL;
-#endif
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
@@ -288,6 +282,13 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 
 		if (ai->ai_flags & AI_NUMERICHOST) {
 			ar->ar_gai_errno = EAI_NONAME;
+			async_set_state(as, ASR_STATE_HALT);
+			break;
+		}
+
+		/* make sure there are no funny characters in hostname */
+		if (!hnok_lenient(as->as.ai.hostname)) {
+			ar->ar_gai_errno = EAI_FAIL;
 			async_set_state(as, ASR_STATE_HALT);
 			break;
 		}
@@ -470,7 +471,7 @@ getaddrinfo_async_run(struct asr_query *as, struct asr_result *ar)
 }
 
 /*
- * Retreive the port number for the service name "servname" and
+ * Retrieve the port number for the service name "servname" and
  * the protocol "proto".
  */
 static int

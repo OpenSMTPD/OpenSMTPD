@@ -1,4 +1,4 @@
-/*	$OpenBSD: asr_debug.c,v 1.26 2019/07/03 03:24:03 deraadt Exp $	*/
+/*	$OpenBSD: asr_debug.c,v 1.28 2021/11/22 20:18:27 jca Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -106,8 +106,8 @@ print_rr(const struct asr_dns_rr *rr, char *buf, size_t max)
 		break;
 	case T_SOA:
 		snprintf(buf, max, "%s %s %lu %lu %lu %lu %lu",
-		    print_dname(rr->rr.soa.rname, tmp, sizeof tmp),
-		    print_dname(rr->rr.soa.mname, tmp2, sizeof tmp2),
+		    print_dname(rr->rr.soa.mname, tmp, sizeof tmp),
+		    print_dname(rr->rr.soa.rname, tmp2, sizeof tmp2),
 		    (unsigned long)rr->rr.soa.serial,
 		    (unsigned long)rr->rr.soa.refresh,
 		    (unsigned long)rr->rr.soa.retry,
@@ -290,6 +290,12 @@ _asr_dump_config(FILE *f, struct asr *a)
 	PRINTOPT(RES_NOALIASES, "NOALIASES");
 	PRINTOPT(RES_USE_EDNS0, "USE_EDNS0");
 	PRINTOPT(RES_USE_DNSSEC, "USE_DNSSEC");
+#ifdef RES_USE_CD
+	PRINTOPT(RES_USE_CD, "USE_CD");
+#endif
+#ifdef RES_TRUSTAD
+	PRINTOPT(RES_TRUSTAD, "TRUSTAD");
+#endif
 	if (o)
 		fprintf(f, " 0x%08x", o);
 	fprintf(f, "\n");
