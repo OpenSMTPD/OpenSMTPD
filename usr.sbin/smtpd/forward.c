@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
+#include <stdio.h>	/* for fparseln(3) on FreeBSD */
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_UTIL_H
