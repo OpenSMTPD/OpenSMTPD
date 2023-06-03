@@ -36,7 +36,7 @@ AC_PREREQ([2.69])
 # AC_INIT
 #
 AC_INIT([OpenSMTPD-portable],
-	[7.3.0p0-rc1],
+	[7.3.0p0-rc2],
 	[bugs@opensmtpd.org],
 	[opensmtpd],
 	[https://www.OpenSMTPD.org])
