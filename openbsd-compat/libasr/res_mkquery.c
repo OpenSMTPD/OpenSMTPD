@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_mkquery.c,v 1.13 2019/01/14 06:49:42 otto Exp $	*/
+/*	$OpenBSD: res_mkquery.c,v 1.14 2021/11/22 20:18:27 jca Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -63,6 +63,10 @@ res_mkquery(int op, const char *dname, int class, int type,
 #ifdef RES_USE_CD
 	if (ac->ac_options & RES_USE_CD)
 		h.flags |= CD_MASK;
+#endif
+#ifdef RES_TRUSTAD
+	if (ac->ac_options & RES_TRUSTAD)
+		h.flags |= AD_MASK;
 #endif
 	h.qdcount = 1;
 	if (ac->ac_options & (RES_USE_EDNS0 | RES_USE_DNSSEC))
