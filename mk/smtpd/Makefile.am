@@ -110,7 +110,7 @@ LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-AM_CFLAGS=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
+AM_CFLAGS=		-D_GNU_SOURCE
 AM_CPPFLAGS+=		-I$(srcdir) $(PATHS) @DEFS@
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
