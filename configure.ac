@@ -187,17 +187,6 @@ AC_CHECK_HEADER([fts.h],
 #include <sys/stat.h>
 ])
 
-need_libasr=no
-AC_CHECK_HEADER([asr.h],
-	[],
-	[need_libasr=yes],
-	[
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-])
-AM_CONDITIONAL([NEED_LIBASR], [test x"$need_libasr" = x"yes"])
-
 #
 # CHECKS FOR TYPES
 #
@@ -576,12 +565,32 @@ AC_SEARCH_LIBS([imsg_init],
 			[Define if you have the imsg framework.])
 	])
 
-AC_SEARCH_LIBS([event_asr_run],
-	[event],
-	[
+
+need_libasr=yes
+AC_ARG_WITH([bundled-libasr],
+	AS_HELP_STRING([--with-bundled-libasr], [use bundled libasr]),
+	[], [with_bundled_libasr=no])
+AS_IF([test "x$with_bundled_libasr" != xno], [],
+	[AC_SEARCH_LIBS([asr_run], [asr], [
+		AC_CHECK_HEADER([asr.h], [
+			need_libasr=no
+		],
+		[AC_MSG_ERROR([cannot find asr.h, install the devel package or provide --with-bundled-libasr])], [
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+])
+	])])
+AM_CONDITIONAL([NEED_LIBASR], [test x"$need_libasr" = x"yes"])
+
+AS_IF([test "x$need_libasr" = xno], [
+	AC_SEARCH_LIBS([event_asr_run], [event], [
 		AC_DEFINE([HAVE_EVENT_ASR_RUN], [1],
 			[Define if you have the event_asr_run() function.])
 	])
+], [
+	ac_cv_search_event_asr_run=no
+])
 
 need_libtls=yes
 AC_ARG_WITH([bundled-libtls],
@@ -2023,12 +2032,6 @@ LIBS="$save_LIBS"
 
 AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
 AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
-
-
-
-if test "$need_libasr" = "no" -a "x$ac_cv_search_event_asr_run" = "xno"; then
-	LIBS="$LIBS -lasr"
-fi
 
 
 LIBS="$LIBS ${SMTPDLIBS}"
