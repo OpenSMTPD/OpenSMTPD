@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_fs.c,v 1.22 2021/06/14 17:58:16 eric Exp $	*/
+/*	$OpenBSD: queue_fs.c,v 1.23 2023/05/31 16:51:46 op Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>

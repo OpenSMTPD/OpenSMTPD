@@ -1,4 +1,4 @@
-/*	$OpenBSD: mda.c,v 1.145 2023/05/10 07:19:08 op Exp $	*/
+/*	$OpenBSD: mda.c,v 1.146 2023/05/31 16:51:46 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

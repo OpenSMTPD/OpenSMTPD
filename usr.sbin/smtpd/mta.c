@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta.c,v 1.244 2023/05/16 17:48:52 op Exp $	*/
+/*	$OpenBSD: mta.c,v 1.245 2023/05/31 16:51:46 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
