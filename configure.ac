@@ -979,6 +979,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	AC_DEFINE([BROKEN_STRNVIS], [1],
 	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
 	BROKEN_STRNVIS=1
+	CFLAGS="$CFLAGS -D_OPENBSD_SOURCE"
 	;;
 *-*-freebsd*)
 	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
