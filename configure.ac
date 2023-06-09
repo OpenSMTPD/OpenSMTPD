@@ -594,19 +594,6 @@ AS_IF([test "x$need_libasr" = xno], [
 	ac_cv_search_event_asr_run=no
 ])
 
-need_libtls=yes
-AC_ARG_WITH([bundled-libtls],
-	AS_HELP_STRING([--with-bundled-libtls], [use bundled libtls]),
-	[], [with_bundled_libtls=no])
-AS_IF([test "x$with_bundled_libtls" != xno], [],
-	[AC_SEARCH_LIBS([tls_config_set_ciphers], [tls], [
-		need_libtls=no
-		AC_DEFINE([HAVE_TLS_CONFIG_SET_CIPHERS], [1],
-			[Define if you have the tls_config_set_ciphers() function.])
-	], [])])
-
-AM_CONDITIONAL([NEED_LIBTLS], [test x"$need_libtls" = x"yes"])
-
 AC_CHECK_FUNCS([ \
 	asprintf \
 	arc4random \
@@ -990,6 +977,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	AC_DEFINE([BROKEN_STRNVIS], [1],
 	    [NetBSD strnvis argument order is swapped compared to OpenBSD])
 	BROKEN_STRNVIS=1
+	CFLAGS="$CFLAGS -D_OPENBSD_SOURCE"
 	;;
 *-*-freebsd*)
 	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
@@ -1942,6 +1930,20 @@ AC_LINK_IFELSE(
 )
 
 AC_CHECK_DECL([LIBRESSL_VERSION_NUMBER], , , [#include <openssl/ssl.h>])
+
+need_libtls=yes
+AC_ARG_WITH([bundled-libtls],
+	AS_HELP_STRING([--with-bundled-libtls], [use bundled libtls]),
+	[], [with_bundled_libtls=no])
+AS_IF([test "x$with_bundled_libtls" != xno], [],
+	[AC_SEARCH_LIBS([tls_config_set_ciphers], [tls], [
+		need_libtls=no
+		AC_DEFINE([HAVE_TLS_CONFIG_SET_CIPHERS], [1],
+			[Define if you have the tls_config_set_ciphers() function.])
+	], [])])
+
+AM_CONDITIONAL([NEED_LIBTLS], [test x"$need_libtls" = x"yes"])
+
 
 #l2371
 
