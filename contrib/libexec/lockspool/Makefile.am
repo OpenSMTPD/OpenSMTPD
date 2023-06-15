@@ -19,4 +19,4 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	chmod 4555 $(DESTDIR)$(pkglibexecdir)/lockspool || true
 
 uninstall-hook:
-	rmdir $(DESTDIR)$(pkglibexecdir) 2> /dev/null || /bin/true
+	rmdir $(DESTDIR)$(pkglibexecdir) 2> /dev/null || true

@@ -21,4 +21,4 @@ LDADD = 		$(LIBCOMPAT)
 
 
 uninstall-hook:
-	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || /bin/true
+	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || true

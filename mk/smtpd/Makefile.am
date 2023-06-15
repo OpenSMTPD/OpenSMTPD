@@ -197,4 +197,4 @@ uninstall-hook:
 		$(DESTDIR)$(mandir)/$(mansubdir)7/smtpd-filters.7
 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)5 \
 		$(DESTDIR)$(mandir)/$(mansubdir)7 \
-		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
+		$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || true
