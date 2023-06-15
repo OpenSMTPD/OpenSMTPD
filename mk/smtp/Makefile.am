@@ -59,4 +59,4 @@ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 
 uninstall-hook:
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)1/smtp.1
-	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)1 2> /dev/null || /bin/true
+	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)1 2> /dev/null || true

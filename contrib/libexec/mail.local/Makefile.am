@@ -21,4 +21,4 @@ LDADD = 		$(LIBCOMPAT)
 #CFLAGS +=		-D_GNU_SOURCE
 
 uninstall-hook:
-	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || /bin/true
+	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || true

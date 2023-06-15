@@ -96,4 +96,4 @@ uninstall-hook:
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/makemap.8
 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/newaliases.8
-	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
+	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || true
