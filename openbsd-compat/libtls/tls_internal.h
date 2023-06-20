@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_internal.h,v 1.81 2023/04/09 18:26:26 tb Exp $ */
+/* $OpenBSD: tls_internal.h,v 1.82 2023/06/18 11:43:03 op Exp $ */
 /*
  * Copyright (c) 2014 Jeremie Courreges-Anglas <jca@openbsd.org>
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
