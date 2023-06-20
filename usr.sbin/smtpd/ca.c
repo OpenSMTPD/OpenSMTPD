@@ -61,8 +61,15 @@ static int	 rsae_init(RSA *);
 static int	 rsae_finish(RSA *);
 static int	 rsae_keygen(RSA *, int, BIGNUM *, BN_GENCB *);
 static int	 ecdsae_keygen(EC_KEY *);
+
+#if defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER <= 0x3080100fL
 static int	 ecdsae_compute_key(void *, size_t, const EC_POINT *, EC_KEY *,
 		    void *(*)(const void *, size_t, void *, size_t *));
+#else
+static int	 ecdsae_compute_key(unsigned char **, size_t *,
+		    const EC_POINT *, const EC_KEY *);
+#endif
+
 static int	 ecdsae_sign(int, const unsigned char *, int, unsigned char *,
 		    unsigned int *, const BIGNUM *, const BIGNUM *, EC_KEY *);
 
@@ -602,6 +609,7 @@ ecdsae_keygen(EC_KEY *eckey)
 	return (keygen(eckey));
 }
 
+#if defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER <= 0x3080100fL
 static int
 ecdsae_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
     EC_KEY *ecdh, void *(*kdf)(const void *, size_t, void *, size_t *))
@@ -613,6 +621,19 @@ ecdsae_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
 	EC_KEY_METHOD_get_compute_key(ecdsa_default, &ckey);
 	return (ckey(out, outlen, pub_key, ecdh, kdf));
 }
+#else
+static int
+ecdsae_compute_key(unsigned char **psec, size_t *pseclen,
+    const EC_POINT *pub_key, const EC_KEY *ecdh)
+{
+	int (*ckey)(unsigned char **, size_t *, const EC_POINT *,
+	    const EC_KEY *);
+
+	log_debug("debug: %s: %s", proc_name(smtpd_process), __func__);
+	EC_KEY_METHOD_get_compute_key(ecdsa_default, &ckey);
+	return (ckey(psec, pseclen, pub_key, ecdh));
+}
+#endif
 
 static int
 ecdsae_sign(int type, const unsigned char *dgst, int dlen, unsigned char *sig,
