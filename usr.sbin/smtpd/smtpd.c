@@ -1421,10 +1421,8 @@ fork_filter_process(const char *name, const char *command, const char *user, con
 		fatal("fork_filter_process: cannot drop privileges");
 
 	xclosefrom(STDERR_FILENO + 1);
-
-	if (setsid() < 0)
+	if (setsid() == -1)
 		fatal("setsid");
-
 	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
 	    signal(SIGINT, SIG_DFL) == SIG_ERR ||
 	    signal(SIGTERM, SIG_DFL) == SIG_ERR ||
@@ -1593,7 +1591,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	    dup2(allout, STDERR_FILENO) == -1)
 		fatal("forkmda: dup2");
 	closefrom(STDERR_FILENO + 1);
-	if (setsid() < 0)
+	if (setsid() == -1)
 		fatal("setsid");
 	if (signal(SIGPIPE, SIG_DFL) == SIG_ERR ||
 	    signal(SIGINT, SIG_DFL) == SIG_ERR ||
@@ -1605,12 +1603,12 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	/* avoid hangs by setting 5m timeout */
 	alarm(300);
 
-        if (dsp->u.local.is_mbox &&                                          
-            dsp->u.local.mda_wrapper == NULL &&                              
-            deliver->mda_exec[0] == '\0')                                    
-                mda_mbox(deliver);                                           
-        else                                                             
-                mda_unpriv(dsp, deliver, pw_name, pw_dir);
+	if (dsp->u.local.is_mbox &&
+	    dsp->u.local.mda_wrapper == NULL &&
+	    deliver->mda_exec[0] == '\0')
+		mda_mbox(deliver);
+	else
+		mda_unpriv(dsp, deliver, pw_name, pw_dir);
 }
 
 static void
