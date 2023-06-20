@@ -36,6 +36,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>	/* FreeBSD needs this for fparseln(3) */
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
