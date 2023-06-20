@@ -44,11 +44,6 @@
 #include "log.h"
 #include "unpack_dns.h"
 
-/* On OpenBSD, this function is not needed because we don't free addrinfo */
-#if defined(NOOP_ASR_FREEADDRINFO)
-#define asr_freeaddrinfo(x)	do { } while(0);
-#endif
-
 struct dns_lookup {
 	struct dns_session	*session;
 	char			*host;

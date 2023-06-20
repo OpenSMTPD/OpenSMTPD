@@ -273,10 +273,6 @@ static void smtp_report_filter_response(struct smtp_session *, int, int, const c
 static void smtp_report_timeout(struct smtp_session *);
 
 
-/* musl work-around */
-void portable_freeaddrinfo(struct addrinfo *);
-
-
 static struct {
 	int code;
 	enum filter_phase filter_phase;
@@ -702,7 +698,7 @@ smtp_getaddrinfo_cb(void *arg, int gaierrno, struct addrinfo *ai0)
 				break;
 			}
 		}
-		portable_freeaddrinfo(ai0);
+		asr_freeaddrinfo(ai0);
 	}
 
 	smtp_lookup_servername(s);

@@ -1774,3 +1774,9 @@ int runq_schedule(struct runq *, time_t, void *);
 int runq_schedule_at(struct runq *, time_t, void *);
 int runq_cancel(struct runq *, void *);
 int runq_pending(struct runq *, void *, time_t *);
+
+
+/* On OpenBSD we just use freeaddrinfo() */
+#if defined(NOOP_ASR_FREEADDRINFO)
+#define asr_freeaddrinfo(x)	freeaddrinfo(x)
+#endif
