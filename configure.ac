@@ -1869,17 +1869,6 @@ AC_TRY_LINK_FUNC([SSL_CTX_load_verify_mem],
 	[ AC_MSG_RESULT([no])]
 )
 
-LIBS="-lcrypto -lssl $LIBS"
-AC_MSG_CHECKING([whether ECDSA is available])
-AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],
-	[
-		AC_DEFINE([SUPPORT_ECDSA], [1],
-			[Define if ECDSA is supported])
-		AC_MSG_RESULT([yes])
-	],
-	[ AC_MSG_RESULT([no])]
-)
-
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])
 AC_RUN_IFELSE(
