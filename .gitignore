@@ -1,14 +1,15 @@
-**/*.d
-**/*.o
 **/*.a
+**/*.d
 **/*.in
-**/*.out
 **/*.log
+**/*.o
+**/*.out
 **/.#*
+**/.deps
 **/.dirstamp
-.deps
-m4
+**/parse.c
 aclocal.m4
+ar-lib
 autom4te.cache
 compile
 config.guess
@@ -20,12 +21,32 @@ depcomp
 install-sh
 libtool
 ltmain.sh
+m4
 missing
-parse.c
-stamp-h1
-ylwrap
-tags
 obj
+stamp-h1
+tags
+ylwrap
+
+#auto-generated makefiles
+Makefile
+contrib/Makefile
+contrib/**/Makefile
+mk/Makefile
+mk/**/Makefile
+openbsd-compat/Makefile
+
+#binaries
+contrib/libexec/encrypt/encrypt
+contrib/libexec/lockspool/lockspool
+contrib/libexec/mail.local/mail.local
+mk/mail/mail.lmtp/mail.lmtp
+mk/mail/mail.maildir/mail.maildir
+mk/mail/mail.mboxfile/mail.mboxfile
+mk/mail/mail.mda/mail.mda
+mk/smtp/smtp
+mk/smtpctl/smtpctl
+mk/smtpd/smtpd
 
 #Other VCS files
 CVS/
