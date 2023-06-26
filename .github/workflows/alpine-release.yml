@@ -4,14 +4,14 @@ on:
     tags:
       - v*
 env:
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: "opensmtpd"
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - name: Alpine Linux (amd64 musl openssl)
-      run: docker build . --file ci/docker/Dockerfile.alpine --tag opensmtpd:alpine
+      run: docker build . --file ci/docker/Dockerfile.alpine-release --tag opensmtpd:alpine
 
     - name: Login to ghcr.io
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
