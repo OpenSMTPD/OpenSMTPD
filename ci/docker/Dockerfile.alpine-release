@@ -48,4 +48,4 @@ RUN ./bootstrap \
   && make install \
   && cp etc/aliases /etc/mail/aliases
 
-ENTRYPOINT ["smtpd"]
+ENTRYPOINT ["smtpd", "-d"]
