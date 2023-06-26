@@ -3,6 +3,8 @@ on:
   push:
     tags:
       - v*
+env:
+  IMAGE_NAME: ${{ github.repository }}
 jobs:
   build:
     runs-on: ubuntu-latest
