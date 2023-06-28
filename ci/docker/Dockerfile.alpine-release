@@ -15,7 +15,6 @@ RUN apk add --no-cache \
     fts \
     libevent-dev \
     libtool \
-    libtool \
     linux-pam-dev \
     make \
     musl-dev \
@@ -32,8 +31,8 @@ RUN mkdir -p /var/lib/opensmtpd/empty \
   && mkdir -p /var/spool/smtpd \
   && mkdir -p /var/mail \
   && mkdir -p /etc/mail \
-  && chmod 711 /var/spool/smtpd
-
+  && chmod 711 /var/spool/smtpd \
+  && mkdir ./install
 # Copy contentes of the repo inside the container
 # https://docs.docker.com/engine/reference/builder/#copy
 COPY . /opensmtpd
@@ -45,7 +44,28 @@ RUN ./bootstrap \
        --sysconfdir=/etc/mail \
        --with-auth-pam \
   && make \
-  && make install \
-  && cp etc/aliases /etc/mail/aliases
+  && make install
+
+FROM alpine:3.15 AS deploy
+
+RUN mkdir -p /var/lib/opensmtpd/empty \
+  && adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && mkdir -p /var/spool/smtpd \
+  && mkdir -p /var/mail \
+  && mkdir -p /etc/mail \
+  && chmod 711 /var/spool/smtpd
+
+RUN apk add --no-cache libevent \
+    openssl \
+    linux-pam \
+    fts
+
+COPY --from=build /usr/local /usr/local/
+COPY --from=build /etc/mail/smtpd.conf /etc/mail/
+
+# && cp etc/aliases /etc/mail/aliases
+
+COPY --from=build /opensmtpd/etc/aliases /etc/mail/aliases
 
 ENTRYPOINT ["smtpd", "-d"]
