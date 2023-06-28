@@ -29,6 +29,7 @@
 
 #include <netinet/in.h>
 
+#include <asr.h>		/* for asr_freeaddrinfo() */
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
