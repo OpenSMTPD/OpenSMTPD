@@ -1700,7 +1700,7 @@ AC_ARG_WITH([libfts],
 		else
 			CPPFLAGS="-I${withval} ${CPPFLAGS}"
 		fi
-	LIBS="-lfts $LIBS"
+	LIBS="$LIBS -lfts"
 	fi
 	]
 )
@@ -1759,7 +1759,7 @@ fi
 
 AC_CHECK_HEADER([event.h], ,[AC_MSG_ERROR([*** event.h missing - please install libevent ***])],
 [#include <sys/types.h>])
-LIBS="-levent $LIBS"
+LIBS="$LIBS -levent"
 AC_MSG_CHECKING([if programs using libevent functions will link])
 AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM([[
@@ -1816,7 +1816,7 @@ AC_ARG_WITH([libssl],
 	]
 )
 ## XXX chl -lssl manually added
-LIBS="-lcrypto -lssl $LIBS"
+LIBS="$LIBS -lcrypto -lssl"
 AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
 	[Define if your ssl headers are included
 	with #include <openssl/header.h>])],
