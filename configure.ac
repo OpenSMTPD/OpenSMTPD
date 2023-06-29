@@ -1869,7 +1869,6 @@ AC_TRY_LINK_FUNC([SSL_CTX_load_verify_mem],
 	[ AC_MSG_RESULT([no])]
 )
 
-LIBS="-lcrypto -lssl $LIBS"
 AC_MSG_CHECKING([whether ECDSA is available])
 AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],
 	[
