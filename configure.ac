@@ -1930,16 +1930,20 @@ AC_LINK_IFELSE(
 AC_CHECK_DECL([LIBRESSL_VERSION_NUMBER], , , [#include <openssl/ssl.h>])
 
 need_libtls=yes
-AC_ARG_WITH([bundled-libtls],
-	AS_HELP_STRING([--with-bundled-libtls], [use bundled libtls]),
-	[], [with_bundled_libtls=no])
-AS_IF([test "x$with_bundled_libtls" != xno], [],
-	[AC_SEARCH_LIBS([tls_config_set_ciphers], [tls], [
-		need_libtls=no
-		AC_DEFINE([HAVE_TLS_CONFIG_SET_CIPHERS], [1],
-			[Define if you have the tls_config_set_ciphers() function.])
-	], [])])
-
+dnl XXX: OpenSMTPD and libtls need to stay in sync, otherwise bad
+dnl things can happen at runtime.  Revisit this in the future once we
+dnl switch to the signer APIs.
+dnl
+dnl
+dnl AC_ARG_WITH([bundled-libtls],
+dnl 	AS_HELP_STRING([--with-bundled-libtls], [use bundled libtls]),
+dnl 	[], [with_bundled_libtls=no])
+dnl AS_IF([test "x$with_bundled_libtls" != xno], [],
+dnl 	[AC_SEARCH_LIBS([tls_config_set_ciphers], [tls], [
+dnl 		need_libtls=no
+dnl 		AC_DEFINE([HAVE_TLS_CONFIG_SET_CIPHERS], [1],
+dnl 			[Define if you have the tls_config_set_ciphers() function.])
+dnl 	], [])])
 AM_CONDITIONAL([NEED_LIBTLS], [test x"$need_libtls" = x"yes"])
 
 
