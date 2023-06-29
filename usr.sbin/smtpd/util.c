@@ -838,7 +838,7 @@ xclosefrom(int lowfd)
 {
 #if defined HAVE_CLOSEFROM_INT
     if (closefrom(lowfd) == -1)
-        err(1, "closefrom");
+        fatal("closefrom");
 #else
     closefrom(lowfd);
 #endif
