@@ -55,10 +55,13 @@ RUN apk add --no-cache libevent \
     linux-pam \
     fts
 
-COPY --from=build /usr/local /usr/local/
-COPY --from=build /etc/mail/smtpd.conf /etc/mail/
+# Trailing slashes are important!
+COPY --from=build /usr/local/libexec/opensmtpd /usr/local/libexec/
+COPY --from=build /usr/local/sbin/smtpctl /usr/local/sbin/
+COPY --from=build /usr/local/sbin/smtpd /usr/local/sbin/
+COPY --from=build /usr/local/bin/smtp /usr/local/bin/
 
-# && cp etc/aliases /etc/mail/aliases
+COPY --from=build /etc/mail/smtpd.conf /etc/mail/
 
 COPY --from=build /opensmtpd/etc/aliases /etc/mail/aliases
 
