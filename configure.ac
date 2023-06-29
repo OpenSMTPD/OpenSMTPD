@@ -120,6 +120,10 @@ AS_IF([test "x$with_libbsd" != "xno"],
 			    [use OpenBSD-like strnvis])
 			have_libbsd=yes
 		], [:])
+		PKG_CHECK_MODULES([LIBBSD_CTOR], [libbsd-ctor], [
+			CFLAGS="$CFLAGS $LIBBSD_CTOR_CFLAGS"
+			LIBS="$LIBS $LIBBSD_CTOR_LIBS"
+		], [:])
 	])
 
 AS_IF([test "x$have_libbsd" != "xyes"],
