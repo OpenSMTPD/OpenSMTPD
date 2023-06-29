@@ -1879,6 +1879,15 @@ AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],
 	[ AC_MSG_RESULT([no])]
 )
 
+AC_MSG_CHECKING([whether X509_LOOKUP_mem is available])
+AC_TRY_LINK_FUNC([X509_LOOKUP_mem],
+	[
+		AC_DEFINE([HAVE_X509_LOOKUP_MEM], [1],
+			[Define if X509_LOOKUP_mem exists in libssl])
+		AC_MSG_RESULT([yes])
+	],
+	[ AC_MSG_RESULT([no]) ])
+
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])
 AC_RUN_IFELSE(

@@ -58,6 +58,8 @@
 
 #include "includes.h"
 
+#ifndef HAVE_X509_LOOKUP_MEM
+
 #include <sys/uio.h>
 #include <errno.h>
 #include <stdio.h>
@@ -135,3 +137,5 @@ by_mem_ctrl(X509_LOOKUP *lu, int cmd, const char *buf,
 		BIO_free(in);
 	return (ok);
 }
+
+#endif	/* HAVE_X509_LOOKUP_MEM */
