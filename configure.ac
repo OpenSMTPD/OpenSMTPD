@@ -1100,7 +1100,7 @@ AC_ARG_WITH([auth-pam],
 				USE_PAM_SERVICE=$withval
 			fi
 
-			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" -a \
+			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" && \
 			   test "x$ac_cv_header_pam_pam_appl_h" != "xyes"; then
 				AC_MSG_ERROR([PAM headers not found])
 			fi
