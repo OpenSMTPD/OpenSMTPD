@@ -1743,19 +1743,9 @@ AC_ARG_WITH([libevent],
 			else
 				CPPFLAGS="-I${withval} ${CPPFLAGS}"
 			fi
-			need_libevent_autodetect=no
 		fi
 	]
 )
-
-if test "x${need_libevent_autodetect}" != "xno"; then
-   for path in /usr/local /usr; do
-       if test -f "${path}/include/event.h"; then
-       	  CPPFLAGS="-I${path}/include ${CPPFLAGS}"
-	  LDFLAGS="-L${path}/lib ${LDFLAGS}"
-       fi
-   done
-fi
 
 AC_CHECK_HEADER([event.h], ,[AC_MSG_ERROR([*** event.h missing - please install libevent ***])],
 [#include <sys/types.h>])
