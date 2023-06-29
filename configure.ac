@@ -567,22 +567,13 @@ AC_SEARCH_LIBS([imsg_init],
 			[Define if you have the imsg framework.])
 	])
 
-
+dnl assume we need libasr
 need_libasr=yes
-AC_ARG_WITH([bundled-libasr],
-	AS_HELP_STRING([--with-bundled-libasr], [use bundled libasr]),
-	[], [with_bundled_libasr=no])
-AS_IF([test "x$with_bundled_libasr" != xno], [],
-	[AC_SEARCH_LIBS([asr_run], [asr], [
-		AC_CHECK_HEADER([asr.h], [
-			need_libasr=no
-		],
-		[AC_MSG_ERROR([cannot find asr.h, install the devel package or provide --with-bundled-libasr])], [
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
+AS_CASE([$host], [*-*-openbsd*], [
+	dnl except on OpenBSD
+	need_libasr=no
 ])
-	])])
+
 AM_CONDITIONAL([NEED_LIBASR], [test x"$need_libasr" = x"yes"])
 
 AS_IF([test "x$need_libasr" = xno], [
