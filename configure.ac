@@ -1838,8 +1838,6 @@ AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
 	]
 )
 
-
-LIBS="-lcrypto -lssl $LIBS"
 AC_MSG_CHECKING([whether SSL_CTX_use_certificate_chain_mem is available])
 AC_TRY_LINK_FUNC([SSL_CTX_use_certificate_chain_mem],
 	[
