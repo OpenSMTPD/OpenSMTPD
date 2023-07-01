@@ -249,6 +249,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	struct dns_rr		 rr;
 	char			 buf[512];
 	size_t			 found;
+	int			 localhost;
 
 	if (ar->ar_h_errno && ar->ar_h_errno != NO_DATA &&
 	    ar->ar_h_errno != NOTIMP) {
@@ -272,6 +273,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	unpack_query(&pack, &q);
 
 	found = 0;
+	localhost = 0;
 	for (; h.ancount; h.ancount--) {
 		unpack_rr(&pack, &rr);
 		if (rr.rr_type != T_MX)
@@ -293,10 +295,26 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
 		buf[strlen(buf) - 1] = '\0';
+		if (strcasecmp("localhost", buf) == 0) {
+			log_warnx("ignore localhost MX-entry for domain <%s>",
+			    s->name);
+			localhost++;
+			continue;
+		}
 		dns_lookup_host(s, buf, rr.rr.mx.preference);
 		found++;
 	}
 	free(ar->ar_data);
+
+	/* handle only localhost as null mx */
+	if (found == 0 && localhost > 0) {
+		m_create(s->p,  IMSG_MTA_DNS_HOST_END, 0, 0, -1);
+		m_add_id(s->p, s->reqid);
+		m_add_int(s->p, DNS_NULLMX);
+		m_close(s->p);
+		free(s);
+		return;
+	}
 
 	/* fallback to host if no MX is found. */
 	if (found == 0)
