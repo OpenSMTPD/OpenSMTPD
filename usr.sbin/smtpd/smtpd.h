@@ -1050,6 +1050,8 @@ enum dns_error {
 	DNS_EINVAL,
 	DNS_ENONAME,
 	DNS_ENOTFOUND,
+	/* rfc 7505 */
+	DNS_NULLMX,
 };
 
 enum lka_resp_status {

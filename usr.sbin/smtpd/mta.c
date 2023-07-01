@@ -1105,6 +1105,10 @@ mta_on_mx(void *tag, void *arg, void *data)
 		else
 			relay->failstr = "No MX found for domain";
 		break;
+	case DNS_NULLMX:
+		relay->fail = IMSG_MTA_DELIVERY_PERMFAIL;
+		relay->failstr = "Domain does not accept mail";
+		break;
 	default:
 		fatalx("bad DNS lookup error code");
 		break;
