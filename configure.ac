@@ -143,11 +143,13 @@ AC_CHECK_HEADERS([ \
 	arpa/nameser_compat.h \
 	crypt.h \
 	dirent.h \
+	endian.h \
 	err.h \
 	fcntl.h \
 	getopt.h \
 	grp.h \
 	libgen.h \
+	libkern/OSByteOrder.h \
 	libutil.h \
 	limits.h \
 	maillock.h \
@@ -159,6 +161,7 @@ AC_CHECK_HEADERS([ \
 	security/pam_appl.h \
 	shadow.h \
 	sys/dir.h \
+	sys/endian.h \
 	sys/file.h \
 	sys/mount.h \
 	sys/ndir.h \
