@@ -1,4 +1,4 @@
-/*	$OpenBSD: imsg.c,v 1.5 2013/12/26 17:32:33 eric Exp $	*/
+/*	$OpenBSD: imsg.c,v 1.19 2023/06/19 17:19:50 claudio Exp $	*/
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -33,30 +33,6 @@
 int	 imsg_fd_overhead = 0;
 
 static int	 imsg_get_fd(struct imsgbuf *);
-
-int
-available_fds(unsigned int n)
-{
-	unsigned int	i;
-	int		ret, fds[256];
-
-	if (n > (sizeof(fds)/sizeof(fds[0])))
-		return (1);
-
-	ret = 0;
-	for (i = 0; i < n; i++) {
-		fds[i] = -1;
-		if ((fds[i] = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-			ret = 1;
-			break;
-		}
-	}
-
-	for (i = 0; i < n && fds[i] >= 0; i++)
-		close(fds[i]);
-
-	return (ret);
-}
 
 void
 imsg_init(struct imsgbuf *ibuf, int fd)
@@ -97,8 +73,9 @@ imsg_read(struct imsgbuf *ibuf)
 		return (-1);
 
 again:
-	if (available_fds(imsg_fd_overhead +
-	    (CMSG_SPACE(sizeof(int))-CMSG_SPACE(0))/sizeof(int))) {
+	if (getdtablecount() + imsg_fd_overhead +
+	    (int)((CMSG_SPACE(sizeof(int))-CMSG_SPACE(0))/sizeof(int))
+	    >= getdtablesize()) {
 		errno = EAGAIN;
 		free(ifd);
 		return (-1);
@@ -200,8 +177,7 @@ imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
 	if (imsg_add(wbuf, data, datalen) == -1)
 		return (-1);
 
-	wbuf->fd = fd;
-
+	ibuf_fd_set(wbuf, fd);
 	imsg_close(ibuf, wbuf);
 
 	return (1);
@@ -224,11 +200,47 @@ imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
 		if (imsg_add(wbuf, iov[i].iov_base, iov[i].iov_len) == -1)
 			return (-1);
 
-	wbuf->fd = fd;
-
+	ibuf_fd_set(wbuf, fd);
 	imsg_close(ibuf, wbuf);
 
 	return (1);
+}
+
+int
+imsg_compose_ibuf(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
+    pid_t pid, struct ibuf *buf)
+{
+	struct ibuf	*wbuf = NULL;
+	struct imsg_hdr	 hdr;
+	int save_errno;
+
+	if (ibuf_size(buf) + IMSG_HEADER_SIZE > MAX_IMSGSIZE) {
+		errno = ERANGE;
+		goto fail;
+	}
+
+	hdr.type = type;
+	hdr.len = ibuf_size(buf) + IMSG_HEADER_SIZE;
+	hdr.flags = 0;
+	hdr.peerid = peerid;
+	if ((hdr.pid = pid) == 0)
+		hdr.pid = ibuf->pid;
+
+	if ((wbuf = ibuf_open(IMSG_HEADER_SIZE)) == NULL)
+		goto fail;
+	if (imsg_add(wbuf, &hdr, sizeof(hdr)) == -1)
+		goto fail;
+
+	ibuf_close(&ibuf->w, wbuf);
+	ibuf_close(&ibuf->w, buf);
+	return (1);
+
+ fail:
+	save_errno = errno;
+	ibuf_free(buf);
+	ibuf_free(wbuf);
+	errno = save_errno;
+	return (-1);
 }
 
 struct ibuf *
@@ -277,10 +289,9 @@ imsg_close(struct imsgbuf *ibuf, struct ibuf *msg)
 	hdr = (struct imsg_hdr *)msg->buf;
 
 	hdr->flags &= ~IMSGF_HASFD;
-	if (msg->fd != -1)
+	if (ibuf_fd_avail(msg))
 		hdr->flags |= IMSGF_HASFD;
-
-	hdr->len = (uint16_t)msg->wpos;
+	hdr->len = ibuf_size(msg);
 
 	ibuf_close(&ibuf->w, msg);
 }
