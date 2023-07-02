@@ -16,6 +16,8 @@ fgetln.c		part of /usr/src/usr.bin/make/util.c
 fmt_scaled.c		portable openssh
 fparseln.c		part of /usr/src/lib/libutil/fparseln.c
 freezero.c		part of /usr/src/lib/libc/stdlib/malloc.c
+getdtablecount.c	tmux
+getdtablesize.c		tmux
 getopt.c	  	portable openssh
 getpeereid.c		portable openssh
 getsubopt.c		/usr/src/lib/libc/stdlib/getsubopt.c

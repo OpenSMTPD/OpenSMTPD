@@ -69,7 +69,6 @@ static void smtp_accepted(struct listener *, int, const struct sockaddr_storage 
 void tls_config_use_fake_private_key(struct tls_config *config);
 
 #define	SMTP_FD_RESERVE	5
-#define	getdtablecount()	0
 
 static size_t	sessions;
 static size_t	maxsessions;

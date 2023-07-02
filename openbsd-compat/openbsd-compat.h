@@ -105,6 +105,14 @@ void setproctitle(const char *fmt, ...);
 void compat_init_setproctitle(int argc, char *argv[]);
 #endif
 
+#ifndef HAVE_GETDTABLECOUNT
+int getdtablecount(void);
+#endif
+
+#ifndef HAVE_GETDTABLESIZE
+int getdtablesize(void);
+#endif
+
 #if !defined(HAVE_GETOPT) || !defined(HAVE_GETOPT_OPTRESET)
 int BSDgetopt(int argc, char * const *argv, const char *opts);
 #endif

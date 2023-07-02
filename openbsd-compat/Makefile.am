@@ -106,6 +106,14 @@ if NEED_FREEZERO
 libopenbsd_a_SOURCES +=	freezero.c
 endif
 
+if NEED_GETDTABLECOUNT
+libopenbsd_a_SOURCES +=	getdtablecount.c
+endif
+
+if NEED_GETDTABLESIZE
+libopenbsd_a_SOURCES +=	getdtablesize.c
+endif
+
 if NEED_GETOPT
 libopenbsd_a_SOURCES +=	getopt.c
 endif
