@@ -33,7 +33,7 @@
 #include "smtpd.h"
 #include "log.h"
 
-#define	PROTOCOL_VERSION	"0.6"
+#define	PROTOCOL_VERSION	"0.7"
 
 struct filter;
 struct filter_session;
@@ -1453,7 +1453,7 @@ lka_report_smtp_link_auth(const char *direction, struct timeval *tv, uint64_t re
 		fs->username = xstrdup(username);
 	}
 	report_smtp_broadcast(reqid, direction, tv, "link-auth", "%s|%s\n",
-	    username, result);
+	    result, username);
 }
 
 void
