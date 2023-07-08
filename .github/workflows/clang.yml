@@ -11,9 +11,9 @@ jobs:
       run: |
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
-        sudo ./llvm.sh 9
+        sudo ./llvm.sh 16
         sudo apt install \
-        clang-tools-9 \
+        clang-tools-16 \
         libasr-dev \
         libevent-dev \
         libssl-dev \
@@ -21,7 +21,7 @@ jobs:
     - uses: actions/checkout@v1
     - name: run scan-build
       run: |
-        export PATH=$PATH:/usr/lib/llvm-9/bin/
+        export PATH=$PATH:/usr/lib/llvm-16/bin/
         CLANG_SCAN_BADGE_REQUIRED=1 ci/scripts/clang_scan.sh
     - name: publish results
       run: |
