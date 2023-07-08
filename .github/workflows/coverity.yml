@@ -8,7 +8,8 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: dependencies
-      run: sudo apt install libasr-dev libevent-dev libssl-dev bison
+      run: sudo apt install autoconf automake bison build-essential \
+            libevent-dev libssl-dev libtool pkgconf libpam0g-dev zlib1g-dev
     - name: scan
       run: sh ci/scripts/coverity_scan.sh
       env:
