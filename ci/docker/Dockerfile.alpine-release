@@ -1,0 +1,68 @@
+FROM alpine:3.15 as build
+
+WORKDIR /opensmtpd
+
+RUN apk add --no-cache \
+    autoconf \
+    automake \
+    bison \
+    ca-certificates \
+    fts-dev \
+    gcc \
+    fts \
+    libevent-dev \
+    libtool \
+    linux-pam-dev \
+    make \
+    musl-dev \
+    openssl \
+    openssl-dev \
+    zlib-dev
+
+RUN mkdir -p /var/lib/opensmtpd/empty \
+  && adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && mkdir -p /var/spool/smtpd \
+  && mkdir -p /var/mail \
+  && mkdir -p /etc/mail \
+  && chmod 711 /var/spool/smtpd \
+  && mkdir ./install
+
+COPY . /opensmtpd
+
+RUN ./bootstrap \
+  && ./configure \
+       --with-gnu-ld \
+       --sysconfdir=/etc/mail \
+       --with-auth-pam \
+  && make \
+  && make install
+
+# --- BEGIN Production deployment dockerfile --- #
+
+FROM alpine:3.15 AS deploy
+
+RUN mkdir -p /var/lib/opensmtpd/empty \
+  && adduser _smtpd -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && adduser _smtpq -h /var/lib/opensmtpd/empty/ -D -H -s /bin/false \
+  && mkdir -p /var/spool/smtpd \
+  && mkdir -p /var/mail \
+  && mkdir -p /etc/mail \
+  && chmod 711 /var/spool/smtpd
+
+RUN apk add --no-cache libevent \
+    openssl \
+    linux-pam \
+    fts
+
+# Trailing slashes are important!
+COPY --from=build /usr/local/libexec/opensmtpd /usr/local/libexec/
+COPY --from=build /usr/local/sbin/smtpctl /usr/local/sbin/
+COPY --from=build /usr/local/sbin/smtpd /usr/local/sbin/
+COPY --from=build /usr/local/bin/smtp /usr/local/bin/
+
+COPY --from=build /etc/mail/smtpd.conf /etc/mail/
+
+COPY --from=build /opensmtpd/etc/aliases /etc/mail/aliases
+
+ENTRYPOINT ["smtpd", "-d"]
