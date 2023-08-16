@@ -1,3 +1,119 @@
+# Release 7.3.0p0 (2023-06-17)
+
+Includes the following security fixes:
+  - OpenBSD 7.2 errata 20 "smtpd(8) could abort due to a
+    connection from a local, scoped ipv6 address"
+  - OpenBSD 7.2 errata 22 "Out of bounds accesses in libc resolver"
+
+## Configuration changes
+- The certificate to use is now selected by looking at the names found
+  in the certificates themselves rather than the `pki` name.  The set
+  of certificates for a TLS listener must be defined explicitly by
+  using the `pki` listener option multiple times.
+
+## Synced with OpenBSD 7.3
+- OpenBSD 6.9:
+  * Introduced smtp(1) `-a` to perform authentication before sending
+    a message.
+  * Fixed a memory leak in smtpd(8) resolver.
+  * Prevented a crash due to premature release of resources by the
+    smtpd(8) filter state machine.
+  * Switch to libtls internally.
+  * Change the way SNI works in smtpd.conf(5).  TLS listeners may be
+    configured with multiple certificates.  The matching is based on
+    the names included in the certificates.
+  * Allow to specify TLS protocols and ciphers per listener and
+    relay action.
+- OpenBSD 7.0:
+  * Fixed incorrect status code for expired mails resulting in
+    misleading bounce report in smtpd(8).
+  * Added TLS options `cafile=(path)`, `nosni`, `noverify` and
+    `servername=(name)` to smtp(1).
+  * Allowed specification of TLS ciphers and protocols in smtp(1).
+- OpenBSD 7.1:
+  * Stop verifying the cert or CA for a relay using opportunistic TLS.
+  * Enabled TLS verify by default for outbound "smtps://" and
+    "smtp+tls://", restoring documented smtpd(8) behavior.
+- OpenBSD 7.3:
+  * Prevented smtpd(8) abort due to a connection from a local,
+    scoped ipv6 address.
+
+## Portable layer changes
+- libbsd and libtls are now optionally used if found.
+  + Added `--with-libbsd`/`--without-libbsd` configure flag to enable
+    linking to libbsd-overlay.
+  + Added `--with-bundled-libtls` to force the usage of the bundled
+    libtls.
+
+    LibreTLS 3.7.0 (last version at the time of writing) and previous
+    have a regression with OpenSSL 3+, so please use the bundled one.
+    See the GitHub issue #1171 for more info.
+
+- Updated and cleanup of the OpenBSD compats.
+  + Ported `res_randomid()` from OpenBSD.
+
+- The configure option `--with-path-CAfile` shouldn't be required
+  anymore in most systems but it is retained since it could be useful in
+  some configuration when using the bundled libtls.
+
+- Various minor portability fixes.
+
+# Release 6.8.0p2 (2020-12-24)
+
+- Fixed an uninitialized variable and potential stack overflow with
+  IPv6 connections in smtpd(8).
+- Fixed smtpd(8) handling of user names containing "@" symbols.
+- Allowed handling of long lines in an smtpd(8) aliases table.
+- Removed mail.local(8) support for world-writable mail spools.
+
+# Release 6.7.1p1 (2020-05-21)
+
+- fixes a packaging issue causing asr.h to be installed in target
+  system
+- fixes a possible crash in the MTA when establishing IPv6 connections
+
+# Release 6.7.0p1 (2020-05-21)
+
+## New Features:
+
+- Allowed use of the smtpd(8) session username in built-in filters
+  when available.
+- Introduced a `bypass` keyword to smtpd(8) so that built-in filters can
+  bypass processing when a condition is met.
+- Allowed use of 'auth' as an origin in smtpd.conf(5).
+- Allowed use of mail-from and rctp-to as for and from parameters in
+  smtpd.conf(5).
+
+## Bug fixes:
+
+- Ensured legacy ssl(8) session ID is persistent during a client TLS
+  session, fixing an issue using TLSv1.3 with smtp.mail.yahoo.com.
+- Fixed security vulnerabilities in smtpd(8). Corrected an
+  out-of-bounds read in smtpd allowing an attacker to inject arbitrary
+  commands into the envelope file to be executed as root, and ensured
+  privilege revocation in smtpctl(8) to prevent arbitrary commands
+  from being run with the _smtpq group.
+- Allowed mail.local(8) to be run as non-root, opening a pipe to
+  lockspool(1) for file locking.
+- Fixed a security vulnerability in smtpd(8) which could lead to a
+  privilege escalation on mbox deliveries and unprivileged code
+  execution on lmtp deliveries.
+- Added support for CIDR in a: spf atoms in smtpd(8).
+- Fixed a possible crash in smtpd(8) when combining "from rdns" with
+  nested virtual aliases under a particular configuration.
+
+## Experimental Features:
+
+- Introduced smtp-out event reporting.
+- Improved filtering protocol.
+
+# Release 6.6.4p1 (2020-02-24)
+
+An out of bounds read in smtpd allows an attacker to inject arbitrary
+commands into the envelope file which are then executed as
+root. Separately, missing privilege revocation in smtpctl allows
+arbitrary commands to be run with the _smtpq group.
+
 # Release 6.6.3p1 (2020-02-10)
 
 Following the 6.6.2p1 release, various improvements were done in OpenBSD -current to mitigate the risk of similar bugs.
