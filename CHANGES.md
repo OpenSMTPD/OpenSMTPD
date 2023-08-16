@@ -9,7 +9,7 @@ This release back-ports them to the portable version of OpenSMTPD.
 This is CRITICAL security bugfix for
 [CVE-2020-7247](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-7247)
 
-Read more details in 
+Read more details in
 [this blog post](https://poolp.org/posts/2020-01-30/opensmtpd-advisory-dissected/)
 
 # Release 6.6.1p1 (2019-11-06)
@@ -20,11 +20,11 @@ This is a bugfix release. No new features were added.
 
 - Fixed crash on recipient expansion [#968](https://github.com/OpenSMTPD/OpenSMTPD/issues/968)
 - Fixed broken build with LibreSSL [#944](https://github.com/OpenSMTPD/OpenSMTPD/issues/944)
-- Fixed crash in `arc4random` caused by differences in OpenSSL vs LibreSSL compatibility layer plumbing [#958](https://github.com/OpenSMTPD/OpenSMTPD/issues/958)  
+- Fixed crash in `arc4random` caused by differences in OpenSSL vs LibreSSL compatibility layer plumbing [#958](https://github.com/OpenSMTPD/OpenSMTPD/issues/958)
 - Fixed issue where `from any` rules never matched by IPv6 sources [#969](https://github.com/OpenSMTPD/OpenSMTPD/issues/969)
 - Fixed crash that happened during mail relay on musl distros [#929](https://github.com/OpenSMTPD/OpenSMTPD/issues/929)
 - Added reference aliases file in `etc/aliases`
-- Fixed multiple compilation warnings 
+- Fixed multiple compilation warnings
 [#965](https://github.com/OpenSMTPD/OpenSMTPD/issues/965)
 [#966](https://github.com/OpenSMTPD/OpenSMTPD/issues/966)
 [#967](https://github.com/OpenSMTPD/OpenSMTPD/issues/967)
