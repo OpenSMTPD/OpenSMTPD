@@ -153,7 +153,11 @@ label1	user:password
 .Ed
 .Pp
 The label must be unique and is used as a selector for the proper credentials
-when multiple credentials are valid for a single destination.
+when multiple credentials are valid for a single destination. This means, that
+the relay must with this example be specified like:
+.Bd -unfilled -offset indent
+.Ic action Ar name Cm relay host Ar smtp+tls://label1@example.org Cm auth Pf < Ar table Ns >
+.Ed
 The password is not encrypted as it must be provided to the remote host.
 .Ss Netaddr tables
 Netaddr tables are lists of IPv4 and IPv6 network addresses.
