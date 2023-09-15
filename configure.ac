@@ -1852,16 +1852,6 @@ AC_TRY_LINK_FUNC([SSL_CTX_load_verify_mem],
 	[ AC_MSG_RESULT([no])]
 )
 
-AC_MSG_CHECKING([whether ECDSA is available])
-AC_TRY_LINK_FUNC([ENGINE_get_ECDSA],
-	[
-		AC_DEFINE([SUPPORT_ECDSA], [1],
-			[Define if ECDSA is supported])
-		AC_MSG_RESULT([yes])
-	],
-	[ AC_MSG_RESULT([no])]
-)
-
 AC_MSG_CHECKING([whether X509_LOOKUP_mem is available])
 AC_TRY_LINK_FUNC([X509_LOOKUP_mem],
 	[
