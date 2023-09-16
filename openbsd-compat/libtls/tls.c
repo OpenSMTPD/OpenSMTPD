@@ -407,21 +407,12 @@ tls_keypair_setup_pkey(struct tls *ctx, struct tls_keypair *keypair, EVP_PKEY *p
 		}
 		break;
 	case EVP_PKEY_EC:
-#if defined(SUPPORT_ECDSA)
-		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) == NULL ||
-		    ECDSA_set_ex_data(eckey, 0, keypair->pubkey_hash) == 0 ||
-		    EVP_PKEY_set1_EC_KEY(pkey, eckey) == 0) {
-			tls_set_errorx(ctx, "EC key setup failure");
-			goto err;
-		}
-#else
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) == NULL ||
 		    EC_KEY_set_ex_data(eckey, 0, keypair->pubkey_hash) == 0 ||
 		    EVP_PKEY_set1_EC_KEY(pkey, eckey) == 0) {
 			tls_set_errorx(ctx, "EC key setup failure");
 			goto err;
 		}
-#endif
 		break;
 	default:
 		tls_set_errorx(ctx, "incorrect key type");
