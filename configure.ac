@@ -73,7 +73,6 @@ LT_INIT
 AC_PATH_PROG([CAT], [cat])
 AC_PATH_PROG([CHMOD], [chmod])
 AC_PATH_PROG([CHOWN], [chown])
-AC_PATH_PROG([ZCAT], [zcat])
 AC_PATH_PROG([SED], [sed])
 AC_PATH_PROG([TEST_MINUS_S_SH], [bash])
 AC_PATH_PROG([TEST_MINUS_S_SH], [ksh])
