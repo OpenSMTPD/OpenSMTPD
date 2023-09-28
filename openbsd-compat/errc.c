@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern char *__progname;
+
 void
 vwarn(const char *fmt, va_list ap)
 {
@@ -29,7 +31,7 @@ vwarn(const char *fmt, va_list ap)
 
 	save_errno = errno;
 
-	fprintf(stderr, "%s: ", getprogname());
+	fprintf(stderr, "%s: ", __progname);
 	if (fmt != NULL) {
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, ": ");
@@ -53,7 +55,7 @@ vwarnx(const char *fmt, va_list ap)
 
 	save_errno = errno;
 
-	fprintf(stderr, "%s: ", getprogname());
+	fprintf(stderr, "%s: ", __progname);
 	if (fmt != NULL)
 		vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
