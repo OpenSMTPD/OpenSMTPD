@@ -367,10 +367,6 @@ typedef uint16_t	in_port_t;
 # endif /* WORDS_BIGENDIAN */
 #endif /* BYTE_ORDER */
 
-#if !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY)
-# define memmove(s1, s2, n) bcopy((s2), (s1), (n))
-#endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
-
 #if !defined(HAVE___func__) && defined(HAVE___FUNCTION__)
 #  define __func__ __FUNCTION__
 #elif !defined(HAVE___func__)
