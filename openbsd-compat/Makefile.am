@@ -74,10 +74,6 @@ if NEED_DIRNAME
 libopenbsd_a_SOURCES += dirname.c
 endif
 
-if NEED_ERR
-libopenbsd_a_SOURCES += bsd-err.c
-endif
-
 if NEED_ERRC
 libopenbsd_a_SOURCES += errc.c
 endif

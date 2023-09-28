@@ -1,7 +1,5 @@
-/*	$OpenBSD: basename.c,v 1.14 2005/08/08 08:05:33 espie Exp $	*/
-
 /*
- * Copyright (c) 1997, 2004 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2023 Omar Polo <op@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,11 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* OPENBSD ORIGINAL: lib/libc/gen/errc.c */
-
 #include "includes.h"
-
-#ifndef HAVE_ERRC
 
 #include <errno.h>
 #include <stdarg.h>
@@ -28,29 +22,122 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern char *__progname;
-
-__attribute__((noreturn))
-static void
-_verrc(int eval, int code, const char *fmt, va_list ap)
+void
+vwarn(const char *fmt, va_list ap)
 {
-        (void)fprintf(stderr, "%s: ", __progname);
-        if (fmt != NULL) {
-                (void)vfprintf(stderr, fmt, ap);
-                (void)fprintf(stderr, ": ");
-        }
-        (void)fprintf(stderr, "%s\n", strerror(code));
-        exit(eval);
+	int save_errno;
+
+	save_errno = errno;
+
+	fprintf(stderr, "%s: ", getprogname());
+	if (fmt != NULL) {
+		vfprintf(stderr, fmt, ap);
+		fprintf(stderr, ": ");
+	}
+	fprintf(stderr, "%s\n", strerror(save_errno));
+
+	errno = save_errno;
 }
 
 void
-errc(int eval, int code, const char *fmt, ...)
+vwarnc(int code, const char *fmt, va_list ap)
 {
-        va_list ap;
-
-        va_start(ap, fmt);
-        _verrc(eval, code, fmt, ap);
-        va_end(ap);
+	errno = code;
+	vwarn(fmt, ap);
 }
 
-#endif
+void
+vwarnx(const char *fmt, va_list ap)
+{
+	int save_errno;
+
+	save_errno = errno;
+
+	fprintf(stderr, "%s: ", getprogname());
+	if (fmt != NULL)
+		vfprintf(stderr, fmt, ap);
+	fputc('\n', stderr);
+
+	errno = save_errno;
+}
+
+__dead void
+verr(int eval, const char *fmt, va_list ap)
+{
+	vwarn(fmt, ap);
+	exit(eval);
+}
+
+__dead void
+verrc(int eval, int code, const char *fmt, va_list ap)
+{
+	vwarnc(code, fmt, ap);
+	exit(eval);
+}
+
+__dead void
+verrx(int eval, const char *fmt, va_list ap)
+{
+	vwarnx(fmt, ap);
+	exit(eval);
+}
+
+__dead void
+err(int eval, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verr(eval, fmt, ap);
+	va_end(ap);
+}
+
+__dead void
+errc(int eval, int code, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verrc(eval, code, fmt, ap);
+	va_end(ap);
+}
+
+__dead void
+errx(int eval, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verrx(eval, fmt, ap);
+	va_end(ap);
+}
+
+void
+warn(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vwarn(fmt, ap);
+	va_end(ap);
+}
+
+void
+warnc(int code, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vwarnc(code, fmt, ap);
+	va_end(ap);
+}
+
+void
+warnx(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vwarnx(fmt, ap);
+	va_end(ap);
+}
