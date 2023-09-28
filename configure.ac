@@ -43,6 +43,8 @@ AC_INIT([OpenSMTPD-portable],
 
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 
+AC_USE_SYSTEM_EXTENSIONS
+
 # here we should test for variables set by libtool detection
 if test "x$with_pic" != "xno"; then
 	CFLAGS="$CFLAGS ${pic_flag}"

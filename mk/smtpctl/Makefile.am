@@ -51,11 +51,6 @@ if HAVE_DB_API
 LDADD+= $(DB_LIB)
 endif
 
-# need to define _GNU_SOURCE to get:
-# EAI_NODATA defined
-# {v,}asprintf
-# setres{g,u}id
-CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		smtpctl.8.out sendmail.8.out makemap.8.out newaliases.8.out

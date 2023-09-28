@@ -14,11 +14,5 @@ LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd.a
 
 LDADD = 		$(LIBCOMPAT)
 
-# need to define _GNU_SOURCE to get:
-# EAI_NODATA defined
-# {v,}asprintf
-# setres{g,u}id
-#CFLAGS +=		-D_GNU_SOURCE
-
 uninstall-hook:
 	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || true

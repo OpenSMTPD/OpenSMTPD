@@ -25,11 +25,6 @@ LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
 
 LDADD=			$(LIBCOMPAT)
 
-# need to define _GNU_SOURCE to get:
-# EAI_NODATA defined
-# {v,}asprintf
-# setres{g,u}id
-CFLAGS+=		-D_GNU_SOURCE
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		smtp.1.out
