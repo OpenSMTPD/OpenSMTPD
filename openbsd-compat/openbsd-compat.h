@@ -189,18 +189,6 @@ unsigned long long strtoull(const char *, char **, int);
 long long strtonum(const char *nptr, long long minval, long long maxval, const char **errstr);
 #endif
 
-#if !defined(HAVE_VASPRINTF) || !defined(HAVE_VSNPRINTF)
-# include <stdarg.h>
-#endif
-
-#ifndef HAVE_VASPRINTF
-int vasprintf(char **, const char *, va_list);
-#endif
-
-#ifndef HAVE_VSNPRINTF
-int vsnprintf(char *, size_t, const char *, va_list);
-#endif
-
 #if !defined(HAVE_EXPLICIT_BZERO) || defined(LIBRESSL_VERSION_NUMBER)
 void explicit_bzero(void *p, size_t n);
 #endif
