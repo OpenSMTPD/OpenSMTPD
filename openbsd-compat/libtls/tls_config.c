@@ -735,6 +735,17 @@ tls_config_set_session_fd(struct tls_config *config, int session_fd)
 }
 
 int
+tls_config_set_sign_cb(struct tls_config *config, tls_sign_cb cb, void *cb_arg)
+{
+	config->use_fake_private_key = 1;
+	config->skip_private_key_check = 1;
+	config->sign_cb = cb;
+	config->sign_cb_arg = cb_arg;
+
+	return (0);
+}
+
+int
 tls_config_set_verify_depth(struct tls_config *config, int verify_depth)
 {
 	config->verify_depth = verify_depth;

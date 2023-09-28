@@ -32,6 +32,7 @@ libopenbsd_a_SOURCES += libtls/tls_keypair.c
 libopenbsd_a_SOURCES += libtls/tls_server.c
 libopenbsd_a_SOURCES += libtls/tls_ocsp.c
 libopenbsd_a_SOURCES += libtls/tls_peer.c
+libopenbsd_a_SOURCES += libtls/tls_signer.c
 libopenbsd_a_SOURCES += libtls/tls_util.c
 libopenbsd_a_SOURCES += libtls/tls_verify.c
 libopenbsd_a_SOURCES += libtls/by_mem.c
