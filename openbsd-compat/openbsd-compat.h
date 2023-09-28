@@ -173,10 +173,6 @@ int asprintf(char **, const char *, ...);
 
 /* #include <sys/types.h> XXX needed? For size_t */
 
-#ifndef HAVE_SNPRINTF
-int snprintf(char *, size_t, const char *, ...);
-#endif 
-
 #ifndef HAVE_STRTOLL
 long long strtoll(const char *, char **, int);
 #endif
