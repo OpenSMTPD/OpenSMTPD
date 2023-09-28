@@ -167,10 +167,6 @@ uint32_t arc4random_uniform(uint32_t);
 #define SSL_OP_NO_CLIENT_RENEGOTIATION 0
 #endif
 
-#ifndef HAVE_ASPRINTF
-int asprintf(char **, const char *, ...);
-#endif 
-
 /* #include <sys/types.h> XXX needed? For size_t */
 
 #ifndef HAVE_STRTOLL
