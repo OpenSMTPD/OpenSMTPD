@@ -23,8 +23,6 @@
 
 #include			 <imsg.h>
 
-#include			 "openbsd-compat.h"
-
 #ifndef nitems
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif

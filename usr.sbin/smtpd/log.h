@@ -19,8 +19,6 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include "openbsd-compat.h"
-
 #include <syslog.h>
 
 #include <stdarg.h>
