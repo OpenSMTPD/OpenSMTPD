@@ -276,10 +276,6 @@ int setresgid(uid_t, uid_t, uid_t);
 int setresuid(uid_t, uid_t, uid_t);
 #endif
 
-#ifndef HAVE_GETLINE
-ssize_t getline(char **, size_t *, FILE *);
-#endif
-
 #ifndef HAVE_CRYPT_CHECKPASS
 int crypt_checkpass(const char *, const char *);
 #endif
