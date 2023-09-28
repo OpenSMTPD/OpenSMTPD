@@ -130,7 +130,7 @@ int BSDgetopt(int argc, char * const *argv, const char *opts);
 /* Home grown routines */
 /* #include "bsd-setres_id.h" */
 /* #include "bsd-statvfs.h" */
-#include "bsd-waitpid.h"
+#include "waitpid.h"
 /* #include "bsd-poll.h" */
 
 #ifndef HAVE_GETPEEREID

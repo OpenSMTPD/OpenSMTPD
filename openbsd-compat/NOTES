@@ -5,7 +5,6 @@ base64.{c,h}  	  	portable openssh
 basename.c		portable openssh
 bsd-closefrom.c		portable openssh
 bsd-err.{c,h}		portable openssh
-bsd-waitpid.{c,h}	portable openssh
 clock_gettime.c		handmade
 # crypt_checkpass
 daemon.c		portable openssh
@@ -51,4 +50,5 @@ sys/queue.h		portable openssh
 sys/tree.h		portable openssh
 timingsafe_memcmp.c	/usr/src/lib/libc/string/timingsafe_memcmp.c
 vis.{c,h}		portable openssh
+waitpid.{c,h}		portable openssh
 xmalloc.{c,h}		portable openssh

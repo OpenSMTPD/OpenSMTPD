@@ -224,14 +224,13 @@ libopenbsd_a_SOURCES +=	vis.c
 endif
 
 if NEED_WAITPID
-libopenbsd_a_SOURCES +=	bsd-waitpid.c
+libopenbsd_a_SOURCES +=	waitpid.c
 endif
 
 EXTRA_DIST =	NOTES				\
 		base64.h			\
 		bsd-misc.h			\
 		bsd-vis.h			\
-		bsd-waitpid.h			\
 		chacha_private.h		\
 		defines.h			\
 		err_h/err.h			\
@@ -246,7 +245,8 @@ EXTRA_DIST =	NOTES				\
 		openbsd-compat.h		\
 		paths_h/paths.h			\
 		sys/queue.h			\
-		sys/tree.h
+		sys/tree.h			\
+		waitpid.h
 
 if !NEED_ERR_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
