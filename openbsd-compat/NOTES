@@ -40,7 +40,6 @@ setproctitle.c		portable openssh
 # setresgid.c
 # setresuid.c
 # signal.c
-# strerror.c
 strlcat.c		portable openssh
 strlcpy.c		portable openssh
 strmode.c		portable openssh

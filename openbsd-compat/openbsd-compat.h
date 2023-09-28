@@ -347,10 +347,6 @@ mysig_t mysignal(int sig, mysig_t act);
 #define signal(a,b) mysignal(a,b)
 #endif
 
-#ifdef NEED_STRERROR
-const char *strerror(int);
-#endif
-
 #ifdef NEED_USLEEP
 int usleep(unsigned int useconds);
 #endif
