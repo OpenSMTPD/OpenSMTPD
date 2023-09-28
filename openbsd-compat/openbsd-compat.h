@@ -102,10 +102,6 @@ int	fmt_scaled(long long number, char *result);
 int	scan_scaled(char *, long long *);
 #endif
 
-#ifndef HAVE_INET_NTOP
-const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
-#endif
-
 #ifndef HAVE_RES_RANDOMID
 unsigned int res_randomid(void);
 #endif
