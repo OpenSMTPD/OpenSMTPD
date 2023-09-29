@@ -40,7 +40,7 @@ AC_PATH_PROG([CHOWN], [chown])
 AC_PATH_PROG([ZCAT], [zcat])
 AC_PATH_PROG([SED], [sed])
 
-AM_CFLAGS="-I\${top_srcdir}/openbsd-compat"
+AM_CFLAGS="-I\${top_srcdir}/usr.sbin/smtpd -I\${top_srcdir}/openbsd-compat"
 
 dnl XXX: OpenSMTPD and libtls need to stay in sync, otherwise bad
 dnl things can happen at runtime.  Revisit this in the future once we

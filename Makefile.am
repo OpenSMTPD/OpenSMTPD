@@ -17,8 +17,7 @@ AM_CPPFLAGS =		-DSMTPD_CONFDIR=\"$(sysconfdir)\" \
 			-DPATH_MAILLOCAL=\"$(pkglibexecdir)/mail.local\" \
 			-DPATH_MAKEMAP=\"$(sbindir)/makemap\" \
 			-DPATH_LIBEXEC=\"$(pkglibexecdir)\" \
-			@DEFS@ \
-			-I$(top_srcdir)/usr.sbin/smtpd
+			@DEFS@
 
 LDADD = 		$(LIBOBJS)
 
