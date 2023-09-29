@@ -28,9 +28,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
-#ifdef HAVE_PATHS_H
 #include <paths.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

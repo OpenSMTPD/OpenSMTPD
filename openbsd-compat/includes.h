@@ -57,9 +57,6 @@
 #ifdef HAVE_MAILLOCK_H
 # include <maillock.h> /* For _PATH_MAILDIR */
 #endif
-#ifdef HAVE_PATHS_H
-# include <paths.h>
-#endif
 
 #ifdef HAVE_RPC_TYPES_H
 # include <rpc/types.h> /* For INADDR_LOOPBACK */
