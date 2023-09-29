@@ -40,13 +40,13 @@ openbsd-compat/Makefile
 contrib/libexec/encrypt/encrypt
 contrib/libexec/lockspool/lockspool
 contrib/libexec/mail.local/mail.local
-mk/mail/mail.lmtp/mail.lmtp
-mk/mail/mail.maildir/mail.maildir
-mk/mail/mail.mboxfile/mail.mboxfile
-mk/mail/mail.mda/mail.mda
-mk/smtp/smtp
-mk/smtpctl/smtpctl
-mk/smtpd/smtpd
+mail.lmtp
+mail.maildir
+mail.mboxfile
+mail.mda
+smtp
+smtpctl
+smtpd
 
 #Other VCS files
 CVS/
