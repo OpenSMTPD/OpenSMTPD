@@ -71,6 +71,7 @@
 # include <pam/pam_appl.h>
 #endif
 #endif
+
 #include <errno.h>
 
 /* chl */
@@ -82,8 +83,6 @@
 #if !defined(NETDB_INTERNAL)
 # define NETDB_INTERNAL (-1)
 #endif
-
-#include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
 
 #include "defines.h"
 
