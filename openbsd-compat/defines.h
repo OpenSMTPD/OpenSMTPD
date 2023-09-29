@@ -476,13 +476,6 @@ typedef uint16_t	in_port_t;
 #define	SCOPE_DELIMITER '%'
 #endif
 
-#ifndef HAVE_FLOCK
-#define LOCK_SH         0x01            /* shared file lock */
-#define LOCK_EX         0x02            /* exclusive file lock */
-#define LOCK_NB         0x04            /* don't block when locking */
-#define LOCK_UN         0x08            /* unlock file */
-#endif
-
 #if !HAVE_DECL_LOG_PERROR
 #define LOG_PERROR 0
 #endif

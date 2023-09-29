@@ -264,10 +264,6 @@ int res_hnok(const char *);
 #define USE_IPV6_ADDR_SCOPE_NODELOCAL 1
 #endif
 
-#ifndef HAVE_FLOCK
-int flock(int, int);
-#endif
-
 #ifndef HAVE_SETRESGID
 int setresgid(uid_t, uid_t, uid_t);
 #endif
