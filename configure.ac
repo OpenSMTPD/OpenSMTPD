@@ -1358,6 +1358,7 @@ AC_SEARCH_LIBS([deflate], [z], [:], [
 	AC_MSG_ERROR([can't find zlib])
 ])
 
+# Search for libdb
 AC_ARG_WITH([table-db],
 	[  --with-table-db		Enable building of table-db backend (default=no)],
 	[
@@ -1369,37 +1370,25 @@ AC_ARG_WITH([table-db],
 	]
 )
 
-if test "x$use_db_api" = "x1"; then
-# Search for libdb
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
-				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
-])])])
-fi
+AS_IF([test "x$use_db_api" = "x1"], [
+	dnl stop at the first one found
+	AC_CHECK_HEADERS([ db.h db1/db.h db_185.h], [break])
+	AS_IF([test "x$have_cv_header_db_h" = xno -a \
+	    "x$have_cv_header_db1_db_h" = xno -a \
+	    "x$have_cv_header_db_185_h" = xno], [
+		AC_MSG_ERROR([can't find Berkeley DB headers])
+	])
 
-save_LIBS="$LIBS"
+	AC_SEARCH_LIBS([dbopen], [db db1], [:], [
+		AC_SEARCH_LIBS([__db185_open], [db db1], [:], [
+			AC_MSG_ERROR([can't find Berkeley DB (or not built with --enable-185)])
+		])
+	])
 
-if test "x$use_db_api" = "x1"; then
-DB_LIB=
-
-for libdb in db db1 c; do
-    AC_CHECK_LIB($libdb, dbopen,       [ DB_LIB="$libdb"; break; ],
-    AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
-done
-
-if test -z "$DB_LIB"; then
-    AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
-fi
-
-DB_LIB="-l$DB_LIB"
-AC_SUBST([DB_LIB])
-fi
-
-LIBS="$save_LIBS"
+	AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])
+])
 
 AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
-AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
 LIBS="$LIBS ${SMTPDLIBS}"
 

@@ -103,7 +103,7 @@ smtpctl_CPPFLAGS =	-DNO_IO -DCONFIG_MINIMUM \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\" \
 			$(AM_CPPFLAGS)
 
-smtpctl_LDADD =		$(DB_LIB) $(LIBASR) $(LIBOBJS)
+smtpctl_LDADD =		$(LIBASR) $(LIBOBJS)
 
 smtpctl_SOURCES =	usr.sbin/smtpd/compress_backend.c \
 			usr.sbin/smtpd/compress_gzip.c \
@@ -137,7 +137,7 @@ smtpctl_SOURCES +=	usr.sbin/smtpd/config.c \
 endif
 
 smtpd_CPPFLAGS =	-DIO_TLS $(AM_CPPFLAGS)
-smtpd_LDADD =		libtls.a $(DB_LIB) $(LIBASR) $(LIBOBJS)
+smtpd_LDADD =		libtls.a $(LIBASR) $(LIBOBJS)
 
 smtpd_SOURCES =		usr.sbin/smtpd/aliases.c
 smtpd_SOURCES +=	usr.sbin/smtpd/bounce.c
