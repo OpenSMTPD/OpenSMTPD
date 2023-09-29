@@ -91,9 +91,6 @@ AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(compat_srcdir)
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
-if NEED_LIBASR
-AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libasr
-endif
 if NEED_LIBTLS
 AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libtls
 endif
