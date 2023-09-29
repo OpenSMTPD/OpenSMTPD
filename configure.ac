@@ -115,7 +115,6 @@ AC_REPLACE_FUNCS([
 	getdtablesize \
 	getopt \
 	getpeereid \
-	getsubopt \
 	nanosleep \
 	pipe2 \
 	reallocarray \
@@ -1146,6 +1145,12 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes"; then
 	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
 		[Define if your getopt(3) defines and uses optreset])
 fi
+
+AC_CHECK_DECL([suboptarg], [
+	AC_DEFINE([HAVE_SUBOPTARG], 1, [1 if have suboptarg])
+], [
+	AC_LIBOBJ([getsubopt])
+])
 
 # Search for fts
 AC_ARG_WITH([libfts],
