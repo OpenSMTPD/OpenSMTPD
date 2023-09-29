@@ -89,9 +89,6 @@ smtpd_CFLAGS=		-DIO_TLS
 
 AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(compat_srcdir)
-if !SUPPORT_PATHS_H
-AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/paths_h
-endif
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
 if NEED_LIBASR
