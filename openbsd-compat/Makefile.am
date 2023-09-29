@@ -249,10 +249,6 @@ EXTRA_DIST =	NOTES				\
 		sys/tree.h			\
 		waitpid.h
 
-if !NEED_ERR_H
-AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
-endif
-
 if NEED_GETSUBOPT
 libopenbsd_a_SOURCES += getsubopt.c
 endif

@@ -13,9 +13,6 @@ smtp_CFLAGS=		-DIO_TLS
 
 AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(top_srcdir)/openbsd-compat
-if !NEED_ERR_H
-AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
-endif
 
 if NEED_LIBTLS
 AM_CPPFLAGS+=	-I$(top_srcdir)/openbsd-compat/libtls

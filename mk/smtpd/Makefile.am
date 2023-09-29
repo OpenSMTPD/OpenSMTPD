@@ -89,9 +89,6 @@ smtpd_CFLAGS=		-DIO_TLS
 
 AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
 			-I$(compat_srcdir)
-if !NEED_ERR_H
-AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/err_h
-endif
 if !SUPPORT_PATHS_H
 AM_CPPFLAGS += -I$(top_srcdir)/openbsd-compat/paths_h
 endif
