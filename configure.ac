@@ -64,7 +64,6 @@ need_libasr=yes
 pkglibexecdir="$libexecdir/opensmtpd"
 AS_CASE(["$host"],
 	[*-*-darwin*], [
-		use_pie=auto
 		AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
 			[define if seteuid breaks setuid])
 		AC_DEFINE([BROKEN_SETREUID], [1],
@@ -76,14 +75,12 @@ AS_CASE(["$host"],
 			supported by bsd-setproctitle.c])
 ],
 	[*-*-linux* | *-gnu* | *-k*bsd*-gnu*], [
-		use_pie=auto
 		AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 ],
 	[*-*-netbsd*], [
 		AM_CFLAGS="$AM_CFLAGS -D_OPENBSD_SOURCE"
 ],
 	[*-*-openbsd*], [
-		use_pie=auto
 		need_libasr=no
 		pkglibexecdir="$libexecdir/smtpd"
 		AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1],
@@ -667,53 +664,6 @@ AC_ARG_WITH([Werror],
 		fi
 	]
 )
-
-AC_ARG_WITH([pie],
-    [  --with-pie			Build Position Independent Executables if possible], [
-	if test "x$withval" = "xno"; then
-		use_pie=no
-	fi
-	if test "x$withval" = "xyes"; then
-		use_pie=yes
-	fi
-    ]
-)
-if test -z "$use_pie"; then
-	use_pie=no
-fi
-if test "x$use_toolchain_hardening" != "x1" -a "x$use_pie" = "xauto"; then
-	# Turn off automatic PIE when toolchain hardening is off.
-	use_pie=no
-fi
-if test "x$use_pie" = "xauto"; then
-	# Automatic PIE requires gcc >= 4.x
-	AC_MSG_CHECKING([for gcc >= 4.x])
-	AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
-#if !defined(__GNUC__) || __GNUC__ < 4
-#error gcc is too old
-#endif
-]])],
-	[ AC_MSG_RESULT([yes]) ],
-	[ AC_MSG_RESULT([no])
-	  use_pie=no ]
-)
-fi
-if test "x$use_pie" != "xno"; then
-	SAVED_CFLAGS="$CFLAGS"
-	SAVED_LDFLAGS="$LDFLAGS"
-	OSSH_CHECK_CFLAG_COMPILE([-fPIE])
-	OSSH_CHECK_LDFLAG_LINK([-pie])
-	# We use both -fPIE and -pie or neither.
-	AC_MSG_CHECKING([whether both -fPIE and -pie are supported])
-	if echo "x $CFLAGS"  | grep ' -fPIE' >/dev/null 2>&1 && \
-	   echo "x $LDFLAGS" | grep ' -pie'  >/dev/null 2>&1 ; then
-		AC_MSG_RESULT([yes])
-	else
-		AC_MSG_RESULT([no])
-		CFLAGS="$SAVED_CFLAGS"
-		LDFLAGS="$SAVED_LDFLAGS"
-	fi
-fi
 
 # Whether to enable BSD auth support
 AC_ARG_WITH([auth-bsdauth],
