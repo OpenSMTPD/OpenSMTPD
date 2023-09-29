@@ -1322,7 +1322,7 @@ AC_ARG_WITH([table-db],
 
 AS_IF([test "x$use_db_api" = "x1"], [
 	dnl stop at the first one found
-	AC_CHECK_HEADERS([ db.h db1/db.h db_185.h], [break])
+	AC_CHECK_HEADERS([db_185.h db.h db1/db.h], [break])
 	AS_IF([test "x$have_cv_header_db_h" = xno -a \
 	    "x$have_cv_header_db1_db_h" = xno -a \
 	    "x$have_cv_header_db_185_h" = xno], [
