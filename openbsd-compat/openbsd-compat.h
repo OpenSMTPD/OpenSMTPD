@@ -321,7 +321,7 @@ char *get_progname(char *);
 int	clock_gettime(int clock_id, struct timespec *tp);
 #endif
 
-#ifndef HAVE_GETSUBOPT
+#ifndef HAVE_SUBOPTARG
 #define getsubopt(optionp, tokens, valuep) openbsd_getsubopt(optionp, tokens, valuep)
 int openbsd_getsubopt(char **optionp, char * const *tokens, char **valuep);
 extern  char *suboptarg;               /* getsubopt(3) external variable */
