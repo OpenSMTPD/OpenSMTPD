@@ -53,8 +53,8 @@ AC_ARG_WITH([libbsd],
     AS_HELP_STRING([--disable-libbsd], [Disable libbsd usage]))
 AS_IF([test "x$with_libbsd" != xno], [
 	PKG_CHECK_MODULES([LIBBSD], [libbsd-overlay libbsd-ctor], [
-		AM_CFLAGS="$LIBBSD_CFLAGS $AM_CFLAGS"
-		AM_LDFLAGS="$LIBBSD_LIBS $AM_LDFLAGS"
+		CFLAGS="$LIBBSD_CFLAGS $CFLAGS"
+		LDFLAGS="$LIBBSD_LIBS $LDFLAGS"
 	], [AS_IF([test "x$with_libbsd" = "xyes"], [
 		AC_MSG_ERROR([libbsd requested but not found])
 	])])
