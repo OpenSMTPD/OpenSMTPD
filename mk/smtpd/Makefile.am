@@ -84,17 +84,42 @@ smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler_proc.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/scheduler_ramqueue.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/stat_ramstat.c
 
+# libasr
+if NEED_LIBASR
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr_compat.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr_debug.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr_utils.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/getaddrinfo_async.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/gethostnamadr_async.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/getnameinfo_async.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/getnetnamadr_async.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/res_search_async.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/res_send_async.c
+endif
 
-smtpd_CFLAGS=		-DIO_TLS
+# libtls
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/asn.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_client.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_bio_cb.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_config.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_conninfo.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_keypair.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_server.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_ocsp.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_peer.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_signer.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_util.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_verify.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/by_mem.c
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/openssl.c
 
-AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
-			-I$(compat_srcdir)
+AM_CPPFLAGS=		-DIO_TLS \
+			-I$(top_srcdir)/usr.sbin/smtpd \
+			-I$(srcdir) $(PATHS) @DEFS@
 
-LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
-
-LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)
-
-AM_CPPFLAGS+=		-I$(srcdir) $(PATHS) @DEFS@
+LDADD=			$(LIBOBJS) $(DB_LIB)
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
 			smtpd.conf.5.out smtpd-filters.7.out table.5.out

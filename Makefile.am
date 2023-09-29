@@ -1,4 +1,4 @@
-SUBDIRS =		openbsd-compat mk contrib
+SUBDIRS =		mk contrib openbsd-compat
 
 EXTRA_DIST =		CHANGES.md \
 			LICENSE \

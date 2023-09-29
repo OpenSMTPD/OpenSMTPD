@@ -34,21 +34,16 @@ endif
 
 smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/crypto.c
 
-smtpctl_CFLAGS=		-DNO_IO -DCONFIG_MINIMUM
-smtpctl_CFLAGS+=	-DPATH_GZCAT=\"$(ZCAT)\" \
-			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
+smtpctl_CPPFLAGS=	-DNO_IO -DCONFIG_MINIMUM \
+			-DPATH_GZCAT=\"$(ZCAT)\" \
+			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\" \
+			-I$(top_srcdir)/usr.sbin/smtpd \
+			-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
-			-I$(top_srcdir)/openbsd-compat
-
-LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
-
-LDADD=			$(LIBCOMPAT)
+LDADD=			$(LIBOBJS)
 if HAVE_DB_API
 LDADD+= $(DB_LIB)
 endif
-
-CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		smtpctl.8.out sendmail.8.out makemap.8.out newaliases.8.out
 MANPAGES_IN=		$(top_srcdir)/usr.sbin/smtpd/smtpctl.8 $(top_srcdir)/usr.sbin/smtpd/sendmail.8 $(top_srcdir)/usr.sbin/smtpd/makemap.8 $(top_srcdir)/usr.sbin/smtpd/newaliases.8

@@ -8,11 +8,9 @@ dist_man8_MANS = mail.local.8
 
 EXTRA_DIST =		mail.local.h pathnames.h
 
-AM_CPPFLAGS = 		-I$(top_srcdir)/openbsd-compat -DPATH_LIBEXEC=\"$(pkglibexecdir)\"
+AM_CPPFLAGS = 		-DPATH_LIBEXEC=\"$(pkglibexecdir)\"
 
-LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd.a
-
-LDADD = 		$(LIBCOMPAT)
+LDADD = 		$(LIBOBJS)
 
 uninstall-hook:
 	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || true
