@@ -1286,28 +1286,14 @@ AC_ARG_WITH([libssl],
 		fi
 	]
 )
-## XXX chl -lssl manually added
-LIBS="$LIBS -lcrypto -lssl"
-AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL], [1],
-	[Define if your ssl headers are included
-	with #include <openssl/header.h>])],
-	[
-		dnl Check default openssl install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
-		AC_CHECK_HEADER([openssl/opensslv.h], ,
-		    [AC_MSG_ERROR([*** LibreSSL headers missing - please install first or check config.log ***])])
-		AC_TRY_LINK_FUNC([RAND_add], [AC_DEFINE([HAVE_OPENSSL])],
-			[
-				AC_MSG_ERROR([*** Can't find recent LibreSSL libcrypto (see config.log for details) ***])
-			]
-		)
-	]
-)
+
+AC_SEARCH_LIBS([RAND_add], [crypto], [:], [
+	AC_MSG_ERROR([can't find libcrypto])
+])
+
+AC_SEARCH_LIBS([SSL_CTX_new], [ssl], [:], [
+	AC_MSG_ERROR([can't find libssl])
+])
 
 AC_MSG_CHECKING([whether SSL_CTX_use_certificate_chain_mem is available])
 AC_TRY_LINK_FUNC([SSL_CTX_use_certificate_chain_mem],
