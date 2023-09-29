@@ -90,7 +90,7 @@ mail_mboxfile_SOURCES =	usr.sbin/smtpd/mail.mboxfile.c \
 mail_mda_SOURCES =	usr.sbin/smtpd/mail.mda.c \
 			usr.sbin/smtpd/log.c
 
-smtp_CPPFLAGS =		-DIO_TLS
+smtp_CPPFLAGS =		-DIO_TLS $(AM_CPPFLAGS)
 smtp_LDADD =		libtls.a $(LIBASR)
 smtp_SOURCES =		usr.sbin/smtpd/iobuf.c \
 			usr.sbin/smtpd/ioev.c \
@@ -101,7 +101,8 @@ smtp_SOURCES =		usr.sbin/smtpd/iobuf.c \
 
 smtpctl_CPPFLAGS =	-DNO_IO -DCONFIG_MINIMUM \
 			-DPATH_GZCAT=\"$(ZCAT)\" \
-			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\"
+			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\" \
+			$(AM_CPPFLAGS)
 
 smtpctl_LDADD =		$(DB_LIB) $(LIBASR)
 
@@ -136,7 +137,7 @@ smtpctl_SOURCES +=	usr.sbin/smtpd/config.c \
 			usr.sbin/smtpd/table_static.c
 endif
 
-smtpd_CPPFLAGS =	-DIO_TLS
+smtpd_CPPFLAGS =	-DIO_TLS $(AM_CPPFLAGS)
 smtpd_LDADD =		libtls.a $(DB_LIB) $(LIBASR)
 
 smtpd_SOURCES =		usr.sbin/smtpd/aliases.c
