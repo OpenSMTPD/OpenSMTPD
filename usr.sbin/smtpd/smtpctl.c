@@ -1061,7 +1061,7 @@ main(int argc, char **argv)
 	int		 privileged;
 	char		*argv_mailq[] = { "show", "queue", NULL };
 
-#ifdef NEED_PROGNAME
+#ifndef HAVE___PROGNAME
 	__progname = get_progname(argv[0]);
 #endif
 

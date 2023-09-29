@@ -94,7 +94,7 @@ unsigned int res_randomid(void);
 char *strsep(char **stringp, const char *delim);
 #endif
 
-#ifdef NEED_SETPROCTITLE
+#ifndef HAVE_SETPROCTITLE
 void setproctitle(const char *fmt, ...);
 void compat_init_setproctitle(int argc, char *argv[]);
 #endif
@@ -274,7 +274,7 @@ struct timeval {
 int timingsafe_memcmp(const void *, const void *, size_t);
 #endif
 
-#ifdef NEED_NANOSLEEP
+#ifndef HAVE_NANOSLEEP
 #ifndef HAVE_STRUCT_TIMESPEC
 struct timespec {
 	time_t	tv_sec;
@@ -284,25 +284,25 @@ struct timespec {
 int nanosleep(const struct timespec *, struct timespec *);
 #endif
 
-#ifdef NEED_SETEGID
+#ifndef HAVE_SETEGID
 int setegid(uid_t);
 #endif
 
-#ifdef NEED_SETEUID
+#ifndef HAVE_SETEUID
 int seteuid(uid_t);
 #endif
 
-#ifdef NEED_SETSID
+#ifndef HAVE_SETSID
 #define setsid() setpgrp(0, getpid())
 #endif
 
-#ifdef NEED_SIGNAL
+#ifndef HAVE_SIGNAL
 typedef void (*mysig_t)(int);
 mysig_t mysignal(int sig, mysig_t act);
 #define signal(a,b) mysignal(a,b)
 #endif
 
-#ifdef NEED_USLEEP
+#ifndef HAVE_USLEEP
 int usleep(unsigned int useconds);
 #endif
 
@@ -311,7 +311,7 @@ int pipe2(int pipefd[2], int flags);
 char *get_progname(char *);
 
 
-#ifdef NEED_CLOCK_GETTIME
+#ifndef HAVE_CLOCK_GETTIME
 #ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME	0
 #endif
@@ -321,7 +321,7 @@ char *get_progname(char *);
 int	clock_gettime(int clock_id, struct timespec *tp);
 #endif
 
-#ifdef NEED_GETSUBOPT
+#ifndef HAVE_GETSUBOPT
 #define getsubopt(optionp, tokens, valuep) openbsd_getsubopt(optionp, tokens, valuep)
 int openbsd_getsubopt(char **optionp, char * const *tokens, char **valuep);
 extern  char *suboptarg;               /* getsubopt(3) external variable */

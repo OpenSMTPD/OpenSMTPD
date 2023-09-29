@@ -514,7 +514,7 @@ main(int argc, char *argv[])
 	char		*rexec = NULL;
 	struct smtpd	*conf;
 
-#ifdef NEED_PROGNAME
+#ifndef HAVE___PROGNAME
 	__progname = get_progname(argv[0]);
 #endif
 	__progname = xstrdup(__progname);
@@ -526,7 +526,7 @@ main(int argc, char *argv[])
 		saved_argv[i] = xstrdup(argv[i]);
 	saved_argv[i] = NULL;
 
-#ifdef NEED_SETPROCTITLE
+#ifndef HAVE_SETPROCTITLE
 	/* Prepare for later setproctitle emulation */
 	compat_init_setproctitle(argc, argv);
 	argv = saved_argv;
