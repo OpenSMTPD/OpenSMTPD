@@ -1412,15 +1412,6 @@ AC_SUBST([AM_CFLAGS])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 	Makefile
-	mk/Makefile
-	mk/mail/Makefile
-	mk/mail/mail.lmtp/Makefile
-	mk/mail/mail.maildir/Makefile
-	mk/mail/mail.mboxfile/Makefile
-	mk/mail/mail.mda/Makefile
-	mk/smtpd/Makefile
-	mk/smtpctl/Makefile
-	mk/smtp/Makefile
 	contrib/Makefile
 	contrib/libexec/Makefile
 	contrib/libexec/mail.local/Makefile
