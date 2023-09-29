@@ -1233,10 +1233,6 @@ AC_LINK_IFELSE(
 	]
 )
 
-# we can do this only now, after libevent checks, since on OpenBSD
-# this lives there.
-AC_REPLACE_FUNCS([event_asr_run])
-
 # Search for OpenSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"

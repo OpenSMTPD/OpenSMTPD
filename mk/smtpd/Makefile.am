@@ -86,6 +86,7 @@ smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/stat_ramstat.c
 
 # libasr
 if NEED_LIBASR
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/event_asr_run.c
 smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr.c
 smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr_compat.c
 smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/asr_debug.c
