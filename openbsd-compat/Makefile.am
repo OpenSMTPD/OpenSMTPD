@@ -1,6 +1,5 @@
 EXTRA_DIST =	NOTES				\
 		base64.h			\
-		bsd-misc.h			\
 		bsd-vis.h			\
 		chacha_private.h		\
 		defines.h			\
