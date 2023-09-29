@@ -9,16 +9,28 @@ smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtp_client.c
 smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtpc.c
 smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ssl.c
 
-smtp_CFLAGS=		-DIO_TLS
+# libtls
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/asn.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_client.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_bio_cb.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_config.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_conninfo.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_keypair.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_server.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_ocsp.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_peer.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_signer.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_util.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_verify.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/by_mem.c
+smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/openssl.c
 
-AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd	\
-			-I$(top_srcdir)/openbsd-compat
+AM_CPPFLAGS=		-DIO_TLS \
+			-I$(top_srcdir)/usr.sbin/smtpd \
+			-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
-LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd.a
-
-LDADD=			$(LIBCOMPAT)
-
-CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+LDADD=			$(LIBOBJS)
 
 MANPAGES=		smtp.1.out
 MANPAGES_IN=		$(top_srcdir)/usr.sbin/smtpd/smtp.1

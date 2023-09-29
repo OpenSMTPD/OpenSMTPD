@@ -8,11 +8,9 @@ dist_man1_MANS =	lockspool.1
 
 EXTRA_DIST =		mail.local.h pathnames.h
 
-AM_CPPFLAGS = 		-I$(top_srcdir)/openbsd-compat -I$(top_srcdir)/mail.local
+AM_CPPFLAGS = 		-I$(top_srcdir)/mail.local
 
-LIBCOMPAT =		$(top_builddir)/openbsd-compat/libopenbsd.a
-
-LDADD = 		$(LIBCOMPAT)
+LDADD = 		$(LIBOBJS)
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	chown root $(DESTDIR)$(pkglibexecdir)/lockspool || true
