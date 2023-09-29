@@ -665,6 +665,13 @@ AC_ARG_WITH([Werror],
 	]
 )
 
+# Save the LIBS gathered so far to use them for the mail.* programs:
+# they don't need "fancy" libraries, so we can stop here.
+# The alternative would be to have several configure scripts, which
+# would be more idiomatic but also more work for a simple case like
+# this.
+AC_SUBST([BASIC_LIBS], [$LIBS])
+
 # Whether to enable BSD auth support
 AC_ARG_WITH([auth-bsdauth],
 	[  --with-auth-bsdauth		Enable bsd_auth(3) authentication support],
@@ -1340,7 +1347,12 @@ AS_IF([test "x$use_db_api" = "x1"], [
 
 AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
 
-LIBS="$LIBS ${SMTPDLIBS}"
+#LIBS="$LIBS ${SMTPDLIBS}"
+
+# Save the LIBS gathered at the and as FULL_LIBS for smtpd, smtpctl
+# and smtp, since mail.* programs needs less libs.
+AC_SUBST([FULL_LIBS], [$LIBS])
+LIBS=""
 
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.

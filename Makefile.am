@@ -79,18 +79,22 @@ endif
 
 mail_lmtp_SOURCES =	usr.sbin/smtpd/mail.lmtp.c \
 			usr.sbin/smtpd/log.c
+mail_lmtp_LDFLAGS =	@BASIC_LIBS@
 
 mail_maildir_SOURCES =	usr.sbin/smtpd/mail.maildir.c \
 			usr.sbin/smtpd/log.c
+mail_maildir_LDFLAGS =	@BASIC_LIBS@
 
 mail_mboxfile_SOURCES =	usr.sbin/smtpd/mail.mboxfile.c \
 			usr.sbin/smtpd/log.c
+mail_mboxfile_LDFLAGS =	@BASIC_LIBS@
 
 mail_mda_SOURCES =	usr.sbin/smtpd/mail.mda.c \
 			usr.sbin/smtpd/log.c
+mail_mda_LDFLAGS =	@BASIC_LIBS@
 
 smtp_CPPFLAGS =		-DIO_TLS $(AM_CPPFLAGS)
-smtp_LDADD =		libtls.a $(LIBASR) $(LIBOBJS)
+smtp_LDADD =		libtls.a $(LIBASR) $(LIBOBJS) @FULL_LIBS@
 smtp_SOURCES =		usr.sbin/smtpd/iobuf.c \
 			usr.sbin/smtpd/ioev.c \
 			usr.sbin/smtpd/log.c \
@@ -103,7 +107,7 @@ smtpctl_CPPFLAGS =	-DNO_IO -DCONFIG_MINIMUM \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\" \
 			$(AM_CPPFLAGS)
 
-smtpctl_LDADD =		$(LIBASR) $(LIBOBJS)
+smtpctl_LDADD =		$(LIBASR) $(LIBOBJS) @FULL_LIBS@
 
 smtpctl_SOURCES =	usr.sbin/smtpd/compress_backend.c \
 			usr.sbin/smtpd/compress_gzip.c \
@@ -137,7 +141,7 @@ smtpctl_SOURCES +=	usr.sbin/smtpd/config.c \
 endif
 
 smtpd_CPPFLAGS =	-DIO_TLS $(AM_CPPFLAGS)
-smtpd_LDADD =		libtls.a $(LIBASR) $(LIBOBJS)
+smtpd_LDADD =		libtls.a $(LIBASR) $(LIBOBJS) @FULL_LIBS@
 
 smtpd_SOURCES =		usr.sbin/smtpd/aliases.c
 smtpd_SOURCES +=	usr.sbin/smtpd/bounce.c
