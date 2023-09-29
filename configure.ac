@@ -1354,26 +1354,9 @@ AC_ARG_WITH([libz],
 )
 
 AC_CHECK_HEADER([zlib.h], ,[AC_MSG_ERROR([*** zlib.h missing - please install first or check config.log ***])])
-AC_CHECK_LIB([z], [deflate], ,
-	[
-		saved_CPPFLAGS="$CPPFLAGS"
-		saved_LDFLAGS="$LDFLAGS"
-		save_LIBS="$LIBS"
-		dnl Check default zlib install dir
-		if test -n "${need_dash_r}"; then
-			LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
-		else
-			LDFLAGS="-L/usr/local/lib ${saved_LDFLAGS}"
-		fi
-		CPPFLAGS="-I/usr/local/include ${saved_CPPFLAGS}"
-		LIBS="$LIBS -lz"
-		AC_TRY_LINK_FUNC([deflate], [AC_DEFINE([HAVE_LIBZ])],
-			[
-				AC_MSG_ERROR([*** zlib missing - please install first or check config.log ***])
-			]
-		)
-	]
-)
+AC_SEARCH_LIBS([deflate], [z], [:], [
+	AC_MSG_ERROR([can't find zlib])
+])
 
 AC_ARG_WITH([table-db],
 	[  --with-table-db		Enable building of table-db backend (default=no)],
