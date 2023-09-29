@@ -1,4 +1,4 @@
-/*	$OpenBSD: strmode.c,v 1.7 2005/08/08 08:05:37 espie Exp $ */
+/*	$OpenBSD: strmode.c,v 1.8 2015/08/31 02:53:57 guenther Exp $ */
 /*-
  * Copyright (c) 1990 The Regents of the University of California.
  * All rights reserved.
@@ -36,10 +36,8 @@
 #include <sys/stat.h>
 #include <string.h>
 
-/* XXX mode should be mode_t */
-
 void
-strmode(int mode, char *p)
+strmode(mode_t mode, char *p)
 {
 	 /* print type */
 	switch (mode & S_IFMT) {

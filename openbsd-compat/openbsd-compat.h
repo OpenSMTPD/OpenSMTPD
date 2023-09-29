@@ -66,7 +66,7 @@ size_t strlcat(char *dst, const char *src, size_t size);
 #endif
 
 #ifndef HAVE_STRMODE
-void strmode(int mode, char *p);
+void strmode(mode_t mode, char *p);
 #endif
 
 #ifndef HAVE_DAEMON
