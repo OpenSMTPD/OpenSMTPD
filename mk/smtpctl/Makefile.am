@@ -34,6 +34,21 @@ endif
 
 smtpctl_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/crypto.c
 
+# libasr
+if NEED_LIBASR
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/event_asr_run.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/asr.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/asr_compat.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/asr_debug.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/asr_utils.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/getaddrinfo_async.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/gethostnamadr_async.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/getnameinfo_async.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/getnetnamadr_async.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/res_search_async.c
+smtpctl_SOURCES+=	$(top_srcdir)/openbsd-compat/libasr/res_send_async.c
+endif
+
 smtpctl_CPPFLAGS=	-DNO_IO -DCONFIG_MINIMUM \
 			-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\" \
