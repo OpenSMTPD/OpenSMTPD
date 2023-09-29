@@ -1324,32 +1324,6 @@ AC_RUN_IFELSE(
 	]
 )
 
-AC_MSG_CHECKING([if programs using LibreSSL functions will link])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-	[[ SSLeay_add_all_algorithms(); ]])],
-	[
-		AC_MSG_RESULT([yes])
-	],
-	[
-		AC_MSG_RESULT([no])
-		saved_LIBS="$LIBS"
-		LIBS="$LIBS -ldl"
-		AC_MSG_CHECKING([if programs using LibreSSL need -ldl])
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
-			[[ SSLeay_add_all_algorithms(); ]])],
-			[
-				AC_MSG_RESULT([yes])
-			],
-			[
-				AC_MSG_RESULT([no])
-				LIBS="$saved_LIBS"
-			]
-		)
-	]
-)
-
 AC_CHECK_DECL([LIBRESSL_VERSION_NUMBER], , , [#include <openssl/ssl.h>])
 
 dnl zlib is required
