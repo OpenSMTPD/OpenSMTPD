@@ -99,7 +99,7 @@ AS_CASE(["$host"],
 ])
 AC_SUBST([pkglibexecdir])
 
-AC_REPLACE_FUNCS([
+AC_REPLACE_FUNCS([ \
 	arc4random \
 	basename \
 	clock_gettime \
@@ -138,7 +138,7 @@ AC_REPLACE_FUNCS([
 ])
 # TODO: add vasprintf to the above
 
-AC_CHECK_FUNCS([
+AC_CHECK_FUNCS([ \
 	dirfd \
 	getpeerucred \
 	getspnam \
@@ -150,7 +150,7 @@ AC_CHECK_FUNCS([
 	sysconf \
 ])
 
-AC_CHECK_HEADERS([
+AC_CHECK_HEADERS([ \
 	arpa/nameser_compat.h \
 	crypt.h \
 	dirent.h \
