@@ -1295,34 +1295,11 @@ AC_SEARCH_LIBS([SSL_CTX_new], [ssl], [:], [
 	AC_MSG_ERROR([can't find libssl])
 ])
 
-AC_MSG_CHECKING([whether SSL_CTX_use_certificate_chain_mem is available])
-AC_TRY_LINK_FUNC([SSL_CTX_use_certificate_chain_mem],
-	[
-		AC_DEFINE([HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM], [1],
-			[Define if SSL_CTX_use_certificate_chain_mem exists in libssl])
-		AC_MSG_RESULT([yes])
-	],
-	[ AC_MSG_RESULT([no])]
-)
-
-AC_MSG_CHECKING([whether SSL_CTX_load_verify_mem is available])
-AC_TRY_LINK_FUNC([SSL_CTX_load_verify_mem],
-	[
-		AC_DEFINE([HAVE_SSL_CTX_LOAD_VERIFY_MEM], [1],
-			[Define if SSL_CTX_load_verify_mem exists in libssl])
-		AC_MSG_RESULT([yes])
-	],
-	[ AC_MSG_RESULT([no])]
-)
-
-AC_MSG_CHECKING([whether X509_LOOKUP_mem is available])
-AC_TRY_LINK_FUNC([X509_LOOKUP_mem],
-	[
-		AC_DEFINE([HAVE_X509_LOOKUP_MEM], [1],
-			[Define if X509_LOOKUP_mem exists in libssl])
-		AC_MSG_RESULT([yes])
-	],
-	[ AC_MSG_RESULT([no]) ])
+AC_CHECK_FUNCS([ \
+	SSL_CTX_use_certificate_chain_mem \
+	SSL_CTX_load_verify_mem \
+	X509_LOOKUP_mem \
+])
 
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether LibreSSL's headers match the library])
