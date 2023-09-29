@@ -39,12 +39,6 @@
 #define KEYSTREAM_ONLY
 #include "chacha_private.h"
 
-#ifdef __GNUC__
-#define inline __inline
-#else				/* !__GNUC__ */
-#define inline
-#endif				/* !__GNUC__ */
-
 /* OpenSSH isn't multithreaded */
 #define _ARC4_LOCK()
 #define _ARC4_UNLOCK()
