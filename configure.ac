@@ -620,6 +620,16 @@ if test "x$no_attrib_nonnull" != "x1"; then
 	AC_DEFINE([HAVE_ATTRIBUTE__NONNULL__], [1], [Have attribute nonnull])
 fi
 
+need_dash_r=
+AC_ARG_WITH([rpath],
+	[  --without-rpath		Disable auto-added -R linker paths],
+	[
+		if test "x$withval" = "xyes"; then
+			need_dash_r=1
+		fi
+	]
+)
+
 AC_ARG_WITH([cflags],
 	[  --with-cflags			Specify additional flags to pass to compiler],
 	[
