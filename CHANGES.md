@@ -1,3 +1,21 @@
+# Release 7.3.0p2 (2023-09-20)
+
+ - avoid potential use of unitialized in ASN1_time_parse
+ - backport ENGINE removal fix the build with newer LibreSSL
+
+# Release 7.3.0p1 (2023-06-30)
+
+ - add missing include of stdio.h for fparseln(3) on FreeBSD
+ - fix a typo in the configure
+ - use fatal() instead of err(3) in xclosefrom()
+ - don't add "-lcrypto -lssl" thrice
+ - fix the build of the bundled libtls with LibreSSL
+ - force the use of the bundled libtls and libasr
+ - append, not prepend, to LIBS during automatic configuration
+ - do not add -L/usr/local/lib or -L/usr/lib, nor -I/usr/local/include
+   or -I/usr/include as consequence of missing --with-libevent
+ - optionally link libbsd-ctor too
+
 # Release 7.3.0p0 (2023-06-17)
 
 Includes the following security fixes:
