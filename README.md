@@ -74,6 +74,10 @@ OpenSMTPD is available from [MacPorts](https://www.macports.org):
 
     port install opensmtpd
 
+## Install via container
+
+Container images available at [this repo's packages page.](https://github.com/orgs/OpenSMTPD/packages)
+
 ## Install from source
 
 ### Install dependencies
