@@ -30,6 +30,9 @@ Includes the following security fixes:
   using the `pki` listener option multiple times.
 
 ## Synced with OpenBSD 7.3
+- OpenBSD 6.8:
+  * Run LMTP deliveries as the smtpd user instead of the recipient
+    user.
 - OpenBSD 6.9:
   * Introduced smtp(1) `-a` to perform authentication before sending
     a message.
