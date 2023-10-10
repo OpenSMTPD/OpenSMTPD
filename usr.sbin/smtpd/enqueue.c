@@ -300,6 +300,7 @@ enqueue(int argc, char *argv[], FILE *ofp)
 		if (pledge("stdio", NULL) == -1)
 			err(1, "pledge");
 #endif
+
 		return (enqueue_offline(save_argc, save_argv, fp, ofp));
 	}
 

@@ -458,6 +458,7 @@ fsqueue_check_space(void)
 		return 0;
 	}
 #endif
+
 	return 1;
 }
 
