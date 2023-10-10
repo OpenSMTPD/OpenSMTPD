@@ -487,7 +487,7 @@ ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
 	return (sig);
 }
 
-ECDSA_SIG *
+static ECDSA_SIG *
 ecdsae_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
     const BIGNUM *rp, EC_KEY *eckey)
 {
