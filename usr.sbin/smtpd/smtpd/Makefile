@@ -40,6 +40,7 @@ SRCS+=	queue.c
 SRCS+=	queue_backend.c
 SRCS+=	report_smtp.c
 SRCS+=	resolver.c
+SRCS+=	rfc5322.c
 SRCS+=	ruleset.c
 SRCS+=	runq.c
 SRCS+=	scheduler.c
@@ -55,9 +56,6 @@ SRCS+=	to.c
 SRCS+=	tree.c
 SRCS+=	util.c
 SRCS+=	waitq.c
-
-# RFC parsers
-SRCS+=		rfc5322.c
 
 # backends
 SRCS+=		compress_gzip.c
