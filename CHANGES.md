@@ -1,3 +1,37 @@
+# Release 7.4.0p0 (2023-10-25)
+
+ - Avoid truncation of filtered data lines.
+   Lines in the email body passed through a filter were truncated to
+   roughly LINE_MAX bytes.
+
+ - Allow arguments on NOOP.
+
+ - Swap link-auth filter arguments and bump filter protocol version.
+   It was ambiguous in the case the user name would contain a '|'
+   character.
+
+ - Add Message-ID as needed for messages received on the submission port.
+   This was dropped during the incoming message parser refactor in 2018.
+
+ - Drop ENGINE support.
+
+ - Updated the bundled copy of libtls.
+   This includes the removal of the support for TLS v1.0 and 1.1 as they
+   were "MUST NOT use" for more than two years already.
+
+The neverending cleanup of the -portable layer continued.  This
+includes the complete rework of some parts:
+
+ - Rework of the configure script:
+   + use AC_SYSTEM_EXTENSIONS
+   + better checks for libraries using AC_SEARCH_LIBS
+   + dropped some useless and/or redundant checks
+   + better checks for functions, shouldn't yield false-positives
+   + various simplification to the -portable layer thanks to these
+     changes
+
+ - Simplified the `bootstrap` script.
+
 # Release 7.3.0p2 (2023-09-20)
 
  - avoid potential use of unitialized in ASN1_time_parse
