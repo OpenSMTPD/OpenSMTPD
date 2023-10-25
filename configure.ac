@@ -50,7 +50,7 @@ AM_CFLAGS="${AM_CFLAGS} -I\${top_srcdir}/openbsd-compat/libtls"
 # use libbsd by default; these needs to precede any other check, as we
 # might not need a compat function when using libbsd.
 AC_ARG_WITH([libbsd],
-    AS_HELP_STRING([--disable-libbsd], [Disable libbsd usage]))
+    AS_HELP_STRING([--without-libbsd], [Disable libbsd usage]))
 AS_IF([test "x$with_libbsd" != xno], [
 	PKG_CHECK_MODULES([LIBBSD], [libbsd-overlay libbsd-ctor], [
 		CFLAGS="$LIBBSD_CFLAGS $CFLAGS"
