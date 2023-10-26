@@ -715,6 +715,29 @@ if test "x$use_pie" != "xno"; then
 	fi
 fi
 
+# Man pages defaults to mandoc
+MANTYPE=doc
+AC_ARG_WITH([mantype],
+	[  --with-mantype=man|cat|doc   Set man page type],
+	[
+		case "withval" in
+		man|cat|doc)
+			MANTYPE=$withval
+			;;
+		*)
+			AC_MSG_ERROR([invalid man type: $withval])
+			;;
+		esac
+	]
+)
+AC_SUBST([MANTYPE])
+if test "$MANTYPE" = "doc"; then
+	mansubdir=man;
+else
+	mansubdir=$MANTYPE;
+fi
+AC_SUBST([mansubdir])
+
 # Whether to enable BSD auth support
 AC_ARG_WITH([auth-bsdauth],
 	[  --with-auth-bsdauth		Enable bsd_auth(3) authentication support],
