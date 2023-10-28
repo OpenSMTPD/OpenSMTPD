@@ -55,7 +55,7 @@ void closefrom(int);
 
 #if !defined(HAVE_REALPATH) || defined(BROKEN_REALPATH)
 char *realpath(const char *path, char *resolved);
-#endif 
+#endif
 
 #if !HAVE_DECL_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size);
@@ -71,7 +71,7 @@ void strmode(mode_t mode, char *p);
 
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose);
-#endif 
+#endif
 
 #ifndef HAVE_DIRNAME
 char *dirname(const char *path);
@@ -119,7 +119,7 @@ int BSDgetopt(int argc, char * const *argv, const char *opts);
 
 #ifndef HAVE_GETPEEREID
 int getpeereid(int , uid_t *, gid_t *);
-#endif 
+#endif
 
 #if !defined(HAVE_ARC4RANDOM) || defined(LIBRESSL_VERSION_NUMBER)
 unsigned int arc4random(void);
