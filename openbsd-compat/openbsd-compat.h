@@ -57,11 +57,11 @@ void closefrom(int);
 char *realpath(const char *path, char *resolved);
 #endif
 
-#if !HAVE_DECL_STRLCPY
+#if !HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size);
 #endif
 
-#if !HAVE_DECL_STRLCAT
+#if !HAVE_STRLCAT
 size_t strlcat(char *dst, const char *src, size_t size);
 #endif
 
