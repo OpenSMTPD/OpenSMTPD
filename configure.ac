@@ -99,8 +99,9 @@ AS_CASE(["$host"],
 ])
 AC_SUBST([pkglibexecdir])
 
+# XXX arc4random is checked later since some old (pre 3.8) versions of
+# LibreSSL provide this symbols mistakenly.
 AC_REPLACE_FUNCS([ \
-	arc4random \
 	basename \
 	clock_gettime \
 	closefrom \
@@ -1317,6 +1318,10 @@ AC_SEARCH_LIBS([RAND_add], [crypto], [:], [
 AC_SEARCH_LIBS([SSL_CTX_new], [ssl], [:], [
 	AC_MSG_ERROR([can't find libssl])
 ])
+
+# Check arc4random only after libcrypto to avoid issues with old
+# (pre 3.8) versions of LibreSSL.
+AC_REPLACE_FUNCS([arc4random])
 
 AC_CHECK_FUNCS([ \
 	SSL_CTX_use_certificate_chain_mem \
