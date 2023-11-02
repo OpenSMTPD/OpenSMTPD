@@ -121,6 +121,10 @@ int BSDgetopt(int argc, char * const *argv, const char *opts);
 int getpeereid(int , uid_t *, gid_t *);
 #endif
 
+/*
+ * XXX some old versions of LibreSSL (pre 3.8) provide 
+ * arc4random(), work around that.
+ */
 #if !defined(HAVE_ARC4RANDOM) || defined(LIBRESSL_VERSION_NUMBER)
 unsigned int arc4random(void);
 #endif

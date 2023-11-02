@@ -18,6 +18,8 @@
 
 #include "config.h"
 
+#include <openssl/opensslv.h>
+
 #include <sys/types.h>
 #include <sys/socket.h> /* For CMSG_* */
 
