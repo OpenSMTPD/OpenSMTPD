@@ -255,7 +255,14 @@ AC_SEARCH_LIBS([pidfile], [util],
 
 AC_SEARCH_LIBS([res_hnok], [resolv],
 	[AC_DEFINE([HAVE_RES_HNOK], 1, [1 if have res_hnok])],
-	[AC_LIBOBJ([res_hnok])])
+	[
+		dnl darwin (at least) has res_9_hnok plus #defines
+		dnl to "rename" it to res_hnok.
+		AC_SEARCH_LIBS([res_9_hnok], [resolv], [
+			AC_DEFINE([HAVE_RES_HNOK], 1, [1 if have res_hnok])
+			AC_LIBOBJ([res_hnok])
+		])
+	])
 
 AC_SEARCH_LIBS([res_randomid], [resolv],
 	[AC_DEFINE([HAVE_RES_RANDOMID], 1, [1 if have res_randomid])],
@@ -263,7 +270,6 @@ AC_SEARCH_LIBS([res_randomid], [resolv],
 
 AC_SEARCH_LIBS([setsockopt], [socket], [:],
 	[AC_MSG_ERROR([can't find setsockopt])])
-
 
 AC_SEARCH_LIBS([__b64_pton], [resolv],
 	[AC_DEFINE([HAVE___B64_PTON], 1, [1 if have __b64_pton])])
@@ -274,8 +280,16 @@ AC_SEARCH_LIBS([__b64_ntop], [resolv],
 AC_SEARCH_LIBS([b64_ntop], [resolv],
 	[AC_DEFINE([HAVE_b64_NTOP], 1, [1 if have b64_ntop])])
 
+dnl darwin (at least) has these plus #defines in resolv.h
+AC_SEARCH_LIBS([res_9_b64_pton], [resolv],
+	[AC_DEFINE([HAVE_RES_9_B64_PTON], 1, [1 if have res_9_b64_pton])])
+AC_SEARCH_LIBS([res_9_b64_ntop], [resolv],
+	[AC_DEFINE([HAVE_RES_9_B64_NTOP], 1, [1 if have res_9_b64_ntop])])
+
 AS_IF([test "x$ac_cv_search_b64_ntop" = "xno" -a \
-    "x$ac_cv_search___b64_ntop" = "xno"], [
+    "x$ac_cv_search___b64_ntop" = "xno" -a \
+    "x$ac_cv_search_res_9_b64_pton" = "xno" -a \
+    "x$ac_cv_search_res_9_b64_ntop" = "xno"], [
 	AC_LIBOBJ([base64])
 ])
 
