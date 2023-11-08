@@ -129,20 +129,6 @@ int getpeereid(int , uid_t *, gid_t *);
 unsigned int arc4random(void);
 #endif
 
-#if 0
-#if defined(LIBRESSL_VERSION_NUMBER)
-# define arc4random_stir()
-#elif defined(HAVE_ARC4RANDOM_STIR)
-void arc4random_stir(void);
-#elif defined(HAVE_ARC4RANDOM)
-/* Recent system/libressl implementation; no need for explicit stir */
-# define arc4random_stir()
-#else
-/* openbsd-compat/arc4random.c provides arc4random_stir() */
-void arc4random_stir(void);
-#endif
-#endif
-
 #if !defined(HAVE_ARC4RANDOM_BUF) || defined(LIBRESSL_VERSION_NUMBER)
 void arc4random_buf(void *, size_t);
 #endif
