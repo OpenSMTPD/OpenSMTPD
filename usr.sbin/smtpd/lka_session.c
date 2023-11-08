@@ -534,10 +534,9 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 				log_warnx("commands executed from aliases "
 				    "run with %s privileges", SMTPD_USER);
 
+			format = "%s";
 			if (xn->type == EXPAND_FILENAME)
 				format = PATH_LIBEXEC"/mail.mboxfile -f %%{mbox.from} %s";
-			else if (xn->type == EXPAND_FILTER)
-				format = "%s";
 			(void)snprintf(ep->mda_exec, sizeof(ep->mda_exec),
 			    format, xn->u.buffer);
 		}
