@@ -1,3 +1,17 @@
+# Release 7.4.0p1 (2023-11-09)
+
+ - Fixed potential crash with LibreSSL versions prior 3.8 due to
+   arc4random_buf() symbol clash.
+
+ - Fixed manpage install path; reintroduced --with-mantype
+
+ - Fixed typo in the configure help string: it's --without-libbsd
+
+ - Fixed a couple of issues on MacOS:
+   - Fixed typo that resulted in the re-declaration of strlcpy() and strlcat()
+   - Cast suseconds_t to long for *printf
+   - Fixed res_hnok() and b64_{pton,ntop}() discovery
+
 # Release 7.4.0p0 (2023-10-25)
 
  - Avoid truncation of filtered data lines.
