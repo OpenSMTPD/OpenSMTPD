@@ -735,7 +735,7 @@ MANTYPE=doc
 AC_ARG_WITH([mantype],
 	[  --with-mantype=man|cat|doc   Set man page type],
 	[
-		case "withval" in
+		case "$withval" in
 		man|cat|doc)
 			MANTYPE=$withval
 			;;
