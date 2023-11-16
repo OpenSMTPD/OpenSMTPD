@@ -277,7 +277,8 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
 		buf[strlen(buf) - 1] = '\0';
 
-		if (rr.rr.mx.preference == 0 && !strcmp(buf, "")) {
+		if ((rr.rr.mx.preference == 0 && !strcmp(buf, "")) ||
+		    !strcmp(buf, "localhost")) {
 			nullmx = 1;
 			continue;
 		}
