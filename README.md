@@ -118,16 +118,9 @@ Latest release can always be found [here](https://github.com/OpenSMTPD/OpenSMTPD
     make
     sudo make install
 
-#### Special notes for FreeBSD/DragonFlyBSD/macOS
+#### Special notes for macOS
 
-Please launch configure with special directive about libevent and
-libasr directory:
-
-#### FreeBSD / DragonFlyBSD
-
-    ./configure --with-libasr=/usr/local
-
-#### macOS
+Please launch configure with special directive about libevent directory:
 
     ./configure --with-libevent=/opt/local
 
