@@ -84,14 +84,17 @@ Container images available at [this repo's packages page.](https://github.com/or
 
 OpenSMTPD relies on:
 
+- [pkgconf](https://github.com/pkgconf/pkgconf) or [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+- [libevent](http://libevent.org/)
+- [libressl](https://www.libressl.org/) or [OpenSSL](https://www.openssl.org/)
+
+When not building from a release tarball (e.g. from the git
+repository), the following dependencies are needed too:
+
 - [autoconf](http://www.gnu.org/software/autoconf/)
 - [automake](http://www.gnu.org/software/automake/)
 - [bison](http://www.gnu.org/software/bison/) or [byacc](http://invisible-island.net/byacc/byacc.html)
-- [libevent](http://libevent.org/)
 - [libtool](http://www.gnu.org/software/libtool/)
-- [libressl](https://www.libressl.org/) or [OpenSSL](https://www.openssl.org/)
-
-You will also need a C compiler and git if you are cloning the git repository
 
 By default OpenSMTPD expects latest versions of all dependencies unless noted
 otherwise.
