@@ -1,4 +1,4 @@
-# Release 7.4.0p1 (2023-11-09)
+# Release 7.4.0p1 (2023-11-16)
 
  - Fixed potential crash with LibreSSL versions prior 3.8 due to
    arc4random_buf() symbol clash.
