@@ -312,9 +312,6 @@ int tls_signer_sign(struct tls_signer *_signer, const char *_pubkey_hash,
 void tls_config_skip_private_key_check(struct tls_config *config);
 void tls_config_use_fake_private_key(struct tls_config *config);
 
-/* XXX prototypes brought for OpenSMTPD libtls wrapper to OpenSSL */
-int ASN1_time_parse(const char *bytes, size_t len, struct tm *tm, int mode);
-
 #ifndef HAVE_SSL_CTX_USE_CERTIFICATE_CHAIN_MEM
 int SSL_CTX_use_certificate_chain_mem(SSL_CTX *, void *, int);
 #endif
