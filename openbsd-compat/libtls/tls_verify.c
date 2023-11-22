@@ -246,7 +246,7 @@ tls_check_common_name(struct tls *ctx, X509 *cert, const char *name,
 		 * certificate as hostile.
 		 */
 		tls_set_errorx(ctx, "error verifying name '%s': "
-		    "Certificate subject contains mutiple Common Name fields, "
+		    "Certificate subject contains multiple Common Name fields, "
 		    "probably a malicious or malformed certificate", name);
 		goto err;
 	}
