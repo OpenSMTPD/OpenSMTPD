@@ -2162,6 +2162,14 @@ opt_sock_listen : FILTER STRING {
 				YYERROR;
 			}
 		}
+		| NO_DSN	{
+			if (listen_opts.options & LO_NODSN) {
+				yyerror("no-dsn already specified");
+				YYERROR;
+			}
+			listen_opts.options |= LO_NODSN;
+			listen_opts.flags &= ~F_EXT_DSN;
+		}
 		| TAG STRING			{
 			if (listen_opts.options & LO_TAG) {
 				yyerror("tag already specified");
