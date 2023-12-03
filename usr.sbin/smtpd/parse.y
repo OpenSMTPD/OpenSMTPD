@@ -3136,6 +3136,7 @@ parse_config(struct smtpd *x_conf, const char *filename, int opts)
 	/* If the socket listener was not configured, create a default one. */
 	if (!conf->sc_sock_listener) {
 		memset(&listen_opts, 0, sizeof listen_opts);
+		listen_opts.family = AF_UNSPEC;
 		listen_opts.flags |= F_EXT_DSN;
 		create_sock_listener(&listen_opts);
 	}
