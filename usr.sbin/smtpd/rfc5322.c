@@ -152,7 +152,8 @@ _rfc5322_next(struct rfc5322_parser *parser, struct rfc5322_result *res)
 
 	case RFC5322_NONE:
 	case RFC5322_HEADER_END:
-		if (line && (pos = strchr(line, ':'))) {
+		if (line && line[0] != ' ' && line[0] != '\t' &&
+		    (pos = strchr(line, ':'))) {
 			len = pos - line;
 			if (buf_grow(&parser->hdr, len + 1) == -1)
 				return -1;
