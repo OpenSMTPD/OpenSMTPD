@@ -1354,7 +1354,7 @@ smtp_command(struct smtp_session *s, char *line)
 	 */
 	case CMD_QUIT:
 		if (!smtp_check_noparam(s, args))
-			break;		
+			break;
 		smtp_filter_phase(FILTER_QUIT, s, NULL);
 		break;
 
@@ -1366,13 +1366,13 @@ smtp_command(struct smtp_session *s, char *line)
 
 	case CMD_HELP:
 		if (!smtp_check_noparam(s, args))
-			break;		
+			break;
 		smtp_proceed_help(s, NULL);
 		break;
 
 	case CMD_WIZ:
 		if (!smtp_check_noparam(s, args))
-			break;		
+			break;
 		smtp_proceed_wiz(s, NULL);
 		break;
 
@@ -1543,7 +1543,7 @@ smtp_check_mail_from(struct smtp_session *s, const char *args)
 	struct mailaddr	sender;
 
 	(void)strlcpy(tmp, args, sizeof tmp);
-	copy = tmp;  
+	copy = tmp;
 
 	if (s->helo[0] == '\0' || s->tx) {
 		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
@@ -1595,7 +1595,7 @@ smtp_check_rcpt_to(struct smtp_session *s, const char *args)
 	char tmp[SMTP_LINE_MAX];
 
 	(void)strlcpy(tmp, args, sizeof tmp);
-	copy = tmp; 
+	copy = tmp;
 
 	if (s->tx == NULL) {
 		smtp_reply(s, "503 %s %s: Command not allowed at this point.",
@@ -1853,7 +1853,7 @@ smtp_proceed_mail_from(struct smtp_session *s, const char *args)
 	char tmp[SMTP_LINE_MAX];
 
 	(void)strlcpy(tmp, args, sizeof tmp);
-	copy = tmp;  
+	copy = tmp;
 
        	if (!smtp_tx(s)) {
 		smtp_reply(s, "421 %s Temporary Error",
@@ -2362,7 +2362,7 @@ smtp_tx_mail_from(struct smtp_tx *tx, const char *line)
 	char tmp[SMTP_LINE_MAX];
 
 	(void)strlcpy(tmp, line, sizeof tmp);
-	copy = tmp;  
+	copy = tmp;
 
 	if (smtp_mailaddr(&tx->evp.sender, copy, 1, &copy,
 		tx->session->smtpname) == 0) {
@@ -2443,7 +2443,7 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, const char *line)
 	char tmp[SMTP_LINE_MAX];
 
 	(void)strlcpy(tmp, line, sizeof tmp);
-	copy = tmp; 
+	copy = tmp;
 
 	if (tx->rcptcount >= env->sc_session_max_rcpt) {
 		smtp_reply(tx->session, "451 %s %s: Too many recipients",
@@ -2767,8 +2767,8 @@ smtp_message_begin(struct smtp_tx *tx)
 	log_debug("smtp: %p: message begin", s);
 
 	smtp_reply(s, "354 Enter mail, end with \".\""
-	    " on a line by itself");	
-	
+	    " on a line by itself");
+
 	if (s->junk || (s->tx && s->tx->junk))
 		m_printf(tx, "X-Spam: Yes\n");
 
@@ -2831,7 +2831,7 @@ smtp_message_end(struct smtp_tx *tx)
 	switch(tx->error) {
 	case TX_OK:
 		smtp_tx_commit(tx);
-		return;		
+		return;
 
 	case TX_ERROR_SIZE:
 		smtp_reply(s, "554 %s %s: Transaction failed, message too big",
