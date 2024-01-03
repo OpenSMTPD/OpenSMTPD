@@ -2486,16 +2486,15 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, const char *line)
 				    " combined with other options");
 				return;
 			}
-		} else if (ADVERTISE_EXT_DSN(tx->session) && strncasecmp(opt, "ORCPT=", 6) == 0) {
+		} else if (ADVERTISE_EXT_DSN(tx->session) &&
+		    strncasecmp(opt, "ORCPT=", 6) == 0) {
+			size_t len = sizeof(tx->evp.dsn_orcpt);
+
 			opt += 6;
 
-			if (strncasecmp(opt, "rfc822;", 7) == 0)
-				opt += 7;
-
-			if (!text_to_mailaddr(&tx->evp.dsn_orcpt, opt) ||
-			    !valid_localpart(tx->evp.dsn_orcpt.user) ||
-			    (strlen(tx->evp.dsn_orcpt.domain) != 0 &&
-			     !valid_domainpart(tx->evp.dsn_orcpt.domain))) {
+			if ((p = strchr(opt, ';')) == NULL ||
+			    !valid_xtext(p + 1) ||
+			    strlcpy(opt, tx->evp.dsn_orcpt, len) >= len) {
 				smtp_reply(tx->session,
 				    "553 ORCPT address syntax error");
 				return;

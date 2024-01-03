@@ -489,6 +489,7 @@ struct maddrmap {
 #define DSN_NEVER   0x08
 
 #define	DSN_ENVID_LEN	100
+#define	DSN_ORCPT_LEN	500
 
 #define	SMTPD_ENVELOPE_VERSION		3
 struct envelope {
@@ -529,7 +530,7 @@ struct envelope {
 	time_t				nexttry;
 	time_t				lastbounce;
 
-	struct mailaddr			dsn_orcpt;
+	char				dsn_orcpt[DSN_ORCPT_LEN+1];
 	char				dsn_envid[DSN_ENVID_LEN+1];
 	uint8_t				dsn_notify;
 	enum dsn_ret			dsn_ret;
@@ -1725,6 +1726,7 @@ int valid_localpart(const char *);
 int valid_domainpart(const char *);
 int valid_domainname(const char *);
 int valid_smtp_response(const char *);
+int valid_xtext(const char *);
 int secure_file(int, char *, char *, uid_t, int);
 int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);

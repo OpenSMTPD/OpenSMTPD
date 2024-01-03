@@ -826,11 +826,8 @@ mta_handle_envelope(struct envelope *evp, const char *smarthost)
 	if (strcmp(buf, e->dest))
 		e->rcpt = xstrdup(buf);
 	e->task = task;
-	if (evp->dsn_orcpt.user[0] && evp->dsn_orcpt.domain[0]) {
-		(void)snprintf(buf, sizeof buf, "%s@%s",
-	    	    evp->dsn_orcpt.user, evp->dsn_orcpt.domain);
-		e->dsn_orcpt = xstrdup(buf);
-	}
+	if (evp->dsn_orcpt[0] != '\0')
+		e->dsn_orcpt = xstrdup(evp->dsn_orcpt);
 	(void)strlcpy(e->dsn_envid, evp->dsn_envid,
 	    sizeof e->dsn_envid);
 	e->dsn_notify = evp->dsn_notify;

@@ -537,6 +537,30 @@ valid_smtp_response(const char *s)
 }
 
 int
+valid_xtext(const char *s)
+{
+	for (; *s != '\0'; ++s) {
+		if (*s < '!' || *s > '~' || *s == '=')
+			return 0;
+
+		if (*s != '+')
+			continue;
+
+		s++;
+		if (!isdigit((unsigned char)*s) &&
+		    !(*s >= 'A' && *s <= 'F'))
+			return 0;
+
+		s++;
+		if (!isdigit((unsigned char)*s) &&
+		    !(*s >= 'A' && *s <= 'F'))
+			return 0;
+	}
+
+	return 1;
+}
+
+int
 secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 {
 	char		 buf[PATH_MAX];
