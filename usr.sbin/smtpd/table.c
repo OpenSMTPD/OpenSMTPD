@@ -638,7 +638,8 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 	struct in6_addr		 in6a;
 	struct sockaddr_in	*sin;
 	struct sockaddr_in6	*sin6;
-	char			*cp, *str2;
+	char			*cp;
+	char			 addr[NI_MAXHOST];
 	const char		*errstr;
 
 	switch (family) {
@@ -661,21 +662,19 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 		return (0);
 
 	case PF_INET6:
-		if (strncasecmp("ipv6:", str, 5) == 0)
+		if (*str == '[')
+			str++;
+		if (!strncasecmp("ipv6:", str, 5))
 			str += 5;
-		cp = strchr(str, SCOPE_DELIMITER);
-		if (cp) {
-			str2 = strdup(str);
-			if (str2 == NULL)
-				return (-1);
-			str2[cp - str] = '\0';
-			if (inet_pton(PF_INET6, str2, &in6a) != 1) {
-				free(str2);
-				return (-1);
-			}
-			cp++;
-			free(str2);
-		} else if (inet_pton(PF_INET6, str, &in6a) != 1)
+
+		if (strlcpy(addr, str, sizeof(addr)) >= sizeof(addr))
+			return (-1);
+		if ((cp = strchr(addr, ']')) != NULL)
+			*cp = '\0';
+		if ((cp = strchr(addr, SCOPE_DELIMITER)) != NULL)
+			*cp++ = '\0';
+
+		if (inet_pton(PF_INET, addr, &in6a) != 1)
 			return (-1);
 
 		sin6 = (struct sockaddr_in6 *)sa;
