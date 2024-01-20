@@ -1,4 +1,4 @@
-/*	$OpenBSD: mta_session.c,v 1.149 2023/05/31 16:51:46 op Exp $	*/
+/*	$OpenBSD: mta_session.c,v 1.151 2024/01/20 09:01:03 claudio Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -275,7 +275,7 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 	struct msg		 m;
 	uint64_t		 reqid;
 	const char		*name;
-	int			 status;
+	int			 status, fd;
 	struct stat		 sb;
 	
 	switch (imsg->hdr.type) {
@@ -285,14 +285,15 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		m_get_id(&m, &reqid);
 		m_end(&m);
 
+		fd = imsg_get_fd(imsg);
 		s = mta_tree_pop(&wait_fd, reqid);
 		if (s == NULL) {
-			if (imsg->fd != -1)
-				close(imsg->fd);
+			if (fd != -1)
+				close(fd);
 			return;
 		}
 
-		if (imsg->fd == -1) {
+		if (fd == -1) {
 			log_debug("debug: mta: failed to obtain msg fd");
 			mta_flush_task(s, IMSG_MTA_DELIVERY_TEMPFAIL,
 			    "Could not get message fd", 0, 0);
@@ -301,12 +302,12 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 		}
 
 		if ((s->ext & MTA_EXT_SIZE) && s->ext_size != 0) {
-			if (fstat(imsg->fd, &sb) == -1) {
+			if (fstat(fd, &sb) == -1) {
 				log_debug("debug: mta: failed to stat msg fd");
 				mta_flush_task(s, IMSG_MTA_DELIVERY_TEMPFAIL,
 				    "Could not stat message fd", 0, 0);
 				mta_enter_state(s, MTA_READY);
-				close(imsg->fd);
+				close(fd);
 				return;
 			}
 			if (sb.st_size > (off_t)s->ext_size) {
@@ -314,12 +315,12 @@ mta_session_imsg(struct mproc *p, struct imsg *imsg)
 				mta_flush_task(s, IMSG_MTA_DELIVERY_PERMFAIL,
 				    "message too large for peer", 0, 0);
 				mta_enter_state(s, MTA_READY);
-				close(imsg->fd);
+				close(fd);
 				return;
 			}
 		}
 		
-		s->datafp = fdopen(imsg->fd, "r");
+		s->datafp = fdopen(fd, "r");
 		if (s->datafp == NULL)
 			fatal("mta: fdopen");
 
