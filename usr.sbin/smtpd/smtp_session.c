@@ -504,7 +504,7 @@ header_domain_append_callback(struct smtp_tx *tx, const char *hdr,
 				quote = !quote;
 			if (line[i] == ')' && !escape && !quote && comment)
 				comment--;
-			if (line[i] == '\\' && !escape && !comment && !quote)
+			if (line[i] == '\\' && !escape && !comment)
 				escape = 1;
 			else
 				escape = 0;
