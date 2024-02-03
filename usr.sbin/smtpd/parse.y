@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.292 2023/05/10 07:19:49 op Exp $	*/
+/*	$OpenBSD: parse.y,v 1.297 2024/02/02 20:54:27 millert Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -710,12 +710,10 @@ MBOX {
 | LMTP STRING {
 	asprintf(&dsp->u.local.command,
 	    PATH_LIBEXEC"/mail.lmtp -d %s -u", $2);
-	dsp->u.local.user = SMTPD_USER;
 } dispatcher_local_options
 | LMTP STRING RCPT_TO {
 	asprintf(&dsp->u.local.command,
 	    PATH_LIBEXEC"/mail.lmtp -d %s -r", $2);
-	dsp->u.local.user = SMTPD_USER;
 } dispatcher_local_options
 | MDA STRING {
 	asprintf(&dsp->u.local.command,
