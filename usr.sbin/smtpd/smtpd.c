@@ -1513,6 +1513,9 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		return;
 	}
 
+	if (dsp->u.local.is_mbox && dsp->u.local.command != NULL)
+		fatalx("serious memory corruption in privileged process");
+	
 	if (pipe(pipefd) == -1) {
 		(void)snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		m_create(p_dispatcher, IMSG_MDA_DONE, 0, 0, -1);
