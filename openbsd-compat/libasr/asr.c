@@ -537,8 +537,19 @@ asr_ctx_create(void)
 	ac->ac_options = RES_RECURSE | RES_DEFNAMES | RES_DNSRCH;
 	ac->ac_refcount = 1;
 	ac->ac_ndots = 1;
+
+	/*
+	 * opensmtpd-portable knob to prefer IPv6 over IPv4.
+	 *
+	 * See: https://github.com/poolpOrg/OpenSMTPD/issues/182
+	 */
+#ifndef ASR_IPV4_BEFORE_IPV6
+	ac->ac_family[0] = AF_INET6;
+	ac->ac_family[1] = AF_INET;
+#else
 	ac->ac_family[0] = AF_INET;
 	ac->ac_family[1] = AF_INET6;
+#endif
 	ac->ac_family[2] = -1;
 
 	ac->ac_nscount = 0;
