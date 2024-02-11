@@ -56,9 +56,8 @@
 
 static void	 usage(void);
 static int	 parse_map(DB *, int *, char *);
-static int	 parse_entry(DB *, int *, char *, size_t, size_t);
-static int	 parse_mapentry(DB *, int *, char *, size_t, size_t);
-static int	 parse_setentry(DB *, int *, char *, size_t, size_t);
+static int	 add_mapentry(DB *, int *, char *, char *, size_t);
+static int	 add_setentry(DB *, int *, char *, size_t);
 static int	 make_plain(DBT *, char *);
 static int	 make_aliases(DBT *, char *);
 static char	*conf_aliases(char *);
@@ -266,9 +265,10 @@ static int
 parse_map(DB *db, int *dbputs, char *filename)
 {
 	FILE	*fp;
-	char	*line;
-	size_t	 len;
+	char	*key, *val, *line = NULL;
+	size_t	 linesize = 0;
 	size_t	 lineno = 0;
+	int	 malformed, table_type, r;
 
 	if (strcmp(filename, "-") == 0)
 		fp = fdopen(0, "r");
@@ -288,55 +288,46 @@ parse_map(DB *db, int *dbputs, char *filename)
 		return 0;
 	}
 
-	while ((line = fparseln(fp, &len, &lineno,
-	    NULL, FPARSELN_UNESCCOMM)) != NULL) {
-		if (!parse_entry(db, dbputs, line, len, lineno)) {
+	table_type = (type == T_SET) ? T_LIST : T_HASH;
+	while (parse_table_line(fp, &line, &linesize, &table_type,
+	    &key, &val, &malformed) != -1) {
+		lineno++;
+		if (malformed) {
+			warnx("%s:%zd: invalid entry", source, lineno);
 			free(line);
 			fclose(fp);
 			return 0;
 		}
-		free(line);
+		if (key == NULL)
+			continue;
+
+		switch (type) {
+		case T_PLAIN:
+		case T_ALIASES:
+			r = add_mapentry(db, dbputs, key, val, lineno);
+			break;
+		case T_SET:
+			r = add_setentry(db, dbputs, key, lineno);
+			break;
+		}
+
+		if (!r) {
+			free(line);
+			fclose(fp);
+			return 0;
+		}
 	}
 
+	free(line);
 	fclose(fp);
 	return 1;
 }
 
 static int
-parse_entry(DB *db, int *dbputs, char *line, size_t len, size_t lineno)
-{
-	switch (type) {
-	case T_PLAIN:
-	case T_ALIASES:
-		return parse_mapentry(db, dbputs, line, len, lineno);
-	case T_SET:
-		return parse_setentry(db, dbputs, line, len, lineno);
-	}
-	return 0;
-}
-
-static int
-parse_mapentry(DB *db, int *dbputs, char *line, size_t len, size_t lineno)
+add_mapentry(DB *db, int *dbputs, char *keyp, char *valp, size_t lineno)
 {
 	DBT	 key;
 	DBT	 val;
-	char	*keyp;
-	char	*valp;
-
-	keyp = line;
-	while (isspace((unsigned char)*keyp))
-		keyp++;
-	if (*keyp == '\0')
-		return 1;
-
-	valp = keyp;
-	strsep(&valp, " \t:");
-	if (valp == NULL || valp == keyp)
-		goto bad;
-	while (*valp == ':' || isspace((unsigned char)*valp))
-		valp++;
-	if (*valp == '\0')
-		goto bad;
 
 	/* Check for dups. */
 	key.data = keyp;
@@ -374,17 +365,10 @@ bad:
 }
 
 static int
-parse_setentry(DB *db, int *dbputs, char *line, size_t len, size_t lineno)
+add_setentry(DB *db, int *dbputs, char *keyp, size_t lineno)
 {
 	DBT	 key;
 	DBT	 val;
-	char	*keyp;
-
-	keyp = line;
-	while (isspace((unsigned char)*keyp))
-		keyp++;
-	if (*keyp == '\0')
-		return 1;
 
 	val.data  = "<set>";
 	val.size = strlen(val.data) + 1;

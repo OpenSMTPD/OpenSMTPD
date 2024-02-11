@@ -121,80 +121,28 @@ static int
 table_static_priv_load(struct table_static_priv *priv, const char *path)
 {
 	FILE	*fp;
-	char	*buf = NULL, *p;
+	char	*line = NULL;
 	int	 lineno = 0;
-	size_t	 sz = 0;
-	ssize_t	 flen;
+	size_t	 linesize = 0;
 	char	*keyp;
 	char	*valp;
-	int	 ret = 0;
+	int	 malformed, ret = 0;
 
 	if ((fp = fopen(path, "r")) == NULL) {
 		log_warn("%s: fopen", path);
 		return 0;
 	}
 
-	while ((flen = getline(&buf, &sz, fp)) != -1) {
+	while (parse_table_line(fp, &line, &linesize, &priv->type,
+	    &keyp, &valp, &malformed) != -1) {
 		lineno++;
-		if (buf[flen - 1] == '\n')
-			buf[--flen] = '\0';
-
-		keyp = buf;
-		while (isspace((unsigned char)*keyp)) {
-			++keyp;
-			--flen;
-		}
-		if (*keyp == '\0')
-			continue;
-		while (isspace((unsigned char)keyp[flen - 1]))
-			keyp[--flen] = '\0';
-		if (*keyp == '#') {
-			if (priv->type == T_NONE) {
-				keyp++;
-				while (isspace((unsigned char)*keyp))
-					++keyp;
-				if (!strcmp(keyp, "@list"))
-					priv->type = T_LIST;
-			}
-			continue;
-		}
-
-		if (priv->type == T_NONE) {
-			for (p = keyp; *p; p++) {
-				if (*p == ' ' || *p == '\t' || *p == ':') {
-					priv->type = T_HASH;
-					break;
-				}
-			}
-			if (priv->type == T_NONE)
-				priv->type = T_LIST;
-		}
-
-		if (priv->type == T_LIST) {
-			table_static_priv_add(priv, keyp, NULL);
-			continue;
-		}
-
-		/* T_HASH */
-		valp = keyp;
-		strsep(&valp, " \t:");
-		if (valp) {
-			while (*valp) {
-				if (!isspace((unsigned char)*valp) &&
-				    !(*valp == ':' &&
-				    isspace((unsigned char)*(valp + 1))))
-					break;
-				++valp;
-			}
-			if (*valp == '\0')
-				valp = NULL;
-		}
-		if (valp == NULL) {
-			log_warnx("%s: invalid map entry line %d",
+		if (malformed) {
+			log_warnx("%s:%d invalid map entry",
 			    path, lineno);
 			goto end;
 		}
-
+		if (keyp == NULL)
+			continue;
 		table_static_priv_add(priv, keyp, valp);
 	}
 
@@ -209,7 +157,7 @@ table_static_priv_load(struct table_static_priv *priv, const char *path)
 
 	ret = 1;
 end:
-	free(buf);
+	free(line);
 	fclose(fp);
 	return ret;
 }

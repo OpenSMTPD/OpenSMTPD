@@ -857,6 +857,78 @@ log_trace_verbose(int v)
 	log_setverbose(v & TRACE_DEBUG ? 2 : foreground_log);
 }
 
+int
+parse_table_line(FILE *fp, char **line, size_t *linesize,
+    int *type, char **key, char **val, int *malformed)
+{
+	char	*keyp, *valp, *p;
+	ssize_t	 linelen;
+
+	*key = NULL;
+	*val = NULL;
+	*malformed = 0;
+
+	if ((linelen = getline(line, linesize, fp)) == -1)
+		return (-1);
+
+	keyp = *line;
+	while (isspace((unsigned char)*keyp)) {
+		++keyp;
+		--linelen;
+	}
+	if (*keyp == '\0')
+		return 0;
+	while (linelen > 0 && isspace((unsigned char)keyp[linelen - 1]))
+		keyp[--linelen] = '\0';
+	if (*keyp == '#') {
+		if (*type == T_NONE) {
+			keyp++;
+			while (isspace((unsigned char)*keyp))
+				++keyp;
+			if (!strcmp(keyp, "@list"))
+				*type = T_LIST;
+		}
+		return 0;
+	}
+
+	if (*type == T_NONE) {
+		for (p = keyp; *p; p++) {
+			if (*p == ' ' || *p == '\t' || *p == ':') {
+				*type = T_HASH;
+				break;
+			}
+		}
+		if (*type == T_NONE)
+			*type = T_LIST;
+	}
+
+	if (*type == T_LIST) {
+		*key = keyp;
+		return (0);
+	}
+
+	/* T_HASH */
+	valp = keyp;
+	strsep(&valp, " \t:");
+	if (valp) {
+		while (*valp) {
+			if (!isspace((unsigned char)*valp) &&
+			    !(*valp == ':' &&
+			    isspace((unsigned char)*(valp + 1))))
+				break;
+			++valp;
+		}
+		if (*valp == '\0')
+			valp = NULL;
+	}
+	if (valp == NULL)
+		*malformed = 1;
+
+	*key = keyp;
+	*val = valp;
+	return (0);
+}
+
 void
 xclosefrom(int lowfd)
 {
