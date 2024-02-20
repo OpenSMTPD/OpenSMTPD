@@ -14,7 +14,6 @@ jobs:
         sudo ./llvm.sh 16
         sudo apt install \
         clang-tools-16 \
-        libasr-dev \
         libevent-dev \
         libssl-dev \
         bison
