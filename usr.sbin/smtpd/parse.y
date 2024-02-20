@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.297 2024/02/02 20:54:27 millert Exp $	*/
+/*	$OpenBSD: parse.y,v 1.299 2024/02/19 21:00:19 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -791,7 +791,7 @@ HELO STRING {
 		YYERROR;
 	}
 
-	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_SOURCE)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST|T_HASH, K_SOURCE)) {
 		yyerror("table \"%s\" may not be used for source lookups",
 		    t->t_name);
 		YYERROR;
@@ -1115,7 +1115,7 @@ negation TAG REGEX tables {
 		YYERROR;
 	}
 
-       	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_STRING|K_CREDENTIALS)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST|T_HASH, K_STRING|K_CREDENTIALS)) {
 		yyerror("table \"%s\" may not be used for auth lookups",
 		    t->t_name);
 		YYERROR;
@@ -1150,7 +1150,7 @@ negation TAG REGEX tables {
 		YYERROR;
 	}
 
-	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST|T_HASH, K_MAILADDR)) {
 		yyerror("table \"%s\" may not be used for mail-from lookups",
 		    t->t_name);
 		YYERROR;
@@ -1185,7 +1185,7 @@ negation TAG REGEX tables {
 		YYERROR;
 	}
 
-	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST|T_HASH, K_MAILADDR)) {
 		yyerror("table \"%s\" may not be used for rcpt-to lookups",
 		    t->t_name);
 		YYERROR;
@@ -1343,7 +1343,7 @@ negation TAG REGEX tables {
 		YYERROR;
 	}
 
-       	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_STRING|K_CREDENTIALS)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_STRING|K_CREDENTIALS)) {
 		yyerror("table \"%s\" may not be used for from lookups",
 		    t->t_name);
 		YYERROR;
@@ -1385,7 +1385,7 @@ negation TAG REGEX tables {
 		YYERROR;
 	}
 
-	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST|T_HASH, K_MAILADDR)) {
 		yyerror("table \"%s\" may not be used for from lookups",
 		    t->t_name);
 		YYERROR;
@@ -1482,7 +1482,7 @@ negation TAG REGEX tables {
 		YYERROR;
 	}
 
-	if (!table_check_use(t, T_DYNAMIC|T_LIST, K_MAILADDR)) {
+	if (!table_check_use(t, T_DYNAMIC|T_LIST|T_HASH, K_MAILADDR)) {
 		yyerror("table \"%s\" may not be used for for lookups",
 		    t->t_name);
 		YYERROR;
