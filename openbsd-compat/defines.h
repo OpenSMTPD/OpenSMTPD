@@ -457,6 +457,10 @@ typedef uint16_t	in_port_t;
 #endif
 /* end of chl */
 
+#ifndef EAI_OVERFLOW
+#define EAI_OVERFLOW EAI_FAIL
+#endif
+
 #ifndef HAVE_FPARSELN
 /*
  * fparseln() specific operation flags.
