@@ -27,17 +27,17 @@ int setresuid(uid_t ruid, uid_t euid, uid_t suid)
 
 #if defined(HAVE_SETRESUID) && !defined(BROKEN_SETRESUID)
 	if (setresuid(ruid, euid, suid) < 0)
-		fatal("setresuid %u: %.100s", (u_int)ruid, strerror(errno));
+		fatal("setresuid %u", (u_int)ruid);
 #elif defined(HAVE_SETREUID) && !defined(BROKEN_SETREUID)
 	if (setreuid(ruid, euid) < 0)
-		fatal("setreuid %u: %.100s", (u_int)ruid, strerror(errno));
+		fatal("setreuid %u", (u_int)ruid);
 #else
 # ifndef SETEUID_BREAKS_SETUID
 	if (seteuid(euid) < 0)
-		fatal("seteuid %u: %.100s", (u_int)euid, strerror(errno));
+		fatal("seteuid %u", (u_int)euid);
 # endif
 	if (setuid(ruid) < 0)
-		fatal("setuid %u: %.100s", (u_int)ruid, strerror(errno));
+		fatal("setuid %u", (u_int)ruid);
 #endif
 	return (0);
 }
