@@ -60,6 +60,7 @@ AS_IF([test "x$with_libbsd" != xno], [
 	])])
 ])
 
+need_dash_r=
 need_libasr=yes
 pkglibexecdir="$libexecdir/opensmtpd"
 AS_CASE(["$host"],
@@ -80,6 +81,7 @@ AS_CASE(["$host"],
 		AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 ],
 	[*-*-netbsd*], [
+		need_dash_r=yes
 		AM_CFLAGS="$AM_CFLAGS -D_OPENBSD_SOURCE"
 ],
 	[*-*-openbsd*], [
@@ -635,15 +637,12 @@ if test "x$no_attrib_nonnull" != "x1"; then
 	AC_DEFINE([HAVE_ATTRIBUTE__NONNULL__], [1], [Have attribute nonnull])
 fi
 
-need_dash_r=
 AC_ARG_WITH([rpath],
 	[  --without-rpath		Disable auto-added -R linker paths],
-	[
-		if test "x$withval" = "xyes"; then
-			need_dash_r=1
-		fi
-	]
-)
+	AS_CASE(["$withval"],
+	[yes], [need_dash_r=yes],
+	[no], [need_dash_r='']
+))
 
 AC_ARG_WITH([cflags],
 	[  --with-cflags			Specify additional flags to pass to compiler],
