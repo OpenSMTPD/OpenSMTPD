@@ -147,6 +147,7 @@ AC_CHECK_FUNCS([ \
 	getspnam \
 	malloc_conceal \
 	pledge \
+	setreuid \
 	setsid \
 	sigaction \
 	strnvis \
