@@ -40,7 +40,7 @@ AC_PATH_PROG([CHOWN], [chown])
 AC_PATH_PROG([ZCAT], [zcat])
 AC_PATH_PROG([SED], [sed])
 
-AM_CFLAGS="-I\${top_srcdir}/openbsd-compat"
+AM_CFLAGS="-I\${top_srcdir}/usr.sbin/smtpd -I\${top_srcdir}/openbsd-compat"
 
 dnl XXX: OpenSMTPD and libtls need to stay in sync, otherwise bad
 dnl things can happen at runtime.  Revisit this in the future once we
@@ -65,7 +65,6 @@ need_libasr=yes
 pkglibexecdir="$libexecdir/opensmtpd"
 AS_CASE(["$host"],
 	[*-*-darwin*], [
-		use_pie=auto
 		AC_DEFINE([SETEUID_BREAKS_SETUID], [1],
 			[define if seteuid breaks setuid])
 		AC_DEFINE([BROKEN_SETREUID], [1],
@@ -77,7 +76,6 @@ AS_CASE(["$host"],
 			supported by bsd-setproctitle.c])
 ],
 	[*-*-linux* | *-gnu* | *-k*bsd*-gnu*], [
-		use_pie=auto
 		AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 ],
 	[*-*-netbsd*], [
@@ -85,7 +83,6 @@ AS_CASE(["$host"],
 		AM_CFLAGS="$AM_CFLAGS -D_OPENBSD_SOURCE"
 ],
 	[*-*-openbsd*], [
-		use_pie=auto
 		need_libasr=no
 		pkglibexecdir="$libexecdir/smtpd"
 		AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1],
@@ -683,52 +680,12 @@ AC_ARG_WITH([Werror],
 	]
 )
 
-AC_ARG_WITH([pie],
-    [  --with-pie			Build Position Independent Executables if possible], [
-	if test "x$withval" = "xno"; then
-		use_pie=no
-	fi
-	if test "x$withval" = "xyes"; then
-		use_pie=yes
-	fi
-    ]
-)
-if test -z "$use_pie"; then
-	use_pie=no
-fi
-if test "x$use_toolchain_hardening" != "x1" -a "x$use_pie" = "xauto"; then
-	# Turn off automatic PIE when toolchain hardening is off.
-	use_pie=no
-fi
-if test "x$use_pie" = "xauto"; then
-	# Automatic PIE requires gcc >= 4.x
-	AC_MSG_CHECKING([for gcc >= 4.x])
-	AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
-#if !defined(__GNUC__) || __GNUC__ < 4
-#error gcc is too old
-#endif
-]])],
-	[ AC_MSG_RESULT([yes]) ],
-	[ AC_MSG_RESULT([no])
-	  use_pie=no ]
-)
-fi
-if test "x$use_pie" != "xno"; then
-	SAVED_CFLAGS="$CFLAGS"
-	SAVED_LDFLAGS="$LDFLAGS"
-	OSSH_CHECK_CFLAG_COMPILE([-fPIE])
-	OSSH_CHECK_LDFLAG_LINK([-pie])
-	# We use both -fPIE and -pie or neither.
-	AC_MSG_CHECKING([whether both -fPIE and -pie are supported])
-	if echo "x $CFLAGS"  | grep ' -fPIE' >/dev/null 2>&1 && \
-	   echo "x $LDFLAGS" | grep ' -pie'  >/dev/null 2>&1 ; then
-		AC_MSG_RESULT([yes])
-	else
-		AC_MSG_RESULT([no])
-		CFLAGS="$SAVED_CFLAGS"
-		LDFLAGS="$SAVED_LDFLAGS"
-	fi
-fi
+# Save the LIBS gathered so far to use them for the mail.* programs:
+# they don't need "fancy" libraries, so we can stop here.
+# The alternative would be to have several configure scripts, which
+# would be more idiomatic but also more work for a simple case like
+# this.
+AC_SUBST([BASIC_LIBS], [$LIBS])
 
 # Man pages defaults to mandoc
 MANTYPE=doc
@@ -1400,6 +1357,7 @@ AC_SEARCH_LIBS([deflate], [z], [:], [
 	AC_MSG_ERROR([can't find zlib])
 ])
 
+# Search for libdb
 AC_ARG_WITH([table-db],
 	[  --with-table-db		Enable building of table-db backend (default=no)],
 	[
@@ -1411,39 +1369,32 @@ AC_ARG_WITH([table-db],
 	]
 )
 
-if test "x$use_db_api" = "x1"; then
-# Search for libdb
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
-				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
-])])])
-fi
+AS_IF([test "x$use_db_api" = "x1"], [
+	dnl stop at the first one found
+	AC_CHECK_HEADERS([db_185.h db.h db1/db.h], [break])
+	AS_IF([test "x$have_cv_header_db_h" = xno -a \
+	    "x$have_cv_header_db1_db_h" = xno -a \
+	    "x$have_cv_header_db_185_h" = xno], [
+		AC_MSG_ERROR([can't find Berkeley DB headers])
+	])
 
-save_LIBS="$LIBS"
+	AC_SEARCH_LIBS([dbopen], [db db1], [:], [
+		AC_SEARCH_LIBS([__db185_open], [db db1], [:], [
+			AC_MSG_ERROR([can't find Berkeley DB (or not built with --enable-185)])
+		])
+	])
 
-if test "x$use_db_api" = "x1"; then
-DB_LIB=
-
-for libdb in db db1 c; do
-    AC_CHECK_LIB($libdb, dbopen,       [ DB_LIB="$libdb"; break; ],
-    AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
-done
-
-if test -z "$DB_LIB"; then
-    AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
-fi
-
-DB_LIB="-l$DB_LIB"
-AC_SUBST([DB_LIB])
-fi
-
-LIBS="$save_LIBS"
+	AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])
+])
 
 AM_CONDITIONAL([HAVE_DB_API], [test "x$use_db_api" = "x1"])
-AM_COND_IF([HAVE_DB_API], [AC_DEFINE([HAVE_DB_API], [1], [Define to 1 if HAVE_DB_API])])
 
-LIBS="$LIBS ${SMTPDLIBS}"
+#LIBS="$LIBS ${SMTPDLIBS}"
+
+# Save the LIBS gathered at the and as FULL_LIBS for smtpd, smtpctl
+# and smtp, since mail.* programs needs less libs.
+AC_SUBST([FULL_LIBS], [$LIBS])
+LIBS=""
 
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.
@@ -1454,15 +1405,6 @@ AC_SUBST([AM_CFLAGS])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 	Makefile
-	mk/Makefile
-	mk/mail/Makefile
-	mk/mail/mail.lmtp/Makefile
-	mk/mail/mail.maildir/Makefile
-	mk/mail/mail.mboxfile/Makefile
-	mk/mail/mail.mda/Makefile
-	mk/smtpd/Makefile
-	mk/smtpctl/Makefile
-	mk/smtp/Makefile
 	contrib/Makefile
 	contrib/libexec/Makefile
 	contrib/libexec/mail.local/Makefile

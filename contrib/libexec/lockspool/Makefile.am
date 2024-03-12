@@ -10,7 +10,7 @@ EXTRA_DIST =		mail.local.h pathnames.h
 
 AM_CPPFLAGS = 		-I$(top_srcdir)/mail.local
 
-LDADD = 		$(LIBOBJS)
+LDADD = 		$(LIBOBJS) @BASIC_LIBS@
 
 install-exec-hook: $(CONFIGFILES) $(MANPAGES)
 	chown root $(DESTDIR)$(pkglibexecdir)/lockspool || true

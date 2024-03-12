@@ -10,7 +10,7 @@ EXTRA_DIST =		mail.local.h pathnames.h
 
 AM_CPPFLAGS = 		-DPATH_LIBEXEC=\"$(pkglibexecdir)\"
 
-LDADD = 		$(LIBOBJS)
+LDADD = 		$(LIBOBJS) @BASIC_LIBS@
 
 uninstall-hook:
 	rmdir	$(DESTDIR)$(pkglibexecdir) 2> /dev/null || true
