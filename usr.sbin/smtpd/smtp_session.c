@@ -2496,7 +2496,7 @@ smtp_tx_rcpt_to(struct smtp_tx *tx, const char *line)
 
 			if ((p = strchr(opt, ';')) == NULL ||
 			    !valid_xtext(p + 1) ||
-			    strlcpy(opt, tx->evp.dsn_orcpt, len) >= len) {
+			    strlcpy(tx->evp.dsn_orcpt, opt, len) >= len) {
 				smtp_reply(tx->session,
 				    "553 ORCPT address syntax error");
 				return;
