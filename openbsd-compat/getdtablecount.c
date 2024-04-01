@@ -19,6 +19,7 @@
 #include <sys/types.h>
 
 #include <glob.h>
+#include <stdio.h>
 #include <unistd.h>
 
 void fatal(const char *, ...);
