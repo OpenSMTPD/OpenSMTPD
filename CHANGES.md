@@ -1,3 +1,43 @@
+# Release 7.5.0p0 (2024-04-10)
+
+ - Added support for RFC 7505 "Null MX" handling and treat an MX of
+   "localhost" as it were a "Null MX".
+
+ - Allow inline tables and filter listings in smtpd.conf(5) to span
+   over multiple lines.
+
+ - Enabled DSN for the implicit socket too.
+
+ - Added the `no-dsn' option for listen on socket too.
+
+ - Reject headers that start with a space or a tab.
+
+ - Fixed parsing of the ORCPT parameter.
+
+ - Fixed table lookups of IPv6 addresses.
+
+ - Fixed handling of escape characters in To, From and Cc headers.
+
+ - Run LMTP deliveries as the recipient user again.
+
+ - Disallow custom commands and file reading in root's .forward file.
+
+ - Do not process other users .forward files when an alternate
+   delivery user is provided in a dispatcher.
+
+ - Unify the table(5) parser used in smtpd(8) and makemap(8).
+
+ - Allow to use table(5) mappings on various match constraints.
+
+Portability fixes:
+
+ - re-add ASR_IPV4_BEFORE_IPV6 compile-time knob to prefer connecting
+   to IPv6 instead of IPv4.
+
+ - update asr(3) and imsg with OpenBSD.
+
+ - fixed rpath handling on NetBSD in the configure.
+
 # Release 7.4.0p1 (2023-11-16)
 
  - Fixed potential crash with LibreSSL versions prior 3.8 due to
