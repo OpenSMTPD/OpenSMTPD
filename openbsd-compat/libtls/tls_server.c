@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_server.c,v 1.49 2023/05/14 07:26:25 op Exp $ */
+/* $OpenBSD: tls_server.c,v 1.50 2024/03/26 06:24:52 joshua Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -182,7 +182,8 @@ tls_server_ticket_cb(SSL *ssl, unsigned char *keyname, unsigned char *iv,
 		/* create new session */
 		key = tls_server_ticket_key(tls_ctx->config, NULL);
 		if (key == NULL) {
-			tls_set_errorx(tls_ctx, "no valid ticket key found");
+			tls_set_errorx(tls_ctx, TLS_ERROR_UNKNOWN,
+			    "no valid ticket key found");
 			return (-1);
 		}
 
@@ -190,12 +191,14 @@ tls_server_ticket_cb(SSL *ssl, unsigned char *keyname, unsigned char *iv,
 		arc4random_buf(iv, EVP_MAX_IV_LENGTH);
 		if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL,
 		    key->aes_key, iv)) {
-			tls_set_errorx(tls_ctx, "failed to init encrypt");
+			tls_set_errorx(tls_ctx, TLS_ERROR_UNKNOWN,
+			    "failed to init encrypt");
 			return (-1);
 		}
 		if (!HMAC_Init_ex(hctx, key->hmac_key, sizeof(key->hmac_key),
 		    EVP_sha256(), NULL)) {
-			tls_set_errorx(tls_ctx, "failed to init hmac");
+			tls_set_errorx(tls_ctx, TLS_ERROR_UNKNOWN,
+			    "failed to init hmac");
 			return (-1);
 		}
 		return (0);
@@ -207,12 +210,14 @@ tls_server_ticket_cb(SSL *ssl, unsigned char *keyname, unsigned char *iv,
 
 		if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL,
 		    key->aes_key, iv)) {
-			tls_set_errorx(tls_ctx, "failed to init decrypt");
+			tls_set_errorx(tls_ctx, TLS_ERROR_UNKNOWN,
+			    "failed to init decrypt");
 			return (-1);
 		}
 		if (!HMAC_Init_ex(hctx, key->hmac_key, sizeof(key->hmac_key),
 		    EVP_sha256(), NULL)) {
-			tls_set_errorx(tls_ctx, "failed to init hmac");
+			tls_set_errorx(tls_ctx, TLS_ERROR_UNKNOWN,
+			    "failed to init hmac");
 			return (-1);
 		}
 
@@ -230,7 +235,7 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 	SSL_CTX_free(*ssl_ctx);
 
 	if ((*ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL) {
-		tls_set_errorx(ctx, "ssl context failure");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN, "ssl context failure");
 		goto err;
 	}
 
@@ -240,11 +245,13 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 
 	if (SSL_CTX_set_tlsext_servername_callback(*ssl_ctx,
 	    tls_servername_cb) != 1) {
-		tls_set_error(ctx, "failed to set servername callback");
+		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		    "failed to set servername callback");
 		goto err;
 	}
 	if (SSL_CTX_set_tlsext_servername_arg(*ssl_ctx, ctx) != 1) {
-		tls_set_error(ctx, "failed to set servername callback arg");
+		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		    "failed to set servername callback arg");
 		goto err;
 	}
 
@@ -273,7 +280,8 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 		SSL_CTX_set_ecdh_auto(*ssl_ctx, 1);
 		if (SSL_CTX_set1_groups(*ssl_ctx, ctx->config->ecdhecurves,
 		    ctx->config->ecdhecurves_len) != 1) {
-			tls_set_errorx(ctx, "failed to set ecdhe curves");
+			tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
+			    "failed to set ecdhe curves");
 			goto err;
 		}
 	}
@@ -282,7 +290,8 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 		SSL_CTX_set_options(*ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 
 	if (SSL_CTX_set_tlsext_status_cb(*ssl_ctx, tls_ocsp_stapling_cb) != 1) {
-		tls_set_errorx(ctx, "failed to add OCSP stapling callback");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
+		    "failed to add OCSP stapling callback");
 		goto err;
 	}
 
@@ -292,7 +301,7 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 		SSL_CTX_clear_options(*ssl_ctx, SSL_OP_NO_TICKET);
 		if (!SSL_CTX_set_tlsext_ticket_key_cb(*ssl_ctx,
 		    tls_server_ticket_cb)) {
-			tls_set_error(ctx,
+			tls_set_error(ctx, TLS_ERROR_UNKNOWN,
 			    "failed to set the TLS ticket callback");
 			goto err;
 		}
@@ -300,7 +309,8 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 
 	if (SSL_CTX_set_session_id_context(*ssl_ctx, ctx->config->session_id,
 	    sizeof(ctx->config->session_id)) != 1) {
-		tls_set_error(ctx, "failed to set session id context");
+		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		    "failed to set session id context");
 		goto err;
 	}
 
@@ -326,7 +336,7 @@ tls_configure_server_sni(struct tls *ctx)
 	sni_ctx = &ctx->sni_ctx;
 	for (kp = ctx->config->keypair->next; kp != NULL; kp = kp->next) {
 		if ((*sni_ctx = tls_sni_ctx_new()) == NULL) {
-			tls_set_errorx(ctx, "out of memory");
+			tls_set_errorx(ctx, TLS_ERROR_OUT_OF_MEMORY, "out of memory");
 			goto err;
 		}
 		(*sni_ctx)->keypair = kp;
@@ -365,22 +375,24 @@ tls_accept_common(struct tls *ctx)
 	struct tls *conn_ctx = NULL;
 
 	if ((ctx->flags & TLS_SERVER) == 0) {
-		tls_set_errorx(ctx, "not a server context");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN, "not a server context");
 		goto err;
 	}
 
 	if ((conn_ctx = tls_server_conn(ctx)) == NULL) {
-		tls_set_errorx(ctx, "connection context failure");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
+		    "connection context failure");
 		goto err;
 	}
 
 	if ((conn_ctx->ssl_conn = SSL_new(ctx->ssl_ctx)) == NULL) {
-		tls_set_errorx(ctx, "ssl failure");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN, "ssl failure");
 		goto err;
 	}
 
 	if (SSL_set_app_data(conn_ctx->ssl_conn, conn_ctx) != 1) {
-		tls_set_errorx(ctx, "ssl application data failure");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
+		    "ssl application data failure");
 		goto err;
 	}
 
@@ -408,7 +420,8 @@ tls_accept_fds(struct tls *ctx, struct tls **cctx, int fd_read, int fd_write)
 
 	if (SSL_set_rfd(conn_ctx->ssl_conn, fd_read) != 1 ||
 	    SSL_set_wfd(conn_ctx->ssl_conn, fd_write) != 1) {
-		tls_set_errorx(ctx, "ssl file descriptor failure");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
+		    "ssl file descriptor failure");
 		goto err;
 	}
 
@@ -451,7 +464,8 @@ tls_handshake_server(struct tls *ctx)
 	int rv = -1;
 
 	if ((ctx->flags & TLS_SERVER_CONN) == 0) {
-		tls_set_errorx(ctx, "not a server connection context");
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
+		    "not a server connection context");
 		goto err;
 	}
 
