@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.348 2024/02/02 22:02:12 gilles Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.350 2024/04/24 21:31:31 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1215,7 +1215,7 @@ fork_proc_backend(const char *key, const char *conf, const char *procname)
 
 	if (strlcpy(name, conf, sizeof(name)) >= sizeof(name)) {
 		log_warnx("warn: %s-proc: conf too long", key);
-		return (0);
+		return (-1);
 	}
 
 	arg = strchr(name, ':');
