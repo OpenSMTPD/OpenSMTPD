@@ -1,4 +1,4 @@
-/*	$OpenBSD: envelope.c,v 1.51 2023/02/06 18:35:52 semarie Exp $	*/
+/*	$OpenBSD: envelope.c,v 1.52 2024/01/03 08:11:15 op Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>

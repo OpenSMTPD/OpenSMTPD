@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.440 2024/01/20 09:01:03 claudio Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.442 2024/03/20 17:52:43 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>

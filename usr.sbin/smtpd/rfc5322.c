@@ -1,4 +1,4 @@
-/*	$OpenBSD: rfc5322.c,v 1.3 2021/06/14 17:58:16 eric Exp $	*/
+/*	$OpenBSD: rfc5322.c,v 1.4 2023/12/05 13:38:25 op Exp $	*/
 
 /*
  * Copyright (c) 2018 Eric Faurot <eric@openbsd.org>
