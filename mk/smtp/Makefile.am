@@ -10,7 +10,6 @@ smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/smtpc.c
 smtp_SOURCES+=	$(top_srcdir)/usr.sbin/smtpd/ssl.c
 
 # libtls
-smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/asn.c
 smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls.c
 smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_client.c
 smtp_SOURCES+=	$(top_srcdir)/openbsd-compat/libtls/tls_bio_cb.c
