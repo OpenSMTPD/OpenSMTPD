@@ -28,12 +28,6 @@
 
 /* $Id: defines.h,v 1.181 2014/06/11 19:22:50 dtucker Exp $ */
 
-
-/* Constants */
-#ifndef EAUTH
-# define EAUTH 80
-#endif
-
 #ifndef INFTIM
 #define INFTIM	(-1)
 #endif

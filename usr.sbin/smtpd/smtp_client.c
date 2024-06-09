@@ -168,7 +168,7 @@ smtp_cert_verified(struct smtp_client *proto, int verified)
 		proto->flags |= FLAG_TLS_VERIFIED;
 
 	else if (proto->params.tls_verify) {
-		errno = EAUTH;
+		errno = EINVAL;	/* EAUTH in base but it's not portable */
 		smtp_client_abort(proto, FAIL_CONN,
 		    "Invalid server certificate");
 		return;
