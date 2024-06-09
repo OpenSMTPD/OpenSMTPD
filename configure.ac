@@ -296,6 +296,15 @@ AS_IF([test "x$ac_cv_search_b64_ntop" = "xno" -a \
 	AC_LIBOBJ([base64])
 ])
 
+dnl NetBSD added an strnvis and unfortunately made it incompatible with the
+dnl existing one in OpenBSD and Linux's libbsd (the former having existed
+dnl for over ten years). Despite this incompatibility being reported during
+dnl development (see http://gnats.netbsd.org/44977) they still shipped it.
+dnl Even more unfortunately FreeBSD and later MacOS picked up this incompatible
+dnl implementation.
+dnl
+dnl OpenBSD, 2001: strnvis(char *dst, const char *src, size_t dlen, int flag);
+dnl NetBSD,  2012: strnvis(char *dst, size_t dlen, const char *src, int flag);
 AS_IF([test "x$ac_cv_func_strnvis" = xyes], [
 	AC_MSG_CHECKING([for broken strnvis])
 
