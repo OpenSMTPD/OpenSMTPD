@@ -38,6 +38,11 @@
 # endif
 #endif
 
+#if defined(HOST_NAME_MAX) && defined(_POSIX_HOST_NAME_MAX) && HOST_NAME_MAX < _POSIX_HOST_NAME_MAX
+# undef HOST_NAME_MAX
+# define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+#endif
+
 #ifndef PATH_MAX
 # ifdef _POSIX_PATH_MAX
 # define PATH_MAX _POSIX_PATH_MAX
