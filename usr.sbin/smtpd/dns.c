@@ -54,7 +54,7 @@ struct dns_session {
 	struct mproc		*p;
 	uint64_t		 reqid;
 	int			 type;
-	char			 name[HOST_NAME_MAX+1];
+	char			 name[SMTPD_HOST_NAME_MAX+1];
 	size_t			 mxfound;
 	int			 error;
 	int			 refcount;
@@ -356,7 +356,7 @@ dns_lookup_host(struct dns_session *s, const char *host, int preference)
 {
 	struct dns_lookup	*lookup;
 	struct addrinfo		 hints;
-	char			 hostcopy[HOST_NAME_MAX+1];
+	char			 hostcopy[SMTPD_HOST_NAME_MAX+1];
 	char			*p;
 	void			*as;
 

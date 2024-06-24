@@ -16,7 +16,7 @@
  */
 
 struct pki {
-	char			 pki_name[HOST_NAME_MAX+1];
+	char			 pki_name[SMTPD_HOST_NAME_MAX+1];
 
 	char			*pki_cert_file;
 	char			*pki_cert;
@@ -30,7 +30,7 @@ struct pki {
 };
 
 struct ca {
-	char			 ca_name[HOST_NAME_MAX+1];
+	char			 ca_name[SMTPD_HOST_NAME_MAX+1];
 
 	char			*ca_cert_file;
 	char			*ca_cert;
