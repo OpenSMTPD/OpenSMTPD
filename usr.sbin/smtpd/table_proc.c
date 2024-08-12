@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_proc.c,v 1.22 2024/05/23 17:10:00 op Exp $	*/
+/*	$OpenBSD: table_proc.c,v 1.23 2024/05/28 07:10:30 op Exp $	*/
 
 /*
  * Copyright (c) 2024 Omar Polo <op@openbsd.org>
@@ -174,6 +174,7 @@ table_proc_open(struct table *table)
 	if (services == 0)
 		fatalx("table-proc: no services registered");
 
+	table->t_services = services;
 	table->t_handle = priv;
 
 	return (1);
