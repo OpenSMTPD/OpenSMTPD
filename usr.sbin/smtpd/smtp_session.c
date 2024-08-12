@@ -1041,6 +1041,7 @@ smtp_session_imsg(struct mproc *p, struct imsg *imsg)
 			filter_param = s->filter_param;
 			/* fallthrough */
 
+		case FILTER_REPORT:
 		case FILTER_REWRITE:
 			smtp_report_filter_response(s, s->filter_phase,
 			    filter_response,

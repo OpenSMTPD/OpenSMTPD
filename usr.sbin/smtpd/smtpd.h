@@ -1146,6 +1146,7 @@ struct filter_config {
 
 enum filter_status {
 	FILTER_PROCEED,
+	FILTER_REPORT,
 	FILTER_REWRITE,
 	FILTER_REJECT,
 	FILTER_DISCONNECT,
