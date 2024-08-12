@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka.c,v 1.249 2024/06/09 10:13:05 gilles Exp $	*/
+/*	$OpenBSD: lka.c,v 1.250 2024/06/11 16:30:06 tb Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -307,7 +307,7 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 #if HAVE_PLEDGE
 		/* revoke proc & exec */
 		if (pledge("stdio rpath inet dns getpw recvfd sendfd",
-			NULL) == -1)
+		    NULL) == -1)
 			fatal("pledge");
 #endif
 
