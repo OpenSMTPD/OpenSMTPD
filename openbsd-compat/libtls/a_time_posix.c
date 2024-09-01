@@ -23,8 +23,6 @@
 
 #include "includes.h"
 
-#if !HAVE_OPENSSL_POSIX_TO_TM
-
 #include <inttypes.h>
 #include <limits.h>
 #include <stdint.h>
@@ -33,6 +31,8 @@
 
 #include <openssl/asn1.h>
 #include <openssl/posix_time.h>
+
+#if !HAVE_OPENSSL_POSIX_TO_TM
 
 /* from libcrypto/crypto_internal.h */
 #define CTASSERT(x) \
@@ -238,7 +238,9 @@ int
 OPENSSL_timegm(const struct tm *tm, time_t *out) {
 	return asn1_time_tm_to_time_t(tm, out);
 }
+#endif	/* !HAVE_OPENSSL_POSIX_TO_TM */
 
+#if !HAVE_OPENSSL_GMTIME
 struct tm *
 OPENSSL_gmtime(const time_t *time, struct tm *out_tm) {
 	if (!asn1_time_time_t_to_tm(time, out_tm))
@@ -296,5 +298,4 @@ OPENSSL_gmtime_diff(int *out_days, int *out_secs, const struct tm *from,
 
 	return 1;
 }
-
-#endif	/* !HAVE_OPENSSL_POSIX_TO_TM */
+#endif /* !HAVE_OPENSSL_GMTIME */
