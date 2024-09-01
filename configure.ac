@@ -1350,6 +1350,11 @@ AC_CHECK_FUNCS([ \
 	SSL_CTX_use_certificate_chain_mem \
 	SSL_CTX_load_verify_mem \
 	X509_LOOKUP_mem \
+	OPENSSL_posix_to_tm \
+])
+
+AS_IF([test "x$ac_cv_func_OPENSSL_posix_to_tm" = xno], [
+	AM_CFLAGS="${AM_CFLAGS} -I\${top_srcdir}/openbsd-compat/openssl/"
 ])
 
 # Sanity check OpenSSL headers

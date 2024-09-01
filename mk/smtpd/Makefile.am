@@ -100,6 +100,7 @@ smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libasr/res_send_async.c
 endif
 
 # libtls
+smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/a_time_posix.c
 smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls.c
 smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_client.c
 smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/tls_bio_cb.c

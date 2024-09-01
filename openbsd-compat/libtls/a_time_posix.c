@@ -21,6 +21,10 @@
  * for time zones other than UTC
  */
 
+#include "includes.h"
+
+#if !HAVE_OPENSSL_POSIX_TO_TM
+
 #include <inttypes.h>
 #include <limits.h>
 #include <stdint.h>
@@ -30,7 +34,9 @@
 #include <openssl/asn1.h>
 #include <openssl/posix_time.h>
 
-#include "crypto_internal.h"
+/* from libcrypto/crypto_internal.h */
+#define CTASSERT(x) \
+    extern char _ctassert[(x) ? 1 : -1] __attribute__((__unused__))
 
 #define SECS_PER_HOUR (int64_t)(60 * 60)
 #define SECS_PER_DAY (int64_t)(24 * SECS_PER_HOUR)
@@ -181,7 +187,6 @@ OPENSSL_tm_to_posix(const struct tm *tm, int64_t *out)
 	    tm->tm_mon + (int64_t)1, tm->tm_mday, tm->tm_hour, tm->tm_min,
 	    tm->tm_sec, out);
 }
-LCRYPTO_ALIAS(OPENSSL_tm_to_posix);
 
 int
 OPENSSL_posix_to_tm(int64_t time, struct tm *out_tm)
@@ -201,7 +206,6 @@ OPENSSL_posix_to_tm(int64_t time, struct tm *out_tm)
 
 	return 1;
 }
-LCRYPTO_ALIAS(OPENSSL_posix_to_tm);
 
 int
 asn1_time_tm_to_time_t(const struct tm *tm, time_t *out)
@@ -234,7 +238,6 @@ int
 OPENSSL_timegm(const struct tm *tm, time_t *out) {
 	return asn1_time_tm_to_time_t(tm, out);
 }
-LCRYPTO_ALIAS(OPENSSL_timegm);
 
 struct tm *
 OPENSSL_gmtime(const time_t *time, struct tm *out_tm) {
@@ -242,7 +245,6 @@ OPENSSL_gmtime(const time_t *time, struct tm *out_tm) {
 		return NULL;
 	return out_tm;
 }
-LCRYPTO_ALIAS(OPENSSL_gmtime);
 
 /* Public API in OpenSSL. BoringSSL uses int64_t instead of long. */
 int
@@ -294,3 +296,5 @@ OPENSSL_gmtime_diff(int *out_days, int *out_secs, const struct tm *from,
 
 	return 1;
 }
+
+#endif	/* !HAVE_OPENSSL_POSIX_TO_TM */
