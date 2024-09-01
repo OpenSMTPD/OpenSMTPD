@@ -1351,6 +1351,7 @@ AC_CHECK_FUNCS([ \
 	SSL_CTX_load_verify_mem \
 	X509_LOOKUP_mem \
 	OPENSSL_posix_to_tm \
+	OPENSSL_gmtime \
 ])
 
 AS_IF([test "x$ac_cv_func_OPENSSL_posix_to_tm" = xno], [
