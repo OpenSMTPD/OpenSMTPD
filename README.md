@@ -139,7 +139,7 @@ need to install a more recent version from, e.g., MacPorts.
 OpenSMTPD provides a single utility `smtpctl` to control the daemon and
 the local submission subsystem.
 
-To accomodate systems that require historical interfaces such as `sendmail`,
+To accommodate systems that require historical interfaces such as `sendmail`,
 `newaliases` or `makemap`, the `smtpctl` utility can operate in compatibility
 mode if called with the historical name.
 

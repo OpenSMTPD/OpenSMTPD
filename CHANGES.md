@@ -88,7 +88,7 @@ includes the complete rework of some parts:
 
 # Release 7.3.0p2 (2023-09-20)
 
- - avoid potential use of unitialized in ASN1_time_parse
+ - avoid potential use of uninitialized in ASN1_time_parse
  - backport ENGINE removal fix the build with newer LibreSSL
 
 # Release 7.3.0p1 (2023-06-30)
