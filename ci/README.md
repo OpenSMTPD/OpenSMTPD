@@ -17,7 +17,7 @@ integration tests are planned. Currently only build tests and static code
 analysis exist. Help is much needed with developing functional and integration
 tests.
 
-## Directory strucuture
+## Directory structure
 
 - [docker](#dockerfiles) dockerfiles for various distributions.
 - [scripts](#scripts) useful scripts for ci/cd automation.
@@ -36,7 +36,7 @@ tests.
 Dockerfiles in [docker](docker/) directory can be used for developing and
 testing OpenSMTPD.  These dockerfiles are intended to be used for dev/test
 cycle ONLY and ARE NOT intended to be a delivery mechanism for end users and
-should not be published on external resouces like DockerHub. Dockerfiles in
+should not be published on external resources like DockerHub. Dockerfiles in
 this folder can be used as a reference for package maintainers of various
 distributions.
 
