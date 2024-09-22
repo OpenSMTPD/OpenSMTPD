@@ -102,7 +102,7 @@ AS_CASE(["$host"],
 AC_SUBST([pkglibexecdir])
 
 # XXX arc4random is checked later since some old (pre 3.8) versions of
-# LibreSSL provide this symbols mistakenly.
+# LibreSSL provide this symbol mistakenly.
 AC_REPLACE_FUNCS([ \
 	basename \
 	clock_gettime \
