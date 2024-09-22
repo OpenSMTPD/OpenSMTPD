@@ -8,7 +8,7 @@ dist_man1_MANS =	lockspool.1
 
 EXTRA_DIST =		mail.local.h pathnames.h
 
-AM_CPPFLAGS = 		-I$(top_srcdir)/mail.local
+AM_CPPFLAGS =		-I$(top_srcdir)/openbsd-compat/
 
 LDADD = 		$(LIBOBJS)
 

@@ -7,7 +7,8 @@ mail_mda_SOURCES+= $(top_srcdir)/usr.sbin/smtpd/log.c
 
 dist_man8_MANS =	$(top_srcdir)/usr.sbin/smtpd/mail.mda.8
 
-AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd
+AM_CPPFLAGS=		-I$(top_srcdir)/usr.sbin/smtpd \
+			-I$(top_srcdir)/openbsd-compat
 
 LDADD = 		$(LIBOBJS)
 

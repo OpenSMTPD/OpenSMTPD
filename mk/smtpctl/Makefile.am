@@ -53,6 +53,7 @@ smtpctl_CPPFLAGS=	-DNO_IO -DCONFIG_MINIMUM \
 			-DPATH_GZCAT=\"$(ZCAT)\" \
 			-DPATH_ENCRYPT=\"$(pkglibexecdir)/encrypt\" \
 			-I$(top_srcdir)/usr.sbin/smtpd \
+			-I$(top_srcdir)/openbsd-compat \
 			-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 LDADD=			$(LIBOBJS)
