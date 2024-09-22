@@ -118,6 +118,8 @@ smtpd_SOURCES+=		$(top_srcdir)/openbsd-compat/libtls/openssl.c
 
 AM_CPPFLAGS=		-DIO_TLS \
 			-I$(top_srcdir)/usr.sbin/smtpd \
+			-I$(top_srcdir)/openbsd-compat \
+			-I$(top_srcdir)/openbsd-compat/libtls \
 			-I$(srcdir) $(PATHS) @DEFS@
 
 LDADD=			$(LIBOBJS) $(DB_LIB)

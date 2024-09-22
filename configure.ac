@@ -40,13 +40,6 @@ AC_PATH_PROG([CHOWN], [chown])
 AC_PATH_PROG([ZCAT], [zcat])
 AC_PATH_PROG([SED], [sed])
 
-AM_CFLAGS="-I\${top_srcdir}/openbsd-compat"
-
-dnl XXX: OpenSMTPD and libtls need to stay in sync, otherwise bad
-dnl things can happen at runtime.  Revisit this in the future once we
-dnl switch to the signer APIs.
-AM_CFLAGS="${AM_CFLAGS} -I\${top_srcdir}/openbsd-compat/libtls"
-
 # use libbsd by default; these needs to precede any other check, as we
 # might not need a compat function when using libbsd.
 AC_ARG_WITH([libbsd],
