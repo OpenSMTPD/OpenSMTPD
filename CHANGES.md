@@ -1,3 +1,24 @@
+# Release 7.6.0p0 (2024-10-13)
+
+ - Introduced a new K_AUTH service to allow offloading the credentials
+   to a proc table for non-crypt(3) authentication.  Helps with use
+   cases like LDAP or custom auth.
+
+ - Implement report responses for proc-filters too.
+
+ - Changed the table protocol to a simpler text-based one.  Existing
+   proc tables needs to be updated since old ones won't work.  The new
+   protocol is documented in smtpd-tables(7).
+
+ - Fixed the parsing of IPv6 addresses in file-backed table(5)
+
+ - Document expected MDA behavior and the environment set by OpenSMTPD.
+
+ - Set ORIGINAL_RECIPIENT in the environment of MDA scripts for
+   compatibility with postfix.
+
+ - Updated the bundled libtls.
+
 # Release 7.5.0p0 (2024-04-10)
 
  - Added support for RFC 7505 "Null MX" handling and treat an MX of
