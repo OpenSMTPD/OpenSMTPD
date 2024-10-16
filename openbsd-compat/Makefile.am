@@ -13,6 +13,7 @@ EXTRA_DIST =	NOTES				\
 		libtls/tls.h			\
 		libtls/tls_internal.h		\
 		openbsd-compat.h		\
+		openssl/posix_time.h		\
 		paths_h/paths.h			\
 		sys/queue.h			\
 		sys/tree.h			\
