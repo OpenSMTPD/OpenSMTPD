@@ -332,7 +332,7 @@ ADMD STRING {
 
 ca:
 CA STRING {
-	char buf[HOST_NAME_MAX+1];
+	char buf[SMTPD_HOST_NAME_MAX+1];
 
 	/* if not catchall, check that it is a valid domain */
 	if (strcmp($2, "*") != 0) {
@@ -401,7 +401,7 @@ MTA MAX_DEFERRED NUMBER  {
 
 pki:
 PKI STRING {
-	char buf[HOST_NAME_MAX+1];
+	char buf[SMTPD_HOST_NAME_MAX+1];
 
 	/* if not catchall, check that it is a valid domain */
 	if (strcmp($2, "*") != 0) {
