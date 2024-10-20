@@ -1,3 +1,8 @@
+# Release 7.6.0p1 (2024-10-20)
+
+ - fixed distribution tarball
+ - added missing forward(5) documentation fix
+
 # Release 7.6.0p0 (2024-10-13)
 
  - Introduced a new K_AUTH service to allow offloading the credentials
