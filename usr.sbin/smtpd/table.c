@@ -709,7 +709,7 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 		if ((cp = strchr(addr, SCOPE_DELIMITER)) != NULL)
 			*cp++ = '\0';
 
-		if (inet_pton(PF_INET, addr, &in6a) != 1)
+		if (inet_pton(PF_INET6, addr, &in6a) != 1)
 			return (-1);
 
 		sin6 = (struct sockaddr_in6 *)sa;
