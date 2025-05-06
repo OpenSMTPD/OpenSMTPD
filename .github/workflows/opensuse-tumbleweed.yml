@@ -1,0 +1,15 @@
+name: openSUSE Tumbleweed (amd64 glibc openssl)
+on: 
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: openSUSE Tumbleweed (amd64 glibc openssl)
+      run: docker build . --file ci/docker/Dockerfile.opensuse-tumbleweed --tag opensmtpd:opensuse-tumbleweed
