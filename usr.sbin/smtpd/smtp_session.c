@@ -1980,7 +1980,7 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 			goto abort;
 
 		pass = memchr(user, '\0', len - (user - buf));
-		if (pass == NULL || pass >= buf + len - 2)
+		if (pass == NULL || pass >= buf + len - 1)
 			goto abort;
 		pass++; /* skip NUL */
 
