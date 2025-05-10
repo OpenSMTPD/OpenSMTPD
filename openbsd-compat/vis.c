@@ -210,6 +210,13 @@ strnvis(char *dst, const char *src, size_t siz, int flag)
 	return (dst - start);
 }
 
+/*
+ * gcc is so "smart" to think that there be an use-after-free below if
+ * realloc fails.  it's not, it's perfectly valid code.  but the
+ * warning is annoying and this function unused so comment it out for
+ * now.
+ */
+#if 0
 int
 stravis(char **outp, const char *src, int flag)
 {
@@ -228,6 +235,7 @@ stravis(char **outp, const char *src, int flag)
 	}
 	return (len);
 }
+#endif
 
 int
 strvisx(char *dst, const char *src, size_t len, int flag)
