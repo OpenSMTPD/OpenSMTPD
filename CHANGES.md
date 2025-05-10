@@ -1,3 +1,9 @@
+# Release 7.7.0p0 (2025-05-12)
+
+ - mail.lmtp: Correctly propagate LMTP permanent failures to smtpd.
+ - Fixed connect filter request documentation in smtpd-filters.7.
+ - Updated to new imsg APIs.
+
 # Release 7.6.0p1 (2024-10-20)
 
  - fixed distribution tarball
