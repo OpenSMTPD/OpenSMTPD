@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpctl.c,v 1.172 2023/05/31 16:51:46 op Exp $	*/
+/*	$OpenBSD: smtpctl.c,v 1.173 2024/11/21 13:17:02 claudio Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -145,7 +145,7 @@ srv_connect(void)
 	}
 
 	ibuf = xcalloc(1, sizeof(struct imsgbuf));
-	imsg_init(ibuf, ctl_sock);
+	imsgbuf_init(ibuf, ctl_sock);
 
 	return (1);
 }
@@ -185,7 +185,7 @@ offline_file(void)
 static void
 srv_flush(void)
 {
-	if (imsg_flush(ibuf) == -1)
+	if (imsgbuf_flush(ibuf) == -1)
 		err(1, "write error");
 }
 
@@ -219,8 +219,8 @@ srv_recv(int type)
 			break;
 		}
 
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			errx(1, "imsg_read error");
+		if ((n = imsgbuf_read(ibuf)) == -1 && errno != EAGAIN)
+			errx(1, "imsgbuf_read error");
 		if (n == 0)
 			errx(1, "pipe closed");
 	}

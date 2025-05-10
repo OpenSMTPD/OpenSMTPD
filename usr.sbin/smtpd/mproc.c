@@ -1,4 +1,4 @@
-/*	$OpenBSD: mproc.c,v 1.42 2024/11/21 13:16:07 claudio Exp $	*/
+/*	$OpenBSD: mproc.c,v 1.43 2024/11/21 13:17:02 claudio Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
@@ -38,7 +38,7 @@
 
 static void mproc_dispatch(int, short, void *);
 
-static ssize_t imsg_read_nofd(struct imsgbuf *);
+static ssize_t imsgbuf_read_nofd(struct imsgbuf *);
 
 int
 mproc_fork(struct mproc *p, const char *path, char *argv[])
@@ -77,7 +77,7 @@ err:
 void
 mproc_init(struct mproc *p, int fd)
 {
-	imsg_init(&p->imsgbuf, fd);
+	imsgbuf_init(&p->imsgbuf, fd);
 }
 
 void
@@ -88,7 +88,7 @@ mproc_clear(struct mproc *p)
 	if (p->events)
 		event_del(&p->ev);
 	close(p->imsgbuf.fd);
-	imsg_clear(&p->imsgbuf);
+	imsgbuf_clear(&p->imsgbuf);
 }
 
 void
@@ -150,15 +150,15 @@ mproc_dispatch(int fd, short event, void *arg)
 	if (event & EV_READ) {
 
 		if (p->proc == PROC_CLIENT)
-			n = imsg_read_nofd(&p->imsgbuf);
+			n = imsgbuf_read_nofd(&p->imsgbuf);
 		else
-			n = imsg_read(&p->imsgbuf);
+			n = imsgbuf_read(&p->imsgbuf);
 
 		switch (n) {
 		case -1:
 			if (errno == EAGAIN)
 				break;
-			log_warn("warn: %s -> %s: imsg_read",
+			log_warn("warn: %s -> %s: imsgbuf_read",
 			    proc_name(smtpd_process),  p->name);
 			fatal("exiting");
 			/* NOTREACHED */
@@ -174,7 +174,7 @@ mproc_dispatch(int fd, short event, void *arg)
 	}
 
 	if (event & EV_WRITE) {
-		if (imsg_write(&p->imsgbuf) == -1) {
+		if (imsgbuf_write(&p->imsgbuf) == -1) {
 			/* this pipe is dead, so remove the event handler */
 			log_debug("debug: %s -> %s: pipe closed",
 			    proc_name(smtpd_process),  p->name);
@@ -210,7 +210,7 @@ mproc_dispatch(int fd, short event, void *arg)
 
 /* This should go into libutil */
 static ssize_t
-imsg_read_nofd(struct imsgbuf *ibuf)
+imsgbuf_read_nofd(struct imsgbuf *ibuf)
 {
 	ssize_t	 n;
 	char	*buf;
@@ -360,8 +360,8 @@ m_flush(struct mproc *p)
 
 	p->m_pos = 0;
 
-	if (imsg_flush(&p->imsgbuf) == -1)
-		fatal("imsg_flush");
+	if (imsgbuf_flush(&p->imsgbuf) == -1)
+		fatal("imsgbuf_flush");
 }
 
 static struct imsg * current;
