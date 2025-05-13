@@ -1,6 +1,6 @@
 # OpenSMTPD
 
-[![Version](https://img.shields.io/badge/Version-7.6.0p1-brihtgreen.svg)](https://github.com/OpenSMTPD/OpenSMTPD/releases/tag/7.6.0p1)
+[![Version](https://img.shields.io/badge/Version-7.7.0p0-brihtgreen.svg)](https://github.com/OpenSMTPD/OpenSMTPD/releases/tag/7.7.0p0)
 [![Coverity Scan analysis](https://scan.coverity.com/projects/278/badge.svg)](https://scan.coverity.com/projects/opensmtpd-opensmtpd)
 [![Packaging status](https://repology.org/badge/tiny-repos/opensmtpd.svg)](https://repology.org/project/opensmtpd/versions)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://www.isc.org/licenses/)

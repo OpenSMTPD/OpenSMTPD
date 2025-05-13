@@ -14,7 +14,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-AC_INIT([OpenSMTPD-portable], [7.6.0p1], [bugs@opensmtpd.org],
+AC_INIT([OpenSMTPD-portable], [7.7.0p0], [bugs@opensmtpd.org],
     [opensmtpd], [https://www.opensmtpd.org])
 
 AC_CONFIG_MACRO_DIR([m4])
