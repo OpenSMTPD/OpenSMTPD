@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.442 2024/03/20 17:52:43 op Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.444 2025/05/13 14:52:42 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1980,7 +1980,7 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 			goto abort;
 
 		pass = memchr(user, '\0', len - (user - buf));
-		if (pass == NULL || pass >= buf + len - 2)
+		if (pass == NULL || pass >= buf + len - 1)
 			goto abort;
 		pass++; /* skip NUL */
 
