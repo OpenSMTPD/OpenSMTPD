@@ -158,7 +158,8 @@ EXTRA_DIST+=		$(top_srcdir)/usr.sbin/smtpd/dict.h
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
 			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g' \
-			-e 's|/usr/local/libexec/smtpd/|$(pkglibexecdir)|g'
+			-e 's|/usr/local/libexec/smtpd/|$(pkglibexecdir)|g' \
+			-e 's|_smtpd|$(SMTPD_USER)|g'
 
 FIXPATHSCMD=		$(SED) $(PATHSUBS)
 
