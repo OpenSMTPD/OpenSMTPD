@@ -96,7 +96,7 @@ struct {
 #define WSP(c)			(c == ' ' || c == '\t')
 
 int		 verbose = 0;
-static char	 host[HOST_NAME_MAX+1];
+static char	 host[SMTPD_HOST_NAME_MAX+1];
 char		*user = NULL;
 time_t		 timestamp;
 

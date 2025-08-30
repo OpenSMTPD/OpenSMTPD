@@ -138,8 +138,8 @@ struct smtp_session {
 	struct listener		*listener;
 	void			*ssl_ctx;
 	struct sockaddr_storage	 ss;
-	char			 rdns[HOST_NAME_MAX+1];
-	char			 smtpname[HOST_NAME_MAX+1];
+	char			 rdns[SMTPD_HOST_NAME_MAX+1];
+	char			 smtpname[SMTPD_HOST_NAME_MAX+1];
 	int			 fcrdns;
 
 	int			 flags;
