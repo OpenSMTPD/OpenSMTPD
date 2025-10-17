@@ -32,9 +32,17 @@
 #define INFTIM	(-1)
 #endif
 
-#ifndef HOST_NAME_MAX
-# ifdef _POSIX_HOST_NAME_MAX
-# define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+#ifndef SMTPD_HOST_NAME_MAX
+# ifdef HOST_NAME_MAX
+#  if defined(_POSIX_HOST_NAME_MAX) && HOST_NAME_MAX < _POSIX_HOST_NAME_MAX
+#   define SMTPD_HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+#  else
+#   define SMTPD_HOST_NAME_MAX HOST_NAME_MAX
+#  endif
+# elif defined(_POSIX_HOST_NAME_MAX)
+#  define SMTPD_HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+# else
+#  define SMTPD_HOST_NAME_MAX 255
 # endif
 #endif
 
