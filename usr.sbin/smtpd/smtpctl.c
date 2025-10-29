@@ -68,7 +68,10 @@
 #endif
 
 #ifndef HAVE_DB_API
-#define	makemap(x, y, z)	1
+int makemap(int, int, char **) {
+	errx(1, "makemap is non-functional when built without `./configure --with-table-db`");
+	return 1;
+}
 #endif
 
 
