@@ -56,7 +56,8 @@ RUN apk add --no-cache libevent \
     fts
 
 # Trailing slashes are important!
-COPY --from=build /usr/local/libexec/opensmtpd /usr/local/libexec/
+RUN mkdir -p /usr/local/libexec/opensmtpd/
+COPY --from=build /usr/local/libexec/opensmtpd/* /usr/local/libexec/opensmtpd/
 COPY --from=build /usr/local/sbin/smtpctl /usr/local/sbin/
 COPY --from=build /usr/local/sbin/smtpd /usr/local/sbin/
 COPY --from=build /usr/local/bin/smtp /usr/local/bin/
