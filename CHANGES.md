@@ -1,3 +1,14 @@
+# Release 7.8.0p0 (2025-10-30)
+
+ - Don't reject single character AUTH PLAIN passwords.
+ - Fix address family typo (PF_INET->PF_INET6).
+ - Various documentation improvements.
+ - Removed support for world-writable mail spools.
+ - Updated contrib mail.local and lockspool.
+ - Don't die if garbage is being sent on the local socket.
+
+This release includes the OpenBSD errata 005 which fixes CVE-2025-62875.
+
 # Release 7.7.0p0 (2025-05-12)
 
  - mail.lmtp: Correctly propagate LMTP permanent failures to smtpd.
