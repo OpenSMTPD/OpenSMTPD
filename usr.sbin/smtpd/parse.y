@@ -3447,9 +3447,12 @@ static int
 host_dns(struct listen_opts *lo)
 {
 	struct addrinfo		 hints, *res0, *res;
-	int			 error, cnt = 0;
-	struct sockaddr_in	*sain;
-	struct sockaddr_in6	*sin6;
+	int			error, cnt = 0;
+	int			totaladdrsv4 = 0, totaladdrsv6 = 0,
+				visitedaddrsv4 = 0, visitedaddrsv6 = 0,
+				is_configured_address;
+	struct sockaddr_in	*sain, **seenaddrsv4;
+	struct sockaddr_in6	*sin6, **seenaddrsv6;
 	struct listener		*h;
 
 	memset(&hints, 0, sizeof(hints));
@@ -3466,9 +3469,19 @@ host_dns(struct listen_opts *lo)
 	}
 
 	for (res = res0; res; res = res->ai_next) {
+		totaladdrsv4 += (res->ai_family == AF_INET);
+		totaladdrsv6 += (res->ai_family == AF_INET6);
+	}
+
+	seenaddrsv4 = xcalloc(totaladdrsv4, sizeof(struct sockaddr_in));
+	seenaddrsv6 = xcalloc(totaladdrsv6, sizeof(struct sockaddr_in6));
+
+	for (res = res0; res; res = res->ai_next) {
 		if (res->ai_family != AF_INET &&
 		    res->ai_family != AF_INET6)
 			continue;
+
+		is_configured_address = 0;
 		h = xcalloc(1, sizeof(*h));
 
 		h->ss.ss_family = res->ai_family;
@@ -3482,6 +3495,13 @@ host_dns(struct listen_opts *lo)
 			sain->sin_port = lo->port;
 			if (sain->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
 				h->local = 1;
+			for (int i = 0; i < visitedaddrsv4; i++) {
+				if (memcmp(seenaddrsv4[i], sain, sizeof(struct sockaddr_in)) == 0) {
+					is_configured_address = 1;
+					break;
+				}
+			}
+			seenaddrsv4[visitedaddrsv4++] = sain;
 		} else {
 			sin6 = (struct sockaddr_in6 *)&h->ss;
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
@@ -3492,14 +3512,24 @@ host_dns(struct listen_opts *lo)
 			sin6->sin6_port = lo->port;
 			if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
 				h->local = 1;
+			for (int i = 0; i < visitedaddrsv6; i++) {
+				if (memcmp(seenaddrsv6[i], sin6, sizeof(struct sockaddr_in6)) == 0) {
+					is_configured_address = 1;
+					break;
+				}
+			}
+			seenaddrsv6[visitedaddrsv6++] = sin6;
 		}
 
-		config_listener(h, lo);
-
-		cnt++;
+		if (!is_configured_address) {
+			config_listener(h, lo);
+			cnt++;
+		}
 	}
 
 	freeaddrinfo(res0);
+	free(seenaddrsv4);
+	free(seenaddrsv6);
 	return (cnt);
 }
 
