@@ -68,6 +68,10 @@ Has a [dedicated wiki page](https://wiki.archlinux.org/index.php/OpenSMTPD#Insta
 
     yum install opensmtpd
 
+### openSUSE Tumbleweed
+
+    zypper install OpenSMTPD
+
 ### macOS
 
 OpenSMTPD is available from [MacPorts](https://www.macports.org):
