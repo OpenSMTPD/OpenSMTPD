@@ -68,7 +68,9 @@
 #endif
 
 #ifndef HAVE_DB_API
-int makemap(int, int, char **) {
+int
+makemap(int prog_mode, int argc, char *argv[])
+{
 	errx(1, "makemap is non-functional when built without `./configure --with-table-db`");
 	return 1;
 }
