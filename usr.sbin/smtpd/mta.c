@@ -173,7 +173,7 @@ static time_t	max_seen_discdelay_route;
 
 #define	HOSTSTAT_EXPIRE_DELAY	(4 * 3600)
 struct hoststat {
-	char			 name[HOST_NAME_MAX+1];
+	char			 name[SMTPD_HOST_NAME_MAX+1];
 	time_t			 tm;
 	char			 error[LINE_MAX];
 	struct tree		 deferred;
@@ -2644,7 +2644,7 @@ void
 mta_hoststat_update(const char *host, const char *error)
 {
 	struct hoststat	*hs = NULL;
-	char		 buf[HOST_NAME_MAX+1];
+	char		 buf[SMTPD_HOST_NAME_MAX+1];
 
 	if (!lowercase(buf, host, sizeof buf))
 		return;
@@ -2669,7 +2669,7 @@ void
 mta_hoststat_cache(const char *host, uint64_t evpid)
 {
 	struct hoststat	*hs = NULL;
-	char buf[HOST_NAME_MAX+1];
+	char buf[SMTPD_HOST_NAME_MAX+1];
 
 	if (!lowercase(buf, host, sizeof buf))
 		return;
@@ -2688,7 +2688,7 @@ void
 mta_hoststat_uncache(const char *host, uint64_t evpid)
 {
 	struct hoststat	*hs = NULL;
-	char buf[HOST_NAME_MAX+1];
+	char buf[SMTPD_HOST_NAME_MAX+1];
 
 	if (!lowercase(buf, host, sizeof buf))
 		return;
@@ -2704,7 +2704,7 @@ void
 mta_hoststat_reschedule(const char *host)
 {
 	struct hoststat	*hs = NULL;
-	char		 buf[HOST_NAME_MAX+1];
+	char		 buf[SMTPD_HOST_NAME_MAX+1];
 	uint64_t	 evpid;
 
 	if (!lowercase(buf, host, sizeof buf))
