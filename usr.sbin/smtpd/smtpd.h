@@ -1514,6 +1514,7 @@ void m_clear_params(struct dict *);
 
 
 /* mta.c */
+struct tls_config *mta_tls_config_create(struct dispatcher_remote *, int);
 void mta_postfork(void);
 void mta_postprivdrop(void);
 void mta_imsg(struct mproc *, struct imsg *);

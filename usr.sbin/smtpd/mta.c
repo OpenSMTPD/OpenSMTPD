@@ -484,21 +484,15 @@ mta_postfork(void)
 	}
 }
 
-static void
-mta_setup_dispatcher(struct dispatcher *dispatcher)
+struct tls_config *
+mta_tls_config_create(struct dispatcher_remote *remote, int verify)
 {
-	struct dispatcher_remote *remote;
 	static const char *dheparams[] = { "none", "auto", "legacy" };
 	struct tls_config *config;
 	struct pki *pki;
 	struct ca *ca;
 	const char *ciphers;
 	uint32_t protos;
-
-	if (dispatcher->type != DISPATCHER_REMOTE)
-		return;
-
-	remote = &dispatcher->u.remote;
 
 	if ((config = tls_config_new()) == NULL)
 		fatal("smtpd: tls_config_new");
@@ -543,7 +537,7 @@ mta_setup_dispatcher(struct dispatcher *dispatcher)
 		fatalx("tls_config_set_ca_file: %s",
 		    tls_config_error(config));
 
-	if (remote->tls_verify) {
+	if (verify) {
 		tls_config_verify(config);
 	} else {
 		tls_config_insecure_noverifycert(config);
@@ -551,7 +545,19 @@ mta_setup_dispatcher(struct dispatcher *dispatcher)
 		tls_config_insecure_noverifytime(config);
 	}
 
-	remote->tls_config = config;
+	return (config);
+}
+
+static void
+mta_setup_dispatcher(struct dispatcher *dispatcher)
+{
+	struct dispatcher_remote *remote;
+
+	if (dispatcher->type != DISPATCHER_REMOTE)
+		return;
+
+	remote = &dispatcher->u.remote;
+	remote->tls_config = mta_tls_config_create(remote, remote->tls_verify);
 }
 
 void
