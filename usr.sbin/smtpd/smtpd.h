@@ -1203,7 +1203,6 @@ struct dispatcher_remote {
 
 	char	*source;
 
-	struct tls_config *tls_config;
 	char	*ca;
 	char	*pki;
 

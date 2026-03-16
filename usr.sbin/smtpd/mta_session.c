@@ -1586,28 +1586,19 @@ mta_tls_init(struct mta_session *s)
 	}
 
 	remote = &s->relay->dispatcher->u.remote;
-	if ((s->flags & MTA_WANT_SECURE) && !remote->tls_required) {
-		/*
-		 * TLS not explicitly configured but required by relay
-		 * URL. Create a session-local config with verification
-		 * enabled instead of mutating the shared dispatcher
-		 * config.
-		 */
-		config = mta_tls_config_create(remote, 1);
-	} else
-		config = remote->tls_config;
+	config = mta_tls_config_create(remote,
+	    remote->tls_verify ||
+	    ((s->flags & MTA_WANT_SECURE) && !remote->tls_required));
 
 	if (tls_configure(tls, config) == -1) {
 		log_info("%016"PRIx64" mta closing reason=tls-failure", s->id);
 		tls_free(tls);
-		if (config != remote->tls_config)
-			tls_config_free(config);
+		tls_config_free(config);
 		s->flags |= MTA_FREE;
 		return;
 	}
 
-	if (config != remote->tls_config)
-		tls_config_free(config);
+	tls_config_free(config);
 
 	if (io_connect_tls(s->io, tls, s->mxname) == -1) {
 		log_info("%016"PRIx64" mta closing reason=tls-connect-failed", s->id);

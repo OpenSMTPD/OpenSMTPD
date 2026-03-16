@@ -60,7 +60,6 @@
 #define RELAY_ONHOLD		0x01
 #define RELAY_HOLDQ		0x02
 
-static void mta_setup_dispatcher(struct dispatcher *);
 static void mta_handle_envelope(struct envelope *, const char *);
 static void mta_query_smarthost(struct envelope *);
 static void mta_on_smarthost(struct envelope *, const char *);
@@ -473,15 +472,6 @@ mta_imsg(struct mproc *p, struct imsg *imsg)
 void
 mta_postfork(void)
 {
-	struct dispatcher *dispatcher;
-	const char *key;
-	void *iter;
-
-	iter = NULL;
-	while (dict_iter(env->sc_dispatchers, &iter, &key, (void **)&dispatcher)) {
-		log_debug("%s: %s", __func__, key);
-		mta_setup_dispatcher(dispatcher);
-	}
 }
 
 struct tls_config *
@@ -546,18 +536,6 @@ mta_tls_config_create(struct dispatcher_remote *remote, int verify)
 	}
 
 	return (config);
-}
-
-static void
-mta_setup_dispatcher(struct dispatcher *dispatcher)
-{
-	struct dispatcher_remote *remote;
-
-	if (dispatcher->type != DISPATCHER_REMOTE)
-		return;
-
-	remote = &dispatcher->u.remote;
-	remote->tls_config = mta_tls_config_create(remote, remote->tls_verify);
 }
 
 void
