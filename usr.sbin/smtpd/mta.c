@@ -522,10 +522,14 @@ mta_tls_config_create(struct dispatcher_remote *remote, int verify)
 			fatalx("tls_config_set_ca_mem: %s",
 			    tls_config_error(config));
 	}
-	else if (tls_config_set_ca_file(config, tls_default_ca_cert_file())
-	    == -1)
-		fatalx("tls_config_set_ca_file: %s",
-		    tls_config_error(config));
+	else {
+		if (env->sc_default_ca_cert == NULL)
+			fatalx("default CA certificate not available");
+		if (tls_config_set_ca_mem(config, env->sc_default_ca_cert,
+		    env->sc_default_ca_cert_len) == -1)
+			fatalx("tls_config_set_ca_mem: %s",
+			    tls_config_error(config));
+	}
 
 	if (verify) {
 		tls_config_verify(config);

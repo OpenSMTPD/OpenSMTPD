@@ -634,6 +634,8 @@ struct smtpd {
 	struct dispatcher			*sc_dispatcher_bounce;
 
 	struct dict			       *sc_ca_dict;
+	uint8_t				       *sc_default_ca_cert;
+	size_t				        sc_default_ca_cert_len;
 	struct dict			       *sc_pki_dict;
 	struct dict			       *sc_ssl_dict;
 

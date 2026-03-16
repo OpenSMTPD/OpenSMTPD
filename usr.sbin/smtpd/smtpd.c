@@ -1196,6 +1196,9 @@ load_pki_tree(void)
 		if (!ssl_load_cafile(sca, sca->ca_cert_file))
 			fatalx("load_pki_tree: failed to load CA file");
 	}
+
+	env->sc_default_ca_cert = tls_load_file(tls_default_ca_cert_file(),
+	    &env->sc_default_ca_cert_len, NULL);
 }
 
 void
