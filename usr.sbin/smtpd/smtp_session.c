@@ -1975,6 +1975,8 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 		if (user == NULL || user >= buf + len - 2)
 			goto abort;
 		user++; /* skip NUL */
+		if (user[strcspn(user, "\r\n")] != '\0')
+			goto abort;
 		if (strlcpy(s->username, user, sizeof(s->username))
 		    >= sizeof(s->username))
 			goto abort;
@@ -1983,6 +1985,8 @@ smtp_rfc4954_auth_plain(struct smtp_session *s, char *arg)
 		if (pass == NULL || pass >= buf + len - 1)
 			goto abort;
 		pass++; /* skip NUL */
+		if (pass[strcspn(pass, "\r\n")] != '\0')
+			goto abort;
 
 		m_create(p_lka,  IMSG_SMTP_AUTHENTICATE, 0, 0, -1);
 		m_add_id(p_lka, s->id);
@@ -2025,6 +2029,9 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 				  sizeof(s->username) - 1) == -1)
 			goto abort;
 
+		if (s->username[strcspn(s->username, "\r\n")] != '\0')
+			goto abort;
+
 		smtp_enter_state(s, STATE_AUTH_PASSWORD);
 		smtp_reply(s, "334 UGFzc3dvcmQ6");
 		return;
@@ -2033,6 +2040,9 @@ smtp_rfc4954_auth_login(struct smtp_session *s, char *arg)
 		memset(buf, 0, sizeof(buf));
 		if (base64_decode(arg, (unsigned char *)buf,
 				  sizeof(buf)-1) == -1)
+			goto abort;
+
+		if (buf[strcspn(buf, "\r\n")] != '\0')
 			goto abort;
 
 		m_create(p_lka,  IMSG_SMTP_AUTHENTICATE, 0, 0, -1);
