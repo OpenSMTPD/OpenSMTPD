@@ -229,6 +229,10 @@ table_proc_lookup(struct table *table, enum table_service s, const char *k, char
 		res = "check-result";
 	}
 
+	/* k cannot contain newlines */
+	if (k[strcspn(k, "\r\n")] != '\0')
+		return (-1);
+
 	table_proc_send(table, req, s, k);
 	r = table_proc_recv(table, res);
 
