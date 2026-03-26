@@ -1,3 +1,7 @@
+# Release 7.8.0p1 (2026-03-27)
+
+ - table_proc: ensure the request does not contain newlines
+
 # Release 7.8.0p0 (2025-10-30)
 
  - Don't reject single character AUTH PLAIN passwords.
