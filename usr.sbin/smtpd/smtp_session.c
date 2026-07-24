@@ -2338,6 +2338,8 @@ smtp_tx(struct smtp_session *s)
 		tx->evp.flags |= EF_BOUNCE;
 	if (s->flags & SF_AUTHENTICATED)
 		tx->evp.flags |= EF_AUTHENTICATED;
+	if (s->flags & SF_SECURE)
+		tx->evp.flags |= EF_TLS;
 
 	if ((tx->parser = rfc5322_parser_new()) == NULL) {
 		free(tx);

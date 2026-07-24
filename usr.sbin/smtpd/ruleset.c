@@ -138,11 +138,14 @@ ruleset_match_smtp_helo(struct rule *r, const struct envelope *evp)
 static int
 ruleset_match_smtp_starttls(struct rule *r, const struct envelope *evp)
 {
+	int	ret;
+
 	if (!r->flag_smtp_starttls)
 		return 1;
 
-	/* XXX - not until TLS flag is added to envelope */
-	return -1;
+	ret = evp->flags & EF_TLS;
+
+	return MATCH_RESULT(ret, r->flag_smtp_starttls);
 }
 
 static int

@@ -74,6 +74,7 @@ enum envelope_flags {
 	EF_AUTHENTICATED	= 0x01,
 	EF_BOUNCE		= 0x02,
 	EF_INTERNAL		= 0x04, /* Internal expansion forward */
+	EF_TLS			= 0x08,
 
 	/* runstate, not saved on disk */
 

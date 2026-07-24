@@ -336,6 +336,8 @@ ascii_load_flags(enum envelope_flags *dest, char *buf)
 			*dest |= EF_BOUNCE;
 		else if (strcasecmp(flag, "internal") == 0)
 			*dest |= EF_INTERNAL;
+		else if (strcasecmp(flag, "tls") == 0)
+			*dest |= EF_TLS;
 		else
 			return 0;
 	}
@@ -572,6 +574,11 @@ ascii_dump_flags(enum envelope_flags flags, char *buf, size_t len)
 			if (buf[0] != '\0')
 				(void)strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "internal", len);
+		}
+		if (flags & EF_TLS) {
+			if (buf[0] != '\0')
+				(void)strlcat(buf, " ", len);
+			cpylen = strlcat(buf, "tls", len);
 		}
 	}
 
