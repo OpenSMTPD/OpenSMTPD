@@ -38,6 +38,7 @@ SRCS+=	dispatcher.c
 SRCS+=	proxy.c
 SRCS+=	queue.c
 SRCS+=	queue_backend.c
+SRCS+=	report_queue.c
 SRCS+=	report_smtp.c
 SRCS+=	resolver.c
 SRCS+=	rfc5322.c

@@ -44,3 +44,4 @@ int ssl_load_certificate(struct pki *, const char *);
 int ssl_load_keyfile(struct pki *, const char *, const char *);
 int ssl_load_cafile(struct ca *, const char *);
 char *ssl_pubkey_hash(const char *, off_t);
+time_t ssl_cert_notafter(const char *, off_t);

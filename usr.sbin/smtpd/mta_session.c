@@ -1578,6 +1578,7 @@ mta_tls_init(struct mta_session *s)
 
 	if ((tls = tls_client()) == NULL) {
 		log_info("%016"PRIx64" mta closing reason=tls-failure", s->id);
+		stat_increment("mta.tls.failure", 1);
 		s->flags |= MTA_FREE;
 		return;
 	}
@@ -1591,6 +1592,7 @@ mta_tls_init(struct mta_session *s)
 	}
 	if (tls_configure(tls, remote->tls_config) == -1) {
 		log_info("%016"PRIx64" mta closing reason=tls-failure", s->id);
+		stat_increment("mta.tls.failure", 1);
 		tls_free(tls);
 		s->flags |= MTA_FREE;
 		return;
@@ -1598,6 +1600,7 @@ mta_tls_init(struct mta_session *s)
 
 	if (io_connect_tls(s->io, tls, s->mxname) == -1) {
 		log_info("%016"PRIx64" mta closing reason=tls-connect-failed", s->id);
+		stat_increment("mta.tls.failure", 1);
 		tls_free(tls);
 		s->flags |= MTA_FREE;
 	}

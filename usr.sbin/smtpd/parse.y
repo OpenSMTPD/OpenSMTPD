@@ -502,6 +502,13 @@ USER STRING {
 	}
 	processor->filter_subsystem |= FILTER_SUBSYSTEM_STATS;
 }
+| QUEUE {
+	if (processor->filter_subsystem & FILTER_SUBSYSTEM_QUEUE) {
+		yyerror("queue already specified for this processor");
+		YYERROR;
+	}
+	processor->filter_subsystem |= FILTER_SUBSYSTEM_QUEUE;
+}
 ;
 
 proc_params:

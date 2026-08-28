@@ -905,20 +905,25 @@ Allow the process to register for the stats subsystem of the
 .Xr smtpd-filters 7
 API and receive the internal counters of
 .Xr smtpd 8 .
+.It Ic queue
+Allow the process to register for the queue subsystem of the
+.Xr smtpd-filters 7
+API and receive the outcome of every delivery,
+every envelope expiry and every administrative removal.
 .El
 .Pp
-Without the
-.Ic stats
-option the subsystem is not advertised,
+Without the matching option a subsystem is not advertised,
 and a process that registers for it anyway terminates
 .Xr smtpd 8 .
 .Pp
 The
 .Ic stats
-option is only available on an explicit
+and
+.Ic queue
+options are only available on an explicit
 .Ic proc
 declaration.
-It cannot be used with
+They cannot be used with
 .Ic filter Ar name Cm proc-exec ,
 which creates its process implicitly.
 .It Ic queue Cm compression

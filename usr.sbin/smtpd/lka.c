@@ -98,6 +98,10 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	size_t			 statsz;
 	size_t			 statcount;
 	struct stat_value	 statval;
+	const char		*qtype, *qdispatcher, *qdomain;
+	const char		*qresult, *qesc;
+	uint32_t		 qretry;
+	time_t			 qdelay;
 
 	if (imsg == NULL)
 		lka_shutdown();
@@ -411,6 +415,53 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 
 		lka_report_stats_end(&tv, statcount);
+		return;
+
+	case IMSG_REPORT_QUEUE_DELIVERY:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &evpid);
+		m_get_string(&m, &qtype);
+		m_get_string(&m, &qdispatcher);
+		m_get_u32(&m, &qretry);
+		m_get_time(&m, &qdelay);
+		m_get_string(&m, &qdomain);
+		m_get_string(&m, &qresult);
+		m_get_string(&m, &qesc);
+		m_end(&m);
+
+		lka_report_queue_delivery(&tv, evpid, qtype, qdispatcher,
+		    qresult, qesc, qretry, qdelay, qdomain);
+		return;
+
+	case IMSG_REPORT_QUEUE_EXPIRE:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &evpid);
+		m_get_string(&m, &qtype);
+		m_get_string(&m, &qdispatcher);
+		m_get_u32(&m, &qretry);
+		m_get_time(&m, &qdelay);
+		m_get_string(&m, &qdomain);
+		m_end(&m);
+
+		lka_report_queue_expire(&tv, evpid, qtype, qdispatcher,
+		    qretry, qdelay, qdomain);
+		return;
+
+	case IMSG_REPORT_QUEUE_REMOVE:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &evpid);
+		m_get_string(&m, &qtype);
+		m_get_string(&m, &qdispatcher);
+		m_get_u32(&m, &qretry);
+		m_get_time(&m, &qdelay);
+		m_get_string(&m, &qdomain);
+		m_end(&m);
+
+		lka_report_queue_remove(&tv, evpid, qtype, qdispatcher,
+		    qretry, qdelay, qdomain);
 		return;
 
 	case IMSG_REPORT_SMTP_LINK_CONNECT:

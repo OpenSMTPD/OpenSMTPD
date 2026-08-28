@@ -29,6 +29,7 @@
 #ifdef HAVE_SYS_STATFS_H
 #include <sys/statfs.h>
 #endif
+#include <sys/statvfs.h>
 
 #include <dirent.h>
 #include <errno.h>
@@ -410,9 +411,45 @@ queue_fs_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 	return (-1);
 }
 
+/*
+ * Report how full the spool is.  Nothing tracks this today, and on a portable
+ * build fsqueue_check_space() below is compiled out entirely, so an operator
+ * has no warning at all before the spool fills.
+ *
+ * statvfs is POSIX, so this works on every platform, unlike the statfs use
+ * below.
+ */
+static void
+fsqueue_stat_space(void)
+{
+	struct statvfs	buf;
+	fsblkcnt_t	used, total;
+
+	if (statvfs(PATH_QUEUE, &buf) == -1)
+		return;
+
+	if (buf.f_blocks != 0) {
+		used = buf.f_blocks - buf.f_bfree;
+		total = buf.f_bavail + used;
+		if (total != 0)
+			stat_set("queue.fs.space.used.percent",
+			    stat_counter((size_t)(used * 100 / total)));
+	}
+
+	if (buf.f_files != 0) {
+		used = buf.f_files - buf.f_ffree;
+		total = buf.f_favail + used;
+		if (total != 0)
+			stat_set("queue.fs.inodes.used.percent",
+			    stat_counter((size_t)(used * 100 / total)));
+	}
+}
+
 static int
 fsqueue_check_space(void)
 {
+	fsqueue_stat_space();
+
 #ifdef __OpenBSD__
 	struct statfs	buf;
 	uint64_t	used;

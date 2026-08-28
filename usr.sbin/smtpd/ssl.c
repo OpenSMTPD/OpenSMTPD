@@ -251,6 +251,58 @@ hash_x509(X509 *cert, char *hash, size_t hashlen)
 	hash[off] = 0;
 }
 
+/*
+ * Return the notAfter date of the first certificate in a PEM buffer, or 0 if
+ * it cannot be determined.  The buffer is the one already loaded into
+ * struct pki, so this costs no file I/O.
+ */
+time_t
+ssl_cert_notafter(const char *buf, off_t len)
+{
+	BIO		*in;
+	X509		*x509 = NULL;
+	const ASN1_TIME	*notafter;
+	time_t		 now, t = 0;
+	int		 days, secs;
+
+	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
+		log_warnx("%s: BIO_new_mem_buf failed", __func__);
+		return 0;
+	}
+
+	if ((x509 = PEM_read_bio_X509(in, NULL, NULL, NULL)) == NULL) {
+		log_warnx("%s: PEM_read_bio_X509 failed", __func__);
+		goto fail;
+	}
+
+	if ((notafter = X509_get0_notAfter(x509)) == NULL) {
+		log_warnx("%s: X509_get0_notAfter failed", __func__);
+		goto fail;
+	}
+
+	/*
+	 * Measure the offset from now rather than converting the ASN1 time to
+	 * an absolute value: timegm() is not portable, and the tree avoids it
+	 * everywhere else.  Second-level drift is irrelevant for an expiry
+	 * date.
+	 */
+	now = time(NULL);
+	if (ASN1_TIME_diff(&days, &secs, NULL, notafter) != 1) {
+		log_warnx("%s: ASN1_TIME_diff failed", __func__);
+		goto fail;
+	}
+
+	t = now + (time_t)days * 86400 + secs;
+
+fail:
+	BIO_free(in);
+
+	if (x509)
+		X509_free(x509);
+
+	return t;
+}
+
 char *
 ssl_pubkey_hash(const char *buf, off_t len)
 {

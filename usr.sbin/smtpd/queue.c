@@ -194,6 +194,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		queue_log(&evp, "Remove", "Removed by administrator");
+		report_queue_remove(&evp);
 		queue_envelope_delete(evpid);
 		return;
 
@@ -216,6 +217,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		envelope_set_esc_code(&evp, ESC_DELIVERY_TIME_EXPIRED);
 		queue_bounce(&evp, &bounce);
 		queue_log(&evp, "Expire", "Envelope expired");
+		report_queue_expire(&evp);
 		queue_envelope_delete(evpid);
 		return;
 
@@ -353,6 +355,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 				queue_bounce(&evp, &bounce);
 			}
 		}
+		report_queue_delivery(&evp, "ok");
 		queue_envelope_delete(evpid);
 		m_create(p_scheduler, IMSG_QUEUE_DELIVERY_OK, 0, 0, -1);
 		m_add_evpid(p_scheduler, evpid);
@@ -380,6 +383,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		evp.retry++;
 		if (!queue_envelope_update(&evp))
 			log_warnx("warn: could not update envelope %016"PRIx64, evpid);
+		report_queue_delivery(&evp, "tempfail");
 		m_create(p_scheduler, IMSG_QUEUE_DELIVERY_TEMPFAIL, 0, 0, -1);
 		m_add_envelope(p_scheduler, &evp);
 		m_close(p_scheduler);
@@ -404,6 +408,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		envelope_set_errormsg(&evp, "%s", reason);
 		envelope_set_esc_class(&evp, ESC_STATUS_PERMFAIL);
 		envelope_set_esc_code(&evp, code);
+		report_queue_delivery(&evp, "permfail");
 		queue_bounce(&evp, &bounce);
 		queue_envelope_delete(evpid);
 		m_create(p_scheduler, IMSG_QUEUE_DELIVERY_PERMFAIL, 0, 0, -1);
@@ -428,6 +433,7 @@ queue_imsg(struct mproc *p, struct imsg *imsg)
 		envelope_set_esc_class(&evp, ESC_STATUS_TEMPFAIL);
 		envelope_set_esc_code(&evp, ESC_ROUTING_LOOP_DETECTED);
 		bounce.type = B_FAILED;
+		report_queue_delivery(&evp, "loop");
 		queue_bounce(&evp, &bounce);
 		queue_envelope_delete(evp.id);
 		m_create(p_scheduler, IMSG_QUEUE_DELIVERY_LOOP, 0, 0, -1);
@@ -606,6 +612,27 @@ queue_bounce(struct envelope *e, struct delivery_bounce *d)
 		m_close(p_scheduler);
 
 		stat_increment("queue.bounce", 1);
+
+		/*
+		 * The aggregate counter above says nothing about why. A rising
+		 * "delayed" rate is an early warning that mail is not getting
+		 * out, and it is indistinguishable from a failure spike
+		 * otherwise.
+		 */
+		switch (d->type) {
+		case B_FAILED:
+			stat_increment("queue.bounce.failed", 1);
+			break;
+		case B_DELAYED:
+			stat_increment("queue.bounce.delayed", 1);
+			break;
+		case B_DELIVERED:
+			if (d->mta_without_dsn)
+				stat_increment("queue.bounce.relayed", 1);
+			else
+				stat_increment("queue.bounce.delivered", 1);
+			break;
+		}
 	}
 }
 

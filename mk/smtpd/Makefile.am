@@ -45,6 +45,7 @@ smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/parse.y
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/proxy.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/queue_backend.c
+smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/report_queue.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/report_smtp.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/resolver.c
 smtpd_SOURCES+=		$(top_srcdir)/usr.sbin/smtpd/rfc5322.c

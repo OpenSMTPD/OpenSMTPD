@@ -66,6 +66,7 @@ static void control_dispatch_ext(struct mproc *, struct imsg *);
 static void control_digest_update(const char *, size_t, int);
 static void control_broadcast_verbose(int, int);
 static void control_stats_snapshot(struct mproc *);
+static void control_stat_flags(void);
 
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
@@ -230,6 +231,8 @@ control(void)
 	stat_backend = env->sc_stat;
 	stat_backend->init();
 
+	/* so the keys exist even when no stats processor is configured */
+	control_stat_flags();
 
 	if (chroot(PATH_CHROOT) == -1)
 		fatal("control: chroot");
@@ -399,6 +402,27 @@ control_close(struct ctl_conn *c)
  * calls fatal() if a message would exceed MAX_IMSGSIZE, so the running size is
  * tracked here and a new message is started before that can happen.
  */
+/*
+ * Publish the pause flags.  Control owns env->sc_flags, so refreshing them here
+ * needs no hook in the pause and resume handlers and cannot drift.
+ *
+ * Note the direct backend call: stat_set() composes an imsg to p_control, which
+ * is NULL in this process.
+ */
+static void
+control_stat_flags(void)
+{
+	if (stat_backend == NULL)
+		return;
+
+	stat_backend->set("control.mda.paused",
+	    stat_counter((env->sc_flags & SMTPD_MDA_PAUSED) ? 1 : 0));
+	stat_backend->set("control.mta.paused",
+	    stat_counter((env->sc_flags & SMTPD_MTA_PAUSED) ? 1 : 0));
+	stat_backend->set("control.smtp.paused",
+	    stat_counter((env->sc_flags & SMTPD_SMTP_PAUSED) ? 1 : 0));
+}
+
 static void
 control_stats_snapshot(struct mproc *p)
 {
@@ -410,6 +434,12 @@ control_stats_snapshot(struct mproc *p)
 	int			 open;
 
 	gettimeofday(&tv, NULL);
+
+	/*
+	 * Refresh before the walk starts.  ramstat_iter() keeps a raw node
+	 * pointer as its cursor, so a key created mid-walk could disturb it.
+	 */
+	control_stat_flags();
 
 	m_create(p, IMSG_STATS_BEGIN, 0, 0, -1);
 	m_add_timeval(p, &tv);

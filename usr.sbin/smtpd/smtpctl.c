@@ -129,6 +129,20 @@ void stat_decrement(const char *k, size_t v)
 {
 }
 
+void stat_set(const char *k, const struct stat_value *v)
+{
+}
+
+struct stat_value *stat_timespec(struct timespec *ts)
+{
+	return NULL;
+}
+
+struct stat_value *stat_counter(size_t counter)
+{
+	return NULL;
+}
+
 int
 srv_connect(void)
 {

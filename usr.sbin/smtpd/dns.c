@@ -64,6 +64,7 @@ static void dns_lookup_host(struct dns_session *, const char *, int);
 static void dns_dispatch_host(struct asr_result *, void *);
 static void dns_dispatch_mx(struct asr_result *, void *);
 static void dns_dispatch_mx_preference(struct asr_result *, void *);
+static void dns_stat_result(int);
 
 static int
 domainname_is_addr(const char *s, struct sockaddr *sa, socklen_t *sl)
@@ -156,6 +157,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
 			m_add_int(s->p, DNS_OK);
+			dns_stat_result(DNS_OK);
 			m_close(s->p);
 			free(s);
 			return;
@@ -167,6 +169,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
 			m_add_int(s->p, DNS_EINVAL);
+			dns_stat_result(DNS_EINVAL);
 			m_close(s->p);
 			free(s);
 			return;
@@ -186,6 +189,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 			m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
 			m_add_int(s->p, DNS_ENOTFOUND);
+			dns_stat_result(DNS_ENOTFOUND);
 			m_close(s->p);
 			free(s);
 			return;
@@ -198,6 +202,41 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		log_warnx("warn: bad dns request %d", s->type);
 		fatal(NULL);
 	}
+}
+
+/*
+ * Count DNS outcomes.  Nothing in the tree instruments the resolver, so a
+ * domain that has started failing to resolve is invisible until mail queues up.
+ */
+static void
+dns_stat_result(int error)
+{
+	const char	*name;
+
+	switch (error) {
+	case DNS_OK:
+		name = "dns.result.ok";
+		break;
+	case DNS_RETRY:
+		name = "dns.result.retry";
+		break;
+	case DNS_EINVAL:
+		name = "dns.result.einval";
+		break;
+	case DNS_ENONAME:
+		name = "dns.result.enoname";
+		break;
+	case DNS_ENOTFOUND:
+		name = "dns.result.enotfound";
+		break;
+	case DNS_NULLMX:
+		name = "dns.result.nullmx";
+		break;
+	default:
+		name = "dns.result.other";
+		break;
+	}
+	stat_increment(name, 1);
 }
 
 static void
@@ -232,6 +271,7 @@ dns_dispatch_host(struct asr_result *ar, void *arg)
 	m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 	m_add_id(s->p, s->reqid);
 	m_add_int(s->p, s->mxfound ? DNS_OK : DNS_ENOTFOUND);
+	dns_stat_result(s->mxfound ? DNS_OK : DNS_ENOTFOUND);
 	m_close(s->p);
 	free(s);
 }
@@ -247,17 +287,20 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	char			 buf[512];
 	size_t			 found;
 	int			 nullmx = 0;
+	int			 error;
 
 	if (ar->ar_h_errno && ar->ar_h_errno != NO_DATA &&
 	    ar->ar_h_errno != NOTIMP) {
 		m_create(s->p,  IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
 		if (ar->ar_rcode == NXDOMAIN)
-			m_add_int(s->p, DNS_ENONAME);
+			error = DNS_ENONAME;
 		else if (ar->ar_h_errno == NO_RECOVERY)
-			m_add_int(s->p, DNS_EINVAL);
+			error = DNS_EINVAL;
 		else
-			m_add_int(s->p, DNS_RETRY);
+			error = DNS_RETRY;
+		m_add_int(s->p, error);
+		dns_stat_result(error);
 		m_close(s->p);
 		free(s);
 		free(ar->ar_data);
@@ -292,6 +335,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
 		m_add_int(s->p, DNS_NULLMX);
+		dns_stat_result(DNS_NULLMX);
 		m_close(s->p);
 		free(s);
 		return;
@@ -345,6 +389,8 @@ dns_dispatch_mx_preference(struct asr_result *ar, void *arg)
 	m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
 	m_add_id(s->p, s->reqid);
 	m_add_int(s->p, error);
+	dns_stat_result(error);
+
 	if (error == DNS_OK)
 		m_add_int(s->p, rr.rr.mx.preference);
 	m_close(s->p);
