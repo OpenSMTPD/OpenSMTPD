@@ -65,6 +65,7 @@ static void control_close(struct ctl_conn *);
 static void control_dispatch_ext(struct mproc *, struct imsg *);
 static void control_digest_update(const char *, size_t, int);
 static void control_broadcast_verbose(int, int);
+static void control_stats_snapshot(struct mproc *);
 
 static struct stat_backend *stat_backend = NULL;
 extern const char *backend_stat;
@@ -76,6 +77,13 @@ static struct stat_digest	digest;
 
 #define	CONTROL_FD_RESERVE		5
 #define	CONTROL_MAXCONN_PER_CLIENT	32
+
+/*
+ * Ceiling for one IMSG_STATS_ITEM payload.  Leaves room for the largest
+ * possible entry (a STAT_KEY_SIZE key plus a struct stat_value) plus the
+ * imsg header, so m_add() can never hit the MAX_IMSGSIZE fatal.
+ */
+#define	STATS_ITEM_MAXSIZE		14000
 
 static void
 control_imsg(struct mproc *p, struct imsg *imsg)
@@ -157,6 +165,10 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 		if (stat_backend)
 			stat_backend->set(key, &val);
 		return;
+
+	case IMSG_STATS_REQUEST:
+		control_stats_snapshot(p);
+		return;
 	}
 
 	fatalx("control_imsg: unexpected %s imsg",
@@ -217,6 +229,7 @@ control(void)
 
 	stat_backend = env->sc_stat;
 	stat_backend->init();
+
 
 	if (chroot(PATH_CHROOT) == -1)
 		fatal("control: chroot");
@@ -374,6 +387,66 @@ control_close(struct ctl_conn *c)
 		log_warnx("warn: re-enabling ctl connections");
 		event_add(&control_state.ev, NULL);
 	}
+}
+
+/*
+ * Walk the whole stat backend and stream it to lka as one framed snapshot.
+ *
+ * The walk must complete within this single call: ramstat_iter() keeps a raw
+ * node pointer as its cursor, so it is only safe while the tree cannot change.
+ *
+ * Entries are packed into as many IMSG_STATS_ITEM messages as needed.  m_add()
+ * calls fatal() if a message would exceed MAX_IMSGSIZE, so the running size is
+ * tracked here and a new message is started before that can happen.
+ */
+static void
+control_stats_snapshot(struct mproc *p)
+{
+	struct timeval		 tv;
+	struct stat_value	 val;
+	void			*iter;
+	char			*key;
+	size_t			 count, len, queued;
+	int			 open;
+
+	gettimeofday(&tv, NULL);
+
+	m_create(p, IMSG_STATS_BEGIN, 0, 0, -1);
+	m_add_timeval(p, &tv);
+	m_close(p);
+
+	count = 0;
+	open = 0;
+	queued = 0;
+
+	if (stat_backend) {
+		iter = NULL;
+		while (stat_backend->iter(&iter, &key, &val)) {
+			len = 1 + strlen(key) + 1 + sizeof(size_t) +
+			    sizeof(val);
+			if (open && queued + len > STATS_ITEM_MAXSIZE) {
+				m_close(p);
+				open = 0;
+			}
+			if (!open) {
+				m_create(p, IMSG_STATS_ITEM, 0, 0, -1);
+				open = 1;
+				queued = 0;
+			}
+			m_add_string(p, key);
+			m_add_data(p, &val, sizeof(val));
+			queued += len;
+			count++;
+		}
+	}
+
+	if (open)
+		m_close(p);
+
+	m_create(p, IMSG_STATS_END, 0, 0, -1);
+	m_add_timeval(p, &tv);
+	m_add_size(p, count);
+	m_close(p);
 }
 
 static void

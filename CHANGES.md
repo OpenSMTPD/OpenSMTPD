@@ -1,3 +1,18 @@
+# Unreleased
+
+ - smtpd-filters: added a "stats" report subsystem. A processor declared with
+   the new `stats` option on `proc` receives a complete snapshot of the
+   internal counters every 5 seconds, the same set that `smtpctl show stats`
+   prints. This makes an external metrics exporter possible without root
+   access to the control socket.
+ - smtpd.conf: new `stats` option on the `proc` declaration. A bare unquoted
+   `stats` is now a keyword and can no longer be used as an unquoted name.
+ - smtpd.conf.5: documented the `user`, `group` and `chroot` options of `proc`,
+   which were undocumented.
+ - smtpd-filters.7: documented the `smtp-out` subsystem and the `admd`
+   configuration key, and corrected the claim that only one subsystem exists.
+ - Bumped IMSG_VERSION to 17. smtpctl and smtpd must be upgraded together.
+
 # Release 7.8.0p1 (2026-03-27)
 
  - table_proc: ensure the request does not contain newlines

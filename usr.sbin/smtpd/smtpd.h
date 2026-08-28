@@ -182,7 +182,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		16
+#define	IMSG_VERSION		17
 
 enum imsg_type {
 	IMSG_NONE,
@@ -240,6 +240,11 @@ enum imsg_type {
 	IMSG_STAT_INCREMENT,
 	IMSG_STAT_DECREMENT,
 	IMSG_STAT_SET,
+
+	IMSG_STATS_REQUEST,
+	IMSG_STATS_BEGIN,
+	IMSG_STATS_ITEM,
+	IMSG_STATS_END,
 
 	IMSG_LKA_AUTHENTICATE,
 	IMSG_LKA_OPEN_FORWARD,
@@ -1070,6 +1075,7 @@ enum filter_type {
 enum filter_subsystem {
 	FILTER_SUBSYSTEM_SMTP_IN	= 1<<0,
 	FILTER_SUBSYSTEM_SMTP_OUT	= 1<<1,
+	FILTER_SUBSYSTEM_STATS		= 1<<2,
 };
 
 struct filter_proc {
@@ -1384,6 +1390,9 @@ struct io *lka_proc_get_io(const char *);
 /* lka_report.c */
 void lka_report_init(void);
 void lka_report_register_hook(const char *, const char *);
+void lka_report_stats_begin(struct timeval *);
+void lka_report_stats_entry(const char *, const struct stat_value *);
+void lka_report_stats_end(struct timeval *, size_t);
 void lka_report_smtp_link_connect(const char *, struct timeval *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void lka_report_smtp_link_disconnect(const char *, struct timeval *, uint64_t);

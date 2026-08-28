@@ -1960,6 +1960,9 @@ log_imsg(int to, int from, struct imsg *imsg)
 	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
 		return;
 
+	if (imsg->hdr.type == IMSG_STATS_ITEM)
+		return;
+
 	log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
 	    proc_name(to),
 	    proc_name(from),
@@ -2081,6 +2084,11 @@ imsg_to_str(int type)
 	CASE(IMSG_STAT_INCREMENT);
 	CASE(IMSG_STAT_DECREMENT);
 	CASE(IMSG_STAT_SET);
+
+	CASE(IMSG_STATS_REQUEST);
+	CASE(IMSG_STATS_BEGIN);
+	CASE(IMSG_STATS_ITEM);
+	CASE(IMSG_STATS_END);
 
 	CASE(IMSG_LKA_AUTHENTICATE);
 	CASE(IMSG_LKA_OPEN_FORWARD);
