@@ -740,6 +740,8 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 {
 	struct table		*table;
 	char	       		 offloadkey[LINE_MAX];
+	char	       		 b64_user[LINE_MAX];
+	char	       		 b64_password[LINE_MAX];
 	union lookup		 lk;
 
 	log_debug("debug: lka: authenticating for %s:%s", tablename, user);
@@ -752,8 +754,19 @@ lka_authenticate(const char *tablename, const char *user, const char *password)
 
 	/* table backend supports authentication offloading */
 	if (table_check_service(table, K_AUTH)) {
+		if (base64_encode((const unsigned char*)user, strlen(user), b64_user, sizeof(b64_user)) == -1) {
+			log_warnx("warn: user credentials lookup fail for %s:%s, username too long",
+			    tablename, user);
+			return (LKA_PERMFAIL);
+		}
+		if (base64_encode((const unsigned char*)password, strlen(password), b64_password, sizeof(b64_password)) == -1) {
+			log_warnx("warn: user credentials lookup fail for %s:%s, password too long",
+			    tablename, user);
+			return (LKA_PERMFAIL);
+		}
+
 		if (!bsnprintf(offloadkey, sizeof(offloadkey), "%s:%s",
-		    user, password)) {
+		    b64_user, b64_password)) {
 			log_warnx("warn: key serialization failed for %s:%s",
 			    tablename, user);
 			return (LKA_TEMPFAIL);
