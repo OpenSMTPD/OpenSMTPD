@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtpd.c,v 1.362 2026/08/03 06:58:55 claudio Exp $	*/
+/*	$OpenBSD: smtpd.c,v 1.363 2026/09/07 19:51:16 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1806,7 +1806,7 @@ offline_enqueue(char *name, uid_t uid, gid_t gid)
 		envp[1] = (char *)NULL;
 		environ = envp;
 
-		execvp(PATH_SMTPCTL, args.list);
+		execv(PATH_SMTPCTL, args.list);
 		_exit(1);
 	}
 
