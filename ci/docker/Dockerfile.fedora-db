@@ -1,4 +1,4 @@
-FROM fedora:32
+FROM fedora:latest
 
 # Allow container to expose ports at runtime, if necessary
 # https://docs.docker.com/engine/reference/#expose
@@ -15,6 +15,7 @@ RUN dnf -y install \
   autoconf \
   automake \
   bison \
+  gawk \
   @development-tools \
   libevent-devel \
   openssl-devel \
@@ -42,7 +43,6 @@ RUN mkdir -p /var/lib/opensmtpd/empty \
 # https://docs.docker.com/engine/reference/builder/#copy
 COPY . /opensmtpd
 
-RUN export CC=gcc-10 CXX=g++-10 
 RUN ./bootstrap \
   && ./configure \
        --with-gnu-ld \
