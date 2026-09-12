@@ -571,14 +571,17 @@ tls_config_set_ecdhecurves(struct tls_config *config, const char *curves)
 	char *cs = NULL;
 	char *p, *q;
 	int rv = -1;
+	int is_default = 0;
 	int nid;
 
 	free(config->ecdhecurves);
 	config->ecdhecurves = NULL;
 	config->ecdhecurves_len = 0;
 
-	if (curves == NULL || strcasecmp(curves, "default") == 0)
+	if (curves == NULL || strcasecmp(curves, "default") == 0) {
 		curves = TLS_ECDHE_CURVES;
+		is_default = 1;
+	}
 
 	if ((cs = strdup(curves)) == NULL) {
 		tls_config_set_errorx(config, TLS_ERROR_OUT_OF_MEMORY,
@@ -597,6 +600,15 @@ tls_config_set_ecdhecurves(struct tls_config *config, const char *curves)
 		if (nid == NID_undef)
 			nid = EC_curve_nist2nid(p);
 		if (nid == NID_undef) {
+			/*
+			 * The default list includes X25519MLKEM768 which
+			 * OpenSSL gained only in 3.5.  to not fail with
+			 * out-of-the-box, skip herrors in the default
+			 * list, but still yield the proper error on
+			 * user-defined stuff.
+			 */
+			if (is_default)
+				continue;
 			tls_config_set_errorx(config, TLS_ERROR_UNKNOWN,
 			    "invalid ecdhe curve '%s'", p);
 			goto err;
