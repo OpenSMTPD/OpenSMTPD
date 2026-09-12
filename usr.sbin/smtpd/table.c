@@ -1,4 +1,4 @@
-/*	$OpenBSD: table.c,v 1.54 2024/06/09 10:13:05 gilles Exp $	*/
+/*	$OpenBSD: table.c,v 1.55 2026/04/16 19:36:04 op Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -158,6 +158,8 @@ table_lookup(struct table *table, enum table_service kind, const char *key,
 		log_warnx("warn: lookup key too long: %s", key);
 		errno = EINVAL;
 	}
+	else if (kind == K_AUTH)
+		r = table->t_backend->lookup(table, kind, key, NULL);
 	else
 		r = table->t_backend->lookup(table, kind, lkey, lk ? &buf : NULL);
 
