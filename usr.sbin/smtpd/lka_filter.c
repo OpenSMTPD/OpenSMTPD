@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.77 2024/05/14 13:38:54 op Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.79 2026/01/07 07:54:57 martijn Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -103,7 +103,6 @@ static struct filter_exec {
 	{ FILTER_QUIT,    	"quit",		filter_builtins_notimpl },
 	{ FILTER_NOOP,    	"noop",		filter_builtins_notimpl },
 	{ FILTER_HELP,    	"help",		filter_builtins_notimpl },
-	{ FILTER_WIZ,    	"wiz",		filter_builtins_notimpl },
 	{ FILTER_COMMIT,    	"commit",      	filter_builtins_commit },
 };
 
@@ -1640,9 +1639,6 @@ lka_report_smtp_filter_response(const char *direction, struct timeval *tv, uint6
 		break;
 	case FILTER_HELP:
 		phase_name = "help";
-		break;
-	case FILTER_WIZ:
-		phase_name = "wiz";
 		break;
 	case FILTER_COMMIT:
 		phase_name = "commit";
