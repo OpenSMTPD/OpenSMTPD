@@ -23,7 +23,8 @@ RUN apt update \
   pkgconf \
   libpam0g-dev \
   zlib1g-dev \
-  gcc-10
+  gcc-16 \
+  g++-16
 
 # create users and directories
 RUN mkdir -p /var/lib/opensmtpd/empty \
@@ -44,7 +45,9 @@ RUN mkdir -p /var/lib/opensmtpd/empty \
 # https://docs.docker.com/engine/reference/builder/#copy
 COPY . /opensmtpd
 
-RUN export CC=gcc-10 CXX=g++-10 
+ENV CC=gcc-16
+ENV CXX=g++-16
+
 RUN ./bootstrap \
   && ./configure \
        --with-gnu-ld \
