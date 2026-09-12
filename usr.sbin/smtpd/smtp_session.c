@@ -1,4 +1,4 @@
-/*	$OpenBSD: smtp_session.c,v 1.446 2026/01/07 07:54:57 martijn Exp $	*/
+/*	$OpenBSD: smtp_session.c,v 1.448 2026/04/08 12:04:56 op Exp $	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -1437,13 +1437,6 @@ smtp_check_ehlo(struct smtp_session *s, const char *args)
 		return 0;
 	}
 
-	if (s->helo[0]) {
-		smtp_reply(s, "503 %s %s: Already identified",
-		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
-		    esc_description(ESC_INVALID_COMMAND));
-		return 0;
-	}
-
 	if (args == NULL) {
 		smtp_reply(s, "501 %s %s: EHLO requires domain name",
 		    esc_code(ESC_STATUS_PERMFAIL, ESC_INVALID_COMMAND),
@@ -1784,6 +1777,13 @@ smtp_proceed_ehlo(struct smtp_session *s, const char *args)
 	s->flags &= SF_SECURE | SF_AUTHENTICATED | SF_VERIFIED;
 	s->flags |= SF_EHLO;
 	s->flags |= SF_8BITMIME;
+
+	/* EHLO should behave like a RSET */
+	if (s->tx) {
+		if (s->tx->msgid)
+			smtp_tx_rollback(s->tx);
+		smtp_tx_free(s->tx);
+	}
 
 	smtp_report_link_identify(s, "EHLO", s->helo);
 
