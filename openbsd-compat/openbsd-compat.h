@@ -197,6 +197,10 @@ int inet_net_pton(int, const char *, void *, size_t);
 #define pledge(promises, paths) 0
 #endif
 
+#ifndef HAVE_UNVEIL
+#define unveil(path, permissions) 0
+#endif
+
 #ifndef HAVE_MALLOC_CONCEAL
 #define malloc_conceal malloc
 #endif
