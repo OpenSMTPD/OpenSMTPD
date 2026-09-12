@@ -1,4 +1,4 @@
-/* $OpenBSD: tls.c,v 1.104 2024/04/08 20:47:32 tb Exp $ */
+/* $OpenBSD: tls.c,v 1.105 2026/04/16 07:28:00 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -682,7 +682,7 @@ tls_configure_ssl_verify(struct tls *ctx, SSL_CTX *ssl_ctx, int verify)
 			if (xi->crl == NULL)
 				continue;
 			if (!X509_STORE_add_crl(store, xi->crl)) {
-				tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+				tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 				    "failed to add crl");
 				goto err;
 			}

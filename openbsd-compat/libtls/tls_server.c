@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_server.c,v 1.52 2025/06/04 10:25:30 tb Exp $ */
+/* $OpenBSD: tls_server.c,v 1.53 2026/04/16 07:28:00 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -245,12 +245,12 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 
 	if (SSL_CTX_set_tlsext_servername_callback(*ssl_ctx,
 	    tls_servername_cb) != 1) {
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "failed to set servername callback");
 		goto err;
 	}
 	if (SSL_CTX_set_tlsext_servername_arg(*ssl_ctx, ctx) != 1) {
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "failed to set servername callback arg");
 		goto err;
 	}
@@ -301,7 +301,7 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 		SSL_CTX_clear_options(*ssl_ctx, SSL_OP_NO_TICKET);
 		if (!SSL_CTX_set_tlsext_ticket_key_cb(*ssl_ctx,
 		    tls_server_ticket_cb)) {
-			tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+			tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 			    "failed to set the TLS ticket callback");
 			goto err;
 		}
@@ -309,7 +309,7 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 
 	if (SSL_CTX_set_session_id_context(*ssl_ctx, ctx->config->session_id,
 	    sizeof(ctx->config->session_id)) != 1) {
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "failed to set session id context");
 		goto err;
 	}

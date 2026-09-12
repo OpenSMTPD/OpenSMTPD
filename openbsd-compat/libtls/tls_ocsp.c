@@ -1,4 +1,4 @@
-/*	$OpenBSD: tls_ocsp.c,v 1.27 2026/03/28 11:49:31 tb Exp $ */
+/*	$OpenBSD: tls_ocsp.c,v 1.28 2026/04/16 07:28:00 tb Exp $ */
 /*
  * Copyright (c) 2015 Marko Kreen <markokr@gmail.com>
  * Copyright (c) 2016 Bob Beck <beck@openbsd.org>
@@ -104,19 +104,19 @@ tls_ocsp_fill_info(struct tls *ctx, int response_status, int cert_status,
 	info->revocation_time = info->this_update = info->next_update = -1;
 	if (revtime != NULL &&
 	    tls_ocsp_asn1_parse_time(ctx, revtime, &info->revocation_time) != 0) {
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "unable to parse revocation time in OCSP reply");
 		goto err;
 	}
 	if (thisupd != NULL &&
 	    tls_ocsp_asn1_parse_time(ctx, thisupd, &info->this_update) != 0) {
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "unable to parse this update time in OCSP reply");
 		goto err;
 	}
 	if (nextupd != NULL &&
 	    tls_ocsp_asn1_parse_time(ctx, nextupd, &info->next_update) != 0) {
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "unable to parse next update time in OCSP reply");
 		goto err;
 	}
@@ -307,7 +307,7 @@ tls_ocsp_process_response_internal(struct tls *ctx, const unsigned char *respons
 	if (resp == NULL) {
 		tls_ocsp_free(ctx->ocsp);
 		ctx->ocsp = NULL;
-		tls_set_error(ctx, TLS_ERROR_UNKNOWN,
+		tls_set_errorx(ctx, TLS_ERROR_UNKNOWN,
 		    "unable to parse OCSP response");
 		return -1;
 	}
