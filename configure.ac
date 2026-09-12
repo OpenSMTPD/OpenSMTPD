@@ -145,6 +145,7 @@ AC_CHECK_FUNCS([ \
 	sigaction \
 	strnvis \
 	sysconf \
+	unveil \
 ])
 
 AC_CHECK_HEADERS([ \
