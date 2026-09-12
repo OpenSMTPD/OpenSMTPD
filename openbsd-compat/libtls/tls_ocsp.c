@@ -1,4 +1,4 @@
-/*	$OpenBSD: tls_ocsp.c,v 1.28 2026/04/16 07:28:00 tb Exp $ */
+/*	$OpenBSD: tls_ocsp.c,v 1.29 2026/04/16 07:35:25 tb Exp $ */
 /*
  * Copyright (c) 2015 Marko Kreen <markokr@gmail.com>
  * Copyright (c) 2016 Bob Beck <beck@openbsd.org>
@@ -87,7 +87,7 @@ tls_ocsp_fill_info(struct tls *ctx, int response_status, int cert_status,
 	ctx->ocsp->ocsp_result = NULL;
 
 	if ((info = calloc(1, sizeof (struct tls_ocsp_result))) == NULL) {
-		tls_set_error(ctx, TLS_ERROR_OUT_OF_MEMORY, "out of memory");
+		tls_set_errorx(ctx, TLS_ERROR_OUT_OF_MEMORY, "out of memory");
 		return -1;
 	}
 	info->response_status = response_status;

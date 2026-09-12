@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_signer.c,v 1.14 2026/04/16 05:16:48 tb Exp $ */
+/* $OpenBSD: tls_signer.c,v 1.15 2026/04/16 07:35:25 tb Exp $ */
 /*
  * Copyright (c) 2021 Eric Faurot <eric@openbsd.org>
  *
@@ -146,7 +146,7 @@ tls_signer_add_keypair_mem(struct tls_signer *signer, const uint8_t *cert,
 	}
 
 	if ((skey = calloc(1, sizeof(*skey))) == NULL) {
-		tls_error_set(&signer->error, TLS_ERROR_OUT_OF_MEMORY,
+		tls_error_setx(&signer->error, TLS_ERROR_OUT_OF_MEMORY,
 		    "out of memory");
 		goto err;
 	}
@@ -232,7 +232,7 @@ tls_sign_rsa(struct tls_signer *signer, struct tls_signer_key *skey,
 		return (-1);
 	}
 	if ((signature = calloc(1, rsa_size)) == NULL) {
-		tls_error_set(&signer->error, TLS_ERROR_OUT_OF_MEMORY,
+		tls_error_setx(&signer->error, TLS_ERROR_OUT_OF_MEMORY,
 		    "out of memory");
 		return (-1);
 	}
@@ -280,7 +280,7 @@ tls_sign_ecdsa(struct tls_signer *signer, struct tls_signer_key *skey,
 		return (-1);
 	}
 	if ((signature = calloc(1, signature_len)) == NULL) {
-		tls_error_set(&signer->error, TLS_ERROR_OUT_OF_MEMORY,
+		tls_error_setx(&signer->error, TLS_ERROR_OUT_OF_MEMORY,
 		    "out of memory");
 		return (-1);
 	}
