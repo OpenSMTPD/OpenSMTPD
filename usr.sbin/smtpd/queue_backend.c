@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue_backend.c,v 1.69 2023/05/31 16:51:46 op Exp $	*/
+/*	$OpenBSD: queue_backend.c,v 1.70 2026/05/26 22:44:17 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -318,6 +318,7 @@ queue_message_fd_r(uint32_t msgid)
 		fd = -1;
 		if ((ofp = fdopen(fdout, "w+")) == NULL)
 			goto err;
+		fdout = -1;
 
 		if (!crypto_decrypt_file(ifp, ofp))
 			goto err;
@@ -340,6 +341,7 @@ queue_message_fd_r(uint32_t msgid)
 		fd = -1;
 		if ((ofp = fdopen(fdout, "w+")) == NULL)
 			goto err;
+		fdout = -1;
 
 		if (!uncompress_file(ifp, ofp))
 			goto err;
@@ -423,6 +425,8 @@ queue_envelope_load_buffer(struct envelope *ep, char *evpbuf, size_t evpbufsize)
 	char		 encbuf[sizeof(struct envelope)];
 	size_t		 enclen;
 
+	memset(compbuf, 0, sizeof compbuf);
+	memset(encbuf, 0, sizeof encbuf);
 	evp = evpbuf;
 	evplen = evpbufsize;
 
