@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_keypair.c,v 1.11 2026/04/16 07:28:00 tb Exp $ */
+/* $OpenBSD: tls_keypair.c,v 1.12 2026/04/16 07:29:53 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -157,7 +157,7 @@ tls_keypair_load_cert(struct tls_keypair *keypair, struct tls_error *error,
 	}
 	if ((cert_bio = BIO_new_mem_buf(keypair->cert_mem,
 	    keypair->cert_len)) == NULL) {
-		tls_error_set(error, TLS_ERROR_UNKNOWN,
+		tls_error_setx(error, TLS_ERROR_UNKNOWN,
 		    "failed to create certificate bio");
 		goto err;
 	}
