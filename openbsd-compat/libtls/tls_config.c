@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_config.c,v 1.72 2026/03/10 05:26:04 deraadt Exp $ */
+/* $OpenBSD: tls_config.c,v 1.73 2026/04/16 07:33:11 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -68,7 +68,7 @@ tls_config_load_file(struct tls_error *error, const char *filetype,
 		goto err;
 	*len = (size_t)st.st_size;
 	if ((*buf = malloc(*len)) == NULL) {
-		tls_error_set(error, TLS_ERROR_UNKNOWN,
+		tls_error_setx(error, TLS_ERROR_OUT_OF_MEMORY,
 		    "failed to allocate buffer for %s file",
 		    filetype);
 		goto err;
