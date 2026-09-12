@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_keypair.c,v 1.10 2026/04/16 05:16:48 tb Exp $ */
+/* $OpenBSD: tls_keypair.c,v 1.11 2026/04/16 07:28:00 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -146,7 +146,7 @@ tls_keypair_load_cert(struct tls_keypair *keypair, struct tls_error *error,
 	*cert = NULL;
 
 	if (keypair->cert_mem == NULL) {
-		tls_error_set(error, TLS_ERROR_UNKNOWN,
+		tls_error_setx(error, TLS_ERROR_UNKNOWN,
 		    "keypair has no certificate");
 		goto err;
 	}
@@ -165,7 +165,7 @@ tls_keypair_load_cert(struct tls_keypair *keypair, struct tls_error *error,
 	    NULL)) == NULL) {
 		if ((ssl_err = ERR_peek_error()) != 0)
 			errstr = ERR_error_string(ssl_err, NULL);
-		tls_error_set(error, TLS_ERROR_UNKNOWN,
+		tls_error_setx(error, TLS_ERROR_UNKNOWN,
 		    "failed to load certificate: %s", errstr);
 		goto err;
 	}
