@@ -1,4 +1,4 @@
-/*	$OpenBSD: lka_filter.c,v 1.79 2026/01/07 07:54:57 martijn Exp $	*/
+/*	$OpenBSD: lka_filter.c,v 1.82 2026/08/30 12:35:16 jsg Exp $	*/
 
 /*
  * Copyright (c) 2018 Gilles Chehade <gilles@poolp.org>
@@ -653,7 +653,7 @@ lka_filter_process_response(const char *name, const char *line)
 		return;
 	} else if (strcmp(response, "junk") == 0) {
 		if (fs->phase == FILTER_COMMIT)
-			fatalx("filter-reponse junk after DATA");
+			fatalx("filter-response junk after DATA");
 		filter_result_junk(reqid);
 		return;
 	} else {
