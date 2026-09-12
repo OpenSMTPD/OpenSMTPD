@@ -1,0 +1,15 @@
+name: Ubuntu (amd64 glibc openssl gcc16)
+on: 
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Ubuntu (amd64 glibc openssl gcc16)
+      run: docker build . --file ci/docker/Dockerfile.ubuntu-gcc16 --tag opensmtpd:ubuntu-gcc16
