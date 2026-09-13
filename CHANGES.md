@@ -1,3 +1,67 @@
+# Release 7.9.0p0 (2026-09-13)
+
+This includes also the OpenBSD 7.9 errata `002` and `015` (all the
+ones released as of today.)
+
+ - Restricted the characters allowed through when expanding variables with
+   the raw modifier, both in the MDA command line and in its environment.
+ - Don't lowercase K_AUTH lookups.  The lookup key is "user:password", so
+   passwords were being case-flattened before reaching the table.
+ - Reject CR and LF in the sender, recipients and DSN options taken from
+   the sendmail(8) command line, which could otherwise inject additional
+   SMTP commands into the local dialogue.
+ - Reject empty or slash-bearing usernames before building the mbox path.
+ - Fixed a possible out of bounds access in dname_expand().
+ - Fixed a possible out of bounds read in text_to_netaddr().
+ - Stop parsing DNS answers once unpack_rr() reports a failure, instead of
+   looping on the attacker-controlled answer count.
+ - Validate encrypted queue buffer sizes before processing the auth tag and
+   IV data.
+ - Hardened the privsep environment: reject oversized sockaddr payloads
+   received over IPC, clear userinfo before sending it over imsg, zero the
+   temporary envelope parsing buffers, and drop pending asynchronous lookup
+   references when a session is torn down.
+ - EHLO now resets the transaction, as required by RFC 5321.
+ - Return 452 instead of 451 when there are too many recipients.
+ - "smtp limit max-rcpt" now requires a value of at least 100, per RFC 5321.
+ - Removed "support" for the WIZ command.
+ - Fixed using modifiers together with partial expansion in format
+   specifiers, for example %{sender.user[6:]:strip}.
+ - Fixed a leak of the inflate stream on every read from a compressed queue.
+ - Fixed leaks of mda_subaddress and dispatcher in mda_envelope_free(), and
+   of the copied envelope on the smarthost lookup failure path.
+ - Unlink the transformed temporary file on every queue commit failure,
+   instead of leaving orphaned .comp/.enc files behind.
+ - Updated the bundled imsg and switched smtpd over to imsgbuf_get().
+ - Various documentation improvements.
+
+Two changes in this release can affect existing installations:
+
+* A configuration setting "smtp limit max-rcpt" below 100 is now rejected
+  at parse time.
+* The set of characters accepted in envelope addresses no longer includes
+  $ ` { | } , which are never present in legitimate addresses and are
+  commonly seen in exploit attempts.
+
+## bundled libtls
+
+ - Added X25519MLKEM768 to the front of the default ECDHE curve list.
+   Curves the installed libcrypto does not know about are skipped when
+   expanding the default list, so this is a no-op before OpenSSL 3.5; a
+   curve requested explicitly is still an error.
+ - Consistently use the "x" variants of the error setting functions where
+   errno carries no useful information, and report TLS_ERROR_OUT_OF_MEMORY
+   rather than TLS_ERROR_UNKNOWN after allocation failures.
+ - Disallow wildcard matching of a TLD specified as a FQDN.  smtpd is
+   not believed to be affected.
+ - Added missing length checks before BIO_new_mem_buf(): certificates
+   and keys larger than INT_MAX no longer have their length truncated.
+ - The subject of a certificate is no longer treated as optional.
+ - Abort the handshake when there is no ALPN protocol overlap, as required
+   by RFC 7301.  Not reachable from smtpd.
+ - const correctness for X509_NAME, in preparation for OpenSSL 4.
+ - Open certificate and key files with O_CLOEXEC.
+
 # Release 7.8.0p1 (2026-03-27)
 
  - table_proc: ensure the request does not contain newlines
