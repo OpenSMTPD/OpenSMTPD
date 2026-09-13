@@ -195,7 +195,8 @@ typedef struct {
 %token	PHASE PKI PORT PROC PROC_EXEC PROTOCOLS PROXY_V2
 %token	QUEUE QUIT
 %token	RCPT_TO RDNS RECIPIENT RECEIVEDAUTH REGEX RELAY REJECT REPORT REWRITE RSET
-%token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SOCKET SRC SRS SUB_ADDR_DELIM
+%token	SCHEDULER SENDER SENDERS SMTP SMTP_IN SMTP_OUT SMTPS SOCKET SRC SRS STATS
+%token	SUB_ADDR_DELIM
 %token	TABLE TAG TAGGED TLS TLS_REQUIRE TTL
 %token	USER USERBASE
 %token	VERIFY VIRTUAL
@@ -493,6 +494,20 @@ USER STRING {
 		YYERROR;
 	}
 	processor->chroot = $2;
+}
+| STATS {
+	if (processor->filter_subsystem & FILTER_SUBSYSTEM_STATS) {
+		yyerror("stats already specified for this processor");
+		YYERROR;
+	}
+	processor->filter_subsystem |= FILTER_SUBSYSTEM_STATS;
+}
+| QUEUE {
+	if (processor->filter_subsystem & FILTER_SUBSYSTEM_QUEUE) {
+		yyerror("queue already specified for this processor");
+		YYERROR;
+	}
+	processor->filter_subsystem |= FILTER_SUBSYSTEM_QUEUE;
 }
 ;
 
@@ -2752,6 +2767,7 @@ lookup(char *s)
 		{ "socket",		SOCKET },
 		{ "src",		SRC },
 		{ "srs",		SRS },
+		{ "stats",		STATS },
 		{ "sub-addr-delim",	SUB_ADDR_DELIM },
 		{ "table",		TABLE },
 		{ "tag",		TAG },

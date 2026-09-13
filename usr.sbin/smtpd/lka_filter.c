@@ -35,6 +35,17 @@
 
 #define	PROTOCOL_VERSION	"0.7"
 
+/* seconds between two stat snapshots */
+#define	STATS_INTERVAL		5
+
+/*
+ * If a processor has more than this much unwritten data queued, skip the
+ * snapshot instead of growing the out-queue.  io_printf() buffers without a
+ * ceiling, so a processor that stops reading would otherwise make lka grow
+ * until it is killed.
+ */
+#define	STATS_MAX_QUEUED	(512 * 1024)
+
 struct filter;
 struct filter_session;
 static void	filter_protocol_internal(struct filter_session *, uint64_t *, uint64_t, enum filter_phase, const char *);
@@ -141,6 +152,28 @@ TAILQ_HEAD(reporters, reporter_proc);
 static struct dict	report_smtp_in;
 static struct dict	report_smtp_out;
 
+static struct reporters	report_stats;
+static struct dict	report_queue;
+static struct event	ev_stats;
+static int		stats_pending;
+static int		stats_warned;
+static struct timeval	stats_tv;
+
+static void	lka_report_stats_timeout(int, short, void *);
+static void	report_stats_broadcast(const char *, ...)
+    __attribute__((__format__ (printf, 1, 2)));
+static void	report_queue_broadcast(const char *, struct timeval *, uint64_t,
+		    const char *, ...)
+    __attribute__((__format__ (printf, 4, 5)));
+
+static struct queue_events {
+	const char     *event;
+} queue_events[] = {
+	{ "delivery" },
+	{ "expire" },
+	{ "remove" },
+};
+
 static struct smtp_events {
 	const char     *event;
 } smtp_events[] = {
@@ -207,6 +240,12 @@ lka_proc_config(struct processor_instance *pi)
 		io_printf(pi->io, "config|subsystem|smtp-in\n");
 	if (pi->subsystems & FILTER_SUBSYSTEM_SMTP_OUT)
 		io_printf(pi->io, "config|subsystem|smtp-out\n");
+	if (pi->subsystems & FILTER_SUBSYSTEM_STATS) {
+		io_printf(pi->io, "config|subsystem|stats\n");
+		io_printf(pi->io, "config|stats-interval|%d\n", STATS_INTERVAL);
+	}
+	if (pi->subsystems & FILTER_SUBSYSTEM_QUEUE)
+		io_printf(pi->io, "config|subsystem|queue\n");
 	io_printf(pi->io, "config|admd|%s\n",
 	    env->sc_admd != NULL ? env->sc_admd : env->sc_hostname);
 	io_printf(pi->io, "config|ready\n");
@@ -473,6 +512,20 @@ lka_filter_ready(void)
 				    filter_entry, entries);
 			}
 		}
+	}
+
+	/*
+	 * Every processor has completed its handshake by now and no traffic
+	 * has started, so this is the right place to start asking control for
+	 * stat snapshots.
+	 */
+	if (!TAILQ_EMPTY(&report_stats)) {
+		struct timeval	tv;
+
+		evtimer_set(&ev_stats, lka_report_stats_timeout, &ev_stats);
+		tv.tv_sec = STATS_INTERVAL;
+		tv.tv_usec = 0;
+		evtimer_add(&ev_stats, &tv);
 	}
 }
 
@@ -961,6 +1014,8 @@ filter_data_query(struct filter *filter, uint64_t token, uint64_t reqid, const c
 static void
 filter_result_proceed(uint64_t reqid)
 {
+	stat_increment("filter.result.proceed", 1);
+
 	m_create(p_dispatcher, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_dispatcher, reqid);
 	m_add_int(p_dispatcher, FILTER_PROCEED);
@@ -970,6 +1025,8 @@ filter_result_proceed(uint64_t reqid)
 static void
 filter_result_report(uint64_t reqid, const char *param)
 {
+	stat_increment("filter.result.report", 1);
+
 	m_create(p_dispatcher, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_dispatcher, reqid);
 	m_add_int(p_dispatcher, FILTER_REPORT);
@@ -980,6 +1037,8 @@ filter_result_report(uint64_t reqid, const char *param)
 static void
 filter_result_junk(uint64_t reqid)
 {
+	stat_increment("filter.result.junk", 1);
+
 	m_create(p_dispatcher, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_dispatcher, reqid);
 	m_add_int(p_dispatcher, FILTER_JUNK);
@@ -989,6 +1048,8 @@ filter_result_junk(uint64_t reqid)
 static void
 filter_result_rewrite(uint64_t reqid, const char *param)
 {
+	stat_increment("filter.result.rewrite", 1);
+
 	m_create(p_dispatcher, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_dispatcher, reqid);
 	m_add_int(p_dispatcher, FILTER_REWRITE);
@@ -999,6 +1060,8 @@ filter_result_rewrite(uint64_t reqid, const char *param)
 static void
 filter_result_reject(uint64_t reqid, const char *message)
 {
+	stat_increment("filter.result.reject", 1);
+
 	m_create(p_dispatcher, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_dispatcher, reqid);
 	m_add_int(p_dispatcher, FILTER_REJECT);
@@ -1009,6 +1072,8 @@ filter_result_reject(uint64_t reqid, const char *message)
 static void
 filter_result_disconnect(uint64_t reqid, const char *message)
 {
+	stat_increment("filter.result.disconnect", 1);
+
 	m_create(p_dispatcher, IMSG_FILTER_SMTP_PROTOCOL, 0, 0, -1);
 	m_add_id(p_dispatcher, reqid);
 	m_add_int(p_dispatcher, FILTER_DISCONNECT);
@@ -1300,6 +1365,15 @@ lka_report_init(void)
 	dict_init(&report_smtp_in);
 	dict_init(&report_smtp_out);
 
+	TAILQ_INIT(&report_stats);
+
+	dict_init(&report_queue);
+	for (i = 0; i < nitems(queue_events); ++i) {
+		tailq = xcalloc(1, sizeof (struct reporters));
+		TAILQ_INIT(tailq);
+		dict_xset(&report_queue, queue_events[i].event, tailq);
+	}
+
 	for (i = 0; i < nitems(smtp_events); ++i) {
 		tailq = xcalloc(1, sizeof (struct reporters));
 		TAILQ_INIT(tailq);
@@ -1319,6 +1393,58 @@ lka_report_register_hook(const char *name, const char *hook)
 	struct reporters	*tailq;
 	void *iter;
 	size_t	i;
+
+	if (strncmp(hook, "queue|", 6) == 0) {
+		struct processor_instance *pi;
+
+		pi = dict_xget(&processors, name);
+		if (!(pi->subsystems & FILTER_SUBSYSTEM_QUEUE))
+			fatalx("processor %s registered a queue hook but is "
+			    "not declared with the \"queue\" option", name);
+
+		hook += 6;
+		if (strcmp(hook, "*") == 0) {
+			iter = NULL;
+			while (dict_iter(&report_queue, &iter, NULL,
+			    (void **)&tailq)) {
+				rp = xcalloc(1, sizeof *rp);
+				rp->name = xstrdup(name);
+				TAILQ_INSERT_TAIL(tailq, rp, entries);
+			}
+			return;
+		}
+
+		for (i = 0; i < nitems(queue_events); i++)
+			if (strcmp(hook, queue_events[i].event) == 0)
+				break;
+		if (i == nitems(queue_events))
+			fatalx("Unrecognized queue report name: %s", hook);
+
+		tailq = dict_get(&report_queue, hook);
+		rp = xcalloc(1, sizeof *rp);
+		rp->name = xstrdup(name);
+		TAILQ_INSERT_TAIL(tailq, rp, entries);
+		return;
+	}
+
+	if (strcmp(hook, "stats|*") == 0) {
+		struct processor_instance *pi;
+
+		/*
+		 * The subsystem is only advertised to a processor declared
+		 * with the "stats" option, so a processor that registers
+		 * without it is either misconfigured or lying.
+		 */
+		pi = dict_xget(&processors, name);
+		if (!(pi->subsystems & FILTER_SUBSYSTEM_STATS))
+			fatalx("processor %s registered a stats hook but is "
+			    "not declared with the \"stats\" option", name);
+
+		rp = xcalloc(1, sizeof *rp);
+		rp->name = xstrdup(name);
+		TAILQ_INSERT_TAIL(&report_stats, rp, entries);
+		return;
+	}
 
 	if (strncmp(hook, "smtp-in|", 8) == 0) {
 		subsystem = &report_smtp_in;
@@ -1351,6 +1477,183 @@ lka_report_register_hook(const char *name, const char *hook)
 	rp = xcalloc(1, sizeof *rp);
 	rp->name = xstrdup(name);
 	TAILQ_INSERT_TAIL(tailq, rp, entries);
+}
+
+/*
+ * Ask control for a snapshot, unless one is already in flight or a subscriber
+ * is not draining what it was already sent.
+ */
+static void
+lka_report_stats_timeout(int fd, short event, void *p)
+{
+	struct event		*ev = p;
+	struct reporter_proc	*rp;
+	struct timeval		 tv;
+
+	tv.tv_sec = STATS_INTERVAL;
+	tv.tv_usec = 0;
+	evtimer_add(ev, &tv);
+
+	/*
+	 * Warn only on the first skip of a run, otherwise a stalled processor
+	 * would produce one log line every STATS_INTERVAL seconds.
+	 */
+	if (stats_pending) {
+		if (!stats_warned) {
+			log_warnx("warn: stats: previous snapshot still "
+			    "pending, skipping");
+			stats_warned = 1;
+		}
+		return;
+	}
+
+	TAILQ_FOREACH(rp, &report_stats, entries) {
+		if (io_queued(lka_proc_get_io(rp->name)) > STATS_MAX_QUEUED) {
+			if (!stats_warned) {
+				log_warnx("warn: stats: processor %s is not "
+				    "draining, skipping snapshot", rp->name);
+				stats_warned = 1;
+			}
+			return;
+		}
+	}
+
+	stats_warned = 0;
+	stats_pending = 1;
+
+	m_create(p_control, IMSG_STATS_REQUEST, 0, 0, -1);
+	m_close(p_control);
+}
+
+static void
+report_stats_broadcast(const char *format, ...)
+{
+	va_list			 ap;
+	struct reporter_proc	*rp;
+
+	TAILQ_FOREACH(rp, &report_stats, entries) {
+		va_start(ap, format);
+		if (io_vprintf(lka_proc_get_io(rp->name), format, ap) == -1)
+			fatalx("failed to write to processor");
+		va_end(ap);
+	}
+}
+
+void
+lka_report_stats_begin(struct timeval *tv)
+{
+	stats_tv = *tv;
+
+	report_stats_broadcast("report|%s|%lld.%06ld|stats|snapshot-begin\n",
+	    PROTOCOL_VERSION, (long long)tv->tv_sec, (long)tv->tv_usec);
+}
+
+void
+lka_report_stats_entry(const char *key, const struct stat_value *val)
+{
+	/*
+	 * A key holding a separator or a newline would desynchronize the
+	 * processor's parser, so drop the entry rather than emit it.  No key in
+	 * the tree can do this today; this guards a future one.
+	 */
+	if (key[strcspn(key, "|\r\n")] != '\0') {
+		log_warnx("warn: stats: skipping key with invalid character");
+		return;
+	}
+
+	switch (val->type) {
+	case STAT_COUNTER:
+		report_stats_broadcast(
+		    "report|%s|%lld.%06ld|stats|entry|%s|counter|%zu\n",
+		    PROTOCOL_VERSION, (long long)stats_tv.tv_sec,
+		    (long)stats_tv.tv_usec, key, val->u.counter);
+		break;
+	case STAT_TIMESTAMP:
+		report_stats_broadcast(
+		    "report|%s|%lld.%06ld|stats|entry|%s|timestamp|%lld\n",
+		    PROTOCOL_VERSION, (long long)stats_tv.tv_sec,
+		    (long)stats_tv.tv_usec, key,
+		    (long long)val->u.timestamp);
+		break;
+	case STAT_TIMEVAL:
+		report_stats_broadcast(
+		    "report|%s|%lld.%06ld|stats|entry|%s|timeval|%lld.%06ld\n",
+		    PROTOCOL_VERSION, (long long)stats_tv.tv_sec,
+		    (long)stats_tv.tv_usec, key,
+		    (long long)val->u.tv.tv_sec, (long)val->u.tv.tv_usec);
+		break;
+	case STAT_TIMESPEC:
+		report_stats_broadcast(
+		    "report|%s|%lld.%06ld|stats|entry|%s|timespec|%lld.%09ld\n",
+		    PROTOCOL_VERSION, (long long)stats_tv.tv_sec,
+		    (long)stats_tv.tv_usec, key,
+		    (long long)val->u.ts.tv_sec, (long)val->u.ts.tv_nsec);
+		break;
+	}
+}
+
+void
+lka_report_stats_end(struct timeval *tv, size_t count)
+{
+	stats_pending = 0;
+
+	report_stats_broadcast(
+	    "report|%s|%lld.%06ld|stats|snapshot-end|%zu\n",
+	    PROTOCOL_VERSION, (long long)tv->tv_sec, (long)tv->tv_usec, count);
+}
+
+/*
+ * Fan out one queue event.  Unlike report_smtp_broadcast() this must not call
+ * lka_filter_proc_in_session(): a queue event belongs to an envelope, not to a
+ * session, and the processor need not be in any filter chain.
+ */
+static void
+report_queue_broadcast(const char *event, struct timeval *tv, uint64_t evpid,
+    const char *format, ...)
+{
+	va_list			 ap;
+	struct reporters	*tailq;
+	struct reporter_proc	*rp;
+
+	tailq = dict_xget(&report_queue, event);
+	TAILQ_FOREACH(rp, tailq, entries) {
+		va_start(ap, format);
+		if (io_printf(lka_proc_get_io(rp->name),
+		    "report|%s|%lld.%06ld|queue|%s|%016"PRIx64"|",
+		    PROTOCOL_VERSION, (long long)tv->tv_sec, (long)tv->tv_usec,
+		    event, evpid) == -1 ||
+		    io_vprintf(lka_proc_get_io(rp->name), format, ap) == -1)
+			fatalx("failed to write to processor");
+		va_end(ap);
+	}
+}
+
+void
+lka_report_queue_delivery(struct timeval *tv, uint64_t evpid, const char *type,
+    const char *dispatcher, const char *result, const char *esc,
+    uint32_t retry, time_t delay, const char *domain)
+{
+	report_queue_broadcast("delivery", tv, evpid,
+	    "%s|%s|%s|%s|%u|%lld|%s\n",
+	    type, dispatcher, result, esc, retry, (long long)delay, domain);
+}
+
+void
+lka_report_queue_expire(struct timeval *tv, uint64_t evpid, const char *type,
+    const char *dispatcher, uint32_t retry, time_t delay, const char *domain)
+{
+	report_queue_broadcast("expire", tv, evpid,
+	    "%s|%s|%u|%lld|%s\n",
+	    type, dispatcher, retry, (long long)delay, domain);
+}
+
+void
+lka_report_queue_remove(struct timeval *tv, uint64_t evpid, const char *type,
+    const char *dispatcher, uint32_t retry, time_t delay, const char *domain)
+{
+	report_queue_broadcast("remove", tv, evpid,
+	    "%s|%s|%u|%lld|%s\n",
+	    type, dispatcher, retry, (long long)delay, domain);
 }
 
 static void

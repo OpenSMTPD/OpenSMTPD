@@ -94,6 +94,15 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 	size_t			 msgsz;
 	int			 ok;
 	int			 fcrdns;
+	const char		*statkey;
+	const void		*statdata;
+	size_t			 statsz;
+	size_t			 statcount;
+	struct stat_value	 statval;
+	const char		*qtype, *qdispatcher, *qdomain;
+	const char		*qresult, *qesc;
+	uint32_t		 qretry;
+	time_t			 qdelay;
 
 	memset(&userinfo, 0, sizeof userinfo);
 
@@ -379,6 +388,83 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 		fd = imsg_get_fd(imsg);
 		lka_proc_errfd(procname, fd);
 		shutdown(fd, SHUT_WR);
+		return;
+
+	case IMSG_STATS_BEGIN:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_end(&m);
+
+		lka_report_stats_begin(&tv);
+		return;
+
+	case IMSG_STATS_ITEM:
+		m_msg(&m, imsg);
+		while (!m_is_eom(&m)) {
+			m_get_string(&m, &statkey);
+			m_get_data(&m, &statdata, &statsz);
+			if (statsz != sizeof(statval))
+				fatalx("lka: IMSG_STATS_ITEM size mismatch");
+			memmove(&statval, statdata, statsz);
+			lka_report_stats_entry(statkey, &statval);
+		}
+		m_end(&m);
+		return;
+
+	case IMSG_STATS_END:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_size(&m, &statcount);
+		m_end(&m);
+
+		lka_report_stats_end(&tv, statcount);
+		return;
+
+	case IMSG_REPORT_QUEUE_DELIVERY:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &evpid);
+		m_get_string(&m, &qtype);
+		m_get_string(&m, &qdispatcher);
+		m_get_u32(&m, &qretry);
+		m_get_time(&m, &qdelay);
+		m_get_string(&m, &qdomain);
+		m_get_string(&m, &qresult);
+		m_get_string(&m, &qesc);
+		m_end(&m);
+
+		lka_report_queue_delivery(&tv, evpid, qtype, qdispatcher,
+		    qresult, qesc, qretry, qdelay, qdomain);
+		return;
+
+	case IMSG_REPORT_QUEUE_EXPIRE:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &evpid);
+		m_get_string(&m, &qtype);
+		m_get_string(&m, &qdispatcher);
+		m_get_u32(&m, &qretry);
+		m_get_time(&m, &qdelay);
+		m_get_string(&m, &qdomain);
+		m_end(&m);
+
+		lka_report_queue_expire(&tv, evpid, qtype, qdispatcher,
+		    qretry, qdelay, qdomain);
+		return;
+
+	case IMSG_REPORT_QUEUE_REMOVE:
+		m_msg(&m, imsg);
+		m_get_timeval(&m, &tv);
+		m_get_id(&m, &evpid);
+		m_get_string(&m, &qtype);
+		m_get_string(&m, &qdispatcher);
+		m_get_u32(&m, &qretry);
+		m_get_time(&m, &qdelay);
+		m_get_string(&m, &qdomain);
+		m_end(&m);
+
+		lka_report_queue_remove(&tv, evpid, qtype, qdispatcher,
+		    qretry, qdelay, qdomain);
 		return;
 
 	case IMSG_REPORT_SMTP_LINK_CONNECT:

@@ -87,9 +87,11 @@ struct mda_session {
 	struct mda_envelope	*evp;
 	struct io		*io;
 	FILE			*datafp;
+	struct timespec		 t_start;
 };
 
 static void mda_io(struct io *, int, void *);
+static void mda_stat_duration(struct mda_session *);
 static int mda_check_loop(FILE *, struct mda_envelope *);
 static int mda_getlastline(int, char *, size_t);
 static void mda_done(struct mda_session *);
@@ -382,6 +384,17 @@ mda_imsg(struct mproc *p, struct imsg *imsg)
 			mda_log(e, "Ok", "Delivered");
 			break;
 		}
+		switch (mda_status) {
+		case MDA_OK:
+			stat_increment("mda.delivery.ok", 1);
+			break;
+		case MDA_TEMPFAIL:
+			stat_increment("mda.delivery.tempfail", 1);
+			break;
+		case MDA_PERMFAIL:
+			stat_increment("mda.delivery.permfail", 1);
+			break;
+		}
 		mda_done(s);
 		return;
 	}
@@ -639,6 +652,45 @@ mda_drain(void)
 	}
 }
 
+/*
+ * Record how long the delivery itself took.  This is not the "delay=" of the
+ * delivery log, which measures how long the envelope sat in the queue.
+ *
+ * The stat API carries scalars only, so a distribution has to be expressed as
+ * cumulative buckets.  They are cumulative ("less or equal"), which is what a
+ * histogram scrape expects.
+ */
+static void
+mda_stat_duration(struct mda_session *s)
+{
+	static const int	 buckets[] = { 1, 5, 15, 60, 300 };
+	struct timespec		 t1, dt;
+	size_t			 i;
+	char			 key[STAT_KEY_SIZE];
+
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	timespecsub(&t1, &s->t_start, &dt);
+
+	stat_increment("mda.delivery.duration.count", 1);
+
+	/*
+	 * Microseconds, not seconds: stat_increment() drops a count of zero, so
+	 * a sum in seconds would never create the key at all for the common
+	 * case of a sub-second delivery.
+	 */
+	stat_increment("mda.delivery.duration.sum.us",
+	    (size_t)dt.tv_sec * 1000000 + (size_t)(dt.tv_nsec / 1000));
+
+	for (i = 0; i < nitems(buckets); i++) {
+		if (dt.tv_sec > buckets[i])
+			continue;
+		if (!bsnprintf(key, sizeof key,
+		    "mda.delivery.duration.le.%d", buckets[i]))
+			continue;
+		stat_increment(key, 1);
+	}
+}
+
 static void
 mda_done(struct mda_session *s)
 {
@@ -661,9 +713,10 @@ mda_done(struct mda_session *s)
 	if (s->io)
 		io_free(s->io);
 
-	free(s);
-
 	stat_decrement("mda.running", 1);
+	mda_stat_duration(s);
+
+	free(s);
 
 	mda_drain();
 }
@@ -853,6 +906,7 @@ mda_session(struct mda_user * u)
 	s = xcalloc(1, sizeof *s);
 	s->id = generate_uid();
 	s->user = u;
+	clock_gettime(CLOCK_MONOTONIC, &s->t_start);
 	s->io = io_new();
 	io_set_callback(s->io, mda_io, s);
 

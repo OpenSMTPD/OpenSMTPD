@@ -280,6 +280,13 @@ smtp_setup_events(void)
 
 	maxsessions = (getdtablesize() - getdtablecount()) / 2 - SMTP_FD_RESERVE;
 	log_debug("debug: smtp: will accept at most %zu clients", maxsessions);
+
+	/*
+	 * Publish the ceiling so that the smtp.session gauge can be read as a
+	 * saturation ratio rather than a bare count.
+	 */
+	stat_set("smtp.session.max", stat_counter(maxsessions));
+	stat_set("smtp.accepting", stat_counter(1));
 }
 
 static void
@@ -381,6 +388,7 @@ smtp_accept(int fd, short event, void *p)
 pause:
 	smtp_pause();
 	env->sc_flags |= SMTPD_SMTP_DISABLED;
+	stat_set("smtp.accepting", stat_counter(0));
 	return;
 }
 
@@ -405,6 +413,7 @@ smtp_collect(void)
 		log_warnx("warn: smtp: "
 		    "fd exhaustion over, re-enabling incoming connections");
 		env->sc_flags &= ~SMTPD_SMTP_DISABLED;
+		stat_set("smtp.accepting", stat_counter(1));
 		smtp_resume();
 	}
 }

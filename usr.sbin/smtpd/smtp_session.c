@@ -1073,6 +1073,7 @@ smtp_tls_init(struct smtp_session *s)
 		log_info("%016"PRIx64" smtp disconnected "
 		    "reason=tls-accept-failed",
 		    s->id);
+		stat_increment("smtp.tls.failure", 1);
 		smtp_free(s, "accept failed");
 	}
 }

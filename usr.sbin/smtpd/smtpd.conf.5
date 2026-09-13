@@ -861,7 +861,7 @@ the key length is determined automatically.
 The default is
 .Cm none ,
 which disables DHE cipher suites.
-.It Ic proc Ar proc-name Ar command
+.It Ic proc Ar proc-name Ar command Op Ar options
 Register an external process named
 .Ar proc-name
 from
@@ -875,6 +875,57 @@ If
 starts with a slash it is executed with an absolute path,
 otherwise it will be run from
 .Dq /usr/local/libexec/smtpd/ .
+.Pp
+The process is started even if no
+.Ic filter
+refers to it.
+A process that only consumes the stats subsystem therefore needs no
+.Ic filter
+declaration and no attachment to a listener.
+.Pp
+The
+.Ar options
+are as follows:
+.Bl -tag -width Ds
+.It Ic user Ar user
+Run the process as
+.Ar user
+instead of the default
+.Dq _smtpd .
+.It Ic group Ar group
+Run the process as
+.Ar group
+instead of the primary group of the user.
+.It Ic chroot Ar path
+Change the root directory of the process to
+.Ar path
+before it is executed.
+.It Ic stats
+Allow the process to register for the stats subsystem of the
+.Xr smtpd-filters 7
+API and receive the internal counters of
+.Xr smtpd 8 .
+.It Ic queue
+Allow the process to register for the queue subsystem of the
+.Xr smtpd-filters 7
+API and receive the outcome of every delivery,
+every envelope expiry and every administrative removal.
+.El
+.Pp
+Without the matching option a subsystem is not advertised,
+and a process that registers for it anyway terminates
+.Xr smtpd 8 .
+.Pp
+The
+.Ic stats
+and
+.Ic queue
+options are only available on an explicit
+.Ic proc
+declaration.
+They cannot be used with
+.Ic filter Ar name Cm proc-exec ,
+which creates its process implicitly.
 .It Ic queue Cm compression
 Store queue files in a compressed format.
 This may be useful to save disk space.

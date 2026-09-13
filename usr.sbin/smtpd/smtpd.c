@@ -114,6 +114,7 @@ static int	offline_enqueue(char *, uid_t, gid_t);
 static void	purge_task(void);
 static int	parent_auth_user(const char *, const char *);
 static void	load_pki_tree(void);
+static void	report_pki_expiry(void);
 static void	load_pki_keys(void);
 
 static void	fork_filter_processes(void);
@@ -1154,6 +1155,15 @@ smtpd(void) {
 
 	fork_filter_processes();
 
+	/*
+	 * Must run here: load_pki_tree() is too early (p_control does not exist
+	 * yet, so stat_set() would dereference NULL), and parent_send_config()
+	 * is too late (it calls purge_config(PURGE_PKI), which frees the
+	 * certificate buffers).  That timer is only armed above; it fires
+	 * inside event_dispatch() below.
+	 */
+	report_pki_expiry();
+
 	purge_task();
 
 #if HAVE_PLEDGE
@@ -1195,6 +1205,42 @@ load_pki_tree(void)
 		log_debug("info: loading CA information for %s", k);
 		if (!ssl_load_cafile(sca, sca->ca_cert_file))
 			fatalx("load_pki_tree: failed to load CA file");
+	}
+}
+
+/*
+ * Publish the expiry date of every configured certificate.  Nothing else in
+ * the daemon tracks this, and an external prober cannot see it reliably
+ * because smtpd may serve a certificate that is on no HTTPS port.
+ */
+static void
+report_pki_expiry(void)
+{
+	struct pki	*pki;
+	const char	*k;
+	void		*iter_dict;
+	char		 key[STAT_KEY_SIZE];
+	time_t		 notafter;
+
+	iter_dict = NULL;
+	while (dict_iter(env->sc_pki_dict, &iter_dict, &k, (void **)&pki)) {
+		if (pki->pki_cert == NULL)
+			continue;
+
+		notafter = ssl_cert_notafter(pki->pki_cert, pki->pki_cert_len);
+		if (notafter == 0) {
+			log_warnx("warn: could not read notAfter date for "
+			    "pki \"%s\"", k);
+			continue;
+		}
+
+		if (!bsnprintf(key, sizeof key, "pki.%s.cert.notafter", k)) {
+			log_warnx("warn: pki name too long for a stat key: "
+			    "\"%s\"", k);
+			continue;
+		}
+
+		stat_set(key, stat_timestamp(notafter));
 	}
 }
 
@@ -1960,6 +2006,9 @@ log_imsg(int to, int from, struct imsg *imsg)
 	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
 		return;
 
+	if (imsg->hdr.type == IMSG_STATS_ITEM)
+		return;
+
 	log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu)",
 	    proc_name(to),
 	    proc_name(from),
@@ -2081,6 +2130,15 @@ imsg_to_str(int type)
 	CASE(IMSG_STAT_INCREMENT);
 	CASE(IMSG_STAT_DECREMENT);
 	CASE(IMSG_STAT_SET);
+
+	CASE(IMSG_STATS_REQUEST);
+	CASE(IMSG_STATS_BEGIN);
+	CASE(IMSG_STATS_ITEM);
+	CASE(IMSG_STATS_END);
+
+	CASE(IMSG_REPORT_QUEUE_DELIVERY);
+	CASE(IMSG_REPORT_QUEUE_EXPIRE);
+	CASE(IMSG_REPORT_QUEUE_REMOVE);
 
 	CASE(IMSG_LKA_AUTHENTICATE);
 	CASE(IMSG_LKA_OPEN_FORWARD);

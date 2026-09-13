@@ -1,3 +1,54 @@
+# Unreleased
+
+ - smtpd-filters: added a "stats" report subsystem. A processor declared with
+   the new `stats` option on `proc` receives a complete snapshot of the
+   internal counters every 5 seconds, the same set that `smtpctl show stats`
+   prints. This makes an external metrics exporter possible without root
+   access to the control socket.
+ - smtpd.conf: new `stats` option on the `proc` declaration. A bare unquoted
+   `stats` is now a keyword and can no longer be used as an unquoted name.
+ - smtpd.conf.5: documented the `user`, `group` and `chroot` options of `proc`,
+   which were undocumented.
+ - smtpd-filters.7: documented the `smtp-out` subsystem and the `admd`
+   configuration key, and corrected the claim that only one subsystem exists.
+ - smtpd-filters: added a "queue" report subsystem, enabled by the new `queue`
+   option on `proc`. It reports the outcome of every delivery (local and
+   relayed), every envelope expiry and every administrative removal, with the
+   action name, result, enhanced status code, retry count, delay and
+   destination domain. This information was previously only in the log file.
+ - New counters, visible in `smtpctl show stats` and through the stats
+   subsystem. Several subsystems had no instrumentation at all before this.
+   - `smtp.accepting` and `smtp.session.max`. `smtp.accepting` drops to 0 when
+     smtpd stops accepting inbound connections on file-descriptor exhaustion or
+     at the session cap. This state was previously only a log line.
+   - `pki.<name>.cert.notafter`, the expiry date of each configured
+     certificate.
+   - `queue.bounce.failed`, `.delayed`, `.delivered` and `.relayed`, splitting
+     the existing `queue.bounce` counter by bounce type.
+   - `control.mda.paused`, `control.mta.paused` and `control.smtp.paused`.
+   - `table.<name>.lookup.{hit,miss,error,duration}` and the same for `fetch`.
+     A proc table blocks lka on an imsg round trip, so a slow LDAP or SQL table
+     used to be invisible.
+   - `dns.result.{ok,retry,einval,enoname,enotfound,nullmx,other}`.
+   - `mda.delivery.{ok,tempfail,permfail}` and
+     `mda.delivery.duration.{count,sum.us,le.N}`. The duration is the execution
+     time of the delivery, which was not measurable before: the `delay=` of the
+     delivery log is queue latency.
+   - `lka.expand.{ok,tempfail,permfail,empty,nodes}`. `lka.expand.empty` counts
+     the "524 5.2.4 Mailing list expansion problem" rejection, a
+     misconfiguration users report as mail silently vanishing.
+   - `filter.result.{proceed,report,junk,rewrite,reject,disconnect}`.
+   - `smtp.tls.failure` and `mta.tls.failure`, TLS handshake failures.
+   - `mta.limit.{host,route,source,connector,relay,domain}`, counting which
+     concurrency limit blocked an outbound connection. These were only visible
+     through the root-only `smtpctl show relays`.
+   - `queue.fs.space.used.percent` and `queue.fs.inodes.used.percent`.
+     Note that the accept/reject guard in fsqueue_check_space() is still
+     compiled out on non-OpenBSD platforms; only the metric is portable.
+ - smtpctl: added stat_set, stat_counter and stat_timespec stubs. Without them
+   a `--with-table-db` build failed to link, because smtpctl compiles table.c.
+ - Bumped IMSG_VERSION to 17. smtpctl and smtpd must be upgraded together.
+
 # Release 7.8.0p1 (2026-03-27)
 
  - table_proc: ensure the request does not contain newlines

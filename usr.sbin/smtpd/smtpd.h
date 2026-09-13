@@ -187,7 +187,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		16
+#define	IMSG_VERSION		17
 
 enum imsg_type {
 	IMSG_NONE,
@@ -245,6 +245,15 @@ enum imsg_type {
 	IMSG_STAT_INCREMENT,
 	IMSG_STAT_DECREMENT,
 	IMSG_STAT_SET,
+
+	IMSG_STATS_REQUEST,
+	IMSG_STATS_BEGIN,
+	IMSG_STATS_ITEM,
+	IMSG_STATS_END,
+
+	IMSG_REPORT_QUEUE_DELIVERY,
+	IMSG_REPORT_QUEUE_EXPIRE,
+	IMSG_REPORT_QUEUE_REMOVE,
 
 	IMSG_LKA_AUTHENTICATE,
 	IMSG_LKA_OPEN_FORWARD,
@@ -1074,6 +1083,8 @@ enum filter_type {
 enum filter_subsystem {
 	FILTER_SUBSYSTEM_SMTP_IN	= 1<<0,
 	FILTER_SUBSYSTEM_SMTP_OUT	= 1<<1,
+	FILTER_SUBSYSTEM_STATS		= 1<<2,
+	FILTER_SUBSYSTEM_QUEUE		= 1<<3,
 };
 
 struct filter_proc {
@@ -1387,6 +1398,15 @@ struct io *lka_proc_get_io(const char *);
 /* lka_report.c */
 void lka_report_init(void);
 void lka_report_register_hook(const char *, const char *);
+void lka_report_stats_begin(struct timeval *);
+void lka_report_stats_entry(const char *, const struct stat_value *);
+void lka_report_stats_end(struct timeval *, size_t);
+void lka_report_queue_delivery(struct timeval *, uint64_t, const char *,
+    const char *, const char *, const char *, uint32_t, time_t, const char *);
+void lka_report_queue_expire(struct timeval *, uint64_t, const char *,
+    const char *, uint32_t, time_t, const char *);
+void lka_report_queue_remove(struct timeval *, uint64_t, const char *,
+    const char *, uint32_t, time_t, const char *);
 void lka_report_smtp_link_connect(const char *, struct timeval *, uint64_t, const char *, int,
     const struct sockaddr_storage *, const struct sockaddr_storage *);
 void lka_report_smtp_link_disconnect(const char *, struct timeval *, uint64_t);
@@ -1562,6 +1582,12 @@ int queue_envelope_load(uint64_t, struct envelope *);
 int queue_envelope_update(struct envelope *);
 int queue_envelope_walk(struct envelope *);
 int queue_message_walk(struct envelope *, uint32_t, int *, void **);
+
+
+/* report_queue.c */
+void report_queue_delivery(const struct envelope *, const char *);
+void report_queue_expire(const struct envelope *);
+void report_queue_remove(const struct envelope *);
 
 
 /* report_smtp.c */

@@ -1330,6 +1330,15 @@ mta_connect(struct mta_connector *c)
 		limits |= CONNECTOR_LIMIT_RELAY;
 	}
 
+	if (limits & CONNECTOR_LIMIT_DOMAIN)
+		stat_increment("mta.limit.domain", 1);
+	if (limits & CONNECTOR_LIMIT_SOURCE)
+		stat_increment("mta.limit.source", 1);
+	if (limits & CONNECTOR_LIMIT_CONN)
+		stat_increment("mta.limit.connector", 1);
+	if (limits & CONNECTOR_LIMIT_RELAY)
+		stat_increment("mta.limit.relay", 1);
+
 	/* We can connect now, find a route */
 	if (!limits && nextconn <= now)
 		route = mta_find_route(c, now, &limits, &nextconn, &mx);
@@ -1768,10 +1777,12 @@ mta_find_route(struct mta_connector *c, time_t now, int *limits,
 	}
 	else if (limit_route) {
 		log_debug("debug: mta: hit route limit");
+		stat_increment("mta.limit.route", 1);
 		*limits |= CONNECTOR_LIMIT_ROUTE;
 	}
 	else if (limit_host) {
 		log_debug("debug: mta: hit host limit");
+		stat_increment("mta.limit.host", 1);
 		*limits |= CONNECTOR_LIMIT_HOST;
 	}
 	else if (tm) {

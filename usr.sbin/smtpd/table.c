@@ -138,6 +138,42 @@ table_find(struct smtpd *conf, const char *name)
 	return dict_get(conf->sc_tables_dict, name);
 }
 
+/*
+ * Record the result and the duration of one table operation.
+ *
+ * This is the only choke point for every backend, proc tables included, and a
+ * proc table blocks lka on an imsg round trip.  Until now a slow LDAP or SQL
+ * table was completely invisible.
+ *
+ * Table names come from smtpd.conf, so they are bounded and safe to key on.
+ */
+static void
+table_stat_result(struct table *table, const char *op, int r,
+    const struct timespec *t0)
+{
+	struct timespec	 t1, dt;
+	const char	*result;
+	char		 key[STAT_KEY_SIZE];
+
+	if (r == 1)
+		result = "hit";
+	else if (r == 0)
+		result = "miss";
+	else
+		result = "error";
+
+	if (bsnprintf(key, sizeof key, "table.%s.%s.%s",
+	    table->t_name, op, result))
+		stat_increment(key, 1);
+
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	timespecsub(&t1, t0, &dt);
+
+	if (bsnprintf(key, sizeof key, "table.%s.%s.duration",
+	    table->t_name, op))
+		stat_set(key, stat_timespec(&dt));
+}
+
 int
 table_match(struct table *table, enum table_service kind, const char *key)
 {
@@ -149,7 +185,10 @@ table_lookup(struct table *table, enum table_service kind, const char *key,
     union lookup *lk)
 {
 	char lkey[1024], *buf = NULL;
+	struct timespec t0;
 	int r;
+
+	clock_gettime(CLOCK_MONOTONIC, &t0);
 
 	r = -1;
 	if (table->t_backend->lookup == NULL)
@@ -188,14 +227,19 @@ table_lookup(struct table *table, enum table_service kind, const char *key,
 
 	free(buf);
 
+	table_stat_result(table, "lookup", r, &t0);
+
 	return (r);
 }
 
 int
 table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 {
+	struct timespec t0;
 	char *buf = NULL;
 	int r;
+
+	clock_gettime(CLOCK_MONOTONIC, &t0);
 
 	r = -1;
 	if (table->t_backend->fetch == NULL)
@@ -220,6 +264,8 @@ table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 		    (r == -1) ? strerror(errno) : "");
 
 	free(buf);
+
+	table_stat_result(table, "fetch", r, &t0);
 
 	return (r);
 }

@@ -206,9 +206,15 @@ lka_resume(struct lka_session *lks)
 		    "delivery list");
 		lks->error = LKA_PERMFAIL;
 		lks->errormsg = "524 5.2.4 Mailing list expansion problem";
+		stat_increment("lka.expand.empty", 1);
 	}
     error:
 	if (lks->error) {
+		if (lks->error == LKA_TEMPFAIL)
+			stat_increment("lka.expand.tempfail", 1);
+		else
+			stat_increment("lka.expand.permfail", 1);
+
 		m_create(p_dispatcher, IMSG_SMTP_EXPAND_RCPT, 0, 0, -1);
 		m_add_id(p_dispatcher, lks->id);
 		m_add_int(p_dispatcher, lks->error);
@@ -229,6 +235,10 @@ lka_resume(struct lka_session *lks)
 		}
 	}
 	else {
+		stat_increment("lka.expand.ok", 1);
+		stat_increment("lka.expand.nodes",
+		    lks->expand.nb_nodes);
+
 		/* Process the delivery list and submit envelopes to queue */
 		while ((ep = TAILQ_FIRST(&lks->deliverylist)) != NULL) {
 			TAILQ_REMOVE(&lks->deliverylist, ep, entry);
