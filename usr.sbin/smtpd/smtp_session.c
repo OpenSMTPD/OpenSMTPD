@@ -2113,6 +2113,7 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 	va_list	 ap;
 	int	 n;
 	char	 buf[LINE_MAX*2], tmp[LINE_MAX*2];
+	size_t	i;
 
 	va_start(ap, fmt);
 	n = vsnprintf(buf, sizeof buf, fmt, ap);
@@ -2193,6 +2194,10 @@ smtp_reply(struct smtp_session *s, char *fmt, ...)
 		}
 		else {
 			strnvis(tmp, s->cmd, sizeof tmp, VIS_SAFE | VIS_CSTYLE);
+			/* filter out shell metacharacters but retain punctuation */
+			for (i = 0; tmp[i] != '\0'; i++)
+			  if (strchr(MAILADDR_RAW_ESCAPE, tmp[i]))
+			    tmp[i] = ':';
 			log_info("%016"PRIx64" smtp "
 			    "failed-command command=\"%s\" "
 			    "result=\"%.*s\"",
