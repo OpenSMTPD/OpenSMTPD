@@ -42,7 +42,7 @@ config_default(void)
 	struct smtpd	       *conf = NULL;
 	struct mta_limits      *limits = NULL;
 	struct table	       *t = NULL;
-	char			hostname[HOST_NAME_MAX+1];
+	char			hostname[SMTPD_HOST_NAME_MAX+1];
 
 	if (getmailname(hostname, sizeof hostname) == -1)
 		return NULL;

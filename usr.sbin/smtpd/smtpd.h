@@ -147,7 +147,7 @@ struct netaddr {
 struct relayhost {
 	uint16_t flags;
 	int tls;
-	char hostname[HOST_NAME_MAX+1];
+	char hostname[SMTPD_HOST_NAME_MAX+1];
 	uint16_t port;
 	char authlabel[PATH_MAX];
 };
@@ -158,7 +158,7 @@ struct credentials {
 };
 
 struct destination {
-	char	name[HOST_NAME_MAX+1];
+	char	name[SMTPD_HOST_NAME_MAX+1];
 };
 
 struct source {
@@ -167,7 +167,7 @@ struct source {
 
 struct addrname {
 	struct sockaddr_storage	addr;
-	char			name[HOST_NAME_MAX+1];
+	char			name[SMTPD_HOST_NAME_MAX+1];
 };
 
 union lookup {
@@ -501,7 +501,7 @@ struct maddrmap {
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
 
-	char				dispatcher[HOST_NAME_MAX+1];
+	char				dispatcher[SMTPD_HOST_NAME_MAX+1];
 
 	char				tag[SMTPD_TAG_SIZE];
 
@@ -509,9 +509,9 @@ struct envelope {
 	uint64_t			id;
 	enum envelope_flags		flags;
 
-	char				smtpname[HOST_NAME_MAX+1];
-	char				helo[HOST_NAME_MAX+1];
-	char				hostname[HOST_NAME_MAX+1];
+	char				smtpname[SMTPD_HOST_NAME_MAX+1];
+	char				helo[SMTPD_HOST_NAME_MAX+1];
+	char				hostname[SMTPD_HOST_NAME_MAX+1];
 	char				username[SMTPD_MAXMAILADDRSIZE];
 	char				errorline[LINE_MAX];
 	struct sockaddr_storage		ss;
@@ -557,7 +557,7 @@ struct listener {
 	char			 ca_name[PATH_MAX];
 	char			 tag[SMTPD_TAG_SIZE];
 	char			 authtable[LINE_MAX];
-	char			 hostname[HOST_NAME_MAX+1];
+	char			 hostname[SMTPD_HOST_NAME_MAX+1];
 	char			 hostnametable[PATH_MAX];
 	char			 sendertable[PATH_MAX];
 
@@ -619,7 +619,7 @@ struct smtpd {
 	int				sc_ttl;
 #define MAX_BOUNCE_WARN			4
 	time_t				sc_bounce_warn[MAX_BOUNCE_WARN];
-	char				sc_hostname[HOST_NAME_MAX+1];
+	char				sc_hostname[SMTPD_HOST_NAME_MAX+1];
 	struct stat_backend	       *sc_stat;
 	struct compress_backend	       *sc_comp;
 
