@@ -29,6 +29,13 @@
 #endif
 
 /*
+ * unistd.h
+ *
+ * __pledge_open(2) is OpenBSD-only, and this libasr is never built there.
+ */
+#define __pledge_open open
+
+/*
  * sys/socket.h
  */
 #ifndef SOCK_DNS
