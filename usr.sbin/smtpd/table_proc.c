@@ -1,4 +1,4 @@
-/*	$OpenBSD: table_proc.c,v 1.23 2024/05/28 07:10:30 op Exp $	*/
+/*	$OpenBSD: table_proc.c,v 1.24 2026/03/26 18:43:53 op Exp $	*/
 
 /*
  * Copyright (c) 2024 Omar Polo <op@openbsd.org>
