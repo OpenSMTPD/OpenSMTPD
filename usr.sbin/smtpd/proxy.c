@@ -345,6 +345,9 @@ proxy_translate_ss(struct proxy_session *s)
 
 	case (PROXY_AF_INET << 4 | PROXY_TF_STREAM):
 		memset(&s->ss, 0, sizeof(s->ss));
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+		sin->sin_len = sizeof(*sin);
+#endif
 		sin->sin_family = AF_INET;
 		sin->sin_port = s->addr.ipv4.src_port;
 		sin->sin_addr.s_addr = s->addr.ipv4.src_addr;
@@ -352,6 +355,9 @@ proxy_translate_ss(struct proxy_session *s)
 
 	case (PROXY_AF_INET6 << 4 | PROXY_TF_STREAM):
 		memset(&s->ss, 0, sizeof(s->ss));
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_LEN
+		sin6->sin6_len = sizeof(*sin6);
+#endif
 		sin6->sin6_family = AF_INET6;
 		sin6->sin6_port = s->addr.ipv6.src_port;
 		memcpy(sin6->sin6_addr.s6_addr, s->addr.ipv6.src_addr,
@@ -360,6 +366,9 @@ proxy_translate_ss(struct proxy_session *s)
 
 	case (PROXY_AF_UNIX << 4 | PROXY_TF_STREAM):
 		memset(&s->ss, 0, sizeof(s->ss));
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+		sun->sun_len = sizeof(*sun);
+#endif
 		sun_len = strnlen(s->addr.un.src_addr,
 		    sizeof(s->addr.un.src_addr));
 		if (sun_len > sizeof(sun->sun_path)) {
