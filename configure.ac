@@ -459,6 +459,12 @@ AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
 	  #include <sys/socket.h> ]
 )
 
+AC_CHECK_MEMBERS([struct sockaddr_un.sun_len], , ,
+	[ #include <sys/types.h>
+	  #include <sys/socket.h>
+	  #include <sys/un.h> ]
+)
+
 AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 	[ #include <sys/vfs.h>
 	  #include <sys/statfs.h> ]
