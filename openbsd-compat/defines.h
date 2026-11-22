@@ -69,13 +69,6 @@
 #define MAXLOGNAME      LOGIN_NAME_MAX
 #endif
 
-#ifndef UID_MAX
-#define	UID_MAX	UINT_MAX
-#endif
-#ifndef GID_MAX
-#define	GID_MAX	UINT_MAX
-#endif
-
 #ifndef STDIN_FILENO
 # define STDIN_FILENO    0
 #endif
